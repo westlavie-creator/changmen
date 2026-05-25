@@ -20,9 +20,10 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/app/
 
 | 入口 | 说明 |
 |------|------|
-| `/app/` | **新控制台**（推荐）；需 `npm run app:build` 或 dev 代理 |
-| `/console/` | 旧 bundle 控制台 + 加载 `frontend/extension/` |
-| `/`、`/platforms/` | Node Feed 聚合调试页（默认不写 esport store） |
+| `/app/` | **新控制台（默认）**；`npm run app:build` 或 dev `npm run app:dev` |
+| `/feed/` | Node Feed 聚合调试页 |
+| `/console/` | 旧 bundle（可选：`PATCH_CONSOLE=1 npm run web`） |
+| `/`、`/platforms/` | 分平台 Feed 调试 |
 
 迁移阶段与模块对照见 [frontend/MIGRATION.md](./frontend/MIGRATION.md)。后端 API / 环境变量见 [backend/README.md](./backend/README.md)。
 

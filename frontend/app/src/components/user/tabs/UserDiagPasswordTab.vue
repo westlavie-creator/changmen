@@ -25,7 +25,7 @@ async function refreshCodes() {
 }
 
 onMounted(async () => {
-  const saved = await getClientData<GoogleCodeRow[]>("GoogleCode");
+  const saved = (await getClientData("GoogleCode")) as GoogleCodeRow[] | null;
   if (Array.isArray(saved) && saved.length) {
     codes.value = saved;
   }

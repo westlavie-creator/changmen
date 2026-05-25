@@ -46,7 +46,7 @@ async function post<T>(
   if (!res.ok) {
     const hint = text ? `: ${text.slice(0, 160)}` : "";
     if (res.status === 502 || res.status === 503) {
-      throw new Error(`后端未连接，请先运行 start-console.bat 或 start-dev.bat${hint}`);
+      throw new Error(`后端未连接，请先运行 start-web.bat 或 start-dev.bat${hint}`);
     }
     throw new Error(`${action} HTTP ${res.status}${hint}`);
   }

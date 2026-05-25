@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "patch:ui": "node ../frontend/patch-ui-bundle.js",
-    "preweb": "node ../frontend/patch-ui-bundle.js",
+    "preweb": "node scripts/preweb.js",
     "web": "node server.js",
     "web:restart": "node restart.js",
     "web:restart:bg": "node restart.js --background",

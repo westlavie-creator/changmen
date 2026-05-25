@@ -2,7 +2,12 @@
 "use strict";
 
 /**
- * 将 vendor/ui-bundle 转为本地可运行的 console 前端。
+ * 将 vendor/ui-bundle 转为本地可运行的 console 前端（旧版 /console/）。
+ *
+ * 阶段 7 起默认不再在 preweb 中执行；需要旧控制台时：
+ *   npm run patch:ui
+ *   或 PATCH_CONSOLE=1 npm run web
+ *
  * 原则：行为与参考 bundle 一致，仅替换服务器地址、WS relay、本地 OB 登录代理等配置。
  * 不在此脚本中改启动顺序、路由守卫、采集逻辑等业务行为。
  */

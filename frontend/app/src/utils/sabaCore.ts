@@ -38,7 +38,7 @@ export interface SabaWsConfig {
   checkinUrl: string;
 }
 
-export function parseEsportsPage(html: string, gateway: string): Omit<SabaWsConfig, "origin" | "checkinUrl" | "gid"> | null {
+export function parseEsportsPage(html: string, _gateway: string): Omit<SabaWsConfig, "origin" | "checkinUrl" | "gid"> | null {
   const urlRaw = extractEsField(html, "url");
   const wsHost = parseEsUrl(urlRaw);
   const id = extractEsField(html, "id")?.replace(/\\"/g, "").replace(/^"|"$/g, "");

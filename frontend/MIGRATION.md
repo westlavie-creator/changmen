@@ -17,7 +17,7 @@
 | 4 订单 | **完成** | OrderView + LoseOrder 补单队列 + 后端 GetOrderList |
 | 5 下单 | **完成** | checkBetting/betting + OB/RAY provider + 自动投注循环 |
 | 6 多平台采集 | **完成** | 全部 11 平台采集器已接入（HG 无赔率流，仅占位） |
-| 7 下线 bundle | 待做 | 默认入口改为 /app/ |
+| 7 下线 bundle | **完成** | 默认入口 `/app/`；`preweb` 构建 Vue；旧 `/console/` 需 `PATCH_CONSOLE=1` |
 
 ## A8 bundle 模块 → 新代码目录
 
@@ -56,7 +56,8 @@
 
 ## 双轨对照测试
 
-- 旧：`http://localhost:3456/console/`
-- 新：`http://localhost:3456/app/` 或 dev `http://localhost:5174/app/`
+- 新（默认）：`http://localhost:3456/app/` 或 dev `http://localhost:5174/app/`
+- Feed 调试：`http://localhost:3456/feed/`
+- 旧 bundle：`http://localhost:3456/console/`（需 `PATCH_CONSOLE=1 npm run web` 或 `npm run patch:ui`）
 
 行为不一致时，以 `frontend/vendor/ui-bundle/index.js` 为准 grep 后 port。

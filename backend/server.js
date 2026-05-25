@@ -1,6 +1,16 @@
 #!/usr/bin/env node
 "use strict";
 
+/**
+ * 本地聚合服务：esport-api、WS 代理、FeedHub、静态托管。
+ *
+ * 路由（阶段 7，默认入口 /app/）：
+ *   /app/       新控制台（Vue 构建产物 frontend/app/dist）
+ *   /console/   旧 A8 bundle（需 PATCH_CONSOLE=1 或 npm run patch:ui）
+ *   /feed/      Node Feed 聚合调试页（原根路径 /）
+ *   /platforms/ 分平台调试页
+ */
+
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -38,6 +48,11 @@ function contentType(filePath) {
 }
 
 function resolveStaticRoot(urlPath) {
+  if (urlPath === "/feed" || urlPath.startsWith("/feed/")) {
+    const fileRel =
+      urlPath === "/feed" ? "/index.html" : urlPath.slice("/feed".length) || "/index.html";
+    return { rootDir: PUBLIC_DIR, fileRel: fileRel === "/" ? "/index.html" : fileRel, spa: false };
+  }
   if (urlPath === "/console" || urlPath.startsWith("/console/")) {
     const fileRel =
       urlPath === "/console"
@@ -58,7 +73,15 @@ function resolveStaticRoot(urlPath) {
 }
 
 function serveStatic(req, res) {
-  const urlPath = req.url === "/" ? "/index.html" : req.url.split("?")[0];
+  let urlPath = req.url === "/" ? "/" : req.url.split("?")[0];
+
+  // 默认入口：根路径 → 新控制台
+  if (urlPath === "/" || urlPath === "/index.html") {
+    res.writeHead(302, { Location: "/app/" });
+    res.end();
+    return;
+  }
+
   const { rootDir, fileRel, spa } = resolveStaticRoot(urlPath);
 
   const filePath = path.normalize(path.join(rootDir, fileRel));
@@ -345,9 +368,9 @@ server.listen(PORT, () => {
   const proxyNote = ESPORT_PROXY_ENABLED ? " | esport proxy: /esport/ws/{OB,RAY,TF}" : "";
   const bridgeNote = feedBridge.enabled
     ? " | esport-bridge: ON (Node→store)"
-    : " | esport-bridge: off (console=A8 browser collect)";
+    : " | esport-bridge: off (browser collect via /app/)";
   console.log(
-    `Dashboard: http://localhost:${PORT}/  |  platforms: http://localhost:${PORT}/platforms/  |  app: http://localhost:${PORT}/app/  |  console: http://localhost:${PORT}/console/  [${enabled}]${proxyNote}${bridgeNote}`,
+    `App (default): http://localhost:${PORT}/app/  |  feed: http://localhost:${PORT}/feed/  |  platforms: http://localhost:${PORT}/platforms/  |  legacy console: http://localhost:${PORT}/console/  [${enabled}]${proxyNote}${bridgeNote}`,
   );
   if (feedBridge.enabled) {
     setTimeout(() => {

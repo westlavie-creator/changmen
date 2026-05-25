@@ -19,9 +19,8 @@ onMounted(() => {
   if (!sortedAccounts.value.length) void accountStore.loadAccounts();
 });
 
-async function patchAccount(acc: PlatformAccount, field: keyof PlatformAccount) {
+async function patchAccount(_acc: PlatformAccount, _field: keyof PlatformAccount) {
   await accountStore.saveAccounts();
-  void field;
 }
 
 async function refreshAccount(acc: PlatformAccount) {

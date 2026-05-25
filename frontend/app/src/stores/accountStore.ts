@@ -137,11 +137,11 @@ export const useAccountStore = defineStore("account", {
         form.playerName,
       );
       await this.createAccount({
+        ...form,
         accountId: created.playerId,
         playerName: created.playerName,
         platformId: created.platformId,
         platformName: form.platformName || created.platformName,
-        ...form,
         pause: form.pause ?? false,
         balance: undefined,
         updateTime: Date.now(),

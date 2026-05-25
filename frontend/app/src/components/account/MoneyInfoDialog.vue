@@ -36,11 +36,11 @@ watch(
     if (logId) {
       const row = await getMoneyLog({ logId });
       if (row) {
-        form.type = (row.type as typeof form.type) || "Recharge";
-        form.money = Math.abs(Number(row.money) || 0);
-        form.description = row.description || row.Remark || "";
-        form.createAt = Number(row.createAt || row.CreateAt) || Date.now();
-        form.isAuto = Boolean(row.isAuto);
+        form.type = (row.Type as typeof form.type) || "Recharge";
+        form.money = Math.abs(Number(row.Money) || 0);
+        form.description = row.Remark || "";
+        form.createAt = Number(row.CreateAt) || Date.now();
+        form.isAuto = false;
       }
     } else {
       form.type = "Recharge";
