@@ -1,0 +1,46 @@
+{
+  "1": {
+    "id": 1,
+    "platformId": 1,
+    "platformName": "TestPlate",
+    "playerName": "demo01",
+    "credit": 0,
+    "totalBalance": 0,
+    "createdAt": 1779628038856,
+    "updatedAt": 1779678234758,
+    "deletedAt": 1779678255134,
+    "deleteDescription": ""
+  },
+  "2": {
+    "id": 2,
+    "platformId": 2,
+    "platformName": "PB",
+    "playerName": "56",
+    "credit": 0,
+    "totalBalance": 0,
+    "createdAt": 1779652281799,
+    "updatedAt": 1779679482492,
+    "deletedAt": 1779675701968,
+    "deleteDescription": ""
+  },
+  "3": {
+    "id": 3,
+    "platformId": 3,
+    "platformName": "RAY",
+    "playerName": "R",
+    "credit": 0,
+    "totalBalance": 2824.13,
+    "createdAt": 1779657093738,
+    "updatedAt": 1779729631350
+  },
+  "4": {
+    "id": 4,
+    "platformId": 2,
+    "platformName": "PB",
+    "playerName": "56",
+    "credit": 0,
+    "totalBalance": 0,
+    "createdAt": 1779657254362,
+    "updatedAt": 1779657254362
+  }
+}

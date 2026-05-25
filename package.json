@@ -1,0 +1,14 @@
+{
+  "name": "gamebet",
+  "private": true,
+  "description": "A8 esports aggregator — frontend replica + local backend",
+  "scripts": {
+    "patch:ui": "node frontend/patch-ui-bundle.js",
+    "preweb": "node frontend/patch-ui-bundle.js",
+    "web": "npm run web --prefix backend",
+    "web:restart": "npm run web:restart --prefix backend",
+    "app:dev": "npm run dev --prefix frontend/app",
+    "app:build": "npm run build --prefix frontend/app",
+    "app:install": "npm install --prefix frontend/app"
+  }
+}

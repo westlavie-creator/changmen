@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build / cache
+dist/
+**/dist/
+.vite/
+**/.vite/
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets & local runtime data (do not commit)
+backend/data/esport/platforms.json
+backend/data/esport/user_kv.json
+backend/data/esport/sessions.json
+backend/data/esport/a8_config.json
+backend/data/esport/pb_credential.b64
+backend/data/esport/bets.json
+backend/data/esport/matches.json
+backend/data/esport/live_timers.json
+.env
+.env.*
+!.env.example
+
+# Large local captures / dumps
+obdata.json
+t.json
+TJ01.JSON
+a8-capture-report-*.json
+arch-scan-report-*.json
+*.7z

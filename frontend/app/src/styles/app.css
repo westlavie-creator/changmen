@@ -1,0 +1,22 @@
+#app {
+  height: 100%;
+}
+
+.flex {
+  display: flex;
+}
+.flex-wrap {
+  flex-wrap: wrap;
+}
+.flex-between {
+  justify-content: space-between;
+}
+.flex-center {
+  justify-content: center;
+}
+.flex-middle {
+  align-items: center;
+}
+.flex-column {
+  flex-direction: column;
+}

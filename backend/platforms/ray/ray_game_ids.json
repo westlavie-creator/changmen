@@ -1,0 +1,14 @@
+{
+  "updatedAt": "2026-05-24",
+  "source": "cfinfo.365raylinks.com /v2/match 样本 + A8 采集配置",
+  "games": {
+    "70": { "name": "英雄联盟", "code": "lol" },
+    "140": { "name": "CS2", "code": "cs2" },
+    "151": { "name": "DOTA2", "code": "dota2" },
+    "74": { "name": "王者荣耀", "code": "kog" },
+    "37197927": { "name": "无畏契约", "code": "valorant" },
+    "82": { "name": "守望先锋", "code": "ow" },
+    "373": { "name": "穿越火线", "code": "cf" },
+    "371261": { "name": "无尽对决", "code": "mlbb" }
+  }
+}

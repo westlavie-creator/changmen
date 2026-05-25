@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "电竞预测大师",
+  "version": "2.0.149",
+  "description": "更新时间：Fri Jan 09 2026 05:01:24 GMT+0800 (中国标准时间)",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAn8jgiPTwfqww/wHhZhiaMs6TVCLdKFveOGN5kq9R4tPT0NkWsp7pKT6V6koKo9cHPKtJUw3pXVPnPJRrXEN6x3jIOS5QzACWyf7urpsBXw8P3OnNTfHa5XlakeQUrBqiq9o0Ih0Dgu8eVMwp6hVYTwDyM0nA5XUSO6EperHuXtSQoqCsEV545fatSKCx7vSGWNGUxUlFC4jJHvJ2u8Hl/CYW9Owa077fcwkUFjAypaUe+641tpLq4OTZlt4nS3GBe7z08bHPO90e6m9RjH7APF3iZ98vOGisRQ+N26yfKECFQIcZhNjcOpt836CeclPKht1x7bdKh4pYH5bEbPmhlwIDAQAB",
+  "action": {
+    "default_icon": {
+      "16": "assets/icon.png",
+      "48": "assets/icon.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "icons": {
+    "128": "assets/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/*.png",
+        "assets/*.jpg"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "externally_connectable": {
+    "matches": [
+      "https://*/*",
+      "http://*/*"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "assets/content.css"
+      ],
+      "all_frames": true
+    }
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "permissions": [
+    "declarativeNetRequest",
+    "storage",
+    "activeTab"
+  ]
+}

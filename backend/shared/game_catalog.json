@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-24",
+  "description": "本项目聚合的游戏类型。各平台 native game_id 不同，通过 code 对齐。",
+  "games": [
+    {
+      "code": "cs2",
+      "name": "CS2",
+      "nameEn": "Counter-Strike 2",
+      "a8GameId": 3,
+      "a8Name": "CS:GO",
+      "platforms": {
+        "OB": "257578064923863",
+        "RAY": "140",
+        "PB": "cs2",
+        "TF": "1",
+        "IA": "1",
+        "IMT": "43",
+        "SABA": "43",
+        "Stake": "counter-strike",
+        "IM": "43",
+        "XBet": "43"
+      }
+    },
+    {
+      "code": "kog",
+      "name": "王者荣耀",
+      "nameEn": "Honor of Kings",
+      "a8GameId": 4,
+      "platforms": {
+        "OB": "257561197207055",
+        "RAY": "74",
+        "PB": "king-of-glory",
+        "TF": "43",
+        "IA": "43",
+        "IMT": "43",
+        "SABA": "43",
+        "Stake": "kings-of-glory",
+        "IM": "43",
+        "XBet": "43"
+      }
+    },
+    {
+      "code": "valorant",
+      "name": "无畏契约",
+      "nameEn": "Valorant",
+      "a8GameId": 8,
+      "platforms": {
+        "OB": "271192272576750",
+        "RAY": "37197927",
+        "PB": "valorant",
+        "TF": "16",
+        "IA": "16",
+        "IMT": "43",
+        "SABA": "43",
+        "Stake": "valorant",
+        "IM": "43",
+        "XBet": "43"
+      }
+    },
+    {
+      "code": "lol",
+      "name": "英雄联盟",
+      "nameEn": "League of Legends",
+      "a8GameId": 1,
+      "platforms": {
+        "OB": "257154660915053",
+        "RAY": "70",
+        "PB": "league-of-legends",
+        "TF": "3",
+        "IA": "3",
+        "IMT": "43",
+        "SABA": "43",
+        "Stake": "league-of-legends",
+        "IM": "43",
+        "XBet": "43"
+      }
+    },
+    {
+      "code": "dota2",
+      "name": "DOTA2",
+      "nameEn": "Dota 2",
+      "a8GameId": 2,
+      "platforms": {
+        "OB": "257289795134339",
+        "RAY": "151",
+        "PB": "dota-2",
+        "TF": "2",
+        "IA": "2",
+        "IMT": "43",
+        "SABA": "43",
+        "Stake": "dota-2",
+        "IM": "43",
+        "XBet": "43"
+      }
+    }
+  ]
+}

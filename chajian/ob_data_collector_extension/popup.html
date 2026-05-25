@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>OB Collector</title>
+  <style>
+    body {
+      width: 360px;
+      margin: 0;
+      padding: 14px;
+      font: 13px/1.45 Arial, sans-serif;
+      color: #1f2937;
+      background: #f8fafc;
+    }
+    h1 {
+      font-size: 16px;
+      margin: 0 0 10px;
+    }
+    .status {
+      padding: 10px;
+      background: #fff;
+      border: 1px solid #dbe3ef;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 10px;
+      margin-top: 8px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    button {
+      flex: 1;
+      border: 1px solid #b8c4d6;
+      background: #fff;
+      color: #111827;
+      border-radius: 6px;
+      padding: 8px;
+      cursor: pointer;
+    }
+    button.primary {
+      background: #155eef;
+      border-color: #155eef;
+      color: #fff;
+    }
+    button.danger {
+      background: #b42318;
+      border-color: #b42318;
+      color: #fff;
+    }
+    code {
+      display: block;
+      overflow-wrap: anywhere;
+      background: #eef2f7;
+      padding: 6px;
+      border-radius: 5px;
+      margin-top: 6px;
+    }
+    .hint, .log {
+      color: #64748b;
+      font-size: 12px;
+    }
+    .log {
+      white-space: pre-wrap;
+      min-height: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h1>OB Data Collector</h1>
+  <div class="status">
+    <div><strong>Status:</strong> <span id="enabled">...</span></div>
+    <div><strong>Current:</strong><code id="current">...</code></div>
+    <div class="grid">
+      <div>Matches: <strong id="matches">0</strong></div>
+      <div>Markets: <strong id="markets">0</strong></div>
+      <div>Odds: <strong id="odds">0</strong></div>
+      <div>Updates: <strong id="updates">0</strong></div>
+      <div>Requests: <strong id="requests">0</strong></div>
+      <div>WS: <strong id="ws">0</strong></div>
+    </div>
+    <div class="hint">Start, refresh the OB page, keep it open, then export.</div>
+  </div>
+
+  <div class="row">
+    <button id="start" class="primary">Start current origin</button>
+    <button id="stop">Stop</button>
+  </div>
+  <div class="row">
+    <button id="export">Export JSON</button>
+    <button id="clear" class="danger">Clear</button>
+  </div>
+  <div class="row">
+    <button id="startAll">Start all sites</button>
+  </div>
+  <div class="hint">Use Start all sites only in a dedicated Chrome profile.</div>
+  <div id="log" class="log"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
