@@ -16,6 +16,7 @@ import {
   type SabaOddsRow,
 } from "@/utils/sabaCore";
 import { wait } from "@/utils/wait";
+import { notifyCollectError } from "@/utils/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -301,6 +302,7 @@ export function startSabaCollector(): () => void {
         await runOnce();
       } catch (err) {
         console.warn("[SABA] collect error", err);
+        notifyCollectError("SABA", err);
         sessionStorage.removeItem(SABA_CACHE_KEY);
       }
       if (!stopped) await wait(RECONNECT_MS);

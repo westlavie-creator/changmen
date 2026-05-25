@@ -2,6 +2,7 @@ import { A8BetsCollector, type A8BetsMessage } from "@/utils/a8BetsCollect";
 import { subscribeA8Channel } from "@/utils/a8SocketHub";
 import type { PlatformId } from "@/types/esport";
 import { wait } from "@/utils/wait";
+import { notifyCollectError } from "@/utils/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useMatchStore } from "@/stores/matchStore";
 
@@ -57,6 +58,7 @@ export function startA8BetsCollector(opts: {
         }
       } catch (err) {
         console.warn(`[${opts.platform}] collect error`, err);
+        notifyCollectError(opts.platform, err);
       }
       await wait(POLL_MS);
     }

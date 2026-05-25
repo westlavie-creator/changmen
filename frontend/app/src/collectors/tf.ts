@@ -5,6 +5,7 @@ import type { CollectPlatformInfo } from "@/types/esport";
 import { PLATFORMS, relayWsUrl } from "@/utils/platform";
 import { tfWsAuthToken } from "@/utils/tfAuth";
 import { wait } from "@/utils/wait";
+import { notifyCollectError } from "@/utils/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -202,6 +203,7 @@ export function startTfCollector(): () => void {
         }
       } catch (err) {
         console.warn("[TF] collect error", err);
+        notifyCollectError("TF", err);
       } finally {
         console.debug(`[TF]比赛列表:${Date.now() - started}ms，读取比赛:${matchCount}场`);
         await wait(POLL_MS);

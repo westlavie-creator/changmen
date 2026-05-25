@@ -5,6 +5,7 @@ import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import type { CollectPlatformInfo } from "@/types/esport";
 import { PLATFORMS, OB_MQTT_PASS, OB_MQTT_USER, relayWsUrl } from "@/utils/platform";
 import { wait } from "@/utils/wait";
+import { notifyCollectError } from "@/utils/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -198,6 +199,7 @@ export function startObCollector(): () => void {
         }
       } catch (err) {
         console.warn("[OB] collect error", err);
+        notifyCollectError("OB", err);
       } finally {
         console.debug(`[OB]比赛列表:${Date.now() - started}ms，读取比赛:${matchCount}场`);
         await wait(POLL_MS);

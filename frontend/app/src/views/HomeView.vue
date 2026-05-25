@@ -15,6 +15,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useBettingStore } from "@/stores/bettingStore";
+import { useMessageStore } from "@/stores/messageStore";
 
 const router = useRouter();
 const user = useUserStore();
@@ -25,6 +26,7 @@ const accountStore = useAccountStore();
 const orderStore = useOrderStore();
 const loseOrderStore = useLoseOrderStore();
 const bettingStore = useBettingStore();
+const messageStore = useMessageStore();
 const { matchs, loading, error } = storeToRefs(matchStore);
 
 onMounted(async () => {
@@ -37,16 +39,19 @@ onMounted(async () => {
   matchStore.startPolling();
   await startCollectors();
   bettingStore.start();
+  messageStore.start();
 });
 
 onUnmounted(() => {
   user.stopDelayPing();
+  messageStore.stop();
   bettingStore.stop();
   matchStore.stopPolling();
   stopCollectors();
 });
 
 async function logout() {
+  messageStore.stop();
   bettingStore.stop();
   user.stopDelayPing();
   stopCollectors();

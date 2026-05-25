@@ -18,6 +18,7 @@
 | 5 下单 | **完成** | checkBetting/betting + OB/RAY provider + 自动投注循环 |
 | 6 多平台采集 | **完成** | 全部 11 平台采集器已接入（HG 无赔率流，仅占位） |
 | 7 下线 bundle | **完成** | 默认入口 `/app/`；`preweb` 构建 Vue；旧 `/console/` 需 `PATCH_CONSOLE=1` |
+| 8 消息推送 | **完成** | `messageStore`（Gi）：Telegram/报表/补单发布 + 采集错误通知 |
 
 ## A8 bundle 模块 → 新代码目录
 

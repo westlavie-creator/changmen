@@ -3,6 +3,7 @@ import { LoseOrder } from "@/models/loseOrder";
 import type { BetSide } from "@/models/match";
 import type { FollowOrderInput, LoseOrderRecord } from "@/types/order";
 import { useMatchStore } from "@/stores/matchStore";
+import { useMessageStore } from "@/stores/messageStore";
 
 const STORAGE_KEY = "LOSEORDER";
 
@@ -38,6 +39,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
     createOrder(order: LoseOrder) {
       this.orders.set(order.betId, order);
       this.persist();
+      void useMessageStore().publishLoseOrderMessage();
     },
 
     createFollowOrder(
@@ -77,6 +79,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
         this.orders.delete(betId);
       }
       this.persist();
+      void useMessageStore().publishLoseOrderMessage();
     },
 
     removeOrders(activeBetIds: number[]) {

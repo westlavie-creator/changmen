@@ -5,6 +5,7 @@ import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/utils/platform";
 import { parseEuroOddsPayload, pbOddsUrl, pbTeamLogo, slugify } from "@/utils/pbCore";
 import { wait } from "@/utils/wait";
+import { notifyCollectError } from "@/utils/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -135,6 +136,7 @@ export function startPbCollector(): () => void {
         matchStore.refreshOddsOnBets();
       } catch (err) {
         console.warn("[PB] collect error", err);
+        notifyCollectError("PB", err);
       } finally {
         console.debug(`[PB]比赛列表:${Date.now() - started}ms，读取比赛:${matchCount}场`);
         await wait(POLL_MS);

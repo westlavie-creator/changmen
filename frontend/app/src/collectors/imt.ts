@@ -9,6 +9,7 @@ import {
 } from "@/utils/imtCore";
 import { PLATFORMS } from "@/utils/platform";
 import { wait } from "@/utils/wait";
+import { notifyCollectError } from "@/utils/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -221,6 +222,7 @@ export function startImtCollector(): () => void {
         }
       } catch (err) {
         console.warn("[IMT] collect error", err);
+        notifyCollectError("IMT", err);
       } finally {
         console.debug(`[IMT]轮询:${Date.now() - started}ms，读取比赛:${matchCount}场`);
         await wait(POLL_MS);

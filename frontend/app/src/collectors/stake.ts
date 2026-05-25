@@ -6,6 +6,7 @@ import type { A8BetsMessage } from "@/utils/a8BetsCollect";
 import { STAKE_SPORT_SLUGS, normalizeGraphqlSport } from "@/utils/stakeCore";
 import { PLATFORMS } from "@/utils/platform";
 import { wait } from "@/utils/wait";
+import { notifyCollectError } from "@/utils/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useMatchStore } from "@/stores/matchStore";
 
@@ -79,6 +80,7 @@ export function startStakeCollector(): () => void {
         matchStore.refreshOddsOnBets();
       } catch (err) {
         console.warn("[Stake] collect error", err);
+        notifyCollectError("Stake", err);
       }
       await wait(5_000);
     }

@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { getOrderList } from "@/api/esport";
 import type { OrderRow } from "@/types/order";
 import { useAccountStore } from "@/stores/accountStore";
+import { useMessageStore } from "@/stores/messageStore";
 
 const LOSE_REJECT = new Set(["Reject", "Return"]);
 
@@ -69,6 +70,7 @@ export const useOrderStore = defineStore("order", {
         );
         this.orders = groupByLink(list);
         this.updateTodayProfit(list);
+        useMessageStore().orderReportMessage(accountStore.accounts, list);
       } finally {
         this.loading = false;
       }

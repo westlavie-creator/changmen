@@ -10,6 +10,7 @@ import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
+import { useMessageStore } from "@/stores/messageStore";
 import { wait } from "@/utils/wait";
 
 const BET_ACCOUNT_PREFIX = "BETACCOUNT:";
@@ -207,6 +208,13 @@ export const useBettingStore = defineStore("betting", {
               await saveOrderBind({ orders: JSON.stringify(binds) });
             }
 
+            if (resultA && resultB && (resultA.success || resultB.success)) {
+              useMessageStore().bettingMessage(
+                { account: accountA, result: resultA, options: legA },
+                { account: accountB, result: resultB, options: legB },
+              );
+            }
+
             if (resultA?.success && !resultB?.success && config.makeUp) {
               loseStore.createOrder(
                 new LoseOrder({
@@ -373,6 +381,7 @@ export const useBettingStore = defineStore("betting", {
               ]),
             });
             this.setMessage(`补单成功 ${item.type}@${checked.odds}`);
+            useMessageStore().loseOrderMessage(account, order, checked, false);
           } else if (!result) {
             removeIds.push(betId);
           }
