@@ -16,6 +16,7 @@ import { useOrderStore } from "@/stores/orderStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useBettingStore } from "@/stores/bettingStore";
 import { useMessageStore } from "@/stores/messageStore";
+import { startHgFollowLoop, stopHgFollowLoop } from "@/services/hgFollowLoop";
 
 const router = useRouter();
 const user = useUserStore();
@@ -40,9 +41,11 @@ onMounted(async () => {
   await startCollectors();
   bettingStore.start();
   messageStore.start();
+  startHgFollowLoop();
 });
 
 onUnmounted(() => {
+  stopHgFollowLoop();
   user.stopDelayPing();
   messageStore.stop();
   bettingStore.stop();
@@ -51,6 +54,7 @@ onUnmounted(() => {
 });
 
 async function logout() {
+  stopHgFollowLoop();
   messageStore.stop();
   bettingStore.stop();
   user.stopDelayPing();

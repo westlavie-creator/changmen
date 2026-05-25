@@ -33,7 +33,27 @@ async function handleCommonApi(req, res, url) {
         /* body optional */
       }
       if (key.startsWith("HG:")) {
-        sendJson(res, 200, []);
+        try {
+          const upstream = await fetch(
+            `https://api.a8.to/common/API_GetData?key=${encodeURIComponent(key)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({}),
+            },
+          );
+          const text = await upstream.text();
+          let body;
+          try {
+            body = JSON.parse(text);
+          } catch {
+            body = [];
+          }
+          sendJson(res, upstream.status, Array.isArray(body) ? body : []);
+        } catch (err) {
+          console.error("[common] HG proxy:", err.message);
+          sendJson(res, 200, []);
+        }
         return true;
       }
       sendJson(res, 200, { success: 1, msg: "ok", info: { key, data: null } });

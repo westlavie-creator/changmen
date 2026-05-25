@@ -9,6 +9,7 @@ import { imProvider } from "@/providers/imProvider";
 import { imtProvider } from "@/providers/imtProvider";
 import { sabaProvider } from "@/providers/sabaProvider";
 import { stakeProvider } from "@/providers/stakeProvider";
+import { hgProvider } from "@/providers/hgProvider";
 import type { PlatformProvider } from "@/providers/types";
 
 const providers: Partial<Record<PlatformId, PlatformProvider>> = {
@@ -21,6 +22,7 @@ const providers: Partial<Record<PlatformId, PlatformProvider>> = {
   IMT: imtProvider,
   SABA: sabaProvider,
   Stake: stakeProvider,
+  HG: hgProvider,
 };
 
 export function getProvider(account: PlatformAccount): PlatformProvider | undefined {

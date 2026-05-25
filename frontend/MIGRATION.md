@@ -21,6 +21,7 @@
 | 8 消息推送 | **完成** | `messageStore`（Gi）：Telegram/报表/补单发布 + 采集错误通知 |
 | 9 下单扩展 | **完成** | TF / IA 客户端 Provider（checkBet + betting + 余额） |
 | 10 多平台下单 | **完成** | IM / IMT / SABA / PB 完整 Provider；Stake 插件占位 |
+| 11 皇冠跟单 | **完成** | `hgProvider` + `hgFollowLoop`（SQ）；common API 代理跟单队列 |
 
 ## A8 bundle 模块 → 新代码目录
 
@@ -36,6 +37,7 @@
 | `vf` / `vYe` / `bYe` | `src/providers/` | OB/RAY 下单 provider |
 | `wYe` / `EYe` | `src/providers/tfProvider.ts` / `iaProvider.ts` | TF/IA 下单 |
 | `AZe` / `BZe` / `SZe` / `kZe` / `nJe` | `imProvider` / `imtProvider` / `sabaProvider` / `pbProvider` / `stakeProvider` | 阶段 10 |
+| `qZe` / `SQ` | `hgProvider` / `hgFollowLoop.ts` | 阶段 11 皇冠跟单 |
 | 自动投注循环 | `src/stores/bettingStore.ts` | 对齐 A8 Vg 主循环 |
 | `Gi` | `src/stores/messageStore.ts` | 推送/Telegram |
 | `NMe` | `src/collectors/ob.ts` | OB MQTT + HTTP |
@@ -46,7 +48,7 @@
 | `EZe` | `src/collectors/im.ts` | IM A8 聚合 Socket |
 | `KQe` | `src/collectors/xbet.ts` | XBet A8 聚合 Socket |
 | `PQ` | `src/collectors/stake.ts` | Stake GraphQL + A8 Socket |
-| `SQ` | `src/collectors/hg.ts` | HG 占位（跟单非采集） |
+| `SQ` | `src/services/hgFollowLoop.ts` | HG 跟单循环（非 saveMatch 采集） |
 | `LoginView` | `src/views/LoginView.vue` | |
 | `HomeView` | `src/views/HomeView.vue` | |
 | `UserInfoView` | `src/components/user/UserInfoPanel.vue` | 用户信息 / BetTarget |
