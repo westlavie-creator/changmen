@@ -4,6 +4,7 @@ import { resolveCollectSession } from "@/utils/collectSession";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/utils/platform";
 import { parseEuroOddsPayload, pbOddsUrl, pbTeamLogo, slugify } from "@/utils/pbCore";
+import { setPbLineId } from "@/utils/pbLineCache";
 import { wait } from "@/utils/wait";
 import { notifyCollectError } from "@/utils/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
@@ -61,6 +62,7 @@ export function startPbCollector(): () => void {
         for (const row of filtered) {
           const bets: CollectBetDto[] = [];
           for (const stage of row.stages) {
+            if (stage.winLineId) setPbLineId(stage.winMarketId, stage.winLineId);
             const locked = stage.winLocked;
             odds.save(PLATFORM, {
               id: stage.winHomeId,

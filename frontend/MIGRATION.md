@@ -19,6 +19,8 @@
 | 6 多平台采集 | **完成** | 全部 11 平台采集器已接入（HG 无赔率流，仅占位） |
 | 7 下线 bundle | **完成** | 默认入口 `/app/`；`preweb` 构建 Vue；旧 `/console/` 需 `PATCH_CONSOLE=1` |
 | 8 消息推送 | **完成** | `messageStore`（Gi）：Telegram/报表/补单发布 + 采集错误通知 |
+| 9 下单扩展 | **完成** | TF / IA 客户端 Provider（checkBet + betting + 余额） |
+| 10 多平台下单 | **完成** | IM / IMT / SABA / PB 完整 Provider；Stake 插件占位 |
 
 ## A8 bundle 模块 → 新代码目录
 
@@ -32,6 +34,8 @@
 | `Tf` | `src/stores/collectStore.ts` | CollectConfig |
 | `jb` | `src/stores/loseOrderStore.ts` | 补单队列 |
 | `vf` / `vYe` / `bYe` | `src/providers/` | OB/RAY 下单 provider |
+| `wYe` / `EYe` | `src/providers/tfProvider.ts` / `iaProvider.ts` | TF/IA 下单 |
+| `AZe` / `BZe` / `SZe` / `kZe` / `nJe` | `imProvider` / `imtProvider` / `sabaProvider` / `pbProvider` / `stakeProvider` | 阶段 10 |
 | 自动投注循环 | `src/stores/bettingStore.ts` | 对齐 A8 Vg 主循环 |
 | `Gi` | `src/stores/messageStore.ts` | 推送/Telegram |
 | `NMe` | `src/collectors/ob.ts` | OB MQTT + HTTP |

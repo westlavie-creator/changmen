@@ -1,5 +1,7 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import { useUserStore } from "@/stores/userStore";
+import { tfRequestHeaders } from "@/utils/tfAuth";
+import { tfGatewayUrl } from "@/utils/tfPaths";
 
 const RELAY_PATH = "/esport/http-relay";
 
@@ -198,4 +200,103 @@ export async function accountPostText<T = unknown>(
   } catch {
     throw new Error(`Invalid JSON: ${text.slice(0, 120)}`);
   }
+}
+
+function parseJsonLoose(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+async function relayRaw(
+  account: PlatformAccount,
+  targetUrl: string,
+  init: RequestInit,
+): Promise<{ status: number; text: string }> {
+  const res = await relayRequest(account, targetUrl, init);
+  const text = await res.text();
+  return { status: res.status, text };
+}
+
+/** TF：JSON + tf-authorization（对齐 A8 wYe / iy） */
+export async function accountTfGet<T = unknown>(
+  account: PlatformAccount,
+  path: string,
+): Promise<{ status: number; data: T }> {
+  if (!account.gateway || !account.token) throw new Error("token error");
+  const url = tfGatewayUrl(account.gateway, path);
+  const headers = await tfRequestHeaders(account.token);
+  const { status, text } = await relayRaw(account, url, { method: "GET", headers });
+  return { status, data: parseJsonLoose(text) as T };
+}
+
+export async function accountTfPost<T = unknown>(
+  account: PlatformAccount,
+  path: string,
+  body: unknown,
+): Promise<{ status: number; data: T }> {
+  if (!account.gateway || !account.token) throw new Error("token error");
+  const url = tfGatewayUrl(account.gateway, path);
+  const headers = await tfRequestHeaders(account.token, {
+    "Content-Type": "application/json",
+  });
+  const { status, text } = await relayRaw(account, url, {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers,
+  });
+  return { status, data: parseJsonLoose(text) as T };
+}
+
+function iaHeaders(account: PlatformAccount): Record<string, string> {
+  return {
+    token: account.token || "",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+  };
+}
+
+/** IA：form POST + token 头（对齐 A8 EYe / Qh） */
+export async function accountIaPost<T = unknown>(
+  account: PlatformAccount,
+  path: string,
+  body: string,
+): Promise<T> {
+  if (!account.gateway) throw new Error("账号未配置 gateway");
+  const targetUrl = `${account.gateway.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+  const res = await relayRequest(account, targetUrl, {
+    method: "POST",
+    body,
+    headers: iaHeaders(account),
+  });
+  const text = await res.text();
+  return parseJsonLoose(text) as T;
+}
+
+/** 通用 relay POST（自定义 URL + 头，供 IM / IMT / SABA / PB 等） */
+export async function accountRelayPost<T = unknown>(
+  account: PlatformAccount,
+  targetUrl: string,
+  body: string | null,
+  headers: Record<string, string>,
+): Promise<{ status: number; data: T }> {
+  const { status, text } = await relayRaw(account, targetUrl, {
+    method: "POST",
+    body: body ?? "",
+    headers,
+  });
+  return { status, data: parseJsonLoose(text) as T };
+}
+
+export async function accountRelayPostJson<T = unknown>(
+  account: PlatformAccount,
+  targetUrl: string,
+  body: unknown,
+  headers: Record<string, string>,
+): Promise<{ status: number; data: T }> {
+  return accountRelayPost(account, targetUrl, JSON.stringify(body), {
+    "Content-Type": "application/json; charset=UTF-8",
+    ...headers,
+  });
 }
