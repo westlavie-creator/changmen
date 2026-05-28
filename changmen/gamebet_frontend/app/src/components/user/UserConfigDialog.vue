@@ -118,7 +118,6 @@ async function save() {
     width="420"
     :close-on-press-escape="false"
     :close-on-click-modal="false"
-    class="user-config-dialog"
   >
     <el-form :model="form">
       <el-form-item>
@@ -211,8 +210,8 @@ async function save() {
           <el-col :span="6">
             <el-input v-model="form.profit" type="number" autocomplete="off" />
           </el-col>
-          <el-col :span="2" style="text-align: center">
-            <span class="text-gray-500">-</span>
+          <el-col :span="2" style="text-align: center; color: #909399">
+            <span>-</span>
           </el-col>
           <el-col :span="6">
             <el-input v-model="form.maxProfit" type="number" autocomplete="off" />
@@ -372,7 +371,7 @@ async function save() {
         </el-row>
       </fieldset>
 
-      <div class="flex flex-center submit">
+      <div class="flex flex-center">
         <el-button
           size="large"
           type="primary"
@@ -388,15 +387,3 @@ async function save() {
     </el-form>
   </el-dialog>
 </template>
-
-<style scoped>
-.user-config-dialog :deep(.el-dialog__body) {
-  padding-top: 10px;
-}
-.text-gray-500 {
-  color: #909399;
-}
-.submit {
-  margin-top: 8px;
-}
-</style>
