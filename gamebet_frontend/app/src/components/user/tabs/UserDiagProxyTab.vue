@@ -23,11 +23,10 @@ function normalizeUrl(raw: string) {
   return raw;
 }
 
+const canAdd = () => !saving.value && Boolean(draft.label.trim() && draft.url.trim());
+
 async function addProxy() {
-  if (!draft.label.trim() || !draft.url.trim()) {
-    window.alert("请填写标签与代理地址");
-    return;
-  }
+  if (!canAdd()) return;
   const url = normalizeUrl(draft.url.trim());
   try {
     new URL(url);
@@ -83,137 +82,64 @@ async function testProxy(row: { proxyId: number; url: string }) {
 </script>
 
 <template>
-  <div class="diag-tab">
+  <el-form>
     <div v-for="row in proxyList" :key="row.proxyId" class="proxy-item">
-      <div class="proxy-row">
-        <span class="proxy-label">标签</span>
-        <input v-model="row.label" type="text" :disabled="saving" @change="saveRow(row)" />
-      </div>
-      <div class="proxy-row">
-        <span class="proxy-label">地址</span>
-        <input v-model="row.url" type="text" :disabled="saving" @change="saveRow(row)" />
-      </div>
-      <div class="proxy-actions">
-        <button type="button" class="mini-btn" title="测试" @click="testProxy(row)">⚡</button>
-        <button
-          type="button"
-          class="mini-btn mini-btn--danger"
-          :disabled="saving"
-          @click="removeProxy(row.proxyId)"
-        >
-          ×
-        </button>
-      </div>
-      <p v-if="testMsg[row.proxyId]" class="proxy-test">测试结果: {{ testMsg[row.proxyId] }}</p>
+      <el-row :gutter="10">
+        <el-col :span="6">
+          <el-input
+            v-model="row.label"
+            :disabled="saving"
+            @change="saveRow(row)"
+          >
+            <template #prepend>标签</template>
+          </el-input>
+        </el-col>
+        <el-col :span="14">
+          <el-input v-model="row.url" :disabled="saving" @change="saveRow(row)">
+            <template #prepend>地址</template>
+          </el-input>
+        </el-col>
+        <el-col :span="4">
+          <el-button class="am-icon-flash" @click="testProxy(row)" />
+          <el-button
+            type="danger"
+            class="am-icon-times"
+            :disabled="saving"
+            @click="removeProxy(row.proxyId)"
+          />
+        </el-col>
+        <el-col v-if="testMsg[row.proxyId]" :span="24">
+          <el-form-item label="测试结果:">
+            <div class="test-result">{{ testMsg[row.proxyId] }}</div>
+          </el-form-item>
+        </el-col>
+      </el-row>
     </div>
+  </el-form>
 
-    <fieldset class="diag-fieldset">
-      <legend>添加代理配置</legend>
-      <label class="form-row">
-        <span>标签名</span>
-        <input v-model="draft.label" type="text" placeholder="标签名称" />
-      </label>
-      <label class="form-row">
-        <span>代理地址</span>
-        <input
+  <fieldset>
+    <legend>添加代理配置</legend>
+    <el-form label-width="100" :model="draft">
+      <el-form-item label="标签名:">
+        <el-input v-model="draft.label" placeholder="标签名称" />
+      </el-form-item>
+      <el-form-item label="代理地址:">
+        <el-input
           v-model="draft.url"
-          type="text"
           placeholder="http://username:password@host:port"
           @change="draft.url = normalizeUrl(draft.url)"
         />
-      </label>
-      <button
-        type="button"
-        class="save-btn"
-        :disabled="saving || !draft.label || !draft.url"
-        @click="addProxy"
-      >
-        保存
-      </button>
-    </fieldset>
-
-    <p v-if="!proxyList.length" class="diag-tab__muted">暂无代理配置</p>
-  </div>
+      </el-form-item>
+      <el-form-item>
+        <el-button
+          type="primary"
+          class="am-icon-save"
+          :disabled="!canAdd()"
+          @click="addProxy"
+        >
+          &nbsp;保存
+        </el-button>
+      </el-form-item>
+    </el-form>
+  </fieldset>
 </template>
-
-<style scoped>
-.proxy-item {
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #1e293b;
-}
-.proxy-row {
-  display: grid;
-  grid-template-columns: 48px 1fr;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 6px;
-  font-size: 12px;
-}
-.proxy-label {
-  color: #94a3b8;
-}
-.proxy-row input {
-  padding: 6px 8px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-.proxy-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 4px;
-}
-.diag-fieldset {
-  border: 1px solid #334155;
-  border-radius: 4px;
-  padding: 10px 12px;
-  margin-top: 12px;
-}
-.diag-fieldset legend {
-  padding: 0 6px;
-  font-size: 13px;
-  color: #e2e8f0;
-}
-.form-row {
-  display: grid;
-  grid-template-columns: 72px 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: #cbd5e1;
-}
-.form-row input {
-  padding: 6px 8px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-.save-btn,
-.mini-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: 4px;
-  border: 1px solid #475569;
-  background: #409eff;
-  color: #fff;
-  cursor: pointer;
-}
-.mini-btn {
-  background: #334155;
-}
-.mini-btn--danger {
-  color: #f87171;
-}
-.proxy-test {
-  margin: 6px 0 0;
-  font-size: 11px;
-  color: #94a3b8;
-}
-.diag-tab__muted {
-  color: #64748b;
-  font-size: 13px;
-}
-</style>
