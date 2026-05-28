@@ -26,91 +26,30 @@ async function save() {
 </script>
 
 <template>
-  <div class="diag-tab diag-form">
-    <label class="form-row">
-      <span>TelegramID:</span>
-      <input v-model="message.telegramId" type="text" />
-    </label>
-    <label class="form-row">
-      <span>机器人推单:</span>
-      <input v-model="message.pushOrderId" type="text" :disabled="pushLocked" />
-    </label>
-    <div class="form-row">
-      <span>消息通知类型:</span>
-      <div class="notify-types">
-        <label
-          v-for="type in NOTIFY_TYPES"
-          :key="type"
-          class="notify-type"
-          @dblclick="unlockPush(type)"
-        >
-          {{ type }}
-        </label>
-      </div>
+  <el-form label-width="120px">
+    <el-form-item label="TelegramID:">
+      <el-input v-model="message.telegramId" />
+    </el-form-item>
+    <el-form-item label="机器人推单:">
+      <el-input v-model="message.pushOrderId" :disabled="pushLocked" />
+    </el-form-item>
+    <el-form-item label="消息通知类型:">
+      <label
+        v-for="type in NOTIFY_TYPES"
+        :key="type"
+        style="margin-right: 8px"
+        @dblclick="unlockPush(type)"
+      >
+        {{ type }}&nbsp;&nbsp;
+      </label>
+    </el-form-item>
+    <el-form-item label="机器人:">
+      <el-link href="https://t.me/esportfight_bot" target="_blank">@esportfight_bot</el-link>
+    </el-form-item>
+    <div class="flex flex-center">
+      <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
+        &nbsp;保存
+      </el-button>
     </div>
-    <div class="form-row">
-      <span>机器人:</span>
-      <a href="https://t.me/esportfight_bot" target="_blank" rel="noopener noreferrer">
-        @esportfight_bot
-      </a>
-    </div>
-    <div class="form-actions">
-      <button type="button" class="save-btn" :disabled="saving" @click="save">保存</button>
-    </div>
-    <p class="diag-tab__hint">双击「OrderPush」可解锁机器人推单 ID 编辑</p>
-  </div>
+  </el-form>
 </template>
-
-<style scoped>
-.diag-form {
-  font-size: 13px;
-  color: #cbd5e1;
-}
-.form-row {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  align-items: start;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.form-row input[type="text"] {
-  padding: 6px 8px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-.form-row input:disabled {
-  opacity: 0.55;
-}
-.form-row a {
-  color: #38bdf8;
-}
-.notify-types {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-}
-.notify-type {
-  cursor: default;
-  user-select: none;
-}
-.form-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 8px;
-}
-.save-btn {
-  padding: 8px 24px;
-  background: #409eff;
-  border: none;
-  border-radius: 4px;
-  color: #fff;
-  cursor: pointer;
-}
-.diag-tab__hint {
-  margin: 8px 0 0;
-  font-size: 11px;
-  color: #64748b;
-}
-</style>

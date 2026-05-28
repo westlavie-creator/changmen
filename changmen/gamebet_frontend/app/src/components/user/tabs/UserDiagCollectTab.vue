@@ -3,5 +3,5 @@ import CollectConfigPanel from "@/components/user/CollectConfigPanel.vue";
 </script>
 
 <template>
-  <CollectConfigPanel embedded />
+  <CollectConfigPanel />
 </template>

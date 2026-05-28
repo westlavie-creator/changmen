@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
+import type { TableColumnCtx } from "element-plus";
 import { monthReport } from "@/api/esport";
 import { percent } from "@/shared/format";
 
@@ -25,22 +26,36 @@ const month = ref(new Date().toISOString().slice(0, 7));
 const loading = ref(false);
 const report = ref<ReportPayload | null>(null);
 
-const columns: { key: keyof ReportRow; label: string; kind?: "money" | "percent" | "int" }[] = [
-  { key: "Profit", label: "盈利", kind: "money" },
-  { key: "OrderCount", label: "订单量", kind: "int" },
-  { key: "BetMoney", label: "流水", kind: "int" },
-  { key: "Rate", label: "利润率", kind: "percent" },
-  { key: "Hacked", label: "被黑", kind: "int" },
-  { key: "RealProfit", label: "实际利润", kind: "money" },
-  { key: "Deposit", label: "充值", kind: "int" },
-  { key: "Withdraw", label: "提现", kind: "int" },
-  { key: "Wallet", label: "充提差", kind: "money" },
-];
+function formatDay(_row: ReportRow, _col: unknown, cellValue: string | number | undefined) {
+  if (!cellValue) return "—";
+  const d = new Date(cellValue);
+  if (Number.isNaN(d.getTime())) return String(cellValue);
+  return String(d.getDate()).padStart(2, "0");
+}
 
-const summaryCells = computed(() => {
+function formatInt(_row: ReportRow, _col: unknown, cellValue: number | undefined) {
+  return Math.round(Number(cellValue ?? 0)).toLocaleString();
+}
+
+function summaryMethod({
+  columns,
+}: {
+  columns: TableColumnCtx<ReportRow>[];
+  data: ReportRow[];
+}) {
   const total = report.value?.total ?? {};
-  return columns.map((col) => formatCell(total[col.key], col.kind));
-});
+  return columns.map((col, index) => {
+    const prop = col.property as keyof ReportRow | undefined;
+    if (index === 0) return "统计";
+    if (!prop || total[prop] == null) return "";
+    const val = Number(total[prop] ?? 0);
+    if (prop === "Rate") return percent(val);
+    if (["OrderCount", "Deposit", "Withdraw", "Hacked"].includes(prop)) {
+      return Math.round(val).toLocaleString();
+    }
+    return Math.round(val).toLocaleString();
+  });
+}
 
 async function load() {
   loading.value = true;
@@ -51,126 +66,83 @@ async function load() {
   }
 }
 
-function formatDay(date: string | number | undefined) {
-  if (!date) return "—";
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return String(date);
-  return String(d.getDate()).padStart(2, "0");
-}
-
-function formatCell(value: number | string | undefined, kind?: string) {
-  const n = Number(value ?? 0);
-  if (kind === "percent") return percent(n);
-  if (kind === "int" || kind === "money") {
-    return Math.round(n).toLocaleString();
-  }
-  return String(value ?? 0);
-}
-
-function cellClass(key: keyof ReportRow, value: number | undefined) {
-  if (key === "Hacked" && (value ?? 0) > 0) return "hacked";
-  if (["Profit", "Rate", "RealProfit", "Wallet"].includes(key)) {
-    if ((value ?? 0) > 0) return "win";
-    if ((value ?? 0) < 0) return "lose";
-  }
-  return "";
-}
-
 onMounted(load);
 </script>
 
 <template>
-  <div class="diag-tab">
-    <label class="form-row">
-      <span>月份</span>
-      <input v-model="month" type="month" @change="load" />
-    </label>
-    <p v-if="loading" class="diag-tab__muted">加载中…</p>
-    <div v-else-if="report?.list?.length" class="report-wrap">
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th>日期</th>
-            <th v-for="col in columns" :key="col.key">{{ col.label }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, i) in report.list" :key="i">
-            <td>{{ formatDay(row.Date) }}</td>
-            <td
-              v-for="col in columns"
-              :key="col.key"
-              :class="cellClass(col.key, Number(row[col.key] ?? 0))"
-            >
-              {{ formatCell(row[col.key], col.kind) }}
-            </td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr>
-            <td>统计</td>
-            <td
-              v-for="(cell, idx) in summaryCells"
-              :key="idx"
-              :class="cellClass(columns[idx].key, Number(report.total?.[columns[idx].key] ?? 0))"
-            >
-              {{ cell }}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-    <p v-else class="diag-tab__muted">该月暂无报表数据</p>
-  </div>
-</template>
+  <el-form>
+    <el-form-item>
+      <el-date-picker
+        v-model="month"
+        type="month"
+        placeholder="Pick a month"
+        value-format="YYYY-MM"
+        @change="load"
+      />
+    </el-form-item>
+  </el-form>
 
-<style scoped>
-.form-row {
-  display: grid;
-  grid-template-columns: 60px 1fr;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 13px;
-  color: #cbd5e1;
-}
-.form-row input {
-  padding: 6px 8px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-.report-wrap {
-  overflow: auto;
-  max-height: 52vh;
-}
-.report-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-}
-.report-table th,
-.report-table td {
-  border: 1px solid #334155;
-  padding: 4px 6px;
-  text-align: center;
-  white-space: nowrap;
-}
-.report-table tfoot td {
-  font-weight: 600;
-  background: #0f172a80;
-}
-.win {
-  color: #34d399;
-}
-.lose {
-  color: #f87171;
-}
-.hacked {
-  color: #fbbf24;
-}
-.diag-tab__muted {
-  color: #64748b;
-  font-size: 13px;
-}
-</style>
+  <el-table
+    v-loading="loading"
+    :data="report?.list ?? []"
+    border
+    size="small"
+    class="table"
+    style="width: 100%"
+    show-summary
+    :summary-method="summaryMethod"
+  >
+    <el-table-column prop="Date" label="日期" align="center" width="60" :formatter="formatDay" />
+    <el-table-column prop="Profit" label="盈利">
+      <template #default="{ row }">
+        <div
+          class="moneyValue"
+          :class="{ win: (row.Profit ?? 0) > 0, lose: (row.Profit ?? 0) < 0 }"
+        >
+          {{ Math.round(row.Profit ?? 0).toLocaleString() }}
+        </div>
+      </template>
+    </el-table-column>
+    <el-table-column prop="OrderCount" label="订单量" :formatter="formatInt" />
+    <el-table-column prop="BetMoney" label="流水" :formatter="formatInt" />
+    <el-table-column prop="Rate" label="利润率">
+      <template #default="{ row }">
+        <div
+          class="moneyValue"
+          :class="{ win: (row.Rate ?? 0) > 0, lose: (row.Rate ?? 0) < 0 }"
+        >
+          {{ percent(row.Rate ?? 0) }}
+        </div>
+      </template>
+    </el-table-column>
+    <el-table-column prop="Hacked" label="被黑">
+      <template #default="{ row }">
+        <div :class="{ hacked: (row.Hacked ?? 0) > 0 }">
+          {{ Math.round(row.Hacked ?? 0).toLocaleString() }}
+        </div>
+      </template>
+    </el-table-column>
+    <el-table-column prop="RealProfit" label="实际利润">
+      <template #default="{ row }">
+        <div
+          class="moneyValue"
+          :class="{ win: (row.RealProfit ?? 0) > 0, lose: (row.RealProfit ?? 0) < 0 }"
+        >
+          {{ Math.round(row.RealProfit ?? 0).toLocaleString() }}
+        </div>
+      </template>
+    </el-table-column>
+    <el-table-column prop="Deposit" label="充值" :formatter="formatInt" />
+    <el-table-column prop="Withdraw" label="提现" :formatter="formatInt" />
+    <el-table-column prop="Wallet" label="充提差">
+      <template #default="{ row }">
+        <div
+          class="moneyValue"
+          :class="{ win: (row.Wallet ?? 0) > 0, lose: (row.Wallet ?? 0) < 0 }"
+        >
+          {{ Math.round(row.Wallet ?? 0).toLocaleString() }}
+        </div>
+      </template>
+    </el-table-column>
+  </el-table>
+</template>

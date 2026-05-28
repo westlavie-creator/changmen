@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, reactive } from "vue";
+import { onMounted, reactive, ref } from "vue";
+import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { getUsers } from "@/api/esport";
 import { useUserStore } from "@/stores/userStore";
@@ -19,8 +20,8 @@ const form = reactive<FollowConfig>({
   users: [],
 });
 
-const publishers = reactive<{ id: number; name: string }[]>([]);
-const saving = reactive({ value: false });
+const publishers = ref<{ userId: number; userName: string }[]>([]);
+const saving = ref(false);
 
 onMounted(async () => {
   await user.loadExtras();
@@ -32,32 +33,16 @@ onMounted(async () => {
   }
   try {
     const users = await getUsers();
-    publishers.splice(
-      0,
-      publishers.length,
-      ...(users ?? [])
-        .filter((u) => Boolean(u.Setting?.Publisher))
-        .map((u) => ({
-          id: Number(u.Id ?? u.UserID ?? 0),
-          name: u.UserName ?? String(u.Id ?? ""),
-        })),
-    );
+    publishers.value = (users ?? [])
+      .filter((u) => Boolean(u.Setting?.Publisher))
+      .map((u) => ({
+        userId: Number(u.Id ?? u.UserID ?? 0),
+        userName: u.UserName ?? String(u.Id ?? ""),
+      }));
   } catch {
     /* ignore */
   }
 });
-
-function togglePublisher(id: number) {
-  const list = form.users ?? [];
-  const idx = list.indexOf(id);
-  if (idx >= 0) list.splice(idx, 1);
-  else list.push(id);
-  form.users = [...list];
-}
-
-function isPublisherChecked(id: number) {
-  return (form.users ?? []).includes(id);
-}
 
 async function save() {
   saving.value = true;
@@ -68,7 +53,7 @@ async function save() {
       publishers: [...(form.users ?? [])],
     };
     await user.saveFollowConfig(payload);
-    window.alert("跟单配置已保存");
+    ElMessage.success("保存成功");
   } finally {
     saving.value = false;
   }
@@ -76,124 +61,63 @@ async function save() {
 </script>
 
 <template>
-  <div class="follow-tab">
-    <label class="follow-switch">
-      <input v-model="form.isOpen" type="checkbox" />
-      <span>跟单开关</span>
-    </label>
-
-    <div class="follow-grid">
-      <label>
-        <span>跟单金额</span>
-        <input v-model.number="form.betMoney" type="number" min="0" step="1" />
-      </label>
-      <label class="follow-range">
-        <span>有效金额</span>
-        <div class="follow-range__inputs">
-          <input v-model.number="form.minMoney" type="number" min="0" step="1" />
-          <span>-</span>
-          <input v-model.number="form.maxMoney" type="number" min="0" step="1" />
-        </div>
-      </label>
-      <label>
-        <span>跟单赔率</span>
-        <input v-model.number="form.odds" type="number" min="0" step="0.01" />
-      </label>
-    </div>
-
-    <fieldset v-if="publishers.length" class="publishers">
-      <legend>跟单对象</legend>
-      <label v-for="p in publishers" :key="p.id" class="pub-check">
-        <input
-          type="checkbox"
-          :checked="isPublisherChecked(p.id)"
-          @change="togglePublisher(p.id)"
-        />
-        {{ p.name }}
-      </label>
-    </fieldset>
-    <p v-else class="diag-tab__muted">暂无 Publisher 用户可选</p>
-
-    <button type="button" class="btn btn--primary" :disabled="saving.value" @click="save">
-      {{ saving.value ? "保存中…" : "保存配置" }}
-    </button>
-  </div>
+  <el-form>
+    <el-row :gutter="20">
+      <el-col :span="24">
+        <el-form-item>
+          <el-switch
+            v-model="form.isOpen"
+            size="large"
+            inline-prompt
+            active-text="跟单开关"
+            inactive-text="跟单开关"
+          />
+        </el-form-item>
+      </el-col>
+      <el-col :span="6">
+        <el-form-item label="跟单金额：">
+          <el-input v-model.number="form.betMoney" type="number" />
+        </el-form-item>
+      </el-col>
+      <el-col :span="8">
+        <el-form-item label="有效金额：">
+          <el-row>
+            <el-col :span="10">
+              <el-input v-model.number="form.minMoney" type="number" />
+            </el-col>
+            <el-col :span="2" class="text-center">-</el-col>
+            <el-col :span="10">
+              <el-input v-model.number="form.maxMoney" type="number" />
+            </el-col>
+          </el-row>
+        </el-form-item>
+      </el-col>
+      <el-col :span="6">
+        <el-form-item label="跟单赔率：">
+          <el-input v-model.number="form.odds" type="number" />
+        </el-form-item>
+      </el-col>
+      <el-col v-if="publishers.length" :span="24">
+        <el-form-item label="跟单对象：">
+          <el-checkbox-group v-model="form.users">
+            <el-checkbox v-for="p in publishers" :key="p.userId" :value="p.userId">
+              {{ p.userName }}
+            </el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+      </el-col>
+      <el-col :span="24">
+        <el-button type="primary" class="am-icon-save" :loading="saving" @click="save">
+          &nbsp;保存配置
+        </el-button>
+      </el-col>
+    </el-row>
+  </el-form>
 </template>
 
 <style scoped>
-.follow-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  font-size: 13px;
-}
-.follow-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.follow-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.follow-grid label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: #94a3b8;
-}
-.follow-range {
-  grid-column: span 2;
-}
-.follow-range__inputs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.follow-grid input {
-  padding: 6px 8px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-.publishers {
-  border: 1px solid #475569;
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin: 0;
-}
-.publishers legend {
-  font-size: 12px;
-  color: #94a3b8;
-  padding: 0 4px;
-}
-.pub-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-right: 12px;
-  margin-bottom: 6px;
-  cursor: pointer;
-}
-.btn {
-  align-self: flex-start;
-  padding: 6px 14px;
-  border-radius: 4px;
-  border: 1px solid #409eff;
-  background: #409eff;
-  color: #fff;
-  cursor: pointer;
-  font-size: 13px;
-}
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.diag-tab__muted {
-  color: #64748b;
-  font-size: 12px;
+.text-center {
+  text-align: center;
+  line-height: 32px;
 }
 </style>

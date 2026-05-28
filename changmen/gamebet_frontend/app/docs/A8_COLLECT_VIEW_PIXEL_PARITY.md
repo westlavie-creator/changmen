@@ -22,13 +22,14 @@
 ## changmen 对齐实现
 
 - `app/src/components/user/CollectConfigPanel.vue`
-  - 默认锁定 + 双击“盘”解锁
-  - 三个信用盘按钮布局（PB/OB/SABA）
-  - 图标和名称间距对齐官方值（22px / 6px）
+  - 默认锁定 + 双击「盘」解锁
+  - 信用盘行 `el-col :span="6"`（PB/OB/SABA，与 bundle 一致）
+  - 图标/名称间距由 `a8.css`（22px / 6px）
 - `app/src/components/user/tabs/UserDiagCollectTab.vue`
-  - 去除额外容器，避免引入非官方边距
+  - 仅挂载 `CollectConfigPanel`，无额外包裹
 - `app/src/components/user/UserDiagDialog.vue`
-  - 去除额外 tabs 内容区域高度限制，避免偏离官方弹窗表现
+  - `el-dialog` width=880、`show-close=false`、`border-card` tabs
+  - 各 Tab 使用 Element Plus + bundle 语义 class
 
 ## 回归检查（人工）
 

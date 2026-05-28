@@ -10,7 +10,7 @@ import { syncCollectorsFromConfig } from "@/collectors";
 const collect = useCollectStore();
 const { log } = storeToRefs(collect);
 
-/** 对齐 A8：默认锁定，双击「盘」解锁开关编辑 */
+/** 对齐 A8 `UserCollectView`：默认锁定，双击「盘」解锁 */
 const switchesDisabled = ref(true);
 
 const platformRows = computed(() =>
@@ -52,12 +52,7 @@ async function openCredit(platform: PlatformId) {
         @change="toggleLog"
       />
     </el-col>
-    <el-col
-      v-for="[id, on] in platformRows"
-      :key="id"
-      :span="4"
-      class="provider"
-    >
+    <el-col v-for="[id, on] in platformRows" :key="id" :span="4" class="provider">
       <el-switch
         :disabled="switchesDisabled"
         size="large"
@@ -71,16 +66,11 @@ async function openCredit(platform: PlatformId) {
   </el-row>
 
   <el-divider>
-    信用<span class="credit-divider__unlock" @dblclick="toggleSwitchesLock">盘</span>入口
+    信用<span @dblclick="toggleSwitchesLock">盘</span>入口
   </el-divider>
 
   <el-row class="credit" :gutter="8">
-    <el-col
-      v-for="entry in CREDIT_PLATE_ENTRIES"
-      :key="entry.id"
-      :span="8"
-      class="flex-center"
-    >
+    <el-col v-for="entry in CREDIT_PLATE_ENTRIES" :key="entry.id" :span="6" class="flex-center">
       <el-button type="primary" @click="openCredit(entry.id)">
         <div class="flex flex-middle">
           <div class="provider-icon" :class="entry.id" />
@@ -90,22 +80,3 @@ async function openCredit(platform: PlatformId) {
     </el-col>
   </el-row>
 </template>
-
-<style scoped>
-.credit-divider__unlock {
-  color: inherit;
-}
-
-.credit .el-button {
-  width: 100%;
-}
-
-.credit .provider-icon {
-  width: 22px;
-  height: 22px;
-}
-
-.credit .name {
-  margin-left: 6px;
-}
-</style>

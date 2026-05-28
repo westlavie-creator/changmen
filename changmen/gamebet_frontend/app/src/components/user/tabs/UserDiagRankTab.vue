@@ -7,6 +7,12 @@ const sortBy = ref<"Money" | "Count" | "BetMoney">("Money");
 const rows = ref<UserProfitRow[]>([]);
 const loading = ref(false);
 
+const sortOptions = [
+  { label: "盈利", type: "Money" as const },
+  { label: "订单量", type: "Count" as const },
+  { label: "流水", type: "BetMoney" as const },
+];
+
 const topUserId = computed(() => {
   const top = [...rows.value].sort((a, b) => b.Money - a.Money)[0];
   if (!top || top.Money < 0) return undefined;
@@ -51,107 +57,34 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="diag-tab">
-    <div class="rank flex flex-wrap">
-      <div
-        v-for="row in sorted"
-        :key="row.UserID"
-        class="item"
-        :class="{ lose: row.Money < 0, boss: isBoss(row), loser: isLoser(row) }"
-      >
-        <div class="face">
-          <div class="name">{{ row.UserName }}</div>
-        </div>
-        <div class="profit">
-          <span class="rank-tag" :class="row.Money > 0 ? 'rank-tag--win' : 'rank-tag--lose'">
-            {{ metric(row) }}
-          </span>
-        </div>
+  <div class="rank flex flex-wrap">
+    <div
+      v-for="row in sorted"
+      :key="row.UserID"
+      class="item"
+      :class="{ lose: row.Money < 0, boss: isBoss(row), loser: isLoser(row) }"
+    >
+      <div class="face">
+        <div class="name">{{ row.UserName }}</div>
       </div>
-      <p v-if="!loading && !rows.length" class="diag-tab__muted">暂无排行数据</p>
-    </div>
-    <div class="flex flex-center rank-toolbar">
-      <button
-        v-for="opt in [
-          ['Money', '盈利'],
-          ['Count', '订单量'],
-          ['BetMoney', '流水'],
-        ]"
-        :key="opt[0]"
-        type="button"
-        class="mini-btn"
-        :class="{ 'mini-btn--on': sortBy === opt[0] }"
-        @click="sortBy = opt[0] as typeof sortBy"
-      >
-        {{ opt[1] }}
-      </button>
-      <button type="button" class="mini-btn" :disabled="loading" @click="load">刷新</button>
+      <div class="profit">
+        <el-tag round :type="row.Money > 0 ? 'success' : 'danger'">
+          {{ metric(row) }}
+        </el-tag>
+      </div>
     </div>
   </div>
+  <div class="flex flex-center">
+    <el-button-group size="small">
+      <el-button
+        v-for="opt in sortOptions"
+        :key="opt.type"
+        :type="sortBy === opt.type ? 'primary' : 'default'"
+        @click="sortBy = opt.type"
+      >
+        {{ opt.label }}
+      </el-button>
+      <el-button :disabled="loading" @click="load">刷新</el-button>
+    </el-button-group>
+  </div>
 </template>
-
-<style scoped>
-.rank {
-  margin-bottom: 12px;
-}
-.rank .item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 140px;
-  padding: 8px 10px;
-  margin: 4px;
-  border-radius: 6px;
-  background: #0f172a80;
-  border: 1px solid #334155;
-}
-.rank .item.boss {
-  border-color: #fbbf24;
-  box-shadow: 0 0 0 1px #fbbf2444;
-}
-.rank .item.loser {
-  opacity: 0.85;
-}
-.rank .name {
-  font-size: 13px;
-  color: #e2e8f0;
-}
-.rank-tag {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-}
-.rank-tag--win {
-  background: #065f46;
-  color: #6ee7b7;
-}
-.rank-tag--lose {
-  background: #7f1d1d;
-  color: #fca5a5;
-}
-.rank-toolbar {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-}
-.mini-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: transparent;
-  color: #cbd5e1;
-  cursor: pointer;
-}
-.mini-btn--on {
-  background: #409eff;
-  border-color: #409eff;
-  color: #fff;
-}
-.diag-tab__muted {
-  color: #64748b;
-  font-size: 13px;
-  width: 100%;
-}
-</style>

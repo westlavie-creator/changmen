@@ -1,10 +1,9 @@
 <script setup lang="ts">
 /**
- * 用户中心：保留 App 侧栏风格，标签区对齐 console `UserDiagView`（border-card）。
+ * 对齐 console bundle `UserDiagView`（dHe）：`el-dialog` width 880 + `border-card` tabs。
  */
 import { computed, onMounted, ref, watch, type Component } from "vue";
 import { storeToRefs } from "pinia";
-import AppDialog from "@/components/ui/AppDialog.vue";
 import UserDiagRankTab from "@/components/user/tabs/UserDiagRankTab.vue";
 import UserDiagPasswordTab from "@/components/user/tabs/UserDiagPasswordTab.vue";
 import UserDiagMessageTab from "@/components/user/tabs/UserDiagMessageTab.vue";
@@ -23,6 +22,13 @@ const emit = defineEmits<{ close: [] }>();
 const user = useUserStore();
 const { setting } = storeToRefs(user);
 const active = ref("rank");
+
+const visible = computed({
+  get: () => props.open,
+  set: (v: boolean) => {
+    if (!v) emit("close");
+  },
+});
 
 type TabDef = {
   name: string;
@@ -74,18 +80,16 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppDialog
-    :open="open"
-    title=""
-    width="880px"
-    :close-on-backdrop="true"
-    :close-on-escape="true"
-    @close="emit('close')"
+  <el-dialog
+    v-model="visible"
+    width="880"
+    :show-close="false"
+    @closed="emit('close')"
   >
-    <el-tabs v-model="active" type="border-card" class="user-diag-tabs">
+    <el-tabs v-model="active" type="border-card">
       <el-tab-pane v-for="tab in visibleTabs" :key="tab.name" :label="tab.label" :name="tab.name">
         <component :is="tab.component" v-if="active === tab.name" />
       </el-tab-pane>
     </el-tabs>
-  </AppDialog>
+  </el-dialog>
 </template>
