@@ -1,7 +1,0 @@
-{
-  "description": "IMT SportId（st 字段）。默认 43 为电竞大类，可用 IMT_SPORT_IDS 覆盖。",
-  "sports": {
-    "43": { "code": "esports", "name": "电竞" }
-  },
-  "defaultSportIds": ["43"]
-}

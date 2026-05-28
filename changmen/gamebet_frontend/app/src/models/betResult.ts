@@ -1,0 +1,37 @@
+import type { PlatformId } from "@/types/esport";
+
+/** 对齐 A8 bundle `uo` */
+export class BetResult {
+  provider: PlatformId;
+  success: boolean;
+  message: string;
+  orderId: string | null = null;
+  beginTime: number;
+  request?: unknown;
+  response?: unknown;
+
+  constructor(
+    provider: PlatformId,
+    success: boolean,
+    message: string,
+    request?: unknown,
+    response?: unknown,
+  ) {
+    this.provider = provider;
+    this.success = success;
+    this.message = message || (success ? "下单成功" : "下单失败");
+    this.beginTime = Date.now();
+    this.request = request;
+    this.response = response;
+  }
+}
+
+export interface OrderBindRow {
+  LinkID: number;
+  Provider: PlatformId;
+  OrderID: string;
+}
+
+export function createBetLinkId() {
+  return Date.now();
+}

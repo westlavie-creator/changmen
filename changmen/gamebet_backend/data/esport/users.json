@@ -1,0 +1,19 @@
+[
+  {
+    "id": 1,
+    "userName": "admin",
+    "passwordHash": "ff4fabfd828c003e11f55efeb4a089cda291cfd7c457d6a755a66a19f4fb4e65",
+    "salt": "994089981ab7f5c25e207fbf6a0829c5",
+    "setting": {}
+  },
+  {
+    "id": 2,
+    "userName": "TJ01",
+    "passwordHash": "b04a02711dc91be59b6d658693ce5bc67de20931eeff06ecbfdc8c3398dcce29",
+    "salt": "1e835db276588ae8b78f7b6208916939",
+    "setting": {
+      "a8UserName": "TJ01",
+      "a8Password": "a123456"
+    }
+  }
+]

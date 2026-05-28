@@ -1,14 +1,14 @@
 {
-  "name": "gamebet",
+  "name": "gamebet-workspace",
   "private": true,
-  "description": "A8 esports aggregator — frontend replica + local backend",
+  "description": "Git 仓库根：应用代码在 changmen/，本文件仅转发 npm 脚本",
   "scripts": {
-    "patch:ui": "node frontend/patch-ui-bundle.js",
-    "preweb": "node backend/scripts/preweb.js",
-    "web": "npm run web --prefix backend",
-    "web:restart": "npm run web:restart --prefix backend",
-    "app:dev": "npm run dev --prefix frontend/app",
-    "app:build": "npm run build --prefix frontend/app",
-    "app:install": "npm install --prefix frontend/app"
+    "patch:ui": "npm run patch:ui --prefix changmen",
+    "preweb": "npm run preweb --prefix changmen",
+    "web": "npm run web --prefix changmen",
+    "web:restart": "npm run web:restart --prefix changmen",
+    "app:dev": "npm run app:dev --prefix changmen",
+    "app:build": "npm run app:build --prefix changmen",
+    "app:install": "npm run app:install --prefix changmen"
   }
 }

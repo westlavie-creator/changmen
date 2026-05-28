@@ -1,0 +1,2436 @@
+{
+  "builtAt": 1780003580725,
+  "count": 24,
+  "info": [
+    {
+      "ID": 1413862633,
+      "Title": "9z Team vs HEROIC",
+      "StartTime": 1779975780000,
+      "Game": "CS:GO",
+      "GameID": 3,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5437335303837340"
+      },
+      "Bets": [
+        {
+          "ID": 1714980779,
+          "MatchID": 1413862633,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 1679470969,
+          "HomeName": "9z Team",
+          "AwayID": 1954093640,
+          "AwayName": "HEROIC",
+          "Status": "Locked",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151105230733616",
+              "HomeID": "4151105230734387",
+              "AwayID": "4151105230734388",
+              "HomeOdds": 1.5,
+              "AwayOdds": 2.517,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 1714980780,
+          "MatchID": 1413862633,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 1679470970,
+          "HomeName": "9z Team",
+          "AwayID": 1954093641,
+          "AwayName": "HEROIC",
+          "Status": "Locked",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5428885175152395",
+              "HomeID": "5428885175154027",
+              "AwayID": "5428885175154028",
+              "HomeOdds": 1.23,
+              "AwayOdds": 3.986,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 1714980781,
+          "MatchID": 1413862633,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 1679470971,
+          "HomeName": "9z Team",
+          "AwayID": 1954093642,
+          "AwayName": "HEROIC",
+          "Status": "Locked",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5428885175613433",
+              "HomeID": "5428885175614085",
+              "AwayID": "5428885175614086",
+              "HomeOdds": 5.336,
+              "AwayOdds": 1.14,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 1714980782,
+          "MatchID": 1413862633,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 1679470972,
+          "HomeName": "9z Team",
+          "AwayID": 1954093643,
+          "AwayName": "HEROIC",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5428885175672540",
+              "HomeID": "5428885175673075",
+              "AwayID": "5428885175673076",
+              "HomeOdds": 1.62,
+              "AwayOdds": 2.239,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 3,
+      "RoundStart": 1779985720000,
+      "Reverse": []
+    },
+    {
+      "ID": 3838599520,
+      "Title": "E WIE EINFACH E-SPORTS vs BIG",
+      "StartTime": 1779980400000,
+      "Game": "英雄联盟",
+      "GameID": 1,
+      "BO": 5,
+      "Matchs": {
+        "OB": "5439171338896232"
+      },
+      "Bets": [
+        {
+          "ID": 4014854754,
+          "MatchID": 3838599520,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3979344944,
+          "HomeName": "E WIE EINFACH E-SPORTS",
+          "AwayID": 4253967615,
+          "AwayName": "BIG",
+          "Status": "Locked",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5439203392706763",
+              "HomeID": "5439203392707493",
+              "AwayID": "5439203392707494",
+              "HomeOdds": 4.338,
+              "AwayOdds": 1.2,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 4014854755,
+          "MatchID": 3838599520,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 3979344945,
+          "HomeName": "E WIE EINFACH E-SPORTS",
+          "AwayID": 4253967616,
+          "AwayName": "BIG",
+          "Status": "Locked",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5439231517512488",
+              "HomeID": "5439231517513194",
+              "AwayID": "5439231517513195",
+              "HomeOdds": 1.1,
+              "AwayOdds": 6.462,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 4014854756,
+          "MatchID": 3838599520,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 3979344946,
+          "HomeName": "E WIE EINFACH E-SPORTS",
+          "AwayID": 4253967617,
+          "AwayName": "BIG",
+          "Status": "Locked",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5439231517569708",
+              "HomeID": "5439231517570226",
+              "AwayID": "5439231517570227",
+              "HomeOdds": 13.562,
+              "AwayOdds": 1.01,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 4014854757,
+          "MatchID": 3838599520,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 3979344947,
+          "HomeName": "E WIE EINFACH E-SPORTS",
+          "AwayID": 4253967618,
+          "AwayName": "BIG",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5439231517611779",
+              "HomeID": "5439231517612220",
+              "AwayID": "5439231517612221",
+              "HomeOdds": 3.21,
+              "AwayOdds": 1.329,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 4014854758,
+          "MatchID": 3838599520,
+          "Map": 4,
+          "Name": "地图4",
+          "HomeID": 3979344948,
+          "HomeName": "E WIE EINFACH E-SPORTS",
+          "AwayID": 4253967619,
+          "AwayName": "BIG",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5439231517652114",
+              "HomeID": "5439231517652522",
+              "AwayID": "5439231517652523",
+              "HomeOdds": 3.394,
+              "AwayOdds": 1.3,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 4014854759,
+          "MatchID": 3838599520,
+          "Map": 5,
+          "Name": "地图5",
+          "HomeID": 3979344949,
+          "HomeName": "E WIE EINFACH E-SPORTS",
+          "AwayID": 4253967620,
+          "AwayName": "BIG",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5439231517692723",
+              "HomeID": "5439231517693142",
+              "AwayID": "5439231517693143",
+              "HomeOdds": 2.86,
+              "AwayOdds": 1.4,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 3,
+      "RoundStart": 1779985958000,
+      "Reverse": []
+    },
+    {
+      "ID": 2582173815,
+      "Title": "Team Spirit vs Team Liquid",
+      "StartTime": 1779983520000,
+      "Game": "DOTA2",
+      "GameID": 2,
+      "BO": 1,
+      "Matchs": {
+        "OB": "5419628548664511"
+      },
+      "Bets": [
+        {
+          "ID": 3475562425,
+          "MatchID": 2582173815,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3440052615,
+          "HomeName": "Team Spirit",
+          "AwayID": 3714675286,
+          "AwayName": "Team Liquid",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4142199765829859",
+              "HomeID": "4142199765830507",
+              "AwayID": "4142199765830508",
+              "HomeOdds": 1.212,
+              "AwayOdds": 4.178,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 1,
+      "RoundStart": 1779984795000,
+      "Reverse": []
+    },
+    {
+      "ID": 2831432162,
+      "Title": "TLN Pirates vs Galions",
+      "StartTime": 1779983880000,
+      "Game": "英雄联盟",
+      "GameID": 1,
+      "BO": 5,
+      "Matchs": {
+        "OB": "4142632381530440"
+      },
+      "Bets": [
+        {
+          "ID": 2494665316,
+          "MatchID": 2831432162,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 2459155506,
+          "HomeName": "TLN Pirates",
+          "AwayID": 2733778177,
+          "AwayName": "Galions",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5429051646400718",
+              "HomeID": "5429051646401364",
+              "AwayID": "5429051646401365",
+              "HomeOdds": 4.89,
+              "AwayOdds": 1.163,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 2494665317,
+          "MatchID": 2831432162,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 2459155507,
+          "HomeName": "TLN Pirates",
+          "AwayID": 2733778178,
+          "AwayName": "Galions",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4142673214143277",
+              "HomeID": "4142673214144002",
+              "AwayID": "4142673214144003",
+              "HomeOdds": 1.05,
+              "AwayOdds": 8.972,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 2494665318,
+          "MatchID": 2831432162,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 2459155508,
+          "HomeName": "TLN Pirates",
+          "AwayID": 2733778179,
+          "AwayName": "Galions",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4142673214215953",
+              "HomeID": "4142673214216456",
+              "AwayID": "4142673214216457",
+              "HomeOdds": 2.547,
+              "AwayOdds": 1.489,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 2494665319,
+          "MatchID": 2831432162,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 2459155509,
+          "HomeName": "TLN Pirates",
+          "AwayID": 2733778180,
+          "AwayName": "Galions",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4142673214270419",
+              "HomeID": "4142673214270890",
+              "AwayID": "4142673214270891",
+              "HomeOdds": 2.726,
+              "AwayOdds": 1.434,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 2494665320,
+          "MatchID": 2831432162,
+          "Map": 4,
+          "Name": "地图4",
+          "HomeID": 2459155510,
+          "HomeName": "TLN Pirates",
+          "AwayID": 2733778181,
+          "AwayName": "Galions",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4142673214325287",
+              "HomeID": "4142673214325763",
+              "AwayID": "4142673214325764",
+              "HomeOdds": 2.562,
+              "AwayOdds": 1.484,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 2494665321,
+          "MatchID": 2831432162,
+          "Map": 5,
+          "Name": "地图5",
+          "HomeID": 2459155511,
+          "HomeName": "TLN Pirates",
+          "AwayID": 2733778182,
+          "AwayName": "Galions",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4142673214378497",
+              "HomeID": "4142673214378956",
+              "AwayID": "4142673214378957",
+              "HomeOdds": 2.428,
+              "AwayOdds": 1.533,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 1,
+      "RoundStart": 1779984572000,
+      "Reverse": []
+    },
+    {
+      "ID": 1000204191,
+      "Title": "Once Upon A Team vs mCon esports",
+      "StartTime": 1779984000000,
+      "Game": "英雄联盟",
+      "GameID": 1,
+      "BO": 5,
+      "Matchs": {
+        "OB": "4151234021649014"
+      },
+      "Bets": [
+        {
+          "ID": 3621176545,
+          "MatchID": 1000204191,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3585666735,
+          "HomeName": "Once Upon A Team",
+          "AwayID": 3860289406,
+          "AwayName": "mCon esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5429086231894940",
+              "HomeID": "5429086231895773",
+              "AwayID": "5429086231895774",
+              "HomeOdds": 2.449,
+              "AwayOdds": 1.538,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3621176546,
+          "MatchID": 1000204191,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 3585666736,
+          "HomeName": "Once Upon A Team",
+          "AwayID": 3860289407,
+          "AwayName": "mCon esports",
+          "Status": "Locked",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437717782723298",
+              "HomeID": "5437717782723994",
+              "AwayID": "5437717782723995",
+              "HomeOdds": 2.264,
+              "AwayOdds": 1.592,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 3621176547,
+          "MatchID": 1000204191,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 3585666737,
+          "HomeName": "Once Upon A Team",
+          "AwayID": 3860289408,
+          "AwayName": "mCon esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437717782787921",
+              "HomeID": "5437717782789022",
+              "AwayID": "5437717782789023",
+              "HomeOdds": 2.032,
+              "AwayOdds": 1.731,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3621176548,
+          "MatchID": 1000204191,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 3585666738,
+          "HomeName": "Once Upon A Team",
+          "AwayID": 3860289409,
+          "AwayName": "mCon esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437717782846050",
+              "HomeID": "5437717782846626",
+              "AwayID": "5437717782846627",
+              "HomeOdds": 2.032,
+              "AwayOdds": 1.731,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3621176549,
+          "MatchID": 1000204191,
+          "Map": 4,
+          "Name": "地图4",
+          "HomeID": 3585666739,
+          "HomeName": "Once Upon A Team",
+          "AwayID": 3860289410,
+          "AwayName": "mCon esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437717782899295",
+              "HomeID": "5437717782899842",
+              "AwayID": "5437717782899843",
+              "HomeOdds": 1.992,
+              "AwayOdds": 1.761,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3621176550,
+          "MatchID": 1000204191,
+          "Map": 5,
+          "Name": "地图5",
+          "HomeID": 3585666740,
+          "HomeName": "Once Upon A Team",
+          "AwayID": 3860289411,
+          "AwayName": "mCon esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437717782947070",
+              "HomeID": "5437717782947579",
+              "AwayID": "5437717782947580",
+              "HomeOdds": 1.956,
+              "AwayOdds": 1.79,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 1,
+      "RoundStart": 1779986130000,
+      "Reverse": []
+    },
+    {
+      "ID": 217495342,
+      "Title": "Xtreme Gaming vs GLYPH",
+      "StartTime": 1779986400000,
+      "Game": "DOTA2",
+      "GameID": 2,
+      "BO": 1,
+      "Matchs": {
+        "OB": "4141886509103097"
+      },
+      "Bets": [
+        {
+          "ID": 3057249456,
+          "MatchID": 217495342,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3021739646,
+          "HomeName": "Xtreme Gaming",
+          "AwayID": 3296362317,
+          "AwayName": "GLYPH",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4142263405410350",
+              "HomeID": "4142263405411927",
+              "AwayID": "4142263405411928",
+              "HomeOdds": 1.527,
+              "AwayOdds": 2.512,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 1,
+      "RoundStart": 1779986400000,
+      "Reverse": []
+    },
+    {
+      "ID": 519561755,
+      "Title": "WW Team vs ex-RUBY",
+      "StartTime": 1779987600000,
+      "Game": "CS:GO",
+      "GameID": 3,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5428931415570276"
+      },
+      "Bets": [
+        {
+          "ID": 1285296221,
+          "MatchID": 519561755,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 1249786411,
+          "HomeName": "WW Team",
+          "AwayID": 1524409082,
+          "AwayName": "ex-RUBY",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437616810530609",
+              "HomeID": "5437616810531338",
+              "AwayID": "5437616810531339",
+              "HomeOdds": 2.225,
+              "AwayOdds": 1.627,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1285296222,
+          "MatchID": 519561755,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 1249786412,
+          "HomeName": "WW Team",
+          "AwayID": 1524409083,
+          "AwayName": "ex-RUBY",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151233126368614",
+              "HomeID": "4151233126369387",
+              "AwayID": "4151233126369388",
+              "HomeOdds": 2.03,
+              "AwayOdds": 1.75,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1285296223,
+          "MatchID": 519561755,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 1249786413,
+          "HomeName": "WW Team",
+          "AwayID": 1524409084,
+          "AwayName": "ex-RUBY",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151233126490027",
+              "HomeID": "4151233126490599",
+              "AwayID": "4151233126490600",
+              "HomeOdds": 2.03,
+              "AwayOdds": 1.75,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1285296224,
+          "MatchID": 519561755,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 1249786414,
+          "HomeName": "WW Team",
+          "AwayID": 1524409085,
+          "AwayName": "ex-RUBY",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151233126547555",
+              "HomeID": "4151233126548121",
+              "AwayID": "4151233126548122",
+              "HomeOdds": 1.967,
+              "AwayOdds": 1.8,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 2372588109,
+      "Title": "Betclic Apogee Esports vs Eternal Fire",
+      "StartTime": 1779987600000,
+      "Game": "CS:GO",
+      "GameID": 3,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5435287915906030"
+      },
+      "Bets": [
+        {
+          "ID": 3927161871,
+          "MatchID": 2372588109,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3891652061,
+          "HomeName": "Betclic Apogee Esports",
+          "AwayID": 4166274732,
+          "AwayName": "Eternal Fire",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437592725043417",
+              "HomeID": "5437592725044201",
+              "AwayID": "5437592725044202",
+              "HomeOdds": 2.672,
+              "AwayOdds": 1.45,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3927161872,
+          "MatchID": 2372588109,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 3891652062,
+          "HomeName": "Betclic Apogee Esports",
+          "AwayID": 4166274733,
+          "AwayName": "Eternal Fire",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5428972741859973",
+              "HomeID": "5428972741860749",
+              "AwayID": "5428972741860750",
+              "HomeOdds": 2.437,
+              "AwayOdds": 1.53,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3927161873,
+          "MatchID": 2372588109,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 3891652063,
+          "HomeName": "Betclic Apogee Esports",
+          "AwayID": 4166274734,
+          "AwayName": "Eternal Fire",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5428972741936799",
+              "HomeID": "5428972741937390",
+              "AwayID": "5428972741937391",
+              "HomeOdds": 2.437,
+              "AwayOdds": 1.53,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3927161874,
+          "MatchID": 2372588109,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 3891652064,
+          "HomeName": "Betclic Apogee Esports",
+          "AwayID": 4166274735,
+          "AwayName": "Eternal Fire",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5428972741992366",
+              "HomeID": "5428972741992917",
+              "AwayID": "5428972741992918",
+              "HomeOdds": 2.32,
+              "AwayOdds": 1.58,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 1089363855,
+      "Title": "KOLESIE vs ex-Zero Tenacity",
+      "StartTime": 1779987600000,
+      "Game": "CS:GO",
+      "GameID": 3,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5437566480222412"
+      },
+      "Bets": [
+        {
+          "ID": 3404267729,
+          "MatchID": 1089363855,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3368757919,
+          "HomeName": "KOLESIE",
+          "AwayID": 3643380590,
+          "AwayName": "ex-Zero Tenacity",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151247434267426",
+              "HomeID": "4151247434268235",
+              "AwayID": "4151247434268236",
+              "HomeOdds": 1.5,
+              "AwayOdds": 2.517,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3404267730,
+          "MatchID": 1089363855,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 3368757920,
+          "HomeName": "KOLESIE",
+          "AwayID": 3643380591,
+          "AwayName": "ex-Zero Tenacity",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437636698965782",
+              "HomeID": "5437636698966599",
+              "AwayID": "5437636698966600",
+              "HomeOdds": 1.6,
+              "AwayOdds": 2.278,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3404267731,
+          "MatchID": 1089363855,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 3368757921,
+          "HomeName": "KOLESIE",
+          "AwayID": 3643380592,
+          "AwayName": "ex-Zero Tenacity",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437636699034310",
+              "HomeID": "5437636699034906",
+              "AwayID": "5437636699034907",
+              "HomeOdds": 1.6,
+              "AwayOdds": 2.278,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3404267732,
+          "MatchID": 1089363855,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 3368757922,
+          "HomeName": "KOLESIE",
+          "AwayID": 3643380593,
+          "AwayName": "ex-Zero Tenacity",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437636699083729",
+              "HomeID": "5437636699084281",
+              "AwayID": "5437636699084282",
+              "HomeOdds": 1.65,
+              "AwayOdds": 2.184,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 2462508997,
+      "Title": "Phantom Esports vs Atreides",
+      "StartTime": 1779987600000,
+      "Game": "CS:GO",
+      "GameID": 3,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5437572645022207"
+      },
+      "Bets": [
+        {
+          "ID": 146822023,
+          "MatchID": 2462508997,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 111312213,
+          "HomeName": "Phantom Esports",
+          "AwayID": 385934884,
+          "AwayName": "Atreides",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5429020290392628",
+              "HomeID": "5429020290393383",
+              "AwayID": "5429020290393384",
+              "HomeOdds": 1.967,
+              "AwayOdds": 1.8,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 146822024,
+          "MatchID": 2462508997,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 111312214,
+          "HomeName": "Phantom Esports",
+          "AwayID": 385934885,
+          "AwayName": "Atreides",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437651576860870",
+              "HomeID": "5437651576861728",
+              "AwayID": "5437651576861729",
+              "HomeOdds": 1.91,
+              "AwayOdds": 1.85,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 146822025,
+          "MatchID": 2462508997,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 111312215,
+          "HomeName": "Phantom Esports",
+          "AwayID": 385934886,
+          "AwayName": "Atreides",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437651576917083",
+              "HomeID": "5437651576917554",
+              "AwayID": "5437651576917555",
+              "HomeOdds": 1.91,
+              "AwayOdds": 1.85,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 146822026,
+          "MatchID": 2462508997,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 111312216,
+          "HomeName": "Phantom Esports",
+          "AwayID": 385934887,
+          "AwayName": "Atreides",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437651576959844",
+              "HomeID": "5437651576960411",
+              "AwayID": "5437651576960412",
+              "HomeOdds": 1.88,
+              "AwayOdds": 1.88,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 861993948,
+      "Title": "magic vs FaZe Clan",
+      "StartTime": 1779988500000,
+      "Game": "CS:GO",
+      "GameID": 3,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5436457199390436"
+      },
+      "Bets": [
+        {
+          "ID": 3945119198,
+          "MatchID": 861993948,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3909609388,
+          "HomeName": "magic",
+          "AwayID": 4184232059,
+          "AwayName": "FaZe Clan",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5436558132437407",
+              "HomeID": "5436558132438724",
+              "AwayID": "5436558132438725",
+              "HomeOdds": 2.685,
+              "AwayOdds": 1.458,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3945119199,
+          "MatchID": 861993948,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 3909609389,
+          "HomeName": "magic",
+          "AwayID": 4184232060,
+          "AwayName": "FaZe Clan",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5427943621517488",
+              "HomeID": "5427943621518218",
+              "AwayID": "5427943621518219",
+              "HomeOdds": 2.253,
+              "AwayOdds": 1.627,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3945119200,
+          "MatchID": 861993948,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 3909609390,
+          "HomeName": "magic",
+          "AwayID": 4184232061,
+          "AwayName": "FaZe Clan",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5427943621592175",
+              "HomeID": "5427943621592908",
+              "AwayID": "5427943621592909",
+              "HomeOdds": 2.127,
+              "AwayOdds": 1.7,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3945119201,
+          "MatchID": 861993948,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 3909609391,
+          "HomeName": "magic",
+          "AwayID": 4184232062,
+          "AwayName": "FaZe Clan",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5427943621652323",
+              "HomeID": "5427943621652905",
+              "AwayID": "5427943621652906",
+              "HomeOdds": 2.09,
+              "AwayOdds": 1.724,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 2275493626,
+      "Title": "OXEN vs KRÜ Spark",
+      "StartTime": 1779994800000,
+      "Game": "无畏契约",
+      "GameID": 8,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5429150276925009"
+      },
+      "Bets": [
+        {
+          "ID": 813676925,
+          "MatchID": 2275493626,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 778167115,
+          "HomeName": "OXEN",
+          "AwayID": 1052789786,
+          "AwayName": "KRÜ Spark",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151445414252891",
+              "HomeID": "4151445414253608",
+              "AwayID": "4151445414253609",
+              "HomeOdds": 2.576,
+              "AwayOdds": 1.48,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 813676927,
+          "MatchID": 2275493626,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 778167117,
+          "HomeName": "OXEN",
+          "AwayID": 1052789788,
+          "AwayName": "KRÜ Spark",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151445414388939",
+              "HomeID": "4151445414389428",
+              "AwayID": "4151445414389429",
+              "HomeOdds": 2.437,
+              "AwayOdds": 1.53,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 1392475167,
+      "Title": "Ninjas in Pyjamas vs Sharks Esports",
+      "StartTime": 1779996600000,
+      "Game": "CS:GO",
+      "GameID": 3,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5428914072628401"
+      },
+      "Bets": [
+        {
+          "ID": 2636462433,
+          "MatchID": 1392475167,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 2600952623,
+          "HomeName": "Ninjas in Pyjamas",
+          "AwayID": 2875575294,
+          "AwayName": "Sharks Esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151207997042901",
+              "HomeID": "4151207997043661",
+              "AwayID": "4151207997043662",
+              "HomeOdds": 1.5,
+              "AwayOdds": 2.554,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 2636462436,
+          "MatchID": 1392475167,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 2600952626,
+          "HomeName": "Ninjas in Pyjamas",
+          "AwayID": 2875575297,
+          "AwayName": "Sharks Esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437609615126973",
+              "HomeID": "5437609615128808",
+              "AwayID": "5437609615128809",
+              "HomeOdds": 1.6,
+              "AwayOdds": 2.308,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 3134066288,
+      "Title": "NRG vs Winthrop University",
+      "StartTime": 1779998400000,
+      "Game": "英雄联盟",
+      "GameID": 1,
+      "BO": 5,
+      "Matchs": {
+        "OB": "5443332188630697"
+      },
+      "Bets": [
+        {
+          "ID": 1268284274,
+          "MatchID": 3134066288,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 1232774464,
+          "HomeName": "NRG",
+          "AwayID": 1507397135,
+          "AwayName": "Winthrop University",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5434757919189920",
+              "HomeID": "5434757919190752",
+              "AwayID": "5434757919190753",
+              "HomeOdds": 1.3,
+              "AwayOdds": 3.46,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1268284275,
+          "MatchID": 3134066288,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 1232774465,
+          "HomeName": "NRG",
+          "AwayID": 1507397136,
+          "AwayName": "Winthrop University",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5434762897189715",
+              "HomeID": "5434762897190853",
+              "AwayID": "5434762897190854",
+              "HomeOdds": 1.45,
+              "AwayOdds": 2.713,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1268284276,
+          "MatchID": 3134066288,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 1232774466,
+          "HomeName": "NRG",
+          "AwayID": 1507397137,
+          "AwayName": "Winthrop University",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5434762897267297",
+              "HomeID": "5434762897267970",
+              "AwayID": "5434762897267971",
+              "HomeOdds": 1.45,
+              "AwayOdds": 2.713,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1268284277,
+          "MatchID": 3134066288,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 1232774467,
+          "HomeName": "NRG",
+          "AwayID": 1507397138,
+          "AwayName": "Winthrop University",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5434762897324243",
+              "HomeID": "5434762897324769",
+              "AwayID": "5434762897324770",
+              "HomeOdds": 1.45,
+              "AwayOdds": 2.713,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1268284278,
+          "MatchID": 3134066288,
+          "Map": 4,
+          "Name": "地图4",
+          "HomeID": 1232774468,
+          "HomeName": "NRG",
+          "AwayID": 1507397139,
+          "AwayName": "Winthrop University",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5434762897379099",
+              "HomeID": "5434762897379633",
+              "AwayID": "5434762897379634",
+              "HomeOdds": 1.48,
+              "AwayOdds": 2.614,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1268284279,
+          "MatchID": 3134066288,
+          "Map": 5,
+          "Name": "地图5",
+          "HomeID": 1232774469,
+          "HomeName": "NRG",
+          "AwayID": 1507397140,
+          "AwayName": "Winthrop University",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5434762897437286",
+              "HomeID": "5434762897437840",
+              "AwayID": "5434762897437841",
+              "HomeOdds": 1.51,
+              "AwayOdds": 2.525,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 2356228229,
+      "Title": "Team Solid vs F4TALITY eSports",
+      "StartTime": 1779998400000,
+      "Game": "无畏契约",
+      "GameID": 8,
+      "BO": 3,
+      "Matchs": {
+        "OB": "4153166164757300"
+      },
+      "Bets": [
+        {
+          "ID": 1090219079,
+          "MatchID": 2356228229,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 1054709269,
+          "HomeName": "Team Solid",
+          "AwayID": 1329331940,
+          "AwayName": "F4TALITY eSports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5439606969265168",
+              "HomeID": "5439606969266131",
+              "AwayID": "5439606969266132",
+              "HomeOdds": 1.14,
+              "AwayOdds": 5.358,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1090219080,
+          "MatchID": 2356228229,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 1054709270,
+          "HomeName": "Team Solid",
+          "AwayID": 1329331941,
+          "AwayName": "F4TALITY eSports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4153222431455652",
+              "HomeID": "4153222431456499",
+              "AwayID": "4153222431456500",
+              "HomeOdds": 1.27,
+              "AwayOdds": 3.617,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1090219081,
+          "MatchID": 2356228229,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 1054709271,
+          "HomeName": "Team Solid",
+          "AwayID": 1329331942,
+          "AwayName": "F4TALITY eSports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4153222431535470",
+              "HomeID": "4153222431536325",
+              "AwayID": "4153222431536326",
+              "HomeOdds": 1.27,
+              "AwayOdds": 3.617,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1090219082,
+          "MatchID": 2356228229,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 1054709272,
+          "HomeName": "Team Solid",
+          "AwayID": 1329331943,
+          "AwayName": "F4TALITY eSports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4153222431599568",
+              "HomeID": "4153222431601438",
+              "AwayID": "4153222431601439",
+              "HomeOdds": 1.32,
+              "AwayOdds": 3.265,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 3777124668,
+      "Title": "FURIA Academy vs Abacatudos",
+      "StartTime": 1779998400000,
+      "Game": "无畏契约",
+      "GameID": 8,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5439560288113940"
+      },
+      "Bets": [
+        {
+          "ID": 772096830,
+          "MatchID": 3777124668,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 736587020,
+          "HomeName": "FURIA Academy",
+          "AwayID": 1011209691,
+          "AwayName": "Abacatudos",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5431011605584338",
+              "HomeID": "5431011605585153",
+              "AwayID": "5431011605585154",
+              "HomeOdds": 1.34,
+              "AwayOdds": 3.149,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 772096831,
+          "MatchID": 3777124668,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 736587021,
+          "HomeName": "FURIA Academy",
+          "AwayID": 1011209692,
+          "AwayName": "Abacatudos",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4153250450026174",
+              "HomeID": "4153250450027034",
+              "AwayID": "4153250450027035",
+              "HomeOdds": 1.47,
+              "AwayOdds": 2.607,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 772096832,
+          "MatchID": 3777124668,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 736587022,
+          "HomeName": "FURIA Academy",
+          "AwayID": 1011209693,
+          "AwayName": "Abacatudos",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4153250450098404",
+              "HomeID": "4153250450099015",
+              "AwayID": "4153250450099016",
+              "HomeOdds": 1.47,
+              "AwayOdds": 2.607,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 772096833,
+          "MatchID": 3777124668,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 736587023,
+          "HomeName": "FURIA Academy",
+          "AwayID": 1011209694,
+          "AwayName": "Abacatudos",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4153250450155020",
+              "HomeID": "4153250450155576",
+              "AwayID": "4153250450155577",
+              "HomeOdds": 1.52,
+              "AwayOdds": 2.463,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 1823644400,
+      "Title": "NRG vs Winthrop University",
+      "StartTime": 1779998580000,
+      "Game": "英雄联盟",
+      "GameID": 1,
+      "BO": 5,
+      "Matchs": {
+        "RAY": "38391562"
+      },
+      "Bets": [
+        {
+          "ID": 3739783642,
+          "MatchID": 1823644400,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3041637324,
+          "HomeName": "NRG",
+          "AwayID": 295765469,
+          "AwayName": "Winthrop University",
+          "Status": "Locked",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "18280",
+              "HomeID": "73936282",
+              "AwayID": "73936283",
+              "HomeOdds": 1.18,
+              "AwayOdds": 4.49,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 3739783643,
+          "MatchID": 1823644400,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 3041637325,
+          "HomeName": "NRG",
+          "AwayID": 295765470,
+          "AwayName": "Winthrop University",
+          "Status": "Locked",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "18303",
+              "HomeID": "73936284",
+              "AwayID": "73936285",
+              "HomeOdds": 1.06,
+              "AwayOdds": 7.9,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 3739783644,
+          "MatchID": 1823644400,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 3041637326,
+          "HomeName": "NRG",
+          "AwayID": 295765471,
+          "AwayName": "Winthrop University",
+          "Status": "Locked",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "18304",
+              "HomeID": "73936305",
+              "AwayID": "73936306",
+              "HomeOdds": 1.05,
+              "AwayOdds": 8.5,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 3739783645,
+          "MatchID": 1823644400,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 3041637327,
+          "HomeName": "NRG",
+          "AwayID": 295765472,
+          "AwayName": "Winthrop University",
+          "Status": "Normal",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "18305",
+              "HomeID": "73936325",
+              "AwayID": "73936326",
+              "HomeOdds": 1.5,
+              "AwayOdds": 2.48,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3739783646,
+          "MatchID": 1823644400,
+          "Map": 4,
+          "Name": "地图4",
+          "HomeID": 3041637328,
+          "HomeName": "NRG",
+          "AwayID": 295765473,
+          "AwayName": "Winthrop University",
+          "Status": "Normal",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "20967",
+              "HomeID": "73936347",
+              "AwayID": "73936348",
+              "HomeOdds": 1.55,
+              "AwayOdds": 2.35,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 1823643381,
+      "Title": "NiP vs Sharks Esports",
+      "StartTime": 1780001040000,
+      "Game": "CS:GO",
+      "GameID": 3,
+      "BO": 3,
+      "Matchs": {
+        "RAY": "38391446"
+      },
+      "Bets": [
+        {
+          "ID": 3738804383,
+          "MatchID": 1823643381,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3040658065,
+          "HomeName": "NiP",
+          "AwayID": 294786210,
+          "AwayName": "Sharks Esports",
+          "Status": "Normal",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "16847",
+              "HomeID": "73927161",
+              "AwayID": "73927162",
+              "HomeOdds": 1.12,
+              "AwayOdds": 5.65,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3738804384,
+          "MatchID": 1823643381,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 3040658066,
+          "HomeName": "NiP",
+          "AwayID": 294786211,
+          "AwayName": "Sharks Esports",
+          "Status": "Locked",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "16854",
+              "HomeID": "73927173",
+              "AwayID": "73927174",
+              "HomeOdds": 1,
+              "AwayOdds": 14.29,
+              "Status": "Locked"
+            }
+          }
+        },
+        {
+          "ID": 3738804385,
+          "MatchID": 1823643381,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 3040658067,
+          "HomeName": "NiP",
+          "AwayID": 294786212,
+          "AwayName": "Sharks Esports",
+          "Status": "Normal",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "16877",
+              "HomeID": "73928305",
+              "AwayID": "73928306",
+              "HomeOdds": 1.48,
+              "AwayOdds": 2.54,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 3754672271,
+      "Title": "ShindeN vs Imperial Esports",
+      "StartTime": 1780001100000,
+      "Game": "CS:GO",
+      "GameID": 3,
+      "BO": 5,
+      "Matchs": {
+        "OB": "4156833779976501"
+      },
+      "Bets": [
+        {
+          "ID": 670179794,
+          "MatchID": 3754672271,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 634669984,
+          "HomeName": "ShindeN",
+          "AwayID": 909292655,
+          "AwayName": "Imperial Esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5443301040580102",
+              "HomeID": "5443301040580733",
+              "AwayID": "5443301040580734",
+              "HomeOdds": 2.014,
+              "AwayOdds": 1.78,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 670179795,
+          "MatchID": 3754672271,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 634669985,
+          "HomeName": "ShindeN",
+          "AwayID": 909292656,
+          "AwayName": "Imperial Esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5443301040805938",
+              "HomeID": "5443301040806798",
+              "AwayID": "5443301040806799",
+              "HomeOdds": 2.014,
+              "AwayOdds": 1.78,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 670179796,
+          "MatchID": 3754672271,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 634669986,
+          "HomeName": "ShindeN",
+          "AwayID": 909292657,
+          "AwayName": "Imperial Esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5443301040851221",
+              "HomeID": "5443301040851676",
+              "AwayID": "5443301040851677",
+              "HomeOdds": 2.014,
+              "AwayOdds": 1.78,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 670179797,
+          "MatchID": 3754672271,
+          "Map": 4,
+          "Name": "地图4",
+          "HomeID": 634669987,
+          "HomeName": "ShindeN",
+          "AwayID": 909292658,
+          "AwayName": "Imperial Esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5443301040892930",
+              "HomeID": "5443301040893385",
+              "AwayID": "5443301040893386",
+              "HomeOdds": 1.977,
+              "AwayOdds": 1.81,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 670179798,
+          "MatchID": 3754672271,
+          "Map": 5,
+          "Name": "地图5",
+          "HomeID": 634669988,
+          "HomeName": "ShindeN",
+          "AwayID": 909292659,
+          "AwayName": "Imperial Esports",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5443301040934185",
+              "HomeID": "5443301040934612",
+              "AwayID": "5443301040934613",
+              "HomeOdds": 1.942,
+              "AwayOdds": 1.84,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 721116027,
+      "Title": "M80 vs Shopify Rebellion Black",
+      "StartTime": 1780002000000,
+      "Game": "无畏契约",
+      "GameID": 8,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5435072627116581"
+      },
+      "Bets": [
+        {
+          "ID": 1705423293,
+          "MatchID": 721116027,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 1669913483,
+          "HomeName": "M80",
+          "AwayID": 1944536154,
+          "AwayName": "Shopify Rebellion Black",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151348145214300",
+              "HomeID": "4151348145215122",
+              "AwayID": "4151348145215123",
+              "HomeOdds": 1.7,
+              "AwayOdds": 2.102,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1705423294,
+          "MatchID": 721116027,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 1669913484,
+          "HomeName": "M80",
+          "AwayID": 1944536155,
+          "AwayName": "Shopify Rebellion Black",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437751309313326",
+              "HomeID": "5437751309314023",
+              "AwayID": "5437751309314024",
+              "HomeOdds": 1.75,
+              "AwayOdds": 2.03,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 1705423296,
+          "MatchID": 721116027,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 1669913486,
+          "HomeName": "M80",
+          "AwayID": 1944536157,
+          "AwayName": "Shopify Rebellion Black",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437751309424688",
+              "HomeID": "5437751309425169",
+              "AwayID": "5437751309425170",
+              "HomeOdds": 1.8,
+              "AwayOdds": 1.967,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 869810467,
+      "Title": "QoR vs NRG Academy",
+      "StartTime": 1780002000000,
+      "Game": "无畏契约",
+      "GameID": 8,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5435082446202602"
+      },
+      "Bets": [
+        {
+          "ID": 2866859365,
+          "MatchID": 869810467,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 2831349555,
+          "HomeName": "QoR",
+          "AwayID": 3105972226,
+          "AwayName": "NRG Academy",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437812904864876",
+              "HomeID": "5437812904865647",
+              "AwayID": "5437812904865648",
+              "HomeOdds": 1.65,
+              "AwayOdds": 2.184,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 2866859366,
+          "MatchID": 869810467,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 2831349556,
+          "HomeName": "QoR",
+          "AwayID": 3105972227,
+          "AwayName": "NRG Academy",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437819731322352",
+              "HomeID": "5437819731323083",
+              "AwayID": "5437819731323084",
+              "HomeOdds": 1.75,
+              "AwayOdds": 2.03,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 2866859367,
+          "MatchID": 869810467,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 2831349557,
+          "HomeName": "QoR",
+          "AwayID": 3105972228,
+          "AwayName": "NRG Academy",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437819731384855",
+              "HomeID": "5437819731385437",
+              "AwayID": "5437819731385438",
+              "HomeOdds": 1.75,
+              "AwayOdds": 2.03,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 2866859368,
+          "MatchID": 869810467,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 2831349558,
+          "HomeName": "QoR",
+          "AwayID": 3105972229,
+          "AwayName": "NRG Academy",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "5437819731432389",
+              "HomeID": "5437819731432905",
+              "AwayID": "5437819731432906",
+              "HomeOdds": 1.8,
+              "AwayOdds": 1.967,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 639531676,
+      "Title": "STREAMER ARENA vs Bon Bon Bum Contra",
+      "StartTime": 1780005600000,
+      "Game": "无畏契约",
+      "GameID": 8,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5439864272270636"
+      },
+      "Bets": [
+        {
+          "ID": 612273310,
+          "MatchID": 639531676,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 576763500,
+          "HomeName": "STREAMER ARENA",
+          "AwayID": 851386171,
+          "AwayName": "Bon Bon Bum Contra",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4154292953608912",
+              "HomeID": "4154292953609922",
+              "AwayID": "4154292953609923",
+              "HomeOdds": 4.338,
+              "AwayOdds": 1.2,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 612273311,
+          "MatchID": 639531676,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 576763501,
+          "HomeName": "STREAMER ARENA",
+          "AwayID": 851386172,
+          "AwayName": "Bon Bon Bum Contra",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4154307170375582",
+              "HomeID": "4154307170376369",
+              "AwayID": "4154307170376370",
+              "HomeOdds": 3.149,
+              "AwayOdds": 1.34,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 612273312,
+          "MatchID": 639531676,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 576763502,
+          "HomeName": "STREAMER ARENA",
+          "AwayID": 851386173,
+          "AwayName": "Bon Bon Bum Contra",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4154307170454503",
+              "HomeID": "4154307170455118",
+              "AwayID": "4154307170455119",
+              "HomeOdds": 3.149,
+              "AwayOdds": 1.34,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 612273313,
+          "MatchID": 639531676,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 576763503,
+          "HomeName": "STREAMER ARENA",
+          "AwayID": 851386174,
+          "AwayName": "Bon Bon Bum Contra",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4154307170513666",
+              "HomeID": "4154307170514335",
+              "AwayID": "4154307170514336",
+              "HomeOdds": 2.903,
+              "AwayOdds": 1.39,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 1823644430,
+      "Title": "9z Team vs KRU Blaze",
+      "StartTime": 1780005600000,
+      "Game": "无畏契约",
+      "GameID": 8,
+      "BO": 3,
+      "Matchs": {
+        "RAY": "38391571"
+      },
+      "Bets": [
+        {
+          "ID": 3739812472,
+          "MatchID": 1823644430,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3041666154,
+          "HomeName": "9z Team",
+          "AwayID": 295794299,
+          "AwayName": "KRU Blaze",
+          "Status": "Normal",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "16857",
+              "HomeID": "73936607",
+              "AwayID": "73936608",
+              "HomeOdds": 1.05,
+              "AwayOdds": 8.5,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3739812473,
+          "MatchID": 1823644430,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 3041666155,
+          "HomeName": "9z Team",
+          "AwayID": 295794300,
+          "AwayName": "KRU Blaze",
+          "Status": "Normal",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "2587786",
+              "HomeID": "73936609",
+              "AwayID": "73936610",
+              "HomeOdds": 1.15,
+              "AwayOdds": 4.99,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3739812474,
+          "MatchID": 1823644430,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 3041666156,
+          "HomeName": "9z Team",
+          "AwayID": 295794301,
+          "AwayName": "KRU Blaze",
+          "Status": "Normal",
+          "Sources": {
+            "RAY": {
+              "Type": "RAY",
+              "BetID": "2587856",
+              "HomeID": "73936669",
+              "AwayID": "73936670",
+              "HomeOdds": 1.15,
+              "AwayOdds": 4.99,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    },
+    {
+      "ID": 3275242845,
+      "Title": "⁠9z Globant vs KRÜ Blaze",
+      "StartTime": 1780005601000,
+      "Game": "无畏契约",
+      "GameID": 8,
+      "BO": 3,
+      "Matchs": {
+        "OB": "5429434627879922"
+      },
+      "Bets": [
+        {
+          "ID": 3794969375,
+          "MatchID": 3275242845,
+          "Map": 0,
+          "Name": "全场胜负",
+          "HomeID": 3759459565,
+          "HomeName": "⁠9z Globant",
+          "AwayID": 4034082236,
+          "AwayName": "KRÜ Blaze",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151717324003027",
+              "HomeID": "4151717324004046",
+              "AwayID": "4151717324004047",
+              "HomeOdds": 1.044,
+              "AwayOdds": 9.422,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3794969376,
+          "MatchID": 3275242845,
+          "Map": 1,
+          "Name": "地图1",
+          "HomeID": 3759459566,
+          "HomeName": "⁠9z Globant",
+          "AwayID": 4034082237,
+          "AwayName": "KRÜ Blaze",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151720665837903",
+              "HomeID": "4151720665838655",
+              "AwayID": "4151720665838656",
+              "HomeOdds": 1.12,
+              "AwayOdds": 5.848,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3794969377,
+          "MatchID": 3275242845,
+          "Map": 2,
+          "Name": "地图2",
+          "HomeID": 3759459567,
+          "HomeName": "⁠9z Globant",
+          "AwayID": 4034082238,
+          "AwayName": "KRÜ Blaze",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151720665915362",
+              "HomeID": "4151720665915940",
+              "AwayID": "4151720665915941",
+              "HomeOdds": 1.12,
+              "AwayOdds": 5.848,
+              "Status": "Normal"
+            }
+          }
+        },
+        {
+          "ID": 3794969378,
+          "MatchID": 3275242845,
+          "Map": 3,
+          "Name": "地图3",
+          "HomeID": 3759459568,
+          "HomeName": "⁠9z Globant",
+          "AwayID": 4034082239,
+          "AwayName": "KRÜ Blaze",
+          "Status": "Normal",
+          "Sources": {
+            "OB": {
+              "Type": "OB",
+              "BetID": "4151720665972345",
+              "HomeID": "4151720665972827",
+              "AwayID": "4151720665972828",
+              "HomeOdds": 1.17,
+              "AwayOdds": 4.781,
+              "Status": "Normal"
+            }
+          }
+        }
+      ],
+      "Round": 0,
+      "RoundStart": 0,
+      "Reverse": []
+    }
+  ]
+}

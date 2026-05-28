@@ -1,0 +1,109 @@
+{
+  "version": 2,
+  "updatedAt": "2026-05-24",
+  "description": "聚合玩法：统一 market.code + 各平台 betName 正则。在源站原始 API 上判定（非 A8 已整理数据）。",
+  "judgmentModel": "feed 拉取 OB/RAY 源站原始盘口 → 按 market.code 选盘：OB 优先 odd_type_id（按游戏配置），否则 betName 正则；RAY 用 group_name 正则。",
+  "markets": [
+    {
+      "code": "match_winner",
+      "name": "获胜者",
+      "nameEn": "Match Winner",
+      "aggregated": true,
+      "platforms": {
+        "OB": {
+          "primaryMatch": "odd_type_id",
+          "oddTypeIdField": "odd_type_id",
+          "gameOddTypes": {
+            "cs2": {
+              "full": "258531869137157",
+              "map": "258790779782319",
+              "verifiedMatchId": "5361283726341253",
+              "verifiedAt": "2026-05-24"
+            },
+            "kog": {
+              "full": "261696531557134",
+              "map": "261868866992663",
+              "verifiedMatchId": "5340126389039577",
+              "verifiedAt": "2026-05-24"
+            },
+            "valorant": {
+              "full": "271248710253353",
+              "map": "8033515352779661",
+              "verifiedMatchId": "5388646815758798",
+              "verifiedAt": "2026-05-24"
+            },
+            "lol": {
+              "full": "258672400990210",
+              "map": "259107378151801",
+              "verifiedMatchId": "5352516856304793",
+              "verifiedAt": "2026-05-24"
+            },
+            "dota2": {
+              "full": "258715881947201",
+              "map": "259294666713360",
+              "verifiedMatchId": "5393542888522897",
+              "verifiedAt": "2026-05-24"
+            }
+          },
+          "betName": "(\\[全场\\].+获胜)|(\\[地图\\d+\\].+获胜)|(.+全局.+获胜)|(.+单局.+获胜)",
+          "testOn": "betKey",
+          "betKeyFormat": "[{roundLabel}]-{cn_name}",
+          "roundLabel": { "0": "全场", "n": "地图{n}" },
+          "cnNameField": "cn_name",
+          "excludeIf": [
+            { "field": "status", "eq": 12 },
+            { "field": "visible", "eq": 0 }
+          ],
+          "betKeyExcludeContains": ["+"],
+          "requireOddsNames": ["@T1", "@T2"],
+          "lockedWhen": {
+            "not": { "status": 6, "visible": 1, "suspended": 0 },
+            "doc": "scripts/platforms/ob/MARKET_STATUS.md"
+          },
+          "reference": "OB game/view.odd_type_id；全量见 platforms/ob/ob_odd_type_ids.json，刷新: collect_odd_type_ids.js"
+        },
+        "RAY": {
+          "betName": "^获胜者$",
+          "testOn": "group_name",
+          "excludeIf": [{ "field": "status", "eq": 4 }],
+          "lockedWhen": { "not": { "status": 1 } },
+          "reference": "RAY 源站 v2/odds 字段 group_name；A8 前端展示层数据已整理，勿以其为规则来源"
+        },
+        "TF": {
+          "betName": "(独赢|获胜者)",
+          "testOn": "market_name",
+          "lockedWhen": { "field": "status", "neq": "open" },
+          "reference": "TF 源站 events/market_name；全场为「独赢」，地图为「第N局 独赢」"
+        },
+        "IA": {
+          "betName": "(\\[全场\\].+获胜$)|(\\[地图\\d+\\].+获胜者$)",
+          "testOn": "betKey",
+          "reference": "IA 源站 getPointsListSplit；child_plays match 字段区分全场/地图"
+        },
+        "IMT": {
+          "betName": "地图",
+          "testOn": "betName",
+          "note": "A8 仅采集 map>0 的地图获胜盘（gamenr=N）",
+          "reference": "IMT GetAllLiveEvents mls.ws si=707/708"
+        },
+        "SABA": {
+          "betName": "Moneyline|Map",
+          "testOn": "betName",
+          "note": "bettype 20 全场 / 9001 地图；赔率 key {oddsid}:Home|Away",
+          "reference": "SABA 自有 WebSocket o/m 消息"
+        },
+        "Stake": {
+          "betName": "比赛获胜者|地图\\d获胜者",
+          "testOn": "betName",
+          "reference": "Stake GraphQL SportIndex groups winner/maps"
+        },
+        "IM": {
+          "betName": "(全场|总比赛|BO\\d|第\\s*.+\\s*局.*胜|局.*胜利|比赛.*胜)",
+          "testOn": "betName",
+          "note": "A8 聚合 Socket：全场(BO3 总比赛) + 各地图胜负",
+          "reference": "A8 bundle EZe / channel IM"
+        }
+      }
+    }
+  ]
+}

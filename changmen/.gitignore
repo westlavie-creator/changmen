@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build / cache
+dist/
+**/dist/
+.vite/
+**/.vite/
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets & local runtime data (do not commit)
+gamebet_backend/data/esport/platforms.json
+gamebet_backend/data/esport/user_kv.json
+gamebet_backend/data/esport/sessions.json
+gamebet_backend/data/esport/a8_config.json
+gamebet_backend/data/esport/pb_credential.b64
+gamebet_backend/data/esport/bets.json
+gamebet_backend/data/esport/matches.json
+gamebet_backend/data/esport/live_timers.json
+.env
+.env.*
+!.env.example
+
+# Gamebet extension signing key (public key is in gamebet_chromeplug/manifest.json)
+gamebet_chromeplug/key.pem
+
+# Large local captures / dumps
+obdata.json
+t.json
+TJ01.JSON
+a8-capture-report-*.json
+arch-scan-report-*.json
+*.7z

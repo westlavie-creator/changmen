@@ -1,0 +1,16 @@
+{
+  "api": [
+    "https://dtpawsapip06.amx37vo.com:8105",
+    "https://dtpsg1gcpapip02.nxz7tmwut.com:10152"
+  ],
+  "cdn": [
+    "https://dtopws-gcpstatp01.mw2wm.com",
+    "https://dtophwstat02.jnccnt.com"
+  ],
+  "img_url": [
+    "https://uphw-cdn3.jomscxu.com/"
+  ],
+  "mqtt": [
+    "wss://pro-dj-aws-mqtt.x7hsa3.com:8084/mqtt"
+  ]
+}
