@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "A8 对外通信采集器",
+  "version": "1.1.0",
+  "description": "在已登录 A8 的浏览器中本地采集 fetch/XHR/WebSocket/插件请求，用于分析实际上传内容。数据仅存本机。",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "downloads",
+    "tabs",
+    "webRequest",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "A8 通信采集",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["hook.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

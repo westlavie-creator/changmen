@@ -1,0 +1,83 @@
+{
+  "OB": {
+    "gateway": "https://your-ob-gateway.example.com:8105",
+    "token": "",
+    "gameOddTypes": {},
+    "games": [],
+    "provider": "OB",
+    "updatedAt": 0,
+    "betName": "(\\[全场\\].+获胜)|(\\[地图\\d+\\].+获胜)|(.+全局.+获胜)|(.+单局.+获胜)"
+  },
+  "RAY": {
+    "gateway": "https://cfinfo.365raylinks.com/v2",
+    "token": "",
+    "betName": "^获胜者$",
+    "games": [],
+    "provider": "RAY",
+    "updatedAt": 0
+  },
+  "TF": {
+    "gateway": "",
+    "token": "",
+    "provider": "TF",
+    "updatedAt": 0
+  },
+  "IA": {
+    "gateway": "",
+    "token": "",
+    "provider": "IA",
+    "updatedAt": 0
+  },
+  "PB": {
+    "gateway": "",
+    "token": "",
+    "referer": "",
+    "cookie": "",
+    "userAgent": "",
+    "provider": "PB",
+    "updatedAt": 0,
+    "betName": ".*",
+    "games": []
+  },
+  "IMT": {
+    "gateway": "",
+    "token": "",
+    "provider": "IMT",
+    "updatedAt": 0
+  },
+  "SABA": {
+    "gateway": "",
+    "token": "",
+    "provider": "SABA",
+    "updatedAt": 0
+  },
+  "IM": {
+    "gateway": "https://47.115.75.57",
+    "token": "",
+    "betName": ".*",
+    "games": [],
+    "provider": "IM",
+    "updatedAt": 0
+  },
+  "XBet": {
+    "gateway": "https://47.115.75.57",
+    "token": "",
+    "betName": ".*",
+    "games": [],
+    "provider": "XBet",
+    "updatedAt": 0
+  },
+  "Stake": {
+    "gateway": "",
+    "token": "",
+    "accessToken": "",
+    "provider": "Stake",
+    "updatedAt": 0
+  },
+  "HG": {
+    "gateway": "",
+    "token": "",
+    "provider": "HG",
+    "updatedAt": 0
+  }
+}

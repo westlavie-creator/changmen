@@ -1,0 +1,48 @@
+#app {
+  height: 100%;
+}
+
+.flex {
+  display: flex;
+}
+.flex-wrap {
+  flex-wrap: wrap;
+}
+.flex-between {
+  justify-content: space-between;
+}
+.flex-center {
+  justify-content: center;
+}
+.flex-middle {
+  align-items: center;
+}
+.flex-column {
+  flex-direction: column;
+}
+
+/* 对齐 A8：OB 平台角标用官方图，勿用占位文字 */
+.provider-icon.OB {
+  background-image: url(/esport2/assets/D1aW4vdu.png);
+}
+
+.provider-icon.OB.limit {
+  outline: 2px solid #f59e0b;
+  outline-offset: -1px;
+}
+
+/* A8 原图 Dv2UbQNP.png 未随仓库分发时避免裂图 */
+.provider-icon.IM {
+  background-image: none !important;
+  background-color: #2563eb;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.provider-icon.IM::after {
+  content: "IM";
+}
