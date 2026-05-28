@@ -1,13 +1,16 @@
 import { defineStore } from "pinia";
 import { getMatchs } from "@/api/esport";
+import { getMatchDefaultOdds } from "@/api/report";
 import { toViewMatches, type ViewMatch } from "@/models/match";
 import type { BetSide } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
+import type { MatchScoreBoard, PlatformScoreUpdate, ScoreRound } from "@/types/matchScore";
 import { PLATFORMS } from "@/shared/platform";
 import { useCollectStore } from "@/stores/collectStore";
 import { useUserStore } from "@/stores/userStore";
 
 const POLL_MS = 30_000;
+const DEFAULT_ODDS_MS = 10 * 60 * 1000;
 const BET_TARGET_KEY = "BetTarget";
 
 /** 对齐 A8 Pinia `Vg`（比赛树 + 轮询 + BetTarget） */
@@ -23,6 +26,11 @@ export const useMatchStore = defineStore("match", {
     /** 从 fo 同步到 ViewBetItem.fallback，对齐 A8 高频 updateOdds */
     oddsRefreshTimer: null as ReturnType<typeof setInterval> | null,
     tick: 0,
+    /** matchId → 局比分（对齐 A8 `Vg.score` / `eBe`） */
+    score: new Map<number, MatchScoreBoard>(),
+    /** key `${betId}:Home|Away`（对齐 A8 `defaultOdds`） */
+    defaultOdds: new Map<string, number>(),
+    defaultOddsFetchedAt: 0,
   }),
 
   getters: {
@@ -91,6 +99,55 @@ export const useMatchStore = defineStore("match", {
       this.tick += 1;
     },
 
+    getRoundScore(matchId: number, round: number): ScoreRound | undefined {
+      return this.score.get(matchId)?.score.get(round);
+    },
+
+    getDefaultOdds(betId: number, side: BetSide): number {
+      return this.defaultOdds.get(`${betId}:${side}`) ?? 0;
+    },
+
+    /** 对齐 A8 `Vg.updateScore` */
+    updateScore(platform: PlatformId, rows: PlatformScoreUpdate[]) {
+      for (const row of rows) {
+        const sourceId = row.SourceID != null ? String(row.SourceID) : "";
+        if (!sourceId) continue;
+        const match = this.matchs.find((m) => String(m.providers[platform] ?? "") === sourceId);
+        if (!match) continue;
+        const reversed = match.reverse.includes(platform);
+        const board = new Map<number, ScoreRound>();
+        for (const [roundKey, raw] of Object.entries(row.Score ?? {})) {
+          const home = raw.Home ?? "";
+          const away = raw.Away ?? "";
+          board.set(
+            Number(roundKey),
+            reversed ? { Home: away, Away: home } : { Home: home, Away: away },
+          );
+        }
+        this.score.set(match.id, { score: board });
+      }
+      this.tick += 1;
+    },
+
+    async fetchMatchDefaultOdds() {
+      const user = useUserStore();
+      if (!user.isLoggedIn) return;
+      const ids = this.matchs.map((m) => m.id);
+      if (!ids.length) return;
+      try {
+        const info = await getMatchDefaultOdds(ids);
+        const next = new Map<string, number>();
+        for (const [key, value] of Object.entries(info ?? {})) {
+          next.set(key, Number(value) || 0);
+        }
+        this.defaultOdds = next;
+        this.defaultOddsFetchedAt = Date.now();
+        this.tick += 1;
+      } catch {
+        /* 后端未实现时保持空 Map */
+      }
+    },
+
     async fetchMatches(force = false) {
       const user = useUserStore();
       if (!user.isLoggedIn) return;
@@ -108,6 +165,9 @@ export const useMatchStore = defineStore("match", {
           await syncObMqttSubscriptionsForGetMatchs(this.matchs);
         }
         this.refreshOddsOnBets();
+        if (Date.now() - this.defaultOddsFetchedAt > DEFAULT_ODDS_MS) {
+          await this.fetchMatchDefaultOdds();
+        }
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
       } finally {
