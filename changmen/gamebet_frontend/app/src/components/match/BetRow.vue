@@ -8,8 +8,10 @@ import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useBettingStore } from "@/stores/bettingStore";
-import { arbPercent, formatSecond } from "@/shared/format";
+import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
 import type { PlatformId } from "@/types/esport";
+
+const BET_SIDES: BetSide[] = ["Home", "Away"];
 
 const props = defineProps<{
   match: ViewMatch;
@@ -33,21 +35,6 @@ function itemOdds(item: ViewBet["items"][0], side: BetSide) {
   return item.getOdds(side);
 }
 
-function oddsFlashClass(item: ViewBet["items"][0], side: BetSide) {
-  void revision.value;
-  const foSide = side === "Home" ? "home" : "away";
-  const dir = oddsStore.getFlashForBetSide(
-    item.type,
-    item.betId,
-    foSide,
-    item.homeId,
-    item.awayId,
-  );
-  if (dir === "up") return "odds-up";
-  if (dir === "down") return "odds-down";
-  return "";
-}
-
 const arb = computed(() => {
   let bestHome = 0;
   let bestAway = 0;
@@ -60,10 +47,47 @@ const arb = computed(() => {
   return arbPercent(bestHome, bestAway);
 });
 
-const liveLabel = computed(() => {
-  if (!props.bet.isLive || !props.bet.startTime) return "";
-  return formatSecond((Date.now() - props.bet.startTime) / 1000);
+const liveSeconds = computed(() => {
+  if (!props.bet.isLive || !props.bet.startTime) return 0;
+  return (Date.now() - props.bet.startTime) / 1000;
 });
+
+const roundScore = computed(() => {
+  void matchTick.value;
+  return matchStore.getRoundScore(props.match.id, props.bet.round);
+});
+
+function defaultOddsValue(betId: number, side: BetSide): number {
+  void matchTick.value;
+  return matchStore.getDefaultOdds(betId, side);
+}
+
+const showDefaultOdds = computed(() => {
+  return (
+    defaultOddsValue(props.bet.id, "Home") > 0 || defaultOddsValue(props.bet.id, "Away") > 0
+  );
+});
+
+function defaultOddsPercent(betId: number, side: BetSide): string | undefined {
+  const home = defaultOddsValue(betId, "Home");
+  const away = defaultOddsValue(betId, "Away");
+  if (!home || !away) return undefined;
+  const implied = 1 / (1 / home + 1 / away);
+  const line = defaultOddsValue(betId, side);
+  if (!line) return undefined;
+  return percent(implied / line, 0);
+}
+
+function defaultOddsHigh(betId: number, side: BetSide): boolean {
+  const v = defaultOddsValue(betId, side);
+  return v > 2;
+}
+
+function defaultOddsLabel(betId: number, side: BetSide): string {
+  const odds = toFixed(defaultOddsValue(betId, side), 3, "round");
+  const pct = defaultOddsPercent(betId, side);
+  return pct ? `${odds} / ${pct}` : odds;
+}
 
 function onTarget(platform: ViewBet["items"][0]["type"], side: BetSide) {
   matchStore.setBetTarget(platform, props.bet.id, side);
@@ -82,11 +106,38 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
 
 <template>
   <div class="bet">
-    <span v-if="bet.isLive && bet.startTime" class="live-tag">{{ liveLabel }}</span>
+    <el-tag
+      v-if="bet.isLive && bet.startTime"
+      class="live"
+      type="warning"
+      size="small"
+      effect="dark"
+      round
+      :disable-transitions="true"
+    >
+      {{ formatSecond(liveSeconds) }}
+    </el-tag>
     <div class="bet-title" @dblclick="loseOpen = true">
       {{ bet.getBetName() }} - {{ arb }}
     </div>
-    <div class="items flex flex-wrap">
+    <div class="bet-items">
+      <div v-if="roundScore" class="score">
+        <div class="home">{{ roundScore.Home }}</div>
+        <div class="away">{{ roundScore.Away }}</div>
+      </div>
+
+      <div v-if="showDefaultOdds" class="item flex defaultOdds">
+        <div class="item-type default" />
+        <div
+          v-for="side in BET_SIDES"
+          :key="side"
+          class="item-odds"
+          :class="[side.toLowerCase(), { high: defaultOddsHigh(bet.id, side) }]"
+        >
+          {{ defaultOddsLabel(bet.id, side) }}
+        </div>
+      </div>
+
       <div v-for="item in bet.items" :key="item.type + item.betId" class="item flex">
         <div
           class="item-type provider-icon"
@@ -100,51 +151,25 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
         />
         <div
           class="item-odds home"
-          :class="[
-            oddsFlashClass(item, 'Home'),
-            {
-              lock: !itemOdds(item, 'Home'),
-              target: matchStore.getBetTarget(item.type, bet.id) === 'Home',
-            },
-          ]"
+          :class="{
+            lock: !itemOdds(item, 'Home'),
+            target: matchStore.getBetTarget(item.type, bet.id) === 'Home',
+          }"
           @click="onTarget(item.type, 'Home')"
           @dblclick.stop="onOddsDblClick(item, 'Home')"
         >
-          <span
-            v-if="oddsFlashClass(item, 'Home') === 'odds-up'"
-            class="odds-arrow odds-arrow-up"
-            aria-hidden="true"
-          >▲</span>
-          <span
-            v-else-if="oddsFlashClass(item, 'Home') === 'odds-down'"
-            class="odds-arrow odds-arrow-down"
-            aria-hidden="true"
-          >▼</span>
-          <span class="odds-value">{{ itemOdds(item, "Home") || "" }}</span>
+          {{ itemOdds(item, "Home") || "" }}
         </div>
         <div
           class="item-odds away"
-          :class="[
-            oddsFlashClass(item, 'Away'),
-            {
-              lock: !itemOdds(item, 'Away'),
-              target: matchStore.getBetTarget(item.type, bet.id) === 'Away',
-            },
-          ]"
+          :class="{
+            lock: !itemOdds(item, 'Away'),
+            target: matchStore.getBetTarget(item.type, bet.id) === 'Away',
+          }"
           @click="onTarget(item.type, 'Away')"
           @dblclick.stop="onOddsDblClick(item, 'Away')"
         >
-          <span
-            v-if="oddsFlashClass(item, 'Away') === 'odds-up'"
-            class="odds-arrow odds-arrow-up"
-            aria-hidden="true"
-          >▲</span>
-          <span
-            v-else-if="oddsFlashClass(item, 'Away') === 'odds-down'"
-            class="odds-arrow odds-arrow-down"
-            aria-hidden="true"
-          >▼</span>
-          <span class="odds-value">{{ itemOdds(item, "Away") || "" }}</span>
+          {{ itemOdds(item, "Away") || "" }}
         </div>
       </div>
     </div>
@@ -163,59 +188,3 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
     />
   </div>
 </template>
-
-<style scoped>
-.live-tag {
-  display: inline-block;
-  margin-bottom: 4px;
-  padding: 0 8px;
-  font-size: 11px;
-  line-height: 20px;
-  border-radius: 10px;
-  background: #e6a23c;
-  color: #fff;
-}
-.bet-title {
-  cursor: default;
-  user-select: none;
-}
-.item-type {
-  cursor: pointer;
-}
-.item-odds {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-width: 2.8em;
-  cursor: pointer;
-  user-select: none;
-  transition: background-color 0.55s ease, color 0.55s ease;
-}
-.item-odds.target {
-  outline: 1px solid #67c23a;
-}
-.item-odds.odds-up {
-  background-color: #00bd7e !important;
-  color: #fff !important;
-}
-.item-odds.odds-down {
-  background-color: #f56c6c !important;
-  color: #fff !important;
-}
-.odds-arrow {
-  font-size: 10px;
-  line-height: 1;
-  font-weight: 700;
-}
-.odds-arrow-up {
-  color: #e8fff4;
-}
-.odds-arrow-down {
-  color: #fff0f0;
-}
-.odds-value {
-  font-variant-numeric: tabular-nums;
-}
-</style>

@@ -39,6 +39,12 @@ export async function getDefaultOdds(body: Record<string, unknown>) {
   return unwrap(await post<{ odds: number }>("Client_GetDefaultOdds", body));
 }
 
-export async function getMatchDefaultOdds(body: Record<string, unknown>) {
-  return unwrap(await post<Record<string, unknown>>("Client_GetMatchDefaultOdds", body));
+/** 对齐 bundle `Vt.getMatchDefaultOdds`：返回 `${betId}:Home|Away` → odds */
+export async function getMatchDefaultOdds(matchIds: number[]) {
+  if (!matchIds.length) return {} as Record<string, number>;
+  return unwrap(
+    await post<Record<string, number>>("Client_GetMatchDefaultOdds", {
+      matchs: JSON.stringify(matchIds),
+    }),
+  );
 }
