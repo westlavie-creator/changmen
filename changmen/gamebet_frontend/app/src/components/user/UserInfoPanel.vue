@@ -24,7 +24,7 @@ const userDiagOpen = ref(false);
 </script>
 
 <template>
-  <section class="userinfo user-panel">
+  <section class="userinfo">
     <div class="info flex flex-between flex-middle">
       <div class="userName">
         <div class="btn-group">

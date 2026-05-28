@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
 
-/** 对齐 bundle `BX` / `zHe` */
+/** 对齐 bundle `ExtensionsView` / class `version` */
 const WEB_BUNDLE_VERSION = "2.0.229";
 
 const extVersion = ref<string | null>(null);
@@ -63,29 +63,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <button
-    type="button"
-    class="version-badge"
-    :class="{ 'version-badge--new': hasUpdate }"
+  <div
+    class="version"
+    :class="{ new: hasUpdate }"
     :title="tooltip"
     @click="openDownload"
   >
     {{ extVersion ?? WEB_BUNDLE_VERSION }}
-  </button>
+  </div>
 </template>
-
-<style scoped>
-.version-badge {
-  border: 1px solid #475569;
-  background: #1e293b;
-  color: #94a3b8;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.version-badge--new {
-  color: #fbbf24;
-  border-color: #fbbf24;
-}
-</style>
