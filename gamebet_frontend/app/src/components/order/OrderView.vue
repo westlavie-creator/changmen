@@ -32,26 +32,28 @@ function playerLabel(row: OrderRow) {
 </script>
 
 <template>
-  <section class="order-panel">
-    <div class="order-toolbar flex flex-middle">
-      <input
-        class="order-date"
-        type="date"
-        :value="orderDate"
-        :disabled="loading"
-        @change="onDateInput"
-      />
-      <select v-model="filterAccountId" class="order-select" :disabled="loading">
-        <option v-for="opt in accountOptions" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-      <button type="button" class="order-refresh" :disabled="loading" @click="reload()">
-        ↻
-      </button>
-    </div>
+  <div class="date flex flex-center">
+    <input
+      class="order-date"
+      type="date"
+      :value="orderDate"
+      :disabled="loading"
+      @change="onDateInput"
+    />
+    <select v-model="filterAccountId" class="order-select" :disabled="loading">
+      <option v-for="opt in accountOptions" :key="opt.value" :value="opt.value">
+        {{ opt.label }}
+      </option>
+    </select>
+    <button
+      type="button"
+      class="am-icon-refresh order-refresh"
+      :disabled="loading"
+      @click="reload()"
+    />
+  </div>
 
-    <div class="orders" :class="{ loading }">
+  <div class="orders" :class="{ loading }">
       <p v-if="!filteredOrders.size && !loading" class="order-empty">当日暂无订单</p>
       <fieldset v-for="[link, rows] in filteredOrders" :key="link" class="orderlink">
         <legend :class="legendClass(rows)">{{ legendText(rows) }}</legend>
@@ -62,7 +64,7 @@ function playerLabel(row: OrderRow) {
             <div class="player">{{ playerLabel(row) }}</div>
           </div>
           <div class="match" v-html="row.Match" />
-          <div class="bet-row flex flex-between">
+          <div class="bet">
             <div class="betname" v-html="row.Bet" />
             <div class="item">
               <label v-html="row.Item" />
@@ -73,22 +75,14 @@ function playerLabel(row: OrderRow) {
           <div class="profit">投注金额：{{ row.BetMoney }} 盈亏：{{ row.Money }}</div>
         </div>
       </fieldset>
-    </div>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.order-panel {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border-bottom: 1px solid #ffffff14;
-}
-.order-toolbar {
+.date {
   gap: 6px;
   padding: 8px 10px;
-  border-bottom: 1px solid #ffffff14;
+  flex-shrink: 0;
 }
 .order-date,
 .order-select {
@@ -109,11 +103,6 @@ function playerLabel(row: OrderRow) {
   background: #334155;
   color: #e2e8f0;
   cursor: pointer;
-}
-.orders {
-  flex: 1;
-  overflow: auto;
-  padding: 8px 10px;
 }
 .orders.loading {
   opacity: 0.6;
@@ -184,11 +173,11 @@ function playerLabel(row: OrderRow) {
   margin: 4px 0 4px 10px;
   color: #e2e8f0;
 }
-.order .bet-row {
+.order .bet {
   margin-left: 10px;
-  gap: 8px;
 }
 .order .betname {
+  float: left;
   color: #94a3b8;
 }
 .order .item {

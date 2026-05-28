@@ -2,6 +2,21 @@
   overflow: auto;
 }
 
+/* HomeView 顶栏：AccountView(.providers) + ExtensionsView(.version) */
+.common-layout.home-view .el-header {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  height: auto;
+  min-height: var(--el-header-height, 60px);
+}
+
+.common-layout.home-view .el-header .providers {
+  flex: 1;
+  min-width: 0;
+}
+
 /* 账户卡片刷新动画（对齐 A8 AccountView.loading） */
 .providers .account.loading::before {
   content: "";

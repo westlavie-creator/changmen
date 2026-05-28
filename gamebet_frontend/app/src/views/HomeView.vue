@@ -3,9 +3,9 @@ import { onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { startCollectors, stopCollectors } from "@/collectors";
-import AppHeader from "@/components/layout/AppHeader.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import AccountBar from "@/components/account/AccountBar.vue";
+import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
 import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -62,42 +62,33 @@ async function logout() {
 </script>
 
 <template>
-  <div class="common-layout app-shell">
-    <div class="app-shell__row flex">
+  <!-- 对齐 bundle HomeView：el-aside(260) + el-header(AccountView + ExtensionsView) + el-main -->
+  <el-container class="common-layout home-view">
+    <el-aside width="260px">
       <AppSidebar @logout="logout" />
-      <div class="app-shell__main flex flex-column">
-        <AppHeader />
+    </el-aside>
+    <el-container>
+      <el-header>
         <AccountBar />
-        <main class="app-main">
-          <p v-if="loading && !matchs.length" class="app-hint">加载比赛列表…</p>
-          <p v-else-if="error" class="app-hint app-hint--err">{{ error }}</p>
-          <p v-else-if="!matchs.length" class="app-hint">
-            暂无比赛。请确认 gamebet_backend 已启动，且 OB/RAY 采集已开启。
-          </p>
-          <div v-else class="matchs">
-            <MatchCard v-for="m in matchs" :key="m.id" :match="m" />
-          </div>
-        </main>
-      </div>
-    </div>
-  </div>
+        <ExtensionsBadge />
+      </el-header>
+      <el-main>
+        <p v-if="loading && !matchs.length" class="app-hint">加载比赛列表…</p>
+        <p v-else-if="error" class="app-hint app-hint--err">{{ error }}</p>
+        <p v-else-if="!matchs.length" class="app-hint">
+          暂无比赛。请确认 gamebet_backend 已启动，且 OB/RAY 采集已开启。
+        </p>
+        <div v-else class="matchs">
+          <MatchCard v-for="m in matchs" :key="m.id" :match="m" />
+        </div>
+      </el-main>
+    </el-container>
+  </el-container>
 </template>
 
 <style scoped>
-.app-shell {
+.home-view {
   height: 100%;
-}
-.app-shell__row {
-  height: 100%;
-}
-.app-shell__main {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-}
-.app-main {
-  flex: 1;
-  overflow: auto;
 }
 .app-hint {
   padding: 24px;
