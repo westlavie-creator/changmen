@@ -27,7 +27,7 @@ const accountStore = useAccountStore();
 const loseOrderStore = useLoseOrderStore();
 const bettingStore = useBettingStore();
 const messageStore = useMessageStore();
-const { matchs, loading, error } = storeToRefs(matchStore);
+const { matchs, error } = storeToRefs(matchStore);
 const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 
 onMounted(async () => {
@@ -80,12 +80,8 @@ async function logout() {
         <ExtensionsBadge />
       </el-header>
       <el-main>
-        <p v-if="loading && !matchs.length" class="app-hint">加载比赛列表…</p>
-        <p v-else-if="error" class="app-hint app-hint--err">{{ error }}</p>
-        <p v-else-if="!matchs.length" class="app-hint">
-          暂无比赛。请确认 gamebet_backend 已启动，且 OB/RAY 采集已开启。
-        </p>
-        <div v-else class="matchs">
+        <p v-if="error" class="app-hint app-hint--err">{{ error }}</p>
+        <div v-if="matchs.length" class="matchs">
           <MatchCard v-for="m in matchs" :key="m.id" :match="m" />
         </div>
       </el-main>

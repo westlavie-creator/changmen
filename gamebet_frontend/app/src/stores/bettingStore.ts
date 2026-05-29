@@ -4,7 +4,7 @@ import { getDefaultOdds } from "@/api/report";
 import { BetOption, opponentSide } from "@/models/betOption";
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { createBetLinkId, type OrderBindRow } from "@/models/betResult";
+import { BetResult, createBetLinkId, type OrderBindRow } from "@/models/betResult";
 import { LoseOrder } from "@/models/loseOrder";
 import type { UserConfig } from "@/types/userConfig";
 import { useAccountStore } from "@/stores/accountStore";
@@ -15,6 +15,11 @@ import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 import { useMessageStore } from "@/stores/messageStore";
 import { wait } from "@/shared/wait";
+import {
+  passesLastOddsGate,
+  setLastBetOdds,
+} from "@/shared/bettingSession";
+import type { PlatformId } from "@/types/esport";
 
 const BET_ACCOUNT_PREFIX = "BETACCOUNT:";
 
@@ -76,6 +81,102 @@ async function allowMakeUpForLeg(
     return false;
   }
   return true;
+}
+
+function accountPassesMainBetFilter(
+  account: PlatformAccount,
+  bet: ViewBet,
+  match: ViewMatch,
+  leg: BetOption,
+  matchStore: ReturnType<typeof useMatchStore>,
+): boolean {
+  if (account.isPause() || account.markupOnly) return false;
+  if (!account.checkOdds(leg.odds, match.gameId)) return false;
+  if (!passesDefaultOddsAccount(account, bet.id, leg.target)) return false;
+  if (!passesLastOddsGate(account, bet.id, leg.target, leg.odds)) return false;
+  const target = matchStore.getBetTarget(account.provider, bet.id);
+  if (target && target !== leg.target) return false;
+  return true;
+}
+
+/**
+ * 对齐 bundle：一侧成功、一侧失败且开启 anyOdds 时，换平台重试失败腿（最多 3 轮）。
+ */
+async function retryFailedLegWithAnyOdds(
+  match: ViewMatch,
+  bet: ViewBet,
+  successLeg: BetOption,
+  failedLeg: BetOption,
+  config: UserConfig,
+  waitSec: number,
+): Promise<{ leg: BetOption; account: PlatformAccount; result: BetResult } | null> {
+  if (!config.anyOdds) return null;
+
+  const accountStore = useAccountStore();
+  const matchStore = useMatchStore();
+  const minOdds = 1 / (1 / config.anyOddsProfit - 1 / successLeg.odds);
+
+  const tried: PlatformId[] = [];
+
+  for (let round = 0; round < 3; round++) {
+    bet.items.forEach((item) => item.updateOdds());
+
+    const candidates = bet.items
+      .filter(
+        (item) =>
+          !tried.includes(item.type) &&
+          item.getOdds(failedLeg.target) >= minOdds,
+      )
+      .sort(
+        (a, b) => b.getOdds(failedLeg.target) - a.getOdds(failedLeg.target),
+      );
+
+    if (!candidates.length) break;
+
+    let pickedAccount: PlatformAccount | undefined;
+    let pickedItem: ViewBetItem | undefined;
+    let stake = 0;
+    let odds = 0;
+
+    for (const item of candidates) {
+      odds = item.getOdds(failedLeg.target);
+      stake = Math.floor((successLeg.odds * successLeg.betMoney) / odds);
+      const acc = accountStore.getAccount(
+        item.type,
+        stake,
+        config.noSameBet
+          ? readUsedAccounts(bet.id, opponentSide(failedLeg.target))
+          : [],
+        (u) => {
+          if (u.isPause() || tried.includes(u.provider)) return false;
+          if (!u.checkOdds(odds, match.gameId)) return false;
+          if (!passesDefaultOddsAccount(u, bet.id, failedLeg.target)) return false;
+          const target = matchStore.getBetTarget(u.provider, bet.id);
+          if (target && target !== failedLeg.target) return false;
+          return true;
+        },
+      );
+      if (acc) {
+        pickedAccount = acc;
+        pickedItem = item;
+        break;
+      }
+    }
+
+    if (!pickedAccount || !pickedItem) break;
+
+    tried.push(pickedAccount.provider);
+    let retryLeg = new BetOption(match, bet, pickedItem, failedLeg.target, stake);
+    retryLeg = await accountStore.checkBetting(pickedAccount, retryLeg);
+    if (!retryLeg.data) continue;
+
+    const result = await accountStore.betting(pickedAccount, retryLeg, waitSec);
+    if (result?.success) {
+      return { leg: retryLeg, account: pickedAccount, result };
+    }
+  }
+
+  return null;
 }
 
 /** 对齐 A8 自动投注主循环（Vg + Io + jb） */
@@ -171,32 +272,18 @@ export const useBettingStore = defineStore("betting", {
             let legB = options[1];
             const linkId = createBetLinkId();
 
-            const accountA = accountStore.getAccount(
+            let accountA = accountStore.getAccount(
               legA.type,
               legA.betMoney,
               config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [],
-              (acc) => {
-                if (acc.isPause() || acc.markupOnly) return false;
-                if (!acc.checkOdds(legA.odds, match.gameId)) return false;
-                if (!passesDefaultOddsAccount(acc, bet.id, legA.target)) return false;
-                const target = matchStore.getBetTarget(acc.provider, bet.id);
-                if (target && target !== legA.target) return false;
-                return true;
-              },
+              (acc) => accountPassesMainBetFilter(acc, bet, match, legA, matchStore),
               options,
             );
-            const accountB = accountStore.getAccount(
+            let accountB = accountStore.getAccount(
               legB.type,
               legB.betMoney,
               config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legB.target)) : [],
-              (acc) => {
-                if (acc.isPause() || acc.markupOnly) return false;
-                if (!acc.checkOdds(legB.odds, match.gameId)) return false;
-                if (!passesDefaultOddsAccount(acc, bet.id, legB.target)) return false;
-                const target = matchStore.getBetTarget(acc.provider, bet.id);
-                if (target && target !== legB.target) return false;
-                return true;
-              },
+              (acc) => accountPassesMainBetFilter(acc, bet, match, legB, matchStore),
               options,
             );
             if (!accountA || !accountB) continue;
@@ -241,12 +328,44 @@ export const useBettingStore = defineStore("betting", {
               resultB = await accountStore.betting(accountB, legB, waitSec);
             }
 
+            if (resultA?.success && !resultB?.success) {
+              const retry = await retryFailedLegWithAnyOdds(
+                match,
+                bet,
+                legA,
+                legB,
+                config,
+                waitSec,
+              );
+              if (retry) {
+                resultB = retry.result;
+                legB = retry.leg;
+                accountB = retry.account;
+              }
+            } else if (resultB?.success && !resultA?.success) {
+              const retry = await retryFailedLegWithAnyOdds(
+                match,
+                bet,
+                legB,
+                legA,
+                config,
+                waitSec,
+              );
+              if (retry) {
+                resultA = retry.result;
+                legA = retry.leg;
+                accountA = retry.account;
+              }
+            }
+
             if (resultA?.success) {
               markUsedAccount(accountA.accountId, bet.id, legA.target);
+              setLastBetOdds(accountA.accountId, bet.id, legA.target, legA.odds);
               void accountStore.refreshBalance(accountA);
             }
             if (resultB?.success) {
               markUsedAccount(accountB.accountId, bet.id, legB.target);
+              setLastBetOdds(accountB.accountId, bet.id, legB.target, legB.odds);
               void accountStore.refreshBalance(accountB);
             }
 
@@ -428,6 +547,7 @@ export const useBettingStore = defineStore("betting", {
               if (acc.minOdds && odds < acc.minOdds) return false;
               if (acc.maxOdds && odds > acc.maxOdds) return false;
               if (!passesDefaultOddsAccount(acc, bet.id, order.target)) return false;
+              if (!passesLastOddsGate(acc, bet.id, order.target, odds)) return false;
               return true;
             },
           );
@@ -458,6 +578,7 @@ export const useBettingStore = defineStore("betting", {
           if (result?.success) {
             removeIds.push(betId);
             markUsedAccount(account.accountId, bet.id, order.target);
+            setLastBetOdds(account.accountId, bet.id, order.target, checked.odds);
             void accountStore.refreshBalance(account);
             if (waitSec > 0) await wait(waitSec * 1000);
             await saveOrderBind({
