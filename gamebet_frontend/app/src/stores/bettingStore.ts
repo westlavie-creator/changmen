@@ -1,9 +1,12 @@
 import { defineStore } from "pinia";
 import { saveOrderBind } from "@/api/esport";
+import { getDefaultOdds } from "@/api/report";
 import { BetOption, opponentSide } from "@/models/betOption";
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
+import type { PlatformAccount } from "@/models/platformAccount";
 import { createBetLinkId, type OrderBindRow } from "@/models/betResult";
 import { LoseOrder } from "@/models/loseOrder";
+import type { UserConfig } from "@/types/userConfig";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
@@ -31,6 +34,48 @@ function markUsedAccount(accountId: number, betRowId: number, side: string) {
     list.push(accountId);
     sessionStorage.setItem(key, JSON.stringify(list));
   }
+}
+
+/** 对齐 bundle：账号 minDefault / maxDefault 与初赔比较 */
+function passesDefaultOddsAccount(
+  account: PlatformAccount,
+  betId: number,
+  side: BetSide,
+): boolean {
+  const def = useMatchStore().getDefaultOdds(betId, side);
+  if (!def) return true;
+  if (account.minDefault && def < account.minDefault) return false;
+  if (account.maxDefault && def > account.maxDefault) return false;
+  return true;
+}
+
+/** 对齐 bundle `S()`：补单前初赔 / 当前赔阈值 */
+async function allowMakeUpForLeg(
+  match: ViewMatch,
+  bet: ViewBet,
+  target: BetSide,
+  currentOdds: number,
+  config: UserConfig,
+  setMessage: (msg: string) => void,
+): Promise<boolean> {
+  if (config.makeUp_defaultOdds !== 0) {
+    const def = await getDefaultOdds({
+      matchId: match.id,
+      betId: bet.id,
+      team: target,
+    });
+    if (def !== 0 && config.makeUp_defaultOdds <= def) {
+      setMessage(
+        `不予补单：初赔 ${def}，大于设定 ${config.makeUp_defaultOdds}`,
+      );
+      return false;
+    }
+  }
+  if (config.makeUp_odds !== 0 && config.makeUp_odds <= currentOdds) {
+    setMessage(`不予补单：当前赔 ${currentOdds}，大于设定 ${config.makeUp_odds}`);
+    return false;
+  }
+  return true;
 }
 
 /** 对齐 A8 自动投注主循环（Vg + Io + jb） */
@@ -133,6 +178,7 @@ export const useBettingStore = defineStore("betting", {
               (acc) => {
                 if (acc.isPause() || acc.markupOnly) return false;
                 if (!acc.checkOdds(legA.odds, match.gameId)) return false;
+                if (!passesDefaultOddsAccount(acc, bet.id, legA.target)) return false;
                 const target = matchStore.getBetTarget(acc.provider, bet.id);
                 if (target && target !== legA.target) return false;
                 return true;
@@ -146,6 +192,7 @@ export const useBettingStore = defineStore("betting", {
               (acc) => {
                 if (acc.isPause() || acc.markupOnly) return false;
                 if (!acc.checkOdds(legB.odds, match.gameId)) return false;
+                if (!passesDefaultOddsAccount(acc, bet.id, legB.target)) return false;
                 const target = matchStore.getBetTarget(acc.provider, bet.id);
                 if (target && target !== legB.target) return false;
                 return true;
@@ -222,6 +269,15 @@ export const useBettingStore = defineStore("betting", {
             }
 
             if (resultA?.success && !resultB?.success && config.makeUp) {
+              const okMakeUp = await allowMakeUpForLeg(
+                match,
+                bet,
+                legB.target,
+                legB.odds,
+                config,
+                (m) => this.setMessage(m),
+              );
+              if (!okMakeUp) continue;
               loseStore.createOrder(
                 new LoseOrder({
                   accountId: accountA.accountId,
@@ -240,6 +296,15 @@ export const useBettingStore = defineStore("betting", {
               );
               this.setMessage(`${legB.type} 下单失败，已加入补单队列`);
             } else if (resultB?.success && !resultA?.success && config.makeUp) {
+              const okMakeUp = await allowMakeUpForLeg(
+                match,
+                bet,
+                legA.target,
+                legA.odds,
+                config,
+                (m) => this.setMessage(m),
+              );
+              if (!okMakeUp) continue;
               loseStore.createOrder(
                 new LoseOrder({
                   accountId: accountB.accountId,
@@ -337,6 +402,19 @@ export const useBettingStore = defineStore("betting", {
           .filter((item) => item.getOdds(order.target) >= minOdds)
           .sort((a, b) => b.getOdds(order.target) - a.getOdds(order.target));
 
+        const okMakeUp = await allowMakeUpForLeg(
+          match,
+          bet,
+          order.target,
+          order.betOdds,
+          config,
+          (m) => this.setMessage(m),
+        );
+        if (!okMakeUp) {
+          removeIds.push(betId);
+          continue;
+        }
+
         for (const item of candidates) {
           if (removeIds.includes(betId)) break;
           const stake = order.getBetMoney(item.getOdds(order.target));
@@ -349,6 +427,7 @@ export const useBettingStore = defineStore("betting", {
               const odds = item.getOdds(order.target);
               if (acc.minOdds && odds < acc.minOdds) return false;
               if (acc.maxOdds && odds > acc.maxOdds) return false;
+              if (!passesDefaultOddsAccount(acc, bet.id, order.target)) return false;
               return true;
             },
           );

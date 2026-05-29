@@ -35,8 +35,13 @@ export async function getRankList(): Promise<UserProfitRow[]> {
   return rows;
 }
 
-export async function getDefaultOdds(body: Record<string, unknown>) {
-  return unwrap(await post<{ odds: number }>("Client_GetDefaultOdds", body));
+export async function getDefaultOdds(body: {
+  matchId: number;
+  betId: number;
+  team: string;
+}) {
+  const info = unwrap(await post<{ odds: number }>("Client_GetDefaultOdds", body));
+  return Number(info.odds) || 0;
 }
 
 /** 对齐 bundle `Vt.getMatchDefaultOdds`：返回 `${betId}:Home|Away` → odds */

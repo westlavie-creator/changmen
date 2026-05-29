@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import { ElMessageBox } from "element-plus";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useConfigStore } from "@/stores/configStore";
 import { formatDate } from "@/shared/format";
@@ -10,8 +11,15 @@ const { orders } = storeToRefs(loseStore);
 const { config } = storeToRefs(configStore);
 
 function remove(betId: number) {
-  if (!confirm("确认要删除补单吗？")) return;
-  loseStore.removeOrder(betId, true);
+  ElMessageBox.confirm("确认要删除补单吗？", "补单删除", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+  })
+    .then(() => {
+      loseStore.removeOrder(betId, true);
+    })
+    .catch(() => {});
 }
 </script>
 

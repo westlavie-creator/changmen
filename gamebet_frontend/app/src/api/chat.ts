@@ -1,8 +1,15 @@
 import { post, unwrap } from "@/api/client";
-import type { ChatMessageRow, PlayerOrderRow, UserListRow } from "@/types/esport";
+import type { ChatMessageRow, UserListRow } from "@/types/esport";
+import type { OrderRow } from "@/types/order";
+import type { MoneyRiskLog } from "@/shared/moneyRisk";
+
+export interface PlayerOrdersInfo {
+  logs: MoneyRiskLog[];
+  orders: OrderRow[];
+}
 
 export async function getPlayerOrder(body: Record<string, unknown>) {
-  return unwrap(await post<PlayerOrderRow[]>("Client_GetPlayerOrder", body));
+  return unwrap(await post<PlayerOrdersInfo>("Client_GetPlayerOrder", body));
 }
 
 export async function getUsers() {

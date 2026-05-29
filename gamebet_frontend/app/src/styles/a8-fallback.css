@@ -2,6 +2,12 @@
   overflow: auto;
 }
 
+/* A8 index.css 为旧版 Element UI：.el-tabs--top 使用 column-reverse。
+   Element Plus 子节点顺序已是「标签在上、内容在下」，沿用该规则会把标签挤到底部。 */
+.el-tabs.el-tabs--top {
+  flex-direction: column;
+}
+
 /* HomeView 顶栏：AccountView(.providers) + ExtensionsView(.version) */
 .common-layout.home-view .el-header {
   position: relative;

@@ -6,6 +6,8 @@ import App from "./App.vue";
 import router from "./router";
 import "./styles/a8.css";
 import "./styles/a8-fallback.css";
+import "./styles/a8-icon-fallback.css";
+import "./styles/user-diag.css";
 import "./styles/app.css";
 
 createApp(App).use(createPinia()).use(router).use(ElementPlus, { locale: zhCn }).mount("#app");

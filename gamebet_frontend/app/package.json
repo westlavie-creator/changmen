@@ -11,9 +11,11 @@
     "preview": "vite preview --base /app/"
   },
   "dependencies": {
+    "@vueuse/core": "^13.2.0",
     "axios": "^1.8.4",
     "dayjs": "^1.11.21",
     "element-plus": "^2.14.0",
+    "goeasy": "^2.14.9",
     "mqtt": "^5.14.1",
     "pinia": "^3.0.2",
     "socket.io-client": "^4.8.1",

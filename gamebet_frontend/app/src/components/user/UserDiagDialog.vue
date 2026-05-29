@@ -17,9 +17,9 @@ import UserDiagWalletTab from "@/components/user/tabs/UserDiagWalletTab.vue";
 import { useUserStore } from "@/stores/userStore";
 
 const props = defineProps<{ open: boolean }>();
+const user = useUserStore();
 const emit = defineEmits<{ close: [] }>();
 
-const user = useUserStore();
 const { setting } = storeToRefs(user);
 const active = ref("rank");
 
@@ -77,14 +77,26 @@ onMounted(() => {
     active.value = "rank";
   }
 });
+
+async function onDialogOpen() {
+  await user.loadExtras(true);
+}
+
+function onDialogClosed() {
+  emit("close");
+}
 </script>
 
 <template>
   <el-dialog
     v-model="visible"
+    class="user-diag-dialog"
     width="880"
     :show-close="false"
-    @closed="emit('close')"
+    append-to-body
+    destroy-on-close
+    @open="onDialogOpen"
+    @closed="onDialogClosed"
   >
     <el-tabs v-model="active" type="border-card">
       <el-tab-pane v-for="tab in visibleTabs" :key="tab.name" :label="tab.label" :name="tab.name">

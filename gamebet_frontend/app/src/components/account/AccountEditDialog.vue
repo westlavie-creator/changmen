@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { reactive, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import AppDialog from "@/components/ui/AppDialog.vue";
+import { ElLoading, ElMessage } from "element-plus";
 import { PlatformAccount } from "@/models/platformAccount";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
@@ -19,15 +19,29 @@ const emit = defineEmits<{ close: [] }>();
 const accountStore = useAccountStore();
 const userStore = useUserStore();
 const { proxyList } = storeToRefs(userStore);
+const { tagPlatforms } = storeToRefs(accountStore);
 
-const saving = reactive({ value: false });
-const pasteRaw = reactive({ value: "" });
+const saving = ref(false);
+
+/** 与 UserConfigDialog 一致：避免 v-model 与 @closed 竞态导致弹窗闪关 */
+const visible = computed({
+  get: () => props.open,
+  set: (v: boolean) => {
+    if (!v) emit("close");
+  },
+});
+const pasteRaw = ref("");
+const gameShow = ref(false);
+/** A8：PB 默认锁定比例，legend「投」双击切换 */
+const rateLocked = ref(true);
+
+type PlatformSuggestion = { value: string; link: string };
 
 const form = reactive({
   platformName: "",
   playerName: "",
   provider: "RAY" as PlatformId,
-  proxyId: undefined as number | undefined,
+  proxyId: 0,
   gateway: "",
   token: "",
   referer: "",
@@ -39,25 +53,50 @@ const form = reactive({
   maxWinBalance: 0,
   minOdds: 0,
   maxOdds: 0,
+  minDefault: 0,
+  maxDefault: 0,
   maxOrder: 0,
   profit: 0,
+  maxBetCount: 0,
   multiply: 1,
   pause: false,
   markupOnly: false,
   noMarkup: false,
+  lastOdds: false,
   realName: "",
   mobile: "",
   city: "",
   description: "",
+  workTimes: [] as string[],
   rateConfig: [] as { minOdds: number; maxOdds: number; rate: number }[],
+  game: {} as Record<string, { betCount: number; profit: number; odds: string[] }>,
 });
+
+const platformSuggestions = computed<PlatformSuggestion[]>(() =>
+  tagPlatforms.value.map((p) => ({
+    value: p.Name || "",
+    link: String(p.ID ?? ""),
+  })),
+);
+
+const proxyOptions = computed(() => [
+  { label: "无代理", value: 0 },
+  ...proxyList.value.map((px) => ({
+    label: px.label || String(px.proxyId),
+    value: px.proxyId,
+  })),
+]);
+
+function defaultGameMap() {
+  return JSON.parse(JSON.stringify(new PlatformAccount({ accountId: 0, playerName: "", provider: "RAY" }).game));
+}
 
 function resetForm(acc?: PlatformAccount) {
   if (acc) {
     form.platformName = acc.platformName || "";
     form.playerName = acc.playerName;
     form.provider = acc.provider;
-    form.proxyId = acc.proxyId;
+    form.proxyId = acc.proxyId ?? 0;
     form.gateway = acc.gateway || "";
     form.token = acc.token || "";
     form.referer = acc.referer || "";
@@ -69,22 +108,28 @@ function resetForm(acc?: PlatformAccount) {
     form.maxWinBalance = acc.maxWinBalance ?? 0;
     form.minOdds = acc.minOdds ?? 0;
     form.maxOdds = acc.maxOdds ?? 0;
+    form.minDefault = acc.minDefault ?? 0;
+    form.maxDefault = acc.maxDefault ?? 0;
     form.maxOrder = acc.maxOrder ?? 0;
     form.profit = acc.profit ?? 0;
+    form.maxBetCount = acc.maxBetCount ?? 0;
     form.multiply = acc.multiply ?? 1;
     form.pause = acc.pause ?? false;
     form.markupOnly = acc.markupOnly ?? false;
     form.noMarkup = acc.noMarkup ?? false;
+    form.lastOdds = acc.lastOdds ?? false;
     form.realName = acc.realName || "";
     form.mobile = acc.mobile || "";
     form.city = acc.city || "";
     form.description = acc.description || "";
-    form.rateConfig = acc.rateConfig?.length ? [...acc.rateConfig.map((r) => ({ ...r }))] : [];
+    form.workTimes = acc.workTimes?.length ? [...acc.workTimes] : [];
+    form.rateConfig = acc.rateConfig?.length ? acc.rateConfig.map((r) => ({ ...r })) : [];
+    form.game = acc.game ? JSON.parse(JSON.stringify(acc.game)) : defaultGameMap();
   } else {
     form.platformName = "";
     form.playerName = "";
     form.provider = "RAY";
-    form.proxyId = undefined;
+    form.proxyId = 0;
     form.gateway = "";
     form.token = "";
     form.referer = "";
@@ -96,37 +141,79 @@ function resetForm(acc?: PlatformAccount) {
     form.maxWinBalance = 0;
     form.minOdds = 0;
     form.maxOdds = 0;
+    form.minDefault = 0;
+    form.maxDefault = 0;
     form.maxOrder = 0;
     form.profit = 0;
+    form.maxBetCount = 0;
     form.multiply = 1;
     form.pause = false;
     form.markupOnly = false;
     form.noMarkup = false;
+    form.lastOdds = false;
     form.realName = "";
     form.mobile = "";
     form.city = "";
     form.description = "";
+    form.workTimes = [];
     form.rateConfig = [];
+    form.game = defaultGameMap();
   }
   pasteRaw.value = "";
+  gameShow.value = false;
+  rateLocked.value = form.provider === "PB";
 }
 
 watch(
-  () => [props.open, props.account] as const,
-  ([open, acc]) => {
+  () => props.open,
+  (open) => {
     if (!open) return;
     void userStore.loadExtras();
-    resetForm(acc);
+    void accountStore.loadTagPlatforms();
+    resetForm(props.account);
   },
-  { immediate: true },
 );
+
+watch(
+  () => form.provider,
+  (p) => {
+    if (p === "PB") rateLocked.value = true;
+  },
+);
+
+function queryPlatforms(query: string, cb: (rows: PlatformSuggestion[]) => void) {
+  const q = query.trim();
+  const list = q
+    ? platformSuggestions.value.filter((s) => s.value.includes(q))
+    : platformSuggestions.value;
+  cb(list);
+}
 
 function addRate() {
   form.rateConfig.push({ minOdds: 0, maxOdds: 0, rate: 1 });
 }
 
 function removeRate(index: number) {
-  form.rateConfig.splice(index, 1);
+  if (index >= 0 && index < form.rateConfig.length) form.rateConfig.splice(index, 1);
+}
+
+function normalizeGameOdds(gameName: string) {
+  const g = form.game[gameName];
+  if (!g) return;
+  const next: string[] = [];
+  for (const raw of g.odds) {
+    const [lo, hi] = raw.split("-").map((x) => Number(x));
+    if (!Number.isNaN(lo) && !Number.isNaN(hi) && lo <= hi) next.push(`${lo}-${hi}`);
+  }
+  g.odds = next;
+}
+
+function onMarkupOnlyChange() {
+  if (form.markupOnly) form.noMarkup = false;
+}
+
+function onNoMarkupChange() {
+  if (form.noMarkup) form.markupOnly = false;
 }
 
 async function pasteFromClipboard() {
@@ -134,11 +221,10 @@ async function pasteFromClipboard() {
     pasteRaw.value = await navigator.clipboard.readText();
     await applyPaste();
   } catch {
-    window.alert("无法访问剪贴板，请手动粘贴到下方输入框后点「解析填充」");
+    ElMessage.error("无法访问剪贴板，请检查浏览器权限或手动粘贴！");
   }
 }
 
-/** 对齐 A8 AccountInfoView：多 gateway 逐个 getBalance 测速 */
 async function pickFastestPbGateway(
   gateways: string[],
   token: string,
@@ -164,14 +250,25 @@ async function pickFastestPbGateway(
     } catch {
       success = false;
     }
-    ranked.push({ gate, time: Date.now() - started, success });
+    const ms = Date.now() - started;
+    ranked.push({ gate, time: ms, success });
+    ElMessage({
+      message: `${gate}，耗时：${ms}ms`,
+      type: success ? "success" : "error",
+      duration: 3000,
+    });
   }
-  const best = ranked.filter((r) => r.success).sort((a, b) => a.time - b.time)[0];
-  return best?.gate ?? gateways[0]!;
+  const fast = ranked.filter((r) => r.success && r.time < 500);
+  const best =
+    fast.length > 0
+      ? fast[Math.floor(Math.random() * fast.length)]!
+      : ranked.filter((r) => r.success).sort((a, b) => a.time - b.time)[0];
+  return best?.gate ?? "";
 }
 
 async function applyPaste() {
   if (!pasteRaw.value.trim()) return;
+  let loading: ReturnType<typeof ElLoading.service> | undefined;
   try {
     const parsed = JSON.parse(window.atob(pasteRaw.value.trim())) as {
       provider?: PlatformId;
@@ -180,12 +277,9 @@ async function applyPaste() {
       gateway?: string | string[];
     };
     if (!parsed?.provider) {
-      window.alert("未选择场馆");
+      ElMessage({ message: "未选择场馆", type: "error", plain: true });
       return;
     }
-    form.provider = parsed.provider;
-    form.token = parsed.token ?? "";
-    form.referer = parsed.referer ?? "";
     const gateways = Array.isArray(parsed.gateway)
       ? parsed.gateway
       : parsed.gateway
@@ -193,20 +287,35 @@ async function applyPaste() {
         : [];
     if (!gateways.length) return;
 
+    form.provider = parsed.provider;
+    form.token = parsed.token ?? "";
+    form.referer = parsed.referer ?? "";
+
     if (gateways.length === 1) {
-      form.gateway = gateways[0];
+      form.gateway = gateways[0]!;
+      ElMessage.success("粘贴成功");
       return;
     }
 
+    loading = ElLoading.service({ fullscreen: true, text: "正在检测最快网关" });
     if (parsed.provider === "PB" && parsed.token) {
-      form.gateway = await pickFastestPbGateway(gateways, parsed.token, parsed.referer ?? "");
-      return;
+      const gate = await pickFastestPbGateway(gateways, parsed.token, parsed.referer ?? "");
+      if (!gate) {
+        ElMessage.error("当前网关测试失败");
+        form.gateway = "";
+      } else {
+        form.gateway = gate;
+      }
+    } else {
+      form.gateway = gateways[0]!;
+      ElMessage.warning(`检测到 ${gateways.length} 个网关，已选用第一个：${gateways[0]}`);
     }
-
-    form.gateway = gateways[0];
-    window.alert(`检测到 ${gateways.length} 个网关，已选用第一个：${gateways[0]}`);
-  } catch {
-    window.alert("解析失败，请确认剪贴板为 Base64 编码的 JSON");
+    ElMessage.success("粘贴成功");
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "解析失败");
+  } finally {
+    loading?.close();
+    pasteRaw.value = "";
   }
 }
 
@@ -215,7 +324,7 @@ function buildPatch() {
     platformName: form.platformName.trim(),
     playerName: form.playerName.trim(),
     provider: form.provider,
-    proxyId: form.proxyId,
+    proxyId: form.proxyId === 0 ? undefined : form.proxyId,
     gateway: form.gateway.trim() || undefined,
     token: form.token.trim() || undefined,
     referer: form.referer.trim() || undefined,
@@ -227,32 +336,45 @@ function buildPatch() {
     maxWinBalance: Number(form.maxWinBalance) || 0,
     minOdds: Number(form.minOdds) || 0,
     maxOdds: Number(form.maxOdds) || 0,
+    minDefault: Number(form.minDefault) || 0,
+    maxDefault: Number(form.maxDefault) || 0,
     maxOrder: Number(form.maxOrder) || 0,
     profit: Number(form.profit) || 0,
+    maxBetCount: Number(form.maxBetCount) || 0,
     multiply: Number(form.multiply) || 1,
     pause: form.pause,
     markupOnly: form.markupOnly,
     noMarkup: form.noMarkup,
+    lastOdds: form.lastOdds,
     realName: form.realName.trim() || undefined,
     mobile: form.mobile.trim() || undefined,
     city: form.city.trim() || undefined,
     description: form.description.trim(),
-    rateConfig: form.rateConfig.map((r) => ({ ...r })),
+    workTimes: [...form.workTimes],
+    rateConfig: form.rateConfig
+      .filter((r) => r.rate !== 0)
+      .map((r) => ({
+        minOdds: Number(r.minOdds),
+        maxOdds: Number(r.maxOdds),
+        rate: Number(r.rate),
+      })),
+    game: JSON.parse(JSON.stringify(form.game)),
   };
 }
 
 async function save() {
   if (!form.platformName.trim() || !form.playerName.trim()) {
-    window.alert("平台名与账号名必填");
+    ElMessage.error("平台名与账号名必填");
     return;
   }
   saving.value = true;
   try {
+    const patch = buildPatch();
     if (props.account) {
-      props.account.applyPatch(buildPatch());
+      props.account.applyPatch(patch);
       await accountStore.saveAccounts();
     } else {
-      await accountStore.createFromTagPlatform(buildPatch());
+      await accountStore.createFromTagPlatform(patch);
     }
     emit("close");
   } finally {
@@ -262,254 +384,342 @@ async function save() {
 </script>
 
 <template>
-  <AppDialog
-    :open="open"
-    :title="account ? '平台账号设置' : '平台账号设置'"
-    width="800px"
-    @close="emit('close')"
+  <el-dialog
+    v-model="visible"
+    title="平台账号设置"
+    width="800"
+    append-to-body
+    :close-on-press-escape="false"
+    :close-on-click-modal="false"
   >
-    <div class="form-scroll">
-      <div class="paste-row">
-        <button type="button" class="btn btn--ghost" @click="pasteFromClipboard">从剪贴板粘贴</button>
-        <input v-model="pasteRaw.value" class="paste-input" placeholder="Base64 账号 JSON" />
-        <button type="button" class="btn btn--ghost" @click="applyPaste">解析填充</button>
-      </div>
+    <el-form label-width="100">
+      <el-form-item label="平台：">
+        <el-row :gutter="10">
+          <el-col :span="6">
+            <el-autocomplete
+              v-model="form.platformName"
+              clearable
+              :fetch-suggestions="queryPlatforms"
+              value-key="value"
+            />
+          </el-col>
+          <el-col :span="8">
+            <el-input v-model="form.playerName" placeholder="账号">
+              <template #prepend>账号</template>
+            </el-input>
+          </el-col>
+          <el-col :span="4">
+            <el-switch
+              v-model="form.pause"
+              size="large"
+              inline-prompt
+              active-text="暂停账号"
+              inactive-text="暂停账号"
+              style="height: 24px; --el-switch-on-color: #f56c6c"
+            />
+          </el-col>
+        </el-row>
+      </el-form-item>
 
-      <div class="form-grid">
-        <label>
-          <span>平台标签</span>
-          <input v-model="form.platformName" type="text" placeholder="如 RAY / OB01" />
-        </label>
-        <label>
-          <span>账号名</span>
-          <input v-model="form.playerName" type="text" />
-        </label>
-        <label>
-          <span>场馆</span>
-          <select v-model="form.provider">
-            <option v-for="p in ALL_PLATFORMS" :key="p" :value="p">{{ p }}</option>
-          </select>
-        </label>
-        <label>
-          <span>代理</span>
-          <select v-model="form.proxyId">
-            <option :value="undefined">无</option>
-            <option v-for="px in proxyList" :key="px.proxyId" :value="px.proxyId">
-              {{ px.label || px.proxyId }}
-            </option>
-          </select>
-        </label>
-        <label class="span-2">
-          <span>Gateway</span>
-          <input v-model="form.gateway" type="text" />
-        </label>
-        <label class="span-2">
-          <span>Token</span>
-          <input v-model="form.token" type="text" />
-        </label>
-        <label class="span-2">
-          <span>Referer</span>
-          <input v-model="form.referer" type="text" />
-        </label>
-        <label class="span-2">
-          <span>UserAgent</span>
-          <input v-model="form.userAgent" type="text" />
-        </label>
-        <label>
-          <span>信用额度</span>
-          <input v-model.number="form.credit" type="number" />
-        </label>
-        <label>
-          <span>余额上限</span>
-          <input v-model.number="form.maxBalance" type="number" />
-        </label>
-        <label>
-          <span>超额赔率</span>
-          <input v-model.number="form.maxBalanceOdds" type="number" step="0.01" />
-        </label>
-        <label>
-          <span>盈利上限</span>
-          <input v-model.number="form.maxProfit" type="number" />
-        </label>
-        <label>
-          <span>盈利余额上限</span>
-          <input v-model.number="form.maxWinBalance" type="number" />
-        </label>
-        <label>
-          <span>最小赔率</span>
-          <input v-model.number="form.minOdds" type="number" step="0.01" />
-        </label>
-        <label>
-          <span>最大赔率</span>
-          <input v-model.number="form.maxOdds" type="number" step="0.01" />
-        </label>
-        <label>
-          <span>日单上限</span>
-          <input v-model.number="form.maxOrder" type="number" />
-        </label>
-        <label>
-          <span>目标利润</span>
-          <input v-model.number="form.profit" type="number" step="0.01" />
-        </label>
-        <label>
-          <span>乘网倍数</span>
-          <input v-model.number="form.multiply" type="number" step="0.1" />
-        </label>
-        <label class="span-2 check">
-          <input v-model="form.pause" type="checkbox" />
-          <span>暂停使用</span>
-        </label>
-        <label class="check">
-          <input v-model="form.markupOnly" type="checkbox" />
-          <span>仅限补单</span>
-        </label>
-        <label class="check">
-          <input v-model="form.noMarkup" type="checkbox" />
-          <span>不参与补单</span>
-        </label>
-        <label>
-          <span>姓名</span>
-          <input v-model="form.realName" type="text" />
-        </label>
-        <label>
-          <span>手机</span>
-          <input v-model="form.mobile" type="text" />
-        </label>
-        <label class="span-2">
-          <span>城市</span>
-          <input v-model="form.city" type="text" />
-        </label>
-        <label class="span-2">
-          <span>备注</span>
-          <input v-model="form.description" type="text" />
-        </label>
-      </div>
-
-      <fieldset class="rate-block">
+      <fieldset>
         <legend>
-          投注比例
-          <button type="button" class="link-btn" @click="addRate">+</button>
+          <span @dblclick="rateLocked = !rateLocked">投</span>
+          注比例
+          <el-button size="small" type="info" link @click="addRate">
+            <i class="am-icon-plus am-icon-fw" />
+          </el-button>
         </legend>
-        <div v-for="(row, index) in form.rateConfig" :key="index" class="rate-row">
-          <input v-model.number="row.minOdds" type="number" placeholder="低赔" step="0.01" />
-          <input v-model.number="row.maxOdds" type="number" placeholder="高赔" step="0.01" />
-          <input v-model.number="row.rate" type="number" placeholder="比例" step="0.01" />
-          <button type="button" class="icon-btn" @click="removeRate(index)">×</button>
+        <el-form-item
+          v-for="(row, index) in form.rateConfig"
+          :key="index"
+          :label="`比例配置${index + 1}:`"
+        >
+          <el-row :gutter="10">
+            <el-col :span="6">
+              <el-input v-model.number="row.minOdds" type="number" placeholder="最低赔率">
+                <template #prepend>低赔</template>
+              </el-input>
+            </el-col>
+            <el-col :span="6">
+              <el-input v-model.number="row.maxOdds" type="number" placeholder="最高赔率">
+                <template #prepend>高赔</template>
+              </el-input>
+            </el-col>
+            <el-col :span="6">
+              <el-input
+                v-model.number="row.rate"
+                type="number"
+                placeholder="比例"
+                :disabled="rateLocked"
+              >
+                <template #prepend>比例</template>
+              </el-input>
+            </el-col>
+            <el-col :span="6">
+              <el-button size="small" type="danger" @click="removeRate(index)">
+                <i class="am-icon-times" />
+              </el-button>
+            </el-col>
+          </el-row>
+        </el-form-item>
+      </fieldset>
+
+      <fieldset class="game-container" :class="{ show: gameShow }">
+        <legend>
+          游戏配置
+          <el-button size="small" type="info" link @click="gameShow = !gameShow">
+            <i class="am-icon-arrow-circle-down am-icon-fw" />
+          </el-button>
+        </legend>
+        <div class="game-container-setting">
+          <el-form-item
+            v-for="[gameName, gameRow] in Object.entries(form.game)"
+            :key="gameName"
+            :label="`${gameName}：`"
+          >
+            <el-row v-if="gameRow" :gutter="10">
+              <el-col :span="6">
+                <el-input v-model.number="gameRow.profit" placeholder="利润">
+                  <template #prepend>利润</template>
+                </el-input>
+              </el-col>
+              <el-col :span="6">
+                <el-input v-model.number="gameRow.betCount" placeholder="订单量">
+                  <template #prepend>订单数</template>
+                </el-input>
+              </el-col>
+              <el-col :span="12">
+                <el-input-tag
+                  v-model="gameRow.odds"
+                  placeholder="赔率范围"
+                  @change="normalizeGameOdds(gameName)"
+                >
+                  <template #prepend>赔率</template>
+                </el-input-tag>
+              </el-col>
+            </el-row>
+          </el-form-item>
         </div>
       </fieldset>
+
+      <el-divider />
+
+      <el-row>
+        <el-col :span="12">
+          <el-form-item label="初始赔率：">
+            <el-row :gutter="10">
+              <el-col :span="12">
+                <el-input v-model.number="form.minDefault" placeholder="最低">
+                  <template #prepend>最低</template>
+                </el-input>
+              </el-col>
+              <el-col :span="12">
+                <el-input v-model.number="form.maxDefault" placeholder="最高">
+                  <template #prepend>最高</template>
+                </el-input>
+              </el-col>
+            </el-row>
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="投注赔率：">
+            <el-row :gutter="10">
+              <el-col :span="12">
+                <el-input v-model.number="form.minOdds" placeholder="最低">
+                  <template #prepend>最低</template>
+                </el-input>
+              </el-col>
+              <el-col :span="12">
+                <el-input v-model.number="form.maxOdds" placeholder="最高">
+                  <template #prepend>最高</template>
+                </el-input>
+              </el-col>
+            </el-row>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-row>
+        <el-col :span="24">
+          <el-form-item label="补单配置：">
+            <el-row :gutter="10">
+              <el-col :span="4">
+                <el-switch
+                  v-model="form.markupOnly"
+                  size="large"
+                  inline-prompt
+                  active-text="仅限补单"
+                  inactive-text="仅限补单"
+                  style="height: 24px"
+                  @change="onMarkupOnlyChange"
+                />
+              </el-col>
+              <el-col :span="4">
+                <el-switch
+                  v-model="form.noMarkup"
+                  size="large"
+                  inline-prompt
+                  active-text="不参与补单"
+                  inactive-text="不参与补单"
+                  style="height: 24px"
+                  @change="onNoMarkupChange"
+                />
+              </el-col>
+              <el-col :span="6">
+                <el-input v-model.number="form.profit" type="number" placeholder="利润">
+                  <template #prepend>利润</template>
+                </el-input>
+              </el-col>
+              <el-col :span="6">
+                <el-input v-model.number="form.maxBetCount" type="number" placeholder="下注单数">
+                  <template #prepend>盘口订单</template>
+                </el-input>
+              </el-col>
+            </el-row>
+          </el-form-item>
+        </el-col>
+      </el-row>
+
+      <el-row>
+        <el-col :span="24">
+          <el-row :gutter="10">
+            <el-col :span="10">
+              <el-form-item label="工作时间：">
+                <el-input-tag
+                  v-model="form.workTimes"
+                  placeholder="格式:0-5，按回车添加"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="4">
+              <el-switch
+                v-model="form.lastOdds"
+                size="large"
+                inline-prompt
+                active-text="赔率大于上笔"
+                inactive-text="赔率大于上笔"
+              />
+            </el-col>
+            <el-col :span="3">
+              <el-input v-model.number="form.multiply" type="number" placeholder="乘网倍数" readonly>
+                <template #prepend>乘网</template>
+              </el-input>
+            </el-col>
+          </el-row>
+        </el-col>
+      </el-row>
+
+      <el-form-item label="盈利上限：">
+        <el-row :gutter="10">
+          <el-col :span="4">
+            <el-input v-model="form.maxProfit" />
+          </el-col>
+          <el-col :span="6">
+            <el-input v-model.number="form.maxOrder" placeholder="单日最多订单">
+              <template #prepend>单日订单</template>
+            </el-input>
+          </el-col>
+          <el-col :span="7">
+            <el-input v-model="form.maxBalance" placeholder="最大余额">
+              <template #prepend>最大余额</template>
+            </el-input>
+          </el-col>
+          <el-col :span="6">
+            <el-input v-model="form.maxBalanceOdds" placeholder="超额赔率">
+              <template #prepend>超额赔率</template>
+            </el-input>
+          </el-col>
+        </el-row>
+      </el-form-item>
+
+      <el-form-item label="盈利余额：">
+        <el-row :gutter="10">
+          <el-col :span="4">
+            <el-tooltip
+              content="账户余额加未结算订单(算赢)不能超过此项设定"
+              placement="top"
+              effect="dark"
+            >
+              <el-input v-model="form.maxWinBalance" />
+            </el-tooltip>
+          </el-col>
+          <el-col :span="6">
+            <el-input v-model="form.realName">
+              <template #prepend>姓名</template>
+            </el-input>
+          </el-col>
+          <el-col :span="7">
+            <el-input v-model="form.mobile">
+              <template #prepend>手机</template>
+            </el-input>
+          </el-col>
+          <el-col :span="6">
+            <el-input v-model="form.city">
+              <template #prepend>城市</template>
+            </el-input>
+          </el-col>
+        </el-row>
+      </el-form-item>
+
+      <el-form-item label="账号备注：">
+        <el-input v-model="form.description" />
+      </el-form-item>
+
+      <el-form-item label="场馆：">
+        <el-radio-group v-model="form.provider">
+          <el-radio v-for="p in ALL_PLATFORMS" :key="p" :value="p" size="large">
+            {{ p }}
+          </el-radio>
+        </el-radio-group>
+      </el-form-item>
+
+      <el-form-item label="网关：">
+        <el-input v-model="form.gateway" />
+      </el-form-item>
+      <el-form-item label="Token：">
+        <el-input v-model="form.token" />
+      </el-form-item>
+      <el-form-item label="Referer：">
+        <el-input v-model="form.referer" />
+      </el-form-item>
+      <el-form-item label="UserAgent:">
+        <el-input
+          v-model="form.userAgent"
+          placeholder="请求访问的浏览器标识，不知道可留空"
+        />
+      </el-form-item>
+
+      <el-form-item label="使用代理：">
+        <el-radio-group v-model="form.proxyId">
+          <el-radio v-for="opt in proxyOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </el-radio>
+        </el-radio-group>
+      </el-form-item>
+
+      <el-form-item label="快速填充：">
+        <el-input
+          v-model="pasteRaw"
+          placeholder="通过插件获取到的数据快速填充进入"
+          @change="applyPaste"
+        >
+          <template #append>
+            <div class="parse" @click="pasteFromClipboard">粘贴</div>
+          </template>
+        </el-input>
+      </el-form-item>
+    </el-form>
+
+    <div class="el-form-submit flex flex-center">
+      <el-button
+        type="primary"
+        size="large"
+        style="width: 98%"
+        :loading="saving"
+        @click="save"
+      >
+        保存
+      </el-button>
     </div>
-
-    <template #footer>
-      <button type="button" class="btn btn--ghost" @click="emit('close')">取消</button>
-      <button type="button" class="btn btn--primary" :disabled="saving.value" @click="save">
-        {{ saving.value ? "保存中…" : "保存" }}
-      </button>
-    </template>
-  </AppDialog>
+  </el-dialog>
 </template>
-
-<style scoped>
-.form-scroll {
-  max-height: 65vh;
-  overflow: auto;
-}
-.paste-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-  align-items: center;
-}
-.paste-input {
-  flex: 1;
-  padding: 6px 8px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-size: 12px;
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.form-grid label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: #94a3b8;
-}
-.form-grid label.span-2 {
-  grid-column: span 2;
-}
-.form-grid label.check {
-  flex-direction: row;
-  align-items: center;
-}
-.form-grid input,
-.form-grid select {
-  padding: 6px 8px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-.rate-block {
-  margin-top: 12px;
-  border: 1px solid #475569;
-  border-radius: 6px;
-  padding: 8px 10px;
-}
-.rate-block legend {
-  font-size: 12px;
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.rate-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
-  gap: 6px;
-  margin-top: 6px;
-}
-.rate-row input {
-  padding: 4px 6px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-.link-btn {
-  border: none;
-  background: none;
-  color: #38bdf8;
-  cursor: pointer;
-  font-size: 14px;
-}
-.icon-btn {
-  width: 28px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: transparent;
-  color: #fca5a5;
-  cursor: pointer;
-}
-.btn {
-  padding: 6px 14px;
-  border-radius: 4px;
-  border: 1px solid #475569;
-  cursor: pointer;
-  font-size: 13px;
-}
-.btn--ghost {
-  background: transparent;
-  color: #cbd5e1;
-}
-.btn--primary {
-  background: #059669;
-  border-color: #059669;
-  color: #fff;
-}
-</style>

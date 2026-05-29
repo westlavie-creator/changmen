@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { getChatHistory } from "@/api/esport";
 import type { ChatMessageRow } from "@/types/esport";
-import { formatDate } from "@/shared/format";
+import { formatTimeHms } from "@/shared/format";
 
 const CHAT_LOG_ID_KEY = "CHAT_MESSAGE_LOGID";
 const CHAT_FILTER_KEY = "CHAT_MESSAGE_FILTER";
@@ -118,10 +118,16 @@ watch(filterText, saveFilter);
     <el-button :disabled="loading" @click="load">刷新</el-button>
   </div>
 
-  <el-row :gutter="10">
-    <el-col v-for="[user, msgs] in grouped" :key="user" :span="24" class="message">
+  <el-row>
+    <el-col
+      v-for="[user, msgs] in grouped"
+      :key="user"
+      :span="24"
+      :gutter="10"
+      class="message"
+    >
       <el-tag type="info">
-        {{ formatDate(Number(msgs[0]?.Time ?? msgs[0]?.CreateAt ?? 0)).slice(-8) }}
+        {{ formatTimeHms(Number(msgs[0]?.Time ?? msgs[0]?.CreateAt ?? 0)) }}
       </el-tag>
       <el-tag :type="tagType(user)" @dblclick="addTagFromUser(user)">
         {{ user }}

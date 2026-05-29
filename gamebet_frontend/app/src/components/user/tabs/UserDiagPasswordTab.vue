@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
-import { getClientData } from "@/api/esport";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { getClientData, saveClientData } from "@/api/esport";
 import { generateTotp, totpSecondsLeft } from "@/shared/totp";
 
 interface GoogleCodeRow {
@@ -34,6 +35,27 @@ onMounted(async () => {
 onUnmounted(() => {
   if (timer) clearInterval(timer);
 });
+
+async function addGoogleCode() {
+  try {
+    const { value: name } = await ElMessageBox.prompt("名称", "添加谷歌验证码", {
+      confirmButtonText: "下一步",
+      cancelButtonText: "取消",
+    });
+    if (!name?.trim()) return;
+    const { value: key } = await ElMessageBox.prompt("密钥", name.trim(), {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+    });
+    if (!key?.trim()) return;
+    codes.value.push({ name: name.trim(), key: key.trim() });
+    await saveClientData("GoogleCode", JSON.stringify(codes.value));
+    await refreshCodes();
+    ElMessage.success("已添加");
+  } catch {
+    /* cancel */
+  }
+}
 </script>
 
 <template>
@@ -41,7 +63,10 @@ onUnmounted(() => {
     <legend>修改密码</legend>
   </fieldset>
   <fieldset>
-    <legend>谷歌验证码 {{ secondsLeft }}s</legend>
+    <legend>
+      谷歌验证码 {{ secondsLeft }}s
+      <el-button link type="primary" class="am-icon-plus" @click="addGoogleCode" />
+    </legend>
     <div class="flex googlecode">
       <div v-for="item in codes" :key="item.name" class="item">
         <div class="name">{{ item.name }}</div>
