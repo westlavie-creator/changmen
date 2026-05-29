@@ -16,13 +16,16 @@
 | 补单阈值 | `makeUp_defaultOdds` / `makeUp_odds` 创建补单与 `processLoseOrders` 前检查 |
 | 初赔过滤 | 主循环 / 补单选账号 `minDefault` / `maxDefault` |
 | 初赔轮询 | `matchStore` 独立 10 分钟 timer（对齐 bundle） |
+| anyOdds | 一侧失败换平台重试（最多 3 轮） |
+| lastOdds | 账号开启后拒同盘更低赔重复下单 |
+| 主列表空态 | 去掉加载/无赛提示条（对齐 A8 空列表） |
 | 文档 | 本文件 + `A8_UI_PARITY_GAPS.md` 更新 |
 
 ---
 
-## 阶段 A — 收口（建议立即做）
+## 阶段 A — 收口
 
-- [ ] 分批 git commit（**勿提交** `data/esport/*.json` 运行时数据）
+- [x] 分批 git commit（**勿提交** `data/esport/*.json` 运行时数据）
 - [ ] 同屏走查：登录 → 11 Tab → 主界面 BetRow 初赔 → 充提/补单
 - [ ] `node scripts/audit-a8-parity.mjs` 更新 `A8_PARITY_AUDIT_MACHINE.json`
 
@@ -34,7 +37,7 @@
 |---|------|
 | B1 | 打包 A8 iconfont，缩小 `a8-icon-fallback.css` |
 | B2 | 确认 `/esport2/assets/*` dev/prod 可加载 |
-| B3 | 主列表空态：弱化或移除 `.app-hint`（A8 仅空列表） |
+| B3 | 主列表空态：弱化或移除 `.app-hint`（A8 仅空列表） | 已做 |
 | B4 | 同屏 diff：账号编辑、充提弹窗、版本角标 |
 | B5 | 减少 `HomeView` / `UserDiagTradeTab` scoped 覆盖 |
 
@@ -56,9 +59,9 @@
 | D1 | WinRate | 已完成 |
 | D2 | minDefault / maxDefault | 已完成 |
 | D3 | makeUp 初赔/当前赔阈值 | 已完成 |
-| D4 | `anyOdds` 一侧失败后换平台重试 | 待做 |
-| D5 | `noSameProvider` 主循环与 bundle 再核对 | 待做 |
-| D6 | `lastOdds` session 拒单记忆 | 待做 |
+| D4 | `anyOdds` 一侧失败后换平台重试 | 已完成 |
+| D5 | `noSameProvider` 主循环与 bundle 再核对 | 待做（补单路径已有） |
+| D6 | `lastOdds` session 拒单记忆 | 已完成 |
 
 ---
 

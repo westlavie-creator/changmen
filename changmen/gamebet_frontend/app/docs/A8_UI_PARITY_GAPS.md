@@ -89,7 +89,7 @@
 | 项 | bundle | 状态 | 说明 |
 |----|--------|------|------|
 | `betSorting: WinRate` | 有 | 已对齐 | `sortOptionsByWinRate`（`oJe`） |
-| `anyOdds` 被拒重试 | 有 | **行为** | `bettingStore` 未实现 |
+| `anyOdds` 被拒重试 | 有 | 已对齐 | `retryFailedLegWithAnyOdds`（最多 3 轮换平台） |
 | `makeUp_defaultOdds` / `makeUp_odds` | 有 | 已对齐 | `allowMakeUpForLeg` + `Client_GetDefaultOdds` |
 | 账号 `minDefault` / `maxDefault` | 有 | 已对齐 | 主循环与补单选账号 |
 | `allowSameBet` / `noSameBet` | 有 | 部分 | 使用 `noSameBet` + sessionStorage；命名与 bundle 略有差异 |
@@ -159,7 +159,7 @@ node scripts/audit-a8-parity.mjs
 
 | 区域 | 说明 |
 |------|------|
-| 主列表无赛事 | `HomeView` 的 `.app-hint`；A8 仅空列表 |
+| 主列表无赛事 | 已对齐空列表（仅保留错误提示条） |
 | 操盘 Tab | 「暂无在线用户」提示；A8 无 |
 | 钱包刷新 | 点击 toast 占位；A8 按钮也无链上刷新逻辑 |
 | 钱包地址生成 | A8 用 TronWeb；复刻为本地假地址（布局同，地址不同） |
