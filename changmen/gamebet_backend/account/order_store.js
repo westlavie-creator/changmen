@@ -65,6 +65,22 @@ function readLinkedRows() {
   return Array.isArray(all.rows) ? all.rows : [];
 }
 
+function listByPlayer(playerId) {
+  ensureSeed();
+  const pid = Number(playerId) || 0;
+  const out = readLinkedRows().filter((row) => Number(row.PlayerID) === pid);
+  const playerOrders = store.readJson("player_orders", {});
+  const bucket = playerOrders[String(playerId)];
+  for (const order of bucket?.orders || []) {
+    const mapped = mapPlayerOrder(order, playerId);
+    const exists = out.some(
+      (r) => String(r.OrderID) === String(mapped.OrderID) && r.PlayerID === mapped.PlayerID,
+    );
+    if (!exists) out.push(mapped);
+  }
+  return out.sort((a, b) => (b.CreateAt || 0) - (a.CreateAt || 0));
+}
+
 function listByDate(dateStr) {
   const target = dateStr || toDateKey(Date.now());
   const rows = [...readLinkedRows()];
@@ -109,6 +125,7 @@ function ensureSeed() {
 module.exports = {
   FILE,
   ensureSeed,
+  listByPlayer,
   listByDate,
   saveOrderBind,
   toDateKey,

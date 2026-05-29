@@ -71,7 +71,20 @@ function handleDeleteMoneyLog(body) {
 function handleGetPlayerOrder(body) {
   const playerId = body.playerId;
   if (!playerId) return { ok: false, msg: "playerId 必填" };
-  return { ok: true, info: accountStore.getPlayerOrders(playerId) };
+  const orderStore = require("./order_store.js");
+  orderStore.ensureSeed();
+  const page = accountStore.listMoneyLogs(playerId, 1, 10000);
+  const logs = (page.data || []).map((row) => ({
+    ID: row.logId,
+    Type: row.type,
+    Money: Number(row.money) || 0,
+    Currency: row.currency || "CNY",
+    Description: row.description || "",
+    IsAuto: /\d+sec|\d+s$/i.test(row.description || "") ? 1 : 0,
+    CreateAt: row.createAt || 0,
+  }));
+  const orders = orderStore.listByPlayer(playerId);
+  return { ok: true, info: { logs, orders } };
 }
 
 function handleSaveOrder(body) {
@@ -88,14 +101,24 @@ function handleSaveOrder(body) {
 }
 
 function handleGetUsers() {
-  const accounts = accountStore.getAccountsFromKv();
-  const users = accounts.map((row) => ({
-    UserID: row.accountId,
-    UserName: row.playerName || "",
-    Provider: row.provider || "",
-    PlatformName: row.platformName || "",
+  const store = require("../esport-api/store.js");
+  const users = store.readJson("users", []);
+  const sessions = store.readJson("sessions", {});
+  const now = Date.now();
+  const onlineWindowMs = 30 * 60 * 1000;
+  const onlineIds = new Set();
+  for (const session of Object.values(sessions)) {
+    if (!session?.userId) continue;
+    if (now - Number(session.createdAt || 0) < onlineWindowMs) {
+      onlineIds.add(session.userId);
+    }
+  }
+  const info = users.map((u) => ({
+    userId: u.id,
+    userName: u.userName || "",
+    isOnline: onlineIds.has(u.id) ? 1 : 0,
   }));
-  return { ok: true, info: users };
+  return { ok: true, info };
 }
 
 /** 仅用于服务端 Refresh 对比；A8 不在 GetData 时注入余额 */

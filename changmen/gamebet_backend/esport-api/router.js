@@ -402,11 +402,23 @@ async function handle(action, body, ctx) {
     }
     case "Client_GetDefaultOdds": {
       if (!ctx.user) return fail("请先登录");
-      return ok({ odds: 0 });
+      const betId = Number(body.betId);
+      const team = String(body.team || "");
+      if (!betId || (team !== "Home" && team !== "Away")) {
+        return fail("betId / team 无效");
+      }
+      const odds = store.getDefaultOddsSingle(betId, team);
+      return ok({ odds });
     }
     case "Client_GetMatchDefaultOdds": {
       if (!ctx.user) return fail("请先登录");
-      return ok({});
+      let matchIds = [];
+      try {
+        matchIds = JSON.parse(body.matchs || "[]");
+      } catch {
+        return fail("matchs JSON 无效");
+      }
+      return ok(store.getMatchDefaultOdds(matchIds));
     }
     case "Client_CreateTagPlatform": {
       if (!ctx.user) return fail("请先登录");

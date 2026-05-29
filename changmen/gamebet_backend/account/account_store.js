@@ -142,7 +142,9 @@ function listMoneyLogs(playerId, pageIndex = 1, pageSize = 20) {
   const start = (pageIndex - 1) * pageSize;
   return {
     list: list.slice(start, start + pageSize),
+    data: list,
     total: list.length,
+    RecordCount: list.length,
     pageIndex,
     pageSize,
   };
