@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const { buildClientMatchList } = require("./match_merge");
 const { formatOdds, formatBetOdds } = require("../shared/odds_format.js");
 const { a8StartTimeListAllowed } = require("../shared/a8_match_time.js");
+const { createDefaultOddsApi } = require("./default_odds.js");
 
 const DATA_DIR = process.env.ESPORT_DATA_DIR
   || path.join(__dirname, "..", "data", "esport");
@@ -34,6 +35,8 @@ function writeJson(name, data) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(filePath(name), JSON.stringify(data, null, 2), "utf8");
 }
+
+const defaultOddsApi = createDefaultOddsApi(readJson, writeJson);
 
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, 120000, 32, "sha256").toString("hex");
@@ -319,6 +322,7 @@ function rebuildClientMatchListNow() {
     count: info.length,
     info,
   });
+  defaultOddsApi.recordFromMatchList(info);
   return info;
 }
 
@@ -343,6 +347,15 @@ function buildMatchList() {
   return rebuildClientMatchListNow();
 }
 
+/** 对齐 `Client_GetMatchDefaultOdds`：优先 default_odds.json，无则回退当前 Sources 快照 */
+function getMatchDefaultOdds(matchIds) {
+  return defaultOddsApi.getMatchDefaultOdds(matchIds, buildMatchList);
+}
+
+function getDefaultOddsSingle(betId, team) {
+  return defaultOddsApi.getDefaultOddsSingle(betId, team, buildMatchList);
+}
+
 module.exports = {
   DATA_DIR,
   ensureSeed,
@@ -364,6 +377,8 @@ module.exports = {
   setUserKv,
   parseKvContent,
   buildMatchList,
+  getMatchDefaultOdds,
+  getDefaultOddsSingle,
   rebuildClientMatchListNow,
   scheduleRebuildClientMatchList,
   readJson,
