@@ -3,6 +3,7 @@ import { PLATFORMS } from "@/shared/platform";
 import type { UserConfig } from "@/types/userConfig";
 import { BetOption } from "@/models/betOption";
 import { useOddsStore } from "@/stores/oddsStore";
+import { sortOptionsByWinRate } from "@/shared/winRate";
 
 export type BetSide = "Home" | "Away";
 
@@ -201,6 +202,25 @@ export class ViewBet {
         options.sort((a, b) => (a.odds > b.odds ? -1 : 1));
         break;
       case "Parallel":
+        break;
+      case "WinRate": {
+        const byWinRate = sortOptionsByWinRate(options, config);
+        if (byWinRate) {
+          options.splice(0, options.length, ...byWinRate);
+        } else {
+          options.sort(
+            (a, b) =>
+              config.providerSortValue.indexOf(a.type) -
+              config.providerSortValue.indexOf(b.type),
+          );
+        }
+        break;
+      }
+      case "Custom":
+        options.sort(
+          (a, b) =>
+            config.providerSortValue.indexOf(a.type) - config.providerSortValue.indexOf(b.type),
+        );
         break;
       default:
         options.sort(

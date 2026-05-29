@@ -10,6 +10,16 @@ export function formatDate(ts: number): string {
   return `${mm}-${dd} ${hh}:${min}`;
 }
 
+/** A8 聊天室时间标签 `HH:mm:ss` */
+export function formatTimeHms(ts: number): string {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const sec = String(d.getSeconds()).padStart(2, "0");
+  return `${hh}:${min}:${sec}`;
+}
+
 /** 对齐 A8 `pt.formatDate(date, "yyyy-MM-dd HH:mm:ss")` */
 export function formatPbDateTime(d = new Date()): string {
   const y = d.getFullYear();

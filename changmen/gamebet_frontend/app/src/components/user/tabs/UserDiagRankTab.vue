@@ -84,7 +84,6 @@ onMounted(load);
       >
         {{ opt.label }}
       </el-button>
-      <el-button :disabled="loading" @click="load">刷新</el-button>
     </el-button-group>
   </div>
 </template>

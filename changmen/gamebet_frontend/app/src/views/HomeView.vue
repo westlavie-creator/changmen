@@ -5,6 +5,7 @@ import { storeToRefs } from "pinia";
 import { startCollectors, stopCollectors } from "@/collectors";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import AccountBar from "@/components/account/AccountBar.vue";
+import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
 import { useUserStore } from "@/stores/userStore";
@@ -27,6 +28,7 @@ const loseOrderStore = useLoseOrderStore();
 const bettingStore = useBettingStore();
 const messageStore = useMessageStore();
 const { matchs, loading, error } = storeToRefs(matchStore);
+const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 
 onMounted(async () => {
   await user.fetchUserInfo();
@@ -63,6 +65,11 @@ async function logout() {
 
 <template>
   <!-- 对齐 bundle HomeView：el-aside(260) + el-header(AccountView + ExtensionsView) + el-main -->
+  <AccountEditDialog
+    :open="editDialogOpen"
+    :account="editDialogAccount"
+    @close="accountStore.closeAccountDialog()"
+  />
   <el-container class="common-layout home-view">
     <el-aside width="260px">
       <AppSidebar @logout="logout" />

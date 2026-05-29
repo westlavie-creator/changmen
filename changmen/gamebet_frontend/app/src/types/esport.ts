@@ -88,6 +88,9 @@ export interface PageResult<T> {
   total: number;
   pageIndex: number;
   pageSize: number;
+  /** A8 `Client_GetMoneyLogs` 全量列表，用于统计 */
+  data?: T[];
+  RecordCount?: number;
 }
 
 export interface OrderRow {
@@ -144,7 +147,10 @@ export interface PlayerOrderRow {
 export interface UserListRow {
   Id?: number;
   UserID?: number;
+  userId?: number;
   UserName?: string;
+  userName?: string;
+  isOnline?: number;
   Setting?: Record<string, unknown>;
 }
 

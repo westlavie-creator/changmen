@@ -25,6 +25,8 @@ export const useMatchStore = defineStore("match", {
     pollTimer: null as ReturnType<typeof setInterval> | null,
     /** 从 fo 同步到 ViewBetItem.fallback，对齐 A8 高频 updateOdds */
     oddsRefreshTimer: null as ReturnType<typeof setInterval> | null,
+    /** 对齐 bundle：约 10 分钟拉一次初赔（不依赖仅打开页面 2 分钟） */
+    defaultOddsTimer: null as ReturnType<typeof setInterval> | null,
     tick: 0,
     /** matchId → 局比分（对齐 A8 `Vg.score` / `eBe`） */
     score: new Map<number, MatchScoreBoard>(),
@@ -178,12 +180,16 @@ export const useMatchStore = defineStore("match", {
     startPolling() {
       this.stopPolling();
       void this.fetchMatches(true);
+      void this.fetchMatchDefaultOdds();
       this.pollTimer = setInterval(() => {
         void this.fetchMatches(true);
       }, POLL_MS);
       this.oddsRefreshTimer = setInterval(() => {
         this.refreshOddsOnBets();
       }, 200);
+      this.defaultOddsTimer = setInterval(() => {
+        void this.fetchMatchDefaultOdds();
+      }, DEFAULT_ODDS_MS);
     },
 
     stopPolling() {
@@ -194,6 +200,10 @@ export const useMatchStore = defineStore("match", {
       if (this.oddsRefreshTimer) {
         clearInterval(this.oddsRefreshTimer);
         this.oddsRefreshTimer = null;
+      }
+      if (this.defaultOddsTimer) {
+        clearInterval(this.defaultOddsTimer);
+        this.defaultOddsTimer = null;
       }
     },
   },

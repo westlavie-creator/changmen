@@ -1,0 +1,66 @@
+/**
+ * Vue 复刻未打包 am-icon / iconfont-base 字体，空 class 按钮会几乎不可见。
+ * 用伪元素提供可见符号，与 A8 控制台可点击区域一致。
+ */
+.el-button[class*="am-icon-"]::before,
+.el-button[class*="iconfont-base-"]::before {
+  font-family: inherit;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.el-button.am-icon-plus::before {
+  content: "+";
+}
+.el-button.am-icon-gear::before {
+  content: "⚙";
+}
+.el-button.am-icon-power-off::before {
+  content: "⏻";
+}
+.el-button.am-icon-refresh::before,
+.el-button.iconfont-base-refresh::before {
+  content: "↻";
+}
+.el-button.iconfont-base-bank::before {
+  content: "¥";
+}
+.el-button.iconfont-base-edit::before {
+  content: "✎";
+}
+.el-button.am-icon-pause-circle::before {
+  content: "‖";
+}
+.el-button.am-icon-times::before {
+  content: "×";
+}
+.el-button.am-icon-save::before {
+  content: "✓";
+}
+.el-button.am-icon-flash::before {
+  content: "⚡";
+}
+.el-button.am-icon-key::before {
+  content: "🔑";
+}
+.el-button.am-icon-edit::before {
+  content: "✎";
+}
+
+.userinfo .actions .el-button[class*="am-icon-"] {
+  min-width: 28px;
+  padding-inline: 8px;
+}
+
+.providers .account .toolbar .el-button {
+  min-width: 32px;
+}
+
+/* 无 hover 设备（触屏）也能看到账号卡工具条 */
+@media (hover: none) {
+  .providers .account .toolbar {
+    visibility: visible;
+    opacity: 0.92;
+  }
+}

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from "vue";
-import AppDialog from "@/components/ui/AppDialog.vue";
+import { computed, reactive, ref, watch } from "vue";
+import { ElMessage } from "element-plus";
 import { getMoneyLog, saveMoneyLog } from "@/api/esport";
 
 const props = defineProps<{
@@ -11,15 +11,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: []; saved: [] }>();
 
-const saving = reactive({ value: false });
-
-const form = reactive({
-  type: "Recharge" as "Recharge" | "Withdraw" | "Lose",
-  money: 0,
-  description: "",
-  createAt: Date.now(),
-  isAuto: false,
-});
+const visible = ref(false);
+const loading = ref(false);
+const saving = ref(false);
 
 const typeLabels: Record<string, string> = {
   Recharge: "充值",
@@ -27,39 +21,76 @@ const typeLabels: Record<string, string> = {
   Lose: "被黑",
 };
 
+const currencies = ["CNY", "USDT"] as const;
+
+const form = reactive({
+  currency: "CNY" as (typeof currencies)[number],
+  type: "Recharge" as "Recharge" | "Withdraw" | "Lose",
+  money: 0,
+  description: "",
+  createAt: Date.now(),
+  isAuto: false,
+});
+
+const createAtModel = computed({
+  get: () => new Date(form.createAt),
+  set: (v: Date) => {
+    form.createAt = v?.getTime?.() ?? Date.now();
+  },
+});
+
 const canSave = computed(() => form.money > 0);
 
 watch(
-  () => [props.open, props.logId] as const,
-  async ([open, logId]) => {
-    if (!open) return;
-    if (logId) {
-      const row = await getMoneyLog({ logId });
-      if (row) {
-        form.type = (row.Type as typeof form.type) || "Recharge";
-        form.money = Math.abs(Number(row.Money) || 0);
-        form.description = row.Remark || "";
-        form.createAt = Number(row.CreateAt) || Date.now();
-        form.isAuto = false;
-      }
-    } else {
-      form.type = "Recharge";
-      form.money = 0;
-      form.description = "";
-      form.createAt = Date.now();
-      form.isAuto = false;
-    }
+  () => props.open,
+  (open) => {
+    visible.value = open;
   },
   { immediate: true },
 );
 
 watch(
-  () => form.description,
-  (desc) => {
-    if (form.type !== "Withdraw" || !desc) return;
-    if (/\d+sec|\d+s$/i.test(desc)) form.isAuto = true;
+  () => [props.open, props.logId] as const,
+  async ([open, logId]) => {
+    if (!open) return;
+    loading.value = true;
+    try {
+      if (logId) {
+        const row = await getMoneyLog({ logId });
+        if (!row) {
+          ElMessage.error("记录不存在");
+          visible.value = false;
+          return;
+        }
+        form.type = (row.Type as typeof form.type) || "Recharge";
+        form.currency = "CNY";
+        form.money = Math.abs(Number(row.Money) || 0);
+        form.description = row.Remark || "";
+        form.createAt = Number(row.CreateAt) || Date.now();
+        form.isAuto = false;
+      } else {
+        form.currency = "CNY";
+        form.type = "Recharge";
+        form.money = 0;
+        form.description = "";
+        form.createAt = Date.now();
+        form.isAuto = false;
+      }
+    } finally {
+      loading.value = false;
+    }
   },
+  { immediate: true },
 );
+
+function onDescriptionChange() {
+  if (form.type !== "Withdraw" || !form.description) return;
+  if (/\d+sec|\d+s$/i.test(form.description)) form.isAuto = true;
+}
+
+function onClosed() {
+  emit("close");
+}
 
 async function save() {
   if (!canSave.value) return;
@@ -73,13 +104,15 @@ async function save() {
       description: form.description,
       createAt: form.createAt,
       isAuto: form.isAuto,
-      currency: "CNY",
+      currency: form.currency,
     });
     if (ok) {
+      ElMessage.success("保存成功");
+      visible.value = false;
       emit("saved");
       emit("close");
     } else {
-      window.alert("保存失败");
+      ElMessage.error("保存失败");
     }
   } finally {
     saving.value = false;
@@ -88,112 +121,82 @@ async function save() {
 </script>
 
 <template>
-  <AppDialog
-    :open="open"
+  <el-dialog
+    v-model="visible"
     :title="logId ? '编辑资金记录' : '添加资金记录'"
-    width="480px"
-    @close="emit('close')"
+    width="480"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+    @closed="onClosed"
   >
-    <div class="form">
-      <fieldset class="type-group">
-        <legend>类型</legend>
-        <label v-for="(label, key) in typeLabels" :key="key" class="type-radio">
-          <input v-model="form.type" type="radio" name="money-type" :value="key" />
-          {{ label }}
-        </label>
-      </fieldset>
-      <label class="form-row">
-        <span>金额</span>
-        <input v-model.number="form.money" type="number" min="0" step="1" />
-      </label>
-      <label class="form-row">
-        <span>时间</span>
-        <input
-          :value="new Date(form.createAt).toISOString().slice(0, 16)"
-          type="datetime-local"
-          @input="
-            form.createAt = new Date(($event.target as HTMLInputElement).value).getTime()
-          "
-        />
-      </label>
-      <label class="form-row">
-        <span>备注</span>
-        <input v-model="form.description" type="text" />
-      </label>
-      <label v-if="form.type === 'Withdraw'" class="form-row form-row--check">
-        <input v-model="form.isAuto" type="checkbox" />
-        <span>秒出</span>
-      </label>
-    </div>
-    <template #footer>
-      <button type="button" class="btn btn--ghost" @click="emit('close')">取消</button>
-      <button type="button" class="btn btn--primary" :disabled="!canSave || saving.value" @click="save">
-        {{ saving.value ? "保存中…" : "保存" }}
-      </button>
-    </template>
-  </AppDialog>
-</template>
+    <el-form v-loading="loading" label-width="auto">
+      <el-row>
+        <el-col :span="12">
+          <el-form-item label="币种:">
+            <el-radio-group v-model="form.currency">
+              <el-radio-button v-for="c in currencies" :key="c" :value="c">
+                {{ c }}
+              </el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="类型:">
+            <el-radio-group v-model="form.type">
+              <el-radio-button
+                v-for="(label, key) in typeLabels"
+                :key="key"
+                :value="key"
+              >
+                {{ label }}
+              </el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+        </el-col>
+      </el-row>
 
-<style scoped>
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.type-group {
-  border: 1px solid #475569;
-  border-radius: 4px;
-  padding: 8px 10px;
-  margin: 0;
-}
-.type-group legend {
-  font-size: 12px;
-  color: #94a3b8;
-  padding: 0 4px;
-}
-.type-radio {
-  margin-right: 12px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.form-row {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 8px;
-  align-items: center;
-  font-size: 13px;
-}
-.form-row span {
-  color: #94a3b8;
-}
-.form-row--check {
-  grid-template-columns: auto 1fr;
-}
-.form-row input {
-  padding: 6px 8px;
-  border: 1px solid #475569;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-.btn {
-  padding: 6px 14px;
-  border-radius: 4px;
-  border: 1px solid #475569;
-  cursor: pointer;
-  font-size: 13px;
-}
-.btn--ghost {
-  background: transparent;
-  color: #cbd5e1;
-}
-.btn--primary {
-  background: #059669;
-  border-color: #059669;
-  color: #fff;
-}
-.btn--primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-</style>
+      <el-form-item label="金额:">
+        <el-input v-model.number="form.money" class="money-item">
+          <template #prepend>{{ typeLabels[form.type] }} {{ form.currency }}</template>
+          <template #append>
+            <el-date-picker
+              v-model="createAtModel"
+              type="datetime"
+              placeholder="充提时间"
+              style="width: 100%"
+            />
+          </template>
+        </el-input>
+      </el-form-item>
+
+      <div class="flex flex-middle" style="gap: 10px">
+        <el-form-item label="备注:" class="flex-1">
+          <el-input v-model="form.description" @change="onDescriptionChange" />
+        </el-form-item>
+        <el-form-item v-if="form.type === 'Withdraw'" class="isAuto">
+          <el-switch
+            v-model="form.isAuto"
+            size="large"
+            inline-prompt
+            active-text="秒出"
+            inactive-text="秒出"
+            style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ccc"
+          />
+        </el-form-item>
+      </div>
+
+      <el-form-item>
+        <el-button
+          class="am-icon-save"
+          type="primary"
+          style="width: 100%"
+          :disabled="!canSave"
+          :loading="saving"
+          @click="save"
+        >
+          保存
+        </el-button>
+      </el-form-item>
+    </el-form>
+  </el-dialog>
+</template>
