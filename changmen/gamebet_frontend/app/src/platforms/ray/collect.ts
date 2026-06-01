@@ -35,10 +35,6 @@ export function rayApiPath(gateway: string | undefined, apiPath: string): string
   return `/v2/${path}`;
 }
 
-function rayApiUrl(gateway: string | undefined, apiPath: string): string {
-  const base = String(gateway || "").replace(/\/+$/, "");
-  return `${base}${rayApiPath(gateway, apiPath)}`;
-}
 
 function rayHeaders(token: string): Record<string, string> {
   const auth = token.startsWith("Bearer ") ? token : `Bearer ${token}`;

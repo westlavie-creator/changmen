@@ -1,4 +1,5 @@
 
+import { directGet } from "@/shared/http";
 import { num, obBlockLabel, obOddSide, parseObOddField } from "./parse";
 import type { CollectBetDto } from "@/types/collect";
 import type { ViewMatch } from "@/models/match";
