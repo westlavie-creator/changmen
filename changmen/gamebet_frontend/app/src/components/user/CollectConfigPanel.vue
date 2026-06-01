@@ -5,12 +5,12 @@ import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 import { useCollectStore } from "@/stores/collectStore";
 import { CREDIT_PLATE_ENTRIES, enterCreditPlate } from "@/api/v4";
-import { syncCollectorsFromConfig } from "@/collectors";
+import { syncCollectorsFromConfig } from "@/runtime/collectors";
 
 const collect = useCollectStore();
 const { log } = storeToRefs(collect);
 
-/** 对齐 A8 `UserCollectView`：默认锁定，双击「盘」解锁 */
+/** 对齐 A8 `UserCollectView`：各平台开关 = 是否回传 SaveMatch/SaveBets，非停采。默认锁定，双击「盘」解锁 */
 const switchesDisabled = ref(true);
 
 const platformRows = computed(() =>

@@ -16,7 +16,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       "/console": { target: API_TARGET, changeOrigin: true },
-      "/esport/ws": { target: API_TARGET, changeOrigin: true, ws: true },
+      "/esport/ws": { target: API_TARGET, changeOrigin: true, ws: true, secure: false },
       "/esport2": { target: API_TARGET, changeOrigin: true },
       "/esport": { target: API_TARGET, changeOrigin: true },
       "/common": { target: API_TARGET, changeOrigin: true },

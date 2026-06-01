@@ -2,6 +2,7 @@ import type { BetRowDto, ClientMatchDto, PlatformId } from "@/types/esport";
 import { PLATFORMS } from "@/shared/platform";
 import type { UserConfig } from "@/types/userConfig";
 import { BetOption } from "@/models/betOption";
+import type { PlatformAccount } from "@/models/platformAccount";
 import { useOddsStore } from "@/stores/oddsStore";
 import { sortOptionsByWinRate } from "@/shared/winRate";
 
@@ -136,33 +137,52 @@ export class ViewBet {
     return max;
   }
 
-  /** 对齐 A8 `IQ.GetOrderOptions` */
+  /** 对齐 A8 `IQ.GetOrderOptions`：`providerKeys` 来自 `getProviders()`，`accounts` 仅用于 profit 覆盖 */
   getOrderOptions(
     match: ViewMatch,
     config: UserConfig,
     providerKeys: PlatformId[],
+    accounts: PlatformAccount[] = [],
   ): BetOption[] | undefined {
     if (!config) return undefined;
 
-    const homeCandidates = this.items.filter(
-      (v) =>
+    const allowSame = new Set(config.allowSameBet ?? []);
+
+    const homeCandidates = this.items.filter((v) => {
+      if (
+        config.noSameBet &&
+        !allowSame.has(v.type) &&
+        this.isBetExcludedByNoSameRule(v.type, "Away")
+      ) {
+        return false;
+      }
+      return (
         v.getOdds("Home") >= config.minOdds &&
         v.getOdds("Home") > 0 &&
-        providerKeys.includes(v.type),
-    );
+        providerKeys.includes(v.type)
+      );
+    });
     const homeItem = homeCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
       const odds = cur.getOdds("Home");
       if (!best || odds > best.getOdds("Home")) return cur;
       return best;
     }, undefined);
 
-    const awayCandidates = this.items.filter(
-      (v) =>
-        (!homeItem || homeItem.type !== v.type) &&
+    const awayCandidates = this.items.filter((v) => {
+      if (homeItem && homeItem.type === v.type) return false;
+      if (
+        config.noSameBet &&
+        !allowSame.has(v.type) &&
+        this.isBetExcludedByNoSameRule(v.type, "Away")
+      ) {
+        return false;
+      }
+      return (
         v.getOdds("Away") >= config.minOdds &&
         v.getOdds("Away") > 0 &&
-        providerKeys.includes(v.type),
-    );
+        providerKeys.includes(v.type)
+      );
+    });
     const awayItem = awayCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
       const odds = cur.getOdds("Away");
       if (!best || odds > best.getOdds("Away")) return cur;
@@ -174,7 +194,15 @@ export class ViewBet {
     const homeOdds = homeItem.getOdds("Home");
     const awayOdds = awayItem.getOdds("Away");
     const implied = 1 / (1 / homeOdds + 1 / awayOdds);
-    const targetProfit = config.profit;
+    let targetProfit = config.profit;
+    const profitOverrides = accounts.filter(
+      (a) =>
+        a.profit !== 0 &&
+        (a.provider === homeItem.type || a.provider === awayItem.type),
+    );
+    if (profitOverrides.length) {
+      targetProfit = Math.max(...profitOverrides.map((a) => Number(a.profit)));
+    }
     if (implied < targetProfit || implied > config.maxProfit) return undefined;
 
     let betMoney = config.betMoney;
@@ -237,6 +265,11 @@ export class ViewBet {
     }
 
     return options;
+  }
+
+  /** 对齐 bundle `isBet`（当前 bundle 为空实现，保留钩子供后续扩展） */
+  isBetExcludedByNoSameRule(_type: PlatformId, _side: BetSide): boolean {
+    return false;
   }
 }
 

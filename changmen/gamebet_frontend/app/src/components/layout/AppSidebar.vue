@@ -13,13 +13,3 @@ defineEmits<{ logout: [] }>();
     <LoseOrderView />
   </div>
 </template>
-
-<style scoped>
-.app-sidebar {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  min-height: 0;
-}
-</style>

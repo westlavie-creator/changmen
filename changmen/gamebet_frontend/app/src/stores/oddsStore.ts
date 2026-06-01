@@ -1,55 +1,111 @@
+/**
+ * 实时赔率缓存（对齐 A8 Pinia 模块 `fo`）。
+ *
+ * 与 ViewMatch 的分工：
+ * - `Client_GetMatchs` → matchStore → ViewMatch / ViewBetItem：赛事结构、盘口 ID（betId）、选项 ID（homeId/awayId）
+ * - 各平台采集器（HTTP 灌盘 + MQTT/WS 增量）→ 本 store `save()`：按 **oddId** 存最新赔率与锁盘
+ *
+ * 本 store **不存 matchId**；UI 只通过 ViewBetItem 持有的 id 来查 fo。
+ * fo 里可能出现 ViewMatch 未引用的 oddId（多盘口、列表已下架残留、采集先于合并等）。
+ */
 import { defineStore } from "pinia";
 import type { PlatformId } from "@/types/esport";
 import type { LimitEntry } from "@/types/limit";
 import { formatDisplayOdds } from "@/shared/format";
 
+/** 写入 fo 的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
 export type OddsSaveSource = "mqtt" | "http";
 
+/**
+ * 单条赔率缓存条目（key = `OddsEntry.id`，即平台侧的 **选项/odd id**，不是赛事 id）。
+ *
+ * 与 GetMatchs `Sources` 的对应关系（以 OB 为例）：
+ * - `id`     ↔ `HomeID` / `AwayID`（下注时 itemId）
+ * - `betId`  ↔ `BetID`（盘口/market id）
+ * - `side`   ↔ 主客边；当 GetMatchs 里 HomeID 过期时，可用 betIndex + side 找回 fo 里新 id
+ */
 export interface OddsEntry {
+  /** 平台选项 ID（odd id / selection id），fo 主键，全局唯一于该平台 bucket 内 */
   id: string;
+  /** 原始赔率数值；锁盘时 UI 显示 0，不读 fallback */
   odds: number;
+  /** 是否锁盘/不可下注（MQTT 锁盘、盘口 suspend、或 pending* 合并结果） */
   isLock: boolean;
+  /** 所属盘口 ID（market / bet group id），用于 betIndex 与按盘锁盘 */
   betId?: string;
-  /** OB game/view：@T1 / @T2，用于 Sources.HomeID 过期时按盘口找回赔率 */
+  /** 主客边；OB `game/view` 灌盘时写入 @T1/@T2，供 `getOddsForBetSide` 在 id 轮换时解析 */
   side?: "home" | "away";
+  /** 最后一次写入时间戳（ms）；`clean()` 无 platform 参数时按 1h 过期删条目 */
   time: number;
+  /** 本条最后一次 save 的来源 */
   source?: OddsSaveSource;
 }
 
+/** 赔率相对上一条数值的涨跌方向，驱动 BetRow 闪烁样式 */
 export type OddsFlashDir = "up" | "down";
 
 /** 赔率涨跌高亮保持时长（与 BetRow 颜色 transition 配合） */
 const ODDS_FLASH_MS = 4_000;
+/** OB MQTT `/odd/statusUpdate/`：status === 6 表示盘口开放，否则视为锁盘 */
 const OB_MARKET_OPEN = 6;
 
 /** 对齐 A8 Pinia `fo` — 实时赔率缓存 */
 export const useOddsStore = defineStore("odds", {
   state: () => ({
-    /** platform → oddsId → entry */
-    data: new Map<PlatformId, Map<string, OddsEntry>>(),
-    /** platform → betId → oddsId[] */
-    betIndex: new Map<PlatformId, Map<string, string[]>>(),
     /**
-     * OB/MQTT 可能先收到锁盘事件，再收到该盘口的 odds（betIndex 还没建立）。
-     * 这里缓存“盘口锁盘状态”，确保后续 save() 时能正确应用。
+     * 主表：`platform → oddId → OddsEntry`。
+     * 扁平存储，不按赛事分组；读赔用 `getOdds` / `getOddsForBetSide`。
+     */
+    data: new Map<PlatformId, Map<string, OddsEntry>>(),
+
+    /**
+     * 盘口索引：`platform → betId → oddId[]`。
+     * 同一盘口下多条选项（主/客、让分对等）；OB 在 HomeID 变更时靠 side 匹配正确 odd。
+     */
+    betIndex: new Map<PlatformId, Map<string, string[]>>(),
+
+    /**
+     * 待生效的 **盘口级** 锁盘：`platform → betId → locked`。
+     * MQTT 可能先于 HTTP 灌盘到达，此时 betIndex 为空，锁盘状态暂存于此；
+     * 后续 `save()` 写入该 betId 下条目时会合并到 `entry.isLock`。
      */
     pendingBetLocks: new Map<PlatformId, Map<string, boolean>>(),
+
     /**
-     * 同理：odd 级别锁盘可能先到（applyObOddLock 时 isOdds=false 被跳过）。
-     * 这里缓存“odd 锁盘状态”，在后续 save() 时应用。
+     * 待生效的 **选项级** 锁盘：`platform → oddId → locked`。
+     * `applyObOddLock` 在 `isOdds(id)===false` 时无法改已有行，先写这里；
+     * 首次 `save()` 该 oddId 时应用。
      */
     pendingOddLocks: new Map<PlatformId, Map<string, boolean>>(),
-    /** platform → last WS payload (debug) */
+
+    /**
+     * 调试：各平台最近一条 WS/MQTT 原始 payload 字符串（非业务主路径）。
+     */
     messages: new Map<PlatformId, string>(),
-    /** platform → oddsId → limit */
+
+    /**
+     * 限红缓存：`platform → oddId → LimitEntry`。
+     * 下注前 checkBet / stake 等写入；带 TTL，过期由 `cleanExpiredLimits` 清理。
+     */
     limits: new Map<PlatformId, Map<string, LimitEntry>>(),
-    /** platform:oddsId → 涨跌闪烁 */
-    flash: new Map<string, { dir: OddsFlashDir; until: number }>(),
+
+    /**
+     * 涨跌闪烁：`"platform:oddId" → { dir, until, source }`。
+     * `until` 为毫秒时间戳，过期后 `getFlash` 自动删除。
+     */
+    flash: new Map<string, { dir: OddsFlashDir; until: number; source: OddsSaveSource }>(),
+
+    /**
+     * 任意 fo 变更（save / 锁盘 / limit）时递增，供 Vue 依赖 fo 的组件强制刷新。
+     */
     revision: 0,
   }),
 
   actions: {
-    /** 对齐 A8 `fo.save`：HTTP / MQTT 均直接写入，无时间戳挡板 */
+    /**
+     * 写入或覆盖一条赔率（对齐 A8 `fo.save`）。
+     * HTTP 灌盘与 MQTT 增量均直接覆盖，**不做**“旧 time 拒绝新数据”挡板。
+     */
     save(platform: PlatformId, entry: OddsEntry, source: OddsSaveSource = "http") {
       const id = String(entry.id);
       if (!this.data.has(platform)) this.data.set(platform, new Map());
@@ -76,6 +132,7 @@ export const useOddsStore = defineStore("odds", {
         this.flash.set(`${platform}:${id}`, {
           dir: nextOdds > prev.odds ? "up" : "down",
           until: Date.now() + ODDS_FLASH_MS,
+          source,
         });
       }
       bucket.set(id, { ...entry, id, source });
@@ -93,7 +150,8 @@ export const useOddsStore = defineStore("odds", {
       }
     },
 
-    getFlash(platform: PlatformId, oddsId: string): OddsFlashDir | undefined {
+    /** 取某 oddId 的涨跌方向及来源；已过期则返回 undefined 并删 flash 条目 */
+    getFlash(platform: PlatformId, oddsId: string): { dir: OddsFlashDir; source: OddsSaveSource } | undefined {
       const key = `${platform}:${String(oddsId)}`;
       const row = this.flash.get(key);
       if (!row) return undefined;
@@ -101,9 +159,13 @@ export const useOddsStore = defineStore("odds", {
         this.flash.delete(key);
         return undefined;
       }
-      return row.dir;
+      return { dir: row.dir, source: row.source };
     },
 
+    /**
+     * 解析某盘口主/客边当前应使用的 oddId。
+     * 优先 ViewMatch 里的 homeId/awayId；若 fo 中不存在则扫 betIndex 找 `side` 匹配项（OB id 轮换）。
+     */
     resolveOddsIdForBetSide(
       platform: PlatformId,
       betId: string,
@@ -123,28 +185,36 @@ export const useOddsStore = defineStore("odds", {
       return String(primary);
     },
 
+    /** 按盘口边取涨跌闪烁及来源（内部先 resolveOddsIdForBetSide） */
     getFlashForBetSide(
       platform: PlatformId,
       betId: string,
       side: "home" | "away",
       homeId: string,
       awayId: string,
-    ): OddsFlashDir | undefined {
+    ): { dir: OddsFlashDir; source: OddsSaveSource } | undefined {
       return this.getFlash(
         platform,
         this.resolveOddsIdForBetSide(platform, betId, side, homeId, awayId),
       );
     },
 
+    /** fo 中是否已有该 oddId（MQTT 增量门闩：未灌盘过的 id 通常不处理推送） */
     isOdds(platform: PlatformId, oddsId: string): boolean {
       return Boolean(this.data.get(platform)?.has(String(oddsId)));
     },
 
+    /** 原始条目；未命中返回 undefined（不格式化、不处理锁盘显示逻辑） */
     getEntry(platform: PlatformId, oddsId: string): OddsEntry | undefined {
       return this.data.get(platform)?.get(String(oddsId));
     },
 
-    /** 对齐 A8 `fo.getOdds`：有缓存条目时只用缓存值，不用 fallback 顶替 0 */
+    /**
+     * 按 oddId 取展示赔率（对齐 A8 `fo.getOdds`）。
+     * - 无缓存：返回 formatDisplayOdds(fallback)
+     * - 有缓存且 isLock：返回 0（**不用** fallback 顶替锁盘）
+     * - 有缓存且未锁：返回 formatDisplayOdds(row.odds)
+     */
     getOdds(platform: PlatformId, oddsId: string, fallback = 0): number {
       const row = this.data.get(platform)?.get(String(oddsId));
       if (row === undefined) return formatDisplayOdds(fallback);
@@ -152,7 +222,10 @@ export const useOddsStore = defineStore("odds", {
       return formatDisplayOdds(row.odds);
     },
 
-    /** 按盘口 + 主客边解析（Sources.HomeID 与 fo 不一致时回退到 betIndex） */
+    /**
+     * 按盘口 + 主/客边取展示赔率（OB 主路径）。
+     * 先查 primary id，再 betIndex + side 回退；均无则走 primary 的 getOdds（含 fallback）。
+     */
     getOddsForBetSide(
       platform: PlatformId,
       betId: string,
@@ -176,6 +249,7 @@ export const useOddsStore = defineStore("odds", {
       return this.getOdds(platform, primary, fallback);
     },
 
+    /** 更新单条 odd 锁盘；写入 pendingOddLocks，若 fo 中已有行则同步 isLock */
     updateOddsLock(platform: PlatformId, oddsId: string, locked: boolean) {
       if (!this.pendingOddLocks.has(platform)) this.pendingOddLocks.set(platform, new Map());
       this.pendingOddLocks.get(platform)!.set(String(oddsId), locked);
@@ -186,6 +260,7 @@ export const useOddsStore = defineStore("odds", {
       }
     },
 
+    /** 更新整盘锁盘；写入 pendingBetLocks，并对 betIndex 下所有 oddId 调 updateOddsLock */
     updateBetLock(platform: PlatformId, betId: string, locked: boolean) {
       if (!this.pendingBetLocks.has(platform)) this.pendingBetLocks.set(platform, new Map());
       this.pendingBetLocks.get(platform)!.set(String(betId), locked);
@@ -194,7 +269,10 @@ export const useOddsStore = defineStore("odds", {
       for (const id of ids) this.updateOddsLock(platform, id, locked);
     },
 
-    /** OB 单条赔率锁盘（MQTT odd.*） */
+    /**
+     * OB `/odd/*` MQTT 锁盘解析（**当前未接线**：A8 UMe 亦只处理 market 三 topic）。
+     * 保留供将来对齐 odd 级推送；盘级锁盘走 `updateBetLock`（market/statusUpdate|suspended）。
+     */
     applyObOddLock(
       platform: PlatformId,
       row: { id?: unknown; status?: unknown; visible?: unknown; suspended?: unknown },
@@ -213,10 +291,16 @@ export const useOddsStore = defineStore("odds", {
       this.updateOddsLock(platform, oddsId, locked);
     },
 
+    /** 记录平台最近 WS/MQTT 消息（调试） */
     updateMessage(platform: PlatformId, payload: string) {
       this.messages.set(platform, payload);
     },
 
+    /**
+     * 清理 fo 条目。
+     * - 传入 platform：清空该平台 data / betIndex / pending*（采集轮次切换时用）
+     * - 不传：全局扫描，删除 time 超过 1 小时的 stale odd（不碰 betIndex 孤儿索引，靠 save 重建）
+     */
     clean(platform?: PlatformId) {
       if (platform) {
         this.data.set(platform, new Map());
@@ -233,6 +317,7 @@ export const useOddsStore = defineStore("odds", {
       }
     },
 
+    /** 给定 oddId 列表中是否任一条存在未过期的限红 */
     hasLimit(platform: PlatformId, ids: string[]): boolean {
       this.cleanExpiredLimits();
       const bucket = this.limits.get(platform);
@@ -244,6 +329,7 @@ export const useOddsStore = defineStore("odds", {
       });
     },
 
+    /** 取单条限红；过期返回 undefined */
     getLimit(platform: PlatformId, oddsId: string): LimitEntry | undefined {
       this.cleanExpiredLimits();
       const row = this.limits.get(platform)?.get(oddsId);
@@ -252,6 +338,12 @@ export const useOddsStore = defineStore("odds", {
       return row;
     },
 
+    /**
+     * 写入限红（对齐 A8 `QIe`）。
+     * @param value 限红金额
+     * @param payout 可选派彩上限
+     * @param ttlSec 可选 TTL（秒），到期后 getLimit 视为无
+     */
     setLimit(
       platform: PlatformId,
       oddsId: string,
@@ -267,11 +359,13 @@ export const useOddsStore = defineStore("odds", {
       this.revision += 1;
     },
 
+    /** 删除单条限红 */
     deleteLimit(platform: PlatformId, oddsId: string) {
       this.limits.get(platform)?.delete(oddsId);
       this.revision += 1;
     },
 
+    /** 删除已过期的 limits 条目；可只清某平台 */
     cleanExpiredLimits(platform?: PlatformId) {
       const now = Date.now();
       const buckets = platform

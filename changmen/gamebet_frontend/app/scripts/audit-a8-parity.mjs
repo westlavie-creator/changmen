@@ -14,6 +14,7 @@ const indexCss = fs.readFileSync(
   "utf8",
 );
 const a8Css = fs.readFileSync(path.join(root, "src/styles/a8.css"), "utf8");
+const amIconCss = fs.readFileSync(path.join(root, "src/styles/a8-am-icon.css"), "utf8");
 const fallbackCss = fs.readFileSync(path.join(root, "src/styles/a8-fallback.css"), "utf8");
 
 const viewNames = [
@@ -129,15 +130,20 @@ for (const f of vueFiles) {
 }
 
 const out = {
+  generatedAt: new Date().toISOString(),
   sources: {
     bundleJs: "vendor/ui-bundle/index.js",
     indexCss: "gamebet_backend/public/esport2/assets/index.css",
     a8Css: "app/src/styles/a8.css (extract-a8-css.mjs)",
+    a8AmIcon: "app/src/styles/a8-am-icon.css",
     a8Fallback: "app/src/styles/a8-fallback.css",
+    appCss: "app/src/styles/app.css",
+    userDiagCss: "app/src/styles/user-diag.css",
   },
   css: {
     indexCssBytes: indexCss.length,
     a8CssBytes: a8Css.length,
+    amIconCssBytes: amIconCss.length,
     fallbackCssBytes: fallbackCss.length,
     indexSelectorCount: indexSelectors.size,
     a8SelectorCount: a8Selectors.size,

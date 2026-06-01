@@ -8,7 +8,14 @@
     "dev": "vite",
     "prebuild": "node scripts/extract-a8-css.mjs",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview --base /app/"
+    "preview": "vite preview --base /app/",
+    "test:v4": "node scripts/test-v4-credit-plate.mjs",
+    "test:ob-getmatchs": "node scripts/test-ob-getmatchs-shape.mjs",
+    "test:ob-provider": "node scripts/test-ob-provider-contract.mjs",
+    "test:ob-live": "node scripts/test-ob-live-smoke.mjs",
+    "test:ob": "npm run test:ob-getmatchs && npm run test:ob-provider",
+    "test:ob:all": "npm run test:ob && npm run test:ob-live",
+    "audit:a8": "node scripts/audit-a8-parity.mjs"
   },
   "dependencies": {
     "@vueuse/core": "^13.2.0",
@@ -20,6 +27,7 @@
     "pinia": "^3.0.2",
     "socket.io-client": "^4.8.1",
     "socketcluster-client": "^19.2.0",
+    "tronweb": "^6.3.0",
     "vue": "^3.5.13",
     "vue-router": "^4.5.1"
   },

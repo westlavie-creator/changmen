@@ -1,39 +1,44 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
 
-/** 对齐 bundle `ExtensionsView` / class `version` */
+/** 对齐 bundle `ExtensionsView` / class `version` / `yS.version` */
 const WEB_BUNDLE_VERSION = "2.0.229";
 
 const extVersion = ref<string | null>(null);
 const remoteVersion = ref<string | null>(null);
 const webVersion = ref<string | null>(null);
-const titleBase = ref(document.title);
+const tooltip = ref("当前已是最新版本");
+
+const hasUpdate = ref(false);
+let titleBase = "";
 let titleTimer: ReturnType<typeof setInterval> | null = null;
 let tick = 0;
 
-const hasUpdate = ref(false);
-const tooltip = ref("当前已是最新版本");
+async function fetchVersionJson(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${url}?${Date.now()}`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { version?: string };
+    const v = data.version?.trim();
+    return v || null;
+  } catch {
+    return null;
+  }
+}
 
 async function loadVersions() {
   extVersion.value = localStorage.getItem("extensionVersion");
-  try {
-    const res = await fetch(`https://api.a8.to/esport2/version.json?${Date.now()}`);
-    const data = (await res.json()) as { version?: string };
-    remoteVersion.value = data.version ?? null;
-  } catch {
-    remoteVersion.value = null;
-  }
-  try {
-    const res = await fetch(`https://api.a8.to/esport2/assets/version.json?${Date.now()}`);
-    const data = (await res.json()) as { version?: string };
-    webVersion.value = data.version ?? null;
-  } catch {
-    webVersion.value = null;
-  }
+  remoteVersion.value =
+    (await fetchVersionJson("/esport2/version.json")) ??
+    (await fetchVersionJson("https://api.a8.to/esport2/version.json"));
+  webVersion.value =
+    (await fetchVersionJson("/esport2/assets/version.json")) ??
+    (await fetchVersionJson("https://api.a8.to/esport2/assets/version.json"));
 
   const current = extVersion.value ?? WEB_BUNDLE_VERSION;
-  hasUpdate.value = Boolean(remoteVersion.value && remoteVersion.value !== current);
-  if (hasUpdate.value) {
+  const extMismatch = Boolean(remoteVersion.value && remoteVersion.value !== current);
+  hasUpdate.value = extMismatch;
+  if (extMismatch && remoteVersion.value) {
     tooltip.value = `最新版本：${remoteVersion.value}`;
   } else if (webVersion.value && webVersion.value !== WEB_BUNDLE_VERSION) {
     tooltip.value = `最新版本：${webVersion.value}`;
@@ -48,17 +53,19 @@ function openDownload() {
 }
 
 onMounted(async () => {
-  titleBase.value = document.title;
+  titleBase = document.title;
   await loadVersions();
+  globalThis.addEventListener("gamebet-extension-version", loadVersions);
   titleTimer = setInterval(() => {
     tick += 1;
-    document.title = `${titleBase.value}.${tick}`;
+    document.title = `${titleBase}.${tick}`;
   }, 1000);
 });
 
 onUnmounted(() => {
+  globalThis.removeEventListener("gamebet-extension-version", loadVersions);
   if (titleTimer) clearInterval(titleTimer);
-  document.title = titleBase.value;
+  document.title = titleBase;
 });
 </script>
 

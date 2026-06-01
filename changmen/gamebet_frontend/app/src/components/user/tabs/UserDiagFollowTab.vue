@@ -61,7 +61,7 @@ async function save() {
 </script>
 
 <template>
-  <el-form>
+  <el-form class="user-diag-follow">
     <el-row :gutter="20">
       <el-col :span="24">
         <el-form-item>
@@ -85,7 +85,7 @@ async function save() {
             <el-col :span="10">
               <el-input v-model.number="form.minMoney" type="number" />
             </el-col>
-            <el-col :span="2" class="text-center">-</el-col>
+            <el-col :span="2" class="text-gray-500">-</el-col>
             <el-col :span="10">
               <el-input v-model.number="form.maxMoney" type="number" />
             </el-col>
@@ -114,10 +114,3 @@ async function save() {
     </el-row>
   </el-form>
 </template>
-
-<style scoped>
-.text-center {
-  text-align: center;
-  line-height: 32px;
-}
-</style>

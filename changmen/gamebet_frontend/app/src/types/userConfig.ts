@@ -20,6 +20,8 @@ export interface UserConfig {
   makeProfit: number;
   noSameProvider: boolean;
   noSameBet: boolean;
+  /** 对齐 A8 `D8.allowSameBet`：`noSameBet` 时仍允许这些平台参与选腿 */
+  allowSameBet: PlatformId[];
   anyOdds: boolean;
   anyOddsProfit: number;
   betSorting: BetSorting;
@@ -53,6 +55,7 @@ export function createDefaultUserConfig(): UserConfig {
     makeProfit: 1.01,
     noSameProvider: false,
     noSameBet: false,
+    allowSameBet: ["PB"],
     anyOdds: false,
     anyOddsProfit: 0.95,
     betSorting: "Custom",
@@ -84,6 +87,9 @@ export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): Us
     providerFixed: Array.isArray(raw.providerFixed)
       ? (raw.providerFixed as PlatformId[])
       : base.providerFixed,
+    allowSameBet: Array.isArray(raw.allowSameBet)
+      ? (raw.allowSameBet as PlatformId[])
+      : base.allowSameBet,
     waitTime: raw.waitTime && typeof raw.waitTime === "object" ? raw.waitTime : base.waitTime,
   };
 }

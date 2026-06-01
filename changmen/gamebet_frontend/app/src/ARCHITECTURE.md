@@ -22,11 +22,12 @@
 | `api/v4.ts` | A8 v4 信用盘试玩（平博/OB/SABA） | `enterCreditPlate` — 详见 [docs/CREDIT_PLATE.md](../docs/CREDIT_PLATE.md) |
 | `types/` | DTO、用户配置、纯类型 | `types/collect.ts`, `types/esport.ts` |
 | `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
-| `platforms/` | **平台清单与能力** | `registry.ts` |
+| `platforms/` | **平台清单、能力与平台实现** | `registry.ts`, `ob/collector`, `ob/provider` |
 | `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp`, `platforms/pbHeaders` |
-| `collectors/` | **赔率上报链路**（连接平台源站；主写 `SaveBet`） | `collectors/index.ts` → `start*Collector` |
-| `collectors/shared/` | **仅采集专用** | `collectSession`, `collectNotify` |
-| `providers/` | **下注**：预检、下单、余额 | `providers/index.ts` → `getProvider` |
+| `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts` |
+| `platforms/*/collector/` | **赔率上报链路**（连接平台源站；主写 `SaveBet`） | `start*Collector` |
+| `platforms/shared/` | **仅采集专用** | `collectSession`, `collectNotify` |
+| `platforms/*/provider/` | **下注**：预检、下单、余额 | `provider/index.ts` |
 | `stores/` | Pinia 状态与编排 | `matchStore`, `accountStore`, `bettingStore` |
 | `collectors/hg/followLoop.ts` | HG 跟单循环（原 services） | `startHgFollowLoop` |
 
@@ -42,7 +43,7 @@
 
 `ALL_PLATFORMS`、`PLATFORMS` 均从 registry 导出；新增平台时只改 `PLATFORM_REGISTRY` 一处，并注册 `collectors/index` 与 `providers/index`。
 
-账号鉴权（与采集解耦）：`shared/platforms/pbHeaders.ts`、`shared/platforms/tfAuth.ts` ← `platformHttp` 使用，采集侧通过 `collectors/pb/headers`、`collectors/tf/auth` 再导出。
+账号鉴权（与采集解耦）：`platforms/pb/auth.ts`、`platforms/tf/auth.ts` ← `platformHttp` 与采集侧共同使用。
 
 ---
 
@@ -109,7 +110,7 @@ UI 点击 ──► accountStore.checkBetting / betting
 | `platformHttp.ts` | **投注账号** HTTP（OB/RAY/TF…；Axios + 可选 relay） |
 | `bracketForm.ts` | 嵌套 form-urlencoded（SABA 等） |
 
-### `collectors/{平台}/`
+### `platforms/{平台}/collector/`
 
 | 文件 | 用途 |
 |------|------|
@@ -119,16 +120,16 @@ UI 点击 ──► accountStore.checkBetting / betting
 | `paths.ts` / `auth.ts` / `headers.ts` | 协议细节（按需） |
 | `parse.ts` / `mqtt.ts` | 解析或推送；MQTT 同步入口在 `mqtt.ts`（如 OB） |
 
-`collectors/shared/` 仅保留：
+`platforms/shared/` 仅保留：
 
 - `collectSession.ts` — 解析 PB/IMT 等采集用 gateway+token
 - `collectNotify.ts` — 采集错误 → Telegram
 
-### `collectors/a8/`
+### `platforms/a8/`
 
 A8 Socket 插件桥（`pluginBridge`, `socketHub`, `betsCollect`）。`im/`、`xbet/` 等为 A8 通道上的薄采集入口。
 
-### `providers/`
+### `platforms/{平台}/provider/`
 
 每个平台一个 `*Provider.ts`，实现 `PlatformProvider`（`types.ts`）：
 
@@ -153,8 +154,8 @@ A8 Socket 插件桥（`pluginBridge`, `socketHub`, `betsCollect`）。`im/`、`x
 1. `types/esport.ts` — `PlatformId`（若尚未存在）
 2. `platforms/registry.ts` — `PLATFORM_REGISTRY` 一条
 3. `collectors/{平台}/` — `index.ts` + `http.ts`（及 paths/parse 等）
-4. `collectors/index.ts` — 注册 `startXxxCollector`
-5. `providers/xxxProvider.ts` + `providers/index.ts`
+4. `platforms/{平台}/index.ts` — 导出平台 plugin
+5. `runtime/collectors.ts` / `runtime/providers.ts` — 注册平台 plugin
 6. `gamebet_backend` — `platforms.json` / 合并逻辑（若需要）
 7. UI — 采集开关、账号卡片（通常随 `ALL_PLATFORMS` 自动出现）
 

@@ -5,8 +5,6 @@ import { toViewMatches, type ViewMatch } from "@/models/match";
 import type { BetSide } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
 import type { MatchScoreBoard, PlatformScoreUpdate, ScoreRound } from "@/types/matchScore";
-import { PLATFORMS } from "@/shared/platform";
-import { useCollectStore } from "@/stores/collectStore";
 import { useUserStore } from "@/stores/userStore";
 
 const POLL_MS = 30_000;
@@ -162,10 +160,6 @@ export const useMatchStore = defineStore("match", {
         const list = await getMatchs(user.userName);
         this.matchs = toViewMatches(list);
         this.lastFetchAt = Date.now();
-        if (useCollectStore().isEnabled(PLATFORMS.OB)) {
-          const { syncObMqttSubscriptionsForGetMatchs } = await import("@/collectors/ob/mqtt");
-          await syncObMqttSubscriptionsForGetMatchs(this.matchs);
-        }
         this.refreshOddsOnBets();
         if (Date.now() - this.defaultOddsFetchedAt > DEFAULT_ODDS_MS) {
           await this.fetchMatchDefaultOdds();

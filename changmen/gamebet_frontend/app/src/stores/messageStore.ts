@@ -120,6 +120,28 @@ export const useMessageStore = defineStore("message", {
       this.enqueueTelegram(body);
     },
 
+    /** 对齐 A8 `Gi.send.LimitMessage`：入队 Telegram 并返回 HTML 文案供 checkError */
+    limitMessage(
+      account: PlatformAccount,
+      payload: {
+        match?: string;
+        bet?: string;
+        odds: number;
+        betMoney: number;
+        limit: number;
+      },
+    ): string {
+      const body = [
+        htmlTitle("限红提醒"),
+        accountLine(account),
+        `<blockquote>${payload.match ?? ""} / ${payload.bet ?? ""}`,
+        `投注金额：${payload.betMoney}@${payload.odds}`,
+        `限红金额：${payload.limit}</blockquote>`,
+      ].join("\n");
+      this.enqueueTelegram(body);
+      return body;
+    },
+
     hgFollowMessage(
       account: PlatformAccount,
       tid: string,

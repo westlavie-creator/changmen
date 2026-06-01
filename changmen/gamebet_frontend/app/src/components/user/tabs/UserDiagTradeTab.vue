@@ -118,7 +118,7 @@ watch(selectedUserIds, () => {
 </script>
 
 <template>
-  <el-form>
+  <el-form class="user-diag-trade">
     <el-form-item label="平台：">
       <el-radio-group v-model="provider">
         <el-radio v-for="p in ALL_PLATFORMS" :key="p" :value="p">{{ p }}</el-radio>
@@ -132,7 +132,6 @@ watch(selectedUserIds, () => {
           {{ u.userName ?? u.UserName }}
         </el-checkbox>
       </el-checkbox-group>
-      <p v-if="!onlineUsers.length" class="trade-hint">暂无在线用户</p>
     </el-form-item>
 
     <el-row :gutter="10">
@@ -181,20 +180,3 @@ watch(selectedUserIds, () => {
     </el-row>
   </el-form>
 </template>
-
-<style scoped>
-.trade-hint {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-fieldset {
-  margin-bottom: 10px;
-}
-legend {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-</style>

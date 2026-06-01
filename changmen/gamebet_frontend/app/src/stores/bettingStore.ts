@@ -265,7 +265,12 @@ export const useBettingStore = defineStore("betting", {
           for (const bet of match.bets) {
             if (loseStore.orders.has(bet.id)) continue;
 
-            const options = bet.getOrderOptions(match, config, providerKeys);
+            const options = bet.getOrderOptions(
+              match,
+              config,
+              providerKeys,
+              accountStore.accounts,
+            );
             if (!options || options.length !== 2) continue;
 
             let legA = options[0];

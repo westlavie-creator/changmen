@@ -44,6 +44,7 @@ function createFormFromConfig(src: UserConfig) {
     ...src,
     providerSortValue: [...src.providerSortValue],
     providerFixed: [...src.providerFixed],
+    allowSameBet: [...(src.allowSameBet ?? [])],
     waitTime: { ...src.waitTime },
   };
 }
@@ -122,13 +123,12 @@ async function save() {
     <el-form :model="form">
       <el-form-item>
         <el-row>
-          <el-col :span="10">
+          <el-col :span="8">
             <el-form-item label="投注金额:" :label-width="LABEL_W">
               <el-input v-model="form.betMoney" autocomplete="off" />
             </el-form-item>
           </el-col>
-          <el-col :span="1" />
-          <el-col :span="5">
+          <el-col :span="7">
             <el-switch
               v-model="form.tenNumber"
               inline-prompt
@@ -137,8 +137,7 @@ async function save() {
               size="large"
             />
           </el-col>
-          <el-col :span="1" />
-          <el-col :span="6">
+          <el-col :span="7">
             <el-switch
               v-model="form.betting"
               inline-prompt
@@ -152,7 +151,7 @@ async function save() {
 
       <el-form-item v-if="!form.betting">
         <el-row>
-          <el-col :span="6">
+          <el-col :span="8">
             <el-switch
               v-model="form.bettingAutoOpen"
               inline-prompt
@@ -161,7 +160,7 @@ async function save() {
               size="large"
             />
           </el-col>
-          <el-col v-if="form.bettingAutoOpen" :span="18">
+          <el-col v-if="form.bettingAutoOpen" :span="16">
             <el-form-item label="开启时间:" :label-width="LABEL_W">
               <el-date-picker
                 v-model="autoOpenDate"
@@ -210,7 +209,7 @@ async function save() {
           <el-col :span="6">
             <el-input v-model="form.profit" type="number" autocomplete="off" />
           </el-col>
-          <el-col :span="2" style="text-align: center; color: #909399">
+          <el-col :span="2" class="text-gray-500">
             <span>-</span>
           </el-col>
           <el-col :span="6">
@@ -272,7 +271,6 @@ async function save() {
         </el-form-item>
         <el-form-item>
           <el-row>
-            <el-col :span="1" />
             <el-col :span="8">
               <el-switch
                 v-model="form.noSameProvider"
@@ -291,7 +289,7 @@ async function save() {
                 size="large"
               />
             </el-col>
-            <el-col :span="7">
+            <el-col :span="8">
               <el-tooltip
                 effect="dark"
                 content="1、下单失败用当前可投注的最高赔率继续投注。2、被拒单马上用最高赔率进行补单"
@@ -306,7 +304,6 @@ async function save() {
                 />
               </el-tooltip>
             </el-col>
-            <el-col :span="1" />
             <el-col v-if="form.anyOdds" :span="12">
               <el-form-item label="任意赔率利润要求:">
                 <el-input

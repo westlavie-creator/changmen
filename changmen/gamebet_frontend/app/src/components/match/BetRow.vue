@@ -35,6 +35,13 @@ function itemOdds(item: ViewBet["items"][0], side: BetSide) {
   return item.getOdds(side);
 }
 
+function itemFlash(item: ViewBet["items"][0], side: BetSide) {
+  void revision.value;
+  void matchTick.value;
+  const foSide = side === "Home" ? "home" : "away";
+  return oddsStore.getFlashForBetSide(item.type, item.betId, foSide, item.homeId, item.awayId);
+}
+
 const arb = computed(() => {
   let bestHome = 0;
   let bestAway = 0;
@@ -154,22 +161,26 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
           :class="{
             lock: !itemOdds(item, 'Home'),
             target: matchStore.getBetTarget(item.type, bet.id) === 'Home',
+            'odds-up': itemFlash(item, 'Home')?.dir === 'up',
+            'odds-down': itemFlash(item, 'Home')?.dir === 'down',
           }"
           @click="onTarget(item.type, 'Home')"
           @dblclick.stop="onOddsDblClick(item, 'Home')"
         >
-          {{ itemOdds(item, "Home") || "" }}
+          {{ itemOdds(item, "Home") || "" }}<span v-if="itemFlash(item, 'Home')" class="odds-src">{{ itemFlash(item, 'Home')?.source === 'mqtt' ? 'M' : 'H' }}</span>
         </div>
         <div
           class="item-odds away"
           :class="{
             lock: !itemOdds(item, 'Away'),
             target: matchStore.getBetTarget(item.type, bet.id) === 'Away',
+            'odds-up': itemFlash(item, 'Away')?.dir === 'up',
+            'odds-down': itemFlash(item, 'Away')?.dir === 'down',
           }"
           @click="onTarget(item.type, 'Away')"
           @dblclick.stop="onOddsDblClick(item, 'Away')"
         >
-          {{ itemOdds(item, "Away") || "" }}
+          {{ itemOdds(item, "Away") || "" }}<span v-if="itemFlash(item, 'Away')" class="odds-src">{{ itemFlash(item, 'Away')?.source === 'mqtt' ? 'M' : 'H' }}</span>
         </div>
       </div>
     </div>

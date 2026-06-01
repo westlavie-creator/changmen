@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { getClientDataArray, saveClientData } from "@/api/esport";
+import { generateTronWallet, fetchTronBalances } from "@/shared/tronWallet";
 import type { WalletRow } from "@/types/userExtras";
 
 const rows = ref<WalletRow[]>([]);
@@ -21,15 +22,9 @@ async function persist() {
   }
 }
 
-function createWallet(): WalletRow {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  const address = `T${key.slice(0, 33).toUpperCase()}`;
-  return { name: "", address, key, trx: 0, usdt: 0 };
-}
-
 async function addWallet() {
-  rows.value.push(createWallet());
+  const { address, key } = await generateTronWallet();
+  rows.value.push({ name: "", address, key, trx: 0, usdt: 0 });
   await persist();
 }
 
@@ -54,9 +49,22 @@ async function copyKey(key: string) {
 }
 
 async function refreshBalances() {
+  if (!rows.value.length) return;
   refreshing.value = true;
   try {
-    ElMessage.info("链上余额刷新需 Tron 节点支持，当前为本地占位");
+    for (const row of rows.value) {
+      if (!row.address) continue;
+      try {
+        const { trx, usdt } = await fetchTronBalances(row.address);
+        row.trx = trx;
+        row.usdt = usdt;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[Wallet] balance", row.address, msg);
+      }
+    }
+    await persist();
+    ElMessage.success("余额已刷新");
   } finally {
     refreshing.value = false;
   }

@@ -86,14 +86,16 @@ export const useOrderStore = defineStore("order", {
         byPlayer.get(pid)!.push(row);
       }
 
-      for (const acc of accountStore.accounts) {
+      const accById = new Map(accountStore.accounts.map((a) => [a.accountId, a]));
+
+      for (const acc of accById.values()) {
         acc.today = 0;
         acc.orderCount = 0;
         if (today === todayKey()) acc.todayOrder = 0;
       }
 
       for (const [playerId, rows] of byPlayer) {
-        const acc = accountStore.findAccount(playerId);
+        const acc = accById.get(playerId);
         if (!acc) continue;
         const profit = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
         acc.today = Math.round(profit);
