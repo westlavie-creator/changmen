@@ -4,10 +4,11 @@
 
 | 脚本 | 作用 |
 |------|------|
-| **`dev.bat`** | **推荐**：后端 3456 + Vite 5174（两个窗口） |
-| **`backend.bat`** | 仅后端（写 `matches.json` 需默认 `ESPORT_BRIDGE=1`） |
+| **`dev.bat`** | **推荐**：同时打开 Backend 3456 + Vite 5174（两个窗口；`SKIP_APP_BUILD=1` 跳过每次 build `/app/`） |
+| **`parity-dev.bat`** | 模式 P（`ESPORT_BRIDGE=0`、`ENABLE_OB=0`）+ 双窗口 |
+| **`backend.bat`** | 仅后端（写 `matches.json` 需默认 `ESPORT_BRIDGE=1`）；会跑 `app:build` 除非 `SKIP_APP_BUILD=1` |
 
-旧名称仍可用（一行转调）：`start-dev.bat` → `dev.bat`，`start-web.bat` → `backend.bat`。
+旧名称仍可用（一行转调）：`start-dev.bat` → `dev.bat`，`start-web.bat` → **`backend.bat`（只有后端，没有 Vite）**。
 
 仅前端热更新：先 `backend.bat`，再在仓库根执行 `npm run app:dev`。
 

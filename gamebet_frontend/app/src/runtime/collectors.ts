@@ -1,16 +1,16 @@
-import { obPlugin } from "@/platforms/ob";
-import { rayPlugin } from "@/platforms/ray";
-import { tfPlugin } from "@/platforms/tf";
-import { iaPlugin } from "@/platforms/ia";
-import { pbPlugin } from "@/platforms/pb";
-import { imtPlugin } from "@/platforms/imt";
-import { sabaPlugin } from "@/platforms/saba";
-import { imPlugin } from "@/platforms/im";
-import { xbetPlugin } from "@/platforms/xbet";
-import { stakePlugin } from "@/platforms/stake";
-import { hgPlugin } from "@/platforms/hg";
+import { obAdapter } from "@/platforms/ob";
+import { rayAdapter } from "@/platforms/ray";
+import { tfAdapter } from "@/platforms/tf";
+import { iaAdapter } from "@/platforms/ia";
+import { pbAdapter } from "@/platforms/pb";
+import { imtAdapter } from "@/platforms/imt";
+import { sabaAdapter } from "@/platforms/saba";
+import { imAdapter } from "@/platforms/im";
+import { xbetAdapter } from "@/platforms/xbet";
+import { stakeAdapter } from "@/platforms/stake";
+import { hgAdapter } from "@/platforms/hg";
 import type { PlatformId } from "@/types/esport";
-import type { CollectorFactory } from "@/platforms/types";
+import type { CollectorFactory } from "@/platforms/contract";
 import { collectPlatformIds } from "@/platforms/registry";
 import { useCollectStore } from "@/stores/collectStore";
 
@@ -20,17 +20,17 @@ const runners = new Map<PlatformId, StopFn>();
 
 /** 与 platforms/registry 中 collect:true 的平台一一对应 */
 const COLLECTOR_FACTORIES: Partial<Record<PlatformId, CollectorFactory>> = {
-  OB: obPlugin.collector,
-  RAY: rayPlugin.collector,
-  TF: tfPlugin.collector,
-  IA: iaPlugin.collector,
-  IM: imPlugin.collector,
-  SABA: sabaPlugin.collector,
-  XBet: xbetPlugin.collector,
-  PB: pbPlugin.collector,
-  IMT: imtPlugin.collector,
-  HG: hgPlugin.collector,
-  Stake: stakePlugin.collector,
+  OB: obAdapter.collector,
+  RAY: rayAdapter.collector,
+  TF: tfAdapter.collector,
+  IA: iaAdapter.collector,
+  IM: imAdapter.collector,
+  SABA: sabaAdapter.collector,
+  XBet: xbetAdapter.collector,
+  PB: pbAdapter.collector,
+  IMT: imtAdapter.collector,
+  HG: hgAdapter.collector,
+  Stake: stakeAdapter.collector,
 };
 
 if (import.meta.env.DEV) {

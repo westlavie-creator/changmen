@@ -1,8 +1,8 @@
-import type { PlatformPlugin } from "@/platforms/types";
+import type { PlatformAdapter } from "@/platforms/contract";
 import { startTfCollector } from "./collect";
 import { tfProvider } from "./bet";
 
-export const tfPlugin: PlatformPlugin = {
+export const tfAdapter: PlatformAdapter = {
   id: "TF",
   collector: startTfCollector,
   provider: tfProvider,

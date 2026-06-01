@@ -1,29 +1,29 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import { betPlatformIds, platformSupportsBet } from "@/platforms/registry";
-import { obPlugin } from "@/platforms/ob";
-import { pbPlugin } from "@/platforms/pb";
-import { rayPlugin } from "@/platforms/ray";
-import { tfPlugin } from "@/platforms/tf";
-import { iaPlugin } from "@/platforms/ia";
-import { imPlugin } from "@/platforms/im";
-import { imtPlugin } from "@/platforms/imt";
-import { sabaPlugin } from "@/platforms/saba";
-import { stakePlugin } from "@/platforms/stake";
-import { hgPlugin } from "@/platforms/hg";
-import type { PlatformProvider } from "@/platforms/types";
+import { obAdapter } from "@/platforms/ob";
+import { pbAdapter } from "@/platforms/pb";
+import { rayAdapter } from "@/platforms/ray";
+import { tfAdapter } from "@/platforms/tf";
+import { iaAdapter } from "@/platforms/ia";
+import { imAdapter } from "@/platforms/im";
+import { imtAdapter } from "@/platforms/imt";
+import { sabaAdapter } from "@/platforms/saba";
+import { stakeAdapter } from "@/platforms/stake";
+import { hgAdapter } from "@/platforms/hg";
+import type { PlatformProvider } from "@/platforms/contract";
 
 const providers: Partial<Record<PlatformId, PlatformProvider>> = {
-  OB: obPlugin.provider,
-  RAY: rayPlugin.provider,
-  PB: pbPlugin.provider,
-  TF: tfPlugin.provider,
-  IA: iaPlugin.provider,
-  IM: imPlugin.provider,
-  IMT: imtPlugin.provider,
-  SABA: sabaPlugin.provider,
-  Stake: stakePlugin.provider,
-  HG: hgPlugin.provider,
+  OB: obAdapter.provider,
+  RAY: rayAdapter.provider,
+  PB: pbAdapter.provider,
+  TF: tfAdapter.provider,
+  IA: iaAdapter.provider,
+  IM: imAdapter.provider,
+  IMT: imtAdapter.provider,
+  SABA: sabaAdapter.provider,
+  Stake: stakeAdapter.provider,
+  HG: hgAdapter.provider,
 };
 
 export function getProvider(account: PlatformAccount): PlatformProvider | undefined {

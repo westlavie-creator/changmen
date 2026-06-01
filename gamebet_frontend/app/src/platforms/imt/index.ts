@@ -1,8 +1,8 @@
-import type { PlatformPlugin } from "@/platforms/types";
+import type { PlatformAdapter } from "@/platforms/contract";
 import { startImtCollector } from "./collect";
 import { imtProvider } from "./bet";
 
-export const imtPlugin: PlatformPlugin = {
+export const imtAdapter: PlatformAdapter = {
   id: "IMT",
   collector: startImtCollector,
   provider: imtProvider,

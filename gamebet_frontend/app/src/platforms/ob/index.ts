@@ -1,8 +1,8 @@
-import type { PlatformPlugin } from "@/platforms/types";
+import type { PlatformAdapter } from "@/platforms/contract";
 import { startObCollector } from "./collect";
 import { obProvider } from "./bet";
 
-export const obPlugin: PlatformPlugin = {
+export const obAdapter: PlatformAdapter = {
   id: "OB",
   collector: startObCollector,
   provider: obProvider,
