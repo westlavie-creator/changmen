@@ -20,6 +20,7 @@ export const PLATFORM_REGISTRY: PlatformMeta[] = [
   { id: "TF", sort: 3, collect: true, bet: true },
   { id: "IA", sort: 4, collect: true, bet: true },
   { id: "SABA", sort: 5, collect: true, bet: true },
+  /** bundle 仅 Socket 采集/比分，无 `GetProvider(XBet)` 下注实现 */
   { id: "XBet", sort: 6, collect: true, bet: false, a8Channel: true },
   { id: "PB", sort: 7, collect: true, bet: true },
   { id: "IMT", sort: 8, collect: true, bet: true },

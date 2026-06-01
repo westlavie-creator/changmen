@@ -6,7 +6,10 @@ import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const CONFIG_KEY = "CollectConfig";
 
-/** 对齐 A8 Pinia `Tf` — 采集开关 + SaveMatch/SaveBet 网关 */
+/**
+ * 对齐 A8 Pinia `Tf`：`collect` 开关只控制是否调用后端 SaveMatch/SaveBets（数据回传），
+ * 不控制前端是否向场馆拉数或写入 oddsStore。各采集器应常驻运行，经本 store 上报时才检查开关。
+ */
 export const useCollectStore = defineStore("collect", {
   state: () => ({
     log: false,
@@ -29,12 +32,8 @@ export const useCollectStore = defineStore("collect", {
         for (const [id, on] of raw.collect as [PlatformId, boolean][]) {
           merged.set(id, Boolean(on));
         }
-      } else {
-        // 保持 changmen 现网行为：首次进入默认开启核心上报链路
-        // （否则会让 OB/RAY 轮询/入库链路全部静默）。
-        merged.set("OB", true);
-        merged.set("RAY", true);
       }
+      // 无 collect 字段：与 A8 空 Map 一致，全平台 false（不本地默认开 OB/RAY）
       this.collect = merged;
       this.log = Boolean(raw?.log);
       this.ready = true;

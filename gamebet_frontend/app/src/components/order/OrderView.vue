@@ -74,8 +74,8 @@ function playerLabel(row: OrderRow) {
         </div>
         <div class="match" v-html="row.Match" />
         <div class="bet">
-          <div class="betname" style="float: left" v-html="row.Bet" />
-          <div class="item" style="float: right">
+          <div class="betname" v-html="row.Bet" />
+          <div class="item">
             <label v-html="row.Item" />
             @{{ row.Odds }}
           </div>

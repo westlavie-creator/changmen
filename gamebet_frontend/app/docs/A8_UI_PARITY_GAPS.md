@@ -1,9 +1,12 @@
 # A8 UI / 行为复刻缺口清单
 
-对照基线：`changmen/gamebet_frontend/vendor/ui-bundle/index.js`（与 `/console/` 同源）。  
+对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `index.css`（新 `/app/`）。  
+双轨对照可用 `vendor/ui-bundle` + `/console/`。  
 本清单只列**尚未对齐**或**仅部分对齐**项；数据层/采集/下单见 `MIGRATION.md` 与各 `collectors/docs/*`。
 
-最后更新：2025-05-29（全量 View 映射审计 + Element Plus 样式陷阱 + 残余 UI 缺口）。
+文档索引：[README.md](./README.md)
+
+最后更新：2026-05-29
 
 ---
 
@@ -93,21 +96,21 @@
 | `makeUp_defaultOdds` / `makeUp_odds` | 有 | 已对齐 | `allowMakeUpForLeg` + `Client_GetDefaultOdds` |
 | 账号 `minDefault` / `maxDefault` | 有 | 已对齐 | 主循环与补单选账号 |
 | `allowSameBet` / `noSameBet` | 有 | 部分 | 使用 `noSameBet` + sessionStorage；命名与 bundle 略有差异 |
-| `noSameProvider` | 有 | 部分 | 补单路径有；主循环需再核对 |
+| `noSameProvider` | 有 | 已对齐 | 仅补单 `processLoseOrders`；主循环用 `noSameBet`（bundle 同） |
 | 定时开启投注 | 有 | 已对齐 | `bettingStore.tickAutoOpen` |
-| HG 采集 | `SQ` | 占位 | 无赔率流，仅占位 |
+| HG 采集 | `SQ` | 部分 | 无电竞赔率流；启用开关时 60s 刷 HG 账号余额；跟单见 `hgFollowLoop` |
 | Stake 下单 | 插件 | **暂缓** | `stakeProvider` 占位 |
 
 ---
 
 ## 七、建议优先级
 
-详见 [A8_NEXT_STEPS.md](./A8_NEXT_STEPS.md)。
+详见 [A8_NEXT_STEPS.md](./A8_NEXT_STEPS.md)、[A8_REPLICATE_8_PLATFORMS.md](./A8_REPLICATE_8_PLATFORMS.md)。
 
-1. **P0/P1 UI**：已完成
-2. **初赔 + WinRate + 补单阈值**：已完成（`default_odds.json`）
-3. **待做**：`anyOdds`、`lastOdds`、UI 图标资源
-4. **P3**：Stake 插件下单
+1. **P0**：8 平台联调 + 走查表（回传开关语义）
+2. **P1 UI**：同屏 pixel diff（账号编辑、充提、版本角标）
+3. **已完成**：初赔/WinRate/补单阈值、`anyOdds`、`lastOdds`、图标、赛事采集 Tab
+4. **暂缓**：Stake 插件下单；HG 无电竞赔率流（仅余额轮询）
 
 ---
 
@@ -130,7 +133,7 @@ node scripts/audit-a8-parity.mjs
 
 ---
 
-## 九、2025-05 复审计结论
+## 九、2026-05 复审计结论
 
 ### 9.1 组件覆盖（结构层）
 
@@ -151,9 +154,9 @@ node scripts/audit-a8-parity.mjs
 
 | 区域 | 说明 |
 |------|------|
-| `am-icon` / `iconfont-base` | 未打包 A8 字体；`a8-icon-fallback.css` 用 Unicode 代替，观感与 `/console/` 不完全一致 |
+| `am-icon` / `iconfont-base` | **已对齐**：`fontawesome-webfont.woff2` + `a8-am-icon.css`（FA 4.7）；未映射类仍走 `a8-icon-fallback` |
 | IM 角标 | 缺图时用蓝底「IM」字（`app.css`） |
-| `/esport2/assets/*` | dev 需能访问后端静态资源，否则背景/字体可能裂图 |
+| `/esport2/assets/*` | Vite 代理 `/esport2` → 3456；生产需同源静态目录 |
 
 **P2 — Vue 独有或与 A8 不同**
 
@@ -178,5 +181,5 @@ node scripts/audit-a8-parity.mjs
 ### 9.5 建议下一步（仅 UI）
 
 1. 同屏 `/console/` vs `/app/` 走一遍 11 个用户中心 Tab + 主界面关键路径。
-2. 图标一致：纳入 A8 字体资源，缩小 `a8-icon-fallback`。
+2. 同屏 pixel diff：账号编辑、充提弹窗、版本角标。
 3. 钱包地址一致：接入 TronWeb 生成（行为改动，影响钱包 Tab 展示）。

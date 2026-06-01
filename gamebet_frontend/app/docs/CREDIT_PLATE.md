@@ -1,7 +1,7 @@
 # 平博信用盘（A8 v4）— 新控制台 `/app/`
 
-> **状态（2026-05-26）**：流程 **第一步** `POST /v4.0/user/account/login` 已在本地联调通过。  
-> 第二步 `game/play/Login`（取 SSO URL）与确认框见 `src/api/v4.ts` 中 `fetchPbPlayUrl` / `enterCreditPlate`。
+> **状态（2026-05-29）**：两步 v4 已在本地经 `/v4.0/` 代理 E2E 通过（`npm run test:v4`，需 backend `3456`）。  
+> UI 确认框见 `src/api/v4.ts` 中 `fetchPbPlayUrl` / `enterCreditPlate`。
 
 实现文件：`gamebet_frontend/app/src/api/v4.ts` · 入口 UI：`CollectConfigPanel.vue`「平博体育」。
 
@@ -78,6 +78,16 @@ OB / SABA 为试玩分支，不走上述 v4 登录。
 | `GET /api/a8/defaults` | 登录页预填 `TJ01` / `a123456` |
 | `GET /api/a8/credit-plate-user` | 平博 v4 用的 `userName`（带 `token` 头时读 `setting.a8UserName`） |
 | `Client_GetUserInfo` | 响应含 `CreditPlateUserName` |
+
+## 自动化 E2E（两步）
+
+```bash
+# 先启动 gamebet_backend（默认 3456）
+cd changmen/gamebet_frontend/app
+npm run test:v4
+```
+
+成功输出含 `[v4-test] PASS` 与平博 SSO `Url` 前缀；失败常见为 Cloudflare（`A8CloudflareBlocked`）或 `a8_constants.js` 账号无效。
 
 ## 如何确认「第一步成功」
 

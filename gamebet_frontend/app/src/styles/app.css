@@ -31,18 +31,60 @@
   outline-offset: -1px;
 }
 
-/* A8 原图 Dv2UbQNP.png 未随仓库分发时避免裂图 */
-.provider-icon.IM {
-  background-image: none !important;
-  background-color: #2563eb;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* HomeView / 侧栏 / 登录（避免 scoped 覆盖 a8.css） */
+.home-view {
+  height: 100%;
 }
-.provider-icon.IM::after {
-  content: "IM";
+.app-hint {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+.app-hint--err {
+  color: #f87171;
+}
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+.login-error {
+  margin: 0 0 8px;
+  color: #f56c6c;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 赔率涨跌 flash */
+@keyframes arrow-up {
+  0%, 100% { transform: translateY(0);   opacity: 1; }
+  50%       { transform: translateY(-3px); opacity: 0.6; }
+}
+@keyframes arrow-down {
+  0%, 100% { transform: translateY(0);   opacity: 1; }
+  50%       { transform: translateY(3px);  opacity: 0.6; }
+}
+.item-odds.odds-up   { background: #52c41acc; border-color: #237804; }
+.item-odds.odds-down { background: #ff4d4fcc; border-color: #a8071a; }
+.item-odds.odds-up::before   {
+  content: "▲"; position: absolute; top: 1px; left: 3px;
+  font-size: 14px; color: #092b00; line-height: 1;
+  animation: arrow-up 0.6s ease-in-out infinite;
+}
+.item-odds.odds-down::before {
+  content: "▼"; position: absolute; top: 1px; left: 3px;
+  font-size: 14px; color: #3b0014; line-height: 1;
+  animation: arrow-down 0.6s ease-in-out infinite;
+}
+/* 来源标签：M=MQTT  H=HTTP */
+.odds-src {
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+  vertical-align: super;
+  margin-left: 2px;
+  opacity: 0.75;
 }

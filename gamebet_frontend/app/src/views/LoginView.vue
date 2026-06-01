@@ -82,12 +82,3 @@ async function submit() {
     </div>
   </div>
 </template>
-
-<style scoped>
-.login-error {
-  margin: 0 0 8px;
-  color: #f56c6c;
-  font-size: 13px;
-  text-align: center;
-}
-</style>

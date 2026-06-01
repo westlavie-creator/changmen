@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { NOTIFY_TYPES } from "@/constants/notifyTypes";
+import { TELEGRAM_BOT_URL, TELEGRAM_BOT_NAME } from "@/config/gamebetExtension";
 import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
@@ -44,7 +45,7 @@ async function save() {
       </label>
     </el-form-item>
     <el-form-item label="机器人:">
-      <el-link href="https://t.me/esportfight_bot" target="_blank">@esportfight_bot</el-link>
+      <el-link :href="TELEGRAM_BOT_URL" target="_blank">{{ TELEGRAM_BOT_NAME }}</el-link>
     </el-form-item>
     <div class="flex flex-center">
       <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">

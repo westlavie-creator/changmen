@@ -1,14 +1,19 @@
 {
+  "generatedAt": "2026-05-29T07:47:18.967Z",
   "sources": {
     "bundleJs": "vendor/ui-bundle/index.js",
     "indexCss": "gamebet_backend/public/esport2/assets/index.css",
     "a8Css": "app/src/styles/a8.css (extract-a8-css.mjs)",
-    "a8Fallback": "app/src/styles/a8-fallback.css"
+    "a8AmIcon": "app/src/styles/a8-am-icon.css",
+    "a8Fallback": "app/src/styles/a8-fallback.css",
+    "appCss": "app/src/styles/app.css",
+    "userDiagCss": "app/src/styles/user-diag.css"
   },
   "css": {
     "indexCssBytes": 372892,
     "a8CssBytes": 371511,
-    "fallbackCssBytes": 1001,
+    "amIconCssBytes": 1637,
+    "fallbackCssBytes": 3171,
     "indexSelectorCount": 1816,
     "a8SelectorCount": 1816,
     "selectorOnlyInIndexCount": 0,
@@ -79,7 +84,7 @@
     "provider-icon OB",
     "provider-icon PB",
     "provider-icon SABA",
-    "text-gray-500"
+    "text-center"
   ],
   "vueScopedStyleFiles": [
     {
@@ -91,28 +96,8 @@
       "bytes": 295
     },
     {
-      "file": "components/user/tabs/UserDiagTradeTab.vue",
-      "bytes": 212
-    },
-    {
-      "file": "views/HomeView.vue",
-      "bytes": 157
-    },
-    {
-      "file": "components/layout/AppSidebar.vue",
-      "bytes": 107
-    },
-    {
       "file": "views/ConsoleRedirectView.vue",
       "bytes": 102
-    },
-    {
-      "file": "views/LoginView.vue",
-      "bytes": 94
-    },
-    {
-      "file": "components/user/tabs/UserDiagFollowTab.vue",
-      "bytes": 59
     }
   ]
 }

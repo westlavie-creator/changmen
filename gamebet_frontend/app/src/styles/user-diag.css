@@ -49,3 +49,23 @@
 .el-col.message {
   margin-bottom: 8px;
 }
+
+/* TradeView / FollowView（对齐 bundle，不用 scoped） */
+.user-diag-trade .trade-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.user-diag-trade fieldset {
+  margin-bottom: 10px;
+}
+.user-diag-trade legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.user-diag-follow .text-center {
+  text-align: center;
+  line-height: 32px;
+}

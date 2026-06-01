@@ -47,3 +47,119 @@
     transform: translateX(120%);
   }
 }
+
+/* 大号 inline-prompt 开关：A8/Element Plus 默认 core 仅 50px，inner 省略号会裁切中文标签 */
+.el-switch--large .el-switch__core {
+  min-width: max(50px, 8em);
+  width: max-content;
+  max-width: 100%;
+}
+
+.el-switch--large .el-switch__core .el-switch__inner {
+  overflow: visible;
+}
+
+.el-switch--large .el-switch__core .el-switch__inner-wrapper {
+  overflow: visible;
+  text-overflow: clip;
+  max-width: none;
+  white-space: nowrap;
+}
+
+/*
+ * 侧栏订单 class 与账户条/赛事卡冲突（a8.css 全局 .platform / .bet）。
+ * 官方 bundle 用 scoped 限定账户与赛事；此处按 .orders .order 作用域还原。
+ */
+.orders .orderlink {
+  overflow: visible;
+}
+
+.orders .order {
+  overflow: visible;
+}
+
+/* 角标：抵消顶栏 .platform 的 height/padding，避免账号名被裁切；勿 overflow:hidden 裁掉 top:-12px */
+.orders .order .platform {
+  position: absolute;
+  left: -5px;
+  top: -12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  width: auto;
+  max-width: calc(100% + 6px);
+  height: auto;
+  min-height: 22px;
+  line-height: 22px;
+  padding: 2px 4px 2px 0;
+  background-color: #000;
+  border-radius: 6px;
+  white-space: nowrap;
+  visibility: visible;
+}
+
+.orders .order .platform .provider-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.orders .order .platform .player {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #fff;
+}
+
+.orders .order .bet {
+  position: static;
+  width: auto;
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+  background: none;
+  background-image: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.orders .order .bet::after {
+  display: none;
+  content: none;
+}
+
+.orders .order .betname {
+  float: left;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orders .order .bet > .item {
+  float: right;
+  max-width: 54%;
+  margin-bottom: 0;
+  min-width: 0;
+  height: auto;
+  line-height: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: #1fa2ff;
+  background: none;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.orders .order .bet > .item label {
+  display: inline;
+}

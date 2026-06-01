@@ -1,3 +1,7 @@
+/** Telegram 机器人引导链接 */
+export const TELEGRAM_BOT_URL = "https://t.me/esportfight_bot";
+export const TELEGRAM_BOT_NAME = "@esportfight_bot";
+
 /** gamebetplug 固定扩展 ID（与 gamebetplug/manifest.json 中公钥对应） */
 export const GAMEBET_EXTENSION_ID_DEFAULT = "mogfpjihgoghabicofkbcmcidlcoofee";
 

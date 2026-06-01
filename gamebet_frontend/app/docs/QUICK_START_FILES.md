@@ -118,8 +118,8 @@ BetRow → item.getOdds()
 | 路径 | 原因 |
 |------|------|
 | `src/collectors/docs/A8_COMPARE_*.md` | 对齐审计，日常运维不必读 |
-| `src/collectors/docs/OB_FRONTEND_PLAN.md` | 待审批计划，不是现状说明 |
 | `src/utils/` | 文档标明无引用，历史残留 |
+| `app/docs/_A8_VS_CHANGMEN_AUDIT.json` | 机器可读缺口，非人工阅读 |
 | 其它平台 `collectors/pb`、`tf`… | 除非你正在改该平台 |
 
 ---

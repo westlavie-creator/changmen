@@ -7,7 +7,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
-import { pbProvider } from "@/providers/pbProvider";
+import { pbProvider } from "@/platforms/pb/bet";
 
 const props = defineProps<{
   open: boolean;
@@ -92,73 +92,39 @@ function defaultGameMap() {
 }
 
 function resetForm(acc?: PlatformAccount) {
-  if (acc) {
-    form.platformName = acc.platformName || "";
-    form.playerName = acc.playerName;
-    form.provider = acc.provider;
-    form.proxyId = acc.proxyId ?? 0;
-    form.gateway = acc.gateway || "";
-    form.token = acc.token || "";
-    form.referer = acc.referer || "";
-    form.userAgent = acc.userAgent || "";
-    form.credit = acc.credit ?? 0;
-    form.maxBalance = acc.maxBalance ?? 0;
-    form.maxBalanceOdds = acc.maxBalanceOdds ?? 2;
-    form.maxProfit = acc.maxProfit ?? 0;
-    form.maxWinBalance = acc.maxWinBalance ?? 0;
-    form.minOdds = acc.minOdds ?? 0;
-    form.maxOdds = acc.maxOdds ?? 0;
-    form.minDefault = acc.minDefault ?? 0;
-    form.maxDefault = acc.maxDefault ?? 0;
-    form.maxOrder = acc.maxOrder ?? 0;
-    form.profit = acc.profit ?? 0;
-    form.maxBetCount = acc.maxBetCount ?? 0;
-    form.multiply = acc.multiply ?? 1;
-    form.pause = acc.pause ?? false;
-    form.markupOnly = acc.markupOnly ?? false;
-    form.noMarkup = acc.noMarkup ?? false;
-    form.lastOdds = acc.lastOdds ?? false;
-    form.realName = acc.realName || "";
-    form.mobile = acc.mobile || "";
-    form.city = acc.city || "";
-    form.description = acc.description || "";
-    form.workTimes = acc.workTimes?.length ? [...acc.workTimes] : [];
-    form.rateConfig = acc.rateConfig?.length ? acc.rateConfig.map((r) => ({ ...r })) : [];
-    form.game = acc.game ? JSON.parse(JSON.stringify(acc.game)) : defaultGameMap();
-  } else {
-    form.platformName = "";
-    form.playerName = "";
-    form.provider = "RAY";
-    form.proxyId = 0;
-    form.gateway = "";
-    form.token = "";
-    form.referer = "";
-    form.userAgent = "";
-    form.credit = 0;
-    form.maxBalance = 0;
-    form.maxBalanceOdds = 2;
-    form.maxProfit = 0;
-    form.maxWinBalance = 0;
-    form.minOdds = 0;
-    form.maxOdds = 0;
-    form.minDefault = 0;
-    form.maxDefault = 0;
-    form.maxOrder = 0;
-    form.profit = 0;
-    form.maxBetCount = 0;
-    form.multiply = 1;
-    form.pause = false;
-    form.markupOnly = false;
-    form.noMarkup = false;
-    form.lastOdds = false;
-    form.realName = "";
-    form.mobile = "";
-    form.city = "";
-    form.description = "";
-    form.workTimes = [];
-    form.rateConfig = [];
-    form.game = defaultGameMap();
-  }
+  const src = acc ?? new PlatformAccount({ accountId: 0, playerName: "", provider: "RAY" });
+  form.platformName = src.platformName || "";
+  form.playerName = src.playerName ?? "";
+  form.provider = src.provider;
+  form.proxyId = src.proxyId ?? 0;
+  form.gateway = src.gateway || "";
+  form.token = src.token || "";
+  form.referer = src.referer || "";
+  form.userAgent = src.userAgent || "";
+  form.credit = src.credit ?? 0;
+  form.maxBalance = src.maxBalance ?? 0;
+  form.maxBalanceOdds = src.maxBalanceOdds ?? 2;
+  form.maxProfit = src.maxProfit ?? 0;
+  form.maxWinBalance = src.maxWinBalance ?? 0;
+  form.minOdds = src.minOdds ?? 0;
+  form.maxOdds = src.maxOdds ?? 0;
+  form.minDefault = src.minDefault ?? 0;
+  form.maxDefault = src.maxDefault ?? 0;
+  form.maxOrder = src.maxOrder ?? 0;
+  form.profit = src.profit ?? 0;
+  form.maxBetCount = src.maxBetCount ?? 0;
+  form.multiply = src.multiply ?? 1;
+  form.pause = src.pause ?? false;
+  form.markupOnly = src.markupOnly ?? false;
+  form.noMarkup = src.noMarkup ?? false;
+  form.lastOdds = src.lastOdds ?? false;
+  form.realName = src.realName || "";
+  form.mobile = src.mobile || "";
+  form.city = src.city || "";
+  form.description = src.description || "";
+  form.workTimes = src.workTimes?.length ? [...src.workTimes] : [];
+  form.rateConfig = src.rateConfig?.length ? src.rateConfig.map((r) => ({ ...r })) : [];
+  form.game = JSON.parse(JSON.stringify(src.game ?? defaultGameMap()));
   pasteRaw.value = "";
   gameShow.value = false;
   rateLocked.value = form.provider === "PB";
@@ -403,12 +369,12 @@ async function save() {
               value-key="value"
             />
           </el-col>
-          <el-col :span="8">
+          <el-col :span="7">
             <el-input v-model="form.playerName" placeholder="账号">
               <template #prepend>账号</template>
             </el-input>
           </el-col>
-          <el-col :span="4">
+          <el-col :span="6">
             <el-switch
               v-model="form.pause"
               size="large"
@@ -543,7 +509,7 @@ async function save() {
         <el-col :span="24">
           <el-form-item label="补单配置：">
             <el-row :gutter="10">
-              <el-col :span="4">
+              <el-col :span="5">
                 <el-switch
                   v-model="form.markupOnly"
                   size="large"
@@ -554,7 +520,7 @@ async function save() {
                   @change="onMarkupOnlyChange"
                 />
               </el-col>
-              <el-col :span="4">
+              <el-col :span="5">
                 <el-switch
                   v-model="form.noMarkup"
                   size="large"
@@ -591,7 +557,7 @@ async function save() {
                 />
               </el-form-item>
             </el-col>
-            <el-col :span="4">
+            <el-col :span="7">
               <el-switch
                 v-model="form.lastOdds"
                 size="large"

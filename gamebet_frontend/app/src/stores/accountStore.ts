@@ -14,7 +14,8 @@ import type { TagPlatformRow } from "@/types/esport";
 import type { PlatformId } from "@/types/esport";
 import { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
-import { getProvider } from "@/providers";
+import { saveOrders } from "@/api/order";
+import { getProvider } from "@/runtime/providers";
 import { useConfigStore } from "@/stores/configStore";
 
 const ACCOUNT_KEY = "ACCOUNT";
@@ -387,7 +388,7 @@ async function accRefresh(this: ReturnType<typeof useAccountStore>, account: Pla
   }
 }
 
-/** 对齐 A8 `uv.updateOrders`（无 `Vt.saveOrders` 时仅更新 unsettle / winBalance） */
+/** 对齐 A8 `uv.updateOrders` + `Vt.saveOrders` */
 async function accUpdateOrders(
   this: ReturnType<typeof useAccountStore>,
   account: PlatformAccount,
@@ -401,6 +402,7 @@ async function accUpdateOrders(
       .filter((o) => o.status === "none")
       .reduce((sum, o) => sum + o.odds * o.betMoney, 0);
     account.winBalance = (account.balance ?? 0) + unsettledExposure;
+    await saveOrders(account, orders);
   } catch (err) {
     console.warn(`[${account.provider}] updateOrders`, err);
   }
