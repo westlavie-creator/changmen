@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
-import { NOTIFY_TYPES } from "@/constants/notifyTypes";
+import { NOTIFY_TYPES } from "@/types/notifyTypes";
 import { TELEGRAM_BOT_URL, TELEGRAM_BOT_NAME } from "@/config/gamebetExtension";
 import { useUserStore } from "@/stores/userStore";
 
