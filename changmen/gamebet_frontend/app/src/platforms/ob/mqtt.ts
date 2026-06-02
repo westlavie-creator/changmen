@@ -45,6 +45,8 @@ let client: MqttClient | null = null;
 const subscribedIds = new Set<string>();
 let onRefresh: (() => void) | null = null;
 let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let electronObConnected = false;
+let removeElectronObMessageListener: (() => void) | null = null;
 
 const MQTT_REFRESH_DEBOUNCE_MS = 200;
 
@@ -66,6 +68,7 @@ function clearMqttRefreshDebounce(): void {
 
 /** 是否已连上 OB relay；对齐 A8 仍每轮 HTTP 灌盘，MQTT 仅增量改 fo */
 export function isObMqttConnected(): boolean {
+  if (window.gamebetRelays?.ob) return electronObConnected;
   return Boolean(client?.connected);
 }
 
@@ -73,67 +76,88 @@ export function isObMatchSubscribed(sourceMatchId: string): boolean {
   return subscribedIds.has(String(sourceMatchId));
 }
 
-function wireMessageHandler() {
-  if (!client) return;
+function handleObMqttMessage(topic: string, payload: string) {
   const odds = useOddsStore();
 
-  client.on("message", (topic, buf) => {
-    const payload = buf.toString();
-    odds.updateMessage(PLATFORM, payload);
-    const parsed = parseTopic(topic);
-    if (!parsed) return;
-    let rows: Array<Record<string, unknown>>;
-    try {
-      rows = JSON.parse(payload);
-    } catch {
-      return;
-    }
-    if (!Array.isArray(rows)) return;
+  odds.updateMessage(PLATFORM, payload);
+  const parsed = parseTopic(topic);
+  if (!parsed) return;
+  let rows: Array<Record<string, unknown>>;
+  try {
+    rows = JSON.parse(payload);
+  } catch {
+    return;
+  }
+  if (!Array.isArray(rows)) return;
 
-    switch (parsed.topic) {
-      case "/market/oddsUpdate/":
-        for (const row of rows) {
-          const oddsId = String(row.id ?? "");
-          if (!oddsId || !odds.isOdds(PLATFORM, oddsId)) continue;
-          const nextOdd = parseObOddField(row.odd);
-          if (nextOdd <= 0) continue;
-          const prev = odds.getEntry(PLATFORM, oddsId);
-          odds.save(
-            PLATFORM,
-            {
-              id: oddsId,
-              odds: nextOdd,
-              isLock: false,
-              betId: String(row.market_id ?? prev?.betId ?? ""),
-              side: prev?.side,
-              time: Date.now(),
-            },
-            "mqtt",
-          );
-        }
-        scheduleMqttRefresh();
-        break;
-      case "/market/statusUpdate/":
-        for (const row of rows) {
-          odds.updateBetLock(PLATFORM, String(row.market_id ?? ""), true);
-        }
-        scheduleMqttRefresh();
-        break;
-      case "/market/suspended/":
-        for (const row of rows) {
-          odds.updateBetLock(PLATFORM, String(row.market_id ?? ""), row.suspended === 1);
-        }
-        scheduleMqttRefresh();
-        break;
-      default:
-        // /odd/*、/market/visible/ 等：A8 UMe 同样无 handler，仅订阅保持与源站一致
-        break;
-    }
+  switch (parsed.topic) {
+    case "/market/oddsUpdate/":
+      for (const row of rows) {
+        const oddsId = String(row.id ?? "");
+        if (!oddsId || !odds.isOdds(PLATFORM, oddsId)) continue;
+        const nextOdd = parseObOddField(row.odd);
+        if (nextOdd <= 0) continue;
+        const prev = odds.getEntry(PLATFORM, oddsId);
+        odds.save(
+          PLATFORM,
+          {
+            id: oddsId,
+            odds: nextOdd,
+            isLock: false,
+            betId: String(row.market_id ?? prev?.betId ?? ""),
+            side: prev?.side,
+            time: Date.now(),
+          },
+          "mqtt",
+        );
+      }
+      scheduleMqttRefresh();
+      break;
+    case "/market/statusUpdate/":
+      for (const row of rows) {
+        odds.updateBetLock(PLATFORM, String(row.market_id ?? ""), true);
+      }
+      scheduleMqttRefresh();
+      break;
+    case "/market/suspended/":
+      for (const row of rows) {
+        odds.updateBetLock(PLATFORM, String(row.market_id ?? ""), row.suspended === 1);
+      }
+      scheduleMqttRefresh();
+      break;
+    default:
+      // /odd/*、/market/visible/ 等：A8 UMe 同样无 handler，仅订阅保持与源站一致
+      break;
+  }
+}
+
+function wireMessageHandler() {
+  if (!client) return;
+
+  client.on("message", (topic, buf) => {
+    handleObMqttMessage(topic, buf.toString());
   });
 }
 
 export function connectObMqtt(refresh: () => void): void {
   onRefresh = refresh;
+  if (window.gamebetRelays?.ob) {
+    removeElectronObMessageListener?.();
+    removeElectronObMessageListener = window.gamebetRelays.ob.onMessage((message) => {
+      handleObMqttMessage(message.topic, message.payload);
+    });
+    electronObConnected = true;
+    void window.gamebetRelays.ob.start().then((status) => {
+      electronObConnected = Boolean(status.upstreamConnected);
+      for (const id of subscribedIds) {
+        for (const topic of obSubscribeTopics(id)) {
+          void window.gamebetRelays?.ob.subscribe(topic);
+        }
+      }
+      scheduleMqttRefresh();
+    });
+    return;
+  }
   if (client?.connected) return;
   if (client) {
     client.removeAllListeners();
@@ -178,6 +202,19 @@ export function connectObMqtt(refresh: () => void): void {
 
 export function disconnectObMqtt(): void {
   clearMqttRefreshDebounce();
+  if (window.gamebetRelays?.ob) {
+    for (const id of [...subscribedIds]) {
+      for (const topic of obSubscribeTopics(id)) {
+        void window.gamebetRelays.ob.unsubscribe(topic);
+      }
+    }
+    subscribedIds.clear();
+    removeElectronObMessageListener?.();
+    removeElectronObMessageListener = null;
+    electronObConnected = false;
+    void window.gamebetRelays.ob.stop();
+    return;
+  }
   for (const id of [...subscribedIds]) {
     if (client?.connected) client.unsubscribe(obSubscribeTopics(id));
   }
@@ -187,6 +224,11 @@ export function disconnectObMqtt(): void {
 }
 
 function subscribeObMatch(matchId: string): Promise<void> {
+  if (window.gamebetRelays?.ob) {
+    return Promise.all(
+      obSubscribeTopics(matchId).map((topic) => window.gamebetRelays!.ob.subscribe(topic)),
+    ).then(() => undefined);
+  }
   return new Promise((resolve) => {
     if (!client?.connected) {
       resolve();
@@ -197,6 +239,12 @@ function subscribeObMatch(matchId: string): Promise<void> {
 }
 
 function unsubscribeObMatch(matchId: string): void {
+  if (window.gamebetRelays?.ob) {
+    for (const topic of obSubscribeTopics(matchId)) {
+      void window.gamebetRelays.ob.unsubscribe(topic);
+    }
+    return;
+  }
   if (!client?.connected) return;
   client.unsubscribe(obSubscribeTopics(matchId));
 }

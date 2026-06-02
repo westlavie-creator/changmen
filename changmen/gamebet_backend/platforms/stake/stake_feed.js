@@ -1,6 +1,6 @@
 "use strict";
 
-const { A8BetsFeed } = require("../../shared/a8_bets_feed.js");
+const { A8BetsFeed } = require("../../integrations/a8/bets_feed.js");
 const { getCatalogSummary } = require("../../shared/game_catalog.js");
 const { attachAggregatorMatchBetRefs } = require("../../shared/bet_ref.js");
 const { tryLoadSession, fetchAllSports, persistPlatform } = require("./stake_session.js");

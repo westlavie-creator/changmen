@@ -1,7 +1,7 @@
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@/platforms/types";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@/platforms/contract";
 import { useAccountStore } from "@/stores/accountStore";
 import { accountGet, accountPostForm } from "@/shared/platformHttp";
 import { formatDateKey, toFixed } from "@/shared/format";

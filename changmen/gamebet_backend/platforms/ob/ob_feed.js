@@ -1,5 +1,35 @@
 "use strict";
 
+/**
+ * OB 平台 — 后端本地 Feed 采集器（ObFeed）
+ *
+ * 【是什么】
+ * 这是 changmen 后端用来从 OB 场馆拉取赛事/盘口并维护内存快照的脚本，不是前端浏览器里的采集器。
+ * 在 server 启动时由 FeedHub（shared/platform_registry.js）按 ENABLE_OB 注册并实例化；
+ * 采集结果经 esport-bridge 写入 data/esport/matches.json、client_matchs.json 等，供
+ * Client_GetMatchs / 前端 /feed/ 调试页使用。
+ *
+ * 【与 A8 前端 UMe 的关系】
+ * A8 index.js 里 UMe 插件：浏览器内 game/index → saveMatch + game/view → saveBets + MQTT。
+ * changmen 拆成两层：
+ *   - 本文件（后端）：列表范围更广（多组 flag/day）、灌全场胜负盘摘要 + MQTT 增量；
+ *   - collectors/ob（前端）：主要 saveBets + fo 内存，列表默认不写（依赖本 Feed）。
+ *
+ * 【采集链路概览】
+ *   start() → 每 indexIntervalMs（默认 30s）sync()
+ *     → resolveObSession() 取 gateway/token/mqtt
+ *     → fetchMatchList() 多源 game/index 合并
+ *     → refreshLiveTimers() game/getTimer
+ *     → loadAllOddsInBackground() 逐场 game/view 拉盘口
+ *     → connectMqtt() + resubscribeAll() MQTT 增量改赔率/锁盘
+ *   每次变更 emit({ type: "snapshot" | "oddsUpdate" | ... }) 给 FeedHub / Dashboard。
+ *
+ * 【依赖模块】
+ *   ob_core.js    — 解析 index/view、MQTT topic、盘口锁盘规则（对齐 A8）
+ *   ob_session.js   — HTTP：obGet / fetchGameView / fetchGetTimer
+ *   platform_sync   — resolveObSession：token、网关、MQTT 地址
+ */
+
 const mqtt = require("mqtt");
 const Core = require("./ob_core.js");
 const { describePlatformGame, getActivePlatformGameIds, getCatalogSummary, getGameCodeForPlatformId } = require("../../shared/game_catalog.js");
@@ -11,10 +41,15 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** 联赛名：OB 接口常用 &nbsp; 实体，展示前替换为空格 */
 function formatTournament(raw) {
   return String(raw || "").replace(/&nbsp;/g, " ").trim();
 }
 
+/**
+ * 将 MQTT 单条赔率变更写回 byMatch 里某场的 stages / 全场胜负价。
+ * oddsId 对应 game/view 里 @T1/@T2 的 odd id；stageId===0 时同步更新 detail 顶层 winHome/winAway。
+ */
 function applyOddsChange(detail, change) {
   if (!detail?.stages?.length) {
     if (change.oddsId === detail.winHomeId) detail.winHome = change.odd;
@@ -33,6 +68,10 @@ function applyOddsChange(detail, change) {
   }
 }
 
+/**
+ * 将 MQTT 锁盘/暂停类变更写回对应 market 下的 stage。
+ * oddsIndex 来自 buildOddsBaseline，用于 oddsId → marketId 反查。
+ */
 function applyMarketLock(detail, oddsIndex, change) {
   const marketId = String(change.marketId || "");
   if (!marketId) return;
@@ -58,16 +97,35 @@ function applyMarketLock(detail, oddsIndex, change) {
   }
 }
 
+/**
+ * game/index 拉取源配置。
+ * A8 前端 UMe 只用 flag=1&day=1（今日）；后端为覆盖「全部/明日/更远」多拉几组再按 matchId 去重。
+ * 可通过构造 ObFeed({ indexSources: [...] }) 覆盖。
+ * 环境变量 `OB_FEED_MODE=a8`：仅今日 index + stageDelay 1500ms（对齐 UMe，见 platform_registry）。
+ */
+const A8_INDEX_SOURCES = [{ flag: 1, day: 1, scope: "today" }];
+
 const DEFAULT_INDEX_SOURCES = [
-  { flag: 0, day: 0, scope: "all" },
-  { flag: 1, day: 1, scope: "today" },
-  { flag: 2, day: 1, scope: "tomorrow" },
+  { flag: 0, day: 0, scope: "all" },       // 全部
+  ...A8_INDEX_SOURCES,                     // 今日（与 A8 一致）
+  { flag: 2, day: 1, scope: "tomorrow" },  // 明日
   { flag: 2, day: 2, scope: "future" },
   { flag: 2, day: 3, scope: "future" },
 ];
 
 class ObFeed {
+  /**
+   * @param {object} [options]
+   * @param {Array<{flag:number,day:number,scope?:string}>} [options.indexSources] game/index 参数组
+   * @param {string} [options.gameId="0"]  game_id 过滤（0=全部游戏）
+   * @param {string[]} [options.allowedGameIds] 允许入库的游戏 id，默认 game_catalog 里 OB 启用项
+   * @param {number} [options.indexIntervalMs=30000] 主 sync 定时器间隔（与 A8 30s 一致）
+   * @param {number} [options.indexFetchDelayMs=650] 每组 index 请求之间的间隔，减轻限流
+   * @param {number} [options.stageDelayMs=150] 每场每个 stage 的 game/view 间隔（A8 UMe 为 1500ms；`OB_FEED_MODE=a8` 时默认 1500）
+   * @param {string} [options.feedMode="default"] 仅状态展示：`default` | `a8`
+   */
   constructor(options = {}) {
+    this.feedMode = options.feedMode || "default";
     this.indexSources = options.indexSources || DEFAULT_INDEX_SOURCES;
     this.gameId = options.gameId || "0";
     this.allowedGameIds = new Set(
@@ -76,18 +134,27 @@ class ObFeed {
     this.indexIntervalMs = options.indexIntervalMs || 30000;
     this.indexFetchDelayMs = options.indexFetchDelayMs || 650;
     this.stageDelayMs = options.stageDelayMs || 150;
+    /** FeedHub / Dashboard 订阅的快照与事件 */
     this.listeners = new Set();
+    /** resolveObSession 结果：gateway、token、lang、mqtt 等 */
     this.session = null;
+    /** 当前赛事列表（normalizeGameIndex 后的结构） */
     this.matches = [];
+    /** matchId → 该场盘口摘要（stages、胜负价、marketCount） */
     this.byMatch = {};
+    /** oddsId → 单条赔率行（MQTT 增量索引） */
     this.odds = {};
+    /** matchId → getTimer 返回的滚球计时信息 */
     this.liveTimers = {};
     this.mqttClient = null;
+    /** 已 subscribe 的 source matchId，避免重复订 topic */
     this.subscribedMatchIds = new Set();
+    /** 对外状态：/feed/ 页与 bridge 可读 */
     this.status = {
       running: false,
       syncing: false,
       mqtt: false,
+      feedMode: this.feedMode,
       error: null,
       lastSync: null,
       matchCount: 0,
@@ -98,6 +165,7 @@ class ObFeed {
     this._timers = [];
   }
 
+  /** 注册事件监听；返回取消函数 */
   on(listener) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -112,6 +180,10 @@ class ObFeed {
     this.emit({ type: "status", status: { ...this.status } });
   }
 
+  /**
+   * 供 FeedHub / HTTP /feed/snapshot 使用的只读视图。
+   * matches 数组合并了列表字段 + byMatch 里的盘口摘要。
+   */
   getSnapshot() {
     return {
       status: { ...this.status, aggregateGames: getCatalogSummary() },
@@ -142,6 +214,10 @@ class ObFeed {
     };
   }
 
+  /**
+   * FeedHub 调用入口：启动定时 sync + 立即跑一轮。
+   * 不会阻塞 server；MQTT 在首次 sync 内 connectMqtt。
+   */
   async start() {
     if (this.status.running) return;
     this.status.running = true;
@@ -154,6 +230,7 @@ class ObFeed {
     this.emit({ type: "snapshot", data: this.getSnapshot() });
   }
 
+  /** 停止定时器并断开 MQTT */
   stop() {
     this.status.running = false;
     this._timers.forEach(clearInterval);
@@ -165,6 +242,11 @@ class ObFeed {
     this.status.mqtt = false;
   }
 
+  /**
+   * 拉合并后的赛事列表。
+   * 按 indexSources 顺序请求 game/index，matchId 首次出现为准；再按 allowedGameIds 过滤、按开赛时间排序。
+   * token 失效时 json.status==="false"，记入 errors 并继续下一源。
+   */
   async fetchMatchList() {
     const byId = new Map();
     const errors = [];
@@ -213,6 +295,10 @@ class ObFeed {
       .sort((a, b) => a.startTime - b.startTime);
   }
 
+  /**
+   * 主同步：刷新 session → 列表 → 计时器 → 触发后台灌盘。
+   * _syncing 防止重入；灌盘在 loadAllOddsInBackground 异步进行，不阻塞下一轮 index 定时器。
+   */
   async sync() {
     if (this._syncing) return;
     this._syncing = true;
@@ -241,6 +327,11 @@ class ObFeed {
     this.loadAllOddsInBackground().catch((err) => this.setError(err));
   }
 
+  /**
+   * 后台逐场拉 game/view，更新 byMatch / odds。
+   * 每 5 场 emit 一次 snapshot 便于 Dashboard 渐进刷新；结束后 resubscribeAll 订 MQTT。
+   * 与 A8 不同：A8 在 index 循环内顺序 unsub→view→sub；此处 index 与 view 解耦，MQTT 在全部 view 后再统一订阅。
+   */
   async loadAllOddsInBackground() {
     if (this._loadingOdds || !this.matches.length) return;
     this._loadingOdds = true;
@@ -269,6 +360,11 @@ class ObFeed {
     }
   }
 
+  /**
+   * 单场灌盘：按 BO 决定 stage 列表（BO1 仅全场 stage 0），每场请求 game/view。
+   * 从 markets 里 pickWinMarket 取主客胜负；baseline 写入 this.odds 供 MQTT 反查。
+   * attachObMatchBetRefs 写入下注用的 SourceBetID / SourceHomeID 等引用。
+   */
   async loadMatchSnapshot(match) {
     const stageIds = Core.stageIdsForBo(match.bo || 1);
     const stages = [];
@@ -334,6 +430,10 @@ class ObFeed {
     this.byMatch[match.matchId] = detail;
   }
 
+  /**
+   * 滚球计时：game/getTimer，失败静默（非关键路径）。
+   * 结果用于 refreshStageStatuses 展示「进行中/第几局」等。
+   */
   async refreshLiveTimers() {
     if (!this.session) return;
     try {
@@ -344,6 +444,10 @@ class ObFeed {
     }
   }
 
+  /**
+   * 把 ob_core.applyMqttPayload 解析出的变更应用到内存并 emit 细粒度事件。
+   * @returns {boolean} 是否有字段被更新（用于决定是否 push 全量 snapshot）
+   */
   applyMqttChanges(changes, receivedAt) {
     let touched = false;
     for (const change of changes) {
@@ -391,6 +495,13 @@ class ObFeed {
     return touched;
   }
 
+  /**
+   * 连接 OB MQTT（地址来自 session.mqtt，通常为场馆侧 wss）。
+   * 与 A8 UMe 差异：
+   *   - A8 用固定 admin 账号 + clientId mqttjs_dj1250901313125773543，连 47.115.75.57 relay；
+   *   - 后端直连 session 里的 mqtt，clientId 带时间戳避免冲突。
+   * 前端浏览器采集走 server 的 /esport/ws/OB relay（ENABLE_OB_MQTT_RELAY，与 ObFeed 的 ENABLE_OB 无关）。
+   */
   connectMqtt() {
     const url = this.session?.mqtt || this.session?.mqttEndpoints?.[0];
     if (!url) return;
@@ -441,6 +552,10 @@ class ObFeed {
     });
   }
 
+  /**
+   * 对当前 matches 里尚未订阅的 matchId 订阅 Core.mqttTopicsForMatch（与 A8 n9 同族的 odd/market topic）。
+   * 新赛次在 loadAllOddsInBackground 结束后调用；旧 matchId 不会在此 unsubscribe（靠下次全量列表对比可扩展清理）。
+   */
   resubscribeAll() {
     if (!this.mqttClient || !this.status.mqtt) return;
     for (const match of this.matches) {
@@ -452,4 +567,4 @@ class ObFeed {
   }
 }
 
-module.exports = { ObFeed };
+module.exports = { ObFeed, A8_INDEX_SOURCES, DEFAULT_INDEX_SOURCES };

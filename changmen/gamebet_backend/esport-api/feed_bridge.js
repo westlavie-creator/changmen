@@ -2,10 +2,14 @@
 
 const store = require("./store.js");
 const { formatOdds } = require("../shared/odds_format.js");
+const { initSchema } = require("../db/schema.js");
+const dbStore = require("../db/store.js");
+
+initSchema();
 
 const SYNC_MS = Number(process.env.ESPORT_BRIDGE_MS || 3000);
-/** 默认关闭：控制台走 A8 浏览器 SaveMatch + fo()；仅仪表盘需要 Node 写 store 时设 ESPORT_BRIDGE=1 */
-const ENABLED = process.env.ESPORT_BRIDGE === "1";
+/** 默认开启；设 ESPORT_BRIDGE=0 可关闭（仅调试用） */
+const ENABLED = process.env.ESPORT_BRIDGE !== "0";
 
 function teamRef(match, side) {
   const raw = match[side];
@@ -112,6 +116,11 @@ function syncPlatform(provider, instance) {
       store.saveBets(provider, match.matchId, bets);
       betCount += bets.length;
     }
+  }
+
+  if (provider === "OB" && matchRows.length) {
+    dbStore.saveObMatches(matchRows);
+    dbStore.pruneObMatches(matchRows.map((m) => String(m.SourceMatchID)));
   }
 
   store.saveMatches(provider, matchRows);

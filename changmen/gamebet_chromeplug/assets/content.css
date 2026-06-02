@@ -1,1 +1,134 @@
-@keyframes breathe{0%{transform:translateX(-50%) scale(1);opacity:1}50%{transform:translateX(-50%) scale(1.2);opacity:.7}100%{transform:translateX(-50%) scale(1);opacity:1}}.esport-collect-provider-icon{position:fixed;z-index:20250314;top:5%;left:50%;transform:translateX(-50%);width:10%;height:10%;max-width:64px;max-height:64px;background-repeat:no-repeat;background-size:contain;background-position:center;border-radius:50%;box-shadow:0px 0px 10px #000;background-color:hsla(0,0%,100%,.5);background-image:url(chrome-extension://__MSG_@@extension_id__/assets/icon128.png);animation:breathe 3s infinite ease-in-out}.esport-collect-provider-icon.hide{display:none}.esport-collect-provider-container{position:fixed;z-index:20250314;width:640px;max-width:80%;background-color:rgba(0,0,0,.6);left:50%;top:5%;padding:12px;border-radius:12px;color:#fff;transform:translateX(-50%);border:1px solid hsla(0,0%,100%,.5);overflow:hidden}.esport-collect-provider-container.loading::after{position:absolute;color:#fff;content:"加载中...";left:50%;top:50%;transform:translate(-50%, -50%)}.esport-collect-provider-container .esport-collect-provider-container-item{display:flex;align-items:center;padding:10px 0}.esport-collect-provider-container .esport-collect-provider-container-item label{width:80px;text-align:left}.esport-collect-provider-container .esport-collect-provider-container-item input{flex:1;border:1px solid hsla(0,0%,100%,.5);padding:8px;border-radius:6px;font-size:16px;cursor:default;background-color:rgba(0,0,0,.5) !important;color:#fff !important}.esport-collect-provider-container .esport-collect-provider-container-confirm{text-align:center;padding:12px}.esport-collect-provider-container .esport-collect-provider-container-confirm{background-color:#1b9af7;border-color:#1b9af7;color:#fff;border-radius:50px;margin:auto;cursor:pointer;transition:all .25s}.esport-collect-provider-container .esport-collect-provider-container-confirm:hover{background-color:#4cb0f9;border-color:#4cb0f9}.esport-collect-provider-container::before{content:" ";opacity:0;position:absolute;left:0;right:0;top:0;bottom:0;background-color:rgba(0,0,0,.5);transition:all .25s;border-radius:12px;display:none}.esport-collect-provider-container::after{content:"复制成功";top:120%;background-color:rgba(0,0,0,.8);color:#fff;position:absolute;left:50%;transform:translateX(-50%);padding:10px 20px;font-size:14px;transition:all .5s;z-index:1}.esport-collect-provider-container.copy::after{top:30%}.esport-collect-provider-container.copy::before{display:block;opacity:1}
+/* Gamebet 专用浮动 UI — 勿使用 esport-collect-* class，避免与 A8 插件样式冲突 */
+
+@keyframes gamebet-float-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 4px 16px rgba(27, 154, 247, 0.45);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 6px 22px rgba(27, 154, 247, 0.65);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 16px rgba(27, 154, 247, 0.45);
+  }
+}
+
+.gamebet-collect-float {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background-color: rgba(26, 45, 74, 0.92);
+  background-repeat: no-repeat;
+  background-size: 78% 78%;
+  background-position: center;
+  background-image: url(chrome-extension://__MSG_@@extension_id__/assets/icon128.png);
+  animation: gamebet-float-pulse 2.4s infinite ease-in-out;
+  transition: opacity 0.15s ease;
+}
+
+.gamebet-collect-float:hover {
+  opacity: 1;
+}
+
+.gamebet-collect-float.hide {
+  display: none !important;
+}
+
+.gamebet-collect-panel {
+  padding: 12px;
+  border-radius: 12px;
+  color: #fff;
+  background-color: rgba(0, 0, 0, 0.72);
+  border: 1px solid hsla(0, 0%, 100%, 0.45);
+  overflow: hidden;
+  max-width: calc(100vw - 40px);
+}
+
+.gamebet-collect-panel.loading::after {
+  position: absolute;
+  color: #fff;
+  content: "加载中...";
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.gamebet-collect-panel-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.gamebet-collect-panel-item label {
+  width: 80px;
+  text-align: left;
+}
+
+.gamebet-collect-panel-item input {
+  flex: 1;
+  border: 1px solid hsla(0, 0%, 100%, 0.5);
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: default;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  color: #fff !important;
+}
+
+.gamebet-collect-panel-confirm {
+  text-align: center;
+  padding: 12px;
+  background-color: #1b9af7;
+  border-color: #1b9af7;
+  color: #fff;
+  border-radius: 50px;
+  margin: auto;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.gamebet-collect-panel-confirm:hover {
+  background-color: #4cb0f9;
+  border-color: #4cb0f9;
+}
+
+.gamebet-collect-panel::before {
+  content: " ";
+  opacity: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  transition: all 0.25s;
+  border-radius: 12px;
+  display: none;
+}
+
+.gamebet-collect-panel::after {
+  content: "复制成功";
+  top: 120%;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  font-size: 14px;
+  transition: all 0.5s;
+  z-index: 1;
+}
+
+.gamebet-collect-panel.copy::after {
+  top: 30%;
+}
+
+.gamebet-collect-panel.copy::before {
+  display: block;
+  opacity: 1;
+}

@@ -1,6 +1,22 @@
 "use strict";
 
 const path = require("path");
+const { A8_INDEX_SOURCES } = require("../platforms/ob/ob_feed.js");
+
+/** ObFeed 构造参数；`OB_FEED_MODE=a8` 时对齐 UMe（单源 index + 1500ms stage） */
+function buildObFeedOptions() {
+  const base = { indexIntervalMs: 30000 };
+  const mode = String(process.env.OB_FEED_MODE || "").trim().toLowerCase();
+  if (mode === "a8") {
+    return {
+      ...base,
+      feedMode: "a8",
+      indexSources: A8_INDEX_SOURCES,
+      stageDelayMs: 1500,
+    };
+  }
+  return base;
+}
 
 /**
  * A8 vendor 全平台注册表 — 采集模式与本地 Feed 接入状态。
@@ -17,7 +33,7 @@ const PLATFORMS = [
     feed: { module: "../platforms/ob/ob_feed.js", export: "ObFeed" },
     envEnable: "ENABLE_OB",
     defaultEnabled: true,
-    feedOptions: { indexIntervalMs: 30000 },
+    feedOptions: buildObFeedOptions(),
     streamMeta: { key: "mqtt", protocol: "MQTT" },
     pagePath: "/platforms/ob/",
   },

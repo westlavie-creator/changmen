@@ -6,6 +6,7 @@ import { startCollectors, stopCollectors } from "@/runtime/collectors";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
+import ElectronRelayStatus from "@/components/debug/ElectronRelayStatus.vue";
 import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
 import { useUserStore } from "@/stores/userStore";
@@ -72,6 +73,7 @@ async function logout() {
     :account="editDialogAccount"
     @close="accountStore.closeAccountDialog()"
   />
+  <ElectronRelayStatus />
   <el-container class="common-layout home-view">
     <el-aside width="260px">
       <AppSidebar @logout="logout" />

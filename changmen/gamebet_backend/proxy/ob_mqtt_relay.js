@@ -1,22 +1,18 @@
 "use strict";
 
 const aedes = require("aedes")();
-const mqtt = require("mqtt");
 const { WebSocketServer, createWebSocketStream } = require("ws");
-const { login } = require("../platforms/ob/ob_session.js");
-const { syncObFromSession } = require("../esport-api/platform_sync.js");
+const { ObRelayCore } = require("../relays/ob_relay_core.js");
 
 const WS_PATH = "/esport/ws/OB";
 
-/** 下游 UI 连接 OB relay 时使用的 MQTT 凭据（与参考 bundle 一致，仅用于本地认证） */
 const OB_DOWNSTREAM_MQTT_USER = process.env.OB_PROXY_MQTT_USER || "admin";
 const OB_DOWNSTREAM_MQTT_PASS = process.env.OB_PROXY_MQTT_PASS || "Qazqaz123...";
 
 class ObMqttRelay {
-  constructor() {
+  constructor(options = {}) {
     this.wss = new WebSocketServer({ noServer: true });
-    this.upstream = null;
-    this.session = null;
+    this.core = options.core || new ObRelayCore(options);
     this.clients = 0;
     this.stats = {
       platform: "OB",
@@ -27,9 +23,13 @@ class ObMqttRelay {
       lastError: null,
       lastUpstreamAt: null,
     };
-    this._refreshTimer = null;
     this._setupAedes();
     this._setupWss();
+    this.core.onMessage((topic, payload) => {
+      this.stats.messagesRelayed += 1;
+      this.stats.lastUpstreamAt = Date.now();
+      aedes.publish({ topic, payload, qos: 0, retain: false });
+    });
   }
 
   paths() {
@@ -44,25 +44,32 @@ class ObMqttRelay {
 
   _setupAedes() {
     aedes.authenticate = (client, username, password, callback) => {
-      const ok =
-        String(username) === OB_DOWNSTREAM_MQTT_USER &&
-        String(password) === OB_DOWNSTREAM_MQTT_PASS;
+      const user = String(username ?? "");
+      const pass =
+        password == null ? "" :
+        Buffer.isBuffer(password) ? password.toString("utf8") : String(password);
+      const ok = user === OB_DOWNSTREAM_MQTT_USER && pass === OB_DOWNSTREAM_MQTT_PASS;
+      if (!ok && process.env.OB_PROXY_ALLOW_ANY !== "1") {
+        console.warn("[OB MQTT relay] auth rejected for client", client?.id, "user=", user);
+      }
       callback(null, ok || process.env.OB_PROXY_ALLOW_ANY === "1");
     };
 
     aedes.on("subscribe", (subscriptions, _client) => {
-      if (this.upstream?.connected) {
-        for (const sub of subscriptions) {
-          this.upstream.subscribe(sub.topic, (err) => {
-            if (err) this.stats.lastError = err.message;
-          });
-        }
+      for (const sub of subscriptions) {
+        this.core.subscribeTopic(sub.topic);
+      }
+    });
+
+    aedes.on("unsubscribe", (unsubscriptions, _client) => {
+      for (const topic of unsubscriptions) {
+        this.core.unsubscribeTopic(topic);
       }
     });
 
     aedes.on("publish", (packet, client) => {
-      if (!client || !this.upstream?.connected) return;
-      this.upstream.publish(packet.topic, packet.payload);
+      if (!client) return;
+      this.core.publish(packet.topic, packet.payload);
     });
   }
 
@@ -70,8 +77,13 @@ class ObMqttRelay {
     this.wss.on("connection", (ws) => {
       this.clients += 1;
       this.stats.downstreamClients = this.clients;
+      console.log("[OB MQTT relay] downstream ws open, clients=", this.clients);
+      if (!this.core.getStatus().upstreamConnected) this.core.reconnectNow();
       const stream = createWebSocketStream(ws);
       aedes.handle(stream);
+      stream.on("error", (err) => {
+        console.warn("[OB MQTT relay] downstream stream error:", err.message);
+      });
       stream.on("close", () => {
         this.clients = Math.max(0, this.clients - 1);
         this.stats.downstreamClients = this.clients;
@@ -79,77 +91,22 @@ class ObMqttRelay {
     });
   }
 
-  async start() {
-    await this._connectUpstream();
-    this._refreshTimer = setInterval(() => {
-      this._connectUpstream().catch((err) => {
-        this.stats.lastError = err.message;
-      });
-    }, 5 * 60 * 1000);
+  start() {
+    this.core.start();
   }
 
-  async stop() {
-    if (this._refreshTimer) clearInterval(this._refreshTimer);
-    this._refreshTimer = null;
-    if (this.upstream) {
-      this.upstream.end(true);
-      this.upstream = null;
-    }
+  stop() {
+    this.core.stop();
     this.stats.upstreamConnected = false;
     for (const client of this.wss.clients) client.close();
   }
 
   getStatus() {
+    const coreStatus = this.core.getStatus();
+    this.stats.upstreamConnected = coreStatus.upstreamConnected;
+    this.stats.lastError = this.stats.lastError || coreStatus.lastError;
+    this.stats.lastUpstreamAt = this.stats.lastUpstreamAt || coreStatus.lastUpstreamAt;
     return { ...this.stats };
-  }
-
-  async _connectUpstream() {
-    const session = await login();
-    this.session = session;
-    syncObFromSession(session);
-    const url = session.mqtt || session.mqttEndpoints?.[0];
-    if (!url) throw new Error("OB session has no mqtt endpoint");
-
-    if (this.upstream) {
-      this.upstream.removeAllListeners();
-      this.upstream.end(true);
-      this.upstream = null;
-    }
-
-    const client = mqtt.connect(url, {
-      clientId: `mqttjs_ob_proxy_${Date.now()}`,
-      username: session.token,
-      protocolId: "MQTT",
-      protocolVersion: 4,
-      reconnectPeriod: 5000,
-      keepalive: 60,
-    });
-
-    client.on("connect", () => {
-      this.stats.upstreamConnected = true;
-      this.stats.lastError = null;
-    });
-
-    client.on("message", (topic, payload) => {
-      this.stats.messagesRelayed += 1;
-      this.stats.lastUpstreamAt = Date.now();
-      aedes.publish({
-        topic,
-        payload,
-        qos: 0,
-        retain: false,
-      });
-    });
-
-    client.on("error", (err) => {
-      this.stats.lastError = err.message;
-    });
-
-    client.on("close", () => {
-      this.stats.upstreamConnected = false;
-    });
-
-    this.upstream = client;
   }
 }
 

@@ -2,7 +2,7 @@
 
 const store = require("./store.js");
 const { getActivePlatformGameIds } = require("../shared/game_catalog.js");
-const { getRayA8CollectCredentials } = require("../shared/ray_a8_collect.js");
+const { getRayA8CollectCredentials } = require("../platforms/ray/collect_credentials.js");
 const { login, obGet } = require("../platforms/ob/ob_session.js");
 
 function syncObFromSession(session) {
@@ -131,7 +131,7 @@ function syncPbFromSession(session) {
 
 async function syncTfFromA8() {
   try {
-    const { getTfA8CollectCredentials } = require("../shared/tf_a8_collect.js");
+    const { getTfA8CollectCredentials } = require("../platforms/tf/collect_credentials.js");
     const a8 = await getTfA8CollectCredentials();
     store.setPlatform("TF", {
       gateway: a8.gateway,
@@ -170,13 +170,25 @@ function syncTfFromSession(session) {
   return true;
 }
 
+function syncIaFromA8Defaults() {
+  const { getIaA8CollectCredentials } = require("../platforms/ia/collect_credentials.js");
+  const a8 = getIaA8CollectCredentials();
+  store.setPlatform("IA", {
+    gateway: a8.gateway,
+    token: a8.token,
+    betName: a8.betName,
+    games: a8.games.length ? a8.games : getActivePlatformGameIds("IA").map(String),
+  });
+  return true;
+}
+
 function syncIaFromEnv() {
   const gateway = process.env.IA_GATEWAY;
   const token = process.env.IA_TOKEN;
-  if (!gateway || !token) return false;
+  if (!gateway) return syncIaFromA8Defaults();
   store.setPlatform("IA", {
     gateway,
-    token,
+    token: token ?? "",
     betName:
       process.env.IA_BET_NAME ||
       store.getPlatform("IA")?.betName ||
@@ -381,7 +393,7 @@ async function ensurePlatformCredentials(hub) {
     iaSynced = syncIaFromSession(iaFeed.session);
   }
   if (!iaSynced) {
-    iaSynced = syncIaFromEnv();
+    iaSynced = syncIaFromEnv() || syncIaFromA8Defaults();
   }
 
   let imtSynced = false;
@@ -427,6 +439,7 @@ module.exports = {
   syncTfFromA8,
   syncTfFromEnv,
   syncTfFromSession,
+  syncIaFromA8Defaults,
   syncIaFromEnv,
   syncIaFromSession,
   syncImtFromEnv,

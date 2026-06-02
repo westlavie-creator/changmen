@@ -14,7 +14,7 @@ const fs = require("fs");
 const path = require("path");
 const store = require("../esport-api/store.js");
 const { handleEsportRequest } = require("../esport-api/router.js");
-const { getRayA8CollectCredentials } = require("../shared/ray_a8_collect.js");
+const { getRayA8CollectCredentials } = require("../platforms/ray/collect_credentials.js");
 const { getPlatformRules, getDefaultMarketCode } = require("../shared/market_catalog.js");
 
 const ALL_PLATFORMS = [
@@ -109,7 +109,7 @@ function effectiveCollectPlatform(provider) {
   if (String(provider).toUpperCase() === "RAY") {
     const a8 = getRayA8CollectCredentials();
     return {
-      source: "ray_a8_collect.js",
+      source: "platforms/ray/collect_credentials.js",
       gateway: a8.gateway,
       token: a8.token,
       betName: a8.betName || betName,

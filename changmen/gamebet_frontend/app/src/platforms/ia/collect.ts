@@ -13,8 +13,6 @@ import { useMatchStore } from "@/stores/matchStore";
 const PLATFORM = PLATFORMS.IA;
 const POLL_MS = 30_000;
 const IA_WS_PATH = "/esport/ws/IA";
-/** 回退直连地址（relay 不可达时使用） */
-const DIRECT_IA_WS = "wss://47.115.75.57";
 
 function parseStartTime(raw: unknown): number {
   if (!raw) return Date.now();
@@ -109,57 +107,23 @@ export function startIaCollector(): () => void {
     s.on("roomMessageCallBack", handleIaMessage);
   };
 
-  const connectWs = async () => {
+  const connectWs = () => {
     if (stopped) return;
-    const platform = await getCollectPlatform(PLATFORM);
-    const gateway = platform?.Gateway?.replace(/\/+$/, "") || "https://ilustre-analytics.org";
-    const origin = gateway;
-
     socket?.removeAllListeners();
     socket?.disconnect();
     socket = null;
 
-    // 优先直连上游，失败回退到 changmen relay
-    const direct = io(DIRECT_IA_WS, {
+    const relayFull = relayWsUrl(IA_WS_PATH);
+    const relayBase = relayFull.slice(0, relayFull.length - IA_WS_PATH.length);
+    const relay = io(relayBase, {
       transports: ["websocket"],
-      withCredentials: true,
       path: IA_WS_PATH,
-      extraHeaders: { Origin: origin, token: "hello" },
-      auth: { token: origin },
-      reconnection: false,
+      reconnection: true,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 8000,
     });
-
-    let directConnected = false;
-
-    direct.once("connect", () => {
-      directConnected = true;
-      direct.io.opts.reconnection = true;
-      direct.io.opts.reconnectionDelay = 2000;
-      direct.io.opts.reconnectionDelayMax = 8000;
-    });
-
-    direct.once("connect_error", () => {
-      if (directConnected || stopped) return;
-      console.warn("[IA] 直连失败，回退 changmen relay");
-      direct.removeAllListeners();
-      direct.disconnect();
-
-      if (stopped) return;
-      const relayFull = relayWsUrl(IA_WS_PATH);
-      const relayBase = relayFull.slice(0, relayFull.length - IA_WS_PATH.length);
-      const relay = io(relayBase, {
-        transports: ["websocket"],
-        path: IA_WS_PATH,
-        reconnection: true,
-        reconnectionDelay: 2000,
-        reconnectionDelayMax: 8000,
-      });
-      bindSocketHandlers(relay);
-      socket = relay;
-    });
-
-    bindSocketHandlers(direct);
-    socket = direct;
+    bindSocketHandlers(relay);
+    socket = relay;
   };
 
   void connectWs();

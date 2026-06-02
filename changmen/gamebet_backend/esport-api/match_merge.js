@@ -28,7 +28,7 @@ const {
   A8_MATCH_MAX_FUTURE_MS,
   normalizeEpochMs,
   a8StartTimeListAllowed,
-} = require("../shared/a8_match_time.js");
+} = require("../integrations/a8/match_time.js");
 const IM_ENRICH_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 /** A8 控制台展示用 betName（与 market_catalog OB 主盘一致） */

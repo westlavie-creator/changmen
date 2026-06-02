@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { sendMessage } from "@/api/esport";
-import { NOTIFY_TYPES } from "@/constants/notifyTypes";
+import { NOTIFY_TYPES } from "@/types/notifyTypes";
 import type { BetOption } from "@/models/betOption";
 import type { BetResult } from "@/models/betResult";
 import type { LoseOrder } from "@/models/loseOrder";

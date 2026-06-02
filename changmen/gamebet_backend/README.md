@@ -2,7 +2,15 @@
 
 替代 `api.a8.to`、WS 中继、可选 Node Feed 与开发仪表盘。**A8 复刻 UI 在 `gamebet_frontend/`**，由本服务托管 `/console/` 静态文件。
 
-> 与第三方聚合平台 A8 的关系见 [changmen/readme.md](../readme.md)（A8 仅作借鉴，**不引用** `A8/A8frontendscipts/index.js`）。
+## 与 A8 的关系（必读）
+
+**本目录 API 与存储不是 A8 官方后端的拷贝**，而是根据 A8 **浏览器前端** bundle 中的 `Client_*` / `API_SaveMatch` 等调用 **反推** 的实现。
+
+- **Parity 基线**：A8 前端可证实行为（见 [../gamebet_frontend/app/docs/README.md](../gamebet_frontend/app/docs/README.md#项目共识)）。
+- **changmen 推测**：`data/esport/*.json`、`match_merge.js`、`client_matchs` 预合并等。
+- **changmen 扩展**：`FeedHub`、`ObFeed`、`ESPORT_BRIDGE`、仪表盘 `/`、`/platforms/`。
+
+> 上级说明：[../readme.md](../readme.md#项目共识)
 
 ## 仓库布局
 
@@ -65,19 +73,21 @@ npm run web
 
 ### Changmen 数据分工（新控制台 `/app/`）
 
-| 数据 | 负责方 | 机制 | 存储 |
-|------|--------|------|------|
-| **比赛列表** | **后端 Node** | `FeedHub` 各平台 feed 轮询/快照 → `feed_bridge` | `data/esport/matches.json` |
-| **赔率** | **前端** | `collectors/*` → `API_SaveBet` + 本地 `oddsStore` | `data/esport/bets.json` |
+**先选部署模式**（见 [../readme.md](../readme.md#项目共识)）：
 
-新控制台 `/app/`：**列表来自 `Client_GetMatchs`（后端已写入的 matches）**；**赔率由浏览器采集器上报**。  
-`backend.bat` / `dev.bat` 默认设置 `ESPORT_BRIDGE=1`，否则 `matches.json` 不会由 Node 回填。
+| 模式 | 比赛列表 | 赔率 / 盘口 id |
+|------|----------|----------------|
+| **P — A8 Parity** | 浏览器 `API_SaveMatch` | 浏览器 `API_SaveBet` + `oddsStore` |
+| **D — 双轨（dev 默认）** | Node `FeedHub` → bridge → `matches.json` | 浏览器 `API_SaveBet` + `oddsStore` |
+
+模式 D 下：`backend.bat` / `dev.bat` 默认 `ESPORT_BRIDGE=1`，否则 `matches.json` 不会由 Node 回填。
+模式 P（OB 复刻验收）：建议 `ESPORT_BRIDGE=0`、`ENABLE_OB=0`（仅关 Node ObFeed）；**浏览器 MQTT relay 默认仍开**（`ENABLE_OB_MQTT_RELAY` 未设时）。见 [../gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md](../gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md)。
 
 ### 其他入口
 
 | 路径 | 数据来源 | 说明 |
 |------|----------|------|
-| `/app/` | 列表：Node bridge → `matches.json`；赔率：前端 `SaveBet` | **Changmen 主路径** |
+| `/app/` | 模式 D：Node bridge → `matches.json`；模式 P：浏览器 `saveMatch` | 见 [A8_OB_REPLICATE_PLAN.md](../gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md) |
 | `/console/` | 浏览器 `SaveMatch` + `SaveBet`（旧 bundle） | 对齐 A8 原版，与上表分工不同 |
 | `/`、`/platforms/` | `FeedHub` → `/api/snapshot`、WebSocket | 调试页；是否写 store 仍看 `ESPORT_BRIDGE` |
 
@@ -87,7 +97,9 @@ npm run web
 |------|----------------------|------|
 | `ESPORT_BRIDGE` | **`1`** | Node Feed 同步写入 `matches.json`（比赛列表）；设为 `0` 则仅 snapshot 调试、不写 store |
 | `ESPORT_BRIDGE_MS` | `3000` | bridge 防抖间隔（毫秒） |
-| `ENABLE_OB` | 开启 | 设为 `0` 关闭 OB |
+| `ENABLE_OB` | 开启 | 设为 `0` 关闭 **Node ObFeed**（不影响 `/esport/ws/OB` relay） |
+| `ENABLE_OB_MQTT_RELAY` | 开启 | 设为 `0` 关闭浏览器 OB MQTT relay |
+| `OB_FEED_MODE` | （未设） | 设为 `a8` 时 ObFeed 单源 index + 1500ms stage（模式 D 调试向 UMe 靠拢） |
 | `OB_LOGIN_URL` | 见 OB 文档 | 覆盖 OB 登录地址 |
 | `ENABLE_RAY` | 开启 | 设为 `0` 关闭 RAY |
 | `RAY_WS` | 开启 | 设为 `0` 仅 HTTP 轮询（不连 cfsocket） |
@@ -109,20 +121,20 @@ npm run web
 
 ### 平博信用盘 v4（新控制台 `/app/`）
 
-**第一步** `POST /v4.0/user/account/login` 已在本地联调通过（2026-05-26）。  
+**第一步** `POST /v4.0/user/account/login` 已在本地联调通过（2026-05-26）。
 新控制台不依赖 `patch-ui-bundle.js`；前端默认同源 `/v4.0/`（Vite 5174 亦代理到本服务）。
 
 完整说明见 [gamebet_frontend/app/docs/CREDIT_PLATE.md](../gamebet_frontend/app/docs/CREDIT_PLATE.md)。
 
 | 路径 | 说明 |
 |------|------|
-| `GET /api/a8/defaults` | 登录页预填 A8 账号（`a8_constants.js`） |
+| `GET /api/a8/defaults` | 登录页预填 A8 账号（`integrations/a8/constants.js`） |
 | `GET /api/a8/credit-plate-user` | 平博 v4 用的 `userName`（非本地 `admin`） |
 | `POST /v4.0/*` | `v4_router.js` → `api.a8.to`（仅代理，无 mock） |
 
 ### 旧控制台 `/console/`（写死 A8 账号，对齐 bundle RMe）
 
-账号密码写在 `gamebet_backend/shared/a8_constants.js`（默认 `TJ01` / `a123456`）。  
+账号密码写在 `gamebet_backend/integrations/a8/constants.js`（默认 `TJ01` / `a123456`）。
 修改后执行 `npm run patch:ui` 并重启 `npm run web`。仅 legacy bundle 的「平博体育」依赖 patch 后的 v4 基址。
 
 聚合游戏列表见 [GAMES.md](./GAMES.md)。选盘规则见 [MARKETS.md](./MARKETS.md)。

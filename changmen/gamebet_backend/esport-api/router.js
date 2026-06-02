@@ -5,15 +5,23 @@ const catalog = require("../shared/game_catalog.json");
 const store = require("./store.js");
 const { emptyPage, monthReport } = require("./stubs.js");
 const { handleV4Request } = require("./v4_router.js");
-const { handleCommonApi } = require("./common_router.js");
+const { handleCommonApi } = require("./hg_follow.js");
 const accountStore = require("../account/account_store.js");
 const accountService = require("../account/account_service.js");
-const { isA8AuthEnabled, resolveA8Credentials } = require("../shared/a8_config.js");
-const { loginV4 } = require("../shared/a8_v4_client.js");
+const { isA8AuthEnabled, resolveA8Credentials } = require("../integrations/a8/config.js");
+const { loginV4 } = require("../integrations/a8/v4_client.js");
 const { getPlatformRules, getDefaultMarketCode } = require("../shared/market_catalog.js");
 
 function ok(info, msg = "ok") {
   return { success: 1, msg, info: info ?? null };
+}
+
+function getJwtClaim(token, claim) {
+  try {
+    return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString())[claim];
+  } catch {
+    return null;
+  }
 }
 
 function fail(msg, info = null) {
@@ -91,7 +99,7 @@ async function handleA8Login(body = {}) {
   const userName = String(body.userName || body.username || defaults.userName || "").trim();
   const password = body.password || defaults.password;
   if (!userName || !password) {
-    return fail("A8 账号未配置，请编辑 shared/a8_constants.js");
+    return fail("A8 账号未配置，请编辑 integrations/a8/constants.js");
   }
 
   let v4Result;
@@ -128,31 +136,62 @@ async function handleA8Login(body = {}) {
 }
 
 async function handleClientLogin(body) {
-  const userName = body.userName || body.username;
+  const { supabase } = require("../db/client.js");
+  const dbStore = require("../db/store.js");
+
+  if (!supabase) return fail("Supabase 未配置");
+
+  const userName = String(body.userName || body.username || "").trim();
   const password = body.password;
+  if (!userName || !password) return fail("用户名和密码必填");
 
-  if (userName && password) {
-    const user = store.getUserByName(userName);
-    if (user?.salt) {
-      const hash = store.hashPassword(password, user.salt);
-      if (hash === user.passwordHash) {
-        const token = store.createSession(user.id);
-        return ok({ token, userName: user.userName, ID: user.id });
-      }
-    }
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: `${userName.toLowerCase()}@gamebet.local`,
+    password,
+  });
+  if (error) return fail("用户名或密码错误");
+
+  const uid = data.user.id;
+  const accessToken = data.session.access_token;
+
+  // 从 Supabase 加载用户 profile 到内存缓存
+  let profile = await dbStore.loadProfileById(uid);
+  if (!profile) {
+    // trigger 未触发时自动创建 profile
+    const inferredName = data.user.email.split("@")[0];
+    const now = Date.now();
+    const { error: insertErr } = await supabase.from("profiles").insert({
+      id: uid,
+      user_name: inferredName,
+      accounts: [],
+      betting_config: {},
+      collect_config: {},
+      preferences: {},
+      created_at: now,
+      updated_at: now,
+    });
+    if (!insertErr) profile = await dbStore.loadProfileById(uid);
+  }
+  if (!profile) return fail("用户数据加载失败，请检查 Supabase profiles 表");
+
+  // 单 session 限制：把当前 session_id 写入 user_metadata
+  const sessionId = getJwtClaim(accessToken, "session_id");
+  if (sessionId) {
+    supabase.auth.admin.updateUserById(uid, {
+      user_metadata: { active_session_id: sessionId }
+    }).catch(() => {});
   }
 
-  if (isA8AuthEnabled()) {
-    return handleA8Login(body);
-  }
-
-  return fail("用户名或密码错误");
+  return ok({ token: accessToken, userName: profile.userName, ID: uid });
 }
 
 async function handle(action, body, ctx) {
   switch (action) {
     case "Client_Logout": {
-      if (ctx.token) store.removeSession(ctx.token);
+      const { supabase } = require("../db/client.js");
+      if (supabase && ctx.token) {
+        await supabase.auth.admin.signOut(ctx.token).catch(() => {});
+      }
       return ok(null);
     }
     case "Client_GetUserInfo": {
@@ -203,7 +242,7 @@ async function handle(action, body, ctx) {
         token = row.accessToken || row.token || "";
       }
       if (String(provider).toUpperCase() === "RAY") {
-        const { getRayA8CollectCredentials } = require("../shared/ray_a8_collect.js");
+        const { getRayA8CollectCredentials } = require("../platforms/ray/collect_credentials.js");
         const a8 = getRayA8CollectCredentials();
         gateway = a8.gateway;
         token = a8.token;
@@ -215,7 +254,7 @@ async function handle(action, body, ctx) {
       }
       if (String(provider).toUpperCase() === "TF") {
         try {
-          const { getTfA8CollectCredentials } = require("../shared/tf_a8_collect.js");
+          const { getTfA8CollectCredentials } = require("../platforms/tf/collect_credentials.js");
           const a8 = await getTfA8CollectCredentials();
           store.setPlatform("TF", {
             gateway: a8.gateway,
@@ -240,6 +279,15 @@ async function handle(action, body, ctx) {
           }
           return ok({ Gateway: "", Token: "", BetName: catalogBetName });
         }
+      }
+      if (String(provider).toUpperCase() === "IA") {
+        const { getIaA8CollectCredentials } = require("../platforms/ia/collect_credentials.js");
+        const a8 = getIaA8CollectCredentials();
+        return ok({
+          Gateway: gateway || a8.gateway,
+          Token: row ? token ?? "" : a8.token,
+          BetName: betName && betName !== ".*" ? betName : a8.betName,
+        });
       }
       const out = {
         Gateway: gateway,
@@ -317,12 +365,12 @@ async function handle(action, body, ctx) {
     case "Client_SaveData": {
       if (!ctx.user) return fail("请先登录");
       if (!body.key) return fail("key required");
-      store.setUserKv(body.key, body.content ?? "");
-      return ok(true);
+      const saved = accountService.handleSaveData(body.key, body.content ?? "", ctx.user.id);
+      return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_GetData": {
       if (!ctx.user) return fail("请先登录");
-      const data = accountService.handleGetData(body.key);
+      const data = accountService.handleGetData(body.key, ctx.user.id);
       if (Array.isArray(data.direct)) return data.direct;
       if (data.direct && typeof data.direct === "object") return data.direct;
       return ok(data.info);
@@ -333,17 +381,17 @@ async function handle(action, body, ctx) {
     }
     case "Client_GetOrderList": {
       if (!ctx.user) return fail("请先登录");
-      const page = accountService.handleGetOrderList(body);
+      const page = await accountService.handleGetOrderList(body, ctx.user.id);
       return page.ok ? ok(page.info) : fail(page.msg);
     }
     case "Client_SaveOrder": {
       if (!ctx.user) return fail("请先登录");
-      const saved = accountService.handleSaveOrder(body);
+      const saved = await accountService.handleSaveOrder(body, ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_SaveOrderBind": {
       if (!ctx.user) return fail("请先登录");
-      const saved = accountService.handleSaveOrderBind(body);
+      const saved = await accountService.handleSaveOrderBind(body, ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "API_SaveScore":
@@ -361,7 +409,7 @@ async function handle(action, body, ctx) {
     }
     case "Client_DeletePlayer": {
       if (!ctx.user) return fail("请先登录");
-      const deleted = accountService.handleDeletePlayer(body);
+      const deleted = accountService.handleDeletePlayer(body, ctx.user.id);
       return deleted.ok ? ok(deleted.info) : fail(deleted.msg);
     }
     case "Client_UpdateBalance": {
@@ -371,7 +419,7 @@ async function handle(action, body, ctx) {
     }
     case "Client_RefreshAccountBalance": {
       if (!ctx.user) return fail("请先登录");
-      const refreshed = await accountService.handleRefreshAccountBalance(body);
+      const refreshed = await accountService.handleRefreshAccountBalance(body, ctx.user.id);
       return refreshed.ok ? ok(refreshed.info) : fail(refreshed.msg);
     }
     case "Client_GetMoneyLogs": {
@@ -434,7 +482,7 @@ async function handle(action, body, ctx) {
     }
     case "Client_GetPlayerOrder": {
       if (!ctx.user) return fail("请先登录");
-      const orders = accountService.handleGetPlayerOrder(body);
+      const orders = await accountService.handleGetPlayerOrder(body, ctx.user.id);
       return orders.ok ? ok(orders.info) : fail(orders.msg);
     }
     case "Client_GetUsers": {
@@ -484,7 +532,7 @@ async function handleEsportRequest(req, res, urlPath) {
     }
 
     const token = req.headers.token || req.headers.Token;
-    const user = store.getUserByToken(token);
+    const user = await store.getUserBySupabaseToken(token);
 
     if (action === "Client_Login") {
       const result = await handleClientLogin(body);

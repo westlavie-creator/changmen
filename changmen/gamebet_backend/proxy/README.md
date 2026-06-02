@@ -15,6 +15,8 @@
 | 变量 | 说明 |
 |------|------|
 | `ENABLE_ESPORT_PROXY` | 默认开启；设为 `0` 关闭 |
+| `ENABLE_OB_MQTT_RELAY` | 默认开启 `/esport/ws/OB`；设为 `0` 关闭。**与** `ENABLE_OB`（Node ObFeed）**无关** |
+| `ENABLE_OB` | 仅控制 Node ObFeed + bridge 列表；**不**关浏览器 MQTT relay |
 | `OB_PROXY_MQTT_USER` / `OB_PROXY_MQTT_PASS` | 下游 MQTT 认证（默认 admin / Qazqaz123...） |
 | `OB_PROXY_ALLOW_ANY` | 设为 `1` 时跳过 MQTT 认证 |
 | `RAY_TOKEN` / `RAY_ORIGIN` | RAY 源站凭据 |

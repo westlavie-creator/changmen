@@ -1,6 +1,27 @@
 # gamebet — 多平台电竞赔率聚合（本地复刻）
 
-> **与 A8 的关系**：A8（`api.a8.to`）是第三方聚合平台，本项目借鉴其架构与采集思路在本机复刻实现。上级目录 [`../A8/A8frontendscipts/`](../A8/A8frontendscipts/) 为从该站点拷贝的参考 bundle，**仅供阅读逆向，禁止引用**。
+> **与 A8 的关系**：A8（`api.a8.to`）是第三方聚合平台。上级目录 [`../A8/A8frontendscipts/`](../A8/A8frontendscipts/) 为参考 bundle，**仅供阅读逆向，禁止引用**。
+
+## 项目共识
+
+1. **changmen 后端由 A8 前端反推而来**
+   无 A8 官方服务端源码。`gamebet_backend/esport-api` 的路由名、`API_SaveMatch` / `API_SaveBet` / `Client_GetMatchs` 等，依据 A8 浏览器 bundle 中的调用与字段形状实现；`matches.json`、`match_merge.js` 等为 **本地推测实现**，parity 以 **A8 前端可证实行为** 为准。
+
+2. **Parity 唯一基线**
+   `A8/A8frontendscipts/2.0.1/index.js`（及 Network 抓包）。不是 changmen 的 Node Feed 或 JSON 文件布局。
+
+3. **changmen 扩展（非 A8 bundle 内容）**
+   `ObFeed`、`FeedHub`、`ESPORT_BRIDGE`、`platform_sync` 启动登录、后端多源 `game/index` 等。
+   CollectConfig 与 A8 一致：**无默认全开**；以 `user_kv` / 用户中心开关为准。
+
+4. **两种部署模式（勿混谈）**
+
+   | 模式 | 比赛列表 | 盘口/赔 id | 适用 |
+   |------|----------|------------|------|
+   | **P — A8 Parity** | 浏览器 `saveMatch` | 浏览器 `saveBets` + `fo` | 对齐 A8 控制台、OB 复刻验收 |
+   | **D — Changmen 双轨** | Node `ObFeed` + bridge | 浏览器 `saveBets` + `fo` | 本地 `/feed/`、无浏览器也要列表 |
+
+   OB 专项计划：[gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md)
 
 ## 工作目录
 
@@ -8,20 +29,32 @@
 
 若 Git 仓库根仍是上一级的 `gamebet/`，可在该目录执行 `npm run web`（根目录 `package.json` 会转发 npm 脚本）；**`.bat` 请进入 `changmen/` 再双击**（推荐 `dev.bat`）。启动脚本说明见 [scripts/README.md](./scripts/README.md)。
 
-## Changmen 数据职责（与 A8 原版 bundle 不同）
+## 数据职责（按部署模式）
 
-| 层级 | 负责内容 | 写入 | 读取 |
-|------|----------|------|------|
-| **后端 Node** | 各平台**比赛列表**（FeedHub 轮询 / 快照） | `data/esport/matches.json`（需 `ESPORT_BRIDGE=1`） | `Client_GetMatchs` |
-| **前端 `/app/`** | 各平台**赔率**（HTTP / MQTT / WS 等） | `API_SaveBet` → `bets.json` | `matchStore` + `oddsStore`（对齐 A8 `fo`） |
+### 模式 P — A8 Parity（复刻验收）
 
-要点：
+与 A8 `UMe` 一致：**浏览器**写列表与盘口 id，**fo** 写实时赔。
 
-- 比赛列表以**后端实时采集结果**为准；`matches.json` 清空后，应由后端 bridge 在下一轮同步回填，而不是依赖前端 `API_SaveMatch`。
-- 前端采集器仍可能调用 `saveMatch`（历史兼容），但**不应**再作为比赛列表的主数据源。
-- 用户中心「赛事采集」开关：控制是否**上报保存**到后端（`API_SaveMatch` / `API_SaveBet`），不是是否连接平台源站。
+| 层级 | 负责内容 | 写入 |
+|------|----------|------|
+| 前端采集器 | 比赛列表 + 盘口 | `API_SaveMatch` / `API_SaveBet`（受 CollectConfig 控制） |
+| 前端 `oddsStore` | 实时赔、锁盘 | 仅内存（对齐 A8 `fo`） |
 
-本地开发推荐：`dev.bat`（内部已 `ESPORT_BRIDGE=1` 写比赛列表）。详见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
+建议：`ESPORT_BRIDGE=0`，`ENABLE_OB=0`（避免 Node 与浏览器双写）。见 [A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md)。
+
+### 模式 D — Changmen 双轨（本地默认 dev）
+
+| 层级 | 负责内容 | 写入 |
+|------|----------|------|
+| **后端 Node** | 比赛列表（FeedHub） | `matches.json`（`ESPORT_BRIDGE=1`） |
+| **前端 `/app/`** | 赔率与盘口 id | `API_SaveBet` → `bets.json` + `oddsStore` |
+
+要点（**changmen 扩展**，非 A8 原版）：
+
+- 列表可由 Node bridge 回填（模式 D）；模式 P 下浏览器已 `saveMatch`（见 [A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md) 阶段 1）
+- 「赛事采集」开关：仅控制是否 **回传** `SaveMatch`/`SaveBet`，不停止拉数或 fo。
+
+本地 `dev.bat` 默认模式 D（`ESPORT_BRIDGE=1`）。A8 parity 联调用 `parity-dev.bat`（`ESPORT_BRIDGE=0`、`ENABLE_OB=0`）。详见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
 
 ## 仓库结构
 
@@ -53,17 +86,20 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/app/
 
 **OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[gamebet_frontend/app/src/collectors/docs/A8_COMPARE_OB_RAY.md](./gamebet_frontend/app/src/collectors/docs/A8_COMPARE_OB_RAY.md)。
 
+**OB 复刻计划**（A8 前端基线 + changmen 标注）：[gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md)。
+
 **TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[gamebet_frontend/app/src/collectors/docs/A8_TF_LOGIC_PARITY.md](./gamebet_frontend/app/src/collectors/docs/A8_TF_LOGIC_PARITY.md)。
 
 ---
 
 ## 本地复刻：多平台采集（分工）
 
-**比赛列表（后端）**：`gamebet_backend` 的 `FeedHub`（`platforms/*/`*`_feed.js`）拉取各平台赛程 → `esport-api/feed_bridge.js`（`ESPORT_BRIDGE=1`）→ `saveMatches` → `matches.json`。
+**模式 P（A8 Parity）**：各平台浏览器采集器 `saveMatch` + `saveBets` + `oddsStore`，与 A8 插件一致。
 
-**赔率（前端 `/app/`）**：`gamebet_frontend/app/src/collectors/` 按 `CollectConfig` 启停 → `collectStore.saveBets`（及实时推送写入 `oddsStore`）→ `Client_GetMatchs` 合并展示。
+**模式 D（Changmen 双轨，下文）**：后端写列表 + 前端写赔率——**changmen 扩展**，非 A8 bundle 行为。
 
 ```text
+[模式 D]
 后端 FeedHub ──► matches.json ──► Client_GetMatchs ──► matchStore（列表）
 前端 collectors ──► API_SaveBet ──► bets.json ──► oddsStore（赔率，对齐 fo）
 ```
@@ -114,10 +150,10 @@ HTTP 代理（浏览器 CORS 回退）：`/esport/ob/proxy`、`/esport/ray/proxy
 
 任选其一：
 
-1. **插件导入**（推荐）  
+1. **插件导入**（推荐）
    `cd gamebet_backend && node account/account_cli.js import-platform <base64> --sync-store`
 
-2. **环境变量**（启动时 `platform_sync.js` 写入 store）  
+2. **环境变量**（启动时 `platform_sync.js` 写入 store）
 
    | 平台 | 变量 |
    |------|------|
