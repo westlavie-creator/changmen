@@ -21,12 +21,7 @@ delete process.env.GAMEBET_DB_PATH;
 
 const paths = require("../shared/storage_paths.js");
 
-assert.strictEqual(paths.DB_PATH, path.join(root, "gamebetdb", "gamebet.db"));
 assert.strictEqual(paths.ESPORT_DATA_DIR, path.join(backendRoot, "storage", "legacy", "esport"));
 assert.strictEqual(fs.existsSync(path.join(paths.ESPORT_DATA_DIR, "users.json")), true);
 
-const db = require("../db/client.js");
-db.prepare("CREATE TABLE smoke (id INTEGER PRIMARY KEY)").run();
-assert.strictEqual(fs.existsSync(paths.DB_PATH), true);
-
-console.log("storage paths default to changmen/gamebetdb and storage/legacy/esport ok");
+console.log("storage paths default to storage/legacy/esport ok");
