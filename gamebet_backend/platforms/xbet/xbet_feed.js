@@ -1,6 +1,6 @@
 "use strict";
 
-const { A8BetsFeed } = require("../../shared/a8_bets_feed.js");
+const { A8BetsFeed } = require("../../integrations/a8/bets_feed.js");
 const { attachAggregatorMatchBetRefs } = require("../../shared/bet_ref.js");
 const { syncXbetFromEnv } = require("../../esport-api/platform_sync.js");
 

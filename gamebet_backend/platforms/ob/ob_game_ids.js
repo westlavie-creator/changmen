@@ -1,6 +1,6 @@
 "use strict";
 
-const catalog = require("./ob_game_ids.json");
+const catalog = require("./data/ob_game_ids.json");
 
 function getGameRecord(gameId) {
   return catalog.games[String(gameId)] || null;

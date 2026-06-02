@@ -1,2 +1,4055 @@
-/*! For license information please see content.js.LICENSE.txt */
-(()=>{var t={2:t=>{"use strict";t.exports=Math.min},39:(t,e,r)=>{"use strict";var n="undefined"!=typeof Symbol&&Symbol,o=r(333);t.exports=function(){return"function"==typeof n&&"function"==typeof Symbol&&"symbol"==typeof n("foo")&&"symbol"==typeof Symbol("bar")&&o()}},64:(t,e,r)=>{"use strict";var n=r(612);t.exports=n.getPrototypeOf||null},68:t=>{"use strict";t.exports=SyntaxError},76:t=>{"use strict";t.exports=Function.prototype.call},93:(t,e,r)=>{"use strict";var n=r(459);t.exports=function(t){return n(t)||0===t?t:t<0?-1:1}},119:t=>{"use strict";t.exports="undefined"!=typeof Reflect&&Reflect&&Reflect.apply},126:(t,e,r)=>{"use strict";var n=r(743),o=r(675),i=r(76),s=r(144);t.exports=function(t){if(t.length<1||"function"!=typeof t[0])throw new o("a function is required");return s(n,i,t)}},144:(t,e,r)=>{"use strict";var n=r(743),o=r(621),i=r(76),s=r(119);t.exports=s||n.call(i,o)},176:(t,e,r)=>{"use strict";var n,o=r(126),i=r(795);try{n=[].__proto__===Array.prototype}catch(t){if(!t||"object"!=typeof t||!("code"in t)||"ERR_PROTO_ACCESS"!==t.code)throw t}var s=!!n&&i&&i(Object.prototype,"__proto__"),a=Object,c=a.getPrototypeOf;t.exports=s&&"function"==typeof s.get?o([s.get]):"function"==typeof c&&function(t){return c(null==t?t:a(t))}},188:t=>{"use strict";t.exports=Math.max},237:t=>{"use strict";t.exports=EvalError},271:(t,e,r)=>{"use strict";var n=r(453),o=r(556),i=r(859),s=r(507),a=r(675),c=n("%WeakMap%",!0),u=o("WeakMap.prototype.get",!0),l=o("WeakMap.prototype.set",!0),p=o("WeakMap.prototype.has",!0),f=o("WeakMap.prototype.delete",!0);t.exports=c?function(){var t,e,r={assert:function(t){if(!r.has(t))throw new a("Side channel does not contain "+i(t))},delete:function(r){if(c&&r&&("object"==typeof r||"function"==typeof r)){if(t)return f(t,r)}else if(s&&e)return e.delete(r);return!1},get:function(r){return c&&r&&("object"==typeof r||"function"==typeof r)&&t?u(t,r):e&&e.get(r)},has:function(r){return c&&r&&("object"==typeof r||"function"==typeof r)&&t?p(t,r):!!e&&e.has(r)},set:function(r,n){c&&r&&("object"==typeof r||"function"==typeof r)?(t||(t=new c),l(t,r,n)):s&&(e||(e=s()),e.set(r,n))}};return r}:s},290:t=>{"use strict";t.exports=RangeError},333:t=>{"use strict";t.exports=function(){if("function"!=typeof Symbol||"function"!=typeof Object.getOwnPropertySymbols)return!1;if("symbol"==typeof Symbol.iterator)return!0;var t={},e=Symbol("test"),r=Object(e);if("string"==typeof e)return!1;if("[object Symbol]"!==Object.prototype.toString.call(e))return!1;if("[object Symbol]"!==Object.prototype.toString.call(r))return!1;for(var n in t[e]=42,t)return!1;if("function"==typeof Object.keys&&0!==Object.keys(t).length)return!1;if("function"==typeof Object.getOwnPropertyNames&&0!==Object.getOwnPropertyNames(t).length)return!1;var o=Object.getOwnPropertySymbols(t);if(1!==o.length||o[0]!==e)return!1;if(!Object.prototype.propertyIsEnumerable.call(t,e))return!1;if("function"==typeof Object.getOwnPropertyDescriptor){var i=Object.getOwnPropertyDescriptor(t,e);if(42!==i.value||!0!==i.enumerable)return!1}return!0}},345:t=>{"use strict";t.exports=URIError},353:t=>{"use strict";var e=Object.prototype.toString,r=Math.max,n=function(t,e){for(var r=[],n=0;n<t.length;n+=1)r[n]=t[n];for(var o=0;o<e.length;o+=1)r[o+t.length]=e[o];return r};t.exports=function(t){var o=this;if("function"!=typeof o||"[object Function]"!==e.apply(o))throw new TypeError("Function.prototype.bind called on incompatible "+o);for(var i,s=function(t){for(var e=[],r=1,n=0;r<t.length;r+=1,n+=1)e[n]=t[r];return e}(arguments),a=r(0,o.length-s.length),c=[],u=0;u<a;u++)c[u]="$"+u;if(i=Function("binder","return function ("+function(t){for(var e="",r=0;r<t.length;r+=1)e+=t[r],r+1<t.length&&(e+=",");return e}(c)+"){ return binder.apply(this,arguments); }")((function(){if(this instanceof i){var e=o.apply(this,n(s,arguments));return Object(e)===e?e:this}return o.apply(t,n(s,arguments))})),o.prototype){var l=function(){};l.prototype=o.prototype,i.prototype=new l,l.prototype=null}return i}},373:(t,e,r)=>{"use strict";var n=r(636),o=r(642),i=r(765);t.exports={formats:i,parse:o,stringify:n}},383:t=>{"use strict";t.exports=Error},414:t=>{"use strict";t.exports=Math.round},453:(t,e,r)=>{"use strict";var n,o=r(612),i=r(383),s=r(237),a=r(290),c=r(538),u=r(68),l=r(675),p=r(345),f=r(514),h=r(968),d=r(188),y=r(2),m=r(880),g=r(414),b=r(93),v=Function,w=function(t){try{return v('"use strict"; return ('+t+").constructor;")()}catch(t){}},_=r(795),S=r(655),E=function(){throw new l},O=_?function(){try{return E}catch(t){try{return _(arguments,"callee").get}catch(t){return E}}}():E,A=r(39)(),x=r(628),k=r(64),R=r(648),T=r(621),C=r(76),P={},j="undefined"!=typeof Uint8Array&&x?x(Uint8Array):n,N={__proto__:null,"%AggregateError%":"undefined"==typeof AggregateError?n:AggregateError,"%Array%":Array,"%ArrayBuffer%":"undefined"==typeof ArrayBuffer?n:ArrayBuffer,"%ArrayIteratorPrototype%":A&&x?x([][Symbol.iterator]()):n,"%AsyncFromSyncIteratorPrototype%":n,"%AsyncFunction%":P,"%AsyncGenerator%":P,"%AsyncGeneratorFunction%":P,"%AsyncIteratorPrototype%":P,"%Atomics%":"undefined"==typeof Atomics?n:Atomics,"%BigInt%":"undefined"==typeof BigInt?n:BigInt,"%BigInt64Array%":"undefined"==typeof BigInt64Array?n:BigInt64Array,"%BigUint64Array%":"undefined"==typeof BigUint64Array?n:BigUint64Array,"%Boolean%":Boolean,"%DataView%":"undefined"==typeof DataView?n:DataView,"%Date%":Date,"%decodeURI%":decodeURI,"%decodeURIComponent%":decodeURIComponent,"%encodeURI%":encodeURI,"%encodeURIComponent%":encodeURIComponent,"%Error%":i,"%eval%":eval,"%EvalError%":s,"%Float16Array%":"undefined"==typeof Float16Array?n:Float16Array,"%Float32Array%":"undefined"==typeof Float32Array?n:Float32Array,"%Float64Array%":"undefined"==typeof Float64Array?n:Float64Array,"%FinalizationRegistry%":"undefined"==typeof FinalizationRegistry?n:FinalizationRegistry,"%Function%":v,"%GeneratorFunction%":P,"%Int8Array%":"undefined"==typeof Int8Array?n:Int8Array,"%Int16Array%":"undefined"==typeof Int16Array?n:Int16Array,"%Int32Array%":"undefined"==typeof Int32Array?n:Int32Array,"%isFinite%":isFinite,"%isNaN%":isNaN,"%IteratorPrototype%":A&&x?x(x([][Symbol.iterator]())):n,"%JSON%":"object"==typeof JSON?JSON:n,"%Map%":"undefined"==typeof Map?n:Map,"%MapIteratorPrototype%":"undefined"!=typeof Map&&A&&x?x((new Map)[Symbol.iterator]()):n,"%Math%":Math,"%Number%":Number,"%Object%":o,"%Object.getOwnPropertyDescriptor%":_,"%parseFloat%":parseFloat,"%parseInt%":parseInt,"%Promise%":"undefined"==typeof Promise?n:Promise,"%Proxy%":"undefined"==typeof Proxy?n:Proxy,"%RangeError%":a,"%ReferenceError%":c,"%Reflect%":"undefined"==typeof Reflect?n:Reflect,"%RegExp%":RegExp,"%Set%":"undefined"==typeof Set?n:Set,"%SetIteratorPrototype%":"undefined"!=typeof Set&&A&&x?x((new Set)[Symbol.iterator]()):n,"%SharedArrayBuffer%":"undefined"==typeof SharedArrayBuffer?n:SharedArrayBuffer,"%String%":String,"%StringIteratorPrototype%":A&&x?x(""[Symbol.iterator]()):n,"%Symbol%":A?Symbol:n,"%SyntaxError%":u,"%ThrowTypeError%":O,"%TypedArray%":j,"%TypeError%":l,"%Uint8Array%":"undefined"==typeof Uint8Array?n:Uint8Array,"%Uint8ClampedArray%":"undefined"==typeof Uint8ClampedArray?n:Uint8ClampedArray,"%Uint16Array%":"undefined"==typeof Uint16Array?n:Uint16Array,"%Uint32Array%":"undefined"==typeof Uint32Array?n:Uint32Array,"%URIError%":p,"%WeakMap%":"undefined"==typeof WeakMap?n:WeakMap,"%WeakRef%":"undefined"==typeof WeakRef?n:WeakRef,"%WeakSet%":"undefined"==typeof WeakSet?n:WeakSet,"%Function.prototype.call%":C,"%Function.prototype.apply%":T,"%Object.defineProperty%":S,"%Object.getPrototypeOf%":k,"%Math.abs%":f,"%Math.floor%":h,"%Math.max%":d,"%Math.min%":y,"%Math.pow%":m,"%Math.round%":g,"%Math.sign%":b,"%Reflect.getPrototypeOf%":R};if(x)try{null.error}catch(t){var L=x(x(t));N["%Error.prototype%"]=L}var B=function t(e){var r;if("%AsyncFunction%"===e)r=w("async function () {}");else if("%GeneratorFunction%"===e)r=w("function* () {}");else if("%AsyncGeneratorFunction%"===e)r=w("async function* () {}");else if("%AsyncGenerator%"===e){var n=t("%AsyncGeneratorFunction%");n&&(r=n.prototype)}else if("%AsyncIteratorPrototype%"===e){var o=t("%AsyncGenerator%");o&&x&&(r=x(o.prototype))}return N[e]=r,r},I={__proto__:null,"%ArrayBufferPrototype%":["ArrayBuffer","prototype"],"%ArrayPrototype%":["Array","prototype"],"%ArrayProto_entries%":["Array","prototype","entries"],"%ArrayProto_forEach%":["Array","prototype","forEach"],"%ArrayProto_keys%":["Array","prototype","keys"],"%ArrayProto_values%":["Array","prototype","values"],"%AsyncFunctionPrototype%":["AsyncFunction","prototype"],"%AsyncGenerator%":["AsyncGeneratorFunction","prototype"],"%AsyncGeneratorPrototype%":["AsyncGeneratorFunction","prototype","prototype"],"%BooleanPrototype%":["Boolean","prototype"],"%DataViewPrototype%":["DataView","prototype"],"%DatePrototype%":["Date","prototype"],"%ErrorPrototype%":["Error","prototype"],"%EvalErrorPrototype%":["EvalError","prototype"],"%Float32ArrayPrototype%":["Float32Array","prototype"],"%Float64ArrayPrototype%":["Float64Array","prototype"],"%FunctionPrototype%":["Function","prototype"],"%Generator%":["GeneratorFunction","prototype"],"%GeneratorPrototype%":["GeneratorFunction","prototype","prototype"],"%Int8ArrayPrototype%":["Int8Array","prototype"],"%Int16ArrayPrototype%":["Int16Array","prototype"],"%Int32ArrayPrototype%":["Int32Array","prototype"],"%JSONParse%":["JSON","parse"],"%JSONStringify%":["JSON","stringify"],"%MapPrototype%":["Map","prototype"],"%NumberPrototype%":["Number","prototype"],"%ObjectPrototype%":["Object","prototype"],"%ObjProto_toString%":["Object","prototype","toString"],"%ObjProto_valueOf%":["Object","prototype","valueOf"],"%PromisePrototype%":["Promise","prototype"],"%PromiseProto_then%":["Promise","prototype","then"],"%Promise_all%":["Promise","all"],"%Promise_reject%":["Promise","reject"],"%Promise_resolve%":["Promise","resolve"],"%RangeErrorPrototype%":["RangeError","prototype"],"%ReferenceErrorPrototype%":["ReferenceError","prototype"],"%RegExpPrototype%":["RegExp","prototype"],"%SetPrototype%":["Set","prototype"],"%SharedArrayBufferPrototype%":["SharedArrayBuffer","prototype"],"%StringPrototype%":["String","prototype"],"%SymbolPrototype%":["Symbol","prototype"],"%SyntaxErrorPrototype%":["SyntaxError","prototype"],"%TypedArrayPrototype%":["TypedArray","prototype"],"%TypeErrorPrototype%":["TypeError","prototype"],"%Uint8ArrayPrototype%":["Uint8Array","prototype"],"%Uint8ClampedArrayPrototype%":["Uint8ClampedArray","prototype"],"%Uint16ArrayPrototype%":["Uint16Array","prototype"],"%Uint32ArrayPrototype%":["Uint32Array","prototype"],"%URIErrorPrototype%":["URIError","prototype"],"%WeakMapPrototype%":["WeakMap","prototype"],"%WeakSetPrototype%":["WeakSet","prototype"]},D=r(743),F=r(957),U=D.call(C,Array.prototype.concat),M=D.call(T,Array.prototype.splice),q=D.call(C,String.prototype.replace),$=D.call(C,String.prototype.slice),W=D.call(C,RegExp.prototype.exec),H=/[^%.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|%$))/g,J=/\\(\\)?/g,V=function(t,e){var r,n=t;if(F(I,n)&&(n="%"+(r=I[n])[0]+"%"),F(N,n)){var o=N[n];if(o===P&&(o=B(n)),void 0===o&&!e)throw new l("intrinsic "+t+" exists, but is not available. Please file an issue!");return{alias:r,name:n,value:o}}throw new u("intrinsic "+t+" does not exist!")};t.exports=function(t,e){if("string"!=typeof t||0===t.length)throw new l("intrinsic name must be a non-empty string");if(arguments.length>1&&"boolean"!=typeof e)throw new l('"allowMissing" argument must be a boolean');if(null===W(/^%?[^%]*%?$/,t))throw new u("`%` may not be present anywhere but at the beginning and end of the intrinsic name");var r=function(t){var e=$(t,0,1),r=$(t,-1);if("%"===e&&"%"!==r)throw new u("invalid intrinsic syntax, expected closing `%`");if("%"===r&&"%"!==e)throw new u("invalid intrinsic syntax, expected opening `%`");var n=[];return q(t,H,(function(t,e,r,o){n[n.length]=r?q(o,J,"$1"):e||t})),n}(t),n=r.length>0?r[0]:"",o=V("%"+n+"%",e),i=o.name,s=o.value,a=!1,c=o.alias;c&&(n=c[0],M(r,U([0,1],c)));for(var p=1,f=!0;p<r.length;p+=1){var h=r[p],d=$(h,0,1),y=$(h,-1);if(('"'===d||"'"===d||"`"===d||'"'===y||"'"===y||"`"===y)&&d!==y)throw new u("property names with quotes must have matching quotes");if("constructor"!==h&&f||(a=!0),F(N,i="%"+(n+="."+h)+"%"))s=N[i];else if(null!=s){if(!(h in s)){if(!e)throw new l("base intrinsic for "+t+" exists, but the property is not available.");return}if(_&&p+1>=r.length){var m=_(s,h);s=(f=!!m)&&"get"in m&&!("originalValue"in m.get)?m.get:s[h]}else f=F(s,h),s=s[h];f&&!a&&(N[i]=s)}}return s}},459:t=>{"use strict";t.exports=Number.isNaN||function(t){return t!=t}},507:(t,e,r)=>{"use strict";var n=r(453),o=r(556),i=r(859),s=r(675),a=n("%Map%",!0),c=o("Map.prototype.get",!0),u=o("Map.prototype.set",!0),l=o("Map.prototype.has",!0),p=o("Map.prototype.delete",!0),f=o("Map.prototype.size",!0);t.exports=!!a&&function(){var t,e={assert:function(t){if(!e.has(t))throw new s("Side channel does not contain "+i(t))},delete:function(e){if(t){var r=p(t,e);return 0===f(t)&&(t=void 0),r}return!1},get:function(e){if(t)return c(t,e)},has:function(e){return!!t&&l(t,e)},set:function(e,r){t||(t=new a),u(t,e,r)}};return e}},514:t=>{"use strict";t.exports=Math.abs},538:t=>{"use strict";t.exports=ReferenceError},549:t=>{"use strict";t.exports=Object.getOwnPropertyDescriptor},556:(t,e,r)=>{"use strict";var n=r(453),o=r(126),i=o([n("%String.prototype.indexOf%")]);t.exports=function(t,e){var r=n(t,!!e);return"function"==typeof r&&i(t,".prototype.")>-1?o([r]):r}},612:t=>{"use strict";t.exports=Object},621:t=>{"use strict";t.exports=Function.prototype.apply},628:(t,e,r)=>{"use strict";var n=r(648),o=r(64),i=r(176);t.exports=n?function(t){return n(t)}:o?function(t){if(!t||"object"!=typeof t&&"function"!=typeof t)throw new TypeError("getProto: not an object");return o(t)}:i?function(t){return i(t)}:null},634:()=>{},636:(t,e,r)=>{"use strict";var n=r(920),o=r(720),i=r(765),s=Object.prototype.hasOwnProperty,a={brackets:function(t){return t+"[]"},comma:"comma",indices:function(t,e){return t+"["+e+"]"},repeat:function(t){return t}},c=Array.isArray,u=Array.prototype.push,l=function(t,e){u.apply(t,c(e)?e:[e])},p=Date.prototype.toISOString,f=i.default,h={addQueryPrefix:!1,allowDots:!1,allowEmptyArrays:!1,arrayFormat:"indices",charset:"utf-8",charsetSentinel:!1,commaRoundTrip:!1,delimiter:"&",encode:!0,encodeDotInKeys:!1,encoder:o.encode,encodeValuesOnly:!1,filter:void 0,format:f,formatter:i.formatters[f],indices:!1,serializeDate:function(t){return p.call(t)},skipNulls:!1,strictNullHandling:!1},d={},y=function t(e,r,i,s,a,u,p,f,y,m,g,b,v,w,_,S,E,O){for(var A,x=e,k=O,R=0,T=!1;void 0!==(k=k.get(d))&&!T;){var C=k.get(e);if(R+=1,void 0!==C){if(C===R)throw new RangeError("Cyclic object value");T=!0}void 0===k.get(d)&&(R=0)}if("function"==typeof m?x=m(r,x):x instanceof Date?x=v(x):"comma"===i&&c(x)&&(x=o.maybeMap(x,(function(t){return t instanceof Date?v(t):t}))),null===x){if(u)return y&&!S?y(r,h.encoder,E,"key",w):r;x=""}if("string"==typeof(A=x)||"number"==typeof A||"boolean"==typeof A||"symbol"==typeof A||"bigint"==typeof A||o.isBuffer(x))return y?[_(S?r:y(r,h.encoder,E,"key",w))+"="+_(y(x,h.encoder,E,"value",w))]:[_(r)+"="+_(String(x))];var P,j=[];if(void 0===x)return j;if("comma"===i&&c(x))S&&y&&(x=o.maybeMap(x,y)),P=[{value:x.length>0?x.join(",")||null:void 0}];else if(c(m))P=m;else{var N=Object.keys(x);P=g?N.sort(g):N}var L=f?String(r).replace(/\./g,"%2E"):String(r),B=s&&c(x)&&1===x.length?L+"[]":L;if(a&&c(x)&&0===x.length)return B+"[]";for(var I=0;I<P.length;++I){var D=P[I],F="object"==typeof D&&D&&void 0!==D.value?D.value:x[D];if(!p||null!==F){var U=b&&f?String(D).replace(/\./g,"%2E"):String(D),M=c(x)?"function"==typeof i?i(B,U):B:B+(b?"."+U:"["+U+"]");O.set(e,R);var q=n();q.set(d,O),l(j,t(F,M,i,s,a,u,p,f,"comma"===i&&S&&c(x)?null:y,m,g,b,v,w,_,S,E,q))}}return j};t.exports=function(t,e){var r,o=t,u=function(t){if(!t)return h;if(void 0!==t.allowEmptyArrays&&"boolean"!=typeof t.allowEmptyArrays)throw new TypeError("`allowEmptyArrays` option can only be `true` or `false`, when provided");if(void 0!==t.encodeDotInKeys&&"boolean"!=typeof t.encodeDotInKeys)throw new TypeError("`encodeDotInKeys` option can only be `true` or `false`, when provided");if(null!==t.encoder&&void 0!==t.encoder&&"function"!=typeof t.encoder)throw new TypeError("Encoder has to be a function.");var e=t.charset||h.charset;if(void 0!==t.charset&&"utf-8"!==t.charset&&"iso-8859-1"!==t.charset)throw new TypeError("The charset option must be either utf-8, iso-8859-1, or undefined");var r=i.default;if(void 0!==t.format){if(!s.call(i.formatters,t.format))throw new TypeError("Unknown format option provided.");r=t.format}var n,o=i.formatters[r],u=h.filter;if(("function"==typeof t.filter||c(t.filter))&&(u=t.filter),n=t.arrayFormat in a?t.arrayFormat:"indices"in t?t.indices?"indices":"repeat":h.arrayFormat,"commaRoundTrip"in t&&"boolean"!=typeof t.commaRoundTrip)throw new TypeError("`commaRoundTrip` must be a boolean, or absent");var l=void 0===t.allowDots?!0===t.encodeDotInKeys||h.allowDots:!!t.allowDots;return{addQueryPrefix:"boolean"==typeof t.addQueryPrefix?t.addQueryPrefix:h.addQueryPrefix,allowDots:l,allowEmptyArrays:"boolean"==typeof t.allowEmptyArrays?!!t.allowEmptyArrays:h.allowEmptyArrays,arrayFormat:n,charset:e,charsetSentinel:"boolean"==typeof t.charsetSentinel?t.charsetSentinel:h.charsetSentinel,commaRoundTrip:!!t.commaRoundTrip,delimiter:void 0===t.delimiter?h.delimiter:t.delimiter,encode:"boolean"==typeof t.encode?t.encode:h.encode,encodeDotInKeys:"boolean"==typeof t.encodeDotInKeys?t.encodeDotInKeys:h.encodeDotInKeys,encoder:"function"==typeof t.encoder?t.encoder:h.encoder,encodeValuesOnly:"boolean"==typeof t.encodeValuesOnly?t.encodeValuesOnly:h.encodeValuesOnly,filter:u,format:r,formatter:o,serializeDate:"function"==typeof t.serializeDate?t.serializeDate:h.serializeDate,skipNulls:"boolean"==typeof t.skipNulls?t.skipNulls:h.skipNulls,sort:"function"==typeof t.sort?t.sort:null,strictNullHandling:"boolean"==typeof t.strictNullHandling?t.strictNullHandling:h.strictNullHandling}}(e);"function"==typeof u.filter?o=(0,u.filter)("",o):c(u.filter)&&(r=u.filter);var p=[];if("object"!=typeof o||null===o)return"";var f=a[u.arrayFormat],d="comma"===f&&u.commaRoundTrip;r||(r=Object.keys(o)),u.sort&&r.sort(u.sort);for(var m=n(),g=0;g<r.length;++g){var b=r[g],v=o[b];u.skipNulls&&null===v||l(p,y(v,b,f,d,u.allowEmptyArrays,u.strictNullHandling,u.skipNulls,u.encodeDotInKeys,u.encode?u.encoder:null,u.filter,u.sort,u.allowDots,u.serializeDate,u.format,u.formatter,u.encodeValuesOnly,u.charset,m))}var w=p.join(u.delimiter),_=!0===u.addQueryPrefix?"?":"";return u.charsetSentinel&&("iso-8859-1"===u.charset?_+="utf8=%26%2310003%3B&":_+="utf8=%E2%9C%93&"),w.length>0?_+w:""}},642:(t,e,r)=>{"use strict";var n=r(720),o=Object.prototype.hasOwnProperty,i=Array.isArray,s={allowDots:!1,allowEmptyArrays:!1,allowPrototypes:!1,allowSparse:!1,arrayLimit:20,charset:"utf-8",charsetSentinel:!1,comma:!1,decodeDotInKeys:!1,decoder:n.decode,delimiter:"&",depth:5,duplicates:"combine",ignoreQueryPrefix:!1,interpretNumericEntities:!1,parameterLimit:1e3,parseArrays:!0,plainObjects:!1,strictDepth:!1,strictNullHandling:!1,throwOnLimitExceeded:!1},a=function(t){return t.replace(/&#(\d+);/g,(function(t,e){return String.fromCharCode(parseInt(e,10))}))},c=function(t,e,r){if(t&&"string"==typeof t&&e.comma&&t.indexOf(",")>-1)return t.split(",");if(e.throwOnLimitExceeded&&r>=e.arrayLimit)throw new RangeError("Array limit exceeded. Only "+e.arrayLimit+" element"+(1===e.arrayLimit?"":"s")+" allowed in an array.");return t},u=function(t,e,r,i){if(t){var s=r.allowDots?t.replace(/\.([^.[]+)/g,"[$1]"):t,a=/(\[[^[\]]*])/g,u=r.depth>0&&/(\[[^[\]]*])/.exec(s),l=u?s.slice(0,u.index):s,p=[];if(l){if(!r.plainObjects&&o.call(Object.prototype,l)&&!r.allowPrototypes)return;p.push(l)}for(var f=0;r.depth>0&&null!==(u=a.exec(s))&&f<r.depth;){if(f+=1,!r.plainObjects&&o.call(Object.prototype,u[1].slice(1,-1))&&!r.allowPrototypes)return;p.push(u[1])}if(u){if(!0===r.strictDepth)throw new RangeError("Input depth exceeded depth option of "+r.depth+" and strictDepth is true");p.push("["+s.slice(u.index)+"]")}return function(t,e,r,o){var i=0;if(t.length>0&&"[]"===t[t.length-1]){var s=t.slice(0,-1).join("");i=Array.isArray(e)&&e[s]?e[s].length:0}for(var a=o?e:c(e,r,i),u=t.length-1;u>=0;--u){var l,p=t[u];if("[]"===p&&r.parseArrays)l=r.allowEmptyArrays&&(""===a||r.strictNullHandling&&null===a)?[]:n.combine([],a);else{l=r.plainObjects?{__proto__:null}:{};var f="["===p.charAt(0)&&"]"===p.charAt(p.length-1)?p.slice(1,-1):p,h=r.decodeDotInKeys?f.replace(/%2E/g,"."):f,d=parseInt(h,10);r.parseArrays||""!==h?!isNaN(d)&&p!==h&&String(d)===h&&d>=0&&r.parseArrays&&d<=r.arrayLimit?(l=[])[d]=a:"__proto__"!==h&&(l[h]=a):l={0:a}}a=l}return a}(p,e,r,i)}};t.exports=function(t,e){var r=function(t){if(!t)return s;if(void 0!==t.allowEmptyArrays&&"boolean"!=typeof t.allowEmptyArrays)throw new TypeError("`allowEmptyArrays` option can only be `true` or `false`, when provided");if(void 0!==t.decodeDotInKeys&&"boolean"!=typeof t.decodeDotInKeys)throw new TypeError("`decodeDotInKeys` option can only be `true` or `false`, when provided");if(null!==t.decoder&&void 0!==t.decoder&&"function"!=typeof t.decoder)throw new TypeError("Decoder has to be a function.");if(void 0!==t.charset&&"utf-8"!==t.charset&&"iso-8859-1"!==t.charset)throw new TypeError("The charset option must be either utf-8, iso-8859-1, or undefined");if(void 0!==t.throwOnLimitExceeded&&"boolean"!=typeof t.throwOnLimitExceeded)throw new TypeError("`throwOnLimitExceeded` option must be a boolean");var e=void 0===t.charset?s.charset:t.charset,r=void 0===t.duplicates?s.duplicates:t.duplicates;if("combine"!==r&&"first"!==r&&"last"!==r)throw new TypeError("The duplicates option must be either combine, first, or last");return{allowDots:void 0===t.allowDots?!0===t.decodeDotInKeys||s.allowDots:!!t.allowDots,allowEmptyArrays:"boolean"==typeof t.allowEmptyArrays?!!t.allowEmptyArrays:s.allowEmptyArrays,allowPrototypes:"boolean"==typeof t.allowPrototypes?t.allowPrototypes:s.allowPrototypes,allowSparse:"boolean"==typeof t.allowSparse?t.allowSparse:s.allowSparse,arrayLimit:"number"==typeof t.arrayLimit?t.arrayLimit:s.arrayLimit,charset:e,charsetSentinel:"boolean"==typeof t.charsetSentinel?t.charsetSentinel:s.charsetSentinel,comma:"boolean"==typeof t.comma?t.comma:s.comma,decodeDotInKeys:"boolean"==typeof t.decodeDotInKeys?t.decodeDotInKeys:s.decodeDotInKeys,decoder:"function"==typeof t.decoder?t.decoder:s.decoder,delimiter:"string"==typeof t.delimiter||n.isRegExp(t.delimiter)?t.delimiter:s.delimiter,depth:"number"==typeof t.depth||!1===t.depth?+t.depth:s.depth,duplicates:r,ignoreQueryPrefix:!0===t.ignoreQueryPrefix,interpretNumericEntities:"boolean"==typeof t.interpretNumericEntities?t.interpretNumericEntities:s.interpretNumericEntities,parameterLimit:"number"==typeof t.parameterLimit?t.parameterLimit:s.parameterLimit,parseArrays:!1!==t.parseArrays,plainObjects:"boolean"==typeof t.plainObjects?t.plainObjects:s.plainObjects,strictDepth:"boolean"==typeof t.strictDepth?!!t.strictDepth:s.strictDepth,strictNullHandling:"boolean"==typeof t.strictNullHandling?t.strictNullHandling:s.strictNullHandling,throwOnLimitExceeded:"boolean"==typeof t.throwOnLimitExceeded&&t.throwOnLimitExceeded}}(e);if(""===t||null==t)return r.plainObjects?{__proto__:null}:{};for(var l="string"==typeof t?function(t,e){var r={__proto__:null},u=e.ignoreQueryPrefix?t.replace(/^\?/,""):t;u=u.replace(/%5B/gi,"[").replace(/%5D/gi,"]");var l=e.parameterLimit===1/0?void 0:e.parameterLimit,p=u.split(e.delimiter,e.throwOnLimitExceeded?l+1:l);if(e.throwOnLimitExceeded&&p.length>l)throw new RangeError("Parameter limit exceeded. Only "+l+" parameter"+(1===l?"":"s")+" allowed.");var f,h=-1,d=e.charset;if(e.charsetSentinel)for(f=0;f<p.length;++f)0===p[f].indexOf("utf8=")&&("utf8=%E2%9C%93"===p[f]?d="utf-8":"utf8=%26%2310003%3B"===p[f]&&(d="iso-8859-1"),h=f,f=p.length);for(f=0;f<p.length;++f)if(f!==h){var y,m,g=p[f],b=g.indexOf("]="),v=-1===b?g.indexOf("="):b+1;-1===v?(y=e.decoder(g,s.decoder,d,"key"),m=e.strictNullHandling?null:""):(y=e.decoder(g.slice(0,v),s.decoder,d,"key"),m=n.maybeMap(c(g.slice(v+1),e,i(r[y])?r[y].length:0),(function(t){return e.decoder(t,s.decoder,d,"value")}))),m&&e.interpretNumericEntities&&"iso-8859-1"===d&&(m=a(String(m))),g.indexOf("[]=")>-1&&(m=i(m)?[m]:m);var w=o.call(r,y);w&&"combine"===e.duplicates?r[y]=n.combine(r[y],m):w&&"last"!==e.duplicates||(r[y]=m)}return r}(t,r):t,p=r.plainObjects?{__proto__:null}:{},f=Object.keys(l),h=0;h<f.length;++h){var d=f[h],y=u(d,l[d],r,"string"==typeof t);p=n.merge(p,y,r)}return!0===r.allowSparse?p:n.compact(p)}},648:t=>{"use strict";t.exports="undefined"!=typeof Reflect&&Reflect.getPrototypeOf||null},655:t=>{"use strict";var e=Object.defineProperty||!1;if(e)try{e({},"a",{value:1})}catch(t){e=!1}t.exports=e},675:t=>{"use strict";t.exports=TypeError},720:(t,e,r)=>{"use strict";var n=r(765),o=Object.prototype.hasOwnProperty,i=Array.isArray,s=function(){for(var t=[],e=0;e<256;++e)t.push("%"+((e<16?"0":"")+e.toString(16)).toUpperCase());return t}(),a=function(t,e){for(var r=e&&e.plainObjects?{__proto__:null}:{},n=0;n<t.length;++n)void 0!==t[n]&&(r[n]=t[n]);return r},c=1024;t.exports={arrayToObject:a,assign:function(t,e){return Object.keys(e).reduce((function(t,r){return t[r]=e[r],t}),t)},combine:function(t,e){return[].concat(t,e)},compact:function(t){for(var e=[{obj:{o:t},prop:"o"}],r=[],n=0;n<e.length;++n)for(var o=e[n],s=o.obj[o.prop],a=Object.keys(s),c=0;c<a.length;++c){var u=a[c],l=s[u];"object"==typeof l&&null!==l&&-1===r.indexOf(l)&&(e.push({obj:s,prop:u}),r.push(l))}return function(t){for(;t.length>1;){var e=t.pop(),r=e.obj[e.prop];if(i(r)){for(var n=[],o=0;o<r.length;++o)void 0!==r[o]&&n.push(r[o]);e.obj[e.prop]=n}}}(e),t},decode:function(t,e,r){var n=t.replace(/\+/g," ");if("iso-8859-1"===r)return n.replace(/%[0-9a-f]{2}/gi,unescape);try{return decodeURIComponent(n)}catch(t){return n}},encode:function(t,e,r,o,i){if(0===t.length)return t;var a=t;if("symbol"==typeof t?a=Symbol.prototype.toString.call(t):"string"!=typeof t&&(a=String(t)),"iso-8859-1"===r)return escape(a).replace(/%u[0-9a-f]{4}/gi,(function(t){return"%26%23"+parseInt(t.slice(2),16)+"%3B"}));for(var u="",l=0;l<a.length;l+=c){for(var p=a.length>=c?a.slice(l,l+c):a,f=[],h=0;h<p.length;++h){var d=p.charCodeAt(h);45===d||46===d||95===d||126===d||d>=48&&d<=57||d>=65&&d<=90||d>=97&&d<=122||i===n.RFC1738&&(40===d||41===d)?f[f.length]=p.charAt(h):d<128?f[f.length]=s[d]:d<2048?f[f.length]=s[192|d>>6]+s[128|63&d]:d<55296||d>=57344?f[f.length]=s[224|d>>12]+s[128|d>>6&63]+s[128|63&d]:(h+=1,d=65536+((1023&d)<<10|1023&p.charCodeAt(h)),f[f.length]=s[240|d>>18]+s[128|d>>12&63]+s[128|d>>6&63]+s[128|63&d])}u+=f.join("")}return u},isBuffer:function(t){return!(!t||"object"!=typeof t||!(t.constructor&&t.constructor.isBuffer&&t.constructor.isBuffer(t)))},isRegExp:function(t){return"[object RegExp]"===Object.prototype.toString.call(t)},maybeMap:function(t,e){if(i(t)){for(var r=[],n=0;n<t.length;n+=1)r.push(e(t[n]));return r}return e(t)},merge:function t(e,r,n){if(!r)return e;if("object"!=typeof r&&"function"!=typeof r){if(i(e))e.push(r);else{if(!e||"object"!=typeof e)return[e,r];(n&&(n.plainObjects||n.allowPrototypes)||!o.call(Object.prototype,r))&&(e[r]=!0)}return e}if(!e||"object"!=typeof e)return[e].concat(r);var s=e;return i(e)&&!i(r)&&(s=a(e,n)),i(e)&&i(r)?(r.forEach((function(r,i){if(o.call(e,i)){var s=e[i];s&&"object"==typeof s&&r&&"object"==typeof r?e[i]=t(s,r,n):e.push(r)}else e[i]=r})),e):Object.keys(r).reduce((function(e,i){var s=r[i];return o.call(e,i)?e[i]=t(e[i],s,n):e[i]=s,e}),s)}}},743:(t,e,r)=>{"use strict";var n=r(353);t.exports=Function.prototype.bind||n},765:t=>{"use strict";var e=String.prototype.replace,r=/%20/g,n="RFC3986";t.exports={default:n,formatters:{RFC1738:function(t){return e.call(t,r,"+")},RFC3986:function(t){return String(t)}},RFC1738:"RFC1738",RFC3986:n}},795:(t,e,r)=>{"use strict";var n=r(549);if(n)try{n([],"length")}catch(t){n=null}t.exports=n},803:(t,e,r)=>{"use strict";var n=r(859),o=r(675),i=function(t,e,r){for(var n,o=t;null!=(n=o.next);o=n)if(n.key===e)return o.next=n.next,r||(n.next=t.next,t.next=n),n};t.exports=function(){var t,e={assert:function(t){if(!e.has(t))throw new o("Side channel does not contain "+n(t))},delete:function(e){var r=t&&t.next,n=function(t,e){if(t)return i(t,e,!0)}(t,e);return n&&r&&r===n&&(t=void 0),!!n},get:function(e){return function(t,e){if(t){var r=i(t,e);return r&&r.value}}(t,e)},has:function(e){return function(t,e){return!!t&&!!i(t,e)}(t,e)},set:function(e,r){t||(t={next:void 0}),function(t,e,r){var n=i(t,e);n?n.value=r:t.next={key:e,next:t.next,value:r}}(t,e,r)}};return e}},859:(t,e,r)=>{var n="function"==typeof Map&&Map.prototype,o=Object.getOwnPropertyDescriptor&&n?Object.getOwnPropertyDescriptor(Map.prototype,"size"):null,i=n&&o&&"function"==typeof o.get?o.get:null,s=n&&Map.prototype.forEach,a="function"==typeof Set&&Set.prototype,c=Object.getOwnPropertyDescriptor&&a?Object.getOwnPropertyDescriptor(Set.prototype,"size"):null,u=a&&c&&"function"==typeof c.get?c.get:null,l=a&&Set.prototype.forEach,p="function"==typeof WeakMap&&WeakMap.prototype?WeakMap.prototype.has:null,f="function"==typeof WeakSet&&WeakSet.prototype?WeakSet.prototype.has:null,h="function"==typeof WeakRef&&WeakRef.prototype?WeakRef.prototype.deref:null,d=Boolean.prototype.valueOf,y=Object.prototype.toString,m=Function.prototype.toString,g=String.prototype.match,b=String.prototype.slice,v=String.prototype.replace,w=String.prototype.toUpperCase,_=String.prototype.toLowerCase,S=RegExp.prototype.test,E=Array.prototype.concat,O=Array.prototype.join,A=Array.prototype.slice,x=Math.floor,k="function"==typeof BigInt?BigInt.prototype.valueOf:null,R=Object.getOwnPropertySymbols,T="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?Symbol.prototype.toString:null,C="function"==typeof Symbol&&"object"==typeof Symbol.iterator,P="function"==typeof Symbol&&Symbol.toStringTag&&(Symbol.toStringTag,1)?Symbol.toStringTag:null,j=Object.prototype.propertyIsEnumerable,N=("function"==typeof Reflect?Reflect.getPrototypeOf:Object.getPrototypeOf)||([].__proto__===Array.prototype?function(t){return t.__proto__}:null);function L(t,e){if(t===1/0||t===-1/0||t!=t||t&&t>-1e3&&t<1e3||S.call(/e/,e))return e;var r=/[0-9](?=(?:[0-9]{3})+(?![0-9]))/g;if("number"==typeof t){var n=t<0?-x(-t):x(t);if(n!==t){var o=String(n),i=b.call(e,o.length+1);return v.call(o,r,"$&_")+"."+v.call(v.call(i,/([0-9]{3})/g,"$&_"),/_$/,"")}}return v.call(e,r,"$&_")}var B=r(634),I=B.custom,D=J(I)?I:null,F={__proto__:null,double:'"',single:"'"},U={__proto__:null,double:/(["\\])/g,single:/(['\\])/g};function M(t,e,r){var n=r.quoteStyle||e,o=F[n];return o+t+o}function q(t){return v.call(String(t),/"/g,"&quot;")}function $(t){return!P||!("object"==typeof t&&(P in t||void 0!==t[P]))}function W(t){return"[object Array]"===K(t)&&$(t)}function H(t){return"[object RegExp]"===K(t)&&$(t)}function J(t){if(C)return t&&"object"==typeof t&&t instanceof Symbol;if("symbol"==typeof t)return!0;if(!t||"object"!=typeof t||!T)return!1;try{return T.call(t),!0}catch(t){}return!1}t.exports=function t(e,n,o,a){var c=n||{};if(z(c,"quoteStyle")&&!z(F,c.quoteStyle))throw new TypeError('option "quoteStyle" must be "single" or "double"');if(z(c,"maxStringLength")&&("number"==typeof c.maxStringLength?c.maxStringLength<0&&c.maxStringLength!==1/0:null!==c.maxStringLength))throw new TypeError('option "maxStringLength", if provided, must be a positive integer, Infinity, or `null`');var y=!z(c,"customInspect")||c.customInspect;if("boolean"!=typeof y&&"symbol"!==y)throw new TypeError("option \"customInspect\", if provided, must be `true`, `false`, or `'symbol'`");if(z(c,"indent")&&null!==c.indent&&"\t"!==c.indent&&!(parseInt(c.indent,10)===c.indent&&c.indent>0))throw new TypeError('option "indent" must be "\\t", an integer > 0, or `null`');if(z(c,"numericSeparator")&&"boolean"!=typeof c.numericSeparator)throw new TypeError('option "numericSeparator", if provided, must be `true` or `false`');var w=c.numericSeparator;if(void 0===e)return"undefined";if(null===e)return"null";if("boolean"==typeof e)return e?"true":"false";if("string"==typeof e)return Q(e,c);if("number"==typeof e){if(0===e)return 1/0/e>0?"0":"-0";var S=String(e);return w?L(e,S):S}if("bigint"==typeof e){var x=String(e)+"n";return w?L(e,x):x}var R=void 0===c.depth?5:c.depth;if(void 0===o&&(o=0),o>=R&&R>0&&"object"==typeof e)return W(e)?"[Array]":"[Object]";var I,U=function(t,e){var r;if("\t"===t.indent)r="\t";else{if(!("number"==typeof t.indent&&t.indent>0))return null;r=O.call(Array(t.indent+1)," ")}return{base:r,prev:O.call(Array(e+1),r)}}(c,o);if(void 0===a)a=[];else if(G(a,e)>=0)return"[Circular]";function V(e,r,n){if(r&&(a=A.call(a)).push(r),n){var i={depth:c.depth};return z(c,"quoteStyle")&&(i.quoteStyle=c.quoteStyle),t(e,i,o+1,a)}return t(e,c,o+1,a)}if("function"==typeof e&&!H(e)){var Y=function(t){if(t.name)return t.name;var e=g.call(m.call(t),/^function\s*([\w$]+)/);return e?e[1]:null}(e),nt=rt(e,V);return"[Function"+(Y?": "+Y:" (anonymous)")+"]"+(nt.length>0?" { "+O.call(nt,", ")+" }":"")}if(J(e)){var ot=C?v.call(String(e),/^(Symbol\(.*\))_[^)]*$/,"$1"):T.call(e);return"object"!=typeof e||C?ot:X(ot)}if((I=e)&&"object"==typeof I&&("undefined"!=typeof HTMLElement&&I instanceof HTMLElement||"string"==typeof I.nodeName&&"function"==typeof I.getAttribute)){for(var it="<"+_.call(String(e.nodeName)),st=e.attributes||[],at=0;at<st.length;at++)it+=" "+st[at].name+"="+M(q(st[at].value),"double",c);return it+=">",e.childNodes&&e.childNodes.length&&(it+="..."),it+"</"+_.call(String(e.nodeName))+">"}if(W(e)){if(0===e.length)return"[]";var ct=rt(e,V);return U&&!function(t){for(var e=0;e<t.length;e++)if(G(t[e],"\n")>=0)return!1;return!0}(ct)?"["+et(ct,U)+"]":"[ "+O.call(ct,", ")+" ]"}if(function(t){return"[object Error]"===K(t)&&$(t)}(e)){var ut=rt(e,V);return"cause"in Error.prototype||!("cause"in e)||j.call(e,"cause")?0===ut.length?"["+String(e)+"]":"{ ["+String(e)+"] "+O.call(ut,", ")+" }":"{ ["+String(e)+"] "+O.call(E.call("[cause]: "+V(e.cause),ut),", ")+" }"}if("object"==typeof e&&y){if(D&&"function"==typeof e[D]&&B)return B(e,{depth:R-o});if("symbol"!==y&&"function"==typeof e.inspect)return e.inspect()}if(function(t){if(!i||!t||"object"!=typeof t)return!1;try{i.call(t);try{u.call(t)}catch(t){return!0}return t instanceof Map}catch(t){}return!1}(e)){var lt=[];return s&&s.call(e,(function(t,r){lt.push(V(r,e,!0)+" => "+V(t,e))})),tt("Map",i.call(e),lt,U)}if(function(t){if(!u||!t||"object"!=typeof t)return!1;try{u.call(t);try{i.call(t)}catch(t){return!0}return t instanceof Set}catch(t){}return!1}(e)){var pt=[];return l&&l.call(e,(function(t){pt.push(V(t,e))})),tt("Set",u.call(e),pt,U)}if(function(t){if(!p||!t||"object"!=typeof t)return!1;try{p.call(t,p);try{f.call(t,f)}catch(t){return!0}return t instanceof WeakMap}catch(t){}return!1}(e))return Z("WeakMap");if(function(t){if(!f||!t||"object"!=typeof t)return!1;try{f.call(t,f);try{p.call(t,p)}catch(t){return!0}return t instanceof WeakSet}catch(t){}return!1}(e))return Z("WeakSet");if(function(t){if(!h||!t||"object"!=typeof t)return!1;try{return h.call(t),!0}catch(t){}return!1}(e))return Z("WeakRef");if(function(t){return"[object Number]"===K(t)&&$(t)}(e))return X(V(Number(e)));if(function(t){if(!t||"object"!=typeof t||!k)return!1;try{return k.call(t),!0}catch(t){}return!1}(e))return X(V(k.call(e)));if(function(t){return"[object Boolean]"===K(t)&&$(t)}(e))return X(d.call(e));if(function(t){return"[object String]"===K(t)&&$(t)}(e))return X(V(String(e)));if("undefined"!=typeof window&&e===window)return"{ [object Window] }";if("undefined"!=typeof globalThis&&e===globalThis||void 0!==r.g&&e===r.g)return"{ [object globalThis] }";if(!function(t){return"[object Date]"===K(t)&&$(t)}(e)&&!H(e)){var ft=rt(e,V),ht=N?N(e)===Object.prototype:e instanceof Object||e.constructor===Object,dt=e instanceof Object?"":"null prototype",yt=!ht&&P&&Object(e)===e&&P in e?b.call(K(e),8,-1):dt?"Object":"",mt=(ht||"function"!=typeof e.constructor?"":e.constructor.name?e.constructor.name+" ":"")+(yt||dt?"["+O.call(E.call([],yt||[],dt||[]),": ")+"] ":"");return 0===ft.length?mt+"{}":U?mt+"{"+et(ft,U)+"}":mt+"{ "+O.call(ft,", ")+" }"}return String(e)};var V=Object.prototype.hasOwnProperty||function(t){return t in this};function z(t,e){return V.call(t,e)}function K(t){return y.call(t)}function G(t,e){if(t.indexOf)return t.indexOf(e);for(var r=0,n=t.length;r<n;r++)if(t[r]===e)return r;return-1}function Q(t,e){if(t.length>e.maxStringLength){var r=t.length-e.maxStringLength,n="... "+r+" more character"+(r>1?"s":"");return Q(b.call(t,0,e.maxStringLength),e)+n}var o=U[e.quoteStyle||"single"];return o.lastIndex=0,M(v.call(v.call(t,o,"\\$1"),/[\x00-\x1f]/g,Y),"single",e)}function Y(t){var e=t.charCodeAt(0),r={8:"b",9:"t",10:"n",12:"f",13:"r"}[e];return r?"\\"+r:"\\x"+(e<16?"0":"")+w.call(e.toString(16))}function X(t){return"Object("+t+")"}function Z(t){return t+" { ? }"}function tt(t,e,r,n){return t+" ("+e+") {"+(n?et(r,n):O.call(r,", "))+"}"}function et(t,e){if(0===t.length)return"";var r="\n"+e.prev+e.base;return r+O.call(t,","+r)+"\n"+e.prev}function rt(t,e){var r=W(t),n=[];if(r){n.length=t.length;for(var o=0;o<t.length;o++)n[o]=z(t,o)?e(t[o],t):""}var i,s="function"==typeof R?R(t):[];if(C){i={};for(var a=0;a<s.length;a++)i["$"+s[a]]=s[a]}for(var c in t)z(t,c)&&(r&&String(Number(c))===c&&c<t.length||C&&i["$"+c]instanceof Symbol||(S.call(/[^\w$]/,c)?n.push(e(c,t)+": "+e(t[c],t)):n.push(c+": "+e(t[c],t))));if("function"==typeof R)for(var u=0;u<s.length;u++)j.call(t,s[u])&&n.push("["+e(s[u])+"]: "+e(t[s[u]],t));return n}},880:t=>{"use strict";t.exports=Math.pow},920:(t,e,r)=>{"use strict";var n=r(675),o=r(859),i=r(803),s=r(507),a=r(271)||s||i;t.exports=function(){var t,e={assert:function(t){if(!e.has(t))throw new n("Side channel does not contain "+o(t))},delete:function(e){return!!t&&t.delete(e)},get:function(e){return t&&t.get(e)},has:function(e){return!!t&&t.has(e)},set:function(e,r){t||(t=a()),t.set(e,r)}};return e}},957:(t,e,r)=>{"use strict";var n=Function.prototype.call,o=Object.prototype.hasOwnProperty,i=r(743);t.exports=i.call(n,o)},968:t=>{"use strict";t.exports=Math.floor}},e={};function r(n){var o=e[n];if(void 0!==o)return o.exports;var i=e[n]={exports:{}};return t[n](i,i.exports,r),i.exports}r.n=t=>{var e=t&&t.__esModule?()=>t.default:()=>t;return r.d(e,{a:e}),e},r.d=(t,e)=>{for(var n in e)r.o(e,n)&&!r.o(t,n)&&Object.defineProperty(t,n,{enumerable:!0,get:e[n]})},r.g=function(){if("object"==typeof globalThis)return globalThis;try{return this||new Function("return this")()}catch(t){if("object"==typeof window)return window}}(),r.o=(t,e)=>Object.prototype.hasOwnProperty.call(t,e),r.r=t=>{"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(t,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(t,"__esModule",{value:!0})},(()=>{"use strict";var t={};r.r(t),r.d(t,{hasBrowserEnv:()=>St,hasStandardBrowserEnv:()=>Ot,hasStandardBrowserWebWorkerEnv:()=>At,navigator:()=>Et,origin:()=>xt});var e,n={};r.r(n),r.d(n,{Decoder:()=>pn,Encoder:()=>ln,PacketType:()=>un,isPacketValid:()=>yn,protocol:()=>cn}),function(t){t.OB="OB",t.RAY="RAY",t.IA="IA",t.IM="IM",t.TF="TF",t.SABA="SABA",t.PB="PB",t.IMT="IMT",t.HGA="HGA",t.HG="HG",t.Stake="Stake"}(e||(e={}));const o=e;var i=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))},s=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))},a=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))};const c=/^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;var u=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))};const l=/^\?lang=\d&token=([\w\.\_\-]+)$/;var p=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))},f=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))},h=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))},d=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))};const y=t=>{return e=void 0,r=void 0,o=function*(){return new Promise((e=>{setTimeout(e,t)}))},new((n=void 0)||(n=Promise))((function(t,i){function s(t){try{c(o.next(t))}catch(t){i(t)}}function a(t){try{c(o.throw(t))}catch(t){i(t)}}function c(e){e.done?t(e.value):function(t){return t instanceof n?t:new n((function(e){e(t)}))}(e.value).then(s,a)}c((o=o.apply(e,r||[])).next())}));var e,r,n,o},m=t=>{const e="generate-uuid-4you-seem-professional".replace(/[genratuidyosmpfl]/g,(function(t){const e=16*Math.random()|0;return("x"===t?e:3&e|8).toString(16)}));return"N"===t?e.replace(/\-/g,""):e};function g(t,e){return function(){return t.apply(e,arguments)}}const{toString:b}=Object.prototype,{getPrototypeOf:v}=Object,w=(t=>e=>{const r=b.call(e);return t[r]||(t[r]=r.slice(8,-1).toLowerCase())})(Object.create(null)),_=t=>(t=t.toLowerCase(),e=>w(e)===t),S=t=>e=>typeof e===t,{isArray:E}=Array,O=S("undefined"),A=_("ArrayBuffer"),x=S("string"),k=S("function"),R=S("number"),T=t=>null!==t&&"object"==typeof t,C=t=>{if("object"!==w(t))return!1;const e=v(t);return!(null!==e&&e!==Object.prototype&&null!==Object.getPrototypeOf(e)||Symbol.toStringTag in t||Symbol.iterator in t)},P=_("Date"),j=_("File"),N=_("Blob"),L=_("FileList"),B=_("URLSearchParams"),[I,D,F,U]=["ReadableStream","Request","Response","Headers"].map(_);function M(t,e,{allOwnKeys:r=!1}={}){if(null==t)return;let n,o;if("object"!=typeof t&&(t=[t]),E(t))for(n=0,o=t.length;n<o;n++)e.call(null,t[n],n,t);else{const o=r?Object.getOwnPropertyNames(t):Object.keys(t),i=o.length;let s;for(n=0;n<i;n++)s=o[n],e.call(null,t[s],s,t)}}function q(t,e){e=e.toLowerCase();const r=Object.keys(t);let n,o=r.length;for(;o-- >0;)if(n=r[o],e===n.toLowerCase())return n;return null}const $="undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:"undefined"!=typeof window?window:global,W=t=>!O(t)&&t!==$,H=(J="undefined"!=typeof Uint8Array&&v(Uint8Array),t=>J&&t instanceof J);var J;const V=_("HTMLFormElement"),z=(({hasOwnProperty:t})=>(e,r)=>t.call(e,r))(Object.prototype),K=_("RegExp"),G=(t,e)=>{const r=Object.getOwnPropertyDescriptors(t),n={};M(r,((r,o)=>{let i;!1!==(i=e(r,o,t))&&(n[o]=i||r)})),Object.defineProperties(t,n)},Q=_("AsyncFunction"),Y=(X="function"==typeof setImmediate,Z=k($.postMessage),X?setImmediate:Z?(tt=`axios@${Math.random()}`,et=[],$.addEventListener("message",(({source:t,data:e})=>{t===$&&e===tt&&et.length&&et.shift()()}),!1),t=>{et.push(t),$.postMessage(tt,"*")}):t=>setTimeout(t));var X,Z,tt,et;const rt="undefined"!=typeof queueMicrotask?queueMicrotask.bind($):"undefined"!=typeof process&&process.nextTick||Y,nt={isArray:E,isArrayBuffer:A,isBuffer:function(t){return null!==t&&!O(t)&&null!==t.constructor&&!O(t.constructor)&&k(t.constructor.isBuffer)&&t.constructor.isBuffer(t)},isFormData:t=>{let e;return t&&("function"==typeof FormData&&t instanceof FormData||k(t.append)&&("formdata"===(e=w(t))||"object"===e&&k(t.toString)&&"[object FormData]"===t.toString()))},isArrayBufferView:function(t){let e;return e="undefined"!=typeof ArrayBuffer&&ArrayBuffer.isView?ArrayBuffer.isView(t):t&&t.buffer&&A(t.buffer),e},isString:x,isNumber:R,isBoolean:t=>!0===t||!1===t,isObject:T,isPlainObject:C,isReadableStream:I,isRequest:D,isResponse:F,isHeaders:U,isUndefined:O,isDate:P,isFile:j,isBlob:N,isRegExp:K,isFunction:k,isStream:t=>T(t)&&k(t.pipe),isURLSearchParams:B,isTypedArray:H,isFileList:L,forEach:M,merge:function t(){const{caseless:e}=W(this)&&this||{},r={},n=(n,o)=>{const i=e&&q(r,o)||o;C(r[i])&&C(n)?r[i]=t(r[i],n):C(n)?r[i]=t({},n):E(n)?r[i]=n.slice():r[i]=n};for(let t=0,e=arguments.length;t<e;t++)arguments[t]&&M(arguments[t],n);return r},extend:(t,e,r,{allOwnKeys:n}={})=>(M(e,((e,n)=>{r&&k(e)?t[n]=g(e,r):t[n]=e}),{allOwnKeys:n}),t),trim:t=>t.trim?t.trim():t.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g,""),stripBOM:t=>(65279===t.charCodeAt(0)&&(t=t.slice(1)),t),inherits:(t,e,r,n)=>{t.prototype=Object.create(e.prototype,n),t.prototype.constructor=t,Object.defineProperty(t,"super",{value:e.prototype}),r&&Object.assign(t.prototype,r)},toFlatObject:(t,e,r,n)=>{let o,i,s;const a={};if(e=e||{},null==t)return e;do{for(o=Object.getOwnPropertyNames(t),i=o.length;i-- >0;)s=o[i],n&&!n(s,t,e)||a[s]||(e[s]=t[s],a[s]=!0);t=!1!==r&&v(t)}while(t&&(!r||r(t,e))&&t!==Object.prototype);return e},kindOf:w,kindOfTest:_,endsWith:(t,e,r)=>{t=String(t),(void 0===r||r>t.length)&&(r=t.length),r-=e.length;const n=t.indexOf(e,r);return-1!==n&&n===r},toArray:t=>{if(!t)return null;if(E(t))return t;let e=t.length;if(!R(e))return null;const r=new Array(e);for(;e-- >0;)r[e]=t[e];return r},forEachEntry:(t,e)=>{const r=(t&&t[Symbol.iterator]).call(t);let n;for(;(n=r.next())&&!n.done;){const r=n.value;e.call(t,r[0],r[1])}},matchAll:(t,e)=>{let r;const n=[];for(;null!==(r=t.exec(e));)n.push(r);return n},isHTMLForm:V,hasOwnProperty:z,hasOwnProp:z,reduceDescriptors:G,freezeMethods:t=>{G(t,((e,r)=>{if(k(t)&&-1!==["arguments","caller","callee"].indexOf(r))return!1;const n=t[r];k(n)&&(e.enumerable=!1,"writable"in e?e.writable=!1:e.set||(e.set=()=>{throw Error("Can not rewrite read-only method '"+r+"'")}))}))},toObjectSet:(t,e)=>{const r={},n=t=>{t.forEach((t=>{r[t]=!0}))};return E(t)?n(t):n(String(t).split(e)),r},toCamelCase:t=>t.toLowerCase().replace(/[-_\s]([a-z\d])(\w*)/g,(function(t,e,r){return e.toUpperCase()+r})),noop:()=>{},toFiniteNumber:(t,e)=>null!=t&&Number.isFinite(t=+t)?t:e,findKey:q,global:$,isContextDefined:W,isSpecCompliantForm:function(t){return!!(t&&k(t.append)&&"FormData"===t[Symbol.toStringTag]&&t[Symbol.iterator])},toJSONObject:t=>{const e=new Array(10),r=(t,n)=>{if(T(t)){if(e.indexOf(t)>=0)return;if(!("toJSON"in t)){e[n]=t;const o=E(t)?[]:{};return M(t,((t,e)=>{const i=r(t,n+1);!O(i)&&(o[e]=i)})),e[n]=void 0,o}}return t};return r(t,0)},isAsyncFn:Q,isThenable:t=>t&&(T(t)||k(t))&&k(t.then)&&k(t.catch),setImmediate:Y,asap:rt};function ot(t,e,r,n,o){Error.call(this),Error.captureStackTrace?Error.captureStackTrace(this,this.constructor):this.stack=(new Error).stack,this.message=t,this.name="AxiosError",e&&(this.code=e),r&&(this.config=r),n&&(this.request=n),o&&(this.response=o,this.status=o.status?o.status:null)}nt.inherits(ot,Error,{toJSON:function(){return{message:this.message,name:this.name,description:this.description,number:this.number,fileName:this.fileName,lineNumber:this.lineNumber,columnNumber:this.columnNumber,stack:this.stack,config:nt.toJSONObject(this.config),code:this.code,status:this.status}}});const it=ot.prototype,st={};["ERR_BAD_OPTION_VALUE","ERR_BAD_OPTION","ECONNABORTED","ETIMEDOUT","ERR_NETWORK","ERR_FR_TOO_MANY_REDIRECTS","ERR_DEPRECATED","ERR_BAD_RESPONSE","ERR_BAD_REQUEST","ERR_CANCELED","ERR_NOT_SUPPORT","ERR_INVALID_URL"].forEach((t=>{st[t]={value:t}})),Object.defineProperties(ot,st),Object.defineProperty(it,"isAxiosError",{value:!0}),ot.from=(t,e,r,n,o,i)=>{const s=Object.create(it);return nt.toFlatObject(t,s,(function(t){return t!==Error.prototype}),(t=>"isAxiosError"!==t)),ot.call(s,t.message,e,r,n,o),s.cause=t,s.name=t.name,i&&Object.assign(s,i),s};const at=ot;function ct(t){return nt.isPlainObject(t)||nt.isArray(t)}function ut(t){return nt.endsWith(t,"[]")?t.slice(0,-2):t}function lt(t,e,r){return t?t.concat(e).map((function(t,e){return t=ut(t),!r&&e?"["+t+"]":t})).join(r?".":""):e}const pt=nt.toFlatObject(nt,{},null,(function(t){return/^is[A-Z]/.test(t)})),ft=function(t,e,r){if(!nt.isObject(t))throw new TypeError("target must be an object");e=e||new FormData;const n=(r=nt.toFlatObject(r,{metaTokens:!0,dots:!1,indexes:!1},!1,(function(t,e){return!nt.isUndefined(e[t])}))).metaTokens,o=r.visitor||u,i=r.dots,s=r.indexes,a=(r.Blob||"undefined"!=typeof Blob&&Blob)&&nt.isSpecCompliantForm(e);if(!nt.isFunction(o))throw new TypeError("visitor must be a function");function c(t){if(null===t)return"";if(nt.isDate(t))return t.toISOString();if(!a&&nt.isBlob(t))throw new at("Blob is not supported. Use a Buffer instead.");return nt.isArrayBuffer(t)||nt.isTypedArray(t)?a&&"function"==typeof Blob?new Blob([t]):Buffer.from(t):t}function u(t,r,o){let a=t;if(t&&!o&&"object"==typeof t)if(nt.endsWith(r,"{}"))r=n?r:r.slice(0,-2),t=JSON.stringify(t);else if(nt.isArray(t)&&function(t){return nt.isArray(t)&&!t.some(ct)}(t)||(nt.isFileList(t)||nt.endsWith(r,"[]"))&&(a=nt.toArray(t)))return r=ut(r),a.forEach((function(t,n){!nt.isUndefined(t)&&null!==t&&e.append(!0===s?lt([r],n,i):null===s?r:r+"[]",c(t))})),!1;return!!ct(t)||(e.append(lt(o,r,i),c(t)),!1)}const l=[],p=Object.assign(pt,{defaultVisitor:u,convertValue:c,isVisitable:ct});if(!nt.isObject(t))throw new TypeError("data must be an object");return function t(r,n){if(!nt.isUndefined(r)){if(-1!==l.indexOf(r))throw Error("Circular reference detected in "+n.join("."));l.push(r),nt.forEach(r,(function(r,i){!0===(!(nt.isUndefined(r)||null===r)&&o.call(e,r,nt.isString(i)?i.trim():i,n,p))&&t(r,n?n.concat(i):[i])})),l.pop()}}(t),e};function ht(t){const e={"!":"%21","'":"%27","(":"%28",")":"%29","~":"%7E","%20":"+","%00":"\0"};return encodeURIComponent(t).replace(/[!'()~]|%20|%00/g,(function(t){return e[t]}))}function dt(t,e){this._pairs=[],t&&ft(t,this,e)}const yt=dt.prototype;yt.append=function(t,e){this._pairs.push([t,e])},yt.toString=function(t){const e=t?function(e){return t.call(this,e,ht)}:ht;return this._pairs.map((function(t){return e(t[0])+"="+e(t[1])}),"").join("&")};const mt=dt;function gt(t){return encodeURIComponent(t).replace(/%3A/gi,":").replace(/%24/g,"$").replace(/%2C/gi,",").replace(/%20/g,"+").replace(/%5B/gi,"[").replace(/%5D/gi,"]")}function bt(t,e,r){if(!e)return t;const n=r&&r.encode||gt;nt.isFunction(r)&&(r={serialize:r});const o=r&&r.serialize;let i;if(i=o?o(e,r):nt.isURLSearchParams(e)?e.toString():new mt(e,r).toString(n),i){const e=t.indexOf("#");-1!==e&&(t=t.slice(0,e)),t+=(-1===t.indexOf("?")?"?":"&")+i}return t}const vt=class{constructor(){this.handlers=[]}use(t,e,r){return this.handlers.push({fulfilled:t,rejected:e,synchronous:!!r&&r.synchronous,runWhen:r?r.runWhen:null}),this.handlers.length-1}eject(t){this.handlers[t]&&(this.handlers[t]=null)}clear(){this.handlers&&(this.handlers=[])}forEach(t){nt.forEach(this.handlers,(function(e){null!==e&&t(e)}))}},wt={silentJSONParsing:!0,forcedJSONParsing:!0,clarifyTimeoutError:!1},_t={isBrowser:!0,classes:{URLSearchParams:"undefined"!=typeof URLSearchParams?URLSearchParams:mt,FormData:"undefined"!=typeof FormData?FormData:null,Blob:"undefined"!=typeof Blob?Blob:null},protocols:["http","https","file","blob","url","data"]},St="undefined"!=typeof window&&"undefined"!=typeof document,Et="object"==typeof navigator&&navigator||void 0,Ot=St&&(!Et||["ReactNative","NativeScript","NS"].indexOf(Et.product)<0),At="undefined"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope&&"function"==typeof self.importScripts,xt=St&&window.location.href||"http://localhost",kt={...t,..._t},Rt=function(t){function e(t,r,n,o){let i=t[o++];if("__proto__"===i)return!0;const s=Number.isFinite(+i),a=o>=t.length;return i=!i&&nt.isArray(n)?n.length:i,a?(nt.hasOwnProp(n,i)?n[i]=[n[i],r]:n[i]=r,!s):(n[i]&&nt.isObject(n[i])||(n[i]=[]),e(t,r,n[i],o)&&nt.isArray(n[i])&&(n[i]=function(t){const e={},r=Object.keys(t);let n;const o=r.length;let i;for(n=0;n<o;n++)i=r[n],e[i]=t[i];return e}(n[i])),!s)}if(nt.isFormData(t)&&nt.isFunction(t.entries)){const r={};return nt.forEachEntry(t,((t,n)=>{e(function(t){return nt.matchAll(/\w+|\[(\w*)]/g,t).map((t=>"[]"===t[0]?"":t[1]||t[0]))}(t),n,r,0)})),r}return null},Tt={transitional:wt,adapter:["xhr","http","fetch"],transformRequest:[function(t,e){const r=e.getContentType()||"",n=r.indexOf("application/json")>-1,o=nt.isObject(t);if(o&&nt.isHTMLForm(t)&&(t=new FormData(t)),nt.isFormData(t))return n?JSON.stringify(Rt(t)):t;if(nt.isArrayBuffer(t)||nt.isBuffer(t)||nt.isStream(t)||nt.isFile(t)||nt.isBlob(t)||nt.isReadableStream(t))return t;if(nt.isArrayBufferView(t))return t.buffer;if(nt.isURLSearchParams(t))return e.setContentType("application/x-www-form-urlencoded;charset=utf-8",!1),t.toString();let i;if(o){if(r.indexOf("application/x-www-form-urlencoded")>-1)return function(t,e){return ft(t,new kt.classes.URLSearchParams,Object.assign({visitor:function(t,e,r,n){return kt.isNode&&nt.isBuffer(t)?(this.append(e,t.toString("base64")),!1):n.defaultVisitor.apply(this,arguments)}},e))}(t,this.formSerializer).toString();if((i=nt.isFileList(t))||r.indexOf("multipart/form-data")>-1){const e=this.env&&this.env.FormData;return ft(i?{"files[]":t}:t,e&&new e,this.formSerializer)}}return o||n?(e.setContentType("application/json",!1),function(t){if(nt.isString(t))try{return(0,JSON.parse)(t),nt.trim(t)}catch(t){if("SyntaxError"!==t.name)throw t}return(0,JSON.stringify)(t)}(t)):t}],transformResponse:[function(t){const e=this.transitional||Tt.transitional,r=e&&e.forcedJSONParsing,n="json"===this.responseType;if(nt.isResponse(t)||nt.isReadableStream(t))return t;if(t&&nt.isString(t)&&(r&&!this.responseType||n)){const r=!(e&&e.silentJSONParsing)&&n;try{return JSON.parse(t)}catch(t){if(r){if("SyntaxError"===t.name)throw at.from(t,at.ERR_BAD_RESPONSE,this,null,this.response);throw t}}}return t}],timeout:0,xsrfCookieName:"XSRF-TOKEN",xsrfHeaderName:"X-XSRF-TOKEN",maxContentLength:-1,maxBodyLength:-1,env:{FormData:kt.classes.FormData,Blob:kt.classes.Blob},validateStatus:function(t){return t>=200&&t<300},headers:{common:{Accept:"application/json, text/plain, */*","Content-Type":void 0}}};nt.forEach(["delete","get","head","post","put","patch"],(t=>{Tt.headers[t]={}}));const Ct=Tt,Pt=nt.toObjectSet(["age","authorization","content-length","content-type","etag","expires","from","host","if-modified-since","if-unmodified-since","last-modified","location","max-forwards","proxy-authorization","referer","retry-after","user-agent"]),jt=Symbol("internals");function Nt(t){return t&&String(t).trim().toLowerCase()}function Lt(t){return!1===t||null==t?t:nt.isArray(t)?t.map(Lt):String(t)}function Bt(t,e,r,n,o){return nt.isFunction(n)?n.call(this,e,r):(o&&(e=r),nt.isString(e)?nt.isString(n)?-1!==e.indexOf(n):nt.isRegExp(n)?n.test(e):void 0:void 0)}class It{constructor(t){t&&this.set(t)}set(t,e,r){const n=this;function o(t,e,r){const o=Nt(e);if(!o)throw new Error("header name must be a non-empty string");const i=nt.findKey(n,o);(!i||void 0===n[i]||!0===r||void 0===r&&!1!==n[i])&&(n[i||e]=Lt(t))}const i=(t,e)=>nt.forEach(t,((t,r)=>o(t,r,e)));if(nt.isPlainObject(t)||t instanceof this.constructor)i(t,e);else if(nt.isString(t)&&(t=t.trim())&&!/^[-_a-zA-Z0-9^`|~,!#$%&'*+.]+$/.test(t.trim()))i((t=>{const e={};let r,n,o;return t&&t.split("\n").forEach((function(t){o=t.indexOf(":"),r=t.substring(0,o).trim().toLowerCase(),n=t.substring(o+1).trim(),!r||e[r]&&Pt[r]||("set-cookie"===r?e[r]?e[r].push(n):e[r]=[n]:e[r]=e[r]?e[r]+", "+n:n)})),e})(t),e);else if(nt.isHeaders(t))for(const[e,n]of t.entries())o(n,e,r);else null!=t&&o(e,t,r);return this}get(t,e){if(t=Nt(t)){const r=nt.findKey(this,t);if(r){const t=this[r];if(!e)return t;if(!0===e)return function(t){const e=Object.create(null),r=/([^\s,;=]+)\s*(?:=\s*([^,;]+))?/g;let n;for(;n=r.exec(t);)e[n[1]]=n[2];return e}(t);if(nt.isFunction(e))return e.call(this,t,r);if(nt.isRegExp(e))return e.exec(t);throw new TypeError("parser must be boolean|regexp|function")}}}has(t,e){if(t=Nt(t)){const r=nt.findKey(this,t);return!(!r||void 0===this[r]||e&&!Bt(0,this[r],r,e))}return!1}delete(t,e){const r=this;let n=!1;function o(t){if(t=Nt(t)){const o=nt.findKey(r,t);!o||e&&!Bt(0,r[o],o,e)||(delete r[o],n=!0)}}return nt.isArray(t)?t.forEach(o):o(t),n}clear(t){const e=Object.keys(this);let r=e.length,n=!1;for(;r--;){const o=e[r];t&&!Bt(0,this[o],o,t,!0)||(delete this[o],n=!0)}return n}normalize(t){const e=this,r={};return nt.forEach(this,((n,o)=>{const i=nt.findKey(r,o);if(i)return e[i]=Lt(n),void delete e[o];const s=t?function(t){return t.trim().toLowerCase().replace(/([a-z\d])(\w*)/g,((t,e,r)=>e.toUpperCase()+r))}(o):String(o).trim();s!==o&&delete e[o],e[s]=Lt(n),r[s]=!0})),this}concat(...t){return this.constructor.concat(this,...t)}toJSON(t){const e=Object.create(null);return nt.forEach(this,((r,n)=>{null!=r&&!1!==r&&(e[n]=t&&nt.isArray(r)?r.join(", "):r)})),e}[Symbol.iterator](){return Object.entries(this.toJSON())[Symbol.iterator]()}toString(){return Object.entries(this.toJSON()).map((([t,e])=>t+": "+e)).join("\n")}get[Symbol.toStringTag](){return"AxiosHeaders"}static from(t){return t instanceof this?t:new this(t)}static concat(t,...e){const r=new this(t);return e.forEach((t=>r.set(t))),r}static accessor(t){const e=(this[jt]=this[jt]={accessors:{}}).accessors,r=this.prototype;function n(t){const n=Nt(t);e[n]||(function(t,e){const r=nt.toCamelCase(" "+e);["get","set","has"].forEach((n=>{Object.defineProperty(t,n+r,{value:function(t,r,o){return this[n].call(this,e,t,r,o)},configurable:!0})}))}(r,t),e[n]=!0)}return nt.isArray(t)?t.forEach(n):n(t),this}}It.accessor(["Content-Type","Content-Length","Accept","Accept-Encoding","User-Agent","Authorization"]),nt.reduceDescriptors(It.prototype,(({value:t},e)=>{let r=e[0].toUpperCase()+e.slice(1);return{get:()=>t,set(t){this[r]=t}}})),nt.freezeMethods(It);const Dt=It;function Ft(t,e){const r=this||Ct,n=e||r,o=Dt.from(n.headers);let i=n.data;return nt.forEach(t,(function(t){i=t.call(r,i,o.normalize(),e?e.status:void 0)})),o.normalize(),i}function Ut(t){return!(!t||!t.__CANCEL__)}function Mt(t,e,r){at.call(this,null==t?"canceled":t,at.ERR_CANCELED,e,r),this.name="CanceledError"}nt.inherits(Mt,at,{__CANCEL__:!0});const qt=Mt;function $t(t,e,r){const n=r.config.validateStatus;r.status&&n&&!n(r.status)?e(new at("Request failed with status code "+r.status,[at.ERR_BAD_REQUEST,at.ERR_BAD_RESPONSE][Math.floor(r.status/100)-4],r.config,r.request,r)):t(r)}const Wt=(t,e,r=3)=>{let n=0;const o=function(t,e){t=t||10;const r=new Array(t),n=new Array(t);let o,i=0,s=0;return e=void 0!==e?e:1e3,function(a){const c=Date.now(),u=n[s];o||(o=c),r[i]=a,n[i]=c;let l=s,p=0;for(;l!==i;)p+=r[l++],l%=t;if(i=(i+1)%t,i===s&&(s=(s+1)%t),c-o<e)return;const f=u&&c-u;return f?Math.round(1e3*p/f):void 0}}(50,250);return function(t,e){let r,n,o=0,i=1e3/e;const s=(e,i=Date.now())=>{o=i,r=null,n&&(clearTimeout(n),n=null),t.apply(null,e)};return[(...t)=>{const e=Date.now(),a=e-o;a>=i?s(t,e):(r=t,n||(n=setTimeout((()=>{n=null,s(r)}),i-a)))},()=>r&&s(r)]}((r=>{const i=r.loaded,s=r.lengthComputable?r.total:void 0,a=i-n,c=o(a);n=i,t({loaded:i,total:s,progress:s?i/s:void 0,bytes:a,rate:c||void 0,estimated:c&&s&&i<=s?(s-i)/c:void 0,event:r,lengthComputable:null!=s,[e?"download":"upload"]:!0})}),r)},Ht=(t,e)=>{const r=null!=t;return[n=>e[0]({lengthComputable:r,total:t,loaded:n}),e[1]]},Jt=t=>(...e)=>nt.asap((()=>t(...e))),Vt=kt.hasStandardBrowserEnv?((t,e)=>r=>(r=new URL(r,kt.origin),t.protocol===r.protocol&&t.host===r.host&&(e||t.port===r.port)))(new URL(kt.origin),kt.navigator&&/(msie|trident)/i.test(kt.navigator.userAgent)):()=>!0,zt=kt.hasStandardBrowserEnv?{write(t,e,r,n,o,i){const s=[t+"="+encodeURIComponent(e)];nt.isNumber(r)&&s.push("expires="+new Date(r).toGMTString()),nt.isString(n)&&s.push("path="+n),nt.isString(o)&&s.push("domain="+o),!0===i&&s.push("secure"),document.cookie=s.join("; ")},read(t){const e=document.cookie.match(new RegExp("(^|;\\s*)("+t+")=([^;]*)"));return e?decodeURIComponent(e[3]):null},remove(t){this.write(t,"",Date.now()-864e5)}}:{write(){},read:()=>null,remove(){}};function Kt(t,e,r){let n=!/^([a-z][a-z\d+\-.]*:)?\/\//i.test(e);return t&&(n||0==r)?function(t,e){return e?t.replace(/\/?\/$/,"")+"/"+e.replace(/^\/+/,""):t}(t,e):e}const Gt=t=>t instanceof Dt?{...t}:t;function Qt(t,e){e=e||{};const r={};function n(t,e,r,n){return nt.isPlainObject(t)&&nt.isPlainObject(e)?nt.merge.call({caseless:n},t,e):nt.isPlainObject(e)?nt.merge({},e):nt.isArray(e)?e.slice():e}function o(t,e,r,o){return nt.isUndefined(e)?nt.isUndefined(t)?void 0:n(void 0,t,0,o):n(t,e,0,o)}function i(t,e){if(!nt.isUndefined(e))return n(void 0,e)}function s(t,e){return nt.isUndefined(e)?nt.isUndefined(t)?void 0:n(void 0,t):n(void 0,e)}function a(r,o,i){return i in e?n(r,o):i in t?n(void 0,r):void 0}const c={url:i,method:i,data:i,baseURL:s,transformRequest:s,transformResponse:s,paramsSerializer:s,timeout:s,timeoutMessage:s,withCredentials:s,withXSRFToken:s,adapter:s,responseType:s,xsrfCookieName:s,xsrfHeaderName:s,onUploadProgress:s,onDownloadProgress:s,decompress:s,maxContentLength:s,maxBodyLength:s,beforeRedirect:s,transport:s,httpAgent:s,httpsAgent:s,cancelToken:s,socketPath:s,responseEncoding:s,validateStatus:a,headers:(t,e,r)=>o(Gt(t),Gt(e),0,!0)};return nt.forEach(Object.keys(Object.assign({},t,e)),(function(n){const i=c[n]||o,s=i(t[n],e[n],n);nt.isUndefined(s)&&i!==a||(r[n]=s)})),r}const Yt=t=>{const e=Qt({},t);let r,{data:n,withXSRFToken:o,xsrfHeaderName:i,xsrfCookieName:s,headers:a,auth:c}=e;if(e.headers=a=Dt.from(a),e.url=bt(Kt(e.baseURL,e.url,e.allowAbsoluteUrls),t.params,t.paramsSerializer),c&&a.set("Authorization","Basic "+btoa((c.username||"")+":"+(c.password?unescape(encodeURIComponent(c.password)):""))),nt.isFormData(n))if(kt.hasStandardBrowserEnv||kt.hasStandardBrowserWebWorkerEnv)a.setContentType(void 0);else if(!1!==(r=a.getContentType())){const[t,...e]=r?r.split(";").map((t=>t.trim())).filter(Boolean):[];a.setContentType([t||"multipart/form-data",...e].join("; "))}if(kt.hasStandardBrowserEnv&&(o&&nt.isFunction(o)&&(o=o(e)),o||!1!==o&&Vt(e.url))){const t=i&&s&&zt.read(s);t&&a.set(i,t)}return e},Xt="undefined"!=typeof XMLHttpRequest&&function(t){return new Promise((function(e,r){const n=Yt(t);let o=n.data;const i=Dt.from(n.headers).normalize();let s,a,c,u,l,{responseType:p,onUploadProgress:f,onDownloadProgress:h}=n;function d(){u&&u(),l&&l(),n.cancelToken&&n.cancelToken.unsubscribe(s),n.signal&&n.signal.removeEventListener("abort",s)}let y=new XMLHttpRequest;function m(){if(!y)return;const n=Dt.from("getAllResponseHeaders"in y&&y.getAllResponseHeaders());$t((function(t){e(t),d()}),(function(t){r(t),d()}),{data:p&&"text"!==p&&"json"!==p?y.response:y.responseText,status:y.status,statusText:y.statusText,headers:n,config:t,request:y}),y=null}y.open(n.method.toUpperCase(),n.url,!0),y.timeout=n.timeout,"onloadend"in y?y.onloadend=m:y.onreadystatechange=function(){y&&4===y.readyState&&(0!==y.status||y.responseURL&&0===y.responseURL.indexOf("file:"))&&setTimeout(m)},y.onabort=function(){y&&(r(new at("Request aborted",at.ECONNABORTED,t,y)),y=null)},y.onerror=function(){r(new at("Network Error",at.ERR_NETWORK,t,y)),y=null},y.ontimeout=function(){let e=n.timeout?"timeout of "+n.timeout+"ms exceeded":"timeout exceeded";const o=n.transitional||wt;n.timeoutErrorMessage&&(e=n.timeoutErrorMessage),r(new at(e,o.clarifyTimeoutError?at.ETIMEDOUT:at.ECONNABORTED,t,y)),y=null},void 0===o&&i.setContentType(null),"setRequestHeader"in y&&nt.forEach(i.toJSON(),(function(t,e){y.setRequestHeader(e,t)})),nt.isUndefined(n.withCredentials)||(y.withCredentials=!!n.withCredentials),p&&"json"!==p&&(y.responseType=n.responseType),h&&([c,l]=Wt(h,!0),y.addEventListener("progress",c)),f&&y.upload&&([a,u]=Wt(f),y.upload.addEventListener("progress",a),y.upload.addEventListener("loadend",u)),(n.cancelToken||n.signal)&&(s=e=>{y&&(r(!e||e.type?new qt(null,t,y):e),y.abort(),y=null)},n.cancelToken&&n.cancelToken.subscribe(s),n.signal&&(n.signal.aborted?s():n.signal.addEventListener("abort",s)));const g=function(t){const e=/^([-+\w]{1,25})(:?\/\/|:)/.exec(t);return e&&e[1]||""}(n.url);g&&-1===kt.protocols.indexOf(g)?r(new at("Unsupported protocol "+g+":",at.ERR_BAD_REQUEST,t)):y.send(o||null)}))},Zt=(t,e)=>{const{length:r}=t=t?t.filter(Boolean):[];if(e||r){let r,n=new AbortController;const o=function(t){if(!r){r=!0,s();const e=t instanceof Error?t:this.reason;n.abort(e instanceof at?e:new qt(e instanceof Error?e.message:e))}};let i=e&&setTimeout((()=>{i=null,o(new at(`timeout ${e} of ms exceeded`,at.ETIMEDOUT))}),e);const s=()=>{t&&(i&&clearTimeout(i),i=null,t.forEach((t=>{t.unsubscribe?t.unsubscribe(o):t.removeEventListener("abort",o)})),t=null)};t.forEach((t=>t.addEventListener("abort",o)));const{signal:a}=n;return a.unsubscribe=()=>nt.asap(s),a}},te=function*(t,e){let r=t.byteLength;if(!e||r<e)return void(yield t);let n,o=0;for(;o<r;)n=o+e,yield t.slice(o,n),o=n},ee=(t,e,r,n)=>{const o=async function*(t,e){for await(const r of async function*(t){if(t[Symbol.asyncIterator])return void(yield*t);const e=t.getReader();try{for(;;){const{done:t,value:r}=await e.read();if(t)break;yield r}}finally{await e.cancel()}}(t))yield*te(r,e)}(t,e);let i,s=0,a=t=>{i||(i=!0,n&&n(t))};return new ReadableStream({async pull(t){try{const{done:e,value:n}=await o.next();if(e)return a(),void t.close();let i=n.byteLength;if(r){let t=s+=i;r(t)}t.enqueue(new Uint8Array(n))}catch(t){throw a(t),t}},cancel:t=>(a(t),o.return())},{highWaterMark:2})},re="function"==typeof fetch&&"function"==typeof Request&&"function"==typeof Response,ne=re&&"function"==typeof ReadableStream,oe=re&&("function"==typeof TextEncoder?(ie=new TextEncoder,t=>ie.encode(t)):async t=>new Uint8Array(await new Response(t).arrayBuffer()));var ie;const se=(t,...e)=>{try{return!!t(...e)}catch(t){return!1}},ae=ne&&se((()=>{let t=!1;const e=new Request(kt.origin,{body:new ReadableStream,method:"POST",get duplex(){return t=!0,"half"}}).headers.has("Content-Type");return t&&!e})),ce=ne&&se((()=>nt.isReadableStream(new Response("").body))),ue={stream:ce&&(t=>t.body)};var le;re&&(le=new Response,["text","arrayBuffer","blob","formData","stream"].forEach((t=>{!ue[t]&&(ue[t]=nt.isFunction(le[t])?e=>e[t]():(e,r)=>{throw new at(`Response type '${t}' is not supported`,at.ERR_NOT_SUPPORT,r)})})));const pe={http:null,xhr:Xt,fetch:re&&(async t=>{let{url:e,method:r,data:n,signal:o,cancelToken:i,timeout:s,onDownloadProgress:a,onUploadProgress:c,responseType:u,headers:l,withCredentials:p="same-origin",fetchOptions:f}=Yt(t);u=u?(u+"").toLowerCase():"text";let h,d=Zt([o,i&&i.toAbortSignal()],s);const y=d&&d.unsubscribe&&(()=>{d.unsubscribe()});let m;try{if(c&&ae&&"get"!==r&&"head"!==r&&0!==(m=await(async(t,e)=>{const r=nt.toFiniteNumber(t.getContentLength());return null==r?(async t=>{if(null==t)return 0;if(nt.isBlob(t))return t.size;if(nt.isSpecCompliantForm(t)){const e=new Request(kt.origin,{method:"POST",body:t});return(await e.arrayBuffer()).byteLength}return nt.isArrayBufferView(t)||nt.isArrayBuffer(t)?t.byteLength:(nt.isURLSearchParams(t)&&(t+=""),nt.isString(t)?(await oe(t)).byteLength:void 0)})(e):r})(l,n))){let t,r=new Request(e,{method:"POST",body:n,duplex:"half"});if(nt.isFormData(n)&&(t=r.headers.get("content-type"))&&l.setContentType(t),r.body){const[t,e]=Ht(m,Wt(Jt(c)));n=ee(r.body,65536,t,e)}}nt.isString(p)||(p=p?"include":"omit");const o="credentials"in Request.prototype;h=new Request(e,{...f,signal:d,method:r.toUpperCase(),headers:l.normalize().toJSON(),body:n,duplex:"half",credentials:o?p:void 0});let i=await fetch(h);const s=ce&&("stream"===u||"response"===u);if(ce&&(a||s&&y)){const t={};["status","statusText","headers"].forEach((e=>{t[e]=i[e]}));const e=nt.toFiniteNumber(i.headers.get("content-length")),[r,n]=a&&Ht(e,Wt(Jt(a),!0))||[];i=new Response(ee(i.body,65536,r,(()=>{n&&n(),y&&y()})),t)}u=u||"text";let g=await ue[nt.findKey(ue,u)||"text"](i,t);return!s&&y&&y(),await new Promise(((e,r)=>{$t(e,r,{data:g,headers:Dt.from(i.headers),status:i.status,statusText:i.statusText,config:t,request:h})}))}catch(e){if(y&&y(),e&&"TypeError"===e.name&&/fetch/i.test(e.message))throw Object.assign(new at("Network Error",at.ERR_NETWORK,t,h),{cause:e.cause||e});throw at.from(e,e&&e.code,t,h)}})};nt.forEach(pe,((t,e)=>{if(t){try{Object.defineProperty(t,"name",{value:e})}catch(t){}Object.defineProperty(t,"adapterName",{value:e})}}));const fe=t=>`- ${t}`,he=t=>nt.isFunction(t)||null===t||!1===t,de=t=>{t=nt.isArray(t)?t:[t];const{length:e}=t;let r,n;const o={};for(let i=0;i<e;i++){let e;if(r=t[i],n=r,!he(r)&&(n=pe[(e=String(r)).toLowerCase()],void 0===n))throw new at(`Unknown adapter '${e}'`);if(n)break;o[e||"#"+i]=n}if(!n){const t=Object.entries(o).map((([t,e])=>`adapter ${t} `+(!1===e?"is not supported by the environment":"is not available in the build")));let r=e?t.length>1?"since :\n"+t.map(fe).join("\n"):" "+fe(t[0]):"as no adapter specified";throw new at("There is no suitable adapter to dispatch the request "+r,"ERR_NOT_SUPPORT")}return n};function ye(t){if(t.cancelToken&&t.cancelToken.throwIfRequested(),t.signal&&t.signal.aborted)throw new qt(null,t)}function me(t){return ye(t),t.headers=Dt.from(t.headers),t.data=Ft.call(t,t.transformRequest),-1!==["post","put","patch"].indexOf(t.method)&&t.headers.setContentType("application/x-www-form-urlencoded",!1),de(t.adapter||Ct.adapter)(t).then((function(e){return ye(t),e.data=Ft.call(t,t.transformResponse,e),e.headers=Dt.from(e.headers),e}),(function(e){return Ut(e)||(ye(t),e&&e.response&&(e.response.data=Ft.call(t,t.transformResponse,e.response),e.response.headers=Dt.from(e.response.headers))),Promise.reject(e)}))}const ge={};["object","boolean","number","function","string","symbol"].forEach(((t,e)=>{ge[t]=function(r){return typeof r===t||"a"+(e<1?"n ":" ")+t}}));const be={};ge.transitional=function(t,e,r){function n(t,e){return"[Axios v1.8.4] Transitional option '"+t+"'"+e+(r?". "+r:"")}return(r,o,i)=>{if(!1===t)throw new at(n(o," has been removed"+(e?" in "+e:"")),at.ERR_DEPRECATED);return e&&!be[o]&&(be[o]=!0,console.warn(n(o," has been deprecated since v"+e+" and will be removed in the near future"))),!t||t(r,o,i)}},ge.spelling=function(t){return(e,r)=>(console.warn(`${r} is likely a misspelling of ${t}`),!0)};const ve={assertOptions:function(t,e,r){if("object"!=typeof t)throw new at("options must be an object",at.ERR_BAD_OPTION_VALUE);const n=Object.keys(t);let o=n.length;for(;o-- >0;){const i=n[o],s=e[i];if(s){const e=t[i],r=void 0===e||s(e,i,t);if(!0!==r)throw new at("option "+i+" must be "+r,at.ERR_BAD_OPTION_VALUE)}else if(!0!==r)throw new at("Unknown option "+i,at.ERR_BAD_OPTION)}},validators:ge},we=ve.validators;class _e{constructor(t){this.defaults=t,this.interceptors={request:new vt,response:new vt}}async request(t,e){try{return await this._request(t,e)}catch(t){if(t instanceof Error){let e={};Error.captureStackTrace?Error.captureStackTrace(e):e=new Error;const r=e.stack?e.stack.replace(/^.+\n/,""):"";try{t.stack?r&&!String(t.stack).endsWith(r.replace(/^.+\n.+\n/,""))&&(t.stack+="\n"+r):t.stack=r}catch(t){}}throw t}}_request(t,e){"string"==typeof t?(e=e||{}).url=t:e=t||{},e=Qt(this.defaults,e);const{transitional:r,paramsSerializer:n,headers:o}=e;void 0!==r&&ve.assertOptions(r,{silentJSONParsing:we.transitional(we.boolean),forcedJSONParsing:we.transitional(we.boolean),clarifyTimeoutError:we.transitional(we.boolean)},!1),null!=n&&(nt.isFunction(n)?e.paramsSerializer={serialize:n}:ve.assertOptions(n,{encode:we.function,serialize:we.function},!0)),void 0!==e.allowAbsoluteUrls||(void 0!==this.defaults.allowAbsoluteUrls?e.allowAbsoluteUrls=this.defaults.allowAbsoluteUrls:e.allowAbsoluteUrls=!0),ve.assertOptions(e,{baseUrl:we.spelling("baseURL"),withXsrfToken:we.spelling("withXSRFToken")},!0),e.method=(e.method||this.defaults.method||"get").toLowerCase();let i=o&&nt.merge(o.common,o[e.method]);o&&nt.forEach(["delete","get","head","post","put","patch","common"],(t=>{delete o[t]})),e.headers=Dt.concat(i,o);const s=[];let a=!0;this.interceptors.request.forEach((function(t){"function"==typeof t.runWhen&&!1===t.runWhen(e)||(a=a&&t.synchronous,s.unshift(t.fulfilled,t.rejected))}));const c=[];let u;this.interceptors.response.forEach((function(t){c.push(t.fulfilled,t.rejected)}));let l,p=0;if(!a){const t=[me.bind(this),void 0];for(t.unshift.apply(t,s),t.push.apply(t,c),l=t.length,u=Promise.resolve(e);p<l;)u=u.then(t[p++],t[p++]);return u}l=s.length;let f=e;for(p=0;p<l;){const t=s[p++],e=s[p++];try{f=t(f)}catch(t){e.call(this,t);break}}try{u=me.call(this,f)}catch(t){return Promise.reject(t)}for(p=0,l=c.length;p<l;)u=u.then(c[p++],c[p++]);return u}getUri(t){return bt(Kt((t=Qt(this.defaults,t)).baseURL,t.url,t.allowAbsoluteUrls),t.params,t.paramsSerializer)}}nt.forEach(["delete","get","head","options"],(function(t){_e.prototype[t]=function(e,r){return this.request(Qt(r||{},{method:t,url:e,data:(r||{}).data}))}})),nt.forEach(["post","put","patch"],(function(t){function e(e){return function(r,n,o){return this.request(Qt(o||{},{method:t,headers:e?{"Content-Type":"multipart/form-data"}:{},url:r,data:n}))}}_e.prototype[t]=e(),_e.prototype[t+"Form"]=e(!0)}));const Se=_e;class Ee{constructor(t){if("function"!=typeof t)throw new TypeError("executor must be a function.");let e;this.promise=new Promise((function(t){e=t}));const r=this;this.promise.then((t=>{if(!r._listeners)return;let e=r._listeners.length;for(;e-- >0;)r._listeners[e](t);r._listeners=null})),this.promise.then=t=>{let e;const n=new Promise((t=>{r.subscribe(t),e=t})).then(t);return n.cancel=function(){r.unsubscribe(e)},n},t((function(t,n,o){r.reason||(r.reason=new qt(t,n,o),e(r.reason))}))}throwIfRequested(){if(this.reason)throw this.reason}subscribe(t){this.reason?t(this.reason):this._listeners?this._listeners.push(t):this._listeners=[t]}unsubscribe(t){if(!this._listeners)return;const e=this._listeners.indexOf(t);-1!==e&&this._listeners.splice(e,1)}toAbortSignal(){const t=new AbortController,e=e=>{t.abort(e)};return this.subscribe(e),t.signal.unsubscribe=()=>this.unsubscribe(e),t.signal}static source(){let t;return{token:new Ee((function(e){t=e})),cancel:t}}}const Oe=Ee,Ae={Continue:100,SwitchingProtocols:101,Processing:102,EarlyHints:103,Ok:200,Created:201,Accepted:202,NonAuthoritativeInformation:203,NoContent:204,ResetContent:205,PartialContent:206,MultiStatus:207,AlreadyReported:208,ImUsed:226,MultipleChoices:300,MovedPermanently:301,Found:302,SeeOther:303,NotModified:304,UseProxy:305,Unused:306,TemporaryRedirect:307,PermanentRedirect:308,BadRequest:400,Unauthorized:401,PaymentRequired:402,Forbidden:403,NotFound:404,MethodNotAllowed:405,NotAcceptable:406,ProxyAuthenticationRequired:407,RequestTimeout:408,Conflict:409,Gone:410,LengthRequired:411,PreconditionFailed:412,PayloadTooLarge:413,UriTooLong:414,UnsupportedMediaType:415,RangeNotSatisfiable:416,ExpectationFailed:417,ImATeapot:418,MisdirectedRequest:421,UnprocessableEntity:422,Locked:423,FailedDependency:424,TooEarly:425,UpgradeRequired:426,PreconditionRequired:428,TooManyRequests:429,RequestHeaderFieldsTooLarge:431,UnavailableForLegalReasons:451,InternalServerError:500,NotImplemented:501,BadGateway:502,ServiceUnavailable:503,GatewayTimeout:504,HttpVersionNotSupported:505,VariantAlsoNegotiates:506,InsufficientStorage:507,LoopDetected:508,NotExtended:510,NetworkAuthenticationRequired:511};Object.entries(Ae).forEach((([t,e])=>{Ae[e]=t}));const xe=Ae,ke=function t(e){const r=new Se(e),n=g(Se.prototype.request,r);return nt.extend(n,Se.prototype,r,{allOwnKeys:!0}),nt.extend(n,r,null,{allOwnKeys:!0}),n.create=function(r){return t(Qt(e,r))},n}(Ct);ke.Axios=Se,ke.CanceledError=qt,ke.CancelToken=Oe,ke.isCancel=Ut,ke.VERSION="1.8.4",ke.toFormData=ft,ke.AxiosError=at,ke.Cancel=ke.CanceledError,ke.all=function(t){return Promise.all(t)},ke.spread=function(t){return function(e){return t.apply(null,e)}},ke.isAxiosError=function(t){return nt.isObject(t)&&!0===t.isAxiosError},ke.mergeConfig=Qt,ke.AxiosHeaders=Dt,ke.formToJSON=t=>Rt(nt.isHTMLForm(t)?new FormData(t):t),ke.getAdapter=de,ke.HttpStatusCode=xe,ke.default=ke;const Re=ke;var Te=r(373),Ce=r.n(Te),Pe=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))};let je=0,Ne=0;const Le=[];let Be=!1;const Ie=(t,e,r,n)=>Pe(void 0,void 0,void 0,(function*(){if(!e||!r)return;const o=document.querySelector(".esport-collect-provider-container-confirm");try{const o=`${t}/transform.php?ver=${r}`,i=(yield Re.post(o,Ce().stringify({login_layer:"ag",uid:e,langx:"zh-cn",ver:r,p:"get_wmc_list_bet",totalBets:"wmc",gtype:"ALL",sel_maxid:je}),{headers:{"Content-Type":"application/x-www-form-urlencoded"}})).data;if(i.maxid&&(je=i.maxid),i.wagers&&i.wagers.length>0){const t=Date.now()-6e5;i.wagers.forEach((t=>{Le.some((e=>e.TID===t.TID))||Le.push(t)})),yield De(n,Le.filter((e=>(t=>{const e=new Date(`${t.DATE} ${t.TIME}`);return e.setHours(e.getHours()+12),e.getTime()})(e)>t)))}}finally{Ne++,o&&(o.disabled=!0,o.innerHTML=`第${Ne}次监听`),yield y(3e3),yield Ie(t,e,r,n)}})),De=(t,e)=>Pe(void 0,void 0,void 0,(function*(){const r=`https://api.a8.to/Common/API_SaveData?key=HG:${t}`;yield Re.post(r,Ce().stringify({content:JSON.stringify(e)}),{headers:{"Content-Type":"application/x-www-form-urlencoded"}})}));var Fe=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))};const Ue={},Me=()=>{chrome.runtime.onMessage.addListener(((t,e,r)=>{var n;console.log("收到消息 => ",t,e);const i=null===(n=t.options)||void 0===n?void 0:n.tabId,s=Ue[o.Stake];return s&&i&&(a=void 0,c=void 0,l=function*(){const e=yield s(t);r({success:!0,type:t.type,uuid:t.uuid,response:e})},new((u=void 0)||(u=Promise))((function(t,e){function r(t){try{o(l.next(t))}catch(t){e(t)}}function n(t){try{o(l.throw(t))}catch(t){e(t)}}function o(e){e.done?t(e.value):function(t){return t instanceof u?t:new u((function(e){e(t)}))}(e.value).then(r,n)}o((l=l.apply(a,c||[])).next())}))),!0;var a,c,u,l}))};var qe=function(t,e){return qe=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(t,e){t.__proto__=e}||function(t,e){for(var r in e)e.hasOwnProperty(r)&&(t[r]=e[r])},qe(t,e)};function $e(t,e){function r(){this.constructor=t}qe(t,e),t.prototype=null===e?Object.create(e):(r.prototype=e.prototype,new r)}function We(t,e){var r="function"==typeof Symbol&&t[Symbol.iterator];if(!r)return t;var n,o,i=r.call(t),s=[];try{for(;(void 0===e||e-- >0)&&!(n=i.next()).done;)s.push(n.value)}catch(t){o={error:t}}finally{try{n&&!n.done&&(r=i.return)&&r.call(i)}finally{if(o)throw o.error}}return s}var He=function(t,e){this.target=e,this.type=t},Je=function(t){function e(e,r){var n=t.call(this,"error",r)||this;return n.message=e.message,n.error=e,n}return $e(e,t),e}(He),Ve=function(t){function e(e,r,n){void 0===e&&(e=1e3),void 0===r&&(r="");var o=t.call(this,"close",n)||this;return o.wasClean=!0,o.code=e,o.reason=r,o}return $e(e,t),e}(He),ze=function(){if("undefined"!=typeof WebSocket)return WebSocket},Ke={maxReconnectionDelay:1e4,minReconnectionDelay:1e3+4e3*Math.random(),minUptime:5e3,reconnectionDelayGrowFactor:1.3,connectionTimeout:4e3,maxRetries:1/0,maxEnqueuedMessages:1/0,startClosed:!1,debug:!1},Ge=function(){function t(t,e,r){var n=this;void 0===r&&(r={}),this._listeners={error:[],message:[],open:[],close:[]},this._retryCount=-1,this._shouldReconnect=!0,this._connectLock=!1,this._binaryType="blob",this._closeCalled=!1,this._messageQueue=[],this.onclose=null,this.onerror=null,this.onmessage=null,this.onopen=null,this._handleOpen=function(t){n._debug("open event");var e=n._options.minUptime,r=void 0===e?Ke.minUptime:e;clearTimeout(n._connectTimeout),n._uptimeTimeout=setTimeout((function(){return n._acceptOpen()}),r),n._ws.binaryType=n._binaryType,n._messageQueue.forEach((function(t){return n._ws.send(t)})),n._messageQueue=[],n.onopen&&n.onopen(t),n._listeners.open.forEach((function(e){return n._callEventListener(t,e)}))},this._handleMessage=function(t){n._debug("message event"),n.onmessage&&n.onmessage(t),n._listeners.message.forEach((function(e){return n._callEventListener(t,e)}))},this._handleError=function(t){n._debug("error event",t.message),n._disconnect(void 0,"TIMEOUT"===t.message?"timeout":void 0),n.onerror&&n.onerror(t),n._debug("exec error listeners"),n._listeners.error.forEach((function(e){return n._callEventListener(t,e)})),n._connect()},this._handleClose=function(t){n._debug("close event"),n._clearTimeouts(),n._shouldReconnect&&n._connect(),n.onclose&&n.onclose(t),n._listeners.close.forEach((function(e){return n._callEventListener(t,e)}))},this._url=t,this._protocols=e,this._options=r,this._options.startClosed&&(this._shouldReconnect=!1),this._connect()}return Object.defineProperty(t,"CONNECTING",{get:function(){return 0},enumerable:!0,configurable:!0}),Object.defineProperty(t,"OPEN",{get:function(){return 1},enumerable:!0,configurable:!0}),Object.defineProperty(t,"CLOSING",{get:function(){return 2},enumerable:!0,configurable:!0}),Object.defineProperty(t,"CLOSED",{get:function(){return 3},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"CONNECTING",{get:function(){return t.CONNECTING},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"OPEN",{get:function(){return t.OPEN},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"CLOSING",{get:function(){return t.CLOSING},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"CLOSED",{get:function(){return t.CLOSED},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"binaryType",{get:function(){return this._ws?this._ws.binaryType:this._binaryType},set:function(t){this._binaryType=t,this._ws&&(this._ws.binaryType=t)},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"retryCount",{get:function(){return Math.max(this._retryCount,0)},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"bufferedAmount",{get:function(){return this._messageQueue.reduce((function(t,e){return"string"==typeof e?t+=e.length:e instanceof Blob?t+=e.size:t+=e.byteLength,t}),0)+(this._ws?this._ws.bufferedAmount:0)},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"extensions",{get:function(){return this._ws?this._ws.extensions:""},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"protocol",{get:function(){return this._ws?this._ws.protocol:""},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"readyState",{get:function(){return this._ws?this._ws.readyState:this._options.startClosed?t.CLOSED:t.CONNECTING},enumerable:!0,configurable:!0}),Object.defineProperty(t.prototype,"url",{get:function(){return this._ws?this._ws.url:""},enumerable:!0,configurable:!0}),t.prototype.close=function(t,e){void 0===t&&(t=1e3),this._closeCalled=!0,this._shouldReconnect=!1,this._clearTimeouts(),this._ws?this._ws.readyState!==this.CLOSED?this._ws.close(t,e):this._debug("close: already closed"):this._debug("close enqueued: no ws instance")},t.prototype.reconnect=function(t,e){this._shouldReconnect=!0,this._closeCalled=!1,this._retryCount=-1,this._ws&&this._ws.readyState!==this.CLOSED?(this._disconnect(t,e),this._connect()):this._connect()},t.prototype.send=function(t){if(this._ws&&this._ws.readyState===this.OPEN)this._debug("send",t),this._ws.send(t);else{var e=this._options.maxEnqueuedMessages,r=void 0===e?Ke.maxEnqueuedMessages:e;this._messageQueue.length<r&&(this._debug("enqueue",t),this._messageQueue.push(t))}},t.prototype.addEventListener=function(t,e){this._listeners[t]&&this._listeners[t].push(e)},t.prototype.dispatchEvent=function(t){var e,r,n=this._listeners[t.type];if(n)try{for(var o=function(t){var e="function"==typeof Symbol&&t[Symbol.iterator],r=0;return e?e.call(t):{next:function(){return t&&r>=t.length&&(t=void 0),{value:t&&t[r++],done:!t}}}}(n),i=o.next();!i.done;i=o.next()){var s=i.value;this._callEventListener(t,s)}}catch(t){e={error:t}}finally{try{i&&!i.done&&(r=o.return)&&r.call(o)}finally{if(e)throw e.error}}return!0},t.prototype.removeEventListener=function(t,e){this._listeners[t]&&(this._listeners[t]=this._listeners[t].filter((function(t){return t!==e})))},t.prototype._debug=function(){for(var t=[],e=0;e<arguments.length;e++)t[e]=arguments[e];this._options.debug&&console.log.apply(console,function(){for(var t=[],e=0;e<arguments.length;e++)t=t.concat(We(arguments[e]));return t}(["RWS>"],t))},t.prototype._getNextDelay=function(){var t=this._options,e=t.reconnectionDelayGrowFactor,r=void 0===e?Ke.reconnectionDelayGrowFactor:e,n=t.minReconnectionDelay,o=void 0===n?Ke.minReconnectionDelay:n,i=t.maxReconnectionDelay,s=void 0===i?Ke.maxReconnectionDelay:i,a=0;return this._retryCount>0&&(a=o*Math.pow(r,this._retryCount-1))>s&&(a=s),this._debug("next delay",a),a},t.prototype._wait=function(){var t=this;return new Promise((function(e){setTimeout(e,t._getNextDelay())}))},t.prototype._getNextUrl=function(t){if("string"==typeof t)return Promise.resolve(t);if("function"==typeof t){var e=t();if("string"==typeof e)return Promise.resolve(e);if(e.then)return e}throw Error("Invalid URL")},t.prototype._connect=function(){var t=this;if(!this._connectLock&&this._shouldReconnect){this._connectLock=!0;var e=this._options,r=e.maxRetries,n=void 0===r?Ke.maxRetries:r,o=e.connectionTimeout,i=void 0===o?Ke.connectionTimeout:o,s=e.WebSocket,a=void 0===s?ze():s;if(this._retryCount>=n)this._debug("max retries reached",this._retryCount,">=",n);else{if(this._retryCount++,this._debug("connect",this._retryCount),this._removeListeners(),void 0===(c=a)||!c||2!==c.CLOSING)throw Error("No valid WebSocket class provided");var c;this._wait().then((function(){return t._getNextUrl(t._url)})).then((function(e){t._closeCalled||(t._debug("connect",{url:e,protocols:t._protocols}),t._ws=t._protocols?new a(e,t._protocols):new a(e),t._ws.binaryType=t._binaryType,t._connectLock=!1,t._addListeners(),t._connectTimeout=setTimeout((function(){return t._handleTimeout()}),i))}))}}},t.prototype._handleTimeout=function(){this._debug("timeout event"),this._handleError(new Je(Error("TIMEOUT"),this))},t.prototype._disconnect=function(t,e){if(void 0===t&&(t=1e3),this._clearTimeouts(),this._ws){this._removeListeners();try{this._ws.close(t,e),this._handleClose(new Ve(t,e,this))}catch(t){}}},t.prototype._acceptOpen=function(){this._debug("accept open"),this._retryCount=0},t.prototype._callEventListener=function(t,e){"handleEvent"in e?e.handleEvent(t):e(t)},t.prototype._removeListeners=function(){this._ws&&(this._debug("removeListeners"),this._ws.removeEventListener("open",this._handleOpen),this._ws.removeEventListener("close",this._handleClose),this._ws.removeEventListener("message",this._handleMessage),this._ws.removeEventListener("error",this._handleError))},t.prototype._addListeners=function(){this._ws&&(this._debug("addListeners"),this._ws.addEventListener("open",this._handleOpen),this._ws.addEventListener("close",this._handleClose),this._ws.addEventListener("message",this._handleMessage),this._ws.addEventListener("error",this._handleError))},t.prototype._clearTimeouts=function(){clearTimeout(this._connectTimeout),clearTimeout(this._uptimeTimeout)},t}();const Qe=Ge;function Ye(t){for(var e=1;e<arguments.length;e++){var r=arguments[e];for(var n in r)t[n]=r[n]}return t}var Xe={read:function(t){return'"'===t[0]&&(t=t.slice(1,-1)),t.replace(/(%[\dA-F]{2})+/gi,decodeURIComponent)},write:function(t){return encodeURIComponent(t).replace(/%(2[346BF]|3[AC-F]|40|5[BDE]|60|7[BCD])/g,decodeURIComponent)}},Ze=function t(e,r){function n(t,n,o){if("undefined"!=typeof document){"number"==typeof(o=Ye({},r,o)).expires&&(o.expires=new Date(Date.now()+864e5*o.expires)),o.expires&&(o.expires=o.expires.toUTCString()),t=encodeURIComponent(t).replace(/%(2[346B]|5E|60|7C)/g,decodeURIComponent).replace(/[()]/g,escape);var i="";for(var s in o)o[s]&&(i+="; "+s,!0!==o[s]&&(i+="="+o[s].split(";")[0]));return document.cookie=t+"="+e.write(n,t)+i}}return Object.create({set:n,get:function(t){if("undefined"!=typeof document&&(!arguments.length||t)){for(var r=document.cookie?document.cookie.split("; "):[],n={},o=0;o<r.length;o++){var i=r[o].split("="),s=i.slice(1).join("=");try{var a=decodeURIComponent(i[0]);if(n[a]=e.read(s,a),t===a)break}catch(t){}}return t?n[t]:n}},remove:function(t,e){n(t,"",Ye({},e,{expires:-1}))},withAttributes:function(e){return t(this.converter,Ye({},this.attributes,e))},withConverter:function(e){return t(Ye({},this.converter,e),this.attributes)}},{attributes:{value:Object.freeze(r)},converter:{value:Object.freeze(e)}})}(Xe,{path:"/"});const tr=Object.create(null);tr.open="0",tr.close="1",tr.ping="2",tr.pong="3",tr.message="4",tr.upgrade="5",tr.noop="6";const er=Object.create(null);Object.keys(tr).forEach((t=>{er[tr[t]]=t}));const rr={type:"error",data:"parser error"},nr="function"==typeof Blob||"undefined"!=typeof Blob&&"[object BlobConstructor]"===Object.prototype.toString.call(Blob),or="function"==typeof ArrayBuffer,ir=t=>"function"==typeof ArrayBuffer.isView?ArrayBuffer.isView(t):t&&t.buffer instanceof ArrayBuffer,sr=({type:t,data:e},r,n)=>nr&&e instanceof Blob?r?n(e):ar(e,n):or&&(e instanceof ArrayBuffer||ir(e))?r?n(e):ar(new Blob([e]),n):n(tr[t]+(e||"")),ar=(t,e)=>{const r=new FileReader;return r.onload=function(){const t=r.result.split(",")[1];e("b"+(t||""))},r.readAsDataURL(t)};function cr(t){return t instanceof Uint8Array?t:t instanceof ArrayBuffer?new Uint8Array(t):new Uint8Array(t.buffer,t.byteOffset,t.byteLength)}let ur;const lr="undefined"==typeof Uint8Array?[]:new Uint8Array(256);for(let t=0;t<64;t++)lr["ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".charCodeAt(t)]=t;const pr="function"==typeof ArrayBuffer,fr=(t,e)=>{if("string"!=typeof t)return{type:"message",data:dr(t,e)};const r=t.charAt(0);return"b"===r?{type:"message",data:hr(t.substring(1),e)}:er[r]?t.length>1?{type:er[r],data:t.substring(1)}:{type:er[r]}:rr},hr=(t,e)=>{if(pr){const r=(t=>{let e,r,n,o,i,s=.75*t.length,a=t.length,c=0;"="===t[t.length-1]&&(s--,"="===t[t.length-2]&&s--);const u=new ArrayBuffer(s),l=new Uint8Array(u);for(e=0;e<a;e+=4)r=lr[t.charCodeAt(e)],n=lr[t.charCodeAt(e+1)],o=lr[t.charCodeAt(e+2)],i=lr[t.charCodeAt(e+3)],l[c++]=r<<2|n>>4,l[c++]=(15&n)<<4|o>>2,l[c++]=(3&o)<<6|63&i;return u})(t);return dr(r,e)}return{base64:!0,data:t}},dr=(t,e)=>"blob"===e?t instanceof Blob?t:new Blob([t]):t instanceof ArrayBuffer?t:t.buffer,yr=String.fromCharCode(30);let mr;function gr(t){return t.reduce(((t,e)=>t+e.length),0)}function br(t,e){if(t[0].length===e)return t.shift();const r=new Uint8Array(e);let n=0;for(let o=0;o<e;o++)r[o]=t[0][n++],n===t[0].length&&(t.shift(),n=0);return t.length&&n<t[0].length&&(t[0]=t[0].slice(n)),r}function vr(t){if(t)return function(t){for(var e in vr.prototype)t[e]=vr.prototype[e];return t}(t)}vr.prototype.on=vr.prototype.addEventListener=function(t,e){return this._callbacks=this._callbacks||{},(this._callbacks["$"+t]=this._callbacks["$"+t]||[]).push(e),this},vr.prototype.once=function(t,e){function r(){this.off(t,r),e.apply(this,arguments)}return r.fn=e,this.on(t,r),this},vr.prototype.off=vr.prototype.removeListener=vr.prototype.removeAllListeners=vr.prototype.removeEventListener=function(t,e){if(this._callbacks=this._callbacks||{},0==arguments.length)return this._callbacks={},this;var r,n=this._callbacks["$"+t];if(!n)return this;if(1==arguments.length)return delete this._callbacks["$"+t],this;for(var o=0;o<n.length;o++)if((r=n[o])===e||r.fn===e){n.splice(o,1);break}return 0===n.length&&delete this._callbacks["$"+t],this},vr.prototype.emit=function(t){this._callbacks=this._callbacks||{};for(var e=new Array(arguments.length-1),r=this._callbacks["$"+t],n=1;n<arguments.length;n++)e[n-1]=arguments[n];if(r){n=0;for(var o=(r=r.slice(0)).length;n<o;++n)r[n].apply(this,e)}return this},vr.prototype.emitReserved=vr.prototype.emit,vr.prototype.listeners=function(t){return this._callbacks=this._callbacks||{},this._callbacks["$"+t]||[]},vr.prototype.hasListeners=function(t){return!!this.listeners(t).length};const wr="function"==typeof Promise&&"function"==typeof Promise.resolve?t=>Promise.resolve().then(t):(t,e)=>e(t,0),_r="undefined"!=typeof self?self:"undefined"!=typeof window?window:Function("return this")();function Sr(t,...e){return e.reduce(((e,r)=>(t.hasOwnProperty(r)&&(e[r]=t[r]),e)),{})}const Er=_r.setTimeout,Or=_r.clearTimeout;function Ar(t,e){e.useNativeTimers?(t.setTimeoutFn=Er.bind(_r),t.clearTimeoutFn=Or.bind(_r)):(t.setTimeoutFn=_r.setTimeout.bind(_r),t.clearTimeoutFn=_r.clearTimeout.bind(_r))}function xr(){return Date.now().toString(36).substring(3)+Math.random().toString(36).substring(2,5)}class kr extends Error{constructor(t,e,r){super(t),this.description=e,this.context=r,this.type="TransportError"}}class Rr extends vr{constructor(t){super(),this.writable=!1,Ar(this,t),this.opts=t,this.query=t.query,this.socket=t.socket,this.supportsBinary=!t.forceBase64}onError(t,e,r){return super.emitReserved("error",new kr(t,e,r)),this}open(){return this.readyState="opening",this.doOpen(),this}close(){return"opening"!==this.readyState&&"open"!==this.readyState||(this.doClose(),this.onClose()),this}send(t){"open"===this.readyState&&this.write(t)}onOpen(){this.readyState="open",this.writable=!0,super.emitReserved("open")}onData(t){const e=fr(t,this.socket.binaryType);this.onPacket(e)}onPacket(t){super.emitReserved("packet",t)}onClose(t){this.readyState="closed",super.emitReserved("close",t)}pause(t){}createUri(t,e={}){return t+"://"+this._hostname()+this._port()+this.opts.path+this._query(e)}_hostname(){const t=this.opts.hostname;return-1===t.indexOf(":")?t:"["+t+"]"}_port(){return this.opts.port&&(this.opts.secure&&443!==Number(this.opts.port)||!this.opts.secure&&80!==Number(this.opts.port))?":"+this.opts.port:""}_query(t){const e=function(t){let e="";for(let r in t)t.hasOwnProperty(r)&&(e.length&&(e+="&"),e+=encodeURIComponent(r)+"="+encodeURIComponent(t[r]));return e}(t);return e.length?"?"+e:""}}class Tr extends Rr{constructor(){super(...arguments),this._polling=!1}get name(){return"polling"}doOpen(){this._poll()}pause(t){this.readyState="pausing";const e=()=>{this.readyState="paused",t()};if(this._polling||!this.writable){let t=0;this._polling&&(t++,this.once("pollComplete",(function(){--t||e()}))),this.writable||(t++,this.once("drain",(function(){--t||e()})))}else e()}_poll(){this._polling=!0,this.doPoll(),this.emitReserved("poll")}onData(t){((t,e)=>{const r=t.split(yr),n=[];for(let t=0;t<r.length;t++){const o=fr(r[t],e);if(n.push(o),"error"===o.type)break}return n})(t,this.socket.binaryType).forEach((t=>{if("opening"===this.readyState&&"open"===t.type&&this.onOpen(),"close"===t.type)return this.onClose({description:"transport closed by the server"}),!1;this.onPacket(t)})),"closed"!==this.readyState&&(this._polling=!1,this.emitReserved("pollComplete"),"open"===this.readyState&&this._poll())}doClose(){const t=()=>{this.write([{type:"close"}])};"open"===this.readyState?t():this.once("open",t)}write(t){this.writable=!1,((t,e)=>{const r=t.length,n=new Array(r);let o=0;t.forEach(((t,i)=>{sr(t,!1,(t=>{n[i]=t,++o===r&&e(n.join(yr))}))}))})(t,(t=>{this.doWrite(t,(()=>{this.writable=!0,this.emitReserved("drain")}))}))}uri(){const t=this.opts.secure?"https":"http",e=this.query||{};return!1!==this.opts.timestampRequests&&(e[this.opts.timestampParam]=xr()),this.supportsBinary||e.sid||(e.b64=1),this.createUri(t,e)}}let Cr=!1;try{Cr="undefined"!=typeof XMLHttpRequest&&"withCredentials"in new XMLHttpRequest}catch(t){}const Pr=Cr;function jr(){}class Nr extends Tr{constructor(t){if(super(t),"undefined"!=typeof location){const e="https:"===location.protocol;let r=location.port;r||(r=e?"443":"80"),this.xd="undefined"!=typeof location&&t.hostname!==location.hostname||r!==t.port}}doWrite(t,e){const r=this.request({method:"POST",data:t});r.on("success",e),r.on("error",((t,e)=>{this.onError("xhr post error",t,e)}))}doPoll(){const t=this.request();t.on("data",this.onData.bind(this)),t.on("error",((t,e)=>{this.onError("xhr poll error",t,e)})),this.pollXhr=t}}class Lr extends vr{constructor(t,e,r){super(),this.createRequest=t,Ar(this,r),this._opts=r,this._method=r.method||"GET",this._uri=e,this._data=void 0!==r.data?r.data:null,this._create()}_create(){var t;const e=Sr(this._opts,"agent","pfx","key","passphrase","cert","ca","ciphers","rejectUnauthorized","autoUnref");e.xdomain=!!this._opts.xd;const r=this._xhr=this.createRequest(e);try{r.open(this._method,this._uri,!0);try{if(this._opts.extraHeaders){r.setDisableHeaderCheck&&r.setDisableHeaderCheck(!0);for(let t in this._opts.extraHeaders)this._opts.extraHeaders.hasOwnProperty(t)&&r.setRequestHeader(t,this._opts.extraHeaders[t])}}catch(t){}if("POST"===this._method)try{r.setRequestHeader("Content-type","text/plain;charset=UTF-8")}catch(t){}try{r.setRequestHeader("Accept","*/*")}catch(t){}null===(t=this._opts.cookieJar)||void 0===t||t.addCookies(r),"withCredentials"in r&&(r.withCredentials=this._opts.withCredentials),this._opts.requestTimeout&&(r.timeout=this._opts.requestTimeout),r.onreadystatechange=()=>{var t;3===r.readyState&&(null===(t=this._opts.cookieJar)||void 0===t||t.parseCookies(r.getResponseHeader("set-cookie"))),4===r.readyState&&(200===r.status||1223===r.status?this._onLoad():this.setTimeoutFn((()=>{this._onError("number"==typeof r.status?r.status:0)}),0))},r.send(this._data)}catch(t){return void this.setTimeoutFn((()=>{this._onError(t)}),0)}"undefined"!=typeof document&&(this._index=Lr.requestsCount++,Lr.requests[this._index]=this)}_onError(t){this.emitReserved("error",t,this._xhr),this._cleanup(!0)}_cleanup(t){if(void 0!==this._xhr&&null!==this._xhr){if(this._xhr.onreadystatechange=jr,t)try{this._xhr.abort()}catch(t){}"undefined"!=typeof document&&delete Lr.requests[this._index],this._xhr=null}}_onLoad(){const t=this._xhr.responseText;null!==t&&(this.emitReserved("data",t),this.emitReserved("success"),this._cleanup())}abort(){this._cleanup()}}function Br(){for(let t in Lr.requests)Lr.requests.hasOwnProperty(t)&&Lr.requests[t].abort()}Lr.requestsCount=0,Lr.requests={},"undefined"!=typeof document&&("function"==typeof attachEvent?attachEvent("onunload",Br):"function"==typeof addEventListener&&addEventListener("onpagehide"in _r?"pagehide":"unload",Br,!1));const Ir=function(){const t=Dr({xdomain:!1});return t&&null!==t.responseType}();function Dr(t){const e=t.xdomain;try{if("undefined"!=typeof XMLHttpRequest&&(!e||Pr))return new XMLHttpRequest}catch(t){}if(!e)try{return new(_r[["Active"].concat("Object").join("X")])("Microsoft.XMLHTTP")}catch(t){}}const Fr="undefined"!=typeof navigator&&"string"==typeof navigator.product&&"reactnative"===navigator.product.toLowerCase();class Ur extends Rr{get name(){return"websocket"}doOpen(){const t=this.uri(),e=this.opts.protocols,r=Fr?{}:Sr(this.opts,"agent","perMessageDeflate","pfx","key","passphrase","cert","ca","ciphers","rejectUnauthorized","localAddress","protocolVersion","origin","maxPayload","family","checkServerIdentity");this.opts.extraHeaders&&(r.headers=this.opts.extraHeaders);try{this.ws=this.createSocket(t,e,r)}catch(t){return this.emitReserved("error",t)}this.ws.binaryType=this.socket.binaryType,this.addEventListeners()}addEventListeners(){this.ws.onopen=()=>{this.opts.autoUnref&&this.ws._socket.unref(),this.onOpen()},this.ws.onclose=t=>this.onClose({description:"websocket connection closed",context:t}),this.ws.onmessage=t=>this.onData(t.data),this.ws.onerror=t=>this.onError("websocket error",t)}write(t){this.writable=!1;for(let e=0;e<t.length;e++){const r=t[e],n=e===t.length-1;sr(r,this.supportsBinary,(t=>{try{this.doWrite(r,t)}catch(t){}n&&wr((()=>{this.writable=!0,this.emitReserved("drain")}),this.setTimeoutFn)}))}}doClose(){void 0!==this.ws&&(this.ws.onerror=()=>{},this.ws.close(),this.ws=null)}uri(){const t=this.opts.secure?"wss":"ws",e=this.query||{};return this.opts.timestampRequests&&(e[this.opts.timestampParam]=xr()),this.supportsBinary||(e.b64=1),this.createUri(t,e)}}const Mr=_r.WebSocket||_r.MozWebSocket,qr={websocket:class extends Ur{createSocket(t,e,r){return Fr?new Mr(t,e,r):e?new Mr(t,e):new Mr(t)}doWrite(t,e){this.ws.send(e)}},webtransport:class extends Rr{get name(){return"webtransport"}doOpen(){try{this._transport=new WebTransport(this.createUri("https"),this.opts.transportOptions[this.name])}catch(t){return this.emitReserved("error",t)}this._transport.closed.then((()=>{this.onClose()})).catch((t=>{this.onError("webtransport error",t)})),this._transport.ready.then((()=>{this._transport.createBidirectionalStream().then((t=>{const e=function(t,e){mr||(mr=new TextDecoder);const r=[];let n=0,o=-1,i=!1;return new TransformStream({transform(s,a){for(r.push(s);;){if(0===n){if(gr(r)<1)break;const t=br(r,1);i=!(128&~t[0]),o=127&t[0],n=o<126?3:126===o?1:2}else if(1===n){if(gr(r)<2)break;const t=br(r,2);o=new DataView(t.buffer,t.byteOffset,t.length).getUint16(0),n=3}else if(2===n){if(gr(r)<8)break;const t=br(r,8),e=new DataView(t.buffer,t.byteOffset,t.length),i=e.getUint32(0);if(i>Math.pow(2,21)-1){a.enqueue(rr);break}o=i*Math.pow(2,32)+e.getUint32(4),n=3}else{if(gr(r)<o)break;const t=br(r,o);a.enqueue(fr(i?t:mr.decode(t),e)),n=0}if(0===o||o>t){a.enqueue(rr);break}}}})}(Number.MAX_SAFE_INTEGER,this.socket.binaryType),r=t.readable.pipeThrough(e).getReader(),n=new TransformStream({transform(t,e){!function(t,e){nr&&t.data instanceof Blob?t.data.arrayBuffer().then(cr).then(e):or&&(t.data instanceof ArrayBuffer||ir(t.data))?e(cr(t.data)):sr(t,!1,(t=>{ur||(ur=new TextEncoder),e(ur.encode(t))}))}(t,(r=>{const n=r.length;let o;if(n<126)o=new Uint8Array(1),new DataView(o.buffer).setUint8(0,n);else if(n<65536){o=new Uint8Array(3);const t=new DataView(o.buffer);t.setUint8(0,126),t.setUint16(1,n)}else{o=new Uint8Array(9);const t=new DataView(o.buffer);t.setUint8(0,127),t.setBigUint64(1,BigInt(n))}t.data&&"string"!=typeof t.data&&(o[0]|=128),e.enqueue(o),e.enqueue(r)}))}});n.readable.pipeTo(t.writable),this._writer=n.writable.getWriter();const o=()=>{r.read().then((({done:t,value:e})=>{t||(this.onPacket(e),o())})).catch((t=>{}))};o();const i={type:"open"};this.query.sid&&(i.data=`{"sid":"${this.query.sid}"}`),this._writer.write(i).then((()=>this.onOpen()))}))}))}write(t){this.writable=!1;for(let e=0;e<t.length;e++){const r=t[e],n=e===t.length-1;this._writer.write(r).then((()=>{n&&wr((()=>{this.writable=!0,this.emitReserved("drain")}),this.setTimeoutFn)}))}}doClose(){var t;null===(t=this._transport)||void 0===t||t.close()}},polling:class extends Nr{constructor(t){super(t);const e=t&&t.forceBase64;this.supportsBinary=Ir&&!e}request(t={}){return Object.assign(t,{xd:this.xd},this.opts),new Lr(Dr,this.uri(),t)}}},$r=/^(?:(?![^:@\/?#]+:[^:@\/]*@)(http|https|ws|wss):\/\/)?((?:(([^:@\/?#]*)(?::([^:@\/?#]*))?)?@)?((?:[a-f0-9]{0,4}:){2,7}[a-f0-9]{0,4}|[^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/,Wr=["source","protocol","authority","userInfo","user","password","host","port","relative","path","directory","file","query","anchor"];function Hr(t){if(t.length>8e3)throw"URI too long";const e=t,r=t.indexOf("["),n=t.indexOf("]");-1!=r&&-1!=n&&(t=t.substring(0,r)+t.substring(r,n).replace(/:/g,";")+t.substring(n,t.length));let o=$r.exec(t||""),i={},s=14;for(;s--;)i[Wr[s]]=o[s]||"";return-1!=r&&-1!=n&&(i.source=e,i.host=i.host.substring(1,i.host.length-1).replace(/;/g,":"),i.authority=i.authority.replace("[","").replace("]","").replace(/;/g,":"),i.ipv6uri=!0),i.pathNames=function(t,e){const r=e.replace(/\/{2,9}/g,"/").split("/");return"/"!=e.slice(0,1)&&0!==e.length||r.splice(0,1),"/"==e.slice(-1)&&r.splice(r.length-1,1),r}(0,i.path),i.queryKey=function(t,e){const r={};return e.replace(/(?:^|&)([^&=]*)=?([^&]*)/g,(function(t,e,n){e&&(r[e]=n)})),r}(0,i.query),i}const Jr="function"==typeof addEventListener&&"function"==typeof removeEventListener,Vr=[];Jr&&addEventListener("offline",(()=>{Vr.forEach((t=>t()))}),!1);class zr extends vr{constructor(t,e){if(super(),this.binaryType="arraybuffer",this.writeBuffer=[],this._prevBufferLen=0,this._pingInterval=-1,this._pingTimeout=-1,this._maxPayload=-1,this._pingTimeoutTime=1/0,t&&"object"==typeof t&&(e=t,t=null),t){const r=Hr(t);e.hostname=r.host,e.secure="https"===r.protocol||"wss"===r.protocol,e.port=r.port,r.query&&(e.query=r.query)}else e.host&&(e.hostname=Hr(e.host).host);Ar(this,e),this.secure=null!=e.secure?e.secure:"undefined"!=typeof location&&"https:"===location.protocol,e.hostname&&!e.port&&(e.port=this.secure?"443":"80"),this.hostname=e.hostname||("undefined"!=typeof location?location.hostname:"localhost"),this.port=e.port||("undefined"!=typeof location&&location.port?location.port:this.secure?"443":"80"),this.transports=[],this._transportsByName={},e.transports.forEach((t=>{const e=t.prototype.name;this.transports.push(e),this._transportsByName[e]=t})),this.opts=Object.assign({path:"/engine.io",agent:!1,withCredentials:!1,upgrade:!0,timestampParam:"t",rememberUpgrade:!1,addTrailingSlash:!0,rejectUnauthorized:!0,perMessageDeflate:{threshold:1024},transportOptions:{},closeOnBeforeunload:!1},e),this.opts.path=this.opts.path.replace(/\/$/,"")+(this.opts.addTrailingSlash?"/":""),"string"==typeof this.opts.query&&(this.opts.query=function(t){let e={},r=t.split("&");for(let t=0,n=r.length;t<n;t++){let n=r[t].split("=");e[decodeURIComponent(n[0])]=decodeURIComponent(n[1])}return e}(this.opts.query)),Jr&&(this.opts.closeOnBeforeunload&&(this._beforeunloadEventListener=()=>{this.transport&&(this.transport.removeAllListeners(),this.transport.close())},addEventListener("beforeunload",this._beforeunloadEventListener,!1)),"localhost"!==this.hostname&&(this._offlineEventListener=()=>{this._onClose("transport close",{description:"network connection lost"})},Vr.push(this._offlineEventListener))),this.opts.withCredentials&&(this._cookieJar=void 0),this._open()}createTransport(t){const e=Object.assign({},this.opts.query);e.EIO=4,e.transport=t,this.id&&(e.sid=this.id);const r=Object.assign({},this.opts,{query:e,socket:this,hostname:this.hostname,secure:this.secure,port:this.port},this.opts.transportOptions[t]);return new this._transportsByName[t](r)}_open(){if(0===this.transports.length)return void this.setTimeoutFn((()=>{this.emitReserved("error","No transports available")}),0);const t=this.opts.rememberUpgrade&&zr.priorWebsocketSuccess&&-1!==this.transports.indexOf("websocket")?"websocket":this.transports[0];this.readyState="opening";const e=this.createTransport(t);e.open(),this.setTransport(e)}setTransport(t){this.transport&&this.transport.removeAllListeners(),this.transport=t,t.on("drain",this._onDrain.bind(this)).on("packet",this._onPacket.bind(this)).on("error",this._onError.bind(this)).on("close",(t=>this._onClose("transport close",t)))}onOpen(){this.readyState="open",zr.priorWebsocketSuccess="websocket"===this.transport.name,this.emitReserved("open"),this.flush()}_onPacket(t){if("opening"===this.readyState||"open"===this.readyState||"closing"===this.readyState)switch(this.emitReserved("packet",t),this.emitReserved("heartbeat"),t.type){case"open":this.onHandshake(JSON.parse(t.data));break;case"ping":this._sendPacket("pong"),this.emitReserved("ping"),this.emitReserved("pong"),this._resetPingTimeout();break;case"error":const e=new Error("server error");e.code=t.data,this._onError(e);break;case"message":this.emitReserved("data",t.data),this.emitReserved("message",t.data)}}onHandshake(t){this.emitReserved("handshake",t),this.id=t.sid,this.transport.query.sid=t.sid,this._pingInterval=t.pingInterval,this._pingTimeout=t.pingTimeout,this._maxPayload=t.maxPayload,this.onOpen(),"closed"!==this.readyState&&this._resetPingTimeout()}_resetPingTimeout(){this.clearTimeoutFn(this._pingTimeoutTimer);const t=this._pingInterval+this._pingTimeout;this._pingTimeoutTime=Date.now()+t,this._pingTimeoutTimer=this.setTimeoutFn((()=>{this._onClose("ping timeout")}),t),this.opts.autoUnref&&this._pingTimeoutTimer.unref()}_onDrain(){this.writeBuffer.splice(0,this._prevBufferLen),this._prevBufferLen=0,0===this.writeBuffer.length?this.emitReserved("drain"):this.flush()}flush(){if("closed"!==this.readyState&&this.transport.writable&&!this.upgrading&&this.writeBuffer.length){const t=this._getWritablePackets();this.transport.send(t),this._prevBufferLen=t.length,this.emitReserved("flush")}}_getWritablePackets(){if(!(this._maxPayload&&"polling"===this.transport.name&&this.writeBuffer.length>1))return this.writeBuffer;let t=1;for(let r=0;r<this.writeBuffer.length;r++){const n=this.writeBuffer[r].data;if(n&&(t+="string"==typeof(e=n)?function(t){let e=0,r=0;for(let n=0,o=t.length;n<o;n++)e=t.charCodeAt(n),e<128?r+=1:e<2048?r+=2:e<55296||e>=57344?r+=3:(n++,r+=4);return r}(e):Math.ceil(1.33*(e.byteLength||e.size))),r>0&&t>this._maxPayload)return this.writeBuffer.slice(0,r);t+=2}var e;return this.writeBuffer}_hasPingExpired(){if(!this._pingTimeoutTime)return!0;const t=Date.now()>this._pingTimeoutTime;return t&&(this._pingTimeoutTime=0,wr((()=>{this._onClose("ping timeout")}),this.setTimeoutFn)),t}write(t,e,r){return this._sendPacket("message",t,e,r),this}send(t,e,r){return this._sendPacket("message",t,e,r),this}_sendPacket(t,e,r,n){if("function"==typeof e&&(n=e,e=void 0),"function"==typeof r&&(n=r,r=null),"closing"===this.readyState||"closed"===this.readyState)return;(r=r||{}).compress=!1!==r.compress;const o={type:t,data:e,options:r};this.emitReserved("packetCreate",o),this.writeBuffer.push(o),n&&this.once("flush",n),this.flush()}close(){const t=()=>{this._onClose("forced close"),this.transport.close()},e=()=>{this.off("upgrade",e),this.off("upgradeError",e),t()},r=()=>{this.once("upgrade",e),this.once("upgradeError",e)};return"opening"!==this.readyState&&"open"!==this.readyState||(this.readyState="closing",this.writeBuffer.length?this.once("drain",(()=>{this.upgrading?r():t()})):this.upgrading?r():t()),this}_onError(t){if(zr.priorWebsocketSuccess=!1,this.opts.tryAllTransports&&this.transports.length>1&&"opening"===this.readyState)return this.transports.shift(),this._open();this.emitReserved("error",t),this._onClose("transport error",t)}_onClose(t,e){if("opening"===this.readyState||"open"===this.readyState||"closing"===this.readyState){if(this.clearTimeoutFn(this._pingTimeoutTimer),this.transport.removeAllListeners("close"),this.transport.close(),this.transport.removeAllListeners(),Jr&&(this._beforeunloadEventListener&&removeEventListener("beforeunload",this._beforeunloadEventListener,!1),this._offlineEventListener)){const t=Vr.indexOf(this._offlineEventListener);-1!==t&&Vr.splice(t,1)}this.readyState="closed",this.id=null,this.emitReserved("close",t,e),this.writeBuffer=[],this._prevBufferLen=0}}}zr.protocol=4;class Kr extends zr{constructor(){super(...arguments),this._upgrades=[]}onOpen(){if(super.onOpen(),"open"===this.readyState&&this.opts.upgrade)for(let t=0;t<this._upgrades.length;t++)this._probe(this._upgrades[t])}_probe(t){let e=this.createTransport(t),r=!1;zr.priorWebsocketSuccess=!1;const n=()=>{r||(e.send([{type:"ping",data:"probe"}]),e.once("packet",(t=>{if(!r)if("pong"===t.type&&"probe"===t.data){if(this.upgrading=!0,this.emitReserved("upgrading",e),!e)return;zr.priorWebsocketSuccess="websocket"===e.name,this.transport.pause((()=>{r||"closed"!==this.readyState&&(u(),this.setTransport(e),e.send([{type:"upgrade"}]),this.emitReserved("upgrade",e),e=null,this.upgrading=!1,this.flush())}))}else{const t=new Error("probe error");t.transport=e.name,this.emitReserved("upgradeError",t)}})))};function o(){r||(r=!0,u(),e.close(),e=null)}const i=t=>{const r=new Error("probe error: "+t);r.transport=e.name,o(),this.emitReserved("upgradeError",r)};function s(){i("transport closed")}function a(){i("socket closed")}function c(t){e&&t.name!==e.name&&o()}const u=()=>{e.removeListener("open",n),e.removeListener("error",i),e.removeListener("close",s),this.off("close",a),this.off("upgrading",c)};e.once("open",n),e.once("error",i),e.once("close",s),this.once("close",a),this.once("upgrading",c),-1!==this._upgrades.indexOf("webtransport")&&"webtransport"!==t?this.setTimeoutFn((()=>{r||e.open()}),200):e.open()}onHandshake(t){this._upgrades=this._filterUpgrades(t.upgrades),super.onHandshake(t)}_filterUpgrades(t){const e=[];for(let r=0;r<t.length;r++)~this.transports.indexOf(t[r])&&e.push(t[r]);return e}}class Gr extends Kr{constructor(t,e={}){const r="object"==typeof t?t:e;(!r.transports||r.transports&&"string"==typeof r.transports[0])&&(r.transports=(r.transports||["polling","websocket","webtransport"]).map((t=>qr[t])).filter((t=>!!t))),super(t,r)}}const Qr="function"==typeof ArrayBuffer,Yr=Object.prototype.toString,Xr="function"==typeof Blob||"undefined"!=typeof Blob&&"[object BlobConstructor]"===Yr.call(Blob),Zr="function"==typeof File||"undefined"!=typeof File&&"[object FileConstructor]"===Yr.call(File);function tn(t){return Qr&&(t instanceof ArrayBuffer||(t=>"function"==typeof ArrayBuffer.isView?ArrayBuffer.isView(t):t.buffer instanceof ArrayBuffer)(t))||Xr&&t instanceof Blob||Zr&&t instanceof File}function en(t,e){if(!t||"object"!=typeof t)return!1;if(Array.isArray(t)){for(let e=0,r=t.length;e<r;e++)if(en(t[e]))return!0;return!1}if(tn(t))return!0;if(t.toJSON&&"function"==typeof t.toJSON&&1===arguments.length)return en(t.toJSON(),!0);for(const e in t)if(Object.prototype.hasOwnProperty.call(t,e)&&en(t[e]))return!0;return!1}function rn(t){const e=[],r=t.data,n=t;return n.data=nn(r,e),n.attachments=e.length,{packet:n,buffers:e}}function nn(t,e){if(!t)return t;if(tn(t)){const r={_placeholder:!0,num:e.length};return e.push(t),r}if(Array.isArray(t)){const r=new Array(t.length);for(let n=0;n<t.length;n++)r[n]=nn(t[n],e);return r}if("object"==typeof t&&!(t instanceof Date)){const r={};for(const n in t)Object.prototype.hasOwnProperty.call(t,n)&&(r[n]=nn(t[n],e));return r}return t}function on(t,e){return t.data=sn(t.data,e),delete t.attachments,t}function sn(t,e){if(!t)return t;if(t&&!0===t._placeholder){if("number"==typeof t.num&&t.num>=0&&t.num<e.length)return e[t.num];throw new Error("illegal attachments")}if(Array.isArray(t))for(let r=0;r<t.length;r++)t[r]=sn(t[r],e);else if("object"==typeof t)for(const r in t)Object.prototype.hasOwnProperty.call(t,r)&&(t[r]=sn(t[r],e));return t}const an=["connect","connect_error","disconnect","disconnecting","newListener","removeListener"],cn=5;var un;!function(t){t[t.CONNECT=0]="CONNECT",t[t.DISCONNECT=1]="DISCONNECT",t[t.EVENT=2]="EVENT",t[t.ACK=3]="ACK",t[t.CONNECT_ERROR=4]="CONNECT_ERROR",t[t.BINARY_EVENT=5]="BINARY_EVENT",t[t.BINARY_ACK=6]="BINARY_ACK"}(un||(un={}));class ln{constructor(t){this.replacer=t}encode(t){return t.type!==un.EVENT&&t.type!==un.ACK||!en(t)?[this.encodeAsString(t)]:this.encodeAsBinary({type:t.type===un.EVENT?un.BINARY_EVENT:un.BINARY_ACK,nsp:t.nsp,data:t.data,id:t.id})}encodeAsString(t){let e=""+t.type;return t.type!==un.BINARY_EVENT&&t.type!==un.BINARY_ACK||(e+=t.attachments+"-"),t.nsp&&"/"!==t.nsp&&(e+=t.nsp+","),null!=t.id&&(e+=t.id),null!=t.data&&(e+=JSON.stringify(t.data,this.replacer)),e}encodeAsBinary(t){const e=rn(t),r=this.encodeAsString(e.packet),n=e.buffers;return n.unshift(r),n}}class pn extends vr{constructor(t){super(),this.reviver=t}add(t){let e;if("string"==typeof t){if(this.reconstructor)throw new Error("got plaintext data when reconstructing a packet");e=this.decodeString(t);const r=e.type===un.BINARY_EVENT;r||e.type===un.BINARY_ACK?(e.type=r?un.EVENT:un.ACK,this.reconstructor=new fn(e),0===e.attachments&&super.emitReserved("decoded",e)):super.emitReserved("decoded",e)}else{if(!tn(t)&&!t.base64)throw new Error("Unknown type: "+t);if(!this.reconstructor)throw new Error("got binary data when not reconstructing a packet");e=this.reconstructor.takeBinaryData(t),e&&(this.reconstructor=null,super.emitReserved("decoded",e))}}decodeString(t){let e=0;const r={type:Number(t.charAt(0))};if(void 0===un[r.type])throw new Error("unknown packet type "+r.type);if(r.type===un.BINARY_EVENT||r.type===un.BINARY_ACK){const n=e+1;for(;"-"!==t.charAt(++e)&&e!=t.length;);const o=t.substring(n,e);if(o!=Number(o)||"-"!==t.charAt(e))throw new Error("Illegal attachments");r.attachments=Number(o)}if("/"===t.charAt(e+1)){const n=e+1;for(;++e&&","!==t.charAt(e)&&e!==t.length;);r.nsp=t.substring(n,e)}else r.nsp="/";const n=t.charAt(e+1);if(""!==n&&Number(n)==n){const n=e+1;for(;++e;){const r=t.charAt(e);if(null==r||Number(r)!=r){--e;break}if(e===t.length)break}r.id=Number(t.substring(n,e+1))}if(t.charAt(++e)){const n=this.tryParse(t.substr(e));if(!pn.isPayloadValid(r.type,n))throw new Error("invalid payload");r.data=n}return r}tryParse(t){try{return JSON.parse(t,this.reviver)}catch(t){return!1}}static isPayloadValid(t,e){switch(t){case un.CONNECT:return dn(e);case un.DISCONNECT:return void 0===e;case un.CONNECT_ERROR:return"string"==typeof e||dn(e);case un.EVENT:case un.BINARY_EVENT:return Array.isArray(e)&&("number"==typeof e[0]||"string"==typeof e[0]&&-1===an.indexOf(e[0]));case un.ACK:case un.BINARY_ACK:return Array.isArray(e)}}destroy(){this.reconstructor&&(this.reconstructor.finishedReconstruction(),this.reconstructor=null)}}class fn{constructor(t){this.packet=t,this.buffers=[],this.reconPack=t}takeBinaryData(t){if(this.buffers.push(t),this.buffers.length===this.reconPack.attachments){const t=on(this.reconPack,this.buffers);return this.finishedReconstruction(),t}return null}finishedReconstruction(){this.reconPack=null,this.buffers=[]}}const hn=Number.isInteger||function(t){return"number"==typeof t&&isFinite(t)&&Math.floor(t)===t};function dn(t){return"[object Object]"===Object.prototype.toString.call(t)}function yn(t){return"string"==typeof t.nsp&&(void 0===(e=t.id)||hn(e))&&function(t,e){switch(t){case un.CONNECT:return void 0===e||dn(e);case un.DISCONNECT:return void 0===e;case un.EVENT:return Array.isArray(e)&&("number"==typeof e[0]||"string"==typeof e[0]&&-1===an.indexOf(e[0]));case un.ACK:return Array.isArray(e);case un.CONNECT_ERROR:return"string"==typeof e||dn(e);default:return!1}}(t.type,t.data);var e}function mn(t,e,r){return t.on(e,r),function(){t.off(e,r)}}const gn=Object.freeze({connect:1,connect_error:1,disconnect:1,disconnecting:1,newListener:1,removeListener:1});class bn extends vr{constructor(t,e,r){super(),this.connected=!1,this.recovered=!1,this.receiveBuffer=[],this.sendBuffer=[],this._queue=[],this._queueSeq=0,this.ids=0,this.acks={},this.flags={},this.io=t,this.nsp=e,r&&r.auth&&(this.auth=r.auth),this._opts=Object.assign({},r),this.io._autoConnect&&this.open()}get disconnected(){return!this.connected}subEvents(){if(this.subs)return;const t=this.io;this.subs=[mn(t,"open",this.onopen.bind(this)),mn(t,"packet",this.onpacket.bind(this)),mn(t,"error",this.onerror.bind(this)),mn(t,"close",this.onclose.bind(this))]}get active(){return!!this.subs}connect(){return this.connected||(this.subEvents(),this.io._reconnecting||this.io.open(),"open"===this.io._readyState&&this.onopen()),this}open(){return this.connect()}send(...t){return t.unshift("message"),this.emit.apply(this,t),this}emit(t,...e){var r,n,o;if(gn.hasOwnProperty(t))throw new Error('"'+t.toString()+'" is a reserved event name');if(e.unshift(t),this._opts.retries&&!this.flags.fromQueue&&!this.flags.volatile)return this._addToQueue(e),this;const i={type:un.EVENT,data:e,options:{}};if(i.options.compress=!1!==this.flags.compress,"function"==typeof e[e.length-1]){const t=this.ids++,r=e.pop();this._registerAckCallback(t,r),i.id=t}const s=null===(n=null===(r=this.io.engine)||void 0===r?void 0:r.transport)||void 0===n?void 0:n.writable,a=this.connected&&!(null===(o=this.io.engine)||void 0===o?void 0:o._hasPingExpired());return this.flags.volatile&&!s||(a?(this.notifyOutgoingListeners(i),this.packet(i)):this.sendBuffer.push(i)),this.flags={},this}_registerAckCallback(t,e){var r;const n=null!==(r=this.flags.timeout)&&void 0!==r?r:this._opts.ackTimeout;if(void 0===n)return void(this.acks[t]=e);const o=this.io.setTimeoutFn((()=>{delete this.acks[t];for(let e=0;e<this.sendBuffer.length;e++)this.sendBuffer[e].id===t&&this.sendBuffer.splice(e,1);e.call(this,new Error("operation has timed out"))}),n),i=(...t)=>{this.io.clearTimeoutFn(o),e.apply(this,t)};i.withError=!0,this.acks[t]=i}emitWithAck(t,...e){return new Promise(((r,n)=>{const o=(t,e)=>t?n(t):r(e);o.withError=!0,e.push(o),this.emit(t,...e)}))}_addToQueue(t){let e;"function"==typeof t[t.length-1]&&(e=t.pop());const r={id:this._queueSeq++,tryCount:0,pending:!1,args:t,flags:Object.assign({fromQueue:!0},this.flags)};t.push(((t,...n)=>(this._queue[0],null!==t?r.tryCount>this._opts.retries&&(this._queue.shift(),e&&e(t)):(this._queue.shift(),e&&e(null,...n)),r.pending=!1,this._drainQueue()))),this._queue.push(r),this._drainQueue()}_drainQueue(t=!1){if(!this.connected||0===this._queue.length)return;const e=this._queue[0];e.pending&&!t||(e.pending=!0,e.tryCount++,this.flags=e.flags,this.emit.apply(this,e.args))}packet(t){t.nsp=this.nsp,this.io._packet(t)}onopen(){"function"==typeof this.auth?this.auth((t=>{this._sendConnectPacket(t)})):this._sendConnectPacket(this.auth)}_sendConnectPacket(t){this.packet({type:un.CONNECT,data:this._pid?Object.assign({pid:this._pid,offset:this._lastOffset},t):t})}onerror(t){this.connected||this.emitReserved("connect_error",t)}onclose(t,e){this.connected=!1,delete this.id,this.emitReserved("disconnect",t,e),this._clearAcks()}_clearAcks(){Object.keys(this.acks).forEach((t=>{if(!this.sendBuffer.some((e=>String(e.id)===t))){const e=this.acks[t];delete this.acks[t],e.withError&&e.call(this,new Error("socket has been disconnected"))}}))}onpacket(t){if(t.nsp===this.nsp)switch(t.type){case un.CONNECT:t.data&&t.data.sid?this.onconnect(t.data.sid,t.data.pid):this.emitReserved("connect_error",new Error("It seems you are trying to reach a Socket.IO server in v2.x with a v3.x client, but they are not compatible (more information here: https://socket.io/docs/v3/migrating-from-2-x-to-3-0/)"));break;case un.EVENT:case un.BINARY_EVENT:this.onevent(t);break;case un.ACK:case un.BINARY_ACK:this.onack(t);break;case un.DISCONNECT:this.ondisconnect();break;case un.CONNECT_ERROR:this.destroy();const e=new Error(t.data.message);e.data=t.data.data,this.emitReserved("connect_error",e)}}onevent(t){const e=t.data||[];null!=t.id&&e.push(this.ack(t.id)),this.connected?this.emitEvent(e):this.receiveBuffer.push(Object.freeze(e))}emitEvent(t){if(this._anyListeners&&this._anyListeners.length){const e=this._anyListeners.slice();for(const r of e)r.apply(this,t)}super.emit.apply(this,t),this._pid&&t.length&&"string"==typeof t[t.length-1]&&(this._lastOffset=t[t.length-1])}ack(t){const e=this;let r=!1;return function(...n){r||(r=!0,e.packet({type:un.ACK,id:t,data:n}))}}onack(t){const e=this.acks[t.id];"function"==typeof e&&(delete this.acks[t.id],e.withError&&t.data.unshift(null),e.apply(this,t.data))}onconnect(t,e){this.id=t,this.recovered=e&&this._pid===e,this._pid=e,this.connected=!0,this.emitBuffered(),this._drainQueue(!0),this.emitReserved("connect")}emitBuffered(){this.receiveBuffer.forEach((t=>this.emitEvent(t))),this.receiveBuffer=[],this.sendBuffer.forEach((t=>{this.notifyOutgoingListeners(t),this.packet(t)})),this.sendBuffer=[]}ondisconnect(){this.destroy(),this.onclose("io server disconnect")}destroy(){this.subs&&(this.subs.forEach((t=>t())),this.subs=void 0),this.io._destroy(this)}disconnect(){return this.connected&&this.packet({type:un.DISCONNECT}),this.destroy(),this.connected&&this.onclose("io client disconnect"),this}close(){return this.disconnect()}compress(t){return this.flags.compress=t,this}get volatile(){return this.flags.volatile=!0,this}timeout(t){return this.flags.timeout=t,this}onAny(t){return this._anyListeners=this._anyListeners||[],this._anyListeners.push(t),this}prependAny(t){return this._anyListeners=this._anyListeners||[],this._anyListeners.unshift(t),this}offAny(t){if(!this._anyListeners)return this;if(t){const e=this._anyListeners;for(let r=0;r<e.length;r++)if(t===e[r])return e.splice(r,1),this}else this._anyListeners=[];return this}listenersAny(){return this._anyListeners||[]}onAnyOutgoing(t){return this._anyOutgoingListeners=this._anyOutgoingListeners||[],this._anyOutgoingListeners.push(t),this}prependAnyOutgoing(t){return this._anyOutgoingListeners=this._anyOutgoingListeners||[],this._anyOutgoingListeners.unshift(t),this}offAnyOutgoing(t){if(!this._anyOutgoingListeners)return this;if(t){const e=this._anyOutgoingListeners;for(let r=0;r<e.length;r++)if(t===e[r])return e.splice(r,1),this}else this._anyOutgoingListeners=[];return this}listenersAnyOutgoing(){return this._anyOutgoingListeners||[]}notifyOutgoingListeners(t){if(this._anyOutgoingListeners&&this._anyOutgoingListeners.length){const e=this._anyOutgoingListeners.slice();for(const r of e)r.apply(this,t.data)}}}function vn(t){t=t||{},this.ms=t.min||100,this.max=t.max||1e4,this.factor=t.factor||2,this.jitter=t.jitter>0&&t.jitter<=1?t.jitter:0,this.attempts=0}vn.prototype.duration=function(){var t=this.ms*Math.pow(this.factor,this.attempts++);if(this.jitter){var e=Math.random(),r=Math.floor(e*this.jitter*t);t=1&Math.floor(10*e)?t+r:t-r}return 0|Math.min(t,this.max)},vn.prototype.reset=function(){this.attempts=0},vn.prototype.setMin=function(t){this.ms=t},vn.prototype.setMax=function(t){this.max=t},vn.prototype.setJitter=function(t){this.jitter=t};class wn extends vr{constructor(t,e){var r;super(),this.nsps={},this.subs=[],t&&"object"==typeof t&&(e=t,t=void 0),(e=e||{}).path=e.path||"/socket.io",this.opts=e,Ar(this,e),this.reconnection(!1!==e.reconnection),this.reconnectionAttempts(e.reconnectionAttempts||1/0),this.reconnectionDelay(e.reconnectionDelay||1e3),this.reconnectionDelayMax(e.reconnectionDelayMax||5e3),this.randomizationFactor(null!==(r=e.randomizationFactor)&&void 0!==r?r:.5),this.backoff=new vn({min:this.reconnectionDelay(),max:this.reconnectionDelayMax(),jitter:this.randomizationFactor()}),this.timeout(null==e.timeout?2e4:e.timeout),this._readyState="closed",this.uri=t;const o=e.parser||n;this.encoder=new o.Encoder,this.decoder=new o.Decoder,this._autoConnect=!1!==e.autoConnect,this._autoConnect&&this.open()}reconnection(t){return arguments.length?(this._reconnection=!!t,t||(this.skipReconnect=!0),this):this._reconnection}reconnectionAttempts(t){return void 0===t?this._reconnectionAttempts:(this._reconnectionAttempts=t,this)}reconnectionDelay(t){var e;return void 0===t?this._reconnectionDelay:(this._reconnectionDelay=t,null===(e=this.backoff)||void 0===e||e.setMin(t),this)}randomizationFactor(t){var e;return void 0===t?this._randomizationFactor:(this._randomizationFactor=t,null===(e=this.backoff)||void 0===e||e.setJitter(t),this)}reconnectionDelayMax(t){var e;return void 0===t?this._reconnectionDelayMax:(this._reconnectionDelayMax=t,null===(e=this.backoff)||void 0===e||e.setMax(t),this)}timeout(t){return arguments.length?(this._timeout=t,this):this._timeout}maybeReconnectOnOpen(){!this._reconnecting&&this._reconnection&&0===this.backoff.attempts&&this.reconnect()}open(t){if(~this._readyState.indexOf("open"))return this;this.engine=new Gr(this.uri,this.opts);const e=this.engine,r=this;this._readyState="opening",this.skipReconnect=!1;const n=mn(e,"open",(function(){r.onopen(),t&&t()})),o=e=>{this.cleanup(),this._readyState="closed",this.emitReserved("error",e),t?t(e):this.maybeReconnectOnOpen()},i=mn(e,"error",o);if(!1!==this._timeout){const t=this._timeout,r=this.setTimeoutFn((()=>{n(),o(new Error("timeout")),e.close()}),t);this.opts.autoUnref&&r.unref(),this.subs.push((()=>{this.clearTimeoutFn(r)}))}return this.subs.push(n),this.subs.push(i),this}connect(t){return this.open(t)}onopen(){this.cleanup(),this._readyState="open",this.emitReserved("open");const t=this.engine;this.subs.push(mn(t,"ping",this.onping.bind(this)),mn(t,"data",this.ondata.bind(this)),mn(t,"error",this.onerror.bind(this)),mn(t,"close",this.onclose.bind(this)),mn(this.decoder,"decoded",this.ondecoded.bind(this)))}onping(){this.emitReserved("ping")}ondata(t){try{this.decoder.add(t)}catch(t){this.onclose("parse error",t)}}ondecoded(t){wr((()=>{this.emitReserved("packet",t)}),this.setTimeoutFn)}onerror(t){this.emitReserved("error",t)}socket(t,e){let r=this.nsps[t];return r?this._autoConnect&&!r.active&&r.connect():(r=new bn(this,t,e),this.nsps[t]=r),r}_destroy(t){const e=Object.keys(this.nsps);for(const t of e)if(this.nsps[t].active)return;this._close()}_packet(t){const e=this.encoder.encode(t);for(let r=0;r<e.length;r++)this.engine.write(e[r],t.options)}cleanup(){this.subs.forEach((t=>t())),this.subs.length=0,this.decoder.destroy()}_close(){this.skipReconnect=!0,this._reconnecting=!1,this.onclose("forced close")}disconnect(){return this._close()}onclose(t,e){var r;this.cleanup(),null===(r=this.engine)||void 0===r||r.close(),this.backoff.reset(),this._readyState="closed",this.emitReserved("close",t,e),this._reconnection&&!this.skipReconnect&&this.reconnect()}reconnect(){if(this._reconnecting||this.skipReconnect)return this;const t=this;if(this.backoff.attempts>=this._reconnectionAttempts)this.backoff.reset(),this.emitReserved("reconnect_failed"),this._reconnecting=!1;else{const e=this.backoff.duration();this._reconnecting=!0;const r=this.setTimeoutFn((()=>{t.skipReconnect||(this.emitReserved("reconnect_attempt",t.backoff.attempts),t.skipReconnect||t.open((e=>{e?(t._reconnecting=!1,t.reconnect(),this.emitReserved("reconnect_error",e)):t.onreconnect()})))}),e);this.opts.autoUnref&&r.unref(),this.subs.push((()=>{this.clearTimeoutFn(r)}))}}onreconnect(){const t=this.backoff.attempts;this._reconnecting=!1,this.backoff.reset(),this.emitReserved("reconnect",t)}}const _n={};function Sn(t,e){"object"==typeof t&&(e=t,t=void 0);const r=function(t,e="",r){let n=t;r=r||"undefined"!=typeof location&&location,null==t&&(t=r.protocol+"//"+r.host),"string"==typeof t&&("/"===t.charAt(0)&&(t="/"===t.charAt(1)?r.protocol+t:r.host+t),/^(https?|wss?):\/\//.test(t)||(t=void 0!==r?r.protocol+"//"+t:"https://"+t),n=Hr(t)),n.port||(/^(http|ws)$/.test(n.protocol)?n.port="80":/^(http|ws)s$/.test(n.protocol)&&(n.port="443")),n.path=n.path||"/";const o=-1!==n.host.indexOf(":")?"["+n.host+"]":n.host;return n.id=n.protocol+"://"+o+":"+n.port+e,n.href=n.protocol+"://"+o+(r&&r.port===n.port?"":":"+n.port),n}(t,(e=e||{}).path||"/socket.io"),n=r.source,o=r.id,i=r.path,s=_n[o]&&i in _n[o].nsps;let a;return e.forceNew||e["force new connection"]||!1===e.multiplex||s?a=new wn(n,e):(_n[o]||(_n[o]=new wn(n,e)),a=_n[o]),r.query&&!e.query&&(e.query=r.queryKey),a.socket(r.path,e)}Object.assign(Sn,{Manager:wn,Socket:bn,io:Sn,connect:Sn});var En=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))};const On=o.Stake,An=t=>En(void 0,void 0,void 0,(function*(){switch(console.log(On,`收到请求${t.type}`,t.data),t.type){case"POST":{if(!t.url)return void console.error("url 为空");const e=yield Re.post(t.url,t.data,t.options);return console.log(On,"tabId请求返回 => ",e),e}case"":return void Pn(t.data)}}));let xn,kn;const Rn=(t,e)=>{if(!e)return;const r=Tn.getByValue(e);if(!r)return;const n={matchId:r,bets:[]},o=/(比赛获胜者 - Two 路线)|(地图\d获胜者 - Two 路线)/;t.data.sportFixtureMarketsNext.forEach((t=>{const e=t.name,r=t.id;if(!o.test(e)||2!==t.outcomes.length)return;const i=t.outcomes[0],s=t.outcomes[1];console.log(On,"status",t.status,i,s);const a=!["active","live"].includes(t.status);n.bets.push({betId:r,name:e,homeId:i.id,home:!a&&i.active?i.odds:0,awayId:s.id,away:!a&&s.active?s.odds:0,extend:{status:t.status,home:i,away:s}})})),null==xn||xn.send(n)},Tn=new class{constructor(){this.forward=new Map,this.backward=new Map}set(t,e){this.forward.set(t,e),this.backward.set(e,t)}hasKey(t){return this.forward.has(t)}hasValue(t){return this.backward.has(t)}getByKey(t){return this.forward.get(t)}getByValue(t){return this.backward.get(t)}deleteByKey(t){const e=this.forward.get(t);e&&(this.forward.delete(t),this.backward.delete(e))}deleteByValue(t){const e=this.backward.get(t);e&&(this.backward.delete(t),this.forward.delete(e))}clear(){this.backward.clear(),this.forward.clear()}keys(){return[...this.forward.keys()]}values(){return[...this.backward.keys()]}},Cn=()=>{Tn.clear()},Pn=t=>{if(kn){Tn.keys().filter((e=>!t.some((t=>t.id===e)))).forEach((t=>{const e=Tn.getByKey(t);e&&(null==kn||kn.send(JSON.stringify({id:e,type:"complete"})),Tn.deleteByKey(t))}));for(const e of t){if(Tn.hasKey(e.id))continue;const t=m("");null==kn||kn.send(JSON.stringify({id:t,type:"subscribe",payload:{query:"subscription  SportFixtureDataMatch_SportFixture($fixtureId: String!, $groups: [String!]) {\n  sportFixtureMarketsNext(fixtureId: $fixtureId, groups: $groups) {\n    id\n    name\n    status\n    extId\n    provider\n    outcomes {\n      id\n      active\n      odds\n      name\n      extId\n    }\n  }\n}",variables:{fixture:e.slug,fixtureId:e.id,provider:"oddin",groups:["winner","maps"]}}})),Tn.set(e.id,t)}}};var jn=function(t,e,r,n){return new(r||(r=Promise))((function(o,i){function s(t){try{c(n.next(t))}catch(t){i(t)}}function a(t){try{c(n.throw(t))}catch(t){i(t)}}function c(t){t.done?o(t.value):function(t){return t instanceof r?t:new r((function(e){e(t)}))}(t.value).then(s,a)}c((n=n.apply(t,e||[])).next())}))};const Nn=t=>jn(void 0,void 0,void 0,(function*(){const e=document.createElement("div");e.classList.add("esport-collect-provider-icon"),document.body.appendChild(e);const r=Math.max(e.offsetWidth,e.offsetHeight);return e.style.width=e.style.height=`${r}px`,e.addEventListener("click",(r=>jn(void 0,void 0,void 0,(function*(){var r,n;e.classList.add("hide");const o=document.createElement("div");let i;o.classList.add("esport-collect-provider-container"),document.body.appendChild(o);try{if(o.classList.add("loading"),i=yield t.GetConfig(),!i)return alert("没有检测到登录信息"),e.classList.remove("hide"),void o.remove()}finally{o.classList.remove("loading")}const s=(t,e)=>`<div class="esport-collect-provider-container-item"><label>${t}:</label><input type="text" readonly name="${e}" /></div>`,a=[s("网关","gateway"),s("token","token"),s("referer","referer"),s("数据","data")];a.push('<div class="esport-collect-provider-container-confirm">确定</div>'),o.innerHTML=a.join(""),o.querySelectorAll("input[name]").forEach((t=>{var e;const r=t.getAttribute("name");r&&(t.value=null!==(e=i[r])&&void 0!==e?e:"")})),null===(r=o.querySelectorAll("input"))||void 0===r||r.forEach((t=>{t.addEventListener("click",(e=>{const r=t.value;t.select(),navigator.clipboard.writeText(r).then((()=>{o.classList.add("copy")})).catch((t=>{document.execCommand("copy")&&o.classList.add("copy")})).finally((()=>{setTimeout((()=>{o.classList.remove("copy")}),500)}))}))})),null===(n=o.querySelector(".esport-collect-provider-container-confirm"))||void 0===n||n.addEventListener("click",(t=>{e.classList.remove("hide"),o.remove()}))})))),!0})),Ln={[o.OB]:class{Check(){return i(this,void 0,void 0,(function*(){const t=new URL(location.href),e=t.searchParams.get("token"),r=t.searchParams.get("addr");if(!e||!/\d+/.test(e))return!1;if(!r)return!1;try{const t=JSON.parse(window.atob(r));return Array.isArray(t.api)}catch(t){return!1}}))}GetConfig(){return i(this,void 0,void 0,(function*(){const t=new URL(location.href),e=t.searchParams.get("token"),r=t.searchParams.get("addr"),n=JSON.parse(window.atob(r));return{provider:o.OB,gateway:n.api[0],token:e,referer:`https://${location.host}/`,data:window.btoa(JSON.stringify({provider:o.OB,gateway:n.api,token:e,referer:`https://${location.host}/`}))}}))}},[o.RAY]:class{Check(){return s(this,void 0,void 0,(function*(){var t;return!!(null!==(t=document.body.querySelector(".app-header img[alt=RAYBET]"))&&void 0!==t?t:document.body.querySelector(".app-header .logo-icon"))}))}GetConfig(){return s(this,void 0,void 0,(function*(){let t=localStorage.getItem("gameAuthToken")||localStorage.getItem("socketCluster.authToken");const e=localStorage.getItem("userToken");if(!t&&e&&/^\{/.test(e))try{t=JSON.parse(e).JWT}catch(t){return}if(!t)return;const r=yield fetch("https://api.365raylinks.com/configv4?platform=1"),n=(yield r.json()).data.game_api.map((t=>{const e=new URL(t);return`${e.protocol}//${e.host}`})),i=location.href;return{provider:o.RAY,gateway:n[0],token:`Bearer ${t}`,referer:i,data:btoa(JSON.stringify({provider:o.RAY,gateway:n,token:`Bearer ${t}`,referer:i}))}}))}},[o.IM]:class{Check(){return a(this,void 0,void 0,(function*(){const t=location.pathname+location.search;return c.test(t)}))}GetConfig(){return a(this,void 0,void 0,(function*(){const t=c.exec(location.pathname+location.search)[2],e=`${location.protocol}//${location.host}${location.pathname}${location.search}`;return{provider:o.IM,gateway:`${location.protocol}//${location.host}`,token:t,referer:e,data:btoa(JSON.stringify({provider:o.IM,gateway:[`${location.protocol}//${location.host}`],token:t,referer:e}))}}))}},[o.TF]:class{Check(){return p(this,void 0,void 0,(function*(){if(!/^gc\./.test(location.host))return!1;const t=localStorage.getItem("vuex");return!(!t||!/^\{/.test(t))}))}GetConfig(){return p(this,void 0,void 0,(function*(){var t,e,r,n,i;const s=JSON.parse(null!==(t=localStorage.getItem("vuex"))&&void 0!==t?t:"{}"),a=null===(r=null===(e=null==s?void 0:s.settings)||void 0===e?void 0:e.settings)||void 0===r?void 0:r.token,c=null===(i=null===(n=null==s?void 0:s.settings)||void 0===n?void 0:n.settings)||void 0===i?void 0:i.priBaseUrl;if(!a||!c)return;const u=new URL(c),l=`${u.protocol}//${u.host}`,p=`${location.protocol}//${location.host}/`;return{provider:o.TF,gateway:l,token:`Token ${a}`,referer:p,data:btoa(JSON.stringify({provider:o.TF,gateway:[l],token:`Token ${a}`,referer:p}))}}))}},[o.IA]:class{Check(){return u(this,void 0,void 0,(function*(){return l.test(location.search)}))}GetConfig(){return u(this,void 0,void 0,(function*(){const t=l.exec(location.search)[1];return{provider:o.IA,gateway:`https://${location.host}`,token:t,referer:location.href,data:btoa(JSON.stringify({provider:o.IA,gateway:[`https://${location.host}`],token:t,referer:location.href}))}}))}},[o.SABA]:class{Check(){return f(this,void 0,void 0,(function*(){return!!/^\/\(S\(ESport/.test(location.pathname)}))}GetConfig(){return f(this,void 0,void 0,(function*(){const t=/^\/(.+?)\//.exec(location.pathname);if(!t)return;const e=`${location.protocol}//${location.host}`,r=`${location.protocol}//${location.host}/`,n=t[1];return{provider:o.SABA,gateway:e,token:n,referer:r,data:btoa(JSON.stringify({provider:o.SABA,gateway:[e],token:n,referer:r}))}}))}},[o.PB]:class{Check(){return h(this,void 0,void 0,(function*(){const t=location.pathname;return!!/\/esports\-hub\/|\/compact\/sports\//.test(t)&&!!localStorage.getItem("x-app-data")}))}GetConfig(){return h(this,void 0,void 0,(function*(){const t={};for(let e=0;e<localStorage.length;e++){const r=localStorage.key(e);if(null!==r){const e=localStorage.getItem(r);t[r]=e||""}}const e={provider:o.PB,gateway:`https://${location.host}`,token:JSON.stringify(t),referer:location.href};return{provider:o.PB,gateway:e.gateway,token:e.token,referer:e.referer,data:window.btoa(JSON.stringify(e))}}))}},[o.IMT]:class{Check(){return d(this,void 0,void 0,(function*(){return!(!localStorage.getItem("siteProfile4")||!localStorage.getItem("version4"))}))}GetConfig(){return d(this,void 0,void 0,(function*(){const t=localStorage.getItem("version4"),e=localStorage.getItem("siteProfile4");if(!t||!e)return;const r=JSON.parse(e),n=btoa(JSON.stringify({tk:r.t,v:t,mc:r.mc})),i=`${location.protocol}//${location.host}`,s=`${location.protocol}//${location.host}/`;return{provider:o.IMT,gateway:i,token:n,referer:s,data:btoa(JSON.stringify({provider:o.IMT,gateway:[i],token:n,referer:s}))}}))}},[o.HGA]:class{Check(){return Pe(this,void 0,void 0,(function*(){const t=null!==document.getElementById("mu_profile");return t&&(()=>{Pe(this,void 0,void 0,(function*(){yield y(1e3);const t=document.body.querySelector(".esport-collect-provider-icon");t&&t.setAttribute("onmouseover","this.setAttribute('uid',window.uid);this.setAttribute('ver',window.ver);this.setAttribute('username',window.username);")}))})(),t}))}GetConfig(){return Pe(this,void 0,void 0,(function*(){var t,e,r;const n=document.body.querySelector(".esport-collect-provider-icon"),i=null!==(t=null==n?void 0:n.getAttribute("uid"))&&void 0!==t?t:"",s=null!==(e=null==n?void 0:n.getAttribute("ver"))&&void 0!==e?e:"",a=null!==(r=null==n?void 0:n.getAttribute("username"))&&void 0!==r?r:"",c=`https://${location.host}`,u=JSON.stringify({uid:i,ver:s,username:a}),l=location.href,p={provider:o.HGA,token:u,gateway:c,referer:l,data:btoa(JSON.stringify({provider:o.HGA,token:u,gateway:[c],referer:l}))};return Be||(Be=!0,Ie(c,i,s,a)),p}))}},[o.HG]:class{Check(){return Fe(this,void 0,void 0,(function*(){const t=!!document.getElementById("header_currency")&&!!document.getElementById("header_credit");return t&&(()=>{Fe(this,void 0,void 0,(function*(){yield y(1e3);const t=document.body.querySelector(".esport-collect-provider-icon");t&&t.setAttribute("onmouseover","this.setAttribute('userdata',JSON.stringify(window.userData));")}))})(),t}))}GetConfig(){return Fe(this,void 0,void 0,(function*(){var t;const e=document.body.querySelector(".esport-collect-provider-icon"),r=null!==(t=null==e?void 0:e.getAttribute("userdata"))&&void 0!==t?t:"";if(!r)return;const n=JSON.parse(r),i=JSON.stringify({uid:n.uid,ver:n.ver,username:n.username}),s=`https://${location.host}`,a=location.href;return{provider:o.HG,gateway:s,token:i,referer:location.href,data:btoa(JSON.stringify({provider:o.HG,token:i,gateway:[s],referer:a}))}}))}},[o.Stake]:class{Check(){return En(this,void 0,void 0,(function*(){return"stake.com"===location.hostname}))}GetConfig(){return En(this,void 0,void 0,(function*(){const t=Ze.get("session");if(!t)return;const e={provider:On,gateway:`https://${location.host}`,token:t,referer:location.href};return e.data=btoa(JSON.stringify(e)),e}))}}};jn(void 0,void 0,void 0,(function*(){Me(),En(void 0,void 0,void 0,(function*(){"stake.com"===location.host&&(Ue[On]=An,chrome.runtime.sendMessage({type:"setTab",uuid:Date.now().toString(),data:{key:"Stake"}},(t=>{console.log(On,"tabId 成功写入 => ",null==t?void 0:t.response)})),(()=>{const t=Ze.get("session");t&&(null!=kn||(kn=new Qe("/_api/websockets","graphql-transport-ws")),kn.onopen=()=>{const e={type:"connection_init",payload:{accessToken:t,language:"zh",lockdownToken:"s5MNWtjTM5TvCMkAzxov"}};null==kn||kn.send(JSON.stringify(e))},kn.onmessage=t=>{const e=JSON.parse(t.data);switch(e.type){case"connection_ack":Cn();break;case"complete":console.error(On,"订阅失败");break;case"next":const t=e.payload;Rn(t,e.id)}console.log(On,"message",e)},kn.onclose=()=>console.log("closed"),kn.onerror=t=>console.error("error",t),setInterval((()=>{null==kn||kn.send(JSON.stringify({type:"ping"}))}),1e4))})(),xn=(t=>{const e=Sn("https://47.115.75.57",{reconnection:!0,reconnectionAttempts:1/0,reconnectionDelay:1e3,reconnectionDelayMax:5e3,randomizationFactor:.5,timeout:2e4});return e.on("connect",(()=>{console.log("✅ 已连接到服务器"),console.log("📊 连接信息:",{socketId:e.id,connected:e.connected,disconnected:e.disconnected})})),{send:r=>{e.connected&&e.emit("chat message",JSON.stringify({channel:t,message:r}))}}})(On))}));let t=!1;for(let e=0;e<10&&!t;e++){for(let e of Object.values(o)){const r=Ln[e];if(r){const e=new r;if(e&&(yield null==e?void 0:e.Check())){t=yield Nn(e);break}}}yield y(3e3)}}))})()})();
+(() => {
+  var __defProp = Object.defineProperty;
+  var __export = (target, all3) => {
+    for (var name in all3)
+      __defProp(target, name, { get: all3[name], enumerable: true });
+  };
+
+  // src/content/collect-ui.js
+  var ICON_SIZE_PX = 56;
+  var ICON_URL = () => chrome.runtime.getURL("assets/icon128.png");
+  function applyFloatPosition(el, { top, right, width, height }) {
+    el.style.setProperty("position", "fixed", "important");
+    el.style.setProperty("top", top, "important");
+    el.style.setProperty("right", right, "important");
+    el.style.setProperty("left", "auto", "important");
+    el.style.setProperty("bottom", "auto", "important");
+    el.style.setProperty("transform", "none", "important");
+    el.style.setProperty("margin", "0", "important");
+    el.style.setProperty("width", width, "important");
+    el.style.setProperty("height", height, "important");
+    el.style.setProperty("z-index", "2147483646", "important");
+  }
+  async function mountCollectIcon(provider) {
+    if (document.body.querySelector(".gamebet-collect-float")) {
+      return true;
+    }
+    const icon = document.createElement("button");
+    icon.type = "button";
+    icon.classList.add("gamebet-collect-float");
+    icon.dataset.gamebetPlugin = "collect";
+    icon.title = "Gamebet \u91C7\u96C6\u51ED\u8BC1";
+    icon.setAttribute("aria-label", "Gamebet \u91C7\u96C6\u51ED\u8BC1");
+    applyFloatPosition(icon, {
+      top: "20px",
+      right: "20px",
+      width: `${ICON_SIZE_PX}px`,
+      height: `${ICON_SIZE_PX}px`
+    });
+    icon.style.backgroundImage = `url("${ICON_URL()}")`;
+    document.body.appendChild(icon);
+    icon.addEventListener("click", async () => {
+      icon.classList.add("hide");
+      const panel = document.createElement("div");
+      panel.classList.add("gamebet-collect-panel");
+      panel.dataset.gamebetPlugin = "collect-panel";
+      applyFloatPosition(panel, {
+        top: "88px",
+        right: "20px",
+        width: "min(640px, calc(100vw - 40px))",
+        height: "auto"
+      });
+      panel.style.setProperty("z-index", "2147483647", "important");
+      document.body.appendChild(panel);
+      let config;
+      try {
+        panel.classList.add("loading");
+        config = await provider.GetConfig();
+        if (!config) {
+          alert("\u6CA1\u6709\u68C0\u6D4B\u5230\u767B\u5F55\u4FE1\u606F");
+          icon.classList.remove("hide");
+          panel.remove();
+          return;
+        }
+      } finally {
+        panel.classList.remove("loading");
+      }
+      const row = (label, name) => `<div class="gamebet-collect-panel-item"><label>${label}:</label><input type="text" readonly name="${name}" /></div>`;
+      panel.innerHTML = [
+        row("\u7F51\u5173", "gateway"),
+        row("token", "token"),
+        row("referer", "referer"),
+        row("\u6570\u636E", "data"),
+        '<div class="gamebet-collect-panel-confirm">\u786E\u5B9A</div>'
+      ].join("");
+      panel.querySelectorAll("input[name]").forEach((input) => {
+        const name = input.getAttribute("name");
+        if (name && name in config) {
+          input.value = String(config[name] ?? "");
+        }
+      });
+      panel.querySelectorAll("input").forEach((input) => {
+        input.addEventListener("click", () => {
+          input.select();
+          navigator.clipboard.writeText(input.value).then(() => panel.classList.add("copy")).catch(() => {
+            if (document.execCommand("copy")) panel.classList.add("copy");
+          }).finally(() => {
+            setTimeout(() => panel.classList.remove("copy"), 500);
+          });
+        });
+      });
+      panel.querySelector(".gamebet-collect-panel-confirm")?.addEventListener("click", () => {
+        icon.classList.remove("hide");
+        panel.remove();
+      });
+    });
+    console.info("[Gamebet] \u91C7\u96C6\u56FE\u6807\u5DF2\u6302\u8F7D\uFF08\u53F3\u4E0A\u89D2\uFF09");
+    return true;
+  }
+
+  // node_modules/axios/lib/helpers/bind.js
+  function bind(fn, thisArg) {
+    return function wrap() {
+      return fn.apply(thisArg, arguments);
+    };
+  }
+
+  // node_modules/axios/lib/utils.js
+  var { toString } = Object.prototype;
+  var { getPrototypeOf } = Object;
+  var { iterator, toStringTag } = Symbol;
+  var kindOf = /* @__PURE__ */ ((cache) => (thing) => {
+    const str = toString.call(thing);
+    return cache[str] || (cache[str] = str.slice(8, -1).toLowerCase());
+  })(/* @__PURE__ */ Object.create(null));
+  var kindOfTest = (type) => {
+    type = type.toLowerCase();
+    return (thing) => kindOf(thing) === type;
+  };
+  var typeOfTest = (type) => (thing) => typeof thing === type;
+  var { isArray } = Array;
+  var isUndefined = typeOfTest("undefined");
+  function isBuffer(val) {
+    return val !== null && !isUndefined(val) && val.constructor !== null && !isUndefined(val.constructor) && isFunction(val.constructor.isBuffer) && val.constructor.isBuffer(val);
+  }
+  var isArrayBuffer = kindOfTest("ArrayBuffer");
+  function isArrayBufferView(val) {
+    let result;
+    if (typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView) {
+      result = ArrayBuffer.isView(val);
+    } else {
+      result = val && val.buffer && isArrayBuffer(val.buffer);
+    }
+    return result;
+  }
+  var isString = typeOfTest("string");
+  var isFunction = typeOfTest("function");
+  var isNumber = typeOfTest("number");
+  var isObject = (thing) => thing !== null && typeof thing === "object";
+  var isBoolean = (thing) => thing === true || thing === false;
+  var isPlainObject = (val) => {
+    if (kindOf(val) !== "object") {
+      return false;
+    }
+    const prototype2 = getPrototypeOf(val);
+    return (prototype2 === null || prototype2 === Object.prototype || Object.getPrototypeOf(prototype2) === null) && !(toStringTag in val) && !(iterator in val);
+  };
+  var isEmptyObject = (val) => {
+    if (!isObject(val) || isBuffer(val)) {
+      return false;
+    }
+    try {
+      return Object.keys(val).length === 0 && Object.getPrototypeOf(val) === Object.prototype;
+    } catch (e) {
+      return false;
+    }
+  };
+  var isDate = kindOfTest("Date");
+  var isFile = kindOfTest("File");
+  var isReactNativeBlob = (value) => {
+    return !!(value && typeof value.uri !== "undefined");
+  };
+  var isReactNative = (formData) => formData && typeof formData.getParts !== "undefined";
+  var isBlob = kindOfTest("Blob");
+  var isFileList = kindOfTest("FileList");
+  var isStream = (val) => isObject(val) && isFunction(val.pipe);
+  function getGlobal() {
+    if (typeof globalThis !== "undefined") return globalThis;
+    if (typeof self !== "undefined") return self;
+    if (typeof window !== "undefined") return window;
+    if (typeof global !== "undefined") return global;
+    return {};
+  }
+  var G = getGlobal();
+  var FormDataCtor = typeof G.FormData !== "undefined" ? G.FormData : void 0;
+  var isFormData = (thing) => {
+    if (!thing) return false;
+    if (FormDataCtor && thing instanceof FormDataCtor) return true;
+    const proto = getPrototypeOf(thing);
+    if (!proto || proto === Object.prototype) return false;
+    if (!isFunction(thing.append)) return false;
+    const kind = kindOf(thing);
+    return kind === "formdata" || // detect form-data instance
+    kind === "object" && isFunction(thing.toString) && thing.toString() === "[object FormData]";
+  };
+  var isURLSearchParams = kindOfTest("URLSearchParams");
+  var [isReadableStream, isRequest, isResponse, isHeaders] = [
+    "ReadableStream",
+    "Request",
+    "Response",
+    "Headers"
+  ].map(kindOfTest);
+  var trim = (str) => {
+    return str.trim ? str.trim() : str.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, "");
+  };
+  function forEach(obj, fn, { allOwnKeys = false } = {}) {
+    if (obj === null || typeof obj === "undefined") {
+      return;
+    }
+    let i;
+    let l;
+    if (typeof obj !== "object") {
+      obj = [obj];
+    }
+    if (isArray(obj)) {
+      for (i = 0, l = obj.length; i < l; i++) {
+        fn.call(null, obj[i], i, obj);
+      }
+    } else {
+      if (isBuffer(obj)) {
+        return;
+      }
+      const keys = allOwnKeys ? Object.getOwnPropertyNames(obj) : Object.keys(obj);
+      const len = keys.length;
+      let key;
+      for (i = 0; i < len; i++) {
+        key = keys[i];
+        fn.call(null, obj[key], key, obj);
+      }
+    }
+  }
+  function findKey(obj, key) {
+    if (isBuffer(obj)) {
+      return null;
+    }
+    key = key.toLowerCase();
+    const keys = Object.keys(obj);
+    let i = keys.length;
+    let _key;
+    while (i-- > 0) {
+      _key = keys[i];
+      if (key === _key.toLowerCase()) {
+        return _key;
+      }
+    }
+    return null;
+  }
+  var _global = (() => {
+    if (typeof globalThis !== "undefined") return globalThis;
+    return typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : global;
+  })();
+  var isContextDefined = (context) => !isUndefined(context) && context !== _global;
+  function merge(...objs) {
+    const { caseless, skipUndefined } = isContextDefined(this) && this || {};
+    const result = {};
+    const assignValue = (val, key) => {
+      if (key === "__proto__" || key === "constructor" || key === "prototype") {
+        return;
+      }
+      const targetKey = caseless && findKey(result, key) || key;
+      const existing = hasOwnProperty(result, targetKey) ? result[targetKey] : void 0;
+      if (isPlainObject(existing) && isPlainObject(val)) {
+        result[targetKey] = merge(existing, val);
+      } else if (isPlainObject(val)) {
+        result[targetKey] = merge({}, val);
+      } else if (isArray(val)) {
+        result[targetKey] = val.slice();
+      } else if (!skipUndefined || !isUndefined(val)) {
+        result[targetKey] = val;
+      }
+    };
+    for (let i = 0, l = objs.length; i < l; i++) {
+      objs[i] && forEach(objs[i], assignValue);
+    }
+    return result;
+  }
+  var extend = (a, b, thisArg, { allOwnKeys } = {}) => {
+    forEach(
+      b,
+      (val, key) => {
+        if (thisArg && isFunction(val)) {
+          Object.defineProperty(a, key, {
+            // Null-proto descriptor so a polluted Object.prototype.get cannot
+            // hijack defineProperty's accessor-vs-data resolution.
+            __proto__: null,
+            value: bind(val, thisArg),
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+        } else {
+          Object.defineProperty(a, key, {
+            __proto__: null,
+            value: val,
+            writable: true,
+            enumerable: true,
+            configurable: true
+          });
+        }
+      },
+      { allOwnKeys }
+    );
+    return a;
+  };
+  var stripBOM = (content) => {
+    if (content.charCodeAt(0) === 65279) {
+      content = content.slice(1);
+    }
+    return content;
+  };
+  var inherits = (constructor, superConstructor, props, descriptors) => {
+    constructor.prototype = Object.create(superConstructor.prototype, descriptors);
+    Object.defineProperty(constructor.prototype, "constructor", {
+      __proto__: null,
+      value: constructor,
+      writable: true,
+      enumerable: false,
+      configurable: true
+    });
+    Object.defineProperty(constructor, "super", {
+      __proto__: null,
+      value: superConstructor.prototype
+    });
+    props && Object.assign(constructor.prototype, props);
+  };
+  var toFlatObject = (sourceObj, destObj, filter2, propFilter) => {
+    let props;
+    let i;
+    let prop;
+    const merged = {};
+    destObj = destObj || {};
+    if (sourceObj == null) return destObj;
+    do {
+      props = Object.getOwnPropertyNames(sourceObj);
+      i = props.length;
+      while (i-- > 0) {
+        prop = props[i];
+        if ((!propFilter || propFilter(prop, sourceObj, destObj)) && !merged[prop]) {
+          destObj[prop] = sourceObj[prop];
+          merged[prop] = true;
+        }
+      }
+      sourceObj = filter2 !== false && getPrototypeOf(sourceObj);
+    } while (sourceObj && (!filter2 || filter2(sourceObj, destObj)) && sourceObj !== Object.prototype);
+    return destObj;
+  };
+  var endsWith = (str, searchString, position) => {
+    str = String(str);
+    if (position === void 0 || position > str.length) {
+      position = str.length;
+    }
+    position -= searchString.length;
+    const lastIndex = str.indexOf(searchString, position);
+    return lastIndex !== -1 && lastIndex === position;
+  };
+  var toArray = (thing) => {
+    if (!thing) return null;
+    if (isArray(thing)) return thing;
+    let i = thing.length;
+    if (!isNumber(i)) return null;
+    const arr = new Array(i);
+    while (i-- > 0) {
+      arr[i] = thing[i];
+    }
+    return arr;
+  };
+  var isTypedArray = /* @__PURE__ */ ((TypedArray) => {
+    return (thing) => {
+      return TypedArray && thing instanceof TypedArray;
+    };
+  })(typeof Uint8Array !== "undefined" && getPrototypeOf(Uint8Array));
+  var forEachEntry = (obj, fn) => {
+    const generator = obj && obj[iterator];
+    const _iterator = generator.call(obj);
+    let result;
+    while ((result = _iterator.next()) && !result.done) {
+      const pair = result.value;
+      fn.call(obj, pair[0], pair[1]);
+    }
+  };
+  var matchAll = (regExp, str) => {
+    let matches;
+    const arr = [];
+    while ((matches = regExp.exec(str)) !== null) {
+      arr.push(matches);
+    }
+    return arr;
+  };
+  var isHTMLForm = kindOfTest("HTMLFormElement");
+  var toCamelCase = (str) => {
+    return str.toLowerCase().replace(/[-_\s]([a-z\d])(\w*)/g, function replacer(m, p1, p2) {
+      return p1.toUpperCase() + p2;
+    });
+  };
+  var hasOwnProperty = (({ hasOwnProperty: hasOwnProperty2 }) => (obj, prop) => hasOwnProperty2.call(obj, prop))(Object.prototype);
+  var isRegExp = kindOfTest("RegExp");
+  var reduceDescriptors = (obj, reducer) => {
+    const descriptors = Object.getOwnPropertyDescriptors(obj);
+    const reducedDescriptors = {};
+    forEach(descriptors, (descriptor, name) => {
+      let ret;
+      if ((ret = reducer(descriptor, name, obj)) !== false) {
+        reducedDescriptors[name] = ret || descriptor;
+      }
+    });
+    Object.defineProperties(obj, reducedDescriptors);
+  };
+  var freezeMethods = (obj) => {
+    reduceDescriptors(obj, (descriptor, name) => {
+      if (isFunction(obj) && ["arguments", "caller", "callee"].includes(name)) {
+        return false;
+      }
+      const value = obj[name];
+      if (!isFunction(value)) return;
+      descriptor.enumerable = false;
+      if ("writable" in descriptor) {
+        descriptor.writable = false;
+        return;
+      }
+      if (!descriptor.set) {
+        descriptor.set = () => {
+          throw Error("Can not rewrite read-only method '" + name + "'");
+        };
+      }
+    });
+  };
+  var toObjectSet = (arrayOrString, delimiter) => {
+    const obj = {};
+    const define = (arr) => {
+      arr.forEach((value) => {
+        obj[value] = true;
+      });
+    };
+    isArray(arrayOrString) ? define(arrayOrString) : define(String(arrayOrString).split(delimiter));
+    return obj;
+  };
+  var noop = () => {
+  };
+  var toFiniteNumber = (value, defaultValue) => {
+    return value != null && Number.isFinite(value = +value) ? value : defaultValue;
+  };
+  function isSpecCompliantForm(thing) {
+    return !!(thing && isFunction(thing.append) && thing[toStringTag] === "FormData" && thing[iterator]);
+  }
+  var toJSONObject = (obj) => {
+    const visited = /* @__PURE__ */ new WeakSet();
+    const visit = (source) => {
+      if (isObject(source)) {
+        if (visited.has(source)) {
+          return;
+        }
+        if (isBuffer(source)) {
+          return source;
+        }
+        if (!("toJSON" in source)) {
+          visited.add(source);
+          const target = isArray(source) ? [] : {};
+          forEach(source, (value, key) => {
+            const reducedValue = visit(value);
+            !isUndefined(reducedValue) && (target[key] = reducedValue);
+          });
+          visited.delete(source);
+          return target;
+        }
+      }
+      return source;
+    };
+    return visit(obj);
+  };
+  var isAsyncFn = kindOfTest("AsyncFunction");
+  var isThenable = (thing) => thing && (isObject(thing) || isFunction(thing)) && isFunction(thing.then) && isFunction(thing.catch);
+  var _setImmediate = ((setImmediateSupported, postMessageSupported) => {
+    if (setImmediateSupported) {
+      return setImmediate;
+    }
+    return postMessageSupported ? ((token, callbacks) => {
+      _global.addEventListener(
+        "message",
+        ({ source, data }) => {
+          if (source === _global && data === token) {
+            callbacks.length && callbacks.shift()();
+          }
+        },
+        false
+      );
+      return (cb) => {
+        callbacks.push(cb);
+        _global.postMessage(token, "*");
+      };
+    })(`axios@${Math.random()}`, []) : (cb) => setTimeout(cb);
+  })(typeof setImmediate === "function", isFunction(_global.postMessage));
+  var asap = typeof queueMicrotask !== "undefined" ? queueMicrotask.bind(_global) : typeof process !== "undefined" && process.nextTick || _setImmediate;
+  var isIterable = (thing) => thing != null && isFunction(thing[iterator]);
+  var utils_default = {
+    isArray,
+    isArrayBuffer,
+    isBuffer,
+    isFormData,
+    isArrayBufferView,
+    isString,
+    isNumber,
+    isBoolean,
+    isObject,
+    isPlainObject,
+    isEmptyObject,
+    isReadableStream,
+    isRequest,
+    isResponse,
+    isHeaders,
+    isUndefined,
+    isDate,
+    isFile,
+    isReactNativeBlob,
+    isReactNative,
+    isBlob,
+    isRegExp,
+    isFunction,
+    isStream,
+    isURLSearchParams,
+    isTypedArray,
+    isFileList,
+    forEach,
+    merge,
+    extend,
+    trim,
+    stripBOM,
+    inherits,
+    toFlatObject,
+    kindOf,
+    kindOfTest,
+    endsWith,
+    toArray,
+    forEachEntry,
+    matchAll,
+    isHTMLForm,
+    hasOwnProperty,
+    hasOwnProp: hasOwnProperty,
+    // an alias to avoid ESLint no-prototype-builtins detection
+    reduceDescriptors,
+    freezeMethods,
+    toObjectSet,
+    toCamelCase,
+    noop,
+    toFiniteNumber,
+    findKey,
+    global: _global,
+    isContextDefined,
+    isSpecCompliantForm,
+    toJSONObject,
+    isAsyncFn,
+    isThenable,
+    setImmediate: _setImmediate,
+    asap,
+    isIterable
+  };
+
+  // node_modules/axios/lib/helpers/parseHeaders.js
+  var ignoreDuplicateOf = utils_default.toObjectSet([
+    "age",
+    "authorization",
+    "content-length",
+    "content-type",
+    "etag",
+    "expires",
+    "from",
+    "host",
+    "if-modified-since",
+    "if-unmodified-since",
+    "last-modified",
+    "location",
+    "max-forwards",
+    "proxy-authorization",
+    "referer",
+    "retry-after",
+    "user-agent"
+  ]);
+  var parseHeaders_default = (rawHeaders) => {
+    const parsed = {};
+    let key;
+    let val;
+    let i;
+    rawHeaders && rawHeaders.split("\n").forEach(function parser(line) {
+      i = line.indexOf(":");
+      key = line.substring(0, i).trim().toLowerCase();
+      val = line.substring(i + 1).trim();
+      if (!key || parsed[key] && ignoreDuplicateOf[key]) {
+        return;
+      }
+      if (key === "set-cookie") {
+        if (parsed[key]) {
+          parsed[key].push(val);
+        } else {
+          parsed[key] = [val];
+        }
+      } else {
+        parsed[key] = parsed[key] ? parsed[key] + ", " + val : val;
+      }
+    });
+    return parsed;
+  };
+
+  // node_modules/axios/lib/helpers/sanitizeHeaderValue.js
+  function trimSPorHTAB(str) {
+    let start = 0;
+    let end = str.length;
+    while (start < end) {
+      const code = str.charCodeAt(start);
+      if (code !== 9 && code !== 32) {
+        break;
+      }
+      start += 1;
+    }
+    while (end > start) {
+      const code = str.charCodeAt(end - 1);
+      if (code !== 9 && code !== 32) {
+        break;
+      }
+      end -= 1;
+    }
+    return start === 0 && end === str.length ? str : str.slice(start, end);
+  }
+  var INVALID_UNICODE_HEADER_VALUE_CHARS = new RegExp("[\\u0000-\\u0008\\u000a-\\u001f\\u007f]+", "g");
+  var INVALID_BYTE_STRING_HEADER_VALUE_CHARS = new RegExp("[^\\u0009\\u0020-\\u007e\\u0080-\\u00ff]+", "g");
+  function sanitizeValue(value, invalidChars) {
+    if (utils_default.isArray(value)) {
+      return value.map((item) => sanitizeValue(item, invalidChars));
+    }
+    return trimSPorHTAB(String(value).replace(invalidChars, ""));
+  }
+  var sanitizeHeaderValue = (value) => sanitizeValue(value, INVALID_UNICODE_HEADER_VALUE_CHARS);
+  var sanitizeByteStringHeaderValue = (value) => sanitizeValue(value, INVALID_BYTE_STRING_HEADER_VALUE_CHARS);
+  function toByteStringHeaderObject(headers) {
+    const byteStringHeaders = /* @__PURE__ */ Object.create(null);
+    utils_default.forEach(headers.toJSON(), (value, header) => {
+      byteStringHeaders[header] = sanitizeByteStringHeaderValue(value);
+    });
+    return byteStringHeaders;
+  }
+
+  // node_modules/axios/lib/core/AxiosHeaders.js
+  var $internals = Symbol("internals");
+  function normalizeHeader(header) {
+    return header && String(header).trim().toLowerCase();
+  }
+  function normalizeValue(value) {
+    if (value === false || value == null) {
+      return value;
+    }
+    return utils_default.isArray(value) ? value.map(normalizeValue) : sanitizeHeaderValue(String(value));
+  }
+  function parseTokens(str) {
+    const tokens = /* @__PURE__ */ Object.create(null);
+    const tokensRE = /([^\s,;=]+)\s*(?:=\s*([^,;]+))?/g;
+    let match;
+    while (match = tokensRE.exec(str)) {
+      tokens[match[1]] = match[2];
+    }
+    return tokens;
+  }
+  var isValidHeaderName = (str) => /^[-_a-zA-Z0-9^`|~,!#$%&'*+.]+$/.test(str.trim());
+  function matchHeaderValue(context, value, header, filter2, isHeaderNameFilter) {
+    if (utils_default.isFunction(filter2)) {
+      return filter2.call(this, value, header);
+    }
+    if (isHeaderNameFilter) {
+      value = header;
+    }
+    if (!utils_default.isString(value)) return;
+    if (utils_default.isString(filter2)) {
+      return value.indexOf(filter2) !== -1;
+    }
+    if (utils_default.isRegExp(filter2)) {
+      return filter2.test(value);
+    }
+  }
+  function formatHeader(header) {
+    return header.trim().toLowerCase().replace(/([a-z\d])(\w*)/g, (w, char, str) => {
+      return char.toUpperCase() + str;
+    });
+  }
+  function buildAccessors(obj, header) {
+    const accessorName = utils_default.toCamelCase(" " + header);
+    ["get", "set", "has"].forEach((methodName) => {
+      Object.defineProperty(obj, methodName + accessorName, {
+        // Null-proto descriptor so a polluted Object.prototype.get cannot turn
+        // this data descriptor into an accessor descriptor on the way in.
+        __proto__: null,
+        value: function(arg1, arg2, arg3) {
+          return this[methodName].call(this, header, arg1, arg2, arg3);
+        },
+        configurable: true
+      });
+    });
+  }
+  var AxiosHeaders = class {
+    constructor(headers) {
+      headers && this.set(headers);
+    }
+    set(header, valueOrRewrite, rewrite) {
+      const self2 = this;
+      function setHeader(_value, _header, _rewrite) {
+        const lHeader = normalizeHeader(_header);
+        if (!lHeader) {
+          throw new Error("header name must be a non-empty string");
+        }
+        const key = utils_default.findKey(self2, lHeader);
+        if (!key || self2[key] === void 0 || _rewrite === true || _rewrite === void 0 && self2[key] !== false) {
+          self2[key || _header] = normalizeValue(_value);
+        }
+      }
+      const setHeaders = (headers, _rewrite) => utils_default.forEach(headers, (_value, _header) => setHeader(_value, _header, _rewrite));
+      if (utils_default.isPlainObject(header) || header instanceof this.constructor) {
+        setHeaders(header, valueOrRewrite);
+      } else if (utils_default.isString(header) && (header = header.trim()) && !isValidHeaderName(header)) {
+        setHeaders(parseHeaders_default(header), valueOrRewrite);
+      } else if (utils_default.isObject(header) && utils_default.isIterable(header)) {
+        let obj = {}, dest, key;
+        for (const entry of header) {
+          if (!utils_default.isArray(entry)) {
+            throw TypeError("Object iterator must return a key-value pair");
+          }
+          obj[key = entry[0]] = (dest = obj[key]) ? utils_default.isArray(dest) ? [...dest, entry[1]] : [dest, entry[1]] : entry[1];
+        }
+        setHeaders(obj, valueOrRewrite);
+      } else {
+        header != null && setHeader(valueOrRewrite, header, rewrite);
+      }
+      return this;
+    }
+    get(header, parser) {
+      header = normalizeHeader(header);
+      if (header) {
+        const key = utils_default.findKey(this, header);
+        if (key) {
+          const value = this[key];
+          if (!parser) {
+            return value;
+          }
+          if (parser === true) {
+            return parseTokens(value);
+          }
+          if (utils_default.isFunction(parser)) {
+            return parser.call(this, value, key);
+          }
+          if (utils_default.isRegExp(parser)) {
+            return parser.exec(value);
+          }
+          throw new TypeError("parser must be boolean|regexp|function");
+        }
+      }
+    }
+    has(header, matcher) {
+      header = normalizeHeader(header);
+      if (header) {
+        const key = utils_default.findKey(this, header);
+        return !!(key && this[key] !== void 0 && (!matcher || matchHeaderValue(this, this[key], key, matcher)));
+      }
+      return false;
+    }
+    delete(header, matcher) {
+      const self2 = this;
+      let deleted = false;
+      function deleteHeader(_header) {
+        _header = normalizeHeader(_header);
+        if (_header) {
+          const key = utils_default.findKey(self2, _header);
+          if (key && (!matcher || matchHeaderValue(self2, self2[key], key, matcher))) {
+            delete self2[key];
+            deleted = true;
+          }
+        }
+      }
+      if (utils_default.isArray(header)) {
+        header.forEach(deleteHeader);
+      } else {
+        deleteHeader(header);
+      }
+      return deleted;
+    }
+    clear(matcher) {
+      const keys = Object.keys(this);
+      let i = keys.length;
+      let deleted = false;
+      while (i--) {
+        const key = keys[i];
+        if (!matcher || matchHeaderValue(this, this[key], key, matcher, true)) {
+          delete this[key];
+          deleted = true;
+        }
+      }
+      return deleted;
+    }
+    normalize(format) {
+      const self2 = this;
+      const headers = {};
+      utils_default.forEach(this, (value, header) => {
+        const key = utils_default.findKey(headers, header);
+        if (key) {
+          self2[key] = normalizeValue(value);
+          delete self2[header];
+          return;
+        }
+        const normalized = format ? formatHeader(header) : String(header).trim();
+        if (normalized !== header) {
+          delete self2[header];
+        }
+        self2[normalized] = normalizeValue(value);
+        headers[normalized] = true;
+      });
+      return this;
+    }
+    concat(...targets) {
+      return this.constructor.concat(this, ...targets);
+    }
+    toJSON(asStrings) {
+      const obj = /* @__PURE__ */ Object.create(null);
+      utils_default.forEach(this, (value, header) => {
+        value != null && value !== false && (obj[header] = asStrings && utils_default.isArray(value) ? value.join(", ") : value);
+      });
+      return obj;
+    }
+    [Symbol.iterator]() {
+      return Object.entries(this.toJSON())[Symbol.iterator]();
+    }
+    toString() {
+      return Object.entries(this.toJSON()).map(([header, value]) => header + ": " + value).join("\n");
+    }
+    getSetCookie() {
+      return this.get("set-cookie") || [];
+    }
+    get [Symbol.toStringTag]() {
+      return "AxiosHeaders";
+    }
+    static from(thing) {
+      return thing instanceof this ? thing : new this(thing);
+    }
+    static concat(first, ...targets) {
+      const computed = new this(first);
+      targets.forEach((target) => computed.set(target));
+      return computed;
+    }
+    static accessor(header) {
+      const internals = this[$internals] = this[$internals] = {
+        accessors: {}
+      };
+      const accessors = internals.accessors;
+      const prototype2 = this.prototype;
+      function defineAccessor(_header) {
+        const lHeader = normalizeHeader(_header);
+        if (!accessors[lHeader]) {
+          buildAccessors(prototype2, _header);
+          accessors[lHeader] = true;
+        }
+      }
+      utils_default.isArray(header) ? header.forEach(defineAccessor) : defineAccessor(header);
+      return this;
+    }
+  };
+  AxiosHeaders.accessor([
+    "Content-Type",
+    "Content-Length",
+    "Accept",
+    "Accept-Encoding",
+    "User-Agent",
+    "Authorization"
+  ]);
+  utils_default.reduceDescriptors(AxiosHeaders.prototype, ({ value }, key) => {
+    let mapped = key[0].toUpperCase() + key.slice(1);
+    return {
+      get: () => value,
+      set(headerValue) {
+        this[mapped] = headerValue;
+      }
+    };
+  });
+  utils_default.freezeMethods(AxiosHeaders);
+  var AxiosHeaders_default = AxiosHeaders;
+
+  // node_modules/axios/lib/core/AxiosError.js
+  var REDACTED = "[REDACTED ****]";
+  function hasOwnOrPrototypeToJSON(source) {
+    if (utils_default.hasOwnProp(source, "toJSON")) {
+      return true;
+    }
+    let prototype2 = Object.getPrototypeOf(source);
+    while (prototype2 && prototype2 !== Object.prototype) {
+      if (utils_default.hasOwnProp(prototype2, "toJSON")) {
+        return true;
+      }
+      prototype2 = Object.getPrototypeOf(prototype2);
+    }
+    return false;
+  }
+  function redactConfig(config, redactKeys) {
+    const lowerKeys = new Set(redactKeys.map((k) => String(k).toLowerCase()));
+    const seen = [];
+    const visit = (source) => {
+      if (source === null || typeof source !== "object") return source;
+      if (utils_default.isBuffer(source)) return source;
+      if (seen.indexOf(source) !== -1) return void 0;
+      if (source instanceof AxiosHeaders_default) {
+        source = source.toJSON();
+      }
+      seen.push(source);
+      let result;
+      if (utils_default.isArray(source)) {
+        result = [];
+        source.forEach((v, i) => {
+          const reducedValue = visit(v);
+          if (!utils_default.isUndefined(reducedValue)) {
+            result[i] = reducedValue;
+          }
+        });
+      } else {
+        if (!utils_default.isPlainObject(source) && hasOwnOrPrototypeToJSON(source)) {
+          seen.pop();
+          return source;
+        }
+        result = /* @__PURE__ */ Object.create(null);
+        for (const [key, value] of Object.entries(source)) {
+          const reducedValue = lowerKeys.has(key.toLowerCase()) ? REDACTED : visit(value);
+          if (!utils_default.isUndefined(reducedValue)) {
+            result[key] = reducedValue;
+          }
+        }
+      }
+      seen.pop();
+      return result;
+    };
+    return visit(config);
+  }
+  var AxiosError = class _AxiosError extends Error {
+    static from(error, code, config, request, response, customProps) {
+      const axiosError = new _AxiosError(error.message, code || error.code, config, request, response);
+      axiosError.cause = error;
+      axiosError.name = error.name;
+      if (error.status != null && axiosError.status == null) {
+        axiosError.status = error.status;
+      }
+      customProps && Object.assign(axiosError, customProps);
+      return axiosError;
+    }
+    /**
+     * Create an Error with the specified message, config, error code, request and response.
+     *
+     * @param {string} message The error message.
+     * @param {string} [code] The error code (for example, 'ECONNABORTED').
+     * @param {Object} [config] The config.
+     * @param {Object} [request] The request.
+     * @param {Object} [response] The response.
+     *
+     * @returns {Error} The created error.
+     */
+    constructor(message, code, config, request, response) {
+      super(message);
+      Object.defineProperty(this, "message", {
+        // Null-proto descriptor so a polluted Object.prototype.get cannot turn
+        // this data descriptor into an accessor descriptor on the way in.
+        __proto__: null,
+        value: message,
+        enumerable: true,
+        writable: true,
+        configurable: true
+      });
+      this.name = "AxiosError";
+      this.isAxiosError = true;
+      code && (this.code = code);
+      config && (this.config = config);
+      request && (this.request = request);
+      if (response) {
+        this.response = response;
+        this.status = response.status;
+      }
+    }
+    toJSON() {
+      const config = this.config;
+      const redactKeys = config && utils_default.hasOwnProp(config, "redact") ? config.redact : void 0;
+      const serializedConfig = utils_default.isArray(redactKeys) && redactKeys.length > 0 ? redactConfig(config, redactKeys) : utils_default.toJSONObject(config);
+      return {
+        // Standard
+        message: this.message,
+        name: this.name,
+        // Microsoft
+        description: this.description,
+        number: this.number,
+        // Mozilla
+        fileName: this.fileName,
+        lineNumber: this.lineNumber,
+        columnNumber: this.columnNumber,
+        stack: this.stack,
+        // Axios
+        config: serializedConfig,
+        code: this.code,
+        status: this.status
+      };
+    }
+  };
+  AxiosError.ERR_BAD_OPTION_VALUE = "ERR_BAD_OPTION_VALUE";
+  AxiosError.ERR_BAD_OPTION = "ERR_BAD_OPTION";
+  AxiosError.ECONNABORTED = "ECONNABORTED";
+  AxiosError.ETIMEDOUT = "ETIMEDOUT";
+  AxiosError.ECONNREFUSED = "ECONNREFUSED";
+  AxiosError.ERR_NETWORK = "ERR_NETWORK";
+  AxiosError.ERR_FR_TOO_MANY_REDIRECTS = "ERR_FR_TOO_MANY_REDIRECTS";
+  AxiosError.ERR_DEPRECATED = "ERR_DEPRECATED";
+  AxiosError.ERR_BAD_RESPONSE = "ERR_BAD_RESPONSE";
+  AxiosError.ERR_BAD_REQUEST = "ERR_BAD_REQUEST";
+  AxiosError.ERR_CANCELED = "ERR_CANCELED";
+  AxiosError.ERR_NOT_SUPPORT = "ERR_NOT_SUPPORT";
+  AxiosError.ERR_INVALID_URL = "ERR_INVALID_URL";
+  AxiosError.ERR_FORM_DATA_DEPTH_EXCEEDED = "ERR_FORM_DATA_DEPTH_EXCEEDED";
+  var AxiosError_default = AxiosError;
+
+  // node_modules/axios/lib/helpers/null.js
+  var null_default = null;
+
+  // node_modules/axios/lib/helpers/toFormData.js
+  function isVisitable(thing) {
+    return utils_default.isPlainObject(thing) || utils_default.isArray(thing);
+  }
+  function removeBrackets(key) {
+    return utils_default.endsWith(key, "[]") ? key.slice(0, -2) : key;
+  }
+  function renderKey(path, key, dots) {
+    if (!path) return key;
+    return path.concat(key).map(function each(token, i) {
+      token = removeBrackets(token);
+      return !dots && i ? "[" + token + "]" : token;
+    }).join(dots ? "." : "");
+  }
+  function isFlatArray(arr) {
+    return utils_default.isArray(arr) && !arr.some(isVisitable);
+  }
+  var predicates = utils_default.toFlatObject(utils_default, {}, null, function filter(prop) {
+    return /^is[A-Z]/.test(prop);
+  });
+  function toFormData(obj, formData, options) {
+    if (!utils_default.isObject(obj)) {
+      throw new TypeError("target must be an object");
+    }
+    formData = formData || new (null_default || FormData)();
+    options = utils_default.toFlatObject(
+      options,
+      {
+        metaTokens: true,
+        dots: false,
+        indexes: false
+      },
+      false,
+      function defined(option, source) {
+        return !utils_default.isUndefined(source[option]);
+      }
+    );
+    const metaTokens = options.metaTokens;
+    const visitor = options.visitor || defaultVisitor;
+    const dots = options.dots;
+    const indexes = options.indexes;
+    const _Blob = options.Blob || typeof Blob !== "undefined" && Blob;
+    const maxDepth = options.maxDepth === void 0 ? 100 : options.maxDepth;
+    const useBlob = _Blob && utils_default.isSpecCompliantForm(formData);
+    if (!utils_default.isFunction(visitor)) {
+      throw new TypeError("visitor must be a function");
+    }
+    function convertValue(value) {
+      if (value === null) return "";
+      if (utils_default.isDate(value)) {
+        return value.toISOString();
+      }
+      if (utils_default.isBoolean(value)) {
+        return value.toString();
+      }
+      if (!useBlob && utils_default.isBlob(value)) {
+        throw new AxiosError_default("Blob is not supported. Use a Buffer instead.");
+      }
+      if (utils_default.isArrayBuffer(value) || utils_default.isTypedArray(value)) {
+        return useBlob && typeof Blob === "function" ? new Blob([value]) : Buffer.from(value);
+      }
+      return value;
+    }
+    function defaultVisitor(value, key, path) {
+      let arr = value;
+      if (utils_default.isReactNative(formData) && utils_default.isReactNativeBlob(value)) {
+        formData.append(renderKey(path, key, dots), convertValue(value));
+        return false;
+      }
+      if (value && !path && typeof value === "object") {
+        if (utils_default.endsWith(key, "{}")) {
+          key = metaTokens ? key : key.slice(0, -2);
+          value = JSON.stringify(value);
+        } else if (utils_default.isArray(value) && isFlatArray(value) || (utils_default.isFileList(value) || utils_default.endsWith(key, "[]")) && (arr = utils_default.toArray(value))) {
+          key = removeBrackets(key);
+          arr.forEach(function each(el, index) {
+            !(utils_default.isUndefined(el) || el === null) && formData.append(
+              // eslint-disable-next-line no-nested-ternary
+              indexes === true ? renderKey([key], index, dots) : indexes === null ? key : key + "[]",
+              convertValue(el)
+            );
+          });
+          return false;
+        }
+      }
+      if (isVisitable(value)) {
+        return true;
+      }
+      formData.append(renderKey(path, key, dots), convertValue(value));
+      return false;
+    }
+    const stack = [];
+    const exposedHelpers = Object.assign(predicates, {
+      defaultVisitor,
+      convertValue,
+      isVisitable
+    });
+    function build(value, path, depth = 0) {
+      if (utils_default.isUndefined(value)) return;
+      if (depth > maxDepth) {
+        throw new AxiosError_default(
+          "Object is too deeply nested (" + depth + " levels). Max depth: " + maxDepth,
+          AxiosError_default.ERR_FORM_DATA_DEPTH_EXCEEDED
+        );
+      }
+      if (stack.indexOf(value) !== -1) {
+        throw Error("Circular reference detected in " + path.join("."));
+      }
+      stack.push(value);
+      utils_default.forEach(value, function each(el, key) {
+        const result = !(utils_default.isUndefined(el) || el === null) && visitor.call(formData, el, utils_default.isString(key) ? key.trim() : key, path, exposedHelpers);
+        if (result === true) {
+          build(el, path ? path.concat(key) : [key], depth + 1);
+        }
+      });
+      stack.pop();
+    }
+    if (!utils_default.isObject(obj)) {
+      throw new TypeError("data must be an object");
+    }
+    build(obj);
+    return formData;
+  }
+  var toFormData_default = toFormData;
+
+  // node_modules/axios/lib/helpers/AxiosURLSearchParams.js
+  function encode(str) {
+    const charMap = {
+      "!": "%21",
+      "'": "%27",
+      "(": "%28",
+      ")": "%29",
+      "~": "%7E",
+      "%20": "+"
+    };
+    return encodeURIComponent(str).replace(/[!'()~]|%20/g, function replacer(match) {
+      return charMap[match];
+    });
+  }
+  function AxiosURLSearchParams(params, options) {
+    this._pairs = [];
+    params && toFormData_default(params, this, options);
+  }
+  var prototype = AxiosURLSearchParams.prototype;
+  prototype.append = function append(name, value) {
+    this._pairs.push([name, value]);
+  };
+  prototype.toString = function toString2(encoder) {
+    const _encode = encoder ? function(value) {
+      return encoder.call(this, value, encode);
+    } : encode;
+    return this._pairs.map(function each(pair) {
+      return _encode(pair[0]) + "=" + _encode(pair[1]);
+    }, "").join("&");
+  };
+  var AxiosURLSearchParams_default = AxiosURLSearchParams;
+
+  // node_modules/axios/lib/helpers/buildURL.js
+  function encode2(val) {
+    return encodeURIComponent(val).replace(/%3A/gi, ":").replace(/%24/g, "$").replace(/%2C/gi, ",").replace(/%20/g, "+");
+  }
+  function buildURL(url, params, options) {
+    if (!params) {
+      return url;
+    }
+    const _encode = options && options.encode || encode2;
+    const _options = utils_default.isFunction(options) ? {
+      serialize: options
+    } : options;
+    const serializeFn = _options && _options.serialize;
+    let serializedParams;
+    if (serializeFn) {
+      serializedParams = serializeFn(params, _options);
+    } else {
+      serializedParams = utils_default.isURLSearchParams(params) ? params.toString() : new AxiosURLSearchParams_default(params, _options).toString(_encode);
+    }
+    if (serializedParams) {
+      const hashmarkIndex = url.indexOf("#");
+      if (hashmarkIndex !== -1) {
+        url = url.slice(0, hashmarkIndex);
+      }
+      url += (url.indexOf("?") === -1 ? "?" : "&") + serializedParams;
+    }
+    return url;
+  }
+
+  // node_modules/axios/lib/core/InterceptorManager.js
+  var InterceptorManager = class {
+    constructor() {
+      this.handlers = [];
+    }
+    /**
+     * Add a new interceptor to the stack
+     *
+     * @param {Function} fulfilled The function to handle `then` for a `Promise`
+     * @param {Function} rejected The function to handle `reject` for a `Promise`
+     * @param {Object} options The options for the interceptor, synchronous and runWhen
+     *
+     * @return {Number} An ID used to remove interceptor later
+     */
+    use(fulfilled, rejected, options) {
+      this.handlers.push({
+        fulfilled,
+        rejected,
+        synchronous: options ? options.synchronous : false,
+        runWhen: options ? options.runWhen : null
+      });
+      return this.handlers.length - 1;
+    }
+    /**
+     * Remove an interceptor from the stack
+     *
+     * @param {Number} id The ID that was returned by `use`
+     *
+     * @returns {void}
+     */
+    eject(id) {
+      if (this.handlers[id]) {
+        this.handlers[id] = null;
+      }
+    }
+    /**
+     * Clear all interceptors from the stack
+     *
+     * @returns {void}
+     */
+    clear() {
+      if (this.handlers) {
+        this.handlers = [];
+      }
+    }
+    /**
+     * Iterate over all the registered interceptors
+     *
+     * This method is particularly useful for skipping over any
+     * interceptors that may have become `null` calling `eject`.
+     *
+     * @param {Function} fn The function to call for each interceptor
+     *
+     * @returns {void}
+     */
+    forEach(fn) {
+      utils_default.forEach(this.handlers, function forEachHandler(h) {
+        if (h !== null) {
+          fn(h);
+        }
+      });
+    }
+  };
+  var InterceptorManager_default = InterceptorManager;
+
+  // node_modules/axios/lib/defaults/transitional.js
+  var transitional_default = {
+    silentJSONParsing: true,
+    forcedJSONParsing: true,
+    clarifyTimeoutError: false,
+    legacyInterceptorReqResOrdering: true
+  };
+
+  // node_modules/axios/lib/platform/browser/classes/URLSearchParams.js
+  var URLSearchParams_default = typeof URLSearchParams !== "undefined" ? URLSearchParams : AxiosURLSearchParams_default;
+
+  // node_modules/axios/lib/platform/browser/classes/FormData.js
+  var FormData_default = typeof FormData !== "undefined" ? FormData : null;
+
+  // node_modules/axios/lib/platform/browser/classes/Blob.js
+  var Blob_default = typeof Blob !== "undefined" ? Blob : null;
+
+  // node_modules/axios/lib/platform/browser/index.js
+  var browser_default = {
+    isBrowser: true,
+    classes: {
+      URLSearchParams: URLSearchParams_default,
+      FormData: FormData_default,
+      Blob: Blob_default
+    },
+    protocols: ["http", "https", "file", "blob", "url", "data"]
+  };
+
+  // node_modules/axios/lib/platform/common/utils.js
+  var utils_exports = {};
+  __export(utils_exports, {
+    hasBrowserEnv: () => hasBrowserEnv,
+    hasStandardBrowserEnv: () => hasStandardBrowserEnv,
+    hasStandardBrowserWebWorkerEnv: () => hasStandardBrowserWebWorkerEnv,
+    navigator: () => _navigator,
+    origin: () => origin
+  });
+  var hasBrowserEnv = typeof window !== "undefined" && typeof document !== "undefined";
+  var _navigator = typeof navigator === "object" && navigator || void 0;
+  var hasStandardBrowserEnv = hasBrowserEnv && (!_navigator || ["ReactNative", "NativeScript", "NS"].indexOf(_navigator.product) < 0);
+  var hasStandardBrowserWebWorkerEnv = (() => {
+    return typeof WorkerGlobalScope !== "undefined" && // eslint-disable-next-line no-undef
+    self instanceof WorkerGlobalScope && typeof self.importScripts === "function";
+  })();
+  var origin = hasBrowserEnv && window.location.href || "http://localhost";
+
+  // node_modules/axios/lib/platform/index.js
+  var platform_default = {
+    ...utils_exports,
+    ...browser_default
+  };
+
+  // node_modules/axios/lib/helpers/toURLEncodedForm.js
+  function toURLEncodedForm(data, options) {
+    return toFormData_default(data, new platform_default.classes.URLSearchParams(), {
+      visitor: function(value, key, path, helpers) {
+        if (platform_default.isNode && utils_default.isBuffer(value)) {
+          this.append(key, value.toString("base64"));
+          return false;
+        }
+        return helpers.defaultVisitor.apply(this, arguments);
+      },
+      ...options
+    });
+  }
+
+  // node_modules/axios/lib/helpers/formDataToJSON.js
+  function parsePropPath(name) {
+    return utils_default.matchAll(/\w+|\[(\w*)]/g, name).map((match) => {
+      return match[0] === "[]" ? "" : match[1] || match[0];
+    });
+  }
+  function arrayToObject(arr) {
+    const obj = {};
+    const keys = Object.keys(arr);
+    let i;
+    const len = keys.length;
+    let key;
+    for (i = 0; i < len; i++) {
+      key = keys[i];
+      obj[key] = arr[key];
+    }
+    return obj;
+  }
+  function formDataToJSON(formData) {
+    function buildPath(path, value, target, index) {
+      let name = path[index++];
+      if (name === "__proto__") return true;
+      const isNumericKey = Number.isFinite(+name);
+      const isLast = index >= path.length;
+      name = !name && utils_default.isArray(target) ? target.length : name;
+      if (isLast) {
+        if (utils_default.hasOwnProp(target, name)) {
+          target[name] = utils_default.isArray(target[name]) ? target[name].concat(value) : [target[name], value];
+        } else {
+          target[name] = value;
+        }
+        return !isNumericKey;
+      }
+      if (!utils_default.hasOwnProp(target, name) || !utils_default.isObject(target[name])) {
+        target[name] = [];
+      }
+      const result = buildPath(path, value, target[name], index);
+      if (result && utils_default.isArray(target[name])) {
+        target[name] = arrayToObject(target[name]);
+      }
+      return !isNumericKey;
+    }
+    if (utils_default.isFormData(formData) && utils_default.isFunction(formData.entries)) {
+      const obj = {};
+      utils_default.forEachEntry(formData, (name, value) => {
+        buildPath(parsePropPath(name), value, obj, 0);
+      });
+      return obj;
+    }
+    return null;
+  }
+  var formDataToJSON_default = formDataToJSON;
+
+  // node_modules/axios/lib/defaults/index.js
+  var own = (obj, key) => obj != null && utils_default.hasOwnProp(obj, key) ? obj[key] : void 0;
+  function stringifySafely(rawValue, parser, encoder) {
+    if (utils_default.isString(rawValue)) {
+      try {
+        (parser || JSON.parse)(rawValue);
+        return utils_default.trim(rawValue);
+      } catch (e) {
+        if (e.name !== "SyntaxError") {
+          throw e;
+        }
+      }
+    }
+    return (encoder || JSON.stringify)(rawValue);
+  }
+  var defaults = {
+    transitional: transitional_default,
+    adapter: ["xhr", "http", "fetch"],
+    transformRequest: [
+      function transformRequest(data, headers) {
+        const contentType = headers.getContentType() || "";
+        const hasJSONContentType = contentType.indexOf("application/json") > -1;
+        const isObjectPayload = utils_default.isObject(data);
+        if (isObjectPayload && utils_default.isHTMLForm(data)) {
+          data = new FormData(data);
+        }
+        const isFormData2 = utils_default.isFormData(data);
+        if (isFormData2) {
+          return hasJSONContentType ? JSON.stringify(formDataToJSON_default(data)) : data;
+        }
+        if (utils_default.isArrayBuffer(data) || utils_default.isBuffer(data) || utils_default.isStream(data) || utils_default.isFile(data) || utils_default.isBlob(data) || utils_default.isReadableStream(data)) {
+          return data;
+        }
+        if (utils_default.isArrayBufferView(data)) {
+          return data.buffer;
+        }
+        if (utils_default.isURLSearchParams(data)) {
+          headers.setContentType("application/x-www-form-urlencoded;charset=utf-8", false);
+          return data.toString();
+        }
+        let isFileList2;
+        if (isObjectPayload) {
+          const formSerializer = own(this, "formSerializer");
+          if (contentType.indexOf("application/x-www-form-urlencoded") > -1) {
+            return toURLEncodedForm(data, formSerializer).toString();
+          }
+          if ((isFileList2 = utils_default.isFileList(data)) || contentType.indexOf("multipart/form-data") > -1) {
+            const env = own(this, "env");
+            const _FormData = env && env.FormData;
+            return toFormData_default(
+              isFileList2 ? { "files[]": data } : data,
+              _FormData && new _FormData(),
+              formSerializer
+            );
+          }
+        }
+        if (isObjectPayload || hasJSONContentType) {
+          headers.setContentType("application/json", false);
+          return stringifySafely(data);
+        }
+        return data;
+      }
+    ],
+    transformResponse: [
+      function transformResponse(data) {
+        const transitional2 = own(this, "transitional") || defaults.transitional;
+        const forcedJSONParsing = transitional2 && transitional2.forcedJSONParsing;
+        const responseType = own(this, "responseType");
+        const JSONRequested = responseType === "json";
+        if (utils_default.isResponse(data) || utils_default.isReadableStream(data)) {
+          return data;
+        }
+        if (data && utils_default.isString(data) && (forcedJSONParsing && !responseType || JSONRequested)) {
+          const silentJSONParsing = transitional2 && transitional2.silentJSONParsing;
+          const strictJSONParsing = !silentJSONParsing && JSONRequested;
+          try {
+            return JSON.parse(data, own(this, "parseReviver"));
+          } catch (e) {
+            if (strictJSONParsing) {
+              if (e.name === "SyntaxError") {
+                throw AxiosError_default.from(e, AxiosError_default.ERR_BAD_RESPONSE, this, null, own(this, "response"));
+              }
+              throw e;
+            }
+          }
+        }
+        return data;
+      }
+    ],
+    /**
+     * A timeout in milliseconds to abort a request. If set to 0 (default) a
+     * timeout is not created.
+     */
+    timeout: 0,
+    xsrfCookieName: "XSRF-TOKEN",
+    xsrfHeaderName: "X-XSRF-TOKEN",
+    maxContentLength: -1,
+    maxBodyLength: -1,
+    env: {
+      FormData: platform_default.classes.FormData,
+      Blob: platform_default.classes.Blob
+    },
+    validateStatus: function validateStatus(status) {
+      return status >= 200 && status < 300;
+    },
+    headers: {
+      common: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": void 0
+      }
+    }
+  };
+  utils_default.forEach(["delete", "get", "head", "post", "put", "patch", "query"], (method) => {
+    defaults.headers[method] = {};
+  });
+  var defaults_default = defaults;
+
+  // node_modules/axios/lib/core/transformData.js
+  function transformData(fns, response) {
+    const config = this || defaults_default;
+    const context = response || config;
+    const headers = AxiosHeaders_default.from(context.headers);
+    let data = context.data;
+    utils_default.forEach(fns, function transform(fn) {
+      data = fn.call(config, data, headers.normalize(), response ? response.status : void 0);
+    });
+    headers.normalize();
+    return data;
+  }
+
+  // node_modules/axios/lib/cancel/isCancel.js
+  function isCancel(value) {
+    return !!(value && value.__CANCEL__);
+  }
+
+  // node_modules/axios/lib/cancel/CanceledError.js
+  var CanceledError = class extends AxiosError_default {
+    /**
+     * A `CanceledError` is an object that is thrown when an operation is canceled.
+     *
+     * @param {string=} message The message.
+     * @param {Object=} config The config.
+     * @param {Object=} request The request.
+     *
+     * @returns {CanceledError} The created error.
+     */
+    constructor(message, config, request) {
+      super(message == null ? "canceled" : message, AxiosError_default.ERR_CANCELED, config, request);
+      this.name = "CanceledError";
+      this.__CANCEL__ = true;
+    }
+  };
+  var CanceledError_default = CanceledError;
+
+  // node_modules/axios/lib/core/settle.js
+  function settle(resolve, reject, response) {
+    const validateStatus2 = response.config.validateStatus;
+    if (!response.status || !validateStatus2 || validateStatus2(response.status)) {
+      resolve(response);
+    } else {
+      reject(new AxiosError_default(
+        "Request failed with status code " + response.status,
+        response.status >= 400 && response.status < 500 ? AxiosError_default.ERR_BAD_REQUEST : AxiosError_default.ERR_BAD_RESPONSE,
+        response.config,
+        response.request,
+        response
+      ));
+    }
+  }
+
+  // node_modules/axios/lib/helpers/parseProtocol.js
+  function parseProtocol(url) {
+    const match = /^([-+\w]{1,25}):(?:\/\/)?/.exec(url);
+    return match && match[1] || "";
+  }
+
+  // node_modules/axios/lib/helpers/speedometer.js
+  function speedometer(samplesCount, min) {
+    samplesCount = samplesCount || 10;
+    const bytes = new Array(samplesCount);
+    const timestamps = new Array(samplesCount);
+    let head = 0;
+    let tail = 0;
+    let firstSampleTS;
+    min = min !== void 0 ? min : 1e3;
+    return function push(chunkLength) {
+      const now = Date.now();
+      const startedAt = timestamps[tail];
+      if (!firstSampleTS) {
+        firstSampleTS = now;
+      }
+      bytes[head] = chunkLength;
+      timestamps[head] = now;
+      let i = tail;
+      let bytesCount = 0;
+      while (i !== head) {
+        bytesCount += bytes[i++];
+        i = i % samplesCount;
+      }
+      head = (head + 1) % samplesCount;
+      if (head === tail) {
+        tail = (tail + 1) % samplesCount;
+      }
+      if (now - firstSampleTS < min) {
+        return;
+      }
+      const passed = startedAt && now - startedAt;
+      return passed ? Math.round(bytesCount * 1e3 / passed) : void 0;
+    };
+  }
+  var speedometer_default = speedometer;
+
+  // node_modules/axios/lib/helpers/throttle.js
+  function throttle(fn, freq) {
+    let timestamp = 0;
+    let threshold = 1e3 / freq;
+    let lastArgs;
+    let timer;
+    const invoke = (args, now = Date.now()) => {
+      timestamp = now;
+      lastArgs = null;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      fn(...args);
+    };
+    const throttled = (...args) => {
+      const now = Date.now();
+      const passed = now - timestamp;
+      if (passed >= threshold) {
+        invoke(args, now);
+      } else {
+        lastArgs = args;
+        if (!timer) {
+          timer = setTimeout(() => {
+            timer = null;
+            invoke(lastArgs);
+          }, threshold - passed);
+        }
+      }
+    };
+    const flush = () => lastArgs && invoke(lastArgs);
+    return [throttled, flush];
+  }
+  var throttle_default = throttle;
+
+  // node_modules/axios/lib/helpers/progressEventReducer.js
+  var progressEventReducer = (listener, isDownloadStream, freq = 3) => {
+    let bytesNotified = 0;
+    const _speedometer = speedometer_default(50, 250);
+    return throttle_default((e) => {
+      if (!e || typeof e.loaded !== "number") {
+        return;
+      }
+      const rawLoaded = e.loaded;
+      const total = e.lengthComputable ? e.total : void 0;
+      const loaded = total != null ? Math.min(rawLoaded, total) : rawLoaded;
+      const progressBytes = Math.max(0, loaded - bytesNotified);
+      const rate = _speedometer(progressBytes);
+      bytesNotified = Math.max(bytesNotified, loaded);
+      const data = {
+        loaded,
+        total,
+        progress: total ? loaded / total : void 0,
+        bytes: progressBytes,
+        rate: rate ? rate : void 0,
+        estimated: rate && total ? (total - loaded) / rate : void 0,
+        event: e,
+        lengthComputable: total != null,
+        [isDownloadStream ? "download" : "upload"]: true
+      };
+      listener(data);
+    }, freq);
+  };
+  var progressEventDecorator = (total, throttled) => {
+    const lengthComputable = total != null;
+    return [
+      (loaded) => throttled[0]({
+        lengthComputable,
+        total,
+        loaded
+      }),
+      throttled[1]
+    ];
+  };
+  var asyncDecorator = (fn) => (...args) => utils_default.asap(() => fn(...args));
+
+  // node_modules/axios/lib/helpers/isURLSameOrigin.js
+  var isURLSameOrigin_default = platform_default.hasStandardBrowserEnv ? /* @__PURE__ */ ((origin2, isMSIE) => (url) => {
+    url = new URL(url, platform_default.origin);
+    return origin2.protocol === url.protocol && origin2.host === url.host && (isMSIE || origin2.port === url.port);
+  })(
+    new URL(platform_default.origin),
+    platform_default.navigator && /(msie|trident)/i.test(platform_default.navigator.userAgent)
+  ) : () => true;
+
+  // node_modules/axios/lib/helpers/cookies.js
+  var cookies_default = platform_default.hasStandardBrowserEnv ? (
+    // Standard browser envs support document.cookie
+    {
+      write(name, value, expires, path, domain, secure, sameSite) {
+        if (typeof document === "undefined") return;
+        const cookie = [`${name}=${encodeURIComponent(value)}`];
+        if (utils_default.isNumber(expires)) {
+          cookie.push(`expires=${new Date(expires).toUTCString()}`);
+        }
+        if (utils_default.isString(path)) {
+          cookie.push(`path=${path}`);
+        }
+        if (utils_default.isString(domain)) {
+          cookie.push(`domain=${domain}`);
+        }
+        if (secure === true) {
+          cookie.push("secure");
+        }
+        if (utils_default.isString(sameSite)) {
+          cookie.push(`SameSite=${sameSite}`);
+        }
+        document.cookie = cookie.join("; ");
+      },
+      read(name) {
+        if (typeof document === "undefined") return null;
+        const cookies = document.cookie.split(";");
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].replace(/^\s+/, "");
+          const eq = cookie.indexOf("=");
+          if (eq !== -1 && cookie.slice(0, eq) === name) {
+            return decodeURIComponent(cookie.slice(eq + 1));
+          }
+        }
+        return null;
+      },
+      remove(name) {
+        this.write(name, "", Date.now() - 864e5, "/");
+      }
+    }
+  ) : (
+    // Non-standard browser env (web workers, react-native) lack needed support.
+    {
+      write() {
+      },
+      read() {
+        return null;
+      },
+      remove() {
+      }
+    }
+  );
+
+  // node_modules/axios/lib/helpers/isAbsoluteURL.js
+  function isAbsoluteURL(url) {
+    if (typeof url !== "string") {
+      return false;
+    }
+    return /^([a-z][a-z\d+\-.]*:)?\/\//i.test(url);
+  }
+
+  // node_modules/axios/lib/helpers/combineURLs.js
+  function combineURLs(baseURL, relativeURL) {
+    return relativeURL ? baseURL.replace(/\/?\/$/, "") + "/" + relativeURL.replace(/^\/+/, "") : baseURL;
+  }
+
+  // node_modules/axios/lib/core/buildFullPath.js
+  function buildFullPath(baseURL, requestedURL, allowAbsoluteUrls) {
+    let isRelativeUrl = !isAbsoluteURL(requestedURL);
+    if (baseURL && (isRelativeUrl || allowAbsoluteUrls === false)) {
+      return combineURLs(baseURL, requestedURL);
+    }
+    return requestedURL;
+  }
+
+  // node_modules/axios/lib/core/mergeConfig.js
+  var headersToObject = (thing) => thing instanceof AxiosHeaders_default ? { ...thing } : thing;
+  function mergeConfig(config1, config2) {
+    config2 = config2 || {};
+    const config = /* @__PURE__ */ Object.create(null);
+    Object.defineProperty(config, "hasOwnProperty", {
+      // Null-proto descriptor so a polluted Object.prototype.get cannot turn
+      // this data descriptor into an accessor descriptor on the way in.
+      __proto__: null,
+      value: Object.prototype.hasOwnProperty,
+      enumerable: false,
+      writable: true,
+      configurable: true
+    });
+    function getMergedValue(target, source, prop, caseless) {
+      if (utils_default.isPlainObject(target) && utils_default.isPlainObject(source)) {
+        return utils_default.merge.call({ caseless }, target, source);
+      } else if (utils_default.isPlainObject(source)) {
+        return utils_default.merge({}, source);
+      } else if (utils_default.isArray(source)) {
+        return source.slice();
+      }
+      return source;
+    }
+    function mergeDeepProperties(a, b, prop, caseless) {
+      if (!utils_default.isUndefined(b)) {
+        return getMergedValue(a, b, prop, caseless);
+      } else if (!utils_default.isUndefined(a)) {
+        return getMergedValue(void 0, a, prop, caseless);
+      }
+    }
+    function valueFromConfig2(a, b) {
+      if (!utils_default.isUndefined(b)) {
+        return getMergedValue(void 0, b);
+      }
+    }
+    function defaultToConfig2(a, b) {
+      if (!utils_default.isUndefined(b)) {
+        return getMergedValue(void 0, b);
+      } else if (!utils_default.isUndefined(a)) {
+        return getMergedValue(void 0, a);
+      }
+    }
+    function mergeDirectKeys(a, b, prop) {
+      if (utils_default.hasOwnProp(config2, prop)) {
+        return getMergedValue(a, b);
+      } else if (utils_default.hasOwnProp(config1, prop)) {
+        return getMergedValue(void 0, a);
+      }
+    }
+    const mergeMap = {
+      url: valueFromConfig2,
+      method: valueFromConfig2,
+      data: valueFromConfig2,
+      baseURL: defaultToConfig2,
+      transformRequest: defaultToConfig2,
+      transformResponse: defaultToConfig2,
+      paramsSerializer: defaultToConfig2,
+      timeout: defaultToConfig2,
+      timeoutMessage: defaultToConfig2,
+      withCredentials: defaultToConfig2,
+      withXSRFToken: defaultToConfig2,
+      adapter: defaultToConfig2,
+      responseType: defaultToConfig2,
+      xsrfCookieName: defaultToConfig2,
+      xsrfHeaderName: defaultToConfig2,
+      onUploadProgress: defaultToConfig2,
+      onDownloadProgress: defaultToConfig2,
+      decompress: defaultToConfig2,
+      maxContentLength: defaultToConfig2,
+      maxBodyLength: defaultToConfig2,
+      beforeRedirect: defaultToConfig2,
+      transport: defaultToConfig2,
+      httpAgent: defaultToConfig2,
+      httpsAgent: defaultToConfig2,
+      cancelToken: defaultToConfig2,
+      socketPath: defaultToConfig2,
+      allowedSocketPaths: defaultToConfig2,
+      responseEncoding: defaultToConfig2,
+      validateStatus: mergeDirectKeys,
+      headers: (a, b, prop) => mergeDeepProperties(headersToObject(a), headersToObject(b), prop, true)
+    };
+    utils_default.forEach(Object.keys({ ...config1, ...config2 }), function computeConfigValue(prop) {
+      if (prop === "__proto__" || prop === "constructor" || prop === "prototype") return;
+      const merge2 = utils_default.hasOwnProp(mergeMap, prop) ? mergeMap[prop] : mergeDeepProperties;
+      const a = utils_default.hasOwnProp(config1, prop) ? config1[prop] : void 0;
+      const b = utils_default.hasOwnProp(config2, prop) ? config2[prop] : void 0;
+      const configValue = merge2(a, b, prop);
+      utils_default.isUndefined(configValue) && merge2 !== mergeDirectKeys || (config[prop] = configValue);
+    });
+    return config;
+  }
+
+  // node_modules/axios/lib/helpers/resolveConfig.js
+  var FORM_DATA_CONTENT_HEADERS = ["content-type", "content-length"];
+  function setFormDataHeaders(headers, formHeaders, policy) {
+    if (policy !== "content-only") {
+      headers.set(formHeaders);
+      return;
+    }
+    Object.entries(formHeaders).forEach(([key, val]) => {
+      if (FORM_DATA_CONTENT_HEADERS.includes(key.toLowerCase())) {
+        headers.set(key, val);
+      }
+    });
+  }
+  var encodeUTF8 = (str) => encodeURIComponent(str).replace(
+    /%([0-9A-F]{2})/gi,
+    (_, hex) => String.fromCharCode(parseInt(hex, 16))
+  );
+  var resolveConfig_default = (config) => {
+    const newConfig = mergeConfig({}, config);
+    const own2 = (key) => utils_default.hasOwnProp(newConfig, key) ? newConfig[key] : void 0;
+    const data = own2("data");
+    let withXSRFToken = own2("withXSRFToken");
+    const xsrfHeaderName = own2("xsrfHeaderName");
+    const xsrfCookieName = own2("xsrfCookieName");
+    let headers = own2("headers");
+    const auth = own2("auth");
+    const baseURL = own2("baseURL");
+    const allowAbsoluteUrls = own2("allowAbsoluteUrls");
+    const url = own2("url");
+    newConfig.headers = headers = AxiosHeaders_default.from(headers);
+    newConfig.url = buildURL(
+      buildFullPath(baseURL, url, allowAbsoluteUrls),
+      config.params,
+      config.paramsSerializer
+    );
+    if (auth) {
+      headers.set(
+        "Authorization",
+        "Basic " + btoa((auth.username || "") + ":" + (auth.password ? encodeUTF8(auth.password) : ""))
+      );
+    }
+    if (utils_default.isFormData(data)) {
+      if (platform_default.hasStandardBrowserEnv || platform_default.hasStandardBrowserWebWorkerEnv) {
+        headers.setContentType(void 0);
+      } else if (utils_default.isFunction(data.getHeaders)) {
+        setFormDataHeaders(headers, data.getHeaders(), own2("formDataHeaderPolicy"));
+      }
+    }
+    if (platform_default.hasStandardBrowserEnv) {
+      if (utils_default.isFunction(withXSRFToken)) {
+        withXSRFToken = withXSRFToken(newConfig);
+      }
+      const shouldSendXSRF = withXSRFToken === true || withXSRFToken == null && isURLSameOrigin_default(newConfig.url);
+      if (shouldSendXSRF) {
+        const xsrfValue = xsrfHeaderName && xsrfCookieName && cookies_default.read(xsrfCookieName);
+        if (xsrfValue) {
+          headers.set(xsrfHeaderName, xsrfValue);
+        }
+      }
+    }
+    return newConfig;
+  };
+
+  // node_modules/axios/lib/adapters/xhr.js
+  var isXHRAdapterSupported = typeof XMLHttpRequest !== "undefined";
+  var xhr_default = isXHRAdapterSupported && function(config) {
+    return new Promise(function dispatchXhrRequest(resolve, reject) {
+      const _config = resolveConfig_default(config);
+      let requestData = _config.data;
+      const requestHeaders = AxiosHeaders_default.from(_config.headers).normalize();
+      let { responseType, onUploadProgress, onDownloadProgress } = _config;
+      let onCanceled;
+      let uploadThrottled, downloadThrottled;
+      let flushUpload, flushDownload;
+      function done() {
+        flushUpload && flushUpload();
+        flushDownload && flushDownload();
+        _config.cancelToken && _config.cancelToken.unsubscribe(onCanceled);
+        _config.signal && _config.signal.removeEventListener("abort", onCanceled);
+      }
+      let request = new XMLHttpRequest();
+      request.open(_config.method.toUpperCase(), _config.url, true);
+      request.timeout = _config.timeout;
+      function onloadend() {
+        if (!request) {
+          return;
+        }
+        const responseHeaders = AxiosHeaders_default.from(
+          "getAllResponseHeaders" in request && request.getAllResponseHeaders()
+        );
+        const responseData = !responseType || responseType === "text" || responseType === "json" ? request.responseText : request.response;
+        const response = {
+          data: responseData,
+          status: request.status,
+          statusText: request.statusText,
+          headers: responseHeaders,
+          config,
+          request
+        };
+        settle(
+          function _resolve(value) {
+            resolve(value);
+            done();
+          },
+          function _reject(err) {
+            reject(err);
+            done();
+          },
+          response
+        );
+        request = null;
+      }
+      if ("onloadend" in request) {
+        request.onloadend = onloadend;
+      } else {
+        request.onreadystatechange = function handleLoad() {
+          if (!request || request.readyState !== 4) {
+            return;
+          }
+          if (request.status === 0 && !(request.responseURL && request.responseURL.startsWith("file:"))) {
+            return;
+          }
+          setTimeout(onloadend);
+        };
+      }
+      request.onabort = function handleAbort() {
+        if (!request) {
+          return;
+        }
+        reject(new AxiosError_default("Request aborted", AxiosError_default.ECONNABORTED, config, request));
+        done();
+        request = null;
+      };
+      request.onerror = function handleError(event) {
+        const msg = event && event.message ? event.message : "Network Error";
+        const err = new AxiosError_default(msg, AxiosError_default.ERR_NETWORK, config, request);
+        err.event = event || null;
+        reject(err);
+        done();
+        request = null;
+      };
+      request.ontimeout = function handleTimeout() {
+        let timeoutErrorMessage = _config.timeout ? "timeout of " + _config.timeout + "ms exceeded" : "timeout exceeded";
+        const transitional2 = _config.transitional || transitional_default;
+        if (_config.timeoutErrorMessage) {
+          timeoutErrorMessage = _config.timeoutErrorMessage;
+        }
+        reject(
+          new AxiosError_default(
+            timeoutErrorMessage,
+            transitional2.clarifyTimeoutError ? AxiosError_default.ETIMEDOUT : AxiosError_default.ECONNABORTED,
+            config,
+            request
+          )
+        );
+        done();
+        request = null;
+      };
+      requestData === void 0 && requestHeaders.setContentType(null);
+      if ("setRequestHeader" in request) {
+        utils_default.forEach(toByteStringHeaderObject(requestHeaders), function setRequestHeader(val, key) {
+          request.setRequestHeader(key, val);
+        });
+      }
+      if (!utils_default.isUndefined(_config.withCredentials)) {
+        request.withCredentials = !!_config.withCredentials;
+      }
+      if (responseType && responseType !== "json") {
+        request.responseType = _config.responseType;
+      }
+      if (onDownloadProgress) {
+        [downloadThrottled, flushDownload] = progressEventReducer(onDownloadProgress, true);
+        request.addEventListener("progress", downloadThrottled);
+      }
+      if (onUploadProgress && request.upload) {
+        [uploadThrottled, flushUpload] = progressEventReducer(onUploadProgress);
+        request.upload.addEventListener("progress", uploadThrottled);
+        request.upload.addEventListener("loadend", flushUpload);
+      }
+      if (_config.cancelToken || _config.signal) {
+        onCanceled = (cancel) => {
+          if (!request) {
+            return;
+          }
+          reject(!cancel || cancel.type ? new CanceledError_default(null, config, request) : cancel);
+          request.abort();
+          done();
+          request = null;
+        };
+        _config.cancelToken && _config.cancelToken.subscribe(onCanceled);
+        if (_config.signal) {
+          _config.signal.aborted ? onCanceled() : _config.signal.addEventListener("abort", onCanceled);
+        }
+      }
+      const protocol = parseProtocol(_config.url);
+      if (protocol && !platform_default.protocols.includes(protocol)) {
+        reject(
+          new AxiosError_default(
+            "Unsupported protocol " + protocol + ":",
+            AxiosError_default.ERR_BAD_REQUEST,
+            config
+          )
+        );
+        return;
+      }
+      request.send(requestData || null);
+    });
+  };
+
+  // node_modules/axios/lib/helpers/composeSignals.js
+  var composeSignals = (signals, timeout) => {
+    signals = signals ? signals.filter(Boolean) : [];
+    if (!timeout && !signals.length) {
+      return;
+    }
+    const controller = new AbortController();
+    let aborted = false;
+    const onabort = function(reason) {
+      if (!aborted) {
+        aborted = true;
+        unsubscribe();
+        const err = reason instanceof Error ? reason : this.reason;
+        controller.abort(
+          err instanceof AxiosError_default ? err : new CanceledError_default(err instanceof Error ? err.message : err)
+        );
+      }
+    };
+    let timer = timeout && setTimeout(() => {
+      timer = null;
+      onabort(new AxiosError_default(`timeout of ${timeout}ms exceeded`, AxiosError_default.ETIMEDOUT));
+    }, timeout);
+    const unsubscribe = () => {
+      if (!signals) {
+        return;
+      }
+      timer && clearTimeout(timer);
+      timer = null;
+      signals.forEach((signal2) => {
+        signal2.unsubscribe ? signal2.unsubscribe(onabort) : signal2.removeEventListener("abort", onabort);
+      });
+      signals = null;
+    };
+    signals.forEach((signal2) => signal2.addEventListener("abort", onabort));
+    const { signal } = controller;
+    signal.unsubscribe = () => utils_default.asap(unsubscribe);
+    return signal;
+  };
+  var composeSignals_default = composeSignals;
+
+  // node_modules/axios/lib/helpers/trackStream.js
+  var streamChunk = function* (chunk, chunkSize) {
+    let len = chunk.byteLength;
+    if (!chunkSize || len < chunkSize) {
+      yield chunk;
+      return;
+    }
+    let pos = 0;
+    let end;
+    while (pos < len) {
+      end = pos + chunkSize;
+      yield chunk.slice(pos, end);
+      pos = end;
+    }
+  };
+  var readBytes = async function* (iterable, chunkSize) {
+    for await (const chunk of readStream(iterable)) {
+      yield* streamChunk(chunk, chunkSize);
+    }
+  };
+  var readStream = async function* (stream) {
+    if (stream[Symbol.asyncIterator]) {
+      yield* stream;
+      return;
+    }
+    const reader = stream.getReader();
+    try {
+      for (; ; ) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        yield value;
+      }
+    } finally {
+      await reader.cancel();
+    }
+  };
+  var trackStream = (stream, chunkSize, onProgress, onFinish) => {
+    const iterator2 = readBytes(stream, chunkSize);
+    let bytes = 0;
+    let done;
+    let _onFinish = (e) => {
+      if (!done) {
+        done = true;
+        onFinish && onFinish(e);
+      }
+    };
+    return new ReadableStream(
+      {
+        async pull(controller) {
+          try {
+            const { done: done2, value } = await iterator2.next();
+            if (done2) {
+              _onFinish();
+              controller.close();
+              return;
+            }
+            let len = value.byteLength;
+            if (onProgress) {
+              let loadedBytes = bytes += len;
+              onProgress(loadedBytes);
+            }
+            controller.enqueue(new Uint8Array(value));
+          } catch (err) {
+            _onFinish(err);
+            throw err;
+          }
+        },
+        cancel(reason) {
+          _onFinish(reason);
+          return iterator2.return();
+        }
+      },
+      {
+        highWaterMark: 2
+      }
+    );
+  };
+
+  // node_modules/axios/lib/helpers/estimateDataURLDecodedBytes.js
+  function estimateDataURLDecodedBytes(url) {
+    if (!url || typeof url !== "string") return 0;
+    if (!url.startsWith("data:")) return 0;
+    const comma = url.indexOf(",");
+    if (comma < 0) return 0;
+    const meta = url.slice(5, comma);
+    const body = url.slice(comma + 1);
+    const isBase64 = /;base64/i.test(meta);
+    if (isBase64) {
+      let effectiveLen = body.length;
+      const len = body.length;
+      for (let i = 0; i < len; i++) {
+        if (body.charCodeAt(i) === 37 && i + 2 < len) {
+          const a = body.charCodeAt(i + 1);
+          const b = body.charCodeAt(i + 2);
+          const isHex = (a >= 48 && a <= 57 || a >= 65 && a <= 70 || a >= 97 && a <= 102) && (b >= 48 && b <= 57 || b >= 65 && b <= 70 || b >= 97 && b <= 102);
+          if (isHex) {
+            effectiveLen -= 2;
+            i += 2;
+          }
+        }
+      }
+      let pad = 0;
+      let idx = len - 1;
+      const tailIsPct3D = (j) => j >= 2 && body.charCodeAt(j - 2) === 37 && // '%'
+      body.charCodeAt(j - 1) === 51 && // '3'
+      (body.charCodeAt(j) === 68 || body.charCodeAt(j) === 100);
+      if (idx >= 0) {
+        if (body.charCodeAt(idx) === 61) {
+          pad++;
+          idx--;
+        } else if (tailIsPct3D(idx)) {
+          pad++;
+          idx -= 3;
+        }
+      }
+      if (pad === 1 && idx >= 0) {
+        if (body.charCodeAt(idx) === 61) {
+          pad++;
+        } else if (tailIsPct3D(idx)) {
+          pad++;
+        }
+      }
+      const groups = Math.floor(effectiveLen / 4);
+      const bytes2 = groups * 3 - (pad || 0);
+      return bytes2 > 0 ? bytes2 : 0;
+    }
+    if (typeof Buffer !== "undefined" && typeof Buffer.byteLength === "function") {
+      return Buffer.byteLength(body, "utf8");
+    }
+    let bytes = 0;
+    for (let i = 0, len = body.length; i < len; i++) {
+      const c = body.charCodeAt(i);
+      if (c < 128) {
+        bytes += 1;
+      } else if (c < 2048) {
+        bytes += 2;
+      } else if (c >= 55296 && c <= 56319 && i + 1 < len) {
+        const next = body.charCodeAt(i + 1);
+        if (next >= 56320 && next <= 57343) {
+          bytes += 4;
+          i++;
+        } else {
+          bytes += 3;
+        }
+      } else {
+        bytes += 3;
+      }
+    }
+    return bytes;
+  }
+
+  // node_modules/axios/lib/env/data.js
+  var VERSION = "1.16.1";
+
+  // node_modules/axios/lib/adapters/fetch.js
+  var DEFAULT_CHUNK_SIZE = 64 * 1024;
+  var { isFunction: isFunction2 } = utils_default;
+  var test = (fn, ...args) => {
+    try {
+      return !!fn(...args);
+    } catch (e) {
+      return false;
+    }
+  };
+  var factory = (env) => {
+    const globalObject = utils_default.global !== void 0 && utils_default.global !== null ? utils_default.global : globalThis;
+    const { ReadableStream: ReadableStream2, TextEncoder } = globalObject;
+    env = utils_default.merge.call(
+      {
+        skipUndefined: true
+      },
+      {
+        Request: globalObject.Request,
+        Response: globalObject.Response
+      },
+      env
+    );
+    const { fetch: envFetch, Request, Response } = env;
+    const isFetchSupported = envFetch ? isFunction2(envFetch) : typeof fetch === "function";
+    const isRequestSupported = isFunction2(Request);
+    const isResponseSupported = isFunction2(Response);
+    if (!isFetchSupported) {
+      return false;
+    }
+    const isReadableStreamSupported = isFetchSupported && isFunction2(ReadableStream2);
+    const encodeText = isFetchSupported && (typeof TextEncoder === "function" ? /* @__PURE__ */ ((encoder) => (str) => encoder.encode(str))(new TextEncoder()) : async (str) => new Uint8Array(await new Request(str).arrayBuffer()));
+    const supportsRequestStream = isRequestSupported && isReadableStreamSupported && test(() => {
+      let duplexAccessed = false;
+      const request = new Request(platform_default.origin, {
+        body: new ReadableStream2(),
+        method: "POST",
+        get duplex() {
+          duplexAccessed = true;
+          return "half";
+        }
+      });
+      const hasContentType = request.headers.has("Content-Type");
+      if (request.body != null) {
+        request.body.cancel();
+      }
+      return duplexAccessed && !hasContentType;
+    });
+    const supportsResponseStream = isResponseSupported && isReadableStreamSupported && test(() => utils_default.isReadableStream(new Response("").body));
+    const resolvers = {
+      stream: supportsResponseStream && ((res) => res.body)
+    };
+    isFetchSupported && (() => {
+      ["text", "arrayBuffer", "blob", "formData", "stream"].forEach((type) => {
+        !resolvers[type] && (resolvers[type] = (res, config) => {
+          let method = res && res[type];
+          if (method) {
+            return method.call(res);
+          }
+          throw new AxiosError_default(
+            `Response type '${type}' is not supported`,
+            AxiosError_default.ERR_NOT_SUPPORT,
+            config
+          );
+        });
+      });
+    })();
+    const getBodyLength = async (body) => {
+      if (body == null) {
+        return 0;
+      }
+      if (utils_default.isBlob(body)) {
+        return body.size;
+      }
+      if (utils_default.isSpecCompliantForm(body)) {
+        const _request = new Request(platform_default.origin, {
+          method: "POST",
+          body
+        });
+        return (await _request.arrayBuffer()).byteLength;
+      }
+      if (utils_default.isArrayBufferView(body) || utils_default.isArrayBuffer(body)) {
+        return body.byteLength;
+      }
+      if (utils_default.isURLSearchParams(body)) {
+        body = body + "";
+      }
+      if (utils_default.isString(body)) {
+        return (await encodeText(body)).byteLength;
+      }
+    };
+    const resolveBodyLength = async (headers, body) => {
+      const length = utils_default.toFiniteNumber(headers.getContentLength());
+      return length == null ? getBodyLength(body) : length;
+    };
+    return async (config) => {
+      let {
+        url,
+        method,
+        data,
+        signal,
+        cancelToken,
+        timeout,
+        onDownloadProgress,
+        onUploadProgress,
+        responseType,
+        headers,
+        withCredentials = "same-origin",
+        fetchOptions,
+        maxContentLength,
+        maxBodyLength
+      } = resolveConfig_default(config);
+      const hasMaxContentLength = utils_default.isNumber(maxContentLength) && maxContentLength > -1;
+      const hasMaxBodyLength = utils_default.isNumber(maxBodyLength) && maxBodyLength > -1;
+      let _fetch = envFetch || fetch;
+      responseType = responseType ? (responseType + "").toLowerCase() : "text";
+      let composedSignal = composeSignals_default(
+        [signal, cancelToken && cancelToken.toAbortSignal()],
+        timeout
+      );
+      let request = null;
+      const unsubscribe = composedSignal && composedSignal.unsubscribe && (() => {
+        composedSignal.unsubscribe();
+      });
+      let requestContentLength;
+      try {
+        if (hasMaxContentLength && typeof url === "string" && url.startsWith("data:")) {
+          const estimated = estimateDataURLDecodedBytes(url);
+          if (estimated > maxContentLength) {
+            throw new AxiosError_default(
+              "maxContentLength size of " + maxContentLength + " exceeded",
+              AxiosError_default.ERR_BAD_RESPONSE,
+              config,
+              request
+            );
+          }
+        }
+        if (hasMaxBodyLength && method !== "get" && method !== "head") {
+          const outboundLength = await resolveBodyLength(headers, data);
+          if (typeof outboundLength === "number" && isFinite(outboundLength) && outboundLength > maxBodyLength) {
+            throw new AxiosError_default(
+              "Request body larger than maxBodyLength limit",
+              AxiosError_default.ERR_BAD_REQUEST,
+              config,
+              request
+            );
+          }
+        }
+        if (onUploadProgress && supportsRequestStream && method !== "get" && method !== "head" && (requestContentLength = await resolveBodyLength(headers, data)) !== 0) {
+          let _request = new Request(url, {
+            method: "POST",
+            body: data,
+            duplex: "half"
+          });
+          let contentTypeHeader;
+          if (utils_default.isFormData(data) && (contentTypeHeader = _request.headers.get("content-type"))) {
+            headers.setContentType(contentTypeHeader);
+          }
+          if (_request.body) {
+            const [onProgress, flush] = progressEventDecorator(
+              requestContentLength,
+              progressEventReducer(asyncDecorator(onUploadProgress))
+            );
+            data = trackStream(_request.body, DEFAULT_CHUNK_SIZE, onProgress, flush);
+          }
+        }
+        if (!utils_default.isString(withCredentials)) {
+          withCredentials = withCredentials ? "include" : "omit";
+        }
+        const isCredentialsSupported = isRequestSupported && "credentials" in Request.prototype;
+        if (utils_default.isFormData(data)) {
+          const contentType = headers.getContentType();
+          if (contentType && /^multipart\/form-data/i.test(contentType) && !/boundary=/i.test(contentType)) {
+            headers.delete("content-type");
+          }
+        }
+        headers.set("User-Agent", "axios/" + VERSION, false);
+        const resolvedOptions = {
+          ...fetchOptions,
+          signal: composedSignal,
+          method: method.toUpperCase(),
+          headers: toByteStringHeaderObject(headers.normalize()),
+          body: data,
+          duplex: "half",
+          credentials: isCredentialsSupported ? withCredentials : void 0
+        };
+        request = isRequestSupported && new Request(url, resolvedOptions);
+        let response = await (isRequestSupported ? _fetch(request, fetchOptions) : _fetch(url, resolvedOptions));
+        if (hasMaxContentLength) {
+          const declaredLength = utils_default.toFiniteNumber(response.headers.get("content-length"));
+          if (declaredLength != null && declaredLength > maxContentLength) {
+            throw new AxiosError_default(
+              "maxContentLength size of " + maxContentLength + " exceeded",
+              AxiosError_default.ERR_BAD_RESPONSE,
+              config,
+              request
+            );
+          }
+        }
+        const isStreamResponse = supportsResponseStream && (responseType === "stream" || responseType === "response");
+        if (supportsResponseStream && response.body && (onDownloadProgress || hasMaxContentLength || isStreamResponse && unsubscribe)) {
+          const options = {};
+          ["status", "statusText", "headers"].forEach((prop) => {
+            options[prop] = response[prop];
+          });
+          const responseContentLength = utils_default.toFiniteNumber(response.headers.get("content-length"));
+          const [onProgress, flush] = onDownloadProgress && progressEventDecorator(
+            responseContentLength,
+            progressEventReducer(asyncDecorator(onDownloadProgress), true)
+          ) || [];
+          let bytesRead = 0;
+          const onChunkProgress = (loadedBytes) => {
+            if (hasMaxContentLength) {
+              bytesRead = loadedBytes;
+              if (bytesRead > maxContentLength) {
+                throw new AxiosError_default(
+                  "maxContentLength size of " + maxContentLength + " exceeded",
+                  AxiosError_default.ERR_BAD_RESPONSE,
+                  config,
+                  request
+                );
+              }
+            }
+            onProgress && onProgress(loadedBytes);
+          };
+          response = new Response(
+            trackStream(response.body, DEFAULT_CHUNK_SIZE, onChunkProgress, () => {
+              flush && flush();
+              unsubscribe && unsubscribe();
+            }),
+            options
+          );
+        }
+        responseType = responseType || "text";
+        let responseData = await resolvers[utils_default.findKey(resolvers, responseType) || "text"](
+          response,
+          config
+        );
+        if (hasMaxContentLength && !supportsResponseStream && !isStreamResponse) {
+          let materializedSize;
+          if (responseData != null) {
+            if (typeof responseData.byteLength === "number") {
+              materializedSize = responseData.byteLength;
+            } else if (typeof responseData.size === "number") {
+              materializedSize = responseData.size;
+            } else if (typeof responseData === "string") {
+              materializedSize = typeof TextEncoder === "function" ? new TextEncoder().encode(responseData).byteLength : responseData.length;
+            }
+          }
+          if (typeof materializedSize === "number" && materializedSize > maxContentLength) {
+            throw new AxiosError_default(
+              "maxContentLength size of " + maxContentLength + " exceeded",
+              AxiosError_default.ERR_BAD_RESPONSE,
+              config,
+              request
+            );
+          }
+        }
+        !isStreamResponse && unsubscribe && unsubscribe();
+        return await new Promise((resolve, reject) => {
+          settle(resolve, reject, {
+            data: responseData,
+            headers: AxiosHeaders_default.from(response.headers),
+            status: response.status,
+            statusText: response.statusText,
+            config,
+            request
+          });
+        });
+      } catch (err) {
+        unsubscribe && unsubscribe();
+        if (composedSignal && composedSignal.aborted && composedSignal.reason instanceof AxiosError_default) {
+          const canceledError = composedSignal.reason;
+          canceledError.config = config;
+          request && (canceledError.request = request);
+          err !== canceledError && (canceledError.cause = err);
+          throw canceledError;
+        }
+        if (err && err.name === "TypeError" && /Load failed|fetch/i.test(err.message)) {
+          throw Object.assign(
+            new AxiosError_default(
+              "Network Error",
+              AxiosError_default.ERR_NETWORK,
+              config,
+              request,
+              err && err.response
+            ),
+            {
+              cause: err.cause || err
+            }
+          );
+        }
+        throw AxiosError_default.from(err, err && err.code, config, request, err && err.response);
+      }
+    };
+  };
+  var seedCache = /* @__PURE__ */ new Map();
+  var getFetch = (config) => {
+    let env = config && config.env || {};
+    const { fetch: fetch2, Request, Response } = env;
+    const seeds = [Request, Response, fetch2];
+    let len = seeds.length, i = len, seed, target, map = seedCache;
+    while (i--) {
+      seed = seeds[i];
+      target = map.get(seed);
+      target === void 0 && map.set(seed, target = i ? /* @__PURE__ */ new Map() : factory(env));
+      map = target;
+    }
+    return target;
+  };
+  var adapter = getFetch();
+
+  // node_modules/axios/lib/adapters/adapters.js
+  var knownAdapters = {
+    http: null_default,
+    xhr: xhr_default,
+    fetch: {
+      get: getFetch
+    }
+  };
+  utils_default.forEach(knownAdapters, (fn, value) => {
+    if (fn) {
+      try {
+        Object.defineProperty(fn, "name", { __proto__: null, value });
+      } catch (e) {
+      }
+      Object.defineProperty(fn, "adapterName", { __proto__: null, value });
+    }
+  });
+  var renderReason = (reason) => `- ${reason}`;
+  var isResolvedHandle = (adapter2) => utils_default.isFunction(adapter2) || adapter2 === null || adapter2 === false;
+  function getAdapter(adapters, config) {
+    adapters = utils_default.isArray(adapters) ? adapters : [adapters];
+    const { length } = adapters;
+    let nameOrAdapter;
+    let adapter2;
+    const rejectedReasons = {};
+    for (let i = 0; i < length; i++) {
+      nameOrAdapter = adapters[i];
+      let id;
+      adapter2 = nameOrAdapter;
+      if (!isResolvedHandle(nameOrAdapter)) {
+        adapter2 = knownAdapters[(id = String(nameOrAdapter)).toLowerCase()];
+        if (adapter2 === void 0) {
+          throw new AxiosError_default(`Unknown adapter '${id}'`);
+        }
+      }
+      if (adapter2 && (utils_default.isFunction(adapter2) || (adapter2 = adapter2.get(config)))) {
+        break;
+      }
+      rejectedReasons[id || "#" + i] = adapter2;
+    }
+    if (!adapter2) {
+      const reasons = Object.entries(rejectedReasons).map(
+        ([id, state]) => `adapter ${id} ` + (state === false ? "is not supported by the environment" : "is not available in the build")
+      );
+      let s = length ? reasons.length > 1 ? "since :\n" + reasons.map(renderReason).join("\n") : " " + renderReason(reasons[0]) : "as no adapter specified";
+      throw new AxiosError_default(
+        `There is no suitable adapter to dispatch the request ` + s,
+        "ERR_NOT_SUPPORT"
+      );
+    }
+    return adapter2;
+  }
+  var adapters_default = {
+    /**
+     * Resolve an adapter from a list of adapter names or functions.
+     * @type {Function}
+     */
+    getAdapter,
+    /**
+     * Exposes all known adapters
+     * @type {Object<string, Function|Object>}
+     */
+    adapters: knownAdapters
+  };
+
+  // node_modules/axios/lib/core/dispatchRequest.js
+  function throwIfCancellationRequested(config) {
+    if (config.cancelToken) {
+      config.cancelToken.throwIfRequested();
+    }
+    if (config.signal && config.signal.aborted) {
+      throw new CanceledError_default(null, config);
+    }
+  }
+  function dispatchRequest(config) {
+    throwIfCancellationRequested(config);
+    config.headers = AxiosHeaders_default.from(config.headers);
+    config.data = transformData.call(config, config.transformRequest);
+    if (["post", "put", "patch"].indexOf(config.method) !== -1) {
+      config.headers.setContentType("application/x-www-form-urlencoded", false);
+    }
+    const adapter2 = adapters_default.getAdapter(config.adapter || defaults_default.adapter, config);
+    return adapter2(config).then(
+      function onAdapterResolution(response) {
+        throwIfCancellationRequested(config);
+        config.response = response;
+        try {
+          response.data = transformData.call(config, config.transformResponse, response);
+        } finally {
+          delete config.response;
+        }
+        response.headers = AxiosHeaders_default.from(response.headers);
+        return response;
+      },
+      function onAdapterRejection(reason) {
+        if (!isCancel(reason)) {
+          throwIfCancellationRequested(config);
+          if (reason && reason.response) {
+            config.response = reason.response;
+            try {
+              reason.response.data = transformData.call(
+                config,
+                config.transformResponse,
+                reason.response
+              );
+            } finally {
+              delete config.response;
+            }
+            reason.response.headers = AxiosHeaders_default.from(reason.response.headers);
+          }
+        }
+        return Promise.reject(reason);
+      }
+    );
+  }
+
+  // node_modules/axios/lib/helpers/validator.js
+  var validators = {};
+  ["object", "boolean", "number", "function", "string", "symbol"].forEach((type, i) => {
+    validators[type] = function validator(thing) {
+      return typeof thing === type || "a" + (i < 1 ? "n " : " ") + type;
+    };
+  });
+  var deprecatedWarnings = {};
+  validators.transitional = function transitional(validator, version, message) {
+    function formatMessage(opt, desc) {
+      return "[Axios v" + VERSION + "] Transitional option '" + opt + "'" + desc + (message ? ". " + message : "");
+    }
+    return (value, opt, opts) => {
+      if (validator === false) {
+        throw new AxiosError_default(
+          formatMessage(opt, " has been removed" + (version ? " in " + version : "")),
+          AxiosError_default.ERR_DEPRECATED
+        );
+      }
+      if (version && !deprecatedWarnings[opt]) {
+        deprecatedWarnings[opt] = true;
+        console.warn(
+          formatMessage(
+            opt,
+            " has been deprecated since v" + version + " and will be removed in the near future"
+          )
+        );
+      }
+      return validator ? validator(value, opt, opts) : true;
+    };
+  };
+  validators.spelling = function spelling(correctSpelling) {
+    return (value, opt) => {
+      console.warn(`${opt} is likely a misspelling of ${correctSpelling}`);
+      return true;
+    };
+  };
+  function assertOptions(options, schema, allowUnknown) {
+    if (typeof options !== "object") {
+      throw new AxiosError_default("options must be an object", AxiosError_default.ERR_BAD_OPTION_VALUE);
+    }
+    const keys = Object.keys(options);
+    let i = keys.length;
+    while (i-- > 0) {
+      const opt = keys[i];
+      const validator = Object.prototype.hasOwnProperty.call(schema, opt) ? schema[opt] : void 0;
+      if (validator) {
+        const value = options[opt];
+        const result = value === void 0 || validator(value, opt, options);
+        if (result !== true) {
+          throw new AxiosError_default(
+            "option " + opt + " must be " + result,
+            AxiosError_default.ERR_BAD_OPTION_VALUE
+          );
+        }
+        continue;
+      }
+      if (allowUnknown !== true) {
+        throw new AxiosError_default("Unknown option " + opt, AxiosError_default.ERR_BAD_OPTION);
+      }
+    }
+  }
+  var validator_default = {
+    assertOptions,
+    validators
+  };
+
+  // node_modules/axios/lib/core/Axios.js
+  var validators2 = validator_default.validators;
+  var Axios = class {
+    constructor(instanceConfig) {
+      this.defaults = instanceConfig || {};
+      this.interceptors = {
+        request: new InterceptorManager_default(),
+        response: new InterceptorManager_default()
+      };
+    }
+    /**
+     * Dispatch a request
+     *
+     * @param {String|Object} configOrUrl The config specific for this request (merged with this.defaults)
+     * @param {?Object} config
+     *
+     * @returns {Promise} The Promise to be fulfilled
+     */
+    async request(configOrUrl, config) {
+      try {
+        return await this._request(configOrUrl, config);
+      } catch (err) {
+        if (err instanceof Error) {
+          let dummy = {};
+          Error.captureStackTrace ? Error.captureStackTrace(dummy) : dummy = new Error();
+          const stack = (() => {
+            if (!dummy.stack) {
+              return "";
+            }
+            const firstNewlineIndex = dummy.stack.indexOf("\n");
+            return firstNewlineIndex === -1 ? "" : dummy.stack.slice(firstNewlineIndex + 1);
+          })();
+          try {
+            if (!err.stack) {
+              err.stack = stack;
+            } else if (stack) {
+              const firstNewlineIndex = stack.indexOf("\n");
+              const secondNewlineIndex = firstNewlineIndex === -1 ? -1 : stack.indexOf("\n", firstNewlineIndex + 1);
+              const stackWithoutTwoTopLines = secondNewlineIndex === -1 ? "" : stack.slice(secondNewlineIndex + 1);
+              if (!String(err.stack).endsWith(stackWithoutTwoTopLines)) {
+                err.stack += "\n" + stack;
+              }
+            }
+          } catch (e) {
+          }
+        }
+        throw err;
+      }
+    }
+    _request(configOrUrl, config) {
+      if (typeof configOrUrl === "string") {
+        config = config || {};
+        config.url = configOrUrl;
+      } else {
+        config = configOrUrl || {};
+      }
+      config = mergeConfig(this.defaults, config);
+      const { transitional: transitional2, paramsSerializer, headers } = config;
+      if (transitional2 !== void 0) {
+        validator_default.assertOptions(
+          transitional2,
+          {
+            silentJSONParsing: validators2.transitional(validators2.boolean),
+            forcedJSONParsing: validators2.transitional(validators2.boolean),
+            clarifyTimeoutError: validators2.transitional(validators2.boolean),
+            legacyInterceptorReqResOrdering: validators2.transitional(validators2.boolean)
+          },
+          false
+        );
+      }
+      if (paramsSerializer != null) {
+        if (utils_default.isFunction(paramsSerializer)) {
+          config.paramsSerializer = {
+            serialize: paramsSerializer
+          };
+        } else {
+          validator_default.assertOptions(
+            paramsSerializer,
+            {
+              encode: validators2.function,
+              serialize: validators2.function
+            },
+            true
+          );
+        }
+      }
+      if (config.allowAbsoluteUrls !== void 0) {
+      } else if (this.defaults.allowAbsoluteUrls !== void 0) {
+        config.allowAbsoluteUrls = this.defaults.allowAbsoluteUrls;
+      } else {
+        config.allowAbsoluteUrls = true;
+      }
+      validator_default.assertOptions(
+        config,
+        {
+          baseUrl: validators2.spelling("baseURL"),
+          withXsrfToken: validators2.spelling("withXSRFToken")
+        },
+        true
+      );
+      config.method = (config.method || this.defaults.method || "get").toLowerCase();
+      let contextHeaders = headers && utils_default.merge(headers.common, headers[config.method]);
+      headers && utils_default.forEach(["delete", "get", "head", "post", "put", "patch", "query", "common"], (method) => {
+        delete headers[method];
+      });
+      config.headers = AxiosHeaders_default.concat(contextHeaders, headers);
+      const requestInterceptorChain = [];
+      let synchronousRequestInterceptors = true;
+      this.interceptors.request.forEach(function unshiftRequestInterceptors(interceptor) {
+        if (typeof interceptor.runWhen === "function" && interceptor.runWhen(config) === false) {
+          return;
+        }
+        synchronousRequestInterceptors = synchronousRequestInterceptors && interceptor.synchronous;
+        const transitional3 = config.transitional || transitional_default;
+        const legacyInterceptorReqResOrdering = transitional3 && transitional3.legacyInterceptorReqResOrdering;
+        if (legacyInterceptorReqResOrdering) {
+          requestInterceptorChain.unshift(interceptor.fulfilled, interceptor.rejected);
+        } else {
+          requestInterceptorChain.push(interceptor.fulfilled, interceptor.rejected);
+        }
+      });
+      const responseInterceptorChain = [];
+      this.interceptors.response.forEach(function pushResponseInterceptors(interceptor) {
+        responseInterceptorChain.push(interceptor.fulfilled, interceptor.rejected);
+      });
+      let promise;
+      let i = 0;
+      let len;
+      if (!synchronousRequestInterceptors) {
+        const chain = [dispatchRequest.bind(this), void 0];
+        chain.unshift(...requestInterceptorChain);
+        chain.push(...responseInterceptorChain);
+        len = chain.length;
+        promise = Promise.resolve(config);
+        while (i < len) {
+          promise = promise.then(chain[i++], chain[i++]);
+        }
+        return promise;
+      }
+      len = requestInterceptorChain.length;
+      let newConfig = config;
+      while (i < len) {
+        const onFulfilled = requestInterceptorChain[i++];
+        const onRejected = requestInterceptorChain[i++];
+        try {
+          newConfig = onFulfilled(newConfig);
+        } catch (error) {
+          onRejected.call(this, error);
+          break;
+        }
+      }
+      try {
+        promise = dispatchRequest.call(this, newConfig);
+      } catch (error) {
+        return Promise.reject(error);
+      }
+      i = 0;
+      len = responseInterceptorChain.length;
+      while (i < len) {
+        promise = promise.then(responseInterceptorChain[i++], responseInterceptorChain[i++]);
+      }
+      return promise;
+    }
+    getUri(config) {
+      config = mergeConfig(this.defaults, config);
+      const fullPath = buildFullPath(config.baseURL, config.url, config.allowAbsoluteUrls);
+      return buildURL(fullPath, config.params, config.paramsSerializer);
+    }
+  };
+  utils_default.forEach(["delete", "get", "head", "options"], function forEachMethodNoData(method) {
+    Axios.prototype[method] = function(url, config) {
+      return this.request(
+        mergeConfig(config || {}, {
+          method,
+          url,
+          data: (config || {}).data
+        })
+      );
+    };
+  });
+  utils_default.forEach(["post", "put", "patch", "query"], function forEachMethodWithData(method) {
+    function generateHTTPMethod(isForm) {
+      return function httpMethod(url, data, config) {
+        return this.request(
+          mergeConfig(config || {}, {
+            method,
+            headers: isForm ? {
+              "Content-Type": "multipart/form-data"
+            } : {},
+            url,
+            data
+          })
+        );
+      };
+    }
+    Axios.prototype[method] = generateHTTPMethod();
+    if (method !== "query") {
+      Axios.prototype[method + "Form"] = generateHTTPMethod(true);
+    }
+  });
+  var Axios_default = Axios;
+
+  // node_modules/axios/lib/cancel/CancelToken.js
+  var CancelToken = class _CancelToken {
+    constructor(executor) {
+      if (typeof executor !== "function") {
+        throw new TypeError("executor must be a function.");
+      }
+      let resolvePromise;
+      this.promise = new Promise(function promiseExecutor(resolve) {
+        resolvePromise = resolve;
+      });
+      const token = this;
+      this.promise.then((cancel) => {
+        if (!token._listeners) return;
+        let i = token._listeners.length;
+        while (i-- > 0) {
+          token._listeners[i](cancel);
+        }
+        token._listeners = null;
+      });
+      this.promise.then = (onfulfilled) => {
+        let _resolve;
+        const promise = new Promise((resolve) => {
+          token.subscribe(resolve);
+          _resolve = resolve;
+        }).then(onfulfilled);
+        promise.cancel = function reject() {
+          token.unsubscribe(_resolve);
+        };
+        return promise;
+      };
+      executor(function cancel(message, config, request) {
+        if (token.reason) {
+          return;
+        }
+        token.reason = new CanceledError_default(message, config, request);
+        resolvePromise(token.reason);
+      });
+    }
+    /**
+     * Throws a `CanceledError` if cancellation has been requested.
+     */
+    throwIfRequested() {
+      if (this.reason) {
+        throw this.reason;
+      }
+    }
+    /**
+     * Subscribe to the cancel signal
+     */
+    subscribe(listener) {
+      if (this.reason) {
+        listener(this.reason);
+        return;
+      }
+      if (this._listeners) {
+        this._listeners.push(listener);
+      } else {
+        this._listeners = [listener];
+      }
+    }
+    /**
+     * Unsubscribe from the cancel signal
+     */
+    unsubscribe(listener) {
+      if (!this._listeners) {
+        return;
+      }
+      const index = this._listeners.indexOf(listener);
+      if (index !== -1) {
+        this._listeners.splice(index, 1);
+      }
+    }
+    toAbortSignal() {
+      const controller = new AbortController();
+      const abort = (err) => {
+        controller.abort(err);
+      };
+      this.subscribe(abort);
+      controller.signal.unsubscribe = () => this.unsubscribe(abort);
+      return controller.signal;
+    }
+    /**
+     * Returns an object that contains a new `CancelToken` and a function that, when called,
+     * cancels the `CancelToken`.
+     */
+    static source() {
+      let cancel;
+      const token = new _CancelToken(function executor(c) {
+        cancel = c;
+      });
+      return {
+        token,
+        cancel
+      };
+    }
+  };
+  var CancelToken_default = CancelToken;
+
+  // node_modules/axios/lib/helpers/spread.js
+  function spread(callback) {
+    return function wrap(arr) {
+      return callback.apply(null, arr);
+    };
+  }
+
+  // node_modules/axios/lib/helpers/isAxiosError.js
+  function isAxiosError(payload) {
+    return utils_default.isObject(payload) && payload.isAxiosError === true;
+  }
+
+  // node_modules/axios/lib/helpers/HttpStatusCode.js
+  var HttpStatusCode = {
+    Continue: 100,
+    SwitchingProtocols: 101,
+    Processing: 102,
+    EarlyHints: 103,
+    Ok: 200,
+    Created: 201,
+    Accepted: 202,
+    NonAuthoritativeInformation: 203,
+    NoContent: 204,
+    ResetContent: 205,
+    PartialContent: 206,
+    MultiStatus: 207,
+    AlreadyReported: 208,
+    ImUsed: 226,
+    MultipleChoices: 300,
+    MovedPermanently: 301,
+    Found: 302,
+    SeeOther: 303,
+    NotModified: 304,
+    UseProxy: 305,
+    Unused: 306,
+    TemporaryRedirect: 307,
+    PermanentRedirect: 308,
+    BadRequest: 400,
+    Unauthorized: 401,
+    PaymentRequired: 402,
+    Forbidden: 403,
+    NotFound: 404,
+    MethodNotAllowed: 405,
+    NotAcceptable: 406,
+    ProxyAuthenticationRequired: 407,
+    RequestTimeout: 408,
+    Conflict: 409,
+    Gone: 410,
+    LengthRequired: 411,
+    PreconditionFailed: 412,
+    PayloadTooLarge: 413,
+    UriTooLong: 414,
+    UnsupportedMediaType: 415,
+    RangeNotSatisfiable: 416,
+    ExpectationFailed: 417,
+    ImATeapot: 418,
+    MisdirectedRequest: 421,
+    UnprocessableEntity: 422,
+    Locked: 423,
+    FailedDependency: 424,
+    TooEarly: 425,
+    UpgradeRequired: 426,
+    PreconditionRequired: 428,
+    TooManyRequests: 429,
+    RequestHeaderFieldsTooLarge: 431,
+    UnavailableForLegalReasons: 451,
+    InternalServerError: 500,
+    NotImplemented: 501,
+    BadGateway: 502,
+    ServiceUnavailable: 503,
+    GatewayTimeout: 504,
+    HttpVersionNotSupported: 505,
+    VariantAlsoNegotiates: 506,
+    InsufficientStorage: 507,
+    LoopDetected: 508,
+    NotExtended: 510,
+    NetworkAuthenticationRequired: 511,
+    WebServerIsDown: 521,
+    ConnectionTimedOut: 522,
+    OriginIsUnreachable: 523,
+    TimeoutOccurred: 524,
+    SslHandshakeFailed: 525,
+    InvalidSslCertificate: 526
+  };
+  Object.entries(HttpStatusCode).forEach(([key, value]) => {
+    HttpStatusCode[value] = key;
+  });
+  var HttpStatusCode_default = HttpStatusCode;
+
+  // node_modules/axios/lib/axios.js
+  function createInstance(defaultConfig) {
+    const context = new Axios_default(defaultConfig);
+    const instance = bind(Axios_default.prototype.request, context);
+    utils_default.extend(instance, Axios_default.prototype, context, { allOwnKeys: true });
+    utils_default.extend(instance, context, null, { allOwnKeys: true });
+    instance.create = function create2(instanceConfig) {
+      return createInstance(mergeConfig(defaultConfig, instanceConfig));
+    };
+    return instance;
+  }
+  var axios = createInstance(defaults_default);
+  axios.Axios = Axios_default;
+  axios.CanceledError = CanceledError_default;
+  axios.CancelToken = CancelToken_default;
+  axios.isCancel = isCancel;
+  axios.VERSION = VERSION;
+  axios.toFormData = toFormData_default;
+  axios.AxiosError = AxiosError_default;
+  axios.Cancel = axios.CanceledError;
+  axios.all = function all(promises) {
+    return Promise.all(promises);
+  };
+  axios.spread = spread;
+  axios.isAxiosError = isAxiosError;
+  axios.mergeConfig = mergeConfig;
+  axios.AxiosHeaders = AxiosHeaders_default;
+  axios.formToJSON = (thing) => formDataToJSON_default(utils_default.isHTMLForm(thing) ? new FormData(thing) : thing);
+  axios.getAdapter = adapters_default.getAdapter;
+  axios.HttpStatusCode = HttpStatusCode_default;
+  axios.default = axios;
+  var axios_default = axios;
+
+  // node_modules/axios/index.js
+  var {
+    Axios: Axios2,
+    AxiosError: AxiosError2,
+    CanceledError: CanceledError2,
+    isCancel: isCancel2,
+    CancelToken: CancelToken2,
+    VERSION: VERSION2,
+    all: all2,
+    Cancel,
+    isAxiosError: isAxiosError2,
+    spread: spread2,
+    toFormData: toFormData2,
+    AxiosHeaders: AxiosHeaders2,
+    HttpStatusCode: HttpStatusCode2,
+    formToJSON,
+    getAdapter: getAdapter2,
+    mergeConfig: mergeConfig2,
+    create
+  } = axios_default;
+
+  // src/content/utils.js
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  function generateUuid(stripDash = false) {
+    const id = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === "x" ? r : r & 3 | 8;
+      return v.toString(16);
+    });
+    return stripDash ? id.replace(/-/g, "") : id;
+  }
+  function getCookie(name) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : void 0;
+  }
+  function tabHttpPost(url, data, options = {}) {
+    return axios_default.request({
+      method: "POST",
+      url,
+      headers: options.headers,
+      data,
+      timeout: options.timeout,
+      withCredentials: options.withCredentials !== false
+    });
+  }
+  async function postFormUrlEncoded(url, fields, headers = {}) {
+    const body = new URLSearchParams();
+    for (const [k, v] of Object.entries(fields)) {
+      body.set(k, String(v ?? ""));
+    }
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", ...headers },
+      body,
+      credentials: "include"
+    });
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+
+  // src/content/hga-poll.js
+  var SAVE_URL = "https://api.a8.to/Common/API_SaveData";
+  var maxId = 0;
+  var pollCount = 0;
+  var wagers = [];
+  var pollStarted = false;
+  function wagerTimeMs(w) {
+    const dt = /* @__PURE__ */ new Date(`${w.DATE} ${w.TIME}`);
+    dt.setHours(dt.getHours() + 12);
+    return dt.getTime();
+  }
+  async function saveWagers(username, rows) {
+    if (!rows.length) return;
+    await postFormUrlEncoded(`${SAVE_URL}?key=HG:${encodeURIComponent(username)}`, {
+      content: JSON.stringify(rows)
+    });
+  }
+  async function pollLoop(gateway, uid, ver, username) {
+    if (!uid || !ver) return;
+    const confirmBtn = document.querySelector(".gamebet-collect-panel-confirm");
+    for (; ; ) {
+      try {
+        const url = `${gateway}/transform.php?ver=${ver}`;
+        const data = await postFormUrlEncoded(url, {
+          login_layer: "ag",
+          uid,
+          langx: "zh-cn",
+          ver,
+          p: "get_wmc_list_bet",
+          totalBets: "wmc",
+          gtype: "ALL",
+          sel_maxid: String(maxId)
+        });
+        if (data?.maxid) maxId = data.maxid;
+        if (data?.wagers?.length) {
+          const cutoff = Date.now() - 6e5;
+          for (const w of data.wagers) {
+            if (!wagers.some((x) => x.TID === w.TID)) wagers.push(w);
+          }
+          await saveWagers(
+            username,
+            wagers.filter((w) => wagerTimeMs(w) > cutoff)
+          );
+        }
+      } catch (err) {
+        console.warn("[HGA] poll error", err);
+      } finally {
+        pollCount += 1;
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.innerHTML = `\u7B2C${pollCount}\u6B21\u76D1\u542C`;
+        }
+        await sleep(3e3);
+      }
+    }
+  }
+  function maybeStartHgaPoll(meta) {
+    if (pollStarted || !meta?.uid || !meta?.ver || !meta?.username) return;
+    pollStarted = true;
+    void pollLoop(meta.gateway, meta.uid, meta.ver, meta.username);
+  }
+
+  // src/content/platforms.js
+  var PLATFORMS = Object.freeze({
+    OB: "OB",
+    RAY: "RAY",
+    IA: "IA",
+    IM: "IM",
+    TF: "TF",
+    SABA: "SABA",
+    PB: "PB",
+    IMT: "IMT",
+    HGA: "HGA",
+    HG: "HG",
+    Stake: "Stake"
+  });
+  var PLATFORM_LIST = Object.values(PLATFORMS);
+
+  // src/content/providers.js
+  var IM_PATH = /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
+  var IA_SEARCH = /^\?lang=\d&token=([\w\.\_\-]+)$/;
+  var PROVIDER_REGISTRY = {
+    [PLATFORMS.OB]: class ObProvider {
+      async Check() {
+        const url = new URL(location.href);
+        const token = url.searchParams.get("token");
+        const addr = url.searchParams.get("addr");
+        if (!token || !/\d+/.test(token)) return false;
+        if (!addr) return false;
+        try {
+          const parsed = JSON.parse(window.atob(addr));
+          return Array.isArray(parsed.api);
+        } catch {
+          return false;
+        }
+      }
+      async GetConfig() {
+        const url = new URL(location.href);
+        const token = url.searchParams.get("token");
+        const addr = url.searchParams.get("addr");
+        const parsed = JSON.parse(window.atob(addr));
+        const referer = `https://${location.host}/`;
+        return {
+          provider: PLATFORMS.OB,
+          gateway: parsed.api[0],
+          token,
+          referer,
+          data: window.btoa(
+            JSON.stringify({
+              provider: PLATFORMS.OB,
+              gateway: parsed.api,
+              token,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.RAY]: class RayProvider {
+      async Check() {
+        return Boolean(
+          document.body.querySelector(".app-header img[alt=RAYBET]") ?? document.body.querySelector(".app-header .logo-icon")
+        );
+      }
+      async GetConfig() {
+        let token = localStorage.getItem("gameAuthToken") || localStorage.getItem("socketCluster.authToken");
+        const userToken = localStorage.getItem("userToken");
+        if (!token && userToken && /^\{/.test(userToken)) {
+          try {
+            token = JSON.parse(userToken).JWT;
+          } catch {
+            return void 0;
+          }
+        }
+        if (!token) return void 0;
+        const res = await fetch("https://api.365raylinks.com/configv4?platform=1");
+        const json = await res.json();
+        const gateway = json.data.game_api.map((u) => {
+          const parsed = new URL(u);
+          return `${parsed.protocol}//${parsed.host}`;
+        });
+        const referer = location.href;
+        const bearer = `Bearer ${token}`;
+        return {
+          provider: PLATFORMS.RAY,
+          gateway: gateway[0],
+          token: bearer,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.RAY,
+              gateway,
+              token: bearer,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.IM]: class ImProvider {
+      async Check() {
+        return IM_PATH.test(location.pathname + location.search);
+      }
+      async GetConfig() {
+        const match = IM_PATH.exec(location.pathname + location.search);
+        if (!match) return void 0;
+        const token = match[2];
+        const referer = `${location.protocol}//${location.host}${location.pathname}${location.search}`;
+        const gateway = `${location.protocol}//${location.host}`;
+        return {
+          provider: PLATFORMS.IM,
+          gateway,
+          token,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.IM,
+              gateway: [gateway],
+              token,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.TF]: class TfProvider {
+      async Check() {
+        if (!/^gc\./.test(location.host)) return false;
+        const vuex = localStorage.getItem("vuex");
+        return Boolean(vuex && /^\{/.test(vuex));
+      }
+      async GetConfig() {
+        const vuex = JSON.parse(localStorage.getItem("vuex") ?? "{}");
+        const token = vuex?.settings?.settings?.token;
+        const priBaseUrl = vuex?.settings?.settings?.priBaseUrl;
+        if (!token || !priBaseUrl) return void 0;
+        const parsed = new URL(priBaseUrl);
+        const gateway = `${parsed.protocol}//${parsed.host}`;
+        const referer = `${location.protocol}//${location.host}/`;
+        const auth = `Token ${token}`;
+        return {
+          provider: PLATFORMS.TF,
+          gateway,
+          token: auth,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.TF,
+              gateway: [gateway],
+              token: auth,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.IA]: class IaProvider {
+      async Check() {
+        return IA_SEARCH.test(location.search);
+      }
+      async GetConfig() {
+        const match = IA_SEARCH.exec(location.search);
+        if (!match) return void 0;
+        const token = match[1];
+        const gateway = `https://${location.host}`;
+        return {
+          provider: PLATFORMS.IA,
+          gateway,
+          token,
+          referer: location.href,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.IA,
+              gateway: [gateway],
+              token,
+              referer: location.href
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.SABA]: class SabaProvider {
+      async Check() {
+        return /^\/\(S\(ESport/.test(location.pathname);
+      }
+      async GetConfig() {
+        const match = /^\/(.+?)\//.exec(location.pathname);
+        if (!match) return void 0;
+        const gateway = `${location.protocol}//${location.host}`;
+        const referer = `${location.protocol}//${location.host}/`;
+        const token = match[1];
+        return {
+          provider: PLATFORMS.SABA,
+          gateway,
+          token,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.SABA,
+              gateway: [gateway],
+              token,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.PB]: class PbProvider {
+      async Check() {
+        const path = location.pathname;
+        return /\/esports\-hub\/|\/compact\/sports\//.test(path) && Boolean(localStorage.getItem("x-app-data"));
+      }
+      async GetConfig() {
+        const snapshot = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key) snapshot[key] = localStorage.getItem(key) ?? "";
+        }
+        const payload = {
+          provider: PLATFORMS.PB,
+          gateway: `https://${location.host}`,
+          token: JSON.stringify(snapshot),
+          referer: location.href
+        };
+        return {
+          provider: PLATFORMS.PB,
+          gateway: payload.gateway,
+          token: payload.token,
+          referer: payload.referer,
+          data: window.btoa(JSON.stringify(payload))
+        };
+      }
+    },
+    [PLATFORMS.IMT]: class ImtProvider {
+      async Check() {
+        return Boolean(localStorage.getItem("siteProfile4") && localStorage.getItem("version4"));
+      }
+      async GetConfig() {
+        const version = localStorage.getItem("version4");
+        const profileRaw = localStorage.getItem("siteProfile4");
+        if (!version || !profileRaw) return void 0;
+        const profile = JSON.parse(profileRaw);
+        const token = btoa(JSON.stringify({ tk: profile.t, v: version, mc: profile.mc }));
+        const gateway = `${location.protocol}//${location.host}`;
+        const referer = `${location.protocol}//${location.host}/`;
+        return {
+          provider: PLATFORMS.IMT,
+          gateway,
+          token,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.IMT,
+              gateway: [gateway],
+              token,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.HGA]: class HgaProvider {
+      async Check() {
+        const ok = document.getElementById("mu_profile") !== null;
+        if (ok) {
+          void (async () => {
+            await sleep(1e3);
+            const icon = document.body.querySelector(".gamebet-collect-float");
+            icon?.setAttribute(
+              "onmouseover",
+              "this.setAttribute('uid',window.uid);this.setAttribute('ver',window.ver);this.setAttribute('username',window.username);"
+            );
+          })();
+        }
+        return ok;
+      }
+      async GetConfig() {
+        const icon = document.body.querySelector(".gamebet-collect-float");
+        const uid = icon?.getAttribute("uid") ?? "";
+        const ver = icon?.getAttribute("ver") ?? "";
+        const username = icon?.getAttribute("username") ?? "";
+        const gateway = `https://${location.host}`;
+        const token = JSON.stringify({ uid, ver, username });
+        const referer = location.href;
+        return {
+          provider: PLATFORMS.HGA,
+          token,
+          gateway,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.HGA,
+              token,
+              gateway: [gateway],
+              referer
+            })
+          ),
+          _hgaMeta: { gateway, uid, ver, username }
+        };
+      }
+    },
+    [PLATFORMS.HG]: class HgProvider {
+      async Check() {
+        const ok = document.getElementById("header_currency") !== null && document.getElementById("header_credit") !== null;
+        if (ok) {
+          void (async () => {
+            await sleep(1e3);
+            const icon = document.body.querySelector(".gamebet-collect-float");
+            icon?.setAttribute(
+              "onmouseover",
+              "this.setAttribute('userdata',JSON.stringify(window.userData));"
+            );
+          })();
+        }
+        return ok;
+      }
+      async GetConfig() {
+        const icon = document.body.querySelector(".gamebet-collect-float");
+        const userdata = icon?.getAttribute("userdata") ?? "";
+        if (!userdata) return void 0;
+        const parsed = JSON.parse(userdata);
+        const token = JSON.stringify({
+          uid: parsed.uid,
+          ver: parsed.ver,
+          username: parsed.username
+        });
+        const gateway = `https://${location.host}`;
+        const referer = location.href;
+        return {
+          provider: PLATFORMS.HG,
+          gateway,
+          token,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.HG,
+              token,
+              gateway: [gateway],
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.Stake]: class StakeProvider {
+      async Check() {
+        return location.hostname === "stake.com";
+      }
+      async GetConfig() {
+        const session = getCookie("session");
+        if (!session) return void 0;
+        const payload = {
+          provider: PLATFORMS.Stake,
+          gateway: `https://${location.host}`,
+          token: session,
+          referer: location.href
+        };
+        return { ...payload, data: btoa(JSON.stringify(payload)) };
+      }
+    }
+  };
+  function createProvider(platformId) {
+    const Cls = PROVIDER_REGISTRY[platformId];
+    return Cls ? new Cls() : null;
+  }
+
+  // src/content/config.js
+  var DEFAULT_A8_WS = "https://47.115.75.57";
+  var STAKE_LOCKDOWN_TOKEN = "s5MNWtjTM5TvCMkAzxov";
+
+  // src/content/stake/a8-bridge.js
+  function createA8Bridge(channel) {
+    const ioFn = globalThis.io;
+    if (typeof ioFn !== "function") {
+      console.warn("[Stake] socket.io \u672A\u52A0\u8F7D\uFF0C\u5B9E\u65F6\u9891\u9053\u4E0D\u53EF\u7528");
+      return { send() {
+      } };
+    }
+    const socket = ioFn(DEFAULT_A8_WS, {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1e3,
+      reconnectionDelayMax: 5e3,
+      randomizationFactor: 0.5,
+      timeout: 2e4
+    });
+    socket.on("connect", () => {
+      console.log("\u2705 \u5DF2\u8FDE\u63A5\u5230 A8 Socket", {
+        socketId: socket.id,
+        connected: socket.connected
+      });
+    });
+    return {
+      send(message) {
+        if (socket.connected) {
+          socket.emit("chat message", JSON.stringify({ channel, message }));
+        }
+      }
+    };
+  }
+
+  // src/content/stake/graphql-ws.js
+  var GraphqlTransportWs = class {
+    /**
+     * @param {string} path
+     * @param {string} protocol
+     * @param {{ maxRetries?: number; minReopenDelayMs?: number; maxReopenDelayMs?: number }} [options]
+     */
+    constructor(path, protocol = "graphql-transport-ws", options = {}) {
+      const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+      this.url = `${scheme}//${location.host}${path}`;
+      this.protocol = protocol;
+      this.maxRetries = options.maxRetries ?? Number.POSITIVE_INFINITY;
+      this.minReopenDelayMs = options.minReopenDelayMs ?? 1e3;
+      this.maxReopenDelayMs = options.maxReopenDelayMs ?? 3e4;
+      this.ws = null;
+      this.onopen = null;
+      this.onmessage = null;
+      this.onclose = null;
+      this.onerror = null;
+      this._pingTimer = null;
+      this._reconnectTimer = null;
+      this._retryCount = 0;
+      this._manualClose = false;
+      this.connect();
+    }
+    connect() {
+      if (this._reconnectTimer) {
+        clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = null;
+      }
+      this.ws = new WebSocket(this.url, this.protocol);
+      this.ws.onopen = () => {
+        this._retryCount = 0;
+        this.onopen?.();
+      };
+      this.ws.onmessage = (ev) => this.onmessage?.(ev);
+      this.ws.onclose = (ev) => {
+        this.stopPing();
+        this.onclose?.(ev);
+        this.scheduleReconnect();
+      };
+      this.ws.onerror = (ev) => this.onerror?.(ev);
+    }
+    scheduleReconnect() {
+      if (this._manualClose || this._retryCount >= this.maxRetries) return;
+      const delay = Math.min(
+        this.minReopenDelayMs * Math.pow(1.5, this._retryCount),
+        this.maxReopenDelayMs
+      );
+      this._retryCount += 1;
+      this._reconnectTimer = setTimeout(() => this.connect(), delay);
+    }
+    send(text) {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(text);
+      }
+    }
+    startPing(intervalMs = 1e4) {
+      this.stopPing();
+      this._pingTimer = setInterval(() => {
+        this.send(JSON.stringify({ type: "ping" }));
+      }, intervalMs);
+    }
+    stopPing() {
+      if (this._pingTimer) {
+        clearInterval(this._pingTimer);
+        this._pingTimer = null;
+      }
+    }
+    close() {
+      this._manualClose = true;
+      this.stopPing();
+      if (this._reconnectTimer) {
+        clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = null;
+      }
+      this.ws?.close();
+    }
+  };
+
+  // src/content/stake/subscription.js
+  var STAKE_MARKET_RE = /(比赛获胜者 - Two 路线)|(地图\d获胜者 - Two 路线)/;
+  var FIXTURE_SUBSCRIPTION = `subscription  SportFixtureDataMatch_SportFixture($fixtureId: String!, $groups: [String!]) {
+  sportFixtureMarketsNext(fixtureId: $fixtureId, groups: $groups) {
+    id
+    name
+    status
+    extId
+    provider
+    outcomes {
+      id
+      active
+      odds
+      name
+      extId
+    }
+  }
+}`;
+  var BidirectionalMap = class {
+    constructor() {
+      this.forward = /* @__PURE__ */ new Map();
+      this.backward = /* @__PURE__ */ new Map();
+    }
+    set(key, value) {
+      this.forward.set(key, value);
+      this.backward.set(value, key);
+    }
+    hasKey(key) {
+      return this.forward.has(key);
+    }
+    getByKey(key) {
+      return this.forward.get(key);
+    }
+    getByValue(value) {
+      return this.backward.get(value);
+    }
+    deleteByKey(key) {
+      const value = this.forward.get(key);
+      if (value) {
+        this.forward.delete(key);
+        this.backward.delete(value);
+      }
+    }
+    keys() {
+      return [...this.forward.keys()];
+    }
+    clear() {
+      this.forward.clear();
+      this.backward.clear();
+    }
+  };
+  var subscribeMap = new BidirectionalMap();
+  var a8Bridge = null;
+  var gqlSocket = null;
+  function setStakeA8Bridge(bridge) {
+    a8Bridge = bridge;
+  }
+  function setStakeGqlSocket(socket) {
+    gqlSocket = socket;
+  }
+  function clearStakeSubscriptions() {
+    subscribeMap.clear();
+  }
+  function handleFixtureNext(payload, subscriptionId) {
+    if (!subscriptionId || !payload?.data?.sportFixtureMarketsNext) return;
+    const matchId = subscribeMap.getByValue(subscriptionId);
+    if (!matchId) return;
+    const message = { matchId, bets: [] };
+    for (const market of payload.data.sportFixtureMarketsNext) {
+      const name = market.name;
+      const betId = market.id;
+      if (!STAKE_MARKET_RE.test(name) || market.outcomes?.length !== 2) continue;
+      const home = market.outcomes[0];
+      const away = market.outcomes[1];
+      const locked = !["active", "live"].includes(market.status);
+      message.bets.push({
+        betId,
+        name,
+        homeId: home.id,
+        home: !locked && home.active ? home.odds : 0,
+        awayId: away.id,
+        away: !locked && away.active ? away.odds : 0,
+        extend: { status: market.status, home, away }
+      });
+    }
+    a8Bridge?.send(message);
+  }
+  function syncStakeSubscriptions(rows) {
+    if (!gqlSocket) return;
+    const list = Array.isArray(rows) ? rows : [];
+    for (const fixtureId of subscribeMap.keys()) {
+      if (!list.some((r) => r.id === fixtureId)) {
+        const subId = subscribeMap.getByKey(fixtureId);
+        if (subId) {
+          gqlSocket.send(JSON.stringify({ id: subId, type: "complete" }));
+          subscribeMap.deleteByKey(fixtureId);
+        }
+      }
+    }
+    for (const row of list) {
+      if (subscribeMap.hasKey(row.id)) continue;
+      const subId = generateUuid();
+      gqlSocket.send(
+        JSON.stringify({
+          id: subId,
+          type: "subscribe",
+          payload: {
+            query: FIXTURE_SUBSCRIPTION,
+            variables: {
+              fixture: row.slug,
+              fixtureId: row.id,
+              provider: "oddin",
+              groups: ["winner", "maps"]
+            }
+          }
+        })
+      );
+      subscribeMap.set(row.id, subId);
+    }
+  }
+  function createStakeMessageHandler() {
+    return async function handleStakeTabMessage(message) {
+      console.log(PLATFORMS.Stake, `\u6536\u5230\u8BF7\u6C42${message.type}`, message.data);
+      switch (message.type) {
+        case "POST": {
+          if (!message.url) {
+            console.error("url \u4E3A\u7A7A");
+            return void 0;
+          }
+          const response = await tabHttpPost(message.url, message.data, message.options);
+          console.log(PLATFORMS.Stake, "tabId\u8BF7\u6C42\u8FD4\u56DE => ", response);
+          return response;
+        }
+        case "":
+          syncStakeSubscriptions(message.data);
+          return void 0;
+        default:
+          return void 0;
+      }
+    };
+  }
+
+  // src/content/stake/init.js
+  function initStakePage(registerHandler) {
+    if (location.hostname !== "stake.com") return;
+    const handler = createStakeMessageHandler();
+    registerHandler(handler);
+    chrome.runtime.sendMessage(
+      { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.Stake } },
+      (response) => {
+        console.log(PLATFORMS.Stake, "tabId \u6210\u529F\u5199\u5165 => ", response?.response ?? response);
+      }
+    );
+    const session = getCookie("session");
+    if (!session) {
+      console.warn("[Stake] \u672A\u627E\u5230 session cookie\uFF0C\u8DF3\u8FC7 GraphQL WS");
+      return;
+    }
+    const bridge = createA8Bridge(PLATFORMS.Stake);
+    setStakeA8Bridge(bridge);
+    const gql = new GraphqlTransportWs("/_api/websockets", "graphql-transport-ws");
+    setStakeGqlSocket(gql);
+    gql.onopen = () => {
+      gql.send(
+        JSON.stringify({
+          type: "connection_init",
+          payload: {
+            accessToken: session,
+            language: "zh",
+            lockdownToken: STAKE_LOCKDOWN_TOKEN
+          }
+        })
+      );
+      gql.startPing();
+    };
+    gql.onmessage = (event) => {
+      let packet;
+      try {
+        packet = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      switch (packet.type) {
+        case "connection_ack":
+          clearStakeSubscriptions();
+          break;
+        case "complete":
+          console.error(PLATFORMS.Stake, "\u8BA2\u9605\u5931\u8D25", packet);
+          break;
+        case "next":
+          handleFixtureNext(packet.payload, packet.id);
+          break;
+        default:
+          break;
+      }
+      console.log(PLATFORMS.Stake, "message", packet.type);
+    };
+    gql.onclose = () => console.log("[Stake] graphql ws closed");
+    gql.onerror = (err) => console.error("[Stake] graphql ws error", err);
+  }
+
+  // src/content/tab-proxy.js
+  var tabHandlers = {};
+  function registerTabHandler(platformId, handler) {
+    tabHandlers[platformId] = handler;
+  }
+  function installTabProxyListener() {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      const tabId = message?.options?.tabId;
+      const stakeHandler = tabHandlers[PLATFORMS.Stake];
+      if (!stakeHandler || !tabId) return false;
+      void (async () => {
+        try {
+          const response = await stakeHandler(message);
+          sendResponse({ success: true, type: message.type, uuid: message.uuid, response });
+        } catch (err) {
+          sendResponse({
+            success: false,
+            type: message.type,
+            uuid: message.uuid,
+            response: err instanceof Error ? err.message : String(err)
+          });
+        }
+      })();
+      return true;
+    });
+  }
+
+  // src/content/index.js
+  var COLLECT_POLL_MS = 3e3;
+  var COLLECT_MAX_ATTEMPTS = 120;
+  function wrapProviderForHga(provider) {
+    const original = provider.GetConfig.bind(provider);
+    provider.GetConfig = async () => {
+      const config = await original();
+      if (config?._hgaMeta) {
+        maybeStartHgaPoll(config._hgaMeta);
+        delete config._hgaMeta;
+      }
+      return config;
+    };
+    return provider;
+  }
+  async function tryMountCollectUi() {
+    for (const platformId of PLATFORM_LIST) {
+      const ProviderCls = PROVIDER_REGISTRY[platformId];
+      if (!ProviderCls) continue;
+      let provider = createProvider(platformId);
+      if (!provider) continue;
+      if (platformId === PLATFORMS.HGA) {
+        provider = wrapProviderForHga(provider);
+      }
+      try {
+        if (await provider.Check()) {
+          await mountCollectIcon(provider);
+          return true;
+        }
+      } catch (err) {
+        console.warn("[Gamebet] provider check failed", platformId, err);
+      }
+    }
+    return false;
+  }
+  async function detectAndMountCollectUi() {
+    if (window !== window.top) return;
+    if (document.body?.querySelector(".gamebet-collect-float")) return;
+    for (let attempt = 0; attempt < COLLECT_MAX_ATTEMPTS; attempt++) {
+      if (await tryMountCollectUi()) return;
+      await sleep(COLLECT_POLL_MS);
+    }
+  }
+  function bootstrap() {
+    installTabProxyListener();
+    initStakePage((handler) => {
+      registerTabHandler(PLATFORMS.Stake, handler);
+    });
+    const startDetect = () => void detectAndMountCollectUi();
+    if (document.body) {
+      startDetect();
+    } else {
+      document.addEventListener("DOMContentLoaded", startDetect, { once: true });
+    }
+  }
+  bootstrap();
+})();

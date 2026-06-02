@@ -27,7 +27,7 @@ interface ObDemoResponse {
   data?: { pc?: string };
 }
 
-const A8_V4_REMOTE_BASE = "https://api.a8.to/v4.0/";
+const A8_V4_REMOTE_BASE = "/v4.0/";
 
 function remoteV4Base(): string {
   const custom = import.meta.env.VITE_V4_BASE_URL;

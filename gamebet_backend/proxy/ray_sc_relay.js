@@ -1,9 +1,7 @@
 "use strict";
 
 const { AGServer } = require("socketcluster-server");
-const { RayWsClient } = require("../platforms/ray/ray_ws.js");
-const { login } = require("../platforms/ray/ray_session.js");
-const { syncRayFromSession } = require("../esport-api/platform_sync.js");
+const { RayRelayCore } = require("../relays/ray_relay_core.js");
 
 const WS_PATH = "/esport/ws/RAY";
 
@@ -11,7 +9,7 @@ class RayScRelay {
   constructor(options = {}) {
     this.options = options;
     this.agServer = null;
-    this.wsClient = null;
+    this.core = null;
     this.stats = {
       platform: "RAY",
       path: WS_PATH,
@@ -53,37 +51,12 @@ class RayScRelay {
   }
 
   async start() {
-    let session = null;
-    try {
-      session = await login(this.options);
-      syncRayFromSession(session);
-    } catch (err) {
-      this.stats.lastError = err.message;
-    }
-
-    const token = session?.token || this.options.token;
-    const origin = session?.origin || this.options.origin;
-
-    this.wsClient = new RayWsClient({
-      hostname: this.options.hostname,
-      path: this.options.path,
-      channel: this.options.channel,
-      token,
-      origin,
-    });
-
-    this.wsClient.onOdds((odds, envelope) => {
-      this._transmit(envelope || { source: "odds", odds });
-    });
-
-    this.wsClient.onMatch((match, envelope) => {
-      this._transmit(envelope || { source: "match", match });
-    });
-
-    const ok = await this.wsClient.connect();
+    this.core = new RayRelayCore(this.options);
+    this.core.onMessage((payload) => this._transmit(payload));
+    const ok = await this.core.start();
     this.stats.upstreamConnected = Boolean(ok);
     if (!ok) {
-      this.stats.lastError = this.wsClient.lastError?.message || "RAY upstream connect failed";
+      this.stats.lastError = this.core.getStatus().lastError || "RAY upstream connect failed";
     }
   }
 
@@ -99,9 +72,9 @@ class RayScRelay {
   }
 
   async stop() {
-    if (this.wsClient) {
-      this.wsClient.disconnect();
-      this.wsClient = null;
+    if (this.core) {
+      await this.core.stop();
+      this.core = null;
     }
     this.stats.upstreamConnected = false;
     if (this.agServer) {
@@ -111,8 +84,11 @@ class RayScRelay {
   }
 
   getStatus() {
-    if (this.wsClient) {
-      this.stats.upstreamConnected = this.wsClient.connected;
+    if (this.core) {
+      const coreStatus = this.core.getStatus();
+      this.stats.upstreamConnected = coreStatus.upstreamConnected;
+      this.stats.lastError = this.stats.lastError || coreStatus.lastError;
+      this.stats.lastUpstreamAt = this.stats.lastUpstreamAt || coreStatus.lastUpstreamAt;
     }
     this.stats.downstreamClients = this._countSockets();
     return { ...this.stats };

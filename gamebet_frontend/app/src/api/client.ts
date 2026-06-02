@@ -39,11 +39,18 @@ export async function post<T>(
       }
       throw new Error(`${action} HTTP ${res.status}${hint}`);
     }
+    let json: ApiEnvelope<T>;
     try {
-      return JSON.parse(text) as ApiEnvelope<T>;
+      json = JSON.parse(text) as ApiEnvelope<T>;
     } catch {
       throw new Error(`${action} 响应无效: ${text.slice(0, 120)}`);
     }
+    // 被新登录踢出：清除 token 并跳回登录页
+    if (json.success === 0 && json.msg === "请先登录" && action !== "Client_Login") {
+      setToken(null);
+      window.location.href = "/app/";
+    }
+    return json;
   } finally {
     // 对齐 A8：延迟取样来自任意 API 请求耗时，而非专门心跳请求。
     try {

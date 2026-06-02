@@ -37,6 +37,7 @@ MQTT {mqtt}/...            →  赔率/锁盘增量（源站网关，非 A8）
 | 变量 | 说明 |
 |------|------|
 | `ENABLE_OB` | 设为 `0` 关闭 OB Feed（Dashboard 默认开启） |
+| `OB_FEED_MODE` | 默认多源 index；设为 `a8` 时仅 `flag=1&day=1` + `stageDelayMs=1500`（对齐 UMe，仍属 [changmen 扩展]） |
 | `OB_LOGIN_URL` | 登录完整 URL，见上文 |
 | `OB_MQTT_URL` | 可选，覆盖 MQTT 地址（调试用，`fetch_ob_mqtt.js`） |
 

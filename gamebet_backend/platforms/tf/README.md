@@ -21,8 +21,8 @@ changmen 从 A8 拉凭证：
 
 | 模块 | 作用 |
 |------|------|
-| `shared/a8_esport_client.js` | `postEsport`（form-urlencoded）、`fetchCollectPlatform` |
-| `shared/tf_a8_collect.js` | 60s 缓存；账号 `shared/a8_constants.js` 或 `a8_config.json` |
+| `integrations/a8/esport_client.js` | `postEsport`（form-urlencoded）、`fetchCollectPlatform` |
+| `platforms/tf/collect_credentials.js` | 60s 缓存；账号 `integrations/a8/constants.js` 或 `a8_config.json` |
 | `esport-api/router.js` | `Client_GetCollectPlatform` TF 分支 |
 | `esport-api/platform_sync.js` | 启动时 `syncTfFromA8()` |
 
@@ -55,7 +55,7 @@ npm run web
 
 ```powershell
 # 从 A8 拉 TF 采集凭证
-node -e "require('./shared/a8_esport_client.js').fetchCollectPlatformWithGames('TF').then(console.log)"
+node -e "require('./integrations/a8/esport_client.js').fetchCollectPlatformWithGames('TF').then(console.log)"
 
 node scripts/platforms/tf/fetch_tf_events.js
 node scripts/check-collect-platforms.js

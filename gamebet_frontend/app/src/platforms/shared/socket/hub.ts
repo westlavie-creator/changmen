@@ -1,7 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 
 /** 对齐 gamebet_backend/shared/a8_socket.js / A8 yZe */
-export const DEFAULT_A8_WS = "https://47.115.75.57";
+export const DEFAULT_A8_WS = "http://127.0.0.1:3456";
 
 type ChannelHandler = (message: unknown) => void;
 

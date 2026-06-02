@@ -1,5 +1,5 @@
 import { BetResult } from "@/models/betResult";
-import type { PlatformProvider } from "@/platforms/types";
+import type { PlatformProvider } from "@/platforms/contract";
 import { accountRelayPost, accountRelayPostJson } from "@/shared/platformHttp";
 import { buildImtAccountHeaders, imtAccountUrl } from "./auth";
 

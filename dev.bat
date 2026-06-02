@@ -1,5 +1,6 @@
 @echo off
-REM Full dev: backend 3456 + Vite 5174 (two windows)
+chcp 65001 >nul
+title GameBet Dev
 setlocal
 
 set "ROOT=%~dp0"
@@ -8,20 +9,31 @@ set "APP_PORT=5174"
 
 echo.
 echo ========================================
-echo   Gamebet Dev (%BACKEND_PORT% + %APP_PORT%)
+echo   GameBet Dev
 echo ========================================
-echo   Vite : http://localhost:%APP_PORT%/app/
-echo   API  : http://localhost:%BACKEND_PORT%/app/
+echo   Electron backend : http://localhost:%BACKEND_PORT%/app/
+echo   Vite HMR         : http://localhost:%APP_PORT%/app/
 echo.
 
-start "Gamebet Backend :%BACKEND_PORT%" cmd /k "cd /d "%ROOT%" && call backend.bat"
-call "%ROOT%scripts\wait-backend.bat" %BACKEND_PORT% 120
+cd /d "%ROOT%gamebet_backend"
+
+where npm >nul 2>&1
 if errorlevel 1 (
-  echo Backend did not start. Check the Backend window.
+  echo ERROR: npm not found.
   pause
   exit /b 1
 )
 
-start "Gamebet Vite :%APP_PORT%" cmd /k "cd /d "%ROOT%" && call dev-vite.bat"
+echo [1/2] Starting Electron backend...
+start "GameBet Electron %BACKEND_PORT%" cmd /k "chcp 65001 >nul & cd /d "%ROOT%gamebet_backend" & npm run electron"
+
+ping 127.0.0.1 -n 4 >nul
+
+echo [2/2] Starting Vite frontend...
+start "GameBet Vite %APP_PORT%" cmd /k "cd /d "%ROOT%" & call dev-vite.bat"
+
+echo.
+echo [OK] Started. Use Vite port for HMR, Electron window for full test.
+echo.
 
 endlocal

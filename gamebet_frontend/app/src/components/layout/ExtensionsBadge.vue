@@ -28,12 +28,8 @@ async function fetchVersionJson(url: string): Promise<string | null> {
 
 async function loadVersions() {
   extVersion.value = localStorage.getItem("extensionVersion");
-  remoteVersion.value =
-    (await fetchVersionJson("/esport2/version.json")) ??
-    (await fetchVersionJson("https://api.a8.to/esport2/version.json"));
-  webVersion.value =
-    (await fetchVersionJson("/esport2/assets/version.json")) ??
-    (await fetchVersionJson("https://api.a8.to/esport2/assets/version.json"));
+  remoteVersion.value = await fetchVersionJson("/esport2/version.json");
+  webVersion.value = await fetchVersionJson("/esport2/assets/version.json");
 
   const current = extVersion.value ?? WEB_BUNDLE_VERSION;
   const extMismatch = Boolean(remoteVersion.value && remoteVersion.value !== current);

@@ -47,11 +47,32 @@ function createDefaultOddsApi(readJson, writeJson) {
     return store;
   }
 
+  function pruneStaleKeys(buildMatchList) {
+    const activeBetIds = new Set();
+    for (const match of buildMatchList() || []) {
+      for (const bet of match.Bets || []) {
+        const id = Number(bet.ID);
+        if (id) activeBetIds.add(id);
+      }
+    }
+    const store = readStore();
+    let changed = false;
+    for (const key of Object.keys(store)) {
+      const betId = Number(String(key).split(":")[0]);
+      if (!activeBetIds.has(betId)) {
+        delete store[key];
+        changed = true;
+      }
+    }
+    if (changed) writeStore(store);
+  }
+
   function getMatchDefaultOdds(matchIds, buildMatchList) {
     const wanted = new Set((matchIds || []).map((id) => Number(id)).filter(Boolean));
     const out = {};
     if (!wanted.size) return out;
 
+    pruneStaleKeys(buildMatchList);
     const store = readStore();
     const matches = buildMatchList();
     for (const match of matches) {

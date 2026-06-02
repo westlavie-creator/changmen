@@ -3,6 +3,7 @@
 const { ObMqttRelay } = require("./ob_mqtt_relay.js");
 const { RayScRelay } = require("./ray_sc_relay.js");
 const { TfWsRelay } = require("./tf_ws_relay.js");
+const { IaWsRelay } = require("./ia_ws_relay.js");
 
 function normalizePath(url) {
   try {
@@ -20,6 +21,7 @@ function normalizePath(url) {
  *   /esport/ws/OB   — MQTT over WebSocket（aedes 桥接 OB 源站 MQTT）
  *   /esport/ws/RAY  — SocketCluster（频道 match，转发 cfsocket 源站）
  *   /esport/ws/TF   — 透明 WS 隧道（需 TF_GATEWAY + TF_TOKEN 或 query auth_token）
+ *   /esport/ws/IA   — 透明 Socket.IO 隧道（注入 Origin/token header 后转发上游）
  */
 class EsportProxy {
   constructor(options = {}) {
@@ -39,6 +41,10 @@ class EsportProxy {
     if (options.tf !== false) {
       this.tfRelay = new TfWsRelay(options.tfOptions || {});
       this._register(this.tfRelay);
+    }
+    if (options.ia !== false) {
+      this.iaRelay = new IaWsRelay(options.iaOptions || {});
+      this._register(this.iaRelay);
     }
   }
 
