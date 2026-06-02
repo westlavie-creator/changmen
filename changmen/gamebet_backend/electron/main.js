@@ -21,7 +21,7 @@ function copyDirSync(src, dst) {
   }
 }
 
-// ── 打包后解析数据目录（优先级：便携 > userData > 自动迁移）────────────────
+// ── 打包后解析数据目录（优先级：便携 > userData > 首次安装）──────────────────
 if (app.isPackaged) {
   const userData      = app.getPath('userData');
   const exeDir        = path.dirname(process.execPath);
@@ -31,42 +31,30 @@ if (app.isPackaged) {
   process.env.GAMEBET_APP_DIR     = path.join(resourcesPath, 'frontend', 'app', 'dist');
   process.env.GAMEBET_CONSOLE_DIR = path.join(resourcesPath, 'frontend', 'console');
 
-  // 1. 便携模式：exe 同级目录有 gamebetdb/
-  const portableDb = path.join(exeDir, 'gamebetdb', 'gamebet.db');
-  if (fs.existsSync(portableDb)) {
-    process.env.GAMEBET_DB_DIR     = path.join(exeDir, 'gamebetdb');
+  // 1. 便携模式：exe 同级目录有 storage/
+  if (fs.existsSync(path.join(exeDir, 'storage'))) {
     process.env.GAMEBET_STORAGE_DIR = path.join(exeDir, 'storage');
     process.env.ESPORT_DATA_DIR     = path.join(exeDir, 'storage', 'legacy', 'esport');
 
-  // 2. userData 已有数据，直接使用
-  } else if (fs.existsSync(path.join(userData, 'gamebet.db'))) {
-    process.env.GAMEBET_DB_PATH     = path.join(userData, 'gamebet.db');
+  // 2. userData 已有 storage，直接使用
+  } else if (fs.existsSync(path.join(userData, 'storage'))) {
     process.env.GAMEBET_STORAGE_DIR = path.join(userData, 'storage');
     process.env.ESPORT_DATA_DIR     = path.join(userData, 'storage', 'legacy', 'esport');
 
-  // 3. 首次安装：沿 exe 向上逐级寻找开发目录的 gamebetdb，找到则迁移
+  // 3. 首次安装：沿 exe 向上逐级寻找开发目录的 storage，找到则迁移
   } else {
-    let migrated = false;
     let dir = exeDir;
     for (let i = 0; i < 8; i++) {
-      const candidateDb      = path.join(dir, 'gamebetdb', 'gamebet.db');
       const candidateStorage = path.join(dir, 'gamebet_backend', 'storage');
-      if (fs.existsSync(candidateDb)) {
-        const destDb = path.join(userData, 'gamebet.db');
-        fs.mkdirSync(path.dirname(destDb), { recursive: true });
-        fs.copyFileSync(candidateDb, destDb);
-        if (fs.existsSync(candidateStorage)) {
-          copyDirSync(candidateStorage, path.join(userData, 'storage'));
-        }
-        migrated = true;
+      if (fs.existsSync(candidateStorage)) {
+        copyDirSync(candidateStorage, path.join(userData, 'storage'));
+        console.log('[electron] 已从开发目录迁移数据到', userData);
         break;
       }
       dir = path.dirname(dir);
     }
-    process.env.GAMEBET_DB_PATH     = path.join(userData, 'gamebet.db');
     process.env.GAMEBET_STORAGE_DIR = path.join(userData, 'storage');
     process.env.ESPORT_DATA_DIR     = path.join(userData, 'storage', 'legacy', 'esport');
-    if (migrated) console.log('[electron] 已从开发目录迁移数据到', userData);
   }
 }
 
