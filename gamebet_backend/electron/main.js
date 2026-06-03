@@ -192,7 +192,8 @@ function createWindow() {
   // 去掉默认菜单栏
   Menu.setApplicationMenu(null);
 
-  win.loadURL(`http://127.0.0.1:${PORT}/app/`);
+  // 立即加载本地 loading 页，不阻塞等待 server 启动
+  win.loadFile(path.join(__dirname, 'loading.html'));
 
   win.once('ready-to-show', () => win.show());
 
@@ -223,14 +224,18 @@ function createWindow() {
 }
 
 // ── 生命周期 ────────────────────────────────────────────────────────────────
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   registerRelayIpc();
-  try {
-    await waitForServer();
-  } catch (err) {
-    console.error('[electron]', err.message);
-  }
-  createWindow();
+  const win = createWindow();   // 窗口立即打开，显示 loading.html
+
+  // server 在后台启动，就绪后切换到真正的 app
+  waitForServer()
+    .then(() => {
+      if (!win.isDestroyed()) win.loadURL(`http://127.0.0.1:${PORT}/app/`);
+    })
+    .catch((err) => {
+      console.error('[electron] server failed to start:', err.message);
+    });
 });
 
 app.on('window-all-closed', () => {
