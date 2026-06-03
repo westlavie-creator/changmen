@@ -8,9 +8,11 @@ function on(channel, callback) {
   return () => ipcRenderer.removeListener(channel, listener);
 }
 
+// IPC esport 仅在 packaged 模式下启用（dev 模式 server 是子进程，store 实例独立）
 contextBridge.exposeInMainWorld('gamebetApi', {
-  esport: (action, body, token) =>
-    ipcRenderer.invoke('gamebetApi:esport', action, body, token),
+  esport: process.env.GAMEBET_ELECTRON_IPC === '1'
+    ? (action, body, token) => ipcRenderer.invoke('gamebetApi:esport', action, body, token)
+    : undefined,
 });
 
 contextBridge.exposeInMainWorld('gamebetRelays', {

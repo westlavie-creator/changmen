@@ -21,6 +21,13 @@ function copyDirSync(src, dst) {
   }
 }
 
+// packaged 模式下 server.js 在主进程内 require，IPC handler 与 HTTP handler 共享同一
+// module cache / store 实例。dev 模式下 server.js 是 fork 的子进程，module cache
+// 独立，IPC 路径会访问空 store，因此只在 packaged 时开启 IPC esport 路由。
+if (app.isPackaged) {
+  process.env.GAMEBET_ELECTRON_IPC = '1';
+}
+
 // ── 打包后解析数据目录（优先级：便携 > userData > 首次安装）──────────────────
 if (app.isPackaged) {
   const userData      = app.getPath('userData');

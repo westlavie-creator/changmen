@@ -5,9 +5,12 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 let authToken: string | null =
   typeof localStorage !== "undefined" ? localStorage.getItem("app:token") : null;
 
-/** Electron preload が注入した IPC bridge（web 環境では undefined）*/
+/** Electron packaged 模式下 preload 注入的 IPC bridge；dev / web 环境下 esport 为 undefined */
 function electronApi(): { esport: (a: string, b: unknown, t: string) => Promise<unknown> } | undefined {
-  return (window as unknown as { gamebetApi?: { esport: (a: string, b: unknown, t: string) => Promise<unknown> } }).gamebetApi;
+  const api = (window as unknown as { gamebetApi?: { esport?: unknown } }).gamebetApi;
+  return typeof api?.esport === "function"
+    ? (api as { esport: (a: string, b: unknown, t: string) => Promise<unknown> })
+    : undefined;
 }
 
 export function getToken(): string | null {
