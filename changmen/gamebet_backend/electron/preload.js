@@ -8,6 +8,11 @@ function on(channel, callback) {
   return () => ipcRenderer.removeListener(channel, listener);
 }
 
+contextBridge.exposeInMainWorld('gamebetApi', {
+  esport: (action, body, token) =>
+    ipcRenderer.invoke('gamebetApi:esport', action, body, token),
+});
+
 contextBridge.exposeInMainWorld('gamebetRelays', {
   ray: {
     start: () => ipcRenderer.invoke('gamebet:relay:ray:start'),

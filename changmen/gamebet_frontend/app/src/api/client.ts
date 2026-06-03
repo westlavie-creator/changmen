@@ -5,6 +5,11 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 let authToken: string | null =
   typeof localStorage !== "undefined" ? localStorage.getItem("app:token") : null;
 
+/** Electron preload が注入した IPC bridge（web 環境では undefined）*/
+function electronApi(): { esport: (a: string, b: unknown, t: string) => Promise<unknown> } | undefined {
+  return (window as unknown as { gamebetApi?: { esport: (a: string, b: unknown, t: string) => Promise<unknown> } }).gamebetApi;
+}
+
 export function getToken(): string | null {
   return authToken;
 }
@@ -26,25 +31,34 @@ export async function post<T>(
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
   try {
-    const res = await fetch(`/esport/${action}${query}`, {
-      method: "POST",
-      headers: { ...JSON_HEADERS, ...authHeaders() },
-      body: JSON.stringify(body),
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      const hint = text ? `: ${text.slice(0, 160)}` : "";
-      if (res.status === 502 || res.status === 503) {
-        throw new Error(`后端未连接，请先运行 backend.bat 或 dev.bat${hint}`);
-      }
-      throw new Error(`${action} HTTP ${res.status}${hint}`);
-    }
     let json: ApiEnvelope<T>;
-    try {
-      json = JSON.parse(text) as ApiEnvelope<T>;
-    } catch {
-      throw new Error(`${action} 响应无效: ${text.slice(0, 120)}`);
+    const api = electronApi();
+
+    if (api) {
+      // Electron：IPC 直调 main process，绕过 localhost HTTP
+      json = (await api.esport(action, body, authToken ?? "")) as ApiEnvelope<T>;
+    } else {
+      // Web：标准 HTTP fetch
+      const res = await fetch(`/esport/${action}${query}`, {
+        method: "POST",
+        headers: { ...JSON_HEADERS, ...authHeaders() },
+        body: JSON.stringify(body),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        const hint = text ? `: ${text.slice(0, 160)}` : "";
+        if (res.status === 502 || res.status === 503) {
+          throw new Error(`后端未连接，请先运行 backend.bat 或 dev.bat${hint}`);
+        }
+        throw new Error(`${action} HTTP ${res.status}${hint}`);
+      }
+      try {
+        json = JSON.parse(text) as ApiEnvelope<T>;
+      } catch {
+        throw new Error(`${action} 响应无效: ${text.slice(0, 120)}`);
+      }
     }
+
     // 被新登录踢出：清除 token 并跳回登录页
     if (json.success === 0 && json.msg === "请先登录" && action !== "Client_Login") {
       setToken(null);

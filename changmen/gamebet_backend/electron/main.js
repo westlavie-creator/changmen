@@ -93,6 +93,12 @@ function ensureObCore() {
 }
 
 function registerRelayIpc() {
+  // esport API — 直调 router 核心逻辑，绕过 localhost HTTP
+  ipcMain.handle('gamebetApi:esport', async (_event, action, body, token) => {
+    const { callEsportAction } = require('../esport-api/router.js');
+    return callEsportAction(String(action || ''), body || {}, String(token || ''));
+  });
+
   ipcMain.handle('gamebet:relay:ray:start', async () => {
     const core = ensureRayCore();
     const status = core.getStatus();

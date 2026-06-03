@@ -614,8 +614,27 @@ async function tryEsportApi(req, res) {
   return false;
 }
 
+/**
+ * IPC / 测试直调入口 — 与 handleEsportRequest 逻辑等价，但不依赖 HTTP req/res。
+ * 返回值为标准 { success, msg, info } 信封，不会 throw。
+ */
+async function callEsportAction(action, body, token) {
+  try {
+    store.ensureSeed();
+    accountStore.ensureSeed();
+    if (!action) return fail("missing action");
+    const user = await store.getUserBySupabaseToken(token);
+    if (action === "Client_Login") return handleClientLogin(body);
+    return handle(action, body || {}, { token, user });
+  } catch (err) {
+    console.error("[esport:ipc]", action, err);
+    return fail(err.message || "服务器错误");
+  }
+}
+
 module.exports = {
   tryEsportApi,
   handleEsportRequest,
+  callEsportAction,
   resolveCreditPlateUserName,
 };
