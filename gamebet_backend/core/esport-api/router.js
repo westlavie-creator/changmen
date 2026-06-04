@@ -435,7 +435,7 @@ async function handle(action, body, ctx) {
     }
     case "Client_GetUserProfit": {
       if (!ctx.user) return fail("请先登录");
-      const accounts = accountStore.getAccountsFromKv();
+      const accounts = store.getAccountsForUser(ctx.user.id);
       const rows = accounts.map((row) => ({
         UserID: row.accountId,
         UserName: row.playerName || row.platformName || String(row.accountId),

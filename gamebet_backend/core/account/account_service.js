@@ -162,7 +162,6 @@ function handleSaveData(key, content, userId) {
     store.setUserSetting(userId, key, content ?? "");
     return { ok: true, info: true };
   }
-  store.setUserKv(key, content ?? "");
   return { ok: true, info: true };
 }
 
@@ -174,9 +173,7 @@ function handleGetData(key, userId) {
 
   const store = require("../esport-api/store.js");
   const isUserScoped = store.isUserSettingKey(key);
-  const raw = isUserScoped
-    ? store.getUserSetting(userId, key)
-    : store.getUserKv(key);
+  const raw = isUserScoped ? store.getUserSetting(userId, key) : null;
   if (raw == null) {
     const empty = emptyDirectValue(key);
     if (empty !== null) {
@@ -283,7 +280,6 @@ function syncAccountRowInKv(accountId, updates, userId) {
   if (idx < 0) return null;
   list[idx] = { ...list[idx], ...updates, updateTime: Date.now() };
   if (userId) store.setAccountsForUser(userId, list);
-  else store.setUserKv("ACCOUNT", JSON.stringify(list));
   return list[idx];
 }
 

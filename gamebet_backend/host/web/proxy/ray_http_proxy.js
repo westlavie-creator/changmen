@@ -1,7 +1,7 @@
 "use strict";
 
 const { rayHeaders } = require("../../../platforms/ray/ray_session.js");
-const { getPlatform, getUserKv } = require("../../../core/esport-api/store.js");
+const { getPlatform } = require("../../../core/esport-api/store.js");
 const { rayApiUrl } = require("../../../core/shared/ray_paths.js");
 const { getRayA8CollectCredentials } = require("../../../platforms/ray/collect_credentials.js");
 
@@ -24,23 +24,6 @@ function resolveRayCredentials() {
   let token = row.token || a8.token || process.env.RAY_TOKEN || process.env.RAY_WS_TOKEN || "";
   let origin = process.env.RAY_ORIGIN;
 
-  if (!token) {
-    try {
-      const accounts = JSON.parse(getUserKv("ACCOUNT") || "[]");
-      const acc = accounts.find(
-        (a) =>
-          String(a.provider || a.platformName || "").toUpperCase() === "RAY" &&
-          a.token,
-      );
-      if (acc) {
-        token = acc.token;
-        gateway = gateway || acc.gateway || "";
-        if (!origin) origin = originFromReferer(acc.referer);
-      }
-    } catch {
-      /* ignore */
-    }
-  }
 
   return {
     gateway: String(gateway || "").trim(),
