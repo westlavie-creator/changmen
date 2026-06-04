@@ -7,7 +7,7 @@ const RECONNECT_DELAY_MS = 5_000;
 const WATCHDOG_INTERVAL_MS = 30_000;
 
 function defaultSyncObFromSession(session) {
-  const { syncObFromSession } = require("../esport-api/platform_sync.js");
+  const { syncObFromSession } = require("../core/esport-api/platform_sync.js");
   return syncObFromSession(session);
 }
 

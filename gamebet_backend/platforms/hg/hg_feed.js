@@ -1,13 +1,13 @@
 "use strict";
 
-const { getCatalogSummary } = require("../../shared/game_catalog.js");
+const { getCatalogSummary } = require("../../core/shared/game_catalog.js");
 const {
   tryLoadSession,
   fetchBalance,
   ensureOddsTypeEurope,
   persistPlatform,
 } = require("./hg_session.js");
-const { syncHgFromSession } = require("../../esport-api/platform_sync.js");
+const { syncHgFromSession } = require("../../core/esport-api/platform_sync.js");
 
 class HgFeed {
   constructor(options = {}) {

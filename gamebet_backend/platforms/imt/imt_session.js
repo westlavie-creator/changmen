@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { getDefaultSportIds } = require("./imt_sport_ids.js");
-const { getActivePlatformGameIds } = require("../../shared/game_catalog.js");
+const { getActivePlatformGameIds } = require("../../core/shared/game_catalog.js");
 
 const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
 

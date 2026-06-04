@@ -1,10 +1,10 @@
 "use strict";
 
 const { parseEuroOddsPayload } = require("./pb_core.js");
-const { describePlatformGame, getActivePlatformGameIds, getCatalogSummary } = require("../../shared/game_catalog.js");
-const { attachPbMatchBetRefs } = require("../../shared/bet_ref.js");
+const { describePlatformGame, getActivePlatformGameIds, getCatalogSummary } = require("../../core/shared/game_catalog.js");
+const { attachPbMatchBetRefs } = require("../../core/shared/bet_ref.js");
 const { loadSession, tryLoadSession, fetchEuroOdds, fetchBalance, persistPlatform } = require("./pb_session.js");
-const { syncPbFromSession } = require("../../esport-api/platform_sync.js");
+const { syncPbFromSession } = require("../../core/esport-api/platform_sync.js");
 
 class PbFeed {
   constructor(options = {}) {

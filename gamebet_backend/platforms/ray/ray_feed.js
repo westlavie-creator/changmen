@@ -1,12 +1,12 @@
 "use strict";
 
 const Core = require("./ray_core.js");
-const { describePlatformGame, getCatalogSummary } = require("../../shared/game_catalog.js");
+const { describePlatformGame, getCatalogSummary } = require("../../core/shared/game_catalog.js");
 const { getGameName, getGameCode } = require("./ray_game_ids.js");
-const { attachRayMatchBetRefs } = require("../../shared/bet_ref.js");
+const { attachRayMatchBetRefs } = require("../../core/shared/bet_ref.js");
 const { login, fetchMatchPage, fetchOdds, oddsPayloadFromMatchRaw } = require("./ray_session.js");
 const { RayWsClient } = require("./ray_ws.js");
-const { syncRayFromSession } = require("../../esport-api/platform_sync.js");
+const { syncRayFromSession } = require("../../core/esport-api/platform_sync.js");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

@@ -3,7 +3,7 @@
 
 process.env.A8_AUTH = process.env.A8_AUTH || "0";
 
-const { handleEsportRequest } = require("../esport-api/router.js");
+const { handleEsportRequest } = require("../core/esport-api/router.js");
 const http = require("http");
 
 function mockReq(body) {

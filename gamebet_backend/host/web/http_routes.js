@@ -1,12 +1,12 @@
 "use strict";
 
-const { getCatalogSummary } = require("../../shared/game_catalog.js");
-const { getCatalogSummary: getMarketCatalogSummary } = require("../../shared/market_catalog.js");
-const { listPlatforms, getPlatform } = require("../../shared/platform_registry.js");
-const { checkBet, placeBet, supportedPlatforms } = require("../../shared/bet_engine.js");
-const { tryEsportApi, resolveCreditPlateUserName } = require("../../esport-api/router.js");
-const store = require("../../esport-api/store.js");
-const { getHardcodedCredentials } = require("../../integrations/a8/config.js");
+const { getCatalogSummary } = require("../../core/shared/game_catalog.js");
+const { getCatalogSummary: getMarketCatalogSummary } = require("../../core/shared/market_catalog.js");
+const { listPlatforms, getPlatform } = require("../../core/shared/platform_registry.js");
+const { checkBet, placeBet, supportedPlatforms } = require("../../core/shared/bet_engine.js");
+const { tryEsportApi, resolveCreditPlateUserName } = require("../../core/esport-api/router.js");
+const store = require("../../core/esport-api/store.js");
+const { getHardcodedCredentials } = require("../../core/integrations/a8/config.js");
 const { tryHttpProxyRelay } = require("./proxy/http_proxy_relay.js");
 const { tryPbHttpProxy } = require("./proxy/pb_http_proxy.js");
 const { tryObHttpProxy } = require("./proxy/ob_http_proxy.js");

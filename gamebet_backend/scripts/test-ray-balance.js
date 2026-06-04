@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { getAccountBalance } = require("../account/balance_provider.js");
+const { getAccountBalance } = require("../core/account/balance_provider.js");
 
 const kvPath = path.join(__dirname, "../data/esport/user_kv.json");
 const kv = JSON.parse(fs.readFileSync(kvPath, "utf8"));

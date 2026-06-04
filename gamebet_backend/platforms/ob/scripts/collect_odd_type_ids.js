@@ -12,7 +12,7 @@
 const fs = require("fs");
 const path = require("path");
 const { login, obGet } = require("../ob_session.js");
-const games = require("../../../shared/game_catalog.json").games;
+const games = require("../../../core/shared/game_catalog.json").games;
 
 const CATALOG_PATH = path.join(__dirname, "../../../shared/market_catalog.json");
 const OUT_PATH = path.join(__dirname, "../data/ob_odd_type_ids.json");

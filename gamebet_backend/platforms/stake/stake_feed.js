@@ -1,10 +1,10 @@
 "use strict";
 
-const { A8BetsFeed } = require("../../integrations/a8/bets_feed.js");
-const { getCatalogSummary } = require("../../shared/game_catalog.js");
-const { attachAggregatorMatchBetRefs } = require("../../shared/bet_ref.js");
+const { A8BetsFeed } = require("../../core/integrations/a8/bets_feed.js");
+const { getCatalogSummary } = require("../../core/shared/game_catalog.js");
+const { attachAggregatorMatchBetRefs } = require("../../core/shared/bet_ref.js");
 const { tryLoadSession, fetchAllSports, persistPlatform } = require("./stake_session.js");
-const { syncStakeFromSession } = require("../../esport-api/platform_sync.js");
+const { syncStakeFromSession } = require("../../core/esport-api/platform_sync.js");
 
 class StakeFeed extends A8BetsFeed {
   constructor(options = {}) {

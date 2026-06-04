@@ -1,11 +1,11 @@
 "use strict";
 
-const { fetchBalance: fetchPbBalance, parsePbTokenBalance } = require("../platforms/pb/pb_session.js");
-const { tryLoadSession: tryPbSession } = require("../platforms/pb/pb_session.js");
-const { fetchBalance: fetchHgBalance, tryLoadSession: tryHgSession } = require("../platforms/hg/hg_session.js");
-const { obGet } = require("../platforms/ob/ob_session.js");
-const { rayGet } = require("../platforms/ray/ray_session.js");
-const { DEFAULT_GATEWAYS } = require("../platforms/ray/ray_core.js");
+const { fetchBalance: fetchPbBalance, parsePbTokenBalance } = require("../../platforms/pb/pb_session.js");
+const { tryLoadSession: tryPbSession } = require("../../platforms/pb/pb_session.js");
+const { fetchBalance: fetchHgBalance, tryLoadSession: tryHgSession } = require("../../platforms/hg/hg_session.js");
+const { obGet } = require("../../platforms/ob/ob_session.js");
+const { rayGet } = require("../../platforms/ray/ray_session.js");
+const { DEFAULT_GATEWAYS } = require("../../platforms/ray/ray_core.js");
 const { rayApiPath } = require("../shared/ray_paths.js");
 
 function originFromReferer(referer) {

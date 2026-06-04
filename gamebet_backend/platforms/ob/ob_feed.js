@@ -32,10 +32,10 @@
 
 const mqtt = require("mqtt");
 const Core = require("./ob_core.js");
-const { describePlatformGame, getActivePlatformGameIds, getCatalogSummary, getGameCodeForPlatformId } = require("../../shared/game_catalog.js");
-const { attachObMatchBetRefs } = require("../../shared/bet_ref.js");
+const { describePlatformGame, getActivePlatformGameIds, getCatalogSummary, getGameCodeForPlatformId } = require("../../core/shared/game_catalog.js");
+const { attachObMatchBetRefs } = require("../../core/shared/bet_ref.js");
 const { obGet, fetchGameView, fetchGetTimer } = require("./ob_session.js");
-const { resolveObSession } = require("../../esport-api/platform_sync.js");
+const { resolveObSession } = require("../../core/esport-api/platform_sync.js");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { tfRequestHeaders } = require("./tf_auth.js");
-const { getActivePlatformGameIds } = require("../../shared/game_catalog.js");
+const { getActivePlatformGameIds } = require("../../core/shared/game_catalog.js");
 
 const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
 const DEFAULT_GATEWAY = "https://api-v4.tf-api-rr3h.com";
@@ -130,7 +130,7 @@ async function fetchEventMarkets(session, eventId, options = {}) {
 
 function persistPlatform(session) {
   try {
-    const store = require("../../esport-api/store.js");
+    const store = require("../../core/esport-api/store.js");
     store.setPlatform("TF", {
       gateway: session.gateway,
       token: session.token,

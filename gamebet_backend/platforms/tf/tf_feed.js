@@ -1,9 +1,9 @@
 "use strict";
 
 const Core = require("./tf_core.js");
-const { describePlatformGame, getCatalogSummary } = require("../../shared/game_catalog.js");
+const { describePlatformGame, getCatalogSummary } = require("../../core/shared/game_catalog.js");
 const { getGameCode } = require("./tf_game_ids.js");
-const { attachTfMatchBetRefs } = require("../../shared/bet_ref.js");
+const { attachTfMatchBetRefs } = require("../../core/shared/bet_ref.js");
 const {
   tryLoadSession,
   loadSession,
@@ -12,7 +12,7 @@ const {
   persistPlatform,
 } = require("./tf_session.js");
 const { TfWsClient } = require("./tf_ws.js");
-const { syncTfFromSession } = require("../../esport-api/platform_sync.js");
+const { syncTfFromSession } = require("../../core/esport-api/platform_sync.js");
 
 class TfFeed {
   constructor(options = {}) {

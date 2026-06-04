@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { getActivePlatformGameIds } = require("../../shared/game_catalog.js");
+const { getActivePlatformGameIds } = require("../../core/shared/game_catalog.js");
 const Core = require("./saba_core.js");
 
 const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");

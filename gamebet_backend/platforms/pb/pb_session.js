@@ -2,8 +2,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const store = require("../../esport-api/store.js");
-const { getActivePlatformGameIds } = require("../../shared/game_catalog.js");
+const store = require("../../core/esport-api/store.js");
+const { getActivePlatformGameIds } = require("../../core/shared/game_catalog.js");
 
 const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
 

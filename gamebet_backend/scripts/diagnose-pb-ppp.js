@@ -2,8 +2,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const { refreshAccountBalance } = require("../account/account_service.js");
-const { accountToSession } = require("../account/balance_provider.js");
+const { refreshAccountBalance } = require("../core/account/account_service.js");
+const { accountToSession } = require("../core/account/balance_provider.js");
 const { fetchBalance: fetchPbBalance } = require("../platforms/pb/pb_session.js");
 
 const kvPath = path.join(__dirname, "../data/esport/user_kv.json");

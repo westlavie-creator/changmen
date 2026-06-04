@@ -7,7 +7,7 @@
  *   2. 环境变量 TF_GATEWAY + TF_TOKEN
  */
 function getTfA8CollectCredentials() {
-  const store = require("../../esport-api/store.js");
+  const store = require("../../core/esport-api/store.js");
   const platform = store.getPlatform("TF");
 
   if (platform?.gateway && platform?.token) {
