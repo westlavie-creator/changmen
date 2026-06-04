@@ -278,8 +278,13 @@ async function insertProfile(uid, data) {
   return !error
 }
 
+/** service_role 可用时返回 true，用于判断是否能执行 admin 操作（单 session 校验等） */
+function hasAdminAccess() {
+  return !!supabaseAdmin
+}
+
 module.exports = {
-  supabaseAdmin,
+  hasAdminAccess,
   // profiles
   fetchProfiles,
   fetchProfileById,
