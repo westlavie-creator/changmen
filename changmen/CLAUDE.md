@@ -80,28 +80,32 @@ npm run account:cli             # interactive account manager
 changmen/
 ├── gamebet_backend/      Node.js CommonJS, port 3456
 │   ├── host/
-│   │   ├── web/          Web Host 入口（node host/web/index.js）
-│   │   │   ├── index.js      原 server.js — HTTP server + FeedHub + proxy
-│   │   │   ├── http_routes.js
-│   │   │   ├── static_files.js
-│   │   │   ├── snapshot_ws.js
-│   │   │   └── proxy/        Web 专用 WS relay（OB MQTT / RAY SC / TF / IA）
-│   │   ├── electron/     Electron Host 入口（main: host/electron/main.js）
-│   │   │   ├── main.js       IPC handlers + relay cores + require('../web/index.js')
-│   │   │   ├── preload.js    contextBridge（gamebetApi + gamebetRelays）
-│   │   │   └── loading.html
+│   │   ├── web/              Web Host（node host/web/index.js）
+│   │   │   ├── index.js          HTTP server + FeedHub + proxy 编排
+│   │   │   ├── http_routes.js    所有 /api/ 路由
+│   │   │   ├── static_files.js   静态文件服务
+│   │   │   ├── snapshot_ws.js    /feed/ WebSocket 快照
+│   │   │   └── proxy/            Web 专用 WS relay（OB/RAY/TF/IA）
+│   │   ├── electron/         Electron Host（main: host/electron/main.js）
+│   │   │   ├── main.js           IPC handlers + relay cores + require('../web/index.js')
+│   │   │   ├── preload.js        contextBridge（gamebetApi + gamebetRelays）
+│   │   │   └── loading.html      启动等待页
 │   │   └── electron-builder.yml
-│   ├── relays/           Relay cores（两个 Host 共用）
-│   │   ├── ob_relay_core.js   OB MQTT 上游连接
-│   │   ├── ray_relay_core.js  RAY SocketCluster
-│   │   ├── tf_relay_core.js   TF WebSocket
-│   │   └── ia_relay_core.js   IA Socket.IO
-│   ├── esport-api/       Business Core（路由/store/合并/初赔）
-│   ├── account/          账号/订单服务
-│   ├── db/               Supabase 客户端 + 内存缓存
-│   ├── shared/           FeedHub / market catalog / odds format 等
-│   ├── integrations/     A8 集成（constants / v4 / socket）
-│   └── platforms/        各平台后端 feed（ob_feed / ray_feed …）
+│   ├── core/                 Business Core（两个 Host 共用）
+│   │   ├── esport-api/           路由/store/match合并/初赔/platform_sync
+│   │   ├── account/              账号 CLI / 订单 / 余额刷新
+│   │   ├── db/                   Supabase 客户端 + 内存缓存
+│   │   ├── shared/               FeedHub / market catalog / odds format / storage_paths
+│   │   └── integrations/         A8 集成（constants / v4 / socket）
+│   ├── relays/               Relay cores（两个 Host 共用）
+│   │   ├── ob_relay_core.js      OB MQTT 上游连接
+│   │   ├── ray_relay_core.js     RAY SocketCluster
+│   │   ├── tf_relay_core.js      TF WebSocket
+│   │   └── ia_relay_core.js      IA Socket.IO
+│   ├── platforms/            各平台后端 feed（ob_feed / ray_feed …）
+│   ├── scripts/              调试 / 运维脚本
+│   ├── supabase/             DB 迁移文件
+│   └── public/               静态调试页（/feed/ /platforms/）
 ├── gamebet_frontend/
 │   ├── app/              Vue 3 + TypeScript + Vite (base /app/)
 │   └── console/          Legacy A8 bundle patch output (read-only reference)
@@ -111,24 +115,32 @@ changmen/
 
 ### Backend (`gamebet_backend/`)
 
+**三层架构：**
+
+| 层 | 目录 | 职责 |
+|---|---|---|
+| Host 层 | `host/web/` `host/electron/` | 传输适配：HTTP server / IPC handler / WS relay |
+| Core 层 | `core/` | 业务逻辑：路由/store/账号/DB/shared utils |
+| Platform 层 | `platforms/` `relays/` | 平台对接：各场馆 feed + relay core |
+
 **两个 Host 入口：**
 - **Web**：`node host/web/index.js` — 启动 HTTP server、FeedHub、WS relay、feed bridge
 - **Electron**：`host/electron/main.js` — 主进程直接 `require('../web/index.js')`，同时注册 IPC handler 和 relay core；`process.versions.electron` 存在时 WS relay 自动跳过
 
 **Relay core 与 proxy 的分工：**
 - `relays/` — 上游连接逻辑（两个 Host 共用），OB/RAY/TF/IA 各一个 core 类
-- `host/web/proxy/` — Web 专用 WS relay 服务端，把上游推送转发给浏览器；Electron 模式下这些 relay 不启动（renderer 走 IPC）
+- `host/web/proxy/` — Web 专用 WS relay 服务端，把上游推送转发给浏览器；Electron 模式下不启动
 
 | Module | Role |
 |--------|------|
-| `esport-api/router.js` | Handles all `Client_*` / `API_*` actions (match list, collect config, accounts, v4, etc.) |
-| `esport-api/store.js` | JSON file store; esport data lives in `storage/legacy/esport/*.json` (env: `ESPORT_DATA_DIR`) |
-| `esport-api/platform_sync.js` | Populates `platforms.json` at startup; three-level fallback for each platform (FeedHub session → stored JSON → trial/env login) |
-| `shared/feed_hub.js` | Runs backend platform feeds (OB, RAY, TF…); emits `snapshot`/`oddsUpdate` events |
-| `esport-api/feed_bridge.js` | When `ESPORT_BRIDGE=1`, writes FeedHub snapshots into `matches.json` (mode D only) |
-| `db/client.js` | Supabase 客户端（认证 + 数据持久化） |
-| `db/store.js` | 内存缓存（`_cache`）+ Supabase 异步写；账号读写的主路径 |
-| `account/order_store.js` | 订单读写，纯 Supabase `orders` 表，无本地副本 |
+| `core/esport-api/router.js` | Handles all `Client_*` / `API_*` actions (match list, collect config, accounts, v4, etc.) |
+| `core/esport-api/store.js` | JSON file store; esport data lives in `storage/legacy/esport/*.json` (env: `ESPORT_DATA_DIR`) |
+| `core/esport-api/platform_sync.js` | Populates `platforms.json` at startup; three-level fallback for each platform (FeedHub session → stored JSON → trial/env login) |
+| `core/shared/feed_hub.js` | Runs backend platform feeds (OB, RAY, TF…); emits `snapshot`/`oddsUpdate` events |
+| `core/esport-api/feed_bridge.js` | When `ESPORT_BRIDGE=1`, writes FeedHub snapshots into `matches.json` (mode D only) |
+| `core/db/client.js` | Supabase 客户端（认证 + 数据持久化） |
+| `core/db/store.js` | 内存缓存（`_cache`）+ Supabase 异步写；账号读写的主路径 |
+| `core/account/order_store.js` | 订单读写，纯 Supabase `orders` 表，无本地副本 |
 
 Auth: Supabase JWT. Credentials in `gamebet_backend/.env` (`SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_KEY`).
 
@@ -142,7 +154,7 @@ Auth: Supabase JWT. Credentials in `gamebet_backend/.env` (`SUPABASE_URL`, `SUPA
 | esport 数据（赛事/赔率/平台凭证等） | 本地 JSON（`storage/legacy/esport/*.json`） | 不依赖 Supabase |
 | 平台采集凭证 | `platforms.json`（esport 数据目录） | 不依赖 Supabase |
 
-Storage path resolved in `shared/storage_paths.js`. Override via `ESPORT_DATA_DIR` or `GAMEBET_STORAGE_DIR`.
+Storage path resolved in `core/shared/storage_paths.js`. Override via `ESPORT_DATA_DIR` or `GAMEBET_STORAGE_DIR`.
 
 ### Frontend (`gamebet_frontend/app/src/`)
 
