@@ -3,7 +3,6 @@
 const { getCatalogSummary } = require("../../core/shared/game_catalog.js");
 const { getCatalogSummary: getMarketCatalogSummary } = require("../../core/shared/market_catalog.js");
 const { listPlatforms, getPlatform } = require("../../core/shared/platform_registry.js");
-const { checkBet, placeBet, supportedPlatforms } = require("../../core/shared/bet_engine.js");
 const { tryEsportApi, resolveCreditPlateUserName } = require("../../core/esport-api/router.js");
 const store = require("../../core/esport-api/store.js");
 const { getHardcodedCredentials } = require("../../core/integrations/a8/config.js");
@@ -39,37 +38,6 @@ function jsonResponse(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-async function handleBetApi(req, res, url) {
-  if (process.env.ENABLE_BET === "0") {
-    jsonResponse(res, 403, { error: "betting disabled (set ENABLE_BET=1)" });
-    return true;
-  }
-  if (req.method === "GET" && url === "/api/bet/platforms") {
-    jsonResponse(res, 200, { platforms: supportedPlatforms(), enabled: true });
-    return true;
-  }
-  if (req.method !== "POST") return false;
-
-  try {
-    const body = await readJsonBody(req);
-    if (url === "/api/bet/check") {
-      const { betRef, amount } = body;
-      const result = await checkBet(betRef, amount);
-      jsonResponse(res, 200, result);
-      return true;
-    }
-    if (url === "/api/bet/place") {
-      const { betRef, amount, payload } = body;
-      const result = await placeBet(betRef, amount, { payload });
-      jsonResponse(res, 200, result);
-      return true;
-    }
-  } catch (err) {
-    jsonResponse(res, 400, { error: err.message || String(err) });
-    return true;
-  }
-  return false;
-}
 
 async function handleObDemoLogin(req, res) {
   if (req.method !== "GET") {
@@ -118,10 +86,6 @@ function createHttpHandler({ port, hub, serveStatic, getEsportProxy }) {
         const userName = resolveCreditPlateUserName(user);
         jsonResponse(res, 200, { userName });
         return;
-      }
-      if (url.startsWith("/api/bet")) {
-        const handled = await handleBetApi(req, res, url);
-        if (handled) return;
       }
       if (url === "/api/markets") {
         jsonResponse(res, 200, getMarketCatalogSummary());
