@@ -11,7 +11,6 @@ const backendRoot = path.join(root, "backend");
 
 process.env.GAMEBET_BACKEND_ROOT = backendRoot;
 process.env.GAMEBET_STORAGE_DIR  = path.join(backendRoot, "storage");
-delete process.env.GAMEBET_CHANGMEN_ROOT;
 delete process.env.ESPORT_DATA_DIR;
 
 const paths = require("../core/shared/storage_paths.js");
