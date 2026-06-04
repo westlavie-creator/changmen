@@ -2,9 +2,9 @@ import { defineStore } from "pinia";
 import {
   createTagPlatform,
   deletePlayer,
-  getClientDataArray,
+  getAccounts,
   getTagPlatforms,
-  saveClientData,
+  saveAccounts,
   saveMoneyLog,
   updateBalance,
 } from "@/api/esport";
@@ -18,7 +18,6 @@ import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
 import { useConfigStore } from "@/stores/configStore";
 
-const ACCOUNT_KEY = "ACCOUNT";
 
 /** 对齐 A8 Pinia `Io` */
 export const useAccountStore = defineStore("account", {
@@ -87,7 +86,7 @@ export const useAccountStore = defineStore("account", {
       this.loading = true;
       try {
         await this.loadTagPlatforms();
-        const list = await getClientDataArray<AccountRecord>(ACCOUNT_KEY);
+        const list = await getAccounts();
         this.accounts = list
           .filter((row) => row.accountId)
           .map((row) => {
@@ -111,7 +110,7 @@ export const useAccountStore = defineStore("account", {
       const payload = this.accounts
         .filter((a) => a.accountId)
         .map((a) => a.toJSON());
-      await saveClientData(ACCOUNT_KEY, JSON.stringify(payload));
+      await saveAccounts(payload);
     },
 
     async upsertAccount(record: Partial<AccountRecord>) {

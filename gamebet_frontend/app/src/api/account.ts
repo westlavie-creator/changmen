@@ -2,6 +2,19 @@ import { post, unwrap } from "@/api/client";
 import type { AccountRecord, CreateTagPlatformResult, UpdateBalanceResult } from "@/types/account";
 import type { MoneyLogRow, PageResult, TagPlatformRow } from "@/types/esport";
 
+export async function getAccounts(): Promise<AccountRecord[]> {
+  const res = await post<AccountRecord[]>("Client_GetAccounts", {});
+  if (res.success !== 1 || !Array.isArray(res.info)) return [];
+  return res.info;
+}
+
+export async function saveAccounts(accounts: AccountRecord[]): Promise<boolean> {
+  const res = await post<boolean>("Client_SaveAccounts", {
+    accounts: JSON.stringify(accounts),
+  });
+  return res.success === 1;
+}
+
 export async function updateBalance(playerId: number, balance: number) {
   return unwrap(
     await post<UpdateBalanceResult>("Client_UpdateBalance", { playerId, balance }),

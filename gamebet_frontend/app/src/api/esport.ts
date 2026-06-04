@@ -36,6 +36,8 @@ export {
 export { getOrderList, saveOrder, saveOrderBind } from "@/api/order";
 
 export {
+  getAccounts,
+  saveAccounts,
   updateBalance,
   refreshAccountBalance,
   deletePlayer,
