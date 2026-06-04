@@ -134,7 +134,7 @@ changmen/
 | Module | Role |
 |--------|------|
 | `core/esport-api/router.js` | Handles all `Client_*` / `API_*` actions (match list, collect config, accounts, v4, etc.) |
-| `core/esport-api/store.js` | JSON file store; esport data lives in `storage/legacy/esport/*.json` (env: `ESPORT_DATA_DIR`) |
+| `core/esport-api/store.js` | JSON file store; esport data lives in `storage/esport/*.json` (env: `ESPORT_DATA_DIR`) |
 | `core/esport-api/platform_sync.js` | Populates `platforms.json` at startup; three-level fallback for each platform (FeedHub session → stored JSON → trial/env login) |
 | `core/shared/feed_hub.js` | Runs backend platform feeds (OB, RAY, TF…); emits `snapshot`/`oddsUpdate` events |
 | `core/esport-api/feed_bridge.js` | When `ESPORT_BRIDGE=1`, writes FeedHub snapshots into `matches.json` (mode D only) |
@@ -154,7 +154,7 @@ Auth: Supabase JWT. Credentials in `gamebet_backend/.env` (`SUPABASE_URL`, `SUPA
 | esport 数据（赛事/赔率/平台凭证等） | 本地 JSON（`storage/legacy/esport/*.json`） | 不依赖 Supabase |
 | 平台采集凭证 | `platforms.json`（esport 数据目录） | 不依赖 Supabase |
 
-Storage path resolved in `core/shared/storage_paths.js`. Override via `ESPORT_DATA_DIR` or `GAMEBET_STORAGE_DIR`.
+Storage path resolved in `core/shared/storage_paths.js`. Override via `ESPORT_DATA_DIR` or `GAMEBET_STORAGE_DIR`. Example configs: `gamebet_backend/a8_config.example.json`, `gamebet_backend/platforms.example.json`.
 
 ### Frontend (`gamebet_frontend/app/src/`)
 
