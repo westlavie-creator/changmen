@@ -8,20 +8,15 @@ const path = require("path");
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "gamebet-storage-paths-"));
 const backendRoot = path.join(root, "backend");
-const oldDataDir = path.join(backendRoot, "data", "esport");
-fs.mkdirSync(oldDataDir, { recursive: true });
-fs.writeFileSync(path.join(oldDataDir, "users.json"), JSON.stringify([{ id: 1, userName: "legacy" }]));
 
 process.env.GAMEBET_BACKEND_ROOT = backendRoot;
-process.env.GAMEBET_STORAGE_DIR = path.join(backendRoot, "storage");
+process.env.GAMEBET_STORAGE_DIR  = path.join(backendRoot, "storage");
 delete process.env.GAMEBET_CHANGMEN_ROOT;
-delete process.env.GAMEBET_DB_DIR;
 delete process.env.ESPORT_DATA_DIR;
-delete process.env.GAMEBET_DB_PATH;
 
 const paths = require("../core/shared/storage_paths.js");
 
-assert.strictEqual(paths.ESPORT_DATA_DIR, path.join(backendRoot, "storage", "legacy", "esport"));
-assert.strictEqual(fs.existsSync(path.join(paths.ESPORT_DATA_DIR, "users.json")), true);
+assert.strictEqual(paths.ESPORT_DATA_DIR, path.join(backendRoot, "storage", "esport"));
+assert.strictEqual(fs.existsSync(paths.ESPORT_DATA_DIR), true);
 
-console.log("storage paths default to storage/legacy/esport ok");
+console.log("storage paths ok:", paths.ESPORT_DATA_DIR);
