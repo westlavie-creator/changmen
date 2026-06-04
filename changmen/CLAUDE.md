@@ -28,8 +28,8 @@ dev.bat                   # Windows: Electron backend (3456) + Vite HMR (5174)
 Or manually in two terminals:
 
 ```bat
-# Terminal 1 — backend
-cd gamebet_backend && node server.js
+# Terminal 1 — backend (Web mode)
+cd gamebet_backend && node host/web/index.js
 
 # Terminal 2 — frontend
 npm run app:dev           # → http://localhost:5174/app/
@@ -79,6 +79,29 @@ npm run account:cli             # interactive account manager
 ```
 changmen/
 ├── gamebet_backend/      Node.js CommonJS, port 3456
+│   ├── host/
+│   │   ├── web/          Web Host 入口（node host/web/index.js）
+│   │   │   ├── index.js      原 server.js — HTTP server + FeedHub + proxy
+│   │   │   ├── http_routes.js
+│   │   │   ├── static_files.js
+│   │   │   ├── snapshot_ws.js
+│   │   │   └── proxy/        Web 专用 WS relay（OB MQTT / RAY SC / TF / IA）
+│   │   ├── electron/     Electron Host 入口（main: host/electron/main.js）
+│   │   │   ├── main.js       IPC handlers + relay cores + require('../web/index.js')
+│   │   │   ├── preload.js    contextBridge（gamebetApi + gamebetRelays）
+│   │   │   └── loading.html
+│   │   └── electron-builder.yml
+│   ├── relays/           Relay cores（两个 Host 共用）
+│   │   ├── ob_relay_core.js   OB MQTT 上游连接
+│   │   ├── ray_relay_core.js  RAY SocketCluster
+│   │   ├── tf_relay_core.js   TF WebSocket
+│   │   └── ia_relay_core.js   IA Socket.IO
+│   ├── esport-api/       Business Core（路由/store/合并/初赔）
+│   ├── account/          账号/订单服务
+│   ├── db/               Supabase 客户端 + 内存缓存
+│   ├── shared/           FeedHub / market catalog / odds format 等
+│   ├── integrations/     A8 集成（constants / v4 / socket）
+│   └── platforms/        各平台后端 feed（ob_feed / ray_feed …）
 ├── gamebet_frontend/
 │   ├── app/              Vue 3 + TypeScript + Vite (base /app/)
 │   └── console/          Legacy A8 bundle patch output (read-only reference)
@@ -88,7 +111,13 @@ changmen/
 
 ### Backend (`gamebet_backend/`)
 
-Entry point: `server.js` — initialises FeedHub, attaches feed bridge, calls `ensurePlatformCredentials`, starts HTTP server.
+**两个 Host 入口：**
+- **Web**：`node host/web/index.js` — 启动 HTTP server、FeedHub、WS relay、feed bridge
+- **Electron**：`host/electron/main.js` — 主进程直接 `require('../web/index.js')`，同时注册 IPC handler 和 relay core；`process.versions.electron` 存在时 WS relay 自动跳过
+
+**Relay core 与 proxy 的分工：**
+- `relays/` — 上游连接逻辑（两个 Host 共用），OB/RAY/TF/IA 各一个 core 类
+- `host/web/proxy/` — Web 专用 WS relay 服务端，把上游推送转发给浏览器；Electron 模式下这些 relay 不启动（renderer 走 IPC）
 
 | Module | Role |
 |--------|------|
@@ -128,7 +157,7 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 | `stores/` | 10 Pinia stores; `matchStore` owns the polling loop; `oddsStore` is the real-time odds cache (`fo`) |
 | `shared/http.ts` | `directGet` / `directPostJson` — Axios for collect HTTP (bypasses backend proxy) |
 | `shared/platformHttp.ts` | Axios for betting account HTTP (supports relay, optional SOCKS proxy) |
-| `platforms/a8/` | A8 Socket bridge (`socketHub`, `pluginBridge`, `betsCollect`) — used by IM, XBet |
+| `platforms/shared/socket/` | A8 Socket bridge (`hub.ts`, `collector.ts`, `accumulator.ts`) — used by IM, XBet |
 
 `@` alias maps to `src/`.
 
