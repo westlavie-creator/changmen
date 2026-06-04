@@ -262,11 +262,13 @@ async function authGetUser(token) {
   } catch { return null }
 }
 
-/** 写入 user_metadata（fire-and-forget，用于单 session 限制） */
+/** 写入 user_metadata（fire-and-forget，用于单 session 限制）
+ *  需要 service_role，无 supabaseAdmin 时静默跳过 */
 function writeUserMetadata(userId, metadata) {
-  _write(async (client) => {
-    await client.auth.admin.updateUserById(userId, { user_metadata: metadata })
-  })
+  if (!supabaseAdmin) return
+  Promise.resolve()
+    .then(() => supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: metadata }))
+    .catch((err) => console.warn('[supabase] writeUserMetadata:', err.message))
 }
 
 /** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */
@@ -277,6 +279,7 @@ async function insertProfile(uid, data) {
 }
 
 module.exports = {
+  supabaseAdmin,
   // profiles
   fetchProfiles,
   fetchProfileById,
