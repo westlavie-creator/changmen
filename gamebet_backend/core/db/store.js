@@ -1,12 +1,6 @@
 'use strict'
 
-const { supabase } = require('./client')
-
-// ─── Supabase 异步写（fire-and-forget）──────────────────────────────
-function _sb(fn) {
-  if (!supabase) return
-  Promise.resolve().then(fn).catch((err) => console.warn('[db:supabase]', err.message))
-}
+const sb = require('./supabase.js')
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
 const _cache = new Map()
@@ -26,9 +20,7 @@ function _toProfile(row) {
 
 // ─── profiles ────────────────────────────────────────────────────────
 
-function getProfileById(uid) {
-  return _toProfile(_get(uid))
-}
+function getProfileById(uid) { return _toProfile(_get(uid)) }
 
 function getProfileByName(userName) {
   for (const row of _cache.values()) {
@@ -47,7 +39,7 @@ function upsertProfile(profile) {
   _set(uid, {
     ...existing,
     id: uid,
-    user_name: String(profile.userName || profile.user_name || existing.user_name || ''),
+    user_name:      String(profile.userName || profile.user_name || existing.user_name || ''),
     accounts:       profile.accounts       ?? existing.accounts       ?? [],
     betting_config: profile.betting_config ?? existing.betting_config ?? {},
     collect_config: profile.collect_config ?? existing.collect_config ?? {},
@@ -64,36 +56,22 @@ function updateProfileSetting(uid, patch) {
   Object.assign(bc, patch || {})
   const now = Date.now()
   _set(uid, { ...row, betting_config: bc, updated_at: now })
-  _sb(async () => {
-    const { error } = await supabase.from('profiles')
-      .update({ betting_config: bc, updated_at: now }).eq('id', String(uid))
-    if (error) throw error
-  })
+  sb.writeProfile(uid, { betting_config: bc })
   return getProfileById(uid)
 }
 
 async function loadProfileById(uid) {
-  if (!supabase) return null
-  try {
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', String(uid)).single()
-    if (error || !data) return null
-    _set(data.id, data)
-    return _toProfile(data)
-  } catch { return null }
+  const data = await sb.fetchProfileById(uid)
+  if (!data) return null
+  _set(data.id, data)
+  return _toProfile(data)
 }
 
 async function pullFromSupabase(sessionClient) {
-  const client = sessionClient || supabase
-  if (!client) return
-  try {
-    const { data: profiles, error } = await client.from('profiles').select('*')
-    if (error) throw error
-    if (profiles?.length) {
-      for (const p of profiles) _set(p.id, p)
-      console.log('[db:supabase] 加载 profiles:', profiles.length, '条')
-    }
-  } catch (err) {
-    console.error('[db:supabase] 加载失败:', err.message)
+  const profiles = await sb.fetchProfiles(sessionClient)
+  if (profiles.length) {
+    for (const p of profiles) _set(p.id, p)
+    console.log('[db:supabase] 加载 profiles:', profiles.length, '条')
   }
 }
 
@@ -113,13 +91,8 @@ function countAccounts() {
 
 function replaceAccountsForUser(uid, accounts) {
   const row = _get(uid) || {}
-  const now = Date.now()
-  _set(uid, { ...row, accounts, updated_at: now })
-  _sb(async () => {
-    const { error } = await supabase.from('profiles')
-      .update({ accounts, updated_at: now }).eq('id', String(uid))
-    if (error) throw error
-  })
+  _set(uid, { ...row, accounts, updated_at: Date.now() })
+  sb.writeAccounts(uid, accounts)
   return listAccountsForUser(uid)
 }
 
@@ -156,21 +129,13 @@ function setUserSetting(uid, key, content) {
     let parsed = {}
     try { parsed = JSON.parse(String(content ?? '{}')) } catch {}
     _set(uid, { ...row, [col]: parsed, updated_at: now })
-    _sb(async () => {
-      const { error } = await supabase.from('profiles')
-        .update({ [col]: parsed, updated_at: now }).eq('id', String(uid))
-      if (error) throw error
-    })
+    sb.writeProfile(uid, { [col]: parsed })
   } else {
     const prefs = typeof row.preferences === 'object' && row.preferences !== null
       ? { ...row.preferences } : {}
     prefs[String(key)] = String(content ?? '')
     _set(uid, { ...row, preferences: prefs, updated_at: now })
-    _sb(async () => {
-      const { error } = await supabase.from('profiles')
-        .update({ preferences: prefs, updated_at: now }).eq('id', String(uid))
-      if (error) throw error
-    })
+    sb.writeProfile(uid, { preferences: prefs })
   }
 }
 
@@ -192,7 +157,7 @@ function countUserSettings() { return 0 }
 
 // ─── ob_matches（内存）────────────────────────────────────────────────
 
-const _obMatches = new Map() // source_match_id → raw object
+const _obMatches = new Map()
 
 function saveObMatches(matches) {
   if (!Array.isArray(matches) || !matches.length) return
@@ -200,20 +165,15 @@ function saveObMatches(matches) {
   for (const m of matches) {
     _obMatches.set(String(m.SourceMatchID), { ...m, provider: 'OB', savedAt: now })
   }
-  _sb(async () => {
-    const rows = matches.map((m) => ({
-      source_match_id: String(m.SourceMatchID),
-      source_game_id:  String(m.SourceGameID || ''),
-      home: String(m.Home || ''), home_id: String(m.HomeID || ''),
-      away: String(m.Away || ''), away_id: String(m.AwayID || ''),
-      bo: Number(m.BO) || 0, start_time: Number(m.StartTime) || 0,
-      is_live: true, saved_at: now,
-      raw: { ...m, provider: 'OB', savedAt: now },
-    }))
-    const { error } = await supabase.from('ob_matches')
-      .upsert(rows, { onConflict: 'source_match_id' })
-    if (error) throw error
-  })
+  sb.writeObMatches(matches.map((m) => ({
+    source_match_id: String(m.SourceMatchID),
+    source_game_id:  String(m.SourceGameID || ''),
+    home: String(m.Home || ''), home_id: String(m.HomeID || ''),
+    away: String(m.Away || ''), away_id: String(m.AwayID || ''),
+    bo: Number(m.BO) || 0, start_time: Number(m.StartTime) || 0,
+    is_live: true, saved_at: now,
+    raw: { ...m, provider: 'OB', savedAt: now },
+  })))
 }
 
 function getObMatchesForMerge() {
@@ -225,39 +185,31 @@ function getObMatchesForMerge() {
 function pruneObMatches(activeIds) {
   if (!activeIds?.length) {
     _obMatches.clear()
-    _sb(async () => { await supabase.from('ob_matches').delete().neq('source_match_id', '') })
+    sb.deleteObMatches(null)
     return
   }
   const active = new Set(activeIds.map(String))
   for (const id of _obMatches.keys()) {
     if (!active.has(id)) _obMatches.delete(id)
   }
-  _sb(async () => {
-    await supabase.from('ob_matches').delete()
-      .not('source_match_id', 'in', `(${activeIds.map((id) => `"${id}"`).join(',')})`)
-  })
+  sb.deleteObMatches(activeIds)
 }
 
 // ─── client_matches（内存）───────────────────────────────────────────
 
-const _clientMatches = new Map() // id → match object
+const _clientMatches = new Map()
 
 function saveClientMatches(info) {
   if (!Array.isArray(info) || !info.length) return
   const now = Date.now()
   _clientMatches.clear()
   for (const m of info) _clientMatches.set(Number(m.ID), { ...m, built_at: now })
-  _sb(async () => {
-    const rows = info.map((m) => ({
-      id: Number(m.ID), title: String(m.Title || ''), game: String(m.Game || ''),
-      game_id: String(m.GameID || ''), start_time: Number(m.StartTime) || 0,
-      bo: Number(m.BO) || 0, round: Number(m.Round) || 0,
-      matchs: m.Matchs || {}, bets: m.Bets || [], built_at: now,
-    }))
-    const { error } = await supabase.from('client_matches')
-      .upsert(rows, { onConflict: 'id' })
-    if (error) throw error
-  })
+  sb.writeClientMatches(info.map((m) => ({
+    id: Number(m.ID), title: String(m.Title || ''), game: String(m.Game || ''),
+    game_id: String(m.GameID || ''), start_time: Number(m.StartTime) || 0,
+    bo: Number(m.BO) || 0, round: Number(m.Round) || 0,
+    matchs: m.Matchs || {}, bets: m.Bets || [], built_at: now,
+  })))
 }
 
 function pruneClientMatches(activeIds) {
@@ -274,38 +226,23 @@ function getClientMatches() {
     .sort((a, b) => (a.StartTime || 0) - (b.StartTime || 0))
 }
 
-/** 从 Supabase client_matches 表加载，写入内存缓存并返回；失败返回 null */
+/** 从 Supabase 加载 client_matches，写入内存缓存并返回 */
 async function loadClientMatchesFromSupabase() {
-  if (!supabase) return null
-  try {
-    const { data, error } = await supabase
-      .from('client_matches')
-      .select('*')
-      .order('start_time', { ascending: true })
-    if (error || !data?.length) return null
-    const now = Date.now()
-    _clientMatches.clear()
-    for (const row of data) {
-      const m = {
-        ID: row.id,
-        Title: row.title || '',
-        Game: row.game || '',
-        GameID: row.game_id || '',
-        StartTime: row.start_time || 0,
-        BO: row.bo || 0,
-        Round: row.round || 0,
-        Matchs: row.matchs || {},
-        Bets: row.bets || [],
-        built_at: row.built_at || now,
-      }
-      _clientMatches.set(Number(row.id), m)
-    }
-    console.log('[db:supabase] loadClientMatches:', data.length, '条')
-    return getClientMatches()
-  } catch (err) {
-    console.warn('[db:supabase] loadClientMatches 失败:', err.message)
-    return null
+  const data = await sb.fetchClientMatches()
+  if (!data) return null
+  const now = Date.now()
+  _clientMatches.clear()
+  for (const row of data) {
+    _clientMatches.set(Number(row.id), {
+      ID: row.id, Title: row.title || '', Game: row.game || '',
+      GameID: row.game_id || '', StartTime: row.start_time || 0,
+      BO: row.bo || 0, Round: row.round || 0,
+      Matchs: row.matchs || {}, Bets: row.bets || [],
+      built_at: row.built_at || now,
+    })
   }
+  console.log('[db:supabase] loadClientMatches:', data.length, '条')
+  return getClientMatches()
 }
 
 module.exports = {
