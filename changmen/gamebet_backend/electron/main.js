@@ -7,6 +7,7 @@ const fs   = require('fs');
 const { RayRelayCore } = require('../relays/ray_relay_core.js');
 const { ObRelayCore }  = require('../relays/ob_relay_core.js');
 const { TfRelayCore }  = require('../relays/tf_relay_core.js');
+const { IaRelayCore }  = require('../relays/ia_relay_core.js');
 
 const PORT = Number(process.env.PORT || 3456);
 
@@ -73,6 +74,7 @@ let _serverChild = null;
 let _rayCore = null;
 let _obCore  = null;
 let _tfCore  = null;
+let _iaCore  = null;
 
 function broadcast(channel, payload) {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -110,7 +112,35 @@ function ensureTfCore() {
   return _tfCore;
 }
 
+function ensureIaCore() {
+  if (_iaCore) return _iaCore;
+  _iaCore = new IaRelayCore();
+  _iaCore.onMessage((msg) => {
+    broadcast('gamebet:relay:ia:message', msg);
+  });
+  return _iaCore;
+}
+
 function registerRelayIpc() {
+  // IA Socket.IO relay
+  ipcMain.handle('gamebet:relay:ia:start', () => {
+    let gateway = '';
+    try {
+      const store = require('../esport-api/store.js');
+      gateway = store.getPlatform('IA')?.gateway || '';
+    } catch { /* store 未初始化时忽略 */ }
+    return ensureIaCore().start(gateway);
+  });
+  ipcMain.handle('gamebet:relay:ia:stop', () => {
+    if (!_iaCore) return { platform: 'IA', upstreamConnected: false };
+    const status = _iaCore.stop();
+    _iaCore = null;
+    return status;
+  });
+  ipcMain.handle('gamebet:relay:ia:status', () => {
+    return _iaCore ? _iaCore.getStatus() : { platform: 'IA', upstreamConnected: false };
+  });
+
   // TF WS relay
   ipcMain.handle('gamebet:relay:tf:start', (_event, token) => {
     // gateway 从 store 取（packaged 模式下与 server.js 共享 module cache）
@@ -290,6 +320,7 @@ app.on('quit', async () => {
   if (_rayCore) await _rayCore.stop();
   if (_obCore)  _obCore.stop();
   if (_tfCore)  _tfCore.stop();
+  if (_iaCore)  _iaCore.stop();
   if (_serverChild) _serverChild.kill();
 });
 
