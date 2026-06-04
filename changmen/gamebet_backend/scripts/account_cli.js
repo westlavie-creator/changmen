@@ -15,14 +15,14 @@
  *   node account/account_cli.js refresh-balance
  */
 
-const accountStore = require("./account_store.js");
-const accountService = require("./account_service.js");
-const { parseClipboardCredential, encodeClipboardCredential } = require("./clipboard_credential.js");
-const { importPlatformCredential } = require("../shared/import_platform_credential.js");
-const { saveA8Config, CONFIG_FILE } = require("../integrations/a8/config.js");
-const { syncPbFromSession } = require("../esport-api/platform_sync.js");
-const { tryLoadSession } = require("../../platforms/pb/pb_session.js");
-const store = require("../esport-api/store.js");
+const accountStore = require("../core/account/account_store.js");
+const accountService = require("../core/account/account_service.js");
+const { parseClipboardCredential, encodeClipboardCredential } = require("../core/account/clipboard_credential.js");
+const { importPlatformCredential } = require("../core/shared/import_platform_credential.js");
+const { saveA8Config, CONFIG_FILE } = require("../core/integrations/a8/config.js");
+const { syncPbFromSession } = require("../core/esport-api/platform_sync.js");
+const { tryLoadSession } = require("../platforms/pb/pb_session.js");
+const store = require("../core/esport-api/store.js");
 
 function usage() {
   console.log(`用法:

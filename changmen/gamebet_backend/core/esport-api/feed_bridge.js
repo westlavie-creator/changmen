@@ -2,10 +2,7 @@
 
 const store = require("./store.js");
 const { formatOdds } = require("../shared/odds_format.js");
-const { initSchema } = require("../db/schema.js");
 const dbStore = require("../db/store.js");
-
-initSchema();
 
 const SYNC_MS = Number(process.env.ESPORT_BRIDGE_MS || 3000);
 /** 默认开启；设 ESPORT_BRIDGE=0 可关闭（仅调试用） */
