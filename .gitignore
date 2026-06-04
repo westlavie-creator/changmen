@@ -23,14 +23,16 @@ desktop.ini
 *.swo
 
 # Secrets & local runtime data (do not commit)
-gamebet_backend/data/esport/platforms.json
-gamebet_backend/data/esport/user_kv.json
-gamebet_backend/data/esport/sessions.json
-gamebet_backend/data/esport/a8_config.json
-gamebet_backend/data/esport/pb_credential.b64
-gamebet_backend/data/esport/bets.json
-gamebet_backend/data/esport/matches.json
-gamebet_backend/data/esport/live_timers.json
+# data/esport/ 全是运行时数据，只跟踪 example 文件
+gamebet_backend/data/esport/*.json
+gamebet_backend/data/esport/*.b64
+!gamebet_backend/data/esport/*.example.json
+gamebet_backend/data/*.db
+gamebet_backend/data/*.db-shm
+gamebet_backend/data/*.db-wal
+
+# Codex / AI tool backup files
+**/*.codex-backup-*
 .env
 .env.*
 !.env.example
