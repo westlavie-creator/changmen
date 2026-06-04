@@ -66,6 +66,18 @@ async function collectIaPost<T>(
   );
 }
 
+type IaRelayApi = {
+  start: () => Promise<unknown>;
+  stop: () => Promise<unknown>;
+  onMessage: (cb: (msg: Record<string, unknown>) => void) => () => void;
+};
+
+function iaIpcRelay(): IaRelayApi | null {
+  const api = (window as unknown as { gamebetRelays?: { ia?: IaRelayApi | null } })
+    .gamebetRelays?.ia;
+  return api ?? null;
+}
+
 export function startIaCollector(): () => void {
   let stopped = false;
   let socket: Socket | null = null;
@@ -126,7 +138,17 @@ export function startIaCollector(): () => void {
     socket = relay;
   };
 
-  void connectWs();
+  // Electron packaged：IPC → IaRelayCore（主进程直连 IA，注入 Origin header）
+  // Web / Electron dev：Socket.IO 透明隧道 /esport/ws/IA
+  const iaApi = iaIpcRelay();
+  let removeIaListener: (() => void) | null = null;
+
+  if (iaApi) {
+    removeIaListener = iaApi.onMessage(handleIaMessage);
+    void iaApi.start();
+  } else {
+    void connectWs();
+  }
 
   const poll = async () => {
     while (!stopped) {
@@ -226,9 +248,14 @@ export function startIaCollector(): () => void {
 
   return () => {
     stopped = true;
-    socket?.removeAllListeners();
-    socket?.disconnect();
-    socket = null;
+    if (iaApi) {
+      removeIaListener?.();
+      void iaApi.stop();
+    } else {
+      socket?.removeAllListeners();
+      socket?.disconnect();
+      socket = null;
+    }
   };
 }
 
