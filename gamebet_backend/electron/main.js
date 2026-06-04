@@ -23,12 +23,8 @@ function copyDirSync(src, dst) {
   }
 }
 
-// packaged 模式下 server.js 在主进程内 require，IPC handler 与 HTTP handler 共享同一
-// module cache / store 实例。dev 模式下 server.js 是 fork 的子进程，module cache
-// 独立，IPC 路径会访问空 store，因此只在 packaged 时开启 IPC esport 路由。
-if (app.isPackaged) {
-  process.env.GAMEBET_ELECTRON_IPC = '1';
-}
+// server.js 始终在主进程内 require（后端无原生模块，无需 electron-rebuild）
+// 主进程与 server.js 共享同一 module cache / store，IPC handler 直接调用。
 
 // ── 打包后解析数据目录（优先级：便携 > userData > 首次安装）──────────────────
 if (app.isPackaged) {
@@ -68,9 +64,6 @@ if (app.isPackaged) {
 }
 
 // ── 启动 server.js ──────────────────────────────────────────────────────────
-// dev 模式：fork 子进程（系统 Node.js），无需 electron-rebuild
-// 打包模式：主进程直接 require（electron-builder 已重编译原生模块）
-let _serverChild = null;
 let _rayCore = null;
 let _obCore  = null;
 let _tfCore  = null;
@@ -213,18 +206,7 @@ function registerRelayIpc() {
   });
 }
 
-if (!app.isPackaged) {
-  const { fork } = require('child_process');
-  _serverChild = fork(path.join(__dirname, '..', 'server.js'), [], {
-    env: { ...process.env },
-    stdio: 'inherit',
-  });
-  _serverChild.on('exit', (code) => {
-    if (code !== 0) console.error(`[electron] server exited with code ${code}`);
-  });
-} else {
-  require('../server.js');
-};
+require('../server.js');
 
 // ── 等待 HTTP 服务就绪 ──────────────────────────────────────────────────────
 function waitForServer(retries = 40) {
@@ -321,7 +303,6 @@ app.on('quit', async () => {
   if (_obCore)  _obCore.stop();
   if (_tfCore)  _tfCore.stop();
   if (_iaCore)  _iaCore.stop();
-  if (_serverChild) _serverChild.kill();
 });
 
 app.on('activate', () => {
