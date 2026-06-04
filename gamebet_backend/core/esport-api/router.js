@@ -136,50 +136,37 @@ async function handleA8Login(body = {}) {
 }
 
 async function handleClientLogin(body) {
-  const { supabase } = require("../db/client.js");
+  const sb = require("../db/supabase.js");
   const dbStore = require("../db/store.js");
-
-  if (!supabase) return fail("Supabase 未配置");
 
   const userName = String(body.userName || body.username || "").trim();
   const password = body.password;
   if (!userName || !password) return fail("用户名和密码必填");
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: `${userName.toLowerCase()}@gamebet.local`,
-    password,
-  });
-  if (error) return fail("用户名或密码错误");
+  const auth = await sb.authSignIn(userName, password);
+  if (!auth) return fail("用户名或密码错误");
 
-  const uid = data.user.id;
-  const accessToken = data.session.access_token;
+  const { accessToken, userId: uid, email } = auth;
 
   // 从 Supabase 加载用户 profile 到内存缓存
   let profile = await dbStore.loadProfileById(uid);
   if (!profile) {
     // trigger 未触发时自动创建 profile
-    const inferredName = data.user.email.split("@")[0];
+    const inferredName = email.split("@")[0];
     const now = Date.now();
-    const { error: insertErr } = await supabase.from("profiles").insert({
-      id: uid,
-      user_name: inferredName,
-      accounts: [],
-      betting_config: {},
-      collect_config: {},
-      preferences: {},
-      created_at: now,
-      updated_at: now,
+    const ok2 = await sb.insertProfile(uid, {
+      id: uid, user_name: inferredName,
+      accounts: [], betting_config: {}, collect_config: {},
+      preferences: {}, created_at: now, updated_at: now,
     });
-    if (!insertErr) profile = await dbStore.loadProfileById(uid);
+    if (ok2) profile = await dbStore.loadProfileById(uid);
   }
   if (!profile) return fail("用户数据加载失败，请检查 Supabase profiles 表");
 
   // 单 session 限制：把当前 session_id 写入 user_metadata
   const sessionId = getJwtClaim(accessToken, "session_id");
   if (sessionId) {
-    supabase.auth.admin.updateUserById(uid, {
-      user_metadata: { active_session_id: sessionId }
-    }).catch(() => {});
+    sb.writeUserMetadata(uid, { active_session_id: sessionId });
   }
 
   return ok({ token: accessToken, userName: profile.userName, ID: uid });
@@ -188,10 +175,8 @@ async function handleClientLogin(body) {
 async function handle(action, body, ctx) {
   switch (action) {
     case "Client_Logout": {
-      const { supabase } = require("../db/client.js");
-      if (supabase && ctx.token) {
-        await supabase.auth.admin.signOut(ctx.token).catch(() => {});
-      }
+      const sb = require("../db/supabase.js");
+      await sb.authSignOut(ctx.token);
       return ok(null);
     }
     case "Client_GetUserInfo": {

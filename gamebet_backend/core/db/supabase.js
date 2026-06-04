@@ -164,11 +164,65 @@ async function updateOrderBind(orderId, playerId, userId, link) {
     .eq('player_id', Number(playerId))
 }
 
+// ── auth ──────────────────────────────────────────────────────────────
+
+/** 密码登录；返回 { accessToken, userId, email } 或 null */
+async function authSignIn(userName, password) {
+  if (!supabase) return null
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: `${userName.toLowerCase()}@gamebet.local`,
+    password,
+  })
+  if (error || !data?.session) return null
+  return {
+    accessToken: data.session.access_token,
+    userId: data.user.id,
+    email: data.user.email,
+  }
+}
+
+/** 登出指定 token 对应的 session */
+async function authSignOut(token) {
+  if (!supabase || !token) return
+  await supabase.auth.admin.signOut(token).catch(() => {})
+}
+
+/**
+ * 校验 JWT token；返回 { userId, metadata } 或 null。
+ * metadata 包含 active_session_id 等 user_metadata 字段。
+ */
+async function authGetUser(token) {
+  if (!supabase || !token) return null
+  try {
+    const { data, error } = await supabase.auth.getUser(token)
+    if (error || !data?.user) return null
+    return {
+      userId: data.user.id,
+      metadata: data.user.user_metadata || {},
+    }
+  } catch { return null }
+}
+
+/** 写入 user_metadata（fire-and-forget，用于单 session 限制） */
+function writeUserMetadata(userId, metadata) {
+  _write(async () => {
+    await supabase.auth.admin.updateUserById(userId, { user_metadata: metadata })
+  })
+}
+
+/** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */
+async function insertProfile(uid, data) {
+  if (!supabase) return false
+  const { error } = await supabase.from('profiles').insert(data)
+  return !error
+}
+
 module.exports = {
   // profiles
   fetchProfiles,
   fetchProfileById,
   writeProfile,
+  insertProfile,
   // accounts
   writeAccounts,
   // ob_matches
@@ -182,4 +236,9 @@ module.exports = {
   fetchOrdersByPlayer,
   upsertOrders,
   updateOrderBind,
+  // auth
+  authSignIn,
+  authSignOut,
+  authGetUser,
+  writeUserMetadata,
 }

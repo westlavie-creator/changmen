@@ -80,31 +80,25 @@ function getJwtClaim(token, claim) {
 
 async function getUserBySupabaseToken(token) {
   if (!token) return null;
-  const { supabase } = require("../db/client.js");
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user) return null;
+  const sb = require("../db/supabase.js");
+  const result = await sb.authGetUser(token);
+  if (!result) return null;
 
-    // 单 session 校验：token 的 session_id 必须与登录时写入的 active_session_id 一致
-    const storedSessionId = data.user.user_metadata?.active_session_id;
-    if (storedSessionId) {
-      const tokenSessionId = getJwtClaim(token, "session_id");
-      if (tokenSessionId && tokenSessionId !== storedSessionId) {
-        return null; // 已被新登录顶掉
-      }
+  // 单 session 校验：token 的 session_id 必须与登录时写入的 active_session_id 一致
+  const storedSessionId = result.metadata?.active_session_id;
+  if (storedSessionId) {
+    const tokenSessionId = getJwtClaim(token, "session_id");
+    if (tokenSessionId && tokenSessionId !== storedSessionId) {
+      return null; // 已被新登录顶掉
     }
-
-    // 先查内存缓存，cache miss 时从 Supabase 加载
-    let profile = dbStore.getProfileById(data.user.id);
-    if (!profile) {
-      profile = await dbStore.loadProfileById(data.user.id);
-    }
-    return profile || null;
-  } catch (err) {
-    console.warn("[auth]", err.message);
-    return null;
   }
+
+  // 先查内存缓存，cache miss 时从 Supabase 加载
+  let profile = dbStore.getProfileById(result.userId);
+  if (!profile) {
+    profile = await dbStore.loadProfileById(result.userId);
+  }
+  return profile || null;
 }
 
 // ── profile ───────────────────────────────────────────────────────────────────
