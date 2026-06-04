@@ -44,10 +44,14 @@ const DEFAULT_USER_KV = {
   CollectConfig: JSON.stringify({ log: false, collect: [] }),
   USERCONFIG: JSON.stringify({ betting: false, betMoney: 100, profit: 1.03, maxProfit: 1.2, minOdds: 1.3, maxOdds: 10, betSorting: "Custom" }),
   ACCOUNT: JSON.stringify([]),
-  // PROXY / GoogleCode / Wallet / Message / Follow 存入 profiles.preferences（Supabase），不在本地初始化
 };
 
-const USER_SETTING_KEYS = Object.keys(DEFAULT_USER_KV).filter((k) => k !== "ACCOUNT");
+// 路由到 Supabase profiles 的 key 列表（与 DEFAULT_USER_KV 解耦）
+// CollectConfig → collect_config, USERCONFIG → betting_config, 其余 → preferences
+const USER_SETTING_KEYS = [
+  "CollectConfig", "USERCONFIG",
+  "Follow", "PROXY", "GoogleCode", "Wallet", "Message",
+];
 
 // ── 初始化 JSON 文件（不创建用户，用户通过 Supabase Auth 管理）──────────────
 function ensureSeed() {
