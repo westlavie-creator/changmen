@@ -12,13 +12,13 @@
 const { supabase, supabaseAdmin } = require('./client.js')
 
 /**
- * fire-and-forget 写入：统一使用 supabase（authenticated）。
- * 所有数据表均配置了 authenticated 写入策略，无需 service_role。
- * service_role（supabaseAdmin）只保留给 auth.admin API。
+ * fire-and-forget 写入：优先使用 supabaseAdmin（service_role，不受用户 session 影响）。
+ * 无 service_role 时降级到 supabase（需要有活跃的 authenticated session）。
  */
 function _write(fn) {
-  if (!supabase) return
-  Promise.resolve().then(() => fn(supabase)).catch((err) => console.warn('[supabase]', err.message))
+  const client = supabaseAdmin || supabase
+  if (!client) return
+  Promise.resolve().then(() => fn(client)).catch((err) => console.warn('[supabase]', err.message))
 }
 
 // ── profiles ──────────────────────────────────────────────────────────
