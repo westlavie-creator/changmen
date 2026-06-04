@@ -79,10 +79,10 @@ async function getUserBySupabaseToken(token) {
   const result = await sb.authGetUser(token);
   if (!result) return null;
 
-  // 单 session 校验：仅在 supabaseAdmin 可用时启用（需要 service_role 写入 user_metadata）
-  // 无 supabaseAdmin 时跳过，避免因无法更新 active_session_id 而永远校验失败
+  // 单 session 校验：仅在 service_role 可用时启用（需要 service_role 写入 user_metadata）
+  // 无 service_role 时跳过，避免因无法更新 active_session_id 而永远校验失败
   const sb = require("../db/supabase.js");
-  if (sb.supabaseAdmin) {
+  if (sb.hasAdminAccess()) {
     const storedSessionId = result.metadata?.active_session_id;
     if (storedSessionId) {
       const tokenSessionId = getJwtClaim(token, "session_id");
