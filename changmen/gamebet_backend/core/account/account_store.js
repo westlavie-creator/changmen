@@ -118,20 +118,7 @@ function deletePlayer(playerId, description) {
   return true;
 }
 
-function removeAccountFromKv(accountId) {
-  const raw = store.getUserKv("ACCOUNT");
-  if (!raw) return;
-  let list;
-  try {
-    list = JSON.parse(raw);
-  } catch {
-    return;
-  }
-  if (!Array.isArray(list)) return;
-  const next = list.filter((row) => String(row.accountId) !== String(accountId));
-  if (next.length === list.length) return;
-  store.setUserKv("ACCOUNT", JSON.stringify(next));
-}
+function removeAccountFromKv() {}
 
 function listMoneyLogs(playerId, pageIndex = 1, pageSize = 20) {
   const all = store.readJson(FILES.moneyLogs, {});
@@ -204,16 +191,7 @@ function savePlayerOrders(playerId, provider, orders) {
   return merged;
 }
 
-function getAccountsFromKv() {
-  const raw = store.getUserKv("ACCOUNT");
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
+function getAccountsFromKv() { return []; }
 
 function ensureSeed() {
   store.ensureSeed();

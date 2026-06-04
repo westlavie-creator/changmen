@@ -57,19 +57,11 @@ const USER_SETTING_KEYS = [
 function ensureSeed() {
   const jsonDefaults = {
     platforms: {},
-    user_kv: { ...DEFAULT_USER_KV },
     tag_platforms: {},
   };
   for (const [name, def] of Object.entries(jsonDefaults)) {
     if (!fs.existsSync(filePath(name))) writeJson(name, def);
   }
-  // 补充 user_kv 缺失的 key
-  const kv = readJson("user_kv", {});
-  let changed = false;
-  for (const [key, val] of Object.entries(DEFAULT_USER_KV)) {
-    if (kv[key] == null) { kv[key] = val; changed = true; }
-  }
-  if (changed) writeJson("user_kv", kv);
 }
 
 // ── Supabase Auth：用 JWT token 获取当前用户 profile ─────────────────────────
@@ -194,14 +186,6 @@ function saveLiveTimer(provider, timer) {
 }
 
 // ── user kv / settings ────────────────────────────────────────────────────────
-function getUserKv(key) { return readJson("user_kv", {})[key] ?? null; }
-
-function setUserKv(key, content) {
-  const kv = readJson("user_kv", {});
-  kv[key] = content;
-  writeJson("user_kv", kv);
-}
-
 function isUserSettingKey(key) { return USER_SETTING_KEYS.includes(key); }
 
 function getUserSetting(userId, key) {
@@ -210,7 +194,7 @@ function getUserSetting(userId, key) {
 }
 
 function setUserSetting(userId, key, content) {
-  if (!isUserSettingKey(key)) { setUserKv(key, content); return; }
+  if (!isUserSettingKey(key)) return;
   dbStore.setUserSetting(userId, key, content ?? "");
 }
 
@@ -269,7 +253,7 @@ module.exports = {
   getUserBySupabaseToken, getUserById, updateUserSetting,
   getPlatform, setPlatform,
   saveMatches, saveBets, saveLiveTimer,
-  getUserKv, setUserKv, isUserSettingKey,
+  isUserSettingKey,
   getUserSetting, setUserSetting,
   getAccountsForUser, setAccountsForUser, updateAccountForUser, removeAccountForUser,
   parseKvContent, buildMatchList, getMatchDefaultOdds, getDefaultOddsSingle,
