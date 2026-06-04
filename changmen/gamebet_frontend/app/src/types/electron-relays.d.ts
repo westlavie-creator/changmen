@@ -10,15 +10,17 @@ type RelayStatus = {
   forwardedTopics?: number;
 };
 
+type SimpleRelayApi = {
+  start: (arg?: string) => Promise<RelayStatus>;
+  stop: () => Promise<RelayStatus>;
+  status: () => Promise<RelayStatus>;
+  onMessage: (callback: (payload: unknown) => void) => () => void;
+};
+
 declare global {
   interface Window {
     gamebetRelays?: {
-      ray: {
-        start: () => Promise<RelayStatus>;
-        stop: () => Promise<RelayStatus>;
-        status: () => Promise<RelayStatus>;
-        onMessage: (callback: (payload: unknown) => void) => () => void;
-      };
+      ray: SimpleRelayApi;
       ob: {
         start: () => Promise<RelayStatus>;
         stop: () => Promise<RelayStatus>;
@@ -28,6 +30,8 @@ declare global {
         publish: (topic: string, payload: string) => Promise<boolean>;
         onMessage: (callback: (message: { topic: string; payload: string }) => void) => () => void;
       };
+      tf?: SimpleRelayApi | null;
+      ia?: SimpleRelayApi | null;
     };
   }
 }

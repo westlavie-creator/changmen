@@ -12,11 +12,15 @@ type RelayStatus = {
 
 const isElectronRelay = Boolean(window.gamebetRelays);
 const ray = ref<RelayStatus | null>(null);
-const ob = ref<RelayStatus | null>(null);
+const ob  = ref<RelayStatus | null>(null);
+const tf  = ref<RelayStatus | null>(null);
+const ia  = ref<RelayStatus | null>(null);
 const loading = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 
-const visible = computed(() => isElectronRelay);
+const visible  = computed(() => isElectronRelay);
+const hasTf    = computed(() => Boolean(window.gamebetRelays?.tf));
+const hasIa    = computed(() => Boolean(window.gamebetRelays?.ia));;
 
 function dotClass(status: RelayStatus | null): string {
   return status?.upstreamConnected ? "is-on" : "is-off";
@@ -36,12 +40,16 @@ async function refreshStatus(): Promise<void> {
   if (!window.gamebetRelays) return;
   loading.value = true;
   try {
-    const [rayStatus, obStatus] = await Promise.all([
+    const [rayStatus, obStatus, tfStatus, iaStatus] = await Promise.all([
       window.gamebetRelays.ray.status(),
       window.gamebetRelays.ob.status(),
+      window.gamebetRelays.tf?.status() ?? Promise.resolve(null),
+      window.gamebetRelays.ia?.status() ?? Promise.resolve(null),
     ]);
     ray.value = rayStatus;
-    ob.value = obStatus;
+    ob.value  = obStatus;
+    tf.value  = tfStatus;
+    ia.value  = iaStatus;
   } finally {
     loading.value = false;
   }
@@ -98,6 +106,36 @@ onUnmounted(() => {
         <span>最后 {{ formatTime(ob?.lastUpstreamAt) }}</span>
       </div>
       <div v-if="ob?.lastError" class="relay-error">{{ ob.lastError }}</div>
+    </div>
+
+    <div v-if="hasTf" class="relay-row">
+      <div class="relay-main">
+        <span class="relay-name">TF</span>
+        <span class="relay-state">
+          <i :class="dotClass(tf)" />
+          {{ stateText(tf) }}
+        </span>
+      </div>
+      <div class="relay-meta">
+        <span>消息 {{ tf?.messagesReceived ?? 0 }}</span>
+        <span>最后 {{ formatTime(tf?.lastUpstreamAt) }}</span>
+      </div>
+      <div v-if="tf?.lastError" class="relay-error">{{ tf.lastError }}</div>
+    </div>
+
+    <div v-if="hasIa" class="relay-row">
+      <div class="relay-main">
+        <span class="relay-name">IA</span>
+        <span class="relay-state">
+          <i :class="dotClass(ia)" />
+          {{ stateText(ia) }}
+        </span>
+      </div>
+      <div class="relay-meta">
+        <span>消息 {{ ia?.messagesReceived ?? 0 }}</span>
+        <span>最后 {{ formatTime(ia?.lastUpstreamAt) }}</span>
+      </div>
+      <div v-if="ia?.lastError" class="relay-error">{{ ia.lastError }}</div>
     </div>
   </aside>
 </template>
