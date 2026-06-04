@@ -152,6 +152,8 @@ function saveMatches(provider, matchs) {
   writeJson("matches", all);
   pruneBetsForProvider(provider, Object.keys(next));
   rebuildClientMatchListNow();
+  const sb = require("../db/supabase.js");
+  sb.writePlatformMatches(provider, Object.values(next));
 }
 
 const { normalizeImBet } = require("../shared/im_parse.js");
@@ -185,6 +187,8 @@ function saveBets(provider, matchId, bets) {
   all[key] = { provider, matchId: String(matchId), bets: mergeBetsByMap(existing, incoming), savedAt: Date.now() };
   writeJson("bets", all);
   scheduleRebuildClientMatchList();
+  const sb = require("../db/supabase.js");
+  sb.writePlatformBets(provider, matchId, incoming);
 }
 
 function saveLiveTimer(provider, timer) {
@@ -192,6 +196,8 @@ function saveLiveTimer(provider, timer) {
   all[provider] = { provider, timer, savedAt: Date.now() };
   writeJson("live_timers", all);
   scheduleRebuildClientMatchList();
+  const sb = require("../db/supabase.js");
+  sb.writeLiveTimers(provider, timer);
 }
 
 // ── user kv / settings ────────────────────────────────────────────────────────

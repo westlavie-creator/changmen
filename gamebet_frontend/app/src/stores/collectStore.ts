@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { getClientData, saveClientData, saveBets, saveMatch, saveUserLog } from "@/api/esport";
+import { getClientData, saveClientData, saveBetSource, saveMatchSource, saveUserLog } from "@/api/esport";
 import type { CollectBetDto, CollectConfigDto, CollectMatchDto } from "@/types/collect";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
@@ -52,7 +52,7 @@ export const useCollectStore = defineStore("collect", {
     async saveMatch(platform: PlatformId, matchs: CollectMatchDto[]): Promise<boolean> {
       if (!this.collect.get(platform)) return false;
       if (!matchs.length) return false;
-      const ok = await saveMatch(platform, matchs);
+      const ok = await saveMatchSource(platform, matchs);
       await this.logCollect(`${platform}赛事采集${matchs.length}场 => ${ok}`, matchs);
       return ok;
     },
@@ -63,7 +63,7 @@ export const useCollectStore = defineStore("collect", {
       bets: CollectBetDto[],
     ): Promise<boolean> {
       if (!this.collect.get(platform)) return false;
-      const ok = await saveBets(platform, matchId, bets);
+      const ok = await saveBetSource(platform, matchId, bets);
       await this.logCollect(`${platform}盘口采集${matchId}/${bets.length} => ${ok}`, bets);
       return ok;
     },

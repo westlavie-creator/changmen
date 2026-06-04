@@ -183,9 +183,21 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 
 Mode P is the **only valid baseline for verifying A8 parity**. Mode D is for local ops.
 
-### `collectStore` semantics
+### 采集层 API 命名对照
 
-`CollectConfig` controls whether `saveMatch`/`saveBets` are called (server upload), **not** whether the browser connects to a venue. Collectors always run; the switch is purely a gate on the upload call inside `collectStore.saveMatch` / `collectStore.saveBets`.
+| 层级 | A8 名称 | changmen 名称 |
+|---|---|---|
+| `api/match.ts`（HTTP 调用） | `saveMatchSource` | `saveMatchSource` |
+| `api/match.ts`（HTTP 调用） | `saveBetSource` | `saveBetSource` |
+| `api/match.ts`（HTTP 调用） | `saveLiveTimer` | `saveLiveTimer` |
+| `collectStore` action | `saveMatch` | `saveMatch` |
+| `collectStore` action | `saveBets` | `saveBets` |
+
+`api/match.ts` 的三个函数分别对应 `API_SaveMatch`、`API_SaveBet`、`API_SaveLiveTimer` 接口。各平台采集器调用的是 store action 名（`saveMatch`/`saveBets`），store 内部再调用 API 函数。
+
+### `collectStore` 语义
+
+`CollectConfig` 只控制是否调用 `saveMatchSource`/`saveBetSource` 上报数据，**不控制**浏览器是否连接场馆。采集器始终运行，开关仅是 `collectStore.saveMatch` / `collectStore.saveBets` 内部的上报门控。
 
 ### `oddsStore` (`fo`)
 
