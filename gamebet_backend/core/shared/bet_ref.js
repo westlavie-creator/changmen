@@ -47,280 +47,46 @@ function createBetRef(p) {
   };
 }
 
-/**
- * OB Feed stage → 主/客 BetRef
- */
 function obStageBetRefs(stage, matchId, gameCode) {
-  if (!stage?.winMarketId) return { winHomeRef: null, winAwayRef: null };
-  const base = {
-    platform: "OB",
-    gameCode,
-    marketCode: "match_winner",
-    stageId: stage.stageId,
-    matchId: String(matchId),
-    marketId: String(stage.winMarketId),
-    locked: Boolean(stage.winLocked),
-  };
-  const labelPrefix = stage.label || (stage.stageId === 0 ? "全场" : `地图${stage.stageId}`);
-  return {
-    winHomeRef:
-      stage.winHomeId != null && stage.winHome != null
-        ? createBetRef({
-            ...base,
-            side: "home",
-            oddsId: stage.winHomeId,
-            odds: stage.winHome,
-            label: `${labelPrefix} · 主`,
-          })
-        : null,
-    winAwayRef:
-      stage.winAwayId != null && stage.winAway != null
-        ? createBetRef({
-            ...base,
-            side: "away",
-            oddsId: stage.winAwayId,
-            odds: stage.winAway,
-            label: `${labelPrefix} · 客`,
-          })
-        : null,
-  };
+  return aggregatorStageBetRefs(stage, matchId, gameCode, "OB");
 }
-
 function attachObMatchBetRefs(detail, matchId, gameCode) {
-  if (!detail?.stages?.length) return detail;
-  detail.stages = detail.stages.map((stage) => ({
-    ...stage,
-    ...obStageBetRefs(stage, matchId, gameCode),
-  }));
-  return detail;
+  return attachAggregatorMatchBetRefs(detail, matchId, gameCode, "OB");
 }
 
-/**
- * RAY Feed stage → 主/客 BetRef
- */
 function rayStageBetRefs(stage, matchId, gameCode) {
-  if (!stage?.winMarketId) return { winHomeRef: null, winAwayRef: null };
-  const base = {
-    platform: "RAY",
-    gameCode,
-    marketCode: "match_winner",
-    stageId: stage.stageId,
-    matchId: String(matchId),
-    marketId: String(stage.winMarketId),
-    locked: Boolean(stage.winLocked),
-  };
-  const labelPrefix = stage.label || (stage.stageId === 0 ? "全场" : `地图${stage.stageId}`);
-  return {
-    winHomeRef:
-      stage.winHomeId != null && stage.winHome != null
-        ? createBetRef({
-            ...base,
-            side: "home",
-            oddsId: stage.winHomeId,
-            odds: stage.winHome,
-            label: `${labelPrefix} · 主`,
-          })
-        : null,
-    winAwayRef:
-      stage.winAwayId != null && stage.winAway != null
-        ? createBetRef({
-            ...base,
-            side: "away",
-            oddsId: stage.winAwayId,
-            odds: stage.winAway,
-            label: `${labelPrefix} · 客`,
-          })
-        : null,
-  };
+  return aggregatorStageBetRefs(stage, matchId, gameCode, "RAY");
 }
-
 function attachRayMatchBetRefs(detail, matchId, gameCode) {
-  if (!detail?.stages?.length) return detail;
-  detail.stages = detail.stages.map((stage) => ({
-    ...stage,
-    ...rayStageBetRefs(stage, matchId, gameCode),
-  }));
-  return detail;
+  return attachAggregatorMatchBetRefs(detail, matchId, gameCode, "RAY");
 }
 
 function pbStageBetRefs(stage, matchId, gameCode) {
-  if (!stage?.winMarketId) return { winHomeRef: null, winAwayRef: null };
-  const base = {
-    platform: "PB",
-    gameCode,
-    marketCode: "match_winner",
-    stageId: stage.stageId,
-    matchId: String(matchId),
-    marketId: String(stage.winMarketId),
-    locked: Boolean(stage.winLocked),
-  };
-  const labelPrefix = stage.label || (stage.stageId === 0 ? "全场" : `地图${stage.stageId}`);
-  return {
-    winHomeRef:
-      stage.winHomeId != null && stage.winHome != null
-        ? createBetRef({
-            ...base,
-            side: "home",
-            oddsId: stage.winHomeId,
-            odds: stage.winHome,
-            label: `${labelPrefix} · 主`,
-          })
-        : null,
-    winAwayRef:
-      stage.winAwayId != null && stage.winAway != null
-        ? createBetRef({
-            ...base,
-            side: "away",
-            oddsId: stage.winAwayId,
-            odds: stage.winAway,
-            label: `${labelPrefix} · 客`,
-          })
-        : null,
-  };
+  return aggregatorStageBetRefs(stage, matchId, gameCode, "PB");
 }
-
 function attachPbMatchBetRefs(detail, matchId, gameCode) {
-  if (!detail?.stages?.length) return detail;
-  detail.stages = detail.stages.map((stage) => ({
-    ...stage,
-    ...pbStageBetRefs(stage, matchId, gameCode),
-  }));
-  return detail;
+  return attachAggregatorMatchBetRefs(detail, matchId, gameCode, "PB");
 }
 
 function tfStageBetRefs(stage, matchId, gameCode) {
-  if (!stage?.winMarketId) return { winHomeRef: null, winAwayRef: null };
-  const base = {
-    platform: "TF",
-    gameCode,
-    marketCode: "match_winner",
-    stageId: stage.stageId,
-    matchId: String(matchId),
-    marketId: String(stage.winMarketId),
-    locked: Boolean(stage.winLocked),
-  };
-  const labelPrefix = stage.label || (stage.stageId === 0 ? "全场" : `地图${stage.stageId}`);
-  return {
-    winHomeRef:
-      stage.winHomeId != null && stage.winHome != null
-        ? createBetRef({
-            ...base,
-            side: "home",
-            oddsId: stage.winHomeId,
-            odds: stage.winHome,
-            label: `${labelPrefix} · 主`,
-          })
-        : null,
-    winAwayRef:
-      stage.winAwayId != null && stage.winAway != null
-        ? createBetRef({
-            ...base,
-            side: "away",
-            oddsId: stage.winAwayId,
-            odds: stage.winAway,
-            label: `${labelPrefix} · 客`,
-          })
-        : null,
-  };
+  return aggregatorStageBetRefs(stage, matchId, gameCode, "TF");
 }
-
 function attachTfMatchBetRefs(detail, matchId, gameCode) {
-  if (!detail?.stages?.length) return detail;
-  detail.stages = detail.stages.map((stage) => ({
-    ...stage,
-    ...tfStageBetRefs(stage, matchId, gameCode),
-  }));
-  return detail;
+  return attachAggregatorMatchBetRefs(detail, matchId, gameCode, "TF");
 }
 
 function iaStageBetRefs(stage, matchId, gameCode) {
-  if (!stage?.winMarketId) return { winHomeRef: null, winAwayRef: null };
-  const base = {
-    platform: "IA",
-    gameCode,
-    marketCode: "match_winner",
-    stageId: stage.stageId,
-    matchId: String(matchId),
-    marketId: String(stage.winMarketId),
-    locked: Boolean(stage.winLocked),
-  };
-  const labelPrefix = stage.label || (stage.stageId === 0 ? "全场" : `地图${stage.stageId}`);
-  return {
-    winHomeRef:
-      stage.winHomeId != null && stage.winHome != null
-        ? createBetRef({
-            ...base,
-            side: "home",
-            oddsId: stage.winHomeId,
-            odds: stage.winHome,
-            label: `${labelPrefix} · 主`,
-          })
-        : null,
-    winAwayRef:
-      stage.winAwayId != null && stage.winAway != null
-        ? createBetRef({
-            ...base,
-            side: "away",
-            oddsId: stage.winAwayId,
-            odds: stage.winAway,
-            label: `${labelPrefix} · 客`,
-          })
-        : null,
-  };
+  return aggregatorStageBetRefs(stage, matchId, gameCode, "IA");
 }
-
 function attachIaMatchBetRefs(detail, matchId, gameCode) {
-  if (!detail?.stages?.length) return detail;
-  detail.stages = detail.stages.map((stage) => ({
-    ...stage,
-    ...iaStageBetRefs(stage, matchId, gameCode),
-  }));
-  return detail;
+  return attachAggregatorMatchBetRefs(detail, matchId, gameCode, "IA");
 }
 
 function imtStageBetRefs(stage, matchId, gameCode) {
-  if (!stage?.winMarketId) return { winHomeRef: null, winAwayRef: null };
-  const base = {
-    platform: "IMT",
-    gameCode,
-    marketCode: "match_winner",
-    stageId: stage.stageId,
-    matchId: String(matchId),
-    marketId: String(stage.winMarketId),
-    locked: Boolean(stage.winLocked),
-  };
-  const labelPrefix = stage.label || (stage.stageId === 0 ? "全场" : `地图${stage.stageId}`);
-  return {
-    winHomeRef:
-      stage.winHomeId != null && stage.winHome != null
-        ? createBetRef({
-            ...base,
-            side: "home",
-            oddsId: stage.winHomeId,
-            odds: stage.winHome,
-            label: `${labelPrefix} · 主`,
-          })
-        : null,
-    winAwayRef:
-      stage.winAwayId != null && stage.winAway != null
-        ? createBetRef({
-            ...base,
-            side: "away",
-            oddsId: stage.winAwayId,
-            odds: stage.winAway,
-            label: `${labelPrefix} · 客`,
-          })
-        : null,
-  };
+  return aggregatorStageBetRefs(stage, matchId, gameCode, "IMT");
 }
-
 function attachImtMatchBetRefs(detail, matchId, gameCode) {
-  if (!detail?.stages?.length) return detail;
-  detail.stages = detail.stages.map((stage) => ({
-    ...stage,
-    ...imtStageBetRefs(stage, matchId, gameCode),
-  }));
-  return detail;
+  return attachAggregatorMatchBetRefs(detail, matchId, gameCode, "IMT");
 }
 
 function aggregatorStageBetRefs(stage, matchId, gameCode, platform) {
