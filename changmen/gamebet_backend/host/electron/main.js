@@ -39,12 +39,12 @@ if (app.isPackaged) {
   // 1. 便携模式：exe 同级目录有 storage/
   if (fs.existsSync(path.join(exeDir, 'storage'))) {
     process.env.GAMEBET_STORAGE_DIR = path.join(exeDir, 'storage');
-    process.env.ESPORT_DATA_DIR     = path.join(exeDir, 'storage', 'esport');
+    process.env.ESPORT_DATA_DIR     = path.join(exeDir, 'storage');
 
   // 2. userData 已有 storage，直接使用
   } else if (fs.existsSync(path.join(userData, 'storage'))) {
     process.env.GAMEBET_STORAGE_DIR = path.join(userData, 'storage');
-    process.env.ESPORT_DATA_DIR     = path.join(userData, 'storage', 'esport');
+    process.env.ESPORT_DATA_DIR     = path.join(userData, 'storage');
 
   // 3. 首次安装：沿 exe 向上逐级寻找开发目录的 storage，找到则迁移
   } else {
@@ -59,7 +59,7 @@ if (app.isPackaged) {
       dir = path.dirname(dir);
     }
     process.env.GAMEBET_STORAGE_DIR = path.join(userData, 'storage');
-    process.env.ESPORT_DATA_DIR     = path.join(userData, 'storage', 'esport');
+    process.env.ESPORT_DATA_DIR     = path.join(userData, 'storage');
   }
 }
 

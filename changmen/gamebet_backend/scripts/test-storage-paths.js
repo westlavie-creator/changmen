@@ -15,7 +15,7 @@ delete process.env.ESPORT_DATA_DIR;
 
 const paths = require("../core/shared/storage_paths.js");
 
-assert.strictEqual(paths.ESPORT_DATA_DIR, path.join(backendRoot, "storage", "esport"));
+assert.strictEqual(paths.ESPORT_DATA_DIR, path.join(backendRoot, "storage"));
 assert.strictEqual(fs.existsSync(paths.ESPORT_DATA_DIR), true);
 
 console.log("storage paths ok:", paths.ESPORT_DATA_DIR);
