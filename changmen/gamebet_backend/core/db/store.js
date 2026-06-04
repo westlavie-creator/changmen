@@ -274,6 +274,40 @@ function getClientMatches() {
     .sort((a, b) => (a.StartTime || 0) - (b.StartTime || 0))
 }
 
+/** 从 Supabase client_matches 表加载，写入内存缓存并返回；失败返回 null */
+async function loadClientMatchesFromSupabase() {
+  if (!supabase) return null
+  try {
+    const { data, error } = await supabase
+      .from('client_matches')
+      .select('*')
+      .order('start_time', { ascending: true })
+    if (error || !data?.length) return null
+    const now = Date.now()
+    _clientMatches.clear()
+    for (const row of data) {
+      const m = {
+        ID: row.id,
+        Title: row.title || '',
+        Game: row.game || '',
+        GameID: row.game_id || '',
+        StartTime: row.start_time || 0,
+        BO: row.bo || 0,
+        Round: row.round || 0,
+        Matchs: row.matchs || {},
+        Bets: row.bets || [],
+        built_at: row.built_at || now,
+      }
+      _clientMatches.set(Number(row.id), m)
+    }
+    console.log('[db:supabase] loadClientMatches:', data.length, '条')
+    return getClientMatches()
+  } catch (err) {
+    console.warn('[db:supabase] loadClientMatches 失败:', err.message)
+    return null
+  }
+}
+
 module.exports = {
   getProfileById, getProfileByName, upsertProfile, listProfiles, updateProfileSetting,
   loadProfileById, pullFromSupabase,
@@ -281,5 +315,5 @@ module.exports = {
   updateAccountForUser, removeAccountForUser,
   setUserSetting, getUserSetting, countUserSettings,
   saveObMatches, getObMatchesForMerge, pruneObMatches,
-  saveClientMatches, pruneClientMatches, getClientMatches,
+  saveClientMatches, pruneClientMatches, getClientMatches, loadClientMatchesFromSupabase,
 }

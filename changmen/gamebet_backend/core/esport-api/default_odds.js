@@ -47,9 +47,9 @@ function createDefaultOddsApi(readJson, writeJson) {
     return store;
   }
 
-  function pruneStaleKeys(buildMatchList) {
+  async function pruneStaleKeys(buildMatchList) {
     const activeBetIds = new Set();
-    for (const match of buildMatchList() || []) {
+    for (const match of (await buildMatchList()) || []) {
       for (const bet of match.Bets || []) {
         const id = Number(bet.ID);
         if (id) activeBetIds.add(id);
@@ -67,14 +67,14 @@ function createDefaultOddsApi(readJson, writeJson) {
     if (changed) writeStore(store);
   }
 
-  function getMatchDefaultOdds(matchIds, buildMatchList) {
+  async function getMatchDefaultOdds(matchIds, buildMatchList) {
     const wanted = new Set((matchIds || []).map((id) => Number(id)).filter(Boolean));
     const out = {};
     if (!wanted.size) return out;
 
-    pruneStaleKeys(buildMatchList);
+    await pruneStaleKeys(buildMatchList);
     const store = readStore();
-    const matches = buildMatchList();
+    const matches = (await buildMatchList()) || [];
     for (const match of matches) {
       if (!wanted.has(Number(match.ID))) continue;
       const snap = snapshotFromBets(match.Bets);
@@ -85,12 +85,12 @@ function createDefaultOddsApi(readJson, writeJson) {
     return out;
   }
 
-  function getDefaultOddsSingle(betId, team, buildMatchList) {
+  async function getDefaultOddsSingle(betId, team, buildMatchList) {
     const key = `${Number(betId)}:${team}`;
     const store = readStore();
     if (store[key] > 0) return store[key];
 
-    const matches = buildMatchList();
+    const matches = (await buildMatchList()) || [];
     for (const match of matches) {
       for (const bet of match.Bets || []) {
         if (Number(bet.ID) !== Number(betId)) continue;

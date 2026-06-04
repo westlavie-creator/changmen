@@ -360,7 +360,7 @@ async function handle(action, body, ctx) {
     }
     case "Client_GetMatchs": {
       if (!ctx.user) return fail("请先登录");
-      return ok(store.buildMatchList());
+      return ok(await store.buildMatchList());
     }
     case "Client_SaveData": {
       if (!ctx.user) return fail("请先登录");
@@ -455,7 +455,7 @@ async function handle(action, body, ctx) {
       if (!betId || (team !== "Home" && team !== "Away")) {
         return fail("betId / team 无效");
       }
-      const odds = store.getDefaultOddsSingle(betId, team);
+      const odds = await store.getDefaultOddsSingle(betId, team);
       return ok({ odds });
     }
     case "Client_GetMatchDefaultOdds": {
@@ -466,7 +466,7 @@ async function handle(action, body, ctx) {
       } catch {
         return fail("matchs JSON 无效");
       }
-      return ok(store.getMatchDefaultOdds(matchIds));
+      return ok(await store.getMatchDefaultOdds(matchIds));
     }
     case "Client_CreateTagPlatform": {
       if (!ctx.user) return fail("请先登录");
