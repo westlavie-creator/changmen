@@ -257,14 +257,19 @@ function scheduleRebuildClientMatchList() {
   }, CLIENT_MATCHS_DEBOUNCE_MS);
 }
 
-function buildMatchList() {
+async function buildMatchList() {
+  // 1. 优先从 Supabase 读（跨实例共享最新数据）
+  const fromDb = await dbStore.loadClientMatchesFromSupabase();
+  if (fromDb?.length) return fromDb;
+  // 2. 降级：本地 client_matchs.json
   const cached = readJson(CLIENT_MATCHS_FILE, null);
   if (cached && Array.isArray(cached.info)) return cached.info;
+  // 3. 最终降级：实时重建
   return rebuildClientMatchListNow();
 }
 
-function getMatchDefaultOdds(matchIds) { return defaultOddsApi.getMatchDefaultOdds(matchIds, buildMatchList); }
-function getDefaultOddsSingle(betId, team) { return defaultOddsApi.getDefaultOddsSingle(betId, team, buildMatchList); }
+function getMatchDefaultOdds(matchIds) { return defaultOddsApi.getMatchDefaultOdds(matchIds, () => buildMatchList()); }
+function getDefaultOddsSingle(betId, team) { return defaultOddsApi.getDefaultOddsSingle(betId, team, () => buildMatchList()); }
 function parseKvContent(raw) {
   if (raw == null || raw === "") return null;
   try { return JSON.parse(raw); } catch { return raw; }
