@@ -1,7 +1,7 @@
 import { post, unwrap } from "@/api/client";
 import type { ClientMatchDto } from "@/types/esport";
 
-export async function saveMatch(provider: string, matchs: unknown[]) {
+export async function saveMatchSource(provider: string, matchs: unknown[]) {
   const data = await post<boolean>(`API_SaveMatch?${provider}`, {
     provider,
     matchs: JSON.stringify(matchs),
@@ -9,7 +9,7 @@ export async function saveMatch(provider: string, matchs: unknown[]) {
   return data.success === 1 && data.info === true;
 }
 
-export async function saveBets(provider: string, matchId: string | number, bets: unknown[]) {
+export async function saveBetSource(provider: string, matchId: string | number, bets: unknown[]) {
   const data = await post<boolean>(`API_SaveBet?${provider}`, {
     provider,
     matchId: String(matchId),

@@ -19,8 +19,8 @@ export { login, logout, getUserInfo, getUserDetail } from "@/api/auth";
 export { getCollectPlatform, getGames, updatePlatform } from "@/api/platform";
 
 export {
-  saveMatch,
-  saveBets,
+  saveMatchSource,
+  saveBetSource,
   saveLiveTimer,
   saveScore,
   getMatchs,

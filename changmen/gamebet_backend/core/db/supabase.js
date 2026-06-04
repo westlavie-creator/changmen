@@ -9,12 +9,16 @@
  *   upsert* — async 写入，需要确认结果
  */
 
-const { supabase } = require('./client.js')
+const { supabase, supabaseAdmin } = require('./client.js')
 
-/** fire-and-forget：失败只打 warn，不影响主流程 */
+/**
+ * fire-and-forget 写入：统一使用 supabase（authenticated）。
+ * 所有数据表均配置了 authenticated 写入策略，无需 service_role。
+ * service_role（supabaseAdmin）只保留给 auth.admin API。
+ */
 function _write(fn) {
   if (!supabase) return
-  Promise.resolve().then(fn).catch((err) => console.warn('[supabase]', err.message))
+  Promise.resolve().then(() => fn(supabase)).catch((err) => console.warn('[supabase]', err.message))
 }
 
 // ── profiles ──────────────────────────────────────────────────────────
@@ -45,8 +49,8 @@ async function fetchProfileById(uid) {
 
 /** fire-and-forget：更新 profile 字段 */
 function writeProfile(uid, patch) {
-  _write(async () => {
-    const { error } = await supabase.from('profiles')
+  _write(async (client) => {
+    const { error } = await client.from('profiles')
       .update({ ...patch, updated_at: Date.now() }).eq('id', String(uid))
     if (error) throw error
   })
@@ -56,33 +60,10 @@ function writeProfile(uid, patch) {
 
 /** fire-and-forget：替换用户账号列表 */
 function writeAccounts(uid, accounts) {
-  _write(async () => {
-    const { error } = await supabase.from('profiles')
+  _write(async (client) => {
+    const { error } = await client.from('profiles')
       .update({ accounts, updated_at: Date.now() }).eq('id', String(uid))
     if (error) throw error
-  })
-}
-
-// ── ob_matches ────────────────────────────────────────────────────────
-
-/** fire-and-forget：upsert OB 比赛列表 */
-function writeObMatches(rows) {
-  _write(async () => {
-    const { error } = await supabase.from('ob_matches')
-      .upsert(rows, { onConflict: 'source_match_id' })
-    if (error) throw error
-  })
-}
-
-/** fire-and-forget：删除不在 activeIds 中的 OB 比赛 */
-function deleteObMatches(activeIds) {
-  _write(async () => {
-    if (!activeIds?.length) {
-      await supabase.from('ob_matches').delete().neq('source_match_id', '')
-    } else {
-      await supabase.from('ob_matches').delete()
-        .not('source_match_id', 'in', `(${activeIds.map((id) => `"${id}"`).join(',')})`)
-    }
   })
 }
 
@@ -90,8 +71,8 @@ function deleteObMatches(activeIds) {
 
 /** fire-and-forget：upsert 客户端比赛列表 */
 function writeClientMatches(rows) {
-  _write(async () => {
-    const { error } = await supabase.from('client_matches')
+  _write(async (client) => {
+    const { error } = await client.from('client_matches')
       .upsert(rows, { onConflict: 'id' })
     if (error) throw error
   })
@@ -111,6 +92,85 @@ async function fetchClientMatches() {
     console.warn('[supabase] fetchClientMatches 失败:', err.message)
     return null
   }
+}
+
+// ── platform_matches ──────────────────────────────────────────────────
+
+/** fire-and-forget：upsert 平台原始比赛列表 */
+function writePlatformMatches(provider, matchs) {
+  if (!Array.isArray(matchs) || !matchs.length) return
+  const now = Date.now()
+  const rows = matchs.map((m) => ({
+    platform:        String(provider),
+    source_match_id: String(m.SourceMatchID),
+    source_game_id:  m.SourceGameID != null ? String(m.SourceGameID) : null,
+    start_time:      Number(m.StartTime) || null,
+    home_id:         m.HomeID != null ? String(m.HomeID) : null,
+    home:            String(m.Home || ''),
+    away_id:         m.AwayID != null ? String(m.AwayID) : null,
+    away:            String(m.Away || ''),
+    bo:              m.BO != null ? Number(m.BO) : null,
+    teams:           Array.isArray(m.Teams) ? m.Teams : [],
+    synced_at:       now,
+  }))
+  _write(async (client) => {
+    const { error } = await client
+      .from('platform_matches')
+      .upsert(rows, { onConflict: 'platform,source_match_id' })
+    if (error) throw error
+  })
+}
+
+// ── platform_bets ─────────────────────────────────────────────────────
+
+/** fire-and-forget：upsert 平台盘口赔率（只保最新） */
+function writePlatformBets(provider, matchId, bets) {
+  if (!Array.isArray(bets) || !bets.length) return
+  const now = Date.now()
+  const rows = bets
+    .filter((b) => b && b.SourceBetID != null && !String(b.BetName ?? '').includes('+'))
+    .map((b) => ({
+      platform:        String(provider),
+      source_bet_id:   String(b.SourceBetID),
+      source_match_id: String(matchId),
+      map:             Number(b.Map ?? 0),
+      bet_name:        String(b.BetName || ''),
+      home_odds:       Number(b.HomeOdds) || 0,
+      away_odds:       Number(b.AwayOdds) || 0,
+      is_locked:       b.Status !== 'Normal',
+      updated_at:      now,
+    }))
+  if (!rows.length) return
+  _write(async (client) => {
+    const { error } = await client
+      .from('platform_bets')
+      .upsert(rows, { onConflict: 'platform,source_bet_id' })
+    if (error) throw error
+  })
+}
+
+// ── live_timers ───────────────────────────────────────────────────────
+
+/** fire-and-forget：upsert 比赛计时器（只保最新） */
+function writeLiveTimers(provider, timer) {
+  if (!Array.isArray(timer) || !timer.length) return
+  const now = Date.now()
+  const rows = timer
+    .filter((t) => t && t.MatchID != null)
+    .map((t) => ({
+      platform:        String(provider),
+      source_match_id: String(t.MatchID),
+      round:           Number(t.Round) || 0,
+      round_start:     Number(t.StartTime) || null,
+      updated_at:      now,
+    }))
+  if (!rows.length) return
+  _write(async (client) => {
+    const { error } = await client
+      .from('live_timers')
+      .upsert(rows, { onConflict: 'platform,source_match_id' })
+    if (error) throw error
+  })
 }
 
 // ── orders ────────────────────────────────────────────────────────────
@@ -205,15 +265,15 @@ async function authGetUser(token) {
 
 /** 写入 user_metadata（fire-and-forget，用于单 session 限制） */
 function writeUserMetadata(userId, metadata) {
-  _write(async () => {
-    await supabase.auth.admin.updateUserById(userId, { user_metadata: metadata })
+  _write(async (client) => {
+    await client.auth.admin.updateUserById(userId, { user_metadata: metadata })
   })
 }
 
 /** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */
 async function insertProfile(uid, data) {
-  if (!supabase) return false
-  const { error } = await supabase.from('profiles').insert(data)
+  if (!supabaseAdmin) return false
+  const { error } = await supabaseAdmin.from('profiles').insert(data)
   return !error
 }
 
@@ -225,12 +285,13 @@ module.exports = {
   insertProfile,
   // accounts
   writeAccounts,
-  // ob_matches
-  writeObMatches,
-  deleteObMatches,
   // client_matches
   writeClientMatches,
   fetchClientMatches,
+  // platform_matches / platform_bets / live_timers
+  writePlatformMatches,
+  writePlatformBets,
+  writeLiveTimers,
   // orders
   fetchOrdersByDate,
   fetchOrdersByPlayer,

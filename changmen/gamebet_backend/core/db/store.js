@@ -165,15 +165,7 @@ function saveObMatches(matches) {
   for (const m of matches) {
     _obMatches.set(String(m.SourceMatchID), { ...m, provider: 'OB', savedAt: now })
   }
-  sb.writeObMatches(matches.map((m) => ({
-    source_match_id: String(m.SourceMatchID),
-    source_game_id:  String(m.SourceGameID || ''),
-    home: String(m.Home || ''), home_id: String(m.HomeID || ''),
-    away: String(m.Away || ''), away_id: String(m.AwayID || ''),
-    bo: Number(m.BO) || 0, start_time: Number(m.StartTime) || 0,
-    is_live: true, saved_at: now,
-    raw: { ...m, provider: 'OB', savedAt: now },
-  })))
+  sb.writePlatformMatches('OB', matches)
 }
 
 function getObMatchesForMerge() {
@@ -185,14 +177,12 @@ function getObMatchesForMerge() {
 function pruneObMatches(activeIds) {
   if (!activeIds?.length) {
     _obMatches.clear()
-    sb.deleteObMatches(null)
     return
   }
   const active = new Set(activeIds.map(String))
   for (const id of _obMatches.keys()) {
     if (!active.has(id)) _obMatches.delete(id)
   }
-  sb.deleteObMatches(activeIds)
 }
 
 // ─── client_matches（内存）───────────────────────────────────────────
