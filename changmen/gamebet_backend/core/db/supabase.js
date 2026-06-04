@@ -11,12 +11,16 @@
 
 const { supabase, supabaseAdmin } = require('./client.js')
 
+// 用户登录后设为 true，登出后设为 false
+// _write 只在有活跃 session 时执行，避免登录前以 anon 身份写入
+let _hasSession = false
+
 /**
- * fire-and-forget 写入：使用 supabase（authenticated session）。
- * client.js 已开启 autoRefreshToken，session 会自动续期，不会因过期变回 anon。
+ * fire-and-forget 写入：仅在用户已登录（_hasSession = true）时执行。
+ * 登录前（anon 状态）跳过写入，避免 permission denied 刷屏。
  */
 function _write(fn) {
-  if (!supabase) return
+  if (!supabase || !_hasSession) return
   Promise.resolve().then(() => fn(supabase)).catch((err) => console.warn('[supabase]', err.message))
 }
 
@@ -233,6 +237,7 @@ async function authSignIn(userName, password) {
     password,
   })
   if (error || !data?.session) return null
+  _hasSession = true
   return {
     accessToken: data.session.access_token,
     userId: data.user.id,
@@ -242,6 +247,7 @@ async function authSignIn(userName, password) {
 
 /** 登出指定 token 对应的 session */
 async function authSignOut(token) {
+  _hasSession = false
   if (!supabase || !token) return
   await supabase.auth.admin.signOut(token).catch(() => {})
 }
