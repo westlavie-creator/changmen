@@ -14,21 +14,21 @@
 require("dotenv").config();
 const http = require("http");
 const path = require("path");
-const { FeedHub } = require("./shared/feed_hub.js");
-const { buildFeedHubEntries } = require("./shared/platform_registry.js");
+const { FeedHub } = require("../../shared/feed_hub.js");
+const { buildFeedHubEntries } = require("../../shared/platform_registry.js");
 const { attachEsportProxy } = require("./proxy/esport_proxy.js");
-const { attachFeedBridge } = require("./esport-api/feed_bridge.js");
-const { ensurePlatformCredentials } = require("./esport-api/platform_sync.js");
-const store = require("./esport-api/store.js");
-const { createStaticHandler } = require("./server/static_files.js");
-const { createHttpHandler } = require("./server/http_routes.js");
-const { attachSnapshotWs } = require("./server/snapshot_ws.js");
+const { attachFeedBridge } = require("../../esport-api/feed_bridge.js");
+const { ensurePlatformCredentials } = require("../../esport-api/platform_sync.js");
+const store = require("../../esport-api/store.js");
+const { createStaticHandler } = require("./static_files.js");
+const { createHttpHandler } = require("./http_routes.js");
+const { attachSnapshotWs } = require("./snapshot_ws.js");
 
 const PORT = Number(process.env.PORT || 3456);
 const ESPORT_PROXY_ENABLED = process.env.ENABLE_ESPORT_PROXY !== "0";
-const PUBLIC_DIR = path.join(__dirname, "public");
-const CONSOLE_DIR = process.env.GAMEBET_CONSOLE_DIR || path.join(__dirname, "..", "gamebet_frontend", "console");
-const APP_DIR = process.env.GAMEBET_APP_DIR     || path.join(__dirname, "..", "gamebet_frontend", "app", "dist");
+const PUBLIC_DIR = path.join(__dirname, "../../public");
+const CONSOLE_DIR = process.env.GAMEBET_CONSOLE_DIR || path.join(__dirname, "../../../gamebet_frontend/console");
+const APP_DIR = process.env.GAMEBET_APP_DIR     || path.join(__dirname, "../../../gamebet_frontend/app/dist");
 
 const hub = new FeedHub(buildFeedHubEntries());
 let esportProxy = null;

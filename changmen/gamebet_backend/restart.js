@@ -5,7 +5,7 @@ const { spawn, execSync } = require("child_process");
 const path = require("path");
 
 const PORT = Number(process.env.PORT || 3456);
-const SERVER = path.join(__dirname, "server.js");
+const SERVER = path.join(__dirname, "host/web/index.js");
 const background = process.argv.includes("--background") || process.argv.includes("-b");
 
 function sleep(ms) {

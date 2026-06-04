@@ -1,17 +1,17 @@
 "use strict";
 
-const { getCatalogSummary } = require("../shared/game_catalog.js");
-const { getCatalogSummary: getMarketCatalogSummary } = require("../shared/market_catalog.js");
-const { listPlatforms, getPlatform } = require("../shared/platform_registry.js");
-const { checkBet, placeBet, supportedPlatforms } = require("../shared/bet_engine.js");
-const { tryEsportApi, resolveCreditPlateUserName } = require("../esport-api/router.js");
-const store = require("../esport-api/store.js");
-const { getHardcodedCredentials } = require("../integrations/a8/config.js");
-const { tryHttpProxyRelay } = require("../proxy/http_proxy_relay.js");
-const { tryPbHttpProxy } = require("../proxy/pb_http_proxy.js");
-const { tryObHttpProxy } = require("../proxy/ob_http_proxy.js");
-const { tryRayHttpProxy } = require("../proxy/ray_http_proxy.js");
-const { fetchObLogin, DEFAULT_LOGIN_URL } = require("../platforms/ob/ob_session.js");
+const { getCatalogSummary } = require("../../shared/game_catalog.js");
+const { getCatalogSummary: getMarketCatalogSummary } = require("../../shared/market_catalog.js");
+const { listPlatforms, getPlatform } = require("../../shared/platform_registry.js");
+const { checkBet, placeBet, supportedPlatforms } = require("../../shared/bet_engine.js");
+const { tryEsportApi, resolveCreditPlateUserName } = require("../../esport-api/router.js");
+const store = require("../../esport-api/store.js");
+const { getHardcodedCredentials } = require("../../integrations/a8/config.js");
+const { tryHttpProxyRelay } = require("./proxy/http_proxy_relay.js");
+const { tryPbHttpProxy } = require("./proxy/pb_http_proxy.js");
+const { tryObHttpProxy } = require("./proxy/ob_http_proxy.js");
+const { tryRayHttpProxy } = require("./proxy/ray_http_proxy.js");
+const { fetchObLogin, DEFAULT_LOGIN_URL } = require("../../platforms/ob/ob_session.js");
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {

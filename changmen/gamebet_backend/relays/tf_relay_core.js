@@ -9,7 +9,7 @@
  */
 
 const WebSocket = require("ws");
-const { buildTfUpstreamUrl } = require("../proxy/tf_ws_relay.js");
+const { buildTfUpstreamUrl } = require("../host/web/proxy/tf_ws_relay.js");
 
 const RECONNECT_MIN_MS = 1_000;
 const RECONNECT_MAX_MS = 5_000;

@@ -4,10 +4,10 @@ const { app, BrowserWindow, shell, Menu, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs   = require('fs');
-const { RayRelayCore } = require('../relays/ray_relay_core.js');
-const { ObRelayCore }  = require('../relays/ob_relay_core.js');
-const { TfRelayCore }  = require('../relays/tf_relay_core.js');
-const { IaRelayCore }  = require('../relays/ia_relay_core.js');
+const { RayRelayCore } = require('../../relays/ray_relay_core.js');
+const { ObRelayCore }  = require('../../relays/ob_relay_core.js');
+const { TfRelayCore }  = require('../../relays/tf_relay_core.js');
+const { IaRelayCore }  = require('../../relays/ia_relay_core.js');
 
 const PORT = Number(process.env.PORT || 3456);
 
@@ -119,7 +119,7 @@ function registerRelayIpc() {
   ipcMain.handle('gamebet:relay:ia:start', () => {
     let gateway = '';
     try {
-      const store = require('../esport-api/store.js');
+      const store = require('../../esport-api/store.js');
       gateway = store.getPlatform('IA')?.gateway || '';
     } catch { /* store 未初始化时忽略 */ }
     return ensureIaCore().start(gateway);
@@ -139,7 +139,7 @@ function registerRelayIpc() {
     // gateway 从 store 取（packaged 模式下与 server.js 共享 module cache）
     let gateway = '';
     try {
-      const store = require('../esport-api/store.js');
+      const store = require('../../esport-api/store.js');
       gateway = store.getPlatform('TF')?.gateway || '';
     } catch { /* store 未初始化时忽略，relay 仍可尝试连接 */ }
     return ensureTfCore().start(token, gateway);
@@ -156,7 +156,7 @@ function registerRelayIpc() {
 
   // esport API — 直调 router 核心逻辑，绕过 localhost HTTP
   ipcMain.handle('gamebetApi:esport', async (_event, action, body, token) => {
-    const { callEsportAction } = require('../esport-api/router.js');
+    const { callEsportAction } = require('../../esport-api/router.js');
     return callEsportAction(String(action || ''), body || {}, String(token || ''));
   });
 
@@ -206,7 +206,7 @@ function registerRelayIpc() {
   });
 }
 
-require('../server.js');
+require('../web/index.js');
 
 // ── 等待 HTTP 服务就绪 ──────────────────────────────────────────────────────
 function waitForServer(retries = 40) {
