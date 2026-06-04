@@ -12,10 +12,10 @@
 
 const fs = require("fs");
 const path = require("path");
-const store = require("../esport-api/store.js");
-const { handleEsportRequest } = require("../esport-api/router.js");
+const store = require("../core/esport-api/store.js");
+const { handleEsportRequest } = require("../core/esport-api/router.js");
 const { getRayA8CollectCredentials } = require("../platforms/ray/collect_credentials.js");
-const { getPlatformRules, getDefaultMarketCode } = require("../shared/market_catalog.js");
+const { getPlatformRules, getDefaultMarketCode } = require("../core/shared/market_catalog.js");
 
 const ALL_PLATFORMS = [
   "OB",

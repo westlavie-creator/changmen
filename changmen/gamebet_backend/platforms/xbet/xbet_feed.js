@@ -1,8 +1,8 @@
 "use strict";
 
-const { A8BetsFeed } = require("../../integrations/a8/bets_feed.js");
-const { attachAggregatorMatchBetRefs } = require("../../shared/bet_ref.js");
-const { syncXbetFromEnv } = require("../../esport-api/platform_sync.js");
+const { A8BetsFeed } = require("../../core/integrations/a8/bets_feed.js");
+const { attachAggregatorMatchBetRefs } = require("../../core/shared/bet_ref.js");
+const { syncXbetFromEnv } = require("../../core/esport-api/platform_sync.js");
 
 class XbetFeed extends A8BetsFeed {
   constructor(options = {}) {

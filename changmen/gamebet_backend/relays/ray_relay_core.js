@@ -4,7 +4,7 @@ const { RayWsClient } = require("../platforms/ray/ray_ws.js");
 const { login } = require("../platforms/ray/ray_session.js");
 
 function defaultSyncRayFromSession(session) {
-  const { syncRayFromSession } = require("../esport-api/platform_sync.js");
+  const { syncRayFromSession } = require("../core/esport-api/platform_sync.js");
   return syncRayFromSession(session);
 }
 

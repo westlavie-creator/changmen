@@ -19,7 +19,7 @@ delete process.env.GAMEBET_DB_DIR;
 delete process.env.ESPORT_DATA_DIR;
 delete process.env.GAMEBET_DB_PATH;
 
-const paths = require("../shared/storage_paths.js");
+const paths = require("../core/shared/storage_paths.js");
 
 assert.strictEqual(paths.ESPORT_DATA_DIR, path.join(backendRoot, "storage", "legacy", "esport"));
 assert.strictEqual(fs.existsSync(path.join(paths.ESPORT_DATA_DIR, "users.json")), true);

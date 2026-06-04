@@ -1,8 +1,8 @@
 "use strict";
 
 const { rayHeaders } = require("../../../platforms/ray/ray_session.js");
-const { getPlatform, getUserKv } = require("../../../esport-api/store.js");
-const { rayApiUrl } = require("../../../shared/ray_paths.js");
+const { getPlatform, getUserKv } = require("../../../core/esport-api/store.js");
+const { rayApiUrl } = require("../../../core/shared/ray_paths.js");
 const { getRayA8CollectCredentials } = require("../../../platforms/ray/collect_credentials.js");
 
 const ALLOWED = new Set(["match", "odds"]);

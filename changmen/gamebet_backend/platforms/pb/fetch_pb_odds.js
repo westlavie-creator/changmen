@@ -3,7 +3,7 @@
 
 const { loadSession, fetchEuroOdds, fetchBalance, buildAuthHeaders } = require("./pb_session.js");
 const { parseEuroOddsPayload } = require("./pb_core.js");
-const { describePlatformGame } = require("../../shared/game_catalog.js");
+const { describePlatformGame } = require("../../core/shared/game_catalog.js");
 
 async function main() {
   const cmd = process.argv[2] || "list";

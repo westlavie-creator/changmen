@@ -1,7 +1,7 @@
 "use strict";
 
 const path = require("path");
-const { A8_INDEX_SOURCES } = require("../platforms/ob/ob_feed.js");
+const { A8_INDEX_SOURCES } = require("../../platforms/ob/ob_feed.js");
 
 /** ObFeed 构造参数；`OB_FEED_MODE=a8` 时对齐 UMe（单源 index + 1500ms stage） */
 function buildObFeedOptions() {
@@ -30,7 +30,7 @@ const PLATFORMS = [
     collectionMode: "http_mqtt",
     collectionDesc: "HTTP 快照（game/index、view）+ MQTT 增量",
     implementation: "done",
-    feed: { module: "../platforms/ob/ob_feed.js", export: "ObFeed" },
+    feed: { module: "../../platforms/ob/ob_feed.js", export: "ObFeed" },
     envEnable: "ENABLE_OB",
     defaultEnabled: true,
     feedOptions: buildObFeedOptions(),
@@ -44,7 +44,7 @@ const PLATFORMS = [
     collectionMode: "http_ws",
     collectionDesc: "HTTP 快照（match/odds）+ 专用 WebSocket",
     implementation: "done",
-    feed: { module: "../platforms/ray/ray_feed.js", export: "RayFeed" },
+    feed: { module: "../../platforms/ray/ray_feed.js", export: "RayFeed" },
     envEnable: "ENABLE_RAY",
     defaultEnabled: true,
     feedOptions: { syncIntervalMs: 30000 },
@@ -58,7 +58,7 @@ const PLATFORMS = [
     collectionMode: "http_poll",
     collectionDesc: "高频 HTTP 轮询 euro/odds（约 5s），插件 token",
     implementation: "done",
-    feed: { module: "../platforms/pb/pb_feed.js", export: "PbFeed" },
+    feed: { module: "../../platforms/pb/pb_feed.js", export: "PbFeed" },
     envEnable: "ENABLE_PB",
     defaultEnabled: false,
     feedOptions: { syncIntervalMs: Number(process.env.PB_SYNC_MS || 5000) },
@@ -72,7 +72,7 @@ const PLATFORMS = [
     collectionMode: "http_ws",
     collectionDesc: "HTTP events 快照 + /esport/ws/TF 隧道",
     implementation: "done",
-    feed: { module: "../platforms/tf/tf_feed.js", export: "TfFeed" },
+    feed: { module: "../../platforms/tf/tf_feed.js", export: "TfFeed" },
     envEnable: "ENABLE_TF",
     defaultEnabled: false,
     feedOptions: { syncIntervalMs: Number(process.env.TF_SYNC_MS || 30000) },
@@ -86,7 +86,7 @@ const PLATFORMS = [
     collectionMode: "http_ws",
     collectionDesc: "插件 HTTP（ilustre-analytics）+ IA WebSocket 房间",
     implementation: "done",
-    feed: { module: "../platforms/ia/ia_feed.js", export: "IaFeed" },
+    feed: { module: "../../platforms/ia/ia_feed.js", export: "IaFeed" },
     envEnable: "ENABLE_IA",
     defaultEnabled: false,
     feedOptions: { syncIntervalMs: Number(process.env.IA_SYNC_MS || 30000) },
@@ -100,7 +100,7 @@ const PLATFORMS = [
     collectionMode: "aggregator_ws",
     collectionDesc: "A8 公共 Socket.IO 频道 IM（聚合推送）",
     implementation: "done",
-    feed: { module: "../platforms/im/im_feed.js", export: "ImFeed" },
+    feed: { module: "../../platforms/im/im_feed.js", export: "ImFeed" },
     envEnable: "ENABLE_IM",
     defaultEnabled: false,
     feedOptions: { platformId: "IM" },
@@ -114,7 +114,7 @@ const PLATFORMS = [
     collectionMode: "parse_ws",
     collectionDesc: "页面解析 gateway/token + 自有 WebSocket",
     implementation: "done",
-    feed: { module: "../platforms/saba/saba_feed.js", export: "SabaFeed" },
+    feed: { module: "../../platforms/saba/saba_feed.js", export: "SabaFeed" },
     envEnable: "ENABLE_SABA",
     defaultEnabled: false,
     feedOptions: { checkinIntervalMs: Number(process.env.SABA_CHECKIN_MS || 3000) },
@@ -128,7 +128,7 @@ const PLATFORMS = [
     collectionMode: "aggregator_ws",
     collectionDesc: "A8 公共 Socket.IO XBet / XBet:Score",
     implementation: "done",
-    feed: { module: "../platforms/xbet/xbet_feed.js", export: "XbetFeed" },
+    feed: { module: "../../platforms/xbet/xbet_feed.js", export: "XbetFeed" },
     envEnable: "ENABLE_XBET",
     defaultEnabled: false,
     feedOptions: { platformId: "XBet" },
@@ -142,7 +142,7 @@ const PLATFORMS = [
     collectionMode: "http_poll",
     collectionDesc: "全量 GetAllLiveEvents（60s）+ delta（1s）HTTP 轮询",
     implementation: "done",
-    feed: { module: "../platforms/imt/imt_feed.js", export: "ImtFeed" },
+    feed: { module: "../../platforms/imt/imt_feed.js", export: "ImtFeed" },
     envEnable: "ENABLE_IMT",
     defaultEnabled: false,
     feedOptions: {
@@ -159,7 +159,7 @@ const PLATFORMS = [
     collectionMode: "plugin_http",
     collectionDesc: "transform.php 账户/订单，非标准赔率流",
     implementation: "done",
-    feed: { module: "../platforms/hg/hg_feed.js", export: "HgFeed" },
+    feed: { module: "../../platforms/hg/hg_feed.js", export: "HgFeed" },
     envEnable: "ENABLE_HG",
     defaultEnabled: false,
     feedOptions: { pollIntervalMs: Number(process.env.HG_POLL_MS || 30000) },
@@ -173,7 +173,7 @@ const PLATFORMS = [
     collectionMode: "plugin_graphql_ws",
     collectionDesc: "插件 GraphQL + 插件 WS → A8 Stake 频道",
     implementation: "done",
-    feed: { module: "../platforms/stake/stake_feed.js", export: "StakeFeed" },
+    feed: { module: "../../platforms/stake/stake_feed.js", export: "StakeFeed" },
     envEnable: "ENABLE_STAKE",
     defaultEnabled: false,
     feedOptions: { syncIntervalMs: Number(process.env.STAKE_SYNC_MS || 60000) },

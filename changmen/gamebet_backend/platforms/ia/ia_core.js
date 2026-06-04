@@ -1,6 +1,6 @@
 "use strict";
 
-const { matchesMarketCode } = require("../../shared/market_catalog.js");
+const { matchesMarketCode } = require("../../core/shared/market_catalog.js");
 const { getGameCode, getGameName } = require("./ia_game_ids.js");
 
 function sleep(ms) {

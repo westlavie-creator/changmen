@@ -9,7 +9,7 @@ const {
 
 function loadObEntry() {
   delete require.cache[require.resolve("../shared/platform_registry.js")];
-  const { buildFeedHubEntries } = require("../shared/platform_registry.js");
+  const { buildFeedHubEntries } = require("../core/shared/platform_registry.js");
   return buildFeedHubEntries().find((e) => e.id === "OB");
 }
 

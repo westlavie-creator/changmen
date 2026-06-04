@@ -1,6 +1,6 @@
 "use strict";
 
-const { matchesMarketCode, getPlatformRules } = require("../../shared/market_catalog.js");
+const { matchesMarketCode, getPlatformRules } = require("../../core/shared/market_catalog.js");
 const { getGameCode, getGameName } = require("./tf_game_ids.js");
 
 function sleep(ms) {

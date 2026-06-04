@@ -14,12 +14,12 @@
 require("dotenv").config();
 const http = require("http");
 const path = require("path");
-const { FeedHub } = require("../../shared/feed_hub.js");
-const { buildFeedHubEntries } = require("../../shared/platform_registry.js");
+const { FeedHub } = require("../../core/shared/feed_hub.js");
+const { buildFeedHubEntries } = require("../../core/shared/platform_registry.js");
 const { attachEsportProxy } = require("./proxy/esport_proxy.js");
-const { attachFeedBridge } = require("../../esport-api/feed_bridge.js");
-const { ensurePlatformCredentials } = require("../../esport-api/platform_sync.js");
-const store = require("../../esport-api/store.js");
+const { attachFeedBridge } = require("../../core/esport-api/feed_bridge.js");
+const { ensurePlatformCredentials } = require("../../core/esport-api/platform_sync.js");
+const store = require("../../core/esport-api/store.js");
 const { createStaticHandler } = require("./static_files.js");
 const { createHttpHandler } = require("./http_routes.js");
 const { attachSnapshotWs } = require("./snapshot_ws.js");

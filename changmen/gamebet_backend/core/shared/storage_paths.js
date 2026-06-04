@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 
 const BACKEND_ROOT = process.env.GAMEBET_BACKEND_ROOT
-  || path.join(__dirname, "..");
+  || path.join(__dirname, "../..");
 
 const CHANGMEN_ROOT = process.env.GAMEBET_CHANGMEN_ROOT
   || path.dirname(BACKEND_ROOT);

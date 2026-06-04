@@ -8,7 +8,7 @@ const {
   A8_FORWARD_SITE,
 } = require("./constants.js");
 
-const CONFIG_FILE = path.join(__dirname, "..", "..", "data", "esport", "a8_config.json");
+const CONFIG_FILE = path.join(__dirname, "..", "..", "..", "data", "esport", "a8_config.json");
 
 function loadA8ConfigFile() {
   try {

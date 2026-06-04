@@ -1,7 +1,7 @@
 "use strict";
 
 const { assertBetRef } = require("./bet_ref.js");
-const obBet = require("../platforms/ob/ob_bet.js");
+const obBet = require("../../platforms/ob/ob_bet.js");
 
 const adapters = {
   OB: obBet,

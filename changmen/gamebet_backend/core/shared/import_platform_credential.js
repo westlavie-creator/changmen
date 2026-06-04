@@ -5,7 +5,7 @@ const path = require("path");
 const { parseClipboardCredential } = require("../account/clipboard_credential.js");
 const { getActivePlatformGameIds } = require("./game_catalog.js");
 
-const PLATFORMS_FILE = path.join(__dirname, "../data/esport/platforms.json");
+const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
 
 const PROVIDER_DEFAULTS = {
   OB: { betName: ".*" },

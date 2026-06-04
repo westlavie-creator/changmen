@@ -2,15 +2,15 @@
 
 const Core = require("./saba_core.js");
 const { SabaWsClient } = require("./saba_ws.js");
-const { describePlatformGame, getCatalogSummary } = require("../../shared/game_catalog.js");
-const { attachSabaMatchBetRefs } = require("../../shared/bet_ref.js");
+const { describePlatformGame, getCatalogSummary } = require("../../core/shared/game_catalog.js");
+const { attachSabaMatchBetRefs } = require("../../core/shared/bet_ref.js");
 const {
   tryLoadSession,
   resolveWsConfig,
   loginCheckin,
   persistPlatform,
 } = require("./saba_session.js");
-const { syncSabaFromSession } = require("../../esport-api/platform_sync.js");
+const { syncSabaFromSession } = require("../../core/esport-api/platform_sync.js");
 
 class SabaFeed {
   constructor(options = {}) {

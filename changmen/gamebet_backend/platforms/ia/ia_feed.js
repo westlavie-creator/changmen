@@ -1,9 +1,9 @@
 "use strict";
 
 const Core = require("./ia_core.js");
-const { describePlatformGame, getCatalogSummary } = require("../../shared/game_catalog.js");
+const { describePlatformGame, getCatalogSummary } = require("../../core/shared/game_catalog.js");
 const { getGameCode } = require("./ia_game_ids.js");
-const { attachIaMatchBetRefs } = require("../../shared/bet_ref.js");
+const { attachIaMatchBetRefs } = require("../../core/shared/bet_ref.js");
 const {
   tryLoadSession,
   fetchGameList,
@@ -11,7 +11,7 @@ const {
   persistPlatform,
 } = require("./ia_session.js");
 const { IaWsClient } = require("./ia_ws.js");
-const { syncIaFromSession } = require("../../esport-api/platform_sync.js");
+const { syncIaFromSession } = require("../../core/esport-api/platform_sync.js");
 
 class IaFeed {
   constructor(options = {}) {

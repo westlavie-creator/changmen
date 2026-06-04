@@ -1,7 +1,7 @@
 "use strict";
 
 const Core = require("./ray_core.js");
-const { getActivePlatformGameIds } = require("../../shared/game_catalog.js");
+const { getActivePlatformGameIds } = require("../../core/shared/game_catalog.js");
 
 const DEFAULT_SITE_ORIGIN = "https://ray164.com";
 

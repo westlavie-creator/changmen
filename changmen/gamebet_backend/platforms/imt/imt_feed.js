@@ -1,16 +1,16 @@
 "use strict";
 
 const Core = require("./imt_core.js");
-const { describePlatformGame, getCatalogSummary } = require("../../shared/game_catalog.js");
+const { describePlatformGame, getCatalogSummary } = require("../../core/shared/game_catalog.js");
 const { getSportCode } = require("./imt_sport_ids.js");
-const { attachImtMatchBetRefs } = require("../../shared/bet_ref.js");
+const { attachImtMatchBetRefs } = require("../../core/shared/bet_ref.js");
 const {
   tryLoadSession,
   fetchAllLiveEvents,
   fetchLiveEventsDelta,
   persistPlatform,
 } = require("./imt_session.js");
-const { syncImtFromSession } = require("../../esport-api/platform_sync.js");
+const { syncImtFromSession } = require("../../core/esport-api/platform_sync.js");
 
 class ImtFeed {
   constructor(options = {}) {

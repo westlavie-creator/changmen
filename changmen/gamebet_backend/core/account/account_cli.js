@@ -21,7 +21,7 @@ const { parseClipboardCredential, encodeClipboardCredential } = require("./clipb
 const { importPlatformCredential } = require("../shared/import_platform_credential.js");
 const { saveA8Config, CONFIG_FILE } = require("../integrations/a8/config.js");
 const { syncPbFromSession } = require("../esport-api/platform_sync.js");
-const { tryLoadSession } = require("../platforms/pb/pb_session.js");
+const { tryLoadSession } = require("../../platforms/pb/pb_session.js");
 const store = require("../esport-api/store.js");
 
 function usage() {
