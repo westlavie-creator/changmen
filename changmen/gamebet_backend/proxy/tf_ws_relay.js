@@ -2,6 +2,7 @@
 
 const WebSocket = require("ws");
 const { WebSocketServer } = require("ws");
+const { TfRelayCore } = require("../relays/tf_relay_core.js");
 
 const WS_PATH = "/esport/ws/TF";
 
@@ -16,8 +17,9 @@ function buildTfUpstreamUrl(gateway, token, combo = false) {
 class TfWsRelay {
   constructor(options = {}) {
     this.gateway = options.gateway || process.env.TF_GATEWAY || "";
-    this.token = options.token || process.env.TF_TOKEN || "";
-    this.wss = new WebSocketServer({ noServer: true });
+    this.token   = options.token   || process.env.TF_TOKEN   || "";
+    this.wss  = new WebSocketServer({ noServer: true });
+    this.core = options.core || new TfRelayCore();
     this.stats = {
       platform: "TF",
       path: WS_PATH,
@@ -26,8 +28,17 @@ class TfWsRelay {
       messagesRelayed: 0,
       lastError: null,
       lastUpstreamAt: null,
-      note: "TF upstream requires TF_GATEWAY + TF_TOKEN",
     };
+
+    // 上游消息广播给所有下游 WS 客户端
+    this.core.onMessage((text) => {
+      this.stats.messagesRelayed += 1;
+      this.stats.lastUpstreamAt = Date.now();
+      for (const ws of this.wss.clients) {
+        if (ws.readyState === WebSocket.OPEN) ws.send(text);
+      }
+    });
+
     this._setupWss();
   }
 
@@ -45,78 +56,41 @@ class TfWsRelay {
     this.wss.on("connection", (clientWs, request) => {
       this.stats.downstreamClients = this.wss.clients.size;
 
-      if (!this.gateway || !this.token) {
-        clientWs.send(
-          JSON.stringify({
-            type: "error",
-            message: "TF proxy: set TF_GATEWAY and TF_TOKEN on server",
-          })
-        );
-        clientWs.close(1011, "TF not configured");
-        return;
-      }
-
+      // 取浏览器 URL 里的 auth_token，或回退到服务端配置 token
       const url = new URL(request.url, "http://127.0.0.1");
       const authToken = url.searchParams.get("auth_token") || this.token;
-      const combo = url.searchParams.get("combo") === "true";
-      const upstreamUrl = buildTfUpstreamUrl(this.gateway, authToken, combo);
 
-      const upstream = new WebSocket(upstreamUrl);
-      let upstreamOpen = false;
-
-      upstream.on("open", () => {
-        upstreamOpen = true;
-        this.stats.upstreamConnected = true;
-      });
-
-      upstream.on("message", (data, isBinary) => {
-        this.stats.messagesRelayed += 1;
-        this.stats.lastUpstreamAt = Date.now();
-        if (clientWs.readyState === WebSocket.OPEN) {
-          clientWs.send(data, { binary: isBinary });
-        }
-      });
-
-      upstream.on("error", (err) => {
-        this.stats.lastError = err.message;
-        if (clientWs.readyState === WebSocket.OPEN) {
-          clientWs.close(1011, err.message);
-        }
-      });
-
-      upstream.on("close", () => {
-        this.stats.upstreamConnected = false;
-        if (clientWs.readyState === WebSocket.OPEN) clientWs.close();
-      });
-
-      clientWs.on("message", (data, isBinary) => {
-        if (upstreamOpen && upstream.readyState === WebSocket.OPEN) {
-          upstream.send(data, { binary: isBinary });
-        }
-      });
+      // 首个客户端连入时启动共享上游（或重连）
+      if (!this.core.getStatus().upstreamConnected) {
+        this.core.start(authToken, this.gateway);
+      }
 
       clientWs.on("close", () => {
         this.stats.downstreamClients = this.wss.clients.size;
-        upstream.close();
       });
-
       clientWs.on("error", (err) => {
         this.stats.lastError = err.message;
-        upstream.close();
       });
     });
   }
 
   async start() {
-    /* per-client upstream; nothing to warm up */
+    if (this.gateway && this.token) {
+      this.core.start(this.token, this.gateway);
+    }
   }
 
   async stop() {
+    this.core.stop();
     for (const client of this.wss.clients) client.close();
   }
 
   getStatus() {
-    this.stats.downstreamClients = this.wss.clients.size;
+    const cs = this.core.getStatus();
+    this.stats.upstreamConnected  = cs.upstreamConnected;
+    this.stats.downstreamClients  = this.wss.clients.size;
+    this.stats.lastError          = this.stats.lastError || cs.lastError;
+    this.stats.lastUpstreamAt     = this.stats.lastUpstreamAt || cs.lastUpstreamAt;
     return { ...this.stats };
   }
 }
