@@ -9,7 +9,14 @@
  */
 
 const WebSocket = require("ws");
-const { buildTfUpstreamUrl } = require("../host/web/proxy/tf_ws_relay.js");
+
+function buildTfUpstreamUrl(gateway, token, combo = false) {
+  const host = gateway.replace(/^https:\/\/api-v4/i, "wss://ws").replace(/^http/i, "ws");
+  const base = host.startsWith("ws") ? host : `wss://${host.replace(/^\/\//, "")}`;
+  const auth = String(token || "").replace(/^Token\s+/i, "");
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}auth_token=${encodeURIComponent(auth)}&combo=${combo ? "true" : "false"}`;
+}
 
 const RECONNECT_MIN_MS = 1_000;
 const RECONNECT_MAX_MS = 5_000;
