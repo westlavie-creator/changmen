@@ -6,9 +6,6 @@ const path = require("path");
 const BACKEND_ROOT = process.env.GAMEBET_BACKEND_ROOT
   || path.join(__dirname, "../..");
 
-const CHANGMEN_ROOT = process.env.GAMEBET_CHANGMEN_ROOT
-  || path.dirname(BACKEND_ROOT);
-
 const STORAGE_DIR = process.env.GAMEBET_STORAGE_DIR
   || path.join(BACKEND_ROOT, "storage");
 
@@ -23,7 +20,6 @@ ensureStoragePaths();
 
 module.exports = {
   BACKEND_ROOT,
-  CHANGMEN_ROOT,
   STORAGE_DIR,
   ESPORT_DATA_DIR,
   ensureStoragePaths,
