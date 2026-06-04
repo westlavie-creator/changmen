@@ -44,11 +44,7 @@ const DEFAULT_USER_KV = {
   CollectConfig: JSON.stringify({ log: false, collect: [] }),
   USERCONFIG: JSON.stringify({ betting: false, betMoney: 100, profit: 1.03, maxProfit: 1.2, minOdds: 1.3, maxOdds: 10, betSorting: "Custom" }),
   ACCOUNT: JSON.stringify([]),
-  PROXY: JSON.stringify([]),
-  GoogleCode: JSON.stringify([]),
-  Wallet: JSON.stringify([]),
-  Message: JSON.stringify({ telegramId: "", pushOrderId: "" }),
-  Follow: JSON.stringify({}),
+  // PROXY / GoogleCode / Wallet / Message / Follow 存入 profiles.preferences（Supabase），不在本地初始化
 };
 
 const USER_SETTING_KEYS = Object.keys(DEFAULT_USER_KV).filter((k) => k !== "ACCOUNT");
