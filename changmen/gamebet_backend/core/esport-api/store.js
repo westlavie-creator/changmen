@@ -10,10 +10,14 @@ const { createDefaultOddsApi } = require("./default_odds.js");
 const dbStore = require("../db/store.js");
 
 const DATA_DIR = ESPORT_DATA_DIR;
-const CLIENT_MATCHS_FILE = "client_matchs";
 const CLIENT_MATCHS_DEBOUNCE_MS = Number(process.env.ESPORT_CLIENT_MATCHS_DEBOUNCE_MS || 400);
 
 let clientMatchsRebuildTimer = null;
+
+// 内存缓存（替代 matches.json / bets.json / live_timers.json）
+const _matches = {};   // { [provider]: { [matchId]: matchData } }
+const _bets = {};      // { [provider:matchId]: { provider, matchId, bets } }
+const _timers = {};    // { [provider]: { provider, timer } }
 
 function filePath(name) {
   return path.join(DATA_DIR, `${name}.json`);
@@ -52,10 +56,9 @@ const USER_SETTING_KEYS = Object.keys(DEFAULT_USER_KV).filter((k) => k !== "ACCO
 // ── 初始化 JSON 文件（不创建用户，用户通过 Supabase Auth 管理）──────────────
 function ensureSeed() {
   const jsonDefaults = {
-    platforms: {}, matches: {}, bets: {}, live_timers: {},
+    platforms: {},
     user_kv: { ...DEFAULT_USER_KV },
-    tag_platforms: {}, players: {}, money_logs: {}, player_orders: {},
-    [CLIENT_MATCHS_FILE]: { builtAt: 0, count: 0, info: [] },
+    tag_platforms: {},
   };
   for (const [name, def] of Object.entries(jsonDefaults)) {
     if (!fs.existsSync(filePath(name))) writeJson(name, def);
@@ -125,22 +128,18 @@ function setPlatform(provider, data) {
 // ── matches / bets ────────────────────────────────────────────────────────────
 function pruneBetsForProvider(provider, activeMatchIds) {
   const active = new Set(activeMatchIds.map(String));
-  const all = readJson("bets", {});
   const prefix = `${provider}:`;
-  let changed = false;
-  for (const key of Object.keys(all)) {
+  for (const key of Object.keys(_bets)) {
     if (!key.startsWith(prefix)) continue;
-    if (!active.has(key.slice(prefix.length))) { delete all[key]; changed = true; }
+    if (!active.has(key.slice(prefix.length))) delete _bets[key];
   }
-  if (changed) writeJson("bets", all);
 }
 
 function saveMatches(provider, matchs) {
-  const all = readJson("matches", {});
   const now = Date.now();
   const next = {};
   const list = Array.isArray(matchs) ? matchs : [];
-  const prev = all[provider];
+  const prev = _matches[provider];
   if (!list.length && prev && typeof prev === "object" && Object.keys(prev).length > 0) return;
   for (const m of list) {
     if (!m || m.SourceMatchID == null) continue;
@@ -148,8 +147,7 @@ function saveMatches(provider, matchs) {
     if (start > 0 && !a8StartTimeListAllowed(start)) continue;
     next[String(m.SourceMatchID)] = { ...m, provider, savedAt: now };
   }
-  all[provider] = next;
-  writeJson("matches", all);
+  _matches[provider] = next;
   pruneBetsForProvider(provider, Object.keys(next));
   rebuildClientMatchListNow();
   const sb = require("../db/supabase.js");
@@ -172,29 +170,24 @@ function mergeBetsByMap(existing, incoming) {
 }
 
 function saveBets(provider, matchId, bets) {
-  const all = readJson("bets", {});
   const key = `${provider}:${matchId}`;
-  const existing = all[key]?.bets || [];
+  const existing = _bets[key]?.bets || [];
   const raw = Array.isArray(bets) ? bets : [];
   const incoming = provider === "IM" ? raw.map(normalizeImBet) : raw;
   if (incoming.length === 0) {
     if (existing.length > 0) return;
-    all[key] = { provider, matchId: String(matchId), bets: [], savedAt: Date.now() };
-    writeJson("bets", all);
+    _bets[key] = { provider, matchId: String(matchId), bets: [], savedAt: Date.now() };
     scheduleRebuildClientMatchList();
     return;
   }
-  all[key] = { provider, matchId: String(matchId), bets: mergeBetsByMap(existing, incoming), savedAt: Date.now() };
-  writeJson("bets", all);
+  _bets[key] = { provider, matchId: String(matchId), bets: mergeBetsByMap(existing, incoming), savedAt: Date.now() };
   scheduleRebuildClientMatchList();
   const sb = require("../db/supabase.js");
   sb.writePlatformBets(provider, matchId, incoming);
 }
 
 function saveLiveTimer(provider, timer) {
-  const all = readJson("live_timers", {});
-  all[provider] = { provider, timer, savedAt: Date.now() };
-  writeJson("live_timers", all);
+  _timers[provider] = { provider, timer, savedAt: Date.now() };
   scheduleRebuildClientMatchList();
   const sb = require("../db/supabase.js");
   sb.writeLiveTimers(provider, timer);
@@ -241,8 +234,7 @@ function sourceFromBet(provider, b) {
 }
 
 function rebuildClientMatchListNow() {
-  const info = buildClientMatchList({ matches: readJson("matches", {}), bets: readJson("bets", {}), timers: readJson("live_timers", {}), sourceFromBet });
-  writeJson(CLIENT_MATCHS_FILE, { builtAt: Date.now(), count: info.length, info });
+  const info = buildClientMatchList({ matches: _matches, bets: _bets, timers: _timers, sourceFromBet });
   dbStore.saveClientMatches(info);
   dbStore.pruneClientMatches(info.map((m) => Number(m.ID)));
   defaultOddsApi.recordFromMatchList(info);
@@ -261,10 +253,7 @@ async function buildMatchList() {
   // 1. 优先从 Supabase 读（跨实例共享最新数据）
   const fromDb = await dbStore.loadClientMatchesFromSupabase();
   if (fromDb?.length) return fromDb;
-  // 2. 降级：本地 client_matchs.json
-  const cached = readJson(CLIENT_MATCHS_FILE, null);
-  if (cached && Array.isArray(cached.info)) return cached.info;
-  // 3. 最终降级：实时重建
+  // 2. 降级：内存实时重建
   return rebuildClientMatchListNow();
 }
 
