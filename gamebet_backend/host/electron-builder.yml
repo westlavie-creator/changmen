@@ -4,7 +4,7 @@ copyright: Copyright © 2026
 
 directories:
   output: ../../dist_electron
-  buildResources: electron/assets
+  buildResources: host/electron/assets
 
 # 打包进 asar 的文件（相对于 gamebet_backend/）
 files:
@@ -18,7 +18,7 @@ files:
   - "!data/esport/**"
   - "!storage/**"
   - "!gamebetdb/**"
-  - "!electron/assets/**"
+  - "!host/electron/assets/**"
 
 # 前端静态文件打包进安装包的 resources/ 目录
 extraResources:
@@ -33,13 +33,13 @@ win:
   target:
     - target: nsis
       arch: x64
-  icon: electron/assets/icon.ico
+  icon: host/electron/assets/icon.ico
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  installerIcon: electron/assets/icon.ico
-  uninstallerIcon: electron/assets/icon.ico
+  installerIcon: host/electron/assets/icon.ico
+  uninstallerIcon: host/electron/assets/icon.ico
   shortcutName: GameBet
 
 # 打包时自动重编译原生模块（better-sqlite3）

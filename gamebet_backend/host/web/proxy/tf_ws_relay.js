@@ -2,7 +2,7 @@
 
 const WebSocket = require("ws");
 const { WebSocketServer } = require("ws");
-const { TfRelayCore } = require("../relays/tf_relay_core.js");
+const { TfRelayCore } = require("../../../relays/tf_relay_core.js");
 
 const WS_PATH = "/esport/ws/TF";
 

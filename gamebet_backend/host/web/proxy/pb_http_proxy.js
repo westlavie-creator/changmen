@@ -1,6 +1,6 @@
 "use strict";
 
-const { tryLoadSession, buildAuthHeaders } = require("../platforms/pb/pb_session.js");
+const { tryLoadSession, buildAuthHeaders } = require("../../../platforms/pb/pb_session.js");
 
 const PB_PATH_RE = /\/(sports-service|member-service|member-betslip|bet-placement)\//i;
 

@@ -1,7 +1,7 @@
 "use strict";
 
 const { AGServer } = require("socketcluster-server");
-const { RayRelayCore } = require("../relays/ray_relay_core.js");
+const { RayRelayCore } = require("../../../relays/ray_relay_core.js");
 
 const WS_PATH = "/esport/ws/RAY";
 

@@ -1,7 +1,7 @@
 "use strict";
 
 const WebSocket = require("ws");
-const { buildTfUpstreamUrl } = require("../../proxy/tf_ws_relay.js");
+const { buildTfUpstreamUrl } = require("../../host/web/proxy/tf_ws_relay.js");
 const { stripTokenPrefix } = require("./tf_auth.js");
 
 const WS_HOSTS = ["api.a8.to", "47.115.75.57"];
