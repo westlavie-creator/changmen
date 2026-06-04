@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { ElMessageBox } from "element-plus";
 import { saveOrderBind } from "@/api/esport";
 import { getDefaultOdds } from "@/api/report";
 import { BetOption, opponentSide } from "@/models/betOption";
@@ -473,21 +474,28 @@ export const useBettingStore = defineStore("betting", {
       const configStore = useConfigStore();
       const account = accountStore.getAccount(item.type, 0);
       if (!account) {
-        window.alert(`没有找到 ${item.type} 对应的账号`);
+        ElMessageBox.alert(`没有找到 ${item.type} 对应的账号`, "提示");
         return;
       }
-      const raw = window.prompt(
-        "请输入要投注的金额",
-        String(configStore.config.betMoney || 10),
-      );
-      if (!raw) return;
-      const amount = Number(raw);
-      if (!amount || amount <= 0) return;
+      let amount: number;
+      try {
+        const { value } = await ElMessageBox.prompt("请输入要投注的金额", "手动下单", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          inputValue: String(configStore.config.betMoney || 10),
+          inputType: "number",
+          inputValidator: (val) => (Number(val) > 0 ? true : "请输入有效金额"),
+        });
+        amount = Number(value);
+        if (!amount || amount <= 0) return;
+      } catch {
+        return;
+      }
 
       let option = new BetOption(match, bet, item, side, amount);
       option = await accountStore.checkBetting(account, option);
       if (!option.data) {
-        window.alert(option.checkError || "前置检查失败");
+        ElMessageBox.alert(option.checkError || "前置检查失败", "前置检查失败");
         return;
       }
       const result = await accountStore.betting(account, option);
@@ -496,7 +504,7 @@ export const useBettingStore = defineStore("betting", {
         void accountStore.refreshBalance(account);
         void orderStore.fetchOrders();
       } else {
-        window.alert(result?.message || "下单失败");
+        ElMessageBox.alert(result?.message || "下单失败", "下单失败");
       }
     },
 
