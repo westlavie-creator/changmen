@@ -82,13 +82,17 @@ setTimeout(() => {
   ensurePlatformCredentials(hub).catch(() => {});
 }, 20000);
 
+// Electron 模式下 renderer 经 IPC relay core 直连上游，WS relay 端点均为僵尸。
+// process.versions.electron 在 Electron 主进程 require 时存在，node server.js 时不存在。
+const IS_ELECTRON = Boolean(process.versions.electron);
+
 if (ESPORT_PROXY_ENABLED) {
   esportProxy = attachEsportProxy(server, {
-    // OB MQTT relay：供 /app/ 浏览器采集 fo 增量，与 Node ObFeed（ENABLE_OB）无关
-    ob: process.env.ENABLE_OB_MQTT_RELAY !== "0",
-    ray: process.env.ENABLE_RAY !== "0",
-    tf: process.env.ENABLE_TF === "1",
-    ia: process.env.ENABLE_IA_RELAY !== "0",
+    // Electron：renderer 走 IPC relay core（OB/RAY/TF/IA），WS relay 全部关闭
+    ob:  !IS_ELECTRON && process.env.ENABLE_OB_MQTT_RELAY !== "0",
+    ray: !IS_ELECTRON && process.env.ENABLE_RAY !== "0",
+    tf:  !IS_ELECTRON && process.env.ENABLE_TF === "1",
+    ia:  !IS_ELECTRON && process.env.ENABLE_IA_RELAY !== "0",
     rayOptions: {
       token: process.env.RAY_TOKEN,
       origin: process.env.RAY_ORIGIN,
