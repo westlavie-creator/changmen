@@ -9,14 +9,56 @@ export type TfWsOddsPayload = {
   data?: { market_id?: string; selection?: Array<Record<string, unknown>> };
 };
 
+type TfRelayApi = {
+  start: (token: string) => Promise<unknown>;
+  stop: () => Promise<unknown>;
+  onMessage: (cb: (text: string) => void) => () => void;
+};
+
+function tfIpcRelay(): TfRelayApi | null {
+  const api = (window as unknown as { gamebetRelays?: { tf?: TfRelayApi | null } })
+    .gamebetRelays?.tf;
+  return api ?? null;
+}
+
 /**
- * A8 NBe：ReconnectingWebSocket（min 1s / max 5s），经本地 relay 转发 TF WS。
+ * A8 NBe：ReconnectingWebSocket（min 1s / max 5s）。
+ * Electron packaged 模式：经 IPC → TfRelayCore（main process）直连 TF 上游。
+ * Web / Electron dev 模式：经本地 relay /esport/ws/TF 转发。
  */
 export function startTfOddsWs(opts: {
   getToken: () => Promise<string | undefined>;
   onMessage: (payload: TfWsOddsPayload) => void;
   onError: () => void;
 }): () => void {
+  const api = tfIpcRelay();
+
+  // ── Electron IPC 路径 ────────────────────────────────────────────────────
+  if (api) {
+    let removeListener: (() => void) | null = null;
+
+    removeListener = api.onMessage((text) => {
+      let payload: TfWsOddsPayload;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        return;
+      }
+      opts.onMessage(payload);
+    });
+
+    void (async () => {
+      const token = await opts.getToken();
+      if (token) await api.start(token);
+    })();
+
+    return () => {
+      removeListener?.();
+      void api.stop();
+    };
+  }
+
+  // ── Web / Electron dev：WS relay 路径 ───────────────────────────────────
   let stopped = false;
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -40,19 +82,13 @@ export function startTfOddsWs(opts: {
       return;
     }
 
-    try {
-      ws?.close();
-    } catch {
-      /* ignore */
-    }
+    try { ws?.close(); } catch { /* ignore */ }
 
     const auth = encodeURIComponent(tfWsAuthToken(token));
     const url = relayWsUrl(`/esport/ws/TF?auth_token=${auth}&combo=false`);
     ws = new WebSocket(url);
 
-    ws.onopen = () => {
-      retryMs = WS_RECONNECT_MIN_MS;
-    };
+    ws.onopen = () => { retryMs = WS_RECONNECT_MIN_MS; };
 
     ws.onmessage = (ev) => {
       let payload: TfWsOddsPayload;
@@ -80,11 +116,7 @@ export function startTfOddsWs(opts: {
   return () => {
     stopped = true;
     if (reconnectTimer) clearTimeout(reconnectTimer);
-    try {
-      ws?.close();
-    } catch {
-      /* ignore */
-    }
+    try { ws?.close(); } catch { /* ignore */ }
     ws = null;
   };
 }

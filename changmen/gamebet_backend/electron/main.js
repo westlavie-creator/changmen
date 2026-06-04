@@ -5,7 +5,8 @@ const path = require('path');
 const http = require('http');
 const fs   = require('fs');
 const { RayRelayCore } = require('../relays/ray_relay_core.js');
-const { ObRelayCore } = require('../relays/ob_relay_core.js');
+const { ObRelayCore }  = require('../relays/ob_relay_core.js');
+const { TfRelayCore }  = require('../relays/tf_relay_core.js');
 
 const PORT = Number(process.env.PORT || 3456);
 
@@ -70,7 +71,8 @@ if (app.isPackaged) {
 // 打包模式：主进程直接 require（electron-builder 已重编译原生模块）
 let _serverChild = null;
 let _rayCore = null;
-let _obCore = null;
+let _obCore  = null;
+let _tfCore  = null;
 
 function broadcast(channel, payload) {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -99,7 +101,36 @@ function ensureObCore() {
   return _obCore;
 }
 
+function ensureTfCore() {
+  if (_tfCore) return _tfCore;
+  _tfCore = new TfRelayCore();
+  _tfCore.onMessage((text) => {
+    broadcast('gamebet:relay:tf:message', text);
+  });
+  return _tfCore;
+}
+
 function registerRelayIpc() {
+  // TF WS relay
+  ipcMain.handle('gamebet:relay:tf:start', (_event, token) => {
+    // gateway 从 store 取（packaged 模式下与 server.js 共享 module cache）
+    let gateway = '';
+    try {
+      const store = require('../esport-api/store.js');
+      gateway = store.getPlatform('TF')?.gateway || '';
+    } catch { /* store 未初始化时忽略，relay 仍可尝试连接 */ }
+    return ensureTfCore().start(token, gateway);
+  });
+  ipcMain.handle('gamebet:relay:tf:stop', () => {
+    if (!_tfCore) return { platform: 'TF', upstreamConnected: false };
+    const status = _tfCore.stop();
+    _tfCore = null;
+    return status;
+  });
+  ipcMain.handle('gamebet:relay:tf:status', () => {
+    return _tfCore ? _tfCore.getStatus() : { platform: 'TF', upstreamConnected: false };
+  });
+
   // esport API — 直调 router 核心逻辑，绕过 localhost HTTP
   ipcMain.handle('gamebetApi:esport', async (_event, action, body, token) => {
     const { callEsportAction } = require('../esport-api/router.js');
@@ -257,7 +288,8 @@ app.on('window-all-closed', () => {
 
 app.on('quit', async () => {
   if (_rayCore) await _rayCore.stop();
-  if (_obCore) _obCore.stop();
+  if (_obCore)  _obCore.stop();
+  if (_tfCore)  _tfCore.stop();
   if (_serverChild) _serverChild.kill();
 });
 

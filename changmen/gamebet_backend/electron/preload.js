@@ -15,7 +15,16 @@ contextBridge.exposeInMainWorld('gamebetApi', {
     : undefined,
 });
 
+// TF relay IPC 仅 packaged 模式启用（dev 模式 store 在子进程，gateway 取不到）
+const _tfRelay = process.env.GAMEBET_ELECTRON_IPC === '1' ? {
+  start:     (token) => ipcRenderer.invoke('gamebet:relay:tf:start', token),
+  stop:      ()      => ipcRenderer.invoke('gamebet:relay:tf:stop'),
+  status:    ()      => ipcRenderer.invoke('gamebet:relay:tf:status'),
+  onMessage: (callback) => on('gamebet:relay:tf:message', callback),
+} : null;
+
 contextBridge.exposeInMainWorld('gamebetRelays', {
+  tf: _tfRelay,
   ray: {
     start: () => ipcRenderer.invoke('gamebet:relay:ray:start'),
     stop: () => ipcRenderer.invoke('gamebet:relay:ray:stop'),
