@@ -353,6 +353,18 @@ async function handle(action, body, ctx) {
       const saved = accountService.handleSaveData(body.key, body.content ?? "", ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
+    case "Client_GetAccounts": {
+      if (!ctx.user) return fail("请先登录");
+      return ok(store.getAccountsForUser(ctx.user.id));
+    }
+    case "Client_SaveAccounts": {
+      if (!ctx.user) return fail("请先登录");
+      let accounts = [];
+      try { accounts = JSON.parse(body.accounts || "[]"); } catch { return fail("accounts JSON 无效"); }
+      if (!Array.isArray(accounts)) return fail("accounts 必须是数组");
+      store.setAccountsForUser(ctx.user.id, accounts);
+      return ok(true);
+    }
     case "Client_GetData": {
       if (!ctx.user) return fail("请先登录");
       const data = accountService.handleGetData(body.key, ctx.user.id);
