@@ -53,6 +53,7 @@ class ObRelayCore {
     }
     if (this.upstream) {
       this.upstream.removeAllListeners();
+      this.upstream.on('error', () => {});
       this.upstream.end(true);
       this.upstream = null;
     }
@@ -160,6 +161,8 @@ class ObRelayCore {
 
     if (this.upstream) {
       this.upstream.removeAllListeners();
+      // 防止孤儿 client 的 connectTimeout 计时器到期后 emit error 成为 uncaught exception
+      this.upstream.on('error', () => {});
       this.upstream.end(true);
       this.upstream = null;
     }
