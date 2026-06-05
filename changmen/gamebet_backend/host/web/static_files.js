@@ -13,11 +13,6 @@ function contentType(filePath) {
 
 function createStaticHandler({ publicDir, consoleDir, appDir }) {
   function resolveStaticRoot(urlPath) {
-    if (urlPath === "/feed" || urlPath.startsWith("/feed/")) {
-      const fileRel =
-        urlPath === "/feed" ? "/index.html" : urlPath.slice("/feed".length) || "/index.html";
-      return { rootDir: publicDir, fileRel: fileRel === "/" ? "/index.html" : fileRel, spa: false };
-    }
     if (urlPath === "/console" || urlPath.startsWith("/console/")) {
       const fileRel =
         urlPath === "/console"
