@@ -152,18 +152,12 @@ function writePlatformMatches(provider, matchs) {
     match_id:        m._clientMatchId != null ? Number(m._clientMatchId) : null,
     synced_at:       now,
   }))
-  const activeIds = rows.map((r) => r.source_match_id)
   _write(async (client) => {
     const { error } = await client
       .from('platform_matches')
       .upsert(rows, { onConflict: 'platform,source_match_id' })
     if (error) throw error
-    const { error: delErr } = await client
-      .from('platform_matches')
-      .delete()
-      .eq('platform', String(provider))
-      .not('source_match_id', 'in', `(${activeIds.join(',')})`)
-    if (delErr) throw delErr
+    // 过期行由 pg_cron 每小时清理（synced_at > 2h），不在写入路径显式 delete
   }, 'platform_matches')
 }
 
