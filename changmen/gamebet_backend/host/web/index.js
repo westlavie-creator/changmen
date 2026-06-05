@@ -19,6 +19,7 @@ const { buildFeedHubEntries } = require("../../core/shared/platform_registry.js"
 const { attachEsportProxy } = require("./proxy/esport_proxy.js");
 const { attachFeedBridge } = require("../../core/esport-api/feed_bridge.js");
 const { ensurePlatformCredentials } = require("../../core/esport-api/platform_sync.js");
+const { initLastWrittenIds } = require("../../core/db/supabase.js");
 const store = require("../../core/esport-api/store.js");
 const { createStaticHandler } = require("./static_files.js");
 const { createHttpHandler } = require("./http_routes.js");
@@ -110,6 +111,9 @@ if (ESPORT_PROXY_ENABLED) {
     console.error("Esport proxy start failed:", err.message);
   });
 }
+
+// 预填 _lastWrittenIds，使首次 rebuild 的差量删除能覆盖上次遗留的 client_matches 行
+initLastWrittenIds().catch(() => {});
 
 server.listen(PORT, onListen);
 

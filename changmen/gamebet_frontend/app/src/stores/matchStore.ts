@@ -26,6 +26,7 @@ function rowToDto(row: Record<string, unknown>): ClientMatchDto {
     StartTime: Number(row.start_time) || 0,
     BO:        Number(row.bo)         || 0,
     Round:     Number(row.round)      || 0,
+    RoundStart: Number(row.round_start) || 0,
     Matchs:    (row.matchs            as Record<string, string | number>) ?? {},
     Bets:      Array.isArray(row.bets) ? row.bets : [],
   };
