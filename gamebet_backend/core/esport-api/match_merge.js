@@ -8,7 +8,7 @@
  *   merge        — reserved for true cross-platform merge (same event → one row, union Matchs).
  */
 
-const MERGE_MODE = process.env.ESPORT_MATCH_MERGE_MODE || "merge";
+const MERGE_MODE = "merge";
 const {
   resolveClientGame,
   describePlatformGame,
@@ -637,10 +637,7 @@ function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
 }
 
 function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
-  if (MERGE_MODE === "merge") {
-    return buildMatchListMerged(matches, bets, timers, sourceFromBet);
-  }
-  return buildMatchListAccumulate(matches, bets, timers, sourceFromBet);
+  return buildMatchListMerged(matches, bets, timers, sourceFromBet);
 }
 
 module.exports = {
