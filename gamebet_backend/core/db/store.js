@@ -197,7 +197,7 @@ function saveClientMatches(info) {
   sb.writeClientMatches(info.map((m) => ({
     id: Number(m.ID), title: String(m.Title || ''), game: String(m.Game || ''),
     game_id: String(m.GameID || ''), start_time: Number(m.StartTime) || 0,
-    bo: Number(m.BO) || 0, round: Number(m.Round) || 0,
+    bo: Number(m.BO) || 0, round: Number(m.Round) || 0, round_start: Number(m.RoundStart) || 0,
     matchs: m.Matchs || {}, bets: m.Bets || [], built_at: now,
   })))
 }
@@ -216,17 +216,17 @@ function getClientMatches() {
     .sort((a, b) => (a.StartTime || 0) - (b.StartTime || 0))
 }
 
-/** 从 Supabase 加载 client_matches，写入内存缓存并返回 */
+/** 从 Supabase 加载 client_matches，仅在内存为空时写入（冷启动专用） */
 async function loadClientMatchesFromSupabase() {
+  if (_clientMatches.size) return getClientMatches()  // 内存已有数据，直接返回
   const data = await sb.fetchClientMatches()
   if (!data) return null
   const now = Date.now()
-  _clientMatches.clear()
   for (const row of data) {
     _clientMatches.set(Number(row.id), {
       ID: row.id, Title: row.title || '', Game: row.game || '',
       GameID: row.game_id || '', StartTime: row.start_time || 0,
-      BO: row.bo || 0, Round: row.round || 0,
+      BO: row.bo || 0, Round: row.round || 0, RoundStart: row.round_start || 0,
       Matchs: row.matchs || {}, Bets: row.bets || [],
       built_at: row.built_at || now,
     })

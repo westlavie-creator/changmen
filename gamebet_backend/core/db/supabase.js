@@ -105,6 +105,20 @@ function writeClientMatches(rows) {
   }, 'client_matches')
 }
 
+/** 启动时从 Supabase 预填 _lastWrittenIds，使差量删除能覆盖上次遗留行 */
+async function initLastWrittenIds() {
+  const client = supabaseAdmin || supabase
+  if (!client) return
+  try {
+    const { data, error } = await client.from('client_matches').select('id')
+    if (error || !data) return
+    _lastWrittenIds = new Set(data.map(r => Number(r.id)))
+    console.log(`[supabase] initLastWrittenIds: 预填 ${_lastWrittenIds.size} 条`)
+  } catch (err) {
+    console.warn('[supabase] initLastWrittenIds 失败:', err.message)
+  }
+}
+
 /** 启动时清空 client_matches */
 async function clearClientMatchesOnStartup() {
   const client = supabaseAdmin || supabase
@@ -332,6 +346,7 @@ module.exports = {
   // client_matches
   writeClientMatches,
   fetchClientMatches,
+  initLastWrittenIds,
   clearClientMatchesOnStartup,
   // platform_matches / platform_bets / live_timers
   writePlatformMatches,

@@ -240,10 +240,12 @@ function scheduleRebuildClientMatchList() {
 }
 
 async function buildMatchList() {
-  // 1. 优先从 Supabase 读（跨实例共享最新数据）
+  // 优先用内存缓存（rebuildClientMatchListNow 同步写入，RoundStart 始终最新）
+  const fromMem = dbStore.getClientMatches();
+  if (fromMem?.length) return fromMem;
+  // 冷启动（内存空）：从 Supabase 恢复，round_start 可能为 0 直到首次 rebuild
   const fromDb = await dbStore.loadClientMatchesFromSupabase();
   if (fromDb?.length) return fromDb;
-  // 2. 降级：内存实时重建
   return rebuildClientMatchListNow();
 }
 
