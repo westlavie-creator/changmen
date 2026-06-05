@@ -7,8 +7,6 @@
  * 路由（阶段 7，默认入口 /app/）：
  *   /app/       新控制台（Vue 构建产物 gamebet_frontend/app/dist）
  *   /console/   旧 A8 bundle（需 PATCH_CONSOLE=1 或 npm run patch:ui）
- *   /feed/      Node Feed 聚合调试页（原根路径 /）
- *   /platforms/ 分平台调试页
  */
 
 require("dotenv").config();
@@ -23,7 +21,6 @@ const { initLastWrittenIds } = require("../../core/db/supabase.js");
 const store = require("../../core/esport-api/store.js");
 const { createStaticHandler } = require("./static_files.js");
 const { createHttpHandler } = require("./http_routes.js");
-const { attachSnapshotWs } = require("./snapshot_ws.js");
 
 const PORT = Number(process.env.PORT || 3456);
 const ESPORT_PROXY_ENABLED = process.env.ENABLE_ESPORT_PROXY !== "0";
@@ -49,7 +46,6 @@ const server = http.createServer(
   }),
 );
 
-attachSnapshotWs(server, hub);
 const feedBridge = attachFeedBridge(hub);
 
 hub.start().catch((err) => {
@@ -141,7 +137,7 @@ function onListen() {
   const v4Base = (process.env.A8_V4_URL || "https://api.a8.to/v4.0").replace(/\/+$/, "");
   console.log(`[v4] proxy only → ${v4Base}/ (no mock)`);
   console.log(
-    `App (default): http://localhost:${PORT}/app/  |  feed: http://localhost:${PORT}/feed/  |  platforms: http://localhost:${PORT}/platforms/  |  legacy console: http://localhost:${PORT}/console/  [${enabled}]${proxyNote}${bridgeNote}`,
+    `App: http://localhost:${PORT}/app/  |  legacy console: http://localhost:${PORT}/console/  [${enabled}]${proxyNote}${bridgeNote}`,
   );
   if (feedBridge.enabled) {
     setTimeout(() => {
