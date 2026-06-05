@@ -1,0 +1,51 @@
+{
+  "_comment": "队名别名表：key = 规范化后的别名，value = 规范化后的标准名。全部小写。",
+
+  "liquid":          "team liquid",
+  "tl":              "team liquid",
+
+  "navi":            "natus vincere",
+  "na vi":           "natus vincere",
+  "natus vincere":   "natus vincere",
+  "纳维":             "natus vincere",
+
+  "g2":              "g2 esports",
+  "g2 esports":      "g2 esports",
+
+  "faze":            "faze clan",
+  "faze clan":       "faze clan",
+
+  "fnc":             "fnatic",
+  "fnatic":          "fnatic",
+
+  "c9":              "cloud9",
+  "cloud9":          "cloud9",
+  "cloud 9":         "cloud9",
+
+  "t1":              "t1",
+  "skt":             "t1",
+  "sk telecom t1":   "t1",
+
+  "gen g":           "gen g",
+  "geng":            "gen g",
+
+  "eg":              "evil geniuses",
+  "evil geniuses":   "evil geniuses",
+
+  "vitality":        "team vitality",
+  "team vitality":   "team vitality",
+
+  "heroic":          "heroic",
+  "nip":             "ninjas in pyjamas",
+  "ninjas in pyjamas": "ninjas in pyjamas",
+
+  "og":              "og",
+  "secret":          "team secret",
+  "team secret":     "team secret",
+
+  "spirit":          "team spirit",
+  "team spirit":     "team spirit",
+
+  "virtus pro":      "virtus pro",
+  "vp":              "virtus pro"
+}
