@@ -72,12 +72,18 @@ function writeAccounts(uid, accounts) {
 
 // ── client_matches ────────────────────────────────────────────────────
 
-/** fire-and-forget：upsert 客户端比赛列表 */
+/** fire-and-forget：upsert 客户端比赛列表，同时删除不再活跃的旧行 */
 function writeClientMatches(rows) {
+  if (!Array.isArray(rows) || !rows.length) return
+  const activeIds = rows.map((r) => Number(r.id))
   _write(async (client) => {
     const { error } = await client.from('client_matches')
       .upsert(rows, { onConflict: 'id' })
     if (error) throw error
+    const { error: delErr } = await client.from('client_matches')
+      .delete()
+      .not('id', 'in', `(${activeIds.join(',')})`)
+    if (delErr) throw delErr
   })
 }
 
@@ -99,7 +105,7 @@ async function fetchClientMatches() {
 
 // ── platform_matches ──────────────────────────────────────────────────
 
-/** fire-and-forget：upsert 平台原始比赛列表 */
+/** fire-and-forget：upsert 平台原始比赛列表，同时删除该平台已结束的旧行 */
 function writePlatformMatches(provider, matchs) {
   if (!Array.isArray(matchs) || !matchs.length) return
   const now = Date.now()
@@ -116,11 +122,19 @@ function writePlatformMatches(provider, matchs) {
     teams:           Array.isArray(m.Teams) ? m.Teams : [],
     synced_at:       now,
   }))
+  const activeIds = rows.map((r) => r.source_match_id)
   _write(async (client) => {
     const { error } = await client
       .from('platform_matches')
       .upsert(rows, { onConflict: 'platform,source_match_id' })
     if (error) throw error
+    // 当前列表里没有的行 = 比赛已结束，删除
+    const { error: delErr } = await client
+      .from('platform_matches')
+      .delete()
+      .eq('platform', String(provider))
+      .not('source_match_id', 'in', `(${activeIds.join(',')})`)
+    if (delErr) throw delErr
   })
 }
 
