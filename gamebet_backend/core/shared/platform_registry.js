@@ -32,7 +32,7 @@ const PLATFORMS = [
     implementation: "done",
     feed: { module: "../../platforms/ob/ob_feed.js", export: "ObFeed" },
     envEnable: "ENABLE_OB",
-    defaultEnabled: true,
+    defaultEnabled: false,
     feedOptions: buildObFeedOptions(),
     streamMeta: { key: "mqtt", protocol: "MQTT" },
     pagePath: "/platforms/ob/",

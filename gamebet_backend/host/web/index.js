@@ -113,6 +113,14 @@ if (ESPORT_PROXY_ENABLED) {
 
 server.listen(PORT, onListen);
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.warn(`[server] 端口 ${PORT} 已被占用，跳过启动（Electron 模式下将复用已有服务）`);
+  } else {
+    throw err;
+  }
+});
+
 function onListen() {
   try {
     store.ensureSeed();

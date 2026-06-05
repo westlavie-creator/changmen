@@ -1,15 +1,35 @@
 import { defineStore } from "pinia";
 import { getMatchs } from "@/api/esport";
+import { getToken, getRefreshToken } from "@/api/client";
 import { getMatchDefaultOdds } from "@/api/report";
 import { toViewMatches, type ViewMatch } from "@/models/match";
 import type { BetSide } from "@/models/match";
-import type { PlatformId } from "@/types/esport";
+import type { ClientMatchDto, PlatformId } from "@/types/esport";
 import type { MatchScoreBoard, PlatformScoreUpdate, ScoreRound } from "@/types/matchScore";
 import { useUserStore } from "@/stores/userStore";
 
 const POLL_MS = 30_000;
 const DEFAULT_ODDS_MS = 10 * 60 * 1000;
 const BET_TARGET_KEY = "BetTarget";
+
+// Supabase Realtime channel — 模块级变量，避免 Pinia 序列化问题
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _realtimeChannel: any = null;
+
+/** Supabase client_matches 行 → ClientMatchDto */
+function rowToDto(row: Record<string, unknown>): ClientMatchDto {
+  return {
+    ID:        Number(row.id)         || 0,
+    Title:     String(row.title       ?? ""),
+    Game:      String(row.game        ?? ""),
+    GameID:    row.game_id            as number,
+    StartTime: Number(row.start_time) || 0,
+    BO:        Number(row.bo)         || 0,
+    Round:     Number(row.round)      || 0,
+    Matchs:    (row.matchs            as Record<string, string | number>) ?? {},
+    Bets:      Array.isArray(row.bets) ? row.bets : [],
+  };
+}
 
 /** 对齐 A8 Pinia `Vg`（比赛树 + 轮询 + BetTarget） */
 export const useMatchStore = defineStore("match", {
@@ -31,6 +51,8 @@ export const useMatchStore = defineStore("match", {
     /** key `${betId}:Home|Away`（对齐 A8 `defaultOdds`） */
     defaultOdds: new Map<string, number>(),
     defaultOddsFetchedAt: 0,
+    /** true = 正在使用 Supabase Realtime，false = 轮询兜底 */
+    usingRealtime: false,
   }),
 
   getters: {
@@ -171,19 +193,77 @@ export const useMatchStore = defineStore("match", {
       }
     },
 
-    startPolling() {
+    /** 启动轮询兜底（Realtime 不可用时使用） */
+    _startPollTimer() {
+      if (this.pollTimer) return;
+      this.pollTimer = setInterval(() => void this.fetchMatches(true), POLL_MS);
+    },
+
+    /** Realtime 收到单行变更时更新 matchs */
+    _applyRealtimeEvent(eventType: string, row: Record<string, unknown>) {
+      if (eventType === "DELETE") {
+        const id = Number(row.id);
+        this.matchs = this.matchs.filter((m) => m.id !== id);
+      } else {
+        const [incoming] = toViewMatches([rowToDto(row)]);
+        if (!incoming) return;
+        const idx = this.matchs.findIndex((m) => m.id === incoming.id);
+        if (idx >= 0) this.matchs.splice(idx, 1, incoming);
+        else this.matchs.push(incoming);
+        this.matchs.sort((a, b) => a.startAt - b.startAt);
+      }
+      this.refreshOddsOnBets();
+    },
+
+    async startPolling() {
       this.stopPolling();
-      void this.fetchMatches(true);
+
+      // 全量初始加载
+      await this.fetchMatches(true);
       void this.fetchMatchDefaultOdds();
-      this.pollTimer = setInterval(() => {
-        void this.fetchMatches(true);
-      }, POLL_MS);
-      this.oddsRefreshTimer = setInterval(() => {
-        this.refreshOddsOnBets();
-      }, 200);
-      this.defaultOddsTimer = setInterval(() => {
-        void this.fetchMatchDefaultOdds();
-      }, DEFAULT_ODDS_MS);
+
+      // 始终启动的两个定时器（与 Realtime 无关）
+      this.oddsRefreshTimer = setInterval(() => this.refreshOddsOnBets(), 200);
+      this.defaultOddsTimer = setInterval(() => void this.fetchMatchDefaultOdds(), DEFAULT_ODDS_MS);
+
+      // 尝试 Supabase Realtime
+      const jwt = getToken();
+      const rft = getRefreshToken();
+      if (jwt && rft) {
+        try {
+          const { initSupabaseClient } = await import("@/lib/supabase");
+          const client = await initSupabaseClient(jwt, rft);
+          if (client) {
+            _realtimeChannel = client
+              .channel("client_matches")
+              .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "client_matches" },
+                (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+                  const row = payload.eventType === "DELETE" ? payload.old : payload.new;
+                  this._applyRealtimeEvent(payload.eventType, row);
+                },
+              )
+              .subscribe((status: string) => {
+                if (status === "SUBSCRIBED") {
+                  this.usingRealtime = true;
+                  console.log("[matchStore] Realtime 已连接");
+                } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+                  // Realtime 失败 → 回退 30s 轮询
+                  this.usingRealtime = false;
+                  console.warn("[matchStore] Realtime 失败，回退轮询");
+                  this._startPollTimer();
+                }
+              });
+            return; // 等待 subscribe 回调决定是否需要 fallback
+          }
+        } catch (e) {
+          console.warn("[matchStore] Realtime 初始化异常:", e);
+        }
+      }
+
+      // 无 Supabase 配置或初始化失败 → 直接轮询
+      this._startPollTimer();
     },
 
     stopPolling() {
@@ -199,6 +279,12 @@ export const useMatchStore = defineStore("match", {
         clearInterval(this.defaultOddsTimer);
         this.defaultOddsTimer = null;
       }
+      if (_realtimeChannel) {
+        _realtimeChannel.unsubscribe();
+        _realtimeChannel = null;
+      }
+      this.usingRealtime = false;
+      import("@/lib/supabase").then(({ destroySupabaseClient }) => destroySupabaseClient()).catch(() => {});
     },
   },
 });

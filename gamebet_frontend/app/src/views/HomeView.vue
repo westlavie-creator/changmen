@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { startCollectors, stopCollectors } from "@/runtime/collectors";
@@ -32,12 +32,27 @@ const messageStore = useMessageStore();
 const { matchs } = storeToRefs(matchStore);
 const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 
+const searchQuery = ref("");
+
+const filteredMatchs = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return matchs.value;
+  return matchs.value.filter((m) => {
+    if (String(m.id).includes(q)) return true;
+    if (m.title.toLowerCase().includes(q)) return true;
+    if (m.game.toLowerCase().includes(q)) return true;
+    return m.bets.some(
+      (b) => b.homeName.toLowerCase().includes(q) || b.awayName.toLowerCase().includes(q),
+    );
+  });
+});
+
 onMounted(async () => {
   await user.fetchUserInfo();
   loseOrderStore.init();
   await Promise.all([collectStore.init(), configStore.load(), accountStore.loadAccounts(true)]);
   await matchStore.initBetTarget();
-  matchStore.startPolling();
+  void matchStore.startPolling();
   await startCollectors();
   primeStakeTabId();
   bettingStore.start();
@@ -84,9 +99,16 @@ async function logout() {
         <ExtensionsBadge />
       </el-header>
       <el-main>
-        <div v-if="matchs.length" class="matchs">
-          <MatchCard v-for="m in matchs" :key="m.id" :match="m" />
+        <el-input
+          v-model="searchQuery"
+          placeholder="搜索队名 / 比赛ID / 游戏..."
+          clearable
+          class="match-search"
+        />
+        <div v-if="filteredMatchs.length" class="matchs">
+          <MatchCard v-for="m in filteredMatchs" :key="m.id" :match="m" />
         </div>
+        <div v-else-if="searchQuery" class="match-empty">无匹配比赛</div>
       </el-main>
     </el-container>
   </el-container>

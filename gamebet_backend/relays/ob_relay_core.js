@@ -3,8 +3,9 @@
 const mqtt = require("mqtt");
 const { login } = require("../platforms/ob/ob_session.js");
 
-const RECONNECT_DELAY_MS = 5_000;
-const WATCHDOG_INTERVAL_MS = 30_000;
+const RECONNECT_DELAY_MIN_MS = 5_000;
+const RECONNECT_DELAY_MAX_MS = 5 * 60_000; // 最长 5 分钟
+const WATCHDOG_INTERVAL_MS   = 30_000;
 
 function defaultSyncObFromSession(session) {
   const { syncObFromSession } = require("../core/esport-api/platform_sync.js");
@@ -25,6 +26,7 @@ class ObRelayCore {
     this._connecting = false;
     this._watchdogTimer = null;
     this._lastFailedUrl = null;
+    this._consecutiveFails = 0;
     this.stats = {
       platform: "OB",
       upstreamConnected: false,
@@ -97,10 +99,16 @@ class ObRelayCore {
 
   _scheduleReconnect() {
     if (this._retryTimer || this._connecting || this.upstream?.connected) return;
+    // 指数退避：5s → 10s → 20s → ... → 最长 5 分钟
+    const delay = Math.min(
+      RECONNECT_DELAY_MIN_MS * Math.pow(2, this._consecutiveFails),
+      RECONNECT_DELAY_MAX_MS,
+    );
+    console.log(`[OB MQTT relay] reconnect in ${Math.round(delay / 1000)}s (fail #${this._consecutiveFails + 1})`);
     this._retryTimer = setTimeout(() => {
       this._retryTimer = null;
       this._doConnect();
-    }, RECONNECT_DELAY_MS);
+    }, delay);
   }
 
   _doConnect() {
@@ -112,8 +120,9 @@ class ObRelayCore {
       })
       .catch((err) => {
         this._connecting = false;
+        this._consecutiveFails += 1;
         this.stats.lastError = err.message;
-        console.warn("[OB MQTT relay] connect failed, retry in", RECONNECT_DELAY_MS, "ms -", err.message);
+        console.warn("[OB MQTT relay] connect failed:", err.message);
         this._scheduleReconnect();
       });
   }
@@ -168,7 +177,7 @@ class ObRelayCore {
     }
 
     const client = this.mqttConnect(url, {
-      clientId: `mqttjs_ob_proxy_${Date.now()}`,
+      clientId: `mqttjs_dj1250901313125773543`,
       username: session.token,
       protocolId: "MQTT",
       protocolVersion: 4,
@@ -181,6 +190,7 @@ class ObRelayCore {
       this.stats.upstreamConnected = true;
       this.stats.lastError = null;
       this._lastFailedUrl = null;
+      this._consecutiveFails = 0;
       console.log("[OB MQTT relay] upstream connected", url);
       for (const topic of this.forwardedTopics) {
         client.subscribe(topic, (err) => {
@@ -205,12 +215,12 @@ class ObRelayCore {
       this.stats.lastError = err.message;
       this.stats.upstreamConnected = false;
       this._lastFailedUrl = url;
+      this._consecutiveFails += 1;
       console.warn("[OB MQTT relay] upstream error:", err.message, url);
     });
 
     client.on("close", () => {
       this.stats.upstreamConnected = false;
-      console.log("[OB MQTT relay] upstream closed, reconnecting immediately...", url);
       this._scheduleReconnect();
     });
 
@@ -218,4 +228,4 @@ class ObRelayCore {
   }
 }
 
-module.exports = { ObRelayCore, RECONNECT_DELAY_MS, WATCHDOG_INTERVAL_MS };
+module.exports = { ObRelayCore, RECONNECT_DELAY_MIN_MS, RECONNECT_DELAY_MAX_MS, WATCHDOG_INTERVAL_MS };

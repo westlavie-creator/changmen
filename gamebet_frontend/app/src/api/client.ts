@@ -5,6 +5,19 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 let authToken: string | null =
   typeof localStorage !== "undefined" ? localStorage.getItem("app:token") : null;
 
+let refreshToken: string | null =
+  typeof sessionStorage !== "undefined" ? sessionStorage.getItem("app:refresh-token") : null;
+
+export function getRefreshToken(): string | null { return refreshToken; }
+
+export function setRefreshToken(token: string | null) {
+  refreshToken = token;
+  if (typeof sessionStorage !== "undefined") {
+    if (token) sessionStorage.setItem("app:refresh-token", token);
+    else sessionStorage.removeItem("app:refresh-token");
+  }
+}
+
 /** Electron packaged 模式下 preload 注入的 IPC bridge；dev / web 环境下 esport 为 undefined */
 function electronApi(): { esport: (a: string, b: unknown, t: string) => Promise<unknown> } | undefined {
   const api = (window as unknown as { gamebetApi?: { esport?: unknown } }).gamebetApi;

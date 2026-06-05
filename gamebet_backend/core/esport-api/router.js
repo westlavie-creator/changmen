@@ -146,7 +146,7 @@ async function handleClientLogin(body) {
   const auth = await sb.authSignIn(userName, password);
   if (!auth) return fail("用户名或密码错误");
 
-  const { accessToken, userId: uid, email } = auth;
+  const { accessToken, refreshToken, userId: uid, email } = auth;
 
   // 从 Supabase 加载用户 profile 到内存缓存
   let profile = await dbStore.loadProfileById(uid);
@@ -169,7 +169,7 @@ async function handleClientLogin(body) {
     sb.writeUserMetadata(uid, { active_session_id: sessionId });
   }
 
-  return ok({ token: accessToken, userName: profile.userName, ID: uid });
+  return ok({ token: accessToken, refreshToken, userName: profile.userName, ID: uid });
 }
 
 async function handle(action, body, ctx) {
@@ -178,6 +178,12 @@ async function handle(action, body, ctx) {
       const sb = require("../db/supabase.js");
       await sb.authSignOut(ctx.token);
       return ok(null);
+    }
+    case "Client_GetSupabaseConfig": {
+      return ok({
+        url:     process.env.SUPABASE_URL  || "",
+        anonKey: process.env.SUPABASE_KEY  || "",
+      });
     }
     case "Client_GetUserInfo": {
       if (!ctx.user) return fail("请先登录");
