@@ -20,6 +20,7 @@ const { attachEsportProxy } = require("./proxy/esport_proxy.js");
 const { attachFeedBridge } = require("../../core/esport-api/feed_bridge.js");
 const { ensurePlatformCredentials } = require("../../core/esport-api/platform_sync.js");
 const store = require("../../core/esport-api/store.js");
+const { clearClientMatchesOnStartup } = require("../../core/db/supabase.js");
 const { createStaticHandler } = require("./static_files.js");
 const { createHttpHandler } = require("./http_routes.js");
 const { attachSnapshotWs } = require("./snapshot_ws.js");
@@ -50,6 +51,9 @@ const server = http.createServer(
 
 attachSnapshotWs(server, hub);
 const feedBridge = attachFeedBridge(hub);
+
+// 清除旧 accumulate 模式遗留的 client_matches 数据，无需等待
+clearClientMatchesOnStartup().catch(() => {});
 
 hub.start().catch((err) => {
   console.error("Feed hub start failed:", err.message);

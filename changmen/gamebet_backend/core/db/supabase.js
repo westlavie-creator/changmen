@@ -87,6 +87,17 @@ function writeClientMatches(rows) {
   })
 }
 
+/** 启动时清空 client_matches（清除旧模式遗留数据），用 service_role 无需登录 */
+async function clearClientMatchesOnStartup() {
+  const client = supabaseAdmin || supabase
+  if (!client) return
+  try {
+    await client.from('client_matches').delete().neq('id', 0)
+  } catch (err) {
+    console.warn('[supabase] clearClientMatchesOnStartup 失败:', err.message)
+  }
+}
+
 /** 从 Supabase 读取 client_matches，按 start_time 升序排列 */
 async function fetchClientMatches() {
   if (!supabase) return null
@@ -315,6 +326,7 @@ module.exports = {
   // client_matches
   writeClientMatches,
   fetchClientMatches,
+  clearClientMatchesOnStartup,
   // platform_matches / platform_bets / live_timers
   writePlatformMatches,
   writePlatformBets,
