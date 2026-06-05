@@ -20,6 +20,7 @@ export type PlatformId =
 
 export interface LoginInfo {
   token: string;
+  refreshToken?: string;
   userName: string;
   ID: number;
 }

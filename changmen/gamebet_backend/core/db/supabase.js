@@ -3,6 +3,10 @@
 /**
  * Supabase 表操作层 — 项目所有 Supabase 读写集中于此。
  *
+ * 分工原则：
+ *   读取 → supabase（anon key + 用户 JWT，受 RLS 约束）
+ *   写入 → supabaseAdmin（service_role，绕过 RLS）
+ *
  * 命名约定：
  *   fetch*  — async 读取，返回数据或 null/[]
  *   write*  — fire-and-forget 写入，不阻塞调用方
@@ -11,21 +15,16 @@
 
 const { supabase, supabaseAdmin } = require('./client.js')
 
-// 用户登录后设为 true，登出后设为 false
-// _write 只在有活跃 session 时执行，避免登录前以 anon 身份写入
-let _hasSession = false
-
 /**
- * fire-and-forget 写入：仅在用户已登录（_hasSession = true）时执行。
- * label 用于区分哪张表出错，方便调试。
+ * fire-and-forget 写入（service_role）。
+ * supabaseAdmin 未配置时静默跳过，本地内存仍正常运行。
  */
 function _write(fn, label = '') {
-  if (!supabase || !_hasSession) return
-  Promise.resolve().then(() => fn(supabase)).catch((err) =>
+  if (!supabaseAdmin) return
+  Promise.resolve().then(() => fn(supabaseAdmin)).catch((err) =>
     console.warn(`[supabase${label ? ':' + label : ''}]`, err.message)
   )
 }
-
 
 // ── profiles ──────────────────────────────────────────────────────────
 
@@ -59,7 +58,14 @@ function writeProfile(uid, patch) {
     const { error } = await client.from('profiles')
       .update({ ...patch, updated_at: Date.now() }).eq('id', String(uid))
     if (error) throw error
-  })
+  }, 'profiles')
+}
+
+/** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */
+async function insertProfile(uid, data) {
+  if (!supabaseAdmin) return false
+  const { error } = await supabaseAdmin.from('profiles').insert(data)
+  return !error
 }
 
 // ── accounts ──────────────────────────────────────────────────────────
@@ -70,30 +76,36 @@ function writeAccounts(uid, accounts) {
     const { error } = await client.from('profiles')
       .update({ accounts, updated_at: Date.now() }).eq('id', String(uid))
     if (error) throw error
-  })
+  }, 'accounts')
 }
 
 // ── client_matches ────────────────────────────────────────────────────
 
-/** fire-and-forget：upsert 客户端比赛列表，同时删除不再活跃的旧行 */
+// 上次写入的 id 集合，用于 diff-based 删除，避免每次 rebuild 全表扫描
+let _lastWrittenIds = new Set()
+
+/** fire-and-forget：upsert 客户端比赛列表，只删离开活跃列表的行 */
 function writeClientMatches(rows) {
   if (!Array.isArray(rows) || !rows.length) return
   const seen = new Map()
   for (const row of rows) seen.set(Number(row.id), row)
   const dedupedRows = [...seen.values()]
-  const activeIds = dedupedRows.map((r) => Number(r.id))
+  const activeIds = new Set(dedupedRows.map((r) => Number(r.id)))
+  const toDelete = [..._lastWrittenIds].filter((id) => !activeIds.has(id))
+  _lastWrittenIds = activeIds
   _write(async (client) => {
     const { error } = await client.from('client_matches')
       .upsert(dedupedRows, { onConflict: 'id' })
     if (error) throw error
-    const { error: delErr } = await client.from('client_matches')
-      .delete()
-      .not('id', 'in', `(${activeIds.join(',')})`)
-    if (delErr) throw delErr
+    if (toDelete.length) {
+      const { error: delErr } = await client.from('client_matches')
+        .delete().in('id', toDelete)
+      if (delErr) throw delErr
+    }
   }, 'client_matches')
 }
 
-/** 启动时清空 client_matches（清除旧模式遗留数据），用 service_role 无需登录 */
+/** 启动时清空 client_matches */
 async function clearClientMatchesOnStartup() {
   const client = supabaseAdmin || supabase
   if (!client) return
@@ -122,9 +134,7 @@ async function fetchClientMatches() {
 
 // ── platform_matches ──────────────────────────────────────────────────
 
-/** fire-and-forget：upsert 平台原始比赛列表，同时删除该平台已结束的旧行
- *  调用方 saveMatches 已经用 object key 去重，这里无需再去重。
- */
+/** fire-and-forget：upsert 平台原始比赛列表，同时删除该平台已结束的旧行 */
 function writePlatformMatches(provider, matchs) {
   if (!Array.isArray(matchs) || !matchs.length) return
   const now = Date.now()
@@ -217,7 +227,7 @@ function writeLiveTimers(provider, timer) {
 
 // ── orders ────────────────────────────────────────────────────────────
 
-/** 按日期读取订单（userId 隔离） */
+/** 按日期读取订单（userId 隔离，RLS 保证只读自己的行） */
 async function fetchOrdersByDate(date, userId) {
   if (!supabase || !userId) return []
   const dayStart = new Date(date).getTime()
@@ -227,7 +237,7 @@ async function fetchOrdersByDate(date, userId) {
     .select('*')
     .eq('user_id', String(userId))
     .gte('create_at', dayStart)
-    .lt('create_at', dayEnd)
+    .lt('create_at',  dayEnd)
     .order('create_at', { ascending: false })
   if (error) { console.warn('[supabase] fetchOrdersByDate:', error.message); return [] }
   return data || []
@@ -239,7 +249,7 @@ async function fetchOrdersByPlayer(playerId, userId) {
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .eq('user_id', String(userId))
+    .eq('user_id',   String(userId))
     .eq('player_id', Number(playerId))
     .order('create_at', { ascending: false })
   if (error) { console.warn('[supabase] fetchOrdersByPlayer:', error.message); return [] }
@@ -248,8 +258,8 @@ async function fetchOrdersByPlayer(playerId, userId) {
 
 /** upsert 订单列表 */
 async function upsertOrders(rows) {
-  if (!supabase || !rows?.length) return false
-  const { error } = await supabase
+  if (!supabaseAdmin || !rows?.length) return false
+  const { error } = await supabaseAdmin
     .from('orders')
     .upsert(rows, { onConflict: 'user_id,order_id,player_id', ignoreDuplicates: false })
   if (error) { console.warn('[supabase] upsertOrders:', error.message); return false }
@@ -258,8 +268,8 @@ async function upsertOrders(rows) {
 
 /** 更新订单 link 绑定 */
 async function updateOrderBind(orderId, playerId, userId, link) {
-  if (!supabase) return
-  await supabase.from('orders')
+  if (!supabaseAdmin) return
+  await supabaseAdmin.from('orders')
     .update({ link: Number(link) || 0 })
     .eq('user_id',   String(userId))
     .eq('order_id',  String(orderId))
@@ -268,7 +278,7 @@ async function updateOrderBind(orderId, playerId, userId, link) {
 
 // ── auth ──────────────────────────────────────────────────────────────
 
-/** 密码登录；返回 { accessToken, userId, email } 或 null */
+/** 密码登录；返回 { accessToken, refreshToken, userId, email } 或 null */
 async function authSignIn(userName, password) {
   if (!supabase) return null
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -276,39 +286,34 @@ async function authSignIn(userName, password) {
     password,
   })
   if (error || !data?.session) return null
-  _hasSession = true
   return {
-    accessToken: data.session.access_token,
+    accessToken:  data.session.access_token,
+    refreshToken: data.session.refresh_token,
     userId: data.user.id,
-    email: data.user.email,
+    email:  data.user.email,
   }
 }
 
 /** 登出指定 token 对应的 session */
 async function authSignOut(token) {
-  _hasSession = false
   if (!supabase || !token) return
   await supabase.auth.admin.signOut(token).catch(() => {})
 }
 
-/**
- * 校验 JWT token；返回 { userId, metadata } 或 null。
- * metadata 包含 active_session_id 等 user_metadata 字段。
- */
+/** 校验 JWT token；返回 { userId, metadata } 或 null */
 async function authGetUser(token) {
   if (!supabase || !token) return null
   try {
     const { data, error } = await supabase.auth.getUser(token)
     if (error || !data?.user) return null
     return {
-      userId: data.user.id,
+      userId:   data.user.id,
       metadata: data.user.user_metadata || {},
     }
   } catch { return null }
 }
 
-/** 写入 user_metadata（fire-and-forget，用于单 session 限制）
- *  需要 service_role，无 supabaseAdmin 时静默跳过 */
+/** 写入 user_metadata（fire-and-forget，用于单 session 限制） */
 function writeUserMetadata(userId, metadata) {
   if (!supabaseAdmin) return
   Promise.resolve()
@@ -316,14 +321,7 @@ function writeUserMetadata(userId, metadata) {
     .catch((err) => console.warn('[supabase] writeUserMetadata:', err.message))
 }
 
-/** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */
-async function insertProfile(uid, data) {
-  if (!supabaseAdmin) return false
-  const { error } = await supabaseAdmin.from('profiles').insert(data)
-  return !error
-}
-
-/** service_role 可用时返回 true，用于判断是否能执行 admin 操作（单 session 校验等） */
+/** service_role 可用时返回 true */
 function hasAdminAccess() {
   return !!supabaseAdmin
 }

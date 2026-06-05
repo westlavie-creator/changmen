@@ -106,6 +106,39 @@ cd changmen\gamebet_backend && npx supabase db push
 
 ---
 
+## Supabase pg_cron 定时任务
+
+pg_cron 运行在 **Supabase 服务端**，不依赖本地进程，应用关机时仍持续执行。
+
+### 当前任务
+
+| 任务名 | 执行频率 | 作用 |
+|---|---|---|
+| `prune-stale-platform-matches` | 每小时整点 | 删除 `platform_matches` 中 `synced_at` 超过 2 小时的过期行 |
+
+### 设计原理
+
+`writePlatformMatches` 每次写入都刷新活跃比赛的 `synced_at = now()`。比赛结束后不再上报，`synced_at` 冻结。pg_cron 每小时检查：超过 2 小时未刷新的行视为过期并删除。
+
+阈值 2 小时 = 各平台最长采集间隔（60 秒）× 充裕缓冲。
+
+### 管理命令（在 Supabase SQL Editor 执行）
+
+```sql
+-- 查看所有任务
+SELECT * FROM cron.job;
+
+-- 查看执行历史
+SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 20;
+
+-- 删除任务
+SELECT cron.unschedule('prune-stale-platform-matches');
+```
+
+迁移文件：`changmen/gamebet_backend/supabase/migrations/20260620000000_pg_cron_platform_matches.sql`
+
+---
+
 ## 生产安全
 
 `x-proxy-url` 中继在生产环境存在 SSRF 风险，详见 `SECURITY_NOTES.md`。关键项：目标域名白名单、路径前缀限制、必须鉴权、审计日志。

@@ -9,6 +9,12 @@ const { ObRelayCore }  = require('../../relays/ob_relay_core.js');
 const { TfRelayCore }  = require('../../relays/tf_relay_core.js');
 const { IaRelayCore }  = require('../../relays/ia_relay_core.js');
 
+// 打包后从 exe 同级目录加载 .env，开发模式由 web/index.js 的 dotenv.config() 处理
+if (app.isPackaged) {
+  const envPath = path.join(path.dirname(process.execPath), '.env');
+  if (fs.existsSync(envPath)) require('dotenv').config({ path: envPath, override: true });
+}
+
 const PORT = Number(process.env.PORT || 3456);
 
 // ── 递归复制目录（首次迁移用）──────────────────────────────────────────────
@@ -206,7 +212,22 @@ function registerRelayIpc() {
   });
 }
 
-require('../web/index.js');
+// 端口已被占用时跳过启动（上次未关闭的后端实例仍在运行），直接复用
+function startBackendIfNeeded() {
+  return new Promise((resolve) => {
+    const probe = require('http').get(`http://127.0.0.1:${PORT}/app/`, () => {
+      probe.destroy();
+      console.log('[electron] 端口已有服务，跳过后端启动');
+      resolve();
+    });
+    probe.on('error', () => {
+      probe.destroy();
+      require('../web/index.js');
+      resolve();
+    });
+    probe.end();
+  });
+}
 
 // ── 等待 HTTP 服务就绪 ──────────────────────────────────────────────────────
 function waitForServer(retries = 40) {
@@ -280,11 +301,12 @@ function createWindow() {
 }
 
 // ── 生命周期 ────────────────────────────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   registerRelayIpc();
   const win = createWindow();   // 窗口立即打开，显示 loading.html
 
-  // server 在后台启动，就绪后切换到真正的 app
+  await startBackendIfNeeded();
+
   waitForServer()
     .then(() => {
       if (!win.isDestroyed()) win.loadURL(`http://127.0.0.1:${PORT}/app/`);

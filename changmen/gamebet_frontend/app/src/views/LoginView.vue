@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import { reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/userStore";
 
@@ -8,24 +8,12 @@ const route = useRoute();
 const user = useUserStore();
 
 const form = reactive({
-  userName: user.userName,
-  password: "admin",
+  userName: "",
+  password: "",
 });
 
 const loading = ref(false);
 const error = ref("");
-
-onMounted(async () => {
-  try {
-    const res = await fetch("/api/a8/defaults");
-    if (!res.ok) return;
-    const body = (await res.json()) as { userName?: string; password?: string };
-    if (body.userName?.trim()) form.userName = body.userName.trim();
-    if (body.password) form.password = body.password;
-  } catch {
-    /* 后端未启动时保留默认 admin */
-  }
-});
 
 async function submit() {
   if (!form.userName.trim() || !form.password || loading.value) return;
