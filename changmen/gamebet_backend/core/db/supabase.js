@@ -17,12 +17,15 @@ let _hasSession = false
 
 /**
  * fire-and-forget 写入：仅在用户已登录（_hasSession = true）时执行。
- * 登录前（anon 状态）跳过写入，避免 permission denied 刷屏。
+ * label 用于区分哪张表出错，方便调试。
  */
-function _write(fn) {
+function _write(fn, label = '') {
   if (!supabase || !_hasSession) return
-  Promise.resolve().then(() => fn(supabase)).catch((err) => console.warn('[supabase]', err.message))
+  Promise.resolve().then(() => fn(supabase)).catch((err) =>
+    console.warn(`[supabase${label ? ':' + label : ''}]`, err.message)
+  )
 }
+
 
 // ── profiles ──────────────────────────────────────────────────────────
 
@@ -75,16 +78,19 @@ function writeAccounts(uid, accounts) {
 /** fire-and-forget：upsert 客户端比赛列表，同时删除不再活跃的旧行 */
 function writeClientMatches(rows) {
   if (!Array.isArray(rows) || !rows.length) return
-  const activeIds = rows.map((r) => Number(r.id))
+  const seen = new Map()
+  for (const row of rows) seen.set(Number(row.id), row)
+  const dedupedRows = [...seen.values()]
+  const activeIds = dedupedRows.map((r) => Number(r.id))
   _write(async (client) => {
     const { error } = await client.from('client_matches')
-      .upsert(rows, { onConflict: 'id' })
+      .upsert(dedupedRows, { onConflict: 'id' })
     if (error) throw error
     const { error: delErr } = await client.from('client_matches')
       .delete()
       .not('id', 'in', `(${activeIds.join(',')})`)
     if (delErr) throw delErr
-  })
+  }, 'client_matches')
 }
 
 /** 启动时清空 client_matches（清除旧模式遗留数据），用 service_role 无需登录 */
@@ -116,7 +122,9 @@ async function fetchClientMatches() {
 
 // ── platform_matches ──────────────────────────────────────────────────
 
-/** fire-and-forget：upsert 平台原始比赛列表，同时删除该平台已结束的旧行 */
+/** fire-and-forget：upsert 平台原始比赛列表，同时删除该平台已结束的旧行
+ *  调用方 saveMatches 已经用 object key 去重，这里无需再去重。
+ */
 function writePlatformMatches(provider, matchs) {
   if (!Array.isArray(matchs) || !matchs.length) return
   const now = Date.now()
@@ -131,6 +139,7 @@ function writePlatformMatches(provider, matchs) {
     away:            String(m.Away || ''),
     bo:              m.BO != null ? Number(m.BO) : null,
     teams:           Array.isArray(m.Teams) ? m.Teams : [],
+    match_id:        m._clientMatchId != null ? Number(m._clientMatchId) : null,
     synced_at:       now,
   }))
   const activeIds = rows.map((r) => r.source_match_id)
@@ -139,14 +148,13 @@ function writePlatformMatches(provider, matchs) {
       .from('platform_matches')
       .upsert(rows, { onConflict: 'platform,source_match_id' })
     if (error) throw error
-    // 当前列表里没有的行 = 比赛已结束，删除
     const { error: delErr } = await client
       .from('platform_matches')
       .delete()
       .eq('platform', String(provider))
       .not('source_match_id', 'in', `(${activeIds.join(',')})`)
     if (delErr) throw delErr
-  })
+  }, 'platform_matches')
 }
 
 // ── platform_bets ─────────────────────────────────────────────────────
@@ -155,7 +163,7 @@ function writePlatformMatches(provider, matchs) {
 function writePlatformBets(provider, matchId, bets) {
   if (!Array.isArray(bets) || !bets.length) return
   const now = Date.now()
-  const rows = bets
+  const rawRows = bets
     .filter((b) => b && b.SourceBetID != null && !String(b.BetName ?? '').includes('+'))
     .map((b) => ({
       platform:        String(provider),
@@ -168,13 +176,16 @@ function writePlatformBets(provider, matchId, bets) {
       is_locked:       b.Status !== 'Normal',
       updated_at:      now,
     }))
-  if (!rows.length) return
+  if (!rawRows.length) return
+  const seen = new Map()
+  for (const row of rawRows) seen.set(row.source_bet_id, row)
+  const rows = [...seen.values()]
   _write(async (client) => {
     const { error } = await client
       .from('platform_bets')
       .upsert(rows, { onConflict: 'platform,source_bet_id' })
     if (error) throw error
-  })
+  }, 'platform_bets')
 }
 
 // ── live_timers ───────────────────────────────────────────────────────
@@ -183,7 +194,7 @@ function writePlatformBets(provider, matchId, bets) {
 function writeLiveTimers(provider, timer) {
   if (!Array.isArray(timer) || !timer.length) return
   const now = Date.now()
-  const rows = timer
+  const rawRows = timer
     .filter((t) => t && t.MatchID != null)
     .map((t) => ({
       platform:        String(provider),
@@ -192,13 +203,16 @@ function writeLiveTimers(provider, timer) {
       round_start:     Number(t.StartTime) || null,
       updated_at:      now,
     }))
-  if (!rows.length) return
+  if (!rawRows.length) return
+  const seen = new Map()
+  for (const row of rawRows) seen.set(row.source_match_id, row)
+  const rows = [...seen.values()]
   _write(async (client) => {
     const { error } = await client
       .from('live_timers')
       .upsert(rows, { onConflict: 'platform,source_match_id' })
     if (error) throw error
-  })
+  }, 'live_timers')
 }
 
 // ── orders ────────────────────────────────────────────────────────────

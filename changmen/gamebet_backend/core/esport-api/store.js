@@ -3,7 +3,8 @@
 const fs = require("fs");
 const path = require("path");
 const { ESPORT_DATA_DIR } = require("../shared/storage_paths.js");
-const { buildClientMatchList } = require("./match_merge");
+const { buildClientMatchList, canonicalMatchKey } = require("./match_merge");
+const { resolveClientGame } = require("../shared/game_catalog");
 const { formatOdds, formatBetOdds } = require("../shared/odds_format.js");
 const { a8StartTimeListAllowed } = require("../integrations/a8/match_time.js");
 const { createDefaultOddsApi } = require("./default_odds.js");
@@ -140,7 +141,9 @@ function saveMatches(provider, matchs) {
     if (!m || m.SourceMatchID == null) continue;
     const start = Number(m.StartTime || 0);
     if (start > 0 && !a8StartTimeListAllowed(start)) continue;
-    next[String(m.SourceMatchID)] = { ...m, provider, savedAt: now };
+    const { GameID } = resolveClientGame(provider, m.SourceGameID ?? m.GameID);
+    const ck = canonicalMatchKey(GameID, m.Home || "", m.Away || "");
+    next[String(m.SourceMatchID)] = { ...m, provider, savedAt: now, _clientMatchId: ck?.key ?? null };
   }
   _matches[provider] = next;
   pruneBetsForProvider(provider, Object.keys(next));
