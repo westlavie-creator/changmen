@@ -8,7 +8,7 @@
  *   merge        — reserved for true cross-platform merge (same event → one row, union Matchs).
  */
 
-const MERGE_MODE = process.env.ESPORT_MATCH_MERGE_MODE || "accumulate";
+const MERGE_MODE = process.env.ESPORT_MATCH_MERGE_MODE || "merge";
 const {
   resolveClientGame,
   describePlatformGame,
@@ -426,12 +426,214 @@ function buildMatchListAccumulate(matches, bets, timers, sourceFromBet) {
   return collapseImClientRows(list);
 }
 
+// ─── 跨平台合并实现 ────────────────────────────────────────────────────────
+
+/** 开赛时间匹配窗口：±15 分钟 */
+const MERGE_WINDOW_MS = 15 * 60 * 1000;
+
+/** 平台优先级：决定合并行取哪个平台的 Title/Game 作为规范值 */
+const PROVIDER_PRIORITY = { OB: 10, RAY: 9, TF: 8, IA: 7, IMT: 6, IM: 5, PB: 4, SABA: 3, HG: 2 };
+
 /**
- * Placeholder for true merge: group rows by canonical event id and union Matchs / Bets Sources.
+ * 规范化队名，用于跨平台比较。
+ * 保留 CJK 字符，去除标点、统一空格，转小写。
  */
-function buildMatchListMerged(_matches, _bets, _timers, _sourceFromBet) {
-  // TODO: pair OB/RAY/… by team names + start time or external mapping table.
-  return buildMatchListAccumulate(_matches, _bets, _timers, _sourceFromBet);
+function normalizeTeam(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[·\-—_·•\s]+/g, " ")
+    .replace(/[^\w\s一-鿿]/g, "")
+    .trim();
+}
+
+/**
+ * 判断两个队名是否指向同一支队伍。
+ * 规则：完全相等 → 包含关系 → 有效 token 交集（长度≥2）。
+ */
+function teamNamesMatch(a, b) {
+  const na = normalizeTeam(a);
+  const nb = normalizeTeam(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  const ta = na.split(" ").filter((t) => t.length >= 2);
+  const tb = new Set(nb.split(" ").filter((t) => t.length >= 2));
+  return ta.some((t) => tb.has(t));
+}
+
+/**
+ * 判断两行是否属于同一赛事。
+ * 返回 'forward'（主客顺序一致）、'reversed'（主客互换）或 null（不匹配）。
+ */
+function sameEvent(rowA, rowB) {
+  // 游戏类型必须一致
+  if (rowA.GameID !== rowB.GameID) return null;
+  // 不匹配占位队名
+  if (isPlaceholderTeamName(rowA._home) || isPlaceholderTeamName(rowA._away)) return null;
+  if (isPlaceholderTeamName(rowB._home) || isPlaceholderTeamName(rowB._away)) return null;
+  // 开赛时间窗口
+  const stA = rowA.StartTime || 0;
+  const stB = rowB.StartTime || 0;
+  if (stA && stB && Math.abs(stA - stB) > MERGE_WINDOW_MS) return null;
+  if (teamNamesMatch(rowA._home, rowB._home) && teamNamesMatch(rowA._away, rowB._away))
+    return "forward";
+  if (teamNamesMatch(rowA._home, rowB._away) && teamNamesMatch(rowA._away, rowB._home))
+    return "reversed";
+  return null;
+}
+
+/**
+ * 贪心分组：为每行寻找来自其他平台的匹配行，合并成同一组。
+ * 每组内每个平台最多出现一次（取首个匹配的行）。
+ */
+function groupByEvent(rows) {
+  const groups = [];
+  const used = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    if (used.has(i)) continue;
+    const seed = rows[i];
+    const group = [{ row: seed, reversed: false }];
+    used.add(i);
+
+    const usedProviders = new Set([seed._provider]);
+
+    for (let j = i + 1; j < rows.length; j++) {
+      if (used.has(j)) continue;
+      const cand = rows[j];
+      if (usedProviders.has(cand._provider)) continue;
+      const rel = sameEvent(seed, cand);
+      if (rel) {
+        group.push({ row: cand, reversed: rel === "reversed" });
+        used.add(j);
+        usedProviders.add(cand._provider);
+      }
+    }
+
+    groups.push(group);
+  }
+  return groups;
+}
+
+/**
+ * 将同一赛事的多平台行合并为一行。
+ * - Matchs：合并所有平台的 sourceMatchId
+ * - Bets：按 Map 编号合并 Sources；反转平台的 HomeID/AwayID 对调
+ */
+function mergeGroup(group) {
+  // 按优先级排序，高优先级平台作为规范参考
+  group.sort(
+    (a, b) =>
+      (PROVIDER_PRIORITY[b.row._provider] || 0) - (PROVIDER_PRIORITY[a.row._provider] || 0),
+  );
+
+  const canonical = group[0].row;
+
+  // 合并 Matchs
+  const mergedMatchs = {};
+  for (const { row } of group) Object.assign(mergedMatchs, row.Matchs);
+
+  // 按 Map 聚合各平台 Sources
+  const byMap = new Map(); // map -> { canonBet, sources: { provider: source } }
+  for (const { row, reversed } of group) {
+    for (const bet of row.Bets) {
+      const map = bet.Map ?? 0;
+      if (!byMap.has(map)) byMap.set(map, { canonBet: bet, sources: {} });
+      const entry = byMap.get(map);
+      for (const [p, src] of Object.entries(bet.Sources)) {
+        entry.sources[p] = reversed
+          ? {
+              ...src,
+              HomeID: src.AwayID,
+              AwayID: src.HomeID,
+              HomeOdds: src.AwayOdds,
+              AwayOdds: src.HomeOdds,
+            }
+          : { ...src };
+      }
+    }
+  }
+
+  // 生成稳定的合并行 ID（基于游戏+队名，不依赖平台内部 ID）
+  const idSeed = `match:merged:${canonical.GameID}:${normalizeTeam(canonical._home)}:${normalizeTeam(canonical._away)}`;
+  const mergedMatchId = stableId(idSeed);
+
+  const mergedBets = [...byMap.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([map, { canonBet, sources }]) => ({
+      ...canonBet,
+      ID: stableId(`bet:merged:${mergedMatchId}:${map}`),
+      MatchID: mergedMatchId,
+      Sources: sources,
+    }));
+
+  // Reverse 字段：标记主客顺序与规范行相反的平台
+  const reversedProviders = group
+    .filter((g) => g.reversed)
+    .flatMap((g) => Object.keys(g.row.Matchs));
+
+  return {
+    ID: mergedMatchId,
+    Title: canonical.Title,
+    StartTime: canonical.StartTime,
+    Game: canonical.Game,
+    GameID: canonical.GameID,
+    BO: canonical.BO,
+    Matchs: mergedMatchs,
+    Bets: mergedBets,
+    Round: canonical.Round,
+    RoundStart: canonical.RoundStart,
+    Reverse: reversedProviders,
+  };
+}
+
+/**
+ * 合并模式：同一赛事的多平台行合并为一行，Sources 包含所有平台赔率。
+ */
+function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
+  // 构建所有平台的候选行，附加 _provider/_home/_away 临时属性用于匹配
+  const allRows = [];
+  const teamIndex = buildTeamEnrichIndex(matches);
+
+  for (const [provider, byId] of Object.entries(matches || {})) {
+    if (!byId || typeof byId !== "object") continue;
+    for (const match of Object.values(byId)) {
+      if (!match?.SourceMatchID) continue;
+      const startMs = normalizeEpochMs(match.StartTime);
+      if (startMs > 0 && !a8StartTimeListAllowed(startMs)) continue;
+
+      let m = match;
+      if (provider === "IM") {
+        const block = bets[betKey("IM", match.SourceMatchID)];
+        if (imMatchIsStale(match, block)) continue;
+        m = enrichImMatch(match, teamIndex);
+        const unknownGame = !m.SourceGameID || String(m.SourceGameID).trim() === "unknown";
+        if (isPlaceholderTeamName(m.Home) && isPlaceholderTeamName(m.Away) && unknownGame)
+          continue;
+      }
+
+      const row = buildAccumulateRow(provider, m, bets, timers, sourceFromBet);
+      row._provider = provider;
+      row._home = String(m.Home || "").trim();
+      row._away = String(m.Away || "").trim();
+      allRows.push(row);
+    }
+  }
+
+  // 分组并合并
+  const groups = groupByEvent(allRows);
+  const result = groups.map((group) => {
+    // 清理临时属性
+    for (const { row } of group) {
+      delete row._provider;
+      delete row._home;
+      delete row._away;
+    }
+    return group.length === 1 ? group[0].row : mergeGroup(group);
+  });
+
+  result.sort((a, b) => a.StartTime - b.StartTime);
+  return collapseImClientRows(result);
 }
 
 function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
@@ -447,4 +649,5 @@ module.exports = {
   buildMatchListAccumulate,
   buildMatchListMerged,
   stableId,
+  normalizeTeam,
 };
