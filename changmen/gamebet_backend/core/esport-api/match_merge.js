@@ -447,14 +447,17 @@ function getAliases() {
 }
 
 /**
- * 规范化队名：小写 → 去标点 → 别名替换。
+ * 规范化队名：小写 → 去标点 → 去末尾通用后缀 → 别名替换。
  * 保留 CJK 字符，支持 team_aliases.json 扩展。
+ * 去后缀让 "GAM Esports" 和 "GAM" 匹配同一 canonicalMatchKey。
  */
 function normalizeTeam(name) {
   const base = String(name || "")
     .toLowerCase()
     .replace(/[·\-—_·•\s]+/g, " ")
     .replace(/[^\w\s一-鿿]/g, "")
+    .trim()
+    .replace(/\s+(?:esports?|gaming)$/, "")
     .trim();
   return getAliases()[base] || base;
 }

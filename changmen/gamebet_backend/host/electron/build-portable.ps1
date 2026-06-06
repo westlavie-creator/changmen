@@ -1,5 +1,5 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Set-Location $PSScriptRoot\..
+Set-Location $PSScriptRoot\..\..
 
 # stop running GameBet
 Get-Process GameBet -ErrorAction SilentlyContinue | ForEach-Object {
@@ -16,8 +16,15 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Build failed"; exit 1 }
 # copy data into win-unpacked
 Write-Host "`n[2/3] Copying data..."
 $unpacked = "..\..\dist_electron\win-unpacked"
-Copy-Item "..\gamebetdb" "$unpacked\gamebetdb" -Recurse -Force
-Copy-Item "storage"      "$unpacked\storage"   -Recurse -Force
+if (Test-Path "..\gamebetdb") { Copy-Item "..\gamebetdb" "$unpacked\gamebetdb" -Recurse -Force }
+if (Test-Path "storage")      { Copy-Item "storage"      "$unpacked\storage"   -Recurse -Force }
+# .env（Supabase 凭证）— 有则打包进去
+if (Test-Path ".env") {
+    Copy-Item ".env" "$unpacked\.env" -Force
+    Write-Host ".env copied (Supabase credentials included)."
+} else {
+    Write-Host ".env not found — Supabase features will be unavailable."
+}
 Write-Host "Data copied."
 
 # create portable zip
