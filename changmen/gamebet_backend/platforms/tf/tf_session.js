@@ -2,10 +2,11 @@
 
 const fs = require("fs");
 const path = require("path");
+const { ESPORT_DATA_DIR } = require("../../core/shared/storage_paths.js");
 const { tfRequestHeaders } = require("./tf_auth.js");
 const { getActivePlatformGameIds } = require("../../core/shared/game_catalog.js");
 
-const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
+const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 const DEFAULT_GATEWAY = "https://api-v4.tf-api-rr3h.com";
 
 function normalizeGateway(gateway) {

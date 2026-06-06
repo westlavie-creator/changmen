@@ -1,7 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 
-/** 对齐 gamebet_backend/shared/a8_socket.js / A8 yZe */
-export const DEFAULT_A8_WS = "http://127.0.0.1:3456";
+// [A8 可证实] bundle gZe: "https://47.115.75.57"（A8 Socket.IO 聚合服务器）
+export const DEFAULT_A8_WS = "https://47.115.75.57";
 
 type ChannelHandler = (message: unknown) => void;
 
@@ -58,9 +58,9 @@ async function connectSocket(): Promise<boolean> {
       finish(true);
     });
 
-    socket.on("chat message", (raw: string) => {
+    socket.on("chat message", (raw: unknown) => {
       try {
-        const packet = JSON.parse(raw) as { channel?: string; message?: unknown };
+        const packet = (typeof raw === "string" ? JSON.parse(raw) : raw) as { channel?: string; message?: unknown };
         if (packet.channel) dispatchChannel(packet.channel, packet.message ?? packet);
       } catch {
         /* ignore malformed */

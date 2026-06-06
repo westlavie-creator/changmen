@@ -10,6 +10,7 @@ const { tryHttpProxyRelay } = require("./proxy/http_proxy_relay.js");
 const { tryPbHttpProxy } = require("./proxy/pb_http_proxy.js");
 const { tryObHttpProxy } = require("./proxy/ob_http_proxy.js");
 const { tryRayHttpProxy } = require("./proxy/ray_http_proxy.js");
+const { tryIaHttpProxy } = require("./proxy/ia_http_proxy.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = require("../../platforms/ob/ob_session.js");
 
 function readJsonBody(req) {
@@ -67,6 +68,7 @@ function createHttpHandler({ port, hub, serveStatic, getEsportProxy }) {
       if (await tryPbHttpProxy(req, res)) return;
       if (await tryObHttpProxy(req, res)) return;
       if (await tryRayHttpProxy(req, res)) return;
+      if (await tryIaHttpProxy(req, res)) return;
       if (await tryEsportApi(req, res)) return;
       if (url === "/api/ob/demo-login") {
         await handleObDemoLogin(req, res);
