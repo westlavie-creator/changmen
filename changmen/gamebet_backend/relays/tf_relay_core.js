@@ -128,7 +128,7 @@ class TfRelayCore {
       this._retryMs = RECONNECT_MIN_MS;
       this.stats.upstreamConnected = true;
       this.stats.lastError = null;
-      console.log("[TF relay] upstream connected");
+      console.log(`[TF relay] upstream connected → ${url.replace(/auth_token=([^&]{0,8})[^&]*/,"auth_token=$1…")}`);
     });
 
     ws.on("message", (data) => {
