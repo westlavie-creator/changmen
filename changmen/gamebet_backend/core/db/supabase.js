@@ -113,7 +113,7 @@ async function initLastWrittenIds() {
     const { data, error } = await client.from('client_matches').select('id')
     if (error || !data) return
     _lastWrittenIds = new Set(data.map(r => Number(r.id)))
-    console.log(`[supabase] initLastWrittenIds: 预填 ${_lastWrittenIds.size} 条`)
+    console.log(`[supabase] 已从 client_matches 加载 ${_lastWrittenIds.size} 条 id，首次 rebuild 可正确差量删除遗留行`)
   } catch (err) {
     console.warn('[supabase] initLastWrittenIds 失败:', err.message)
   }
