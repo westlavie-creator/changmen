@@ -175,6 +175,33 @@ function writePlatformMatches(provider, matchs) {
   }, 'platform_matches')
 }
 
+/** 启动时从 Supabase 读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */
+async function fetchPlatformMatches() {
+  const client = _getClient()
+  if (!client) return {}
+  const { data, error } = await client
+    .from('platform_matches')
+    .select('platform,source_match_id,source_game_id,start_time,home,home_id,away,away_id,bo,teams')
+  if (error || !data?.length) return {}
+  const byPlatform = {}
+  for (const r of data) {
+    if (!byPlatform[r.platform]) byPlatform[r.platform] = []
+    byPlatform[r.platform].push({
+      Type:          r.platform,
+      SourceMatchID: r.source_match_id,
+      SourceGameID:  r.source_game_id ?? '',
+      StartTime:     r.start_time ?? 0,
+      Home:          r.home ?? '',
+      HomeID:        r.home_id ?? '',
+      Away:          r.away ?? '',
+      AwayID:        r.away_id ?? '',
+      BO:            r.bo ?? 0,
+      Teams:         Array.isArray(r.teams) ? r.teams : [],
+    })
+  }
+  return byPlatform
+}
+
 // ── platform_bets ─────────────────────────────────────────────────────
 
 /** fire-and-forget：upsert 平台盘口赔率（只保最新） */
@@ -349,6 +376,7 @@ module.exports = {
   initLastWrittenIds,
   clearClientMatchesOnStartup,
   // platform_matches / platform_bets / live_timers
+  fetchPlatformMatches,
   writePlatformMatches,
   writePlatformBets,
   writeLiveTimers,

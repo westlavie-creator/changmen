@@ -15,7 +15,8 @@ if (app.isPackaged) {
   if (fs.existsSync(envPath)) require('dotenv').config({ path: envPath, override: true });
 }
 
-const PORT = Number(process.env.PORT || 3456);
+const PORT      = Number(process.env.PORT     || 3456);
+const VITE_PORT = Number(process.env.APP_PORT || 5174);
 
 // ── 递归复制目录（首次迁移用）──────────────────────────────────────────────
 function copyDirSync(src, dst) {
@@ -290,7 +291,9 @@ function createWindow() {
 
   // 所有外部链接在系统默认浏览器打开
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith(`http://127.0.0.1:${PORT}`)) {
+    const isLocal = url.startsWith(`http://127.0.0.1:${PORT}`)
+      || (!app.isPackaged && url.startsWith(`http://127.0.0.1:${VITE_PORT}`));
+    if (!isLocal) {
       shell.openExternal(url);
       return { action: 'deny' };
     }
@@ -307,9 +310,14 @@ app.whenReady().then(async () => {
 
   await startBackendIfNeeded();
 
+  // 开发模式（未打包）加载 Vite dev server 获得 HMR；打包后走本地 dist
+  const appUrl = app.isPackaged
+    ? `http://127.0.0.1:${PORT}/app/`
+    : `http://127.0.0.1:${VITE_PORT}/app/`;
+
   waitForServer()
     .then(() => {
-      if (!win.isDestroyed()) win.loadURL(`http://127.0.0.1:${PORT}/app/`);
+      if (!win.isDestroyed()) win.loadURL(appUrl);
     })
     .catch((err) => {
       console.error('[electron] server failed to start:', err.message);

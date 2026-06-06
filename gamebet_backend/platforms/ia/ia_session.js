@@ -2,9 +2,10 @@
 
 const fs = require("fs");
 const path = require("path");
+const { ESPORT_DATA_DIR } = require("../../core/shared/storage_paths.js");
 const { getActivePlatformGameIds } = require("../../core/shared/game_catalog.js");
 
-const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
+const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 const DEFAULT_GATEWAY = "https://ilustre-analytics.org";
 
 function normalizeGateway(gateway) {
@@ -16,7 +17,7 @@ function loadFromPlatformsJson() {
     if (!fs.existsSync(PLATFORMS_FILE)) return null;
     const all = JSON.parse(fs.readFileSync(PLATFORMS_FILE, "utf8"));
     const row = all.IA;
-    if (!row?.gateway || !row?.token) return null;
+    if (!row?.gateway) return null;
     return buildSessionFromRow(row);
   } catch {
     return null;
@@ -25,11 +26,10 @@ function loadFromPlatformsJson() {
 
 function loadFromEnv() {
   const gateway = process.env.IA_GATEWAY;
-  const token = process.env.IA_TOKEN;
-  if (!gateway || !token) return null;
+  if (!gateway) return null;
   return buildSessionFromRow({
     gateway,
-    token,
+    token: process.env.IA_TOKEN || "",
     betName: process.env.IA_BET_NAME,
     games: parseGameIdsEnv(),
   });

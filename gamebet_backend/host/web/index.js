@@ -17,7 +17,7 @@ const { buildFeedHubEntries } = require("../../core/shared/platform_registry.js"
 const { attachEsportProxy } = require("./proxy/esport_proxy.js");
 const { attachFeedBridge } = require("../../core/esport-api/feed_bridge.js");
 const { ensurePlatformCredentials } = require("../../core/esport-api/platform_sync.js");
-const { initLastWrittenIds } = require("../../core/db/supabase.js");
+const { initLastWrittenIds, fetchPlatformMatches } = require("../../core/db/supabase.js");
 const store = require("../../core/esport-api/store.js");
 const { createStaticHandler } = require("./static_files.js");
 const { createHttpHandler } = require("./http_routes.js");
@@ -111,6 +111,20 @@ if (ESPORT_PROXY_ENABLED) {
 // 预填 _lastWrittenIds，使首次 rebuild 的差量删除能覆盖上次遗留的 client_matches 行
 initLastWrittenIds().catch(() => {});
 
+// ── team-resolver 插件（可选）──────────────────────────────────────────────
+// 删除这段代码或整个 team-resolver/ 目录不影响任何功能，自动降级为字符串归一化
+try {
+  const { loadAndCreatePlugin } = require("../../../team-resolver/supabase_db");
+  const { setTeamPlugin } = require("../../core/esport-api/match_merge");
+  loadAndCreatePlugin()
+    .then((plugin) => {
+      setTeamPlugin(plugin);
+    })
+    .catch((err) => console.warn("[team-resolver] 加载失败，降级字符串归一化:", err.message));
+} catch {
+  // team-resolver 目录不存在时静默跳过
+}
+
 server.listen(PORT, onListen);
 
 server.on('error', (err) => {
@@ -129,6 +143,18 @@ function onListen() {
   } catch (err) {
     console.warn("[store] client_matchs init failed:", err.message);
   }
+
+  // 从 Supabase platform_matches 恢复各平台数据（解决重启后 _matches 为空问题）
+  fetchPlatformMatches().then((byPlatform) => {
+    const platforms = Object.keys(byPlatform);
+    if (!platforms.length) return;
+    for (const [platform, matches] of Object.entries(byPlatform)) {
+      store.saveMatches(platform, matches);
+    }
+    console.log(`[store] restored ${platforms.length} platforms from platform_matches: ${platforms.join(', ')}`);
+  }).catch((err) => {
+    console.warn('[store] restore from platform_matches failed:', err.message);
+  });
   const enabled = hub.platforms.filter((p) => p.enabled).map((p) => p.id).join(", ");
   const proxyNote = ESPORT_PROXY_ENABLED ? " | esport proxy: /esport/ws/{OB,RAY,TF,IA}" : "";
   const bridgeNote = feedBridge.enabled

@@ -2,10 +2,11 @@
 
 const fs = require("fs");
 const path = require("path");
+const { ESPORT_DATA_DIR } = require("../../core/shared/storage_paths.js");
 const store = require("../../core/esport-api/store.js");
 const { getActivePlatformGameIds } = require("../../core/shared/game_catalog.js");
 
-const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
+const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 
 const DEFAULT_ODDS_QUERY =
   "sportId=12&isLive=true&isHlE=false&oddsType=1&version=0" +

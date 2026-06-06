@@ -2,7 +2,6 @@ import { io, type Socket } from "socket.io-client";
 import { getCollectPlatform, getGames } from "@/api/esport";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import type { CollectPlatformInfo } from "@/types/esport";
-import { directGet, directPostJson } from "@/shared/http";
 import { PLATFORMS, relayWsUrl } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@/platforms/shared/collectNotify";
@@ -27,25 +26,18 @@ function betKeyFromChild(child: Record<string, unknown>): string {
   return `${prefix}${child.name ?? ""}`;
 }
 
-function iaHeaders(token?: string): Record<string, string> {
-  const headers: Record<string, string> = {
-    Accept: "application/json, text/plain, */*",
-  };
-  headers.token = token ?? "";
-  return headers;
-}
-
-/** A8 CQe：IA GET gameListPageSplit */
+/** A8 CQe：IA GET — 经后端代理转发（IA 源站不返回 CORS 头） */
 async function collectIaGet<T>(platform: CollectPlatformInfo, path: string): Promise<T> {
   if (!platform.Gateway) {
     throw new Error("IA collect platform not configured");
   }
-  const base = platform.Gateway.replace(/\/+$/, "");
-  const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
-  return directGet<T>(url, iaHeaders(platform.Token));
+  const apiPath = path.startsWith("/") ? path : `/${path}`;
+  const res = await fetch(`/esport/ia/proxy?path=${encodeURIComponent(apiPath)}`);
+  if (!res.ok) throw new Error(`IA GET ${apiPath} HTTP ${res.status}`);
+  return res.json() as Promise<T>;
 }
 
-/** A8 CQe：IA POST getPointsListSplit */
+/** A8 CQe：IA POST — 经后端代理转发 */
 async function collectIaPost<T>(
   platform: CollectPlatformInfo,
   path: string,
@@ -54,16 +46,14 @@ async function collectIaPost<T>(
   if (!platform.Gateway) {
     throw new Error("IA collect platform not configured");
   }
-  const base = platform.Gateway.replace(/\/+$/, "");
-  const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
-  return directPostJson<T>(
-    url,
-    {
-      ...iaHeaders(platform.Token),
-      "Content-Type": "application/json",
-    },
-    body,
-  );
+  const apiPath = path.startsWith("/") ? path : `/${path}`;
+  const res = await fetch(`/esport/ia/proxy?path=${encodeURIComponent(apiPath)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`IA POST ${apiPath} HTTP ${res.status}`);
+  return res.json() as Promise<T>;
 }
 
 type IaRelayApi = {

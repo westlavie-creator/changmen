@@ -1,0 +1,172 @@
+{
+  "navi:cs2": {
+    "id": "pandascore:3216",
+    "name": "Natus Vincere",
+    "acronym": "NAVI",
+    "slug": "natus-vincere-cs-go",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764046001
+  },
+  "g2:cs2": {
+    "id": "pandascore:3210",
+    "name": "G2",
+    "acronym": "G2",
+    "slug": "g2",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764046263
+  },
+  "faze:cs2": {
+    "id": "pandascore:3212",
+    "name": "FaZe",
+    "acronym": "FaZe",
+    "slug": "faze",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764047061
+  },
+  "vitality:cs2": {
+    "id": "pandascore:3455",
+    "name": "Vitality",
+    "acronym": "VIT",
+    "slug": "vitality-cs-go",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "pandascore",
+    "resolvedAt": 1780764047592
+  },
+  "edg:lol": {
+    "id": "pandascore:405",
+    "name": "EDward Gaming",
+    "acronym": "EDG",
+    "slug": "edward-gaming",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764047861
+  },
+  "jdg:lol": {
+    "id": "pandascore:318",
+    "name": "JD Gaming",
+    "acronym": "JDG",
+    "slug": "qg-reapers",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764048416
+  },
+  "blg:lol": {
+    "id": "pandascore:1566",
+    "name": "Bilibili Gaming",
+    "acronym": "BLG",
+    "slug": "bilibili-gaming",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764048677
+  },
+  "fpx:lol": {
+    "id": "pandascore:1568",
+    "name": "FunPlus Phoenix",
+    "acronym": "FPX",
+    "slug": "funplus-phoenix",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764048935
+  },
+  "rng:lol": {
+    "id": "pandascore:74",
+    "name": "Royal Never Give Up",
+    "acronym": "RNG",
+    "slug": "royal-never-give-up",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764049198
+  },
+  "t1:lol": {
+    "id": "pandascore:126061",
+    "name": "T1",
+    "acronym": "T1",
+    "slug": "t1",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764049455
+  },
+  "geng:lol": {
+    "id": "pandascore:2882",
+    "name": "Gen.G",
+    "acronym": "GEN",
+    "slug": "geng",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "pandascore",
+    "resolvedAt": 1780764049972
+  },
+  "og:dota2": {
+    "id": "pandascore:1654",
+    "name": "OG",
+    "acronym": "OG",
+    "slug": "og",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764050230
+  },
+  "liquid:dota2": {
+    "id": "pandascore:1647",
+    "name": "Team Liquid",
+    "acronym": "Liquid",
+    "slug": "team-liquid",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764050749
+  },
+  "sentinels:valorant": {
+    "id": "pandascore:128472",
+    "name": "Sentinels",
+    "acronym": "SEN",
+    "slug": "sentinels",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "pandascore",
+    "resolvedAt": 1780764051275
+  },
+  "loud:valorant": {
+    "id": "pandascore:130338",
+    "name": "LOUD",
+    "acronym": "LOUD",
+    "slug": "loud-valorant",
+    "confidence": 1,
+    "matchType": "acronym",
+    "source": "pandascore",
+    "resolvedAt": 1780764051535
+  },
+  "edward:lol": {
+    "id": "pandascore:405",
+    "name": "EDward Gaming",
+    "acronym": "EDG",
+    "slug": "edward-gaming",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "pandascore",
+    "resolvedAt": 1780764052070
+  },
+  "funplus phoenix:lol": {
+    "id": "pandascore:1568",
+    "name": "FunPlus Phoenix",
+    "acronym": "FPX",
+    "slug": "funplus-phoenix",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "pandascore",
+    "resolvedAt": 1780764053212
+  }
+}

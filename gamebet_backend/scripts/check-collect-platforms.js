@@ -12,6 +12,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { ESPORT_DATA_DIR } = require("../core/shared/storage_paths.js");
 const store = require("../core/esport-api/store.js");
 const { handleEsportRequest } = require("../core/esport-api/router.js");
 const { getRayA8CollectCredentials } = require("../platforms/ray/collect_credentials.js");
@@ -36,7 +37,7 @@ const SPEC = {
   OB: { needsGateway: true, needsToken: true, note: "HTTP game/index + MQTT relay" },
   RAY: { needsGateway: true, needsToken: true, note: "HTTP match/odds（API 强制 A8 写死凭证）" },
   TF: { needsGateway: true, needsToken: true, note: "WS auth + /api/v8/events" },
-  IA: { needsGateway: true, needsToken: true, note: "Socket.IO + HTTP" },
+  IA: { needsGateway: true, needsToken: false, note: "Socket.IO + HTTP" },
   PB: { needsGateway: true, needsToken: true, note: "嵌套 cookie/token JSON" },
   IMT: { needsGateway: true, needsToken: true, note: "POST delta/full" },
   SABA: { needsGateway: true, needsToken: true, note: "页面 path token + WS" },
@@ -46,8 +47,8 @@ const SPEC = {
   HG: { needsGateway: false, needsToken: false, note: "占位，无赔率采集" },
 };
 
-const PLATFORMS_FILE = path.join(__dirname, "../data/esport/platforms.json");
-const USER_KV_FILE = path.join(__dirname, "../data/esport/user_kv.json");
+const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
+const USER_KV_FILE = path.join(ESPORT_DATA_DIR, "user_kv.json");
 
 function parseArgs(argv) {
   return {

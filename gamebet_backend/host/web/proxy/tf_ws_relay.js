@@ -55,8 +55,8 @@ class TfWsRelay {
       const url = new URL(request.url, "http://127.0.0.1");
       const authToken = url.searchParams.get("auth_token") || this.token;
 
-      // 首个客户端连入时启动共享上游（或重连）
-      if (!this.core.getStatus().upstreamConnected) {
+      // 上游不在 CONNECTING/OPEN 状态时才启动，防止竞态杀掉正在建立中的连接
+      if (!this.core.isUpstreamActive()) {
         this.core.start(authToken, this.gateway);
       }
 

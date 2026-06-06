@@ -26,6 +26,29 @@
   background-image: url(/esport2/assets/D1aW4vdu.png);
 }
 
+/* TF/IM/IA/SABA/IMT/HG 图标文件丢失，文字降级显示缩写 */
+.provider-icon.TF,
+.provider-icon.IM,
+.provider-icon.IA,
+.provider-icon.SABA,
+.provider-icon.IMT,
+.provider-icon.HG {
+  background-image: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 3px;
+}
+.provider-icon.TF::after   { content: "TF";   background: #e65c00; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: inherit; }
+.provider-icon.IM::after   { content: "IM";   background: #1565c0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: inherit; }
+.provider-icon.IA::after   { content: "IA";   background: #6a1b9a; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: inherit; }
+.provider-icon.SABA::after { content: "SABA"; background: #1b5e20; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: inherit; font-size: 7px; }
+.provider-icon.IMT::after  { content: "IMT";  background: #b71c1c; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: inherit; }
+.provider-icon.HG::after   { content: "HG";   background: #37474f; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: inherit; }
+
 .provider-icon.OB.limit {
   outline: 2px solid #f59e0b;
   outline-offset: -1px;

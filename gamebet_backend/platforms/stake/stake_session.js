@@ -2,9 +2,10 @@
 
 const fs = require("fs");
 const path = require("path");
+const { ESPORT_DATA_DIR } = require("../../core/shared/storage_paths.js");
 const Core = require("./stake_core.js");
 
-const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
+const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 const DEFAULT_API = "https://stake.com";
 
 function normalizeApiUrl(url) {

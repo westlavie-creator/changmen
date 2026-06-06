@@ -1,0 +1,19 @@
+{
+  "name": "team-resolver",
+  "version": "1.0.0",
+  "description": "Standalone esports team name resolver — maps platform-specific team names to canonical IDs via PandaScore / Liquipedia",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js",
+    "seed": "node seed.js",
+    "scrape:ray": "node scrapers/ray_scraper.js",
+    "scrape:ray:dry": "node scrapers/ray_scraper.js --dry-run",
+    "scrape:ob": "node scrapers/ob_scraper.js",
+    "scrape:ob:dry": "node scrapers/ob_scraper.js --dry-run"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "@supabase/supabase-js": "^2.43.4"
+  }
+}

@@ -11,15 +11,14 @@
 const WebSocket = require("ws");
 
 // [A8 可证实] bundle WBe: wss://${["api.a8.to","47.115.75.57"][jF%2]}/esport/ws/TF?auth_token=...
-// TF WS 走 A8 代理，不直连 TF 自己的 gateway
-const TF_UPSTREAM_HOSTS = ["api.a8.to", "47.115.75.57"];
-let _tfHostIdx = 0;
+// TF WS 走 A8 代理，不直连 TF 自己的 gateway。
+// 47.115.75.57 与 api.a8.to 是同一 A8 代理的 IP/域名两种写法；
+// 固定用 IP，避免 DNS 解析延迟或域名不可达导致每隔一次重连失败。
+const TF_UPSTREAM_HOST = "47.115.75.57";
 
 function buildTfUpstreamUrl(_gateway, token) {
   const auth = String(token || "").replace(/^Token\s+/i, "");
-  const host = TF_UPSTREAM_HOSTS[_tfHostIdx % TF_UPSTREAM_HOSTS.length];
-  _tfHostIdx++;
-  return `wss://${host}/esport/ws/TF?auth_token=${encodeURIComponent(auth)}&combo=false`;
+  return `wss://${TF_UPSTREAM_HOST}/esport/ws/TF?auth_token=${encodeURIComponent(auth)}&combo=false`;
 }
 
 const RECONNECT_MIN_MS = 1_000;
@@ -71,6 +70,13 @@ class TfRelayCore {
       this._upstream && this._upstream.readyState === WebSocket.OPEN,
     );
     return { ...this.stats };
+  }
+
+  /** 上游是否正在连接中（CONNECTING 或 OPEN），用于防止竞态重复启动 */
+  isUpstreamActive() {
+    if (!this._upstream) return false;
+    const s = this._upstream.readyState;
+    return s === WebSocket.CONNECTING || s === WebSocket.OPEN;
   }
 
   _clearRetry() {

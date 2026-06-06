@@ -625,10 +625,12 @@ async function callEsportAction(action, body, token) {
   try {
     store.ensureSeed();
     accountStore.ensureSeed();
-    if (!action) return fail("missing action");
+    // IPC 调用时 action 可能带 query string（如 "API_SaveMatch?XBet"），需剥离
+    const cleanAction = String(action || "").split("?")[0];
+    if (!cleanAction) return fail("missing action");
     const user = await store.getUserBySupabaseToken(token);
-    if (action === "Client_Login") return handleClientLogin(body);
-    return handle(action, body || {}, { token, user });
+    if (cleanAction === "Client_Login") return handleClientLogin(body);
+    return handle(cleanAction, body || {}, { token, user });
   } catch (err) {
     console.error("[esport:ipc]", action, err);
     return fail(err.message || "服务器错误");

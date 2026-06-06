@@ -149,10 +149,10 @@ export class A8BetsCollector {
         acc.gameId = resolvedGameId;
       }
       acc.lastSeenAt = Date.now();
-      const msgHome = pickA8Field(message as Record<string, unknown>, "homeName", "HomeName", "home", "Home");
-      const msgAway = pickA8Field(message as Record<string, unknown>, "awayName", "AwayName", "away", "Away");
-      const betHome = pickA8Field(bet as Record<string, unknown>, "homeName", "HomeName", "home", "Home");
-      const betAway = pickA8Field(bet as Record<string, unknown>, "awayName", "AwayName", "away", "Away");
+      const msgHome = pickA8Field(message as Record<string, unknown>, "homeName", "HomeName");
+      const msgAway = pickA8Field(message as Record<string, unknown>, "awayName", "AwayName");
+      const betHome = pickA8Field(bet as Record<string, unknown>, "homeName", "HomeName");
+      const betAway = pickA8Field(bet as Record<string, unknown>, "awayName", "AwayName");
       if (betHome) acc.homeName = betHome;
       if (betAway) acc.awayName = betAway;
       if (msgHome && acc.homeName === "主队") acc.homeName = msgHome;
