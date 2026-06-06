@@ -90,7 +90,7 @@ class IaRelayCore {
     socket.on("connect", () => {
       this.stats.upstreamConnected = true;
       this.stats.lastError = null;
-      console.log("[IA relay] upstream connected");
+      console.log(`[IA relay] upstream connected → ${DEFAULT_UPSTREAM}/esport/ws/IA  origin=${origin}`);
       socket.emit("RoomJoin", { room_type: "room_type_index_content_push" });
     });
 
