@@ -6,13 +6,8 @@ const { TfRelayCore } = require("../../../relays/tf_relay_core.js");
 
 const WS_PATH = "/esport/ws/TF";
 
-function buildTfUpstreamUrl(gateway, token, combo = false) {
-  const host = gateway.replace(/^https:\/\/api-v4/i, "wss://ws").replace(/^http/i, "ws");
-  const base = host.startsWith("ws") ? host : `wss://${host.replace(/^\/\//, "")}`;
-  const auth = String(token || "").replace(/^Token\s+/i, "");
-  const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}auth_token=${encodeURIComponent(auth)}&combo=${combo ? "true" : "false"}`;
-}
+// [A8 可证实] 与 tf_relay_core.js 保持一致：TF WS 走 A8 代理
+const { buildTfUpstreamUrl } = require("../../../relays/tf_relay_core.js");
 
 class TfWsRelay {
   constructor(options = {}) {

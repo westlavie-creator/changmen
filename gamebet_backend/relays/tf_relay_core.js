@@ -10,12 +10,16 @@
 
 const WebSocket = require("ws");
 
-function buildTfUpstreamUrl(gateway, token, combo = false) {
-  const host = gateway.replace(/^https:\/\/api-v4/i, "wss://ws").replace(/^http/i, "ws");
-  const base = host.startsWith("ws") ? host : `wss://${host.replace(/^\/\//, "")}`;
+// [A8 可证实] bundle WBe: wss://${["api.a8.to","47.115.75.57"][jF%2]}/esport/ws/TF?auth_token=...
+// TF WS 走 A8 代理，不直连 TF 自己的 gateway
+const TF_UPSTREAM_HOSTS = ["api.a8.to", "47.115.75.57"];
+let _tfHostIdx = 0;
+
+function buildTfUpstreamUrl(_gateway, token) {
   const auth = String(token || "").replace(/^Token\s+/i, "");
-  const sep = base.includes("?") ? "&" : "?";
-  return `${base}${sep}auth_token=${encodeURIComponent(auth)}&combo=${combo ? "true" : "false"}`;
+  const host = TF_UPSTREAM_HOSTS[_tfHostIdx % TF_UPSTREAM_HOSTS.length];
+  _tfHostIdx++;
+  return `wss://${host}/esport/ws/TF?auth_token=${encodeURIComponent(auth)}&combo=false`;
 }
 
 const RECONNECT_MIN_MS = 1_000;
@@ -155,4 +159,4 @@ class TfRelayCore {
   }
 }
 
-module.exports = { TfRelayCore };
+module.exports = { TfRelayCore, buildTfUpstreamUrl };

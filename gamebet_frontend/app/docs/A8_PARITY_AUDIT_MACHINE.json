@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-29T07:47:18.967Z",
+  "generatedAt": "2026-06-04T06:37:31.067Z",
   "sources": {
     "bundleJs": "vendor/ui-bundle/index.js",
     "indexCss": "gamebet_backend/public/esport2/assets/index.css",
@@ -90,6 +90,10 @@
     {
       "file": "components/ui/AppDialog.vue",
       "bytes": 1508
+    },
+    {
+      "file": "components/debug/ElectronRelayStatus.vue",
+      "bytes": 1444
     },
     {
       "file": "components/layout/AppHeader.vue",
