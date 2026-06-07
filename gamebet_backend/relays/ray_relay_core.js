@@ -61,6 +61,7 @@ class RayRelayCore {
     const ok = await this.wsClient.connect();
     this.stats.upstreamConnected = Boolean(ok);
     if (ok) {
+      this.stats.lastError = null;
       const { hostname, path, channel, token } = this.wsClient;
       console.log(`[RAY relay] upstream connected → wss://${hostname}${path}  channel=${channel}  token=${String(token).slice(0,8)}…`);
     } else {

@@ -7,6 +7,7 @@ export async function initSupabaseClient(
   jwt: string,
   refreshToken: string,
 ): Promise<SupabaseClient | null> {
+  if (_client) return _client; // 已初始化，直接复用
   try {
     const res = await post<{ url: string; anonKey: string }>("Client_GetSupabaseConfig", {});
     const cfg = res.info as { url: string; anonKey: string };

@@ -21,7 +21,7 @@ const HIDDEN_NAME_KEY = "hiddenUserName";
 /** 对齐 A8 Pinia `Xn`（用户 / 登录态） */
 export const useUserStore = defineStore("user", {
   state: () => ({
-    userName: localStorage.getItem(USER_KEY) || "admin",
+    userName: localStorage.getItem(USER_KEY) || "",
     userId: 0,
     setting: {} as Record<string, unknown>,
     /** 平博 v4 用 A8 账号，来自 GetUserInfo 或 /api/a8/credit-plate-user */
@@ -97,6 +97,13 @@ export const useUserStore = defineStore("user", {
         this.ready = false;
         return false;
       }
+      // 提前启动 Supabase autoRefresh，防止 token 在使用中到期
+      const rft = getRefreshToken();
+      if (rft) {
+        import("@/lib/supabase")
+          .then(({ initSupabaseClient }) => initSupabaseClient(getToken()!, rft))
+          .catch(() => {});
+      }
       try {
         await this.fetchUserInfo();
         return true;
@@ -110,6 +117,7 @@ export const useUserStore = defineStore("user", {
     async logout() {
       unsubscribeUserChannel();
       await apiLogout();
+      this.userName = "";
       this.userId = 0;
       this.setting = {};
       this.creditPlateUserName = "";
@@ -118,6 +126,7 @@ export const useUserStore = defineStore("user", {
       this.follow = null;
       this.extrasLoaded = false;
       this.ready = false;
+      localStorage.removeItem(USER_KEY);
     },
 
     async loadExtras(force = false) {
