@@ -1,22 +1,99 @@
 "use strict";
 
-const { URL } = require("url");
-const catalog = require("../shared/game_catalog.json");
-const store = require("./store.js");
-const { emptyPage, monthReport } = require("./stubs.js");
-const { handleV4Request } = require("./v4_router.js");
-const { handleCommonApi } = require("./hg_follow.js");
-const accountStore = require("../account/account_store.js");
-const accountService = require("../account/account_service.js");
-const { isA8AuthEnabled, resolveA8Credentials } = require("../integrations/a8/config.js");
-const { loginV4 } = require("../integrations/a8/v4_client.js");
+import type { IncomingMessage, ServerResponse } from "http";
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const catalog        = require("../shared/game_catalog.json");
+const store          = require("./store.js");
+const { emptyPage: _emptyPage, monthReport } = require("./stubs.js");
+const { handleV4Request }  = require("./v4_router.js");
+const { handleCommonApi }  = require("./hg_follow.js");
+const accountStore         = require("../account/account_store.js");
+const accountService       = require("../account/account_service.js");
+const { resolveA8Credentials }            = require("../integrations/a8/config.js");
+const { loginV4 }                         = require("../integrations/a8/v4_client.js");
 const { getPlatformRules, getDefaultMarketCode } = require("../shared/market_catalog.js");
 
-function ok(info, msg = "ok") {
+// ── Types ────────────────────────────────────────────────────────────────────
+
+export interface ApiSuccess<T = unknown> {
+  success: 1;
+  msg: string;
+  info: T | null;
+}
+
+export interface ApiFailure {
+  success: 0;
+  msg: string;
+  info: null;
+}
+
+export type ApiEnvelope<T = unknown> = ApiSuccess<T> | ApiFailure;
+
+/** 所有合法 action 名 — 前端 api/client.ts post() 的第一个参数 */
+export type EsportAction =
+  | "Client_Login"
+  | "Client_Logout"
+  | "Client_GetSupabaseConfig"
+  | "Client_GetUserInfo"
+  | "Client_UpdateSetting"
+  | "Client_GetCollectPlatform"
+  | "Client_GetGames"
+  | "API_UpdatePlatform"
+  | "API_SaveMatch"
+  | "API_SaveBet"
+  | "API_SaveLiveTimer"
+  | "Client_GetMatchs"
+  | "Client_SaveData"
+  | "Client_GetAccounts"
+  | "Client_SaveAccounts"
+  | "Client_GetData"
+  | "Client_GetUserDetail"
+  | "Client_GetOrderList"
+  | "Client_SaveOrder"
+  | "Client_SaveOrderBind"
+  | "API_SaveScore"
+  | "Client_SaveMoneyLog"
+  | "Client_DeleteMoneyLog"
+  | "Client_DeletePlayer"
+  | "Client_UpdateBalance"
+  | "Client_RefreshAccountBalance"
+  | "Client_GetMoneyLogs"
+  | "Client_GetMoneyLog"
+  | "Client_MonthReport"
+  | "Client_GetUserProfit"
+  | "Client_GetDefaultOdds"
+  | "Client_GetMatchDefaultOdds"
+  | "Client_CreateTagPlatform"
+  | "Client_GetTagPlatforms"
+  | "Client_GetPlayerOrder"
+  | "Client_GetUsers"
+  | "Client_GetChatHistory"
+  | "Client_SaveUserLog"
+  | "SendMessage";
+
+export interface EsportUser {
+  id: string;
+  userName: string;
+  setting?: Record<string, unknown>;
+}
+
+interface EsportContext {
+  token: string;
+  user: EsportUser | null;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function ok<T>(info: T, msg = "ok"): ApiSuccess<T> {
   return { success: 1, msg, info: info ?? null };
 }
 
-function getJwtClaim(token, claim) {
+function fail(msg: string, info = null): ApiFailure {
+  return { success: 0, msg, info };
+}
+
+function getJwtClaim(token: string, claim: string): unknown {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString())[claim];
   } catch {
@@ -24,12 +101,7 @@ function getJwtClaim(token, claim) {
   }
 }
 
-function fail(msg, info = null) {
-  return { success: 0, msg, info };
-}
-
-/** 平博信用盘 v4 登录用 A8 账号（非本地 admin） */
-function resolveCreditPlateUserName(user) {
+export function resolveCreditPlateUserName(user: EsportUser | null): string {
   const fromSetting = user?.setting?.a8UserName;
   if (fromSetting && String(fromSetting).trim()) {
     return String(fromSetting).trim();
@@ -41,17 +113,17 @@ function resolveCreditPlateUserName(user) {
   return resolveA8Credentials().userName;
 }
 
-function parseFormBody(raw) {
+function parseFormBody(raw: string): Record<string, string> {
   const params = new URLSearchParams(raw);
-  const out = {};
+  const out: Record<string, string> = {};
   for (const [k, v] of params.entries()) out[k] = v;
   return out;
 }
 
-function readBody(req) {
+function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let raw = "";
-    req.on("data", (chunk) => {
+    req.on("data", (chunk: Buffer) => {
       raw += chunk;
       if (raw.length > 5e6) {
         reject(new Error("body too large"));
@@ -63,30 +135,24 @@ function readBody(req) {
   });
 }
 
-async function parseRequest(req) {
+async function parseRequest(req: IncomingMessage): Promise<Record<string, unknown>> {
   const raw = await readBody(req);
   const ct = String(req.headers["content-type"] || "");
-  if (ct.includes("application/x-www-form-urlencoded")) {
-    return parseFormBody(raw);
-  }
+  if (ct.includes("application/x-www-form-urlencoded")) return parseFormBody(raw);
   if (ct.includes("application/json")) {
-    try {
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
+    try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
   }
   if (raw.includes("=")) return parseFormBody(raw);
   return raw ? { _raw: raw } : {};
 }
 
-function actionFromUrl(urlPath) {
+function actionFromUrl(urlPath: string): string {
   const base = urlPath.replace(/^\/esport\/?/, "").split("?")[0];
   return base.replace(/^\//, "");
 }
 
-function gamesForProvider(provider) {
-  const ids = new Set();
+function gamesForProvider(provider: string): string[] {
+  const ids = new Set<string>();
   for (const game of catalog.games || []) {
     const id = game.platforms?.[provider];
     if (id) ids.add(String(id));
@@ -94,48 +160,9 @@ function gamesForProvider(provider) {
   return [...ids];
 }
 
-async function handleA8Login(body = {}) {
-  const defaults = resolveA8Credentials(body);
-  const userName = String(body.userName || body.username || defaults.userName || "").trim();
-  const password = body.password || defaults.password;
-  if (!userName || !password) {
-    return fail("A8 账号未配置，请编辑 integrations/a8/constants.js");
-  }
+// ── Action handlers ──────────────────────────────────────────────────────────
 
-  let v4Result;
-  try {
-    v4Result = await loginV4(userName, password);
-  } catch (err) {
-    return fail(`A8 登录失败: ${err.message}`);
-  }
-  if (v4Result?.success !== 1 || !v4Result?.info?.token) {
-    return fail(v4Result?.msg || "A8 用户名或密码错误");
-  }
-
-  store.ensureSeed();
-  let user = store.getUserByName(userName);
-  if (!user) {
-    user = store.createUser(userName, password, {
-      a8UserName: userName,
-      a8Password: password,
-    });
-  } else {
-    store.updateUserSetting(user.id, {
-      a8UserName: userName,
-      a8Password: password,
-    });
-    user = store.getUserById(user.id);
-  }
-  if (!user) return fail("创建本地用户失败");
-
-  const token = store.createSession(user.id, {
-    v4Token: v4Result.info.token,
-    a8UserName: userName,
-  });
-  return ok({ token, userName: user.userName, ID: user.id });
-}
-
-async function handleClientLogin(body) {
+async function handleClientLogin(body: Record<string, unknown>): Promise<ApiEnvelope> {
   const sb = require("../db/supabase.js");
   const dbStore = require("../db/store.js");
 
@@ -148,11 +175,9 @@ async function handleClientLogin(body) {
 
   const { accessToken, refreshToken, userId: uid, email } = auth;
 
-  // 从 Supabase 加载用户 profile 到内存缓存
   let profile = await dbStore.loadProfileById(uid);
   if (!profile) {
-    // trigger 未触发时自动创建 profile
-    const inferredName = email.split("@")[0];
+    const inferredName = (email as string).split("@")[0];
     const now = Date.now();
     const ok2 = await sb.insertProfile(uid, {
       id: uid, user_name: inferredName,
@@ -163,7 +188,6 @@ async function handleClientLogin(body) {
   }
   if (!profile) return fail("用户数据加载失败，请检查 Supabase profiles 表");
 
-  // 单 session 限制：把当前 session_id 写入 user_metadata
   const sessionId = getJwtClaim(accessToken, "session_id");
   if (sessionId) {
     sb.writeUserMetadata(uid, { active_session_id: sessionId });
@@ -172,19 +196,22 @@ async function handleClientLogin(body) {
   return ok({ token: accessToken, refreshToken, userName: profile.userName, ID: uid });
 }
 
-async function handle(action, body, ctx) {
-  switch (action) {
+async function handle(
+  action: EsportAction | string,
+  body: Record<string, unknown>,
+  ctx: EsportContext,
+): Promise<ApiEnvelope> {
+  switch (action as EsportAction) {
     case "Client_Logout": {
       const sb = require("../db/supabase.js");
       await sb.authSignOut(ctx.token);
       return ok(null);
     }
-    case "Client_GetSupabaseConfig": {
+    case "Client_GetSupabaseConfig":
       return ok({
         url:     process.env.SUPABASE_URL  || "",
         anonKey: process.env.SUPABASE_KEY  || "",
       });
-    }
     case "Client_GetUserInfo": {
       if (!ctx.user) return fail("请先登录");
       return ok({
@@ -198,80 +225,52 @@ async function handle(action, body, ctx) {
       if (!ctx.user) return fail("请先登录");
       let patch = body.setting ?? body;
       if (typeof patch === "string") {
-        try {
-          patch = JSON.parse(patch);
-        } catch {
-          return fail("invalid setting json");
-        }
+        try { patch = JSON.parse(patch); } catch { return fail("invalid setting json"); }
       }
-      if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
-        return fail("setting required");
-      }
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) return fail("setting required");
       const user = store.updateUserSetting(ctx.user.id, patch);
       if (!user) return fail("user not found");
       return ok(user.setting || {});
     }
     case "Client_GetCollectPlatform": {
       if (!ctx.user) return fail("请先登录");
-      const provider = body.provider;
+      const provider = String(body.provider || "");
       const row = store.getPlatform(provider);
-      const catalogBetName =
-        getPlatformRules(provider, getDefaultMarketCode())?.betName || ".*";
-      if (!row) {
-        return ok({
-          Gateway: "",
-          Token: "",
-          BetName: catalogBetName,
-        });
-      }
-      const betName =
-        row.betName && row.betName !== ".*" ? row.betName : catalogBetName;
-      let gateway = row.gateway || "";
-      let token = row.token || "";
-      if (String(provider) === "Stake") {
+      const catalogBetName = getPlatformRules(provider, getDefaultMarketCode())?.betName || ".*";
+      if (!row) return ok({ Gateway: "", Token: "", BetName: catalogBetName });
+
+      const betName = row.betName && row.betName !== ".*" ? row.betName : catalogBetName;
+      let gateway: string = row.gateway || "";
+      let token: string = row.token || "";
+
+      if (provider === "Stake") {
         gateway = row.gateway || row.apiUrl || "https://stake.com";
         token = row.accessToken || row.token || "";
       }
-      if (String(provider).toUpperCase() === "RAY") {
+      if (provider.toUpperCase() === "RAY") {
         const { getRayA8CollectCredentials } = require("../../platforms/ray/collect_credentials.js");
         const a8 = getRayA8CollectCredentials();
-        gateway = a8.gateway;
-        token = a8.token;
-        return ok({
-          Gateway: gateway,
-          Token: token,
-          BetName: a8.betName || betName,
-        });
+        return ok({ Gateway: a8.gateway, Token: a8.token, BetName: a8.betName || betName });
       }
-      if (String(provider).toUpperCase() === "TF") {
+      if (provider.toUpperCase() === "TF") {
         try {
           const { getTfA8CollectCredentials } = require("../../platforms/tf/collect_credentials.js");
           const a8 = await getTfA8CollectCredentials();
           store.setPlatform("TF", {
-            gateway: a8.gateway,
-            token: a8.token,
-            betName: a8.betName || betName,
-            games: a8.games,
+            gateway: a8.gateway, token: a8.token,
+            betName: a8.betName || betName, games: a8.games,
           });
-          return ok({
-            Gateway: a8.gateway,
-            Token: a8.token,
-            BetName: a8.betName || betName,
-          });
-        } catch (err) {
+          return ok({ Gateway: a8.gateway, Token: a8.token, BetName: a8.betName || betName });
+        } catch (err: any) {
           console.warn("[TF] A8 Client_GetCollectPlatform failed:", err.message);
           const fallback = store.getPlatform("TF");
           if (fallback?.gateway && fallback?.token) {
-            return ok({
-              Gateway: fallback.gateway,
-              Token: fallback.token,
-              BetName: fallback.betName || betName,
-            });
+            return ok({ Gateway: fallback.gateway, Token: fallback.token, BetName: fallback.betName || betName });
           }
           return ok({ Gateway: "", Token: "", BetName: catalogBetName });
         }
       }
-      if (String(provider).toUpperCase() === "IA") {
+      if (provider.toUpperCase() === "IA") {
         const { getIaA8CollectCredentials } = require("../../platforms/ia/collect_credentials.js");
         const a8 = getIaA8CollectCredentials();
         return ok({
@@ -280,24 +279,19 @@ async function handle(action, body, ctx) {
           BetName: betName && betName !== ".*" ? betName : a8.betName,
         });
       }
-      const out = {
-        Gateway: gateway,
-        Token: token,
-        BetName: betName,
-      };
-      if (String(provider).toUpperCase() === "OB" && row?.gameOddTypes) {
+      const out: Record<string, unknown> = { Gateway: gateway, Token: token, BetName: betName };
+      if (provider.toUpperCase() === "OB" && row?.gameOddTypes) {
         out.GameOddTypes = row.gameOddTypes;
       }
       return ok(out);
     }
     case "Client_GetGames": {
       if (!ctx.user) return fail("请先登录");
-      const provider = body.provider;
+      const provider = String(body.provider || "");
       const fromCatalog = gamesForProvider(provider);
       const row = store.getPlatform(provider);
-      const fromPlatform = Array.isArray(row?.games) ? row.games.map(String) : [];
-      const merged = [...new Set([...fromCatalog, ...fromPlatform])];
-      return ok(merged);
+      const fromPlatform: string[] = Array.isArray(row?.games) ? row.games.map(String) : [];
+      return ok([...new Set([...fromCatalog, ...fromPlatform])]);
     }
     case "API_UpdatePlatform": {
       if (!ctx.user) return fail("请先登录");
@@ -306,21 +300,17 @@ async function handle(action, body, ctx) {
       const prev = store.getPlatform(provider) || {};
       const next = store.setPlatform(provider, {
         gateway: body.gateway ?? prev.gateway ?? "",
-        token: body.token ?? prev.token ?? "",
+        token:   body.token   ?? prev.token   ?? "",
         betName: body.betName ?? prev.betName ?? ".*",
-        games: body.games ? JSON.parse(body.games) : prev.games,
+        games:   body.games ? JSON.parse(body.games as string) : prev.games,
       });
       return ok(next);
     }
     case "API_SaveMatch": {
       if (!ctx.user) return fail("请先登录");
       const provider = body.provider;
-      let matchs = [];
-      try {
-        matchs = JSON.parse(body.matchs || "[]");
-      } catch {
-        return fail("invalid matchs json");
-      }
+      let matchs: unknown[] = [];
+      try { matchs = JSON.parse((body.matchs as string) || "[]"); } catch { return fail("invalid matchs json"); }
       store.saveMatches(provider, matchs);
       return ok(true);
     }
@@ -328,45 +318,35 @@ async function handle(action, body, ctx) {
       if (!ctx.user) return fail("请先登录");
       const provider = body.provider;
       const matchId = body.matchId;
-      let bets = [];
-      try {
-        bets = JSON.parse(body.bets || "[]");
-      } catch {
-        return fail("invalid bets json");
-      }
+      let bets: unknown[] = [];
+      try { bets = JSON.parse((body.bets as string) || "[]"); } catch { return fail("invalid bets json"); }
       store.saveBets(provider, matchId, bets);
       return ok(true);
     }
     case "API_SaveLiveTimer": {
       if (!ctx.user) return fail("请先登录");
       const provider = body.provider;
-      let timer = [];
-      try {
-        timer = JSON.parse(body.timer || "[]");
-      } catch {
-        return fail("invalid timer json");
-      }
+      let timer: unknown[] = [];
+      try { timer = JSON.parse((body.timer as string) || "[]"); } catch { return fail("invalid timer json"); }
       store.saveLiveTimer(provider, timer);
       return ok(true);
     }
-    case "Client_GetMatchs": {
+    case "Client_GetMatchs":
       if (!ctx.user) return fail("请先登录");
       return ok(await store.buildMatchList());
-    }
     case "Client_SaveData": {
       if (!ctx.user) return fail("请先登录");
       if (!body.key) return fail("key required");
       const saved = accountService.handleSaveData(body.key, body.content ?? "", ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
-    case "Client_GetAccounts": {
+    case "Client_GetAccounts":
       if (!ctx.user) return fail("请先登录");
       return ok(store.getAccountsForUser(ctx.user.id));
-    }
     case "Client_SaveAccounts": {
       if (!ctx.user) return fail("请先登录");
-      let accounts = [];
-      try { accounts = JSON.parse(body.accounts || "[]"); } catch { return fail("accounts JSON 无效"); }
+      let accounts: unknown[] = [];
+      try { accounts = JSON.parse((body.accounts as string) || "[]"); } catch { return fail("accounts JSON 无效"); }
       if (!Array.isArray(accounts)) return fail("accounts 必须是数组");
       store.setAccountsForUser(ctx.user.id, accounts);
       return ok(true);
@@ -374,14 +354,16 @@ async function handle(action, body, ctx) {
     case "Client_GetData": {
       if (!ctx.user) return fail("请先登录");
       const data = accountService.handleGetData(body.key, ctx.user.id);
-      if (Array.isArray(data.direct)) return data.direct;
-      if (data.direct && typeof data.direct === "object") return data.direct;
+      // 故意返回裸数组/对象：前端 getClientDataArray 用 Array.isArray(data) 消费，
+      // 不能包 ok()，否则破坏 ACCOUNT/PROXY 等 key 的读取。
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      if (Array.isArray(data.direct)) return data.direct as any;
+      if (data.direct && typeof data.direct === "object") return data.direct as any;
       return ok(data.info);
     }
-    case "Client_GetUserDetail": {
+    case "Client_GetUserDetail":
       if (!ctx.user) return fail("请先登录");
       return ok({ Id: ctx.user.id });
-    }
     case "Client_GetOrderList": {
       if (!ctx.user) return fail("请先登录");
       const page = await accountService.handleGetOrderList(body, ctx.user.id);
@@ -435,19 +417,16 @@ async function handle(action, body, ctx) {
       const row = accountService.handleGetMoneyLog(body);
       return row.ok ? ok(row.info) : fail(row.msg);
     }
-    case "Client_MonthReport": {
+    case "Client_MonthReport":
       if (!ctx.user) return fail("请先登录");
       return ok(monthReport(body.month));
-    }
     case "Client_GetUserProfit": {
       if (!ctx.user) return fail("请先登录");
       const accounts = store.getAccountsForUser(ctx.user.id);
-      const rows = accounts.map((row) => ({
-        UserID: row.accountId,
+      const rows = accounts.map((row: any) => ({
+        UserID:   row.accountId,
         UserName: row.playerName || row.platformName || String(row.accountId),
-        Money: 0,
-        Count: 0,
-        BetMoney: 0,
+        Money: 0, Count: 0, BetMoney: 0,
       }));
       return ok(rows);
     }
@@ -455,20 +434,14 @@ async function handle(action, body, ctx) {
       if (!ctx.user) return fail("请先登录");
       const betId = Number(body.betId);
       const team = String(body.team || "");
-      if (!betId || (team !== "Home" && team !== "Away")) {
-        return fail("betId / team 无效");
-      }
+      if (!betId || (team !== "Home" && team !== "Away")) return fail("betId / team 无效");
       const odds = await store.getDefaultOddsSingle(betId, team);
       return ok({ odds });
     }
     case "Client_GetMatchDefaultOdds": {
       if (!ctx.user) return fail("请先登录");
-      let matchIds = [];
-      try {
-        matchIds = JSON.parse(body.matchs || "[]");
-      } catch {
-        return fail("matchs JSON 无效");
-      }
+      let matchIds: unknown[] = [];
+      try { matchIds = JSON.parse((body.matchs as string) || "[]"); } catch { return fail("matchs JSON 无效"); }
       return ok(await store.getMatchDefaultOdds(matchIds));
     }
     case "Client_CreateTagPlatform": {
@@ -493,10 +466,9 @@ async function handle(action, body, ctx) {
       const users = accountService.handleGetUsers();
       return ok(users.info);
     }
-    case "Client_GetChatHistory": {
+    case "Client_GetChatHistory":
       if (!ctx.user) return fail("请先登录");
       return ok([]);
-    }
     case "Client_SaveUserLog":
     case "SendMessage":
       return ok(true);
@@ -505,86 +477,76 @@ async function handle(action, body, ctx) {
   }
 }
 
-function sendJson(res, status, body) {
+// ── HTTP layer ───────────────────────────────────────────────────────────────
+
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(body));
 }
 
-async function handleEsportRequest(req, res, urlPath) {
+export async function handleEsportRequest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  urlPath: string,
+): Promise<true> {
   const action = actionFromUrl(urlPath);
   try {
     store.ensureSeed();
     accountStore.ensureSeed();
-    if (!action) {
-      sendJson(res, 404, fail("missing action"));
-      return true;
-    }
+    if (!action) { sendJson(res, 404, fail("missing action")); return true; }
     if (req.method !== "POST" && req.method !== "GET") {
       sendJson(res, 405, fail("method not allowed"));
       return true;
     }
 
-    let body = {};
+    let body: Record<string, unknown> = {};
     if (req.method === "POST") {
-      try {
-        body = await parseRequest(req);
-      } catch (err) {
+      try { body = await parseRequest(req); } catch (err: any) {
         sendJson(res, 400, fail(err.message));
         return true;
       }
     }
 
-    const token = req.headers.token || req.headers.Token;
+    const token = String(req.headers.token || ""); // Node.js 会将所有请求头转为小写
     const user = await store.getUserBySupabaseToken(token);
 
     if (action === "Client_Login") {
-      const result = await handleClientLogin(body);
-      sendJson(res, 200, result);
+      sendJson(res, 200, await handleClientLogin(body));
       return true;
     }
 
-    const result = await handle(action, body, { token, user });
-    sendJson(res, 200, result);
+    sendJson(res, 200, await handle(action, body, { token, user }));
     return true;
-  } catch (err) {
+  } catch (err: any) {
     console.error("[esport]", action || urlPath, err);
-    if (!res.headersSent) {
-      sendJson(res, 200, fail(err.message || "服务器错误"));
-    }
+    if (!res.headersSent) sendJson(res, 200, fail(err.message || "服务器错误"));
     return true;
   }
 }
 
-function handleIp(req, res) {
+function handleIp(req: IncomingMessage, res: ServerResponse): true {
   const ip =
-    req.headers["x-forwarded-for"]?.split(",")[0]?.trim()
+    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
     || req.socket?.remoteAddress
     || "127.0.0.1";
   sendJson(res, 200, ok({ IP: ip, Address: ip === "127.0.0.1" ? "本地" : ip }));
   return true;
 }
 
-async function handleIpAddress(req, res) {
-  if (req.method !== "POST") {
-    sendJson(res, 405, fail("method not allowed"));
-    return true;
-  }
-  let body = [];
+async function handleIpAddress(req: IncomingMessage, res: ServerResponse): Promise<true> {
+  if (req.method !== "POST") { sendJson(res, 405, fail("method not allowed")); return true; }
+  let body: string[] = [];
   try {
     const raw = await readBody(req);
     body = raw ? JSON.parse(raw) : [];
-  } catch {
-    body = [];
-  }
-  const info = {};
-  for (const ip of body) {
-    info[String(ip)] = String(ip);
-  }
+  } catch { body = []; }
+  const info: Record<string, string> = {};
+  for (const ip of body) info[String(ip)] = String(ip);
   sendJson(res, 200, ok(info));
   return true;
 }
 
-function handleEsportAhao(req, res, urlPath) {
+function handleEsportAhao(req: IncomingMessage, res: ServerResponse, urlPath: string): true {
   if (urlPath.includes("/api/Auth/phblist")) {
     sendJson(res, 200, { users: [] });
     return true;
@@ -593,35 +555,30 @@ function handleEsportAhao(req, res, urlPath) {
   return true;
 }
 
-async function tryEsportApi(req, res) {
-  const urlPath = req.url.split("?")[0];
-  if (urlPath.startsWith("/esport/")) {
-    return handleEsportRequest(req, res, urlPath);
-  }
-  if (urlPath.startsWith("/esport-ahao/")) {
-    return handleEsportAhao(req, res, urlPath);
-  }
-  if (urlPath.startsWith("/v4.0/")) {
-    return handleV4Request(req, res, urlPath);
-  }
-  if (urlPath.startsWith("/common/")) {
-    return handleCommonApi(req, res, req.url);
-  }
+export async function tryEsportApi(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<boolean> {
+  const urlPath = req.url!.split("?")[0];
+  if (urlPath.startsWith("/esport/"))       return handleEsportRequest(req, res, urlPath);
+  if (urlPath.startsWith("/esport-ahao/"))  return handleEsportAhao(req, res, urlPath);
+  if (urlPath.startsWith("/v4.0/"))         return handleV4Request(req, res, urlPath);
+  if (urlPath.startsWith("/common/"))       return handleCommonApi(req, res, req.url);
   if (urlPath === "/IP" || urlPath === "/IP/Address") {
-    if (urlPath === "/IP/Address") {
-      return handleIpAddress(req, res);
-    }
-    handleIp(req, res);
-    return true;
+    return urlPath === "/IP/Address" ? handleIpAddress(req, res) : handleIp(req, res);
   }
   return false;
 }
 
 /**
  * IPC / 测试直调入口 — 与 handleEsportRequest 逻辑等价，但不依赖 HTTP req/res。
- * 返回值为标准 { success, msg, info } 信封，不会 throw。
+ * 返回值为标准 ApiEnvelope，不会 throw。
  */
-async function callEsportAction(action, body, token) {
+export async function callEsportAction(
+  action: string,
+  body: Record<string, unknown>,
+  token: string,
+): Promise<ApiEnvelope> {
   try {
     store.ensureSeed();
     accountStore.ensureSeed();
@@ -631,15 +588,8 @@ async function callEsportAction(action, body, token) {
     const user = await store.getUserBySupabaseToken(token);
     if (cleanAction === "Client_Login") return handleClientLogin(body);
     return handle(cleanAction, body || {}, { token, user });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[esport:ipc]", action, err);
     return fail(err.message || "服务器错误");
   }
 }
-
-module.exports = {
-  tryEsportApi,
-  handleEsportRequest,
-  callEsportAction,
-  resolveCreditPlateUserName,
-};

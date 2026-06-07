@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
+require('tsx/cjs'); // 允许 require() 加载 .ts 文件
+
 /**
  * 本地聚合服务：esport-api、WS 代理、FeedHub、静态托管。
  *
