@@ -10,6 +10,7 @@ import {
   getClientDataArray,
   saveClientData,
 } from "@/api/esport";
+import { getRefreshToken } from "@/api/client";
 import type { UserInfo } from "@/types/esport";
 import type { MessageConfig, ProxyRow } from "@/types/userExtras";
 import type { FollowConfig } from "@/types/order";
