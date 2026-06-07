@@ -6,15 +6,15 @@ let authToken: string | null =
   typeof localStorage !== "undefined" ? localStorage.getItem("app:token") : null;
 
 let refreshToken: string | null =
-  typeof sessionStorage !== "undefined" ? sessionStorage.getItem("app:refresh-token") : null;
+  typeof localStorage !== "undefined" ? localStorage.getItem("app:refresh-token") : null;
 
 export function getRefreshToken(): string | null { return refreshToken; }
 
 export function setRefreshToken(token: string | null) {
   refreshToken = token;
-  if (typeof sessionStorage !== "undefined") {
-    if (token) sessionStorage.setItem("app:refresh-token", token);
-    else sessionStorage.removeItem("app:refresh-token");
+  if (typeof localStorage !== "undefined") {
+    if (token) localStorage.setItem("app:refresh-token", token);
+    else localStorage.removeItem("app:refresh-token");
   }
 }
 

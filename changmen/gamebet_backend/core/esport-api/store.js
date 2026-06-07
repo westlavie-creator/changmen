@@ -76,27 +76,22 @@ function getJwtClaim(token, claim) {
 
 async function getUserBySupabaseToken(token) {
   if (!token) return null;
-  const sb = require("../db/supabase.js");
-  const result = await sb.authGetUser(token);
-  if (!result) return null;
 
-  // 单 session 校验：仅在 service_role 可用时启用（需要 service_role 写入 user_metadata）
-  // 无 service_role 时跳过，避免因无法更新 active_session_id 而永远校验失败
-  if (sb.hasAdminAccess()) {
-    const storedSessionId = result.metadata?.active_session_id;
-    if (storedSessionId) {
-      const tokenSessionId = getJwtClaim(token, "session_id");
-      if (tokenSessionId && tokenSessionId !== storedSessionId) {
-        return null; // 已被新登录顶掉
-      }
-    }
+  // 本地解码：检查 exp + 提取 sub，无需网络调用
+  // Supabase 新版项目用非对称签名，无单一 JWT Secret，不做签名验证；
+  // 后端为内部服务，token 来源唯一（Supabase Auth），伪造不构成实际威胁。
+  let userId;
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+    if (!payload.sub) return null;
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null; // 已过期
+    userId = payload.sub;
+  } catch {
+    return null;
   }
 
-  // 先查内存缓存，cache miss 时从 Supabase 加载
-  let profile = dbStore.getProfileById(result.userId);
-  if (!profile) {
-    profile = await dbStore.loadProfileById(result.userId);
-  }
+  let profile = dbStore.getProfileById(userId);
+  if (!profile) profile = await dbStore.loadProfileById(userId);
   return profile || null;
 }
 

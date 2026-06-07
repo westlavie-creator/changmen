@@ -23,14 +23,29 @@ function getSupabase() {
   return _sb;
 }
 
+// 加载 team_aliases.json（与后端共用同一份文件）
+let _aliases = null;
+function _getAliases() {
+  if (!_aliases) {
+    try {
+      const raw = require("../gamebet_backend/core/esport-api/team_aliases.json");
+      _aliases = Object.fromEntries(Object.entries(raw).filter(([k]) => !k.startsWith("_")));
+    } catch {
+      _aliases = {};
+    }
+  }
+  return _aliases;
+}
+
 function _norm(name) {
-  return String(name || "")
+  const base = String(name || "")
     .toLowerCase()
     .replace(/[·\-—_·•\s]+/g, " ")
     .replace(/[^\w\s一-鿿]/g, "")
     .trim()
     .replace(/\s+(?:esports?|gaming)$/i, "")
     .trim();
+  return _getAliases()[base] || base;
 }
 
 async function _loadAll(table, select) {
