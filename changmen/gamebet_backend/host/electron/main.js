@@ -1,5 +1,7 @@
 'use strict';
 
+require('tsx/cjs'); // 允许 require() 加载 .ts 文件
+
 const { app, BrowserWindow, shell, Menu, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');

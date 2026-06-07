@@ -48,8 +48,11 @@
     "electron:portable": "powershell -ExecutionPolicy Bypass -File host/electron/build-portable.ps1"
   },
   "devDependencies": {
-    "electron": "^35.7.5",
-    "electron-builder": "^26.8.1"
+    "@types/node": "^25.9.2",
+    "electron": "42.3.3",
+    "electron-builder": "^26.8.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
