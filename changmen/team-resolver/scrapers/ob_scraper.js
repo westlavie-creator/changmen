@@ -18,7 +18,8 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../../gamebet_backend/.env") });
 
 const { createClient } = require("@supabase/supabase-js");
-const { login, obGet } = require("../../gamebet_backend/platforms/ob/ob_session.js");
+const { requirePlatform } = require("../../gamebet_backend/core/shared/adapter_paths.js");
+const { login, obGet } = requirePlatform("OB", "backend", "session.js");
 const { getGameCodeForPlatformId } = require("../../gamebet_backend/core/shared/game_catalog.js");
 const { loadAndCreatePlugin } = require("../supabase_db.js");
 

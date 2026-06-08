@@ -3,7 +3,7 @@ import { getPbLineId } from "./lineCache";
 import { pbPost } from "./transport";
 import { toNumber } from "./parse";
 import { startPbRejectPoll, pbRejectStorageKey } from "./rejectPoll";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@/platforms/contract";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { formatPbDateTime } from "@/shared/format";
 import { PLATFORMS } from "@/shared/platform";
 

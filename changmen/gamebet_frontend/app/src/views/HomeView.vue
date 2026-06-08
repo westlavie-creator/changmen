@@ -17,8 +17,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useBettingStore } from "@/stores/bettingStore";
 import { useMessageStore } from "@/stores/messageStore";
-import { startHgFollowLoop, stopHgFollowLoop } from "@/platforms/hg/follow";
-import { primeStakeTabId } from "@/platforms/stake/tabId";
+import { startHgFollowLoop, stopHgFollowLoop } from "@platform/hg";
+import { primeStakeTabId } from "@platform/stake";
 
 const router = useRouter();
 const user = useUserStore();

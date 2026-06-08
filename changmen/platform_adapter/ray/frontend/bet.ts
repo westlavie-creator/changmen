@@ -1,5 +1,5 @@
 import { BetResult } from "@/models/betResult";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@/platforms/contract";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { accountGet, accountPostForm } from "@/shared/platformHttp";
 import { rayApiPath } from "./collect";
 import { PLATFORMS } from "@/shared/platform";

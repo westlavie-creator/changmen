@@ -1,5 +1,5 @@
 import { BetResult } from "@/models/betResult";
-import type { PlatformProvider } from "@/platforms/contract";
+import type { PlatformProvider } from "@platform/contract";
 import { accountRelayPost } from "@/shared/platformHttp";
 import {
   hgTransformUrl,

@@ -1,8 +1,8 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import { useUserStore } from "@/stores/userStore";
 import { a8Axios, responseBodyText } from "@/shared/a8Axios";
-import { buildPbAuthHeaders } from "@/platforms/pb/auth";
-import { buildTfAccountHeaders, tfGatewayUrl } from "@/platforms/tf/auth";
+import { buildPbAuthHeaders } from "@platform/pb";
+import { buildTfAccountHeaders, tfGatewayUrl } from "@platform/tf";
 
 const RELAY_PATH = "/esport/http-relay";
 const DEFAULT_PROXY_BASE = "http://127.0.0.1:3456";

@@ -1,6 +1,6 @@
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { PlatformProvider } from "@/platforms/contract";
+import type { PlatformProvider } from "@platform/contract";
 import { toBracketForm } from "@/shared/bracketForm";
 import { accountRelayPost } from "@/shared/platformHttp";
 
