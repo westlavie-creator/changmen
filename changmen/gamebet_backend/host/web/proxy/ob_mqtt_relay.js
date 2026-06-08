@@ -2,7 +2,8 @@
 
 const aedes = require("aedes")();
 const { WebSocketServer, createWebSocketStream } = require("ws");
-const { ObRelayCore } = require("../../../relays/ob_relay_core.js");
+const { requirePlatformRelay } = require("../../../core/shared/adapter_paths.js");
+const { ObRelayCore } = requirePlatformRelay("OB");
 
 const WS_PATH = "/esport/ws/OB";
 

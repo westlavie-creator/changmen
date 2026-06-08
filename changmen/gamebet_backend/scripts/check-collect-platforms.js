@@ -15,7 +15,8 @@ const path = require("path");
 const { ESPORT_DATA_DIR } = require("../core/shared/storage_paths.js");
 const store = require("../core/esport-api/store.js");
 const { handleEsportRequest } = require("../core/esport-api/router.js");
-const { getRayA8CollectCredentials } = require("../platforms/ray/collect_credentials.js");
+const { requirePlatform } = require("../core/shared/adapter_paths.js");
+const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");
 const { getPlatformRules, getDefaultMarketCode } = require("../core/shared/market_catalog.js");
 
 const ALL_PLATFORMS = [
@@ -110,7 +111,7 @@ function effectiveCollectPlatform(provider) {
   if (String(provider).toUpperCase() === "RAY") {
     const a8 = getRayA8CollectCredentials();
     return {
-      source: "platforms/ray/collect_credentials.js",
+      source: "platform_adapter/ray/backend/collect_credentials.js",
       gateway: a8.gateway,
       token: a8.token,
       betName: a8.betName || betName,
@@ -211,28 +212,28 @@ async function probePlatform(provider) {
       if (!row?.gateway || !row?.token) {
         return { skipped: true, reason: "无 OB 凭证" };
       }
-      const { obGet } = require("../platforms/ob/ob_session.js");
+      const { obGet } = requirePlatform("OB", "backend", "session.js");
       const r = await obGet(row.gateway, "/game/index?game_id=0&flag=1&day=1", row.token);
       const count = Array.isArray(r.json?.data) ? r.json.data.length : 0;
       return { ok: r.json?.status !== "false", detail: `matches=${count}` };
     }
     case "RAY": {
-      const { login, fetchMatchPage } = require("../platforms/ray/ray_session.js");
+      const { login, fetchMatchPage } = requirePlatform("RAY", "backend", "session.js");
       const session = await login();
       const rows = await fetchMatchPage(session, 1);
       return { ok: Array.isArray(rows), detail: `page1=${rows.length}` };
     }
     case "PB": {
-      const { tryLoadSession, fetchEuroOdds } = require("../platforms/pb/pb_session.js");
+      const { tryLoadSession, fetchEuroOdds } = requirePlatform("PB", "backend", "session.js");
       const session = tryLoadSession();
       if (!session) return { skipped: true, reason: "无 PB 凭证" };
       const payload = await fetchEuroOdds(session);
-      const { parseEuroOddsPayload } = require("../platforms/pb/pb_core.js");
+      const { parseEuroOddsPayload } = requirePlatform("PB", "backend", "core.js");
       const parsed = parseEuroOddsPayload(payload);
       return { ok: parsed.matches.length >= 0, detail: `matches=${parsed.matches.length}` };
     }
     case "TF": {
-      const { tryLoadSession, tfGet } = require("../platforms/tf/tf_session.js");
+      const { tryLoadSession, tfGet } = requirePlatform("TF", "backend", "session.js");
       const session = tryLoadSession();
       if (!session) return { skipped: true, reason: "无 TF 凭证" };
       const data = await tfGet(session, "/api/v8/events/", { page: "1", limit: "5" });
@@ -240,7 +241,7 @@ async function probePlatform(provider) {
       return { ok: true, detail: `events=${count}` };
     }
     case "IA": {
-      const { tryLoadSession, fetchGameList } = require("../platforms/ia/ia_session.js");
+      const { tryLoadSession, fetchGameList } = requirePlatform("IA", "backend", "session.js");
       const session = tryLoadSession();
       if (!session) return { skipped: true, reason: "无 IA 凭证" };
       const list = await fetchGameList(session);
@@ -248,7 +249,7 @@ async function probePlatform(provider) {
       return { ok: true, detail: `matches=${count}` };
     }
     case "IMT": {
-      const { tryLoadSession, fetchAllLiveEvents } = require("../platforms/imt/imt_session.js");
+      const { tryLoadSession, fetchAllLiveEvents } = requirePlatform("IMT", "backend", "session.js");
       const session = tryLoadSession();
       if (!session) return { skipped: true, reason: "无 IMT 凭证" };
       const data = await fetchAllLiveEvents(session, session.sportIds);
@@ -256,16 +257,16 @@ async function probePlatform(provider) {
       return { ok: true, detail: `events=${count}` };
     }
     case "SABA": {
-      const { tryLoadSession, fetchEsportsPage } = require("../platforms/saba/saba_session.js");
+      const { tryLoadSession, fetchEsportsPage } = requirePlatform("SABA", "backend", "session.js");
       const session = tryLoadSession();
       if (!session) return { skipped: true, reason: "无 SABA 凭证" };
       const html = await fetchEsportsPage(session);
-      const Core = require("../platforms/saba/saba_core.js");
+      const Core = requirePlatform("SABA", "backend", "core.js");
       const parsed = Core.parseEsportsPage(html, session.gateway);
       return { ok: Boolean(parsed), detail: parsed ? "page parsed" : "parse failed" };
     }
     case "Stake": {
-      const { tryLoadSession, fetchAllSports } = require("../platforms/stake/stake_session.js");
+      const { tryLoadSession, fetchAllSports } = requirePlatform("Stake", "backend", "session.js");
       const session = tryLoadSession();
       if (!session) return { skipped: true, reason: "无 Stake 凭证" };
       const rows = await fetchAllSports(session);

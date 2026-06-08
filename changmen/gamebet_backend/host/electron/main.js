@@ -9,10 +9,11 @@ if (!fs.existsSync(path.join(__dirname, '../../core/esport-api/router.js'))) {
 
 const { app, BrowserWindow, shell, Menu, ipcMain } = require('electron');
 const http = require('http');
-const { RayRelayCore } = require('../../relays/ray_relay_core.js');
-const { ObRelayCore }  = require('../../relays/ob_relay_core.js');
-const { TfRelayCore }  = require('../../relays/tf_relay_core.js');
-const { IaRelayCore }  = require('../../relays/ia_relay_core.js');
+const { requirePlatformRelay } = require('../../core/shared/adapter_paths.js');
+const { RayRelayCore } = requirePlatformRelay('RAY');
+const { ObRelayCore }  = requirePlatformRelay('OB');
+const { TfRelayCore }  = requirePlatformRelay('TF');
+const { IaRelayCore }  = requirePlatformRelay('IA');
 
 // 打包后从 exe 同级目录加载 .env，开发模式由 web/index.js 的 dotenv.config() 处理
 if (app.isPackaged) {

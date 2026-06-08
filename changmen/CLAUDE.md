@@ -47,7 +47,15 @@ parity-dev.bat            # ESPORT_BRIDGE=0, ENABLE_OB=0
 npm run app:build         # vue-tsc + vite build → gamebet_frontend/app/dist/
 ```
 
-### Tests (run from `gamebet_frontend/app/`)
+### Tests
+
+```bat
+npm test                    # 后端 vitest + adapter 冒烟 + 前端 vitest（含 platform_adapter）
+npm run test:backend
+npm run test:frontend
+```
+
+Frontend-only（在 `gamebet_frontend/app/`）：
 
 ```bat
 npm run test:ob           # offline: GetMatchs shape + provider contract
@@ -68,6 +76,9 @@ npm run check:collect           # print all platform credential status
 npm run check:collect:probe     # + probe each gateway with a live request
 npm run ob:login                # fetch OB trial session and print it
 npm run account:cli             # interactive account manager
+npm run test:adapter            # ob-feed-mode + packaged adapter layout 模拟
+npm run electron:portable       # 便携包 → ../../dist_electron/GameBet-portable.zip
+node scripts/verify-electron-unpacked.js   # 对 dist_electron_staging/win-unpacked 实机冒烟
 ```
 
 ---
@@ -78,6 +89,7 @@ npm run account:cli             # interactive account manager
 
 ```
 changmen/
+├── platform_adapter/     各平台 frontend/backend + registry（canonical 源码）
 ├── gamebet_backend/      Node.js CommonJS, port 3456
 │   ├── host/
 │   │   ├── web/              Web Host（node host/web/index.js）
@@ -95,15 +107,11 @@ changmen/
 │   │   ├── esport-api/           路由/store/match合并/初赔/platform_sync
 │   │   ├── account/              账号 CLI / 订单 / 余额刷新
 │   │   ├── db/                   Supabase 客户端 + 内存缓存
-│   │   ├── shared/               FeedHub / market catalog / odds format / storage_paths
+│   │   ├── shared/               FeedHub / adapter_paths / market catalog / storage_paths
 │   │   └── integrations/         A8 集成（constants / v4 / socket）
-│   ├── relays/               Relay cores（两个 Host 共用）
-│   │   ├── ob_relay_core.js      OB MQTT 上游连接
-│   │   ├── ray_relay_core.js     RAY SocketCluster
-│   │   ├── tf_relay_core.js      TF WebSocket
-│   │   └── ia_relay_core.js      IA Socket.IO
-│   ├── platforms/            各平台后端 feed（ob_feed / ray_feed …）
-│   ├── scripts/              调试 / 运维脚本
+│   ├── platforms/            legacy shim → platform_adapter（阶段 D 删除）
+│   ├── relays/                 legacy shim → platform_adapter/*/backend/relay.js
+│   ├── scripts/              调试 / 运维 / verify-electron-unpacked.js
 │   ├── supabase/             DB 迁移文件
 │   └── public/               静态调试页（/feed/ /platforms/）
 ├── gamebet_frontend/
@@ -121,14 +129,17 @@ changmen/
 |---|---|---|
 | Host 层 | `host/web/` `host/electron/` | 传输适配：HTTP server / IPC handler / WS relay |
 | Core 层 | `core/` | 业务逻辑：路由/store/账号/DB/shared utils |
-| Platform 层 | `platforms/` `relays/` | 平台对接：各场馆 feed + relay core |
+| Platform 层 | `platform_adapter/` | 各场馆 frontend/backend + registry（canonical） |
+| Legacy shim | `platforms/` `relays/` | 一行转发，阶段 D 删除 |
+
+后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` / `requirePlatformFeed` / `requirePlatformRelay` 加载平台模块。详见 `platform_adapter/README.md`。
 
 **两个 Host 入口：**
 - **Web**：`node host/web/index.js` — 启动 HTTP server、FeedHub、WS relay、feed bridge
 - **Electron**：`host/electron/main.js` — 主进程直接 `require('../web/index.js')`，同时注册 IPC handler 和 relay core；`process.versions.electron` 存在时 WS relay 自动跳过
 
 **Relay core 与 proxy 的分工：**
-- `relays/` — 上游连接逻辑（两个 Host 共用），OB/RAY/TF/IA 各一个 core 类
+- `platform_adapter/{ob,ray,tf,ia}/backend/relay.js` — 上游连接逻辑（经 `requirePlatformRelay` 加载）
 - `host/web/proxy/` — Web 专用 WS relay 服务端，把上游推送转发给浏览器；Electron 模式下不启动
 
 | Module | Role |
@@ -163,13 +174,13 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 | Directory | Role |
 |-----------|------|
 | `api/` | All `Client_*` HTTP calls to the backend (`client.ts` wraps token + `post()`) |
-| `platforms/{id}/` | One subdirectory per venue; each has `index.ts` (adapter), `collect.ts` (collector), `bet.ts` (provider) |
-| `platforms/registry.ts` | Single source of truth for platform IDs and capabilities; add new platforms here only |
+| `platforms/{id}/` | Legacy shim → `@platform/{id}`；canonical 在 `platform_adapter/` |
+| `platforms/registry.ts` | Re-export `@platform/registry` |
 | `runtime/` | `collectors.ts` + `providers.ts` — wired at app startup; registers all adapters |
 | `stores/` | 10 Pinia stores; `matchStore` owns the polling loop; `oddsStore` is the real-time odds cache (`fo`) |
 | `shared/http.ts` | `directGet` / `directPostJson` — Axios for collect HTTP (bypasses backend proxy) |
 | `shared/platformHttp.ts` | Axios for betting account HTTP (supports relay, optional SOCKS proxy) |
-| `platforms/shared/socket/` | A8 Socket bridge (`hub.ts`, `collector.ts`, `accumulator.ts`) — used by IM, XBet |
+| `platforms/shared/` | Legacy shim → `@platform/shared/*`（canonical 在 `platform_adapter/shared/`） |
 
 `@` alias maps to `src/`.
 

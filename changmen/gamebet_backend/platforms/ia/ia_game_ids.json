@@ -1,8 +1,4 @@
-{
-  "games": {
-    "1": { "code": "lol", "name": "英雄联盟" },
-    "2": { "code": "dota2", "name": "DOTA2" },
-    "3": { "code": "cs2", "name": "CS2" },
-    "43": { "code": "valorant", "name": "无畏契约" }
-  }
-}
+"use strict";
+
+/** @deprecated 使用 changmen/platform_adapter/ia/backend/game_ids.json */
+module.exports = require("../_shim.js")("ia", "backend", "game_ids.json");

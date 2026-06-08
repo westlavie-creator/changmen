@@ -129,8 +129,10 @@ function _packMatchKey(gameId, hk, ak, kind) {
   const reversed = hk > ak;
   const [first, second] = reversed ? [ak, hk] : [hk, ak];
   const prefix = kind === "id" ? "match:id:" : kind === "name" ? "match:name:" : "match:";
+  const mergeKey = `${prefix}${String(gameId || "")}:${first}:${second}`;
   return {
-    key: stableId(`${prefix}${String(gameId || "")}:${first}:${second}`),
+    mergeKey,
+    key: mergeKey,
     reversed,
     basis: kind === "id" ? "id" : kind === "name" ? "name" : "legacy",
   };

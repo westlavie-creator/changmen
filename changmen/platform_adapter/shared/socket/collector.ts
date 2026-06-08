@@ -1,0 +1,83 @@
+import { A8BetsCollector, type A8BetsMessage } from "./accumulator";
+import { subscribeA8Channel } from "./hub";
+import type { PlatformId } from "@/types/esport";
+import { wait } from "@/shared/wait";
+import { notifyCollectError } from "@platform/shared/collectNotify";
+import { useCollectStore } from "@/stores/collectStore";
+import { useMatchStore } from "@/stores/matchStore";
+
+const SAVE_MS = 60_000;
+const POLL_MS = 5_000;
+
+export function startA8BetsCollector(opts: {
+  platform: PlatformId;
+  channel: string;
+  homeSuffix: string;
+  awaySuffix: string;
+  useDirectIds?: boolean;
+  extraChannels?: Array<{ channel: string; onMessage: (msg: unknown) => void }>;
+}): () => void {
+  let stopped = false;
+  let lastSaveAt = 0;
+  const unsubs: Array<() => void> = [];
+  const acc = new A8BetsCollector(opts.platform, {
+    homeSuffix: opts.homeSuffix,
+    awaySuffix: opts.awaySuffix,
+    useDirectIds: opts.useDirectIds,
+  });
+
+  const collect = useCollectStore();
+  const matchStore = useMatchStore();
+
+  void (async () => {
+    unsubs.push(
+      await subscribeA8Channel(opts.channel, (msg) => {
+        acc.ingest(msg as A8BetsMessage);
+        matchStore.refreshOddsOnBets();
+      }),
+    );
+    for (const extra of opts.extraChannels ?? []) {
+      unsubs.push(await subscribeA8Channel(extra.channel, extra.onMessage));
+    }
+  })();
+
+  const poll = async () => {
+    while (!stopped) {
+      try {
+        if (Date.now() - lastSaveAt > SAVE_MS) {
+          const { matches, betsByMatch } = acc.buildPayload();
+          if (matches.length) {
+            const saved = await collect.saveMatch(opts.platform, matches);
+            if (saved) {
+              for (const [matchId, bets] of betsByMatch) {
+                if (bets.length) await collect.saveBets(opts.platform, matchId, bets);
+              }
+              lastSaveAt = Date.now();
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[${opts.platform}] collect error`, err);
+        notifyCollectError(opts.platform, err);
+      }
+      await wait(POLL_MS);
+    }
+  };
+
+  void poll();
+
+  return () => {
+    stopped = true;
+    for (const unsub of unsubs) unsub();
+  };
+}
+
+/** 供 Stake GraphQL 等 HTTP 快照复用同一 accumulator */
+export function createA8BetsCollector(opts: {
+  platform: PlatformId;
+  homeSuffix: string;
+  awaySuffix: string;
+  useDirectIds?: boolean;
+}) {
+  return new A8BetsCollector(opts.platform, opts);
+}

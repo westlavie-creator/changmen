@@ -1,7 +1,4 @@
-{
-  "description": "IMT SportId（st 字段）。默认 43 为电竞大类，可用 IMT_SPORT_IDS 覆盖。",
-  "sports": {
-    "43": { "code": "esports", "name": "电竞" }
-  },
-  "defaultSportIds": ["43"]
-}
+"use strict";
+
+/** @deprecated 使用 changmen/platform_adapter/imt/backend/sport_ids.json */
+module.exports = require("../_shim.js")("imt", "backend", "sport_ids.json");

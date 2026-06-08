@@ -21,7 +21,8 @@ const { parseClipboardCredential, encodeClipboardCredential } = require("../core
 const { importPlatformCredential } = require("../core/shared/import_platform_credential.js");
 const { saveA8Config, CONFIG_FILE } = require("../core/integrations/a8/config.js");
 const { syncPbFromSession } = require("../core/esport-api/platform_sync.js");
-const { tryLoadSession } = require("../platforms/pb/pb_session.js");
+const { requirePlatform } = require("../core/shared/adapter_paths.js");
+const { tryLoadSession } = requirePlatform("PB", "backend", "session.js");
 const store = require("../core/esport-api/store.js");
 
 function usage() {

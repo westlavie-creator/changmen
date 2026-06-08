@@ -1,0 +1,11 @@
+{
+  "updatedAt": "2026-05-24",
+  "source": "arch-scan tf-api events + A8 IA 采集 game 列表对齐",
+  "games": {
+    "1": { "name": "CS2", "code": "cs2", "legacyName": "CS:GO" },
+    "2": { "name": "DOTA2", "code": "dota2" },
+    "3": { "name": "英雄联盟", "code": "lol" },
+    "16": { "name": "无畏契约", "code": "valorant" },
+    "43": { "name": "王者荣耀", "code": "kog" }
+  }
+}

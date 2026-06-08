@@ -1,4 +1,5 @@
-import { defineConfig } from "vite";
+/// <reference types="vitest/config" />
+import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath, URL } from "node:url";
 
@@ -10,6 +11,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "@platform": fileURLToPath(new URL("../../platform_adapter", import.meta.url)),
+      mqtt: fileURLToPath(new URL("./node_modules/mqtt", import.meta.url)),
+      "socket.io-client": fileURLToPath(
+        new URL("./node_modules/socket.io-client", import.meta.url),
+      ),
+      "socketcluster-client": fileURLToPath(
+        new URL("./node_modules/socketcluster-client", import.meta.url),
+      ),
     },
   },
   server: {
@@ -23,5 +32,11 @@ export default defineConfig({
       "/api": { target: API_TARGET, changeOrigin: true },
       "/v4.0": { target: API_TARGET, changeOrigin: true },
     },
+  },
+  test: {
+    include: [
+      "src/**/*.{test,spec}.{js,mjs,ts}",
+      "../../platform_adapter/**/frontend/**/*.{test,spec}.{js,mjs,ts}",
+    ],
   },
 });

@@ -16,8 +16,25 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "paths": { "@/*": ["./src/*"] },
+    "resolveJsonModule": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@platform/*": ["../../platform_adapter/*"],
+      "mqtt": ["./node_modules/mqtt"],
+      "socket.io-client": ["./node_modules/socket.io-client"],
+      "socketcluster-client": ["./node_modules/socketcluster-client"]
+    },
     "baseUrl": "."
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "../../platform_adapter/**/index.ts",
+    "../../platform_adapter/**/frontend/**/*.ts",
+    "../../platform_adapter/shared/**/*.ts",
+    "../../platform_adapter/registry/**/*.ts",
+    "../../platform_adapter/contract/**/*.ts"
+  ],
+  "exclude": ["../../platform_adapter/**/*.test.ts"]
 }
