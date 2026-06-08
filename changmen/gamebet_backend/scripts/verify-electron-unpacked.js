@@ -8,7 +8,7 @@
  *   node scripts/verify-electron-unpacked.js
  *   node scripts/verify-electron-unpacked.js path/to/win-unpacked
  *
- * 默认目录：dist_electron/LATEST_STAGING.txt → 最新 dist_electron_staging_* / 旧 dist_electron_staging
+ * 默认目录：changmen/dist/electron/LATEST_STAGING.txt → 最新 staging_*
  */
 
 const fs = require("fs");
@@ -17,26 +17,17 @@ const http = require("http");
 const { spawn } = require("child_process");
 
 const backendRoot = path.join(__dirname, "..");
-const repoRoot = path.resolve(backendRoot, "../..");
+const changmenRoot = path.resolve(backendRoot, "..");
+const electronDist = path.join(changmenRoot, "dist", "electron");
+const repoRoot = path.resolve(changmenRoot, "..");
 
-function resolveDefaultUnpacked() {
-  const pointer = path.join(repoRoot, "dist_electron", "LATEST_STAGING.txt");
-  if (fs.existsSync(pointer)) {
-    const name = fs.readFileSync(pointer, "utf8").trim();
-    if (name) {
-      const fromPointer = path.join(repoRoot, name, "win-unpacked");
-      if (fs.existsSync(fromPointer)) return fromPointer;
-    }
-  }
-
-  const legacy = path.join(repoRoot, "dist_electron_staging", "win-unpacked");
-  if (fs.existsSync(legacy)) return legacy;
-
+function newestStagingUnpacked(parentDir, namePrefix) {
+  if (!fs.existsSync(parentDir)) return null;
   let best = null;
   let bestMtime = 0;
-  for (const ent of fs.readdirSync(repoRoot, { withFileTypes: true })) {
-    if (!ent.isDirectory() || !ent.name.startsWith("dist_electron_staging_")) continue;
-    const candidate = path.join(repoRoot, ent.name, "win-unpacked");
+  for (const ent of fs.readdirSync(parentDir, { withFileTypes: true })) {
+    if (!ent.isDirectory() || !ent.name.startsWith(namePrefix)) continue;
+    const candidate = path.join(parentDir, ent.name, "win-unpacked");
     if (!fs.existsSync(candidate)) continue;
     const mtime = fs.statSync(candidate).mtimeMs;
     if (mtime > bestMtime) {
@@ -44,9 +35,37 @@ function resolveDefaultUnpacked() {
       best = candidate;
     }
   }
-  if (best) return best;
+  return best;
+}
 
-  return legacy;
+function resolveDefaultUnpacked() {
+  const pointer = path.join(electronDist, "LATEST_STAGING.txt");
+  if (fs.existsSync(pointer)) {
+    const name = fs.readFileSync(pointer, "utf8").trim();
+    if (name) {
+      const fromPointer = path.join(electronDist, name, "win-unpacked");
+      if (fs.existsSync(fromPointer)) return fromPointer;
+    }
+  }
+
+  const fromElectronDist = newestStagingUnpacked(electronDist, "staging_");
+  if (fromElectronDist) return fromElectronDist;
+
+  // legacy: repo-root dist_electron_* before changmen/dist/electron layout
+  const legacyPointer = path.join(repoRoot, "dist_electron", "LATEST_STAGING.txt");
+  if (fs.existsSync(legacyPointer)) {
+    const name = fs.readFileSync(legacyPointer, "utf8").trim();
+    if (name) {
+      const fromPointer = path.join(repoRoot, name, "win-unpacked");
+      if (fs.existsSync(fromPointer)) return fromPointer;
+    }
+  }
+  const legacyStaging = path.join(repoRoot, "dist_electron_staging", "win-unpacked");
+  if (fs.existsSync(legacyStaging)) return legacyStaging;
+  const fromRepoRoot = newestStagingUnpacked(repoRoot, "dist_electron_staging_");
+  if (fromRepoRoot) return fromRepoRoot;
+
+  return path.join(electronDist, "staging_placeholder", "win-unpacked");
 }
 
 const unpacked = path.resolve(process.argv[2] || resolveDefaultUnpacked());

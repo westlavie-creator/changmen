@@ -67,7 +67,7 @@ if ($code -ne 0) {
 Write-Host ''
 Write-Host '========================================'
 Write-Host '  Done!' -ForegroundColor Green
-Write-Host "  Output: $root\..\dist_electron\GameBet-portable.zip"
+Write-Host "  Output: $root\dist\electron\GameBet-portable.zip"
 Write-Host '========================================'
 Write-Host ''
 Read-Host 'Press Enter to close'

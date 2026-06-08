@@ -1,0 +1,8 @@
+# Legacy Electron build output at repo root (use changmen/dist/electron/ instead)
+/dist_electron/
+/dist_electron_*/
+/dist_electron_verify/
+
+# Local scratch
+/temp/
+/_asar_test/

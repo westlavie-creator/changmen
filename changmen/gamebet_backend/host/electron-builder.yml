@@ -3,7 +3,7 @@ productName: GameBet
 copyright: Copyright © 2026
 
 directories:
-  output: ../../dist_electron
+  output: ../dist/electron
   buildResources: host/electron/assets
 
 # 打包进 asar 的文件（相对于 gamebet_backend/）
