@@ -50,4 +50,4 @@ npm run web         # 启动 gamebet_backend
 
 - 前端 HTTP 调 `/esport/*`、`/common/*` → **gamebet_backend** `esport-api`
 - WS 调 `/esport/ws/*` → **gamebet_backend** `proxy`（浏览器直连平台的隧道，非 Node Feed）
-- 样式 stub `/esport2/assets/*` 由 **gamebet_backend** `public/esport2/` 提供
+- 样式 `/esport2/assets/*` 由 **gamebet_backend** `public/esport2/` 提供；首次或缺图时执行 `npm run sync:a8-assets --prefix gamebet_backend`（从 A8 CDN 拉取，Font Awesome 走 FA 4.7 官方源）
