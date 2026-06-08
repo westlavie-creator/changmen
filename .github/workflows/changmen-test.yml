@@ -1,0 +1,38 @@
+name: changmen test
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - "changmen/**"
+      - ".github/workflows/changmen-test.yml"
+  pull_request:
+    paths:
+      - "changmen/**"
+      - ".github/workflows/changmen-test.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            changmen/gamebet_backend/package-lock.json
+            changmen/gamebet_frontend/app/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: changmen/gamebet_backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: changmen/gamebet_frontend/app
+        run: npm ci
+
+      - name: npm test
+        working-directory: changmen
+        run: npm test
