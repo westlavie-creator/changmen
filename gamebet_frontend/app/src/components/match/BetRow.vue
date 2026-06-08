@@ -38,8 +38,7 @@ function itemOdds(item: ViewBet["items"][0], side: BetSide) {
 function itemFlash(item: ViewBet["items"][0], side: BetSide) {
   void revision.value;
   void matchTick.value;
-  const foSide = side === "Home" ? "home" : "away";
-  return oddsStore.getFlashForBetSide(item.type, item.betId, foSide, item.homeId, item.awayId);
+  return oddsStore.getFlash(item.type, side === "Home" ? item.homeId : item.awayId);
 }
 
 const arb = computed(() => {

@@ -15,6 +15,7 @@ const { getPandascoreEndpoint } = require("../game_map");
 
 const BASE_URL = "https://api.pandascore.co";
 let _token = process.env.PANDASCORE_TOKEN || "";
+const ENABLE_ACRONYM_MATCHING = false; // 临时禁用 acronym 自动解析，避免短缩写歧义。
 
 function setToken(token) {
   _token = token;
@@ -62,10 +63,12 @@ async function searchTeam(name, gameCode) {
 
   const teamsPath = `${ep}/teams`;
 
-  // 1. acronym 精确过滤（适用于 "EDG"、"NAVI"、"G2" 等缩写）
-  const acronymUrl = _buildUrl(teamsPath, { "filter[acronym]": name.toUpperCase(), per_page: 5 });
-  const byAcronym = (await _get(acronymUrl)).map(_mapTeam);
-  if (byAcronym.length) return byAcronym;
+  // 1. acronym 精确过滤（临时禁用，DK/GG 等短缩写在同游戏内并不唯一）
+  if (ENABLE_ACRONYM_MATCHING) {
+    const acronymUrl = _buildUrl(teamsPath, { "filter[acronym]": name.toUpperCase(), per_page: 5 });
+    const byAcronym = (await _get(acronymUrl)).map(_mapTeam);
+    if (byAcronym.length) return byAcronym;
+  }
 
   // 2. name 全文搜索（适用于 "Edward Gaming"、"Natus Vincere" 等全称）
   const nameUrl = _buildUrl(teamsPath, { "search[name]": name, per_page: 10 });
@@ -85,7 +88,7 @@ function pickBestMatch(query, candidates) {
   const qUpper = query.trim().toUpperCase();
 
   for (const c of candidates) {
-    if (c.acronym && c.acronym.toUpperCase() === qUpper) {
+    if (ENABLE_ACRONYM_MATCHING && c.acronym && c.acronym.toUpperCase() === qUpper) {
       return { ...c, confidence: 1.0, matchType: "acronym" };
     }
   }
@@ -97,7 +100,7 @@ function pickBestMatch(query, candidates) {
   }
 
   for (const c of candidates) {
-    if (isAcronymOf(query, c.name)) {
+    if (ENABLE_ACRONYM_MATCHING && isAcronymOf(query, c.name)) {
       return { ...c, confidence: 0.85, matchType: "acronym_inferred" };
     }
   }
@@ -107,7 +110,7 @@ function pickBestMatch(query, candidates) {
   for (const c of candidates) {
     const score = similarity(query, c.name);
     if (score > bestScore) { bestScore = score; best = c; }
-    if (c.acronym) {
+    if (ENABLE_ACRONYM_MATCHING && c.acronym) {
       const aScore = similarity(query, c.acronym);
       if (aScore > bestScore) { bestScore = aScore; best = c; }
     }

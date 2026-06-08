@@ -8,28 +8,6 @@ import { sortOptionsByWinRate } from "@/shared/winRate";
 
 export type BetSide = "Home" | "Away";
 
-function syncObItemIdsFromFo(
-  item: ViewBetItem,
-  oddsStore: ReturnType<typeof useOddsStore>,
-) {
-  const home = oddsStore.resolveOddsIdForBetSide(
-    item.type,
-    item.betId,
-    "home",
-    item.homeId,
-    item.awayId,
-  );
-  const away = oddsStore.resolveOddsIdForBetSide(
-    item.type,
-    item.betId,
-    "away",
-    item.homeId,
-    item.awayId,
-  );
-  if (home && home !== item.homeId) item.homeId = home;
-  if (away && away !== item.awayId) item.awayId = away;
-}
-
 export class ViewBetItem {
   type: PlatformId;
   matchId: string;
@@ -62,35 +40,11 @@ export class ViewBetItem {
   getOdds(side: BetSide) {
     const oddsStore = useOddsStore();
     const fallback = side === "Home" ? this.fallbackHomeOdds : this.fallbackAwayOdds;
-    if (this.type === PLATFORMS.OB) {
-      const foSide = side === "Home" ? "home" : "away";
-      return (
-        oddsStore.getOddsForBetSide(
-          this.type,
-          this.betId,
-          foSide,
-          this.homeId,
-          this.awayId,
-          fallback,
-        ) || 0
-      );
-    }
     return oddsStore.getOdds(this.type, this.getItemId(side), fallback) || 0;
   }
 
-  /** 对齐 A8 `BQ.updateOdds`：把 fo 当前值写回 fallback，供 maxOdds 等使用 */
+  /** 对齐 A8 `FQ.updateOdds`：把 fo 当前值写回 fallback，供 maxOdds 等使用 */
   updateOdds() {
-    const oddsStore = useOddsStore();
-    if (this.type === PLATFORMS.OB) {
-      this.fallbackHomeOdds =
-        oddsStore.getOddsForBetSide(this.type, this.betId, "home", this.homeId, this.awayId, 0) ||
-        0;
-      this.fallbackAwayOdds =
-        oddsStore.getOddsForBetSide(this.type, this.betId, "away", this.homeId, this.awayId, 0) ||
-        0;
-      syncObItemIdsFromFo(this, oddsStore);
-      return;
-    }
     this.fallbackHomeOdds = this.getOdds("Home");
     this.fallbackAwayOdds = this.getOdds("Away");
   }

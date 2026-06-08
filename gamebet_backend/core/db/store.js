@@ -216,12 +216,12 @@ function getClientMatches() {
     .sort((a, b) => (a.StartTime || 0) - (b.StartTime || 0))
 }
 
-/** 从 Supabase 加载 client_matches，仅在内存为空时写入（冷启动专用） */
+/** 从 Supabase 加载 client_matches（每次请求刷新，matcher 写入后前端轮询能拿到最新盘口） */
 async function loadClientMatchesFromSupabase() {
-  if (_clientMatches.size) return getClientMatches()  // 内存已有数据，直接返回
   const data = await sb.fetchClientMatches()
-  if (!data) return null
+  if (!data?.length) return _clientMatches.size ? getClientMatches() : null
   const now = Date.now()
+  _clientMatches.clear()
   for (const row of data) {
     _clientMatches.set(Number(row.id), {
       ID: row.id, Title: row.title || '', Game: row.game || '',
@@ -231,7 +231,6 @@ async function loadClientMatchesFromSupabase() {
       built_at: row.built_at || now,
     })
   }
-  console.log('[db:supabase] loadClientMatches:', data.length, '条')
   return getClientMatches()
 }
 

@@ -9,6 +9,9 @@
     "web:restart": "npm run web:restart --prefix gamebet_backend",
     "app:dev": "npm run dev --prefix gamebet_frontend/app",
     "app:build": "npm run build --prefix gamebet_frontend/app",
-    "app:install": "npm install --prefix gamebet_frontend/app"
+    "app:install": "npm install --prefix gamebet_frontend/app",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "npm run test --prefix gamebet_backend",
+    "test:frontend": "npm run test --prefix gamebet_frontend/app"
   }
 }

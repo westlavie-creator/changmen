@@ -3,18 +3,12 @@
 const fs = require("fs");
 const path = require("path");
 const { ESPORT_DATA_DIR } = require("../shared/storage_paths.js");
-const { buildClientMatchList, canonicalMatchKey } = require("./match_merge");
-const { resolveClientGame } = require("../shared/game_catalog");
-const { formatOdds, formatBetOdds } = require("../shared/odds_format.js");
+const { formatBetOdds } = require("../shared/odds_format.js");
 const { a8StartTimeListAllowed } = require("../integrations/a8/match_time.js");
 const { createDefaultOddsApi } = require("./default_odds.js");
 const dbStore = require("../db/store.js");
 
 const DATA_DIR = ESPORT_DATA_DIR;
-const CLIENT_MATCHS_DEBOUNCE_MS = Number(process.env.ESPORT_CLIENT_MATCHS_DEBOUNCE_MS || 400);
-
-let clientMatchsRebuildTimer = null;
-
 // 内存缓存（替代 matches.json / bets.json / live_timers.json）
 const _matches = {};   // { [provider]: { [matchId]: matchData } }
 const _bets = {};      // { [provider:matchId]: { provider, matchId, bets } }
@@ -136,13 +130,10 @@ function saveMatches(provider, matchs) {
     if (!m || m.SourceMatchID == null) continue;
     const start = Number(m.StartTime || 0);
     if (start > 0 && !a8StartTimeListAllowed(start)) continue;
-    const { GameID } = resolveClientGame(provider, m.SourceGameID ?? m.GameID);
-    const ck = canonicalMatchKey(GameID, m.Home || "", m.Away || "");
-    next[String(m.SourceMatchID)] = { ...m, provider, savedAt: now, _clientMatchId: ck?.key ?? null };
+    next[String(m.SourceMatchID)] = { ...m, provider, savedAt: now };
   }
   _matches[provider] = next;
   pruneBetsForProvider(provider, Object.keys(next));
-  rebuildClientMatchListNow();
   const sb = require("../db/supabase.js");
   sb.writePlatformMatches(provider, Object.values(next));
 }
@@ -170,18 +161,15 @@ function saveBets(provider, matchId, bets) {
   if (incoming.length === 0) {
     if (existing.length > 0) return;
     _bets[key] = { provider, matchId: String(matchId), bets: [], savedAt: Date.now() };
-    scheduleRebuildClientMatchList();
     return;
   }
   _bets[key] = { provider, matchId: String(matchId), bets: mergeBetsByMap(existing, incoming), savedAt: Date.now() };
-  scheduleRebuildClientMatchList();
   const sb = require("../db/supabase.js");
   sb.writePlatformBets(provider, matchId, incoming);
 }
 
 function saveLiveTimer(provider, timer) {
   _timers[provider] = { provider, timer, savedAt: Date.now() };
-  scheduleRebuildClientMatchList();
   const sb = require("../db/supabase.js");
   sb.writeLiveTimers(provider, timer);
 }
@@ -206,42 +194,11 @@ function updateAccountForUser(userId, accountId, updates) { return dbStore.updat
 function removeAccountForUser(userId, accountId) { return dbStore.removeAccountForUser(userId, accountId); }
 
 // ── match list ────────────────────────────────────────────────────────────────
-function sourceFromBet(provider, b) {
-  return {
-    Type: provider,
-    BetID: String(b.SourceBetID),
-    HomeID: String(b.SourceHomeID),
-    AwayID: String(b.SourceAwayID),
-    HomeOdds: formatOdds(b.HomeOdds),
-    AwayOdds: formatOdds(b.AwayOdds),
-    Status: b.Status || "Normal",
-  };
-}
-
-function rebuildClientMatchListNow() {
-  const info = buildClientMatchList({ matches: _matches, bets: _bets, timers: _timers, sourceFromBet });
-  dbStore.saveClientMatches(info);
-  dbStore.pruneClientMatches(info.map((m) => Number(m.ID)));
-  defaultOddsApi.recordFromMatchList(info);
-  return info;
-}
-
-function scheduleRebuildClientMatchList() {
-  if (clientMatchsRebuildTimer) clearTimeout(clientMatchsRebuildTimer);
-  clientMatchsRebuildTimer = setTimeout(() => {
-    clientMatchsRebuildTimer = null;
-    try { rebuildClientMatchListNow(); } catch (err) { console.error("[store] rebuild failed:", err.message); }
-  }, CLIENT_MATCHS_DEBOUNCE_MS);
-}
 
 async function buildMatchList() {
-  // 优先用内存缓存（rebuildClientMatchListNow 同步写入，RoundStart 始终最新）
-  const fromMem = dbStore.getClientMatches();
-  if (fromMem?.length) return fromMem;
-  // 冷启动（内存空）：从 Supabase 恢复，round_start 可能为 0 直到首次 rebuild
+  // 从 Supabase 读取 client_matches（由独立 matcher 进程写入）
   const fromDb = await dbStore.loadClientMatchesFromSupabase();
-  if (fromDb?.length) return fromDb;
-  return rebuildClientMatchListNow();
+  return fromDb || [];
 }
 
 function getMatchDefaultOdds(matchIds) { return defaultOddsApi.getMatchDefaultOdds(matchIds, () => buildMatchList()); }
@@ -260,6 +217,5 @@ module.exports = {
   getUserSetting, setUserSetting,
   getAccountsForUser, setAccountsForUser, updateAccountForUser, removeAccountForUser,
   parseKvContent, buildMatchList, getMatchDefaultOdds, getDefaultOddsSingle,
-  rebuildClientMatchListNow, scheduleRebuildClientMatchList,
   readJson, writeJson,
 };

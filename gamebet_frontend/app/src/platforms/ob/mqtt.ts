@@ -1,16 +1,13 @@
-import mqtt, { type MqttClient } from "mqtt";
 import { getCollectPlatform } from "@/api/esport";
 import type { ViewMatch } from "@/models/match";
-import { PLATFORMS, OB_MQTT_PASS, OB_MQTT_USER, relayWsUrl } from "@/shared/platform";
+import { PLATFORMS } from "@/shared/platform";
 import { getObBetNameRe } from "./parse";
 import { refreshObMatchMarkets } from "./markets";
 import { parseObOddField } from "./parse";
 import { useOddsStore } from "@/stores/oddsStore";
+import { createObRealtimeClient, type ObRealtimeClient } from "./realtime";
 
 const PLATFORM = PLATFORMS.OB;
-
-/** 对齐 A8 UMe：固定 clientId（与 index.js 一致） */
-const OB_MQTT_CLIENT_ID = "mqttjs_dj1250901313125773543";
 
 function parseTopic(topic: string): { topic: string; matchId: string } | null {
   const m = /(.+?)(\d+)/.exec(topic);
@@ -41,12 +38,10 @@ export function obSourceMatchId(match: ViewMatch): string | null {
   return String(id);
 }
 
-let client: MqttClient | null = null;
+let realtime: ObRealtimeClient | null = null;
 const subscribedIds = new Set<string>();
 let onRefresh: (() => void) | null = null;
 let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-let electronObConnected = false;
-let removeElectronObMessageListener: (() => void) | null = null;
 
 const MQTT_REFRESH_DEBOUNCE_MS = 200;
 
@@ -68,15 +63,19 @@ function clearMqttRefreshDebounce(): void {
 
 /** 是否已连上 OB relay；对齐 A8 仍每轮 HTTP 灌盘，MQTT 仅增量改 fo */
 export function isObMqttConnected(): boolean {
-  if (window.gamebetRelays?.ob) return electronObConnected;
-  return Boolean(client?.connected);
+  return Boolean(realtime?.connected());
 }
 
 export function isObMatchSubscribed(sourceMatchId: string): boolean {
   return subscribedIds.has(String(sourceMatchId));
 }
 
-function handleObMqttMessage(topic: string, payload: string) {
+export function handleObMqttMessage(
+  topic: string,
+  payload: string,
+  refresh: () => void = scheduleMqttRefresh,
+  now = Date.now(),
+) {
   const odds = useOddsStore();
 
   odds.updateMessage(PLATFORM, payload);
@@ -106,24 +105,24 @@ function handleObMqttMessage(topic: string, payload: string) {
             isLock: false,
             betId: String(row.market_id ?? prev?.betId ?? ""),
             side: prev?.side,
-            time: Date.now(),
+            time: now,
           },
           "mqtt",
         );
       }
-      scheduleMqttRefresh();
+      refresh();
       break;
     case "/market/statusUpdate/":
       for (const row of rows) {
         odds.updateBetLock(PLATFORM, String(row.market_id ?? ""), true);
       }
-      scheduleMqttRefresh();
+      refresh();
       break;
     case "/market/suspended/":
       for (const row of rows) {
         odds.updateBetLock(PLATFORM, String(row.market_id ?? ""), row.suspended === 1);
       }
-      scheduleMqttRefresh();
+      refresh();
       break;
     default:
       // /odd/*、/market/visible/ 等：A8 UMe 同样无 handler，仅订阅保持与源站一致
@@ -131,70 +130,18 @@ function handleObMqttMessage(topic: string, payload: string) {
   }
 }
 
-function wireMessageHandler() {
-  if (!client) return;
-
-  client.on("message", (topic, buf) => {
-    handleObMqttMessage(topic, buf.toString());
-  });
-}
-
 export function connectObMqtt(refresh: () => void): void {
   onRefresh = refresh;
-  if (window.gamebetRelays?.ob) {
-    removeElectronObMessageListener?.();
-    removeElectronObMessageListener = window.gamebetRelays.ob.onMessage((message) => {
-      handleObMqttMessage(message.topic, message.payload);
-    });
-    electronObConnected = true;
-    void window.gamebetRelays.ob.start().then((status) => {
-      electronObConnected = Boolean(status.upstreamConnected);
-      for (const id of subscribedIds) {
-        for (const topic of obSubscribeTopics(id)) {
-          void window.gamebetRelays?.ob.subscribe(topic);
-        }
-      }
-      scheduleMqttRefresh();
-    });
-    return;
-  }
-  if (client?.connected) return;
-  if (client) {
-    client.removeAllListeners();
-    client.end(true);
-    client = null;
-  }
+  if (!realtime) realtime = createObRealtimeClient();
+  if (realtime.connected()) return;
 
-  const wsUrl = relayWsUrl("/esport/ws/OB");
-  client = mqtt.connect(wsUrl, {
-    username: OB_MQTT_USER,
-    password: OB_MQTT_PASS,
-    clientId: OB_MQTT_CLIENT_ID,
-    clean: true,
-    keepalive: 60,
-    reconnectPeriod: 5000,
-    protocolId: "MQTT",
-    protocolVersion: 4,
-    connectTimeout: 15_000,
-  });
-
-  wireMessageHandler();
-
-  client.on("error", (err) => {
-    console.warn("[OB MQTT] error", err.message, wsUrl);
-  });
-  client.on("offline", () => {
-    console.warn("[OB MQTT] offline", wsUrl);
-  });
-  client.on("reconnect", () => {
-    console.debug("[OB MQTT] reconnecting…");
-  });
-
-  client.on("connect", () => {
-    console.info("[OB MQTT] connected", wsUrl);
-    // mqtt.js 在 clean=true 下重连不会保留订阅，必须主动重订阅，否则会“断流”导致赔率长期停在旧值
+  void realtime.start((message) => {
+    handleObMqttMessage(message.topic, message.payload);
+  }).then(() => {
     for (const id of subscribedIds) {
-      client?.subscribe(obSubscribeTopics(id));
+      for (const topic of obSubscribeTopics(id)) {
+        void realtime?.subscribe(topic);
+      }
     }
     scheduleMqttRefresh();
   });
@@ -202,51 +149,25 @@ export function connectObMqtt(refresh: () => void): void {
 
 export function disconnectObMqtt(): void {
   clearMqttRefreshDebounce();
-  if (window.gamebetRelays?.ob) {
-    for (const id of [...subscribedIds]) {
-      for (const topic of obSubscribeTopics(id)) {
-        void window.gamebetRelays.ob.unsubscribe(topic);
-      }
-    }
-    subscribedIds.clear();
-    removeElectronObMessageListener?.();
-    removeElectronObMessageListener = null;
-    electronObConnected = false;
-    void window.gamebetRelays.ob.stop();
-    return;
-  }
   for (const id of [...subscribedIds]) {
-    if (client?.connected) client.unsubscribe(obSubscribeTopics(id));
+    for (const topic of obSubscribeTopics(id)) {
+      void realtime?.unsubscribe(topic);
+    }
   }
   subscribedIds.clear();
-  client?.end(true);
-  client = null;
+  void realtime?.stop();
+  realtime = null;
 }
 
 function subscribeObMatch(matchId: string): Promise<void> {
-  if (window.gamebetRelays?.ob) {
-    return Promise.all(
-      obSubscribeTopics(matchId).map((topic) => window.gamebetRelays!.ob.subscribe(topic)),
-    ).then(() => undefined);
-  }
-  return new Promise((resolve) => {
-    if (!client?.connected) {
-      resolve();
-      return;
-    }
-    client.subscribe(obSubscribeTopics(matchId), () => resolve());
-  });
+  return Promise.all(obSubscribeTopics(matchId).map((topic) => realtime?.subscribe(topic)))
+    .then(() => undefined);
 }
 
 function unsubscribeObMatch(matchId: string): void {
-  if (window.gamebetRelays?.ob) {
-    for (const topic of obSubscribeTopics(matchId)) {
-      void window.gamebetRelays.ob.unsubscribe(topic);
-    }
-    return;
+  for (const topic of obSubscribeTopics(matchId)) {
+    void realtime?.unsubscribe(topic);
   }
-  if (!client?.connected) return;
-  client.unsubscribe(obSubscribeTopics(matchId));
 }
 
 /** A8 UMe：灌盘前 unsub 该场全部 topic */

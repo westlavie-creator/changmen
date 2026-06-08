@@ -1,17 +1,16 @@
-import { io, type Socket } from "socket.io-client";
 import { getCollectPlatform, getGames } from "@/api/esport";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import type { CollectPlatformInfo } from "@/types/esport";
-import { PLATFORMS, relayWsUrl } from "@/shared/platform";
+import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@/platforms/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
-import { useMatchStore } from "@/stores/matchStore";
+import { handleIaRealtimeMessage } from "./messages";
+import { createIaRealtimeClient, type IaRealtimeClient } from "./realtime";
 
 const PLATFORM = PLATFORMS.IA;
 const POLL_MS = 30_000;
-const IA_WS_PATH = "/esport/ws/IA";
 
 function parseStartTime(raw: unknown): number {
   if (!raw) return Date.now();
@@ -56,89 +55,16 @@ async function collectIaPost<T>(
   return res.json() as Promise<T>;
 }
 
-type IaRelayApi = {
-  start: () => Promise<unknown>;
-  stop: () => Promise<unknown>;
-  onMessage: (cb: (msg: Record<string, unknown>) => void) => () => void;
-};
-
-function iaIpcRelay(): IaRelayApi | null {
-  const api = (window as unknown as { gamebetRelays?: { ia?: IaRelayApi | null } })
-    .gamebetRelays?.ia;
-  return api ?? null;
-}
-
 export function startIaCollector(): () => void {
   let stopped = false;
-  let socket: Socket | null = null;
+  let realtime: IaRealtimeClient | null = null;
 
-  const odds = useOddsStore();
   const collect = useCollectStore();
-  const matchStore = useMatchStore();
-
-  const handleIaMessage = (msg: Record<string, unknown>) => {
-    const type = msg.message_type;
-    const content = (msg.content ?? {}) as Record<string, unknown>;
-
-    if (type === "message_type_bet_item_single_lock") {
-      const playId = content.play_id;
-      if (!playId) return;
-      odds.updateBetLock(PLATFORM, String(playId), content.status !== 1);
-      matchStore.refreshOddsOnBets();
-      return;
-    }
-
-    if (type === "message_type_push_point_change") {
-      const pointId = String(content.point_id ?? "");
-      if (!pointId || !odds.isOdds(PLATFORM, pointId)) return;
-      odds.save(PLATFORM, {
-        id: pointId,
-        odds: Number(content.point) || 0,
-        isLock: false,
-        betId: String(content.play_id ?? ""),
-        time: Date.now(),
-      });
-      matchStore.refreshOddsOnBets();
-    }
-  };
-
-  const bindSocketHandlers = (s: Socket) => {
-    s.on("connect", () => {
-      s.emit("RoomJoin", { room_type: "room_type_index_content_push" });
-    });
-    s.on("roomMessageCallBack", handleIaMessage);
-  };
-
-  const connectWs = () => {
-    if (stopped) return;
-    socket?.removeAllListeners();
-    socket?.disconnect();
-    socket = null;
-
-    const relayFull = relayWsUrl(IA_WS_PATH);
-    const relayBase = relayFull.slice(0, relayFull.length - IA_WS_PATH.length);
-    const relay = io(relayBase, {
-      transports: ["websocket"],
-      path: IA_WS_PATH,
-      reconnection: true,
-      reconnectionDelay: 2000,
-      reconnectionDelayMax: 8000,
-    });
-    bindSocketHandlers(relay);
-    socket = relay;
-  };
 
   // Electron packaged：IPC → IaRelayCore（主进程直连 IA，注入 Origin header）
   // Web / Electron dev：Socket.IO 透明隧道 /esport/ws/IA
-  const iaApi = iaIpcRelay();
-  let removeIaListener: (() => void) | null = null;
-
-  if (iaApi) {
-    removeIaListener = iaApi.onMessage(handleIaMessage);
-    void iaApi.start();
-  } else {
-    void connectWs();
-  }
+  realtime = createIaRealtimeClient();
+  void realtime.start(handleIaRealtimeMessage);
 
   const poll = async () => {
     while (!stopped) {
@@ -238,14 +164,8 @@ export function startIaCollector(): () => void {
 
   return () => {
     stopped = true;
-    if (iaApi) {
-      removeIaListener?.();
-      void iaApi.stop();
-    } else {
-      socket?.removeAllListeners();
-      socket?.disconnect();
-      socket = null;
-    }
+    void realtime?.stop();
+    realtime = null;
   };
 }
 

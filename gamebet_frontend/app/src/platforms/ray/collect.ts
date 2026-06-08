@@ -1,4 +1,4 @@
-import { createRayScClient } from "./ws";
+import { createRayRealtimeClient, type RayRealtimeMessage } from "./realtime";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import type { CollectPlatformInfo } from "@/types/esport";
 import { directGet } from "@/shared/http";
@@ -92,10 +92,30 @@ function rayCollectPlatform(): CollectPlatformInfo {
   };
 }
 
+type RayOddsStore = Pick<ReturnType<typeof useOddsStore>, "isOdds" | "save">;
+
+export function handleRayRealtimeMessage(
+  msg: RayRealtimeMessage,
+  odds: RayOddsStore,
+  now = Date.now(),
+): void {
+  if (msg.source !== "odds" || !Array.isArray(msg.odds)) return;
+  for (const row of msg.odds) {
+    const id = String(row.id ?? "");
+    if (!id || !odds.isOdds(PLATFORM, id)) continue;
+    odds.save(PLATFORM, {
+      id,
+      odds: Number(row.odds) || 0,
+      isLock: row.status !== 1,
+      time: now,
+    });
+  }
+}
+
 export function startRayCollector(): () => void {
   rayCollectorStop?.();
   let stopped = false;
-  const socket = createRayScClient();
+  const realtime = createRayRealtimeClient();
   const betRe = new RegExp(RAY_A8_COLLECT.betName);
 
   const odds = useOddsStore();
@@ -103,24 +123,10 @@ export function startRayCollector(): () => void {
 
   void (async () => {
     try {
-      const channel = socket.subscribe("match");
-      await channel.listener("subscribe").once();
-      for await (const msg of channel) {
-        if (stopped) break;
-        const data = msg as { source?: string; odds?: Array<Record<string, unknown>> };
-        if (data.source !== "odds" || !Array.isArray(data.odds)) continue;
-        const now = Date.now();
-        for (const row of data.odds) {
-          const id = String(row.id ?? "");
-          if (!id || !odds.isOdds(PLATFORM, id)) continue;
-          odds.save(PLATFORM, {
-            id,
-            odds: Number(row.odds) || 0,
-            isLock: row.status !== 1,
-            time: now,
-          });
-        }
-      }
+      await realtime.start((msg) => {
+        if (stopped) return;
+        handleRayRealtimeMessage(msg, odds);
+      });
     } catch (err) {
       if (!stopped) console.warn("[RAY] ws loop", err);
     }
@@ -207,7 +213,7 @@ export function startRayCollector(): () => void {
 
   const stop = () => {
     stopped = true;
-    socket.disconnect();
+    void realtime.stop();
     if (rayCollectorStop === stop) rayCollectorStop = null;
   };
   rayCollectorStop = stop;
@@ -283,7 +289,6 @@ async function loadRayBets(
       SourceMatchID: result.id as string | number,
       SourceBetID: groupId,
       Map: stage,
-      GroupName: group,
       BetName: `${prefix} ${group}`,
       SourceHomeID: isHome ? oddsId : "",
       HomeName: isHome ? String(p.name ?? "") : "",
@@ -298,4 +303,3 @@ async function loadRayBets(
 
   return [...grouped.values()];
 }
-

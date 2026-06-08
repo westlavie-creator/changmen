@@ -84,25 +84,48 @@ function writeAccounts(uid, accounts) {
 // 上次写入的 id 集合，用于 diff-based 删除，避免每次 rebuild 全表扫描
 let _lastWrittenIds = new Set()
 
-/** fire-and-forget：upsert 客户端比赛列表，只删离开活跃列表的行 */
-function writeClientMatches(rows) {
-  if (!Array.isArray(rows) || !rows.length) return
+function _prepareClientMatchWrite(rows) {
+  if (!Array.isArray(rows)) return null
   const seen = new Map()
   for (const row of rows) seen.set(Number(row.id), row)
   const dedupedRows = [...seen.values()]
   const activeIds = new Set(dedupedRows.map((r) => Number(r.id)))
   const toDelete = [..._lastWrittenIds].filter((id) => !activeIds.has(id))
   _lastWrittenIds = activeIds
-  _write(async (client) => {
+  return { dedupedRows, toDelete }
+}
+
+async function _upsertClientMatches(client, dedupedRows, toDelete) {
+  if (dedupedRows.length) {
     const { error } = await client.from('client_matches')
       .upsert(dedupedRows, { onConflict: 'id' })
     if (error) throw error
-    if (toDelete.length) {
-      const { error: delErr } = await client.from('client_matches')
-        .delete().in('id', toDelete)
-      if (delErr) throw delErr
-    }
-  }, 'client_matches')
+  }
+  if (toDelete.length) {
+    const { error: delErr } = await client.from('client_matches')
+      .delete().in('id', toDelete)
+    if (delErr) throw delErr
+  }
+}
+
+/** fire-and-forget：upsert 客户端比赛列表，只删离开活跃列表的行 */
+function writeClientMatches(rows) {
+  const prepared = _prepareClientMatchWrite(rows)
+  if (!prepared) return
+  const { dedupedRows, toDelete } = prepared
+  _write((client) => _upsertClientMatches(client, dedupedRows, toDelete), 'client_matches')
+}
+
+/** await 写入完成（matcher / rebuild 使用，避免前端读到上一版） */
+async function writeClientMatchesAsync(rows) {
+  if (!supabaseAdmin) {
+    writeClientMatches(rows)
+    return
+  }
+  const prepared = _prepareClientMatchWrite(rows)
+  if (!prepared) return
+  const { dedupedRows, toDelete } = prepared
+  await _upsertClientMatches(supabaseAdmin, dedupedRows, toDelete)
 }
 
 /** 启动时从 Supabase 预填 _lastWrittenIds，使差量删除能覆盖上次遗留行 */
@@ -132,9 +155,10 @@ async function clearClientMatchesOnStartup() {
 
 /** 从 Supabase 读取 client_matches，按 start_time 升序排列 */
 async function fetchClientMatches() {
-  if (!supabase) return null
+  const client = supabaseAdmin || supabase
+  if (!client) return null
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('client_matches')
       .select('*')
       .order('start_time', { ascending: true })
@@ -152,6 +176,7 @@ async function fetchClientMatches() {
 function writePlatformMatches(provider, matchs) {
   if (!Array.isArray(matchs) || !matchs.length) return
   const now = Date.now()
+  // match_id 由 pipei 人工关联或后期脚本回填；SaveMatch 阶段不写，避免 FK 指向不存在的 client_matches.id
   const rows = matchs.map((m) => ({
     platform:        String(provider),
     source_match_id: String(m.SourceMatchID),
@@ -163,7 +188,6 @@ function writePlatformMatches(provider, matchs) {
     away:            String(m.Away || ''),
     bo:              m.BO != null ? Number(m.BO) : null,
     teams:           Array.isArray(m.Teams) ? m.Teams : [],
-    match_id:        m._clientMatchId != null ? Number(m._clientMatchId) : null,
     synced_at:       now,
   }))
   _write(async (client) => {
@@ -177,11 +201,11 @@ function writePlatformMatches(provider, matchs) {
 
 /** 启动时从 Supabase 读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */
 async function fetchPlatformMatches() {
-  const client = _getClient()
+  const client = supabaseAdmin || supabase
   if (!client) return {}
   const { data, error } = await client
     .from('platform_matches')
-    .select('platform,source_match_id,source_game_id,start_time,home,home_id,away,away_id,bo,teams')
+    .select('platform,source_match_id,source_game_id,start_time,home,home_id,away,away_id,bo,teams,match_id')
   if (error || !data?.length) return {}
   const byPlatform = {}
   for (const r of data) {
@@ -197,6 +221,52 @@ async function fetchPlatformMatches() {
       AwayID:        r.away_id ?? '',
       BO:            r.bo ?? 0,
       Teams:         Array.isArray(r.teams) ? r.teams : [],
+      ClientMatchId: r.match_id != null ? Number(r.match_id) : null,
+    })
+  }
+  return byPlatform
+}
+
+/** 从 Supabase 读取 platform_bets，重组为 store._bets 格式 */
+async function fetchPlatformBets() {
+  const client = supabaseAdmin || supabase
+  if (!client) return {}
+  const { data, error } = await client
+    .from('platform_bets')
+    .select('platform,source_bet_id,source_match_id,map,bet_name,group_name,home_odds,away_odds,is_locked')
+  if (error || !data?.length) return {}
+  const byKey = {}
+  for (const r of data) {
+    const key = `${r.platform}:${r.source_match_id}`
+    if (!byKey[key]) byKey[key] = { provider: r.platform, matchId: r.source_match_id, bets: [], savedAt: 0 }
+    byKey[key].bets.push({
+      SourceBetID: r.source_bet_id,
+      BetName:     r.bet_name ?? '',
+      GroupName:   r.group_name ?? '',
+      Map:         r.map ?? 0,
+      HomeOdds:    r.home_odds ?? 0,
+      AwayOdds:    r.away_odds ?? 0,
+      Status:      r.is_locked ? 'Locked' : 'Normal',
+    })
+  }
+  return byKey
+}
+
+/** 从 Supabase 读取 live_timers，重组为 store._timers 格式 */
+async function fetchLiveTimers() {
+  const client = supabaseAdmin || supabase
+  if (!client) return {}
+  const { data, error } = await client
+    .from('live_timers')
+    .select('platform,source_match_id,round,round_start')
+  if (error || !data?.length) return {}
+  const byPlatform = {}
+  for (const r of data) {
+    if (!byPlatform[r.platform]) byPlatform[r.platform] = { provider: r.platform, timer: [], savedAt: 0 }
+    byPlatform[r.platform].timer.push({
+      MatchID:   r.source_match_id,
+      Round:     r.round ?? 0,
+      StartTime: r.round_start ?? 0,
     })
   }
   return byPlatform
@@ -216,6 +286,7 @@ function writePlatformBets(provider, matchId, bets) {
       source_match_id: String(matchId),
       map:             Number(b.Map ?? 0),
       bet_name:        String(b.BetName || ''),
+      group_name:      String(b.GroupName ?? b.group_name ?? '') || null,
       home_odds:       Number(b.HomeOdds) || 0,
       away_odds:       Number(b.AwayOdds) || 0,
       is_locked:       b.Status !== 'Normal',
@@ -245,7 +316,7 @@ function writeLiveTimers(provider, timer) {
       platform:        String(provider),
       source_match_id: String(t.MatchID),
       round:           Number(t.Round) || 0,
-      round_start:     Number(t.StartTime) || null,
+      round_start:     Number(t.StartTime) || 0,
       updated_at:      now,
     }))
   if (!rawRows.length) return
@@ -372,11 +443,14 @@ module.exports = {
   writeAccounts,
   // client_matches
   writeClientMatches,
+  writeClientMatchesAsync,
   fetchClientMatches,
   initLastWrittenIds,
   clearClientMatchesOnStartup,
   // platform_matches / platform_bets / live_timers
   fetchPlatformMatches,
+  fetchPlatformBets,
+  fetchLiveTimers,
   writePlatformMatches,
   writePlatformBets,
   writeLiveTimers,

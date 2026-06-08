@@ -1,11 +1,14 @@
 'use strict';
 
-require('tsx/cjs'); // 允许 require() 加载 .ts 文件
+const fs = require('fs');
+const path = require('path');
+// 打包前 compile:router 生成 router.js；开发模式无 router.js 时用 tsx 加载 router.ts
+if (!fs.existsSync(path.join(__dirname, '../../core/esport-api/router.js'))) {
+  require('tsx/cjs');
+}
 
 const { app, BrowserWindow, shell, Menu, ipcMain } = require('electron');
-const path = require('path');
 const http = require('http');
-const fs   = require('fs');
 const { RayRelayCore } = require('../../relays/ray_relay_core.js');
 const { ObRelayCore }  = require('../../relays/ob_relay_core.js');
 const { TfRelayCore }  = require('../../relays/tf_relay_core.js');
@@ -233,24 +236,57 @@ function startBackendIfNeeded() {
 }
 
 // ── 等待 HTTP 服务就绪 ──────────────────────────────────────────────────────
-function waitForServer(retries = 40) {
+function waitForUrl(url, label, retries = 40) {
   return new Promise((resolve, reject) => {
     const attempt = () => {
-      const req = http.get(`http://127.0.0.1:${PORT}/app/`, () => {
+      const req = http.get(url, (res) => {
         req.destroy();
-        resolve();
+        if (res.statusCode && res.statusCode < 500) {
+          resolve();
+          return;
+        }
+        if (--retries > 0) {
+          setTimeout(attempt, 300);
+        } else {
+          reject(new Error(`${label} 未能在 12 秒内启动（${url}）`));
+        }
       });
       req.on('error', () => {
         if (--retries > 0) {
           setTimeout(attempt, 300);
         } else {
-          reject(new Error(`服务未能在 12 秒内启动（port ${PORT}）`));
+          reject(new Error(`${label} 未能在 12 秒内启动（${url}）`));
         }
       });
       req.end();
     };
     attempt();
   });
+}
+
+function waitForServer(retries = 40) {
+  return waitForUrl(`http://127.0.0.1:${PORT}/app/`, `后端服务 port ${PORT}`, retries);
+}
+
+function waitForRendererUrl(url, retries = 80) {
+  return waitForUrl(url, '前端 Vite', retries);
+}
+
+async function loadAppWithRetry(win, appUrl, attempts = 4) {
+  for (let i = 1; i <= attempts; i += 1) {
+    if (win.isDestroyed()) return;
+    try {
+      if (!app.isPackaged) await waitForRendererUrl(appUrl);
+      await win.loadURL(appUrl);
+      return;
+    } catch (err) {
+      console.warn(`[electron] load app failed (${i}/${attempts}):`, err.message);
+      if (win.isDestroyed()) return;
+      await win.loadFile(path.join(__dirname, 'loading.html')).catch(() => {});
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+  }
+  console.error('[electron] app failed to load after retries:', appUrl);
 }
 
 // ── 创建主窗口 ──────────────────────────────────────────────────────────────
@@ -318,9 +354,7 @@ app.whenReady().then(async () => {
     : `http://127.0.0.1:${VITE_PORT}/app/`;
 
   waitForServer()
-    .then(() => {
-      if (!win.isDestroyed()) win.loadURL(appUrl);
-    })
+    .then(() => loadAppWithRetry(win, appUrl))
     .catch((err) => {
       console.error('[electron] server failed to start:', err.message);
     });
