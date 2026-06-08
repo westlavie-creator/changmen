@@ -12,7 +12,7 @@
 | B | ✅ | 后端业务代码经 `requirePlatform` / `requirePlatformRelay` 引用，不再硬编码 `platforms/`、`relays/` |
 | C | ✅ | `shared/` 采集基础设施（collectNotify、collectSession、socket/*） |
 | D | ✅ | 删除 `gamebet_backend/platforms/`、`relays/` 及前端 legacy shim |
-| E | 待做 | CI 挂 `changmen/npm test` |
+| E | ✅ | CI 挂 `changmen/npm test`（`.github/workflows/changmen-test.yml`） |
 
 已接入平台（manifest 顺序）：OB、IM、RAY、TF、IA、SABA、XBet、PB、IMT、HG、Stake。
 
