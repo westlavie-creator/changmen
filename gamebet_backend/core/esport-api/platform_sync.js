@@ -2,8 +2,10 @@
 
 const store = require("./store.js");
 const { getActivePlatformGameIds } = require("../shared/game_catalog.js");
-const { getRayA8CollectCredentials } = require("../../platforms/ray/collect_credentials.js");
-const { login, obGet } = require("../../platforms/ob/ob_session.js");
+const { requirePlatform } = require("../shared/adapter_paths.js");
+
+const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");
+const { login, obGet } = requirePlatform("OB", "backend", "session.js");
 
 function syncObFromSession(session) {
   if (!session?.gateway || !session?.token) return false;
@@ -131,7 +133,7 @@ function syncPbFromSession(session) {
 
 async function syncTfFromA8() {
   try {
-    const { getTfA8CollectCredentials } = require("../../platforms/tf/collect_credentials.js");
+    const { getTfA8CollectCredentials } = requirePlatform("TF", "backend", "collect_credentials.js");
     const a8 = await getTfA8CollectCredentials();
     store.setPlatform("TF", {
       gateway: a8.gateway,
@@ -171,7 +173,7 @@ function syncTfFromSession(session) {
 }
 
 function syncIaFromA8Defaults() {
-  const { getIaA8CollectCredentials } = require("../../platforms/ia/collect_credentials.js");
+  const { getIaA8CollectCredentials } = requirePlatform("IA", "backend", "collect_credentials.js");
   const a8 = getIaA8CollectCredentials();
   store.setPlatform("IA", {
     gateway: a8.gateway,
@@ -365,7 +367,7 @@ async function ensurePlatformCredentials(hub) {
   }
   if (!pbSynced) {
     try {
-      const { tryLoadSession } = require("../../platforms/pb/pb_session.js");
+      const { tryLoadSession } = requirePlatform("PB", "backend", "session.js");
       const session = tryLoadSession();
       if (session) pbSynced = syncPbFromSession(session);
     } catch (err) {

@@ -432,8 +432,14 @@ function hasAdminAccess() {
   return !!supabaseAdmin
 }
 
+/** 写入 client_matches / matcher 使用的 Supabase 客户端 */
+function getServiceClient() {
+  return supabaseAdmin || supabase
+}
+
 module.exports = {
   hasAdminAccess,
+  getServiceClient,
   // profiles
   fetchProfiles,
   fetchProfileById,

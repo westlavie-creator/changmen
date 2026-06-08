@@ -1,6 +1,7 @@
 "use strict";
 
-const { tryLoadSession, buildAuthHeaders } = require("../../../platforms/pb/pb_session.js");
+const { requirePlatform } = require("../../../core/shared/adapter_paths.js");
+const { tryLoadSession, buildAuthHeaders } = requirePlatform("PB", "backend", "session.js");
 
 const PB_PATH_RE = /\/(sports-service|member-service|member-betslip|bet-placement)\//i;
 

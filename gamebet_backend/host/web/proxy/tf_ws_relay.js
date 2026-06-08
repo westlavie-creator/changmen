@@ -2,12 +2,10 @@
 
 const WebSocket = require("ws");
 const { WebSocketServer } = require("ws");
-const { TfRelayCore } = require("../../../relays/tf_relay_core.js");
+const { requirePlatformRelay } = require("../../../core/shared/adapter_paths.js");
+const { TfRelayCore, buildTfUpstreamUrl } = requirePlatformRelay("TF");
 
 const WS_PATH = "/esport/ws/TF";
-
-// [A8 可证实] 与 tf_relay_core.js 保持一致：TF WS 走 A8 代理
-const { buildTfUpstreamUrl } = require("../../../relays/tf_relay_core.js");
 
 class TfWsRelay {
   constructor(options = {}) {

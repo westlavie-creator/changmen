@@ -13,6 +13,7 @@ const accountService       = require("../account/account_service.js");
 const { resolveA8Credentials }            = require("../integrations/a8/config.js");
 const { loginV4 }                         = require("../integrations/a8/v4_client.js");
 const { getPlatformRules, getDefaultMarketCode } = require("../shared/market_catalog.js");
+const { requirePlatform } = require("../shared/adapter_paths.js");
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -248,13 +249,13 @@ async function handle(
         token = row.accessToken || row.token || "";
       }
       if (provider.toUpperCase() === "RAY") {
-        const { getRayA8CollectCredentials } = require("../../platforms/ray/collect_credentials.js");
+        const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");
         const a8 = getRayA8CollectCredentials();
         return ok({ Gateway: a8.gateway, Token: a8.token, BetName: a8.betName || betName });
       }
       if (provider.toUpperCase() === "TF") {
         try {
-          const { getTfA8CollectCredentials } = require("../../platforms/tf/collect_credentials.js");
+          const { getTfA8CollectCredentials } = requirePlatform("TF", "backend", "collect_credentials.js");
           const a8 = await getTfA8CollectCredentials();
           store.setPlatform("TF", {
             gateway: a8.gateway, token: a8.token,
@@ -271,7 +272,7 @@ async function handle(
         }
       }
       if (provider.toUpperCase() === "IA") {
-        const { getIaA8CollectCredentials } = require("../../platforms/ia/collect_credentials.js");
+        const { getIaA8CollectCredentials } = requirePlatform("IA", "backend", "collect_credentials.js");
         const a8 = getIaA8CollectCredentials();
         return ok({
           Gateway: gateway || a8.gateway,

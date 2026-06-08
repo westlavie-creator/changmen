@@ -1,14 +1,16 @@
 "use strict";
 
 const assert = require("assert");
+const { requirePlatformFeed } = require("../core/shared/adapter_paths.js");
 const {
   ObFeed,
   A8_INDEX_SOURCES,
   DEFAULT_INDEX_SOURCES,
-} = require("../platforms/ob/ob_feed.js");
+} = requirePlatformFeed("OB");
 
 function loadObEntry() {
-  delete require.cache[require.resolve("../shared/platform_registry.js")];
+  delete require.cache[require.resolve("../core/shared/platform_registry.js")];
+  delete require.cache[require.resolve("../core/shared/adapter_paths.js")];
   const { buildFeedHubEntries } = require("../core/shared/platform_registry.js");
   return buildFeedHubEntries().find((e) => e.id === "OB");
 }

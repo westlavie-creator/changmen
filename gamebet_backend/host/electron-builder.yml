@@ -19,6 +19,15 @@ files:
   - "!storage/**"
   - "!gamebetdb/**"
   - "!host/electron/assets/**"
+  # 后端平台实现（开发时在 ../platform_adapter；打包复制到 asar 内 platform_adapter/）
+  - from: "../platform_adapter"
+    to: "platform_adapter"
+    filter:
+      - "**/*"
+      - "!**/frontend/**"
+      - "!**/*.ts"
+      - "!**/_template/**"
+      - "!**/README.md"
 
 # 前端静态文件打包进安装包的 resources/ 目录
 extraResources:

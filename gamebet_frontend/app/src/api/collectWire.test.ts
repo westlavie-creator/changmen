@@ -15,8 +15,7 @@ describe("collectWire A8 parity", () => {
       Away: "B",
       BO: 3,
       Teams: [{ Type: "RAY", TeamID: "h", Name: "A", GameID: 70, Logo: "/x.png" }],
-      // @ts-expect-error intentional extra field from sloppy caller
-      Bets: [],
+      Bets: [], // intentional extra field from sloppy caller
     } as CollectMatchDto & { Bets: unknown[] });
 
     expect(Object.keys(row).sort()).toEqual([

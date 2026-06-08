@@ -1,6 +1,7 @@
 "use strict";
 
-const { obHeaders } = require("../../../platforms/ob/ob_session.js");
+const { requirePlatform } = require("../../../core/shared/adapter_paths.js");
+const { obHeaders } = requirePlatform("OB", "backend", "session.js");
 const { getPlatform } = require("../../../core/esport-api/store.js");
 
 const ALLOWED_PREFIX = "/game/";

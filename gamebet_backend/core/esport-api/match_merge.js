@@ -40,7 +40,7 @@ const { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } = re
 const { normalizeEpochMs, a8StartTimeListAllowed } = require("../integrations/a8/match_time.js");
 
 /** 平台优先级：决定合并行取哪个平台的 Title/Game 作为规范值 */
-const PROVIDER_PRIORITY = { OB: 10, RAY: 9, TF: 8, IA: 7, IMT: 6, IM: 5, PB: 4, SABA: 3, HG: 2 };
+const PROVIDER_PRIORITY = { OB: 10, RAY: 9, PB: 8, TF: 7, IA: 6, IMT: 5, IM: 4, SABA: 3, HG: 2 };
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ function liveRound(timers, provider, sourceMatchId) {
 
 function buildAccumulateRow(provider, match, bets, timers, sourceFromBet) {
   const sourceMatchId = String(match.SourceMatchID);
-  const clientMatchId = stableId(`match:${provider}:${sourceMatchId}`);
+  const mergeKey = `match:single:${provider}:${sourceMatchId}`;
   const { round, roundStart } = liveRound(timers, provider, sourceMatchId);
   const sourceGameId = match.SourceGameID ?? match.GameID;
   const { Game, GameID } = resolveClientGame(provider, sourceGameId);
@@ -70,13 +70,13 @@ function buildAccumulateRow(provider, match, bets, timers, sourceFromBet) {
     ? { home: String(match.Home || "").trim(), away: String(match.Away || "").trim() }
     : undefined;
   return {
-    ID: clientMatchId,
+    MergeKey: mergeKey,
     Title: formatTitle(match.Home, match.Away),
     StartTime: normalizeEpochMs(match.StartTime),
     Game, GameID,
     BO: Number(match.BO) || 0,
     Matchs: { [provider]: sourceMatchId },
-    Bets: buildBetsForMatch(provider, sourceMatchId, clientMatchId, bets, sourceFromBet, gameCode, matchTeams),
+    Bets: buildBetsForMatch(provider, sourceMatchId, 0, bets, sourceFromBet, gameCode, matchTeams),
     Round: round,
     RoundStart: roundStart,
     Reverse: Array.isArray(match.Reverse) ? match.Reverse : [],
@@ -85,7 +85,7 @@ function buildAccumulateRow(provider, match, bets, timers, sourceFromBet) {
 
 // ── 合并逻辑 ──────────────────────────────────────────────────────────────────
 
-function mergeGroupWithKey(group, canonicalKey) {
+function mergeGroupWithKey(group, mergeKey) {
   group.sort((a, b) => (PROVIDER_PRIORITY[b.row._provider] || 0) - (PROVIDER_PRIORITY[a.row._provider] || 0));
   const canonical = group[0].row;
   const mergedMatchs = {};
@@ -109,13 +109,13 @@ function mergeGroupWithKey(group, canonicalKey) {
     .sort(([a], [b]) => a - b)
     .map(([map, { canonBet, sources }]) => ({
       ...canonBet,
-      ID: stableId(`bet:${canonicalKey}:${map}`),
-      MatchID: canonicalKey,
+      ID: stableId(`bet:pending:${mergeKey}:${map}`),
+      MatchID: 0,
       Sources: sources,
     }));
 
   return {
-    ID: canonicalKey,
+    MergeKey: mergeKey,
     Title: canonical.Title,
     StartTime: canonical.StartTime,
     Game: canonical.Game,
@@ -337,7 +337,7 @@ function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
   for (const entry of entries) {
     if (idMatched.has(entry.rowKey)) continue;
     const ck = canonicalMatchKeyByName(entry.gameId, entry.home, entry.away);
-    const mapKey = ck ? ck.key : entry.row.ID;
+    const mapKey = ck ? ck.mergeKey : entry.row.MergeKey;
     const reversed = ck ? ck.reversed : false;
     addToKeyGroup(nameGroups, mapKey, { row: entry.row, reversed });
   }
@@ -376,11 +376,12 @@ function buildMatchListAccumulate(matches, bets, timers, sourceFromBet) {
   return collapseImClientRows(list);
 }
 
+/** 仅自动合并（一/二阶段）；人工关联在分配自增 id 后由 rebuild 调用 applyManualMatchLinks */
 function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
   const normalized = normalizeMatchesShape(matches);
-  let list = buildMatchListMerged(normalized, bets, timers, sourceFromBet);
-  list = applyManualMatchLinks(list, normalized, bets, timers, sourceFromBet);
-  return filterMultiPlatformClientMatches(list);
+  return filterMultiPlatformClientMatches(
+    buildMatchListMerged(normalized, bets, timers, sourceFromBet)
+  );
 }
 
 module.exports = {

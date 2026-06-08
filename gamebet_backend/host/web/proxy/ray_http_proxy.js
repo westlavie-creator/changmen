@@ -1,9 +1,10 @@
 "use strict";
 
-const { rayHeaders } = require("../../../platforms/ray/ray_session.js");
+const { requirePlatform } = require("../../../core/shared/adapter_paths.js");
+const { rayHeaders } = requirePlatform("RAY", "backend", "session.js");
 const { getPlatform } = require("../../../core/esport-api/store.js");
 const { rayApiUrl } = require("../../../core/shared/ray_paths.js");
-const { getRayA8CollectCredentials } = require("../../../platforms/ray/collect_credentials.js");
+const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");
 
 const ALLOWED = new Set(["match", "odds"]);
 

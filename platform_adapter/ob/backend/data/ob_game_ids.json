@@ -1,0 +1,237 @@
+{
+  "source": "OB platform game_id (game/index field game_id); names verified via league samples + order history",
+  "cdnGameList": "https://uphw-cdn3.jomscxu.com/upload/json/pc.json → game_imag keys",
+  "games": {
+    "257154660915053": {
+      "name": "英雄联盟",
+      "nameEn": "League of Legends",
+      "code": "lol",
+      "verified": true,
+      "hints": ["LCS", "LPL", "LEC"]
+    },
+    "257578064923863": {
+      "name": "CS2",
+      "nameEn": "Counter-Strike 2",
+      "code": "cs2",
+      "verified": true,
+      "hints": ["CCT", "BB 风暴", "征服布拉格"]
+    },
+    "271192272576750": {
+      "name": "无畏契约",
+      "nameEn": "Valorant",
+      "code": "valorant",
+      "verified": true,
+      "hints": ["VCT", "VCL"]
+    },
+    "257289795134339": {
+      "name": "DOTA2",
+      "nameEn": "Dota 2",
+      "code": "dota2",
+      "verified": true,
+      "hints": ["梦幻联赛"]
+    },
+    "257561197207055": {
+      "name": "王者荣耀",
+      "nameEn": "Honor of Kings",
+      "code": "kog",
+      "verified": true,
+      "hints": ["KPL", "AG超玩会"]
+    },
+    "101258749512819384": {
+      "name": "无尽对决",
+      "nameEn": "Mobile Legends",
+      "code": "mlbb",
+      "verified": true,
+      "hints": ["MPL"]
+    },
+    "257532676759026": {
+      "name": "守望先锋",
+      "nameEn": "Overwatch",
+      "code": "ow",
+      "verified": true,
+      "hints": ["OWCS"]
+    },
+    "1377370776735090": {
+      "name": "穿越火线",
+      "nameEn": "CrossFire",
+      "code": "cf",
+      "verified": true,
+      "hints": ["CFML", "CFPL"]
+    },
+    "258006510157846": {
+      "name": "星际争霸",
+      "nameEn": "StarCraft",
+      "code": "sc",
+      "verified": true,
+      "hints": ["RSL"]
+    },
+    "1376613872342718": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "1377323217127607": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "159003446163958838": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "21363218739142692": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257289795134800": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257366452854033": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257393813865855": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257421187099429": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257445934728386": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257474469784520": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257594184113856": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257620516983156": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257647180647306": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257672679460102": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257697372071315": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257719680296134": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "257733146228414": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "258003077224510": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "258143683216896": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "258172821136137": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "258336811299100": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "258337013509741": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "31476623018398892": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    },
+    "614598069861073": {
+      "name": "待确认",
+      "nameEn": "Unknown",
+      "code": "unknown",
+      "verified": false,
+      "hints": []
+    }
+  }
+}

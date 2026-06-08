@@ -195,7 +195,9 @@ function saveClientMatches(info) {
   _clientMatches.clear()
   for (const m of info) _clientMatches.set(Number(m.ID), { ...m, built_at: now })
   sb.writeClientMatches(info.map((m) => ({
-    id: Number(m.ID), title: String(m.Title || ''), game: String(m.Game || ''),
+    id: Number(m.ID),
+    merge_key: m.MergeKey ? String(m.MergeKey) : null,
+    title: String(m.Title || ''), game: String(m.Game || ''),
     game_id: String(m.GameID || ''), start_time: Number(m.StartTime) || 0,
     bo: Number(m.BO) || 0, round: Number(m.Round) || 0, round_start: Number(m.RoundStart) || 0,
     matchs: m.Matchs || {}, bets: m.Bets || [], built_at: now,

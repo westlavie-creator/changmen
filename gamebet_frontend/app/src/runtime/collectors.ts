@@ -1,51 +1,13 @@
-import { obAdapter } from "@/platforms/ob";
-import { rayAdapter } from "@/platforms/ray";
-import { tfAdapter } from "@/platforms/tf";
-import { iaAdapter } from "@/platforms/ia";
-import { pbAdapter } from "@/platforms/pb";
-import { imtAdapter } from "@/platforms/imt";
-import { sabaAdapter } from "@/platforms/saba";
-import { imAdapter } from "@/platforms/im";
-import { xbetAdapter } from "@/platforms/xbet";
-import { stakeAdapter } from "@/platforms/stake";
-import { hgAdapter } from "@/platforms/hg";
 import type { PlatformId } from "@/types/esport";
-import type { CollectorFactory } from "@/platforms/contract";
-import { collectPlatformIds } from "@/platforms/registry";
+import type { CollectorFactory } from "@platform/contract";
+import { buildCollectorFactories } from "@platform/registry/adapters";
 import { useCollectStore } from "@/stores/collectStore";
 
 type StopFn = () => void;
 
 const runners = new Map<PlatformId, StopFn>();
 
-/** 与 platforms/registry 中 collect:true 的平台一一对应 */
-const COLLECTOR_FACTORIES: Partial<Record<PlatformId, CollectorFactory>> = {
-  OB: obAdapter.collector,
-  RAY: rayAdapter.collector,
-  TF: tfAdapter.collector,
-  IA: iaAdapter.collector,
-  IM: imAdapter.collector,
-  SABA: sabaAdapter.collector,
-  XBet: xbetAdapter.collector,
-  PB: pbAdapter.collector,
-  IMT: imtAdapter.collector,
-  HG: hgAdapter.collector,
-  Stake: stakeAdapter.collector,
-};
-
-if (import.meta.env.DEV) {
-  const expected = new Set(collectPlatformIds());
-  for (const id of Object.keys(COLLECTOR_FACTORIES) as PlatformId[]) {
-    if (!expected.has(id)) {
-      console.warn(`[collectors] 未在 registry 声明采集: ${id}`);
-    }
-  }
-  for (const id of collectPlatformIds()) {
-    if (!COLLECTOR_FACTORIES[id]) {
-      console.warn(`[collectors] registry 声明采集但未注册 factory: ${id}`);
-    }
-  }
-}
+const COLLECTOR_FACTORIES: Partial<Record<PlatformId, CollectorFactory>> = buildCollectorFactories();
 
 export async function startCollectors() {
   const collect = useCollectStore();

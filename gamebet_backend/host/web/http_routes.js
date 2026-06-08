@@ -11,7 +11,8 @@ const { tryPbHttpProxy } = require("./proxy/pb_http_proxy.js");
 const { tryObHttpProxy } = require("./proxy/ob_http_proxy.js");
 const { tryRayHttpProxy } = require("./proxy/ray_http_proxy.js");
 const { tryIaHttpProxy } = require("./proxy/ia_http_proxy.js");
-const { fetchObLogin, DEFAULT_LOGIN_URL } = require("../../platforms/ob/ob_session.js");
+const { requirePlatform } = require("../../core/shared/adapter_paths.js");
+const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "backend", "session.js");
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
