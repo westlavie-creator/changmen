@@ -3,9 +3,13 @@ Set-Location $PSScriptRoot\..\..
 
 $repoRoot = (Resolve-Path "..\..").Path
 $outRoot  = Join-Path $repoRoot "dist_electron"
-$staging  = Join-Path $repoRoot "dist_electron_staging"
+$buildStamp = (Get-Date).ToString('yyyyMMdd_HHmmss')
+if (-not $buildStamp) { Write-Error 'buildStamp empty'; exit 1 }
+$staging  = Join-Path $repoRoot ("dist_electron_staging_{0}" -f $buildStamp)
 $unpacked = Join-Path $staging "win-unpacked"
 $zipPath  = Join-Path $outRoot "GameBet-portable.zip"
+$latestPointer = Join-Path $outRoot "LATEST_STAGING.txt"
+# Fresh staging dir each build; avoids app.asar lock under dist_electron_staging
 
 function Stop-GameBetProcesses {
     $names = @("GameBet", "electron")
@@ -42,14 +46,14 @@ function Clear-DirWithRetry {
 }
 
 Stop-GameBetProcesses
-# 使用独立 staging 目录，避免 Cursor/资源管理器占用 dist_electron\win-unpacked\app.asar
-Clear-DirWithRetry $staging | Out-Null
 New-Item -ItemType Directory -Force -Path $outRoot | Out-Null
+New-Item -ItemType Directory -Force -Path $staging | Out-Null
 
-Write-Host "`n[1/3] Compiling router.ts + building (output: dist_electron_staging)..."
+$stagingLeaf = Split-Path $staging -Leaf
+Write-Host "`n[1/3] Compiling router.ts + building (output: $stagingLeaf)..."
 npm run compile:router
 if ($LASTEXITCODE -ne 0) { Write-Error "compile:router failed"; exit 1 }
-npx electron-builder --config host/electron-builder.yml --win --config.directories.output=../../dist_electron_staging
+npx electron-builder --config host/electron-builder.yml --win "--config.directories.output=../../$stagingLeaf"
 if ($LASTEXITCODE -ne 0) { Write-Error "Build failed"; exit 1 }
 
 Write-Host "`n[2/3] Copying data..."
@@ -67,5 +71,9 @@ Write-Host "`n[3/3] Compressing..."
 Remove-Item $zipPath -ErrorAction SilentlyContinue
 Compress-Archive -Path "$unpacked\*" -DestinationPath $zipPath
 $sizeMB = [math]::Round((Get-Item $zipPath).Length / 1MB, 1)
+Set-Content -Path $latestPointer -Value $stagingLeaf -Encoding utf8
 Write-Host "`nDone: $zipPath ($sizeMB MB)"
+Write-Host "Unpacked: $unpacked"
+Write-Host "Latest staging pointer: $latestPointer"
 Write-Host "Extract and run GameBet.exe directly, no installation needed."
+Write-Host "Old dist_electron_staging_* folders can be deleted manually when nothing holds app.asar."
