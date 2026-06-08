@@ -20,6 +20,8 @@ const liquipedia = require("./providers/liquipedia");
 const { normalize } = require("./normalize");
 const { getLiquipediaSlug } = require("./game_map");
 
+const ENABLE_ACRONYM_MATCHING = false; // 临时禁用 acronym 自动解析，缓存命中也要绕开。
+
 /**
  * 解析队伍名称。
  *
@@ -44,7 +46,9 @@ async function resolve(teamName, gameCode, opts = {}) {
   // 1. 缓存
   if (!opts.forceRefresh) {
     const cached = cache.get(normalizedName, gameCode);
-    if (cached) return { ...cached, source: "cache" };
+    if (cached && (ENABLE_ACRONYM_MATCHING || !String(cached.matchType || "").startsWith("acronym"))) {
+      return { ...cached, source: "cache" };
+    }
   }
 
   const lpSlug = getLiquipediaSlug(gameCode);

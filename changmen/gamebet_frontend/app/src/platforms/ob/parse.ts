@@ -33,12 +33,6 @@ export function obBlockLabel(block: Record<string, unknown>): string {
   return `[${round === 0 ? "全场" : `地图${round}`}]-${cn}`;
 }
 
-export function obOddSide(name: unknown): "home" | "away" | undefined {
-  if (name === "@T1") return "home";
-  if (name === "@T2") return "away";
-  return undefined;
-}
-
 let cachedPattern: string | undefined;
 let cachedRe: RegExp | undefined;
 

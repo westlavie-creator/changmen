@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 
-require('tsx/cjs'); // 允许 require() 加载 .ts 文件
+const fs = require('fs');
+const path = require('path');
+if (!fs.existsSync(path.join(__dirname, '../../core/esport-api/router.js'))) {
+  require('tsx/cjs'); // 开发：加载 router.ts
+}
 
 /**
  * 本地聚合服务：esport-api、WS 代理、FeedHub、静态托管。
@@ -13,7 +17,6 @@ require('tsx/cjs'); // 允许 require() 加载 .ts 文件
 
 require("dotenv").config();
 const http = require("http");
-const path = require("path");
 const { FeedHub } = require("../../core/shared/feed_hub.js");
 const { buildFeedHubEntries } = require("../../core/shared/platform_registry.js");
 const { attachEsportProxy } = require("./proxy/esport_proxy.js");
@@ -138,13 +141,7 @@ server.on('error', (err) => {
 });
 
 function onListen() {
-  try {
-    store.ensureSeed();
-    const n = store.rebuildClientMatchListNow().length;
-    console.log(`[store] client_matchs ready (${n} rows)`);
-  } catch (err) {
-    console.warn("[store] client_matchs init failed:", err.message);
-  }
+  store.ensureSeed();
 
   // 从 Supabase platform_matches 恢复各平台数据（解决重启后 _matches 为空问题）
   fetchPlatformMatches().then((byPlatform) => {

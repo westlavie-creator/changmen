@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "core/esport-api",
+    "outDir": "core/esport-api",
+    "declaration": false,
+    "sourceMap": false,
+    "types": ["node"],
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["core/esport-api/router.ts"]
+}

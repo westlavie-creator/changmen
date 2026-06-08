@@ -1,6 +1,6 @@
 
 import { directGet } from "@/shared/http";
-import { num, obBlockLabel, obOddSide, parseObOddField } from "./parse";
+import { num, obBlockLabel, parseObOddField } from "./parse";
 import type { CollectBetDto } from "@/types/collect";
 import type { ViewMatch } from "@/models/match";
 import type { CollectPlatformInfo } from "@/types/esport";
@@ -95,7 +95,6 @@ export async function loadMarketsForMatch(
               odds: parsed,
               isLock: locked,
               betId: String(block.id),
-              side: obOddSide(p.name),
               time: Date.now(),
             },
             "http",
@@ -110,7 +109,6 @@ export async function loadMarketsForMatch(
           SourceMatchID: matchId,
           Map: round,
           SourceBetID: String(block.id),
-          OddTypeID: String(block.odd_type_id ?? ""),
           BetName: label,
           SourceHomeID: String(home.id),
           HomeName: teamNames[0] ?? "",

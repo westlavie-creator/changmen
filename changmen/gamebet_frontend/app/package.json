@@ -13,6 +13,8 @@
     "prebuild": "node scripts/extract-a8-css.mjs",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview --base /app/",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:v4": "node scripts/test-v4-credit-plate.mjs",
     "test:ob-getmatchs": "node scripts/test-ob-getmatchs-shape.mjs",
     "test:ob-provider": "node scripts/test-ob-provider-contract.mjs",
@@ -42,6 +44,7 @@
     "electron": "^42.3.2",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
+    "vitest": "^4.1.8",
     "vue-tsc": "^2.2.8"
   }
 }

@@ -16,6 +16,7 @@ const { createClient } = require("@supabase/supabase-js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || "";
+const ENABLE_ACRONYM_NAME_LOOKUP = false; // 临时禁用 acronym 自动匹配，避免 DK 等短缩写误命中。
 
 let _sb = null;
 function getSupabase() {
@@ -75,7 +76,7 @@ async function loadAndCreatePlugin() {
     const g = team.game;
     const nameKey = _norm(team.name);
     if (nameKey) nameMap.set(`${g}:${nameKey}`, id);
-    if (team.acronym) {
+    if (ENABLE_ACRONYM_NAME_LOOKUP && team.acronym) {
       const acronymKey = _norm(team.acronym);
       if (acronymKey && acronymKey !== nameKey) nameMap.set(`${g}:${acronymKey}`, id);
     }

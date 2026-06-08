@@ -22,7 +22,6 @@ export type OddsSaveSource = "mqtt" | "http";
  * 与 GetMatchs `Sources` 的对应关系（以 OB 为例）：
  * - `id`     ↔ `HomeID` / `AwayID`（下注时 itemId）
  * - `betId`  ↔ `BetID`（盘口/market id）
- * - `side`   ↔ 主客边；当 GetMatchs 里 HomeID 过期时，可用 betIndex + side 找回 fo 里新 id
  */
 export interface OddsEntry {
   /** 平台选项 ID（odd id / selection id），fo 主键，全局唯一于该平台 bucket 内 */
@@ -31,9 +30,9 @@ export interface OddsEntry {
   odds: number;
   /** 是否锁盘/不可下注（MQTT 锁盘、盘口 suspend、或 pending* 合并结果） */
   isLock: boolean;
-  /** 所属盘口 ID（market / bet group id），用于 betIndex 与按盘锁盘 */
+  /** 所属盘口 ID（market / bet group id），用于 betIndex 按盘锁盘 */
   betId?: string;
-  /** 主客边；OB `game/view` 灌盘时写入 @T1/@T2，供 `getOddsForBetSide` 在 id 轮换时解析 */
+  /** 该选项对应主/客侧（HTTP 灌盘写入；MQTT 增量时从已有条目保留） */
   side?: "home" | "away";
   /** 最后一次写入时间戳（ms）；`clean()` 无 platform 参数时按 1h 过期删条目 */
   time: number;
@@ -54,13 +53,13 @@ export const useOddsStore = defineStore("odds", {
   state: () => ({
     /**
      * 主表：`platform → oddId → OddsEntry`。
-     * 扁平存储，不按赛事分组；读赔用 `getOdds` / `getOddsForBetSide`。
+     * 扁平存储，不按赛事分组；读赔用 `getOdds`。
      */
     data: new Map<PlatformId, Map<string, OddsEntry>>(),
 
     /**
      * 盘口索引：`platform → betId → oddId[]`。
-     * 同一盘口下多条选项（主/客、让分对等）；OB 在 HomeID 变更时靠 side 匹配正确 odd。
+     * 用于 MQTT 盘口级锁盘推送时，批量更新该盘口下所有 oddId 的锁盘状态。
      */
     betIndex: new Map<PlatformId, Map<string, string[]>>(),
 
@@ -162,43 +161,6 @@ export const useOddsStore = defineStore("odds", {
       return { dir: row.dir, source: row.source };
     },
 
-    /**
-     * 解析某盘口主/客边当前应使用的 oddId。
-     * 优先 ViewMatch 里的 homeId/awayId；若 fo 中不存在则扫 betIndex 找 `side` 匹配项（OB id 轮换）。
-     */
-    resolveOddsIdForBetSide(
-      platform: PlatformId,
-      betId: string,
-      side: "home" | "away",
-      homeId: string,
-      awayId: string,
-    ): string {
-      const primary = side === "home" ? homeId : awayId;
-      const bucket = this.data.get(platform);
-      if (bucket?.has(String(primary))) return String(primary);
-      const ids = this.betIndex.get(platform)?.get(String(betId));
-      if (ids?.length) {
-        for (const id of ids) {
-          if (bucket?.get(id)?.side === side) return id;
-        }
-      }
-      return String(primary);
-    },
-
-    /** 按盘口边取涨跌闪烁及来源（内部先 resolveOddsIdForBetSide） */
-    getFlashForBetSide(
-      platform: PlatformId,
-      betId: string,
-      side: "home" | "away",
-      homeId: string,
-      awayId: string,
-    ): { dir: OddsFlashDir; source: OddsSaveSource } | undefined {
-      return this.getFlash(
-        platform,
-        this.resolveOddsIdForBetSide(platform, betId, side, homeId, awayId),
-      );
-    },
-
     /** fo 中是否已有该 oddId（MQTT 增量门闩：未灌盘过的 id 通常不处理推送） */
     isOdds(platform: PlatformId, oddsId: string): boolean {
       return Boolean(this.data.get(platform)?.has(String(oddsId)));
@@ -220,33 +182,6 @@ export const useOddsStore = defineStore("odds", {
       if (row === undefined) return formatDisplayOdds(fallback);
       if (row.isLock) return 0;
       return formatDisplayOdds(row.odds);
-    },
-
-    /**
-     * 按盘口 + 主/客边取展示赔率（OB 主路径）。
-     * 先查 primary id，再 betIndex + side 回退；均无则走 primary 的 getOdds（含 fallback）。
-     */
-    getOddsForBetSide(
-      platform: PlatformId,
-      betId: string,
-      side: "home" | "away",
-      homeId: string,
-      awayId: string,
-      fallback = 0,
-    ): number {
-      const primary = side === "home" ? homeId : awayId;
-      const bucket = this.data.get(platform);
-      if (bucket?.has(String(primary))) {
-        return this.getOdds(platform, primary, fallback);
-      }
-      const ids = this.betIndex.get(platform)?.get(String(betId));
-      if (ids?.length) {
-        for (const id of ids) {
-          const row = bucket?.get(id);
-          if (row?.side === side) return this.getOdds(platform, id, fallback);
-        }
-      }
-      return this.getOdds(platform, primary, fallback);
     },
 
     /** 更新单条 odd 锁盘；写入 pendingOddLocks，若 fo 中已有行则同步 isLock */

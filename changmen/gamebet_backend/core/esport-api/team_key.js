@@ -62,13 +62,8 @@ function normalizeTeam(name) {
 // ── canonical key ─────────────────────────────────────────────────────────────
 
 /**
- * 计算赛事的规范化 key。
- * 两队名按字母序排列，保证不同平台同场赛事产生相同 key。
- * 返回 { key: number, reversed: boolean } 或 null（占位队名时）。
- *
- * ctx（可选）：{ provider, homeId, awayId }
- *   有 team-resolver 插件时：先查 platform_id，再 fallback 名称查找，
- *   解析成功后异步写入 team_platform_maps（自动学习）。
+ * 计算赛事的规范化 key（兼容旧逻辑：ID / canonical 队名 / 归一化队名混合）。
+ * 新合并流程请用 canonicalMatchKeyByIdOnly + canonicalMatchKeyByName 两阶段。
  */
 function canonicalMatchKey(gameId, home, away, gameCode, ctx) {
   const nh = normalizeTeam(home);
@@ -88,8 +83,6 @@ function canonicalMatchKey(gameId, home, away, gameCode, ctx) {
       (provider && _lookupById(provider, ctx?.awayId)) ||
       _lookupByName(gameCode, na);
 
-    // 必须两队都解析成功才用 canonical_id 作为 key。
-    // 只有一队解析成功时混用会导致不同平台生成不同 key（一侧用 id、另一侧用字符串）。
     if (homeCanonId && awayCanonId) {
       hk = homeCanonId;
       ak = awayCanonId;
@@ -101,12 +94,71 @@ function canonicalMatchKey(gameId, home, away, gameCode, ctx) {
     }
   }
 
+  return _packMatchKey(gameId, hk, ak, "legacy");
+}
+
+/** 第一阶段：仅 platform_id → canonical_id，主客两队都必须映射成功 */
+function canonicalMatchKeyByIdOnly(gameId, home, away, gameCode, ctx) {
+  const nh = normalizeTeam(home);
+  const na = normalizeTeam(away);
+  if (!nh || !na) return null;
+  if (isPlaceholderTeamName(nh) || isPlaceholderTeamName(na)) return null;
+  if (!_teamPlugin || !gameCode || !ctx?.provider) return null;
+
+  const homeId = String(ctx.homeId || "").trim();
+  const awayId = String(ctx.awayId || "").trim();
+  if (!homeId || !awayId) return null;
+
+  const homeCanonId = _lookupById(ctx.provider, homeId);
+  const awayCanonId = _lookupById(ctx.provider, awayId);
+  if (!homeCanonId || !awayCanonId) return null;
+
+  return _packMatchKey(gameId, homeCanonId, awayCanonId, "id");
+}
+
+/** 第二阶段：仅队名归一化（不做 ID / canonical 队名查找） */
+function canonicalMatchKeyByName(gameId, home, away) {
+  const nh = normalizeTeam(home);
+  const na = normalizeTeam(away);
+  if (!nh || !na) return null;
+  if (isPlaceholderTeamName(nh) || isPlaceholderTeamName(na)) return null;
+  return _packMatchKey(gameId, nh, na, "name");
+}
+
+function _packMatchKey(gameId, hk, ak, kind) {
   const reversed = hk > ak;
   const [first, second] = reversed ? [ak, hk] : [hk, ak];
+  const prefix = kind === "id" ? "match:id:" : kind === "name" ? "match:name:" : "match:";
   return {
-    key: stableId(`match:${String(gameId || "")}:${first}:${second}`),
+    key: stableId(`${prefix}${String(gameId || "")}:${first}:${second}`),
     reversed,
+    basis: kind === "id" ? "id" : kind === "name" ? "name" : "legacy",
   };
 }
 
-module.exports = { normalizeTeam, canonicalMatchKey, setTeamPlugin };
+/** 判定跨平台合并键是否由平台队伍 ID（team_platform_maps）解析成功 */
+function classifyMergeBasis(home, away, gameCode, ctx) {
+  const nh = normalizeTeam(home);
+  const na = normalizeTeam(away);
+  if (!nh || !na) return "unknown";
+
+  if (_teamPlugin && gameCode && ctx?.provider) {
+    const homeId = String(ctx.homeId || "").trim();
+    const awayId = String(ctx.awayId || "").trim();
+    if (homeId && awayId) {
+      const hi = _lookupById(ctx.provider, homeId);
+      const ai = _lookupById(ctx.provider, awayId);
+      if (hi && ai) return "id";
+    }
+  }
+  return "name";
+}
+
+module.exports = {
+  normalizeTeam,
+  canonicalMatchKey,
+  canonicalMatchKeyByIdOnly,
+  canonicalMatchKeyByName,
+  classifyMergeBasis,
+  setTeamPlugin,
+};

@@ -42,8 +42,12 @@
     "user:sync": "node scripts/sync-user-data.js",
     "check:collect": "node scripts/check-collect-platforms.js",
     "check:collect:probe": "node scripts/check-collect-platforms.js --probe",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:ob-feed-mode": "node scripts/test-ob-feed-mode.js",
+    "compile:router": "tsc -p tsconfig.router.json",
     "electron": "chcp 65001 >nul & electron .",
+    "preelectron:build": "npm run compile:router",
     "electron:build": "electron-builder --config host/electron-builder.yml --win",
     "electron:portable": "powershell -ExecutionPolicy Bypass -File host/electron/build-portable.ps1"
   },
@@ -52,7 +56,8 @@
     "electron": "42.3.3",
     "electron-builder": "^26.8.1",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",

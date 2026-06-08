@@ -25,11 +25,8 @@ export interface CollectBetDto {
   Type: PlatformId;
   SourceMatchID: string | number;
   SourceBetID: string | number;
-  /** OB 主盘 odd_type_id，供后端去重与 catalog 对齐 */
-  OddTypeID?: string;
   Map: number;
   BetName: string;
-  GroupName?: string;
   SourceHomeID: string | number;
   HomeName: string;
   HomeOdds: number;

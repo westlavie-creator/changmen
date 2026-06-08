@@ -9,6 +9,9 @@
     "web:restart": "npm run web:restart --prefix changmen",
     "app:dev": "npm run app:dev --prefix changmen",
     "app:build": "npm run app:build --prefix changmen",
-    "app:install": "npm run app:install --prefix changmen"
+    "app:install": "npm run app:install --prefix changmen",
+    "test": "npm run test --prefix changmen",
+    "test:backend": "npm run test:backend --prefix changmen",
+    "test:frontend": "npm run test:frontend --prefix changmen"
   }
 }
