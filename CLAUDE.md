@@ -77,8 +77,8 @@ npm run check:collect:probe     # + probe each gateway with a live request
 npm run ob:login                # fetch OB trial session and print it
 npm run account:cli             # interactive account manager
 npm run test:adapter            # ob-feed-mode + packaged adapter layout 模拟
-npm run electron:portable       # 便携包 → ../../dist_electron/GameBet-portable.zip
-node scripts/verify-electron-unpacked.js   # 对 dist_electron_staging/win-unpacked 实机冒烟
+npm run electron:portable       # 便携包 → changmen/dist/electron/GameBet-portable.zip
+node scripts/verify-electron-unpacked.js   # 对 changmen/dist/electron/staging_*/win-unpacked 实机冒烟
 ```
 
 ---
