@@ -1,5 +1,5 @@
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { VenueOrder, VenueOrderStatus } from "@/platforms/contract";
+import type { VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { pbGet } from "./transport";
 import { wait } from "@/shared/wait";
 import { PLATFORMS } from "@/shared/platform";

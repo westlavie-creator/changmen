@@ -1,7 +1,7 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult } from "@/models/betResult";
 import type { BetOption } from "@/models/betOption";
-import type { PlatformProvider, VenueOrder } from "@/platforms/contract";
+import type { PlatformProvider, VenueOrder } from "@platform/contract";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import type { LimitEntry } from "@/types/limit";

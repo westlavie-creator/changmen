@@ -1,6 +1,6 @@
 import { post, unwrap } from "@/api/client";
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { VenueOrder } from "@/platforms/contract";
+import type { VenueOrder } from "@platform/contract";
 import type { OrderRow, PageResult } from "@/types/esport";
 
 export async function getOrderList(body: Record<string, unknown> = {}) {

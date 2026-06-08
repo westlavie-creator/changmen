@@ -11,7 +11,7 @@
 | Electron | ✅ | `electron-builder.yml` 打入 asar；`core/shared/adapter_paths.js` 双布局解析 |
 | B | ✅ | 后端业务代码经 `requirePlatform` / `requirePlatformRelay` 引用，不再硬编码 `platforms/`、`relays/` |
 | C | ✅ | `shared/` 采集基础设施（collectNotify、collectSession、socket/*） |
-| D | 待做 | 删除 `gamebet_backend/platforms/`、`relays/` 及前端 legacy shim |
+| D | ✅ | 删除 `gamebet_backend/platforms/`、`relays/` 及前端 legacy shim |
 | E | 待做 | CI 挂 `changmen/npm test` |
 
 已接入平台（manifest 顺序）：OB、IM、RAY、TF、IA、SABA、XBet、PB、IMT、HG、Stake。
@@ -43,9 +43,8 @@ platform_adapter/
 ```ts
 import { platformAdapters } from "@platform/registry";
 import { obProvider } from "@platform/ob";
+import type { VenueOrder } from "@platform/contract";
 ```
-
-`gamebet_frontend/app/src/platforms/shared/` 仍保留 **shim**（re-export `@platform/shared/*`），阶段 D 删除。
 
 Vitest 已包含 `platform_adapter/**/frontend/**/*.test.ts`（随 `gamebet_frontend/app` 的 `npm test` 运行）。
 
@@ -67,8 +66,6 @@ const { ObRelayCore } = requirePlatformRelay("OB");
 - Electron asar：`gamebet_backend/platform_adapter/`（builder 从 `../platform_adapter` 复制，排除 frontend 与 `*.ts`）
 
 底层 registry：`adapterRequire("registry", "paths.js")` 的 `resolvePlatformFile` / `resolveBackendFeedModule`。
-
-Legacy shim（阶段 D 删除）：`gamebet_backend/platforms/*`、`relays/*` 一行转发到 `platform_adapter`。
 
 ### 后端 Node 依赖
 
@@ -96,7 +93,7 @@ Electron 打包后验证：
 
 ```bat
 cd gamebet_backend
-npm run electron:portable             # → dist_electron/GameBet-portable.zip
+npm run electron:portable             # → changmen/dist/electron/GameBet-portable.zip
 node scripts/verify-electron-unpacked.js
 ```
 

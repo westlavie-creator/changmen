@@ -1,5 +1,5 @@
 import type { PlatformId } from "@/types/esport";
-import { ALL_PLATFORMS } from "@/platforms/registry";
+import { ALL_PLATFORMS } from "@platform/registry";
 
 export type BetSorting = "Low" | "High" | "Parallel" | "WinRate" | "Custom";
 

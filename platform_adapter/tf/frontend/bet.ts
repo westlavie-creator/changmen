@@ -1,6 +1,6 @@
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@/platforms/contract";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { accountTfGet, accountTfPost } from "@/shared/platformHttp";
 import { parseTfItemId, tfOddsPayload } from "./parse";
 import { PLATFORMS } from "@/shared/platform";

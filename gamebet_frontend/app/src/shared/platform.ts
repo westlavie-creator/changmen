@@ -1,4 +1,4 @@
-﻿export { PLATFORMS } from "@/platforms/registry";
+﻿export { PLATFORMS } from "@platform/registry";
 
 /** OB MQTT 下游凭据（与 gamebet_backend/proxy/ob_mqtt_relay.js 一致） */
 export const OB_MQTT_USER = "admin";

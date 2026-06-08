@@ -18,7 +18,6 @@ function resolveBackendRoot() {
 }
 
 const BACKEND_ROOT = resolveBackendRoot();
-const RELAYS_LEGACY = path.join(BACKEND_ROOT, "relays");
 
 /** @typedef {import("./manifest.json")[number]} PlatformManifestEntry */
 
@@ -41,17 +40,10 @@ function platformDir(id) {
   return getManifestEntry(id)?.dir || String(id || "").toLowerCase();
 }
 
-/**
- * 新路径：platform_adapter/{dir}/backend/{name}
- * 旧路径：gamebet_backend/platforms/{dir}/{name}
- */
+/** platform_adapter/{dir}/... */
 function resolvePlatformFile(id, ...segments) {
   const dir = platformDir(id);
-  const future = path.join(ADAPTER_ROOT, dir, ...segments);
-  if (fs.existsSync(future)) return future;
-  const legacy = path.join(BACKEND_ROOT, "platforms", dir, ...segments);
-  if (fs.existsSync(legacy)) return legacy;
-  return future;
+  return path.join(ADAPTER_ROOT, dir, ...segments);
 }
 
 function resolveBackendFeedModule(id) {
@@ -59,17 +51,13 @@ function resolveBackendFeedModule(id) {
   if (!entry?.backendFeed) {
     throw new Error(`manifest missing backendFeed: ${id}`);
   }
-  const future = path.join(ADAPTER_ROOT, entry.dir, "backend", "feed.js");
-  if (fs.existsSync(future)) return future;
-  return path.join(BACKEND_ROOT, "platforms", entry.dir, entry.backendFeed.file);
+  return path.join(ADAPTER_ROOT, entry.dir, "backend", "feed.js");
 }
 
 function resolveBackendRelayModule(id) {
   const entry = getManifestEntry(id);
   if (!entry?.backendRelay) return null;
-  const future = path.join(ADAPTER_ROOT, entry.dir, "backend", "relay.js");
-  if (fs.existsSync(future)) return future;
-  return path.join(RELAYS_LEGACY, entry.backendRelay);
+  return path.join(ADAPTER_ROOT, entry.dir, "backend", "relay.js");
 }
 
 function platformAdapterPath(id, ...segments) {

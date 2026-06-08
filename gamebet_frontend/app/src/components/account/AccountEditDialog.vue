@@ -7,7 +7,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
-import { pbProvider } from "@/platforms/pb/bet";
+import { pbProvider } from "@platform/pb";
 
 const props = defineProps<{
   open: boolean;

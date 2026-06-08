@@ -3,7 +3,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 const STAKE_USDT_TO_CNY = 6.977023058793687;
 import { stakeAccountHeaders, stakePluginGraphql } from "./pluginApi";
 import { getStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@/platforms/contract";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import type { LimitEntry } from "@/types/limit";
 import { PLATFORMS } from "@/shared/platform";
 import { toFixed } from "@/shared/format";
