@@ -53,3 +53,10 @@ nsis:
 
 # 打包时自动重编译原生模块（better-sqlite3）
 npmRebuild: true
+
+# 安装包与 latest.yml 发布到公开 releases 仓（源码仍在私有 gamebet）
+publish:
+  provider: github
+  owner: westlavie-creator
+  repo: gamebet-releases
+  releaseType: release

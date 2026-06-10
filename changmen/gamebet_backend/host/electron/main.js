@@ -7,7 +7,8 @@ if (!fs.existsSync(path.join(__dirname, '../../core/esport-api/router.js'))) {
   require('tsx/cjs');
 }
 
-const { app, BrowserWindow, shell, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, Menu, ipcMain, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const http = require('http');
 const { requirePlatformRelay } = require('../../core/shared/adapter_paths.js');
 const { RayRelayCore } = requirePlatformRelay('RAY');
@@ -342,9 +343,40 @@ function createWindow() {
   return win;
 }
 
+function setupAutoUpdate() {
+  if (!app.isPackaged) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-downloaded', () => {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'GameBet 更新',
+      message: '新版本已下载，重启后完成安装。',
+      buttons: ['立即重启', '稍后'],
+      defaultId: 0,
+      cancelId: 1,
+    }).then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    }).catch((err) => console.warn('[update] dialog failed:', err.message));
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.warn('[update]', err?.message || err);
+  });
+
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.warn('[update] check failed:', err?.message || err);
+    });
+  }, 8000);
+}
+
 // ── 生命周期 ────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   registerRelayIpc();
+  setupAutoUpdate();
   const win = createWindow();   // 窗口立即打开，显示 loading.html
 
   await startBackendIfNeeded();

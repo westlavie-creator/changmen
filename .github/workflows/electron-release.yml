@@ -1,0 +1,42 @@
+name: electron release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            changmen/gamebet_backend/package-lock.json
+            changmen/gamebet_frontend/app/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: changmen/gamebet_backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: changmen/gamebet_frontend/app
+        run: npm ci
+
+      - name: Sync version from tag
+        shell: bash
+        working-directory: changmen/gamebet_backend
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          npm pkg set version="$VER"
+
+      - name: Build NSIS installer and publish to gamebet-releases
+        working-directory: changmen/gamebet_backend
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: npm run electron:build -- --publish always
