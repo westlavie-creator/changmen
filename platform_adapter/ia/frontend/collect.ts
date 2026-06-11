@@ -13,6 +13,8 @@ import { IA_PLUGIN_REQUIRED_MSG, iaCollectGet, iaCollectPost } from "./transport
 
 const PLATFORM = PLATFORMS.IA;
 const POLL_MS = 30_000;
+/** 对齐 PB：拉数 30s，上报服务端至多 60s 一次（A8 本地上报；changmen 暂降频） */
+const SAVE_MS = 60_000;
 
 function parseStartTime(raw: unknown): number {
   if (!raw) return Date.now();
@@ -38,6 +40,7 @@ function pickIaTeamId(row: Record<string, unknown>, side: "home" | "away"): stri
 
 export function startIaCollector(): () => void {
   let stopped = false;
+  let lastSaveAt = 0;
   let realtime: IaRealtimeClient | null = null;
   let pluginMissingNotified = false;
 
@@ -86,8 +89,12 @@ export function startIaCollector(): () => void {
         const rawList = listRes.data?.data ?? [];
         const list = rawList.filter((row) => games.includes(String(row.game_type_id ?? "")));
 
+        const shouldSave = Date.now() - lastSaveAt > SAVE_MS;
         const matchPayload: CollectMatchDto[] = [];
+        const betsByMatch = new Map<string, CollectBetDto[]>();
+
         for (const row of list) {
+          if (stopped) break;
           const homeName = String(
             row.team_name_1 ||
             row.team_a_name ||
@@ -106,6 +113,7 @@ export function startIaCollector(): () => void {
           ).trim();
           const homeId = pickIaTeamId(row, "home");
           const awayId = pickIaTeamId(row, "away");
+          const matchId = String(row.id ?? "");
 
           matchPayload.push({
             Type: PLATFORM,
@@ -134,16 +142,21 @@ export function startIaCollector(): () => void {
               },
             ],
           });
+
+          const bets = await loadIaBets(platform, matchId, betRe);
+          if (bets.length) betsByMatch.set(matchId, bets);
+          matchCount += 1;
         }
 
-        await collect.saveMatch(PLATFORM, matchPayload);
-
-        for (const row of list) {
-          if (stopped) break;
-          const matchId = String(row.id ?? "");
-          const bets = await loadIaBets(platform, matchId, betRe);
-          if (bets.length) await collect.saveBets(PLATFORM, matchId, bets);
-          matchCount += 1;
+        if (shouldSave && matchPayload.length) {
+          const saved = await collect.saveMatch(PLATFORM, matchPayload);
+          if (saved) {
+            for (const [matchId, bets] of betsByMatch) {
+              if (stopped) break;
+              await collect.saveBets(PLATFORM, matchId, bets);
+            }
+            lastSaveAt = Date.now();
+          }
         }
       } catch (err) {
         console.warn("[IA] collect error", err);

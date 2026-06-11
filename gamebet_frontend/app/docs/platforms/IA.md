@@ -8,7 +8,7 @@
 
 | 通道 | 间隔 | 作用 |
 |------|------|------|
-| HTTP 列表 + 详情 | 30s | `saveMatch` / `saveBets` |
+| HTTP 列表 + 详情 | 30s 拉数；`saveMatch` / `saveBets` 至多 60s 一次 | 盘口仍每轮写入 `oddsStore` |
 | Socket.IO `wss://47.115.75.57` path `/esport/ws/IA` | 实时 | 锁盘、赔率点更新 |
 
 浏览器 **直连** A8 聚合 WS（`ia/frontend/realtime.ts`，`Origin`/`auth.token` = `Client_GetCollectPlatform` 的 Gateway）。不经 `/esport/ws/IA` 本地 relay / Electron IPC。
