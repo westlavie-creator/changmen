@@ -42,6 +42,11 @@ function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir }) {
   function serveStatic(req, res) {
     const urlPath = req.url === "/" ? "/" : req.url.split("?")[0];
 
+    if (urlPath === "/matcher") {
+      res.writeHead(301, { Location: "/matcher/" });
+      res.end();
+      return;
+    }
     if (urlPath === "/app" || urlPath === "/app/") {
       res.writeHead(301, { Location: "/" });
       res.end();

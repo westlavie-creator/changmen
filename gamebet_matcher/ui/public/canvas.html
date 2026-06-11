@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GameBet 匹配画布</title>
+  <script>
+    (function () {
+      var p = location.pathname;
+      if (p === "/matcher" || p.startsWith("/matcher/")) {
+        var b = document.createElement("base");
+        b.href = "/matcher/";
+        document.head.appendChild(b);
+      }
+    })();
+  </script>
   <script src="matcher_config.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1892,10 +1902,15 @@ async function fetchJson(url, options) {
   }
   const opts = options ? { ...options } : {};
   opts.credentials = 'include';
-  opts.headers = { ...(opts.headers || {}), ...matcherAuthHeaders() };
+  opts.headers = {
+    ...(opts.headers || {}),
+    ...(window.matcherAuthHeaders ? window.matcherAuthHeaders() : {}),
+  };
   const res = await fetch(url, opts);
   if (res.status === 401) {
-    if (!isLocalMatcherDev()) redirectToSiteLogin();
+    if (window.isLocalMatcherDev && !window.isLocalMatcherDev() && window.redirectToSiteLogin) {
+      window.redirectToSiteLogin();
+    }
     throw new Error('需要登录（请先在主页登录，或刷新后重试）');
   }
   const ct = res.headers.get('content-type') || '';
