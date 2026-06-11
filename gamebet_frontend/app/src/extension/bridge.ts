@@ -87,26 +87,33 @@ export interface GamebetExtensionInfo {
   error?: string;
 }
 
+/** 向扩展发送 version 探测；未安装或不可访问时返回 null */
+export async function probeGamebetExtension(): Promise<GamebetExtensionInfo | null> {
+  if (!hasA8PluginRuntime()) return null;
+  try {
+    const info = (await a8PluginSend({ type: "version" })) as GamebetExtensionInfo | null;
+    if (!info || (!info.version && !info.name)) return null;
+    return info;
+  } catch {
+    return null;
+  }
+}
+
 /** 对齐 A8 `Zn.init`：探测扩展版本并写入 `localStorage.extensionVersion`（ExtensionsBadge 读取） */
 export async function initGamebetExtension(
   minVersion = 1,
 ): Promise<GamebetExtensionInfo | undefined> {
-  if (!hasA8PluginRuntime()) return undefined;
-  try {
-    const info = (await a8PluginSend({ type: "version" })) as GamebetExtensionInfo | null;
-    if (!info) return undefined;
-    if (info.version) {
-      localStorage.setItem("extensionVersion", info.version);
-      globalThis.dispatchEvent(
-        new CustomEvent("gamebet-extension-version", { detail: info.version }),
-      );
-    }
-    const numeric = parseFloat(info.version ?? "");
-    if (info.version && !Number.isNaN(numeric) && numeric < minVersion) {
-      info.error = `当前版本 ${info.version} 低于要求的最低版本 ${minVersion}`;
-    }
-    return info;
-  } catch {
-    return undefined;
+  const info = await probeGamebetExtension();
+  if (!info) return undefined;
+  if (info.version) {
+    localStorage.setItem("extensionVersion", info.version);
+    globalThis.dispatchEvent(
+      new CustomEvent("gamebet-extension-version", { detail: info.version }),
+    );
   }
+  const numeric = parseFloat(info.version ?? "");
+  if (info.version && !Number.isNaN(numeric) && numeric < minVersion) {
+    info.error = `当前版本 ${info.version} 低于要求的最低版本 ${minVersion}`;
+  }
+  return info;
 }
