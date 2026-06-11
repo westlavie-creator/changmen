@@ -60,8 +60,20 @@ Matcher 人工面板：
 
 | 脚本 | 作用 |
 |------|------|
+| **`push-git.bat`** | 本机 git commit + push 到 GitHub |
+| **`deploy-server.bat`** | 更新 VPS（增量部署；可本机构建前端后上传） |
 | **`pack-chromeplug.bat`** | 打包 Chrome 插件 zip → `dist/` |
-| **`deploy-server.bat`** | 本机 push 后，SSH 到 VPS：pull + build + pm2 重启 |
+
+日常顺序：`push-git.bat` → `deploy-server.bat`
+
+`deploy-server.env` 可选加速：
+
+| 变量 | 作用 |
+|------|------|
+| `DEPLOY_LOCAL_BUILD=1` | **推荐** 本机 `app:build`，上传 `dist/`，VPS 跳过 vite（最快） |
+| `DEPLOY_FULL=1` | 强制全量 install + build |
+
+仅改 matcher/backend 时，增量部署会自动跳过 `app:build`（约 10 秒级）。
 
 生产部署：[../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md)
 
