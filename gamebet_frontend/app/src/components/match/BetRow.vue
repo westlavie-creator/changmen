@@ -11,7 +11,7 @@ import { useBettingStore } from "@/stores/bettingStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { arbLegSide, pickArbLegs } from "@/shared/arbitrage";
-import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
+import { arbPercent, arbProfitRate, formatSecond, percent, toFixed } from "@/shared/format";
 import type { PlatformId } from "@/types/esport";
 
 const BET_SIDES: BetSide[] = ["Home", "Away"];
@@ -36,6 +36,7 @@ const limitItemIds = ref<string[]>([]);
 
 const betItemsRef = ref<HTMLElement | null>(null);
 const arbLine = ref<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+const arbBadge = ref<{ x: number; y: number } | null>(null);
 const oddsRefMap = new Map<string, HTMLElement>();
 
 function itemOdds(item: ViewBet["items"][0], side: BetSide) {
@@ -64,7 +65,9 @@ const arbLegs = computed(() => {
 });
 
 const arb = computed(() => {
-  if (arbLegs.value) return percent(arbLegs.value.implied);
+  if (arbLegs.value) {
+    return `${percent(arbLegs.value.implied)} / 利润 ${arbProfitRate(arbLegs.value.implied)}`;
+  }
   let bestHome = 0;
   let bestAway = 0;
   for (const item of props.bet.items) {
@@ -74,6 +77,12 @@ const arb = computed(() => {
     if (a > bestAway) bestAway = a;
   }
   return arbPercent(bestHome, bestAway);
+});
+
+const arbProfitLabel = computed(() => {
+  const legs = arbLegs.value;
+  if (!legs) return "";
+  return `利润率 ${arbProfitRate(legs.implied)}`;
 });
 
 function oddsRefKey(type: PlatformId, side: BetSide) {
@@ -107,18 +116,24 @@ function refreshArbLine() {
   const root = betItemsRef.value;
   if (!legs || !root) {
     arbLine.value = null;
+    arbBadge.value = null;
     return;
   }
   const homeEl = oddsRefMap.get(oddsRefKey(legs.homeItem.type, "Home"));
   const awayEl = oddsRefMap.get(oddsRefKey(legs.awayItem.type, "Away"));
   if (!homeEl || !awayEl) {
     arbLine.value = null;
+    arbBadge.value = null;
     return;
   }
   const box = root.getBoundingClientRect();
   const p1 = centerInContainer(homeEl, box);
   const p2 = centerInContainer(awayEl, box);
   arbLine.value = { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+  arbBadge.value = {
+    x: (p1.x + p2.x) / 2,
+    y: (p1.y + p2.y) / 2 - 14,
+  };
 }
 
 let resizeObserver: ResizeObserver | null = null;
@@ -218,6 +233,13 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
           :y2="arbLine.y2"
         />
       </svg>
+      <div
+        v-if="arbLine && arbBadge && arbProfitLabel"
+        class="arb-profit-badge"
+        :style="{ left: `${arbBadge.x}px`, top: `${arbBadge.y}px` }"
+      >
+        {{ arbProfitLabel }}
+      </div>
 
       <div v-if="roundScore" class="score">
         <div class="home">{{ roundScore.Home }}</div>

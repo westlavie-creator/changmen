@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arbPercent, formatDisplayOdds, formatSecond, percent, toFixed } from "./format";
+import { arbPercent, arbProfitRate, formatDisplayOdds, formatSecond, percent, toFixed } from "./format";
 
 describe("format shared helpers", () => {
   it("rounds display odds to three decimals and drops invalid values", () => {
@@ -23,5 +23,10 @@ describe("format shared helpers", () => {
   it("computes arbitrage percentage from both sides", () => {
     expect(arbPercent(2, 2)).toBe("100.0%");
     expect(arbPercent(0, 2)).toBe("N/A");
+  });
+
+  it("converts implied multiplier to profit rate", () => {
+    expect(arbProfitRate(1.05)).toBe("5.0%");
+    expect(arbProfitRate(1.032, 2)).toBe("3.20%");
   });
 });

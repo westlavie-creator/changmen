@@ -67,3 +67,9 @@ export function arbPercent(homeOdds: number, awayOdds: number): string {
   if (!homeOdds || !awayOdds) return "N/A";
   return percent(1 / (1 / homeOdds + 1 / awayOdds));
 }
+
+/** 套利 implied 乘数（≥1）→ 净利润率，如 1.05 → 5.0% */
+export function arbProfitRate(implied: number, digits = 1): string {
+  if (!Number.isFinite(implied)) return "N/A";
+  return percent(implied - 1, digits);
+}
