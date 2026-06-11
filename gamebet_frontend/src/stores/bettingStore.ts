@@ -583,6 +583,14 @@ export const useBettingStore = defineStore("betting", {
       const orderStore = useOrderStore();
       const configStore = useConfigStore();
       const matchStore = useMatchStore();
+
+      // [A8 可证实] 双击赔率：先 getAccount(type, 0)，无账号再提示；有账号才 prompt 金额
+      const account = accountStore.getAccount(item.type, 0);
+      if (!account) {
+        await ElMessageBox.alert("没有找到对应的账号", String(item.type));
+        return;
+      }
+
       let amount: number;
       try {
         const { value } = await ElMessageBox.prompt("请输入要投注的金额", "手动下单", {
@@ -601,11 +609,13 @@ export const useBettingStore = defineStore("betting", {
       const odds = item.getOdds(side);
       let option = new BetOption(match, bet, item, side, amount);
       option.odds = odds;
-      const account = accountStore.getAccount(item.type, amount, [], (acc) =>
-        accountPassesMainBetFilter(acc, bet, match, option, matchStore),
-      );
-      if (!account) {
-        ElMessageBox.alert(`没有找到 ${item.type} 对应的可用账号`, "提示");
+      if (!accountPassesMainBetFilter(account, bet, match, option, matchStore)) {
+        await ElMessageBox.alert(`当前 ${item.type} 账号不满足投注条件`, "提示");
+        return;
+      }
+      const bal = account.getBalance();
+      if (bal !== undefined && bal < amount) {
+        await ElMessageBox.alert(`余额不足（${bal} < ${amount}）`, String(item.type));
         return;
       }
       const toastSec = betToastSeconds(configStore.config, account.provider);
@@ -705,47 +715,40 @@ export const useBettingStore = defineStore("betting", {
             continue;
           }
 
+          // 对齐 A8 补单：waitSec>0 才拒单复检；被拒不移出队列、仍绑单；API 成功即 markSuccessfulBet
           if (waitSec > 0) {
             a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
             await wait(waitSec * 1000);
-          }
 
-          if (waitSec === 0) {
-            removeIds.push(betId);
-            markSuccessfulBet(account, bet.id, order.target, checked.odds, match.game);
-            await saveOrderBind({
-              orders: JSON.stringify([
-                { LinkID: order.linkId, Provider: result.provider, OrderID: String(Date.now()) },
-              ]),
-            });
-            this.setMessage(`补单成功 ${item.type}@${checked.odds}`);
-            useMessageStore().loseOrderMessage(account, order, checked, false);
-            continue;
-          }
-
-          const venueOrders = await accountStore.updateVenueOrders(account);
-          if (!venueOrders.length) {
-            removeIds.push(betId);
-          } else if (isVenueReject(venueOrders)) {
-            removeIds.push(betId);
-            this.setMessage(`${order.target} 再次被拒单`);
-            a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
-            useMessageStore().loseOrderMessage(account, order, checked, true);
+            const venueOrders = await accountStore.updateVenueOrders(account);
+            let rejected = false;
+            if (venueOrders.length > 0) {
+              rejected = isVenueReject(venueOrders);
+              if (rejected) {
+                this.setMessage(`${order.target} 再次被拒单`);
+                a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
+              } else {
+                removeIds.push(betId);
+                this.setMessage(`补单成功 ${item.type}@${checked.odds}`);
+              }
+              await saveOrderBind({
+                orders: JSON.stringify([
+                  {
+                    LinkID: order.linkId,
+                    Provider: result.provider,
+                    OrderID: venueOrders[0].orderId,
+                  },
+                ]),
+              });
+            } else {
+              removeIds.push(betId);
+            }
+            useMessageStore().loseOrderMessage(account, order, checked, rejected);
           } else {
             removeIds.push(betId);
-            markSuccessfulBet(account, bet.id, order.target, checked.odds, match.game);
-            await saveOrderBind({
-              orders: JSON.stringify([
-                {
-                  LinkID: order.linkId,
-                  Provider: result.provider,
-                  OrderID: venueOrders[0].orderId,
-                },
-              ]),
-            });
-            this.setMessage(`补单成功 ${item.type}@${checked.odds}`);
-            useMessageStore().loseOrderMessage(account, order, checked, false);
           }
+
+          markSuccessfulBet(account, bet.id, order.target, checked.odds, match.game);
         }
       }
 

@@ -1,4 +1,4 @@
-# 5 分钟文件导航（gamebet_frontend/app）
+# 5 分钟文件导航（gamebet_frontend）
 
 > 外行友好：不用背 180 个文件，按你的角色只打开下面几行即可。  
 > 总架构见 [`src/ARCHITECTURE.md`](../src/ARCHITECTURE.md)。  

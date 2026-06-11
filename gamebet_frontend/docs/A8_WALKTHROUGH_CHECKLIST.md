@@ -1,6 +1,6 @@
-# A8 同屏走查清单（`/console/` vs `/app/`）
+# A8 同屏走查清单（`/console/` vs `/`）
 
-开发地址：`http://localhost:5174/app/`  
+开发地址：`http://localhost:5174/`  
 对照地址：`http://localhost:3456/console/`（`PATCH_CONSOLE=1` + backend `3456`）
 
 登录建议：**TJ01** / 配置密码（与 `a8_constants.js` 一致），便于平博 v4 与初赔数据一致。
@@ -18,7 +18,7 @@
 自动化（无需浏览器）：
 
 ```bash
-cd changmen/gamebet_frontend/app
+cd changmen/gamebet_frontend
 npm run audit:a8    # CSS / View 映射
 npm run test:v4     # 平博 v4 两步（需 3456）
 npm run build

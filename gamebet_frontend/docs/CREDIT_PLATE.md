@@ -1,9 +1,9 @@
-# 平博信用盘（A8 v4）— 新控制台 `/app/`
+# 平博信用盘（A8 v4）— 新控制台 `/`
 
 > **状态（2026-05-29）**：两步 v4 已在本地经 `/v4.0/` 代理 E2E 通过（`npm run test:v4`，需 backend `3456`）。  
 > UI 确认框见 `src/api/v4.ts` 中 `fetchPbPlayUrl` / `enterCreditPlate`。
 
-实现文件：`gamebet_frontend/app/src/api/v4.ts` · 入口 UI：`CollectConfigPanel.vue`「平博体育」。
+实现文件：`gamebet_frontend/src/api/v4.ts` · 入口 UI：`CollectConfigPanel.vue`「平博体育」。
 
 ## 与主站登录是两回事
 
@@ -61,9 +61,9 @@ OB / SABA 为试玩分支，不走上述 v4 登录。
 
 | 访问方式 | v4 请求 URL | 说明 |
 |----------|-------------|------|
-| `http://localhost:5174/app/`（Vite） | **`https://api.a8.to/v4.0/...`** | **默认**；与 A8 官方 bundle 一致，**浏览器直连**（真 SSO，目标页可登录） |
+| `http://localhost:5174/`（Vite） | **`https://api.a8.to/v4.0/...`** | **默认**；与 A8 官方 bundle 一致，**浏览器直连**（真 SSO，目标页可登录） |
 | 可选 Node 代理 | `http://localhost:5174/v4.0/...` | 仅当 `.env.local` 设 `VITE_V4_PROXY=1`；易被 Cloudflare 403 |
-| `http://localhost:3456/app/`（构建产物） | 同源 `/v4.0/...` | 由 backend `v4_router.js` 转发（部署环境用） |
+| `http://localhost:3456/`（构建产物） | 同源 `/v4.0/...` | 由 backend `v4_router.js` 转发（部署环境用） |
 
 本地 dev **不必** 为 v4 启动 backend（主站 `/esport` 仍要 3456）。`vite.config.ts` 的 `/v4.0` 代理仅在使用 `VITE_V4_PROXY=1` 时用到。
 
@@ -83,7 +83,7 @@ OB / SABA 为试玩分支，不走上述 v4 登录。
 
 ```bash
 # 先启动 gamebet_backend（默认 3456）
-cd changmen/gamebet_frontend/app
+cd changmen/gamebet_frontend
 npm run test:v4
 ```
 
@@ -99,7 +99,7 @@ npm run test:v4
 
 ## 与 `patch-ui-bundle.js` 的关系
 
-- **新控制台 `/app/`**：不依赖 `patch-ui-bundle.js`；逻辑在 `src/api/v4.ts`。
+- **新控制台 `/`**：不依赖 `patch-ui-bundle.js`；逻辑在 `src/api/v4.ts`。
 - **旧 bundle `/console/`**：仍由 `npm run patch:ui` 生成；localhost 上 bundle 保留 `https://api.a8.to/v4.0/` 的行为见 `gamebet_frontend/VENDOR_UI_REFERENCE.md`。
 
 ## 相关文档

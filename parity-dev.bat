@@ -12,7 +12,7 @@ echo ========================================
 echo   Gamebet Parity Dev (mode P)
 echo ========================================
 echo   SKIP_APP_BUILD=1
-echo   Vite : http://localhost:!_V!/app/
+echo   Vite : http://localhost:!_V!/
 echo   API  : http://localhost:!_P!/
 echo.
 echo   A8 parity: browser saveMatch/saveBets + plugin (PB/Stake)

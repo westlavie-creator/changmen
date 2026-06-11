@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const src = path.join(__dirname, "../../../gamebet_backend/public/esport2/assets/index.css");
+const src = path.join(__dirname, "../../gamebet_backend/public/esport2/assets/index.css");
 const out = path.join(__dirname, "../src/styles/a8.css");
 
 if (!fs.existsSync(src)) {

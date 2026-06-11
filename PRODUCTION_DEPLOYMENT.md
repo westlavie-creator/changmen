@@ -11,7 +11,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 ```text
 ┌─────────────────────────────────────────────────────────┐
 │ 客户端（每台操作员机器）                                   │
-│  Vue /app/ + Chrome 插件                                 │
+│  Vue / + Chrome 插件                                 │
 │  platform_adapter 采集 → API_SaveMatch / API_SaveBet     │
 │  oddsStore（内存 fo）· 下注 Provider · CollectConfig 门控  │
 └───────────────────────────┬─────────────────────────────┘
@@ -19,7 +19,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
                             ▼
 ┌─────────────────────────────────────────────────────────┐
 │ 服务端（一台或多实例）                                     │
-│  gamebet_backend  — esport-api、WS relay、静态 /app/     │
+│  gamebet_backend  — esport-api、WS relay、静态 /     │
 │  gamebet_matcher   — 循环写 client_matches               │
 │  Supabase          — platform_* / client_matches / orders  │
 └─────────────────────────────────────────────────────────┘
@@ -33,11 +33,11 @@ Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `
 
 ## 2. 推荐拓扑：同源部署
 
-前端 API 使用相对路径（`/esport/...`、`/esport/ws/...`），**推荐** API 与 `/app/` 同一 origin：
+前端 API 使用相对路径（`/esport/...`、`/esport/ws/...`），**推荐** API 与 `/` 同一 origin：
 
 | 路径 | 服务 |
 |------|------|
-| `https://your-domain.com/app/` | 静态前端（`app:build` 产物） |
+| `https://your-domain.com/` | 静态前端（`app:build` 产物） |
 | `https://your-domain.com/esport/*` | gamebet_backend |
 | `wss://your-domain.com/esport/ws/*` | WS relay（OB/RAY/TF/IA） |
 | `https://your-domain.com/v4.0/*` | 平博 v4 透明代理（可选） |
@@ -45,7 +45,7 @@ Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `
 Nginx / Caddy 反代示例要点：
 
 - `proxy_http_version 1.1` + `Upgrade` / `Connection` 用于 WebSocket
-- 静态 `/app/` 指向 `gamebet_frontend/app/dist/` 或由 Node 托管
+- 静态 `/` 指向 `gamebet_frontend/dist/` 或由 Node 托管
 
 **分离域名**（如 `app.example.com` + `api.example.com`）需额外网关把 `/esport` 代理到 API，或改前端为绝对 base URL（当前未内置 `VITE_API_BASE`，M2 前优先同源）。
 
@@ -98,7 +98,7 @@ cd changmen
 npm run app:build
 ```
 
-产物在 `gamebet_frontend/app/dist/`；Web Host 启动时会托管 `/app/`（见 `host/web/index.js`）。
+产物在 `gamebet_frontend/dist/`；Web Host 启动时会托管 `/`（见 `host/web/index.js`）。
 
 ### 3.4 进程
 
@@ -128,7 +128,7 @@ cd changmen && npm run matcher:loop
 
 ### 4.1 访问方式
 
-- **浏览器**：打开 `https://your-domain.com/app/`，登录 Supabase 用户
+- **浏览器**：打开 `https://your-domain.com/`，登录 Supabase 用户
 - **Chrome 插件**：操作员在 Chrome/Edge 安装 `gamebet_chromeplug`（见 4.2）。PB / Stake 采集与 v4 代发**依赖插件**。
 
 ### 4.2 Chrome 插件
@@ -194,7 +194,7 @@ npm run build
 - [ ] 选定生产域名并完成首次 `db push` + 双进程部署
 - [ ] 至少一台客户端连远程 API 登录成功
 
-M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [gamebet_frontend/app/docs/A8_WALKTHROUGH_CHECKLIST.md](./gamebet_frontend/app/docs/A8_WALKTHROUGH_CHECKLIST.md)。
+M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [gamebet_frontend/docs/A8_WALKTHROUGH_CHECKLIST.md](./gamebet_frontend/docs/A8_WALKTHROUGH_CHECKLIST.md)。
 
 ---
 

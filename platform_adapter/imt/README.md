@@ -2,7 +2,7 @@
 
 阶段 2 起将迁入：
 
-- `frontend/` — 自 `gamebet_frontend/app/src/platforms/imt/`
+- `frontend/` — 自 `gamebet_frontend/src/platforms/imt/`
 - `backend/` — 自 `gamebet_backend/platforms/imt/`
 - `backend/relay.js` — 若有 relay（见 manifest `backendRelay`）
 

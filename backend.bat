@@ -10,8 +10,8 @@ echo.
 echo ========================================
 echo   Gamebet Backend - port !_P!
 echo ========================================
-echo   App : http://localhost:!_P!/app/
-echo   Collect: browser /app/ only
+echo   App : http://localhost:!_P!/
+echo   Collect: browser / only
 echo.
 
 echo [1/2] Stop old process on port !_P! ...

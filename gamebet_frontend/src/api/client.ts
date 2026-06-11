@@ -62,7 +62,7 @@ export async function post<T>(
     // 被新登录踢出：清除 token 并跳回登录页
     if (json.success === 0 && json.msg === "请先登录" && action !== "Client_Login") {
       setToken(null);
-      window.location.href = "/app/";
+      window.location.href = "/";
     }
     return json;
   } finally {

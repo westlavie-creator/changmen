@@ -39,7 +39,7 @@ accountStore.betting()
 ## 单元测试
 
 ```bash
-cd changmen/gamebet_frontend/app
+cd changmen/gamebet_frontend
 npm test -- ../../platform_adapter/stake/frontend
 ```
 

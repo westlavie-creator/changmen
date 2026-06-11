@@ -1,6 +1,6 @@
 # 第三方 UI 参考 bundle（仅 `/console/`）
 
-> **新控制台 `/app/`** 的对照基线是 `A8/A8frontendscipts/2.0.1`，见 [app/docs/README.md](./app/docs/README.md)。
+> **新控制台 `/`** 的对照基线是 `A8/A8frontendscipts/2.0.1`，见 [docs/README.md](./docs/README.md)。
 > 本文档只描述旧 bundle + `patch-ui-bundle.js` 流程。
 
 ## 目录
@@ -51,7 +51,7 @@
 
 **默认（纯 A8）**：控制台数据来自浏览器 `SaveMatch` + `fo()`。PB：插件凭证 + 浏览器 `bQ` + 插件 `Yn`。
 
-**PB Node（可选）**：`ENABLE_PB_NODE=1` + 重新 `patch:ui`（仅旧 `/console/` bundle；新 `/app/` 不依赖 Node Feed）。
+**PB Node（可选）**：`ENABLE_PB_NODE=1` + 重新 `patch:ui`（仅旧 `/console/` bundle；新 `/` 不依赖 Node Feed）。
 
 设 `ENABLE_PB_NODE=1` 并 `npm run patch:ui` 后：
 
@@ -65,5 +65,5 @@
 
 1. 自写代码、路径、变量名中不使用第三方产品品牌字眼。
 2. 新平台接入在 `gamebet_backend/platforms/<id>/` 实现；UI 契约按 bundle 内 `Client_*` / `API_*` 对齐。
-3. 改 **`/console/`** 行为时先查 `vendor/ui-bundle`；改 **`/app/`** 时查 `A8/A8frontendscipts/2.0.1`。patch 默认只改地址类配置。
+3. 改 **`/console/`** 行为时先查 `vendor/ui-bundle`；改 **`/`** 时查 `A8/A8frontendscipts/2.0.1`。patch 默认只改地址类配置。
 4. 禁止手改 `gamebet_frontend/console/index.js`，改 patch 后执行 `npm run patch:ui`。

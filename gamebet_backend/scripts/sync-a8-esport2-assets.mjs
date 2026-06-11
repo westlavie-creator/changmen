@@ -37,11 +37,11 @@ function mergeLocalRefs() {
   const names = new Set();
   const a8CssPath = path.join(
     BACKEND_ROOT,
-    "../gamebet_frontend/app/src/styles/a8.css",
+    "../gamebet_frontend/src/styles/a8.css",
   );
   const amIconPath = path.join(
     BACKEND_ROOT,
-    "../gamebet_frontend/app/src/styles/a8-am-icon.css",
+    "../gamebet_frontend/src/styles/a8-am-icon.css",
   );
   if (fs.existsSync(a8CssPath)) {
     for (const n of collectUrlsFromCss(fs.readFileSync(a8CssPath, "utf8"))) names.add(n);

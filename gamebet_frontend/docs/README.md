@@ -30,7 +30,7 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 
 | 用途 | 基线 | 说明 |
 |------|------|------|
-| **新控制台 `/app/` 行为与 UI** | `A8/A8frontendscipts/2.0.1/index.js` + `index.css` | 官方 A8 前端；**不以** `vendor/ui-bundle` 为准 |
+| **新控制台 `/` 行为与 UI** | `A8/A8frontendscipts/2.0.1/index.js` + `index.css` | 官方 A8 前端；**不以** `vendor/ui-bundle` 为准 |
 | **changmen 后端 API** | 由上述前端 **反推** | **不是** A8 服务端源码；见 [项目共识](#项目共识) |
 | **旧控制台 `/console/`** | `vendor/ui-bundle/index.js` → `npm run patch:ui` | 仅双轨对照、patch 联调 |
 | **机器审计** | `npm run audit:a8` | 当前脚本仍读 `vendor/ui-bundle` 做 View/class 映射（25 个 View 与 2.0.1 一致）；CSS 对 `index.css` |

@@ -17,7 +17,7 @@ var io = (() => {
   };
   var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-  // ../gamebet_frontend/app/node_modules/socket.io-client/build/esm/index.js
+  // ../gamebet_frontend/node_modules/socket.io-client/build/esm/index.js
   var index_exports = {};
   __export(index_exports, {
     Fetch: () => Fetch,
@@ -34,7 +34,7 @@ var io = (() => {
     protocol: () => protocol3
   });
 
-  // ../gamebet_frontend/app/node_modules/engine.io-parser/build/esm/commons.js
+  // ../gamebet_frontend/node_modules/engine.io-parser/build/esm/commons.js
   var PACKET_TYPES = /* @__PURE__ */ Object.create(null);
   PACKET_TYPES["open"] = "0";
   PACKET_TYPES["close"] = "1";
@@ -49,7 +49,7 @@ var io = (() => {
   });
   var ERROR_PACKET = { type: "error", data: "parser error" };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-parser/build/esm/encodePacket.browser.js
+  // ../gamebet_frontend/node_modules/engine.io-parser/build/esm/encodePacket.browser.js
   var withNativeBlob = typeof Blob === "function" || typeof Blob !== "undefined" && Object.prototype.toString.call(Blob) === "[object BlobConstructor]";
   var withNativeArrayBuffer = typeof ArrayBuffer === "function";
   var isView = (obj) => {
@@ -103,7 +103,7 @@ var io = (() => {
     });
   }
 
-  // ../gamebet_frontend/app/node_modules/engine.io-parser/build/esm/contrib/base64-arraybuffer.js
+  // ../gamebet_frontend/node_modules/engine.io-parser/build/esm/contrib/base64-arraybuffer.js
   var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   var lookup = typeof Uint8Array === "undefined" ? [] : new Uint8Array(256);
   for (let i = 0; i < chars.length; i++) {
@@ -130,7 +130,7 @@ var io = (() => {
     return arraybuffer;
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-parser/build/esm/decodePacket.browser.js
+  // ../gamebet_frontend/node_modules/engine.io-parser/build/esm/decodePacket.browser.js
   var withNativeArrayBuffer2 = typeof ArrayBuffer === "function";
   var decodePacket = (encodedPacket, binaryType) => {
     if (typeof encodedPacket !== "string") {
@@ -183,7 +183,7 @@ var io = (() => {
     }
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-parser/build/esm/index.js
+  // ../gamebet_frontend/node_modules/engine.io-parser/build/esm/index.js
   var SEPARATOR = String.fromCharCode(30);
   var encodePayload = (packets, callback) => {
     const length = packets.length;
@@ -325,7 +325,7 @@ var io = (() => {
   }
   var protocol = 4;
 
-  // ../gamebet_frontend/app/node_modules/@socket.io/component-emitter/lib/esm/index.js
+  // ../gamebet_frontend/node_modules/@socket.io/component-emitter/lib/esm/index.js
   function Emitter(obj) {
     if (obj) return mixin(obj);
   }
@@ -397,7 +397,7 @@ var io = (() => {
     return !!this.listeners(event).length;
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/globals.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/globals.js
   var nextTick = (() => {
     const isPromiseAvailable = typeof Promise === "function" && typeof Promise.resolve === "function";
     if (isPromiseAvailable) {
@@ -419,7 +419,7 @@ var io = (() => {
   function createCookieJar() {
   }
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/util.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/util.js
   function pick(obj, ...attr) {
     return attr.reduce((acc, k) => {
       if (obj.hasOwnProperty(k)) {
@@ -467,7 +467,7 @@ var io = (() => {
     return Date.now().toString(36).substring(3) + Math.random().toString(36).substring(2, 5);
   }
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/contrib/parseqs.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/contrib/parseqs.js
   function encode(obj) {
     let str = "";
     for (let i in obj) {
@@ -489,7 +489,7 @@ var io = (() => {
     return qry;
   }
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/transport.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/transport.js
   var TransportError = class extends Error {
     constructor(reason, description, context) {
       super(reason);
@@ -620,7 +620,7 @@ var io = (() => {
     }
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/transports/polling.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/transports/polling.js
   var Polling = class extends Transport {
     constructor() {
       super(...arguments);
@@ -752,7 +752,7 @@ var io = (() => {
     }
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/contrib/has-cors.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/contrib/has-cors.js
   var value = false;
   try {
     value = typeof XMLHttpRequest !== "undefined" && "withCredentials" in new XMLHttpRequest();
@@ -760,7 +760,7 @@ var io = (() => {
   }
   var hasCORS = value;
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/transports/polling-xhr.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/transports/polling-xhr.js
   function empty() {
   }
   var BaseXHR = class extends Polling {
@@ -1001,7 +1001,7 @@ var io = (() => {
     }
   }
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/transports/websocket.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/transports/websocket.js
   var isReactNative = typeof navigator !== "undefined" && typeof navigator.product === "string" && navigator.product.toLowerCase() === "reactnative";
   var BaseWS = class extends Transport {
     get name() {
@@ -1095,7 +1095,7 @@ var io = (() => {
     }
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/transports/webtransport.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/transports/webtransport.js
   var WT = class extends Transport {
     get name() {
       return "webtransport";
@@ -1158,14 +1158,14 @@ var io = (() => {
     }
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/transports/index.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/transports/index.js
   var transports = {
     websocket: WS,
     webtransport: WT,
     polling: XHR
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/contrib/parseuri.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/contrib/parseuri.js
   var re = /^(?:(?![^:@\/?#]+:[^:@\/]*@)(http|https|ws|wss):\/\/)?((?:(([^:@\/?#]*)(?::([^:@\/?#]*))?)?@)?((?:[a-f0-9]{0,4}:){2,7}[a-f0-9]{0,4}|[^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/;
   var parts = [
     "source",
@@ -1225,7 +1225,7 @@ var io = (() => {
     return data;
   }
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/socket.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/socket.js
   var withEventListeners = typeof addEventListener === "function" && typeof removeEventListener === "function";
   var OFFLINE_EVENT_LISTENERS = [];
   if (withEventListeners) {
@@ -1792,7 +1792,7 @@ var io = (() => {
     }
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/transports/polling-fetch.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/transports/polling-fetch.js
   var Fetch = class extends Polling {
     doPoll() {
       this._fetch().then((res) => {
@@ -1835,10 +1835,10 @@ var io = (() => {
     }
   };
 
-  // ../gamebet_frontend/app/node_modules/engine.io-client/build/esm/index.js
+  // ../gamebet_frontend/node_modules/engine.io-client/build/esm/index.js
   var protocol2 = Socket.protocol;
 
-  // ../gamebet_frontend/app/node_modules/socket.io-client/build/esm/url.js
+  // ../gamebet_frontend/node_modules/socket.io-client/build/esm/url.js
   function url(uri, path = "", loc) {
     let obj = uri;
     loc = loc || typeof location !== "undefined" && location;
@@ -1876,7 +1876,7 @@ var io = (() => {
     return obj;
   }
 
-  // ../gamebet_frontend/app/node_modules/socket.io-parser/build/esm/index.js
+  // ../gamebet_frontend/node_modules/socket.io-parser/build/esm/index.js
   var esm_exports = {};
   __export(esm_exports, {
     Decoder: () => Decoder,
@@ -1886,7 +1886,7 @@ var io = (() => {
     protocol: () => protocol3
   });
 
-  // ../gamebet_frontend/app/node_modules/socket.io-parser/build/esm/is-binary.js
+  // ../gamebet_frontend/node_modules/socket.io-parser/build/esm/is-binary.js
   var withNativeArrayBuffer3 = typeof ArrayBuffer === "function";
   var isView2 = (obj) => {
     return typeof ArrayBuffer.isView === "function" ? ArrayBuffer.isView(obj) : obj.buffer instanceof ArrayBuffer;
@@ -1923,7 +1923,7 @@ var io = (() => {
     return false;
   }
 
-  // ../gamebet_frontend/app/node_modules/socket.io-parser/build/esm/binary.js
+  // ../gamebet_frontend/node_modules/socket.io-parser/build/esm/binary.js
   function deconstructPacket(packet) {
     const buffers = [];
     const packetData = packet.data;
@@ -1985,7 +1985,7 @@ var io = (() => {
     return data;
   }
 
-  // ../gamebet_frontend/app/node_modules/socket.io-parser/build/esm/index.js
+  // ../gamebet_frontend/node_modules/socket.io-parser/build/esm/index.js
   var RESERVED_EVENTS = [
     "connect",
     // used on the client side
@@ -2281,7 +2281,7 @@ var io = (() => {
     return isNamespaceValid(packet.nsp) && isAckIdValid(packet.id) && isDataValid(packet.type, packet.data);
   }
 
-  // ../gamebet_frontend/app/node_modules/socket.io-client/build/esm/on.js
+  // ../gamebet_frontend/node_modules/socket.io-client/build/esm/on.js
   function on(obj, ev, fn) {
     obj.on(ev, fn);
     return function subDestroy() {
@@ -2289,7 +2289,7 @@ var io = (() => {
     };
   }
 
-  // ../gamebet_frontend/app/node_modules/socket.io-client/build/esm/socket.js
+  // ../gamebet_frontend/node_modules/socket.io-client/build/esm/socket.js
   var RESERVED_EVENTS2 = Object.freeze({
     connect: 1,
     connect_error: 1,
@@ -3062,7 +3062,7 @@ var io = (() => {
     }
   };
 
-  // ../gamebet_frontend/app/node_modules/socket.io-client/build/esm/contrib/backo2.js
+  // ../gamebet_frontend/node_modules/socket.io-client/build/esm/contrib/backo2.js
   function Backoff(opts) {
     opts = opts || {};
     this.ms = opts.min || 100;
@@ -3093,7 +3093,7 @@ var io = (() => {
     this.jitter = jitter;
   };
 
-  // ../gamebet_frontend/app/node_modules/socket.io-client/build/esm/manager.js
+  // ../gamebet_frontend/node_modules/socket.io-client/build/esm/manager.js
   var Manager = class extends Emitter {
     constructor(uri, opts) {
       var _a;
@@ -3443,7 +3443,7 @@ var io = (() => {
     }
   };
 
-  // ../gamebet_frontend/app/node_modules/socket.io-client/build/esm/index.js
+  // ../gamebet_frontend/node_modules/socket.io-client/build/esm/index.js
   var cache = {};
   function lookup2(uri, opts) {
     if (typeof uri === "object") {

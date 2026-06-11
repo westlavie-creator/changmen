@@ -110,7 +110,7 @@ function main() {
   console.log("  1. 解压 zip");
   console.log(`  2. chrome://extensions → 开发者模式 → 加载已解压 → 选 ${folderName}`);
   console.log("  3. 确认扩展 ID 与上面一致");
-  console.log("  4. 浏览器打开你的 changmen 地址（如 http://你的服务器:3456/app/）");
+  console.log("  4. 浏览器打开你的 changmen 地址（如 http://你的服务器:3456/）");
 }
 
 main();

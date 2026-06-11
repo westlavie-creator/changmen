@@ -1,4 +1,4 @@
-# gamebet_frontend/app 架构说明
+# gamebet_frontend 架构说明
 
 本文档描述 `src/` 目录的职责划分与数据流，便于新增平台或排查问题。
 
@@ -163,7 +163,7 @@ UI 点击 ──► accountStore.checkBetting / betting
 
 ## 相关脚本
 
-- 开发：`npm run dev`（Vite 5174，`/app/` base）
+- 开发：`npm run dev`（Vite 5174，`/` base）
 - 构建：`npm run build`
 - 后端代理：见 `vite.config.ts` 中 `/esport` → `VITE_API_PROXY`
 

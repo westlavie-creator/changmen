@@ -1,6 +1,6 @@
 "use strict";
 
-/** 与 gamebet_frontend/app/src/collectors/im/parse.ts 保持同步 */
+/** 与 gamebet_frontend/src/collectors/im/parse.ts 保持同步 */
 
 const CN_DIGIT = {
   一: 1,

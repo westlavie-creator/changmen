@@ -153,9 +153,9 @@ await waitForUser
 
 | 能力 | 路径 |
 |------|------|
-| 采集注册 | [`platform_adapter/registry/adapters.ts`](../../../../platform_adapter/registry/adapters.ts) |
-| 平台能力 | [`platform_adapter/registry/`](../../../../platform_adapter/registry/) |
-| A8 频道 | [`platform_adapter/shared/socket/`](../../../../platform_adapter/shared/socket/) |
+| 采集注册 | [`platform_adapter/registry/adapters.ts`](../../../platform_adapter/registry/adapters.ts) |
+| 平台能力 | [`platform_adapter/registry/`](../../../platform_adapter/registry/) |
+| A8 频道 | [`platform_adapter/shared/socket/`](../../../platform_adapter/shared/socket/) |
 | 采集 API | [`api/esport.ts`](../../api/esport.ts) → `Client_GetCollectPlatform` |
 | 后端采集凭证 | [`esport-api/router.js`](../../../../../gamebet_backend/core/esport-api/router.js) `Client_GetCollectPlatform` |
 | 下注 | [`providers/index.ts`](../../providers/index.ts) |

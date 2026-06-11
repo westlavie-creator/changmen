@@ -11,7 +11,7 @@
 ```text
 平博页登录 → Gamebet 插件 → 复制 data（Base64）
     → 用户中心粘贴 PB 账号
-    → /app/ 浏览器 bQ 等价逻辑 → fo() + SaveMatch/SaveBet（CollectConfig 开时）
+    → / 浏览器 bQ 等价逻辑 → fo() + SaveMatch/SaveBet（CollectConfig 开时）
 
 可选（仅旧 /console/ bundle）：
     ENABLE_PB_NODE=1 + patch:ui → 关 bQ，PB 走 /esport/pb/proxy
@@ -113,10 +113,10 @@ npm run web
 
 | `A8_V4_USER` / `A8_V4_PASSWORD` | 本地控制台用户与 A8 不一致时，用此账号代登 v4（密码默认 `a123456`） |
 
-### 新控制台 `/app/`「平博体育」
+### 新控制台 `/`「平博体育」
 
 信用盘 v4 流程与主站 `Client_Login` 分离；本地 dev 走同源 `/v4.0/`。  
-**第一步 v4 登录已联调通过** — 详见 [gamebet_frontend/app/docs/CREDIT_PLATE.md](../../../gamebet_frontend/app/docs/CREDIT_PLATE.md)。
+**第一步 v4 登录已联调通过** — 详见 [gamebet_frontend/docs/CREDIT_PLATE.md](../../../gamebet_frontend/docs/CREDIT_PLATE.md)。
 
 ### 旧控制台 `/console/`「平博体育」（方案 A：A8 账号）
 

@@ -6,8 +6,8 @@
 
 | 组件 | 入口 | 职责 |
 |------|------|------|
-| **Web 后端** | `backend.bat` → `npm run web` → `host/web/index.js` | HTTP `/esport/*`、静态 `/app/`、WS relay |
-| **Vite 前端** | `dev-vite.bat` | 开发时 `5174/app/`，API 经 proxy 到 `3456` |
+| **Web 后端** | `backend.bat` → `npm run web` → `host/web/index.js` | HTTP `/esport/*`、静态 `/`、WS relay |
+| **Vite 前端** | `dev-vite.bat` | 开发时 `5174/`，API 经 proxy 到 `3456` |
 | **Chrome 插件** | `gamebet_chromeplug` | PB/Stake 代发、凭证采集、v4 桥接 |
 | **Matcher** | `npm run matcher:loop` | 合并 `client_matches` |
 
@@ -41,7 +41,7 @@ Matcher 人工面板：
 
 | 脚本 | 作用 |
 |------|------|
-| **`fix-im-stored-data.mjs`** | 修复 IM 历史存储（见 `gamebet_frontend/app/docs/platforms/IM.md`） |
+| **`fix-im-stored-data.mjs`** | 修复 IM 历史存储（见 `gamebet_frontend/docs/platforms/IM.md`） |
 
 ## 兼容别名
 
@@ -54,7 +54,7 @@ Matcher 人工面板：
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `A8_AUTH` | `0`（`backend.bat`） | 影响 A8 v4 等集成；登录走 Supabase（`.env` 中 `SUPABASE_*`） |
-| `SKIP_APP_BUILD` | 未设 | `1` 跳过 `/app/` 构建 |
+| `SKIP_APP_BUILD` | 未设 | `1` 跳过 `/` 构建 |
 
 ## 打包与部署
 
@@ -79,7 +79,7 @@ Matcher 人工面板：
 
 ## URL
 
-- Vite 开发：`http://localhost:5174/app/`（前端 dev server，API proxy → 3456）
+- Vite 开发：`http://localhost:5174/`（前端 dev server，API proxy → 3456）
 - 服务端 API：`http://localhost:3456/esport/*`（须 `backend.bat` 或 `dev.bat` 已启动）
 
 架构说明见 [readme.md](../readme.md)、[gamebet_backend/README.md](../gamebet_backend/README.md)。

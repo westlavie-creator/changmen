@@ -1,7 +1,7 @@
 # A8 复刻 — 下一步执行清单
 
-对照基线：`A8/A8frontendscipts/2.0.1/index.js`（新 `/app/`）；可选双轨 `http://localhost:3456/console/`（`PATCH_CONSOLE=1`，vendor bundle）  
-新前端：`http://localhost:5174/app/`（`npm run app:dev`）
+对照基线：`A8/A8frontendscipts/2.0.1/index.js`（新 `/`）；可选双轨 `http://localhost:3456/console/`（`PATCH_CONSOLE=1`，vendor bundle）  
+新前端：`http://localhost:5174/`（`npm run app:dev`）
 
 文档索引：[README.md](./README.md)
 
@@ -92,7 +92,7 @@
 ```bash
 cd changmen/gamebet_frontend
 npm run app:dev
-# 新 http://localhost:5174/app/
+# 新 http://localhost:5174/
 # 旧 http://localhost:3456/console/  （PATCH_CONSOLE=1 + 后端 3456）
 ```
 
@@ -105,5 +105,5 @@ npm run app:dev
 **平博 v4**（backend 3456 已启动）：
 
 ```bash
-cd changmen/gamebet_frontend/app && npm run test:v4
+cd changmen/gamebet_frontend && npm run test:v4
 ```

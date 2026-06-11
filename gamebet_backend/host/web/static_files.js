@@ -11,7 +11,7 @@ function contentType(filePath) {
   return "application/octet-stream";
 }
 
-function createStaticHandler({ publicDir, consoleDir, appDir }) {
+function createStaticHandler({ publicDir, consoleDir, webDir }) {
   function resolveStaticRoot(urlPath) {
     if (urlPath === "/console" || urlPath.startsWith("/console/")) {
       const fileRel =
@@ -20,23 +20,29 @@ function createStaticHandler({ publicDir, consoleDir, appDir }) {
           : urlPath.slice("/console".length) || "/index.html";
       return { rootDir: consoleDir, fileRel: fileRel === "/" ? "/index.html" : fileRel, spa: false };
     }
-    if (urlPath === "/app" || urlPath.startsWith("/app/")) {
-      const fileRel =
-        urlPath === "/app" ? "/index.html" : urlPath.slice("/app".length) || "/index.html";
-      return { rootDir: appDir, fileRel: fileRel === "/" ? "/index.html" : fileRel, spa: true };
+    if (urlPath.startsWith("/esport2/")) {
+      return { rootDir: publicDir, fileRel: urlPath, spa: false };
     }
-    let fileRel = urlPath;
-    if (urlPath.endsWith("/") && urlPath.length > 1) {
-      fileRel = `${urlPath}index.html`;
-    }
-    return { rootDir: publicDir, fileRel, spa: false };
+    const fileRel =
+      urlPath === "/"
+        ? "/index.html"
+        : urlPath.endsWith("/") && urlPath.length > 1
+          ? `${urlPath}index.html`
+          : urlPath;
+    return { rootDir: webDir, fileRel, spa: true };
   }
 
   function serveStatic(req, res) {
     const urlPath = req.url === "/" ? "/" : req.url.split("?")[0];
 
-    if (urlPath === "/" || urlPath === "/index.html") {
-      res.writeHead(302, { Location: "/app/" });
+    if (urlPath === "/app" || urlPath === "/app/") {
+      res.writeHead(301, { Location: "/" });
+      res.end();
+      return;
+    }
+    if (urlPath.startsWith("/app/")) {
+      const dest = urlPath.slice("/app".length) || "/";
+      res.writeHead(301, { Location: dest });
       res.end();
       return;
     }
@@ -81,7 +87,7 @@ function createStaticHandler({ publicDir, consoleDir, appDir }) {
       });
     };
 
-    sendFile(filePath, urlPath.startsWith("/console") || urlPath.startsWith("/app"));
+    sendFile(filePath, urlPath.startsWith("/console") || spa);
   }
 
   return serveStatic;

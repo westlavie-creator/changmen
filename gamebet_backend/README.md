@@ -8,7 +8,7 @@
 
 **本目录 API 与存储不是 A8 官方后端的拷贝**，而是根据 A8 **浏览器前端** bundle 中的 `Client_*` / `API_SaveMatch` 等调用 **反推** 的实现。
 
-- **Parity 基线**：A8 前端可证实行为（见 [../gamebet_frontend/app/docs/README.md](../gamebet_frontend/app/docs/README.md#项目共识)）。
+- **Parity 基线**：A8 前端可证实行为（见 [../gamebet_frontend/docs/README.md](../gamebet_frontend/docs/README.md#项目共识)）。
 - **changmen 推测**：`data/esport/*.json`、`match_merge.js`、`client_matchs` 预合并等。
 - **changmen 扩展**：matcher、`platform_sync` 启动登录、WS relay、`http-relay` 等。
 
@@ -61,10 +61,10 @@ npm install
 npm run web          # Web Host
 ```
 
-- `http://localhost:3456/app/` — 新控制台（Vue）
+- `http://localhost:3456/` — 新控制台（Vue）
 - `http://localhost:3456/console/` — A8 控制台（静态来自 `gamebet_frontend/console/`）
 
-### 数据分工（新控制台 `/app/`）
+### 数据分工（新控制台 `/`）
 
 | 数据 | 来源 |
 |------|------|
@@ -97,12 +97,12 @@ npm run web          # Web Host
 | `A8_AUTH` | 开启 | 设为 `0` 关闭部分 A8 集成默认；**登录**仍走 Supabase（`.env` 中 `SUPABASE_*`） |
 | `A8_V4_URL` | `https://api.a8.to/v4.0` | v4 上游（Node 透明代理，无 mock） |
 
-### 平博信用盘 v4（新控制台 `/app/`）
+### 平博信用盘 v4（新控制台 `/`）
 
 **第一步** `POST /v4.0/user/account/login` 已在本地联调通过（2026-05-26）。
 新控制台不依赖 `patch-ui-bundle.js`；前端默认同源 `/v4.0/`（Vite 5174 亦代理到本服务）。
 
-完整说明见 [gamebet_frontend/app/docs/CREDIT_PLATE.md](../gamebet_frontend/app/docs/CREDIT_PLATE.md)。
+完整说明见 [gamebet_frontend/docs/CREDIT_PLATE.md](../gamebet_frontend/docs/CREDIT_PLATE.md)。
 
 | 路径 | 说明 |
 |------|------|
@@ -130,7 +130,7 @@ npm run web          # Web Host
 
 - OB：[../platform_adapter/ob/README.md](../platform_adapter/ob/README.md)、[STATUS_MAPPING.md](../platform_adapter/ob/backend/docs/STATUS_MAPPING.md)
 - RAY：[../platform_adapter/ray/README.md](../platform_adapter/ray/README.md)
-- TF：[../platform_adapter/tf/README.md](../platform_adapter/tf/README.md)；A8 全链路说明见 [A8_TF_LOGIC_PARITY.md](../gamebet_frontend/app/docs/platforms/A8_TF_LOGIC_PARITY.md)
+- TF：[../platform_adapter/tf/README.md](../platform_adapter/tf/README.md)；A8 全链路说明见 [A8_TF_LOGIC_PARITY.md](../gamebet_frontend/docs/platforms/A8_TF_LOGIC_PARITY.md)
 
 ## 新增平台
 

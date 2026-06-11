@@ -10,8 +10,8 @@ echo.
 echo ========================================
 echo   GameBet Dev
 echo ========================================
-echo   Web backend : http://localhost:!_P!/app/
-echo   Vite HMR    : http://localhost:!_V!/app/
+echo   Web backend : http://localhost:!_P!/
+echo   Vite HMR    : http://localhost:!_V!/
 echo   API proxy   : Vite !_V! -^> backend !_P!/esport/*
 echo   Chrome      : load gamebet_chromeplug in chrome://extensions
 echo.
@@ -37,7 +37,7 @@ echo [3/3] Starting matcher (rebuild client_matches)...
 start "GameBet-Matcher" cmd /k "cd /d %~dp0 && call npm run matcher:loop"
 
 echo.
-echo [OK] Started. Open http://localhost:!_V!/app/ in Chrome with extension loaded.
+echo [OK] Started. Open http://localhost:!_V!/ in Chrome with extension loaded.
 echo      Optional: npm run matcher:ui  (人工关联 http://localhost:4567)
 echo.
 

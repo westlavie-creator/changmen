@@ -21,9 +21,9 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const { rebuildClientMatchListNow } = require("../../../gamebet_backend/core/esport-api/store.js");
+const { rebuildClientMatchListNow } = require("../../gamebet_backend/core/esport-api/store.js");
 
-const DATA_DIR = path.resolve(__dirname, "../../../gamebet_backend/data/esport");
+const DATA_DIR = path.resolve(__dirname, "../../gamebet_backend/data/esport");
 const MATCHES_PATH = path.join(DATA_DIR, "matches.json");
 const BETS_PATH = path.join(DATA_DIR, "bets.json");
 

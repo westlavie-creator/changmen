@@ -1,7 +1,7 @@
 # A8 同屏走查操作脚本
 
 配合 [A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md) 使用：本文件写清**点哪里、看什么、Network 过滤什么**。  
-左右分屏：**左** `http://localhost:3456/console/` · **右** `http://localhost:5174/app/`
+左右分屏：**左** `http://localhost:3456/console/` · **右** `http://localhost:5174/`
 
 建议账号：**TJ01**（与 `changmen/TJ01.JSON`、平博 v4 测试一致）。
 
@@ -20,7 +20,7 @@ node server.js
 # 终端 2：新前端
 cd changmen/gamebet_frontend
 npm run app:dev
-# → http://localhost:5174/app/
+# → http://localhost:5174/
 
 # 终端 3（可选）：旧 bundle
 # 需 PATCH_CONSOLE=1 时按项目 README 启动，打开 /console/
@@ -35,7 +35,7 @@ npm run app:dev
 ### 0.3 自动化预检（可选）
 
 ```bash
-cd changmen/gamebet_frontend/app
+cd changmen/gamebet_frontend
 npm run audit:a8
 npm run test:v4    # 需 3456
 npm run build
@@ -253,7 +253,7 @@ npm run build
 | 5.4.5 | 账号编辑粘贴 OB Base64 账号 | `ACCOUNT` 写入 |
 | 5.4.6 | 双击 BetRow（OB 列） | 验盘 + 下单 prompt / 成功（需有效 token） |
 
-离线：`cd gamebet_frontend/app && npm run test:ob`。  
+离线：`cd gamebet_frontend && npm run test:ob`。  
 Live 只读（后端 3456）：`ESPORT_TEST_BASE=http://127.0.0.1:3456 npm run test:ob-live`。  
 计划全文：[A8_OB_REPLICATE_PLAN.md](./A8_OB_REPLICATE_PLAN.md)。
 

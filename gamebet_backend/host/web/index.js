@@ -13,8 +13,8 @@ if (!fs.existsSync(path.join(__dirname, '../../core/esport-api/router.js'))) {
 /**
  * 本地聚合服务：esport-api、WS 代理、静态托管。
  *
- * 路由（阶段 7，默认入口 /app/）：
- *   /app/       新控制台（Vue 构建产物 gamebet_frontend/app/dist）
+ * 路由（默认入口 /）：
+ *   /           新控制台（Vue 构建产物 gamebet_frontend/dist）
  *   /console/   旧 A8 bundle（需 PATCH_CONSOLE=1 或 npm run patch:ui）
  */
 
@@ -32,14 +32,17 @@ const PORT = Number(process.env.PORT || 3456);
 const ESPORT_PROXY_ENABLED = process.env.ENABLE_ESPORT_PROXY !== "0";
 const PUBLIC_DIR = path.join(__dirname, "../../public");
 const CONSOLE_DIR = process.env.GAMEBET_CONSOLE_DIR || path.join(__dirname, "../../../gamebet_frontend/console");
-const APP_DIR = process.env.GAMEBET_APP_DIR     || path.join(__dirname, "../../../gamebet_frontend/app/dist");
+const WEB_DIR =
+  process.env.GAMEBET_WEB_DIR ||
+  process.env.GAMEBET_APP_DIR ||
+  path.join(__dirname, "../../../gamebet_frontend/dist");
 
 let esportProxy = null;
 
 const serveStatic = createStaticHandler({
   publicDir: PUBLIC_DIR,
   consoleDir: CONSOLE_DIR,
-  appDir: APP_DIR,
+  webDir: WEB_DIR,
 });
 
 const server = http.createServer(
@@ -132,7 +135,7 @@ function onListen() {
   const v4Base = (process.env.A8_V4_URL || "https://api.a8.to/v4.0").replace(/\/+$/, "");
   console.log(`[v4] proxy only → ${v4Base}/ (no mock)`);
   console.log(
-    `App: http://localhost:${PORT}/app/  |  legacy console: http://localhost:${PORT}/console/  | collect: browser${proxyNote}`,
+    `App: http://localhost:${PORT}/  |  legacy console: http://localhost:${PORT}/console/  | collect: browser${proxyNote}`,
   );
 }
 

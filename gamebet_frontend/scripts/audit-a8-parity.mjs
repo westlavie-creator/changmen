@@ -4,13 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const frontendRoot = path.join(root, "..");
-const bundleJs = fs.readFileSync(
-  path.join(frontendRoot, "vendor/ui-bundle/index.js"),
-  "utf8",
-);
+const bundleJs = fs.readFileSync(path.join(root, "vendor/ui-bundle/index.js"), "utf8");
 const indexCss = fs.readFileSync(
-  path.join(frontendRoot, "../gamebet_backend/public/esport2/assets/index.css"),
+  path.join(root, "../gamebet_backend/public/esport2/assets/index.css"),
   "utf8",
 );
 const a8Css = fs.readFileSync(path.join(root, "src/styles/a8.css"), "utf8");
@@ -134,7 +130,7 @@ const out = {
   sources: {
     bundleJs: "vendor/ui-bundle/index.js",
     indexCss: "gamebet_backend/public/esport2/assets/index.css",
-    a8Css: "app/src/styles/a8.css (extract-a8-css.mjs)",
+    a8Css: "src/styles/a8.css (extract-a8-css.mjs)",
     a8AmIcon: "app/src/styles/a8-am-icon.css",
     a8Fallback: "app/src/styles/a8-fallback.css",
     appCss: "app/src/styles/app.css",

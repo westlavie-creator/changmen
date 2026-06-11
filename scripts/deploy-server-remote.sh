@@ -143,8 +143,8 @@ if [ "$DO_INSTALL_MATCHER" = "1" ]; then
   npm install --prefix gamebet_matcher
 fi
 if [ "$DO_INSTALL_FRONTEND" = "1" ]; then
-  log "npm install gamebet_frontend/app"
-  npm install --prefix gamebet_frontend/app
+  log "npm install gamebet_frontend"
+  npm install --prefix gamebet_frontend
 fi
 
 if [ "$DO_APP_BUILD" = "1" ]; then

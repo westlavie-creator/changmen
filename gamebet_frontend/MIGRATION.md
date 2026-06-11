@@ -1,23 +1,23 @@
 # 脱离 ui_bundle 迁移对照
 
-新控制台源码：`gamebet_frontend/app/`
+新控制台源码：`gamebet_frontend/`
 旧控制台（bundle）：`gamebet_frontend/console/` → `/console/`
-生产访问：`http://localhost:3456/app/`（需先 `npm run app:build`）
+生产访问：`http://localhost:3456/`（需先 `npm run app:build`）
 
-开发：`npm run app:dev` → `http://localhost:5174/app/`
+开发：`npm run app:dev` → `http://localhost:5174/`
 
 ## 阶段进度
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
-| 0 地基 | **完成** | 脚手架、全量 API、登录、比赛列表预览、`/app/` 托管 |
+| 0 地基 | **完成** | 脚手架、全量 API、登录、比赛列表预览、`/` 托管 |
 | 1 数据层 | **完成** | fo + Vg + OB/RAY 采集 + A8 主区 UI |
 | 2 用户 | **完成** | USERCONFIG、CollectConfig 全平台、BetTarget、Setting 弹窗 |
 | 3 账号 | **完成** | Io + AccountBar、充提登记、余额刷新 |
 | 4 订单 | **完成** | OrderView + LoseOrder 补单队列 + 后端 GetOrderList |
 | 5 下单 | **完成** | checkBetting/betting + OB/RAY provider + 自动投注循环 |
 | 6 多平台采集 | **完成** | 11 平台采集器；HG 无赔率流，启用时轮询余额 |
-| 7 下线 bundle | **完成** | 默认入口 `/app/`；`preweb` 构建 Vue；旧 `/console/` 需 `PATCH_CONSOLE=1` |
+| 7 下线 bundle | **完成** | 默认入口 `/`；`preweb` 构建 Vue；旧 `/console/` 需 `PATCH_CONSOLE=1` |
 | 8 消息推送 | **完成** | `messageStore`（Gi）：Telegram/报表/补单发布 + 采集错误通知 |
 | 9 下单扩展 | **完成** | TF / IA 客户端 Provider |
 | 10 多平台下单 | **完成** | IM / IMT / SABA / PB；Stake 插件占位 |
@@ -29,32 +29,32 @@
 
 ## 文档与验收
 
-**对照基线**：新控制台 `/app/` 以 `A8/A8frontendscipts/2.0.1` 为准；旧 `/console/` 仍以 `vendor/ui-bundle` 双轨对照。索引见 [app/docs/README.md](./app/docs/README.md)。
+**对照基线**：新控制台 `/` 以 `A8/A8frontendscipts/2.0.1` 为准；旧 `/console/` 仍以 `vendor/ui-bundle` 双轨对照。索引见 [docs/README.md](./docs/README.md)。
 
 | 文档 | 用途 |
 |------|------|
-| [app/docs/README.md](./app/docs/README.md) | 文档索引、基线说明、已删过期文件列表 |
-| [app/docs/A8_UI_PARITY_GAPS.md](./app/docs/A8_UI_PARITY_GAPS.md) | UI/行为缺口清单 |
-| [app/docs/A8_NEXT_STEPS.md](./app/docs/A8_NEXT_STEPS.md) | 待办与验收命令 |
-| [app/docs/A8_WALKTHROUGH_CHECKLIST.md](./app/docs/A8_WALKTHROUGH_CHECKLIST.md) | 同屏走查勾选表 |
-| [app/docs/A8_REPLICATE_8_PLATFORMS.md](./app/docs/A8_REPLICATE_8_PLATFORMS.md) | OB/IM/TF/PB/RAY/IMT/STAKE/IA 采集与下注复刻清单 |
-| [app/docs/A8_WALKTHROUGH_SCRIPT.md](./app/docs/A8_WALKTHROUGH_SCRIPT.md) | 同屏走查逐步操作（点哪里、看什么 API） |
-| [app/docs/CREDIT_PLATE.md](./app/docs/CREDIT_PLATE.md) | 平博 v4 信用盘 |
-| [app/docs/_A8_VS_CHANGMEN_AUDIT.json](./app/docs/_A8_VS_CHANGMEN_AUDIT.json) | 2.0.1 代码级缺口（只读审计） |
-| [app/docs/A8_PARITY_AUDIT_MACHINE.json](./app/docs/A8_PARITY_AUDIT_MACHINE.json) | 机器审计（`npm run audit:a8`，View 源为 vendor bundle） |
+| [docs/README.md](./docs/README.md) | 文档索引、基线说明、已删过期文件列表 |
+| [docs/A8_UI_PARITY_GAPS.md](./docs/A8_UI_PARITY_GAPS.md) | UI/行为缺口清单 |
+| [docs/A8_NEXT_STEPS.md](./docs/A8_NEXT_STEPS.md) | 待办与验收命令 |
+| [docs/A8_WALKTHROUGH_CHECKLIST.md](./docs/A8_WALKTHROUGH_CHECKLIST.md) | 同屏走查勾选表 |
+| [docs/A8_REPLICATE_8_PLATFORMS.md](./docs/A8_REPLICATE_8_PLATFORMS.md) | OB/IM/TF/PB/RAY/IMT/STAKE/IA 采集与下注复刻清单 |
+| [docs/A8_WALKTHROUGH_SCRIPT.md](./docs/A8_WALKTHROUGH_SCRIPT.md) | 同屏走查逐步操作（点哪里、看什么 API） |
+| [docs/CREDIT_PLATE.md](./docs/CREDIT_PLATE.md) | 平博 v4 信用盘 |
+| [docs/_A8_VS_CHANGMEN_AUDIT.json](./docs/_A8_VS_CHANGMEN_AUDIT.json) | 2.0.1 代码级缺口（只读审计） |
+| [docs/A8_PARITY_AUDIT_MACHINE.json](./docs/A8_PARITY_AUDIT_MACHINE.json) | 机器审计（`npm run audit:a8`，View 源为 vendor bundle） |
 
 ```bash
-cd changmen/gamebet_frontend/app
+cd changmen/gamebet_frontend
 npm run audit:a8   # CSS 选择器与 bundle View 映射
 npm run test:v4    # 平博 v4（backend 3456）
 npm run build
 ```
 
-## 平博信用盘（`/app/`）
+## 平博信用盘（`/`）
 
 与主站 `Client_Login` 分离：v4 使用 **A8 账号 + `a123456`**。本地 dev 默认 **`/v4.0/`** 代理到 gamebet_backend。
 
-详细说明：[app/docs/CREDIT_PLATE.md](./app/docs/CREDIT_PLATE.md)
+详细说明：[docs/CREDIT_PLATE.md](./docs/CREDIT_PLATE.md)
 
 ## A8 bundle 模块 → 新代码目录
 
@@ -88,14 +88,14 @@ npm run build
 
 ## API 封装（阶段 0 已覆盖 router.js 全部 action）
 
-见 `gamebet_frontend/app/src/api/esport.ts`。
+见 `gamebet_frontend/src/api/esport.ts`。
 
 ## 双轨对照测试
 
-- 新（默认）：`http://localhost:3456/app/` 或 dev `http://localhost:5174/app/`
+- 新（默认）：`http://localhost:3456/` 或 dev `http://localhost:5174/`
 - Feed 调试：`http://localhost:3456/feed/`
 - 旧 bundle：`http://localhost:3456/console/`（需 `PATCH_CONSOLE=1`）
 
-**`/app/` 行为不一致时**：以 `A8/A8frontendscipts/2.0.1/index.js` 为准 grep 后 port。
+**`/` 行为不一致时**：以 `A8/A8frontendscipts/2.0.1/index.js` 为准 grep 后 port。
 **仅 `/console/` 双轨对照时**：可用 `vendor/ui-bundle/index.js`。
-同屏走查用 [A8_WALKTHROUGH_CHECKLIST.md](./app/docs/A8_WALKTHROUGH_CHECKLIST.md)。
+同屏走查用 [A8_WALKTHROUGH_CHECKLIST.md](./docs/A8_WALKTHROUGH_CHECKLIST.md)。

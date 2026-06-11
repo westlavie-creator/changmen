@@ -50,8 +50,7 @@
 
 | 目录 | 职责 |
 |------|------|
-| [`gamebet_frontend/app/`](./gamebet_frontend/app/) | **新控制台**（Vue 3 + Pinia，脱离 ui_bundle）；开发 `npm run app:dev`，生产 `/app/` |
-| [`gamebet_frontend/`](./gamebet_frontend/) | A8 复刻：参考 bundle、patch 旧控制台 `/console/` |
+| [`gamebet_frontend/`](./gamebet_frontend/) | **新控制台**（Vue 3 + Pinia）+ 参考 bundle、`/console/` 对照 |
 | [`gamebet_backend/`](./gamebet_backend/) | **服务端**：esport-api、WS relay、静态托管 |
 | [`gamebet_matcher/`](./gamebet_matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
 | [`gamebet_chromeplug/`](./gamebet_chromeplug/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
@@ -61,25 +60,25 @@
 ```bash
 cd changmen   # 若尚未在本目录
 npm install --prefix gamebet_backend
-npm install --prefix gamebet_frontend/app   # 新控制台依赖（首次）
+npm install --prefix gamebet_frontend   # 新控制台依赖（首次）
 npm run web          # patch UI + 启动 http://localhost:3456
-npm run app:dev      # 新控制台 dev → http://localhost:5174/app/
+npm run app:dev      # 新控制台 dev → http://localhost:5174/
 ```
 
 | 入口 | 说明 |
 |------|------|
-| `/app/` | **新控制台**；`npm run app:build` 或 dev `npm run app:dev` |
+| `/` | **新控制台**；`npm run app:build` 或 dev `npm run app:dev` |
 | `/console/` | 旧 bundle（可选：`PATCH_CONSOLE=1 npm run web`） |
 
 **生产部署**：[PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 
 迁移阶段与模块对照见 [gamebet_frontend/MIGRATION.md](./gamebet_frontend/MIGRATION.md)。后端 API 见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
 
-**OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[gamebet_frontend/app/docs/platforms/A8_COMPARE_OB_RAY.md](./gamebet_frontend/app/docs/platforms/A8_COMPARE_OB_RAY.md)。
+**OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[gamebet_frontend/docs/platforms/A8_COMPARE_OB_RAY.md](./gamebet_frontend/docs/platforms/A8_COMPARE_OB_RAY.md)。
 
-**OB 复刻计划**（A8 前端基线 + changmen 标注）：[gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md)。
+**OB 复刻计划**（A8 前端基线 + changmen 标注）：[gamebet_frontend/docs/A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/docs/A8_OB_REPLICATE_PLAN.md)。
 
-**TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[gamebet_frontend/app/docs/platforms/A8_TF_LOGIC_PARITY.md](./gamebet_frontend/app/docs/platforms/A8_TF_LOGIC_PARITY.md)。
+**TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[gamebet_frontend/docs/platforms/A8_TF_LOGIC_PARITY.md](./gamebet_frontend/docs/platforms/A8_TF_LOGIC_PARITY.md)。
 
 平台采集 canonical 源码目录：`platform_adapter/{平台}/frontend/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 请以 `platform_adapter/` 为准。
 
@@ -116,7 +115,7 @@ platform_adapter（浏览器） ──► API_SaveMatch / API_SaveBet ──► 
 | 模块 | 路径 | 说明 |
 |------|------|------|
 | 采集会话 | `platform_adapter/shared/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
-| HTTP 采集 | `gamebet_frontend/app/src/shared/http.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
+| HTTP 采集 | `gamebet_frontend/src/shared/http.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
 | A8 Socket hub | `platform_adapter/shared/socket/hub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
 | A8 盘口聚合 | `platform_adapter/shared/socket/collector.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
 

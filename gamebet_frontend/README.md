@@ -1,8 +1,8 @@
 # gamebet_frontend（客户端 — Vue 控制台）
 
-浏览器/Electron 侧：新控制台 `/app/` 为主；旧 bundle `/console/` 仅对照。
+浏览器/Electron 侧：新控制台 `/` 为主；旧 bundle `/console/` 仅对照。
 
-## 分工（`/app/`）
+## 分工
 
 | 职责 | 负责方 | 接口 / 状态 |
 |------|--------|-------------|
@@ -15,26 +15,27 @@
 
 Chrome 扩展见 [`gamebet_chromeplug/`](../gamebet_chromeplug/)。
 
-生产部署（同源 `/app/` + 远程 API）：[../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md)
+生产部署（同源 `/` + 远程 API）：[../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md)
 
 ## 目录
 
 | 路径 | 说明 |
 |------|------|
-| `app/` | **新控制台**（Vue3）→ `/app/` |
+| `src/` | **新控制台**（Vue3）源码 |
+| `dist/` | 构建产物，由服务端托管在 `/` |
 | `vendor/ui-bundle/` | A8 参考 bundle（只读） |
 | `console/` | `npm run patch:ui` 输出，`/console/` |
 | `patch-ui-bundle.js` | 旧控制台 patch（域名 → 本地 API、WS relay） |
 | `MIGRATION.md` | 脱离 bundle 阶段表 |
-| `app/docs/README.md` | 文档索引 |
+| `docs/README.md` | 文档索引 |
 
 ## 常用命令
 
 在 `changmen/` 目录：
 
 ```bash
-npm run app:build   # 构建 → app/dist/，由服务端托管 /app/
-npm run app:dev     # 开发 http://localhost:5174/app/（VITE_API_PROXY → 3456）
+npm run app:build   # 构建 → dist/，由服务端托管 /
+npm run app:dev     # 开发 http://localhost:5174/（VITE_API_PROXY → 3456）
 npm run web         # 启动服务端
 ```
 

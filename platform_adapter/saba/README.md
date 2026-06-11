@@ -2,7 +2,7 @@
 
 阶段 2 起将迁入：
 
-- `frontend/` — 自 `gamebet_frontend/app/src/platforms/saba/`
+- `frontend/` — 自 `gamebet_frontend/src/platforms/saba/`
 - `backend/` — 自 `gamebet_backend/platforms/saba/`
 - `backend/relay.js` — 若有 relay（见 manifest `backendRelay`）
 

@@ -44,7 +44,7 @@ import { obProvider } from "@platform/ob";
 import type { VenueOrder } from "@platform/contract";
 ```
 
-Vitest 已包含 `platform_adapter/**/frontend/**/*.test.ts`（随 `gamebet_frontend/app` 的 `npm test` 运行）。
+Vitest 已包含 `platform_adapter/**/frontend/**/*.test.ts`（随 `gamebet_frontend` 的 `npm test` 运行）。
 
 ### 后端
 
@@ -79,7 +79,7 @@ cd gamebet_backend
 npm run test:adapter                  # packaged layout 模拟
 npm run test:packaged-adapter         # 仅 layout 冒烟
 
-cd gamebet_frontend/app
+cd gamebet_frontend
 npm run test:ob-provider              # OB provider 契约（读 platform_adapter/ob/frontend）
 ```
 

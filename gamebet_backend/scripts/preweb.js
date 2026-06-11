@@ -2,10 +2,10 @@
 "use strict";
 
 /**
- * npm run web 启动前钩子（阶段 7：默认构建 Vue 控制台 /app/）。
+ * npm run web 启动前钩子：默认构建 Vue 控制台（托管在 /）。
  *
  * 环境变量：
- *   SKIP_APP_BUILD=1   跳过构建（仅调试 API / 代理，/app/ 可能 404）
+ *   SKIP_APP_BUILD=1   跳过构建（仅调试 API / 代理，前端可能 404）
  *   PATCH_CONSOLE=1    额外执行 patch-ui-bundle，生成旧版 /console/（默认不再执行）
  *
  * 日常开发推荐 dev.bat（3456 后端 + 5174 Vite），无需每次 prebuild。
@@ -31,7 +31,7 @@ function run(cmd, args, opts = {}) {
 if (process.env.SKIP_APP_BUILD === "1") {
   console.log("[preweb] SKIP_APP_BUILD=1，跳过 app:build");
 } else {
-  console.log("[preweb] 构建新控制台 gamebet_frontend/app → /app/ …");
+  console.log("[preweb] 构建新控制台 gamebet_frontend → / …");
   run("npm", ["run", "app:build"], { cwd: ROOT });
 }
 

@@ -1,6 +1,6 @@
 # A8 UI / 行为复刻缺口清单
 
-对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `index.css`（新 `/app/`）。  
+对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `index.css`（新 `/`）。  
 双轨对照可用 `vendor/ui-bundle` + `/console/`。  
 本清单只列**尚未对齐**或**仅部分对齐**项；数据层/采集/下单见 `MIGRATION.md` 与各 `docs/platforms/*`。
 
@@ -125,14 +125,14 @@
 ```bash
 cd changmen/gamebet_frontend
 npm run app:dev
-# 新：http://localhost:5174/app/
+# 新：http://localhost:5174/
 # 旧：http://localhost:3456/console/  （需 PATCH_CONSOLE=1 + 后端 3456）
 ```
 
 同屏对比：登录页、侧栏用户区、用户中心各 Tab、顶栏账号卡、赛事列表 BetRow、订单区。
 
 ```bash
-cd changmen/gamebet_frontend/app
+cd changmen/gamebet_frontend
 node scripts/audit-a8-parity.mjs
 # → docs/A8_PARITY_AUDIT_MACHINE.json
 ```
@@ -186,6 +186,6 @@ node scripts/audit-a8-parity.mjs
 
 ### 9.5 建议下一步（仅 UI）
 
-1. 同屏 `/console/` vs `/app/` 走一遍 11 个用户中心 Tab + 主界面关键路径。
+1. 同屏 `/console/` vs `/` 走一遍 11 个用户中心 Tab + 主界面关键路径。
 2. 同屏 pixel diff：账号编辑、充提弹窗、版本角标。
 3. 钱包地址一致：接入 TronWeb 生成（行为改动，影响钱包 Tab 展示）。

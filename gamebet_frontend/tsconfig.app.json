@@ -19,7 +19,7 @@
     "resolveJsonModule": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@platform/*": ["../../platform_adapter/*"],
+      "@platform/*": ["../platform_adapter/*"],
       "mqtt": ["./node_modules/mqtt"],
       "socket.io-client": ["./node_modules/socket.io-client"],
       "socketcluster-client": ["./node_modules/socketcluster-client"]
@@ -30,11 +30,11 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "../../platform_adapter/**/index.ts",
-    "../../platform_adapter/**/frontend/**/*.ts",
-    "../../platform_adapter/shared/**/*.ts",
-    "../../platform_adapter/registry/**/*.ts",
-    "../../platform_adapter/contract/**/*.ts"
+    "../platform_adapter/**/index.ts",
+    "../platform_adapter/**/frontend/**/*.ts",
+    "../platform_adapter/shared/**/*.ts",
+    "../platform_adapter/registry/**/*.ts",
+    "../platform_adapter/contract/**/*.ts"
   ],
-  "exclude": ["../../platform_adapter/**/*.test.ts"]
+  "exclude": ["../platform_adapter/**/*.test.ts"]
 }

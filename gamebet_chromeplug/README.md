@@ -10,7 +10,7 @@ Mode P 启动：`parity-dev.bat` 或 `dev.bat`（浏览器 + 插件）。
 mogfpjihgoghabicofkbcmcidlcoofee
 ```
 
-与 `gamebet_frontend/app/src/config/gamebetExtension.ts` 中 `GAMEBET_EXTENSION_ID_DEFAULT` 一致。
+与 `gamebet_frontend/src/config/gamebetExtension.ts` 中 `GAMEBET_EXTENSION_ID_DEFAULT` 一致。
 
 ## 安装
 
@@ -20,7 +20,7 @@ mogfpjihgoghabicofkbcmcidlcoofee
 2. 开启「开发者模式」
 3. 「加载已解压的扩展程序」→ 选择本目录 `changmen/gamebet_chromeplug`
 4. 确认扩展 ID 为 `mogfpjihgoghabicofkbcmcidlcoofee`
-5. 启动 changmen 前端（`gamebet_frontend/app`），PB / Stake / v4 等会经扩展代发 HTTP
+5. 启动 changmen 前端（`gamebet_frontend`），PB / Stake / v4 等会经扩展代发 HTTP
 6. Stake：在同一 Chrome 配置文件中打开 `stake.com`，扩展会自动 `setTab`
 
 ## 功能（与 A8 一致）

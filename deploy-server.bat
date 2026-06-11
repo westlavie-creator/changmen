@@ -13,8 +13,8 @@ if exist "%~dp0deploy-server.env" call "%~dp0deploy-server.env"
 
 set "REMOTE=%DEPLOY_USER%@%DEPLOY_HOST%"
 set "LOCAL_SCRIPT=%~dp0scripts\deploy-server-remote.sh"
-set "FRONTEND_DIST=%~dp0gamebet_frontend\app\dist"
-set "REMOTE_APP=%DEPLOY_REPO%/changmen/gamebet_frontend/app"
+set "FRONTEND_DIST=%~dp0gamebet_frontend\dist"
+set "REMOTE_APP=%DEPLOY_REPO%/changmen/gamebet_frontend"
 
 echo.
 echo ========================================
@@ -106,7 +106,7 @@ if errorlevel 1 goto fail_network
 
 :done
 echo.
-echo Done. Open http://%DEPLOY_HOST%:3456/app/
+echo Done. Open http://%DEPLOY_HOST%:3456/
 echo.
 pause
 exit /b 0
@@ -118,7 +118,7 @@ echo.
 echo Checklist:
 echo   1. Aliyun console: is the VPS running? Try reboot.
 echo   2. Security group: allow TCP 22 SSH and 3456 from your IP.
-echo   3. Browser test: http://%DEPLOY_HOST%:3456/app/
+echo   3. Browser test: http://%DEPLOY_HOST%:3456/
 echo   4. Wait a few minutes if VPS was OOM from old vite build, then retry.
 echo.
 echo Local dist is already built. After SSH works, run deploy-server.bat again

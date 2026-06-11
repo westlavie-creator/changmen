@@ -17,7 +17,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Vite: http://localhost:!_V!/app/
+echo Vite: http://localhost:!_V!/
 call npm run app:dev
 if errorlevel 1 pause
 

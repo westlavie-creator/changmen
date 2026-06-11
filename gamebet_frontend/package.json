@@ -8,7 +8,7 @@
     "dev": "vite",
     "prebuild": "node scripts/extract-a8-css.mjs",
     "build": "vue-tsc -b && vite build --base=./",
-    "preview": "vite preview --base /app/",
+    "preview": "vite preview --base /",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:v4": "node scripts/test-v4-credit-plate.mjs",

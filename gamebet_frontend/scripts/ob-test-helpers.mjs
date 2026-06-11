@@ -8,7 +8,7 @@ import { createRequire } from "node:module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const { A8_USER, A8_PASSWORD } = require("../../../gamebet_backend/core/integrations/a8/constants.js");
+const { A8_USER, A8_PASSWORD } = require("../../gamebet_backend/core/integrations/a8/constants.js");
 
 export function assert(cond, msg) {
   if (!cond) throw new Error(msg);
