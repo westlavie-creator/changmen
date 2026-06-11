@@ -721,11 +721,12 @@ async function fetchJson(url, options) {
     url = (window.MATCHER_API || '/api') + url.slice(4);
   }
   const opts = options ? { ...options } : {};
+  opts.credentials = 'include';
   opts.headers = { ...(opts.headers || {}), ...matcherAuthHeaders() };
   const res = await fetch(url, opts);
-  if (res.status === 401 && !isLocalMatcherDev()) {
-    redirectToSiteLogin();
-    throw new Error('需要登录');
+  if (res.status === 401) {
+    if (!isLocalMatcherDev()) redirectToSiteLogin();
+    throw new Error('需要登录（请先在主页登录，或刷新后重试）');
   }
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {

@@ -14,11 +14,16 @@
     return window.MATCHER_API + path;
   };
 
+  function readTokenCookie() {
+    const m = document.cookie.match(/(?:^|; )app_token=([^;]*)/);
+    return m ? decodeURIComponent(m[1]) : "";
+  }
+
   window.getSiteToken = function getSiteToken() {
     try {
-      return localStorage.getItem("app:token") || "";
+      return localStorage.getItem("app:token") || readTokenCookie() || "";
     } catch {
-      return "";
+      return readTokenCookie();
     }
   };
 
@@ -36,6 +41,13 @@
     const dest = "/login?redirect=" + encodeURIComponent(location.pathname + location.search);
     location.replace(dest);
   };
+
+  // 与主页同源时 localStorage 已有 token；跨端口（5174 登录、3456 matcher）靠 cookie 共享
+  const token = window.getSiteToken();
+  if (token && !readTokenCookie()) {
+    document.cookie =
+      "app_token=" + encodeURIComponent(token) + "; path=/; max-age=" + 60 * 60 * 24 * 7 + "; SameSite=Lax";
+  }
 
   if (!window.isLocalMatcherDev() && !window.getSiteToken()) {
     window.redirectToSiteLogin();

@@ -30,6 +30,7 @@ export default defineConfig({
       "/esport": { target: API_TARGET, changeOrigin: true },
       "/common": { target: API_TARGET, changeOrigin: true },
       "/api": { target: API_TARGET, changeOrigin: true },
+      "/matcher": { target: API_TARGET, changeOrigin: true },
       "/v4.0": { target: API_TARGET, changeOrigin: true },
     },
   },
