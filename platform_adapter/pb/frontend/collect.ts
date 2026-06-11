@@ -1,9 +1,9 @@
+import { hasA8PluginRuntime } from "@/extension/bridge";
 import { getCollectPlatform, getGames } from "@/api/esport";
-import { pbGet } from "./transport";
-import { resolvePbAccount } from "./transport";
+import { PB_PLUGIN_REQUIRED_MSG, pbGet, resolvePbAccount } from "./transport";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/shared/platform";
-import { parseEuroOddsPayload, pbOddsUrl, pbTeamLogo, slugify } from "./parse";
+import { mergeEuroOddsPayloads, parseEuroOddsPayload, pbOddsUrl, pbTeamLogo, slugify } from "./parse";
 import { setPbLineId } from "./lineCache";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
@@ -18,6 +18,7 @@ const SAVE_MS = 60_000;
 export function startPbCollector(): () => void {
   let stopped = false;
   let lastSaveAt = 0;
+  let pluginMissingNotified = false;
 
   const odds = useOddsStore();
   const collect = useCollectStore();
@@ -35,6 +36,16 @@ export function startPbCollector(): () => void {
         }
 
         const account = resolvePbAccount();
+        if (!hasA8PluginRuntime() && !account?.proxyId) {
+          if (!pluginMissingNotified) {
+            notifyCollectError("PB", PB_PLUGIN_REQUIRED_MSG);
+            pluginMissingNotified = true;
+          }
+          await wait(POLL_MS);
+          continue;
+        }
+        pluginMissingNotified = false;
+
         if (!account) {
           console.log(PLATFORM, "当前未检测到账号");
           odds.clean(PLATFORM);
@@ -44,8 +55,12 @@ export function startPbCollector(): () => void {
 
         const games = await getGames(PLATFORM);
         const allowedSlugs = games.map(slugify);
-        const url = pbOddsUrl(account.gateway!);
-        const data = await pbGet<Record<string, unknown>>(account, url);
+        const gateway = account.gateway!;
+        const [liveData, prematchData] = await Promise.all([
+          pbGet<Record<string, unknown>>(account, pbOddsUrl(gateway, true)),
+          pbGet<Record<string, unknown>>(account, pbOddsUrl(gateway, false)),
+        ]);
+        const data = mergeEuroOddsPayloads(liveData, prematchData);
         const { matches } = parseEuroOddsPayload(data, { allowedSlugs });
         matchCount = matches.length;
 

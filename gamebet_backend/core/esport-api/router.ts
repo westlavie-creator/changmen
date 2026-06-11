@@ -3,7 +3,7 @@
 import type { IncomingMessage, ServerResponse } from "http";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const catalog        = require("../shared/game_catalog.json");
+const catalog        = require("../../../shared/catalog/game_catalog.json");
 const store          = require("./store.js");
 const { emptyPage: _emptyPage, monthReport } = require("./stubs.js");
 const { handleV4Request }  = require("./v4_router.js");
@@ -12,7 +12,7 @@ const accountStore         = require("../account/account_store.js");
 const accountService       = require("../account/account_service.js");
 const { resolveA8Credentials }            = require("../integrations/a8/config.js");
 const { loginV4 }                         = require("../integrations/a8/v4_client.js");
-const { getPlatformRules, getDefaultMarketCode } = require("../shared/market_catalog.js");
+const { getPlatformRules, getDefaultMarketCode } = require("../../../shared/catalog/market_catalog.js");
 const { requirePlatform } = require("../shared/adapter_paths.js");
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -164,12 +164,15 @@ function gamesForProvider(provider: string): string[] {
 // ── Action handlers ──────────────────────────────────────────────────────────
 
 async function handleClientLogin(body: Record<string, unknown>): Promise<ApiEnvelope> {
-  const sb = require("../db/supabase.js");
+  const sb = require("../../../shared/db/supabase.js");
   const dbStore = require("../db/store.js");
 
   const userName = String(body.userName || body.username || "").trim();
   const password = body.password;
   if (!userName || !password) return fail("用户名和密码必填");
+  if (!sb.isAuthConfigured()) {
+    return fail("未连接 Supabase：请将 .env 放在 GameBet.exe 同级目录，并配置 SUPABASE_URL、SUPABASE_KEY");
+  }
 
   const auth = await sb.authSignIn(userName, password);
   if (!auth) return fail("用户名或密码错误");
@@ -204,7 +207,7 @@ async function handle(
 ): Promise<ApiEnvelope> {
   switch (action as EsportAction) {
     case "Client_Logout": {
-      const sb = require("../db/supabase.js");
+      const sb = require("../../../shared/db/supabase.js");
       await sb.authSignOut(ctx.token);
       return ok(null);
     }

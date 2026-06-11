@@ -1,6 +1,6 @@
-"use strict";
+﻿"use strict";
 
-const { rayIsAggregatedOddsRow } = require("./_require.js").reqB("core/shared/market_catalog.js");
+const { rayIsAggregatedOddsRow } = require("./_require.js").reqS("catalog/market_catalog.js");
 const DEFAULT_GATEWAYS = [
   "https://cfinfo.365raylinks.com/v2",
   "https://iminfo.esportsworldlink.com/v2",

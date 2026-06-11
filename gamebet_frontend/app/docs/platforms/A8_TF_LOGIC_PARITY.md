@@ -258,8 +258,8 @@ Ticket body（摘要）：
 |------|------|
 | A8 拉凭证 | `gamebet_backend/shared/a8_esport_client.js` |
 | TF 缓存 | `gamebet_backend/shared/tf_a8_collect.js` |
-| API 路由 | `gamebet_backend/esport-api/router.js`（`Client_GetCollectPlatform` TF 分支） |
-| 启动同步 | `gamebet_backend/esport-api/platform_sync.js` `syncTfFromA8` |
+| API 路由 | `gamebet_backend/core/esport-api/router.js`（`Client_GetCollectPlatform` TF 分支） |
+| 启动同步 | `gamebet_backend/core/esport-api/platform_sync.js` `syncTfFromA8` |
 | 后端 TF feed | `gamebet_backend/platforms/tf/*` |
 | 采集入口 | `gamebet_frontend/.../collectors/tf/index.ts` |
 | WS | `collectors/tf/ws.ts` |

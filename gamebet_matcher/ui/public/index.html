@@ -1,0 +1,2160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameBet 队伍映射</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+    .header { background: #1e293b; border-bottom: 1px solid #334155; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+    .header h1 { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+    .header-sub { font-size: 11px; color: #64748b; font-weight: 400; margin-top: 2px; }
+    .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+    .matcher-status { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155; white-space: nowrap; }
+    .matcher-status.on { border-color: #166534; background: #14532d55; color: #4ade80; }
+    .matcher-status.off { border-color: #7f1d1d55; background: #450a0a55; color: #f87171; }
+    .matcher-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .matcher-status.on .matcher-dot { background: #4ade80; box-shadow: 0 0 6px #4ade8099; }
+    .matcher-status.off .matcher-dot { background: #f87171; }
+    .updated-at { font-size: 12px; color: #64748b; }
+    .btn { background: #3b82f6; color: #fff; border: none; padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .btn:hover { background: #2563eb; }
+    .btn-sm { padding: 3px 10px; font-size: 12px; }
+    .btn-success { background: #16a34a; }
+    .btn-success:hover:not(:disabled) { background: #15803d; }
+    .btn-danger { background: #dc2626; }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+    .btn-ghost { background: transparent; border: 1px solid #475569; color: #cbd5e1; }
+    .btn-ghost:hover { background: #334155; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .workflow-hint {
+      padding: 12px 20px; background: #172554; border-bottom: 1px solid #1e3a8a;
+      font-size: 13px; color: #93c5fd; line-height: 1.55;
+    }
+    .workflow-hint strong { color: #bfdbfe; }
+
+    .stats { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 20px; background: #1e293b; border-bottom: 1px solid #334155; }
+    .stat { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 8px 14px; white-space: nowrap; }
+    .stat .label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat .value { font-size: 22px; font-weight: 700; line-height: 1.2; }
+    .c-blue { color: #60a5fa; }
+    .c-green { color: #4ade80; }
+    .c-amber { color: #fbbf24; }
+    .c-slate { color: #94a3b8; }
+
+    .badge { background: #334155; color: #94a3b8; border-radius: 10px; padding: 1px 7px; font-size: 11px; margin-left: 5px; }
+
+    .content { padding: 16px 20px; max-width: none; }
+
+    .queue-search-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 12px; padding: 10px 12px;
+      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+    }
+    .queue-search-bar input[type="search"] {
+      flex: 1; min-width: 200px; max-width: 420px;
+      padding: 7px 12px; border-radius: 6px; border: 1px solid #475569;
+      background: #0f172a; color: #e2e8f0; font-size: 13px;
+    }
+    .queue-search-bar input[type="search"]::placeholder { color: #64748b; }
+    .queue-search-bar input[type="search"]:focus {
+      outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px #3b82f633;
+    }
+    .queue-search-hint { font-size: 12px; color: #64748b; }
+    .queue-search-hint.active { color: #93c5fd; }
+
+    .queue-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+    @media (max-width: 1280px) {
+      .queue-split { grid-template-columns: 1fr; }
+    }
+    .split-col {
+      min-width: 0;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 200px);
+    }
+    .split-col-matched { border-color: #4ade8040; }
+    .split-col-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid #334155;
+      background: #0f172a;
+      flex-shrink: 0;
+    }
+    .split-col-title { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+    .split-col-desc { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.45; }
+    .split-col-toolbar {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+      margin-top: 8px;
+    }
+    .split-col-body {
+      padding: 12px 14px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .team-link-board { position: relative; }
+    .team-link-svg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 5; overflow: visible;
+    }
+    .team-link-persist-line { pointer-events: none; }
+    .team-cell { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+    .team-cell-body { min-width: 0; flex: 1; }
+    .team-cell-action { flex-shrink: 0; align-self: center; margin-left: 2px; }
+    .team-register-map-btn {
+      border: 1px solid #475569; background: #1e293b; color: #cbd5e1;
+      border-radius: 5px; padding: 2px 7px; font-size: 10px; line-height: 1.4;
+      cursor: pointer; white-space: nowrap;
+    }
+    .team-register-map-btn:hover:not(:disabled) { background: #334155; border-color: #64748b; color: #f1f5f9; }
+    .team-register-map-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .team-link-handle {
+      width: 12px; height: 12px; margin-top: 3px; border-radius: 50%;
+      border: 2px solid #60a5fa; background: #0f172a; flex-shrink: 0;
+      cursor: crosshair; padding: 0; position: relative; z-index: 6;
+    }
+    .team-link-handle:hover { background: #3b82f6; border-color: #93c5fd; }
+    .team-link-handle.team-link-dragging { background: #3b82f6; box-shadow: 0 0 0 3px #3b82f644; }
+    .team-link-handle.team-link-drop-target { background: #4ade80; border-color: #4ade80; }
+    .team-link-handle-disabled {
+      border-color: #475569; background: #1e293b; cursor: not-allowed; opacity: 0.35;
+    }
+    .match-link-handle {
+      width: 12px; height: 12px; margin-top: 1px; border-radius: 2px;
+      border: 2px solid #fbbf24; background: #0f172a; flex-shrink: 0;
+      cursor: crosshair; padding: 0; position: relative; z-index: 6;
+    }
+    .match-link-handle:hover { background: #fbbf24; border-color: #fde68a; }
+    .match-link-handle.match-link-dragging { background: #fbbf24; box-shadow: 0 0 0 3px #fbbf2444; }
+    .match-link-handle.match-link-drop-target { background: #4ade80; border-color: #4ade80; }
+    .match-link-handle.match-merge-target {
+      width: 14px; height: 14px; border-color: #4ade80; margin-top: 0;
+    }
+    .match-link-cell { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+    .match-id-linked { font-size: 11px; font-weight: 700; color: #4ade80; font-family: ui-monospace, monospace; }
+    .match-id-platform { font-size: 10px; color: #64748b; font-family: ui-monospace, monospace; word-break: break-all; }
+    .client-match-id-banner {
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+      padding: 6px 10px; border-radius: 8px; background: #4ade8012; border: 1px solid #4ade8040;
+      cursor: default;
+    }
+    .team-link-board.match-link-drag-active .client-match-id-banner {
+      cursor: crosshair;
+    }
+    .client-match-id-banner.match-merge-drop-target {
+      background: #4ade8028; border-color: #4ade80; box-shadow: 0 0 0 2px #4ade8055;
+    }
+    .match-id-label { font-size: 10px; color: #86efac; display: block; }
+    .match-id-value { font-size: 15px; font-weight: 800; color: #4ade80; font-family: ui-monospace, monospace; }
+    .client-match-id-banner.teams-id-mapped {
+      background: #fb923c14; border-color: #fb923c55;
+    }
+    .client-match-id-banner.teams-id-mapped .match-id-label { color: #fdba74; }
+    .client-match-id-banner.teams-id-mapped .match-id-value { color: #fb923c; }
+    .team-table .col-match-id { width: 108px; }
+    .team-canonical { font-size: 10px; color: #60a5fa; font-family: ui-monospace, monospace; margin-top: 2px; }
+    .team-canonical.missing { color: #64748b; }
+    .team-canonical.pending { color: #fbbf24; }
+    .team-id.missing { color: #475569; font-style: italic; }
+
+    .game-section { margin-bottom: 28px; }
+    .game-section-header {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+      padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid #334155;
+    }
+    .game-section-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #f1f5f9; }
+    .game-section-meta { font-size: 12px; color: #64748b; }
+
+    .team-queue { display: flex; flex-direction: column; gap: 12px; }
+    .team-card {
+      background: #1e293b; border: 1px solid #334155; border-radius: 10px; overflow: hidden;
+    }
+    .team-card.pending { border-color: #fbbf2440; }
+    .team-card.matched { border-color: #4ade8040; }
+    .team-card-header {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+      padding: 14px 16px 10px; border-bottom: 1px solid #334155;
+    }
+    .team-card-title { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+    .team-card-title .vs { color: #64748b; font-weight: 400; font-size: 12px; margin: 0 6px; }
+    .team-card-meta { font-size: 11px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .conf-wrap { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+    .conf-bar { width: 72px; height: 5px; background: #334155; border-radius: 3px; overflow: hidden; }
+    .conf-fill { height: 100%; border-radius: 3px; }
+    .conf-pct { font-size: 12px; font-weight: 700; min-width: 36px; text-align: right; }
+
+    .team-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .team-table th, .team-table td { padding: 8px 12px; border-bottom: 1px solid #1e293b; text-align: left; vertical-align: top; }
+    .team-table th { color: #64748b; font-weight: 600; background: #0f172a; font-size: 11px; }
+    .team-table tr:last-child td { border-bottom: none; }
+    .team-table .col-platform { width: 88px; }
+    .team-table .col-action { width: 96px; text-align: right; }
+    .ref-tag { font-size: 10px; color: #60a5fa; background: #3b82f618; padding: 2px 6px; border-radius: 4px; margin-left: 4px; }
+    .team-name { color: #f1f5f9; font-weight: 600; }
+    .team-id { color: #64748b; font-size: 10px; margin-top: 2px; font-family: ui-monospace, monospace; }
+    .team-status { font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+    .ts-pending { background: #fbbf2418; color: #fbbf24; }
+    .ts-done { background: #4ade8018; color: #4ade80; }
+
+    .team-card-footer {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 16px; background: #0f172a;
+    }
+    .team-card-hint { font-size: 11px; color: #64748b; line-height: 1.45; }
+
+    .gbadge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; text-transform: uppercase; }
+    .g-cs2 { background: #ff6b3518; color: #fb923c; }
+    .g-lol { background: #c89b3c18; color: #fbbf24; }
+    .g-dota2 { background: #ef444418; color: #f87171; }
+    .g-valorant { background: #ec489918; color: #f472b6; }
+    .g-kog { background: #22c55e18; color: #4ade80; }
+    .g-unknown { background: #33415518; color: #94a3b8; }
+    .pbadge { font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+    .p-OB { background: #3b82f618; color: #60a5fa; }
+    .p-RAY { background: #8b5cf618; color: #a78bfa; }
+    .p-TF { background: #ec489918; color: #f472b6; }
+    .p-IA { background: #14b8a618; color: #2dd4bf; }
+    .p-PB { background: #f9731618; color: #fb923c; }
+    .p-IM, .p-IMT { background: #64748b18; color: #94a3b8; }
+    .p-SABA { background: #84cc1618; color: #a3e635; }
+    .p-Stake { background: #06b6d418; color: #22d3ee; }
+    .p-HG { background: #e1107518; color: #fb7185; }
+
+    .orphan-list { display: flex; flex-direction: column; gap: 6px; }
+    .orphan-row {
+      padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; font-size: 12px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+
+    .platform-unmatched-section { margin-bottom: 20px; }
+    .platform-unmatched-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 0 10px; border-bottom: 1px solid #334155; margin-bottom: 8px;
+    }
+    .platform-unmatched-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #f1f5f9; }
+    .platform-unmatched-count { font-size: 12px; color: #64748b; }
+    .unmatched-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .unmatched-table th, .unmatched-table td { padding: 7px 10px; border-bottom: 1px solid #1e293b; text-align: left; vertical-align: top; }
+    .unmatched-table th { color: #64748b; font-weight: 600; font-size: 11px; background: #0f172a; }
+    .unmatched-table tr:last-child td { border-bottom: none; }
+    .rec-tag { font-size: 10px; color: #fbbf24; background: #fbbf2418; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+    .orphan-tag { font-size: 10px; color: #94a3b8; background: #334155; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+
+    .panel-toolbar { margin-bottom: 0; }
+    .filter-chips { display: flex; gap: 6px; }
+    .filter-chip {
+      font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155;
+      background: transparent; color: #94a3b8; cursor: pointer;
+    }
+    .filter-chip.active { border-color: #3b82f6; background: #1e3a5f44; color: #93c5fd; }
+
+    .empty { text-align: center; color: #475569; padding: 36px; font-size: 13px; line-height: 1.6; }
+
+    .link-modal-backdrop {
+      position: fixed; inset: 0; background: #0f172acc; z-index: 100;
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .link-modal-backdrop.hidden { display: none; }
+    .link-modal {
+      background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+      width: min(560px, 100%); max-height: 90vh; overflow-y: auto;
+      padding: 18px 20px; box-shadow: 0 16px 48px #0008;
+    }
+    .link-modal h3 { font-size: 15px; margin-bottom: 12px; color: #f1f5f9; }
+    .link-modal-body { font-size: 13px; color: #cbd5e1; line-height: 1.6; margin-bottom: 16px; }
+    .link-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .link-side-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0; }
+    .link-side-table th, .link-side-table td { border: 1px solid #334155; padding: 8px 10px; text-align: left; }
+    .link-side-table th { background: #0f172a; color: #94a3b8; }
+    .link-side-tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: #334155; color: #cbd5e1; margin-right: 6px; }
+    .link-align-banner { padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; }
+    .link-align-banner.ok { background: #14532d55; border: 1px solid #166534; color: #4ade80; }
+    .link-align-banner.swap { background: #713f1255; border: 1px solid #92400e; color: #fbbf24; }
+    .link-align-banner.unknown { background: #450a0a55; border: 1px solid #7f1d1d; color: #f87171; }
+    .link-side-options { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+    .link-side-option { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid #334155; border-radius: 6px; cursor: pointer; }
+    .link-side-option:hover { background: #0f172a; }
+    .link-side-option.selected { border-color: #3b82f6; background: #1e3a5f44; }
+    .link-side-option input { margin-top: 3px; }
+    .link-side-option-text { font-size: 12px; color: #cbd5e1; line-height: 1.5; }
+    .link-map-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; flex-wrap: wrap; font-size: 11px; }
+    .link-map-ok { color: #4ade80; }
+    .link-map-warn { color: #fbbf24; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+    .action-toast-host {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      z-index: 9999; display: flex; flex-direction: column; align-items: center; gap: 8px;
+      pointer-events: none; max-width: min(520px, calc(100vw - 24px));
+    }
+    .action-toast {
+      pointer-events: auto; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.45;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: action-toast-in .2s ease;
+      white-space: pre-line;
+    }
+    .action-toast.ok { background: #14532d; border: 1px solid #166534; color: #bbf7d0; }
+    .action-toast.err { background: #450a0a; border: 1px solid #7f1d1d; color: #fecaca; }
+    .action-toast.warn { background: #713f1255; border: 1px solid #92400e; color: #fde68a; }
+    @keyframes action-toast-in {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="action-toast-host" id="action-toast-host" aria-live="polite"></div>
+
+<div class="header">
+  <div>
+    <h1>GameBet 队伍映射</h1>
+    <div class="header-sub">以脚本推荐赛事为队列 · 确认后写入队伍 ID 映射 · 后续由 matcher 自动合并</div>
+  </div>
+  <div class="header-right">
+    <a class="btn btn-sm btn-ghost" href="/canvas.html" style="text-decoration:none">画布视图</a>
+    <span class="matcher-status off" id="matcher-status">
+      <span class="matcher-dot"></span>
+      <span class="matcher-label">检测中…</span>
+    </span>
+    <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动脚本</button>
+    <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止脚本</button>
+    <span class="updated-at" id="updated-at">—</span>
+    <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
+  </div>
+</div>
+
+<div class="workflow-hint">
+  <strong>工作流：</strong>圆点关联队伍；<strong>黄色方点</strong>关联赛事（从黄色方点拖线到已匹配栏的<strong>绿色方点</strong>或<strong>比赛 ID 绿底区域</strong>合并，或拖到其它平台场次）。未匹配默认「仅无推荐」——在推荐组里的场次请用中间栏操作。
+</div>
+
+<div class="stats" id="stats-bar"></div>
+
+<div class="content">
+  <div id="panel-main">
+    <div class="queue-search-bar">
+      <input type="search" id="team-search-input" placeholder="按队名搜索（已匹配 + 推荐组 + 未匹配）" autocomplete="off" spellcheck="false">
+      <span class="queue-search-hint" id="team-search-hint"></span>
+    </div>
+    <div class="team-link-board" id="team-link-board">
+      <svg class="team-link-svg" id="team-link-svg" aria-hidden="true"></svg>
+      <div class="queue-split">
+        <section class="split-col split-col-matched">
+          <div class="split-col-header">
+            <div class="split-col-title">已匹配 <span class="badge" id="matched-section-count">0</span></div>
+            <div class="split-col-desc">client_matches 多平台赛事 · 可拖圆点跨栏关联队伍</div>
+          </div>
+          <div class="split-col-body">
+            <div class="game-sections" id="matched-panels"><div class="empty">加载中…</div></div>
+          </div>
+        </section>
+        <section class="split-col">
+          <div class="split-col-header">
+            <div class="split-col-title">推荐组 <span class="badge" id="queue-rec-count">0</span></div>
+            <div class="split-col-desc">跨平台推荐比赛 · 「确认」写入赛事映射 · 圆点拖到其它栏关联队伍</div>
+          </div>
+          <div class="split-col-body">
+            <div class="game-sections" id="queue-panels"><div class="empty">加载中…</div></div>
+          </div>
+        </section>
+        <section class="split-col">
+          <div class="split-col-header">
+            <div class="split-col-title">未匹配 <span class="badge" id="unmatched-col-count">0</span></div>
+            <div class="split-col-desc">未进 client_match 的原始比赛 · 按游戏分类</div>
+            <div class="split-col-toolbar panel-toolbar">
+              <div class="filter-chips">
+                <button type="button" class="filter-chip" data-unmatched-filter="all">全部</button>
+                <button type="button" class="filter-chip active" data-unmatched-filter="orphan">仅无推荐</button>
+              </div>
+            </div>
+          </div>
+          <div class="split-col-body">
+            <div id="unmatched-panels"><div class="empty">加载中…</div></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="link-modal-backdrop hidden" id="link-modal">
+  <div class="link-modal" role="dialog" aria-modal="true">
+    <h3 id="link-modal-title">确认队伍映射</h3>
+    <div class="link-modal-body" id="link-modal-body"></div>
+    <div class="link-modal-actions">
+      <button type="button" class="btn btn-sm btn-ghost" id="link-modal-cancel">取消</button>
+      <button type="button" class="btn btn-sm btn-success" id="link-modal-confirm">确认写入映射</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PLATFORM_REF_ORDER = ['OB', 'RAY', 'PB', 'TF', 'IA', 'IMT', 'IM', 'Stake', 'SABA', 'HG'];
+const GAME_NAMES = { cs2: 'CS2', lol: 'LOL', dota2: 'DOTA2', valorant: 'Valorant', kog: 'KOG' };
+
+let _lastData = null;
+let _pendingRec = null;
+let _pendingTeamLink = null;
+let _linkModalKind = null;
+let _linkSubmitting = false;
+let _matcherBusy = false;
+let _unmatchedFilter = 'orphan';
+let _teamDrag = null;
+let _teamLinkBound = false;
+let _teamLinkScrollBound = false;
+let _teamLinkRedrawRaf = null;
+let _teamLinkSubmitting = false;
+let _teamRegisterSubmitting = false;
+let _teamSearchQuery = '';
+let _matchDrag = null;
+let _matchLinkBound = false;
+let _matchLinkSubmitting = false;
+
+function resolvePlatformClientMatchId(m, platform, cms) {
+  if (m?.match_id != null && m.match_id !== '') return Number(m.match_id);
+  const cm = (cms || []).find(c => String(c.matchs?.[platform] ?? '') === String(m?.source_match_id));
+  return cm ? Number(cm.id) : null;
+}
+
+function renderMatchLinkHandle(platform, sourceMatchId, clientMatchId, extraClass = '') {
+  return `<button type="button" class="match-link-handle${extraClass ? ' ' + extraClass : ''}"
+    title="拖到其它比赛或已匹配赛事的方点以合并"
+    data-match-platform="${esc(platform || '')}"
+    data-match-source-id="${esc(sourceMatchId || '')}"
+    data-client-match-id="${clientMatchId != null && clientMatchId !== '' ? esc(String(clientMatchId)) : ''}"></button>`;
+}
+
+function renderMatchLinkCell(m, platform, cms) {
+  const cmId = resolvePlatformClientMatchId(m, platform, cms);
+  const srcId = String(m?.source_match_id || '');
+  const idLine = cmId
+    ? `<div class="match-id-linked">#${cmId}</div>`
+    : `<div class="match-id-platform">${esc(srcId)}</div>`;
+  return `<div class="match-link-cell">${renderMatchLinkHandle(platform, srcId, cmId)}<div>${idLine}</div></div>`;
+}
+
+function renderMatchMergeTarget(cmId) {
+  return renderMatchLinkHandle('', '', cmId, 'match-merge-target');
+}
+
+function teamMapKey(platform, platformId) {
+  const pid = normalizePlatformId(platformId);
+  return pid ? `${platform}:${pid}` : null;
+}
+
+function normalizePlatformId(id) {
+  if (id == null || id === '') return null;
+  if (typeof id === 'string') {
+    const s = id.trim();
+    return s || null;
+  }
+  if (typeof id === 'number') {
+    if (!Number.isSafeInteger(id)) return null;
+    return String(id);
+  }
+  const s = String(id).trim();
+  return s || null;
+}
+
+function normalizeTeamName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/[·\-—_·•\s]+/g, ' ')
+    .replace(/[^\w\s一-鿿]/g, '')
+    .trim()
+    .replace(/\s+(esports?|gaming)$/i, '')
+    .trim();
+}
+
+function teamNameMatchesQuery(name, query) {
+  if (!query) return true;
+  const raw = String(name || '').toLowerCase();
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const norm = normalizeTeamName(name);
+  const qNorm = normalizeTeamName(query);
+  return raw.includes(q) || (norm && qNorm && norm.includes(qNorm));
+}
+
+function matchMatchesTeamSearch(m, query) {
+  if (!query) return true;
+  return teamNameMatchesQuery(m?.home, query) || teamNameMatchesQuery(m?.away, query);
+}
+
+function recMatchesTeamSearch(rec, query) {
+  if (!query) return true;
+  if (teamNameMatchesQuery(rec.t1, query) || teamNameMatchesQuery(rec.t2, query)) return true;
+  return (rec.matches || []).some(m => matchMatchesTeamSearch(m, query));
+}
+
+function filterRecsByTeamSearch(recs, query) {
+  if (!query) return recs || [];
+  return (recs || []).filter(rec => recMatchesTeamSearch(rec, query));
+}
+
+function updateTeamSearchHint(recCount, unmatchedCount, matchedCount) {
+  const hint = document.getElementById('team-search-hint');
+  if (!hint) return;
+  const q = _teamSearchQuery.trim();
+  if (!q) {
+    hint.textContent = '';
+    hint.classList.remove('active');
+    return;
+  }
+  hint.textContent = `搜索「${q}」· 已匹配 ${matchedCount} 场 · 推荐组 ${recCount} 组 · 未匹配 ${unmatchedCount} 场`;
+  hint.classList.add('active');
+}
+
+function applyTeamSearchFromInput() {
+  const input = document.getElementById('team-search-input');
+  _teamSearchQuery = (input?.value || '').trim();
+  if (!_lastData) return;
+  const teamMaps = _lastData.teamMaps || {};
+  const recs = filterRecsByTeamSearch(_lastData.recommendations || [], _teamSearchQuery);
+  renderTeamQueue(recs, _lastData.clientMatches || [], teamMaps);
+  const matchedCount = renderMatchedList(
+    _lastData.clientMatches || [],
+    _lastData.platforms,
+    teamMaps,
+    _teamSearchQuery,
+  );
+  const unmatchedCount = renderUnmatchedPlatforms(
+    _lastData.platforms,
+    _lastData.recommendations,
+    _lastData.clientMatches || [],
+    teamMaps,
+    _teamSearchQuery,
+  );
+  updateTeamSearchHint(recs.length, unmatchedCount, matchedCount);
+  scheduleRedrawCanonicalTeamLinks();
+}
+
+function parseTeamsArray(m) {
+  let teams = m?.teams;
+  if (typeof teams === 'string') {
+    try { teams = JSON.parse(teams); } catch { teams = []; }
+  }
+  return Array.isArray(teams) ? teams : [];
+}
+
+/** 解析平台队伍 ID：home_id/away_id → teams[] 按队名或顺序兜底 */
+function resolveMatchTeamId(m, side) {
+  const direct = normalizePlatformId(side === 'home' ? m.home_id : m.away_id);
+  if (direct) return { id: direct, source: 'column' };
+  const name = side === 'home' ? m.home : m.away;
+  const teams = parseTeamsArray(m);
+  if (!teams.length) return { id: null, source: null };
+  const norm = normalizeTeamName(name);
+  if (norm) {
+    const hit = teams.find(t => normalizeTeamName(t.Name ?? t.name) === norm);
+    if (hit) {
+      const id = normalizePlatformId(hit.TeamID ?? hit.team_id ?? hit.teamId ?? hit.id);
+      if (id) return { id, source: 'teams-name' };
+    }
+  }
+  const idx = side === 'home' ? 0 : 1;
+  const t = teams[idx];
+  if (t) {
+    const id = normalizePlatformId(t.TeamID ?? t.team_id ?? t.teamId ?? t.id);
+    if (id) return { id, source: 'teams-order' };
+  }
+  return { id: null, source: null };
+}
+
+function lookupTeamMapEntry(teamMaps, platform, platformId) {
+  const idKey = teamMapKey(platform, platformId);
+  if (!idKey) return null;
+  return teamMaps?.[idKey] || null;
+}
+
+function lookupCanonical(teamMaps, platform, platformId) {
+  const row = lookupTeamMapEntry(teamMaps, platform, platformId);
+  if (!row) return { canonical: null, pending: false, updatedBy: null };
+  if (row.canonical_id != null) {
+    return { canonical: String(row.canonical_id), pending: false, updatedBy: row.updated_by || null };
+  }
+  return { canonical: null, pending: true, updatedBy: null };
+}
+
+/** 已匹配赛事：各平台主客队 platform_id 均已有 gb_team_id（非待识别、非缺失） */
+function clientMatchTeamsFullyIdMapped(rows, teamMaps) {
+  if (!rows?.length) return false;
+  for (const m of rows) {
+    const platform = m.platform;
+    for (const side of ['home', 'away']) {
+      const { id } = resolveMatchTeamId(m, side);
+      if (!id) return false;
+      const { canonical } = lookupCanonical(teamMaps, platform, id);
+      if (canonical == null) return false;
+    }
+  }
+  return true;
+}
+
+function renderTeamCell(m, side, gameCode, teamMaps, platformHint) {
+  const platform = String(platformHint || m.platform || '').trim();
+  const isHome = side === 'home';
+  const name = isHome ? m.home : m.away;
+  const resolved = resolveMatchTeamId(m, side);
+  const pid = resolved.id;
+  const { canonical, pending, updatedBy } = lookupCanonical(teamMaps, platform, pid);
+  const missingFromMaps = canonical == null && !pending;
+  let canonHtml;
+  if (canonical != null) {
+    const manualTag = updatedBy === '手动' ? ' · 手动' : '';
+    canonHtml = `<div class="team-canonical">gb_team_id: ${canonical}${manualTag}</div>`;
+  } else if (pending) {
+    canonHtml = `<div class="team-canonical pending">gb_team_id: 待识别</div>`;
+  } else {
+    canonHtml = `<div class="team-canonical missing">gb_team_id: —</div>`;
+  }
+  const registerBtn = missingFromMaps
+    ? `<div class="team-cell-action"><button type="button" class="team-register-map-btn"
+        ${pid ? '' : 'disabled'}
+        title="${pid ? '写入 team_platform_maps（尚无 gb_team_id）' : '缺少平台队伍 ID，无法收录'}"
+        data-team-platform="${esc(platform)}"
+        data-team-id="${esc(pid || '')}"
+        data-team-name="${esc(name || '')}"
+        data-game-code="${esc(gameCode || m.game?.code || 'unknown')}">收录</button></div>`
+    : '';
+  const idHint = resolved.source && resolved.source !== 'column'
+    ? ` title="来自 teams 字段（${resolved.source}）"`
+    : '';
+  const handle = pid
+    ? `<button type="button" class="team-link-handle" title="拖到另一平台的队伍圆点以关联（同平台不可合并）"
+        data-team-platform="${esc(platform)}"
+        data-team-id="${esc(pid)}"
+        data-team-name="${esc(name || '')}"
+        data-game-code="${esc(gameCode || m.game?.code || 'unknown')}"
+        data-canonical-id="${canonical ?? ''}"></button>`
+    : `<span class="team-link-handle team-link-handle-disabled" title="无平台队伍 ID"></span>`;
+  return `<div class="team-cell">${handle}<div class="team-cell-body">
+    <div class="team-name">${esc(name || '?')}</div>
+    ${pid
+      ? `<div class="team-id"${idHint}>平台 id ${esc(pid)}</div>`
+      : `<div class="team-id missing">平台 id —</div>`}
+    ${canonHtml}
+  </div>${registerBtn}</div>`;
+}
+
+function fmtTime(ms) {
+  if (!ms) return '—';
+  return new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+function fmtDiff(ms) {
+  if (!ms || ms < 1000) return '0s';
+  if (ms < 60000) return Math.round(ms / 1000) + 's';
+  return Math.round(ms / 60000) + 'min';
+}
+function gbadge(code) {
+  const c = code || 'unknown';
+  const name = GAME_NAMES[c] || c.toUpperCase();
+  return `<span class="gbadge g-${c}">${name}</span>`;
+}
+function pbadge(p) { return `<span class="pbadge p-${p}">${p}</span>`; }
+function confColor(c) {
+  if (c >= 0.8) return '#4ade80';
+  if (c >= 0.6) return '#fbbf24';
+  return '#f87171';
+}
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+function gameLabel(code) {
+  return { code: code || 'unknown', name: GAME_NAMES[code] || code || '?' };
+}
+function recGameKey(rec) { return rec.game?.code || 'unknown'; }
+function sortGameCodes(codes) {
+  return [...codes].sort((a, b) => {
+    const ia = Object.keys(GAME_NAMES).indexOf(a);
+    const ib = Object.keys(GAME_NAMES).indexOf(b);
+    if (ia >= 0 && ib >= 0) return ia - ib;
+    if (ia >= 0) return -1;
+    if (ib >= 0) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+function platformRank(p) {
+  const i = PLATFORM_REF_ORDER.indexOf(p);
+  return i < 0 ? 99 : i;
+}
+function pickReferenceMatch(matches) {
+  return [...matches].sort((a, b) => platformRank(a.platform) - platformRank(b.platform))[0];
+}
+
+function renderStats(d, displayCms) {
+  const unmatched = countUnmatched(d.platforms, d.clientMatches);
+  const orphan = countOrphans(d.platforms, d.recommendations);
+  document.getElementById('stats-bar').innerHTML = `
+    <div class="stat"><div class="label">待映射组</div><div class="value c-amber">${d.recommendations.length}</div></div>
+    <div class="stat"><div class="label">已匹配</div><div class="value c-green">${displayCms.length}</div></div>
+    <div class="stat"><div class="label">未匹配场次</div><div class="value c-blue">${unmatched}</div></div>
+    <div class="stat"><div class="label">无推荐</div><div class="value c-slate">${orphan}</div></div>
+  `;
+  const recCountEl = document.getElementById('queue-rec-count');
+  if (recCountEl) recCountEl.textContent = d.recommendations.length;
+  const matchedCountEl = document.getElementById('matched-section-count');
+  if (matchedCountEl) matchedCountEl.textContent = displayCms.length;
+}
+
+async function fetchJson(url, options) {
+  const res = await fetch(url, options);
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) {
+    const text = await res.text();
+    throw new Error(text.trimStart().startsWith('<') ? 'API 返回 HTML，请确认 gamebet_matcher 服务已启动' : text.slice(0, 120));
+  }
+  return { res, data: await res.json() };
+}
+
+function filterDisplayClientMatches(cms, platforms) {
+  return (cms || []).filter(cm => {
+    const plats = Object.keys(cm.matchs || {});
+    return plats.length >= 2;
+  });
+}
+
+function isPlatformMatchLinked(m, plat, cms) {
+  if (m.match_id) return true;
+  return cms.some(cm => String(cm.matchs?.[plat] ?? '') === String(m.source_match_id));
+}
+
+function countUnmatched(platforms, cms) {
+  let n = 0;
+  for (const [p, matches] of Object.entries(platforms || {})) {
+    n += (matches || []).filter(m => !isPlatformMatchLinked(m, p, cms || [])).length;
+  }
+  return n;
+}
+
+function recMatchKeys(recs) {
+  const keys = new Set();
+  for (const rec of recs || []) {
+    for (const m of rec.matches || []) keys.add(`${m.platform}:${m.source_match_id}`);
+  }
+  return keys;
+}
+
+function countOrphans(platforms, recs) {
+  const inRec = recMatchKeys(recs);
+  let n = 0;
+  for (const [p, matches] of Object.entries(platforms || {})) {
+    for (const m of matches || []) {
+      if (m.match_id) continue;
+      if (!inRec.has(`${p}:${m.source_match_id}`)) n++;
+    }
+  }
+  return n;
+}
+
+function resolveGroupClientMatch(rec, cms) {
+  for (const m of rec.matches || []) {
+    if (m.match_id) return Number(m.match_id);
+    const cm = (cms || []).find(c => String(c.matchs?.[m.platform] ?? '') === String(m.source_match_id));
+    if (cm) return Number(cm.id);
+  }
+  return null;
+}
+
+function isSamePlatformMatch(a, b) {
+  return a.platform === b.platform && String(a.source_match_id) === String(b.source_match_id);
+}
+
+function displayTeamNames(rec) {
+  const ref = pickReferenceMatch(rec.matches);
+  if (ref?.home && ref?.away) return { home: ref.home, away: ref.away };
+  const m0 = rec.matches[0];
+  if (m0?.home && m0?.away) return { home: m0.home, away: m0.away };
+  return { home: rec.t1, away: rec.t2 };
+}
+
+function renderTeamTable(rec, recIdx, cms, teamMaps) {
+  const pending = rec.matches.filter(m => !isPlatformMatchLinked(m, m.platform, cms));
+  const ref = pickReferenceMatch(pending.length ? pending : rec.matches);
+  const cmId = resolveGroupClientMatch(rec, cms);
+  const gameCode = recGameKey(rec);
+
+  const visibleMatches = _teamSearchQuery
+    ? rec.matches.filter(m => matchMatchesTeamSearch(m, _teamSearchQuery))
+    : rec.matches;
+  if (!visibleMatches.length) return '';
+
+  const rows = visibleMatches.map(m => {
+    const linked = isPlatformMatchLinked(m, m.platform, cms);
+    const isRef = !cmId && isSamePlatformMatch(m, ref);
+    const status = linked
+      ? `<span class="team-status ts-done">已映射</span>`
+      : isRef
+        ? `<span class="ref-tag">参考</span>`
+        : `<span class="team-status ts-pending">待确认</span>`;
+    let action = '';
+    if (linked) {
+      action = '<span style="color:#64748b;font-size:11px">—</span>';
+    } else if (isRef) {
+      action = '<span style="color:#64748b;font-size:11px">基准</span>';
+    } else {
+      action = `<button type="button" class="btn btn-sm btn-success" data-platform-action="${recIdx}" data-platform="${esc(m.platform)}" data-match-id="${esc(m.source_match_id)}">确认</button>`;
+    }
+    return `<tr>
+      <td class="col-match-id">${renderMatchLinkCell(m, m.platform, cms)}</td>
+      <td class="col-platform">${pbadge(m.platform)} ${status}</td>
+      <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform)}</td>
+      <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform)}</td>
+      <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
+      <td class="col-action">${action}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="team-table">
+    <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>客</th><th>开赛</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function renderTeamRecCard(rec, cms, idx, teamMaps) {
+  const tableHtml = renderTeamTable(rec, idx, cms, teamMaps);
+  if (!tableHtml) return '';
+
+  const pending = rec.matches.filter(m => !isPlatformMatchLinked(m, m.platform, cms));
+  const ref = pickReferenceMatch(pending.length ? pending : rec.matches);
+  const cmId = resolveGroupClientMatch(rec, cms);
+  const teams = displayTeamNames(rec);
+  const pct = Math.round(rec.confidence * 100);
+  const col = confColor(rec.confidence);
+  const pendingCount = pending.filter(m => !(!cmId && isSamePlatformMatch(m, ref))).length;
+
+  const mappedCount = rec.matches.filter(m => isPlatformMatchLinked(m, m.platform, cms)).length;
+  const totalCount = rec.matches.length;
+
+  return `<article class="team-card pending" data-rec-idx="${idx}">
+    <div class="team-card-header">
+      <div>
+        <div class="team-card-title">${gbadge(recGameKey(rec))}
+          ${esc(teams.home)}<span class="vs">vs</span>${esc(teams.away)}
+        </div>
+        <div class="team-card-meta">
+          <span>开赛 ${fmtTime(rec.startTime)}</span>
+          ${rec.timeDiffMs > 0 ? `<span>平台时差 ${fmtDiff(rec.timeDiffMs)}</span>` : ''}
+          <span>${rec.platforms.map(pbadge).join(' ')}</span>
+        </div>
+      </div>
+      <div class="conf-wrap">
+        <div class="conf-bar"><div class="conf-fill" style="width:${pct}%;background:${col}"></div></div>
+        <span class="conf-pct" style="color:${col}">${pct}%</span>
+      </div>
+    </div>
+    ${tableHtml}
+    <div class="team-card-footer">
+      <div class="team-card-hint">
+        ${cmId
+          ? `赛事 #${cmId} · 已映射 ${mappedCount}/${totalCount} 个平台 · 其余平台逐行点「确认」`
+          : `参考平台 ${esc(ref.platform)}（基准行无需确认）· 已映射 ${mappedCount}/${totalCount} · 其它平台逐行确认`}
+        ${pendingCount > 0 ? ` · 还剩 ${pendingCount} 个待确认` : ''}
+      </div>
+    </div>
+  </article>`;
+}
+
+function renderTeamQueue(recs, cms, teamMaps) {
+  const container = document.getElementById('queue-panels');
+  if (!recs.length) {
+    container.innerHTML = _teamSearchQuery
+      ? `<div class="empty">没有匹配「${esc(_teamSearchQuery)}」的推荐组<br>试试缩短关键词或清空搜索</div>`
+      : '<div class="empty">暂无待映射推荐<br>所有跨平台候选已处理，或当前无多平台同场数据</div>';
+    return;
+  }
+  const byGame = new Map();
+  for (const rec of recs) {
+    const code = recGameKey(rec);
+    if (!byGame.has(code)) byGame.set(code, []);
+    byGame.get(code).push(rec);
+  }
+  const globalRecs = recs;
+  container.innerHTML = sortGameCodes([...byGame.keys()]).map(code => {
+    const items = byGame.get(code);
+    const cards = items.map(rec => {
+      const idx = globalRecs.indexOf(rec);
+      return renderTeamRecCard(rec, cms, idx, teamMaps);
+    }).filter(Boolean).join('');
+    if (!cards) return '';
+    return `<section class="game-section">
+      <div class="game-section-header">
+        <div class="game-section-title">${gbadge(code)}<span>${gameLabel(code).name}</span></div>
+        <div class="game-section-meta">${items.length} 组待映射</div>
+      </div>
+      <div class="team-queue">${cards}</div>
+    </section>`;
+  }).filter(Boolean).join('');
+
+  if (!container.innerHTML.trim()) {
+    container.innerHTML = _teamSearchQuery
+      ? `<div class="empty">没有匹配「${esc(_teamSearchQuery)}」的推荐组<br>试试缩短关键词或清空搜索</div>`
+      : '<div class="empty">暂无待映射推荐<br>所有跨平台候选已处理，或当前无多平台同场数据</div>';
+    return;
+  }
+
+  container.querySelectorAll('[data-platform-action]').forEach(btn => {
+    btn.addEventListener('click', () => openPlatformTeamModal(
+      Number(btn.dataset.platformAction),
+      btn.dataset.platform,
+      btn.dataset.matchId,
+    ));
+  });
+}
+
+function renderMatchedList(cms, platforms, teamMaps, searchQuery) {
+  const container = document.getElementById('matched-panels');
+  const q = searchQuery != null ? searchQuery : _teamSearchQuery;
+  const list = filterDisplayClientMatches(cms, platforms);
+  const filtered = list
+    .filter(cm => clientMatchMatchesTeamSearch(cm, platforms, q))
+    .sort((a, b) => clientMatchStartTime(a, platforms) - clientMatchStartTime(b, platforms));
+  const countEl = document.getElementById('matched-section-count');
+  if (countEl) countEl.textContent = filtered.length;
+
+  if (!filtered.length) {
+    container.innerHTML = q
+      ? `<div class="empty">没有匹配「${esc(q)}」的已匹配赛事</div>`
+      : '<div class="empty">暂无已匹配的多平台赛事</div>';
+    return 0;
+  }
+
+  const cards = filtered
+    .map(cm => renderMatchedCard(cm, platforms, teamMaps, q))
+    .filter(Boolean)
+    .join('');
+
+  container.innerHTML = cards
+    ? `<div class="team-queue">${cards}</div>`
+    : '';
+
+  if (!container.innerHTML.trim()) {
+    container.innerHTML = q
+      ? `<div class="empty">没有匹配「${esc(q)}」的已匹配赛事</div>`
+      : '<div class="empty">暂无已匹配的多平台赛事</div>';
+    return 0;
+  }
+
+  container.querySelectorAll('[data-end-cm]').forEach(btn => {
+    btn.addEventListener('click', () => endClientMatch(Number(btn.dataset.endCm)));
+  });
+  return filtered.length;
+}
+
+function clientMatchStartTime(cm, platforms) {
+  const direct = Number(cm.start_time) || 0;
+  if (direct > 0) return direct;
+  const rows = resolveClientMatchRows(cm, platforms);
+  const times = rows.map((r) => Number(r.start_time) || 0).filter((t) => t > 0);
+  return times.length ? Math.min(...times) : 0;
+}
+
+function resolveClientMatchRows(cm, platforms) {
+  const rows = [];
+  for (const [plat, srcId] of Object.entries(cm.matchs || {})) {
+    const list = platforms[plat] || [];
+    const m = list.find(x => String(x.source_match_id) === String(srcId));
+    if (m) {
+      rows.push({ ...m, platform: plat });
+    } else {
+      rows.push({
+        platform: plat,
+        source_match_id: srcId,
+        home: '—',
+        away: '—',
+        start_time: cm.start_time,
+        game: { code: typeof cm.game === 'string' ? cm.game : cm.game?.code },
+      });
+    }
+  }
+  return rows.sort((a, b) => platformRank(a.platform) - platformRank(b.platform));
+}
+
+function clientMatchGameCode(cm, rows) {
+  const fromRow = rows[0]?.game?.code;
+  if (fromRow) return fromRow;
+  if (typeof cm.game === 'string') return cm.game;
+  return cm.game?.code || 'unknown';
+}
+
+function clientMatchMatchesTeamSearch(cm, platforms, query) {
+  if (!query) return true;
+  const rows = resolveClientMatchRows(cm, platforms);
+  if (rows.some(m => matchMatchesTeamSearch(m, query))) return true;
+  return teamNameMatchesQuery(cm.title, query);
+}
+
+function formatVsTitle(title) {
+  const t = String(title || '').trim();
+  if (!t) return '';
+  const parts = t.split(/\s+vs\s+/i);
+  if (parts.length === 2) {
+    return `${esc(parts[0])}<span class="vs">vs</span>${esc(parts[1])}`;
+  }
+  return esc(t);
+}
+
+function displayClientMatchTitle(cm, rows) {
+  if (cm.title) return formatVsTitle(cm.title);
+  const ref = pickReferenceMatch(rows);
+  return `${esc(ref.home || '?')}<span class="vs">vs</span>${esc(ref.away || '?')}`;
+}
+
+function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
+  const visible = searchQuery
+    ? rows.filter(m => matchMatchesTeamSearch(m, searchQuery))
+    : rows;
+  if (!visible.length) return '';
+  const cms = cm ? [{ id: cm.id, matchs: cm.matchs || {} }] : [];
+  const rowsHtml = visible.map(m => `<tr>
+      <td class="col-match-id">${renderMatchLinkCell(m, m.platform, cms)}</td>
+      <td class="col-platform">${pbadge(m.platform)} <span class="team-status ts-done">已映射</span></td>
+      <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform)}</td>
+      <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform)}</td>
+      <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
+      <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
+    </tr>`).join('');
+  return `<table class="team-table">
+    <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>客</th><th>开赛</th><th>场次 ID</th></tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>`;
+}
+
+function renderMatchedCard(cm, platforms, teamMaps, searchQuery) {
+  const rows = resolveClientMatchRows(cm, platforms);
+  if (!rows.length) return '';
+  const gameCode = clientMatchGameCode(cm, rows);
+  const tableHtml = renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm);
+  if (!tableHtml) return '';
+  const teamsIdMapped = clientMatchTeamsFullyIdMapped(rows, teamMaps);
+  const idBannerClass = teamsIdMapped ? 'client-match-id-banner teams-id-mapped' : 'client-match-id-banner';
+  const idBannerTitle = teamsIdMapped
+    ? '主客队平台 ID 均已映射 gb_team_id · 可接收未匹配场次拖入合并'
+    : '接收未匹配场次拖入合并';
+  return `<article class="team-card matched" data-cm-id="${cm.id}">
+    <div class="team-card-header">
+      <div>
+        <div class="team-card-title">${gbadge(gameCode)} ${displayClientMatchTitle(cm, rows)}</div>
+        <div class="team-card-meta">
+          <span>开赛 ${fmtTime(cm.start_time)}</span>
+          <span>${Object.keys(cm.matchs || {}).map(pbadge).join(' ')}</span>
+          ${cm.merge_mode?.label ? `<span>合并依据 ${esc(cm.merge_mode.label)}</span>` : ''}
+        </div>
+      </div>
+      <div class="${idBannerClass}" data-merge-cm-id="${cm.id}" title="${esc(idBannerTitle)}">
+        ${renderMatchMergeTarget(cm.id)}
+        <div>
+          <span class="match-id-label">比赛 ID</span>
+          <span class="match-id-value">#${cm.id}</span>
+        </div>
+      </div>
+    </div>
+    ${tableHtml}
+    <div class="team-card-footer">
+      <div class="team-card-hint">已匹配 · ${rows.length} 个平台 · 黄方点拖入其它场次；绿方点接收合并</div>
+      <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="从 client_matches 删除，并删除各平台 platform_matches 行">比赛已结束</button>
+    </div>
+  </article>`;
+}
+
+function collectUnmatchedRows(platforms, cms, recs) {
+  const inRec = recMatchKeys(recs);
+  const rows = [];
+  for (const [p, matches] of Object.entries(platforms || {})) {
+    for (const m of matches || []) {
+      if (isPlatformMatchLinked(m, p, cms)) continue;
+      const key = `${p}:${m.source_match_id}`;
+      rows.push({
+        platform: p,
+        match: m,
+        inRecommendation: inRec.has(key),
+        gameCode: m.game?.code || 'unknown',
+      });
+    }
+  }
+  return rows;
+}
+
+function renderUnmatchedPlatforms(platforms, recs, cms, teamMaps, searchQuery) {
+  const q = searchQuery != null ? searchQuery : _teamSearchQuery;
+  const container = document.getElementById('unmatched-panels');
+  let rows = collectUnmatchedRows(platforms, cms, recs);
+  if (_unmatchedFilter === 'orphan') {
+    rows = rows.filter(r => !r.inRecommendation);
+  }
+  if (q) {
+    rows = rows.filter(r => matchMatchesTeamSearch(r.match, q));
+  }
+
+  const countEl = document.getElementById('unmatched-col-count');
+  if (countEl) countEl.textContent = rows.length;
+
+  if (!rows.length) {
+    container.innerHTML = q
+      ? `<div class="empty" style="padding:24px">没有匹配「${esc(q)}」的未匹配比赛</div>`
+      : (_unmatchedFilter === 'orphan'
+        ? '<div class="empty" style="padding:24px">没有孤立未匹配项<br>左侧推荐组中的场次请直接在推荐组内确认</div>'
+        : '<div class="empty" style="padding:24px">各平台暂无未匹配比赛</div>');
+    return 0;
+  }
+
+  const byGame = new Map();
+  for (const row of rows) {
+    const code = row.gameCode || 'unknown';
+    if (!byGame.has(code)) byGame.set(code, []);
+    byGame.get(code).push(row);
+  }
+
+  container.innerHTML = sortGameCodes([...byGame.keys()]).map(gameCode => {
+    const items = byGame.get(gameCode).sort((a, b) => {
+      const pr = platformRank(a.platform) - platformRank(b.platform);
+      if (pr !== 0) return pr;
+      return (a.match.start_time || 0) - (b.match.start_time || 0);
+    });
+    const tableRows = items.map(({ platform: p, match: m, inRecommendation }) => {
+      const tag = _unmatchedFilter === 'all' && inRecommendation
+        ? '<span class="rec-tag">推荐组</span>'
+        : (_unmatchedFilter === 'all' ? '<span class="orphan-tag">无推荐</span>' : '');
+      return `<tr>
+        <td class="col-match-id">${renderMatchLinkCell(m, p, cms)}</td>
+        <td>${pbadge(p)}${tag}</td>
+        <td>${renderTeamCell(m, 'home', gameCode, teamMaps, p)}</td>
+        <td>${renderTeamCell(m, 'away', gameCode, teamMaps, p)}</td>
+        <td style="color:#64748b;white-space:nowrap">${fmtTime(m.start_time)}</td>
+      </tr>`;
+    }).join('');
+
+    return `<section class="platform-unmatched-section">
+      <div class="platform-unmatched-header">
+        <div class="platform-unmatched-title">${gbadge(gameCode)}<span>${gameLabel(gameCode).name}</span></div>
+        <div class="platform-unmatched-count">${items.length} 场未匹配</div>
+      </div>
+      <table class="unmatched-table">
+        <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>客</th><th>开赛</th></tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </section>`;
+  }).join('');
+  return rows.length;
+}
+
+function hideLinkModal() {
+  _pendingRec = null;
+  _pendingTeamLink = null;
+  _linkModalKind = null;
+  document.getElementById('link-modal')?.classList.add('hidden');
+}
+
+function formatGbTeamIdCell(gb, pending) {
+  if (gb != null && gb !== '') return `<span class="link-map-ok">gb_team_id ${esc(String(gb))}</span>`;
+  if (pending) return `<span class="link-map-warn">待识别</span>`;
+  return `<span style="color:#64748b">—</span>`;
+}
+
+function renderTeamLinkModalBody(preview) {
+  const body = document.getElementById('link-modal-body');
+  const btn = document.getElementById('link-modal-confirm');
+  if (!body || !preview) return;
+
+  const ta = preview.team_a;
+  const tb = preview.team_b;
+  const gameLabel = GAME_NAMES[preview.game] || preview.game || '?';
+  let banner = '';
+  let detail = '';
+
+  if (preview.mode === 'merge') {
+    banner = `<div class="link-align-banner swap">两侧 gb_team_id 不同，将合并为较小编号 <strong>${preview.target_gb_team_id}</strong></div>`;
+    detail = `<p>较大编号 <strong>${preview.loser_gb_team_id}</strong> 下现有 <strong>${preview.maps_reassigned}</strong> 条 platform 映射将全部改写为 <strong>${preview.target_gb_team_id}</strong>，随后写入本次拖线的两队映射。</p>`;
+  } else if (preview.mode === 'same') {
+    banner = `<div class="link-align-banner ok">两侧已同属 gb_team_id <strong>${preview.target_gb_team_id}</strong></div>`;
+    detail = `<p>将刷新/确认两侧 platform 映射记录（队名或游戏有变时同步更新）。</p>`;
+  } else if (preview.mode === 'reuse_one') {
+    banner = `<div class="link-align-banner ok">沿用已有 gb_team_id <strong>${preview.target_gb_team_id}</strong></div>`;
+    detail = `<p>一侧尚无 gb_team_id 或仅为「待识别」，另一侧将写入编号 <strong>${preview.target_gb_team_id}</strong>。</p>`;
+  } else {
+    banner = `<div class="link-align-banner ok">将新建手动 gb_team_id（≥100000）</div>`;
+    detail = `<p>两侧均无 gb_team_id，确认后为两队分配新编号并写入 team_platform_maps。</p>`;
+  }
+
+  body.innerHTML = `
+    <p>游戏 <strong>${esc(gameLabel)}</strong>（${esc(preview.game || '')}）· 圆点拖线关联队伍</p>
+    ${banner}
+    ${detail}
+    <table class="link-side-table">
+      <thead><tr><th>平台</th><th>队名</th><th>平台 id</th><th>当前状态</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>${pbadge(ta.platform)}</td>
+          <td>${esc(ta.platform_name || '?')}</td>
+          <td><code>${esc(ta.platform_id)}</code></td>
+          <td>${formatGbTeamIdCell(ta.gb_team_id, ta.pending)}</td>
+        </tr>
+        <tr>
+          <td>${pbadge(tb.platform)}</td>
+          <td>${esc(tb.platform_name || '?')}</td>
+          <td><code>${esc(tb.platform_id)}</code></td>
+          <td>${formatGbTeamIdCell(tb.gb_team_id, tb.pending)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="font-size:11px;color:#64748b;margin-top:8px">仅写入 team_platform_maps，不修改 client_matches；下次 matcher rebuild 后可能自动合并相关赛事。</p>
+  `;
+
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = preview.mode === 'merge' ? '确认合并并写入映射' : '确认写入映射';
+  }
+}
+
+function renderRecModalBody() {
+  const body = document.getElementById('link-modal-body');
+  const btn = document.getElementById('link-modal-confirm');
+  if (!body || !_pendingRec) return;
+
+  const { rec, platform, preview, mode, ref, cmId, reversed, dragLink } = _pendingRec;
+  const teams = rec ? displayTeamNames(rec) : null;
+  const platTeams = preview?.platformTeams;
+  const align = preview?.alignment?.mode;
+
+  let banner = '';
+  if (mode === 'client') {
+    banner = `<div class="link-align-banner ok">将 ${pbadge(platform)} 关联到已有赛事 #${cmId}</div>`;
+  } else {
+    banner = `<div class="link-align-banner ok">将 ${pbadge(platform)} 与 ${pbadge(ref.platform)} 建立赛事映射</div>`;
+  }
+
+  if (align === 'aligned') {
+    banner += `<div class="link-align-banner ok">主客与参考侧一致</div>`;
+  } else if (align === 'reversed') {
+    banner += `<div class="link-align-banner swap">主客与参考侧相反，默认已选颠倒</div>`;
+  } else {
+    banner += `<div class="link-align-banner unknown">无法自动判断主客，请手动选择</div>`;
+  }
+
+  const refTeams = mode === 'client'
+    ? preview?.systemTeams
+    : preview?.targetTeams;
+
+  const alignedSel = reversed === false ? ' selected' : '';
+  const reversedSel = reversed === true ? ' selected' : '';
+
+  body.innerHTML = `
+    ${rec
+      ? `<p>推荐组：<strong>${esc(teams.home)} vs ${esc(teams.away)}</strong></p>`
+      : `<p>拖拽关联：<strong>${esc(platTeams?.home || '?')} vs ${esc(platTeams?.away || '?')}</strong> · ${pbadge(platform)}</p>`}
+    ${banner}
+    <table class="link-side-table">
+      <thead><tr><th>侧</th><th>主</th><th>客</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="link-side-tag">${mode === 'client' ? '赛事 #' + cmId : '参考 ' + ref.platform}</span></td>
+          <td>${esc(refTeams?.home || '?')}</td>
+          <td>${esc(refTeams?.away || '?')}</td>
+        </tr>
+        <tr>
+          <td><span class="link-side-tag">${platform}</span></td>
+          <td>${esc(platTeams?.home || '?')}</td>
+          <td>${esc(platTeams?.away || '?')}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="link-side-options">
+      <label class="link-side-option${alignedSel}">
+        <input type="radio" name="rec-side-mode" value="aligned"${reversed === false ? ' checked' : ''}>
+        <span class="link-side-option-text"><strong>主客一致</strong> — 该平台主/客与参考侧一一对应</span>
+      </label>
+      <label class="link-side-option${reversedSel}">
+        <input type="radio" name="rec-side-mode" value="reversed"${reversed === true ? ' checked' : ''}>
+        <span class="link-side-option-text"><strong>主客颠倒</strong> — 该平台主客与参考侧对调</span>
+      </label>
+    </div>
+    <p style="font-size:11px;color:#64748b;margin-top:8px">${dragLink ? '黄方点拖拽触发的赛事关联；纯队伍请用圆点。' : '写入本场赛事映射并 rebuild；纯队伍连线请用圆点拖拽。'}</p>
+  `;
+
+  body.querySelectorAll('.link-side-option').forEach(label => {
+    label.addEventListener('click', () => {
+      const input = label.querySelector('input');
+      if (!input || !_pendingRec) return;
+      _pendingRec.reversed = input.value === 'reversed';
+      renderRecModalBody();
+    });
+  });
+
+  if (btn) {
+    btn.disabled = typeof reversed !== 'boolean';
+    btn.textContent = typeof reversed !== 'boolean'
+      ? '请选择主客对应'
+      : (dragLink ? `确认赛事关联` : `确认 ${platform} 映射`);
+  }
+}
+
+function teamPayloadFromHandle(el) {
+  return {
+    platform: el.dataset.teamPlatform,
+    platformId: el.dataset.teamId,
+    platformName: el.dataset.teamName,
+    gameCode: el.dataset.gameCode,
+  };
+}
+
+function teamHandleCenter(handle, board) {
+  const hr = handle.getBoundingClientRect();
+  const br = board.getBoundingClientRect();
+  return { x: hr.left + hr.width / 2 - br.left, y: hr.top + hr.height / 2 - br.top };
+}
+
+function clearTeamDragLine() {
+  document.querySelectorAll('#team-link-svg line.team-link-drag-line').forEach(el => el.remove());
+}
+
+const CANONICAL_LINK_COLORS = ['#4ade80', '#60a5fa', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf', '#fbbf24', '#38bdf8'];
+
+function colorForCanonicalId(canonicalId) {
+  let h = 0;
+  const s = String(canonicalId);
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return CANONICAL_LINK_COLORS[Math.abs(h) % CANONICAL_LINK_COLORS.length];
+}
+
+function appendPersistLinkLine(svg, canonicalId, x1, y1, x2, y2) {
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('class', 'team-link-persist-line');
+  line.setAttribute('data-canonical-id', canonicalId);
+  line.setAttribute('x1', String(x1));
+  line.setAttribute('y1', String(y1));
+  line.setAttribute('x2', String(x2));
+  line.setAttribute('y2', String(y2));
+  line.setAttribute('stroke', colorForCanonicalId(canonicalId));
+  line.setAttribute('stroke-width', '1.5');
+  line.setAttribute('stroke-opacity', '0.8');
+  svg.appendChild(line);
+}
+
+function redrawCanonicalTeamLinks() {
+  const board = document.getElementById('team-link-board');
+  const svg = document.getElementById('team-link-svg');
+  if (!board || !svg) return;
+
+  svg.querySelectorAll('line.team-link-persist-line').forEach(el => el.remove());
+
+  const handles = [...board.querySelectorAll('.team-link-handle[data-canonical-id]:not([data-canonical-id=""])')];
+  const byCanonical = new Map();
+  for (const handle of handles) {
+    const id = handle.dataset.canonicalId;
+    if (!id) continue;
+    if (!byCanonical.has(id)) byCanonical.set(id, []);
+    byCanonical.get(id).push(handle);
+  }
+
+  for (const [canonicalId, group] of byCanonical) {
+    if (group.length < 2) continue;
+    const centers = group
+      .map(h => ({ h, ...teamHandleCenter(h, board) }))
+      .sort((a, b) => a.y - b.y || a.x - b.x);
+    for (let i = 0; i < centers.length - 1; i++) {
+      const a = centers[i];
+      const b = centers[i + 1];
+      appendPersistLinkLine(svg, canonicalId, a.x, a.y, b.x, b.y);
+    }
+  }
+}
+
+function scheduleRedrawCanonicalTeamLinks() {
+  if (_teamLinkRedrawRaf) cancelAnimationFrame(_teamLinkRedrawRaf);
+  _teamLinkRedrawRaf = requestAnimationFrame(() => {
+    _teamLinkRedrawRaf = null;
+    redrawCanonicalTeamLinks();
+  });
+}
+
+function updateTeamDragLine(board, x1, y1, x2, y2) {
+  const svg = document.getElementById('team-link-svg');
+  if (!svg) return;
+  let line = svg.querySelector('line.team-link-drag-line');
+  if (!line) {
+    line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('class', 'team-link-drag-line');
+    line.setAttribute('stroke', '#60a5fa');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5 4');
+    svg.appendChild(line);
+  }
+  line.setAttribute('x1', x1);
+  line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2);
+  line.setAttribute('y2', y2);
+}
+
+function showActionToast(message, type = 'ok', ms = 4200) {
+  const host = document.getElementById('action-toast-host');
+  if (!host || !message) return;
+  const el = document.createElement('div');
+  el.className = 'action-toast ' + (type === 'err' ? 'err' : type === 'warn' ? 'warn' : 'ok');
+  el.textContent = message;
+  host.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity .25s ease';
+    setTimeout(() => el.remove(), 280);
+  }, ms);
+}
+
+function describeExistingTeamMap(platform, platformId) {
+  const row = lookupTeamMapEntry(_lastData?.teamMaps || {}, platform, platformId);
+  if (!row) return null;
+  const name = row.platform_name || platformId;
+  const game = row.game ? ` · 游戏 ${row.game}` : '';
+  if (row.canonical_id != null) {
+    const manual = row.updated_by === '手动' ? ' · 手动' : '';
+    return `无需重复收录\n${platform} · ${name}\n平台 id ${platformId}${game}\n已有 gb_team_id ${row.canonical_id}${manual}`;
+  }
+  return `无需重复收录\n${platform} · ${name}\n平台 id ${platformId}${game}\n已在 team_platform_maps，状态：待识别`;
+}
+
+function formatApiResultToast(data, head) {
+  const lines = Array.isArray(data?.logLines) && data.logLines.length
+    ? data.logLines
+    : [data?.summary, data?.detail].filter(Boolean);
+  return [head || '操作成功', ...lines].join('\n');
+}
+
+function formatRegisterSuccessToast(data) {
+  return formatApiResultToast(data, '收录成功');
+}
+
+async function submitTeamRegisterMap(btn) {
+  if (_teamRegisterSubmitting || btn.disabled) return;
+  const platform = btn.dataset.teamPlatform || '';
+  const platformId = btn.dataset.teamId || '';
+  const platformName = btn.dataset.teamName || '';
+  const gameCode = btn.dataset.gameCode || '';
+  if (!platform || !platformId) {
+    showActionToast(`收录失败\n${platform || '未知平台'} · ${platformName || '?'}\n缺少平台队伍 ID`, 'err');
+    return;
+  }
+
+  const existingMsg = describeExistingTeamMap(platform, platformId);
+  if (existingMsg) {
+    showActionToast(existingMsg, 'warn', 6000);
+    return;
+  }
+
+  const msg = `收录到 team_platform_maps？\n${platform} · ${platformName || platformId}\n平台 id ${platformId} · 游戏 ${gameCode || '?'}\n\n仅建立平台队伍档案，不分配 gb_team_id。`;
+  if (!confirm(msg)) return;
+
+  _teamRegisterSubmitting = true;
+  btn.disabled = true;
+  const prevText = btn.textContent;
+  btn.textContent = '…';
+  try {
+    const { res, data } = await fetchJson('/api/register-team-map', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, platformId, platformName, gameCode }),
+    });
+    if (!res.ok || data.error) {
+      const err = new Error(data.error || '收录失败');
+      err.code = data.code;
+      throw err;
+    }
+    showActionToast(formatRegisterSuccessToast(data), 'ok', 5200);
+    await load();
+  } catch (err) {
+    const toastType = err.code === 'already_registered' ? 'warn' : 'err';
+    const head = err.code === 'already_registered' ? '' : `收录失败\n${platform} · ${platformName || platformId}\n`;
+    showActionToast(head + (err.message || '收录失败'), toastType, 6000);
+    if (err.code === 'already_registered') await load();
+    else {
+      btn.disabled = false;
+      btn.textContent = prevText;
+    }
+  } finally {
+    _teamRegisterSubmitting = false;
+  }
+}
+
+function teamLinkAllowed(sourceHandle, targetHandle) {
+  if (!sourceHandle || !targetHandle || sourceHandle === targetHandle) return false;
+  const a = teamPayloadFromHandle(sourceHandle);
+  const b = teamPayloadFromHandle(targetHandle);
+  if (a.platform === b.platform) return false;
+  return Boolean(a.platform && b.platform && a.platformId && b.platformId);
+}
+
+function matchPayloadFromHandle(el) {
+  const clientMatchId = el.dataset.clientMatchId ? Number(el.dataset.clientMatchId) : null;
+  return {
+    platform: el.dataset.matchPlatform || '',
+    sourceMatchId: el.dataset.matchSourceId || '',
+    clientMatchId: Number.isFinite(clientMatchId) ? clientMatchId : null,
+    isMergeTarget: el.classList.contains('match-merge-target'),
+  };
+}
+
+function resolveMatchLinkAction(s, t) {
+  const destCmId = t.clientMatchId;
+  const srcCmId = s.clientMatchId;
+
+  if (srcCmId && destCmId && srcCmId !== destCmId) {
+    return { type: 'merge', sourceClientMatchId: srcCmId, targetClientMatchId: destCmId };
+  }
+  if (s.platform && s.sourceMatchId && destCmId && srcCmId !== destCmId) {
+    return {
+      type: 'link-client',
+      platform: s.platform,
+      sourceMatchId: s.sourceMatchId,
+      clientMatchId: destCmId,
+    };
+  }
+  if (s.platform && s.sourceMatchId && t.platform && t.sourceMatchId && s.platform !== t.platform) {
+    return {
+      type: 'link-platform',
+      platform: s.platform,
+      sourceMatchId: s.sourceMatchId,
+      targetPlatform: t.platform,
+      targetMatchId: t.sourceMatchId,
+    };
+  }
+  return null;
+}
+
+function matchLinkAllowed(sourceHandle, targetHandle) {
+  if (!sourceHandle || !targetHandle || sourceHandle === targetHandle) return false;
+  const s = matchPayloadFromHandle(sourceHandle);
+  const t = matchPayloadFromHandle(targetHandle);
+  if (s.isMergeTarget && !s.platform && !s.sourceMatchId) return false;
+  return resolveMatchLinkAction(s, t) != null;
+}
+
+/** 拖线落点：绿色方点，或整块「比赛 ID」横幅（用户常拖到 #123 文字上） */
+function resolveMatchLinkDropTarget(el, board) {
+  if (!el || !board?.contains(el)) return null;
+  const handle = el.closest('.match-link-handle');
+  if (handle && board.contains(handle)) return handle;
+  const banner = el.closest('.client-match-id-banner[data-merge-cm-id]');
+  if (banner && board.contains(banner)) {
+    return banner.querySelector('.match-merge-target');
+  }
+  return null;
+}
+
+function clearMatchLinkDropHighlights() {
+  document.querySelectorAll('.match-link-handle.match-link-drop-target').forEach(el => {
+    el.classList.remove('match-link-drop-target');
+  });
+  document.querySelectorAll('.client-match-id-banner.match-merge-drop-target').forEach(el => {
+    el.classList.remove('match-merge-drop-target');
+  });
+}
+
+function matchHandleCenter(handle, board) {
+  return teamHandleCenter(handle, board);
+}
+
+function boardPointerPos(board, clientX, clientY) {
+  const br = board.getBoundingClientRect();
+  return { x: clientX - br.left, y: clientY - br.top };
+}
+
+function clearMatchDragLine() {
+  document.querySelectorAll('#team-link-svg line.match-link-drag-line').forEach(el => el.remove());
+}
+
+function updateMatchDragLine(board, x1, y1, x2, y2) {
+  const svg = document.getElementById('team-link-svg');
+  if (!svg) return;
+  let line = svg.querySelector('line.match-link-drag-line');
+  if (!line) {
+    line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('class', 'match-link-drag-line');
+    line.setAttribute('stroke', '#fbbf24');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5 4');
+    svg.appendChild(line);
+  }
+  line.setAttribute('x1', x1);
+  line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2);
+  line.setAttribute('y2', y2);
+}
+
+async function submitMergeClientMatches(sourceClientMatchId, targetClientMatchId) {
+  if (_matchLinkSubmitting) return;
+  _matchLinkSubmitting = true;
+  try {
+    const q = new URLSearchParams({
+      sourceClientMatchId: String(sourceClientMatchId),
+      targetClientMatchId: String(targetClientMatchId),
+    });
+    const { res, data } = await fetchJson('/api/merge-preview?' + q);
+    if (!res.ok || data.error) throw new Error(data.error || '合并预览失败');
+    if (!data.canMerge) {
+      const names = (data.conflicts || []).map(c => c.platform).join('、');
+      showActionToast(`无法合并赛事\n#${sourceClientMatchId} → #${targetClientMatchId}\n${names} 在两场中指向不同场次`, 'warn', 5600);
+      return;
+    }
+    const msg = [
+      '合并两条已匹配赛事？',
+      `#${sourceClientMatchId} ${data.source?.title || ''}`,
+      `→ #${targetClientMatchId} ${data.target?.title || ''}`,
+      '',
+      `保留目标 #${targetClientMatchId}，源赛事删除`,
+      `合并后平台：${(data.mergedPlatforms || []).join('、')}`,
+    ].join('\n');
+    if (!confirm(msg)) return;
+
+    const { res: postRes, data: body } = await fetchJson('/api/merge-client-matches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceClientMatchId, targetClientMatchId }),
+    });
+    if (!postRes.ok || body.error) throw new Error(body.error || '合并失败');
+    showActionToast(formatApiResultToast(body, `赛事合并成功 · 保留 #${targetClientMatchId}`), 'ok', 5600);
+    await load();
+  } catch (err) {
+    showActionToast(`赛事合并失败\n${err.message}`, 'err', 6000);
+  } finally {
+    _matchLinkSubmitting = false;
+  }
+}
+
+async function openMatchLinkModal({ mode, platform, sourceMatchId, ref, cmId }) {
+  const backdrop = document.getElementById('link-modal');
+  const body = document.getElementById('link-modal-body');
+  const btn = document.getElementById('link-modal-confirm');
+  _linkModalKind = 'rec';
+  _pendingTeamLink = null;
+  document.getElementById('link-modal-title').textContent = mode === 'client'
+    ? `确认关联赛事 #${cmId}`
+    : `确认 ${platform} ↔ ${ref.platform} 关联赛事`;
+  body.innerHTML = '<p style="color:#94a3b8">正在加载主客对照…</p>';
+  if (btn) { btn.disabled = true; btn.textContent = '加载中…'; }
+  backdrop.classList.remove('hidden');
+
+  try {
+    let preview;
+    if (mode === 'client') {
+      const q = new URLSearchParams({
+        platform,
+        sourceMatchId: String(sourceMatchId),
+        clientMatchId: String(cmId),
+      });
+      const { res, data } = await fetchJson('/api/link-preview?' + q);
+      if (!res.ok || data.error) throw new Error(data.error || '预览失败');
+      preview = data;
+    } else {
+      const q = new URLSearchParams({
+        platform,
+        sourceMatchId: String(sourceMatchId),
+        targetPlatform: ref.platform,
+        targetMatchId: String(ref.source_match_id),
+      });
+      const { res, data } = await fetchJson('/api/link-platform-preview?' + q);
+      if (!res.ok || data.error) throw new Error(data.error || '预览失败');
+      preview = data;
+    }
+
+    const align = preview?.alignment?.mode;
+    let reversed = null;
+    if (align === 'aligned') reversed = false;
+    else if (align === 'reversed') reversed = true;
+    else if (align === 'ambiguous') reversed = null;
+    else reversed = false;
+
+    _pendingRec = {
+      rec: null,
+      dragLink: true,
+      platform,
+      sourceMatchId,
+      mode,
+      ref,
+      cmId,
+      preview,
+      reversed,
+    };
+    renderRecModalBody();
+  } catch (err) {
+    body.innerHTML = `<p style="color:#f87171">${esc(err.message)}</p>`;
+    if (btn) { btn.disabled = true; btn.textContent = '无法确认'; }
+    _linkModalKind = null;
+    _pendingRec = null;
+  }
+}
+
+async function submitMatchLink(sourceHandle, targetHandle) {
+  if (_matchLinkSubmitting) return;
+  const s = matchPayloadFromHandle(sourceHandle);
+  const t = matchPayloadFromHandle(targetHandle);
+  const action = resolveMatchLinkAction(s, t);
+  if (!action) return;
+
+  if (action.type === 'merge') {
+    await submitMergeClientMatches(action.sourceClientMatchId, action.targetClientMatchId);
+    return;
+  }
+  if (action.type === 'link-client') {
+    await openMatchLinkModal({
+      mode: 'client',
+      platform: action.platform,
+      sourceMatchId: action.sourceMatchId,
+      cmId: action.clientMatchId,
+    });
+    return;
+  }
+  await openMatchLinkModal({
+    mode: 'platform',
+    platform: action.platform,
+    sourceMatchId: action.sourceMatchId,
+    ref: { platform: action.targetPlatform, source_match_id: action.targetMatchId },
+  });
+}
+
+function bindMatchLinkDrag() {
+  if (_matchLinkBound) return;
+  const board = document.getElementById('team-link-board');
+  if (!board) return;
+  _matchLinkBound = true;
+
+  board.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const handle = e.target.closest('.match-link-handle:not(.match-merge-target)');
+    if (!handle || !board.contains(handle)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const from = matchHandleCenter(handle, board);
+    _matchDrag = { board, source: handle, from };
+    handle.classList.add('match-link-dragging');
+    board.classList.add('match-link-drag-active');
+    updateMatchDragLine(board, from.x, from.y, from.x, from.y);
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_matchDrag) return;
+    const p = boardPointerPos(_matchDrag.board, e.clientX, e.clientY);
+    updateMatchDragLine(_matchDrag.board, _matchDrag.from.x, _matchDrag.from.y, p.x, p.y);
+
+    clearMatchLinkDropHighlights();
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const target = resolveMatchLinkDropTarget(el, _matchDrag.board);
+    if (target && matchLinkAllowed(_matchDrag.source, target)) {
+      target.classList.add('match-link-drop-target');
+      target.closest('.client-match-id-banner')?.classList.add('match-merge-drop-target');
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!_matchDrag) return;
+    const state = _matchDrag;
+    _matchDrag = null;
+    clearMatchDragLine();
+    state.source.classList.remove('match-link-dragging');
+    state.board.classList.remove('match-link-drag-active');
+    clearMatchLinkDropHighlights();
+
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const target = resolveMatchLinkDropTarget(el, state.board);
+    if (!target || !matchLinkAllowed(state.source, target)) return;
+    submitMatchLink(state.source, target);
+  });
+}
+
+async function openTeamLinkModal(sourceHandle, targetHandle) {
+  const a = teamPayloadFromHandle(sourceHandle);
+  const b = teamPayloadFromHandle(targetHandle);
+  if (a.platform === b.platform && a.platformId === b.platformId) return;
+  if (a.platform === b.platform) {
+    showActionToast(
+      `不能关联同一平台的两支队伍\n${a.platform} · ${a.platformName} (id ${a.platformId})\n↔\n${b.platform} · ${b.platformName} (id ${b.platformId})\n\n请拖到另一个平台的圆点`,
+      'warn',
+      5200,
+    );
+    return;
+  }
+
+  const backdrop = document.getElementById('link-modal');
+  const body = document.getElementById('link-modal-body');
+  const btn = document.getElementById('link-modal-confirm');
+  _linkModalKind = 'team';
+  _pendingRec = null;
+  _pendingTeamLink = { a, b };
+  document.getElementById('link-modal-title').textContent = '确认队伍映射';
+  body.innerHTML = '<p style="color:#94a3b8">正在分析两侧 gb_team_id…</p>';
+  if (btn) { btn.disabled = true; btn.textContent = '加载中…'; }
+  backdrop.classList.remove('hidden');
+
+  try {
+    const q = new URLSearchParams({
+      platformA: a.platform,
+      platformIdA: a.platformId,
+      platformNameA: a.platformName || '',
+      platformB: b.platform,
+      platformIdB: b.platformId,
+      platformNameB: b.platformName || '',
+      gameCode: a.gameCode || b.gameCode || '',
+    });
+    const { res, data } = await fetchJson('/api/link-team-preview?' + q);
+    if (!res.ok || data.error) throw new Error(data.error || '预览失败');
+    _pendingTeamLink.preview = data;
+    renderTeamLinkModalBody(data);
+  } catch (err) {
+    body.innerHTML = `<p style="color:#f87171">${esc(err.message)}</p>`;
+    if (btn) { btn.disabled = true; btn.textContent = '无法确认'; }
+    _pendingTeamLink = null;
+    _linkModalKind = null;
+  }
+}
+
+async function confirmTeamLink() {
+  if (_teamLinkSubmitting || !_pendingTeamLink) return;
+  _teamLinkSubmitting = true;
+  const btn = document.getElementById('link-modal-confirm');
+  if (btn) { btn.disabled = true; btn.textContent = '写入中…'; }
+
+  const { a, b } = _pendingTeamLink;
+  try {
+    const { res, data } = await fetchJson('/api/link-team', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ a, b }),
+    });
+    if (!res.ok || data.error) throw new Error(data.error || '队伍关联失败');
+    hideLinkModal();
+    showActionToast(formatApiResultToast(data, '队伍关联成功'), 'ok', 5600);
+    await load();
+  } catch (err) {
+    showActionToast(`队伍关联失败\n${err.message}`, 'err', 6000);
+  } finally {
+    _teamLinkSubmitting = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = _pendingTeamLink?.preview?.mode === 'merge' ? '确认合并并写入映射' : '确认写入映射';
+    }
+  }
+}
+
+function submitTeamLink(sourceHandle, targetHandle) {
+  openTeamLinkModal(sourceHandle, targetHandle);
+}
+
+function bindTeamLinkDrag() {
+  if (_teamLinkBound) return;
+  const board = document.getElementById('team-link-board');
+  if (!board) return;
+  _teamLinkBound = true;
+
+  if (!_teamLinkScrollBound) {
+    _teamLinkScrollBound = true;
+    board.querySelectorAll('.split-col-body').forEach(el => {
+      el.addEventListener('scroll', scheduleRedrawCanonicalTeamLinks, { passive: true });
+    });
+    window.addEventListener('resize', scheduleRedrawCanonicalTeamLinks);
+  }
+
+  board.addEventListener('click', (e) => {
+    const btn = e.target.closest('.team-register-map-btn');
+    if (!btn || !board.contains(btn)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    submitTeamRegisterMap(btn);
+  });
+
+  board.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const handle = e.target.closest('.team-link-handle:not(.team-link-handle-disabled)');
+    if (!handle || !board.contains(handle)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const from = teamHandleCenter(handle, board);
+    _teamDrag = { board, source: handle, from };
+    handle.classList.add('team-link-dragging');
+    updateTeamDragLine(board, from.x, from.y, from.x, from.y);
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_teamDrag) return;
+    const rect = _teamDrag.board.getBoundingClientRect();
+    updateTeamDragLine(_teamDrag.board, _teamDrag.from.x, _teamDrag.from.y, e.clientX - rect.left, e.clientY - rect.top);
+
+    document.querySelectorAll('.team-link-handle.team-link-drop-target').forEach(el => el.classList.remove('team-link-drop-target'));
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const target = el?.closest('.team-link-handle:not(.team-link-handle-disabled)');
+    if (target && teamLinkAllowed(_teamDrag.source, target) && _teamDrag.board.contains(target)) {
+      target.classList.add('team-link-drop-target');
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!_teamDrag) return;
+    const state = _teamDrag;
+    _teamDrag = null;
+    clearTeamDragLine();
+    state.source.classList.remove('team-link-dragging');
+    document.querySelectorAll('.team-link-handle.team-link-drop-target').forEach(el => el.classList.remove('team-link-drop-target'));
+
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const target = el?.closest('.team-link-handle:not(.team-link-handle-disabled)');
+    if (!target || !teamLinkAllowed(state.source, target) || !state.board.contains(target)) return;
+    submitTeamLink(state.source, target);
+  });
+}
+
+async function openPlatformTeamModal(recIdx, platform, sourceMatchId) {
+  const rec = _lastData?.recommendations?.[recIdx];
+  if (!rec) return;
+
+  const cms = _lastData?.clientMatches || [];
+  const match = rec.matches.find(m => m.platform === platform && String(m.source_match_id) === String(sourceMatchId));
+  if (!match || isPlatformMatchLinked(match, platform, cms)) return;
+
+  const pending = rec.matches.filter(m => !isPlatformMatchLinked(m, m.platform, cms));
+  const ref = pickReferenceMatch(pending.length ? pending : rec.matches);
+  const cmId = resolveGroupClientMatch(rec, cms);
+
+  const backdrop = document.getElementById('link-modal');
+  const body = document.getElementById('link-modal-body');
+  const btn = document.getElementById('link-modal-confirm');
+  _linkModalKind = 'rec';
+  _pendingTeamLink = null;
+  document.getElementById('link-modal-title').textContent = `确认 ${platform} 队伍映射`;
+  body.innerHTML = '<p style="color:#94a3b8">正在加载主客对照…</p>';
+  if (btn) { btn.disabled = true; btn.textContent = '加载中…'; }
+  backdrop.classList.remove('hidden');
+
+  try {
+    let mode, preview;
+    if (cmId) {
+      mode = 'client';
+      const q = new URLSearchParams({
+        platform,
+        sourceMatchId: String(sourceMatchId),
+        clientMatchId: String(cmId),
+      });
+      const { res, data } = await fetchJson('/api/link-preview?' + q);
+      if (!res.ok || data.error) throw new Error(data.error || '预览失败');
+      preview = data;
+    } else {
+      mode = 'platform';
+      const q = new URLSearchParams({
+        platform,
+        sourceMatchId: String(sourceMatchId),
+        targetPlatform: ref.platform,
+        targetMatchId: String(ref.source_match_id),
+      });
+      const { res, data } = await fetchJson('/api/link-platform-preview?' + q);
+      if (!res.ok || data.error) throw new Error(data.error || '预览失败');
+      preview = data;
+    }
+
+    const align = preview?.alignment?.mode;
+    let reversed = null;
+    if (align === 'aligned') reversed = false;
+    else if (align === 'reversed') reversed = true;
+    else if (align === 'ambiguous') reversed = null;
+    else reversed = false;
+
+    _pendingRec = {
+      rec, platform, sourceMatchId, mode, ref, cmId, preview, reversed,
+    };
+    renderRecModalBody();
+  } catch (err) {
+    body.innerHTML = `<p style="color:#f87171">${esc(err.message)}</p>`;
+    if (btn) { btn.disabled = true; btn.textContent = '无法确认'; }
+    _linkModalKind = null;
+    _pendingRec = null;
+  }
+}
+
+async function confirmLinkModal() {
+  if (_linkModalKind === 'team') return confirmTeamLink();
+  return confirmRecTeamMapping();
+}
+
+async function confirmRecTeamMapping() {
+  if (_linkSubmitting || _linkModalKind !== 'rec' || !_pendingRec || typeof _pendingRec.reversed !== 'boolean') return;
+  _linkSubmitting = true;
+  const btn = document.getElementById('link-modal-confirm');
+  if (btn) { btn.disabled = true; btn.textContent = '写入中…'; }
+
+  const { platform, sourceMatchId, mode, cmId, ref, reversed } = _pendingRec;
+  try {
+    let data;
+    if (mode === 'client') {
+      const { res, data: body } = await fetchJson('/api/link-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, sourceMatchId, clientMatchId: cmId, reversed }),
+      });
+      if (!res.ok || body.error) throw new Error(body.error || '关联失败');
+      data = body;
+    } else {
+      const { res, data: body } = await fetchJson('/api/link-platform-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform,
+          sourceMatchId,
+          targetPlatform: ref.platform,
+          targetMatchId: ref.source_match_id,
+          reversed,
+        }),
+      });
+      if (!res.ok || body.error) throw new Error(body.error || '关联失败');
+      data = body;
+    }
+    hideLinkModal();
+    showActionToast(formatApiResultToast(data, '赛事关联成功'), 'ok', 5600);
+    await load();
+    await refreshMatcherStatus();
+  } catch (err) {
+    showActionToast(`赛事关联失败\n${err.message}`, 'err', 6000);
+  } finally {
+    _linkSubmitting = false;
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function endClientMatch(cmId) {
+  const cm = (_lastData?.clientMatches || []).find(c => Number(c.id) === Number(cmId));
+  const plats = Object.entries(cm?.matchs || {}).map(([p, id]) => `${p}:${id}`).join('、') || '—';
+  const msg = [
+    `标记比赛已结束？`,
+    `#${cmId} ${cm?.title || ''}`,
+    '',
+    '将执行：',
+    '· 删除 client_matches 中本场',
+    '· 删除各平台 platform_matches 对应行',
+    '',
+    `平台场次：${plats}`,
+    '',
+    '前端列表将不再显示；若采集器仍上报同场，platform_matches 可能再次出现。',
+  ].join('\n');
+  if (!confirm(msg)) return;
+  try {
+    const { res, data } = await fetchJson('/api/client-match/' + cmId, { method: 'DELETE' });
+    if (!res.ok || data.error) throw new Error(data.error || '操作失败');
+    const n = data.platformMatchesDeleted ?? 0;
+    showActionToast(
+      [`比赛已结束`, `#${cmId} ${data.title || cm?.title || ''}`, `已删除 ${n} 条 platform_matches`].join('\n'),
+      'ok',
+      5200,
+    );
+    await load();
+  } catch (err) {
+    showActionToast(`比赛已结束失败\n#${cmId}\n${err.message}`, 'err', 6000);
+  }
+}
+
+function setMatcherButtons(s) {
+  const btnStart = document.getElementById('btn-matcher-start');
+  const btnStop = document.getElementById('btn-matcher-stop');
+  if (!btnStart || !btnStop) return;
+  const running = !!s?.running;
+  btnStart.style.display = running ? 'none' : '';
+  btnStop.style.display = running && s?.canStop ? '' : 'none';
+  btnStart.disabled = _matcherBusy;
+  btnStop.disabled = _matcherBusy;
+}
+
+async function matcherAction(action) {
+  if (_matcherBusy) return;
+  _matcherBusy = true;
+  try {
+    const { res, data } = await fetchJson('/api/matcher/' + action, { method: 'POST' });
+    if (!res.ok || data.error) throw new Error(data.error || '操作失败');
+    await refreshMatcherStatus();
+    if (action === 'start') setTimeout(refreshMatcherStatus, 2000);
+  } catch (err) {
+    alert(err.message);
+    await refreshMatcherStatus();
+  } finally {
+    _matcherBusy = false;
+  }
+}
+
+async function refreshMatcherStatus() {
+  const el = document.getElementById('matcher-status');
+  const label = el?.querySelector('.matcher-label');
+  if (!el || !label) return;
+  try {
+    const { data: s } = await fetchJson('/api/matcher-status');
+    setMatcherButtons(s);
+    el.className = 'matcher-status ' + (s.running ? 'on' : 'off');
+    label.textContent = s.running
+      ? `脚本运行中${s.matchCount != null ? ' · ' + s.matchCount + ' 场' : ''}`
+      : (s.lastRun ? `脚本未运行 · 末次 ${fmtDiff(s.ageMs)}前` : '脚本未运行');
+  } catch {
+    setMatcherButtons(null);
+    el.className = 'matcher-status off';
+    label.textContent = '脚本状态未知';
+  }
+}
+
+async function load() {
+  try {
+    const { data: d } = await fetchJson('/api/data');
+    if (d.error) throw new Error(d.error);
+    _lastData = d;
+    const displayCms = filterDisplayClientMatches(d.clientMatches, d.platforms);
+    const teamMaps = d.teamMaps || {};
+    renderStats(d, displayCms);
+    const recs = filterRecsByTeamSearch(d.recommendations || [], _teamSearchQuery);
+    renderTeamQueue(recs, d.clientMatches || [], teamMaps);
+    const matchedCount = renderMatchedList(d.clientMatches || [], d.platforms, teamMaps, _teamSearchQuery);
+    const unmatchedCount = renderUnmatchedPlatforms(
+      d.platforms, d.recommendations, d.clientMatches || [], teamMaps, _teamSearchQuery,
+    );
+    updateTeamSearchHint(recs.length, unmatchedCount, matchedCount);
+    bindTeamLinkDrag();
+    bindMatchLinkDrag();
+    scheduleRedrawCanonicalTeamLinks();
+    document.getElementById('updated-at').textContent = '更新 ' + fmtTime(d.updatedAt || Date.now());
+  } catch (err) {
+    const errHtml = `<div class="empty" style="color:#f87171">加载失败: ${esc(err.message)}</div>`;
+    document.getElementById('matched-panels') && (document.getElementById('matched-panels').innerHTML = errHtml);
+    document.getElementById('queue-panels') && (document.getElementById('queue-panels').innerHTML = errHtml);
+    document.getElementById('unmatched-panels') && (document.getElementById('unmatched-panels').innerHTML = errHtml);
+    document.getElementById('updated-at').textContent = '加载失败: ' + err.message;
+  }
+}
+
+document.getElementById('btn-matcher-start')?.addEventListener('click', () => matcherAction('start'));
+document.getElementById('btn-matcher-stop')?.addEventListener('click', () => matcherAction('stop'));
+document.getElementById('link-modal-cancel')?.addEventListener('click', hideLinkModal);
+document.getElementById('link-modal-confirm')?.addEventListener('click', confirmLinkModal);
+document.getElementById('link-modal')?.addEventListener('click', e => {
+  if (e.target.id === 'link-modal') hideLinkModal();
+});
+
+document.querySelectorAll('[data-unmatched-filter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    _unmatchedFilter = btn.dataset.unmatchedFilter || 'all';
+    document.querySelectorAll('[data-unmatched-filter]').forEach(b => b.classList.toggle('active', b === btn));
+    applyTeamSearchFromInput();
+  });
+});
+
+document.getElementById('team-search-input')?.addEventListener('input', applyTeamSearchFromInput);
+document.getElementById('team-search-input')?.addEventListener('search', applyTeamSearchFromInput);
+
+load();
+refreshMatcherStatus();
+setInterval(load, 30000);
+setInterval(refreshMatcherStatus, 10000);
+</script>
+</body>
+</html>

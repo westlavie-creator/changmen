@@ -1,9 +1,9 @@
-"use strict";
+﻿"use strict";
 
 const fs = require("fs");
 const path = require("path");
 const { ESPORT_DATA_DIR } = require("./_require.js").reqB("core/shared/storage_paths.js");
-const { getActivePlatformGameIds } = require("./_require.js").reqB("core/shared/game_catalog.js");
+const { getActivePlatformGameIds } = require("./_require.js").reqS("catalog/game_catalog.js");
 const Core = require("./core.js");
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");

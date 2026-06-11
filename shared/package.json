@@ -1,0 +1,9 @@
+{
+  "name": "@changmen/shared",
+  "version": "1.0.0",
+  "private": true,
+  "description": "changmen 跨进程共享模块（catalog、db、odds 等）",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.2"
+  }
+}

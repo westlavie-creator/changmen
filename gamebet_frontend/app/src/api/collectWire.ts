@@ -26,7 +26,7 @@ function toA8SaveTeamRow(t: CollectTeamDto) {
   };
 }
 
-/** A8 各平台 saveBets 对象形状；`saveBetSource` 不做二次裁剪 [A8 可证实] */
+/** A8 SaveBet 固定 12 字段；采集器多带的 changmen 扩展（如 GroupName）在此剥掉 [A8 可证实] */
 export function toA8SaveBetRow(b: CollectBetDto) {
   return {
     Type: b.Type,

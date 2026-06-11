@@ -6,7 +6,7 @@
 
 文档索引：[README.md](./README.md)
 
-最后更新：2026-05-29
+最后更新：2026-06-08
 
 ---
 
@@ -35,7 +35,7 @@
 | 限红弹窗 | `LimitDiagView` | 已对齐 | `el-dialog` |
 | 创建补单 | `CreateLoseView` | 已对齐 | `el-dialog` + `el-form` |
 | 初赔行 | `defaultOdds` | 基本对齐 | `default_odds.json` 首次写入 + 快照回退；10min 轮询 |
-| 手动双击下单 | `prompt` 金额 | 行为对齐 | 与 bundle 一致 |
+| 手动双击下单 | `prompt` 金额 | 已对齐 | 前置 `checkBetting` + `accountStore.betting`（含 loading 通知） |
 
 ---
 
@@ -92,14 +92,20 @@
 | 项 | bundle | 状态 | 说明 |
 |----|--------|------|------|
 | `betSorting: WinRate` | 有 | 已对齐 | `sortOptionsByWinRate`（`oJe`） |
-| `anyOdds` 被拒重试 | 有 | 已对齐 | `retryFailedLegWithAnyOdds`（最多 3 轮换平台） |
+| `anyOdds` 被拒重试 | 有 | 已对齐 | `retryFailedLeg`（最多 3 轮换平台；阈值 `anyOdds ? anyOddsProfit : makeProfit`） |
 | `makeUp_defaultOdds` / `makeUp_odds` | 有 | 已对齐 | `allowMakeUpForLeg` + `Client_GetDefaultOdds` |
 | 账号 `minDefault` / `maxDefault` | 有 | 已对齐 | 主循环与补单选账号 |
 | `allowSameBet` / `noSameBet` | 有 | 部分 | 使用 `noSameBet` + sessionStorage；命名与 bundle 略有差异 |
 | `noSameProvider` | 有 | 已对齐 | 仅补单 `processLoseOrders`；主循环用 `noSameBet`（bundle 同） |
 | 定时开启投注 | 有 | 已对齐 | `bettingStore.tickAutoOpen` |
+| `maxBetCount` / `BETCOUNT` | 有 | 已对齐 | `bettingSession.passesMaxBetCount` + `incrementBetCount` |
+| 拒单检测主循环 | 有 | 已对齐 | 成功后 `refreshBalance` → 等待 `waitTime ?? 5` → `updateVenueOrders` |
+| 补单拒单复检 | 有 | 已对齐 | `processLoseOrders` 成功后 countdown + 场馆订单 |
+| `checkTimeout` 弹窗 | 有 | 已对齐 | `a8Tip("前置检查超时", …)` |
+| 投注中 / 结果通知 | `Io.betting` | 已对齐 | `notification loading ${provider}` + `bettingDetailHtml` / `betToastSeconds` |
+| `Pr.tip` 补单/拒单 | 有 | 已对齐 | `a8Notify.a8Tip`（含 `<countdown>`） |
 | HG 采集 | `SQ` | 部分 | 无电竞赔率流；启用开关时 60s 刷 HG 账号余额；跟单见 `hgFollowLoop` |
-| Stake 下单 | 插件 | **暂缓** | `stakeProvider` 占位 |
+| Stake 下单 | 插件 GraphQL | **已对齐** | `stakeProvider` 完整实现；`pluginOnly` 需 Chrome 扩展 + stake.com 标签页（见 `platform_adapter/stake/README.md`） |
 
 ---
 
@@ -107,10 +113,10 @@
 
 详见 [A8_NEXT_STEPS.md](./A8_NEXT_STEPS.md)、[A8_REPLICATE_8_PLATFORMS.md](./A8_REPLICATE_8_PLATFORMS.md)。
 
-1. **P0**：8 平台联调 + 走查表（回传开关语义）
+1. **P0**：8 平台联调 + 走查表（回传开关语义）；Stake 需实机验证插件 tabId + GraphQL 下单
 2. **P1 UI**：同屏 pixel diff（账号编辑、充提、版本角标）
-3. **已完成**：初赔/WinRate/补单阈值、`anyOdds`、`lastOdds`、图标、赛事采集 Tab
-4. **暂缓**：Stake 插件下单；HG 无电竞赔率流（仅余额轮询）
+3. **已完成**：初赔/WinRate/补单阈值、`anyOdds` 重试、`lastOdds`、图标、赛事采集 Tab、拒单检测、投注通知
+4. **暂缓**：HG 无电竞赔率流（仅余额轮询）
 
 ---
 

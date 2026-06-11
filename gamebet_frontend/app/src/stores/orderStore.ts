@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { getOrderList } from "@/api/esport";
 import type { OrderRow } from "@/types/order";
+import { toFixed } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
 
@@ -43,6 +44,11 @@ export const useOrderStore = defineStore("order", {
         if (filtered.length) out.set(link, filtered);
       }
       return out;
+    },
+
+    /** 模板 v-for 用：Map 转稳定数组 */
+    orderEntries(): [number, OrderRow[]][] {
+      return [...this.filteredOrders.entries()];
     },
 
     accountOptions(): { value: number; label: string }[] {
@@ -122,11 +128,11 @@ export const useOrderStore = defineStore("order", {
         .map((r) => {
           const odds = Number(r.Odds) || 0;
           const bet = Number(r.BetMoney) || 0;
-          return Math.round(bet * odds - stake);
+          return toFixed(bet * odds - stake);
         });
-      if (unsettled.length) return unsettled.map(String).join(" - ");
+      if (unsettled.length) return unsettled.join(" - ");
       const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
-      return String(Math.round(total));
+      return toFixed(total);
     },
 
     linkClass(rows: OrderRow[]) {
@@ -145,6 +151,13 @@ export const useOrderStore = defineStore("order", {
         return `${row.Player.Platform || ""} / ${row.Player.UserName || ""}`.trim();
       }
       return "";
+    },
+
+    /** 对齐 A8 OrderView：暂停账号平台角标加 `.Stop` 删除线 */
+    platformClass(row: OrderRow) {
+      const acc = useAccountStore().findAccount(row.PlayerID);
+      if (acc?.active) return "Stop";
+      return undefined;
     },
   },
 });

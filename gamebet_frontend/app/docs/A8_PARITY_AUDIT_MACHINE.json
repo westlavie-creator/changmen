@@ -92,10 +92,6 @@
       "bytes": 1508
     },
     {
-      "file": "components/debug/ElectronRelayStatus.vue",
-      "bytes": 1444
-    },
-    {
       "file": "components/layout/AppHeader.vue",
       "bytes": 295
     },

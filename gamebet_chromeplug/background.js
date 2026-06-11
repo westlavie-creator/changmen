@@ -5,6 +5,52 @@
       __defProp(target, name, { get: all3[name], enumerable: true });
   };
 
+  // src/background/electron-storage-polyfill.js
+  function patchChromeStorageForElectron() {
+    if (typeof chrome === "undefined" || !chrome.storage?.local) return;
+    let syncMissing = false;
+    try {
+      syncMissing = !chrome.storage.sync;
+    } catch {
+      syncMissing = true;
+    }
+    if (!syncMissing) return;
+    try {
+      Object.defineProperty(chrome.storage, "sync", {
+        value: chrome.storage.local,
+        configurable: true,
+        enumerable: false
+      });
+    } catch {
+      try {
+        chrome.storage.sync = chrome.storage.local;
+      } catch {
+      }
+    }
+  }
+  patchChromeStorageForElectron();
+
+  // src/background/storage.js
+  var areaPromise = null;
+  async function resolveStorageArea() {
+    if (typeof chrome === "undefined" || !chrome.storage?.local) {
+      throw new Error("chrome.storage unavailable");
+    }
+    return chrome.storage.local;
+  }
+  function getStorageArea() {
+    if (!areaPromise) areaPromise = resolveStorageArea();
+    return areaPromise;
+  }
+  async function storageGet(keys) {
+    const area = await getStorageArea();
+    return area.get(keys);
+  }
+  async function storageSet(items) {
+    const area = await getStorageArea();
+    return area.set(items);
+  }
+
   // src/background/modify-header.js
   var MODIFY_HEADER_KEY = "ModifyHeader";
   var RULE_ID_BASE = 1e4;
@@ -53,15 +99,13 @@
     await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
   }
   async function refreshModifyHeaderFromStorage() {
-    const stored = await chrome.storage.sync.get(MODIFY_HEADER_KEY);
+    const stored = await storageGet(MODIFY_HEADER_KEY);
     await applyModifyHeaderRules(stored[MODIFY_HEADER_KEY] ?? []);
   }
   function initModifyHeaderListener() {
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "sync" || !changes[MODIFY_HEADER_KEY]) return;
-      void applyModifyHeaderRules(changes[MODIFY_HEADER_KEY].newValue ?? []);
+    void refreshModifyHeaderFromStorage().catch((err) => {
+      console.warn("[Gamebet] ModifyHeader refresh skipped:", err?.message || err);
     });
-    void refreshModifyHeaderFromStorage();
   }
 
   // node_modules/axios/lib/helpers/bind.js
@@ -3222,14 +3266,14 @@
           reply({ type, uuid, response: { data: {} } });
           return;
         }
-        const data = await chrome.storage.sync.get(key);
+        const data = await storageGet(key);
         reply({ type, uuid, response: { data } });
         return;
       }
       case "setStore": {
         const payload = message.data;
         if (payload?.key != null) {
-          await chrome.storage.sync.set({ [payload.key]: payload.data });
+          await storageSet({ [payload.key]: payload.data });
           if (payload.key === MODIFY_HEADER_KEY) {
             await applyModifyHeaderRules(payload.data ?? []);
           }
@@ -3241,7 +3285,7 @@
         const tabId = sender?.tab?.id;
         const payload = message.data;
         if (tabId && payload?.key) {
-          await chrome.storage.sync.set({ [payload.key]: tabId });
+          await storageSet({ [payload.key]: tabId });
           reply({ type, uuid, response: { ...payload, tabId } });
           return;
         }
@@ -3265,7 +3309,7 @@
       sendResponse({ success: false, type: message.type, uuid: message.uuid, response: "No tabId or key" });
       return true;
     }
-    chrome.storage.sync.set({ [key]: tabId }).then(() => {
+    storageSet({ [key]: tabId }).then(() => {
       sendResponse({
         success: true,
         type: message.type,

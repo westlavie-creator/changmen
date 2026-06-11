@@ -17,6 +17,9 @@ import { BetResult } from "@/models/betResult";
 import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
 import { useConfigStore } from "@/stores/configStore";
+import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify";
+import type { VenueOrder } from "@platform/contract";
+import { ElNotification } from "element-plus";
 
 
 /** 对齐 A8 Pinia `Io` */
@@ -162,6 +165,25 @@ export const useAccountStore = defineStore("account", {
 
     async refreshBalance(account: PlatformAccount) {
       return accRefresh.call(this, account);
+    },
+
+    /** 对齐 A8 `uv.updateOrders`：拉场馆订单并返回（拒单检测用） */
+    async updateVenueOrders(account: PlatformAccount): Promise<VenueOrder[]> {
+      const provider = getProvider(account);
+      if (!provider?.getOrders) return [];
+      try {
+        const orders = await provider.getOrders(account);
+        account.unsettle = orders.filter((o) => o.status === "none").length;
+        const unsettledExposure = orders
+          .filter((o) => o.status === "none")
+          .reduce((sum, o) => sum + o.odds * o.betMoney, 0);
+        account.winBalance = (account.balance ?? 0) + unsettledExposure;
+        await saveOrders(account, orders);
+        return orders;
+      } catch (err) {
+        console.warn(`[${account.provider}] updateVenueOrders`, err);
+        return [];
+      }
     },
 
     /** A8 Io.f：逐账号刷余额（跳过投注中）→ 保存 → 拉本地订单汇总 */
@@ -314,23 +336,55 @@ export const useAccountStore = defineStore("account", {
       if (!account) return new BetResult(option.type, false, "无可用账号");
       const provider = getProvider(account);
       if (!provider) return new BetResult(option.type, false, "平台不支持");
-      void toastSeconds;
+
+      const platformLabel = this.getPlatformName(account.platformId, account.platformName);
+      const accountTitle = `${account.provider} / ${platformLabel} / ${account.playerName}`;
+      const detailHtml = bettingDetailHtml({
+        matchTitle: option.match?.title,
+        betName: option.bet?.getBetName(),
+        target: option.target,
+        itemOdds: option.item?.getOdds(option.target),
+        betMoney: option.betMoney,
+        odds: option.odds,
+        betCount: option.betCount,
+      });
+
+      const loading = ElNotification({
+        title: `${accountTitle} 投注中...`,
+        message: bettingLoadingMessageHtml(account.provider, detailHtml),
+        dangerouslyUseHTMLString: true,
+        duration: 10_000,
+        customClass: `notification loading ${account.provider}`,
+      });
+
+      let result: BetResult = new BetResult(account.provider, false, "未知错误");
       try {
         if (!option.data) {
           option = await this.checkBetting(account, option);
         }
         if (!option.data) {
-          return new BetResult(option.type, false, option.checkError || "预检失败");
+          result = new BetResult(option.type, false, option.checkError || "预检失败");
+        } else {
+          result = await provider.betting(account, option);
         }
-        return await provider.betting(account, option);
       } catch (e) {
-        return new BetResult(
+        result = new BetResult(
           account.provider,
           false,
           e instanceof Error ? e.message : String(e),
           option.data,
         );
+      } finally {
+        loading.close();
+        ElNotification({
+          title: accountTitle,
+          message: `${detailHtml}<p>${result.message || ""}</p>`,
+          type: result.success ? "success" : "error",
+          dangerouslyUseHTMLString: true,
+          duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
+        });
       }
+      return result;
     },
   },
 });

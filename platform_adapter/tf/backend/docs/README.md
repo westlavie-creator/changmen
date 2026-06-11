@@ -23,8 +23,8 @@ changmen 从 A8 拉凭证：
 |------|------|
 | `integrations/a8/esport_client.js` | `postEsport`（form-urlencoded）、`fetchCollectPlatform` |
 | `platforms/tf/collect_credentials.js` | 60s 缓存；账号 `integrations/a8/constants.js` 或 `a8_config.json` |
-| `esport-api/router.js` | `Client_GetCollectPlatform` TF 分支 |
-| `esport-api/platform_sync.js` | 启动时 `syncTfFromA8()` |
+| `core/esport-api/router.js` | `Client_GetCollectPlatform` TF 分支 |
+| `core/esport-api/platform_sync.js` | 启动时 `syncTfFromA8()` |
 
 登录说明：`TJ01` 等账号通常需 **v4 login** token 作为 esport 请求的 `token` header；纯 JSON body 会导致无 `info` 返回。
 
@@ -69,7 +69,7 @@ node scripts/check-collect-platforms.js
 | `tf_session.js` | HTTP /events |
 | `tf_core.js` | 比赛/盘口归一化、WS 合并 |
 | `tf_ws.js` | WebSocket 客户端 |
-| `tf_feed.js` | FeedHub 接入 |
+| `tf_feed.js` | （已删除）原 FeedHub；采集在 `platform_adapter/tf/frontend` |
 | `tf_game_ids.json` | TF game_id ↔ catalog code |
 
 本地 WS 隧道：`proxy/tf_ws_relay.js`（Dashboard `/esport/ws/TF`）。

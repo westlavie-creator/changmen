@@ -1,33 +1,27 @@
 {
   "navi:cs2": {
-    "id": "pandascore:3216",
-    "name": "Natus Vincere",
-    "acronym": "NAVI",
-    "slug": "natus-vincere-cs-go",
+    "id": "liquipedia:counterstrike:NAVI",
+    "name": "NAVI",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764046001
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109339251
   },
   "g2:cs2": {
-    "id": "pandascore:3210",
-    "name": "G2",
-    "acronym": "G2",
-    "slug": "g2",
+    "id": "liquipedia:counterstrike:G2_Esports",
+    "name": "G2 Esports",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764046263
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109340818
   },
   "faze:cs2": {
-    "id": "pandascore:3212",
-    "name": "FaZe",
-    "acronym": "FaZe",
-    "slug": "faze",
-    "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764047061
+    "id": "liquipedia:counterstrike:FaZe_Clan",
+    "name": "FaZe Clan",
+    "confidence": 0.6,
+    "matchType": "opensearch_top",
+    "source": "liquipedia",
+    "resolvedAt": 1781109342926
   },
   "vitality:cs2": {
     "id": "pandascore:3455",
@@ -50,54 +44,44 @@
     "resolvedAt": 1780764047861
   },
   "jdg:lol": {
-    "id": "pandascore:318",
-    "name": "JD Gaming",
-    "acronym": "JDG",
-    "slug": "qg-reapers",
+    "id": "liquipedia:leagueoflegends:JDG",
+    "name": "JDG",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764048416
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109347127
   },
   "blg:lol": {
-    "id": "pandascore:1566",
-    "name": "Bilibili Gaming",
-    "acronym": "BLG",
-    "slug": "bilibili-gaming",
+    "id": "liquipedia:leagueoflegends:BLG",
+    "name": "BLG",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764048677
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109349232
   },
   "fpx:lol": {
-    "id": "pandascore:1568",
-    "name": "FunPlus Phoenix",
-    "acronym": "FPX",
-    "slug": "funplus-phoenix",
+    "id": "liquipedia:leagueoflegends:FPX",
+    "name": "FPX",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764048935
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109351337
   },
   "rng:lol": {
-    "id": "pandascore:74",
-    "name": "Royal Never Give Up",
-    "acronym": "RNG",
-    "slug": "royal-never-give-up",
+    "id": "liquipedia:leagueoflegends:RNG",
+    "name": "RNG",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764049198
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109353446
   },
   "t1:lol": {
-    "id": "pandascore:126061",
+    "id": "liquipedia:leagueoflegends:T1",
     "name": "T1",
-    "acronym": "T1",
-    "slug": "t1",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764049455
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109355558
   },
   "geng:lol": {
     "id": "pandascore:2882",
@@ -110,24 +94,20 @@
     "resolvedAt": 1780764049972
   },
   "og:dota2": {
-    "id": "pandascore:1654",
+    "id": "liquipedia:dota2:OG",
     "name": "OG",
-    "acronym": "OG",
-    "slug": "og",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764050230
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109357666
   },
   "liquid:dota2": {
-    "id": "pandascore:1647",
-    "name": "Team Liquid",
-    "acronym": "Liquid",
-    "slug": "team-liquid",
+    "id": "liquipedia:dota2:Liquid",
+    "name": "Liquid",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764050749
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109359769
   },
   "sentinels:valorant": {
     "id": "pandascore:128472",
@@ -140,14 +120,12 @@
     "resolvedAt": 1780764051275
   },
   "loud:valorant": {
-    "id": "pandascore:130338",
+    "id": "liquipedia:valorant:LOUD",
     "name": "LOUD",
-    "acronym": "LOUD",
-    "slug": "loud-valorant",
     "confidence": 1,
-    "matchType": "acronym",
-    "source": "pandascore",
-    "resolvedAt": 1780764051535
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1781109361864
   },
   "edward:lol": {
     "id": "pandascore:405",

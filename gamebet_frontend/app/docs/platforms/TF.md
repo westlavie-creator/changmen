@@ -15,7 +15,9 @@
 | 通道 | 间隔 | 作用 |
 |------|------|------|
 | HTTP `GET {Gateway}/api/v8/events/` | 30s | 列表 + 每场 MATCH/MAP 盘口 → `oddsStore` + `saveBets` |
-| WebSocket `relayWsUrl(/esport/ws/TF?auth_token=…&combo=false)` | 实时 | 仅更新已注册 `oddsStore` 的 `${marketId}:${name}`（须先 HTTP 拉过盘） |
+| WebSocket `wss://47.115.75.57/esport/ws/TF?auth_token=…&combo=false` | 实时 | 仅更新已注册 `oddsStore` 的 `${marketId}:${name}`（须先 HTTP 拉过盘） |
+
+浏览器 **直连** A8 代理 WS（`tf/frontend/ws.ts`，`auth_token` = 采集 Token 去 `Token ` 前缀）。不经 `/esport/ws/TF` 本地 relay / Electron IPC。
 
 WS 重连：1s 起、×1.3 退避、上限 5s（等同 A8 `FBe`）；错误时 `notifyCollectError`。
 

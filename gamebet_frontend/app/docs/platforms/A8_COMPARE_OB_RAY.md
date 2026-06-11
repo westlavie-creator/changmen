@@ -94,12 +94,7 @@ waitForUser
 
 ### changmen（[`ob/index.ts`](../ob/index.ts)）
 
-**部署模式**（见 [A8_OB_REPLICATE_PLAN.md](../../docs/A8_OB_REPLICATE_PLAN.md)）：
-
-| 模式 | 比赛列表 | 说明 |
-|------|----------|------|
-| **P — A8 Parity** | 浏览器 `saveMatch` | 每轮 `buildMatchesFromList` → `saveMatch` |
-| **D — 双轨（dev 默认）** | Node `ObFeed` + `ESPORT_BRIDGE` | [changmen 扩展]；与浏览器 saveMatch 可能双写，parity 时关 bridge |
+**部署**（见 [A8_OB_REPLICATE_PLAN.md](../../docs/A8_OB_REPLICATE_PLAN.md)）：比赛列表来自浏览器 `saveMatch` → matcher → `Client_GetMatchs`。服务端 FeedHub 已删除（2026-06）。
 
 ```text
 startObCollector（约 3s 后 connectObMqtt）
@@ -168,7 +163,7 @@ startObCollector（约 3s 后 connectObMqtt）
 
 | 场景 | 实现 | 说明 |
 |------|------|------|
-| **采集** | `getCollectPlatform("RAY")` | 后端 [`router.js`](../../../../../gamebet_backend/esport-api/router.js) 对 RAY **忽略** `platforms.json` 中的 token，强制 [`ray_a8_collect.js`](../../../../../gamebet_backend/shared/ray_a8_collect.js)（与 A8 bundle **相同** gateway + JWT） |
+| **采集** | `getCollectPlatform("RAY")` | 后端 [`router.js`](../../../../../gamebet_backend/core/esport-api/router.js) 对 RAY **忽略** `platforms.json` 中的 token，强制 [`ray_a8_collect.js`](../../../../../gamebet_backend/shared/ray_a8_collect.js)（与 A8 bundle **相同** gateway + JWT） |
 | **启动同步** | `syncRayFromA8()` | 将同一套凭证写入 `platforms.json`（便于探针；API 仍强制 A8 凭证） |
 | **环境变量** | `RAY_COLLECT_USE_ENV=1` | 可用 `RAY_TOKEN` / `RAY_GATEWAY` 覆盖（**非 A8 行为**） |
 | **下注** | `AccountEditDialog` 剪贴板 | 同 A8 → `rayProvider` 使用 `account.token` |
@@ -264,7 +259,7 @@ startRayCollector
 | MQTT | 插件内 `RMe.connect` | [`ob/mqtt.ts`](../ob/mqtt.ts) |
 | 试玩 UI | `UserCollectView` | [`api/v4.ts`](../../api/v4.ts) `enterCreditPlate("OB")` |
 | 下注 | OB Provider（bundle） | [`providers/obProvider.ts`](../../providers/obProvider.ts) |
-| 后端 OB | — | [`platforms/ob/`](../../../../../gamebet_backend/platforms/ob/)、[`esport-api/router.js`](../../../../../gamebet_backend/esport-api/router.js) |
+| 后端 OB | — | [`platforms/ob/`](../../../../../gamebet_backend/platforms/ob/)、[`esport-api/router.js`](../../../../../gamebet_backend/core/esport-api/router.js) |
 
 ## RAY
 

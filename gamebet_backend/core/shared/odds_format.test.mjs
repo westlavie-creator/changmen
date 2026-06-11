@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { formatBetOdds, formatOdds } = require("./odds_format");
+const { formatBetOdds, formatOdds } = require("../../../shared/odds_format");
 
 describe("formatOdds", () => {
   it("rounds finite odds to three decimals", () => {

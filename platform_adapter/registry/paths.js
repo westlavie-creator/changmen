@@ -46,14 +46,6 @@ function resolvePlatformFile(id, ...segments) {
   return path.join(ADAPTER_ROOT, dir, ...segments);
 }
 
-function resolveBackendFeedModule(id) {
-  const entry = getManifestEntry(id);
-  if (!entry?.backendFeed) {
-    throw new Error(`manifest missing backendFeed: ${id}`);
-  }
-  return path.join(ADAPTER_ROOT, entry.dir, "backend", "feed.js");
-}
-
 function resolveBackendRelayModule(id) {
   const entry = getManifestEntry(id);
   if (!entry?.backendRelay) return null;
@@ -72,7 +64,6 @@ module.exports = {
   getManifestEntry,
   platformDir,
   resolvePlatformFile,
-  resolveBackendFeedModule,
   resolveBackendRelayModule,
   platformAdapterPath,
 };

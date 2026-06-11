@@ -129,8 +129,26 @@
 }
 
 .orders .order .bet::after {
-  display: none;
-  content: none;
+  clear: both;
+  content: " ";
+  display: block;
+}
+
+.orders .order .match {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.orders .order .time,
+.orders .order .profit {
+  transform: none;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .orders .order .betname {
@@ -162,4 +180,46 @@
 
 .orders .order .bet > .item label {
   display: inline;
+}
+
+/* 对齐 A8 Io.betting：customClass `notification loading ${provider}` + provider 角标 */
+.el-notification.notification.loading {
+  min-width: 320px;
+}
+
+.el-notification.notification.loading .el-notification__icon {
+  display: none;
+}
+
+.el-notification.notification.loading .notify-loading-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.el-notification.notification.loading .notify-loading-head .provider-icon {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+}
+
+.el-notification.notification.loading .notify-loading-head .provider-icon::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 2px solid rgba(64, 158, 255, 0.25);
+  border-top-color: var(--el-color-primary, #409eff);
+  border-radius: 50%;
+  animation: notify-provider-spin 0.85s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes notify-provider-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

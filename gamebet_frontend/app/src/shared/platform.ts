@@ -1,10 +1,10 @@
 ﻿export { PLATFORMS } from "@platform/registry";
 
-/** OB MQTT 下游凭据（与 gamebet_backend/proxy/ob_mqtt_relay.js 一致） */
+/** 旧 OB relay 下游凭据（仅 backend ob_mqtt_relay / 冒烟脚本）；浏览器直连 OB 源站 MQTT 用 platform token */
 export const OB_MQTT_USER = "admin";
 export const OB_MQTT_PASS = "Qazqaz123...";
 
-/** Dev 直连 backend 3456（绕过 Vite ws 代理）；host 与页面一致（localhost 对 localhost） */
+/** Dev 时 relayWsUrl 仅供遗留调试；OB/RAY/TF/IA 实时均为浏览器直连 */
 export function relayWsUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   if (import.meta.env.DEV) {

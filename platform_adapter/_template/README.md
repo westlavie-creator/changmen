@@ -8,7 +8,7 @@
 2. `registry/adapters.ts` — 注册 adapter
 3. `frontend/index.ts` — 导出 `PlatformAdapter`
 4. `frontend/collect.ts` / `frontend/bet.ts` — 按能力实现
-5. （可选）`backend/feed.js` — Mode D FeedHub
+5. （可选）`backend/relay.js` — WS relay（OB/RAY/TF/IA）
 
 ## 文件清单
 

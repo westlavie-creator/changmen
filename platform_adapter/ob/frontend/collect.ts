@@ -98,6 +98,8 @@ export async function syncObLiveTimer(platform: CollectPlatformInfo): Promise<vo
     StartTime: num(row.start_time) * 1000,
   }));
   await saveLiveTimer(PLATFORMS.OB, timers);
+  // 对齐 A8：timer 入库后立即刷新 GetMatchs，不必等 30s 轮询
+  void useMatchStore().fetchMatches(true);
 }
 
 /** game/index 列表行的 match_team → 主客队名 */

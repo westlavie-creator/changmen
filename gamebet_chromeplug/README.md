@@ -1,6 +1,8 @@
 # Gamebet Chrome 扩展（复刻 A8 插件）
 
-changmen 前端通过 `pluginBridge.ts` 与扩展通信，协议对齐 A8 的 `Zn`（`GET` / `POST` / `getStore` / `setStore` / `setTab` / `version` / `proxy`）。
+changmen 前端通过 `extension/bridge.ts` 与扩展通信，协议对齐 A8 的 `Zn`（`GET` / `POST` / `getStore` / `setStore` / `setTab` / `version` / `proxy`）。
+
+Mode P 启动：`parity-dev.bat` 或 `dev.bat`（浏览器 + 插件）。
 
 ## 固定扩展 ID
 
@@ -12,11 +14,14 @@ mogfpjihgoghabicofkbcmcidlcoofee
 
 ## 安装
 
+### Chrome / Edge（浏览器模式）
+
 1. Chrome 打开 `chrome://extensions/`
 2. 开启「开发者模式」
 3. 「加载已解压的扩展程序」→ 选择本目录 `changmen/gamebet_chromeplug`
 4. 确认扩展 ID 为 `mogfpjihgoghabicofkbcmcidlcoofee`
 5. 启动 changmen 前端（`gamebet_frontend/app`），PB / Stake / v4 等会经扩展代发 HTTP
+6. Stake：在同一 Chrome 配置文件中打开 `stake.com`，扩展会自动 `setTab`
 
 ## 功能（与 A8 一致）
 
@@ -29,7 +34,7 @@ mogfpjihgoghabicofkbcmcidlcoofee
 | **Stake WS 重连** | graphql-transport-ws 断线自动重连 + ping |
 | **Stake tabId** | 打开 `stake.com` 后自动 `setTab`，供采集/下注使用 |
 
-当前版本 **1.2.0**：content / background 均已可读化打包，协议对齐 A8 2.0.149。
+当前版本 **1.2.3**：content / background 均已可读化打包，协议对齐 A8 2.0.149；使用 `storage.local`（无 sync）。
 
 ## 目录结构
 

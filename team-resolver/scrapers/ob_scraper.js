@@ -20,7 +20,7 @@ require("dotenv").config({ path: path.join(__dirname, "../../gamebet_backend/.en
 const { createClient } = require("@supabase/supabase-js");
 const { requirePlatform } = require("../../gamebet_backend/core/shared/adapter_paths.js");
 const { login, obGet } = requirePlatform("OB", "backend", "session.js");
-const { getGameCodeForPlatformId } = require("../../gamebet_backend/core/shared/game_catalog.js");
+const { getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.js");
 const { loadAndCreatePlugin } = require("../supabase_db.js");
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
@@ -171,65 +171,56 @@ async function main() {
   console.log("\n[ob_scraper] 加载 canonical_teams...");
   const plugin = await loadAndCreatePlugin();
 
-  // 4. 解析
-  const resolved = [];
-  const unresolved = [];
+  // 4. 解析（gb_team_id 仅来自手动映射 lookupById）
+  const manualMapped = [];
+  const platformOnly = [];
   const skipped = [];
 
   for (const { gameId, teamId, teamName } of allTeams.values()) {
     const gameCode = getGameCodeForPlatformId("OB", gameId);
     if (!gameCode) { skipped.push({ gameId, teamId, teamName }); continue; }
 
-    const canonId = plugin.lookupByName(gameCode, norm(teamName));
-    if (canonId) {
-      resolved.push({
-        canonical_id: Number(canonId),
-        platform: "OB",
-        platform_id: teamId,
-        platform_name: teamName,
-        game: gameCode,
-        source: "scraper",
-        confidence: 0.9,
-      });
+    const gbTeamId = plugin.lookupById("OB", teamId);
+    const base = {
+      platform: "OB",
+      platform_id: teamId,
+      platform_name: teamName,
+      game: gameCode,
+      source: "scraper",
+    };
+    if (gbTeamId) {
+      manualMapped.push({ ...base, canonical_id: Number(gbTeamId), confidence: 1.0 });
     } else {
-      unresolved.push({
-        canonical_id: null,
-        platform: "OB",
-        platform_id: teamId,
-        platform_name: teamName,
-        game: gameCode,
-        source: "scraper",
-        confidence: 0.0,
-      });
+      platformOnly.push({ ...base, canonical_id: null, confidence: 0.0 });
     }
   }
 
   console.log(
-    `\n[ob_scraper] 解析结果：已识别 ${resolved.length} / 待回填 ${unresolved.length} / 跳过(游戏超范围) ${skipped.length}`
+    `\n[ob_scraper] 解析结果：手动 gb_team_id ${manualMapped.length} / 仅平台记录 ${platformOnly.length} / 跳过(游戏超范围) ${skipped.length}`
   );
 
-  if (unresolved.length > 0) {
-    console.log("\n[ob_scraper] 待回填队伍（前 20 条）：");
-    unresolved.slice(0, 20).forEach((r) =>
+  if (platformOnly.length > 0) {
+    console.log("\n[ob_scraper] 无 gb_team_id 队伍（前 20 条）：");
+    platformOnly.slice(0, 20).forEach((r) =>
       console.log(`  platform_id=${r.platform_id}  name="${r.platform_name}"`)
     );
   }
 
   // 5. 写库
-  const toWrite = [...resolved, ...unresolved];
+  const toWrite = [...manualMapped, ...platformOnly];
   if (!DRY_RUN && toWrite.length > 0) {
-    console.log(`\n[ob_scraper] 写入 team_platform_maps（${resolved.length} + ${unresolved.length} = ${toWrite.length} 行）...`);
+    console.log(`\n[ob_scraper] 写入 team_platform_maps（${toWrite.length} 行）...`);
     await batchUpsert(toWrite);
     console.log("[ob_scraper] 写入完成");
   } else if (DRY_RUN) {
-    console.log("\n[dry-run] 已识别示例（前 5 条）：");
-    resolved.slice(0, 5).forEach((r) =>
-      console.log(`  canonical_id=${r.canonical_id}  platform_id=${r.platform_id}  name="${r.platform_name}"`)
+    console.log("\n[dry-run] 手动映射示例（前 5 条）：");
+    manualMapped.slice(0, 5).forEach((r) =>
+      console.log(`  gb_team_id=${r.canonical_id}  platform_id=${r.platform_id}  name="${r.platform_name}"`)
     );
-    if (unresolved.length) {
-      console.log("[dry-run] 待回填示例（前 5 条）：");
-      unresolved.slice(0, 5).forEach((r) =>
-        console.log(`  canonical_id=NULL  platform_id=${r.platform_id}  name="${r.platform_name}"`)
+    if (platformOnly.length) {
+      console.log("[dry-run] 仅平台记录示例（前 5 条）：");
+      platformOnly.slice(0, 5).forEach((r) =>
+        console.log(`  gb_team_id=NULL  platform_id=${r.platform_id}  name="${r.platform_name}"`)
       );
     }
   }

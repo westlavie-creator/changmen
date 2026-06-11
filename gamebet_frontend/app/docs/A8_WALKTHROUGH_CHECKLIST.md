@@ -113,7 +113,7 @@ npm run build
 
 ## 7. OB 模式 P（A8 Parity，可选）
 
-启动：`changmen/parity-dev.bat`（或手动 `ESPORT_BRIDGE=0`、`ENABLE_OB=0` + 前后端）。
+启动：`changmen/parity-dev.bat` 或 `dev.bat` / `dev-web.bat` + matcher + 插件 build。
 
 | 项 | 通过 |
 |----|------|

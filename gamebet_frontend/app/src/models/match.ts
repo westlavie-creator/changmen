@@ -234,6 +234,10 @@ export class ViewMatch {
   gameId: number;
   bo: number;
   startAt: number;
+  /** 当前局（来自 Client_GetMatchs Round，对齐 A8 赛事 dto） */
+  liveRound: number;
+  /** 当前局开赛时间戳 ms（RoundStart） */
+  liveRoundStart: number;
   reverse: PlatformId[];
   providers: Record<string, string | number>;
   bets: ViewBet[];
@@ -247,9 +251,11 @@ export class ViewMatch {
     this.startAt = dto.StartTime;
     this.reverse = dto.Reverse ?? [];
     this.providers = dto.Matchs ?? {};
-    const liveRound = dto.Round ?? 0;
-    const roundStart = dto.RoundStart ?? 0;
-    this.bets = (dto.Bets ?? []).map((b) => new ViewBet(b, this.providers, liveRound, roundStart));
+    this.liveRound = dto.Round ?? 0;
+    this.liveRoundStart = dto.RoundStart ?? 0;
+    this.bets = (dto.Bets ?? []).map((b) =>
+      new ViewBet(b, this.providers, this.liveRound, this.liveRoundStart),
+    );
   }
 }
 

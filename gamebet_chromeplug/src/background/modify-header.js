@@ -1,3 +1,5 @@
+import { storageGet } from "./storage.js";
+
 /** 对齐 A8 background：`ModifyHeader` + UA 改写（MV3 使用 declarativeNetRequest） */
 export const MODIFY_HEADER_KEY = "ModifyHeader";
 
@@ -60,14 +62,14 @@ export async function applyModifyHeaderRules(entries) {
 }
 
 export async function refreshModifyHeaderFromStorage() {
-  const stored = await chrome.storage.sync.get(MODIFY_HEADER_KEY);
+  const stored = await storageGet(MODIFY_HEADER_KEY);
   await applyModifyHeaderRules(stored[MODIFY_HEADER_KEY] ?? []);
 }
 
 export function initModifyHeaderListener() {
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "sync" || !changes[MODIFY_HEADER_KEY]) return;
-    void applyModifyHeaderRules(changes[MODIFY_HEADER_KEY].newValue ?? []);
+  // 不在 SW 启动时注册 onChanged：Electron 注册 storage 监听仍会 touch sync。
+  // ModifyHeader 由页面 setStore(ModifyHeader) 触发 applyModifyHeaderRules（见 index.js setStore）。
+  void refreshModifyHeaderFromStorage().catch((err) => {
+    console.warn("[Gamebet] ModifyHeader refresh skipped:", err?.message || err);
   });
-  void refreshModifyHeaderFromStorage();
 }

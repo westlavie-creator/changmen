@@ -10,14 +10,12 @@
     "collectionMode": "http_mqtt",
     "collectionDesc": "HTTP 快照（game/index、view）+ MQTT 增量",
     "implementation": "done",
-    "envEnable": "ENABLE_OB",
-    "defaultEnabled": false,
     "saveMatchIntervalMs": 60000,
-    "streamMeta": { "key": "mqtt", "protocol": "MQTT" },
-    "pagePath": "/platforms/ob/",
-    "backendFeed": { "file": "feed.js", "export": "ObFeed" },
-    "backendRelay": "ob_relay_core.js",
-    "feedOptionsEnv": { "OB_FEED_MODE": "a8" }
+    "streamMeta": {
+      "key": "mqtt",
+      "protocol": "MQTT"
+    },
+    "backendRelay": "ob_relay_core.js"
   },
   {
     "id": "IM",
@@ -30,13 +28,11 @@
     "collectionMode": "aggregator_ws",
     "collectionDesc": "A8 公共 Socket.IO 频道 IM（聚合推送）",
     "implementation": "done",
-    "envEnable": "ENABLE_IM",
-    "defaultEnabled": false,
     "a8Channel": true,
-    "streamMeta": { "key": "ws", "protocol": "Socket.IO" },
-    "pagePath": "/platforms/im/",
-    "backendFeed": { "file": "feed.js", "export": "ImFeed" },
-    "feedOptions": { "platformId": "IM" }
+    "streamMeta": {
+      "key": "ws",
+      "protocol": "Socket.IO"
+    }
   },
   {
     "id": "RAY",
@@ -49,15 +45,12 @@
     "collectionMode": "http_ws",
     "collectionDesc": "HTTP 快照（match/odds）+ 专用 WebSocket",
     "implementation": "done",
-    "envEnable": "ENABLE_RAY",
-    "defaultEnabled": true,
     "saveMatchIntervalMs": 30000,
-    "streamMeta": { "key": "ws", "protocol": "WS" },
-    "pagePath": "/platforms/ray/",
-    "backendFeed": { "file": "feed.js", "export": "RayFeed" },
-    "backendRelay": "ray_relay_core.js",
-    "feedOptions": { "syncIntervalMs": 30000 },
-    "feedOptionsEnv": { "RAY_SYNC_MS": "syncIntervalMs" }
+    "streamMeta": {
+      "key": "ws",
+      "protocol": "WS"
+    },
+    "backendRelay": "ray_relay_core.js"
   },
   {
     "id": "TF",
@@ -70,15 +63,12 @@
     "collectionMode": "http_ws",
     "collectionDesc": "HTTP events 快照 + /esport/ws/TF 隧道",
     "implementation": "done",
-    "envEnable": "ENABLE_TF",
-    "defaultEnabled": false,
     "saveMatchIntervalMs": 60000,
-    "streamMeta": { "key": "ws", "protocol": "WS" },
-    "pagePath": "/platforms/tf/",
-    "backendFeed": { "file": "feed.js", "export": "TfFeed" },
-    "backendRelay": "tf_relay_core.js",
-    "feedOptions": { "syncIntervalMs": 30000 },
-    "feedOptionsEnv": { "TF_SYNC_MS": "syncIntervalMs" }
+    "streamMeta": {
+      "key": "ws",
+      "protocol": "WS"
+    },
+    "backendRelay": "tf_relay_core.js"
   },
   {
     "id": "IA",
@@ -91,14 +81,11 @@
     "collectionMode": "http_ws",
     "collectionDesc": "插件 HTTP（ilustre-analytics）+ IA WebSocket 房间",
     "implementation": "done",
-    "envEnable": "ENABLE_IA",
-    "defaultEnabled": false,
-    "streamMeta": { "key": "ws", "protocol": "Socket.IO" },
-    "pagePath": "/platforms/ia/",
-    "backendFeed": { "file": "feed.js", "export": "IaFeed" },
-    "backendRelay": "ia_relay_core.js",
-    "feedOptions": { "syncIntervalMs": 30000 },
-    "feedOptionsEnv": { "IA_SYNC_MS": "syncIntervalMs" }
+    "streamMeta": {
+      "key": "ws",
+      "protocol": "Socket.IO"
+    },
+    "backendRelay": "ia_relay_core.js"
   },
   {
     "id": "SABA",
@@ -111,13 +98,10 @@
     "collectionMode": "parse_ws",
     "collectionDesc": "页面解析 gateway/token + 自有 WebSocket",
     "implementation": "done",
-    "envEnable": "ENABLE_SABA",
-    "defaultEnabled": false,
-    "streamMeta": { "key": "ws", "protocol": "Socket.IO" },
-    "pagePath": "/platforms/saba/",
-    "backendFeed": { "file": "feed.js", "export": "SabaFeed" },
-    "feedOptions": { "checkinIntervalMs": 3000 },
-    "feedOptionsEnv": { "SABA_CHECKIN_MS": "checkinIntervalMs" }
+    "streamMeta": {
+      "key": "ws",
+      "protocol": "Socket.IO"
+    }
   },
   {
     "id": "XBet",
@@ -130,13 +114,11 @@
     "collectionMode": "aggregator_ws",
     "collectionDesc": "A8 公共 Socket.IO XBet / XBet:Score",
     "implementation": "done",
-    "envEnable": "ENABLE_XBET",
-    "defaultEnabled": false,
     "a8Channel": true,
-    "streamMeta": { "key": "ws", "protocol": "Socket.IO" },
-    "pagePath": "/platforms/xbet/",
-    "backendFeed": { "file": "feed.js", "export": "XbetFeed" },
-    "feedOptions": { "platformId": "XBet" }
+    "streamMeta": {
+      "key": "ws",
+      "protocol": "Socket.IO"
+    }
   },
   {
     "id": "PB",
@@ -149,13 +131,7 @@
     "collectionMode": "http_poll",
     "collectionDesc": "高频 HTTP 轮询 euro/odds（约 5s），插件 token",
     "implementation": "done",
-    "envEnable": "ENABLE_PB",
-    "defaultEnabled": false,
-    "streamMeta": null,
-    "pagePath": "/platforms/pb/",
-    "backendFeed": { "file": "feed.js", "export": "PbFeed" },
-    "feedOptions": { "syncIntervalMs": 5000 },
-    "feedOptionsEnv": { "PB_SYNC_MS": "syncIntervalMs" }
+    "streamMeta": null
   },
   {
     "id": "IMT",
@@ -168,13 +144,7 @@
     "collectionMode": "http_poll",
     "collectionDesc": "全量 GetAllLiveEvents（60s）+ delta（1s）HTTP 轮询",
     "implementation": "done",
-    "envEnable": "ENABLE_IMT",
-    "defaultEnabled": false,
-    "streamMeta": null,
-    "pagePath": "/platforms/imt/",
-    "backendFeed": { "file": "feed.js", "export": "ImtFeed" },
-    "feedOptions": { "fullIntervalMs": 60000, "deltaIntervalMs": 1000 },
-    "feedOptionsEnv": { "IMT_FULL_MS": "fullIntervalMs", "IMT_DELTA_MS": "deltaIntervalMs" }
+    "streamMeta": null
   },
   {
     "id": "HG",
@@ -187,13 +157,7 @@
     "collectionMode": "plugin_http",
     "collectionDesc": "transform.php 账户/订单，非标准赔率流",
     "implementation": "done",
-    "envEnable": "ENABLE_HG",
-    "defaultEnabled": false,
-    "streamMeta": null,
-    "pagePath": "/platforms/hg/",
-    "backendFeed": { "file": "feed.js", "export": "HgFeed" },
-    "feedOptions": { "pollIntervalMs": 30000 },
-    "feedOptionsEnv": { "HG_POLL_MS": "pollIntervalMs" }
+    "streamMeta": null
   },
   {
     "id": "Stake",
@@ -207,13 +171,10 @@
     "collectionMode": "plugin_graphql_ws",
     "collectionDesc": "插件 GraphQL + 插件 WS → A8 Stake 频道",
     "implementation": "done",
-    "envEnable": "ENABLE_STAKE",
-    "defaultEnabled": false,
     "a8Channel": true,
-    "streamMeta": { "key": "ws", "protocol": "Socket.IO" },
-    "pagePath": "/platforms/stake/",
-    "backendFeed": { "file": "feed.js", "export": "StakeFeed" },
-    "feedOptions": { "syncIntervalMs": 60000 },
-    "feedOptionsEnv": { "STAKE_SYNC_MS": "syncIntervalMs" }
+    "streamMeta": {
+      "key": "ws",
+      "protocol": "Socket.IO"
+    }
   }
 ]

@@ -159,7 +159,7 @@ node scripts/platforms/ob/probe_market_status.js --matches 10 --stages 0,1
 |----------|------|---------|
 | `byMatch[id].stages[].winLocked` | 获胜盘 `locked` | 「可投注 / 部分锁盘」 |
 | `odds[oddsId].locked` | 盘口 locked | MQTT 增量 |
-| `ObFeed.status` | running/syncing/mqtt | 连接态，**非**盘口 |
+| （历史）ObFeed.status | — | 已删除；连接态见客户端采集器日志 |
 
 ---
 

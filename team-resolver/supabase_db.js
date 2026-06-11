@@ -4,9 +4,9 @@
  * 从 Supabase 加载队伍映射，构建同步查找插件。
  *
  * 插件对象接口：
- *   lookupByName(gameCode, normalizedName) → canonical_id string | null
- *   lookupById(platform, platformId)       → canonical_id string | null
- *   saveMapping(canonId, platform, platformId, platformName) → void (fire-and-forget)
+ *   lookupByName(gameCode, normalizedName) → canonical_teams.id string | null（内部合并用）
+ *   lookupById(platform, platformId)       → gb_team_id string | null（仅手动映射）
+ *   saveMapping(gbTeamId, ...)            → 仅当 gbTeamId 为手动 ID 时写 maps
  */
 
 const path = require("path");
@@ -24,12 +24,12 @@ function getSupabase() {
   return _sb;
 }
 
-// 加载 team_aliases.json（与后端共用同一份文件）
+// 加载 team_aliases.json（单源：gamebet_matcher/engine/teams/）
 let _aliases = null;
 function _getAliases() {
   if (!_aliases) {
     try {
-      const raw = require("../gamebet_backend/core/esport-api/team_aliases.json");
+      const raw = require("../gamebet_matcher/engine/teams/team_aliases.json");
       _aliases = Object.fromEntries(Object.entries(raw).filter(([k]) => !k.startsWith("_")));
     } catch {
       _aliases = {};
@@ -68,12 +68,17 @@ async function loadAndCreatePlugin() {
   }
 
   // ── 名称查找 Map：从 canonical_teams 构建 ──────────────────────────────────
-  const allTeams = await _loadAll("canonical_teams", "id, game, name, acronym");
+  const allTeams = await _loadAll("canonical_teams", "id, gb_team_id, game, name, acronym");
 
-  const nameMap = new Map(); // `${gameCode}:${normalizedName}` → canonical_id string
+  const nameMap = new Map(); // `${gameCode}:${normalizedName}` → canonical_teams.id
+  const gbTeamNameMap = new Map(); // gb_team_id → display name
   for (const team of allTeams) {
     const id = String(team.id);
     const g = team.game;
+    const displayName = String(team.name || "").trim();
+    if (team.gb_team_id != null && displayName) {
+      gbTeamNameMap.set(String(team.gb_team_id), displayName);
+    }
     const nameKey = _norm(team.name);
     if (nameKey) nameMap.set(`${g}:${nameKey}`, id);
     if (ENABLE_ACRONYM_NAME_LOOKUP && team.acronym) {
@@ -88,7 +93,7 @@ async function loadAndCreatePlugin() {
     "canonical_id, platform, platform_id"
   );
 
-  const idMap = new Map(); // `${platform}:${platformId}` → canonical_id string
+  const idMap = new Map(); // `${platform}:${platformId}` → gb_team_id string
   const _savedIds = new Set(); // 防止重复写库的内存去重
 
   for (const row of allMaps) {
@@ -114,19 +119,25 @@ async function loadAndCreatePlugin() {
     return idMap.get(`${platform}:${platformId}`) || null;
   }
 
-  function saveMapping(canonId, platform, platformId, platformName, gameCode) {
-    if (!platformId || !canonId) return;
+  function lookupCanonicalName(gbTeamId) {
+    if (gbTeamId == null || gbTeamId === "") return null;
+    return gbTeamNameMap.get(String(gbTeamId)) || null;
+  }
+
+  function saveMapping(gbTeamId, platform, platformId, platformName, gameCode) {
+    const manualId = Number(gbTeamId);
+    if (!platformId || !Number.isFinite(manualId) || manualId < 100000) return;
     const key = `${platform}:${platformId}`;
     if (_savedIds.has(key)) return; // 已保存过，跳过
     _savedIds.add(key);
-    idMap.set(key, String(canonId)); // 同步更新内存
+    idMap.set(key, String(manualId)); // 同步更新内存
 
     // 异步写库，不阻塞主流程
     getSupabase()
       .from("team_platform_maps")
       .upsert(
         {
-          canonical_id: Number(canonId),
+          canonical_id: manualId,
           platform,
           platform_id: String(platformId),
           platform_name: String(platformName || ""),
@@ -141,7 +152,7 @@ async function loadAndCreatePlugin() {
       });
   }
 
-  return { lookupByName, lookupById, saveMapping };
+  return { lookupByName, lookupById, lookupCanonicalName, saveMapping };
 }
 
 module.exports = { loadAndCreatePlugin };

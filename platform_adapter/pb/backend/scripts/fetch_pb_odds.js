@@ -1,9 +1,9 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 "use strict";
 
 const { loadSession, fetchEuroOdds, fetchBalance, buildAuthHeaders } = require("../session.js");
 const { parseEuroOddsPayload } = require("../core.js");
-const { describePlatformGame } = require("../_require.js").reqB("core/shared/game_catalog.js");
+const { describePlatformGame } = require("../_require.js").reqS("catalog/game_catalog.js");
 
 async function main() {
   const cmd = process.argv[2] || "list";

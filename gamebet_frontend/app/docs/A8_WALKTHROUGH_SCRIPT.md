@@ -242,7 +242,7 @@ npm run build
 
 ### 5.4 OB 模式 P（A8 Parity）
 
-前置：`parity-dev.bat`（`ESPORT_BRIDGE=0`、`ENABLE_OB=0`）；登录 TJ01。
+前置：`parity-dev.bat` 或 `dev-web.bat` + matcher；登录 TJ01。
 
 | 步骤 | 操作 | 预期 |
 |------|------|------|

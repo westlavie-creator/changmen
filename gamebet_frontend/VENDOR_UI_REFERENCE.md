@@ -27,7 +27,7 @@
 
 ## 本地 API
 
-- `POST /esport/Client_*`、`POST /esport/API_*` → `gamebet_backend/esport-api/`
+- `POST /esport/Client_*`、`POST /esport/API_*` → `gamebet_backend/core/esport-api/`
 - `GET|POST /esport/pb/proxy?url=…` → `gamebet_backend/proxy/pb_http_proxy.js`（PB 余额/下单/注单，凭证来自 `PB_*` / `platforms.json`）
 - `GET /esport2/version.json` → 静态 stub（`gamebet_backend/public/esport2/`）
 - `WS /esport/ws/{OB,RAY,TF}` → `gamebet_backend/proxy/`
@@ -49,15 +49,15 @@
 
 ### PB 默认 vs PB Node（可选）
 
-**默认（纯 A8）**：控制台数据来自浏览器 `SaveMatch` + `fo()`；Node Feed 只供 `/` 仪表盘 snapshot，**默认不写** store（`ESPORT_BRIDGE` 未设）。PB：插件凭证 + 浏览器 `bQ` + 插件 `Yn`；可选 `ENABLE_PB=1` 仅影响 Node 侧 snapshot。
+**默认（纯 A8）**：控制台数据来自浏览器 `SaveMatch` + `fo()`。PB：插件凭证 + 浏览器 `bQ` + 插件 `Yn`。
 
-**PB Node（可选）**：`ENABLE_PB=1` + `ESPORT_BRIDGE=1` + `ENABLE_PB_NODE=1` + 重新 `patch:ui`。
+**PB Node（可选）**：`ENABLE_PB_NODE=1` + 重新 `patch:ui`（仅旧 `/console/` bundle；新 `/app/` 不依赖 Node Feed）。
 
 设 `ENABLE_PB_NODE=1` 并 `npm run patch:ui` 后：
 
 | 项 | 参考 bundle / 默认 patch | PB Node |
 |----|---------------------------|---------|
-| 赔率采集 | 浏览器 `bQ` + 可选 `PbFeed` | 仅 `PbFeed` + `feed_bridge` |
+| 赔率采集 | 浏览器 `bQ` | 禁用 bQ，走 Node proxy |
 | 余额/下单 | 插件 `Yn` | `/esport/pb/proxy` → Node |
 | 凭证 | 插件 `data` → platforms.json | 同上 |
 

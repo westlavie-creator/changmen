@@ -1,11 +1,11 @@
 @echo off
-REM Internal: Vite only (called by dev.bat). Or run after backend.bat.
-setlocal
+setlocal EnableDelayedExpansion
+chcp 65001 >nul 2>&1
 
-set "APP_PORT=5174"
+set "_V=5174"
 cd /d "%~dp0"
 
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%APP_PORT%" ^| findstr "LISTENING"') do (
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5174" ^| findstr "LISTENING"') do (
   if not "%%a"=="0" taskkill /F /PID %%a >nul 2>&1
 )
 ping 127.0.0.1 -n 2 >nul
@@ -17,7 +17,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Vite: http://localhost:%APP_PORT%/app/
+echo Vite: http://localhost:!_V!/app/
 call npm run app:dev
 if errorlevel 1 pause
 

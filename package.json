@@ -2,7 +2,13 @@
   "name": "gamebet",
   "private": true,
   "description": "A8 esports aggregator — frontend replica + local backend",
+  "workspaces": [
+    "shared",
+    "gamebet_backend",
+    "gamebet_matcher"
+  ],
   "scripts": {
+    "install:all": "npm install",
     "patch:ui": "node gamebet_frontend/patch-ui-bundle.js",
     "preweb": "node gamebet_backend/scripts/preweb.js",
     "web": "npm run web --prefix gamebet_backend",
@@ -12,6 +18,9 @@
     "app:install": "npm install --prefix gamebet_frontend/app",
     "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "npm run test --prefix gamebet_backend",
-    "test:frontend": "npm run test --prefix gamebet_frontend/app"
+    "test:frontend": "npm run test --prefix gamebet_frontend/app",
+    "matcher:install": "npm install --prefix gamebet_matcher",
+    "matcher:ui": "npm run start --prefix gamebet_matcher",
+    "matcher:loop": "npm run matcher --prefix gamebet_matcher"
   }
 }

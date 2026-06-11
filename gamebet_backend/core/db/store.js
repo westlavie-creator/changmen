@@ -1,6 +1,6 @@
 'use strict'
 
-const sb = require('./supabase.js')
+const sb = require('../../../shared/db/supabase.js')
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
 const _cache = new Map()
@@ -155,36 +155,6 @@ function getUserSetting(uid, key) {
 
 function countUserSettings() { return 0 }
 
-// ─── ob_matches（内存）────────────────────────────────────────────────
-
-const _obMatches = new Map()
-
-function saveObMatches(matches) {
-  if (!Array.isArray(matches) || !matches.length) return
-  const now = Date.now()
-  for (const m of matches) {
-    _obMatches.set(String(m.SourceMatchID), { ...m, provider: 'OB', savedAt: now })
-  }
-  sb.writePlatformMatches('OB', matches)
-}
-
-function getObMatchesForMerge() {
-  const byId = {}
-  for (const [id, row] of _obMatches) byId[id] = row
-  return { OB: byId }
-}
-
-function pruneObMatches(activeIds) {
-  if (!activeIds?.length) {
-    _obMatches.clear()
-    return
-  }
-  const active = new Set(activeIds.map(String))
-  for (const id of _obMatches.keys()) {
-    if (!active.has(id)) _obMatches.delete(id)
-  }
-}
-
 // ─── client_matches（内存）───────────────────────────────────────────
 
 const _clientMatches = new Map()
@@ -200,6 +170,7 @@ function saveClientMatches(info) {
     title: String(m.Title || ''), game: String(m.Game || ''),
     game_id: String(m.GameID || ''), start_time: Number(m.StartTime) || 0,
     bo: Number(m.BO) || 0, round: Number(m.Round) || 0, round_start: Number(m.RoundStart) || 0,
+    reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
     matchs: m.Matchs || {}, bets: m.Bets || [], built_at: now,
   })))
 }
@@ -229,6 +200,7 @@ async function loadClientMatchesFromSupabase() {
       ID: row.id, Title: row.title || '', Game: row.game || '',
       GameID: row.game_id || '', StartTime: row.start_time || 0,
       BO: row.bo || 0, Round: row.round || 0, RoundStart: row.round_start || 0,
+      Reverse: Array.isArray(row.reverse) ? row.reverse : [],
       Matchs: row.matchs || {}, Bets: row.bets || [],
       built_at: row.built_at || now,
     })
@@ -242,6 +214,5 @@ module.exports = {
   listAccountsForUser, countAccounts, replaceAccountsForUser,
   updateAccountForUser, removeAccountForUser,
   setUserSetting, getUserSetting, countUserSettings,
-  saveObMatches, getObMatchesForMerge, pruneObMatches,
   saveClientMatches, pruneClientMatches, getClientMatches, loadClientMatchesFromSupabase,
 }

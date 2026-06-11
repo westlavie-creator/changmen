@@ -1,63 +1,68 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { createObRealtimeClient, type ObMqttMessage } from "./realtime";
 
-type ObRelayApi = {
-  start: ReturnType<typeof vi.fn>;
-  stop: ReturnType<typeof vi.fn>;
-  status: ReturnType<typeof vi.fn>;
-  subscribe: ReturnType<typeof vi.fn>;
-  unsubscribe: ReturnType<typeof vi.fn>;
-  publish: ReturnType<typeof vi.fn>;
-  onMessage: ReturnType<typeof vi.fn>;
-};
+const connectMock = vi.fn();
 
-function setElectronObRelay(ob: ObRelayApi): void {
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: {
-      gamebetRelays: { ob },
+vi.mock("mqtt", () => ({
+  default: {
+    connect: (...args: unknown[]) => connectMock(...args),
+  },
+}));
+
+vi.mock("./mqttSession", () => ({
+  resolveObMqttConnectConfig: vi.fn().mockResolvedValue({
+    url: "wss://ob-mqtt.example/ws",
+    token: "ob-session-token",
+  }),
+}));
+
+function fakeMqttClient() {
+  const handlers: Record<string, Array<(...args: unknown[]) => void>> = {};
+  return {
+    connected: false,
+    on(event: string, fn: (...args: unknown[]) => void) {
+      (handlers[event] ||= []).push(fn);
+      return this;
     },
-  });
+    removeAllListeners() {
+      for (const key of Object.keys(handlers)) delete handlers[key];
+    },
+    end: vi.fn(),
+    subscribe: vi.fn((_topic: string, cb?: () => void) => cb?.()),
+    unsubscribe: vi.fn(),
+    emit(event: string, ...args: unknown[]) {
+      for (const fn of handlers[event] || []) fn(...args);
+    },
+  };
 }
 
 afterEach(() => {
-  vi.restoreAllMocks();
-  Reflect.deleteProperty(globalThis, "window");
+  vi.clearAllMocks();
 });
 
 describe("createObRealtimeClient", () => {
-  test("uses the Electron OB relay through a project realtime client", async () => {
-    let listener: (message: ObMqttMessage) => void = () => {};
-    const removeListener = vi.fn();
-    const ob = {
-      start: vi.fn().mockResolvedValue({ platform: "OB", upstreamConnected: true }),
-      stop: vi.fn().mockResolvedValue({ platform: "OB", upstreamConnected: false }),
-      status: vi.fn().mockResolvedValue({ platform: "OB", upstreamConnected: true }),
-      subscribe: vi.fn().mockResolvedValue({ platform: "OB", upstreamConnected: true }),
-      unsubscribe: vi.fn().mockResolvedValue({ platform: "OB", upstreamConnected: true }),
-      publish: vi.fn().mockResolvedValue(true),
-      onMessage: vi.fn((callback: (message: ObMqttMessage) => void) => {
-        listener = callback;
-        return removeListener;
-      }),
-    };
-    setElectronObRelay(ob);
+  test("connects directly to OB mqtt with platform token as username", async () => {
+    const fake = fakeMqttClient();
+    connectMock.mockReturnValue(fake);
 
     const received: ObMqttMessage[] = [];
     const client = createObRealtimeClient();
-    const status = await client.start((message) => received.push(message));
-    listener({ topic: "/market/oddsUpdate/1", payload: "[{}]" });
+    await client.start((message) => received.push(message));
+    fake.connected = true;
+    fake.emit("connect");
+    fake.emit("message", "/market/oddsUpdate/1", Buffer.from("[{}]"));
     await client.subscribe("/market/oddsUpdate/1");
-    await client.unsubscribe("/market/oddsUpdate/1");
-    await client.stop();
 
-    expect(status).toEqual({ platform: "OB", upstreamConnected: true });
+    expect(connectMock).toHaveBeenCalledWith(
+      "wss://ob-mqtt.example/ws",
+      expect.objectContaining({
+        username: "ob-session-token",
+        protocolVersion: 4,
+      }),
+    );
     expect(received).toEqual([{ topic: "/market/oddsUpdate/1", payload: "[{}]" }]);
-    expect(ob.onMessage).toHaveBeenCalledOnce();
-    expect(ob.start).toHaveBeenCalledOnce();
-    expect(ob.subscribe).toHaveBeenCalledWith("/market/oddsUpdate/1");
-    expect(ob.unsubscribe).toHaveBeenCalledWith("/market/oddsUpdate/1");
-    expect(removeListener).toHaveBeenCalledOnce();
-    expect(ob.stop).toHaveBeenCalledOnce();
+    expect(fake.subscribe).toHaveBeenCalledWith("/market/oddsUpdate/1", expect.any(Function));
+
+    await client.stop();
   });
 });

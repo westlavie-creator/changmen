@@ -1,6 +1,6 @@
 # 聚合游戏类型（跨平台）
 
-本项目**只聚合** [`shared/game_catalog.json`](./shared/game_catalog.json) 中登记的游戏。同一游戏在不同平台的 **native `game_id` 不同**，通过统一 **`code`** 对齐。
+本项目**只聚合** [`shared/catalog/game_catalog.json`](../shared/catalog/game_catalog.json) 中登记的游戏。同一游戏在不同平台的 **native `game_id` 不同**，通过统一 **`code`** 对齐。
 
 ## 当前列表
 
@@ -38,11 +38,11 @@ GET /api/games
 ## 扩展新游戏
 
 1. 在各平台确认 native `game_id`（OB 见 `collect_game_ids.js`，RAY 见 `fetch_ray_match.js`）。
-2. 编辑 `shared/game_catalog.json` 增加一项（`code`、`name`、`platforms`）。
+2. 编辑 `changmen/shared/catalog/game_catalog.json` 增加一项（`code`、`name`、`platforms`）。
 3. 无需改 Feed 过滤逻辑。
 
 ## 代码
 
-- 配置：[`shared/game_catalog.json`](./shared/game_catalog.json)
-- 工具：[`shared/game_catalog.js`](./shared/game_catalog.js)
+- 配置：[`shared/catalog/game_catalog.json`](../shared/catalog/game_catalog.json)
+- 工具：[`shared/catalog/game_catalog.js`](../shared/catalog/game_catalog.js)
 - 平台本地 ID 参考（不全量聚合）：`platforms/ob/ob_game_ids.json`、`platforms/ray/ray_game_ids.json`

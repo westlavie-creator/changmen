@@ -1,0 +1,50 @@
+"use strict";
+
+function flattenMessage(msg) {
+  return String(msg || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/** 将 API 结果写入 matcher 进程控制台（多行、含队名/id 等细节） */
+function logMatcherApiOk(route, result) {
+  const lines = [];
+  if (Array.isArray(result?.logLines) && result.logLines.length) {
+    lines.push(...result.logLines);
+  } else if (result?.summary) {
+    lines.push(result.summary);
+  } else if (result?.detail) {
+    lines.push(result.detail);
+  }
+
+  if (result?.rebuild?.matchCount != null) {
+    lines.push(`rebuild 完成 · client_matches ${result.rebuild.matchCount} 场`);
+  }
+
+  console.log(`[matcher] ${route} ok`);
+  for (const line of lines) {
+    console.log(`[matcher]   ${line}`);
+  }
+  if (!lines.length) {
+    console.log("[matcher]   (无附加详情)");
+  }
+}
+
+function logMatcherApiWarn(route, err, label = "skip") {
+  const lines = flattenMessage(err?.message || err);
+  console.warn(`[matcher] ${route} ${label}`);
+  for (const line of lines) {
+    console.warn(`[matcher]   ${line}`);
+  }
+}
+
+function logMatcherApiErr(route, err) {
+  const lines = flattenMessage(err?.message || err);
+  console.error(`[matcher] ${route} error`);
+  for (const line of lines) {
+    console.error(`[matcher]   ${line}`);
+  }
+}
+
+module.exports = { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr };

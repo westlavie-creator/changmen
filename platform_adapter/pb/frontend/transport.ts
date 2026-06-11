@@ -11,6 +11,10 @@ import type { PlatformAccount } from "@/models/platformAccount";
 const RELAY_PATH = "/esport/http-relay";
 const DEFAULT_PROXY_BASE = "http://127.0.0.1:3456";
 
+/** 对齐 A8 `Zn`：PB 采集/下注主路径为扩展代发，非 http-relay */
+export const PB_PLUGIN_REQUIRED_MSG =
+  "平博 PB 需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/gamebet_chromeplug，或使用 Electron 启动（内嵌扩展）";
+
 /** 对齐 A8 `Ly(account, path)` */
 export function pbGatewayUrl(account: Pick<PlatformAccount, "gateway">, path: string): string {
   const base = (account.gateway || "").replace(/\/$/, "");
@@ -33,7 +37,7 @@ function originFromReferer(referer?: string): string | undefined {
   }
 }
 
-/** Electron / 无扩展：同源 http-relay 代发 PB 场馆请求（绕过 CORS） */
+/** 账号 proxyId（SOCKS）时经后端 http-relay；与 A8 PROXY 语义一致，非 Zn 替代 */
 function pbRelayEntry(): string {
   if (typeof window !== "undefined" && window.location?.origin?.startsWith("http")) {
     return `${window.location.origin.replace(/\/$/, "")}${RELAY_PATH}`;
@@ -100,7 +104,7 @@ async function pbHttpViaRelay(
   }
 }
 
-/** 对齐 A8 `Zn.get` + `k0`：扩展代发；无扩展时走 http-relay */
+/** 对齐 A8 `Zn.get` + `k0`：扩展代发；无扩展时仅 SOCKS 账号可走 http-relay */
 export async function pbGet<T>(
   account: PlatformAccount,
   pathOrUrl: string,
@@ -115,10 +119,12 @@ export async function pbGet<T>(
     return unwrap<T>(raw);
   }
 
+  if (!account.proxyId) throw new Error(PB_PLUGIN_REQUIRED_MSG);
+
   return (await pbHttpViaRelay(account, url, { method: "GET", headers })) as T;
 }
 
-/** 对齐 A8 `Zn.post` + `k0`：扩展代发；无扩展时走 http-relay */
+/** 对齐 A8 `Zn.post` + `k0`：扩展代发；无扩展时仅 SOCKS 账号可走 http-relay */
 export async function pbPost<T>(
   account: PlatformAccount,
   pathOrUrl: string,
@@ -133,6 +139,8 @@ export async function pbPost<T>(
     const raw = await a8PluginPost(url, body, { headers, withCredentials: true });
     return unwrap<T>(raw);
   }
+
+  if (!account.proxyId) throw new Error(PB_PLUGIN_REQUIRED_MSG);
 
   return (await pbHttpViaRelay(account, url, { method: "POST", body, headers })) as T;
 }

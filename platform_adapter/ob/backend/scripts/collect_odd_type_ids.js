@@ -12,9 +12,9 @@
 const fs = require("fs");
 const path = require("path");
 const { login, obGet } = require("../session.js");
-const games = require("../_require.js").reqB("core/shared/game_catalog.json").games;
+const games = require("../_require.js").reqS("catalog/game_catalog.json").games;
 
-const CATALOG_PATH = path.join(__dirname, "../../../shared/market_catalog.json");
+const CATALOG_PATH = path.join(__dirname, "../../../../shared/catalog/market_catalog.json");
 const OUT_PATH = path.join(__dirname, "../data/ob_odd_type_ids.json");
 
 function cleanText(v) {

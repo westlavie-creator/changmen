@@ -6,18 +6,14 @@
 
 
 
-## 推荐流程（与 OB 对齐：插件采凭证 + Node Feed）
-
-
+## 推荐流程（与 A8 对齐：插件凭证 + 浏览器采集）
 
 ```text
-平博页登录 → A8 插件图标 → 复制弹窗里的 data（Base64）
-    → import-platform 写入 platforms.json
-    → 打开 /console/ → 浏览器 bQ 写 fo() + SaveMatch（纯 A8，默认）
+平博页登录 → Gamebet 插件 → 复制 data（Base64）
+    → 用户中心粘贴 PB 账号
+    → /app/ 浏览器 bQ 等价逻辑 → fo() + SaveMatch/SaveBet（CollectConfig 开时）
 
-可选 Node 侧：
-    ENABLE_PB=1 → PbFeed 轮询 → /api/snapshot（仪表盘）
-    ESPORT_BRIDGE=1 →  additionally 写入 matches.json
+可选（仅旧 /console/ bundle）：
     ENABLE_PB_NODE=1 + patch:ui → 关 bQ，PB 走 /esport/pb/proxy
 ```
 
@@ -71,7 +67,7 @@ npm run web
 
 
 
-PbFeed 每 5s 拉盘并写入 store；控制台 PB 余额/下单仍通过 **Chrome 插件 Yn** 代发（需安装插件并在平博页保持登录）。
+浏览器采集：`platform_adapter/pb/frontend` → `API_SaveMatch` / `API_SaveBet`；余额/下单通过 **Chrome 插件** 代发（需安装插件并在平博页保持登录）。
 
 
 
@@ -80,13 +76,8 @@ PbFeed 每 5s 拉盘并写入 store；控制台 PB 余额/下单仍通过 **Chro
 
 
 ```text
-
-Node: GET {gateway}/sports-service/sv/euro/odds?sportId=12&...
-
-Node: POST {gateway}/member-service/v2/account-balance
-
-浏览器: bQ 轮询 + Yn GET/POST（插件 background 代发）
-
+浏览器: bQ 轮询 + 插件 GET/POST（background 代发）
+可选 Node: GET/POST /esport/pb/proxy（ENABLE_PB_NODE=1，仅 /console/ patch）
 ```
 
 
@@ -107,8 +98,7 @@ Node: POST {gateway}/member-service/v2/account-balance
 
 |------|------|
 
-| `ENABLE_PB` | 设为 `1` 在 Dashboard 启用 PbFeed（默认关闭） |
-
+| `ENABLE_PB_NODE` | 设为 `1` 后 patch `/console/`：禁用 bQ，走 `/esport/pb/proxy` |
 | `PB_GATEWAY` / `PB_TOKEN` | 可选，替代 platforms.json |
 
 | `PB_COOKIE` / `PB_REFERER` / `PB_USER_AGENT` | 可选 |
@@ -213,15 +203,9 @@ npm run pb:balance
 
 | 凭证采集 | 插件 GetConfig → data | 同上，手动粘贴 → import-platform |
 
-| 赔率采集 | `bQ` → euro/odds | **PbFeed** + 可选浏览器 `bQ` |
-
-| 请求头 | `P0()` | `buildAuthHeaders` |
-
-| 解析 | `PZe` | `parseEuroOddsPayload` |
-
-| 写入 store | `API_SaveMatch` / `API_SaveBet`（浏览器 bQ） | `ESPORT_BRIDGE=1` 时 feed_bridge + PbFeed |
-
-| 余额/下单 | 插件 `Yn` | 插件 `Yn`（`ENABLE_PB_NODE=1` 时改 proxy） |
+| 赔率采集 | `bQ` → euro/odds | 浏览器 `platform_adapter/pb/frontend` |
+| 写入 store | `API_SaveMatch` / `API_SaveBet` | 同上（CollectConfig 开时） |
+| 余额/下单 | 插件代发 | 插件（`ENABLE_PB_NODE=1` 时改 proxy，仅 /console/） |
 
 
 

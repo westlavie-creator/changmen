@@ -8,7 +8,6 @@
 |------|------|------|
 | 0–1 | ✅ | `registry/`、`contract/`、Vite `@platform/*` alias |
 | 2–3 | ✅ | 11 平台 `frontend/` + `backend/`（含 OB/RAY/TF/IA relay） |
-| Electron | ✅ | `electron-builder.yml` 打入 asar；`core/shared/adapter_paths.js` 双布局解析 |
 | B | ✅ | 后端业务代码经 `requirePlatform` / `requirePlatformRelay` 引用，不再硬编码 `platforms/`、`relays/` |
 | C | ✅ | `shared/` 采集基础设施（collectNotify、collectSession、socket/*） |
 | D | ✅ | 删除 `gamebet_backend/platforms/`、`relays/` 及前端 legacy shim |
@@ -28,8 +27,7 @@ platform_adapter/
     ├── index.ts       # 前端 adapter 入口（re-export frontend/*）
     ├── meta.ts
     ├── frontend/      # 浏览器采集 + 下注（TypeScript）
-    └── backend/       # Node Feed + session + core + relay（JavaScript）
-        ├── feed.js
+    └── backend/       # Node session + core + relay（JavaScript）
         ├── session.js
         ├── core.js
         ├── relay.js   # 仅 OB/RAY/TF/IA
@@ -53,19 +51,15 @@ Vitest 已包含 `platform_adapter/**/frontend/**/*.test.ts`（随 `gamebet_fron
 **推荐**（阶段 B 后统一用法）：
 
 ```js
-const { requirePlatform, requirePlatformFeed, requirePlatformRelay } = require("../core/shared/adapter_paths.js");
+const { requirePlatform, requirePlatformRelay } = require("../core/shared/adapter_paths.js");
 
 const { obGet } = requirePlatform("OB", "backend", "session.js");
-const { ObFeed } = requirePlatformFeed("OB");
 const { ObRelayCore } = requirePlatformRelay("OB");
 ```
 
-路径解析：
+路径解析：开发环境为 `changmen/platform_adapter/`（与 `gamebet_backend` 同级）。
 
-- 开发：`changmen/platform_adapter/`（与 `gamebet_backend` 同级）
-- Electron asar：`gamebet_backend/platform_adapter/`（builder 从 `../platform_adapter` 复制，排除 frontend 与 `*.ts`）
-
-底层 registry：`adapterRequire("registry", "paths.js")` 的 `resolvePlatformFile` / `resolveBackendFeedModule`。
+底层 registry：`adapterRequire("registry", "paths.js")` 的 `resolvePlatformFile` / `resolveBackendRelayModule`。
 
 ### 后端 Node 依赖
 
@@ -82,26 +76,18 @@ cd changmen
 npm test                              # 后端 vitest + adapter 冒烟 + 前端 vitest
 
 cd gamebet_backend
-npm run test:adapter                  # ob-feed-mode + packaged layout 模拟
+npm run test:adapter                  # packaged layout 模拟
 npm run test:packaged-adapter         # 仅 layout 冒烟
 
 cd gamebet_frontend/app
 npm run test:ob-provider              # OB provider 契约（读 platform_adapter/ob/frontend）
 ```
 
-Electron 打包后验证：
-
-```bat
-cd gamebet_backend
-npm run electron:portable             # → changmen/dist/electron/GameBet-portable.zip
-node scripts/verify-electron-unpacked.js
-```
-
 ## 新增平台
 
 1. 复制 `_template/` → `{platform}/`
-2. 在 `registry/manifest.json` 增加一条（含 `backendFeed`、`envEnable` 等）
+2. 在 `registry/manifest.json` 增加一条（含 `backendRelay` 等）
 3. 在 `registry/adapters.ts` 注册 adapter
-4. 实现 `frontend/`、`backend/feed.js`；需 relay 则加 `backend/relay.js` 并在 manifest 填 `backendRelay`
+4. 实现 `frontend/`；需 relay 则加 `backend/relay.js` 并在 manifest 填 `backendRelay`
 5. 在 `gamebet_backend/package.json` 增加调试 npm script（可选）
 6. 跑 `changmen/npm test`

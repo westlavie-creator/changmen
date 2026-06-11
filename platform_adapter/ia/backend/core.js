@@ -1,6 +1,6 @@
-"use strict";
+﻿"use strict";
 
-const { matchesMarketCode } = require("./_require.js").reqB("core/shared/market_catalog.js");
+const { matchesMarketCode } = require("./_require.js").reqS("catalog/market_catalog.js");
 const { getGameCode, getGameName } = require("./game_ids.js");
 
 function sleep(ms) {
@@ -40,7 +40,17 @@ function pickTeamNames(row) {
     row?.away_name ||
     row?.team2_name ||
     "";
-  return { home: String(home || "主队"), away: String(away || "客队") };
+  return { home: String(home || "主队").trim(), away: String(away || "客队").trim() };
+}
+
+function pickTeamId(row, side) {
+  const raw =
+    side === "home"
+      ? row?.team_id_1 ?? row?.team_a_id ?? row?.home_id ?? row?.home_team_id
+      : row?.team_id_2 ?? row?.team_b_id ?? row?.away_id ?? row?.away_team_id;
+  if (raw == null) return "";
+  const id = String(raw).trim();
+  return id || "";
 }
 
 function normalizeListEvent(row, filter = {}) {
@@ -62,8 +72,8 @@ function normalizeListEvent(row, filter = {}) {
     isLive,
     score: null,
     leagueName: row.league_name || row.event_name || row.match_name || "",
-    home: { id: String(row.team_a_id || row.home_id || ""), name: teams.home },
-    away: { id: String(row.team_b_id || row.away_id || ""), name: teams.away },
+    home: { id: pickTeamId(row, "home"), name: teams.home },
+    away: { id: pickTeamId(row, "away"), name: teams.away },
     raw: row,
   };
 }

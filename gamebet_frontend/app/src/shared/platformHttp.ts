@@ -26,7 +26,8 @@ function obHeaders(account: PlatformAccount, _post = false) {
   return base;
 }
 
-function rayHeaders(account: PlatformAccount, post = false) {
+/** [A8 可证实] kw：RAY 全部请求（含 POST /v2/order）均为 form-urlencoded */
+function rayHeaders(account: PlatformAccount, _post = false) {
   const origin = originFromReferer(account.referer);
   const base: Record<string, string> = {
     authorization: account.token || "",
@@ -38,7 +39,6 @@ function rayHeaders(account: PlatformAccount, post = false) {
     base.Origin = origin;
     base.Referer = account.referer!.endsWith("/") ? account.referer! : `${account.referer}/`;
   }
-  if (post) base["Content-Type"] = "application/json";
   if (account.userAgent) base["User-Agent"] = account.userAgent;
   return base;
 }
@@ -217,6 +217,7 @@ export async function accountPostJson<T = unknown>(
     {
       method: "POST",
       body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json; charset=UTF-8" },
     },
     opts,
   );

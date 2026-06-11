@@ -2,6 +2,7 @@
 .env.local
 node_modules/
 dist-electron/
+build/supabase.env
 core/esport-api/router.js
 storage/
 data/

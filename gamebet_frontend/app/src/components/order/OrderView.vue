@@ -1,12 +1,17 @@
 <script setup lang="ts">
+import { onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import type { OrderRow } from "@/types/order";
 import { useOrderStore } from "@/stores/orderStore";
 import { formatDate } from "@/shared/format";
 
 const orderStore = useOrderStore();
-const { filteredOrders, orderDate, loading, filterAccountId, accountOptions } =
+const { orderEntries, orderDate, loading, filterAccountId, accountOptions } =
   storeToRefs(orderStore);
+
+onMounted(() => {
+  if (!orderStore.orders.size) void orderStore.fetchOrders();
+});
 
 async function reload(date?: string) {
   filterAccountId.value = 0;
@@ -27,6 +32,10 @@ function legendClass(rows: OrderRow[]) {
 
 function playerLabel(row: OrderRow) {
   return orderStore.playerLabel(row);
+}
+
+function platformClass(row: OrderRow) {
+  return orderStore.platformClass(row);
 }
 </script>
 
@@ -64,11 +73,11 @@ function playerLabel(row: OrderRow) {
   </div>
 
   <div class="orders" :class="{ loading }">
-    <fieldset v-for="[link, rows] in filteredOrders" :key="link" class="orderlink">
+    <fieldset v-for="[link, rows] in orderEntries" :key="link" class="orderlink">
       <legend :class="legendClass(rows)">{{ legendText(rows) }}</legend>
       <div v-for="row in rows" :key="String(row.OrderID)" class="order">
         <label class="status" :class="row.Status" />
-        <div class="platform flex" :class="row.Player?.Status">
+        <div class="platform flex" :class="platformClass(row)">
           <div class="provider-icon" :class="row.Type" />
           <div class="player">{{ playerLabel(row) }}</div>
         </div>

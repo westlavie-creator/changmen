@@ -27,11 +27,6 @@ export async function initSupabaseClient(
       }
     });
 
-    // Electron 没有"标签页前景/后景"概念，需手动启动自动续期
-    if ((window as unknown as { gamebetApi?: unknown }).gamebetApi) {
-      _client.auth.startAutoRefresh();
-    }
-
     return _client;
   } catch {
     return null;

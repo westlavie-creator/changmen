@@ -3,8 +3,8 @@
 const fs = require("fs");
 const path = require("path");
 const { ESPORT_DATA_DIR } = require("../shared/storage_paths.js");
-const { formatBetOdds } = require("../shared/odds_format.js");
-const { a8StartTimeListAllowed } = require("../integrations/a8/match_time.js");
+const { formatBetOdds } = require("../../../shared/odds_format.js");
+const { a8StartTimeListAllowed } = require("../../../shared/time/match_time.js");
 const { createDefaultOddsApi } = require("./default_odds.js");
 const dbStore = require("../db/store.js");
 
@@ -134,11 +134,11 @@ function saveMatches(provider, matchs) {
   }
   _matches[provider] = next;
   pruneBetsForProvider(provider, Object.keys(next));
-  const sb = require("../db/supabase.js");
+  const sb = require("../../../shared/db/supabase.js");
   sb.writePlatformMatches(provider, Object.values(next));
 }
 
-const { normalizeImBet } = require("../shared/im_parse.js");
+const { normalizeImBet } = require("../../../shared/im_parse.js");
 
 function mergeBetsByMap(existing, incoming) {
   const byMap = new Map();
@@ -158,19 +158,24 @@ function saveBets(provider, matchId, bets) {
   const existing = _bets[key]?.bets || [];
   const raw = Array.isArray(bets) ? bets : [];
   const incoming = provider === "IM" ? raw.map(normalizeImBet) : raw;
+  const sb = require("../../../shared/db/supabase.js");
   if (incoming.length === 0) {
-    if (existing.length > 0) return;
+    // [A8 可证实] 空数组 saveBets 不覆盖内存已有盘口；Supabase 刷新 updated_at 避免 matcher 空窗
+    if (existing.length > 0) {
+      sb.writePlatformBets(provider, matchId, existing);
+      return;
+    }
     _bets[key] = { provider, matchId: String(matchId), bets: [], savedAt: Date.now() };
     return;
   }
-  _bets[key] = { provider, matchId: String(matchId), bets: mergeBetsByMap(existing, incoming), savedAt: Date.now() };
-  const sb = require("../db/supabase.js");
-  sb.writePlatformBets(provider, matchId, incoming);
+  const merged = mergeBetsByMap(existing, incoming);
+  _bets[key] = { provider, matchId: String(matchId), bets: merged, savedAt: Date.now() };
+  sb.writePlatformBets(provider, matchId, merged);
 }
 
 function saveLiveTimer(provider, timer) {
   _timers[provider] = { provider, timer, savedAt: Date.now() };
-  const sb = require("../db/supabase.js");
+  const sb = require("../../../shared/db/supabase.js");
   sb.writeLiveTimers(provider, timer);
 }
 
@@ -196,9 +201,23 @@ function removeAccountForUser(userId, accountId) { return dbStore.removeAccountF
 // ── match list ────────────────────────────────────────────────────────────────
 
 async function buildMatchList() {
-  // 从 Supabase 读取 client_matches（由独立 matcher 进程写入）
+  // 只读 client_matches（gamebet_matcher rebuild 写入）；不在此做跨平台合并
   const fromDb = await dbStore.loadClientMatchesFromSupabase();
-  return fromDb || [];
+  if (!fromDb?.length) return [];
+
+  const {
+    overlayLiveTimersOnMatches,
+    mergeTimerBlocks,
+  } = require("./live_timer_overlay.js");
+  const sb = require("../../../shared/db/supabase.js");
+  let dbTimers = {};
+  try {
+    dbTimers = (await sb.fetchLiveTimers()) || {};
+  } catch {
+    /* 无 Supabase 时仍可用内存 _timers */
+  }
+  const timers = mergeTimerBlocks(_timers, dbTimers);
+  return overlayLiveTimersOnMatches(fromDb, timers);
 }
 
 function getMatchDefaultOdds(matchIds) { return defaultOddsApi.getMatchDefaultOdds(matchIds, () => buildMatchList()); }

@@ -1,6 +1,6 @@
 # OB 平台复刻计划（A8 前端基线）
 
-最后更新：2026-05-29
+最后更新：2026-06-11
 
 ## 项目共识（必读）
 
@@ -11,7 +11,11 @@
 | **[changmen 扩展]** | changmen 自有能力，A8 浏览器 bundle 中**不存在**对等路径 |
 
 **parity 验收唯一基线**：A8 前端 bundle 行为 +（可选）对照官方站点 Network。  
-**不是**基线：changmen 的 `ObFeed`、`feed_bridge`、`matches.json` 存储形态、合并算法细节——除非已证明与 A8 前端可见结果一致。
+**不是**基线：`matches.json` 布局、`match_merge.js` 合并细节——除非已证明与 A8 前端可见结果一致。
+
+**已删除（2026-06）**：Node `ObFeed`、`feed_bridge`、`ESPORT_BRIDGE`、服务端 Feed 采集。列表仅来自客户端 `saveMatch` + matcher。
+
+生产部署：[../../../PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md)
 
 上级说明：[README.md](./README.md#项目共识)、[changmen/readme.md](../../../readme.md#项目共识)
 
@@ -78,41 +82,25 @@
 | unsub→view→sub | 有 | 轮询 + GetMatchs 同步有 | 已对齐 [A8 可证实] |
 | Token 试玩 `$Me` | 有 | `refreshObCollectToken` | 已对齐 [A8 可证实] |
 | 下注 yYe | 有 | `obProvider.ts` | 已对齐 [A8 可证实] |
-| 比赛列表数据源 | 浏览器 saveMatch → 服务端 | Node ObFeed + bridge | [changmen 扩展] |
-| `matches.json` / `bets.json` | 不可见（黑盒） | 本地 JSON + merge | [changmen 推测] |
+| 比赛列表数据源 | 浏览器 saveMatch → matcher | 客户端 + Supabase | 已对齐 [A8 可证实] |
+| `matches.json` / `bets.json` | 不可见（黑盒） | legacy JSON + Supabase | [changmen 推测] |
 | `client_matchs` + `stableId` | 仅见 GetMatchs 响应形状 | `match_merge.js` | [changmen 推测] |
-| ObFeed 多源 index | 无 | flag/day 多组 | [changmen 扩展] |
-| 后端 stage 150ms | 无（1500ms） | `ob_feed.js` | [changmen 扩展] |
 | 前端 4 场并行灌盘 | 顺序 | 顺序 `for...of` | 已对齐 [A8 可证实] |
-| `ESPORT_BRIDGE` | 无 | 默认 dev.bat 开 | [changmen 扩展] |
 | `syncObLogin` 启动写 gateway | 无 | `platform_sync.js` | [changmen 扩展] |
 | CollectConfig 空库 seed / 无 collect 字段 | A8：全关 | 已对齐：`collect: []`，无前端 fallback | [A8 可证实] |
-| bridge 只写胜负摘要 | UMe 写全 BetName 盘 | `pickWinMarket` | [changmen 扩展] |
 
 ---
 
-## 3. 部署模式（与 parity 分开）
-
-### 模式 P — A8 Parity（**本计划默认验收模式**）
+## 3. 验收环境（A8 Parity）
 
 | 项 | 要求 |
 |----|------|
-| 列表 | **[A8 可证实]** 浏览器 `saveMatch` |
+| 列表 | **[A8 可证实]** 浏览器 `saveMatch` → matcher → `Client_GetMatchs` |
 | 盘口 id | **[A8 可证实]** 浏览器 `saveBets` |
 | 实时赔 | **[A8 可证实]** fo + MQTT |
-| Node ObFeed | **关** `ENABLE_OB=0` 或不在控制台依赖 bridge |
-| ESPORT_BRIDGE | **关** `ESPORT_BRIDGE=0` |
+| 服务端 Feed | **无**（FeedHub 已删除） |
 | CollectConfig | 与 A8 一致：默认全关，联调时在用户中心显式开启 |
-
-### 模式 D — Changmen 双轨（运维扩展，**非 parity 基线**）
-
-| 项 | 说明 |
-|----|------|
-| 列表 | [changmen 扩展] ObFeed → bridge → `matches.json` |
-| 盘口 | 前端 saveBets + bridge 摘要（不完整） |
-| 适用 | `/feed/` 调试、无浏览器也要列表 |
-
-**文档与代码注释必须标明当前运行模式，避免把模式 D 当成 A8 原版。**
+| 启动 | `parity-dev.bat` / `dev-web.bat` + matcher + 插件（PB/Stake） |
 
 ---
 
@@ -141,7 +129,7 @@
 
 ### 阶段 2 — GetMatchs 与 fo [A8 可证实 + changmen 推测]（已完成离线校验）
 
-**文件**：`esport-api/store.js`、`match_merge.js`、`matchStore.ts`、`models/match.ts`
+**文件**：`core/esport-api/store.js`、`match_merge.js`、`matchStore.ts`、`models/match.ts`
 
 - [x] 2.1 saveMatch/saveBets → `buildClientMatchList` 重建（`store.rebuildClientMatchListNow`）
 - [x] 2.2 `Sources.OB.*` 与 saveBets 字段一致（`sourceFromBet` + 脚本 `npm run test:ob-getmatchs`）
@@ -188,21 +176,20 @@
 
 模式 P 联调时在用户中心 **显式开启** OB 回传开关。
 
-### 阶段 6 — 模式 D 隔离 [changmen 扩展]（部分完成）
+### 阶段 6 — 服务端 Feed 移除（2026-06，已完成）
 
 | # | 任务 | 状态 |
 |---|------|------|
-| 6.1 | README / backend README 标明 parity 环境变量 | ✅ |
-| 6.2 | `parity-dev.bat`：`ESPORT_BRIDGE=0`、`ENABLE_OB=0` | ✅ |
-| 6.3 | `dev.bat` 提示非 parity；勿在模式 P 下与 ObFeed 双写 bets | ✅ 文档 |
-| 6.4 | ObFeed `OB_FEED_MODE=a8`（单源 index + stage 1500ms） | ✅ `platform_registry` + `scripts/test-ob-feed-mode.js` |
+| 6.1 | 删除 FeedHub / `feed_bridge` / 各平台 `backend/feed.js` | ✅ |
+| 6.2 | 文档统一客户端采集 + [PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md) | ✅ |
+| 6.3 | `dev.bat` / `parity-dev.bat` 仅浏览器采集 + matcher | ✅ |
 
 ---
 
 ## 5. 不在本计划范围（除非抓包证明 A8 有）
 
 - 跨平台 merge 一行多 Sources（`match_merge` merge 模式）— TJ01 为 **目标响应形状** [changmen 推测]
-- 后端 MQTT 直连场馆（ObFeed）— [changmen 扩展]
+- ~~后端 MQTT 直连场馆（ObFeed）~~ — **已删除**（2026-06）
 - `gameOddTypes` / catalog 增强选盘 — [changmen 扩展]
 
 ---

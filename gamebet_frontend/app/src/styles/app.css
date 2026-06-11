@@ -56,9 +56,27 @@
 .app-sidebar {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   height: 100%;
   width: 100%;
   min-height: 0;
+}
+
+#app .el-aside > .app-sidebar,
+.common-layout .el-aside > .app-sidebar {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-sidebar > .date {
+  flex: 0 0 auto;
+}
+
+.app-sidebar > .orders {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .login-error {
   margin: 0 0 8px;

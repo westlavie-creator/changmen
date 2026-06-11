@@ -27,12 +27,13 @@ function rowToDto(row: Record<string, unknown>): ClientMatchDto {
     BO:        Number(row.bo)         || 0,
     Round:     Number(row.round)      || 0,
     RoundStart: Number(row.round_start) || 0,
+    Reverse:   Array.isArray(row.reverse) ? (row.reverse as PlatformId[]) : [],
     Matchs:    (row.matchs            as Record<string, string | number>) ?? {},
     Bets:      Array.isArray(row.bets) ? row.bets : [],
   };
 }
 
-/** 对齐 A8 Pinia `Vg`（比赛树 + 轮询 + BetTarget） */
+/** 对齐 A8 Pinia `zg`：只消费 Client_GetMatchs，不在前端做赛事合并 */
 export const useMatchStore = defineStore("match", {
   state: () => ({
     matchs: [] as ViewMatch[],
@@ -111,13 +112,39 @@ export const useMatchStore = defineStore("match", {
       return true;
     },
 
+    /** [A8 可证实] P()：有比分时以最高局号覆盖 Round 驱动的 isLive */
+    applyScoreDrivenLive(match: ViewMatch) {
+      const board = this.score.get(match.id);
+      if (!board?.score.size) return;
+      const maxRound = Math.max(...board.score.keys());
+      if (!maxRound) return;
+      const liveBet = match.bets.find((b) => b.round === maxRound);
+      if (liveBet) liveBet.isLive = true;
+      for (const bet of match.bets) {
+        if (bet.round !== maxRound && bet.isLive) {
+          bet.isLive = undefined;
+          bet.startTime = undefined;
+        }
+      }
+    },
+
     refreshOddsOnBets() {
       for (const match of this.matchs) {
+        const lr = match.liveRound;
+        const rs = match.liveRoundStart;
         for (const bet of match.bets) {
+          if (lr !== 0 && lr === bet.round && rs > 0) {
+            bet.isLive = true;
+            bet.startTime = rs;
+          } else {
+            bet.isLive = undefined;
+            bet.startTime = undefined;
+          }
           for (const item of bet.items) {
             item.updateOdds();
           }
         }
+        this.applyScoreDrivenLive(match);
       }
       this.tick += 1;
     },
@@ -148,6 +175,7 @@ export const useMatchStore = defineStore("match", {
           );
         }
         this.score.set(match.id, { score: board });
+        this.applyScoreDrivenLive(match);
       }
       this.tick += 1;
     },

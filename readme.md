@@ -1,60 +1,50 @@
-# gamebet — 多平台电竞赔率聚合（本地复刻）
+# gamebet — 多平台电竞赔率聚合（客户端 + 服务端）
 
 > **与 A8 的关系**：A8（`api.a8.to`）是第三方聚合平台。上级目录 [`../A8/A8frontendscipts/`](../A8/A8frontendscipts/) 为参考 bundle，**仅供阅读逆向，禁止引用**。
 
 ## 项目共识
 
-1. **changmen 后端由 A8 前端反推而来**
-   无 A8 官方服务端源码。`gamebet_backend/esport-api` 的路由名、`API_SaveMatch` / `API_SaveBet` / `Client_GetMatchs` 等，依据 A8 浏览器 bundle 中的调用与字段形状实现；`matches.json`、`match_merge.js` 等为 **本地推测实现**，parity 以 **A8 前端可证实行为** 为准。
+0. **架构：客户端 / 服务端**
+   - **客户端**：Vue 控制台 + Chrome 插件 — 连接各博彩平台、采集、下注。
+   - **服务端**：`gamebet_backend` + Supabase + `gamebet_matcher` — 收数、合并、鉴权、订单。
+   - 本仓库里的 `localhost` 与 `.bat` 是**开发联调**方式，不是产品形态「本地单机版」。
+
+1. **changmen 服务端 API 由 A8 前端反推**
+   无 A8 官方服务端源码。`Client_*` / `API_*` 等依据 A8 bundle 形状实现；存储与合并逻辑为 **[changmen 推测]**，parity 以 **A8 前端可证实行为** 为准。
 
 2. **Parity 唯一基线**
    `A8/A8frontendscipts/2.0.1/index.js`（及 Network 抓包）。不是 changmen 的 Node Feed 或 JSON 文件布局。
 
 3. **changmen 扩展（非 A8 bundle 内容）**
-   `ObFeed`、`FeedHub`、`ESPORT_BRIDGE`、`platform_sync` 启动登录、后端多源 `game/index` 等。
+   matcher、`platform_sync` 启动登录、WS relay、`http-relay` 等。
    CollectConfig 与 A8 一致：**无默认全开**；以 `user_kv` / 用户中心开关为准。
+   **已删除**：Node FeedHub、`ESPORT_BRIDGE`（2026-06）。
 
-4. **两种部署模式（勿混谈）**
+4. **数据采集（仅客户端）**
 
-   | 模式 | 比赛列表 | 盘口/赔 id | 适用 |
-   |------|----------|------------|------|
-   | **P — A8 Parity** | 浏览器 `saveMatch` | 浏览器 `saveBets` + `fo` | 对齐 A8 控制台、OB 复刻验收 |
-   | **D — Changmen 双轨** | Node `ObFeed` + bridge | 浏览器 `saveBets` + `fo` | 本地 `/feed/`、无浏览器也要列表 |
+   客户端 `saveMatch` / `saveBet` → 服务端 API → Supabase → matcher → `client_matches`。服务端不跑平台 Feed 采集。
 
-   OB 专项计划：[gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md)
+5. **生产部署** — [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 
 ## 工作目录
 
 **所有 `npm run`、`start-*.bat` 请在 `changmen/` 下执行**（本目录即应用根，`package.json` 与 `start-*.bat` 仅在此）。
 
-若 Git 仓库根仍是上一级的 `gamebet/`，可在该目录执行 `npm run web`（根目录 `package.json` 会转发 npm 脚本）；**`.bat` 请进入 `changmen/` 再双击**（推荐 `dev.bat`）。启动脚本说明见 [scripts/README.md](./scripts/README.md)。
+若 Git 仓库根仍是上一级的 `gamebet/`，可在该目录执行 `npm run web`（根目录 `package.json` 会转发 npm 脚本）；**`.bat` 请进入 `changmen/` 再双击**。说明见 [scripts/README.md](./scripts/README.md)。
 
-## 数据职责（按部署模式）
-
-### 模式 P — A8 Parity（复刻验收）
+## 数据职责
 
 与 A8 `UMe` 一致：**浏览器**写列表与盘口 id，**fo** 写实时赔。
 
 | 层级 | 负责内容 | 写入 |
 |------|----------|------|
 | 前端采集器 | 比赛列表 + 盘口 | `API_SaveMatch` / `API_SaveBet`（受 CollectConfig 控制） |
+| matcher | 跨平台合并 | `client_matches` |
 | 前端 `oddsStore` | 实时赔、锁盘 | 仅内存（对齐 A8 `fo`） |
 
-建议：`ESPORT_BRIDGE=0`，`ENABLE_OB=0`（避免 Node 与浏览器双写）。见 [A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md)。
+「赛事采集」开关：仅控制是否 **回传** `SaveMatch`/`SaveBet`，不停止拉数或 fo。
 
-### 模式 D — Changmen 双轨（本地默认 dev）
-
-| 层级 | 负责内容 | 写入 |
-|------|----------|------|
-| **后端 Node** | 比赛列表（FeedHub） | `matches.json`（`ESPORT_BRIDGE=1`） |
-| **前端 `/app/`** | 赔率与盘口 id | `API_SaveBet` → `bets.json` + `oddsStore` |
-
-要点（**changmen 扩展**，非 A8 原版）：
-
-- 列表可由 Node bridge 回填（模式 D）；模式 P 下浏览器已 `saveMatch`（见 [A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md) 阶段 1）
-- 「赛事采集」开关：仅控制是否 **回传** `SaveMatch`/`SaveBet`，不停止拉数或 fo。
-
-本地 `dev.bat` 默认模式 D（`ESPORT_BRIDGE=1`）。A8 parity 联调用 `parity-dev.bat`（`ESPORT_BRIDGE=0`、`ENABLE_OB=0`）。详见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
+启动：`dev.bat` / `dev-web.bat` / `parity-dev.bat`。详见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
 
 ## 仓库结构
 
@@ -62,7 +52,8 @@
 |------|------|
 | [`gamebet_frontend/app/`](./gamebet_frontend/app/) | **新控制台**（Vue 3 + Pinia，脱离 ui_bundle）；开发 `npm run app:dev`，生产 `/app/` |
 | [`gamebet_frontend/`](./gamebet_frontend/) | A8 复刻：参考 bundle、patch 旧控制台 `/console/` |
-| [`gamebet_backend/`](./gamebet_backend/) | 本地 Node：`esport-api`、WS 代理、可选 FeedHub、开发仪表盘 |
+| [`gamebet_backend/`](./gamebet_backend/) | **服务端**：esport-api、WS relay、静态托管 |
+| [`gamebet_matcher/`](./gamebet_matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
 | [`gamebet_chromeplug/`](./gamebet_chromeplug/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
 | [`../A8/`](../A8/) | A8 原版参考（bundle + 官方插件拷贝，与 `changmen` 并列） |
 | [`../pingtai_offical/`](../pingtai_offical/) | 各平台官网抓包参考（可选） |
@@ -77,12 +68,12 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/app/
 
 | 入口 | 说明 |
 |------|------|
-| `/app/` | **新控制台（默认）**；`npm run app:build` 或 dev `npm run app:dev` |
-| `/feed/` | Node Feed 聚合调试页 |
+| `/app/` | **新控制台**；`npm run app:build` 或 dev `npm run app:dev` |
 | `/console/` | 旧 bundle（可选：`PATCH_CONSOLE=1 npm run web`） |
-| `/`、`/platforms/` | 分平台 Feed 调试 |
 
-迁移阶段与模块对照见 [gamebet_frontend/MIGRATION.md](./gamebet_frontend/MIGRATION.md)。后端 API / 环境变量见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
+**生产部署**：[PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
+
+迁移阶段与模块对照见 [gamebet_frontend/MIGRATION.md](./gamebet_frontend/MIGRATION.md)。后端 API 见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
 
 **OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[gamebet_frontend/app/src/collectors/docs/A8_COMPARE_OB_RAY.md](./gamebet_frontend/app/src/collectors/docs/A8_COMPARE_OB_RAY.md)。
 
@@ -92,16 +83,14 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/app/
 
 ---
 
-## 本地复刻：多平台采集（分工）
+## 客户端采集（分工）
 
-**模式 P（A8 Parity）**：各平台浏览器采集器 `saveMatch` + `saveBets` + `oddsStore`，与 A8 插件一致。
-
-**模式 D（Changmen 双轨，下文）**：后端写列表 + 前端写赔率——**changmen 扩展**，非 A8 bundle 行为。
+各平台采集在**客户端**完成，经 HTTP 上报服务端。
 
 ```text
-[模式 D]
-后端 FeedHub ──► matches.json ──► Client_GetMatchs ──► matchStore（列表）
-前端 collectors ──► API_SaveBet ──► bets.json ──► oddsStore（赔率，对齐 fo）
+客户端 collectors ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► Supabase
+服务端 matcher ──► client_matches ──► Client_GetMatchs ──► 客户端 matchStore
+客户端 oddsStore（实时赔，对齐 A8 fo）
 ```
 
 ### 采集器一览
@@ -181,7 +170,7 @@ node scripts/check-collect-platforms.js --json   # CI / 机器可读
 
 - 脚本：`gamebet_backend/scripts/check-collect-platforms.js`
 - 退出码 `0` = 所有**必需**凭证齐全；`1` = 仍有 TF/IA/IMT/SABA/Stake 等缺凭证
-- Stake：`platforms.json` 使用字段 `accessToken`；`Client_GetCollectPlatform` 已映射为返回的 `Token`（`gamebet_backend/esport-api/router.js`）
+- Stake：`platforms.json` 使用字段 `accessToken`；`Client_GetCollectPlatform` 已映射为返回的 `Token`（`gamebet_backend/core/esport-api/router.js`）
 
 ### IM / XBet / Stake 实时赔率前置条件
 

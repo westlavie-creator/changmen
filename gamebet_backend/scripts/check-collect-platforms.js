@@ -17,7 +17,7 @@ const store = require("../core/esport-api/store.js");
 const { handleEsportRequest } = require("../core/esport-api/router.js");
 const { requirePlatform } = require("../core/shared/adapter_paths.js");
 const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");
-const { getPlatformRules, getDefaultMarketCode } = require("../core/shared/market_catalog.js");
+const { getPlatformRules, getDefaultMarketCode } = require("../../shared/catalog/market_catalog.js");
 
 const ALL_PLATFORMS = [
   "OB",

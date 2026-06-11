@@ -1,4 +1,5 @@
 import { createRayRealtimeClient, type RayRealtimeMessage } from "./realtime";
+import { RAY_A8_COLLECT } from "./a8Collect";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import type { CollectPlatformInfo } from "@/types/esport";
 import { directGet } from "@/shared/http";
@@ -10,18 +11,6 @@ import { useOddsStore } from "@/stores/oddsStore";
 
 const PLATFORM = PLATFORMS.RAY;
 const POLL_MS = 30_000;
-
-/**
- * A8 `bQe` 采集对象 `t`（与 `gamebet_backend/shared/ray_a8_collect.js` 保持同步）。
- * 采集不读 `Client_GetCollectPlatform` / 用户账号 token。
- */
-const RAY_A8_COLLECT = {
-  gateway: "https://cfinfo.365raylinks.com",
-  token:
-    "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhcHBfa2V5IjoiY2QyNzZmZTQ5YmEyZTQ1YiIsImRhdGEiOnsidXNlcl9uYW1lIjoiaHVhMTk5NDMxIiwibG9iYnlfdXJsIjoiLyMvbG9naW4vIiwiaWF0IjoiNjM4NTQwNjkyOTkifX0.Y1k61j-43efe0UonN4mfpVMLvaSlFZihGeLCxYV4tKM",
-  betName: "^获胜者$",
-  games: ["70", "151", "140", "74", "37197927"],
-} as const;
 
 /** 与 gamebet_backend/shared/ray_paths.js 保持一致 */
 export function rayApiPath(gateway: string | undefined, apiPath: string): string {
@@ -192,13 +181,13 @@ export function startRayCollector(): () => void {
 
         await collect.saveMatch(PLATFORM, matchPayload);
 
-        const results = await Promise.all(list.map(async (row) => {
+        // [A8 可证实] vQe：saveMatch 后顺序 await 每场 odds → saveBets，不用 Promise.all
+        matchCount = list.length;
+        for (const row of list) {
           const matchId = row.id as string | number;
           const bets = await loadRayBets(platform, String(matchId), betRe);
-          return { matchId, bets };
-        }));
-        matchCount = results.length;
-        await Promise.all(results.map(({ matchId, bets }) => collect.saveBets(PLATFORM, matchId, bets)));
+          await collect.saveBets(PLATFORM, matchId, bets);
+        }
       } catch (err) {
         console.warn("[RAY] collect error", err);
         notifyCollectError("RAY", err);

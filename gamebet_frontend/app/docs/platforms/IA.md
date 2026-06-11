@@ -9,7 +9,9 @@
 | 通道 | 间隔 | 作用 |
 |------|------|------|
 | HTTP 列表 + 详情 | 30s | `saveMatch` / `saveBets` |
-| Socket.IO `DEFAULT_IA_WS` path `/esport/ws/IA` | 实时 | 锁盘、赔率点更新 |
+| Socket.IO `wss://47.115.75.57` path `/esport/ws/IA` | 实时 | 锁盘、赔率点更新 |
+
+浏览器 **直连** A8 聚合 WS（`ia/frontend/realtime.ts`，`Origin`/`auth.token` = `Client_GetCollectPlatform` 的 Gateway）。不经 `/esport/ws/IA` 本地 relay / Electron IPC。
 
 WS 连接后 `emit("RoomJoin", { room_type: "room_type_index_content_push" })`。
 

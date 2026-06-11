@@ -1,7 +1,14 @@
 import mqtt, { type MqttClient } from "mqtt";
-import { OB_MQTT_PASS, OB_MQTT_USER, relayWsUrl } from "@/shared/platform";
+import {
+  bumpDirectRealtimeMessage,
+  getDirectRealtimeStatus,
+  patchDirectRealtimeStatus,
+  resetDirectRealtimeStatus,
+} from "@platform/shared/directRealtimeStatus";
+import { PLATFORMS } from "@/shared/platform";
+import { resolveObMqttConnectConfig } from "./mqttSession";
 
-const OB_WS_PATH = "/esport/ws/OB";
+const PLATFORM = PLATFORMS.OB;
 const OB_MQTT_CLIENT_ID = "mqttjs_dj1250901313125773543";
 
 export type ObMqttMessage = {
@@ -28,66 +35,45 @@ export type ObRealtimeClient = {
   connected(): boolean;
 };
 
-function getElectronObRelay() {
-  if (typeof window === "undefined") return null;
-  return window.gamebetRelays?.ob ?? null;
+function syncObStatus(topics: Set<string>): void {
+  patchDirectRealtimeStatus(PLATFORM, { forwardedTopics: topics.size });
 }
 
-function createElectronObRealtimeClient(): ObRealtimeClient {
-  const relay = getElectronObRelay();
-  let removeMessageListener: (() => void) | null = null;
-  let upstreamConnected = false;
-
-  return {
-    async start(onMessage) {
-      removeMessageListener?.();
-      removeMessageListener = relay?.onMessage(onMessage) ?? null;
-      const status = await relay?.start();
-      upstreamConnected = Boolean(status?.upstreamConnected);
-      return status;
-    },
-    async stop() {
-      removeMessageListener?.();
-      removeMessageListener = null;
-      const status = await relay?.stop();
-      upstreamConnected = false;
-      return status;
-    },
-    status: () => relay?.status() ?? Promise.resolve({ platform: "OB", upstreamConnected: false }),
-    async subscribe(topic) {
-      await relay?.subscribe(topic);
-    },
-    async unsubscribe(topic) {
-      await relay?.unsubscribe(topic);
-    },
-    connected() {
-      return upstreamConnected;
-    },
-  };
-}
-
-function createWebObRealtimeClient(): ObRealtimeClient {
+function createDirectObRealtimeClient(): ObRealtimeClient {
   let client: MqttClient | null = null;
   let onMessageHandler: ((message: ObMqttMessage) => void) | null = null;
   const topics = new Set<string>();
+  let connectConfig: { url: string; token: string } | null = null;
 
   return {
     async start(onMessage) {
       onMessageHandler = onMessage;
-      if (client?.connected) return;
+      if (client?.connected) return getDirectRealtimeStatus(PLATFORM);
+
       if (client) {
         client.removeAllListeners();
         client.end(true);
         client = null;
       }
 
-      const wsUrl = relayWsUrl(OB_WS_PATH);
-      client = mqtt.connect(wsUrl, {
-        username: OB_MQTT_USER,
-        password: OB_MQTT_PASS,
+      connectConfig = await resolveObMqttConnectConfig();
+      if (!connectConfig) {
+        console.warn("[OB MQTT] no mqtt endpoint or token");
+        patchDirectRealtimeStatus(PLATFORM, {
+          upstreamConnected: false,
+          lastError: "no mqtt endpoint or token",
+        });
+        return getDirectRealtimeStatus(PLATFORM);
+      }
+
+      const { url, token } = connectConfig;
+      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: null });
+
+      client = mqtt.connect(url, {
+        username: token,
         clientId: OB_MQTT_CLIENT_ID,
         clean: true,
-        keepalive: 60,
+        keepalive: 30,
         reconnectPeriod: 5000,
         protocolId: "MQTT",
         protocolVersion: 4,
@@ -95,31 +81,49 @@ function createWebObRealtimeClient(): ObRealtimeClient {
       });
 
       client.on("message", (topic: string, buf: Buffer) => {
+        bumpDirectRealtimeMessage(PLATFORM);
         onMessageHandler?.({ topic, payload: buf.toString() });
       });
 
       client.on("error", (err: Error) => {
-        console.warn("[OB MQTT] error", err.message, wsUrl);
+        console.warn("[OB MQTT] error", err.message, url);
+        patchDirectRealtimeStatus(PLATFORM, {
+          upstreamConnected: false,
+          lastError: err.message,
+        });
       });
       client.on("offline", () => {
-        console.warn("[OB MQTT] offline", wsUrl);
+        console.warn("[OB MQTT] offline", url);
+        patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false });
       });
       client.on("reconnect", () => {
         console.debug("[OB MQTT] reconnecting...");
+        patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: null });
       });
       client.on("connect", () => {
-        console.info("[OB MQTT] connected", wsUrl);
+        console.info("[OB MQTT] connected (direct)", url);
+        patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: true, lastError: null });
+        syncObStatus(topics);
         for (const topic of topics) client?.subscribe(topic);
       });
+
+      return getDirectRealtimeStatus(PLATFORM);
     },
     async stop() {
       topics.clear();
       client?.end(true);
       client = null;
       onMessageHandler = null;
+      connectConfig = null;
+      resetDirectRealtimeStatus(PLATFORM);
+      return getDirectRealtimeStatus(PLATFORM);
+    },
+    async status() {
+      return getDirectRealtimeStatus(PLATFORM);
     },
     async subscribe(topic) {
       topics.add(topic);
+      syncObStatus(topics);
       if (client?.connected) {
         await new Promise<void>((resolve) => {
           client?.subscribe(topic, () => resolve());
@@ -128,6 +132,7 @@ function createWebObRealtimeClient(): ObRealtimeClient {
     },
     async unsubscribe(topic) {
       topics.delete(topic);
+      syncObStatus(topics);
       if (client?.connected) client.unsubscribe(topic);
     },
     connected() {
@@ -137,6 +142,5 @@ function createWebObRealtimeClient(): ObRealtimeClient {
 }
 
 export function createObRealtimeClient(): ObRealtimeClient {
-  if (getElectronObRelay()) return createElectronObRealtimeClient();
-  return createWebObRealtimeClient();
+  return createDirectObRealtimeClient();
 }

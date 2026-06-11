@@ -1,11 +1,11 @@
 import { createA8BetsCollector } from "@platform/shared/socket/collector";
-import { a8PluginSend } from "@/extension/bridge";
+import { a8PluginSend, hasA8PluginRuntime } from "@/extension/bridge";
 import { subscribeA8Channel } from "@platform/shared/socket/hub";
 import type { A8BetsMessage } from "@platform/shared/socket/accumulator";
 import type { CollectBetDto } from "@/types/collect";
 import { cleanStakeBets } from "./graphql";
 import { collectStakeSportViaPlugin, stakeSportSlugs } from "./graphql";
-import { getStakeTabIdCached, setStakeTabIdCached, waitForStakeTabId } from "./tabId";
+import { getStakeTabIdCached, setStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
@@ -53,11 +53,19 @@ export function startStakeCollector(): () => void {
       socketRegistered = true;
     }
 
+    if (!hasA8PluginRuntime()) {
+      notifyCollectError("Stake", stakeTabIdHint());
+      return;
+    }
+
     let tabId = getStakeTabIdCached();
     if (!tabId) {
       tabId = await waitForStakeTabId();
     }
-    if (!tabId) return;
+    if (!tabId) {
+      notifyCollectError("Stake", stakeTabIdHint());
+      return;
+    }
 
     const matches = [];
     const subscribe: Array<{ id: string; slug: string }> = [];

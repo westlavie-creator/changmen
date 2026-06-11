@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
+const { ensureWinConsoleUtf8 } = require("../../core/shared/win_console_utf8.js");
+ensureWinConsoleUtf8();
+
 const fs = require('fs');
 const path = require('path');
 if (!fs.existsSync(path.join(__dirname, '../../core/esport-api/router.js'))) {
@@ -8,21 +11,19 @@ if (!fs.existsSync(path.join(__dirname, '../../core/esport-api/router.js'))) {
 }
 
 /**
- * 本地聚合服务：esport-api、WS 代理、FeedHub、静态托管。
+ * 本地聚合服务：esport-api、WS 代理、静态托管。
  *
  * 路由（阶段 7，默认入口 /app/）：
  *   /app/       新控制台（Vue 构建产物 gamebet_frontend/app/dist）
  *   /console/   旧 A8 bundle（需 PATCH_CONSOLE=1 或 npm run patch:ui）
  */
 
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
+
 const http = require("http");
-const { FeedHub } = require("../../core/shared/feed_hub.js");
-const { buildFeedHubEntries } = require("../../core/shared/platform_registry.js");
 const { attachEsportProxy } = require("./proxy/esport_proxy.js");
-const { attachFeedBridge } = require("../../core/esport-api/feed_bridge.js");
 const { ensurePlatformCredentials } = require("../../core/esport-api/platform_sync.js");
-const { initLastWrittenIds, fetchPlatformMatches } = require("../../core/db/supabase.js");
+const { initLastWrittenIds, fetchPlatformMatches } = require("../../../shared/db/supabase.js");
 const store = require("../../core/esport-api/store.js");
 const { createStaticHandler } = require("./static_files.js");
 const { createHttpHandler } = require("./http_routes.js");
@@ -33,7 +34,6 @@ const PUBLIC_DIR = path.join(__dirname, "../../public");
 const CONSOLE_DIR = process.env.GAMEBET_CONSOLE_DIR || path.join(__dirname, "../../../gamebet_frontend/console");
 const APP_DIR = process.env.GAMEBET_APP_DIR     || path.join(__dirname, "../../../gamebet_frontend/app/dist");
 
-const hub = new FeedHub(buildFeedHubEntries());
 let esportProxy = null;
 
 const serveStatic = createStaticHandler({
@@ -45,20 +45,12 @@ const serveStatic = createStaticHandler({
 const server = http.createServer(
   createHttpHandler({
     port: PORT,
-    hub,
     serveStatic,
     getEsportProxy: () => esportProxy,
   }),
 );
 
-const feedBridge = attachFeedBridge(hub);
-
-hub.start().catch((err) => {
-  console.error("Feed hub start failed:", err.message);
-  hub.status.error = err.message;
-});
-
-ensurePlatformCredentials(hub).then((r) => {
+ensurePlatformCredentials().then((r) => {
   const any =
     r.obSynced ||
     r.raySynced ||
@@ -81,20 +73,16 @@ ensurePlatformCredentials(hub).then((r) => {
 });
 
 setTimeout(() => {
-  ensurePlatformCredentials(hub).catch(() => {});
+  ensurePlatformCredentials().catch(() => {});
 }, 20000);
 
-// Electron 模式下 renderer 经 IPC relay core 直连上游，WS relay 端点均为僵尸。
-// process.versions.electron 在 Electron 主进程 require 时存在，node server.js 时不存在。
-const IS_ELECTRON = Boolean(process.versions.electron);
-
+// WS relay 供 dev-web / 生产 Web Host 使用；采集在浏览器渲染进程直连各平台。
 if (ESPORT_PROXY_ENABLED) {
   esportProxy = attachEsportProxy(server, {
-    // Electron：renderer 走 IPC relay core（OB/RAY/TF/IA），WS relay 全部关闭
-    ob:  !IS_ELECTRON && process.env.ENABLE_OB_MQTT_RELAY !== "0",
-    ray: !IS_ELECTRON && process.env.ENABLE_RAY !== "0",
-    tf:  !IS_ELECTRON && process.env.ENABLE_TF === "1",
-    ia:  !IS_ELECTRON && process.env.ENABLE_IA_RELAY !== "0",
+    ob: process.env.ENABLE_OB_MQTT_RELAY !== "0",
+    ray: process.env.ENABLE_RAY !== "0",
+    tf: process.env.ENABLE_TF === "1",
+    ia: process.env.ENABLE_IA_RELAY !== "0",
     rayOptions: {
       token: process.env.RAY_TOKEN,
       origin: process.env.RAY_ORIGIN,
@@ -115,20 +103,6 @@ if (ESPORT_PROXY_ENABLED) {
 
 // 预填 _lastWrittenIds，使首次 rebuild 的差量删除能覆盖上次遗留的 client_matches 行
 initLastWrittenIds().catch(() => {});
-
-// ── team-resolver 插件（可选）──────────────────────────────────────────────
-// 删除这段代码或整个 team-resolver/ 目录不影响任何功能，自动降级为字符串归一化
-try {
-  const { loadAndCreatePlugin } = require("../../../team-resolver/supabase_db");
-  const { setTeamPlugin } = require("../../core/esport-api/match_merge");
-  loadAndCreatePlugin()
-    .then((plugin) => {
-      setTeamPlugin(plugin);
-    })
-    .catch((err) => console.warn("[team-resolver] 加载失败，降级字符串归一化:", err.message));
-} catch {
-  // team-resolver 目录不存在时静默跳过
-}
 
 server.listen(PORT, onListen);
 
@@ -154,26 +128,15 @@ function onListen() {
   }).catch((err) => {
     console.warn('[store] restore from platform_matches failed:', err.message);
   });
-  const enabled = hub.platforms.filter((p) => p.enabled).map((p) => p.id).join(", ");
   const proxyNote = ESPORT_PROXY_ENABLED ? " | esport proxy: /esport/ws/{OB,RAY,TF,IA}" : "";
-  const bridgeNote = feedBridge.enabled
-    ? " | esport-bridge: ON (Node→store)"
-    : " | esport-bridge: off (browser collect via /app/)";
   const v4Base = (process.env.A8_V4_URL || "https://api.a8.to/v4.0").replace(/\/+$/, "");
   console.log(`[v4] proxy only → ${v4Base}/ (no mock)`);
   console.log(
-    `App: http://localhost:${PORT}/app/  |  legacy console: http://localhost:${PORT}/console/  [${enabled}]${proxyNote}${bridgeNote}`,
+    `App: http://localhost:${PORT}/app/  |  legacy console: http://localhost:${PORT}/console/  | collect: browser${proxyNote}`,
   );
-  if (feedBridge.enabled) {
-    setTimeout(() => {
-      const r = feedBridge.sync();
-      if (r.matches) console.log(`[esport-bridge] synced ${r.matches} matches, ${r.bets} bets`);
-    }, 5000);
-  }
 }
 
 process.on("SIGINT", () => {
-  hub.stop();
   if (esportProxy) esportProxy.stop();
   server.close(() => process.exit(0));
 });

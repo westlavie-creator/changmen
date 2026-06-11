@@ -9,6 +9,16 @@ import { useUserStore } from "@/stores/userStore";
 export const CREDIT_PLATE_PASSWORD = "a123456";
 export const CREDIT_FORWARD_SITE = "game.haijings.vip";
 export const CREDIT_PB_GAME_ID = 3;
+/** 对齐 A8 `l(TF)` → gameId 5 */
+export const CREDIT_TF_GAME_ID = 5;
+/** 对齐 A8 `l(IM)` → gameId 9 */
+export const CREDIT_IM_GAME_ID = 9;
+
+const CREDIT_V4_GAME_IDS: Partial<Record<PlatformId, number>> = {
+  PB: CREDIT_PB_GAME_ID,
+  TF: CREDIT_TF_GAME_ID,
+  IM: CREDIT_IM_GAME_ID,
+};
 /** 对齐 A8 bundle `gY`：浏览器直连 OB 试玩登录 */
 export const OB_DEMO_LOGIN_URL =
   "https://djtop-capi.v662n.com/cApi/v2/member/login?merchant=6107384714184464&demo=1";
@@ -217,9 +227,9 @@ async function v4Post<T>(
 }
 
 /**
- * 平博：仅负责 v4 登录 + 取游戏 URL（确认框在 loading 关闭后弹出，对齐 A8）。
+ * v4 登录 + game/play/Login（确认框在 loading 关闭后弹出，对齐 A8 `l(d,f)`）。
  */
-async function fetchPbPlayUrl(userName: string): Promise<string | null> {
+async function fetchV4PlayUrl(userName: string, gameId: number): Promise<string | null> {
   let v4Token = "";
   const login = await v4Post<{ token?: string }>(
     "user/account/login",
@@ -247,7 +257,7 @@ async function fetchPbPlayUrl(userName: string): Promise<string | null> {
 
   const play = await v4Post<{ Url?: string; url?: string }>(
     "game/play/Login",
-    { gameId: CREDIT_PB_GAME_ID },
+    { gameId },
     v4Token,
   );
   if (play.success !== 1) {
@@ -263,7 +273,7 @@ async function fetchPbPlayUrl(userName: string): Promise<string | null> {
   if (!url || url === "about:blank") {
     ElMessage.error(
       play.msg ||
-        "进入游戏失败：A8 未返回平博 Url（请确认 api.a8.to 可访问且账号有效）",
+        "进入游戏失败：A8 未返回游戏 Url（请确认 api.a8.to 可访问且账号有效）",
     );
     return null;
   }
@@ -334,9 +344,10 @@ export async function enterCreditPlate(platform: PlatformId): Promise<void> {
       }
       return;
     }
-    if (platform === "PB") {
+    const gameId = CREDIT_V4_GAME_IDS[platform];
+    if (gameId) {
       const v4User = await resolveCreditPlateUserName();
-      const url = await fetchPbPlayUrl(v4User);
+      const url = await fetchV4PlayUrl(v4User, gameId);
       if (url) {
         loading.close();
         confirmAndOpenGame(platform, url);
@@ -351,8 +362,11 @@ export async function enterCreditPlate(platform: PlatformId): Promise<void> {
   }
 }
 
+/** 顺序对齐 A8 `UserCollectView`：PB → TF → IM → OB → SABA */
 export const CREDIT_PLATE_ENTRIES: { id: PlatformId; label: string }[] = [
   { id: "PB", label: "平博体育" },
+  { id: "TF", label: "雷火试玩" },
+  { id: "IM", label: "IM试玩" },
   { id: "OB", label: "OB试玩" },
   { id: "SABA", label: "SABA试玩" },
 ];

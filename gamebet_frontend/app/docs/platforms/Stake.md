@@ -27,6 +27,11 @@
 | `stake/http.ts` | 无插件时的 HTTP 回退 |
 | `stake/core.ts` | GraphQL 查询与解析 |
 
+## 下单
+
+- Provider：`platform_adapter/stake/frontend/bet.ts`（GraphQL `sportBet` mutation）
+- 经 `a8PluginPost` 在已绑定 tab 发请求；联调步骤见 `platform_adapter/stake/README.md`
+
 ## A8 对照
 
-`PQ` + `StakeFeed` 频道。
+`PQ` + `StakeFeed` 频道；下单逻辑对齐 bundle `eu` Provider。

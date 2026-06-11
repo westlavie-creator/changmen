@@ -2,7 +2,7 @@
 /**
  * OB saveMatch/saveBets → Client_GetMatchs 形态校验（对照 TJ01 Sources.OB 字段）
  *
- * 离线：用 match_merge 合成一条 OB 行，不依赖 live OB。
+ * 离线：用 buildMatchListAccumulate 合成一条 OB 行，不依赖 live OB。
  * 可选：ESPORT_TEST_BASE=http://127.0.0.1:3456 登录后拉 Client_GetMatchs 抽样 OB 行。
  *
  * 用法：node scripts/test-ob-getmatchs-shape.mjs
@@ -14,8 +14,8 @@ import { createRequire } from "node:module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const { buildClientMatchList } = require("../../../gamebet_backend/esport-api/match_merge.js");
-const { formatOdds } = require("../../../gamebet_backend/shared/odds_format.js");
+const { buildMatchListAccumulate } = require("../../../gamebet_matcher/engine");
+const { formatOdds } = require("../../../shared/odds_format");
 
 const TJ01_PATH = path.resolve(__dirname, "../../../TJ01.JSON");
 
@@ -60,8 +60,9 @@ function validateBetRow(bet, label) {
   validateObSource(bet.Sources?.OB, label);
 }
 
-function validateMatchRow(row, label) {
-  for (const k of MATCH_ROW_KEYS) {
+function validateMatchRow(row, label, { requireId = true } = {}) {
+  const keys = requireId ? MATCH_ROW_KEYS : MATCH_ROW_KEYS.filter((k) => k !== "ID");
+  for (const k of keys) {
     assert(k in row, `${label}: 赛事行缺字段 ${k}`);
   }
   assert(row.Matchs?.OB, `${label}: Matchs.OB 缺失`);
@@ -75,7 +76,7 @@ function buildSyntheticObPipeline() {
   const match = {
     Type: "OB",
     SourceMatchID: sourceMatchId,
-    SourceGameID: "8",
+    SourceGameID: "271192272576750",
     StartTime: startTime,
     BO: 3,
     Home: "G2 Esports",
@@ -90,7 +91,7 @@ function buildSyntheticObPipeline() {
       SourceMatchID: sourceMatchId,
       Map: 0,
       SourceBetID: "5388705885691005",
-      OddTypeID: "1",
+      OddTypeID: "271248710253353",
       BetName: "[全场]-全局-获胜",
       SourceHomeID: "5388705885692156",
       HomeName: "G2 Esports",
@@ -105,6 +106,7 @@ function buildSyntheticObPipeline() {
       SourceMatchID: sourceMatchId,
       Map: 1,
       SourceBetID: "5388710877426817",
+      OddTypeID: "8033515352779661",
       BetName: "[地图1]-单局-获胜",
       SourceHomeID: "5388710877427935",
       HomeName: "G2 Esports",
@@ -117,15 +119,11 @@ function buildSyntheticObPipeline() {
   ];
   const matches = { OB: { [sourceMatchId]: match } };
   const betsStore = { [`OB:${sourceMatchId}`]: { provider: "OB", matchId: sourceMatchId, bets } };
-  const list = buildClientMatchList({
-    matches,
-    bets: betsStore,
-    timers: {},
-    sourceFromBet,
-  });
+  // 单平台形态用 accumulate；buildClientMatchList 会过滤为 ≥2 平台（client_matches 口径）
+  const list = buildMatchListAccumulate(matches, betsStore, {}, sourceFromBet);
   const obRow = list.find((r) => r.Matchs?.OB === sourceMatchId);
   assert(obRow, "合成列表中未找到 OB 赛事行");
-  validateMatchRow(obRow, "synthetic");
+  validateMatchRow(obRow, "synthetic", { requireId: false });
 
   for (const inp of bets) {
     const row = obRow.Bets.find((b) => b.Map === inp.Map);

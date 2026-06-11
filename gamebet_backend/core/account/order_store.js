@@ -1,6 +1,6 @@
 "use strict";
 
-const sb = require("../db/supabase.js");
+const sb = require("../../../shared/db/supabase.js");
 
 function toDateKey(ts) {
   const d = new Date(Number(ts) || Date.now());
@@ -69,14 +69,23 @@ async function listByPlayer(playerId, userId) {
 
 async function saveOrder(playerId, orders, userId) {
   if (!userId || !Array.isArray(orders)) return false;
+  const existing = await sb.fetchOrdersByPlayer(playerId, userId);
+  const linkByOrderId = new Map(
+    existing.map((r) => [String(r.order_id), Number(r.link) || 0]),
+  );
   const rows = orders.map((o) => {
     const createAt = parseNum(o.createAt, Date.now());
     const orderId  = o.orderId || `${playerId}-${createAt}`;
+    const boundLink = linkByOrderId.get(String(orderId));
+    const link =
+      boundLink != null && boundLink !== 0
+        ? boundLink
+        : linkFromOrder(orderId, createAt);
     return {
       user_id:   String(userId),
       player_id: Number(playerId),
       order_id:  String(orderId),
-      link:      linkFromOrder(orderId, createAt),
+      link,
       provider:  o.provider || o.Type  || "",
       match:     o.match    || o.Match || "",
       bet:       o.bet      || o.Bet   || "",

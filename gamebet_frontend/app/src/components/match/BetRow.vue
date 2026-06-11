@@ -54,6 +54,7 @@ const arb = computed(() => {
 });
 
 const liveSeconds = computed(() => {
+  void matchTick.value;
   if (!props.bet.isLive || !props.bet.startTime) return 0;
   return (Date.now() - props.bet.startTime) / 1000;
 });

@@ -9,47 +9,60 @@ vi.mock("socket.io-client", () => ({
   io: ioMock,
 }));
 
+vi.mock("@/api/esport", () => ({
+  getCollectPlatform: vi.fn().mockResolvedValue({
+    Gateway: "https://ilustre-analytics.org",
+  }),
+}));
+
 describe("createIaRealtimeClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal("window", {});
   });
 
-  test("uses Electron IA relay when available", async () => {
-    let callback: ((msg: IaRealtimeMessage) => void) | null = null;
-    const removeListener = vi.fn();
-    const relay = {
-      start: vi.fn().mockResolvedValue({ platform: "IA", upstreamConnected: true }),
-      stop: vi.fn().mockResolvedValue({ platform: "IA", upstreamConnected: false }),
-      status: vi.fn().mockResolvedValue({ platform: "IA", upstreamConnected: true }),
-      onMessage: vi.fn((cb: (msg: IaRealtimeMessage) => void) => {
-        callback = cb;
-        return removeListener;
-      }),
+  test("connects directly to A8 IA ws with gateway origin", async () => {
+    const handlers: Record<string, Array<(...args: unknown[]) => void>> = {};
+    const socket = {
+      on(event: string, fn: (...args: unknown[]) => void) {
+        (handlers[event] ||= []).push(fn);
+        return this;
+      },
+      emit: vi.fn(),
+      removeAllListeners: vi.fn(),
+      disconnect: vi.fn(),
     };
-    Object.defineProperty(globalThis.window, "gamebetRelays", {
-      configurable: true,
-      value: { ia: relay },
-    });
+    ioMock.mockReturnValue(socket);
 
     const messages: IaRealtimeMessage[] = [];
     const client = createIaRealtimeClient();
     await client.start((message) => messages.push(message));
 
-    expect(callback).toBeTruthy();
-    const emitMessage = callback as unknown as (msg: IaRealtimeMessage) => void;
-    emitMessage({ message_type: "message_type_push_point_change", content: { point_id: "p1" } });
+    expect(ioMock).toHaveBeenCalledWith(
+      "wss://47.115.75.57",
+      expect.objectContaining({
+        transports: ["websocket"],
+        path: "/esport/ws/IA",
+        extraHeaders: {
+          Origin: "https://ilustre-analytics.org",
+          token: "hello",
+        },
+        auth: { token: "https://ilustre-analytics.org" },
+      }),
+    );
 
-    expect(relay.onMessage).toHaveBeenCalledOnce();
-    expect(relay.start).toHaveBeenCalledOnce();
+    for (const fn of handlers.connect || []) fn();
+    expect(socket.emit).toHaveBeenCalledWith("RoomJoin", {
+      room_type: "room_type_index_content_push",
+    });
+
+    for (const fn of handlers.roomMessageCallBack || []) {
+      fn({ message_type: "message_type_push_point_change", content: { point_id: "p1" } });
+    }
     expect(messages).toEqual([
       { message_type: "message_type_push_point_change", content: { point_id: "p1" } },
     ]);
 
     await client.stop();
-
-    expect(removeListener).toHaveBeenCalledOnce();
-    expect(relay.stop).toHaveBeenCalledOnce();
-    expect(ioMock).not.toHaveBeenCalled();
+    expect(socket.disconnect).toHaveBeenCalledOnce();
   });
 });

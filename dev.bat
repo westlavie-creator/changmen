@@ -1,21 +1,20 @@
 @echo off
-chcp 65001 >nul
+setlocal EnableDelayedExpansion
 title GameBet Dev
-setlocal
 
-set "ROOT=%~dp0"
-set "BACKEND_PORT=3456"
-set "APP_PORT=5174"
+set "_D=%~dp0"
+set "_P=3456"
+set "_V=5174"
 
 echo.
 echo ========================================
 echo   GameBet Dev
 echo ========================================
-echo   Electron backend : http://localhost:%BACKEND_PORT%/app/
-echo   Vite HMR         : http://localhost:%APP_PORT%/app/
+echo   Web backend : http://localhost:!_P!/app/
+echo   Vite HMR    : http://localhost:!_V!/app/
+echo   API proxy   : Vite !_V! -^> backend !_P!/esport/*
+echo   Chrome      : load gamebet_chromeplug in chrome://extensions
 echo.
-
-cd /d "%ROOT%gamebet_backend"
 
 where npm >nul 2>&1
 if errorlevel 1 (
@@ -24,16 +23,22 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [1/2] Starting Electron backend...
-start "GameBet Electron %BACKEND_PORT%" cmd /k "chcp 65001 >nul & cd /d "%ROOT%gamebet_backend" & npm run electron"
+echo [1/3] Starting Web backend...
+start "GameBet-Web" cmd /k "cd /d %~dp0 && call backend.bat"
 
 ping 127.0.0.1 -n 4 >nul
 
-echo [2/2] Starting Vite frontend...
-start "GameBet Vite %APP_PORT%" cmd /k "cd /d "%ROOT%" & call dev-vite.bat"
+echo [2/3] Starting Vite frontend...
+start "GameBet-Vite" cmd /k "cd /d %~dp0 && call dev-vite.bat"
+
+ping 127.0.0.1 -n 3 >nul
+
+echo [3/3] Starting matcher (rebuild client_matches)...
+start "GameBet-Matcher" cmd /k "cd /d %~dp0 && call npm run matcher:loop"
 
 echo.
-echo [OK] Started. Use Vite port for HMR, Electron window for full test.
+echo [OK] Started. Open http://localhost:!_V!/app/ in Chrome with extension loaded.
+echo      Optional: npm run matcher:ui  (人工关联 http://localhost:4567)
 echo.
 
 endlocal

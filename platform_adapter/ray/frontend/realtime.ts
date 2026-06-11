@@ -1,7 +1,15 @@
 import socketClusterClient from "socketcluster-client";
-import { relayWsUrl } from "@/shared/platform";
+import {
+  bumpDirectRealtimeMessage,
+  getDirectRealtimeStatus,
+  patchDirectRealtimeStatus,
+  resetDirectRealtimeStatus,
+} from "@platform/shared/directRealtimeStatus";
+import { PLATFORMS } from "@/shared/platform";
+import { RAY_A8_COLLECT, RAY_WS } from "./a8Collect";
 
-const RAY_SC_PATH = "/esport/ws/RAY";
+const PLATFORM = PLATFORMS.RAY;
+const RAY_SC_CHANNEL = RAY_WS.channel;
 
 export type RayRealtimeMessage = {
   source?: "odds" | "match" | string;
@@ -9,55 +17,102 @@ export type RayRealtimeMessage = {
   match?: unknown;
 };
 
+export type RayRealtimeStatus = {
+  platform: string;
+  upstreamConnected: boolean;
+  messagesReceived?: number;
+  lastError?: string | null;
+  lastUpstreamAt?: number | null;
+};
+
 export type RayRealtimeClient = {
   start(onMessage: (message: RayRealtimeMessage) => void): Promise<void>;
   stop(): Promise<void>;
-  status?(): Promise<unknown>;
+  status?(): Promise<RayRealtimeStatus>;
 };
 
-function getElectronRayRelay() {
-  if (typeof window === "undefined") return null;
-  return window.gamebetRelays?.ray ?? null;
+function watchRaySocketState(
+  socket: ReturnType<typeof socketClusterClient.create>,
+  stopped: () => boolean,
+): void {
+  void (async () => {
+    for await (const _ of socket.listener("connect")) {
+      if (stopped()) break;
+      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: true, lastError: null });
+      console.info("[RAY] connected (direct)", RAY_WS.hostname);
+    }
+  })();
+
+  void (async () => {
+    for await (const _ of socket.listener("disconnect")) {
+      if (stopped()) break;
+      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false });
+    }
+  })();
+
+  void (async () => {
+    for await (const event of socket.listener("error")) {
+      if (stopped()) break;
+      const message =
+        event && typeof event === "object" && "error" in event
+          ? String((event as { error?: unknown }).error ?? event)
+          : String(event ?? "ws error");
+      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: message });
+      console.warn("[RAY] ws error", message);
+    }
+  })();
 }
 
-function createElectronRayRealtimeClient(): RayRealtimeClient {
-  const relay = getElectronRayRelay();
-  let removeMessageListener: (() => void) | null = null;
-
-  return {
-    async start(onMessage) {
-      removeMessageListener?.();
-      removeMessageListener = relay?.onMessage((payload) => onMessage(payload as RayRealtimeMessage)) ?? null;
-      await relay?.start();
-    },
-    async stop() {
-      removeMessageListener?.();
-      removeMessageListener = null;
-      await relay?.stop();
-    },
-    status: () => relay?.status() ?? Promise.resolve({ platform: "RAY", upstreamConnected: false }),
-  };
-}
-
-function createWebRayRealtimeClient(): RayRealtimeClient {
+/** A8 bQe：浏览器直连 cfsocket.365raylinks.com（不经 /esport/ws/RAY relay） */
+function createDirectRayRealtimeClient(): RayRealtimeClient {
   let socket: ReturnType<typeof socketClusterClient.create> | null = null;
   let stopped = false;
 
   return {
     async start(onMessage) {
       stopped = false;
-      socket = createWebSocketClusterClient();
-      const channel = socket.subscribe("match");
+      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: null });
+
+      const token = RAY_A8_COLLECT.token;
+      const auth = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+
+      socket = socketClusterClient.create({
+        hostname: RAY_WS.hostname,
+        secure: true,
+        port: 443,
+        path: RAY_WS.path,
+        protocolVersion: 1,
+        autoConnect: true,
+        connectTimeout: 15_000,
+        ackTimeout: 10_000,
+        wsOptions: {
+          headers: {
+            Origin: RAY_WS.origin,
+            Referer: `${RAY_WS.origin}/`,
+            Authorization: auth,
+          },
+        },
+      });
+
+      watchRaySocketState(socket, () => stopped);
+
+      const channel = socket.subscribe(RAY_SC_CHANNEL);
       await channel.listener("subscribe").once();
+      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: true, lastError: null });
 
       void (async () => {
         try {
           for await (const msg of channel) {
             if (stopped) break;
+            bumpDirectRealtimeMessage(PLATFORM);
             onMessage(msg as RayRealtimeMessage);
           }
         } catch (err) {
-          if (!stopped) console.warn("[RAY] ws loop", err);
+          if (!stopped) {
+            const message = err instanceof Error ? err.message : String(err);
+            patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: message });
+            console.warn("[RAY] ws loop", err);
+          }
         }
       })();
     },
@@ -65,38 +120,14 @@ function createWebRayRealtimeClient(): RayRealtimeClient {
       stopped = true;
       socket?.disconnect();
       socket = null;
+      resetDirectRealtimeStatus(PLATFORM);
+    },
+    async status() {
+      return getDirectRealtimeStatus(PLATFORM);
     },
   };
 }
 
-/** A8 `bQe`：dev 连 127.0.0.1:3456；生产连同源 relay */
-function createWebSocketClusterClient(): ReturnType<typeof socketClusterClient.create> {
-  if (import.meta.env.DEV) {
-    const url = new URL(relayWsUrl(RAY_SC_PATH));
-    const port = Number(url.port) || (url.protocol === "wss:" ? 443 : 80);
-    return socketClusterClient.create({
-      hostname: url.hostname,
-      protocolVersion: 1,
-      secure: url.protocol === "wss:",
-      port,
-      path: url.pathname,
-      autoConnect: true,
-      ackTimeout: 10_000,
-    });
-  }
-  const port = Number(location.port) || (location.protocol === "https:" ? 443 : 80);
-  return socketClusterClient.create({
-    hostname: location.hostname,
-    protocolVersion: 1,
-    secure: location.protocol === "https:",
-    port,
-    path: RAY_SC_PATH,
-    autoConnect: true,
-    ackTimeout: 10_000,
-  });
-}
-
 export function createRayRealtimeClient(): RayRealtimeClient {
-  if (getElectronRayRelay()) return createElectronRayRealtimeClient();
-  return createWebRayRealtimeClient();
+  return createDirectRayRealtimeClient();
 }

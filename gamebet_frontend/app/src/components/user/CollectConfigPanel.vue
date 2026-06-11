@@ -69,14 +69,14 @@ async function openCredit(platform: PlatformId) {
     信用<span @dblclick="toggleSwitchesLock">盘</span>入口
   </el-divider>
 
-  <el-row class="credit" :gutter="8">
-    <el-col v-for="entry in CREDIT_PLATE_ENTRIES" :key="entry.id" :span="6" class="flex-center">
+  <div class="credit flex flex-wrap">
+    <div v-for="entry in CREDIT_PLATE_ENTRIES" :key="entry.id" class="credit-game">
       <el-button type="primary" @click="openCredit(entry.id)">
         <div class="flex flex-middle">
           <div class="provider-icon" :class="entry.id" />
           <div class="name">{{ entry.label }}</div>
         </div>
       </el-button>
-    </el-col>
-  </el-row>
+    </div>
+  </div>
 </template>

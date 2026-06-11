@@ -4,9 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A local replica of the A8 esports odds-aggregation platform. The **only A8 source available** is the minified frontend bundle at `../A8/A8frontendscipts/2.0.1/index.js` (readable version: `index.readable.js`). A8's backend is entirely unknown — it is a black box. All claims about A8 behavior must be traceable to the bundle or network captures; changmen's own backend design is not "A8 parity."
+changmen 是 **客户端 + 服务端** 系统（对标 A8 的分工），不是「单机本地工具」：
+
+| 角色 | 组件 | 职责 |
+|------|------|------|
+| **客户端** | `gamebet_frontend/app`、Chrome 插件 | 连各博彩平台、采集比赛/赔率、下注；通过 `API_SaveMatch` / `API_SaveBet` 上报 |
+| **服务端** | `gamebet_backend`、`gamebet_matcher`、Supabase | 接收上报、合并赛事（`client_matches`）、鉴权、账号/订单、WS relay（供客户端连平台） |
+
+开发时 `localhost:3456` / `5174` 只是本机联调地址；生产见 [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)（同源 `/app/` + `/esport/*`）。
+
+A8 参考：仅有 minified bundle（`../A8/A8frontendscipts/2.0.1/index.js`）。A8 官方服务端不可见。changmen 服务端 API 形状由 bundle **反推**；行为验收以 bundle / 抓包为准，不是「本地复刻版后端」。
 
 **All commands below must be run from the `changmen/` directory unless stated otherwise.**
+
+**生产部署**：[PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)（M1 架构冻结、环境变量、双进程清单）
 
 ---
 
@@ -15,30 +26,36 @@ A local replica of the A8 esports odds-aggregation platform. The **only A8 sourc
 ### Install
 
 ```bat
-npm install --prefix gamebet_backend
+npm install                            # workspaces：shared + backend + matcher
 npm install --prefix gamebet_frontend/app
 ```
 
+（仅改 backend 时也可 `npm install --prefix gamebet_backend`，但 matcher 依赖 `shared/db` 需根目录 install 以 hoist `@supabase/supabase-js`。）
+
 ### Start (development)
 
+双 Host 共用 `core/`；HTTP 由 `host/web/index.js` 提供。**开发**：`dev.bat`（backend + Vite + matcher + Chrome 插件）；**生产**见 [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)。
+
 ```bat
-dev.bat                   # Windows: Electron backend (3456) + Vite HMR (5174)
+dev.bat                   # backend + Vite 5174 + matcher
+dev-web.bat               # 同 dev.bat
+backend.bat               # 仅 Web 后端
+npm run matcher:ui        # 可选：人工关联 http://localhost:4567
 ```
 
-Or manually in two terminals:
+**不要同时启动两套 `npm run web`**（均占 3456）。
+
+手动两终端（Web）：
 
 ```bat
-# Terminal 1 — backend (Web mode)
-cd gamebet_backend && node host/web/index.js
-
-# Terminal 2 — frontend
-npm run app:dev           # → http://localhost:5174/app/
+cd gamebet_backend && npm run web    # host/web/index.js
+npm run app:dev                       # → http://localhost:5174/app/
 ```
 
-**Parity mode** (A8 walkthrough verification — browser as the match-list source):
+**Parity mode**（Web Host，浏览器为列表源）：
 
 ```bat
-parity-dev.bat            # ESPORT_BRIDGE=0, ENABLE_OB=0
+parity-dev.bat            # Web Host + Vite + matcher (browser collect)
 ```
 
 ### Build frontend
@@ -76,9 +93,7 @@ npm run check:collect           # print all platform credential status
 npm run check:collect:probe     # + probe each gateway with a live request
 npm run ob:login                # fetch OB trial session and print it
 npm run account:cli             # interactive account manager
-npm run test:adapter            # ob-feed-mode + packaged adapter layout 模拟
-npm run electron:portable       # 便携包 → changmen/dist/electron/GameBet-portable.zip
-node scripts/verify-electron-unpacked.js   # 对 changmen/dist/electron/staging_*/win-unpacked 实机冒烟
+npm run test:adapter            # packaged adapter layout 模拟
 ```
 
 ---
@@ -89,31 +104,32 @@ node scripts/verify-electron-unpacked.js   # 对 changmen/dist/electron/staging_
 
 ```
 changmen/
+├── shared/               无进程归属的共享模块（db/supabase、game_catalog、market_catalog、im_parse、match_time）
 ├── platform_adapter/     各平台 frontend/backend + registry（canonical 源码）
+├── gamebet_matcher/        赛事匹配：rebuild 循环 + 人工关联 Web（:4567）
+│   ├── matcher.js          30s rebuild 循环入口
+│   ├── engine/             跨平台合并（match_merge / teams / client_match_ids）
+│   ├── lib/                env、supabase、game_ui、heartbeat
+│   ├── ops/                rebuild、backfill、auto_register、delete/merge
+│   ├── link/               人工关联 API 逻辑
+│   └── ui/                 Express :4567 + public 静态页
 ├── gamebet_backend/      Node.js CommonJS, port 3456
 │   ├── host/
-│   │   ├── web/              Web Host（node host/web/index.js）
-│   │   │   ├── index.js          HTTP server + FeedHub + proxy 编排
-│   │   │   ├── http_routes.js    所有 /api/ 路由
-│   │   │   ├── static_files.js   静态文件服务
-│   │   │   ├── snapshot_ws.js    /feed/ WebSocket 快照
-│   │   │   └── proxy/            Web 专用 WS relay（OB/RAY/TF/IA）
-│   │   ├── electron/         Electron Host（main: host/electron/main.js）
-│   │   │   ├── main.js           IPC handlers + relay cores + require('../web/index.js')
-│   │   │   ├── preload.js        contextBridge（gamebetApi + gamebetRelays）
-│   │   │   └── loading.html      启动等待页
-│   │   └── electron-builder.yml
-│   ├── core/                 Business Core（两个 Host 共用）
-│   │   ├── esport-api/           路由/store/match合并/初赔/platform_sync
+│   │   └── web/              Web Host（node host/web/index.js）
+│   │       ├── index.js          HTTP server + WS proxy 编排
+│   │       ├── http_routes.js    所有 /api/ 路由
+│   │       ├── static_files.js   静态文件服务
+│   │       └── proxy/            WS relay（OB/RAY/TF/IA）
+│   ├── core/                 Business Core
+│   │   ├── esport-api/           路由/store/初赔/platform_sync（合并在 gamebet_matcher/engine/）
 │   │   ├── account/              账号 CLI / 订单 / 余额刷新
 │   │   ├── db/                   Supabase 客户端 + 内存缓存
-│   │   ├── shared/               FeedHub / adapter_paths / market catalog / storage_paths
-│   │   └── integrations/         A8 集成（constants / v4 / socket）
-│   ├── platforms/            legacy shim → platform_adapter（阶段 D 删除）
-│   ├── relays/                 legacy shim → platform_adapter/*/backend/relay.js
-│   ├── scripts/              调试 / 运维 / verify-electron-unpacked.js
+│   │   ├── shared/               adapter_paths / storage_paths / bet_ref
+│   │   └── integrations/         A8 集成（constants / v4）
+│   ├── scripts/              调试 / 运维
 │   ├── supabase/             DB 迁移文件
-│   └── public/               静态调试页（/feed/ /platforms/）
+│   └── public/               A8 esport2 静态资源
+│   （platforms/、relays/ legacy shim 已在 platform_adapter 阶段 D 删除）
 ├── gamebet_frontend/
 │   ├── app/              Vue 3 + TypeScript + Vite (base /app/)
 │   └── console/          Legacy A8 bundle patch output (read-only reference)
@@ -121,35 +137,40 @@ changmen/
 └── dev.bat / parity-dev.bat
 ```
 
+### 代码边界（依赖方向）
+
+| 目录 | 可 require |
+|------|------------|
+| `gamebet_backend` | `shared/*`、`platform_adapter`（`reqB` 加载 backend 模块；`reqS` 加载 shared） |
+| `gamebet_matcher` | `engine/*`、`shared/*`（含 `db/supabase`）、`team-resolver` |
+
+`Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`（由 `gamebet_matcher` rebuild 写入）。
+
 ### Backend (`gamebet_backend/`)
 
 **三层架构：**
 
 | 层 | 目录 | 职责 |
 |---|---|---|
-| Host 层 | `host/web/` `host/electron/` | 传输适配：HTTP server / IPC handler / WS relay |
+| Host 层 | `host/web/` | HTTP server + WS relay |
 | Core 层 | `core/` | 业务逻辑：路由/store/账号/DB/shared utils |
 | Platform 层 | `platform_adapter/` | 各场馆 frontend/backend + registry（canonical） |
 | Legacy shim | `platforms/` `relays/` | 一行转发，阶段 D 删除 |
 
-后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` / `requirePlatformFeed` / `requirePlatformRelay` 加载平台模块。详见 `platform_adapter/README.md`。
+后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` / `requirePlatformRelay` 加载平台模块。详见 `platform_adapter/README.md`。
 
-**两个 Host 入口：**
-- **Web**：`node host/web/index.js` — 启动 HTTP server、FeedHub、WS relay、feed bridge
-- **Electron**：`host/electron/main.js` — 主进程直接 `require('../web/index.js')`，同时注册 IPC handler 和 relay core；`process.versions.electron` 存在时 WS relay 自动跳过
+**入口：** `node host/web/index.js` — HTTP server、WS relay、esport-api
 
 **Relay core 与 proxy 的分工：**
 - `platform_adapter/{ob,ray,tf,ia}/backend/relay.js` — 上游连接逻辑（经 `requirePlatformRelay` 加载）
-- `host/web/proxy/` — Web 专用 WS relay 服务端，把上游推送转发给浏览器；Electron 模式下不启动
+- `host/web/proxy/` — Web 专用 WS relay 服务端，把上游推送转发给浏览器
 
 | Module | Role |
 |--------|------|
 | `core/esport-api/router.js` | Handles all `Client_*` / `API_*` actions (match list, collect config, accounts, v4, etc.) |
 | `core/esport-api/store.js` | JSON file store; esport data lives in `storage/esport/*.json` (env: `ESPORT_DATA_DIR`) |
-| `core/esport-api/platform_sync.js` | Populates `platforms.json` at startup; three-level fallback for each platform (FeedHub session → stored JSON → trial/env login) |
-| `core/shared/feed_hub.js` | Runs backend platform feeds (OB, RAY, TF…); emits `snapshot`/`oddsUpdate` events |
-| `core/esport-api/feed_bridge.js` | When `ESPORT_BRIDGE=1`, writes FeedHub snapshots into `matches.json` (mode D only) |
-| `core/db/client.js` | Supabase 客户端（认证 + 数据持久化） |
+| `core/esport-api/platform_sync.js` | Populates `platforms.json` at startup (stored JSON → trial/env login) |
+| `shared/db/` | Supabase 客户端与表操作（`client.js`、`supabase.js`） |
 | `core/db/store.js` | 内存缓存（`_cache`）+ Supabase 异步写；账号读写的主路径 |
 | `core/account/order_store.js` | 订单读写，纯 Supabase `orders` 表，无本地副本 |
 
@@ -184,15 +205,16 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 
 `@` alias maps to `src/`.
 
-### Two deployment modes
+### 数据采集（客户端 → 服务端）
 
-| | Mode P (A8 parity) | Mode D (default dev) |
-|--|---|---|
-| Env | `ESPORT_BRIDGE=0 ENABLE_OB=0` | `ESPORT_BRIDGE=1` |
-| Match list source | Browser `saveMatch` (same path as A8) | Node FeedHub → `matches.json` |
-| Bat file | `parity-dev.bat` | `dev.bat` |
+**服务端不连平台拉列表/赔率**（已删除 Node FeedHub）。采集只在客户端：
 
-Mode P is the **only valid baseline for verifying A8 parity**. Mode D is for local ops.
+```
+客户端采集器 → API_SaveMatch / API_SaveBet → 服务端 store → Supabase
+matcher（服务端进程）→ client_matches → Client_GetMatchs → 客户端 UI
+```
+
+启动开发栈：`dev-web.bat` / `dev.bat` / `backend.bat`。
 
 ### 采集层 API 命名对照
 
@@ -230,6 +252,7 @@ All A8 parity tracking lives under `gamebet_frontend/app/docs/`:
 | `A8_OB_REPLICATE_PLAN.md` | OB-specific parity plan with `[A8 可证实]` / `[changmen 推测]` / `[changmen 扩展]` labels |
 | `A8_UI_PARITY_GAPS.md` | UI diff checklist |
 | `A8_WALKTHROUGH_CHECKLIST.md` | Manual side-by-side walkthrough checklist |
+| `A8_SCRIPT_PLUGIN_PLAN.md` | Script + plugin architecture, Mode P startup, progress |
 | `A8_REPLICATE_8_PLATFORMS.md` | Per-platform collect + bet parity status |
 | `A8_PARITY_AUDIT_MACHINE.json` | Output of `npm run audit:a8` |
 

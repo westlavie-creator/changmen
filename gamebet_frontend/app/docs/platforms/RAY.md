@@ -11,9 +11,9 @@
 | 通道 | 间隔 | 作用 |
 |------|------|------|
 | HTTP `match` 列表 | 30s | `saveMatch` + 每场 `loadRayBets` → `saveBets` |
-| SocketCluster `/esport/ws/RAY` 频道 `match` | 实时 | `source === "odds"` 时更新 `oddsStore` |
+| SocketCluster 源站 | 实时 | `source === "odds"` 时更新 `oddsStore` |
 
-浏览器 WS 连当前站点 `/esport/ws/RAY` → 后端 `ray_sc_relay` → RAY 源站 `cfsocket.365raylinks.com`（A8 原版为浏览器直连 `47.115.75.57`）。
+浏览器 **直连** `wss://cfsocket.365raylinks.com/socketcluster/` 频道 `match`（`ray/frontend/realtime.ts`，A8 写死 JWT）。不经 `/esport/ws/RAY` relay。
 
 ## 开赛时间
 

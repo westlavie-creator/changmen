@@ -160,13 +160,44 @@ export function pbTeamLogo(gameSlug: string, englishName: string): string {
   return `https://static.storeclutter.com/cdn-cgi/image/width=80,quality=75/images/esports/${gameSlug}/${team}/${team}-logo.png`;
 }
 
-export const PB_DEFAULT_ODDS_QUERY =
-  "sportId=12&isLive=true&isHlE=false&oddsType=1&version=0" +
+export const PB_EURO_ODDS_QUERY_BASE =
+  "sportId=12&isHlE=false&oddsType=1&version=0" +
   "&language=zh-cn&isHomePage=&leagueCode=&eventType=0&eSportCode=" +
   "&periodNum=0%2C1%2C2%2C3%2C4%2C5%2C6%2C7&participant=&locale=zh_CN";
 
-export function pbOddsUrl(gateway: string): string {
+/** @deprecated 仅滚球；采集应同时拉 live + prematch */
+export const PB_DEFAULT_ODDS_QUERY = `${PB_EURO_ODDS_QUERY_BASE}&isLive=true`;
+
+export function pbOddsUrl(gateway: string, isLive = true): string {
   const base = gateway.replace(/\/+$/, "");
   const ts = Date.now();
-  return `${base}/sports-service/sv/euro/odds?${PB_DEFAULT_ODDS_QUERY}&timeStamp=${ts}&_=${ts}&withCredentials=true`;
+  return `${base}/sports-service/sv/euro/odds?${PB_EURO_ODDS_QUERY_BASE}&isLive=${isLive}&timeStamp=${ts}&_=${ts}&withCredentials=true`;
+}
+
+/** 合并 live / prematch 两次 euro/odds 响应（同 event.id 时 live 优先） */
+export function mergeEuroOddsPayloads(
+  ...payloads: Array<Record<string, unknown>>
+): Record<string, unknown> {
+  const leagueByKey = new Map<string, Record<string, unknown>>();
+  const eventByLeague = new Map<string, Map<string, Record<string, unknown>>>();
+
+  for (const payload of payloads) {
+    for (const league of (payload.leagues ?? []) as Array<Record<string, unknown>>) {
+      const leagueKey = String(league.id ?? `${league.gameCode}:${league.name}`);
+      if (!leagueByKey.has(leagueKey)) {
+        leagueByKey.set(leagueKey, { ...league, events: [] as Record<string, unknown>[] });
+        eventByLeague.set(leagueKey, new Map());
+      }
+      const events = eventByLeague.get(leagueKey)!;
+      for (const event of (league.events ?? []) as Array<Record<string, unknown>>) {
+        events.set(String(event.id), event);
+      }
+    }
+  }
+
+  const leagues = [...leagueByKey.entries()].map(([key, league]) => ({
+    ...league,
+    events: [...(eventByLeague.get(key)?.values() ?? [])],
+  }));
+  return { leagues };
 }

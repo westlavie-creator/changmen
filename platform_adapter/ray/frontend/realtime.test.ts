@@ -1,55 +1,68 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { createRayRealtimeClient, type RayRealtimeMessage } from "./realtime";
 
-type RayRelayApi = {
-  start: ReturnType<typeof vi.fn>;
-  stop: ReturnType<typeof vi.fn>;
-  status: ReturnType<typeof vi.fn>;
-  onMessage: ReturnType<typeof vi.fn>;
-};
+const createMock = vi.fn();
+const subscribeMock = vi.fn();
+const listenerMock = vi.fn();
+const disconnectMock = vi.fn();
 
-function setElectronRayRelay(ray: RayRelayApi): void {
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: {
-      gamebetRelays: { ray },
-    },
-  });
-}
+vi.mock("socketcluster-client", () => ({
+  default: {
+    create: (...args: unknown[]) => createMock(...args),
+  },
+}));
 
 afterEach(() => {
-  vi.restoreAllMocks();
-  Reflect.deleteProperty(globalThis, "window");
+  vi.clearAllMocks();
 });
 
 describe("createRayRealtimeClient", () => {
-  test("uses the Electron relay as a project realtime client", async () => {
-    let listener: (message: RayRealtimeMessage) => void = () => {};
-    const removeListener = vi.fn();
-    const ray = {
-      start: vi.fn().mockResolvedValue({ platform: "RAY", upstreamConnected: true }),
-      stop: vi.fn().mockResolvedValue({ platform: "RAY", upstreamConnected: false }),
-      status: vi.fn().mockResolvedValue({ platform: "RAY", upstreamConnected: true }),
-      onMessage: vi.fn((callback: (message: RayRealtimeMessage) => void) => {
-        listener = callback;
-        return removeListener;
-      }),
-    };
-    setElectronRayRelay(ray);
+  test("connects directly to cfsocket with A8 collect token", async () => {
+    const messages = [{ source: "odds", odds: [{ id: "ray-odd-1", odds: 1.92 }] }];
+    subscribeMock.mockReturnValue({
+      listener: () => ({ once: () => Promise.resolve() }),
+      [Symbol.asyncIterator]: async function* () {
+        for (const msg of messages) yield msg;
+      },
+    });
+    createMock.mockReturnValue({
+      subscribe: subscribeMock,
+      disconnect: disconnectMock,
+      listener: (event: string) => {
+        if (event === "connect" || event === "disconnect" || event === "error") {
+          return {
+            [Symbol.asyncIterator]: async function* empty() {
+              /* watchRaySocketState background loops */
+            },
+          };
+        }
+        return { once: () => Promise.resolve() };
+      },
+    });
 
     const received: RayRealtimeMessage[] = [];
     const client = createRayRealtimeClient();
     await client.start((message) => received.push(message));
-    listener({ source: "odds", odds: [{ id: "ray-odd-1", odds: 1.92 }] });
+    await vi.waitFor(() => expect(received.length).toBeGreaterThan(0));
 
-    expect(ray.onMessage).toHaveBeenCalledOnce();
-    expect(ray.start).toHaveBeenCalledOnce();
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: "cfsocket.365raylinks.com",
+        path: "/socketcluster/",
+        secure: true,
+        port: 443,
+        wsOptions: expect.objectContaining({
+          headers: expect.objectContaining({
+            Origin: "https://ray164.com",
+            Authorization: expect.stringContaining("Bearer "),
+          }),
+        }),
+      }),
+    );
+    expect(subscribeMock).toHaveBeenCalledWith("match");
     expect(received).toEqual([{ source: "odds", odds: [{ id: "ray-odd-1", odds: 1.92 }] }]);
 
-    await expect(client.status?.()).resolves.toEqual({ platform: "RAY", upstreamConnected: true });
     await client.stop();
-
-    expect(removeListener).toHaveBeenCalledOnce();
-    expect(ray.stop).toHaveBeenCalledOnce();
+    expect(disconnectMock).toHaveBeenCalledOnce();
   });
 });

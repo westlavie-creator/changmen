@@ -1,8 +1,11 @@
 "use strict";
 
-const { getCatalogSummary } = require("../../core/shared/game_catalog.js");
-const { getCatalogSummary: getMarketCatalogSummary } = require("../../core/shared/market_catalog.js");
-const { listPlatforms, getPlatform } = require("../../core/shared/platform_registry.js");
+const { getCatalogSummary } = require("../../../shared/catalog/game_catalog.js");
+const { getCatalogSummary: getMarketCatalogSummary } = require("../../../shared/catalog/market_catalog.js");
+const { listPlatforms } = require("../../core/shared/adapter_paths.js").adapterRequire(
+  "registry",
+  "feeds.js",
+);
 const { tryEsportApi, resolveCreditPlateUserName } = require("../../core/esport-api/router.js");
 const store = require("../../core/esport-api/store.js");
 const { getHardcodedCredentials } = require("../../core/integrations/a8/config.js");
@@ -60,7 +63,7 @@ async function handleObDemoLogin(req, res) {
   return true;
 }
 
-function createHttpHandler({ port, hub, serveStatic, getEsportProxy }) {
+function createHttpHandler({ port, serveStatic, getEsportProxy }) {
   return async function handleHttp(req, res) {
     try {
       const url = req.url.split("?")[0];
@@ -99,31 +102,7 @@ function createHttpHandler({ port, hub, serveStatic, getEsportProxy }) {
         return;
       }
       if (url === "/api/platforms") {
-        const snap = hub.getSnapshot();
-        const rows = listPlatforms().map((p) => {
-          const live = snap.platforms[p.id];
-          return {
-            ...p,
-            enabled: live?.enabled ?? p.enabled,
-            matchCount: live?.matches?.length ?? 0,
-            status: live?.status ?? null,
-            updatedAt: live?.updatedAt ?? null,
-          };
-        });
-        jsonResponse(res, 200, { platforms: rows, updatedAt: snap.updatedAt });
-        return;
-      }
-      if (url === "/api/snapshot") {
-        jsonResponse(res, 200, hub.getSnapshot());
-        return;
-      }
-      if (url.startsWith("/api/snapshot/")) {
-        const raw = url.slice("/api/snapshot/".length).split("?")[0];
-        const meta = getPlatform(raw);
-        const platformId = meta?.id || raw.toUpperCase();
-        const snap = hub.getSnapshot();
-        const body = snap.platforms[platformId] || { error: "unknown platform", id: platformId };
-        jsonResponse(res, 200, body);
+        jsonResponse(res, 200, { platforms: listPlatforms(), updatedAt: Date.now() });
         return;
       }
       if (url.toLowerCase() === "/api/proxy/status") {

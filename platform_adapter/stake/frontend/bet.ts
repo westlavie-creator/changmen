@@ -1,6 +1,6 @@
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-const STAKE_USDT_TO_CNY = 6.977023058793687;
+export const STAKE_USDT_TO_CNY = 6.977023058793687;
 import { stakeAccountHeaders, stakePluginGraphql } from "./pluginApi";
 import { getStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
@@ -202,8 +202,8 @@ function first<T>(arr: T[] | undefined | null): T | undefined {
   return arr?.[0];
 }
 
-/** 对齐 A8 `tJe` */
-function mapStakeOrderStatus(
+/** 对齐 A8 `tJe` — 导出供单元测试 */
+export function mapStakeOrderStatus(
   status: string,
   amount: number,
   payout: number,
@@ -229,8 +229,8 @@ function mapStakeOrderStatus(
   }
 }
 
-/** 对齐 A8 `t$` */
-function mapStakeOrderRow(bet: Record<string, unknown>): VenueOrder {
+/** 对齐 A8 `t$` — 导出供单元测试 */
+export function mapStakeOrderRow(bet: Record<string, unknown>): VenueOrder {
   const amount = Number(bet.amount) || 0;
   const payout = Number(bet.payout) || 0;
   const status = mapStakeOrderStatus(String(bet.status ?? ""), amount, payout);
@@ -263,7 +263,7 @@ function mapStakeOrderRow(bet: Record<string, unknown>): VenueOrder {
   };
 }
 
-function stakeLimitExceeded(limit: LimitEntry, betMoney: number): boolean {
+export function stakeLimitExceeded(limit: LimitEntry, betMoney: number): boolean {
   const value = Number(limit.value) || 0;
   if (limit.expireTime && limit.expireTime < Date.now()) return false;
   return betMoney > value;

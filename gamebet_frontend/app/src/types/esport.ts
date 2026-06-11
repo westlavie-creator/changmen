@@ -1,4 +1,4 @@
-﻿/** 对齐 gamebet_backend/esport-api router 通用响应 */
+﻿/** 对齐 gamebet_backend/core/esport-api router 通用响应 */
 export interface ApiEnvelope<T = unknown> {
   success: 0 | 1;
   msg?: string;

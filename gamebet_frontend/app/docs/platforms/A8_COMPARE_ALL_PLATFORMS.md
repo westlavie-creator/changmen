@@ -75,7 +75,7 @@ await waitForUser
 
 - **A8**：全局 Socket（`ou.io`）连接后 `emit("join room", Xt.IM | Xt.Stake | Xt.XBet | "XBet:Score")`；`extraHeaders.token = localStorage.getItem("token")`（A8 登录 JWT，**非** IM 场馆 token）。
 - **赔率**：如 `EZe` 类逻辑只 `oddsStore.save`，`homeSuffix` 1/2（XBet away 为 3）。
-- **changmen**：[`a8/socketHub.ts`](../a8/socketHub.ts) + [`a8/betsCollect.ts`](../a8/betsCollect.ts)；IM 见 [`IM.md`](./IM.md)，XBet 见 [`XBet.md`](./XBet.md)。
+- **changmen**：`platform_adapter/shared/socket/*` + `@/extension/bridge.ts`；IM 见 [`IM.md`](./IM.md)，XBet 见 [`XBet.md`](./XBet.md)。
 
 ### SABA
 
@@ -95,8 +95,8 @@ await waitForUser
 ### Stake
 
 - **采集 `MQ`**：`ra=Xt.Stake`；等待插件 `tabId`（10×3s）→ 各 sport GraphQL → `saveMatch` + 逐场 `saveBets`（`pp` 合并）→ `Zn.sendMessage` 订阅；频道 **Stake** 推实时赔率；30s 递归。
-- **changmen**：`collectors/stake/index.ts` 对齐 `MQ`（30s、`betsMerge`、`graphqlCollect`）；`subscribeA8Channel("Stake")`。
-- **下注**：插件 `tabId` + 账号 `token`（`x-access-token`）；`providers/stakeProvider.ts` 对齐 `rJe`。
+- **changmen**：`startA8BetsCollector` 频道 `Stake`；`platform_adapter/stake/frontend/collect.ts` 对齐 `MQ`。
+- **下注**：插件 `tabId` + 账号 `token`；`platform_adapter/stake/frontend/bet.ts` 对齐 `rJe`。
 
 ### HG
 
@@ -145,7 +145,7 @@ await waitForUser
 | Stake | `STAKE_ACCESS_TOKEN` 等 |
 | HG | `HG_GATEWAY` + `HG_TOKEN` |
 
-见 [`gamebet_backend/esport-api/platform_sync.js`](../../../../../gamebet_backend/esport-api/platform_sync.js)。
+见 [`gamebet_backend/core/esport-api/platform_sync.js`](../../../../../gamebet_backend/core/esport-api/platform_sync.js)。
 
 ---
 
@@ -157,7 +157,7 @@ await waitForUser
 | 平台能力 | [`platforms/registry.ts`](../../platforms/registry.ts) |
 | A8 频道 | [`collectors/a8/`](../a8/) |
 | 采集 API | [`api/esport.ts`](../../api/esport.ts) → `Client_GetCollectPlatform` |
-| 后端采集凭证 | [`esport-api/router.js`](../../../../../gamebet_backend/esport-api/router.js) `Client_GetCollectPlatform` |
+| 后端采集凭证 | [`esport-api/router.js`](../../../../../gamebet_backend/core/esport-api/router.js) `Client_GetCollectPlatform` |
 | 下注 | [`providers/index.ts`](../../providers/index.ts) |
 | 账号粘贴 | [`components/account/AccountEditDialog.vue`](../../components/account/AccountEditDialog.vue) |
 

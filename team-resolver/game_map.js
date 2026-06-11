@@ -2,7 +2,7 @@
 
 /**
  * 内部 gameCode → 各数据源 slug 映射
- * gameCode 与 changmen/gamebet_backend/core/shared/game_catalog.json 对齐
+ * gameCode 与 changmen/shared/catalog/game_catalog.json 对齐
  */
 const GAME_MAP = {
   cs2: {

@@ -1,14 +1,13 @@
 {
   "name": "gamebet-backend",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "private": true,
-  "description": "Local Node services: esport-api, WS proxy, FeedHub, dev dashboard",
+  "description": "Server: esport-api, WS proxy, static hosting for clients",
   "repository": {
     "type": "git",
     "url": "https://github.com/westlavie-creator/gamebet.git"
   },
   "type": "commonjs",
-  "main": "host/electron/main.js",
   "scripts": {
     "patch:ui": "node ../gamebet_frontend/patch-ui-bundle.js",
     "preweb": "node scripts/preweb.js",
@@ -46,24 +45,15 @@
     "user:sync": "node scripts/sync-user-data.js",
     "check:collect": "node scripts/check-collect-platforms.js",
     "check:collect:probe": "node scripts/check-collect-platforms.js --probe",
-    "test": "vitest run --root ../match_engine && npm run test:adapter",
+    "test": "vitest run --root ../gamebet_matcher/engine && npm run test:adapter",
     "test:watch": "vitest",
-    "test:adapter": "node scripts/test-ob-feed-mode.js && node scripts/test-packaged-adapter-layout.js",
-    "test:ob-feed-mode": "node scripts/test-ob-feed-mode.js",
+    "test:adapter": "node scripts/test-packaged-env.js && node scripts/test-packaged-adapter-layout.js",
     "test:packaged-adapter": "node scripts/test-packaged-adapter-layout.js",
-    "verify:electron": "node scripts/verify-electron-unpacked.js",
     "sync:a8-assets": "node scripts/sync-a8-esport2-assets.mjs",
-    "compile:router": "tsc -p tsconfig.router.json",
-    "electron": "chcp 65001 >nul & electron .",
-    "preelectron:build": "npm run compile:router && npm run app:build --prefix ..",
-    "electron:build": "electron-builder --config host/electron-builder.yml --win",
-    "electron:publish": "electron-builder --config host/electron-builder.yml --win --publish always",
-    "electron:portable": "powershell -ExecutionPolicy Bypass -File host/electron/build-portable.ps1"
+    "compile:router": "tsc -p tsconfig.router.json"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
-    "electron": "42.3.3",
-    "electron-builder": "^26.8.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
@@ -72,7 +62,6 @@
     "@supabase/supabase-js": "^2.106.2",
     "aedes": "^0.51.3",
     "dotenv": "^17.4.2",
-    "electron-updater": "^6.8.9",
     "mqtt": "^5.14.0",
     "socket.io-client": "^4.8.3",
     "socketcluster-client": "^20.0.1",

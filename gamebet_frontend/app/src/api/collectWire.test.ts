@@ -55,7 +55,7 @@ describe("collectWire A8 parity", () => {
       Status: "Normal",
       GroupName: "获胜者",
       OddTypeID: "123",
-    } as CollectBetDto);
+    } as CollectBetDto & { GroupName?: string; OddTypeID?: string });
 
     expect(row).toEqual({
       Type: "OB",

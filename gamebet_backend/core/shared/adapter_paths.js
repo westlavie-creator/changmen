@@ -11,7 +11,7 @@ let _adapterRoot;
 /**
  * platform_adapter 根目录。
  * - 开发：changmen/platform_adapter（与 gamebet_backend 同级）
- * - Electron asar：gamebet_backend/platform_adapter（electron-builder 打入）
+ * - 可选拷贝：`gamebet_backend/platform_adapter`（部署脚本复制时）
  */
 function getAdapterRoot() {
   if (_adapterRoot) return _adapterRoot;
@@ -51,10 +51,6 @@ function resolvePlatformFile(id, ...segments) {
   return getRegistryPaths().resolvePlatformFile(id, ...segments);
 }
 
-function resolveBackendFeedModule(id) {
-  return getRegistryPaths().resolveBackendFeedModule(id);
-}
-
 function resolveBackendRelayModule(id) {
   return getRegistryPaths().resolveBackendRelayModule(id);
 }
@@ -62,10 +58,6 @@ function resolveBackendRelayModule(id) {
 /** require(platform_adapter/{dir}/...) */
 function requirePlatform(id, ...segments) {
   return require(resolvePlatformFile(id, ...segments));
-}
-
-function requirePlatformFeed(id) {
-  return require(resolveBackendFeedModule(id));
 }
 
 function requirePlatformRelay(id) {
@@ -80,9 +72,7 @@ module.exports = {
   adapterRequire,
   getRegistryPaths,
   resolvePlatformFile,
-  resolveBackendFeedModule,
   resolveBackendRelayModule,
   requirePlatform,
-  requirePlatformFeed,
   requirePlatformRelay,
 };

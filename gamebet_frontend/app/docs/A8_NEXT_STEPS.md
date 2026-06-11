@@ -5,7 +5,19 @@
 
 文档索引：[README.md](./README.md)
 
-最后更新：2026-05-29
+最后更新：2026-06-11
+
+---
+
+## M1 — 架构冻结（2026-06）
+
+| 项 | 状态 |
+|----|------|
+| 删除 Node FeedHub / `ESPORT_BRIDGE` | ✅ |
+| 文档：客户端采集 + 服务端聚合 | ✅ |
+| [PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md) | ✅ |
+| 生产域名 + 首次 `db push` + 双进程部署 | **待做** |
+| 客户端连远程 API 登录 | **待做** |
 
 ---
 

@@ -14,7 +14,7 @@ export function setStakeTabIdCached(tabId: number | undefined) {
 }
 
 /** 对齐 bundle `XZe`：`getStore(Stake)` → `response.data[Stake]` */
-function parseStakeTabIdFromStore(response: unknown): number | undefined {
+export function parseStakeTabIdFromStore(response: unknown): number | undefined {
   if (typeof response === "number") return response;
   const root = response as { data?: Record<string, unknown>; response?: { data?: Record<string, unknown> } };
   const direct = root?.data?.[PLATFORMS.Stake];

@@ -25,12 +25,7 @@ syncObLiveTimer → API_SaveLiveTimer
 
 CollectConfig 关：仍 game/view + fo + MQTT；**不** saveMatch/saveBets。
 
-### 模式 D — Changmen 双轨（**当前 dev 默认**）
-
-```text
-比赛列表：Node ObFeed + ESPORT_BRIDGE → matches.json（可与浏览器 saveMatch 并存，parity 时关 bridge）
-赔率/id：  前端 loadMarketsForMatch → saveBets + fo（与 A8 saveBets/fo 一致）
-```
+**MQTT**：浏览器 **直连** OB 源站 wss（`mqttSession.ts`：试玩 login 解析 `addr.mqtt`，username = `Client_GetCollectPlatform` token）。不经 `/esport/ws/OB` relay。
 
 详见 [changmen/readme.md](../../../../../readme.md#项目共识)。
 
@@ -59,7 +54,7 @@ list.filter(row => games.includes(gid) && num(row.start_time) < horizon);
 | 常态 | `getCollectPlatform("OB")` → `Client_GetCollectPlatform`（`Gateway` + `Token`） |
 | 失效 | `game/index` 且 `data === "token"` → `refreshObCollectToken()`（直连 A8 同款试玩 URL，只写 `token`） |
 | HTTP | `ob/http.ts` → `directGet`（**Axios/XHR**，对齐 A8 `Rr.get`）直连 OB `gateway` |
-| MQTT | 固定 relay 账号，**不用** platform token |
+| MQTT | 浏览器直连源站 wss；`username` = platform `Token`（见 `mqttSession.ts`） |
 
 试玩 UI：`api/v4.ts` → `enterCreditPlate("OB")`（仅 `window.open(pc)`，不写采集配置）。
 

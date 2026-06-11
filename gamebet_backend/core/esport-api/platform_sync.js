@@ -1,7 +1,7 @@
 "use strict";
 
 const store = require("./store.js");
-const { getActivePlatformGameIds } = require("../shared/game_catalog.js");
+const { getActivePlatformGameIds } = require("../../../shared/catalog/game_catalog.js");
 const { requirePlatform } = require("../shared/adapter_paths.js");
 
 const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");
@@ -330,16 +330,10 @@ function syncHgFromSession(session) {
   return true;
 }
 
-async function ensurePlatformCredentials(hub) {
+async function ensurePlatformCredentials() {
   store.ensureSeed();
   let obSynced = false;
-  const obFeed = hub?.platforms?.find((p) => p.id === "OB")?.instance;
-  if (obFeed?.session?.gateway) {
-    obSynced = syncObFromSession(obFeed.session);
-  }
-  if (!obSynced) {
-    obSynced = syncObFromStore();
-  }
+  obSynced = syncObFromStore();
   if (!obSynced) {
     try {
       await syncObLogin();
@@ -351,28 +345,16 @@ async function ensurePlatformCredentials(hub) {
 
   let raySynced = syncRayFromA8();
   if (!raySynced) {
-    const rayFeed = hub?.platforms?.find((p) => p.id === "RAY")?.instance;
-    if (rayFeed?.session?.gateway) {
-      raySynced = syncRayFromSession(rayFeed.session);
-    }
-  }
-  if (!raySynced) {
     raySynced = syncRayFromEnv();
   }
 
   let pbSynced = false;
-  const pbFeed = hub?.platforms?.find((p) => p.id === "PB")?.instance;
-  if (pbFeed?.session?.gateway) {
-    pbSynced = syncPbFromSession(pbFeed.session);
-  }
-  if (!pbSynced) {
-    try {
-      const { tryLoadSession } = requirePlatform("PB", "backend", "session.js");
-      const session = tryLoadSession();
-      if (session) pbSynced = syncPbFromSession(session);
-    } catch (err) {
-      console.warn("[platform-sync] PB platforms.json load failed:", err.message);
-    }
+  try {
+    const { tryLoadSession } = requirePlatform("PB", "backend", "session.js");
+    const session = tryLoadSession();
+    if (session) pbSynced = syncPbFromSession(session);
+  } catch (err) {
+    console.warn("[platform-sync] PB platforms.json load failed:", err.message);
   }
   if (!pbSynced) {
     pbSynced = syncPbFromEnv();
@@ -380,32 +362,12 @@ async function ensurePlatformCredentials(hub) {
 
   let tfSynced = await syncTfFromA8();
   if (!tfSynced) {
-    const tfFeed = hub?.platforms?.find((p) => p.id === "TF")?.instance;
-    if (tfFeed?.session?.gateway) {
-      tfSynced = syncTfFromSession(tfFeed.session);
-    }
-  }
-  if (!tfSynced) {
     tfSynced = syncTfFromEnv();
   }
 
-  let iaSynced = false;
-  const iaFeed = hub?.platforms?.find((p) => p.id === "IA")?.instance;
-  if (iaFeed?.session?.gateway) {
-    iaSynced = syncIaFromSession(iaFeed.session);
-  }
-  if (!iaSynced) {
-    iaSynced = syncIaFromEnv() || syncIaFromA8Defaults();
-  }
+  let iaSynced = syncIaFromEnv() || syncIaFromA8Defaults();
 
-  let imtSynced = false;
-  const imtFeed = hub?.platforms?.find((p) => p.id === "IMT")?.instance;
-  if (imtFeed?.session?.gateway) {
-    imtSynced = syncImtFromSession(imtFeed.session);
-  }
-  if (!imtSynced) {
-    imtSynced = syncImtFromEnv();
-  }
+  let imtSynced = syncImtFromEnv();
 
   const imSynced = syncImFromEnv();
   const xbetSynced = syncXbetFromEnv();

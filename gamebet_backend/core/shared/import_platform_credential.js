@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { parseClipboardCredential } = require("../account/clipboard_credential.js");
-const { getActivePlatformGameIds } = require("./game_catalog.js");
+const { getActivePlatformGameIds } = require("../../../shared/catalog/game_catalog.js");
 
 const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
 

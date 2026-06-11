@@ -9,7 +9,7 @@
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │ ① 本系统 API     api/ + types/       →  gamebet_backend /esport、/v4.0 │
-│ ② 比赛列表       后端 FeedHub + bridge → matches.json（非前端主责）   │
+│ ② 比赛列表       matcher → client_matches（浏览器 saveMatch 上报）   │
 │ ③ 赔率上报       platforms/{平台}/collect.ts → SaveBet（+ fo）        │
 │ ④ 平台下注       platforms/{平台}/bet.ts  →  场馆 gateway + 账号 token │
 │ ⑤ UI 编排        stores/ + views/ + components/                      │
@@ -39,7 +39,7 @@
 |------|------|------|------|
 | OB / IM / RAY / TF / IA / SABA / PB / IMT / HG | ✓ | ✓ | |
 | XBet | ✓ | — | A8 Socket 频道，无 provider |
-| Stake | ✓ | ✓* | *仅 A8 插件，provider 为占位 |
+| Stake | ✓ | ✓* | *`pluginOnly`：需 Chrome 扩展 + stake.com tab；`stakeProvider` 已实现 GraphQL 下单 |
 
 `ALL_PLATFORMS`、`PLATFORMS` 均从 registry 导出；新增平台时只改 `PLATFORM_REGISTRY` 一处，并注册 `runtime/collectors.ts` 与 `runtime/providers.ts`。
 
@@ -53,8 +53,6 @@
 
 ```
 各平台 feed (gamebet_backend/platforms/*)
-         ──► FeedHub 快照
-         ──► feed_bridge（ESPORT_BRIDGE=1）
          ──► store.saveMatches → matches.json
          ──► Client_GetMatchs
          ──► matchStore（前端只读列表）

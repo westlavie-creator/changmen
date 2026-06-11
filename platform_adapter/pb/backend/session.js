@@ -1,17 +1,19 @@
-"use strict";
+﻿"use strict";
 
 const fs = require("fs");
 const path = require("path");
 const { ESPORT_DATA_DIR } = require("./_require.js").reqB("core/shared/storage_paths.js");
 const store = require("./_require.js").reqB("core/esport-api/store.js");
-const { getActivePlatformGameIds } = require("./_require.js").reqB("core/shared/game_catalog.js");
+const { getActivePlatformGameIds } = require("./_require.js").reqS("catalog/game_catalog.js");
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 
-const DEFAULT_ODDS_QUERY =
-  "sportId=12&isLive=true&isHlE=false&oddsType=1&version=0" +
+const EURO_ODDS_QUERY_BASE =
+  "sportId=12&isHlE=false&oddsType=1&version=0" +
   "&language=zh-cn&isHomePage=&leagueCode=&eventType=0&eSportCode=" +
   "&periodNum=0%2C1%2C2%2C3%2C4%2C5%2C6%2C7&participant=&locale=zh_CN";
+
+const DEFAULT_ODDS_QUERY = `${EURO_ODDS_QUERY_BASE}&isLive=true`;
 
 function detectPbSessionSuffix(appData, outer) {
   for (const key of Object.keys(appData || {})) {
@@ -148,10 +150,36 @@ function tryLoadSession() {
   }
 }
 
-function oddsUrl(session) {
+function oddsUrl(session, isLive = true) {
   const base = `${session.gateway}/sports-service/sv/euro/odds`;
   const ts = Date.now();
-  return `${base}?${DEFAULT_ODDS_QUERY}&timeStamp=${ts}&_=${ts}&withCredentials=true`;
+  return `${base}?${EURO_ODDS_QUERY_BASE}&isLive=${isLive}&timeStamp=${ts}&_=${ts}&withCredentials=true`;
+}
+
+function mergeEuroOddsPayloads(...payloads) {
+  const leagueByKey = new Map();
+  const eventByLeague = new Map();
+
+  for (const payload of payloads) {
+    for (const league of payload?.leagues || []) {
+      const leagueKey = String(league.id ?? `${league.gameCode}:${league.name}`);
+      if (!leagueByKey.has(leagueKey)) {
+        leagueByKey.set(leagueKey, { ...league, events: [] });
+        eventByLeague.set(leagueKey, new Map());
+      }
+      const events = eventByLeague.get(leagueKey);
+      for (const event of league.events || []) {
+        events.set(String(event.id), event);
+      }
+    }
+  }
+
+  return {
+    leagues: [...leagueByKey.entries()].map(([key, league]) => ({
+      ...league,
+      events: [...(eventByLeague.get(key)?.values() || [])],
+    })),
+  };
 }
 
 function balanceUrl(session) {
@@ -184,7 +212,11 @@ async function pbFetch(session, url, options = {}) {
 }
 
 async function fetchEuroOdds(session) {
-  return pbFetch(session, oddsUrl(session));
+  const [liveData, prematchData] = await Promise.all([
+    pbFetch(session, oddsUrl(session, true)),
+    pbFetch(session, oddsUrl(session, false)),
+  ]);
+  return mergeEuroOddsPayloads(liveData, prematchData);
 }
 
 async function fetchBalance(session, options = {}) {

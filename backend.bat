@@ -1,22 +1,21 @@
 @echo off
-REM Backend only (port 3456). Builds /app/ unless SKIP_APP_BUILD=1
-setlocal
+setlocal EnableDelayedExpansion
+chcp 65001 >nul 2>&1
 
-set "PORT=3456"
+set "_P=3456"
 set "A8_AUTH=0"
-set "ESPORT_BRIDGE=1"
 cd /d "%~dp0gamebet_backend"
 
 echo.
 echo ========================================
-echo   Gamebet Backend - port %PORT%
+echo   Gamebet Backend - port !_P!
 echo ========================================
-echo   App : http://localhost:%PORT%/app/
-echo   Feed: http://localhost:%PORT%/feed/
+echo   App : http://localhost:!_P!/app/
+echo   Collect: browser /app/ only
 echo.
 
-echo [1/2] Stop old process on port %PORT% ...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%PORT%" ^| findstr "LISTENING"') do (
+echo [1/2] Stop old process on port !_P! ...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":!_P!" ^| findstr "LISTENING"') do (
   if not "%%a"=="0" taskkill /F /PID %%a >nul 2>&1
 )
 ping 127.0.0.1 -n 3 >nul

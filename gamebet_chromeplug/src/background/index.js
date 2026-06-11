@@ -1,13 +1,16 @@
 /**
  * Gamebet Chrome 扩展 — Service Worker
  * 对齐 A8 externally_connectable 消息协议（changmen pluginBridge.ts）
+ * 存储仅用 chrome.storage.local（Electron loadExtension 无 sync）
  */
+import "./electron-storage-polyfill.js";
 import {
   initModifyHeaderListener,
   MODIFY_HEADER_KEY,
   applyModifyHeaderRules,
 } from "./modify-header.js";
 import { axiosRequest } from "./http.js";
+import { storageGet, storageSet } from "./storage.js";
 
 const MANIFEST = chrome.runtime.getManifest();
 
@@ -83,14 +86,14 @@ async function handleExternalMessage(message, reply, sender) {
         reply({ type, uuid, response: { data: {} } });
         return;
       }
-      const data = await chrome.storage.sync.get(key);
+      const data = await storageGet(key);
       reply({ type, uuid, response: { data } });
       return;
     }
     case "setStore": {
       const payload = message.data;
       if (payload?.key != null) {
-        await chrome.storage.sync.set({ [payload.key]: payload.data });
+        await storageSet({ [payload.key]: payload.data });
         if (payload.key === MODIFY_HEADER_KEY) {
           await applyModifyHeaderRules(payload.data ?? []);
         }
@@ -102,7 +105,7 @@ async function handleExternalMessage(message, reply, sender) {
       const tabId = sender?.tab?.id;
       const payload = message.data;
       if (tabId && payload?.key) {
-        await chrome.storage.sync.set({ [payload.key]: tabId });
+        await storageSet({ [payload.key]: tabId });
         reply({ type, uuid, response: { ...payload, tabId } });
         return;
       }
@@ -129,7 +132,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: false, type: message.type, uuid: message.uuid, response: "No tabId or key" });
     return true;
   }
-  chrome.storage.sync.set({ [key]: tabId }).then(() => {
+  storageSet({ [key]: tabId }).then(() => {
     sendResponse({
       success: true,
       type: message.type,

@@ -25,6 +25,15 @@ function betKeyFromChild(child: Record<string, unknown>): string {
   return `${prefix}${child.name ?? ""}`;
 }
 
+function pickIaTeamId(row: Record<string, unknown>, side: "home" | "away"): string {
+  const raw =
+    side === "home"
+      ? row.team_id_1 ?? row.team_a_id ?? row.home_id ?? row.home_team_id
+      : row.team_id_2 ?? row.team_b_id ?? row.away_id ?? row.away_team_id;
+  if (raw == null) return "";
+  return String(raw).trim();
+}
+
 /** A8 CQe：IA GET — 经后端代理转发（IA 源站不返回 CORS 头） */
 async function collectIaGet<T>(platform: CollectPlatformInfo, path: string): Promise<T> {
   if (!platform.Gateway) {
@@ -61,8 +70,7 @@ export function startIaCollector(): () => void {
 
   const collect = useCollectStore();
 
-  // Electron packaged：IPC → IaRelayCore（主进程直连 IA，注入 Origin header）
-  // Web / Electron dev：Socket.IO 透明隧道 /esport/ws/IA
+  // IA：浏览器直连 A8 聚合 wss://47.115.75.57/esport/ws/IA
   realtime = createIaRealtimeClient();
   void realtime.start(handleIaRealtimeMessage);
 
@@ -97,20 +105,24 @@ export function startIaCollector(): () => void {
 
         const matchPayload: CollectMatchDto[] = [];
         for (const row of list) {
-          const homeName =
+          const homeName = String(
             row.team_name_1 ||
             row.team_a_name ||
             row.home_team_name ||
             row.home_name ||
             row.team1_name ||
-            "主队";
-          const awayName =
+            "主队",
+          ).trim();
+          const awayName = String(
             row.team_name_2 ||
             row.team_b_name ||
             row.away_team_name ||
             row.away_name ||
             row.team2_name ||
-            "客队";
+            "客队",
+          ).trim();
+          const homeId = pickIaTeamId(row, "home");
+          const awayId = pickIaTeamId(row, "away");
 
           matchPayload.push({
             Type: PLATFORM,
@@ -118,23 +130,23 @@ export function startIaCollector(): () => void {
             SourceGameID: row.game_type_id as string | number,
             BO: Number(row.bo || row.best_of || 0) || 0,
             StartTime: parseStartTime(row.start_time || row.begin_time || row.game_start_time),
-            Home: String(homeName),
-            HomeID: String(row.team_a_id || row.home_id || ""),
-            Away: String(awayName),
-            AwayID: String(row.team_b_id || row.away_id || ""),
+            Home: homeName,
+            HomeID: homeId,
+            Away: awayName,
+            AwayID: awayId,
             Teams: [
               {
                 Type: PLATFORM,
                 GameID: row.game_type_id as string | number,
-                Name: String(homeName),
-                TeamID: String(row.team_a_id || row.home_id || ""),
+                Name: homeName,
+                TeamID: homeId,
                 Logo: "",
               },
               {
                 Type: PLATFORM,
                 GameID: row.game_type_id as string | number,
-                Name: String(awayName),
-                TeamID: String(row.team_b_id || row.away_id || ""),
+                Name: awayName,
+                TeamID: awayId,
                 Logo: "",
               },
             ],

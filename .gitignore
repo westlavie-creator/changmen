@@ -36,6 +36,7 @@ gamebet_backend/data/*.db-wal
 .env
 .env.*
 !.env.example
+gamebet_matcher/.matcher-heartbeat.json
 
 # Gamebet extension signing key (public key is in gamebet_chromeplug/manifest.json)
 gamebet_chromeplug/key.pem

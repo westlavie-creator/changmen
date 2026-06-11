@@ -1,27 +1,48 @@
 @echo off
-REM A8 parity: ESPORT_BRIDGE=0, ENABLE_OB=0, browser collect
-setlocal
+setlocal EnableDelayedExpansion
+chcp 65001 >nul 2>&1
+title GameBet Parity Dev (mode P)
 
-set "ROOT=%~dp0"
-set "BACKEND_PORT=3456"
-set "APP_PORT=5174"
+set "_D=%~dp0"
+set "_P=3456"
+set "_V=5174"
 
 echo.
 echo ========================================
 echo   Gamebet Parity Dev (mode P)
 echo ========================================
-echo   ESPORT_BRIDGE=0  ENABLE_OB=0  SKIP_APP_BUILD=1
-echo   Vite: http://localhost:%APP_PORT%/app/
-echo   API:  http://localhost:%BACKEND_PORT%/
+echo   SKIP_APP_BUILD=1
+echo   Vite : http://localhost:!_V!/app/
+echo   API  : http://localhost:!_P!/
+echo.
+echo   A8 parity: browser saveMatch/saveBets + plugin (PB/Stake)
+echo   Before PB/Stake: cd gamebet_chromeplug ^&^& npm run build
+echo   Chrome: load unpacked extension from gamebet_chromeplug
 echo.
 
-start "Gamebet Backend parity %BACKEND_PORT%" cmd /k "cd /d "%ROOT%" && set ESPORT_BRIDGE=0&& set ENABLE_OB=0&& set SKIP_APP_BUILD=1&& call backend.bat"
+where npm >nul 2>&1
+if errorlevel 1 (
+  echo ERROR: npm not found.
+  pause
+  exit /b 1
+)
+
+echo [1/3] Starting backend (parity)...
+start "GameBet-Backend-Parity" cmd /k "cd /d %~dp0 && set SKIP_APP_BUILD=1&& call backend.bat"
+
 ping 127.0.0.1 -n 2 >nul
-start "Gamebet Vite %APP_PORT%" cmd /k "cd /d "%ROOT%" && call dev-vite.bat"
+
+echo [2/3] Starting Vite frontend...
+start "GameBet-Vite" cmd /k "cd /d %~dp0 && call dev-vite.bat"
+
+ping 127.0.0.1 -n 3 >nul
+
+echo [3/3] Starting matcher (rebuild client_matches)...
+start "GameBet-Matcher" cmd /k "cd /d %~dp0 && call npm run matcher:loop"
 
 echo.
-echo [OK] Started Backend (parity) and Vite windows.
+echo [OK] Mode P started. Matcher writes client_matches; UI reads Client_GetMatchs only.
+echo      Optional: npm run matcher:ui  (人工关联 http://localhost:4567)
 echo.
-ping 127.0.0.1 -n 6 >nul
 
 endlocal

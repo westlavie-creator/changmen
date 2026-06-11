@@ -1,13 +1,13 @@
 # 账号模块（对齐 A8 `Io()` / `uv`）
 
-本地复刻 A8 控制台「平台账号」能力：标签平台、Player 元数据、ACCOUNT KV 持久化、充提流水、余额上报。
+对标 A8 控制台「平台账号」能力：标签平台、Player 元数据、ACCOUNT KV 持久化、充提流水、余额上报（服务端 API，非单机本地存储）。
 
 ## 架构
 
 ```text
 控制台 Vue (AccountView / AccountInfoView)
     ↕ Client_* API
-scripts/esport-api/router.js
+core/esport-api/router.js
     ↕
 scripts/account/account_service.js
     ├─ account_store.js     tag_platforms / players / money_logs / player_orders

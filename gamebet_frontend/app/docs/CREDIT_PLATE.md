@@ -69,7 +69,7 @@ OB / SABA 为试玩分支，不走上述 v4 登录。
 
 ### Backend
 
-`gamebet_backend/esport-api/v4_router.js` 只做 **POST/GET 转发** 到 `A8_V4_URL`（默认 `https://api.a8.to/v4.0`）。`user/account/login` 的 body 由服务端用 `a8_constants.js` 账号重写后转发。
+`gamebet_backend/core/esport-api/v4_router.js` 只做 **POST/GET 转发** 到 `A8_V4_URL`（默认 `https://api.a8.to/v4.0`）。`user/account/login` 的 body 由服务端用 `a8_constants.js` 账号重写后转发。
 
 ## 辅助 API
 
