@@ -113,7 +113,7 @@ exit /b 0
 
 :fail_network
 echo.
-echo ERROR: deploy failed (SSH/SCP cannot reach %DEPLOY_HOST%).
+echo ERROR: deploy failed (SSH/SCP/script error on %DEPLOY_HOST%).
 echo.
 echo Checklist:
 echo   1. Aliyun console: is the VPS running? Try reboot.

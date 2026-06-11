@@ -32,8 +32,30 @@ if [ ! -d .git ]; then
   exit 1
 fi
 
+discard_deploy_drift() {
+  local p
+  for p in changmen/package-lock.json package-lock.json; do
+    if [ -e "$p" ] && ! git diff --quiet -- "$p" 2>/dev/null; then
+      log "discard local drift: $p"
+      git checkout -- "$p" 2>/dev/null || git restore -- "$p" 2>/dev/null || true
+    fi
+  done
+}
+
+pull_repo() {
+  discard_deploy_drift
+  if git pull --ff-only; then
+    return 0
+  fi
+  log "git pull failed, fetch and reset to origin (VPS should match remote)"
+  local branch
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+  git fetch origin
+  git reset --hard "origin/${branch}"
+}
+
 OLD_HEAD="$(git rev-parse HEAD)"
-git pull
+pull_repo
 NEW_HEAD="$(git rev-parse HEAD)"
 
 DO_INSTALL_ROOT=0
