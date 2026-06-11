@@ -56,6 +56,13 @@ Matcher 人工面板：
 | `A8_AUTH` | `0`（`backend.bat`） | 影响 A8 v4 等集成；登录走 Supabase（`.env` 中 `SUPABASE_*`） |
 | `SKIP_APP_BUILD` | 未设 | `1` 跳过 `/app/` 构建 |
 
+## 打包与部署
+
+| 脚本 | 作用 |
+|------|------|
+| **`pack-chromeplug.bat`** | 打包 Chrome 插件 zip → `dist/` |
+| **`deploy-server.bat`** | 本机 push 后，SSH 到 VPS：pull + build + pm2 重启 |
+
 生产部署：[../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md)
 
 ## URL

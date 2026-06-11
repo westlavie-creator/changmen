@@ -5,6 +5,7 @@
   "description": "Gamebet Chrome 扩展构建脚本",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "pack": "node scripts/pack.mjs",
     "icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {

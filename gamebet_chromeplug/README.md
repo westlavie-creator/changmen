@@ -57,8 +57,13 @@ gamebet_chromeplug/
 ```bash
 cd changmen/gamebet_chromeplug
 npm run build               # 打包 background.js、content.js、version.json
+npm run pack                # build + 生成 dist/gamebet-chromeplug-v*.zip（发给朋友）
 npm run icons               # 重新生成占位图标
 ```
+
+仓库根目录也可：`npm run chromeplug:pack`（输出在 `changmen/dist/`）。
+
+Windows 双击：`changmen/pack-chromeplug.bat`。
 
 前端启动时会调用 `initGamebetExtension()`（`pluginBridge.ts`），将扩展版本写入 `localStorage.extensionVersion`，侧边栏 `ExtensionsBadge` 会显示该版本。
 
@@ -69,7 +74,7 @@ npm run icons               # 重新生成占位图标
 | 项 | A8 官方 | gamebet_chromeplug |
 |----|---------|-------------------|
 | 扩展 ID | `phnhdoaolljdeohmagpngbijbjbiecde` | `mogfpjihgoghabicofkbcmcidlcoofee` |
-| 名称 | 电竞预测大师 | Gamebet 采集助手 |
+| 名称 | 电竞预测大师 | gamebet |
 | 协议 | 相同 | 相同（含 ModifyHeader / setStore） |
 
 可与 A8 官方插件**同时安装**，互不冲突。

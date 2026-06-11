@@ -28,6 +28,30 @@ const sbUrl  = process.env.SUPABASE_URL
 const sbKey  = process.env.SUPABASE_KEY
 const sbSvc  = process.env.SUPABASE_SERVICE_KEY
 
+function requireWsTransport() {
+  if (typeof globalThis.WebSocket !== 'undefined') return {}
+  try {
+    const ws = require(require.resolve('ws', {
+      paths: [
+        path.join(__dirname, '..', '..', 'gamebet_backend', 'node_modules'),
+        path.join(__dirname, '..', '..', 'node_modules'),
+      ],
+    }))
+    return { realtime: { transport: ws } }
+  } catch {
+    return {}
+  }
+}
+
+const supabaseClientOpts = {
+  auth: {
+    persistSession:   false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+  },
+  ...requireWsTransport(),
+}
+
 // 主客户端（anon key）— 用户鉴权 + 数据读写
 let supabase      = null
 
@@ -35,22 +59,10 @@ let supabase      = null
 let supabaseAdmin = null
 
 if (sbUrl && (sbKey || sbSvc)) {
-  supabase = createClient(sbUrl, sbKey || sbSvc, {
-    auth: {
-      persistSession:   false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  })
+  supabase = createClient(sbUrl, sbKey || sbSvc, supabaseClientOpts)
 
   if (sbSvc) {
-    supabaseAdmin = createClient(sbUrl, sbSvc, {
-      auth: {
-        persistSession:   false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    })
+    supabaseAdmin = createClient(sbUrl, sbSvc, supabaseClientOpts)
   }
 
   console.log('[db] Supabase 已连接')

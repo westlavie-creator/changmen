@@ -5,6 +5,7 @@ node_modules/
 # Build / cache
 dist/
 **/dist/
+deploy-server.env
 .vite/
 **/.vite/
 *.tsbuildinfo

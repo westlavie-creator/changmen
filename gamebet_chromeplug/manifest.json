@@ -1,12 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Gamebet 采集助手",
+  "name": "gamebet",
   "version": "1.2.3",
-  "description": "Gamebet 浏览器扩展：代发跨域 HTTP、平台凭证与采集（基于 A8 插件协议 fork）",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjMR64CZv/aTQQtInC3NZiOFRxfXmT5fPnKHCJdjHel34G4ZB6Vx72wm3fq5Zy7CgE2++6l92opM6agSTBAhabYBanVVIhgd/ycSlJMi0rDqxzfS06vnKywLdhSkKd3XRo5Dl9Y2t630UZObL6/LlEOLgU1KRkFmileWFAU4IjbZ8V5vtVRmRquvLHNF6bqykY1O1wdOoVgOfwlXOvGkmD/zouTBR6YaRmYHGPR4iGWgvAkUkTYR18m532hNQ/HeGVbFT5VopmUTR+yek2vn+UYLyqCAkRj7gG4PuYgOVfMDKyov+6cleLGUYUQTX4d2flzgvOzpNzHflbX7Adk8stwIDAQAB",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Gamebet 采集助手",
+    "default_title": "gamebet",
     "default_icon": {
       "16": "assets/icon.png",
       "48": "assets/icon.png",
