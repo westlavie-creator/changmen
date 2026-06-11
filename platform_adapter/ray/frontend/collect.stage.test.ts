@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { rayMatchStage } from "../shared/match_stage.js";
-import { groupRayOddsToSaveBets } from "../shared/save_bets.js";
+import { rayMatchStage } from "../shared/match_stage";
+import { groupRayOddsToSaveBets } from "../shared/save_bets";
 
 describe("RAY match_stage", () => {
   test("parses live API match_stage strings", () => {

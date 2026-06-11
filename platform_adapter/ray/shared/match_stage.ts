@@ -1,10 +1,8 @@
-"use strict";
-
-/** CJS 副本（Node 脚本 / ray/backend）；逻辑与 match_stage.ts 同步 */
-function rayMatchStage(matchStage) {
+/** RAY 源站 match_stage → Map（与 A8 l$、backend matchStageToId 一致） */
+export function rayMatchStage(matchStage: unknown): number {
   if (matchStage === "final") return 0;
   if (matchStage != null && typeof matchStage === "object" && "toNumber" in matchStage) {
-    const fn = matchStage.toNumber;
+    const fn = (matchStage as { toNumber?: () => number }).toNumber;
     if (typeof fn === "function") {
       const n = fn.call(matchStage);
       return Number.isFinite(n) ? n : 0;
@@ -18,5 +16,3 @@ function rayMatchStage(matchStage) {
   const n = Number(digits);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
-
-module.exports = { rayMatchStage };

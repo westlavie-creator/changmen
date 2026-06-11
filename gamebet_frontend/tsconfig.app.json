@@ -32,6 +32,7 @@
     "src/**/*.vue",
     "../platform_adapter/**/index.ts",
     "../platform_adapter/**/frontend/**/*.ts",
+    "../platform_adapter/ray/shared/**/*.ts",
     "../platform_adapter/shared/**/*.ts",
     "../platform_adapter/registry/**/*.ts",
     "../platform_adapter/contract/**/*.ts"

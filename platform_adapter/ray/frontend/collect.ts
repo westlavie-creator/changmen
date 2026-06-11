@@ -8,8 +8,8 @@ import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
-import { groupRayOddsToSaveBets } from "../shared/save_bets.js";
-import { rayMatchStage } from "../shared/match_stage.js";
+import { groupRayOddsToSaveBets, type RayOddsPayload } from "../shared/save_bets";
+import { rayMatchStage } from "../shared/match_stage";
 
 const PLATFORM = PLATFORMS.RAY;
 const POLL_MS = 30_000;
@@ -257,9 +257,5 @@ async function loadRayBets(
     });
   }
 
-  return groupRayOddsToSaveBets(
-    result as { id: string | number; team?: unknown[]; odds?: unknown[] },
-    betRe,
-    PLATFORM,
-  ) as CollectBetDto[];
+  return groupRayOddsToSaveBets(result as unknown as RayOddsPayload, betRe, PLATFORM) as CollectBetDto[];
 }

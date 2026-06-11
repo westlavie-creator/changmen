@@ -4,7 +4,7 @@ chcp 65001 >nul 2>&1
 title GameBet Parity Dev (mode P)
 
 set "_D=%~dp0"
-set "_P=3456"
+set "_P=3560"
 set "_V=5174"
 
 echo.

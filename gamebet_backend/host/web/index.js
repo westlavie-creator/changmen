@@ -29,7 +29,9 @@ const store = require("../../core/esport-api/store.js");
 const { createStaticHandler } = require("./static_files.js");
 const { createHttpHandler } = require("./http_routes.js");
 
-const PORT = Number(process.env.PORT || 3456);
+const PORT = Number(
+  process.env.PORT || (process.platform === "win32" ? 3560 : 3456),
+);
 const ESPORT_PROXY_ENABLED = process.env.ENABLE_ESPORT_PROXY !== "0";
 const PUBLIC_DIR = path.join(__dirname, "../../public");
 const CONSOLE_DIR = process.env.GAMEBET_CONSOLE_DIR || path.join(__dirname, "../../../gamebet_frontend/console");
@@ -116,6 +118,11 @@ server.listen(PORT, onListen);
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.warn(`[server] 端口 ${PORT} 已被占用，跳过启动（Electron 模式下将复用已有服务）`);
+  } else if (err.code === 'EACCES') {
+    console.error(
+      `[server] 端口 ${PORT} 无法监听（EACCES）。Windows Hyper-V 常保留 3426-3525；请设 PORT=3560 或运行 backend.bat`,
+    );
+    process.exit(1);
   } else {
     throw err;
   }

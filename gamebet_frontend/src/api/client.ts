@@ -67,11 +67,20 @@ export async function post<T>(
     });
     const text = await res.text();
     if (!res.ok) {
-      const hint = text ? `: ${text.slice(0, 160)}` : "";
-      if (res.status === 502 || res.status === 503) {
-        throw new Error(`后端未连接，请先运行 backend.bat 或 dev.bat${hint}`);
+      let serverMsg = "";
+      try {
+        const parsed = JSON.parse(text) as { msg?: string };
+        if (parsed?.msg) serverMsg = parsed.msg;
+      } catch {
+        /* 非 JSON 响应 */
       }
-      throw new Error(`${action} HTTP ${res.status}${hint}`);
+      const hint = text && !serverMsg ? `: ${text.slice(0, 160)}` : "";
+      if (res.status === 502 || res.status === 503 || (res.status === 500 && !serverMsg)) {
+        throw new Error(
+          `后端未连接或未就绪，请先运行 backend.bat 或 dev.bat（VPS 请等 pm2 重启后再试）${hint}`,
+        );
+      }
+      throw new Error(serverMsg || `${action} HTTP ${res.status}${hint}`);
     }
     let json: ApiEnvelope<T>;
     try {

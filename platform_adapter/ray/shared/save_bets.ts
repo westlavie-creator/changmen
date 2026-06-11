@@ -1,15 +1,38 @@
-"use strict";
+import { rayMatchStage } from "./match_stage";
 
-const { rayMatchStage } = require("./match_stage.js");
+export interface RayOddsPayload {
+  id?: string | number;
+  team?: Array<{ pos: number; team_id: string | number; team_name?: string }>;
+  odds?: Array<Record<string, unknown>>;
+}
 
-/** CJS 副本（Node 脚本 / ray/backend）；逻辑与 save_bets.ts 同步 */
-function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
+export interface RaySaveBetRow {
+  Type: string;
+  SourceMatchID: string | number;
+  SourceBetID: string;
+  Map: number;
+  BetName: string;
+  SourceHomeID: string;
+  HomeName: string;
+  HomeOdds: number;
+  SourceAwayID: string;
+  AwayName: string;
+  AwayOdds: number;
+  Status: string;
+}
+
+/** RAY v2/odds → A8 SaveBet 行（与 frontend/collect.ts loadRayBets 一致） */
+export function groupRayOddsToSaveBets(
+  result: RayOddsPayload,
+  betRe: RegExp,
+  platform = "RAY",
+): RaySaveBetRow[] {
   const teams = result?.team ?? [];
   const homeTeam = teams.find((t) => t.pos === 1);
   const awayTeam = teams.find((t) => t.pos === 2);
   if (!homeTeam || !awayTeam) return [];
 
-  const grouped = new Map();
+  const grouped = new Map<string, RaySaveBetRow>();
   for (const p of result?.odds ?? []) {
     const group = String(p.group_name ?? "");
     if (p.status === 4 || !betRe.test(group)) continue;
@@ -39,7 +62,7 @@ function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
 
     row = {
       Type: platform,
-      SourceMatchID: result.id,
+      SourceMatchID: result.id ?? "",
       SourceBetID: groupId,
       Map: stage,
       BetName: `${prefix} ${group}`,
@@ -56,5 +79,3 @@ function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
 
   return [...grouped.values()].sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
 }
-
-module.exports = { groupRayOddsToSaveBets };

@@ -3,12 +3,16 @@ import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath, URL } from "node:url";
 
-const API_TARGET = process.env.VITE_API_PROXY || "http://127.0.0.1:3456";
+// Windows Hyper-V 常保留 3426-3525，本地后端默认 3560；Linux/VPS 仍用 3456
+const DEV_API_PORT = process.platform === "win32" ? 3560 : 3456;
+const API_TARGET = process.env.VITE_API_PROXY || `http://127.0.0.1:${DEV_API_PORT}`;
 
 export default defineConfig({
   base: "/",
   plugins: [vue()],
   resolve: {
+    // platform_adapter 同目录常有 .ts（Vite）与 .js（Node CJS）并存，须优先 .ts
+    extensions: [".ts", ".tsx", ".mjs", ".js", ".jsx", ".json"],
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
       "@platform": fileURLToPath(new URL("../platform_adapter", import.meta.url)),

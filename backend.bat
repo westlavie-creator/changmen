@@ -2,7 +2,9 @@
 setlocal EnableDelayedExpansion
 chcp 65001 >nul 2>&1
 
-set "_P=3456"
+rem Windows Hyper-V 保留 3426-3525，本地勿用 3456（会 EACCES）
+set "_P=3560"
+set "PORT=3560"
 set "A8_AUTH=0"
 cd /d "%~dp0gamebet_backend"
 
