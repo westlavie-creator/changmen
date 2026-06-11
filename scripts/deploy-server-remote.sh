@@ -1,18 +1,32 @@
 #!/usr/bin/env bash
-# 在 VPS 上执行：git pull → 安装依赖 → 构建前端 → 重启 pm2
+# Piped from deploy-server.bat (bash -s) or run on VPS after git pull.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CHANGMEN="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO="$(cd "$CHANGMEN/.." && pwd)"
-
+ROOT="${DEPLOY_REPO:?DEPLOY_REPO is required}"
 PM2_WEB="${PM2_WEB:-gamebet-web}"
 PM2_MATCHER="${PM2_MATCHER:-gamebet-matcher}"
 
-echo "==> repo:    $REPO"
+if [ -f "$ROOT/changmen/package.json" ]; then
+  GIT_ROOT="$ROOT"
+  CHANGMEN="$ROOT/changmen"
+elif [ -f "$ROOT/package.json" ] && [ -d "$ROOT/gamebet_backend" ]; then
+  GIT_ROOT="$ROOT"
+  CHANGMEN="$ROOT"
+else
+  echo "ERROR: changmen not found under DEPLOY_REPO=$ROOT"
+  echo "Expected $ROOT/changmen or changmen files at repo root."
+  echo "Fix deploy-server.env DEPLOY_REPO, or clone the repo on the server first."
+  exit 1
+fi
+
+echo "==> git root: $GIT_ROOT"
 echo "==> changmen: $CHANGMEN"
 
-cd "$REPO"
+cd "$GIT_ROOT"
+if [ ! -d .git ]; then
+  echo "ERROR: $GIT_ROOT is not a git repo. Run git clone on the server first."
+  exit 1
+fi
 git pull
 
 cd "$CHANGMEN"

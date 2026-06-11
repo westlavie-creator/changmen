@@ -8,7 +8,7 @@ set "DEPLOY_REPO=/root/gamebet"
 if exist "%~dp0deploy-server.env" call "%~dp0deploy-server.env"
 
 set "REMOTE=%DEPLOY_USER%@%DEPLOY_HOST%"
-set "REMOTE_SCRIPT=%DEPLOY_REPO%/changmen/scripts/deploy-server-remote.sh"
+set "LOCAL_SCRIPT=%~dp0scripts\deploy-server-remote.sh"
 
 echo.
 echo ========================================
@@ -28,8 +28,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if not exist "%LOCAL_SCRIPT%" (
+  echo ERROR: missing %LOCAL_SCRIPT%
+  pause
+  exit /b 1
+)
+
 echo [1/1] ssh pull + build + pm2 restart ...
-ssh %REMOTE% "bash %REMOTE_SCRIPT%"
+ssh %REMOTE% "export DEPLOY_REPO=%DEPLOY_REPO% && bash -s" < "%LOCAL_SCRIPT%"
 if errorlevel 1 goto fail
 
 echo.
