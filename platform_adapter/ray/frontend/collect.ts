@@ -8,6 +8,8 @@ import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
+import { groupRayOddsToSaveBets } from "../shared/save_bets.js";
+import { rayMatchStage } from "../shared/match_stage.js";
 
 const PLATFORM = PLATFORMS.RAY;
 const POLL_MS = 30_000;
@@ -61,24 +63,7 @@ function rayNum(raw: unknown): number {
   return Number(raw) || 0;
 }
 
-/** 与 ray/backend/core.js `matchStageToId`、A8 `l$` 一致；源站为 `final` / `r1`… 字符串 */
-export function rayStage(matchStage: unknown): number {
-  if (matchStage === "final") return 0;
-  if (matchStage != null && typeof matchStage === "object" && "toNumber" in matchStage) {
-    const fn = (matchStage as { toNumber?: () => number }).toNumber;
-    if (typeof fn === "function") {
-      const n = fn.call(matchStage);
-      return Number.isFinite(n) ? n : 0;
-    }
-  }
-  const s = String(matchStage ?? "").trim().toLowerCase();
-  if (!s || s === "final") return 0;
-  const rPrefix = s.match(/^r(\d+)$/);
-  if (rPrefix) return Number(rPrefix[1]) || 0;
-  const digits = s.replace(/[^\d.-]/g, "");
-  const n = Number(digits);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
+export { rayMatchStage as rayStage };
 
 function rayLogo(path: string): string {
   if (!path) return "";
@@ -200,6 +185,11 @@ export function startRayCollector(): () => void {
         for (const row of list) {
           const matchId = row.id as string | number;
           const bets = await loadRayBets(platform, String(matchId), betRe);
+          if (bets.length) {
+            console.debug(
+              `[RAY] saveBets ${matchId} maps=${bets.map((b) => b.Map).join(",")}`,
+            );
+          }
           await collect.saveBets(PLATFORM, matchId, bets);
         }
       } catch (err) {
@@ -248,19 +238,13 @@ async function loadRayBets(
   const awayTeam = teams.find((t) => t.pos === 2);
   if (!homeTeam || !awayTeam) return [];
 
-  const grouped = new Map<string, CollectBetDto>();
   const oddsList = (result.odds ?? []) as Array<Record<string, unknown>>;
-
   const now = Date.now();
   for (const p of oddsList) {
     const group = String(p.group_name ?? "");
     if (p.status === 4 || !betRe.test(group)) continue;
-
     const oddsId = String(p.odds_id ?? "");
     const groupId = String(p.odds_group_id ?? "");
-    const stage = rayStage(p.match_stage);
-    const prefix = stage === 0 ? "[全场]" : `[地图${stage}]`;
-
     const isHome = String(p.team_id) === String(homeTeam.team_id);
     const isAway = String(p.team_id) === String(awayTeam.team_id);
     oddsStore.save(PLATFORM, {
@@ -271,38 +255,11 @@ async function loadRayBets(
       side: isHome ? "home" : isAway ? "away" : undefined,
       time: now,
     });
-
-    let row = grouped.get(groupId);
-
-    if (row) {
-      if (isHome) {
-        row.SourceHomeID = oddsId;
-        row.HomeName = String(p.name ?? "");
-        row.HomeOdds = Number(p.odds) || 0;
-      } else if (isAway) {
-        row.SourceAwayID = oddsId;
-        row.AwayName = String(p.name ?? "");
-        row.AwayOdds = Number(p.odds) || 0;
-      }
-      continue;
-    }
-
-    row = {
-      Type: PLATFORM,
-      SourceMatchID: result.id as string | number,
-      SourceBetID: groupId,
-      Map: stage,
-      BetName: `${prefix} ${group}`,
-      SourceHomeID: isHome ? oddsId : "",
-      HomeName: isHome ? String(p.name ?? "") : "",
-      HomeOdds: isHome ? Number(p.odds) || 0 : 0,
-      SourceAwayID: isAway ? oddsId : "",
-      AwayName: isAway ? String(p.name ?? "") : "",
-      AwayOdds: isAway ? Number(p.odds) || 0 : 0,
-      Status: p.status === 1 ? "Normal" : "Locked",
-    };
-    grouped.set(groupId, row);
   }
 
-  return [...grouped.values()];
+  return groupRayOddsToSaveBets(
+    result as { id: string | number; team?: unknown[]; odds?: unknown[] },
+    betRe,
+    PLATFORM,
+  ) as CollectBetDto[];
 }

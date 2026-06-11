@@ -35,16 +35,7 @@ function stageIdsForBo(bo) {
   return ids;
 }
 
-function matchStageToId(matchStage) {
-  const s = cleanText(matchStage).toLowerCase();
-  if (!s || s === "final") return 0;
-  const rPrefix = s.match(/^r(\d+)$/);
-  if (rPrefix) return numberOrZero(rPrefix[1]);
-  // 与 A8 一致：从字符串中提取数字（"r1"→1，"1"→1）
-  const digits = s.replace(/[^\d.-]/g, "");
-  const n = Number(digits);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
+const { rayMatchStage: matchStageToId } = require("../shared/match_stage.js");
 
 function stageLabel(stageId) {
   return stageId === 0 ? "全场" : `地图${stageId}`;
