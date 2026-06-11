@@ -344,11 +344,38 @@ function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet) {
   }
 }
 
-function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet) {
+function clientMatchRowToBuilt(cm) {
+  return {
+    ID: Number(cm.id),
+    MergeKey: cm.merge_key ? String(cm.merge_key) : null,
+    Title: String(cm.title || ""),
+    Game: String(cm.game || ""),
+    GameID: String(cm.game_id ?? ""),
+    StartTime: normalizeEpochMs(cm.start_time),
+    BO: Number(cm.bo) || 0,
+    Round: Number(cm.round) || 0,
+    RoundStart: Number(cm.round_start) || 0,
+    Matchs: { ...(cm.matchs || {}) },
+    Bets: Array.isArray(cm.bets) ? cm.bets : [],
+    Reverse: Array.isArray(cm.reverse) ? cm.reverse : [],
+  };
+}
+
+function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows) {
   const links = collectManualLinks(matches);
   if (!links.length) return mergedList;
 
   const targetById = new Map(mergedList.map((m) => [Number(m.ID), m]));
+  const linkedIds = new Set(links.map((l) => Number(l.match_id)));
+
+  // 仅预填本次链接目标 id：晚到平台挂到已有 client 行，保留原 id / merge_key
+  for (const cm of existingClientRows || []) {
+    const id = Number(cm.id);
+    if (!linkedIds.has(id) || !Number.isFinite(id) || targetById.has(id)) continue;
+    const seeded = clientMatchRowToBuilt(cm);
+    mergedList.push(seeded);
+    targetById.set(id, seeded);
+  }
 
   for (const row of mergedList) {
     for (const link of links) {
@@ -468,8 +495,18 @@ function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
   for (const entry of entries) {
     const ck = canonicalMatchKeyByIdOnly(entry.gameId, entry.home, entry.away, entry.gameCode, entry.ctx);
     if (!ck) continue;
-    idMatched.add(entry.rowKey);
-    addToKeyGroup(idGroups, ck.key, { row: entry.row, reversed: ck.reversed });
+    addToKeyGroup(idGroups, ck.key, {
+      row: entry.row,
+      reversed: ck.reversed,
+      rowKey: entry.rowKey,
+    });
+  }
+  // 仅当 ID 组达到最少平台数时才占用 idMatched；否则回退队名阶段，避免「ID 合并未成且无法队名合并」
+  for (const group of idGroups.values()) {
+    if (group.length < MIN_CLIENT_MATCH_PLATFORMS) continue;
+    for (const { rowKey } of group) {
+      if (rowKey) idMatched.add(rowKey);
+    }
   }
 
   // 第二阶段：未进入第一阶段的场次 → 按归一化队名合并
@@ -532,6 +569,7 @@ module.exports = {
   buildMatchListAccumulate,
   buildMatchListMerged,
   buildAccumulateRow,
+  clientMatchRowToBuilt,
   applyManualMatchLinks,
   collectManualLinks,
   normalizeMatchesShape,

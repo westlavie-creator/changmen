@@ -72,7 +72,7 @@ npm run web          # Web Host
 | 赔率 | 浏览器 `API_SaveBet` + 前端 `oddsStore` |
 | 平台凭证 | `platform_sync` 启动写入 `platforms.json` |
 
-**浏览器 MQTT relay 默认仍开**（`ENABLE_OB_MQTT_RELAY` 未设时）。见 [host/web/proxy/README.md](./host/web/proxy/README.md)。
+**本机 WS 网关默认关闭**（`ENABLE_ESPORT_PROXY=1` 才启动 `/esport/ws/*`）；主前端直连各平台。见 [host/web/proxy/README.md](./host/web/proxy/README.md)。
 
 ### HTTP API（节选）
 
@@ -87,10 +87,11 @@ npm run web          # Web Host
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `ENABLE_OB_MQTT_RELAY` | 开启 | 设为 `0` 关闭浏览器 OB MQTT relay |
-| `ENABLE_RAY` | 开启 | 设为 `0` 关闭 RAY WS relay |
-| `ENABLE_TF` | 关 | 设为 `1` 开启 TF WS relay |
-| `ENABLE_IA_RELAY` | 开启 | 设为 `0` 关闭 IA relay |
+| `ENABLE_ESPORT_PROXY` | 关 | 设为 `1` 开启本机 `/esport/ws/{OB,RAY,TF,IA}` 网关（遗留调试） |
+| `ENABLE_OB_MQTT_RELAY` | 开* | 网关开启时生效；设为 `0` 关闭 OB 路径 |
+| `ENABLE_RAY` | 开* | 网关开启时生效；设为 `0` 关闭 RAY 路径 |
+| `ENABLE_TF` | 关 | 网关开启时；设为 `1` 开启 TF 路径 |
+| `ENABLE_IA_RELAY` | 开* | 网关开启时生效；设为 `0` 关闭 IA 路径 |
 | `ENABLE_PB_NODE` | 关 | 设为 `1` 后 patch 禁用 bQ、Yn 改走 `/esport/pb/proxy` |
 | `OB_LOGIN_URL` | 见 OB 文档 | 覆盖 OB 登录地址 |
 | `PORT` | `3456` | HTTP 端口 |

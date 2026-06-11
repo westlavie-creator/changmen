@@ -18,6 +18,7 @@ const { formatOdds } = require("../../shared/odds_format");
 const sb = require("../../shared/db/supabase");
 const { backfillPlatformMatchIdsForIdMerges } = require("./backfill_platform_match_ids");
 const { autoRegisterTeams } = require("./auto_register_teams");
+const { alignUnmatchedToClientMatches } = require("./align_unmatched_to_client");
 
 let _pluginReady = null;
 
@@ -55,10 +56,11 @@ async function rebuildOnce() {
   await ensureTeamPlugin();
   await sb.initLastWrittenIds();
 
-  const [matchesRaw, bets, timers] = await Promise.all([
+  const [matchesRaw, bets, timers, clientRows] = await Promise.all([
     sb.fetchPlatformMatches(),
     sb.fetchPlatformBets(),
     sb.fetchLiveTimers(),
+    sb.fetchClientMatches(),
   ]);
 
   const teamReg = await autoRegisterTeams(matchesRaw);
@@ -69,12 +71,21 @@ async function rebuildOnce() {
 
   const matches = normalizeMatchesShape(matchesRaw);
 
+  const alignStats = clientRows?.length
+    ? alignUnmatchedToClientMatches(matches, clientRows)
+    : { alignedById: 0, alignedByName: 0 };
+  if (alignStats.alignedById || alignStats.alignedByName) {
+    console.log(
+      `[rebuild] 未匹配对齐 client_matches · ID ${alignStats.alignedById} · 队名+时间 ${alignStats.alignedByName}`,
+    );
+  }
+
   let info = buildClientMatchList({ matches, bets, timers, sourceFromBet });
 
   const client = sb.getServiceClient();
   if (!client) throw new Error("Supabase 未配置，无法 rebuild");
-  info = await resolveClientMatchIds(client, info);
-  info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet);
+  info = await resolveClientMatchIds(client, info, { matches });
+  info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows);
   info = filterMultiPlatformClientMatches(info);
 
   const now = Date.now();
@@ -98,7 +109,7 @@ async function rebuildOnce() {
 
   const matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(client, info);
 
-  return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg };
+  return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, alignStats };
 }
 
 module.exports = { rebuildOnce, ensureTeamPlugin, resetTeamPluginCache };

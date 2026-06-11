@@ -14,8 +14,8 @@
 
 | 变量 | 说明 |
 |------|------|
-| `ENABLE_ESPORT_PROXY` | 默认开启；设为 `0` 关闭 |
-| `ENABLE_OB_MQTT_RELAY` | 默认开启 `/esport/ws/OB`；设为 `0` 关闭 |
+| `ENABLE_ESPORT_PROXY` | **默认关闭**；设为 `1` 开启本机 `/esport/ws/*` 网关 |
+| `ENABLE_OB_MQTT_RELAY` | `ENABLE_ESPORT_PROXY=1` 时默认开启 `/esport/ws/OB`；设为 `0` 关闭 |
 | `OB_PROXY_MQTT_USER` / `OB_PROXY_MQTT_PASS` | 下游 MQTT 认证（默认 admin / Qazqaz123...） |
 | `OB_PROXY_ALLOW_ANY` | 设为 `1` 时跳过 MQTT 认证 |
 | `RAY_TOKEN` / `RAY_ORIGIN` | RAY 源站凭据 |
@@ -30,6 +30,6 @@ node proxy/ws_smoke_test.js
 
 ## 前端
 
-patch 后的 UI bundle 通过 `ws://127.0.0.1:3456/esport/ws/OB` 等连接本 relay；业务 API 走 `/esport/`。
+changmen Vue 主前端 **不经过** 本网关（OB/RAY/TF/IA 均浏览器直连源站或 A8 聚合机）。
 
-启动：`npm run web`（会先执行 `patch:ui`）。
+仅在使用旧 `/console/` bundle（`PATCH_CONSOLE=1` + `npm run patch:ui`）或 `ws_smoke_test.js` 时需要 `ENABLE_ESPORT_PROXY=1`。

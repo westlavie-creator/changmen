@@ -15,7 +15,7 @@ if (!fs.existsSync(path.join(__dirname, '../../core/esport-api/router.js'))) {
  *
  * 路由（默认入口 /）：
  *   /           新控制台（Vue 构建产物 gamebet_frontend/dist）
- *   /console/   旧 A8 bundle（需 PATCH_CONSOLE=1 或 npm run patch:ui）
+ *   /console/   旧 A8 bundle（可选，PATCH_CONSOLE=1；主流程不用）
  *   /matcher/   赛事匹配面板（gamebet_matcher/ui/public）
  */
 
@@ -32,7 +32,8 @@ const { createHttpHandler } = require("./http_routes.js");
 const PORT = Number(
   process.env.PORT || (process.platform === "win32" ? 3560 : 3456),
 );
-const ESPORT_PROXY_ENABLED = process.env.ENABLE_ESPORT_PROXY !== "0";
+/** 本机 /esport/ws/* 网关；主前端已直连各平台，默认关。调试旧 bundle 或冒烟时设 ENABLE_ESPORT_PROXY=1 */
+const ESPORT_PROXY_ENABLED = process.env.ENABLE_ESPORT_PROXY === "1";
 const PUBLIC_DIR = path.join(__dirname, "../../public");
 const CONSOLE_DIR = process.env.GAMEBET_CONSOLE_DIR || path.join(__dirname, "../../../gamebet_frontend/console");
 const WEB_DIR =
@@ -85,7 +86,7 @@ setTimeout(() => {
   ensurePlatformCredentials().catch(() => {});
 }, 20000);
 
-// WS relay 供 dev-web / 生产 Web Host 使用；采集在浏览器渲染进程直连各平台。
+// 可选 WS 网关（默认关）；浏览器采集与实时赔率均直连各平台源站。
 if (ESPORT_PROXY_ENABLED) {
   esportProxy = attachEsportProxy(server, {
     ob: process.env.ENABLE_OB_MQTT_RELAY !== "0",
