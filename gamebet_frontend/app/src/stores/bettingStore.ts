@@ -20,6 +20,7 @@ import { a8Tip } from "@/shared/a8Notify";
 import {
   betToastSeconds,
   incrementBetCount,
+  incrementGameBetCount,
   passesLastOddsGate,
   passesMaxBetCount,
   setLastBetOdds,
@@ -53,10 +54,12 @@ function markSuccessfulBet(
   betId: number,
   side: BetSide,
   odds: number,
+  gameName?: string,
 ) {
   markUsedAccount(account.accountId, betId, side);
   incrementBetCount(account.accountId, betId, side);
   setLastBetOdds(account.accountId, betId, side, odds);
+  if (gameName) incrementGameBetCount(account.accountId, gameName);
 }
 
 function rejectWaitSeconds(
@@ -129,9 +132,11 @@ function accountPassesMainBetFilter(
   match: ViewMatch,
   leg: BetOption,
   matchStore: ReturnType<typeof useMatchStore>,
+  implied?: number,
 ): boolean {
   if (account.isPause() || account.markupOnly) return false;
   if (!account.checkOdds(leg.odds, match.gameId)) return false;
+  if (!account.passesGameSettings(match.game, leg.odds, implied)) return false;
   if (!passesDefaultOddsAccount(account, bet.id, leg.target)) return false;
   if (!passesLastOddsGate(account, bet.id, leg.target, leg.odds)) return false;
   if (!passesMaxBetCount(account, bet.id, leg.target)) return false;
@@ -191,6 +196,8 @@ async function retryFailedLeg(
         (u) => {
           if (u.isPause() || tried.includes(u.provider)) return false;
           if (!u.checkOdds(odds, match.gameId)) return false;
+          const retryImplied = 1 / (1 / successLeg.odds + 1 / odds);
+          if (!u.passesGameSettings(match.game, odds, retryImplied)) return false;
           if (!passesDefaultOddsAccount(u, bet.id, failedLeg.target)) return false;
           if (!passesMaxBetCount(u, bet.id, failedLeg.target)) return false;
           const target = matchStore.getBetTarget(u.provider, bet.id);
@@ -318,19 +325,23 @@ export const useBettingStore = defineStore("betting", {
             let legA = options[0];
             let legB = options[1];
             const linkId = createBetLinkId();
+            const implied =
+              1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
 
             let accountA = accountStore.getAccount(
               legA.type,
               legA.betMoney,
               config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [],
-              (acc) => accountPassesMainBetFilter(acc, bet, match, legA, matchStore),
+              (acc) =>
+                accountPassesMainBetFilter(acc, bet, match, legA, matchStore, implied),
               options,
             );
             let accountB = accountStore.getAccount(
               legB.type,
               legB.betMoney,
               config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legB.target)) : [],
-              (acc) => accountPassesMainBetFilter(acc, bet, match, legB, matchStore),
+              (acc) =>
+                accountPassesMainBetFilter(acc, bet, match, legB, matchStore, implied),
               options,
             );
             if (!accountA || !accountB) continue;
@@ -543,10 +554,10 @@ export const useBettingStore = defineStore("betting", {
             }
 
             if (resultA?.success && !rejectA) {
-              markSuccessfulBet(accountA, bet.id, legA.target, legA.odds);
+              markSuccessfulBet(accountA, bet.id, legA.target, legA.odds, match.game);
             }
             if (resultB?.success && !rejectB) {
-              markSuccessfulBet(accountB, bet.id, legB.target, legB.odds);
+              markSuccessfulBet(accountB, bet.id, legB.target, legB.odds, match.game);
             }
 
             if (resultA?.success || resultB?.success) {
@@ -571,11 +582,7 @@ export const useBettingStore = defineStore("betting", {
       const accountStore = useAccountStore();
       const orderStore = useOrderStore();
       const configStore = useConfigStore();
-      const account = accountStore.getAccount(item.type, 0);
-      if (!account) {
-        ElMessageBox.alert(`没有找到 ${item.type} 对应的账号`, "提示");
-        return;
-      }
+      const matchStore = useMatchStore();
       let amount: number;
       try {
         const { value } = await ElMessageBox.prompt("请输入要投注的金额", "手动下单", {
@@ -591,7 +598,16 @@ export const useBettingStore = defineStore("betting", {
         return;
       }
 
+      const odds = item.getOdds(side);
       let option = new BetOption(match, bet, item, side, amount);
+      option.odds = odds;
+      const account = accountStore.getAccount(item.type, amount, [], (acc) =>
+        accountPassesMainBetFilter(acc, bet, match, option, matchStore),
+      );
+      if (!account) {
+        ElMessageBox.alert(`没有找到 ${item.type} 对应的可用账号`, "提示");
+        return;
+      }
       const toastSec = betToastSeconds(configStore.config, account.provider);
       option = await accountStore.checkBetting(account, option);
       if (!option.data) {
@@ -600,6 +616,7 @@ export const useBettingStore = defineStore("betting", {
       }
       const result = await accountStore.betting(account, option, toastSec);
       if (result?.success) {
+        markSuccessfulBet(account, bet.id, side, option.odds, match.game);
         this.setMessage(`手动下单成功 ${item.type}@${option.odds}`);
         void accountStore.refreshBalance(account);
         void orderStore.fetchOrders();
@@ -646,6 +663,7 @@ export const useBettingStore = defineStore("betting", {
               const odds = item.getOdds(order.target);
               if (acc.minOdds && odds < acc.minOdds) return false;
               if (acc.maxOdds && odds > acc.maxOdds) return false;
+              if (!acc.passesGameSettings(match.game, odds)) return false;
               if (!passesDefaultOddsAccount(acc, bet.id, order.target)) return false;
               if (!passesMaxBetCount(acc, bet.id, order.target)) return false;
               return true;
@@ -681,7 +699,7 @@ export const useBettingStore = defineStore("betting", {
 
           if (order.isCreateOrder) {
             removeIds.push(betId);
-            markSuccessfulBet(account, bet.id, order.target, checked.odds);
+            markSuccessfulBet(account, bet.id, order.target, checked.odds, match.game);
             this.setMessage(`补单成功 ${item.type}@${checked.odds}`);
             useMessageStore().loseOrderMessage(account, order, checked, false);
             continue;
@@ -694,7 +712,7 @@ export const useBettingStore = defineStore("betting", {
 
           if (waitSec === 0) {
             removeIds.push(betId);
-            markSuccessfulBet(account, bet.id, order.target, checked.odds);
+            markSuccessfulBet(account, bet.id, order.target, checked.odds, match.game);
             await saveOrderBind({
               orders: JSON.stringify([
                 { LinkID: order.linkId, Provider: result.provider, OrderID: String(Date.now()) },
@@ -715,7 +733,7 @@ export const useBettingStore = defineStore("betting", {
             useMessageStore().loseOrderMessage(account, order, checked, true);
           } else {
             removeIds.push(betId);
-            markSuccessfulBet(account, bet.id, order.target, checked.odds);
+            markSuccessfulBet(account, bet.id, order.target, checked.odds, match.game);
             await saveOrderBind({
               orders: JSON.stringify([
                 {

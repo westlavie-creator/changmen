@@ -1,6 +1,7 @@
 import type { AccountRecord, AccountCurrency } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
+import { readGameBetCount } from "@/shared/bettingSession";
 
 const DEFAULT_GAMES = ["英雄联盟", "DOTA2", "CS:GO", "王者荣耀", "无畏契约"];
 
@@ -108,6 +109,57 @@ export class PlatformAccount implements AccountRecord {
     return this.getMinOdds() <= odds && this.getMaxOdds() >= odds;
   }
 
+  /** 对齐 A8 `uv.isPause`：当前小时是否落在任一 workTimes 区间（格式 `9-18`） */
+  static isWithinWorkTimes(workTimes: string[] | undefined): boolean {
+    if (!workTimes?.length) return true;
+    const hour = new Date().getHours();
+    let inRange = false;
+    for (const slot of workTimes) {
+      const [startRaw, endRaw] = slot.split("-");
+      const start = Number(startRaw);
+      const end = Number(endRaw);
+      if (Number.isNaN(start) || Number.isNaN(end)) continue;
+      if (start <= hour && hour <= end) {
+        inRange = true;
+        break;
+      }
+    }
+    return inRange;
+  }
+
+  /** 账号游戏配置：赔率区间 `min-max` 列表 */
+  static passesGameOddsRanges(ranges: string[] | undefined, odds: number): boolean {
+    if (!ranges?.length) return true;
+    return ranges.some((raw) => {
+      const [lo, hi] = raw.split("-").map((x) => Number(x));
+      return !Number.isNaN(lo) && !Number.isNaN(hi) && lo <= odds && odds <= hi;
+    });
+  }
+
+  /** 该游戏最低利润要求：游戏级 > 账号级 > 全局默认 */
+  static profitFloorForGame(
+    account: PlatformAccount,
+    gameName: string | undefined,
+    configProfit: number,
+  ): number {
+    const gameProfit = gameName ? account.game?.[gameName]?.profit : 0;
+    if (gameProfit) return gameProfit;
+    if (account.profit) return account.profit;
+    return configProfit;
+  }
+
+  /** 对齐 A8 账号编辑「游戏配置」：利润 / 订单数 / 赔率区间 */
+  passesGameSettings(gameName: string, odds: number, implied?: number): boolean {
+    const row = this.game?.[gameName];
+    if (!row) return true;
+    if (row.profit && implied != null && implied < row.profit) return false;
+    if (row.betCount && readGameBetCount(this.accountId, gameName) >= row.betCount) {
+      return false;
+    }
+    if (!PlatformAccount.passesGameOddsRanges(row.odds, odds)) return false;
+    return true;
+  }
+
   isPause(): string | false {
     if (this.pause) return "手动设定账号暂停";
     if (this.maxOrder && this.todayOrder >= this.maxOrder) {
@@ -118,6 +170,9 @@ export class PlatformAccount implements AccountRecord {
     }
     if (this.maxWinBalance && this.winBalance && this.winBalance >= this.maxWinBalance) {
       return `盈利余额 ${this.winBalance}，超过设定 ${this.maxWinBalance}`;
+    }
+    if (this.workTimes?.length && !PlatformAccount.isWithinWorkTimes(this.workTimes)) {
+      return "不在工作时间";
     }
     return false;
   }

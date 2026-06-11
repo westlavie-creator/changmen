@@ -97,9 +97,13 @@ async function save() {
     minMoney: Number(form.minMoney) || 0,
     maxMoney: Number(form.maxMoney) || 0,
     minOdds: Number(form.minOdds) || 0,
+    maxOdds: Number(form.maxOdds) || 10,
+    betCount: Number(form.betCount) || 0,
+    betInterval: Number(form.betInterval) || 30,
     anyOddsProfit: Number(form.anyOddsProfit) || 0.95,
     providerSortValue: [...form.providerSortValue],
     providerFixed: [...form.providerFixed],
+    allowSameBet: [...form.allowSameBet],
     waitTime: { ...form.waitTime },
   });
   try {
@@ -220,12 +224,17 @@ async function save() {
 
       <el-form-item>
         <el-row>
-          <el-col :span="10">
+          <el-col :span="8">
             <el-form-item label="最低赔率" :label-width="LABEL_W">
               <el-input v-model="form.minOdds" autocomplete="off" />
             </el-form-item>
           </el-col>
-          <el-col :span="14">
+          <el-col :span="8">
+            <el-form-item label="最高赔率" :label-width="LABEL_W">
+              <el-input v-model="form.maxOdds" autocomplete="off" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
             <el-form-item label="检测超时" :label-width="LABEL_W">
               <el-input v-model="form.checkTimeout" autocomplete="off">
                 <template #append>ms</template>
@@ -289,6 +298,19 @@ async function save() {
                 size="large"
               />
             </el-col>
+            <el-col v-if="form.noSameBet" :span="24">
+              <el-form-item label="允许同场馆:">
+                <el-select
+                  v-model="form.allowSameBet"
+                  multiple
+                  collapse-tags
+                  placeholder="noSameBet 时仍参与选腿的平台"
+                  style="width: 100%"
+                >
+                  <el-option v-for="p in ALL_PLATFORMS" :key="p" :label="p" :value="p" />
+                </el-select>
+              </el-form-item>
+            </el-col>
             <el-col :span="8">
               <el-tooltip
                 effect="dark"
@@ -337,6 +359,17 @@ async function save() {
             </el-form-item>
           </el-col>
         </el-row>
+        <el-form-item label="固定平台优先:">
+          <el-select
+            v-model="form.providerFixed"
+            multiple
+            collapse-tags
+            placeholder="选中的平台在选腿时优先"
+            style="width: 100%"
+          >
+            <el-option v-for="p in ALL_PLATFORMS" :key="`fixed-${p}`" :label="p" :value="p" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <TransitionGroup name="drag" tag="div" class="provider-sort">
             <div

@@ -1,5 +1,5 @@
 import type { BetSide, ViewBet, ViewBetItem } from "@/models/match";
-import type { PlatformAccount } from "@/models/platformAccount";
+import { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 
@@ -21,6 +21,7 @@ export function pickArbLegs(
   config: UserConfig,
   providerKeys: PlatformId[],
   accounts: PlatformAccount[] = [],
+  gameName?: string,
 ): ArbLegs | undefined {
   if (!config) return undefined;
 
@@ -34,11 +35,9 @@ export function pickArbLegs(
     ) {
       return false;
     }
-    return (
-      v.getOdds("Home") >= config.minOdds &&
-      v.getOdds("Home") > 0 &&
-      providerKeys.includes(v.type)
-    );
+    const homeOdds = v.getOdds("Home");
+    if (config.maxOdds && homeOdds > config.maxOdds) return false;
+    return homeOdds >= config.minOdds && homeOdds > 0 && providerKeys.includes(v.type);
   });
   const homeItem = homeCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
     const odds = cur.getOdds("Home");
@@ -55,11 +54,9 @@ export function pickArbLegs(
     ) {
       return false;
     }
-    return (
-      v.getOdds("Away") >= config.minOdds &&
-      v.getOdds("Away") > 0 &&
-      providerKeys.includes(v.type)
-    );
+    const awayOdds = v.getOdds("Away");
+    if (config.maxOdds && awayOdds > config.maxOdds) return false;
+    return awayOdds >= config.minOdds && awayOdds > 0 && providerKeys.includes(v.type);
   });
   const awayItem = awayCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
     const odds = cur.getOdds("Away");
@@ -76,11 +73,15 @@ export function pickArbLegs(
   let targetProfit = config.profit;
   const profitOverrides = accounts.filter(
     (a) =>
-      a.profit !== 0 &&
+      (a.profit !== 0 || !!(gameName && a.game?.[gameName]?.profit)) &&
       (a.provider === homeItem.type || a.provider === awayItem.type),
   );
   if (profitOverrides.length) {
-    targetProfit = Math.max(...profitOverrides.map((a) => Number(a.profit)));
+    targetProfit = Math.max(
+      ...profitOverrides.map((a) =>
+        PlatformAccount.profitFloorForGame(a, gameName, config.profit),
+      ),
+    );
   }
   if (implied < targetProfit || implied > config.maxProfit) return undefined;
 

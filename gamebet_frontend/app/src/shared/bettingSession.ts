@@ -10,6 +10,7 @@ export function betToastSeconds(config: UserConfig, provider: string): number {
 }
 
 const BET_COUNT_PREFIX = "BETCOUNT:";
+const GAME_BET_COUNT_PREFIX = "GAMEBETCOUNT:";
 
 /** 对齐 bundle `B` / `$`：成功下单后记录赔率，lastOdds 开启时拒重复低赔 */
 const lastOddsByKey = new Map<string, number>();
@@ -70,4 +71,19 @@ export function passesMaxBetCount(
 ): boolean {
   if (!account.maxBetCount) return true;
   return readBetCount(account.accountId, betId, side) < account.maxBetCount;
+}
+
+/** 对齐 A8 账号游戏配置「订单数」：按账号 + 游戏名累计成功下注次数 */
+export function readGameBetCount(accountId: number, gameName: string): number {
+  try {
+    const raw = sessionStorage.getItem(`${GAME_BET_COUNT_PREFIX}${accountId}:${gameName}`);
+    return raw ? Number(raw) || 0 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function incrementGameBetCount(accountId: number, gameName: string): void {
+  const key = `${GAME_BET_COUNT_PREFIX}${accountId}:${gameName}`;
+  sessionStorage.setItem(key, String(readGameBetCount(accountId, gameName) + 1));
 }

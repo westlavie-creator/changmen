@@ -296,13 +296,19 @@ export const useAccountStore = defineStore("account", {
       if (!candidates.length) return undefined;
       if (candidates.length === 1) return candidates[0];
 
-      if (options?.length === 2 && candidates.some((a) => a.profit !== 0)) {
+      const gameName = options?.[0]?.match?.game;
+      const configProfit = useConfigStore().config.profit;
+      if (options?.length === 2 && candidates.some((a) => a.profit !== 0 || !!(gameName && a.game?.[gameName]?.profit))) {
         const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
         const sorted = candidates
-          .filter((a) => a.profit === 0 || a.profit >= implied)
+          .filter((a) => {
+            if (!a.profit && !(gameName && a.game?.[gameName]?.profit)) return true;
+            const floor = PlatformAccount.profitFloorForGame(a, gameName, configProfit);
+            return implied >= floor;
+          })
           .sort((a, b) => {
-            const av = a.profit === 0 ? useConfigStore().config.profit : a.profit;
-            const bv = b.profit === 0 ? useConfigStore().config.profit : b.profit;
+            const av = PlatformAccount.profitFloorForGame(a, gameName, configProfit);
+            const bv = PlatformAccount.profitFloorForGame(b, gameName, configProfit);
             return av - bv;
           });
         if (sorted.length) return sorted[0];

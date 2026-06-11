@@ -99,7 +99,7 @@ export class ViewBet {
     providerKeys: PlatformId[],
     accounts: PlatformAccount[] = [],
   ): BetOption[] | undefined {
-    const legs = pickArbLegs(this, config, providerKeys, accounts);
+    const legs = pickArbLegs(this, config, providerKeys, accounts, match.game);
     if (!legs) return undefined;
 
     const { homeItem, awayItem, homeOdds, awayOdds } = legs;

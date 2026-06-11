@@ -61,6 +61,7 @@ const arbLegs = computed(() => {
     configStore.config,
     providerKeys,
     accountStore.accounts,
+    props.match.game,
   );
 });
 
