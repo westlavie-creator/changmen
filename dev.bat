@@ -38,7 +38,7 @@ start "GameBet-Matcher" cmd /k "cd /d %~dp0 && call npm run matcher:loop"
 
 echo.
 echo [OK] Started. Open http://localhost:!_V!/ in Chrome with extension loaded.
-echo      Optional: npm run matcher:ui  (人工关联 http://localhost:4567)
+echo      Matcher UI: http://localhost:!_P!/matcher/  (or standalone :4567 via npm run matcher:ui)
 echo.
 
 endlocal

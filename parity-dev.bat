@@ -42,7 +42,7 @@ start "GameBet-Matcher" cmd /k "cd /d %~dp0 && call npm run matcher:loop"
 
 echo.
 echo [OK] Mode P started. Matcher writes client_matches; UI reads Client_GetMatchs only.
-echo      Optional: npm run matcher:ui  (人工关联 http://localhost:4567)
+echo      Matcher UI: http://localhost:!_P!/matcher/  (or standalone :4567 via npm run matcher:ui)
 echo.
 
 endlocal

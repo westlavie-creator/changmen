@@ -35,7 +35,7 @@ Matcher 人工面板：
 | **`matcher-ui.bat`** 或 **`gamebet_matcher/start.bat`** | 双击 / 命令行启动 |
 | `npm run matcher:ui` | 同上（在 `changmen/` 下） |
 
-→ http://localhost:4567
+→ http://localhost:3456/matcher/（主站集成）或 http://localhost:4567（`matcher:ui` 独立）
 
 ## `scripts/` 维护工具
 

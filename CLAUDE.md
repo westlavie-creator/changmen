@@ -42,7 +42,7 @@ dev.bat                   # backend + Vite 5174 + matcher（推荐）
 dev-web.bat               # 同 dev.bat（别名）
 setup-dev-env.bat         # 首次：复制 gamebet_backend/.env
 backend.bat               # 仅 Web 后端
-npm run matcher:ui        # 可选：人工关联 http://localhost:4567
+npm run matcher:ui        # 可选：独立 matcher UI http://localhost:4567（主站已集成 /matcher/）
 ```
 
 **不要同时启动两套 `npm run web`**（均占 3456）。
@@ -108,13 +108,13 @@ npm run test:adapter            # packaged adapter layout 模拟
 changmen/
 ├── shared/               无进程归属的共享模块（db/supabase、game_catalog、market_catalog、im_parse、match_time）
 ├── platform_adapter/     各平台 frontend/backend + registry（canonical 源码）
-├── gamebet_matcher/        赛事匹配：rebuild 循环 + 人工关联 Web（:4567）
+├── gamebet_matcher/        赛事匹配：rebuild 循环 + 人工关联 Web
 │   ├── matcher.js          30s rebuild 循环入口
 │   ├── engine/             跨平台合并（match_merge / teams / client_match_ids）
 │   ├── lib/                env、supabase、game_ui、heartbeat
 │   ├── ops/                rebuild、backfill、auto_register、delete/merge
 │   ├── link/               人工关联 API 逻辑
-│   └── ui/                 Express :4567 + public 静态页
+│   └── ui/                 public 静态页；API 共享模块；可选独立 Express :4567
 ├── gamebet_backend/      Node.js CommonJS, port 3456
 │   ├── host/
 │   │   └── web/              Web Host（node host/web/index.js）

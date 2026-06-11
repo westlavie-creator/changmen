@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GameBet 队伍映射</title>
+  <script src="matcher_config.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
@@ -329,7 +330,7 @@
     <div class="header-sub">以脚本推荐赛事为队列 · 确认后写入队伍 ID 映射 · 后续由 matcher 自动合并</div>
   </div>
   <div class="header-right">
-    <a class="btn btn-sm btn-ghost" href="/canvas.html" style="text-decoration:none">画布视图</a>
+    <a class="btn btn-sm btn-ghost" href="canvas.html" style="text-decoration:none">画布视图</a>
     <span class="matcher-status off" id="matcher-status">
       <span class="matcher-dot"></span>
       <span class="matcher-label">检测中…</span>
@@ -716,6 +717,9 @@ function renderStats(d, displayCms) {
 }
 
 async function fetchJson(url, options) {
+  if (typeof url === 'string' && url.startsWith('/api')) {
+    url = (window.MATCHER_API || '/api') + url.slice(4);
+  }
   const res = await fetch(url, options);
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {

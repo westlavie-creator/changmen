@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GameBet 匹配画布</title>
+  <script src="matcher_config.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -408,8 +409,8 @@
     <div class="header-sub">三层横向：平台比赛 → 已匹配赛事 → 平台队伍</div>
   </div>
   <div class="header-right">
-    <a class="nav-link" href="/">列表视图</a>
-    <a class="nav-link active" href="/canvas.html">画布视图</a>
+    <a class="nav-link" href="index.html">列表视图</a>
+    <a class="nav-link active" href="canvas.html">画布视图</a>
     <span class="updated-at" id="updated-at">—</span>
     <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
   </div>
@@ -1886,6 +1887,9 @@ function bindMatchLinkDrag() {
 }
 
 async function fetchJson(url) {
+  if (typeof url === 'string' && url.startsWith('/api')) {
+    url = (window.MATCHER_API || '/api') + url.slice(4);
+  }
   const res = await fetch(url);
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {

@@ -11,8 +11,15 @@ function contentType(filePath) {
   return "application/octet-stream";
 }
 
-function createStaticHandler({ publicDir, consoleDir, webDir }) {
+function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir }) {
   function resolveStaticRoot(urlPath) {
+    if (matcherDir && (urlPath === "/matcher" || urlPath.startsWith("/matcher/"))) {
+      const fileRel =
+        urlPath === "/matcher" || urlPath === "/matcher/"
+          ? "/index.html"
+          : urlPath.slice("/matcher".length) || "/index.html";
+      return { rootDir: matcherDir, fileRel: fileRel === "/" ? "/index.html" : fileRel, spa: false };
+    }
     if (urlPath === "/console" || urlPath.startsWith("/console/")) {
       const fileRel =
         urlPath === "/console"
@@ -87,7 +94,7 @@ function createStaticHandler({ publicDir, consoleDir, webDir }) {
       });
     };
 
-    sendFile(filePath, urlPath.startsWith("/console") || spa);
+    sendFile(filePath, urlPath.startsWith("/console") || urlPath.startsWith("/matcher") || spa);
   }
 
   return serveStatic;
