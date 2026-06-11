@@ -13,6 +13,9 @@ vi.mock("@/stores/oddsStore", () => ({
 function makeBet(sources: BetRowDto["Sources"]) {
   const row: BetRowDto = {
     ID: 1,
+    MatchID: 100,
+    HomeID: 1,
+    AwayID: 2,
     HomeName: "A",
     AwayName: "B",
     Name: "",
