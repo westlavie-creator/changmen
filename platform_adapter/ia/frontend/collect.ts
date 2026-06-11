@@ -1,3 +1,4 @@
+import { hasA8PluginRuntime } from "@/extension/bridge";
 import { getCollectPlatform, getGames } from "@/api/esport";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import type { CollectPlatformInfo } from "@/types/esport";
@@ -8,6 +9,7 @@ import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { handleIaRealtimeMessage } from "./messages";
 import { createIaRealtimeClient, type IaRealtimeClient } from "./realtime";
+import { IA_PLUGIN_REQUIRED_MSG, iaCollectGet, iaCollectPost } from "./transport";
 
 const PLATFORM = PLATFORMS.IA;
 const POLL_MS = 30_000;
@@ -34,39 +36,10 @@ function pickIaTeamId(row: Record<string, unknown>, side: "home" | "away"): stri
   return String(raw).trim();
 }
 
-/** A8 CQe：IA GET — 经后端代理转发（IA 源站不返回 CORS 头） */
-async function collectIaGet<T>(platform: CollectPlatformInfo, path: string): Promise<T> {
-  if (!platform.Gateway) {
-    throw new Error("IA collect platform not configured");
-  }
-  const apiPath = path.startsWith("/") ? path : `/${path}`;
-  const res = await fetch(`/esport/ia/proxy?path=${encodeURIComponent(apiPath)}`);
-  if (!res.ok) throw new Error(`IA GET ${apiPath} HTTP ${res.status}`);
-  return res.json() as Promise<T>;
-}
-
-/** A8 CQe：IA POST — 经后端代理转发 */
-async function collectIaPost<T>(
-  platform: CollectPlatformInfo,
-  path: string,
-  body: Record<string, unknown>,
-): Promise<T> {
-  if (!platform.Gateway) {
-    throw new Error("IA collect platform not configured");
-  }
-  const apiPath = path.startsWith("/") ? path : `/${path}`;
-  const res = await fetch(`/esport/ia/proxy?path=${encodeURIComponent(apiPath)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`IA POST ${apiPath} HTTP ${res.status}`);
-  return res.json() as Promise<T>;
-}
-
 export function startIaCollector(): () => void {
   let stopped = false;
   let realtime: IaRealtimeClient | null = null;
+  let pluginMissingNotified = false;
 
   const collect = useCollectStore();
 
@@ -86,12 +59,22 @@ export function startIaCollector(): () => void {
           continue;
         }
 
+        if (!hasA8PluginRuntime()) {
+          if (!pluginMissingNotified) {
+            notifyCollectError("IA", IA_PLUGIN_REQUIRED_MSG);
+            pluginMissingNotified = true;
+          }
+          await wait(POLL_MS);
+          continue;
+        }
+        pluginMissingNotified = false;
+
         const games = await getGames(PLATFORM);
         const betRe = new RegExp(
           platform.BetName || "([全场].+获胜$)|([地图\\d].+获胜者$)",
         );
 
-        const listRes = await collectIaGet<{ code?: number; data?: { data?: Array<Record<string, unknown>> } }>(
+        const listRes = await iaCollectGet<{ code?: number; data?: { data?: Array<Record<string, unknown>> } }>(
           platform,
           "/api/game/game/gameListPageSplit/",
         );
@@ -187,7 +170,7 @@ async function loadIaBets(
   betRe: RegExp,
 ): Promise<CollectBetDto[]> {
   const oddsStore = useOddsStore();
-  const res = await collectIaPost<{ code?: number; data?: { plays?: Array<Record<string, unknown>> } }>(
+  const res = await iaCollectPost<{ code?: number; data?: { plays?: Array<Record<string, unknown>> } }>(
     platform,
     "/api/game/game/getPointsListSplit",
     { game_id: matchId, lang: 1 },
