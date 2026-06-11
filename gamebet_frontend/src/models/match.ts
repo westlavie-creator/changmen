@@ -24,13 +24,13 @@ export class ViewBetItem {
     this.betId = source.BetID;
     this.homeId = source.HomeID;
     this.awayId = source.AwayID;
-    // 对齐 A8 `BQ`：OB 不用 GetMatchs 快照当初值，只信 fo + updateOdds
-    if (source.Type === PLATFORMS.OB) {
-      this.fallbackHomeOdds = 0;
-      this.fallbackAwayOdds = 0;
-    } else {
+    // 对齐 A8 `FQ`：仅 HG 用 GetMatchs 快照作 fo fallback 初值；其余平台只信 fo
+    if (source.Type === PLATFORMS.HG) {
       this.fallbackHomeOdds = Number(source.HomeOdds) || 0;
       this.fallbackAwayOdds = Number(source.AwayOdds) || 0;
+    } else {
+      this.fallbackHomeOdds = 0;
+      this.fallbackAwayOdds = 0;
     }
   }
 
