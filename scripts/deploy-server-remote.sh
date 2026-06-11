@@ -121,6 +121,9 @@ else
   while IFS= read -r path; do
     [ -n "$path" ] && classify "$path"
   done < <(git diff --name-only "$OLD_HEAD" "$NEW_HEAD")
+  # Node 进程不会自动 reload 磁盘上新代码；只要 pull 到新 commit 就重启 matcher
+  DO_PM2_MATCHER=1
+  log "new commits pulled — always restart $PM2_MATCHER"
 fi
 
 if [ "$DEPLOY_SKIP_APP_BUILD" = "1" ]; then
