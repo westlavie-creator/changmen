@@ -5,8 +5,9 @@ require("../lib/env");
 const express = require("express");
 const { getMatcherSupabase } = require("../lib/supabase");
 const { registerMatcherApiRoutes } = require("./api_routes");
+const { registerMatcherLoginRoute, createMatcherAuthMiddleware } = require("./matcher_auth");
 
-let cachedApp = null;
+const cachedApps = new Map();
 
 function assertIconvLite() {
   try {
@@ -20,8 +21,8 @@ function assertIconvLite() {
   }
 }
 
-function createMatcherApiApp() {
-  if (cachedApp) return cachedApp;
+function createMatcherApiApp({ cookiePath = "/" } = {}) {
+  if (cachedApps.has(cookiePath)) return cachedApps.get(cookiePath);
 
   assertIconvLite();
 
@@ -32,6 +33,8 @@ function createMatcherApiApp() {
 
   const app = express();
   app.use(express.json());
+  registerMatcherLoginRoute(app, { cookiePath });
+  app.use(createMatcherAuthMiddleware());
   if (supabase) registerMatcherApiRoutes(app, supabase);
   app.use((err, req, res, _next) => {
     console.error("[matcher] request error:", err.message);
@@ -40,7 +43,7 @@ function createMatcherApiApp() {
     }
   });
 
-  cachedApp = app;
+  cachedApps.set(cookiePath, app);
   return app;
 }
 

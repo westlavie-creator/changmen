@@ -21,7 +21,7 @@ function tryHandleMatcherApi(req, res) {
 
   let app;
   try {
-    app = createMatcherApiApp();
+    app = createMatcherApiApp({ cookiePath: "/matcher" });
   } catch (err) {
     res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ ok: false, error: err.message }));

@@ -1891,6 +1891,10 @@ async function fetchJson(url) {
     url = (window.MATCHER_API || '/api') + url.slice(4);
   }
   const res = await fetch(url);
+  if (res.status === 401) {
+    window.location.href = 'login.html';
+    throw new Error('需要登录');
+  }
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {
     const text = await res.text();
