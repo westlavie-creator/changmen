@@ -230,7 +230,7 @@ function obSavedBetIsMatchWinner(bet, gameCode) {
   return obMatchesOddTypeId({ odd_type_id }, rules, gameCode, round) === true;
 }
 
-/** feed_bridge / 历史 platform_bets 仅有 BetName、无 GroupName 时的获胜盘形态 */
+/** A8 SaveBet：RAY 将源站 group_name 编入 BetName（如 [全场] 获胜者） */
 function rayLegacyWinBetName(betName) {
   return (
     /^(全场胜负|全场)$/.test(betName) ||
@@ -239,24 +239,12 @@ function rayLegacyWinBetName(betName) {
   );
 }
 
-/** RAY match_winner：认 GroupName；无 group_name 时对历史 BetName 做受控回退 */
+/** RAY match_winner：认 SaveBet BetName（A8 无独立 GroupName 字段） */
 function raySavedBetIsMatchWinner(bet) {
   const rules = getPlatformRules("RAY", getDefaultMarketCode());
-  if (!rules?.betName) return false;
-  const re = compilePattern(rules.betName);
-
-  const group_name = cleanText(bet?.GroupName ?? bet?.group_name);
-  if (group_name) {
-    if (!re?.test(group_name)) return false;
-    for (const bad of rules.betKeyExcludeContains || []) {
-      if (group_name.includes(bad)) return false;
-    }
-    return true;
-  }
-
   const betName = cleanText(bet?.BetName ?? bet?.Name);
   if (!betName || !rayLegacyWinBetName(betName)) return false;
-  for (const bad of rules.betKeyExcludeContains || []) {
+  for (const bad of rules?.betKeyExcludeContains || []) {
     if (betName.includes(bad)) return false;
   }
   return true;
@@ -264,7 +252,7 @@ function raySavedBetIsMatchWinner(bet) {
 
 /**
  * Filter stored API_SaveBet rows for Client_GetMatchs (A8 仅展示 match_winner 主盘).
- * OB：odd_type_id + gameCode；RAY：GroupName（无 group_name 时仅认 feed/采集约定的 BetName 形态）。
+ * OB：odd_type_id + gameCode；RAY：BetName 形态（与 A8 saveBets 一致）。
  */
 function matchesSavedBet(platform, bet, ctx = {}) {
   if (!bet) return false;

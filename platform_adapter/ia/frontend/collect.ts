@@ -91,7 +91,6 @@ export function startIaCollector(): () => void {
 
         const shouldSave = Date.now() - lastSaveAt > SAVE_MS;
         const matchPayload: CollectMatchDto[] = [];
-        const betsByMatch = new Map<string, CollectBetDto[]>();
 
         for (const row of list) {
           if (stopped) break;
@@ -143,20 +142,13 @@ export function startIaCollector(): () => void {
             ],
           });
 
-          const bets = await loadIaBets(platform, matchId, betRe);
-          if (bets.length) betsByMatch.set(matchId, bets);
+          await loadIaBets(platform, matchId, betRe);
           matchCount += 1;
         }
 
         if (shouldSave && matchPayload.length) {
           const saved = await collect.saveMatch(PLATFORM, matchPayload);
-          if (saved) {
-            for (const [matchId, bets] of betsByMatch) {
-              if (stopped) break;
-              await collect.saveBets(PLATFORM, matchId, bets);
-            }
-            lastSaveAt = Date.now();
-          }
+          if (saved) lastSaveAt = Date.now();
         }
       } catch (err) {
         console.warn("[IA] collect error", err);

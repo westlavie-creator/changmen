@@ -138,26 +138,19 @@ function saveMatches(provider, matchs) {
   sb.writePlatformMatches(provider, Object.values(next));
 }
 
-const { normalizeImBet } = require("../../../shared/im_parse.js");
-
-function mergeBetsByMap(existing, incoming) {
-  const byMap = new Map();
-  for (const b of existing || []) {
-    if (String(b.BetName ?? "").includes("+")) continue;
-    byMap.set(Number(b.Map ?? 0), formatBetOdds(b));
-  }
-  for (const b of incoming || []) {
-    if (String(b.BetName ?? "").includes("+")) continue;
-    byMap.set(Number(b.Map ?? 0), formatBetOdds(b));
-  }
-  return [...byMap.values()].sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
+/** [A8 可证实] 客户端每次 saveBets 上报该场完整盘口快照，服务端整包替换（非按 Map 增量合并） */
+function normalizeSaveBetRows(bets) {
+  return (bets || [])
+    .filter((b) => b && b.SourceBetID != null && !String(b.BetName ?? "").includes("+"))
+    .map(formatBetOdds)
+    .sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
 }
 
 function saveBets(provider, matchId, bets) {
   const key = `${provider}:${matchId}`;
   const existing = _bets[key]?.bets || [];
   const raw = Array.isArray(bets) ? bets : [];
-  const incoming = provider === "IM" ? raw.map(normalizeImBet) : raw;
+  const incoming = normalizeSaveBetRows(raw);
   const sb = require("../../../shared/db/supabase.js");
   if (incoming.length === 0) {
     // [A8 可证实] 空数组 saveBets 不覆盖内存已有盘口；Supabase 刷新 updated_at 避免 matcher 空窗
@@ -168,9 +161,8 @@ function saveBets(provider, matchId, bets) {
     _bets[key] = { provider, matchId: String(matchId), bets: [], savedAt: Date.now() };
     return;
   }
-  const merged = mergeBetsByMap(existing, incoming);
-  _bets[key] = { provider, matchId: String(matchId), bets: merged, savedAt: Date.now() };
-  sb.writePlatformBets(provider, matchId, merged);
+  _bets[key] = { provider, matchId: String(matchId), bets: incoming, savedAt: Date.now() };
+  sb.replacePlatformBetsForMatch(provider, matchId, incoming);
 }
 
 function saveLiveTimer(provider, timer) {

@@ -15,17 +15,13 @@ const { filterImStoredWinBets, dedupeImBetsByMap } = require("./im_enrich");
 
 const OB_WIN_BET_RE =
   /(\[全场\].+获胜)|(\[地图\d+\].+获胜)|(.+全局.+获胜)|(.+单局.+获胜)/;
-const RAY_WIN_GROUP = /^获胜者$/;
-
 function winBetPriority(bet, provider, gameCode) {
   const name = String(bet?.BetName ?? bet?.Name ?? "");
-  const group = String(bet?.GroupName ?? bet?.group_name ?? "");
   if (name.includes("+")) return 0;
   if (provider === "OB" && gameCode && obSavedBetIsMatchWinner(bet, gameCode)) return 200;
-  if (provider === "RAY" && (RAY_WIN_GROUP.test(group) || rayLegacyWinBetName(name))) return 100;
+  if (provider === "RAY" && rayLegacyWinBetName(name)) return 100;
   if (provider === "OB" && OB_WIN_BET_RE.test(name)) return 100;
   if (bet?.OddTypeID || bet?.odd_type_id) return 90;
-  if (RAY_WIN_GROUP.test(group)) return 90;
   return 0;
 }
 

@@ -267,7 +267,7 @@ async function fetchPlatformBets() {
   if (!client) return {}
   const { data, error } = await client
     .from('platform_bets')
-    .select('platform,source_bet_id,source_match_id,map,bet_name,group_name,source_home_id,source_away_id,home_odds,away_odds,is_locked')
+    .select('platform,source_bet_id,source_match_id,map,bet_name,source_home_id,source_away_id,home_odds,away_odds,is_locked')
   if (error || !data?.length) return {}
   const byKey = {}
   for (const r of data) {
@@ -276,7 +276,6 @@ async function fetchPlatformBets() {
     byKey[key].bets.push({
       SourceBetID:  r.source_bet_id,
       BetName:      r.bet_name ?? '',
-      GroupName:    r.group_name ?? '',
       Map:          r.map ?? 0,
       SourceHomeID: r.source_home_id ?? '',
       SourceAwayID: r.source_away_id ?? '',
@@ -310,11 +309,10 @@ async function fetchLiveTimers() {
 
 // ── platform_bets ─────────────────────────────────────────────────────
 
-/** fire-and-forget：upsert 平台盘口赔率（只保最新） */
-function writePlatformBets(provider, matchId, bets) {
-  if (!Array.isArray(bets) || !bets.length) return
+/** SaveBet 12 字段 → platform_bets 行（A8 协议无 group_name） */
+function mapSaveBetRows(provider, matchId, bets) {
   const now = Date.now()
-  const rawRows = bets
+  const rawRows = (bets || [])
     .filter((b) => b && b.SourceBetID != null && !String(b.BetName ?? '').includes('+'))
     .map((b) => ({
       platform:        String(provider),
@@ -322,7 +320,6 @@ function writePlatformBets(provider, matchId, bets) {
       source_match_id: String(matchId),
       map:             Number(b.Map ?? 0),
       bet_name:        String(b.BetName || ''),
-      group_name:      String(b.GroupName ?? b.group_name ?? '') || null,
       source_home_id:  String(b.SourceHomeID ?? b.source_home_id ?? '') || null,
       source_away_id:  String(b.SourceAwayID ?? b.source_away_id ?? '') || null,
       home_odds:       Number(b.HomeOdds) || 0,
@@ -330,11 +327,36 @@ function writePlatformBets(provider, matchId, bets) {
       is_locked:       b.Status !== 'Normal',
       updated_at:      now,
     }))
-  if (!rawRows.length) return
   const seen = new Map()
   for (const row of rawRows) seen.set(`${row.source_match_id}:${row.source_bet_id}`, row)
-  const rows = [...seen.values()]
+  return [...seen.values()]
+}
+
+/** fire-and-forget：upsert 平台盘口赔率（空数组刷新 updated_at 时用） */
+function writePlatformBets(provider, matchId, bets) {
+  const rows = mapSaveBetRows(provider, matchId, bets)
+  if (!rows.length) return
   _write(async (client) => {
+    const { error } = await client
+      .from('platform_bets')
+      .upsert(rows, { onConflict: 'platform,source_match_id,source_bet_id' })
+    if (error) throw error
+  }, 'platform_bets')
+}
+
+/** [A8 可证实] 每场 saveBets 为完整快照：先删该场旧行再 upsert */
+function replacePlatformBetsForMatch(provider, matchId, bets) {
+  const rows = mapSaveBetRows(provider, matchId, bets)
+  if (!rows.length) return
+  const plat = String(provider)
+  const mid = String(matchId)
+  _write(async (client) => {
+    const { error: delErr } = await client
+      .from('platform_bets')
+      .delete()
+      .eq('platform', plat)
+      .eq('source_match_id', mid)
+    if (delErr) throw delErr
     const { error } = await client
       .from('platform_bets')
       .upsert(rows, { onConflict: 'platform,source_match_id,source_bet_id' })
@@ -525,6 +547,7 @@ module.exports = {
   fetchLiveTimers,
   writePlatformMatches,
   writePlatformBets,
+  replacePlatformBetsForMatch,
   writeLiveTimers,
   // orders
   fetchOrdersByDate,

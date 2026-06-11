@@ -218,8 +218,7 @@ export function startTfCollector(): () => void {
               String((row.away as Record<string, unknown>)?.team_name ?? ""),
             ];
 
-            const bets = await loadTfBets(platform, matchId, betRe, teamNames);
-            if (bets.length) await collect.saveBets(PLATFORM, matchId, bets);
+            await loadTfBets(platform, matchId, betRe, teamNames);
             matchCount += 1;
           }),
         );

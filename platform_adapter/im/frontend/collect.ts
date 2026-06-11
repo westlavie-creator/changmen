@@ -8,5 +8,6 @@ export function startImCollector(): () => void {
     channel: "IM",
     homeSuffix: "1",
     awaySuffix: "2",
+    reportToServer: false,
   });
 }

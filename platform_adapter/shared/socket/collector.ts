@@ -15,6 +15,8 @@ export function startA8BetsCollector(opts: {
   homeSuffix: string;
   awaySuffix: string;
   useDirectIds?: boolean;
+  /** [A8 可证实] IM/XBet 频道只写 fo，不调 API_SaveBet */
+  reportToServer?: boolean;
   extraChannels?: Array<{ channel: string; onMessage: (msg: unknown) => void }>;
 }): () => void {
   let stopped = false;
@@ -41,10 +43,12 @@ export function startA8BetsCollector(opts: {
     }
   })();
 
+  const reportToServer = opts.reportToServer !== false;
+
   const poll = async () => {
     while (!stopped) {
       try {
-        if (Date.now() - lastSaveAt > SAVE_MS) {
+        if (reportToServer && Date.now() - lastSaveAt > SAVE_MS) {
           const { matches, betsByMatch } = acc.buildPayload();
           if (matches.length) {
             const saved = await collect.saveMatch(opts.platform, matches);

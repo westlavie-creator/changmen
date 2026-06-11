@@ -10,6 +10,7 @@ export function startXbetCollector(): () => void {
     channel: "XBet",
     homeSuffix: "1",
     awaySuffix: "3",
+    reportToServer: false,
     extraChannels: [
       {
         channel: "XBet:Score",
