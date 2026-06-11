@@ -200,6 +200,25 @@ function removeAccountForUser(userId, accountId) { return dbStore.removeAccountF
 
 // ── match list ────────────────────────────────────────────────────────────────
 
+let _dbTimersCache = null;
+let _dbTimersCacheAt = 0;
+const DB_TIMERS_CACHE_MS = 10_000;
+
+async function fetchDbTimersCached() {
+  const now = Date.now();
+  if (_dbTimersCache && now - _dbTimersCacheAt < DB_TIMERS_CACHE_MS) {
+    return _dbTimersCache;
+  }
+  const sb = require("../../../shared/db/supabase.js");
+  try {
+    _dbTimersCache = (await sb.fetchLiveTimers()) || {};
+  } catch {
+    _dbTimersCache = {};
+  }
+  _dbTimersCacheAt = now;
+  return _dbTimersCache;
+}
+
 async function buildMatchList() {
   // 只读 client_matches（gamebet_matcher rebuild 写入）；不在此做跨平台合并
   const fromDb = await dbStore.loadClientMatchesFromSupabase();
@@ -209,13 +228,7 @@ async function buildMatchList() {
     overlayLiveTimersOnMatches,
     mergeTimerBlocks,
   } = require("./live_timer_overlay.js");
-  const sb = require("../../../shared/db/supabase.js");
-  let dbTimers = {};
-  try {
-    dbTimers = (await sb.fetchLiveTimers()) || {};
-  } catch {
-    /* 无 Supabase 时仍可用内存 _timers */
-  }
+  const dbTimers = await fetchDbTimersCached();
   const timers = mergeTimerBlocks(_timers, dbTimers);
   return overlayLiveTimersOnMatches(fromDb, timers);
 }

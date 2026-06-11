@@ -154,6 +154,34 @@ async function clearClientMatchesOnStartup() {
 }
 
 /**
+ * 轻量探测 client_matches 是否变化（供 backend 快照缓存失效，避免每次 Client_GetMatchs 全表 SELECT *）。
+ * @returns {Promise<{ builtAt: number, count: number }|null>} 失败时 null
+ */
+async function fetchClientMatchesMeta() {
+  const client = supabaseAdmin || supabase
+  if (!client) return null
+  try {
+    const [countRes, builtRes] = await Promise.all([
+      client.from('client_matches').select('id', { count: 'exact', head: true }),
+      client.from('client_matches')
+        .select('built_at')
+        .order('built_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+    if (countRes.error) throw countRes.error
+    if (builtRes.error) throw builtRes.error
+    return {
+      builtAt: builtRes.data?.built_at != null ? Number(builtRes.data.built_at) : 0,
+      count: countRes.count ?? 0,
+    }
+  } catch (err) {
+    console.warn('[supabase] fetchClientMatchesMeta 失败:', err.message)
+    return null
+  }
+}
+
+/**
  * 从 Supabase 读取 client_matches，按 start_time 升序排列。
  * @returns {Promise<object[]|null>} 成功时返回数组（可为空）；失败/未配置时返回 null（调用方可回退内存缓存）。
  */
@@ -488,6 +516,7 @@ module.exports = {
   writeClientMatches,
   writeClientMatchesAsync,
   fetchClientMatches,
+  fetchClientMatchesMeta,
   initLastWrittenIds,
   clearClientMatchesOnStartup,
   // platform_matches / platform_bets / live_timers

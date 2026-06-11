@@ -28,12 +28,13 @@ function isPidAlive(pid) {
   }
 }
 
-function writeMatcherHeartbeat({ matchCount, intervalMs }) {
+function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt }) {
   const payload = {
     pid: process.pid,
     lastRun: Date.now(),
     intervalMs: intervalMs || 30_000,
     matchCount: matchCount ?? null,
+    builtAt: builtAt ?? null,
   };
   fs.writeFileSync(HEARTBEAT_PATH, JSON.stringify(payload));
 }

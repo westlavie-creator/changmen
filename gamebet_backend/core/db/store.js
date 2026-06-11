@@ -155,46 +155,27 @@ function getUserSetting(uid, key) {
 
 function countUserSettings() { return 0 }
 
-// ─── client_matches（内存）───────────────────────────────────────────
+// ─── client_matches（内存 + built_at 快照缓存）────────────────────────
 
 const _clientMatches = new Map()
+/** matcher rebuild 写入的 built_at + 行数；未变则 Client_GetMatchs 跳过重载 */
+let _matchesCacheKey = ''
+let _matchesCacheLoadedAt = 0
+/** pg_cron 删行等 built_at 不变时的兜底全量刷新 */
+const MATCHES_CACHE_MAX_AGE_MS = 90_000
 
-function saveClientMatches(info) {
-  if (!Array.isArray(info) || !info.length) return
-  const now = Date.now()
-  _clientMatches.clear()
-  for (const m of info) _clientMatches.set(Number(m.ID), { ...m, built_at: now })
-  sb.writeClientMatches(info.map((m) => ({
-    id: Number(m.ID),
-    merge_key: m.MergeKey ? String(m.MergeKey) : null,
-    title: String(m.Title || ''), game: String(m.Game || ''),
-    game_id: String(m.GameID || ''), start_time: Number(m.StartTime) || 0,
-    bo: Number(m.BO) || 0, round: Number(m.Round) || 0, round_start: Number(m.RoundStart) || 0,
-    reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
-    matchs: m.Matchs || {}, bets: m.Bets || [], built_at: now,
-  })))
+function _matchesCacheSignature(meta) {
+  if (!meta) return ''
+  return `${meta.builtAt}:${meta.count}`
 }
 
-function pruneClientMatches(activeIds) {
-  if (!activeIds?.length) { _clientMatches.clear(); return }
-  const active = new Set(activeIds.map(Number))
-  for (const id of _clientMatches.keys()) {
-    if (!active.has(id)) _clientMatches.delete(id)
-  }
+function _invalidateClientMatchesCache() {
+  _matchesCacheKey = ''
+  _matchesCacheLoadedAt = 0
 }
 
-function getClientMatches() {
-  if (!_clientMatches.size) return null
-  return [..._clientMatches.values()]
-    .sort((a, b) => (a.StartTime || 0) - (b.StartTime || 0))
-}
-
-/** 从 Supabase 加载 client_matches（每次请求刷新，matcher 写入后前端轮询能拿到最新盘口） */
-async function loadClientMatchesFromSupabase() {
-  const data = await sb.fetchClientMatches()
-  // null = 查询失败，暂用内存兜底；[] = 库确认为空，清掉遗留内存（避免 pg_cron 删库后仍返回旧列表）
-  if (data === null) return _clientMatches.size ? getClientMatches() : null
-  if (!data.length) {
+function _applyClientMatchRows(data) {
+  if (!data?.length) {
     _clientMatches.clear()
     return null
   }
@@ -211,6 +192,72 @@ async function loadClientMatchesFromSupabase() {
     })
   }
   return getClientMatches()
+}
+
+function saveClientMatches(info) {
+  if (!Array.isArray(info) || !info.length) return
+  const now = Date.now()
+  _invalidateClientMatchesCache()
+  _clientMatches.clear()
+  for (const m of info) _clientMatches.set(Number(m.ID), { ...m, built_at: now })
+  sb.writeClientMatches(info.map((m) => ({
+    id: Number(m.ID),
+    merge_key: m.MergeKey ? String(m.MergeKey) : null,
+    title: String(m.Title || ''), game: String(m.Game || ''),
+    game_id: String(m.GameID || ''), start_time: Number(m.StartTime) || 0,
+    bo: Number(m.BO) || 0, round: Number(m.Round) || 0, round_start: Number(m.RoundStart) || 0,
+    reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
+    matchs: m.Matchs || {}, bets: m.Bets || [], built_at: now,
+  })))
+}
+
+function pruneClientMatches(activeIds) {
+  if (!activeIds?.length) { _clientMatches.clear(); _invalidateClientMatchesCache(); return }
+  const active = new Set(activeIds.map(Number))
+  for (const id of _clientMatches.keys()) {
+    if (!active.has(id)) _clientMatches.delete(id)
+  }
+}
+
+function getClientMatches() {
+  if (!_clientMatches.size) return null
+  return [..._clientMatches.values()]
+    .sort((a, b) => (a.StartTime || 0) - (b.StartTime || 0))
+}
+
+/**
+ * 从 Supabase 加载 client_matches。
+ * built_at + 行数未变时复用内存快照，避免多用户轮询重复 SELECT *。
+ */
+async function loadClientMatchesFromSupabase() {
+  const now = Date.now()
+  const cacheStale = !_matchesCacheLoadedAt
+    || now - _matchesCacheLoadedAt > MATCHES_CACHE_MAX_AGE_MS
+
+  if (_clientMatches.size && _matchesCacheKey && !cacheStale) {
+    const meta = await sb.fetchClientMatchesMeta()
+    if (meta && _matchesCacheSignature(meta) === _matchesCacheKey) {
+      return getClientMatches()
+    }
+    if (meta === null) {
+      return getClientMatches()
+    }
+  }
+
+  const data = await sb.fetchClientMatches()
+  // null = 查询失败，暂用内存兜底；[] = 库确认为空，清掉遗留内存（避免 pg_cron 删库后仍返回旧列表）
+  if (data === null) return _clientMatches.size ? getClientMatches() : null
+  if (!data.length) {
+    _clientMatches.clear()
+    _matchesCacheKey = '0:0'
+    _matchesCacheLoadedAt = now
+    return null
+  }
+
+  const builtAt = data.reduce((max, row) => Math.max(max, Number(row.built_at) || 0), 0)
+  _matchesCacheKey = `${builtAt}:${data.length}`
+  _matchesCacheLoadedAt = now
+  return _applyClientMatchRows(data)
 }
 
 module.exports = {

@@ -13,7 +13,7 @@ const INTERVAL_MS = Number(process.env.MATCHER_INTERVAL_MS || 30_000);
 async function runOnce() {
   const result = await rebuildOnce();
   const { writeMatcherHeartbeat } = require("./lib/heartbeat");
-  writeMatcherHeartbeat({ matchCount: result.matchCount, intervalMs: INTERVAL_MS });
+  writeMatcherHeartbeat({ matchCount: result.matchCount, intervalMs: INTERVAL_MS, builtAt: result.builtAt });
   console.log(
     `[matcher] ${new Date().toISOString()} rebuilt ${result.matchCount} matches`
     + (result.matchIdBackfill?.updated

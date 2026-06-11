@@ -6,6 +6,7 @@ import App from "./App.vue";
 import router from "./router";
 import { initGamebetExtension } from "@/extension/bridge";
 import "./styles/a8.css";
+import "./styles/login-carousel.css";
 import "./styles/a8-fallback.css";
 import "./styles/a8-am-icon.css";
 import "./styles/a8-icon-fallback.css";

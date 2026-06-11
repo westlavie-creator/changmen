@@ -67,7 +67,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="container flex flex-middle flex-column">
+  <div class="login-page container flex flex-middle flex-column">
     <div class="slogo" />
     <div class="loginbox">
       <el-alert
