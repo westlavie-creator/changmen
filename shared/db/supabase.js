@@ -153,7 +153,10 @@ async function clearClientMatchesOnStartup() {
   }
 }
 
-/** 从 Supabase 读取 client_matches，按 start_time 升序排列 */
+/**
+ * 从 Supabase 读取 client_matches，按 start_time 升序排列。
+ * @returns {Promise<object[]|null>} 成功时返回数组（可为空）；失败/未配置时返回 null（调用方可回退内存缓存）。
+ */
 async function fetchClientMatches() {
   const client = supabaseAdmin || supabase
   if (!client) return null
@@ -162,8 +165,11 @@ async function fetchClientMatches() {
       .from('client_matches')
       .select('*')
       .order('start_time', { ascending: true })
-    if (error || !data?.length) return null
-    return data
+    if (error) {
+      console.warn('[supabase] fetchClientMatches 失败:', error.message)
+      return null
+    }
+    return data || []
   } catch (err) {
     console.warn('[supabase] fetchClientMatches 失败:', err.message)
     return null

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { BetSide } from "@/models/match";
@@ -8,6 +8,9 @@ import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useBettingStore } from "@/stores/bettingStore";
+import { useConfigStore } from "@/stores/configStore";
+import { useAccountStore } from "@/stores/accountStore";
+import { arbLegSide, pickArbLegs } from "@/shared/arbitrage";
 import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
 import type { PlatformId } from "@/types/esport";
 
@@ -21,6 +24,8 @@ const props = defineProps<{
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
 const bettingStore = useBettingStore();
+const configStore = useConfigStore();
+const accountStore = useAccountStore();
 const { revision } = storeToRefs(oddsStore);
 const { tick: matchTick } = storeToRefs(matchStore);
 
@@ -28,6 +33,10 @@ const loseOpen = ref(false);
 const limitOpen = ref(false);
 const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
+
+const betItemsRef = ref<HTMLElement | null>(null);
+const arbLine = ref<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+const oddsRefMap = new Map<string, HTMLElement>();
 
 function itemOdds(item: ViewBet["items"][0], side: BetSide) {
   void revision.value;
@@ -41,7 +50,21 @@ function itemFlash(item: ViewBet["items"][0], side: BetSide) {
   return oddsStore.getFlash(item.type, side === "Home" ? item.homeId : item.awayId);
 }
 
+/** 默认开启：全平台赔率参与检测，与是否开启投注无关 */
+const arbLegs = computed(() => {
+  void revision.value;
+  void matchTick.value;
+  const providerKeys = props.bet.items.map((item) => item.type);
+  return pickArbLegs(
+    props.bet,
+    configStore.config,
+    providerKeys,
+    accountStore.accounts,
+  );
+});
+
 const arb = computed(() => {
+  if (arbLegs.value) return percent(arbLegs.value.implied);
   let bestHome = 0;
   let bestAway = 0;
   for (const item of props.bet.items) {
@@ -52,6 +75,65 @@ const arb = computed(() => {
   }
   return arbPercent(bestHome, bestAway);
 });
+
+function oddsRefKey(type: PlatformId, side: BetSide) {
+  return `${type}:${side}`;
+}
+
+function bindOddsRef(type: PlatformId, side: BetSide) {
+  return (el: unknown) => {
+    const key = oddsRefKey(type, side);
+    const node =
+      el instanceof HTMLElement
+        ? el
+        : el && typeof el === "object" && "$el" in el && (el as { $el: unknown }).$el instanceof HTMLElement
+          ? ((el as { $el: HTMLElement }).$el)
+          : null;
+    if (node) oddsRefMap.set(key, node);
+    else oddsRefMap.delete(key);
+  };
+}
+
+function centerInContainer(el: HTMLElement, container: DOMRect) {
+  const rect = el.getBoundingClientRect();
+  return {
+    x: rect.left + rect.width / 2 - container.left,
+    y: rect.top + rect.height / 2 - container.top,
+  };
+}
+
+function refreshArbLine() {
+  const legs = arbLegs.value;
+  const root = betItemsRef.value;
+  if (!legs || !root) {
+    arbLine.value = null;
+    return;
+  }
+  const homeEl = oddsRefMap.get(oddsRefKey(legs.homeItem.type, "Home"));
+  const awayEl = oddsRefMap.get(oddsRefKey(legs.awayItem.type, "Away"));
+  if (!homeEl || !awayEl) {
+    arbLine.value = null;
+    return;
+  }
+  const box = root.getBoundingClientRect();
+  const p1 = centerInContainer(homeEl, box);
+  const p2 = centerInContainer(awayEl, box);
+  arbLine.value = { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+}
+
+let resizeObserver: ResizeObserver | null = null;
+
+onMounted(() => {
+  resizeObserver = new ResizeObserver(() => refreshArbLine());
+  if (betItemsRef.value) resizeObserver.observe(betItemsRef.value);
+  nextTick(refreshArbLine);
+});
+
+onUnmounted(() => {
+  resizeObserver?.disconnect();
+});
+
+watch([arbLegs, revision, matchTick], () => nextTick(refreshArbLine));
 
 const liveSeconds = computed(() => {
   void matchTick.value;
@@ -127,7 +209,16 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
     <div class="bet-title" @dblclick="loseOpen = true">
       {{ bet.getBetName() }} - {{ arb }}
     </div>
-    <div class="bet-items">
+    <div ref="betItemsRef" class="bet-items">
+      <svg v-if="arbLine" class="arb-lines" aria-hidden="true">
+        <line
+          :x1="arbLine.x1"
+          :y1="arbLine.y1"
+          :x2="arbLine.x2"
+          :y2="arbLine.y2"
+        />
+      </svg>
+
       <div v-if="roundScore" class="score">
         <div class="home">{{ roundScore.Home }}</div>
         <div class="away">{{ roundScore.Away }}</div>
@@ -157,10 +248,12 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
           @click="openLimit(item)"
         />
         <div
+          :ref="bindOddsRef(item.type, 'Home')"
           class="item-odds home"
           :class="{
             lock: !itemOdds(item, 'Home'),
             target: matchStore.getBetTarget(item.type, bet.id) === 'Home',
+            'arb-leg': arbLegSide(arbLegs, item, 'Home'),
             'odds-up': itemFlash(item, 'Home')?.dir === 'up',
             'odds-down': itemFlash(item, 'Home')?.dir === 'down',
           }"
@@ -170,10 +263,12 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
           {{ itemOdds(item, "Home") || "" }}<span v-if="itemFlash(item, 'Home')" class="odds-src">{{ itemFlash(item, 'Home')?.source === 'mqtt' ? 'M' : 'H' }}</span>
         </div>
         <div
+          :ref="bindOddsRef(item.type, 'Away')"
           class="item-odds away"
           :class="{
             lock: !itemOdds(item, 'Away'),
             target: matchStore.getBetTarget(item.type, bet.id) === 'Away',
+            'arb-leg': arbLegSide(arbLegs, item, 'Away'),
             'odds-up': itemFlash(item, 'Away')?.dir === 'up',
             'odds-down': itemFlash(item, 'Away')?.dir === 'down',
           }"

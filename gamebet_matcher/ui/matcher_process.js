@@ -3,7 +3,12 @@
 const path = require("path");
 const { spawn, execFile } = require("child_process");
 const { promisify } = require("util");
-const { readMatcherHeartbeat, isMatcherRunning } = require("../lib/heartbeat");
+const {
+  readMatcherHeartbeat,
+  isMatcherRunning,
+  isPidAlive,
+  clearMatcherHeartbeat,
+} = require("../lib/heartbeat");
 
 const execFileAsync = promisify(execFile);
 const MATCHER_ROOT = path.join(__dirname, "..");
@@ -66,15 +71,21 @@ async function stopMatcherProcess() {
     const pid = managedChild.pid;
     await killPid(pid);
     managedChild = null;
+    clearMatcherHeartbeat();
     console.log(`[matcher] matcher stopped pid=${pid}`);
     return { ok: true, pid, source: "managed" };
   }
 
   const hb = readMatcherHeartbeat();
-  if (isMatcherRunning(hb) && hb.pid) {
-    await killPid(hb.pid);
-    console.log(`[matcher] matcher stopped pid=${hb.pid} (heartbeat)`);
-    return { ok: true, pid: hb.pid, source: "heartbeat" };
+  if (hb?.pid && (isMatcherRunning(hb) || isPidAlive(hb.pid))) {
+    const pid = hb.pid;
+    await killPid(pid);
+    clearMatcherHeartbeat();
+    if (isPidAlive(pid)) {
+      return { ok: false, error: `无法终止匹配脚本（PID ${pid}）` };
+    }
+    console.log(`[matcher] matcher stopped pid=${pid} (heartbeat)`);
+    return { ok: true, pid, source: "heartbeat" };
   }
 
   return { ok: false, error: "未检测到本机可停止的匹配脚本" };
@@ -84,9 +95,14 @@ function isManagedByServer() {
   return isManagedChildAlive();
 }
 
+function getManagedMatcherPid() {
+  return isManagedChildAlive() ? managedChild.pid : null;
+}
+
 module.exports = {
   startMatcherProcess,
   stopMatcherProcess,
   isManagedByServer,
   isManagedChildAlive,
+  getManagedMatcherPid,
 };

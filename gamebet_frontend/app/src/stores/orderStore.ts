@@ -128,11 +128,11 @@ export const useOrderStore = defineStore("order", {
         .map((r) => {
           const odds = Number(r.Odds) || 0;
           const bet = Number(r.BetMoney) || 0;
-          return toFixed(bet * odds - stake);
+          return toFixed(bet * odds - stake, 0);
         });
       if (unsettled.length) return unsettled.join(" - ");
       const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
-      return toFixed(total);
+      return toFixed(total, 0);
     },
 
     linkClass(rows: OrderRow[]) {

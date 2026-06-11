@@ -1,0 +1,75 @@
+import { describe, expect, it, vi } from "vitest";
+import { ViewBet } from "@/models/match";
+import type { BetRowDto } from "@/types/esport";
+import { createDefaultUserConfig } from "@/types/userConfig";
+import { pickArbLegs } from "./arbitrage";
+
+vi.mock("@/stores/oddsStore", () => ({
+  useOddsStore: () => ({
+    getOdds: (_type: string, _id: string, fallback: number) => fallback,
+  }),
+}));
+
+function makeBet(sources: BetRowDto["Sources"]) {
+  const row: BetRowDto = {
+    ID: 1,
+    HomeName: "A",
+    AwayName: "B",
+    Name: "",
+    Map: 0,
+    Sources: sources,
+  };
+  return new ViewBet(row, { PB: "m1", RAY: "m2" }, 0, 0);
+}
+
+describe("pickArbLegs", () => {
+  it("returns legs when implied profit meets threshold", () => {
+    const bet = makeBet({
+      PB: {
+        Type: "PB",
+        BetID: "b1",
+        HomeID: "h1",
+        AwayID: "a1",
+        HomeOdds: 2.1,
+        AwayOdds: 1.5,
+      },
+      RAY: {
+        Type: "RAY",
+        BetID: "b2",
+        HomeID: "h2",
+        AwayID: "a2",
+        HomeOdds: 1.6,
+        AwayOdds: 2.2,
+      },
+    });
+    const config = { ...createDefaultUserConfig(), profit: 1.03, maxProfit: 1.2, minOdds: 1.01 };
+    const legs = pickArbLegs(bet, config, ["PB", "RAY"]);
+    expect(legs).toBeDefined();
+    expect(legs!.homeItem.type).toBe("PB");
+    expect(legs!.awayItem.type).toBe("RAY");
+    expect(legs!.implied).toBeGreaterThan(config.profit);
+  });
+
+  it("returns undefined when implied below profit", () => {
+    const bet = makeBet({
+      PB: {
+        Type: "PB",
+        BetID: "b1",
+        HomeID: "h1",
+        AwayID: "a1",
+        HomeOdds: 1.5,
+        AwayOdds: 1.5,
+      },
+      RAY: {
+        Type: "RAY",
+        BetID: "b2",
+        HomeID: "h2",
+        AwayID: "a2",
+        HomeOdds: 1.5,
+        AwayOdds: 1.5,
+      },
+    });
+    const config = { ...createDefaultUserConfig(), profit: 1.03, minOdds: 1.01 };
+    expect(pickArbLegs(bet, config, ["PB", "RAY"])).toBeUndefined();
+  });
+});

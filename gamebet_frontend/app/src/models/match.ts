@@ -4,6 +4,7 @@ import type { UserConfig } from "@/types/userConfig";
 import { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { useOddsStore } from "@/stores/oddsStore";
+import { pickArbLegs } from "@/shared/arbitrage";
 import { sortOptionsByWinRate } from "@/shared/winRate";
 
 export type BetSide = "Home" | "Away";
@@ -98,67 +99,10 @@ export class ViewBet {
     providerKeys: PlatformId[],
     accounts: PlatformAccount[] = [],
   ): BetOption[] | undefined {
-    if (!config) return undefined;
+    const legs = pickArbLegs(this, config, providerKeys, accounts);
+    if (!legs) return undefined;
 
-    const allowSame = new Set(config.allowSameBet ?? []);
-
-    const homeCandidates = this.items.filter((v) => {
-      if (
-        config.noSameBet &&
-        !allowSame.has(v.type) &&
-        this.isBetExcludedByNoSameRule(v.type, "Away")
-      ) {
-        return false;
-      }
-      return (
-        v.getOdds("Home") >= config.minOdds &&
-        v.getOdds("Home") > 0 &&
-        providerKeys.includes(v.type)
-      );
-    });
-    const homeItem = homeCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
-      const odds = cur.getOdds("Home");
-      if (!best || odds > best.getOdds("Home")) return cur;
-      return best;
-    }, undefined);
-
-    const awayCandidates = this.items.filter((v) => {
-      if (homeItem && homeItem.type === v.type) return false;
-      if (
-        config.noSameBet &&
-        !allowSame.has(v.type) &&
-        this.isBetExcludedByNoSameRule(v.type, "Away")
-      ) {
-        return false;
-      }
-      return (
-        v.getOdds("Away") >= config.minOdds &&
-        v.getOdds("Away") > 0 &&
-        providerKeys.includes(v.type)
-      );
-    });
-    const awayItem = awayCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
-      const odds = cur.getOdds("Away");
-      if (!best || odds > best.getOdds("Away")) return cur;
-      return best;
-    }, undefined);
-
-    if (!homeItem || !awayItem) return undefined;
-
-    const homeOdds = homeItem.getOdds("Home");
-    const awayOdds = awayItem.getOdds("Away");
-    const implied = 1 / (1 / homeOdds + 1 / awayOdds);
-    let targetProfit = config.profit;
-    const profitOverrides = accounts.filter(
-      (a) =>
-        a.profit !== 0 &&
-        (a.provider === homeItem.type || a.provider === awayItem.type),
-    );
-    if (profitOverrides.length) {
-      targetProfit = Math.max(...profitOverrides.map((a) => Number(a.profit)));
-    }
-    if (implied < targetProfit || implied > config.maxProfit) return undefined;
-
+    const { homeItem, awayItem, homeOdds, awayOdds } = legs;
     let betMoney = config.betMoney;
     const low = Math.min(homeOdds, awayOdds);
     const high = Math.max(homeOdds, awayOdds);

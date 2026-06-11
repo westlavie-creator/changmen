@@ -3,7 +3,7 @@ import { getCollectPlatform, getGames } from "@/api/esport";
 import { PB_PLUGIN_REQUIRED_MSG, pbGet, resolvePbAccount } from "./transport";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/shared/platform";
-import { mergeEuroOddsPayloads, parseEuroOddsPayload, pbOddsUrl, pbTeamLogo, slugify } from "./parse";
+import { parseEuroOddsPayload, pbOddsUrl, pbTeamLogo, slugify } from "./parse";
 import { setPbLineId } from "./lineCache";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
@@ -35,8 +35,7 @@ export function startPbCollector(): () => void {
           continue;
         }
 
-        const account = resolvePbAccount();
-        if (!hasA8PluginRuntime() && !account?.proxyId) {
+        if (!hasA8PluginRuntime()) {
           if (!pluginMissingNotified) {
             notifyCollectError("PB", PB_PLUGIN_REQUIRED_MSG);
             pluginMissingNotified = true;
@@ -45,6 +44,8 @@ export function startPbCollector(): () => void {
           continue;
         }
         pluginMissingNotified = false;
+
+        const account = resolvePbAccount();
 
         if (!account) {
           console.log(PLATFORM, "当前未检测到账号");
@@ -55,12 +56,10 @@ export function startPbCollector(): () => void {
 
         const games = await getGames(PLATFORM);
         const allowedSlugs = games.map(slugify);
-        const gateway = account.gateway!;
-        const [liveData, prematchData] = await Promise.all([
-          pbGet<Record<string, unknown>>(account, pbOddsUrl(gateway, true)),
-          pbGet<Record<string, unknown>>(account, pbOddsUrl(gateway, false)),
-        ]);
-        const data = mergeEuroOddsPayloads(liveData, prematchData);
+        const data = await pbGet<Record<string, unknown>>(
+          account,
+          pbOddsUrl(account.gateway!, true),
+        );
         const { matches } = parseEuroOddsPayload(data, { allowedSlugs });
         matchCount = matches.length;
 

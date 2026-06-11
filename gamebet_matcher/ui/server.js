@@ -9,12 +9,15 @@ const { normalizeTeam } = require("../engine");
 const {
   readMatcherHeartbeat,
   isMatcherRunning,
+  isPidAlive,
+  clearMatcherHeartbeat,
   STALE_FACTOR,
 } = require("../lib/heartbeat");
 const {
   startMatcherProcess,
   stopMatcherProcess,
   isManagedByServer,
+  getManagedMatcherPid,
 } = require("./matcher_process");
 const { enrichClientMatchesMergeMode } = require("./merge_mode");
 const { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } = require("./matcher_api_log");
@@ -146,22 +149,35 @@ async function loadTeamMapsForMatcher(allMatches) {
 
 async function getMatcherStatus() {
   const now = Date.now();
-  const heartbeat = readMatcherHeartbeat();
+  let heartbeat = readMatcherHeartbeat();
+  if (heartbeat?.pid && !isPidAlive(heartbeat.pid)) {
+    clearMatcherHeartbeat();
+    heartbeat = null;
+  }
   const intervalMs = heartbeat?.intervalMs || Number(process.env.MATCHER_INTERVAL_MS || 30_000);
   const thresholdMs = intervalMs * STALE_FACTOR;
 
-  if (isMatcherRunning(heartbeat, now)) {
-    return {
-      running: true,
-      source: "heartbeat",
-      lastRun: heartbeat.lastRun,
-      ageMs: now - heartbeat.lastRun,
-      intervalMs,
-      matchCount: heartbeat.matchCount,
-      pid: heartbeat.pid,
-      managedByServer: isManagedByServer(),
-      canStop: true,
-    };
+  let processRunning = false;
+  let processSource = "none";
+  let pid = null;
+  let matchCount = heartbeat?.matchCount ?? null;
+  let processLastRun = null;
+  let processAgeMs = null;
+
+  const managedPid = getManagedMatcherPid();
+  if (managedPid) {
+    processRunning = true;
+    processSource = "managed";
+    pid = managedPid;
+    processLastRun = heartbeat?.lastRun || now;
+    processAgeMs = heartbeat?.lastRun ? now - heartbeat.lastRun : 0;
+  } else if (isMatcherRunning(heartbeat, now)) {
+    processRunning = true;
+    processSource = "heartbeat";
+    pid = heartbeat.pid;
+    matchCount = heartbeat.matchCount;
+    processLastRun = heartbeat.lastRun;
+    processAgeMs = now - heartbeat.lastRun;
   }
 
   const { data } = await supabase
@@ -170,33 +186,33 @@ async function getMatcherStatus() {
     .order("built_at", { ascending: false })
     .limit(1);
   const lastBuilt = data?.[0]?.built_at || 0;
-  const builtAgeMs = lastBuilt ? now - lastBuilt : null;
+  const dataAgeMs = lastBuilt ? now - lastBuilt : null;
+  const dataFresh = !!(lastBuilt && dataAgeMs <= thresholdMs);
 
-  if (lastBuilt && builtAgeMs <= thresholdMs) {
-    return {
-      running: true,
-      source: "client_matches",
-      lastRun: lastBuilt,
-      ageMs: builtAgeMs,
-      intervalMs,
-      matchCount: null,
-      pid: heartbeat?.pid ?? null,
-      managedByServer: isManagedByServer(),
-      canStop: false,
-    };
-  }
+  const canStop = processRunning;
+  const canStart = !processRunning;
 
-  const lastRun = heartbeat?.lastRun || lastBuilt || null;
   return {
-    running: false,
-    source: heartbeat?.lastRun ? "heartbeat_stale" : (lastBuilt ? "client_matches_stale" : "none"),
-    lastRun,
-    ageMs: lastRun ? now - lastRun : null,
+    processRunning,
+    processSource,
+    dataFresh,
+    lastBuiltAt: lastBuilt || null,
+    dataAgeMs,
+    processLastRun,
+    processAgeMs,
     intervalMs,
-    matchCount: heartbeat?.matchCount ?? null,
-    pid: heartbeat?.pid ?? null,
+    matchCount,
+    pid,
     managedByServer: isManagedByServer(),
-    canStop: false,
+    canStop,
+    canStart,
+    // 兼容旧字段：running 仅表示 matcher 进程，不再用 built_at 推断
+    running: processRunning,
+    source: processRunning
+      ? processSource
+      : (dataFresh ? "data_only" : (heartbeat?.lastRun ? "heartbeat_stale" : (lastBuilt ? "data_stale" : "none"))),
+    lastRun: processLastRun || lastBuilt || null,
+    ageMs: processRunning ? processAgeMs : dataAgeMs,
   };
 }
 

@@ -14,9 +14,11 @@
     .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
     .matcher-status { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155; white-space: nowrap; }
     .matcher-status.on { border-color: #166534; background: #14532d55; color: #4ade80; }
+    .matcher-status.warn { border-color: #854d0e; background: #42200655; color: #fbbf24; }
     .matcher-status.off { border-color: #7f1d1d55; background: #450a0a55; color: #f87171; }
     .matcher-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
     .matcher-status.on .matcher-dot { background: #4ade80; box-shadow: 0 0 6px #4ade8099; }
+    .matcher-status.warn .matcher-dot { background: #fbbf24; box-shadow: 0 0 6px #fbbf2499; }
     .matcher-status.off .matcher-dot { background: #f87171; }
     .updated-at { font-size: 12px; color: #64748b; }
     .btn { background: #3b82f6; color: #fff; border: none; padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
@@ -2059,13 +2061,36 @@ async function endClientMatch(cmId) {
   }
 }
 
+function matcherStatusClass(s) {
+  if (s?.processRunning) return 'on';
+  if (s?.dataFresh) return 'warn';
+  return 'off';
+}
+
+function matcherStatusLabel(s) {
+  if (!s) return '脚本状态未知';
+  if (s.processRunning) {
+    let t = '脚本运行中';
+    if (s.matchCount != null) t += ` · ${s.matchCount} 场`;
+    if (s.processAgeMs != null) t += ` · ${fmtDiff(s.processAgeMs)}前刷新`;
+    return t;
+  }
+  if (s.dataFresh) {
+    return `脚本未运行 · 列表 ${fmtDiff(s.dataAgeMs)}前仍较新`;
+  }
+  if (s.lastBuiltAt || s.processLastRun) {
+    const age = s.dataAgeMs ?? s.processAgeMs;
+    return `脚本未运行 · 末次 ${fmtDiff(age)}前`;
+  }
+  return '脚本未运行';
+}
+
 function setMatcherButtons(s) {
   const btnStart = document.getElementById('btn-matcher-start');
   const btnStop = document.getElementById('btn-matcher-stop');
   if (!btnStart || !btnStop) return;
-  const running = !!s?.running;
-  btnStart.style.display = running ? 'none' : '';
-  btnStop.style.display = running && s?.canStop ? '' : 'none';
+  btnStart.style.display = s?.canStart ? '' : 'none';
+  btnStop.style.display = s?.canStop ? '' : 'none';
   btnStart.disabled = _matcherBusy;
   btnStop.disabled = _matcherBusy;
 }
@@ -2077,6 +2102,7 @@ async function matcherAction(action) {
     const { res, data } = await fetchJson('/api/matcher/' + action, { method: 'POST' });
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
     await refreshMatcherStatus();
+    if (action === 'stop') showActionToast('匹配脚本已停止', 'ok', 2600);
     if (action === 'start') setTimeout(refreshMatcherStatus, 2000);
   } catch (err) {
     alert(err.message);
@@ -2093,10 +2119,8 @@ async function refreshMatcherStatus() {
   try {
     const { data: s } = await fetchJson('/api/matcher-status');
     setMatcherButtons(s);
-    el.className = 'matcher-status ' + (s.running ? 'on' : 'off');
-    label.textContent = s.running
-      ? `脚本运行中${s.matchCount != null ? ' · ' + s.matchCount + ' 场' : ''}`
-      : (s.lastRun ? `脚本未运行 · 末次 ${fmtDiff(s.ageMs)}前` : '脚本未运行');
+    el.className = 'matcher-status ' + matcherStatusClass(s);
+    label.textContent = matcherStatusLabel(s);
   } catch {
     setMatcherButtons(null);
     el.className = 'matcher-status off';

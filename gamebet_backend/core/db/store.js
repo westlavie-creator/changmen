@@ -192,7 +192,12 @@ function getClientMatches() {
 /** 从 Supabase 加载 client_matches（每次请求刷新，matcher 写入后前端轮询能拿到最新盘口） */
 async function loadClientMatchesFromSupabase() {
   const data = await sb.fetchClientMatches()
-  if (!data?.length) return _clientMatches.size ? getClientMatches() : null
+  // null = 查询失败，暂用内存兜底；[] = 库确认为空，清掉遗留内存（避免 pg_cron 删库后仍返回旧列表）
+  if (data === null) return _clientMatches.size ? getClientMatches() : null
+  if (!data.length) {
+    _clientMatches.clear()
+    return null
+  }
   const now = Date.now()
   _clientMatches.clear()
   for (const row of data) {

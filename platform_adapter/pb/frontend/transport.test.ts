@@ -20,7 +20,7 @@ const account: PlatformAccount = {
 } as PlatformAccount;
 
 describe("pb transport plugin gate", () => {
-  test("pbGet without plugin or SOCKS throws", async () => {
+  test("pbGet without plugin throws", async () => {
     await expect(pbGet(account, "/member-service/v2/account-balance")).rejects.toThrow(
       PB_PLUGIN_REQUIRED_MSG,
     );
