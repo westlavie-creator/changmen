@@ -1,25 +1,23 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal
 
 set "DEPLOY_USER=root"
 set "DEPLOY_HOST=47.82.100.166"
 set "DEPLOY_REPO=/root/gamebet"
 
-if exist "%~dp0deploy-server.env" (
-  call "%~dp0deploy-server.env"
-)
+if exist "%~dp0deploy-server.env" call "%~dp0deploy-server.env"
 
-set "REMOTE=!DEPLOY_USER!@!DEPLOY_HOST!"
-set "REMOTE_SCRIPT=!DEPLOY_REPO!/changmen/scripts/deploy-server-remote.sh"
+set "REMOTE=%DEPLOY_USER%@%DEPLOY_HOST%"
+set "REMOTE_SCRIPT=%DEPLOY_REPO%/changmen/scripts/deploy-server-remote.sh"
 
 echo.
 echo ========================================
 echo   Deploy changmen to server
 echo ========================================
-echo   Target: !REMOTE!
-echo   Repo:   !DEPLOY_REPO!
+echo   Target: %REMOTE%
+echo   Repo:   %DEPLOY_REPO%
 echo.
-echo   请先在本机 git commit + push，再运行此脚本。
+echo   Make sure you already git push from this PC.
 echo.
 pause
 
@@ -31,11 +29,11 @@ if errorlevel 1 (
 )
 
 echo [1/1] ssh pull + build + pm2 restart ...
-ssh !REMOTE! "bash !REMOTE_SCRIPT!"
+ssh %REMOTE% "bash %REMOTE_SCRIPT%"
 if errorlevel 1 goto fail
 
 echo.
-echo Done. Open http://!DEPLOY_HOST!:3456/app/
+echo Done. Open http://%DEPLOY_HOST%:3456/app/
 echo.
 pause
 exit /b 0
