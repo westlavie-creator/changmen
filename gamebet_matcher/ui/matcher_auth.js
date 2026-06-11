@@ -1,60 +1,45 @@
 "use strict";
 
-const crypto = require("crypto");
+const store = require("../../gamebet_backend/core/esport-api/store.js");
 
-const PASSWORD = process.env.MATCHER_UI_PASSWORD || "TJ01";
-const COOKIE_NAME = "matcher_ui";
-const AUTH_TOKEN = crypto.createHmac("sha256", PASSWORD).update("matcher-ui-v1").digest("hex");
-
-function parseCookies(req) {
-  const out = {};
-  const raw = req.headers.cookie;
-  if (!raw) return out;
-  for (const part of raw.split(";")) {
-    const i = part.indexOf("=");
-    if (i < 0) continue;
-    out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
-  }
-  return out;
+function isLocalRequest(req) {
+  const host = String(req?.headers?.host || "").split(":")[0].toLowerCase();
+  return host === "localhost" || host === "127.0.0.1";
 }
 
-function isMatcherAuthed(req) {
-  return parseCookies(req)[COOKIE_NAME] === AUTH_TOKEN;
+function isMatcherAuthBypassed(req) {
+  if (process.env.MATCHER_SKIP_AUTH === "1") return true;
+  if (process.env.NODE_ENV === "development") return true;
+  if (req && isLocalRequest(req)) return true;
+  return false;
 }
 
-function buildAuthCookie(cookiePath) {
-  return `${COOKIE_NAME}=${AUTH_TOKEN}; Path=${cookiePath}; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}`;
+function getRequestToken(req) {
+  return (
+    (typeof req.headers.token === "string" && req.headers.token) ||
+    (typeof req.headers.Token === "string" && req.headers.Token) ||
+    ""
+  );
 }
 
-function registerMatcherLoginRoute(app, { cookiePath = "/" } = {}) {
-  app.post("/api/login", (req, res) => {
-    if (req.body?.password === PASSWORD) {
-      res.setHeader("Set-Cookie", buildAuthCookie(cookiePath));
-      return res.json({ ok: true });
-    }
-    res.status(401).json({ ok: false, error: "密码错误" });
-  });
+async function isMatcherAuthed(req) {
+  if (isMatcherAuthBypassed(req)) return true;
+  const user = await store.getUserBySupabaseToken(getRequestToken(req));
+  return !!user;
 }
 
 function createMatcherAuthMiddleware() {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const path = req.path || (req.url || "").split("?")[0];
     if (!path.startsWith("/api/") && path !== "/api") return next();
-    if (path === "/api/login") return next();
-    if (isMatcherAuthed(req)) return next();
-    res.status(401).json({ ok: false, error: "unauthorized" });
+    if (await isMatcherAuthed(req)) return next();
+    res.status(401).json({ ok: false, error: "unauthorized", login: "/login" });
   };
 }
 
-/** 未登录也可访问的 matcher 静态文件 */
-function isMatcherPublicStatic(fileRel) {
-  const name = String(fileRel || "").replace(/^\//, "");
-  return name === "login.html";
-}
-
 module.exports = {
+  isMatcherAuthBypassed,
+  getRequestToken,
   isMatcherAuthed,
-  registerMatcherLoginRoute,
   createMatcherAuthMiddleware,
-  isMatcherPublicStatic,
 };

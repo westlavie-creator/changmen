@@ -6,11 +6,7 @@ require("../lib/env");
 const express = require("express");
 const { getMatcherSupabase } = require("../lib/supabase");
 const { registerMatcherApiRoutes } = require("./api_routes");
-const {
-  registerMatcherLoginRoute,
-  createMatcherAuthMiddleware,
-  isMatcherAuthed,
-} = require("./matcher_auth");
+const { createMatcherAuthMiddleware } = require("./matcher_auth");
 
 const PORT = Number(process.env.MATCHER_UI_PORT || process.env.PIPEI_PORT || 4567);
 const supabase = getMatcherSupabase();
@@ -30,15 +26,8 @@ try {
 
 const app = express();
 app.use(express.json());
-registerMatcherLoginRoute(app, { cookiePath: "/" });
 app.use(createMatcherAuthMiddleware());
 if (supabase) registerMatcherApiRoutes(app, supabase);
-
-app.use((req, res, next) => {
-  if (req.path === "/login.html") return next();
-  if (isMatcherAuthed(req)) return next();
-  res.redirect(302, "/login.html");
-});
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use((err, req, res, _next) => {

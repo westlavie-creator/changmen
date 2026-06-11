@@ -720,9 +720,11 @@ async function fetchJson(url, options) {
   if (typeof url === 'string' && url.startsWith('/api')) {
     url = (window.MATCHER_API || '/api') + url.slice(4);
   }
-  const res = await fetch(url, options);
-  if (res.status === 401) {
-    window.location.href = 'login.html';
+  const opts = options ? { ...options } : {};
+  opts.headers = { ...(opts.headers || {}), ...matcherAuthHeaders() };
+  const res = await fetch(url, opts);
+  if (res.status === 401 && !isLocalMatcherDev()) {
+    redirectToSiteLogin();
     throw new Error('需要登录');
   }
   const ct = res.headers.get('content-type') || '';

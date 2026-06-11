@@ -2,10 +2,6 @@
 
 const fs = require("fs");
 const path = require("path");
-const {
-  isMatcherAuthed,
-  isMatcherPublicStatic,
-} = require("../../../gamebet_matcher/ui/matcher_auth.js");
 
 function contentType(filePath) {
   if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
@@ -59,20 +55,11 @@ function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir }) {
     }
 
     const { rootDir, fileRel, spa } = resolveStaticRoot(urlPath);
-    let filePath = path.normalize(path.join(rootDir, fileRel));
+    const filePath = path.normalize(path.join(rootDir, fileRel));
     if (!filePath.startsWith(rootDir)) {
       res.writeHead(403);
       res.end("Forbidden");
       return;
-    }
-
-    if (
-      matcherDir &&
-      rootDir === matcherDir &&
-      !isMatcherAuthed(req) &&
-      !isMatcherPublicStatic(fileRel)
-    ) {
-      filePath = path.join(matcherDir, "login.html");
     }
 
     const sendFile = (fp, cacheBust) => {
