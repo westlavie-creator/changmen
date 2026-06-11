@@ -17,6 +17,7 @@ const { tryIaHttpProxy } = require("./proxy/ia_http_proxy.js");
 const { requirePlatform } = require("../../core/shared/adapter_paths.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "backend", "session.js");
 const { tryHandleMatcherApi } = require("../../../gamebet_matcher/ui/http_bridge.js");
+const { isFastStaticRequest } = require("./static_files.js");
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -68,6 +69,10 @@ function createHttpHandler({ port, serveStatic, getEsportProxy }) {
   return async function handleHttp(req, res) {
     try {
       const url = req.url.split("?")[0];
+      if (isFastStaticRequest(url, req.method)) {
+        serveStatic(req, res);
+        return;
+      }
       const baseOrigin = `http://127.0.0.1:${port}`;
       if (await tryHttpProxyRelay(req, res, baseOrigin)) return;
       if (await tryPbHttpProxy(req, res)) return;

@@ -7,7 +7,7 @@
     "predev": "node scripts/extract-a8-css.mjs",
     "dev": "vite",
     "prebuild": "node scripts/extract-a8-css.mjs",
-    "build": "vue-tsc -b && vite build --base=./",
+    "build": "vue-tsc -b && vite build --base=/",
     "preview": "vite preview --base /",
     "test": "vitest run",
     "test:watch": "vitest",
