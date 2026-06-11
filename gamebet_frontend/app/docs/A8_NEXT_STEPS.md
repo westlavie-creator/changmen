@@ -82,7 +82,7 @@
 ## 阶段 E — 平台与信用盘
 
 - [x] 平博 v4 `game/play/Login` E2E（`npm run test:v4`，见 `CREDIT_PLATE.md`）
-- [ ] HG 真实赔率采集（**无 saveMatch**；已做：启用 HG 开关时 60s 刷余额，见 `collectors/hg/index.ts`）
+- [ ] HG 真实赔率采集（**无 saveMatch**；已做：启用 HG 开关时 60s 刷余额，见 `platform_adapter/hg/frontend/collect.ts`）
 - [ ] Stake 插件下单（暂缓）
 
 ---

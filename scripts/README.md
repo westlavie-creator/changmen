@@ -19,8 +19,9 @@
 
 | 脚本 | 作用 |
 |------|------|
-| **`dev.bat`** | backend + Vite + matcher（推荐） |
-| **`dev-web.bat`** | 同 `dev.bat`（别名，便于区分「纯 Web」文档） |
+| **`dev.bat`** | backend + Vite + matcher + Chrome 插件（推荐） |
+| **`dev-web.bat`** | 调用 `dev.bat`（文档别名） |
+| **`setup-dev-env.bat`** | 首次：从 `.env.example` 复制 `gamebet_backend/.env` |
 | **`backend.bat`** | 仅 Web 后端（`npm run web`，端口 3456） |
 | **`parity-dev.bat`** | A8 parity：Web 后端 + Vite + matcher |
 | **`dev-vite.bat`** | 仅 Vite（由上述 bat 内部调用） |

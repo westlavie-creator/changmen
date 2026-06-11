@@ -171,7 +171,7 @@ async function handleClientLogin(body: Record<string, unknown>): Promise<ApiEnve
   const password = body.password;
   if (!userName || !password) return fail("用户名和密码必填");
   if (!sb.isAuthConfigured()) {
-    return fail("未连接 Supabase：请将 .env 放在 GameBet.exe 同级目录，并配置 SUPABASE_URL、SUPABASE_KEY");
+    return fail("未连接 Supabase：请在 gamebet_backend/.env 配置 SUPABASE_URL、SUPABASE_KEY");
   }
 
   const auth = await sb.authSignIn(userName, password);

@@ -41,6 +41,16 @@ gamebet_matcher/.matcher-heartbeat.json
 # Gamebet extension signing key (public key is in gamebet_chromeplug/manifest.json)
 gamebet_chromeplug/key.pem
 
+# Chrome extension reverse-engineering scratch (local analysis only)
+gamebet_chromeplug/scripts/_extracted/
+
+# Team name resolver runtime cache
+team-resolver/cache/*.json
+!team-resolver/cache/.gitkeep
+
+# AI/session scratch (not product code)
+memory/
+
 # Large local captures / dumps
 obdata.json
 t.json

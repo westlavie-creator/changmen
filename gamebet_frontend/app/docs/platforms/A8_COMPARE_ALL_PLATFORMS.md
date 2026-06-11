@@ -52,7 +52,7 @@
 - **采集**：`Uf=Xt.TF`，`UBe` → `Vt.getPlatform(Uf)`；REST 30s + `FBe`/`WBe` WS；HTTP 头 `$3(token)`。
 - **凭证**：`POST …/esport/Client_GetCollectPlatform`（**form-urlencoded** + header `token`）→ `Gateway` / `Token` / `BetName`；`Client_GetGames` → `games`。`tf-authorization` 本地算；`public-token` 为 bundle 常量。
 - **下注**：`bYe` — 钱包/下单用 `ly`（无 `tf-authorization`）；订单 `ly(,true)` 合并 `$3`；`uy` 将 transactions 的 gateway `api.` → `api-v4.`。
-- **changmen**：`getTfA8CollectCredentials()` + `collectors/tf/*` + `tfProvider`。**详解**：[`A8_TF_LOGIC_PARITY.md`](./A8_TF_LOGIC_PARITY.md)。
+- **changmen**：`getTfA8CollectCredentials()` + `platform_adapter/tf/frontend/*` + `tfProvider`。**详解**：[`A8_TF_LOGIC_PARITY.md`](./A8_TF_LOGIC_PARITY.md)。
 
 ### IA（重要差异）
 
@@ -153,9 +153,9 @@ await waitForUser
 
 | 能力 | 路径 |
 |------|------|
-| 采集注册 | [`collectors/index.ts`](../index.ts) |
-| 平台能力 | [`platforms/registry.ts`](../../platforms/registry.ts) |
-| A8 频道 | [`collectors/a8/`](../a8/) |
+| 采集注册 | [`platform_adapter/registry/adapters.ts`](../../../../platform_adapter/registry/adapters.ts) |
+| 平台能力 | [`platform_adapter/registry/`](../../../../platform_adapter/registry/) |
+| A8 频道 | [`platform_adapter/shared/socket/`](../../../../platform_adapter/shared/socket/) |
 | 采集 API | [`api/esport.ts`](../../api/esport.ts) → `Client_GetCollectPlatform` |
 | 后端采集凭证 | [`esport-api/router.js`](../../../../../gamebet_backend/core/esport-api/router.js) `Client_GetCollectPlatform` |
 | 下注 | [`providers/index.ts`](../../providers/index.ts) |

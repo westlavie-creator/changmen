@@ -76,7 +76,7 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 |------|------|
 | `_A8_GAP_AUDIT_FROM_CODE.json` | 一次性对比 vendor vs 2.0.1，无引用；由 `_A8_VS_CHANGMEN_AUDIT.json` 取代 |
 | `_A8_VIEW_MARKER_GAPS.json` | 一次性 DOM 标记审计，无引用；缺口已写入 `A8_UI_PARITY_GAPS.md` |
-| `collectors/docs/OB_FRONTEND_PLAN.md` | 未审批的实施计划，非现状说明；未勾选项非当前阻塞 |
+| `docs/platforms/OB_FRONTEND_PLAN.md`（若存在） | 未审批的实施计划，非现状说明；未勾选项非当前阻塞 |
 
 ---
 

@@ -4,7 +4,7 @@ A8 采集模式：**HTTP `/api/v8/events/` 快照 + A8 中继 WebSocket**（`UBe
 
 **完整 A8 逻辑说明（凭证、头、轮询、下注）**：
 
-`gamebet_frontend/app/src/collectors/docs/A8_TF_LOGIC_PARITY.md`
+`gamebet_frontend/app/docs/platforms/A8_TF_LOGIC_PARITY.md`
 
 ## 数据流
 

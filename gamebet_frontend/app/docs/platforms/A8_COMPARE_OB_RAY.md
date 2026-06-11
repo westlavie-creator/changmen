@@ -9,7 +9,7 @@
 | 参考源（只读） | changmen 实现 |
 |----------------|----------------|
 | [`../../../../../A8/A8frontendscipts/2.0.1/index.js`](../../../../../A8/A8frontendscipts/2.0.1/index.js) | 前端：[`../ob/`](../ob/)、[`../ray/`](../ray/)、[`../../providers/`](../../providers/) |
-| 同逻辑亦见于 `gamebet_frontend/vendor/ui-bundle/index.js` | 后端：[`../../../../../gamebet_backend/`](../../../../../gamebet_backend/)（自 `collectors/docs` 上 5 级至 `changmen/`） |
+| 同逻辑亦见于 `gamebet_frontend/vendor/ui-bundle/index.js` | 后端：[`../../../../../gamebet_backend/`](../../../../../gamebet_backend/)（自 `app/docs/platforms` 上溯至 `changmen/`） |
 
 ---
 

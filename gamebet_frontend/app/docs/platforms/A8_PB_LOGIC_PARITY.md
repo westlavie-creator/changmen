@@ -6,15 +6,15 @@
 
 | # | 能力 | A8 符号 | changmen 路径 | 状态 |
 |---|------|---------|---------------|------|
-| 1 | 采集轮询 5s | `AQ` | `collectors/pb/index.ts` | 已实现 |
-| 2 | 落库 60s | `GS` | `collectors/pb/index.ts` `SAVE_MS` | 已实现 |
-| 3 | 无账号 3s + clean | `AQ` | `collectors/pb/index.ts` | 已实现 |
-| 4 | 采集仅 `balance!==undefined` 的 PB 账号 | `bv` | `collectors/pb/session.ts` | 已实现 |
+| 1 | 采集轮询 5s | `AQ` | `platform_adapter/pb/frontend/collect.ts` | 已实现 |
+| 2 | 落库 60s | `GS` | `platform_adapter/pb/frontend/collect.ts` `SAVE_MS` | 已实现 |
+| 3 | 无账号 3s + clean | `AQ` | `platform_adapter/pb/frontend/collect.ts` | 已实现 |
+| 4 | 采集仅 `balance!==undefined` 的 PB 账号 | `bv` | `platform_adapter/pb/frontend/auth.ts` | 已实现 |
 | 5 | 不用 platforms.json 采盘 | — | 同上 | 已实现 |
 | 6 | `getPlatform(PB)` 仅过滤 games | `Vt.getPlatform` | `getCollectPlatform` + `getGames` | 已实现 |
-| 7 | 拉盘 `Zn.get` euro/odds | `_Ze` | `collectors/pb/pluginHttp.ts` | 已实现 |
+| 7 | 拉盘 `Zn.get` euro/odds | `_Ze` | `platform_adapter/pb/frontend/transport.ts` | 已实现 |
 | 8 | 请求头 `k0` 固定 515 | `k0` | `shared/platforms/pbHeaders.ts` | 已实现 |
-| 9 | `TQ` key `${matchId}:${map}` | `TQ.set` | `collectors/pb/lineCache.ts` | 已实现 |
+| 9 | `TQ` key `${matchId}:${map}` | `TQ.set` | `platform_adapter/pb/frontend/lineCache.ts` | 已实现 |
 | 10 | 余额 `Zn.post` account-balance | `PZe.getBalance` | `providers/pbProvider.ts` | 已实现 |
 | 11 | checkBet 仅 `TQ.get` | `PZe.checkBet` | `providers/pbProvider.ts` | 已实现 |
 | 12 | checkBet `Zn.post` all-odds-selections | `PZe.checkBet` | 同上 | 已实现 |
@@ -24,7 +24,7 @@
 | 16 | `getOrders` wager-filter OPEN+SETTLED | `PZe.getOrders` | `providers/pbProvider.ts` | 已实现 |
 | 17 | `updateOrders` unsettle/winBalance | `uv.updateOrders` | `stores/accountStore.ts` | 已实现 |
 | 18 | 粘贴多网关测速 | `AccountInfoView` | `AccountEditDialog.vue` | 已实现 |
-| 19 | 扩展代发 GET/POST | `Zn` | `collectors/a8/pluginBridge.ts` | 已实现 |
+| 19 | 扩展代发 GET/POST | `Zn` | `gamebet_chromeplug（Gamebet 协议代发）` | 已实现 |
 
 ## A8 API 路径
 

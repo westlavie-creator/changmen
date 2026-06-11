@@ -2,7 +2,7 @@
 
 对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `index.css`（新 `/app/`）。  
 双轨对照可用 `vendor/ui-bundle` + `/console/`。  
-本清单只列**尚未对齐**或**仅部分对齐**项；数据层/采集/下单见 `MIGRATION.md` 与各 `collectors/docs/*`。
+本清单只列**尚未对齐**或**仅部分对齐**项；数据层/采集/下单见 `MIGRATION.md` 与各 `docs/platforms/*`。
 
 文档索引：[README.md](./README.md)
 

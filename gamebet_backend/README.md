@@ -33,21 +33,18 @@ gamebet_backend/
 │       ├── index.js          # HTTP + esport-api；进程内 WS relay
 │       └── proxy/            # OB/RAY/TF/IA HTTP/WS relay
 ├── core/                     # Business Core
-│   ├── esport-api/           # 路由/store/match合并/初赔/platform_sync
+│   ├── esport-api/           # 路由/store/初赔/platform_sync
 │   ├── account/              # 账号服务（场馆账号，非登录用户）
 │   ├── db/                   # Supabase 客户端 + 内存缓存
 │   ├── shared/               # adapter_paths / catalog / odds_format 等
 │   └── integrations/         # A8 集成（constants / v4）
-├── relays/                   # Relay cores（两个 Host 共用）
-│   ├── ob_relay_core.js      # OB MQTT
-│   ├── ray_relay_core.js     # RAY SocketCluster
-│   ├── tf_relay_core.js      # TF WebSocket
-│   └── ia_relay_core.js      # IA Socket.IO
 ├── scripts/                  # 运维 / 调试脚本
 ├── supabase/                 # DB 迁移文件
 ├── public/                   # A8 esport2 静态资源
 ├── restart.js
 └── package.json
+
+平台 canonical 源码在 [`../platform_adapter/`](../platform_adapter/README.md)（经 `core/shared/adapter_paths.js` 加载 relay/探针）。
 ```
 
 ## 启动
@@ -56,7 +53,7 @@ gamebet_backend/
 |------|------|------|
 | **Web 后端** | `npm run web` | `host/web/index.js`，端口 3456 |
 
-Windows 一键（在 `changmen/`）：`dev.bat` / `dev-web.bat`（backend + Vite + matcher）。Chrome 需加载 `gamebet_chromeplug`。
+Windows 一键（在 `changmen/`）：`setup-dev-env.bat`（首次）→ `dev.bat` / `dev-web.bat`（等价）。Chrome 需加载 `gamebet_chromeplug`。
 
 ```bash
 cd changmen/gamebet_backend
@@ -131,9 +128,9 @@ npm run web          # Web Host
 
 ## 平台文档
 
-- OB：[platforms/ob/README.md](./platforms/ob/README.md)（含登录 URL 配置）、[STATUS_MAPPING.md](./platforms/ob/STATUS_MAPPING.md)
-- RAY：[platforms/ray/README.md](./platforms/ray/README.md)
-- TF：[platforms/tf/README.md](./platforms/tf/README.md)；A8 全链路说明见 [collectors/docs/A8_TF_LOGIC_PARITY.md](../gamebet_frontend/app/src/collectors/docs/A8_TF_LOGIC_PARITY.md)
+- OB：[../platform_adapter/ob/README.md](../platform_adapter/ob/README.md)、[STATUS_MAPPING.md](../platform_adapter/ob/backend/docs/STATUS_MAPPING.md)
+- RAY：[../platform_adapter/ray/README.md](../platform_adapter/ray/README.md)
+- TF：[../platform_adapter/tf/README.md](../platform_adapter/tf/README.md)；A8 全链路说明见 [A8_TF_LOGIC_PARITY.md](../gamebet_frontend/app/docs/platforms/A8_TF_LOGIC_PARITY.md)
 
 ## 新增平台
 

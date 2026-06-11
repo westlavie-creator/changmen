@@ -28,7 +28,7 @@
 
 ## 工作目录
 
-**所有 `npm run`、`start-*.bat` 请在 `changmen/` 下执行**（本目录即应用根，`package.json` 与 `start-*.bat` 仅在此）。
+**所有 `npm run`、`*.bat` 请在 `changmen/` 下执行**（本目录即应用根）。首次配置 Supabase：运行 `setup-dev-env.bat` 从 `.env.example` 生成 `gamebet_backend/.env` 后编辑。
 
 若 Git 仓库根仍是上一级的 `gamebet/`，可在该目录执行 `npm run web`（根目录 `package.json` 会转发 npm 脚本）；**`.bat` 请进入 `changmen/` 再双击**。说明见 [scripts/README.md](./scripts/README.md)。
 
@@ -44,7 +44,7 @@
 
 「赛事采集」开关：仅控制是否 **回传** `SaveMatch`/`SaveBet`，不停止拉数或 fo。
 
-启动：`dev.bat` / `dev-web.bat` / `parity-dev.bat`。详见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
+启动：`setup-dev-env.bat`（首次）→ `dev.bat` / `dev-web.bat` / `parity-dev.bat`。详见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
 
 ## 仓库结构
 
@@ -75,11 +75,13 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/app/
 
 迁移阶段与模块对照见 [gamebet_frontend/MIGRATION.md](./gamebet_frontend/MIGRATION.md)。后端 API 见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
 
-**OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[gamebet_frontend/app/src/collectors/docs/A8_COMPARE_OB_RAY.md](./gamebet_frontend/app/src/collectors/docs/A8_COMPARE_OB_RAY.md)。
+**OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[gamebet_frontend/app/docs/platforms/A8_COMPARE_OB_RAY.md](./gamebet_frontend/app/docs/platforms/A8_COMPARE_OB_RAY.md)。
 
 **OB 复刻计划**（A8 前端基线 + changmen 标注）：[gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/app/docs/A8_OB_REPLICATE_PLAN.md)。
 
-**TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[gamebet_frontend/app/src/collectors/docs/A8_TF_LOGIC_PARITY.md](./gamebet_frontend/app/src/collectors/docs/A8_TF_LOGIC_PARITY.md)。
+**TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[gamebet_frontend/app/docs/platforms/A8_TF_LOGIC_PARITY.md](./gamebet_frontend/app/docs/platforms/A8_TF_LOGIC_PARITY.md)。
+
+平台采集 canonical 源码目录：`platform_adapter/{平台}/frontend/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 请以 `platform_adapter/` 为准。
 
 ---
 
@@ -88,7 +90,7 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/app/
 各平台采集在**客户端**完成，经 HTTP 上报服务端。
 
 ```text
-客户端 collectors ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► Supabase
+platform_adapter（浏览器） ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► Supabase
 服务端 matcher ──► client_matches ──► Client_GetMatchs ──► 客户端 matchStore
 客户端 oddsStore（实时赔，对齐 A8 fo）
 ```
@@ -97,26 +99,26 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/app/
 
 | 平台 | 源码 | 机制 | 凭证要求 |
 |------|------|------|----------|
-| OB | `collectors/ob.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
-| RAY | `collectors/ray.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `gamebet_backend/shared/ray_a8_collect.js`） |
-| TF | `collectors/tf.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
-| IA | `collectors/ia.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
-| PB | `collectors/pb.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
-| IMT | `collectors/imt.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
-| SABA | `collectors/saba.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
-| IM | `collectors/im.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
-| XBet | `collectors/xbet.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
-| Stake | `collectors/stake.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
-| HG | `collectors/hg.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
+| OB | `platform_adapter/ob/frontend/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
+| RAY | `platform_adapter/ray/frontend/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `platform_adapter/ray/backend/collect_credentials.js`） |
+| TF | `platform_adapter/tf/frontend/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
+| IA | `platform_adapter/ia/frontend/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
+| PB | `platform_adapter/pb/frontend/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
+| IMT | `platform_adapter/imt/frontend/collect.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
+| SABA | `platform_adapter/saba/frontend/collect.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
+| IM | `platform_adapter/im/frontend/collect.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
+| XBet | `platform_adapter/xbet/frontend/collect.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
+| Stake | `platform_adapter/stake/frontend/collect.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
+| HG | `platform_adapter/hg/frontend/collect.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
 
 公共模块：
 
 | 模块 | 路径 | 说明 |
 |------|------|------|
-| 采集会话 | `utils/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
-| HTTP 采集 | `utils/collectHttp.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
-| A8 Socket  hub | `utils/a8SocketHub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
-| A8 盘口聚合 | `utils/a8BetsCollect.ts`、`collectors/a8Bets.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
+| 采集会话 | `platform_adapter/shared/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
+| HTTP 采集 | `gamebet_frontend/app/src/shared/http.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
+| A8 Socket hub | `platform_adapter/shared/socket/hub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
+| A8 盘口聚合 | `platform_adapter/shared/socket/collector.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
 
 ### 凭证存储：`gamebet_backend/data/esport/platforms.json`
 

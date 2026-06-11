@@ -116,7 +116,7 @@
 
 ### 阶段 1 — 采集主链 [A8 可证实]（已完成）
 
-**文件**：`app/src/collectors/ob/index.ts`、`matches.ts`、`markets.ts`
+**文件**：`platform_adapter/ob/frontend/collect.ts`、`markets.ts`（比赛列表 HTTP 在同模块或 `markets.ts`）
 
 - [x] 1.1 过滤后 `buildMatchesFromList` → `collect.saveMatch`（UMe 92328）
 - [x] 1.2 开关关时不 saveMatch/saveBets；**仍** fo + MQTT（Af 74621/74651）
@@ -142,7 +142,7 @@
 
 ### 阶段 3 — MQTT / fo 细项 [A8 可证实]（已完成）
 
-**文件**：`ob/mqtt.ts`、`oddsStore.ts`、`collectors/docs/OB.md`
+**文件**：`platform_adapter/ob/frontend/mqtt.ts`、`oddsStore.ts`、`docs/platforms/OB.md`
 
 - [x] 3.1 三 topic handler（oddsUpdate / statusUpdate / suspended）
 - [x] 3.2 `/odd/*` 订阅无 handler — 文档 + 代码注释（与 A8 UMe 一致）
@@ -212,7 +212,7 @@
 
 | 文档 | 用途 |
 |------|------|
-| [A8_COMPARE_OB_RAY.md](../src/collectors/docs/A8_COMPARE_OB_RAY.md) | Token/采集/下注三线对照 |
-| [OB.md](../src/collectors/docs/OB.md) | 运维入口 |
+| [A8_COMPARE_OB_RAY.md](./platforms/A8_COMPARE_OB_RAY.md) | Token/采集/下注三线对照 |
+| [OB.md](./platforms/OB.md) | 运维入口 |
 | [A8_REPLICATE_8_PLATFORMS.md](./A8_REPLICATE_8_PLATFORMS.md) | 8 平台总表 |
 | [A8_COLLECT_VIEW_PIXEL_PARITY.md](./A8_COLLECT_VIEW_PIXEL_PARITY.md) | 回传开关 UI |

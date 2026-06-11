@@ -47,7 +47,7 @@
     "check:collect:probe": "node scripts/check-collect-platforms.js --probe",
     "test": "vitest run --root ../gamebet_matcher/engine && npm run test:adapter",
     "test:watch": "vitest",
-    "test:adapter": "node scripts/test-packaged-env.js && node scripts/test-packaged-adapter-layout.js",
+    "test:adapter": "node scripts/test-packaged-adapter-layout.js",
     "test:packaged-adapter": "node scripts/test-packaged-adapter-layout.js",
     "sync:a8-assets": "node scripts/sync-a8-esport2-assets.mjs",
     "compile:router": "tsc -p tsconfig.router.json"

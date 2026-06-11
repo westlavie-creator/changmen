@@ -10,8 +10,8 @@
 ┌──────────────────────────────────────────────────────────────────────┐
 │ ① 本系统 API     api/ + types/       →  gamebet_backend /esport、/v4.0 │
 │ ② 比赛列表       matcher → client_matches（浏览器 saveMatch 上报）   │
-│ ③ 赔率上报       platforms/{平台}/collect.ts → SaveBet（+ fo）        │
-│ ④ 平台下注       platforms/{平台}/bet.ts  →  场馆 gateway + 账号 token │
+│ ③ 赔率上报       platform_adapter/{平台}/frontend/collect.ts → SaveBet（+ fo）        │
+│ ④ 平台下注       platform_adapter/{平台}/frontend/bet.ts  →  场馆 gateway + 账号 token │
 │ ⑤ UI 编排        stores/ + views/ + components/                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -22,18 +22,18 @@
 | `api/v4.ts` | A8 v4 信用盘试玩（平博/OB/SABA） | `enterCreditPlate` — 详见 [docs/CREDIT_PLATE.md](../docs/CREDIT_PLATE.md) |
 | `types/` | DTO、用户配置、纯类型 | `types/collect.ts`, `types/esport.ts` |
 | `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
-| `platforms/` | **平台清单、能力与平台实现** | `registry.ts`, `ob/collect.ts`, `ob/bet.ts` |
-| `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp`, `platforms/pbHeaders` |
+| `platform_adapter/` | **平台清单、能力与平台实现**（Vite `@platform`） | `registry/adapters.ts`, `ob/frontend/collect.ts`, `ob/frontend/bet.ts` |
+| `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp` |
 | `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts` |
-| `platforms/{id}/collect.ts` | **赔率上报链路**（连接平台源站；主写 `SaveBet`） | `start*Collector` |
-| `platforms/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
-| `platforms/{id}/bet.ts` | **下注**：预检、下单、余额 | `obProvider` 等 |
+| `platform_adapter/{id}/frontend/collect.ts` | **赔率上报链路** | `start*Collector` |
+| `platform_adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
+| `platform_adapter/{id}/frontend/bet.ts` | **下注** | `obProvider` 等 |
 | `stores/` | Pinia 状态与编排 | `matchStore`, `accountStore`, `bettingStore` |
-| `platforms/hg/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
+| `platform_adapter/hg/frontend/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
 
 **原则**：`bet.ts` 不依赖 `collect.ts`；二者都可用 `shared/`，但 `bet.ts` 不应依赖 `platforms/shared/`（采集专用）。
 
-### 平台能力矩阵（`platforms/registry.ts`）
+### 平台能力矩阵（`platform_adapter/registry/adapters.ts`）
 
 | 平台 | 采集 | 下注 | 备注 |
 |------|------|------|------|
@@ -41,9 +41,9 @@
 | XBet | ✓ | — | A8 Socket 频道，无 provider |
 | Stake | ✓ | ✓* | *`pluginOnly`：需 Chrome 扩展 + stake.com tab；`stakeProvider` 已实现 GraphQL 下单 |
 
-`ALL_PLATFORMS`、`PLATFORMS` 均从 registry 导出；新增平台时只改 `PLATFORM_REGISTRY` 一处，并注册 `runtime/collectors.ts` 与 `runtime/providers.ts`。
+`ALL_PLATFORMS`、`PLATFORMS` 均从 `@platform/registry` 导出；新增平台时改 `platform_adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
 
-账号鉴权（与采集解耦）：`platforms/pb/auth.ts`、`platforms/tf/auth.ts` ← `platformHttp` 与采集侧共同使用。
+账号鉴权（与采集解耦）：`platform_adapter/pb/frontend/auth.ts`、`platform_adapter/tf/frontend/auth.ts` ← `platformHttp` 与采集侧共同使用。
 
 ---
 
@@ -52,8 +52,9 @@
 ### 比赛列表（后端入库，Changmen 主路径）
 
 ```
-各平台 feed (gamebet_backend/platforms/*)
-         ──► store.saveMatches → matches.json
+浏览器 saveMatch / saveBet（platform_adapter 采集）
+         ──► API_SaveMatch / API_SaveBet
+         ──► matcher → client_matches
          ──► Client_GetMatchs
          ──► matchStore（前端只读列表）
 ```
