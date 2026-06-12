@@ -11,7 +11,95 @@
  *   upsert* — async 写入，需要确认结果
  */
 
+import crypto from "node:crypto";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { supabase, supabaseAdmin } from "./client.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+
+/** @returns {typeof import('pg')} */
+function requirePg() {
+  const searchPaths = [
+    path.join(__dirname, "..", "..", "apps", "backend", "node_modules"),
+    path.join(__dirname, "..", "..", "node_modules"),
+    path.join(__dirname, "..", "node_modules"),
+  ];
+  return require(require.resolve("pg", { paths: searchPaths }));
+}
+
+const AUTH_MODE = String(process.env.AUTH_MODE || "supabase").trim().toLowerCase();
+const isJwtMode = () => AUTH_MODE === "jwt";
+const JWT_SECRET = process.env.JWT_SECRET || "";
+
+function parseJwtTtl(raw, fallbackSec) {
+  const s = String(raw || "").trim();
+  if (!s) return fallbackSec;
+  const m = s.match(/^(\d+)([smhd])?$/i);
+  if (!m) return fallbackSec;
+  const n = Number(m[1]);
+  const u = (m[2] || "s").toLowerCase();
+  const mult = { s: 1, m: 60, h: 3600, d: 86400 };
+  return n * (mult[u] || 1);
+}
+
+const JWT_ACCESS_TTL_SEC = parseJwtTtl(process.env.JWT_ACCESS_TTL, 7 * 86400);
+const JWT_REFRESH_TTL_SEC = parseJwtTtl(process.env.JWT_REFRESH_TTL, 30 * 86400);
+
+let _pgPool = null;
+
+function getPgPool() {
+  if (!isJwtMode()) return null;
+  const url = process.env.DATABASE_URL;
+  if (!url) return null;
+  if (!_pgPool) {
+    const { Pool } = requirePg();
+    _pgPool = new Pool({ connectionString: url, max: 4 });
+    console.log("[db] AUTH_MODE=jwt，RDS 连接池已就绪");
+  }
+  return _pgPool;
+}
+
+if (isJwtMode()) {
+  console.log("[db] AUTH_MODE=jwt（登录走 RDS users 表；数据读写仍按现有 Supabase 路径，直至 M3）");
+}
+
+function signJwt(payload, secret, ttlSec) {
+  const header = { alg: "HS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const body = { ...payload, iat: now, exp: now + ttlSec };
+  const h = Buffer.from(JSON.stringify(header)).toString("base64url");
+  const p = Buffer.from(JSON.stringify(body)).toString("base64url");
+  const sig = crypto.createHmac("sha256", secret).update(`${h}.${p}`).digest("base64url");
+  return `${h}.${p}.${sig}`;
+}
+
+function verifyJwt(token, secret) {
+  const parts = String(token || "").split(".");
+  if (parts.length !== 3) return null;
+  const [h, p, sig] = parts;
+  const expected = crypto.createHmac("sha256", secret).update(`${h}.${p}`).digest("base64url");
+  if (sig !== expected) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(p, "base64url").toString("utf8"));
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function decodeJwtPayload(token) {
+  try {
+    const p = String(token || "").split(".")[1];
+    if (!p) return null;
+    return JSON.parse(Buffer.from(p, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
 
 /**
  * fire-and-forget 写入（service_role）。
@@ -42,6 +130,17 @@ async function fetchProfiles(sessionClient) {
 
 /** 按 uid 读单个 profile */
 async function fetchProfileById(uid) {
+  if (isJwtMode()) {
+    const pool = getPgPool();
+    if (!pool) return null;
+    try {
+      const { rows } = await pool.query("SELECT * FROM profiles WHERE id = $1", [String(uid)]);
+      return rows[0] || null;
+    } catch (err) {
+      console.warn("[rds] fetchProfileById:", err.message);
+      return null;
+    }
+  }
   if (!supabase) return null
   try {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', String(uid)).single()
@@ -61,6 +160,31 @@ function writeProfile(uid, patch) {
 
 /** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */
 async function insertProfile(uid, data) {
+  if (isJwtMode()) {
+    const pool = getPgPool();
+    if (!pool) return false;
+    try {
+      await pool.query(
+        `INSERT INTO profiles (id, user_name, accounts, betting_config, collect_config, preferences, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (id) DO NOTHING`,
+        [
+          String(data.id || uid),
+          String(data.user_name || ""),
+          data.accounts ?? [],
+          data.betting_config ?? {},
+          data.collect_config ?? {},
+          data.preferences ?? {},
+          Number(data.created_at) || Date.now(),
+          Number(data.updated_at) || Date.now(),
+        ],
+      );
+      return true;
+    } catch (err) {
+      console.warn("[rds] insertProfile:", err.message);
+      return false;
+    }
+  }
   if (!supabaseAdmin) return false
   const { error } = await supabaseAdmin.from('profiles').insert(data)
   return !error
@@ -562,14 +686,50 @@ async function updateOrderBind(orderId, userId, link, opts = {}) {
   return true
 }
 
-// ── auth ──────────────────────────────────────────────────────────────
+// ── auth（AUTH_MODE=supabase|jwt，见 .env）──────────────────────────────
 
 /** 密码登录；返回 { accessToken, refreshToken, userId, email } 或 null */
 async function authSignIn(userName, password) {
+  const name = String(userName || "").trim();
+  const pwd = String(password || "");
+  if (!name || !pwd) return null;
+
+  if (isJwtMode()) {
+    const pool = getPgPool();
+    if (!pool || !JWT_SECRET) return null;
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, user_name FROM users
+         WHERE lower(user_name) = lower($1)
+           AND password_hash = crypt($2, password_hash)`,
+        [name, pwd],
+      );
+      const row = rows[0];
+      if (!row) return null;
+      const userId = String(row.id);
+      const sessionId = crypto.randomUUID();
+      const accessToken = signJwt(
+        { sub: userId, typ: "access", session_id: sessionId },
+        JWT_SECRET,
+        JWT_ACCESS_TTL_SEC,
+      );
+      const refreshToken = signJwt({ sub: userId, typ: "refresh" }, JWT_SECRET, JWT_REFRESH_TTL_SEC);
+      return {
+        accessToken,
+        refreshToken,
+        userId,
+        email: `${row.user_name}@gamebet.local`,
+      };
+    } catch (err) {
+      console.warn("[rds] authSignIn:", err.message);
+      return null;
+    }
+  }
+
   if (!supabase) return null
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: `${userName.toLowerCase()}@gamebet.local`,
-    password,
+    email: `${name.toLowerCase()}@gamebet.local`,
+    password: pwd,
   })
   if (error || !data?.session) return null
   return {
@@ -582,25 +742,44 @@ async function authSignIn(userName, password) {
 
 /** 登出指定 token 对应的 session */
 async function authSignOut(token) {
-  if (!supabase || !token) return
+  if (!token) return
+  if (isJwtMode()) return
+  if (!supabase) return
   await supabase.auth.admin.signOut(token).catch(() => {})
 }
 
-/** 校验 JWT token；返回 { userId, metadata } 或 null */
+/** 校验 token；返回 { userId, metadata } 或 null */
 async function authGetUser(token) {
-  if (!supabase || !token) return null
-  try {
-    const { data, error } = await supabase.auth.getUser(token)
-    if (error || !data?.user) return null
-    return {
-      userId:   data.user.id,
-      metadata: data.user.user_metadata || {},
-    }
-  } catch { return null }
+  if (!token) return null
+
+  if (isJwtMode()) {
+    if (!JWT_SECRET) return null
+    const payload = verifyJwt(token, JWT_SECRET)
+    if (!payload?.sub || payload.typ !== "access") return null
+    return { userId: String(payload.sub), metadata: {} }
+  }
+
+  const payload = decodeJwtPayload(token)
+  if (!payload?.sub) return null
+  if (payload.exp && payload.exp * 1000 < Date.now()) return null
+  return { userId: String(payload.sub), metadata: {} }
 }
 
 /** 写入 user_metadata（fire-and-forget，用于单 session 限制） */
 function writeUserMetadata(userId, metadata) {
+  if (isJwtMode()) {
+    const pool = getPgPool();
+    if (!pool) return;
+    Promise.resolve()
+      .then(() =>
+        pool.query(
+          "UPDATE users SET metadata = metadata || $2::jsonb, updated_at = $3 WHERE id = $1",
+          [String(userId), JSON.stringify(metadata || {}), Date.now()],
+        ),
+      )
+      .catch((err) => console.warn("[rds] writeUserMetadata:", err.message));
+    return;
+  }
   if (!supabaseAdmin) return
   Promise.resolve()
     .then(() => supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: metadata }))
@@ -609,11 +788,13 @@ function writeUserMetadata(userId, metadata) {
 
 /** service_role 可用时返回 true */
 function hasAdminAccess() {
+  if (isJwtMode()) return !!getPgPool()
   return !!supabaseAdmin
 }
 
-/** 是否已配置 Supabase Auth（登录必需） */
+/** 是否已配置登录（supabase 或 jwt） */
 function isAuthConfigured() {
+  if (isJwtMode()) return !!(process.env.DATABASE_URL && JWT_SECRET.length >= 16)
   return !!supabase
 }
 

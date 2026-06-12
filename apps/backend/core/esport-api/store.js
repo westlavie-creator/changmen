@@ -75,37 +75,15 @@ export function ensureSeed() {
   }
 }
 
-// ── Supabase Auth：用 JWT token 获取当前用户 profile ─────────────────────────
-function getJwtClaim(token, claim) {
-  try {
-    return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString())[
-      claim
-    ];
-  } catch {
-    return null;
-  }
-}
-
+// ── Auth：token → profile（鉴权逻辑在 packages/shared/db/supabase.js）────────
 export async function getUserBySupabaseToken(token) {
   if (!token) return null;
 
-  // 本地解码：检查 exp + 提取 sub，无需网络调用
-  // Supabase 新版项目用非对称签名，无单一 JWT Secret，不做签名验证；
-  // 后端为内部服务，token 来源唯一（Supabase Auth），伪造不构成实际威胁。
-  let userId;
-  try {
-    const payload = JSON.parse(
-      Buffer.from(token.split(".")[1], "base64url").toString(),
-    );
-    if (!payload.sub) return null;
-    if (payload.exp && payload.exp * 1000 < Date.now()) return null; // 已过期
-    userId = payload.sub;
-  } catch {
-    return null;
-  }
+  const auth = await sb.authGetUser(token);
+  if (!auth?.userId) return null;
 
-  let profile = dbStore.getProfileById(userId);
-  if (!profile) profile = await dbStore.loadProfileById(userId);
+  let profile = dbStore.getProfileById(auth.userId);
+  if (!profile) profile = await dbStore.loadProfileById(auth.userId);
   return profile || null;
 }
 
