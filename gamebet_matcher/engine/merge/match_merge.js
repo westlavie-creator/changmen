@@ -40,7 +40,7 @@ const {
 } = require("./im_enrich");
 const { buildBetsForMatch } = require("./bet_builder");
 
-const { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } = require("../../../shared/catalog/game_catalog");
+const { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } = require("../../../shared/catalog/game_catalog.mjs");
 const { normalizeEpochMs, a8StartTimeListAllowed } = require("../../../shared/time/match_time.js");
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────

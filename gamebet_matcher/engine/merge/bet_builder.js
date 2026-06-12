@@ -11,7 +11,7 @@ const {
   matchesSavedBet,
   rayLegacyWinBetName,
   iaLegacyWinBetName,
-} = require("../../../shared/catalog/market_catalog");
+} = require("../../../shared/catalog/market_catalog.mjs");
 const { pickStr, imBetNameIsCollectible, normalizeImBet } = require("../../../shared/im_parse.js");
 const { filterImStoredWinBets, dedupeImBetsByMap } = require("./im_enrich");
 

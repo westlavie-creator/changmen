@@ -8,8 +8,8 @@
  */
 
 const { isPlaceholderTeamName } = require("../teams/match_utils");
-const { getGameCodeForPlatformId, getPlatformGameId } = require("../../../shared/catalog/game_catalog");
-const { matchesSavedBet } = require("../../../shared/catalog/market_catalog");
+const { getGameCodeForPlatformId, getPlatformGameId } = require("../../../shared/catalog/game_catalog.mjs");
+const { matchesSavedBet } = require("../../../shared/catalog/market_catalog.mjs");
 const { pickStr, imBetNameIsCollectible, normalizeImBet } = require("../../../shared/im_parse.js");
 const {
   IM_ODDS_ACTIVE_MS,

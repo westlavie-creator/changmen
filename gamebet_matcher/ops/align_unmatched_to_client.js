@@ -7,7 +7,7 @@
  * 命中后在内存写入 ClientMatchId，后续走 applyManualMatchLinks。
  */
 
-const { resolveClientGame, getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog");
+const { resolveClientGame, getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
 const { normalizeEpochMs } = require("../../shared/time/match_time.js");
 const {
   canonicalMatchKeyByIdOnly,

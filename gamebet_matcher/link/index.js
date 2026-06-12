@@ -15,7 +15,7 @@ const {
   providerPriority,
   teamsFromPlatformRows,
 } = require("../engine");
-const { resolveClientGame, getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog");
+const { resolveClientGame, getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
 const { rebuildOnce } = require("../ops/rebuild");
 
 function gameCodeForPlatform(platform, sourceGameId) {

@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node ui/server.js",
     "matcher": "node matcher.js",
-    "test": "vitest run engine/tests/"
+    "test": "vitest run && npm run test:node",
+    "test:node": "node --test engine/tests/ob_bet_builder.test.mjs engine/tests/ia_bet_builder.test.mjs engine/tests/ray_bet_builder.test.mjs"
   },
   "dependencies": {
     "dotenv": "^16.0.0",

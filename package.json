@@ -19,6 +19,7 @@
     "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "npm run test --prefix gamebet_backend",
     "test:frontend": "npm run test --prefix gamebet_frontend",
+    "test:catalog-parity": "node shared/catalog/market_catalog_parity.test.mjs",
     "matcher:install": "npm install --prefix gamebet_matcher",
     "matcher:ui": "npm run start --prefix gamebet_matcher",
     "matcher:loop": "npm run matcher --prefix gamebet_matcher",

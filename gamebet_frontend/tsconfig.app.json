@@ -35,6 +35,7 @@
     "../platform_adapter/ray/shared/**/*.ts",
     "../platform_adapter/ob/shared/**/*.ts",
     "../shared/catalog/market_catalog.browser.ts",
+    "../shared/catalog/market_catalog.mjs.d.ts",
     "../platform_adapter/shared/**/*.ts",
     "../platform_adapter/registry/**/*.ts",
     "../platform_adapter/contract/**/*.ts"

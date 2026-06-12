@@ -5,7 +5,7 @@
  * 仅写入待识别记录（canonical_id = NULL），不分配 gb_team_id。
  */
 
-const { getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog");
+const { getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
 
 const AUTO_REGISTER_PLATFORMS = new Set(["TF", "OB", "RAY", "IA"]);
 const UPSERT_BATCH = 200;

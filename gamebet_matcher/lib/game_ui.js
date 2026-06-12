@@ -1,6 +1,6 @@
 "use strict";
 
-const { describePlatformGame, getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog");
+const { describePlatformGame, getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
 
 /** matcher UI：平台 source_game_id → { code, name }，未知游戏返回 null */
 function resolveUiGame(platform, sourceGameId) {
