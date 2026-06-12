@@ -6,6 +6,7 @@
   "description": "changmen 跨进程共享模块（catalog、db、odds 等）",
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
+    "dotenv": "^17.4.2",
     "ws": "^8.21.0"
   }
 }
