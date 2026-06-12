@@ -11,8 +11,7 @@
 
 ## 0. 启动
 
-- [ ] `cd changmen/gamebet_backend && node server.js`（或现有启动方式，端口 3456）
-- [ ] `cd changmen/gamebet_frontend && npm run app:dev` → 5174
+- [ ] `dev_web.bat`（3560 后端 + 5174 Vite）+ 可选 `matcher-loop.bat`
 - [ ] 可选：`PATCH_CONSOLE=1` 启动以打开 `/console/` 对照
 
 自动化（无需浏览器）：

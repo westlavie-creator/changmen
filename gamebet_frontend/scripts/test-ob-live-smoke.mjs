@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * OB 后端 live 冒烟（需 gamebet_backend:3456）
+ * OB 后端 live 冒烟（需 gamebet_backend 3560，与 dev.bat 一致）
  *
  * 默认只读：登录 → Client_GetCollectPlatform(OB) → Client_GetMatchs 抽样
  * 写入 round-trip（会临时覆盖 OB 比赛快照）：OB_SMOKE_WRITE=1
  *
- * ESPORT_TEST_BASE=http://127.0.0.1:3456 node scripts/test-ob-live-smoke.mjs
+ * ESPORT_TEST_BASE=http://127.0.0.1:3560 node scripts/test-ob-live-smoke.mjs
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -129,11 +129,8 @@ function sleep(ms) {
 }
 
 async function writeRoundTrip(base, token, userName) {
-  if (!fs.existsSync(MATCHES_PATH)) {
-    console.log("[ob-live] 跳过写入（无 data/esport/matches.json，后端未 seed？）");
-    return;
-  }
-  const backup = backupObStore();
+  const hasLocalStore = fs.existsSync(MATCHES_PATH);
+  const backup = hasLocalStore ? backupObStore() : null;
   const { sourceMatchId, match, bets } = smokePayload();
   try {
     const sm = await esportPost(
@@ -168,15 +165,21 @@ async function writeRoundTrip(base, token, userName) {
     assert(ob.BetID === bets[0].SourceBetID, `Sources.OB.BetID 不一致: ${ob.BetID} vs ${bets[0].SourceBetID}`);
     console.log("[ob-live] SaveMatch+SaveBet round-trip PASS", { sourceMatchId });
   } finally {
-    restoreObStore(backup);
-    console.log("[ob-live] 已恢复 OB matches/bets 快照");
+    if (backup) {
+      restoreObStore(backup);
+      console.log("[ob-live] 已恢复 OB matches/bets 本地快照");
+    } else {
+      console.log(
+        "[ob-live] 无本地 matches.json（Supabase 模式）；smoke 行已写入服务端，未自动删除",
+      );
+    }
   }
 }
 
 async function main() {
   const base = resolveEsportBase();
   if (!base) {
-    console.log("[ob-live] 跳过（设 ESPORT_TEST_BASE=http://127.0.0.1:3456）");
+    console.log("[ob-live] 跳过（无法解析 ESPORT_TEST_BASE）");
     return;
   }
 
