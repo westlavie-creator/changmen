@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { getGameCodeForPlatformId, resolveClientGame } = require("../../../shared/catalog/game_catalog.js");
+const { getGameCodeForPlatformId, resolveClientGame } = require("../../../shared/catalog/game_catalog.mjs");
 
 describe("game_catalog IA mappings", () => {
   it("maps IA native game id 3 to CS2", () => {

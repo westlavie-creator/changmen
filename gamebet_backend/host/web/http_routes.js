@@ -1,7 +1,7 @@
 "use strict";
 
-const { getCatalogSummary } = require("../../../shared/catalog/game_catalog.js");
-const { getCatalogSummary: getMarketCatalogSummary } = require("../../../shared/catalog/market_catalog.js");
+const { getCatalogSummary } = require("../../../shared/catalog/game_catalog.mjs");
+const { getCatalogSummary: getMarketCatalogSummary } = require("../../../shared/catalog/market_catalog.mjs");
 const { listPlatforms } = require("../../core/shared/adapter_paths.js").adapterRequire(
   "registry",
   "feeds.js",

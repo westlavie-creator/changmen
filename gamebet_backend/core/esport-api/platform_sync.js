@@ -1,7 +1,7 @@
 "use strict";
 
 const store = require("./store.js");
-const { getActivePlatformGameIds } = require("../../../shared/catalog/game_catalog.js");
+const { getActivePlatformGameIds } = require("../../../shared/catalog/game_catalog.mjs");
 const { requirePlatform } = require("../shared/adapter_paths.js");
 
 const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");

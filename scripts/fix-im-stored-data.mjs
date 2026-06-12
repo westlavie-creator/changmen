@@ -20,7 +20,7 @@ const {
 const {
   getGameCodeForPlatformId,
   getPlatformGameId,
-} = require("../shared/catalog/game_catalog.js");
+} = require("../shared/catalog/game_catalog.mjs");
 
 const dataDir = path.join(__dirname, "../gamebet_backend/data/esport");
 const betsPath = path.join(dataDir, "bets.json");

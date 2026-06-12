@@ -1,6 +1,6 @@
 ﻿"use strict";
 
-const { matchesMarketCode } = require("./_require.js").reqS("catalog/market_catalog.js");
+const { matchesMarketCode } = require("./_require.js").reqS("catalog/market_catalog.mjs");
 const { getGameCode, getGameName } = require("./game_ids.js");
 
 function sleep(ms) {

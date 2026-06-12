@@ -12,7 +12,7 @@ const accountStore         = require("../account/account_store.js");
 const accountService       = require("../account/account_service.js");
 const { resolveA8Credentials }            = require("../integrations/a8/config.js");
 const { loginV4 }                         = require("../integrations/a8/v4_client.js");
-const { getPlatformRules, getDefaultMarketCode } = require("../../../shared/catalog/market_catalog.js");
+const { getPlatformRules, getDefaultMarketCode } = require("../../../shared/catalog/market_catalog.mjs");
 const { requirePlatform } = require("../shared/adapter_paths.js");
 
 // ── Types ────────────────────────────────────────────────────────────────────

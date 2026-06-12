@@ -33,9 +33,9 @@ requirePlatformRelay("OB");
 requirePlatformRelay("RAY");
 
 const paPaths = require(path.join(ap.getAdapterRoot(), "backend/_paths.js"));
-const marketCatalog = paPaths.reqS("catalog/market_catalog.js");
+const marketCatalog = paPaths.reqS("catalog/market_catalog.mjs");
 if (typeof marketCatalog.getDefaultMarketCode !== "function") {
-  throw new Error("shared/catalog/market_catalog.js did not export getDefaultMarketCode");
+  throw new Error("shared/catalog/market_catalog.mjs did not export getDefaultMarketCode");
 }
 const sharedRoot = paPaths.SHARED_ROOT;
 const expectedShared = path.join(path.dirname(backendRoot), "shared");

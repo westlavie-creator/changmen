@@ -45,7 +45,7 @@
     "user:sync": "node scripts/sync-user-data.js",
     "check:collect": "node scripts/check-collect-platforms.js",
     "check:collect:probe": "node scripts/check-collect-platforms.js --probe",
-    "test": "vitest run --root ../gamebet_matcher/engine && npm run test:adapter",
+    "test": "npm run test --prefix ../gamebet_matcher && vitest run core/shared/game_catalog.test.mjs && npm run test:adapter",
     "test:watch": "vitest",
     "test:adapter": "node scripts/test-packaged-adapter-layout.js",
     "test:packaged-adapter": "node scripts/test-packaged-adapter-layout.js",

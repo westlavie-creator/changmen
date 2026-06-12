@@ -3,7 +3,7 @@
 const {
   obPickWinMarket,
   obFormatNormalizedMarketName,
-} = require("./_require.js").reqS("catalog/market_catalog.js");
+} = require("./_require.js").reqS("catalog/market_catalog.mjs");
 
 /** 盘口开放态：game/view 中 market.status 的已知可投注值 */
 const MARKET_STATUS_OPEN = 6;
