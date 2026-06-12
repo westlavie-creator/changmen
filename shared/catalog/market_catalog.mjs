@@ -330,6 +330,8 @@ export {
   resolveMarketCode,
   obPickWinMarket,
   getObGameOddTypesByPlatformGameId,
+  obExpectedOddTypeId,
+  obMatchesOddTypeId,
   obFormatNormalizedMarketName,
   rayIsAggregatedOddsRow,
   obSavedBetIsMatchWinner,

@@ -1,7 +1,12 @@
 import type { CollectBetDto } from "@/types/collect";
 import type { PlatformId } from "@/types/esport";
 import { PLATFORMS } from "@/shared/platform";
-import { obLegacyWinBetName } from "../../../shared/catalog/market_catalog.browser";
+import {
+  getDefaultMarketCode,
+  getPlatformRules,
+  obLegacyWinBetName,
+  obMatchesOddTypeId,
+} from "../../../shared/catalog/market_catalog.browser";
 import { num, obBlockLabel, parseObOddField } from "./parse_fields";
 
 let cachedPattern: string | undefined;
@@ -22,13 +27,28 @@ export function obBlockLocked(block: Record<string, unknown>): boolean {
   return block.status !== 6 || block.visible !== 1 || block.suspended !== 0;
 }
 
-/** A8 UMe：单 block 是否进入 saveBets / fo（platform BetName + catalog 主盘规则） */
+/**
+ * A8 UMe：单 block 是否进入 saveBets / fo。
+ * catalog：优先 odd_type_id（命中则不再走 betName）；否则 platform BetName + obLegacyWinBetName。
+ */
 export function isObBlockCollectable(
   block: Record<string, unknown>,
   label: string,
   betRe: RegExp,
+  gameCode?: string | null,
 ): boolean {
   if (block.status === 12 || block.visible === 0) return false;
+
+  const rules = getPlatformRules("OB", getDefaultMarketCode());
+  const round = Number(block.round ?? 0);
+  const oddTypeId = block.odd_type_id;
+
+  if (gameCode && oddTypeId != null && String(oddTypeId) !== "") {
+    const byId = obMatchesOddTypeId(block, rules, gameCode, round);
+    if (byId === true) return true;
+    if (byId === false) return false;
+  }
+
   if (!betRe.test(label)) return false;
   return obLegacyWinBetName(label);
 }
@@ -83,12 +103,13 @@ export function buildObSaveBetRowsFromViewBlocks(
   matchId: string,
   teamNames: [string, string],
   betRe: RegExp,
+  gameCode?: string | null,
   platform: PlatformId = PLATFORMS.OB,
 ): CollectBetDto[] {
   const bets: CollectBetDto[] = [];
   for (const block of blocks) {
     const label = obBlockLabel(block);
-    if (!isObBlockCollectable(block, label, betRe)) continue;
+    if (!isObBlockCollectable(block, label, betRe, gameCode)) continue;
     const row = obBlockToSaveBetRow(block, matchId, teamNames, platform);
     if (row) bets.push(row);
   }

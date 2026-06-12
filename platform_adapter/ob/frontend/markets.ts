@@ -49,12 +49,13 @@ export function maxStageForObLoad(match: ViewMatch): number {
 function ingestObViewBlocksToFo(
   blocks: Array<Record<string, unknown>>,
   betRe: RegExp,
+  gameCode?: string | null,
 ): void {
   const odds = useOddsStore();
   const now = Date.now();
   for (const block of blocks) {
     const label = obBlockLabel(block);
-    if (!isObBlockCollectable(block, label, betRe)) continue;
+    if (!isObBlockCollectable(block, label, betRe, gameCode)) continue;
     const locked = obBlockLocked(block);
     for (const entry of listObBlockFoOddEntries(block, locked)) {
       odds.save(
@@ -78,8 +79,9 @@ function reportObViewBlocksToSaveBetRows(
   matchId: string,
   teamNames: [string, string],
   betRe: RegExp,
+  gameCode?: string | null,
 ): CollectBetDto[] {
-  return buildObSaveBetRowsFromViewBlocks(blocks, matchId, teamNames, betRe, PLATFORM);
+  return buildObSaveBetRowsFromViewBlocks(blocks, matchId, teamNames, betRe, gameCode, PLATFORM);
 }
 
 /** 单场各 stage 拉 game/view：Ingest fo + 返回 Report 载荷 */
@@ -89,6 +91,7 @@ export async function loadMarketsForMatch(
   maxStage: number,
   betRe: RegExp,
   teamNames: [string, string],
+  gameCode?: string | null,
 ): Promise<{ bets: CollectBetDto[]; hadError: boolean }> {
   const bets: CollectBetDto[] = [];
   let hadError = false;
@@ -101,8 +104,8 @@ export async function loadMarketsForMatch(
       );
       if (view.status !== "true" || !Array.isArray(view.data)) continue;
 
-      ingestObViewBlocksToFo(view.data, betRe);
-      bets.push(...reportObViewBlocksToSaveBetRows(view.data, matchId, teamNames, betRe));
+      ingestObViewBlocksToFo(view.data, betRe, gameCode);
+      bets.push(...reportObViewBlocksToSaveBetRows(view.data, matchId, teamNames, betRe, gameCode));
     } catch (err) {
       hadError = true;
       console.error("[OB] game/view error", matchId, stage, err);
@@ -128,6 +131,7 @@ export async function refreshObMatchMarkets(
     maxStageForObLoad(match),
     betRe,
     teamNamesFromViewMatch(match),
+    match.game || null,
   );
   if (loaded.bets.length && !loaded.hadError) {
     await collect.saveBets(PLATFORM, sourceMatchId, loaded.bets);

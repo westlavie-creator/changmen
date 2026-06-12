@@ -5,6 +5,7 @@ import { getObBetNameRe } from "./parse";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
+import { getGameCodeForPlatformId } from "../../../shared/catalog/game_catalog.mjs";
 import { collectObGet, loadMarketsForMatch, maxStageFromBo } from "./markets";
 import {
   connectObMqtt,
@@ -207,12 +208,14 @@ export function startObCollector(): () => void {
           matchCount += 1;
 
           unsubscribeObMatchBeforeView(matchId);
+          const gameCode = getGameCodeForPlatformId("OB", String(row.game_id ?? "")) || null;
           const loaded = await loadMarketsForMatch(
             platform,
             matchId,
             maxStageFromBo(row.bo),
             betRe,
             teamsFromListRow(row),
+            gameCode,
           );
           if (loaded.bets.length && !loaded.hadError) {
             await collect.saveBets(PLATFORM, matchId, loaded.bets);
