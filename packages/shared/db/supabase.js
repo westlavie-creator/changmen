@@ -50,20 +50,31 @@ const JWT_REFRESH_TTL_SEC = parseJwtTtl(process.env.JWT_REFRESH_TTL, 30 * 86400)
 
 let _pgPool = null;
 
+function isRdsDualWrite() {
+  if (!process.env.DATABASE_URL) return false;
+  const v = String(process.env.RDS_DUAL_WRITE ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 function getPgPool() {
-  if (!isJwtMode()) return null;
   const url = process.env.DATABASE_URL;
   if (!url) return null;
+  if (!isJwtMode() && !isRdsDualWrite()) return null;
   if (!_pgPool) {
     const { Pool } = requirePg();
     _pgPool = new Pool({ connectionString: url, max: 4 });
-    console.log("[db] AUTH_MODE=jwt，RDS 连接池已就绪");
+    const why = isJwtMode() ? "AUTH_MODE=jwt" : "RDS_DUAL_WRITE";
+    console.log(`[db] RDS 连接池已就绪 (${why})`);
   }
   return _pgPool;
 }
 
 if (isJwtMode()) {
   console.log("[db] AUTH_MODE=jwt（登录走 RDS users 表；数据读写仍按现有 Supabase 路径，直至 M3）");
+} else if (isRdsDualWrite()) {
+  console.log(
+    "[db] RDS_DUAL_WRITE=1：platform_matches/platform_bets/live_timers 双写 RDS（读仍 Supabase）",
+  );
 }
 
 function signJwt(payload, secret, ttlSec) {
@@ -110,6 +121,144 @@ function _write(fn, label = '') {
   Promise.resolve().then(() => fn(supabaseAdmin)).catch((err) =>
     console.warn(`[supabase${label ? ':' + label : ''}]`, err.message)
   )
+}
+
+/** M3 迁 RDS：与 Supabase 并行写入（fire-and-forget） */
+function _writeRds(fn, label = '') {
+  if (!isRdsDualWrite()) return;
+  const pool = getPgPool();
+  if (!pool) return;
+  Promise.resolve()
+    .then(() => fn(pool))
+    .catch((err) => console.warn(`[rds${label ? ":" + label : ""}]`, err.message));
+}
+
+async function _rdsUpsertPlatformMatches(pool, rows) {
+  if (!rows.length) return;
+  const client = await pool.connect();
+  const sql = `
+    INSERT INTO platform_matches (
+      platform, source_match_id, source_game_id, start_time,
+      home_id, home, away_id, away, bo, teams, synced_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)
+    ON CONFLICT (platform, source_match_id) DO UPDATE SET
+      source_game_id = EXCLUDED.source_game_id,
+      start_time = EXCLUDED.start_time,
+      home_id = EXCLUDED.home_id,
+      home = EXCLUDED.home,
+      away_id = EXCLUDED.away_id,
+      away = EXCLUDED.away,
+      bo = EXCLUDED.bo,
+      teams = EXCLUDED.teams,
+      synced_at = EXCLUDED.synced_at
+  `;
+  try {
+    await client.query("BEGIN");
+    for (const r of rows) {
+      await client.query(sql, [
+        r.platform,
+        r.source_match_id,
+        r.source_game_id,
+        r.start_time,
+        r.home_id,
+        r.home,
+        r.away_id,
+        r.away,
+        r.bo,
+        JSON.stringify(Array.isArray(r.teams) ? r.teams : []),
+        r.synced_at,
+      ]);
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function _rdsUpsertPlatformBets(exec, rows) {
+  if (!rows.length) return;
+  const sql = `
+    INSERT INTO platform_bets (
+      platform, source_match_id, source_bet_id, map, bet_name,
+      home_odds, away_odds, is_locked, source_home_id, source_away_id, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    ON CONFLICT (platform, source_match_id, source_bet_id) DO UPDATE SET
+      map = EXCLUDED.map,
+      bet_name = EXCLUDED.bet_name,
+      home_odds = EXCLUDED.home_odds,
+      away_odds = EXCLUDED.away_odds,
+      is_locked = EXCLUDED.is_locked,
+      source_home_id = EXCLUDED.source_home_id,
+      source_away_id = EXCLUDED.source_away_id,
+      updated_at = EXCLUDED.updated_at
+  `;
+  for (const r of rows) {
+    await exec.query(sql, [
+      r.platform,
+      r.source_match_id,
+      r.source_bet_id,
+      r.map,
+      r.bet_name,
+      r.home_odds,
+      r.away_odds,
+      r.is_locked,
+      r.source_home_id,
+      r.source_away_id,
+      r.updated_at,
+    ]);
+  }
+}
+
+async function _rdsReplacePlatformBets(pool, platform, matchId, rows) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "DELETE FROM platform_bets WHERE platform = $1 AND source_match_id = $2",
+      [String(platform), String(matchId)],
+    );
+    await _rdsUpsertPlatformBets(client, rows);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function _rdsUpsertLiveTimers(pool, rows) {
+  if (!rows.length) return;
+  const client = await pool.connect();
+  const sql = `
+    INSERT INTO live_timers (platform, source_match_id, round, round_start, updated_at)
+    VALUES ($1,$2,$3,$4,$5)
+    ON CONFLICT (platform, source_match_id) DO UPDATE SET
+      round = EXCLUDED.round,
+      round_start = EXCLUDED.round_start,
+      updated_at = EXCLUDED.updated_at
+  `;
+  try {
+    await client.query("BEGIN");
+    for (const r of rows) {
+      await client.query(sql, [
+        r.platform,
+        r.source_match_id,
+        r.round,
+        r.round_start,
+        r.updated_at,
+      ]);
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // ── profiles ──────────────────────────────────────────────────────────
@@ -328,24 +477,28 @@ async function fetchClientMatches() {
 
 // ── platform_matches ──────────────────────────────────────────────────
 
+function mapPlatformMatchRows(provider, matchs) {
+  const now = Date.now();
+  return matchs.map((m) => ({
+    platform: String(provider),
+    source_match_id: String(m.SourceMatchID),
+    source_game_id: m.SourceGameID != null ? String(m.SourceGameID) : null,
+    start_time: Number(m.StartTime) || null,
+    home_id: m.HomeID != null ? String(m.HomeID) : null,
+    home: String(m.Home || ""),
+    away_id: m.AwayID != null ? String(m.AwayID) : null,
+    away: String(m.Away || ""),
+    bo: m.BO != null ? Number(m.BO) : null,
+    teams: Array.isArray(m.Teams) ? m.Teams : [],
+    synced_at: now,
+  }));
+}
+
 /** fire-and-forget：upsert 平台原始比赛列表，同时删除该平台已结束的旧行 */
 function writePlatformMatches(provider, matchs) {
   if (!Array.isArray(matchs) || !matchs.length) return
-  const now = Date.now()
   // match_id 由 matcher rebuild（队伍 ID 自动合并）或人工关联回填；SaveMatch 不写，避免 FK 指向不存在的 client_matches.id
-  const rows = matchs.map((m) => ({
-    platform:        String(provider),
-    source_match_id: String(m.SourceMatchID),
-    source_game_id:  m.SourceGameID != null ? String(m.SourceGameID) : null,
-    start_time:      Number(m.StartTime) || null,
-    home_id:         m.HomeID != null ? String(m.HomeID) : null,
-    home:            String(m.Home || ''),
-    away_id:         m.AwayID != null ? String(m.AwayID) : null,
-    away:            String(m.Away || ''),
-    bo:              m.BO != null ? Number(m.BO) : null,
-    teams:           Array.isArray(m.Teams) ? m.Teams : [],
-    synced_at:       now,
-  }))
+  const rows = mapPlatformMatchRows(provider, matchs)
   _write(async (client) => {
     const { error } = await client
       .from('platform_matches')
@@ -353,6 +506,7 @@ function writePlatformMatches(provider, matchs) {
     if (error) throw error
     // 过期行由 pg_cron 每小时清理（synced_at > 2h），不在写入路径显式 delete
   }, 'platform_matches')
+  _writeRds((pool) => _rdsUpsertPlatformMatches(pool, rows), "platform_matches")
 }
 
 /** 启动时从 Supabase 读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */
@@ -464,6 +618,7 @@ function writePlatformBets(provider, matchId, bets) {
       .upsert(rows, { onConflict: 'platform,source_match_id,source_bet_id' })
     if (error) throw error
   }, 'platform_bets')
+  _writeRds((pool) => _rdsUpsertPlatformBets(pool, rows), "platform_bets")
 }
 
 /** [A8 可证实] 每场 saveBets 为完整快照：先删该场旧行再 upsert */
@@ -484,6 +639,7 @@ function replacePlatformBetsForMatch(provider, matchId, bets) {
       .upsert(rows, { onConflict: 'platform,source_match_id,source_bet_id' })
     if (error) throw error
   }, 'platform_bets')
+  _writeRds((pool) => _rdsReplacePlatformBets(pool, plat, mid, rows), "platform_bets")
 }
 
 // ── live_timers ───────────────────────────────────────────────────────
@@ -511,6 +667,7 @@ function writeLiveTimers(provider, timer) {
       .upsert(rows, { onConflict: 'platform,source_match_id' })
     if (error) throw error
   }, 'live_timers')
+  _writeRds((pool) => _rdsUpsertLiveTimers(pool, rows), "live_timers")
 }
 
 // ── orders ────────────────────────────────────────────────────────────
