@@ -1,7 +1,7 @@
 # 聚合玩法 / 选盘规则（最终模型）
 
 配置：[`shared/market_catalog.json`](./shared/market_catalog.json)  
-代码：[`shared/market_catalog.js`](./shared/market_catalog.js) → `matchesMarketCode` / `resolveMarketCode`
+代码：[`shared/catalog/market_catalog.mjs`](../shared/catalog/market_catalog.mjs) → `matchesMarketCode` / `resolveMarketCode`
 
 ## 与 A8 `index.js` 的关系（重要）
 

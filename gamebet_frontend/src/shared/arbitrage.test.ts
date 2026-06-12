@@ -1,14 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { ViewBet } from "@/models/match";
 import type { BetRowDto } from "@/types/esport";
 import { createDefaultUserConfig } from "@/types/userConfig";
 import { pickArbLegs } from "./arbitrage";
 
+/** 模拟 fo 缓存；非 HG 平台不再用 Sources 快照作 fallback */
+let foOdds: Record<string, Record<string, number>> = {};
+
 vi.mock("@/stores/oddsStore", () => ({
   useOddsStore: () => ({
-    getOdds: (_type: string, _id: string, fallback: number) => fallback,
+    getOdds: (type: string, id: string, fallback: number) =>
+      foOdds[type]?.[id] ?? fallback,
   }),
 }));
+
+beforeEach(() => {
+  foOdds = {};
+});
 
 function makeBet(sources: BetRowDto["Sources"]) {
   const row: BetRowDto = {
@@ -27,6 +35,10 @@ function makeBet(sources: BetRowDto["Sources"]) {
 
 describe("pickArbLegs", () => {
   it("returns legs when implied profit meets threshold", () => {
+    foOdds = {
+      PB: { h1: 2.1, a1: 1.5 },
+      RAY: { h2: 1.6, a2: 2.2 },
+    };
     const bet = makeBet({
       PB: {
         Type: "PB",
@@ -54,6 +66,10 @@ describe("pickArbLegs", () => {
   });
 
   it("returns undefined when implied below profit", () => {
+    foOdds = {
+      PB: { h1: 1.5, a1: 1.5 },
+      RAY: { h2: 1.5, a2: 1.5 },
+    };
     const bet = makeBet({
       PB: {
         Type: "PB",

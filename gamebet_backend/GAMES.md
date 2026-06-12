@@ -44,5 +44,5 @@ GET /api/games
 ## 代码
 
 - 配置：[`shared/catalog/game_catalog.json`](../shared/catalog/game_catalog.json)
-- 工具：[`shared/catalog/game_catalog.js`](../shared/catalog/game_catalog.js)
+- 工具：[`shared/catalog/game_catalog.mjs`](../shared/catalog/game_catalog.mjs)
 - 平台本地 ID 参考（不全量聚合）：`platforms/ob/ob_game_ids.json`、`platforms/ray/ray_game_ids.json`

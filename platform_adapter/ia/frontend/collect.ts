@@ -29,7 +29,7 @@ function betKeyFromChild(child: Record<string, unknown>): string {
   return `${prefix}${child.name ?? ""}`;
 }
 
-/** 与 shared/catalog/market_catalog.js iaLegacyWinBetName 一致：排除手枪局/回合子盘 */
+/** 与 shared/catalog/market_catalog.mjs iaLegacyWinBetName 一致：排除手枪局/回合子盘 */
 export function iaMainWinBetKey(key: string): boolean {
   const name = String(key ?? "").trim();
   if (!name || name.includes("+")) return false;
