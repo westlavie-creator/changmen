@@ -46,6 +46,7 @@
     "db:apply": "node scripts/apply-rds-schema.mjs",
     "db:apply:cron": "node scripts/apply-rds-schema.mjs --with-cron",
     "db:prune": "node scripts/prune-stale.mjs",
+    "db:import-supabase": "node scripts/import-from-supabase.mjs",
     "check:collect": "node scripts/check-collect-platforms.js",
     "check:collect:probe": "node scripts/check-collect-platforms.js --probe",
     "test": "npm run test --prefix ../matcher && vitest run core/shared && npm run test:adapter",
