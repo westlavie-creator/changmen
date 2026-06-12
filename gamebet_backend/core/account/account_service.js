@@ -240,6 +240,11 @@ async function refreshAllAccountBalances(userId) {
   return results;
 }
 
+async function handleGetUserProfit() {
+  const rows = await orderStore.listUserProfitRank();
+  return { ok: true, info: rows };
+}
+
 async function handleGetOrderList(body, userId) {
   const date = body.date || orderStore.toDateKey(Date.now());
   const pageSize  = Number(body.pageSize)  || 1024;
@@ -327,6 +332,7 @@ export {
   handleGetPlayerOrder,
   handleSaveOrder,
   handleGetOrderList,
+  handleGetUserProfit,
   handleSaveOrderBind,
   handleGetUsers,
   handleGetData,

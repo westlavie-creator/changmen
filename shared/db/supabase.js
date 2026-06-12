@@ -451,6 +451,23 @@ async function upsertOrders(rows) {
   return true
 }
 
+/** 排行榜：按本地自然日读取订单盈利聚合字段（service_role） */
+async function fetchOrdersForProfitAggregate(dateKey) {
+  const client = ordersReadClient()
+  if (!client) return []
+  const { dayStart, dayEnd } = localDayBounds(dateKey)
+  const { data, error } = await client
+    .from('orders')
+    .select('user_id, money, bet_money, status')
+    .gte('create_at', dayStart)
+    .lt('create_at', dayEnd)
+  if (error) {
+    console.warn('[supabase] fetchOrdersForProfitAggregate:', error.message)
+    return []
+  }
+  return data || []
+}
+
 /** 更新订单 link 绑定 */
 async function updateOrderBind(orderId, playerId, userId, link) {
   if (!supabaseAdmin) return
@@ -545,6 +562,7 @@ export {
   writeLiveTimers,
   fetchOrdersByDate,
   fetchOrdersByPlayer,
+  fetchOrdersForProfitAggregate,
   upsertOrders,
   updateOrderBind,
   authSignIn,

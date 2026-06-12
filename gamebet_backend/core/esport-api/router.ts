@@ -420,13 +420,8 @@ async function handle(
       return ok(monthReport(body.month));
     case "Client_GetUserProfit": {
       if (!ctx.user) return fail("请先登录");
-      const accounts = store.getAccountsForUser(ctx.user.id);
-      const rows = accounts.map((row: any) => ({
-        UserID:   row.accountId,
-        UserName: row.playerName || row.platformName || String(row.accountId),
-        Money: 0, Count: 0, BetMoney: 0,
-      }));
-      return ok(rows);
+      const profit = await accountService.handleGetUserProfit();
+      return profit.ok ? ok(profit.info) : fail(profit.msg || "排行榜加载失败");
     }
     case "Client_GetDefaultOdds": {
       if (!ctx.user) return fail("请先登录");

@@ -99,6 +99,50 @@ export async function saveOrder(playerId, orders, userId) {
   return sb.upsertOrders(rows);
 }
 
+function stringToHashNumber(value) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+/** 排行榜：按登录用户聚合当日 orders（非按 player_id / 平台账号） */
+export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
+  const [orders, profiles] = await Promise.all([
+    sb.fetchOrdersForProfitAggregate(dateKey),
+    sb.fetchProfiles(sb.getServiceClient()),
+  ]);
+  const nameById = new Map(
+    (profiles || []).map((p) => [String(p.id), String(p.user_name || "").trim()]),
+  );
+  const agg = new Map();
+  for (const o of orders || []) {
+    const uid = String(o.user_id || "");
+    if (!uid) continue;
+    if (!agg.has(uid)) agg.set(uid, { money: 0, count: 0, betMoney: 0 });
+    const row = agg.get(uid);
+    const status = String(o.status || "");
+    if (status === "Reject") continue;
+    row.money += Number(o.money) || 0;
+    row.betMoney += Number(o.bet_money) || 0;
+    row.count += 1;
+  }
+  const result = [];
+  for (const [uid, stats] of agg) {
+    const userName = nameById.get(uid) || uid.slice(0, 8);
+    result.push({
+      UserID: stringToHashNumber(userName),
+      UserName: userName,
+      Money: stats.money,
+      Count: stats.count,
+      BetMoney: stats.betMoney,
+      Date: dateKey,
+    });
+  }
+  return result.sort((a, b) => b.Money - a.Money);
+}
+
 export async function saveOrderBind(orders, userId) {
   if (!userId || !Array.isArray(orders)) return false;
   for (const row of orders) {
