@@ -1,15 +1,16 @@
 import { hasA8PluginRuntime } from "@/extension/bridge";
 import { getCollectPlatform, getGames } from "@/api/esport";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
-import type { CollectPlatformInfo } from "@/types/esport";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
-import { useOddsStore } from "@/stores/oddsStore";
 import { handleIaRealtimeMessage } from "./messages";
 import { createIaRealtimeClient, type IaRealtimeClient } from "./realtime";
-import { IA_PLUGIN_REQUIRED_MSG, iaCollectGet, iaCollectPost } from "./transport";
+import { loadIaBets } from "./markets";
+import { IA_PLUGIN_REQUIRED_MSG, iaCollectGet } from "./transport";
+
+export { iaMainWinBetKey } from "../shared/save_bets";
 
 const PLATFORM = PLATFORMS.IA;
 const POLL_MS = 30_000;
@@ -21,21 +22,6 @@ function parseStartTime(raw: unknown): number {
   if (typeof raw === "number") return raw > 1e12 ? raw : raw * 1000;
   const ms = Date.parse(String(raw).replace(" ", "T"));
   return Number.isNaN(ms) ? Date.now() : ms;
-}
-
-function betKeyFromChild(child: Record<string, unknown>): string {
-  const map = child.match;
-  const prefix = map !== 0 && map != null ? `[地图${map}]` : "[全场]";
-  return `${prefix}${child.name ?? ""}`;
-}
-
-/** 与 shared/catalog/market_catalog.mjs iaLegacyWinBetName 一致：排除手枪局/回合子盘 */
-export function iaMainWinBetKey(key: string): boolean {
-  const name = String(key ?? "").trim();
-  if (!name || name.includes("+")) return false;
-  if (/手枪局/.test(name)) return false;
-  if (/回合/.test(name)) return false;
-  return /^(\[全场\].+获胜)$|^(\[地图\d+\]\s*获胜者)$/.test(name);
 }
 
 function pickIaTeamId(row: Record<string, unknown>, side: "home" | "away"): string {
@@ -83,7 +69,7 @@ export function startIaCollector(): () => void {
 
         const games = await getGames(PLATFORM);
         const betRe = new RegExp(
-          platform.BetName || "([全场].+获胜$)|([地图\\d+]\\s*获胜者$)",
+          platform.BetName || "(\\[全场\\].+获胜$)|(\\[地图\\d+\\]\\s*获胜者$)",
         );
 
         const listRes = await iaCollectGet<{ code?: number; data?: { data?: Array<Record<string, unknown>> } }>(
@@ -184,73 +170,4 @@ export function startIaCollector(): () => void {
     void realtime?.stop();
     realtime = null;
   };
-}
-
-async function loadIaBets(
-  platform: CollectPlatformInfo,
-  matchId: string,
-  betRe: RegExp,
-): Promise<CollectBetDto[]> {
-  const oddsStore = useOddsStore();
-  const res = await iaCollectPost<{ code?: number; data?: { plays?: Array<Record<string, unknown>> } }>(
-    platform,
-    "/api/game/game/getPointsListSplit",
-    { game_id: matchId, lang: 1 },
-  );
-  if (res.code !== undefined && res.code !== 1) return [];
-
-  const bets: CollectBetDto[] = [];
-  const plays = res.data?.plays ?? [];
-
-  for (const play of plays) {
-    const children = (play.child_plays ?? []) as Array<Record<string, unknown>>;
-    for (const child of children) {
-      const betKey = betKeyFromChild(child);
-      if (!betRe.test(betKey)) continue;
-      if (!iaMainWinBetKey(betKey)) continue;
-
-      const mapNum = Number(child.match) || 0;
-      const playId = String(child.id ?? "");
-      const points = (child.team_points ?? []) as Array<Record<string, unknown>>;
-      const homePt = points[0];
-      const awayPt = points[1];
-      const locked = child.status !== 1 || homePt?.status !== 1 || awayPt?.status !== 1;
-
-      if (homePt) {
-        oddsStore.save(PLATFORM, {
-          id: String(homePt.id),
-          odds: Number(homePt.point) || 0,
-          isLock: locked,
-          betId: playId,
-          time: Date.now(),
-        });
-      }
-      if (awayPt) {
-        oddsStore.save(PLATFORM, {
-          id: String(awayPt.id),
-          odds: Number(awayPt.point) || 0,
-          isLock: locked,
-          betId: playId,
-          time: Date.now(),
-        });
-      }
-
-      bets.push({
-        Type: PLATFORM,
-        SourceMatchID: matchId,
-        SourceBetID: playId,
-        Map: mapNum,
-        BetName: betKey,
-        SourceHomeID: homePt ? String(homePt.id) : "",
-        HomeName: homePt ? String(homePt.name ?? "") : "",
-        HomeOdds: homePt ? Number(homePt.point) || 0 : 0,
-        SourceAwayID: awayPt ? String(awayPt.id) : "",
-        AwayName: awayPt ? String(awayPt.name ?? "") : "",
-        AwayOdds: awayPt ? Number(awayPt.point) || 0 : 0,
-        Status: locked ? "Locked" : "Normal",
-      });
-    }
-  }
-
-  return bets.sort((a, b) => a.Map - b.Map);
 }
