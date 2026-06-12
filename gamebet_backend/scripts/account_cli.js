@@ -1,29 +1,32 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * 账号模块 CLI：登录、创建标签平台、读写 ACCOUNT KV、刷新余额。
  *
  * 用法:
- *   node account/account_cli.js login admin admin
- *   node account/account_cli.js tags
- *   node account/account_cli.js create --platform 测试盘 --player test01
- *   node account/account_cli.js list
- *   node account/account_cli.js parse-credential <base64>
- *   node account/account_cli.js import-platform <base64> [--sync-store]
- *   node account/account_cli.js set-a8 <user> <password>
- *   node account/account_cli.js refresh-balance
+ *   npm run account:cli -- login admin admin
+ *   npm run account:tags
+ *   npm run account:create -- --platform 测试盘 --player test01
+ *   npm run account:list
+ *   npm run account:cli -- parse-credential <base64>
+ *   npm run account:import-platform -- <base64> --sync-store
+ *   npm run account:set-a8 -- <user> <password>
+ *   npm run account:refresh
  */
 
-const accountStore = require("../core/account/account_store.js");
-const accountService = require("../core/account/account_service.js");
-const { parseClipboardCredential, encodeClipboardCredential } = require("../core/account/clipboard_credential.js");
-const { importPlatformCredential } = require("../core/shared/import_platform_credential.js");
-const { saveA8Config, CONFIG_FILE } = require("../core/integrations/a8/config.js");
-const { syncPbFromSession } = require("../core/esport-api/platform_sync.js");
-const { requirePlatform } = require("../core/shared/adapter_paths.js");
+import * as accountStore from "../core/account/account_store.js";
+import * as accountService from "../core/account/account_service.js";
+import {
+  parseClipboardCredential,
+  encodeClipboardCredential,
+} from "../core/account/clipboard_credential.js";
+import { importPlatformCredential } from "../core/shared/import_platform_credential.js";
+import { saveA8Config, CONFIG_FILE } from "../core/integrations/a8/config.js";
+import { syncPbFromSession } from "../core/esport-api/platform_sync.js";
+import { requirePlatform } from "../core/shared/adapter_paths.js";
+import store from "../core/esport-api/store.js";
+
 const { tryLoadSession } = requirePlatform("PB", "backend", "session.js");
-const store = require("../core/esport-api/store.js");
 
 function usage() {
   console.log(`用法:
@@ -128,8 +131,8 @@ async function main() {
             updatedAt: result.entry.updatedAt,
           },
           null,
-          2
-        )
+          2,
+        ),
       );
       if (syncStore && result.provider === "PB") {
         const session = tryLoadSession();
@@ -156,8 +159,8 @@ async function main() {
             updatedAt: saved.updatedAt,
           },
           null,
-          2
-        )
+          2,
+        ),
       );
       break;
     }

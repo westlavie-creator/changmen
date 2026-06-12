@@ -1,7 +1,6 @@
 ﻿#!/usr/bin/env node
-"use strict";
 
-const { login, obGet } = require("../session.js");
+import { login, obGet } from "../session.js";
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -37,9 +36,9 @@ async function main() {
   console.log("---");
 
   const cases = [
-    ["flag=0 鍏ㄩ儴璧涚▼", "/game/index?game_id=0&flag=0&day=0"],
+    ["flag=0 全部赛程", "/game/index?game_id=0&flag=0&day=0"],
     ["flag=1 day=0", "/game/index?game_id=0&flag=1&day=0"],
-    ["flag=1 day=1 浠婃棩(A8榛樿)", "/game/index?game_id=0&flag=1&day=1"],
+    ["flag=1 day=1 今日(A8默认)", "/game/index?game_id=0&flag=1&day=1"],
     ["flag=2 day=0", "/game/index?game_id=0&flag=2&day=0"],
     ["flag=2 day=1", "/game/index?game_id=0&flag=2&day=1"],
     ["flag=2 day=2", "/game/index?game_id=0&flag=2&day=2"],
@@ -58,7 +57,7 @@ async function main() {
     session.gateway,
     "/game/index?game_id=0&flag=1&day=1",
     session.token,
-    session.lang
+    session.lang,
   );
   const rows = today.json.data || [];
   const byLive = {};

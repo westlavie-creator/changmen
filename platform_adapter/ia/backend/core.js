@@ -1,13 +1,11 @@
-﻿"use strict";
+﻿import { matchesMarketCode } from "../../../shared/catalog/market_catalog.mjs";
+import { getGameCode, getGameName } from "./game_ids.js";
 
-const { matchesMarketCode } = require("./_require.js").reqS("catalog/market_catalog.mjs");
-const { getGameCode, getGameName } = require("./game_ids.js");
-
-function sleep(ms) {
+export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function compileBetName(session) {
+export function compileBetName(session) {
   const raw = session?.betName || "([全场].+获胜$)|([地图\\d+]\\s*获胜者$)";
   return new RegExp(raw);
 }
@@ -53,7 +51,7 @@ function pickTeamId(row, side) {
   return id || "";
 }
 
-function normalizeListEvent(row, filter = {}) {
+export function normalizeListEvent(row, filter = {}) {
   if (!row?.id) return null;
   if (!isAllowedGame(row, filter.gameIds)) return null;
 
@@ -92,7 +90,7 @@ function matchesWinBet(child, betNameRegex) {
   return betNameRegex.test(key);
 }
 
-function extractStagesFromPlays(plays, betNameRegex) {
+export function extractStagesFromPlays(plays, betNameRegex) {
   const stages = [];
   for (const play of plays || []) {
     for (const child of play?.child_plays || []) {
@@ -121,14 +119,14 @@ function extractStagesFromPlays(plays, betNameRegex) {
   return stages;
 }
 
-function registerOddsIndex(oddsIndex, matchId, stages) {
+export function registerOddsIndex(oddsIndex, matchId, stages) {
   for (const stage of stages) {
     if (stage.winHomeId) oddsIndex[stage.winHomeId] = { matchId, side: "home", stageId: stage.stageId };
     if (stage.winAwayId) oddsIndex[stage.winAwayId] = { matchId, side: "away", stageId: stage.stageId };
   }
 }
 
-function mergeStagesIntoDetail(detail, stages) {
+export function mergeStagesIntoDetail(detail, stages) {
   detail.stages = stages;
   const full = stages.find((s) => s.stageId === 0) || stages[0];
   if (full) {
@@ -140,7 +138,7 @@ function mergeStagesIntoDetail(detail, stages) {
   detail.updatedAt = Date.now();
 }
 
-function applyWsPointChange(detail, oddsIndex, payload) {
+export function applyWsPointChange(detail, oddsIndex, payload) {
   const pointId = String(payload?.content?.point_id ?? "");
   const odd = Number(payload?.content?.point);
   if (!pointId || Number.isNaN(odd)) return false;
@@ -170,7 +168,7 @@ function applyWsPointChange(detail, oddsIndex, payload) {
   return false;
 }
 
-function applyWsBetLock(detail, playId, locked) {
+export function applyWsBetLock(detail, playId, locked) {
   let touched = false;
   for (const stage of detail.stages || []) {
     if (String(stage.winMarketId) === String(playId)) {
@@ -184,14 +182,3 @@ function applyWsBetLock(detail, playId, locked) {
   }
   return touched;
 }
-
-module.exports = {
-  sleep,
-  compileBetName,
-  normalizeListEvent,
-  extractStagesFromPlays,
-  registerOddsIndex,
-  mergeStagesIntoDetail,
-  applyWsPointChange,
-  applyWsBetLock,
-};

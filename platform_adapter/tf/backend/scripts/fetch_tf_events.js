@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-"use strict";
-
-const { loadSession, fetchTodayEvents, fetchEventMarkets } = require("../session.js");
-const Core = require("../core.js");
+import * as Core from "../core.js";
+import { loadSession, fetchTodayEvents, fetchEventMarkets } from "../session.js";
 
 async function main() {
   const session = loadSession();
@@ -23,7 +21,7 @@ async function main() {
     const built = Core.extractWinMarketsFromResults(results, betNameRegex);
     for (const stage of built.stages) {
       console.log(
-        `    stage ${stage.stageId} ${stage.label}: ${stage.winHome} / ${stage.winAway} locked=${stage.winLocked}`
+        `    stage ${stage.stageId} ${stage.label}: ${stage.winHome} / ${stage.winAway} locked=${stage.winLocked}`,
       );
     }
   }

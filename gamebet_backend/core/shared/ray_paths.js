@@ -1,20 +1,16 @@
-"use strict";
-
 /** RAY gateway 可能带 /v2 后缀（采集）或不带（账号凭证）；统一拼 API 路径 */
-function rayApiPath(gateway, apiPath) {
+export function rayApiPath(gateway, apiPath) {
   const base = String(gateway || "").replace(/\/+$/, "");
-  let path = String(apiPath || "").replace(/^\//, "");
+  let p = String(apiPath || "").replace(/^\//, "");
   if (base.endsWith("/v2")) {
-    path = path.replace(/^v2\//, "");
-    return `/${path}`;
+    p = p.replace(/^v2\//, "");
+    return `/${p}`;
   }
-  if (path.startsWith("v2/")) return `/${path}`;
-  return `/v2/${path}`;
+  if (p.startsWith("v2/")) return `/${p}`;
+  return `/v2/${p}`;
 }
 
-function rayApiUrl(gateway, apiPath) {
+export function rayApiUrl(gateway, apiPath) {
   const base = String(gateway || "").replace(/\/+$/, "");
   return `${base}${rayApiPath(gateway, apiPath)}`;
 }
-
-module.exports = { rayApiPath, rayApiUrl };

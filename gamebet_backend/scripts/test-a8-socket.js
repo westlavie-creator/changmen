@@ -1,8 +1,9 @@
-"use strict";
-
 // 测试 A8 Socket.IO 服务器连接 + IM/XBet 数据接收
 // 用法: node scripts/test-a8-socket.js [token]
 
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 const { io } = require("socket.io-client");
 
 const URL = "https://47.115.75.57";

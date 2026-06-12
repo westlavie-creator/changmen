@@ -1,10 +1,16 @@
-import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import {
+  getAdapterRoot,
+  adapterRequire,
+  initAdapterRegistry,
+  requirePlatform,
+} from "./adapter_paths.js";
 
-const require = createRequire(import.meta.url);
-const { getAdapterRoot, adapterRequire, BACKEND_ROOT, requirePlatform } = require("./adapter_paths.js");
+beforeAll(async () => {
+  await initAdapterRegistry();
+});
 
 describe("adapter_paths", () => {
   it("resolves platform_adapter with manifest.json", () => {
@@ -17,8 +23,59 @@ describe("adapter_paths", () => {
     expect(MANIFEST).toHaveLength(11);
   });
 
-  it("requirePlatform loads OB session module", () => {
+  it("requirePlatform loads OB session module (ESM backend)", () => {
     const { obGet } = requirePlatform("OB", "backend", "session.js");
     expect(typeof obGet).toBe("function");
+  });
+
+  it("requirePlatform loads RAY session module (ESM backend)", () => {
+    const { login, rayGet } = requirePlatform("RAY", "backend", "session.js");
+    expect(typeof login).toBe("function");
+    expect(typeof rayGet).toBe("function");
+  });
+
+  it("requirePlatform loads TF session module (ESM backend)", () => {
+    const { tfGet, tryLoadSession } = requirePlatform("TF", "backend", "session.js");
+    expect(typeof tfGet).toBe("function");
+    expect(typeof tryLoadSession).toBe("function");
+  });
+
+  it("requirePlatform loads TF collect_credentials (ESM backend)", async () => {
+    const { getTfA8CollectCredentials } = requirePlatform("TF", "backend", "collect_credentials.js");
+    expect(typeof getTfA8CollectCredentials).toBe("function");
+    const creds = await getTfA8CollectCredentials();
+    expect(creds.provider).toBe("TF");
+    expect(creds.gateway).toBeTruthy();
+    expect(creds.token).toBeTruthy();
+  });
+
+  it("requirePlatform loads IA session module (ESM backend)", () => {
+    const { tryLoadSession, fetchGameList } = requirePlatform("IA", "backend", "session.js");
+    expect(typeof tryLoadSession).toBe("function");
+    expect(typeof fetchGameList).toBe("function");
+  });
+
+  it("requirePlatform loads IA collect_credentials (ESM backend)", () => {
+    const { getIaA8CollectCredentials } = requirePlatform("IA", "backend", "collect_credentials.js");
+    const creds = getIaA8CollectCredentials();
+    expect(creds.provider).toBe("IA");
+    expect(creds.gateway).toBe("https://ilustre-analytics.org");
+  });
+
+  it("requirePlatform loads PB session module (ESM backend)", () => {
+    const { tryLoadSession, buildAuthHeaders, parsePbTokenBalance } = requirePlatform(
+      "PB",
+      "backend",
+      "session.js",
+    );
+    expect(typeof tryLoadSession).toBe("function");
+    expect(typeof buildAuthHeaders).toBe("function");
+    expect(typeof parsePbTokenBalance).toBe("function");
+  });
+
+  it("requirePlatform loads PB core module (ESM backend)", () => {
+    const { parseEuroOddsPayload, slugify } = requirePlatform("PB", "backend", "core.js");
+    expect(typeof parseEuroOddsPayload).toBe("function");
+    expect(slugify("League of Legends")).toBe("league-of-legends");
   });
 });

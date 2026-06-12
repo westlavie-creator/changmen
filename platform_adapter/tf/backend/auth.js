@@ -1,10 +1,8 @@
-"use strict";
+import crypto from "node:crypto";
 
-const crypto = require("crypto");
+export const PUBLIC_TOKEN = "2633b50ad4f64cd28b3224e47c877057";
 
-const PUBLIC_TOKEN = "2633b50ad4f64cd28b3224e47c877057";
-
-function stripTokenPrefix(token) {
+export function stripTokenPrefix(token) {
   return String(token || "").replace(/^Token\s+/i, "");
 }
 
@@ -16,7 +14,7 @@ function decodeTokenKey(token) {
 /**
  * 与 A8 bundle MBe() 一致：tf-authorization 头。
  */
-function buildTfAuthorization(token, nowSec = Math.floor(Date.now() / 1000)) {
+export function buildTfAuthorization(token, nowSec = Math.floor(Date.now() / 1000)) {
   const key = decodeTokenKey(token);
   const e = nowSec;
   const r = nowSec;
@@ -43,7 +41,7 @@ function normalizeAuthorization(token) {
   return /^Token\s+/i.test(token) ? token : `Token ${token}`;
 }
 
-function tfRequestHeaders(token, extra = {}) {
+export function tfRequestHeaders(token, extra = {}) {
   const auth = normalizeAuthorization(token);
   return {
     Accept: "application/json, text/plain, */*",
@@ -56,10 +54,4 @@ function tfRequestHeaders(token, extra = {}) {
   };
 }
 
-module.exports = {
-  PUBLIC_TOKEN,
-  stripTokenPrefix,
-  buildTfAuthorization,
-  tfRequestHeaders,
-  normalizeAuthorization,
-};
+export { normalizeAuthorization };

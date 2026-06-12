@@ -1,14 +1,10 @@
 ﻿#!/usr/bin/env node
 /**
- * OB batch snapshot: login 鈫?game/index 鈫?game/view (multiple matches) 鈫?getTimer.
- *
- * Usage:
- *   node platforms/ob/scripts/fetch_ob_live.js
- *   node platforms/ob/scripts/fetch_ob_live.js --max-matches 8
+ * OB batch snapshot: login → game/index → game/view (multiple matches) → getTimer.
  */
 
-const Core = require("../core.js");
-const { login, obGet } = require("../session.js");
+import * as Core from "../core.js";
+import { login, obGet } from "../session.js";
 
 function formatTime(tsSec) {
   if (!tsSec) return "";
@@ -50,7 +46,7 @@ async function main() {
           gateway,
           `/game/view?match_id=${m.matchId}&stage_id=${stageId}`,
           token,
-          lang
+          lang,
         );
         markets.push(...Core.normalizeGameView(m.matchId, stageId, view.json));
         await new Promise((r) => setTimeout(r, 300));

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-"use strict";
 
-const { login, fetchMatchPage } = require("../session.js");
-const Core = require("../core.js");
+import { login, fetchMatchPage } from "../session.js";
+import * as Core from "../core.js";
 
 async function main() {
   const session = await login();

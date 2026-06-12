@@ -1,8 +1,5 @@
-import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-
-const require = createRequire(import.meta.url);
-const { formatBetOdds, formatOdds } = require("../../../shared/odds_format");
+import { formatBetOdds, formatOdds } from "../../../shared/odds_format.js";
 
 describe("formatOdds", () => {
   it("rounds finite odds to three decimals", () => {

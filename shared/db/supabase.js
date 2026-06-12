@@ -1,5 +1,3 @@
-'use strict'
-
 /**
  * Supabase 表操作层 — 项目所有 Supabase 读写集中于此。
  *
@@ -13,7 +11,7 @@
  *   upsert* — async 写入，需要确认结果
  */
 
-const { supabase, supabaseAdmin } = require('./client.js')
+import { supabase, supabaseAdmin } from "./client.js";
 
 /**
  * fire-and-forget 写入（service_role）。
@@ -523,25 +521,21 @@ function getServiceClient() {
   return supabaseAdmin || supabase
 }
 
-module.exports = {
+export {
   hasAdminAccess,
   isAuthConfigured,
   getServiceClient,
-  // profiles
   fetchProfiles,
   fetchProfileById,
   writeProfile,
   insertProfile,
-  // accounts
   writeAccounts,
-  // client_matches
   writeClientMatches,
   writeClientMatchesAsync,
   fetchClientMatches,
   fetchClientMatchesMeta,
   initLastWrittenIds,
   clearClientMatchesOnStartup,
-  // platform_matches / platform_bets / live_timers
   fetchPlatformMatches,
   fetchPlatformBets,
   fetchLiveTimers,
@@ -549,14 +543,12 @@ module.exports = {
   writePlatformBets,
   replacePlatformBetsForMatch,
   writeLiveTimers,
-  // orders
   fetchOrdersByDate,
   fetchOrdersByPlayer,
   upsertOrders,
   updateOrderBind,
-  // auth
   authSignIn,
   authSignOut,
   authGetUser,
   writeUserMetadata,
-}
+};

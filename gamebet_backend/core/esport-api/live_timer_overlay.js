@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * Client_GetMatchs 读取路径：用 live_timers（内存 + Supabase）覆盖 client_matches 的 Round/RoundStart。
  * OB 浏览器采集 saveLiveTimer 只写 _timers，matcher rebuild 才有 30s 延迟；Electron 依赖本 overlay 即时展示计时器。
@@ -17,7 +15,7 @@ const PROVIDER_PRIORITY = {
   HG: 2,
 };
 
-function liveRound(timers, provider, sourceMatchId) {
+export function liveRound(timers, provider, sourceMatchId) {
   const block = timers?.[provider];
   const arr = block?.timer;
   if (!Array.isArray(arr)) return { round: 0, roundStart: 0 };
@@ -33,7 +31,7 @@ function liveRound(timers, provider, sourceMatchId) {
 }
 
 /** 内存 _timers 优先于 Supabase 快照（同进程 Electron 内 saveLiveTimer 刚写入） */
-function mergeTimerBlocks(memoryTimers, dbTimers) {
+export function mergeTimerBlocks(memoryTimers, dbTimers) {
   const out = { ...(dbTimers || {}) };
   for (const [platform, block] of Object.entries(memoryTimers || {})) {
     if (block?.timer?.length) out[platform] = block;
@@ -41,7 +39,7 @@ function mergeTimerBlocks(memoryTimers, dbTimers) {
   return out;
 }
 
-function overlayLiveTimersOnMatches(matches, timersByProvider) {
+export function overlayLiveTimersOnMatches(matches, timersByProvider) {
   if (!Array.isArray(matches) || !matches.length) return matches || [];
   if (!timersByProvider || !Object.keys(timersByProvider).length) return matches;
 
@@ -69,9 +67,3 @@ function overlayLiveTimersOnMatches(matches, timersByProvider) {
     return { ...m, Round: bestRound, RoundStart: bestStart };
   });
 }
-
-module.exports = {
-  overlayLiveTimersOnMatches,
-  mergeTimerBlocks,
-  liveRound,
-};

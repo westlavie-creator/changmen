@@ -1,19 +1,17 @@
-"use strict";
-
 import type { IncomingMessage, ServerResponse } from "http";
-
-/* eslint-disable @typescript-eslint/no-require-imports */
-const catalog        = require("../../../shared/catalog/game_catalog.json");
-const store          = require("./store.js");
-const { emptyPage: _emptyPage, monthReport } = require("./stubs.js");
-const { handleV4Request }  = require("./v4_router.js");
-const { handleCommonApi }  = require("./hg_follow.js");
-const accountStore         = require("../account/account_store.js");
-const accountService       = require("../account/account_service.js");
-const { resolveA8Credentials }            = require("../integrations/a8/config.js");
-const { loginV4 }                         = require("../integrations/a8/v4_client.js");
-const { getPlatformRules, getDefaultMarketCode } = require("../../../shared/catalog/market_catalog.mjs");
-const { requirePlatform } = require("../shared/adapter_paths.js");
+import catalog from "../../../shared/catalog/game_catalog.json" with { type: "json" };
+import store from "./store.js";
+import { emptyPage as _emptyPage, monthReport } from "./stubs.js";
+import { handleV4Request } from "./v4_router.js";
+import { handleCommonApi } from "./hg_follow.js";
+import * as accountStore from "../account/account_store.js";
+import * as accountService from "../account/account_service.js";
+import { resolveA8Credentials } from "../integrations/a8/config.js";
+import { loginV4 } from "../integrations/a8/v4_client.js";
+import { getPlatformRules, getDefaultMarketCode } from "../../../shared/catalog/market_catalog.mjs";
+import { requirePlatform } from "../shared/adapter_paths.js";
+import * as sb from "../../../shared/db/supabase.js";
+import * as dbStore from "../db/store.js";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -164,9 +162,6 @@ function gamesForProvider(provider: string): string[] {
 // ── Action handlers ──────────────────────────────────────────────────────────
 
 async function handleClientLogin(body: Record<string, unknown>): Promise<ApiEnvelope> {
-  const sb = require("../../../shared/db/supabase.js");
-  const dbStore = require("../db/store.js");
-
   const userName = String(body.userName || body.username || "").trim();
   const password = body.password;
   if (!userName || !password) return fail("用户名和密码必填");
@@ -207,7 +202,6 @@ async function handle(
 ): Promise<ApiEnvelope> {
   switch (action as EsportAction) {
     case "Client_Logout": {
-      const sb = require("../../../shared/db/supabase.js");
       await sb.authSignOut(ctx.token);
       return ok(null);
     }

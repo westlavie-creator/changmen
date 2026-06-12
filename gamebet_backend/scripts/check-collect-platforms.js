@@ -1,23 +1,27 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * 采集平台配置审计 + 可选 live 探针
  *
  * 用法:
- *   node scripts/check-collect-platforms.js           # 配置 + Client_GetCollectPlatform
- *   node scripts/check-collect-platforms.js --probe   # 额外跑各平台 HTTP 探针
- *   node scripts/check-collect-platforms.js --json    # JSON 输出
+ *   npm run check:collect
+ *   npm run check:collect -- --probe
+ *   npm run check:collect -- --json
  */
 
-const fs = require("fs");
-const path = require("path");
-const { ESPORT_DATA_DIR } = require("../core/shared/storage_paths.js");
-const store = require("../core/esport-api/store.js");
-const { handleEsportRequest } = require("../core/esport-api/router.js");
-const { requirePlatform } = require("../core/shared/adapter_paths.js");
-const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");
-const { getPlatformRules, getDefaultMarketCode } = require("../../shared/catalog/market_catalog.mjs");
+import fs from "node:fs";
+import path from "node:path";
+import { ESPORT_DATA_DIR } from "../core/shared/storage_paths.js";
+import store from "../core/esport-api/store.js";
+import { handleEsportRequest } from "../core/esport-api/router.js";
+import { requirePlatform } from "../core/shared/adapter_paths.js";
+import { getPlatformRules, getDefaultMarketCode } from "../../shared/catalog/market_catalog.mjs";
+
+const { getRayA8CollectCredentials } = requirePlatform(
+  "RAY",
+  "backend",
+  "collect_credentials.js",
+);
 
 const ALL_PLATFORMS = [
   "OB",
@@ -35,7 +39,7 @@ const ALL_PLATFORMS = [
 
 /** 与 gamebet_frontend collectors 对齐的凭证需求 */
 const SPEC = {
-  OB: { needsGateway: true, needsToken: true, note: "HTTP game/index + MQTT relay" },
+  OB: { needsGateway: true, needsToken: true, note: "HTTP game/index + MQTT 直连" },
   RAY: { needsGateway: true, needsToken: true, note: "HTTP match/odds（API 强制 A8 写死凭证）" },
   TF: { needsGateway: true, needsToken: true, note: "WS auth + /api/v8/events" },
   IA: { needsGateway: true, needsToken: false, note: "Socket.IO + HTTP" },
@@ -249,7 +253,11 @@ async function probePlatform(provider) {
       return { ok: true, detail: `matches=${count}` };
     }
     case "IMT": {
-      const { tryLoadSession, fetchAllLiveEvents } = requirePlatform("IMT", "backend", "session.js");
+      const { tryLoadSession, fetchAllLiveEvents } = requirePlatform(
+        "IMT",
+        "backend",
+        "session.js",
+      );
       const session = tryLoadSession();
       if (!session) return { skipped: true, reason: "无 IMT 凭证" };
       const data = await fetchAllLiveEvents(session, session.sportIds);
@@ -257,7 +265,11 @@ async function probePlatform(provider) {
       return { ok: true, detail: `events=${count}` };
     }
     case "SABA": {
-      const { tryLoadSession, fetchEsportsPage } = requirePlatform("SABA", "backend", "session.js");
+      const { tryLoadSession, fetchEsportsPage } = requirePlatform(
+        "SABA",
+        "backend",
+        "session.js",
+      );
       const session = tryLoadSession();
       if (!session) return { skipped: true, reason: "无 SABA 凭证" };
       const html = await fetchEsportsPage(session);
@@ -266,7 +278,11 @@ async function probePlatform(provider) {
       return { ok: Boolean(parsed), detail: parsed ? "page parsed" : "parse failed" };
     }
     case "Stake": {
-      const { tryLoadSession, fetchAllSports } = requirePlatform("Stake", "backend", "session.js");
+      const { tryLoadSession, fetchAllSports } = requirePlatform(
+        "Stake",
+        "backend",
+        "session.js",
+      );
       const session = tryLoadSession();
       if (!session) return { skipped: true, reason: "无 Stake 凭证" };
       const rows = await fetchAllSports(session);
@@ -365,7 +381,9 @@ function printHuman(report) {
     console.log(
       `${row.provider.padEnd(6)} ${row.status.padEnd(8)} gw=${row.effective.gatewayMask || "(空)"} token=${row.effective.tokenMask || "(空)"}`,
     );
-    console.log(`       来源: ${row.effective.source}${row.effective.games != null ? ` · games=${row.effective.games}` : ""}`);
+    console.log(
+      `       来源: ${row.effective.source}${row.effective.games != null ? ` · games=${row.effective.games}` : ""}`,
+    );
     if (row.accounts) {
       console.log(
         `       账号: ${row.accounts.count} 条 (gw=${row.accounts.withGateway} tok=${row.accounts.withToken} bal=${row.accounts.withBalance})`,
@@ -373,7 +391,9 @@ function printHuman(report) {
     }
     if (row.api && !row.api.error) {
       const sync = row.api.matchesEffective ? "一致" : "不一致";
-      console.log(`       API: gw=${row.api.gatewayMask || "(空)"} tokenLen=${row.api.tokenLen} (${sync})`);
+      console.log(
+        `       API: gw=${row.api.gatewayMask || "(空)"} tokenLen=${row.api.tokenLen} (${sync})`,
+      );
     } else if (row.api?.error) {
       console.log(`       API: 跳过 (${row.api.error})`);
     }
@@ -392,7 +412,7 @@ function printHuman(report) {
 
   if (report.missingRequired > 0) {
     console.log(`⚠ ${report.missingRequired} 个平台缺少采集凭证（不含 HG/IM/XBet 可选 token）`);
-    console.log("  补全: node account/account_cli.js import-platform <base64> --sync-store");
+    console.log("  补全: npm run account:import-platform -- <base64> --sync-store");
     console.log("  或设置 TF_GATEWAY/TF_TOKEN、IA_*、IMT_*、SABA_*、STAKE_ACCESS_TOKEN 等环境变量");
   } else {
     console.log("✓ 所有必需凭证已配置");
@@ -402,7 +422,7 @@ function printHuman(report) {
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) {
-    console.log(`用法: node scripts/check-collect-platforms.js [--probe] [--json]`);
+    console.log("用法: npm run check:collect [--probe] [--json]");
     process.exit(0);
   }
 

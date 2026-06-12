@@ -7,11 +7,18 @@
 | 阶段 | 状态 | 内容 |
 |------|------|------|
 | 0–1 | ✅ | `registry/`、`contract/`、Vite `@platform/*` alias |
-| 2–3 | ✅ | 11 平台 `frontend/` + `backend/`（含 OB/RAY/TF/IA relay） |
-| B | ✅ | 后端业务代码经 `requirePlatform` / `requirePlatformRelay` 引用，不再硬编码 `platforms/`、`relays/` |
+| 2–3 | ✅ | 11 平台 `frontend/` + `backend/` |
+| B | ✅ | 后端业务代码经 `requirePlatform` 引用，不再硬编码 `platforms/`、`relays/` |
 | C | ✅ | `shared/` 采集基础设施（collectNotify、collectSession、socket/*） |
 | D | ✅ | 删除 `gamebet_backend/platforms/`、`relays/` 及前端 legacy shim |
 | E | ✅ | CI 挂 `changmen/npm test`（`.github/workflows/changmen-test.yml`） |
+| C0 | ✅ | `registry/`、`backend/_paths.js` 迁 ESM；各平台 backend 仍 CJS（经 `_paths.cjs`） |
+| C1 | ✅ | RAY `backend/` 全量 ESM |
+| C2 | ✅ | OB `backend/` 全量 ESM（含 scripts） |
+| C3 | ✅ | TF `backend/` 全量 ESM（含 scripts） |
+| C4 | ✅ | IA `backend/` 全量 ESM（含 scripts） |
+| C5 | ✅ | PB `backend/` 全量 ESM（含 scripts） |
+| WS relay | ✅ 已退役 | 浏览器直连；本机仅 HTTP 代理 |
 
 已接入平台（manifest 顺序）：OB、IM、RAY、TF、IA、SABA、XBet、PB、IMT、HG、Stake。
 
@@ -27,11 +34,10 @@ platform_adapter/
     ├── index.ts       # 前端 adapter 入口（re-export frontend/*）
     ├── meta.ts
     ├── frontend/      # 浏览器采集 + 下注（TypeScript）
-    └── backend/       # Node session + core + relay（JavaScript）
+    └── backend/       # Node session + core（JavaScript）
         ├── session.js
         ├── core.js
-        ├── relay.js   # 仅 OB/RAY/TF/IA
-        └── _require.js
+        └── package.json   # 已迁 ESM 的平台含 `"type": "module"`
 ```
 
 ## 引用方式
@@ -48,22 +54,35 @@ Vitest 已包含 `platform_adapter/**/frontend/**/*.test.ts`（随 `gamebet_fron
 
 ### 后端
 
-**推荐**（阶段 B 后统一用法）：
+**推荐**（host 已为 ESM）：
 
 ```js
-const { requirePlatform, requirePlatformRelay } = require("../core/shared/adapter_paths.js");
+import {
+  initAdapterRegistry,
+  requirePlatform,
+} from "../core/shared/adapter_paths.js";
+
+await initAdapterRegistry();
 
 const { obGet } = requirePlatform("OB", "backend", "session.js");
-const { ObRelayCore } = requirePlatformRelay("OB");
 ```
 
 路径解析：开发环境为 `changmen/platform_adapter/`（与 `gamebet_backend` 同级）。
 
-底层 registry：`adapterRequire("registry", "paths.js")` 的 `resolvePlatformFile` / `resolveBackendRelayModule`。
+底层 registry（ESM）：`adapterRequire("registry", "paths.js")` 的 `resolvePlatformFile`（须先 `await initAdapterRegistry()`）。
+
+registry 模块也可直接 import：
+
+```js
+import { listPlatforms } from "../platform_adapter/registry/feeds.js";
+import { resolvePlatformFile } from "../platform_adapter/registry/paths.js";
+```
 
 ### 后端 Node 依赖
 
-`platform_adapter/*/backend/_require.js` → `platform_adapter/backend/_paths.js`，从 `gamebet_backend/node_modules` 解析 npm 包（如 `mqtt`）。
+已迁 ESM 的平台（RAY、OB、TF、IA、PB）：`import { backendRequire } from "../../backend/_paths.js"`。
+
+未迁平台：`platform_adapter/*/backend/_require.js` → `platform_adapter/backend/_paths.cjs`，从 `gamebet_backend/node_modules` 解析 npm 包（如 `mqtt`）。
 
 ### 前端 Vite 依赖
 
@@ -86,8 +105,8 @@ npm run test:ob-provider              # OB provider 契约（读 platform_adapte
 ## 新增平台
 
 1. 复制 `_template/` → `{platform}/`
-2. 在 `registry/manifest.json` 增加一条（含 `backendRelay` 等）
+2. 在 `registry/manifest.json` 增加一条
 3. 在 `registry/adapters.ts` 注册 adapter
-4. 实现 `frontend/`；需 relay 则加 `backend/relay.js` 并在 manifest 填 `backendRelay`
+4. 实现 `frontend/` 与 `backend/session.js`、`core.js`
 5. 在 `gamebet_backend/package.json` 增加调试 npm script（可选）
 6. 跑 `changmen/npm test`

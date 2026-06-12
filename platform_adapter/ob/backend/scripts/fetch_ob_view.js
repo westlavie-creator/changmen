@@ -1,13 +1,9 @@
 ﻿#!/usr/bin/env node
 /**
  * Fetch OB market snapshot from /game/view.
- *
- * Usage:
- *   node platforms/ob/scripts/fetch_ob_view.js --match 5385124130449945 --stage 1
- *   node platforms/ob/scripts/fetch_ob_view.js "<game/view url>" [token]
  */
 
-const { login, fetchGameView } = require("../session.js");
+import { login, fetchGameView } from "../session.js";
 
 const DEFAULT_TOKEN = process.env.OB_TOKEN || "";
 
@@ -42,8 +38,8 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.matchId) {
     console.error(
-      "Usage: node platforms/ob/scripts/fetch_ob_view.js --match ID [--stage N] [--token T]\n" +
-        "   or: node platforms/ob/scripts/fetch_ob_view.js <game/view url> [token]"
+      "Usage: node fetch_ob_view.js --match ID [--stage N] [--token T]\n" +
+        "   or: node fetch_ob_view.js <game/view url> [token]",
     );
     process.exit(1);
   }

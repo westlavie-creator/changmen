@@ -1,13 +1,14 @@
-﻿"use strict";
+﻿import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { BACKEND_ROOT } from "../../backend/_paths.js";
+import { ESPORT_DATA_DIR } from "../../../gamebet_backend/core/shared/storage_paths.js";
+import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
+import { tfRequestHeaders } from "./auth.js";
 
-const fs = require("fs");
-const path = require("path");
-const { ESPORT_DATA_DIR } = require("./_require.js").reqB("core/shared/storage_paths.js");
-const { tfRequestHeaders } = require("./auth.js");
-const { getActivePlatformGameIds } = require("./_require.js").reqS("catalog/game_catalog.mjs");
+export const DEFAULT_GATEWAY = "https://api-v4.tf-api-rr3h.com";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
-const DEFAULT_GATEWAY = "https://api-v4.tf-api-rr3h.com";
 
 function normalizeGateway(gateway) {
   return String(gateway || "").replace(/\/+$/, "");
@@ -48,7 +49,7 @@ function buildSessionFromRow(row) {
   };
 }
 
-function parseGameIdsEnv() {
+export function parseGameIdsEnv() {
   const raw = process.env.TF_GAME_IDS;
   if (raw === "*") return [];
   if (raw) {
@@ -57,11 +58,11 @@ function parseGameIdsEnv() {
   return getActivePlatformGameIds("TF");
 }
 
-function tryLoadSession() {
+export function tryLoadSession() {
   return loadFromEnv() || loadFromPlatformsJson();
 }
 
-function loadSession() {
+export function loadSession() {
   const session = tryLoadSession();
   if (!session) {
     throw new Error("缺少 TF 凭证（TF_GATEWAY + TF_TOKEN 或 platforms.json）");
@@ -69,7 +70,7 @@ function loadSession() {
   return session;
 }
 
-async function tfGet(session, urlPath, query = {}) {
+export async function tfGet(session, urlPath, query = {}) {
   const base = session.gateway.replace(/\/$/, "");
   const qs = new URLSearchParams({
     combo: "false",
@@ -96,7 +97,7 @@ async function tfGet(session, urlPath, query = {}) {
   return { url, status: res.status, json };
 }
 
-async function fetchTodayEvents(session) {
+export async function fetchTodayEvents(session) {
   const rows = [];
   let page = 1;
   while (page <= 5) {
@@ -115,7 +116,7 @@ async function fetchTodayEvents(session) {
   return rows;
 }
 
-async function fetchEventMarkets(session, eventId, options = {}) {
+export async function fetchEventMarkets(session, eventId, options = {}) {
   const marketOption = options.marketOption || "MATCH";
   const mapOption = options.mapOption ?? "";
   const query = {
@@ -129,27 +130,18 @@ async function fetchEventMarkets(session, eventId, options = {}) {
   return r.json.results || [];
 }
 
-function persistPlatform(session) {
-  try {
-    const store = require("./_require.js").reqB("core/esport-api/store.js");
-    store.setPlatform("TF", {
-      gateway: session.gateway,
-      token: session.token,
-      betName: session.betName,
-      games: session.gameIds.map(String),
+export function persistPlatform(session) {
+  const href = pathToFileURL(path.join(BACKEND_ROOT, "core/esport-api/store.js")).href;
+  import(href)
+    .then((mod) => {
+      mod.default.setPlatform("TF", {
+        gateway: session.gateway,
+        token: session.token,
+        betName: session.betName,
+        games: session.gameIds.map(String),
+      });
+    })
+    .catch(() => {
+      /* optional */
     });
-  } catch {
-    /* optional */
-  }
 }
-
-module.exports = {
-  DEFAULT_GATEWAY,
-  loadSession,
-  tryLoadSession,
-  tfGet,
-  fetchTodayEvents,
-  fetchEventMarkets,
-  persistPlatform,
-  parseGameIdsEnv,
-};

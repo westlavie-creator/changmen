@@ -1,19 +1,16 @@
 ﻿#!/usr/bin/env node
 /**
  * Discover OB match_winner odd_type_id per game (full / map).
- *
- * Usage:
- *   node platforms/ob/scripts/collect_odd_type_ids.js
- *   node platforms/ob/scripts/collect_odd_type_ids.js --write   # sync into market_catalog.json
  */
 
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import gameCatalog from "../../../../shared/catalog/game_catalog.json" with { type: "json" };
+import { login, obGet } from "../session.js";
 
-const fs = require("fs");
-const path = require("path");
-const { login, obGet } = require("../session.js");
-const games = require("../_require.js").reqS("catalog/game_catalog.json").games;
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const games = gameCatalog.games;
 const CATALOG_PATH = path.join(__dirname, "../../../../shared/catalog/market_catalog.json");
 const OUT_PATH = path.join(__dirname, "../data/ob_odd_type_ids.json");
 
@@ -28,8 +25,8 @@ function classifyWinnerMarket(raw) {
   const odds = Object.values(raw.odds || {});
   const names = new Set(odds.map((o) => cleanText(o.name)));
   if (!names.has("@T1") || !names.has("@T2")) return null;
-  if (/^鍏ㄥ眬\s*-\s*鑾疯儨$/.test(cn) || en === "match winner") return "full";
-  if (/^鍗曞眬\s*-\s*鑾疯儨$/.test(cn) || en === "map winner") return "map";
+  if (/^全局\s*-\s*获胜$/.test(cn) || en === "match winner") return "full";
+  if (/^单局\s*-\s*获胜$/.test(cn) || en === "map winner") return "map";
   return null;
 }
 
@@ -59,7 +56,7 @@ async function fetchIndexRows(session, gameId) {
         session.gateway,
         `/game/index?game_id=${gameId}&flag=${flag}&day=${day}`,
         session.token,
-        session.lang
+        session.lang,
       );
       for (const m of r.json.data || []) {
         const id = String(m.id);
@@ -83,7 +80,7 @@ async function fetchGameViewRaw(session, matchId, stageId) {
         session.gateway,
         `/game/view?match_id=${matchId}&stage_id=${stageId}`,
         session.token,
-        session.lang
+        session.lang,
       );
       if (r.json.status === "false") {
         throw new Error(r.json.data || "game/view failed");
@@ -123,7 +120,7 @@ async function discoverForGame(session, game) {
 
     matches.sort(
       (a, b) =>
-        (b.is_live === 2) - (a.is_live === 2) || Number(b.bo) - Number(a.bo)
+        (b.is_live === 2) - (a.is_live === 2) || Number(b.bo) - Number(a.bo),
     );
     const pick = matches.find((m) => Number(m.bo) >= 2) || matches[0];
     result.sample = {
@@ -202,7 +199,9 @@ async function main() {
     if (!game.platforms?.OB) continue;
     const d = await discoverForGame(session, game);
     discoveries.push(d);
-    console.error(`[${d.code}] full=${d.full?.odd_type_id || "-"} map=${d.map?.odd_type_id || "-"} ${d.error || "ok"}`);
+    console.error(
+      `[${d.code}] full=${d.full?.odd_type_id || "-"} map=${d.map?.odd_type_id || "-"} ${d.error || "ok"}`,
+    );
   }
 
   const report = {

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * 把本地 user_kv.json 数据同步到 Supabase 指定用户
@@ -7,9 +6,14 @@
  * 示例：node scripts/sync-user-data.js tj01
  */
 
-require("dotenv").config();
-const fs = require("fs");
-const path = require("path");
+import "dotenv/config";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 const { createClient } = require("@supabase/supabase-js");
 
 const userName = process.argv[2];
@@ -25,12 +29,11 @@ if (!url || !key) {
   process.exit(1);
 }
 
-// 找 user_kv.json
 const candidates = [
   path.join(__dirname, "..", "storage", "legacy", "esport", "user_kv.json"),
   path.join(__dirname, "..", "data", "esport", "user_kv.json"),
 ];
-let kvPath = candidates.find(fs.existsSync);
+const kvPath = candidates.find((p) => fs.existsSync(p));
 if (!kvPath) {
   console.error("找不到 user_kv.json，试过:\n" + candidates.join("\n"));
   process.exit(1);
@@ -39,16 +42,26 @@ if (!kvPath) {
 console.log("读取:", kvPath);
 const kv = JSON.parse(fs.readFileSync(kvPath, "utf8"));
 
-// 解析 accounts
 let accounts = [];
-try { accounts = JSON.parse(kv.ACCOUNT || "[]"); } catch {}
+try {
+  accounts = JSON.parse(kv.ACCOUNT || "[]");
+} catch {
+  /* empty */
+}
 
-// 按列拆分
 let betting_config = {};
-try { betting_config = JSON.parse(kv.USERCONFIG || "{}"); } catch {}
+try {
+  betting_config = JSON.parse(kv.USERCONFIG || "{}");
+} catch {
+  /* empty */
+}
 
 let collect_config = {};
-try { collect_config = JSON.parse(kv.CollectConfig || "{}"); } catch {}
+try {
+  collect_config = JSON.parse(kv.CollectConfig || "{}");
+} catch {
+  /* empty */
+}
 
 const preferences = {};
 for (const [k, v] of Object.entries(kv)) {
@@ -65,7 +78,6 @@ console.log(`preferences   : ${Object.keys(preferences).join(", ")}`);
 async function main() {
   const supabase = createClient(url, key, { auth: { persistSession: false } });
 
-  // 查找目标用户
   const { data: profiles, error: fetchErr } = await supabase
     .from("profiles")
     .select("id, user_name")
@@ -85,7 +97,13 @@ async function main() {
 
   const { error: updateErr } = await supabase
     .from("profiles")
-    .update({ accounts, betting_config, collect_config, preferences, updated_at: Date.now() })
+    .update({
+      accounts,
+      betting_config,
+      collect_config,
+      preferences,
+      updated_at: Date.now(),
+    })
     .eq("id", profile.id);
 
   if (updateErr) {

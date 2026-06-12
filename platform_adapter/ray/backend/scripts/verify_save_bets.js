@@ -1,15 +1,17 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * 校验 RAY SaveBet 行 Map 分布（对比 live odds API）。
  * Usage: node verify_save_bets.js [matchId]
  */
 
-const { login, fetchOdds } = require("../session.js");
-const { groupRayOddsToSaveBets } = require("../../shared/save_bets.js");
+import { login, fetchOdds } from "../session.js";
+import { groupRayOddsToSaveBets } from "../../shared/save_bets.js";
+
 async function main() {
-  const { buildBetsForMatch } = await import("../../../../gamebet_matcher/engine/merge/bet_builder.js");
+  const { buildBetsForMatch } = await import(
+    "../../../../gamebet_matcher/engine/merge/bet_builder.js"
+  );
   const matchId = process.argv[2];
   if (!matchId) {
     console.error("Usage: node verify_save_bets.js <matchId>");

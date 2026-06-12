@@ -1,15 +1,18 @@
-"use strict";
+import { backendRequire } from "../../backend/_paths.js";
+import { stripTokenPrefix } from "./auth.js";
 
-
-const { backendRequire } = require("./_require.js");
 const WebSocket = backendRequire("ws");
-const { buildTfUpstreamUrl } = require("./_require.js").reqB("host/web/proxy/tf_ws_relay.js");
-const { stripTokenPrefix } = require("./auth.js");
 
+const TF_UPSTREAM_HOST = "47.115.75.57";
 const WS_HOSTS = ["api.a8.to", "47.115.75.57"];
 let hostRotate = 0;
 
-function buildA8StyleWsUrl(token) {
+export function buildTfUpstreamUrl(_gateway, token) {
+  const auth = stripTokenPrefix(token);
+  return `wss://${TF_UPSTREAM_HOST}/esport/ws/TF?auth_token=${encodeURIComponent(auth)}&combo=false`;
+}
+
+export function buildA8StyleWsUrl(token) {
   const auth = stripTokenPrefix(token);
   const host = WS_HOSTS[hostRotate % WS_HOSTS.length];
   hostRotate += 1;
@@ -19,7 +22,7 @@ function buildA8StyleWsUrl(token) {
 /**
  * TF 实时 WebSocket（A8 模式：优先直连 TF ws，可选 A8 代理 host）。
  */
-class TfWsClient {
+export class TfWsClient {
   constructor(options = {}) {
     this.gateway = options.gateway || process.env.TF_GATEWAY || "";
     this.token = options.token || process.env.TF_TOKEN || "";
@@ -38,7 +41,7 @@ class TfWsClient {
   resolveWsUrl() {
     if (this.wsUrlOverride) return this.wsUrlOverride;
     if (this.useA8Proxy) return buildA8StyleWsUrl(this.token);
-    return buildTfUpstreamUrl(this.gateway, this.token, false);
+    return buildTfUpstreamUrl(this.gateway, this.token);
   }
 
   onOdds(fn) {
@@ -111,5 +114,3 @@ class TfWsClient {
     this.connected = false;
   }
 }
-
-module.exports = { TfWsClient, buildA8StyleWsUrl };

@@ -1,6 +1,7 @@
-"use strict";
+import { requirePlatform } from "../shared/adapter_paths.js";
+import { rayApiPath } from "../shared/ray_paths.js";
+import store from "../esport-api/store.js";
 
-const { requirePlatform } = require("../shared/adapter_paths.js");
 const {
   fetchBalance: fetchPbBalance,
   parsePbTokenBalance,
@@ -13,7 +14,6 @@ const {
 const { obGet } = requirePlatform("OB", "backend", "session.js");
 const { rayGet } = requirePlatform("RAY", "backend", "session.js");
 const { DEFAULT_GATEWAYS } = requirePlatform("RAY", "backend", "core.js");
-const { rayApiPath } = require("../shared/ray_paths.js");
 
 function originFromReferer(referer) {
   if (!referer) return undefined;
@@ -28,7 +28,7 @@ function originFromReferer(referer) {
  * 按账号凭证拉余额，供 uv.updateBalance() 对齐。
  * 未接入的 provider 返回 null，前端会显示余额未知。
  */
-async function getAccountBalance(account) {
+export async function getAccountBalance(account) {
   if (!account?.provider) return null;
 
   const session = accountToSession(account);
@@ -64,8 +64,8 @@ async function getAccountBalance(account) {
       for (const gw of gateways) {
         if (!gw) continue;
         try {
-          const path = rayApiPath(gw, "user");
-          const r = await rayGet(gw, path, session.token, origin);
+          const apiPath = rayApiPath(gw, "user");
+          const r = await rayGet(gw, apiPath, session.token, origin);
           const json = r.json;
           if (!json || json.code !== 200) {
             throw new Error(json?.desc || json?.message || "v2/user failed");
@@ -91,7 +91,7 @@ function normalizeCurrency(code) {
   return "CNY";
 }
 
-function accountToSession(account) {
+export function accountToSession(account) {
   if (!account?.gateway || !account?.token) return null;
   return {
     gateway: account.gateway,
@@ -105,7 +105,7 @@ function accountToSession(account) {
 /**
  * 若 platforms.json / 环境变量里已有同 provider 凭证，可给空 token 账号补全。
  */
-function enrichAccountFromPlatformDefaults(account) {
+export function enrichAccountFromPlatformDefaults(account) {
   if (!account?.provider) return account;
   const provider = String(account.provider).toUpperCase();
   if (account.gateway && account.token) return account;
@@ -134,7 +134,7 @@ function enrichAccountFromPlatformDefaults(account) {
     }
   }
 
-  const row = require("../esport-api/store.js").getPlatform(provider);
+  const row = store.getPlatform(provider);
   if (row?.gateway && row?.token) {
     return {
       ...account,
@@ -147,9 +147,4 @@ function enrichAccountFromPlatformDefaults(account) {
   return account;
 }
 
-module.exports = {
-  getAccountBalance,
-  enrichAccountFromPlatformDefaults,
-  accountToSession,
-  parsePbTokenBalance,
-};
+export { parsePbTokenBalance };

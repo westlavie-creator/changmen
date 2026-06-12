@@ -1,14 +1,16 @@
-"use strict";
-
-const accountStore = require("./account_store.js");
-const orderStore = require("./order_store.js");
-const { getAccountBalance, enrichAccountFromPlatformDefaults } = require("./balance_provider.js");
-const { emptyPage } = require("../esport-api/stubs.js");
-const {
+import * as accountStore from "./account_store.js";
+import * as orderStore from "./order_store.js";
+import {
+  getAccountBalance,
+  enrichAccountFromPlatformDefaults,
+} from "./balance_provider.js";
+import { emptyPage } from "../esport-api/stubs.js";
+import {
   isArrayKey,
   emptyDirectValue,
   wrapObjectDirect,
-} = require("../esport-api/user_kv.js");
+} from "../esport-api/user_kv.js";
+import store from "../esport-api/store.js";
 
 function handleCreateTagPlatform(body) {
   const platformName = body.platform || body.platformName || "";
@@ -42,7 +44,7 @@ function handleDeletePlayer(body, userId) {
   const playerId = body.playerId;
   if (!playerId) return { ok: false, msg: "playerId 必填" };
   const ok = accountStore.deletePlayer(playerId, body.description || "");
-  if (userId) require("../esport-api/store.js").removeAccountForUser(userId, playerId);
+  if (userId) store.removeAccountForUser(userId, playerId);
   return ok ? { ok: true, info: true } : { ok: false, msg: "player 不存在" };
 }
 
@@ -72,7 +74,6 @@ function handleDeleteMoneyLog(body) {
 async function handleGetPlayerOrder(body, userId) {
   const playerId = body.playerId;
   if (!playerId) return { ok: false, msg: "playerId 必填" };
-  const orderStore = require("./order_store.js");
   const page = accountStore.listMoneyLogs(playerId, 1, 10000);
   const logs = (page.data || []).map((row) => ({
     ID: row.logId,
@@ -91,7 +92,6 @@ async function handleSaveOrder(body, userId) {
   const playerId = body.playerId;
   if (!playerId) return { ok: false, msg: "playerId 必填" };
   if (userId) {
-    const store = require("../esport-api/store.js");
     const userAccountIds = new Set(store.getAccountsForUser(userId).map((a) => Number(a.accountId)));
     if (!userAccountIds.has(Number(playerId))) {
       return { ok: false, msg: "账号不属于当前用户" };
@@ -103,13 +103,11 @@ async function handleSaveOrder(body, userId) {
   } catch {
     return { ok: false, msg: "orders JSON 无效" };
   }
-  const orderStore = require("./order_store.js");
   await orderStore.saveOrder(playerId, orders, userId);
   return { ok: true, info: true };
 }
 
 function handleGetUsers() {
-  const store = require("../esport-api/store.js");
   const users = store.readJson("users", []);
   const sessions = store.readJson("sessions", {});
   const now = Date.now();
@@ -146,7 +144,6 @@ function enrichAccountRowFromPlayer(row) {
 }
 
 function handleSaveData(key, content, userId) {
-  const store = require("../esport-api/store.js");
   if (key === "ACCOUNT") {
     let accounts = [];
     try {
@@ -167,11 +164,10 @@ function handleSaveData(key, content, userId) {
 
 function handleGetData(key, userId) {
   if (key === "ACCOUNT") {
-    const accounts = require("../esport-api/store.js").getAccountsForUser(userId);
+    const accounts = store.getAccountsForUser(userId);
     return { ok: true, info: accounts, direct: accounts };
   }
 
-  const store = require("../esport-api/store.js");
   const isUserScoped = store.isUserSettingKey(key);
   const raw = isUserScoped ? store.getUserSetting(userId, key) : null;
   if (raw == null) {
@@ -236,7 +232,6 @@ async function refreshAccountBalance(accountRow) {
 }
 
 async function refreshAllAccountBalances(userId) {
-  const store = require("../esport-api/store.js");
   const accounts = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
   const results = [];
   for (const row of accounts) {
@@ -246,7 +241,6 @@ async function refreshAllAccountBalances(userId) {
 }
 
 async function handleGetOrderList(body, userId) {
-  const orderStore = require("./order_store.js");
   const date = body.date || orderStore.toDateKey(Date.now());
   const pageSize  = Number(body.pageSize)  || 1024;
   const pageIndex = Number(body.pageIndex) || 1;
@@ -274,7 +268,6 @@ async function handleSaveOrderBind(body, userId) {
 }
 
 function syncAccountRowInKv(accountId, updates, userId) {
-  const store = require("../esport-api/store.js");
   const list = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
   const idx = list.findIndex((row) => String(row.accountId) === String(accountId));
   if (idx < 0) return null;
@@ -286,7 +279,6 @@ function syncAccountRowInKv(accountId, updates, userId) {
 async function handleRefreshAccountBalance(body, userId) {
   const playerId = body.playerId;
   if (!playerId) return { ok: false, msg: "playerId 必填" };
-  const store = require("../esport-api/store.js");
   const accounts = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
   const row = enrichAccountRowFromPlayer(
     accounts.find((r) => String(r.accountId) === String(playerId)),
@@ -323,7 +315,7 @@ async function handleRefreshAccountBalance(body, userId) {
   };
 }
 
-module.exports = {
+export {
   handleCreateTagPlatform,
   handleGetTagPlatforms,
   handleUpdateBalance,

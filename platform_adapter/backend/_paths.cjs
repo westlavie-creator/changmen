@@ -1,12 +1,12 @@
-import { createRequire } from "node:module";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+"use strict";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
+/**
+ * CJS 过渡桥：各平台 backend/_require.js 在 C1 前仍 require 本文件。
+ * 逻辑与 _paths.js 保持一致；C1 起各平台改直接 import _paths.js 后可删除。
+ */
+const fs = require("fs");
+const path = require("path");
 
-/** 从任意 platform_adapter/backend 子目录向上查找 gamebet_backend 根 */
 function findBackendRoot(startDir) {
   let cur = startDir;
   for (let i = 0; i < 10; i++) {
@@ -36,19 +36,27 @@ function findBackendRoot(startDir) {
   throw new Error(`gamebet_backend root not found from ${startDir}`);
 }
 
-export const BACKEND_ROOT = findBackendRoot(__dirname);
-export const SHARED_ROOT = path.join(path.dirname(BACKEND_ROOT), "shared");
-export const BACKEND_NODE_MODULES = path.join(BACKEND_ROOT, "node_modules");
+const BACKEND_ROOT = findBackendRoot(__dirname);
+const SHARED_ROOT = path.join(path.dirname(BACKEND_ROOT), "shared");
+const BACKEND_NODE_MODULES = path.join(BACKEND_ROOT, "node_modules");
 
-export function reqB(...segments) {
+function reqB(...segments) {
   return require(path.join(BACKEND_ROOT, ...segments));
 }
 
-/** changmen/shared — game_catalog、market_catalog、im_parse 等 */
-export function reqS(...segments) {
+function reqS(...segments) {
   return require(path.join(SHARED_ROOT, ...segments));
 }
 
-export function backendRequire(specifier) {
+function backendRequire(specifier) {
   return require(require.resolve(specifier, { paths: [BACKEND_NODE_MODULES] }));
 }
+
+module.exports = {
+  BACKEND_ROOT,
+  SHARED_ROOT,
+  BACKEND_NODE_MODULES,
+  reqB,
+  reqS,
+  backendRequire,
+};

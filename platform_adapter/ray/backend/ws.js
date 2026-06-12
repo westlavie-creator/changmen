@@ -1,10 +1,9 @@
-"use strict";
+import { backendRequire } from "../../backend/_paths.js";
 
-const { backendRequire } = require("./_require.js");
 const socketClusterClient = backendRequire("socketcluster-client");
 
 /** RAY 源站实时网关（ray164 前端 SocketCluster），非 A8 聚合服务器 */
-const DEFAULT_WS = {
+export const DEFAULT_WS = {
   hostname: "cfsocket.365raylinks.com",
   path: "/socketcluster/",
   channel: "match",
@@ -18,7 +17,7 @@ const DEFAULT_WS = {
  *
  * 禁止连接 A8 聚合服务器（如 47.115.75.57/esport/ws/RAY）。
  */
-class RayWsClient {
+export class RayWsClient {
   constructor(options = {}) {
     this.hostname =
       options.hostname || process.env.RAY_WS_HOST || DEFAULT_WS.hostname;
@@ -146,5 +145,3 @@ class RayWsClient {
     }
   }
 }
-
-module.exports = { RayWsClient, DEFAULT_WS };

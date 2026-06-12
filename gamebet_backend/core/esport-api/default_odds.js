@@ -1,8 +1,6 @@
-"use strict";
+export const DEFAULT_ODDS_FILE = "default_odds";
 
-const DEFAULT_ODDS_FILE = "default_odds";
-
-function createDefaultOddsApi(readJson, writeJson) {
+export function createDefaultOddsApi(readJson, writeJson) {
   function readStore() {
     const raw = readJson(DEFAULT_ODDS_FILE, {});
     return raw && typeof raw === "object" ? raw : {};
@@ -108,5 +106,3 @@ function createDefaultOddsApi(readJson, writeJson) {
     readStore,
   };
 }
-
-module.exports = { createDefaultOddsApi, DEFAULT_ODDS_FILE };

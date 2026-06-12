@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-"use strict";
-
-const { loadSession, fetchGameList, fetchPointsList } = require("../session.js");
-const Core = require("../core.js");
+import * as Core from "../core.js";
+import { loadSession, fetchGameList, fetchPointsList } from "../session.js";
 
 async function main() {
   const session = loadSession();

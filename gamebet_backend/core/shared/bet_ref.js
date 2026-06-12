@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * 统一下单凭证：展示用语义 + 执行用原生 ID。
  * @typedef {object} BetRef
@@ -142,7 +140,7 @@ function attachSabaMatchBetRefs(detail, matchId, gameCode) {
   return attachAggregatorMatchBetRefs(detail, matchId, gameCode, "SABA");
 }
 
-module.exports = {
+export {
   assertBetRef,
   createBetRef,
   obStageBetRefs,

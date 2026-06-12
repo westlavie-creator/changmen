@@ -41,7 +41,7 @@ user_kv.json (key=ACCOUNT)  ← 前端 Pinia Io() 权威数据源
 }
 ```
 
-解析：`node account/account_cli.js parse-credential <base64>`
+解析：`npm run account:cli -- parse-credential <base64>`
 
 写入 Node Feed 凭证（与 OB 相同，插件 `data` 字段）：
 

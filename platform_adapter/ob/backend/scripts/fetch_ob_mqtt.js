@@ -1,17 +1,13 @@
 ﻿#!/usr/bin/env node
 /**
  * OB realtime odds via MQTT over WebSocket.
- * Flow: login 鈫?game/view baseline 鈫?subscribe MQTT topics 鈫?print updates.
- *
- * Usage:
- *   node platforms/ob/scripts/fetch_ob_mqtt.js --match 5385124130449945 --stage 1
- *   node platforms/ob/scripts/fetch_ob_mqtt.js --match ID --stage 0 --duration 120
  */
 
-const { backendRequire } = require("../_require.js");
+import { backendRequire } from "../../../backend/_paths.js";
+import * as Core from "../core.js";
+import { login, fetchGameView } from "../session.js";
+
 const mqtt = backendRequire("mqtt");
-const Core = require("../core.js");
-const { login, fetchGameView } = require("../session.js");
 
 function parseArgs(argv) {
   const out = {
@@ -71,7 +67,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.matchId) {
     console.error(
-      "Usage: node platforms/ob/scripts/fetch_ob_mqtt.js --match MATCH_ID [--stage N] [--duration SEC] [--mqtt URL]"
+      "Usage: node fetch_ob_mqtt.js --match MATCH_ID [--stage N] [--duration SEC] [--mqtt URL]",
     );
     process.exit(1);
   }

@@ -1,9 +1,7 @@
-﻿"use strict";
-
-const {
+﻿import {
   obPickWinMarket,
   obFormatNormalizedMarketName,
-} = require("./_require.js").reqS("catalog/market_catalog.mjs");
+} from "../../../shared/catalog/market_catalog.mjs";
 
 /** 盘口开放态：game/view 中 market.status 的已知可投注值 */
 const MARKET_STATUS_OPEN = 6;
@@ -535,7 +533,7 @@ function applyMqttPayload(state, topicInfo, payload, receivedAt) {
   return changes;
 }
 
-module.exports = {
+export {
   MARKET_STATUS_OPEN,
   MARKET_VISIBLE_SHOW,
   MARKET_SUSPENDED_OFF,

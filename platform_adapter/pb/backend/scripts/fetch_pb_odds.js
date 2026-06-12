@@ -1,9 +1,7 @@
 ﻿#!/usr/bin/env node
-"use strict";
-
-const { loadSession, fetchEuroOdds, fetchBalance, buildAuthHeaders } = require("../session.js");
-const { parseEuroOddsPayload } = require("../core.js");
-const { describePlatformGame } = require("../_require.js").reqS("catalog/game_catalog.mjs");
+import { describePlatformGame } from "../../../../shared/catalog/game_catalog.mjs";
+import { parseEuroOddsPayload } from "../core.js";
+import { loadSession, fetchEuroOdds, fetchBalance, buildAuthHeaders } from "../session.js";
 
 async function main() {
   const cmd = process.argv[2] || "list";
@@ -51,8 +49,8 @@ async function main() {
           detail: parsed.byMatch[match.matchId],
         },
         null,
-        2
-      )
+        2,
+      ),
     );
     return;
   }
@@ -81,8 +79,8 @@ async function main() {
         }),
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 }
 

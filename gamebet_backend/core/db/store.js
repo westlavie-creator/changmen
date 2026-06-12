@@ -1,270 +1,306 @@
-'use strict'
-
-const sb = require('../../../shared/db/supabase.js')
+import * as sb from "../../../shared/db/supabase.js";
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
-const _cache = new Map()
+const _cache = new Map();
 
-function _set(uid, row) { _cache.set(String(uid), row) }
-function _get(uid)       { return _cache.get(String(uid)) || null }
+function _set(uid, row) {
+  _cache.set(String(uid), row);
+}
+function _get(uid) {
+  return _cache.get(String(uid)) || null;
+}
 
 function _toProfile(row) {
-  if (!row) return null
-  let setting = {}
+  if (!row) return null;
+  let setting = {};
   try {
-    const bc = row.betting_config
-    setting = typeof bc === 'object' && bc !== null ? bc : JSON.parse(bc || '{}')
-  } catch {}
-  return { id: String(row.id), userName: row.user_name, setting }
+    const bc = row.betting_config;
+    setting = typeof bc === "object" && bc !== null ? bc : JSON.parse(bc || "{}");
+  } catch {
+    /* ignore */
+  }
+  return { id: String(row.id), userName: row.user_name, setting };
 }
 
 // ─── profiles ────────────────────────────────────────────────────────
 
-function getProfileById(uid) { return _toProfile(_get(uid)) }
+export function getProfileById(uid) {
+  return _toProfile(_get(uid));
+}
 
-function getProfileByName(userName) {
+export function getProfileByName(userName) {
   for (const row of _cache.values()) {
-    if (row.user_name === userName) return _toProfile(row)
+    if (row.user_name === userName) return _toProfile(row);
   }
-  return null
+  return null;
 }
 
-function listProfiles() {
-  return [..._cache.values()].map(_toProfile).filter(Boolean)
+export function listProfiles() {
+  return [..._cache.values()].map(_toProfile).filter(Boolean);
 }
 
-function upsertProfile(profile) {
-  const uid = String(profile.id)
-  const existing = _get(uid) || {}
+export function upsertProfile(profile) {
+  const uid = String(profile.id);
+  const existing = _get(uid) || {};
   _set(uid, {
     ...existing,
     id: uid,
-    user_name:      String(profile.userName || profile.user_name || existing.user_name || ''),
-    accounts:       profile.accounts       ?? existing.accounts       ?? [],
+    user_name: String(profile.userName || profile.user_name || existing.user_name || ""),
+    accounts: profile.accounts ?? existing.accounts ?? [],
     betting_config: profile.betting_config ?? existing.betting_config ?? {},
     collect_config: profile.collect_config ?? existing.collect_config ?? {},
-    preferences:    profile.preferences    ?? existing.preferences    ?? {},
+    preferences: profile.preferences ?? existing.preferences ?? {},
     created_at: profile.created_at || existing.created_at || Date.now(),
     updated_at: Date.now(),
-  })
+  });
 }
 
-function updateProfileSetting(uid, patch) {
-  const row = _get(uid) || {}
-  const bc = typeof row.betting_config === 'object' && row.betting_config !== null
-    ? { ...row.betting_config } : {}
-  Object.assign(bc, patch || {})
-  const now = Date.now()
-  _set(uid, { ...row, betting_config: bc, updated_at: now })
-  sb.writeProfile(uid, { betting_config: bc })
-  return getProfileById(uid)
+export function updateProfileSetting(uid, patch) {
+  const row = _get(uid) || {};
+  const bc =
+    typeof row.betting_config === "object" && row.betting_config !== null
+      ? { ...row.betting_config }
+      : {};
+  Object.assign(bc, patch || {});
+  const now = Date.now();
+  _set(uid, { ...row, betting_config: bc, updated_at: now });
+  sb.writeProfile(uid, { betting_config: bc });
+  return getProfileById(uid);
 }
 
-async function loadProfileById(uid) {
-  const data = await sb.fetchProfileById(uid)
-  if (!data) return null
-  _set(data.id, data)
-  return _toProfile(data)
+export async function loadProfileById(uid) {
+  const data = await sb.fetchProfileById(uid);
+  if (!data) return null;
+  _set(data.id, data);
+  return _toProfile(data);
 }
 
-async function pullFromSupabase(sessionClient) {
-  const profiles = await sb.fetchProfiles(sessionClient)
+export async function pullFromSupabase(sessionClient) {
+  const profiles = await sb.fetchProfiles(sessionClient);
   if (profiles.length) {
-    for (const p of profiles) _set(p.id, p)
-    console.log('[db:supabase] 加载 profiles:', profiles.length, '条')
+    for (const p of profiles) _set(p.id, p);
+    console.log("[db:supabase] 加载 profiles:", profiles.length, "条");
   }
 }
 
 // ─── accounts ────────────────────────────────────────────────────────
 
-function listAccountsForUser(uid) {
-  const row = _get(uid)
-  if (!row) return []
-  const a = row.accounts
-  if (Array.isArray(a)) return a
-  try { return JSON.parse(a || '[]') } catch { return [] }
+export function listAccountsForUser(uid) {
+  const row = _get(uid);
+  if (!row) return [];
+  const a = row.accounts;
+  if (Array.isArray(a)) return a;
+  try {
+    return JSON.parse(a || "[]");
+  } catch {
+    return [];
+  }
 }
 
-function countAccounts() {
-  return [..._cache.values()].reduce((s, r) => s + (Array.isArray(r.accounts) ? r.accounts.length : 0), 0)
+export function countAccounts() {
+  return [..._cache.values()].reduce(
+    (s, r) => s + (Array.isArray(r.accounts) ? r.accounts.length : 0),
+    0,
+  );
 }
 
-function replaceAccountsForUser(uid, accounts) {
-  const row = _get(uid) || {}
-  _set(uid, { ...row, accounts, updated_at: Date.now() })
-  sb.writeAccounts(uid, accounts)
-  return listAccountsForUser(uid)
+export function replaceAccountsForUser(uid, accounts) {
+  const row = _get(uid) || {};
+  _set(uid, { ...row, accounts, updated_at: Date.now() });
+  sb.writeAccounts(uid, accounts);
+  return listAccountsForUser(uid);
 }
 
-function updateAccountForUser(uid, accountId, updates) {
-  const accounts = listAccountsForUser(uid)
-  const idx = accounts.findIndex((a) => String(a.accountId) === String(accountId))
-  if (idx < 0) return null
-  accounts[idx] = { ...accounts[idx], ...updates, updateTime: Date.now() }
-  replaceAccountsForUser(uid, accounts)
-  return accounts[idx]
+export function updateAccountForUser(uid, accountId, updates) {
+  const accounts = listAccountsForUser(uid);
+  const idx = accounts.findIndex((a) => String(a.accountId) === String(accountId));
+  if (idx < 0) return null;
+  accounts[idx] = { ...accounts[idx], ...updates, updateTime: Date.now() };
+  replaceAccountsForUser(uid, accounts);
+  return accounts[idx];
 }
 
-function removeAccountForUser(uid, accountId) {
-  const accounts = listAccountsForUser(uid)
-  const next = accounts.filter((a) => String(a.accountId) !== String(accountId))
-  if (next.length === accounts.length) return false
-  replaceAccountsForUser(uid, next)
-  return true
+export function removeAccountForUser(uid, accountId) {
+  const accounts = listAccountsForUser(uid);
+  const next = accounts.filter((a) => String(a.accountId) !== String(accountId));
+  if (next.length === accounts.length) return false;
+  replaceAccountsForUser(uid, next);
+  return true;
 }
 
 // ─── user_settings ───────────────────────────────────────────────────
 
 function _colForKey(key) {
-  if (key === 'USERCONFIG')    return 'betting_config'
-  if (key === 'CollectConfig') return 'collect_config'
-  return 'preferences'
+  if (key === "USERCONFIG") return "betting_config";
+  if (key === "CollectConfig") return "collect_config";
+  return "preferences";
 }
 
-function setUserSetting(uid, key, content) {
-  const col = _colForKey(key)
-  const row = _get(uid) || {}
-  const now = Date.now()
-  if (col !== 'preferences') {
-    let parsed = {}
-    try { parsed = JSON.parse(String(content ?? '{}')) } catch {}
-    _set(uid, { ...row, [col]: parsed, updated_at: now })
-    sb.writeProfile(uid, { [col]: parsed })
+export function setUserSetting(uid, key, content) {
+  const col = _colForKey(key);
+  const row = _get(uid) || {};
+  const now = Date.now();
+  if (col !== "preferences") {
+    let parsed = {};
+    try {
+      parsed = JSON.parse(String(content ?? "{}"));
+    } catch {
+      /* ignore */
+    }
+    _set(uid, { ...row, [col]: parsed, updated_at: now });
+    sb.writeProfile(uid, { [col]: parsed });
   } else {
-    const prefs = typeof row.preferences === 'object' && row.preferences !== null
-      ? { ...row.preferences } : {}
-    prefs[String(key)] = String(content ?? '')
-    _set(uid, { ...row, preferences: prefs, updated_at: now })
-    sb.writeProfile(uid, { preferences: prefs })
+    const prefs =
+      typeof row.preferences === "object" && row.preferences !== null
+        ? { ...row.preferences }
+        : {};
+    prefs[String(key)] = String(content ?? "");
+    _set(uid, { ...row, preferences: prefs, updated_at: now });
+    sb.writeProfile(uid, { preferences: prefs });
   }
 }
 
-function getUserSetting(uid, key) {
-  const col = _colForKey(key)
-  const row = _get(uid)
-  if (!row) return null
-  if (col !== 'preferences') {
-    const val = row[col]
-    if (!val || (typeof val === 'object' && !Object.keys(val).length)) return null
-    return typeof val === 'string' ? val : JSON.stringify(val)
+export function getUserSetting(uid, key) {
+  const col = _colForKey(key);
+  const row = _get(uid);
+  if (!row) return null;
+  if (col !== "preferences") {
+    const val = row[col];
+    if (!val || (typeof val === "object" && !Object.keys(val).length)) return null;
+    return typeof val === "string" ? val : JSON.stringify(val);
   }
-  const prefs = row.preferences || {}
-  const val = typeof prefs === 'object' ? prefs[String(key)] : null
-  return val != null ? String(val) : null
+  const prefs = row.preferences || {};
+  const val = typeof prefs === "object" ? prefs[String(key)] : null;
+  return val != null ? String(val) : null;
 }
 
-function countUserSettings() { return 0 }
+export function countUserSettings() {
+  return 0;
+}
 
 // ─── client_matches（内存 + built_at 快照缓存）────────────────────────
 
-const _clientMatches = new Map()
+const _clientMatches = new Map();
 /** matcher rebuild 写入的 built_at + 行数；未变则 Client_GetMatchs 跳过重载 */
-let _matchesCacheKey = ''
-let _matchesCacheLoadedAt = 0
+let _matchesCacheKey = "";
+let _matchesCacheLoadedAt = 0;
 /** pg_cron 删行等 built_at 不变时的兜底全量刷新 */
-const MATCHES_CACHE_MAX_AGE_MS = 90_000
+const MATCHES_CACHE_MAX_AGE_MS = 90_000;
 
 function _matchesCacheSignature(meta) {
-  if (!meta) return ''
-  return `${meta.builtAt}:${meta.count}`
+  if (!meta) return "";
+  return `${meta.builtAt}:${meta.count}`;
 }
 
 function _invalidateClientMatchesCache() {
-  _matchesCacheKey = ''
-  _matchesCacheLoadedAt = 0
+  _matchesCacheKey = "";
+  _matchesCacheLoadedAt = 0;
 }
 
 function _applyClientMatchRows(data) {
   if (!data?.length) {
-    _clientMatches.clear()
-    return null
+    _clientMatches.clear();
+    return null;
   }
-  const now = Date.now()
-  _clientMatches.clear()
+  const now = Date.now();
+  _clientMatches.clear();
   for (const row of data) {
     _clientMatches.set(Number(row.id), {
-      ID: row.id, Title: row.title || '', Game: row.game || '',
-      GameID: row.game_id || '', StartTime: row.start_time || 0,
-      BO: row.bo || 0, Round: row.round || 0, RoundStart: row.round_start || 0,
+      ID: row.id,
+      Title: row.title || "",
+      Game: row.game || "",
+      GameID: row.game_id || "",
+      StartTime: row.start_time || 0,
+      BO: row.bo || 0,
+      Round: row.round || 0,
+      RoundStart: row.round_start || 0,
       Reverse: Array.isArray(row.reverse) ? row.reverse : [],
-      Matchs: row.matchs || {}, Bets: row.bets || [],
+      Matchs: row.matchs || {},
+      Bets: row.bets || [],
       built_at: row.built_at || now,
-    })
+    });
   }
-  return getClientMatches()
+  return getClientMatches();
 }
 
-function saveClientMatches(info) {
-  if (!Array.isArray(info) || !info.length) return
-  const now = Date.now()
-  _invalidateClientMatchesCache()
-  _clientMatches.clear()
-  for (const m of info) _clientMatches.set(Number(m.ID), { ...m, built_at: now })
-  sb.writeClientMatches(info.map((m) => ({
-    id: Number(m.ID),
-    merge_key: m.MergeKey ? String(m.MergeKey) : null,
-    title: String(m.Title || ''), game: String(m.Game || ''),
-    game_id: String(m.GameID || ''), start_time: Number(m.StartTime) || 0,
-    bo: Number(m.BO) || 0, round: Number(m.Round) || 0, round_start: Number(m.RoundStart) || 0,
-    reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
-    matchs: m.Matchs || {}, bets: m.Bets || [], built_at: now,
-  })))
+export function saveClientMatches(info) {
+  if (!Array.isArray(info) || !info.length) return;
+  const now = Date.now();
+  _invalidateClientMatchesCache();
+  _clientMatches.clear();
+  for (const m of info) _clientMatches.set(Number(m.ID), { ...m, built_at: now });
+  sb.writeClientMatches(
+    info.map((m) => ({
+      id: Number(m.ID),
+      merge_key: m.MergeKey ? String(m.MergeKey) : null,
+      title: String(m.Title || ""),
+      game: String(m.Game || ""),
+      game_id: String(m.GameID || ""),
+      start_time: Number(m.StartTime) || 0,
+      bo: Number(m.BO) || 0,
+      round: Number(m.Round) || 0,
+      round_start: Number(m.RoundStart) || 0,
+      reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
+      matchs: m.Matchs || {},
+      bets: m.Bets || [],
+      built_at: now,
+    })),
+  );
 }
 
-function pruneClientMatches(activeIds) {
-  if (!activeIds?.length) { _clientMatches.clear(); _invalidateClientMatchesCache(); return }
-  const active = new Set(activeIds.map(Number))
+export function pruneClientMatches(activeIds) {
+  if (!activeIds?.length) {
+    _clientMatches.clear();
+    _invalidateClientMatchesCache();
+    return;
+  }
+  const active = new Set(activeIds.map(Number));
   for (const id of _clientMatches.keys()) {
-    if (!active.has(id)) _clientMatches.delete(id)
+    if (!active.has(id)) _clientMatches.delete(id);
   }
 }
 
-function getClientMatches() {
-  if (!_clientMatches.size) return null
-  return [..._clientMatches.values()]
-    .sort((a, b) => (a.StartTime || 0) - (b.StartTime || 0))
+export function getClientMatches() {
+  if (!_clientMatches.size) return null;
+  return [..._clientMatches.values()].sort(
+    (a, b) => (a.StartTime || 0) - (b.StartTime || 0),
+  );
 }
 
 /**
  * 从 Supabase 加载 client_matches。
  * built_at + 行数未变时复用内存快照，避免多用户轮询重复 SELECT *。
  */
-async function loadClientMatchesFromSupabase() {
-  const now = Date.now()
-  const cacheStale = !_matchesCacheLoadedAt
-    || now - _matchesCacheLoadedAt > MATCHES_CACHE_MAX_AGE_MS
+export async function loadClientMatchesFromSupabase() {
+  const now = Date.now();
+  const cacheStale =
+    !_matchesCacheLoadedAt || now - _matchesCacheLoadedAt > MATCHES_CACHE_MAX_AGE_MS;
 
   if (_clientMatches.size && _matchesCacheKey && !cacheStale) {
-    const meta = await sb.fetchClientMatchesMeta()
+    const meta = await sb.fetchClientMatchesMeta();
     if (meta && _matchesCacheSignature(meta) === _matchesCacheKey) {
-      return getClientMatches()
+      return getClientMatches();
     }
     if (meta === null) {
-      return getClientMatches()
+      return getClientMatches();
     }
   }
 
-  const data = await sb.fetchClientMatches()
+  const data = await sb.fetchClientMatches();
   // null = 查询失败，暂用内存兜底；[] = 库确认为空，清掉遗留内存（避免 pg_cron 删库后仍返回旧列表）
-  if (data === null) return _clientMatches.size ? getClientMatches() : null
+  if (data === null) return _clientMatches.size ? getClientMatches() : null;
   if (!data.length) {
-    _clientMatches.clear()
-    _matchesCacheKey = '0:0'
-    _matchesCacheLoadedAt = now
-    return null
+    _clientMatches.clear();
+    _matchesCacheKey = "0:0";
+    _matchesCacheLoadedAt = now;
+    return null;
   }
 
-  const builtAt = data.reduce((max, row) => Math.max(max, Number(row.built_at) || 0), 0)
-  _matchesCacheKey = `${builtAt}:${data.length}`
-  _matchesCacheLoadedAt = now
-  return _applyClientMatchRows(data)
-}
-
-module.exports = {
-  getProfileById, getProfileByName, upsertProfile, listProfiles, updateProfileSetting,
-  loadProfileById, pullFromSupabase,
-  listAccountsForUser, countAccounts, replaceAccountsForUser,
-  updateAccountForUser, removeAccountForUser,
-  setUserSetting, getUserSetting, countUserSettings,
-  saveClientMatches, pruneClientMatches, getClientMatches, loadClientMatchesFromSupabase,
+  const builtAt = data.reduce(
+    (max, row) => Math.max(max, Number(row.built_at) || 0),
+    0,
+  );
+  _matchesCacheKey = `${builtAt}:${data.length}`;
+  _matchesCacheLoadedAt = now;
+  return _applyClientMatchRows(data);
 }

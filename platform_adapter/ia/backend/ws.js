@@ -1,15 +1,13 @@
-"use strict";
+import { backendRequire } from "../../backend/_paths.js";
 
-
-const { backendRequire } = require("./_require.js");
 const { io } = backendRequire("socket.io-client");
 
-const DEFAULT_A8_WS = "wss://47.115.75.57";
+export const DEFAULT_A8_WS = "wss://47.115.75.57";
 
 /**
  * IA 实时 Socket.IO（A8 模式：/esport/ws/IA 房间推送）。
  */
-class IaWsClient {
+export class IaWsClient {
   constructor(options = {}) {
     this.wsBase = options.wsBase || process.env.IA_WS_URL || process.env.A8_WS_URL || DEFAULT_A8_WS;
     this.gateway = options.gateway || process.env.IA_GATEWAY || "https://ilustre-analytics.org";
@@ -87,5 +85,3 @@ class IaWsClient {
     }
   }
 }
-
-module.exports = { IaWsClient };

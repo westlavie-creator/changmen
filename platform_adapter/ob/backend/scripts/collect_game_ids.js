@@ -1,17 +1,15 @@
 ﻿#!/usr/bin/env node
 /**
- * 浠?OB game/index + CDN pc.json 鏀堕泦 game_id锛屽悎骞跺埌 ob_game_ids.json锛堜粎琛ュ厖 hints锛屼笉瑕嗙洊宸查獙璇佸悕绉帮級
- *
- * Usage: node platforms/ob/scripts/collect_game_ids.js
+ * 从 OB game/index + CDN pc.json 收集 game_id，合并到 ob_game_ids.json
  */
 
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import * as Core from "../core.js";
+import { login, obGet } from "../session.js";
 
-const fs = require("fs");
-const path = require("path");
-const Core = require("../core.js");
-const { login, obGet } = require("../session.js");
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(__dirname, "../data/ob_game_ids.json");
 const PC_JSON = "https://uphw-cdn3.jomscxu.com/upload/json/pc.json";
 
@@ -26,7 +24,7 @@ async function main() {
     session.gateway,
     "/game/index?game_id=0&flag=1&day=1",
     session.token,
-    session.lang
+    session.lang,
   );
   const matches = Core.normalizeGameIndex(index.json);
 
@@ -52,7 +50,7 @@ async function main() {
   for (const id of allIds) {
     if (!catalog.games[id]) {
       catalog.games[id] = {
-        name: "寰呯‘璁?,
+        name: "待确认",
         nameEn: "Unknown",
         code: "unknown",
         verified: false,
@@ -68,7 +66,7 @@ async function main() {
   }
 
   catalog.updatedAt = new Date().toISOString();
-  fs.writeFileSync(OUT, JSON.stringify(catalog, null, 2) + "\n", "utf8");
+  fs.writeFileSync(OUT, `${JSON.stringify(catalog, null, 2)}\n`, "utf8");
 
   const verified = Object.values(catalog.games).filter((g) => g.verified).length;
   console.log(
@@ -80,8 +78,8 @@ async function main() {
         output: OUT,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 }
 

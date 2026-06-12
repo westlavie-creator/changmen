@@ -1,13 +1,12 @@
-"use strict";
+import { A8_FORWARD_SITE } from "./constants.js";
 
 const A8_V4_BASE = (process.env.A8_V4_URL || "https://api.a8.to/v4.0").replace(/\/+$/, "");
-const { A8_FORWARD_SITE } = require("./constants.js");
 
-function buildFormBody(fields) {
+export function buildFormBody(fields) {
   return new URLSearchParams(fields).toString();
 }
 
-function v4Headers(extra = {}) {
+export function v4Headers(extra = {}) {
   return {
     "Content-Type": "application/x-www-form-urlencoded;",
     "x-forwarded-site": process.env.A8_V4_FORWARD_SITE || A8_FORWARD_SITE,
@@ -15,7 +14,7 @@ function v4Headers(extra = {}) {
   };
 }
 
-async function requestV4(sub, { method = "POST", body = "", headers = {} } = {}) {
+export async function requestV4(sub, { method = "POST", body = "", headers = {} } = {}) {
   const url = `${A8_V4_BASE}/${sub.replace(/^\//, "")}`;
   const init = {
     method,
@@ -36,14 +35,14 @@ async function requestV4(sub, { method = "POST", body = "", headers = {} } = {})
   return { status: res.status, data, text };
 }
 
-async function loginV4(userName, password) {
+export async function loginV4(userName, password) {
   const { data } = await requestV4("user/account/login", {
     body: buildFormBody({ userName, password }),
   });
   return data;
 }
 
-async function playLoginV4(gameId, v4Token) {
+export async function playLoginV4(gameId, v4Token) {
   const { data } = await requestV4("game/play/Login", {
     body: buildFormBody({ gameId: String(gameId) }),
     headers: { token: v4Token },
@@ -51,12 +50,4 @@ async function playLoginV4(gameId, v4Token) {
   return data;
 }
 
-module.exports = {
-  A8_V4_BASE,
-  A8_FORWARD_SITE,
-  buildFormBody,
-  v4Headers,
-  requestV4,
-  loginV4,
-  playLoginV4,
-};
+export { A8_V4_BASE, A8_FORWARD_SITE };

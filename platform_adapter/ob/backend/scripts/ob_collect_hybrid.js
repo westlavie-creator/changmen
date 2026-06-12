@@ -1,29 +1,29 @@
 ﻿#!/usr/bin/env node
-"use strict";
-
 /**
- * OB 娣峰悎閲囬泦鎺㈤拡锛欻TTP 杞锛坓ame/index + game/view + getTimer锛? MQTT 璁㈤槄銆? * 瀵归綈 changmen 鍓嶇 / A8 UMe 璇箟锛堟瘡鍦?unsub鈫抳iew鈫抯ub锛宻tage 闂撮殧 1.5s锛屽鐞?3 涓?/market/*锛夈€? *
+ * OB 混合采集探针：HTTP 轮询（game/index + game/view + getTimer）+ MQTT 订阅。
+ * 对齐 changmen 前端 / A8 UMe 语义（每局 unsub→view→sub，stage 间隔 1.5s，处理 3 个 /market/*）。
+ *
  * Usage:
  *   node platforms/ob/scripts/ob_collect_hybrid.js
  *   node platforms/ob/scripts/ob_collect_hybrid.js --duration 90 --max-matches 3
  *   node platforms/ob/scripts/ob_collect_hybrid.js --platforms data/esport/platforms.json
- *   node platforms/ob/scripts/ob_collect_hybrid.js --mqtt-mode relay --relay-ws ws://127.0.0.1:3456/esport/ws/OB
  *   node platforms/ob/scripts/ob_collect_hybrid.js --mqtt-mode native
  *   node platforms/ob/scripts/ob_collect_hybrid.js --jsonl ./ob_probe.jsonl
  */
 
-const fs = require("fs");
-const path = require("path");
-const { backendRequire } = require("../_require.js");
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { backendRequire } from "../../../backend/_paths.js";
+import * as Core from "../core.js";
+import { login, obGet, fetchGetTimer, DEFAULT_LOGIN_URL } from "../session.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const mqtt = backendRequire("mqtt");
-const Core = require("../core.js");
-const { login, obGet, fetchGetTimer, DEFAULT_LOGIN_URL } = require("../session.js");
 
 const STAGE_INTERVAL_MS = 1500;
 const DEFAULT_POLL_MS = 30_000;
 const OB_MQTT_CLIENT_ID = "mqttjs_dj1250901313125773543";
-const RELAY_USER = process.env.OB_PROXY_MQTT_USER || "admin";
-const RELAY_PASS = process.env.OB_PROXY_MQTT_PASS || "Qazqaz123...";
 
 function parseArgs(argv) {
   const out = {
@@ -33,7 +33,6 @@ function parseArgs(argv) {
     matchConcurrency: 1,
     platformsPath: path.join(__dirname, "../../../data/esport/platforms.json"),
     mqttMode: "auto",
-    relayWs: process.env.OB_RELAY_WS || "ws://127.0.0.1:3456/esport/ws/OB",
     jsonl: "",
     loginUrl: process.env.OB_LOGIN_URL || "",
   };
@@ -46,7 +45,6 @@ function parseArgs(argv) {
     else if (key === "--concurrency" && val) out.matchConcurrency = Math.max(1, Number(val) || 1);
     else if (key === "--platforms" && val) out.platformsPath = path.resolve(val);
     else if (key === "--mqtt-mode" && val) out.mqttMode = val;
-    else if (key === "--relay-ws" && val) out.relayWs = val;
     else if (key === "--jsonl" && val) out.jsonl = path.resolve(val);
     else if (key === "--login-url" && val) out.loginUrl = val;
   }
@@ -119,22 +117,6 @@ async function resolveSession(args) {
 }
 
 function resolveMqttConnect(session, args) {
-  if (args.mqttMode === "relay") {
-    return {
-      url: args.relayWs,
-      options: {
-        clientId: OB_MQTT_CLIENT_ID,
-        username: RELAY_USER,
-        password: RELAY_PASS,
-        clean: true,
-        keepalive: 60,
-        reconnectPeriod: 5000,
-        protocolId: "MQTT",
-      },
-      source: "relay",
-    };
-  }
-
   const native = session.mqtt || session.mqttEndpoints?.[0];
   if (args.mqttMode === "native" && !native) {
     throw new Error("No native MQTT URL in login session");
@@ -278,7 +260,7 @@ async function httpPollRound(session, args, sink, state) {
 function startMqtt(session, args, sink, state) {
   const cfg = resolveMqttConnect(session, args);
   if (!cfg) {
-    logEvent(sink, { type: "mqtt.skip", reason: "no_native_url_use_--mqtt-mode_relay" });
+    logEvent(sink, { type: "mqtt.skip", reason: "no_native_mqtt_url" });
     return null;
   }
 

@@ -1,12 +1,11 @@
-﻿"use strict";
+﻿import fs from "node:fs";
+import path from "node:path";
+import { ESPORT_DATA_DIR } from "../../../gamebet_backend/core/shared/storage_paths.js";
+import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
 
-const fs = require("fs");
-const path = require("path");
-const { ESPORT_DATA_DIR } = require("./_require.js").reqB("core/shared/storage_paths.js");
-const { getActivePlatformGameIds } = require("./_require.js").reqS("catalog/game_catalog.mjs");
+export const DEFAULT_GATEWAY = "https://ilustre-analytics.org";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
-const DEFAULT_GATEWAY = "https://ilustre-analytics.org";
 
 function normalizeGateway(gateway) {
   return String(gateway || "").replace(/\/+$/, "");
@@ -49,7 +48,7 @@ function buildSessionFromRow(row) {
   };
 }
 
-function parseGameIdsEnv() {
+export function parseGameIdsEnv() {
   const raw = process.env.IA_GAME_IDS;
   if (raw === "*") return [];
   if (raw) {
@@ -58,11 +57,11 @@ function parseGameIdsEnv() {
   return getActivePlatformGameIds("IA");
 }
 
-function tryLoadSession() {
+export function tryLoadSession() {
   return loadFromEnv() || loadFromPlatformsJson();
 }
 
-function loadSession() {
+export function loadSession() {
   const session = tryLoadSession();
   if (!session) {
     throw new Error("缺少 IA 凭证（IA_GATEWAY + IA_TOKEN 或 platforms.json）");
@@ -70,7 +69,7 @@ function loadSession() {
   return session;
 }
 
-async function iaGet(session, urlPath) {
+export async function iaGet(session, urlPath) {
   const base = session.gateway.replace(/\/$/, "");
   const url = `${base}${urlPath.startsWith("/") ? urlPath : `/${urlPath}`}`;
   const res = await fetch(url, {
@@ -86,7 +85,7 @@ async function iaGet(session, urlPath) {
   return body;
 }
 
-async function iaPost(session, urlPath, payload) {
+export async function iaPost(session, urlPath, payload) {
   const base = session.gateway.replace(/\/$/, "");
   const url = `${base}${urlPath.startsWith("/") ? urlPath : `/${urlPath}`}`;
   const res = await fetch(url, {
@@ -107,13 +106,13 @@ async function iaPost(session, urlPath, payload) {
   return body;
 }
 
-async function fetchGameList(session) {
+export async function fetchGameList(session) {
   const body = await iaGet(session, "/api/game/game/gameListPageSplit/");
   const rows = body?.data?.data;
   return Array.isArray(rows) ? rows : [];
 }
 
-async function fetchPointsList(session, gameId) {
+export async function fetchPointsList(session, gameId) {
   const body = await iaPost(session, "/api/game/game/getPointsListSplit", {
     game_id: gameId,
     lang: 1,
@@ -121,7 +120,7 @@ async function fetchPointsList(session, gameId) {
   return body?.data?.plays || [];
 }
 
-function persistPlatform(session) {
+export function persistPlatform(session) {
   try {
     const dir = path.dirname(PLATFORMS_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -141,11 +140,3 @@ function persistPlatform(session) {
     console.warn("[ia-session] persist skip:", err.message);
   }
 }
-
-module.exports = {
-  tryLoadSession,
-  loadSession,
-  fetchGameList,
-  fetchPointsList,
-  persistPlatform,
-};

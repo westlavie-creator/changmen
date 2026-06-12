@@ -1,16 +1,11 @@
 ﻿#!/usr/bin/env node
-"use strict";
 
 /**
- * 鎵弿 OB game/view 鐩樺彛 status / visible / suspended 缁勫悎鍒嗗竷銆?
- *
- * Usage:
- *   node platforms/ob/scripts/probe_market_status.js
- *   node platforms/ob/scripts/probe_market_status.js --matches 5 --stages 0,1
+ * 扫描 OB game/view 盘口 status / visible / suspended 组合分布。
  */
 
-const Core = require("../core.js");
-const { login, obGet, fetchGameView } = require("../session.js");
+import * as Core from "../core.js";
+import { login, obGet, fetchGameView } from "../session.js";
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -39,7 +34,7 @@ async function main() {
     session.gateway,
     "/game/index?game_id=0&flag=1&day=1",
     session.token,
-    session.lang
+    session.lang,
   );
   const matches = (index.json.data || []).slice(0, args.matchLimit);
 
@@ -97,8 +92,8 @@ async function main() {
         samples,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 }
 

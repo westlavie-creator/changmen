@@ -1,18 +1,21 @@
-"use strict";
-
-const fs = require("fs");
-const path = require("path");
-const { ESPORT_DATA_DIR } = require("../shared/storage_paths.js");
-const { formatBetOdds } = require("../../../shared/odds_format.js");
-const { a8StartTimeListAllowed } = require("../../../shared/time/match_time.mjs");
-const { createDefaultOddsApi } = require("./default_odds.js");
-const dbStore = require("../db/store.js");
+import fs from "node:fs";
+import path from "node:path";
+import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
+import { formatBetOdds } from "../../../shared/odds_format.js";
+import { a8StartTimeListAllowed } from "../../../shared/time/match_time.mjs";
+import { createDefaultOddsApi } from "./default_odds.js";
+import * as dbStore from "../db/store.js";
+import * as sb from "../../../shared/db/supabase.js";
+import {
+  overlayLiveTimersOnMatches,
+  mergeTimerBlocks,
+} from "./live_timer_overlay.js";
 
 const DATA_DIR = ESPORT_DATA_DIR;
 // 内存缓存（替代 matches.json / bets.json / live_timers.json）
-const _matches = {};   // { [provider]: { [matchId]: matchData } }
-const _bets = {};      // { [provider:matchId]: { provider, matchId, bets } }
-const _timers = {};    // { [provider]: { provider, timer } }
+const _matches = {}; // { [provider]: { [matchId]: matchData } }
+const _bets = {}; // { [provider:matchId]: { provider, matchId, bets } }
+const _timers = {}; // { [provider]: { provider, timer } }
 
 function filePath(name) {
   return path.join(DATA_DIR, `${name}.json`);
@@ -37,19 +40,32 @@ const defaultOddsApi = createDefaultOddsApi(readJson, writeJson);
 
 const DEFAULT_USER_KV = {
   CollectConfig: JSON.stringify({ log: false, collect: [] }),
-  USERCONFIG: JSON.stringify({ betting: false, betMoney: 100, profit: 1.03, maxProfit: 1.2, minOdds: 1.3, maxOdds: 10, betSorting: "Custom" }),
+  USERCONFIG: JSON.stringify({
+    betting: false,
+    betMoney: 100,
+    profit: 1.03,
+    maxProfit: 1.2,
+    minOdds: 1.3,
+    maxOdds: 10,
+    betSorting: "Custom",
+  }),
   ACCOUNT: JSON.stringify([]),
 };
 
 // 路由到 Supabase profiles 的 key 列表（与 DEFAULT_USER_KV 解耦）
 // CollectConfig → collect_config, USERCONFIG → betting_config, 其余 → preferences
 const USER_SETTING_KEYS = [
-  "CollectConfig", "USERCONFIG",
-  "Follow", "PROXY", "GoogleCode", "Wallet", "Message",
+  "CollectConfig",
+  "USERCONFIG",
+  "Follow",
+  "PROXY",
+  "GoogleCode",
+  "Wallet",
+  "Message",
 ];
 
 // ── 初始化 JSON 文件（不创建用户，用户通过 Supabase Auth 管理）──────────────
-function ensureSeed() {
+export function ensureSeed() {
   const jsonDefaults = {
     platforms: {},
     tag_platforms: {},
@@ -62,13 +78,15 @@ function ensureSeed() {
 // ── Supabase Auth：用 JWT token 获取当前用户 profile ─────────────────────────
 function getJwtClaim(token, claim) {
   try {
-    return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString())[claim];
+    return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString())[
+      claim
+    ];
   } catch {
     return null;
   }
 }
 
-async function getUserBySupabaseToken(token) {
+export async function getUserBySupabaseToken(token) {
   if (!token) return null;
 
   // 本地解码：检查 exp + 提取 sub，无需网络调用
@@ -76,7 +94,9 @@ async function getUserBySupabaseToken(token) {
   // 后端为内部服务，token 来源唯一（Supabase Auth），伪造不构成实际威胁。
   let userId;
   try {
-    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
+    const payload = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64url").toString(),
+    );
     if (!payload.sub) return null;
     if (payload.exp && payload.exp * 1000 < Date.now()) return null; // 已过期
     userId = payload.sub;
@@ -90,22 +110,27 @@ async function getUserBySupabaseToken(token) {
 }
 
 // ── profile ───────────────────────────────────────────────────────────────────
-function getUserById(uid) {
+export function getUserById(uid) {
   return dbStore.getProfileById(uid);
 }
 
-function updateUserSetting(uid, patch) {
+export function updateUserSetting(uid, patch) {
   return dbStore.updateProfileSetting(uid, patch);
 }
 
 // ── platform ──────────────────────────────────────────────────────────────────
-function getPlatform(provider) {
+export function getPlatform(provider) {
   return readJson("platforms", {})[provider] || null;
 }
 
-function setPlatform(provider, data) {
+export function setPlatform(provider, data) {
   const platforms = readJson("platforms", {});
-  platforms[provider] = { ...platforms[provider], ...data, provider, updatedAt: Date.now() };
+  platforms[provider] = {
+    ...platforms[provider],
+    ...data,
+    provider,
+    updatedAt: Date.now(),
+  };
   writeJson("platforms", platforms);
   return platforms[provider];
 }
@@ -120,12 +145,13 @@ function pruneBetsForProvider(provider, activeMatchIds) {
   }
 }
 
-function saveMatches(provider, matchs) {
+export function saveMatches(provider, matchs) {
   const now = Date.now();
   const next = {};
   const list = Array.isArray(matchs) ? matchs : [];
   const prev = _matches[provider];
-  if (!list.length && prev && typeof prev === "object" && Object.keys(prev).length > 0) return;
+  if (!list.length && prev && typeof prev === "object" && Object.keys(prev).length > 0)
+    return;
   for (const m of list) {
     if (!m || m.SourceMatchID == null) continue;
     const start = Number(m.StartTime || 0);
@@ -134,7 +160,6 @@ function saveMatches(provider, matchs) {
   }
   _matches[provider] = next;
   pruneBetsForProvider(provider, Object.keys(next));
-  const sb = require("../../../shared/db/supabase.js");
   sb.writePlatformMatches(provider, Object.values(next));
 }
 
@@ -146,12 +171,11 @@ function normalizeSaveBetRows(bets) {
     .sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
 }
 
-function saveBets(provider, matchId, bets) {
+export function saveBets(provider, matchId, bets) {
   const key = `${provider}:${matchId}`;
   const existing = _bets[key]?.bets || [];
   const raw = Array.isArray(bets) ? bets : [];
   const incoming = normalizeSaveBetRows(raw);
-  const sb = require("../../../shared/db/supabase.js");
   if (incoming.length === 0) {
     // [A8 可证实] 空数组 saveBets 不覆盖内存已有盘口；Supabase 刷新 updated_at 避免 matcher 空窗
     if (existing.length > 0) {
@@ -165,30 +189,39 @@ function saveBets(provider, matchId, bets) {
   sb.replacePlatformBetsForMatch(provider, matchId, incoming);
 }
 
-function saveLiveTimer(provider, timer) {
+export function saveLiveTimer(provider, timer) {
   _timers[provider] = { provider, timer, savedAt: Date.now() };
-  const sb = require("../../../shared/db/supabase.js");
   sb.writeLiveTimers(provider, timer);
 }
 
 // ── user kv / settings ────────────────────────────────────────────────────────
-function isUserSettingKey(key) { return USER_SETTING_KEYS.includes(key); }
+export function isUserSettingKey(key) {
+  return USER_SETTING_KEYS.includes(key);
+}
 
-function getUserSetting(userId, key) {
+export function getUserSetting(userId, key) {
   if (!isUserSettingKey(key)) return null;
   return dbStore.getUserSetting(userId, key);
 }
 
-function setUserSetting(userId, key, content) {
+export function setUserSetting(userId, key, content) {
   if (!isUserSettingKey(key)) return;
   dbStore.setUserSetting(userId, key, content ?? "");
 }
 
 // ── accounts ──────────────────────────────────────────────────────────────────
-function getAccountsForUser(userId) { return dbStore.listAccountsForUser(userId); }
-function setAccountsForUser(userId, accounts) { return dbStore.replaceAccountsForUser(userId, accounts); }
-function updateAccountForUser(userId, accountId, updates) { return dbStore.updateAccountForUser(userId, accountId, updates); }
-function removeAccountForUser(userId, accountId) { return dbStore.removeAccountForUser(userId, accountId); }
+export function getAccountsForUser(userId) {
+  return dbStore.listAccountsForUser(userId);
+}
+export function setAccountsForUser(userId, accounts) {
+  return dbStore.replaceAccountsForUser(userId, accounts);
+}
+export function updateAccountForUser(userId, accountId, updates) {
+  return dbStore.updateAccountForUser(userId, accountId, updates);
+}
+export function removeAccountForUser(userId, accountId) {
+  return dbStore.removeAccountForUser(userId, accountId);
+}
 
 // ── match list ────────────────────────────────────────────────────────────────
 
@@ -201,7 +234,6 @@ async function fetchDbTimersCached() {
   if (_dbTimersCache && now - _dbTimersCacheAt < DB_TIMERS_CACHE_MS) {
     return _dbTimersCache;
   }
-  const sb = require("../../../shared/db/supabase.js");
   try {
     _dbTimersCache = (await sb.fetchLiveTimers()) || {};
   } catch {
@@ -211,35 +243,57 @@ async function fetchDbTimersCached() {
   return _dbTimersCache;
 }
 
-async function buildMatchList() {
+export async function buildMatchList() {
   // 只读 client_matches（gamebet_matcher rebuild 写入）；不在此做跨平台合并
   const fromDb = await dbStore.loadClientMatchesFromSupabase();
   if (!fromDb?.length) return [];
 
-  const {
-    overlayLiveTimersOnMatches,
-    mergeTimerBlocks,
-  } = require("./live_timer_overlay.js");
   const dbTimers = await fetchDbTimersCached();
   const timers = mergeTimerBlocks(_timers, dbTimers);
   return overlayLiveTimersOnMatches(fromDb, timers);
 }
 
-function getMatchDefaultOdds(matchIds) { return defaultOddsApi.getMatchDefaultOdds(matchIds, () => buildMatchList()); }
-function getDefaultOddsSingle(betId, team) { return defaultOddsApi.getDefaultOddsSingle(betId, team, () => buildMatchList()); }
-function parseKvContent(raw) {
+export function getMatchDefaultOdds(matchIds) {
+  return defaultOddsApi.getMatchDefaultOdds(matchIds, () => buildMatchList());
+}
+export function getDefaultOddsSingle(betId, team) {
+  return defaultOddsApi.getDefaultOddsSingle(betId, team, () => buildMatchList());
+}
+export function parseKvContent(raw) {
   if (raw == null || raw === "") return null;
-  try { return JSON.parse(raw); } catch { return raw; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
 }
 
-module.exports = {
-  DATA_DIR, ensureSeed,
-  getUserBySupabaseToken, getUserById, updateUserSetting,
-  getPlatform, setPlatform,
-  saveMatches, saveBets, saveLiveTimer,
+export { DATA_DIR, readJson, writeJson };
+
+const store = {
+  DATA_DIR,
+  ensureSeed,
+  getUserBySupabaseToken,
+  getUserById,
+  updateUserSetting,
+  getPlatform,
+  setPlatform,
+  saveMatches,
+  saveBets,
+  saveLiveTimer,
   isUserSettingKey,
-  getUserSetting, setUserSetting,
-  getAccountsForUser, setAccountsForUser, updateAccountForUser, removeAccountForUser,
-  parseKvContent, buildMatchList, getMatchDefaultOdds, getDefaultOddsSingle,
-  readJson, writeJson,
+  getUserSetting,
+  setUserSetting,
+  getAccountsForUser,
+  setAccountsForUser,
+  updateAccountForUser,
+  removeAccountForUser,
+  parseKvContent,
+  buildMatchList,
+  getMatchDefaultOdds,
+  getDefaultOddsSingle,
+  readJson,
+  writeJson,
 };
+
+export default store;

@@ -1,6 +1,4 @@
-"use strict";
-
-const store = require("../esport-api/store.js");
+import store from "../esport-api/store.js";
 
 const FILES = {
   tagPlatforms: "tag_platforms",
@@ -200,7 +198,7 @@ function ensureSeed() {
   }
 }
 
-module.exports = {
+export {
   FILES,
   ensureSeed,
   listTagPlatforms,

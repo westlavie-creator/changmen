@@ -1,19 +1,17 @@
-"use strict";
-
 /** 与 A8 bundle 中 _Ze / Bw 一致：联赛 gameCode → 目录 slug */
-function slugify(text) {
+export function slugify(text) {
   return String(text || "")
     .toLowerCase()
     .replace(/\s/g, "-");
 }
 
 /** bundle L7：平博 itemId / SourceHomeID 格式 */
-function selectionId(matchId, map, side) {
+export function selectionId(matchId, map, side) {
   const homeBit = side === "HOME" ? 0 : 1;
   return [matchId, map, 1, homeBit, 0, 0, homeBit].join("|");
 }
 
-function toNumber(value) {
+export function toNumber(value) {
   if (value == null) return 0;
   if (typeof value === "number") return value;
   if (typeof value === "string") return Number(value) || 0;
@@ -25,7 +23,7 @@ function periodLabel(map) {
   return map === 0 ? "全场" : `地图${map}`;
 }
 
-function betNameForMap(map) {
+export function betNameForMap(map) {
   return `[${periodLabel(map)}]-比赛胜负`;
 }
 
@@ -42,7 +40,7 @@ function isKillsSide(participant) {
  * 解析平博电竞 odds 接口（sportId=12）响应。
  * @returns {{ matches: object[], byMatch: Record<string, object>, lineIds: Map<string, number> }}
  */
-function parseEuroOddsPayload(data, options = {}) {
+export function parseEuroOddsPayload(data, options = {}) {
   const allowedSlugs = options.allowedSlugs
     ? new Set([...options.allowedSlugs].map(slugify))
     : null;
@@ -145,11 +143,3 @@ function inferBo(stages) {
   if (!maps.length) return stages.some((s) => s.stageId === 0) ? 1 : 0;
   return Math.max(...maps);
 }
-
-module.exports = {
-  slugify,
-  selectionId,
-  toNumber,
-  parseEuroOddsPayload,
-  betNameForMap,
-};

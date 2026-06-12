@@ -1,19 +1,17 @@
-﻿"use strict";
+﻿import { matchesMarketCode, getPlatformRules } from "../../../shared/catalog/market_catalog.mjs";
+import { getGameCode, getGameName } from "./game_ids.js";
 
-const { matchesMarketCode, getPlatformRules } = require("./_require.js").reqS("catalog/market_catalog.mjs");
-const { getGameCode, getGameName } = require("./game_ids.js");
-
-function sleep(ms) {
+export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function parseBo(raw) {
+export function parseBo(raw) {
   const m = String(raw || "").match(/BO(\d+)/i);
   if (m) return Number(m[1]) || 0;
   return 0;
 }
 
-function parseStartTime(raw) {
+export function parseStartTime(raw) {
   if (!raw) return Date.now();
   const normalized = String(raw).replace(" ", "T");
   const ms = Date.parse(normalized);
@@ -27,7 +25,7 @@ function parseScoreline(raw) {
   return { home: Number(m[1]), away: Number(m[2]) };
 }
 
-function stageFromTabName(tabName) {
+export function stageFromTabName(tabName) {
   const name = String(tabName || "").trim();
   if (!name || name === "MATCH") return { stageId: 0, label: "全场", mapOption: "", marketOption: "MATCH" };
   const mapMatch = name.match(/^MAP\s*(\d+)$/i);
@@ -49,7 +47,7 @@ function withinCollectWindow(event, horizonMs = 3600 * 1000) {
   return start < Date.now() + horizonMs;
 }
 
-function normalizeListEvent(raw, filter = {}) {
+export function normalizeListEvent(raw, filter = {}) {
   if (!raw?.event_id) return null;
   if (!isAllowedGame(raw, filter.gameIds)) return null;
   if (!withinCollectWindow(raw, filter.horizonMs)) return null;
@@ -92,7 +90,7 @@ function isAggregatedWinMarket(market, betNameRegex) {
   return false;
 }
 
-function selectionOddsId(marketId, selectionName) {
+export function selectionOddsId(marketId, selectionName) {
   return `${marketId}:${selectionName}`;
 }
 
@@ -134,7 +132,7 @@ function buildStageFromMarket(market, stageMeta) {
   };
 }
 
-function extractWinMarketsFromResults(results, betNameRegex) {
+export function extractWinMarketsFromResults(results, betNameRegex) {
   const stages = [];
   const oddsIndex = {};
 
@@ -158,7 +156,7 @@ function extractWinMarketsFromResults(results, betNameRegex) {
   return { stages, oddsIndex };
 }
 
-function mergeStagesIntoDetail(detail, built) {
+export function mergeStagesIntoDetail(detail, built) {
   const byStage = new Map((detail.stages || []).map((s) => [s.stageId, s]));
   for (const stage of built.stages) {
     byStage.set(stage.stageId, { ...(byStage.get(stage.stageId) || {}), ...stage });
@@ -178,7 +176,7 @@ function mergeStagesIntoDetail(detail, built) {
   return detail;
 }
 
-function registerOddsIndex(oddsIndex, matchId, built) {
+export function registerOddsIndex(oddsIndex, matchId, built) {
   for (const stage of built.stages) {
     oddsIndex[stage.winHomeId] = {
       matchId,
@@ -195,7 +193,7 @@ function registerOddsIndex(oddsIndex, matchId, built) {
   }
 }
 
-function applyWsOddsUpdates(detail, oddsIndex, payload) {
+export function applyWsOddsUpdates(detail, oddsIndex, payload) {
   const data = payload?.data;
   if (!data?.selection || !data.market_id) return false;
 
@@ -236,7 +234,7 @@ function applyWsOddsUpdates(detail, oddsIndex, payload) {
   return touched;
 }
 
-function compileBetName(session) {
+export function compileBetName(session) {
   const rules = getPlatformRules("TF");
   const pattern = session?.betName || rules?.betName;
   if (!pattern) return null;
@@ -246,17 +244,3 @@ function compileBetName(session) {
     return null;
   }
 }
-
-module.exports = {
-  sleep,
-  parseBo,
-  parseStartTime,
-  stageFromTabName,
-  normalizeListEvent,
-  extractWinMarketsFromResults,
-  mergeStagesIntoDetail,
-  registerOddsIndex,
-  applyWsOddsUpdates,
-  compileBetName,
-  selectionOddsId,
-};

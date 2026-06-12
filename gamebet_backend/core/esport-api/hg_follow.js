@@ -1,5 +1,3 @@
-"use strict";
-
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(body));
@@ -20,7 +18,7 @@ function readBody(req) {
   });
 }
 
-async function handleCommonApi(req, res, url) {
+export async function handleCommonApi(req, res, url) {
   const u = new URL(url, "http://127.0.0.1");
   const path = u.pathname;
 
@@ -50,5 +48,3 @@ async function handleCommonApi(req, res, url) {
 
   return false;
 }
-
-module.exports = { handleCommonApi };

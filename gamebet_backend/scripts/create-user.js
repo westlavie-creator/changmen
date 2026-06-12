@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 /**
  * 创建系统登录用户（Supabase Auth）
@@ -7,7 +6,10 @@
  * 示例：node scripts/create-user.js tj01 abc123456
  */
 
-require("dotenv").config();
+import "dotenv/config";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 const { createClient } = require("@supabase/supabase-js");
 
 async function main() {
@@ -42,7 +44,10 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("成功:", JSON.stringify({ id: data.user.id, email: data.user.email }, null, 2));
+  console.log(
+    "成功:",
+    JSON.stringify({ id: data.user.id, email: data.user.email }, null, 2),
+  );
 }
 
 main().catch((err) => {

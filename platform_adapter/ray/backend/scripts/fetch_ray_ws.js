@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-"use strict";
 
-const { RayWsClient } = require("../ws.js");
+import { RayWsClient } from "../ws.js";
 
 async function main() {
   const client = new RayWsClient();

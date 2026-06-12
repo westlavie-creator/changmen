@@ -1,22 +1,20 @@
-﻿"use strict";
+﻿import * as Core from "./core.js";
 
-const Core = require("./core.js");
-
-const DEFAULT_LOGIN_URL =
+export const DEFAULT_LOGIN_URL =
   "https://djtop-capi.v662n.com/cApi/v2/member/login?merchant=6107384714184464&demo=1";
 
-function obHeaders(token, lang) {
+export function obHeaders(token, lang) {
   return { device: "1", lang: lang || "cn", token };
 }
 
-function obPostHeaders(token, lang) {
+export function obPostHeaders(token, lang) {
   return {
     ...obHeaders(token, lang),
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
   };
 }
 
-async function obGet(base, path, token, lang) {
+export async function obGet(base, path, token, lang) {
   const url = `${base.replace(/\/$/, "")}${path}`;
   let lastErr;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -44,7 +42,7 @@ async function obGet(base, path, token, lang) {
   throw lastErr;
 }
 
-async function obPost(base, path, token, lang, body) {
+export async function obPost(base, path, token, lang, body) {
   const url = `${base.replace(/\/$/, "")}${path}`;
   const res = await fetch(url, {
     method: "POST",
@@ -62,7 +60,7 @@ async function obPost(base, path, token, lang, body) {
   return { url, status: res.status, json };
 }
 
-async function pickGateway(apis, token, lang) {
+export async function pickGateway(apis, token, lang) {
   let lastErr;
   for (const base of apis) {
     try {
@@ -76,7 +74,7 @@ async function pickGateway(apis, token, lang) {
   throw lastErr || new Error("No reachable OB API gateway");
 }
 
-async function fetchObLogin(loginUrl) {
+export async function fetchObLogin(loginUrl) {
   const res = await fetch(loginUrl, { signal: AbortSignal.timeout(20000) });
   const text = await res.text();
   if (!text.trim()) {
@@ -91,7 +89,7 @@ async function fetchObLogin(loginUrl) {
   return { httpStatus: res.status, loginUrl, json };
 }
 
-function buildSession(loginUrl, body) {
+export function buildSession(loginUrl, body) {
   if (body.status !== "true" || !body.data) {
     throw new Error(body.data || body.msg || "login failed");
   }
@@ -121,7 +119,7 @@ function buildSession(loginUrl, body) {
   };
 }
 
-async function login(loginUrl) {
+export async function login(loginUrl) {
   const url = loginUrl || process.env.OB_LOGIN_URL || DEFAULT_LOGIN_URL;
   const { httpStatus, json } = await fetchObLogin(url);
   if (json.status !== "true") {
@@ -137,7 +135,7 @@ async function login(loginUrl) {
   return session;
 }
 
-async function fetchGameView(session, matchId, stageId) {
+export async function fetchGameView(session, matchId, stageId) {
   const path = `/game/view?match_id=${matchId}&stage_id=${stageId}`;
   const result = await obGet(session.gateway, path, session.token, session.lang);
   if (result.json.status === "false") {
@@ -151,7 +149,7 @@ async function fetchGameView(session, matchId, stageId) {
   };
 }
 
-async function fetchGetTimer(session) {
+export async function fetchGetTimer(session) {
   const result = await obGet(session.gateway, "/game/getTimer", session.token, session.lang);
   if (result.json.status === "false") {
     return { ...result, timers: {} };
@@ -161,17 +159,3 @@ async function fetchGetTimer(session) {
     timers: Core.normalizeGetTimer(result.json),
   };
 }
-
-module.exports = {
-  DEFAULT_LOGIN_URL,
-  obHeaders,
-  obPostHeaders,
-  obGet,
-  obPost,
-  pickGateway,
-  fetchObLogin,
-  buildSession,
-  login,
-  fetchGameView,
-  fetchGetTimer,
-};

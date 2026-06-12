@@ -1,6 +1,4 @@
-"use strict";
-
-function emptyPage() {
+export function emptyPage() {
   return { list: [], total: 0, pageIndex: 1, pageSize: 20 };
 }
 
@@ -19,7 +17,7 @@ function emptyReportRow(date) {
   };
 }
 
-function monthReport(month) {
+export function monthReport(month) {
   const m = month || new Date().toISOString().slice(0, 7);
   const [year, mon] = m.split("-").map(Number);
   const days = new Date(year, mon, 0).getDate();
@@ -40,5 +38,3 @@ function monthReport(month) {
   };
   return { month: m, list, total };
 }
-
-module.exports = { emptyPage, monthReport };

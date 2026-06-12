@@ -1,8 +1,6 @@
-"use strict";
-
-const store = require("./store.js");
-const { getActivePlatformGameIds } = require("../../../shared/catalog/game_catalog.mjs");
-const { requirePlatform } = require("../shared/adapter_paths.js");
+import store from "./store.js";
+import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
+import { requirePlatform } from "../shared/adapter_paths.js";
 
 const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");
 const { login, obGet } = requirePlatform("OB", "backend", "session.js");
@@ -390,7 +388,7 @@ async function ensurePlatformCredentials() {
   };
 }
 
-module.exports = {
+export {
   syncObFromSession,
   syncObFromStore,
   resolveObSession,

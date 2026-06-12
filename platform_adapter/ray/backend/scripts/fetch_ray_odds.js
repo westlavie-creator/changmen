@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-"use strict";
 
-const { login, fetchMatchPage, fetchOdds } = require("../session.js");
-const Core = require("../core.js");
+import { login, fetchOdds } from "../session.js";
+import * as Core from "../core.js";
 
 async function main() {
   const matchId = process.argv[2];
@@ -15,7 +14,7 @@ async function main() {
   const built = Core.buildStagesFromOdds(
     payload,
     payload.team?.find((t) => t.pos === 1)?.team_id,
-    payload.team?.find((t) => t.pos === 2)?.team_id
+    payload.team?.find((t) => t.pos === 2)?.team_id,
   );
   console.log(
     JSON.stringify(
@@ -27,8 +26,8 @@ async function main() {
         winStages: built.stages.filter((s) => s.winHome != null || s.winAway != null),
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 }
 

@@ -1,24 +1,17 @@
-"use strict";
+import catalog from "./game_ids.json" with { type: "json" };
 
-const catalog = require("./game_ids.json");
-
-function getGameRecord(gameId) {
+export function getGameRecord(gameId) {
   return catalog.games[String(gameId)] || null;
 }
 
-function getGameName(gameId) {
+export function getGameName(gameId) {
   const rec = getGameRecord(gameId);
   if (rec?.name) return rec.name;
   return `未知(${gameId})`;
 }
 
-function getGameCode(gameId) {
+export function getGameCode(gameId) {
   return getGameRecord(gameId)?.code || "unknown";
 }
 
-module.exports = {
-  catalog,
-  getGameRecord,
-  getGameName,
-  getGameCode,
-};
+export { catalog };

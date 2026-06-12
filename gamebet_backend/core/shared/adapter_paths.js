@@ -1,19 +1,27 @@
-"use strict";
+import { createRequire } from "node:module";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const fs = require("fs");
-const path = require("path");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 
 /** gamebet_backend 根目录（本文件位于 core/shared/） */
-const BACKEND_ROOT = path.join(__dirname, "..", "..");
+export const BACKEND_ROOT = path.join(__dirname, "..", "..");
 
 let _adapterRoot;
+let _registryPaths;
+let _registryFeeds;
+let _registryReady;
+/** @type {Map<string, Record<string, unknown>>} */
+const _esmPlatformModuleCache = new Map();
 
 /**
  * platform_adapter 根目录。
  * - 开发：changmen/platform_adapter（与 gamebet_backend 同级）
  * - 可选拷贝：`gamebet_backend/platform_adapter`（部署脚本复制时）
  */
-function getAdapterRoot() {
+export function getAdapterRoot() {
   if (_adapterRoot) return _adapterRoot;
 
   const bundled = path.join(BACKEND_ROOT, "platform_adapter");
@@ -33,46 +41,100 @@ function getAdapterRoot() {
   );
 }
 
-/** require(platform_adapter 下的相对路径片段) */
-function adapterRequire(...segments) {
+/** 预加载 registry ESM（paths.js / feeds.js）；server 入口须在加载 http_routes 前 await */
+export async function initAdapterRegistry() {
+  if (_registryReady) return _registryReady;
+
+  _registryReady = (async () => {
+    const root = getAdapterRoot();
+    const registryDir = path.join(root, "registry");
+    const pathsUrl = pathToFileURL(path.join(registryDir, "paths.js")).href;
+    const feedsUrl = pathToFileURL(path.join(registryDir, "feeds.js")).href;
+    _registryPaths = await import(pathsUrl);
+    _registryFeeds = await import(feedsUrl);
+  })();
+
+  return _registryReady;
+}
+
+function ensureRegistryLoaded() {
+  if (!_registryPaths || !_registryFeeds) {
+    throw new Error(
+      "platform_adapter registry not loaded; await initAdapterRegistry() before adapterRequire(registry/*)",
+    );
+  }
+}
+
+/** require(platform_adapter 下的相对路径片段) — 平台 backend 仍为 CJS */
+export function adapterRequire(...segments) {
+  const key = segments.join("/");
+  if (key === "registry/paths.js") {
+    ensureRegistryLoaded();
+    return _registryPaths;
+  }
+  if (key === "registry/feeds.js") {
+    ensureRegistryLoaded();
+    return _registryFeeds;
+  }
   return require(path.join(getAdapterRoot(), ...segments));
 }
 
-let _registryPaths;
-
-function getRegistryPaths() {
-  if (!_registryPaths) {
-    _registryPaths = adapterRequire("registry", "paths.js");
-  }
+export function getRegistryPaths() {
+  ensureRegistryLoaded();
   return _registryPaths;
 }
 
-function resolvePlatformFile(id, ...segments) {
+export function resolvePlatformFile(id, ...segments) {
   return getRegistryPaths().resolvePlatformFile(id, ...segments);
 }
 
-function resolveBackendRelayModule(id) {
-  return getRegistryPaths().resolveBackendRelayModule(id);
+/** 预加载已迁 ESM 的平台 backend/*.js（顶层 .js，不含 scripts/） */
+export async function initEsmPlatformBackends() {
+  ensureRegistryLoaded();
+  const root = getAdapterRoot();
+  for (const entry of _registryPaths.MANIFEST) {
+    const backendDir = path.join(root, entry.dir, "backend");
+    const pkgPath = path.join(backendDir, "package.json");
+    if (!fs.existsSync(pkgPath)) continue;
+    let pkg;
+    try {
+      pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    } catch {
+      continue;
+    }
+    if (pkg.type !== "module") continue;
+    for (const file of fs.readdirSync(backendDir)) {
+      if (!file.endsWith(".js") || file.startsWith("_")) continue;
+      const abs = path.join(backendDir, file);
+      if (!fs.statSync(abs).isFile()) continue;
+      if (!_esmPlatformModuleCache.has(abs)) {
+        _esmPlatformModuleCache.set(abs, await import(pathToFileURL(abs).href));
+      }
+    }
+  }
 }
 
-/** require(platform_adapter/{dir}/...) */
-function requirePlatform(id, ...segments) {
-  return require(resolvePlatformFile(id, ...segments));
+function loadPlatformModule(abs) {
+  if (_esmPlatformModuleCache.has(abs)) {
+    return _esmPlatformModuleCache.get(abs);
+  }
+  try {
+    return require(abs);
+  } catch (err) {
+    if (err?.code === "ERR_REQUIRE_ESM") {
+      throw new Error(
+        `ESM platform module not preloaded: ${abs} (await initEsmPlatformBackends())`,
+      );
+    }
+    throw err;
+  }
 }
 
-function requirePlatformRelay(id) {
-  const abs = resolveBackendRelayModule(id);
-  if (!abs) throw new Error(`manifest has no backendRelay: ${id}`);
-  return require(abs);
+/** require(platform_adapter/{dir}/...) — ESM 平台走预加载缓存 */
+export function requirePlatform(id, ...segments) {
+  return loadPlatformModule(resolvePlatformFile(id, ...segments));
 }
 
-module.exports = {
-  BACKEND_ROOT,
-  getAdapterRoot,
-  adapterRequire,
-  getRegistryPaths,
-  resolvePlatformFile,
-  resolveBackendRelayModule,
-  requirePlatform,
-  requirePlatformRelay,
-};
+// 模块首次 import 时预加载 registry + ESM 平台 backend
+await initAdapterRegistry();
+await initEsmPlatformBackends();

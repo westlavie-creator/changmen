@@ -1,9 +1,7 @@
-"use strict";
-
 /**
  * 解析插件写入剪贴板的 Base64 凭证（对齐 AccountInfoView 粘贴逻辑）。
  */
-function parseClipboardCredential(text) {
+export function parseClipboardCredential(text) {
   if (!text || !String(text).trim()) {
     throw new Error("剪贴板为空");
   }
@@ -40,7 +38,7 @@ function parseClipboardCredential(text) {
   };
 }
 
-function encodeClipboardCredential(credential) {
+export function encodeClipboardCredential(credential) {
   const body = {
     provider: credential.provider,
     token: credential.token,
@@ -52,5 +50,3 @@ function encodeClipboardCredential(credential) {
   if (credential.userAgent) body.userAgent = credential.userAgent;
   return Buffer.from(JSON.stringify(body), "utf8").toString("base64");
 }
-
-module.exports = { parseClipboardCredential, encodeClipboardCredential };

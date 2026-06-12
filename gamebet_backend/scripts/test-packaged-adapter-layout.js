@@ -1,7 +1,16 @@
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
+import {
+  getAdapterRoot,
+  adapterRequire,
+  initAdapterRegistry,
+  requirePlatform,
+} from "../core/shared/adapter_paths.js";
 
-const fs = require("fs");
-const path = require("path");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 
 const backendRoot = path.join(__dirname, "..");
 const src = path.join(backendRoot, "..", "platform_adapter");
@@ -19,20 +28,18 @@ function cpDir(s, d, skipDir) {
 }
 
 cpDir(src, dst, (n) => n === "frontend" || n === "_template");
-delete require.cache[require.resolve(path.join(backendRoot, "core/shared/adapter_paths.js"))];
 
-const ap = require(path.join(backendRoot, "core/shared/adapter_paths.js"));
-console.log("packaged root:", ap.getAdapterRoot());
+await initAdapterRegistry();
 
-ap.adapterRequire("registry", "feeds.js");
-const { requirePlatformRelay } = require(path.join(
-  backendRoot,
-  "core/shared/adapter_paths.js",
-));
-requirePlatformRelay("OB");
-requirePlatformRelay("RAY");
+console.log("packaged root:", getAdapterRoot());
 
-const paPaths = require(path.join(ap.getAdapterRoot(), "backend/_paths.js"));
+adapterRequire("registry", "feeds.js");
+requirePlatform("OB", "backend", "session.js");
+requirePlatform("RAY", "backend", "session.js");
+
+const paPaths = await import(
+  pathToFileURL(path.join(getAdapterRoot(), "backend/_paths.js")).href
+);
 const marketCatalog = paPaths.reqS("catalog/market_catalog.mjs");
 if (typeof marketCatalog.getDefaultMarketCode !== "function") {
   throw new Error("shared/catalog/market_catalog.mjs did not export getDefaultMarketCode");
@@ -57,8 +64,8 @@ try {
   }
   const prevResourcesPath = process.resourcesPath;
   process.resourcesPath = fakeResources;
-  delete require.cache[require.resolve(clientPath)];
-  require(clientPath);
+  const clientUrl = pathToFileURL(clientPath).href;
+  await import(`${clientUrl}?packaged-test=${Date.now()}`);
   process.resourcesPath = prevResourcesPath;
   console.log("shared/db/client packaged resolve OK");
 } finally {

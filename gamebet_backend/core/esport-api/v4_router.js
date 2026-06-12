@@ -1,4 +1,4 @@
-"use strict";
+import store from "./store.js";
 
 /** v4.0 接口 — 本地处理，不再代理到 api.a8.to */
 
@@ -20,7 +20,10 @@ function readBody(req) {
     let raw = "";
     req.on("data", (chunk) => {
       raw += chunk;
-      if (raw.length > 1e6) { reject(new Error("body too large")); req.destroy(); }
+      if (raw.length > 1e6) {
+        reject(new Error("body too large"));
+        req.destroy();
+      }
     });
     req.on("end", () => resolve(raw));
     req.on("error", reject);
@@ -30,7 +33,11 @@ function readBody(req) {
 function parseFormBody(raw) {
   if (!raw) return {};
   if (raw.trim().startsWith("{")) {
-    try { return JSON.parse(raw); } catch { return {}; }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
   }
   const out = {};
   for (const [k, v] of new URLSearchParams(raw).entries()) out[k] = v;
@@ -41,7 +48,7 @@ function routePath(urlPath) {
   return urlPath.replace(/^\/v4\.0\/?/, "").replace(/^\//, "");
 }
 
-async function handleV4Request(req, res, urlPath) {
+export async function handleV4Request(req, res, urlPath) {
   const sub = routePath(urlPath);
 
   if (req.method !== "POST" && req.method !== "GET") {
@@ -51,16 +58,18 @@ async function handleV4Request(req, res, urlPath) {
 
   let rawBody = "";
   if (req.method === "POST") {
-    try { rawBody = await readBody(req); }
-    catch (err) { sendJson(res, 400, fail(err.message)); return true; }
+    try {
+      rawBody = await readBody(req);
+    } catch (err) {
+      sendJson(res, 400, fail(err.message));
+      return true;
+    }
   }
 
   const body = parseFormBody(rawBody);
-  const token = req.headers.token || req.headers.Token || "";
 
   // ── 用户登录：走本地 store ────────────────────────────────────────────────
   if (sub === "user/account/login") {
-    const { store } = require("./store.js");
     const userName = String(body.userName || body.username || "").trim();
     const password = body.password || "";
     if (!userName || !password) {
@@ -71,7 +80,7 @@ async function handleV4Request(req, res, urlPath) {
     if (user?.salt) {
       const hash = store.hashPassword(password, user.salt);
       if (hash === user.passwordHash) {
-        const sessionToken = store.createSession(user.id, { v4Token: sessionToken, a8UserName: userName });
+        const sessionToken = store.createSession(user.id, { v4Token: null, a8UserName: userName });
         sendJson(res, 200, ok({ token: sessionToken, userName: user.userName }));
         return true;
       }
@@ -90,5 +99,3 @@ async function handleV4Request(req, res, urlPath) {
   sendJson(res, 200, ok(null));
   return true;
 }
-
-module.exports = { handleV4Request };

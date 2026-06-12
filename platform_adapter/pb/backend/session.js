@@ -1,10 +1,9 @@
-﻿"use strict";
-
-const fs = require("fs");
-const path = require("path");
-const { ESPORT_DATA_DIR } = require("./_require.js").reqB("core/shared/storage_paths.js");
-const store = require("./_require.js").reqB("core/esport-api/store.js");
-const { getActivePlatformGameIds } = require("./_require.js").reqS("catalog/game_catalog.mjs");
+﻿import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { BACKEND_ROOT } from "../../backend/_paths.js";
+import { ESPORT_DATA_DIR } from "../../../gamebet_backend/core/shared/storage_paths.js";
+import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 
@@ -13,7 +12,7 @@ const EURO_ODDS_QUERY_BASE =
   "&language=zh-cn&isHomePage=&leagueCode=&eventType=0&eSportCode=" +
   "&periodNum=0%2C1%2C2%2C3%2C4%2C5%2C6%2C7&participant=&locale=zh_CN";
 
-const DEFAULT_ODDS_QUERY = `${EURO_ODDS_QUERY_BASE}&isLive=true`;
+export const DEFAULT_ODDS_QUERY = `${EURO_ODDS_QUERY_BASE}&isLive=true`;
 
 function detectPbSessionSuffix(appData, outer) {
   for (const key of Object.keys(appData || {})) {
@@ -49,7 +48,7 @@ function mergeInnerTokenHeaders(headers, outer) {
  * 与 A8 bundle P0() 相同：account.token 为 JSON 字符串。
  * 会话后缀（515 / 1228 等）从 x-app-data 动态识别。
  */
-function buildAuthHeaders(session, extra = {}) {
+export function buildAuthHeaders(session, extra = {}) {
   if (!session?.token) return null;
   try {
     const outer = typeof session.token === "string" ? JSON.parse(session.token) : session.token;
@@ -129,11 +128,11 @@ function loadFromEnv() {
   };
 }
 
-function loadSession() {
+export function loadSession() {
   const session = loadFromEnv() || loadFromPlatformsJson();
   if (!session) {
     throw new Error(
-      "缺少 PB 凭证：设置 PB_GATEWAY + PB_TOKEN，或在 gamebet_backend/data/esport/platforms.json 配置 PB"
+      "缺少 PB 凭证：设置 PB_GATEWAY + PB_TOKEN，或在 gamebet_backend/data/esport/platforms.json 配置 PB",
     );
   }
   if (!buildAuthHeaders(session)) {
@@ -142,7 +141,7 @@ function loadSession() {
   return session;
 }
 
-function tryLoadSession() {
+export function tryLoadSession() {
   try {
     return loadSession();
   } catch {
@@ -150,7 +149,7 @@ function tryLoadSession() {
   }
 }
 
-function oddsUrl(session, isLive = true) {
+export function oddsUrl(session, isLive = true) {
   const base = `${session.gateway}/sports-service/sv/euro/odds`;
   const ts = Date.now();
   return `${base}?${EURO_ODDS_QUERY_BASE}&isLive=${isLive}&timeStamp=${ts}&_=${ts}&withCredentials=true`;
@@ -211,7 +210,7 @@ async function pbFetch(session, url, options = {}) {
   return data;
 }
 
-async function fetchEuroOdds(session) {
+export async function fetchEuroOdds(session) {
   const [liveData, prematchData] = await Promise.all([
     pbFetch(session, oddsUrl(session, true)),
     pbFetch(session, oddsUrl(session, false)),
@@ -219,7 +218,7 @@ async function fetchEuroOdds(session) {
   return mergeEuroOddsPayloads(liveData, prematchData);
 }
 
-async function fetchBalance(session, options = {}) {
+export async function fetchBalance(session, options = {}) {
   const multiply = Math.max(1, Number(options.multiply) || 1);
   const data = await pbFetch(session, balanceUrl(session), { method: "POST", body: "" });
   if (data?.error) {
@@ -240,7 +239,7 @@ async function fetchBalance(session, options = {}) {
 }
 
 /** PB token 外层 `a` 字段（base64 JSON）里缓存的 betCredit，会话失效时可作展示回退 */
-function parsePbTokenBalance(token) {
+export function parsePbTokenBalance(token) {
   if (!token) return null;
   try {
     const outer = typeof token === "string" ? JSON.parse(token) : token;
@@ -259,27 +258,23 @@ function parsePbTokenBalance(token) {
   }
 }
 
-function persistPlatform(session) {
-  store.ensureSeed();
-  store.setPlatform("PB", {
-    gateway: session.gateway,
-    token: typeof session.token === "string" ? session.token : JSON.stringify(session.token),
-    betName: store.getPlatform("PB")?.betName || ".*",
-    games: (session.gameSlugs || getActivePlatformGameIds("PB")).map(String),
-    cookie: session.cookie || "",
-    referer: session.referer || "",
-    userAgent: session.userAgent || "",
-  });
+export function persistPlatform(session) {
+  const href = pathToFileURL(path.join(BACKEND_ROOT, "core/esport-api/store.js")).href;
+  import(href)
+    .then((mod) => {
+      const store = mod.default;
+      store.ensureSeed();
+      store.setPlatform("PB", {
+        gateway: session.gateway,
+        token: typeof session.token === "string" ? session.token : JSON.stringify(session.token),
+        betName: store.getPlatform("PB")?.betName || ".*",
+        games: (session.gameSlugs || getActivePlatformGameIds("PB")).map(String),
+        cookie: session.cookie || "",
+        referer: session.referer || "",
+        userAgent: session.userAgent || "",
+      });
+    })
+    .catch(() => {
+      /* optional */
+    });
 }
-
-module.exports = {
-  loadSession,
-  tryLoadSession,
-  buildAuthHeaders,
-  fetchEuroOdds,
-  fetchBalance,
-  parsePbTokenBalance,
-  oddsUrl,
-  persistPlatform,
-  DEFAULT_ODDS_QUERY,
-};

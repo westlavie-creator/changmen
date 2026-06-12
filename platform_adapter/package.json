@@ -1,0 +1,6 @@
+{
+  "name": "@changmen/platform-adapter",
+  "private": true,
+  "type": "commonjs",
+  "description": "各平台采集/中继脚本（C0：registry/backend 基础设施为 ESM；各平台 backend 仍为 CJS）"
+}

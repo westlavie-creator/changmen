@@ -1,7 +1,7 @@
-﻿"use strict";
+﻿import { rayIsAggregatedOddsRow } from "../../../shared/catalog/market_catalog.mjs";
+import { rayMatchStage as matchStageToId } from "../shared/match_stage.js";
 
-const { rayIsAggregatedOddsRow } = require("./_require.js").reqS("catalog/market_catalog.mjs");
-const DEFAULT_GATEWAYS = [
+export const DEFAULT_GATEWAYS = [
   "https://cfinfo.365raylinks.com/v2",
   "https://iminfo.esportsworldlink.com/v2",
   "https://cfinfo.365raylines.com/v2",
@@ -34,8 +34,6 @@ function stageIdsForBo(bo) {
   for (let i = 1; i <= n; i += 1) ids.push(i);
   return ids;
 }
-
-const { rayMatchStage: matchStageToId } = require("../shared/match_stage.js");
 
 function stageLabel(stageId) {
   return stageId === 0 ? "全场" : `地图${stageId}`;
@@ -285,8 +283,7 @@ function applyWsOddsUpdates(detail, oddsIndex, updates) {
   return touched;
 }
 
-module.exports = {
-  DEFAULT_GATEWAYS,
+export {
   numberOrZero,
   parseBo,
   stageIdsForBo,
