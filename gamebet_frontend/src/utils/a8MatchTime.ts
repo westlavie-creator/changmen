@@ -1,4 +1,4 @@
-/** 与 gamebet_backend/shared/a8_match_time.js 保持同步 */
+/** 与 changmen/shared/time/match_time.mjs 保持同步（采集侧含过去 12h 下限） */
 
 export const A8_MATCH_MAX_FUTURE_MS = 3600 * 1000;
 export const A8_MATCH_MAX_PAST_MS = 12 * 3600 * 1000;

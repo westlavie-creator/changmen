@@ -1,5 +1,3 @@
-"use strict";
-
 /** 与 gamebet_frontend/src/collectors/im/parse.ts 保持同步 */
 
 const CN_DIGIT = {
@@ -15,7 +13,7 @@ const CN_DIGIT = {
   十: 10,
 };
 
-function pickStr(obj, ...keys) {
+export function pickStr(obj, ...keys) {
   if (!obj || typeof obj !== "object") return "";
   for (const k of keys) {
     const v = obj[k];
@@ -24,7 +22,7 @@ function pickStr(obj, ...keys) {
   return "";
 }
 
-function imBetNameIsFullMatch(name) {
+export function imBetNameIsFullMatch(name) {
   const text = String(name || "").replace(/\s+/g, "");
   if (!text) return false;
   if (/全场|总比赛|系列赛|BO\d/i.test(text)) return true;
@@ -32,7 +30,7 @@ function imBetNameIsFullMatch(name) {
   return false;
 }
 
-function parseImMapFromBetName(name) {
+export function parseImMapFromBetName(name) {
   const text = String(name || "").replace(/\s+/g, "");
   if (!text || imBetNameIsFullMatch(name)) return 0;
   const m = text.match(/第([一二三四五六七八九十\d]+)局/);
@@ -46,18 +44,18 @@ function parseImMapFromBetName(name) {
   return 0;
 }
 
-function imBetNameIsMapWinner(name) {
+export function imBetNameIsMapWinner(name) {
   const text = String(name || "");
   if (!text || imBetNameIsFullMatch(name)) return false;
   return /第\s*.+\s*局.*胜/.test(text) || /局.*胜利/.test(text);
 }
 
-function imBetNameIsCollectible(name) {
+export function imBetNameIsCollectible(name) {
   if (!name) return true;
   return imBetNameIsFullMatch(name) || imBetNameIsMapWinner(name);
 }
 
-function resolveImMap(bet) {
+export function resolveImMap(bet) {
   const name = pickStr(bet, "name", "Name", "betName", "BetName");
   if (name && imBetNameIsFullMatch(name)) return 0;
   const fromName = name ? parseImMapFromBetName(name) : 0;
@@ -68,7 +66,7 @@ function resolveImMap(bet) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function normalizeImBet(bet) {
+export function normalizeImBet(bet) {
   const name = pickStr(bet, "name", "Name", "betName", "BetName");
   const map = resolveImMap(bet);
   return {
@@ -81,7 +79,7 @@ function normalizeImBet(bet) {
   };
 }
 
-function pickImSportId(obj) {
+export function pickImSportId(obj) {
   if (!obj || typeof obj !== "object") return "";
   return pickStr(
     obj,
@@ -97,7 +95,7 @@ function pickImSportId(obj) {
   );
 }
 
-function normalizeImMatchFields(match) {
+export function normalizeImMatchFields(match) {
   if (!match) return match;
   const sportId = pickImSportId(match) || match.SourceGameID;
   const home = pickStr(match, "homeName", "HomeName", "Home", "home");
@@ -109,15 +107,3 @@ function normalizeImMatchFields(match) {
     Away: away || match.Away,
   };
 }
-
-module.exports = {
-  pickStr,
-  pickImSportId,
-  imBetNameIsFullMatch,
-  parseImMapFromBetName,
-  imBetNameIsMapWinner,
-  imBetNameIsCollectible,
-  resolveImMap,
-  normalizeImBet,
-  normalizeImMatchFields,
-};

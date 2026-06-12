@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { ESPORT_DATA_DIR } = require("../shared/storage_paths.js");
 const { formatBetOdds } = require("../../../shared/odds_format.js");
-const { a8StartTimeListAllowed } = require("../../../shared/time/match_time.js");
+const { a8StartTimeListAllowed } = require("../../../shared/time/match_time.mjs");
 const { createDefaultOddsApi } = require("./default_odds.js");
 const dbStore = require("../db/store.js");
 

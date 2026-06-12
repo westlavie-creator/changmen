@@ -12,7 +12,7 @@ const {
   rayLegacyWinBetName,
   iaLegacyWinBetName,
 } = require("../../../shared/catalog/market_catalog.mjs");
-const { pickStr, imBetNameIsCollectible, normalizeImBet } = require("../../../shared/im_parse.js");
+const { pickStr, imBetNameIsCollectible, normalizeImBet } = require("../../../shared/im_parse.mjs");
 const { filterImStoredWinBets, dedupeImBetsByMap } = require("./im_enrich");
 
 const OB_WIN_BET_RE =

@@ -11,12 +11,12 @@ const require = createRequire(import.meta.url);
 const {
   normalizeImBet,
   imBetNameIsCollectible,
-} = require("../shared/im_parse.js");
+} = require("../shared/im_parse.mjs");
 const {
   IM_ODDS_ACTIVE_MS,
   normalizeEpochMs,
   a8StartTimeListAllowed,
-} = require("../shared/time/match_time.js");
+} = require("../shared/time/match_time.mjs");
 const {
   getGameCodeForPlatformId,
   getPlatformGameId,

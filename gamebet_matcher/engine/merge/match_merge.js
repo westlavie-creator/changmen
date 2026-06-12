@@ -41,7 +41,7 @@ const {
 const { buildBetsForMatch } = require("./bet_builder");
 
 const { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } = require("../../../shared/catalog/game_catalog.mjs");
-const { normalizeEpochMs, a8StartTimeListAllowed } = require("../../../shared/time/match_time.js");
+const { normalizeEpochMs, a8StartTimeListAllowed } = require("../../../shared/time/match_time.mjs");
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
