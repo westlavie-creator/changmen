@@ -13,7 +13,7 @@ echo   http://localhost:!_P!/
 echo.
 
 echo [1/2] Stop old process on port !_P! ...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":!_P!" ^| findstr "LISTENING"') do (
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr "LISTENING" ^| findstr /C:":!_P! "') do (
   if not "%%a"=="0" taskkill /F /PID %%a >nul 2>&1
 )
 ping 127.0.0.1 -n 2 >nul

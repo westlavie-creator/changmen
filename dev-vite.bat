@@ -5,7 +5,7 @@ chcp 65001 >nul 2>&1
 set "_V=5174"
 cd /d "%~dp0"
 
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5174" ^| findstr "LISTENING"') do (
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr "LISTENING" ^| findstr /C:":5174 "') do (
   if not "%%a"=="0" taskkill /F /PID %%a >nul 2>&1
 )
 ping 127.0.0.1 -n 2 >nul

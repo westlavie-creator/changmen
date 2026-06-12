@@ -30,7 +30,7 @@ start "GameBet-Web" cmd /k "cd /d %~dp0 && set SKIP_APP_BUILD=1&& call backend.b
 echo Waiting for backend on port !_P! ...
 set /a "_W=0"
 :wait_backend
-netstat -aon | findstr ":!_P!" | findstr "LISTENING" >nul
+netstat -aon | findstr "LISTENING" | findstr /C:":!_P! " >nul
 if not errorlevel 1 goto backend_ready
 set /a "_W+=1"
 if !_W! geq 60 (
