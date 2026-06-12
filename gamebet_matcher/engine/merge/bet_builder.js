@@ -7,6 +7,7 @@
 const { stableId, betKey, isPlaceholderTeamName } = require("../teams/match_utils");
 const {
   obSavedBetIsMatchWinner,
+  obLegacyWinBetName,
   matchesSavedBet,
   rayLegacyWinBetName,
 } = require("../../../shared/catalog/market_catalog");
@@ -19,6 +20,12 @@ function winBetPriority(bet, provider, gameCode) {
   const name = String(bet?.BetName ?? bet?.Name ?? "");
   if (name.includes("+")) return 0;
   if (provider === "OB" && gameCode && obSavedBetIsMatchWinner(bet, gameCode)) return 200;
+  if (provider === "OB" && obLegacyWinBetName(name)) {
+    let p = 150;
+    if (name.includes("单局")) p += 10;
+    if (name.includes("全局")) p += 5;
+    return p;
+  }
   if (provider === "RAY" && rayLegacyWinBetName(name)) return 100;
   if (provider === "OB" && OB_WIN_BET_RE.test(name)) return 100;
   if (bet?.OddTypeID || bet?.odd_type_id) return 90;
@@ -42,8 +49,10 @@ function filterStoredWinBets(bets, provider, gameCode) {
     if (provider === "OB") {
       const name = String(bet?.BetName ?? "");
       if (name.includes("+")) return false;
-      if (gameCode && matchesSavedBet("OB", bet, { gameCode })) return true;
-      return OB_WIN_BET_RE.test(name);
+      if (gameCode && obSavedBetIsMatchWinner(bet, gameCode)) return true;
+      if (gameCode && obLegacyWinBetName(name)) return true;
+      if (!gameCode) return OB_WIN_BET_RE.test(name);
+      return false;
     }
     if (provider === "RAY") return matchesSavedBet("RAY", bet, { gameCode });
     if (provider === "IM") {

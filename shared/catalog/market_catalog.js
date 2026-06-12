@@ -230,6 +230,20 @@ function obSavedBetIsMatchWinner(bet, gameCode) {
   return obMatchesOddTypeId({ odd_type_id }, rules, gameCode, round) === true;
 }
 
+/** SaveBet 无 odd_type_id 时：排除 CS2 等地图子盘（手枪局/回合），保留单局/全局主盘 */
+function obLegacyWinBetName(betName) {
+  const name = cleanText(betName);
+  if (!name || name.includes("+")) return false;
+  const rules = getPlatformRules("OB", getDefaultMarketCode());
+  if (!rules?.betName) return false;
+  for (const bad of rules.betKeyExcludeContains || []) {
+    if (name.includes(bad)) return false;
+  }
+  if (/手枪局/.test(name)) return false;
+  if (/第\d+回合/.test(name)) return false;
+  return compilePattern(rules.betName).test(name);
+}
+
 /** A8 SaveBet：RAY 将源站 group_name 编入 BetName（如 [全场] 获胜者） */
 function rayLegacyWinBetName(betName) {
   return (
@@ -297,6 +311,7 @@ module.exports = {
   obFormatNormalizedMarketName,
   rayIsAggregatedOddsRow,
   obSavedBetIsMatchWinner,
+  obLegacyWinBetName,
   rayLegacyWinBetName,
   raySavedBetIsMatchWinner,
   matchesSavedBet,
