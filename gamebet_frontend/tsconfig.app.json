@@ -19,7 +19,7 @@
     "resolveJsonModule": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@platform/*": ["../platform_adapter/*"],
+      "@platform/*": ["../packages/platform-adapter/*"],
       "mqtt": ["./node_modules/mqtt"],
       "socket.io-client": ["./node_modules/socket.io-client"],
       "socketcluster-client": ["./node_modules/socketcluster-client"]
@@ -30,15 +30,15 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "../platform_adapter/**/index.ts",
-    "../platform_adapter/**/frontend/**/*.ts",
-    "../platform_adapter/ray/shared/**/*.ts",
-    "../platform_adapter/ob/shared/**/*.ts",
+    "../packages/platform-adapter/**/index.ts",
+    "../packages/platform-adapter/**/frontend/**/*.ts",
+    "../packages/platform-adapter/ray/shared/**/*.ts",
+    "../packages/platform-adapter/ob/shared/**/*.ts",
     "../packages/shared/catalog/market_catalog.browser.ts",
     "../packages/shared/catalog/game_catalog.browser.ts",
-    "../platform_adapter/shared/**/*.ts",
-    "../platform_adapter/registry/**/*.ts",
-    "../platform_adapter/contract/**/*.ts"
+    "../packages/platform-adapter/shared/**/*.ts",
+    "../packages/platform-adapter/registry/**/*.ts",
+    "../packages/platform-adapter/contract/**/*.ts"
   ],
-  "exclude": ["../platform_adapter/**/*.test.ts"]
+  "exclude": ["../packages/platform-adapter/**/*.test.ts"]
 }

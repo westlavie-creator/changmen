@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 const backendRoot = path.join(__dirname, "..");
-const src = path.join(backendRoot, "..", "platform_adapter");
+const src = path.join(backendRoot, "..", "packages", "platform-adapter");
 const dst = path.join(backendRoot, "platform_adapter");
 
 function cpDir(s, d, skipDir) {

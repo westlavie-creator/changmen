@@ -47,6 +47,8 @@ gamebet_chromeplug/key.pem
 gamebet_chromeplug/scripts/_extracted/
 
 # Team name resolver runtime cache
+packages/team-resolver/cache/*.json
+!packages/team-resolver/cache/.gitkeep
 team-resolver/cache/*.json
 !team-resolver/cache/.gitkeep
 

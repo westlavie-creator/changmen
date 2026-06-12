@@ -99,8 +99,8 @@ if (hits.length === 1 && process.argv.includes("--rebuild-preview")) {
     buildClientMatchList,
     applyManualMatchLinks,
     normalizeMatchesShape,
-  } = await import("../gamebet_matcher/engine/merge/match_merge.js");
-  const { resolveClientMatchIds } = await import("../gamebet_matcher/engine/ids/client_match_ids.js");
+  } = await import("../packages/match-engine/merge/match_merge.js");
+  const { resolveClientMatchIds } = await import("../packages/match-engine/ids/client_match_ids.js");
   const { fetchPlatformMatches, fetchPlatformBets, fetchLiveTimers, fetchClientMatches } =
     await import("../packages/shared/db/supabase.js");
   const { formatOdds } = await import("../packages/shared/odds_format.js");
@@ -173,7 +173,7 @@ if (hits.length === 1 && process.argv.includes("--rebuild-preview")) {
 }
 
 if (hits.length === 1 && process.argv.includes("--simulate-ob")) {
-  const { buildBetsForMatch } = await import("../gamebet_matcher/engine/merge/bet_builder.js");
+  const { buildBetsForMatch } = await import("../packages/match-engine/merge/bet_builder.js");
   const { describePlatformGame } = await import("../packages/shared/catalog/game_catalog.mjs");
   const { formatOdds } = await import("../packages/shared/odds_format.js");
   const src = (p, b) => ({

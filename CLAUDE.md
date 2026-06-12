@@ -102,12 +102,18 @@ npm run test:adapter            # packaged adapter layout 模拟
 
 ## Architecture
 
+**目标 monorepo 布局与迁移进度**：见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)。
+
 ### Directory layout
 
 ```
 changmen/
-├── packages/shared/      @changmen/shared：db/supabase、game_catalog、market_catalog、im_parse、match_time
-├── platform_adapter/     各平台 frontend/backend + registry（canonical 源码）
+├── packages/
+│   ├── shared/             @changmen/shared：catalog、db、odds、im_parse、match_time
+│   ├── platform-adapter/   @changmen/platform-adapter：各平台 frontend/backend + registry
+│   ├── team-resolver/      队名映射与爬虫
+│   └── match-engine/       @changmen/match-engine
+├── docs/                   架构文档入口 ARCHITECTURE.md
 ├── gamebet_matcher/        赛事匹配：rebuild 循环 + 人工关联 Web
 │   ├── matcher.js          30s rebuild 循环入口
 │   ├── engine/             跨平台合并（match_merge / teams / client_match_ids）
@@ -121,7 +127,7 @@ changmen/
 │   ├── static_files.js       静态文件服务
 │   ├── proxy/                各平台 HTTP 代理（WS 浏览器直连）
 │   ├── core/                 Business Core
-│   │   ├── esport-api/           路由/store/初赔/platform_sync（合并在 gamebet_matcher/engine/）
+│   │   ├── esport-api/           路由/store/初赔/platform_sync（合并逻辑在 packages/match-engine）
 │   │   ├── account/              账号 CLI / 订单 / 余额刷新
 │   │   ├── db/                   Supabase 客户端 + 内存缓存
 │   │   ├── shared/               adapter_paths / storage_paths / bet_ref
@@ -141,8 +147,8 @@ changmen/
 
 | 目录 | 可 require |
 |------|------------|
-| `gamebet_backend` | `packages/shared/*`、`platform_adapter`（`reqB` 加载 backend 模块；`reqS` 加载 shared） |
-| `gamebet_matcher` | `engine/*`、`packages/shared/*`（含 `db/supabase`）、`team-resolver` |
+| `gamebet_backend` | `packages/shared/*`、`packages/platform-adapter`（`adapter_paths` / `reqS`） |
+| `gamebet_matcher` | `packages/match-engine`、`packages/shared/*`、`packages/team-resolver` |
 
 `Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`（由 `gamebet_matcher` rebuild 写入）。
 
@@ -156,7 +162,7 @@ changmen/
 | Core | `core/` | 业务逻辑：路由/store/账号/DB/shared utils |
 | Platform | `platform_adapter/` | 各场馆 frontend/backend + registry（canonical） |
 
-后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` 加载平台模块。详见 `platform_adapter/README.md`。
+后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` 加载平台模块。详见 `packages/platform-adapter/README.md`。
 
 **入口：** `node server.js` — HTTP server、HTTP 代理、esport-api
 

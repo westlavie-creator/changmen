@@ -14,7 +14,7 @@ import { createRequire } from "node:module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const { buildMatchListAccumulate } = await import("../../gamebet_matcher/engine/index.js");
+const { buildMatchListAccumulate } = await import("../../packages/match-engine/index.js");
 const { formatOdds } = require("../../packages/shared/odds_format");
 
 const TJ01_PATH = path.resolve(__dirname, "../../../TJ01.JSON");

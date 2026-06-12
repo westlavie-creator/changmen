@@ -1,5 +1,5 @@
 import { resolveUiGame } from "../lib/game_ui.js";
-import { normalizeTeam } from "../engine/index.js";
+import { normalizeTeam } from "../../packages/match-engine/index.js";
 import {
   readMatcherHeartbeat,
   isMatcherRunning,

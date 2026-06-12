@@ -4,6 +4,9 @@
   "description": "A8 esports aggregator — frontend replica + local backend",
   "workspaces": [
     "packages/shared",
+    "packages/platform-adapter",
+    "packages/team-resolver",
+    "packages/match-engine",
     "gamebet_backend",
     "gamebet_matcher"
   ],

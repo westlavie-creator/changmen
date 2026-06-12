@@ -15,7 +15,7 @@ export default defineConfig({
     extensions: [".ts", ".tsx", ".mjs", ".js", ".jsx", ".json"],
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@platform": fileURLToPath(new URL("../platform_adapter", import.meta.url)),
+      "@platform": fileURLToPath(new URL("../packages/platform-adapter", import.meta.url)),
       mqtt: fileURLToPath(new URL("./node_modules/mqtt", import.meta.url)),
       "socket.io-client": fileURLToPath(
         new URL("./node_modules/socket.io-client", import.meta.url),
@@ -40,8 +40,8 @@ export default defineConfig({
   test: {
     include: [
       "src/**/*.{test,spec}.{js,mjs,ts}",
-      "../platform_adapter/**/frontend/**/*.{test,spec}.{js,mjs,ts}",
-      "../platform_adapter/**/shared/**/*.{test,spec}.{js,mjs,ts}",
+      "../packages/platform-adapter/**/frontend/**/*.{test,spec}.{js,mjs,ts}",
+      "../packages/platform-adapter/**/shared/**/*.{test,spec}.{js,mjs,ts}",
     ],
   },
 });

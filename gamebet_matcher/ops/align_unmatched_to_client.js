@@ -3,8 +3,8 @@ import { normalizeEpochMs } from "../../packages/shared/time/match_time.mjs";
 import {
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
-} from "../engine/teams/team_key.js";
-import { parseTitleTeams } from "../engine/teams/match_utils.js";
+} from "../../packages/match-engine/teams/team_key.js";
+import { parseTitleTeams } from "../../packages/match-engine/teams/match_utils.js";
 
 /**
  * rebuild 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。

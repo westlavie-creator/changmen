@@ -7,7 +7,7 @@ import {
   formatTitle,
   providerPriority,
   teamsFromPlatformRows,
-} from "../engine/index.js";
+} from "../../packages/match-engine/index.js";
 import { resolveClientGame, getGameCodeForPlatformId } from "../../packages/shared/catalog/game_catalog.mjs";
 import { rebuildOnce } from "../ops/rebuild.js";
 

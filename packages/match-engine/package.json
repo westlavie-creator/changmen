@@ -1,0 +1,12 @@
+{
+  "name": "@changmen/match-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "跨平台赛事合并引擎（match_merge、bet_builder、队名与 client_match id）",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run && npm run test:node",
+    "test:node": "node --test tests/ob_bet_builder.test.mjs tests/ia_bet_builder.test.mjs tests/ray_bet_builder.test.mjs"
+  }
+}

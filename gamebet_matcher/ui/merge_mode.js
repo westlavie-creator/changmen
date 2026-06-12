@@ -1,4 +1,4 @@
-import { setTeamPlugin, classifyMergeBasis, PROVIDER_PRIORITY } from "../engine/index.js";
+import { setTeamPlugin, classifyMergeBasis, PROVIDER_PRIORITY } from "../../packages/match-engine/index.js";
 
 let _pluginPromise = null;
 
@@ -6,7 +6,7 @@ export function getTeamPlugin() {
   if (!_pluginPromise) {
     _pluginPromise = (async () => {
       try {
-        const { loadAndCreatePlugin } = await import("../../team-resolver/supabase_db.js");
+        const { loadAndCreatePlugin } = await import("../../packages/team-resolver/supabase_db.js");
         const plugin = await loadAndCreatePlugin();
         setTeamPlugin(plugin);
         return plugin;

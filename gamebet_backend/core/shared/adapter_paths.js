@@ -17,9 +17,9 @@ let _registryReady;
 const _esmPlatformModuleCache = new Map();
 
 /**
- * platform_adapter 根目录。
- * - 开发：changmen/platform_adapter（与 gamebet_backend 同级）
- * - 可选拷贝：`gamebet_backend/platform_adapter`（部署脚本复制时）
+ * platform-adapter 根目录。
+ * - 开发：changmen/packages/platform-adapter
+ * - 可选拷贝：`gamebet_backend/platform_adapter`（部署脚本复制时，目录名仍为 platform_adapter）
  */
 export function getAdapterRoot() {
   if (_adapterRoot) return _adapterRoot;
@@ -30,14 +30,20 @@ export function getAdapterRoot() {
     return _adapterRoot;
   }
 
-  const sibling = path.join(BACKEND_ROOT, "..", "platform_adapter");
-  if (fs.existsSync(path.join(sibling, "registry", "manifest.json"))) {
-    _adapterRoot = sibling;
+  const monorepo = path.join(BACKEND_ROOT, "..", "packages", "platform-adapter");
+  if (fs.existsSync(path.join(monorepo, "registry", "manifest.json"))) {
+    _adapterRoot = monorepo;
+    return _adapterRoot;
+  }
+
+  const legacy = path.join(BACKEND_ROOT, "..", "platform_adapter");
+  if (fs.existsSync(path.join(legacy, "registry", "manifest.json"))) {
+    _adapterRoot = legacy;
     return _adapterRoot;
   }
 
   throw new Error(
-    "platform_adapter not found: expected gamebet_backend/platform_adapter (packaged) or changmen/platform_adapter (dev)",
+    "platform-adapter not found: expected gamebet_backend/platform_adapter (packaged) or changmen/packages/platform-adapter (dev)",
   );
 }
 
