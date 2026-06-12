@@ -1,10 +1,8 @@
-"use strict";
+import { rebuildOnce } from "./rebuild.js";
 
 /**
  * 比赛已结束：删除 client_matches，并删除 matchs 中各平台对应的 platform_matches 行。
  */
-
-const { rebuildOnce } = require("./rebuild");
 
 function platformMatchKey(platform, sourceMatchId) {
   return `${platform}\0${String(sourceMatchId)}`;
@@ -71,4 +69,4 @@ async function deleteClientMatch(supabase, clientMatchId) {
   };
 }
 
-module.exports = { deleteClientMatch };
+export { deleteClientMatch };

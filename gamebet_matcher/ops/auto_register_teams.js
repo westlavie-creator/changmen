@@ -1,11 +1,10 @@
-"use strict";
+import { getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs";
+import * as sb from "../../shared/db/supabase.js";
 
 /**
  * rebuild 时自动收录 TF / OB / RAY / IA 平台尚未在 team_platform_maps 中的队伍。
  * 仅写入待识别记录（canonical_id = NULL），不分配 gb_team_id。
  */
-
-const { getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
 
 const AUTO_REGISTER_PLATFORMS = new Set(["TF", "OB", "RAY", "IA"]);
 const UPSERT_BATCH = 200;
@@ -105,7 +104,6 @@ async function loadExistingKeys(supabase, candidates) {
  * @returns {{ scanned: number, registered: number }}
  */
 async function autoRegisterTeams(matchesRaw) {
-  const sb = require("../../shared/db/supabase");
   const client = sb.getServiceClient();
   if (!client) return { scanned: 0, registered: 0 };
 
@@ -135,4 +133,4 @@ async function autoRegisterTeams(matchesRaw) {
   return { scanned: candidates.size, registered };
 }
 
-module.exports = { autoRegisterTeams, AUTO_REGISTER_PLATFORMS };
+export { autoRegisterTeams, AUTO_REGISTER_PLATFORMS };

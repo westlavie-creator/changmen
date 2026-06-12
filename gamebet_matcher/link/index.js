@@ -1,12 +1,5 @@
-"use strict";
-
-/**
- * 人工关联：平台赛事 → client_match，并写入队伍 ID 映射。
- */
-
-require("../lib/env");
-
-const {
+import "../lib/env.js";
+import {
   normalizeTeam,
   manualMergeKey,
   ensureClientMatchId,
@@ -14,9 +7,13 @@ const {
   formatTitle,
   providerPriority,
   teamsFromPlatformRows,
-} = require("../engine");
-const { resolveClientGame, getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
-const { rebuildOnce } = require("../ops/rebuild");
+} from "../engine/index.js";
+import { resolveClientGame, getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs";
+import { rebuildOnce } from "../ops/rebuild.js";
+
+/**
+ * 人工关联：平台赛事 → client_match，并写入队伍 ID 映射。
+ */
 
 function gameCodeForPlatform(platform, sourceGameId) {
   return getGameCodeForPlatformId(platform, sourceGameId);
@@ -886,7 +883,7 @@ async function registerTeamPlatformMap(supabase, { platform, platformId, platfor
   };
 }
 
-module.exports = {
+export {
   linkPlatformToClientMatch,
   linkPlatformToPlatform,
   linkPlatformTeams,

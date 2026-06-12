@@ -1,8 +1,5 @@
-import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-
-const require = createRequire(import.meta.url);
-const { teamsFromPlatformRows, providerPriority } = require("../teams/provider_priority");
+import { teamsFromPlatformRows, providerPriority } from "../teams/provider_priority.js";
 
 describe("provider_priority", () => {
   it("ranks OB above PB and picks higher-priority team names", () => {

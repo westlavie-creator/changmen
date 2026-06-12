@@ -1,13 +1,13 @@
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
-const fs = require("fs");
-const path = require("path");
-const { execFileSync } = require("child_process");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const HEARTBEAT_PATH = path.join(__dirname, "..", ".matcher-heartbeat.json");
+export const STALE_FACTOR = 2.5;
 
-const HEARTBEAT_PATH = path.join(__dirname, "..", ".matcher-heartbeat.json");
-const STALE_FACTOR = 2.5;
-
-function isPidAlive(pid) {
+export function isPidAlive(pid) {
   if (!pid || pid <= 0) return false;
   if (process.platform === "win32") {
     try {
@@ -28,7 +28,7 @@ function isPidAlive(pid) {
   }
 }
 
-function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt }) {
+export function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt }) {
   const payload = {
     pid: process.pid,
     lastRun: Date.now(),
@@ -39,7 +39,7 @@ function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt }) {
   fs.writeFileSync(HEARTBEAT_PATH, JSON.stringify(payload));
 }
 
-function readMatcherHeartbeat() {
+export function readMatcherHeartbeat() {
   try {
     if (!fs.existsSync(HEARTBEAT_PATH)) return null;
     return JSON.parse(fs.readFileSync(HEARTBEAT_PATH, "utf8"));
@@ -48,7 +48,7 @@ function readMatcherHeartbeat() {
   }
 }
 
-function isMatcherRunning(hb, now = Date.now()) {
+export function isMatcherRunning(hb, now = Date.now()) {
   if (!hb?.lastRun) return false;
   const ageMs = now - hb.lastRun;
   if (ageMs > (hb.intervalMs || 30_000) * STALE_FACTOR) return false;
@@ -56,20 +56,10 @@ function isMatcherRunning(hb, now = Date.now()) {
   return true;
 }
 
-function clearMatcherHeartbeat() {
+export function clearMatcherHeartbeat() {
   try {
     if (fs.existsSync(HEARTBEAT_PATH)) fs.unlinkSync(HEARTBEAT_PATH);
   } catch {
     /* best effort */
   }
 }
-
-module.exports = {
-  HEARTBEAT_PATH,
-  STALE_FACTOR,
-  writeMatcherHeartbeat,
-  readMatcherHeartbeat,
-  isMatcherRunning,
-  isPidAlive,
-  clearMatcherHeartbeat,
-};

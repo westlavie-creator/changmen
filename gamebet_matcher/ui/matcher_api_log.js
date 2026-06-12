@@ -1,5 +1,3 @@
-"use strict";
-
 function flattenMessage(msg) {
   return String(msg || "")
     .split("\n")
@@ -8,7 +6,7 @@ function flattenMessage(msg) {
 }
 
 /** 将 API 结果写入 matcher 进程控制台（多行、含队名/id 等细节） */
-function logMatcherApiOk(route, result) {
+export function logMatcherApiOk(route, result) {
   const lines = [];
   if (Array.isArray(result?.logLines) && result.logLines.length) {
     lines.push(...result.logLines);
@@ -31,7 +29,7 @@ function logMatcherApiOk(route, result) {
   }
 }
 
-function logMatcherApiWarn(route, err, label = "skip") {
+export function logMatcherApiWarn(route, err, label = "skip") {
   const lines = flattenMessage(err?.message || err);
   console.warn(`[matcher] ${route} ${label}`);
   for (const line of lines) {
@@ -39,12 +37,10 @@ function logMatcherApiWarn(route, err, label = "skip") {
   }
 }
 
-function logMatcherApiErr(route, err) {
+export function logMatcherApiErr(route, err) {
   const lines = flattenMessage(err?.message || err);
   console.error(`[matcher] ${route} error`);
   for (const line of lines) {
     console.error(`[matcher]   ${line}`);
   }
 }
-
-module.exports = { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr };

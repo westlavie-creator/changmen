@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * IM 平台专属处理：
  *   - 队名/游戏补全（IM 有时上报占位符队名）
@@ -7,16 +5,16 @@
  *   - collapseImClientRows（合并结果里的 IM 重复行）
  */
 
-const { isPlaceholderTeamName } = require("../teams/match_utils");
-const { getGameCodeForPlatformId, getPlatformGameId } = require("../../../shared/catalog/game_catalog.mjs");
-const { matchesSavedBet } = require("../../../shared/catalog/market_catalog.mjs");
-const { pickStr, imBetNameIsCollectible, normalizeImBet } = require("../../../shared/im_parse.mjs");
-const {
+import { isPlaceholderTeamName } from "../teams/match_utils.js";
+import { getGameCodeForPlatformId, getPlatformGameId } from "../../../shared/catalog/game_catalog.mjs";
+import { matchesSavedBet } from "../../../shared/catalog/market_catalog.mjs";
+import { pickStr, imBetNameIsCollectible, normalizeImBet } from "../../../shared/im_parse.mjs";
+import {
   IM_ODDS_ACTIVE_MS,
   A8_MATCH_MAX_FUTURE_MS,
   normalizeEpochMs,
   a8StartTimeListAllowed,
-} = require("../../../shared/time/match_time.mjs");
+} from "../../../shared/time/match_time.mjs";
 
 const IM_ENRICH_WINDOW_MS = 3 * 60 * 60 * 1000;
 
@@ -165,7 +163,7 @@ function collapseImClientRows(list) {
   return [...other, ...byKey.values()].sort((a, b) => a.StartTime - b.StartTime);
 }
 
-module.exports = {
+export {
   buildTeamEnrichIndex,
   enrichImMatch,
   imMatchIsStale,

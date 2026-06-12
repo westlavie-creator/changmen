@@ -1,13 +1,9 @@
-import { createRequire } from "node:module";
 import { describe, expect, it, beforeEach } from "vitest";
-
-const require = createRequire(import.meta.url);
-const { normalizeMatchesShape } = require("../merge/match_merge");
-const { setTeamPlugin } = require("../merge/match_merge");
-const {
+import { normalizeMatchesShape, setTeamPlugin } from "../merge/match_merge.js";
+import {
   alignUnmatchedToClientMatches,
   MERGE_START_TIME_TOLERANCE_MS,
-} = require("../../ops/align_unmatched_to_client");
+} from "../../ops/align_unmatched_to_client.js";
 
 const START = 1_700_000_000_000;
 

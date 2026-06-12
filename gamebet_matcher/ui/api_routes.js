@@ -1,13 +1,21 @@
-"use strict";
-
-const { getMatcherStatus, fetchMatcherDashboard } = require("./matcher_data");
-const { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } = require("./matcher_api_log");
-const { startMatcherProcess, stopMatcherProcess } = require("./matcher_process");
+import {
+  previewLinkAlignment,
+  previewLinkPlatformAlignment,
+  linkPlatformToClientMatch,
+  linkPlatformToPlatform,
+  previewLinkPlatformTeams,
+  linkPlatformTeams,
+  registerTeamPlatformMap,
+} from "../link/index.js";
+import { deleteClientMatch } from "../ops/delete_client_match.js";
+import { previewMergeClientMatches, mergeClientMatches } from "../ops/merge_client_matches.js";
+import { getMatcherStatus, fetchMatcherDashboard } from "./matcher_data.js";
+import { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } from "./matcher_api_log.js";
+import { startMatcherProcess, stopMatcherProcess } from "./matcher_process.js";
 
 function registerMatcherApiRoutes(app, supabase) {
   app.get("/api/link-preview", async (req, res) => {
     try {
-      const { previewLinkAlignment } = require("../link");
       const result = await previewLinkAlignment(supabase, {
         platform: req.query.platform,
         sourceMatchId: req.query.sourceMatchId,
@@ -21,7 +29,6 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.get("/api/link-platform-preview", async (req, res) => {
     try {
-      const { previewLinkPlatformAlignment } = require("../link");
       const result = await previewLinkPlatformAlignment(supabase, {
         platform: req.query.platform,
         sourceMatchId: req.query.sourceMatchId,
@@ -37,7 +44,6 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/link-match", async (req, res) => {
     try {
       const { platform, sourceMatchId, clientMatchId, reversed } = req.body || {};
-      const { linkPlatformToClientMatch } = require("../link");
       const result = await linkPlatformToClientMatch(supabase, {
         platform,
         sourceMatchId,
@@ -55,7 +61,6 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/link-platform-match", async (req, res) => {
     try {
       const { platform, sourceMatchId, targetPlatform, targetMatchId, reversed } = req.body || {};
-      const { linkPlatformToPlatform } = require("../link");
       const result = await linkPlatformToPlatform(supabase, {
         platform,
         sourceMatchId,
@@ -73,7 +78,6 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.get("/api/link-team-preview", async (req, res) => {
     try {
-      const { previewLinkPlatformTeams } = require("../link");
       const result = await previewLinkPlatformTeams(supabase, {
         a: {
           platform: req.query.platformA,
@@ -97,7 +101,6 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/link-team", async (req, res) => {
     try {
       const { a, b } = req.body || {};
-      const { linkPlatformTeams } = require("../link");
       const result = await linkPlatformTeams(supabase, { a, b });
       logMatcherApiOk("/api/link-team", result);
       res.json(result);
@@ -110,7 +113,6 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/register-team-map", async (req, res) => {
     try {
       const { platform, platformId, platformName, gameCode } = req.body || {};
-      const { registerTeamPlatformMap } = require("../link");
       const result = await registerTeamPlatformMap(supabase, {
         platform,
         platformId,
@@ -133,7 +135,6 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.delete("/api/client-match/:id", async (req, res) => {
     try {
-      const { deleteClientMatch } = require("../ops/delete_client_match");
       const result = await deleteClientMatch(supabase, req.params.id);
       logMatcherApiOk("/api/client-match", result);
       res.json(result);
@@ -145,7 +146,6 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.get("/api/merge-preview", async (req, res) => {
     try {
-      const { previewMergeClientMatches } = require("../ops/merge_client_matches");
       const result = await previewMergeClientMatches(supabase, {
         sourceClientMatchId: req.query.sourceClientMatchId,
         targetClientMatchId: req.query.targetClientMatchId,
@@ -159,7 +159,6 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/merge-client-matches", async (req, res) => {
     try {
       const { sourceClientMatchId, targetClientMatchId } = req.body || {};
-      const { mergeClientMatches } = require("../ops/merge_client_matches");
       const result = await mergeClientMatches(supabase, {
         sourceClientMatchId,
         targetClientMatchId,
@@ -225,4 +224,4 @@ function registerMatcherApiRoutes(app, supabase) {
   });
 }
 
-module.exports = { registerMatcherApiRoutes };
+export { registerMatcherApiRoutes };

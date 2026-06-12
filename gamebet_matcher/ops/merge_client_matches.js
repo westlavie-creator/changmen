@@ -1,10 +1,8 @@
-"use strict";
+import { rebuildOnce } from "./rebuild.js";
 
 /**
  * 合并两条 client_matches：source 并入 target，保留 target.id。
  */
-
-const { rebuildOnce } = require("./rebuild");
 
 async function previewMergeClientMatches(supabase, { sourceClientMatchId, targetClientMatchId }) {
   const sourceId = Number(sourceClientMatchId);
@@ -102,4 +100,4 @@ async function mergeClientMatches(supabase, { sourceClientMatchId, targetClientM
   };
 }
 
-module.exports = { previewMergeClientMatches, mergeClientMatches };
+export { previewMergeClientMatches, mergeClientMatches };

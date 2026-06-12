@@ -1,6 +1,4 @@
-"use strict";
-
-const { stableId } = require("../teams/match_utils");
+import { stableId } from "../teams/match_utils.js";
 
 function matchsSignature(matchs) {
   return Object.entries(matchs || {})
@@ -212,7 +210,7 @@ async function ensureClientMatchId(client, mergeKey, stub = {}) {
   return insertClientMatchRow(client, key, stub);
 }
 
-module.exports = {
+export {
   matchsSignature,
   matchsIsSubset,
   findReuseIdByMatchsSuperset,

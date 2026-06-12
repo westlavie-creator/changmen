@@ -1,4 +1,10 @@
-"use strict";
+import { resolveClientGame, getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs";
+import { normalizeEpochMs } from "../../shared/time/match_time.mjs";
+import {
+  canonicalMatchKeyByIdOnly,
+  canonicalMatchKeyByName,
+} from "../engine/teams/team_key.js";
+import { parseTitleTeams } from "../engine/teams/match_utils.js";
 
 /**
  * rebuild 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。
@@ -6,14 +12,6 @@
  * 2) 队名归一 + 开赛时间 ±15 分钟（match:name:…）
  * 命中后在内存写入 ClientMatchId，后续走 applyManualMatchLinks。
  */
-
-const { resolveClientGame, getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
-const { normalizeEpochMs } = require("../../shared/time/match_time.mjs");
-const {
-  canonicalMatchKeyByIdOnly,
-  canonicalMatchKeyByName,
-} = require("../engine/teams/team_key");
-const { parseTitleTeams } = require("../engine/teams/match_utils");
 
 /** 与 matcher 分组一致：开赛时间 ±15 分钟 */
 const MERGE_START_TIME_TOLERANCE_MS = 15 * 60 * 1000;
@@ -195,7 +193,7 @@ function alignUnmatchedToClientMatches(matches, clientRows) {
   return stats;
 }
 
-module.exports = {
+export {
   MERGE_START_TIME_TOLERANCE_MS,
   alignUnmatchedToClientMatches,
   resolveClientMatchIdKey,

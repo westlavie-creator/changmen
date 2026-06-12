@@ -1,8 +1,5 @@
-import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-
-const require = createRequire(import.meta.url);
-const { betKey, formatTitle, isPlaceholderTeamName, stableId } = require("../teams/match_utils");
+import { betKey, formatTitle, isPlaceholderTeamName, stableId } from "../teams/match_utils.js";
 
 describe("match_utils", () => {
   it("builds stable non-zero ids from the same seed", () => {

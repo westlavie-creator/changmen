@@ -1,19 +1,17 @@
-"use strict";
-
 /**
  * 通用赔率过滤 + 构建（OB / RAY / IM 等各平台）。
  */
 
-const { stableId, betKey, isPlaceholderTeamName } = require("../teams/match_utils");
-const {
+import { stableId, betKey, isPlaceholderTeamName } from "../teams/match_utils.js";
+import {
   obSavedBetIsMatchWinner,
   obLegacyWinBetName,
   matchesSavedBet,
   rayLegacyWinBetName,
   iaLegacyWinBetName,
-} = require("../../../shared/catalog/market_catalog.mjs");
-const { pickStr, imBetNameIsCollectible, normalizeImBet } = require("../../../shared/im_parse.mjs");
-const { filterImStoredWinBets, dedupeImBetsByMap } = require("./im_enrich");
+} from "../../../shared/catalog/market_catalog.mjs";
+import { pickStr, imBetNameIsCollectible, normalizeImBet } from "../../../shared/im_parse.mjs";
+import { filterImStoredWinBets, dedupeImBetsByMap } from "./im_enrich.js";
 
 const OB_WIN_BET_RE =
   /(\[全场\].+获胜)|(\[地图\d+\].+获胜)|(.+全局.+获胜)|(.+单局.+获胜)/;
@@ -104,4 +102,4 @@ function buildBetsForMatch(provider, sourceMatchId, clientMatchId, bets, sourceF
   return winBets.map((b) => buildBetRow(provider, sourceMatchId, clientMatchId, b, sourceFromBet, matchTeams));
 }
 
-module.exports = { buildBetsForMatch };
+export { buildBetsForMatch };

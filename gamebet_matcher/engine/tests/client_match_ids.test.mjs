@@ -1,13 +1,10 @@
-import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-
-const require = createRequire(import.meta.url);
-const {
+import {
   matchsIsSubset,
   findReuseIdByMatchsSuperset,
   findLinkedClientIdFromMatchs,
   findReuseIdByPlatformOverlap,
-} = require("../ids/client_match_ids");
+} from "../ids/client_match_ids.js";
 
 describe("client_match_ids", () => {
   it("detects when existing matchs are a subset of rebuilt matchs", () => {

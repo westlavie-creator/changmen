@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * 跨平台赛事列表构建 — 仅 gamebet_matcher 使用，产出写入 client_matches。
  * 前端 Client_GetMatchs 只读该表，不在浏览器内合并。
@@ -24,9 +22,9 @@ function filterMultiPlatformClientMatches(list) {
   return (list || []).filter((m) => clientMatchPlatformCount(m) >= MIN_CLIENT_MATCH_PLATFORMS);
 }
 
-const { stableId, formatTitle, betKey, parseTitleTeams } = require("../teams/match_utils");
-const { PROVIDER_PRIORITY, teamsFromPlatformRows } = require("../teams/provider_priority");
-const {
+import { stableId, formatTitle, betKey, parseTitleTeams } from "../teams/match_utils.js";
+import { PROVIDER_PRIORITY, teamsFromPlatformRows } from "../teams/provider_priority.js";
+import {
   normalizeTeam,
   canonicalMatchKey,
   canonicalMatchKeyByIdOnly,
@@ -34,14 +32,13 @@ const {
   setTeamPlugin,
   lookupGbTeamIdByPlatform,
   lookupCanonicalTeamName,
-} = require("../teams/team_key");
-const {
+} from "../teams/team_key.js";
+import {
   buildTeamEnrichIndex, enrichImMatch, imMatchIsStale, collapseImClientRows,
-} = require("./im_enrich");
-const { buildBetsForMatch } = require("./bet_builder");
-
-const { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } = require("../../../shared/catalog/game_catalog.mjs");
-const { normalizeEpochMs, a8StartTimeListAllowed } = require("../../../shared/time/match_time.mjs");
+} from "./im_enrich.js";
+import { buildBetsForMatch } from "./bet_builder.js";
+import { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } from "../../../shared/catalog/game_catalog.mjs";
+import { normalizeEpochMs, a8StartTimeListAllowed } from "../../../shared/time/match_time.mjs";
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -583,7 +580,7 @@ function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
   return filterMultiPlatformClientMatches(list);
 }
 
-module.exports = {
+export {
   MERGE_MODE,
   MIN_CLIENT_MATCH_PLATFORMS,
   clientMatchPlatformCount,

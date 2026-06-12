@@ -1,11 +1,8 @@
-import { createRequire } from "node:module";
 import { describe, expect, it, beforeEach } from "vitest";
-
-const require = createRequire(import.meta.url);
-const {
+import {
   buildMatchListMerged,
   setTeamPlugin,
-} = require("../merge/match_merge");
+} from "../merge/match_merge.js";
 
 function baseMatch(provider, sourceId, home, away, homeId, awayId, startTime = Date.now()) {
   return {

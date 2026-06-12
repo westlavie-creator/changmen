@@ -1,11 +1,10 @@
-"use strict";
+import teamAliasesJson from "./team_aliases.json" with { type: "json" };
+import { isPlaceholderTeamName, stableId } from "./match_utils.js";
 
 /**
  * 队伍名称归一化 + 跨平台 canonical key 计算。
  * team-resolver 插件通过 setTeamPlugin() 注入，不注入时行为与原来完全一致。
  */
-
-const { isPlaceholderTeamName, stableId } = require("./match_utils");
 
 // ── team-resolver 插件桥 ──────────────────────────────────────────────────────
 
@@ -40,16 +39,10 @@ function lookupCanonicalTeamName(gbTeamId) {
 
 // ── 队名归一化 ────────────────────────────────────────────────────────────────
 
-let _aliases = null;
+const _aliases = Object.fromEntries(
+  Object.entries(teamAliasesJson).filter(([k]) => !k.startsWith("_")),
+);
 function getAliases() {
-  if (!_aliases) {
-    try {
-      const raw = require("./team_aliases.json");
-      _aliases = Object.fromEntries(Object.entries(raw).filter(([k]) => !k.startsWith("_")));
-    } catch {
-      _aliases = {};
-    }
-  }
   return _aliases;
 }
 
@@ -165,7 +158,7 @@ function classifyMergeBasis(home, away, gameCode, ctx) {
   return "name";
 }
 
-module.exports = {
+export {
   normalizeTeam,
   canonicalMatchKey,
   canonicalMatchKeyByIdOnly,

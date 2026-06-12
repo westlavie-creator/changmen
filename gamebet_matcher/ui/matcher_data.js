@@ -1,21 +1,19 @@
-"use strict";
-
-const { resolveUiGame } = require("../lib/game_ui");
-const { normalizeTeam } = require("../engine");
-const {
+import { resolveUiGame } from "../lib/game_ui.js";
+import { normalizeTeam } from "../engine/index.js";
+import {
   readMatcherHeartbeat,
   isMatcherRunning,
   isPidAlive,
   clearMatcherHeartbeat,
   STALE_FACTOR,
-} = require("../lib/heartbeat");
-const {
+} from "../lib/heartbeat.js";
+import {
   startMatcherProcess,
   stopMatcherProcess,
   isManagedByServer,
   getManagedMatcherPid,
-} = require("./matcher_process");
-const { enrichClientMatchesMergeMode } = require("./merge_mode");
+} from "./matcher_process.js";
+import { enrichClientMatchesMergeMode } from "./merge_mode.js";
 
 function recommendationGroupKey(m) {
   const game = resolveUiGame(m.platform, m.source_game_id);
@@ -258,7 +256,7 @@ async function fetchMatcherDashboard(supabase) {
   return { platforms: byPlatform, clientMatches, recommendations, teamMaps, updatedAt: Date.now() };
 }
 
-module.exports = {
+export {
   computeRecommendations,
   getMatcherStatus,
   fetchMatcherDashboard,

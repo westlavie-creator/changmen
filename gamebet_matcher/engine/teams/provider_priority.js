@@ -1,6 +1,4 @@
-"use strict";
-
-const { formatTitle, isPlaceholderTeamName } = require("./match_utils");
+import { formatTitle, isPlaceholderTeamName } from "./match_utils.js";
 
 /** 平台优先级：数值越大，队名 / Title 越优先采用 */
 const PROVIDER_PRIORITY = { OB: 10, RAY: 9, PB: 8, TF: 7, IA: 6, IMT: 5, IM: 4, SABA: 3, HG: 2 };
@@ -88,7 +86,7 @@ function teamsFromPlatformRows(rows, resolvers) {
   };
 }
 
-module.exports = {
+export {
   PROVIDER_PRIORITY,
   providerPriority,
   sortByProviderPriority,

@@ -8,9 +8,8 @@
 
 const { login, fetchOdds } = require("../session.js");
 const { groupRayOddsToSaveBets } = require("../../shared/save_bets.js");
-const { buildBetsForMatch } = require("../../../../gamebet_matcher/engine/merge/bet_builder.js");
-
 async function main() {
+  const { buildBetsForMatch } = await import("../../../../gamebet_matcher/engine/merge/bet_builder.js");
   const matchId = process.argv[2];
   if (!matchId) {
     console.error("Usage: node verify_save_bets.js <matchId>");

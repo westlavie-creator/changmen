@@ -1,11 +1,9 @@
-"use strict";
-
-require("./env");
-const { getServiceClient } = require("../../shared/db/supabase");
+import "./env.js";
+import * as sb from "../../shared/db/supabase.js";
 
 /** matcher UI / link API 使用的 Supabase 客户端（service_role 优先） */
-function getMatcherSupabase() {
-  return getServiceClient();
+export function getMatcherSupabase() {
+  return sb.getServiceClient();
 }
 
-module.exports = { getMatcherSupabase, getServiceClient };
+export const getServiceClient = sb.getServiceClient;

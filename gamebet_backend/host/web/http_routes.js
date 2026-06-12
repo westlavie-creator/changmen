@@ -16,7 +16,13 @@ const { tryRayHttpProxy } = require("./proxy/ray_http_proxy.js");
 const { tryIaHttpProxy } = require("./proxy/ia_http_proxy.js");
 const { requirePlatform } = require("../../core/shared/adapter_paths.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "backend", "session.js");
-const { tryHandleMatcherApi } = require("../../../gamebet_matcher/ui/http_bridge.js");
+let _tryHandleMatcherApi;
+async function getTryHandleMatcherApi() {
+  if (!_tryHandleMatcherApi) {
+    ({ tryHandleMatcherApi: _tryHandleMatcherApi } = await import("../../../gamebet_matcher/ui/http_bridge.js"));
+  }
+  return _tryHandleMatcherApi;
+}
 const { isFastStaticRequest } = require("./static_files.js");
 
 function readJsonBody(req) {
@@ -116,7 +122,7 @@ function createHttpHandler({ port, serveStatic, getEsportProxy }) {
         jsonResponse(res, 200, esportProxy ? esportProxy.getStatus() : { enabled: false });
         return;
       }
-      if (await tryHandleMatcherApi(req, res)) return;
+      if (await (await getTryHandleMatcherApi())(req, res)) return;
       serveStatic(req, res);
     } catch (err) {
       console.error("[server]", req.url, err);

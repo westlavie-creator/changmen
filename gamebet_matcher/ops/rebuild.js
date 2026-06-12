@@ -1,24 +1,21 @@
-"use strict";
-
-/**
- * 单次 rebuild：供 matcher 与人工关联 API 共用。
- */
-
-require("../lib/env");
-
-const {
+import "../lib/env.js";
+import {
   buildClientMatchList,
   applyManualMatchLinks,
   filterMultiPlatformClientMatches,
   setTeamPlugin,
   normalizeMatchesShape,
   resolveClientMatchIds,
-} = require("../engine");
-const { formatOdds } = require("../../shared/odds_format");
-const sb = require("../../shared/db/supabase");
-const { backfillPlatformMatchIdsForIdMerges } = require("./backfill_platform_match_ids");
-const { autoRegisterTeams } = require("./auto_register_teams");
-const { alignUnmatchedToClientMatches } = require("./align_unmatched_to_client");
+} from "../engine/index.js";
+import { formatOdds } from "../../shared/odds_format.js";
+import * as sb from "../../shared/db/supabase.js";
+import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
+import { autoRegisterTeams } from "./auto_register_teams.js";
+import { alignUnmatchedToClientMatches } from "./align_unmatched_to_client.js";
+
+/**
+ * 单次 rebuild：供 matcher 与人工关联 API 共用。
+ */
 
 let _pluginReady = null;
 
@@ -42,7 +39,7 @@ async function ensureTeamPlugin() {
   if (_pluginReady) return _pluginReady;
   _pluginReady = (async () => {
     try {
-      const { loadAndCreatePlugin } = require("../../team-resolver/supabase_db");
+      const { loadAndCreatePlugin } = await import("../../team-resolver/supabase_db.js");
       const plugin = await loadAndCreatePlugin();
       setTeamPlugin(plugin);
     } catch (err) {
@@ -112,4 +109,4 @@ async function rebuildOnce() {
   return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, alignStats };
 }
 
-module.exports = { rebuildOnce, ensureTeamPlugin, resetTeamPluginCache };
+export { rebuildOnce, ensureTeamPlugin, resetTeamPluginCache };

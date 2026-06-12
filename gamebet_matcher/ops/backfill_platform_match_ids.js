@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * 队伍 ID 自动合并成功后，将 client_match id 回写到 platform_matches.match_id。
  * 仅处理 MergeBasis === "id"；已有不同 match_id 的行跳过（保留人工锁定）。
@@ -64,4 +62,4 @@ async function backfillPlatformMatchIdsForIdMerges(client, clientMatchRows) {
   return { updated, skipped, conflicts };
 }
 
-module.exports = { backfillPlatformMatchIdsForIdMerges };
+export { backfillPlatformMatchIdsForIdMerges };

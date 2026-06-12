@@ -1,6 +1,4 @@
-"use strict";
-
-const { createMatcherApiApp } = require("./create_matcher_api_app");
+import { createMatcherApiApp } from "./create_matcher_api_app.js";
 
 function splitUrl(url) {
   const raw = url || "/";
@@ -13,7 +11,7 @@ function splitUrl(url) {
  * 将 gamebet_backend 收到的 /matcher/api/* 转给 matcher Express 应用。
  * @returns {Promise<boolean>} 是否已接管请求
  */
-function tryHandleMatcherApi(req, res) {
+export function tryHandleMatcherApi(req, res) {
   const { pathname, search } = splitUrl(req.url);
   if (!pathname.startsWith("/matcher/api/") && pathname !== "/matcher/api") {
     return Promise.resolve(false);
@@ -50,5 +48,3 @@ function tryHandleMatcherApi(req, res) {
     });
   });
 }
-
-module.exports = { tryHandleMatcherApi };

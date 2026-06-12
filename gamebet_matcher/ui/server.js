@@ -1,13 +1,14 @@
-"use strict";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import "../lib/env.js";
+import express from "express";
+import { getMatcherSupabase } from "../lib/supabase.js";
+import { registerMatcherApiRoutes } from "./api_routes.js";
+import { createMatcherAuthMiddleware } from "./matcher_auth.js";
 
-const path = require("path");
-require("../lib/env");
-
-const express = require("express");
-const { getMatcherSupabase } = require("../lib/supabase");
-const { registerMatcherApiRoutes } = require("./api_routes");
-const { createMatcherAuthMiddleware } = require("./matcher_auth");
-
+const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.MATCHER_UI_PORT || process.env.PIPEI_PORT || 4567);
 const supabase = getMatcherSupabase();
 if (!supabase) {

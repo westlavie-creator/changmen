@@ -1,12 +1,11 @@
-"use strict";
+import { createRequire } from "node:module";
+import "../lib/env.js";
+import express from "express";
+import { getMatcherSupabase } from "../lib/supabase.js";
+import { registerMatcherApiRoutes } from "./api_routes.js";
+import { createMatcherAuthMiddleware } from "./matcher_auth.js";
 
-require("../lib/env");
-
-const express = require("express");
-const { getMatcherSupabase } = require("../lib/supabase");
-const { registerMatcherApiRoutes } = require("./api_routes");
-const { createMatcherAuthMiddleware } = require("./matcher_auth");
-
+const require = createRequire(import.meta.url);
 let cachedApp = null;
 
 function assertIconvLite() {
@@ -21,7 +20,7 @@ function assertIconvLite() {
   }
 }
 
-function createMatcherApiApp() {
+export function createMatcherApiApp() {
   if (cachedApp) return cachedApp;
 
   assertIconvLite();
@@ -45,5 +44,3 @@ function createMatcherApiApp() {
   cachedApp = app;
   return app;
 }
-
-module.exports = { createMatcherApiApp };

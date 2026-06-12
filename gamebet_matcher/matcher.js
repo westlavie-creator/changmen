@@ -1,18 +1,15 @@
-"use strict";
-
 /**
- * 独立比赛匹配进程（见 pipei/rebuild.js 共用 rebuild 逻辑）。
+ * 独立比赛匹配进程（见 ops/rebuild.js 共用 rebuild 逻辑）。
  */
 
-require("./lib/env");
-
-const { rebuildOnce, ensureTeamPlugin } = require("./ops/rebuild");
+import "./lib/env.js";
+import { rebuildOnce, ensureTeamPlugin } from "./ops/rebuild.js";
+import { writeMatcherHeartbeat } from "./lib/heartbeat.js";
 
 const INTERVAL_MS = Number(process.env.MATCHER_INTERVAL_MS || 30_000);
 
 async function runOnce() {
   const result = await rebuildOnce();
-  const { writeMatcherHeartbeat } = require("./lib/heartbeat");
   writeMatcherHeartbeat({ matchCount: result.matchCount, intervalMs: INTERVAL_MS, builtAt: result.builtAt });
   console.log(
     `[matcher] ${new Date().toISOString()} rebuilt ${result.matchCount} matches`

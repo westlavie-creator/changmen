@@ -1,16 +1,16 @@
-"use strict";
-
-const path = require("path");
-const { spawn, execFile } = require("child_process");
-const { promisify } = require("util");
-const {
+import path from "node:path";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+import {
   readMatcherHeartbeat,
   isMatcherRunning,
   isPidAlive,
   clearMatcherHeartbeat,
-} = require("../lib/heartbeat");
+} from "../lib/heartbeat.js";
 
 const execFileAsync = promisify(execFile);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MATCHER_ROOT = path.join(__dirname, "..");
 const MATCHER_SCRIPT = path.join(MATCHER_ROOT, "matcher.js");
 
@@ -45,7 +45,7 @@ async function killPid(pid) {
   }
 }
 
-async function startMatcherProcess() {
+export async function startMatcherProcess() {
   if (isManagedChildAlive()) {
     return { ok: false, error: "匹配脚本已由本页面启动" };
   }
@@ -66,7 +66,7 @@ async function startMatcherProcess() {
   return { ok: true, pid: child.pid };
 }
 
-async function stopMatcherProcess() {
+export async function stopMatcherProcess() {
   if (isManagedChildAlive()) {
     const pid = managedChild.pid;
     await killPid(pid);
@@ -91,18 +91,10 @@ async function stopMatcherProcess() {
   return { ok: false, error: "未检测到本机可停止的匹配脚本" };
 }
 
-function isManagedByServer() {
+export function isManagedByServer() {
   return isManagedChildAlive();
 }
 
-function getManagedMatcherPid() {
+export function getManagedMatcherPid() {
   return isManagedChildAlive() ? managedChild.pid : null;
 }
-
-module.exports = {
-  startMatcherProcess,
-  stopMatcherProcess,
-  isManagedByServer,
-  isManagedChildAlive,
-  getManagedMatcherPid,
-};
