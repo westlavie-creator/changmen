@@ -14,8 +14,7 @@
     "streamMeta": {
       "key": "mqtt",
       "protocol": "MQTT"
-    },
-    "backendRelay": "ob_relay_core.js"
+    }
   },
   {
     "id": "IM",
@@ -49,8 +48,7 @@
     "streamMeta": {
       "key": "ws",
       "protocol": "WS"
-    },
-    "backendRelay": "ray_relay_core.js"
+    }
   },
   {
     "id": "TF",
@@ -61,14 +59,13 @@
     "label": "TF",
     "labelZh": "TF",
     "collectionMode": "http_ws",
-    "collectionDesc": "HTTP events 快照 + /esport/ws/TF 隧道",
+    "collectionDesc": "HTTP events 快照 + A8 代理 WebSocket",
     "implementation": "done",
     "saveMatchIntervalMs": 60000,
     "streamMeta": {
       "key": "ws",
       "protocol": "WS"
-    },
-    "backendRelay": "tf_relay_core.js"
+    }
   },
   {
     "id": "IA",
@@ -84,8 +81,7 @@
     "streamMeta": {
       "key": "ws",
       "protocol": "Socket.IO"
-    },
-    "backendRelay": "ia_relay_core.js"
+    }
   },
   {
     "id": "SABA",

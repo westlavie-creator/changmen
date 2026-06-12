@@ -1,8 +1,6 @@
-"use strict";
-
-const fs = require("fs");
-const path = require("path");
-const zlib = require("zlib");
+import fs from "node:fs";
+import path from "node:path";
+import zlib from "node:zlib";
 
 function contentType(filePath) {
   if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
@@ -24,7 +22,7 @@ function isHashedAsset(urlPath) {
 }
 
 /** GET/HEAD 静态资源优先返回，避免在 API 链里排队导致浏览器长期 Pending */
-function isFastStaticRequest(urlPath, method) {
+export function isFastStaticRequest(urlPath, method) {
   if (method !== "GET" && method !== "HEAD") return false;
   return (
     urlPath.startsWith("/assets/") ||
@@ -33,7 +31,7 @@ function isFastStaticRequest(urlPath, method) {
   );
 }
 
-function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir }) {
+export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir }) {
   function resolveStaticRoot(urlPath) {
     if (matcherDir && (urlPath === "/matcher" || urlPath.startsWith("/matcher/"))) {
       const fileRel =
@@ -181,5 +179,3 @@ function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir }) {
 
   return serveStatic;
 }
-
-module.exports = { createStaticHandler, isFastStaticRequest };

@@ -1,12 +1,16 @@
 #!/usr/bin/env node
-"use strict";
 
-const { spawn, execSync } = require("child_process");
-const path = require("path");
+import { spawn, execSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const PORT = Number(process.env.PORT || 3456);
-const SERVER = path.join(__dirname, "host/web/index.js");
-const background = process.argv.includes("--background") || process.argv.includes("-b");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = Number(
+  process.env.PORT || (process.platform === "win32" ? 3560 : 3456),
+);
+const SERVER = path.join(__dirname, "server.js");
+const background =
+  process.argv.includes("--background") || process.argv.includes("-b");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -18,7 +22,7 @@ function killPort(port) {
     try {
       const out = execSync(
         `powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique"`,
-        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
       );
       for (const pid of out.trim().split(/\s+/).filter(Boolean)) {
         const n = Number(pid);
@@ -37,7 +41,10 @@ function killPort(port) {
   }
 
   try {
-    const out = execSync(`lsof -ti tcp:${port}`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const out = execSync(`lsof -ti tcp:${port}`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
     for (const pid of out.trim().split(/\s+/).filter(Boolean)) {
       const n = Number(pid);
       if (!n || killed.has(n)) continue;

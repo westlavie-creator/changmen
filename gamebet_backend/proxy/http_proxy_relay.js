@@ -1,9 +1,10 @@
-"use strict";
+import http from "node:http";
+import https from "node:https";
+import zlib from "node:zlib";
+import { URL } from "node:url";
+import { createRequire } from "node:module";
 
-const http = require("http");
-const https = require("https");
-const zlib = require("zlib");
-const { URL } = require("url");
+const require = createRequire(import.meta.url);
 
 function readRequestBody(req) {
   return new Promise((resolve, reject) => {
@@ -162,4 +163,4 @@ async function tryHttpProxyRelay(req, res, baseOrigin) {
   }
 }
 
-module.exports = { tryHttpProxyRelay, RELAY_PATH };
+export { tryHttpProxyRelay, RELAY_PATH };

@@ -1,7 +1,9 @@
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import manifest from "./manifest.json" with { type: "json" };
 
-const fs = require("fs");
-const path = require("path");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const REGISTRY_ROOT = __dirname;
 const ADAPTER_ROOT = path.join(REGISTRY_ROOT, "..");
@@ -17,53 +19,37 @@ function resolveBackendRoot() {
   return path.join(ADAPTER_ROOT, "..", "gamebet_backend");
 }
 
-const BACKEND_ROOT = resolveBackendRoot();
+export const BACKEND_ROOT = resolveBackendRoot();
 
 /** @typedef {import("./manifest.json")[number]} PlatformManifestEntry */
 
 /** @type {PlatformManifestEntry[]} */
-const MANIFEST = require("./manifest.json");
+export const MANIFEST = manifest;
 
-function normalizePlatformId(id) {
+export function normalizePlatformId(id) {
   const key = String(id || "").trim();
   if (key.toUpperCase() === "XBET") return "XBet";
   const hit = MANIFEST.find((p) => p.id.toUpperCase() === key.toUpperCase());
   return hit ? hit.id : key;
 }
 
-function getManifestEntry(id) {
+export function getManifestEntry(id) {
   const normalized = normalizePlatformId(id);
   return MANIFEST.find((p) => p.id === normalized) || null;
 }
 
-function platformDir(id) {
+export function platformDir(id) {
   return getManifestEntry(id)?.dir || String(id || "").toLowerCase();
 }
 
 /** platform_adapter/{dir}/... */
-function resolvePlatformFile(id, ...segments) {
+export function resolvePlatformFile(id, ...segments) {
   const dir = platformDir(id);
   return path.join(ADAPTER_ROOT, dir, ...segments);
 }
 
-function resolveBackendRelayModule(id) {
-  const entry = getManifestEntry(id);
-  if (!entry?.backendRelay) return null;
-  return path.join(ADAPTER_ROOT, entry.dir, "backend", "relay.js");
-}
-
-function platformAdapterPath(id, ...segments) {
+export function platformAdapterPath(id, ...segments) {
   return path.join(ADAPTER_ROOT, platformDir(id), ...segments);
 }
 
-module.exports = {
-  ADAPTER_ROOT,
-  BACKEND_ROOT,
-  MANIFEST,
-  normalizePlatformId,
-  getManifestEntry,
-  platformDir,
-  resolvePlatformFile,
-  resolveBackendRelayModule,
-  platformAdapterPath,
-};
+export { ADAPTER_ROOT };

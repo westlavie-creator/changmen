@@ -1,6 +1,4 @@
-"use strict";
-
-const { requirePlatform } = require("../../../core/shared/adapter_paths.js");
+import { requirePlatform } from "../core/shared/adapter_paths.js";
 const { tryLoadSession, buildAuthHeaders } = requirePlatform("PB", "backend", "session.js");
 
 const PB_PATH_RE = /\/(sports-service|member-service|member-betslip|bet-placement)\//i;
@@ -102,4 +100,4 @@ async function tryPbHttpProxy(req, res) {
   }
 }
 
-module.exports = { tryPbHttpProxy, isPbApiUrl, PB_PATH_RE };
+export { tryPbHttpProxy, isPbApiUrl, PB_PATH_RE };

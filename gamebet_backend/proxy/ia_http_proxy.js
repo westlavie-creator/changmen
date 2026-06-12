@@ -1,6 +1,4 @@
-"use strict";
-
-const { getPlatform } = require("../../../core/esport-api/store.js");
+import store from "../core/esport-api/store.js";
 
 const IA_ALLOWED_PREFIX = "/api/game/";
 
@@ -38,7 +36,7 @@ async function tryIaHttpProxy(req, res) {
     return true;
   }
 
-  const row = getPlatform("IA");
+  const row = store.getPlatform("IA");
   if (!row?.gateway) {
     res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "IA not configured" }));
@@ -71,4 +69,4 @@ async function tryIaHttpProxy(req, res) {
   return true;
 }
 
-module.exports = { tryIaHttpProxy };
+export { tryIaHttpProxy };

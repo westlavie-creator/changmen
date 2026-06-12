@@ -1,8 +1,10 @@
-"use strict";
+import {
+  MANIFEST,
+  normalizePlatformId,
+  getManifestEntry,
+} from "./paths.js";
 
-const { MANIFEST, normalizePlatformId, getManifestEntry } = require("./paths.js");
-
-function listPlatforms() {
+export function listPlatforms() {
   return MANIFEST.map((p) => ({
     id: p.id,
     dir: p.dir,
@@ -17,17 +19,11 @@ function listPlatforms() {
   }));
 }
 
-function getPlatform(id) {
+export function getPlatform(id) {
   return getManifestEntry(id);
 }
 
 /** @deprecated 使用 platform_adapter/registry/manifest.json */
-const PLATFORMS = MANIFEST;
+export const PLATFORMS = MANIFEST;
 
-module.exports = {
-  PLATFORMS,
-  MANIFEST,
-  listPlatforms,
-  getPlatform,
-  normalizePlatformId,
-};
+export { MANIFEST, normalizePlatformId };

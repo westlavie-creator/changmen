@@ -6,7 +6,7 @@
 
 | 组件 | 入口 | 职责 |
 |------|------|------|
-| **Web 后端** | `backend.bat` → `npm run web` → `host/web/index.js` | HTTP `/esport/*`、静态 `/`、WS relay |
+| **Web 后端** | `backend.bat` → `npm run web` → `server.js` | HTTP `/esport/*`、静态 `/`、WS relay |
 | **Vite 前端** | `dev-vite.bat` | 开发时 `5174/`，API 经 proxy 到 `3456` |
 | **Chrome 插件** | `gamebet_chromeplug` | PB/Stake 代发、凭证采集、v4 桥接 |
 | **Matcher** | `npm run matcher:loop` | 合并 `client_matches` |

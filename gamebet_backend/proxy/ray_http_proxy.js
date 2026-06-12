@@ -1,9 +1,8 @@
-"use strict";
+import { requirePlatform } from "../core/shared/adapter_paths.js";
+import store from "../core/esport-api/store.js";
+import { rayApiUrl } from "../core/shared/ray_paths.js";
 
-const { requirePlatform } = require("../../../core/shared/adapter_paths.js");
 const { rayHeaders } = requirePlatform("RAY", "backend", "session.js");
-const { getPlatform } = require("../../../core/esport-api/store.js");
-const { rayApiUrl } = require("../../../core/shared/ray_paths.js");
 const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");
 
 const ALLOWED = new Set(["match", "odds"]);
@@ -19,7 +18,7 @@ function originFromReferer(referer) {
 
 /** platforms.json → A8 写死采集凭证 → 环境变量 → ACCOUNT（下注账号，非采集） */
 function resolveRayCredentials() {
-  const row = getPlatform("RAY") || {};
+  const row = store.getPlatform("RAY") || {};
   const a8 = getRayA8CollectCredentials();
   let gateway = row.gateway || a8.gateway || process.env.RAY_GATEWAY || "";
   let token = row.token || a8.token || process.env.RAY_TOKEN || process.env.RAY_WS_TOKEN || "";
@@ -85,4 +84,4 @@ async function tryRayHttpProxy(req, res) {
   return true;
 }
 
-module.exports = { tryRayHttpProxy, resolveRayCredentials };
+export { tryRayHttpProxy, resolveRayCredentials };

@@ -61,7 +61,7 @@
 cd changmen   # 若尚未在本目录
 npm install --prefix gamebet_backend
 npm install --prefix gamebet_frontend   # 新控制台依赖（首次）
-npm run web          # patch UI + 启动 http://localhost:3456
+npm run web          # preweb + 启动 http://localhost:3560（Win）/ 3456
 npm run app:dev      # 新控制台 dev → http://localhost:5174/
 ```
 
@@ -141,7 +141,7 @@ HTTP 代理（浏览器 CORS 回退）：`/esport/ob/proxy`、`/esport/ray/proxy
 任选其一：
 
 1. **插件导入**（推荐）
-   `cd gamebet_backend && node account/account_cli.js import-platform <base64> --sync-store`
+   `cd gamebet_backend && npm run account:import-platform -- <base64> --sync-store`
 
 2. **环境变量**（启动时 `platform_sync.js` 写入 store）
 
@@ -166,10 +166,10 @@ HTTP 代理（浏览器 CORS 回退）：`/esport/ob/proxy`、`/esport/ray/proxy
 cd gamebet_backend
 npm run check:collect          # 配置 + API 对照
 npm run check:collect:probe    # 额外 HTTP 探针（OB/RAY/PB 等）
-node scripts/check-collect-platforms.js --json   # CI / 机器可读
+npm run check:collect -- --json   # CI / 机器可读
 ```
 
-- 脚本：`gamebet_backend/scripts/check-collect-platforms.js`
+- 脚本：`gamebet_backend/scripts/check-collect-platforms.js`（`npm run check:collect`）
 - 退出码 `0` = 所有**必需**凭证齐全；`1` = 仍有 TF/IA/IMT/SABA/Stake 等缺凭证
 - Stake：`platforms.json` 使用字段 `accessToken`；`Client_GetCollectPlatform` 已映射为返回的 `Token`（`gamebet_backend/core/esport-api/router.js`）
 

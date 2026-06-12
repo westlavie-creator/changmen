@@ -8,7 +8,7 @@
  *   npm run patch:ui
  *   或 PATCH_CONSOLE=1 npm run web
  *
- * 原则：行为与参考 bundle 一致，仅替换服务器地址、WS relay 等配置（OB 试玩登录保持直连，与 A8 一致）。
+ * 原则：行为与参考 bundle 一致，仅将 HTTP API 指到本地后端；WS 仍直连 A8 聚合机（与 A8 一致）。
  * 不在此脚本中改启动顺序、路由守卫、采集逻辑等业务行为。
  */
 
@@ -22,16 +22,13 @@ const SOURCE = process.env.UI_BUNDLE_SOURCE
 const OUT_DIR = process.env.UI_BUNDLE_OUT
   || path.join(FRONTEND_ROOT, "console");
 const OUT_FILE = path.join(OUT_DIR, "index.js");
-const RELAY_HOST = process.env.RELAY_HOST || "127.0.0.1:3456";
-const RELAY_HOSTNAME = RELAY_HOST.split(":")[0] || "127.0.0.1";
-const RELAY_PORT = RELAY_HOST.split(":")[1] || "3456";
 /** 可选：ENABLE_PB_NODE=1 时禁用浏览器 bQ，PB HTTP 走 /esport/pb/proxy（默认仍用插件 Yn + bQ） */
 const PB_NODE_MODE = process.env.ENABLE_PB_NODE === "1";
 
 function patch(source) {
   let out = source.replace(/\r\n/g, "\n");
 
-  // --- 聚合 API / relay 域名 → 本地 ---
+  // --- 聚合 HTTP API → 本地 ---
   const pairs = [
     [
       '/debug/.test(location.search) ? "//localhost:5000/esport/" : "https://api.a8.to/esport/"',
@@ -44,11 +41,6 @@ function patch(source) {
     ["https://api.a8.to/v4.0/", "/v4.0/"],
     ["https://api.a8.to/IP/Address", "/IP/Address"],
     ["https://api.a8.to/IP", "/IP"],
-    ['["api.a8.to", "47.115.75.57"]', `["${RELAY_HOSTNAME}"]`],
-    ["wss://47.115.75.57", `ws://${RELAY_HOST}`],
-    ["https://47.115.75.57", `http://${RELAY_HOST}`],
-    ["47.115.75.57", RELAY_HOSTNAME],
-    ['?? "https://47.115.75.57"', `?? "http://${RELAY_HOST}"`],
   ];
 
   for (const [from, to] of pairs) {
@@ -59,26 +51,6 @@ function patch(source) {
   out = out.replace(
     /location\.hostname\s*===\s*"localhost"\s*&&\s*\(\s*p\s*=\s*"\/v4\.0\/"\s*\)/g,
     'location.hostname==="localhost"&&(p="https://api.a8.to/v4.0/")',
-  );
-
-  // RAY SocketCluster：本地 HTTP 服务无 TLS，端口 3456
-  out = out.replace(
-    `hostname: yQe,
-            protocolVersion: 1,
-            secure: !0,
-            port: 443,
-            path: "/esport/ws/RAY"`,
-    `hostname: yQe,
-            protocolVersion: 1,
-            secure: !1,
-            port: ${RELAY_PORT},
-            path: "/esport/ws/RAY"`,
-  );
-
-  // TF WS relay
-  out = out.replace(
-    "`wss://${$F[LF % $F.length]}/esport/ws/TF?auth_token=${e}&combo=false`)",
-    `\`ws://${RELAY_HOSTNAME}:${RELAY_PORT}/esport/ws/TF?auth_token=\${e}&combo=false\`)`,
   );
 
   // 参考 bundle 压缩 typo，不修复则无法解析

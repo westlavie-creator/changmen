@@ -15,17 +15,17 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 │  platform_adapter 采集 → API_SaveMatch / API_SaveBet     │
 │  oddsStore（内存 fo）· 下注 Provider · CollectConfig 门控  │
 └───────────────────────────┬─────────────────────────────┘
-                            │ HTTPS / WSS（/esport/*）
+                            │ HTTPS（/esport/*）
                             ▼
 ┌─────────────────────────────────────────────────────────┐
 │ 服务端（一台或多实例）                                     │
-│  gamebet_backend  — esport-api、WS relay、静态 /     │
+│  gamebet_backend  — esport-api、HTTP 代理、静态 /        │
 │  gamebet_matcher   — 循环写 client_matches               │
 │  Supabase          — platform_* / client_matches / orders  │
 └─────────────────────────────────────────────────────────┘
 ```
 
-**已删除、不再部署**：Node FeedHub、`ESPORT_BRIDGE`、服务端直连平台拉列表/赔率。采集**只在客户端**。
+**已删除、不再部署**：Node FeedHub、`ESPORT_BRIDGE`、本机 WS 网关（OB MQTT / RAY SC / TF / IA relay）。各平台 WebSocket 由**浏览器直连**源站或 A8 聚合机。采集**只在客户端**。
 
 Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `Client_GetMatchs`。
 
@@ -33,18 +33,15 @@ Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `
 
 ## 2. 推荐拓扑：同源部署
 
-前端 API 使用相对路径（`/esport/...`、`/esport/ws/...`），**推荐** API 与 `/` 同一 origin：
+前端 API 使用相对路径（`/esport/...`），**推荐** API 与 `/` 同一 origin。各平台 WebSocket 由浏览器直连源站或 A8 聚合机，不经本机 WS 网关。
 
 | 路径 | 服务 |
 |------|------|
 | `https://your-domain.com/` | 静态前端（`app:build` 产物） |
 | `https://your-domain.com/esport/*` | gamebet_backend |
-| `wss://your-domain.com/esport/ws/*` | WS relay（OB/RAY/TF/IA） |
 | `https://your-domain.com/v4.0/*` | 平博 v4 透明代理（可选） |
 
 Nginx / Caddy 反代示例要点：
-
-- `proxy_http_version 1.1` + `Upgrade` / `Connection` 用于 WebSocket
 - 静态 `/` 指向 `gamebet_frontend/dist/` 或由 Node 托管
 
 **分离域名**（如 `app.example.com` + `api.example.com`）需额外网关把 `/esport` 代理到 API，或改前端为绝对 base URL（当前未内置 `VITE_API_BASE`，M2 前优先同源）。
@@ -71,16 +68,13 @@ npm install --prefix gamebet_matcher
 | `A8_V4_URL` | `https://api.a8.to/v4.0` | v4 上游 |
 | `NODE_ENV` | `production` | 常规 Node 约定 |
 
-Relay（按需，默认多数开启）：
+HTTP 代理（按需，见 [gamebet_backend/proxy/README.md](./gamebet_backend/proxy/README.md)）：
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `ENABLE_OB_MQTT_RELAY` | 开 | 客户端 OB MQTT 隧道 |
-| `ENABLE_RAY` | 开 | RAY WS relay |
-| `ENABLE_TF` | 关 | 需 TF 时设 `1` |
-| `ENABLE_IA_RELAY` | 开 | IA Socket.IO relay |
+| `ENABLE_PB_NODE` | 关 | `1` 时 PB 走 `/esport/pb/proxy` |
 
-**不要设置**（已移除）：`ESPORT_BRIDGE`、`ENABLE_FEED_HUB`、`ENABLE_OB`（Feed 采集）。
+**不要设置**（已移除）：`ESPORT_BRIDGE`、`ENABLE_FEED_HUB`、`ENABLE_OB`（Feed 采集）、`ENABLE_OB_MQTT_RELAY`、`ENABLE_RAY`、`ENABLE_TF`、`ENABLE_IA_RELAY`（WS relay 已退役）。
 
 ### 3.2 数据库
 
@@ -98,14 +92,14 @@ cd changmen
 npm run app:build
 ```
 
-产物在 `gamebet_frontend/dist/`；Web Host 启动时会托管 `/`（见 `host/web/index.js`）。
+产物在 `gamebet_frontend/dist/`；后端启动时会托管 `/`（见 `gamebet_backend/server.js`）。
 
 ### 3.4 进程
 
 至少两个长期进程：
 
 ```bash
-# 1) API + 静态 + relay
+# 1) API + 静态 + HTTP 代理
 cd changmen/gamebet_backend && npm run web
 
 # 2) 赛事合并（写 client_matches）
@@ -119,7 +113,7 @@ cd changmen && npm run matcher:loop
 | 检查 | 期望 |
 |------|------|
 | `GET /api/games` | 200 + JSON |
-| `GET /api/proxy/status` | relay 状态 |
+| `GET /api/proxy/status` | `{ enabled: false, wsRelay: false }`（WS 不经本机） |
 | `POST /esport/Client_GetMatchs`（带 JWT） | 200 或业务码 |
 
 ---
@@ -204,5 +198,5 @@ M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [gamebet_frontend/docs
 |------|------|
 | [readme.md](./readme.md) | 项目共识、目录 |
 | [CLAUDE.md](./CLAUDE.md) | 开发命令、Supabase 表 |
-| [gamebet_backend/README.md](./gamebet_backend/README.md) | API、relay 环境变量 |
+| [gamebet_backend/README.md](./gamebet_backend/README.md) | API、HTTP 代理环境变量 |
 | [scripts/README.md](./scripts/README.md) | `.bat` 脚本说明 |

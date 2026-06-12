@@ -2,16 +2,16 @@
   "name": "gamebet-backend",
   "version": "1.0.2",
   "private": true,
-  "description": "Server: esport-api, WS proxy, static hosting for clients",
+  "description": "Server: esport-api, HTTP proxy, static hosting for clients",
   "repository": {
     "type": "git",
     "url": "https://github.com/westlavie-creator/gamebet.git"
   },
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "patch:ui": "node ../gamebet_frontend/patch-ui-bundle.js",
     "preweb": "node scripts/preweb.js",
-    "web": "node host/web/index.js",
+    "web": "node server.js",
     "web:restart": "node restart.js",
     "web:restart:bg": "node restart.js --background",
     "ob:login": "node ../platform_adapter/ob/backend/scripts/fetch_ob_login.js",
@@ -45,7 +45,7 @@
     "user:sync": "node scripts/sync-user-data.js",
     "check:collect": "node scripts/check-collect-platforms.js",
     "check:collect:probe": "node scripts/check-collect-platforms.js --probe",
-    "test": "npm run test --prefix ../gamebet_matcher && vitest run core/shared/game_catalog.test.mjs && npm run test:adapter",
+    "test": "npm run test --prefix ../gamebet_matcher && vitest run core/shared && npm run test:adapter",
     "test:watch": "vitest",
     "test:adapter": "node scripts/test-packaged-adapter-layout.js",
     "test:packaged-adapter": "node scripts/test-packaged-adapter-layout.js",
@@ -60,12 +60,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
-    "aedes": "^0.51.3",
     "dotenv": "^17.4.2",
     "mqtt": "^5.14.0",
     "socket.io-client": "^4.8.3",
     "socketcluster-client": "^20.0.1",
-    "socketcluster-server": "^20.0.0",
     "socks-proxy-agent": "^8.0.5",
     "ws": "^8.21.0"
   }

@@ -1,29 +1,28 @@
-"use strict";
+import { getCatalogSummary } from "../shared/catalog/game_catalog.mjs";
+import { getCatalogSummary as getMarketCatalogSummary } from "../shared/catalog/market_catalog.mjs";
+import { adapterRequire, requirePlatform } from "./core/shared/adapter_paths.js";
+import { tryEsportApi, resolveCreditPlateUserName } from "./core/esport-api/router.js";
+import store from "./core/esport-api/store.js";
+import { getHardcodedCredentials } from "./core/integrations/a8/config.js";
+import { tryHttpProxyRelay } from "./proxy/http_proxy_relay.js";
+import { tryPbHttpProxy } from "./proxy/pb_http_proxy.js";
+import { tryObHttpProxy } from "./proxy/ob_http_proxy.js";
+import { tryRayHttpProxy } from "./proxy/ray_http_proxy.js";
+import { tryIaHttpProxy } from "./proxy/ia_http_proxy.js";
+import { isFastStaticRequest } from "./static_files.js";
 
-const { getCatalogSummary } = require("../../../shared/catalog/game_catalog.mjs");
-const { getCatalogSummary: getMarketCatalogSummary } = require("../../../shared/catalog/market_catalog.mjs");
-const { listPlatforms } = require("../../core/shared/adapter_paths.js").adapterRequire(
-  "registry",
-  "feeds.js",
-);
-const { tryEsportApi, resolveCreditPlateUserName } = require("../../core/esport-api/router.js");
-const store = require("../../core/esport-api/store.js");
-const { getHardcodedCredentials } = require("../../core/integrations/a8/config.js");
-const { tryHttpProxyRelay } = require("./proxy/http_proxy_relay.js");
-const { tryPbHttpProxy } = require("./proxy/pb_http_proxy.js");
-const { tryObHttpProxy } = require("./proxy/ob_http_proxy.js");
-const { tryRayHttpProxy } = require("./proxy/ray_http_proxy.js");
-const { tryIaHttpProxy } = require("./proxy/ia_http_proxy.js");
-const { requirePlatform } = require("../../core/shared/adapter_paths.js");
+const { listPlatforms } = adapterRequire("registry", "feeds.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "backend", "session.js");
+
 let _tryHandleMatcherApi;
 async function getTryHandleMatcherApi() {
   if (!_tryHandleMatcherApi) {
-    ({ tryHandleMatcherApi: _tryHandleMatcherApi } = await import("../../../gamebet_matcher/ui/http_bridge.js"));
+    ({ tryHandleMatcherApi: _tryHandleMatcherApi } = await import(
+      "../gamebet_matcher/ui/http_bridge.js"
+    ));
   }
   return _tryHandleMatcherApi;
 }
-const { isFastStaticRequest } = require("./static_files.js");
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -51,7 +50,6 @@ function jsonResponse(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-
 async function handleObDemoLogin(req, res) {
   if (req.method !== "GET") {
     jsonResponse(res, 405, { error: "method not allowed" });
@@ -71,7 +69,7 @@ async function handleObDemoLogin(req, res) {
   return true;
 }
 
-function createHttpHandler({ port, serveStatic, getEsportProxy }) {
+export function createHttpHandler({ port, serveStatic }) {
   return async function handleHttp(req, res) {
     try {
       const url = req.url.split("?")[0];
@@ -118,8 +116,7 @@ function createHttpHandler({ port, serveStatic, getEsportProxy }) {
         return;
       }
       if (url.toLowerCase() === "/api/proxy/status") {
-        const esportProxy = getEsportProxy();
-        jsonResponse(res, 200, esportProxy ? esportProxy.getStatus() : { enabled: false });
+        jsonResponse(res, 200, { enabled: false, wsRelay: false });
         return;
       }
       if (await (await getTryHandleMatcherApi())(req, res)) return;
@@ -132,5 +129,3 @@ function createHttpHandler({ port, serveStatic, getEsportProxy }) {
     }
   };
 }
-
-module.exports = { createHttpHandler };

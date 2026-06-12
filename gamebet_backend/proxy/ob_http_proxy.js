@@ -1,8 +1,7 @@
-"use strict";
+import { requirePlatform } from "../core/shared/adapter_paths.js";
+import store from "../core/esport-api/store.js";
 
-const { requirePlatform } = require("../../../core/shared/adapter_paths.js");
 const { obHeaders } = requirePlatform("OB", "backend", "session.js");
-const { getPlatform } = require("../../../core/esport-api/store.js");
 
 const ALLOWED_PREFIX = "/game/";
 
@@ -10,7 +9,7 @@ const ALLOWED_PREFIX = "/game/";
  * Frontve / 跨域控制台：代发 OB gateway GET（凭证来自 platforms.json）。
  * GET /esport/ob/proxy?path=game/index&query=game_id=0&flag=1&day=1
  */
-async function tryObHttpProxy(req, res) {
+export async function tryObHttpProxy(req, res) {
   const pathname = req.url.split("?")[0];
   if (pathname !== "/esport/ob/proxy") return false;
   if (req.method !== "GET") {
@@ -28,7 +27,7 @@ async function tryObHttpProxy(req, res) {
     return true;
   }
 
-  const row = getPlatform("OB");
+  const row = store.getPlatform("OB");
   if (!row?.gateway || !row?.token) {
     res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
     res.end(
@@ -59,5 +58,3 @@ async function tryObHttpProxy(req, res) {
   }
   return true;
 }
-
-module.exports = { tryObHttpProxy };
