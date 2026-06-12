@@ -2,11 +2,11 @@ import { getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs"
 import * as sb from "../../shared/db/supabase.js";
 
 /**
- * rebuild 时自动收录 TF / OB / RAY / IA 平台尚未在 team_platform_maps 中的队伍。
+ * rebuild 时自动收录 TF / OB / RAY / IA / PB 平台尚未在 team_platform_maps 中的队伍。
  * 仅写入待识别记录（canonical_id = NULL），不分配 gb_team_id。
  */
 
-const AUTO_REGISTER_PLATFORMS = new Set(["TF", "OB", "RAY", "IA"]);
+const AUTO_REGISTER_PLATFORMS = new Set(["TF", "OB", "RAY", "IA", "PB"]);
 const UPSERT_BATCH = 200;
 
 function normalizePlatformId(id) {
@@ -127,7 +127,7 @@ async function autoRegisterTeams(matchesRaw) {
   }
 
   if (registered > 0) {
-    console.log(`[matcher] 自动收录 ${registered} 条平台队伍（TF/OB/RAY/IA）`);
+    console.log(`[matcher] 自动收录 ${registered} 条平台队伍（TF/OB/RAY/IA/PB）`);
   }
 
   return { scanned: candidates.size, registered };
