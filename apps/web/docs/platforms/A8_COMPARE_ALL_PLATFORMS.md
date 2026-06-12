@@ -52,7 +52,7 @@
 - **采集**：`Uf=Xt.TF`，`UBe` → `Vt.getPlatform(Uf)`；REST 30s + `FBe`/`WBe` WS；HTTP 头 `$3(token)`。
 - **凭证**：`POST …/esport/Client_GetCollectPlatform`（**form-urlencoded** + header `token`）→ `Gateway` / `Token` / `BetName`；`Client_GetGames` → `games`。`tf-authorization` 本地算；`public-token` 为 bundle 常量。
 - **下注**：`bYe` — 钱包/下单用 `ly`（无 `tf-authorization`）；订单 `ly(,true)` 合并 `$3`；`uy` 将 transactions 的 gateway `api.` → `api-v4.`。
-- **changmen**：`getTfA8CollectCredentials()` + `platform_adapter/tf/frontend/*` + `tfProvider`。**详解**：[`A8_TF_LOGIC_PARITY.md`](./A8_TF_LOGIC_PARITY.md)。
+- **changmen**：`getTfA8CollectCredentials()` + `packages/platform-adapter/tf/frontend/*` + `tfProvider`。**详解**：[`A8_TF_LOGIC_PARITY.md`](./A8_TF_LOGIC_PARITY.md)。
 
 ### IA（重要差异）
 
@@ -75,7 +75,7 @@ await waitForUser
 
 - **A8**：全局 Socket（`ou.io`）连接后 `emit("join room", Xt.IM | Xt.Stake | Xt.XBet | "XBet:Score")`；`extraHeaders.token = localStorage.getItem("token")`（A8 登录 JWT，**非** IM 场馆 token）。
 - **赔率**：如 `EZe` 类逻辑只 `oddsStore.save`，`homeSuffix` 1/2（XBet away 为 3）。
-- **changmen**：`platform_adapter/shared/socket/*` + `@/extension/bridge.ts`；IM 见 [`IM.md`](./IM.md)，XBet 见 [`XBet.md`](./XBet.md)。
+- **changmen**：`packages/platform-adapter/shared/socket/*` + `@/extension/bridge.ts`；IM 见 [`IM.md`](./IM.md)，XBet 见 [`XBet.md`](./XBet.md)。
 
 ### SABA
 
@@ -85,7 +85,7 @@ await waitForUser
 ### PB
 
 - **采集 `AQ`**：`Oi=Xt.PB`，`getPlatform(Oi)`，且 `Io().accounts` 中须有 `provider===PB` 且 `balance!==undefined`；否则 `clean(PB)`。
-- **changmen**：`resolvePbCollectAccount` 与 A8 `bv` 一致，**仅** `balance!==undefined` 的 PB 账号；HTTP 走 `gamebet_chromeplug`（`Zn`）。详见 [`A8_PB_LOGIC_PARITY.md`](./A8_PB_LOGIC_PARITY.md)。
+- **changmen**：`resolvePbCollectAccount` 与 A8 `bv` 一致，**仅** `balance!==undefined` 的 PB 账号；HTTP 走 `apps/chrome-extension`（`Zn`）。详见 [`A8_PB_LOGIC_PARITY.md`](./A8_PB_LOGIC_PARITY.md)。
 
 ### IMT
 
@@ -95,8 +95,8 @@ await waitForUser
 ### Stake
 
 - **采集 `MQ`**：`ra=Xt.Stake`；等待插件 `tabId`（10×3s）→ 各 sport GraphQL → `saveMatch` + 逐场 `saveBets`（`pp` 合并）→ `Zn.sendMessage` 订阅；频道 **Stake** 推实时赔率；30s 递归。
-- **changmen**：`startA8BetsCollector` 频道 `Stake`；`platform_adapter/stake/frontend/collect.ts` 对齐 `MQ`。
-- **下注**：插件 `tabId` + 账号 `token`；`platform_adapter/stake/frontend/bet.ts` 对齐 `rJe`。
+- **changmen**：`startA8BetsCollector` 频道 `Stake`；`packages/platform-adapter/stake/frontend/collect.ts` 对齐 `MQ`。
+- **下注**：插件 `tabId` + 账号 `token`；`packages/platform-adapter/stake/frontend/bet.ts` 对齐 `rJe`。
 
 ### HG
 
@@ -145,7 +145,7 @@ await waitForUser
 | Stake | `STAKE_ACCESS_TOKEN` 等 |
 | HG | `HG_GATEWAY` + `HG_TOKEN` |
 
-见 [`gamebet_backend/core/esport-api/platform_sync.js`](../../../../../gamebet_backend/core/esport-api/platform_sync.js)。
+见 [`apps/backend/core/esport-api/platform_sync.js`](../../../backend/core/esport-api/platform_sync.js)。
 
 ---
 
@@ -153,11 +153,11 @@ await waitForUser
 
 | 能力 | 路径 |
 |------|------|
-| 采集注册 | [`platform_adapter/registry/adapters.ts`](../../../platform_adapter/registry/adapters.ts) |
-| 平台能力 | [`platform_adapter/registry/`](../../../platform_adapter/registry/) |
-| A8 频道 | [`platform_adapter/shared/socket/`](../../../platform_adapter/shared/socket/) |
+| 采集注册 | [`packages/platform-adapter/registry/adapters.ts`](../../../../packages/platform-adapter/registry/adapters.ts) |
+| 平台能力 | [`packages/platform-adapter/registry/`](../../../../packages/platform-adapter/registry/) |
+| A8 频道 | [`packages/platform-adapter/shared/socket/`](../../../../packages/platform-adapter/shared/socket/) |
 | 采集 API | [`api/esport.ts`](../../api/esport.ts) → `Client_GetCollectPlatform` |
-| 后端采集凭证 | [`esport-api/router.js`](../../../../../gamebet_backend/core/esport-api/router.js) `Client_GetCollectPlatform` |
+| 后端采集凭证 | [`esport-api/router.js`](../../../backend/core/esport-api/router.js) `Client_GetCollectPlatform` |
 | 下注 | [`providers/index.ts`](../../providers/index.ts) |
 | 账号粘贴 | [`components/account/AccountEditDialog.vue`](../../components/account/AccountEditDialog.vue) |
 

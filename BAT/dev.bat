@@ -2,7 +2,8 @@
 setlocal EnableDelayedExpansion
 title GameBet Dev
 
-set "_D=%~dp0"
+set "BAT=%~dp0"
+set "ROOT=%~dp0.."
 set "_P=3560"
 set "_V=5174"
 
@@ -25,7 +26,7 @@ if errorlevel 1 (
 )
 
 echo [1/2] Starting Web backend...
-start "GameBet-Web" cmd /k "cd /d %~dp0 && set SKIP_APP_BUILD=1&& call backend.bat"
+start "GameBet-Web" cmd /k "cd /d %ROOT% && set SKIP_APP_BUILD=1&& call %BAT%backend.bat"
 
 echo Waiting for backend on port !_P! ...
 set /a "_W=0"
@@ -44,11 +45,11 @@ echo Backend is listening on !_P!.
 
 :start_vite
 echo [2/2] Starting Vite frontend...
-start "GameBet-Vite" cmd /k "cd /d %~dp0 && call dev-vite.bat"
+start "GameBet-Vite" cmd /k "cd /d %ROOT% && call %BAT%dev-vite.bat"
 
 echo.
 echo [OK] Started. Open http://localhost:!_V!/ in Chrome with extension loaded.
-echo      Matcher (separate): matcher-loop.bat  or  matcher-ui.bat
+echo      Matcher (separate): BAT\matcher-loop.bat  or  BAT\matcher-ui.bat
 echo.
 echo You can close this window; backend and Vite run in the other two cmd windows.
 pause

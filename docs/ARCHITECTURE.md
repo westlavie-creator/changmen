@@ -28,7 +28,7 @@ changmen/
 | 3 | `team-resolver` → `packages/team-resolver` | ✅ 完成 |
 | 4 | `gamebet_matcher/engine` → `packages/match-engine` | ✅ 完成 |
 | 5 | `gamebet_*` → `apps/*` 重命名 | ✅ 完成 |
-| 6 | 根脚本 / `*.bat` / 部署文档统一到 `apps/` 路径 | 🔄 进行中（`PRODUCTION_DEPLOYMENT.md`、`deploy-server-remote.sh`、`scripts/README.md` 已更新；`apps/web/docs/*` 历史文档仍含旧路径） |
+| 6 | 根脚本 / `*.bat` / 部署文档统一到 `apps/` 路径 | ✅ 已完成（`BAT/` 集中实现；含 `apps/web/docs/*` 路径更新） |
 
 旧路径在阶段 5 之前仍可能出现在历史文档中；**以代码里 `adapter_paths.js` / `package.json` 为准**。
 

@@ -1,6 +1,7 @@
 @echo off
 setlocal
 
+set "ROOT=%~dp0.."
 set "DEPLOY_USER=root"
 set "DEPLOY_HOST=47.82.100.166"
 set "DEPLOY_REPO=/root/gamebet"
@@ -10,15 +11,19 @@ set "SSH_RETRIES=3"
 set "SSH_OPTS=-o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o ConnectTimeout=60"
 
 REM Windows CMD cannot execute .env via CALL (opens "choose app" dialog). Use .local.bat instead.
-if exist "%~dp0deploy-server.env" if not exist "%~dp0deploy-server.local.bat" (
-  copy /Y "%~dp0deploy-server.env" "%~dp0deploy-server.local.bat" >nul
-  echo [deploy] Migrated deploy-server.env -^> deploy-server.local.bat
+if exist "%ROOT%\deploy-server.env" if not exist "%~dp0deploy-server.local.bat" (
+  copy /Y "%ROOT%\deploy-server.env" "%~dp0deploy-server.local.bat" >nul
+  echo [deploy] Migrated deploy-server.env -^> BAT\deploy-server.local.bat
+)
+if exist "%ROOT%\deploy-server.local.bat" if not exist "%~dp0deploy-server.local.bat" (
+  move /Y "%ROOT%\deploy-server.local.bat" "%~dp0deploy-server.local.bat" >nul
+  echo [deploy] Migrated changmen\deploy-server.local.bat -^> BAT\
 )
 if exist "%~dp0deploy-server.local.bat" call "%~dp0deploy-server.local.bat"
 
 set "REMOTE=%DEPLOY_USER%@%DEPLOY_HOST%"
-set "LOCAL_SCRIPT=%~dp0scripts\deploy-server-remote.sh"
-set "FRONTEND_DIST=%~dp0apps\web\dist"
+set "LOCAL_SCRIPT=%ROOT%\scripts\deploy-server-remote.sh"
+set "FRONTEND_DIST=%ROOT%\apps\web\dist"
 set "REMOTE_APP=%DEPLOY_REPO%/changmen/apps/web"
 
 echo.
@@ -32,7 +37,7 @@ if /I "%DEPLOY_LOCAL_BUILD%"=="1" echo   Mode: local build on PC, upload dist
 if /I not "%DEPLOY_LOCAL_BUILD%"=="1" echo   Mode: build on VPS (slow, may OOM on 2G RAM)
 if /I "%DEPLOY_FULL%"=="1" echo   FULL: force install + build on VPS
 echo.
-echo   Run push-git.bat first if you have unpushed commits.
+echo   Run BAT\push-git.bat first if you have unpushed commits.
 echo.
 pause
 
@@ -52,7 +57,7 @@ if not exist "%LOCAL_SCRIPT%" (
 if /I not "%DEPLOY_LOCAL_BUILD%"=="1" goto remote_deploy
 
 echo [1/2] local app:build ...
-pushd "%~dp0"
+pushd "%ROOT%"
 call npm run app:build
 if errorlevel 1 (
   popd
@@ -126,7 +131,7 @@ echo   2. Security group: allow TCP 22 SSH and 3456 from your IP.
 echo   3. Browser test: http://%DEPLOY_HOST%:3456/
 echo   4. Wait a few minutes if VPS was OOM from old vite build, then retry.
 echo.
-echo Local dist is already built. After SSH works, run deploy-server.bat again
+echo Local dist is already built. After SSH works, run BAT\deploy-server.bat again
 echo (it will skip rebuild if you keep LOCAL_BUILD=1, or delete dist to force).
 pause
 exit /b 1

@@ -15,7 +15,7 @@
 
 **已删除（2026-06）**：Node `ObFeed`、`feed_bridge`、`ESPORT_BRIDGE`、服务端 Feed 采集。列表仅来自客户端 `saveMatch` + matcher。
 
-生产部署：[../../../PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md)
+生产部署：[../../../../../PRODUCTION_DEPLOYMENT.md](../../../../../PRODUCTION_DEPLOYMENT.md)
 
 上级说明：[README.md](./README.md#项目共识)、[changmen/readme.md](../../../readme.md#项目共识)
 
@@ -100,7 +100,7 @@
 | 实时赔 | **[A8 可证实]** fo + MQTT |
 | 服务端 Feed | **无**（FeedHub 已删除） |
 | CollectConfig | 与 A8 一致：默认全关，联调时在用户中心显式开启 |
-| 启动 | `parity-dev.bat` / `dev-web.bat` + matcher + 插件（PB/Stake） |
+| 启动 | `BAT\parity-dev.bat` / `BAT\dev-web.bat` + matcher + 插件（PB/Stake） |
 
 ---
 
@@ -112,11 +112,11 @@
 - [x] 更新 `OB.md` 数据流（模式 P / D）
 - [x] `A8_COMPARE_OB_RAY.md` §2 与 `ob/index.ts` 一致
 - [x] `changmen/readme.md` 区分模式 P / D
-- [x] `gamebet_backend/README.md` 区分模式 P / D
+- [x] `apps/backend/README.md` 区分模式 P / D
 
 ### 阶段 1 — 采集主链 [A8 可证实]（已完成）
 
-**文件**：`platform_adapter/ob/frontend/collect.ts`、`markets.ts`（比赛列表 HTTP 在同模块或 `markets.ts`）
+**文件**：`packages/platform-adapter/ob/frontend/collect.ts`、`markets.ts`（比赛列表 HTTP 在同模块或 `markets.ts`）
 
 - [x] 1.1 过滤后 `buildMatchesFromList` → `collect.saveMatch`（UMe 92328）
 - [x] 1.2 开关关时不 saveMatch/saveBets；**仍** fo + MQTT（Af 74621/74651）
@@ -142,7 +142,7 @@
 
 ### 阶段 3 — MQTT / fo 细项 [A8 可证实]（已完成）
 
-**文件**：`platform_adapter/ob/frontend/mqtt.ts`、`oddsStore.ts`、`docs/platforms/OB.md`
+**文件**：`packages/platform-adapter/ob/frontend/mqtt.ts`、`oddsStore.ts`、`docs/platforms/OB.md`
 
 - [x] 3.1 三 topic handler（oddsUpdate / statusUpdate / suspended）
 - [x] 3.2 `/odd/*` 订阅无 handler — 文档 + 代码注释（与 A8 UMe 一致）
@@ -181,8 +181,8 @@
 | # | 任务 | 状态 |
 |---|------|------|
 | 6.1 | 删除 FeedHub / `feed_bridge` / 各平台 `backend/feed.js` | ✅ |
-| 6.2 | 文档统一客户端采集 + [PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md) | ✅ |
-| 6.3 | `dev.bat` / `parity-dev.bat` 仅浏览器采集 + matcher | ✅ |
+| 6.2 | 文档统一客户端采集 + [PRODUCTION_DEPLOYMENT.md](../../../../../PRODUCTION_DEPLOYMENT.md) | ✅ |
+| 6.3 | `BAT\dev.bat` / `BAT\parity-dev.bat` 仅浏览器采集 + matcher | ✅ |
 
 ---
 

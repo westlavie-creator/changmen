@@ -50,4 +50,4 @@ start < horizon  // 毫秒
 | `ray/paths.ts` | API 路径 `/v2/...` |
 | `ray/index.ts` | 轮询 + SC 消费 |
 
-后端：`gamebet_backend/shared/ray_a8_collect.js`、`proxy/ray_sc_relay.js`。
+后端：`packages/platform-adapter/ray/backend/collect_credentials.js`、`proxy/ray_sc_relay.js`。

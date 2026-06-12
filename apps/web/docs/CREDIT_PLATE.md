@@ -3,14 +3,14 @@
 > **状态（2026-05-29）**：两步 v4 已在本地经 `/v4.0/` 代理 E2E 通过（`npm run test:v4`，需 backend `3456`）。  
 > UI 确认框见 `src/api/v4.ts` 中 `fetchPbPlayUrl` / `enterCreditPlate`。
 
-实现文件：`gamebet_frontend/src/api/v4.ts` · 入口 UI：`CollectConfigPanel.vue`「平博体育」。
+实现文件：`src/api/v4.ts` · 入口 UI：`CollectConfigPanel.vue`「平博体育」。
 
 ## 与主站登录是两回事
 
 | 用途 | 接口 | 账号 | 密码 |
 |------|------|------|------|
 | **主站登录**（进控制台） | `POST /esport/Client_Login` | 如 `admin` 或 `TJ01` | 登录页密码；`A8_AUTH=0` 时仅认 `users.json` |
-| **平博信用盘 v4**（点「平博体育」） | `POST /v4.0/user/account/login` | **A8 账号名**（默认 `TJ01`，见 `gamebet_backend/shared/a8_constants.js`） | 固定 **`a123456`**（对齐 A8 bundle `RMe`） |
+| **平博信用盘 v4**（点「平博体育」） | `POST /v4.0/user/account/login` | **A8 账号名**（默认 `TJ01`，见 `apps/backend/core/integrations/a8/constants.js`） | 固定 **`a123456`**（对齐 A8 bundle `RMe`） |
 
 用 `admin` 登录主站后点平博，**不会**把 `admin` 传给 v4；前端经 `/api/a8/credit-plate-user` 或 `GetUserInfo.CreditPlateUserName` 解析为 `TJ01`。
 
@@ -69,7 +69,7 @@ OB / SABA 为试玩分支，不走上述 v4 登录。
 
 ### Backend
 
-`gamebet_backend/core/esport-api/v4_router.js` 只做 **POST/GET 转发** 到 `A8_V4_URL`（默认 `https://api.a8.to/v4.0`）。`user/account/login` 的 body 由服务端用 `a8_constants.js` 账号重写后转发。
+`apps/backend/core/esport-api/v4_router.js` 只做 **POST/GET 转发** 到 `A8_V4_URL`（默认 `https://api.a8.to/v4.0`）。`user/account/login` 的 body 由服务端用 `a8_constants.js` 账号重写后转发。
 
 ## 辅助 API
 
@@ -82,8 +82,8 @@ OB / SABA 为试玩分支，不走上述 v4 登录。
 ## 自动化 E2E（两步）
 
 ```bash
-# 先启动 gamebet_backend（默认 3456）
-cd changmen/gamebet_frontend
+# 先启动 apps/backend（默认 3456）
+cd changmen/apps/web
 npm run test:v4
 ```
 
@@ -100,11 +100,11 @@ npm run test:v4
 ## 与 `patch-ui-bundle.js` 的关系
 
 - **新控制台 `/`**：不依赖 `patch-ui-bundle.js`；逻辑在 `src/api/v4.ts`。
-- **旧 bundle `/console/`**：仍由 `npm run patch:ui` 生成；localhost 上 bundle 保留 `https://api.a8.to/v4.0/` 的行为见 `gamebet_frontend/VENDOR_UI_REFERENCE.md`。
+- **旧 bundle `/console/`**：仍由 `npm run patch:ui` 生成；localhost 上 bundle 保留 `https://api.a8.to/v4.0/` 的行为见 `VENDOR_UI_REFERENCE.md`。
 
 ## 相关文档
 
-- [MIGRATION.md](../../MIGRATION.md) — 迁移总表
+- [MIGRATION.md](../MIGRATION.md) — 迁移总表
 - [ARCHITECTURE.md](../src/ARCHITECTURE.md) — `api/v4.ts` 在架构中的位置
-- [gamebet_backend/README.md](../../../gamebet_backend/README.md) — `A8_V4_*` 环境变量
-- [gamebet_backend/platforms/pb/README.md](../../../gamebet_backend/platforms/pb/README.md) — PB 采集（与 v4 信用盘入口无关）
+- [apps/backend/README.md](../../backend/README.md) — `A8_V4_*` 环境变量
+- [packages/platform-adapter/pb/backend/docs/README.md](../../../packages/platform-adapter/pb/backend/docs/README.md) — PB 采集（与 v4 信用盘入口无关）

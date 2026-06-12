@@ -22,10 +22,10 @@
 | `normalizeEpochMs` | 秒/毫秒时间戳归一 |
 | `a8StartTimeCollectAllowed` | 采集侧是否允许该开赛时间 |
 
-后端镜像：`gamebet_backend/shared/a8_match_time.js`。
+后端镜像：`packages/shared/time/match_time.mjs`。
 
 ## 游戏目录
 
-各平台 `SourceGameID` 含义不同，统一见 `gamebet_backend/shared/game_catalog.json` 与 `getGameCodeForPlatformId` / `getPlatformGameId`。
+各平台 `SourceGameID` 含义不同，统一见 `packages/shared/catalog/game_catalog.json` 与 `getGameCodeForPlatformId` / `getPlatformGameId`。
 
 采集侧通过 `getGames(platform)` 只拉取配置中启用的游戏 ID 列表。

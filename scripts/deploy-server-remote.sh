@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Piped from deploy-server.bat (bash -s) or run on VPS after git pull.
+# Piped from BAT/deploy-server.bat (bash -s) or run on VPS after git pull.
 set -euo pipefail
 
 ROOT="${DEPLOY_REPO:?DEPLOY_REPO is required}"
@@ -92,7 +92,7 @@ classify() {
       DO_APP_BUILD=1
       DO_PM2_WEB=1
       ;;
-    apps/chrome-extension/*|gamebet_chromeplug/*|pack-chromeplug.bat|deploy-server.bat|deploy-server.env.example|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
+    apps/chrome-extension/*|gamebet_chromeplug/*|BAT/*|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
       ;;
     *.md|.gitignore)
       ;;

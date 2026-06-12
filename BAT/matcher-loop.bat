@@ -2,14 +2,15 @@
 setlocal EnableDelayedExpansion
 title GameBet Matcher Loop
 
-cd /d "%~dp0"
+set "ROOT=%~dp0.."
+cd /d "%ROOT%"
 
 echo.
 echo ========================================
 echo   Gamebet Matcher Loop
 echo ========================================
 echo   Rebuild client_matches periodically
-echo   Matcher UI (optional): matcher-ui.bat  -^> http://localhost:4567/
+echo   Matcher UI (optional): BAT\matcher-ui.bat  -^> http://localhost:4567/
 echo.
 
 where npm >nul 2>&1

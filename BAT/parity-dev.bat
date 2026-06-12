@@ -3,7 +3,8 @@ setlocal EnableDelayedExpansion
 chcp 65001 >nul 2>&1
 title GameBet Parity Dev (mode P)
 
-set "_D=%~dp0"
+set "BAT=%~dp0"
+set "ROOT=%~dp0.."
 set "_P=3560"
 set "_V=5174"
 
@@ -28,17 +29,17 @@ if errorlevel 1 (
 )
 
 echo [1/3] Starting backend (parity)...
-start "GameBet-Backend-Parity" cmd /k "cd /d %~dp0 && set SKIP_APP_BUILD=1&& call backend.bat"
+start "GameBet-Backend-Parity" cmd /k "cd /d %ROOT% && set SKIP_APP_BUILD=1&& call %BAT%backend.bat"
 
 ping 127.0.0.1 -n 2 >nul
 
 echo [2/3] Starting Vite frontend...
-start "GameBet-Vite" cmd /k "cd /d %~dp0 && call dev-vite.bat"
+start "GameBet-Vite" cmd /k "cd /d %ROOT% && call %BAT%dev-vite.bat"
 
 ping 127.0.0.1 -n 3 >nul
 
 echo [3/3] Starting matcher (rebuild client_matches)...
-start "GameBet-Matcher" cmd /k "cd /d %~dp0 && call npm run matcher:loop"
+start "GameBet-Matcher" cmd /k "cd /d %ROOT% && call npm run matcher:loop"
 
 echo.
 echo [OK] Mode P started. Matcher writes client_matches; UI reads Client_GetMatchs only.

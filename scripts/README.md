@@ -1,30 +1,30 @@
 # 启动与运维脚本
 
-在 `changmen/` 目录下执行。
+Windows 批处理在 [`../BAT/`](../BAT/README.md)。在 `changmen/` 目录下执行，例如 `BAT\dev.bat`。
 
 ## 架构（2026-06）
 
 | 组件 | 入口 | 职责 |
 |------|------|------|
-| **Web 后端** | `backend.bat` → `npm run web` → `server.js` | HTTP `/esport/*`、静态 `/`、WS relay |
-| **Vite 前端** | `dev-vite.bat` | 开发时 `5174/`，API 经 proxy 到 `3456` |
+| **Web 后端** | `BAT\backend.bat` → `npm run web` → `server.js` | HTTP `/esport/*`、静态 `/`、WS relay |
+| **Vite 前端** | `BAT\dev-vite.bat` | 开发时 `5174/`，API 经 proxy 到后端 |
 | **Chrome 插件** | `apps/chrome-extension` | PB/Stake 代发、凭证采集、v4 桥接 |
 | **Matcher** | `npm run matcher:loop` | 合并 `client_matches` |
 
 平台实时 WS（OB/RAY/IA/TF）由浏览器 **直连** 各平台；PB/Stake 跨域请求经 **Chrome 扩展**。
 
-不要同时起两套 `npm run web`（均占 3456）。
+不要同时起两套 `npm run web`（Windows 默认均占 **3560**）。
 
 ## 日常开发
 
 | 脚本 | 作用 |
 |------|------|
-| **`dev.bat`** | backend + Vite + matcher + Chrome 插件（推荐） |
-| **`dev-web.bat`** | 调用 `dev.bat`（文档别名） |
-| **`setup-dev-env.bat`** | 首次：从 `.env.example` 复制 `apps/backend/.env` |
-| **`backend.bat`** | 仅 Web 后端（`npm run web`，端口 3456） |
-| **`parity-dev.bat`** | A8 parity：Web 后端 + Vite + matcher |
-| **`dev-vite.bat`** | 仅 Vite（由上述 bat 内部调用） |
+| **`BAT\dev.bat`** | backend + Vite（推荐） |
+| **`BAT\dev-web.bat`** / **`BAT\dev_web.bat`** | 同 `dev.bat`（别名） |
+| **`BAT\setup-dev-env.bat`** | 首次：从 `.env.example` 复制 `apps/backend/.env` |
+| **`BAT\backend.bat`** | 仅 Web 后端（`npm run web`） |
+| **`BAT\parity-dev.bat`** | A8 parity：Web 后端 + Vite + matcher |
+| **`BAT\dev-vite.bat`** | 仅 Vite（由上述 bat 内部调用） |
 
 开发前在 Chrome 加载 `apps/chrome-extension`（扩展 ID `mogfpjihgoghabicofkbcmcidlcoofee`）。
 
@@ -32,7 +32,7 @@ Matcher 人工面板：
 
 | 方式 | 命令 |
 |------|------|
-| **`matcher-ui.bat`** 或 **`apps/matcher/start.bat`** | 双击 / 命令行启动 |
+| **`BAT\matcher-ui.bat`** | 双击 / 命令行启动 |
 | `npm run matcher:ui` | 同上（在 `changmen/` 下） |
 
 → http://localhost:3456/matcher/（主站集成）或 http://localhost:4567（`matcher:ui` 独立）
@@ -47,26 +47,27 @@ Matcher 人工面板：
 
 | 旧名 | 现用 |
 |------|------|
-| `gamebet_backend/start-web.bat`（已移除） | → `backend.bat` |
+| `changmen/dev.bat`（根目录，已移除） | → `BAT\dev.bat` |
+| `gamebet_backend/start-web.bat`（已移除） | → `BAT\backend.bat` |
 
 ## 环境变量
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `A8_AUTH` | `0`（`backend.bat`） | 影响 A8 v4 等集成；登录走 Supabase（`.env` 中 `SUPABASE_*`） |
+| `A8_AUTH` | `0`（`BAT\backend.bat`） | 影响 A8 v4 等集成；登录走 Supabase（`.env` 中 `SUPABASE_*`） |
 | `SKIP_APP_BUILD` | 未设 | `1` 跳过 `/` 构建 |
 
 ## 打包与部署
 
 | 脚本 | 作用 |
 |------|------|
-| **`push-git.bat`** | 本机 git commit + push 到 GitHub |
-| **`deploy-server.bat`** | 更新 VPS（增量部署；可本机构建前端后上传） |
-| **`pack-chromeplug.bat`** | 打包 Chrome 插件 zip → `dist/` |
+| **`BAT\push-git.bat`** | 本机 git commit + push 到 GitHub |
+| **`BAT\deploy-server.bat`** | 更新 VPS（增量部署；可本机构建前端后上传） |
+| **`BAT\pack-chromeplug.bat`** | 打包 Chrome 插件 zip → `dist/` |
 
-日常顺序：`push-git.bat` → `deploy-server.bat`
+日常顺序：`BAT\push-git.bat` → `BAT\deploy-server.bat`
 
-`deploy-server.local.bat`（从 `deploy-server.local.bat.example` 复制）可选加速：
+`BAT\deploy-server.local.bat`（从 `BAT\deploy-server.local.bat.example` 复制）可选加速：
 
 | 变量 | 作用 |
 |------|------|
@@ -79,7 +80,7 @@ Matcher 人工面板：
 
 ## URL
 
-- Vite 开发：`http://localhost:5174/`（前端 dev server，API proxy → 3456）
-- 服务端 API：`http://localhost:3456/esport/*`（须 `backend.bat` 或 `dev.bat` 已启动）
+- Vite 开发：`http://localhost:5174/`（前端 dev server，API proxy → 后端）
+- 服务端 API：`http://localhost:3560/esport/*`（Windows，`BAT\backend.bat` 或 `BAT\dev.bat` 已启动）
 
 架构说明见 [readme.md](../readme.md)、[apps/backend/README.md](../apps/backend/README.md)。

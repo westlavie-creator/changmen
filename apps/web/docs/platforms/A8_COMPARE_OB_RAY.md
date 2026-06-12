@@ -9,7 +9,7 @@
 | 参考源（只读） | changmen 实现 |
 |----------------|----------------|
 | [`../../../../../A8/A8frontendscipts/2.0.1/index.js`](../../../../../A8/A8frontendscipts/2.0.1/index.js) | 前端：[`../ob/`](../ob/)、[`../ray/`](../ray/)、[`../../providers/`](../../providers/) |
-| 同逻辑亦见于 `gamebet_frontend/vendor/ui-bundle/index.js` | 后端：[`../../../../../gamebet_backend/`](../../../../../gamebet_backend/)（自 `app/docs/platforms` 上溯至 `changmen/`） |
+| 同逻辑亦见于 `vendor/ui-bundle/index.js` | 后端：[`../../../backend/`](../../../backend/)（自 `apps/web/docs/platforms` 上溯至 `changmen/`） |
 
 ---
 
@@ -54,7 +54,7 @@
 | **后端扩展** | `ensurePlatformCredentials()` → `syncObLogin()` | 启动时可用试玩 API 写入 **gateway + token** 到 `platforms.json`（**A8 前端采集器无此步骤**） |
 | **下注** | [`AccountEditDialog.vue`](../../components/account/AccountEditDialog.vue) | 与 A8 `AccountInfoView` 相同：剪贴板 Base64 → `ACCOUNT` |
 
-后端仍保留 `GET /api/ob/demo-login`（[`server.js`](../../../../../gamebet_backend/server.js)），供 `ob_session.js`、探针脚本使用；**Vue 采集与试玩 UI 已不对接该代理**。
+后端仍保留 `GET /api/ob/demo-login`（[`server.js`](../../../backend/server.js)），供 `ob_session.js`、探针脚本使用；**Vue 采集与试玩 UI 已不对接该代理**。
 
 ### OB Token 对照
 
@@ -163,7 +163,7 @@ startObCollector（约 3s 后 connectObMqtt）
 
 | 场景 | 实现 | 说明 |
 |------|------|------|
-| **采集** | `getCollectPlatform("RAY")` | 后端 [`router.js`](../../../../../gamebet_backend/core/esport-api/router.js) 对 RAY **忽略** `platforms.json` 中的 token，强制 [`ray_a8_collect.js`](../../../../../gamebet_backend/shared/ray_a8_collect.js)（与 A8 bundle **相同** gateway + JWT） |
+| **采集** | `getCollectPlatform("RAY")` | 后端 [`router.js`](../../../backend/core/esport-api/router.js) 对 RAY **忽略** `platforms.json` 中的 token，强制 [`ray_a8_collect.js`](../../../../packages/platform-adapter/ray/backend/collect_credentials.js)（与 A8 bundle **相同** gateway + JWT） |
 | **启动同步** | `syncRayFromA8()` | 将同一套凭证写入 `platforms.json`（便于探针；API 仍强制 A8 凭证） |
 | **环境变量** | `RAY_COLLECT_USE_ENV=1` | 可用 `RAY_TOKEN` / `RAY_GATEWAY` 覆盖（**非 A8 行为**） |
 | **下注** | `AccountEditDialog` 剪贴板 | 同 A8 → `rayProvider` 使用 `account.token` |
@@ -217,7 +217,7 @@ startRayCollector
 | WebSocket | 浏览器 → `47.115.75.57/esport/ws/RAY` | dev 3456 relay；生产同源 relay |
 | 队徽 CDN | `statics.freestaticsasia.com` | 同左（`rayLogo`） |
 
-详细模块见 [RAY.md](./RAY.md)。后端 WS 说明见 [`platforms/ray/ray_ws.js`](../../../../../gamebet_backend/platforms/ray/ray_ws.js)、[`proxy/ray_sc_relay.js`](../../../../../gamebet_backend/proxy/ray_sc_relay.js)。
+详细模块见 [RAY.md](./RAY.md)。后端 WS 说明见 [`platforms/ray/ray_ws.js`](../../../../packages/platform-adapter/ray/backend/ws.js)、[`proxy/ray_sc_relay.js`](../../../backend/proxy/ray_sc_relay.js)。
 
 ---
 
@@ -259,16 +259,16 @@ startRayCollector
 | MQTT | 插件内 `RMe.connect` | [`ob/mqtt.ts`](../ob/mqtt.ts) |
 | 试玩 UI | `UserCollectView` | [`api/v4.ts`](../../api/v4.ts) `enterCreditPlate("OB")` |
 | 下注 | OB Provider（bundle） | [`providers/obProvider.ts`](../../providers/obProvider.ts) |
-| 后端 OB | — | [`platforms/ob/`](../../../../../gamebet_backend/platforms/ob/)、[`esport-api/router.js`](../../../../../gamebet_backend/core/esport-api/router.js) |
+| 后端 OB | — | [`platforms/ob/`](../../../../packages/platform-adapter/ob/backend/)、[`esport-api/router.js`](../../../backend/core/esport-api/router.js) |
 
 ## RAY
 
 | 能力 | A8（bundle） | changmen |
 |------|--------------|----------|
 | 采集入口 | `vQe` / `bQe()` | [`ray/index.ts`](../ray/index.ts) `startRayCollector` |
-| 采集凭证 | 插件内对象 `t` | [`a8Collect.ts`](../ray/a8Collect.ts) + [`ray_a8_collect.js`](../../../../../gamebet_backend/shared/ray_a8_collect.js) |
+| 采集凭证 | 插件内对象 `t` | [`a8Collect.ts`](../ray/a8Collect.ts) + [`ray_a8_collect.js`](../../../../packages/platform-adapter/ray/backend/collect_credentials.js) |
 | 采集 HTTP | `Rr.get` + `Authorization` | [`ray/http.ts`](../ray/http.ts) `collectRayGet` |
-| WS | `47.115.75.57` SC | [`ray/index.ts`](../ray/index.ts) + [`ray_sc_relay.js`](../../../../../gamebet_backend/proxy/ray_sc_relay.js) |
+| WS | `47.115.75.57` SC | [`ray/index.ts`](../ray/index.ts) + [`ray_sc_relay.js`](../../../backend/proxy/ray_sc_relay.js) |
 | 下注 | `vYe` | [`providers/rayProvider.ts`](../../providers/rayProvider.ts) |
 | 账号粘贴 | `AccountInfoView` | [`AccountEditDialog.vue`](../../components/account/AccountEditDialog.vue) |
 

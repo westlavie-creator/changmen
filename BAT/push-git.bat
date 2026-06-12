@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set "GIT_ROOT=%~dp0.."
+set "GIT_ROOT=%~dp0..\.."
 
 echo.
 echo ========================================

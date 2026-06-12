@@ -53,7 +53,7 @@ gamebet_backend/
 |------|------|------|
 | **Web 后端** | `npm run web` | `server.js`，端口 **3560**（Win）/ `3456` |
 
-Windows 一键（在 `changmen/`）：`setup-dev-env.bat`（首次）→ `dev.bat` / `dev-web.bat`（等价）。Chrome 需加载 `gamebet_chromeplug`。
+Windows 一键（在 `changmen/`）：`BAT\setup-dev-env.bat`（首次）→ `BAT\dev.bat` / `BAT\dev-web.bat`（等价）。Chrome 需加载 `apps/chrome-extension`。
 
 ```bash
 cd changmen/gamebet_backend
@@ -61,7 +61,7 @@ npm install
 npm run web          # Web Host
 ```
 
-- `http://localhost:3560/` — 新控制台（Vue，Windows `dev.bat` / `backend.bat`）
+- `http://localhost:3560/` — 新控制台（Vue，Windows `BAT\dev.bat` / `BAT\backend.bat`）
 - `http://localhost:3560/console/` — A8 控制台（静态来自 `gamebet_frontend/console/`）
 
 ### 数据分工（新控制台 `/`）

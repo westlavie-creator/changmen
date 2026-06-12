@@ -1,7 +1,7 @@
 # A8 脚本 + 插件架构复刻计划
 
 对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `A8/A8chromeplug/2.0.149`。  
-changmen 实现：`gamebet_frontend` + `platform_adapter/*/frontend` + `gamebet_chromeplug` + `@/extension/bridge.ts`（A8 `Zn`）。
+changmen 实现：`apps/web` + `packages/platform-adapter/*/frontend` + `apps/chrome-extension` + `@/extension/bridge.ts`（A8 `Zn`）。
 
 最后更新：2026-06-11
 
@@ -11,16 +11,16 @@ changmen 实现：`gamebet_frontend` + `platform_adapter/*/frontend` + `gamebet_
 
 ```
 浏览器托管页（脚本）          Chrome 插件（Zn）
-├── platform_adapter 采集     ├── GET/POST 跨域
+├── packages/platform-adapter 采集     ├── GET/POST 跨域
 ├── oddsStore fo              ├── tabId / Stake content
 ├── collectStore 回传门控     ├── 11 站凭证浮窗
 └── *Provider 下注            └── ModifyHeader UA
          │                              │
          └──────────┬───────────────────┘
                     ▼
-         gamebet_backend Client_* / API_*
+         apps/backend Client_* / API_*
                     ▼
-         gamebet_matcher → client_matches
+         apps/matcher → client_matches
                     ▼
          Client_GetMatchs（前端只读列表）
 ```
@@ -29,7 +29,7 @@ changmen 实现：`gamebet_frontend` + `platform_adapter/*/frontend` + `gamebet_
 **已删除**（2026-06）：Node FeedHub、`ESPORT_BRIDGE`、服务端平台 Feed 采集。  
 **非基线**：[changmen 扩展] matcher、`http-relay` 作 PB 主路径、WS relay 隧道。
 
-生产部署见 [../../../PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md)。
+生产部署见 [../../../../../PRODUCTION_DEPLOYMENT.md](../../../../../PRODUCTION_DEPLOYMENT.md)。
 
 ---
 
@@ -37,17 +37,17 @@ changmen 实现：`gamebet_frontend` + `platform_adapter/*/frontend` + `gamebet_
 
 | 脚本 | 组成 |
 |------|------|
-| `parity-dev.bat` | Web 后端 + Vite + matcher（推荐 parity 验收） |
-| `dev.bat` / `dev-web.bat` | 日常开发（浏览器 + 插件 + matcher） |
+| `BAT\parity-dev.bat` | Web 后端 + Vite + matcher（推荐 parity 验收） |
+| `BAT\dev.bat` / `BAT\dev-web.bat` | 日常开发（浏览器 + 插件 + matcher） |
 
 插件准备：
 
 ```bat
-cd changmen\gamebet_chromeplug
+cd changmen\apps\chrome-extension
 npm run build
 ```
 
-Chrome：加载已解压 `gamebet_chromeplug`（ID `mogfpjihgoghabicofkbcmcidlcoofee`）。
+Chrome：加载已解压 `apps/chrome-extension`（ID `mogfpjihgoghabicofkbcmcidlcoofee`）。
 
 ---
 
@@ -69,10 +69,10 @@ CollectConfig：只门控 `saveMatch`/`saveBets`，**不**停采集器。
 
 | 项 | 说明 |
 |----|------|
-| `platform_adapter` 迁移 | 11 平台 frontend/backend + registry |
+| `packages/platform-adapter` 迁移 | 11 平台 frontend/backend + registry |
 | 插件协议 | `bridge.ts` = Zn |
-| 开发脚本 | `parity-dev.bat`、`dev.bat` + matcher |
-| 架构冻结 M1 | 删除 FeedHub；[PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md) |
+| 开发脚本 | `BAT\parity-dev.bat`、`BAT\dev.bat` + matcher |
+| 架构冻结 M1 | 删除 FeedHub；[PRODUCTION_DEPLOYMENT.md](../../../../../PRODUCTION_DEPLOYMENT.md) |
 | PB fail-fast | 无扩展且无 SOCKS → `PB_PLUGIN_REQUIRED_MSG` |
 | Stake 提示 | 无扩展 / 无 tabId → `notifyCollectError` |
 | IA 空 token | `ia/backend/collect_credentials.js` + `Client_GetCollectPlatform` |
@@ -92,7 +92,7 @@ CollectConfig：只门控 `saveMatch`/`saveBets`，**不**停采集器。
 | P1 | 8 平台 Mode P 实机 E2E（需账号/扩展） |
 | P1 | `A8_WALKTHROUGH_CHECKLIST` B4 同屏 UI 走查 |
 | P2 | 生产首次部署（域名、`db push`、matcher 进程）— 见 PRODUCTION_DEPLOYMENT |
-| P2 | 文档：`A8_COMPARE_ALL_PLATFORMS` 路径改 `platform_adapter` |
+| P2 | 文档：`A8_COMPARE_ALL_PLATFORMS` 路径改 `packages/platform-adapter` |
 | P3 | HG 跟单（无 saveMatch，非 8 平台 parity 核心） |
 
 ---
@@ -101,12 +101,12 @@ CollectConfig：只门控 `saveMatch`/`saveBets`，**不**停采集器。
 
 | 能力 | 路径 |
 |------|------|
-| 插件桥 | `app/src/extension/bridge.ts` |
-| 采集注册 | `app/src/runtime/collectors.ts` → `@platform/registry` |
-| A8 Socket | `platform_adapter/shared/socket/hub.ts` |
-| 平台实现 | `platform_adapter/{ob,im,ray,...}/frontend/` |
-| 插件源码 | `gamebet_chromeplug/src/` |
-| Matcher | `gamebet_matcher/matcher.js` |
+| 插件桥 | `src/extension/bridge.ts` |
+| 采集注册 | `src/runtime/collectors.ts` → `@platform/registry` |
+| A8 Socket | `packages/platform-adapter/shared/socket/hub.ts` |
+| 平台实现 | `packages/platform-adapter/{ob,im,ray,...}/frontend/` |
+| 插件源码 | `apps/chrome-extension/src/` |
+| Matcher | `apps/matcher/matcher.js` |
 
 平台明细：[A8_REPLICATE_8_PLATFORMS.md](./A8_REPLICATE_8_PLATFORMS.md)
 

@@ -9,10 +9,10 @@
 | 1 | 采集凭证 | `Vt.getPlatform(TF)` | `api/esport` → `getCollectPlatform("TF")`；后端 `getTfA8CollectCredentials()` | 已实现 |
 | 2 | A8 esport 请求体 | `_r.post` form-urlencoded | `shared/a8_esport_client.js` `postEsport` | 已实现 |
 | 3 | A8 登录 | v4 `user/account/login` + header `token` | `a8_esport_client.loginEsport` 回退 `loginV4` | 已实现 |
-| 4 | 比赛列表 30s | `UBe` → `o()` | `platform_adapter/tf/frontend/collect.ts` `TF_POLL_MS=30000` | 已实现 |
+| 4 | 比赛列表 30s | `UBe` → `o()` | `packages/platform-adapter/tf/frontend/collect.ts` `TF_POLL_MS=30000` | 已实现 |
 | 5 | 单场详情 1s | `UBe` → `a(eventId, tab)` | `TF_STAGE_WAIT_MS=1000` + `loadTfBets` | 已实现 |
 | 6 | HTTP 头 `$3` | `$3(token)` | `shared/platforms/tfAuth.ts` `tfRequestHeaders` | 已实现 |
-| 7 | 赔率 WS | `FBe`/`WBe` | `platform_adapter/tf/frontend/ws.ts` → `relayWsUrl(/esport/ws/TF)` | 已实现 |
+| 7 | 赔率 WS | `FBe`/`WBe` | `packages/platform-adapter/tf/frontend/ws.ts` → `relayWsUrl(/esport/ws/TF)` | 已实现 |
 | 8 | WS 仅更新已注册盘 | `e.isOdds(TF, id)` | `oddsStore.isOdds` 同上 | 已实现 |
 | 9 | 锁盘 `status !== "open"` | `Xn(..., isLock)` | `sel.status !== "open"` | 已实现 |
 | 10 | HTTP 详情写全部 selection | `g.selection.forEach` | `ingestResults` 遍历 selection | 已实现 |
@@ -89,7 +89,7 @@ changmen 后端：`shared/a8_esport_client.js` → `loginEsport()` 先尝试 esp
 本地复现：
 
 ```bash
-node -e "require('./changmen/gamebet_backend/shared/a8_esport_client.js').fetchCollectPlatformWithGames('TF').then(console.log)"
+cd changmen && node --input-type=module -e "import('./packages/platform-adapter/tf/backend/collect_credentials.js').then(m => m.getTfA8CollectCredentials()).then(console.log)"
 ```
 
 ---
@@ -256,18 +256,18 @@ Ticket body（摘要）：
 
 | 层级 | 文件 |
 |------|------|
-| A8 拉凭证 | `gamebet_backend/shared/a8_esport_client.js` |
-| TF 缓存 | `gamebet_backend/shared/tf_a8_collect.js` |
-| API 路由 | `gamebet_backend/core/esport-api/router.js`（`Client_GetCollectPlatform` TF 分支） |
-| 启动同步 | `gamebet_backend/core/esport-api/platform_sync.js` `syncTfFromA8` |
-| 后端 TF relay | `platform_adapter/tf/backend/*` |
-| 采集入口 | `platform_adapter/tf/frontend/collect.ts` |
-| WS | `platform_adapter/tf/frontend/ws.ts` |
-| HTTP 采集 | `platform_adapter/tf/frontend/http.ts` |
+| A8 拉凭证 | `packages/platform-adapter/tf/backend/collect_credentials.js` |
+| TF 缓存 | `packages/platform-adapter/tf/backend/collect_credentials.js` |
+| API 路由 | `apps/backend/core/esport-api/router.js`（`Client_GetCollectPlatform` TF 分支） |
+| 启动同步 | `apps/backend/core/esport-api/platform_sync.js` `syncTfFromA8` |
+| 后端 TF relay | `packages/platform-adapter/tf/backend/*` |
+| 采集入口 | `packages/platform-adapter/tf/frontend/collect.ts` |
+| WS | `packages/platform-adapter/tf/frontend/ws.ts` |
+| HTTP 采集 | `packages/platform-adapter/tf/frontend/http.ts` |
 | 鉴权 | `shared/platforms/tfAuth.ts` |
 | 下注 | `providers/tfProvider.ts` |
 | 账号 HTTP | `shared/platformHttp.ts` `accountTfGet/Post` |
-| 游戏 ID | `gamebet_backend/shared/game_catalog.json` → `platforms.TF` |
+| 游戏 ID | `packages/shared/catalog/game_catalog.json` → `platforms.TF` |
 
 ---
 
@@ -278,7 +278,7 @@ Ticket body（摘要）：
 | 自动（推荐） | 后端 `A8_USER`/`A8_PASSWORD` 或 `data/esport/a8_config.json` → `getTfA8CollectCredentials()` |
 | 环境变量 | `TF_GATEWAY`、`TF_TOKEN`、`TF_BET_NAME` |
 | 本地文件 | `data/esport/platforms.json` 的 `TF` 段 |
-| 审计脚本 | `node gamebet_backend/scripts/check-collect-platforms.js` |
+| 审计脚本 | `node apps/backend/scripts/check-collect-platforms.js` |
 
 常见问题：
 
@@ -293,5 +293,5 @@ Ticket body（摘要）：
 
 - 采集实现摘要：[`TF.md`](./TF.md)
 - 全平台对照：[`A8_COMPARE_ALL_PLATFORMS.md`](./A8_COMPARE_ALL_PLATFORMS.md)
-- 后端 TF feed：[`../../../../gamebet_backend/platforms/tf/README.md`](../../../../gamebet_backend/platforms/tf/README.md)
+- 后端 TF feed：[`../../../../packages/platform-adapter/tf/backend/docs/README.md`](../../../../packages/platform-adapter/tf/backend/docs/README.md)
 - 项目总览 TF 章节：[`../../../../readme.md`](../../../../readme.md)（§9 TF 平台分析）

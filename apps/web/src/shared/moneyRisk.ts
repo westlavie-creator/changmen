@@ -1,4 +1,5 @@
 import type { OrderRow } from "@/types/order";
+import { getExchange } from "@/shared/currency";
 
 export type RiskLevel = "info" | "success" | "warning" | "danger";
 
@@ -49,7 +50,8 @@ export function executeMoneyRisk(data: MoneyRiskInput): RiskTag[] {
       for (const o of orders.filter((x) => (x.CreateAt ?? 0) > since)) {
         betMoney += Math.min(Number(o.BetMoney) || 0, Math.abs(Number(o.Money) || 0));
       }
-      const recharge = Number(lastRecharge.Money) || 0;
+      const recharge =
+        (Number(lastRecharge.Money) || 0) * getExchange(lastRecharge.Currency);
       times = recharge > 0 ? betMoney / recharge : 0;
     }
     let level: RiskLevel = "success";
@@ -65,7 +67,9 @@ export function executeMoneyRisk(data: MoneyRiskInput): RiskTag[] {
   {
     const since = Date.now() - 24 * 3600 * 1000;
     const withdraws = logs.filter((l) => l.Type === "Withdraw" && (l.CreateAt ?? 0) > since);
-    const money = sum(withdraws.map((l) => Number(l.Money) || 0));
+    const money = sum(
+      withdraws.map((l) => (Number(l.Money) || 0) * getExchange(l.Currency)),
+    );
     const times = withdraws.length;
     let level: RiskLevel = "success";
     if (money > 3000 || times >= 4) level = "danger";
@@ -79,7 +83,9 @@ export function executeMoneyRisk(data: MoneyRiskInput): RiskTag[] {
   // 充提比
   {
     const lastRecharge = logs.find((l) => l.Type === "Recharge");
-    const recharge = lastRecharge ? Number(lastRecharge.Money) || 0 : 0;
+    const recharge = lastRecharge
+      ? (Number(lastRecharge.Money) || 0) * getExchange(lastRecharge.Currency)
+      : 0;
     const withdrawn =
       sum(
         logs
@@ -87,7 +93,7 @@ export function executeMoneyRisk(data: MoneyRiskInput): RiskTag[] {
             (l) =>
               l.Type === "Withdraw" && (l.CreateAt ?? 0) > (lastRecharge?.CreateAt ?? 0),
           )
-          .map((l) => Number(l.Money) || 0),
+          .map((l) => (Number(l.Money) || 0) * getExchange(l.Currency)),
       ) ?? 0;
     const ratio = recharge > 0 ? (withdrawn + balance) / recharge : 0;
     let level: RiskLevel = "info";

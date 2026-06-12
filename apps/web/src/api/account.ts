@@ -1,5 +1,6 @@
 import { post, unwrap } from "@/api/client";
 import type { AccountRecord, CreateTagPlatformResult, UpdateBalanceResult } from "@/types/account";
+import { formatPbDateTime } from "@/shared/format";
 import type { MoneyLogRow, PageResult, TagPlatformRow } from "@/types/esport";
 
 export async function getAccounts(): Promise<AccountRecord[]> {
@@ -41,8 +42,12 @@ export async function deletePlayer(playerId: number, description = "") {
 }
 
 export async function saveMoneyLog(body: Record<string, unknown>) {
+  const payload = { ...body };
+  if (typeof payload.createAt === "number") {
+    payload.createAt = formatPbDateTime(new Date(payload.createAt));
+  }
   try {
-    await unwrap(await post<unknown>("Client_SaveMoneyLog", body));
+    await unwrap(await post<unknown>("Client_SaveMoneyLog", payload));
     return true;
   } catch {
     return false;
@@ -57,8 +62,8 @@ export async function getMoneyLogs(body: Record<string, unknown> = {}) {
   return unwrap(await post<PageResult<MoneyLogRow>>("Client_GetMoneyLogs", body));
 }
 
-export async function getMoneyLog(body: Record<string, unknown>) {
-  return unwrap(await post<MoneyLogRow>("Client_GetMoneyLog", body));
+export async function getMoneyLog(logId: number) {
+  return unwrap(await post<MoneyLogRow>("Client_GetMoneyLog", { logId }));
 }
 
 export async function createTagPlatform(platformName: string, playerName: string) {

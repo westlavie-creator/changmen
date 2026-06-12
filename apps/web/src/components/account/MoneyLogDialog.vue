@@ -1,30 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { ElMessageBox } from "element-plus";
+import { ElMessage } from "element-plus";
 import MoneyInfoDialog from "@/components/account/MoneyInfoDialog.vue";
 import MoneyRiskView from "@/components/account/MoneyRiskView.vue";
 import { deleteMoneyLog, getMoneyLogs } from "@/api/esport";
 import { useAccountStore } from "@/stores/accountStore";
+import { Currency, getExchange } from "@/shared/currency";
 import { formatDate } from "@/shared/format";
+import type { MoneyLogRow } from "@/types/esport";
 
-interface MoneyLogRow {
-  logId?: number;
-  ID?: number;
-  playerId?: number;
-  type?: string;
-  Type?: string;
-  money?: number;
-  Money?: number;
-  currency?: string;
-  Currency?: string;
-  description?: string;
-  Description?: string;
-  isAuto?: number;
-  IsAuto?: number;
-  createAt?: number;
-  CreateAt?: number;
-}
-
+/** 对齐 A8 bundle `MoneyView`（fDe） */
 const props = defineProps<{
   open: boolean;
   accountId: number;
@@ -43,6 +28,7 @@ const total = ref(0);
 const loading = ref(false);
 const infoOpen = ref(false);
 const editLogId = ref<number | undefined>();
+const riskKey = ref(0);
 
 const account = computed(() => accountStore.findAccount(props.accountId));
 
@@ -58,61 +44,29 @@ const typeLabels: Record<string, string> = {
   Lose: "被黑",
 };
 
-function rowId(row: MoneyLogRow) {
-  return row.logId ?? row.ID;
+function sumMoney(rows: MoneyLogRow[], type: string) {
+  return rows
+    .filter((r) => (r.Type ?? r.type) === type)
+    .reduce(
+      (s, r) =>
+        s + (Number(r.Money ?? r.money) || 0) * getExchange(r.Currency ?? r.currency),
+      0,
+    );
 }
 
-function rowType(row: MoneyLogRow) {
-  return row.type ?? row.Type ?? "";
-}
-
-function rowMoney(row: MoneyLogRow) {
-  return Number(row.money ?? row.Money) || 0;
-}
-
-function rowCurrency(row: MoneyLogRow) {
-  return row.currency ?? row.Currency ?? "CNY";
-}
-
-function rowDescription(row: MoneyLogRow) {
-  return row.description ?? row.Description ?? "";
-}
-
-function rowCreateAt(row: MoneyLogRow) {
-  return row.createAt ?? row.CreateAt ?? 0;
-}
-
-function rowIsAuto(row: MoneyLogRow) {
-  if (row.isAuto === 1 || row.IsAuto === 1) return true;
-  const desc = rowDescription(row);
-  return rowType(row) === "Withdraw" && /\d+sec|\d+s$/i.test(desc);
-}
-
-const rechargeTotal = computed(() =>
-  allLogs.value
-    .filter((r) => rowType(r) === "Recharge")
-    .reduce((s, r) => s + rowMoney(r), 0),
-);
-
-const withdrawTotal = computed(() =>
-  allLogs.value
-    .filter((r) => rowType(r) === "Withdraw")
-    .reduce((s, r) => s + rowMoney(r), 0),
-);
+const rechargeTotal = computed(() => sumMoney(allLogs.value, "Recharge"));
+const withdrawTotal = computed(() => sumMoney(allLogs.value, "Withdraw"));
 
 const accountProfit = computed(() => {
   const acc = account.value;
   if (!acc) return 0;
-  return (
-    withdrawTotal.value -
-    rechargeTotal.value +
-    (acc.balance ?? 0) -
-    (acc.credit ?? 0)
-  );
+  const balanceFx =
+    (acc.balance ?? 0) * getExchange(acc.currency ?? Currency.CNY);
+  return withdrawTotal.value - rechargeTotal.value + balanceFx - (acc.credit ?? 0);
 });
 
 function tableRowClass({ row }: { row: MoneyLogRow }) {
-  return `row-${rowType(row)}`;
+  return `row-${row.Type ?? row.type ?? ""}`;
 }
 
 async function loadLogs(page = pageIndex.value) {
@@ -129,6 +83,9 @@ async function loadLogs(page = pageIndex.value) {
     allLogs.value = data?.length ? data : logs.value;
     total.value = res?.total ?? res?.RecordCount ?? logs.value.length;
     pageIndex.value = page;
+    riskKey.value += 1;
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : "加载充提记录失败");
   } finally {
     loading.value = false;
   }
@@ -143,6 +100,13 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => props.accountId,
+  (id) => {
+    if (props.open && id) void loadLogs(1);
+  },
+);
+
 function onClosed() {
   emit("close");
 }
@@ -153,24 +117,16 @@ function openCreate() {
 }
 
 function openEdit(row: MoneyLogRow) {
-  editLogId.value = rowId(row);
+  editLogId.value = row.ID ?? row.logId;
   infoOpen.value = true;
 }
 
 async function removeLog(row: MoneyLogRow) {
-  const id = rowId(row);
+  const id = row.ID ?? row.logId;
   if (!id) return;
-  try {
-    await ElMessageBox.confirm("确认删除吗？", "删除记录", {
-      type: "warning",
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-    });
-    await deleteMoneyLog({ logId: id });
-    await loadLogs(pageIndex.value);
-  } catch {
-    /* cancelled */
-  }
+  if (!window.confirm("确认删除吗？")) return;
+  await deleteMoneyLog({ logId: id });
+  await loadLogs(pageIndex.value);
 }
 
 function editCredit() {
@@ -182,19 +138,17 @@ function editCredit() {
   void accountStore.saveAccounts();
 }
 
-async function onInfoSaved() {
+async function onInfoClosed() {
+  infoOpen.value = false;
+  editLogId.value = undefined;
   await loadLogs(pageIndex.value);
   await accountStore.loadAccounts();
 }
 </script>
 
 <template>
-  <el-dialog
-    v-model="visible"
-    :title="title"
-    width="800"
-    @closed="onClosed"
-  >
+  <!-- A8 MoneyView：子弹窗 MoneyInfoView 与主 el-dialog 并列，不可嵌套在 dialog 内 -->
+  <el-dialog v-model="visible" :title="title" width="800" append-to-body @closed="onClosed">
     <div v-if="account" class="report">
       <el-row>
         <el-col :span="4">
@@ -217,16 +171,11 @@ async function onInfoSaved() {
             title="当前余额"
             :value="account.balance ?? 0"
             :precision="0"
-            :prefix="String(account.currency || 'CNY')"
+            :prefix="account.currency || 'CNY'"
           />
         </el-col>
         <el-col :span="5">
-          <el-statistic
-            title="账号盈亏"
-            :value="accountProfit"
-            :precision="0"
-            prefix="￥"
-          />
+          <el-statistic title="账号盈亏" :value="accountProfit" :precision="0" prefix="￥" />
         </el-col>
       </el-row>
 
@@ -234,7 +183,7 @@ async function onInfoSaved() {
         <el-alert :title="account.description" type="info" show-icon />
       </div>
 
-      <MoneyRiskView :player-id="accountId" />
+      <MoneyRiskView :key="riskKey" :player-id="accountId" />
 
       <fieldset>
         <legend @click="openCreate">
@@ -250,26 +199,35 @@ async function onInfoSaved() {
           style="width: 100%"
           :row-class-name="tableRowClass"
         >
-          <el-table-column prop="logId" label="ID" width="60" align="center">
-            <template #default="{ row }">{{ rowId(row) }}</template>
-          </el-table-column>
+          <el-table-column prop="ID" label="ID" width="60" align="center" />
           <el-table-column label="操作类型" width="100" align="center">
             <template #default="{ row }">
-              <label :class="[rowType(row), { auto: rowIsAuto(row) }]">
-                {{ typeLabels[rowType(row)] || rowType(row) }}
+              <label
+                :class="[
+                  row.Type ?? row.type,
+                  { auto: (row.IsAuto ?? row.isAuto) === 1 },
+                ]"
+              >
+                {{ typeLabels[row.Type ?? row.type ?? ""] || row.Type || row.type }}
               </label>
             </template>
           </el-table-column>
           <el-table-column label="金额" width="100" align="center">
             <template #default="{ row }">
-              <label :class="['currency', rowCurrency(row)]">{{ rowMoney(row) }}</label>
+              <label :class="['currency', row.Currency ?? row.currency]">
+                {{ row.Money ?? row.money }}
+              </label>
             </template>
           </el-table-column>
           <el-table-column label="时间" width="150" align="center">
-            <template #default="{ row }">{{ formatDate(rowCreateAt(row)) }}</template>
+            <template #default="{ row }">
+              {{ formatDate(row.CreateAt ?? row.createAt ?? 0) }}
+            </template>
           </el-table-column>
-          <el-table-column label="备注信息" align="center">
-            <template #default="{ row }">{{ rowDescription(row) || "—" }}</template>
+          <el-table-column label="备注信息" prop="Description" align="center">
+            <template #default="{ row }">
+              {{ row.Description ?? row.description ?? row.Remark ?? "—" }}
+            </template>
           </el-table-column>
           <el-table-column label="操作" width="80" align="center" fixed="right">
             <template #default="{ row }">
@@ -291,7 +249,6 @@ async function onInfoSaved() {
 
         <div class="pageSplit flex flex-center">
           <el-pagination
-            v-if="total > pageSize"
             background
             layout="prev, pager, next"
             :total="total"
@@ -302,13 +259,15 @@ async function onInfoSaved() {
         </div>
       </fieldset>
     </div>
-
-    <MoneyInfoDialog
-      :open="infoOpen"
-      :player-id="accountId"
-      :log-id="editLogId"
-      @close="infoOpen = false"
-      @saved="onInfoSaved"
-    />
+    <el-empty v-else description="账号不存在或已删除" />
   </el-dialog>
+
+  <MoneyInfoDialog
+    v-if="infoOpen"
+    :open="infoOpen"
+    :player-id="accountId"
+    :log-id="editLogId"
+    @close="onInfoClosed"
+    @saved="onInfoClosed"
+  />
 </template>

@@ -1,22 +1,27 @@
 @echo off
 setlocal EnableDelayedExpansion
+chcp 65001 >nul 2>&1
 
-set "_P=4567"
-if defined MATCHER_UI_PORT set "_P=!MATCHER_UI_PORT!"
-cd /d "%~dp0"
+set "ROOT=%~dp0.."
+rem Windows Hyper-V 保留 3426-3525，本地勿用 3456（会 EACCES）
+set "_P=3560"
+set "PORT=3560"
+set "A8_AUTH=0"
+cd /d "%ROOT%\apps\backend"
 
 echo.
 echo ========================================
-echo   Gamebet Matcher UI - port !_P!
+echo   Gamebet Backend - port !_P!
 echo ========================================
-echo   http://localhost:!_P!/
+echo   App : http://localhost:!_P!/
+echo   Collect: browser / only
 echo.
 
 echo [1/2] Stop old process on port !_P! ...
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr "LISTENING" ^| findstr /C:":!_P! "') do (
   if not "%%a"=="0" taskkill /F /PID %%a >nul 2>&1
 )
-ping 127.0.0.1 -n 2 >nul
+ping 127.0.0.1 -n 3 >nul
 
 where npm >nul 2>&1
 if errorlevel 1 (
@@ -25,10 +30,10 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/2] npm start ...
-call npm start
+echo [2/2] npm run web ...
+call npm run web
 if errorlevel 1 (
-  echo ERROR: matcher UI failed.
+  echo ERROR: server failed.
   pause
   exit /b 1
 )

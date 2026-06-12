@@ -11,14 +11,18 @@ const props = defineProps<{
 const tags = ref<RiskTag[]>([]);
 
 onMounted(async () => {
-  const info = await getPlayerOrder({ playerId: props.playerId });
-  if (!info) return;
-  const account = useAccountStore().findAccount(props.playerId);
-  tags.value = executeMoneyRisk({
-    MoneyLog: info.logs ?? [],
-    Orders: info.orders ?? [],
-    Balance: account?.balance ?? 0,
-  });
+  try {
+    const info = await getPlayerOrder({ playerId: props.playerId });
+    if (!info) return;
+    const account = useAccountStore().findAccount(props.playerId);
+    tags.value = executeMoneyRisk({
+      MoneyLog: info.logs ?? [],
+      Orders: info.orders ?? [],
+      Balance: account?.balance ?? 0,
+    });
+  } catch {
+    tags.value = [];
+  }
 });
 </script>
 

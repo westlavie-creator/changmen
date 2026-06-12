@@ -2,7 +2,7 @@
 
 changmen 前端通过 `extension/bridge.ts` 与扩展通信，协议对齐 A8 的 `Zn`（`GET` / `POST` / `getStore` / `setStore` / `setTab` / `version` / `proxy`）。
 
-Mode P 启动：`parity-dev.bat` 或 `dev.bat`（浏览器 + 插件）。
+Mode P 启动：`BAT\parity-dev.bat` 或 `BAT\dev.bat`（浏览器 + 插件）。
 
 ## 固定扩展 ID
 
@@ -63,7 +63,7 @@ npm run icons               # 重新生成占位图标
 
 仓库根目录也可：`npm run chromeplug:pack`（输出在 `changmen/dist/`）。
 
-Windows 双击：`changmen/pack-chromeplug.bat`。
+Windows 双击：`changmen/BAT/pack-chromeplug.bat`。
 
 前端启动时会调用 `initGamebetExtension()`（`pluginBridge.ts`），将扩展版本写入 `localStorage.extensionVersion`，侧边栏 `ExtensionsBadge` 会显示该版本。
 

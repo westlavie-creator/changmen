@@ -2,8 +2,9 @@
 setlocal EnableDelayedExpansion
 chcp 65001 >nul 2>&1
 
+set "ROOT=%~dp0.."
 set "_V=5174"
-cd /d "%~dp0"
+cd /d "%ROOT%"
 
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr "LISTENING" ^| findstr /C:":5174 "') do (
   if not "%%a"=="0" taskkill /F /PID %%a >nul 2>&1

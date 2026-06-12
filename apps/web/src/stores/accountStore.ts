@@ -59,7 +59,8 @@ export const useAccountStore = defineStore("account", {
   actions: {
     findAccount(accountId?: number) {
       if (!accountId) return undefined;
-      return this.accounts.find((a) => a.accountId === accountId);
+      const id = Number(accountId);
+      return this.accounts.find((a) => Number(a.accountId) === id);
     },
 
     openCreateAccount() {

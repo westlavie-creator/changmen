@@ -1,5 +1,5 @@
 @echo off
-REM Copy to deploy-server.local.bat and edit if needed (Windows CMD cannot "call" .env files)
+REM Copy to BAT\deploy-server.local.bat and edit if needed (Windows CMD cannot "call" .env files)
 set "DEPLOY_USER=root"
 set "DEPLOY_HOST=47.82.100.166"
 set "DEPLOY_REPO=/root/gamebet"

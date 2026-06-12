@@ -21,13 +21,13 @@
 
 ## changmen 对齐实现
 
-- `app/src/components/user/CollectConfigPanel.vue`
+- `src/components/user/CollectConfigPanel.vue`
   - 默认锁定 + 双击「盘」解锁
   - 信用盘行 `div.credit.flex.flex-wrap` + `div.credit-game`（PB/TF/IM/OB/SABA，与 bundle 一致）
   - 图标/名称间距由 `a8.css`（22px / 6px）
-- `app/src/components/user/tabs/UserDiagCollectTab.vue`
+- `src/components/user/tabs/UserDiagCollectTab.vue`
   - 仅挂载 `CollectConfigPanel`，无额外包裹
-- `app/src/components/user/UserDiagDialog.vue`
+- `src/components/user/UserDiagDialog.vue`
   - `el-dialog` width=880、`show-close=false`、`border-card` tabs
   - 各 Tab 使用 Element Plus + bundle 语义 class
 

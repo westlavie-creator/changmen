@@ -105,7 +105,7 @@
 | 投注中 / 结果通知 | `Io.betting` | 已对齐 | `notification loading ${provider}` + `bettingDetailHtml` / `betToastSeconds` |
 | `Pr.tip` 补单/拒单 | 有 | 已对齐 | `a8Notify.a8Tip`（含 `<countdown>`） |
 | HG 采集 | `SQ` | 部分 | 无电竞赔率流；启用开关时 60s 刷 HG 账号余额；跟单见 `hgFollowLoop` |
-| Stake 下单 | 插件 GraphQL | **已对齐** | `stakeProvider` 完整实现；`pluginOnly` 需 Chrome 扩展 + stake.com 标签页（见 `platform_adapter/stake/README.md`） |
+| Stake 下单 | 插件 GraphQL | **已对齐** | `stakeProvider` 完整实现；`pluginOnly` 需 Chrome 扩展 + stake.com 标签页（见 `packages/platform-adapter/stake/README.md`） |
 
 ---
 
@@ -123,7 +123,7 @@
 ## 八、验收方式
 
 ```bash
-cd changmen/gamebet_frontend
+cd changmen/apps/web
 npm run app:dev
 # 新：http://localhost:5174/
 # 旧：http://localhost:3456/console/  （需 PATCH_CONSOLE=1 + 后端 3456）
@@ -132,7 +132,7 @@ npm run app:dev
 同屏对比：登录页、侧栏用户区、用户中心各 Tab、顶栏账号卡、赛事列表 BetRow、订单区。
 
 ```bash
-cd changmen/gamebet_frontend
+cd changmen/apps/web
 node scripts/audit-a8-parity.mjs
 # → docs/A8_PARITY_AUDIT_MACHINE.json
 ```

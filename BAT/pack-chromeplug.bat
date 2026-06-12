@@ -1,15 +1,15 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set "_ROOT=%~dp0"
-set "_PLUG=!_ROOT!apps\chrome-extension"
-set "_DIST=!_ROOT!dist"
+set "ROOT=%~dp0.."
+set "_PLUG=%ROOT%\apps\chrome-extension"
+set "_DIST=%ROOT%\dist"
 
 echo.
 echo ========================================
 echo   Gamebet Chrome plug pack
 echo ========================================
-echo   Output: !_DIST!
+echo   Output: %_DIST%
 echo.
 
 where npm >nul 2>&1
@@ -19,7 +19,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-cd /d "!_PLUG!"
+cd /d "%_PLUG%"
 if not exist "node_modules\" (
   echo [1/2] npm install ...
   call npm install
@@ -33,7 +33,7 @@ call npm run pack
 if errorlevel 1 goto fail
 
 echo.
-echo Done. Send zip from !_DIST!\gamebet-chromeplug-v*.zip to friends.
+echo Done. Send zip from %_DIST%\gamebet-chromeplug-v*.zip to friends.
 echo.
 pause
 exit /b 0

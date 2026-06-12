@@ -112,12 +112,24 @@ export interface OrderRow {
 }
 
 export interface MoneyLogRow {
+  logId?: number;
+  ID?: number;
   Id?: number;
+  playerId?: number;
   PlayerID?: number;
   Money?: number;
+  money?: number;
   Type?: string;
-  CreateAt?: number;
+  type?: string;
+  Currency?: string;
+  currency?: string;
+  Description?: string;
+  description?: string;
   Remark?: string;
+  IsAuto?: number;
+  isAuto?: number;
+  CreateAt?: number;
+  createAt?: number;
 }
 
 export interface UserProfitRow {

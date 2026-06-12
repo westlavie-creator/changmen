@@ -118,11 +118,65 @@ function deletePlayer(playerId, description) {
 
 function removeAccountFromKv() {}
 
+function parseCreateAt(value) {
+  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Date.parse(value.includes("T") ? value : value.replace(" ", "T"));
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return Date.now();
+}
+
+function resolveIsAuto(payload, description, type) {
+  if (type !== "Withdraw") return 0;
+  if (payload.isAuto === true || payload.isAuto === 1 || payload.IsAuto === 1) return 1;
+  return /\d+sec|\d+s$/i.test(description || "") ? 1 : 0;
+}
+
+/** A8 `Client_GetMoneyLog` / 表格行：PascalCase + 小写兼容字段 */
+function normalizeMoneyLogRow(row) {
+  if (!row) return null;
+  const logId = Number(row.logId ?? row.ID ?? row.id) || 0;
+  const type = row.type ?? row.Type ?? "Recharge";
+  const description = row.description ?? row.Description ?? row.Remark ?? "";
+  const currency = row.currency ?? row.Currency ?? "CNY";
+  const money = Number(row.money ?? row.Money) || 0;
+  const createAt = Number(row.createAt ?? row.CreateAt) || 0;
+  const isAuto =
+    row.isAuto === 1 ||
+    row.isAuto === true ||
+    row.IsAuto === 1 ||
+    (type === "Withdraw" && /\d+sec|\d+s$/i.test(description))
+      ? 1
+      : 0;
+  return {
+    logId,
+    ID: logId,
+    playerId: row.playerId ?? row.PlayerID,
+    PlayerID: row.playerId ?? row.PlayerID,
+    type,
+    Type: type,
+    money,
+    Money: money,
+    currency,
+    Currency: currency,
+    description,
+    Description: description,
+    Remark: description,
+    isAuto,
+    IsAuto: isAuto,
+    createAt,
+    CreateAt: createAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 function listMoneyLogs(playerId, pageIndex = 1, pageSize = 20) {
   const all = store.readJson(FILES.moneyLogs, {});
   const list = Object.values(all)
     .filter((row) => String(row.playerId) === String(playerId))
-    .sort((a, b) => (b.createAt || 0) - (a.createAt || 0));
+    .sort((a, b) => (b.createAt || 0) - (a.createAt || 0))
+    .map(normalizeMoneyLogRow);
 
   const start = (pageIndex - 1) * pageSize;
   return {
@@ -137,24 +191,28 @@ function listMoneyLogs(playerId, pageIndex = 1, pageSize = 20) {
 
 function getMoneyLog(logId) {
   const all = store.readJson(FILES.moneyLogs, {});
-  return all[String(logId)] || null;
+  return normalizeMoneyLogRow(all[String(logId)] || null);
 }
 
 function saveMoneyLog(payload) {
   const all = store.readJson(FILES.moneyLogs, {});
-  const logId = payload.logId || nextId(all);
+  const logId = payload.logId || payload.ID || nextId(all);
+  const type = payload.type ?? payload.Type ?? "Recharge";
+  const description = payload.description ?? payload.Description ?? "";
   const row = {
     logId,
-    playerId: payload.playerId,
-    type: payload.type || "Recharge",
-    money: Number(payload.money) || 0,
-    description: payload.description || "",
-    createAt: payload.createAt || Date.now(),
+    playerId: payload.playerId ?? payload.PlayerID,
+    type,
+    money: Number(payload.money ?? payload.Money) || 0,
+    currency: payload.currency ?? payload.Currency ?? "CNY",
+    description,
+    isAuto: resolveIsAuto(payload, description, type),
+    createAt: parseCreateAt(payload.createAt ?? payload.CreateAt),
     updatedAt: Date.now(),
   };
   all[String(logId)] = row;
   store.writeJson(FILES.moneyLogs, all);
-  return row;
+  return normalizeMoneyLogRow(row);
 }
 
 function deleteMoneyLog(logId) {

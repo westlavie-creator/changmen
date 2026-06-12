@@ -42,6 +42,9 @@ const visible = computed({
 function createFormFromConfig(src: UserConfig) {
   return {
     ...src,
+    // 与 A8 一致：文本框绑定，保存时再 Number()
+    minOdds: String(src.minOdds ?? ""),
+    checkTimeout: String(src.checkTimeout ?? 3000),
     providerSortValue: [...src.providerSortValue],
     providerFixed: [...src.providerFixed],
     allowSameBet: [...(src.allowSameBet ?? [])],
@@ -97,7 +100,8 @@ async function save() {
     minMoney: Number(form.minMoney) || 0,
     maxMoney: Number(form.maxMoney) || 0,
     minOdds: Number(form.minOdds) || 0,
-    maxOdds: Number(form.maxOdds) || 10,
+    maxOdds: Number(configStore.config.maxOdds) || 10,
+    checkTimeout: Number(form.checkTimeout) || 3000,
     betCount: Number(form.betCount) || 0,
     betInterval: Number(form.betInterval) || 30,
     anyOddsProfit: Number(form.anyOddsProfit) || 0.95,
@@ -120,7 +124,7 @@ async function save() {
   <el-dialog
     v-model="visible"
     title="参数配置"
-    width="420"
+    width="520"
     :close-on-press-escape="false"
     :close-on-click-modal="false"
   >
@@ -222,21 +226,17 @@ async function save() {
         </el-row>
       </el-form-item>
 
+      <!-- [A8 可证实] UserConfigView：最低赔率 + 检测超时（无全局最高赔率，见账号编辑） -->
       <el-form-item>
         <el-row>
-          <el-col :span="8">
+          <el-col :span="10">
             <el-form-item label="最低赔率" :label-width="LABEL_W">
-              <el-input v-model="form.minOdds" autocomplete="off" />
+              <el-input v-model="form.minOdds" type="text" autocomplete="off" />
             </el-form-item>
           </el-col>
-          <el-col :span="8">
-            <el-form-item label="最高赔率" :label-width="LABEL_W">
-              <el-input v-model="form.maxOdds" autocomplete="off" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
+          <el-col :span="14">
             <el-form-item label="检测超时" :label-width="LABEL_W">
-              <el-input v-model="form.checkTimeout" autocomplete="off">
+              <el-input v-model="form.checkTimeout" type="text" autocomplete="off">
                 <template #append>ms</template>
               </el-input>
             </el-form-item>
