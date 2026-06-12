@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
-/** 从任意 platform_adapter/backend 子目录向上查找 gamebet_backend 根 */
+/** 从任意 platform_adapter/backend 子目录向上查找 apps/backend 根 */
 function findBackendRoot(startDir) {
   let cur = startDir;
   for (let i = 0; i < 10; i++) {
@@ -19,25 +19,27 @@ function findBackendRoot(startDir) {
         /* ignore */
       }
     }
-    const sibling = path.join(cur, "gamebet_backend");
-    const siblingPkg = path.join(sibling, "package.json");
-    if (fs.existsSync(siblingPkg) && fs.existsSync(path.join(sibling, "core"))) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(siblingPkg, "utf8"));
-        if (pkg.name === "gamebet-backend") return sibling;
-      } catch {
-        /* ignore */
+    for (const rel of ["apps/backend", "gamebet_backend"]) {
+      const sibling = path.join(cur, rel);
+      const siblingPkg = path.join(sibling, "package.json");
+      if (fs.existsSync(siblingPkg) && fs.existsSync(path.join(sibling, "core"))) {
+        try {
+          const pkg = JSON.parse(fs.readFileSync(siblingPkg, "utf8"));
+          if (pkg.name === "gamebet-backend") return sibling;
+        } catch {
+          /* ignore */
+        }
       }
     }
     const parent = path.dirname(cur);
     if (parent === cur) break;
     cur = parent;
   }
-  throw new Error(`gamebet_backend root not found from ${startDir}`);
+  throw new Error(`apps/backend root not found from ${startDir}`);
 }
 
 export const BACKEND_ROOT = findBackendRoot(__dirname);
-export const SHARED_ROOT = path.join(path.dirname(BACKEND_ROOT), "packages", "shared");
+export const SHARED_ROOT = path.join(BACKEND_ROOT, "..", "..", "packages", "shared");
 export const BACKEND_NODE_MODULES = path.join(BACKEND_ROOT, "node_modules");
 
 export function reqB(...segments) {

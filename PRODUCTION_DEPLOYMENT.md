@@ -19,8 +19,8 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
                             ▼
 ┌─────────────────────────────────────────────────────────┐
 │ 服务端（一台或多实例）                                     │
-│  gamebet_backend  — esport-api、HTTP 代理、静态 /        │
-│  gamebet_matcher   — 循环写 client_matches               │
+│  apps/backend    — esport-api、HTTP 代理、静态 /          │
+│  apps/matcher    — 循环写 client_matches                 │
 │  Supabase          — platform_* / client_matches / orders  │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -38,11 +38,11 @@ Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `
 | 路径 | 服务 |
 |------|------|
 | `https://your-domain.com/` | 静态前端（`app:build` 产物） |
-| `https://your-domain.com/esport/*` | gamebet_backend |
+| `https://your-domain.com/esport/*` | apps/backend |
 | `https://your-domain.com/v4.0/*` | 平博 v4 透明代理（可选） |
 
 Nginx / Caddy 反代示例要点：
-- 静态 `/` 指向 `gamebet_frontend/dist/` 或由 Node 托管
+- 静态 `/` 指向 `apps/web/dist/` 或由 Node 托管
 
 **分离域名**（如 `app.example.com` + `api.example.com`）需额外网关把 `/esport` 代理到 API，或改前端为绝对 base URL（当前未内置 `VITE_API_BASE`，M2 前优先同源）。
 
@@ -54,9 +54,8 @@ Nginx / Caddy 反代示例要点：
 
 ```bash
 cd changmen
-npm install
-npm install --prefix gamebet_backend
-npm install --prefix gamebet_matcher
+npm install          # workspaces: apps/backend、apps/matcher、packages/*
+npm run app:install  # apps/web 依赖（首次）
 ```
 
 | 变量 | 生产 | 说明 |
@@ -68,7 +67,7 @@ npm install --prefix gamebet_matcher
 | `A8_V4_URL` | `https://api.a8.to/v4.0` | v4 上游 |
 | `NODE_ENV` | `production` | 常规 Node 约定 |
 
-HTTP 代理（按需，见 [gamebet_backend/proxy/README.md](./gamebet_backend/proxy/README.md)）：
+HTTP 代理（按需，见 [apps/backend/proxy/README.md](./apps/backend/proxy/README.md)）：
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
@@ -79,7 +78,7 @@ HTTP 代理（按需，见 [gamebet_backend/proxy/README.md](./gamebet_backend/p
 ### 3.2 数据库
 
 ```bash
-cd changmen/gamebet_backend
+cd changmen/apps/backend
 npx supabase db push
 ```
 
@@ -92,7 +91,7 @@ cd changmen
 npm run app:build
 ```
 
-产物在 `gamebet_frontend/dist/`；后端启动时会托管 `/`（见 `gamebet_backend/server.js`）。
+产物在 `apps/web/dist/`；后端启动时会托管 `/`（见 `apps/backend/server.js`）。
 
 ### 3.4 进程
 
@@ -100,7 +99,7 @@ npm run app:build
 
 ```bash
 # 1) API + 静态 + HTTP 代理
-cd changmen/gamebet_backend && npm run web
+cd changmen && npm run web
 
 # 2) 赛事合并（写 client_matches）
 cd changmen && npm run matcher:loop
@@ -123,12 +122,12 @@ cd changmen && npm run matcher:loop
 ### 4.1 访问方式
 
 - **浏览器**：打开 `https://your-domain.com/`，登录 Supabase 用户
-- **Chrome 插件**：操作员在 Chrome/Edge 安装 `gamebet_chromeplug`（见 4.2）。PB / Stake 采集与 v4 代发**依赖插件**。
+- **Chrome 插件**：操作员在 Chrome/Edge 安装 `apps/chrome-extension`（见 4.2）。PB / Stake 采集与 v4 代发**依赖插件**。
 
 ### 4.2 Chrome 插件
 
 ```bash
-cd changmen/gamebet_chromeplug
+cd changmen/apps/chrome-extension
 npm run build
 ```
 
@@ -188,7 +187,7 @@ npm run build
 - [ ] 选定生产域名并完成首次 `db push` + 双进程部署
 - [ ] 至少一台客户端连远程 API 登录成功
 
-M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [gamebet_frontend/docs/A8_WALKTHROUGH_CHECKLIST.md](./gamebet_frontend/docs/A8_WALKTHROUGH_CHECKLIST.md)。
+M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [apps/web/docs/A8_WALKTHROUGH_CHECKLIST.md](./apps/web/docs/A8_WALKTHROUGH_CHECKLIST.md)。
 
 ---
 
@@ -198,5 +197,5 @@ M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [gamebet_frontend/docs
 |------|------|
 | [readme.md](./readme.md) | 项目共识、目录 |
 | [CLAUDE.md](./CLAUDE.md) | 开发命令、Supabase 表 |
-| [gamebet_backend/README.md](./gamebet_backend/README.md) | API、HTTP 代理环境变量 |
+| [apps/backend/README.md](./apps/backend/README.md) | API、HTTP 代理环境变量 |
 | [scripts/README.md](./scripts/README.md) | `.bat` 脚本说明 |

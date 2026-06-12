@@ -17,14 +17,14 @@ function requireSupabaseJs() {
     searchPaths.push(path.join(process.resourcesPath, "app.asar", "node_modules"));
   }
   searchPaths.push(
-    path.join(__dirname, "..", "..", "gamebet_backend", "node_modules"),
+    path.join(__dirname, "..", "..", "apps", "backend", "node_modules"),
     path.join(__dirname, "..", "..", "node_modules"),
     path.join(__dirname, "..", "node_modules"),
   );
   return require(require.resolve("@supabase/supabase-js", { paths: searchPaths }));
 }
 
-// 由入口进程加载 .env（gamebet_matcher/rebuild、gamebet_backend/server.js 等）
+// 由入口进程加载 .env（apps/matcher、apps/backend/server.js 等）
 const { createClient } = requireSupabaseJs();
 
 const sbUrl = process.env.SUPABASE_URL;
@@ -37,7 +37,7 @@ function requireWsTransport() {
     const ws = require(
       require.resolve("ws", {
         paths: [
-          path.join(__dirname, "..", "..", "gamebet_backend", "node_modules"),
+          path.join(__dirname, "..", "..", "apps", "backend", "node_modules"),
           path.join(__dirname, "..", "..", "node_modules"),
         ],
       }),

@@ -9,16 +9,16 @@ const REGISTRY_ROOT = __dirname;
 const ADAPTER_ROOT = path.join(REGISTRY_ROOT, "..");
 
 function resolveBackendRoot() {
-  const monorepo = path.join(ADAPTER_ROOT, "..", "..", "gamebet_backend");
+  const monorepo = path.join(ADAPTER_ROOT, "..", "..", "apps", "backend");
   if (fs.existsSync(path.join(monorepo, "core"))) {
     return monorepo;
   }
-  const legacy = path.join(ADAPTER_ROOT, "..", "gamebet_backend");
+  const legacy = path.join(ADAPTER_ROOT, "..", "..", "gamebet_backend");
   if (fs.existsSync(path.join(legacy, "core"))) {
     return legacy;
   }
   throw new Error(
-    "gamebet_backend not found (expected changmen/gamebet_backend next to packages/)",
+    "apps/backend not found (expected changmen/apps/backend next to packages/)",
   );
 }
 

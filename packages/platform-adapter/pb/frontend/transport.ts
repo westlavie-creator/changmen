@@ -8,7 +8,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 
 /** 对齐 A8 `Zn`：PB 采集/下注仅扩展代发 */
 export const PB_PLUGIN_REQUIRED_MSG =
-  "平博 PB 需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/gamebet_chromeplug，或使用 Electron 启动（内嵌扩展）";
+  "平博 PB 需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/apps/chrome-extension，或使用 Electron 启动（内嵌扩展）";
 
 /** 对齐 A8 `Ly(account, path)` */
 export function pbGatewayUrl(account: Pick<PlatformAccount, "gateway">, path: string): string {

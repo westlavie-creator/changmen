@@ -14,7 +14,7 @@ echo   Web backend : http://localhost:!_P!/
 echo   Vite HMR    : http://localhost:!_V!/
 echo   API proxy   : Vite !_V! -^> backend !_P!/esport/*
 echo   Backend     : SKIP_APP_BUILD=1 (UI via Vite, skip preweb app:build)
-echo   Chrome      : load gamebet_chromeplug in chrome://extensions
+echo   Chrome      : load apps/chrome-extension in chrome://extensions
 echo.
 
 where npm >nul 2>&1

@@ -16,8 +16,8 @@ echo   Vite : http://localhost:!_V!/
 echo   API  : http://localhost:!_P!/
 echo.
 echo   A8 parity: browser saveMatch/saveBets + plugin (PB/Stake)
-echo   Before PB/Stake: cd gamebet_chromeplug ^&^& npm run build
-echo   Chrome: load unpacked extension from gamebet_chromeplug
+echo   Before PB/Stake: cd apps\chrome-extension ^&^& npm run build
+echo   Chrome: load unpacked extension from apps\chrome-extension
 echo.
 
 where npm >nul 2>&1

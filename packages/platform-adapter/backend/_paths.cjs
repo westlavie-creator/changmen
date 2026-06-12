@@ -19,25 +19,27 @@ function findBackendRoot(startDir) {
         /* ignore */
       }
     }
-    const sibling = path.join(cur, "gamebet_backend");
-    const siblingPkg = path.join(sibling, "package.json");
-    if (fs.existsSync(siblingPkg) && fs.existsSync(path.join(sibling, "core"))) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(siblingPkg, "utf8"));
-        if (pkg.name === "gamebet-backend") return sibling;
-      } catch {
-        /* ignore */
+    for (const rel of ["apps/backend", "gamebet_backend"]) {
+      const sibling = path.join(cur, rel);
+      const siblingPkg = path.join(sibling, "package.json");
+      if (fs.existsSync(siblingPkg) && fs.existsSync(path.join(sibling, "core"))) {
+        try {
+          const pkg = JSON.parse(fs.readFileSync(siblingPkg, "utf8"));
+          if (pkg.name === "gamebet-backend") return sibling;
+        } catch {
+          /* ignore */
+        }
       }
     }
     const parent = path.dirname(cur);
     if (parent === cur) break;
     cur = parent;
   }
-  throw new Error(`gamebet_backend root not found from ${startDir}`);
+  throw new Error(`apps/backend root not found from ${startDir}`);
 }
 
 const BACKEND_ROOT = findBackendRoot(__dirname);
-const SHARED_ROOT = path.join(path.dirname(BACKEND_ROOT), "shared");
+const SHARED_ROOT = path.join(BACKEND_ROOT, "..", "..", "packages", "shared");
 const BACKEND_NODE_MODULES = path.join(BACKEND_ROOT, "node_modules");
 
 function reqB(...segments) {

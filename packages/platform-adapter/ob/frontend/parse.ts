@@ -2,7 +2,7 @@
 
 export { num, parseObOddField, obBlockLabel } from "../shared/parse_fields";
 export { compileObBetNameRe as getObBetNameRe } from "../shared/save_bets";
-export { obLegacyWinBetName as obMainWinBetLabel } from "../../../shared/catalog/market_catalog.browser";
+export { obLegacyWinBetName as obMainWinBetLabel } from "@changmen/shared/catalog/market_catalog.browser";
 
 /**
  * Client_GetMatchs �?GameID（A8 a8GameId）→ OB 平台 game_id�? * 主盘选盘优先 odd_type_id（gameOddTypes），�?packages/shared/catalog/market_catalog.json�? */

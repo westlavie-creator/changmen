@@ -7,25 +7,25 @@
     "packages/platform-adapter",
     "packages/team-resolver",
     "packages/match-engine",
-    "gamebet_backend",
-    "gamebet_matcher"
+    "apps/backend",
+    "apps/matcher"
   ],
   "scripts": {
     "install:all": "npm install",
-    "patch:ui": "node gamebet_frontend/patch-ui-bundle.js",
-    "preweb": "node gamebet_backend/scripts/preweb.js",
-    "web": "npm run web --prefix gamebet_backend",
-    "web:restart": "npm run web:restart --prefix gamebet_backend",
-    "app:dev": "npm run dev --prefix gamebet_frontend",
-    "app:build": "npm run build --prefix gamebet_frontend",
-    "app:install": "npm install --prefix gamebet_frontend",
+    "patch:ui": "node apps/web/patch-ui-bundle.js",
+    "preweb": "node apps/backend/scripts/preweb.js",
+    "web": "npm run web --prefix apps/backend",
+    "web:restart": "npm run web:restart --prefix apps/backend",
+    "app:dev": "npm run dev --prefix apps/web",
+    "app:build": "npm run build --prefix apps/web",
+    "app:install": "npm install --prefix apps/web",
     "test": "npm run test:catalog-smoke && npm run test:backend && npm run test:frontend",
-    "test:backend": "npm run test --prefix gamebet_backend",
-    "test:frontend": "npm run test --prefix gamebet_frontend",
+    "test:backend": "npm run test --prefix apps/backend",
+    "test:frontend": "npm run test --prefix apps/web",
     "test:catalog-smoke": "node packages/shared/catalog/market_catalog_smoke.test.mjs && node packages/shared/catalog/game_catalog_smoke.test.mjs && node packages/shared/im_parse_smoke.test.mjs && node packages/shared/time/match_time_smoke.test.mjs",
-    "matcher:install": "npm install --prefix gamebet_matcher",
-    "matcher:ui": "npm run start --prefix gamebet_matcher",
-    "matcher:loop": "npm run matcher --prefix gamebet_matcher",
-    "chromeplug:pack": "npm run pack --prefix gamebet_chromeplug"
+    "matcher:install": "npm install --prefix apps/matcher",
+    "matcher:ui": "npm run start --prefix apps/matcher",
+    "matcher:loop": "npm run matcher --prefix apps/matcher",
+    "chromeplug:pack": "npm run pack --prefix apps/chrome-extension"
   }
 }

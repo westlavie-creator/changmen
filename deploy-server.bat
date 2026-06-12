@@ -18,8 +18,8 @@ if exist "%~dp0deploy-server.local.bat" call "%~dp0deploy-server.local.bat"
 
 set "REMOTE=%DEPLOY_USER%@%DEPLOY_HOST%"
 set "LOCAL_SCRIPT=%~dp0scripts\deploy-server-remote.sh"
-set "FRONTEND_DIST=%~dp0gamebet_frontend\dist"
-set "REMOTE_APP=%DEPLOY_REPO%/changmen/gamebet_frontend"
+set "FRONTEND_DIST=%~dp0apps\web\dist"
+set "REMOTE_APP=%DEPLOY_REPO%/changmen/apps/web"
 
 echo.
 echo ========================================

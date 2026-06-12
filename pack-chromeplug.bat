@@ -2,7 +2,7 @@
 setlocal EnableDelayedExpansion
 
 set "_ROOT=%~dp0"
-set "_PLUG=!_ROOT!gamebet_chromeplug"
+set "_PLUG=!_ROOT!apps\chrome-extension"
 set "_DIST=!_ROOT!dist"
 
 echo.

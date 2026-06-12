@@ -3,7 +3,7 @@ import { normalizeMatchesShape, setTeamPlugin } from "../merge/match_merge.js";
 import {
   alignUnmatchedToClientMatches,
   MERGE_START_TIME_TOLERANCE_MS,
-} from "../../../gamebet_matcher/ops/align_unmatched_to_client.js";
+} from "../../../apps/matcher/ops/align_unmatched_to_client.js";
 
 const START = 1_700_000_000_000;
 

@@ -10,7 +10,7 @@
  */
 
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "../gamebet_backend/.env") });
+require("dotenv").config({ path: path.join(__dirname, "../../apps/backend/.env") });
 
 const axios = require("axios");
 const { createClient } = require("@supabase/supabase-js");

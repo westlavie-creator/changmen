@@ -1,10 +1,10 @@
 @echo off
-REM 开发联调：从 example 复制 gamebet_backend/.env（浏览器 + 插件模式，非 Electron）
+REM 开发联调：从 example 复制 apps/backend/.env（浏览器 + 插件模式，非 Electron）
 setlocal
 
 set "ROOT=%~dp0"
-set "EXAMPLE=%ROOT%gamebet_backend\.env.example"
-set "DEST=%ROOT%gamebet_backend\.env"
+set "EXAMPLE=%ROOT%apps\backend\.env.example"
+set "DEST=%ROOT%apps\backend\.env"
 
 if exist "%DEST%" (
   echo OK: 已存在 %DEST%

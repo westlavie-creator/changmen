@@ -8,7 +8,7 @@
 |------|------|------|
 | **Web 后端** | `backend.bat` → `npm run web` → `server.js` | HTTP `/esport/*`、静态 `/`、WS relay |
 | **Vite 前端** | `dev-vite.bat` | 开发时 `5174/`，API 经 proxy 到 `3456` |
-| **Chrome 插件** | `gamebet_chromeplug` | PB/Stake 代发、凭证采集、v4 桥接 |
+| **Chrome 插件** | `apps/chrome-extension` | PB/Stake 代发、凭证采集、v4 桥接 |
 | **Matcher** | `npm run matcher:loop` | 合并 `client_matches` |
 
 平台实时 WS（OB/RAY/IA/TF）由浏览器 **直连** 各平台；PB/Stake 跨域请求经 **Chrome 扩展**。
@@ -21,18 +21,18 @@
 |------|------|
 | **`dev.bat`** | backend + Vite + matcher + Chrome 插件（推荐） |
 | **`dev-web.bat`** | 调用 `dev.bat`（文档别名） |
-| **`setup-dev-env.bat`** | 首次：从 `.env.example` 复制 `gamebet_backend/.env` |
+| **`setup-dev-env.bat`** | 首次：从 `.env.example` 复制 `apps/backend/.env` |
 | **`backend.bat`** | 仅 Web 后端（`npm run web`，端口 3456） |
 | **`parity-dev.bat`** | A8 parity：Web 后端 + Vite + matcher |
 | **`dev-vite.bat`** | 仅 Vite（由上述 bat 内部调用） |
 
-开发前在 Chrome 加载 `gamebet_chromeplug`（扩展 ID `mogfpjihgoghabicofkbcmcidlcoofee`）。
+开发前在 Chrome 加载 `apps/chrome-extension`（扩展 ID `mogfpjihgoghabicofkbcmcidlcoofee`）。
 
 Matcher 人工面板：
 
 | 方式 | 命令 |
 |------|------|
-| **`matcher-ui.bat`** 或 **`gamebet_matcher/start.bat`** | 双击 / 命令行启动 |
+| **`matcher-ui.bat`** 或 **`apps/matcher/start.bat`** | 双击 / 命令行启动 |
 | `npm run matcher:ui` | 同上（在 `changmen/` 下） |
 
 → http://localhost:3456/matcher/（主站集成）或 http://localhost:4567（`matcher:ui` 独立）
@@ -41,13 +41,13 @@ Matcher 人工面板：
 
 | 脚本 | 作用 |
 |------|------|
-| **`fix-im-stored-data.mjs`** | 修复 IM 历史存储（见 `gamebet_frontend/docs/platforms/IM.md`） |
+| **`fix-im-stored-data.mjs`** | 修复 IM 历史存储（见 `apps/web/docs/platforms/IM.md`） |
 
 ## 兼容别名
 
 | 旧名 | 现用 |
 |------|------|
-| `gamebet_backend/start-web.bat` | → `backend.bat` |
+| `gamebet_backend/start-web.bat`（已移除） | → `backend.bat` |
 
 ## 环境变量
 
@@ -82,4 +82,4 @@ Matcher 人工面板：
 - Vite 开发：`http://localhost:5174/`（前端 dev server，API proxy → 3456）
 - 服务端 API：`http://localhost:3456/esport/*`（须 `backend.bat` 或 `dev.bat` 已启动）
 
-架构说明见 [readme.md](../readme.md)、[gamebet_backend/README.md](../gamebet_backend/README.md)。
+架构说明见 [readme.md](../readme.md)、[apps/backend/README.md](../apps/backend/README.md)。

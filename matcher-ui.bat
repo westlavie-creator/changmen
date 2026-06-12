@@ -1,2 +1,2 @@
 @echo off
-call "%~dp0gamebet_matcher\start.bat"
+call "%~dp0apps\matcher\start.bat"

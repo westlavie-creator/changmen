@@ -1,0 +1,417 @@
+#app {
+  height: 100%;
+}
+
+.flex {
+  display: flex;
+}
+.flex-wrap {
+  flex-wrap: wrap;
+}
+.flex-between {
+  justify-content: space-between;
+}
+.flex-center {
+  justify-content: center;
+}
+.flex-middle {
+  align-items: center;
+}
+.flex-column {
+  flex-direction: column;
+}
+
+/* 对齐 A8：OB 平台角标（a8.css 亦有，此处保留 limit 样式邻近声明） */
+.provider-icon.OB {
+  background-image: url(/esport2/assets/D1aW4vdu.png);
+}
+
+.provider-icon.OB.limit {
+  outline: 2px solid #f59e0b;
+  outline-offset: -1px;
+}
+
+/* HomeView / 侧栏 / 登录（避免 scoped 覆盖 a8.css） */
+.home-view {
+  height: 100%;
+}
+.match-search {
+  margin-bottom: 8px;
+}
+.match-empty {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.admin-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0f172a;
+}
+.admin-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.95);
+}
+.admin-page__nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.admin-page__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.admin-page__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.admin-page__user-name {
+  font-size: 13px;
+  color: #94a3b8;
+}
+.admin-page__main {
+  flex: 1;
+  padding: 16px 20px 24px;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+.admin-panel {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 12px 14px 8px;
+}
+.admin-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.admin-panel__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.admin-panel__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-panel__overview {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+.admin-panel__users {
+  min-height: 0;
+}
+.admin-panel__section-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.admin-orders-page {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 12px 14px 14px;
+}
+.admin-page__main--orders {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.admin-stat {
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.admin-stat__label {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+.admin-stat__value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+.admin-stat__value.pos,
+.pos {
+  color: #4ade80;
+}
+.admin-stat__value.neg,
+.neg {
+  color: #f87171;
+}
+.admin-top {
+  margin-top: 8px;
+}
+.admin-top__title {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+.admin-user-detail {
+  padding: 12px;
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 8px;
+}
+.admin-user-detail__row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
+  overflow-x: auto;
+  min-height: 120px;
+}
+.admin-user-detail__col {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 6px;
+}
+.admin-user-detail__col--profile {
+  width: 168px;
+  flex-shrink: 0;
+}
+.admin-user-detail__col--setting {
+  width: 560px;
+  flex: 0 0 560px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.admin-user-detail__col--accounts {
+  flex: 1 1 640px;
+  min-width: 640px;
+  max-width: none;
+}
+.admin-user-detail__col--games {
+  width: 320px;
+  flex-shrink: 0;
+}
+.admin-user-detail__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 8px;
+}
+.admin-user-detail__meta {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.admin-user-detail__section-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+  flex-shrink: 0;
+}
+.admin-user-detail__empty,
+.admin-user-detail__hint {
+  font-size: 12px;
+  color: #94a3b8;
+  padding: 4px 0;
+}
+.admin-user-detail__hint {
+  margin-top: 12px;
+}
+.admin-user-detail__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+.admin-user-detail__stats strong {
+  color: #e2e8f0;
+  font-weight: 600;
+  margin-left: 2px;
+}
+.admin-user-detail__setting-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 12px;
+  font-size: 11px;
+}
+.admin-user-detail__kv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.admin-user-detail__kv-label {
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-user-detail__kv-value {
+  color: #e2e8f0;
+  word-break: break-word;
+  line-height: 1.35;
+}
+.admin-user-detail__table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+}
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 340px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.admin-users-list__item {
+  flex-shrink: 0;
+}
+.admin-orders-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.admin-orders-pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.app-hint {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+.app-hint--err {
+  color: #f87171;
+}
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+
+#app .el-aside > .app-sidebar,
+.common-layout .el-aside > .app-sidebar {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-sidebar > .date {
+  flex: 0 0 auto;
+}
+
+.app-sidebar > .orders {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.login-error {
+  margin: 0 0 8px;
+  color: #f56c6c;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 套利机会：红线连接对应赔率 */
+.bet .bet-items {
+  position: relative;
+}
+.bet .arb-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+.bet .arb-lines line {
+  stroke: #ff4d4f;
+  stroke-width: 2;
+}
+.item-odds.arb-leg {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 6px #ff4d4fcc inset;
+}
+.bet .arb-profit-badge {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px #0006;
+}
+
+/* 赔率涨跌 flash */
+@keyframes arrow-up {
+  0%, 100% { transform: translateY(0);   opacity: 1; }
+  50%       { transform: translateY(-3px); opacity: 0.6; }
+}
+@keyframes arrow-down {
+  0%, 100% { transform: translateY(0);   opacity: 1; }
+  50%       { transform: translateY(3px);  opacity: 0.6; }
+}
+.item-odds.odds-up   { background: #52c41acc; border-color: #237804; }
+.item-odds.odds-down { background: #ff4d4fcc; border-color: #a8071a; }
+.item-odds.odds-up::before   {
+  content: "▲"; position: absolute; top: 1px; left: 3px;
+  font-size: 14px; color: #092b00; line-height: 1;
+  animation: arrow-up 0.6s ease-in-out infinite;
+}
+.item-odds.odds-down::before {
+  content: "▼"; position: absolute; top: 1px; left: 3px;
+  font-size: 14px; color: #3b0014; line-height: 1;
+  animation: arrow-down 0.6s ease-in-out infinite;
+}
+/* 来源标签：M=MQTT  H=HTTP */
+.odds-src {
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+  vertical-align: super;
+  margin-left: 2px;
+  opacity: 0.75;
+}

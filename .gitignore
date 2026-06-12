@@ -26,6 +26,12 @@ desktop.ini
 
 # Secrets & local runtime data (do not commit)
 # data/esport/ 全是运行时数据，只跟踪 example 文件
+apps/backend/data/esport/*.json
+apps/backend/data/esport/*.b64
+!apps/backend/data/esport/*.example.json
+apps/backend/data/*.db
+apps/backend/data/*.db-shm
+apps/backend/data/*.db-wal
 gamebet_backend/data/esport/*.json
 gamebet_backend/data/esport/*.b64
 !gamebet_backend/data/esport/*.example.json
@@ -38,12 +44,15 @@ gamebet_backend/data/*.db-wal
 .env
 .env.*
 !.env.example
+apps/matcher/.matcher-heartbeat.json
 gamebet_matcher/.matcher-heartbeat.json
 
-# Gamebet extension signing key (public key is in gamebet_chromeplug/manifest.json)
+# Gamebet extension signing key (public key is in apps/chrome-extension/manifest.json)
+apps/chrome-extension/key.pem
 gamebet_chromeplug/key.pem
 
 # Chrome extension reverse-engineering scratch (local analysis only)
+apps/chrome-extension/scripts/_extracted/
 gamebet_chromeplug/scripts/_extracted/
 
 # Team name resolver runtime cache

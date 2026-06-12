@@ -15,10 +15,10 @@
  */
 
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "../../../gamebet_backend/.env") });
+require("dotenv").config({ path: path.join(__dirname, "../../../apps/backend/.env") });
 
 const { createClient } = require("@supabase/supabase-js");
-const { requirePlatform } = require("../../../gamebet_backend/core/shared/adapter_paths.js");
+const { requirePlatform } = require("../../../apps/backend/core/shared/adapter_paths.js");
 const { login, obGet } = requirePlatform("OB", "backend", "session.js");
 const { getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
 const { loadAndCreatePlugin } = require("../supabase_db.js");

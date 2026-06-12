@@ -6,7 +6,7 @@ import {
   getPlatformRules,
   obLegacyWinBetName,
   obMatchesOddTypeId,
-} from "../../../shared/catalog/market_catalog.browser";
+} from "@changmen/shared/catalog/market_catalog.browser";
 import { num, obBlockLabel, parseObOddField } from "./parse_fields";
 
 let cachedPattern: string | undefined;

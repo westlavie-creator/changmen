@@ -6,7 +6,7 @@
 
 0. **架构：客户端 / 服务端**
    - **客户端**：Vue 控制台 + Chrome 插件 — 连接各博彩平台、采集、下注。
-   - **服务端**：`gamebet_backend` + Supabase + `gamebet_matcher` — 收数、合并、鉴权、订单。
+   - **服务端**：`apps/backend` + Supabase + `apps/matcher` — 收数、合并、鉴权、订单。
    - 本仓库里的 `localhost` 与 `.bat` 是**开发联调**方式，不是产品形态「本地单机版」。
 
 1. **changmen 服务端 API 由 A8 前端反推**
@@ -28,7 +28,7 @@
 
 ## 工作目录
 
-**所有 `npm run`、`*.bat` 请在 `changmen/` 下执行**（本目录即应用根）。首次配置 Supabase：运行 `setup-dev-env.bat` 从 `.env.example` 生成 `gamebet_backend/.env` 后编辑。
+**所有 `npm run`、`*.bat` 请在 `changmen/` 下执行**（本目录即应用根）。首次配置 Supabase：运行 `setup-dev-env.bat` 从 `.env.example` 生成 `apps/backend/.env` 后编辑。
 
 若 Git 仓库根仍是上一级的 `gamebet/`，可在该目录执行 `npm run web`（根目录 `package.json` 会转发 npm 脚本）；**`.bat` 请进入 `changmen/` 再双击**。说明见 [scripts/README.md](./scripts/README.md)。
 
@@ -44,23 +44,24 @@
 
 「赛事采集」开关：仅控制是否 **回传** `SaveMatch`/`SaveBet`，不停止拉数或 fo。
 
-启动：`setup-dev-env.bat`（首次）→ `dev.bat` / `dev-web.bat` / `parity-dev.bat`。详见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
+启动：`setup-dev-env.bat`（首次）→ `dev.bat` / `dev-web.bat` / `parity-dev.bat`。详见 [apps/backend/README.md](./apps/backend/README.md)。
 
 ## 仓库结构
 
 | 目录 | 职责 |
 |------|------|
-| [`gamebet_frontend/`](./gamebet_frontend/) | **新控制台**（Vue 3 + Pinia）+ 参考 bundle、`/console/` 对照 |
-| [`gamebet_backend/`](./gamebet_backend/) | **服务端**：esport-api、WS relay、静态托管 |
-| [`gamebet_matcher/`](./gamebet_matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
-| [`gamebet_chromeplug/`](./gamebet_chromeplug/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
+| [`apps/web/`](./apps/web/) | **新控制台**（Vue 3 + Pinia）+ 参考 bundle、`/console/` 对照 |
+| [`apps/backend/`](./apps/backend/) | **服务端**：esport-api、WS relay、静态托管 |
+| [`apps/matcher/`](./apps/matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
+| [`apps/chrome-extension/`](./apps/chrome-extension/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
+| [`packages/`](./packages/) | 共享库：`shared`、`platform-adapter`、`match-engine`、`team-resolver` |
 | [`../A8/`](../A8/) | A8 原版参考（bundle + 官方插件拷贝，与 `changmen` 并列） |
 | [`../pingtai_offical/`](../pingtai_offical/) | 各平台官网抓包参考（可选） |
 
 ```bash
 cd changmen   # 若尚未在本目录
-npm install --prefix gamebet_backend
-npm install --prefix gamebet_frontend   # 新控制台依赖（首次）
+npm install          # workspaces：backend、matcher、packages
+npm run app:install  # web 依赖（首次）
 npm run web          # preweb + 启动 http://localhost:3560（Win）/ 3456
 npm run app:dev      # 新控制台 dev → http://localhost:5174/
 ```
@@ -72,13 +73,13 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/
 
 **生产部署**：[PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 
-迁移阶段与模块对照见 [gamebet_frontend/MIGRATION.md](./gamebet_frontend/MIGRATION.md)。后端 API 见 [gamebet_backend/README.md](./gamebet_backend/README.md)。
+迁移阶段与模块对照见 [apps/web/MIGRATION.md](./apps/web/MIGRATION.md)。后端 API 见 [apps/backend/README.md](./apps/backend/README.md)。Monorepo 结构见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)。
 
-**OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[gamebet_frontend/docs/platforms/A8_COMPARE_OB_RAY.md](./gamebet_frontend/docs/platforms/A8_COMPARE_OB_RAY.md)。
+**OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[apps/web/docs/platforms/A8_COMPARE_OB_RAY.md](./apps/web/docs/platforms/A8_COMPARE_OB_RAY.md)。
 
-**OB 复刻计划**（A8 前端基线 + changmen 标注）：[gamebet_frontend/docs/A8_OB_REPLICATE_PLAN.md](./gamebet_frontend/docs/A8_OB_REPLICATE_PLAN.md)。
+**OB 复刻计划**（A8 前端基线 + changmen 标注）：[apps/web/docs/A8_OB_REPLICATE_PLAN.md](./apps/web/docs/A8_OB_REPLICATE_PLAN.md)。
 
-**TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[gamebet_frontend/docs/platforms/A8_TF_LOGIC_PARITY.md](./gamebet_frontend/docs/platforms/A8_TF_LOGIC_PARITY.md)。
+**TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[apps/web/docs/platforms/A8_TF_LOGIC_PARITY.md](./apps/web/docs/platforms/A8_TF_LOGIC_PARITY.md)。
 
 平台采集 canonical 源码目录：`platform_adapter/{平台}/frontend/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 请以 `platform_adapter/` 为准。
 

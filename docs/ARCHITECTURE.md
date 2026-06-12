@@ -11,11 +11,11 @@ changmen/
 │   ├── platform-adapter/        # @changmen/platform-adapter — 各平台 frontend/backend + registry
 │   ├── match-engine/            # @changmen/match-engine — 跨平台合并核心
 │   └── team-resolver/           # 队名 canonical 映射 + 爬虫
-├── apps/                        # 可运行应用（计划）
-│   ├── backend/                 # 现 gamebet_backend — HTTP API、代理、静态托管
-│   ├── matcher/                 # 现 gamebet_matcher — 调度循环 + 人工关联 UI（瘦身后）
-│   ├── web/                     # 现 gamebet_frontend — Vue 控制台
-│   └── chrome-extension/        # 现 gamebet_chromeplug
+├── apps/                        # 可运行应用
+│   ├── backend/                 # HTTP API、代理、静态托管（原 gamebet_backend）
+│   ├── matcher/                 # 调度循环 + 人工关联 UI（原 gamebet_matcher）
+│   ├── web/                     # Vue 控制台（原 gamebet_frontend）
+│   └── chrome-extension/        # MV3 扩展（原 gamebet_chromeplug）
 └── docs/                        # 架构与设计文档（本目录）
 ```
 
@@ -27,8 +27,8 @@ changmen/
 | 2 | `platform_adapter` → `packages/platform-adapter` | ✅ 完成 |
 | 3 | `team-resolver` → `packages/team-resolver` | ✅ 完成 |
 | 4 | `gamebet_matcher/engine` → `packages/match-engine` | ✅ 完成 |
-| 5 | `gamebet_*` → `apps/*` 重命名 | ⏳ 待做 |
-| 6 | 根脚本 / `*.bat` / 部署文档统一到 `apps/` 路径 | ⏳ 随阶段 5 |
+| 5 | `gamebet_*` → `apps/*` 重命名 | ✅ 完成 |
+| 6 | 根脚本 / `*.bat` / 部署文档统一到 `apps/` 路径 | 🔄 进行中（`PRODUCTION_DEPLOYMENT.md`、`deploy-server-remote.sh`、`scripts/README.md` 已更新；`apps/web/docs/*` 历史文档仍含旧路径） |
 
 旧路径在阶段 5 之前仍可能出现在历史文档中；**以代码里 `adapter_paths.js` / `package.json` 为准**。
 
@@ -58,9 +58,9 @@ npm workspace 成员；matcher/backend 通过相对路径或 workspace 引用。
 ### `packages/platform-adapter` (`@changmen/platform-adapter`)
 
 各平台采集与下注的 canonical 源码。前端通过 Vite 别名 `@platform` 引用。  
-后端通过 `gamebet_backend/core/shared/adapter_paths.js` 的 `getAdapterRoot()` 解析：
+后端通过 `apps/backend/core/shared/adapter_paths.js` 的 `getAdapterRoot()` 解析：
 
-1. `gamebet_backend/platform_adapter`（部署拷贝）
+1. `apps/backend/platform_adapter`（部署拷贝）
 2. `changmen/packages/platform-adapter`（开发）
 
 ### `packages/team-resolver`
@@ -71,16 +71,16 @@ npm workspace 成员；matcher/backend 通过相对路径或 workspace 引用。
 ### `packages/match-engine` (`@changmen/match-engine`)
 
 `match_merge`、`bet_builder`、`im_enrich`、队名工具、`client_match_ids` 与 vitest/node:test 套件。  
-`gamebet_matcher`（未来 `apps/matcher`）通过 `../../packages/match-engine` 引用；测试：`npm run test --prefix packages/match-engine`。
+`apps/matcher` 通过 `../../../packages/match-engine` 引用；测试：`npm run test --prefix packages/match-engine`。
 
-## apps 说明（当前路径 → 目标）
+## apps 说明
 
-| 当前 | 目标 | 职责 |
-|------|------|------|
-| `gamebet_backend` | `apps/backend` | `server.js`、`/esport/*` API、HTTP 代理、静态资源 |
-| `gamebet_matcher` | `apps/matcher` | 30s rebuild、matcher UI、`/matcher/*` |
-| `gamebet_frontend` | `apps/web` | Vue 3 + Vite，端口 5174（开发） |
-| `gamebet_chromeplug` | `apps/chrome-extension` | MV3 跨域代理与凭证捕获 |
+| 路径 | 职责 |
+|------|------|
+| `apps/backend` | `server.js`、`/esport/*` API、HTTP 代理、静态资源 |
+| `apps/matcher` | 30s rebuild、matcher UI、`/matcher/*` |
+| `apps/web` | Vue 3 + Vite，端口 5174（开发） |
+| `apps/chrome-extension` | MV3 跨域代理与凭证捕获 |
 
 ## 数据流（不变）
 
@@ -92,6 +92,6 @@ matcher rebuild → client_matches → Client_GetMatchs → web
 ## 相关文档
 
 - [../CLAUDE.md](../CLAUDE.md) — 命令、表结构、采集间隔
-- [../gamebet_backend/GAMES.md](../gamebet_backend/GAMES.md) — 游戏 catalog
-- [../gamebet_backend/MARKETS.md](../gamebet_backend/MARKETS.md) — 玩法选盘
+- [../apps/backend/GAMES.md](../apps/backend/GAMES.md) — 游戏 catalog
+- [../apps/backend/MARKETS.md](../apps/backend/MARKETS.md) — 玩法选盘
 - [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) — 生产部署

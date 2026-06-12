@@ -4,7 +4,7 @@ import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@/extension/bridg
 import type { CollectPlatformInfo } from "@/types/esport";
 
 export const IA_PLUGIN_REQUIRED_MSG =
-  "IA 采集需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/gamebet_chromeplug，或使用 Electron 启动（内嵌扩展）";
+  "IA 采集需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/apps/chrome-extension，或使用 Electron 启动（内嵌扩展）";
 
 function iaGatewayUrl(platform: CollectPlatformInfo, path: string): string {
   const base = (platform.Gateway || "").replace(/\/+$/, "");

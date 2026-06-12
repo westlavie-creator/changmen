@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BACKEND_ROOT } from "../../backend/_paths.js";
-import { ESPORT_DATA_DIR } from "../../../../gamebet_backend/core/shared/storage_paths.js";
+import { ESPORT_DATA_DIR } from "../../../../apps/backend/core/shared/storage_paths.js";
 import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
@@ -45,8 +45,8 @@ function mergeInnerTokenHeaders(headers, outer) {
 }
 
 /**
- * 与 A8 bundle P0() 相同：account.token 为 JSON 字符串。
- * 会话后缀（515 / 1228 等）从 x-app-data 动态识别。
+ * ?? A8 bundle P0() ?????account.token ? JSON ???????
+ * ???????515 / 1228 ????? x-app-data ??????
  */
 export function buildAuthHeaders(session, extra = {}) {
   if (!session?.token) return null;
@@ -85,7 +85,7 @@ export function buildAuthHeaders(session, extra = {}) {
     }
     return { ...headers, ...extra };
   } catch (err) {
-    throw new Error(`PB token 解析失败: ${err.message}`);
+    throw new Error(`PB token ???????: ${err.message}`);
   }
 }
 
@@ -128,16 +128,16 @@ function loadFromEnv() {
   };
 }
 
-/** 仅读 platforms.json（下注账号 / import-platform 写入），不读 PB_GATEWAY/PB_TOKEN 环境变量 */
+/** ???? platforms.json???????? / import-platform д???????? PB_GATEWAY/PB_TOKEN ???????? */
 export function loadPlatformsJsonSession() {
   const session = loadFromPlatformsJson();
   if (!session) {
     throw new Error(
-      "缺少 PB 凭证：请用 npm run account:import-platform -- <插件data> 写入 gamebet_backend/data/esport/platforms.json",
+      "??? PB ???????? npm run account:import-platform -- <???data> д?? gamebet_backend/data/esport/platforms.json",
     );
   }
   if (!buildAuthHeaders(session)) {
-    throw new Error("PB token 无效，需为含 x-app-data / BrowserSessionId_* 的 JSON 字符串");
+    throw new Error("PB token ??Ч??????? x-app-data / BrowserSessionId_* ?? JSON ?????");
   }
   return session;
 }
@@ -146,11 +146,11 @@ export function loadSession() {
   const session = loadFromEnv() || loadFromPlatformsJson();
   if (!session) {
     throw new Error(
-      "缺少 PB 凭证：设置 PB_GATEWAY + PB_TOKEN，或在 gamebet_backend/data/esport/platforms.json 配置 PB",
+      "??? PB ???????? PB_GATEWAY + PB_TOKEN?????? gamebet_backend/data/esport/platforms.json ???? PB",
     );
   }
   if (!buildAuthHeaders(session)) {
-    throw new Error("PB token 无效，需为含 x-app-data / BrowserSessionId_* 的 JSON 字符串");
+    throw new Error("PB token ??Ч??????? x-app-data / BrowserSessionId_* ?? JSON ?????");
   }
   return session;
 }
@@ -201,7 +201,7 @@ function balanceUrl(session) {
 
 async function pbFetch(session, url, options = {}) {
   const headers = buildAuthHeaders(session, options.headers || {});
-  if (!headers) throw new Error("无法构建 PB 请求头");
+  if (!headers) throw new Error("??????? PB ?????");
 
   const res = await fetch(url, {
     method: options.method || "GET",
@@ -215,7 +215,7 @@ async function pbFetch(session, url, options = {}) {
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
-    throw new Error(`PB 响应非 JSON (${res.status}): ${text.slice(0, 200)}`);
+    throw new Error(`PB ????? JSON (${res.status}): ${text.slice(0, 200)}`);
   }
 
   if (!res.ok) {
@@ -243,7 +243,7 @@ export async function fetchBalance(session, options = {}) {
     throw new Error(data.message || "PB balance failed");
   }
   if (data?.betCredit == null && data?.success !== true) {
-    throw new Error("PB balance 响应无效");
+    throw new Error("PB balance ?????Ч");
   }
   return {
     balance: (Number(data.betCredit) || 0) * multiply,
@@ -252,7 +252,7 @@ export async function fetchBalance(session, options = {}) {
   };
 }
 
-/** PB token 外层 `a` 字段（base64 JSON）里缓存的 betCredit，会话失效时可作展示回退 */
+/** PB token ??? `a` ??Σ?base64 JSON??????? betCredit?????Ч??????????? */
 export function parsePbTokenBalance(token) {
   if (!token) return null;
   try {

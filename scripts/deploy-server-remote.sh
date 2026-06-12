@@ -15,7 +15,7 @@ elapsed() { echo "==> done in $((SECONDS - t0))s total"; }
 if [ -f "$ROOT/changmen/package.json" ]; then
   GIT_ROOT="$ROOT"
   CHANGMEN="$ROOT/changmen"
-elif [ -f "$ROOT/package.json" ] && [ -d "$ROOT/gamebet_backend" ]; then
+elif [ -f "$ROOT/package.json" ] && { [ -d "$ROOT/apps/backend" ] || [ -d "$ROOT/gamebet_backend" ]; }; then
   GIT_ROOT="$ROOT"
   CHANGMEN="$ROOT"
 else
@@ -59,8 +59,6 @@ pull_repo
 NEW_HEAD="$(git rev-parse HEAD)"
 
 DO_INSTALL_ROOT=0
-DO_INSTALL_BACKEND=0
-DO_INSTALL_MATCHER=0
 DO_INSTALL_FRONTEND=0
 DO_APP_BUILD=0
 DO_PM2_WEB=0
@@ -71,34 +69,36 @@ classify() {
   local p="${raw#changmen/}"
 
   case "$p" in
-    package.json|package-lock.json|shared/*)
+    package.json|package-lock.json)
       DO_INSTALL_ROOT=1
-      DO_INSTALL_BACKEND=1
       DO_PM2_WEB=1
       DO_PM2_MATCHER=1
       ;;
-    gamebet_backend/*)
-      DO_INSTALL_BACKEND=1
+    packages/*|shared/*)
+      DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      ;;
-    gamebet_matcher/*)
-      DO_INSTALL_MATCHER=1
       DO_PM2_MATCHER=1
       ;;
-    gamebet_frontend/*)
+    apps/backend/*|gamebet_backend/*)
+      DO_INSTALL_ROOT=1
+      DO_PM2_WEB=1
+      ;;
+    apps/matcher/*|gamebet_matcher/*)
+      DO_INSTALL_ROOT=1
+      DO_PM2_MATCHER=1
+      ;;
+    apps/web/*|gamebet_frontend/*)
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       DO_PM2_WEB=1
       ;;
-    gamebet_chromeplug/*|pack-chromeplug.bat|deploy-server.bat|deploy-server.env.example|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
+    apps/chrome-extension/*|gamebet_chromeplug/*|pack-chromeplug.bat|deploy-server.bat|deploy-server.env.example|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
       ;;
     *.md|.gitignore)
       ;;
     *)
       log "unknown change: $raw (running full deploy for safety)"
       DO_INSTALL_ROOT=1
-      DO_INSTALL_BACKEND=1
-      DO_INSTALL_MATCHER=1
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       DO_PM2_WEB=1
@@ -109,8 +109,6 @@ classify() {
 
 if [ "$DEPLOY_FULL" = "1" ]; then
   DO_INSTALL_ROOT=1
-  DO_INSTALL_BACKEND=1
-  DO_INSTALL_MATCHER=1
   DO_INSTALL_FRONTEND=1
   DO_APP_BUILD=1
   DO_PM2_WEB=1
@@ -137,17 +135,9 @@ if [ "$DO_INSTALL_ROOT" = "1" ]; then
   log "npm install (changmen workspaces)"
   npm install
 fi
-if [ "$DO_INSTALL_BACKEND" = "1" ]; then
-  log "npm install gamebet_backend"
-  npm install --prefix gamebet_backend
-fi
-if [ "$DO_INSTALL_MATCHER" = "1" ]; then
-  log "npm install gamebet_matcher"
-  npm install --prefix gamebet_matcher
-fi
 if [ "$DO_INSTALL_FRONTEND" = "1" ]; then
-  log "npm install gamebet_frontend"
-  npm install --prefix gamebet_frontend
+  log "npm run app:install (apps/web)"
+  npm run app:install
 fi
 
 if [ "$DO_APP_BUILD" = "1" ]; then
