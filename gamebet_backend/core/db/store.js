@@ -1,4 +1,4 @@
-import * as sb from "../../../shared/db/supabase.js";
+import * as sb from "../../../packages/shared/db/supabase.js";
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
 const _cache = new Map();

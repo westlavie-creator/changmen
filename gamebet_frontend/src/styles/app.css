@@ -83,9 +83,9 @@
 .admin-page__main {
   flex: 1;
   padding: 16px 20px 24px;
-  max-width: 1400px;
+  max-width: none;
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
   box-sizing: border-box;
 }
 .admin-panel {
@@ -110,6 +110,31 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.admin-panel__overview {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+.admin-panel__users {
+  min-height: 0;
+}
+.admin-panel__section-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.admin-orders-page {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 12px 14px 14px;
+}
+.admin-page__main--orders {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .admin-stats {
   display: grid;
@@ -149,15 +174,127 @@
   margin-bottom: 6px;
 }
 .admin-user-detail {
-  margin-top: 12px;
-  padding: 10px;
-  background: rgba(30, 41, 59, 0.5);
+  padding: 12px;
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 8px;
+}
+.admin-user-detail__row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
+  overflow-x: auto;
+  min-height: 120px;
+}
+.admin-user-detail__col {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 6px;
 }
+.admin-user-detail__col--profile {
+  width: 168px;
+  flex-shrink: 0;
+}
+.admin-user-detail__col--setting {
+  width: 560px;
+  flex: 0 0 560px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.admin-user-detail__col--accounts {
+  flex: 1 1 640px;
+  min-width: 640px;
+  max-width: none;
+}
+.admin-user-detail__col--games {
+  width: 320px;
+  flex-shrink: 0;
+}
 .admin-user-detail__title {
-  font-size: 13px;
-  color: #cbd5e1;
+  font-size: 15px;
+  font-weight: 600;
+  color: #e2e8f0;
   margin-bottom: 8px;
+}
+.admin-user-detail__meta {
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.admin-user-detail__section-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+  flex-shrink: 0;
+}
+.admin-user-detail__empty,
+.admin-user-detail__hint {
+  font-size: 12px;
+  color: #94a3b8;
+  padding: 4px 0;
+}
+.admin-user-detail__hint {
+  margin-top: 12px;
+}
+.admin-user-detail__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+.admin-user-detail__stats strong {
+  color: #e2e8f0;
+  font-weight: 600;
+  margin-left: 2px;
+}
+.admin-user-detail__setting-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 12px;
+  font-size: 11px;
+}
+.admin-user-detail__kv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.admin-user-detail__kv-label {
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-user-detail__kv-value {
+  color: #e2e8f0;
+  word-break: break-word;
+  line-height: 1.35;
+}
+.admin-user-detail__table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-x: auto;
+}
+.admin-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 340px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.admin-users-list__item {
+  flex-shrink: 0;
 }
 .admin-orders-filters {
   display: flex;

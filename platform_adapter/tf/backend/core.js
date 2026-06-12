@@ -1,4 +1,4 @@
-﻿import { matchesMarketCode, getPlatformRules } from "../../../shared/catalog/market_catalog.mjs";
+﻿import { matchesMarketCode, getPlatformRules } from "../../../packages/shared/catalog/market_catalog.mjs";
 import { getGameCode, getGameName } from "./game_ids.js";
 
 export function sleep(ms) {

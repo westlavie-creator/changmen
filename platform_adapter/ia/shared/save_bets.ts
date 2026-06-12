@@ -1,7 +1,7 @@
 import type { CollectBetDto } from "@/types/collect";
 import type { PlatformId } from "@/types/esport";
 import { PLATFORMS } from "@/shared/platform";
-import { iaLegacyWinBetName } from "../../../shared/catalog/market_catalog.browser";
+import { iaLegacyWinBetName } from "../../../packages/shared/catalog/market_catalog.browser";
 import { betKeyFromChild, iaChildLocked, parseIaPoint } from "./parse_fields";
 
 /** 与 market_catalog.mjs iaLegacyWinBetName 一致；保留别名供外部测试引用 */

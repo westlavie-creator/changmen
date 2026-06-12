@@ -37,14 +37,14 @@ function findBackendRoot(startDir) {
 }
 
 export const BACKEND_ROOT = findBackendRoot(__dirname);
-export const SHARED_ROOT = path.join(path.dirname(BACKEND_ROOT), "shared");
+export const SHARED_ROOT = path.join(path.dirname(BACKEND_ROOT), "packages", "shared");
 export const BACKEND_NODE_MODULES = path.join(BACKEND_ROOT, "node_modules");
 
 export function reqB(...segments) {
   return require(path.join(BACKEND_ROOT, ...segments));
 }
 
-/** changmen/shared — game_catalog、market_catalog、im_parse 等 */
+/** changmen/packages/shared — game_catalog、market_catalog、im_parse 等 */
 export function reqS(...segments) {
   return require(path.join(SHARED_ROOT, ...segments));
 }

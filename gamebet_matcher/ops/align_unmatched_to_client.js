@@ -1,5 +1,5 @@
-import { resolveClientGame, getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs";
-import { normalizeEpochMs } from "../../shared/time/match_time.mjs";
+import { resolveClientGame, getGameCodeForPlatformId } from "../../packages/shared/catalog/game_catalog.mjs";
+import { normalizeEpochMs } from "../../packages/shared/time/match_time.mjs";
 import {
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,

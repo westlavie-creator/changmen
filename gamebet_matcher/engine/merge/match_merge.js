@@ -37,8 +37,8 @@ import {
   buildTeamEnrichIndex, enrichImMatch, imMatchIsStale, collapseImClientRows,
 } from "./im_enrich.js";
 import { buildBetsForMatch } from "./bet_builder.js";
-import { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } from "../../../shared/catalog/game_catalog.mjs";
-import { normalizeEpochMs, a8StartTimeListAllowed } from "../../../shared/time/match_time.mjs";
+import { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
+import { normalizeEpochMs, a8StartTimeListAllowed } from "../../../packages/shared/time/match_time.mjs";
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 

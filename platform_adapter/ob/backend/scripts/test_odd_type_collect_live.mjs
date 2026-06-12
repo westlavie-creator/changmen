@@ -13,13 +13,13 @@
 
 import * as Core from "../core.js";
 import { obGet, pickGateway } from "../session.js";
-import { getGameCodeForPlatformId } from "../../../../shared/catalog/game_catalog.mjs";
+import { getGameCodeForPlatformId } from "../../../../packages/shared/catalog/game_catalog.mjs";
 import {
   getDefaultMarketCode,
   getPlatformRules,
   obLegacyWinBetName,
   obMatchesOddTypeId,
-} from "../../../../shared/catalog/market_catalog.mjs";
+} from "../../../../packages/shared/catalog/market_catalog.mjs";
 
 const BET_RE = new RegExp(
   "(\\[全场\\].+获胜)|(\\[地图\\d+\\].+获胜)|(.+全局.+获胜)|(.+单局.+获胜)",

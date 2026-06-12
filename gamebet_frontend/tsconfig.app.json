@@ -34,8 +34,8 @@
     "../platform_adapter/**/frontend/**/*.ts",
     "../platform_adapter/ray/shared/**/*.ts",
     "../platform_adapter/ob/shared/**/*.ts",
-    "../shared/catalog/market_catalog.browser.ts",
-    "../shared/catalog/game_catalog.browser.ts",
+    "../packages/shared/catalog/market_catalog.browser.ts",
+    "../packages/shared/catalog/game_catalog.browser.ts",
     "../platform_adapter/shared/**/*.ts",
     "../platform_adapter/registry/**/*.ts",
     "../platform_adapter/contract/**/*.ts"

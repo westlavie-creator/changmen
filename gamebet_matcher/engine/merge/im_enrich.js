@@ -6,15 +6,15 @@
  */
 
 import { isPlaceholderTeamName } from "../teams/match_utils.js";
-import { getGameCodeForPlatformId, getPlatformGameId } from "../../../shared/catalog/game_catalog.mjs";
-import { matchesSavedBet } from "../../../shared/catalog/market_catalog.mjs";
-import { pickStr, imBetNameIsCollectible, normalizeImBet } from "../../../shared/im_parse.mjs";
+import { getGameCodeForPlatformId, getPlatformGameId } from "../../../packages/shared/catalog/game_catalog.mjs";
+import { matchesSavedBet } from "../../../packages/shared/catalog/market_catalog.mjs";
+import { pickStr, imBetNameIsCollectible, normalizeImBet } from "../../../packages/shared/im_parse.mjs";
 import {
   IM_ODDS_ACTIVE_MS,
   A8_MATCH_MAX_FUTURE_MS,
   normalizeEpochMs,
   a8StartTimeListAllowed,
-} from "../../../shared/time/match_time.mjs";
+} from "../../../packages/shared/time/match_time.mjs";
 
 const IM_ENRICH_WINDOW_MS = 3 * 60 * 60 * 1000;
 

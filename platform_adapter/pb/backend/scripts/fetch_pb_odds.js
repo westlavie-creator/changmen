@@ -1,5 +1,5 @@
 ﻿#!/usr/bin/env node
-import { describePlatformGame } from "../../../../shared/catalog/game_catalog.mjs";
+import { describePlatformGame } from "../../../../packages/shared/catalog/game_catalog.mjs";
 import { parseEuroOddsPayload } from "../core.js";
 import { loadSession, fetchEuroOdds, fetchBalance, buildAuthHeaders } from "../session.js";
 

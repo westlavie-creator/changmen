@@ -45,7 +45,7 @@ if (typeof marketCatalog.getDefaultMarketCode !== "function") {
   throw new Error("shared/catalog/market_catalog.mjs did not export getDefaultMarketCode");
 }
 const sharedRoot = paPaths.SHARED_ROOT;
-const expectedShared = path.join(path.dirname(backendRoot), "shared");
+const expectedShared = path.join(path.dirname(backendRoot), "packages", "shared");
 if (path.resolve(sharedRoot) !== path.resolve(expectedShared)) {
   throw new Error(`SHARED_ROOT mismatch: ${sharedRoot} vs ${expectedShared}`);
 }
@@ -54,7 +54,7 @@ console.log("shared root:", sharedRoot);
 // 模拟 Electron：shared 在 resources/ 外，@supabase 在 app.asar/node_modules
 const fakeResources = path.join(backendRoot, "scripts", ".tmp-packaged-resources");
 const asarModules = path.join(fakeResources, "app.asar", "node_modules");
-const clientPath = path.join(path.dirname(backendRoot), "shared", "db", "client.js");
+const clientPath = path.join(path.dirname(backendRoot), "packages", "shared", "db", "client.js");
 try {
   fs.mkdirSync(asarModules, { recursive: true });
   const linkTarget = path.join(backendRoot, "node_modules", "@supabase");

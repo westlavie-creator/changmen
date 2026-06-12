@@ -23,6 +23,12 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
+      path: "/admin/orders",
+      name: "admin-orders",
+      component: () => import("@/views/AdminOrdersView.vue"),
+      meta: { requiresAdmin: true },
+    },
+    {
       path: "/console/:pathMatch(.*)*",
       name: "console-redirect",
       component: () => import("@/views/ConsoleRedirectView.vue"),

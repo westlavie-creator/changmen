@@ -8,7 +8,7 @@ import {
   providerPriority,
   teamsFromPlatformRows,
 } from "../engine/index.js";
-import { resolveClientGame, getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs";
+import { resolveClientGame, getGameCodeForPlatformId } from "../../packages/shared/catalog/game_catalog.mjs";
 import { rebuildOnce } from "../ops/rebuild.js";
 
 /**

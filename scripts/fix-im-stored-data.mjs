@@ -11,16 +11,16 @@ const require = createRequire(import.meta.url);
 const {
   normalizeImBet,
   imBetNameIsCollectible,
-} = require("../shared/im_parse.mjs");
+} = require("../packages/shared/im_parse.mjs");
 const {
   IM_ODDS_ACTIVE_MS,
   normalizeEpochMs,
   a8StartTimeListAllowed,
-} = require("../shared/time/match_time.mjs");
+} = require("../packages/shared/time/match_time.mjs");
 const {
   getGameCodeForPlatformId,
   getPlatformGameId,
-} = require("../shared/catalog/game_catalog.mjs");
+} = require("../packages/shared/catalog/game_catalog.mjs");
 
 const dataDir = path.join(__dirname, "../gamebet_backend/data/esport");
 const betsPath = path.join(dataDir, "bets.json");

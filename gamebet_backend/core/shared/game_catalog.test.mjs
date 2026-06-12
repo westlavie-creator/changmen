@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getGameCodeForPlatformId,
   resolveClientGame,
-} from "../../../shared/catalog/game_catalog.mjs";
+} from "../../../packages/shared/catalog/game_catalog.mjs";
 
 describe("game_catalog IA mappings", () => {
   it("maps IA native game id 3 to CS2", () => {

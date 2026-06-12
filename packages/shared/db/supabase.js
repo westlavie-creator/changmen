@@ -457,7 +457,7 @@ async function fetchProfilesAdmin() {
   if (!client) return []
   const { data, error } = await client
     .from('profiles')
-    .select('id, user_name, accounts, created_at, updated_at')
+    .select('id, user_name, accounts, betting_config, collect_config, preferences, created_at, updated_at')
     .order('user_name', { ascending: true })
   if (error) {
     console.warn('[supabase] fetchProfilesAdmin:', error.message)

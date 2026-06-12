@@ -1,5 +1,5 @@
-import { getCatalogSummary } from "../shared/catalog/game_catalog.mjs";
-import { getCatalogSummary as getMarketCatalogSummary } from "../shared/catalog/market_catalog.mjs";
+import { getCatalogSummary } from "../packages/shared/catalog/game_catalog.mjs";
+import { getCatalogSummary as getMarketCatalogSummary } from "../packages/shared/catalog/market_catalog.mjs";
 import { adapterRequire, requirePlatform } from "./core/shared/adapter_paths.js";
 import { tryEsportApi, resolveCreditPlateUserName } from "./core/esport-api/router.js";
 import store from "./core/esport-api/store.js";

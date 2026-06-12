@@ -6,12 +6,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import gameCatalog from "../../../../shared/catalog/game_catalog.json" with { type: "json" };
+import gameCatalog from "../../../../packages/shared/catalog/game_catalog.json" with { type: "json" };
 import { login, obGet } from "../session.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const games = gameCatalog.games;
-const CATALOG_PATH = path.join(__dirname, "../../../../shared/catalog/market_catalog.json");
+const CATALOG_PATH = path.join(__dirname, "../../../../packages/shared/catalog/market_catalog.json");
 const OUT_PATH = path.join(__dirname, "../data/ob_odd_type_ids.json");
 
 function cleanText(v) {

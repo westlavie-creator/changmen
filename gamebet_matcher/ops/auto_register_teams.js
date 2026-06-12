@@ -1,5 +1,5 @@
-import { getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs";
-import * as sb from "../../shared/db/supabase.js";
+import { getGameCodeForPlatformId } from "../../packages/shared/catalog/game_catalog.mjs";
+import * as sb from "../../packages/shared/db/supabase.js";
 
 /**
  * rebuild 时自动收录 TF / OB / RAY / IA / PB 平台尚未在 team_platform_maps 中的队伍。

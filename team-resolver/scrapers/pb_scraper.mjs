@@ -18,7 +18,7 @@ import { createRequire } from "node:module";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { requirePlatform } from "../../gamebet_backend/core/shared/adapter_paths.js";
-import { getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs";
+import { getGameCodeForPlatformId } from "../../packages/shared/catalog/game_catalog.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);

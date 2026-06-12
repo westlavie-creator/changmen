@@ -5,7 +5,7 @@ import { getObBetNameRe } from "./parse";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
-import { getGameCodeForPlatformId } from "../../../shared/catalog/game_catalog.browser";
+import { getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.browser";
 import { collectObGet, loadMarketsForMatch, maxStageFromBo } from "./markets";
 import {
   connectObMqtt,

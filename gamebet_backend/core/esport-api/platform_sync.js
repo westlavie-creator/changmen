@@ -1,5 +1,5 @@
 import store from "./store.js";
-import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
+import { getActivePlatformGameIds } from "../../../packages/shared/catalog/game_catalog.mjs";
 import { requirePlatform } from "../shared/adapter_paths.js";
 
 const { getRayA8CollectCredentials } = requirePlatform("RAY", "backend", "collect_credentials.js");

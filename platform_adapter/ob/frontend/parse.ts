@@ -2,7 +2,7 @@
 
 export { num, parseObOddField, obBlockLabel } from "../shared/parse_fields";
 export { compileObBetNameRe as getObBetNameRe } from "../shared/save_bets";
-export { obLegacyWinBetName as obMainWinBetLabel } from "../../../shared/catalog/market_catalog.browser";
+export { obLegacyWinBetName as obMainWinBetLabel } from "../../../packages/shared/catalog/market_catalog.browser";
 
 /**
  * Client_GetMatchs 的 GameID（A8 a8GameId）→ OB 平台 game_id。

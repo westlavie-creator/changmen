@@ -1,7 +1,7 @@
 ﻿import fs from "node:fs";
 import path from "node:path";
 import { ESPORT_DATA_DIR } from "../../../gamebet_backend/core/shared/storage_paths.js";
-import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
+import { getActivePlatformGameIds } from "../../../packages/shared/catalog/game_catalog.mjs";
 
 export const DEFAULT_GATEWAY = "https://ilustre-analytics.org";
 

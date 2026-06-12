@@ -7,8 +7,8 @@ import {
   normalizeMatchesShape,
   resolveClientMatchIds,
 } from "../engine/index.js";
-import { formatOdds } from "../../shared/odds_format.js";
-import * as sb from "../../shared/db/supabase.js";
+import { formatOdds } from "../../packages/shared/odds_format.js";
+import * as sb from "../../packages/shared/db/supabase.js";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
 import { alignUnmatchedToClientMatches } from "./align_unmatched_to_client.js";

@@ -9,8 +9,8 @@ import {
   matchesSavedBet,
   rayLegacyWinBetName,
   iaLegacyWinBetName,
-} from "../../../shared/catalog/market_catalog.mjs";
-import { pickStr, imBetNameIsCollectible, normalizeImBet } from "../../../shared/im_parse.mjs";
+} from "../../../packages/shared/catalog/market_catalog.mjs";
+import { pickStr, imBetNameIsCollectible, normalizeImBet } from "../../../packages/shared/im_parse.mjs";
 import { filterImStoredWinBets, dedupeImBetsByMap } from "./im_enrich.js";
 
 const OB_WIN_BET_RE =
