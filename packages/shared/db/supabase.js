@@ -1,16 +1,21 @@
 /**
  * 数据层入口 — 按 GAMEBET_DB_SCRIPT 转发到 impl_supabase 或 impl_rds。
  * 启动脚本须在 import 本模块前设置 process.env.GAMEBET_DB_SCRIPT。
+ * 模式：supabase | rds | dual（双写，走 impl_rds）
  */
 
-const script = String(process.env.GAMEBET_DB_SCRIPT || "supabase").trim().toLowerCase();
-const impl =
-  script === "rds"
-    ? await import("./impl_rds.js")
-    : await import("./impl_supabase.js");
+import { DB_SCRIPT_MODES, resolveDbScript, usesRdsImpl } from "./db_script.js";
 
-if (script !== "rds" && script !== "supabase") {
-  console.warn(`[db] 未知 GAMEBET_DB_SCRIPT=${script}，使用 impl_supabase`);
+const script = resolveDbScript();
+const impl = usesRdsImpl(script)
+  ? await import("./impl_rds.js")
+  : await import("./impl_supabase.js");
+
+const raw = String(process.env.GAMEBET_DB_SCRIPT || "supabase").trim().toLowerCase();
+if (raw !== script && raw === "supabase" && script === "dual") {
+  console.log("[db] RDS_DUAL_WRITE=1，按 dual（双写）加载 impl_rds");
+} else if (!DB_SCRIPT_MODES.includes(raw) && raw !== script) {
+  console.warn(`[db] 未知 GAMEBET_DB_SCRIPT=${raw}，使用 ${script}`);
 }
 
 export const {

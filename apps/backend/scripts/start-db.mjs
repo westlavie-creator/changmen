@@ -1,11 +1,12 @@
 /**
- * 按 GAMEBET_DB_SCRIPT 启动后端（supabase | rds）。
- * .env 中设置 GAMEBET_DB_SCRIPT，或使用 start-supabase.mjs / start-rds.mjs。
+ * 按 GAMEBET_DB_SCRIPT 启动后端（supabase | rds | dual）。
+ * .env 中设置 GAMEBET_DB_SCRIPT，或使用 start-supabase.mjs / start-rds.mjs / start-dual.mjs。
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { DB_SCRIPT_MODES, resolveDbScript } from "../../../packages/shared/db/db_script.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendRoot = path.join(__dirname, "..");
@@ -16,9 +17,9 @@ if (fs.existsSync(envPath)) {
 }
 
 const raw = String(process.env.GAMEBET_DB_SCRIPT || "supabase").trim().toLowerCase();
-const script = raw === "rds" ? "rds" : "supabase";
-if (raw !== script) {
-  console.warn(`[start-db] 未知 GAMEBET_DB_SCRIPT=${raw}，使用 supabase`);
+const script = resolveDbScript();
+if (!DB_SCRIPT_MODES.includes(raw) && raw !== script) {
+  console.warn(`[start-db] 未知 GAMEBET_DB_SCRIPT=${raw}，使用 ${script}`);
 }
 process.env.GAMEBET_DB_SCRIPT = script;
 

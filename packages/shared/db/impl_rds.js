@@ -15,6 +15,7 @@ import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveDbScript } from "./db_script.js";
 import { supabase, supabaseAdmin } from "./client.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -50,24 +51,28 @@ const JWT_REFRESH_TTL_SEC = parseJwtTtl(process.env.JWT_REFRESH_TTL, 30 * 86400)
 
 let _pgPool = null;
 
-/** impl_rds：采集与业务表读写 RDS（由 GAMEBET_DB_SCRIPT=rds 启动脚本选择） */
+const _dbScript = resolveDbScript();
+const _isDual = _dbScript === "dual";
+const _isRdsOnly = _dbScript === "rds";
+
+/** impl_rds：GAMEBET_DB_SCRIPT=rds | dual */
 function collectReadsFromRds() {
-  return true;
+  return _isRdsOnly || _isDual;
 }
 function collectWritesToRds() {
-  return true;
+  return _isRdsOnly || _isDual;
 }
 function collectWritesToSupabase() {
-  return false;
+  return _isDual;
 }
 function businessUsesRds() {
-  return true;
+  return _isRdsOnly || _isDual;
 }
 function businessWritesToSupabase() {
-  return false;
+  return _isDual;
 }
 function businessWritesToRds() {
-  return true;
+  return _isRdsOnly || _isDual;
 }
 
 function needsPgPool() {
@@ -83,15 +88,23 @@ function getPgPool() {
   if (!_pgPool) {
     const { Pool } = requirePg();
     _pgPool = new Pool({ connectionString: url, max: 4 });
-    const why = isJwtMode() ? "AUTH_MODE=jwt + rds" : "GAMEBET_DB_SCRIPT=rds";
+    const why = isJwtMode()
+      ? "AUTH_MODE=jwt + " + _dbScript
+      : "GAMEBET_DB_SCRIPT=" + _dbScript;
     console.log("[db] RDS 连接池已就绪 (" + why + ")");
   }
   return _pgPool;
 }
 
-console.log(
-  "[db] impl_rds: platform_* / live_timers / client_matches / profiles / orders 读写 RDS",
-);
+if (_isDual) {
+  console.log(
+    "[db] impl_rds dual: 读 RDS；platform_* / live_timers / client_matches / profiles / orders 双写 Supabase + RDS",
+  );
+} else {
+  console.log(
+    "[db] impl_rds: platform_* / live_timers / client_matches / profiles / orders 读写 RDS",
+  );
+}
 
 
 function signJwt(payload, secret, ttlSec) {

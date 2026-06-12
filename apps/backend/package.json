@@ -14,6 +14,7 @@
     "web": "node scripts/start-db.mjs",
     "web:supabase": "node scripts/start-supabase.mjs",
     "web:rds": "node scripts/start-rds.mjs",
+    "web:dual": "node scripts/start-dual.mjs",
     "web:restart": "node restart.js",
     "web:restart:bg": "node restart.js --background",
     "ob:login": "node ../../packages/platform-adapter/ob/backend/scripts/fetch_ob_login.js",

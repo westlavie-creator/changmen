@@ -26,6 +26,7 @@
     "matcher:install": "npm install --prefix apps/matcher",
     "matcher:ui": "npm run start --prefix apps/matcher",
     "matcher:loop": "npm run matcher --prefix apps/matcher",
+    "db:mode": "node scripts/switch-db-mode.mjs",
     "chromeplug:pack": "npm run pack --prefix apps/chrome-extension"
   }
 }
