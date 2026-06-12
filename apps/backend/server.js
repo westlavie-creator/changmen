@@ -3,17 +3,24 @@ import { ensureWinConsoleUtf8 } from "./core/shared/win_console_utf8.js";
 
 ensureWinConsoleUtf8();
 
-import "dotenv/config";
+import dotenv from "dotenv";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+for (const envPath of [
+  path.join(__dirname, ".env"),
+  path.join(__dirname, "../../gamebet_backend/.env"),
+]) {
+  dotenv.config({ path: envPath });
+  if (process.env.SUPABASE_URL) break;
+}
 import { ensurePlatformCredentials } from "./core/esport-api/platform_sync.js";
 import { initLastWrittenIds, fetchPlatformMatches } from "../../packages/shared/db/supabase.js";
 import store from "./core/esport-api/store.js";
 import { createStaticHandler } from "./static_files.js";
 import { createHttpHandler } from "./http_routes.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * 本地聚合服务：esport-api、HTTP 代理、静态托管。
