@@ -42,6 +42,7 @@ export default defineConfig({
     include: [
       "src/**/*.{test,spec}.{js,mjs,ts}",
       "../platform_adapter/**/frontend/**/*.{test,spec}.{js,mjs,ts}",
+      "../platform_adapter/**/shared/**/*.{test,spec}.{js,mjs,ts}",
     ],
   },
 });

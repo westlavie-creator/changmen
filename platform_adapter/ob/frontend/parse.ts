@@ -1,61 +1,8 @@
-/** OB 赔率/盘口字段解析（HTTP game/view 与 MQTT 共用） */
+/** OB 前端 parse 入口：字段解析在 shared/parse_fields，回传策略在 shared/save_bets */
 
-export function num(v: unknown): number {
-  if (typeof v === "number") return v;
-  if (v && typeof (v as { toNumber?: () => number }).toNumber === "function") {
-    return (v as { toNumber: () => number }).toNumber();
-  }
-  return Number(v) || 0;
-}
-
-function parseObOddValue(raw: unknown): number {
-  if (raw === undefined || raw === null || raw === "") return 0;
-  const n = num(raw);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-/** HTTP `odd`/`odds` 与 MQTT Decimal 字段统一解析 */
-export function parseObOddField(odd: unknown): number {
-  if (odd && typeof (odd as { toNumber?: () => number }).toNumber === "function") {
-    const n = (odd as { toNumber: () => number }).toNumber();
-    return Number.isFinite(n) && n > 0 ? n : 0;
-  }
-  if (typeof odd === "object" && odd !== null && ("odd" in odd || "odds" in odd)) {
-    const row = odd as { odd?: unknown; odds?: unknown };
-    return parseObOddValue(row.odd ?? row.odds);
-  }
-  return parseObOddValue(odd);
-}
-
-export function obBlockLabel(block: Record<string, unknown>): string {
-  const round = num(block.round);
-  const cn = String(block.cn_name ?? "").replace(/&nbsp;/g, "");
-  return `[${round === 0 ? "全场" : `地图${round}`}]-${cn}`;
-}
-
-/** 与 shared/catalog/market_catalog.js obLegacyWinBetName 一致：排除 CS2 手枪局/回合等子盘 */
-export function obMainWinBetLabel(label: string): boolean {
-  const name = String(label ?? "").trim();
-  if (!name || name.includes("+")) return false;
-  if (/手枪局/.test(name)) return false;
-  if (/第\d+回合/.test(name)) return false;
-  if (/^\[地图\d+\]-/.test(name) && !name.includes("单局") && !name.includes("全局")) return false;
-  return true;
-}
-
-let cachedPattern: string | undefined;
-let cachedRe: RegExp | undefined;
-
-/** 缓存 platform.BetName 对应正则，避免每轮 new RegExp */
-export function getObBetNameRe(betName: string | undefined): RegExp {
-  const pattern = betName || ".*";
-  if (cachedPattern === pattern && cachedRe) {
-    return cachedRe;
-  }
-  cachedPattern = pattern;
-  cachedRe = new RegExp(pattern);
-  return cachedRe;
-}
+export { num, parseObOddField, obBlockLabel } from "../shared/parse_fields";
+export { compileObBetNameRe as getObBetNameRe } from "../shared/save_bets";
+export { obLegacyWinBetName as obMainWinBetLabel } from "../../../shared/catalog/market_catalog.browser";
 
 /**
  * Client_GetMatchs 的 GameID（A8 a8GameId）→ OB 平台 game_id。

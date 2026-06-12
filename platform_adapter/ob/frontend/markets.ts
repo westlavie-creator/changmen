@@ -1,6 +1,6 @@
 
 import { directGet } from "@/shared/http";
-import { num, obBlockLabel, obMainWinBetLabel, parseObOddField } from "./parse";
+import { num } from "./parse";
 import type { CollectBetDto } from "@/types/collect";
 import type { ViewMatch } from "@/models/match";
 import type { CollectPlatformInfo } from "@/types/esport";
@@ -8,6 +8,13 @@ import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
+import {
+  buildObSaveBetRowsFromViewBlocks,
+  isObBlockCollectable,
+  listObBlockFoOddEntries,
+  obBlockLocked,
+} from "../shared/save_bets";
+import { obBlockLabel } from "./parse";
 
 const PLATFORM = PLATFORMS.OB;
 const STAGE_VIEW_INTERVAL_MS = 1500;
@@ -38,28 +45,44 @@ export function maxStageForObLoad(match: ViewMatch): number {
   return Math.max(fromBets, fromBo);
 }
 
-function findObMainOddsSides(entries: Array<Record<string, unknown>>): {
-  home?: Record<string, unknown>;
-  away?: Record<string, unknown>;
-} {
-  let home: Record<string, unknown> | undefined;
-  let away: Record<string, unknown> | undefined;
-  for (const p of entries) {
-    if (p.name === "@T1") home = p;
-    else if (p.name === "@T2") away = p;
-    if (home && away) break;
+/** Ingest：可采集 block 写入 fo（不含 API 回传） */
+function ingestObViewBlocksToFo(
+  blocks: Array<Record<string, unknown>>,
+  betRe: RegExp,
+): void {
+  const odds = useOddsStore();
+  const now = Date.now();
+  for (const block of blocks) {
+    const label = obBlockLabel(block);
+    if (!isObBlockCollectable(block, label, betRe)) continue;
+    const locked = obBlockLocked(block);
+    for (const entry of listObBlockFoOddEntries(block, locked)) {
+      odds.save(
+        PLATFORM,
+        {
+          id: entry.id,
+          odds: entry.odds,
+          isLock: entry.isLock,
+          betId: entry.betId,
+          time: now,
+        },
+        "http",
+      );
+    }
   }
-  return { home, away };
 }
 
-/** A8 UMe：单 block 是否进入 saveBets / fo */
-function obBlockCollectable(block: Record<string, unknown>, label: string, betRe: RegExp): boolean {
-  if (block.status === 12 || block.visible === 0) return false;
-  if (!betRe.test(label)) return false;
-  return obMainWinBetLabel(label);
+/** Report：内存快照 → SaveBet 行（不含 fo / HTTP） */
+function reportObViewBlocksToSaveBetRows(
+  blocks: Array<Record<string, unknown>>,
+  matchId: string,
+  teamNames: [string, string],
+  betRe: RegExp,
+): CollectBetDto[] {
+  return buildObSaveBetRowsFromViewBlocks(blocks, matchId, teamNames, betRe, PLATFORM);
 }
 
-/** 单场各 stage 拉 game/view，写入 fo 并返回 SaveBet 载荷（对齐 A8：每 stage 可多盘口） */
+/** 单场各 stage 拉 game/view：Ingest fo + 返回 Report 载荷 */
 export async function loadMarketsForMatch(
   platform: CollectPlatformInfo,
   matchId: string,
@@ -67,7 +90,6 @@ export async function loadMarketsForMatch(
   betRe: RegExp,
   teamNames: [string, string],
 ): Promise<{ bets: CollectBetDto[]; hadError: boolean }> {
-  const odds = useOddsStore();
   const bets: CollectBetDto[] = [];
   let hadError = false;
   for (let stage = 0; stage <= maxStage; stage += 1) {
@@ -79,47 +101,8 @@ export async function loadMarketsForMatch(
       );
       if (view.status !== "true" || !Array.isArray(view.data)) continue;
 
-      for (const block of view.data) {
-        const label = obBlockLabel(block);
-        if (!obBlockCollectable(block, label, betRe)) continue;
-
-        const locked =
-          block.status !== 6 || block.visible !== 1 || block.suspended !== 0;
-        const oddsMap = (block.odds ?? {}) as Record<string, Record<string, unknown>>;
-        const entries = Object.values(oddsMap);
-        for (const p of entries) {
-          const parsed = parseObOddField(p);
-          odds.save(
-            PLATFORM,
-            {
-              id: String(p.id),
-              odds: parsed,
-              isLock: locked,
-              betId: String(block.id),
-              time: Date.now(),
-            },
-            "http",
-          );
-        }
-        const { home, away } = findObMainOddsSides(entries);
-        if (!home || !away) continue;
-
-        const round = num(block.round);
-        bets.push({
-          Type: PLATFORM,
-          SourceMatchID: matchId,
-          Map: round,
-          SourceBetID: String(block.id),
-          BetName: label,
-          SourceHomeID: String(home.id),
-          HomeName: teamNames[0] ?? "",
-          HomeOdds: parseObOddField(home),
-          SourceAwayID: String(away.id),
-          AwayName: teamNames[1] ?? "",
-          AwayOdds: parseObOddField(away),
-          Status: locked ? "Locked" : "Normal",
-        });
-      }
+      ingestObViewBlocksToFo(view.data, betRe);
+      bets.push(...reportObViewBlocksToSaveBetRows(view.data, matchId, teamNames, betRe));
     } catch (err) {
       hadError = true;
       console.error("[OB] game/view error", matchId, stage, err);
@@ -168,4 +151,3 @@ export async function collectObGet<T>(
   const q = query ? (apiPath.includes("?") ? "&" : "?") + query : "";
   return directGet<T>(`${base}${apiPath}${q}`, obHeaders(platform.Token));
 }
-
