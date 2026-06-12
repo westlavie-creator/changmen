@@ -3,6 +3,11 @@
 const { rayMatchStage } = require("./match_stage.js");
 
 /** CJS 副本（Node 脚本 / ray/backend）；逻辑与 save_bets.ts 同步 */
+function isRayOddCollectable(p, betRe) {
+  const group = String(p.group_name ?? "");
+  return p.status !== 4 && betRe.test(group);
+}
+
 function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
   const teams = result?.team ?? [];
   const homeTeam = teams.find((t) => t.pos === 1);
@@ -11,9 +16,9 @@ function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
 
   const grouped = new Map();
   for (const p of result?.odds ?? []) {
-    const group = String(p.group_name ?? "");
-    if (p.status === 4 || !betRe.test(group)) continue;
+    if (!isRayOddCollectable(p, betRe)) continue;
 
+    const group = String(p.group_name ?? "");
     const oddsId = String(p.odds_id ?? "");
     const groupId = String(p.odds_group_id ?? "");
     const stage = rayMatchStage(p.match_stage);

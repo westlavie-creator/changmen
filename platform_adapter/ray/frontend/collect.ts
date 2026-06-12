@@ -1,55 +1,19 @@
 import { createRayRealtimeClient, type RayRealtimeMessage } from "./realtime";
 import { RAY_A8_COLLECT } from "./a8Collect";
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
+import type { CollectMatchDto } from "@/types/collect";
 import type { CollectPlatformInfo } from "@/types/esport";
-import { directGet } from "@/shared/http";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
-import { groupRayOddsToSaveBets, type RayOddsPayload } from "../shared/save_bets";
 import { rayMatchStage } from "../shared/match_stage";
+import { collectRayGet, loadRayBets } from "./markets";
+
+export { rayApiPath } from "./markets";
 
 const PLATFORM = PLATFORMS.RAY;
 const POLL_MS = 30_000;
-
-/** 与 gamebet_backend/shared/ray_paths.js 保持一致 */
-export function rayApiPath(gateway: string | undefined, apiPath: string): string {
-  const base = String(gateway || "").replace(/\/+$/, "");
-  let path = String(apiPath || "").replace(/^\//, "");
-  if (base.endsWith("/v2")) {
-    path = path.replace(/^v2\//, "");
-    return `/${path}`;
-  }
-  if (path.startsWith("v2/")) return `/${path}`;
-  return `/v2/${path}`;
-}
-
-
-function rayHeaders(token: string): Record<string, string> {
-  const auth = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-  return {
-    authorization: auth,
-    Accept: "application/json, text/plain, */*",
-  };
-}
-
-/** A8 bQe：Nr.get 直连 RAY gateway */
-async function collectRayGet<T>(
-  platform: CollectPlatformInfo,
-  apiPath: string,
-  query = "",
-): Promise<T> {
-  if (!platform.Gateway || !platform.Token) {
-    throw new Error("RAY collect platform not configured");
-  }
-  const path = rayApiPath(platform.Gateway, apiPath);
-  const base = platform.Gateway.replace(/\/+$/, "");
-  const q = query ? (path.includes("?") ? "&" : "?") + query : "";
-  const url = `${base}${path}${q}`;
-  return directGet<T>(url, rayHeaders(platform.Token));
-}
 
 /** dev HMR 时停止上一轮 poll + SocketCluster（对齐 OB `mqtt.ts` dispose） */
 let rayCollectorStop: (() => void) | null = null;
@@ -217,45 +181,4 @@ if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     rayCollectorStop?.();
   });
-}
-
-async function loadRayBets(
-  platform: CollectPlatformInfo,
-  matchId: string,
-  betRe: RegExp,
-): Promise<CollectBetDto[]> {
-  const res = await collectRayGet<{ code: number; result?: Record<string, unknown> }>(
-    platform,
-    "odds",
-    `match_id=${matchId}`,
-  );
-  if (res.code !== 200 || !res.result) return [];
-
-  const oddsStore = useOddsStore();
-  const result = res.result;
-  const teams = (result.team ?? []) as Array<Record<string, unknown>>;
-  const homeTeam = teams.find((t) => t.pos === 1);
-  const awayTeam = teams.find((t) => t.pos === 2);
-  if (!homeTeam || !awayTeam) return [];
-
-  const oddsList = (result.odds ?? []) as Array<Record<string, unknown>>;
-  const now = Date.now();
-  for (const p of oddsList) {
-    const group = String(p.group_name ?? "");
-    if (p.status === 4 || !betRe.test(group)) continue;
-    const oddsId = String(p.odds_id ?? "");
-    const groupId = String(p.odds_group_id ?? "");
-    const isHome = String(p.team_id) === String(homeTeam.team_id);
-    const isAway = String(p.team_id) === String(awayTeam.team_id);
-    oddsStore.save(PLATFORM, {
-      id: oddsId,
-      odds: Number(p.odds) || 0,
-      isLock: p.status !== 1,
-      betId: groupId,
-      side: isHome ? "home" : isAway ? "away" : undefined,
-      time: now,
-    });
-  }
-
-  return groupRayOddsToSaveBets(result as unknown as RayOddsPayload, betRe, PLATFORM) as CollectBetDto[];
 }

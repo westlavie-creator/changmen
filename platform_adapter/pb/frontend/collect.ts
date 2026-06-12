@@ -3,8 +3,8 @@ import { getCollectPlatform, getGames } from "@/api/esport";
 import { PB_PLUGIN_REQUIRED_MSG, pbGet, resolvePbAccount } from "./transport";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/shared/platform";
-import { parseEuroOddsPayload, pbOddsUrl, pbTeamLogo, slugify } from "./parse";
-import { setPbLineId } from "./lineCache";
+import { parseEuroOddsPayload, pbOddsUrl, slugify } from "./parse";
+import { ingestAndReportPbParsedMatch } from "./markets";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
@@ -69,68 +69,8 @@ export function startPbCollector(): () => void {
         const now = Date.now();
 
         for (const row of matches) {
-          const bets: CollectBetDto[] = [];
-          for (const stage of row.stages) {
-            if (stage.winLineId) setPbLineId(stage.winMarketId, stage.winLineId);
-            const locked = stage.winLocked;
-            odds.save(PLATFORM, {
-              id: stage.winHomeId,
-              odds: stage.winHome,
-              isLock: locked,
-              betId: stage.winMarketId,
-              time: now,
-            });
-            odds.save(PLATFORM, {
-              id: stage.winAwayId,
-              odds: stage.winAway,
-              isLock: locked,
-              betId: stage.winMarketId,
-              time: now,
-            });
-
-            bets.push({
-              Type: PLATFORM,
-              SourceMatchID: row.matchId,
-              SourceBetID: stage.winMarketId,
-              Map: stage.stageId,
-              BetName: stage.betName,
-              SourceHomeID: stage.winHomeId,
-              HomeName: row.home.name,
-              HomeOdds: stage.winHome,
-              SourceAwayID: stage.winAwayId,
-              AwayName: row.away.name,
-              AwayOdds: stage.winAway,
-              Status: locked ? "Locked" : "Normal",
-            });
-          }
-
-          matchPayload.push({
-            Type: PLATFORM,
-            SourceMatchID: row.matchId,
-            SourceGameID: row.gameId,
-            BO: row.bo,
-            StartTime: row.startTime,
-            Home: row.home.name,
-            HomeID: row.home.id,
-            Away: row.away.name,
-            AwayID: row.away.id,
-            Teams: [
-              {
-                Type: PLATFORM,
-                GameID: row.gameId,
-                Name: row.home.name,
-                TeamID: row.home.id,
-                Logo: pbTeamLogo(row.gameId, row.home.englishName),
-              },
-              {
-                Type: PLATFORM,
-                GameID: row.gameId,
-                Name: row.away.name,
-                TeamID: row.away.id,
-                Logo: pbTeamLogo(row.gameId, row.away.englishName),
-              },
-            ],
-          });
+          const { match, bets } = ingestAndReportPbParsedMatch(row, now);
+          matchPayload.push(match);
           betsByMatch.set(row.matchId, bets);
         }
 
