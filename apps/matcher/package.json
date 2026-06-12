@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node ui/server.js",
     "matcher": "node matcher.js",
-    "test": "npm run test --prefix ../packages/match-engine"
+    "test": "npm run test --prefix ../../packages/match-engine"
   },
   "dependencies": {
     "dotenv": "^16.0.0",

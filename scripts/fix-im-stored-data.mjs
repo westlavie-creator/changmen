@@ -22,7 +22,7 @@ const {
   getPlatformGameId,
 } = require("../packages/shared/catalog/game_catalog.mjs");
 
-const dataDir = path.join(__dirname, "../gamebet_backend/data/esport");
+const dataDir = path.join(__dirname, "../apps/backend/data/esport");
 const betsPath = path.join(dataDir, "bets.json");
 const matchesPath = path.join(dataDir, "matches.json");
 

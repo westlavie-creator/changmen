@@ -1,10 +1,10 @@
-import { resolveClientGame, getGameCodeForPlatformId } from "../../packages/shared/catalog/game_catalog.mjs";
-import { normalizeEpochMs } from "../../packages/shared/time/match_time.mjs";
+import { resolveClientGame, getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
+import { normalizeEpochMs } from "../../../packages/shared/time/match_time.mjs";
 import {
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
-} from "../../packages/match-engine/teams/team_key.js";
-import { parseTitleTeams } from "../../packages/match-engine/teams/match_utils.js";
+} from "../../../packages/match-engine/teams/team_key.js";
+import { parseTitleTeams } from "../../../packages/match-engine/teams/match_utils.js";
 
 /**
  * rebuild 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。

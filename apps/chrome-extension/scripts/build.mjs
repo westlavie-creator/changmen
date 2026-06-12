@@ -27,10 +27,10 @@ function syncVersionJson() {
 async function bundleSocketIo() {
   const entry = path.join(
     root,
-    "../gamebet_frontend/node_modules/socket.io-client/build/esm/index.js",
+    "../web/node_modules/socket.io-client/build/esm/index.js",
   );
   if (!fs.existsSync(entry)) {
-    console.warn("skip socket.io bundle — install gamebet_frontend deps first");
+    console.warn("skip socket.io bundle — install apps/web deps first");
     return;
   }
   await esbuild.build({

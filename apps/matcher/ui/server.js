@@ -19,7 +19,7 @@ try {
   require.resolve("iconv-lite/encodings");
 } catch (err) {
   console.error(
-    "[matcher] 依赖不完整（iconv-lite），POST API 不可用。请在 changmen/gamebet_matcher 执行: npm install",
+    "[matcher] 依赖不完整（iconv-lite），POST API 不可用。请在 changmen/apps/matcher 执行: npm install",
   );
   console.error("[matcher]", err.message);
   process.exit(1);

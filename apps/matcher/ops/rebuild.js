@@ -6,9 +6,9 @@ import {
   setTeamPlugin,
   normalizeMatchesShape,
   resolveClientMatchIds,
-} from "../../packages/match-engine/index.js";
-import { formatOdds } from "../../packages/shared/odds_format.js";
-import * as sb from "../../packages/shared/db/supabase.js";
+} from "../../../packages/match-engine/index.js";
+import { formatOdds } from "../../../packages/shared/odds_format.js";
+import * as sb from "../../../packages/shared/db/supabase.js";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
 import { alignUnmatchedToClientMatches } from "./align_unmatched_to_client.js";
@@ -39,7 +39,7 @@ async function ensureTeamPlugin() {
   if (_pluginReady) return _pluginReady;
   _pluginReady = (async () => {
     try {
-      const { loadAndCreatePlugin } = await import("../../packages/team-resolver/supabase_db.js");
+      const { loadAndCreatePlugin } = await import("../../../packages/team-resolver/supabase_db.js");
       const plugin = await loadAndCreatePlugin();
       setTeamPlugin(plugin);
     } catch (err) {

@@ -5,7 +5,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, "../gamebet_backend/.env");
+const envPath = resolve(__dirname, "../apps/backend/.env");
 if (existsSync(envPath)) dotenv.config({ path: envPath });
 
 const url = process.env.SUPABASE_URL;
