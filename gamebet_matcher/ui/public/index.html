@@ -347,6 +347,7 @@
     </span>
     <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动脚本</button>
     <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止脚本</button>
+    <button class="btn btn-sm btn-ghost" id="btn-rebuild-now" type="button" title="立即执行一次赛事合并（rebuild client_matches）">立即执行赛事合并</button>
     <span class="updated-at" id="updated-at">—</span>
     <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
   </div>
@@ -426,6 +427,7 @@ let _pendingTeamLink = null;
 let _linkModalKind = null;
 let _linkSubmitting = false;
 let _matcherBusy = false;
+let _rebuildBusy = false;
 let _unmatchedFilter = 'orphan';
 let _teamDrag = null;
 let _teamLinkBound = false;
@@ -2114,15 +2116,45 @@ function matcherStatusLabel(s) {
 function setMatcherButtons(s) {
   const btnStart = document.getElementById('btn-matcher-start');
   const btnStop = document.getElementById('btn-matcher-stop');
+  const btnRebuild = document.getElementById('btn-rebuild-now');
   if (!btnStart || !btnStop) return;
   btnStart.style.display = s?.canStart ? '' : 'none';
   btnStop.style.display = s?.canStop ? '' : 'none';
-  btnStart.disabled = _matcherBusy;
-  btnStop.disabled = _matcherBusy;
+  btnStart.disabled = _matcherBusy || _rebuildBusy;
+  btnStop.disabled = _matcherBusy || _rebuildBusy;
+  if (btnRebuild) btnRebuild.disabled = _rebuildBusy || _matcherBusy;
+}
+
+async function runRebuildNow() {
+  if (_rebuildBusy || _matcherBusy) return;
+  const btn = document.getElementById('btn-rebuild-now');
+  _rebuildBusy = true;
+  const prevText = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '合并中…';
+  }
+  setMatcherButtons(null);
+  try {
+    const { res, data } = await fetchJson('/api/rebuild', { method: 'POST' });
+    if (!res.ok || data.error) throw new Error(data.error || '赛事合并失败');
+    showActionToast(formatApiResultToast(data, '赛事合并完成'), 'ok', 5200);
+    await load();
+    await refreshMatcherStatus();
+  } catch (err) {
+    showActionToast(`赛事合并失败\n${err.message}`, 'err', 6000);
+    await refreshMatcherStatus();
+  } finally {
+    _rebuildBusy = false;
+    if (btn) {
+      btn.textContent = prevText || '立即执行赛事合并';
+    }
+    await refreshMatcherStatus();
+  }
 }
 
 async function matcherAction(action) {
-  if (_matcherBusy) return;
+  if (_matcherBusy || _rebuildBusy) return;
   _matcherBusy = true;
   try {
     const { res, data } = await fetchJson('/api/matcher/' + action, { method: 'POST' });
@@ -2184,6 +2216,7 @@ async function load() {
 
 document.getElementById('btn-matcher-start')?.addEventListener('click', () => matcherAction('start'));
 document.getElementById('btn-matcher-stop')?.addEventListener('click', () => matcherAction('stop'));
+document.getElementById('btn-rebuild-now')?.addEventListener('click', runRebuildNow);
 document.getElementById('link-modal-cancel')?.addEventListener('click', hideLinkModal);
 document.getElementById('link-modal-confirm')?.addEventListener('click', confirmLinkModal);
 document.getElementById('link-modal')?.addEventListener('click', e => {

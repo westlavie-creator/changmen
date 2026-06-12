@@ -432,9 +432,10 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
       continue;
     }
 
-    if (target.Matchs?.[link.platform] === String(link.source_match_id)) continue;
-
-    target.Matchs[link.platform] = String(link.source_match_id);
+    const alreadyLinked = target.Matchs?.[link.platform] === String(link.source_match_id);
+    if (!alreadyLinked) {
+      target.Matchs[link.platform] = String(link.source_match_id);
+    }
     const betByMap = new Map((target.Bets || []).map((b) => [b.Map ?? 0, b]));
     for (const bet of row.Bets || []) {
       const map = bet.Map ?? 0;

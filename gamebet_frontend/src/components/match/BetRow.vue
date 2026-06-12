@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { BetSide } from "@/models/match";
+import ArbLineOverlay from "@/components/match/ArbLineOverlay.vue";
 import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
+import { useArbLineOverlay, useOddsAnchorMap } from "@/composables/useArbLineOverlay";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useBettingStore } from "@/stores/bettingStore";
@@ -35,9 +37,7 @@ const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
 
 const betItemsRef = ref<HTMLElement | null>(null);
-const arbLine = ref<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
-const arbBadge = ref<{ x: number; y: number } | null>(null);
-const oddsRefMap = new Map<string, HTMLElement>();
+const { bind: bindOddsRef, get: getOddsAnchor } = useOddsAnchorMap();
 
 function itemOdds(item: ViewBet["items"][0], side: BetSide) {
   void revision.value;
@@ -86,70 +86,18 @@ const arbProfitLabel = computed(() => {
   return `利润率 ${arbProfitRate(legs.implied)}`;
 });
 
-function oddsRefKey(type: PlatformId, side: BetSide) {
-  return `${type}:${side}`;
-}
-
-function bindOddsRef(type: PlatformId, side: BetSide) {
-  return (el: unknown) => {
-    const key = oddsRefKey(type, side);
-    const node =
-      el instanceof HTMLElement
-        ? el
-        : el && typeof el === "object" && "$el" in el && (el as { $el: unknown }).$el instanceof HTMLElement
-          ? ((el as { $el: HTMLElement }).$el)
-          : null;
-    if (node) oddsRefMap.set(key, node);
-    else oddsRefMap.delete(key);
-  };
-}
-
-function centerInContainer(el: HTMLElement, container: DOMRect) {
-  const rect = el.getBoundingClientRect();
-  return {
-    x: rect.left + rect.width / 2 - container.left,
-    y: rect.top + rect.height / 2 - container.top,
-  };
-}
-
-function refreshArbLine() {
-  const legs = arbLegs.value;
-  const root = betItemsRef.value;
-  if (!legs || !root) {
-    arbLine.value = null;
-    arbBadge.value = null;
-    return;
-  }
-  const homeEl = oddsRefMap.get(oddsRefKey(legs.homeItem.type, "Home"));
-  const awayEl = oddsRefMap.get(oddsRefKey(legs.awayItem.type, "Away"));
-  if (!homeEl || !awayEl) {
-    arbLine.value = null;
-    arbBadge.value = null;
-    return;
-  }
-  const box = root.getBoundingClientRect();
-  const p1 = centerInContainer(homeEl, box);
-  const p2 = centerInContainer(awayEl, box);
-  arbLine.value = { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
-  arbBadge.value = {
-    x: (p1.x + p2.x) / 2,
-    y: (p1.y + p2.y) / 2 - 14,
-  };
-}
-
-let resizeObserver: ResizeObserver | null = null;
-
-onMounted(() => {
-  resizeObserver = new ResizeObserver(() => refreshArbLine());
-  if (betItemsRef.value) resizeObserver.observe(betItemsRef.value);
-  nextTick(refreshArbLine);
-});
-
-onUnmounted(() => {
-  resizeObserver?.disconnect();
-});
-
-watch([arbLegs, revision, matchTick], () => nextTick(refreshArbLine));
+const { line: arbLine, badge: arbBadge } = useArbLineOverlay(
+  betItemsRef,
+  () => {
+    const legs = arbLegs.value;
+    if (!legs) return null;
+    return {
+      home: getOddsAnchor(legs.homeItem.type, "Home"),
+      away: getOddsAnchor(legs.awayItem.type, "Away"),
+    };
+  },
+  [arbLegs, revision, matchTick],
+);
 
 const liveSeconds = computed(() => {
   void matchTick.value;
@@ -226,21 +174,7 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
       {{ bet.getBetName() }} - {{ arb }}
     </div>
     <div ref="betItemsRef" class="bet-items">
-      <svg v-if="arbLine" class="arb-lines" aria-hidden="true">
-        <line
-          :x1="arbLine.x1"
-          :y1="arbLine.y1"
-          :x2="arbLine.x2"
-          :y2="arbLine.y2"
-        />
-      </svg>
-      <div
-        v-if="arbLine && arbBadge && arbProfitLabel"
-        class="arb-profit-badge"
-        :style="{ left: `${arbBadge.x}px`, top: `${arbBadge.y}px` }"
-      >
-        {{ arbProfitLabel }}
-      </div>
+      <ArbLineOverlay :line="arbLine" :badge="arbBadge" :label="arbProfitLabel" />
 
       <div v-if="roundScore" class="score">
         <div class="home">{{ roundScore.Home }}</div>

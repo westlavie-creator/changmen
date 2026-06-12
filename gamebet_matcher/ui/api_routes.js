@@ -9,9 +9,13 @@ import {
 } from "../link/index.js";
 import { deleteClientMatch } from "../ops/delete_client_match.js";
 import { previewMergeClientMatches, mergeClientMatches } from "../ops/merge_client_matches.js";
+import { rebuildOnce } from "../ops/rebuild.js";
+import { writeMatcherHeartbeat } from "../lib/heartbeat.js";
 import { getMatcherStatus, fetchMatcherDashboard } from "./matcher_data.js";
 import { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } from "./matcher_api_log.js";
 import { startMatcherProcess, stopMatcherProcess } from "./matcher_process.js";
+
+let _rebuildRunning = false;
 
 function registerMatcherApiRoutes(app, supabase) {
   app.get("/api/link-preview", async (req, res) => {
@@ -204,6 +208,45 @@ function registerMatcherApiRoutes(app, supabase) {
       res.json(result);
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/rebuild", async (req, res) => {
+    if (_rebuildRunning) {
+      return res.status(409).json({ ok: false, error: "赛事合并正在执行，请稍候" });
+    }
+    _rebuildRunning = true;
+    try {
+      const result = await rebuildOnce();
+      writeMatcherHeartbeat({
+        matchCount: result.matchCount,
+        intervalMs: Number(process.env.MATCHER_INTERVAL_MS || 30_000),
+        builtAt: result.builtAt,
+      });
+      const logLines = [`赛事合并完成 · client_matches ${result.matchCount} 场`];
+      if (result.teamReg?.registered > 0) {
+        logLines.push(`自动收录队伍 ${result.teamReg.registered} 条`);
+      }
+      const { alignedById = 0, alignedByName = 0 } = result.alignStats || {};
+      if (alignedById || alignedByName) {
+        logLines.push(`未匹配对齐 · ID ${alignedById} · 队名+时间 ${alignedByName}`);
+      }
+      if (result.matchIdBackfill?.updated) {
+        logLines.push(`回写 match_id ${result.matchIdBackfill.updated} 条`);
+      }
+      const body = {
+        ok: true,
+        rebuild: result,
+        summary: logLines[0],
+        logLines,
+      };
+      logMatcherApiOk("/api/rebuild", body);
+      res.json(body);
+    } catch (err) {
+      logMatcherApiErr("/api/rebuild", err);
+      res.status(500).json({ ok: false, error: err.message });
+    } finally {
+      _rebuildRunning = false;
     }
   });
 
