@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+/**
+ * 在香港轻量 / 已配置 DATABASE_URL 的环境执行 RDS 建表。
+ *
+ *   cd changmen/apps/backend
+ *   # .env 中设置 DATABASE_URL=postgresql://gamebet_app:...@pgm-....:5432/gamebet
+ *   node scripts/apply-rds-schema.mjs
+ *   node scripts/apply-rds-schema.mjs --with-cron
+ */
+
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import pg from "pg";
+
+import "../../../packages/shared/db/load_env.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const backendRoot = join(__dirname, "..");
+const migrationsDir = join(backendRoot, "db", "migrations");
+
+const withCron = process.argv.includes("--with-cron");
+const url = process.env.DATABASE_URL;
+
+if (!url) {
+  console.error("缺少 DATABASE_URL，请在 apps/backend/.env 中配置");
+  process.exit(1);
+}
+
+function readSql(name) {
+  return readFileSync(join(migrationsDir, name), "utf8");
+}
+
+async function main() {
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    console.log("[rds] 执行 001_baseline.sql …");
+    await client.query(readSql("001_baseline.sql"));
+
+    if (withCron) {
+      console.log("[rds] 执行 002_prune_pg_cron.sql …");
+      try {
+        await client.query(readSql("002_prune_pg_cron.sql"));
+        console.log("[rds] pg_cron 任务已注册");
+      } catch (err) {
+        console.warn("[rds] pg_cron 未启用（可改用 prune-stale.mjs）:", err.message);
+      }
+    }
+
+    const tables = await client.query(`
+      SELECT tablename FROM pg_tables
+      WHERE schemaname = 'public'
+      ORDER BY tablename
+    `);
+    console.log("[rds] 当前 public 表:", tables.rows.map((r) => r.tablename).join(", "));
+    console.log("[rds] 完成");
+  } finally {
+    await client.end();
+  }
+}
+
+main().catch((err) => {
+  console.error("[rds] 失败:", err.message);
+  process.exit(1);
+});

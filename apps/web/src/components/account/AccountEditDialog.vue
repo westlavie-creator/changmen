@@ -339,6 +339,8 @@ async function save() {
     if (props.account) {
       props.account.applyPatch(patch);
       await accountStore.saveAccounts();
+      // [A8 可证实] AccountInfoView 保存后 updateBalance → updateOrders
+      await accountStore.refreshBalance(props.account);
     } else {
       await accountStore.createFromTagPlatform(patch);
     }

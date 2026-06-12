@@ -13,5 +13,5 @@ for (const rel of ["apps/backend/.env", "gamebet_backend/.env"]) {
   const envPath = path.join(changmenRoot, rel);
   if (!fs.existsSync(envPath)) continue;
   dotenv.config({ path: envPath });
-  if (process.env.SUPABASE_URL) break;
+  if (process.env.SUPABASE_URL || process.env.DATABASE_URL) break;
 }
