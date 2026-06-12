@@ -1,4 +1,4 @@
-import store from "../backend/core/esport-api/store.js";
+import store from "../../backend/core/esport-api/store.js";
 
 function isLocalRequest(req) {
   const host = String(req?.headers?.host || "").split(":")[0].toLowerCase();
