@@ -3,8 +3,10 @@
  * 仅处理 MergeBasis === "id"；已有不同 match_id 的行跳过（保留人工锁定）。
  */
 
-async function backfillPlatformMatchIdsForIdMerges(client, clientMatchRows) {
-  if (!client || !clientMatchRows?.length) {
+import { setPlatformMatchId } from "../../../packages/shared/db/supabase.js";
+
+async function backfillPlatformMatchIdsForIdMerges(_client, clientMatchRows) {
+  if (!clientMatchRows?.length) {
     return { updated: 0, skipped: 0, conflicts: 0 };
   }
 
@@ -18,44 +20,19 @@ async function backfillPlatformMatchIdsForIdMerges(client, clientMatchRows) {
     if (!Number.isFinite(cmId)) continue;
 
     for (const [plat, srcId] of Object.entries(cm.Matchs || {})) {
-      const platform = String(plat);
-      const sourceMatchId = String(srcId);
-
-      const { data: existing, error: fetchErr } = await client
-        .from("platform_matches")
-        .select("match_id")
-        .eq("platform", platform)
-        .eq("source_match_id", sourceMatchId)
-        .maybeSingle();
-      if (fetchErr) throw new Error(`查询 platform_matches 失败: ${fetchErr.message}`);
-      if (!existing) {
-        skipped++;
-        continue;
-      }
-
-      const cur = existing.match_id != null && existing.match_id !== ""
-        ? Number(existing.match_id)
-        : null;
-      if (cur === cmId) {
-        skipped++;
-        continue;
-      }
-      if (cur != null && cur !== cmId) {
+      const { updated: did, skipped: skip, conflict } = await setPlatformMatchId(
+        plat,
+        srcId,
+        cmId,
+        { onlyIfNull: true },
+      );
+      if (conflict) {
         conflicts++;
         console.warn(
-          `[rebuild] platform_matches ${platform}:${sourceMatchId} 已有 match_id=${cur}，跳过回写 ${cmId}`,
+          `[rebuild] platform_matches ${plat}:${srcId} 已有其他 match_id，跳过回写 ${cmId}`,
         );
-        continue;
-      }
-
-      const { error: updErr } = await client
-        .from("platform_matches")
-        .update({ match_id: cmId })
-        .eq("platform", platform)
-        .eq("source_match_id", sourceMatchId)
-        .is("match_id", null);
-      if (updErr) throw new Error(`回写 match_id 失败 (${platform}:${sourceMatchId}): ${updErr.message}`);
-      updated++;
+      } else if (did) updated++;
+      else if (skip) skipped++;
     }
   }
 

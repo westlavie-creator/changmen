@@ -5,7 +5,9 @@
   "description": "赛事匹配管理 — 独立 Web 面板 + 后台匹配调度",
   "scripts": {
     "start": "node ui/server.js",
-    "matcher": "node matcher.js",
+    "matcher": "node scripts/start-db.mjs",
+    "matcher:supabase": "node scripts/start-supabase.mjs",
+    "matcher:rds": "node scripts/start-rds.mjs",
     "test": "npm run test --prefix ../../packages/match-engine"
   },
   "dependencies": {

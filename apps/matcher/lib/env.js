@@ -17,5 +17,5 @@ const envCandidates = [
 ];
 for (const envPath of envCandidates) {
   dotenv.config({ path: envPath });
-  if (process.env.SUPABASE_URL) break;
+  if (process.env.SUPABASE_URL || process.env.DATABASE_URL) break;
 }

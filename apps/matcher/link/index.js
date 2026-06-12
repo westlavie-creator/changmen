@@ -10,6 +10,7 @@ import {
 } from "../../../packages/match-engine/index.js";
 import { resolveClientGame, getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
 import { rebuildOnce } from "../ops/rebuild.js";
+import { setPlatformMatchId } from "../../../packages/shared/db/supabase.js";
 
 /**
  * 人工关联：平台赛事 → client_match，并写入队伍 ID 映射。
@@ -425,12 +426,7 @@ async function linkPlatformToPlatform(supabase, {
   mapResults.push(await upsertTeamPlatformRecord(supabase, pmSource.platform, srcAwayId, srcAwayName, gameCode));
 
   for (const pm of [pmSource, pmTarget]) {
-    const { error: linkErr } = await supabase
-      .from("platform_matches")
-      .update({ match_id: cmId })
-      .eq("platform", pm.platform)
-      .eq("source_match_id", String(pm.source_match_id));
-    if (linkErr) throw new Error(`关联赛事失败 (${pm.platform}): ${linkErr.message}`);
+    await setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
   }
 
   const rebuild = await rebuildOnce();
@@ -620,12 +616,7 @@ async function linkPlatformToClientMatch(supabase, { platform, sourceMatchId, cl
   mapResults.push(await upsertTeamPlatformRecord(supabase, plat, pmHomeId, pmHomeName, gameCode));
   mapResults.push(await upsertTeamPlatformRecord(supabase, plat, pmAwayId, pmAwayName, gameCode));
 
-  const { error: linkErr } = await supabase
-    .from("platform_matches")
-    .update({ match_id: cmId })
-    .eq("platform", plat)
-    .eq("source_match_id", srcId);
-  if (linkErr) throw new Error(`关联赛事失败: ${linkErr.message}`);
+  await setPlatformMatchId(plat, srcId, cmId, { force: true });
 
   const rebuild = await rebuildOnce();
 
