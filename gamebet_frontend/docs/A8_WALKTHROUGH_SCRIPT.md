@@ -249,7 +249,7 @@ npm run build
 | 5.4.1 | 用户中心 → 赛事采集 → 双击「盘」解锁 | 开关可点 |
 | 5.4.2 | 开启 OB 回传 | ~30s 内 Network：`API_SaveMatch?OB`、`API_SaveBet?OB` |
 | 5.4.3 | 关闭 OB 回传 | 无上述 API；BetRow 赔率仍随 MQTT/fo 变化 |
-| 5.4.4 | WS 面板 | `/esport/ws/OB` connected |
+| 5.4.4 | DevTools → Network → WS | OB MQTT 直连源站 `wss://…`（不经本机 relay） |
 | 5.4.5 | 账号编辑粘贴 OB Base64 账号 | `ACCOUNT` 写入 |
 | 5.4.6 | 双击 BetRow（OB 列） | 验盘 + 下单 prompt / 成功（需有效 token） |
 

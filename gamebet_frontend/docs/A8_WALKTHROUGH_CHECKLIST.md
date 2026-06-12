@@ -119,7 +119,7 @@ npm run build
 | 用户中心双击「盘」解锁 → 开启 OB 回传 | |
 | Network：`API_SaveMatch?OB` + `API_SaveBet?OB`（约 30s 周期） | |
 | 关 OB 开关后无 SaveMatch/SaveBet，BetRow 赔率仍变 | |
-| WS：`/esport/ws/OB` 已连接 | |
+| WS：浏览器直连 OB MQTT（`wss://…`，非本机 `/esport/ws/OB`） | |
 | `npm run test:ob`（app 目录）离线 PASS | |
 | `ESPORT_TEST_BASE=http://127.0.0.1:3456 npm run test:ob-live` 只读 PASS | |
 | 粘贴 OB 账号 → 双击 BetRow 下单（需有效 token） | |
