@@ -32,10 +32,16 @@ function linkFromOrder(orderId, createAt) {
   return hash || Number(createAt) || Date.now();
 }
 
+function resolveStoredLink(link, orderId, createAt) {
+  const n = Number(link);
+  if (Number.isFinite(n) && n !== 0) return n;
+  return linkFromOrder(orderId, createAt);
+}
+
 function rowToOrder(r) {
   return {
     OrderID: r.order_id,
-    Link: r.link || linkFromOrder(r.order_id, r.create_at),
+    Link: resolveStoredLink(r.link, r.order_id, r.create_at),
     Type: r.provider || "",
     Match: r.match || "",
     Bet: r.bet || "",
@@ -143,16 +149,29 @@ export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
   return result.sort((a, b) => b.Money - a.Money);
 }
 
+/** 解析 Client_SaveOrderBind 单行（对齐 A8 `nA`：LinkID + Provider + OrderID） */
+export function parseOrderBindRow(row) {
+  return {
+    orderId: String(row?.orderId ?? row?.OrderID ?? ""),
+    playerId: Number(row?.playerId ?? row?.PlayerID) || 0,
+    linkId: Number(row?.linkId ?? row?.LinkID) || 0,
+    provider: String(row?.Provider ?? row?.provider ?? ""),
+  };
+}
+
 export async function saveOrderBind(orders, userId) {
   if (!userId || !Array.isArray(orders)) return false;
-  for (const row of orders) {
-    const orderId = row.orderId ?? row.OrderID;
-    const playerId = row.playerId ?? row.PlayerID;
-    const linkId = row.linkId ?? row.LinkID;
-    if (!orderId) continue;
-    await sb.updateOrderBind(orderId, playerId, userId, linkId);
+  let ok = true;
+  for (const raw of orders) {
+    const { orderId, playerId, linkId, provider } = parseOrderBindRow(raw);
+    if (!orderId || !linkId) continue;
+    const updated = await sb.updateOrderBind(orderId, userId, linkId, {
+      playerId,
+      provider,
+    });
+    if (!updated) ok = false;
   }
-  return true;
+  return ok;
 }
 
 export function ensureSeed() {}

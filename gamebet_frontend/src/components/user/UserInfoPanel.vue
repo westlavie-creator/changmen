@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useTransition } from "@vueuse/core";
 import UserConfigDialog from "@/components/user/UserConfigDialog.vue";
@@ -10,6 +11,7 @@ import { useConfigStore } from "@/stores/configStore";
 
 const emit = defineEmits<{ logout: [] }>();
 
+const router = useRouter();
 const user = useUserStore();
 const accountStore = useAccountStore();
 const configStore = useConfigStore();
@@ -57,6 +59,15 @@ const delayButtonType = computed(() => {
             title="添加账号"
             @click="accountStore.openCreateAccount()"
           />
+          <el-button
+            v-if="user.isAdmin"
+            size="small"
+            type="warning"
+            title="管理系统"
+            @click="router.push({ name: 'admin' })"
+          >
+            管理
+          </el-button>
           <el-button
             size="small"
             class="am-icon-gear"

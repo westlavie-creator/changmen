@@ -451,6 +451,70 @@ async function upsertOrders(rows) {
   return true
 }
 
+/** 管理端：全量 profiles 摘要 */
+async function fetchProfilesAdmin() {
+  const client = getServiceClient()
+  if (!client) return []
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, user_name, accounts, created_at, updated_at')
+    .order('user_name', { ascending: true })
+  if (error) {
+    console.warn('[supabase] fetchProfilesAdmin:', error.message)
+    return []
+  }
+  return data || []
+}
+
+/** 管理端：当日订单汇总 */
+async function fetchOrdersAdminStats(dateKey) {
+  const client = ordersReadClient()
+  if (!client) return { count: 0, money: 0, betMoney: 0 }
+  const { dayStart, dayEnd } = localDayBounds(dateKey)
+  const { data, error } = await client
+    .from('orders')
+    .select('money, bet_money, status')
+    .gte('create_at', dayStart)
+    .lt('create_at', dayEnd)
+  if (error) {
+    console.warn('[supabase] fetchOrdersAdminStats:', error.message)
+    return { count: 0, money: 0, betMoney: 0 }
+  }
+  let count = 0
+  let money = 0
+  let betMoney = 0
+  for (const o of data || []) {
+    if (String(o.status || '') === 'Reject') continue
+    count += 1
+    money += Number(o.money) || 0
+    betMoney += Number(o.bet_money) || 0
+  }
+  return { count, money, betMoney }
+}
+
+/** 管理端：分页订单 */
+async function fetchOrdersAdminPage({ dateKey, userId, provider, pageIndex, pageSize }) {
+  const client = ordersReadClient()
+  if (!client) return { rows: [], total: 0 }
+  const { dayStart, dayEnd } = localDayBounds(dateKey)
+  const from = (Math.max(1, pageIndex) - 1) * pageSize
+  const to = from + pageSize - 1
+  let q = client
+    .from('orders')
+    .select('*', { count: 'exact' })
+    .gte('create_at', dayStart)
+    .lt('create_at', dayEnd)
+    .order('create_at', { ascending: false })
+  if (userId) q = q.eq('user_id', String(userId))
+  if (provider) q = q.eq('provider', String(provider))
+  const { data, error, count } = await q.range(from, to)
+  if (error) {
+    console.warn('[supabase] fetchOrdersAdminPage:', error.message)
+    return { rows: [], total: 0 }
+  }
+  return { rows: data || [], total: count ?? 0 }
+}
+
 /** 排行榜：按本地自然日读取订单盈利聚合字段（service_role） */
 async function fetchOrdersForProfitAggregate(dateKey) {
   const client = ordersReadClient()
@@ -468,14 +532,34 @@ async function fetchOrdersForProfitAggregate(dateKey) {
   return data || []
 }
 
-/** 更新订单 link 绑定 */
-async function updateOrderBind(orderId, playerId, userId, link) {
-  if (!supabaseAdmin) return
-  await supabaseAdmin.from('orders')
+/**
+ * 更新订单 link 绑定。
+ * A8 客户端只传 LinkID + Provider + OrderID（无 PlayerID），需用 provider 或仅 user+order_id 匹配。
+ */
+async function updateOrderBind(orderId, userId, link, opts = {}) {
+  if (!supabaseAdmin || !orderId || !userId) return false
+  const playerId = Number(opts.playerId)
+  const provider = opts.provider ? String(opts.provider) : ''
+  let q = supabaseAdmin
+    .from('orders')
     .update({ link: Number(link) || 0 })
-    .eq('user_id',   String(userId))
-    .eq('order_id',  String(orderId))
-    .eq('player_id', Number(playerId))
+    .eq('user_id', String(userId))
+    .eq('order_id', String(orderId))
+  if (Number.isFinite(playerId) && playerId > 0) {
+    q = q.eq('player_id', playerId)
+  } else if (provider) {
+    q = q.eq('provider', provider)
+  }
+  const { data, error } = await q.select('id')
+  if (error) {
+    console.warn('[supabase] updateOrderBind:', error.message, { orderId, userId, playerId, provider })
+    return false
+  }
+  if (!data?.length) {
+    console.warn('[supabase] updateOrderBind: no rows matched', { orderId, userId, playerId, provider })
+    return false
+  }
+  return true
 }
 
 // ── auth ──────────────────────────────────────────────────────────────
@@ -562,6 +646,9 @@ export {
   writeLiveTimers,
   fetchOrdersByDate,
   fetchOrdersByPlayer,
+  fetchProfilesAdmin,
+  fetchOrdersAdminStats,
+  fetchOrdersAdminPage,
   fetchOrdersForProfitAggregate,
   upsertOrders,
   updateOrderBind,

@@ -35,6 +35,7 @@ export const useUserStore = defineStore("user", {
     message: {} as MessageConfig,
     follow: null as FollowConfig | null,
     extrasLoaded: false,
+    isAdmin: false,
   }),
 
   getters: {
@@ -78,6 +79,7 @@ export const useUserStore = defineStore("user", {
         this.userId = info.ID;
         this.userName = info.UserName;
         this.setting = info.Setting ?? {};
+        this.isAdmin = info.IsAdmin === true || info.IsAdmin === 1;
         const cp = info.CreditPlateUserName?.trim();
         if (cp) this.creditPlateUserName = cp;
         await this.loadExtras();
@@ -126,6 +128,7 @@ export const useUserStore = defineStore("user", {
       this.message = {};
       this.follow = null;
       this.extrasLoaded = false;
+      this.isAdmin = false;
       this.ready = false;
       localStorage.removeItem(USER_KEY);
     },

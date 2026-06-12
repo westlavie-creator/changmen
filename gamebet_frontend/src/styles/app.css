@@ -44,6 +44,132 @@
   color: #94a3b8;
   font-size: 14px;
 }
+
+.admin-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0f172a;
+}
+.admin-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.95);
+}
+.admin-page__nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.admin-page__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.admin-page__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.admin-page__user-name {
+  font-size: 13px;
+  color: #94a3b8;
+}
+.admin-page__main {
+  flex: 1;
+  padding: 16px 20px 24px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.admin-panel {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 12px 14px 8px;
+}
+.admin-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.admin-panel__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.admin-panel__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.admin-stat {
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.admin-stat__label {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+.admin-stat__value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+.admin-stat__value.pos,
+.pos {
+  color: #4ade80;
+}
+.admin-stat__value.neg,
+.neg {
+  color: #f87171;
+}
+.admin-top {
+  margin-top: 8px;
+}
+.admin-top__title {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+.admin-user-detail {
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 6px;
+}
+.admin-user-detail__title {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+}
+.admin-orders-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.admin-orders-pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
 .app-hint {
   padding: 24px;
   text-align: center;

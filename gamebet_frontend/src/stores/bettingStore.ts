@@ -461,6 +461,7 @@ export const useBettingStore = defineStore("betting", {
                 LinkID: linkId,
                 Provider: resultA.provider,
                 OrderID: ordersA[0].orderId,
+                PlayerID: accountA.accountId,
               });
             }
             if (resultB?.success && ordersB.length) {
@@ -468,6 +469,7 @@ export const useBettingStore = defineStore("betting", {
                 LinkID: linkId,
                 Provider: resultB.provider,
                 OrderID: ordersB[0].orderId,
+                PlayerID: accountB.accountId,
               });
             }
             if (binds.length) {
@@ -737,6 +739,7 @@ export const useBettingStore = defineStore("betting", {
                     LinkID: order.linkId,
                     Provider: result.provider,
                     OrderID: venueOrders[0].orderId,
+                    PlayerID: account.accountId,
                   },
                 ]),
               });

@@ -31,6 +31,7 @@ export interface UserInfo {
   Setting: Record<string, unknown>;
   /** 平博信用盘 v4 登录用 A8 账号（可能与 UserName 不同，如本地 admin） */
   CreditPlateUserName?: string;
+  IsAdmin?: boolean | 0 | 1;
 }
 
 export interface ObGameOddTypeSpec {

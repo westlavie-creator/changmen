@@ -6,6 +6,8 @@ import { handleV4Request } from "./v4_router.js";
 import { handleCommonApi } from "./hg_follow.js";
 import * as accountStore from "../account/account_store.js";
 import * as accountService from "../account/account_service.js";
+import { isAdminUser } from "../account/admin_auth.js";
+import * as adminService from "../account/admin_service.js";
 import { resolveA8Credentials } from "../integrations/a8/config.js";
 import { loginV4 } from "../integrations/a8/v4_client.js";
 import { getPlatformRules, getDefaultMarketCode } from "../../../shared/catalog/market_catalog.mjs";
@@ -61,6 +63,9 @@ export type EsportAction =
   | "Client_GetMoneyLog"
   | "Client_MonthReport"
   | "Client_GetUserProfit"
+  | "Client_AdminDashboard"
+  | "Client_AdminUsers"
+  | "Client_AdminOrders"
   | "Client_GetDefaultOdds"
   | "Client_GetMatchDefaultOdds"
   | "Client_CreateTagPlatform"
@@ -217,6 +222,7 @@ async function handle(
         UserName: ctx.user.userName,
         Setting: ctx.user.setting || {},
         CreditPlateUserName: resolveCreditPlateUserName(ctx.user),
+        IsAdmin: isAdminUser(ctx.user),
       });
     }
     case "Client_UpdateSetting": {
@@ -422,6 +428,23 @@ async function handle(
       if (!ctx.user) return fail("请先登录");
       const profit = await accountService.handleGetUserProfit();
       return profit.ok ? ok(profit.info) : fail(profit.msg || "排行榜加载失败");
+    }
+    case "Client_AdminDashboard": {
+      if (!ctx.user) return fail("请先登录");
+      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
+      const date = body.date ? String(body.date) : undefined;
+      return ok(await adminService.getAdminDashboard(date));
+    }
+    case "Client_AdminUsers": {
+      if (!ctx.user) return fail("请先登录");
+      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
+      const date = body.date ? String(body.date) : undefined;
+      return ok(await adminService.listAdminUsers(date));
+    }
+    case "Client_AdminOrders": {
+      if (!ctx.user) return fail("请先登录");
+      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
+      return ok(await adminService.listAdminOrders(body));
     }
     case "Client_GetDefaultOdds": {
       if (!ctx.user) return fail("请先登录");

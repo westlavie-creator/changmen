@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { getToken } from "@/api/esport";
+import { useUserStore } from "@/stores/userStore";
 
 const router = createRouter({
   history: createWebHistory("/"),
@@ -16,6 +17,12 @@ const router = createRouter({
       component: () => import("@/views/HomeView.vue"),
     },
     {
+      path: "/admin",
+      name: "admin",
+      component: () => import("@/views/AdminView.vue"),
+      meta: { requiresAdmin: true },
+    },
+    {
       path: "/console/:pathMatch(.*)*",
       name: "console-redirect",
       component: () => import("@/views/ConsoleRedirectView.vue"),
@@ -24,9 +31,20 @@ const router = createRouter({
   ],
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   if (to.meta.public) return true;
   if (!getToken()) return { name: "login", query: { redirect: to.fullPath } };
+  if (to.meta.requiresAdmin) {
+    const user = useUserStore();
+    if (!user.ready) {
+      try {
+        await user.fetchUserInfo();
+      } catch {
+        return { name: "login", query: { redirect: to.fullPath } };
+      }
+    }
+    if (!user.isAdmin) return { name: "home" };
+  }
   return true;
 });
 

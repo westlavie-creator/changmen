@@ -30,6 +30,8 @@ export interface OrderBindRow {
   LinkID: number;
   Provider: PlatformId;
   OrderID: string;
+  /** 可选；服务端 bind 也可用 Provider 匹配 */
+  PlayerID?: number;
 }
 
 export function createBetLinkId() {
