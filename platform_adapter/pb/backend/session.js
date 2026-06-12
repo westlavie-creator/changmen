@@ -128,6 +128,20 @@ function loadFromEnv() {
   };
 }
 
+/** 仅读 platforms.json（下注账号 / import-platform 写入），不读 PB_GATEWAY/PB_TOKEN 环境变量 */
+export function loadPlatformsJsonSession() {
+  const session = loadFromPlatformsJson();
+  if (!session) {
+    throw new Error(
+      "缺少 PB 凭证：请用 npm run account:import-platform -- <插件data> 写入 gamebet_backend/data/esport/platforms.json",
+    );
+  }
+  if (!buildAuthHeaders(session)) {
+    throw new Error("PB token 无效，需为含 x-app-data / BrowserSessionId_* 的 JSON 字符串");
+  }
+  return session;
+}
+
 export function loadSession() {
   const session = loadFromEnv() || loadFromPlatformsJson();
   if (!session) {

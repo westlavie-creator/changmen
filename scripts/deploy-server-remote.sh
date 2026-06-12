@@ -151,7 +151,7 @@ if [ "$DO_INSTALL_FRONTEND" = "1" ]; then
 fi
 
 if [ "$DO_APP_BUILD" = "1" ]; then
-  log "app:build (slow on VPS; set DEPLOY_LOCAL_BUILD=1 in deploy-server.env to build on PC)"
+  log "app:build (slow on VPS; set DEPLOY_LOCAL_BUILD=1 in deploy-server.local.bat to build on PC)"
   npm run app:build
 else
   log "skip app:build"

@@ -66,7 +66,7 @@ Matcher 人工面板：
 
 日常顺序：`push-git.bat` → `deploy-server.bat`
 
-`deploy-server.env` 可选加速：
+`deploy-server.local.bat`（从 `deploy-server.local.bat.example` 复制）可选加速：
 
 | 变量 | 作用 |
 |------|------|

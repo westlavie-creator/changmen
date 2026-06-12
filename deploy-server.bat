@@ -9,7 +9,12 @@ set "DEPLOY_FULL="
 set "SSH_RETRIES=3"
 set "SSH_OPTS=-o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o ConnectTimeout=60"
 
-if exist "%~dp0deploy-server.env" call "%~dp0deploy-server.env"
+REM Windows CMD cannot execute .env via CALL (opens "choose app" dialog). Use .local.bat instead.
+if exist "%~dp0deploy-server.env" if not exist "%~dp0deploy-server.local.bat" (
+  copy /Y "%~dp0deploy-server.env" "%~dp0deploy-server.local.bat" >nul
+  echo [deploy] Migrated deploy-server.env -^> deploy-server.local.bat
+)
+if exist "%~dp0deploy-server.local.bat" call "%~dp0deploy-server.local.bat"
 
 set "REMOTE=%DEPLOY_USER%@%DEPLOY_HOST%"
 set "LOCAL_SCRIPT=%~dp0scripts\deploy-server-remote.sh"

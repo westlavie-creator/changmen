@@ -9,7 +9,9 @@
     "scrape:ray": "node scrapers/ray_scraper.js",
     "scrape:ray:dry": "node scrapers/ray_scraper.js --dry-run",
     "scrape:ob": "node scrapers/ob_scraper.js",
-    "scrape:ob:dry": "node scrapers/ob_scraper.js --dry-run"
+    "scrape:ob:dry": "node scrapers/ob_scraper.js --dry-run",
+    "scrape:pb": "node scrapers/pb_scraper.mjs",
+    "scrape:pb:dry": "node scrapers/pb_scraper.mjs --dry-run"
   },
   "dependencies": {
     "axios": "^1.7.2",
