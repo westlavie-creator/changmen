@@ -241,7 +241,9 @@ function obLegacyWinBetName(betName) {
   }
   if (/手枪局/.test(name)) return false;
   if (/第\d+回合/.test(name)) return false;
-  return compilePattern(rules.betName).test(name);
+  if (!compilePattern(rules.betName).test(name)) return false;
+  if (/^\[地图\d+\]-/.test(name) && !name.includes("单局") && !name.includes("全局")) return false;
+  return true;
 }
 
 /** A8 SaveBet：RAY 将源站 group_name 编入 BetName（如 [全场] 获胜者） */
@@ -264,6 +266,25 @@ function raySavedBetIsMatchWinner(bet) {
   return true;
 }
 
+/** IA match_winner：地图主盘为 [地图N] 获胜者；排除手枪局/回合等子盘 */
+function iaLegacyWinBetName(betName) {
+  const name = cleanText(betName);
+  if (!name || name.includes("+")) return false;
+  const rules = getPlatformRules("IA", getDefaultMarketCode());
+  for (const bad of rules?.betKeyExcludeContains || []) {
+    if (name.includes(bad)) return false;
+  }
+  if (/手枪局/.test(name)) return false;
+  if (/回合/.test(name)) return false;
+  return /^(\[全场\].+获胜)$|^(\[地图\d+\]\s*获胜者)$/.test(name);
+}
+
+function iaSavedBetIsMatchWinner(bet) {
+  const betName = cleanText(bet?.BetName ?? bet?.Name);
+  if (!betName || !iaLegacyWinBetName(betName)) return false;
+  return true;
+}
+
 /**
  * Filter stored API_SaveBet rows for Client_GetMatchs (A8 仅展示 match_winner 主盘).
  * OB：odd_type_id + gameCode；RAY：BetName 形态（与 A8 saveBets 一致）。
@@ -279,6 +300,9 @@ function matchesSavedBet(platform, bet, ctx = {}) {
   }
   if (platform === "RAY") {
     return raySavedBetIsMatchWinner(bet);
+  }
+  if (platform === "IA") {
+    return iaSavedBetIsMatchWinner(bet);
   }
 
   const name = cleanText(bet?.BetName ?? bet?.Name);
@@ -314,5 +338,7 @@ module.exports = {
   obLegacyWinBetName,
   rayLegacyWinBetName,
   raySavedBetIsMatchWinner,
+  iaLegacyWinBetName,
+  iaSavedBetIsMatchWinner,
   matchesSavedBet,
 };

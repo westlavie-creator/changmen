@@ -33,6 +33,16 @@ export function obBlockLabel(block: Record<string, unknown>): string {
   return `[${round === 0 ? "全场" : `地图${round}`}]-${cn}`;
 }
 
+/** 与 shared/catalog/market_catalog.js obLegacyWinBetName 一致：排除 CS2 手枪局/回合等子盘 */
+export function obMainWinBetLabel(label: string): boolean {
+  const name = String(label ?? "").trim();
+  if (!name || name.includes("+")) return false;
+  if (/手枪局/.test(name)) return false;
+  if (/第\d+回合/.test(name)) return false;
+  if (/^\[地图\d+\]-/.test(name) && !name.includes("单局") && !name.includes("全局")) return false;
+  return true;
+}
+
 let cachedPattern: string | undefined;
 let cachedRe: RegExp | undefined;
 

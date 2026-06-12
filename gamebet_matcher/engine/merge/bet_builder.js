@@ -10,6 +10,7 @@ const {
   obLegacyWinBetName,
   matchesSavedBet,
   rayLegacyWinBetName,
+  iaLegacyWinBetName,
 } = require("../../../shared/catalog/market_catalog");
 const { pickStr, imBetNameIsCollectible, normalizeImBet } = require("../../../shared/im_parse.js");
 const { filterImStoredWinBets, dedupeImBetsByMap } = require("./im_enrich");
@@ -27,6 +28,7 @@ function winBetPriority(bet, provider, gameCode) {
     return p;
   }
   if (provider === "RAY" && rayLegacyWinBetName(name)) return 100;
+  if (provider === "IA" && iaLegacyWinBetName(name)) return 100;
   if (provider === "OB" && OB_WIN_BET_RE.test(name)) return 100;
   if (bet?.OddTypeID || bet?.odd_type_id) return 90;
   return 0;
@@ -55,6 +57,7 @@ function filterStoredWinBets(bets, provider, gameCode) {
       return false;
     }
     if (provider === "RAY") return matchesSavedBet("RAY", bet, { gameCode });
+    if (provider === "IA") return matchesSavedBet("IA", bet, { gameCode });
     if (provider === "IM") {
       const name = pickStr(bet, "BetName", "Name", "name", "betName");
       if (name && !imBetNameIsCollectible(name)) return false;

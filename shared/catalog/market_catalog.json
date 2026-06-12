@@ -76,9 +76,9 @@
           "reference": "TF 源站 events/market_name；全场为「独赢」，地图为「第N局 独赢」"
         },
         "IA": {
-          "betName": "(\\[全场\\].+获胜$)|(\\[地图\\d+\\].+获胜者$)",
+          "betName": "(\\[全场\\].+获胜$)|(\\[地图\\d+\\]\\s*获胜者$)",
           "testOn": "betKey",
-          "reference": "IA 源站 getPointsListSplit；child_plays match 字段区分全场/地图"
+          "reference": "IA 源站 getPointsListSplit；child_plays match 字段区分全场/地图；地图主盘为 [地图N] 获胜者，不含手枪局"
         },
         "IMT": {
           "betName": "地图",

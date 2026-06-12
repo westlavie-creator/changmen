@@ -275,6 +275,28 @@ function refreshClientMatchBetNames(rows) {
   }
 }
 
+/** 各 Map 行 Name 取自最高优先级平台的 match_winner 主盘（避免人工关联 seed 遗留错误 Name） */
+function refreshClientMatchBetMapNames(rows, matches, bets, timers, sourceFromBet) {
+  for (const row of rows || []) {
+    const platforms = Object.keys(row.Matchs || {}).sort(
+      (a, b) => (PROVIDER_PRIORITY[b] || 0) - (PROVIDER_PRIORITY[a] || 0),
+    );
+    for (const bet of row.Bets || []) {
+      const map = bet.Map ?? 0;
+      for (const platform of platforms) {
+        const pm = findPlatformMatch(matches, platform, row.Matchs[platform]);
+        if (!pm) continue;
+        const acc = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
+        const accBet = (acc.Bets || []).find((b) => (b.Map ?? 0) === map);
+        if (accBet?.Name) {
+          bet.Name = accBet.Name;
+          break;
+        }
+      }
+    }
+  }
+}
+
 function swapBetSource(src) {
   if (!src || typeof src !== "object") return src;
   return {
@@ -341,6 +363,7 @@ function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet) {
   refreshClientMatchBetNames(rows);
   if (bets && sourceFromBet) {
     reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet);
+    refreshClientMatchBetMapNames(rows, matches, bets, timers, sourceFromBet);
   }
 }
 

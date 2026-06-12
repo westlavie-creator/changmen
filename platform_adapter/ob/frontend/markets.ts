@@ -1,6 +1,6 @@
 
 import { directGet } from "@/shared/http";
-import { num, obBlockLabel, parseObOddField } from "./parse";
+import { num, obBlockLabel, obMainWinBetLabel, parseObOddField } from "./parse";
 import type { CollectBetDto } from "@/types/collect";
 import type { ViewMatch } from "@/models/match";
 import type { CollectPlatformInfo } from "@/types/esport";
@@ -55,7 +55,8 @@ function findObMainOddsSides(entries: Array<Record<string, unknown>>): {
 /** A8 UMe：单 block 是否进入 saveBets / fo */
 function obBlockCollectable(block: Record<string, unknown>, label: string, betRe: RegExp): boolean {
   if (block.status === 12 || block.visible === 0) return false;
-  return betRe.test(label);
+  if (!betRe.test(label)) return false;
+  return obMainWinBetLabel(label);
 }
 
 /** 单场各 stage 拉 game/view，写入 fo 并返回 SaveBet 载荷（对齐 A8：每 stage 可多盘口） */

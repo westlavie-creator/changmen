@@ -29,6 +29,15 @@ function betKeyFromChild(child: Record<string, unknown>): string {
   return `${prefix}${child.name ?? ""}`;
 }
 
+/** 与 shared/catalog/market_catalog.js iaLegacyWinBetName 一致：排除手枪局/回合子盘 */
+export function iaMainWinBetKey(key: string): boolean {
+  const name = String(key ?? "").trim();
+  if (!name || name.includes("+")) return false;
+  if (/手枪局/.test(name)) return false;
+  if (/回合/.test(name)) return false;
+  return /^(\[全场\].+获胜)$|^(\[地图\d+\]\s*获胜者)$/.test(name);
+}
+
 function pickIaTeamId(row: Record<string, unknown>, side: "home" | "away"): string {
   const raw =
     side === "home"
@@ -74,7 +83,7 @@ export function startIaCollector(): () => void {
 
         const games = await getGames(PLATFORM);
         const betRe = new RegExp(
-          platform.BetName || "([全场].+获胜$)|([地图\\d].+获胜者$)",
+          platform.BetName || "([全场].+获胜$)|([地图\\d+]\\s*获胜者$)",
         );
 
         const listRes = await iaCollectGet<{ code?: number; data?: { data?: Array<Record<string, unknown>> } }>(
@@ -198,6 +207,7 @@ async function loadIaBets(
     for (const child of children) {
       const betKey = betKeyFromChild(child);
       if (!betRe.test(betKey)) continue;
+      if (!iaMainWinBetKey(betKey)) continue;
 
       const mapNum = Number(child.match) || 0;
       const playId = String(child.id ?? "");

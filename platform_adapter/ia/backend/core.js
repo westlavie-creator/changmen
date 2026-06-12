@@ -8,7 +8,7 @@ function sleep(ms) {
 }
 
 function compileBetName(session) {
-  const raw = session?.betName || "([全场].+获胜$)|([地图\\d].+获胜者$)";
+  const raw = session?.betName || "([全场].+获胜$)|([地图\\d+]\\s*获胜者$)";
   return new RegExp(raw);
 }
 
