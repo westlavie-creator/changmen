@@ -1,6 +1,6 @@
 /**
  * 跨平台赛事合并引擎（gamebet_matcher/engine）。
- * 依赖：changmen/shared、team-resolver（队伍映射插件）。
+ * 依赖：changmen/packages/shared、team-resolver（队伍映射插件）。
  */
 
 export * from "./merge/match_merge.js";

@@ -45,7 +45,7 @@ export function formatSecond(sec: number): string {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-/** 与 gamebet_backend/shared/odds_format.js、A8 展示一致 */
+/** 与 packages/shared/odds_format.js、A8 展示一致 */
 export function formatDisplayOdds(value: number): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n === 0) return 0;

@@ -53,5 +53,5 @@ Socket 常无 `sportId`，采集侧 `SourceGameID` 多为 `"unknown"`。
 
 ## 后端对齐
 
-- `gamebet_backend/shared/im_parse.js` — 与前端 parse 同步
+- `packages/shared/im_parse.mjs` — 与前端 parse 同步
 - `gamebet_matcher/engine/merge/`（`im_enrich.js`、`match_merge.js`）— enrich、去重、列表过滤
