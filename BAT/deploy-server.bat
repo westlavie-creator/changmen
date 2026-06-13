@@ -100,10 +100,17 @@ if not exist "%FRONTEND_DIST%" (
   goto fail_network
 )
 
+dir /b "%FRONTEND_DIST%\assets\index*.js" >nul 2>&1
+if errorlevel 1 (
+  echo ERROR: dist/assets missing — run npm run app:build locally first
+  goto fail_network
+)
+
 set "SCP_ATTEMPT=0"
 :scp_retry
 set /a SCP_ATTEMPT+=1
-echo Upload dist attempt %SCP_ATTEMPT%/%SSH_RETRIES% ...
+echo Clear remote dist and upload attempt %SCP_ATTEMPT%/%SSH_RETRIES% ...
+ssh %SSH_OPTS% %REMOTE% "rm -rf %REMOTE_APP%/dist"
 scp %SSH_OPTS% -r "%FRONTEND_DIST%" %REMOTE%:%REMOTE_APP%/
 if not errorlevel 1 goto scp_ok
 if %SCP_ATTEMPT% geq %SSH_RETRIES% goto fail_network
@@ -111,6 +118,11 @@ ping 127.0.0.1 -n 6 >nul
 goto scp_retry
 
 :scp_ok
+ssh %SSH_OPTS% %REMOTE% "test -f %REMOTE_APP%/dist/index.html && test -d %REMOTE_APP%/dist/assets && ls %REMOTE_APP%/dist/assets/index*.js >/dev/null"
+if errorlevel 1 (
+  echo ERROR: remote dist incomplete after upload
+  goto fail_network
+)
 ssh %SSH_OPTS% %REMOTE% "pm2 restart gamebet-web && pm2 status"
 if errorlevel 1 goto fail_network
 

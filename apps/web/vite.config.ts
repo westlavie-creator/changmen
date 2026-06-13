@@ -15,7 +15,8 @@ function platformChunkName(id: string): string | undefined {
   const rest = id.slice(idx + marker.length);
   const dir = rest.split(/[/\\]/)[0];
   if (!dir || dir === "registry" || dir === "contract" || dir === "shared") return undefined;
-  return `platform-${dir.toLowerCase()}`;
+  // 各 platform-* 分包互相循环引用，拆成多 chunk 会在浏览器触发 TDZ 白屏
+  return "platform-all";
 }
 
 export default defineConfig(({ mode }) => ({

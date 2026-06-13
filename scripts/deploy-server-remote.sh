@@ -130,6 +130,7 @@ fi
 if [ "$DEPLOY_SKIP_APP_BUILD" = "1" ]; then
   DO_APP_BUILD=0
   DO_PM2_WEB=1
+  DO_COMPILE_ROUTER=1
 fi
 
 cd "$CHANGMEN"
