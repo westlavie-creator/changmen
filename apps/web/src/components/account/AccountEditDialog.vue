@@ -292,7 +292,7 @@ function normalizeRateConfig() {
       maxOdds: Number(r.maxOdds) || 0,
       rate: Number(r.rate),
     }))
-    .filter((r) => !Number.isNaN(r.rate) && r.rate !== 0);
+    .filter((r) => !Number.isNaN(r.rate));
 }
 
 function buildPatch() {
@@ -409,7 +409,6 @@ function unlockRate() {
         <legend>
           <span @dblclick="unlockRate">投</span>
           注比例
-          <span v-if="rateLocked" class="rate-lock-hint">（双击「投」解锁比例）</span>
           <el-button size="small" type="info" link @click="addRate">
             <i class="am-icon-plus am-icon-fw" />
           </el-button>
@@ -708,12 +707,3 @@ function unlockRate() {
     </div>
   </el-dialog>
 </template>
-
-<style scoped>
-.rate-lock-hint {
-  margin-left: 4px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  font-weight: normal;
-}
-</style>
