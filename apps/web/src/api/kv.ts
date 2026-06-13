@@ -11,6 +11,8 @@ export async function getClientData<T extends Record<string, unknown>>(key: stri
   if (!res.ok) return null;
   const data = (await res.json()) as Record<string, unknown>;
 
+  if (data.success === 0) return null;
+
   if (data.success === 1) {
     if (data.info && typeof data.info === "object" && !Array.isArray(data.info)) {
       return data.info as T;
@@ -21,6 +23,11 @@ export async function getClientData<T extends Record<string, unknown>>(key: stri
 
   if (Array.isArray(data)) return data as unknown as T;
   if (Array.isArray(data.collect)) return data as T;
+
+  // USERCONFIG / CollectConfig / Follow / Message：有数据时后端直接返回裸对象（无 success 包裹）
+  if (data && typeof data === "object") {
+    return data as T;
+  }
   return null;
 }
 
