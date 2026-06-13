@@ -1,5 +1,6 @@
 -- 可选：RDS 已开通 pg_cron 扩展时执行（阿里云部分规格支持）
--- 失败可忽略，改用 scripts/prune-stale.mjs + 系统 cron
+-- 默认不再注册：过期清理由 gamebet-matcher 每小时执行（见 packages/shared/db/prune_stale.js）
+-- 若仍想用 pg_cron，可手动执行下方 schedule；或改用 scripts/prune-stale.mjs + 系统 cron
 --
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/002_prune_pg_cron.sql
 

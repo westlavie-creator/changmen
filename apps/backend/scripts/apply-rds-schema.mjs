@@ -5,7 +5,7 @@
  *   cd changmen/apps/backend
  *   # .env 中设置 DATABASE_URL=postgresql://gamebet_app:...@pgm-....:5432/gamebet
  *   node scripts/apply-rds-schema.mjs
- *   node scripts/apply-rds-schema.mjs --with-cron
+ *   node scripts/apply-rds-schema.mjs --with-cron   # 可选 pg_cron（默认由 matcher  prune）
  */
 
 import { readFileSync } from "node:fs";

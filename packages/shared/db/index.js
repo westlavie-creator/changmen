@@ -98,3 +98,11 @@ export const {
   insertCanonicalTeam,
   saveTeamMappingFireAndForget,
 } = team;
+
+export {
+  STALE_MS,
+  DEFAULT_PRUNE_INTERVAL_MS,
+  getStaleCutoffMs,
+  pruneStaleRows,
+  formatPruneCounts,
+} from "./prune_stale.js";
