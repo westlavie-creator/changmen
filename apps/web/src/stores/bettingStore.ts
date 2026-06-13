@@ -441,11 +441,11 @@ export const useBettingStore = defineStore("betting", {
             }
 
             const successAccounts: PlatformAccount[] = [];
-            if (resultA?.success) {
+            if (resultA?.success && accountA) {
               successAccounts.push(accountA);
               void accountStore.refreshBalance(accountA);
             }
-            if (resultB?.success) {
+            if (resultB?.success && accountB) {
               successAccounts.push(accountB);
               void accountStore.refreshBalance(accountB);
             }
@@ -459,17 +459,17 @@ export const useBettingStore = defineStore("betting", {
             let ordersB: VenueOrder[] = [];
             let rejectA = false;
             let rejectB = false;
-            if (resultA?.success) {
+            if (resultA?.success && accountA) {
               ordersA = await accountStore.updateVenueOrders(accountA);
               rejectA = isVenueReject(ordersA);
             }
-            if (resultB?.success) {
+            if (resultB?.success && accountB) {
               ordersB = await accountStore.updateVenueOrders(accountB);
               rejectB = isVenueReject(ordersB);
             }
 
             const binds: OrderBindRow[] = [];
-            if (resultA?.success && ordersA.length) {
+            if (resultA?.success && accountA && ordersA.length) {
               binds.push({
                 LinkID: linkId,
                 Provider: resultA.provider,
@@ -477,7 +477,7 @@ export const useBettingStore = defineStore("betting", {
                 PlayerID: accountA.accountId,
               });
             }
-            if (resultB?.success && ordersB.length) {
+            if (resultB?.success && accountB && ordersB.length) {
               binds.push({
                 LinkID: linkId,
                 Provider: resultB.provider,
@@ -489,15 +489,23 @@ export const useBettingStore = defineStore("betting", {
               await saveOrderBind({ orders: JSON.stringify(binds) });
             }
 
-            if (resultA && resultB && (resultA.success || resultB.success)) {
+            if (
+              betBothLegs &&
+              accountA &&
+              accountB &&
+              resultA &&
+              resultB &&
+              (resultA.success || resultB.success)
+            ) {
               useMessageStore().bettingMessage(
-                { account: accountA!, result: resultA, options: legA, reject: rejectA },
-                { account: accountB!, result: resultB, options: legB, reject: rejectB },
+                { account: accountA, result: resultA, options: legA, reject: rejectA },
+                { account: accountB, result: resultB, options: legB, reject: rejectB },
               );
             }
 
             if (
               betBothLegs &&
+              accountA &&
               resultA?.success &&
               !rejectA &&
               (!resultB?.success || rejectB) &&
@@ -534,6 +542,7 @@ export const useBettingStore = defineStore("betting", {
               }
             } else if (
               betBothLegs &&
+              accountB &&
               resultB?.success &&
               !rejectB &&
               (!resultA?.success || rejectA) &&
@@ -570,10 +579,10 @@ export const useBettingStore = defineStore("betting", {
               }
             }
 
-            if (resultA?.success && !rejectA) {
+            if (resultA?.success && !rejectA && accountA) {
               markSuccessfulBet(accountA, bet.id, legA.target, legA.odds, match.game);
             }
-            if (resultB?.success && !rejectB) {
+            if (resultB?.success && !rejectB && accountB) {
               markSuccessfulBet(accountB, bet.id, legB.target, legB.odds, match.game);
             }
 
