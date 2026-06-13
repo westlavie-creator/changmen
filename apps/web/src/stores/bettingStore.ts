@@ -140,6 +140,7 @@ function accountPassesMainBetFilter(
   if (!passesDefaultOddsAccount(account, bet.id, leg.target)) return false;
   if (!passesLastOddsGate(account, bet.id, leg.target, leg.odds)) return false;
   if (!passesMaxBetCount(account, bet.id, leg.target)) return false;
+  if (!account.canBetAtOdds(leg.odds)) return false;
   const target = matchStore.getBetTarget(account.provider, bet.id);
   if (target && target !== leg.target) return false;
   return true;
@@ -345,17 +346,20 @@ export const useBettingStore = defineStore("betting", {
                 accountPassesMainBetFilter(acc, bet, match, legB, matchStore, implied),
               options,
             );
-            if (!accountA || !accountB) continue;
+            if (!accountA && !accountB) continue;
 
-            accountA.active = accountB.active = true;
+            const betBothLegs = Boolean(accountA) && Boolean(accountB);
+            if (accountA) accountA.active = true;
+            if (accountB) accountB.active = true;
             const checkStart = Date.now();
-            const checked = await Promise.all([
-              accountStore.checkBetting(accountA, legA),
-              accountStore.checkBetting(accountB, legB),
-            ]);
-            legA = checked[0];
-            legB = checked[1];
-            if (!legA.data || !legB.data) {
+            const checkTasks: Promise<BetOption>[] = [];
+            if (accountA) checkTasks.push(accountStore.checkBetting(accountA, legA));
+            if (accountB) checkTasks.push(accountStore.checkBetting(accountB, legB));
+            const checked = await Promise.all(checkTasks);
+            let checkIdx = 0;
+            if (accountA) legA = checked[checkIdx++];
+            if (accountB) legB = checked[checkIdx++];
+            if ((accountA && !legA.data) || (accountB && !legB.data)) {
               await wait(1000);
               continue;
             }
@@ -367,16 +371,24 @@ export const useBettingStore = defineStore("betting", {
               continue;
             }
 
-            legA.orderIndex = 1;
-            legB.orderIndex = 2;
+            if (accountA) legA.orderIndex = 1;
+            if (accountB) legB.orderIndex = betBothLegs ? 2 : 1;
             const waitSec = Math.max(
-              betToastSeconds(config, accountA.provider),
-              betToastSeconds(config, accountB.provider),
+              accountA ? betToastSeconds(config, accountA.provider) : 0,
+              accountB ? betToastSeconds(config, accountB.provider) : 0,
             );
 
-            let resultA;
-            let resultB;
-            if (config.betSorting === "Parallel") {
+            let resultA: BetResult | undefined;
+            let resultB: BetResult | undefined;
+            if (!betBothLegs) {
+              if (accountA) {
+                resultA = await accountStore.betting(accountA, legA, waitSec);
+                if (!resultA?.success) continue;
+              } else {
+                resultB = await accountStore.betting(accountB!, legB, waitSec);
+                if (!resultB?.success) continue;
+              }
+            } else if (config.betSorting === "Parallel") {
               const pair = await Promise.all([
                 accountStore.betting(accountA, legA, waitSec),
                 accountStore.betting(accountB, legB, waitSec),
@@ -393,12 +405,12 @@ export const useBettingStore = defineStore("betting", {
               }
               if (!resultA?.success) continue;
             } else {
-              resultA = await accountStore.betting(accountA, legA, waitSec);
+              resultA = await accountStore.betting(accountA!, legA, waitSec);
               if (!resultA.success) continue;
-              resultB = await accountStore.betting(accountB, legB, waitSec);
+              resultB = await accountStore.betting(accountB!, legB, waitSec);
             }
 
-            if (resultA?.success && !resultB?.success) {
+            if (betBothLegs && resultA?.success && !resultB?.success) {
               const retry = await retryFailedLeg(
                 match,
                 bet,
@@ -412,7 +424,7 @@ export const useBettingStore = defineStore("betting", {
                 legB = retry.leg;
                 accountB = retry.account;
               }
-            } else if (resultB?.success && !resultA?.success) {
+            } else if (betBothLegs && resultB?.success && !resultA?.success) {
               const retry = await retryFailedLeg(
                 match,
                 bet,
@@ -479,12 +491,13 @@ export const useBettingStore = defineStore("betting", {
 
             if (resultA && resultB && (resultA.success || resultB.success)) {
               useMessageStore().bettingMessage(
-                { account: accountA, result: resultA, options: legA, reject: rejectA },
-                { account: accountB, result: resultB, options: legB, reject: rejectB },
+                { account: accountA!, result: resultA, options: legA, reject: rejectA },
+                { account: accountB!, result: resultB, options: legB, reject: rejectB },
               );
             }
 
             if (
+              betBothLegs &&
               resultA?.success &&
               !rejectA &&
               (!resultB?.success || rejectB) &&
@@ -520,6 +533,7 @@ export const useBettingStore = defineStore("betting", {
                 a8Tip("补单提醒", `${legB.type} 下单失败，创建补单队列`, 3000);
               }
             } else if (
+              betBothLegs &&
               resultB?.success &&
               !rejectB &&
               (!resultA?.success || rejectA) &&

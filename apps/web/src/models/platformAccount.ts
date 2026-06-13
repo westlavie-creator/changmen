@@ -3,6 +3,9 @@ import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 import { readGameBetCount } from "@/shared/bettingSession";
 
+/** [changmen 扩展] rateConfig.rate === 9999 表示该赔率区间不参与投注 */
+const RATE_SKIP = 9999;
+
 const DEFAULT_GAMES = ["英雄联盟", "DOTA2", "CS:GO", "王者荣耀", "无畏契约"];
 
 /** 对齐 A8 bundle `uv`（单平台投注账号） */
@@ -92,7 +95,18 @@ export class PlatformAccount implements AccountRecord {
         (r.minOdds === 0 || r.minOdds <= odds) && (r.maxOdds === 0 || r.maxOdds >= odds),
     );
     const rate = row?.rate ?? 1;
-    return money < 1 ? money : Math.floor(money * (rate || 1));
+    if (rate === RATE_SKIP) return 0;
+    return money < 1 ? money : Math.floor(money * rate);
+  }
+
+  /** 比例 9999 时不选该账号（套利变单边） */
+  canBetAtOdds(odds: number): boolean {
+    if (!this.rateConfig?.length) return true;
+    const row = this.rateConfig.find(
+      (r) =>
+        (r.minOdds === 0 || r.minOdds <= odds) && (r.maxOdds === 0 || r.maxOdds >= odds),
+    );
+    return (row?.rate ?? 1) !== RATE_SKIP;
   }
 
   getMinOdds() {

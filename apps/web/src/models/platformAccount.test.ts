@@ -34,6 +34,22 @@ describe("PlatformAccount rateConfig", () => {
     expect(acc.toJSON().rateConfig).toEqual([{ minOdds: 1.5, maxOdds: 2.5, rate: 0.5 }]);
     expect(acc.getBetMoney(100, 2)).toBe(50);
   });
+
+  it("比例 9999 时不下注", () => {
+    const acc = makeAccount({
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
+    });
+    expect(acc.canBetAtOdds(1.8)).toBe(false);
+    expect(acc.getBetMoney(100, 1.8)).toBe(0);
+  });
+
+  it("无匹配比例行时按全额 1", () => {
+    const acc = makeAccount({
+      rateConfig: [{ minOdds: 2, maxOdds: 3, rate: 0.5 }],
+    });
+    expect(acc.getBetMoney(100, 1.5)).toBe(100);
+    expect(acc.canBetAtOdds(1.5)).toBe(true);
+  });
 });
 
 describe("PlatformAccount game settings", () => {
