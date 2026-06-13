@@ -11,6 +11,10 @@ import MatchCard from "@/components/match/MatchCard.vue";
 import LoginPanel from "@/components/auth/LoginPanel.vue";
 import PluginIntroShell from "@/components/layout/PluginIntroShell.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
+import {
+  expectedGamebetExtensionId,
+  gamebetExtensionInstallHint,
+} from "@/config/gamebetExtension";
 import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useCollectStore } from "@/stores/collectStore";
@@ -19,8 +23,6 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useBettingStore } from "@/stores/bettingStore";
 import { useMessageStore } from "@/stores/messageStore";
-import { startHgFollowLoop, stopHgFollowLoop } from "@platform/hg";
-import { primeStakeTabId } from "@platform/stake";
 
 const router = useRouter();
 const user = useUserStore();
@@ -36,7 +38,9 @@ const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 const { ready: userReady } = storeToRefs(user);
 
 const searchQuery = ref("");
-const { extensionReady } = useExtensionGate();
+const { extensionReady, domExtensionId, refreshExtension } = useExtensionGate();
+const extensionHint = gamebetExtensionInstallHint();
+const expectedExtensionId = expectedGamebetExtensionId();
 /** 会话已就绪（restoreSession / login 完成后为 true） */
 const sessionReady = computed(() => userReady.value);
 
@@ -56,7 +60,7 @@ const filteredMatchs = computed(() => {
 let homeStarted = false;
 
 function stopHome() {
-  stopHgFollowLoop();
+  void import("@platform/hg").then(({ stopHgFollowLoop }) => stopHgFollowLoop());
   messageStore.stop();
   bettingStore.stop();
   accountStore.stopBalanceRefreshLoop();
@@ -77,6 +81,10 @@ async function startHome() {
     await matchStore.initBetTarget();
     void matchStore.startPolling();
     await startCollectors();
+    const [{ primeStakeTabId }, { startHgFollowLoop }] = await Promise.all([
+      import("@platform/stake"),
+      import("@platform/hg"),
+    ]);
     primeStakeTabId();
     bettingStore.start();
     messageStore.start();
@@ -119,8 +127,12 @@ async function onLoginSuccess() {
 </script>
 
 <template>
-  <PluginIntroShell v-if="!extensionReady" :show-login="false" />
-  <PluginIntroShell v-else-if="!sessionReady" :show-login="true">
+  <PluginIntroShell v-if="!sessionReady" :show-login="true">
+    <p v-if="!extensionReady" class="extension-hint">{{ extensionHint }}</p>
+    <p v-if="!extensionReady && domExtensionId" class="extension-hint extension-hint--id">
+      页面检测到扩展 ID：<code>{{ domExtensionId }}</code>
+      <span v-if="domExtensionId !== expectedExtensionId">（与期望 {{ expectedExtensionId }} 不一致）</span>
+    </p>
     <LoginPanel @success="onLoginSuccess" />
   </PluginIntroShell>
   <template v-else>
@@ -137,6 +149,10 @@ async function onLoginSuccess() {
         <el-header>
           <AccountBar />
           <ExtensionsBadge />
+          <p v-if="!extensionReady" class="extension-banner">
+            扩展未连通，采集/下注不可用。
+            <el-button link type="primary" @click="refreshExtension">重新检测</el-button>
+          </p>
         </el-header>
         <el-main>
           <el-input

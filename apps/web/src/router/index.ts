@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { getToken } from "@/api/esport";
 import { useUserStore } from "@/stores/userStore";
+import HomeView from "@/views/HomeView.vue";
 
 const router = createRouter({
   history: createWebHistory("/"),
@@ -12,7 +13,7 @@ const router = createRouter({
     {
       path: "/",
       name: "home",
-      component: () => import("@/views/HomeView.vue"),
+      component: HomeView,
       meta: { public: true },
     },
     {

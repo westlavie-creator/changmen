@@ -1,4 +1,6 @@
-import { gamebetExtensionId } from "@/config/gamebetExtension";
+import {
+  gamebetExtensionId,
+} from "@/config/gamebetExtension";
 
 interface ChromeRuntime {
   lastError?: { message?: string };
@@ -40,11 +42,31 @@ function uuid(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+/** content script 写入的实际 ID，优先于构建时默认值 */
+export function readDomExtensionId(): string {
+  return document.documentElement.dataset.gamebetExtId?.trim() ?? "";
+}
+
+export function readDomExtensionVersion(): string {
+  return document.documentElement.dataset.gamebetExtVersion?.trim() ?? "";
+}
+
+export function resolveGamebetExtensionId(): string {
+  const fromDom = readDomExtensionId();
+  if (fromDom) {
+    localStorage.setItem("gamebet:extensionId", fromDom);
+    return fromDom;
+  }
+  const fromStorage = localStorage.getItem("gamebet:extensionId")?.trim();
+  if (fromStorage) return fromStorage;
+  return gamebetExtensionId();
+}
+
 export async function a8PluginSend(message: Omit<A8PluginMessage, "uuid">): Promise<unknown> {
   const runtime = getRuntime();
   if (!runtime?.sendMessage) throw new Error("Gamebet 扩展未安装或不可访问");
 
-  const extensionId = gamebetExtensionId();
+  const extensionId = resolveGamebetExtensionId();
   return new Promise((resolve, reject) => {
     runtime.sendMessage(extensionId, { ...message, uuid: uuid() }, {}, (envelope) => {
       const lastError = runtime.lastError;
@@ -84,15 +106,27 @@ export async function a8PluginPost(
 export interface GamebetExtensionInfo {
   name?: string;
   version?: string;
+  extensionId?: string;
   error?: string;
+}
+
+function probeFromDom(): GamebetExtensionInfo | null {
+  const extensionId = readDomExtensionId();
+  const version = readDomExtensionVersion();
+  if (!extensionId || !version) return null;
+  localStorage.setItem("gamebet:extensionId", extensionId);
+  return { name: "gamebet", version, extensionId };
 }
 
 /** 向扩展发送 version 探测；未安装或不可访问时返回 null */
 export async function probeGamebetExtension(): Promise<GamebetExtensionInfo | null> {
+  const dom = probeFromDom();
+  if (dom) return dom;
   if (!hasA8PluginRuntime()) return null;
   try {
     const info = (await a8PluginSend({ type: "version" })) as GamebetExtensionInfo | null;
     if (!info || (!info.version && !info.name)) return null;
+    info.extensionId = resolveGamebetExtensionId();
     return info;
   } catch {
     return null;
@@ -107,13 +141,17 @@ export async function initGamebetExtension(
   if (!info) return undefined;
   if (info.version) {
     localStorage.setItem("extensionVersion", info.version);
-    globalThis.dispatchEvent(
-      new CustomEvent("gamebet-extension-version", { detail: info.version }),
-    );
+    globalStorageDispatch(info.version);
   }
   const numeric = parseFloat(info.version ?? "");
   if (info.version && !Number.isNaN(numeric) && numeric < minVersion) {
     info.error = `当前版本 ${info.version} 低于要求的最低版本 ${minVersion}`;
   }
   return info;
+}
+
+function globalStorageDispatch(version: string) {
+  globalThis.dispatchEvent(
+    new CustomEvent("gamebet-extension-version", { detail: version }),
+  );
 }

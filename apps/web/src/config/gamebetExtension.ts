@@ -23,3 +23,7 @@ export function gamebetExtensionInstallHint(): string {
     `扩展 ID 应为 ${id}。安装并启用后刷新本页再登录。`
   );
 }
+
+export function expectedGamebetExtensionId(): string {
+  return gamebetExtensionId() || GAMEBET_EXTENSION_ID_DEFAULT;
+}

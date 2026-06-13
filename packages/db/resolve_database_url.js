@@ -121,16 +121,23 @@ export async function initDatabaseUrl() {
     console.log("[db] RDS 使用内网 DATABASE_URL_INTERNAL (auto)");
     return applyResolved(internal, "internal (auto)");
   }
-  if (pub) {
+  if (pub && (await probeUrl(pub))) {
     console.log("[db] RDS 使用外网 DATABASE_URL_PUBLIC (auto)");
     return applyResolved(pub, "public (auto)");
   }
-  if (internal) {
-    console.warn("[db] 内网探测失败，回退 DATABASE_URL_INTERNAL");
-    return applyResolved(internal, "internal (fallback)");
+  if (explicit && explicit !== internal && explicit !== pub && (await probeUrl(explicit))) {
+    console.log("[db] RDS 使用 DATABASE_URL (auto)");
+    return applyResolved(explicit, "DATABASE_URL (auto)");
   }
-  if (explicit) {
+  if (explicit && explicit !== internal) {
+    console.log("[db] RDS 使用 DATABASE_URL（内网不可达，本机开发）");
     return applyResolved(explicit, "DATABASE_URL");
+  }
+  if (internal) {
+    console.warn(
+      "[db] 内网不可达且无可用外网地址，仍使用 DATABASE_URL_INTERNAL（本机请配置 DATABASE_URL_PUBLIC 或 DATABASE_RDS_TARGET=public）",
+    );
+    return applyResolved(internal, "internal (fallback)");
   }
   return null;
 }

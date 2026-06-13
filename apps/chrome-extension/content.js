@@ -5,6 +5,15 @@
       __defProp(target, name, { get: all3[name], enumerable: true });
   };
 
+  // src/content/page-marker.js
+  try {
+    const manifest = chrome.runtime.getManifest();
+    const root = document.documentElement;
+    root.dataset.gamebetExtId = chrome.runtime.id;
+    root.dataset.gamebetExtVersion = manifest.version ?? "";
+  } catch {
+  }
+
   // src/content/collect-ui.js
   var ICON_SIZE_PX = 56;
   var ICON_URL = () => chrome.runtime.getURL("assets/icon128.png");

@@ -1,3 +1,4 @@
+import "./page-marker.js";
 import { mountCollectIcon } from "./collect-ui.js";
 import { maybeStartHgaPoll } from "./hga-poll.js";
 import { PLATFORMS, PLATFORM_LIST } from "./platforms.js";

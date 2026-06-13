@@ -16,11 +16,11 @@ import "./styles/app.css";
 import "./styles/admin-theme.css";
 
 async function bootstrap() {
-  await initGamebetExtension();
   const pinia = createPinia();
   const app = createApp(App).use(pinia).use(router).use(ElementPlus, { locale: zhCn });
-  await useUserStore(pinia).restoreSession();
   app.mount("#app");
+  void initGamebetExtension();
+  void useUserStore(pinia).restoreSession();
 }
 
 bootstrap().catch(console.error);

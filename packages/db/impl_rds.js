@@ -1198,7 +1198,7 @@ async function authSignIn(userName, password) {
     };
   } catch (err) {
     console.warn("[rds] authSignIn:", err.message);
-    return null;
+    return { error: "db", message: err.message };
   }
 }
 

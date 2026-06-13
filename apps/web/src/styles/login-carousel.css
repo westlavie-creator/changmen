@@ -128,3 +128,34 @@
     justify-content: center;
   }
 }
+
+.extension-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #94a3b8;
+  text-align: left;
+}
+
+.extension-hint--id code {
+  font-size: 11px;
+  color: #e2e8f0;
+  word-break: break-all;
+}
+
+.extension-block {
+  text-align: center;
+}
+
+.extension-block__title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.extension-banner {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #fbbf24;
+}

@@ -234,7 +234,10 @@ async function handleClientLogin(
   }
 
   const auth = await sb.authSignIn(userName, password);
-  if (!auth) return fail("用户名或密码错误");
+  if (auth && "error" in auth && auth.error === "db") {
+    return fail("数据库连接失败，请检查 DATABASE_URL 或网络");
+  }
+  if (!auth || "error" in auth) return fail("用户名或密码错误");
 
   const { accessToken, refreshToken, userId: uid, email } = auth;
 
