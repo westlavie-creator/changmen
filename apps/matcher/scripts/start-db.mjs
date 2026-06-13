@@ -22,10 +22,10 @@ for (const envPath of envCandidates) {
   if (!fs.existsSync(envPath)) continue;
   dotenv.config({ path: envPath });
   if (
-    process.env.SUPABASE_URL ||
     process.env.DATABASE_URL ||
     process.env.DATABASE_URL_PUBLIC ||
-    process.env.DATABASE_URL_INTERNAL
+    process.env.DATABASE_URL_INTERNAL ||
+    process.env.SUPABASE_URL
   ) {
     break;
   }

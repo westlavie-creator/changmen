@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { getMatchs } from "@/api/esport";
-import { getToken, getRefreshToken } from "@/api/client";
+import { getToken } from "@/api/client";
+import { ensureTokenRefresh } from "@/lib/sessionRefresh";
 import { getMatchDefaultOdds } from "@/api/report";
 import { toViewMatches, type ViewMatch } from "@/models/match";
 import type { BetSide } from "@/models/match";
@@ -255,13 +256,9 @@ export const useMatchStore = defineStore("match", {
       this.oddsRefreshTimer = setInterval(() => this.refreshOddsOnBets(), 200);
       this.defaultOddsTimer = setInterval(() => void this.fetchMatchDefaultOdds(), DEFAULT_ODDS_MS);
 
-      // 初始化 Supabase client 只用于 token 自动续期；比赛列表改为固定轮询，避免 Realtime 高频整行推送放大 egress。
-      const jwt = getToken();
-      const rft = getRefreshToken();
-      if (jwt && rft) {
-        void import("@/lib/supabase")
-          .then(({ initSupabaseClient }) => initSupabaseClient(jwt, rft))
-          .catch((e) => console.warn("[matchStore] Supabase token refresh 初始化异常:", e));
+      // Token 自动续期（Supabase 或 JWT）；比赛列表固定轮询
+      if (getToken()) {
+        void ensureTokenRefresh();
       }
 
       this.usingRealtime = false;

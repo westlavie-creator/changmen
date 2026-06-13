@@ -1,5 +1,10 @@
+import crypto from "node:crypto";
 import * as sb from "@changmen/db";
+import { ensurePgPoolReady, getPgPool, insertProfile, getSupabaseAdminClient } from "@changmen/db";
+import { isAdminUser } from "./admin_auth.js";
 import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
+
+const AUTH_MODE = String(process.env.AUTH_MODE || "supabase").trim().toLowerCase();
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
@@ -146,6 +151,7 @@ function mapAdminUserRow(p, profitByUser) {
   return {
     id: String(p.id),
     userName: name,
+    isAdmin: isAdminUser({ userName: name }),
     accountCount: accounts.length,
     accounts,
     setting: profileSettingForAdmin(p),
@@ -236,4 +242,106 @@ export async function listAdminOrders(body = {}) {
     createAt: Number(r.create_at) || 0,
   }));
   return { date: dateKey, list, total, pageIndex, pageSize };
+}
+
+function validateNewPassword(password) {
+  const pwd = String(password || "");
+  if (pwd.length < 6) throw new Error("密码至少 6 位");
+  return pwd;
+}
+
+function validateUserName(userName) {
+  const name = String(userName || "").trim();
+  if (!name) throw new Error("用户名必填");
+  if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(name)) {
+    throw new Error("用户名仅支持字母、数字、下划线或中文");
+  }
+  return name;
+}
+
+/** 管理端创建登录用户（JWT → RDS users；supabase → Auth + profiles） */
+export async function createAdminUser(userName, password) {
+  const name = validateUserName(userName);
+  const pwd = validateNewPassword(password);
+  const now = Date.now();
+
+  if (AUTH_MODE === "jwt") {
+    await ensurePgPoolReady();
+    const pool = getPgPool();
+    if (!pool) throw new Error("RDS 未配置，无法创建用户");
+    const existing = await pool.query(
+      "SELECT id FROM users WHERE lower(user_name) = lower($1)",
+      [name],
+    );
+    if (existing.rows.length) throw new Error("用户名已存在");
+    const userId = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO users (id, user_name, password_hash, metadata, created_at, updated_at)
+       VALUES ($1, $2, crypt($3, gen_salt('bf')), '{}', $4, $4)`,
+      [userId, name, pwd, now],
+    );
+    const ok = await insertProfile(userId, {
+      id: userId,
+      user_name: name,
+      accounts: [],
+      betting_config: {},
+      collect_config: {},
+      preferences: {},
+      created_at: now,
+      updated_at: now,
+    });
+    if (!ok) throw new Error("profiles 创建失败");
+    return { id: userId, userName: name };
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const email = `${name.toLowerCase()}@gamebet.local`;
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password: pwd,
+    email_confirm: true,
+  });
+  if (error) throw new Error(error.message);
+  const userId = data.user.id;
+  await insertProfile(userId, {
+    id: userId,
+    user_name: name,
+    accounts: [],
+    betting_config: {},
+    collect_config: {},
+    preferences: {},
+    created_at: now,
+    updated_at: now,
+  });
+  return { id: userId, userName: name };
+}
+
+/** 管理端重置用户登录密码 */
+export async function resetAdminUserPassword(userId, password) {
+  const id = String(userId || "").trim();
+  if (!id) throw new Error("用户 ID 无效");
+  const pwd = validateNewPassword(password);
+  const now = Date.now();
+
+  if (AUTH_MODE === "jwt") {
+    await ensurePgPoolReady();
+    const pool = getPgPool();
+    if (!pool) throw new Error("RDS 未配置");
+    const { rows } = await pool.query(
+      "SELECT user_name FROM users WHERE id = $1",
+      [id],
+    );
+    if (!rows[0]) throw new Error("用户不存在");
+    await pool.query(
+      `UPDATE users SET password_hash = crypt($2, gen_salt('bf')), updated_at = $3 WHERE id = $1`,
+      [id, pwd, now],
+    );
+    return { id, userName: String(rows[0].user_name) };
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase.auth.admin.updateUserById(id, { password: pwd });
+  if (error) throw new Error(error.message);
+  const name = data?.user?.email?.split("@")[0] || "";
+  return { id, userName: name };
 }

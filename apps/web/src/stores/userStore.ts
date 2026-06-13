@@ -11,6 +11,7 @@ import {
   saveClientData,
 } from "@/api/esport";
 import { getRefreshToken } from "@/api/client";
+import { ensureTokenRefresh, stopTokenRefresh } from "@/lib/sessionRefresh";
 import type { UserInfo } from "@/types/esport";
 import type { MessageConfig, ProxyRow } from "@/types/userExtras";
 import type { FollowConfig } from "@/types/order";
@@ -103,9 +104,7 @@ export const useUserStore = defineStore("user", {
       // 提前启动 Supabase autoRefresh，防止 token 在使用中到期
       const rft = getRefreshToken();
       if (rft) {
-        import("@/lib/supabase")
-          .then(({ initSupabaseClient }) => initSupabaseClient(getToken()!, rft))
-          .catch(() => {});
+        void ensureTokenRefresh();
       }
       try {
         await this.fetchUserInfo();
@@ -119,6 +118,7 @@ export const useUserStore = defineStore("user", {
 
     async logout() {
       unsubscribeUserChannel();
+      await stopTokenRefresh();
       await apiLogout();
       this.userName = "";
       this.userId = 0;

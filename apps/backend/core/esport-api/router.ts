@@ -35,6 +35,7 @@ export type ApiEnvelope<T = unknown> = ApiSuccess<T> | ApiFailure;
 export type EsportAction =
   | "Client_Login"
   | "Client_Logout"
+  | "Client_RefreshToken"
   | "Client_GetSupabaseConfig"
   | "Client_GetUserInfo"
   | "Client_UpdateSetting"
@@ -66,6 +67,8 @@ export type EsportAction =
   | "Client_AdminDashboard"
   | "Client_AdminUsers"
   | "Client_AdminOrders"
+  | "Client_AdminCreateUser"
+  | "Client_AdminResetPassword"
   | "Client_GetDefaultOdds"
   | "Client_GetMatchDefaultOdds"
   | "Client_CreateTagPlatform"
@@ -103,6 +106,23 @@ function getJwtClaim(token: string, claim: string): unknown {
   } catch {
     return null;
   }
+}
+
+function isJwtAuthMode(): boolean {
+  return String(process.env.AUTH_MODE || "supabase").trim().toLowerCase() === "jwt";
+}
+
+function authNotConfiguredMessage(): string {
+  if (isJwtAuthMode()) {
+    return "未配置 JWT 登录：请在 apps/backend/.env 设置 AUTH_MODE=jwt、JWT_SECRET（至少16字符）及 DATABASE_URL";
+  }
+  return "未连接 Supabase：请在 apps/backend/.env 配置 SUPABASE_URL、SUPABASE_KEY";
+}
+
+function profileLoadFailMessage(): string {
+  return isJwtAuthMode()
+    ? "用户数据加载失败，请检查 RDS profiles 表"
+    : "用户数据加载失败，请检查 Supabase profiles 表";
 }
 
 export function resolveCreditPlateUserName(user: EsportUser | null): string {
@@ -171,7 +191,7 @@ async function handleClientLogin(body: Record<string, unknown>): Promise<ApiEnve
   const password = body.password;
   if (!userName || !password) return fail("用户名和密码必填");
   if (!sb.isAuthConfigured()) {
-    return fail("未连接 Supabase：请在 apps/backend/.env 配置 SUPABASE_URL、SUPABASE_KEY");
+    return fail(authNotConfiguredMessage());
   }
 
   const auth = await sb.authSignIn(userName, password);
@@ -190,7 +210,7 @@ async function handleClientLogin(body: Record<string, unknown>): Promise<ApiEnve
     });
     if (ok2) profile = await dbStore.loadProfileById(uid);
   }
-  if (!profile) return fail("用户数据加载失败，请检查 Supabase profiles 表");
+  if (!profile) return fail(profileLoadFailMessage());
 
   const sessionId = getJwtClaim(accessToken, "session_id");
   if (sessionId) {
@@ -209,6 +229,13 @@ async function handle(
     case "Client_Logout": {
       await sb.authSignOut(ctx.token);
       return ok(null);
+    }
+    case "Client_RefreshToken": {
+      const refreshToken = body.refreshToken ?? body.refresh_token;
+      if (!refreshToken) return fail("缺少 refreshToken");
+      const auth = await sb.authRefreshToken(String(refreshToken));
+      if (!auth) return fail("刷新失败，请重新登录");
+      return ok({ token: auth.accessToken, refreshToken: auth.refreshToken });
     }
     case "Client_GetSupabaseConfig":
       return ok({
@@ -445,6 +472,34 @@ async function handle(
       if (!ctx.user) return fail("请先登录");
       if (!isAdminUser(ctx.user)) return fail("无管理员权限");
       return ok(await adminService.listAdminOrders(body));
+    }
+    case "Client_AdminCreateUser": {
+      if (!ctx.user) return fail("请先登录");
+      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
+      try {
+        return ok(
+          await adminService.createAdminUser(
+            (body.userName ?? body.username) as string,
+            body.password as string,
+          ),
+        );
+      } catch (err) {
+        return fail((err as Error).message || "创建用户失败");
+      }
+    }
+    case "Client_AdminResetPassword": {
+      if (!ctx.user) return fail("请先登录");
+      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
+      try {
+        return ok(
+          await adminService.resetAdminUserPassword(
+            (body.userId ?? body.id) as string,
+            body.password as string,
+          ),
+        );
+      } catch (err) {
+        return fail((err as Error).message || "重置密码失败");
+      }
     }
     case "Client_GetDefaultOdds": {
       if (!ctx.user) return fail("请先登录");

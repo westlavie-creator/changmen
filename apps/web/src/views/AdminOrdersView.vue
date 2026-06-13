@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import AdminLayout from "@/components/admin/AdminLayout.vue";
 import { getAdminOrders, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
@@ -162,18 +163,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="admin-page">
-    <header class="admin-page__header">
-      <div class="admin-page__nav">
-        <el-button size="small" @click="router.push({ name: 'admin' })">← 返回管理</el-button>
-        <h1 class="admin-page__title">{{ pageTitle }}</h1>
-      </div>
-      <div class="admin-page__user">
-        <span class="admin-page__user-name">{{ userStore.userName }}</span>
-      </div>
-    </header>
-    <main class="admin-page__main admin-page__main--orders">
-      <section class="admin-orders-page" v-loading="loading">
+  <AdminLayout :title="pageTitle">
+    <section class="admin-orders-page" v-loading="loading">
         <div class="admin-orders-filters">
           <el-date-picker
             v-model="date"
@@ -271,6 +262,5 @@ onMounted(async () => {
           />
         </div>
       </section>
-    </main>
-  </div>
+  </AdminLayout>
 </template>

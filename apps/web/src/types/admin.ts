@@ -76,6 +76,7 @@ export type AdminUserSetting = Record<string, unknown>;
 export interface AdminUserRow {
   id: string;
   userName: string;
+  isAdmin?: boolean;
   accountCount: number;
   accounts: AdminAccountDetail[];
   setting: AdminUserSetting;

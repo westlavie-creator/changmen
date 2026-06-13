@@ -16,6 +16,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { supabase, supabaseAdmin } from "./client.js";
+import { hasDatabaseUrlConfig } from "./resolve_database_url.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -820,6 +821,40 @@ async function authGetUser(token) {
   return { userId: String(payload.sub), metadata: {} }
 }
 
+/** JWT 模式：用 refresh token 换取新的 access/refresh token */
+async function authRefreshToken(refreshToken) {
+  if (!isJwtMode() || !JWT_SECRET) return null
+  const payload = verifyJwt(refreshToken, JWT_SECRET)
+  if (!payload?.sub || payload.typ !== "refresh") return null
+  const userId = String(payload.sub)
+  const pool = getPgPool()
+  if (!pool) return null
+  try {
+    const { rows } = await pool.query(
+      "SELECT user_name FROM users WHERE id = $1",
+      [userId],
+    )
+    const row = rows[0]
+    if (!row) return null
+    const sessionId = crypto.randomUUID()
+    const accessToken = signJwt(
+      { sub: userId, typ: "access", session_id: sessionId },
+      JWT_SECRET,
+      JWT_ACCESS_TTL_SEC,
+    )
+    const newRefresh = signJwt({ sub: userId, typ: "refresh" }, JWT_SECRET, JWT_REFRESH_TTL_SEC)
+    return {
+      accessToken,
+      refreshToken: newRefresh,
+      userId,
+      email: `${row.user_name}@gamebet.local`,
+    }
+  } catch (err) {
+    console.warn("[rds] authRefreshToken:", err.message)
+    return null
+  }
+}
+
 /** 写入 user_metadata（fire-and-forget，用于单 session 限制） */
 function writeUserMetadata(userId, metadata) {
   if (isJwtMode()) {
@@ -849,7 +884,7 @@ function hasAdminAccess() {
 
 /** 是否已配置登录（supabase 或 jwt） */
 function isAuthConfigured() {
-  if (isJwtMode()) return !!(process.env.DATABASE_URL && JWT_SECRET.length >= 16)
+  if (isJwtMode()) return !!(hasDatabaseUrlConfig() && JWT_SECRET.length >= 16)
   return !!supabase
 }
 
@@ -892,5 +927,6 @@ export {
   authSignIn,
   authSignOut,
   authGetUser,
+  authRefreshToken,
   writeUserMetadata,
 };

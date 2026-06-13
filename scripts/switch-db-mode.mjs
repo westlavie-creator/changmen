@@ -43,6 +43,10 @@ function writeEnvMode(mode) {
       continue;
     }
     if (/^\s*RDS_DUAL_WRITE\s*=/.test(line)) continue;
+    if (mode === "rds" && /^\s*SUPABASE_(URL|KEY|SERVICE_KEY)\s*=/.test(line)) {
+      out.push(`# ${line.trim()}  # rds 模式已停用`);
+      continue;
+    }
     out.push(line);
   }
   if (!hasScript) out.push(`GAMEBET_DB_SCRIPT=${mode}`);

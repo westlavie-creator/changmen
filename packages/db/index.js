@@ -79,6 +79,7 @@ export const {
   authSignIn,
   authSignOut,
   authGetUser,
+  authRefreshToken,
   writeUserMetadata,
 } = impl;
 
@@ -146,6 +147,8 @@ export {
   getResolvedDatabaseUrl,
   getResolvedDatabaseLabel,
 } from "./resolve_database_url.js";
+
+export { getPgPool, ensurePgPoolReady } from "./pg_pool.js";
 
 /** 迁移脚本专用：读 Supabase 源库（不经 RDS 路由） */
 export { supabaseAdmin as getSupabaseAdminClient } from "./client.js";

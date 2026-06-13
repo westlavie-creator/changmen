@@ -16,3 +16,20 @@ export async function getAdminUsers(date?: string) {
 export async function getAdminOrders(body: Record<string, unknown> = {}) {
   return unwrap(await post<AdminOrderPage>("Client_AdminOrders", body));
 }
+
+export interface AdminUserMutationResult {
+  id: string;
+  userName: string;
+}
+
+export async function createAdminUser(userName: string, password: string) {
+  return unwrap(
+    await post<AdminUserMutationResult>("Client_AdminCreateUser", { userName, password }),
+  );
+}
+
+export async function resetAdminUserPassword(userId: string, password: string) {
+  return unwrap(
+    await post<AdminUserMutationResult>("Client_AdminResetPassword", { userId, password }),
+  );
+}
