@@ -5,11 +5,15 @@
  *   cd changmen/apps/backend && node scripts/purge-platform-live-timers.mjs OB
  */
 
-import { purgePlatformLiveTimers } from "@changmen/db";
+import { initDatabaseUrl, purgePlatformLiveTimers } from "@changmen/db";
 
 const platform = process.argv[2] || "OB";
 
 try {
+  await initDatabaseUrl();
+  if (!process.env.DATABASE_URL) {
+    throw new Error("未配置 DATABASE_URL / DATABASE_URL_INTERNAL / DATABASE_URL_PUBLIC（见 apps/backend/.env）");
+  }
   await purgePlatformLiveTimers(platform);
   console.log(`[purge-live-timers] cleared live_timers for platform=${platform}`);
 } catch (err) {

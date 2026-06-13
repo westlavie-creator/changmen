@@ -40,9 +40,10 @@ describe("overlayLiveTimersOnMatches", () => {
     expect(out[0].RoundStart).toBe(8000);
   });
 
-  it("leaves match unchanged when no timer snapshot for linked platforms", () => {
+  it("clears stale Round when no timer snapshot exists for OB-linked match", () => {
     const out = overlayLiveTimersOnMatches([baseMatch], {});
-    expect(out[0].Round).toBe(4);
+    expect(out[0].Round).toBe(0);
+    expect(out[0].RoundStart).toBe(0);
   });
 });
 

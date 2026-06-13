@@ -28,7 +28,7 @@ const TEAM_LOGO_LS = "OBService:TeamLogo";
 
 let teamLogos: Record<string, string> | null = null;
 
-/** 对齐 A8 v0：移动端 device=2，PC=1 */
+/** ?? A8 v0???? device=2?PC=1 */
 export function obDeviceId(userAgent?: string): string {
   return userAgent && /mobile/i.test(userAgent) ? "2" : "1";
 }
@@ -42,7 +42,7 @@ async function loadObTeamLogosMap(): Promise<Record<string, string> | null> {
   }
 }
 
-/** 对齐 A8 e9：首轮采集前拉取队徽表（Nr.get 直连 CDN�?*/
+/** ?? A8 e9????????????Nr.get ?? CDN??*/
 export async function ensureObTeamLogosLoaded(): Promise<void> {
   if (teamLogos) return;
   teamLogos = await loadObTeamLogosMap();
@@ -59,19 +59,19 @@ export async function ensureObTeamLogosLoaded(): Promise<void> {
   }
 }
 
-/** 队徽 URL（需�?ensureObTeamLogosLoaded�?*/
+/** ?? URL????ensureObTeamLogosLoaded??*/
 export function resolveObTeamLogoSync(teamId: string): string {
   if (!teamLogos || !teamLogos[teamId]) return "";
   return `https://uphw-cdn6.peyesight.com/${teamLogos[teamId]}`;
 }
 
-/** 对齐 A8 e9：队�?CDN */
+/** ?? A8 e9????CDN */
 export async function resolveObTeamLogo(teamId: string): Promise<string> {
   await ensureObTeamLogosLoaded();
   return resolveObTeamLogoSync(teamId);
 }
 
-/** 对齐 A8 $Me：采�?token 失效时试玩登录并写回平台配置 */
+/** ?? A8 $Me????token ?????????????? */
 export async function refreshObCollectToken(): Promise<string | null> {
   try {
     const body = await directGet<{ data?: { pc?: string } }>(OB_DEMO_LOGIN_URL, {});
@@ -86,24 +86,32 @@ export async function refreshObCollectToken(): Promise<string | null> {
   }
 }
 
-/** 对齐 A8 MMe：拉�?live timer 并入�?*/
-export async function syncObLiveTimer(platform: CollectPlatformInfo): Promise<void> {
+/** ?? A8 MMe??? live timer ??????? game/index ??????????? getTimer ??????? */
+export async function syncObLiveTimer(
+  platform: CollectPlatformInfo,
+  activeMatchIds?: ReadonlySet<string>,
+): Promise<void> {
   const res = await collectObGet<{
     status: string;
     data?: Record<string, Record<string, unknown>>;
   }>(platform, "game/getTimer", "");
   if (res.status !== "true" || !res.data) return;
-  const timers = Object.values(res.data).map((row) => ({
-    MatchID: row.match_id,
-    Round: num(row.round),
-    StartTime: num(row.start_time) * 1000,
-  }));
+  const timers = Object.values(res.data)
+    .map((row) => ({
+      MatchID: row.match_id,
+      Round: num(row.round),
+      StartTime: num(row.start_time) * 1000,
+    }))
+    .filter((row) => {
+      if (!activeMatchIds?.size) return true;
+      return activeMatchIds.has(String(row.MatchID ?? ""));
+    });
   await saveLiveTimer(PLATFORMS.OB, timers);
-  // 对齐 A8：timer 入库后立即刷�?GetMatchs，不必等 30s 轮询
+  // ?? A8?timer ????????GetMatchs???? 30s ??
   void useMatchStore().fetchMatches(true);
 }
 
-/** game/index 列表行的 match_team �?主客队名 */
+/** game/index ???? match_team ?????? */
 export function teamsFromListRow(row: Record<string, unknown>): [string, string] {
   const teams = String(row.match_team ?? "")
     .replace(/&nbsp;/g, " ")
@@ -111,7 +119,7 @@ export function teamsFromListRow(row: Record<string, unknown>): [string, string]
   return [teams[0] ?? "", teams[1] ?? ""];
 }
 
-/** game/index 列表 �?Client_SaveMatch 载荷 */
+/** game/index ?? ??Client_SaveMatch ?? */
 export async function buildMatchesFromList(
   rows: Array<Record<string, unknown>>,
 ): Promise<CollectMatchDto[]> {
@@ -201,10 +209,12 @@ export function startObCollector(): () => void {
         const matchPayload = await buildMatchesFromList(list);
         await collect.saveMatch(PLATFORM, matchPayload);
 
+        const activeMatchIds = new Set<string>();
         for (const row of list) {
           if (stopped) break;
           const matchId = String(row.id ?? "");
           if (!matchId) continue;
+          activeMatchIds.add(matchId);
           matchCount += 1;
 
           unsubscribeObMatchBeforeView(matchId);
@@ -223,12 +233,12 @@ export function startObCollector(): () => void {
           await subscribeObMatchAfterView(matchId);
         }
 
-        await syncObLiveTimer(platform);
+        await syncObLiveTimer(platform, activeMatchIds);
       } catch (err) {
         console.warn("[OB] collect error", err);
         notifyCollectError("OB", err);
       } finally {
-        console.debug(`[OB]比赛列表:${Date.now() - started}ms，读取比�?${matchCount}场`);
+        console.debug(`[OB]????:${Date.now() - started}ms??????${matchCount}?`);
         await wait(POLL_MS);
       }
     }

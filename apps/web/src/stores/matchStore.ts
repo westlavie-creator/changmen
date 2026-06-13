@@ -93,8 +93,9 @@ export const useMatchStore = defineStore("match", {
       return true;
     },
 
-    /** [A8 可证实] P()：有比分时以最高局号覆盖 Round 驱动的 isLive */
+    /** [A8 可证实] P()：有比分时以最高局号覆盖 Round 驱动的 isLive（仅当服务端仍报 liveRound>0） */
     applyScoreDrivenLive(match: ViewMatch) {
+      if (!match.liveRound) return;
       const board = this.score.get(match.id);
       if (!board?.score.size) return;
       const maxRound = Math.max(...board.score.keys());

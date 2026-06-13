@@ -55,6 +55,40 @@ function liveRound(timers, provider, sourceMatchId) {
   };
 }
 
+function timerSnapshotProviders(match, timersByProvider) {
+  return Object.entries(match.Matchs || {})
+    .map(([provider, sourceId]) => ({
+      provider,
+      sourceId: String(sourceId),
+      pri: PROVIDER_PRIORITY[provider] || 0,
+    }))
+    .filter(({ provider }) => Array.isArray(timersByProvider?.[provider]?.timer))
+    .sort((a, b) => b.pri - a.pri);
+}
+
+/** matcher rebuild + Client_GetMatchs overlay：用 live timer 快照刷新 Round/RoundStart */
+function refreshClientMatchRoundsFromTimers(rows, timersByProvider) {
+  if (!Array.isArray(rows)) return;
+  const timers = timersByProvider || {};
+  for (const m of rows) {
+    const linked = timerSnapshotProviders(m, timers);
+    if (linked.length) {
+      const { provider, sourceId } = linked[0];
+      const { round, roundStart } = liveRound(timers, provider, sourceId);
+      m.Round = round > 0 ? round : 0;
+      m.RoundStart = round > 0 && roundStart > 0 ? roundStart : 0;
+      continue;
+    }
+    const platforms = Object.keys(m.Matchs || {});
+    const timerCapable = platforms.filter((p) => (PROVIDER_PRIORITY[p] || 0) > 0);
+    const hasAnySnapshot = timerCapable.some((p) => Array.isArray(timers[p]?.timer));
+    if (timerCapable.length && !hasAnySnapshot) {
+      m.Round = 0;
+      m.RoundStart = 0;
+    }
+  }
+}
+
 // ── 单平台行构建 ──────────────────────────────────────────────────────────────
 
 function buildAccumulateRow(provider, match, bets, timers, sourceFromBet) {
@@ -488,6 +522,7 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
   refreshClientMatchStartTimes(mergedList, matches);
   refreshClientMatchGames(mergedList, matches);
   refreshClientMatchSides(mergedList, matches, bets, timers, sourceFromBet);
+  refreshClientMatchRoundsFromTimers(mergedList, timers);
 
   return filterMultiPlatformClientMatches(mergedList)
     .sort((a, b) => a.StartTime - b.StartTime);
@@ -611,6 +646,7 @@ function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
   refreshClientMatchStartTimes(list, normalized);
   refreshClientMatchGames(list, normalized);
   refreshClientMatchSides(list, normalized, bets, timers, sourceFromBet);
+  refreshClientMatchRoundsFromTimers(list, timers);
   return filterMultiPlatformClientMatches(list);
 }
 
@@ -627,6 +663,8 @@ export {
   applyManualMatchLinks,
   collectManualLinks,
   normalizeMatchesShape,
+  refreshClientMatchRoundsFromTimers,
+  liveRound,
   pickCanonicalStartTime,
   titleFromMatchs,
   refreshClientMatchTitles,
