@@ -2,23 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import manifest from "./manifest.json" with { type: "json" };
+import { BACKEND_ROOT } from "@changmen/db/paths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const REGISTRY_ROOT = __dirname;
 const ADAPTER_ROOT = path.join(REGISTRY_ROOT, "..");
-
-function resolveBackendRoot() {
-  const monorepo = path.join(ADAPTER_ROOT, "..", "..", "apps", "backend");
-  if (fs.existsSync(path.join(monorepo, "core"))) {
-    return monorepo;
-  }
-  throw new Error(
-    "apps/backend not found (expected changmen/apps/backend next to packages/)",
-  );
-}
-
-export const BACKEND_ROOT = resolveBackendRoot();
 
 /** @typedef {import("./manifest.json")[number]} PlatformManifestEntry */
 
@@ -51,4 +40,4 @@ export function platformAdapterPath(id, ...segments) {
   return path.join(ADAPTER_ROOT, platformDir(id), ...segments);
 }
 
-export { ADAPTER_ROOT };
+export { ADAPTER_ROOT, BACKEND_ROOT };

@@ -11,7 +11,8 @@
     "./load_env.js": "./load_env.js",
     "./load_env.cjs": "./load_env.cjs",
     "./paths.js": "./paths.js",
-    "./paths.cjs": "./paths.cjs"
+    "./paths.cjs": "./paths.cjs",
+    "./platform_storage.js": "./platform_storage.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",

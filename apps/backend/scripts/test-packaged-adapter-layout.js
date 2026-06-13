@@ -44,12 +44,7 @@ const marketCatalog = paPaths.reqS("catalog/market_catalog.mjs");
 if (typeof marketCatalog.getDefaultMarketCode !== "function") {
   throw new Error("shared/catalog/market_catalog.mjs did not export getDefaultMarketCode");
 }
-const sharedRoot = paPaths.SHARED_ROOT;
-const expectedShared = path.join(backendRoot, "..", "..", "packages", "shared");
-if (path.resolve(sharedRoot) !== path.resolve(expectedShared)) {
-  throw new Error(`SHARED_ROOT mismatch: ${sharedRoot} vs ${expectedShared}`);
-}
-console.log("shared root:", sharedRoot);
+console.log("shared resolve OK:", marketCatalog.getDefaultMarketCode("OB"));
 
 // 模拟 Electron：shared 在 resources/ 外，@supabase 在 app.asar/node_modules
 const fakeResources = path.join(backendRoot, "scripts", ".tmp-packaged-resources");

@@ -1,9 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { BACKEND_ROOT } from "../../backend/_paths.js";
 import { ESPORT_DATA_DIR } from "@changmen/db/paths.js";
 import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
+import {
+  ensureDefaultJsonFiles,
+  getPlatform,
+  setPlatform,
+} from "@changmen/db/platform_storage.js";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 
@@ -273,22 +276,14 @@ export function parsePbTokenBalance(token) {
 }
 
 export function persistPlatform(session) {
-  const href = pathToFileURL(path.join(BACKEND_ROOT, "core/esport-api/store.js")).href;
-  import(href)
-    .then((mod) => {
-      const store = mod.default;
-      store.ensureSeed();
-      store.setPlatform("PB", {
-        gateway: session.gateway,
-        token: typeof session.token === "string" ? session.token : JSON.stringify(session.token),
-        betName: store.getPlatform("PB")?.betName || ".*",
-        games: (session.gameSlugs || getActivePlatformGameIds("PB")).map(String),
-        cookie: session.cookie || "",
-        referer: session.referer || "",
-        userAgent: session.userAgent || "",
-      });
-    })
-    .catch(() => {
-      /* optional */
-    });
+  ensureDefaultJsonFiles();
+  setPlatform("PB", {
+    gateway: session.gateway,
+    token: typeof session.token === "string" ? session.token : JSON.stringify(session.token),
+    betName: getPlatform("PB")?.betName || ".*",
+    games: (session.gameSlugs || getActivePlatformGameIds("PB")).map(String),
+    cookie: session.cookie || "",
+    referer: session.referer || "",
+    userAgent: session.userAgent || "",
+  });
 }

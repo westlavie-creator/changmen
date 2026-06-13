@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { BACKEND_ROOT, CHANGMEN_ROOT } from "@changmen/db/paths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -9,29 +10,7 @@ const require = createRequire(import.meta.url);
 const LOADER_DIR = __dirname;
 const PLATFORM_ADAPTER_ROOT = path.join(LOADER_DIR, "..");
 
-function findChangmenRoot(startDir) {
-  let cur = startDir;
-  for (let i = 0; i < 12; i++) {
-    const pkgPath = path.join(cur, "package.json");
-    if (fs.existsSync(pkgPath)) {
-      try {
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-        if (pkg.name === "gamebet") return cur;
-      } catch {
-        /* ignore */
-      }
-    }
-    const parent = path.dirname(cur);
-    if (parent === cur) break;
-    cur = parent;
-  }
-  throw new Error(`changmen root not found from ${startDir}`);
-}
-
-const CHANGMEN_ROOT = findChangmenRoot(PLATFORM_ADAPTER_ROOT);
-
-/** apps/backend 根目录 */
-export const BACKEND_ROOT = path.join(CHANGMEN_ROOT, "apps", "backend");
+export { BACKEND_ROOT, CHANGMEN_ROOT };
 
 let _adapterRoot;
 let _registryPaths;

@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { BACKEND_ROOT } from "../../backend/_paths.js";
 import { ESPORT_DATA_DIR } from "@changmen/db/paths.js";
+import {
+  ensureDefaultJsonFiles,
+  setPlatform,
+} from "@changmen/db/platform_storage.js";
 import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
 import { tfRequestHeaders } from "./auth.js";
 
@@ -131,17 +133,11 @@ export async function fetchEventMarkets(session, eventId, options = {}) {
 }
 
 export function persistPlatform(session) {
-  const href = pathToFileURL(path.join(BACKEND_ROOT, "core/esport-api/store.js")).href;
-  import(href)
-    .then((mod) => {
-      mod.default.setPlatform("TF", {
-        gateway: session.gateway,
-        token: session.token,
-        betName: session.betName,
-        games: session.gameIds.map(String),
-      });
-    })
-    .catch(() => {
-      /* optional */
-    });
+  ensureDefaultJsonFiles();
+  setPlatform("TF", {
+    gateway: session.gateway,
+    token: session.token,
+    betName: session.betName,
+    games: session.gameIds.map(String),
+  });
 }

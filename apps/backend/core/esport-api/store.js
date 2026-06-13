@@ -3,6 +3,11 @@ import path from "node:path";
 import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
 import { formatBetOdds } from "@changmen/shared/odds_format.js";
 import { a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
+import {
+  ensureDefaultJsonFiles,
+  getPlatform as getPlatformRow,
+  setPlatform as setPlatformRow,
+} from "@changmen/db/platform_storage.js";
 import { createDefaultOddsApi } from "./default_odds.js";
 import * as dbStore from "../db/store.js";
 import * as sb from "@changmen/db";
@@ -66,13 +71,7 @@ const USER_SETTING_KEYS = [
 
 // ── 初始化 JSON 文件（不创建用户，用户通过 Supabase Auth 管理）──────────────
 export function ensureSeed() {
-  const jsonDefaults = {
-    platforms: {},
-    tag_platforms: {},
-  };
-  for (const [name, def] of Object.entries(jsonDefaults)) {
-    if (!fs.existsSync(filePath(name))) writeJson(name, def);
-  }
+  ensureDefaultJsonFiles();
 }
 
 // ── Auth：token → profile（鉴权逻辑在 @changmen/db）────────
@@ -98,19 +97,11 @@ export function updateUserSetting(uid, patch) {
 
 // ── platform ──────────────────────────────────────────────────────────────────
 export function getPlatform(provider) {
-  return readJson("platforms", {})[provider] || null;
+  return getPlatformRow(provider);
 }
 
 export function setPlatform(provider, data) {
-  const platforms = readJson("platforms", {});
-  platforms[provider] = {
-    ...platforms[provider],
-    ...data,
-    provider,
-    updatedAt: Date.now(),
-  };
-  writeJson("platforms", platforms);
-  return platforms[provider];
+  return setPlatformRow(provider, data);
 }
 
 // ── matches / bets ────────────────────────────────────────────────────────────

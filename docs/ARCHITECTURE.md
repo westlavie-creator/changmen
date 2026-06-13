@@ -36,6 +36,7 @@ changmen/
 | 9 | platform loader 迁入 `@changmen/platform-adapter`；team-resolver 不再依赖 apps/backend | ✅ 完成 |
 | 10 | 存储路径与环境加载迁入 `@changmen/db`（`paths` / `load_env.cjs`） | ✅ 完成 |
 | 11 | web 对齐 `@changmen/shared`（赔率/时间窗 re-export，workspace 解析） | ✅ 完成 |
+| 12 | platform-adapter 路径收敛；`platforms.json` 迁入 `@changmen/db` | ✅ 完成 |
 
 旧路径在阶段 5 之前仍可能出现在历史文档中；**以代码里 `adapter_paths.js` / `package.json` 为准**。
 
@@ -80,7 +81,7 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 ### `packages/match-engine` (`@changmen/match-engine`)
 
 `match_merge`、`bet_builder`、`im_enrich`、队名工具、`client_match_ids` 与 vitest/node:test 套件。  
-`apps/matcher` 通过 `../../../packages/match-engine` 引用；测试：`npm run test --prefix packages/match-engine`。
+`apps/matcher` 通过 `@changmen/match-engine` workspace 依赖引用；测试：`npm run test --prefix packages/match-engine`。
 
 ## apps 说明
 
