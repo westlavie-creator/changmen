@@ -8,7 +8,10 @@
   "exports": {
     ".": "./index.js",
     "./supabase.js": "./supabase.js",
-    "./load_env.js": "./load_env.js"
+    "./load_env.js": "./load_env.js",
+    "./load_env.cjs": "./load_env.cjs",
+    "./paths.js": "./paths.js",
+    "./paths.cjs": "./paths.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",

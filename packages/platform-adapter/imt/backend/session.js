@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { ESPORT_DATA_DIR } = require("./_require.js").reqB("core/shared/storage_paths.js");
+const { ESPORT_DATA_DIR } = require("@changmen/db/paths.cjs");
 const { getDefaultSportIds } = require("./sport_ids.js");
 const { getActivePlatformGameIds } = require("./_require.js").reqS("catalog/game_catalog.mjs");
 

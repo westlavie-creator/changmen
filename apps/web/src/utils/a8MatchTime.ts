@@ -1,21 +1,22 @@
-/** 与 changmen/packages/shared/time/match_time.mjs 保持同步（采集侧含过去 12h 下限） */
+/**
+ * 客户端采集时间窗：复用 @changmen/shared，采集侧额外保留过去 12h 下限。
+ * [changmen 扩展] 过去下限不在 A8 bundle 采集过滤中，见 shared/time/match_time.mjs 注释。
+ */
+import {
+  A8_MATCH_MAX_FUTURE_MS,
+  IM_ODDS_ACTIVE_MS,
+  normalizeEpochMs,
+  a8StartTimeListAllowed,
+} from "@changmen/shared/time/match_time.mjs";
 
-export const A8_MATCH_MAX_FUTURE_MS = 3600 * 1000;
+export { A8_MATCH_MAX_FUTURE_MS, IM_ODDS_ACTIVE_MS, normalizeEpochMs, a8StartTimeListAllowed };
+
+/** [changmen 扩展] 客户端采集：拒绝开赛超过 12h 的比赛 */
 export const A8_MATCH_MAX_PAST_MS = 12 * 3600 * 1000;
 
-/** IM Socket 仅推赔率：超过该时长无推送则不再落库 */
-export const IM_ODDS_ACTIVE_MS = 3 * 60 * 60 * 1000;
-
-export function normalizeEpochMs(raw: unknown): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  if (n < 1e12) return Math.floor(n * 1000);
-  return Math.floor(n);
-}
-
-/** 对齐 A8 OB/SABA：`start_time < now/1000 + 3600` */
 export function a8StartTimeCollectAllowed(startMs: number): boolean {
-  if (!startMs) return true;
+  const ms = normalizeEpochMs(startMs);
+  if (!ms) return true;
   const now = Date.now();
-  return startMs >= now - A8_MATCH_MAX_PAST_MS && startMs <= now + A8_MATCH_MAX_FUTURE_MS;
+  return ms >= now - A8_MATCH_MAX_PAST_MS && ms <= now + A8_MATCH_MAX_FUTURE_MS;
 }

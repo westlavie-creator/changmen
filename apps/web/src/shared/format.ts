@@ -1,5 +1,7 @@
 ﻿/** 对齐 A8 bundle `pt` 常用格式化 */
 
+import { formatOdds } from "@changmen/shared/odds_format.js";
+
 export function formatDate(ts: number): string {
   if (!ts) return "";
   const d = new Date(ts);
@@ -45,11 +47,9 @@ export function formatSecond(sec: number): string {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-/** 与 packages/shared/odds_format.js、A8 展示一致 */
+/** 与 @changmen/shared/odds_format、A8 展示一致 */
 export function formatDisplayOdds(value: number): number {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n === 0) return 0;
-  return Math.round(n * 1000) / 1000;
+  return formatOdds(value);
 }
 
 export function toFixed(n: number, digits = 3, mode: "round" | "floor" = "round"): string {

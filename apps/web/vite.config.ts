@@ -15,7 +15,6 @@ export default defineConfig({
     extensions: [".ts", ".tsx", ".mjs", ".js", ".jsx", ".json"],
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@changmen/shared": fileURLToPath(new URL("../../packages/shared", import.meta.url)),
       "@platform": fileURLToPath(new URL("../../packages/platform-adapter", import.meta.url)),
       mqtt: fileURLToPath(new URL("../../node_modules/mqtt", import.meta.url)),
       "socket.io-client": fileURLToPath(

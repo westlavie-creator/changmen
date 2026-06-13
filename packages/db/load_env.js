@@ -6,8 +6,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { createRequire } from "node:module";
 
-const changmenRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const require = createRequire(import.meta.url);
+const { findChangmenRoot } = require("./changmen_root.cjs");
+
+const changmenRoot = findChangmenRoot(path.dirname(fileURLToPath(import.meta.url)));
 
 for (const rel of ["apps/backend/.env"]) {
   const envPath = path.join(changmenRoot, rel);

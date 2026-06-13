@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { ESPORT_DATA_DIR } = require("./_require.js").reqB("core/shared/storage_paths.js");
+const { ESPORT_DATA_DIR } = require("@changmen/db/paths.cjs");
 const Core = require("./core.js");
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");

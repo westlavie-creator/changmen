@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BACKEND_ROOT } from "../../backend/_paths.js";
-import { ESPORT_DATA_DIR } from "../../../../apps/backend/core/shared/storage_paths.js";
+import { ESPORT_DATA_DIR } from "@changmen/db/paths.js";
 import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
