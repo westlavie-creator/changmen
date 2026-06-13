@@ -8,7 +8,9 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { OrderRow } from "@/types/order";
 import { useUserStore } from "@/stores/userStore";
 import { useConfigStore } from "@/stores/configStore";
-import { formatDate, formatDateKey, toFixed } from "@/shared/format";
+import type { ViewBet, ViewMatch } from "@/models/match";
+import type { ArbLegs } from "@/shared/arbitrage";
+import { arbProfitRate, formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
 import { wait } from "@/shared/wait";
 
 /** A8 bundle 固定报表群 / 发布群（Gi 中 RBe / FBe） */
@@ -175,6 +177,27 @@ export const useMessageStore = defineStore("message", {
         return lines.join("\n");
       };
       this.enqueueTelegram([formatLeg(legA), formatLeg(legB)].join("\n"));
+    },
+
+    /** [changmen 扩展] 发现满足阈值的套利腿时推送到个人 Telegram（A8 仅在下注成功后推单群） */
+    arbOpportunityMessage(match: ViewMatch, bet: ViewBet, legs: ArbLegs) {
+      const user = useUserStore();
+      if (!user.message?.telegramId?.trim()) return;
+      const idx = NOTIFY_TYPES.indexOf("OrderNotify");
+      const key = `${match.id}:${bet.id}:${legs.homeItem.type}:${legs.awayItem.type}`;
+      if (!this.shouldNotify(idx, key, 600)) return;
+
+      const body = [
+        htmlTitle("套利机会"),
+        match.title,
+        bet.getBetName(),
+        "<blockquote>",
+        `${legs.homeItem.type} 主胜 @ ${legs.homeOdds}`,
+        `${legs.awayItem.type} 客胜 @ ${legs.awayOdds}`,
+        `对冲 ${percent(legs.implied)} / 利润 ${arbProfitRate(legs.implied)}`,
+        "</blockquote>",
+      ].join("\n");
+      this.enqueueTelegram(body);
     },
 
     loseOrderMessage(
