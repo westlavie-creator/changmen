@@ -461,7 +461,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout title="对阵矩阵" subtitle="比赛纵向排列，同场盘口在左侧合并展示">
+  <AdminLayout
+    class="admin-shell--matrix"
+    title="对阵矩阵"
+    subtitle="比赛纵向排列，同场盘口在左侧合并展示"
+  >
     <section class="admin-card admin-orders-matrix" v-loading="loading">
       <div class="admin-card__toolbar admin-orders-filters">
         <el-date-picker
@@ -500,7 +504,7 @@ onMounted(async () => {
         <code>GAMEBET_DB_SCRIPT=rds</code> 且已重启后端。
       </p>
 
-      <div v-else class="admin-matrix-scroll">
+      <div v-else class="admin-matrix-wrap">
         <table class="admin-matrix">
           <thead>
             <tr>

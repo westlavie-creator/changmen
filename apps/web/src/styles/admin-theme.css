@@ -748,12 +748,24 @@
   background: rgba(7, 11, 20, 0.4);
   border: 1px solid var(--adm-border);
 }
-.admin-matrix-scroll {
-  overflow: auto;
-  max-height: calc(100vh - 220px);
-  border: 1px solid var(--adm-border);
-  border-radius: var(--adm-radius);
+.admin-matrix-wrap {
   background: rgba(7, 11, 20, 0.4);
+}
+
+/* 对阵矩阵：整页铺开，由浏览器/主内容区滚动，不用内嵌滚动框 */
+.admin-shell--matrix .admin-shell__main,
+.admin-shell--matrix .admin-shell__content {
+  overflow: visible;
+}
+.admin-shell--matrix .admin-shell__content {
+  flex: 1 1 auto;
+}
+.admin-shell--matrix .admin-orders-matrix {
+  overflow: visible;
+  box-shadow: none;
+}
+.admin-shell--matrix .admin-orders-matrix .admin-card__body {
+  overflow: visible;
 }
 .admin-matrix {
   --matrix-match-col: 156px;
