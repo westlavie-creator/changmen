@@ -37,7 +37,8 @@ const { ready: userReady } = storeToRefs(user);
 
 const searchQuery = ref("");
 const { extensionReady, extensionVersion } = useExtensionGate();
-const isLoggedIn = computed(() => userReady.value);
+/** 会话已就绪（restoreSession / login 完成后为 true） */
+const sessionReady = computed(() => userReady.value);
 
 const filteredMatchs = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -65,7 +66,7 @@ function stopHome() {
 }
 
 async function startHome() {
-  if (homeStarted || !extensionReady.value || !isLoggedIn.value) return;
+  if (homeStarted || !extensionReady.value || !sessionReady.value) return;
   homeStarted = true;
   await user.fetchUserInfo();
   loseOrderStore.init();
@@ -83,7 +84,7 @@ onMounted(() => {
   void startHome();
 });
 
-watch([extensionReady, isLoggedIn], () => {
+watch([extensionReady, sessionReady], () => {
   void startHome();
 });
 
@@ -108,7 +109,7 @@ async function onLoginSuccess() {
 
 <template>
   <PluginIntroShell v-if="!extensionReady" :show-login="false" />
-  <PluginIntroShell v-else-if="!isLoggedIn" :show-login="true">
+  <PluginIntroShell v-else-if="!sessionReady" :show-login="true">
     <LoginPanel :extension-version="extensionVersion" @success="onLoginSuccess" />
   </PluginIntroShell>
   <template v-else>
