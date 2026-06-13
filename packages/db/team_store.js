@@ -180,10 +180,38 @@ export async function countTeamMapsForGbId(gbTeamId) {
   return rows[0]?.c || 0;
 }
 
+function isCanonicalNameMapConflict(err) {
+  return (
+    err?.code === "23505" &&
+    String(err.message || "").includes("team_platform_maps_canonical_id_platform_platform_name_key")
+  );
+}
+
+function formatTeamPlatformMapWriteError(row) {
+  return [
+    "队伍关联失败：同一 gb_team_id 在该平台已有同名队伍映射",
+    `${row.platform} · 「${row.platform_name}」· 平台 id ${row.platform_id}`,
+    "请刷新 matcher 页面后重试；若两侧为同一平台且队名相同，同一标准队伍只能保留一个平台 id",
+  ].join("\n");
+}
+
+/** 手动关联：同 canonical + 平台 + 队名下只保留当前 platform_id（旧 id 视为过时） */
+async function clearCanonicalPlatformNameConflict(pool, row) {
+  if (row.canonical_id == null) return;
+  await pool.query(
+    `DELETE FROM team_platform_maps
+     WHERE canonical_id = $1 AND platform = $2 AND platform_name = $3 AND platform_id <> $4`,
+    [row.canonical_id, row.platform, row.platform_name, String(row.platform_id)],
+  );
+}
+
 async function rdsUpsertTeamPlatformMaps(chunk, { ignoreDuplicates = false } = {}) {
   const pool = getPgPool();
   if (!pool) throw new Error("DATABASE_URL 未配置");
   for (const row of chunk) {
+    if (row.canonical_id != null && !ignoreDuplicates) {
+      await clearCanonicalPlatformNameConflict(pool, row);
+    }
     const sql = ignoreDuplicates
       ? `INSERT INTO team_platform_maps (canonical_id, platform, platform_id, platform_name, game, source, confidence)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -196,15 +224,22 @@ async function rdsUpsertTeamPlatformMaps(chunk, { ignoreDuplicates = false } = {
            game = EXCLUDED.game,
            source = EXCLUDED.source,
            confidence = EXCLUDED.confidence`;
-    await pool.query(sql, [
-      row.canonical_id ?? null,
-      row.platform,
-      String(row.platform_id),
-      row.platform_name,
-      row.game ?? null,
-      row.source ?? "manual",
-      row.confidence ?? 1.0,
-    ]);
+    try {
+      await pool.query(sql, [
+        row.canonical_id ?? null,
+        row.platform,
+        String(row.platform_id),
+        row.platform_name,
+        row.game ?? null,
+        row.source ?? "manual",
+        row.confidence ?? 1.0,
+      ]);
+    } catch (err) {
+      if (isCanonicalNameMapConflict(err)) {
+        throw new Error(formatTeamPlatformMapWriteError(row));
+      }
+      throw err;
+    }
   }
 }
 
@@ -334,12 +369,32 @@ export async function reassignGbTeamId(fromId, toId) {
 
   const pool = getPgPool();
   if (!pool) throw new Error("DATABASE_URL 未配置");
-  const { rows } = await pool.query(
-    `UPDATE team_platform_maps SET canonical_id = $1, source = 'manual'
-     WHERE canonical_id = $2 RETURNING platform, platform_id`,
-    [to, from],
+  const { rows: loserRows } = await pool.query(
+    `SELECT id, platform, platform_id, platform_name FROM team_platform_maps WHERE canonical_id = $1`,
+    [from],
   );
-  return rows.length;
+  if (!loserRows.length) return 0;
+
+  let processed = 0;
+  for (const row of loserRows) {
+    const { rows: winnerDup } = await pool.query(
+      `SELECT id FROM team_platform_maps
+       WHERE canonical_id = $1 AND platform = $2 AND platform_name = $3 LIMIT 1`,
+      [to, row.platform, row.platform_name],
+    );
+    if (winnerDup.length) {
+      // 合并 gb_team_id 时，目标侧已有同平台同名映射 → 丢弃 loser 行，避免违反唯一约束
+      await pool.query(`DELETE FROM team_platform_maps WHERE id = $1`, [row.id]);
+      processed++;
+      continue;
+    }
+    await pool.query(
+      `UPDATE team_platform_maps SET canonical_id = $1, source = 'manual' WHERE id = $2`,
+      [to, row.id],
+    );
+    processed++;
+  }
+  return processed;
 }
 
 export function saveTeamMappingFireAndForget(row) {

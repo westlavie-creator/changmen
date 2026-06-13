@@ -24,7 +24,12 @@ function _toProfile(row) {
   } catch {
     /* ignore */
   }
-  return { id: String(row.id), userName: row.user_name, setting };
+  return {
+    id: String(row.id),
+    userName: row.user_name,
+    isAdmin: Boolean(row.is_admin),
+    setting,
+  };
 }
 
 // ─── profiles ────────────────────────────────────────────────────────

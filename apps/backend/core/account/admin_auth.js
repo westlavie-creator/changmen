@@ -1,13 +1,9 @@
-/** 管理员用户名白名单（逗号分隔，不区分大小写） */
+/** 管理员判定：读 users.is_admin（经 profile 缓存/查询带入 isAdmin） */
 export function isAdminUser(profile) {
-  const name = String(profile?.userName || profile?.user_name || "").trim().toLowerCase();
-  if (!name) return false;
-  const raw = process.env.ADMIN_USERNAMES || "admin";
-  const allowed = raw
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  return allowed.includes(name);
+  if (!profile) return false;
+  if (profile.isAdmin === true || profile.is_admin === true) return true;
+  if (profile.isAdmin === 1 || profile.is_admin === 1) return true;
+  return false;
 }
 
 export function assertAdmin(profile) {

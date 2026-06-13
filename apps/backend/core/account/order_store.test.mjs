@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { parseOrderBindRow } from "./order_store.js";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
+
+describe("parseVenueCreateAt in saveOrder path", () => {
+  it("parses datetime strings that parseNum would drop", () => {
+    const ts = parseVenueCreateAt("2026-06-14 15:30:00");
+    expect(ts).toBe(Date.parse("2026-06-14T15:30:00"));
+  });
+
+  it("reads CreateAt PascalCase shape", () => {
+    expect(parseVenueCreateAt(undefined)).toBeGreaterThan(0);
+    expect(parseVenueCreateAt(1700000000000)).toBe(1700000000000);
+  });
+});
 
 describe("parseOrderBindRow", () => {
   it("reads A8-style nA fields", () => {

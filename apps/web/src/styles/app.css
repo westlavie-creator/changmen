@@ -37,6 +37,7 @@
 }
 .match-search {
   margin-bottom: 8px;
+  max-width: 280px;
 }
 .match-empty {
   padding: 24px;

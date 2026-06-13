@@ -42,6 +42,9 @@ async function main() {
     console.log("[rds] 执行 003_money_logs.sql …");
     await client.query(readSql("003_money_logs.sql"));
 
+    console.log("[rds] 执行 004_users_is_admin.sql …");
+    await client.query(readSql("004_users_is_admin.sql"));
+
     if (withCron) {
       console.log("[rds] 执行 002_prune_pg_cron.sql …");
       try {

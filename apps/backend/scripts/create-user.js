@@ -2,7 +2,9 @@
 
 /**
  * 创建系统登录用户（RDS users + JWT）
- * 用法：node scripts/create-user.js <用户名> <密码>
+ * 用法：
+ *   node scripts/create-user.js <用户名> <密码>
+ *   node scripts/create-user.js --admin <用户名> <密码>
  */
 
 import crypto from "node:crypto";
@@ -14,7 +16,7 @@ import {
 } from "@changmen/db";
 import pg from "@changmen/db/pg.js";
 
-async function createJwtUser(userName, password) {
+async function createJwtUser(userName, password, asAdmin = false) {
   await initDatabaseUrl();
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -39,12 +41,13 @@ async function createJwtUser(userName, password) {
     const userId = existing.rows[0]?.id || crypto.randomUUID();
 
     await client.query(
-      `INSERT INTO users (id, user_name, password_hash, metadata, created_at, updated_at)
-       VALUES ($1, $2, crypt($3, gen_salt('bf')), '{}', $4, $4)
+      `INSERT INTO users (id, user_name, password_hash, metadata, is_admin, created_at, updated_at)
+       VALUES ($1, $2, crypt($3, gen_salt('bf')), '{}', $4, $5, $5)
        ON CONFLICT (user_name) DO UPDATE SET
          password_hash = crypt($3, gen_salt('bf')),
+         is_admin = EXCLUDED.is_admin OR users.is_admin,
          updated_at = EXCLUDED.updated_at`,
-      [userId, name, password, now],
+      [userId, name, password, Boolean(asAdmin), now],
     );
 
     const ok = await insertProfile(userId, {
@@ -62,22 +65,27 @@ async function createJwtUser(userName, password) {
       process.exit(1);
     }
 
-    console.log("成功:", JSON.stringify({ id: userId, userName: name, auth: "jwt" }, null, 2));
+    console.log(
+      "成功:",
+      JSON.stringify({ id: userId, userName: name, auth: "jwt", isAdmin: Boolean(asAdmin) }, null, 2),
+    );
   } finally {
     await client.end();
   }
 }
 
 async function main() {
-  const [userName, password] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const asAdmin = args[0] === "--admin";
+  const [userName, password] = asAdmin ? args.slice(1) : args;
 
   if (!userName || !password) {
-    console.error("用法: node scripts/create-user.js <用户名> <密码>");
+    console.error("用法: node scripts/create-user.js [--admin] <用户名> <密码>");
     process.exit(1);
   }
 
-  console.log(`创建用户 (JWT/RDS): ${userName}`);
-  await createJwtUser(userName, password);
+  console.log(`创建用户 (JWT/RDS)${asAdmin ? " [管理员]" : ""}: ${userName}`);
+  await createJwtUser(userName, password, asAdmin);
 }
 
 main().catch((err) => {

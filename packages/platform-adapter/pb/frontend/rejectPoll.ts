@@ -1,5 +1,6 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder, VenueOrderStatus } from "@platform/contract";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import { pbGet } from "./transport";
 import { wait } from "@/shared/wait";
 import { PLATFORMS } from "@/shared/platform";
@@ -52,7 +53,7 @@ export async function startPbRejectPoll(account: PlatformAccount, startedAt: num
     const betLabel = mapNum === 0 ? "全场" : `地图${mapNum}`;
     const item = String(row[15] ?? "");
     const odds = Number(row[18]) || 0;
-    const createAt = Number(row[12]) || Date.now();
+    const createAt = parseVenueCreateAt(row[12]);
     const betMoney = (Number(row[42]) || 0) * multiply;
 
     const pending: VenueOrder = {

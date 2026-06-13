@@ -36,6 +36,7 @@ export const {
   fetchProfileById,
   writeProfile,
   insertProfile,
+  updateUserIsAdmin,
   writeAccounts,
   writeClientMatches,
   writeClientMatchesAsync,

@@ -1,4 +1,5 @@
 import type { BetOption } from "@/models/betOption";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { accountTfGet, accountTfPost } from "@/shared/platformHttp";
@@ -174,7 +175,7 @@ export const tfProvider: PlatformProvider = {
           provider: PLATFORMS.TF,
           orderId: String(row.ticket_num ?? ""),
           odds: Number(row.euro_odds) || 0,
-          createAt: new Date(String(row.date_created ?? "")).getTime() || Date.now(),
+          createAt: parseVenueCreateAt(row.date_created),
           betMoney: amount,
           reward,
           money,

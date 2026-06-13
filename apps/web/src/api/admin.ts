@@ -46,6 +46,13 @@ export interface AdminUserMutationResult {
   id: string;
   userName: string;
   frozen?: number;
+  isAdmin?: number;
+}
+
+export async function setAdminUserAdmin(userId: string, isAdmin: boolean) {
+  return unwrap(
+    await post<AdminUserMutationResult>("Client_AdminSetUserAdmin", { userId, isAdmin }),
+  );
 }
 
 export async function createAdminUser(userName: string, password: string) {

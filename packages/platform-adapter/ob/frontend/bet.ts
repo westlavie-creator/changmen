@@ -1,3 +1,4 @@
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
@@ -133,19 +134,13 @@ function mapObOrderRow(row: Record<string, unknown>): VenueOrder {
     money = reward - betMoney;
   }
 
-  const createRaw = row.bet_time;
-  const createAt =
-    typeof createRaw === "number"
-      ? createRaw
-      : createRaw
-        ? new Date(String(createRaw)).getTime()
-        : Date.now();
+  const createAt = parseVenueCreateAt(row.bet_time);
 
   return {
     provider: PLATFORMS.OB,
     orderId: String(row.id ?? ""),
     odds: obNum(row.odd),
-    createAt: Number.isFinite(createAt) ? createAt : Date.now(),
+    createAt,
     betMoney,
     reward,
     money,

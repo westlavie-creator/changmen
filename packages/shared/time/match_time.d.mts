@@ -5,5 +5,6 @@ export const A8_MATCH_MAX_FUTURE_MS: number;
 export const A8_MATCH_LIST_MAX_FUTURE_MS: number;
 
 export function normalizeEpochMs(raw: unknown): number;
+export function parseVenueCreateAt(raw: unknown, fallback?: number): number;
 export function a8StartTimeCollectAllowed(startMs: unknown): boolean;
 export function a8StartTimeListAllowed(startMs: unknown): boolean;

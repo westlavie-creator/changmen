@@ -1,6 +1,7 @@
+import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult } from "@/models/betResult";
-import type { BetOption } from "@/models/betOption";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import type { PlatformProvider, VenueOrder } from "@platform/contract";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
@@ -368,7 +369,7 @@ export const imProvider: PlatformProvider = {
 
         const odds = Number(stmt.Odds) || 0;
         const betMoney = Number(stmt.Stake) || 0;
-        const createAt = Number(new Date(stmt.BetDate as any).getTime()) || Date.now();
+        const createAt = parseVenueCreateAt(stmt.BetDate);
 
         rows.push({
           provider: account.provider,

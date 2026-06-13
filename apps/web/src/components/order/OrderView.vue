@@ -3,7 +3,7 @@ import { onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import type { OrderRow } from "@/types/order";
 import { useOrderStore } from "@/stores/orderStore";
-import { formatDate, toFixed } from "@/shared/format";
+import { formatOrderTime, toFixed } from "@/shared/format";
 
 const orderStore = useOrderStore();
 const { orderEntries, orderDate, loading, filterAccountId, accountOptions } =
@@ -89,7 +89,7 @@ function platformClass(row: OrderRow) {
             @{{ row.Odds }}
           </div>
         </div>
-        <div class="time">投注时间：{{ formatDate(row.CreateAt || 0) }}</div>
+        <div class="time">投注时间：{{ formatOrderTime(row.CreateAt || 0) }}</div>
         <div class="profit">
           投注金额：{{ row.BetMoney }} 盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
         </div>

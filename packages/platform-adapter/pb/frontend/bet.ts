@@ -4,6 +4,7 @@ import { pbPost } from "./transport";
 import { toNumber } from "./parse";
 import { startPbRejectPoll, pbRejectStorageKey } from "./rejectPoll";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import { formatPbDateTime } from "@/shared/format";
 import { PLATFORMS } from "@/shared/platform";
 
@@ -37,7 +38,7 @@ function mapWagerRow(u: unknown[], multiply: number): VenueOrder {
   const odds = Number(u[16]) || 0;
   const reward = Number(u[29]) + Number(u[0] || 0);
   const betMoney = Number(u[29]) || 0;
-  const createAt = Number(u[19]) || Date.now();
+  const createAt = parseVenueCreateAt(u[19]);
   const state = String(u[18] ?? "");
 
   let status: VenueOrderStatus = "none";

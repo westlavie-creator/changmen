@@ -1,3 +1,4 @@
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { accountGet, accountPostForm } from "@/shared/platformHttp";
@@ -77,7 +78,7 @@ function mapRayOrderRow(row: RayOrderRow): VenueOrder | null {
     provider: PLATFORMS.RAY,
     orderId: String(row.order_number ?? ""),
     odds: Number(detail.odds) || 0,
-    createAt: new Date(String(row.create_time ?? 0)).getTime() || Date.now(),
+    createAt: parseVenueCreateAt(row.create_time),
     game: String(detail.game_id ?? ""),
     match: String(detail.match_name ?? ""),
     bet: `${detail.match_stage ?? ""} ${bet}`.trim(),

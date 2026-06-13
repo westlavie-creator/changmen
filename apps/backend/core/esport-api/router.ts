@@ -75,6 +75,7 @@ export type EsportAction =
   | "Client_AdminCreateUser"
   | "Client_AdminResetPassword"
   | "Client_AdminSetUserFrozen"
+  | "Client_AdminSetUserAdmin"
   | "Client_GetDefaultOdds"
   | "Client_GetMatchDefaultOdds"
   | "Client_CreateTagPlatform"
@@ -88,6 +89,7 @@ export type EsportAction =
 export interface EsportUser {
   id: string;
   userName: string;
+  isAdmin?: boolean;
   setting?: Record<string, unknown>;
 }
 
@@ -111,6 +113,7 @@ const ADMIN_ACTIONS = new Set<EsportAction>([
   "Client_AdminCreateUser",
   "Client_AdminResetPassword",
   "Client_AdminSetUserFrozen",
+  "Client_AdminSetUserAdmin",
 ]);
 
 /** 统一鉴权：非 public action 必须登录；admin action 额外校验管理员 */
@@ -539,6 +542,21 @@ async function handle(
         );
       } catch (err) {
         return fail((err as Error).message || "更新冻结状态失败");
+      }
+    }
+    case "Client_AdminSetUserAdmin": {
+      try {
+        const isAdmin =
+          body.isAdmin === true || body.isAdmin === 1 || body.isAdmin === "1";
+        return ok(
+          await adminService.setAdminUserAdmin(
+            (body.userId ?? body.id) as string,
+            isAdmin,
+            ctx.user.id,
+          ),
+        );
+      } catch (err) {
+        return fail((err as Error).message || "更新管理员状态失败");
       }
     }
     case "Client_GetDefaultOdds": {

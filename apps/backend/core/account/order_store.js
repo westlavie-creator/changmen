@@ -1,4 +1,5 @@
 import * as sb from "@changmen/db";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 
 export function toDateKey(ts) {
   const d = new Date(Number(ts) || Date.now());
@@ -79,10 +80,16 @@ export async function saveOrder(playerId, orders, userId) {
   const linkByOrderId = new Map(
     existing.map((r) => [String(r.order_id), Number(r.link) || 0]),
   );
+  const existingByOrderId = new Map(
+    existing.map((r) => [String(r.order_id), r]),
+  );
   const rows = orders.map((o) => {
-    const createAt = parseNum(o.createAt, Date.now());
-    const orderId = o.orderId || `${playerId}-${createAt}`;
-    const boundLink = linkByOrderId.get(String(orderId));
+    const rawCreate = o.createAt ?? o.CreateAt;
+    const parsed = parseVenueCreateAt(rawCreate, 0);
+    const orderId = String(o.orderId || `${playerId}-${parsed || Date.now()}`);
+    const prevAt = Number(existingByOrderId.get(orderId)?.create_at) || 0;
+    const createAt = parsed > 0 ? parsed : prevAt > 0 ? prevAt : Date.now();
+    const boundLink = linkByOrderId.get(orderId);
     const link =
       boundLink != null && boundLink !== 0
         ? boundLink

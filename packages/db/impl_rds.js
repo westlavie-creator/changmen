@@ -389,12 +389,16 @@ async function setPlatformMatchId(platform, sourceMatchId, matchId, opts = {}) {
 
 // ── profiles ──────────────────────────────────────────────────────────
 
+const PROFILE_WITH_ADMIN_FROM = `
+  FROM profiles p
+  JOIN users u ON u.id = p.id`;
+
 /** 拉取所有 profiles 到内存（启动时调用） */
 async function fetchProfiles(_sessionClient) {
   const pool = getPgPool();
   if (!pool) return [];
   try {
-    const { rows } = await pool.query("SELECT * FROM profiles");
+    const { rows } = await pool.query(`SELECT p.*, u.is_admin ${PROFILE_WITH_ADMIN_FROM}`);
     return rows || [];
   } catch (err) {
     console.error("[rds] fetchProfiles 失败:", err.message);
@@ -407,7 +411,10 @@ async function fetchProfileById(uid) {
   const pool = getPgPool();
   if (!pool) return null;
   try {
-    const { rows } = await pool.query("SELECT * FROM profiles WHERE id = $1", [String(uid)]);
+    const { rows } = await pool.query(
+      `SELECT p.*, u.is_admin ${PROFILE_WITH_ADMIN_FROM} WHERE p.id = $1`,
+      [String(uid)],
+    );
     return rows[0] || null;
   } catch (err) {
     console.warn("[rds] fetchProfileById:", err.message);
@@ -820,8 +827,10 @@ async function fetchProfilesAdmin() {
   if (!pool) return []
   try {
     const { rows } = await pool.query(
-      `SELECT id, user_name, accounts, betting_config, collect_config, preferences, created_at, updated_at
-       FROM profiles ORDER BY user_name ASC`,
+      `SELECT p.id, p.user_name, p.accounts, p.betting_config, p.collect_config, p.preferences,
+              p.created_at, p.updated_at, u.is_admin
+       ${PROFILE_WITH_ADMIN_FROM}
+       ORDER BY p.user_name ASC`,
     )
     return rows || []
   } catch (err) {
@@ -1311,6 +1320,22 @@ function writeUserMetadata(userId, metadata) {
     .catch((err) => console.warn("[rds] writeUserMetadata:", err.message));
 }
 
+/** 更新用户管理员标志 */
+async function updateUserIsAdmin(userId, isAdmin) {
+  const pool = getPgPool();
+  if (!pool) return false;
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE users SET is_admin = $2, updated_at = $3 WHERE id = $1`,
+      [String(userId), Boolean(isAdmin), Date.now()],
+    );
+    return rowCount > 0;
+  } catch (err) {
+    console.warn("[rds] updateUserIsAdmin:", err.message);
+    return false;
+  }
+}
+
 function hasAdminAccess() {
   return !!getPgPool()
 }
@@ -1333,6 +1358,7 @@ export {
   fetchProfileById,
   writeProfile,
   insertProfile,
+  updateUserIsAdmin,
   writeAccounts,
   writeClientMatches,
   writeClientMatchesAsync,

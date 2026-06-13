@@ -14,6 +14,13 @@ export function formatDate(ts: number | string | null | undefined): string {
   return `${mm}-${dd} ${hh}:${min}`;
 }
 
+/** 订单列表投注时间，对齐 A8 `pt.formatDate(CreateAt)` 默认 `yyyy-MM-dd HH:mm:ss` */
+export function formatOrderTime(ts: number | string | null | undefined): string {
+  const ms = normalizeEpochMs(ts);
+  if (!ms) return "";
+  return formatPbDateTime(new Date(ms));
+}
+
 /** A8 聊天室时间标签 `HH:mm:ss` */
 export function formatTimeHms(ts: number): string {
   if (!ts) return "";

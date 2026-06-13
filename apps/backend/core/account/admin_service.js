@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import * as sb from "@changmen/db";
 import { ensurePgPoolReady, getPgPool, insertProfile } from "@changmen/db";
-import { isAdminUser } from "./admin_auth.js";
+import { loadProfileById } from "../db/store.js";
 import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
 import { getOnlineUserIdSet, getUserLastActiveAt } from "./user_presence.js";
 import { frozenFieldsFromProfile, isProfileFrozen, nextPreferencesForFreeze, readPreferences } from "./user_freeze.js";
@@ -183,7 +183,7 @@ function mapAdminUserRow(p, profitByUser = new Map(), onlineIds = null) {
   return {
     id,
     userName: name,
-    isAdmin: isAdminUser({ userName: name }),
+    isAdmin: Boolean(p.is_admin),
     isOnline: onlineSet.has(id) ? 1 : 0,
     lastActiveAt: getUserLastActiveAt(id),
     ...bettingState,
@@ -468,7 +468,7 @@ export async function setAdminUserFrozen(userId, frozen, operatorUserId) {
   const row = await sb.fetchProfileById(id);
   if (!row) throw new Error("用户不存在");
   const name = String(row.user_name || "");
-  if (isAdminUser({ userName: name })) {
+  if (Boolean(row.is_admin)) {
     throw new Error("不能冻结管理员账号");
   }
 
@@ -480,6 +480,42 @@ export async function setAdminUserFrozen(userId, frozen, operatorUserId) {
   const preferences = nextPreferencesForFreeze(readPreferences(row), wantFrozen, op);
   await writeProfilePreferencesAwait(id, preferences);
   return { id, userName: name, frozen: wantFrozen ? 1 : 0 };
+}
+
+/** 管理端设置/取消管理员（users.is_admin） */
+export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
+  const id = String(userId || "").trim();
+  if (!id) throw new Error("用户 ID 无效");
+  const wantAdmin = Boolean(isAdmin);
+  const op = String(operatorUserId || "").trim();
+  if (op && id === op && !wantAdmin) {
+    throw new Error("不能取消当前登录账号的管理员权限");
+  }
+
+  const row = await sb.fetchProfileById(id);
+  if (!row) throw new Error("用户不存在");
+  const name = String(row.user_name || "");
+  const wasAdmin = Boolean(row.is_admin);
+  if (wasAdmin === wantAdmin) {
+    return { id, userName: name, isAdmin: wantAdmin ? 1 : 0 };
+  }
+
+  if (wasAdmin && !wantAdmin) {
+    await ensurePgPoolReady();
+    const pool = getPgPool();
+    if (!pool) throw new Error("RDS 未配置");
+    const { rows } = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM users WHERE is_admin = true",
+    );
+    if ((rows[0]?.n ?? 0) <= 1) {
+      throw new Error("至少保留一名管理员");
+    }
+  }
+
+  const ok = await sb.updateUserIsAdmin(id, wantAdmin);
+  if (!ok) throw new Error("更新管理员状态失败");
+  await loadProfileById(id);
+  return { id, userName: name, isAdmin: wantAdmin ? 1 : 0 };
 }
 
 /** 登录/API 鉴权：冻结用户不可用 */
