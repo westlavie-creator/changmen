@@ -102,6 +102,11 @@ export interface AdminOrderRow {
   money: number;
   status: string;
   createAt: number;
+  matchId?: number;
+  matchKey?: string;
+  matchLabel?: string;
+  /** 开赛时间 ms，来自 client_matches 或订单 raw */
+  matchStartTime?: number;
 }
 
 export interface AdminOrderPage {
@@ -110,4 +115,10 @@ export interface AdminOrderPage {
   total: number;
   pageIndex: number;
   pageSize: number;
+}
+
+export interface AdminOrderMatrix {
+  date: string;
+  list: AdminOrderRow[];
+  total: number;
 }

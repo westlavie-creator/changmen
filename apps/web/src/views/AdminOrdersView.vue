@@ -19,6 +19,7 @@ const orderTotal = ref(0);
 const orderPage = ref(1);
 const orderPageSize = ref(50);
 const users = ref<AdminUserRow[]>([]);
+const loadError = ref("");
 
 const filterUserName = computed(() => {
   const fromQuery = String(route.query.userName || "");
@@ -79,6 +80,17 @@ function todayKey() {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+function shiftDateKey(key: string, deltaDays: number) {
+  const parts = String(key || todayKey()).split("-").map(Number);
+  if (parts.length < 3) return todayKey();
+  const [y, m, d] = parts;
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + deltaDays);
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${dt.getFullYear()}-${mm}-${dd}`;
+}
+
 function fmtTime(ts: number) {
   if (!ts) return "—";
   return new Date(ts).toLocaleString();
@@ -97,11 +109,16 @@ function statusType(status: string) {
 }
 
 async function loadUsers() {
-  users.value = await getAdminUsers(date.value);
+  try {
+    users.value = await getAdminUsers(date.value);
+  } catch {
+    users.value = [];
+  }
 }
 
 async function loadOrders() {
   loading.value = true;
+  loadError.value = "";
   try {
     const page = await getAdminOrders({
       date: date.value,
@@ -112,14 +129,17 @@ async function loadOrders() {
     });
     orders.value = page.list;
     orderTotal.value = page.total;
+  } catch (e) {
+    orders.value = [];
+    orderTotal.value = 0;
+    loadError.value = (e as Error).message || "加载失败";
   } finally {
     loading.value = false;
   }
 }
 
 async function refresh() {
-  await loadUsers();
-  await loadOrders();
+  await Promise.all([loadUsers(), loadOrders()]);
 }
 
 function syncRouteQuery() {
@@ -199,8 +219,13 @@ onMounted(async () => {
             @keyup.enter="onSearch"
           />
           <el-button size="small" type="primary" @click="onSearch">查询</el-button>
+          <el-button size="small" @click="date = todayKey()">今天</el-button>
+          <el-button size="small" @click="date = shiftDateKey(date, -1)">昨天</el-button>
           <el-button size="small" @click="refresh">刷新</el-button>
         </div>
+        <p v-if="loadError" class="admin-order-groups__empty admin-order-groups__empty--err">
+          {{ loadError }}
+        </p>
         <div class="admin-order-groups">
           <section
             v-for="[groupKey, groupRows] in orderGroups"
@@ -249,7 +274,10 @@ onMounted(async () => {
               </el-table-column>
             </el-table>
           </section>
-          <p v-if="!loading && !orderGroups.length" class="admin-order-groups__empty">暂无订单</p>
+          <p v-if="!loading && !loadError && !orderGroups.length" class="admin-order-groups__empty">
+            {{ date }} 暂无订单。可点「昨天」查看近期数据；若应有数据仍为空，请确认服务器
+            <code>GAMEBET_DB_SCRIPT=rds</code> 且已重启后端。
+          </p>
         </div>
         <div class="admin-orders-pager">
           <el-pagination

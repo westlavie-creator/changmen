@@ -1,7 +1,9 @@
 import { post, unwrap } from "@/api/client";
 import type {
   AdminDashboard,
+  AdminOrderMatrix,
   AdminOrderPage,
+  AdminOrderRow,
   AdminUserRow,
 } from "@/types/admin";
 
@@ -15,6 +17,29 @@ export async function getAdminUsers(date?: string) {
 
 export async function getAdminOrders(body: Record<string, unknown> = {}) {
   return unwrap(await post<AdminOrderPage>("Client_AdminOrders", body));
+}
+
+/** 拉取当日全部订单（优先矩阵 API；旧后端无此 action 时分页兜底） */
+export async function getAdminOrdersMatrix(body: Record<string, unknown> = {}) {
+  try {
+    return unwrap(await post<AdminOrderMatrix>("Client_AdminOrdersMatrix", body));
+  } catch (e) {
+    const msg = String((e as Error).message || "");
+    if (!msg.includes("unknown action")) throw e;
+    const all: AdminOrderRow[] = [];
+    let pageIndex = 1;
+    const pageSize = 200;
+    let dateKey = "";
+    for (;;) {
+      const page = await getAdminOrders({ ...body, pageIndex, pageSize });
+      dateKey = page.date;
+      all.push(...page.list);
+      if (all.length >= page.total || !page.list.length) break;
+      pageIndex += 1;
+      if (pageIndex > 50) break;
+    }
+    return { date: dateKey, list: all, total: all.length };
+  }
 }
 
 export interface AdminUserMutationResult {

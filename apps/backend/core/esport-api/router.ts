@@ -67,6 +67,7 @@ export type EsportAction =
   | "Client_AdminDashboard"
   | "Client_AdminUsers"
   | "Client_AdminOrders"
+  | "Client_AdminOrdersMatrix"
   | "Client_AdminCreateUser"
   | "Client_AdminResetPassword"
   | "Client_GetDefaultOdds"
@@ -472,6 +473,11 @@ async function handle(
       if (!ctx.user) return fail("请先登录");
       if (!isAdminUser(ctx.user)) return fail("无管理员权限");
       return ok(await adminService.listAdminOrders(body));
+    }
+    case "Client_AdminOrdersMatrix": {
+      if (!ctx.user) return fail("请先登录");
+      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
+      return ok(await adminService.listAdminOrdersMatrix(body));
     }
     case "Client_AdminCreateUser": {
       if (!ctx.user) return fail("请先登录");

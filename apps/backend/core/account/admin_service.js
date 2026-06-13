@@ -212,6 +212,81 @@ export async function getAdminUserDetail(userId, dateKey = toDateKey(Date.now())
   return mapAdminUserRow(profile, profitByUser);
 }
 
+function stripOrderHtml(text) {
+  return String(text || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function orderMatchColumn(r) {
+  const raw = r.raw && typeof r.raw === "object" && !Array.isArray(r.raw) ? r.raw : {};
+  const matchId = Number(raw.matchId ?? raw.MatchId ?? raw.match_id ?? 0) || 0;
+  const title = stripOrderHtml(r.match || raw.match || "");
+  const key = matchId > 0 ? `id:${matchId}` : title ? `t:${title}` : `o:${r.id}`;
+  return {
+    key,
+    matchId,
+    label: title || (matchId > 0 ? `比赛 #${matchId}` : "—"),
+    raw,
+  };
+}
+
+function buildClientMatchStartIndex(clientMatches) {
+  const byId = new Map();
+  const byTitle = new Map();
+  for (const m of clientMatches || []) {
+    const id = Number(m.id ?? m.ID) || 0;
+    const startTime = Number(m.start_time ?? m.StartTime) || 0;
+    if (!startTime) continue;
+    if (id) byId.set(id, startTime);
+    const title = stripOrderHtml(m.title ?? m.Title ?? "");
+    if (title && !byTitle.has(title)) byTitle.set(title, startTime);
+  }
+  return { byId, byTitle };
+}
+
+function resolveMatchStartTime(col, startIndex) {
+  const raw = col.raw || {};
+  const fromRaw = Number(
+    raw.startTime ?? raw.StartTime ?? raw.start_time ?? raw.matchStartTime ?? 0,
+  ) || 0;
+  if (fromRaw) return fromRaw;
+  if (!startIndex) return 0;
+  if (col.matchId && startIndex.byId.has(col.matchId)) {
+    return startIndex.byId.get(col.matchId);
+  }
+  if (col.label && startIndex.byTitle.has(col.label)) {
+    return startIndex.byTitle.get(col.label);
+  }
+  return 0;
+}
+
+function mapAdminOrderRow(r, startIndex = null) {
+  const col = orderMatchColumn(r);
+  return {
+    id: Number(r.id),
+    userId: String(r.user_id),
+    playerId: Number(r.player_id) || 0,
+    orderId: String(r.order_id || ""),
+    linkId: resolveStoredLink(r.link, r.order_id, r.create_at),
+    provider: String(r.provider || ""),
+    match: stripOrderHtml(r.match || ""),
+    bet: String(r.bet || ""),
+    item: String(r.item || ""),
+    odds: Number(r.odds) || 0,
+    betMoney: Number(r.bet_money) || 0,
+    money: Number(r.money) || 0,
+    status: String(r.status || ""),
+    createAt: Number(r.create_at) || 0,
+    matchId: col.matchId,
+    matchKey: col.key,
+    matchLabel: col.label,
+    matchStartTime: resolveMatchStartTime(col, startIndex),
+  };
+}
+
 export async function listAdminOrders(body = {}) {
   const dateKey = body.date ? String(body.date) : toDateKey(Date.now());
   const pageIndex = Math.max(1, Number(body.pageIndex) || 1);
@@ -225,23 +300,24 @@ export async function listAdminOrders(body = {}) {
     pageIndex,
     pageSize,
   });
-  const list = (rows || []).map((r) => ({
-    id: Number(r.id),
-    userId: String(r.user_id),
-    playerId: Number(r.player_id) || 0,
-    orderId: String(r.order_id || ""),
-    linkId: resolveStoredLink(r.link, r.order_id, r.create_at),
-    provider: String(r.provider || ""),
-    match: String(r.match || ""),
-    bet: String(r.bet || ""),
-    item: String(r.item || ""),
-    odds: Number(r.odds) || 0,
-    betMoney: Number(r.bet_money) || 0,
-    money: Number(r.money) || 0,
-    status: String(r.status || ""),
-    createAt: Number(r.create_at) || 0,
-  }));
+  const list = (rows || []).map(mapAdminOrderRow);
   return { date: dateKey, list, total, pageIndex, pageSize };
+}
+
+/** 管理端：当日全量订单（对阵矩阵视图） */
+export async function listAdminOrdersMatrix(body = {}) {
+  const dateKey = body.date ? String(body.date) : toDateKey(Date.now());
+  const provider = body.provider ? String(body.provider) : "";
+  const [rows, clientMatches] = await Promise.all([
+    sb.fetchOrdersAdminAll({
+      dateKey,
+      provider: provider || undefined,
+    }),
+    sb.fetchClientMatches(),
+  ]);
+  const startIndex = buildClientMatchStartIndex(clientMatches);
+  const list = (rows || []).map((r) => mapAdminOrderRow(r, startIndex));
+  return { date: dateKey, list, total: list.length };
 }
 
 function validateNewPassword(password) {

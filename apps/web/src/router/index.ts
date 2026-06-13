@@ -35,6 +35,12 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
+      path: "/admin/orders-matrix",
+      name: "admin-orders-matrix",
+      component: () => import("@/views/AdminOrdersMatrixView.vue"),
+      meta: { requiresAdmin: true },
+    },
+    {
       path: "/console/:pathMatch(.*)*",
       name: "console-redirect",
       component: () => import("@/views/ConsoleRedirectView.vue"),

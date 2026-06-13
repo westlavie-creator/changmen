@@ -15,6 +15,7 @@ const tabs = [
   { name: "admin", label: "概览", to: { name: "admin" as const } },
   { name: "admin-users", label: "用户管理", to: { name: "admin-users" as const } },
   { name: "admin-orders", label: "订单", to: { name: "admin-orders" as const } },
+  { name: "admin-orders-matrix", label: "对阵订单", to: { name: "admin-orders-matrix" as const } },
 ];
 
 const activeTab = computed(() => String(route.name || ""));

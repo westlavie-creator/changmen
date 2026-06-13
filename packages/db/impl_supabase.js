@@ -695,6 +695,50 @@ async function fetchOrdersAdminPage({ dateKey, userId, provider, pageIndex, page
   return { rows: data || [], total: count ?? 0 }
 }
 
+/** 管理端：当日全量订单（对阵矩阵，上限 5000 条） */
+async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
+  const { dayStart, dayEnd } = localDayBounds(dateKey)
+  const cap = Math.min(5000, Math.max(1, Number(limit) || 5000))
+  if (businessUsesRds()) {
+    const pool = getPgPool()
+    if (pool) {
+      try {
+        const params = [dayStart, dayEnd]
+        let where = "create_at >= $1 AND create_at < $2"
+        if (provider) {
+          params.push(String(provider))
+          where += ` AND provider = $${params.length}`
+        }
+        params.push(cap)
+        const { rows } = await pool.query(
+          `SELECT * FROM orders WHERE ${where} ORDER BY create_at ASC LIMIT $${params.length}`,
+          params,
+        )
+        return rows || []
+      } catch (err) {
+        console.warn('[rds] fetchOrdersAdminAll:', err.message)
+        return []
+      }
+    }
+  }
+  const client = ordersReadClient()
+  if (!client) return []
+  let q = client
+    .from('orders')
+    .select('*')
+    .gte('create_at', dayStart)
+    .lt('create_at', dayEnd)
+    .order('create_at', { ascending: true })
+    .limit(cap)
+  if (provider) q = q.eq('provider', String(provider))
+  const { data, error } = await q
+  if (error) {
+    console.warn('[supabase] fetchOrdersAdminAll:', error.message)
+    return []
+  }
+  return data || []
+}
+
 /** 排行榜：按本地自然日读取订单盈利聚合字段（service_role） */
 async function fetchOrdersForProfitAggregate(dateKey) {
   const client = ordersReadClient()
@@ -921,6 +965,7 @@ export {
   fetchProfilesAdmin,
   fetchOrdersAdminStats,
   fetchOrdersAdminPage,
+  fetchOrdersAdminAll,
   fetchOrdersForProfitAggregate,
   upsertOrders,
   updateOrderBind,
