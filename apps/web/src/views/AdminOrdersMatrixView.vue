@@ -19,10 +19,9 @@ const orderTotal = ref(0);
 const users = ref<AdminUserRow[]>([]);
 const loadError = ref("");
 
-interface PlayerColumn {
+interface UserColumn {
   key: string;
   userId: string;
-  playerId: number;
   label: string;
   orderCount: number;
 }
@@ -102,8 +101,9 @@ function matrixRowKey(o: AdminOrderRow) {
   return `${baseMatchKey(o)}::${normalizeBet(o.bet)}`;
 }
 
-function playerKey(o: AdminOrderRow) {
-  return `${o.userId}:${o.playerId}`;
+/** 矩阵横向列：按登录用户，不按投注账号 */
+function userColumnKey(o: AdminOrderRow) {
+  return o.userId;
 }
 
 /** 同 LinkID 为一组；无 link 时按行 id 单独成组（与订单查询页一致） */
@@ -168,8 +168,8 @@ function linkKeysForBetRow(betRow: BetRow): number[] {
     .map(([key]) => key);
 }
 
-function linkGroupForPlayer(betRow: BetRow, playerColKey: string, linkKey: number) {
-  return (betRow.cells[playerColKey] || []).find((g) => g.key === linkKey) || null;
+function linkGroupForUser(betRow: BetRow, userColKey: string, linkKey: number) {
+  return (betRow.cells[userColKey] || []).find((g) => g.key === linkKey) || null;
 }
 
 function linkIdLabel(g: LinkOrderGroup | null) {
@@ -182,7 +182,7 @@ interface MatrixDisplayRow {
   group: MatchGroup;
   betRow: BetRow;
   linkKey: number;
-  cellsByPlayer: Record<string, LinkOrderGroup | null>;
+  cellsByUser: Record<string, LinkOrderGroup | null>;
   isFirstGroupRow: boolean;
   isFirstBetRow: boolean;
   groupRowspan: number;
@@ -226,29 +226,14 @@ function statusBadgeClass(status: string) {
   return "";
 }
 
-const playerLabelByKey = computed(() => {
-  const map = new Map<string, string>();
-  for (const u of users.value) {
-    for (const acc of u.accounts || []) {
-      const pid = Number(acc.accountId) || 0;
-      if (!pid) continue;
-      const parts = [
-        acc.platform || acc.platformName,
-        acc.playerName || acc.platformName,
-      ].filter(Boolean);
-      map.set(`${u.id}:${pid}`, parts.join(" · ") || `账号 ${pid}`);
-    }
-  }
-  return map;
-});
 
-const playerColumns = computed<PlayerColumn[]>(() => {
+const userColumns = computed<UserColumn[]>(() => {
   const userNameById = new Map(users.value.map((u) => [u.id, u.userName]));
-  const map = new Map<string, PlayerColumn>();
+  const map = new Map<string, UserColumn>();
   const linkSeen = new Set<string>();
 
   for (const o of orders.value ?? []) {
-    const key = playerKey(o);
+    const key = userColumnKey(o);
     const linkSeenKey = `${key}::${linkGroupKey(o)}`;
     const existing = map.get(key);
     if (existing) {
@@ -260,13 +245,10 @@ const playerColumns = computed<PlayerColumn[]>(() => {
     }
     linkSeen.add(linkSeenKey);
     const userName = userNameById.get(o.userId) || o.userId.slice(0, 8);
-    const playerLabel =
-      playerLabelByKey.value.get(key) || (o.playerId ? `P${o.playerId}` : "默认");
     map.set(key, {
       key,
       userId: o.userId,
-      playerId: o.playerId,
-      label: `${userName}\n${playerLabel}`,
+      label: userName,
       orderCount: 1,
     });
   }
@@ -324,9 +306,9 @@ const matchGroups = computed<MatchGroup[]>(() => {
       });
     }
     const row = betRowMap.get(rowKey)!;
-    const pKey = playerKey(o);
-    if (!row.rawCells[pKey]) row.rawCells[pKey] = [];
-    row.rawCells[pKey].push(o);
+    const uKey = userColumnKey(o);
+    if (!row.rawCells[uKey]) row.rawCells[uKey] = [];
+    row.rawCells[uKey].push(o);
   }
 
   for (const row of betRowMap.values()) {
@@ -377,7 +359,7 @@ const betRowCount = computed(() =>
 );
 
 const matrixDisplayRows = computed<MatrixDisplayRow[]>(() => {
-  const cols = playerColumns.value;
+  const cols = userColumns.value;
   const rows: MatrixDisplayRow[] = [];
   for (const group of matchGroups.value) {
     const groupRowspan = group.bets.reduce(
@@ -390,16 +372,16 @@ const matrixDisplayRows = computed<MatrixDisplayRow[]>(() => {
       const keys = linkKeys.length ? linkKeys : [0];
       const betRowspan = Math.max(linkKeys.length, 1);
       keys.forEach((linkKey, linkIdx) => {
-        const cellsByPlayer: Record<string, LinkOrderGroup | null> = {};
+        const cellsByUser: Record<string, LinkOrderGroup | null> = {};
         for (const col of cols) {
-          cellsByPlayer[col.key] = linkGroupForPlayer(betRow, col.key, linkKey);
+          cellsByUser[col.key] = linkGroupForUser(betRow, col.key, linkKey);
         }
         rows.push({
           rowKey: `${betRow.key}::${linkKey}`,
           group,
           betRow,
           linkKey,
-          cellsByPlayer,
+          cellsByUser,
           isFirstGroupRow: !groupStarted,
           isFirstBetRow: linkIdx === 0,
           groupRowspan,
@@ -504,7 +486,7 @@ onMounted(async () => {
         <el-button size="small" @click="refresh">刷新</el-button>
         <span class="admin-orders-matrix__meta">
           {{ linkGroupTotal }} 组 · {{ orderTotal }} 笔 · {{ matchGroupCount }} 场 ·
-          {{ betRowCount }} 盘口 · {{ playerColumns.length }} 个玩家
+          {{ betRowCount }} 盘口 · {{ userColumns.length }} 个用户
         </span>
       </div>
 
@@ -525,18 +507,17 @@ onMounted(async () => {
               <th rowspan="2" class="admin-matrix__corner admin-matrix__corner--match">比赛</th>
               <th rowspan="2" class="admin-matrix__corner admin-matrix__corner--bet">盘口</th>
               <th
-                v-for="col in playerColumns"
+                v-for="col in userColumns"
                 :key="`${col.key}-head`"
                 colspan="2"
                 class="admin-matrix__col-head admin-matrix__col-head--player"
               >
-                <div class="admin-matrix__player-name">{{ col.label.split("\n")[0] }}</div>
-                <div class="admin-matrix__player-account">{{ col.label.split("\n")[1] }}</div>
+                <div class="admin-matrix__player-name">{{ col.label }}</div>
                 <div class="admin-matrix__match-count">{{ col.orderCount }} 组</div>
               </th>
             </tr>
             <tr>
-              <template v-for="col in playerColumns" :key="`${col.key}-sub`">
+              <template v-for="col in userColumns" :key="`${col.key}-sub`">
                 <th class="admin-matrix__col-head admin-matrix__col-head--player-link">Link</th>
                 <th class="admin-matrix__col-head admin-matrix__col-head--player-body">订单</th>
               </template>
@@ -576,34 +557,34 @@ onMounted(async () => {
                   <div class="admin-matrix__match-count">{{ row.betRow.orderCount }} 组</div>
                 </div>
               </th>
-              <template v-for="col in playerColumns" :key="col.key">
+              <template v-for="col in userColumns" :key="col.key">
                 <td class="admin-matrix__cell-link">
                   <span class="admin-matrix__link-id">
-                    {{ linkIdLabel(row.cellsByPlayer[col.key]) }}
+                    {{ linkIdLabel(row.cellsByUser[col.key]) }}
                   </span>
                 </td>
                 <td class="admin-matrix__cell">
                   <div
-                    v-if="row.cellsByPlayer[col.key]"
+                    v-if="row.cellsByUser[col.key]"
                     class="admin-matrix__order"
-                    :class="linkGroupStatusClass(row.cellsByPlayer[col.key]!)"
+                    :class="linkGroupStatusClass(row.cellsByUser[col.key]!)"
                   >
                     <div class="admin-matrix__order-top">
-                      <span class="admin-matrix__provider">{{ row.cellsByPlayer[col.key]!.rows[0]?.provider }}</span>
-                      <span class="admin-matrix__time">{{ fmtTime(row.cellsByPlayer[col.key]!.createAt) }}</span>
+                      <span class="admin-matrix__provider">{{ row.cellsByUser[col.key]!.rows[0]?.provider }}</span>
+                      <span class="admin-matrix__time">{{ fmtTime(row.cellsByUser[col.key]!.createAt) }}</span>
                     </div>
-                    <template v-if="row.cellsByPlayer[col.key]!.rows.length === 1">
-                      <div class="admin-matrix__bet" :title="row.cellsByPlayer[col.key]!.rows[0].bet">
-                        {{ row.cellsByPlayer[col.key]!.rows[0].bet }}
+                    <template v-if="row.cellsByUser[col.key]!.rows.length === 1">
+                      <div class="admin-matrix__bet" :title="row.cellsByUser[col.key]!.rows[0].bet">
+                        {{ row.cellsByUser[col.key]!.rows[0].bet }}
                       </div>
                       <div class="admin-matrix__item">
-                        {{ row.cellsByPlayer[col.key]!.rows[0].item }} @
-                        {{ row.cellsByPlayer[col.key]!.rows[0].odds }}
+                        {{ row.cellsByUser[col.key]!.rows[0].item }} @
+                        {{ row.cellsByUser[col.key]!.rows[0].odds }}
                       </div>
                     </template>
                     <template v-else>
                       <div
-                        v-for="o in row.cellsByPlayer[col.key]!.rows"
+                        v-for="o in row.cellsByUser[col.key]!.rows"
                         :key="o.id"
                         class="admin-matrix__leg"
                         :title="`${o.provider} ${o.bet} ${o.item}`"
@@ -613,20 +594,20 @@ onMounted(async () => {
                       </div>
                     </template>
                     <div class="admin-matrix__money">
-                      <span>投 {{ fmtMoney(row.cellsByPlayer[col.key]!.betMoney) }}</span>
+                      <span>投 {{ fmtMoney(row.cellsByUser[col.key]!.betMoney) }}</span>
                       <span
                         :class="{
-                          pos: row.cellsByPlayer[col.key]!.money > 0,
-                          neg: row.cellsByPlayer[col.key]!.money < 0,
+                          pos: row.cellsByUser[col.key]!.money > 0,
+                          neg: row.cellsByUser[col.key]!.money < 0,
                         }"
                       >
-                        {{ row.cellsByPlayer[col.key]!.money >= 0 ? "+" : "" }}
-                        {{ fmtMoney(row.cellsByPlayer[col.key]!.money) }}
+                        {{ row.cellsByUser[col.key]!.money >= 0 ? "+" : "" }}
+                        {{ fmtMoney(row.cellsByUser[col.key]!.money) }}
                       </span>
                     </div>
                     <div class="admin-matrix__status">
-                      <span class="admin-badge" :class="linkGroupBadgeClass(row.cellsByPlayer[col.key]!)">
-                        {{ linkGroupStatusLabel(row.cellsByPlayer[col.key]!) }}
+                      <span class="admin-badge" :class="linkGroupBadgeClass(row.cellsByUser[col.key]!)">
+                        {{ linkGroupStatusLabel(row.cellsByUser[col.key]!) }}
                       </span>
                     </div>
                   </div>
