@@ -11,13 +11,12 @@
  */
 
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureRouterCompiled } from "./ensure-router-compiled.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..", "..", "..");
-const BACKEND_ROOT = path.join(__dirname, "..");
 
 function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, {
@@ -43,13 +42,4 @@ if (process.env.PATCH_CONSOLE === "1") {
   run("npm", ["run", "patch:ui"], { cwd: ROOT });
 }
 
-const routerTs = path.join(BACKEND_ROOT, "core/esport-api/router.ts");
-const routerJs = path.join(BACKEND_ROOT, "core/esport-api/router.js");
-const routerStale =
-  !fs.existsSync(routerJs) ||
-  fs.statSync(routerTs).mtimeMs > fs.statSync(routerJs).mtimeMs;
-
-if (routerStale) {
-  console.log("[preweb] router.ts 较新，编译 router.js …");
-  run("npm", ["run", "compile:router"], { cwd: BACKEND_ROOT });
-}
+ensureRouterCompiled({ label: "preweb" });

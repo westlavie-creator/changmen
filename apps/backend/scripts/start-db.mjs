@@ -1,12 +1,17 @@
 /**
  * 按 GAMEBET_DB_SCRIPT 启动后端（仅 rds）。
+ * router.js 不入库，须在加载 server 前从 router.ts 编译。
  */
-import "@changmen/db/load_env.js";
-import {
+import { ensureRouterCompiled } from "./ensure-router-compiled.mjs";
+
+ensureRouterCompiled({ label: "start-db" });
+
+await import("@changmen/db/load_env.js");
+const {
   DB_SCRIPT_MODES,
   resolveDbScript,
   initDatabaseUrl,
-} from "@changmen/db";
+} = await import("@changmen/db");
 
 const raw = String(process.env.GAMEBET_DB_SCRIPT || "rds").trim().toLowerCase();
 const script = resolveDbScript();

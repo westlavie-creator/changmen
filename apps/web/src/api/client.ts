@@ -53,6 +53,13 @@ export function authHeaders(): Record<string, string> {
   return authToken ? { token: authToken } : {};
 }
 
+const SESSION_KICK_MSGS = new Set(["请先登录", "账号已在其他设备登录"]);
+
+export function clearAuthSession() {
+  setToken(null);
+  setRefreshToken(null);
+}
+
 export async function post<T>(
   action: string,
   body: Record<string, unknown> = {},
@@ -89,9 +96,9 @@ export async function post<T>(
       throw new Error(`${action} 响应无效: ${text.slice(0, 120)}`);
     }
 
-    // 被新登录踢出：清除 token 并跳回登录页
-    if (json.success === 0 && json.msg === "请先登录" && action !== "Client_Login") {
-      setToken(null);
+    // 会话失效或被其他设备登录踢出
+    if (json.success === 0 && SESSION_KICK_MSGS.has(String(json.msg || "")) && action !== "Client_Login") {
+      clearAuthSession();
       window.location.href = "/";
     }
     return json;

@@ -10,7 +10,7 @@ import {
   getClientDataArray,
   saveClientData,
 } from "@/api/esport";
-import { getRefreshToken } from "@/api/client";
+import { clearAuthSession, getRefreshToken } from "@/api/client";
 import { ensureTokenRefresh, stopTokenRefresh } from "@/lib/sessionRefresh";
 import type { UserInfo } from "@/types/esport";
 import type { MessageConfig, ProxyRow } from "@/types/userExtras";
@@ -110,7 +110,7 @@ export const useUserStore = defineStore("user", {
         await this.fetchUserInfo();
         return true;
       } catch {
-        setToken(null);
+        clearAuthSession();
         this.ready = false;
         return false;
       }

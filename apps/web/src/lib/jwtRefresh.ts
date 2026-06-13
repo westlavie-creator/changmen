@@ -1,4 +1,4 @@
-import { getRefreshToken, post, setRefreshToken, setToken, unwrap } from "@/api/client";
+import { clearAuthSession, getRefreshToken, post, setRefreshToken, setToken, unwrap } from "@/api/client";
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -15,6 +15,7 @@ export async function refreshJwtSession(): Promise<boolean> {
     if (info.refreshToken) setRefreshToken(info.refreshToken);
     return true;
   } catch {
+    clearAuthSession();
     return false;
   }
 }

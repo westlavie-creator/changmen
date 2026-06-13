@@ -226,11 +226,6 @@ async function handleClientLogin(
     return fail((err as Error).message || "账号已冻结，请联系管理员");
   }
 
-  const sessionId = getJwtClaim(accessToken, "session_id");
-  if (sessionId) {
-    sb.writeUserMetadata(uid, { active_session_id: sessionId });
-  }
-
   touchUserPresence(uid);
   await recordUserLastLogin(uid, clientIp);
 
@@ -259,7 +254,10 @@ async function handle(
       const refreshToken = body.refreshToken ?? body.refresh_token;
       if (!refreshToken) return fail("缺少 refreshToken");
       const auth = await sb.authRefreshToken(String(refreshToken));
-      if (!auth) return fail("刷新失败，请重新登录");
+      if (auth && "revoked" in auth && auth.revoked) {
+        return fail("账号已在其他设备登录");
+      }
+      if (!auth || !("accessToken" in auth)) return fail("刷新失败，请重新登录");
       try {
         await assertProfileActive(auth.userId);
       } catch (err) {

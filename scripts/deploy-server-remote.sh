@@ -61,6 +61,7 @@ NEW_HEAD="$(git rev-parse HEAD)"
 DO_INSTALL_ROOT=0
 DO_INSTALL_FRONTEND=0
 DO_APP_BUILD=0
+DO_COMPILE_ROUTER=0
 DO_PM2_WEB=0
 DO_PM2_MATCHER=0
 
@@ -82,6 +83,7 @@ classify() {
     apps/backend/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
+      DO_COMPILE_ROUTER=1
       ;;
     apps/matcher/*)
       DO_INSTALL_ROOT=1
@@ -111,6 +113,7 @@ if [ "$DEPLOY_FULL" = "1" ]; then
   DO_INSTALL_ROOT=1
   DO_INSTALL_FRONTEND=1
   DO_APP_BUILD=1
+  DO_COMPILE_ROUTER=1
   DO_PM2_WEB=1
   DO_PM2_MATCHER=1
 elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
@@ -141,6 +144,13 @@ if [ "$DO_APP_BUILD" = "1" ]; then
   npm run app:build
 else
   log "skip app:build"
+fi
+
+if [ "$DO_COMPILE_ROUTER" = "1" ]; then
+  log "compile:router (router.js is gitignored; must match router.ts on VPS)"
+  npm run compile:router --workspace=@changmen/backend
+else
+  log "skip compile:router"
 fi
 
 if command -v pm2 >/dev/null 2>&1; then
