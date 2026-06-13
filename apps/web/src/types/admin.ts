@@ -77,6 +77,14 @@ export interface AdminUserRow {
   id: string;
   userName: string;
   isAdmin?: boolean;
+  isOnline?: number;
+  lastActiveAt?: number;
+  bettingEnabled?: number;
+  bettingScheduled?: number;
+  bettingAutoOpenTime?: number;
+  betMoney?: number;
+  frozen?: number;
+  frozenAt?: number;
   accountCount: number;
   accounts: AdminAccountDetail[];
   setting: AdminUserSetting;

@@ -7,6 +7,8 @@ import { handleCommonApi } from "./hg_follow.js";
 import * as accountStore from "../account/account_store.js";
 import * as accountService from "../account/account_service.js";
 import { isAdminUser } from "../account/admin_auth.js";
+import { touchUserPresence } from "../account/user_presence.js";
+import { assertProfileActive } from "../account/admin_service.js";
 import * as adminService from "../account/admin_service.js";
 import { resolveA8Credentials } from "../integrations/a8/config.js";
 import { loginV4 } from "../integrations/a8/v4_client.js";
@@ -70,6 +72,7 @@ export type EsportAction =
   | "Client_AdminOrdersMatrix"
   | "Client_AdminCreateUser"
   | "Client_AdminResetPassword"
+  | "Client_AdminSetUserFrozen"
   | "Client_GetDefaultOdds"
   | "Client_GetMatchDefaultOdds"
   | "Client_CreateTagPlatform"
@@ -213,10 +216,18 @@ async function handleClientLogin(body: Record<string, unknown>): Promise<ApiEnve
   }
   if (!profile) return fail(profileLoadFailMessage());
 
+  try {
+    await assertProfileActive(uid);
+  } catch (err) {
+    return fail((err as Error).message || "账号已冻结，请联系管理员");
+  }
+
   const sessionId = getJwtClaim(accessToken, "session_id");
   if (sessionId) {
     sb.writeUserMetadata(uid, { active_session_id: sessionId });
   }
+
+  touchUserPresence(uid);
 
   return ok({ token: accessToken, refreshToken, userName: profile.userName, ID: uid });
 }
@@ -226,6 +237,14 @@ async function handle(
   body: Record<string, unknown>,
   ctx: EsportContext,
 ): Promise<ApiEnvelope> {
+  if (ctx.user?.id) {
+    try {
+      await assertProfileActive(ctx.user.id);
+    } catch (err) {
+      return fail((err as Error).message || "账号已冻结，请联系管理员");
+    }
+    touchUserPresence(ctx.user.id);
+  }
   switch (action as EsportAction) {
     case "Client_Logout": {
       await sb.authSignOut(ctx.token);
@@ -236,6 +255,11 @@ async function handle(
       if (!refreshToken) return fail("缺少 refreshToken");
       const auth = await sb.authRefreshToken(String(refreshToken));
       if (!auth) return fail("刷新失败，请重新登录");
+      try {
+        await assertProfileActive(auth.userId);
+      } catch (err) {
+        return fail((err as Error).message || "账号已冻结，请联系管理员");
+      }
       return ok({ token: auth.accessToken, refreshToken: auth.refreshToken });
     }
     case "Client_GetSupabaseConfig":
@@ -505,6 +529,22 @@ async function handle(
         );
       } catch (err) {
         return fail((err as Error).message || "重置密码失败");
+      }
+    }
+    case "Client_AdminSetUserFrozen": {
+      if (!ctx.user) return fail("请先登录");
+      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
+      try {
+        const frozen = body.frozen === true || body.frozen === 1 || body.frozen === "1";
+        return ok(
+          await adminService.setAdminUserFrozen(
+            (body.userId ?? body.id) as string,
+            frozen,
+            ctx.user.id,
+          ),
+        );
+      } catch (err) {
+        return fail((err as Error).message || "更新冻结状态失败");
       }
     }
     case "Client_GetDefaultOdds": {

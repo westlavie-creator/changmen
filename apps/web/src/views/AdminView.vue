@@ -25,7 +25,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout title="管理概览">
+  <AdminLayout title="数据概览" subtitle="运营统计、快捷入口与盈利排行">
     <AdminPanel />
   </AdminLayout>
 </template>

@@ -5,17 +5,23 @@ import { useUserStore } from "@/stores/userStore";
 
 defineProps<{
   title?: string;
+  subtitle?: string;
 }>();
 
 const route = useRoute();
 const router = useRouter();
 const user = useUserStore();
 
-const tabs = [
-  { name: "admin", label: "概览", to: { name: "admin" as const } },
-  { name: "admin-users", label: "用户管理", to: { name: "admin-users" as const } },
-  { name: "admin-orders", label: "订单", to: { name: "admin-orders" as const } },
-  { name: "admin-orders-matrix", label: "对阵订单", to: { name: "admin-orders-matrix" as const } },
+const navItems = [
+  { name: "admin", label: "数据概览", icon: "am-icon-dashboard", to: { name: "admin" as const } },
+  { name: "admin-users", label: "用户管理", icon: "am-icon-users", to: { name: "admin-users" as const } },
+  { name: "admin-orders", label: "订单查询", icon: "am-icon-list", to: { name: "admin-orders" as const } },
+  {
+    name: "admin-orders-matrix",
+    label: "对阵矩阵",
+    icon: "am-icon-th",
+    to: { name: "admin-orders-matrix" as const },
+  },
 ];
 
 const activeTab = computed(() => String(route.name || ""));
@@ -27,30 +33,56 @@ async function logout() {
 </script>
 
 <template>
-  <div class="admin-page">
-    <header class="admin-page__header">
-      <div class="admin-page__nav">
-        <el-button size="small" @click="router.push({ name: 'home' })">← 返回主页</el-button>
-        <h1 class="admin-page__title">{{ title || "管理系统" }}</h1>
+  <div class="admin-shell">
+    <aside class="admin-shell__sidebar">
+      <div class="admin-shell__brand">
+        <i class="admin-shell__brand-icon am-icon-shield" aria-hidden="true" />
+        <div class="admin-shell__brand-text">
+          <span class="admin-shell__brand-title">GameBet</span>
+          <span class="admin-shell__brand-sub">管理后台</span>
+        </div>
       </div>
-      <div class="admin-page__user">
-        <span class="admin-page__user-name">{{ user.userName }}</span>
-        <el-button size="small" type="info" @click="logout">退出</el-button>
+
+      <nav class="admin-shell__nav" aria-label="后台导航">
+        <router-link
+          v-for="item in navItems"
+          :key="item.name"
+          :to="item.to"
+          class="admin-shell__nav-item"
+          :class="{ 'admin-shell__nav-item--active': activeTab === item.name }"
+        >
+          <i :class="item.icon" class="admin-shell__nav-icon" aria-hidden="true" />
+          <span>{{ item.label }}</span>
+        </router-link>
+      </nav>
+
+      <div class="admin-shell__sidebar-foot">
+        <button type="button" class="admin-shell__back" @click="router.push({ name: 'home' })">
+          <i class="am-icon-arrow-left admin-shell__back-icon" aria-hidden="true" />
+          返回控制台
+        </button>
       </div>
-    </header>
-    <nav class="admin-nav">
-      <router-link
-        v-for="tab in tabs"
-        :key="tab.name"
-        :to="tab.to"
-        class="admin-nav__item"
-        :class="{ 'admin-nav__item--active': activeTab === tab.name }"
-      >
-        {{ tab.label }}
-      </router-link>
-    </nav>
-    <main class="admin-page__main">
-      <slot />
-    </main>
+    </aside>
+
+    <div class="admin-shell__main">
+      <header class="admin-shell__topbar">
+        <div class="admin-shell__topbar-left">
+          <h1 class="admin-shell__page-title">{{ title || "管理后台" }}</h1>
+          <p v-if="subtitle" class="admin-shell__page-sub">{{ subtitle }}</p>
+        </div>
+        <div class="admin-shell__topbar-right">
+          <slot name="toolbar" />
+          <div class="admin-shell__user">
+            <span class="admin-shell__user-name">{{ user.userName }}</span>
+            <el-tag v-if="user.isAdmin" size="small" type="warning" effect="dark">管理员</el-tag>
+            <el-button size="small" type="info" plain @click="logout">退出</el-button>
+          </div>
+        </div>
+      </header>
+
+      <div class="admin-shell__content">
+        <slot />
+      </div>
+    </div>
   </div>
 </template>

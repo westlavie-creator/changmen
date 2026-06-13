@@ -8,6 +8,7 @@ const router = useRouter();
 const date = ref(todayKey());
 const loading = ref(false);
 const dashboard = ref<AdminDashboard | null>(null);
+const loadError = ref("");
 
 function todayKey() {
   const d = new Date();
@@ -20,8 +21,20 @@ function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
 }
 
+function moneyClass(n: number) {
+  if (n > 0) return "pos";
+  if (n < 0) return "neg";
+  return "";
+}
+
 async function loadOverview() {
-  dashboard.value = await getAdminDashboard(date.value);
+  loadError.value = "";
+  try {
+    dashboard.value = await getAdminDashboard(date.value);
+  } catch (e) {
+    dashboard.value = null;
+    loadError.value = (e as Error).message || "加载失败";
+  }
 }
 
 async function loadAll() {
@@ -31,10 +44,6 @@ async function loadAll() {
   } finally {
     loading.value = false;
   }
-}
-
-function refresh() {
-  void loadAll();
 }
 
 watch(date, () => {
@@ -47,66 +56,137 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="admin-panel" v-loading="loading">
-    <div class="admin-panel__head">
-      <div class="admin-panel__tools">
-        <el-date-picker
-          v-model="date"
-          type="date"
-          value-format="YYYY-MM-DD"
-          size="small"
-          placeholder="统计日期"
-          style="width: 150px"
-        />
-        <el-button size="small" @click="refresh">刷新</el-button>
-        <el-button size="small" type="primary" plain @click="router.push({ name: 'admin-users' })">
-          用户管理
-        </el-button>
-        <el-button size="small" @click="router.push({ name: 'admin-orders', query: { date } })">
-          全部订单
-        </el-button>
+  <div class="admin-dashboard" v-loading="loading">
+    <section class="admin-card admin-card--toolbar">
+      <div class="admin-card__toolbar">
+        <div class="admin-card__toolbar-left">
+          <span class="admin-card__toolbar-label">统计日期</span>
+          <el-date-picker
+            v-model="date"
+            type="date"
+            value-format="YYYY-MM-DD"
+            size="small"
+            placeholder="选择日期"
+            style="width: 150px"
+          />
+        </div>
+        <div class="admin-card__toolbar-right">
+          <el-button size="small" @click="loadAll">刷新数据</el-button>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <section class="admin-panel__overview">
-      <h2 class="admin-panel__section-title">概览</h2>
-      <div v-if="dashboard" class="admin-stats">
-        <div class="admin-stat admin-stat--link" @click="router.push({ name: 'admin-users' })">
-          <div class="admin-stat__label">注册用户</div>
-          <div class="admin-stat__value">{{ dashboard.userCount }}</div>
+    <p v-if="loadError" class="admin-card__empty admin-card__empty--error">{{ loadError }}</p>
+
+    <section v-if="dashboard" class="admin-kpi-grid">
+      <article
+        class="admin-kpi admin-kpi--users admin-kpi--click"
+        @click="router.push({ name: 'admin-users' })"
+      >
+        <i class="admin-kpi__icon am-icon-users" aria-hidden="true" />
+        <div class="admin-kpi__body">
+          <div class="admin-kpi__label">注册用户</div>
+          <div class="admin-kpi__value">{{ dashboard.userCount }}</div>
         </div>
-        <div class="admin-stat">
-          <div class="admin-stat__label">当日活跃</div>
-          <div class="admin-stat__value">{{ dashboard.activeUsersToday }}</div>
+      </article>
+      <article class="admin-kpi admin-kpi--active">
+        <i class="admin-kpi__icon am-icon-flash" aria-hidden="true" />
+        <div class="admin-kpi__body">
+          <div class="admin-kpi__label">当日活跃</div>
+          <div class="admin-kpi__value">{{ dashboard.activeUsersToday }}</div>
         </div>
-        <div class="admin-stat admin-stat--link" @click="router.push({ name: 'admin-orders', query: { date } })">
-          <div class="admin-stat__label">当日订单</div>
-          <div class="admin-stat__value">{{ dashboard.orderCount }}</div>
+      </article>
+      <article
+        class="admin-kpi admin-kpi--orders admin-kpi--click"
+        @click="router.push({ name: 'admin-orders', query: { date } })"
+      >
+        <i class="admin-kpi__icon am-icon-list" aria-hidden="true" />
+        <div class="admin-kpi__body">
+          <div class="admin-kpi__label">当日订单</div>
+          <div class="admin-kpi__value">{{ dashboard.orderCount }}</div>
         </div>
-        <div class="admin-stat">
-          <div class="admin-stat__label">当日盈利</div>
-          <div class="admin-stat__value" :class="{ pos: dashboard.totalMoney > 0, neg: dashboard.totalMoney < 0 }">
+      </article>
+      <article class="admin-kpi admin-kpi--profit">
+        <i class="admin-kpi__icon am-icon-arrow-circle-down" aria-hidden="true" />
+        <div class="admin-kpi__body">
+          <div class="admin-kpi__label">当日盈利</div>
+          <div class="admin-kpi__value" :class="moneyClass(dashboard.totalMoney)">
             {{ fmtMoney(dashboard.totalMoney) }}
           </div>
         </div>
-        <div class="admin-stat">
-          <div class="admin-stat__label">当日流水</div>
-          <div class="admin-stat__value">{{ fmtMoney(dashboard.totalBetMoney) }}</div>
+      </article>
+      <article class="admin-kpi admin-kpi--volume">
+        <i class="admin-kpi__icon am-icon-save" aria-hidden="true" />
+        <div class="admin-kpi__body">
+          <div class="admin-kpi__label">当日流水</div>
+          <div class="admin-kpi__value">{{ fmtMoney(dashboard.totalBetMoney) }}</div>
         </div>
-      </div>
-      <div v-if="dashboard?.topProfit?.length" class="admin-top">
-        <div class="admin-top__title">当日盈利 TOP</div>
-        <el-table :data="dashboard.topProfit" size="small" stripe>
-          <el-table-column prop="UserName" label="用户" min-width="120" />
-          <el-table-column label="盈利" width="100">
-            <template #default="{ row }">{{ fmtMoney(row.Money) }}</template>
+      </article>
+    </section>
+
+    <div class="admin-dashboard__grid">
+      <section class="admin-card">
+        <header class="admin-card__head">
+          <h2 class="admin-card__title">快捷入口</h2>
+        </header>
+        <div class="admin-quick">
+          <button
+            type="button"
+            class="admin-quick__item"
+            @click="router.push({ name: 'admin-users' })"
+          >
+            <i class="am-icon-users" aria-hidden="true" />
+            <span>用户管理</span>
+          </button>
+          <button
+            type="button"
+            class="admin-quick__item"
+            @click="router.push({ name: 'admin-orders', query: { date } })"
+          >
+            <i class="am-icon-list" aria-hidden="true" />
+            <span>全部订单</span>
+          </button>
+          <button
+            type="button"
+            class="admin-quick__item"
+            @click="router.push({ name: 'admin-orders-matrix', query: { date } })"
+          >
+            <i class="am-icon-th" aria-hidden="true" />
+            <span>对阵矩阵</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="admin-card admin-card--grow">
+        <header class="admin-card__head">
+          <h2 class="admin-card__title">当日盈利 TOP</h2>
+          <span class="admin-card__meta">{{ date }}</span>
+        </header>
+        <el-table
+          v-if="dashboard?.topProfit?.length"
+          :data="dashboard.topProfit"
+          size="small"
+          stripe
+          class="admin-rank-table"
+        >
+          <el-table-column label="#" width="48" align="center">
+            <template #default="{ $index }">
+              <span class="admin-rank" :class="{ 'admin-rank--top': $index < 3 }">{{ $index + 1 }}</span>
+            </template>
           </el-table-column>
-          <el-table-column prop="Count" label="订单" width="80" />
-          <el-table-column label="流水" width="100">
+          <el-table-column prop="UserName" label="用户" min-width="120" />
+          <el-table-column label="盈利" width="110" align="right">
+            <template #default="{ row }">
+              <span :class="moneyClass(row.Money)">{{ fmtMoney(row.Money) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="Count" label="订单" width="72" align="center" />
+          <el-table-column label="流水" width="110" align="right">
             <template #default="{ row }">{{ fmtMoney(row.BetMoney ?? 0) }}</template>
           </el-table-column>
         </el-table>
-      </div>
-    </section>
-  </section>
+        <p v-else class="admin-card__empty">当日暂无盈利数据</p>
+      </section>
+    </div>
+  </div>
 </template>

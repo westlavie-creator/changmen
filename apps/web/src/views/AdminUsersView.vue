@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminUserDetail from "@/components/admin/AdminUserDetail.vue";
 import {
   createAdminUser,
   getAdminUsers,
   resetAdminUserPassword,
+  setAdminUserFrozen,
 } from "@/api/admin";
 import type { AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
@@ -53,8 +54,75 @@ function fmtTime(ts: number) {
   return new Date(ts).toLocaleString();
 }
 
+function onlineLabel(row: AdminUserRow) {
+  return Number(row.isOnline) === 1 ? "在线" : "离线";
+}
+
+function bettingStatusClass(row: AdminUserRow) {
+  if (Number(row.bettingEnabled) === 1) return "admin-user-status--betting-on";
+  if (Number(row.bettingScheduled) === 1) return "admin-user-status--betting-scheduled";
+  return "admin-user-status--betting-off";
+}
+
+function bettingLabel(row: AdminUserRow) {
+  if (Number(row.bettingEnabled) === 1) return "开启";
+  if (Number(row.bettingScheduled) === 1) return "定时";
+  return "关闭";
+}
+
+function bettingTitle(row: AdminUserRow) {
+  if (Number(row.bettingScheduled) === 1 && row.bettingAutoOpenTime) {
+    return `定时开启：${fmtTime(row.bettingAutoOpenTime)}`;
+  }
+  if (Number(row.bettingEnabled) === 1) return "自动投注已开启";
+  return "自动投注已关闭";
+}
+
+function fmtBetMoney(row: AdminUserRow) {
+  const base = Number(row.betMoney) || 0;
+  return base > 0 ? fmtMoney(base) : "—";
+}
+
+function canToggleFreeze(row: AdminUserRow) {
+  return !row.isAdmin && String(row.id) !== String(userStore.userId);
+}
+
+async function toggleFreeze(row: AdminUserRow) {
+  if (!canToggleFreeze(row)) return;
+  const frozen = Number(row.frozen) === 1;
+  const action = frozen ? "解冻" : "冻结";
+  try {
+    await ElMessageBox.confirm(
+      frozen
+        ? `确认解冻用户 ${row.userName}？解冻后可正常登录与投注。`
+        : `确认冻结用户 ${row.userName}？冻结后将无法登录，已登录会话也会被拒绝。`,
+      `${action}账号`,
+      { type: frozen ? "info" : "warning", confirmButtonText: action, cancelButtonText: "取消" },
+    );
+  } catch {
+    return;
+  }
+  try {
+    await setAdminUserFrozen(row.id, !frozen);
+    ElMessage.success(`已${action} ${row.userName}`);
+    await loadUsers();
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : `${action}失败`);
+  }
+}
+
+const onlineCount = computed(
+  () => filteredUsers.value.filter((u) => Number(u.isOnline) === 1).length,
+);
+
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
 function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
+}
+
+function userInitial(name: string) {
+  return (name || "?").slice(0, 1).toUpperCase();
 }
 
 async function loadUsers() {
@@ -160,13 +228,20 @@ onMounted(async () => {
     return;
   }
   await loadUsers();
+  refreshTimer = setInterval(() => {
+    void loadUsers();
+  }, 30_000);
+});
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer);
 });
 </script>
 
 <template>
-  <AdminLayout title="用户管理">
-    <section class="admin-users-page" v-loading="loading">
-      <div class="admin-users-toolbar">
+  <AdminLayout title="用户管理" subtitle="账号创建、密码重置与用户详情">
+    <section class="admin-card" v-loading="loading">
+      <div class="admin-card__toolbar">
         <el-date-picker
           v-model="date"
           type="date"
@@ -183,15 +258,60 @@ onMounted(async () => {
           style="width: 200px"
         />
         <el-button size="small" @click="loadUsers">刷新</el-button>
+        <span v-if="users.length" class="admin-users-online-hint">
+          在线 {{ onlineCount }} / {{ users.length }}
+        </span>
         <el-button size="small" type="primary" @click="openCreate">新建用户</el-button>
       </div>
 
-      <el-table :data="filteredUsers" size="small" stripe class="admin-users-table">
-        <el-table-column prop="userName" label="用户名" min-width="100">
+      <div class="admin-card__body">
+        <el-table :data="filteredUsers" size="small" stripe class="admin-users-table">
+        <el-table-column prop="userName" label="用户名" min-width="120">
           <template #default="{ row }">
-            <span>{{ row.userName }}</span>
-            <el-tag v-if="row.isAdmin" size="small" type="warning" class="admin-users-admin-tag">管理员</el-tag>
+            <div class="admin-user-cell">
+              <span class="admin-user-cell__avatar">{{ userInitial(row.userName) }}</span>
+              <span>{{ row.userName }}</span>
+              <span v-if="row.isAdmin" class="admin-badge admin-badge--admin">管理员</span>
+            </div>
           </template>
+        </el-table-column>
+        <el-table-column label="状态" width="88" align="center">
+          <template #default="{ row }">
+            <span
+              class="admin-user-status"
+              :class="Number(row.isOnline) === 1 ? 'admin-user-status--online' : 'admin-user-status--offline'"
+            >
+              <i class="admin-user-status__dot" aria-hidden="true" />
+              {{ onlineLabel(row) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="账号" width="88" align="center">
+          <template #default="{ row }">
+            <span
+              v-if="Number(row.frozen) === 1"
+              class="admin-user-status admin-user-status--frozen"
+            >
+              <i class="admin-user-status__dot" aria-hidden="true" />
+              已冻结
+            </span>
+            <span v-else class="admin-user-status admin-user-status--active">正常</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="投注" width="88" align="center">
+          <template #default="{ row }">
+            <span
+              class="admin-user-status"
+              :class="bettingStatusClass(row)"
+              :title="bettingTitle(row)"
+            >
+              <i class="admin-user-status__dot" aria-hidden="true" />
+              {{ bettingLabel(row) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="下注金额" width="96" align="right">
+          <template #default="{ row }">{{ fmtBetMoney(row) }}</template>
         </el-table-column>
         <el-table-column prop="accountCount" label="账号数" width="72" align="center" />
         <el-table-column label="当日盈利" width="96" align="right">
@@ -205,24 +325,38 @@ onMounted(async () => {
         <el-table-column label="当日流水" width="96" align="right">
           <template #default="{ row }">{{ fmtMoney(row.todayBetMoney) }}</template>
         </el-table-column>
+        <el-table-column label="最近活跃" min-width="150">
+          <template #default="{ row }">{{ fmtTime(row.lastActiveAt || 0) }}</template>
+        </el-table-column>
         <el-table-column label="注册时间" min-width="150">
           <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
             <el-button link type="primary" size="small" @click="viewOrders(row)">订单</el-button>
             <el-button link type="warning" size="small" @click="openReset(row)">重置密码</el-button>
+            <el-button
+              v-if="canToggleFreeze(row)"
+              link
+              :type="Number(row.frozen) === 1 ? 'success' : 'danger'"
+              size="small"
+              @click="toggleFreeze(row)"
+            >
+              {{ Number(row.frozen) === 1 ? "解冻" : "冻结" }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <p v-if="!loading && !filteredUsers.length" class="admin-users-empty">暂无用户</p>
+      <p v-if="!loading && !filteredUsers.length" class="admin-card__empty">暂无用户</p>
+      </div>
     </section>
 
     <el-drawer
       v-model="drawerOpen"
       :title="detailUser ? `${detailUser.userName} · 用户详情` : '用户详情'"
+      class="admin-drawer"
       size="92%"
       direction="rtl"
       destroy-on-close
@@ -234,7 +368,7 @@ onMounted(async () => {
       />
     </el-drawer>
 
-    <el-dialog v-model="createDialog" title="新建用户" width="400px" destroy-on-close>
+    <el-dialog v-model="createDialog" title="新建用户" class="admin-dialog" width="400px" destroy-on-close>
       <el-form label-width="80px" @submit.prevent="submitCreate">
         <el-form-item label="用户名" required>
           <el-input v-model="createForm.userName" autocomplete="off" />
@@ -254,6 +388,7 @@ onMounted(async () => {
 
     <el-dialog
       v-model="resetDialog"
+      class="admin-dialog"
       :title="resetTarget ? `重置密码 · ${resetTarget.userName}` : '重置密码'"
       width="400px"
       destroy-on-close

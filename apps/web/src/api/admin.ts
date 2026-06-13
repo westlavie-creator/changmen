@@ -45,6 +45,7 @@ export async function getAdminOrdersMatrix(body: Record<string, unknown> = {}) {
 export interface AdminUserMutationResult {
   id: string;
   userName: string;
+  frozen?: number;
 }
 
 export async function createAdminUser(userName: string, password: string) {
@@ -56,5 +57,11 @@ export async function createAdminUser(userName: string, password: string) {
 export async function resetAdminUserPassword(userId: string, password: string) {
   return unwrap(
     await post<AdminUserMutationResult>("Client_AdminResetPassword", { userId, password }),
+  );
+}
+
+export async function setAdminUserFrozen(userId: string, frozen: boolean) {
+  return unwrap(
+    await post<AdminUserMutationResult>("Client_AdminSetUserFrozen", { userId, frozen }),
   );
 }

@@ -29,6 +29,10 @@ export const useLoseOrderStore = defineStore("loseorder", {
       }
     },
 
+    ensureOrdersMap() {
+      if (!(this.orders instanceof Map)) this.orders = new Map();
+    },
+
     persist() {
       sessionStorage.setItem(
         STORAGE_KEY,
@@ -91,6 +95,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
 
     init() {
       this.restore();
+      this.ensureOrdersMap();
     },
   },
 });

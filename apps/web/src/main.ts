@@ -12,6 +12,7 @@ import "./styles/a8-am-icon.css";
 import "./styles/a8-icon-fallback.css";
 import "./styles/user-diag.css";
 import "./styles/app.css";
+import "./styles/admin-theme.css";
 
 async function bootstrap() {
   await initGamebetExtension();

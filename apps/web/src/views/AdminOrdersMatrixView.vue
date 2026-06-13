@@ -27,21 +27,166 @@ interface PlayerColumn {
   orderCount: number;
 }
 
-interface MatchRow {
+interface LinkOrderGroup {
+  key: number;
+  linkId: number;
+  rows: AdminOrderRow[];
+  createAt: number;
+  betMoney: number;
+  money: number;
+  isLinked: boolean;
+}
+
+interface BetRow {
+  key: string;
+  betLabel: string;
+  betSort: number;
+  orderCount: number;
+  cells: Record<string, LinkOrderGroup[]>;
+}
+
+interface MatchGroup {
   key: string;
   matchId: number;
   label: string;
   matchStartTime: number;
   orderCount: number;
-  cells: Record<string, AdminOrderRow[]>;
+  bets: BetRow[];
+}
+
+interface BetMapInfo {
+  key: string;
+  label: string;
+  sort: number;
+}
+
+/** 从订单盘口名解析地图（全场 / 地图N） */
+function parseBetMap(bet: string): BetMapInfo {
+  const s = String(bet || "").trim();
+  if (!s) return { key: "other", label: "其他", sort: 99 };
+
+  const bracketMap = /\[地图\s*(\d+)\]/i.exec(s);
+  if (bracketMap) {
+    const n = Number(bracketMap[1]);
+    return { key: `m${n}`, label: `地图${n}`, sort: n };
+  }
+
+  const plainMap = /地图\s*(\d+)/i.exec(s);
+  if (plainMap) {
+    const n = Number(plainMap[1]);
+    return { key: `m${n}`, label: `地图${n}`, sort: n };
+  }
+
+  const enMap = /\bMap\s*(\d+)\b/i.exec(s);
+  if (enMap) {
+    const n = Number(enMap[1]);
+    return { key: `m${n}`, label: `地图${n}`, sort: n };
+  }
+
+  if (/全场胜负/.test(s) || /\[全场\]/i.test(s) || /^全场\b/i.test(s)) {
+    return { key: "m0", label: "全场", sort: 0 };
+  }
+
+  return { key: "other", label: s.length > 14 ? `${s.slice(0, 14)}…` : s, sort: 50 };
+}
+
+function baseMatchKey(o: AdminOrderRow) {
+  return o.matchKey || o.match || `o:${o.id}`;
+}
+
+function normalizeBet(bet: string) {
+  return String(bet || "").trim() || "—";
+}
+
+function matrixRowKey(o: AdminOrderRow) {
+  return `${baseMatchKey(o)}::${normalizeBet(o.bet)}`;
 }
 
 function playerKey(o: AdminOrderRow) {
   return `${o.userId}:${o.playerId}`;
 }
 
-function matchKey(o: AdminOrderRow) {
-  return o.matchKey || o.match || `o:${o.id}`;
+/** 同 LinkID 为一组；无 link 时按行 id 单独成组（与订单查询页一致） */
+function linkGroupKey(o: AdminOrderRow) {
+  return o.linkId || o.id;
+}
+
+function buildLinkGroups(rows: AdminOrderRow[]): LinkOrderGroup[] {
+  const map = new Map<number, AdminOrderRow[]>();
+  for (const o of rows) {
+    const k = linkGroupKey(o);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(o);
+  }
+  return [...map.entries()]
+    .map(([key, groupRows]) => {
+      const sorted = [...groupRows].sort((a, b) => a.createAt - b.createAt);
+      const linkId = sorted[0].linkId || 0;
+      return {
+        key,
+        linkId,
+        rows: sorted,
+        createAt: sorted[0].createAt,
+        betMoney: sorted.reduce((s, r) => s + (Number(r.betMoney) || 0), 0),
+        money: sorted.reduce((s, r) => s + (Number(r.money) || 0), 0),
+        isLinked: linkId > 0 && sorted.length > 1,
+      };
+    })
+    .sort((a, b) => a.createAt - b.createAt);
+}
+
+function linkGroupStatusClass(g: LinkOrderGroup) {
+  const pending = g.rows.some((r) => String(r.status).toLowerCase() === "pending");
+  if (pending) return "admin-matrix__order--pending";
+  if (g.money > 0) return "admin-matrix__order--win";
+  if (g.money < 0) return "admin-matrix__order--lose";
+  const reject = g.rows.every((r) => String(r.status).toLowerCase() === "reject");
+  if (reject) return "admin-matrix__order--reject";
+  return "";
+}
+
+function linkGroupBadgeClass(g: LinkOrderGroup) {
+  if (g.isLinked) return "admin-badge--linked";
+  const s = String(g.rows[0]?.status || "").toLowerCase();
+  return statusBadgeClass(s);
+}
+
+function linkGroupStatusLabel(g: LinkOrderGroup) {
+  if (g.isLinked) return `套利 ${g.rows.length} 笔`;
+  return g.rows[0]?.status || "—";
+}
+
+function linkKeysForBetRow(betRow: BetRow): number[] {
+  const meta = new Map<number, number>();
+  for (const groups of Object.values(betRow.cells)) {
+    for (const g of groups) {
+      if (!meta.has(g.key)) meta.set(g.key, g.createAt);
+    }
+  }
+  return [...meta.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([key]) => key);
+}
+
+function linkGroupForPlayer(betRow: BetRow, playerColKey: string, linkKey: number) {
+  return (betRow.cells[playerColKey] || []).find((g) => g.key === linkKey) || null;
+}
+
+function linkIdLabel(g: LinkOrderGroup | null) {
+  if (!g) return "—";
+  return g.linkId ? String(g.linkId) : "—";
+}
+
+interface MatrixDisplayRow {
+  rowKey: string;
+  group: MatchGroup;
+  betRow: BetRow;
+  linkKey: number;
+  cellsByPlayer: Record<string, LinkOrderGroup | null>;
+  isFirstGroupRow: boolean;
+  isFirstBetRow: boolean;
+  groupRowspan: number;
+  betRowspan: number;
 }
 
 function todayKey() {
@@ -71,12 +216,13 @@ function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
 }
 
-function statusClass(status: string) {
+
+function statusBadgeClass(status: string) {
   const s = status.toLowerCase();
-  if (s === "win") return "admin-matrix__status--win";
-  if (s === "lose") return "admin-matrix__status--lose";
-  if (s === "reject") return "admin-matrix__status--reject";
-  if (s === "pending") return "admin-matrix__status--pending";
+  if (s === "win") return "admin-badge--win";
+  if (s === "lose") return "admin-badge--lose";
+  if (s === "reject") return "admin-badge--reject";
+  if (s === "pending") return "admin-badge--pending";
   return "";
 }
 
@@ -99,14 +245,20 @@ const playerLabelByKey = computed(() => {
 const playerColumns = computed<PlayerColumn[]>(() => {
   const userNameById = new Map(users.value.map((u) => [u.id, u.userName]));
   const map = new Map<string, PlayerColumn>();
+  const linkSeen = new Set<string>();
 
-  for (const o of orders.value) {
+  for (const o of orders.value ?? []) {
     const key = playerKey(o);
+    const linkSeenKey = `${key}::${linkGroupKey(o)}`;
     const existing = map.get(key);
     if (existing) {
-      existing.orderCount += 1;
+      if (!linkSeen.has(linkSeenKey)) {
+        linkSeen.add(linkSeenKey);
+        existing.orderCount += 1;
+      }
       continue;
     }
+    linkSeen.add(linkSeenKey);
     const userName = userNameById.get(o.userId) || o.userId.slice(0, 8);
     const playerLabel =
       playerLabelByKey.value.get(key) || (o.playerId ? `P${o.playerId}` : "默认");
@@ -122,42 +274,142 @@ const playerColumns = computed<PlayerColumn[]>(() => {
   return [...map.values()].sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
 });
 
-const matchRows = computed<MatchRow[]>(() => {
-  const rowMap = new Map<string, MatchRow>();
+const linkGroupTotal = computed(() => {
+  const keys = new Set<number>();
+  for (const o of orders.value ?? []) keys.add(linkGroupKey(o));
+  return keys.size;
+});
 
-  for (const o of orders.value) {
-    const mKey = matchKey(o);
-    if (!rowMap.has(mKey)) {
-      rowMap.set(mKey, {
-        key: mKey,
+const matchGroupCount = computed(() => {
+  const bases = new Set<string>();
+  for (const o of orders.value ?? []) bases.add(baseMatchKey(o));
+  return bases.size;
+});
+
+const matchGroups = computed<MatchGroup[]>(() => {
+  type BetRowBuild = BetRow & { baseKey: string; rawCells: Record<string, AdminOrderRow[]> };
+  const betRowMap = new Map<string, BetRowBuild>();
+  const groupMeta = new Map<
+    string,
+    { matchId: number; label: string; matchStartTime: number; linkKeys: Set<number> }
+  >();
+
+  for (const o of orders.value ?? []) {
+    const betLabel = normalizeBet(o.bet);
+    const betSort = parseBetMap(o.bet).sort;
+    const baseKey = baseMatchKey(o);
+    const rowKey = matrixRowKey(o);
+
+    if (!groupMeta.has(baseKey)) {
+      groupMeta.set(baseKey, {
         matchId: o.matchId || 0,
         label: o.matchLabel || o.match || "—",
         matchStartTime: o.matchStartTime || 0,
-        orderCount: 0,
-        cells: {},
+        linkKeys: new Set(),
       });
     }
-    const row = rowMap.get(mKey)!;
-    if (!row.matchStartTime && o.matchStartTime) row.matchStartTime = o.matchStartTime;
-    row.orderCount += 1;
-    const pKey = playerKey(o);
-    if (!row.cells[pKey]) row.cells[pKey] = [];
-    row.cells[pKey].push(o);
-  }
+    const meta = groupMeta.get(baseKey)!;
+    if (!meta.matchStartTime && o.matchStartTime) meta.matchStartTime = o.matchStartTime;
+    meta.linkKeys.add(linkGroupKey(o));
 
-  for (const row of rowMap.values()) {
-    for (const list of Object.values(row.cells)) {
-      list.sort((a, b) => a.createAt - b.createAt);
+    if (!betRowMap.has(rowKey)) {
+      betRowMap.set(rowKey, {
+        key: rowKey,
+        baseKey,
+        betLabel,
+        betSort,
+        orderCount: 0,
+        cells: {},
+        rawCells: {},
+      });
     }
+    const row = betRowMap.get(rowKey)!;
+    const pKey = playerKey(o);
+    if (!row.rawCells[pKey]) row.rawCells[pKey] = [];
+    row.rawCells[pKey].push(o);
   }
 
-  return [...rowMap.values()].sort((a, b) => {
+  for (const row of betRowMap.values()) {
+    const linkKeys = new Set<number>();
+    row.cells = {};
+    for (const [pKey, list] of Object.entries(row.rawCells)) {
+      row.cells[pKey] = buildLinkGroups(list);
+      for (const g of row.cells[pKey]) linkKeys.add(g.key);
+    }
+    row.orderCount = linkKeys.size;
+  }
+
+  const groupMap = new Map<string, MatchGroup>();
+  for (const row of betRowMap.values()) {
+    const meta = groupMeta.get(row.baseKey)!;
+    if (!groupMap.has(row.baseKey)) {
+      groupMap.set(row.baseKey, {
+        key: row.baseKey,
+        matchId: meta.matchId,
+        label: meta.label,
+        matchStartTime: meta.matchStartTime,
+        orderCount: meta.linkKeys.size,
+        bets: [],
+      });
+    }
+    const { rawCells: _raw, baseKey: _base, ...betRow } = row;
+    groupMap.get(row.baseKey)!.bets.push(betRow);
+  }
+
+  for (const group of groupMap.values()) {
+    group.bets.sort((a, b) => {
+      if (a.betSort !== b.betSort) return a.betSort - b.betSort;
+      return a.betLabel.localeCompare(b.betLabel, "zh-CN");
+    });
+  }
+
+  return [...groupMap.values()].sort((a, b) => {
     if (a.matchStartTime && b.matchStartTime && a.matchStartTime !== b.matchStartTime) {
       return a.matchStartTime - b.matchStartTime;
     }
     if (a.matchId && b.matchId && a.matchId !== b.matchId) return a.matchId - b.matchId;
     return a.label.localeCompare(b.label, "zh-CN");
   });
+});
+
+const betRowCount = computed(() =>
+  matchGroups.value.reduce((sum, group) => sum + group.bets.length, 0)
+);
+
+const matrixDisplayRows = computed<MatrixDisplayRow[]>(() => {
+  const cols = playerColumns.value;
+  const rows: MatrixDisplayRow[] = [];
+  for (const group of matchGroups.value) {
+    const groupRowspan = group.bets.reduce(
+      (sum, bet) => sum + Math.max(linkKeysForBetRow(bet).length, 1),
+      0
+    );
+    let groupStarted = false;
+    for (const betRow of group.bets) {
+      const linkKeys = linkKeysForBetRow(betRow);
+      const keys = linkKeys.length ? linkKeys : [0];
+      const betRowspan = Math.max(linkKeys.length, 1);
+      keys.forEach((linkKey, linkIdx) => {
+        const cellsByPlayer: Record<string, LinkOrderGroup | null> = {};
+        for (const col of cols) {
+          cellsByPlayer[col.key] = linkGroupForPlayer(betRow, col.key, linkKey);
+        }
+        rows.push({
+          rowKey: `${betRow.key}::${linkKey}`,
+          group,
+          betRow,
+          linkKey,
+          cellsByPlayer,
+          isFirstGroupRow: !groupStarted,
+          isFirstBetRow: linkIdx === 0,
+          groupRowspan,
+          betRowspan,
+        });
+        groupStarted = true;
+      });
+    }
+  }
+  return rows;
 });
 
 async function loadUsers() {
@@ -176,7 +428,7 @@ async function loadOrders() {
       date: date.value,
       provider: filterProvider.value || undefined,
     });
-    orders.value = data.list;
+    orders.value = data.list ?? [];
     orderTotal.value = data.total;
   } catch (e) {
     orders.value = [];
@@ -227,9 +479,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout title="对阵订单">
-    <section class="admin-orders-page admin-orders-matrix" v-loading="loading">
-      <div class="admin-orders-filters">
+  <AdminLayout title="对阵矩阵" subtitle="比赛纵向排列，同场盘口在左侧合并展示">
+    <section class="admin-card admin-orders-matrix" v-loading="loading">
+      <div class="admin-card__toolbar admin-orders-filters">
         <el-date-picker
           v-model="date"
           type="date"
@@ -251,10 +503,12 @@ onMounted(async () => {
         <el-button size="small" @click="date = shiftDateKey(date, -1)">昨天</el-button>
         <el-button size="small" @click="refresh">刷新</el-button>
         <span class="admin-orders-matrix__meta">
-          {{ orderTotal }} 笔 · {{ matchRows.length }} 场比赛 · {{ playerColumns.length }} 个玩家
+          {{ linkGroupTotal }} 组 · {{ orderTotal }} 笔 · {{ matchGroupCount }} 场 ·
+          {{ betRowCount }} 盘口 · {{ playerColumns.length }} 个玩家
         </span>
       </div>
 
+      <div class="admin-card__body">
       <p v-if="loadError" class="admin-order-groups__empty admin-order-groups__empty--err">
         {{ loadError }}
       </p>
@@ -268,53 +522,120 @@ onMounted(async () => {
         <table class="admin-matrix">
           <thead>
             <tr>
-              <th class="admin-matrix__corner">比赛</th>
+              <th rowspan="2" class="admin-matrix__corner admin-matrix__corner--match">比赛</th>
+              <th rowspan="2" class="admin-matrix__corner admin-matrix__corner--bet">盘口</th>
               <th
                 v-for="col in playerColumns"
-                :key="col.key"
+                :key="`${col.key}-head`"
+                colspan="2"
                 class="admin-matrix__col-head admin-matrix__col-head--player"
               >
                 <div class="admin-matrix__player-name">{{ col.label.split("\n")[0] }}</div>
                 <div class="admin-matrix__player-account">{{ col.label.split("\n")[1] }}</div>
-                <div class="admin-matrix__match-count">{{ col.orderCount }} 笔</div>
+                <div class="admin-matrix__match-count">{{ col.orderCount }} 组</div>
               </th>
+            </tr>
+            <tr>
+              <template v-for="col in playerColumns" :key="`${col.key}-sub`">
+                <th class="admin-matrix__col-head admin-matrix__col-head--player-link">Link</th>
+                <th class="admin-matrix__col-head admin-matrix__col-head--player-body">订单</th>
+              </template>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in matchRows" :key="row.key">
-              <th class="admin-matrix__row-head admin-matrix__row-head--match" :title="row.label">
-                <div v-if="row.matchId" class="admin-matrix__match-id">#{{ row.matchId }}</div>
-                <div class="admin-matrix__match-title">{{ row.label }}</div>
-                <div v-if="row.matchStartTime" class="admin-matrix__match-start">
-                  {{ formatDate(row.matchStartTime) }}
+            <tr
+              v-for="row in matrixDisplayRows"
+              :key="row.rowKey"
+              :class="{ 'admin-matrix__group-start': row.isFirstGroupRow }"
+            >
+              <th
+                v-if="row.isFirstGroupRow"
+                :rowspan="row.groupRowspan"
+                class="admin-matrix__row-head admin-matrix__row-head--match"
+                :title="row.group.label"
+              >
+                <div class="admin-matrix__head-center">
+                  <div v-if="row.group.matchId" class="admin-matrix__match-id">#{{ row.group.matchId }}</div>
+                  <div class="admin-matrix__match-title">{{ row.group.label }}</div>
+                  <div v-if="row.group.matchStartTime" class="admin-matrix__match-start">
+                    {{ formatDate(row.group.matchStartTime) }}
+                  </div>
+                  <div class="admin-matrix__match-count">
+                    {{ row.group.orderCount }} 组 · {{ row.group.bets.length }} 盘口
+                  </div>
                 </div>
-                <div class="admin-matrix__match-count">{{ row.orderCount }} 笔</div>
               </th>
-              <td v-for="col in playerColumns" :key="col.key" class="admin-matrix__cell">
-                <div
-                  v-for="o in row.cells[col.key] || []"
-                  :key="o.id"
-                  class="admin-matrix__order"
-                  :class="statusClass(o.status)"
-                >
-                  <div class="admin-matrix__order-top">
-                    <span class="admin-matrix__provider">{{ o.provider }}</span>
-                    <span class="admin-matrix__time">{{ fmtTime(o.createAt) }}</span>
-                  </div>
-                  <div class="admin-matrix__bet" :title="o.bet">{{ o.bet }}</div>
-                  <div class="admin-matrix__item">{{ o.item }} @ {{ o.odds }}</div>
-                  <div class="admin-matrix__money">
-                    <span>投 {{ fmtMoney(o.betMoney) }}</span>
-                    <span :class="{ pos: o.money > 0, neg: o.money < 0 }">
-                      {{ o.money >= 0 ? "+" : "" }}{{ fmtMoney(o.money) }}
-                    </span>
-                  </div>
-                  <div class="admin-matrix__status">{{ o.status }}</div>
+              <th
+                v-if="row.isFirstBetRow"
+                :rowspan="row.betRowspan"
+                class="admin-matrix__row-head admin-matrix__row-head--bet"
+                :title="row.betRow.betLabel"
+              >
+                <div class="admin-matrix__head-center">
+                  <span class="admin-matrix__bet-label">{{ row.betRow.betLabel }}</span>
+                  <div class="admin-matrix__match-count">{{ row.betRow.orderCount }} 组</div>
                 </div>
-              </td>
+              </th>
+              <template v-for="col in playerColumns" :key="col.key">
+                <td class="admin-matrix__cell-link">
+                  <span class="admin-matrix__link-id">
+                    {{ linkIdLabel(row.cellsByPlayer[col.key]) }}
+                  </span>
+                </td>
+                <td class="admin-matrix__cell">
+                  <div
+                    v-if="row.cellsByPlayer[col.key]"
+                    class="admin-matrix__order"
+                    :class="linkGroupStatusClass(row.cellsByPlayer[col.key]!)"
+                  >
+                    <div class="admin-matrix__order-top">
+                      <span class="admin-matrix__provider">{{ row.cellsByPlayer[col.key]!.rows[0]?.provider }}</span>
+                      <span class="admin-matrix__time">{{ fmtTime(row.cellsByPlayer[col.key]!.createAt) }}</span>
+                    </div>
+                    <template v-if="row.cellsByPlayer[col.key]!.rows.length === 1">
+                      <div class="admin-matrix__bet" :title="row.cellsByPlayer[col.key]!.rows[0].bet">
+                        {{ row.cellsByPlayer[col.key]!.rows[0].bet }}
+                      </div>
+                      <div class="admin-matrix__item">
+                        {{ row.cellsByPlayer[col.key]!.rows[0].item }} @
+                        {{ row.cellsByPlayer[col.key]!.rows[0].odds }}
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div
+                        v-for="o in row.cellsByPlayer[col.key]!.rows"
+                        :key="o.id"
+                        class="admin-matrix__leg"
+                        :title="`${o.provider} ${o.bet} ${o.item}`"
+                      >
+                        <span class="admin-matrix__provider">{{ o.provider }}</span>
+                        <span class="admin-matrix__leg-item">{{ o.item }} @ {{ o.odds }}</span>
+                      </div>
+                    </template>
+                    <div class="admin-matrix__money">
+                      <span>投 {{ fmtMoney(row.cellsByPlayer[col.key]!.betMoney) }}</span>
+                      <span
+                        :class="{
+                          pos: row.cellsByPlayer[col.key]!.money > 0,
+                          neg: row.cellsByPlayer[col.key]!.money < 0,
+                        }"
+                      >
+                        {{ row.cellsByPlayer[col.key]!.money >= 0 ? "+" : "" }}
+                        {{ fmtMoney(row.cellsByPlayer[col.key]!.money) }}
+                      </span>
+                    </div>
+                    <div class="admin-matrix__status">
+                      <span class="admin-badge" :class="linkGroupBadgeClass(row.cellsByPlayer[col.key]!)">
+                        {{ linkGroupStatusLabel(row.cellsByPlayer[col.key]!) }}
+                      </span>
+                    </div>
+                  </div>
+                </td>
+              </template>
             </tr>
           </tbody>
         </table>
+      </div>
       </div>
     </section>
   </AdminLayout>

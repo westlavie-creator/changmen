@@ -62,12 +62,12 @@ const delayButtonType = computed(() => {
           <el-button
             v-if="user.isAdmin"
             size="small"
+            class="am-icon-shield"
             type="warning"
             title="管理系统"
+            aria-label="管理系统"
             @click="router.push({ name: 'admin' })"
-          >
-            管理
-          </el-button>
+          />
           <el-button
             size="small"
             class="am-icon-gear"

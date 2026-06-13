@@ -105,6 +105,9 @@ export const useMatchStore = defineStore("match", {
     setBetTarget(platform: PlatformId, betRowId: number, side: BetSide) {
       const user = useUserStore();
       if (!user.betTargetEnabled()) return false;
+      if (!this.betTargets || !(this.betTargets instanceof Map)) {
+        this.betTargets = new Map();
+      }
       if (!this.betTargets.has(platform)) this.betTargets.set(platform, new Map());
       const bucket = this.betTargets.get(platform)!;
       if (bucket.get(betRowId) === side) bucket.delete(betRowId);

@@ -299,6 +299,7 @@ export const useBettingStore = defineStore("betting", {
 
         if (!configStore.config.betting) return;
 
+        loseStore.ensureOrdersMap();
         loseStore.removeOrders(matchStore.matchs.flatMap((m) => m.bets.map((b) => b.id)));
 
         const config = configStore.config;

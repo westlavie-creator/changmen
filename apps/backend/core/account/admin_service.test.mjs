@@ -1,9 +1,30 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@changmen/db", () => ({
+  fetchOrdersAdminPage: vi.fn(async () => ({
+    rows: [
+      { id: 1, user_id: "u1", order_id: "o1", link: 0, create_at: 1, raw: {} },
+      { id: 2, user_id: "u1", order_id: "o2", link: 0, create_at: 2, raw: {} },
+    ],
+    total: 2,
+  })),
+}));
+
 import {
+  listAdminOrders,
   profileSettingForAdmin,
   sanitizeAccountForAdmin,
   sanitizeSettingForAdmin,
 } from "./admin_service.js";
+
+describe("listAdminOrders", () => {
+  it("maps multiple rows without treating array index as startIndex", async () => {
+    const page = await listAdminOrders({ date: "2026-06-13", pageIndex: 1, pageSize: 50 });
+    expect(page.list).toHaveLength(2);
+    expect(page.list[0].id).toBe(1);
+    expect(page.list[1].id).toBe(2);
+  });
+});
 
 describe("sanitizeAccountForAdmin", () => {
   it("strips token and cookie but keeps betting fields", () => {

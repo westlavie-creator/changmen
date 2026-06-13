@@ -12,6 +12,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{ viewOrders: [] }>();
 
+const avatarLetter = computed(() =>
+  (props.user.userName || "?").slice(0, 1).toUpperCase(),
+);
+
 function fmtTime(ts: number) {
   if (!ts) return "—";
   return new Date(ts).toLocaleString();
@@ -63,7 +67,7 @@ const settingRows = computed(() => {
 
 const gameRows = computed(() => {
   const rows: { accountId: number; platform: string; game: string; betCount: number; profit: number; odds: string }[] = [];
-  for (const acc of props.user.accounts) {
+  for (const acc of props.user.accounts ?? []) {
     for (const [game, cfg] of Object.entries(acc.game || {})) {
       rows.push({
         accountId: acc.accountId,
@@ -87,96 +91,161 @@ function accountFlags(row: AdminAccountDetail) {
   if (row.hasCredentials) flags.push("已登录");
   return flags.length ? flags.join(" / ") : "—";
 }
+
+function bettingStatusClass() {
+  if (Number(props.user.bettingEnabled) === 1) return "admin-user-status--betting-on";
+  if (Number(props.user.bettingScheduled) === 1) return "admin-user-status--betting-scheduled";
+  return "admin-user-status--betting-off";
+}
+
+function bettingLabel() {
+  if (Number(props.user.bettingEnabled) === 1) return "投注开启";
+  if (Number(props.user.bettingScheduled) === 1) return "定时开启";
+  return "投注关闭";
+}
+
+function fmtBetMoney() {
+  const base = Number(props.user.betMoney) || 0;
+  return base > 0 ? fmtMoney(base) : "—";
+}
 </script>
 
 <template>
   <div class="admin-user-detail">
-    <div class="admin-user-detail__row">
-      <section class="admin-user-detail__col admin-user-detail__col--profile">
-        <div class="admin-user-detail__title">{{ user.userName }}</div>
-        <div class="admin-user-detail__meta">
-          <div>注册 {{ fmtTime(user.createdAt) }}</div>
-          <div>更新 {{ fmtTime(user.updatedAt) }}</div>
-          <div>账号 {{ user.accountCount }}</div>
+    <header class="admin-user-detail__hero">
+      <div class="admin-user-detail__avatar">{{ avatarLetter }}</div>
+      <div class="admin-user-detail__hero-main">
+        <h2 class="admin-user-detail__name">{{ user.userName }}</h2>
+        <p class="admin-user-detail__meta-line">
+          <span
+            class="admin-user-status"
+            :class="Number(user.isOnline) === 1 ? 'admin-user-status--online' : 'admin-user-status--offline'"
+          >
+            <i class="admin-user-status__dot" aria-hidden="true" />
+            {{ Number(user.isOnline) === 1 ? "在线" : "离线" }}
+          </span>
+          ·
+          <span
+            v-if="Number(user.frozen) === 1"
+            class="admin-user-status admin-user-status--frozen"
+          >
+            <i class="admin-user-status__dot" aria-hidden="true" />
+            已冻结
+          </span>
+          <span v-else class="admin-user-status admin-user-status--active">账号正常</span>
+          ·
+          <span class="admin-user-status" :class="bettingStatusClass()">
+            <i class="admin-user-status__dot" aria-hidden="true" />
+            {{ bettingLabel() }}
+          </span>
+          <template v-if="Number(user.bettingScheduled) === 1 && user.bettingAutoOpenTime">
+            （{{ fmtTime(user.bettingAutoOpenTime) }}）
+          </template>
+          · 最近活跃 {{ fmtTime(user.lastActiveAt || 0) }} · 注册 {{ fmtTime(user.createdAt) }} ·
+          更新 {{ fmtTime(user.updatedAt) }} · {{ user.accountCount }} 个下注账号
+        </p>
+      </div>
+      <div class="admin-user-detail__hero-stats">
+        <div class="admin-stat-pill">
+          <span class="admin-stat-pill__label">下注金额</span>
+          <span class="admin-stat-pill__value">{{ fmtBetMoney() }}</span>
         </div>
-        <div class="admin-user-detail__stats">
-          <div>
-            当日盈利
-            <strong :class="{ pos: user.todayMoney > 0, neg: user.todayMoney < 0 }">
-              {{ fmtMoney(user.todayMoney) }}
-            </strong>
+        <div class="admin-stat-pill">
+          <span class="admin-stat-pill__label">当日盈利</span>
+          <span
+            class="admin-stat-pill__value"
+            :class="{ pos: user.todayMoney > 0, neg: user.todayMoney < 0 }"
+          >
+            {{ fmtMoney(user.todayMoney) }}
+          </span>
+        </div>
+        <div class="admin-stat-pill">
+          <span class="admin-stat-pill__label">当日订单</span>
+          <span class="admin-stat-pill__value">{{ user.todayCount }}</span>
+        </div>
+        <div class="admin-stat-pill">
+          <span class="admin-stat-pill__label">当日流水</span>
+          <span class="admin-stat-pill__value">{{ fmtMoney(user.todayBetMoney) }}</span>
+        </div>
+      </div>
+      <el-button type="primary" size="small" @click="emit('viewOrders')">查看当日订单</el-button>
+    </header>
+
+    <section class="admin-user-detail__section admin-card admin-card--flat">
+      <header class="admin-card__head">
+        <h3 class="admin-card__title">投注参数</h3>
+        <span class="admin-card__meta">{{ settingRows.length }} 项</span>
+      </header>
+      <div class="admin-card__body">
+        <div v-if="settingRows.length" class="admin-setting-grid">
+          <div v-for="row in settingRows" :key="row.key" class="admin-setting-item">
+            <span class="admin-setting-item__label">{{ row.label }}</span>
+            <span class="admin-setting-item__value" :title="row.value">{{ row.value }}</span>
           </div>
-          <div>订单 <strong>{{ user.todayCount }}</strong></div>
-          <div>流水 <strong>{{ fmtMoney(user.todayBetMoney) }}</strong></div>
         </div>
-        <el-button size="small" type="primary" plain @click="emit('viewOrders')">当日订单</el-button>
-      </section>
+        <p v-else class="admin-card__empty">暂无配置</p>
+      </div>
+    </section>
 
-      <section class="admin-user-detail__col admin-user-detail__col--setting">
-        <h3 class="admin-user-detail__section-title">投注参数</h3>
-        <div v-if="settingRows.length" class="admin-user-detail__setting-grid">
-          <div v-for="row in settingRows" :key="row.key" class="admin-user-detail__kv">
-            <span class="admin-user-detail__kv-label">{{ row.label }}</span>
-            <span class="admin-user-detail__kv-value" :title="row.value">{{ row.value }}</span>
-          </div>
-        </div>
-        <div v-else class="admin-user-detail__empty">暂无配置</div>
-      </section>
+    <section class="admin-user-detail__section admin-card admin-card--flat">
+      <header class="admin-card__head">
+        <h3 class="admin-card__title">下注账号</h3>
+        <span class="admin-card__meta">共 {{ user.accounts.length }} 个</span>
+      </header>
+      <div class="admin-card__body admin-card__body--flush">
+        <el-table :data="user.accounts" size="small" stripe>
+          <el-table-column prop="platform" label="平台" width="64" fixed />
+          <el-table-column prop="accountId" label="ID" width="52" />
+          <el-table-column prop="playerName" label="昵称" width="88" show-overflow-tooltip />
+          <el-table-column prop="platformName" label="场馆" width="80" show-overflow-tooltip />
+          <el-table-column label="余额" width="76" align="right">
+            <template #default="{ row }">{{ fmtMoney(row.balance) }}</template>
+          </el-table-column>
+          <el-table-column label="信用" width="72" align="right">
+            <template #default="{ row }">{{ fmtMoney(row.credit) }}</template>
+          </el-table-column>
+          <el-table-column prop="currency" label="币" width="44" />
+          <el-table-column label="当日" width="72" align="right">
+            <template #default="{ row }">
+              <span :class="{ pos: row.today > 0, neg: row.today < 0 }">{{ fmtMoney(row.today) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="unsettle" label="未结" width="48" align="center" />
+          <el-table-column label="赔率" width="88">
+            <template #default="{ row }">{{ row.minOdds }}~{{ row.maxOdds }}</template>
+          </el-table-column>
+          <el-table-column label="利润" width="88">
+            <template #default="{ row }">{{ row.profit }}~{{ row.maxProfit }}</template>
+          </el-table-column>
+          <el-table-column prop="maxBetCount" label="限次" width="48" align="center" />
+          <el-table-column prop="maxOrder" label="限单" width="48" align="center" />
+          <el-table-column prop="multiply" label="倍" width="40" align="center" />
+          <el-table-column label="网关" width="100" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.gatewayHost || "—" }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="100" show-overflow-tooltip>
+            <template #default="{ row }">{{ accountFlags(row) }}</template>
+          </el-table-column>
+          <el-table-column prop="description" label="备注" min-width="80" show-overflow-tooltip />
+        </el-table>
+      </div>
+    </section>
 
-      <section class="admin-user-detail__col admin-user-detail__col--accounts">
-        <h3 class="admin-user-detail__section-title">下注账号 ({{ user.accounts.length }})</h3>
-        <div class="admin-user-detail__table-wrap">
-          <el-table :data="user.accounts" size="small" stripe>
-            <el-table-column prop="platform" label="平台" width="64" fixed />
-            <el-table-column prop="accountId" label="ID" width="52" />
-            <el-table-column prop="playerName" label="昵称" width="88" show-overflow-tooltip />
-            <el-table-column prop="platformName" label="场馆" width="80" show-overflow-tooltip />
-            <el-table-column label="余额" width="76">
-              <template #default="{ row }">{{ fmtMoney(row.balance) }}</template>
-            </el-table-column>
-            <el-table-column label="信用" width="72">
-              <template #default="{ row }">{{ fmtMoney(row.credit) }}</template>
-            </el-table-column>
-            <el-table-column prop="currency" label="币" width="44" />
-            <el-table-column label="当日" width="72">
-              <template #default="{ row }">
-                <span :class="{ pos: row.today > 0, neg: row.today < 0 }">{{ fmtMoney(row.today) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="unsettle" label="未结" width="48" />
-            <el-table-column label="赔率" width="88">
-              <template #default="{ row }">{{ row.minOdds }}~{{ row.maxOdds }}</template>
-            </el-table-column>
-            <el-table-column label="利润" width="88">
-              <template #default="{ row }">{{ row.profit }}~{{ row.maxProfit }}</template>
-            </el-table-column>
-            <el-table-column prop="maxBetCount" label="限次" width="48" />
-            <el-table-column prop="maxOrder" label="限单" width="48" />
-            <el-table-column prop="multiply" label="倍" width="40" />
-            <el-table-column label="网关" width="100" show-overflow-tooltip>
-              <template #default="{ row }">{{ row.gatewayHost || "—" }}</template>
-            </el-table-column>
-            <el-table-column label="状态" width="100" show-overflow-tooltip>
-              <template #default="{ row }">{{ accountFlags(row) }}</template>
-            </el-table-column>
-            <el-table-column prop="description" label="备注" min-width="80" show-overflow-tooltip />
-          </el-table>
-        </div>
-      </section>
-
-      <section v-if="gameRows.length" class="admin-user-detail__col admin-user-detail__col--games">
-        <h3 class="admin-user-detail__section-title">游戏限制</h3>
-        <div class="admin-user-detail__table-wrap">
-          <el-table :data="gameRows" size="small" stripe>
-            <el-table-column prop="platform" label="平台" width="56" />
-            <el-table-column prop="accountId" label="账号" width="52" />
-            <el-table-column prop="game" label="游戏" width="72" show-overflow-tooltip />
-            <el-table-column prop="betCount" label="次数" width="52" />
-            <el-table-column prop="profit" label="利润" width="56" />
-            <el-table-column prop="odds" label="赔率" min-width="100" show-overflow-tooltip />
-          </el-table>
-        </div>
-      </section>
-    </div>
+    <section v-if="gameRows.length" class="admin-user-detail__section admin-card admin-card--flat">
+      <header class="admin-card__head">
+        <h3 class="admin-card__title">游戏限制</h3>
+        <span class="admin-card__meta">{{ gameRows.length }} 条</span>
+      </header>
+      <div class="admin-card__body admin-card__body--flush">
+        <el-table :data="gameRows" size="small" stripe>
+          <el-table-column prop="platform" label="平台" width="56" />
+          <el-table-column prop="accountId" label="账号" width="52" />
+          <el-table-column prop="game" label="游戏" width="72" show-overflow-tooltip />
+          <el-table-column prop="betCount" label="次数" width="52" align="center" />
+          <el-table-column prop="profit" label="利润" width="56" align="right" />
+          <el-table-column prop="odds" label="赔率" min-width="100" show-overflow-tooltip />
+        </el-table>
+      </div>
+    </section>
   </div>
 </template>

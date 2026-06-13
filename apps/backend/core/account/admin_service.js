@@ -3,6 +3,8 @@ import * as sb from "@changmen/db";
 import { ensurePgPoolReady, getPgPool, insertProfile, getSupabaseAdminClient } from "@changmen/db";
 import { isAdminUser } from "./admin_auth.js";
 import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
+import { getOnlineUserIdSet, getUserLastActiveAt } from "./user_presence.js";
+import { frozenFieldsFromProfile, isProfileFrozen, nextPreferencesForFreeze, readPreferences } from "./user_freeze.js";
 
 const AUTH_MODE = String(process.env.AUTH_MODE || "supabase").trim().toLowerCase();
 
@@ -141,17 +143,39 @@ export function profileSettingForAdmin(row) {
   });
 }
 
-function mapAdminUserRow(p, profitByUser) {
+function resolveBettingState(p) {
+  const setting = profileSettingForAdmin(p);
+  const betting = Boolean(setting.betting);
+  const autoOpen = Boolean(setting.bettingAutoOpen);
+  const autoOpenTime = Number(setting.bettingAutoOpenTime) || 0;
+  const scheduled = !betting && autoOpen && autoOpenTime > Date.now();
+  const betMoney = Number(setting.betMoney) || 0;
+  return {
+    bettingEnabled: betting ? 1 : 0,
+    bettingScheduled: scheduled ? 1 : 0,
+    bettingAutoOpenTime: autoOpenTime,
+    betMoney,
+  };
+}
+
+function mapAdminUserRow(p, profitByUser = new Map(), onlineIds = null) {
   const name = String(p.user_name || "");
   const stats = profitByUser.get(name.toLowerCase());
   const accountsRaw = Array.isArray(p.accounts) ? p.accounts : [];
   const accounts = accountsRaw
     .map(sanitizeAccountForAdmin)
     .filter(Boolean);
+  const id = String(p.id);
+  const onlineSet = onlineIds || getOnlineUserIdSet();
+  const bettingState = resolveBettingState(p);
   return {
-    id: String(p.id),
+    id,
     userName: name,
     isAdmin: isAdminUser({ userName: name }),
+    isOnline: onlineSet.has(id) ? 1 : 0,
+    lastActiveAt: getUserLastActiveAt(id),
+    ...bettingState,
+    ...frozenFieldsFromProfile(p),
     accountCount: accounts.length,
     accounts,
     setting: profileSettingForAdmin(p),
@@ -169,7 +193,9 @@ export async function getAdminDashboard(dateKey = toDateKey(Date.now())) {
     listUserProfitRank(dateKey),
     sb.fetchOrdersAdminStats(dateKey),
   ]);
-  const profitByUser = new Map(rank.map((r) => [String(r.UserName).toLowerCase(), r]));
+  const profitByUser = new Map(
+    (Array.isArray(rank) ? rank : []).map((r) => [String(r.UserName).toLowerCase(), r]),
+  );
   let activeUsersToday = 0;
   for (const p of profiles || []) {
     const name = String(p.user_name || "").toLowerCase();
@@ -184,7 +210,7 @@ export async function getAdminDashboard(dateKey = toDateKey(Date.now())) {
     orderCount: orderStats.count,
     totalMoney: orderStats.money,
     totalBetMoney: orderStats.betMoney,
-    topProfit: rank.slice(0, 5),
+    topProfit: (Array.isArray(rank) ? rank : []).slice(0, 5),
   };
 }
 
@@ -193,9 +219,12 @@ export async function listAdminUsers(dateKey = toDateKey(Date.now())) {
     sb.fetchProfilesAdmin(),
     listUserProfitRank(dateKey),
   ]);
-  const profitByUser = new Map(rank.map((r) => [String(r.UserName).toLowerCase(), r]));
+  const profitByUser = new Map(
+    (Array.isArray(rank) ? rank : []).map((r) => [String(r.UserName).toLowerCase(), r]),
+  );
+  const onlineIds = getOnlineUserIdSet();
   return (profiles || [])
-    .map((p) => mapAdminUserRow(p, profitByUser))
+    .map((p) => mapAdminUserRow(p, profitByUser, onlineIds))
     .sort((a, b) => b.todayMoney - a.todayMoney);
 }
 
@@ -206,10 +235,12 @@ export async function getAdminUserDetail(userId, dateKey = toDateKey(Date.now())
     sb.fetchProfilesAdmin(),
     listUserProfitRank(dateKey),
   ]);
-  const profitByUser = new Map(rank.map((r) => [String(r.UserName).toLowerCase(), r]));
+  const profitByUser = new Map(
+    (Array.isArray(rank) ? rank : []).map((r) => [String(r.UserName).toLowerCase(), r]),
+  );
   const profile = (profiles || []).find((p) => String(p.id) === id);
   if (!profile) return null;
-  return mapAdminUserRow(profile, profitByUser);
+  return mapAdminUserRow(profile, profitByUser, getOnlineUserIdSet());
 }
 
 function stripOrderHtml(text) {
@@ -236,7 +267,8 @@ function orderMatchColumn(r) {
 function buildClientMatchStartIndex(clientMatches) {
   const byId = new Map();
   const byTitle = new Map();
-  for (const m of clientMatches || []) {
+  const list = Array.isArray(clientMatches) ? clientMatches : [];
+  for (const m of list) {
     const id = Number(m.id ?? m.ID) || 0;
     const startTime = Number(m.start_time ?? m.StartTime) || 0;
     if (!startTime) continue;
@@ -254,17 +286,26 @@ function resolveMatchStartTime(col, startIndex) {
   ) || 0;
   if (fromRaw) return fromRaw;
   if (!startIndex) return 0;
-  if (col.matchId && startIndex.byId.has(col.matchId)) {
-    return startIndex.byId.get(col.matchId);
+  const byId = startIndex.byId instanceof Map ? startIndex.byId : null;
+  const byTitle = startIndex.byTitle instanceof Map ? startIndex.byTitle : null;
+  if (col.matchId && byId?.has(col.matchId)) {
+    return byId.get(col.matchId);
   }
-  if (col.label && startIndex.byTitle.has(col.label)) {
-    return startIndex.byTitle.get(col.label);
+  if (col.label && byTitle?.has(col.label)) {
+    return byTitle.get(col.label);
   }
   return 0;
 }
 
 function mapAdminOrderRow(r, startIndex = null) {
   const col = orderMatchColumn(r);
+  const safeStartIndex =
+    startIndex &&
+    typeof startIndex === "object" &&
+    !Array.isArray(startIndex) &&
+    (startIndex.byId instanceof Map || startIndex.byTitle instanceof Map)
+      ? startIndex
+      : null;
   return {
     id: Number(r.id),
     userId: String(r.user_id),
@@ -283,7 +324,7 @@ function mapAdminOrderRow(r, startIndex = null) {
     matchId: col.matchId,
     matchKey: col.key,
     matchLabel: col.label,
-    matchStartTime: resolveMatchStartTime(col, startIndex),
+    matchStartTime: resolveMatchStartTime(col, safeStartIndex),
   };
 }
 
@@ -300,7 +341,7 @@ export async function listAdminOrders(body = {}) {
     pageIndex,
     pageSize,
   });
-  const list = (rows || []).map(mapAdminOrderRow);
+  const list = (rows || []).map((r) => mapAdminOrderRow(r));
   return { date: dateKey, list, total, pageIndex, pageSize };
 }
 
@@ -420,4 +461,60 @@ export async function resetAdminUserPassword(userId, password) {
   if (error) throw new Error(error.message);
   const name = data?.user?.email?.split("@")[0] || "";
   return { id, userName: name };
+}
+
+async function writeProfilePreferencesAwait(uid, preferences) {
+  const id = String(uid);
+  const now = Date.now();
+  if (AUTH_MODE === "jwt") {
+    await ensurePgPoolReady();
+    const pool = getPgPool();
+    if (!pool) throw new Error("RDS 未配置");
+    const { rowCount } = await pool.query(
+      `UPDATE profiles SET preferences = $2::jsonb, updated_at = $3 WHERE id = $1`,
+      [id, JSON.stringify(preferences || {}), now],
+    );
+    if (!rowCount) throw new Error("用户不存在");
+    return;
+  }
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ preferences, updated_at: now })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** 管理端冻结/解冻用户（preferences.frozen） */
+export async function setAdminUserFrozen(userId, frozen, operatorUserId) {
+  const id = String(userId || "").trim();
+  if (!id) throw new Error("用户 ID 无效");
+  const op = String(operatorUserId || "").trim();
+  if (op && id === op) throw new Error("不能冻结当前登录账号");
+
+  const row = await sb.fetchProfileById(id);
+  if (!row) throw new Error("用户不存在");
+  const name = String(row.user_name || "");
+  if (isAdminUser({ userName: name })) {
+    throw new Error("不能冻结管理员账号");
+  }
+
+  const wantFrozen = Boolean(frozen);
+  if (wantFrozen === isProfileFrozen(row)) {
+    return { id, userName: name, frozen: wantFrozen ? 1 : 0 };
+  }
+
+  const preferences = nextPreferencesForFreeze(readPreferences(row), wantFrozen, op);
+  await writeProfilePreferencesAwait(id, preferences);
+  return { id, userName: name, frozen: wantFrozen ? 1 : 0 };
+}
+
+/** 登录/API 鉴权：冻结用户不可用 */
+export async function assertProfileActive(userId) {
+  const row = await sb.fetchProfileById(userId);
+  if (isProfileFrozen(row)) {
+    const err = new Error("账号已冻结，请联系管理员");
+    err.code = "FROZEN";
+    throw err;
+  }
 }

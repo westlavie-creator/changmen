@@ -42,7 +42,7 @@ const userNameById = computed(() => {
 /** 同 LinkID 订单归为一组（无 link 时按行 id 单独成组） */
 const orderGroups = computed(() => {
   const map = new Map<number, AdminOrderRow[]>();
-  for (const row of orders.value) {
+  for (const row of orders.value ?? []) {
     const key = row.linkId || row.id;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(row);
@@ -100,12 +100,13 @@ function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
 }
 
-function statusType(status: string) {
+function statusBadgeClass(status: string) {
   const s = status.toLowerCase();
-  if (s === "win") return "success";
-  if (s === "lose") return "danger";
-  if (s === "reject") return "info";
-  return "warning";
+  if (s === "win") return "admin-badge--win";
+  if (s === "lose") return "admin-badge--lose";
+  if (s === "reject") return "admin-badge--reject";
+  if (s === "pending") return "admin-badge--pending";
+  return "";
 }
 
 async function loadUsers() {
@@ -127,7 +128,7 @@ async function loadOrders() {
       userId: filterUserId.value || undefined,
       provider: filterProvider.value || undefined,
     });
-    orders.value = page.list;
+    orders.value = page.list ?? [];
     orderTotal.value = page.total;
   } catch (e) {
     orders.value = [];
@@ -184,9 +185,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout :title="pageTitle">
-    <section class="admin-orders-page" v-loading="loading">
-        <div class="admin-orders-filters">
+  <AdminLayout :title="pageTitle" subtitle="按日期、用户与平台筛选订单">
+    <section class="admin-card" v-loading="loading">
+        <div class="admin-card__toolbar admin-orders-filters">
           <el-date-picker
             v-model="date"
             type="date"
@@ -224,6 +225,7 @@ onMounted(async () => {
           <el-button size="small" @click="date = shiftDateKey(date, -1)">昨天</el-button>
           <el-button size="small" @click="refresh">刷新</el-button>
         </div>
+        <div class="admin-card__body">
         <p v-if="loadError" class="admin-order-groups__empty admin-order-groups__empty--err">
           {{ loadError }}
         </p>
@@ -235,10 +237,9 @@ onMounted(async () => {
             :class="{ 'admin-order-link--paired': groupIsLinked(groupRows) }"
           >
             <header class="admin-order-link__head">
-              <span class="admin-order-link__id">LinkID {{ groupLinkLabel(groupRows) }}</span>
-              <span v-if="groupIsLinked(groupRows)" class="admin-order-link__meta">
-                {{ groupRows.length }} 笔
-              </span>
+              <span class="admin-order-link__id">Link {{ groupLinkLabel(groupRows) }}</span>
+              <span v-if="groupIsLinked(groupRows)" class="admin-order-link__meta">套利 {{ groupRows.length }} 笔</span>
+              <span v-else class="admin-order-link__meta">单笔</span>
               <span class="admin-order-link__profit" :class="groupProfitClass(groupRows)">
                 合计 {{ fmtMoney(groupProfit(groupRows)) }}
               </span>
@@ -265,9 +266,9 @@ onMounted(async () => {
                   <span :class="{ pos: row.money > 0, neg: row.money < 0 }">{{ fmtMoney(row.money) }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="状态" width="80">
+              <el-table-column label="状态" width="88">
                 <template #default="{ row }">
-                  <el-tag size="small" :type="statusType(row.status)">{{ row.status }}</el-tag>
+                  <span class="admin-badge" :class="statusBadgeClass(row.status)">{{ row.status }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="时间" width="160">
@@ -289,6 +290,7 @@ onMounted(async () => {
             small
             @current-change="loadOrders"
           />
+        </div>
         </div>
       </section>
   </AdminLayout>

@@ -11,6 +11,8 @@ import {
   wrapObjectDirect,
 } from "../esport-api/user_kv.js";
 import store from "../esport-api/store.js";
+import { listProfiles } from "../db/store.js";
+import { getOnlineUserIdSet } from "./user_presence.js";
 
 function handleCreateTagPlatform(body) {
   const platformName = body.platform || body.platformName || "";
@@ -108,21 +110,11 @@ async function handleSaveOrder(body, userId) {
 }
 
 function handleGetUsers() {
-  const users = store.readJson("users", []);
-  const sessions = store.readJson("sessions", {});
-  const now = Date.now();
-  const onlineWindowMs = 30 * 60 * 1000;
-  const onlineIds = new Set();
-  for (const session of Object.values(sessions)) {
-    if (!session?.userId) continue;
-    if (now - Number(session.createdAt || 0) < onlineWindowMs) {
-      onlineIds.add(session.userId);
-    }
-  }
-  const info = users.map((u) => ({
+  const onlineIds = getOnlineUserIdSet();
+  const info = listProfiles().map((u) => ({
     userId: u.id,
     userName: u.userName || "",
-    isOnline: onlineIds.has(u.id) ? 1 : 0,
+    isOnline: onlineIds.has(String(u.id)) ? 1 : 0,
   }));
   return { ok: true, info };
 }
