@@ -48,7 +48,7 @@ async function fetchAllTeams(psEndpoint) {
   return result.filter((t) => t.acronym && t.name);
 }
 
-// ── Supabase ──────────────────────────────────────────────────────────────────
+// ── RDS ──────────────────────────────────────────────────────────────────────
 
 async function batchUpsertCanonical(rows) {
   const { upsertCanonicalTeams } = await import("@changmen/db");
@@ -112,8 +112,8 @@ async function main() {
     console.error("❌ 缺少 PANDASCORE_TOKEN（环境变量或 .env）");
     process.exit(1);
   }
-  if (!DRY_RUN && !process.env.SUPABASE_URL && !process.env.DATABASE_URL) {
-    console.error("❌ 未配置 SUPABASE 或 DATABASE_URL（GAMEBET_DB_SCRIPT）");
+  if (!DRY_RUN && !process.env.DATABASE_URL) {
+    console.error("❌ 未配置 DATABASE_URL（请在 apps/backend/.env 配置 RDS 连接）");
     process.exit(1);
   }
 

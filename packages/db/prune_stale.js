@@ -1,16 +1,13 @@
 /**
- * 过期行清理 — 原 Supabase pg_cron 四类 prune-stale-* 任务。
- * 由 gamebet-matcher 每小时调用；prune-stale.mjs 为手动/兜底 CLI。
+ * 过期行清理 — matcher 每小时调用；prune-stale.mjs 为手动/兜底 CLI。
  *
  * 阈值：2 小时未刷新（与各平台最长采集间隔 + 缓冲一致）
  */
 
-import { getDbMode } from "./db_mode.js";
 import { getPgPool } from "./pg_pool.js";
-import { supabaseAdmin } from "./client.js";
 
 export const STALE_MS = 2 * 60 * 60 * 1000;
-/** 默认与 pg_cron「每小时整点」等效 */
+/** 默认每小时整点等效 */
 export const DEFAULT_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 
 export function getStaleCutoffMs(now = Date.now()) {
@@ -35,7 +32,7 @@ function emptyCounts() {
 
 async function pruneRds(cutoff) {
   const pool = getPgPool();
-  if (!pool) throw new Error("DATABASE_URL 未配置，无法 prune RDS");
+  if (!pool) throw new Error("DATABASE_URL 未配置，无法 prune");
   const counts = emptyCounts();
   for (const { table, column, key } of TABLE_SPECS) {
     const { rowCount } = await pool.query(
@@ -47,31 +44,14 @@ async function pruneRds(cutoff) {
   return counts;
 }
 
-async function pruneSupabase(cutoff) {
-  const sb = supabaseAdmin;
-  if (!sb) throw new Error("Supabase 未配置，无法 prune Supabase");
-  const counts = emptyCounts();
-  for (const { table, column, key } of TABLE_SPECS) {
-    const { error, count } = await sb.from(table).delete({ count: "exact" }).lt(column, cutoff);
-    if (error) throw new Error(`${table}: ${error.message}`);
-    counts[key] = count ?? 0;
-  }
-  return counts;
-}
-
 /**
  * @param {{ cutoffMs?: number }} opts
- * @returns {Promise<{ cutoff: number, rds: Record<string, number> | null, supabase: Record<string, number> | null }>}
+ * @returns {Promise<{ cutoff: number, rds: Record<string, number> }>}
  */
 export async function pruneStaleRows(opts = {}) {
   const cutoff = opts.cutoffMs ?? getStaleCutoffMs();
-  const { writesRds, writesSupabase } = getDbMode();
-  const result = { cutoff, rds: null, supabase: null };
-
-  if (writesRds) result.rds = await pruneRds(cutoff);
-  if (writesSupabase) result.supabase = await pruneSupabase(cutoff);
-
-  return result;
+  const rds = await pruneRds(cutoff);
+  return { cutoff, rds };
 }
 
 export function formatPruneCounts(counts) {

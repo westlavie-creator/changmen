@@ -6,7 +6,7 @@
   "main": "index.js",
   "exports": {
     ".": "./index.js",
-    "./supabase_db.js": "./supabase_db.js"
+    "./team_db.js": "./team_db.js"
   },
   "scripts": {
     "test": "node test.js",

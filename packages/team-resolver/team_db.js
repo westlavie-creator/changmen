@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * 从数据库加载队伍映射，构建同步查找插件（受 GAMEBET_DB_SCRIPT 控制）。
+ * 从 RDS 加载队伍映射，构建同步查找插件。
  *
  * 插件对象接口：
  *   lookupByName(gameCode, normalizedName) → canonical_teams.id string | null（内部合并用）

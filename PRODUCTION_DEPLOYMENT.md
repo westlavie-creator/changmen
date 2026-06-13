@@ -1,6 +1,6 @@
 # 生产部署 Checklist（M1 — 架构冻结）
 
-changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于开发联调；生产环境客户端连**远程 API**，服务端与 Supabase 跑在服务器/云上。
+changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于开发联调；生产环境客户端连**远程 API**，服务端与 RDS 跑在服务器/云上。
 
 最后更新：2026-06-12
 
@@ -21,7 +21,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 │ 服务端（一台或多实例）                                     │
 │  apps/backend    — esport-api、HTTP 代理、静态 /          │
 │  apps/matcher    — 循环写 client_matches                 │
-│  Supabase          — platform_* / client_matches / orders  │
+│  RDS (PostgreSQL)  — platform_* / client_matches / orders / users  │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -60,10 +60,13 @@ npm run app:install  # apps/web 依赖（首次）
 
 | 变量 | 生产 | 说明 |
 |------|------|------|
-| `SUPABASE_URL` | **必填** | Supabase 项目 URL |
-| `SUPABASE_SERVICE_KEY` | **必填** | 写库（绕过 RLS） |
+| `DATABASE_URL` 或 `DATABASE_URL_PUBLIC` / `_INTERNAL` | **必填** | RDS 连接（`DATABASE_RDS_TARGET=auto` 内网优先） |
+| `JWT_SECRET` | **必填** | 自签 JWT（至少 16 字符） |
+| `JWT_ACCESS_TTL` | `7d` | access token 有效期 |
+| `JWT_REFRESH_TTL` | `30d` | refresh token 有效期 |
+| `GAMEBET_DB_SCRIPT` | `rds` | 数据层固定 RDS |
 | `PORT` | `3456` 或反代端口 | HTTP 监听 |
-| `A8_AUTH` | **`1`（默认）** | Supabase 登录；勿用 `users.json` |
+| `A8_AUTH` | **`1`（默认）** | JWT 登录；勿用 `users.json` |
 | `A8_V4_URL` | `https://api.a8.to/v4.0` | v4 上游 |
 | `NODE_ENV` | `production` | 常规 Node 约定 |
 
@@ -79,10 +82,10 @@ HTTP 代理（按需，见 [apps/backend/proxy/README.md](./apps/backend/proxy/R
 
 ```bash
 cd changmen/apps/backend
-npx supabase db push
+node scripts/apply-rds-schema.mjs
 ```
 
-确认 pg_cron 清理任务已应用（见根目录 `CLAUDE.md` — `prune-stale-*`）。
+过期数据由 `apps/matcher` 每小时执行 prune（`packages/db/prune_stale.js`，2 小时阈值）。手动兜底：`node scripts/prune-stale.mjs`。
 
 ### 3.3 构建并托管前端
 
@@ -105,7 +108,7 @@ npm run web
 npm run matcher:loop
 ```
 
-`ecosystem.config.cjs` 中入口为 `apps/backend/scripts/start-db.mjs` 与 `apps/matcher/scripts/start-db.mjs`（按 `GAMEBET_DB_SCRIPT` 选库）。
+`ecosystem.config.cjs` 中入口为 `apps/backend/scripts/start-db.mjs` 与 `apps/matcher/scripts/start-db.mjs`（`GAMEBET_DB_SCRIPT=rds`）。
 
 生产建议用 systemd / pm2 / Docker Compose 托管，并配置重启策略。
 
@@ -140,7 +143,7 @@ npm run sync:platform-adapter --workspace=@changmen/backend
 
 ### 4.1 访问方式
 
-- **浏览器**：打开 `https://your-domain.com/`，登录 Supabase 用户
+- **浏览器**：打开 `https://your-domain.com/`，登录 JWT 用户（`users` 表）
 - **Chrome 插件**：操作员在 Chrome/Edge 安装 `apps/chrome-extension`（见 4.2）。PB / Stake 采集与 v4 代发**依赖插件**。
 
 ### 4.2 Chrome 插件
@@ -180,7 +183,7 @@ npm run build
 |--------|-----|
 | P0 | `x-proxy-url` relay：域名白名单 + 路径前缀 + 鉴权 + 审计 |
 | P0 | 生产 `A8_AUTH=1`，禁用本地 `users.json` 免登 |
-| P0 | Supabase：`service_role` 仅服务端；客户端 JWT 只读 |
+| P0 | `JWT_SECRET` 仅服务端；客户端只持 access/refresh token |
 | P1 | 日志脱敏 token / cookie |
 | P1 | HTTPS 全站（含 WSS） |
 
@@ -192,8 +195,8 @@ npm run build
 |----|------|------|
 | API 地址 | `localhost:3456` 或 Vite `:5174` + proxy | `https://your-domain.com` |
 | 启动 | `BAT\parity-dev.bat` / `BAT\dev-web.bat` + matcher | `web` + `matcher:loop` |
-| 认证 | 可 `A8_AUTH=0` + TJ01 | Supabase 真实用户 |
-| 采集 | 本机浏览器 + 插件 | 各操作员客户端上报同一 Supabase |
+| 认证 | 可 `A8_AUTH=0` + TJ01 | JWT 真实用户（`users` + `profiles`） |
+| 采集 | 本机浏览器 + 插件 | 各操作员客户端上报同一 RDS |
 | Node Feed | **不存在** | **不存在** |
 
 ---
@@ -203,7 +206,7 @@ npm run build
 - [x] 服务端已删除 FeedHub / `ESPORT_BRIDGE` 代码路径
 - [x] 文档统一「客户端采集 + 服务端聚合」表述
 - [x] 本文档定义生产拓扑与环境变量
-- [ ] 选定生产域名并完成首次 `db push` + 双进程部署
+- [ ] 选定生产域名并完成首次 RDS schema + 双进程部署
 - [ ] 至少一台客户端连远程 API 登录成功
 
 M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [apps/web/docs/A8_WALKTHROUGH_CHECKLIST.md](./apps/web/docs/A8_WALKTHROUGH_CHECKLIST.md)。
@@ -216,6 +219,6 @@ M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [apps/web/docs/A8_WALK
 |------|------|
 | [readme.md](./readme.md) | 项目共识、目录 |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | monorepo 布局、迁移阶段、adapter 解析 |
-| [CLAUDE.md](./CLAUDE.md) | 开发命令、Supabase 表 |
+| [CLAUDE.md](./CLAUDE.md) | 开发命令、RDS 表 |
 | [apps/backend/README.md](./apps/backend/README.md) | API、HTTP 代理环境变量 |
 | [scripts/README.md](./scripts/README.md) | `.bat` 脚本说明 |

@@ -141,7 +141,12 @@ function fmtBetMoney() {
           <template v-if="Number(user.bettingScheduled) === 1 && user.bettingAutoOpenTime">
             （{{ fmtTime(user.bettingAutoOpenTime) }}）
           </template>
-          · 最近活跃 {{ fmtTime(user.lastActiveAt || 0) }} · 注册 {{ fmtTime(user.createdAt) }} ·
+          · 最近活跃 {{ fmtTime(user.lastActiveAt || 0) }}
+          · 最后登录 IP {{ user.lastLoginIp || "—" }}
+          <template v-if="user.lastLoginAt">
+            （{{ fmtTime(user.lastLoginAt) }}）
+          </template>
+          · 注册 {{ fmtTime(user.createdAt) }} ·
           更新 {{ fmtTime(user.updatedAt) }} · {{ user.accountCount }} 个下注账号
         </p>
       </div>

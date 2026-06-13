@@ -1,24 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * 创建系统登录用户
+ * 创建系统登录用户（RDS users + JWT）
  * 用法：node scripts/create-user.js <用户名> <密码>
- *
- * AUTH_MODE=supabase — Supabase Auth（email 用户名@gamebet.local）
- * AUTH_MODE=jwt      — RDS users 表 + bcrypt（pgcrypto）
  */
 
 import crypto from "node:crypto";
 import "@changmen/db/load_env.js";
 import {
   buildPgClientConfig,
-  getSupabaseAdminClient,
   initDatabaseUrl,
   insertProfile,
 } from "@changmen/db";
 import pg from "@changmen/db/pg.js";
-
-const AUTH_MODE = String(process.env.AUTH_MODE || "supabase").trim().toLowerCase();
 
 async function createJwtUser(userName, password) {
   await initDatabaseUrl();
@@ -74,28 +68,6 @@ async function createJwtUser(userName, password) {
   }
 }
 
-async function createSupabaseUser(userName, password) {
-  const supabase = getSupabaseAdminClient();
-  const email = `${userName.toLowerCase()}@gamebet.local`;
-  console.log(`创建用户: ${userName} (${email})`);
-
-  const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-
-  if (error) {
-    console.error("失败:", error.message);
-    process.exit(1);
-  }
-
-  console.log(
-    "成功:",
-    JSON.stringify({ id: data.user.id, email: data.user.email, auth: "supabase" }, null, 2),
-  );
-}
-
 async function main() {
   const [userName, password] = process.argv.slice(2);
 
@@ -104,13 +76,8 @@ async function main() {
     process.exit(1);
   }
 
-  if (AUTH_MODE === "jwt") {
-    console.log(`创建用户 (JWT/RDS): ${userName}`);
-    await createJwtUser(userName, password);
-    return;
-  }
-
-  await createSupabaseUser(userName, password);
+  console.log(`创建用户 (JWT/RDS): ${userName}`);
+  await createJwtUser(userName, password);
 }
 
 main().catch((err) => {

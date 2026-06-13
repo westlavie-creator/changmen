@@ -328,6 +328,15 @@ onUnmounted(() => {
         <el-table-column label="最近活跃" min-width="150">
           <template #default="{ row }">{{ fmtTime(row.lastActiveAt || 0) }}</template>
         </el-table-column>
+        <el-table-column label="最后登录 IP" min-width="130" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span
+              :title="row.lastLoginAt ? `登录于 ${fmtTime(row.lastLoginAt)}` : ''"
+            >
+              {{ row.lastLoginIp || "—" }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="注册时间" min-width="150">
           <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
         </el-table-column>

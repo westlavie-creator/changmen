@@ -1,12 +1,14 @@
 import crypto from "node:crypto";
 import * as sb from "@changmen/db";
-import { ensurePgPoolReady, getPgPool, insertProfile, getSupabaseAdminClient } from "@changmen/db";
+import { ensurePgPoolReady, getPgPool, insertProfile } from "@changmen/db";
 import { isAdminUser } from "./admin_auth.js";
 import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
 import { getOnlineUserIdSet, getUserLastActiveAt } from "./user_presence.js";
 import { frozenFieldsFromProfile, isProfileFrozen, nextPreferencesForFreeze, readPreferences } from "./user_freeze.js";
-
-const AUTH_MODE = String(process.env.AUTH_MODE || "supabase").trim().toLowerCase();
+import {
+  lastLoginFieldsFromProfile,
+  PROFILE_META_PREFERENCE_KEYS,
+} from "./user_login_meta.js";
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
@@ -118,8 +120,11 @@ export function profileSettingForAdmin(row) {
         ? out.CollectConfig
         : {};
     const { USERCONFIG, CollectConfig, ...prefs } = out;
+    const prefsForAdmin = Object.fromEntries(
+      Object.entries(prefs).filter(([k]) => !PROFILE_META_PREFERENCE_KEYS.has(k)),
+    );
     return sanitizeSettingForAdmin({
-      ...prefs,
+      ...prefsForAdmin,
       ...betting,
       ...(Object.keys(collect).length ? { CollectConfig: collect } : {}),
     });
@@ -136,8 +141,11 @@ export function profileSettingForAdmin(row) {
     row.preferences && typeof row.preferences === "object" && !Array.isArray(row.preferences)
       ? row.preferences
       : {};
+  const prefsForAdmin = Object.fromEntries(
+    Object.entries(prefs).filter(([k]) => !PROFILE_META_PREFERENCE_KEYS.has(k)),
+  );
   return sanitizeSettingForAdmin({
-    ...prefs,
+    ...prefsForAdmin,
     ...betting,
     ...(Object.keys(collect).length ? { CollectConfig: collect } : {}),
   });
@@ -176,6 +184,7 @@ function mapAdminUserRow(p, profitByUser = new Map(), onlineIds = null) {
     lastActiveAt: getUserLastActiveAt(id),
     ...bettingState,
     ...frozenFieldsFromProfile(p),
+    ...lastLoginFieldsFromProfile(p),
     accountCount: accounts.length,
     accounts,
     setting: profileSettingForAdmin(p),
@@ -376,51 +385,27 @@ function validateUserName(userName) {
   return name;
 }
 
-/** 管理端创建登录用户（JWT → RDS users；supabase → Auth + profiles） */
+/** 管理端创建登录用户（RDS users + profiles） */
 export async function createAdminUser(userName, password) {
   const name = validateUserName(userName);
   const pwd = validateNewPassword(password);
   const now = Date.now();
 
-  if (AUTH_MODE === "jwt") {
-    await ensurePgPoolReady();
-    const pool = getPgPool();
-    if (!pool) throw new Error("RDS 未配置，无法创建用户");
-    const existing = await pool.query(
-      "SELECT id FROM users WHERE lower(user_name) = lower($1)",
-      [name],
-    );
-    if (existing.rows.length) throw new Error("用户名已存在");
-    const userId = crypto.randomUUID();
-    await pool.query(
-      `INSERT INTO users (id, user_name, password_hash, metadata, created_at, updated_at)
-       VALUES ($1, $2, crypt($3, gen_salt('bf')), '{}', $4, $4)`,
-      [userId, name, pwd, now],
-    );
-    const ok = await insertProfile(userId, {
-      id: userId,
-      user_name: name,
-      accounts: [],
-      betting_config: {},
-      collect_config: {},
-      preferences: {},
-      created_at: now,
-      updated_at: now,
-    });
-    if (!ok) throw new Error("profiles 创建失败");
-    return { id: userId, userName: name };
-  }
-
-  const supabase = getSupabaseAdminClient();
-  const email = `${name.toLowerCase()}@gamebet.local`;
-  const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    password: pwd,
-    email_confirm: true,
-  });
-  if (error) throw new Error(error.message);
-  const userId = data.user.id;
-  await insertProfile(userId, {
+  await ensurePgPoolReady();
+  const pool = getPgPool();
+  if (!pool) throw new Error("RDS 未配置，无法创建用户");
+  const existing = await pool.query(
+    "SELECT id FROM users WHERE lower(user_name) = lower($1)",
+    [name],
+  );
+  if (existing.rows.length) throw new Error("用户名已存在");
+  const userId = crypto.randomUUID();
+  await pool.query(
+    `INSERT INTO users (id, user_name, password_hash, metadata, created_at, updated_at)
+     VALUES ($1, $2, crypt($3, gen_salt('bf')), '{}', $4, $4)`,
+    [userId, name, pwd, now],
+  );
+  const ok = await insertProfile(userId, {
     id: userId,
     user_name: name,
     accounts: [],
@@ -430,6 +415,7 @@ export async function createAdminUser(userName, password) {
     created_at: now,
     updated_at: now,
   });
+  if (!ok) throw new Error("profiles 创建失败");
   return { id: userId, userName: name };
 }
 
@@ -440,49 +426,32 @@ export async function resetAdminUserPassword(userId, password) {
   const pwd = validateNewPassword(password);
   const now = Date.now();
 
-  if (AUTH_MODE === "jwt") {
-    await ensurePgPoolReady();
-    const pool = getPgPool();
-    if (!pool) throw new Error("RDS 未配置");
-    const { rows } = await pool.query(
-      "SELECT user_name FROM users WHERE id = $1",
-      [id],
-    );
-    if (!rows[0]) throw new Error("用户不存在");
-    await pool.query(
-      `UPDATE users SET password_hash = crypt($2, gen_salt('bf')), updated_at = $3 WHERE id = $1`,
-      [id, pwd, now],
-    );
-    return { id, userName: String(rows[0].user_name) };
-  }
-
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase.auth.admin.updateUserById(id, { password: pwd });
-  if (error) throw new Error(error.message);
-  const name = data?.user?.email?.split("@")[0] || "";
-  return { id, userName: name };
+  await ensurePgPoolReady();
+  const pool = getPgPool();
+  if (!pool) throw new Error("RDS 未配置");
+  const { rows } = await pool.query(
+    "SELECT user_name FROM users WHERE id = $1",
+    [id],
+  );
+  if (!rows[0]) throw new Error("用户不存在");
+  await pool.query(
+    `UPDATE users SET password_hash = crypt($2, gen_salt('bf')), updated_at = $3 WHERE id = $1`,
+    [id, pwd, now],
+  );
+  return { id, userName: String(rows[0].user_name) };
 }
 
 async function writeProfilePreferencesAwait(uid, preferences) {
   const id = String(uid);
   const now = Date.now();
-  if (AUTH_MODE === "jwt") {
-    await ensurePgPoolReady();
-    const pool = getPgPool();
-    if (!pool) throw new Error("RDS 未配置");
-    const { rowCount } = await pool.query(
-      `UPDATE profiles SET preferences = $2::jsonb, updated_at = $3 WHERE id = $1`,
-      [id, JSON.stringify(preferences || {}), now],
-    );
-    if (!rowCount) throw new Error("用户不存在");
-    return;
-  }
-  const supabase = getSupabaseAdminClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({ preferences, updated_at: now })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+  await ensurePgPoolReady();
+  const pool = getPgPool();
+  if (!pool) throw new Error("RDS 未配置");
+  const { rowCount } = await pool.query(
+    `UPDATE profiles SET preferences = $2::jsonb, updated_at = $3 WHERE id = $1`,
+    [id, JSON.stringify(preferences || {}), now],
+  );
+  if (!rowCount) throw new Error("用户不存在");
 }
 
 /** 管理端冻结/解冻用户（preferences.frozen） */

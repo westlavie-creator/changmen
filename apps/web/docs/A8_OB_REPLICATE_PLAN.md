@@ -82,8 +82,8 @@
 | unsub→view→sub | 有 | 轮询 + GetMatchs 同步有 | 已对齐 [A8 可证实] |
 | Token 试玩 `$Me` | 有 | `refreshObCollectToken` | 已对齐 [A8 可证实] |
 | 下注 yYe | 有 | `obProvider.ts` | 已对齐 [A8 可证实] |
-| 比赛列表数据源 | 浏览器 saveMatch → matcher | 客户端 + Supabase | 已对齐 [A8 可证实] |
-| `matches.json` / `bets.json` | 不可见（黑盒） | legacy JSON + Supabase | [changmen 推测] |
+| 比赛列表数据源 | 浏览器 saveMatch → matcher | 客户端 + RDS | 已对齐 [A8 可证实] |
+| `matches.json` / `bets.json` | 不可见（黑盒） | legacy JSON + RDS | [changmen 推测] |
 | `client_matchs` + `stableId` | 仅见 GetMatchs 响应形状 | `match_merge.js` | [changmen 推测] |
 | 前端 4 场并行灌盘 | 顺序 | 顺序 `for...of` | 已对齐 [A8 可证实] |
 | `syncObLogin` 启动写 gateway | 无 | `platform_sync.js` | [changmen 扩展] |

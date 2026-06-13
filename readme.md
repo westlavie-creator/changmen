@@ -6,7 +6,7 @@
 
 0. **架构：客户端 / 服务端**
    - **客户端**：Vue 控制台 + Chrome 插件 — 连接各博彩平台、采集、下注。
-   - **服务端**：`apps/backend` + Supabase + `apps/matcher` — 收数、合并、鉴权、订单。
+   - **服务端**：`apps/backend` + RDS + `apps/matcher` — 收数、合并、鉴权、订单。
    - 本仓库里的 `localhost` 与 `.bat` 是**开发联调**方式，不是产品形态「本地单机版」。
 
 1. **changmen 服务端 API 由 A8 前端反推**
@@ -22,13 +22,13 @@
 
 4. **数据采集（仅客户端）**
 
-   客户端 `saveMatch` / `saveBet` → 服务端 API → Supabase → matcher → `client_matches`。服务端不跑平台 Feed 采集。
+   客户端 `saveMatch` / `saveBet` → 服务端 API → RDS → matcher → `client_matches`。服务端不跑平台 Feed 采集。
 
 5. **生产部署** — [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 
 ## 工作目录
 
-**所有 `npm run`、`BAT\*.bat` 请在 `changmen/` 下执行**（本目录即应用根）。首次配置 Supabase：运行 `BAT\setup-dev-env.bat` 从 `.env.example` 生成 `apps/backend/.env` 后编辑。
+**所有 `npm run`、`BAT\*.bat` 请在 `changmen/` 下执行**（本目录即应用根）。首次配置：运行 `BAT\setup-dev-env.bat` 从 `.env.example` 生成 `apps/backend/.env`，编辑 `JWT_SECRET` 与 `DATABASE_URL`。
 
 若 Git 仓库根仍是上一级的 `gamebet/`，可在该目录执行 `npm run web`（根目录 `package.json` 会转发 npm 脚本）；**`.bat` 请进入 `changmen/` 再双击**。说明见 [scripts/README.md](./scripts/README.md)。
 
@@ -89,7 +89,7 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/
 各平台采集在**客户端**完成，经 HTTP 上报服务端。
 
 ```text
-packages/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► Supabase
+packages/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► RDS
 服务端 matcher ──► client_matches ──► Client_GetMatchs ──► 客户端 matchStore
 客户端 oddsStore（实时赔，对齐 A8 fo）
 ```

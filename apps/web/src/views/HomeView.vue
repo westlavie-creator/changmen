@@ -36,7 +36,7 @@ const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 const { ready: userReady } = storeToRefs(user);
 
 const searchQuery = ref("");
-const { extensionReady, extensionVersion } = useExtensionGate();
+const { extensionReady } = useExtensionGate();
 /** 会话已就绪（restoreSession / login 完成后为 true） */
 const sessionReady = computed(() => userReady.value);
 
@@ -121,7 +121,7 @@ async function onLoginSuccess() {
 <template>
   <PluginIntroShell v-if="!extensionReady" :show-login="false" />
   <PluginIntroShell v-else-if="!sessionReady" :show-login="true">
-    <LoginPanel :extension-version="extensionVersion" @success="onLoginSuccess" />
+    <LoginPanel @success="onLoginSuccess" />
   </PluginIntroShell>
   <template v-else>
     <AccountEditDialog

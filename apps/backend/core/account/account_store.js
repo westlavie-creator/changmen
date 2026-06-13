@@ -1,9 +1,9 @@
 import store from "../esport-api/store.js";
+import * as sb from "@changmen/db";
 
 const FILES = {
   tagPlatforms: "tag_platforms",
   players: "players",
-  moneyLogs: "money_logs",
   playerOrders: "player_orders",
 };
 
@@ -106,14 +106,12 @@ function deletePlayer(playerId, description) {
   delete orders[key];
   store.writeJson(FILES.playerOrders, orders);
 
-  const logs = store.readJson(FILES.moneyLogs, {});
-  for (const [logId, row] of Object.entries(logs)) {
-    if (String(row.playerId) === key) delete logs[logId];
-  }
-  store.writeJson(FILES.moneyLogs, logs);
-
   removeAccountFromKv(key);
   return true;
+}
+
+async function deletePlayerData(playerId) {
+  await sb.deleteMoneyLogsByPlayer(playerId);
 }
 
 function removeAccountFromKv() {}
@@ -171,13 +169,24 @@ function normalizeMoneyLogRow(row) {
   };
 }
 
-function listMoneyLogs(playerId, pageIndex = 1, pageSize = 20) {
-  const all = store.readJson(FILES.moneyLogs, {});
-  const list = Object.values(all)
-    .filter((row) => String(row.playerId) === String(playerId))
-    .sort((a, b) => (b.createAt || 0) - (a.createAt || 0))
-    .map(normalizeMoneyLogRow);
+function dbRowToMoneyLog(row) {
+  if (!row) return null;
+  return normalizeMoneyLogRow({
+    logId: row.id,
+    playerId: row.player_id,
+    type: row.type,
+    money: row.money,
+    currency: row.currency,
+    description: row.description,
+    isAuto: row.is_auto,
+    createAt: row.create_at,
+    updatedAt: row.updated_at,
+  });
+}
 
+async function listMoneyLogs(playerId, pageIndex = 1, pageSize = 20, userId) {
+  const rows = await sb.fetchMoneyLogsByPlayer(playerId, userId);
+  const list = rows.map(dbRowToMoneyLog).filter(Boolean);
   const start = (pageIndex - 1) * pageSize;
   return {
     list: list.slice(start, start + pageSize),
@@ -189,38 +198,31 @@ function listMoneyLogs(playerId, pageIndex = 1, pageSize = 20) {
   };
 }
 
-function getMoneyLog(logId) {
-  const all = store.readJson(FILES.moneyLogs, {});
-  return normalizeMoneyLogRow(all[String(logId)] || null);
+async function getMoneyLog(logId, userId) {
+  const row = await sb.fetchMoneyLogById(logId, userId);
+  return dbRowToMoneyLog(row);
 }
 
-function saveMoneyLog(payload) {
-  const all = store.readJson(FILES.moneyLogs, {});
-  const logId = payload.logId || payload.ID || nextId(all);
+async function saveMoneyLog(payload, userId) {
+  const logId = Number(payload.logId ?? payload.ID) || 0;
   const type = payload.type ?? payload.Type ?? "Recharge";
   const description = payload.description ?? payload.Description ?? "";
-  const row = {
-    logId,
-    playerId: payload.playerId ?? payload.PlayerID,
+  const saved = await sb.upsertMoneyLog({
+    id: logId > 0 ? logId : undefined,
+    user_id: userId,
+    player_id: Number(payload.playerId ?? payload.PlayerID),
     type,
     money: Number(payload.money ?? payload.Money) || 0,
     currency: payload.currency ?? payload.Currency ?? "CNY",
     description,
-    isAuto: resolveIsAuto(payload, description, type),
-    createAt: parseCreateAt(payload.createAt ?? payload.CreateAt),
-    updatedAt: Date.now(),
-  };
-  all[String(logId)] = row;
-  store.writeJson(FILES.moneyLogs, all);
-  return normalizeMoneyLogRow(row);
+    is_auto: resolveIsAuto(payload, description, type),
+    create_at: parseCreateAt(payload.createAt ?? payload.CreateAt),
+  });
+  return dbRowToMoneyLog(saved);
 }
 
-function deleteMoneyLog(logId) {
-  const all = store.readJson(FILES.moneyLogs, {});
-  if (!all[String(logId)]) return false;
-  delete all[String(logId)];
-  store.writeJson(FILES.moneyLogs, all);
-  return true;
+async function deleteMoneyLog(logId, userId) {
+  return sb.deleteMoneyLogById(logId, userId);
 }
 
 function getPlayerOrders(playerId) {
@@ -264,6 +266,7 @@ export {
   getPlayer,
   updatePlayerBalance,
   deletePlayer,
+  deletePlayerData,
   listMoneyLogs,
   getMoneyLog,
   saveMoneyLog,

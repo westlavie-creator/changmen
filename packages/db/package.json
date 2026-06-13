@@ -3,11 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "changmen 数据层唯一入口（GAMEBET_DB_SCRIPT → RDS / Supabase 路由）",
+  "description": "changmen 数据层唯一入口（RDS / PostgreSQL）",
   "main": "./index.js",
   "exports": {
     ".": "./index.js",
-    "./supabase.js": "./supabase.js",
     "./load_env.js": "./load_env.js",
     "./load_env.cjs": "./load_env.cjs",
     "./paths.js": "./paths.js",
@@ -16,9 +15,7 @@
     "./pg.js": "./pg.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.106.2",
     "dotenv": "^17.4.2",
-    "pg": "^8.21.0",
-    "ws": "^8.21.0"
+    "pg": "^8.21.0"
   }
 }

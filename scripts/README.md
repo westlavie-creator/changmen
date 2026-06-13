@@ -43,7 +43,6 @@ Matcher 人工面板：
 
 | 脚本 | 作用 |
 |------|------|
-| **`switch-db-mode.mjs`** | `npm run db:mode -- supabase\|rds\|dual [--restart]`，写 `apps/backend/.env` |
 | **`deploy-server-remote.sh`** | VPS 增量部署（由 `BAT\deploy-server.bat` 管道调用） |
 | **`fix-im-stored-data.mjs`** | 修复 IM 历史存储（见 `apps/web/docs/platforms/IM.md`） |
 
@@ -53,16 +52,14 @@ Matcher 人工面板：
 
 | 脚本 | 作用 |
 |------|------|
-| **`start-db.mjs`** | 按 `GAMEBET_DB_SCRIPT` 启动 `server.js`（`npm run web` 入口） |
-| **`start-supabase.mjs`** / **`start-rds.mjs`** / **`start-dual.mjs`** | 强制 DB 模式后启动 |
-| **`import-from-supabase.mjs`** | Supabase → RDS 导入（`--only=teams\|users\|…`） |
+| **`start-db.mjs`** | 按 `GAMEBET_DB_SCRIPT` 启动 `server.js`（`npm run web` 入口，默认 rds） |
+| **`start-rds.mjs`** | 强制 `GAMEBET_DB_SCRIPT=rds` 后启动 |
 | **`apply-rds-schema.mjs`** | 应用 RDS SQL 迁移 |
 | **`prune-stale.mjs`** | 本地手动 prune（生产由 matcher 每小时执行） |
 | **`preweb.js`** | `npm run web` 前：构建检查 / legacy 准备 |
 | **`check-collect-platforms.js`** | `npm run check:collect` — 凭证与采集器对齐审计 |
 | **`account_cli.js`** | 场馆账号 CLI（`account:import-platform` 等） |
-| **`create-user.js`** | 创建 Supabase/RDS 用户 |
-| **`sync-user-data.js`** | 同步用户 profile 数据 |
+| **`create-user.js`** | 创建 RDS/JWT 用户（`users` + `profiles`） |
 | **`sync-a8-esport2-assets.mjs`** | 同步 A8 esport2 静态资源到 `public/` |
 
 ## 兼容别名
@@ -78,9 +75,11 @@ Matcher 人工面板：
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `A8_AUTH` | `0`（`BAT\backend.bat`） | 影响 A8 v4 等集成；登录走 Supabase（`.env` 中 `SUPABASE_*`） |
+| `A8_AUTH` | `0`（`BAT\backend.bat`） | 影响 A8 v4 等集成 |
 | `SKIP_APP_BUILD` | 未设 | `1` 跳过 `/` 构建 |
-| `GAMEBET_DB_SCRIPT` | `supabase` | `supabase` / `rds` / `dual`（见 `npm run db:mode`） |
+| `GAMEBET_DB_SCRIPT` | `rds` | 固定 RDS；旧值 `supabase`/`dual` 启动时 warn 并仍走 rds |
+| `JWT_SECRET` | — | 登录必填（至少 16 字符） |
+| `DATABASE_URL` | — | RDS 连接（或 `DATABASE_URL_PUBLIC` / `_INTERNAL`） |
 
 ## 打包与部署
 

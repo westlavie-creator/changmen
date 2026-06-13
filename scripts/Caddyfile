@@ -1,0 +1,4 @@
+# changmen — HTTP 反代到本机 Node (PM2 gamebet-web)
+:80 {
+	reverse_proxy 127.0.0.1:3456
+}

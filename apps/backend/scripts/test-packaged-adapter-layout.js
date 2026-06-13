@@ -43,27 +43,6 @@ if (typeof marketCatalog.getDefaultMarketCode !== "function") {
 }
 console.log("shared resolve OK:", marketCatalog.getDefaultMarketCode("OB"));
 
-// 模拟 Electron：shared 在 resources/ 外，@supabase 在 app.asar/node_modules
-const fakeResources = path.join(backendRoot, "scripts", ".tmp-packaged-resources");
-const asarModules = path.join(fakeResources, "app.asar", "node_modules");
-const clientPath = path.join(backendRoot, "..", "..", "packages", "db", "client.js");
-try {
-  fs.mkdirSync(asarModules, { recursive: true });
-  const linkTarget = path.join(backendRoot, "node_modules", "@supabase");
-  const linkPath = path.join(asarModules, "@supabase");
-  if (!fs.existsSync(linkPath)) {
-    fs.symlinkSync(linkTarget, linkPath, "junction");
-  }
-  const prevResourcesPath = process.resourcesPath;
-  process.resourcesPath = fakeResources;
-  const clientUrl = pathToFileURL(clientPath).href;
-  await import(`${clientUrl}?packaged-test=${Date.now()}`);
-  process.resourcesPath = prevResourcesPath;
-  console.log("packages/db/client packaged resolve OK");
-} finally {
-  fs.rmSync(fakeResources, { recursive: true, force: true });
-}
-
 console.log("packaged layout OK");
 
 delete process.env.GAMEBET_ADAPTER_ROOT;

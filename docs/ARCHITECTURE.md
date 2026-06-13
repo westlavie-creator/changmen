@@ -37,7 +37,7 @@ changmen/
 | 10 | 存储路径与环境加载迁入 `@changmen/db`（`paths` / `load_env.cjs`） | ✅ 完成 |
 | 11 | web 对齐 `@changmen/shared`（赔率/时间窗 re-export，workspace 解析） | ✅ 完成 |
 | 12 | platform-adapter 路径收敛；`platforms.json` 迁入 `@changmen/db` | ✅ 完成 |
-| 13 | backend 依赖瘦身（`pg`/`supabase` 经 `@changmen/db`）；平台采集脚本迁入 `@changmen/platform-adapter` | ✅ 完成 |
+| 13 | backend 依赖瘦身（`pg` 经 `@changmen/db`）；平台采集脚本迁入 `@changmen/platform-adapter` | ✅ 完成 |
 | 14 | 生产 `platform_adapter` 瘦包同步脚本 + 部署文档；monorepo 默认直接用 workspace 包 | ✅ 完成 |
 | 15 | 文档路径口径统一（`packages/platform-adapter` / `@platform`） | ✅ 完成 |
 
@@ -83,7 +83,7 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 
 ### `packages/team-resolver` (`@changmen/team-resolver`)
 
-队名规范化插件；matcher `rebuild` 与 UI `merge_mode` 动态加载 `supabase_db.js`。  
+队名规范化插件；matcher `rebuild` 与 UI `merge_mode` 动态加载 `team_db.js`。  
 爬虫脚本在 `scrapers/`，环境变量通过 `@changmen/db/load_env` 加载。
 
 ### `packages/match-engine` (`@changmen/match-engine`)
@@ -103,7 +103,7 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 ## 数据流（不变）
 
 ```
-浏览器/插件 (platform-adapter) → API_SaveMatch/SaveBet → backend → Supabase platform_*
+浏览器/插件 (platform-adapter) → API_SaveMatch/SaveBet → backend → RDS platform_*
 matcher rebuild → client_matches → Client_GetMatchs → web
 ```
 

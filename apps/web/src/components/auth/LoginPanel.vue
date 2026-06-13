@@ -2,10 +2,6 @@
 import { reactive, ref } from "vue";
 import { useUserStore } from "@/stores/userStore";
 
-defineProps<{
-  extensionVersion?: string;
-}>();
-
 const emit = defineEmits<{
   success: [];
 }>();
@@ -37,13 +33,6 @@ async function submit() {
 </script>
 
 <template>
-  <el-alert
-    type="success"
-    :closable="false"
-    show-icon
-    :title="extensionVersion ? `插件已就绪（v${extensionVersion}）` : '插件已就绪'"
-    class="login-extension-alert"
-  />
   <el-form :model="form" @submit.prevent="submit">
     <el-form-item>
       <el-input

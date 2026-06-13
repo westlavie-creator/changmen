@@ -24,7 +24,7 @@ const require = createRequire(import.meta.url);
 
 await import("@changmen/db/load_env.js");
 
-const { loadAndCreatePlugin } = require("../supabase_db.js");
+const { loadAndCreatePlugin } = require("../team_db.js");
 const { loadPlatformsJsonSession, fetchEuroOdds } = requirePlatform(
   "PB",
   "backend",

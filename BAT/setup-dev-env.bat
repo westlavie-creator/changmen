@@ -27,5 +27,5 @@ if errorlevel 1 (
 )
 
 echo OK: 已创建 %DEST%
-echo 请编辑 SUPABASE_URL、SUPABASE_KEY 等，然后运行 BAT\dev.bat
+echo 请编辑 JWT_SECRET、DATABASE_URL 等，然后运行 BAT\dev.bat
 pause

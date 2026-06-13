@@ -104,7 +104,7 @@ server.on("error", (err) => {
 function onListen() {
   store.ensureSeed();
 
-  // 从 Supabase platform_matches 恢复各平台数据（解决重启后 _matches 为空问题）
+  // 从 platform_matches 恢复各平台数据（解决重启后 _matches 为空问题）
   fetchPlatformMatches()
     .then((byPlatform) => {
       const platforms = Object.keys(byPlatform);

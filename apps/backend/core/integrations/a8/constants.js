@@ -4,7 +4,7 @@
  *   FMe = "game.haijings.vip"
  *   WMe = 3           — 平博 gameId
  *
- * 本地开发：控制台登录 + 平博 SSO 均使用此处写死的 A8 账号（生产用 Supabase 用户，勿依赖此默认值）。
+ * 本地开发：控制台登录 + 平博 SSO 均使用此处写死的 A8 账号（生产用 JWT 用户配置，勿依赖此默认值）。
  * 修改下面两行即可切换账号。
  */
 export const A8_USER = "TJ01";

@@ -79,6 +79,8 @@ export interface AdminUserRow {
   isAdmin?: boolean;
   isOnline?: number;
   lastActiveAt?: number;
+  lastLoginIp?: string;
+  lastLoginAt?: number;
   bettingEnabled?: number;
   bettingScheduled?: number;
   bettingAutoOpenTime?: number;

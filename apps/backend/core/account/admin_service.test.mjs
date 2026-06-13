@@ -16,6 +16,7 @@ import {
   sanitizeAccountForAdmin,
   sanitizeSettingForAdmin,
 } from "./admin_service.js";
+import { lastLoginFieldsFromProfile } from "./user_login_meta.js";
 
 describe("listAdminOrders", () => {
   it("maps multiple rows without treating array index as startIndex", async () => {
@@ -68,5 +69,24 @@ describe("profileSettingForAdmin", () => {
     expect(s.betMoney).toBe(200);
     expect(s.Follow).toBe("on");
     expect(s.CollectConfig).toEqual({ OB: true, RAY: false });
+  });
+
+  it("hides system preference keys from admin setting view", () => {
+    const s = profileSettingForAdmin({
+      betting_config: { betMoney: 100 },
+      preferences: { lastLoginIp: "1.2.3.4", lastLoginAt: 1, Follow: "on" },
+    });
+    expect(s.lastLoginIp).toBeUndefined();
+    expect(s.Follow).toBe("on");
+  });
+});
+
+describe("lastLoginFieldsFromProfile", () => {
+  it("reads last login ip and time from preferences", () => {
+    expect(
+      lastLoginFieldsFromProfile({
+        preferences: { lastLoginIp: "203.0.113.1", lastLoginAt: 1700000000000 },
+      }),
+    ).toEqual({ lastLoginIp: "203.0.113.1", lastLoginAt: 1700000000000 });
   });
 });

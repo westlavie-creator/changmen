@@ -1,13 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "http";
 import catalog from "@changmen/shared/catalog/game_catalog.json" with { type: "json" };
 import store from "./store.js";
-import { emptyPage as _emptyPage, monthReport } from "./stubs.js";
+import { emptyPage as _emptyPage } from "./stubs.js";
+import { getMonthReport } from "../account/report_service.js";
 import { handleV4Request } from "./v4_router.js";
 import { handleCommonApi } from "./hg_follow.js";
 import * as accountStore from "../account/account_store.js";
 import * as accountService from "../account/account_service.js";
 import { isAdminUser } from "../account/admin_auth.js";
 import { touchUserPresence } from "../account/user_presence.js";
+import { normalizeClientIp, recordUserLastLogin } from "../account/user_login_meta.js";
 import { assertProfileActive } from "../account/admin_service.js";
 import * as adminService from "../account/admin_service.js";
 import { resolveA8Credentials } from "../integrations/a8/config.js";
@@ -38,7 +40,6 @@ export type EsportAction =
   | "Client_Login"
   | "Client_Logout"
   | "Client_RefreshToken"
-  | "Client_GetSupabaseConfig"
   | "Client_GetUserInfo"
   | "Client_UpdateSetting"
   | "Client_GetCollectPlatform"
@@ -112,21 +113,12 @@ function getJwtClaim(token: string, claim: string): unknown {
   }
 }
 
-function isJwtAuthMode(): boolean {
-  return String(process.env.AUTH_MODE || "supabase").trim().toLowerCase() === "jwt";
-}
-
 function authNotConfiguredMessage(): string {
-  if (isJwtAuthMode()) {
-    return "未配置 JWT 登录：请在 apps/backend/.env 设置 AUTH_MODE=jwt、JWT_SECRET（至少16字符）及 DATABASE_URL";
-  }
-  return "未连接 Supabase：请在 apps/backend/.env 配置 SUPABASE_URL、SUPABASE_KEY";
+  return "未配置 JWT 登录：请在 apps/backend/.env 设置 JWT_SECRET（至少16字符）及 DATABASE_URL";
 }
 
 function profileLoadFailMessage(): string {
-  return isJwtAuthMode()
-    ? "用户数据加载失败，请检查 RDS profiles 表"
-    : "用户数据加载失败，请检查 Supabase profiles 表";
+  return "用户数据加载失败，请检查 RDS profiles 表";
 }
 
 export function resolveCreditPlateUserName(user: EsportUser | null): string {
@@ -190,7 +182,19 @@ function gamesForProvider(provider: string): string[] {
 
 // ── Action handlers ──────────────────────────────────────────────────────────
 
-async function handleClientLogin(body: Record<string, unknown>): Promise<ApiEnvelope> {
+function clientIpFromRequest(req?: IncomingMessage): string {
+  if (!req) return "";
+  const raw =
+    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    || req.socket?.remoteAddress
+    || "";
+  return normalizeClientIp(raw);
+}
+
+async function handleClientLogin(
+  body: Record<string, unknown>,
+  clientIp = "",
+): Promise<ApiEnvelope> {
   const userName = String(body.userName || body.username || "").trim();
   const password = body.password;
   if (!userName || !password) return fail("用户名和密码必填");
@@ -228,6 +232,7 @@ async function handleClientLogin(body: Record<string, unknown>): Promise<ApiEnve
   }
 
   touchUserPresence(uid);
+  await recordUserLastLogin(uid, clientIp);
 
   return ok({ token: accessToken, refreshToken, userName: profile.userName, ID: uid });
 }
@@ -262,11 +267,6 @@ async function handle(
       }
       return ok({ token: auth.accessToken, refreshToken: auth.refreshToken });
     }
-    case "Client_GetSupabaseConfig":
-      return ok({
-        url:     process.env.SUPABASE_URL  || "",
-        anonKey: process.env.SUPABASE_KEY  || "",
-      });
     case "Client_GetUserInfo": {
       if (!ctx.user) return fail("请先登录");
       return ok({
@@ -440,17 +440,17 @@ async function handle(
       return ok(true);
     case "Client_SaveMoneyLog": {
       if (!ctx.user) return fail("请先登录");
-      const saved = accountService.handleSaveMoneyLog(body);
+      const saved = await accountService.handleSaveMoneyLog(body, ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_DeleteMoneyLog": {
       if (!ctx.user) return fail("请先登录");
-      const deleted = accountService.handleDeleteMoneyLog(body);
+      const deleted = await accountService.handleDeleteMoneyLog(body, ctx.user.id);
       return deleted.ok ? ok(deleted.info) : fail(deleted.msg);
     }
     case "Client_DeletePlayer": {
       if (!ctx.user) return fail("请先登录");
-      const deleted = accountService.handleDeletePlayer(body, ctx.user.id);
+      const deleted = await accountService.handleDeletePlayer(body, ctx.user.id);
       return deleted.ok ? ok(deleted.info) : fail(deleted.msg);
     }
     case "Client_UpdateBalance": {
@@ -465,17 +465,17 @@ async function handle(
     }
     case "Client_GetMoneyLogs": {
       if (!ctx.user) return fail("请先登录");
-      const page = accountService.handleGetMoneyLogs(body);
+      const page = await accountService.handleGetMoneyLogs(body, ctx.user.id);
       return page.ok ? ok(page.info) : fail(page.msg);
     }
     case "Client_GetMoneyLog": {
       if (!ctx.user) return fail("请先登录");
-      const row = accountService.handleGetMoneyLog(body);
+      const row = await accountService.handleGetMoneyLog(body, ctx.user.id);
       return row.ok ? ok(row.info) : fail(row.msg);
     }
     case "Client_MonthReport":
       if (!ctx.user) return fail("请先登录");
-      return ok(monthReport(body.month));
+      return ok(await getMonthReport(body.month));
     case "Client_GetUserProfit": {
       if (!ctx.user) return fail("请先登录");
       const profit = await accountService.handleGetUserProfit();
@@ -625,10 +625,10 @@ export async function handleEsportRequest(
     }
 
     const token = String(req.headers.token || ""); // Node.js 会将所有请求头转为小写
-    const user = await store.getUserBySupabaseToken(token);
+    const user = await store.getUserByToken(token);
 
     if (action === "Client_Login") {
-      sendJson(res, 200, await handleClientLogin(body));
+      sendJson(res, 200, await handleClientLogin(body, clientIpFromRequest(req)));
       return true;
     }
 
@@ -702,7 +702,7 @@ export async function callEsportAction(
     // IPC 调用时 action 可能带 query string（如 "API_SaveMatch?XBet"），需剥离
     const cleanAction = String(action || "").split("?")[0];
     if (!cleanAction) return fail("missing action");
-    const user = await store.getUserBySupabaseToken(token);
+    const user = await store.getUserByToken(token);
     if (cleanAction === "Client_Login") return handleClientLogin(body);
     return handle(cleanAction, body || {}, { token, user });
   } catch (err: any) {

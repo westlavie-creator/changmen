@@ -1,5 +1,5 @@
 /**
- * Client_GetMatchs 读取路径：用 live_timers（内存 + Supabase）覆盖 client_matches 的 Round/RoundStart。
+ * Client_GetMatchs 读取路径：用 live_timers（内存 + RDS）覆盖 client_matches 的 Round/RoundStart。
  * OB 浏览器采集 saveLiveTimer 只写 _timers，matcher rebuild 才有 30s 延迟；Electron 依赖本 overlay 即时展示计时器。
  */
 
@@ -30,7 +30,7 @@ export function liveRound(timers, provider, sourceMatchId) {
   };
 }
 
-/** 内存 _timers 优先于 Supabase 快照（同进程 Electron 内 saveLiveTimer 刚写入） */
+/** 内存 _timers 优先于 RDS 快照（同进程 Electron 内 saveLiveTimer 刚写入） */
 export function mergeTimerBlocks(memoryTimers, dbTimers) {
   const out = { ...(dbTimers || {}) };
   for (const [platform, block] of Object.entries(memoryTimers || {})) {

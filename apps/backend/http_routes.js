@@ -98,7 +98,7 @@ export function createHttpHandler({ port, serveStatic }) {
           (typeof req.headers.token === "string" && req.headers.token) ||
           (typeof req.headers.Token === "string" && req.headers.Token) ||
           "";
-        const user = await store.getUserBySupabaseToken(token);
+        const user = await store.getUserByToken(token);
         const userName = resolveCreditPlateUserName(user);
         jsonResponse(res, 200, { userName });
         return;

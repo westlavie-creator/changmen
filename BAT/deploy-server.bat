@@ -116,7 +116,7 @@ if errorlevel 1 goto fail_network
 
 :done
 echo.
-echo Done. Open http://%DEPLOY_HOST%:3456/
+echo Done. Open http://%DEPLOY_HOST%/  (or http://%DEPLOY_HOST%:3456/ before Caddy)
 echo.
 pause
 exit /b 0

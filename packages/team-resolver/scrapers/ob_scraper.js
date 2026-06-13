@@ -17,7 +17,7 @@
 require("../load_changmen_env.cjs");
 
 const { getGameCodeForPlatformId } = require("@changmen/shared/catalog/game_catalog.mjs");
-const { loadAndCreatePlugin } = require("../supabase_db.js");
+const { loadAndCreatePlugin } = require("../team_db.js");
 
 let login;
 let obGet;
@@ -33,7 +33,7 @@ const REQUEST_DELAY_MS = 300;
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-// ── 名称归一化（与 supabase_db.js 保持一致） ─────────────────────────────────
+// ── 名称归一化（与 team_db.js 保持一致） ─────────────────────────────────
 
 function norm(name) {
   return String(name || "")

@@ -1,9 +1,5 @@
 /**
- * impl_rds — 数据读写全走 RDS（由 GAMEBET_DB_SCRIPT=rds 选择）；matcher 队表仍可用 getServiceClient()
- *
- * 分工原则：
- *   读取 → supabase（anon key + 用户 JWT，受 RLS 约束）
- *   写入 → supabaseAdmin（service_role，绕过 RLS）
+ * impl_rds — 数据读写全走 RDS（PostgreSQL + JWT 鉴权）。
  *
  * 命名约定：
  *   fetch*  — async 读取，返回数据或 null/[]
@@ -15,10 +11,7 @@ import crypto from "node:crypto";
 import { getDbMode } from "./db_mode.js";
 import { getPgPool as getSharedPgPool } from "./pg_pool.js";
 import { hasDatabaseUrlConfig } from "./resolve_database_url.js";
-import { supabase, supabaseAdmin } from "./client.js";
 
-const AUTH_MODE = String(process.env.AUTH_MODE || "supabase").trim().toLowerCase();
-const isJwtMode = () => AUTH_MODE === "jwt";
 const JWT_SECRET = process.env.JWT_SECRET || "";
 
 function parseJwtTtl(raw, fallbackSec) {
@@ -36,27 +29,6 @@ const JWT_ACCESS_TTL_SEC = parseJwtTtl(process.env.JWT_ACCESS_TTL, 7 * 86400);
 const JWT_REFRESH_TTL_SEC = parseJwtTtl(process.env.JWT_REFRESH_TTL, 30 * 86400);
 
 const _mode = getDbMode();
-const _isDual = _mode.isDual;
-const _isRdsOnly = _mode.script === "rds";
-
-function collectReadsFromRds() {
-  return _mode.readsRds;
-}
-function collectWritesToRds() {
-  return _mode.writesRds;
-}
-function collectWritesToSupabase() {
-  return _mode.writesSupabase;
-}
-function businessUsesRds() {
-  return _mode.readsRds;
-}
-function businessWritesToSupabase() {
-  return _mode.writesSupabase;
-}
-function businessWritesToRds() {
-  return _mode.writesRds;
-}
 
 function getPgPool() {
   return getSharedPgPool(`GAMEBET_DB_SCRIPT=${_mode.script}`);
@@ -98,20 +70,8 @@ function decodeJwtPayload(token) {
   }
 }
 
-/**
- * fire-and-forget 写入（service_role）。
- * supabaseAdmin 未配置时静默跳过，本地内存仍正常运行。
- */
-function _write(fn, label = '') {
-  if (!supabaseAdmin) return
-  Promise.resolve().then(() => fn(supabaseAdmin)).catch((err) =>
-    console.warn(`[supabase${label ? ':' + label : ''}]`, err.message)
-  )
-}
-
-/** 迁 RDS：与 Supabase 并行写入（fire-and-forget） */
+/** fire-and-forget 写入 RDS */
 function _writeRds(fn, label = "") {
-  if (!collectWritesToRds()) return;
   const pool = getPgPool();
   if (!pool) return;
   Promise.resolve()
@@ -409,149 +369,77 @@ async function setPlatformMatchId(platform, sourceMatchId, matchId, opts = {}) {
   const cmId = Number(matchId);
   if (!Number.isFinite(cmId)) return { updated: false, skipped: true, conflict: false };
 
-  let updated = false;
-  let skipped = false;
-  let conflict = false;
+  const pool = getPgPool();
+  if (!pool) return { updated: false, skipped: true, conflict: false };
 
-  if (collectWritesToSupabase() && supabaseAdmin) {
-    const { data: existing, error: fetchErr } = await supabaseAdmin
-      .from("platform_matches")
-      .select("match_id")
-      .eq("platform", plat)
-      .eq("source_match_id", srcId)
-      .maybeSingle();
-    if (fetchErr) throw new Error(`查询 platform_matches 失败: ${fetchErr.message}`);
-    if (!existing) {
-      skipped = true;
-    } else {
-      const cur =
-        existing.match_id != null && existing.match_id !== "" ? Number(existing.match_id) : null;
-      if (cur === cmId) skipped = true;
-      else if (cur != null && cur !== cmId && onlyIfNull) conflict = true;
-      else {
-        let q = supabaseAdmin
-          .from("platform_matches")
-          .update({ match_id: cmId })
-          .eq("platform", plat)
-          .eq("source_match_id", srcId);
-        if (onlyIfNull) q = q.is("match_id", null);
-        const { error: updErr } = await q;
-        if (updErr) throw new Error(`回写 match_id 失败 (${plat}:${srcId}): ${updErr.message}`);
-        updated = true;
-      }
-    }
-  }
+  const { rows } = await pool.query(
+    "SELECT match_id FROM platform_matches WHERE platform = $1 AND source_match_id = $2",
+    [plat, srcId],
+  );
+  if (!rows.length) return { updated: false, skipped: true, conflict: false };
 
-  if (collectWritesToRds()) {
-    const pool = getPgPool();
-    if (pool) {
-      const { rows } = await pool.query(
-        "SELECT match_id FROM platform_matches WHERE platform = $1 AND source_match_id = $2",
-        [plat, srcId],
-      );
-      if (!rows.length) {
-        if (!skipped) skipped = true;
-      } else {
-        const cur =
-          rows[0].match_id != null && rows[0].match_id !== "" ? Number(rows[0].match_id) : null;
-        if (cur === cmId) {
-          if (!updated) skipped = true;
-        } else if (cur != null && cur !== cmId && onlyIfNull) {
-          conflict = true;
-        } else {
-          const n = await _rdsSetPlatformMatchId(pool, plat, srcId, cmId, onlyIfNull);
-          if (n > 0) updated = true;
-        }
-      }
-    }
-  }
+  const cur =
+    rows[0].match_id != null && rows[0].match_id !== "" ? Number(rows[0].match_id) : null;
+  if (cur === cmId) return { updated: false, skipped: true, conflict: false };
+  if (cur != null && cur !== cmId && onlyIfNull) return { updated: false, skipped: false, conflict: true };
 
-  return { updated, skipped, conflict };
+  const n = await _rdsSetPlatformMatchId(pool, plat, srcId, cmId, onlyIfNull);
+  return { updated: n > 0, skipped: n === 0, conflict: false };
 }
 
 // ── profiles ──────────────────────────────────────────────────────────
 
 /** 拉取所有 profiles 到内存（启动时调用） */
-async function fetchProfiles(sessionClient) {
-  if (businessUsesRds()) {
-    const pool = getPgPool();
-    if (pool) {
-      try {
-        const { rows } = await pool.query("SELECT * FROM profiles");
-        return rows || [];
-      } catch (err) {
-        console.error("[rds] fetchProfiles 失败:", err.message);
-        return [];
-      }
-    }
-  }
-  const client = sessionClient || supabase
-  if (!client) return []
+async function fetchProfiles(_sessionClient) {
+  const pool = getPgPool();
+  if (!pool) return [];
   try {
-    const { data, error } = await client.from('profiles').select('*')
-    if (error) throw error
-    return data || []
+    const { rows } = await pool.query("SELECT * FROM profiles");
+    return rows || [];
   } catch (err) {
-    console.error('[supabase] fetchProfiles 失败:', err.message)
-    return []
+    console.error("[rds] fetchProfiles 失败:", err.message);
+    return [];
   }
 }
 
 /** 按 uid 读单个 profile */
 async function fetchProfileById(uid) {
-  if (isJwtMode() || businessUsesRds()) {
-    const pool = getPgPool();
-    if (!pool) return null;
-    try {
-      const { rows } = await pool.query("SELECT * FROM profiles WHERE id = $1", [String(uid)]);
-      return rows[0] || null;
-    } catch (err) {
-      console.warn("[rds] fetchProfileById:", err.message);
-      return null;
-    }
-  }
-  if (!supabase) return null
+  const pool = getPgPool();
+  if (!pool) return null;
   try {
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', String(uid)).single()
-    if (error || !data) return null
-    return data
-  } catch { return null }
+    const { rows } = await pool.query("SELECT * FROM profiles WHERE id = $1", [String(uid)]);
+    return rows[0] || null;
+  } catch (err) {
+    console.warn("[rds] fetchProfileById:", err.message);
+    return null;
+  }
 }
 
 /** fire-and-forget：更新 profile 字段 */
 function writeProfile(uid, patch) {
   const now = Date.now();
-  const payload = { ...patch, updated_at: now };
-  if (businessWritesToSupabase()) {
-    _write(async (client) => {
-      const { error } = await client.from('profiles')
-        .update(payload).eq('id', String(uid))
-      if (error) throw error
-    }, 'profiles')
+  const pool = getPgPool();
+  if (!pool) return;
+  const jsonbCols = new Set(["accounts", "betting_config", "collect_config", "preferences"]);
+  const keys = Object.keys(patch).filter((k) => k !== "updated_at");
+  if (!keys.length) return;
+  const sets = [];
+  const vals = [String(uid)];
+  for (const k of keys) {
+    vals.push(jsonbCols.has(k) ? _jsonb(patch[k], patch[k]) : patch[k]);
+    sets.push(jsonbCols.has(k) ? `${k} = $${vals.length}::jsonb` : `${k} = $${vals.length}`);
   }
-  if (businessWritesToRds()) {
-    const pool = getPgPool();
-    if (!pool) return;
-    const jsonbCols = new Set(["accounts", "betting_config", "collect_config", "preferences"]);
-    const keys = Object.keys(patch).filter((k) => k !== "updated_at");
-    if (!keys.length) return;
-    const sets = [];
-    const vals = [String(uid)];
-    for (const k of keys) {
-      vals.push(jsonbCols.has(k) ? _jsonb(patch[k], patch[k]) : patch[k]);
-      sets.push(jsonbCols.has(k) ? `${k} = $${vals.length}::jsonb` : `${k} = $${vals.length}`);
-    }
-    vals.push(now);
-    sets.push(`updated_at = $${vals.length}`);
-    Promise.resolve()
-      .then(() => pool.query(`UPDATE profiles SET ${sets.join(", ")} WHERE id = $1`, vals))
-      .catch((err) => console.warn("[rds:profiles]", err.message));
-  }
+  vals.push(now);
+  sets.push(`updated_at = $${vals.length}`);
+  Promise.resolve()
+    .then(() => pool.query(`UPDATE profiles SET ${sets.join(", ")} WHERE id = $1`, vals))
+    .catch((err) => console.warn("[rds:profiles]", err.message));
 }
 
 /** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */
 async function insertProfile(uid, data) {
   const pool = getPgPool();
+  if (!pool) return false;
   const rdsArgs = [
     String(data.id || uid),
     String(data.user_name || ""),
@@ -562,31 +450,18 @@ async function insertProfile(uid, data) {
     Number(data.created_at) || Date.now(),
     Number(data.updated_at) || Date.now(),
   ];
-  let ok = true;
-
-  if ((isJwtMode() || businessWritesToRds()) && pool) {
-    try {
-      await pool.query(
-        `INSERT INTO profiles (id, user_name, accounts, betting_config, collect_config, preferences, created_at, updated_at)
-         VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8)
-         ON CONFLICT (id) DO NOTHING`,
-        rdsArgs,
-      );
-    } catch (err) {
-      console.warn("[rds] insertProfile:", err.message);
-      ok = false;
-    }
-  }
-
-  if (businessUsesRds() && !businessWritesToSupabase()) return ok;
-
-  if (!isJwtMode() && supabaseAdmin) {
-    const { error } = await supabaseAdmin.from("profiles").insert(data);
-    if (error) ok = false;
-  } else if (!isJwtMode() && !businessUsesRds()) {
+  try {
+    await pool.query(
+      `INSERT INTO profiles (id, user_name, accounts, betting_config, collect_config, preferences, created_at, updated_at)
+       VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8)
+       ON CONFLICT (id) DO NOTHING`,
+      rdsArgs,
+    );
+    return true;
+  } catch (err) {
+    console.warn("[rds] insertProfile:", err.message);
     return false;
   }
-  return ok;
 }
 
 // ── accounts ──────────────────────────────────────────────────────────
@@ -612,27 +487,11 @@ function _prepareClientMatchWrite(rows) {
   return { dedupedRows, toDelete }
 }
 
-async function _upsertClientMatches(client, dedupedRows, toDelete) {
-  if (dedupedRows.length) {
-    const { error } = await client.from('client_matches')
-      .upsert(dedupedRows, { onConflict: 'id' })
-    if (error) throw error
-  }
-  if (toDelete.length) {
-    const { error: delErr } = await client.from('client_matches')
-      .delete().in('id', toDelete)
-    if (delErr) throw delErr
-  }
-}
-
 /** fire-and-forget：upsert 客户端比赛列表，只删离开活跃列表的行 */
 function writeClientMatches(rows) {
   const prepared = _prepareClientMatchWrite(rows)
   if (!prepared) return
   const { dedupedRows, toDelete } = prepared
-  if (collectWritesToSupabase()) {
-    _write((client) => _upsertClientMatches(client, dedupedRows, toDelete), 'client_matches')
-  }
   _writeRds((pool) => _rdsUpsertClientMatches(pool, dedupedRows, toDelete), "client_matches")
 }
 
@@ -641,44 +500,22 @@ async function writeClientMatchesAsync(rows) {
   const prepared = _prepareClientMatchWrite(rows)
   if (!prepared) return
   const { dedupedRows, toDelete } = prepared
-  const tasks = []
-  if (collectWritesToSupabase() && supabaseAdmin) {
-    tasks.push(_upsertClientMatches(supabaseAdmin, dedupedRows, toDelete))
-  }
-  if (collectWritesToRds()) {
-    const pool = getPgPool()
-    if (pool) tasks.push(_rdsUpsertClientMatches(pool, dedupedRows, toDelete))
-  }
-  if (!tasks.length) {
+  const pool = getPgPool()
+  if (!pool) {
     writeClientMatches(rows)
     return
   }
-  await Promise.all(tasks)
+  await _rdsUpsertClientMatches(pool, dedupedRows, toDelete)
 }
 
 /** 启动时预填 _lastWrittenIds，使差量删除能覆盖上次遗留行 */
 async function initLastWrittenIds() {
-  if (collectReadsFromRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        await _rdsInitLastWrittenIds(pool)
-        return
-      } catch (err) {
-        console.warn('[rds] initLastWrittenIds 失败:', err.message)
-      }
-    }
-  }
-  if (!collectWritesToSupabase()) return
-  const client = supabaseAdmin || supabase
-  if (!client) return
+  const pool = getPgPool()
+  if (!pool) return
   try {
-    const { data, error } = await client.from('client_matches').select('id')
-    if (error || !data) return
-    _lastWrittenIds = new Set(data.map(r => Number(r.id)))
-    console.log(`[supabase] 已从 client_matches 加载 ${_lastWrittenIds.size} 条 id，首次 rebuild 可正确差量删除遗留行`)
+    await _rdsInitLastWrittenIds(pool)
   } catch (err) {
-    console.warn('[supabase] initLastWrittenIds 失败:', err.message)
+    console.warn('[rds] initLastWrittenIds 失败:', err.message)
   }
 }
 
@@ -698,69 +535,27 @@ async function clearClientMatchesOnStartup() {
  * @returns {Promise<{ builtAt: number, count: number }|null>} 失败时 null
  */
 async function fetchClientMatchesMeta() {
-  if (collectReadsFromRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        return await _rdsFetchClientMatchesMeta(pool)
-      } catch (err) {
-        console.warn('[rds] fetchClientMatchesMeta 失败:', err.message)
-      }
-    }
-  }
-  const client = supabaseAdmin || supabase
-  if (!client) return null
+  const pool = getPgPool()
+  if (!pool) return null
   try {
-    const [countRes, builtRes] = await Promise.all([
-      client.from('client_matches').select('id', { count: 'exact', head: true }),
-      client.from('client_matches')
-        .select('built_at')
-        .order('built_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ])
-    if (countRes.error) throw countRes.error
-    if (builtRes.error) throw builtRes.error
-    return {
-      builtAt: builtRes.data?.built_at != null ? Number(builtRes.data.built_at) : 0,
-      count: countRes.count ?? 0,
-    }
+    return await _rdsFetchClientMatchesMeta(pool)
   } catch (err) {
-    console.warn('[supabase] fetchClientMatchesMeta 失败:', err.message)
+    console.warn('[rds] fetchClientMatchesMeta 失败:', err.message)
     return null
   }
 }
 
 /**
- * 从 Supabase 读取 client_matches，按 start_time 升序排列。
- * @returns {Promise<object[]|null>} 成功时返回数组（可为空）；失败/未配置时返回 null（调用方可回退内存缓存）。
+ * 从 RDS 读取 client_matches，按 start_time 升序排列。
+ * @returns {Promise<object[]|null>} 成功时返回数组（可为空）；失败/未配置时返回 null。
  */
 async function fetchClientMatches() {
-  if (collectReadsFromRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        return await _rdsFetchClientMatches(pool)
-      } catch (err) {
-        console.warn('[rds] fetchClientMatches 失败:', err.message)
-        return null
-      }
-    }
-  }
-  const client = supabaseAdmin || supabase
-  if (!client) return null
+  const pool = getPgPool()
+  if (!pool) return null
   try {
-    const { data, error } = await client
-      .from('client_matches')
-      .select('*')
-      .order('start_time', { ascending: true })
-    if (error) {
-      console.warn('[supabase] fetchClientMatches 失败:', error.message)
-      return null
-    }
-    return data || []
+    return await _rdsFetchClientMatches(pool)
   } catch (err) {
-    console.warn('[supabase] fetchClientMatches 失败:', err.message)
+    console.warn('[rds] fetchClientMatches 失败:', err.message)
     return null
   }
 }
@@ -787,134 +582,44 @@ function mapPlatformMatchRows(provider, matchs) {
 /** fire-and-forget：upsert 平台原始比赛列表，同时删除该平台已结束的旧行 */
 function writePlatformMatches(provider, matchs) {
   if (!Array.isArray(matchs) || !matchs.length) return
-  // match_id 由 matcher rebuild（队伍 ID 自动合并）或人工关联回填；SaveMatch 不写，避免 FK 指向不存在的 client_matches.id
   const rows = mapPlatformMatchRows(provider, matchs)
-  if (collectWritesToSupabase()) {
-    _write(async (client) => {
-      const { error } = await client
-        .from('platform_matches')
-        .upsert(rows, { onConflict: 'platform,source_match_id' })
-      if (error) throw error
-      // 过期行由 pg_cron 每小时清理（synced_at > 2h），不在写入路径显式 delete
-    }, 'platform_matches')
-  }
   _writeRds((pool) => _rdsUpsertPlatformMatches(pool, rows), "platform_matches")
 }
 
 /** 启动时读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */
 async function fetchPlatformMatches() {
-  if (collectReadsFromRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        return await _rdsFetchPlatformMatches(pool)
-      } catch (err) {
-        console.warn('[rds] fetchPlatformMatches 失败:', err.message)
-      }
-    }
+  const pool = getPgPool()
+  if (!pool) return {}
+  try {
+    return await _rdsFetchPlatformMatches(pool)
+  } catch (err) {
+    console.warn('[rds] fetchPlatformMatches 失败:', err.message)
+    return {}
   }
-  const client = supabaseAdmin || supabase
-  if (!client) return {}
-  const PAGE = 1000
-  const data = []
-  for (let off = 0; ; off += PAGE) {
-    const { data: page, error } = await client
-      .from('platform_matches')
-      .select('platform,source_match_id,source_game_id,start_time,home,home_id,away,away_id,bo,teams,match_id')
-      .range(off, off + PAGE - 1)
-    if (error) {
-      console.warn('[rds] fetchPlatformMatches supabase fallback 失败:', error.message)
-      break
-    }
-    if (!page?.length) break
-    data.push(...page)
-    if (page.length < PAGE) break
-  }
-  if (!data.length) return {}
-  const byPlatform = {}
-  for (const r of data) {
-    if (!byPlatform[r.platform]) byPlatform[r.platform] = []
-    byPlatform[r.platform].push({
-      Type:          r.platform,
-      SourceMatchID: r.source_match_id,
-      SourceGameID:  r.source_game_id ?? '',
-      StartTime:     r.start_time ?? 0,
-      Home:          r.home ?? '',
-      HomeID:        r.home_id ?? '',
-      Away:          r.away ?? '',
-      AwayID:        r.away_id ?? '',
-      BO:            r.bo ?? 0,
-      Teams:         Array.isArray(r.teams) ? r.teams : [],
-      ClientMatchId: r.match_id != null ? Number(r.match_id) : null,
-    })
-  }
-  return byPlatform
 }
 
-/** 从 Supabase 读取 platform_bets，重组为 store._bets 格式 */
+/** 从 RDS 读取 platform_bets，重组为 store._bets 格式 */
 async function fetchPlatformBets() {
-  if (collectReadsFromRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        return await _rdsFetchPlatformBets(pool)
-      } catch (err) {
-        console.warn('[rds] fetchPlatformBets 失败:', err.message)
-      }
-    }
+  const pool = getPgPool()
+  if (!pool) return {}
+  try {
+    return await _rdsFetchPlatformBets(pool)
+  } catch (err) {
+    console.warn('[rds] fetchPlatformBets 失败:', err.message)
+    return {}
   }
-  const client = supabaseAdmin || supabase
-  if (!client) return {}
-  const { data, error } = await client
-    .from('platform_bets')
-    .select('platform,source_bet_id,source_match_id,map,bet_name,source_home_id,source_away_id,home_odds,away_odds,is_locked')
-  if (error || !data?.length) return {}
-  const byKey = {}
-  for (const r of data) {
-    const key = `${r.platform}:${r.source_match_id}`
-    if (!byKey[key]) byKey[key] = { provider: r.platform, matchId: r.source_match_id, bets: [], savedAt: 0 }
-    byKey[key].bets.push({
-      SourceBetID:  r.source_bet_id,
-      BetName:      r.bet_name ?? '',
-      Map:          r.map ?? 0,
-      SourceHomeID: r.source_home_id ?? '',
-      SourceAwayID: r.source_away_id ?? '',
-      HomeOdds:     r.home_odds ?? 0,
-      AwayOdds:     r.away_odds ?? 0,
-      Status:       r.is_locked ? 'Locked' : 'Normal',
-    })
-  }
-  return byKey
 }
 
-/** 从 Supabase 读取 live_timers，重组为 store._timers 格式 */
+/** 从 RDS 读取 live_timers，重组为 store._timers 格式 */
 async function fetchLiveTimers() {
-  if (collectReadsFromRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        return await _rdsFetchLiveTimers(pool)
-      } catch (err) {
-        console.warn('[rds] fetchLiveTimers 失败:', err.message)
-      }
-    }
+  const pool = getPgPool()
+  if (!pool) return {}
+  try {
+    return await _rdsFetchLiveTimers(pool)
+  } catch (err) {
+    console.warn('[rds] fetchLiveTimers 失败:', err.message)
+    return {}
   }
-  const client = supabaseAdmin || supabase
-  if (!client) return {}
-  const { data, error } = await client
-    .from('live_timers')
-    .select('platform,source_match_id,round,round_start')
-  if (error || !data?.length) return {}
-  const byPlatform = {}
-  for (const r of data) {
-    if (!byPlatform[r.platform]) byPlatform[r.platform] = { provider: r.platform, timer: [], savedAt: 0 }
-    byPlatform[r.platform].timer.push({
-      MatchID:   r.source_match_id,
-      Round:     r.round ?? 0,
-      StartTime: r.round_start ?? 0,
-    })
-  }
-  return byPlatform
 }
 
 // ── platform_bets ─────────────────────────────────────────────────────
@@ -946,14 +651,6 @@ function mapSaveBetRows(provider, matchId, bets) {
 function writePlatformBets(provider, matchId, bets) {
   const rows = mapSaveBetRows(provider, matchId, bets)
   if (!rows.length) return
-  if (collectWritesToSupabase()) {
-    _write(async (client) => {
-      const { error } = await client
-        .from('platform_bets')
-        .upsert(rows, { onConflict: 'platform,source_match_id,source_bet_id' })
-      if (error) throw error
-    }, 'platform_bets')
-  }
   _writeRds((pool) => _rdsUpsertPlatformBets(pool, rows), "platform_bets")
 }
 
@@ -963,20 +660,6 @@ function replacePlatformBetsForMatch(provider, matchId, bets) {
   if (!rows.length) return
   const plat = String(provider)
   const mid = String(matchId)
-  if (collectWritesToSupabase()) {
-    _write(async (client) => {
-      const { error: delErr } = await client
-        .from('platform_bets')
-        .delete()
-        .eq('platform', plat)
-        .eq('source_match_id', mid)
-      if (delErr) throw delErr
-      const { error } = await client
-        .from('platform_bets')
-        .upsert(rows, { onConflict: 'platform,source_match_id,source_bet_id' })
-      if (error) throw error
-    }, 'platform_bets')
-  }
   _writeRds((pool) => _rdsReplacePlatformBets(pool, plat, mid, rows), "platform_bets")
 }
 
@@ -999,24 +682,10 @@ function writeLiveTimers(provider, timer) {
   const seen = new Map()
   for (const row of rawRows) seen.set(row.source_match_id, row)
   const rows = [...seen.values()]
-  if (collectWritesToSupabase()) {
-    _write(async (client) => {
-      const { error } = await client
-        .from('live_timers')
-        .upsert(rows, { onConflict: 'platform,source_match_id' })
-      if (error) throw error
-    }, 'live_timers')
-  }
   _writeRds((pool) => _rdsUpsertLiveTimers(pool, rows), "live_timers")
 }
 
 // ── orders ────────────────────────────────────────────────────────────
-
-/** 服务端读 orders：须用 service_role（无用户 JWT 时 anon+RLS 恒为空） */
-function ordersReadClient() {
-  if (businessUsesRds()) return null
-  return supabaseAdmin || supabase
-}
 
 async function _rdsUpsertOrders(pool, rows) {
   if (!rows?.length) return;
@@ -1068,6 +737,20 @@ async function _rdsUpsertOrders(pool, rows) {
   }
 }
 
+/** YYYY-MM → 本地时区当月 [start, end) 毫秒 */
+function localMonthBounds(monthKey) {
+  const parts = String(monthKey || '').split('-').map(Number)
+  const y = parts[0]
+  const m = parts[1]
+  if (!y || !m) {
+    const now = new Date()
+    return localMonthBounds(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+  }
+  const monthStart = new Date(y, m - 1, 1, 0, 0, 0, 0).getTime()
+  const monthEnd = new Date(y, m, 1, 0, 0, 0, 0).getTime()
+  return { monthStart, monthEnd }
+}
+
 /** YYYY-MM-DD → 本地时区当日 [start, end) 毫秒 */
 function localDayBounds(dateKey) {
   const parts = String(dateKey || '').split('-').map(Number)
@@ -1083,309 +766,367 @@ function localDayBounds(dateKey) {
   return { dayStart, dayEnd }
 }
 
-/** 按日期读取订单（userId 隔离；服务端显式 filter，不依赖 RLS） */
+/** 按日期读取订单（userId 隔离） */
 async function fetchOrdersByDate(date, userId) {
   const { dayStart, dayEnd } = localDayBounds(date)
-  if (businessUsesRds()) {
-    const pool = getPgPool()
-    if (pool && userId) {
-      try {
-        const { rows } = await pool.query(
-          `SELECT * FROM orders WHERE user_id = $1 AND create_at >= $2 AND create_at < $3
-           ORDER BY create_at DESC`,
-          [String(userId), dayStart, dayEnd],
-        )
-        return rows || []
-      } catch (err) {
-        console.warn('[rds] fetchOrdersByDate:', err.message)
-        return []
-      }
-    }
+  const pool = getPgPool()
+  if (!pool || !userId) return []
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE user_id = $1 AND create_at >= $2 AND create_at < $3
+       ORDER BY create_at DESC`,
+      [String(userId), dayStart, dayEnd],
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchOrdersByDate:', err.message)
+    return []
   }
-  const client = ordersReadClient()
-  if (!client || !userId) return []
-  const { data, error } = await client
-    .from('orders')
-    .select('*')
-    .eq('user_id', String(userId))
-    .gte('create_at', dayStart)
-    .lt('create_at', dayEnd)
-    .order('create_at', { ascending: false })
-  if (error) { console.warn('[supabase] fetchOrdersByDate:', error.message); return [] }
-  return data || []
 }
 
 /** 按 playerId 读取订单 */
 async function fetchOrdersByPlayer(playerId, userId) {
-  if (businessUsesRds()) {
-    const pool = getPgPool()
-    if (pool && userId) {
-      try {
-        const { rows } = await pool.query(
-          `SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 ORDER BY create_at DESC`,
-          [String(userId), Number(playerId)],
-        )
-        return rows || []
-      } catch (err) {
-        console.warn('[rds] fetchOrdersByPlayer:', err.message)
-        return []
-      }
-    }
+  const pool = getPgPool()
+  if (!pool || !userId) return []
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 ORDER BY create_at DESC`,
+      [String(userId), Number(playerId)],
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchOrdersByPlayer:', err.message)
+    return []
   }
-  const client = ordersReadClient()
-  if (!client || !userId) return []
-  const { data, error } = await client
-    .from('orders')
-    .select('*')
-    .eq('user_id', String(userId))
-    .eq('player_id', Number(playerId))
-    .order('create_at', { ascending: false })
-  if (error) { console.warn('[supabase] fetchOrdersByPlayer:', error.message); return [] }
-  return data || []
 }
 
 /** upsert 订单列表 */
 async function upsertOrders(rows) {
   if (!rows?.length) return false
-  let ok = true
-  if (businessWritesToSupabase() && supabaseAdmin) {
-    const { error } = await supabaseAdmin
-      .from('orders')
-      .upsert(rows, { onConflict: 'user_id,order_id,player_id', ignoreDuplicates: false })
-    if (error) {
-      console.warn('[supabase] upsertOrders:', error.message)
-      ok = false
-    }
+  const pool = getPgPool()
+  if (!pool) return false
+  try {
+    await _rdsUpsertOrders(pool, rows)
+    return true
+  } catch (err) {
+    console.warn('[rds] upsertOrders:', err.message)
+    return false
   }
-  if (businessWritesToRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        await _rdsUpsertOrders(pool, rows)
-      } catch (err) {
-        console.warn('[rds] upsertOrders:', err.message)
-        ok = false
-      }
-    }
-  }
-  if (!businessWritesToSupabase() && !businessWritesToRds()) {
-    if (!supabaseAdmin) return false
-    const { error } = await supabaseAdmin
-      .from('orders')
-      .upsert(rows, { onConflict: 'user_id,order_id,player_id', ignoreDuplicates: false })
-    if (error) {
-      console.warn('[supabase] upsertOrders:', error.message)
-      return false
-    }
-  }
-  return ok
 }
 
 /** 管理端：全量 profiles 摘要 */
 async function fetchProfilesAdmin() {
-  if (businessUsesRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        const { rows } = await pool.query(
-          `SELECT id, user_name, accounts, betting_config, collect_config, preferences, created_at, updated_at
-           FROM profiles ORDER BY user_name ASC`,
-        )
-        return rows || []
-      } catch (err) {
-        console.warn('[rds] fetchProfilesAdmin:', err.message)
-        return []
-      }
-    }
-  }
-  const client = getServiceClient()
-  if (!client) return []
-  const { data, error } = await client
-    .from('profiles')
-    .select('id, user_name, accounts, betting_config, collect_config, preferences, created_at, updated_at')
-    .order('user_name', { ascending: true })
-  if (error) {
-    console.warn('[supabase] fetchProfilesAdmin:', error.message)
+  const pool = getPgPool()
+  if (!pool) return []
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, user_name, accounts, betting_config, collect_config, preferences, created_at, updated_at
+       FROM profiles ORDER BY user_name ASC`,
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchProfilesAdmin:', err.message)
     return []
   }
-  return data || []
 }
 
 /** 管理端：当日订单汇总 */
 async function fetchOrdersAdminStats(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
-  if (businessUsesRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        const { rows } = await pool.query(
-          `SELECT money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
-          [dayStart, dayEnd],
-        )
-        let count = 0
-        let money = 0
-        let betMoney = 0
-        for (const o of rows || []) {
-          if (String(o.status || '') === 'Reject') continue
-          count += 1
-          money += Number(o.money) || 0
-          betMoney += Number(o.bet_money) || 0
-        }
-        return { count, money, betMoney }
-      } catch (err) {
-        console.warn('[rds] fetchOrdersAdminStats:', err.message)
-        return { count: 0, money: 0, betMoney: 0 }
-      }
+  const pool = getPgPool()
+  if (!pool) return { count: 0, money: 0, betMoney: 0 }
+  try {
+    const { rows } = await pool.query(
+      `SELECT money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      [dayStart, dayEnd],
+    )
+    let count = 0
+    let money = 0
+    let betMoney = 0
+    for (const o of rows || []) {
+      if (String(o.status || '') === 'Reject') continue
+      count += 1
+      money += Number(o.money) || 0
+      betMoney += Number(o.bet_money) || 0
     }
-  }
-  const client = ordersReadClient()
-  if (!client) return { count: 0, money: 0, betMoney: 0 }
-  const { data, error } = await client
-    .from('orders')
-    .select('money, bet_money, status')
-    .gte('create_at', dayStart)
-    .lt('create_at', dayEnd)
-  if (error) {
-    console.warn('[supabase] fetchOrdersAdminStats:', error.message)
+    return { count, money, betMoney }
+  } catch (err) {
+    console.warn('[rds] fetchOrdersAdminStats:', err.message)
     return { count: 0, money: 0, betMoney: 0 }
   }
-  let count = 0
-  let money = 0
-  let betMoney = 0
-  for (const o of data || []) {
-    if (String(o.status || '') === 'Reject') continue
-    count += 1
-    money += Number(o.money) || 0
-    betMoney += Number(o.bet_money) || 0
-  }
-  return { count, money, betMoney }
 }
 
 /** 管理端：分页订单 */
 async function fetchOrdersAdminPage({ dateKey, userId, provider, pageIndex, pageSize }) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
   const from = (Math.max(1, pageIndex) - 1) * pageSize
-  if (businessUsesRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        const params = [dayStart, dayEnd]
-        let where = "create_at >= $1 AND create_at < $2"
-        if (userId) {
-          params.push(String(userId))
-          where += ` AND user_id = $${params.length}`
-        }
-        if (provider) {
-          params.push(String(provider))
-          where += ` AND provider = $${params.length}`
-        }
-        const countRes = await pool.query(`SELECT COUNT(*)::int AS n FROM orders WHERE ${where}`, params)
-        const total = countRes.rows[0]?.n ?? 0
-        params.push(pageSize, from)
-        const { rows } = await pool.query(
-          `SELECT * FROM orders WHERE ${where} ORDER BY create_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
-          params,
-        )
-        return { rows: rows || [], total }
-      } catch (err) {
-        console.warn('[rds] fetchOrdersAdminPage:', err.message)
-        return { rows: [], total: 0 }
-      }
+  const pool = getPgPool()
+  if (!pool) return { rows: [], total: 0 }
+  try {
+    const params = [dayStart, dayEnd]
+    let where = "create_at >= $1 AND create_at < $2"
+    if (userId) {
+      params.push(String(userId))
+      where += ` AND user_id = $${params.length}`
     }
-  }
-  const client = ordersReadClient()
-  if (!client) return { rows: [], total: 0 }
-  const to = from + pageSize - 1
-  let q = client
-    .from('orders')
-    .select('*', { count: 'exact' })
-    .gte('create_at', dayStart)
-    .lt('create_at', dayEnd)
-    .order('create_at', { ascending: false })
-  if (userId) q = q.eq('user_id', String(userId))
-  if (provider) q = q.eq('provider', String(provider))
-  const { data, error, count } = await q.range(from, to)
-  if (error) {
-    console.warn('[supabase] fetchOrdersAdminPage:', error.message)
+    if (provider) {
+      params.push(String(provider))
+      where += ` AND provider = $${params.length}`
+    }
+    const countRes = await pool.query(`SELECT COUNT(*)::int AS n FROM orders WHERE ${where}`, params)
+    const total = countRes.rows[0]?.n ?? 0
+    params.push(pageSize, from)
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE ${where} ORDER BY create_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params,
+    )
+    return { rows: rows || [], total }
+  } catch (err) {
+    console.warn('[rds] fetchOrdersAdminPage:', err.message)
     return { rows: [], total: 0 }
   }
-  return { rows: data || [], total: count ?? 0 }
 }
 
 /** 管理端：当日全量订单（对阵矩阵，上限 5000 条） */
 async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
   const cap = Math.min(5000, Math.max(1, Number(limit) || 5000))
-  if (businessUsesRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        const params = [dayStart, dayEnd]
-        let where = "create_at >= $1 AND create_at < $2"
-        if (provider) {
-          params.push(String(provider))
-          where += ` AND provider = $${params.length}`
-        }
-        params.push(cap)
-        const { rows } = await pool.query(
-          `SELECT * FROM orders WHERE ${where} ORDER BY create_at ASC LIMIT $${params.length}`,
-          params,
-        )
-        return rows || []
-      } catch (err) {
-        console.warn('[rds] fetchOrdersAdminAll:', err.message)
-        return []
-      }
+  const pool = getPgPool()
+  if (!pool) return []
+  try {
+    const params = [dayStart, dayEnd]
+    let where = "create_at >= $1 AND create_at < $2"
+    if (provider) {
+      params.push(String(provider))
+      where += ` AND provider = $${params.length}`
     }
-  }
-  const client = ordersReadClient()
-  if (!client) return []
-  let q = client
-    .from('orders')
-    .select('*')
-    .gte('create_at', dayStart)
-    .lt('create_at', dayEnd)
-    .order('create_at', { ascending: true })
-    .limit(cap)
-  if (provider) q = q.eq('provider', String(provider))
-  const { data, error } = await q
-  if (error) {
-    console.warn('[supabase] fetchOrdersAdminAll:', error.message)
+    params.push(cap)
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE ${where} ORDER BY create_at ASC LIMIT $${params.length}`,
+      params,
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchOrdersAdminAll:', err.message)
     return []
   }
-  return data || []
 }
 
-/** 排行榜：按本地自然日读取订单盈利聚合字段（service_role） */
-async function fetchOrdersForProfitAggregate(dateKey) {
-  const { dayStart, dayEnd } = localDayBounds(dateKey)
-  if (businessUsesRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        const { rows } = await pool.query(
-          `SELECT user_id, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
-          [dayStart, dayEnd],
-        )
-        return rows || []
-      } catch (err) {
-        console.warn('[rds] fetchOrdersForProfitAggregate:', err.message)
-        return []
-      }
-    }
-  }
-  const client = ordersReadClient()
-  if (!client) return []
-  const { data, error } = await client
-    .from('orders')
-    .select('user_id, money, bet_money, status')
-    .gte('create_at', dayStart)
-    .lt('create_at', dayEnd)
-  if (error) {
-    console.warn('[supabase] fetchOrdersForProfitAggregate:', error.message)
+/** 月报：读取指定月份全部订单聚合字段（全站，非按 user 隔离） */
+async function fetchOrdersForMonthAggregate(monthKey) {
+  const { monthStart, monthEnd } = localMonthBounds(monthKey)
+  const pool = getPgPool()
+  if (!pool) return []
+  try {
+    const { rows } = await pool.query(
+      `SELECT create_at, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      [monthStart, monthEnd],
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchOrdersForMonthAggregate:', err.message)
     return []
   }
-  return data || []
+}
+
+/** 排行榜：按本地自然日读取订单盈利聚合字段 */
+async function fetchOrdersForProfitAggregate(dateKey) {
+  const { dayStart, dayEnd } = localDayBounds(dateKey)
+  const pool = getPgPool()
+  if (!pool) return []
+  try {
+    const { rows } = await pool.query(
+      `SELECT user_id, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      [dayStart, dayEnd],
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchOrdersForProfitAggregate:', err.message)
+    return []
+  }
+}
+
+// ── money_logs ────────────────────────────────────────────────────────
+
+async function fetchMoneyLogsByPlayer(playerId, userId) {
+  const pid = Number(playerId)
+  if (!Number.isFinite(pid)) return []
+  const pool = getPgPool()
+  if (!pool) return []
+  try {
+    const params = [pid]
+    let where = 'player_id = $1'
+    if (userId) {
+      params.push(String(userId))
+      where += ` AND user_id = $${params.length}`
+    }
+    const { rows } = await pool.query(
+      `SELECT id, user_id, player_id, type, money, currency, description, is_auto, create_at, updated_at
+       FROM money_logs WHERE ${where} ORDER BY create_at DESC`,
+      params,
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchMoneyLogsByPlayer:', err.message)
+    return []
+  }
+}
+
+async function fetchMoneyLogById(logId, userId) {
+  const id = Number(logId)
+  if (!Number.isFinite(id) || id <= 0) return null
+  const pool = getPgPool()
+  if (!pool) return null
+  try {
+    const params = [id]
+    let where = 'id = $1'
+    if (userId) {
+      params.push(String(userId))
+      where += ` AND user_id = $${params.length}`
+    }
+    const { rows } = await pool.query(
+      `SELECT id, user_id, player_id, type, money, currency, description, is_auto, create_at, updated_at
+       FROM money_logs WHERE ${where} LIMIT 1`,
+      params,
+    )
+    return rows?.[0] ?? null
+  } catch (err) {
+    console.warn('[rds] fetchMoneyLogById:', err.message)
+    return null
+  }
+}
+
+async function fetchAllMoneyLogs() {
+  const pool = getPgPool()
+  if (!pool) return []
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, player_id, type, money, create_at FROM money_logs ORDER BY create_at DESC`,
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchAllMoneyLogs:', err.message)
+    return []
+  }
+}
+
+async function _rdsUpsertMoneyLog(pool, row) {
+  const now = Date.now()
+  const payload = {
+    user_id: String(row.user_id),
+    player_id: Number(row.player_id),
+    type: String(row.type || 'Recharge'),
+    money: Number(row.money) || 0,
+    currency: String(row.currency || 'CNY'),
+    description: String(row.description || ''),
+    is_auto: Number(row.is_auto) ? 1 : 0,
+    create_at: Number(row.create_at) || now,
+    updated_at: Number(row.updated_at) || now,
+  }
+  const id = Number(row.id) || 0
+  if (id > 0) {
+    const { rows } = await pool.query(
+      `INSERT INTO money_logs (id, user_id, player_id, type, money, currency, description, is_auto, create_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       ON CONFLICT (id) DO UPDATE SET
+         type = EXCLUDED.type,
+         money = EXCLUDED.money,
+         currency = EXCLUDED.currency,
+         description = EXCLUDED.description,
+         is_auto = EXCLUDED.is_auto,
+         create_at = EXCLUDED.create_at,
+         updated_at = EXCLUDED.updated_at
+       RETURNING *`,
+      [
+        id,
+        payload.user_id,
+        payload.player_id,
+        payload.type,
+        payload.money,
+        payload.currency,
+        payload.description,
+        payload.is_auto,
+        payload.create_at,
+        payload.updated_at,
+      ],
+    )
+    return rows?.[0] ?? null
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO money_logs (user_id, player_id, type, money, currency, description, is_auto, create_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [
+      payload.user_id,
+      payload.player_id,
+      payload.type,
+      payload.money,
+      payload.currency,
+      payload.description,
+      payload.is_auto,
+      payload.create_at,
+      payload.updated_at,
+    ],
+  )
+  return rows?.[0] ?? null
+}
+
+async function upsertMoneyLog(row) {
+  if (!row?.user_id || row?.player_id == null) return null
+  const now = Date.now()
+  const payload = {
+    user_id: String(row.user_id),
+    player_id: Number(row.player_id),
+    type: String(row.type || 'Recharge'),
+    money: Number(row.money) || 0,
+    currency: String(row.currency || 'CNY'),
+    description: String(row.description || ''),
+    is_auto: Number(row.is_auto) ? 1 : 0,
+    create_at: Number(row.create_at) || now,
+    updated_at: Number(row.updated_at) || now,
+  }
+  const id = Number(row.id) || 0
+  const pool = getPgPool()
+  if (!pool) return null
+  try {
+    return await _rdsUpsertMoneyLog(pool, { id: id || undefined, ...payload })
+  } catch (err) {
+    console.warn('[rds] upsertMoneyLog:', err.message)
+    return null
+  }
+}
+
+async function deleteMoneyLogById(logId, userId) {
+  const id = Number(logId)
+  if (!Number.isFinite(id) || id <= 0) return false
+  const pool = getPgPool()
+  if (!pool) return false
+  try {
+    const params = [id]
+    let where = 'id = $1'
+    if (userId) {
+      params.push(String(userId))
+      where += ` AND user_id = $${params.length}`
+    }
+    const res = await pool.query(`DELETE FROM money_logs WHERE ${where}`, params)
+    return (res.rowCount ?? 0) > 0
+  } catch (err) {
+    console.warn('[rds] deleteMoneyLogById:', err.message)
+    return false
+  }
+}
+
+async function deleteMoneyLogsByPlayer(playerId) {
+  const pid = Number(playerId)
+  if (!Number.isFinite(pid)) return false
+  const pool = getPgPool()
+  if (!pool) return false
+  try {
+    const res = await pool.query('DELETE FROM money_logs WHERE player_id = $1', [pid])
+    return (res.rowCount ?? 0) > 0
+  } catch (err) {
+    console.warn('[rds] deleteMoneyLogsByPlayer:', err.message)
+    return false
+  }
 }
 
 /**
@@ -1397,74 +1138,27 @@ async function updateOrderBind(orderId, userId, link, opts = {}) {
   const playerId = Number(opts.playerId)
   const provider = opts.provider ? String(opts.provider) : ''
   const linkVal = Number(link) || 0
-  let ok = false
-
-  if (businessWritesToSupabase() && supabaseAdmin) {
-    let q = supabaseAdmin
-      .from('orders')
-      .update({ link: linkVal })
-      .eq('user_id', String(userId))
-      .eq('order_id', String(orderId))
+  const pool = getPgPool()
+  if (!pool) return false
+  try {
+    const params = [linkVal, String(userId), String(orderId)]
+    let where = "user_id = $2 AND order_id = $3"
     if (Number.isFinite(playerId) && playerId > 0) {
-      q = q.eq('player_id', playerId)
+      params.push(playerId)
+      where += ` AND player_id = $${params.length}`
     } else if (provider) {
-      q = q.eq('provider', provider)
+      params.push(provider)
+      where += ` AND provider = $${params.length}`
     }
-    const { data, error } = await q.select('id')
-    if (error) {
-      console.warn('[supabase] updateOrderBind:', error.message, { orderId, userId, playerId, provider })
-    } else if (data?.length) ok = true
-    else console.warn('[supabase] updateOrderBind: no rows matched', { orderId, userId, playerId, provider })
+    const res = await pool.query(`UPDATE orders SET link = $1 WHERE ${where}`, params)
+    return res.rowCount > 0
+  } catch (err) {
+    console.warn('[rds] updateOrderBind:', err.message)
+    return false
   }
-
-  if (businessWritesToRds()) {
-    const pool = getPgPool()
-    if (pool) {
-      try {
-        const params = [linkVal, String(userId), String(orderId)]
-        let where = "user_id = $2 AND order_id = $3"
-        if (Number.isFinite(playerId) && playerId > 0) {
-          params.push(playerId)
-          where += ` AND player_id = $${params.length}`
-        } else if (provider) {
-          params.push(provider)
-          where += ` AND provider = $${params.length}`
-        }
-        const res = await pool.query(`UPDATE orders SET link = $1 WHERE ${where}`, params)
-        if (res.rowCount > 0) ok = true
-      } catch (err) {
-        console.warn('[rds] updateOrderBind:', err.message)
-      }
-    }
-  }
-
-  if (!businessWritesToSupabase() && !businessWritesToRds()) {
-    if (!supabaseAdmin) return false
-    let q = supabaseAdmin
-      .from('orders')
-      .update({ link: linkVal })
-      .eq('user_id', String(userId))
-      .eq('order_id', String(orderId))
-    if (Number.isFinite(playerId) && playerId > 0) {
-      q = q.eq('player_id', playerId)
-    } else if (provider) {
-      q = q.eq('provider', provider)
-    }
-    const { data, error } = await q.select('id')
-    if (error) {
-      console.warn('[supabase] updateOrderBind:', error.message, { orderId, userId, playerId, provider })
-      return false
-    }
-    if (!data?.length) {
-      console.warn('[supabase] updateOrderBind: no rows matched', { orderId, userId, playerId, provider })
-      return false
-    }
-    return true
-  }
-  return ok
 }
 
-// ── auth（AUTH_MODE=supabase|jwt，见 .env）──────────────────────────────
+// ── auth（JWT + RDS users 表）──────────────────────────────────────────
 
 /** 密码登录；返回 { accessToken, refreshToken, userId, email } 或 null */
 async function authSignIn(userName, password) {
@@ -1472,80 +1166,51 @@ async function authSignIn(userName, password) {
   const pwd = String(password || "");
   if (!name || !pwd) return null;
 
-  if (isJwtMode()) {
-    const pool = getPgPool();
-    if (!pool || !JWT_SECRET) return null;
-    try {
-      const { rows } = await pool.query(
-        `SELECT id, user_name FROM users
-         WHERE lower(user_name) = lower($1)
-           AND password_hash = crypt($2, password_hash)`,
-        [name, pwd],
-      );
-      const row = rows[0];
-      if (!row) return null;
-      const userId = String(row.id);
-      const sessionId = crypto.randomUUID();
-      const accessToken = signJwt(
-        { sub: userId, typ: "access", session_id: sessionId },
-        JWT_SECRET,
-        JWT_ACCESS_TTL_SEC,
-      );
-      const refreshToken = signJwt({ sub: userId, typ: "refresh" }, JWT_SECRET, JWT_REFRESH_TTL_SEC);
-      return {
-        accessToken,
-        refreshToken,
-        userId,
-        email: `${row.user_name}@gamebet.local`,
-      };
-    } catch (err) {
-      console.warn("[rds] authSignIn:", err.message);
-      return null;
-    }
-  }
-
-  if (!supabase) return null
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: `${name.toLowerCase()}@gamebet.local`,
-    password: pwd,
-  })
-  if (error || !data?.session) return null
-  return {
-    accessToken:  data.session.access_token,
-    refreshToken: data.session.refresh_token,
-    userId: data.user.id,
-    email:  data.user.email,
+  const pool = getPgPool();
+  if (!pool || !JWT_SECRET) return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, user_name FROM users
+       WHERE lower(user_name) = lower($1)
+         AND password_hash = crypt($2, password_hash)`,
+      [name, pwd],
+    );
+    const row = rows[0];
+    if (!row) return null;
+    const userId = String(row.id);
+    const sessionId = crypto.randomUUID();
+    const accessToken = signJwt(
+      { sub: userId, typ: "access", session_id: sessionId },
+      JWT_SECRET,
+      JWT_ACCESS_TTL_SEC,
+    );
+    const refreshToken = signJwt({ sub: userId, typ: "refresh" }, JWT_SECRET, JWT_REFRESH_TTL_SEC);
+    return {
+      accessToken,
+      refreshToken,
+      userId,
+      email: `${row.user_name}@gamebet.local`,
+    };
+  } catch (err) {
+    console.warn("[rds] authSignIn:", err.message);
+    return null;
   }
 }
 
-/** 登出指定 token 对应的 session */
-async function authSignOut(token) {
-  if (!token) return
-  if (isJwtMode()) return
-  if (!supabase) return
-  await supabase.auth.admin.signOut(token).catch(() => {})
-}
+/** 登出（JWT 无服务端 session，no-op） */
+async function authSignOut(_token) {}
 
 /** 校验 token；返回 { userId, metadata } 或 null */
 async function authGetUser(token) {
-  if (!token) return null
-
-  if (isJwtMode()) {
-    if (!JWT_SECRET) return null
-    const payload = verifyJwt(token, JWT_SECRET)
-    if (!payload?.sub || payload.typ !== "access") return null
-    return { userId: String(payload.sub), metadata: {} }
-  }
-
-  const payload = decodeJwtPayload(token)
-  if (!payload?.sub) return null
-  if (payload.exp && payload.exp * 1000 < Date.now()) return null
+  if (!token || !JWT_SECRET) return null
+  const payload = verifyJwt(token, JWT_SECRET)
+  if (!payload?.sub || payload.typ !== "access") return null
   return { userId: String(payload.sub), metadata: {} }
 }
 
-/** JWT 模式：用 refresh token 换取新的 access/refresh token */
+/** 用 refresh token 换取新的 access/refresh token */
 async function authRefreshToken(refreshToken) {
-  if (!isJwtMode() || !JWT_SECRET) return null
+  if (!JWT_SECRET) return null
   const payload = verifyJwt(refreshToken, JWT_SECRET)
   if (!payload?.sub || payload.typ !== "refresh") return null
   const userId = String(payload.sub)
@@ -1577,42 +1242,31 @@ async function authRefreshToken(refreshToken) {
   }
 }
 
-/** 写入 user_metadata（fire-and-forget，用于单 session 限制） */
+/** 写入 user metadata（fire-and-forget，用于单 session 限制） */
 function writeUserMetadata(userId, metadata) {
-  if (isJwtMode()) {
-    const pool = getPgPool();
-    if (!pool) return;
-    Promise.resolve()
-      .then(() =>
-        pool.query(
-          "UPDATE users SET metadata = metadata || $2::jsonb, updated_at = $3 WHERE id = $1",
-          [String(userId), JSON.stringify(metadata || {}), Date.now()],
-        ),
-      )
-      .catch((err) => console.warn("[rds] writeUserMetadata:", err.message));
-    return;
-  }
-  if (!supabaseAdmin) return
+  const pool = getPgPool();
+  if (!pool) return;
   Promise.resolve()
-    .then(() => supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: metadata }))
-    .catch((err) => console.warn('[supabase] writeUserMetadata:', err.message))
+    .then(() =>
+      pool.query(
+        "UPDATE users SET metadata = metadata || $2::jsonb, updated_at = $3 WHERE id = $1",
+        [String(userId), JSON.stringify(metadata || {}), Date.now()],
+      ),
+    )
+    .catch((err) => console.warn("[rds] writeUserMetadata:", err.message));
 }
 
-/** service_role 可用时返回 true */
 function hasAdminAccess() {
-  if (isJwtMode() || businessUsesRds()) return !!getPgPool()
-  return !!supabaseAdmin
+  return !!getPgPool()
 }
 
-/** 是否已配置登录（supabase 或 jwt） */
 function isAuthConfigured() {
-  if (isJwtMode()) return !!(hasDatabaseUrlConfig() && JWT_SECRET.length >= 16)
-  return !!supabase
+  return !!(hasDatabaseUrlConfig() && JWT_SECRET.length >= 16)
 }
 
-/** 写入 client_matches / matcher 使用的 Supabase 客户端 */
+/** 兼容旧调用方；RDS 模式下无外部 service client */
 function getServiceClient() {
-  return supabaseAdmin || supabase
+  return null
 }
 
 export {
@@ -1644,7 +1298,14 @@ export {
   fetchOrdersAdminStats,
   fetchOrdersAdminPage,
   fetchOrdersAdminAll,
+  fetchOrdersForMonthAggregate,
   fetchOrdersForProfitAggregate,
+  fetchMoneyLogsByPlayer,
+  fetchMoneyLogById,
+  fetchAllMoneyLogs,
+  upsertMoneyLog,
+  deleteMoneyLogById,
+  deleteMoneyLogsByPlayer,
   upsertOrders,
   updateOrderBind,
   authSignIn,

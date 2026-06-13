@@ -10,9 +10,8 @@ import { pruneStaleRows, formatPruneCounts } from "@changmen/db";
 try {
   const pr = await pruneStaleRows();
   if (pr.rds) console.log(`[prune] rds: ${formatPruneCounts(pr.rds)}`);
-  if (pr.supabase) console.log(`[prune] supabase: ${formatPruneCounts(pr.supabase)}`);
-  if (!pr.rds && !pr.supabase) {
-    console.error("[prune] 无可用数据源（检查 GAMEBET_DB_SCRIPT / DATABASE_URL / Supabase）");
+  if (!pr.rds) {
+    console.error("[prune] 无可用数据源（检查 DATABASE_URL / DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL）");
     process.exit(1);
   }
 } catch (err) {

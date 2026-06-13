@@ -39,7 +39,7 @@ async function ensureTeamPlugin() {
   if (_pluginReady) return _pluginReady;
   _pluginReady = (async () => {
     try {
-      const { loadAndCreatePlugin } = await import("@changmen/team-resolver/supabase_db.js");
+      const { loadAndCreatePlugin } = await import("@changmen/team-resolver/team_db.js");
       const plugin = await loadAndCreatePlugin();
       setTeamPlugin(plugin);
     } catch (err) {
@@ -83,7 +83,7 @@ async function rebuildOnce() {
     const { script } = db.getDbMode();
     throw new Error(
       `无法 rebuild：数据库未配置（GAMEBET_DB_SCRIPT=${script}）。`
-        + " 请配置 DATABASE_URL 或 SUPABASE_URL + SERVICE_KEY。",
+        + " 请配置 DATABASE_URL（或 DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL）。",
     );
   }
   const adapter = db.getClientMatchIdAdapter();

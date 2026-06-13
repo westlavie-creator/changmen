@@ -36,7 +36,6 @@ core/esport-api/     # 路由、store、platform_sync
 core/account/        # 场馆账号
 proxy/               # 各平台 HTTP 代理
 scripts/             # 运维 CLI（见 scripts/README.md）
-supabase/migrations/ # Supabase 迁移
 db/migrations/       # RDS 迁移
 data/esport/         # 开发用 JSON（platforms 等）
 public/esport2/      # A8 静态资源

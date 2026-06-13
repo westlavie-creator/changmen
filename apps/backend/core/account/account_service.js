@@ -42,41 +42,50 @@ function handleUpdateBalance(body) {
   return { ok: true, info };
 }
 
-function handleDeletePlayer(body, userId) {
+async function handleDeletePlayer(body, userId) {
   const playerId = body.playerId;
   if (!playerId) return { ok: false, msg: "playerId 必填" };
   const ok = accountStore.deletePlayer(playerId, body.description || "");
+  if (ok) await accountStore.deletePlayerData(playerId);
   if (userId) store.removeAccountForUser(userId, playerId);
   return ok ? { ok: true, info: true } : { ok: false, msg: "player 不存在" };
 }
 
-function handleGetMoneyLogs(body) {
+async function handleGetMoneyLogs(body, userId) {
   const playerId = body.playerId;
   if (!playerId) return { ok: false, msg: "playerId 必填" };
   const pageIndex = Number(body.pageIndex) || 1;
   const pageSize = Number(body.pageSize) || 20;
-  return { ok: true, info: accountStore.listMoneyLogs(playerId, pageIndex, pageSize) };
+  return { ok: true, info: await accountStore.listMoneyLogs(playerId, pageIndex, pageSize, userId) };
 }
 
-function handleGetMoneyLog(body) {
-  const row = accountStore.getMoneyLog(body.logId);
+async function handleGetMoneyLog(body, userId) {
+  const row = await accountStore.getMoneyLog(body.logId, userId);
   return { ok: true, info: row };
 }
 
-function handleSaveMoneyLog(body) {
-  const row = accountStore.saveMoneyLog(body);
+async function handleSaveMoneyLog(body, userId) {
+  if (!userId) return { ok: false, msg: "请先登录" };
+  const playerId = body.playerId ?? body.PlayerID;
+  if (!playerId) return { ok: false, msg: "playerId 必填" };
+  const userAccountIds = new Set(store.getAccountsForUser(userId).map((a) => Number(a.accountId)));
+  if (!userAccountIds.has(Number(playerId))) {
+    return { ok: false, msg: "账号不属于当前用户" };
+  }
+  const row = await accountStore.saveMoneyLog(body, userId);
+  if (!row) return { ok: false, msg: "保存失败" };
   return { ok: true, info: row };
 }
 
-function handleDeleteMoneyLog(body) {
-  const ok = accountStore.deleteMoneyLog(body.logId);
+async function handleDeleteMoneyLog(body, userId) {
+  const ok = await accountStore.deleteMoneyLog(body.logId, userId);
   return ok ? { ok: true, info: true } : { ok: false, msg: "log 不存在" };
 }
 
 async function handleGetPlayerOrder(body, userId) {
   const playerId = body.playerId;
   if (!playerId) return { ok: false, msg: "playerId 必填" };
-  const page = accountStore.listMoneyLogs(playerId, 1, 10000);
+  const page = await accountStore.listMoneyLogs(playerId, 1, 10000, userId);
   const logs = (page.data || []).map((row) => ({
     ID: row.logId,
     Type: row.type,

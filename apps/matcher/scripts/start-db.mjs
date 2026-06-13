@@ -24,14 +24,13 @@ for (const envPath of envCandidates) {
   if (
     process.env.DATABASE_URL ||
     process.env.DATABASE_URL_PUBLIC ||
-    process.env.DATABASE_URL_INTERNAL ||
-    process.env.SUPABASE_URL
+    process.env.DATABASE_URL_INTERNAL
   ) {
     break;
   }
 }
 
-const raw = String(process.env.GAMEBET_DB_SCRIPT || "supabase").trim().toLowerCase();
+const raw = String(process.env.GAMEBET_DB_SCRIPT || "rds").trim().toLowerCase();
 const script = resolveDbScript();
 if (!DB_SCRIPT_MODES.includes(raw) && raw !== script) {
   console.warn(`[matcher start-db] 未知 GAMEBET_DB_SCRIPT=${raw}，使用 ${script}`);

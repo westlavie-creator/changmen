@@ -1,6 +1,5 @@
 /**
- * 按 GAMEBET_DB_SCRIPT 启动后端（supabase | rds | dual）。
- * .env 中设置 GAMEBET_DB_SCRIPT，或使用 start-supabase.mjs / start-rds.mjs / start-dual.mjs。
+ * 按 GAMEBET_DB_SCRIPT 启动后端（仅 rds）。
  */
 import "@changmen/db/load_env.js";
 import {
@@ -9,7 +8,7 @@ import {
   initDatabaseUrl,
 } from "@changmen/db";
 
-const raw = String(process.env.GAMEBET_DB_SCRIPT || "supabase").trim().toLowerCase();
+const raw = String(process.env.GAMEBET_DB_SCRIPT || "rds").trim().toLowerCase();
 const script = resolveDbScript();
 if (!DB_SCRIPT_MODES.includes(raw) && raw !== script) {
   console.warn(`[start-db] 未知 GAMEBET_DB_SCRIPT=${raw}，使用 ${script}`);

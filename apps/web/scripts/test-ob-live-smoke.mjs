@@ -170,7 +170,7 @@ async function writeRoundTrip(base, token, userName) {
       console.log("[ob-live] 已恢复 OB matches/bets 本地快照");
     } else {
       console.log(
-        "[ob-live] 无本地 matches.json（Supabase 模式）；smoke 行已写入服务端，未自动删除",
+        "[ob-live] 无本地 matches.json；smoke 行已写入服务端，未自动删除",
       );
     }
   }

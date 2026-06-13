@@ -8,10 +8,31 @@ defineProps<{
 
 <template>
   <GalaxySpinner v-if="!showLogin" />
-  <div v-else class="login-page container flex flex-middle flex-column">
-    <div class="slogo" />
-    <div class="loginbox">
-      <slot />
+  <div v-else class="login-page container flex flex-middle flex-center">
+    <div class="login-stage flex flex-middle flex-center">
+      <img
+        class="login-hero login-hero--left"
+        src="/login/nagato.png"
+        alt="长门"
+        decoding="async"
+      />
+      <div class="login-center flex flex-column flex-middle">
+        <img
+          class="login-akatsuki"
+          src="/login/akatsuki.png"
+          alt="晓组织"
+          decoding="async"
+        />
+        <div class="loginbox">
+          <slot />
+        </div>
+      </div>
+      <img
+        class="login-hero login-hero--right"
+        src="/login/kakashi.png"
+        alt="卡卡西"
+        decoding="async"
+      />
     </div>
   </div>
 </template>

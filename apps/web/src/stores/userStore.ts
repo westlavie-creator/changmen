@@ -101,7 +101,7 @@ export const useUserStore = defineStore("user", {
         this.ready = false;
         return false;
       }
-      // 提前启动 Supabase autoRefresh，防止 token 在使用中到期
+      // 提前启动 JWT refresh，防止 token 在使用中到期
       const rft = getRefreshToken();
       if (rft) {
         void ensureTokenRefresh();

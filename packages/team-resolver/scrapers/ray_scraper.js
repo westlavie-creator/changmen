@@ -15,7 +15,7 @@
 require("../load_changmen_env.cjs");
 
 const { getGameCodeForPlatformId } = require("@changmen/shared/catalog/game_catalog.mjs");
-const { loadAndCreatePlugin } = require("../supabase_db.js");
+const { loadAndCreatePlugin } = require("../team_db.js");
 
 let login;
 let rayGet;
@@ -33,7 +33,7 @@ const REQUEST_DELAY_MS = 250;
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
-// ── 名称归一化（与 supabase_db.js 保持一致） ─────────────────────────────────
+// ── 名称归一化（与 team_db.js 保持一致） ─────────────────────────────────
 
 function norm(name) {
   return String(name || "")
@@ -122,7 +122,7 @@ async function main() {
   const { requirePlatform } = await import("@changmen/platform-adapter/loader/adapter_paths.js");
   ({ login, rayGet } = requirePlatform("RAY", "backend", "session.js"));
 
-  console.log(DRY_RUN ? "[ray_scraper] 模式：dry-run（只打印）" : "[ray_scraper] 模式：写入 Supabase");
+  console.log(DRY_RUN ? "[ray_scraper] 模式：dry-run（只打印）" : "[ray_scraper] 模式：写入 RDS");
   console.log(`[ray_scraper] 将抓取 match_type: ${MATCH_TYPES.join(", ")}`);
 
   // 1. 连接 RAY

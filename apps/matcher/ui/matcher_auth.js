@@ -37,7 +37,7 @@ export async function resolveMatcherUser(req) {
   if (isMatcherAuthBypassed()) return { user: { userName: "__skip_auth__" }, bypassed: true };
   const token = getRequestToken(req);
   if (!token) return { user: null, bypassed: false };
-  const user = await store.getUserBySupabaseToken(token);
+  const user = await store.getUserByToken(token);
   return { user, bypassed: false };
 }
 

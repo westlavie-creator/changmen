@@ -76,11 +76,11 @@ export async function loadProfileById(uid) {
   return _toProfile(data);
 }
 
-export async function pullFromSupabase(sessionClient) {
+export async function pullProfilesFromDb(sessionClient) {
   const profiles = await sb.fetchProfiles(sessionClient);
   if (profiles.length) {
     for (const p of profiles) _set(p.id, p);
-    console.log("[db:supabase] 加载 profiles:", profiles.length, "条");
+    console.log("[db] 加载 profiles:", profiles.length, "条");
   }
 }
 
@@ -269,10 +269,10 @@ export function getClientMatches() {
 }
 
 /**
- * 从 Supabase 加载 client_matches。
+ * 从 RDS 加载 client_matches。
  * built_at + 行数未变时复用内存快照，避免多用户轮询重复 SELECT *。
  */
-export async function loadClientMatchesFromSupabase() {
+export async function loadClientMatchesFromDb() {
   const now = Date.now();
   const cacheStale =
     !_matchesCacheLoadedAt || now - _matchesCacheLoadedAt > MATCHES_CACHE_MAX_AGE_MS;

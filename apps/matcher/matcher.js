@@ -9,8 +9,6 @@ import { writeMatcherHeartbeat } from "./lib/heartbeat.js";
 import {
   pruneStaleRows,
   formatPruneCounts,
-  compareDualRowCounts,
-  formatCompareDualOneLine,
 } from "@changmen/db";
 
 const INTERVAL_MS = MATCHER_INTERVAL_MS;
@@ -25,19 +23,6 @@ async function maybePruneStale() {
   const pr = await pruneStaleRows();
   if (pr.rds) {
     console.log(`[matcher] prune rds: ${formatPruneCounts(pr.rds)}`);
-  }
-  if (pr.supabase) {
-    console.log(`[matcher] prune supabase: ${formatPruneCounts(pr.supabase)}`);
-  }
-
-  const cmp = await compareDualRowCounts();
-  if (!cmp) return;
-  if (cmp.ok) {
-    console.log("[matcher] dual compare: 全部表行数一致");
-  } else if (cmp.error) {
-    console.warn(`[matcher] dual compare skipped: ${cmp.error}`);
-  } else {
-    console.warn(`[matcher] dual compare: ${formatCompareDualOneLine(cmp)}`);
   }
 }
 

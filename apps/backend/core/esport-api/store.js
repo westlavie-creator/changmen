@@ -57,7 +57,7 @@ const DEFAULT_USER_KV = {
   ACCOUNT: JSON.stringify([]),
 };
 
-// 路由到 Supabase profiles 的 key 列表（与 DEFAULT_USER_KV 解耦）
+// 路由到 profiles 的 key 列表（与 DEFAULT_USER_KV 解耦）
 // CollectConfig → collect_config, USERCONFIG → betting_config, 其余 → preferences
 const USER_SETTING_KEYS = [
   "CollectConfig",
@@ -69,13 +69,13 @@ const USER_SETTING_KEYS = [
   "Message",
 ];
 
-// ── 初始化 JSON 文件（不创建用户，用户通过 Supabase Auth 管理）──────────────
+// ── 初始化 JSON 文件 ───────────────────────────────────────────────────────
 export function ensureSeed() {
   ensureDefaultJsonFiles();
 }
 
 // ── Auth：token → profile（鉴权逻辑在 @changmen/db）────────
-export async function getUserBySupabaseToken(token) {
+export async function getUserByToken(token) {
   if (!token) return null;
 
   const auth = await sb.authGetUser(token);
@@ -146,7 +146,7 @@ export function saveBets(provider, matchId, bets) {
   const raw = Array.isArray(bets) ? bets : [];
   const incoming = normalizeSaveBetRows(raw);
   if (incoming.length === 0) {
-    // [A8 可证实] 空数组 saveBets 不覆盖内存已有盘口；Supabase 刷新 updated_at 避免 matcher 空窗
+    // [A8 可证实] 空数组 saveBets 不覆盖内存已有盘口；RDS 刷新 updated_at 避免 matcher 空窗
     if (existing.length > 0) {
       sb.writePlatformBets(provider, matchId, existing);
       return;
@@ -214,7 +214,7 @@ async function fetchDbTimersCached() {
 
 export async function buildMatchList() {
   // 只读 client_matches（gamebet_matcher rebuild 写入）；不在此做跨平台合并
-  const fromDb = await dbStore.loadClientMatchesFromSupabase();
+  const fromDb = await dbStore.loadClientMatchesFromDb();
   if (!fromDb?.length) return [];
 
   const dbTimers = await fetchDbTimersCached();
@@ -242,7 +242,7 @@ export { DATA_DIR, readJson, writeJson };
 const store = {
   DATA_DIR,
   ensureSeed,
-  getUserBySupabaseToken,
+  getUserByToken,
   getUserById,
   updateUserSetting,
   getPlatform,

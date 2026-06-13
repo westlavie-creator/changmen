@@ -22,7 +22,6 @@
   "dependencies": {
     "@changmen/match-engine": "*",
     "@changmen/shared": "*",
-    "@supabase/supabase-js": "^2.106.2",
     "@vueuse/core": "^13.2.0",
     "axios": "^1.8.4",
     "dayjs": "^1.11.21",
