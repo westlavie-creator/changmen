@@ -41,7 +41,7 @@ apps/web ──HTTP───────► apps/backend
 apps/chrome-extension ─（代理/凭证）─► 各平台源站
 
 packages/platform-adapter ──采集上报──► apps/backend (API_SaveMatch/SaveBet)
-apps/backend ──读写────► packages/shared/db (Supabase)
+apps/backend ──读写────► packages/db (@changmen/db)
 apps/matcher ──rebuild──► packages/match-engine + packages/shared
 apps/matcher ──队名────► @changmen/team-resolver（workspace 依赖，可选）
 

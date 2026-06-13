@@ -5,19 +5,11 @@
  *   cd changmen/apps/backend && node scripts/compare-dual.mjs
  */
 
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
 import {
   compareDualRowCounts,
   formatCompareDualReport,
-} from "../../../packages/shared/db/compare_dual.js";
-import { initDatabaseUrl } from "../../../packages/shared/db/resolve_database_url.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.join(__dirname, "..", ".env");
-if (fs.existsSync(envPath)) dotenv.config({ path: envPath });
+  initDatabaseUrl,
+} from "@changmen/db";
 
 await initDatabaseUrl();
 

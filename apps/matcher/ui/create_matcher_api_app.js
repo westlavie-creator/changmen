@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import "../lib/env.js";
 import express from "express";
-import { isMatcherStoreReady } from "../../../packages/shared/db/matcher_store.js";
+import { isMatcherStoreReady } from "@changmen/db";
 import { registerMatcherApiRoutes } from "./api_routes.js";
 import { createMatcherAuthMiddleware } from "./matcher_auth.js";
 

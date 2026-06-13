@@ -105,7 +105,7 @@ async function scrapeMatchType(session, matchType) {
 
 async function batchUpsert(rows) {
   if (!rows.length) return;
-  const { upsertTeamPlatformMapsBatched } = await import("../../shared/db/index.js");
+  const { upsertTeamPlatformMapsBatched } = await import("@changmen/db");
   const BATCH = 200;
   for (let i = 0; i < rows.length; i += BATCH) {
     const end = Math.min(i + BATCH, rows.length);

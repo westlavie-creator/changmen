@@ -66,6 +66,7 @@
     "vitest": "^4.1.8"
   },
   "dependencies": {
+    "@changmen/db": "*",
     "@supabase/supabase-js": "^2.106.2",
     "dotenv": "^17.4.2",
     "mqtt": "^5.14.0",

@@ -151,7 +151,7 @@ changmen/
 | `core/esport-api/router.js` | Handles all `Client_*` / `API_*` actions (match list, collect config, accounts, v4, etc.) |
 | `core/esport-api/store.js` | JSON file store; esport data lives in `storage/esport/*.json` (env: `ESPORT_DATA_DIR`) |
 | `core/esport-api/platform_sync.js` | Populates `platforms.json` at startup (stored JSON → trial/env login) |
-| `packages/shared/db/` | Supabase 客户端与表操作（`client.js`、`supabase.js`） |
+| `packages/db/`（`@changmen/db`） | 数据层唯一入口：Supabase / RDS 路由（`client.js`、`index.js`） |
 | `core/db/store.js` | 内存缓存（`_cache`）+ Supabase 异步写；账号读写的主路径 |
 | `core/account/order_store.js` | 订单读写，纯 Supabase `orders` 表，无本地副本 |
 

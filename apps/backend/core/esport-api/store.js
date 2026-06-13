@@ -5,7 +5,7 @@ import { formatBetOdds } from "../../../../packages/shared/odds_format.js";
 import { a8StartTimeListAllowed } from "../../../../packages/shared/time/match_time.mjs";
 import { createDefaultOddsApi } from "./default_odds.js";
 import * as dbStore from "../db/store.js";
-import * as sb from "../../../../packages/shared/db/supabase.js";
+import * as sb from "@changmen/db";
 import {
   overlayLiveTimersOnMatches,
   mergeTimerBlocks,
@@ -75,7 +75,7 @@ export function ensureSeed() {
   }
 }
 
-// ── Auth：token → profile（鉴权逻辑在 packages/shared/db/supabase.js）────────
+// ── Auth：token → profile（鉴权逻辑在 @changmen/db）────────
 export async function getUserBySupabaseToken(token) {
   if (!token) return null;
 

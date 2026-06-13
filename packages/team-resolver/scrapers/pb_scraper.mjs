@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import dotenv from "dotenv";
-import { upsertTeamPlatformMapsBatched } from "../../shared/db/index.js";
+import { upsertTeamPlatformMapsBatched } from "@changmen/db";
 import { requirePlatform } from "../../../apps/backend/core/shared/adapter_paths.js";
 import { getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs";
 

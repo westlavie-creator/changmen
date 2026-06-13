@@ -13,8 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 
-import "../../../packages/shared/db/load_env.js";
-import { initDatabaseUrl, buildPgClientConfig } from "../../../packages/shared/db/resolve_database_url.js";
+import { initDatabaseUrl, buildPgClientConfig } from "@changmen/db";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(__dirname, "..");

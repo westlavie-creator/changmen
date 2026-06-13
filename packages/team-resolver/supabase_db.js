@@ -38,7 +38,7 @@ function _norm(name) {
 }
 
 async function loadAndCreatePlugin() {
-  const teamDb = await import("../shared/db/index.js");
+  const teamDb = await import("@changmen/db");
 
   const allTeams = await teamDb.fetchAllCanonicalTeams();
 

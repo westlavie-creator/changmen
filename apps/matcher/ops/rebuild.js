@@ -8,11 +8,7 @@ import {
   resolveClientMatchIds,
 } from "../../../packages/match-engine/index.js";
 import { formatOdds } from "../../../packages/shared/odds_format.js";
-import * as db from "../../../packages/shared/db/index.js";
-import {
-  getClientMatchIdAdapter,
-  isMatcherStoreReady,
-} from "../../../packages/shared/db/matcher_store.js";
+import * as db from "@changmen/db";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
 import { alignUnmatchedToClientMatches } from "./align_unmatched_to_client.js";
@@ -83,14 +79,14 @@ async function rebuildOnce() {
 
   let info = buildClientMatchList({ matches, bets, timers, sourceFromBet });
 
-  if (!isMatcherStoreReady()) {
+  if (!db.isMatcherStoreReady()) {
     const { script } = db.getDbMode();
     throw new Error(
       `无法 rebuild：数据库未配置（GAMEBET_DB_SCRIPT=${script}）。`
         + " 请配置 DATABASE_URL 或 SUPABASE_URL + SERVICE_KEY。",
     );
   }
-  const adapter = getClientMatchIdAdapter();
+  const adapter = db.getClientMatchIdAdapter();
   info = await resolveClientMatchIds(adapter, info, { matches });
   info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows);
   info = filterMultiPlatformClientMatches(info);

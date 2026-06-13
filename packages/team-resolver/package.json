@@ -19,6 +19,7 @@
     "scrape:pb:dry": "node scrapers/pb_scraper.mjs --dry-run"
   },
   "dependencies": {
+    "@changmen/db": "*",
     "axios": "^1.7.2",
     "dotenv": "^16.4.5",
     "@supabase/supabase-js": "^2.43.4"

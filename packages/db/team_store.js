@@ -3,7 +3,7 @@
  * canonical_teams / team_platform_maps 与 platform_matches 等同开关策略。
  */
 
-import { normalizeTeam } from "../../match-engine/index.js";
+import { normalizeTeam } from "../match-engine/index.js";
 import { supabaseAdmin } from "./client.js";
 import { getDbMode } from "./db_mode.js";
 import { getPgPool } from "./pg_pool.js";

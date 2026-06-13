@@ -1,5 +1,6 @@
 /**
- * 数据层唯一入口 — 所有业务读写应从此文件 import，不要直连 Supabase 客户端或 team_store。
+ * 数据层唯一入口 — 所有数据库读写、运维对账、连接初始化均从此文件 import。
+ * 内部按 GAMEBET_DB_SCRIPT 路由到 RDS（pg）或 Supabase；业务代码勿直连 client / impl / team_store / matcher_store。
  *
  * 切换数据源（仅此一处环境变量）：
  *   GAMEBET_DB_SCRIPT=supabase | rds | dual
@@ -10,6 +11,8 @@
  *   rds      — 读写 RDS
  *   dual     — 读 RDS，写 Supabase + RDS（双写）
  */
+
+import "./load_env.js";
 
 import { describeDbScript, getDbMode } from "./db_mode.js";
 
@@ -133,3 +136,16 @@ export {
   deletePlatformMatchRow,
   deleteClientMatchRow,
 } from "./matcher_store.js";
+
+export {
+  initDatabaseUrl,
+  buildPgClientConfig,
+  wantsPgSsl,
+  getDatabaseUrlCandidates,
+  hasDatabaseUrlConfig,
+  getResolvedDatabaseUrl,
+  getResolvedDatabaseLabel,
+} from "./resolve_database_url.js";
+
+/** 迁移脚本专用：读 Supabase 源库（不经 RDS 路由） */
+export { supabaseAdmin as getSupabaseAdminClient } from "./client.js";

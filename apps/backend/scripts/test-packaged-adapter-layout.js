@@ -54,7 +54,7 @@ console.log("shared root:", sharedRoot);
 // 模拟 Electron：shared 在 resources/ 外，@supabase 在 app.asar/node_modules
 const fakeResources = path.join(backendRoot, "scripts", ".tmp-packaged-resources");
 const asarModules = path.join(fakeResources, "app.asar", "node_modules");
-const clientPath = path.join(backendRoot, "..", "..", "packages", "shared", "db", "client.js");
+const clientPath = path.join(backendRoot, "..", "..", "packages", "db", "client.js");
 try {
   fs.mkdirSync(asarModules, { recursive: true });
   const linkTarget = path.join(backendRoot, "node_modules", "@supabase");
@@ -67,7 +67,7 @@ try {
   const clientUrl = pathToFileURL(clientPath).href;
   await import(`${clientUrl}?packaged-test=${Date.now()}`);
   process.resourcesPath = prevResourcesPath;
-  console.log("shared/db/client packaged resolve OK");
+  console.log("packages/db/client packaged resolve OK");
 } finally {
   fs.rmSync(fakeResources, { recursive: true, force: true });
 }

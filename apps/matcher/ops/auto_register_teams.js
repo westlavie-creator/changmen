@@ -2,7 +2,7 @@ import { getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_
 import {
   fetchExistingTeamMapKeys,
   upsertTeamPlatformMaps,
-} from "../../../packages/shared/db/index.js";
+} from "@changmen/db";
 
 /**
  * rebuild 时自动收录 TF / OB / RAY / IA / PB 平台尚未在 team_platform_maps 中的队伍。

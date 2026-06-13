@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-const changmenRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const changmenRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 for (const rel of ["apps/backend/.env"]) {
   const envPath = path.join(changmenRoot, rel);

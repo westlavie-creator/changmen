@@ -3,7 +3,7 @@
  * 仅处理 MergeBasis === "id"；已有不同 match_id 的行跳过（保留人工锁定）。
  */
 
-import { setPlatformMatchId } from "../../../packages/shared/db/index.js";
+import { setPlatformMatchId } from "@changmen/db";
 
 async function backfillPlatformMatchIdsForIdMerges(clientMatchRows) {
   if (!clientMatchRows?.length) {

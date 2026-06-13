@@ -1,10 +1,5 @@
 import { rebuildOnce } from "./rebuild.js";
-import {
-  fetchClientMatchRow,
-  updatePlatformMatchMatchId,
-  reassignPlatformMatchIds,
-  deleteClientMatchRow,
-} from "../../../packages/shared/db/matcher_store.js";
+import * as db from "@changmen/db";
 
 /**
  * 合并两条 client_matches：source 并入 target，保留 target.id。
@@ -18,11 +13,11 @@ async function previewMergeClientMatches({ sourceClientMatchId, targetClientMatc
   }
   if (sourceId === targetId) throw new Error("不能合并同一条赛事");
 
-  const source = await fetchClientMatchRow(
+  const source = await db.fetchClientMatchRow(
     sourceId,
     "id,title,game,game_id,start_time,matchs,bets",
   );
-  const target = await fetchClientMatchRow(
+  const target = await db.fetchClientMatchRow(
     targetId,
     "id,title,game,game_id,start_time,matchs,bets",
   );
@@ -79,11 +74,11 @@ async function mergeClientMatches({ sourceClientMatchId, targetClientMatchId }) 
   const targetId = preview.targetClientMatchId;
 
   for (const [plat, srcId] of Object.entries(preview.source.matchs)) {
-    await updatePlatformMatchMatchId(plat, String(srcId), targetId);
+    await db.updatePlatformMatchMatchId(plat, String(srcId), targetId);
   }
 
-  await reassignPlatformMatchIds(sourceId, targetId);
-  await deleteClientMatchRow(sourceId);
+  await db.reassignPlatformMatchIds(sourceId, targetId);
+  await db.deleteClientMatchRow(sourceId);
 
   const rebuild = await rebuildOnce();
 

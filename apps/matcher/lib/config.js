@@ -3,7 +3,7 @@
  * 改间隔、端口等只改此处与 apps/backend/.env.example 说明。
  */
 
-import { DEFAULT_PRUNE_INTERVAL_MS } from "../../../packages/shared/db/prune_stale.js";
+import { DEFAULT_PRUNE_INTERVAL_MS } from "@changmen/db";
 
 const DEFAULT_MATCHER_INTERVAL_MS = 30_000;
 const DEFAULT_UI_PORT = 4567;

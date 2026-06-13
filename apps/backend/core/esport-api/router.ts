@@ -12,7 +12,7 @@ import { resolveA8Credentials } from "../integrations/a8/config.js";
 import { loginV4 } from "../integrations/a8/v4_client.js";
 import { getPlatformRules, getDefaultMarketCode } from "../../../../packages/shared/catalog/market_catalog.mjs";
 import { requirePlatform } from "../shared/adapter_paths.js";
-import * as sb from "../../../../packages/shared/db/supabase.js";
+import * as sb from "@changmen/db";
 import * as dbStore from "../db/store.js";
 
 // ── Types ────────────────────────────────────────────────────────────────────

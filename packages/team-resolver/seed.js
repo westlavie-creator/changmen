@@ -51,7 +51,7 @@ async function fetchAllTeams(psEndpoint) {
 // ── Supabase ──────────────────────────────────────────────────────────────────
 
 async function batchUpsertCanonical(rows) {
-  const { upsertCanonicalTeams } = await import("../shared/db/index.js");
+  const { upsertCanonicalTeams } = await import("@changmen/db");
   const BATCH = 100;
   for (let i = 0; i < rows.length; i += BATCH) {
     const chunk = rows.slice(i, i + BATCH);

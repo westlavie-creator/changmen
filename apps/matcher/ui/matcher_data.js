@@ -15,12 +15,12 @@ import {
   getManagedMatcherPid,
 } from "./matcher_process.js";
 import { enrichClientMatchesMergeMode } from "./merge_mode.js";
-import { loadTeamMapsForMatcher } from "../../../packages/shared/db/index.js";
 import {
+  loadTeamMapsForMatcher,
   fetchLatestClientMatchBuiltAt,
   fetchPlatformMatchesDashboard,
   fetchClientMatchesDashboard,
-} from "../../../packages/shared/db/matcher_store.js";
+} from "@changmen/db";
 
 function recommendationGroupKey(m) {
   const game = resolveUiGame(m.platform, m.source_game_id);

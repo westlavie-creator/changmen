@@ -10,13 +10,7 @@ import {
 } from "../../../packages/match-engine/index.js";
 import { resolveClientGame, getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
 import { rebuildOnce } from "../ops/rebuild.js";
-import * as db from "../../../packages/shared/db/index.js";
-import {
-  getClientMatchIdAdapter,
-  fetchPlatformMatchRow as fetchPlatformMatchDbRow,
-  fetchClientMatchRow,
-  fetchPlatformMatchesHomeAway,
-} from "../../../packages/shared/db/matcher_store.js";
+import * as db from "@changmen/db";
 
 /**
  * 人工关联：平台赛事 → client_match，并写入队伍 ID 映射。
@@ -272,12 +266,12 @@ function resolvePairClientMatchKey(pmSource, pmTarget) {
 async function resolvePairClientMatchId(pmSource, pmTarget, stub = {}) {
   const { existingId, mergeKey } = resolvePairClientMatchKey(pmSource, pmTarget);
   if (existingId) return existingId;
-  const adapter = getClientMatchIdAdapter();
+  const adapter = db.getClientMatchIdAdapter();
   return ensureClientMatchId(adapter, mergeKey, stub);
 }
 
 async function fetchPlatformMatchRow(platform, sourceMatchId) {
-  const pm = await fetchPlatformMatchDbRow(platform, sourceMatchId);
+  const pm = await db.fetchPlatformMatchRow(platform, sourceMatchId);
   if (!pm) {
     const plat = String(platform || "").trim();
     const srcId = String(sourceMatchId || "").trim();
@@ -372,7 +366,7 @@ async function linkPlatformToPlatform({
   let cmHint = null;
   if (pmTarget.match_id || pmSource.match_id) {
     const hintId = Number(pmTarget.match_id || pmSource.match_id);
-    cmHint = await fetchClientMatchRow(hintId, "id,title,game,game_id");
+    cmHint = await db.fetchClientMatchRow(hintId, "id,title,game,game_id");
   }
 
   const gameCode = resolveGameCodeForPlatformPair(pmSource, pmTarget, cmHint);
@@ -479,10 +473,10 @@ async function previewLinkAlignment({ platform, sourceMatchId, clientMatchId }) 
 
   const pm = await fetchPlatformMatchRow(plat, srcId);
 
-  const cm = await fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
+  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
   if (!cm) throw new Error("目标已匹配赛事不存在");
 
-  const allPm = await fetchPlatformMatchesHomeAway();
+  const allPm = await db.fetchPlatformMatchesHomeAway();
   const platformsById = {};
   for (const row of allPm || []) {
     platformsById[`${row.platform}:${row.source_match_id}`] = row;
@@ -518,10 +512,10 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
 
   const pm = await fetchPlatformMatchRow(plat, srcId);
 
-  const cm = await fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
+  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
   if (!cm) throw new Error("目标已匹配赛事不存在");
 
-  const allPm = await fetchPlatformMatchesHomeAway();
+  const allPm = await db.fetchPlatformMatchesHomeAway();
   const platformsById = {};
   for (const row of allPm || []) {
     platformsById[`${row.platform}:${row.source_match_id}`] = row;

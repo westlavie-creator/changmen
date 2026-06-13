@@ -4,7 +4,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensurePlatformCredentials } from "./core/esport-api/platform_sync.js";
-import { initLastWrittenIds, fetchPlatformMatches } from "../../packages/shared/db/supabase.js";
+import { initLastWrittenIds, fetchPlatformMatches } from "@changmen/db";
 import store from "./core/esport-api/store.js";
 import { createStaticHandler } from "./static_files.js";
 import { createHttpHandler } from "./http_routes.js";

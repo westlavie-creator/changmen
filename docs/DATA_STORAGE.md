@@ -1,6 +1,6 @@
 # 数据存储边界
 
-changmen 同时使用 **云数据库**（Supabase / RDS）与 **本机 JSON**。读路径由 `GAMEBET_DB_SCRIPT`（`packages/shared/db/db_mode.js`）决定。
+changmen 同时使用 **云数据库**（Supabase / RDS）与 **本机 JSON**。读路径由 `GAMEBET_DB_SCRIPT`（`packages/db/db_mode.js`）决定。
 
 ## 云数据库（生产主路径）
 
@@ -15,7 +15,7 @@ changmen 同时使用 **云数据库**（Supabase / RDS）与 **本机 JSON**。
 
 - **Supabase 迁移**：`apps/backend/supabase/migrations/`（`cd apps/backend && npx supabase db push`）
 - **RDS 迁移**：`apps/backend/db/migrations/`（`node scripts/apply-rds-schema.mjs`）
-- **统一 DB 入口**：`packages/shared/db/index.js`（勿直连 `supabase.js` 旧路径）
+- **统一 DB 入口**：`@changmen/db`（`packages/db/index.js`）
 
 `dual` 模式：读 RDS，写 Supabase + RDS（见 `db_mode.js`）。
 
@@ -33,13 +33,13 @@ changmen 同时使用 **云数据库**（Supabase / RDS）与 **本机 JSON**。
 
 ## 迁移文件为何不搬到 `packages/shared`
 
-Supabase CLI 默认认 `apps/backend/supabase/`；RDS 脚本与 `import-from-supabase.mjs` 同目录更易运维。逻辑层已集中在 `packages/shared/db/`。
+Supabase CLI 默认认 `apps/backend/supabase/`；RDS 脚本与 `import-from-supabase.mjs` 同目录更易运维。逻辑层已集中在 `packages/db/`（`@changmen/db`）。
 
 ## 清理策略
 
 | 数据 | 机制 |
 |------|------|
-| 过期 `platform_*` / `client_matches` | matcher 每小时 prune（`packages/shared/db/prune_stale.js`，2h 阈值） |
+| 过期 `platform_*` / `client_matches` | matcher 每小时 prune（`packages/db/prune_stale.js`，2h 阈值） |
 | Supabase pg_cron prune | 已迁移到 matcher；可选执行 `20260713000000_unschedule_pg_cron_prune.sql` |
 
 详见根目录 `CLAUDE.md` 各表说明与 [ARCHITECTURE.md](./ARCHITECTURE.md) 数据流。

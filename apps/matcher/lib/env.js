@@ -1,6 +1,6 @@
 /**
  * 统一加载 matcher 环境变量：matcher/.env → apps/backend/.env
- * 须在 import packages/shared/db 之前执行。
+ * 须在 import @changmen/db 之前执行。
  */
 
 import path from "node:path";

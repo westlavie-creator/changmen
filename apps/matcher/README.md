@@ -17,7 +17,7 @@ PM2（`ecosystem.config.cjs`）仅注册 **合并循环**（`gamebet-matcher`）
 ## 依赖
 
 - `packages/match-engine` — 合并算法
-- `packages/shared/db` — 读写 `platform_matches` / `client_matches` 等
+- `packages/db` — 读写 `platform_matches` / `client_matches` 等（`@changmen/db`）
 - `@changmen/team-resolver` — 可选队名 canonical 插件
 
 环境变量：与 backend 共用 `apps/backend/.env`（或 `matcher/.env`）。`GAMEBET_DB_SCRIPT` 与 backend 保持一致。

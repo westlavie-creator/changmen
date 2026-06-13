@@ -1,4 +1,4 @@
-import * as sb from "../../../../packages/shared/db/supabase.js";
+import * as sb from "@changmen/db";
 import { toDateKey, listUserProfitRank } from "./order_store.js";
 
 function accountCount(accounts) {

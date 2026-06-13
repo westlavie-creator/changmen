@@ -1,4 +1,4 @@
-import * as sb from "../../../../packages/shared/db/supabase.js";
+import * as sb from "@changmen/db";
 
 export function toDateKey(ts) {
   const d = new Date(Number(ts) || Date.now());

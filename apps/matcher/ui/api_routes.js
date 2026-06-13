@@ -15,7 +15,7 @@ import { writeMatcherHeartbeat } from "../lib/heartbeat.js";
 import { getMatcherStatus, fetchMatcherDashboard } from "./matcher_data.js";
 import { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } from "./matcher_api_log.js";
 import { startMatcherProcess, stopMatcherProcess } from "./matcher_process.js";
-import { fetchPlatformMatchesDebugRows } from "../../../packages/shared/db/matcher_store.js";
+import { fetchPlatformMatchesDebugRows } from "@changmen/db";
 
 let _rebuildRunning = false;
 

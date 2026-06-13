@@ -5,8 +5,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
-import { DB_SCRIPT_MODES, resolveDbScript } from "../../../packages/shared/db/db_mode.js";
-import { initDatabaseUrl } from "../../../packages/shared/db/resolve_database_url.js";
+import {
+  DB_SCRIPT_MODES,
+  resolveDbScript,
+  initDatabaseUrl,
+} from "@changmen/db";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const matcherRoot = path.join(__dirname, "..");

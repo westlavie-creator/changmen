@@ -11,7 +11,7 @@ import {
   formatPruneCounts,
   compareDualRowCounts,
   formatCompareDualOneLine,
-} from "../../packages/shared/db/index.js";
+} from "@changmen/db";
 
 const INTERVAL_MS = MATCHER_INTERVAL_MS;
 const PRUNE_INTERVAL_MS = MATCHER_PRUNE_INTERVAL_MS;

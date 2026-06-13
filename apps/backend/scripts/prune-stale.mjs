@@ -5,7 +5,7 @@
  *   cd changmen/apps/backend && node scripts/prune-stale.mjs
  */
 
-import { pruneStaleRows, formatPruneCounts } from "../../../packages/shared/db/prune_stale.js";
+import { pruneStaleRows, formatPruneCounts } from "@changmen/db";
 
 try {
   const pr = await pruneStaleRows();

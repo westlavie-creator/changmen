@@ -1,6 +1,6 @@
 /**
  * 一次性整理 impl_supabase.js / impl_rds.js（脚本切换架构）。
- * 用法：node packages/shared/db/scripts/finalize-impl.mjs
+ * 用法：node packages/db/scripts/finalize-impl.mjs
  */
 import fs from "node:fs";
 import path from "node:path";

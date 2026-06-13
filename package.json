@@ -3,6 +3,7 @@
   "private": true,
   "description": "A8 esports aggregator — frontend replica + local backend",
   "workspaces": [
+    "packages/db",
     "packages/shared",
     "packages/platform-adapter",
     "packages/team-resolver",
