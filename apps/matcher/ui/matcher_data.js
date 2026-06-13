@@ -1,3 +1,4 @@
+import { MATCHER_INTERVAL_MS } from "../lib/config.js";
 import { resolveUiGame } from "../lib/game_ui.js";
 import { normalizeTeam } from "../../../packages/match-engine/index.js";
 import {
@@ -69,7 +70,7 @@ async function getMatcherStatus(supabase) {
     clearMatcherHeartbeat();
     heartbeat = null;
   }
-  const intervalMs = heartbeat?.intervalMs || Number(process.env.MATCHER_INTERVAL_MS || 30_000);
+  const intervalMs = heartbeat?.intervalMs || MATCHER_INTERVAL_MS;
   const thresholdMs = intervalMs * STALE_FACTOR;
 
   let processRunning = false;

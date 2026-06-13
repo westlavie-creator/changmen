@@ -10,6 +10,7 @@ import {
 import { deleteClientMatch } from "../ops/delete_client_match.js";
 import { previewMergeClientMatches, mergeClientMatches } from "../ops/merge_client_matches.js";
 import { rebuildOnce } from "../ops/rebuild.js";
+import { MATCHER_INTERVAL_MS } from "../lib/config.js";
 import { writeMatcherHeartbeat } from "../lib/heartbeat.js";
 import { getMatcherStatus, fetchMatcherDashboard } from "./matcher_data.js";
 import { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } from "./matcher_api_log.js";
@@ -220,7 +221,7 @@ function registerMatcherApiRoutes(app, supabase) {
       const result = await rebuildOnce();
       writeMatcherHeartbeat({
         matchCount: result.matchCount,
-        intervalMs: Number(process.env.MATCHER_INTERVAL_MS || 30_000),
+        intervalMs: MATCHER_INTERVAL_MS,
         builtAt: result.builtAt,
       });
       const logLines = [`赛事合并完成 · client_matches ${result.matchCount} 场`];

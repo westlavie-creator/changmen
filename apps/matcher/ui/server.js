@@ -2,6 +2,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import "../lib/env.js";
+import { MATCHER_UI_PORT } from "../lib/config.js";
+import { initDatabaseUrl } from "../../../packages/shared/db/resolve_database_url.js";
 import express from "express";
 import { getMatcherSupabase } from "../lib/supabase.js";
 import { registerMatcherApiRoutes } from "./api_routes.js";
@@ -9,7 +11,10 @@ import { createMatcherAuthMiddleware } from "./matcher_auth.js";
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.MATCHER_UI_PORT || process.env.PIPEI_PORT || 4567);
+
+await initDatabaseUrl();
+
+const PORT = MATCHER_UI_PORT;
 const supabase = getMatcherSupabase();
 if (!supabase) {
   console.warn("[matcher] Supabase 未配置，API 将不可用");

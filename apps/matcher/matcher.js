@@ -3,16 +3,18 @@
  */
 
 import "./lib/env.js";
+import { MATCHER_INTERVAL_MS, MATCHER_PRUNE_INTERVAL_MS } from "./lib/config.js";
 import { rebuildOnce, ensureTeamPlugin } from "./ops/rebuild.js";
 import { writeMatcherHeartbeat } from "./lib/heartbeat.js";
 import {
-  DEFAULT_PRUNE_INTERVAL_MS,
   pruneStaleRows,
   formatPruneCounts,
+  compareDualRowCounts,
+  formatCompareDualOneLine,
 } from "../../packages/shared/db/index.js";
 
-const INTERVAL_MS = Number(process.env.MATCHER_INTERVAL_MS || 30_000);
-const PRUNE_INTERVAL_MS = Number(process.env.MATCHER_PRUNE_INTERVAL_MS || DEFAULT_PRUNE_INTERVAL_MS);
+const INTERVAL_MS = MATCHER_INTERVAL_MS;
+const PRUNE_INTERVAL_MS = MATCHER_PRUNE_INTERVAL_MS;
 
 let lastPruneAt = 0;
 
@@ -26,6 +28,16 @@ async function maybePruneStale() {
   }
   if (pr.supabase) {
     console.log(`[matcher] prune supabase: ${formatPruneCounts(pr.supabase)}`);
+  }
+
+  const cmp = await compareDualRowCounts();
+  if (!cmp) return;
+  if (cmp.ok) {
+    console.log("[matcher] dual compare: 全部表行数一致");
+  } else if (cmp.error) {
+    console.warn(`[matcher] dual compare skipped: ${cmp.error}`);
+  } else {
+    console.warn(`[matcher] dual compare: ${formatCompareDualOneLine(cmp)}`);
   }
 }
 
@@ -44,7 +56,7 @@ async function runOnce() {
 async function main() {
   await ensureTeamPlugin();
   console.log(
-    `[matcher] starting, interval=${INTERVAL_MS / 1000}s, prune every ${PRUNE_INTERVAL_MS / 1000}s`,
+    `[matcher] starting, interval=${INTERVAL_MS / 1000}s, prune+dual-compare every ${PRUNE_INTERVAL_MS / 1000}s`,
   );
   await runOnce();
   setInterval(async () => {

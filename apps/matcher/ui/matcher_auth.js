@@ -1,4 +1,5 @@
 import store from "../../backend/core/esport-api/store.js";
+import { MATCHER_SKIP_AUTH } from "../lib/config.js";
 
 function isLocalRequest(req) {
   const host = String(req?.headers?.host || "").split(":")[0].toLowerCase();
@@ -6,7 +7,7 @@ function isLocalRequest(req) {
 }
 
 export function isMatcherAuthBypassed(req) {
-  if (process.env.MATCHER_SKIP_AUTH === "1") return true;
+  if (MATCHER_SKIP_AUTH) return true;
   if (process.env.NODE_ENV === "development") return true;
   if (req && isLocalRequest(req)) return true;
   return false;

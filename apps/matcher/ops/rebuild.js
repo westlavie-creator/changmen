@@ -80,7 +80,17 @@ async function rebuildOnce() {
   let info = buildClientMatchList({ matches, bets, timers, sourceFromBet });
 
   const client = sb.getServiceClient();
-  if (!client) throw new Error("Supabase 未配置，无法 rebuild");
+  if (!client) {
+    const { script, readsRds } = sb.getDbMode();
+    if (readsRds) {
+      throw new Error(
+        `无法 rebuild：缺少 Supabase 客户端（当前 GAMEBET_DB_SCRIPT=${script}）。`
+          + " resolveClientMatchIds 仍依赖 Supabase API；请配置 SUPABASE_URL + SERVICE_KEY，"
+          + "或待迁库完成后改为 db 层接口。",
+      );
+    }
+    throw new Error("Supabase 未配置，无法 rebuild（需 SUPABASE_URL + SERVICE_KEY）");
+  }
   info = await resolveClientMatchIds(client, info, { matches });
   info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows);
   info = filterMultiPlatformClientMatches(info);

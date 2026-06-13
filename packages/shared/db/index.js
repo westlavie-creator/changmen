@@ -106,3 +106,10 @@ export {
   pruneStaleRows,
   formatPruneCounts,
 } from "./prune_stale.js";
+
+export {
+  COMPARE_DUAL_TABLES,
+  compareDualRowCounts,
+  formatCompareDualOneLine,
+  formatCompareDualReport,
+} from "./compare_dual.js";

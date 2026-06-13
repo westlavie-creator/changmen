@@ -6,9 +6,11 @@
 
 | 入口 | 命令 / PM2 | 端口 | 作用 |
 |------|------------|------|------|
-| **合并循环** | `npm run matcher:loop` → `scripts/start-db.mjs` → `matcher.js` | 无 HTTP | 每 30s（可配）rebuild `client_matches` + 每小时 prune |
+| **合并循环** | `npm run matcher:loop` → `scripts/start-db.mjs` → `matcher.js` | 无 HTTP | 每 30s（可配）rebuild `client_matches` + 每小时 prune + dual 行数对账 |
 | **人工 UI** | `npm run matcher:ui` → `ui/server.js` | `4567`（`MATCHER_UI_PORT`） | 拖线关联、画布；**非生产必需** |
 | **主站桥接** | 随 `npm run web` 启动 | 同源 `/matcher/`、`/matcher/api/*` | backend `http_bridge.js` 把 API 转给 matcher Express |
+
+Matcher 间隔/端口等环境变量由 `lib/config.js` 统一读取（勿在多处写 `process.env.MATCHER_*`）。
 
 PM2（`ecosystem.config.cjs`）仅注册 **合并循环**（`gamebet-matcher`）。人工 UI 本地用 `BAT\matcher-ui.bat`。
 
