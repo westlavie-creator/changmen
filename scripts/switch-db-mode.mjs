@@ -14,7 +14,7 @@ import {
   DB_SCRIPT_MODES,
   describeDbScript,
   resolveDbScript,
-} from "../packages/shared/db/db_script.js";
+} from "../packages/shared/db/db_mode.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const changmenRoot = path.join(__dirname, "..");

@@ -1,5 +1,8 @@
 import { getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
-import * as sb from "../../../packages/shared/db/supabase.js";
+import {
+  fetchExistingTeamMapKeys,
+  upsertTeamPlatformMaps,
+} from "../../../packages/shared/db/index.js";
 
 /**
  * rebuild 时自动收录 TF / OB / RAY / IA / PB 平台尚未在 team_platform_maps 中的队伍。
@@ -73,44 +76,15 @@ function collectTeamCandidates(matchesRaw) {
   return candidates;
 }
 
-async function loadExistingKeys(supabase, candidates) {
-  const existing = new Set();
-  const byPlatform = new Map();
-  for (const row of candidates.values()) {
-    if (!byPlatform.has(row.platform)) byPlatform.set(row.platform, []);
-    byPlatform.get(row.platform).push(row.platform_id);
-  }
-
-  for (const [platform, ids] of byPlatform) {
-    for (let i = 0; i < ids.length; i += UPSERT_BATCH) {
-      const batch = ids.slice(i, i + UPSERT_BATCH);
-      const { data, error } = await supabase
-        .from("team_platform_maps")
-        .select("platform_id")
-        .eq("platform", platform)
-        .in("platform_id", batch);
-      if (error) throw new Error(`查询 team_platform_maps 失败: ${error.message}`);
-      for (const row of data || []) {
-        existing.add(`${platform}:${row.platform_id}`);
-      }
-    }
-  }
-
-  return existing;
-}
-
 /**
  * @param {Record<string, unknown>} matchesRaw fetchPlatformMatches() 返回值
  * @returns {{ scanned: number, registered: number }}
  */
 async function autoRegisterTeams(matchesRaw) {
-  const client = sb.getServiceClient();
-  if (!client) return { scanned: 0, registered: 0 };
-
   const candidates = collectTeamCandidates(matchesRaw);
   if (!candidates.size) return { scanned: 0, registered: 0 };
 
-  const existing = await loadExistingKeys(client, candidates);
+  const existing = await fetchExistingTeamMapKeys(candidates);
   const toWrite = [...candidates.values()].filter(
     (row) => !existing.has(`${row.platform}:${row.platform_id}`),
   );
@@ -119,10 +93,7 @@ async function autoRegisterTeams(matchesRaw) {
   let registered = 0;
   for (let i = 0; i < toWrite.length; i += UPSERT_BATCH) {
     const batch = toWrite.slice(i, i + UPSERT_BATCH);
-    const { error } = await client
-      .from("team_platform_maps")
-      .upsert(batch, { onConflict: "platform,platform_id", ignoreDuplicates: true });
-    if (error) throw new Error(`自动收录队伍失败: ${error.message}`);
+    await upsertTeamPlatformMaps(batch, { ignoreDuplicates: true });
     registered += batch.length;
   }
 

@@ -13,11 +13,8 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../../apps/backend/.env") });
 
 const axios = require("axios");
-const { createClient } = require("@supabase/supabase-js");
 
 const PANDASCORE_TOKEN = process.env.PANDASCORE_TOKEN || "";
-const SUPABASE_URL = process.env.SUPABASE_URL || "";
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || "";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const GAME_FILTER = (process.argv.find((a) => a.startsWith("--game=")) || "").split("=")[1] || null;
@@ -53,30 +50,22 @@ async function fetchAllTeams(psEndpoint) {
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 
-let _sb = null;
-function getSupabase() {
-  if (!_sb) _sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  return _sb;
-}
-
-async function batchUpsert(table, rows, onConflict) {
-  const sb = getSupabase();
+async function batchUpsertCanonical(rows) {
+  const { upsertCanonicalTeams } = await import("../../shared/db/index.js");
   const BATCH = 100;
   for (let i = 0; i < rows.length; i += BATCH) {
     const chunk = rows.slice(i, i + BATCH);
     let lastErr;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const { error } = await sb
-          .from(table)
-          .upsert(chunk, { onConflict, ignoreDuplicates: false });
-        if (!error) { lastErr = null; break; }
-        lastErr = error;
+        await upsertCanonicalTeams(chunk);
+        lastErr = null;
+        break;
       } catch (e) {
         lastErr = e;
         console.warn(`  [batch ${i}] attempt ${attempt + 1} 失败:`, e.message);
+        await sleep(1000 * (attempt + 1));
       }
-      await sleep(1000 * (attempt + 1));
     }
     if (lastErr) throw lastErr;
     await sleep(100);
@@ -112,7 +101,7 @@ async function seedGame(gameCode, psEndpoint) {
     updated_at: new Date().toISOString(),
   }));
 
-  await batchUpsert("canonical_teams", rows, "game,name");
+  await batchUpsertCanonical(rows);
   console.log(`  canonical_teams: upsert ${rows.length} 行`);
 }
 
@@ -123,12 +112,12 @@ async function main() {
     console.error("❌ 缺少 PANDASCORE_TOKEN（环境变量或 .env）");
     process.exit(1);
   }
-  if (!DRY_RUN && (!SUPABASE_URL || !SUPABASE_SERVICE_KEY)) {
-    console.error("❌ 缺少 SUPABASE_URL 或 SUPABASE_SERVICE_KEY");
+  if (!DRY_RUN && !process.env.SUPABASE_URL && !process.env.DATABASE_URL) {
+    console.error("❌ 未配置 SUPABASE 或 DATABASE_URL（GAMEBET_DB_SCRIPT）");
     process.exit(1);
   }
 
-  console.log(DRY_RUN ? "模式：dry-run（只打印）" : "模式：写入 Supabase");
+  console.log(DRY_RUN ? "模式：dry-run（只打印）" : "模式：写入队伍表（GAMEBET_DB_SCRIPT）");
 
   const games = GAME_FILTER ? { [GAME_FILTER]: GAMES[GAME_FILTER] } : GAMES;
 

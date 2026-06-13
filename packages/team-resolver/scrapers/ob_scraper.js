@@ -17,7 +17,6 @@
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../../../apps/backend/.env") });
 
-const { createClient } = require("@supabase/supabase-js");
 const { requirePlatform } = require("../../../apps/backend/core/shared/adapter_paths.js");
 const { login, obGet } = requirePlatform("OB", "backend", "session.js");
 const { getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
@@ -123,21 +122,12 @@ async function scrapeFlag5(session, days) {
 
 async function batchUpsert(rows) {
   if (!rows.length) return;
-  const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  const { upsertTeamPlatformMapsBatched } = await import("../../shared/db/index.js");
   const BATCH = 200;
   for (let i = 0; i < rows.length; i += BATCH) {
-    const chunk = rows.slice(i, i + BATCH);
-    let lastErr;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const { error } = await sb
-        .from("team_platform_maps")
-        .upsert(chunk, { onConflict: "platform,platform_id" });
-      if (!error) { lastErr = null; break; }
-      lastErr = error;
-      await sleep(1000 * (attempt + 1));
-    }
-    if (lastErr) throw lastErr;
-    process.stdout.write(`\r  已写入 ${Math.min(i + BATCH, rows.length)} / ${rows.length} 行`);
+    const end = Math.min(i + BATCH, rows.length);
+    await upsertTeamPlatformMapsBatched(rows.slice(i, end), BATCH);
+    process.stdout.write(`\r  已写入 ${end} / ${rows.length} 行`);
     await sleep(100);
   }
   process.stdout.write("\n");
@@ -146,7 +136,7 @@ async function batchUpsert(rows) {
 // ── 主流程 ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(DRY_RUN ? "[ob_scraper] 模式：dry-run（只打印）" : "[ob_scraper] 模式：写入 Supabase");
+  console.log(DRY_RUN ? "[ob_scraper] 模式：dry-run（只打印）" : "[ob_scraper] 模式：写入队伍表（GAMEBET_DB_SCRIPT）");
 
   // 1. 登录
   console.log("\n[ob_scraper] 登录 OB...");

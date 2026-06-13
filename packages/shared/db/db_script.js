@@ -24,10 +24,10 @@ export function usesRdsImpl(script) {
 export function describeDbScript(script) {
   switch (script) {
     case "dual":
-      return "读 RDS，写 Supabase + RDS（双写）";
+      return "读 RDS，写 Supabase + RDS（双写，含队伍表）";
     case "rds":
-      return "读写 RDS（matcher 队表等仍可用 Supabase getServiceClient）";
+      return "读写 RDS（含队伍表）";
     default:
-      return "读写 Supabase";
+      return "读写 Supabase（含队伍表）";
   }
 }

@@ -12,24 +12,9 @@
  */
 
 import crypto from "node:crypto";
-import { createRequire } from "node:module";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { resolveDbScript } from "./db_script.js";
+import { getDbMode } from "./db_mode.js";
+import { getPgPool as getSharedPgPool } from "./pg_pool.js";
 import { supabase, supabaseAdmin } from "./client.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-
-/** @returns {typeof import('pg')} */
-function requirePg() {
-  const searchPaths = [
-    path.join(__dirname, "..", "..", "apps", "backend", "node_modules"),
-    path.join(__dirname, "..", "..", "node_modules"),
-    path.join(__dirname, "..", "node_modules"),
-  ];
-  return require(require.resolve("pg", { paths: searchPaths }));
-}
 
 const AUTH_MODE = String(process.env.AUTH_MODE || "supabase").trim().toLowerCase();
 const isJwtMode = () => AUTH_MODE === "jwt";
@@ -49,61 +34,31 @@ function parseJwtTtl(raw, fallbackSec) {
 const JWT_ACCESS_TTL_SEC = parseJwtTtl(process.env.JWT_ACCESS_TTL, 7 * 86400);
 const JWT_REFRESH_TTL_SEC = parseJwtTtl(process.env.JWT_REFRESH_TTL, 30 * 86400);
 
-let _pgPool = null;
+const _mode = getDbMode();
+const _isDual = _mode.isDual;
+const _isRdsOnly = _mode.script === "rds";
 
-const _dbScript = resolveDbScript();
-const _isDual = _dbScript === "dual";
-const _isRdsOnly = _dbScript === "rds";
-
-/** impl_rds：GAMEBET_DB_SCRIPT=rds | dual */
 function collectReadsFromRds() {
-  return _isRdsOnly || _isDual;
+  return _mode.readsRds;
 }
 function collectWritesToRds() {
-  return _isRdsOnly || _isDual;
+  return _mode.writesRds;
 }
 function collectWritesToSupabase() {
-  return _isDual;
+  return _mode.writesSupabase;
 }
 function businessUsesRds() {
-  return _isRdsOnly || _isDual;
+  return _mode.readsRds;
 }
 function businessWritesToSupabase() {
-  return _isDual;
+  return _mode.writesSupabase;
 }
 function businessWritesToRds() {
-  return _isRdsOnly || _isDual;
-}
-
-function needsPgPool() {
-  return !!process.env.DATABASE_URL;
+  return _mode.writesRds;
 }
 
 function getPgPool() {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.warn("[db] impl_rds: 未配置 DATABASE_URL");
-    return null;
-  }
-  if (!_pgPool) {
-    const { Pool } = requirePg();
-    _pgPool = new Pool({ connectionString: url, max: 4 });
-    const why = isJwtMode()
-      ? "AUTH_MODE=jwt + " + _dbScript
-      : "GAMEBET_DB_SCRIPT=" + _dbScript;
-    console.log("[db] RDS 连接池已就绪 (" + why + ")");
-  }
-  return _pgPool;
-}
-
-if (_isDual) {
-  console.log(
-    "[db] impl_rds dual: 读 RDS；platform_* / live_timers / client_matches / profiles / orders 双写 Supabase + RDS",
-  );
-} else {
-  console.log(
-    "[db] impl_rds: platform_* / live_timers / client_matches / profiles / orders 读写 RDS",
-  );
+  return getSharedPgPool(`GAMEBET_DB_SCRIPT=${_mode.script}`);
 }
 
 

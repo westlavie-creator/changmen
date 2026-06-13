@@ -14,6 +14,7 @@ import {
   getManagedMatcherPid,
 } from "./matcher_process.js";
 import { enrichClientMatchesMergeMode } from "./merge_mode.js";
+import { loadTeamMapsForMatcher } from "../../../packages/shared/db/index.js";
 
 function recommendationGroupKey(m) {
   const game = resolveUiGame(m.platform, m.source_game_id);
@@ -59,85 +60,6 @@ function computeRecommendations(allMatches) {
       };
     })
     .sort((a, b) => a.startTime - b.startTime);
-}
-
-function normalizePlatformIdStr(id) {
-  if (id == null || id === "") return "";
-  return String(id).trim();
-}
-
-function parseTeamsArrayRaw(teams) {
-  if (Array.isArray(teams)) return teams;
-  if (typeof teams === "string") {
-    try {
-      return JSON.parse(teams);
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
-
-function collectNeededTeamIds(allMatches) {
-  const byPlatform = new Map();
-  const add = (platform, pid) => {
-    const p = String(platform || "").trim();
-    const id = normalizePlatformIdStr(pid);
-    if (!p || !id) return;
-    if (!byPlatform.has(p)) byPlatform.set(p, new Set());
-    byPlatform.get(p).add(id);
-  };
-  for (const m of allMatches || []) {
-    add(m.platform, m.home_id);
-    add(m.platform, m.away_id);
-    for (const t of parseTeamsArrayRaw(m.teams)) {
-      add(m.platform, t.TeamID ?? t.team_id ?? t.teamId ?? t.id);
-    }
-  }
-  return byPlatform;
-}
-
-function mergeTeamMapRow(teamMaps, row) {
-  const canonJoin = row.canonical_teams;
-  const updatedBy = canonJoin && !Array.isArray(canonJoin) ? canonJoin.updated_by : null;
-  const entry = {
-    canonical_id: row.canonical_id != null ? String(row.canonical_id) : null,
-    canonical_name: canonJoin && !Array.isArray(canonJoin) ? canonJoin.name : null,
-    updated_by: updatedBy,
-    platform_name: row.platform_name,
-    game: row.game,
-    pending: row.canonical_id == null,
-  };
-  const pid = normalizePlatformIdStr(row.platform_id);
-  if (!pid) return;
-  const idKey = `${row.platform}:${pid}`;
-  const prev = teamMaps[idKey];
-  if (!prev || (entry.canonical_id != null && prev.canonical_id == null)) {
-    teamMaps[idKey] = entry;
-  }
-}
-
-const TEAM_MAP_SELECT =
-  "platform, platform_id, platform_name, canonical_id, game, canonical_teams(updated_by, name)";
-const TEAM_MAP_BATCH = 200;
-
-async function loadTeamMapsForMatcher(supabase, allMatches) {
-  const teamMaps = {};
-  const neededByPlatform = collectNeededTeamIds(allMatches);
-  for (const [platform, idSet] of neededByPlatform) {
-    const ids = [...idSet];
-    for (let i = 0; i < ids.length; i += TEAM_MAP_BATCH) {
-      const batch = ids.slice(i, i + TEAM_MAP_BATCH);
-      const { data, error } = await supabase
-        .from("team_platform_maps")
-        .select(TEAM_MAP_SELECT)
-        .eq("platform", platform)
-        .in("platform_id", batch);
-      if (error) throw new Error(`team_platform_maps 查询失败: ${error.message}`);
-      for (const row of data || []) mergeTeamMapRow(teamMaps, row);
-    }
-  }
-  return teamMaps;
 }
 
 async function getMatcherStatus(supabase) {
@@ -251,7 +173,7 @@ async function fetchMatcherDashboard(supabase) {
   }
 
   const clientMatches = await enrichClientMatchesMergeMode(clientMatchesRaw, byPlatform);
-  const teamMaps = await loadTeamMapsForMatcher(supabase, allMatches);
+  const teamMaps = await loadTeamMapsForMatcher(allMatches);
 
   return { platforms: byPlatform, clientMatches, recommendations, teamMaps, updatedAt: Date.now() };
 }

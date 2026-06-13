@@ -10,7 +10,7 @@ import {
 } from "../../../packages/match-engine/index.js";
 import { resolveClientGame, getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
 import { rebuildOnce } from "../ops/rebuild.js";
-import { setPlatformMatchId } from "../../../packages/shared/db/supabase.js";
+import * as db from "../../../packages/shared/db/index.js";
 
 /**
  * 人工关联：平台赛事 → client_match，并写入队伍 ID 映射。
@@ -97,25 +97,22 @@ function analyzeSideAlignment(pmHome, pmAway, cmHome, cmAway) {
   return { mode: "ambiguous", reversed: null, detail };
 }
 
-async function allocateManualGbTeamId(supabase) {
-  const { data, error } = await supabase.rpc("next_manual_gb_team_id");
-  if (error) throw new Error(`分配手动 gb_team_id 失败: ${error.message}`);
-  return parseGbTeamId(data);
+async function allocateManualGbTeamId() {
+  const id = await db.nextManualGbTeamId();
+  return parseGbTeamId(id);
 }
 
-async function ensureManualGbTeamIdOnRow(supabase, row) {
+async function ensureManualGbTeamIdOnRow(row) {
   if (!row) return null;
   if (row.gb_team_id != null) return parseGbTeamId(row.gb_team_id);
-  const manualGbTeamId = await allocateManualGbTeamId(supabase);
-  const { data: updated, error } = await supabase
-    .from("canonical_teams")
-    .update({ gb_team_id: manualGbTeamId, updated_by: "手动" })
-    .eq("id", row.id)
-    .select("gb_team_id, name, game")
-    .single();
-  if (error) {
+  const manualGbTeamId = await allocateManualGbTeamId();
+  const updated = await db.updateCanonicalTeamById(row.id, {
+    gb_team_id: manualGbTeamId,
+    updated_by: "手动",
+  });
+  if (!updated) {
     throw new Error(
-      `标准队伍「${row.name}」（${row.game}）分配 gb_team_id 失败：${error.message}`
+      `标准队伍「${row.name}」（${row.game}）分配 gb_team_id 失败`,
     );
   }
   return parseGbTeamId(updated.gb_team_id);
@@ -132,7 +129,7 @@ function uniqueConstraintKind(error) {
   return "unknown";
 }
 
-async function describeCanonicalTeamRow(supabase, row) {
+async function describeCanonicalTeamRow(row) {
   if (!row) return null;
   const game = row.game || "?";
   const label = row.name || "?";
@@ -142,23 +139,22 @@ async function describeCanonicalTeamRow(supabase, row) {
   return `游戏 ${game} · 标准队伍「${label}」· 尚无 gb_team_id（种子/历史数据）`;
 }
 
-async function recoverCanonicalTeamAfterUniqueViolation(supabase, gameCode, name, norm) {
-  const exact = await fetchCanonicalTeamExact(supabase, gameCode, name);
+async function recoverCanonicalTeamAfterUniqueViolation(gameCode, name, norm) {
+  const exact = await fetchCanonicalTeamExact(gameCode, name);
   if (exact) return exact;
-  const byNorm = await findCanonicalTeamByNormalizedName(supabase, gameCode, norm);
+  const byNorm = await findCanonicalTeamByNormalizedName(gameCode, norm);
   if (byNorm) return byNorm;
   return null;
 }
 
-async function buildCanonicalInsertConflictMessage(supabase, gameCode, name, error) {
+async function buildCanonicalInsertConflictMessage(gameCode, name, error) {
   const kind = uniqueConstraintKind(error);
   const row = await recoverCanonicalTeamAfterUniqueViolation(
-    supabase,
     gameCode,
     name,
-    normalizeTeam(name)
+    normalizeTeam(name),
   );
-  const existing = row ? await describeCanonicalTeamRow(supabase, row) : null;
+  const existing = row ? await describeCanonicalTeamRow(row) : null;
 
   if (kind === "gb_team_id") {
     return [
@@ -181,36 +177,16 @@ async function buildCanonicalInsertConflictMessage(supabase, gameCode, name, err
   ].join("\n");
 }
 
-async function fetchCanonicalTeamExact(supabase, gameCode, name) {
-  const { data, error } = await supabase
-    .from("canonical_teams")
-    .select("id, gb_team_id, name")
-    .eq("game", gameCode)
-    .eq("name", name)
-    .maybeSingle();
-  if (error) throw new Error(`查询 canonical 队伍失败: ${error.message}`);
-  return data;
+async function fetchCanonicalTeamExact(gameCode, name) {
+  return db.fetchCanonicalTeamExact(gameCode, name);
 }
 
-async function findCanonicalTeamByNormalizedName(supabase, gameCode, norm) {
-  const pageSize = 1000;
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await supabase
-      .from("canonical_teams")
-      .select("id, gb_team_id, name")
-      .eq("game", gameCode)
-      .range(from, from + pageSize - 1);
-    if (error) throw new Error(`查询 canonical 队伍失败: ${error.message}`);
-    if (!data?.length) return null;
-    for (const row of data) {
-      if (normalizeTeam(row.name) === norm) return row;
-    }
-    if (data.length < pageSize) return null;
-  }
+async function findCanonicalTeamByNormalizedName(gameCode, norm) {
+  return db.findCanonicalTeamByNormalizedName(gameCode, norm);
 }
 
 /** 仅 Matcher 手动拖线连线：gb_team_id 从 100000 自增，updated_by = 手动 */
-async function resolveOrCreateManualTeam(supabase, gameCode, teamName) {
+async function resolveOrCreateManualTeam(gameCode, teamName) {
   const name = String(teamName || "").trim();
   if (!name || isPlaceholderTeamName(name)) {
     throw new Error("队名无效");
@@ -218,38 +194,40 @@ async function resolveOrCreateManualTeam(supabase, gameCode, teamName) {
 
   const norm = normalizeTeam(name);
 
-  const exact = await fetchCanonicalTeamExact(supabase, gameCode, name);
-  if (exact) return ensureManualGbTeamIdOnRow(supabase, exact);
+  const exact = await fetchCanonicalTeamExact(gameCode, name);
+  if (exact) return ensureManualGbTeamIdOnRow(exact);
 
-  const byNorm = await findCanonicalTeamByNormalizedName(supabase, gameCode, norm);
-  if (byNorm) return ensureManualGbTeamIdOnRow(supabase, byNorm);
+  const byNorm = await findCanonicalTeamByNormalizedName(gameCode, norm);
+  if (byNorm) return ensureManualGbTeamIdOnRow(byNorm);
 
-  const manualGbTeamId = await allocateManualGbTeamId(supabase);
-  const { data: inserted, error } = await supabase
-    .from("canonical_teams")
-    .insert({ gb_team_id: manualGbTeamId, game: gameCode, name, updated_by: "手动" })
-    .select("id, gb_team_id")
-    .single();
-  if (error) {
+  const manualGbTeamId = await allocateManualGbTeamId();
+  try {
+    const inserted = await db.insertCanonicalTeam({
+      gb_team_id: manualGbTeamId,
+      game: gameCode,
+      name,
+      updated_by: "手动",
+    });
+    return parseGbTeamId(inserted.gb_team_id);
+  } catch (error) {
     if (isPgUniqueViolation(error)) {
-      const existing = await recoverCanonicalTeamAfterUniqueViolation(supabase, gameCode, name, norm);
+      const existing = await recoverCanonicalTeamAfterUniqueViolation(gameCode, name, norm);
       if (existing) {
         try {
-          return await ensureManualGbTeamIdOnRow(supabase, existing);
+          return await ensureManualGbTeamIdOnRow(existing);
         } catch (reuseErr) {
-          const detail = await describeCanonicalTeamRow(supabase, existing);
+          const detail = await describeCanonicalTeamRow(existing);
           throw new Error(
             [`复用已有标准队伍失败`, detail, reuseErr.message].filter(Boolean).join("\n")
           );
         }
       }
-      throw new Error(await buildCanonicalInsertConflictMessage(supabase, gameCode, name, error));
+      throw new Error(await buildCanonicalInsertConflictMessage(gameCode, name, error));
     }
     throw new Error(
       `新建标准队伍失败（${gameCode} · 「${name}」）：${error.message}`
     );
   }
-  return parseGbTeamId(inserted.gb_team_id);
 }
 
 function resolveGameCodeForPlatformPair(pmA, pmB, cmHint) {
@@ -420,13 +398,13 @@ async function linkPlatformToPlatform(supabase, {
   const srcAwayName = reversed ? pmSource.home : pmSource.away;
 
   const mapResults = [];
-  mapResults.push(await upsertTeamPlatformRecord(supabase, pmTarget.platform, pmTarget.home_id, pmTarget.home, gameCode));
-  mapResults.push(await upsertTeamPlatformRecord(supabase, pmTarget.platform, pmTarget.away_id, pmTarget.away, gameCode));
-  mapResults.push(await upsertTeamPlatformRecord(supabase, pmSource.platform, srcHomeId, srcHomeName, gameCode));
-  mapResults.push(await upsertTeamPlatformRecord(supabase, pmSource.platform, srcAwayId, srcAwayName, gameCode));
+  mapResults.push(await upsertTeamPlatformRecord(pmTarget.platform, pmTarget.home_id, pmTarget.home, gameCode));
+  mapResults.push(await upsertTeamPlatformRecord(pmTarget.platform, pmTarget.away_id, pmTarget.away, gameCode));
+  mapResults.push(await upsertTeamPlatformRecord(pmSource.platform, srcHomeId, srcHomeName, gameCode));
+  mapResults.push(await upsertTeamPlatformRecord(pmSource.platform, srcAwayId, srcAwayName, gameCode));
 
   for (const pm of [pmSource, pmTarget]) {
-    await setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
+    await db.setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
   }
 
   const rebuild = await rebuildOnce();
@@ -456,12 +434,11 @@ async function linkPlatformToPlatform(supabase, {
   };
 }
 
-/** 仅记录平台队伍（不写 gb_team_id / canonical_id） */
-async function upsertTeamPlatformRecord(supabase, platform, platformId, platformName, gameCode) {
+async function upsertTeamPlatformRecord(platform, platformId, platformName, gameCode) {
   const pid = String(platformId || "").trim();
   if (!pid) return { skipped: true, reason: "no_platform_id" };
 
-  const { error } = await supabase.from("team_platform_maps").upsert(
+  await db.upsertTeamPlatformMaps([
     {
       platform: String(platform),
       platform_id: pid,
@@ -470,20 +447,18 @@ async function upsertTeamPlatformRecord(supabase, platform, platformId, platform
       source: "manual",
       confidence: 1.0,
     },
-    { onConflict: "platform,platform_id", ignoreDuplicates: false }
-  );
-  if (error) throw new Error(`队伍平台记录写入失败: ${error.message}`);
+  ]);
   return { skipped: false };
 }
 
 /** 手动匹配：写入 gb_team_id 映射 */
-async function upsertManualTeamPlatformMap(supabase, gbTeamId, platform, platformId, platformName, gameCode) {
+async function upsertManualTeamPlatformMap(gbTeamId, platform, platformId, platformName, gameCode) {
   const pid = String(platformId || "").trim();
   if (!pid) return { skipped: true, reason: "no_platform_id" };
   const id = parseGbTeamId(gbTeamId);
   if (id == null) throw new Error("gb_team_id 无效");
 
-  const { error } = await supabase.from("team_platform_maps").upsert(
+  await db.upsertTeamPlatformMaps([
     {
       canonical_id: id,
       platform: String(platform),
@@ -493,9 +468,7 @@ async function upsertManualTeamPlatformMap(supabase, gbTeamId, platform, platfor
       source: "manual",
       confidence: 1.0,
     },
-    { onConflict: "platform,platform_id" }
-  );
-  if (error) throw new Error(`队伍映射写入失败: ${error.message}`);
+  ]);
   return { skipped: false };
 }
 
@@ -613,10 +586,10 @@ async function linkPlatformToClientMatch(supabase, { platform, sourceMatchId, cl
   const pmAwayName = reversed ? pm.home : pm.away;
 
   const mapResults = [];
-  mapResults.push(await upsertTeamPlatformRecord(supabase, plat, pmHomeId, pmHomeName, gameCode));
-  mapResults.push(await upsertTeamPlatformRecord(supabase, plat, pmAwayId, pmAwayName, gameCode));
+  mapResults.push(await upsertTeamPlatformRecord(plat, pmHomeId, pmHomeName, gameCode));
+  mapResults.push(await upsertTeamPlatformRecord(plat, pmAwayId, pmAwayName, gameCode));
 
-  await setPlatformMatchId(plat, srcId, cmId, { force: true });
+  await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
 
   const rebuild = await rebuildOnce();
 
@@ -645,14 +618,8 @@ async function linkPlatformToClientMatch(supabase, { platform, sourceMatchId, cl
   };
 }
 
-async function fetchTeamPlatformMap(supabase, platform, platformId) {
-  const { data } = await supabase
-    .from("team_platform_maps")
-    .select("canonical_id, platform_name, game")
-    .eq("platform", platform)
-    .eq("platform_id", platformId)
-    .maybeSingle();
-  return data;
+async function fetchTeamPlatformMap(platform, platformId) {
+  return db.fetchTeamPlatformMap(platform, platformId);
 }
 
 function validateTeamLinkPair(a, b) {
@@ -672,25 +639,13 @@ function validateTeamLinkPair(a, b) {
   return { platA, platB, idA, idB, gameCode };
 }
 
-async function countTeamMapsForGbId(supabase, gbTeamId) {
-  const { count, error } = await supabase
-    .from("team_platform_maps")
-    .select("platform", { count: "exact", head: true })
-    .eq("canonical_id", gbTeamId);
-  if (error) throw new Error(`统计 gb_team_id 映射失败: ${error.message}`);
-  return count || 0;
+async function countTeamMapsForGbId(gbTeamId) {
+  return db.countTeamMapsForGbId(gbTeamId);
 }
 
 /** 将较大 gb_team_id 下的全部 platform 映射改写到较小编号 */
-async function reassignGbTeamId(supabase, fromId, toId) {
-  if (fromId == null || toId == null || fromId === toId) return 0;
-  const { data, error } = await supabase
-    .from("team_platform_maps")
-    .update({ canonical_id: toId, source: "manual" })
-    .eq("canonical_id", fromId)
-    .select("platform, platform_id");
-  if (error) throw new Error(`改写 gb_team_id 映射失败: ${error.message}`);
-  return (data || []).length;
+async function reassignGbTeamId(fromId, toId) {
+  return db.reassignGbTeamId(fromId, toId);
 }
 
 function resolveTeamLinkGbPlan(gbA, gbB) {
@@ -711,8 +666,8 @@ function resolveTeamLinkGbPlan(gbA, gbB) {
 /** 拖线前预览：说明将采用的 gb_team_id 及合并影响 */
 async function previewLinkPlatformTeams(supabase, { a, b }) {
   const { platA, platB, idA, idB, gameCode } = validateTeamLinkPair(a, b);
-  const mapA = await fetchTeamPlatformMap(supabase, platA, idA);
-  const mapB = await fetchTeamPlatformMap(supabase, platB, idB);
+  const mapA = await fetchTeamPlatformMap(platA, idA);
+  const mapB = await fetchTeamPlatformMap(platB, idB);
   const gbA = parseGbTeamId(mapA?.canonical_id);
   const gbB = parseGbTeamId(mapB?.canonical_id);
   const plan = resolveTeamLinkGbPlan(gbA, gbB);
@@ -721,7 +676,7 @@ async function previewLinkPlatformTeams(supabase, { a, b }) {
 
   let mapsReassigned = 0;
   if (plan.mode === "merge" && plan.loserGb != null) {
-    mapsReassigned = await countTeamMapsForGbId(supabase, plan.loserGb);
+    mapsReassigned = await countTeamMapsForGbId(plan.loserGb);
   }
 
   return {
@@ -752,8 +707,8 @@ async function previewLinkPlatformTeams(supabase, { a, b }) {
 /** 仅关联两平台的队伍 ID 到同一 canonical（不写 match_id、不 rebuild） */
 async function linkPlatformTeams(supabase, { a, b }) {
   const { platA, platB, idA, idB, gameCode } = validateTeamLinkPair(a, b);
-  const mapA = await fetchTeamPlatformMap(supabase, platA, idA);
-  const mapB = await fetchTeamPlatformMap(supabase, platB, idB);
+  const mapA = await fetchTeamPlatformMap(platA, idA);
+  const mapB = await fetchTeamPlatformMap(platB, idB);
   const gbA = parseGbTeamId(mapA?.canonical_id);
   const gbB = parseGbTeamId(mapB?.canonical_id);
   const plan = resolveTeamLinkGbPlan(gbA, gbB);
@@ -761,14 +716,14 @@ async function linkPlatformTeams(supabase, { a, b }) {
   let gbTeamId = plan.targetGb;
   let mapsReassigned = 0;
   if (plan.mode === "merge" && plan.loserGb != null && gbTeamId != null) {
-    mapsReassigned = await reassignGbTeamId(supabase, plan.loserGb, gbTeamId);
+    mapsReassigned = await reassignGbTeamId(plan.loserGb, gbTeamId);
   }
 
   if (!gbTeamId) {
     const pickName = String(a?.platformName || mapA?.platform_name || b?.platformName || mapB?.platform_name || "").trim();
     if (!pickName || isPlaceholderTeamName(pickName)) throw new Error("队名为空，无法创建 canonical");
     try {
-      gbTeamId = await resolveOrCreateManualTeam(supabase, gameCode, pickName);
+      gbTeamId = await resolveOrCreateManualTeam(gameCode, pickName);
     } catch (err) {
       const head = [
         "队伍关联失败：需要为标准队伍分配 gb_team_id",
@@ -784,8 +739,8 @@ async function linkPlatformTeams(supabase, { a, b }) {
   const nameB = String(b?.platformName || mapB?.platform_name || idB).trim();
 
   const written = [];
-  written.push(await upsertManualTeamPlatformMap(supabase, gbTeamId, platA, idA, nameA, gameCode));
-  written.push(await upsertManualTeamPlatformMap(supabase, gbTeamId, platB, idB, nameB, gameCode));
+  written.push(await upsertManualTeamPlatformMap(gbTeamId, platA, idA, nameA, gameCode));
+  written.push(await upsertManualTeamPlatformMap(gbTeamId, platB, idB, nameB, gameCode));
 
   const label = String(gbTeamId);
   const mapsWritten = written.filter((r) => !r.skipped).length;
@@ -819,7 +774,7 @@ async function linkPlatformTeams(supabase, { a, b }) {
   };
 }
 
-async function registerTeamPlatformMap(supabase, { platform, platformId, platformName, gameCode }) {
+async function registerTeamPlatformMap(_supabase, { platform, platformId, platformName, gameCode }) {
   const plat = String(platform || "").trim();
   const pid = String(platformId || "").trim();
   const name = String(platformName || "").trim() || pid;
@@ -827,13 +782,7 @@ async function registerTeamPlatformMap(supabase, { platform, platformId, platfor
   if (!plat || !pid) throw new Error("平台队伍 ID 不完整");
   if (!game || game === "unknown") throw new Error(`无法解析游戏类型（${plat} · ${name}）`);
 
-  const { data: existing, error: fetchErr } = await supabase
-    .from("team_platform_maps")
-    .select("platform_name, canonical_id, game")
-    .eq("platform", plat)
-    .eq("platform_id", pid)
-    .maybeSingle();
-  if (fetchErr) throw new Error(`查询收录状态失败: ${fetchErr.message}`);
+  const existing = await db.fetchTeamPlatformMap(plat, pid);
 
   if (existing) {
     const displayName = String(existing.platform_name || name).trim() || pid;
@@ -852,7 +801,7 @@ async function registerTeamPlatformMap(supabase, { platform, platformId, platfor
     throw err;
   }
 
-  const result = await upsertTeamPlatformRecord(supabase, plat, pid, name, game);
+  const result = await upsertTeamPlatformRecord(plat, pid, name, game);
   if (result.skipped) throw new Error("平台队伍 ID 不完整");
 
   return {
