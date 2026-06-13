@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import GalaxySpinner from "@/components/layout/GalaxySpinner.vue";
-
 defineProps<{
   showLogin?: boolean;
 }>();
@@ -8,7 +6,22 @@ defineProps<{
 
 <template>
   <div class="plugin-intro-shell">
-    <GalaxySpinner v-if="!showLogin" />
+    <div v-if="!showLogin" class="login-page container flex flex-middle flex-center">
+      <div class="login-stage login-stage--heroes-only flex flex-middle flex-center">
+        <img
+          class="login-hero login-hero--left"
+          src="/login/nagato.png"
+          alt="长门"
+          decoding="async"
+        />
+        <img
+          class="login-hero login-hero--right"
+          src="/login/kakashi.png"
+          alt="卡卡西"
+          decoding="async"
+        />
+      </div>
+    </div>
     <div v-else class="login-page container flex flex-middle flex-center">
       <div class="login-stage flex flex-middle flex-center">
         <img
@@ -18,6 +31,11 @@ defineProps<{
           decoding="async"
         />
         <div class="login-center flex flex-column flex-middle">
+          <h1 class="login-jiraiya-title" aria-label="自来也">
+            <span class="login-jiraiya-char">自</span>
+            <span class="login-jiraiya-char">来</span>
+            <span class="login-jiraiya-char">也</span>
+          </h1>
           <img
             class="login-akatsuki"
             src="/login/akatsuki.png"

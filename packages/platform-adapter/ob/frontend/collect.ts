@@ -86,27 +86,64 @@ export async function refreshObCollectToken(): Promise<string | null> {
   }
 }
 
-/** ?? A8 MMe??? live timer ??????? game/index ??????????? getTimer ??????? */
+/** [changmen ??] getTimer ????is_live=2 ??????????h+a+1? */
+export function inferLiveRoundFromObIndexRow(row: Record<string, unknown>): number {
+  if (num(row.is_live) !== 2) return 0;
+  const score = String(row.score ?? "0:0").replace(/\s/g, "");
+  const m = score.match(/^(\d+):(\d+)$/);
+  const home = m ? num(m[1]) : 0;
+  const away = m ? num(m[2]) : 0;
+  const round = Math.max(1, home + away + 1);
+  const bo = num(row.bo);
+  return bo > 0 ? Math.min(round, bo) : round;
+}
+
+/** ?? A8 MMe??? live timer?index is_live=2 ???getTimer ???? score ?? */
 export async function syncObLiveTimer(
   platform: CollectPlatformInfo,
-  activeMatchIds?: ReadonlySet<string>,
+  indexRows?: ReadonlyArray<Record<string, unknown>>,
 ): Promise<void> {
+  const indexById = new Map(
+    (indexRows ?? []).map((row) => [String(row.id ?? ""), row]),
+  );
   const res = await collectObGet<{
     status: string;
     data?: Record<string, Record<string, unknown>>;
   }>(platform, "game/getTimer", "");
-  if (res.status !== "true" || !res.data) return;
-  const timers = Object.values(res.data)
-    .map((row) => ({
-      MatchID: row.match_id,
-      Round: num(row.round),
-      StartTime: num(row.start_time) * 1000,
-    }))
-    .filter((row) => {
-      if (!activeMatchIds?.size) return true;
-      return activeMatchIds.has(String(row.MatchID ?? ""));
+
+  const byId = new Map<string, { MatchID: string | number; Round: number; StartTime: number }>();
+  if (res.status === "true" && res.data) {
+    for (const row of Object.values(res.data)) {
+      const matchId = row.match_id;
+      const mid = String(matchId ?? "");
+      if (!mid) continue;
+      const idx = indexById.get(mid);
+      if (indexById.size && !idx) continue;
+      if (indexById.size && num(idx?.is_live) !== 2) continue;
+      byId.set(mid, {
+        MatchID: matchId as string | number,
+        Round: num(row.round),
+        StartTime: num(row.start_time) * 1000,
+      });
+    }
+  }
+
+  for (const row of indexRows ?? []) {
+    if (num(row.is_live) !== 2) continue;
+    const mid = String(row.id ?? "");
+    if (!mid) continue;
+    const inferred = inferLiveRoundFromObIndexRow(row);
+    if (inferred <= 0) continue;
+    const existing = byId.get(mid);
+    if (existing && num(existing.Round) > 0) continue;
+    byId.set(mid, {
+      MatchID: row.id as string | number,
+      Round: inferred,
+      StartTime: num(existing?.StartTime) > 0 ? num(existing!.StartTime) : Date.now(),
     });
-  await saveLiveTimer(PLATFORMS.OB, timers);
+  }
+
+  await saveLiveTimer(PLATFORMS.OB, [...byId.values()]);
   // ?? A8?timer ????????GetMatchs???? 30s ??
   void useMatchStore().fetchMatches(true);
 }
@@ -210,12 +247,10 @@ export function startObCollector(): () => void {
         const matchPayload = await buildMatchesFromList(list);
         await collect.saveMatch(PLATFORM, matchPayload);
 
-        const liveMatchIds = new Set<string>();
         for (const row of list) {
           if (stopped) break;
           const matchId = String(row.id ?? "");
           if (!matchId) continue;
-          if (num(row.is_live) === 2) liveMatchIds.add(matchId);
           matchCount += 1;
 
           unsubscribeObMatchBeforeView(matchId);
@@ -234,7 +269,7 @@ export function startObCollector(): () => void {
           await subscribeObMatchAfterView(matchId);
         }
 
-        await syncObLiveTimer(platform, liveMatchIds);
+        await syncObLiveTimer(platform, rawList);
       } catch (err) {
         console.warn("[OB] collect error", err);
         notifyCollectError("OB", err);

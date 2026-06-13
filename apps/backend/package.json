@@ -9,7 +9,6 @@
   },
   "type": "module",
   "scripts": {
-    "patch:ui": "node ../web/patch-ui-bundle.js",
     "preweb": "node scripts/preweb.js",
     "web": "node scripts/start-db.mjs",
     "web:rds": "node scripts/start-rds.mjs",

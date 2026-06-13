@@ -72,20 +72,22 @@ function refreshClientMatchRoundsFromTimers(rows, timersByProvider) {
   const timers = timersByProvider || {};
   for (const m of rows) {
     const linked = timerSnapshotProviders(m, timers);
-    if (linked.length) {
-      const { provider, sourceId } = linked[0];
-      const { round, roundStart } = liveRound(timers, provider, sourceId);
-      m.Round = round > 0 ? round : 0;
-      m.RoundStart = round > 0 && roundStart > 0 ? roundStart : 0;
-      continue;
+    if (!linked.length) continue;
+    let round = 0;
+    let roundStart = 0;
+    for (const { provider, sourceId } of linked) {
+      const hit = liveRound(timers, provider, sourceId);
+      if (hit.round > 0) {
+        round = hit.round;
+        roundStart = hit.roundStart;
+        break;
+      }
     }
-    const platforms = Object.keys(m.Matchs || {});
-    const timerCapable = platforms.filter((p) => (PROVIDER_PRIORITY[p] || 0) > 0);
-    const hasAnySnapshot = timerCapable.some((p) => Array.isArray(timers[p]?.timer));
-    if (timerCapable.length && !hasAnySnapshot) {
-      m.Round = 0;
-      m.RoundStart = 0;
+    if (round > 0) {
+      m.Round = round;
+      if (roundStart > 0) m.RoundStart = roundStart;
     }
+    // 有 OB/RAY 等平台 timer 快照但本场未命中：保留 client_matches 原 Round（避免漏采场次被误清零）
   }
 }
 

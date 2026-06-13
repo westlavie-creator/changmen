@@ -69,7 +69,7 @@ export class ViewBet {
     this.round = row.Map;
     if (liveRound !== 0 && liveRound === this.round) {
       this.isLive = true;
-      this.startTime = roundStart;
+      this.startTime = roundStart > 0 ? roundStart : Date.now();
     }
     this.items = Object.values(row.Sources).map(
       (s) => new ViewBetItem(s, String(providers[s.Type] ?? "")),

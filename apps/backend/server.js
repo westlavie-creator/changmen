@@ -21,18 +21,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  *   /matcher/   赛事匹配面板
  *   /esport2/   静态资源与扩展包（extensions/*.zip）
  *
- * 旧 /console/ bundle 仅 ENABLE_LEGACY_CONSOLE=1 或 PATCH_CONSOLE=1 时启用。
+ * 访问 /console/ 会 301 重定向到 /。
  */
 
 const PORT = Number(
   process.env.PORT || (process.platform === "win32" ? 3560 : 3456),
 );
-const LEGACY_CONSOLE =
-  process.env.ENABLE_LEGACY_CONSOLE === "1" || process.env.PATCH_CONSOLE === "1";
 const PUBLIC_DIR = path.join(__dirname, "public");
-const CONSOLE_DIR = LEGACY_CONSOLE
-  ? process.env.GAMEBET_CONSOLE_DIR || path.join(__dirname, "../web/console")
-  : null;
 const WEB_DIR =
   process.env.GAMEBET_WEB_DIR ||
   process.env.GAMEBET_APP_DIR ||
@@ -43,7 +38,6 @@ const MATCHER_DIR =
 
 const serveStatic = createStaticHandler({
   publicDir: PUBLIC_DIR,
-  consoleDir: CONSOLE_DIR,
   webDir: WEB_DIR,
   matcherDir: MATCHER_DIR,
 });
@@ -121,11 +115,8 @@ function onListen() {
     });
   const v4Base = (process.env.A8_V4_URL || "https://api.a8.to/v4.0").replace(/\/+$/, "");
   console.log(`[v4] proxy only → ${v4Base}/ (no mock)`);
-  const legacyHint = LEGACY_CONSOLE
-    ? `  |  legacy: http://localhost:${PORT}/console/`
-    : "";
   console.log(
-    `App: http://localhost:${PORT}/  |  matcher: http://localhost:${PORT}/matcher/${legacyHint}  |  collect: browser`,
+    `App: http://localhost:${PORT}/  |  matcher: http://localhost:${PORT}/matcher/  |  collect: browser`,
   );
 }
 

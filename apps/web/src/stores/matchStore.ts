@@ -101,7 +101,12 @@ export const useMatchStore = defineStore("match", {
       const maxRound = Math.max(...board.score.keys());
       if (!maxRound) return;
       const liveBet = match.bets.find((b) => b.round === maxRound);
-      if (liveBet) liveBet.isLive = true;
+      if (liveBet) {
+        liveBet.isLive = true;
+        if (!liveBet.startTime || liveBet.startTime <= 0) {
+          liveBet.startTime = match.liveRoundStart > 0 ? match.liveRoundStart : Date.now();
+        }
+      }
       for (const bet of match.bets) {
         if (bet.round !== maxRound && bet.isLive) {
           bet.isLive = undefined;
@@ -115,9 +120,10 @@ export const useMatchStore = defineStore("match", {
         const lr = match.liveRound;
         const rs = match.liveRoundStart;
         for (const bet of match.bets) {
-          if (lr !== 0 && lr === bet.round && rs > 0) {
+          if (lr !== 0 && lr === bet.round) {
             bet.isLive = true;
-            bet.startTime = rs;
+            bet.startTime =
+              rs > 0 ? rs : bet.startTime && bet.startTime > 0 ? bet.startTime : Date.now();
           } else {
             bet.isLive = undefined;
             bet.startTime = undefined;

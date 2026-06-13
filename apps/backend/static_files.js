@@ -40,9 +40,7 @@ function canonicalMatcherPath(urlPath) {
   return "/matcher" + suffix;
 }
 
-export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir }) {
-  const legacyConsole = Boolean(consoleDir);
-
+export function createStaticHandler({ publicDir, webDir, matcherDir }) {
   function resolveStaticRoot(urlPath) {
     if (matcherDir && /^\/matcher(\/|$)/i.test(urlPath)) {
       urlPath = canonicalMatcherPath(urlPath) || urlPath;
@@ -51,14 +49,6 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
           ? "/index.html"
           : urlPath.slice("/matcher".length) || "/index.html";
       return { rootDir: matcherDir, fileRel: fileRel === "/" ? "/index.html" : fileRel, spa: false };
-    }
-    if (urlPath === "/console" || urlPath.startsWith("/console/")) {
-      if (!legacyConsole) return null;
-      const fileRel =
-        urlPath === "/console"
-          ? "/index.html"
-          : urlPath.slice("/console".length) || "/index.html";
-      return { rootDir: consoleDir, fileRel: fileRel === "/" ? "/index.html" : fileRel, spa: false };
     }
     if (urlPath.startsWith("/esport2/")) {
       return { rootDir: publicDir, fileRel: urlPath, spa: false };
@@ -73,7 +63,7 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
   }
 
   function cacheControl(urlPath, fileRel, spa, fp) {
-    if (urlPath.startsWith("/console") || /^\/matcher(\/|$)/i.test(urlPath)) {
+    if (/^\/matcher(\/|$)/i.test(urlPath)) {
       return "no-cache, no-store, must-revalidate";
     }
     if (fileRel.endsWith(".html") || (spa && !path.extname(fileRel))) {
@@ -180,7 +170,7 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
       res.end();
       return;
     }
-    if ((urlPath === "/console" || urlPath.startsWith("/console/")) && !legacyConsole) {
+    if (urlPath === "/console" || urlPath.startsWith("/console/")) {
       res.writeHead(301, { Location: "/" });
       res.end();
       return;

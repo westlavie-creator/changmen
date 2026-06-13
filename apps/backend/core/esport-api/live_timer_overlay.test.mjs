@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyObLiveGate,
   liveRound,
   mergeTimerBlocks,
   overlayLiveTimersOnMatches,
@@ -24,12 +25,12 @@ describe("overlayLiveTimersOnMatches", () => {
     Bets: [],
   };
 
-  it("clears stale Round when OB snapshot omits ended match", () => {
+  it("keeps Round when OB snapshot omits match but is_live still live (gate clears ended)", () => {
     const out = overlayLiveTimersOnMatches([baseMatch], {
       OB: { provider: "OB", timer: [{ MatchID: "2", Round: 1, StartTime: 1000 }] },
     });
-    expect(out[0].Round).toBe(0);
-    expect(out[0].RoundStart).toBe(0);
+    expect(out[0].Round).toBe(4);
+    expect(out[0].RoundStart).toBe(5000);
   });
 
   it("keeps live Round when match is in OB snapshot", () => {
@@ -40,10 +41,49 @@ describe("overlayLiveTimersOnMatches", () => {
     expect(out[0].RoundStart).toBe(8000);
   });
 
-  it("clears stale Round when no timer snapshot exists for OB-linked match", () => {
+  it("keeps Round when no timer snapshot exists (await matcher or next SaveLiveTimer)", () => {
     const out = overlayLiveTimersOnMatches([baseMatch], {});
+    expect(out[0].Round).toBe(4);
+    expect(out[0].RoundStart).toBe(5000);
+  });
+});
+
+describe("applyObLiveGate", () => {
+  const baseMatch = {
+    ID: 1,
+    Round: 4,
+    RoundStart: 5000,
+    Matchs: { OB: "99" },
+    Bets: [],
+  };
+
+  it("clears stale Round when is_live=1", () => {
+    const out = applyObLiveGate(
+      [baseMatch],
+      { OB: { 99: { IsLive: 1 } } },
+      { OB: { timer: [{ MatchID: "2", Round: 1, StartTime: 1000 }] } },
+    );
     expect(out[0].Round).toBe(0);
     expect(out[0].RoundStart).toBe(0);
+  });
+
+  it("clears when match dropped from OB timer batch while not is_live=2", () => {
+    const out = applyObLiveGate(
+      [baseMatch],
+      { OB: { 99: { IsLive: 1 } } },
+      { OB: { timer: [{ MatchID: "2", Round: 1, StartTime: 1000 }] } },
+    );
+    expect(out[0].Round).toBe(0);
+  });
+
+  it("keeps Round when is_live=2 even if absent from timer batch", () => {
+    const out = applyObLiveGate(
+      [baseMatch],
+      { OB: { 99: { IsLive: 2 } } },
+      { OB: { timer: [{ MatchID: "2", Round: 1, StartTime: 1000 }] } },
+    );
+    expect(out[0].Round).toBe(4);
+    expect(out[0].RoundStart).toBe(5000);
   });
 });
 

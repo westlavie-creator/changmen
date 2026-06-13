@@ -15,7 +15,6 @@
   ],
   "scripts": {
     "install:all": "npm install",
-    "patch:ui": "node apps/web/patch-ui-bundle.js",
     "preweb": "node apps/backend/scripts/preweb.js",
     "web": "npm run web --prefix apps/backend",
     "web:restart": "npm run web:restart --prefix apps/backend",
