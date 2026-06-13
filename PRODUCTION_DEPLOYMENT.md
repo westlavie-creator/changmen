@@ -2,7 +2,7 @@
 
 changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于开发联调；生产环境客户端连**远程 API**，服务端与 Supabase 跑在服务器/云上。
 
-最后更新：2026-06-11
+最后更新：2026-06-12
 
 ---
 
@@ -12,7 +12,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 ┌─────────────────────────────────────────────────────────┐
 │ 客户端（每台操作员机器）                                   │
 │  Vue / + Chrome 插件                                 │
-│  platform_adapter 采集 → API_SaveMatch / API_SaveBet     │
+│  packages/platform-adapter 采集 → API_SaveMatch / API_SaveBet     │
 │  oddsStore（内存 fo）· 下注 Provider · CollectConfig 门控  │
 └───────────────────────────┬─────────────────────────────┘
                             │ HTTPS（/esport/*）
@@ -109,6 +109,23 @@ npm run matcher:loop
 
 生产建议用 systemd / pm2 / Docker Compose 托管，并配置重启策略。
 
+### 3.4 platform-adapter（HTTP 代理 / 平台 backend）
+
+**标准部署（整仓 `git pull` + `npm install`）**：后端经 workspace 直接使用 `packages/platform-adapter`，**不需要**拷贝到 `apps/backend/platform_adapter`。`scripts/deploy-server-remote.sh` 亦无需额外步骤。
+
+**瘦包部署**（仅发布 `apps/backend`、无 `packages/` 目录时）：
+
+```bash
+cd changmen
+npm run sync:platform-adapter --workspace=@changmen/backend
+# 或在 backend 目录：
+# npm run sync:platform-adapter
+```
+
+将 `registry/` + 各平台 `backend/`（跳过 `frontend/`）同步到 `apps/backend/platform_adapter/`。可选在进程环境设置 `GAMEBET_ADAPTER_ROOT` 指向该目录（否则解析顺序见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)）。
+
+冒烟：`npm run test:adapter --workspace=@changmen/backend`（模拟瘦包布局）。
+
 ### 3.5 健康检查
 
 | 检查 | 期望 |
@@ -198,6 +215,7 @@ M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [apps/web/docs/A8_WALK
 | 文档 | 内容 |
 |------|------|
 | [readme.md](./readme.md) | 项目共识、目录 |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | monorepo 布局、迁移阶段、adapter 解析 |
 | [CLAUDE.md](./CLAUDE.md) | 开发命令、Supabase 表 |
 | [apps/backend/README.md](./apps/backend/README.md) | API、HTTP 代理环境变量 |
 | [scripts/README.md](./scripts/README.md) | `.bat` 脚本说明 |

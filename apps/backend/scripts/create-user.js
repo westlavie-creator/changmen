@@ -6,11 +6,8 @@
  * 示例：node scripts/create-user.js tj01 abc123456
  */
 
-import "dotenv/config";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-const { createClient } = require("@supabase/supabase-js");
+import "@changmen/db/load_env.js";
+import { getSupabaseAdminClient } from "@changmen/db";
 
 async function main() {
   const [userName, password] = process.argv.slice(2);
@@ -20,15 +17,7 @@ async function main() {
     process.exit(1);
   }
 
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
-
-  if (!url || !key) {
-    console.error("缺少 SUPABASE_URL 或 SUPABASE_SERVICE_KEY，请检查 .env");
-    process.exit(1);
-  }
-
-  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const supabase = getSupabaseAdminClient();
 
   const email = `${userName.toLowerCase()}@gamebet.local`;
   console.log(`创建用户: ${userName} (${email})`);

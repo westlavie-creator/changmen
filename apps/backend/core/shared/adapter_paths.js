@@ -4,6 +4,7 @@
 export {
   BACKEND_ROOT,
   getAdapterRoot,
+  resetAdapterRootForTests,
   initAdapterRegistry,
   initEsmPlatformBackends,
   adapterRequire,

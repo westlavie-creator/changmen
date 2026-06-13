@@ -108,8 +108,9 @@ npm run test:adapter            # packaged adapter layout 模拟
 ```
 changmen/
 ├── packages/
-│   ├── shared/             @changmen/shared：catalog、db、odds、im_parse、match_time
-│   ├── platform-adapter/   @changmen/platform-adapter：各平台 frontend/backend + registry
+│   ├── shared/             @changmen/shared：catalog、odds、im_parse、match_time
+│   ├── db/                 @changmen/db：数据层、路径、环境加载、platforms.json
+│   ├── platform-adapter/   @changmen/platform-adapter：各平台 frontend/backend + registry + 采集 npm scripts
 │   ├── team-resolver/      @changmen/team-resolver：队名映射与爬虫
 │   └── match-engine/       @changmen/match-engine
 ├── apps/

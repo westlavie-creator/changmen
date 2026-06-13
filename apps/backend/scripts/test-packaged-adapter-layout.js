@@ -2,36 +2,33 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
-import {
-  getAdapterRoot,
-  adapterRequire,
-  initAdapterRegistry,
-  requirePlatform,
-} from "../core/shared/adapter_paths.js";
+import { syncPlatformAdapterBackendBundle } from "../../../packages/platform-adapter/scripts/sync-backend-bundle.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 const backendRoot = path.join(__dirname, "..");
-const src = path.join(backendRoot, "..", "..", "packages", "platform-adapter");
-const dst = path.join(backendRoot, "platform_adapter");
+const dst = syncPlatformAdapterBackendBundle();
 
-function cpDir(s, d, skipDir) {
-  fs.mkdirSync(d, { recursive: true });
-  for (const n of fs.readdirSync(s)) {
-    if (skipDir && skipDir(n)) continue;
-    const sp = path.join(s, n);
-    const dp = path.join(d, n);
-    if (fs.statSync(sp).isDirectory()) cpDir(sp, dp, skipDir);
-    else fs.copyFileSync(sp, dp);
-  }
-}
+process.env.GAMEBET_ADAPTER_ROOT = dst;
 
-cpDir(src, dst, (n) => n === "frontend" || n === "_template");
+const {
+  getAdapterRoot,
+  adapterRequire,
+  initAdapterRegistry,
+  initEsmPlatformBackends,
+  requirePlatform,
+  resetAdapterRootForTests,
+} = await import("../core/shared/adapter_paths.js");
 
+resetAdapterRootForTests();
 await initAdapterRegistry();
+await initEsmPlatformBackends();
 
 console.log("packaged root:", getAdapterRoot());
+if (path.resolve(getAdapterRoot()) !== path.resolve(dst)) {
+  throw new Error(`expected packaged root ${dst}, got ${getAdapterRoot()}`);
+}
 
 adapterRequire("registry", "feeds.js");
 requirePlatform("OB", "backend", "session.js");
@@ -69,4 +66,5 @@ try {
 
 console.log("packaged layout OK");
 
+delete process.env.GAMEBET_ADAPTER_ROOT;
 fs.rmSync(dst, { recursive: true, force: true });

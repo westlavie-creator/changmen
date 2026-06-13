@@ -64,6 +64,7 @@ team-resolver/cache/*.json
 
 # AI/session scratch (not product code)
 memory/
+apps/backend/platform_adapter/
 
 # Large local captures / dumps
 obdata.json

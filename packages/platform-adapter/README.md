@@ -67,7 +67,7 @@ await initAdapterRegistry();
 const { obGet } = requirePlatform("OB", "backend", "session.js");
 ```
 
-路径解析：开发环境为 `changmen/platform_adapter/`（与 `gamebet_backend` 同级）。
+路径解析：monorepo 默认为 `changmen/packages/platform-adapter/`（`@changmen/platform-adapter`）。瘦包可 `npm run sync:backend-bundle` 同步到 `apps/backend/platform_adapter/`；见 [PRODUCTION_DEPLOYMENT.md](../../PRODUCTION_DEPLOYMENT.md) §3.4。
 
 底层 registry（ESM）：`adapterRequire("registry", "paths.js")` 的 `resolvePlatformFile`（须先 `await initAdapterRegistry()`）。
 

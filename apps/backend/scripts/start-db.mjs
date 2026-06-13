@@ -2,23 +2,12 @@
  * 按 GAMEBET_DB_SCRIPT 启动后端（supabase | rds | dual）。
  * .env 中设置 GAMEBET_DB_SCRIPT，或使用 start-supabase.mjs / start-rds.mjs / start-dual.mjs。
  */
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
+import "@changmen/db/load_env.js";
 import {
   DB_SCRIPT_MODES,
   resolveDbScript,
   initDatabaseUrl,
 } from "@changmen/db";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const backendRoot = path.join(__dirname, "..");
-const envPath = path.join(backendRoot, ".env");
-
-if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
-}
 
 const raw = String(process.env.GAMEBET_DB_SCRIPT || "supabase").trim().toLowerCase();
 const script = resolveDbScript();

@@ -15,7 +15,7 @@
  *   node scripts/import-from-supabase.mjs --only teams
  */
 
-import pg from "pg";
+import pg from "@changmen/db/pg.js";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";

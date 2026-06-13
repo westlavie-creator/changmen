@@ -11,8 +11,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import pg from "pg";
-
+import pg from "@changmen/db/pg.js";
 import { initDatabaseUrl, buildPgClientConfig } from "@changmen/db";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

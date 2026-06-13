@@ -6,26 +6,17 @@
  * 示例：node scripts/sync-user-data.js tj01
  */
 
-import "dotenv/config";
+import "@changmen/db/load_env.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import { getSupabaseAdminClient } from "@changmen/db";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-const { createClient } = require("@supabase/supabase-js");
 
 const userName = process.argv[2];
 if (!userName) {
   console.error("用法: node scripts/sync-user-data.js <用户名>");
-  process.exit(1);
-}
-
-const url = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY;
-if (!url || !key) {
-  console.error("缺少 SUPABASE_URL 或 SUPABASE_SERVICE_KEY");
   process.exit(1);
 }
 
@@ -76,7 +67,7 @@ console.log(`collect_config: ${Object.keys(collect_config).join(", ")}`);
 console.log(`preferences   : ${Object.keys(preferences).join(", ")}`);
 
 async function main() {
-  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const supabase = getSupabaseAdminClient();
 
   const { data: profiles, error: fetchErr } = await supabase
     .from("profiles")

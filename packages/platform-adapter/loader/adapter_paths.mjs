@@ -19,13 +19,33 @@ let _registryReady;
 /** @type {Map<string, Record<string, unknown>>} */
 const _esmPlatformModuleCache = new Map();
 
+/** 仅测试 / 瘦包调试：清空根目录与 registry 缓存 */
+export function resetAdapterRootForTests() {
+  _adapterRoot = undefined;
+  _registryPaths = undefined;
+  _registryFeeds = undefined;
+  _registryReady = undefined;
+  _esmPlatformModuleCache.clear();
+}
+
 /**
  * platform-adapter 根目录。
- * - 开发：changmen/packages/platform-adapter
- * - 可选拷贝：`apps/backend/platform_adapter`（部署脚本复制时，目录名仍为 platform_adapter）
+ * - 显式：`GAMEBET_ADAPTER_ROOT`（瘦包 / 测试）
+ * - 开发：`changmen/packages/platform-adapter`（workspace 包）
+ * - 可选拷贝：`apps/backend/platform_adapter`（`npm run sync:platform-adapter`）
  */
 export function getAdapterRoot() {
   if (_adapterRoot) return _adapterRoot;
+
+  const forced = process.env.GAMEBET_ADAPTER_ROOT?.trim();
+  if (forced) {
+    const abs = path.resolve(forced);
+    if (fs.existsSync(path.join(abs, "registry", "manifest.json"))) {
+      _adapterRoot = abs;
+      return _adapterRoot;
+    }
+    throw new Error(`GAMEBET_ADAPTER_ROOT invalid (no registry/manifest.json): ${abs}`);
+  }
 
   if (fs.existsSync(path.join(PLATFORM_ADAPTER_ROOT, "registry", "manifest.json"))) {
     _adapterRoot = PLATFORM_ADAPTER_ROOT;

@@ -37,6 +37,8 @@ changmen/
 | 10 | 存储路径与环境加载迁入 `@changmen/db`（`paths` / `load_env.cjs`） | ✅ 完成 |
 | 11 | web 对齐 `@changmen/shared`（赔率/时间窗 re-export，workspace 解析） | ✅ 完成 |
 | 12 | platform-adapter 路径收敛；`platforms.json` 迁入 `@changmen/db` | ✅ 完成 |
+| 13 | backend 依赖瘦身（`pg`/`supabase` 经 `@changmen/db`）；平台采集脚本迁入 `@changmen/platform-adapter` | ✅ 完成 |
+| 14 | 生产 `platform_adapter` 瘦包同步脚本 + 部署文档；monorepo 默认直接用 workspace 包 | ✅ 完成 |
 
 旧路径在阶段 5 之前仍可能出现在历史文档中；**以代码里 `adapter_paths.js` / `package.json` 为准**。
 
@@ -53,8 +55,8 @@ apps/matcher ──rebuild──► @changmen/match-engine + @changmen/shared
 apps/matcher ──队名────► @changmen/team-resolver（workspace 依赖，可选）
 packages/team-resolver ──requirePlatform──► @changmen/platform-adapter/loader
 
-apps/backend ──requirePlatform──► packages/platform-adapter（开发）
-apps/backend ──platform_adapter/ 拷贝（生产打包，目录名暂保留）
+apps/backend ──requirePlatform──► packages/platform-adapter（monorepo 默认）
+apps/backend ──可选拷贝──► apps/backend/platform_adapter（瘦包 / GAMEBET_ADAPTER_ROOT）
 ```
 
 ## packages 说明
@@ -72,6 +74,15 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 
 1. `apps/backend/platform_adapter`（部署拷贝）
 2. `changmen/packages/platform-adapter`（开发）
+
+各平台 CLI 采集脚本定义在本包 `package.json`（`ob:*`、`ray:*`、`pb:*` 等）；`apps/backend` 通过 `npm run <script> --workspace=@changmen/platform-adapter` 转发。
+
+**服务端解析顺序**（`loader/adapter_paths.mjs`）：
+
+1. `GAMEBET_ADAPTER_ROOT`（瘦包显式指定）
+2. `packages/platform-adapter`（**标准 monorepo / VPS 部署**，无需拷贝）
+3. `apps/backend/platform_adapter`（`npm run sync:platform-adapter` 生成，已 gitignore）
+4. 遗留 `changmen/platform_adapter`
 
 ### `packages/team-resolver` (`@changmen/team-resolver`)
 
