@@ -1,5 +1,5 @@
 import * as sb from "@changmen/db";
-import { toDateKey, listUserProfitRank } from "./order_store.js";
+import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
@@ -224,6 +224,7 @@ export async function listAdminOrders(body = {}) {
     userId: String(r.user_id),
     playerId: Number(r.player_id) || 0,
     orderId: String(r.order_id || ""),
+    linkId: resolveStoredLink(r.link, r.order_id, r.create_at),
     provider: String(r.provider || ""),
     match: String(r.match || ""),
     bet: String(r.bet || ""),

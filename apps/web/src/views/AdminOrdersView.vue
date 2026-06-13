@@ -37,6 +37,40 @@ const userNameById = computed(() => {
   return map;
 });
 
+/** 同 LinkID 订单归为一组（无 link 时按行 id 单独成组） */
+const orderGroups = computed(() => {
+  const map = new Map<number, AdminOrderRow[]>();
+  for (const row of orders.value) {
+    const key = row.linkId || row.id;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(row);
+  }
+  return [...map.entries()].sort((a, b) => {
+    const ta = Math.max(...a[1].map((r) => r.createAt));
+    const tb = Math.max(...b[1].map((r) => r.createAt));
+    return tb - ta;
+  });
+});
+
+function groupLinkLabel(rows: AdminOrderRow[]) {
+  const link = rows[0]?.linkId || 0;
+  return link ? String(link) : "—";
+}
+
+function groupIsLinked(rows: AdminOrderRow[]) {
+  return (rows[0]?.linkId || 0) > 0 && rows.length > 1;
+}
+
+function groupProfit(rows: AdminOrderRow[]) {
+  return rows.reduce((sum, r) => sum + (Number(r.money) || 0), 0);
+}
+
+function groupProfitClass(rows: AdminOrderRow[]) {
+  const total = groupProfit(rows);
+  if (total === 0) return "";
+  return total > 0 ? "pos" : "neg";
+}
+
 function todayKey() {
   const d = new Date();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -176,34 +210,56 @@ onMounted(async () => {
           <el-button size="small" type="primary" @click="onSearch">查询</el-button>
           <el-button size="small" @click="refresh">刷新</el-button>
         </div>
-        <el-table :data="orders" size="small" stripe>
-          <el-table-column v-if="!filterUserId" label="用户" width="100">
-            <template #default="{ row }">
-              {{ userNameById.get(row.userId) || row.userId.slice(0, 8) }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="provider" label="平台" width="70" />
-          <el-table-column prop="match" label="比赛" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="bet" label="盘口" min-width="140" show-overflow-tooltip />
-          <el-table-column prop="item" label="选项" width="100" show-overflow-tooltip />
-          <el-table-column prop="odds" label="赔率" width="70" />
-          <el-table-column label="投注" width="88">
-            <template #default="{ row }">{{ fmtMoney(row.betMoney) }}</template>
-          </el-table-column>
-          <el-table-column label="盈利" width="88">
-            <template #default="{ row }">
-              <span :class="{ pos: row.money > 0, neg: row.money < 0 }">{{ fmtMoney(row.money) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="80">
-            <template #default="{ row }">
-              <el-tag size="small" :type="statusType(row.status)">{{ row.status }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="时间" width="160">
-            <template #default="{ row }">{{ fmtTime(row.createAt) }}</template>
-          </el-table-column>
-        </el-table>
+        <div class="admin-order-groups">
+          <section
+            v-for="[groupKey, groupRows] in orderGroups"
+            :key="groupKey"
+            class="admin-order-link"
+            :class="{ 'admin-order-link--paired': groupIsLinked(groupRows) }"
+          >
+            <header class="admin-order-link__head">
+              <span class="admin-order-link__id">LinkID {{ groupLinkLabel(groupRows) }}</span>
+              <span v-if="groupIsLinked(groupRows)" class="admin-order-link__meta">
+                {{ groupRows.length }} 笔
+              </span>
+              <span class="admin-order-link__profit" :class="groupProfitClass(groupRows)">
+                合计 {{ fmtMoney(groupProfit(groupRows)) }}
+              </span>
+            </header>
+            <el-table :data="groupRows" size="small" class="admin-order-link__table">
+              <el-table-column label="LinkID" width="108" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.linkId || "—" }}</template>
+              </el-table-column>
+              <el-table-column v-if="!filterUserId" label="用户" width="100">
+                <template #default="{ row }">
+                  {{ userNameById.get(row.userId) || row.userId.slice(0, 8) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="provider" label="平台" width="70" />
+              <el-table-column prop="match" label="比赛" min-width="160" show-overflow-tooltip />
+              <el-table-column prop="bet" label="盘口" min-width="140" show-overflow-tooltip />
+              <el-table-column prop="item" label="选项" width="100" show-overflow-tooltip />
+              <el-table-column prop="odds" label="赔率" width="70" />
+              <el-table-column label="投注" width="88">
+                <template #default="{ row }">{{ fmtMoney(row.betMoney) }}</template>
+              </el-table-column>
+              <el-table-column label="盈利" width="88">
+                <template #default="{ row }">
+                  <span :class="{ pos: row.money > 0, neg: row.money < 0 }">{{ fmtMoney(row.money) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="80">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="statusType(row.status)">{{ row.status }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="时间" width="160">
+                <template #default="{ row }">{{ fmtTime(row.createAt) }}</template>
+              </el-table-column>
+            </el-table>
+          </section>
+          <p v-if="!loading && !orderGroups.length" class="admin-order-groups__empty">暂无订单</p>
+        </div>
         <div class="admin-orders-pager">
           <el-pagination
             v-model:current-page="orderPage"

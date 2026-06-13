@@ -38,6 +38,8 @@ function resolveStoredLink(link, orderId, createAt) {
   return linkFromOrder(orderId, createAt);
 }
 
+export { resolveStoredLink };
+
 function rowToOrder(r) {
   return {
     OrderID: r.order_id,

@@ -91,6 +91,7 @@ export interface AdminOrderRow {
   userId: string;
   playerId: number;
   orderId: string;
+  linkId: number;
   provider: string;
   match: string;
   bet: string;
