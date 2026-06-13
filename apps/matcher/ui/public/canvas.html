@@ -522,9 +522,15 @@ let _linkModalKind = null;
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 }
+function epochMs(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n < 1e12 ? Math.floor(n * 1000) : Math.floor(n);
+}
 function fmtTime(ms) {
-  if (!ms) return '—';
-  return new Date(ms).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const n = epochMs(ms);
+  if (!n) return '—';
+  return new Date(n).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 function pbadge(p) {
   const cls = PLATFORM_ORDER.includes(p) ? `p-${p}` : 'p-default';
@@ -809,7 +815,7 @@ function layoutLayer1PlatformRow(container, items, sortFn) {
     container.style.minHeight = `${rowH}px`;
     return positions;
   }
-  const list = [...items].sort(sortFn || ((a, b) => (a.start_time || 0) - (b.start_time || 0)));
+  const list = [...items].sort(sortFn || ((a, b) => epochMs(a.start_time) - epochMs(b.start_time)));
   let x = PAD;
   for (const m of list) {
     positions.set(pmId(m.platform, m.source_match_id), { x, y: PAD, w: NODE_W, h: NODE_H });

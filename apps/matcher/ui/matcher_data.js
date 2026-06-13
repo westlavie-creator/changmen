@@ -1,6 +1,7 @@
 import { MATCHER_INTERVAL_MS } from "../lib/config.js";
 import { resolveUiGame } from "../lib/game_ui.js";
 import { normalizeTeam } from "@changmen/match-engine";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 import {
   readMatcherHeartbeat,
   isMatcherRunning,
@@ -28,7 +29,7 @@ function recommendationGroupKey(m) {
   const h = normalizeTeam(m.home);
   const a = normalizeTeam(m.away);
   if (!h || !a) return null;
-  const bucket = Math.round((m.start_time || 0) / (30 * 60 * 1000));
+  const bucket = Math.round(normalizeEpochMs(m.start_time) / (30 * 60 * 1000));
   const [t1, t2] = h <= a ? [h, a] : [a, h];
   return { key: `${game.code}:${bucket}:${t1}:${t2}`, game, t1, t2 };
 }
@@ -48,7 +49,7 @@ function computeRecommendations(allMatches) {
     .filter((g) => g.matches.some((m) => !m.match_id))
     .map((g) => {
       const platforms = [...new Set(g.matches.map((m) => m.platform))];
-      const times = g.matches.map((m) => m.start_time || 0).filter(Boolean);
+      const times = g.matches.map((m) => normalizeEpochMs(m.start_time)).filter((t) => t > 0);
       const startTime = times.length ? Math.min(...times) : 0;
       const timeDiffMs = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
       let confidence = 0.6 + (platforms.length - 2) * 0.1;
@@ -134,11 +135,17 @@ async function getMatcherStatus() {
   };
 }
 
+function normalizeDashboardStartTime(row) {
+  return { ...row, start_time: normalizeEpochMs(row.start_time) };
+}
+
 async function fetchMatcherDashboard() {
-  const [allMatches, clientMatchesRaw] = await Promise.all([
+  const [allMatchesRaw, clientMatchesRaw] = await Promise.all([
     fetchPlatformMatchesDashboard(),
     fetchClientMatchesDashboard(),
   ]);
+  const allMatches = (allMatchesRaw || []).map(normalizeDashboardStartTime);
+  const clientMatchesNorm = (clientMatchesRaw || []).map(normalizeDashboardStartTime);
   const recommendations = computeRecommendations(allMatches);
 
   const recByKey = new Map();
@@ -162,7 +169,7 @@ async function fetchMatcherDashboard() {
     byPlatform[m.platform].push(enriched);
   }
 
-  const clientMatches = await enrichClientMatchesMergeMode(clientMatchesRaw, byPlatform);
+  const clientMatches = await enrichClientMatchesMergeMode(clientMatchesNorm, byPlatform);
   const teamMaps = await loadTeamMapsForMatcher(allMatches);
 
   return { platforms: byPlatform, clientMatches, recommendations, teamMaps, updatedAt: Date.now() };

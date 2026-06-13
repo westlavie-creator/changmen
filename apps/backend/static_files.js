@@ -32,11 +32,20 @@ export function isFastStaticRequest(urlPath, method) {
   );
 }
 
+function canonicalMatcherPath(urlPath) {
+  const m = urlPath.match(/^\/matcher(\/.*)?$/i);
+  if (!m) return null;
+  const suffix = m[1];
+  if (!suffix || suffix === "/") return "/matcher/";
+  return "/matcher" + suffix;
+}
+
 export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir }) {
   const legacyConsole = Boolean(consoleDir);
 
   function resolveStaticRoot(urlPath) {
-    if (matcherDir && (urlPath === "/matcher" || urlPath.startsWith("/matcher/"))) {
+    if (matcherDir && /^\/matcher(\/|$)/i.test(urlPath)) {
+      urlPath = canonicalMatcherPath(urlPath) || urlPath;
       const fileRel =
         urlPath === "/matcher" || urlPath === "/matcher/"
           ? "/index.html"
@@ -64,7 +73,7 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
   }
 
   function cacheControl(urlPath, fileRel, spa, fp) {
-    if (urlPath.startsWith("/console") || urlPath.startsWith("/matcher")) {
+    if (urlPath.startsWith("/console") || /^\/matcher(\/|$)/i.test(urlPath)) {
       return "no-cache, no-store, must-revalidate";
     }
     if (fileRel.endsWith(".html") || (spa && !path.extname(fileRel))) {
@@ -131,10 +140,21 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
   }
 
   function serveStatic(req, res) {
-    const urlPath = req.url === "/" ? "/" : req.url.split("?")[0];
+    const rawUrl = req.url || "/";
+    const urlPath = rawUrl === "/" ? "/" : rawUrl.split("?")[0];
+    const query = rawUrl.includes("?") ? rawUrl.slice(rawUrl.indexOf("?")) : "";
+
+    if (matcherDir) {
+      const canonical = canonicalMatcherPath(urlPath);
+      if (canonical && urlPath !== canonical) {
+        res.writeHead(301, { Location: canonical + query });
+        res.end();
+        return;
+      }
+    }
 
     if (urlPath === "/matcher") {
-      res.writeHead(301, { Location: "/matcher/" });
+      res.writeHead(301, { Location: "/matcher/" + query });
       res.end();
       return;
     }

@@ -13,7 +13,9 @@ function splitUrl(url) {
  */
 export function tryHandleMatcherApi(req, res) {
   const { pathname, search } = splitUrl(req.url);
-  if (!pathname.startsWith("/matcher/api/") && pathname !== "/matcher/api") {
+  const matcherApiPrefix = "/matcher/api";
+  const lower = pathname.toLowerCase();
+  if (!lower.startsWith(matcherApiPrefix + "/") && lower !== matcherApiPrefix) {
     return Promise.resolve(false);
   }
 
@@ -27,7 +29,7 @@ export function tryHandleMatcherApi(req, res) {
   }
 
   const saved = req.url;
-  req.url = pathname.slice("/matcher".length) + search;
+  req.url = pathname.slice(pathname.toLowerCase().indexOf("/matcher") + "/matcher".length) + search;
 
   return new Promise((resolve) => {
     let settled = false;
