@@ -159,7 +159,12 @@ export function saveBets(provider, matchId, bets) {
 }
 
 export function saveLiveTimer(provider, timer) {
-  _timers[provider] = { provider, timer, savedAt: Date.now() };
+  _timers[provider] = {
+    provider,
+    timer: Array.isArray(timer) ? timer : [],
+    savedAt: Date.now(),
+  };
+  _dbTimersCache = null;
   sb.writeLiveTimers(provider, timer);
 }
 

@@ -181,8 +181,8 @@ async function _rdsReplacePlatformBets(pool, platform, matchId, rows) {
   }
 }
 
-async function _rdsUpsertLiveTimers(pool, rows) {
-  if (!rows.length) return;
+/** 全量替换某平台 timer 快照：先删该平台全部行，再 upsert 本批（空批 = 清空该平台） */
+async function _rdsReplaceLiveTimersForPlatform(pool, platform, rows) {
   const client = await pool.connect();
   const sql = `
     INSERT INTO live_timers (platform, source_match_id, round, round_start, updated_at)
@@ -194,6 +194,7 @@ async function _rdsUpsertLiveTimers(pool, rows) {
   `;
   try {
     await client.query("BEGIN");
+    await client.query("DELETE FROM live_timers WHERE platform = $1", [String(platform)]);
     for (const r of rows) {
       await client.query(sql, [
         r.platform,
@@ -672,24 +673,25 @@ function replacePlatformBetsForMatch(provider, matchId, bets) {
 
 // ── live_timers ───────────────────────────────────────────────────────
 
-/** fire-and-forget：upsert 比赛计时器（只保最新） */
+/** fire-and-forget：全量替换某平台 timer 快照（对齐 A8 getTimer 整包提交；空数组清空该平台） */
 function writeLiveTimers(provider, timer) {
-  if (!Array.isArray(timer) || !timer.length) return
+  if (!Array.isArray(timer)) return
+  const plat = String(provider)
   const now = Date.now()
-  const rawRows = timer
-    .filter((t) => t && t.MatchID != null)
-    .map((t) => ({
-      platform:        String(provider),
-      source_match_id: String(t.MatchID),
-      round:           Number(t.Round) || 0,
-      round_start:     Number(t.StartTime) || 0,
-      updated_at:      now,
-    }))
-  if (!rawRows.length) return
   const seen = new Map()
-  for (const row of rawRows) seen.set(row.source_match_id, row)
+  for (const t of timer) {
+    if (!t || t.MatchID == null) continue
+    const source_match_id = String(t.MatchID)
+    seen.set(source_match_id, {
+      platform: plat,
+      source_match_id,
+      round: Number(t.Round) || 0,
+      round_start: Number(t.StartTime) || 0,
+      updated_at: now,
+    })
+  }
   const rows = [...seen.values()]
-  _writeRds((pool) => _rdsUpsertLiveTimers(pool, rows), "live_timers")
+  _writeRds((pool) => _rdsReplaceLiveTimersForPlatform(pool, plat, rows), "live_timers")
 }
 
 // ── orders ────────────────────────────────────────────────────────────

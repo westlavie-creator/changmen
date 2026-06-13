@@ -1,6 +1,6 @@
 /**
  * Client_GetMatchs 读取路径：用 live_timers（内存 + RDS）覆盖 client_matches 的 Round/RoundStart。
- * OB 浏览器采集 saveLiveTimer 只写 _timers，matcher rebuild 才有 30s 延迟；Electron 依赖本 overlay 即时展示计时器。
+ * OB 浏览器 saveLiveTimer 写入后端内存 _timers；overlay 在 matcher rebuild（约 30s）前即时修正 Round。
  */
 
 const PROVIDER_PRIORITY = {
@@ -30,13 +30,24 @@ export function liveRound(timers, provider, sourceMatchId) {
   };
 }
 
-/** 内存 _timers 优先于 RDS 快照（同进程 Electron 内 saveLiveTimer 刚写入） */
+/** 内存 _timers 覆盖 RDS 同平台快照（含空数组 = 该平台当前无 live 场） */
 export function mergeTimerBlocks(memoryTimers, dbTimers) {
   const out = { ...(dbTimers || {}) };
   for (const [platform, block] of Object.entries(memoryTimers || {})) {
-    if (block?.timer?.length) out[platform] = block;
+    if (block && Array.isArray(block.timer)) out[platform] = block;
   }
   return out;
+}
+
+function timerSnapshotProviders(match, timersByProvider) {
+  return Object.entries(match.Matchs || {})
+    .map(([provider, sourceId]) => ({
+      provider,
+      sourceId,
+      pri: PROVIDER_PRIORITY[provider] || 0,
+    }))
+    .filter(({ provider }) => Array.isArray(timersByProvider?.[provider]?.timer))
+    .sort((a, b) => b.pri - a.pri);
 }
 
 export function overlayLiveTimersOnMatches(matches, timersByProvider) {
@@ -44,22 +55,13 @@ export function overlayLiveTimersOnMatches(matches, timersByProvider) {
   if (!timersByProvider || !Object.keys(timersByProvider).length) return matches;
 
   return matches.map((m) => {
-    let bestPri = -1;
-    let bestRound = Number(m.Round) || 0;
-    let bestStart = Number(m.RoundStart) || 0;
+    const linked = timerSnapshotProviders(m, timersByProvider);
+    if (!linked.length) return m;
 
-    for (const [provider, sourceId] of Object.entries(m.Matchs || {})) {
-      const pri = PROVIDER_PRIORITY[provider] || 0;
-      const { round, roundStart } = liveRound(timersByProvider, provider, sourceId);
-      if (round <= 0) continue;
-      const start = roundStart > 0 ? roundStart : bestStart;
-      if (pri >= bestPri) {
-        bestPri = pri;
-        bestRound = round;
-        if (roundStart > 0) bestStart = roundStart;
-        else if (!bestStart) bestStart = 0;
-      }
-    }
+    const { provider, sourceId } = linked[0];
+    const { round, roundStart } = liveRound(timersByProvider, provider, sourceId);
+    const bestRound = round > 0 ? round : 0;
+    const bestStart = round > 0 && roundStart > 0 ? roundStart : 0;
 
     if (bestRound === (Number(m.Round) || 0) && bestStart === (Number(m.RoundStart) || 0)) {
       return m;
