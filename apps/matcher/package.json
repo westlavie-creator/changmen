@@ -9,7 +9,7 @@
     "matcher:supabase": "node scripts/start-supabase.mjs",
     "matcher:rds": "node scripts/start-rds.mjs",
     "matcher:dual": "node scripts/start-dual.mjs",
-    "test": "npm run test --prefix ../../packages/match-engine"
+    "test": "npm run test --prefix ../../packages/match-engine && node --test ui/matcher_auth.test.mjs",
   },
   "dependencies": {
     "@changmen/db": "*",

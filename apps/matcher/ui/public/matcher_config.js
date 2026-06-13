@@ -27,11 +27,6 @@
     }
   };
 
-  window.isLocalMatcherDev = function isLocalMatcherDev() {
-    const h = location.hostname;
-    return h === "localhost" || h === "127.0.0.1";
-  };
-
   window.matcherAuthHeaders = function matcherAuthHeaders() {
     const token = window.getSiteToken();
     return token ? { token } : {};
@@ -49,7 +44,7 @@
       "app_token=" + encodeURIComponent(token) + "; path=/; max-age=" + 60 * 60 * 24 * 7 + "; SameSite=Lax";
   }
 
-  if (!window.isLocalMatcherDev() && !window.getSiteToken()) {
+  if (!window.getSiteToken()) {
     window.redirectToSiteLogin();
   }
 })();

@@ -1,16 +1,9 @@
 import store from "../../backend/core/esport-api/store.js";
-import { MATCHER_SKIP_AUTH } from "../lib/config.js";
+import { isAdminUser } from "../../backend/core/account/admin_auth.js";
+import { isMatcherSkipAuthEnabled } from "../lib/config.js";
 
-function isLocalRequest(req) {
-  const host = String(req?.headers?.host || "").split(":")[0].toLowerCase();
-  return host === "localhost" || host === "127.0.0.1";
-}
-
-export function isMatcherAuthBypassed(req) {
-  if (MATCHER_SKIP_AUTH) return true;
-  if (process.env.NODE_ENV === "development") return true;
-  if (req && isLocalRequest(req)) return true;
-  return false;
+export function isMatcherAuthBypassed() {
+  return isMatcherSkipAuthEnabled();
 }
 
 export function getRequestToken(req) {
@@ -19,6 +12,10 @@ export function getRequestToken(req) {
     (typeof req.headers.Token === "string" && req.headers.Token) ||
     "";
   if (header) return header;
+  const auth = req.headers.authorization || req.headers.Authorization;
+  if (typeof auth === "string" && /^Bearer\s+/i.test(auth)) {
+    return auth.replace(/^Bearer\s+/i, "").trim();
+  }
   const cookies = parseCookies(req);
   const fromCookie = cookies.app_token;
   return typeof fromCookie === "string" ? fromCookie : "";
@@ -36,10 +33,19 @@ function parseCookies(req) {
   return out;
 }
 
+export async function resolveMatcherUser(req) {
+  if (isMatcherAuthBypassed()) return { user: { userName: "__skip_auth__" }, bypassed: true };
+  const token = getRequestToken(req);
+  if (!token) return { user: null, bypassed: false };
+  const user = await store.getUserBySupabaseToken(token);
+  return { user, bypassed: false };
+}
+
 export async function isMatcherAuthed(req) {
-  if (isMatcherAuthBypassed(req)) return true;
-  const user = await store.getUserBySupabaseToken(getRequestToken(req));
-  return !!user;
+  const { user, bypassed } = await resolveMatcherUser(req);
+  if (bypassed) return true;
+  if (!user) return false;
+  return isAdminUser(user);
 }
 
 export function createMatcherAuthMiddleware() {
@@ -47,8 +53,16 @@ export function createMatcherAuthMiddleware() {
     try {
       const path = req.path || (req.url || "").split("?")[0];
       if (!path.startsWith("/api/") && path !== "/api") return next();
-      if (await isMatcherAuthed(req)) return next();
-      res.status(401).json({ ok: false, error: "unauthorized", login: "/login" });
+
+      const { user, bypassed } = await resolveMatcherUser(req);
+      if (bypassed) return next();
+      if (!user) {
+        return res.status(401).json({ ok: false, error: "unauthorized", login: "/login" });
+      }
+      if (!isAdminUser(user)) {
+        return res.status(403).json({ ok: false, error: "forbidden", message: "需要管理员权限" });
+      }
+      return next();
     } catch (err) {
       console.error("[matcher] auth error:", err.message);
       if (!res.headersSent) {

@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import "../lib/env.js";
-import { MATCHER_UI_PORT } from "../lib/config.js";
+import { MATCHER_UI_PORT, isMatcherSkipAuthEnabled } from "../lib/config.js";
 import { initDatabaseUrl, isMatcherStoreReady } from "@changmen/db";
 import express from "express";
 import { registerMatcherApiRoutes } from "./api_routes.js";
@@ -44,4 +44,7 @@ app.use((err, req, res, _next) => {
 app.listen(PORT, () => {
   console.log(`[matcher] http://localhost:${PORT}`);
   console.log(`[matcher] debug: http://localhost:${PORT}/api/debug`);
+  if (isMatcherSkipAuthEnabled()) {
+    console.warn("[matcher] MATCHER_SKIP_AUTH=1：API 鉴权已跳过（非 production 且显式开启）");
+  }
 });

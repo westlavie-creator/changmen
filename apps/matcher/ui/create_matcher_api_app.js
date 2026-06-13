@@ -4,6 +4,7 @@ import express from "express";
 import { isMatcherStoreReady } from "@changmen/db";
 import { registerMatcherApiRoutes } from "./api_routes.js";
 import { createMatcherAuthMiddleware } from "./matcher_auth.js";
+import { isMatcherSkipAuthEnabled } from "../lib/config.js";
 
 const require = createRequire(import.meta.url);
 let cachedApp = null;
@@ -27,6 +28,8 @@ export function createMatcherApiApp() {
 
   if (!isMatcherStoreReady()) {
     console.warn("[matcher] 数据库未配置，/matcher/api 将不可用");
+  } else if (isMatcherSkipAuthEnabled()) {
+    console.warn("[matcher] MATCHER_SKIP_AUTH=1：/matcher/api 鉴权已跳过（非 production）");
   }
 
   const app = express();
