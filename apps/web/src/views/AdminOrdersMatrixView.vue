@@ -5,7 +5,7 @@ import AdminLayout from "@/components/admin/AdminLayout.vue";
 import { getAdminOrdersMatrix, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
-import { formatDate } from "@/shared/format";
+import { formatDate, formatLinkId, isSingleLegLink } from "@/shared/format";
 
 const route = useRoute();
 const router = useRouter();
@@ -129,7 +129,7 @@ function buildLinkGroups(rows: AdminOrderRow[]): LinkOrderGroup[] {
         createAt: sorted[0].createAt,
         betMoney: sorted.reduce((s, r) => s + (Number(r.betMoney) || 0), 0),
         money: sorted.reduce((s, r) => s + (Number(r.money) || 0), 0),
-        isLinked: linkId > 0 && sorted.length > 1,
+        isLinked: linkId !== 0 && !isSingleLegLink(linkId) && sorted.length > 1,
       };
     })
     .sort((a, b) => a.createAt - b.createAt);
@@ -174,7 +174,7 @@ function linkGroupForPlayer(betRow: BetRow, playerColKey: string, linkKey: numbe
 
 function linkIdLabel(g: LinkOrderGroup | null) {
   if (!g) return "—";
-  return g.linkId ? String(g.linkId) : "—";
+  return formatLinkId(g.linkId);
 }
 
 interface MatrixDisplayRow {

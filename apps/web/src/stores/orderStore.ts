@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { getOrderList } from "@/api/esport";
 import type { OrderRow } from "@/types/order";
-import { toFixed } from "@/shared/format";
+import { toFixed, formatLinkId, isSingleLegLink } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
 
@@ -120,6 +120,8 @@ export const useOrderStore = defineStore("order", {
     },
 
     linkLegend(rows: OrderRow[]) {
+      const link = Number(rows[0]?.Link) || 0;
+      const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
       const stake = rows
         .filter((r) => !LOSE_REJECT.has(String(r.Status)))
         .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
@@ -130,9 +132,9 @@ export const useOrderStore = defineStore("order", {
           const bet = Number(r.BetMoney) || 0;
           return toFixed(bet * odds - stake, 0);
         });
-      if (unsettled.length) return unsettled.join(" - ");
+      if (unsettled.length) return prefix + unsettled.join(" - ");
       const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
-      return toFixed(total, 0);
+      return prefix + toFixed(total, 0);
     },
 
     linkClass(rows: OrderRow[]) {

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import { getAdminOrders, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
+import { formatLinkId, isSingleLegLink } from "@/shared/format";
 import { useUserStore } from "@/stores/userStore";
 
 const route = useRoute();
@@ -55,12 +56,19 @@ const orderGroups = computed(() => {
 });
 
 function groupLinkLabel(rows: AdminOrderRow[]) {
-  const link = rows[0]?.linkId || 0;
-  return link ? String(link) : "—";
+  return formatLinkId(rows[0]?.linkId);
 }
 
 function groupIsLinked(rows: AdminOrderRow[]) {
-  return (rows[0]?.linkId || 0) > 0 && rows.length > 1;
+  const link = Number(rows[0]?.linkId) || 0;
+  return link !== 0 && !isSingleLegLink(link) && rows.length > 1;
+}
+
+function groupMetaLabel(rows: AdminOrderRow[]) {
+  const link = Number(rows[0]?.linkId) || 0;
+  if (isSingleLegLink(link)) return "单边";
+  if (groupIsLinked(rows)) return `套利 ${rows.length} 笔`;
+  return "单笔";
 }
 
 function groupProfit(rows: AdminOrderRow[]) {
@@ -239,14 +247,14 @@ onMounted(async () => {
             <header class="admin-order-link__head">
               <span class="admin-order-link__id">Link {{ groupLinkLabel(groupRows) }}</span>
               <span v-if="groupIsLinked(groupRows)" class="admin-order-link__meta">套利 {{ groupRows.length }} 笔</span>
-              <span v-else class="admin-order-link__meta">单笔</span>
+              <span v-else class="admin-order-link__meta">{{ groupMetaLabel(groupRows) }}</span>
               <span class="admin-order-link__profit" :class="groupProfitClass(groupRows)">
                 合计 {{ fmtMoney(groupProfit(groupRows)) }}
               </span>
             </header>
             <el-table :data="groupRows" size="small" class="admin-order-link__table">
               <el-table-column label="LinkID" width="108" show-overflow-tooltip>
-                <template #default="{ row }">{{ row.linkId || "—" }}</template>
+                <template #default="{ row }">{{ formatLinkId(row.linkId) }}</template>
               </el-table-column>
               <el-table-column v-if="!filterUserId" label="用户" width="100">
                 <template #default="{ row }">

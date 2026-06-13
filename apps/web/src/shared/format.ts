@@ -82,3 +82,17 @@ export function arbProfitRate(implied: number, digits = 1): string {
   if (!Number.isFinite(implied)) return "N/A";
   return percent(implied - 1, digits);
 }
+
+/** 单边下单 link 存为负时间戳（双腿套利为正时间戳） */
+export function isSingleLegLink(link: number | null | undefined): boolean {
+  const n = Number(link);
+  return Number.isFinite(n) && n < 0;
+}
+
+/** 展示 LinkID：单边为 gb{时间戳}，双腿为数字字符串 */
+export function formatLinkId(link: number | null | undefined): string {
+  const n = Number(link);
+  if (!Number.isFinite(n) || n === 0) return "—";
+  if (n < 0) return `gb${Math.abs(n)}`;
+  return String(n);
+}

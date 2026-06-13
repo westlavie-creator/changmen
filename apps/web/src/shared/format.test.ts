@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arbPercent, arbProfitRate, formatDisplayOdds, formatSecond, percent, toFixed } from "./format";
+import { arbPercent, arbProfitRate, formatDisplayOdds, formatLinkId, formatSecond, isSingleLegLink, percent, toFixed } from "./format";
 
 describe("format shared helpers", () => {
   it("rounds display odds to three decimals and drops invalid values", () => {
@@ -28,5 +28,13 @@ describe("format shared helpers", () => {
   it("converts implied multiplier to profit rate", () => {
     expect(arbProfitRate(1.05)).toBe("5.0%");
     expect(arbProfitRate(1.032, 2)).toBe("3.20%");
+  });
+
+  it("formats single-leg link id with gb prefix", () => {
+    expect(isSingleLegLink(-1710000000123)).toBe(true);
+    expect(isSingleLegLink(1710000000123)).toBe(false);
+    expect(formatLinkId(-1710000000123)).toBe("gb1710000000123");
+    expect(formatLinkId(42)).toBe("42");
+    expect(formatLinkId(0)).toBe("—");
   });
 });

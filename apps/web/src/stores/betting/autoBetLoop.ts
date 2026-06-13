@@ -194,7 +194,6 @@ export async function runAutoBetTick(ctx: AutoBetTickContext): Promise<void> {
 
       let legA = options[0];
       let legB = options[1];
-      const linkId = createBetLinkId();
       const implied =
         1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
 
@@ -217,6 +216,7 @@ export async function runAutoBetTick(ctx: AutoBetTickContext): Promise<void> {
       if (!accountA && !accountB) continue;
 
       const betBothLegs = Boolean(accountA) && Boolean(accountB);
+      const linkId = createBetLinkId(!betBothLegs);
       if (accountA) accountA.active = true;
       if (accountB) accountB.active = true;
       const checkStart = Date.now();
