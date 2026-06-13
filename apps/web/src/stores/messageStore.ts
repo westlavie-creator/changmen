@@ -34,6 +34,12 @@ function accountLine(acc: PlatformAccount) {
   return `${acc.platformName || acc.provider} / ${acc.playerName}`;
 }
 
+/** 对齐 A8 `Gi.send` 账号摘要行（含余额） */
+function balanceAccountLine(acc: PlatformAccount) {
+  const user = useUserStore();
+  return `#${user.userName} ${acc.platformName || acc.provider}，账号：${acc.playerName}，余额：${toFixed(acc.balance ?? 0, 0).toLocaleString()}，场馆：${acc.provider}`;
+}
+
 function profitEmoji(n: number) {
   return n >= 0 ? "🟢" : "🔴";
 }
@@ -111,6 +117,39 @@ export const useMessageStore = defineStore("message", {
 
     enqueuePush(text: string) {
       this.pushQueue.push(text);
+    },
+
+    /** 对齐 A8 `Gi.send.BalanceMessage`：余额 ≥ maxBalance 时 Telegram 提醒 */
+    balanceMessage(account: PlatformAccount, cooldownSec = 1800) {
+      if (!account.maxBalance || (account.balance ?? 0) < account.maxBalance) return;
+      const idx = NOTIFY_TYPES.indexOf("Balance");
+      if (!this.shouldNotify(idx, String(account.accountId), cooldownSec)) return;
+      const body = [
+        htmlTitle("余额超限提醒"),
+        balanceAccountLine(account),
+        `<blockquote>当前余额：${(account.balance ?? 0).toLocaleString()}，大于设定值：${account.maxBalance.toLocaleString()}</blockquote>`,
+      ].join("\n");
+      this.enqueueTelegram(body);
+    },
+
+    /** 对齐 A8 `Gi.send.ProfitMessage`：totalProfit ≥ maxProfit 时 Telegram 提醒 */
+    profitMessage(account: PlatformAccount, cooldownSec = 1800) {
+      if (
+        !account.maxProfit ||
+        !account.totalProfit ||
+        account.totalProfit < account.maxProfit ||
+        account.pause
+      ) {
+        return;
+      }
+      const idx = NOTIFY_TYPES.indexOf("Profit");
+      if (!this.shouldNotify(idx, String(account.accountId), cooldownSec)) return;
+      const body = [
+        htmlTitle("账号盈利超过预设值"),
+        balanceAccountLine(account),
+        `<blockquote>当前盈利：${account.totalProfit.toLocaleString()}，大于设定值：${account.maxProfit.toLocaleString()}</blockquote>`,
+      ].join("\n");
+      this.enqueueTelegram(body);
     },
 
     collectMessage(platform: string, detail: string) {

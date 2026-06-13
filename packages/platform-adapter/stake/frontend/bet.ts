@@ -408,6 +408,9 @@ export const stakeProvider: PlatformProvider = {
         }
       } else if (err0.errorType === "insufficientBalance") {
         account.balance = undefined;
+        void import("@/stores/accountStore").then(({ useAccountStore }) =>
+          useAccountStore().refreshBalance(account),
+        );
       }
       return new BetResult(account.provider, false, message, option.data, root);
     }

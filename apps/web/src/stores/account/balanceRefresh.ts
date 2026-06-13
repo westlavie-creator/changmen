@@ -3,6 +3,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { getProvider } from "@/runtime/providers";
 import { normalizeBalanceError } from "@/stores/account/balanceErrors";
 import type { AccountStoreContext } from "@/stores/account/context";
+import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 import { refreshVenueOrdersQuiet } from "@/stores/account/venueOrders";
 
 /** 对齐 A8 uv.updateBalance：浏览器 Provider 拉场馆 → Client_UpdateBalance 落库 */
@@ -50,6 +51,14 @@ export async function refreshAccountBalance(
     }
     await store.saveAccounts();
     await refreshVenueOrdersQuiet(account);
+    try {
+      const { useMessageStore } = await import("@/stores/messageStore");
+      const msg = useMessageStore();
+      msg.balanceMessage(account);
+      msg.profitMessage(account);
+    } catch {
+      /* 消息队列未启动时不阻断余额刷新 */
+    }
     return true;
   } catch (e) {
     account.balance = undefined;
@@ -77,6 +86,7 @@ export async function refreshAllFromVenues(store: AccountStoreContext) {
   } catch {
     /* 订单拉取失败不阻断余额结果 */
   }
+  await syncModifyHeaderRules(store.accounts);
 }
 
 export function startBalanceRefreshLoop(store: AccountStoreContext) {

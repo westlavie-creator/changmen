@@ -25,6 +25,22 @@ describe("PlatformAccount workTimes", () => {
   });
 });
 
+describe("PlatformAccount currency exchange", () => {
+  it("getBalance 按汇率换算为 CNY 口径", () => {
+    const acc = makeAccount({ currency: "USDT" });
+    acc.balance = 10;
+    expect(acc.getBalance()).toBe(70);
+  });
+
+  it("getBetMoney 先将 CNY 金额按账号汇率折算", () => {
+    const acc = makeAccount({
+      currency: "USDT",
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 1 }],
+    });
+    expect(acc.getBetMoney(70, 1.8)).toBe(10);
+  });
+});
+
 describe("PlatformAccount rateConfig", () => {
   it("applyPatch persists rateConfig through toJSON", () => {
     const acc = makeAccount();

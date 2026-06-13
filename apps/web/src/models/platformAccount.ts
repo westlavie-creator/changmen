@@ -2,6 +2,7 @@ import type { AccountRecord, AccountCurrency } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 import { readGameBetCount } from "@/shared/betTiming";
+import { getExchange } from "@/shared/currency";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 /** [changmen 扩展] rateConfig.rate === 9999 表示该赔率区间不参与投注 */
@@ -97,12 +98,14 @@ export class PlatformAccount implements AccountRecord {
     }
   }
 
+  /** 对齐 A8 `uv.getBalance`：场馆原币余额 × 汇率（CNY 口径） */
   getBalance(): number | undefined {
-    return this.balance;
+    if (this.balance === undefined) return undefined;
+    return this.balance * getExchange(this.currency);
   }
 
   getBetMoney(amount: number, odds: number) {
-    let money = Math.round(amount);
+    let money = Math.round(amount / getExchange(this.currency));
     if (!this.rateConfig?.length) return money;
     const row = this.rateConfig.find(
       (r) =>

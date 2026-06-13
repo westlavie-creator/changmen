@@ -87,6 +87,11 @@ export async function a8PluginGetStore(key: string): Promise<unknown> {
   return a8PluginSend({ type: "getStore", data: { key } });
 }
 
+/** 对齐 A8 `Zn.setStore`：写入扩展 storage（ModifyHeader 等） */
+export async function a8PluginSetStore(key: string, data: unknown): Promise<void> {
+  await a8PluginSend({ type: "setStore", data: { key, data } });
+}
+
 /** 对齐 A8 `Zn.get`：扩展上下文 GET（PB 采集 euro/odds、my-bets 等） */
 export async function a8PluginGet(
   url: string,

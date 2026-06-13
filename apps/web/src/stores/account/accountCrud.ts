@@ -10,6 +10,7 @@ import { PlatformAccount } from "@/models/platformAccount";
 import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 import { refreshAccountBalance, refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
+import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 import type { AccountStoreContext } from "@/stores/account/context";
 
 export function openCreateAccount(store: AccountStoreContext) {
@@ -65,6 +66,7 @@ export async function persistAccounts(store: AccountStoreContext) {
     .map((a) => normalizeAccountMultiplyField(a.toJSON()));
   const ok = await saveAccounts(payload);
   if (!ok) throw new Error("账号保存失败，请检查登录状态或稍后重试");
+  await syncModifyHeaderRules(store.accounts);
   return ok;
 }
 
