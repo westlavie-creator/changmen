@@ -27,6 +27,8 @@ export const useUserStore = defineStore("user", {
     setting: {} as Record<string, unknown>,
     /** 平博 v4 用 A8 账号，来自 GetUserInfo 或 /api/a8/credit-plate-user */
     creditPlateUserName: "",
+    /** restoreSession / 无 token 判定完成后为 true，避免已登录刷新闪登录框 */
+    sessionChecked: !getToken(),
     ready: false,
     error: null as string | null,
     apiDelay: 0,
@@ -98,6 +100,7 @@ export const useUserStore = defineStore("user", {
     async restoreSession() {
       if (!getToken()) {
         this.ready = false;
+        this.sessionChecked = true;
         return false;
       }
       // 提前启动 JWT refresh，防止 token 在使用中到期
@@ -112,6 +115,8 @@ export const useUserStore = defineStore("user", {
         clearAuthSession();
         this.ready = false;
         return false;
+      } finally {
+        this.sessionChecked = true;
       }
     },
 

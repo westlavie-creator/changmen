@@ -18,6 +18,7 @@ const { extensionReady, domExtensionId } = useExtensionGate();
 const extensionHint = gamebetExtensionInstallHint();
 const expectedExtensionId = expectedGamebetExtensionId();
 const sessionReady = computed(() => user.ready);
+const showLogin = computed(() => user.sessionChecked);
 
 async function onLoginSuccess() {
   const redirect = sessionStorage.getItem("gamebet:postLoginRedirect");
@@ -29,7 +30,8 @@ async function onLoginSuccess() {
 </script>
 
 <template>
-  <PluginIntroShell v-if="!sessionReady" :show-login="true">
+  <div v-if="!sessionReady && !showLogin" class="session-restoring" aria-busy="true" />
+  <PluginIntroShell v-else-if="!sessionReady" :show-login="true">
     <p v-if="!extensionReady" class="extension-hint">{{ extensionHint }}</p>
     <p v-if="!extensionReady && domExtensionId" class="extension-hint extension-hint--id">
       页面检测到扩展 ID：<code>{{ domExtensionId }}</code>
@@ -39,3 +41,11 @@ async function onLoginSuccess() {
   </PluginIntroShell>
   <HomeView v-else />
 </template>
+
+<style scoped>
+.session-restoring {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+</style>
