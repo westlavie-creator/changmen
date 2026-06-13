@@ -11,7 +11,7 @@ defineProps<{
 <template>
   <div class="match">
     <div class="match-title">
-      [{{ match.game }}]
+      <label v-if="match.game" class="game-tag">[{{ match.game }}]</label>
       <label v-html="match.title" />
       <label class="startTime">{{ formatDate(match.startAt) }}</label>
     </div>

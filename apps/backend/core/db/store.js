@@ -1,4 +1,5 @@
 import * as sb from "@changmen/db";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
 const _cache = new Map();
@@ -206,14 +207,14 @@ function _applyClientMatchRows(data) {
   _clientMatches.clear();
   for (const row of data) {
     _clientMatches.set(Number(row.id), {
-      ID: row.id,
+      ID: Number(row.id) || 0,
       Title: row.title || "",
       Game: row.game || "",
-      GameID: row.game_id || "",
-      StartTime: row.start_time || 0,
-      BO: row.bo || 0,
-      Round: row.round || 0,
-      RoundStart: row.round_start || 0,
+      GameID: Number(row.game_id) || 0,
+      StartTime: normalizeEpochMs(row.start_time),
+      BO: Number(row.bo) || 0,
+      Round: Number(row.round) || 0,
+      RoundStart: normalizeEpochMs(row.round_start),
       Reverse: Array.isArray(row.reverse) ? row.reverse : [],
       Matchs: row.matchs || {},
       Bets: row.bets || [],

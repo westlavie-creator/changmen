@@ -6,6 +6,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { useOddsStore } from "@/stores/oddsStore";
 import { pickArbLegs } from "@/shared/arbitrage";
 import { sortOptionsByWinRate } from "@/shared/winRate";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
 export type BetSide = "Home" | "Away";
 
@@ -192,7 +193,7 @@ export class ViewMatch {
     this.game = dto.Game;
     this.gameId = dto.GameID;
     this.bo = Number(dto.BO) || 0;
-    this.startAt = dto.StartTime;
+    this.startAt = normalizeEpochMs(dto.StartTime);
     this.reverse = dto.Reverse ?? [];
     this.providers = dto.Matchs ?? {};
     this.liveRound = dto.Round ?? 0;

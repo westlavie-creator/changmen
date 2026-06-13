@@ -231,6 +231,36 @@ function refreshClientMatchStartTimes(rows, matches) {
   }
 }
 
+/** 合并后 Game 为空时，从关联平台原始赛按优先级补全 */
+function pickCanonicalGame(matchs, matches) {
+  let bestPri = -1;
+  let best = { Game: "", GameID: 0 };
+  for (const [provider, sourceMatchId] of Object.entries(matchs || {})) {
+    const m = findPlatformMatch(matches, provider, sourceMatchId);
+    if (!m) continue;
+    const pri = PROVIDER_PRIORITY[provider] || 0;
+    const sourceGameId = m.SourceGameID ?? m.GameID;
+    const { Game, GameID } = resolveClientGame(provider, sourceGameId);
+    if (!Game || pri < bestPri) continue;
+    if (pri > bestPri) {
+      bestPri = pri;
+      best = { Game, GameID };
+    }
+  }
+  return best;
+}
+
+function refreshClientMatchGames(rows, matches) {
+  for (const row of rows || []) {
+    if (row.Game) continue;
+    const picked = pickCanonicalGame(row.Matchs, matches);
+    if (picked.Game) {
+      row.Game = picked.Game;
+      row.GameID = picked.GameID;
+    }
+  }
+}
+
 const _titleResolvers = {
   lookupGbTeamId: lookupGbTeamIdByPlatform,
   lookupCanonicalName: lookupCanonicalTeamName,
@@ -456,6 +486,7 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
   }
 
   refreshClientMatchStartTimes(mergedList, matches);
+  refreshClientMatchGames(mergedList, matches);
   refreshClientMatchSides(mergedList, matches, bets, timers, sourceFromBet);
 
   return filterMultiPlatformClientMatches(mergedList)
@@ -577,6 +608,8 @@ function buildMatchListAccumulate(matches, bets, timers, sourceFromBet) {
 function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
   const normalized = normalizeMatchesShape(matches);
   const list = buildMatchListMerged(normalized, bets, timers, sourceFromBet);
+  refreshClientMatchStartTimes(list, normalized);
+  refreshClientMatchGames(list, normalized);
   refreshClientMatchSides(list, normalized, bets, timers, sourceFromBet);
   return filterMultiPlatformClientMatches(list);
 }

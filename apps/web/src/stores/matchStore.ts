@@ -8,6 +8,7 @@ import type { BetSide } from "@/models/match";
 import type { ClientMatchDto, PlatformId } from "@/types/esport";
 import type { MatchScoreBoard, PlatformScoreUpdate, ScoreRound } from "@/types/matchScore";
 import { useUserStore } from "@/stores/userStore";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
 const POLL_MS = 30_000;
 const DEFAULT_ODDS_MS = 10 * 60 * 1000;
@@ -24,10 +25,10 @@ function rowToDto(row: Record<string, unknown>): ClientMatchDto {
     Title:     String(row.title       ?? ""),
     Game:      String(row.game        ?? ""),
     GameID:    row.game_id            as number,
-    StartTime: Number(row.start_time) || 0,
+    StartTime: normalizeEpochMs(row.start_time),
     BO:        Number(row.bo)         || 0,
     Round:     Number(row.round)      || 0,
-    RoundStart: Number(row.round_start) || 0,
+    RoundStart: normalizeEpochMs(row.round_start),
     Reverse:   Array.isArray(row.reverse) ? (row.reverse as PlatformId[]) : [],
     Matchs:    (row.matchs            as Record<string, string | number>) ?? {},
     Bets:      Array.isArray(row.bets) ? row.bets : [],

@@ -1,10 +1,12 @@
 ﻿/** 对齐 A8 bundle `pt` 常用格式化 */
 
 import { formatOdds } from "@changmen/shared/odds_format.js";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
-export function formatDate(ts: number): string {
-  if (!ts) return "";
-  const d = new Date(ts);
+export function formatDate(ts: number | string | null | undefined): string {
+  const ms = normalizeEpochMs(ts);
+  if (!ms) return "";
+  const d = new Date(ms);
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   const hh = String(d.getHours()).padStart(2, "0");
