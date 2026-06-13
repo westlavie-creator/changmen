@@ -9,7 +9,7 @@ import type { OrderRow } from "@/types/order";
 import { useUserStore } from "@/stores/userStore";
 import { useConfigStore } from "@/stores/configStore";
 import type { ViewBet, ViewMatch } from "@/models/match";
-import type { ArbLegs } from "@/shared/arbitrage";
+import type { ArbLegs } from "@/domain/arbitrage";
 import { arbProfitRate, formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
 import { assessValueBet, formatValueBetTelegramLine } from "@/domain/arbitrage";
 import { wait } from "@/shared/wait";

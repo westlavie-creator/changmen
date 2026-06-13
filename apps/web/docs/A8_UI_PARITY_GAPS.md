@@ -6,7 +6,7 @@
 
 文档索引：[README.md](./README.md)
 
-最后更新：2026-06-08
+最后更新：2026-06-14
 
 ---
 
@@ -93,12 +93,12 @@
 |----|--------|------|------|
 | `betSorting: WinRate` | 有 | 已对齐 | `sortOptionsByWinRate`（`oJe`） |
 | `anyOdds` 被拒重试 | 有 | 已对齐 | `retryFailedLeg`（最多 3 轮换平台；阈值 `anyOdds ? anyOddsProfit : makeProfit`） |
-| `makeUp_defaultOdds` / `makeUp_odds` | 有 | 已对齐 | `allowMakeUpForLeg` + `Client_GetDefaultOdds` |
+| `makeUp_defaultOdds` / `makeUp_odds` | 有 | 已对齐 | `autoBet/makeUp.allowMakeUpForLeg` + `Client_GetDefaultOdds` |
 | 账号 `minDefault` / `maxDefault` | 有 | 已对齐 | 主循环与补单选账号 |
 | `allowSameBet` / `noSameBet` | 有 | 部分 | 使用 `noSameBet` + sessionStorage；命名与 bundle 略有差异 |
 | `noSameProvider` | 有 | 已对齐 | 仅补单 `processLoseOrders`；主循环用 `noSameBet`（bundle 同） |
 | 定时开启投注 | 有 | 已对齐 | `bettingStore.tickAutoOpen` |
-| `maxBetCount` / `BETCOUNT` | 有 | 已对齐 | `bettingSession.passesMaxBetCount` + `incrementBetCount` |
+| `maxBetCount` / `BETCOUNT` | 有 | 已对齐 | `betTiming.passesMaxBetCount` + `incrementBetCount` |
 | 拒单检测主循环 | 有 | 已对齐 | 成功后 `refreshBalance` → 等待 `waitTime ?? 5` → `updateVenueOrders` |
 | 补单拒单复检 | 有 | 已对齐 | `processLoseOrders` 成功后 countdown + 场馆订单 |
 | `checkTimeout` 弹窗 | 有 | 已对齐 | `a8Tip("前置检查超时", …)` |

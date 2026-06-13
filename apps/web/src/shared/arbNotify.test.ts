@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { providerKeysForArbNotify } from "./arbNotify";
+import { resolveArbProviderKeys } from "@/domain/betting";
 
-describe("providerKeysForArbNotify", () => {
+describe("resolveArbProviderKeys (display)", () => {
   it("uses all platforms on the bet row, not account-filtered providers", () => {
-    const keys = providerKeysForArbNotify({
-      items: [{ type: "PB" }, { type: "RAY" }, { type: "OB" }],
+    const keys = resolveArbProviderKeys("display", {
+      bet: { items: [{ type: "PB" }, { type: "RAY" }, { type: "OB" }] },
     });
     expect(keys).toEqual(["PB", "RAY", "OB"]);
   });

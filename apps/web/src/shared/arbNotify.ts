@@ -6,16 +6,7 @@ import { useMatchStore } from "@/stores/matchStore";
 import { useMessageStore } from "@/stores/messageStore";
 import { useUserStore } from "@/stores/userStore";
 
-import type { PlatformId } from "@/types/esport";
-
 let lastScanAt = 0;
-
-/** @deprecated 使用 `resolveArbProviderKeys('display', { bet })` */
-export function providerKeysForArbNotify(bet: {
-  items: { type: PlatformId }[];
-}): PlatformId[] {
-  return resolveArbProviderKeys("display", { bet });
-}
 
 /** 与 BetRow 红线一致：用盘口上全部平台参与检测，不依赖账号余额 */
 export function scanArbTelegramNotifications(minIntervalMs = 5000) {

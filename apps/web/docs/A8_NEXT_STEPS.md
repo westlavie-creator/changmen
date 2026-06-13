@@ -26,7 +26,7 @@
 | 项 | 说明 |
 |----|------|
 | 初赔库 | `data/esport/default_odds.json`，首次见到写入；`Client_GetMatchDefaultOdds` / `Client_GetDefaultOdds` 读库 |
-| WinRate | `getOrderOptions` + `shared/winRate.ts`（对齐 `oJe`） |
+| WinRate | `domain/betting/buildOrderOptions` + `shared/winRate.ts`（对齐 `oJe`） |
 | 补单阈值 | `makeUp_defaultOdds` / `makeUp_odds` 创建补单与 `processLoseOrders` 前检查 |
 | 初赔过滤 | 主循环 / 补单选账号 `minDefault` / `maxDefault` |
 | 初赔轮询 | `matchStore` 独立 10 分钟 timer（对齐 bundle） |

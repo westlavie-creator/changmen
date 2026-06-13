@@ -22,6 +22,7 @@
 | `api/v4.ts` | A8 v4 信用盘试玩（平博/OB/SABA） | `enterCreditPlate` — 详见 [docs/CREDIT_PLATE.md](../docs/CREDIT_PLATE.md) |
 | `types/` | DTO、用户配置、纯类型 | `types/collect.ts`, `types/esport.ts` |
 | `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
+| `domain/` | **套利/下注纯逻辑**（无 Pinia、可单测） | `domain/arbitrage`, `domain/betting` |
 | `packages/platform-adapter/` | **平台清单、能力与平台实现**（Vite `@platform`） | `registry/adapters.ts`, `ob/frontend/collect.ts`, `ob/frontend/bet.ts` |
 | `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp` |
 | `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts` |
@@ -86,6 +87,25 @@ UI 点击 ──► accountStore.checkBetting / betting
 
 账号模型：`models/platformAccount.ts`；列表与选中：`accountStore`。
 
+### 自动套利（编排）
+
+```
+bettingStore.runTick
+  ──► matchStore.fetchMatches + updateOdds
+  ──► notifyArb（Telegram 机会扫描）
+  ──► autoBetLoop.runAutoBetTick
+        └── executeArbBet（单场单 bet）
+              ├── domain/betting.buildOrderOptions（经 ViewBet.getOrderOptions）
+              ├── accountStore.getAccount / checkBetting / betting
+              ├── autoBet/retryFailedLeg（一侧失败换平台）
+              ├── autoBet/rejectWait（拒单等待 + updateVenueOrders）
+              ├── autoBet/makeUp（补单门控 + loseOrder 入队）
+              └── successMarkers.markSuccessfulBet + betTiming 计数
+  ──► processLoseOrders（补单队列）
+```
+
+手动双击：`bettingStore.manualBet` → `manualBet.ts`（同样走 `accountStore` + `successMarkers`）。
+
 ### 用户信息与延迟显示（`Client_GetUserInfo`）
 
 - 对齐 A8：延迟值来自统一请求封装 `api/client.ts` 的 `post()` 耗时采样。
@@ -95,6 +115,36 @@ UI 点击 ──► accountStore.checkBetting / betting
 ---
 
 ## 目录约定
+
+### `domain/`（套利与下注规则）
+
+与 Pinia / Vue 解耦，优先放这里便于单测与 A8 对照。
+
+| 路径 | 用途 | 对齐 A8 |
+|------|------|---------|
+| `domain/arbitrage/pickArbLegs.ts` | 跨平台选最优主客腿、隐含利润率 | bundle 套利检测 |
+| `domain/arbitrage/valueBet.ts` | 相对初赔公允线的价值下注评估 | [changmen 扩展] |
+| `domain/betting/buildOrderOptions.ts` | 对冲金额、`betSorting`、WinRate | `IQ.GetOrderOptions` / `oJe` |
+| `domain/betting/providerKeys.ts` | `display` vs `auto` 平台范围 | UI 全平台 / 自动仅在线账号 |
+| `domain/betting/venueReject.ts` | 场馆拒单判定 | bundle 拒单检测 |
+
+`models/match.ts` 的 `ViewBet.getOrderOptions` 委托 `buildOrderOptions`，保持模型 API 不变。
+
+### `stores/betting/`（下注编排）
+
+| 路径 | 用途 |
+|------|------|
+| `bettingStore.ts` | 定时器、`runTick`、手动下注入口 |
+| `autoBetLoop.ts` | 自动投注 tick：清队列、随机金额、遍历比赛 |
+| `autoBet/executeArbBet.ts` | 单场套利全流程 |
+| `autoBet/makeUp.ts` | 补单阈值 + 入队 |
+| `autoBet/rejectWait.ts` | 成功后拒单等待 |
+| `autoBet/retryFailedLeg.ts` | `anyOdds` 失败腿换平台重试 |
+| `loseOrder.ts` | 补单队列处理 |
+| `manualBet.ts` | 双击手动下单 |
+| `betFilters.ts` | 账号过滤（初赔、lastOdds、maxBetCount） |
+| `successMarkers.ts` | 成功标记、`BETACCOUNT` sessionStorage |
+| `notifyArb.ts` | 套利 Telegram 扫描 [changmen 扩展] |
 
 ### `shared/`（横切）
 
@@ -107,6 +157,8 @@ UI 点击 ──► accountStore.checkBetting / betting
 | `a8Axios.ts` | 对齐 A8 `Nr`：Axios 实例（15s 超时，500/504 不 throw） |
 | `http.ts` | 采集直连 `directGet` / `directPostJson`（**Axios**，非 fetch） |
 | `platformHttp.ts` | **投注账号** HTTP（OB/RAY/TF…；Axios + 可选 relay） |
+| `betTiming.ts` | 下注通知时长、`lastOdds`、`BETCOUNT` / `GAMEBETCOUNT` |
+| `winRate.ts` | WinRate 排序（`betSorting: WinRate`） |
 | `bracketForm.ts` | 嵌套 form-urlencoded（SABA 等） |
 
 ### `platforms/{平台}/`（扁平结构）
