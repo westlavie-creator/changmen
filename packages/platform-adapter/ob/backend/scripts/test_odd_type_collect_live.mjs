@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
- * Live OB：用浏览�?home URL（含 token + addr）拉 game/view，验�?odd_type_id 采集过滤�? *
+ * Live OB：用浏览�?home URL（含 token + addr）拉 game/view，验�?odd_type_id 采集过滤�? *
  * Usage:
  *   node platform_adapter/ob/backend/scripts/test_odd_type_collect_live.mjs "<home url>"
  *   OB_HOME_URL="<home url>" node platform_adapter/ob/backend/scripts/test_odd_type_collect_live.mjs
  *
  * Options:
  *   --max-matches N   默认 5
- *   --lang cn|en      默认 URL 里的 lang，否�?cn
+ *   --lang cn|en      默认 URL 里的 lang，否�?cn
  */
 
 import * as Core from "../core.js";
 import { obGet, pickGateway } from "../session.js";
-import { getGameCodeForPlatformId } from "../../../../shared/catalog/game_catalog.mjs";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
 import {
   getDefaultMarketCode,
   getPlatformRules,
   obLegacyWinBetName,
   obMatchesOddTypeId,
-} from "../../../../shared/catalog/market_catalog.mjs";
+} from "@changmen/shared/catalog/market_catalog.mjs";
 
 const BET_RE = new RegExp(
   "(\\[全场\\].+获胜)|(\\[地图\\d+\\].+获胜)|(.+全局.+获胜)|(.+单局.+获胜)",
@@ -103,8 +103,8 @@ async function main() {
 
   const session = await sessionFromHomeUrl(args.homeUrl, args.lang);
   console.log("[ob-live-odd] gateway:", session.gateway);
-  console.log("[ob-live-odd] mqtt:", session.mqtt || "(�?");
-  console.log("[ob-live-odd] token:", `${session.token.slice(0, 6)}�?{session.token.slice(-4)}`);
+  console.log("[ob-live-odd] mqtt:", session.mqtt || "(�?");
+  console.log("[ob-live-odd] token:", `${session.token.slice(0, 6)}�?{session.token.slice(-4)}`);
 
   const index = await obGet(
     session.gateway,
@@ -191,7 +191,7 @@ async function main() {
       collected: matchCollected.length,
     });
     for (const row of matchCollected) {
-      console.log("  �?, row);
+      console.log("  �?, row);
     }
   }
 
@@ -214,7 +214,7 @@ async function main() {
     process.exit(1);
   }
   if (totalBlocks === 0) {
-    console.warn("[ob-live-odd] WARN: 未拉到任�?game/view block（可能无赛程�?);
+    console.warn("[ob-live-odd] WARN: 未拉到任�?game/view block（可能无赛程�?);
   } else {
     console.log("[ob-live-odd] PASS");
   }

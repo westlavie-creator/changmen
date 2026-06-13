@@ -7,7 +7,8 @@
 ```
 changmen/
 ├── packages/                    # 可复用库（无独立进程）
-│   ├── shared/                  # @changmen/shared — catalog、db、odds、im_parse、match_time
+│   ├── shared/                  # @changmen/shared — catalog、odds、im_parse、match_time
+│   ├── db/                      # @changmen/db — 数据层唯一入口
 │   ├── platform-adapter/        # @changmen/platform-adapter — 各平台 frontend/backend + registry
 │   ├── match-engine/            # @changmen/match-engine — 跨平台合并核心
 │   └── team-resolver/           # @changmen/team-resolver — 队名 canonical 映射 + 爬虫
@@ -30,6 +31,9 @@ changmen/
 | 5 | 包名统一 `@changmen/*`（backend / matcher / web / chrome-extension / team-resolver） | ✅ 完成 |
 | 5 | `gamebet_*` → `apps/*` 重命名 | ✅ 完成 |
 | 6 | 根脚本 / `*.bat` / 部署文档统一到 `apps/` 路径 | ✅ 已完成（`BAT/` 集中实现；含 `apps/web/docs/*` 路径更新） |
+| 7 | `packages/shared/db` → `packages/db`（`@changmen/db`） | ✅ 完成 |
+| 8 | `@changmen/shared` / `@changmen/match-engine` workspace 依赖与 exports | ✅ 完成 |
+| 9 | platform loader 迁入 `@changmen/platform-adapter`；team-resolver 不再依赖 apps/backend | ✅ 完成 |
 
 旧路径在阶段 5 之前仍可能出现在历史文档中；**以代码里 `adapter_paths.js` / `package.json` 为准**。
 
@@ -42,8 +46,9 @@ apps/chrome-extension ─（代理/凭证）─► 各平台源站
 
 packages/platform-adapter ──采集上报──► apps/backend (API_SaveMatch/SaveBet)
 apps/backend ──读写────► packages/db (@changmen/db)
-apps/matcher ──rebuild──► packages/match-engine + packages/shared
+apps/matcher ──rebuild──► @changmen/match-engine + @changmen/shared
 apps/matcher ──队名────► @changmen/team-resolver（workspace 依赖，可选）
+packages/team-resolver ──requirePlatform──► @changmen/platform-adapter/loader
 
 apps/backend ──requirePlatform──► packages/platform-adapter（开发）
 apps/backend ──platform_adapter/ 拷贝（生产打包，目录名暂保留）

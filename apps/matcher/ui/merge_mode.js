@@ -1,4 +1,4 @@
-import { setTeamPlugin, classifyMergeBasis, PROVIDER_PRIORITY } from "../../../packages/match-engine/index.js";
+import { setTeamPlugin, classifyMergeBasis, PROVIDER_PRIORITY } from "@changmen/match-engine";
 
 let _pluginPromise = null;
 

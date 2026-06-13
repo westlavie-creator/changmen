@@ -4,9 +4,18 @@
   "private": true,
   "type": "module",
   "description": "跨平台赛事合并引擎（match_merge、bet_builder、队名与 client_match id）",
-  "main": "index.js",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./teams/team_key.js": "./teams/team_key.js",
+    "./teams/match_utils.js": "./teams/match_utils.js",
+    "./teams/team_aliases.json": "./teams/team_aliases.json"
+  },
   "scripts": {
     "test": "vitest run && npm run test:node",
     "test:node": "node --test tests/ob_bet_builder.test.mjs tests/ia_bet_builder.test.mjs tests/ray_bet_builder.test.mjs"
+  },
+  "dependencies": {
+    "@changmen/shared": "*"
   }
 }

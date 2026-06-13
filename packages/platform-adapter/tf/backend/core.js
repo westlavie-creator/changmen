@@ -1,4 +1,4 @@
-import { matchesMarketCode, getPlatformRules } from "../../../shared/catalog/market_catalog.mjs";
+import { matchesMarketCode, getPlatformRules } from "@changmen/shared/catalog/market_catalog.mjs";
 import { getGameCode, getGameName } from "./game_ids.js";
 
 export function sleep(ms) {
@@ -27,11 +27,11 @@ function parseScoreline(raw) {
 
 export function stageFromTabName(tabName) {
   const name = String(tabName || "").trim();
-  if (!name || name === "MATCH") return { stageId: 0, label: "È«³¡", mapOption: "", marketOption: "MATCH" };
+  if (!name || name === "MATCH") return { stageId: 0, label: "È«ï¿½ï¿½", mapOption: "", marketOption: "MATCH" };
   const mapMatch = name.match(/^MAP\s*(\d+)$/i);
   if (mapMatch) {
     const n = Number(mapMatch[1]);
-    return { stageId: n, label: `µØÍ¼${n}`, mapOption: name, marketOption: "MAP" };
+    return { stageId: n, label: `ï¿½ï¿½Í¼${n}`, mapOption: name, marketOption: "MAP" };
   }
   return null;
 }
@@ -117,7 +117,7 @@ function buildStageFromMarket(market, stageMeta) {
 
   return {
     stageId,
-    label: stageMeta?.label || (stageId === 0 ? "È«³¡" : `µØÍ¼${stageId}`),
+    label: stageMeta?.label || (stageId === 0 ? "È«ï¿½ï¿½" : `ï¿½ï¿½Í¼${stageId}`),
     winHome: Number(homeSel.euro_odds) || null,
     winAway: Number(awaySel.euro_odds) || null,
     winHomeId: selectionOddsId(marketId, "home"),
@@ -125,8 +125,8 @@ function buildStageFromMarket(market, stageMeta) {
     winMarketId: marketId,
     winLocked: locked,
     winMarketStatus: locked
-      ? { code: "locked", label: "ËøÅÌ" }
-      : { code: "open", label: "¿ÉÍ¶×¢" },
+      ? { code: "locked", label: "ï¿½ï¿½ï¿½ï¿½" }
+      : { code: "open", label: "ï¿½ï¿½Í¶×¢" },
     betName: market.market_name,
     mapOption: market.map_option || stageMeta?.mapOption || "",
   };

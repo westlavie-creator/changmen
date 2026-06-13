@@ -6,8 +6,8 @@ import {
   setTeamPlugin,
   normalizeMatchesShape,
   resolveClientMatchIds,
-} from "../../../packages/match-engine/index.js";
-import { formatOdds } from "../../../packages/shared/odds_format.js";
+} from "@changmen/match-engine";
+import { formatOdds } from "@changmen/shared/odds_format.js";
 import * as db from "@changmen/db";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";

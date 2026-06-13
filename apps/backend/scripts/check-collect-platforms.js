@@ -15,7 +15,7 @@ import { ESPORT_DATA_DIR } from "../core/shared/storage_paths.js";
 import store from "../core/esport-api/store.js";
 import { handleEsportRequest } from "../core/esport-api/router.js";
 import { requirePlatform } from "../core/shared/adapter_paths.js";
-import { getPlatformRules, getDefaultMarketCode } from "../../../packages/shared/catalog/market_catalog.mjs";
+import { getPlatformRules, getDefaultMarketCode } from "@changmen/shared/catalog/market_catalog.mjs";
 
 const { getRayA8CollectCredentials } = requirePlatform(
   "RAY",

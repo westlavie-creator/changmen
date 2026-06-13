@@ -12,13 +12,13 @@
  *   node ray_scraper.js --dry-run         # 只打印，不写库
  */
 
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "../../../apps/backend/.env") });
+require("../load_changmen_env.cjs");
 
-const { requirePlatform } = require("../../../apps/backend/core/shared/adapter_paths.js");
-const { login, rayGet } = requirePlatform("RAY", "backend", "session.js");
-const { getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
+const { getGameCodeForPlatformId } = require("@changmen/shared/catalog/game_catalog.mjs");
 const { loadAndCreatePlugin } = require("../supabase_db.js");
+
+let login;
+let rayGet;
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
@@ -119,6 +119,9 @@ async function batchUpsert(rows) {
 // ── 主流程 ────────────────────────────────────────────────────────────────────
 
 async function main() {
+  const { requirePlatform } = await import("@changmen/platform-adapter/loader/adapter_paths.js");
+  ({ login, rayGet } = requirePlatform("RAY", "backend", "session.js"));
+
   console.log(DRY_RUN ? "[ray_scraper] 模式：dry-run（只打印）" : "[ray_scraper] 模式：写入 Supabase");
   console.log(`[ray_scraper] 将抓取 match_type: ${MATCH_TYPES.join(", ")}`);
 

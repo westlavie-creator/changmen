@@ -13,9 +13,10 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-const { buildMatchListAccumulate } = await import("../../../../packages/match-engine/index.js");
-const { formatOdds } = require("../../../../packages/shared/odds_format");
+const changmenRoot = path.resolve(__dirname, "../../..");
+const require = createRequire(path.join(changmenRoot, "package.json"));
+const { buildMatchListAccumulate } = await import("@changmen/match-engine");
+const { formatOdds } = require("@changmen/shared/odds_format.js");
 
 const TJ01_PATH = path.resolve(__dirname, "../../../TJ01.JSON");
 

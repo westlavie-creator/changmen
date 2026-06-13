@@ -1,4 +1,4 @@
-import { describePlatformGame, getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
+import { describePlatformGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
 
 /** matcher UI：平台 source_game_id → { code, name }，未知游戏返回 null */
 export function resolveUiGame(platform, sourceGameId) {

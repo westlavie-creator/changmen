@@ -7,20 +7,21 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
+const changmenRoot = path.resolve(__dirname, "../../..");
+const require = createRequire(path.join(changmenRoot, "package.json"));
 const {
   normalizeImBet,
   imBetNameIsCollectible,
-} = require("../packages/shared/im_parse.mjs");
+} = require("@changmen/shared/im_parse.mjs");
 const {
   IM_ODDS_ACTIVE_MS,
   normalizeEpochMs,
   a8StartTimeListAllowed,
-} = require("../packages/shared/time/match_time.mjs");
+} = require("@changmen/shared/time/match_time.mjs");
 const {
   getGameCodeForPlatformId,
   getPlatformGameId,
-} = require("../packages/shared/catalog/game_catalog.mjs");
+} = require("@changmen/shared/catalog/game_catalog.mjs");
 
 const dataDir = path.join(__dirname, "../apps/backend/data/esport");
 const betsPath = path.join(dataDir, "bets.json");

@@ -15,15 +15,14 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import dotenv from "dotenv";
 import { upsertTeamPlatformMapsBatched } from "@changmen/db";
-import { requirePlatform } from "../../../apps/backend/core/shared/adapter_paths.js";
-import { getGameCodeForPlatformId } from "../../shared/catalog/game_catalog.mjs";
+import { requirePlatform } from "@changmen/platform-adapter/loader/adapter_paths.js";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
-dotenv.config({ path: path.join(__dirname, "../../../apps/backend/.env") });
+await import("@changmen/db/load_env.js");
 
 const { loadAndCreatePlugin } = require("../supabase_db.js");
 const { loadPlatformsJsonSession, fetchEuroOdds } = requirePlatform(

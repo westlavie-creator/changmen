@@ -1,4 +1,4 @@
-import { matchesMarketCode } from "../../../shared/catalog/market_catalog.mjs";
+import { matchesMarketCode } from "@changmen/shared/catalog/market_catalog.mjs";
 import { getGameCode, getGameName } from "./game_ids.js";
 
 export function sleep(ms) {
@@ -6,7 +6,7 @@ export function sleep(ms) {
 }
 
 export function compileBetName(session) {
-  const raw = session?.betName || "([È«³¡].+»ñÊ¤$)|([µØÍ¼\\d+]\\s*»ñÊ¤Õß$)";
+  const raw = session?.betName || "([È«ï¿½ï¿½].+ï¿½ï¿½Ê¤$)|([ï¿½ï¿½Í¼\\d+]\\s*ï¿½ï¿½Ê¤ï¿½ï¿½$)";
   return new RegExp(raw);
 }
 
@@ -38,7 +38,7 @@ function pickTeamNames(row) {
     row?.away_name ||
     row?.team2_name ||
     "";
-  return { home: String(home || "Ö÷¶Ó").trim(), away: String(away || "¿Í¶Ó").trim() };
+  return { home: String(home || "ï¿½ï¿½ï¿½ï¿½").trim(), away: String(away || "ï¿½Í¶ï¿½").trim() };
 }
 
 function pickTeamId(row, side) {
@@ -77,9 +77,9 @@ export function normalizeListEvent(row, filter = {}) {
 }
 
 function betKeyFromChild(child) {
-  let prefix = "[È«³¡]";
+  let prefix = "[È«ï¿½ï¿½]";
   if (child.match !== 0 && child.match != null) {
-    prefix = `[µØÍ¼${child.match}]`;
+    prefix = `[ï¿½ï¿½Í¼${child.match}]`;
   }
   return `${prefix}${child.name || ""}`;
 }
@@ -97,7 +97,7 @@ export function extractStagesFromPlays(plays, betNameRegex) {
       if (!matchesWinBet(child, betNameRegex)) continue;
       const mapNum = Number(child.match) || 0;
       const stageId = mapNum;
-      const label = stageId === 0 ? "È«³¡" : `µØÍ¼${stageId}`;
+      const label = stageId === 0 ? "È«ï¿½ï¿½" : `ï¿½ï¿½Í¼${stageId}`;
       const points = child.team_points || [];
       const homePt = points[0];
       const awayPt = points[1];

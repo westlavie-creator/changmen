@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseClipboardCredential } from "../account/clipboard_credential.js";
-import { getActivePlatformGameIds } from "../../../../packages/shared/catalog/game_catalog.mjs";
+import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

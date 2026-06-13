@@ -1,6 +1,6 @@
 import { MATCHER_INTERVAL_MS } from "../lib/config.js";
 import { resolveUiGame } from "../lib/game_ui.js";
-import { normalizeTeam } from "../../../packages/match-engine/index.js";
+import { normalizeTeam } from "@changmen/match-engine";
 import {
   readMatcherHeartbeat,
   isMatcherRunning,

@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BACKEND_ROOT } from "../../backend/_paths.js";
 import { ESPORT_DATA_DIR } from "../../../../apps/backend/core/shared/storage_paths.js";
-import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
+import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 
@@ -128,16 +128,16 @@ function loadFromEnv() {
   };
 }
 
-/** ???? platforms.json???????? / import-platform §Õ???????? PB_GATEWAY/PB_TOKEN ???????? */
+/** ???? platforms.json???????? / import-platform ï¿½ï¿½???????? PB_GATEWAY/PB_TOKEN ???????? */
 export function loadPlatformsJsonSession() {
   const session = loadFromPlatformsJson();
   if (!session) {
     throw new Error(
-      "??? PB ???????? npm run account:import-platform -- <???data> §Õ?? gamebet_backend/data/esport/platforms.json",
+      "??? PB ???????? npm run account:import-platform -- <???data> ï¿½ï¿½?? gamebet_backend/data/esport/platforms.json",
     );
   }
   if (!buildAuthHeaders(session)) {
-    throw new Error("PB token ??§¹??????? x-app-data / BrowserSessionId_* ?? JSON ?????");
+    throw new Error("PB token ??ï¿½ï¿½??????? x-app-data / BrowserSessionId_* ?? JSON ?????");
   }
   return session;
 }
@@ -150,7 +150,7 @@ export function loadSession() {
     );
   }
   if (!buildAuthHeaders(session)) {
-    throw new Error("PB token ??§¹??????? x-app-data / BrowserSessionId_* ?? JSON ?????");
+    throw new Error("PB token ??ï¿½ï¿½??????? x-app-data / BrowserSessionId_* ?? JSON ?????");
   }
   return session;
 }
@@ -243,7 +243,7 @@ export async function fetchBalance(session, options = {}) {
     throw new Error(data.message || "PB balance failed");
   }
   if (data?.betCredit == null && data?.success !== true) {
-    throw new Error("PB balance ?????§¹");
+    throw new Error("PB balance ?????ï¿½ï¿½");
   }
   return {
     balance: (Number(data.betCredit) || 0) * multiply,
@@ -252,7 +252,7 @@ export async function fetchBalance(session, options = {}) {
   };
 }
 
-/** PB token ??? `a` ??¦²?base64 JSON??????? betCredit?????§¹??????????? */
+/** PB token ??? `a` ??ï¿½ï¿½?base64 JSON??????? betCredit?????ï¿½ï¿½??????????? */
 export function parsePbTokenBalance(token) {
   if (!token) return null;
   try {

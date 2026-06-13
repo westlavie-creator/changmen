@@ -9,15 +9,19 @@
  *   saveMapping(gbTeamId, ...)            → 仅当 gbTeamId 为手动 ID 时写 maps
  */
 
+const { createRequire } = require("module");
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "../../apps/backend/.env") });
 
-// 加载 team_aliases.json（单源：packages/match-engine/teams/）
+require("./load_changmen_env.cjs");
+
+const pkgRequire = createRequire(path.join(__dirname, "package.json"));
+
+// team_aliases.json 单源：@changmen/match-engine
 let _aliases = null;
 function _getAliases() {
   if (!_aliases) {
     try {
-      const raw = require("../match-engine/teams/team_aliases.json");
+      const raw = pkgRequire("@changmen/match-engine/teams/team_aliases.json");
       _aliases = Object.fromEntries(Object.entries(raw).filter(([k]) => !k.startsWith("_")));
     } catch {
       _aliases = {};

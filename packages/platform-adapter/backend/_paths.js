@@ -44,9 +44,10 @@ export function reqB(...segments) {
   return require(path.join(BACKEND_ROOT, ...segments));
 }
 
-/** changmen/packages/shared — game_catalog、market_catalog、im_parse 等 */
+/** changmen/packages/shared — 通过 workspace 包 @changmen/shared 解析 */
 export function reqS(...segments) {
-  return require(path.join(SHARED_ROOT, ...segments));
+  const entry = `@changmen/shared/${segments.join("/")}`;
+  return require(require.resolve(entry, { paths: [BACKEND_NODE_MODULES] }));
 }
 
 export function backendRequire(specifier) {

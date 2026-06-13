@@ -7,8 +7,8 @@ import {
   formatTitle,
   providerPriority,
   teamsFromPlatformRows,
-} from "../../../packages/match-engine/index.js";
-import { resolveClientGame, getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
+} from "@changmen/match-engine";
+import { resolveClientGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
 import { rebuildOnce } from "../ops/rebuild.js";
 import * as db from "@changmen/db";
 

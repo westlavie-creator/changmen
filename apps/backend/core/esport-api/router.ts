@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "http";
-import catalog from "../../../../packages/shared/catalog/game_catalog.json" with { type: "json" };
+import catalog from "@changmen/shared/catalog/game_catalog.json" with { type: "json" };
 import store from "./store.js";
 import { emptyPage as _emptyPage, monthReport } from "./stubs.js";
 import { handleV4Request } from "./v4_router.js";
@@ -10,7 +10,7 @@ import { isAdminUser } from "../account/admin_auth.js";
 import * as adminService from "../account/admin_service.js";
 import { resolveA8Credentials } from "../integrations/a8/config.js";
 import { loginV4 } from "../integrations/a8/v4_client.js";
-import { getPlatformRules, getDefaultMarketCode } from "../../../../packages/shared/catalog/market_catalog.mjs";
+import { getPlatformRules, getDefaultMarketCode } from "@changmen/shared/catalog/market_catalog.mjs";
 import { requirePlatform } from "../shared/adapter_paths.js";
 import * as sb from "@changmen/db";
 import * as dbStore from "../db/store.js";

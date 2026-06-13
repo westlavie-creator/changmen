@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ESPORT_DATA_DIR } from "../../../../apps/backend/core/shared/storage_paths.js";
-import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
+import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
 
 export const DEFAULT_GATEWAY = "https://ilustre-analytics.org";
 
@@ -42,7 +42,7 @@ function buildSessionFromRow(row) {
     betName:
       row.betName ||
       process.env.IA_BET_NAME ||
-      "([È«³¡].+»ñÊ¤$)|([µØÍ¼\\d].+»ñÊ¤Õß$)",
+      "([È«ï¿½ï¿½].+ï¿½ï¿½Ê¤$)|([ï¿½ï¿½Í¼\\d].+ï¿½ï¿½Ê¤ï¿½ï¿½$)",
     gameIds: Array.isArray(row.games) ? row.games.map(String) : parseGameIdsEnv(),
     fetchedAt: null,
   };
@@ -64,7 +64,7 @@ export function tryLoadSession() {
 export function loadSession() {
   const session = tryLoadSession();
   if (!session) {
-    throw new Error("È±ÉÙ IA Æ¾Ö¤£¨IA_GATEWAY + IA_TOKEN »ò platforms.json£©");
+    throw new Error("È±ï¿½ï¿½ IA Æ¾Ö¤ï¿½ï¿½IA_GATEWAY + IA_TOKEN ï¿½ï¿½ platforms.jsonï¿½ï¿½");
   }
   return session;
 }

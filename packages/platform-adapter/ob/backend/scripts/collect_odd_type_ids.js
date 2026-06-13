@@ -6,12 +6,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import gameCatalog from "../../../../shared/catalog/game_catalog.json" with { type: "json" };
+import { createRequire } from "node:module";
+import gameCatalog from "@changmen/shared/catalog/game_catalog.json" with { type: "json" };
 import { login, obGet } from "../session.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 const games = gameCatalog.games;
-const CATALOG_PATH = path.join(__dirname, "../../../../shared/catalog/market_catalog.json");
+const CATALOG_PATH = require.resolve("@changmen/shared/catalog/market_catalog.json");
 const OUT_PATH = path.join(__dirname, "../data/ob_odd_type_ids.json");
 
 function cleanText(v) {
@@ -25,8 +27,8 @@ function classifyWinnerMarket(raw) {
   const odds = Object.values(raw.odds || {});
   const names = new Set(odds.map((o) => cleanText(o.name)));
   if (!names.has("@T1") || !names.has("@T2")) return null;
-  if (/^È«¾Ö\s*-\s*»ñÊ¤$/.test(cn) || en === "match winner") return "full";
-  if (/^µ¥¾Ö\s*-\s*»ñÊ¤$/.test(cn) || en === "map winner") return "map";
+  if (/^È«ï¿½ï¿½\s*-\s*ï¿½ï¿½Ê¤$/.test(cn) || en === "match winner") return "full";
+  if (/^ï¿½ï¿½ï¿½ï¿½\s*-\s*ï¿½ï¿½Ê¤$/.test(cn) || en === "map winner") return "map";
   return null;
 }
 

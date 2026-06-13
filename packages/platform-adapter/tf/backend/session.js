@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { BACKEND_ROOT } from "../../backend/_paths.js";
 import { ESPORT_DATA_DIR } from "../../../../apps/backend/core/shared/storage_paths.js";
-import { getActivePlatformGameIds } from "../../../shared/catalog/game_catalog.mjs";
+import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
 import { tfRequestHeaders } from "./auth.js";
 
 export const DEFAULT_GATEWAY = "https://api-v4.tf-api-rr3h.com";
@@ -43,7 +43,7 @@ function buildSessionFromRow(row) {
     provider: "TF",
     gateway: normalizeGateway(row.gateway),
     token: row.token,
-    betName: row.betName || process.env.TF_BET_NAME || "^»ñÊ¤Õß$",
+    betName: row.betName || process.env.TF_BET_NAME || "^ï¿½ï¿½Ê¤ï¿½ï¿½$",
     gameIds: Array.isArray(row.games) ? row.games.map(String) : parseGameIdsEnv(),
     fetchedAt: null,
   };
@@ -65,7 +65,7 @@ export function tryLoadSession() {
 export function loadSession() {
   const session = tryLoadSession();
   if (!session) {
-    throw new Error("È±ÉÙ TF Æ¾Ö¤£¨TF_GATEWAY + TF_TOKEN »ò platforms.json£©");
+    throw new Error("È±ï¿½ï¿½ TF Æ¾Ö¤ï¿½ï¿½TF_GATEWAY + TF_TOKEN ï¿½ï¿½ platforms.jsonï¿½ï¿½");
   }
   return session;
 }

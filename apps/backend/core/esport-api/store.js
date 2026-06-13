@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
-import { formatBetOdds } from "../../../../packages/shared/odds_format.js";
-import { a8StartTimeListAllowed } from "../../../../packages/shared/time/match_time.mjs";
+import { formatBetOdds } from "@changmen/shared/odds_format.js";
+import { a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
 import { createDefaultOddsApi } from "./default_odds.js";
 import * as dbStore from "../db/store.js";
 import * as sb from "@changmen/db";

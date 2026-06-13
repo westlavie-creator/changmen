@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { describePlatformGame } from "../../../../shared/catalog/game_catalog.mjs";
+import { describePlatformGame } from "@changmen/shared/catalog/game_catalog.mjs";
 import { parseEuroOddsPayload } from "../core.js";
 import { loadSession, fetchEuroOdds, fetchBalance, buildAuthHeaders } from "../session.js";
 
@@ -31,7 +31,7 @@ async function main() {
     }
     const match = parsed.matches.find((m) => m.matchId === String(matchId));
     if (!match) {
-      console.error(`Î´ÕÒµ½ÈüÊÂ ${matchId}`);
+      console.error(`Î´ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ ${matchId}`);
       process.exit(1);
     }
     const game = describePlatformGame("PB", match.gameId);

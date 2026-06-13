@@ -3,5 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "changmen 跨进程共享模块（catalog、odds、time 等；数据层见 @changmen/db）"
+  "description": "changmen 跨进程共享模块（catalog、odds、time 等；数据层见 @changmen/db）",
+  "exports": {
+    "./catalog/game_catalog.mjs": "./catalog/game_catalog.mjs",
+    "./catalog/game_catalog.json": "./catalog/game_catalog.json",
+    "./catalog/market_catalog.mjs": "./catalog/market_catalog.mjs",
+    "./catalog/market_catalog.json": "./catalog/market_catalog.json",
+    "./odds_format.js": "./odds_format.js",
+    "./time/match_time.mjs": "./time/match_time.mjs",
+    "./im_parse.mjs": "./im_parse.mjs"
+  }
 }

@@ -1,6 +1,6 @@
 /**
  * 跨平台赛事合并引擎（@changmen/match-engine）。
- * 依赖：packages/shared、packages/team-resolver（队伍映射插件，由 matcher 动态注入）。
+ * 依赖：@changmen/shared、@changmen/team-resolver（队伍映射插件，由 matcher 动态注入）。
  */
 
 export * from "./merge/match_merge.js";

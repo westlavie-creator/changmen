@@ -14,13 +14,13 @@
  *   node ob_scraper.js --dry-run        # 只打印，不写库
  */
 
-const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, "../../../apps/backend/.env") });
+require("../load_changmen_env.cjs");
 
-const { requirePlatform } = require("../../../apps/backend/core/shared/adapter_paths.js");
-const { login, obGet } = requirePlatform("OB", "backend", "session.js");
-const { getGameCodeForPlatformId } = require("../../shared/catalog/game_catalog.mjs");
+const { getGameCodeForPlatformId } = require("@changmen/shared/catalog/game_catalog.mjs");
 const { loadAndCreatePlugin } = require("../supabase_db.js");
+
+let login;
+let obGet;
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
 
@@ -136,6 +136,9 @@ async function batchUpsert(rows) {
 // ── 主流程 ────────────────────────────────────────────────────────────────────
 
 async function main() {
+  const { requirePlatform } = await import("@changmen/platform-adapter/loader/adapter_paths.js");
+  ({ login, obGet } = requirePlatform("OB", "backend", "session.js"));
+
   console.log(DRY_RUN ? "[ob_scraper] 模式：dry-run（只打印）" : "[ob_scraper] 模式：写入队伍表（GAMEBET_DB_SCRIPT）");
 
   // 1. 登录

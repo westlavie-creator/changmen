@@ -1,4 +1,4 @@
-import { rayIsAggregatedOddsRow } from "../../../shared/catalog/market_catalog.mjs";
+import { rayIsAggregatedOddsRow } from "@changmen/shared/catalog/market_catalog.mjs";
 import { rayMatchStage as matchStageToId } from "../shared/match_stage.js";
 
 export const DEFAULT_GATEWAYS = [
@@ -36,7 +36,7 @@ function stageIdsForBo(bo) {
 }
 
 function stageLabel(stageId) {
-  return stageId === 0 ? "È«³¡" : `µØÍ¼${stageId}`;
+  return stageId === 0 ? "È«ï¿½ï¿½" : `ï¿½ï¿½Í¼${stageId}`;
 }
 
 function teamLogoUrl(path) {
@@ -69,12 +69,12 @@ function extractScoreFromTeams(teams) {
   return { home: 0, away: 0, text: "0:0" };
 }
 
-/** RAY ÅÌ¿Ú status£º1=¿ÉÍ¶£¬ÆäËüÊÓÎªËøÅÌ£¨Óë A8 checkBet Ò»ÖÂ£© */
+/** RAY ï¿½Ì¿ï¿½ statusï¿½ï¿½1=ï¿½ï¿½Í¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ì£ï¿½ï¿½ï¿½ A8 checkBet Ò»ï¿½Â£ï¿½ */
 function describeOddStatus(status) {
   const code = numberOrZero(status);
-  if (code === 1) return { locked: false, code: "open", label: "¿ÉÍ¶×¢" };
-  if (code === 4) return { locked: true, code: "closed", label: "ÒÑ¹Ø±Õ" };
-  return { locked: true, code: "locked", label: `ËøÅÌ(${code})` };
+  if (code === 1) return { locked: false, code: "open", label: "ï¿½ï¿½Í¶×¢" };
+  if (code === 4) return { locked: true, code: "closed", label: "ï¿½Ñ¹Ø±ï¿½" };
+  return { locked: true, code: "locked", label: `ï¿½ï¿½ï¿½ï¿½(${code})` };
 }
 
 function describeMatchStatus(match) {
@@ -88,16 +88,16 @@ function describeMatchStatus(match) {
   if (status === 2) isLive = true;
 
   let code = "scheduled";
-  let label = "Î´¿ªÈü";
+  let label = "Î´ï¿½ï¿½ï¿½ï¿½";
   if (isLive) {
     code = "live";
-    label = score.text && score.text !== "0:0" ? `½øÐÐÖÐ ${score.text}` : "½øÐÐÖÐ";
+    label = score.text && score.text !== "0:0" ? `ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ${score.text}` : "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½";
   } else if (end && end <= now) {
     code = "ended";
-    label = "ÒÑ½áÊø";
+    label = "ï¿½Ñ½ï¿½ï¿½ï¿½";
   } else if (start > now) {
     code = "scheduled";
-    label = "Î´¿ªÈü";
+    label = "Î´ï¿½ï¿½ï¿½ï¿½";
   }
 
   return {
@@ -152,7 +152,7 @@ function normalizeMatchListItem(raw, options = {}) {
     },
     tournament: cleanText(raw.tournament_name || raw.tournament_short_name),
     scheduleScope: startTime <= now ? "live" : "upcoming",
-    scheduleLabel: startTime <= now ? "¹öÇò/½øÐÐÖÐ" : "Î´¿ªÈü",
+    scheduleLabel: startTime <= now ? "ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" : "Î´ï¿½ï¿½ï¿½ï¿½",
     raw,
   };
 }

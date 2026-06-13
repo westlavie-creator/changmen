@@ -1,4 +1,4 @@
-import { getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
 import {
   fetchExistingTeamMapKeys,
   upsertTeamPlatformMaps,
