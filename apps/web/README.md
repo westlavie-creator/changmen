@@ -1,4 +1,4 @@
-# gamebet_frontend（客户端 — Vue 控制台）
+# apps/web（客户端 — Vue 控制台）
 
 浏览器/Electron 侧：新控制台 `/` 为主；旧 bundle `/console/` 仅对照。
 
@@ -13,7 +13,7 @@
 
 > 术语：用户中心「赛事采集」开关 = 是否**回传** `SaveMatch`/`SaveBet`，不是是否连接平台或更新 `oddsStore`。
 
-Chrome 扩展见 [`gamebet_chromeplug/`](../gamebet_chromeplug/)。
+Chrome 扩展见 [`apps/chrome-extension/`](../chrome-extension/)。
 
 生产部署（同源 `/` + 远程 API）：[../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md)
 
@@ -29,6 +29,8 @@ Chrome 扩展见 [`gamebet_chromeplug/`](../gamebet_chromeplug/)。
 | `MIGRATION.md` | 脱离 bundle 阶段表 |
 | `docs/README.md` | 文档索引 |
 
+平台采集源码在 **`packages/platform-adapter/`**（Vite 别名 `@platform`），不在 `src/` 下。
+
 ## 常用命令
 
 在 `changmen/` 目录：
@@ -39,8 +41,8 @@ npm run app:dev     # 开发 http://localhost:5174/（VITE_API_PROXY → 3456）
 npm run web         # 启动服务端
 ```
 
-## 与 gamebet_backend 的关系
+## 与 apps/backend 的关系
 
 - HTTP：`/esport/*`、`/common/*` → 服务端 `esport-api`
-- WS：`/esport/ws/*` → 服务端 relay（供客户端连平台，非 Node Feed）
+- 浏览器采集经 `@platform` 上报 `API_SaveMatch` / `API_SaveBet`；WS 由浏览器直连平台或 A8 聚合机
 - 样式 `/esport2/assets/*` → 服务端 `public/esport2/`

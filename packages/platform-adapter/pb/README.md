@@ -1,6 +1,6 @@
 ﻿# 平博（PB）
 
-脚本位于 `platform_adapter/pb/`：
+脚本位于 `packages/platform-adapter/pb/`：
 
 - `frontend/` — 浏览器采集、下注、鉴权
 - `backend/` — Feed、Session、CLI

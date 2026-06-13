@@ -67,7 +67,7 @@ npm run web
 
 
 
-浏览器采集：`platform_adapter/pb/frontend` → `API_SaveMatch` / `API_SaveBet`；余额/下单通过 **Chrome 插件** 代发（需安装插件并在平博页保持登录）。
+浏览器采集：`packages/platform-adapter/pb/frontend` → `API_SaveMatch` / `API_SaveBet`；余额/下单通过 **Chrome 插件** 代发（需安装插件并在平博页保持登录）。
 
 
 
@@ -116,7 +116,7 @@ npm run web
 ### 新控制台 `/`「平博体育」
 
 信用盘 v4 流程与主站 `Client_Login` 分离；本地 dev 走同源 `/v4.0/`。  
-**第一步 v4 登录已联调通过** — 详见 [gamebet_frontend/docs/CREDIT_PLATE.md](../../../gamebet_frontend/docs/CREDIT_PLATE.md)。
+**第一步 v4 登录已联调通过** — 详见 [apps/web/docs/CREDIT_PLATE.md](../../../../../apps/web/docs/CREDIT_PLATE.md)。
 
 ### 旧控制台 `/console/`「平博体育」（方案 A：A8 账号）
 
@@ -203,7 +203,7 @@ npm run pb:balance
 
 | 凭证采集 | 插件 GetConfig → data | 同上，手动粘贴 → import-platform |
 
-| 赔率采集 | `bQ` → euro/odds | 浏览器 `platform_adapter/pb/frontend` |
+| 赔率采集 | `bQ` → euro/odds | 浏览器 `packages/platform-adapter/pb/frontend` |
 | 写入 store | `API_SaveMatch` / `API_SaveBet` | 同上（CollectConfig 开时） |
 | 余额/下单 | 插件代发 | 插件（`ENABLE_PB_NODE=1` 时改 proxy，仅 /console/） |
 

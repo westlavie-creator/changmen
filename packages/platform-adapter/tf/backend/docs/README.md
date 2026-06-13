@@ -4,7 +4,7 @@ A8 采集模式：**HTTP `/api/v8/events/` 快照 + A8 中继 WebSocket**（`UBe
 
 **完整 A8 逻辑说明（凭证、头、轮询、下注）**：
 
-`gamebet_frontend/docs/platforms/A8_TF_LOGIC_PARITY.md`
+`apps/web/docs/platforms/A8_TF_LOGIC_PARITY.md`
 
 ## 数据流
 
@@ -69,7 +69,7 @@ node scripts/check-collect-platforms.js
 | `tf_session.js` | HTTP /events |
 | `tf_core.js` | 比赛/盘口归一化、WS 合并 |
 | `tf_ws.js` | WebSocket 客户端 |
-| `tf_feed.js` | （已删除）原 FeedHub；采集在 `platform_adapter/tf/frontend` |
+| `tf_feed.js` | （已删除）原 FeedHub；采集在 `packages/platform-adapter/tf/frontend` |
 | `tf_game_ids.json` | TF game_id ↔ catalog code |
 
 本地 WS 隧道：`proxy/tf_ws_relay.js`（Dashboard `/esport/ws/TF`）。

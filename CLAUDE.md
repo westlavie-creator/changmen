@@ -68,7 +68,7 @@ npm run app:build         # vue-tsc + vite build → apps/web/dist/
 ### Tests
 
 ```bat
-npm test                    # 后端 vitest + adapter 冒烟 + 前端 vitest（含 platform_adapter）
+npm test                    # 后端 vitest + adapter 冒烟 + 前端 vitest（含 @platform）
 npm run test:backend
 npm run test:frontend
 ```
@@ -139,7 +139,7 @@ changmen/
 |---|---|---|
 | 入口 | `server.js`、`http_routes.js`、`proxy/` | HTTP server + HTTP 代理 |
 | Core | `core/` | 业务逻辑：路由/store/账号/DB/shared utils |
-| Platform | `platform_adapter/` | 各场馆 frontend/backend + registry（canonical） |
+| Platform | `packages/platform-adapter/`（`@changmen/platform-adapter`） | 各场馆 frontend/backend + registry（canonical） |
 
 后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` 加载平台模块。详见 `packages/platform-adapter/README.md`。
 
@@ -178,12 +178,12 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 |-----------|------|
 | `api/` | All `Client_*` HTTP calls to the backend (`client.ts` wraps token + `post()`) |
 | `runtime/` | `collectors.ts` + `providers.ts` — wired at app startup; registers all adapters |
-| `@platform/*` | Vite alias → `changmen/platform_adapter/`（canonical 采集/下注源码） |
-| `platform_adapter/registry/adapters.ts` | `PLATFORM_ADAPTERS` + `buildCollectorFactories()` |
+| `@platform/*` | Vite alias → `packages/platform-adapter/`（canonical 采集/下注源码） |
+| `packages/platform-adapter/registry/adapters.ts` | `PLATFORM_ADAPTERS` + `buildCollectorFactories()` |
 | `stores/` | 10 Pinia stores; `matchStore` owns the polling loop; `oddsStore` is the real-time odds cache (`fo`) |
 | `shared/http.ts` | `directGet` / `directPostJson` — Axios for collect HTTP (bypasses backend proxy) |
 | `shared/platformHttp.ts` | Axios for betting account HTTP (supports relay, optional SOCKS proxy) |
-| `platform_adapter/shared/` | 采集横切：`collectSession`、`collectNotify`、`socket/`（A8 频道 IM/XBet/Stake） |
+| `packages/platform-adapter/shared/` | 采集横切：`collectSession`、`collectNotify`、`socket/`（A8 频道 IM/XBet/Stake） |
 
 `@` alias maps to `src/`.
 
@@ -247,9 +247,9 @@ All A8 parity tracking lives under `apps/web/docs/`:
 ### Adding a new platform
 
 1. `types/esport.ts` — add to `PlatformId`
-2. `platform_adapter/registry/` — register in `adapters.ts` + platform meta
-3. `platform_adapter/{id}/` — `index.ts` adapter + `frontend/collect.ts` + `frontend/bet.ts` + `backend/` 探针/relay
+2. `packages/platform-adapter/registry/` — register in `adapters.ts` + platform meta
+3. `packages/platform-adapter/{id}/` — `index.ts` adapter + `frontend/collect.ts` + `frontend/bet.ts` + `backend/` 探针/relay
 4. `runtime/collectors.ts` + `runtime/providers.ts` — 经 `buildCollectorFactories()` 自动注册（新平台需加入 registry）
 5. Backend: add `syncXxxFromEnv` / `syncXxxFromSession` in `platform_sync.js` and call it in `ensurePlatformCredentials`
 
-详见 [platform_adapter/README.md](./platform_adapter/README.md)。
+详见 [packages/platform-adapter/README.md](./packages/platform-adapter/README.md)。

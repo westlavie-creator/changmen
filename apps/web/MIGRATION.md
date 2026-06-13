@@ -1,7 +1,7 @@
-# 脱离 ui_bundle 迁移对照
+# apps/web — 脱离 ui_bundle 迁移对照
 
-新控制台源码：`gamebet_frontend/`
-旧控制台（bundle）：`gamebet_frontend/console/` → `/console/`
+新控制台源码：`apps/web/`
+旧控制台（bundle）：`apps/web/console/` → `/console/`
 生产访问：`http://localhost:3456/`（需先 `npm run app:build`）
 
 开发：`npm run app:dev` → `http://localhost:5174/`
@@ -44,7 +44,7 @@
 | [docs/A8_PARITY_AUDIT_MACHINE.json](./docs/A8_PARITY_AUDIT_MACHINE.json) | 机器审计（`npm run audit:a8`，View 源为 vendor bundle） |
 
 ```bash
-cd changmen/gamebet_frontend
+cd changmen/apps/web
 npm run audit:a8   # CSS 选择器与 bundle View 映射
 npm run test:v4    # 平博 v4（backend 3456）
 npm run build
@@ -52,7 +52,7 @@ npm run build
 
 ## 平博信用盘（`/`）
 
-与主站 `Client_Login` 分离：v4 使用 **A8 账号 + `a123456`**。本地 dev 默认 **`/v4.0/`** 代理到 gamebet_backend。
+与主站 `Client_Login` 分离：v4 使用 **A8 账号 + `a123456`**。本地 dev 默认 **`/v4.0/`** 代理到 `apps/backend`。
 
 详细说明：[docs/CREDIT_PLATE.md](./docs/CREDIT_PLATE.md)
 
@@ -73,7 +73,7 @@ npm run build
 | `qZe` / `SQ` | `hgProvider` / `hg/followLoop.ts` | 皇冠跟单 |
 | 自动投注循环 | `src/stores/bettingStore.ts` | WinRate、anyOdds、补单阈值等 |
 | `Gi` | `src/stores/messageStore.ts` | 推送/Telegram |
-| `NMe` … `PQ` | `platform_adapter/*/frontend/*` | 各平台采集 |
+| `NMe` … `PQ` | `packages/platform-adapter/*/frontend/*` | 各平台采集 |
 | `SQ` | `hg/index.ts` + `hg/followLoop.ts` | HG 余额轮询 + 跟单（非 saveMatch） |
 | `LoginView` | `src/views/LoginView.vue` | |
 | `HomeView` | `src/views/HomeView.vue` | |
@@ -88,7 +88,7 @@ npm run build
 
 ## API 封装（阶段 0 已覆盖 router.js 全部 action）
 
-见 `gamebet_frontend/src/api/esport.ts`。
+见 `apps/web/src/api/esport.ts`。
 
 ## 双轨对照测试
 

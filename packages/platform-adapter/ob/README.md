@@ -1,6 +1,6 @@
 ﻿# OB
 
-平台脚本已迁入 `platform_adapter/ob/`。
+平台脚本已迁入 `packages/platform-adapter/ob/`。
 
 | 目录 | 内容 |
 |------|------|

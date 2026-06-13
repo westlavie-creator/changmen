@@ -12,4 +12,4 @@
 
 前端引用：`import { … } from "@platform/shared/collectNotify"` 等。
 
-`gamebet_frontend/src/platforms/shared/` 保留 **shim**（re-export），阶段 D 删除。
+`apps/web/src/` 下原 `platforms/shared/` shim 已删除；采集共享代码在本包 `shared/`。

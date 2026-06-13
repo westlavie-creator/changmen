@@ -80,7 +80,7 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/
 
 **TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[apps/web/docs/platforms/A8_TF_LOGIC_PARITY.md](./apps/web/docs/platforms/A8_TF_LOGIC_PARITY.md)。
 
-平台采集 canonical 源码目录：`platform_adapter/{平台}/frontend/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 请以 `platform_adapter/` 为准。
+平台采集 canonical 源码目录：`packages/platform-adapter/{平台}/frontend/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 或旧名 `packages/platform-adapter/` 请以本目录为准。
 
 ---
 
@@ -89,7 +89,7 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/
 各平台采集在**客户端**完成，经 HTTP 上报服务端。
 
 ```text
-platform_adapter（浏览器） ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► Supabase
+packages/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► Supabase
 服务端 matcher ──► client_matches ──► Client_GetMatchs ──► 客户端 matchStore
 客户端 oddsStore（实时赔，对齐 A8 fo）
 ```
@@ -98,26 +98,26 @@ platform_adapter（浏览器） ──► API_SaveMatch / API_SaveBet ──► 
 
 | 平台 | 源码 | 机制 | 凭证要求 |
 |------|------|------|----------|
-| OB | `platform_adapter/ob/frontend/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
-| RAY | `platform_adapter/ray/frontend/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `platform_adapter/ray/backend/collect_credentials.js`） |
-| TF | `platform_adapter/tf/frontend/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
-| IA | `platform_adapter/ia/frontend/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
-| PB | `platform_adapter/pb/frontend/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
-| IMT | `platform_adapter/imt/frontend/collect.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
-| SABA | `platform_adapter/saba/frontend/collect.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
-| IM | `platform_adapter/im/frontend/collect.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
-| XBet | `platform_adapter/xbet/frontend/collect.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
-| Stake | `platform_adapter/stake/frontend/collect.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
-| HG | `platform_adapter/hg/frontend/collect.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
+| OB | `packages/platform-adapter/ob/frontend/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
+| RAY | `packages/platform-adapter/ray/frontend/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `packages/platform-adapter/ray/backend/collect_credentials.js`） |
+| TF | `packages/platform-adapter/tf/frontend/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
+| IA | `packages/platform-adapter/ia/frontend/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
+| PB | `packages/platform-adapter/pb/frontend/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
+| IMT | `packages/platform-adapter/imt/frontend/collect.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
+| SABA | `packages/platform-adapter/saba/frontend/collect.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
+| IM | `packages/platform-adapter/im/frontend/collect.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
+| XBet | `packages/platform-adapter/xbet/frontend/collect.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
+| Stake | `packages/platform-adapter/stake/frontend/collect.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
+| HG | `packages/platform-adapter/hg/frontend/collect.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
 
 公共模块：
 
 | 模块 | 路径 | 说明 |
 |------|------|------|
-| 采集会话 | `platform_adapter/shared/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
+| 采集会话 | `packages/platform-adapter/shared/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
 | HTTP 采集 | `apps/web/src/shared/http.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
-| A8 Socket hub | `platform_adapter/shared/socket/hub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
-| A8 盘口聚合 | `platform_adapter/shared/socket/collector.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
+| A8 Socket hub | `packages/platform-adapter/shared/socket/hub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
+| A8 盘口聚合 | `packages/platform-adapter/shared/socket/collector.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
 
 ### 凭证存储：`apps/backend/data/esport/platforms.json`
 

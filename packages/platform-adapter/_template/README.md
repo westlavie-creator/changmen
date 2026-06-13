@@ -1,6 +1,6 @@
 # 新平台脚手架
 
-复制本目录到 `platform_adapter/{dir}/`（dir 为小写平台名）。
+复制本目录到 `packages/platform-adapter/{dir}/`（dir 为小写平台名）。
 
 ## 必做
 

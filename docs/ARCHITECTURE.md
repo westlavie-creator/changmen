@@ -39,8 +39,9 @@ changmen/
 | 12 | platform-adapter 路径收敛；`platforms.json` 迁入 `@changmen/db` | ✅ 完成 |
 | 13 | backend 依赖瘦身（`pg`/`supabase` 经 `@changmen/db`）；平台采集脚本迁入 `@changmen/platform-adapter` | ✅ 完成 |
 | 14 | 生产 `platform_adapter` 瘦包同步脚本 + 部署文档；monorepo 默认直接用 workspace 包 | ✅ 完成 |
+| 15 | 文档路径口径统一（`packages/platform-adapter` / `@platform`） | ✅ 完成 |
 
-旧路径在阶段 5 之前仍可能出现在历史文档中；**以代码里 `adapter_paths.js` / `package.json` 为准**。
+旧路径 `platform_adapter/`、`gamebet_*` 仅出现在历史章节或迁移对照中；**以本表与代码 `package.json` / `adapter_paths` 为准**。
 
 ## 依赖方向
 
@@ -69,11 +70,7 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 
 ### `packages/platform-adapter` (`@changmen/platform-adapter`)
 
-各平台采集与下注的 canonical 源码。前端通过 Vite 别名 `@platform` 引用。  
-后端通过 `apps/backend/core/shared/adapter_paths.js` 的 `getAdapterRoot()` 解析：
-
-1. `apps/backend/platform_adapter`（部署拷贝）
-2. `changmen/packages/platform-adapter`（开发）
+各平台采集与下注的 canonical 源码。前端通过 Vite 别名 `@platform` → `packages/platform-adapter`。
 
 各平台 CLI 采集脚本定义在本包 `package.json`（`ob:*`、`ray:*`、`pb:*` 等）；`apps/backend` 通过 `npm run <script> --workspace=@changmen/platform-adapter` 转发。
 
