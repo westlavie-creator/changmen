@@ -18,6 +18,7 @@ import { getPlatformRules, getDefaultMarketCode } from "@changmen/shared/catalog
 import { requirePlatform } from "../shared/adapter_paths.js";
 import * as sb from "@changmen/db";
 import * as dbStore from "../db/store.js";
+import { handleSendMessage as sendTelegramMessage } from "./telegram_send.js";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,36 @@ export interface EsportUser {
 interface EsportContext {
   token: string;
   user: EsportUser | null;
+}
+
+/** 无需登录即可调用的 action（Client_Login 在 handle 外单独处理）。新增 action 默认需登录，仅在此集合中声明例外。 */
+const PUBLIC_ACTIONS = new Set<EsportAction>([
+  "Client_Logout",
+  "Client_RefreshToken",
+  "Client_SaveUserLog",
+]);
+
+const ADMIN_ACTIONS = new Set<EsportAction>([
+  "Client_AdminDashboard",
+  "Client_AdminUsers",
+  "Client_AdminOrders",
+  "Client_AdminOrdersMatrix",
+  "Client_AdminCreateUser",
+  "Client_AdminResetPassword",
+  "Client_AdminSetUserFrozen",
+]);
+
+/** 统一鉴权：非 public action 必须登录；admin action 额外校验管理员 */
+function requireActionAuth(
+  action: EsportAction | string,
+  ctx: EsportContext,
+): ApiFailure | null {
+  if (PUBLIC_ACTIONS.has(action as EsportAction)) return null;
+  if (!ctx.user) return fail("请先登录");
+  if (ADMIN_ACTIONS.has(action as EsportAction) && !isAdminUser(ctx.user)) {
+    return fail("无管理员权限");
+  }
+  return null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -237,6 +268,9 @@ async function handle(
   body: Record<string, unknown>,
   ctx: EsportContext,
 ): Promise<ApiEnvelope> {
+  const authFailure = requireActionAuth(action, ctx);
+  if (authFailure) return authFailure;
+
   if (ctx.user?.id) {
     try {
       await assertProfileActive(ctx.user.id);
@@ -266,7 +300,6 @@ async function handle(
       return ok({ token: auth.accessToken, refreshToken: auth.refreshToken });
     }
     case "Client_GetUserInfo": {
-      if (!ctx.user) return fail("请先登录");
       return ok({
         ID: ctx.user.id,
         UserName: ctx.user.userName,
@@ -276,7 +309,6 @@ async function handle(
       });
     }
     case "Client_UpdateSetting": {
-      if (!ctx.user) return fail("请先登录");
       let patch = body.setting ?? body;
       if (typeof patch === "string") {
         try { patch = JSON.parse(patch); } catch { return fail("invalid setting json"); }
@@ -287,7 +319,6 @@ async function handle(
       return ok(user.setting || {});
     }
     case "Client_GetCollectPlatform": {
-      if (!ctx.user) return fail("请先登录");
       const provider = String(body.provider || "");
       const row = store.getPlatform(provider);
       const catalogBetName = getPlatformRules(provider, getDefaultMarketCode())?.betName || ".*";
@@ -340,7 +371,6 @@ async function handle(
       return ok(out);
     }
     case "Client_GetGames": {
-      if (!ctx.user) return fail("请先登录");
       const provider = String(body.provider || "");
       const fromCatalog = gamesForProvider(provider);
       const row = store.getPlatform(provider);
@@ -348,7 +378,6 @@ async function handle(
       return ok([...new Set([...fromCatalog, ...fromPlatform])]);
     }
     case "API_UpdatePlatform": {
-      if (!ctx.user) return fail("请先登录");
       const provider = body.provider;
       if (!provider) return fail("provider required");
       const prev = store.getPlatform(provider) || {};
@@ -361,7 +390,6 @@ async function handle(
       return ok(next);
     }
     case "API_SaveMatch": {
-      if (!ctx.user) return fail("请先登录");
       const provider = body.provider;
       let matchs: unknown[] = [];
       try { matchs = JSON.parse((body.matchs as string) || "[]"); } catch { return fail("invalid matchs json"); }
@@ -369,7 +397,6 @@ async function handle(
       return ok(true);
     }
     case "API_SaveBet": {
-      if (!ctx.user) return fail("请先登录");
       const provider = body.provider;
       const matchId = body.matchId;
       let bets: unknown[] = [];
@@ -378,7 +405,6 @@ async function handle(
       return ok(true);
     }
     case "API_SaveLiveTimer": {
-      if (!ctx.user) return fail("请先登录");
       const provider = body.provider;
       let timer: unknown[] = [];
       try { timer = JSON.parse((body.timer as string) || "[]"); } catch { return fail("invalid timer json"); }
@@ -386,19 +412,15 @@ async function handle(
       return ok(true);
     }
     case "Client_GetMatchs":
-      if (!ctx.user) return fail("请先登录");
       return ok(await store.buildMatchList());
     case "Client_SaveData": {
-      if (!ctx.user) return fail("请先登录");
       if (!body.key) return fail("key required");
       const saved = accountService.handleSaveData(body.key, body.content ?? "", ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_GetAccounts":
-      if (!ctx.user) return fail("请先登录");
       return ok(store.getAccountsForUser(ctx.user.id));
     case "Client_SaveAccounts": {
-      if (!ctx.user) return fail("请先登录");
       let accounts: unknown[] = [];
       try { accounts = JSON.parse((body.accounts as string) || "[]"); } catch { return fail("accounts JSON 无效"); }
       if (!Array.isArray(accounts)) return fail("accounts 必须是数组");
@@ -406,7 +428,6 @@ async function handle(
       return ok(true);
     }
     case "Client_GetData": {
-      if (!ctx.user) return fail("请先登录");
       const data = accountService.handleGetData(body.key, ctx.user.id);
       // 故意返回裸数组/对象：前端 getClientDataArray 用 Array.isArray(data) 消费，
       // 不能包 ok()，否则破坏 ACCOUNT/PROXY 等 key 的读取。
@@ -416,94 +437,70 @@ async function handle(
       return ok(data.info);
     }
     case "Client_GetUserDetail":
-      if (!ctx.user) return fail("请先登录");
       return ok({ Id: ctx.user.id });
     case "Client_GetOrderList": {
-      if (!ctx.user) return fail("请先登录");
       const page = await accountService.handleGetOrderList(body, ctx.user.id);
       return page.ok ? ok(page.info) : fail(page.msg);
     }
     case "Client_SaveOrder": {
-      if (!ctx.user) return fail("请先登录");
       const saved = await accountService.handleSaveOrder(body, ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_SaveOrderBind": {
-      if (!ctx.user) return fail("请先登录");
       const saved = await accountService.handleSaveOrderBind(body, ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "API_SaveScore":
-      if (!ctx.user) return fail("请先登录");
       return ok(true);
     case "Client_SaveMoneyLog": {
-      if (!ctx.user) return fail("请先登录");
       const saved = await accountService.handleSaveMoneyLog(body, ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_DeleteMoneyLog": {
-      if (!ctx.user) return fail("请先登录");
       const deleted = await accountService.handleDeleteMoneyLog(body, ctx.user.id);
       return deleted.ok ? ok(deleted.info) : fail(deleted.msg);
     }
     case "Client_DeletePlayer": {
-      if (!ctx.user) return fail("请先登录");
       const deleted = await accountService.handleDeletePlayer(body, ctx.user.id);
       return deleted.ok ? ok(deleted.info) : fail(deleted.msg);
     }
     case "Client_UpdateBalance": {
-      if (!ctx.user) return fail("请先登录");
       const updated = accountService.handleUpdateBalance(body);
       return updated.ok ? ok(updated.info) : fail(updated.msg);
     }
     case "Client_RefreshAccountBalance": {
-      if (!ctx.user) return fail("请先登录");
       const refreshed = await accountService.handleRefreshAccountBalance(body, ctx.user.id);
       return refreshed.ok ? ok(refreshed.info) : fail(refreshed.msg);
     }
     case "Client_GetMoneyLogs": {
-      if (!ctx.user) return fail("请先登录");
       const page = await accountService.handleGetMoneyLogs(body, ctx.user.id);
       return page.ok ? ok(page.info) : fail(page.msg);
     }
     case "Client_GetMoneyLog": {
-      if (!ctx.user) return fail("请先登录");
       const row = await accountService.handleGetMoneyLog(body, ctx.user.id);
       return row.ok ? ok(row.info) : fail(row.msg);
     }
     case "Client_MonthReport":
-      if (!ctx.user) return fail("请先登录");
       return ok(await getMonthReport(body.month));
     case "Client_GetUserProfit": {
-      if (!ctx.user) return fail("请先登录");
       const profit = await accountService.handleGetUserProfit();
       return profit.ok ? ok(profit.info) : fail(profit.msg || "排行榜加载失败");
     }
     case "Client_AdminDashboard": {
-      if (!ctx.user) return fail("请先登录");
-      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
       const date = body.date ? String(body.date) : undefined;
       return ok(await adminService.getAdminDashboard(date));
     }
     case "Client_AdminUsers": {
-      if (!ctx.user) return fail("请先登录");
-      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
       const date = body.date ? String(body.date) : undefined;
       return ok(await adminService.listAdminUsers(date));
     }
     case "Client_AdminOrders": {
-      if (!ctx.user) return fail("请先登录");
-      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
       return ok(await adminService.listAdminOrders(body));
     }
     case "Client_AdminOrdersMatrix": {
-      if (!ctx.user) return fail("请先登录");
-      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
       return ok(await adminService.listAdminOrdersMatrix(body));
     }
     case "Client_AdminCreateUser": {
-      if (!ctx.user) return fail("请先登录");
-      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
       try {
         return ok(
           await adminService.createAdminUser(
@@ -516,8 +513,6 @@ async function handle(
       }
     }
     case "Client_AdminResetPassword": {
-      if (!ctx.user) return fail("请先登录");
-      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
       try {
         return ok(
           await adminService.resetAdminUserPassword(
@@ -530,8 +525,6 @@ async function handle(
       }
     }
     case "Client_AdminSetUserFrozen": {
-      if (!ctx.user) return fail("请先登录");
-      if (!isAdminUser(ctx.user)) return fail("无管理员权限");
       try {
         const frozen = body.frozen === true || body.frozen === 1 || body.frozen === "1";
         return ok(
@@ -546,7 +539,6 @@ async function handle(
       }
     }
     case "Client_GetDefaultOdds": {
-      if (!ctx.user) return fail("请先登录");
       const betId = Number(body.betId);
       const team = String(body.team || "");
       if (!betId || (team !== "Home" && team !== "Away")) return fail("betId / team 无效");
@@ -554,39 +546,36 @@ async function handle(
       return ok({ odds });
     }
     case "Client_GetMatchDefaultOdds": {
-      if (!ctx.user) return fail("请先登录");
       let matchIds: unknown[] = [];
       try { matchIds = JSON.parse((body.matchs as string) || "[]"); } catch { return fail("matchs JSON 无效"); }
       return ok(await store.getMatchDefaultOdds(matchIds));
     }
     case "Client_CreateTagPlatform": {
-      if (!ctx.user) return fail("请先登录");
       accountStore.ensureSeed();
       const created = accountService.handleCreateTagPlatform(body);
       return created.ok ? ok(created.info) : fail(created.msg);
     }
     case "Client_GetTagPlatforms": {
-      if (!ctx.user) return fail("请先登录");
       accountStore.ensureSeed();
       const tags = accountService.handleGetTagPlatforms();
       return ok(tags.info);
     }
     case "Client_GetPlayerOrder": {
-      if (!ctx.user) return fail("请先登录");
       const orders = await accountService.handleGetPlayerOrder(body, ctx.user.id);
       return orders.ok ? ok(orders.info) : fail(orders.msg);
     }
     case "Client_GetUsers": {
-      if (!ctx.user) return fail("请先登录");
       const users = accountService.handleGetUsers();
       return ok(users.info);
     }
     case "Client_GetChatHistory":
-      if (!ctx.user) return fail("请先登录");
       return ok([]);
     case "Client_SaveUserLog":
-    case "SendMessage":
       return ok(true);
+    case "SendMessage": {
+      const sent = await sendTelegramMessage(body);
+      return sent.ok ? ok(true) : fail(sent.msg);
+    }
     default:
       return fail(`unknown action: ${action}`);
   }

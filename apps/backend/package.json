@@ -46,6 +46,7 @@
     "user:create": "node scripts/create-user.js",
     "db:apply": "node scripts/apply-rds-schema.mjs",
     "db:apply:cron": "node scripts/apply-rds-schema.mjs --with-cron",
+    "check:rds-schema": "node scripts/check-rds-schema.mjs",
     "db:prune": "node scripts/prune-stale.mjs",
     "check:collect": "node scripts/check-collect-platforms.js",
     "check:collect:probe": "node scripts/check-collect-platforms.js --probe",

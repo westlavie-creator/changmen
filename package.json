@@ -22,7 +22,7 @@
     "app:dev": "npm run dev --prefix apps/web",
     "app:build": "npm run build --prefix apps/web",
     "app:install": "npm install",
-    "test": "npm run test:catalog-smoke && npm run test:backend && npm run test:frontend",
+    "test": "npm run test:catalog-smoke && npm run check:rds-schema --prefix apps/backend && npm run test:backend && npm run test:frontend",
     "test:backend": "npm run test --prefix apps/backend",
     "test:frontend": "npm run test --prefix apps/web",
     "test:catalog-smoke": "node packages/shared/catalog/market_catalog_smoke.test.mjs && node packages/shared/catalog/game_catalog_smoke.test.mjs && node packages/shared/im_parse_smoke.test.mjs && node packages/shared/time/match_time_smoke.test.mjs && node packages/db/paths_smoke.test.mjs",

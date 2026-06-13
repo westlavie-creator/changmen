@@ -6,8 +6,9 @@
   "scripts": {
     "predev": "node scripts/extract-a8-css.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/extract-a8-css.mjs",
+    "prebuild": "node scripts/extract-a8-css.mjs && node scripts/clean-dist-assets.mjs",
     "build": "vue-tsc -b && vite build --base=/",
+    "build:analyze": "vue-tsc -b && vite build --base=/ --mode analyze",
     "preview": "vite preview --base /",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -20,7 +21,6 @@
     "audit:a8": "node scripts/audit-a8-parity.mjs"
   },
   "dependencies": {
-    "@changmen/match-engine": "*",
     "@changmen/shared": "*",
     "@vueuse/core": "^13.2.0",
     "axios": "^1.8.4",
@@ -36,9 +36,13 @@
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
+    "@changmen/match-engine": "*",
     "@types/node": "^25.9.1",
     "@vitejs/plugin-vue": "^5.2.3",
+    "rollup-plugin-visualizer": "^5.14.0",
     "typescript": "~5.8.3",
+    "unplugin-auto-import": "^19.1.2",
+    "unplugin-vue-components": "^28.5.0",
     "vite": "^6.3.5",
     "vitest": "^4.1.8",
     "vue-tsc": "^2.2.8"

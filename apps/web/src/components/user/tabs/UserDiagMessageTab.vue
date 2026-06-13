@@ -4,6 +4,7 @@ import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { NOTIFY_TYPES } from "@/types/notifyTypes";
 import { TELEGRAM_BOT_URL, TELEGRAM_BOT_NAME } from "@/config/gamebetExtension";
+import { sendMessage } from "@/api/esport";
 import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
@@ -22,6 +23,25 @@ async function save() {
     ElMessage.success("保存成功");
   } finally {
     saving.value = false;
+  }
+}
+
+async function testTelegram() {
+  const chatId = message.value.telegramId?.trim();
+  if (!chatId) {
+    ElMessage.warning("请先填写 TelegramID");
+    return;
+  }
+  try {
+    const ok = await sendMessage({
+      chat_id: chatId.split(",")[0]?.trim(),
+      text: "<b>测试消息</b>\nTelegram 推送配置正常。",
+      parse_mode: "HTML",
+    });
+    if (ok) ElMessage.success("测试消息已发送，请在 Telegram 查看");
+    else ElMessage.error("发送失败");
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "发送失败");
   }
 }
 </script>
@@ -51,6 +71,7 @@ async function save() {
       <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
         &nbsp;保存
       </el-button>
+      <el-button size="large" style="margin-left: 12px" @click="testTelegram">发送测试</el-button>
     </div>
   </el-form>
 </template>
