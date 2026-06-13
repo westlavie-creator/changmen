@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import "../lib/env.js";
 import express from "express";
-import { getMatcherSupabase } from "../lib/supabase.js";
+import { isMatcherStoreReady } from "../../../packages/shared/db/matcher_store.js";
 import { registerMatcherApiRoutes } from "./api_routes.js";
 import { createMatcherAuthMiddleware } from "./matcher_auth.js";
 
@@ -25,15 +25,14 @@ export function createMatcherApiApp() {
 
   assertIconvLite();
 
-  const supabase = getMatcherSupabase();
-  if (!supabase) {
-    console.warn("[matcher] Supabase 未配置，/matcher/api 将不可用");
+  if (!isMatcherStoreReady()) {
+    console.warn("[matcher] 数据库未配置，/matcher/api 将不可用");
   }
 
   const app = express();
   app.use(express.json());
   app.use(createMatcherAuthMiddleware());
-  if (supabase) registerMatcherApiRoutes(app, supabase);
+  if (isMatcherStoreReady()) registerMatcherApiRoutes(app);
   app.use((err, req, res, _next) => {
     console.error("[matcher] request error:", err.message);
     if (!res.headersSent) {

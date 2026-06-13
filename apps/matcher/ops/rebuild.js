@@ -8,7 +8,11 @@ import {
   resolveClientMatchIds,
 } from "../../../packages/match-engine/index.js";
 import { formatOdds } from "../../../packages/shared/odds_format.js";
-import * as sb from "../../../packages/shared/db/supabase.js";
+import * as db from "../../../packages/shared/db/index.js";
+import {
+  getClientMatchIdAdapter,
+  isMatcherStoreReady,
+} from "../../../packages/shared/db/matcher_store.js";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
 import { alignUnmatchedToClientMatches } from "./align_unmatched_to_client.js";
@@ -51,13 +55,13 @@ async function ensureTeamPlugin() {
 
 async function rebuildOnce() {
   await ensureTeamPlugin();
-  await sb.initLastWrittenIds();
+  await db.initLastWrittenIds();
 
   const [matchesRaw, bets, timers, clientRows] = await Promise.all([
-    sb.fetchPlatformMatches(),
-    sb.fetchPlatformBets(),
-    sb.fetchLiveTimers(),
-    sb.fetchClientMatches(),
+    db.fetchPlatformMatches(),
+    db.fetchPlatformBets(),
+    db.fetchLiveTimers(),
+    db.fetchClientMatches(),
   ]);
 
   const teamReg = await autoRegisterTeams(matchesRaw);
@@ -79,24 +83,20 @@ async function rebuildOnce() {
 
   let info = buildClientMatchList({ matches, bets, timers, sourceFromBet });
 
-  const client = sb.getServiceClient();
-  if (!client) {
-    const { script, readsRds } = sb.getDbMode();
-    if (readsRds) {
-      throw new Error(
-        `无法 rebuild：缺少 Supabase 客户端（当前 GAMEBET_DB_SCRIPT=${script}）。`
-          + " resolveClientMatchIds 仍依赖 Supabase API；请配置 SUPABASE_URL + SERVICE_KEY，"
-          + "或待迁库完成后改为 db 层接口。",
-      );
-    }
-    throw new Error("Supabase 未配置，无法 rebuild（需 SUPABASE_URL + SERVICE_KEY）");
+  if (!isMatcherStoreReady()) {
+    const { script } = db.getDbMode();
+    throw new Error(
+      `无法 rebuild：数据库未配置（GAMEBET_DB_SCRIPT=${script}）。`
+        + " 请配置 DATABASE_URL 或 SUPABASE_URL + SERVICE_KEY。",
+    );
   }
-  info = await resolveClientMatchIds(client, info, { matches });
+  const adapter = getClientMatchIdAdapter();
+  info = await resolveClientMatchIds(adapter, info, { matches });
   info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows);
   info = filterMultiPlatformClientMatches(info);
 
   const now = Date.now();
-  await sb.writeClientMatchesAsync(
+  await db.writeClientMatchesAsync(
     info.map((m) => ({
       id: Number(m.ID),
       merge_key: m.MergeKey ? String(m.MergeKey) : null,
@@ -114,7 +114,7 @@ async function rebuildOnce() {
     }))
   );
 
-  const matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(client, info);
+  const matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(info);
 
   return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, alignStats };
 }

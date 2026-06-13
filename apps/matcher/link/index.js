@@ -11,6 +11,12 @@ import {
 import { resolveClientGame, getGameCodeForPlatformId } from "../../../packages/shared/catalog/game_catalog.mjs";
 import { rebuildOnce } from "../ops/rebuild.js";
 import * as db from "../../../packages/shared/db/index.js";
+import {
+  getClientMatchIdAdapter,
+  fetchPlatformMatchRow as fetchPlatformMatchDbRow,
+  fetchClientMatchRow,
+  fetchPlatformMatchesHomeAway,
+} from "../../../packages/shared/db/matcher_store.js";
 
 /**
  * 人工关联：平台赛事 → client_match，并写入队伍 ID 映射。
@@ -263,28 +269,24 @@ function resolvePairClientMatchKey(pmSource, pmTarget) {
   };
 }
 
-async function resolvePairClientMatchId(supabase, pmSource, pmTarget, stub = {}) {
+async function resolvePairClientMatchId(pmSource, pmTarget, stub = {}) {
   const { existingId, mergeKey } = resolvePairClientMatchKey(pmSource, pmTarget);
   if (existingId) return existingId;
-  return ensureClientMatchId(supabase, mergeKey, stub);
+  const adapter = getClientMatchIdAdapter();
+  return ensureClientMatchId(adapter, mergeKey, stub);
 }
 
-async function fetchPlatformMatchRow(supabase, platform, sourceMatchId) {
-  const plat = String(platform || "").trim();
-  const srcId = String(sourceMatchId || "").trim();
-  if (!plat || !srcId) throw new Error("参数不完整");
-  const { data: pm, error } = await supabase
-    .from("platform_matches")
-    .select("*")
-    .eq("platform", plat)
-    .eq("source_match_id", srcId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!pm) throw new Error(`平台赛事不存在: ${plat} #${srcId}`);
+async function fetchPlatformMatchRow(platform, sourceMatchId) {
+  const pm = await fetchPlatformMatchDbRow(platform, sourceMatchId);
+  if (!pm) {
+    const plat = String(platform || "").trim();
+    const srcId = String(sourceMatchId || "").trim();
+    throw new Error(`平台赛事不存在: ${plat} #${srcId}`);
+  }
   return pm;
 }
 
-async function previewLinkPlatformAlignment(supabase, { platform, sourceMatchId, targetPlatform, targetMatchId }) {
+async function previewLinkPlatformAlignment({ platform, sourceMatchId, targetPlatform, targetMatchId }) {
   const srcPlat = String(platform || "").trim();
   const tgtPlat = String(targetPlatform || "").trim();
   const srcId = String(sourceMatchId || "").trim();
@@ -293,8 +295,8 @@ async function previewLinkPlatformAlignment(supabase, { platform, sourceMatchId,
   if (srcPlat === tgtPlat) throw new Error("请拖到另一个平台的赛事");
 
   const [pmSource, pmTarget] = await Promise.all([
-    fetchPlatformMatchRow(supabase, srcPlat, srcId),
-    fetchPlatformMatchRow(supabase, tgtPlat, tgtId),
+    fetchPlatformMatchRow(srcPlat, srcId),
+    fetchPlatformMatchRow(tgtPlat, tgtId),
   ]);
 
   const refTeamsPick = teamsFromPlatformRows([
@@ -336,22 +338,22 @@ async function previewLinkPlatformAlignment(supabase, { platform, sourceMatchId,
   };
 }
 
-async function linkPlatformToPlatform(supabase, {
+async function linkPlatformToPlatform({
   platform,
   sourceMatchId,
   targetPlatform,
   targetMatchId,
   reversed: reversedInput,
 }) {
-  const preview = await previewLinkPlatformAlignment(supabase, {
+  const preview = await previewLinkPlatformAlignment({
     platform,
     sourceMatchId,
     targetPlatform,
     targetMatchId,
   });
 
-  const pmSource = await fetchPlatformMatchRow(supabase, preview.platform, preview.sourceMatchId);
-  const pmTarget = await fetchPlatformMatchRow(supabase, preview.targetPlatform, preview.targetMatchId);
+  const pmSource = await fetchPlatformMatchRow(preview.platform, preview.sourceMatchId);
+  const pmTarget = await fetchPlatformMatchRow(preview.targetPlatform, preview.targetMatchId);
   const refTeamsPick = teamsFromPlatformRows([
     { platform: pmSource.platform, home: pmSource.home, away: pmSource.away },
     { platform: pmTarget.platform, home: pmTarget.home, away: pmTarget.away },
@@ -359,7 +361,7 @@ async function linkPlatformToPlatform(supabase, {
   if (!refTeamsPick) throw new Error("平台赛事队名不完整");
   const refHome = refTeamsPick.home;
   const refAway = refTeamsPick.away;
-  const cmId = await resolvePairClientMatchId(supabase, pmSource, pmTarget, {
+  const cmId = await resolvePairClientMatchId(pmSource, pmTarget, {
     title: refTeamsPick.title,
     matchs: {
       [pmSource.platform]: String(pmSource.source_match_id),
@@ -370,12 +372,7 @@ async function linkPlatformToPlatform(supabase, {
   let cmHint = null;
   if (pmTarget.match_id || pmSource.match_id) {
     const hintId = Number(pmTarget.match_id || pmSource.match_id);
-    const { data: cm } = await supabase
-      .from("client_matches")
-      .select("id,title,game,game_id")
-      .eq("id", hintId)
-      .maybeSingle();
-    cmHint = cm;
+    cmHint = await fetchClientMatchRow(hintId, "id,title,game,game_id");
   }
 
   const gameCode = resolveGameCodeForPlatformPair(pmSource, pmTarget, cmHint);
@@ -472,7 +469,7 @@ async function upsertManualTeamPlatformMap(gbTeamId, platform, platformId, platf
   return { skipped: false };
 }
 
-async function previewLinkAlignment(supabase, { platform, sourceMatchId, clientMatchId }) {
+async function previewLinkAlignment({ platform, sourceMatchId, clientMatchId }) {
   const plat = String(platform || "").trim();
   const srcId = String(sourceMatchId || "").trim();
   const cmId = Number(clientMatchId);
@@ -480,24 +477,12 @@ async function previewLinkAlignment(supabase, { platform, sourceMatchId, clientM
     throw new Error("参数不完整");
   }
 
-  const { data: pm } = await supabase
-    .from("platform_matches")
-    .select("home,away,home_id,away_id")
-    .eq("platform", plat)
-    .eq("source_match_id", srcId)
-    .maybeSingle();
-  if (!pm) throw new Error("平台赛事不存在");
+  const pm = await fetchPlatformMatchRow(plat, srcId);
 
-  const { data: cm } = await supabase
-    .from("client_matches")
-    .select("id,title,game,game_id,matchs,bets")
-    .eq("id", cmId)
-    .maybeSingle();
+  const cm = await fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
   if (!cm) throw new Error("目标已匹配赛事不存在");
 
-  const { data: allPm } = await supabase
-    .from("platform_matches")
-    .select("platform,source_match_id,home,away");
+  const allPm = await fetchPlatformMatchesHomeAway();
   const platformsById = {};
   for (const row of allPm || []) {
     platformsById[`${row.platform}:${row.source_match_id}`] = row;
@@ -523,7 +508,7 @@ async function previewLinkAlignment(supabase, { platform, sourceMatchId, clientM
   };
 }
 
-async function linkPlatformToClientMatch(supabase, { platform, sourceMatchId, clientMatchId, reversed: reversedInput }) {
+async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchId, reversed: reversedInput }) {
   const plat = String(platform || "").trim();
   const srcId = String(sourceMatchId || "").trim();
   const cmId = Number(clientMatchId);
@@ -531,24 +516,12 @@ async function linkPlatformToClientMatch(supabase, { platform, sourceMatchId, cl
     throw new Error("参数不完整");
   }
 
-  const { data: pm, error: pmErr } = await supabase
-    .from("platform_matches")
-    .select("*")
-    .eq("platform", plat)
-    .eq("source_match_id", srcId)
-    .maybeSingle();
-  if (pmErr || !pm) throw new Error("平台赛事不存在");
+  const pm = await fetchPlatformMatchRow(plat, srcId);
 
-  const { data: cm, error: cmErr } = await supabase
-    .from("client_matches")
-    .select("id,title,game,game_id,matchs,bets")
-    .eq("id", cmId)
-    .maybeSingle();
-  if (cmErr || !cm) throw new Error("目标已匹配赛事不存在");
+  const cm = await fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
+  if (!cm) throw new Error("目标已匹配赛事不存在");
 
-  const { data: allPm } = await supabase
-    .from("platform_matches")
-    .select("platform,source_match_id,home,away");
+  const allPm = await fetchPlatformMatchesHomeAway();
   const platformsById = {};
   for (const row of allPm || []) {
     platformsById[`${row.platform}:${row.source_match_id}`] = row;
@@ -664,7 +637,7 @@ function resolveTeamLinkGbPlan(gbA, gbB) {
 }
 
 /** 拖线前预览：说明将采用的 gb_team_id 及合并影响 */
-async function previewLinkPlatformTeams(supabase, { a, b }) {
+async function previewLinkPlatformTeams({ a, b }) {
   const { platA, platB, idA, idB, gameCode } = validateTeamLinkPair(a, b);
   const mapA = await fetchTeamPlatformMap(platA, idA);
   const mapB = await fetchTeamPlatformMap(platB, idB);
@@ -705,7 +678,7 @@ async function previewLinkPlatformTeams(supabase, { a, b }) {
 }
 
 /** 仅关联两平台的队伍 ID 到同一 canonical（不写 match_id、不 rebuild） */
-async function linkPlatformTeams(supabase, { a, b }) {
+async function linkPlatformTeams({ a, b }) {
   const { platA, platB, idA, idB, gameCode } = validateTeamLinkPair(a, b);
   const mapA = await fetchTeamPlatformMap(platA, idA);
   const mapB = await fetchTeamPlatformMap(platB, idB);
@@ -774,7 +747,7 @@ async function linkPlatformTeams(supabase, { a, b }) {
   };
 }
 
-async function registerTeamPlatformMap(_supabase, { platform, platformId, platformName, gameCode }) {
+async function registerTeamPlatformMap({ platform, platformId, platformName, gameCode }) {
   const plat = String(platform || "").trim();
   const pid = String(platformId || "").trim();
   const name = String(platformName || "").trim() || pid;

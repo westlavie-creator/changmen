@@ -3,9 +3,9 @@
  * 仅处理 MergeBasis === "id"；已有不同 match_id 的行跳过（保留人工锁定）。
  */
 
-import { setPlatformMatchId } from "../../../packages/shared/db/supabase.js";
+import { setPlatformMatchId } from "../../../packages/shared/db/index.js";
 
-async function backfillPlatformMatchIdsForIdMerges(_client, clientMatchRows) {
+async function backfillPlatformMatchIdsForIdMerges(clientMatchRows) {
   if (!clientMatchRows?.length) {
     return { updated: 0, skipped: 0, conflicts: 0 };
   }

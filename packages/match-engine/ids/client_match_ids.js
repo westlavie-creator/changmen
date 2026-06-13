@@ -90,50 +90,19 @@ function assignMatchIds(row, id) {
   };
 }
 
-async function insertClientMatchRow(client, mergeKey, stub) {
-  const { data, error } = await client
-    .from("client_matches")
-    .insert({
-      merge_key: mergeKey,
-      title: String(stub.title || ""),
-      game: String(stub.game || ""),
-      game_id: String(stub.game_id || ""),
-      start_time: Number(stub.start_time) || 0,
-      bo: Number(stub.bo) || 0,
-      round: Number(stub.round) || 0,
-      round_start: Number(stub.round_start) || 0,
-      matchs: stub.matchs || {},
-      bets: [],
-      built_at: Date.now(),
-    })
-    .select("id")
-    .single();
-
-  if (error?.code === "23505") {
-    const { data: dup, error: dupErr } = await client
-      .from("client_matches")
-      .select("id")
-      .eq("merge_key", mergeKey)
-      .single();
-    if (dupErr) throw dupErr;
-    return Number(dup.id);
-  }
-  if (error) throw error;
-  return Number(data.id);
+async function insertClientMatchRow(adapter, mergeKey, stub) {
+  return adapter.insertClientMatchStub(mergeKey, stub);
 }
 
 /**
  * 为 buildClientMatchList 产出的行分配 id。
  * 优先复用已有 client_matches.id（含对齐链接、平台重叠）；仅全新场次才 insert。
  */
-async function resolveClientMatchIds(client, builtRows, { matches } = {}) {
-  if (!client) throw new Error("Supabase client required");
+async function resolveClientMatchIds(adapter, builtRows, { matches } = {}) {
+  if (!adapter) throw new Error("client match adapter required");
   if (!builtRows?.length) return [];
 
-  const { data: existing, error } = await client
-    .from("client_matches")
-    .select("id, merge_key, matchs");
-  if (error) throw error;
+  const existing = await adapter.fetchClientMatchIndex();
 
   const byMergeKey = new Map();
   const byMatchsSig = new Map();
@@ -168,7 +137,7 @@ async function resolveClientMatchIds(client, builtRows, { matches } = {}) {
       id = findReuseIdByPlatformOverlap(existing, row.Matchs);
     }
     if (!id && mergeKey) {
-      id = await insertClientMatchRow(client, mergeKey, {
+      id = await insertClientMatchRow(adapter, mergeKey, {
         title: row.Title,
         game: row.Game,
         game_id: row.GameID,
@@ -194,20 +163,15 @@ async function resolveClientMatchIds(client, builtRows, { matches } = {}) {
 }
 
 /** 人工关联前确保 client_matches 行存在，返回自增 id */
-async function ensureClientMatchId(client, mergeKey, stub = {}) {
-  if (!client) throw new Error("Supabase client required");
+async function ensureClientMatchId(adapter, mergeKey, stub = {}) {
+  if (!adapter) throw new Error("client match adapter required");
   const key = String(mergeKey || "").trim();
   if (!key) throw new Error("merge_key 不能为空");
 
-  const { data: existing, error } = await client
-    .from("client_matches")
-    .select("id")
-    .eq("merge_key", key)
-    .maybeSingle();
-  if (error) throw error;
-  if (existing?.id != null) return Number(existing.id);
+  const existing = await adapter.findClientMatchIdByMergeKey(key);
+  if (existing != null) return Number(existing);
 
-  return insertClientMatchRow(client, key, stub);
+  return insertClientMatchRow(adapter, key, stub);
 }
 
 export {

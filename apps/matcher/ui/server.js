@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import "../lib/env.js";
 import { MATCHER_UI_PORT } from "../lib/config.js";
 import { initDatabaseUrl } from "../../../packages/shared/db/resolve_database_url.js";
+import { isMatcherStoreReady } from "../../../packages/shared/db/matcher_store.js";
 import express from "express";
-import { getMatcherSupabase } from "../lib/supabase.js";
 import { registerMatcherApiRoutes } from "./api_routes.js";
 import { createMatcherAuthMiddleware } from "./matcher_auth.js";
 
@@ -15,9 +15,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 await initDatabaseUrl();
 
 const PORT = MATCHER_UI_PORT;
-const supabase = getMatcherSupabase();
-if (!supabase) {
-  console.warn("[matcher] Supabase 未配置，API 将不可用");
+if (!isMatcherStoreReady()) {
+  console.warn("[matcher] 数据库未配置，API 将不可用");
 }
 
 try {
@@ -33,7 +32,7 @@ try {
 const app = express();
 app.use(express.json());
 app.use(createMatcherAuthMiddleware());
-if (supabase) registerMatcherApiRoutes(app, supabase);
+if (isMatcherStoreReady()) registerMatcherApiRoutes(app);
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use((err, req, res, _next) => {

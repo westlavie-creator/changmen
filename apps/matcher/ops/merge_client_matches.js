@@ -1,10 +1,16 @@
 import { rebuildOnce } from "./rebuild.js";
+import {
+  fetchClientMatchRow,
+  updatePlatformMatchMatchId,
+  reassignPlatformMatchIds,
+  deleteClientMatchRow,
+} from "../../../packages/shared/db/matcher_store.js";
 
 /**
  * 合并两条 client_matches：source 并入 target，保留 target.id。
  */
 
-async function previewMergeClientMatches(supabase, { sourceClientMatchId, targetClientMatchId }) {
+async function previewMergeClientMatches({ sourceClientMatchId, targetClientMatchId }) {
   const sourceId = Number(sourceClientMatchId);
   const targetId = Number(targetClientMatchId);
   if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) {
@@ -12,12 +18,14 @@ async function previewMergeClientMatches(supabase, { sourceClientMatchId, target
   }
   if (sourceId === targetId) throw new Error("不能合并同一条赛事");
 
-  const [{ data: source, error: sErr }, { data: target, error: tErr }] = await Promise.all([
-    supabase.from("client_matches").select("id,title,game,game_id,start_time,matchs,bets").eq("id", sourceId).maybeSingle(),
-    supabase.from("client_matches").select("id,title,game,game_id,start_time,matchs,bets").eq("id", targetId).maybeSingle(),
-  ]);
-  if (sErr) throw new Error(sErr.message);
-  if (tErr) throw new Error(tErr.message);
+  const source = await fetchClientMatchRow(
+    sourceId,
+    "id,title,game,game_id,start_time,matchs,bets",
+  );
+  const target = await fetchClientMatchRow(
+    targetId,
+    "id,title,game,game_id,start_time,matchs,bets",
+  );
   if (!source) throw new Error("源赛事不存在");
   if (!target) throw new Error("目标赛事不存在");
 
@@ -57,8 +65,8 @@ async function previewMergeClientMatches(supabase, { sourceClientMatchId, target
   };
 }
 
-async function mergeClientMatches(supabase, { sourceClientMatchId, targetClientMatchId }) {
-  const preview = await previewMergeClientMatches(supabase, {
+async function mergeClientMatches({ sourceClientMatchId, targetClientMatchId }) {
+  const preview = await previewMergeClientMatches({
     sourceClientMatchId,
     targetClientMatchId,
   });
@@ -71,22 +79,11 @@ async function mergeClientMatches(supabase, { sourceClientMatchId, targetClientM
   const targetId = preview.targetClientMatchId;
 
   for (const [plat, srcId] of Object.entries(preview.source.matchs)) {
-    const { error } = await supabase
-      .from("platform_matches")
-      .update({ match_id: targetId })
-      .eq("platform", plat)
-      .eq("source_match_id", String(srcId));
-    if (error) throw new Error(`更新平台关联失败 (${plat}): ${error.message}`);
+    await updatePlatformMatchMatchId(plat, String(srcId), targetId);
   }
 
-  const { error: bulkErr } = await supabase
-    .from("platform_matches")
-    .update({ match_id: targetId })
-    .eq("match_id", sourceId);
-  if (bulkErr) throw new Error(`批量更新 platform_matches 失败: ${bulkErr.message}`);
-
-  const { error: delErr } = await supabase.from("client_matches").delete().eq("id", sourceId);
-  if (delErr) throw new Error(`删除源赛事失败: ${delErr.message}`);
+  await reassignPlatformMatchIds(sourceId, targetId);
+  await deleteClientMatchRow(sourceId);
 
   const rebuild = await rebuildOnce();
 

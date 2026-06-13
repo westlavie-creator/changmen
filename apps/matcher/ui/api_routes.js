@@ -15,13 +15,14 @@ import { writeMatcherHeartbeat } from "../lib/heartbeat.js";
 import { getMatcherStatus, fetchMatcherDashboard } from "./matcher_data.js";
 import { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } from "./matcher_api_log.js";
 import { startMatcherProcess, stopMatcherProcess } from "./matcher_process.js";
+import { fetchPlatformMatchesDebugRows } from "../../../packages/shared/db/matcher_store.js";
 
 let _rebuildRunning = false;
 
-function registerMatcherApiRoutes(app, supabase) {
+function registerMatcherApiRoutes(app) {
   app.get("/api/link-preview", async (req, res) => {
     try {
-      const result = await previewLinkAlignment(supabase, {
+      const result = await previewLinkAlignment({
         platform: req.query.platform,
         sourceMatchId: req.query.sourceMatchId,
         clientMatchId: req.query.clientMatchId,
@@ -34,7 +35,7 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.get("/api/link-platform-preview", async (req, res) => {
     try {
-      const result = await previewLinkPlatformAlignment(supabase, {
+      const result = await previewLinkPlatformAlignment({
         platform: req.query.platform,
         sourceMatchId: req.query.sourceMatchId,
         targetPlatform: req.query.targetPlatform,
@@ -49,7 +50,7 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/link-match", async (req, res) => {
     try {
       const { platform, sourceMatchId, clientMatchId, reversed } = req.body || {};
-      const result = await linkPlatformToClientMatch(supabase, {
+      const result = await linkPlatformToClientMatch({
         platform,
         sourceMatchId,
         clientMatchId,
@@ -66,7 +67,7 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/link-platform-match", async (req, res) => {
     try {
       const { platform, sourceMatchId, targetPlatform, targetMatchId, reversed } = req.body || {};
-      const result = await linkPlatformToPlatform(supabase, {
+      const result = await linkPlatformToPlatform({
         platform,
         sourceMatchId,
         targetPlatform,
@@ -83,7 +84,7 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.get("/api/link-team-preview", async (req, res) => {
     try {
-      const result = await previewLinkPlatformTeams(supabase, {
+      const result = await previewLinkPlatformTeams({
         a: {
           platform: req.query.platformA,
           platformId: req.query.platformIdA,
@@ -106,7 +107,7 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/link-team", async (req, res) => {
     try {
       const { a, b } = req.body || {};
-      const result = await linkPlatformTeams(supabase, { a, b });
+      const result = await linkPlatformTeams({ a, b });
       logMatcherApiOk("/api/link-team", result);
       res.json(result);
     } catch (err) {
@@ -118,7 +119,7 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/register-team-map", async (req, res) => {
     try {
       const { platform, platformId, platformName, gameCode } = req.body || {};
-      const result = await registerTeamPlatformMap(supabase, {
+      const result = await registerTeamPlatformMap({
         platform,
         platformId,
         platformName,
@@ -140,7 +141,7 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.delete("/api/client-match/:id", async (req, res) => {
     try {
-      const result = await deleteClientMatch(supabase, req.params.id);
+      const result = await deleteClientMatch(req.params.id);
       logMatcherApiOk("/api/client-match", result);
       res.json(result);
     } catch (err) {
@@ -151,7 +152,7 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.get("/api/merge-preview", async (req, res) => {
     try {
-      const result = await previewMergeClientMatches(supabase, {
+      const result = await previewMergeClientMatches({
         sourceClientMatchId: req.query.sourceClientMatchId,
         targetClientMatchId: req.query.targetClientMatchId,
       });
@@ -164,7 +165,7 @@ function registerMatcherApiRoutes(app, supabase) {
   app.post("/api/merge-client-matches", async (req, res) => {
     try {
       const { sourceClientMatchId, targetClientMatchId } = req.body || {};
-      const result = await mergeClientMatches(supabase, {
+      const result = await mergeClientMatches({
         sourceClientMatchId,
         targetClientMatchId,
       });
@@ -177,7 +178,7 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.get("/api/data", async (req, res) => {
     try {
-      res.json(await fetchMatcherDashboard(supabase));
+      res.json(await fetchMatcherDashboard());
     } catch (err) {
       console.error("[matcher] /api/data error:", err.message);
       res.status(500).json({ error: err.message });
@@ -186,7 +187,7 @@ function registerMatcherApiRoutes(app, supabase) {
 
   app.get("/api/matcher-status", async (req, res) => {
     try {
-      res.json(await getMatcherStatus(supabase));
+      res.json(await getMatcherStatus());
     } catch (err) {
       res.status(500).json({ running: false, error: err.message });
     }
@@ -252,19 +253,20 @@ function registerMatcherApiRoutes(app, supabase) {
   });
 
   app.get("/api/debug", async (req, res) => {
-    const { data, error } = await supabase
-      .from("platform_matches")
-      .select("platform, source_match_id, start_time, home, away, synced_at");
-    if (error) return res.json({ error: error.message });
-    const summary = {};
-    for (const r of data || []) {
-      if (!summary[r.platform]) summary[r.platform] = { count: 0, sample: [] };
-      summary[r.platform].count++;
-      if (summary[r.platform].sample.length < 2) {
-        summary[r.platform].sample.push({ home: r.home, away: r.away, start_time: r.start_time });
+    try {
+      const data = await fetchPlatformMatchesDebugRows();
+      const summary = {};
+      for (const r of data || []) {
+        if (!summary[r.platform]) summary[r.platform] = { count: 0, sample: [] };
+        summary[r.platform].count++;
+        if (summary[r.platform].sample.length < 2) {
+          summary[r.platform].sample.push({ home: r.home, away: r.away, start_time: r.start_time });
+        }
       }
+      res.json({ total: (data || []).length, byPlatform: summary });
+    } catch (err) {
+      res.json({ error: err.message });
     }
-    res.json({ total: (data || []).length, byPlatform: summary });
   });
 }
 

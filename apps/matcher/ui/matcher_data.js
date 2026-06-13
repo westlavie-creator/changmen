@@ -16,6 +16,11 @@ import {
 } from "./matcher_process.js";
 import { enrichClientMatchesMergeMode } from "./merge_mode.js";
 import { loadTeamMapsForMatcher } from "../../../packages/shared/db/index.js";
+import {
+  fetchLatestClientMatchBuiltAt,
+  fetchPlatformMatchesDashboard,
+  fetchClientMatchesDashboard,
+} from "../../../packages/shared/db/matcher_store.js";
 
 function recommendationGroupKey(m) {
   const game = resolveUiGame(m.platform, m.source_game_id);
@@ -63,7 +68,7 @@ function computeRecommendations(allMatches) {
     .sort((a, b) => a.startTime - b.startTime);
 }
 
-async function getMatcherStatus(supabase) {
+async function getMatcherStatus() {
   const now = Date.now();
   let heartbeat = readMatcherHeartbeat();
   if (heartbeat?.pid && !isPidAlive(heartbeat.pid)) {
@@ -96,12 +101,7 @@ async function getMatcherStatus(supabase) {
     processAgeMs = now - heartbeat.lastRun;
   }
 
-  const { data } = await supabase
-    .from("client_matches")
-    .select("built_at")
-    .order("built_at", { ascending: false })
-    .limit(1);
-  const lastBuilt = data?.[0]?.built_at || 0;
+  const lastBuilt = await fetchLatestClientMatchBuiltAt();
   const dataAgeMs = lastBuilt ? now - lastBuilt : null;
   const dataFresh = !!(lastBuilt && dataAgeMs <= thresholdMs);
 
@@ -134,22 +134,11 @@ async function getMatcherStatus(supabase) {
   };
 }
 
-async function fetchMatcherDashboard(supabase) {
-  const [pmRes, cmRes] = await Promise.all([
-    supabase
-      .from("platform_matches")
-      .select(
-        "platform,source_match_id,source_game_id,start_time,home,home_id,away,away_id,bo,match_id,synced_at,teams",
-      )
-      .order("start_time", { ascending: true }),
-    supabase
-      .from("client_matches")
-      .select("id,title,game,game_id,start_time,bo,round,matchs,bets,built_at")
-      .order("start_time", { ascending: true }),
+async function fetchMatcherDashboard() {
+  const [allMatches, clientMatchesRaw] = await Promise.all([
+    fetchPlatformMatchesDashboard(),
+    fetchClientMatchesDashboard(),
   ]);
-
-  const allMatches = pmRes.data || [];
-  const clientMatchesRaw = cmRes.data || [];
   const recommendations = computeRecommendations(allMatches);
 
   const recByKey = new Map();

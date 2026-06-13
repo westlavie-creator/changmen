@@ -113,3 +113,23 @@ export {
   formatCompareDualOneLine,
   formatCompareDualReport,
 } from "./compare_dual.js";
+
+export {
+  isMatcherStoreReady,
+  getClientMatchIdAdapter,
+  fetchClientMatchIdIndex,
+  findClientMatchIdByMergeKey,
+  insertClientMatchStub,
+  fetchPlatformMatchRow,
+  fetchClientMatchRow,
+  fetchPlatformMatchesHomeAway,
+  fetchPlatformMatchesDashboard,
+  fetchClientMatchesDashboard,
+  fetchLatestClientMatchBuiltAt,
+  fetchPlatformMatchesDebugRows,
+  fetchPlatformMatchesByClientMatchId,
+  updatePlatformMatchMatchId,
+  reassignPlatformMatchIds,
+  deletePlatformMatchRow,
+  deleteClientMatchRow,
+} from "./matcher_store.js";
