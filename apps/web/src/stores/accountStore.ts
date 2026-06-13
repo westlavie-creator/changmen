@@ -20,6 +20,7 @@ import { useConfigStore } from "@/stores/configStore";
 import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify";
 import type { VenueOrder } from "@platform/contract";
 import { ElNotification } from "element-plus";
+import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 
 
 /** 对齐 A8 Pinia `Io` */
@@ -113,7 +114,7 @@ export const useAccountStore = defineStore("account", {
     async saveAccounts() {
       const payload = this.accounts
         .filter((a) => a.accountId)
-        .map((a) => a.toJSON());
+        .map((a) => normalizeAccountMultiplyField(a.toJSON()));
       const ok = await saveAccounts(payload);
       if (!ok) throw new Error("账号保存失败，请检查登录状态或稍后重试");
       return ok;

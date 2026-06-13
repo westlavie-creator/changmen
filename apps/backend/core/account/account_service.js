@@ -13,6 +13,7 @@ import {
 import store from "../esport-api/store.js";
 import { listProfiles } from "../db/store.js";
 import { getOnlineUserIdSet } from "./user_presence.js";
+import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 
 function handleCreateTagPlatform(body) {
   const platformName = body.platform || body.platformName || "";
@@ -139,9 +140,9 @@ function resolveStoredBalance(row) {
   return row.balance != null ? Number(row.balance) : null;
 }
 
-/** A8 Io.loadAccounts：ACCOUNT 原样返回，不在加载时填 balance */
+/** A8 Io.loadAccounts：ACCOUNT 返回时归一化 PB 乘网默认 */
 function enrichAccountRowFromPlayer(row) {
-  return row;
+  return normalizeAccountMultiplyField(row);
 }
 
 function handleSaveData(key, content, userId) {

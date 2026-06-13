@@ -128,6 +128,9 @@ export const useMatchStore = defineStore("match", {
         this.applyScoreDrivenLive(match);
       }
       this.tick += 1;
+      void import("@/shared/arbNotify").then(({ scanArbTelegramNotifications }) => {
+        scanArbTelegramNotifications();
+      });
     },
 
     getRoundScore(matchId: number, round: number): ScoreRound | undefined {

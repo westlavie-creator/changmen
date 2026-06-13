@@ -2,6 +2,7 @@ import type { AccountRecord, AccountCurrency } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 import { readGameBetCount } from "@/shared/bettingSession";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 /** [changmen 扩展] rateConfig.rate === 9999 表示该赔率区间不参与投注 */
 const RATE_SKIP = 9999;
@@ -76,6 +77,7 @@ export class PlatformAccount implements AccountRecord {
     this.today = raw.today ?? 0;
     this.orderCount = raw.orderCount ?? 0;
     this.unsettle = raw.unsettle ?? 0;
+    this.multiply = resolveAccountMultiply(this.provider, raw.multiply);
     for (const g of DEFAULT_GAMES) {
       if (!this.game?.[g]) {
         this.game = { ...this.game, [g]: { betCount: 0, profit: 0, odds: [] } };
@@ -219,6 +221,9 @@ export class PlatformAccount implements AccountRecord {
     }
     if (balanceError !== undefined) {
       this.balanceError = balanceError;
+    }
+    if (rest.multiply !== undefined) {
+      this.multiply = resolveAccountMultiply(this.provider, rest.multiply);
     }
   }
 

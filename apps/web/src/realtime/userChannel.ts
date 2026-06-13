@@ -11,6 +11,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import type { PlatformId } from "@/types/esport";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 let subscribedUserId: number | null = null;
 
@@ -59,7 +60,9 @@ async function handleUserChannelMessage(raw: string) {
       if (info.minOdds !== undefined) acc.minOdds = Number(info.minOdds);
       if (info.maxOdds !== undefined) acc.maxOdds = Number(info.maxOdds);
       if (info.lastOdds !== undefined) acc.lastOdds = Boolean(info.lastOdds);
-      if (info.multiply !== undefined) acc.multiply = Number(info.multiply ?? 1);
+      if (info.multiply !== undefined) {
+        acc.multiply = resolveAccountMultiply(acc.provider, info.multiply);
+      }
       break;
     }
     case "upload": {

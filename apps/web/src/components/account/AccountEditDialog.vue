@@ -8,6 +8,7 @@ import { useUserStore } from "@/stores/userStore";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 import { pbProvider } from "@platform/pb";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 const props = defineProps<{
   open: boolean;
@@ -113,7 +114,7 @@ function resetForm(acc?: PlatformAccount) {
   form.maxOrder = src.maxOrder ?? 0;
   form.profit = src.profit ?? 0;
   form.maxBetCount = src.maxBetCount ?? 0;
-  form.multiply = src.multiply ?? 1;
+  form.multiply = resolveAccountMultiply(src.provider, src.multiply);
   form.pause = src.pause ?? false;
   form.markupOnly = src.markupOnly ?? false;
   form.noMarkup = src.noMarkup ?? false;
@@ -144,6 +145,7 @@ watch(
   () => form.provider,
   (p) => {
     rateLocked.value = p === "PB";
+    form.multiply = resolveAccountMultiply(p, form.multiply);
   },
 );
 
@@ -317,7 +319,7 @@ function buildPatch() {
     maxOrder: Number(form.maxOrder) || 0,
     profit: Number(form.profit) || 0,
     maxBetCount: Number(form.maxBetCount) || 0,
-    multiply: Number(form.multiply) || 1,
+    multiply: resolveAccountMultiply(form.provider, form.multiply),
     pause: form.pause,
     markupOnly: form.markupOnly,
     noMarkup: form.noMarkup,

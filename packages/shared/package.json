@@ -13,6 +13,7 @@
     "./catalog/market_catalog.browser": "./catalog/market_catalog.browser.ts",
     "./odds_format.js": "./odds_format.js",
     "./time/match_time.mjs": "./time/match_time.mjs",
-    "./im_parse.mjs": "./im_parse.mjs"
+    "./im_parse.mjs": "./im_parse.mjs",
+    "./account_multiply.mjs": "./account_multiply.mjs"
   }
 }

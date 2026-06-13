@@ -11,6 +11,7 @@ import { useConfigStore } from "@/stores/configStore";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { ArbLegs } from "@/shared/arbitrage";
 import { arbProfitRate, formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
+import { assessValueBet, formatValueBetTelegramLine } from "@/shared/valueBet";
 import { wait } from "@/shared/wait";
 
 /** A8 bundle 固定报表群 / 发布群（Gi 中 RBe / FBe） */
@@ -187,6 +188,7 @@ export const useMessageStore = defineStore("message", {
       const key = `${match.id}:${bet.id}:${legs.homeItem.type}:${legs.awayItem.type}`;
       if (!this.shouldNotify(idx, key, 600)) return;
 
+      const value = assessValueBet(bet.id, legs);
       const body = [
         htmlTitle("套利机会"),
         match.title,
@@ -195,6 +197,7 @@ export const useMessageStore = defineStore("message", {
         `${legs.homeItem.type} 主胜 @ ${legs.homeOdds}`,
         `${legs.awayItem.type} 客胜 @ ${legs.awayOdds}`,
         `对冲 ${percent(legs.implied)} / 利润 ${arbProfitRate(legs.implied)}`,
+        formatValueBetTelegramLine(value),
         "</blockquote>",
       ].join("\n");
       this.enqueueTelegram(body);

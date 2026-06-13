@@ -5,6 +5,7 @@ import { isAdminUser } from "./admin_auth.js";
 import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
 import { getOnlineUserIdSet, getUserLastActiveAt } from "./user_presence.js";
 import { frozenFieldsFromProfile, isProfileFrozen, nextPreferencesForFreeze, readPreferences } from "./user_freeze.js";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 import {
   lastLoginFieldsFromProfile,
   PROFILE_META_PREFERENCE_KEYS,
@@ -61,7 +62,10 @@ export function sanitizeAccountForAdmin(raw) {
     description: String(a.description ?? a.Description ?? ""),
     realName: String(a.realName ?? a.RealName ?? ""),
     mobile: String(a.mobile ?? a.Mobile ?? ""),
-    multiply: Number(a.multiply ?? a.Multiply) || 1,
+    multiply: resolveAccountMultiply(
+      a.provider ?? a.Provider ?? a.platform ?? a.Platform,
+      a.multiply ?? a.Multiply,
+    ),
     workTimes: Array.isArray(a.workTimes) ? a.workTimes.map(String) : [],
     rateConfig: Array.isArray(a.rateConfig)
       ? a.rateConfig.map((r) => ({

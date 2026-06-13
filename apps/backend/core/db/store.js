@@ -1,5 +1,9 @@
 import * as sb from "@changmen/db";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import {
+  accountsMultiplyNeedsPersist,
+  normalizeAccountList,
+} from "@changmen/shared/account_multiply.mjs";
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
 const _cache = new Map();
@@ -90,12 +94,21 @@ export function listAccountsForUser(uid) {
   const row = _get(uid);
   if (!row) return [];
   const a = row.accounts;
-  if (Array.isArray(a)) return a;
-  try {
-    return JSON.parse(a || "[]");
-  } catch {
-    return [];
+  let raw;
+  if (Array.isArray(a)) raw = a;
+  else {
+    try {
+      raw = JSON.parse(a || "[]");
+    } catch {
+      raw = [];
+    }
   }
+  const normalized = normalizeAccountList(raw);
+  if (accountsMultiplyNeedsPersist(raw, normalized)) {
+    _set(uid, { ...row, accounts: normalized, updated_at: Date.now() });
+    sb.writeAccounts(uid, normalized);
+  }
+  return normalized;
 }
 
 export function countAccounts() {
@@ -107,8 +120,9 @@ export function countAccounts() {
 
 export function replaceAccountsForUser(uid, accounts) {
   const row = _get(uid) || {};
-  _set(uid, { ...row, accounts, updated_at: Date.now() });
-  sb.writeAccounts(uid, accounts);
+  const normalized = normalizeAccountList(accounts);
+  _set(uid, { ...row, accounts: normalized, updated_at: Date.now() });
+  sb.writeAccounts(uid, normalized);
   return listAccountsForUser(uid);
 }
 

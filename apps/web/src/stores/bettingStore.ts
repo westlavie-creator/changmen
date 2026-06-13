@@ -15,7 +15,7 @@ import { useMatchStore } from "@/stores/matchStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 import { useMessageStore } from "@/stores/messageStore";
-import { pickArbLegs } from "@/shared/arbitrage";
+import { scanArbTelegramNotifications } from "@/shared/arbNotify";
 import { wait } from "@/shared/wait";
 import { a8Tip } from "@/shared/a8Notify";
 import {
@@ -268,26 +268,8 @@ export const useBettingStore = defineStore("betting", {
     },
 
     /** 扫描比赛列表，满足套利阈值则 Telegram 提醒（不依赖自动下注开关） */
-    notifyArbOpportunities(
-      matchStore: ReturnType<typeof useMatchStore>,
-      accountStore: ReturnType<typeof useAccountStore>,
-      config: UserConfig,
-    ) {
-      const providerKeys = [...accountStore.getProviders().keys()];
-      if (!providerKeys.length) return;
-      const messageStore = useMessageStore();
-      for (const match of matchStore.matchs) {
-        for (const bet of match.bets) {
-          const legs = pickArbLegs(
-            bet,
-            config,
-            providerKeys,
-            accountStore.accounts,
-            match.game,
-          );
-          if (legs) messageStore.arbOpportunityMessage(match, bet, legs);
-        }
-      }
+    notifyArbOpportunities() {
+      scanArbTelegramNotifications(0);
     },
 
     tickAutoOpen() {
@@ -322,11 +304,7 @@ export const useBettingStore = defineStore("betting", {
           }
         }
 
-        this.notifyArbOpportunities(
-          matchStore,
-          accountStore,
-          configStore.config,
-        );
+        this.notifyArbOpportunities();
 
         if (!configStore.config.betting) return;
 
