@@ -9,9 +9,16 @@ import dotenv from "dotenv";
 
 const changmenRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
-for (const rel of ["apps/backend/.env", "gamebet_backend/.env"]) {
+for (const rel of ["apps/backend/.env"]) {
   const envPath = path.join(changmenRoot, rel);
   if (!fs.existsSync(envPath)) continue;
   dotenv.config({ path: envPath });
-  if (process.env.SUPABASE_URL || process.env.DATABASE_URL) break;
+  if (
+    process.env.SUPABASE_URL ||
+    process.env.DATABASE_URL ||
+    process.env.DATABASE_URL_PUBLIC ||
+    process.env.DATABASE_URL_INTERNAL
+  ) {
+    break;
+  }
 }

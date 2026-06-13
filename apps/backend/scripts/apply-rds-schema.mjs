@@ -14,12 +14,15 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 
 import "../../../packages/shared/db/load_env.js";
+import { initDatabaseUrl, buildPgClientConfig } from "../../../packages/shared/db/resolve_database_url.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(__dirname, "..");
 const migrationsDir = join(backendRoot, "db", "migrations");
 
 const withCron = process.argv.includes("--with-cron");
+
+await initDatabaseUrl();
 const url = process.env.DATABASE_URL;
 
 if (!url) {
@@ -32,7 +35,7 @@ function readSql(name) {
 }
 
 async function main() {
-  const client = new pg.Client({ connectionString: url });
+  const client = new pg.Client(buildPgClientConfig(url, 30000));
   await client.connect();
   try {
     console.log("[rds] 执行 001_baseline.sql …");

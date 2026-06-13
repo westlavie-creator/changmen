@@ -22,6 +22,7 @@ import path from "node:path";
 
 import "../../../packages/shared/db/load_env.js";
 import { supabaseAdmin } from "../../../packages/shared/db/client.js";
+import { initDatabaseUrl } from "../../../packages/shared/db/resolve_database_url.js";
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +37,8 @@ const only = (() => {
 const want = (name) => !only || only.has(name);
 const wantCanonicalTeams = () => want("teams") || want("canonical_teams");
 const wantTeamMaps = () => want("teams") || want("team_platform_maps");
+
+await initDatabaseUrl();
 
 const rdsUrl = process.env.DATABASE_URL;
 const supaDbUrl = process.env.SUPABASE_DATABASE_URL || process.env.SUPABASE_DB_URL;
