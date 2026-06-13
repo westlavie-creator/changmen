@@ -4,7 +4,6 @@ import {
   getUserInfo,
   login as apiLogin,
   logout as apiLogout,
-  setToken,
   updateUserSetting as apiUpdateUserSetting,
   getClientData,
   getClientDataArray,
