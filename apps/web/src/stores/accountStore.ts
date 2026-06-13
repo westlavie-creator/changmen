@@ -1,33 +1,19 @@
 import { defineStore } from "pinia";
-import {
-  createTagPlatform,
-  deletePlayer,
-  getAccounts,
-  getTagPlatforms,
-  saveAccounts,
-  saveMoneyLog,
-  updateBalance,
-} from "@/api/esport";
 import { PlatformAccount } from "@/models/platformAccount";
-import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
-import type { TagPlatformRow } from "@/types/esport";
+import type { AccountRecord } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
 import { BetOption } from "@/models/betOption";
-import { BetResult } from "@/models/betResult";
-import { saveOrders } from "@/api/order";
-import { getProvider } from "@/runtime/providers";
-import { useConfigStore } from "@/stores/configStore";
-import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify";
-import type { VenueOrder } from "@platform/contract";
-import { ElNotification } from "element-plus";
-import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
-
+import * as accountCrud from "@/stores/account/accountCrud";
+import { getProviders, pickAccount } from "@/stores/account/accountPicker";
+import * as balanceRefresh from "@/stores/account/balanceRefresh";
+import { checkBetting, placeBet } from "@/stores/account/betGateway";
+import * as venueOrders from "@/stores/account/venueOrders";
 
 /** 对齐 A8 Pinia `Io` */
 export const useAccountStore = defineStore("account", {
   state: () => ({
     accounts: [] as PlatformAccount[],
-    tagPlatforms: [] as TagPlatformRow[],
+    tagPlatforms: [] as import("@/types/esport").TagPlatformRow[],
     loaded: false,
     loading: false,
     /** A8 Io.f 后台轮询：120s + 随机 60s */
@@ -65,220 +51,94 @@ export const useAccountStore = defineStore("account", {
     },
 
     openCreateAccount() {
-      this.editDialogAccount = undefined;
-      this.editDialogOpen = true;
+      accountCrud.openCreateAccount(this);
     },
 
     openEditAccount(account: PlatformAccount) {
-      this.editDialogAccount = account;
-      this.editDialogOpen = true;
+      accountCrud.openEditAccount(this, account);
     },
 
     closeAccountDialog() {
-      this.editDialogOpen = false;
-      this.editDialogAccount = undefined;
+      accountCrud.closeAccountDialog(this);
     },
 
-    async loadTagPlatforms() {
-      const rows = await getTagPlatforms();
-      this.tagPlatforms = rows.map((r) => ({
-        ID: r.ID ?? r.Id,
-        Name: r.Name ?? r.Platform ?? "",
-      }));
+    loadTagPlatforms() {
+      return accountCrud.loadTagPlatforms(this);
     },
 
-    async loadAccounts(refreshBalances = false) {
-      this.loading = true;
-      try {
-        await this.loadTagPlatforms();
-        const list = await getAccounts();
-        this.accounts = list
-          .filter((row) => row.accountId)
-          .map((row) => {
-            const acc = new PlatformAccount(row);
-            if (!acc.platformName && acc.platformId) {
-              acc.platformName = this.getPlatformName(acc.platformId, acc.platformName);
-            }
-            return acc;
-          });
-        this.loaded = true;
-        if (refreshBalances) {
-          await this.refreshAllFromVenues();
-          this.startBalanceRefreshLoop();
-        }
-      } finally {
-        this.loading = false;
-      }
+    loadAccounts(refreshBalances = false) {
+      return accountCrud.loadAccounts(this, refreshBalances);
     },
 
-    async saveAccounts() {
-      const payload = this.accounts
-        .filter((a) => a.accountId)
-        .map((a) => normalizeAccountMultiplyField(a.toJSON()));
-      const ok = await saveAccounts(payload);
-      if (!ok) throw new Error("账号保存失败，请检查登录状态或稍后重试");
-      return ok;
+    saveAccounts() {
+      return accountCrud.persistAccounts(this);
     },
 
-    async upsertAccount(record: Partial<AccountRecord>) {
-      const existing = this.findAccount(record.accountId);
-      if (existing) {
-        existing.applyPatch(record);
-      } else if (record.accountId) {
-        this.accounts.push(new PlatformAccount(record as AccountRecord));
-      }
-      await this.saveAccounts();
+    upsertAccount(record: Partial<AccountRecord>) {
+      return accountCrud.upsertAccount(this, record);
     },
 
-    async createAccount(record: Partial<AccountRecord>) {
-      await this.upsertAccount(record);
-      const acc = this.findAccount(record.accountId);
-      if (acc) {
-        await accRefresh.call(this, acc);
-      }
+    createAccount(record: Partial<AccountRecord>) {
+      return accountCrud.createAccount(this, record);
     },
 
-    async createFromTagPlatform(form: Partial<import("@/types/account").AccountRecord> & {
-      platformName: string;
-      playerName: string;
-      provider: AccountRecord["provider"];
-    }) {
-      const created: CreateTagPlatformResult = await createTagPlatform(
-        form.platformName,
-        form.playerName,
-      );
-      await this.createAccount({
-        ...form,
-        accountId: created.playerId,
-        playerName: created.playerName,
-        platformId: created.platformId,
-        platformName: form.platformName || created.platformName,
-        pause: form.pause ?? false,
-        balance: undefined,
-        updateTime: Date.now(),
-      });
-      await this.loadTagPlatforms();
-      return created;
+    createFromTagPlatform(
+      form: Partial<AccountRecord> & {
+        platformName: string;
+        playerName: string;
+        provider: AccountRecord["provider"];
+      },
+    ) {
+      return accountCrud.createFromTagPlatform(this, form);
     },
 
-    async deleteAccount(accountId: number) {
-      await deletePlayer(accountId);
-      this.accounts = this.accounts.filter((a) => a.accountId !== accountId);
-      await this.saveAccounts();
+    deleteAccount(accountId: number) {
+      return accountCrud.deleteAccount(this, accountId);
     },
 
-    async refreshBalance(account: PlatformAccount) {
-      return accRefresh.call(this, account);
+    refreshBalance(account: PlatformAccount) {
+      return balanceRefresh.refreshAccountBalance(this, account);
     },
 
-    /** 对齐 A8 `uv.updateOrders`：拉场馆订单并返回（拒单检测用） */
-    async updateVenueOrders(account: PlatformAccount): Promise<VenueOrder[]> {
-      const provider = getProvider(account);
-      if (!provider?.getOrders) return [];
-      try {
-        const orders = await provider.getOrders(account);
-        account.unsettle = orders.filter((o) => o.status === "none").length;
-        const unsettledExposure = orders
-          .filter((o) => o.status === "none")
-          .reduce((sum, o) => sum + o.odds * o.betMoney, 0);
-        account.winBalance = (account.balance ?? 0) + unsettledExposure;
-        await saveOrders(account, orders);
-        return orders;
-      } catch (err) {
-        console.warn(`[${account.provider}] updateVenueOrders`, err);
-        return [];
-      }
+    updateVenueOrders(account: PlatformAccount) {
+      return venueOrders.updateVenueOrders(account);
     },
 
-    /** A8 Io.f：逐账号刷余额（跳过投注中）→ 保存 → 拉本地订单汇总 */
-    async refreshAllFromVenues() {
-      for (const acc of this.accounts) {
-        if (acc.active) continue;
-        try {
-          await accRefresh.call(this, acc);
-        } catch {
-          /* 单账号失败不阻断 */
-        }
-      }
-      await this.saveAccounts();
-      try {
-        const { useOrderStore } = await import("@/stores/orderStore");
-        await useOrderStore().fetchOrders();
-      } catch {
-        /* 订单拉取失败不阻断余额结果 */
-      }
+    refreshAllFromVenues() {
+      return balanceRefresh.refreshAllFromVenues(this);
     },
 
-    async refreshAllBalances() {
-      await this.refreshAllFromVenues();
+    refreshAllBalances() {
+      return this.refreshAllFromVenues();
     },
 
-    /** A8 主界面 loadAccounts(true) 后启动；间隔 120s + random(0–60s) */
     startBalanceRefreshLoop() {
-      if (this.balanceRefreshRunning) return;
-      this.balanceRefreshRunning = true;
-      this.scheduleBalanceRefreshCycle();
+      balanceRefresh.startBalanceRefreshLoop(this);
     },
 
     stopBalanceRefreshLoop() {
-      this.balanceRefreshRunning = false;
-      if (this.balanceRefreshTimer) {
-        clearTimeout(this.balanceRefreshTimer);
-        this.balanceRefreshTimer = null;
-      }
+      balanceRefresh.stopBalanceRefreshLoop(this);
     },
 
     scheduleBalanceRefreshCycle() {
-      if (!this.balanceRefreshRunning) return;
-      if (this.balanceRefreshTimer) clearTimeout(this.balanceRefreshTimer);
-      const delayMs = 120_000 + Math.random() * 60_000;
-      this.balanceRefreshTimer = setTimeout(() => {
-        void this.runBalanceRefreshCycle();
-      }, delayMs);
+      balanceRefresh.scheduleBalanceRefreshCycle(this);
     },
 
-    async runBalanceRefreshCycle() {
-      if (!this.balanceRefreshRunning) return;
-      try {
-        await this.refreshAllFromVenues();
-      } finally {
-        this.scheduleBalanceRefreshCycle();
-      }
+    runBalanceRefreshCycle() {
+      return balanceRefresh.runBalanceRefreshCycle(this);
     },
 
-    async saveMoneyLogForAccount(
+    saveMoneyLogForAccount(
       accountId: number,
       money: number,
       type: "Recharge" | "Withdraw" | string,
       description = "",
     ) {
-      const ok = await saveMoneyLog({
-        playerId: accountId,
-        money,
-        type,
-        description,
-      });
-      if (ok && type === "Recharge") {
-        const acc = this.findAccount(accountId);
-        if (acc) {
-          acc.credit = (acc.credit ?? 0) + money;
-          await this.saveAccounts();
-        }
-      }
-      return ok;
+      return accountCrud.saveMoneyLogForAccount(this, accountId, money, type, description);
     },
 
     getProviders(minBetMoney?: number) {
-      const config = useConfigStore().config;
-      const threshold = minBetMoney ?? config.betMoney;
-      const map = new Map<PlatformId, PlatformAccount[]>();
-      for (const acc of this.accounts) {
-        const bal = acc.getBalance();
-        if (bal === undefined || bal < threshold) continue;
-        if (!map.has(acc.provider)) map.set(acc.provider, []);
-        map.get(acc.provider)!.push(acc);
-      }
-      return map;
+      return getProviders(this, minBetMoney);
     },
 
     getAccount(
@@ -288,231 +148,15 @@ export const useAccountStore = defineStore("account", {
       filter?: (acc: PlatformAccount) => boolean,
       options?: BetOption[],
     ) {
-      if (!provider) return undefined;
-      const candidates = this.accounts.filter((acc) => {
-        if (excludeAccountIds.includes(acc.accountId)) return false;
-        if (acc.maxOrder && acc.todayOrder && acc.todayOrder >= acc.maxOrder) return false;
-        const bal = acc.getBalance();
-        if (bal === undefined) return false;
-        if (filter && !filter(acc)) return false;
-        return acc.provider === provider && bal >= betMoney;
-      });
-      if (!candidates.length) return undefined;
-      if (candidates.length === 1) return candidates[0];
-
-      const gameName = options?.[0]?.match?.game;
-      const configProfit = useConfigStore().config.profit;
-      if (options?.length === 2 && candidates.some((a) => a.profit !== 0 || !!(gameName && a.game?.[gameName]?.profit))) {
-        const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
-        const sorted = candidates
-          .filter((a) => {
-            if (!a.profit && !(gameName && a.game?.[gameName]?.profit)) return true;
-            const floor = PlatformAccount.profitFloorForGame(a, gameName, configProfit);
-            return implied >= floor;
-          })
-          .sort((a, b) => {
-            const av = PlatformAccount.profitFloorForGame(a, gameName, configProfit);
-            const bv = PlatformAccount.profitFloorForGame(b, gameName, configProfit);
-            return av - bv;
-          });
-        if (sorted.length) return sorted[0];
-      }
-
-      const idx = this.providerPickIndex.get(provider) ?? 0;
-      this.providerPickIndex.set(provider, idx + 1);
-      return candidates[idx % candidates.length];
+      return pickAccount(this, provider, betMoney, excludeAccountIds, filter, options);
     },
 
-    async checkBetting(account: PlatformAccount | undefined, option: BetOption) {
-      if (!account) {
-        option.checkError = `场馆${option.type}没有可用账号`;
-        return option;
-      }
-      const provider = getProvider(account);
-      if (!provider) {
-        option.checkError = `场馆${option.type}不被支持`;
-        return option;
-      }
-      try {
-        option.betMoney = account.getBetMoney(option.betMoney, option.odds);
-        return await provider.checkBet(account, option);
-      } catch (e) {
-        option.checkError = e instanceof Error ? e.message : String(e);
-        return option;
-      }
+    checkBetting(account: PlatformAccount | undefined, option: BetOption) {
+      return checkBetting(this, account, option);
     },
 
-    async betting(account: PlatformAccount | undefined, option: BetOption, toastSeconds = 10) {
-      if (!account) return new BetResult(option.type, false, "无可用账号");
-      const provider = getProvider(account);
-      if (!provider) return new BetResult(option.type, false, "平台不支持");
-
-      const platformLabel = this.getPlatformName(account.platformId, account.platformName);
-      const accountTitle = `${account.provider} / ${platformLabel} / ${account.playerName}`;
-      const detailHtml = bettingDetailHtml({
-        matchTitle: option.match?.title,
-        betName: option.bet?.getBetName(),
-        target: option.target,
-        itemOdds: option.item?.getOdds(option.target),
-        betMoney: option.betMoney,
-        odds: option.odds,
-        betCount: option.betCount,
-      });
-
-      const loading = ElNotification({
-        title: `${accountTitle} 投注中...`,
-        message: bettingLoadingMessageHtml(account.provider, detailHtml),
-        dangerouslyUseHTMLString: true,
-        duration: 10_000,
-        customClass: `notification loading ${account.provider}`,
-      });
-
-      let result: BetResult = new BetResult(account.provider, false, "未知错误");
-      try {
-        if (!option.data) {
-          option = await this.checkBetting(account, option);
-        }
-        if (!option.data) {
-          result = new BetResult(option.type, false, option.checkError || "预检失败");
-        } else {
-          result = await provider.betting(account, option);
-        }
-      } catch (e) {
-        result = new BetResult(
-          account.provider,
-          false,
-          e instanceof Error ? e.message : String(e),
-          option.data,
-        );
-      } finally {
-        loading.close();
-        ElNotification({
-          title: accountTitle,
-          message: `${detailHtml}<p>${result.message || ""}</p>`,
-          type: result.success ? "success" : "error",
-          dangerouslyUseHTMLString: true,
-          duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
-        });
-      }
-      return result;
+    betting(account: PlatformAccount | undefined, option: BetOption, toastSeconds = 10) {
+      return placeBet(this, account, option, toastSeconds);
     },
   },
 });
-
-/** 对齐 A8 uv.updateBalance：浏览器 Provider 拉场馆 → Client_UpdateBalance 落库 */
-async function accRefresh(this: ReturnType<typeof useAccountStore>, account: PlatformAccount) {
-  account.loadingBalance = true;
-  account.balanceError = null;
-
-  try {
-    const provider = getProvider(account);
-    if (!provider?.getBalance) {
-      account.balance = undefined;
-      account.balanceError = `${account.provider} 暂不支持客户端刷新余额`;
-      return false;
-    }
-    if (!account.gateway || !account.token) {
-      account.balance = undefined;
-      account.balanceError = "token error";
-      return false;
-    }
-
-    const result = await provider.getBalance(account);
-    if (!result) {
-      account.balance = undefined;
-      account.balanceError = "token error";
-      return false;
-    }
-
-    account.balance = result.balance;
-    if (result.currency) account.currency = result.currency;
-    account.balanceError = null;
-    account.updateTime = Date.now();
-
-    try {
-      const info = await updateBalance(account.accountId, account.balance);
-      if (info) {
-        account.totalProfit = info.total - (account.credit ?? 0);
-        if (info.platformId) account.platformId = info.platformId;
-        if (info.platformName) account.platformName = info.platformName;
-      }
-    } catch {
-      /* 余额已从场馆读到，落库失败不阻断展示 */
-    }
-    await this.saveAccounts();
-    await accUpdateOrders.call(this, account);
-    return true;
-  } catch (e) {
-    account.balance = undefined;
-    account.balanceError = normalizeBalanceError(e, account);
-    return false;
-  } finally {
-    account.loadingBalance = false;
-  }
-}
-
-/** 对齐 A8 `uv.updateOrders` + `Vt.saveOrders` */
-async function accUpdateOrders(
-  this: ReturnType<typeof useAccountStore>,
-  account: PlatformAccount,
-) {
-  const provider = getProvider(account);
-  if (!provider?.getOrders) return;
-  try {
-    const orders = await provider.getOrders(account);
-    account.unsettle = orders.filter((o) => o.status === "none").length;
-    const unsettledExposure = orders
-      .filter((o) => o.status === "none")
-      .reduce((sum, o) => sum + o.odds * o.betMoney, 0);
-    account.winBalance = (account.balance ?? 0) + unsettledExposure;
-    await saveOrders(account, orders);
-  } catch (err) {
-    console.warn(`[${account.provider}] updateOrders`, err);
-  }
-}
-
-function balanceUsesBackendRelay(account: PlatformAccount): boolean {
-  return Boolean(account.proxyId);
-}
-
-function isBackendRelayErrorMessage(message: string): boolean {
-  const lower = message.toLowerCase();
-  return /3456|http-relay|127\.0\.0\.1|后端未连接|start-web|start-dev/.test(lower);
-}
-
-function isVenueNetworkError(message: string): boolean {
-  const lower = message.toLowerCase();
-  return /failed to fetch|networkerror|network error|econnrefused|load failed|net::err_/.test(
-    lower,
-  );
-}
-
-function normalizeBalanceError(err: unknown, account: PlatformAccount): string {
-  const raw = err instanceof Error ? err.message : String(err || "");
-  let message = raw.trim();
-  if (message.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(message) as { error?: string; hint?: string; msg?: string };
-      message = parsed.msg || parsed.error || message;
-      if (parsed.hint && parsed.error === "RAY not configured") {
-        return "token error";
-      }
-    } catch {
-      /* keep raw */
-    }
-  }
-  const lower = message.toLowerCase();
-  if (isVenueNetworkError(message)) {
-    if (balanceUsesBackendRelay(account) || isBackendRelayErrorMessage(message)) {
-      return "本机 HTTP 代理未连接，请先运行 npm run web（3456）";
-    }
-    return `无法连接 ${account.provider} 场馆，请检查 gateway、Token；浏览器直连时还可能是跨域 (CORS) 被拦截`;
-  }
-  if (/ray not configured/.test(lower)) {
-    return "token error";
-  }
-  if (!message || /token|auth|401|403|login|credential|请先登录/.test(lower)) {
-    return "token error";
-  }
-  return message;
-}

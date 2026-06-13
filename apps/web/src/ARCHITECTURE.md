@@ -130,6 +130,18 @@ bettingStore.runTick
 
 `models/match.ts` 的 `ViewBet.getOrderOptions` 委托 `buildOrderOptions`，保持模型 API 不变。
 
+### `stores/account/`（账号与下注网关）
+
+| 路径 | 用途 |
+|------|------|
+| `accountStore.ts` | Pinia 门面（对齐 A8 `Io`） |
+| `account/accountCrud.ts` | 列表加载、保存、创建/删除、充提流水 |
+| `account/accountPicker.ts` | `getProviders`、`getAccount` 轮询选号 |
+| `account/betGateway.ts` | `checkBetting`、`betting` 通知与场馆下单 |
+| `account/balanceRefresh.ts` | 余额刷新循环（120s + 随机 60s） |
+| `account/venueOrders.ts` | 场馆订单同步、拒单检测用 |
+| `account/balanceErrors.ts` | 余额错误文案归一 |
+
 ### `stores/betting/`（下注编排）
 
 | 路径 | 用途 |
