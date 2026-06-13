@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * M4：从 Supabase 导入 users / profiles / orders 到阿里云 RDS（不切流，可重复执行）
+ * M4：从 Supabase 导入 users / profiles / orders / 队伍表 到阿里云 RDS（不切流，可重复执行）
  *
  * 需要 apps/backend/.env：
- *   SUPABASE_URL + SUPABASE_SERVICE_KEY  — 拉 profiles、orders
+ *   SUPABASE_URL + SUPABASE_SERVICE_KEY  — 拉 profiles、orders、队伍表
  *   DATABASE_URL                         — 写入 RDS
  *   SUPABASE_DATABASE_URL（推荐）       — 从 auth.users 拷贝密码 hash；无则 users 用占位密码
  *
@@ -12,6 +12,7 @@
  *   node scripts/import-from-supabase.mjs
  *   node scripts/import-from-supabase.mjs --dry-run
  *   node scripts/import-from-supabase.mjs --only profiles,orders
+ *   node scripts/import-from-supabase.mjs --only teams
  */
 
 import pg from "pg";
@@ -33,6 +34,8 @@ const only = (() => {
   return new Set(raw.slice("--only=".length).split(",").map((s) => s.trim()).filter(Boolean));
 })();
 const want = (name) => !only || only.has(name);
+const wantCanonicalTeams = () => want("teams") || want("canonical_teams");
+const wantTeamMaps = () => want("teams") || want("team_platform_maps");
 
 const rdsUrl = process.env.DATABASE_URL;
 const supaDbUrl = process.env.SUPABASE_DATABASE_URL || process.env.SUPABASE_DB_URL;
@@ -55,6 +58,25 @@ async function fetchAllProfiles() {
     .order("user_name");
   if (error) throw new Error(`profiles: ${error.message}`);
   return data || [];
+}
+
+async function fetchAllFromTable(table, select, orderCol = "id") {
+  const all = [];
+  let from = 0;
+  for (;;) {
+    const to = from + PAGE - 1;
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select(select)
+      .order(orderCol)
+      .range(from, to);
+    if (error) throw new Error(`${table}: ${error.message}`);
+    const batch = data || [];
+    all.push(...batch);
+    if (batch.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
 }
 
 async function fetchAllOrders() {
@@ -246,10 +268,100 @@ async function importOrders(rds, orders) {
   return n;
 }
 
+async function importCanonicalTeams(rds, teams) {
+  let n = 0;
+  for (const t of teams) {
+    await rds.query(
+      `INSERT INTO canonical_teams (
+         id, gb_team_id, game, name, acronym, pandascore_id, updated_by, updated_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz)
+       ON CONFLICT (game, name) DO UPDATE SET
+         gb_team_id = COALESCE(EXCLUDED.gb_team_id, canonical_teams.gb_team_id),
+         acronym = EXCLUDED.acronym,
+         pandascore_id = EXCLUDED.pandascore_id,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = EXCLUDED.updated_at`,
+      [
+        t.id,
+        t.gb_team_id ?? null,
+        t.game,
+        t.name,
+        t.acronym ?? null,
+        t.pandascore_id ?? null,
+        t.updated_by ?? null,
+        t.updated_at ?? null,
+      ],
+    );
+    n += 1;
+  }
+  if (n > 0) {
+    await rds.query(
+      `SELECT setval(
+         'canonical_teams_id_seq',
+         GREATEST((SELECT MAX(id) FROM canonical_teams), 1)
+       )`,
+    );
+    await rds.query(
+      `SELECT setval(
+         'canonical_teams_manual_id_seq',
+         GREATEST(
+           COALESCE((SELECT MAX(gb_team_id) FROM canonical_teams WHERE gb_team_id >= 100000), 99999),
+           100000
+         )
+       )`,
+    );
+  }
+  return n;
+}
+
+async function importTeamPlatformMaps(rds, maps) {
+  let n = 0;
+  for (const m of maps) {
+    await rds.query(
+      `INSERT INTO team_platform_maps (
+         canonical_id, platform, platform_id, platform_name, game, source, confidence, created_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz)
+       ON CONFLICT (platform, platform_id) DO UPDATE SET
+         canonical_id = CASE
+           WHEN EXCLUDED.canonical_id IS NOT NULL THEN EXCLUDED.canonical_id
+           ELSE team_platform_maps.canonical_id
+         END,
+         platform_name = EXCLUDED.platform_name,
+         game = EXCLUDED.game,
+         source = EXCLUDED.source,
+         confidence = EXCLUDED.confidence`,
+      [
+        m.canonical_id ?? null,
+        m.platform,
+        m.platform_id ?? null,
+        m.platform_name,
+        m.game ?? null,
+        m.source ?? "manual",
+        Number(m.confidence) || 1,
+        m.created_at ?? null,
+      ],
+    );
+    n += 1;
+  }
+  return n;
+}
+
 async function main() {
   console.log("[import] 从 Supabase 读取…");
   const profiles = want("profiles") ? await fetchAllProfiles() : [];
   const orders = want("orders") ? await fetchAllOrders() : [];
+  const canonicalTeams = wantCanonicalTeams()
+    ? await fetchAllFromTable(
+        "canonical_teams",
+        "id, gb_team_id, game, name, acronym, pandascore_id, updated_by, updated_at",
+      )
+    : [];
+  const teamMaps = wantTeamMaps()
+    ? await fetchAllFromTable(
+        "team_platform_maps",
+        "canonical_id, platform, platform_id, platform_name, game, source, confidence, created_at",
+      )
+    : [];
   let authUsers = want("users") ? await fetchAuthUsersFromDb() : [];
   let usersPlaceholder = false;
   if (want("users") && !authUsers) {
@@ -261,7 +373,7 @@ async function main() {
   }
 
   console.log(
-    `[import] Supabase: users=${authUsers?.length ?? 0} profiles=${profiles.length} orders=${orders.length}`,
+    `[import] Supabase: users=${authUsers?.length ?? 0} profiles=${profiles.length} orders=${orders.length} canonical_teams=${canonicalTeams.length} team_platform_maps=${teamMaps.length}`,
   );
 
   if (dryRun) {
@@ -275,6 +387,8 @@ async function main() {
     let u = 0;
     let p = 0;
     let o = 0;
+    let ct = 0;
+    let tm = 0;
     if (want("users") && authUsers?.length) {
       const ph = usersPlaceholder ? await ensurePlaceholderPasswordHash(rds) : null;
       u = await importUsers(rds, authUsers, ph);
@@ -288,12 +402,23 @@ async function main() {
       o = await importOrders(rds, orders);
       console.log(`[import] orders 写入 ${o} 行`);
     }
+    if (wantCanonicalTeams() && canonicalTeams.length) {
+      ct = await importCanonicalTeams(rds, canonicalTeams);
+      console.log(`[import] canonical_teams 写入 ${ct} 行`);
+    }
+    if (wantTeamMaps() && teamMaps.length) {
+      tm = await importTeamPlatformMaps(rds, teamMaps);
+      console.log(`[import] team_platform_maps 写入 ${tm} 行`);
+    }
 
     const counts = await rds.query(`
       SELECT
         (SELECT COUNT(*)::int FROM users) AS users,
         (SELECT COUNT(*)::int FROM profiles) AS profiles,
-        (SELECT COUNT(*)::int FROM orders) AS orders
+        (SELECT COUNT(*)::int FROM orders) AS orders,
+        (SELECT COUNT(*)::int FROM canonical_teams) AS canonical_teams,
+        (SELECT COUNT(*)::int FROM team_platform_maps) AS team_platform_maps,
+        (SELECT COUNT(*)::int FROM team_platform_maps WHERE canonical_id IS NOT NULL) AS team_maps_linked
     `);
     console.log("[import] RDS 当前:", counts.rows[0]);
     console.log("[import] 完成（现网仍读 Supabase，未切流）");
