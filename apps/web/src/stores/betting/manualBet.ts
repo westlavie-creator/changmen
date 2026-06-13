@@ -6,8 +6,8 @@ import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
-import { markSuccessfulBet } from "@/stores/betting/betSession";
-import { betToastSeconds } from "@/shared/bettingSession";
+import { markSuccessfulBet } from "@/stores/betting/successMarkers";
+import { betToastSeconds } from "@/shared/betTiming";
 
 export interface ManualBetContext {
   setMessage: (msg: string) => void;

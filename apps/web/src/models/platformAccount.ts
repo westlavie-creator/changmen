@@ -1,7 +1,7 @@
 import type { AccountRecord, AccountCurrency } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
-import { readGameBetCount } from "@/shared/bettingSession";
+import { readGameBetCount } from "@/shared/betTiming";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 /** [changmen 扩展] rateConfig.rate === 9999 表示该赔率区间不参与投注 */

@@ -4,7 +4,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import {
   passesLastOddsGate,
   passesMaxBetCount,
-} from "@/shared/bettingSession";
+} from "@/shared/betTiming";
 import { useMatchStore } from "@/stores/matchStore";
 
 /** 对齐 bundle：账号 minDefault / maxDefault 与初赔比较 */

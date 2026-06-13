@@ -5,12 +5,12 @@ import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useMessageStore } from "@/stores/messageStore";
-import { isVenueReject } from "@/stores/betting/autoBetLoop";
+import { isVenueReject } from "@/domain/betting";
 import { passesDefaultOddsAccount } from "@/stores/betting/betFilters";
-import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/betSession";
+import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { wait } from "@/shared/wait";
 import { a8Tip } from "@/shared/a8Notify";
-import { betToastSeconds, passesMaxBetCount } from "@/shared/bettingSession";
+import { betToastSeconds, passesMaxBetCount } from "@/shared/betTiming";
 
 export interface LoseOrderTickContext {
   setMessage: (msg: string) => void;

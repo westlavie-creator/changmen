@@ -11,7 +11,7 @@ import { useConfigStore } from "@/stores/configStore";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { ArbLegs } from "@/shared/arbitrage";
 import { arbProfitRate, formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
-import { assessValueBet, formatValueBetTelegramLine } from "@/shared/valueBet";
+import { assessValueBet, formatValueBetTelegramLine } from "@/domain/arbitrage";
 import { wait } from "@/shared/wait";
 
 /** A8 bundle 固定报表群 / 发布群（Gi 中 RBe / FBe） */

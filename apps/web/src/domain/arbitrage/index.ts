@@ -1,4 +1,8 @@
-/** @deprecated 请从 `@/domain/arbitrage` 导入 */
+export {
+  arbLegSide,
+  pickArbLegs,
+  type ArbLegs,
+} from "@/domain/arbitrage/pickArbLegs";
 export {
   assessValueBet,
   assessValueBetFromDefaultOdds,

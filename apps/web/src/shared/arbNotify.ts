@@ -1,4 +1,5 @@
-import { pickArbLegs } from "@/shared/arbitrage";
+import { pickArbLegs } from "@/domain/arbitrage";
+import { resolveArbProviderKeys } from "@/domain/betting";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -9,11 +10,11 @@ import type { PlatformId } from "@/types/esport";
 
 let lastScanAt = 0;
 
-/** 与 BetRow 红线一致：用盘口上全部平台参与检测，不依赖账号余额/getProviders */
+/** @deprecated 使用 `resolveArbProviderKeys('display', { bet })` */
 export function providerKeysForArbNotify(bet: {
   items: { type: PlatformId }[];
 }): PlatformId[] {
-  return bet.items.map((item) => item.type);
+  return resolveArbProviderKeys("display", { bet });
 }
 
 /** 与 BetRow 红线一致：用盘口上全部平台参与检测，不依赖账号余额 */
@@ -33,7 +34,7 @@ export function scanArbTelegramNotifications(minIntervalMs = 5000) {
 
   for (const match of matchStore.matchs) {
     for (const bet of match.bets) {
-      const providerKeys = providerKeysForArbNotify(bet);
+      const providerKeys = resolveArbProviderKeys("display", { bet });
       const legs = pickArbLegs(
         bet,
         config,

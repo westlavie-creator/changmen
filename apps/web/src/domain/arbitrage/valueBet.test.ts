@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessValueBetFromDefaultOdds } from "./valueBet";
+import { assessValueBetFromDefaultOdds } from "@/domain/arbitrage/valueBet";
 
 describe("assessValueBetFromDefaultOdds", () => {
   const legs = {

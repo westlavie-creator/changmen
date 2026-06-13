@@ -12,7 +12,8 @@ import { useMatchStore } from "@/stores/matchStore";
 import { useBettingStore } from "@/stores/bettingStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useAccountStore } from "@/stores/accountStore";
-import { arbLegSide, pickArbLegs } from "@/shared/arbitrage";
+import { arbLegSide, pickArbLegs } from "@/domain/arbitrage";
+import { resolveArbProviderKeys } from "@/domain/betting";
 import { arbPercent, arbProfitRate, formatSecond, percent, toFixed } from "@/shared/format";
 import type { PlatformId } from "@/types/esport";
 
@@ -55,7 +56,7 @@ function itemFlash(item: ViewBet["items"][0], side: BetSide) {
 const arbLegs = computed(() => {
   void revision.value;
   void matchTick.value;
-  const providerKeys = props.bet.items.map((item) => item.type);
+  const providerKeys = resolveArbProviderKeys("display", { bet: props.bet });
   return pickArbLegs(
     props.bet,
     configStore.config,
