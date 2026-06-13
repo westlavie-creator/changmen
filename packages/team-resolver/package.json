@@ -1,8 +1,13 @@
 {
-  "name": "team-resolver",
+  "name": "@changmen/team-resolver",
   "version": "1.0.0",
+  "private": true,
   "description": "Standalone esports team name resolver — maps platform-specific team names to canonical IDs via PandaScore / Liquipedia",
   "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./supabase_db.js": "./supabase_db.js"
+  },
   "scripts": {
     "test": "node test.js",
     "seed": "node seed.js",

@@ -25,5 +25,6 @@ BAT\setup-dev-env.bat
 | `pack-chromeplug.bat` | 打包 Chrome 插件 zip |
 | `push-git.bat` | git commit + push |
 | `deploy-server.bat` | 部署 VPS（可选 `deploy-server.local.bat`） |
+| `ecosystem.config.cjs` | PM2 进程清单（见文件头注释） |
 
 部署本地配置：复制 `deploy-server.local.bat.example` 为同目录下的 `deploy-server.local.bat`。

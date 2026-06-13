@@ -95,15 +95,17 @@ npm run app:build
 
 ### 3.4 进程
 
-至少两个长期进程：
+至少两个长期进程（推荐 PM2）：
 
 ```bash
-# 1) API + 静态 + HTTP 代理
-cd changmen && npm run web
-
-# 2) 赛事合并（写 client_matches）
-cd changmen && npm run matcher:loop
+cd changmen
+pm2 start ecosystem.config.cjs    # gamebet-web + gamebet-matcher
+# 或手动：
+npm run web
+npm run matcher:loop
 ```
+
+`ecosystem.config.cjs` 中入口为 `apps/backend/scripts/start-db.mjs` 与 `apps/matcher/scripts/start-db.mjs`（按 `GAMEBET_DB_SCRIPT` 选库）。
 
 生产建议用 systemd / pm2 / Docker Compose 托管，并配置重启策略。
 

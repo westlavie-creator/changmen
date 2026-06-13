@@ -39,7 +39,7 @@ async function ensureTeamPlugin() {
   if (_pluginReady) return _pluginReady;
   _pluginReady = (async () => {
     try {
-      const { loadAndCreatePlugin } = await import("../../../packages/team-resolver/supabase_db.js");
+      const { loadAndCreatePlugin } = await import("@changmen/team-resolver/supabase_db.js");
       const plugin = await loadAndCreatePlugin();
       setTeamPlugin(plugin);
     } catch (err) {

@@ -17,12 +17,12 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
       "@changmen/shared": fileURLToPath(new URL("../../packages/shared", import.meta.url)),
       "@platform": fileURLToPath(new URL("../../packages/platform-adapter", import.meta.url)),
-      mqtt: fileURLToPath(new URL("./node_modules/mqtt", import.meta.url)),
+      mqtt: fileURLToPath(new URL("../../node_modules/mqtt", import.meta.url)),
       "socket.io-client": fileURLToPath(
-        new URL("./node_modules/socket.io-client", import.meta.url),
+        new URL("../../node_modules/socket.io-client", import.meta.url),
       ),
       "socketcluster-client": fileURLToPath(
-        new URL("./node_modules/socketcluster-client", import.meta.url),
+        new URL("../../node_modules/socketcluster-client", import.meta.url),
       ),
     },
   },

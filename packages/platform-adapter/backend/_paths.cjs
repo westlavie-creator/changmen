@@ -14,7 +14,7 @@ function findBackendRoot(startDir) {
     if (fs.existsSync(pkgPath) && fs.existsSync(path.join(cur, "core"))) {
       try {
         const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-        if (pkg.name === "gamebet-backend") return cur;
+        if (pkg.name === "@changmen/backend") return cur;
       } catch {
         /* ignore */
       }
@@ -25,7 +25,7 @@ function findBackendRoot(startDir) {
       if (fs.existsSync(siblingPkg) && fs.existsSync(path.join(sibling, "core"))) {
         try {
           const pkg = JSON.parse(fs.readFileSync(siblingPkg, "utf8"));
-          if (pkg.name === "gamebet-backend") return sibling;
+          if (pkg.name === "@changmen/backend") return sibling;
         } catch {
           /* ignore */
         }

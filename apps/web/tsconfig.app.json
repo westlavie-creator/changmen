@@ -21,11 +21,10 @@
       "@/*": ["./src/*"],
       "@changmen/shared/*": ["../../packages/shared/*"],
       "@platform/*": ["../../packages/platform-adapter/*"],
-      "mqtt": ["./node_modules/mqtt"],
-      "socket.io-client": ["./node_modules/socket.io-client"],
-      "socketcluster-client": ["./node_modules/socketcluster-client"]
-    },
-    "baseUrl": "."
+      "mqtt": ["../../node_modules/mqtt"],
+      "socket.io-client": ["../../node_modules/socket.io-client"],
+      "socketcluster-client": ["../../node_modules/socketcluster-client"]
+    }
   },
   "include": [
     "src/**/*.ts",

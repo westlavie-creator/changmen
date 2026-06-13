@@ -10,7 +10,7 @@ changmen/
 │   ├── shared/                  # @changmen/shared — catalog、db、odds、im_parse、match_time
 │   ├── platform-adapter/        # @changmen/platform-adapter — 各平台 frontend/backend + registry
 │   ├── match-engine/            # @changmen/match-engine — 跨平台合并核心
-│   └── team-resolver/           # 队名 canonical 映射 + 爬虫
+│   └── team-resolver/           # @changmen/team-resolver — 队名 canonical 映射 + 爬虫
 ├── apps/                        # 可运行应用
 │   ├── backend/                 # HTTP API、代理、静态托管（原 gamebet_backend）
 │   ├── matcher/                 # 调度循环 + 人工关联 UI（原 gamebet_matcher）
@@ -25,8 +25,9 @@ changmen/
 |------|------|------|
 | 1 | `shared` → `packages/shared` | ✅ 完成 |
 | 2 | `platform_adapter` → `packages/platform-adapter` | ✅ 完成 |
-| 3 | `team-resolver` → `packages/team-resolver` | ✅ 完成 |
+| 3 | `team-resolver` → `packages/team-resolver`（`@changmen/team-resolver`） | ✅ 完成 |
 | 4 | `gamebet_matcher/engine` → `packages/match-engine` | ✅ 完成 |
+| 5 | 包名统一 `@changmen/*`（backend / matcher / web / chrome-extension / team-resolver） | ✅ 完成 |
 | 5 | `gamebet_*` → `apps/*` 重命名 | ✅ 完成 |
 | 6 | 根脚本 / `*.bat` / 部署文档统一到 `apps/` 路径 | ✅ 已完成（`BAT/` 集中实现；含 `apps/web/docs/*` 路径更新） |
 
@@ -42,7 +43,7 @@ apps/chrome-extension ─（代理/凭证）─► 各平台源站
 packages/platform-adapter ──采集上报──► apps/backend (API_SaveMatch/SaveBet)
 apps/backend ──读写────► packages/shared/db (Supabase)
 apps/matcher ──rebuild──► packages/match-engine + packages/shared
-apps/matcher ──队名────► packages/team-resolver（动态 import，可选）
+apps/matcher ──队名────► @changmen/team-resolver（workspace 依赖，可选）
 
 apps/backend ──requirePlatform──► packages/platform-adapter（开发）
 apps/backend ──platform_adapter/ 拷贝（生产打包，目录名暂保留）
@@ -63,7 +64,7 @@ npm workspace 成员；matcher/backend 通过相对路径或 workspace 引用。
 1. `apps/backend/platform_adapter`（部署拷贝）
 2. `changmen/packages/platform-adapter`（开发）
 
-### `packages/team-resolver`
+### `packages/team-resolver` (`@changmen/team-resolver`)
 
 队名规范化插件；matcher `rebuild` 与 UI `merge_mode` 动态加载 `supabase_db.js`。  
 爬虫脚本在 `scrapers/`，依赖 backend `.env` 与 `adapter_paths`。

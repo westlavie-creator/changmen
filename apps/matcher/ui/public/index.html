@@ -748,7 +748,7 @@ async function fetchJson(url, options) {
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {
     const text = await res.text();
-    throw new Error(text.trimStart().startsWith('<') ? 'API 返回 HTML，请确认 gamebet_matcher 服务已启动' : text.slice(0, 120));
+    throw new Error(text.trimStart().startsWith('<') ? 'API 返回 HTML，请确认 matcher 服务已启动' : text.slice(0, 120));
   }
   return { res, data: await res.json() };
 }

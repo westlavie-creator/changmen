@@ -54,14 +54,13 @@
 | [`apps/backend/`](./apps/backend/) | **服务端**：esport-api、WS relay、静态托管 |
 | [`apps/matcher/`](./apps/matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
 | [`apps/chrome-extension/`](./apps/chrome-extension/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
-| [`packages/`](./packages/) | 共享库：`shared`、`platform-adapter`、`match-engine`、`team-resolver` |
+| [`packages/`](./packages/) | 共享库：`shared`、`platform-adapter`、`match-engine`、`@changmen/team-resolver` |
 | [`../A8/`](../A8/) | A8 原版参考（bundle + 官方插件拷贝，与 `changmen` 并列） |
 | [`../pingtai_offical/`](../pingtai_offical/) | 各平台官网抓包参考（可选） |
 
 ```bash
 cd changmen   # 若尚未在本目录
-npm install          # workspaces：backend、matcher、packages
-npm run app:install  # web 依赖（首次）
+npm install          # workspaces：backend、matcher、web、packages
 npm run web          # preweb + 启动 http://localhost:3560（Win）/ 3456
 npm run app:dev      # 新控制台 dev → http://localhost:5174/
 ```
@@ -73,7 +72,7 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/
 
 **生产部署**：[PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 
-迁移阶段与模块对照见 [apps/web/MIGRATION.md](./apps/web/MIGRATION.md)。后端 API 见 [apps/backend/README.md](./apps/backend/README.md)。Monorepo 结构见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)。
+迁移阶段与模块对照见 [apps/web/MIGRATION.md](./apps/web/MIGRATION.md)。文档索引：[docs/README.md](./docs/README.md)。Monorepo 结构见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)。
 
 **OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[apps/web/docs/platforms/A8_COMPARE_OB_RAY.md](./apps/web/docs/platforms/A8_COMPARE_OB_RAY.md)。
 
@@ -116,11 +115,11 @@ platform_adapter（浏览器） ──► API_SaveMatch / API_SaveBet ──► 
 | 模块 | 路径 | 说明 |
 |------|------|------|
 | 采集会话 | `platform_adapter/shared/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
-| HTTP 采集 | `gamebet_frontend/src/shared/http.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
+| HTTP 采集 | `apps/web/src/shared/http.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
 | A8 Socket hub | `platform_adapter/shared/socket/hub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
 | A8 盘口聚合 | `platform_adapter/shared/socket/collector.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
 
-### 凭证存储：`gamebet_backend/data/esport/platforms.json`
+### 凭证存储：`apps/backend/data/esport/platforms.json`
 
 `Client_GetCollectPlatform` 读取该文件（RAY 除外，见上）。前端 `getCollectPlatform(provider)` 与 Node 探针脚本共用同一数据源。
 
@@ -142,7 +141,7 @@ HTTP 代理（浏览器 CORS 回退）：`/esport/ob/proxy`、`/esport/ray/proxy
 任选其一：
 
 1. **插件导入**（推荐）
-   `cd gamebet_backend && npm run account:import-platform -- <base64> --sync-store`
+   `cd apps/backend && npm run account:import-platform -- <base64> --sync-store`
 
 2. **环境变量**（启动时 `platform_sync.js` 写入 store）
 
@@ -164,15 +163,15 @@ HTTP 代理（浏览器 CORS 回退）：`/esport/ob/proxy`、`/esport/ray/proxy
 一键检查 `platforms.json`、`Client_GetCollectPlatform`、账号与可选 live 探针：
 
 ```bash
-cd gamebet_backend
+cd apps/backend
 npm run check:collect          # 配置 + API 对照
 npm run check:collect:probe    # 额外 HTTP 探针（OB/RAY/PB 等）
 npm run check:collect -- --json   # CI / 机器可读
 ```
 
-- 脚本：`gamebet_backend/scripts/check-collect-platforms.js`（`npm run check:collect`）
+- 脚本：`apps/backend/scripts/check-collect-platforms.js`（`npm run check:collect`）
 - 退出码 `0` = 所有**必需**凭证齐全；`1` = 仍有 TF/IA/IMT/SABA/Stake 等缺凭证
-- Stake：`platforms.json` 使用字段 `accessToken`；`Client_GetCollectPlatform` 已映射为返回的 `Token`（`gamebet_backend/core/esport-api/router.js`）
+- Stake：`platforms.json` 使用字段 `accessToken`；`Client_GetCollectPlatform` 已映射为返回的 `Token`（`apps/backend/core/esport-api/router.js`）
 
 ### IM / XBet / Stake 实时赔率前置条件
 
@@ -199,7 +198,7 @@ npm run check:collect -- --json   # CI / 机器可读
 
 - `index.js`：A8 前端编译后的 Vue 代码，包含平台适配、实时赔率缓存、下单校验、WebSocket 连接等逻辑。
 - `index.css`：前端样式文件。
-- `plug/`：目标站使用的 Chrome 插件（现位于仓库根目录 `gamebet_chromeplug/`；`gamebet_frontend/extension/` 为旧副本可参考）。
+- `plug/`：目标站使用的 Chrome 插件（现位于 `apps/chrome-extension/`；`apps/web/extension/` 为旧副本可参考）。
 - `browser_arch_scan_30min.js`：本地页面架构扫描脚本。
 - `arch_scan_extension/`：本地 Chrome 扫描插件，用于长期采集页面请求、WebSocket、storage、资源信息。
 - `arch-scan-report-2026-05-23T19-14-34-844Z.json`：已导出的扫描结果。

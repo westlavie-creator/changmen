@@ -8,7 +8,9 @@
     "packages/team-resolver",
     "packages/match-engine",
     "apps/backend",
-    "apps/matcher"
+    "apps/matcher",
+    "apps/web",
+    "apps/chrome-extension"
   ],
   "scripts": {
     "install:all": "npm install",
@@ -18,15 +20,15 @@
     "web:restart": "npm run web:restart --prefix apps/backend",
     "app:dev": "npm run dev --prefix apps/web",
     "app:build": "npm run build --prefix apps/web",
-    "app:install": "npm install --prefix apps/web",
+    "app:install": "npm install",
     "test": "npm run test:catalog-smoke && npm run test:backend && npm run test:frontend",
     "test:backend": "npm run test --prefix apps/backend",
     "test:frontend": "npm run test --prefix apps/web",
     "test:catalog-smoke": "node packages/shared/catalog/market_catalog_smoke.test.mjs && node packages/shared/catalog/game_catalog_smoke.test.mjs && node packages/shared/im_parse_smoke.test.mjs && node packages/shared/time/match_time_smoke.test.mjs",
-    "matcher:install": "npm install --prefix apps/matcher",
+    "matcher:install": "npm install",
     "matcher:ui": "npm run start --prefix apps/matcher",
     "matcher:loop": "npm run matcher --prefix apps/matcher",
     "db:mode": "node scripts/switch-db-mode.mjs",
-    "chromeplug:pack": "npm run pack --prefix apps/chrome-extension"
+    "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension"
   }
 }

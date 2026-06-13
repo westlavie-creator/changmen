@@ -13,10 +13,6 @@ function resolveBackendRoot() {
   if (fs.existsSync(path.join(monorepo, "core"))) {
     return monorepo;
   }
-  const legacy = path.join(ADAPTER_ROOT, "..", "..", "gamebet_backend");
-  if (fs.existsSync(path.join(legacy, "core"))) {
-    return legacy;
-  }
   throw new Error(
     "apps/backend not found (expected changmen/apps/backend next to packages/)",
   );

@@ -1,5 +1,5 @@
 {
-  "name": "gamebet-chromeplug",
+  "name": "@changmen/chrome-extension",
   "private": true,
   "version": "1.2.0",
   "description": "Gamebet Chrome 扩展构建脚本",

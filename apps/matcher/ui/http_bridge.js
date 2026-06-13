@@ -8,7 +8,7 @@ function splitUrl(url) {
 }
 
 /**
- * 将 gamebet_backend 收到的 /matcher/api/* 转给 matcher Express 应用。
+ * 将 apps/backend 收到的 /matcher/api/* 转给 matcher Express 应用。
  * @returns {Promise<boolean>} 是否已接管请求
  */
 export function tryHandleMatcherApi(req, res) {

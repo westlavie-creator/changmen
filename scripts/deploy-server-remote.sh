@@ -15,7 +15,7 @@ elapsed() { echo "==> done in $((SECONDS - t0))s total"; }
 if [ -f "$ROOT/changmen/package.json" ]; then
   GIT_ROOT="$ROOT"
   CHANGMEN="$ROOT/changmen"
-elif [ -f "$ROOT/package.json" ] && { [ -d "$ROOT/apps/backend" ] || [ -d "$ROOT/gamebet_backend" ]; }; then
+elif [ -f "$ROOT/package.json" ] && [ -d "$ROOT/apps/backend" ]; then
   GIT_ROOT="$ROOT"
   CHANGMEN="$ROOT"
 else
@@ -79,20 +79,20 @@ classify() {
       DO_PM2_WEB=1
       DO_PM2_MATCHER=1
       ;;
-    apps/backend/*|gamebet_backend/*)
+    apps/backend/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       ;;
-    apps/matcher/*|gamebet_matcher/*)
+    apps/matcher/*)
       DO_INSTALL_ROOT=1
       DO_PM2_MATCHER=1
       ;;
-    apps/web/*|gamebet_frontend/*)
+    apps/web/*)
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       DO_PM2_WEB=1
       ;;
-    apps/chrome-extension/*|gamebet_chromeplug/*|BAT/*|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
+    apps/chrome-extension/*|BAT/*|ecosystem.config.cjs|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
       ;;
     *.md|.gitignore)
       ;;
@@ -131,13 +131,9 @@ fi
 
 cd "$CHANGMEN"
 
-if [ "$DO_INSTALL_ROOT" = "1" ]; then
-  log "npm install (changmen workspaces)"
+if [ "$DO_INSTALL_ROOT" = "1" ] || [ "$DO_INSTALL_FRONTEND" = "1" ]; then
+  log "npm install (changmen workspaces, incl. apps/web)"
   npm install
-fi
-if [ "$DO_INSTALL_FRONTEND" = "1" ]; then
-  log "npm run app:install (apps/web)"
-  npm run app:install
 fi
 
 if [ "$DO_APP_BUILD" = "1" ]; then

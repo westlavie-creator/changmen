@@ -1,5 +1,5 @@
 {
-  "name": "gamebet-backend",
+  "name": "@changmen/backend",
   "version": "1.0.2",
   "private": true,
   "description": "Server: esport-api, HTTP proxy, static hosting for clients",
