@@ -141,6 +141,7 @@ export async function buildMatchesFromList(
       HomeID: teamIds[0]!,
       Away: awayName,
       AwayID: teamIds[1]!,
+      IsLive: num(row.is_live),
       Teams: [
         {
           Type: PLATFORM,
@@ -209,12 +210,12 @@ export function startObCollector(): () => void {
         const matchPayload = await buildMatchesFromList(list);
         await collect.saveMatch(PLATFORM, matchPayload);
 
-        const activeMatchIds = new Set<string>();
+        const liveMatchIds = new Set<string>();
         for (const row of list) {
           if (stopped) break;
           const matchId = String(row.id ?? "");
           if (!matchId) continue;
-          activeMatchIds.add(matchId);
+          if (num(row.is_live) === 2) liveMatchIds.add(matchId);
           matchCount += 1;
 
           unsubscribeObMatchBeforeView(matchId);
@@ -233,7 +234,7 @@ export function startObCollector(): () => void {
           await subscribeObMatchAfterView(matchId);
         }
 
-        await syncObLiveTimer(platform, activeMatchIds);
+        await syncObLiveTimer(platform, liveMatchIds);
       } catch (err) {
         console.warn("[OB] collect error", err);
         notifyCollectError("OB", err);

@@ -217,6 +217,25 @@ async function fetchDbTimersCached() {
   return _dbTimersCache;
 }
 
+/** OB index is_live≠2 时强制 Round=0（getTimer/RDS 可能仍残留已结束场的地图号） */
+function applyObLiveGate(matches, memoryMatches) {
+  if (!Array.isArray(matches)) return matches;
+  const obById = memoryMatches?.OB;
+  if (!obById || typeof obById !== "object") return matches;
+  return matches.map((m) => {
+    const obId = m.Matchs?.OB;
+    if (obId == null || obId === "") return m;
+    const row = obById[String(obId)];
+    if (!row) return m;
+    const isLive = Number(row.IsLive ?? row.is_live ?? 0);
+    if (isLive === 2) return m;
+    const round = Number(m.Round) || 0;
+    const roundStart = Number(m.RoundStart) || 0;
+    if (!round && !roundStart) return m;
+    return { ...m, Round: 0, RoundStart: 0 };
+  });
+}
+
 export async function buildMatchList() {
   // 只读 client_matches（gamebet_matcher rebuild 写入）；不在此做跨平台合并
   const fromDb = await dbStore.loadClientMatchesFromDb();
@@ -224,7 +243,9 @@ export async function buildMatchList() {
 
   const dbTimers = await fetchDbTimersCached();
   const timers = mergeTimerBlocks(_timers, dbTimers);
-  return overlayLiveTimersOnMatches(fromDb, timers);
+  let matches = overlayLiveTimersOnMatches(fromDb, timers);
+  matches = applyObLiveGate(matches, _matches);
+  return matches;
 }
 
 export function getMatchDefaultOdds(matchIds) {

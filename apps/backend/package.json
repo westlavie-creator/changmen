@@ -38,6 +38,7 @@
     "sync:platform-adapter": "npm run sync:backend-bundle --workspace=@changmen/platform-adapter",
     "account:cli": "node scripts/account_cli.js",
     "account:tags": "node scripts/account_cli.js tags",
+    "purge:ob-timers": "node scripts/purge-platform-live-timers.mjs OB",
     "account:list": "node scripts/account_cli.js list",
     "account:refresh": "node scripts/account_cli.js refresh-balance",
     "account:create": "node scripts/account_cli.js create",

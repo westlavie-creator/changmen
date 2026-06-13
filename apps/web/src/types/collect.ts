@@ -19,6 +19,8 @@ export interface CollectMatchDto {
   AwayID: string | number;
   Away: string;
   Teams: CollectTeamDto[];
+  /** OB game/index 的 is_live：1 未开赛，2 进行中 */
+  IsLive?: number;
 }
 
 export interface CollectBetDto {
