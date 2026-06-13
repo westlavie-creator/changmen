@@ -1,7 +1,7 @@
 import type { ArbLegs } from "@/shared/arbitrage";
 import { percent } from "@/shared/format";
 import { useMatchStore } from "@/stores/matchStore";
-import type { BetSide } from "@/models/match";
+import type { BetSide, ViewBetItem } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
 
 export interface ValueBetLeg {
@@ -33,6 +33,13 @@ function legEv(fairP: number, currentOdds: number) {
   return fairP * currentOdds - 1;
 }
 
+export interface ValueBetLegsInput {
+  homeItem: Pick<ViewBetItem, "type">;
+  awayItem: Pick<ViewBetItem, "type">;
+  homeOdds: number;
+  awayOdds: number;
+}
+
 /**
  * 价值下注：相对初赔公允线，至少一腿 EV &gt; 0（现赔优于初赔隐含公允，不只是跨平台机械套利）。
  * [changmen 扩展] A8 bundle 无同名能力；初赔语义对齐 winRate / BetRow。
@@ -40,7 +47,7 @@ function legEv(fairP: number, currentOdds: number) {
 export function assessValueBetFromDefaultOdds(
   defaultHome: number,
   defaultAway: number,
-  legs: Pick<ArbLegs, "homeItem" | "awayItem" | "homeOdds" | "awayOdds">,
+  legs: ValueBetLegsInput,
 ): ValueBetAssessment {
   if (!defaultHome || !defaultAway) {
     return {
