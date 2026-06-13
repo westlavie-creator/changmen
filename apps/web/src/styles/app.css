@@ -31,6 +31,10 @@
   outline-offset: -1px;
 }
 
+.login-extension-alert {
+  margin-bottom: 16px;
+}
+
 /* HomeView / 侧栏 / 登录（避免 scoped 覆盖 a8.css） */
 .home-view {
   height: 100%;

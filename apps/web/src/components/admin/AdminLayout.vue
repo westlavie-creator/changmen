@@ -22,7 +22,7 @@ const activeTab = computed(() => String(route.name || ""));
 
 async function logout() {
   await user.logout();
-  await router.push({ name: "login" });
+  await router.push({ name: "home" });
 }
 </script>
 

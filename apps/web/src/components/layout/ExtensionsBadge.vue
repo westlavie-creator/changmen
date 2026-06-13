@@ -45,7 +45,7 @@ async function loadVersions() {
 
 function openDownload() {
   if (!hasUpdate.value || !remoteVersion.value) return;
-  window.open(`/console/extensions/${remoteVersion.value}.zip`, "_blank");
+  window.open(`/esport2/extensions/${remoteVersion.value}.zip`, "_blank");
 }
 
 onMounted(async () => {

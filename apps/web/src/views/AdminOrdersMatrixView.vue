@@ -213,7 +213,8 @@ onMounted(async () => {
     try {
       await userStore.fetchUserInfo();
     } catch {
-      await router.replace({ name: "login", query: { redirect: route.fullPath } });
+      sessionStorage.setItem("gamebet:postLoginRedirect", route.fullPath);
+      await router.replace({ name: "home" });
       return;
     }
   }

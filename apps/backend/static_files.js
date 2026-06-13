@@ -9,6 +9,7 @@ function contentType(filePath) {
   if (filePath.endsWith(".json")) return "application/json; charset=utf-8";
   if (filePath.endsWith(".woff2")) return "font/woff2";
   if (filePath.endsWith(".woff")) return "font/woff";
+  if (filePath.endsWith(".zip")) return "application/zip";
   return "application/octet-stream";
 }
 
@@ -32,6 +33,8 @@ export function isFastStaticRequest(urlPath, method) {
 }
 
 export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir }) {
+  const legacyConsole = Boolean(consoleDir);
+
   function resolveStaticRoot(urlPath) {
     if (matcherDir && (urlPath === "/matcher" || urlPath.startsWith("/matcher/"))) {
       const fileRel =
@@ -41,6 +44,7 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
       return { rootDir: matcherDir, fileRel: fileRel === "/" ? "/index.html" : fileRel, spa: false };
     }
     if (urlPath === "/console" || urlPath.startsWith("/console/")) {
+      if (!legacyConsole) return null;
       const fileRel =
         urlPath === "/console"
           ? "/index.html"
@@ -145,8 +149,25 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
       res.end();
       return;
     }
+    if (urlPath.startsWith("/console/extensions/")) {
+      const dest = `/esport2/extensions/${urlPath.slice("/console/extensions/".length)}`;
+      res.writeHead(301, { Location: dest });
+      res.end();
+      return;
+    }
+    if ((urlPath === "/console" || urlPath.startsWith("/console/")) && !legacyConsole) {
+      res.writeHead(301, { Location: "/" });
+      res.end();
+      return;
+    }
 
-    const { rootDir, fileRel, spa } = resolveStaticRoot(urlPath);
+    const resolved = resolveStaticRoot(urlPath);
+    if (!resolved) {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+    const { rootDir, fileRel, spa } = resolved;
     const rootResolved = path.resolve(rootDir);
     const filePath = path.normalize(path.join(rootResolved, fileRel));
     if (!filePath.startsWith(rootResolved)) {

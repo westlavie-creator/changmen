@@ -16,19 +16,23 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /**
  * 本地聚合服务：esport-api、HTTP 代理、静态托管。
  *
- * 路由（默认入口 /）：
- *   /           新控制台（Vue 构建产物 apps/web/dist）
- *   /console/   旧 A8 bundle（可选，PATCH_CONSOLE=1；主流程不用）
- *   /matcher/   赛事匹配面板（apps/matcher/ui/public）
+ * 路由（唯一控制台入口 /）：
+ *   /           Vue 控制台（apps/web/dist）
+ *   /matcher/   赛事匹配面板
+ *   /esport2/   静态资源与扩展包（extensions/*.zip）
+ *
+ * 旧 /console/ bundle 仅 ENABLE_LEGACY_CONSOLE=1 或 PATCH_CONSOLE=1 时启用。
  */
 
 const PORT = Number(
   process.env.PORT || (process.platform === "win32" ? 3560 : 3456),
 );
+const LEGACY_CONSOLE =
+  process.env.ENABLE_LEGACY_CONSOLE === "1" || process.env.PATCH_CONSOLE === "1";
 const PUBLIC_DIR = path.join(__dirname, "public");
-const CONSOLE_DIR =
-  process.env.GAMEBET_CONSOLE_DIR ||
-  path.join(__dirname, "../web/console");
+const CONSOLE_DIR = LEGACY_CONSOLE
+  ? process.env.GAMEBET_CONSOLE_DIR || path.join(__dirname, "../web/console")
+  : null;
 const WEB_DIR =
   process.env.GAMEBET_WEB_DIR ||
   process.env.GAMEBET_APP_DIR ||
@@ -117,8 +121,11 @@ function onListen() {
     });
   const v4Base = (process.env.A8_V4_URL || "https://api.a8.to/v4.0").replace(/\/+$/, "");
   console.log(`[v4] proxy only → ${v4Base}/ (no mock)`);
+  const legacyHint = LEGACY_CONSOLE
+    ? `  |  legacy: http://localhost:${PORT}/console/`
+    : "";
   console.log(
-    `App: http://localhost:${PORT}/  |  legacy console: http://localhost:${PORT}/console/  |  matcher: http://localhost:${PORT}/matcher/  |  collect: browser`,
+    `App: http://localhost:${PORT}/  |  matcher: http://localhost:${PORT}/matcher/${legacyHint}  |  collect: browser`,
   );
 }
 

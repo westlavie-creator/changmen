@@ -7,14 +7,13 @@ const router = createRouter({
   routes: [
     {
       path: "/login",
-      name: "login",
-      component: () => import("@/views/LoginView.vue"),
-      meta: { public: true },
+      redirect: () => "/",
     },
     {
       path: "/",
       name: "home",
       component: () => import("@/views/HomeView.vue"),
+      meta: { public: true },
     },
     {
       path: "/admin",
@@ -40,25 +39,24 @@ const router = createRouter({
       component: () => import("@/views/AdminOrdersMatrixView.vue"),
       meta: { requiresAdmin: true },
     },
-    {
-      path: "/console/:pathMatch(.*)*",
-      name: "console-redirect",
-      component: () => import("@/views/ConsoleRedirectView.vue"),
-      meta: { public: true },
-    },
   ],
 });
 
 router.beforeEach(async (to) => {
   if (to.meta.public) return true;
-  if (!getToken()) return { name: "login", query: { redirect: to.fullPath } };
+  if (!getToken()) {
+    if (to.fullPath !== "/") {
+      sessionStorage.setItem("gamebet:postLoginRedirect", to.fullPath);
+    }
+    return { name: "home" };
+  }
   if (to.meta.requiresAdmin) {
     const user = useUserStore();
     if (!user.ready) {
       try {
         await user.fetchUserInfo();
       } catch {
-        return { name: "login", query: { redirect: to.fullPath } };
+        return { name: "home" };
       }
     }
     if (!user.isAdmin) return { name: "home" };

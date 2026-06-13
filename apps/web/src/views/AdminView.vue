@@ -13,7 +13,8 @@ onMounted(async () => {
     try {
       await user.fetchUserInfo();
     } catch {
-      await router.replace({ name: "login", query: { redirect: "/admin" } });
+      sessionStorage.setItem("gamebet:postLoginRedirect", "/admin");
+      await router.replace({ name: "home" });
       return;
     }
   }
