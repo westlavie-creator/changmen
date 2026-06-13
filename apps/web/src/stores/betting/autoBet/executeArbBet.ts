@@ -15,7 +15,7 @@ import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useMessageStore } from "@/stores/messageStore";
-import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
+import { accountPassesMainBetFilter, isLegSkippedByRate9999 } from "@/stores/betting/betFilters";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
@@ -66,7 +66,35 @@ export async function executeArbBet(params: {
   if (!accountA && !accountB) return;
 
   const betBothLegs = Boolean(accountA) && Boolean(accountB);
-  const linkId = createBetLinkId(!betBothLegs);
+  const excludeA = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [];
+  const excludeB = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legB.target)) : [];
+  const rate9999SingleLeg =
+    !betBothLegs &&
+    ((!accountA &&
+      isLegSkippedByRate9999(
+        legA,
+        bet,
+        match,
+        accountStore.accounts,
+        excludeA,
+        matchStore,
+        implied,
+      )) ||
+      (!accountB &&
+        isLegSkippedByRate9999(
+          legB,
+          bet,
+          match,
+          accountStore.accounts,
+          excludeB,
+          matchStore,
+          implied,
+        )));
+  // [A8 可证实] bundle: if (!be || !Z) continue — 缺任一侧账号则不下注
+  // [changmen 扩展] 仅比例 9999 故意跳过对腿时允许单边
+  if (!betBothLegs && !rate9999SingleLeg) return;
+
+  const linkId = createBetLinkId(rate9999SingleLeg);
   if (accountA) accountA.active = true;
   if (accountB) accountB.active = true;
   const checkStart = Date.now();

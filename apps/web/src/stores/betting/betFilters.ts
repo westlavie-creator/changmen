@@ -1,6 +1,7 @@
 import { BetOption } from "@/models/betOption";
 import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { isRateSkipAtOdds } from "@/models/platformAccount";
 import {
   passesLastOddsGate,
   passesMaxBetCount,
@@ -20,7 +21,8 @@ export function passesDefaultOddsAccount(
   return true;
 }
 
-export function accountPassesMainBetFilter(
+/** 与 accountPassesMainBetFilter 相同，但不排除比例 9999 */
+export function accountPassesMainBetFilterExceptRate(
   account: PlatformAccount,
   bet: ViewBet,
   match: ViewMatch,
@@ -34,8 +36,54 @@ export function accountPassesMainBetFilter(
   if (!passesDefaultOddsAccount(account, bet.id, leg.target)) return false;
   if (!passesLastOddsGate(account, bet.id, leg.target, leg.odds)) return false;
   if (!passesMaxBetCount(account, bet.id, leg.target)) return false;
-  if (!account.canBetAtOdds(leg.odds)) return false;
   const target = matchStore.getBetTarget(account.provider, bet.id);
   if (target && target !== leg.target) return false;
   return true;
+}
+
+export function accountPassesMainBetFilter(
+  account: PlatformAccount,
+  bet: ViewBet,
+  match: ViewMatch,
+  leg: BetOption,
+  matchStore: ReturnType<typeof useMatchStore>,
+  implied?: number,
+): boolean {
+  if (!account.canBetAtOdds(leg.odds)) return false;
+  return accountPassesMainBetFilterExceptRate(
+    account,
+    bet,
+    match,
+    leg,
+    matchStore,
+    implied,
+  );
+}
+
+/** 该腿无可用账号，但存在仅因比例 9999 被排除的候选（changmen 单边负 linkId 场景） */
+export function isLegSkippedByRate9999(
+  leg: BetOption,
+  bet: ViewBet,
+  match: ViewMatch,
+  accounts: PlatformAccount[],
+  excludeAccountIds: number[],
+  matchStore: ReturnType<typeof useMatchStore>,
+  implied?: number,
+): boolean {
+  return accounts.some((acc) => {
+    if (excludeAccountIds.includes(acc.accountId)) return false;
+    if (acc.provider !== leg.type) return false;
+    if (acc.maxOrder && acc.todayOrder && acc.todayOrder >= acc.maxOrder) return false;
+    const bal = acc.getBalance();
+    if (bal === undefined || bal < leg.betMoney) return false;
+    if (!isRateSkipAtOdds(acc, leg.odds)) return false;
+    return accountPassesMainBetFilterExceptRate(
+      acc,
+      bet,
+      match,
+      leg,
+      matchStore,
+      implied,
+    );
+  });
 }

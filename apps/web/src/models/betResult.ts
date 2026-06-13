@@ -34,8 +34,8 @@ export interface OrderBindRow {
   PlayerID?: number;
 }
 
-/** [changmen 扩展] 单边下单（如 PB 比例 9999 导致仅一腿可投）用负数 link，展示为 gb{时间戳} */
-export function createBetLinkId(singleLeg = false) {
+/** [changmen 扩展] 仅比例 9999 导致单边下注时用负数 link，展示为 gb{时间戳}；其余对齐 A8 `Date.now()` */
+export function createBetLinkId(rate9999SingleLeg = false) {
   const ts = Date.now();
-  return singleLeg ? -ts : ts;
+  return rate9999SingleLeg ? -ts : ts;
 }

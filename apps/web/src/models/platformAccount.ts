@@ -5,7 +5,19 @@ import { readGameBetCount } from "@/shared/betTiming";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 /** [changmen 扩展] rateConfig.rate === 9999 表示该赔率区间不参与投注 */
-const RATE_SKIP = 9999;
+export const RATE_SKIP = 9999;
+
+export function isRateSkipAtOdds(
+  account: Pick<PlatformAccount, "rateConfig">,
+  odds: number,
+): boolean {
+  if (!account.rateConfig?.length) return false;
+  const row = account.rateConfig.find(
+    (r) =>
+      (r.minOdds === 0 || r.minOdds <= odds) && (r.maxOdds === 0 || r.maxOdds >= odds),
+  );
+  return (row?.rate ?? 1) === RATE_SKIP;
+}
 
 const DEFAULT_GAMES = ["英雄联盟", "DOTA2", "CS:GO", "王者荣耀", "无畏契约"];
 
@@ -103,12 +115,7 @@ export class PlatformAccount implements AccountRecord {
 
   /** 比例 9999 时不选该账号（套利变单边） */
   canBetAtOdds(odds: number): boolean {
-    if (!this.rateConfig?.length) return true;
-    const row = this.rateConfig.find(
-      (r) =>
-        (r.minOdds === 0 || r.minOdds <= odds) && (r.maxOdds === 0 || r.maxOdds >= odds),
-    );
-    return (row?.rate ?? 1) !== RATE_SKIP;
+    return !isRateSkipAtOdds(this, odds);
   }
 
   getMinOdds() {
