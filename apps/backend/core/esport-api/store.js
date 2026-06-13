@@ -158,14 +158,14 @@ export function saveBets(provider, matchId, bets) {
   sb.replacePlatformBetsForMatch(provider, matchId, incoming);
 }
 
-export function saveLiveTimer(provider, timer) {
+export async function saveLiveTimer(provider, timer) {
   _timers[provider] = {
     provider,
     timer: Array.isArray(timer) ? timer : [],
     savedAt: Date.now(),
   };
   _dbTimersCache = null;
-  sb.writeLiveTimers(provider, timer);
+  await sb.writeLiveTimersAsync(provider, timer);
 }
 
 // ── user kv / settings ────────────────────────────────────────────────────────

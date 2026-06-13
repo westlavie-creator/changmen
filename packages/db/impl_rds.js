@@ -79,6 +79,36 @@ function _writeRds(fn, label = "") {
     .catch((err) => console.warn(`[rds${label ? ":" + label : ""}]`, err.message));
 }
 
+async function _writeRdsAsync(fn, label = "") {
+  const pool = getPgPool();
+  if (!pool) return;
+  try {
+    await fn(pool);
+  } catch (err) {
+    console.warn(`[rds${label ? ":" + label : ""}]`, err.message);
+    throw err;
+  }
+}
+
+function _mapLiveTimerRows(provider, timer) {
+  if (!Array.isArray(timer)) return null;
+  const plat = String(provider);
+  const now = Date.now();
+  const seen = new Map();
+  for (const t of timer) {
+    if (!t || t.MatchID == null) continue;
+    const source_match_id = String(t.MatchID);
+    seen.set(source_match_id, {
+      platform: plat,
+      source_match_id,
+      round: Number(t.Round) || 0,
+      round_start: Number(t.StartTime) || 0,
+      updated_at: now,
+    });
+  }
+  return { plat, rows: [...seen.values()] };
+}
+
 function _jsonb(val, fallback) {
   if (val == null) return JSON.stringify(fallback ?? null);
   return JSON.stringify(val);
@@ -675,23 +705,25 @@ function replacePlatformBetsForMatch(provider, matchId, bets) {
 
 /** fire-and-forget：全量替换某平台 timer 快照（对齐 A8 getTimer 整包提交；空数组清空该平台） */
 function writeLiveTimers(provider, timer) {
-  if (!Array.isArray(timer)) return
-  const plat = String(provider)
-  const now = Date.now()
-  const seen = new Map()
-  for (const t of timer) {
-    if (!t || t.MatchID == null) continue
-    const source_match_id = String(t.MatchID)
-    seen.set(source_match_id, {
-      platform: plat,
-      source_match_id,
-      round: Number(t.Round) || 0,
-      round_start: Number(t.StartTime) || 0,
-      updated_at: now,
-    })
-  }
-  const rows = [...seen.values()]
-  _writeRds((pool) => _rdsReplaceLiveTimersForPlatform(pool, plat, rows), "live_timers")
+  const mapped = _mapLiveTimerRows(provider, timer);
+  if (!mapped) return;
+  const { plat, rows } = mapped;
+  _writeRds((pool) => _rdsReplaceLiveTimersForPlatform(pool, plat, rows), "live_timers");
+}
+
+/** await 写入完成（API_SaveLiveTimer 使用，避免紧随其后的 GetMatchs 读到旧 RDS） */
+async function writeLiveTimersAsync(provider, timer) {
+  const mapped = _mapLiveTimerRows(provider, timer);
+  if (!mapped) return;
+  const { plat, rows } = mapped;
+  await _writeRdsAsync((pool) => _rdsReplaceLiveTimersForPlatform(pool, plat, rows), "live_timers");
+}
+
+/** 运维/部署：清空某平台 live_timers（等待下次 saveLiveTimer 或 matcher rebuild 刷新 Round） */
+async function purgePlatformLiveTimers(platform) {
+  const plat = String(platform || "").trim();
+  if (!plat) throw new Error("platform required");
+  await _writeRdsAsync((pool) => _rdsReplaceLiveTimersForPlatform(pool, plat, []), "live_timers");
 }
 
 // ── orders ────────────────────────────────────────────────────────────
@@ -1375,6 +1407,8 @@ export {
   writePlatformBets,
   replacePlatformBetsForMatch,
   writeLiveTimers,
+  writeLiveTimersAsync,
+  purgePlatformLiveTimers,
   fetchOrdersByDate,
   fetchOrdersByPlayer,
   fetchProfilesAdmin,

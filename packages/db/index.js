@@ -51,6 +51,8 @@ export const {
   writePlatformBets,
   replacePlatformBetsForMatch,
   writeLiveTimers,
+  writeLiveTimersAsync,
+  purgePlatformLiveTimers,
   fetchOrdersByDate,
   fetchOrdersByPlayer,
   fetchProfilesAdmin,

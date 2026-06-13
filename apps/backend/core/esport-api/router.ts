@@ -414,7 +414,7 @@ async function handle(
       const provider = body.provider;
       let timer: unknown[] = [];
       try { timer = JSON.parse((body.timer as string) || "[]"); } catch { return fail("invalid timer json"); }
-      store.saveLiveTimer(provider, timer);
+      await store.saveLiveTimer(provider, timer);
       return ok(true);
     }
     case "Client_GetMatchs":

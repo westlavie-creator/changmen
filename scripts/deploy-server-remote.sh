@@ -154,6 +154,22 @@ else
   log "skip compile:router"
 fi
 
+LIVE_TIMER_TOUCHED=0
+if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
+  while IFS= read -r path; do
+    case "$path" in
+      *live_timer*|changmen/packages/db/impl_rds.js|packages/db/impl_rds.js)
+        LIVE_TIMER_TOUCHED=1
+        break
+        ;;
+    esac
+  done < <(git -C "$GIT_ROOT" diff --name-only "$OLD_HEAD" "$NEW_HEAD")
+fi
+if [ "$LIVE_TIMER_TOUCHED" = "1" ]; then
+  log "live_timer code changed — purge stale OB live_timers rows"
+  node apps/backend/scripts/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
+fi
+
 if command -v pm2 >/dev/null 2>&1; then
   PM2_TARGETS=()
   [ "$DO_PM2_WEB" = "1" ] && PM2_TARGETS+=("$PM2_WEB")
