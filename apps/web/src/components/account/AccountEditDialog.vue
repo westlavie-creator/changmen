@@ -32,8 +32,8 @@ const visible = computed({
 });
 const pasteRaw = ref("");
 const gameShow = ref(false);
-/** A8：PB 默认锁定比例，legend「投」双击切换 */
-const rateLocked = ref(true);
+/** A8：PB 默认锁定比例，legend「投」双击解锁 */
+const rateLocked = ref(false);
 
 type PlatformSuggestion = { value: string; link: string };
 
@@ -143,7 +143,7 @@ watch(
 watch(
   () => form.provider,
   (p) => {
-    if (p === "PB") rateLocked.value = true;
+    rateLocked.value = p === "PB";
   },
 );
 
@@ -285,6 +285,16 @@ async function applyPaste() {
   }
 }
 
+function normalizeRateConfig() {
+  return form.rateConfig
+    .map((r) => ({
+      minOdds: Number(r.minOdds) || 0,
+      maxOdds: Number(r.maxOdds) || 0,
+      rate: Number(r.rate),
+    }))
+    .filter((r) => !Number.isNaN(r.rate) && r.rate !== 0);
+}
+
 function buildPatch() {
   return {
     platformName: form.platformName.trim(),
@@ -317,13 +327,7 @@ function buildPatch() {
     city: form.city.trim() || undefined,
     description: form.description.trim(),
     workTimes: [...form.workTimes],
-    rateConfig: form.rateConfig
-      .filter((r) => r.rate !== 0)
-      .map((r) => ({
-        minOdds: Number(r.minOdds),
-        maxOdds: Number(r.maxOdds),
-        rate: Number(r.rate),
-      })),
+    rateConfig: normalizeRateConfig(),
     game: JSON.parse(JSON.stringify(form.game)),
   };
 }
@@ -331,6 +335,11 @@ function buildPatch() {
 async function save() {
   if (!form.platformName.trim() || !form.playerName.trim()) {
     ElMessage.error("平台名与账号名必填");
+    return;
+  }
+  const invalidRate = form.rateConfig.some((r) => Number.isNaN(Number(r.rate)));
+  if (invalidRate) {
+    ElMessage.error("投注比例不能为空，请填写有效数字");
     return;
   }
   saving.value = true;
@@ -344,10 +353,17 @@ async function save() {
     } else {
       await accountStore.createFromTagPlatform(patch);
     }
+    ElMessage.success("账号设置已保存");
     emit("close");
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "保存失败");
   } finally {
     saving.value = false;
   }
+}
+
+function unlockRate() {
+  rateLocked.value = false;
 }
 </script>
 
@@ -391,8 +407,9 @@ async function save() {
 
       <fieldset>
         <legend>
-          <span @dblclick="rateLocked = !rateLocked">投</span>
+          <span @dblclick="unlockRate">投</span>
           注比例
+          <span v-if="rateLocked" class="rate-lock-hint">（双击「投」解锁比例）</span>
           <el-button size="small" type="info" link @click="addRate">
             <i class="am-icon-plus am-icon-fw" />
           </el-button>
@@ -691,3 +708,12 @@ async function save() {
     </div>
   </el-dialog>
 </template>
+
+<style scoped>
+.rate-lock-hint {
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  font-weight: normal;
+}
+</style>

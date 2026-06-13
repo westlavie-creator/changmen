@@ -114,7 +114,9 @@ export const useAccountStore = defineStore("account", {
       const payload = this.accounts
         .filter((a) => a.accountId)
         .map((a) => a.toJSON());
-      await saveAccounts(payload);
+      const ok = await saveAccounts(payload);
+      if (!ok) throw new Error("账号保存失败，请检查登录状态或稍后重试");
+      return ok;
     },
 
     async upsertAccount(record: Partial<AccountRecord>) {

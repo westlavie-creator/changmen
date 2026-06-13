@@ -185,8 +185,21 @@ export class PlatformAccount implements AccountRecord {
   }
 
   applyPatch(patch: Partial<AccountRecord> & { balanceError?: string | null }) {
-    const { balanceError, balance, ...rest } = patch;
+    const { balanceError, balance, rateConfig, game, workTimes, ...rest } = patch;
     Object.assign(this, rest);
+    if (rateConfig !== undefined) {
+      this.rateConfig = rateConfig.map((r) => ({
+        minOdds: Number(r.minOdds) || 0,
+        maxOdds: Number(r.maxOdds) || 0,
+        rate: Number(r.rate),
+      }));
+    }
+    if (game !== undefined) {
+      this.game = JSON.parse(JSON.stringify(game));
+    }
+    if (workTimes !== undefined) {
+      this.workTimes = [...workTimes];
+    }
     if (balance !== undefined) {
       this.balance = balance == null ? undefined : Number(balance);
     }

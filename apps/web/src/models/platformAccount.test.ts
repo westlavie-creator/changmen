@@ -25,6 +25,17 @@ describe("PlatformAccount workTimes", () => {
   });
 });
 
+describe("PlatformAccount rateConfig", () => {
+  it("applyPatch persists rateConfig through toJSON", () => {
+    const acc = makeAccount();
+    acc.applyPatch({
+      rateConfig: [{ minOdds: 1.5, maxOdds: 2.5, rate: 0.5 }],
+    });
+    expect(acc.toJSON().rateConfig).toEqual([{ minOdds: 1.5, maxOdds: 2.5, rate: 0.5 }]);
+    expect(acc.getBetMoney(100, 2)).toBe(50);
+  });
+});
+
 describe("PlatformAccount game settings", () => {
   it("requires implied profit when game profit set", () => {
     const acc = makeAccount({
