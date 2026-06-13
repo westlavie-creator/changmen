@@ -411,30 +411,46 @@ function writePlatformMatches(provider, matchs) {
   }, 'platform_matches')
 }
 
+function mapFetchedPlatformMatchRow(r) {
+  return {
+    Type:          r.platform,
+    SourceMatchID: r.source_match_id,
+    SourceGameID:  r.source_game_id ?? '',
+    StartTime:     r.start_time ?? 0,
+    Home:          r.home ?? '',
+    HomeID:        r.home_id ?? '',
+    Away:          r.away ?? '',
+    AwayID:        r.away_id ?? '',
+    BO:            r.bo ?? 0,
+    Teams:         Array.isArray(r.teams) ? r.teams : [],
+    ClientMatchId: r.match_id != null ? Number(r.match_id) : null,
+  }
+}
+
 /** 启动时从 Supabase 读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */
 async function fetchPlatformMatches() {
   const client = supabaseAdmin || supabase
   if (!client) return {}
-  const { data, error } = await client
-    .from('platform_matches')
-    .select('platform,source_match_id,source_game_id,start_time,home,home_id,away,away_id,bo,teams,match_id')
-  if (error || !data?.length) return {}
+  const PAGE = 1000
+  const data = []
+  for (let off = 0; ; off += PAGE) {
+    const { data: page, error } = await client
+      .from('platform_matches')
+      .select('platform,source_match_id,source_game_id,start_time,home,home_id,away,away_id,bo,teams,match_id')
+      .range(off, off + PAGE - 1)
+    if (error) {
+      console.warn('[supabase] fetchPlatformMatches 失败:', error.message)
+      break
+    }
+    if (!page?.length) break
+    data.push(...page)
+    if (page.length < PAGE) break
+  }
+  if (!data.length) return {}
   const byPlatform = {}
   for (const r of data) {
     if (!byPlatform[r.platform]) byPlatform[r.platform] = []
-    byPlatform[r.platform].push({
-      Type:          r.platform,
-      SourceMatchID: r.source_match_id,
-      SourceGameID:  r.source_game_id ?? '',
-      StartTime:     r.start_time ?? 0,
-      Home:          r.home ?? '',
-      HomeID:        r.home_id ?? '',
-      Away:          r.away ?? '',
-      AwayID:        r.away_id ?? '',
-      BO:            r.bo ?? 0,
-      Teams:         Array.isArray(r.teams) ? r.teams : [],
-      ClientMatchId: r.match_id != null ? Number(r.match_id) : null,
-    })
+    byPlatform[r.platform].push(mapFetchedPlatformMatchRow(r))
   }
   return byPlatform
 }

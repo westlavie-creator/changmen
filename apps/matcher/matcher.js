@@ -45,8 +45,14 @@ async function runOnce() {
   await maybePruneStale();
   const result = await rebuildOnce();
   writeMatcherHeartbeat({ matchCount: result.matchCount, intervalMs: INTERVAL_MS, builtAt: result.builtAt });
+  const teamNote = result.teamReg?.registered > 0
+    ? ` · 自动收录队伍 ${result.teamReg.registered} 条`
+    : result.teamReg?.scanned > 0
+      ? ` · 队伍扫描 ${result.teamReg.scanned}（无新增）`
+      : "";
   console.log(
     `[matcher] ${new Date().toISOString()} rebuilt ${result.matchCount} matches`
+    + teamNote
     + (result.matchIdBackfill?.updated
       ? ` · backfill match_id ${result.matchIdBackfill.updated}`
       : ""),

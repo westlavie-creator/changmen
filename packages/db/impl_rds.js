@@ -815,10 +815,22 @@ async function fetchPlatformMatches() {
   }
   const client = supabaseAdmin || supabase
   if (!client) return {}
-  const { data, error } = await client
-    .from('platform_matches')
-    .select('platform,source_match_id,source_game_id,start_time,home,home_id,away,away_id,bo,teams,match_id')
-  if (error || !data?.length) return {}
+  const PAGE = 1000
+  const data = []
+  for (let off = 0; ; off += PAGE) {
+    const { data: page, error } = await client
+      .from('platform_matches')
+      .select('platform,source_match_id,source_game_id,start_time,home,home_id,away,away_id,bo,teams,match_id')
+      .range(off, off + PAGE - 1)
+    if (error) {
+      console.warn('[rds] fetchPlatformMatches supabase fallback 失败:', error.message)
+      break
+    }
+    if (!page?.length) break
+    data.push(...page)
+    if (page.length < PAGE) break
+  }
+  if (!data.length) return {}
   const byPlatform = {}
   for (const r of data) {
     if (!byPlatform[r.platform]) byPlatform[r.platform] = []

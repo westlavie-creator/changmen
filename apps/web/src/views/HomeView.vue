@@ -68,24 +68,35 @@ function stopHome() {
 async function startHome() {
   if (homeStarted || !extensionReady.value || !sessionReady.value) return;
   homeStarted = true;
-  await user.fetchUserInfo();
-  loseOrderStore.init();
-  await Promise.all([collectStore.init(), configStore.load(), accountStore.loadAccounts(true)]);
-  await matchStore.initBetTarget();
-  void matchStore.startPolling();
-  await startCollectors();
-  primeStakeTabId();
-  bettingStore.start();
-  messageStore.start();
-  startHgFollowLoop();
+  try {
+    if (!user.userId) {
+      await user.fetchUserInfo();
+    }
+    loseOrderStore.init();
+    await Promise.all([collectStore.init(), configStore.load(), accountStore.loadAccounts(true)]);
+    await matchStore.initBetTarget();
+    void matchStore.startPolling();
+    await startCollectors();
+    primeStakeTabId();
+    bettingStore.start();
+    messageStore.start();
+    startHgFollowLoop();
+  } catch (err) {
+    homeStarted = false;
+    console.error("[home] startHome failed", err);
+  }
 }
 
 onMounted(() => {
   void startHome();
 });
 
-watch([extensionReady, sessionReady], () => {
-  void startHome();
+watch([extensionReady, sessionReady], ([ext, session]) => {
+  if (!session) {
+    stopHome();
+    return;
+  }
+  if (ext) void startHome();
 });
 
 onUnmounted(() => {
