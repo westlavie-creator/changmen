@@ -163,6 +163,11 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
       res.end();
       return;
     }
+    if (urlPath === "/login" || urlPath === "/login/") {
+      res.writeHead(301, { Location: "/" + query });
+      res.end();
+      return;
+    }
     if (urlPath.startsWith("/app/")) {
       const dest = urlPath.slice("/app".length) || "/";
       res.writeHead(301, { Location: dest });
@@ -196,7 +201,7 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
       return;
     }
 
-    fs.stat(filePath, (statErr) => {
+    fs.stat(filePath, (statErr, stat) => {
       if (statErr) {
         if (spa && !path.extname(fileRel)) {
           const indexPath = path.join(rootResolved, "index.html");
@@ -212,6 +217,16 @@ export function createStaticHandler({ publicDir, consoleDir, webDir, matcherDir 
         }
         res.writeHead(404);
         res.end("Not found");
+        return;
+      }
+      if (stat.isDirectory()) {
+        if (spa) {
+          const indexPath = path.join(rootResolved, "index.html");
+          sendFile(req, res, indexPath, urlPath, "/index.html", spa);
+          return;
+        }
+        res.writeHead(301, { Location: urlPath + "/" + query });
+        res.end();
         return;
       }
       sendFile(req, res, filePath, urlPath, fileRel, spa);
