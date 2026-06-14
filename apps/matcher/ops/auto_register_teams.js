@@ -1,4 +1,5 @@
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import {
   fetchExistingTeamMapKeys,
   upsertTeamPlatformMaps,
@@ -29,8 +30,19 @@ function parseTeamsArray(teams) {
   return [];
 }
 
-function addCandidate(candidates, platform, platformId, platformName, gameCode) {
+function resolveStoredPlatformTeamId(platform, platformId, sourceGameId) {
   const pid = normalizePlatformId(platformId);
+  if (!pid) return "";
+  if (platform === "PB") {
+    const gameSlug = String(sourceGameId ?? "").trim();
+    if (!gameSlug) return "";
+    return formatPbTeamPlatformId(gameSlug, pid, gameCode);
+  }
+  return pid;
+}
+
+function addCandidate(candidates, platform, platformId, platformName, gameCode, sourceGameId) {
+  const pid = resolveStoredPlatformTeamId(platform, platformId, sourceGameId);
   if (!pid || !gameCode || gameCode === "unknown") return;
   const key = `${platform}:${pid}`;
   if (candidates.has(key)) return;
@@ -58,16 +70,18 @@ function collectTeamCandidates(matchesRaw) {
       const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
       if (!gameCode || gameCode === "unknown") continue;
 
-      addCandidate(candidates, platform, m.HomeID ?? m.home_id, m.Home ?? m.home, gameCode);
-      addCandidate(candidates, platform, m.AwayID ?? m.away_id, m.Away ?? m.away, gameCode);
+      addCandidate(candidates, platform, m.HomeID ?? m.home_id, m.Home ?? m.home, gameCode, sourceGameId);
+      addCandidate(candidates, platform, m.AwayID ?? m.away_id, m.Away ?? m.away, gameCode, sourceGameId);
 
       for (const t of parseTeamsArray(m.Teams ?? m.teams)) {
+        const teamGameId = String(t.GameID ?? t.game_id ?? t.gameId ?? sourceGameId ?? "");
         addCandidate(
           candidates,
           platform,
           t.TeamID ?? t.team_id ?? t.teamId ?? t.id,
           t.Name ?? t.name ?? t.TeamName ?? t.team_name,
           gameCode,
+          teamGameId,
         );
       }
     }

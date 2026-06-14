@@ -217,10 +217,12 @@
       font-size: 11px; color: #64748b; font-weight: 400;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9em;
     }
-    .split-col-matched-id .title-team-sub {
+    .split-col-matched-id .title-team-sub,
+    .split-col-matched-name .title-team-sub {
       font-size: 15px; color: #e2e8f0; font-weight: 600; max-width: 14em;
     }
-    .split-col-matched-id .team-name { font-size: 14px; }
+    .split-col-matched-id .team-name,
+    .split-col-matched-name .team-name { font-size: 14px; }
     .team-card-meta { font-size: 11px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px; }
     .conf-wrap { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
     .conf-bar { width: 72px; height: 5px; background: #334155; border-radius: 3px; overflow: hidden; }
@@ -633,10 +635,20 @@ function parseTeamsArray(m) {
   return Array.isArray(teams) ? teams : [];
 }
 
-/** 解析平台队伍 ID：home_id/away_id → teams[] 按队名或顺序兜底 */
-function resolveMatchTeamId(m, side) {
+/** 解析平台队伍 ID：home_id/away_id → teams[] 按队名或顺序兜底；PB 前缀 SourceGameID */
+function resolveMatchTeamId(m, side, gameCodeHint) {
+  const platform = String(m?.platform || '').trim();
+  const gameCode = gameCodeHint || m?.game?.code || '';
+  const matchGameId = String(m?.source_game_id ?? m?.SourceGameID ?? m?.GameID ?? '');
+  function finalize(id, source, gameIdOverride) {
+    if (!id) return { id: null, source: null };
+    if (platform === 'PB' && typeof window.formatPbTeamPlatformId === 'function') {
+      id = window.formatPbTeamPlatformId(gameIdOverride ?? matchGameId, id, gameCode);
+    }
+    return { id, source };
+  }
   const direct = normalizePlatformId(side === 'home' ? m.home_id : m.away_id);
-  if (direct) return { id: direct, source: 'column' };
+  if (direct) return finalize(direct, 'column');
   const name = side === 'home' ? m.home : m.away;
   const teams = parseTeamsArray(m);
   if (!teams.length) return { id: null, source: null };
@@ -645,26 +657,36 @@ function resolveMatchTeamId(m, side) {
     const hit = teams.find(t => normalizeTeamName(t.Name ?? t.name) === norm);
     if (hit) {
       const id = normalizePlatformId(hit.TeamID ?? hit.team_id ?? hit.teamId ?? hit.id);
-      if (id) return { id, source: 'teams-name' };
+      const teamGameId = String(hit.GameID ?? hit.game_id ?? hit.gameId ?? matchGameId ?? '');
+      if (id) return finalize(id, 'teams-name', teamGameId);
     }
   }
   const idx = side === 'home' ? 0 : 1;
   const t = teams[idx];
   if (t) {
     const id = normalizePlatformId(t.TeamID ?? t.team_id ?? t.teamId ?? t.id);
-    if (id) return { id, source: 'teams-order' };
+    const teamGameId = String(t.GameID ?? t.game_id ?? t.gameId ?? matchGameId ?? '');
+    if (id) return finalize(id, 'teams-order', teamGameId);
   }
   return { id: null, source: null };
 }
 
-function lookupTeamMapEntry(teamMaps, platform, platformId) {
+function lookupTeamMapEntry(teamMaps, platform, platformId, gameCode) {
   const idKey = teamMapKey(platform, platformId);
   if (!idKey) return null;
-  return teamMaps?.[idKey] || null;
+  const hit = teamMaps?.[idKey];
+  if (hit) return hit;
+  if (platform !== 'PB' || !platformId || typeof window.formatPbTeamPlatformId !== 'function') return null;
+  const norm = window.formatPbTeamPlatformId('', platformId, gameCode);
+  if (norm && norm !== platformId) {
+    const altKey = teamMapKey(platform, norm);
+    if (altKey) return teamMaps?.[altKey] || null;
+  }
+  return null;
 }
 
-function lookupCanonical(teamMaps, platform, platformId) {
-  const row = lookupTeamMapEntry(teamMaps, platform, platformId);
+function lookupCanonical(teamMaps, platform, platformId, gameCode) {
+  const row = lookupTeamMapEntry(teamMaps, platform, platformId, gameCode);
   if (!row) return { canonical: null, pending: false, updatedBy: null };
   if (row.canonical_id != null) {
     return { canonical: String(row.canonical_id), pending: false, updatedBy: row.updated_by || null };
@@ -673,14 +695,19 @@ function lookupCanonical(teamMaps, platform, platformId) {
 }
 
 /** 已匹配赛事：各平台主客队 platform_id 均已有 gb_team_id（非待识别、非缺失） */
-function clientMatchTeamsFullyIdMapped(rows, teamMaps) {
+function clientMatchTeamsFullyIdMapped(rows, teamMaps, gameCode) {
   if (!rows?.length) return false;
   for (const m of rows) {
     const platform = m.platform;
+    const gc = gameCode || m.game?.code;
     for (const side of ['home', 'away']) {
-      const { id } = resolveMatchTeamId(m, side);
+      const { id } = resolveMatchTeamId(m, side, gc);
       if (!id) return false;
-      const { canonical } = lookupCanonical(teamMaps, platform, id);
+      let { canonical } = lookupCanonical(teamMaps, platform, id, gc);
+      if (canonical == null) {
+        const sideCanon = resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode);
+        if (sideCanon && sideCanon !== '__pending__') canonical = sideCanon;
+      }
       if (canonical == null) return false;
     }
   }
@@ -691,9 +718,14 @@ function renderTeamCell(m, side, gameCode, teamMaps, platformHint, linkCtx) {
   const platform = String(platformHint || m.platform || '').trim();
   const isHome = side === 'home';
   const name = isHome ? m.home : m.away;
-  const resolved = resolveMatchTeamId(m, side);
+  const resolved = resolveMatchTeamId(m, side, gameCode);
   const pid = resolved.id;
-  const { canonical, pending, updatedBy } = lookupCanonical(teamMaps, platform, pid);
+  let { canonical, pending, updatedBy } = lookupCanonical(teamMaps, platform, pid, gameCode);
+  const sideConsensus = linkCtx?.sideCanonical;
+  const inferredFromSide =
+    canonical == null && !pending && linkCtx?.cmId != null
+    && sideConsensus && sideConsensus !== '__pending__';
+  if (inferredFromSide) canonical = sideConsensus;
   const missingFromMaps = canonical == null && !pending;
   const cmId = linkCtx?.cmId;
   const linkSide = linkCtx?.side || side;
@@ -1191,13 +1223,14 @@ function displayClientMatchTitle(cm, rows) {
   return `${esc(ref.home || '?')}<span class="vs">vs</span>${esc(ref.away || '?')}`;
 }
 
-function resolveClientMatchSideCanonical(rows, teamMaps, side) {
+function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode) {
   const counts = new Map();
   let pending = false;
   for (const m of rows) {
-    const { id: pid } = resolveMatchTeamId(m, side);
+    const gc = gameCode || m.game?.code;
+    const { id: pid } = resolveMatchTeamId(m, side, gc);
     if (!pid) continue;
-    const { canonical, pending: isPending } = lookupCanonical(teamMaps, m.platform, pid);
+    const { canonical, pending: isPending } = lookupCanonical(teamMaps, m.platform, pid, gc);
     if (canonical != null) {
       counts.set(canonical, (counts.get(canonical) || 0) + 1);
     } else if (isPending) {
@@ -1210,20 +1243,20 @@ function resolveClientMatchSideCanonical(rows, teamMaps, side) {
   return pending ? '__pending__' : null;
 }
 
-function pickClientMatchSideRow(rows, side) {
+function pickClientMatchSideRow(rows, side, gameCode) {
   const ref = pickReferenceMatch(rows);
-  const { id: refPid } = resolveMatchTeamId(ref, side);
+  const { id: refPid } = resolveMatchTeamId(ref, side, gameCode || ref.game?.code);
   if (refPid) return { row: ref, platformId: refPid };
   for (const m of rows) {
-    const { id: pid } = resolveMatchTeamId(m, side);
+    const { id: pid } = resolveMatchTeamId(m, side, gameCode || m.game?.code);
     if (pid) return { row: m, platformId: pid };
   }
   return { row: ref, platformId: null };
 }
 
 function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId) {
-  const canonical = resolveClientMatchSideCanonical(rows, teamMaps, side);
-  const { row, platformId } = pickClientMatchSideRow(rows, side);
+  const canonical = resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode);
+  const { row, platformId } = pickClientMatchSideRow(rows, side, gameCode);
   const platform = row.platform;
   const name = side === 'home' ? row.home : row.away;
   const pending = canonical === '__pending__';
@@ -1261,11 +1294,13 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
   if (!visible.length) return '';
   const cms = cm ? [{ id: cm.id, matchs: cm.matchs || {} }] : [];
   const linkCmId = cm?.id;
+  const homeSideCanonical = resolveClientMatchSideCanonical(rows, teamMaps, 'home', gameCode);
+  const awaySideCanonical = resolveClientMatchSideCanonical(rows, teamMaps, 'away', gameCode);
   const rowsHtml = visible.map(m => `<tr>
       <td class="col-match-id">${renderMatchLinkCell(m, m.platform, cms)}</td>
       <td class="col-platform">${pbadge(m.platform)} <span class="team-status ts-done">已映射</span></td>
-      <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'home' } : null)}</td>
-      <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away' } : null)}</td>
+      <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'home', sideCanonical: homeSideCanonical } : null)}</td>
+      <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away', sideCanonical: awaySideCanonical } : null)}</td>
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
       <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
     </tr>`).join('');
@@ -1281,7 +1316,7 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
   const gameCode = clientMatchGameCode(cm, rows);
   const tableHtml = renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm);
   if (!tableHtml) return '';
-  const teamsIdMapped = clientMatchTeamsFullyIdMapped(rows, teamMaps);
+  const teamsIdMapped = clientMatchTeamsFullyIdMapped(rows, teamMaps, gameCode);
   const idBannerClass = teamsIdMapped ? 'client-match-id-banner teams-id-mapped' : 'client-match-id-banner';
   const idBannerTitle = teamsIdMapped
     ? '主客队平台 ID 均已映射 gb_team_id · 可接收未匹配场次拖入合并'
@@ -1289,9 +1324,7 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
   const footerHint = columnMode === 'id'
     ? `ID 已匹配 · ${rows.length} 个平台 · 可拖黄方点合并其它赛事`
     : `队名已匹配 · ${rows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
-  const titleHtml = columnMode === 'id'
-    ? displayClientMatchTitleGbIds(cm, rows, teamMaps, gameCode)
-    : displayClientMatchTitle(cm, rows);
+  const titleHtml = displayClientMatchTitleGbIds(cm, rows, teamMaps, gameCode);
   return `<article class="team-card matched" data-cm-id="${cm.id}">
     <div class="team-card-header">
       <div>
@@ -1705,8 +1738,8 @@ function showActionToast(message, type = 'ok', ms = 4200) {
   }, ms);
 }
 
-function describeExistingTeamMap(platform, platformId) {
-  const row = lookupTeamMapEntry(_lastData?.teamMaps || {}, platform, platformId);
+function describeExistingTeamMap(platform, platformId, gameCode) {
+  const row = lookupTeamMapEntry(_lastData?.teamMaps || {}, platform, platformId, gameCode);
   if (!row) return null;
   const name = row.platform_name || platformId;
   const game = row.game ? ` · 游戏 ${row.game}` : '';
@@ -1739,9 +1772,10 @@ async function submitTeamRegisterMap(btn) {
     return;
   }
 
-  const existingMsg = describeExistingTeamMap(platform, platformId);
+  const existingMsg = describeExistingTeamMap(platform, platformId, gameCode);
   if (existingMsg) {
     showActionToast(existingMsg, 'warn', 6000);
+    await load();
     return;
   }
 

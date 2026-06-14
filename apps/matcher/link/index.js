@@ -8,7 +8,8 @@ import {
   providerPriority,
   teamsFromPlatformRows,
 } from "@changmen/match-engine";
-import { resolveClientGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { resolveClientGame, getGameCodeForPlatformId, getPlatformGameId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import { rebuildOnce } from "../ops/rebuild.js";
 import * as db from "@changmen/db";
 
@@ -389,10 +390,10 @@ async function linkPlatformToPlatform({
   const srcAwayName = reversed ? pmSource.home : pmSource.away;
 
   const mapResults = [];
-  mapResults.push(await upsertTeamPlatformRecord(pmTarget.platform, pmTarget.home_id, pmTarget.home, gameCode));
-  mapResults.push(await upsertTeamPlatformRecord(pmTarget.platform, pmTarget.away_id, pmTarget.away, gameCode));
-  mapResults.push(await upsertTeamPlatformRecord(pmSource.platform, srcHomeId, srcHomeName, gameCode));
-  mapResults.push(await upsertTeamPlatformRecord(pmSource.platform, srcAwayId, srcAwayName, gameCode));
+  mapResults.push(await upsertTeamPlatformRecord(pmTarget.platform, pmTarget.home_id, pmTarget.home, gameCode, pmTarget.source_game_id));
+  mapResults.push(await upsertTeamPlatformRecord(pmTarget.platform, pmTarget.away_id, pmTarget.away, gameCode, pmTarget.source_game_id));
+  mapResults.push(await upsertTeamPlatformRecord(pmSource.platform, srcHomeId, srcHomeName, gameCode, pmSource.source_game_id));
+  mapResults.push(await upsertTeamPlatformRecord(pmSource.platform, srcAwayId, srcAwayName, gameCode, pmSource.source_game_id));
 
   for (const pm of [pmSource, pmTarget]) {
     await db.setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
@@ -425,8 +426,18 @@ async function linkPlatformToPlatform({
   };
 }
 
-async function upsertTeamPlatformRecord(platform, platformId, platformName, gameCode) {
+function normalizeStoredTeamPlatformId(platform, platformId, { sourceGameId, gameCode } = {}) {
   const pid = String(platformId || "").trim();
+  if (!pid || platform !== "PB") return pid;
+  const gameSlug =
+    String(sourceGameId || "").trim() ||
+    (gameCode ? getPlatformGameId("PB", gameCode) : null) ||
+    "";
+  return formatPbTeamPlatformId(gameSlug, pid, gameCode);
+}
+
+async function upsertTeamPlatformRecord(platform, platformId, platformName, gameCode, sourceGameId) {
+  const pid = normalizeStoredTeamPlatformId(platform, platformId, { sourceGameId, gameCode });
   if (!pid) return { skipped: true, reason: "no_platform_id" };
 
   await db.upsertTeamPlatformMaps([
@@ -443,8 +454,8 @@ async function upsertTeamPlatformRecord(platform, platformId, platformName, game
 }
 
 /** 手动匹配：写入 gb_team_id 映射 */
-async function upsertManualTeamPlatformMap(gbTeamId, platform, platformId, platformName, gameCode) {
-  const pid = String(platformId || "").trim();
+async function upsertManualTeamPlatformMap(gbTeamId, platform, platformId, platformName, gameCode, sourceGameId) {
+  const pid = normalizeStoredTeamPlatformId(platform, platformId, { sourceGameId, gameCode });
   if (!pid) return { skipped: true, reason: "no_platform_id" };
   const id = parseGbTeamId(gbTeamId);
   if (id == null) throw new Error("gb_team_id 无效");
@@ -553,8 +564,8 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   const pmAwayName = reversed ? pm.home : pm.away;
 
   const mapResults = [];
-  mapResults.push(await upsertTeamPlatformRecord(plat, pmHomeId, pmHomeName, gameCode));
-  mapResults.push(await upsertTeamPlatformRecord(plat, pmAwayId, pmAwayName, gameCode));
+  mapResults.push(await upsertTeamPlatformRecord(plat, pmHomeId, pmHomeName, gameCode, pm.source_game_id));
+  mapResults.push(await upsertTeamPlatformRecord(plat, pmAwayId, pmAwayName, gameCode, pm.source_game_id));
 
   await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
 
@@ -633,8 +644,10 @@ function resolveTeamLinkGbPlan(gbA, gbB) {
 /** 拖线前预览：说明将采用的 gb_team_id 及合并影响 */
 async function previewLinkPlatformTeams({ a, b }) {
   const { platA, platB, idA, idB, gameCode } = validateTeamLinkPair(a, b);
-  const mapA = await fetchTeamPlatformMap(platA, idA);
-  const mapB = await fetchTeamPlatformMap(platB, idB);
+  const normA = normalizeStoredTeamPlatformId(platA, idA, { gameCode });
+  const normB = normalizeStoredTeamPlatformId(platB, idB, { gameCode });
+  const mapA = await fetchTeamPlatformMap(platA, normA);
+  const mapB = await fetchTeamPlatformMap(platB, normB);
   const gbA = parseGbTeamId(mapA?.canonical_id);
   const gbB = parseGbTeamId(mapB?.canonical_id);
   const plan = resolveTeamLinkGbPlan(gbA, gbB);
@@ -656,14 +669,14 @@ async function previewLinkPlatformTeams({ a, b }) {
     will_allocate_gb_team_id: plan.gbTeamIdAllocated,
     team_a: {
       platform: platA,
-      platform_id: idA,
+      platform_id: normA,
       platform_name: nameA,
       gb_team_id: gbA,
       pending: Boolean(mapA && mapA.canonical_id == null),
     },
     team_b: {
       platform: platB,
-      platform_id: idB,
+      platform_id: normB,
       platform_name: nameB,
       gb_team_id: gbB,
       pending: Boolean(mapB && mapB.canonical_id == null),
@@ -674,8 +687,10 @@ async function previewLinkPlatformTeams({ a, b }) {
 /** 仅关联两平台的队伍 ID 到同一 canonical（不写 match_id、不 rebuild） */
 async function linkPlatformTeams({ a, b }) {
   const { platA, platB, idA, idB, gameCode } = validateTeamLinkPair(a, b);
-  const mapA = await fetchTeamPlatformMap(platA, idA);
-  const mapB = await fetchTeamPlatformMap(platB, idB);
+  const normA = normalizeStoredTeamPlatformId(platA, idA, { gameCode });
+  const normB = normalizeStoredTeamPlatformId(platB, idB, { gameCode });
+  const mapA = await fetchTeamPlatformMap(platA, normA);
+  const mapB = await fetchTeamPlatformMap(platB, normB);
   const gbA = parseGbTeamId(mapA?.canonical_id);
   const gbB = parseGbTeamId(mapB?.canonical_id);
   const plan = resolveTeamLinkGbPlan(gbA, gbB);
@@ -706,8 +721,8 @@ async function linkPlatformTeams({ a, b }) {
   const nameB = String(b?.platformName || mapB?.platform_name || idB).trim();
 
   const written = [];
-  written.push(await upsertManualTeamPlatformMap(gbTeamId, platA, idA, nameA, gameCode));
-  written.push(await upsertManualTeamPlatformMap(gbTeamId, platB, idB, nameB, gameCode));
+  written.push(await upsertManualTeamPlatformMap(gbTeamId, platA, normA, nameA, gameCode));
+  written.push(await upsertManualTeamPlatformMap(gbTeamId, platB, normB, nameB, gameCode));
 
   const label = String(gbTeamId);
   const mapsWritten = written.filter((r) => !r.skipped).length;
@@ -728,8 +743,8 @@ async function linkPlatformTeams({ a, b }) {
     gb_team_id_loser: plan.loserGb,
     maps_reassigned: mapsReassigned,
     game: gameCode,
-    team_a: { platform: platA, platform_id: idA, platform_name: nameA },
-    team_b: { platform: platB, platform_id: idB, platform_name: nameB },
+    team_a: { platform: platA, platform_id: normA, platform_name: nameA },
+    team_b: { platform: platB, platform_id: normB, platform_name: nameB },
     teamMapsWritten: mapsWritten,
     summary: `${platA} · ${nameA} ↔ ${platB} · ${nameB} → gb_team_id ${label}`,
     logLines: [
@@ -749,20 +764,21 @@ async function registerTeamPlatformMap({ platform, platformId, platformName, gam
   if (!plat || !pid) throw new Error("平台队伍 ID 不完整");
   if (!game || game === "unknown") throw new Error(`无法解析游戏类型（${plat} · ${name}）`);
 
-  const existing = await db.fetchTeamPlatformMap(plat, pid);
+  const storedPid = normalizeStoredTeamPlatformId(plat, pid, { gameCode });
+  const existing = await db.fetchTeamPlatformMap(plat, storedPid);
 
   if (existing) {
-    const displayName = String(existing.platform_name || name).trim() || pid;
+    const displayName = String(existing.platform_name || name).trim() || storedPid;
     const gameLabel = String(existing.game || game).trim() || game;
     if (existing.canonical_id != null) {
       const err = new Error(
-        `无需重复收录\n${plat} · ${displayName}\n平台 id ${pid} · 游戏 ${gameLabel}\n已有 gb_team_id ${existing.canonical_id}`
+        `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已有 gb_team_id ${existing.canonical_id}`
       );
       err.code = "already_registered";
       throw err;
     }
     const err = new Error(
-      `无需重复收录\n${plat} · ${displayName}\n平台 id ${pid} · 游戏 ${gameLabel}\n已在 team_platform_maps，状态：待识别`
+      `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已在 team_platform_maps，状态：待识别`
     );
     err.code = "already_registered";
     throw err;

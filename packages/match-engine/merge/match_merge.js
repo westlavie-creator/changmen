@@ -38,6 +38,7 @@ import {
 } from "./im_enrich.js";
 import { buildBetsForMatch } from "./bet_builder.js";
 import { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import { normalizeEpochMs, a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
@@ -557,6 +558,12 @@ function collectMergeEntries(matches, bets, timers, sourceFromBet) {
       row._provider = provider;
       const nativeGameId = String(m.SourceGameID || m.GameID || "");
       const gameCode = getGameCodeForPlatformId(provider, nativeGameId);
+      let homeId = String(m.HomeID || "");
+      let awayId = String(m.AwayID || "");
+      if (provider === "PB") {
+        homeId = formatPbTeamPlatformId(nativeGameId, homeId, gameCode);
+        awayId = formatPbTeamPlatformId(nativeGameId, awayId, gameCode);
+      }
 
       entries.push({
         rowKey: `${provider}:${String(m.SourceMatchID)}`,
@@ -565,7 +572,7 @@ function collectMergeEntries(matches, bets, timers, sourceFromBet) {
         away: String(m.Away || ""),
         gameId: row.GameID,
         gameCode,
-        ctx: { provider, homeId: String(m.HomeID || ""), awayId: String(m.AwayID || "") },
+        ctx: { provider, homeId, awayId },
       });
     }
   }

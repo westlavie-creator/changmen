@@ -44,6 +44,38 @@
       "app_token=" + encodeURIComponent(token) + "; path=/; max-age=" + 60 * 60 * 24 * 7 + "; SameSite=Lax";
   }
 
+  window.formatPbTeamPlatformId = function formatPbTeamPlatformId(sourceGameId, teamId, gameCode) {
+    const PB_GAME_SLUG_BY_CODE = {
+      cs2: "cs2",
+      kog: "king-of-glory",
+      valorant: "valorant",
+      lol: "league-of-legends",
+      dota2: "dota-2",
+    };
+    function resolvePbGameSlug(src, code) {
+      const raw = String(src ?? "").trim();
+      if (raw) {
+        for (const [c, slug] of Object.entries(PB_GAME_SLUG_BY_CODE)) {
+          if (raw === slug || raw === c) return slug;
+        }
+        return raw;
+      }
+      if (code && PB_GAME_SLUG_BY_CODE[code]) return PB_GAME_SLUG_BY_CODE[code];
+      return "";
+    }
+    const gameId = resolvePbGameSlug(sourceGameId, gameCode);
+    let pid = String(teamId ?? "").trim();
+    if (!pid) return "";
+    if (!gameId) return pid;
+    const suffix = "@" + gameId;
+    if (pid.endsWith(suffix)) return pid;
+    const oldPrefix = gameId + ":";
+    if (pid.startsWith(oldPrefix)) pid = pid.slice(oldPrefix.length);
+    const atIdx = pid.indexOf("@");
+    if (atIdx > 0) pid = pid.slice(0, atIdx);
+    return pid + "@" + gameId;
+  };
+
   if (!window.getSiteToken()) {
     window.redirectToSiteLogin();
   }

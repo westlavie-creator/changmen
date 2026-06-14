@@ -599,18 +599,35 @@ function parseTeamsArray(m) {
   return Array.isArray(teams) ? teams : [];
 }
 function resolveMatchTeamId(m, side) {
+  const platform = String(m?.platform || '').trim();
+  const matchGameId = String(m?.source_game_id ?? m?.SourceGameID ?? m?.GameID ?? '');
+  function finalize(id, gameIdOverride) {
+    if (!id) return null;
+    if (platform === 'PB' && typeof window.formatPbTeamPlatformId === 'function') {
+      return window.formatPbTeamPlatformId(gameIdOverride ?? matchGameId, id);
+    }
+    return id;
+  }
   const direct = normalizePlatformId(side === 'home' ? m.home_id : m.away_id);
-  if (direct) return direct;
+  if (direct) return finalize(direct);
   const name = side === 'home' ? m.home : m.away;
   const teams = parseTeamsArray(m);
   const norm = normalizeTeamName(name);
   if (norm) {
     const hit = teams.find(t => normalizeTeamName(t.Name ?? t.name) === norm);
-    if (hit) return normalizePlatformId(hit.TeamID ?? hit.team_id ?? hit.teamId ?? hit.id);
+    if (hit) {
+      const id = normalizePlatformId(hit.TeamID ?? hit.team_id ?? hit.teamId ?? hit.id);
+      const teamGameId = String(hit.GameID ?? hit.game_id ?? hit.gameId ?? matchGameId ?? '');
+      if (id) return finalize(id, teamGameId);
+    }
   }
   const idx = side === 'home' ? 0 : 1;
   const t = teams[idx];
-  if (t) return normalizePlatformId(t.TeamID ?? t.team_id ?? t.teamId ?? t.id);
+  if (t) {
+    const id = normalizePlatformId(t.TeamID ?? t.team_id ?? t.teamId ?? t.id);
+    const teamGameId = String(t.GameID ?? t.game_id ?? t.gameId ?? matchGameId ?? '');
+    if (id) return finalize(id, teamGameId);
+  }
   return null;
 }
 function teamMapKey(platform, platformId) {

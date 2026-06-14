@@ -153,9 +153,27 @@ async function fetchMatcherDashboard() {
     fetchClientMatchesDashboard(),
     fetchClientMatchesHidden(),
   ]);
-  const allMatches = (allMatchesRaw || []).map(normalizeDashboardStartTime);
+
   const clientMatchesNorm = (clientMatchesRaw || []).map(normalizeDashboardStartTime);
   const hiddenClientMatches = (hiddenClientMatchesRaw || []).map(normalizeDashboardStartTime);
+
+  const gameByPlatformMatch = new Map();
+  for (const cm of clientMatchesNorm) {
+    const code = typeof cm.game === "string" ? cm.game : cm.game?.code;
+    if (!code) continue;
+    for (const [plat, srcId] of Object.entries(cm.matchs || {})) {
+      gameByPlatformMatch.set(`${plat}:${srcId}`, code);
+    }
+  }
+
+  const allMatches = (allMatchesRaw || []).map((row) => {
+    const normalized = normalizeDashboardStartTime(row);
+    const gameFromCm = gameByPlatformMatch.get(`${normalized.platform}:${normalized.source_match_id}`);
+    const uiGame =
+      resolveUiGame(normalized.platform, normalized.source_game_id) ||
+      (gameFromCm ? { code: gameFromCm, name: gameFromCm } : null);
+    return { ...normalized, game: uiGame };
+  });
   const recommendations = computeRecommendations(allMatches, clientMatchesNorm);
 
   const recByKey = new Map();
@@ -172,7 +190,7 @@ async function fetchMatcherDashboard() {
   for (const m of allMatches) {
     const enriched = {
       ...m,
-      game: resolveUiGame(m.platform, m.source_game_id),
+      game: m.game || resolveUiGame(m.platform, m.source_game_id),
       rec: recByKey.get(`${m.platform}:${m.source_match_id}`) || null,
     };
     if (!byPlatform[m.platform]) byPlatform[m.platform] = [];

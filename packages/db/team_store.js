@@ -3,6 +3,8 @@
  */
 
 import { normalizeTeam } from "../match-engine/index.js";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import { getPgPool } from "./pg_pool.js";
 
 async function rdsLoadAll(sql, mapRow) {
@@ -89,20 +91,41 @@ function parseTeamsArrayRaw(teams) {
   return [];
 }
 
+function resolveStoredPlatformTeamId(platform, platformId, sourceGameId, teamGameId, gameCode) {
+  const pid = normalizePlatformIdStr(platformId);
+  if (!pid) return "";
+  if (platform === "PB") {
+    const gameSlug = String(teamGameId ?? sourceGameId ?? "").trim();
+    const code = gameCode || getGameCodeForPlatformId("PB", gameSlug) || null;
+    return formatPbTeamPlatformId(gameSlug, pid, code);
+  }
+  return pid;
+}
+
 function collectNeededTeamIds(allMatches) {
   const byPlatform = new Map();
-  const add = (platform, pid) => {
+  const add = (platform, platformId, sourceGameId, teamGameId, gameCode) => {
     const p = String(platform || "").trim();
-    const id = normalizePlatformIdStr(pid);
+    const id = resolveStoredPlatformTeamId(p, platformId, sourceGameId, teamGameId, gameCode);
     if (!p || !id) return;
     if (!byPlatform.has(p)) byPlatform.set(p, new Set());
     byPlatform.get(p).add(id);
+    if (p === "PB" && gameCode) {
+      const raw = normalizePlatformIdStr(platformId);
+      if (raw) {
+        const viaGame = formatPbTeamPlatformId("", raw, gameCode);
+        if (viaGame) byPlatform.get(p).add(viaGame);
+      }
+    }
   };
   for (const m of allMatches || []) {
-    add(m.platform, m.home_id);
-    add(m.platform, m.away_id);
+    const sourceGameId = m.source_game_id ?? m.SourceGameID ?? "";
+    const gameCode = m.game?.code || null;
+    add(m.platform, m.home_id, sourceGameId, null, gameCode);
+    add(m.platform, m.away_id, sourceGameId, null, gameCode);
     for (const t of parseTeamsArrayRaw(m.teams)) {
-      add(m.platform, t.TeamID ?? t.team_id ?? t.teamId ?? t.id);
+      const teamGameId = t.GameID ?? t.game_id ?? t.gameId ?? sourceGameId;
+      add(m.platform, t.TeamID ?? t.team_id ?? t.teamId ?? t.id, sourceGameId, teamGameId, gameCode);
     }
   }
   return byPlatform;
