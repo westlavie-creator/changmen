@@ -217,6 +217,10 @@
       font-size: 11px; color: #64748b; font-weight: 400;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9em;
     }
+    .split-col-matched-id .title-team-sub {
+      font-size: 15px; color: #e2e8f0; font-weight: 600; max-width: 14em;
+    }
+    .split-col-matched-id .team-name { font-size: 14px; }
     .team-card-meta { font-size: 11px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px; }
     .conf-wrap { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
     .conf-bar { width: 72px; height: 5px; background: #334155; border-radius: 3px; overflow: hidden; }
@@ -1525,6 +1529,9 @@ function canConnectTeamHandles(a, b) {
     const sideA = a.dataset.teamSide || '';
     const sideB = b.dataset.teamSide || '';
     if (sideA && sideB && sideA !== sideB) return false;
+    const aTitle = a.dataset.titleHandle === '1';
+    const bTitle = b.dataset.titleHandle === '1';
+    if (!aTitle && !bTitle) return false;
   }
   return true;
 }
@@ -1575,24 +1582,6 @@ function redrawCanonicalTeamLinks() {
         if (tb.dataset.cmId === cmId && tb.dataset.teamSide === side) {
           drawBetween(th, tb, canonicalId);
         }
-      }
-    }
-
-    const byCmSide = new Map();
-    for (const h of tableHandles) {
-      const key = `${h.dataset.cmId || ''}:${h.dataset.teamSide || ''}`;
-      if (!byCmSide.has(key)) byCmSide.set(key, []);
-      byCmSide.get(key).push(h);
-    }
-    for (const [, bucket] of byCmSide) {
-      if (bucket.length < 2) continue;
-      const sorted = [...bucket].sort((a, b) => {
-        const pa = platformRank(a.dataset.teamPlatform || '');
-        const pb = platformRank(b.dataset.teamPlatform || '');
-        return pa - pb;
-      });
-      for (let i = 0; i < sorted.length - 1; i++) {
-        drawBetween(sorted[i], sorted[i + 1], canonicalId);
       }
     }
 
