@@ -3,6 +3,7 @@
  */
 
 import { getPgPool } from "./pg_pool.js";
+import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "./client_match_list_status.js";
 
 function pool() {
   return getPgPool("matcher_store");
@@ -24,7 +25,11 @@ export function isMatcherStoreReady() {
 }
 
 export async function fetchClientMatchIdIndex() {
-  const { rows } = await rdsQuery("SELECT id, merge_key, matchs FROM client_matches");
+  const { rows } = await rdsQuery(
+    `SELECT id, merge_key, matchs FROM client_matches
+     WHERE list_status IS DISTINCT FROM $1`,
+    [CLIENT_MATCH_LIST_HIDDEN],
+  );
   return rows.map((r) => ({
     id: Number(r.id),
     merge_key: r.merge_key,
@@ -36,8 +41,8 @@ export async function findClientMatchIdByMergeKey(mergeKey) {
   const key = String(mergeKey || "").trim();
   if (!key) return null;
   const { rows } = await rdsQuery(
-    "SELECT id FROM client_matches WHERE merge_key = $1 LIMIT 1",
-    [key],
+    "SELECT id FROM client_matches WHERE merge_key = $1 AND list_status IS DISTINCT FROM $2 LIMIT 1",
+    [key, CLIENT_MATCH_LIST_HIDDEN],
   );
   return rows[0] ? Number(rows[0].id) : null;
 }
@@ -47,8 +52,8 @@ async function insertClientMatchStubRds(mergeKey, stub) {
   try {
     const { rows } = await rdsQuery(
       `INSERT INTO client_matches (
-        merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
+        merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at, list_status
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12)
       RETURNING id`,
       [
         mergeKey,
@@ -62,6 +67,7 @@ async function insertClientMatchStubRds(mergeKey, stub) {
         jsonb(stub.matchs, {}),
         jsonb([], []),
         builtAt,
+        CLIENT_MATCH_LIST_DEFAULT,
       ],
     );
     return Number(rows[0].id);
@@ -106,7 +112,7 @@ export async function fetchClientMatchRow(id, columns = "*") {
   if (!Number.isFinite(cmId)) return null;
   const cols =
     columns === "*"
-      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at"
+      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at, list_status"
       : columns;
   const { rows } = await rdsQuery(`SELECT ${cols} FROM client_matches WHERE id = $1`, [cmId]);
   return rows[0] || null;
@@ -129,17 +135,37 @@ export async function fetchPlatformMatchesDashboard() {
 
 export async function fetchClientMatchesDashboard() {
   const { rows } = await rdsQuery(
-    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at
-     FROM client_matches ORDER BY start_time ASC NULLS LAST`,
+    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at, list_status
+     FROM client_matches
+     WHERE list_status IS DISTINCT FROM $1
+     ORDER BY start_time ASC NULLS LAST`,
+    [CLIENT_MATCH_LIST_HIDDEN],
   );
   return rows;
 }
 
 export async function fetchLatestClientMatchBuiltAt() {
   const { rows } = await rdsQuery(
-    "SELECT built_at FROM client_matches ORDER BY built_at DESC NULLS LAST LIMIT 1",
+    `SELECT built_at FROM client_matches
+     WHERE list_status IS DISTINCT FROM $1
+     ORDER BY built_at DESC NULLS LAST LIMIT 1`,
+    [CLIENT_MATCH_LIST_HIDDEN],
   );
   return rows[0]?.built_at ? Number(rows[0].built_at) : 0;
+}
+
+export async function setClientMatchListStatus(id, listStatus) {
+  const cmId = Number(id);
+  const status = Number(listStatus);
+  if (!Number.isFinite(cmId)) throw new Error("无效的赛事 ID");
+  if (!Number.isFinite(status)) throw new Error("无效的 list_status");
+  const builtAt = Date.now();
+  const { rowCount } = await rdsQuery(
+    "UPDATE client_matches SET list_status = $2, built_at = $3 WHERE id = $1",
+    [cmId, status, builtAt],
+  );
+  if (!rowCount) throw new Error("赛事不存在");
+  return { id: cmId, list_status: status, built_at: builtAt };
 }
 
 export async function fetchPlatformMatchesDebugRows() {

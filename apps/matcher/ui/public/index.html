@@ -1244,7 +1244,7 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
     ${tableHtml}
     <div class="team-card-footer">
       <div class="team-card-hint">${footerHint}</div>
-      <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="从 client_matches 删除，并删除各平台 platform_matches 行">比赛已结束</button>
+      <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="list_status 设为 -1，浏览器不再返回；并删除各平台 platform_matches 行">比赛已结束</button>
     </div>
   </article>`;
 }
@@ -2258,7 +2258,7 @@ async function endClientMatch(cmId) {
     `#${cmId} ${cm?.title || ''}`,
     '',
     '将执行：',
-    '· 删除 client_matches 中本场',
+    '· client_matches.list_status 设为 -1（浏览器列表不再返回）',
     '· 删除各平台 platform_matches 对应行',
     '',
     `平台场次：${plats}`,
@@ -2271,7 +2271,7 @@ async function endClientMatch(cmId) {
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
     const n = data.platformMatchesDeleted ?? 0;
     showActionToast(
-      [`比赛已结束`, `#${cmId} ${data.title || cm?.title || ''}`, `已删除 ${n} 条 platform_matches`].join('\n'),
+      [`比赛已结束`, `#${cmId} ${data.title || cm?.title || ''}`, `list_status=-1 · 已删除 ${n} 条 platform_matches`].join('\n'),
       'ok',
       5200,
     );

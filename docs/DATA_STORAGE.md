@@ -32,7 +32,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 
 | 数据 | 机制 |
 |------|------|
-| 过期 `platform_*` / `client_matches` | matcher 每小时 prune（`packages/db/prune_stale.js`，2h 阈值） |
+| 过期 `platform_*` / `client_matches` | matcher 每小时 prune（`packages/db/prune_stale.js`，1h 阈值）；`client_matches` 过期设 `list_status=-1` 不删行 |
 | 手动兜底 | `node scripts/prune-stale.mjs` |
 
 详见 [ARCHITECTURE.md](./ARCHITECTURE.md) 数据流。

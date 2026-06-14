@@ -28,7 +28,7 @@ SELECT cron.schedule(
   '0 * * * *',
   $$
     DELETE FROM platform_matches
-    WHERE synced_at < (extract(epoch from now()) * 1000) - 7200000;
+    WHERE synced_at < (extract(epoch from now()) * 1000) - 3600000;
   $$
 );
 
@@ -37,7 +37,7 @@ SELECT cron.schedule(
   '0 * * * *',
   $$
     DELETE FROM platform_bets
-    WHERE updated_at < (extract(epoch from now()) * 1000) - 7200000;
+    WHERE updated_at < (extract(epoch from now()) * 1000) - 3600000;
   $$
 );
 
@@ -46,7 +46,7 @@ SELECT cron.schedule(
   '0 * * * *',
   $$
     DELETE FROM live_timers
-    WHERE updated_at < (extract(epoch from now()) * 1000) - 7200000;
+    WHERE updated_at < (extract(epoch from now()) * 1000) - 3600000;
   $$
 );
 
@@ -54,7 +54,8 @@ SELECT cron.schedule(
   'prune-stale-client-matches',
   '0 * * * *',
   $$
-    DELETE FROM client_matches
-    WHERE built_at < (extract(epoch from now()) * 1000) - 7200000;
+    UPDATE client_matches SET list_status = -1
+    WHERE built_at < (extract(epoch from now()) * 1000) - 3600000
+      AND list_status IS DISTINCT FROM -1;
   $$
 );

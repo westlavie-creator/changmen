@@ -105,6 +105,12 @@ export {
 } from "./prune_stale.js";
 
 export {
+  CLIENT_MATCH_LIST_HIDDEN,
+  CLIENT_MATCH_LIST_DEFAULT,
+  isClientMatchListVisible,
+} from "./client_match_list_status.js";
+
+export {
   isMatcherStoreReady,
   getClientMatchIdAdapter,
   fetchClientMatchIdIndex,
@@ -122,6 +128,7 @@ export {
   reassignPlatformMatchIds,
   deletePlatformMatchRow,
   deleteClientMatchRow,
+  setClientMatchListStatus,
 } from "./matcher_store.js";
 
 export {

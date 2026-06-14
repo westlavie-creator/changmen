@@ -1,8 +1,10 @@
+import "../lib/env.js";
 import { rebuildOnce } from "./rebuild.js";
 import * as db from "@changmen/db";
+import { CLIENT_MATCH_LIST_HIDDEN } from "@changmen/db";
 
 /**
- * 比赛已结束：删除 client_matches，并删除 matchs 中各平台对应的 platform_matches 行。
+ * 比赛已结束：list_status = -1（浏览器不返回），并删除各平台 platform_matches 行。
  */
 
 function platformMatchKey(platform, sourceMatchId) {
@@ -13,8 +15,20 @@ async function deleteClientMatch(clientMatchId) {
   const cmId = Number(clientMatchId);
   if (!Number.isFinite(cmId)) throw new Error("无效的赛事 ID");
 
-  const cm = await db.fetchClientMatchRow(cmId, "id, title, matchs");
+  const cm = await db.fetchClientMatchRow(cmId, "id, title, matchs, list_status");
   if (!cm) throw new Error("赛事不存在");
+  if (Number(cm.list_status) === CLIENT_MATCH_LIST_HIDDEN) {
+    return {
+      ok: true,
+      id: cmId,
+      title: cm.title || "",
+      list_status: CLIENT_MATCH_LIST_HIDDEN,
+      platformMatchesDeleted: 0,
+      deletedPlatforms: [],
+      alreadyHidden: true,
+      rebuild: null,
+    };
+  }
 
   const toDelete = new Map();
   for (const [plat, srcId] of Object.entries(cm.matchs || {})) {
@@ -43,7 +57,7 @@ async function deleteClientMatch(clientMatchId) {
     deletedPlatforms.push(`${row.platform}:${row.source_match_id}`);
   }
 
-  await db.deleteClientMatchRow(cmId);
+  const hidden = await db.setClientMatchListStatus(cmId, CLIENT_MATCH_LIST_HIDDEN);
 
   const rebuild = await rebuildOnce();
 
@@ -51,6 +65,7 @@ async function deleteClientMatch(clientMatchId) {
     ok: true,
     id: cmId,
     title: cm.title || "",
+    list_status: hidden.list_status,
     platformMatchesDeleted: deletedPlatforms.length,
     deletedPlatforms,
     rebuild,

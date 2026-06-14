@@ -11,6 +11,7 @@ import crypto from "node:crypto";
 import { getDbMode } from "./db_mode.js";
 import { getPgPool as getSharedPgPool } from "./pg_pool.js";
 import { hasDatabaseUrlConfig } from "./resolve_database_url.js";
+import { CLIENT_MATCH_LIST_HIDDEN } from "./client_match_list_status.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "";
 
@@ -304,7 +305,10 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
       ]);
     }
     if (toDelete.length) {
-      await client.query("DELETE FROM client_matches WHERE id = ANY($1::bigint[])", [toDelete]);
+      await client.query(
+        `DELETE FROM client_matches WHERE id = ANY($1::bigint[]) AND list_status IS DISTINCT FROM $2`,
+        [toDelete, CLIENT_MATCH_LIST_HIDDEN],
+      );
     }
     await client.query("COMMIT");
   } catch (err) {
@@ -381,13 +385,21 @@ async function _rdsFetchLiveTimers(pool) {
 }
 
 async function _rdsFetchClientMatches(pool) {
-  const { rows } = await pool.query("SELECT * FROM client_matches ORDER BY start_time ASC NULLS LAST");
+  const { rows } = await pool.query(
+    `SELECT * FROM client_matches
+     WHERE list_status IS DISTINCT FROM $1
+     ORDER BY start_time ASC NULLS LAST`,
+    [CLIENT_MATCH_LIST_HIDDEN],
+  );
   return rows;
 }
 
 async function _rdsFetchClientMatchesMeta(pool) {
   const { rows } = await pool.query(
-    "SELECT COUNT(*)::int AS count, COALESCE(MAX(built_at), 0)::bigint AS built_at FROM client_matches",
+    `SELECT COUNT(*)::int AS count, COALESCE(MAX(built_at), 0)::bigint AS built_at
+     FROM client_matches
+     WHERE list_status IS DISTINCT FROM $1`,
+    [CLIENT_MATCH_LIST_HIDDEN],
   );
   const row = rows[0] || {};
   return { builtAt: Number(row.built_at) || 0, count: Number(row.count) || 0 };

@@ -85,7 +85,7 @@ cd changmen/apps/backend
 node scripts/apply-rds-schema.mjs
 ```
 
-过期数据由 `apps/matcher` 每小时执行 prune（`packages/db/prune_stale.js`，2 小时阈值）。手动兜底：`node scripts/prune-stale.mjs`。
+过期数据由 `apps/matcher` 每小时执行 prune（`packages/db/prune_stale.js`，1 小时阈值）。手动兜底：`node scripts/prune-stale.mjs`。
 
 ### 3.3 构建并托管前端
 
