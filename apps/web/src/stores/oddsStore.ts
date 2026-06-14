@@ -112,12 +112,14 @@ export const useOddsStore = defineStore("odds", {
       const prev = bucket.get(id);
       const nextOdds = entry.odds;
 
-      // 先应用“待处理锁盘”（解决：锁盘消息早到、betIndex 尚未建立导致 UI 仍显示赔率）
-      const pendingOddLocked = this.pendingOddLocks.get(platform)?.get(id);
-      if (pendingOddLocked !== undefined) entry.isLock = pendingOddLocked;
-      if (entry.betId) {
-        const betLocked = this.pendingBetLocks.get(platform)?.get(String(entry.betId));
-        if (betLocked !== undefined) entry.isLock = betLocked;
+      // [A8 可证实] fo.save 直接覆盖 isLock；HTTP 灌盘以 API 为准，不叠加 pending
+      if (source !== "http") {
+        const pendingOddLocked = this.pendingOddLocks.get(platform)?.get(id);
+        if (pendingOddLocked !== undefined) entry.isLock = pendingOddLocked;
+        if (entry.betId) {
+          const betLocked = this.pendingBetLocks.get(platform)?.get(String(entry.betId));
+          if (betLocked !== undefined) entry.isLock = betLocked;
+        }
       }
 
       if (

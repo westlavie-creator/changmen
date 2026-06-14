@@ -2,14 +2,14 @@ import type { CollectBetDto } from "@/types/collect";
 import type { PlatformId } from "@/types/esport";
 import { PLATFORMS } from "@/shared/platform";
 import { iaLegacyWinBetName } from "@changmen/shared/catalog/market_catalog.browser";
-import { betKeyFromChild, iaChildLocked, parseIaPoint } from "./parse_fields";
+import { betKeyFromChild, iaChildLocked, iaPointLocked, parseIaPoint } from "./parse_fields";
 
-/** �?market_catalog.mjs iaLegacyWinBetName 一致；保留别名供外部测试引�?*/
+/** ??market_catalog.mjs iaLegacyWinBetName ???????????????*/
 export function iaMainWinBetKey(key: string): boolean {
   return iaLegacyWinBetName(key);
 }
 
-/** platform BetName + catalog 主盘规则 */
+/** platform BetName + catalog ???? */
 export function isIaChildCollectable(
   _child: Record<string, unknown>,
   betKey: string,
@@ -19,7 +19,7 @@ export function isIaChildCollectable(
   return iaLegacyWinBetName(betKey);
 }
 
-/** child �?SaveBet �?*/
+/** child ??SaveBet ??*/
 export function iaChildToSaveBetRow(
   child: Record<string, unknown>,
   matchId: string,
@@ -49,10 +49,9 @@ export function iaChildToSaveBetRow(
   };
 }
 
-/** fo 灌入条目（Ingest 层） */
+/** fo ?????Ingest ?? */
 export function listIaChildFoOddEntries(
   child: Record<string, unknown>,
-  locked: boolean,
 ): Array<{ id: string; odds: number; isLock: boolean; betId: string }> {
   const playId = String(child.id ?? "");
   const points = (child.team_points ?? []) as Array<Record<string, unknown>>;
@@ -62,14 +61,14 @@ export function listIaChildFoOddEntries(
     entries.push({
       id: String(pt.id),
       odds: parseIaPoint(pt),
-      isLock: locked,
+      isLock: iaPointLocked(pt),
       betId: playId,
     });
   }
   return entries;
 }
 
-/** getPointsListSplit plays �?SaveBet 行（Report 层） */
+/** getPointsListSplit plays ??SaveBet ??Report ?? */
 export function buildIaSaveBetRowsFromPlays(
   plays: Array<Record<string, unknown>>,
   matchId: string,

@@ -90,6 +90,12 @@ function matchesWinBet(child, betNameRegex) {
   return betNameRegex.test(key);
 }
 
+/** status 1=赛前 2=滚球开放；其余视为封盘 */
+function iaPointBettable(status) {
+  const s = Number(status);
+  return s === 1 || s === 2;
+}
+
 export function extractStagesFromPlays(plays, betNameRegex) {
   const stages = [];
   for (const play of plays || []) {
@@ -101,7 +107,10 @@ export function extractStagesFromPlays(plays, betNameRegex) {
       const points = child.team_points || [];
       const homePt = points[0];
       const awayPt = points[1];
-      const locked = child.status !== 1 || homePt?.status !== 1 || awayPt?.status !== 1;
+      const present = [homePt, awayPt].filter((pt) => pt?.id);
+      const locked = present.length
+        ? present.every((pt) => !iaPointBettable(pt.status))
+        : !iaPointBettable(child.status);
 
       stages.push({
         stageId,

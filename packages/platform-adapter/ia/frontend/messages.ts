@@ -1,6 +1,7 @@
 import { PLATFORMS } from "@/shared/platform";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
+import { iaPointBettable } from "@platform/ia/shared/parse_fields";
 import type { IaRealtimeMessage } from "./realtime";
 
 const PLATFORM = PLATFORMS.IA;
@@ -14,7 +15,7 @@ export function handleIaRealtimeMessage(msg: IaRealtimeMessage, now = Date.now()
   if (type === "message_type_bet_item_single_lock") {
     const playId = content.play_id;
     if (!playId) return;
-    odds.updateBetLock(PLATFORM, String(playId), content.status !== 1);
+    odds.updateBetLock(PLATFORM, String(playId), !iaPointBettable(content.status));
     matchStore.refreshOddsOnBets();
     return;
   }

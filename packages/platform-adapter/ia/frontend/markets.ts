@@ -7,7 +7,7 @@ import {
   isIaChildCollectable,
   listIaChildFoOddEntries,
 } from "../shared/save_bets";
-import { betKeyFromChild, iaChildLocked } from "../shared/parse_fields";
+import { betKeyFromChild } from "../shared/parse_fields";
 import { iaCollectPost } from "./transport";
 
 const PLATFORM = PLATFORMS.IA;
@@ -24,9 +24,7 @@ function ingestIaPlaysToFo(
     for (const child of children) {
       const betKey = betKeyFromChild(child);
       if (!isIaChildCollectable(child, betKey, betRe)) continue;
-      const points = (child.team_points ?? []) as Array<Record<string, unknown>>;
-      const locked = iaChildLocked(child, points[0], points[1]);
-      for (const entry of listIaChildFoOddEntries(child, locked)) {
+      for (const entry of listIaChildFoOddEntries(child)) {
         odds.save(
           PLATFORM,
           {

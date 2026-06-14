@@ -1,5 +1,6 @@
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider } from "@platform/contract";
+import { iaPointBettable } from "@platform/ia/shared/parse_fields";
 import { accountIaPost } from "@/shared/platformHttp";
 
 interface IaLimitResponse {
@@ -39,7 +40,7 @@ interface IaBetResponse {
 function findPoint(plays: IaPlaysResponse, betId: string, itemId: string): IaTeamPoint | null {
   for (const play of plays.data?.plays ?? []) {
     for (const child of play.child_plays ?? []) {
-      if (String(child.id) !== String(betId) || child.status !== 1) continue;
+      if (String(child.id) !== String(betId) || !iaPointBettable(child.status)) continue;
       for (const pt of child.team_points ?? []) {
         if (String(pt.id) === String(itemId)) return pt;
       }
@@ -97,7 +98,7 @@ export const iaProvider: PlatformProvider = {
 
       const point = findPoint(plays, option.betId, option.itemId);
       if (point) option.response = point;
-      if (!point || point.status !== 1) {
+      if (!point || !iaPointBettable(point.status)) {
         option.checkError = "盘口已封盘";
         return option;
       }
