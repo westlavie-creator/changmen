@@ -30,19 +30,19 @@ function parseTeamsArray(teams) {
   return [];
 }
 
-function resolveStoredPlatformTeamId(platform, platformId, sourceGameId) {
+function resolveStoredPlatformTeamId(platform, platformId, sourceGameId, gameCode) {
   const pid = normalizePlatformId(platformId);
   if (!pid) return "";
   if (platform === "PB") {
     const gameSlug = String(sourceGameId ?? "").trim();
-    if (!gameSlug) return "";
-    return formatPbTeamPlatformId(gameSlug, pid, gameCode);
+    const code = gameCode || getGameCodeForPlatformId("PB", gameSlug) || null;
+    return formatPbTeamPlatformId(gameSlug, pid, code);
   }
   return pid;
 }
 
 function addCandidate(candidates, platform, platformId, platformName, gameCode, sourceGameId) {
-  const pid = resolveStoredPlatformTeamId(platform, platformId, sourceGameId);
+  const pid = resolveStoredPlatformTeamId(platform, platformId, sourceGameId, gameCode);
   if (!pid || !gameCode || gameCode === "unknown") return;
   const key = `${platform}:${pid}`;
   if (candidates.has(key)) return;

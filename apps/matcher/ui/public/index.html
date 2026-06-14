@@ -2481,7 +2481,10 @@ async function matcherAction(action) {
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
     await refreshMatcherStatus();
     if (action === 'stop') showActionToast('匹配脚本已停止', 'ok', 2600);
-    if (action === 'start') setTimeout(refreshMatcherStatus, 2000);
+    if (action === 'start') {
+      showActionToast(data.warning || '匹配脚本已启动', 'ok', 3200);
+      setTimeout(refreshMatcherStatus, 2000);
+    }
   } catch (err) {
     alert(err.message);
     await refreshMatcherStatus();
