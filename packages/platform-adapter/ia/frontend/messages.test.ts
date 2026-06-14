@@ -5,6 +5,7 @@ const oddsStore = {
   isOdds: vi.fn(),
   save: vi.fn(),
   updateBetLock: vi.fn(),
+  getEntry: vi.fn(),
 };
 
 const matchStore = {
@@ -25,7 +26,7 @@ describe("handleIaRealtimeMessage", () => {
     oddsStore.isOdds.mockReturnValue(false);
   });
 
-  test("locks IA bet items from single lock messages", () => {
+  test("locks IA bet items from single lock messages (status !== 1)", () => {
     handleIaRealtimeMessage({
       message_type: "message_type_bet_item_single_lock",
       content: { play_id: 123, status: 0 },
@@ -35,8 +36,24 @@ describe("handleIaRealtimeMessage", () => {
     expect(matchStore.refreshOddsOnBets).toHaveBeenCalledOnce();
   });
 
-  test("saves known IA point changes", () => {
+  test("single lock treats live status=2 as locked (A8 rule)", () => {
+    handleIaRealtimeMessage({
+      message_type: "message_type_bet_item_single_lock",
+      content: { play_id: 123, status: 2 },
+    });
+
+    expect(oddsStore.updateBetLock).toHaveBeenCalledWith("IA", "123", true);
+  });
+
+  test("saves known IA point changes via mqtt and clears lock (A8 push rule)", () => {
     oddsStore.isOdds.mockImplementation((_platform: string, id: string) => id === "point-1");
+    oddsStore.getEntry.mockReturnValue({
+      id: "point-1",
+      odds: 1.87,
+      isLock: true,
+      betId: "play-1",
+      time: 1,
+    });
 
     handleIaRealtimeMessage(
       {
@@ -46,14 +63,45 @@ describe("handleIaRealtimeMessage", () => {
       12345,
     );
 
-    expect(oddsStore.save).toHaveBeenCalledWith("IA", {
-      id: "point-1",
-      odds: 1.88,
-      isLock: false,
-      betId: "play-1",
-      time: 12345,
-    });
+    expect(oddsStore.save).toHaveBeenCalledWith(
+      "IA",
+      {
+        id: "point-1",
+        odds: 1.88,
+        isLock: false,
+        betId: "play-1",
+        side: undefined,
+        time: 12345,
+      },
+      "mqtt",
+    );
     expect(matchStore.refreshOddsOnBets).toHaveBeenCalledOnce();
+  });
+
+  test("push point change always unlocks fo like A8", () => {
+    oddsStore.isOdds.mockImplementation((_platform: string, id: string) => id === "point-1");
+    oddsStore.getEntry.mockReturnValue(undefined);
+
+    handleIaRealtimeMessage(
+      {
+        message_type: "message_type_push_point_change",
+        content: { point_id: "point-1", point: "1.88", play_id: "play-1", status: 2 },
+      },
+      12345,
+    );
+
+    expect(oddsStore.save).toHaveBeenCalledWith(
+      "IA",
+      {
+        id: "point-1",
+        odds: 1.88,
+        isLock: false,
+        betId: "play-1",
+        side: undefined,
+        time: 12345,
+      },
+      "mqtt",
+    );
   });
 
   test("ignores unknown IA point changes", () => {

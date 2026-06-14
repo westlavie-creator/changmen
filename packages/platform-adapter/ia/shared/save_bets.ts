@@ -2,7 +2,7 @@ import type { CollectBetDto } from "@/types/collect";
 import type { PlatformId } from "@/types/esport";
 import { PLATFORMS } from "@/shared/platform";
 import { iaLegacyWinBetName } from "@changmen/shared/catalog/market_catalog.browser";
-import { betKeyFromChild, iaChildLocked, iaPointLocked, parseIaPoint } from "./parse_fields";
+import { betKeyFromChild, iaChildLocked, iaPointLockedForFo, parseIaPoint } from "./parse_fields";
 
 /** ??market_catalog.mjs iaLegacyWinBetName ???????????????*/
 export function iaMainWinBetKey(key: string): boolean {
@@ -61,7 +61,7 @@ export function listIaChildFoOddEntries(
     entries.push({
       id: String(pt.id),
       odds: parseIaPoint(pt),
-      isLock: iaPointLocked(pt),
+      isLock: iaPointLockedForFo(pt, child),
       betId: playId,
     });
   }

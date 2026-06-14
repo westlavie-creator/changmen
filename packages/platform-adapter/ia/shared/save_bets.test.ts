@@ -112,6 +112,20 @@ describe("buildIaSaveBetRowsFromPlays", () => {
     expect(rows[0].AwayOdds).toBe(2.35);
   });
 
+  test("child.status suspended locks SaveBet even when points status=2", () => {
+    const child = iaChild({
+      id: "full",
+      status: 3,
+      match: 0,
+      team_points: [
+        { id: "h", point: 1.87, status: 2 },
+        { id: "a", point: 2.1, status: 2 },
+      ],
+    });
+    const rows = buildIaSaveBetRowsFromPlays([{ child_plays: [child] }], "m1", BET_RE);
+    expect(rows[0].Status).toBe("Locked");
+  });
+
   test("settled status=4 on points is Locked", () => {
     const child = iaChild({
       id: "15348897",
@@ -128,7 +142,7 @@ describe("buildIaSaveBetRowsFromPlays", () => {
 });
 
 describe("listIaChildFoOddEntries", () => {
-  test("uses point status not child.status for fo lock", () => {
+  test("uses point status not child.status for fo lock when child.status=0", () => {
     const child = iaChild({
       id: "play-full",
       status: 0,
@@ -143,7 +157,7 @@ describe("listIaChildFoOddEntries", () => {
     expect(entries.every((e) => e.isLock === false)).toBe(true);
   });
 
-  test("status=2 fo entries are not locked", () => {
+  test("status=2 fo entries locked on HTTP until push unlocks (A8 fo rule)", () => {
     const child = iaChild({
       id: "play-full",
       status: 2,
@@ -154,6 +168,20 @@ describe("listIaChildFoOddEntries", () => {
       ],
     });
     const entries = listIaChildFoOddEntries(child);
-    expect(entries.every((e) => e.isLock === false)).toBe(true);
+    expect(entries.every((e) => e.isLock === true)).toBe(true);
+  });
+
+  test("child.status=3 locks fo even when points still status=2", () => {
+    const child = iaChild({
+      id: "play-full",
+      status: 3,
+      match: 0,
+      team_points: [
+        { id: "51285134", point: 1.87, status: 2 },
+        { id: "51285135", point: 2.1, status: 2 },
+      ],
+    });
+    const entries = listIaChildFoOddEntries(child);
+    expect(entries.every((e) => e.isLock === true)).toBe(true);
   });
 });

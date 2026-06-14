@@ -112,14 +112,17 @@ export const useOddsStore = defineStore("odds", {
       const prev = bucket.get(id);
       const nextOdds = entry.odds;
 
-      // [A8 可证实] fo.save 直接覆盖 isLock；HTTP 灌盘以 API 为准，不叠加 pending
+      const pendingOddLocked = this.pendingOddLocks.get(platform)?.get(id);
+      const pendingBetLocked = entry.betId
+        ? this.pendingBetLocks.get(platform)?.get(String(entry.betId))
+        : undefined;
       if (source !== "http") {
-        const pendingOddLocked = this.pendingOddLocks.get(platform)?.get(id);
+        // MQTT/WS：pending 覆盖推送里的 isLock
         if (pendingOddLocked !== undefined) entry.isLock = pendingOddLocked;
-        if (entry.betId) {
-          const betLocked = this.pendingBetLocks.get(platform)?.get(String(entry.betId));
-          if (betLocked !== undefined) entry.isLock = betLocked;
-        }
+        if (pendingBetLocked !== undefined) entry.isLock = pendingBetLocked;
+      } else if (pendingOddLocked === true || pendingBetLocked === true) {
+        // HTTP 灌盘：WS 已锁盘时 API 仍可能返回旧赔率，pending=true 不得被 HTTP 解锁
+        entry.isLock = true;
       }
 
       if (
@@ -188,9 +191,12 @@ export const useOddsStore = defineStore("odds", {
 
     /** 更新单条 odd 锁盘；写入 pendingOddLocks，若 fo 中已有行则同步 isLock */
     updateOddsLock(platform: PlatformId, oddsId: string, locked: boolean) {
+      const key = String(oddsId);
       if (!this.pendingOddLocks.has(platform)) this.pendingOddLocks.set(platform, new Map());
-      this.pendingOddLocks.get(platform)!.set(String(oddsId), locked);
-      const row = this.data.get(platform)?.get(String(oddsId));
+      const pending = this.pendingOddLocks.get(platform)!;
+      if (locked) pending.set(key, true);
+      else pending.delete(key);
+      const row = this.data.get(platform)?.get(key);
       if (row) {
         row.isLock = locked;
         this.revision += 1;
@@ -199,11 +205,22 @@ export const useOddsStore = defineStore("odds", {
 
     /** 更新整盘锁盘；写入 pendingBetLocks，并对 betIndex 下所有 oddId 调 updateOddsLock */
     updateBetLock(platform: PlatformId, betId: string, locked: boolean) {
+      const key = String(betId);
       if (!this.pendingBetLocks.has(platform)) this.pendingBetLocks.set(platform, new Map());
-      this.pendingBetLocks.get(platform)!.set(String(betId), locked);
-      const ids = this.betIndex.get(platform)?.get(String(betId));
-      if (!ids) return;
-      for (const id of ids) this.updateOddsLock(platform, id, locked);
+      const pending = this.pendingBetLocks.get(platform)!;
+      if (locked) pending.set(key, true);
+      else pending.delete(key);
+
+      const indexed = this.betIndex.get(platform)?.get(key);
+      if (indexed?.length) {
+        for (const id of indexed) this.updateOddsLock(platform, id, locked);
+        return;
+      }
+      const bucket = this.data.get(platform);
+      if (!bucket) return;
+      for (const [id, row] of bucket.entries()) {
+        if (row.betId === key) this.updateOddsLock(platform, id, locked);
+      }
     },
 
     /**

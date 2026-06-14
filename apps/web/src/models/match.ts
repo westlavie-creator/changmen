@@ -15,6 +15,8 @@ export class ViewBetItem {
   betId: string;
   homeId: string;
   awayId: string;
+  /** GetMatchs Sources.Status；matcher 聚合 SaveBet 锁盘时 fo 可能滞后 */
+  sourceStatus: string;
   fallbackHomeOdds: number;
   fallbackAwayOdds: number;
 
@@ -24,6 +26,7 @@ export class ViewBetItem {
     this.betId = source.BetID;
     this.homeId = source.HomeID;
     this.awayId = source.AwayID;
+    this.sourceStatus = String(source.Status ?? "Normal");
     // 对齐 A8 `FQ`：仅 HG 用 GetMatchs 快照作 fo fallback 初值；其余平台只信 fo
     if (source.Type === PLATFORMS.HG) {
       this.fallbackHomeOdds = Number(source.HomeOdds) || 0;
@@ -39,6 +42,7 @@ export class ViewBetItem {
   }
 
   getOdds(side: BetSide) {
+    if (this.sourceStatus === "Locked") return 0;
     const oddsStore = useOddsStore();
     const fallback = side === "Home" ? this.fallbackHomeOdds : this.fallbackAwayOdds;
     return oddsStore.getOdds(this.type, this.getItemId(side), fallback) || 0;
