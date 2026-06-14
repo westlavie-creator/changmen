@@ -207,6 +207,16 @@
     }
     .team-card-title { font-size: 16px; font-weight: 700; color: #f1f5f9; }
     .team-card-title .vs { color: #64748b; font-weight: 400; font-size: 12px; margin: 0 6px; }
+    .team-card-title-id { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; }
+    .title-team-slot { display: inline-flex; align-items: center; gap: 5px; max-width: 46%; }
+    .title-gb-id { font-family: ui-monospace, monospace; color: #60a5fa; font-weight: 800; font-size: 15px; }
+    .title-gb-id.pending { color: #fbbf24; }
+    .title-gb-id.missing { color: #64748b; font-weight: 600; }
+    .team-title-handle { margin-top: 0; width: 10px; height: 10px; flex-shrink: 0; }
+    .title-team-sub {
+      font-size: 11px; color: #64748b; font-weight: 400;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9em;
+    }
     .team-card-meta { font-size: 11px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px; }
     .conf-wrap { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
     .conf-bar { width: 72px; height: 5px; background: #334155; border-radius: 3px; overflow: hidden; }
@@ -647,7 +657,7 @@ function clientMatchTeamsFullyIdMapped(rows, teamMaps) {
   return true;
 }
 
-function renderTeamCell(m, side, gameCode, teamMaps, platformHint) {
+function renderTeamCell(m, side, gameCode, teamMaps, platformHint, linkCtx) {
   const platform = String(platformHint || m.platform || '').trim();
   const isHome = side === 'home';
   const name = isHome ? m.home : m.away;
@@ -655,6 +665,10 @@ function renderTeamCell(m, side, gameCode, teamMaps, platformHint) {
   const pid = resolved.id;
   const { canonical, pending, updatedBy } = lookupCanonical(teamMaps, platform, pid);
   const missingFromMaps = canonical == null && !pending;
+  const cmId = linkCtx?.cmId;
+  const linkSide = linkCtx?.side || side;
+  const cmAttr = cmId != null && cmId !== '' ? ` data-cm-id="${esc(String(cmId))}"` : '';
+  const sideAttr = ` data-team-side="${esc(linkSide)}"`;
   let canonHtml;
   if (canonical != null) {
     const manualTag = updatedBy === '手动' ? ' · 手动' : '';
@@ -682,7 +696,7 @@ function renderTeamCell(m, side, gameCode, teamMaps, platformHint) {
         data-team-id="${esc(pid)}"
         data-team-name="${esc(name || '')}"
         data-game-code="${esc(gameCode || m.game?.code || 'unknown')}"
-        data-canonical-id="${canonical ?? ''}"></button>`
+        data-canonical-id="${canonical ?? ''}"${cmAttr}${sideAttr}></button>`
     : `<span class="team-link-handle team-link-handle-disabled" title="无平台队伍 ID"></span>`;
   return `<div class="team-cell">${handle}<div class="team-cell-body">
     <div class="team-name">${esc(name || '?')}</div>
@@ -1104,17 +1118,81 @@ function displayClientMatchTitle(cm, rows) {
   return `${esc(ref.home || '?')}<span class="vs">vs</span>${esc(ref.away || '?')}`;
 }
 
+function resolveClientMatchSideCanonical(rows, teamMaps, side) {
+  const counts = new Map();
+  let pending = false;
+  for (const m of rows) {
+    const { id: pid } = resolveMatchTeamId(m, side);
+    if (!pid) continue;
+    const { canonical, pending: isPending } = lookupCanonical(teamMaps, m.platform, pid);
+    if (canonical != null) {
+      counts.set(canonical, (counts.get(canonical) || 0) + 1);
+    } else if (isPending) {
+      pending = true;
+    }
+  }
+  if (counts.size) {
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  }
+  return pending ? '__pending__' : null;
+}
+
+function pickClientMatchSideRow(rows, side) {
+  const ref = pickReferenceMatch(rows);
+  const { id: refPid } = resolveMatchTeamId(ref, side);
+  if (refPid) return { row: ref, platformId: refPid };
+  for (const m of rows) {
+    const { id: pid } = resolveMatchTeamId(m, side);
+    if (pid) return { row: m, platformId: pid };
+  }
+  return { row: ref, platformId: null };
+}
+
+function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId) {
+  const canonical = resolveClientMatchSideCanonical(rows, teamMaps, side);
+  const { row, platformId } = pickClientMatchSideRow(rows, side);
+  const platform = row.platform;
+  const name = side === 'home' ? row.home : row.away;
+  const pending = canonical === '__pending__';
+  const canonVal = pending || canonical == null ? '' : String(canonical);
+  let gbLabel;
+  if (pending) gbLabel = '<span class="title-gb-id pending">待识别</span>';
+  else if (canonical != null) gbLabel = `<span class="title-gb-id">#${esc(canonVal)}</span>`;
+  else gbLabel = '<span class="title-gb-id missing">—</span>';
+  const sub = name ? `<span class="title-team-sub" title="${esc(name)}">${esc(name)}</span>` : '';
+  const handle = platformId && canonVal
+    ? `<button type="button" class="team-link-handle team-title-handle"
+        title="标题队伍 · gb_team_id ${esc(canonVal)} · 连线至下方同侧平台队伍"
+        data-title-handle="1"
+        data-team-side="${side}"
+        data-cm-id="${esc(String(cmId))}"
+        data-team-platform="${esc(platform)}"
+        data-team-id="${esc(platformId)}"
+        data-team-name="${esc(name || '')}"
+        data-game-code="${esc(gameCode || 'unknown')}"
+        data-canonical-id="${esc(canonVal)}"></button>`
+    : '';
+  return `<span class="title-team-slot title-team-${side}">${handle}${gbLabel}${sub}</span>`;
+}
+
+function displayClientMatchTitleGbIds(cm, rows, teamMaps, gameCode) {
+  const home = renderTitleTeamSlot('home', rows, teamMaps, gameCode, cm.id);
+  const away = renderTitleTeamSlot('away', rows, teamMaps, gameCode, cm.id);
+  return `<span class="team-card-title-id">${home}<span class="vs">vs</span>${away}</span>`;
+}
+
 function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
   const visible = searchQuery
     ? rows.filter(m => matchMatchesTeamSearch(m, searchQuery))
     : rows;
   if (!visible.length) return '';
   const cms = cm ? [{ id: cm.id, matchs: cm.matchs || {} }] : [];
+  const linkCmId = cm?.id;
   const rowsHtml = visible.map(m => `<tr>
       <td class="col-match-id">${renderMatchLinkCell(m, m.platform, cms)}</td>
       <td class="col-platform">${pbadge(m.platform)} <span class="team-status ts-done">已映射</span></td>
-      <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform)}</td>
-      <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform)}</td>
+      <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'home' } : null)}</td>
+      <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away' } : null)}</td>
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
       <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
     </tr>`).join('');
@@ -1138,10 +1216,13 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
   const footerHint = columnMode === 'id'
     ? `ID 已匹配 · ${rows.length} 个平台 · 可拖黄方点合并其它赛事`
     : `队名已匹配 · ${rows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
+  const titleHtml = columnMode === 'id'
+    ? displayClientMatchTitleGbIds(cm, rows, teamMaps, gameCode)
+    : displayClientMatchTitle(cm, rows);
   return `<article class="team-card matched" data-cm-id="${cm.id}">
     <div class="team-card-header">
       <div>
-        <div class="team-card-title">${gbadge(gameCode)} ${displayClientMatchTitle(cm, rows)}</div>
+        <div class="team-card-title">${gbadge(gameCode)} ${titleHtml}</div>
         <div class="team-card-meta">
           <span>开赛 ${fmtTime(cm.start_time)}</span>
           <span>${Object.keys(cm.matchs || {}).map(pbadge).join(' ')}</span>
@@ -1437,6 +1518,17 @@ function appendPersistLinkLine(svg, canonicalId, x1, y1, x2, y2) {
   svg.appendChild(line);
 }
 
+function canConnectTeamHandles(a, b) {
+  const cmA = a.dataset.cmId || '';
+  const cmB = b.dataset.cmId || '';
+  if (cmA && cmB && cmA === cmB) {
+    const sideA = a.dataset.teamSide || '';
+    const sideB = b.dataset.teamSide || '';
+    if (sideA && sideB && sideA !== sideB) return false;
+  }
+  return true;
+}
+
 function redrawCanonicalTeamLinks() {
   const board = document.getElementById('team-link-board');
   const svg = document.getElementById('team-link-svg');
@@ -1453,15 +1545,64 @@ function redrawCanonicalTeamLinks() {
     byCanonical.get(id).push(handle);
   }
 
+  const drawn = new Set();
+
+  function lineKey(x1, y1, x2, y2, canonicalId) {
+    const pts = [`${x1},${y1}`, `${x2},${y2}`].sort();
+    return `${canonicalId}:${pts[0]}:${pts[1]}`;
+  }
+
+  function drawBetween(ha, hb, canonicalId) {
+    if (!canConnectTeamHandles(ha, hb)) return;
+    const a = teamHandleCenter(ha, board);
+    const b = teamHandleCenter(hb, board);
+    const key = lineKey(a.x, a.y, b.x, b.y, canonicalId);
+    if (drawn.has(key)) return;
+    drawn.add(key);
+    appendPersistLinkLine(svg, canonicalId, a.x, a.y, b.x, b.y);
+  }
+
   for (const [canonicalId, group] of byCanonical) {
     if (group.length < 2) continue;
-    const centers = group
-      .map(h => ({ h, ...teamHandleCenter(h, board) }))
-      .sort((a, b) => a.y - b.y || a.x - b.x);
-    for (let i = 0; i < centers.length - 1; i++) {
-      const a = centers[i];
-      const b = centers[i + 1];
-      appendPersistLinkLine(svg, canonicalId, a.x, a.y, b.x, b.y);
+
+    const titleHandles = group.filter(h => h.dataset.titleHandle === '1');
+    const tableHandles = group.filter(h => h.dataset.titleHandle !== '1');
+
+    for (const th of titleHandles) {
+      const cmId = th.dataset.cmId || '';
+      const side = th.dataset.teamSide || '';
+      for (const tb of tableHandles) {
+        if (tb.dataset.cmId === cmId && tb.dataset.teamSide === side) {
+          drawBetween(th, tb, canonicalId);
+        }
+      }
+    }
+
+    const byCmSide = new Map();
+    for (const h of tableHandles) {
+      const key = `${h.dataset.cmId || ''}:${h.dataset.teamSide || ''}`;
+      if (!byCmSide.has(key)) byCmSide.set(key, []);
+      byCmSide.get(key).push(h);
+    }
+    for (const [, bucket] of byCmSide) {
+      if (bucket.length < 2) continue;
+      const sorted = [...bucket].sort((a, b) => {
+        const pa = platformRank(a.dataset.teamPlatform || '');
+        const pb = platformRank(b.dataset.teamPlatform || '');
+        return pa - pb;
+      });
+      for (let i = 0; i < sorted.length - 1; i++) {
+        drawBetween(sorted[i], sorted[i + 1], canonicalId);
+      }
+    }
+
+    if (!titleHandles.length && tableHandles.length >= 2) {
+      const centers = tableHandles
+        .map(h => ({ h, ...teamHandleCenter(h, board) }))
+        .sort((a, b) => a.y - b.y || a.x - b.x);
+      for (let i = 0; i < centers.length - 1; i++) {
+        drawBetween(centers[i].h, centers[i + 1].h, canonicalId);
+      }
     }
   }
 }
