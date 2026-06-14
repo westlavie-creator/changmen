@@ -355,6 +355,20 @@
       from { opacity: 0; transform: translateY(-8px); }
       to { opacity: 1; transform: translateY(0); }
     }
+
+    .hidden-panel-wrap { margin: 0 16px 12px; }
+    .hidden-panel { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+    .hidden-panel-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #334155;
+    }
+    .hidden-panel-title { font-size: 13px; font-weight: 600; color: #94a3b8; }
+    .hidden-panel-body { padding: 12px 14px; max-height: 280px; overflow-y: auto; }
+    .hidden-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .hidden-table th, .hidden-table td { padding: 8px 10px; border-bottom: 1px solid #1e293b; text-align: left; vertical-align: top; }
+    .hidden-table th { color: #64748b; font-weight: 600; font-size: 11px; }
+    .hidden-table tr:last-child td { border-bottom: none; }
+    .btn-hidden-toggle.active { border-color: #64748b; color: #e2e8f0; background: #33415544; }
   </style>
 </head>
 <body>
@@ -375,6 +389,7 @@
     <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动脚本</button>
     <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止脚本</button>
     <button class="btn btn-sm btn-ghost" id="btn-rebuild-now" type="button" title="立即执行一次赛事合并（rebuild client_matches）">立即执行赛事合并</button>
+    <button class="btn btn-sm btn-ghost btn-hidden-toggle" id="btn-hidden-toggle" type="button" title="查看 list_status=-1 的历史赛事，可手动恢复展示">已隐藏 <span class="badge" id="hidden-count-badge">0</span></button>
     <span class="updated-at" id="updated-at">—</span>
     <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
   </div>
@@ -385,6 +400,16 @@
 </div>
 
 <div class="stats" id="stats-bar"></div>
+
+<div class="hidden-panel-wrap" id="hidden-panel-wrap" style="display:none">
+  <div class="hidden-panel">
+    <div class="hidden-panel-header">
+      <div class="hidden-panel-title">已隐藏赛事 <span class="badge" id="hidden-panel-count">0</span></div>
+      <span class="queue-search-hint">list_status=-1 · 浏览器与主列表不展示 · 可恢复</span>
+    </div>
+    <div class="hidden-panel-body" id="hidden-panel-body"><div class="empty" style="padding:20px">加载中…</div></div>
+  </div>
+</div>
 
 <div class="content">
   <div id="panel-main">
@@ -479,6 +504,7 @@ let _teamSearchQuery = '';
 let _matchDrag = null;
 let _matchLinkBound = false;
 let _matchLinkSubmitting = false;
+let _hiddenPanelOpen = false;
 
 function resolvePlatformClientMatchId(m, platform, cms) {
   if (m?.match_id != null && m.match_id !== '') return Number(m.match_id);
@@ -781,6 +807,49 @@ function renderStats(d, displayCms) {
   if (idCountEl) idCountEl.textContent = idMatched;
   const nameCountEl = document.getElementById('matched-name-count');
   if (nameCountEl) nameCountEl.textContent = nameMatched;
+}
+
+function toggleHiddenPanel() {
+  _hiddenPanelOpen = !_hiddenPanelOpen;
+  const wrap = document.getElementById('hidden-panel-wrap');
+  const btn = document.getElementById('btn-hidden-toggle');
+  if (wrap) wrap.style.display = _hiddenPanelOpen ? '' : 'none';
+  if (btn) btn.classList.toggle('active', _hiddenPanelOpen);
+}
+
+function renderHiddenPanel(list) {
+  const items = list || [];
+  const badge = document.getElementById('hidden-count-badge');
+  const panelCount = document.getElementById('hidden-panel-count');
+  if (badge) badge.textContent = items.length;
+  if (panelCount) panelCount.textContent = items.length;
+  const body = document.getElementById('hidden-panel-body');
+  if (!body) return;
+  if (!items.length) {
+    body.innerHTML = '<div class="empty" style="padding:20px">暂无已隐藏赛事</div>';
+    return;
+  }
+  const rows = items.map(cm => {
+    const gameCode = typeof cm.game === 'string' ? cm.game : (cm.game?.code || cm.game_id || 'unknown');
+    const plats = Object.entries(cm.matchs || {})
+      .map(([p, id]) => `${pbadge(p)} <span class="team-id">${esc(id)}</span>`)
+      .join(' ') || '—';
+    return `<tr>
+      <td>#${cm.id}</td>
+      <td>${esc(cm.title || '—')}</td>
+      <td>${gbadge(gameCode)}</td>
+      <td>${fmtTime(cm.start_time)}</td>
+      <td>${fmtTime(cm.built_at)}</td>
+      <td>${plats}</td>
+      <td><button type="button" class="btn btn-sm btn-success" data-restore-cm="${cm.id}">恢复展示</button></td>
+    </tr>`;
+  }).join('');
+  body.innerHTML = `<table class="hidden-table"><thead><tr>
+    <th>ID</th><th>标题</th><th>游戏</th><th>开赛</th><th>隐藏于</th><th>平台 matchs</th><th></th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+  body.querySelectorAll('[data-restore-cm]').forEach(btn => {
+    btn.addEventListener('click', () => restoreClientMatch(Number(btn.dataset.restoreCm)));
+  });
 }
 
 async function fetchJson(url, options) {
@@ -2281,6 +2350,31 @@ async function endClientMatch(cmId) {
   }
 }
 
+async function restoreClientMatch(cmId) {
+  const cm = (_lastData?.hiddenClientMatches || []).find(c => Number(c.id) === Number(cmId));
+  const msg = [
+    `恢复展示？`,
+    `#${cmId} ${cm?.title || ''}`,
+    '',
+    '将 list_status 改回 0，并执行一次 rebuild。',
+    '若无平台数据，赛事可能很快被 prune 再次隐藏。',
+  ].join('\n');
+  if (!confirm(msg)) return;
+  try {
+    const { res, data } = await fetchJson('/api/client-match/' + cmId + '/restore', { method: 'POST' });
+    if (!res.ok || data.error) throw new Error(data.error || '操作失败');
+    if (data.alreadyVisible) {
+      showActionToast(`赛事已在主列表\n#${cmId}`, 'warn', 4000);
+    } else {
+      const rb = data.rebuild?.matchCount != null ? ` · rebuild ${data.rebuild.matchCount} 场` : '';
+      showActionToast([`已恢复展示`, `#${cmId} ${data.title || cm?.title || ''}${rb}`].join('\n'), 'ok', 5200);
+    }
+    await load();
+  } catch (err) {
+    showActionToast(`恢复失败\n#${cmId}\n${err.message}`, 'err', 6000);
+  }
+}
+
 function matcherStatusClass(s) {
   if (s?.processRunning) return 'on';
   if (s?.dataFresh) return 'warn';
@@ -2386,6 +2480,7 @@ async function load() {
     const displayCms = filterDisplayClientMatches(d.clientMatches, d.platforms);
     const teamMaps = d.teamMaps || {};
     renderStats(d, displayCms);
+    renderHiddenPanel(d.hiddenClientMatches || []);
     const recs = filterRecsByTeamSearch(d.recommendations || [], _teamSearchQuery);
     renderTeamQueue(recs, d.clientMatches || [], teamMaps);
     const { idCount, nameCount } = renderMatchedLists(d.clientMatches || [], d.platforms, teamMaps, _teamSearchQuery);
@@ -2410,6 +2505,7 @@ async function load() {
 document.getElementById('btn-matcher-start')?.addEventListener('click', () => matcherAction('start'));
 document.getElementById('btn-matcher-stop')?.addEventListener('click', () => matcherAction('stop'));
 document.getElementById('btn-rebuild-now')?.addEventListener('click', runRebuildNow);
+document.getElementById('btn-hidden-toggle')?.addEventListener('click', toggleHiddenPanel);
 document.getElementById('link-modal-cancel')?.addEventListener('click', hideLinkModal);
 document.getElementById('link-modal-confirm')?.addEventListener('click', confirmLinkModal);
 document.getElementById('link-modal')?.addEventListener('click', e => {

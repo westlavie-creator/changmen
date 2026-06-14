@@ -143,6 +143,17 @@ export async function fetchClientMatchesDashboard() {
   return rows;
 }
 
+export async function fetchClientMatchesHidden() {
+  const { rows } = await rdsQuery(
+    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at, list_status
+     FROM client_matches
+     WHERE list_status = $1
+     ORDER BY built_at DESC NULLS LAST`,
+    [CLIENT_MATCH_LIST_HIDDEN],
+  );
+  return rows;
+}
+
 export async function fetchLatestClientMatchBuiltAt() {
   const { rows } = await rdsQuery(
     `SELECT built_at FROM client_matches

@@ -21,6 +21,7 @@ import {
   fetchLatestClientMatchBuiltAt,
   fetchPlatformMatchesDashboard,
   fetchClientMatchesDashboard,
+  fetchClientMatchesHidden,
 } from "@changmen/db";
 
 function recommendationGroupKey(m) {
@@ -147,12 +148,14 @@ function normalizeDashboardStartTime(row) {
 }
 
 async function fetchMatcherDashboard() {
-  const [allMatchesRaw, clientMatchesRaw] = await Promise.all([
+  const [allMatchesRaw, clientMatchesRaw, hiddenClientMatchesRaw] = await Promise.all([
     fetchPlatformMatchesDashboard(),
     fetchClientMatchesDashboard(),
+    fetchClientMatchesHidden(),
   ]);
   const allMatches = (allMatchesRaw || []).map(normalizeDashboardStartTime);
   const clientMatchesNorm = (clientMatchesRaw || []).map(normalizeDashboardStartTime);
+  const hiddenClientMatches = (hiddenClientMatchesRaw || []).map(normalizeDashboardStartTime);
   const recommendations = computeRecommendations(allMatches, clientMatchesNorm);
 
   const recByKey = new Map();
@@ -179,7 +182,14 @@ async function fetchMatcherDashboard() {
   const clientMatches = await enrichClientMatchesMergeMode(clientMatchesNorm, byPlatform);
   const teamMaps = await loadTeamMapsForMatcher(allMatches);
 
-  return { platforms: byPlatform, clientMatches, recommendations, teamMaps, updatedAt: Date.now() };
+  return {
+    platforms: byPlatform,
+    clientMatches,
+    hiddenClientMatches,
+    recommendations,
+    teamMaps,
+    updatedAt: Date.now(),
+  };
 }
 
 export {

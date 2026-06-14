@@ -8,6 +8,7 @@ import {
   registerTeamPlatformMap,
 } from "../link/index.js";
 import { deleteClientMatch } from "../ops/delete_client_match.js";
+import { restoreClientMatch } from "../ops/restore_client_match.js";
 import { previewMergeClientMatches, mergeClientMatches } from "../ops/merge_client_matches.js";
 import { rebuildOnce } from "../ops/rebuild.js";
 import { MATCHER_INTERVAL_MS } from "../lib/config.js";
@@ -146,6 +147,17 @@ function registerMatcherApiRoutes(app) {
       res.json(result);
     } catch (err) {
       logMatcherApiErr("/api/client-match", err);
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client-match/:id/restore", async (req, res) => {
+    try {
+      const result = await restoreClientMatch(req.params.id);
+      logMatcherApiOk("/api/client-match/restore", result);
+      res.json(result);
+    } catch (err) {
+      logMatcherApiErr("/api/client-match/restore", err);
       res.status(400).json({ ok: false, error: err.message });
     }
   });

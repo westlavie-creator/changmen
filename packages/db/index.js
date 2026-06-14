@@ -121,6 +121,7 @@ export {
   fetchPlatformMatchesHomeAway,
   fetchPlatformMatchesDashboard,
   fetchClientMatchesDashboard,
+  fetchClientMatchesHidden,
   fetchLatestClientMatchBuiltAt,
   fetchPlatformMatchesDebugRows,
   fetchPlatformMatchesByClientMatchId,
