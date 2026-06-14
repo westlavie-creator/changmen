@@ -34,7 +34,14 @@ function recommendationGroupKey(m) {
   return { key: `${game.code}:${bucket}:${t1}:${t2}`, game, t1, t2 };
 }
 
-function computeRecommendations(allMatches) {
+function isPlatformMatchLinkedForRec(m, clientMatches) {
+  if (m?.match_id != null && m.match_id !== "") return true;
+  return (clientMatches || []).some(
+    (cm) => String(cm.matchs?.[m.platform] ?? "") === String(m.source_match_id),
+  );
+}
+
+function computeRecommendations(allMatches, clientMatches = []) {
   const groups = new Map();
 
   for (const m of allMatches) {
@@ -46,7 +53,7 @@ function computeRecommendations(allMatches) {
 
   return [...groups.values()]
     .filter((g) => new Set(g.matches.map((m) => m.platform)).size >= 2)
-    .filter((g) => g.matches.some((m) => !m.match_id))
+    .filter((g) => g.matches.some((m) => !isPlatformMatchLinkedForRec(m, clientMatches)))
     .map((g) => {
       const platforms = [...new Set(g.matches.map((m) => m.platform))];
       const times = g.matches.map((m) => normalizeEpochMs(m.start_time)).filter((t) => t > 0);
@@ -146,7 +153,7 @@ async function fetchMatcherDashboard() {
   ]);
   const allMatches = (allMatchesRaw || []).map(normalizeDashboardStartTime);
   const clientMatchesNorm = (clientMatchesRaw || []).map(normalizeDashboardStartTime);
-  const recommendations = computeRecommendations(allMatches);
+  const recommendations = computeRecommendations(allMatches, clientMatchesNorm);
 
   const recByKey = new Map();
   for (const rec of recommendations) {

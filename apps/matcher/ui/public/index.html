@@ -98,6 +98,9 @@
       max-height: calc(100vh - 200px);
     }
     .split-col-matched { border-color: #4ade8040; }
+    .split-col-matched-id { border-color: #4ade8055; }
+    .split-col-matched-name { border-color: #fbbf2440; }
+    .split-col-pending { border-color: #60a5fa40; }
     .split-col-header {
       padding: 12px 14px;
       border-bottom: 1px solid #334155;
@@ -275,6 +278,16 @@
     }
     .filter-chip.active { border-color: #3b82f6; background: #1e3a5f44; color: #93c5fd; }
 
+    .pending-section { margin-bottom: 18px; }
+    .pending-section:last-child { margin-bottom: 0; }
+    .pending-section-title {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+      font-size: 13px; font-weight: 700; color: #e2e8f0;
+      padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid #334155;
+    }
+    .pending-section-desc { font-size: 11px; color: #64748b; font-weight: 400; width: 100%; line-height: 1.45; }
+    .pending-section-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
     .empty { text-align: center; color: #475569; padding: 36px; font-size: 13px; line-height: 1.6; }
 
     .link-modal-backdrop {
@@ -337,7 +350,7 @@
 <div class="header">
   <div>
     <h1>GameBet 队伍映射</h1>
-    <div class="header-sub">以脚本推荐赛事为队列 · 确认后写入队伍 ID 映射 · 后续由 matcher 自动合并</div>
+    <div class="header-sub">左：平台 ID 已匹配合并 · 中：队名已匹配合并 · 右：推荐组待办与未匹配</div>
   </div>
   <div class="header-right">
     <a class="btn btn-sm btn-ghost" href="canvas.html" style="text-decoration:none">画布视图</a>
@@ -354,7 +367,7 @@
 </div>
 
 <div class="workflow-hint">
-  <strong>工作流：</strong>圆点关联队伍；<strong>黄色方点</strong>关联赛事（从黄色方点拖线到已匹配栏的<strong>绿色方点</strong>或<strong>比赛 ID 绿底区域</strong>合并，或拖到其它平台场次）。未匹配默认「仅无推荐」——在推荐组里的场次请用中间栏操作。
+  <strong>工作流：</strong>圆点关联队伍；<strong>黄色方点</strong>关联赛事（拖到左/中栏<strong>绿色方点</strong>或<strong>比赛 ID 绿底</strong>合并）。右栏上半<strong>推荐组</strong>处理跨平台待确认；下半<strong>孤立未匹配</strong>处理无推荐边角料。
 </div>
 
 <div class="stats" id="stats-bar"></div>
@@ -362,43 +375,56 @@
 <div class="content">
   <div id="panel-main">
     <div class="queue-search-bar">
-      <input type="search" id="team-search-input" placeholder="按队名搜索（已匹配 + 推荐组 + 未匹配）" autocomplete="off" spellcheck="false">
+      <input type="search" id="team-search-input" placeholder="按队名搜索（ID 已匹配 + 队名已匹配 + 推荐组 + 未匹配）" autocomplete="off" spellcheck="false">
       <span class="queue-search-hint" id="team-search-hint"></span>
     </div>
     <div class="team-link-board" id="team-link-board">
       <svg class="team-link-svg" id="team-link-svg" aria-hidden="true"></svg>
       <div class="queue-split">
-        <section class="split-col split-col-matched">
+        <section class="split-col split-col-matched split-col-matched-id">
           <div class="split-col-header">
-            <div class="split-col-title">已匹配 <span class="badge" id="matched-section-count">0</span></div>
-            <div class="split-col-desc">client_matches 多平台赛事 · 可拖圆点跨栏关联队伍</div>
+            <div class="split-col-title">ID 已匹配 <span class="badge" id="matched-id-count">0</span></div>
+            <div class="split-col-desc">主客平台 ID 均已映射 gb_team_id · 多平台合并稳定 · 可跨栏拖线合并</div>
           </div>
           <div class="split-col-body">
-            <div class="game-sections" id="matched-panels"><div class="empty">加载中…</div></div>
+            <div class="game-sections" id="matched-id-panels"><div class="empty">加载中…</div></div>
           </div>
         </section>
-        <section class="split-col">
+        <section class="split-col split-col-matched split-col-matched-name">
           <div class="split-col-header">
-            <div class="split-col-title">推荐组 <span class="badge" id="queue-rec-count">0</span></div>
-            <div class="split-col-desc">跨平台推荐比赛 · 「确认」写入赛事映射 · 圆点拖到其它栏关联队伍</div>
+            <div class="split-col-title">队名已匹配 <span class="badge" id="matched-name-count">0</span></div>
+            <div class="split-col-desc">靠队名归一化合并 · 建议补全队伍 ID 映射 · 同场多条可拖线合并</div>
           </div>
           <div class="split-col-body">
-            <div class="game-sections" id="queue-panels"><div class="empty">加载中…</div></div>
+            <div class="game-sections" id="matched-name-panels"><div class="empty">加载中…</div></div>
           </div>
         </section>
-        <section class="split-col">
+        <section class="split-col split-col-pending">
           <div class="split-col-header">
-            <div class="split-col-title">未匹配 <span class="badge" id="unmatched-col-count">0</span></div>
-            <div class="split-col-desc">未进 client_match 的原始比赛 · 按游戏分类</div>
-            <div class="split-col-toolbar panel-toolbar">
-              <div class="filter-chips">
-                <button type="button" class="filter-chip" data-unmatched-filter="all">全部</button>
-                <button type="button" class="filter-chip active" data-unmatched-filter="orphan">仅无推荐</button>
+            <div class="split-col-title">待办 / 未匹配</div>
+            <div class="split-col-desc">跨平台推荐待确认 · 以及尚未进入 client_match 的原始场次</div>
+          </div>
+          <div class="split-col-body">
+            <div class="pending-section">
+              <div class="pending-section-title">
+                <span>推荐组 <span class="badge" id="queue-rec-count">0</span></span>
               </div>
+              <div class="pending-section-desc">跨平台同场候选 · 「确认」写入赛事映射 · 圆点拖到左/中栏关联队伍</div>
+              <div class="game-sections" id="queue-panels"><div class="empty">加载中…</div></div>
             </div>
-          </div>
-          <div class="split-col-body">
-            <div id="unmatched-panels"><div class="empty">加载中…</div></div>
+            <div class="pending-section pending-section-unmatched">
+              <div class="pending-section-title">
+                <span>孤立未匹配 <span class="badge" id="unmatched-col-count">0</span></span>
+                <div class="pending-section-toolbar panel-toolbar">
+                  <div class="filter-chips">
+                    <button type="button" class="filter-chip" data-unmatched-filter="all">全部</button>
+                    <button type="button" class="filter-chip active" data-unmatched-filter="orphan">仅无推荐</button>
+                  </div>
+                </div>
+              </div>
+              <div class="pending-section-desc">未进 client_match · 默认隐藏已在推荐组中的场次</div>
+              <div id="unmatched-panels"><div class="empty">加载中…</div></div>
+            </div>
           </div>
         </section>
       </div>
@@ -522,7 +548,7 @@ function filterRecsByTeamSearch(recs, query) {
   return (recs || []).filter(rec => recMatchesTeamSearch(rec, query));
 }
 
-function updateTeamSearchHint(recCount, unmatchedCount, matchedCount) {
+function updateTeamSearchHint(recCount, unmatchedCount, idMatchedCount, nameMatchedCount) {
   const hint = document.getElementById('team-search-hint');
   if (!hint) return;
   const q = _teamSearchQuery.trim();
@@ -531,7 +557,7 @@ function updateTeamSearchHint(recCount, unmatchedCount, matchedCount) {
     hint.classList.remove('active');
     return;
   }
-  hint.textContent = `搜索「${q}」· 已匹配 ${matchedCount} 场 · 推荐组 ${recCount} 组 · 未匹配 ${unmatchedCount} 场`;
+  hint.textContent = `搜索「${q}」· ID ${idMatchedCount} · 队名 ${nameMatchedCount} · 推荐组 ${recCount} · 未匹配 ${unmatchedCount}`;
   hint.classList.add('active');
 }
 
@@ -542,7 +568,7 @@ function applyTeamSearchFromInput() {
   const teamMaps = _lastData.teamMaps || {};
   const recs = filterRecsByTeamSearch(_lastData.recommendations || [], _teamSearchQuery);
   renderTeamQueue(recs, _lastData.clientMatches || [], teamMaps);
-  const matchedCount = renderMatchedList(
+  const { idCount, nameCount } = renderMatchedLists(
     _lastData.clientMatches || [],
     _lastData.platforms,
     teamMaps,
@@ -555,7 +581,7 @@ function applyTeamSearchFromInput() {
     teamMaps,
     _teamSearchQuery,
   );
-  updateTeamSearchHint(recs.length, unmatchedCount, matchedCount);
+  updateTeamSearchHint(recs.length, unmatchedCount, idCount, nameCount);
   scheduleRedrawCanonicalTeamLinks();
 }
 
@@ -722,16 +748,21 @@ function pickReferenceMatch(matches) {
 function renderStats(d, displayCms) {
   const unmatched = countUnmatched(d.platforms, d.clientMatches);
   const orphan = countOrphans(d.platforms, d.recommendations);
+  const idMatched = displayCms.filter(cm => (cm.merge_mode?.mode || 'name') === 'id').length;
+  const nameMatched = displayCms.length - idMatched;
   document.getElementById('stats-bar').innerHTML = `
-    <div class="stat"><div class="label">待映射组</div><div class="value c-amber">${d.recommendations.length}</div></div>
-    <div class="stat"><div class="label">已匹配</div><div class="value c-green">${displayCms.length}</div></div>
-    <div class="stat"><div class="label">未匹配场次</div><div class="value c-blue">${unmatched}</div></div>
+    <div class="stat"><div class="label">ID 已匹配</div><div class="value c-green">${idMatched}</div></div>
+    <div class="stat"><div class="label">队名已匹配</div><div class="value c-amber">${nameMatched}</div></div>
+    <div class="stat"><div class="label">推荐组</div><div class="value c-blue">${d.recommendations.length}</div></div>
+    <div class="stat"><div class="label">未匹配场次</div><div class="value c-slate">${unmatched}</div></div>
     <div class="stat"><div class="label">无推荐</div><div class="value c-slate">${orphan}</div></div>
   `;
   const recCountEl = document.getElementById('queue-rec-count');
   if (recCountEl) recCountEl.textContent = d.recommendations.length;
-  const matchedCountEl = document.getElementById('matched-section-count');
-  if (matchedCountEl) matchedCountEl.textContent = displayCms.length;
+  const idCountEl = document.getElementById('matched-id-count');
+  if (idCountEl) idCountEl.textContent = idMatched;
+  const nameCountEl = document.getElementById('matched-name-count');
+  if (nameCountEl) nameCountEl.textContent = nameMatched;
 }
 
 async function fetchJson(url, options) {
@@ -954,25 +985,32 @@ function renderTeamQueue(recs, cms, teamMaps) {
   });
 }
 
-function renderMatchedList(cms, platforms, teamMaps, searchQuery) {
-  const container = document.getElementById('matched-panels');
+function clientMatchMergeMode(cm) {
+  return cm.merge_mode?.mode === 'id' ? 'id' : 'name';
+}
+
+function renderMatchedListForMode(cms, platforms, teamMaps, searchQuery, mode, containerId, countId, emptyDefault) {
+  const container = document.getElementById(containerId);
   const q = searchQuery != null ? searchQuery : _teamSearchQuery;
-  const list = filterDisplayClientMatches(cms, platforms);
+  const list = filterDisplayClientMatches(cms, platforms)
+    .filter(cm => clientMatchMergeMode(cm) === mode);
   const filtered = list
     .filter(cm => clientMatchMatchesTeamSearch(cm, platforms, q))
     .sort((a, b) => clientMatchStartTime(a, platforms) - clientMatchStartTime(b, platforms));
-  const countEl = document.getElementById('matched-section-count');
+  const countEl = document.getElementById(countId);
   if (countEl) countEl.textContent = filtered.length;
+
+  if (!container) return 0;
 
   if (!filtered.length) {
     container.innerHTML = q
-      ? `<div class="empty">没有匹配「${esc(q)}」的已匹配赛事</div>`
-      : '<div class="empty">暂无已匹配的多平台赛事</div>';
+      ? `<div class="empty">没有匹配「${esc(q)}」的${mode === 'id' ? 'ID' : '队名'}已匹配赛事</div>`
+      : `<div class="empty">${emptyDefault}</div>`;
     return 0;
   }
 
   const cards = filtered
-    .map(cm => renderMatchedCard(cm, platforms, teamMaps, q))
+    .map(cm => renderMatchedCard(cm, platforms, teamMaps, q, mode))
     .filter(Boolean)
     .join('');
 
@@ -982,8 +1020,8 @@ function renderMatchedList(cms, platforms, teamMaps, searchQuery) {
 
   if (!container.innerHTML.trim()) {
     container.innerHTML = q
-      ? `<div class="empty">没有匹配「${esc(q)}」的已匹配赛事</div>`
-      : '<div class="empty">暂无已匹配的多平台赛事</div>';
+      ? `<div class="empty">没有匹配「${esc(q)}」的${mode === 'id' ? 'ID' : '队名'}已匹配赛事</div>`
+      : `<div class="empty">${emptyDefault}</div>`;
     return 0;
   }
 
@@ -991,6 +1029,20 @@ function renderMatchedList(cms, platforms, teamMaps, searchQuery) {
     btn.addEventListener('click', () => endClientMatch(Number(btn.dataset.endCm)));
   });
   return filtered.length;
+}
+
+function renderMatchedLists(cms, platforms, teamMaps, searchQuery) {
+  const idCount = renderMatchedListForMode(
+    cms, platforms, teamMaps, searchQuery, 'id',
+    'matched-id-panels', 'matched-id-count',
+    '暂无 ID 已匹配的多平台赛事<br>主客平台 ID 均需映射 gb_team_id',
+  );
+  const nameCount = renderMatchedListForMode(
+    cms, platforms, teamMaps, searchQuery, 'name',
+    'matched-name-panels', 'matched-name-count',
+    '暂无队名已匹配的多平台赛事<br>补全队伍 ID 后可迁入左侧',
+  );
+  return { idCount, nameCount, total: idCount + nameCount };
 }
 
 function clientMatchStartTime(cm, platforms) {
@@ -1072,7 +1124,7 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
   </table>`;
 }
 
-function renderMatchedCard(cm, platforms, teamMaps, searchQuery) {
+function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
   const rows = resolveClientMatchRows(cm, platforms);
   if (!rows.length) return '';
   const gameCode = clientMatchGameCode(cm, rows);
@@ -1083,6 +1135,9 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery) {
   const idBannerTitle = teamsIdMapped
     ? '主客队平台 ID 均已映射 gb_team_id · 可接收未匹配场次拖入合并'
     : '接收未匹配场次拖入合并';
+  const footerHint = columnMode === 'id'
+    ? `ID 已匹配 · ${rows.length} 个平台 · 可拖黄方点合并其它赛事`
+    : `队名已匹配 · ${rows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
   return `<article class="team-card matched" data-cm-id="${cm.id}">
     <div class="team-card-header">
       <div>
@@ -1103,7 +1158,7 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery) {
     </div>
     ${tableHtml}
     <div class="team-card-footer">
-      <div class="team-card-hint">已匹配 · ${rows.length} 个平台 · 黄方点拖入其它场次；绿方点接收合并</div>
+      <div class="team-card-hint">${footerHint}</div>
       <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="从 client_matches 删除，并删除各平台 platform_matches 行">比赛已结束</button>
     </div>
   </article>`;
@@ -2203,18 +2258,19 @@ async function load() {
     renderStats(d, displayCms);
     const recs = filterRecsByTeamSearch(d.recommendations || [], _teamSearchQuery);
     renderTeamQueue(recs, d.clientMatches || [], teamMaps);
-    const matchedCount = renderMatchedList(d.clientMatches || [], d.platforms, teamMaps, _teamSearchQuery);
+    const { idCount, nameCount } = renderMatchedLists(d.clientMatches || [], d.platforms, teamMaps, _teamSearchQuery);
     const unmatchedCount = renderUnmatchedPlatforms(
       d.platforms, d.recommendations, d.clientMatches || [], teamMaps, _teamSearchQuery,
     );
-    updateTeamSearchHint(recs.length, unmatchedCount, matchedCount);
+    updateTeamSearchHint(recs.length, unmatchedCount, idCount, nameCount);
     bindTeamLinkDrag();
     bindMatchLinkDrag();
     scheduleRedrawCanonicalTeamLinks();
     document.getElementById('updated-at').textContent = '更新 ' + fmtTime(d.updatedAt || Date.now());
   } catch (err) {
     const errHtml = `<div class="empty" style="color:#f87171">加载失败: ${esc(err.message)}</div>`;
-    document.getElementById('matched-panels') && (document.getElementById('matched-panels').innerHTML = errHtml);
+    document.getElementById('matched-id-panels') && (document.getElementById('matched-id-panels').innerHTML = errHtml);
+    document.getElementById('matched-name-panels') && (document.getElementById('matched-name-panels').innerHTML = errHtml);
     document.getElementById('queue-panels') && (document.getElementById('queue-panels').innerHTML = errHtml);
     document.getElementById('unmatched-panels') && (document.getElementById('unmatched-panels').innerHTML = errHtml);
     document.getElementById('updated-at').textContent = '加载失败: ' + err.message;

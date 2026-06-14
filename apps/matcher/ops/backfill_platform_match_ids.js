@@ -1,6 +1,6 @@
 /**
- * 队伍 ID 自动合并成功后，将 client_match id 回写到 platform_matches.match_id。
- * 仅处理 MergeBasis === "id"；已有不同 match_id 的行跳过（保留人工锁定）。
+ * rebuild 后将 client_matches.matchs 回写到 platform_matches.match_id。
+ * 队名合并 / 人工确认 / ID 合并均覆盖；已有不同 match_id 的行跳过（保留人工锁定）。
  */
 
 import { setPlatformMatchId } from "@changmen/db";
@@ -15,7 +15,6 @@ async function backfillPlatformMatchIdsForIdMerges(clientMatchRows) {
   let conflicts = 0;
 
   for (const cm of clientMatchRows) {
-    if (cm.MergeBasis !== "id") continue;
     const cmId = Number(cm.ID);
     if (!Number.isFinite(cmId)) continue;
 
