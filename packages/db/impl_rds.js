@@ -114,9 +114,28 @@ function _jsonb(val, fallback) {
   return JSON.stringify(val);
 }
 
+/** 删除该平台本批快照之外的 platform_matches / platform_bets（对齐 store._matches 整批替换） */
+async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatchIds) {
+  const plat = String(platform);
+  const ids = keepSourceMatchIds.map(String);
+  if (!ids.length) return;
+  await exec.query(
+    `DELETE FROM platform_bets
+     WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))`,
+    [plat, ids],
+  );
+  await exec.query(
+    `DELETE FROM platform_matches
+     WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))`,
+    [plat, ids],
+  );
+}
+
 async function _rdsUpsertPlatformMatches(pool, rows) {
   if (!rows.length) return;
   const client = await pool.connect();
+  const platform = String(rows[0].platform);
+  const keepIds = rows.map((r) => String(r.source_match_id));
   const sql = `
     INSERT INTO platform_matches (
       platform, source_match_id, source_game_id, start_time,
@@ -150,6 +169,7 @@ async function _rdsUpsertPlatformMatches(pool, rows) {
         r.synced_at,
       ]);
     }
+    await _rdsDeletePlatformSnapshotOrphans(client, platform, keepIds);
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
@@ -617,7 +637,7 @@ function mapPlatformMatchRows(provider, matchs) {
   }));
 }
 
-/** fire-and-forget：upsert 平台原始比赛列表，同时删除该平台已结束的旧行 */
+/** fire-and-forget：按平台快照 upsert 本批比赛，并删除本批之外的孤儿行（含 platform_bets） */
 function writePlatformMatches(provider, matchs) {
   if (!Array.isArray(matchs) || !matchs.length) return
   const rows = mapPlatformMatchRows(provider, matchs)
