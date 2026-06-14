@@ -703,12 +703,8 @@ function clientMatchTeamsFullyIdMapped(rows, teamMaps, gameCode) {
     for (const side of ['home', 'away']) {
       const { id } = resolveMatchTeamId(m, side, gc);
       if (!id) return false;
-      let { canonical } = lookupCanonical(teamMaps, platform, id, gc);
-      if (canonical == null) {
-        const sideCanon = resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode);
-        if (sideCanon && sideCanon !== '__pending__') canonical = sideCanon;
-      }
-      if (canonical == null) return false;
+      const { canonical, pending } = lookupCanonical(teamMaps, platform, id, gc);
+      if (canonical == null || pending) return false;
     }
   }
   return true;
@@ -721,11 +717,6 @@ function renderTeamCell(m, side, gameCode, teamMaps, platformHint, linkCtx) {
   const resolved = resolveMatchTeamId(m, side, gameCode);
   const pid = resolved.id;
   let { canonical, pending, updatedBy } = lookupCanonical(teamMaps, platform, pid, gameCode);
-  const sideConsensus = linkCtx?.sideCanonical;
-  const inferredFromSide =
-    canonical == null && !pending && linkCtx?.cmId != null
-    && sideConsensus && sideConsensus !== '__pending__';
-  if (inferredFromSide) canonical = sideConsensus;
   const missingFromMaps = canonical == null && !pending;
   const cmId = linkCtx?.cmId;
   const linkSide = linkCtx?.side || side;
@@ -1223,22 +1214,44 @@ function displayClientMatchTitle(cm, rows) {
   return `${esc(ref.home || '?')}<span class="vs">vs</span>${esc(ref.away || '?')}`;
 }
 
-function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode) {
+function teamNamesLikelySame(a, b) {
+  const na = normalizeTeamName(a);
+  const nb = normalizeTeamName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.length >= 3 && nb.length >= 3 && (na.includes(nb) || nb.includes(na))) return true;
+  return false;
+}
+
+function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName) {
+  const ref = pickClientMatchSideRow(rows, side, gameCode);
+  const name = String(anchorName || (side === 'home' ? ref.row.home : ref.row.away) || '').trim();
+  const gc = gameCode || ref.row.game?.code;
   const counts = new Map();
   let pending = false;
+
   for (const m of rows) {
-    const gc = gameCode || m.game?.code;
-    const { id: pid } = resolveMatchTeamId(m, side, gc);
-    if (!pid) continue;
-    const { canonical, pending: isPending } = lookupCanonical(teamMaps, m.platform, pid, gc);
-    if (canonical != null) {
-      counts.set(canonical, (counts.get(canonical) || 0) + 1);
-    } else if (isPending) {
-      pending = true;
+    const mgc = gc || m.game?.code;
+    for (const slot of ['home', 'away']) {
+      const slotName = (slot === 'home' ? m.home : m.away || '').trim();
+      if (name && !teamNamesLikelySame(slotName, name)) continue;
+      const { id: pid } = resolveMatchTeamId(m, slot, mgc);
+      if (!pid) continue;
+      const { canonical, pending: isPending } = lookupCanonical(teamMaps, m.platform, pid, mgc);
+      if (canonical != null) {
+        counts.set(canonical, (counts.get(canonical) || 0) + 1);
+      } else if (isPending) {
+        pending = true;
+      }
     }
   }
   if (counts.size) {
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  }
+  if (ref.platformId) {
+    const { canonical, pending: isPending } = lookupCanonical(teamMaps, ref.row.platform, ref.platformId, gc);
+    if (canonical != null) return canonical;
+    if (isPending) return '__pending__';
   }
   return pending ? '__pending__' : null;
 }
@@ -1254,8 +1267,20 @@ function pickClientMatchSideRow(rows, side, gameCode) {
   return { row: ref, platformId: null };
 }
 
-function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId) {
-  const canonical = resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode);
+function clientMatchSideAnchorName(cm, rows, side) {
+  if (cm?.title) {
+    const parts = String(cm.title).split(/\s+vs\s+/i);
+    if (parts.length === 2) {
+      return (side === 'home' ? parts[0] : parts[1]).trim();
+    }
+  }
+  const { row } = pickClientMatchSideRow(rows, side);
+  return (side === 'home' ? row.home : row.away || '').trim();
+}
+
+function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId, cm) {
+  const anchorName = clientMatchSideAnchorName(cm, rows, side);
+  const canonical = resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName);
   const { row, platformId } = pickClientMatchSideRow(rows, side, gameCode);
   const platform = row.platform;
   const name = side === 'home' ? row.home : row.away;
@@ -1268,7 +1293,7 @@ function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId) {
   const sub = name ? `<span class="title-team-sub" title="${esc(name)}">${esc(name)}</span>` : '';
   const handle = platformId && canonVal
     ? `<button type="button" class="team-link-handle team-title-handle"
-        title="标题队伍 · gb_team_id ${esc(canonVal)} · 连线至下方同侧平台队伍"
+        title="标题队伍 · gb_team_id ${esc(canonVal)} · 连线至下方同 gb_team_id 的平台队伍（主客列可能相反）"
         data-title-handle="1"
         data-team-side="${side}"
         data-cm-id="${esc(String(cmId))}"
@@ -1282,8 +1307,8 @@ function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId) {
 }
 
 function displayClientMatchTitleGbIds(cm, rows, teamMaps, gameCode) {
-  const home = renderTitleTeamSlot('home', rows, teamMaps, gameCode, cm.id);
-  const away = renderTitleTeamSlot('away', rows, teamMaps, gameCode, cm.id);
+  const home = renderTitleTeamSlot('home', rows, teamMaps, gameCode, cm.id, cm);
+  const away = renderTitleTeamSlot('away', rows, teamMaps, gameCode, cm.id, cm);
   return `<span class="team-card-title-id">${home}<span class="vs">vs</span>${away}</span>`;
 }
 
@@ -1294,13 +1319,11 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
   if (!visible.length) return '';
   const cms = cm ? [{ id: cm.id, matchs: cm.matchs || {} }] : [];
   const linkCmId = cm?.id;
-  const homeSideCanonical = resolveClientMatchSideCanonical(rows, teamMaps, 'home', gameCode);
-  const awaySideCanonical = resolveClientMatchSideCanonical(rows, teamMaps, 'away', gameCode);
   const rowsHtml = visible.map(m => `<tr>
       <td class="col-match-id">${renderMatchLinkCell(m, m.platform, cms)}</td>
       <td class="col-platform">${pbadge(m.platform)} <span class="team-status ts-done">已映射</span></td>
-      <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'home', sideCanonical: homeSideCanonical } : null)}</td>
-      <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away', sideCanonical: awaySideCanonical } : null)}</td>
+      <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'home' } : null)}</td>
+      <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away' } : null)}</td>
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
       <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
     </tr>`).join('');
@@ -1628,12 +1651,13 @@ function canConnectTeamHandles(a, b) {
   const cmA = a.dataset.cmId || '';
   const cmB = b.dataset.cmId || '';
   if (cmA && cmB && cmA === cmB) {
+    const aTitle = a.dataset.titleHandle === '1';
+    const bTitle = b.dataset.titleHandle === '1';
+    if (aTitle || bTitle) return true;
     const sideA = a.dataset.teamSide || '';
     const sideB = b.dataset.teamSide || '';
     if (sideA && sideB && sideA !== sideB) return false;
-    const aTitle = a.dataset.titleHandle === '1';
-    const bTitle = b.dataset.titleHandle === '1';
-    if (!aTitle && !bTitle) return false;
+    return false;
   }
   return true;
 }
@@ -1679,9 +1703,8 @@ function redrawCanonicalTeamLinks() {
 
     for (const th of titleHandles) {
       const cmId = th.dataset.cmId || '';
-      const side = th.dataset.teamSide || '';
       for (const tb of tableHandles) {
-        if (tb.dataset.cmId === cmId && tb.dataset.teamSide === side) {
+        if (tb.dataset.cmId === cmId) {
           drawBetween(th, tb, canonicalId);
         }
       }
