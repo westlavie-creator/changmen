@@ -1,0 +1,32 @@
+/**
+ * 模块化分桶清单（extract-a8-to-modules.mjs 维护）。
+ * 运行时 DEV modules 皮肤由 copyShell 按 segments/manifest.json 逐段注入，不直接读此文件。
+ */
+@import url("./modules/tokens.css");
+@import url("./modules/layout.css");
+@import url("./modules/sidebar-user.css");
+@import url("./modules/sidebar-orders.css");
+@import url("./modules/account-bar.css");
+@import url("./modules/match-list.css");
+@import url("./modules/bet-row.css");
+@import url("./modules/extension-banner.css");
+@import url("./modules/dialogs.css");
+@import url("./modules/platform-icons.css");
+@import url("./modules/element-table.css");
+@import url("./modules/element-form.css");
+@import url("./modules/element-picker.css");
+@import url("./modules/element-nav.css");
+@import url("./modules/element-display.css");
+@import url("./modules/element-overlay.css");
+@import url("./modules/element-components.css");
+@import url("./modules/element-transitions.css");
+@import url("./modules/element-misc.css");
+
+/* changmen 补丁（DEV modules 皮肤；与 src/styles 同步，进 git） */
+@import url("./modules/changmen/login-carousel.css");
+@import url("./modules/changmen/ep-fallback.css");
+@import url("./modules/changmen/am-icon.css");
+@import url("./modules/changmen/icon-fallback.css");
+@import url("./modules/changmen/user-diag.css");
+@import url("./modules/changmen/app.css");
+@import url("./modules/changmen/admin-theme.css");

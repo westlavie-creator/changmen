@@ -1,0 +1,106 @@
+/**
+ * Amaze UI `am-icon-*` + 账号卡 `iconfont-base-*`（Font Awesome 4.7，与 A8 控制台一致）
+ * 字体文件：gamebet_backend/public/esport2/assets/fontawesome-webfont.woff2
+ */
+@font-face {
+  font-family: FontAwesome;
+  src: url(/esport2/assets/fontawesome-webfont.woff2) format("woff2");
+  font-weight: 400;
+  font-style: normal;
+}
+
+[class*="am-icon-"]:before,
+[class*="iconfont-base-"]:before {
+  display: inline-block;
+  font: normal normal normal 14px/1 FontAwesome;
+  font-size: inherit;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+.am-icon-fw {
+  width: 1.28571429em;
+  text-align: center;
+}
+
+.am-icon-plus:before {
+  content: "\f067";
+}
+.am-icon-gear:before {
+  content: "\f013";
+}
+.am-icon-shield:before {
+  content: "\f132";
+}
+.am-icon-dashboard:before {
+  content: "\f0e4";
+}
+.am-icon-users:before {
+  content: "\f0c0";
+}
+.am-icon-list:before {
+  content: "\f03a";
+}
+.am-icon-th:before {
+  content: "\f00a";
+}
+.am-icon-arrow-left:before {
+  content: "\f060";
+}
+.am-icon-power-off:before {
+  content: "\f011";
+}
+.am-icon-refresh:before {
+  content: "\f021";
+}
+.am-icon-times:before {
+  content: "\f00d";
+}
+.am-icon-save:before {
+  content: "\f0c7";
+}
+.am-icon-flash:before {
+  content: "\f0e7";
+}
+.am-icon-key:before {
+  content: "\f084";
+}
+.am-icon-edit:before {
+  content: "\f044";
+}
+.am-icon-pause-circle:before {
+  content: "\f28b";
+}
+.am-icon-arrow-circle-down:before {
+  content: "\f0ab";
+}
+.am-icon-info-circle:before {
+  content: "\f05a";
+}
+
+.iconfont-base-refresh:before {
+  content: "\f021";
+}
+.iconfont-base-bank:before {
+  content: "\f19c";
+}
+.iconfont-base-edit:before {
+  content: "\f044";
+}
+
+/* 仅图标按钮：保证可点区域（与旧 fallback 一致） */
+.userinfo .actions .el-button[class*="am-icon-"] {
+  min-width: 28px;
+  padding-inline: 8px;
+}
+
+.providers .account .toolbar .el-button {
+  min-width: 32px;
+}
+
+@media (hover: none) {
+  .providers .account .toolbar {
+    visibility: visible;
+    opacity: 0.92;
+  }
+}

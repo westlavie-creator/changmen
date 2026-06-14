@@ -1,0 +1,4 @@
+# copy：legacy 为 sync 产出；index.css + modules/ 为自有源码（进 git）
+public/copy/styles/legacy/
+public/copy/styles/modules/a8-all.css
+public/copy/styles/modules/segments/

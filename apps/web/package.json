@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/extract-a8-css.mjs",
+    "predev": "node scripts/extract-a8-css.mjs && node scripts/sync-copy-preview-styles.mjs && node scripts/extract-a8-to-modules.mjs && node scripts/verify-copy-module-stack.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/extract-a8-css.mjs && node scripts/clean-dist-assets.mjs",
+    "prebuild": "node scripts/extract-a8-css.mjs && node scripts/sync-copy-preview-styles.mjs && node scripts/extract-a8-to-modules.mjs && node scripts/verify-copy-module-stack.mjs && node scripts/clean-dist-assets.mjs",
     "build": "vue-tsc -b && vite build --base=/",
     "build:analyze": "vue-tsc -b && vite build --base=/ --mode analyze",
     "preview": "vite preview --base /",
@@ -18,7 +18,8 @@
     "test:ob-live": "node scripts/test-ob-live-smoke.mjs",
     "test:ob": "npm run test:ob-getmatchs && npm run test:ob-provider",
     "test:ob:all": "npm run test:ob && npm run test:ob-live",
-    "audit:a8": "node scripts/audit-a8-parity.mjs"
+    "audit:a8": "node scripts/audit-a8-parity.mjs",
+    "verify:copy-modules": "node scripts/verify-copy-module-stack.mjs"
   },
   "dependencies": {
     "@changmen/shared": "*",

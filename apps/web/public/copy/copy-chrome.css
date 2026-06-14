@@ -1,0 +1,111 @@
+/* DEV 皮肤角标（CopyShellBanner.vue，仅 import.meta.env.DEV） */
+.copy-preview-banner {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 10000;
+  max-width: min(420px, calc(100vw - 16px));
+  padding: 6px 10px;
+  font-size: 10px;
+  line-height: 1.45;
+  font-family: system-ui, sans-serif;
+  color: #64748b;
+  background: rgba(2, 6, 23, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 6px;
+  pointer-events: auto;
+}
+
+.copy-preview-banner__title {
+  margin-bottom: 4px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.copy-preview-banner__switch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copy-preview-banner__switch-label {
+  font-size: 10px;
+  color: #64748b;
+  user-select: none;
+}
+
+.copy-preview-banner__switch-label.is-active {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.copy-preview-banner__switch {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.copy-preview-banner__switch:focus-visible .copy-preview-banner__switch-track {
+  outline: 1px solid #38bdf8;
+  outline-offset: 2px;
+}
+
+.copy-preview-banner__switch-track {
+  display: block;
+  position: relative;
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.35);
+  border: 1px solid rgba(74, 222, 128, 0.55);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.copy-preview-banner__switch-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.copy-preview-banner[data-a8="on"] .copy-preview-banner__switch-track {
+  background: rgba(251, 191, 36, 0.35);
+  border-color: rgba(251, 191, 36, 0.55);
+}
+
+.copy-preview-banner[data-a8="on"] .copy-preview-banner__switch-thumb {
+  transform: translateX(16px);
+  background: #fef3c7;
+}
+
+.copy-preview-banner__hint {
+  margin: 6px 0 0;
+  color: #86efac;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.copy-preview-banner__warn {
+  margin-top: 6px;
+  color: #f87171;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.copy-preview-banner[data-styles="ok"] .copy-preview-banner__title::after {
+  content: " · styles ok";
+  color: #4ade80;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}

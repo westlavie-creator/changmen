@@ -2,7 +2,9 @@
 import { computed, defineAsyncComponent } from "vue";
 import { useRouter } from "vue-router";
 import LoginPanel from "@/components/auth/LoginPanel.vue";
+import CopyShellBanner from "@/components/layout/CopyShellBanner.vue";
 import PluginIntroShell from "@/components/layout/PluginIntroShell.vue";
+import { showDevSkinBanner } from "@/lib/copyShell";
 import { useExtensionGate } from "@/composables/useExtensionGate";
 import { useUserStore } from "@/stores/userStore";
 
@@ -25,6 +27,7 @@ async function onLoginSuccess() {
 </script>
 
 <template>
+  <CopyShellBanner v-if="showDevSkinBanner()" />
   <HomeView v-if="sessionReady" />
   <PluginIntroShell v-else-if="showLoginGate" :show-login="true">
     <LoginPanel @success="onLoginSuccess" />

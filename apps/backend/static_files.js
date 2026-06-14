@@ -40,7 +40,12 @@ function canonicalMatcherPath(urlPath) {
   return "/matcher" + suffix;
 }
 
+const ESPORT2_ASSET_CACHE_PROD = "public, max-age=31536000, immutable";
+const ESPORT2_ASSET_CACHE_DEV = "no-cache, must-revalidate";
+
 export function createStaticHandler({ publicDir, webDir, matcherDir }) {
+  const esport2AssetCache =
+    process.env.NODE_ENV === "production" ? ESPORT2_ASSET_CACHE_PROD : ESPORT2_ASSET_CACHE_DEV;
   function resolveStaticRoot(urlPath) {
     if (matcherDir && /^\/matcher(\/|$)/i.test(urlPath)) {
       urlPath = canonicalMatcherPath(urlPath) || urlPath;
@@ -69,8 +74,11 @@ export function createStaticHandler({ publicDir, webDir, matcherDir }) {
     if (fileRel.endsWith(".html") || (spa && !path.extname(fileRel))) {
       return "no-cache, no-store, must-revalidate";
     }
-    if (isHashedAsset(urlPath) || urlPath.startsWith("/esport2/assets/")) {
-      return "public, max-age=31536000, immutable";
+    if (isHashedAsset(urlPath)) {
+      return ESPORT2_ASSET_CACHE_PROD;
+    }
+    if (urlPath.startsWith("/esport2/assets/")) {
+      return esport2AssetCache;
     }
     if (urlPath.startsWith("/assets/")) {
       return "public, max-age=86400";

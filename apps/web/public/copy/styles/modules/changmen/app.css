@@ -1,0 +1,162 @@
+﻿#app {
+  height: 100%;
+}
+
+.flex {
+  display: flex;
+}
+.flex-wrap {
+  flex-wrap: wrap;
+}
+.flex-between {
+  justify-content: space-between;
+}
+.flex-center {
+  justify-content: center;
+}
+.flex-middle {
+  align-items: center;
+}
+.flex-column {
+  flex-direction: column;
+}
+
+/* 瀵归綈 A8锛歄B 骞冲彴瑙掓爣锛坅8.css 浜︽湁锛屾澶勪繚鐣?limit 鏍峰紡閭昏繎澹版槑锛?*/
+.provider-icon.OB {
+  background-image: url(/esport2/assets/D1aW4vdu.png);
+}
+
+.provider-icon.OB.limit {
+  outline: 2px solid #f59e0b;
+  outline-offset: -1px;
+}
+
+/* HomeView / 渚ф爮 / 鐧诲綍锛堥伩鍏?scoped 瑕嗙洊 a8.css锛?*/
+.home-view {
+  height: 100%;
+}
+.match-search {
+  margin-bottom: 8px;
+  max-width: 280px;
+}
+.match-empty {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.pos {
+  color: #4ade80;
+}
+.neg {
+  color: #f87171;
+}
+.app-hint {
+  padding: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+.app-hint--err {
+  color: #f87171;
+}
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+}
+
+#app .el-aside > .app-sidebar,
+.common-layout .el-aside > .app-sidebar {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-sidebar > .date {
+  flex: 0 0 auto;
+}
+
+.app-sidebar > .orders {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.login-error {
+  margin: 0 0 8px;
+  color: #f56c6c;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 套利机会：红线连接对应赔率 */
+.bet .bet-items {
+  position: relative;
+}
+.bet .arb-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+.bet .arb-lines line {
+  stroke: #ff4d4f;
+  stroke-width: 2;
+}
+.item-odds.arb-leg {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 6px #ff4d4fcc inset;
+}
+.bet .arb-profit-badge {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px #0006;
+}
+
+/* 赔率涨跌 flash */
+@keyframes arrow-up {
+  0%, 100% { transform: translateY(0);   opacity: 1; }
+  50%       { transform: translateY(-3px); opacity: 0.6; }
+}
+@keyframes arrow-down {
+  0%, 100% { transform: translateY(0);   opacity: 1; }
+  50%       { transform: translateY(3px);  opacity: 0.6; }
+}
+.item-odds.odds-up   { background: #52c41acc; border-color: #237804; }
+.item-odds.odds-down { background: #ff4d4fcc; border-color: #a8071a; }
+.item-odds.odds-up::before   {
+  content: "\25B2"; position: absolute; top: 1px; left: 3px;
+  font-size: 14px; color: #092b00; line-height: 1;
+  animation: arrow-up 0.6s ease-in-out infinite;
+}
+.item-odds.odds-down::before {
+  content: "\25BC"; position: absolute; top: 1px; left: 3px;
+  font-size: 14px; color: #3b0014; line-height: 1;
+  animation: arrow-down 0.6s ease-in-out infinite;
+}
+/* 来源标签：M=MQTT  H=HTTP */
+.odds-src {
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+  vertical-align: super;
+  margin-left: 2px;
+  opacity: 0.75;
+}

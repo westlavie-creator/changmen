@@ -1,0 +1,227 @@
+/* 登录页：changmen 独立皮肤 */
+
+@import url("https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap");
+
+.login-page.container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  background-color: #0f172a;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(56, 189, 248, 0.14), transparent),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(99, 102, 241, 0.1), transparent),
+    linear-gradient(165deg, #0f172a 0%, #1e293b 45%, #0f172a 100%);
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+  animation: none;
+}
+
+/* 角色 + 登录框同一行、垂直居中对齐 */
+.login-page .login-stage {
+  flex: 0 1 auto;
+  gap: 0.75rem;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.login-page .login-stage--heroes-only {
+  gap: clamp(1rem, 4vw, 3rem);
+  justify-content: center;
+}
+
+.login-page .login-stage--heroes-only .login-hero {
+  width: min(520px, 40vw);
+  max-height: min(760px, 88vh);
+}
+
+.login-page .login-hero {
+  flex: 0 0 auto;
+  width: min(420px, 32vw);
+  max-height: min(640px, 82vh);
+  height: auto;
+  object-fit: contain;
+  object-position: center center;
+  pointer-events: none;
+  user-select: none;
+  /* 透明 PNG：轻微投影增强层次，不铺底色 */
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
+}
+
+.login-page .login-center {
+  flex: 0 0 auto;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.login-page .login-jiraiya-title {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.12em;
+  margin: 0;
+  padding: 0 0.15rem;
+  font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", "楷体", serif;
+  font-size: clamp(2.4rem, 6vw, 3.25rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.login-page .login-jiraiya-char {
+  display: inline-block;
+  background: linear-gradient(
+    165deg,
+    #fff7ed 0%,
+    #fcd34d 28%,
+    #f59e0b 52%,
+    #dc2626 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(120, 53, 15, 0.85))
+    drop-shadow(0 0 18px rgba(245, 158, 11, 0.35));
+  transform-origin: center bottom;
+}
+
+.login-page .login-jiraiya-char:nth-child(1) {
+  transform: rotate(-4deg) translateY(2px);
+}
+
+.login-page .login-jiraiya-char:nth-child(2) {
+  font-size: 1.12em;
+  transform: translateY(-3px);
+  filter: drop-shadow(0 2px 0 rgba(120, 53, 15, 0.9))
+    drop-shadow(0 0 22px rgba(251, 191, 36, 0.45));
+}
+
+.login-page .login-jiraiya-char:nth-child(3) {
+  transform: rotate(5deg) translateY(1px);
+}
+
+.login-page .login-akatsuki {
+  flex: 0 0 auto;
+  width: min(160px, 40vw);
+  max-height: 100px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 16px rgba(214, 40, 40, 0.5));
+  pointer-events: none;
+  user-select: none;
+}
+
+.login-page.container .loginbox {
+  flex: 0 0 auto;
+  width: min(400px, calc(100vw - 3rem));
+  margin: 0;
+  background: rgba(30, 41, 59, 0.92);
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 2rem 1.75rem 1.5rem;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  z-index: 1;
+  /* 覆盖 a8.css 内嵌的 Element Plus 浅色主题（输入框默认白底） */
+  --el-fill-color-blank: #0f172a;
+  --el-input-bg-color: #0f172a;
+  --el-input-text-color: #f1f5f9;
+  --el-text-color-regular: #e2e8f0;
+  --el-text-color-placeholder: #64748b;
+  --el-input-placeholder-color: #64748b;
+  --el-input-border-color: #475569;
+  --el-input-hover-border-color: #64748b;
+  --el-input-focus-border-color: #38bdf8;
+}
+
+.login-page .loginbox .el-input__wrapper {
+  background-color: var(--el-input-bg-color);
+  box-shadow: 0 0 0 1px var(--el-input-border-color) inset;
+}
+
+.login-page .loginbox .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--el-input-hover-border-color) inset;
+}
+
+.login-page .loginbox .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--el-input-focus-border-color) inset;
+}
+
+.login-page .loginbox .el-input__inner {
+  color: var(--el-input-text-color);
+}
+
+.login-page .loginbox .el-input__inner::placeholder {
+  color: var(--el-input-placeholder-color);
+}
+
+/* 浏览器记住账号/密码时的自动填充底色 */
+.login-page .loginbox .el-input__inner:-webkit-autofill,
+.login-page .loginbox .el-input__inner:-webkit-autofill:hover,
+.login-page .loginbox .el-input__inner:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #0f172a inset;
+  -webkit-text-fill-color: #f1f5f9;
+  caret-color: #f1f5f9;
+  transition: background-color 99999s ease-out;
+}
+
+.login-page .el-button--primary {
+  --el-button-bg-color: #0ea5e9;
+  --el-button-border-color: #0ea5e9;
+  --el-button-hover-bg-color: #38bdf8;
+  --el-button-hover-border-color: #38bdf8;
+  --el-button-active-bg-color: #0284c7;
+  --el-button-active-border-color: #0284c7;
+}
+
+@media (max-width: 1100px) {
+  .login-page .login-stage:not(.login-stage--heroes-only) .login-hero {
+    display: none;
+  }
+
+  .login-page .login-stage--heroes-only .login-hero {
+    width: min(340px, 46vw);
+    max-height: min(560px, 78vh);
+  }
+
+  .login-page .login-stage {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.extension-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #94a3b8;
+  text-align: left;
+}
+
+.extension-hint--id code {
+  font-size: 11px;
+  color: #e2e8f0;
+  word-break: break-all;
+}
+
+.extension-block {
+  text-align: center;
+}
+
+.extension-block__title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.extension-banner {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #fbbf24;
+}
