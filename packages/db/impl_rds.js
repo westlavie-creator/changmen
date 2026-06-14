@@ -11,7 +11,7 @@ import crypto from "node:crypto";
 import { getDbMode } from "./db_mode.js";
 import { getPgPool as getSharedPgPool } from "./pg_pool.js";
 import { hasDatabaseUrlConfig } from "./resolve_database_url.js";
-import { CLIENT_MATCH_LIST_HIDDEN } from "./client_match_list_status.js";
+import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "./client_match_list_status.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "";
 
@@ -269,8 +269,8 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
   const sql = `
     INSERT INTO client_matches (
       id, merge_key, title, game, game_id, start_time, bo, round, round_start,
-      matchs, bets, reverse, built_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12::jsonb,$13)
+      matchs, bets, reverse, built_at, list_status
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12::jsonb,$13,$14)
     ON CONFLICT (id) DO UPDATE SET
       merge_key = EXCLUDED.merge_key,
       title = EXCLUDED.title,
@@ -283,7 +283,8 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
       matchs = EXCLUDED.matchs,
       bets = EXCLUDED.bets,
       reverse = EXCLUDED.reverse,
-      built_at = EXCLUDED.built_at
+      built_at = EXCLUDED.built_at,
+      list_status = EXCLUDED.list_status
   `;
   try {
     await client.query("BEGIN");
@@ -302,6 +303,7 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
         _jsonb(r.bets, []),
         _jsonb(r.reverse, []),
         Number(r.built_at),
+        CLIENT_MATCH_LIST_DEFAULT,
       ]);
     }
     if (toDelete.length) {

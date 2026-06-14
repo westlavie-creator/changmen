@@ -25,10 +25,9 @@ export function isMatcherStoreReady() {
 }
 
 export async function fetchClientMatchIdIndex() {
+  // 含 list_status=-1：rebuild 须复用原 id，写入时再复活为可见
   const { rows } = await rdsQuery(
-    `SELECT id, merge_key, matchs FROM client_matches
-     WHERE list_status IS DISTINCT FROM $1`,
-    [CLIENT_MATCH_LIST_HIDDEN],
+    "SELECT id, merge_key, matchs FROM client_matches",
   );
   return rows.map((r) => ({
     id: Number(r.id),
@@ -41,8 +40,8 @@ export async function findClientMatchIdByMergeKey(mergeKey) {
   const key = String(mergeKey || "").trim();
   if (!key) return null;
   const { rows } = await rdsQuery(
-    "SELECT id FROM client_matches WHERE merge_key = $1 AND list_status IS DISTINCT FROM $2 LIMIT 1",
-    [key, CLIENT_MATCH_LIST_HIDDEN],
+    "SELECT id FROM client_matches WHERE merge_key = $1 LIMIT 1",
+    [key],
   );
   return rows[0] ? Number(rows[0].id) : null;
 }
