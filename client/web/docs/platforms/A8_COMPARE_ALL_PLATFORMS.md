@@ -52,7 +52,7 @@
 - **采集**：`Uf=Xt.TF`，`UBe` → `Vt.getPlatform(Uf)`；REST 30s + `FBe`/`WBe` WS；HTTP 头 `$3(token)`。
 - **凭证**：`POST …/esport/Client_GetCollectPlatform`（**form-urlencoded** + header `token`）→ `Gateway` / `Token` / `BetName`；`Client_GetGames` → `games`。`tf-authorization` 本地算；`public-token` 为 bundle 常量。
 - **下注**：`bYe` — 钱包/下单用 `ly`（无 `tf-authorization`）；订单 `ly(,true)` 合并 `$3`；`uy` 将 transactions 的 gateway `api.` → `api-v4.`。
-- **changmen**：`getTfA8CollectCredentials()` + `client/platform-adapter/tf/frontend/*` + `tfProvider`。**详解**：[`A8_TF_LOGIC_PARITY.md`](./A8_TF_LOGIC_PARITY.md)。
+- **changmen**：`getTfA8CollectCredentials()` + `client/platform-adapter/tf/*` + `tfProvider`。**详解**：[`A8_TF_LOGIC_PARITY.md`](./A8_TF_LOGIC_PARITY.md)。
 
 ### IA（重要差异）
 
@@ -95,8 +95,8 @@ await waitForUser
 ### Stake
 
 - **采集 `MQ`**：`ra=Xt.Stake`；等待插件 `tabId`（10×3s）→ 各 sport GraphQL → `saveMatch` + 逐场 `saveBets`（`pp` 合并）→ `Zn.sendMessage` 订阅；频道 **Stake** 推实时赔率；30s 递归。
-- **changmen**：`startA8BetsCollector` 频道 `Stake`；`client/platform-adapter/stake/frontend/collect.ts` 对齐 `MQ`。
-- **下注**：插件 `tabId` + 账号 `token`；`client/platform-adapter/stake/frontend/bet.ts` 对齐 `rJe`。
+- **changmen**：`startA8BetsCollector` 频道 `Stake`；`client/platform-adapter/stake/collect.ts` 对齐 `MQ`。
+- **下注**：插件 `tabId` + 账号 `token`；`client/platform-adapter/stake/bet.ts` 对齐 `rJe`。
 
 ### HG
 

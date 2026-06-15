@@ -8,11 +8,12 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 | 团队 | 拥有目录 | 职责 |
 |------|----------|------|
-| **客户端** | `client/web/`、`client/chrome-extension/`、`client/platform-adapter/` | UI、采集、下注、插件、各平台 `frontend/` |
-| **服务端** | `server/backend/`、`server/matcher/`、`server/db/`、`server/platform-node/`、`server/match-engine/`、`server/team-resolver/` | API、合并、RDS、代理/余额、运维脚本 |
+| **客户端** | `client/web/`、`client/chrome-extension/`、`client/platform-adapter/` | UI、采集、下注、插件、各平台适配源码 |
+| **服务端** | `server/backend/`、`server/matcher/`、`server/db/`、`server/match-engine/`、`server/team-resolver/` | API、合并、RDS、代理/余额、运维脚本 |
+| **开发工具** | `devtools/platform-probes/` | 可选：直连各平台探针 CLI（非主链路） |
 | **共同协商** | `packages/shared/`、`packages/api-contract/`、`docs/TEAM_BOUNDARIES.md`、`.github/CODEOWNERS` | 跨端工具、catalog、HTTP 契约 |
 
-`client/platform-adapter` 内的 `loader/`、`registry/`、`scripts/`、`backend/_paths` 属**适配器基础设施**：客户端团队主维护；服务端仅通过 `requirePlatform(..., "node")` 与瘦包同步消费，**不得**引用各平台 `frontend/`。
+`client/platform-adapter` 内的 `loader/`、`registry/`、`scripts/`、`backend/_paths` 属**适配器基础设施**：客户端团队主维护；服务端仅通过 `requirePlatform(..., "node")` 与瘦包同步消费，**不得**引用各平台根目录下的采集/下注模块（`{platform}/shared/` 除外）。
 
 ## 唯一集成面（HTTP）
 
@@ -47,27 +48,27 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 | 允许 | 禁止 |
 |------|------|
-| `@platform/*` → `client/platform-adapter` | `@changmen/db`、`@changmen/match-engine`、`@changmen/platform-node` |
+| `@platform/*` → `client/platform-adapter` | `@changmen/db`、`@changmen/match-engine`、`@changmen/platform-probes` |
 | `@changmen/shared`（展示、时间窗、账号倍数等） | `server/backend`、`server/matcher` 任意路径 |
 | `@changmen/api-contract` | |
 | `@/` 应用内模块 | |
 
 `client/web/scripts/`：允许 `@changmen/match-engine` 做离线 parity 测试；仍禁止 `@changmen/db` 与直接引用 backend。
 
-### 各平台 `client/platform-adapter/{platform}/frontend/`
+### 各平台 `client/platform-adapter/{platform}/`（根目录 ts，不含 `shared/`、`scripts/`）
 
 | 允许 | 禁止 |
 |------|------|
 | `@platform/contract`、`@platform/shared`、同平台 `shared/` | `@changmen/db`、`client/web`、`server/backend` |
-| `@changmen/shared` | `@changmen/platform-node`、`@changmen/match-engine` |
+| `@changmen/shared` | `@changmen/platform-probes`、`@changmen/match-engine` |
 
 ### 服务端（`server/backend`、`server/matcher`）
 
 | 允许 | 禁止 |
 |------|------|
-| `@changmen/db`、`@changmen/match-engine`、`@changmen/shared` | `client/platform-adapter/*/frontend/**` |
+| `@changmen/db`、`@changmen/match-engine`、`@changmen/shared` | `client/platform-adapter/*/`（平台根目录 ts，不含 `shared/`） |
 | `@changmen/platform-adapter/loader`、`registry`、`requirePlatform` → **node** | `client/web/src/**` |
-| `@changmen/platform-node` | |
+| `@changmen/platform-probes` | |
 
 ## 本地校验
 

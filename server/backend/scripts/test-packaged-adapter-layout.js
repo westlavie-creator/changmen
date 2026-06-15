@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { syncPlatformAdapterBackendBundle } from "../../../client/platform-adapter/scripts/sync-backend-bundle.mjs";
-import { syncPlatformNodeBundle } from "../../../server/platform-node/scripts/sync-backend-bundle.mjs";
+import { syncPlatformNodeBundle } from "../../../devtools/platform-probes/scripts/sync-backend-bundle.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);

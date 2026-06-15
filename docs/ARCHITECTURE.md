@@ -15,8 +15,9 @@ changmen/
 │   ├── matcher/                 # 调度循环 + 人工关联 UI
 │   ├── db/                      # @changmen/db
 │   ├── match-engine/            # @changmen/match-engine
-│   ├── platform-node/           # @changmen/platform-node
 │   └── team-resolver/           # @changmen/team-resolver
+├── devtools/
+│   └── platform-probes/         # @changmen/platform-probes（可选探针 CLI）
 ├── packages/
 │   ├── shared/                  # @changmen/shared
 │   └── api-contract/            # HTTP 契约
@@ -63,7 +64,7 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 
 各平台采集与下注的 canonical 源码。前端通过 Vite 别名 `@platform` → `client/platform-adapter`。
 
-**目录语义**：`{platform}/frontend/` 为浏览器采集；`@changmen/platform-node`（`server/platform-node/node/{platform}/`）为 Node 库 + CLI。详见 [platform-adapter/README.md](../client/platform-adapter/README.md) 与 [platform-node/README.md](../server/platform-node/README.md)。
+**目录语义**：`{platform}/` 为浏览器采集；`@changmen/platform-probes`（`devtools/platform-probes/`）为可选 Node 探针 CLI。详见 [platform-adapter/README.md](../client/platform-adapter/README.md) 与 [platform-probes/README.md](../devtools/platform-probes/README.md)。
 
 各平台 CLI 采集脚本定义在本包 `package.json`；`server/backend` 通过 `npm run <script> --workspace=@changmen/platform-adapter` 转发。
 

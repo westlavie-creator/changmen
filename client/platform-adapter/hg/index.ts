@@ -1,11 +1,11 @@
 import type { PlatformAdapter } from "@platform/contract";
-import { hgProvider } from "./frontend/bet";
-import { startHgCollector } from "./frontend/collect";
+import { hgProvider } from "./bet";
+import { startHgCollector } from "./collect";
 
 export { hgProvider, startHgCollector };
-export * from "./frontend/bet";
-export * from "./frontend/collect";
-export * from "./frontend/follow";
+export * from "./bet";
+export * from "./collect";
+export * from "./follow";
 
 export const hgAdapter: PlatformAdapter = {
   id: "HG",

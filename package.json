@@ -12,7 +12,7 @@
     "server/matcher",
     "server/db",
     "server/match-engine",
-    "server/platform-node",
+    "devtools/platform-probes",
     "server/team-resolver"
   ],
   "scripts": {
@@ -29,6 +29,7 @@
     "test:catalog-smoke": "node packages/shared/catalog/market_catalog_smoke.test.mjs && node packages/shared/catalog/game_catalog_smoke.test.mjs && node packages/shared/im_parse_smoke.test.mjs && node packages/shared/time/match_time_smoke.test.mjs && node server/db/paths_smoke.test.mjs",
     "matcher:ui": "npm run start --prefix server/matcher",
     "matcher:loop": "npm run matcher --prefix server/matcher",
-    "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension"
+    "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension",
+    "ob:lock-observe": "npm run ob:lock-observe --workspace=@changmen/platform-adapter"
   }
 }

@@ -1,10 +1,10 @@
 import type { PlatformAdapter } from "@platform/contract";
-import { rayProvider } from "./frontend/bet";
-import { startRayCollector } from "./frontend/collect";
+import { rayProvider } from "./bet";
+import { startRayCollector } from "./collect";
 
 export { rayProvider, startRayCollector };
-export * from "./frontend/bet";
-export * from "./frontend/collect";
+export * from "./bet";
+export * from "./collect";
 
 export const rayAdapter: PlatformAdapter = {
   id: "RAY",

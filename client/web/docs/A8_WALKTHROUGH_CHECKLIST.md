@@ -94,7 +94,7 @@ npm run build
 ## 6. 已知可接受差异
 
 - 修改密码：新版为 TOTP（旧版验证码区多为占位）
-- HG：**无电竞赔率列表**；启用采集开关时会轮询 HG 账号余额（见 `client/platform-adapter/hg/frontend/collect.ts`）
+- HG：**无电竞赔率列表**；启用采集开关时会轮询 HG 账号余额（见 `client/platform-adapter/hg/collect.ts`）
 - XBet：仅采集/比分，不可下注（与 bundle 一致）
 - Stake：依赖 Chrome 扩展 + stake.com 标签页（见走查脚本 §5.3）
 - IM 角标图 `Dv2UbQNP.png`：需部署到 `/esport2/assets/`（与 console 同源）

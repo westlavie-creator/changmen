@@ -1,11 +1,11 @@
 import type { PlatformAdapter } from "@platform/contract";
-import { tfProvider } from "./frontend/bet";
-import { startTfCollector } from "./frontend/collect";
+import { tfProvider } from "./bet";
+import { startTfCollector } from "./collect";
 
 export { tfProvider, startTfCollector };
-export * from "./frontend/auth";
-export * from "./frontend/bet";
-export * from "./frontend/collect";
+export * from "./auth";
+export * from "./bet";
+export * from "./collect";
 
 export const tfAdapter: PlatformAdapter = {
   id: "TF",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { parseEuroOddsPayload } from "../frontend/parse";
+import { parseEuroOddsPayload } from "../parse";
 import {
   buildPbSaveBetRowsFromMatch,
   listPbStageFoEntries,

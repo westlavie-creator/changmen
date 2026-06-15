@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * 将 client/platform-adapter 同步到 server/backend/platform_adapter（跳过 frontend；不含 platform-node）。
+ * 将 client/platform-adapter 同步到 server/backend/platform_adapter（瘦包；不含 platform-probes）。
  * 仅用于「瘦包」部署（无 changmen/packages 目录）；标准 monorepo VPS 部署不需要。
  *
- * 默认跳过 frontend/、_template/（服务端 HTTP 代理只需 node + registry + 包级 backend/_paths）。
+ * 各平台目录只同步 `shared/`（若有）；采集/下注 ts 留在客户端，不进瘦包。
  *
  * 用法：
  *   npm run sync:backend-bundle --workspace=@changmen/platform-adapter
@@ -18,29 +18,41 @@ import { BACKEND_ROOT } from "@changmen/db/paths.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ADAPTER_PKG_ROOT = path.join(__dirname, "..");
 
-const DEFAULT_SKIP = new Set(["frontend", "_template"]);
+const ADAPTER_INFRA = new Set([
+  "registry",
+  "loader",
+  "shared",
+  "contract",
+  "backend",
+  "scripts",
+  "_template",
+  "node_modules",
+]);
 
-function cpDir(src, dst, skipDir) {
+function cpDir(src, dst) {
   fs.mkdirSync(dst, { recursive: true });
   for (const name of fs.readdirSync(src)) {
-    if (skipDir?.(name)) continue;
+    if (name === "_template") continue;
     const from = path.join(src, name);
     const to = path.join(dst, name);
-    if (fs.statSync(from).isDirectory()) cpDir(from, to, skipDir);
+    if (fs.statSync(from).isDirectory()) cpDir(from, to);
     else fs.copyFileSync(from, to);
   }
 }
 
+function cpPlatformSharedOnly(src, dst) {
+  const shared = path.join(src, "shared");
+  if (!fs.existsSync(shared)) return;
+  cpDir(shared, path.join(dst, "shared"));
+}
+
 /**
- * @param {{ dst?: string, src?: string, includeFrontend?: boolean }} [options]
+ * @param {{ dst?: string, src?: string, includeBrowserSources?: boolean }} [options]
  * @returns {string} 目标目录绝对路径
  */
 export function syncPlatformAdapterBackendBundle(options = {}) {
   const src = options.src ?? ADAPTER_PKG_ROOT;
   const dst = options.dst ?? path.join(BACKEND_ROOT, "platform_adapter");
-  const skip = options.includeFrontend
-    ? (name) => name === "_template"
-    : (name) => DEFAULT_SKIP.has(name);
 
   if (!fs.existsSync(path.join(src, "registry", "manifest.json"))) {
     throw new Error(`platform-adapter source missing manifest: ${src}`);
@@ -49,7 +61,24 @@ export function syncPlatformAdapterBackendBundle(options = {}) {
   if (fs.existsSync(dst)) {
     fs.rmSync(dst, { recursive: true, force: true });
   }
-  cpDir(src, dst, skip);
+  fs.mkdirSync(dst, { recursive: true });
+
+  for (const name of fs.readdirSync(src)) {
+    if (name === "_template") continue;
+    const from = path.join(src, name);
+    const to = path.join(dst, name);
+    if (!fs.statSync(from).isDirectory()) {
+      fs.copyFileSync(from, to);
+      continue;
+    }
+    if (!ADAPTER_INFRA.has(name)) {
+      if (options.includeBrowserSources) cpDir(from, to);
+      else cpPlatformSharedOnly(from, to);
+      continue;
+    }
+    cpDir(from, to);
+  }
+
   return dst;
 }
 

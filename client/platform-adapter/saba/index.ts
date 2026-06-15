@@ -1,10 +1,10 @@
 import type { PlatformAdapter } from "@platform/contract";
-import { sabaProvider } from "./frontend/bet";
-import { startSabaCollector } from "./frontend/collect";
+import { sabaProvider } from "./bet";
+import { startSabaCollector } from "./collect";
 
 export { sabaProvider, startSabaCollector };
-export * from "./frontend/bet";
-export * from "./frontend/collect";
+export * from "./bet";
+export * from "./collect";
 
 export const sabaAdapter: PlatformAdapter = {
   id: "SABA",

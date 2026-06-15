@@ -103,9 +103,10 @@ changmen/
 │   ├── backend/            Node.js ESM，port 3560 (Win) / 3456
 │   ├── matcher/            rebuild 循环 + 人工关联 Web
 │   ├── db/                 @changmen/db
-│   ├── platform-node/      @changmen/platform-node
 │   ├── match-engine/       @changmen/match-engine
 │   └── team-resolver/      @changmen/team-resolver
+├── devtools/
+│   └── platform-probes/    @changmen/platform-probes（可选探针）
 ├── packages/
 │   ├── shared/             @changmen/shared
 │   └── api-contract/       HTTP 契约
@@ -130,7 +131,7 @@ changmen/
 |---|---|---|
 | 入口 | `server.js`、`http_routes.js`、`proxy/` | HTTP server + HTTP 代理 |
 | Core | `core/` | 业务逻辑：路由/store/账号/DB/shared utils |
-| Platform | `client/platform-adapter/`（`@changmen/platform-adapter`） | 各场馆 frontend/backend + registry（canonical） |
+| Platform | `client/platform-adapter/`（`@changmen/platform-adapter`） | 各场馆 collect/bet + registry（canonical） |
 
 后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` 加载平台模块。详见 `client/platform-adapter/README.md`。
 
@@ -239,7 +240,7 @@ All A8 parity tracking lives under `client/web/docs/`:
 
 1. `types/esport.ts` — add to `PlatformId`
 2. `client/platform-adapter/registry/` — register in `adapters.ts` + platform meta
-3. `client/platform-adapter/{id}/` — `index.ts` adapter + `frontend/collect.ts` + `frontend/bet.ts` + `backend/` 探针/relay
+3. `client/platform-adapter/{id}/` — `index.ts` + `collect.ts` + `bet.ts`；探针在 `devtools/platform-probes/{dir}/`
 4. `runtime/collectors.ts` + `runtime/providers.ts` — 经 `buildCollectorFactories()` 自动注册（新平台需加入 registry）
 5. Backend: add `syncXxxFromEnv` / `syncXxxFromSession` in `platform_sync.js` and call it in `ensurePlatformCredentials`
 

@@ -54,7 +54,7 @@
 | [`server/backend/`](./server/backend/) | **服务端**：esport-api、WS relay、静态托管 |
 | [`server/matcher/`](./server/matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
 | [`client/chrome-extension/`](./client/chrome-extension/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
-| [`client/platform-adapter/`](./client/platform-adapter/) | 各平台采集/下注（`frontend/` + `node/`） |
+| [`client/platform-adapter/`](./client/platform-adapter/) | 各平台采集/下注（`collect.ts` / `bet.ts` + 可选 `shared/`） |
 | [`packages/shared/`](./packages/shared/) · [`packages/api-contract/`](./packages/api-contract/) | 跨端工具与 HTTP 契约 |
 | [`server/db/`](./server/db/) · [`server/match-engine/`](./server/match-engine/) 等 | 服务端库（RDS、合并算法、平台 node 等） |
 | [`../A8/`](../A8/) | A8 原版参考（bundle + 官方插件拷贝，与 `changmen` 并列） |
@@ -82,7 +82,7 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/
 
 **TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[client/web/docs/platforms/A8_TF_LOGIC_PARITY.md](./client/web/docs/platforms/A8_TF_LOGIC_PARITY.md)。
 
-平台采集 canonical 源码目录：`client/platform-adapter/{平台}/frontend/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 或旧名 `client/platform-adapter/` 请以本目录为准。
+平台采集 canonical 源码目录：`client/platform-adapter/{平台}/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 或旧名 `client/platform-adapter/` 请以本目录为准。
 
 ---
 
@@ -100,17 +100,17 @@ client/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API_S
 
 | 平台 | 源码 | 机制 | 凭证要求 |
 |------|------|------|----------|
-| OB | `client/platform-adapter/ob/frontend/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
-| RAY | `client/platform-adapter/ray/frontend/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `client/platform-adapter/ray/backend/collect_credentials.js`） |
-| TF | `client/platform-adapter/tf/frontend/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
-| IA | `client/platform-adapter/ia/frontend/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
-| PB | `client/platform-adapter/pb/frontend/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
-| IMT | `client/platform-adapter/imt/frontend/collect.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
-| SABA | `client/platform-adapter/saba/frontend/collect.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
-| IM | `client/platform-adapter/im/frontend/collect.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
-| XBet | `client/platform-adapter/xbet/frontend/collect.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
-| Stake | `client/platform-adapter/stake/frontend/collect.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
-| HG | `client/platform-adapter/hg/frontend/collect.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
+| OB | `client/platform-adapter/ob/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
+| RAY | `client/platform-adapter/ray/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `client/platform-adapter/ray/backend/collect_credentials.js`） |
+| TF | `client/platform-adapter/tf/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
+| IA | `client/platform-adapter/ia/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
+| PB | `client/platform-adapter/pb/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
+| IMT | `client/platform-adapter/imt/collect.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
+| SABA | `client/platform-adapter/saba/collect.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
+| IM | `client/platform-adapter/im/collect.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
+| XBet | `client/platform-adapter/xbet/collect.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
+| Stake | `client/platform-adapter/stake/collect.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
+| HG | `client/platform-adapter/hg/collect.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
 
 公共模块：
 

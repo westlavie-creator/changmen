@@ -69,7 +69,7 @@ CollectConfig：只门控 `saveMatch`/`saveBets`，**不**停采集器。
 
 | 项 | 说明 |
 |----|------|
-| `client/platform-adapter` 迁移 | 11 平台 frontend/backend + registry |
+| `client/platform-adapter` 迁移 | 11 平台 collect/bet + registry |
 | 插件协议 | `bridge.ts` = Zn |
 | 开发脚本 | `BAT\dev.bat parity`、`BAT\dev.bat` + matcher |
 | 架构冻结 M1 | 删除 FeedHub；[PRODUCTION_DEPLOYMENT.md](../../../../../PRODUCTION_DEPLOYMENT.md) |
@@ -104,7 +104,7 @@ CollectConfig：只门控 `saveMatch`/`saveBets`，**不**停采集器。
 | 插件桥 | `src/extension/bridge.ts` |
 | 采集注册 | `src/runtime/collectors.ts` → `@platform/registry` |
 | A8 Socket | `client/platform-adapter/shared/socket/hub.ts` |
-| 平台实现 | `client/platform-adapter/{ob,im,ray,...}/frontend/` |
+| 平台实现 | `client/platform-adapter/{ob,im,ray,...}/` |
 | 插件源码 | `client/chrome-extension/src/` |
 | Matcher | `server/matcher/matcher.js` |
 

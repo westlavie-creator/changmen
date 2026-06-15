@@ -101,7 +101,7 @@ export default defineConfig(({ mode }) => ({
   test: {
     include: [
       "src/**/*.{test,spec}.{js,mjs,ts}",
-      "../platform-adapter/**/frontend/**/*.{test,spec}.{js,mjs,ts}",
+      "../platform-adapter/**/*.{test,spec}.{js,mjs,ts}",
       "../platform-adapter/**/shared/**/*.{test,spec}.{js,mjs,ts}",
     ],
   },

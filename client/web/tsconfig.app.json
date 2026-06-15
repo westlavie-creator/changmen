@@ -31,14 +31,16 @@
     "src/**/*.tsx",
     "src/**/*.vue",
     "../platform-adapter/**/index.ts",
-    "../platform-adapter/**/frontend/**/*.ts",
-    "../platform-adapter/ray/shared/**/*.ts",
-    "../platform-adapter/ob/shared/**/*.ts",
+    "../platform-adapter/*/*.ts",
+    "../platform-adapter/*/shared/**/*.ts",
     "../../packages/shared/catalog/market_catalog.browser.ts",
     "../../packages/shared/catalog/game_catalog.browser.ts",
     "../platform-adapter/shared/**/*.ts",
     "../platform-adapter/registry/**/*.ts",
     "../platform-adapter/contract/**/*.ts"
   ],
-  "exclude": ["../platform-adapter/**/*.test.ts"]
+  "exclude": [
+    "../platform-adapter/**/*.test.ts",
+    "../platform-adapter/**/scripts/**"
+  ]
 }

@@ -1,11 +1,13 @@
-# 平台 Node 库目录迁移记录
+# 目录命名说明
 
-| 阶段 | 路径 |
-|------|------|
-| 原 | `{platform}/backend/` |
-| 中 | `platform-adapter/node/{platform}/` |
-| **现** | **`server/platform-node/{platform}/`**（与 `@changmen/platform-adapter` 并列） |
+| 时期 | 路径 | npm 包名 |
+|------|------|----------|
+| 旧 | `platform-adapter/node/{platform}/` | — |
+| 曾用 | `devtools/platform-probes/` | `@changmen/platform-probes` |
+| **现** | **`devtools/platform-probes/`** | **`@changmen/platform-probes`** |
 
-`requirePlatform(id, "node", …)` 不变，由 `registry/paths.js` 的 `getPlatformNodeRoot()` 解析。
+`platform-probes` = 可选探针/CLI，非浏览器采集主链路。瘦包同步目标目录仍为 `server/backend/platform_node`（部署兼容）。
+
+OB 锁盘观察：`client/platform-adapter/ob/shared/lock_decision.ts` + `npm run ob:lock-observe`。
 
 瘦包：`npm run sync:platform-adapter` 同步 `platform_adapter` + `platform_node` 两个目录。

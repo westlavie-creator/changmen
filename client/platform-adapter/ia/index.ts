@@ -1,10 +1,10 @@
 import type { PlatformAdapter } from "@platform/contract";
-import { iaProvider } from "./frontend/bet";
-import { startIaCollector } from "./frontend/collect";
+import { iaProvider } from "./bet";
+import { startIaCollector } from "./collect";
 
 export { iaProvider, startIaCollector };
-export * from "./frontend/bet";
-export * from "./frontend/collect";
+export * from "./bet";
+export * from "./collect";
 
 export const iaAdapter: PlatformAdapter = {
   id: "IA",

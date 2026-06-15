@@ -29,7 +29,7 @@
 
 ## 下单
 
-- Provider：`client/platform-adapter/stake/frontend/bet.ts`（GraphQL `sportBet` mutation）
+- Provider：`client/platform-adapter/stake/bet.ts`（GraphQL `sportBet` mutation）
 - 经 `a8PluginPost` 在已绑定 tab 发请求；联调步骤见 `client/platform-adapter/stake/README.md`
 
 ## A8 对照

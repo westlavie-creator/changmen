@@ -1,10 +1,10 @@
 import type { PlatformAdapter } from "@platform/contract";
-import { obProvider } from "./frontend/bet";
-import { startObCollector } from "./frontend/collect";
+import { obProvider } from "./bet";
+import { startObCollector } from "./collect";
 
 export { obProvider, startObCollector };
-export * from "./frontend/bet";
-export * from "./frontend/collect";
+export * from "./bet";
+export * from "./collect";
 
 export const obAdapter: PlatformAdapter = {
   id: "OB",

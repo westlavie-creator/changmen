@@ -1,10 +1,10 @@
 import type { PlatformAdapter } from "@platform/contract";
-import { imtProvider } from "./frontend/bet";
-import { startImtCollector } from "./frontend/collect";
+import { imtProvider } from "./bet";
+import { startImtCollector } from "./collect";
 
 export { imtProvider, startImtCollector };
-export * from "./frontend/bet";
-export * from "./frontend/collect";
+export * from "./bet";
+export * from "./collect";
 
 export const imtAdapter: PlatformAdapter = {
   id: "IMT",

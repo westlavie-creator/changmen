@@ -22,9 +22,11 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 
 | 路径 | 用途 | 是否上云 |
 |------|------|----------|
-| `storage/platforms.json` 或 `data/esport/platforms.json` | 场馆采集凭证（gateway/token） | 否；`platform_sync` 启动时读写 |
-| `storage/tag_platforms.json` 等 | 标签/配置类 JSON | 否 |
-| `storage/legacy/esport/*.json` | 开发 legacy 镜像（部分 save 仍 fire-and-forget 写盘） | 否；与 RDS 并行 |
+| `storage/platforms.json` | 场馆采集凭证（gateway/token） | 否；`platform_sync` 启动时读写 |
+| `storage/tag_platforms.json`、`players.json`、`player_orders.json` | 信用盘本地目录 | 否 |
+| `storage/default_odds.json` | 初赔快照 | 否 |
+| `storage/sessions.json` | 用户活跃时间缓存 | 否 |
+| `storage/legacy/esport/*.json` | 开发 legacy 镜像（若存在） | 否；与 RDS 并行 |
 
 内存缓存：`core/esport-api/store.js` 中的 `_matches` / `_bets` / `_timers` 对齐 legacy 文件形状，**比赛列表生产以 `client_matches` 为准**。
 

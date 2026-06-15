@@ -15,7 +15,7 @@
 /changmen/server/backend/                @CHANGMEN_SERVER_TEAM
 /changmen/server/matcher/                @CHANGMEN_SERVER_TEAM
 /changmen/server/db/                     @CHANGMEN_SERVER_TEAM
-/changmen/server/platform-node/          @CHANGMEN_SERVER_TEAM
+/changmen/devtools/platform-probes/     @CHANGMEN_SERVER_TEAM
 /changmen/server/match-engine/           @CHANGMEN_SERVER_TEAM
 /changmen/server/team-resolver/         @CHANGMEN_SERVER_TEAM
 

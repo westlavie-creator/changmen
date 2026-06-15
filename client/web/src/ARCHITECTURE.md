@@ -10,8 +10,8 @@
 ┌──────────────────────────────────────────────────────────────────────┐
 │ ① 本系统 API     api/ + types/       →  server/backend /esport、/v4.0 │
 │ ② 比赛列表       matcher → client_matches（浏览器 saveMatch 上报）   │
-│ ③ 赔率上报       client/platform-adapter/{平台}/frontend/collect.ts → SaveBet（+ fo）        │
-│ ④ 平台下注       client/platform-adapter/{平台}/frontend/bet.ts  →  场馆 gateway + 账号 token │
+│ ③ 赔率上报       client/platform-adapter/{平台}/collect.ts → SaveBet（+ fo）        │
+│ ④ 平台下注       client/platform-adapter/{平台}/bet.ts  →  场馆 gateway + 账号 token │
 │ ⑤ UI 编排        stores/ + views/ + components/                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -23,14 +23,14 @@
 | `types/` | DTO、用户配置、纯类型 | `types/collect.ts`, `types/esport.ts` |
 | `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
 | `domain/` | **套利/下注纯逻辑**（无 Pinia、可单测） | `domain/arbitrage`, `domain/betting` |
-| `client/platform-adapter/` | **平台清单、能力与平台实现**（Vite `@platform`） | `registry/adapters.ts`, `ob/frontend/collect.ts`, `ob/frontend/bet.ts` |
+| `client/platform-adapter/` | **平台清单、能力与平台实现**（Vite `@platform`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
 | `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp` |
 | `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts` |
-| `client/platform-adapter/{id}/frontend/collect.ts` | **赔率上报链路** | `start*Collector` |
+| `client/platform-adapter/{id}/collect.ts` | **赔率上报链路** | `start*Collector` |
 | `client/platform-adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
-| `client/platform-adapter/{id}/frontend/bet.ts` | **下注** | `obProvider` 等 |
+| `client/platform-adapter/{id}/bet.ts` | **下注** | `obProvider` 等 |
 | `stores/` | Pinia 状态与编排 | `matchStore`, `accountStore`, `bettingStore` |
-| `client/platform-adapter/hg/frontend/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
+| `client/platform-adapter/hg/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
 
 **原则**：`bet.ts` 不依赖 `collect.ts`；二者都可用 `shared/`，但 `bet.ts` 不应依赖 `platforms/shared/`（采集专用）。
 
@@ -44,7 +44,7 @@
 
 `ALL_PLATFORMS`、`PLATFORMS` 均从 `@platform/registry` 导出；新增平台时改 `client/platform-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
 
-账号鉴权（与采集解耦）：`client/platform-adapter/pb/frontend/auth.ts`、`client/platform-adapter/tf/frontend/auth.ts` ← `platformHttp` 与采集侧共同使用。
+账号鉴权（与采集解耦）：`client/platform-adapter/pb/auth.ts`、`client/platform-adapter/tf/auth.ts` ← `platformHttp` 与采集侧共同使用。
 
 ---
 

@@ -1,8 +1,8 @@
 # @changmen/platform-adapter
 
-各平台**浏览器**适配器：`{platform}/frontend`、registry、loader。
+各平台**浏览器**适配器：`{platform}/`、registry、loader。
 
-Node 库与 CLI 在并列包 [`@changmen/platform-node`](../platform-node/README.md)。
+可选探针 CLI 在 [`@changmen/platform-probes`](../../devtools/platform-probes/README.md)（日常可不使用）。
 
 ## 目录
 
@@ -12,7 +12,7 @@ client/platform-adapter/
 ├── loader/   adapter_paths（requirePlatform）
 ├── backend/  包级 _paths.js（npm 解析）
 ├── shared/   跨平台工具
-└── {platform}/frontend/  (+ 可选 shared/)
+└── {platform}/          collect.ts、bet.ts 等（+ 可选 shared/、scripts/）
 ```
 
 ## 测试

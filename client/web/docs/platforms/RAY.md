@@ -13,7 +13,7 @@
 | HTTP `match` 列表 | 30s | `saveMatch` + 每场 `loadRayBets` → `saveBets` |
 | SocketCluster 源站 | 实时 | `source === "odds"` 时更新 `oddsStore` |
 
-浏览器 **直连** `wss://cfsocket.365raylinks.com/socketcluster/` 频道 `match`（`ray/frontend/realtime.ts`，A8 写死 JWT）。不经 `/esport/ws/RAY` relay。
+浏览器 **直连** `wss://cfsocket.365raylinks.com/socketcluster/` 频道 `match`（`ray/realtime.ts`，A8 写死 JWT）。不经 `/esport/ws/RAY` relay。
 
 ## 开赛时间
 

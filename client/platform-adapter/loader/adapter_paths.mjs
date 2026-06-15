@@ -119,7 +119,7 @@ export function resolvePlatformFile(id, ...segments) {
   return getRegistryPaths().resolvePlatformFile(id, ...segments);
 }
 
-/** 预加载已迁 ESM 的平台顶层 *.js（`@changmen/platform-node/{platform}/`） */
+/** 预加载已迁 ESM 的平台顶层 *.js（`@changmen/platform-probes/{platform}/`） */
 export async function initEsmPlatformBackends() {
   ensureRegistryLoaded();
   const nodeRoot = _registryPaths.getPlatformNodeRoot();

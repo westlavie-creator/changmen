@@ -116,7 +116,7 @@
 
 ### 阶段 1 — 采集主链 [A8 可证实]（已完成）
 
-**文件**：`client/platform-adapter/ob/frontend/collect.ts`、`markets.ts`（比赛列表 HTTP 在同模块或 `markets.ts`）
+**文件**：`client/platform-adapter/ob/collect.ts`、`markets.ts`（比赛列表 HTTP 在同模块或 `markets.ts`）
 
 - [x] 1.1 过滤后 `buildMatchesFromList` → `collect.saveMatch`（UMe 92328）
 - [x] 1.2 开关关时不 saveMatch/saveBets；**仍** fo + MQTT（Af 74621/74651）
@@ -142,7 +142,7 @@
 
 ### 阶段 3 — MQTT / fo 细项 [A8 可证实]（已完成）
 
-**文件**：`client/platform-adapter/ob/frontend/mqtt.ts`、`oddsStore.ts`、`docs/platforms/OB.md`
+**文件**：`client/platform-adapter/ob/mqtt.ts`、`oddsStore.ts`、`docs/platforms/OB.md`
 
 - [x] 3.1 三 topic handler（oddsUpdate / statusUpdate / suspended）
 - [x] 3.2 `/odd/*` 订阅无 handler — 文档 + 代码注释（与 A8 UMe 一致）

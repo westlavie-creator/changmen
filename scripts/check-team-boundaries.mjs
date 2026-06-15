@@ -20,12 +20,12 @@ const RULES = [
     forbid: [
       /@changmen\/db\b/,
       /@changmen\/match-engine\b/,
-      /@changmen\/platform-node\b/,
+      /@changmen\/platform-probes\b/,
       /(?:^|[/\\])server[/\\]backend(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]db(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]match-engine(?:[/\\]|$)/,
-      /(?:^|[/\\])server[/\\]platform-node(?:[/\\]|$)/,
+      /(?:^|[/\\])devtools[/\\]platform-probes(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]team-resolver(?:[/\\]|$)/,
     ],
   },
@@ -34,7 +34,7 @@ const RULES = [
     roots: ["client/web/scripts"],
     forbid: [
       /@changmen\/db\b/,
-      /@changmen\/platform-node\b/,
+      /@changmen\/platform-probes\b/,
       /(?:^|[/\\])server[/\\]backend(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
     ],
@@ -45,7 +45,7 @@ const RULES = [
     forbid: [
       /@changmen\/db\b/,
       /@changmen\/match-engine\b/,
-      /@changmen\/platform-node\b/,
+      /@changmen\/platform-probes\b/,
       /(?:^|[/\\])server[/\\]backend(?:[/\\]|$)/,
       /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
@@ -55,8 +55,8 @@ const RULES = [
     id: "server-backend",
     roots: ["server/backend"],
     forbid: [
-      /(?:^|[/\\])client[/\\]platform-adapter[/\\][^/\\]+[/\\]frontend(?:[/\\]|$)/,
-      /platform-adapter[/\\][^/\\]+[/\\]frontend(?:[/\\]|$)/,
+      /(?:^|[/\\])client[/\\]platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
+      /platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /(?:^|[/\\])client[/\\]web[/\\]src(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
     ],
@@ -70,24 +70,50 @@ const RULES = [
     roots: ["server/matcher"],
     forbid: [
       /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
-      /(?:^|[/\\])client[/\\]platform-adapter[/\\][^/\\]+[/\\]frontend(?:[/\\]|$)/,
-      /platform-adapter[/\\][^/\\]+[/\\]frontend(?:[/\\]|$)/,
+      /(?:^|[/\\])client[/\\]platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
+      /platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
     ],
   },
 ];
 
-function discoverPlatformFrontendRoots() {
+const ADAPTER_INFRA_DIRS = new Set([
+  "registry",
+  "loader",
+  "shared",
+  "contract",
+  "backend",
+  "scripts",
+  "_template",
+  "node_modules",
+]);
+
+function discoverPlatformBrowserRoots() {
   const adapterRoot = path.join(CHANGMEN_ROOT, "client/platform-adapter");
   if (!fs.existsSync(adapterRoot)) return [];
   return fs
     .readdirSync(adapterRoot, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && !d.name.startsWith(".") && d.name !== "node_modules")
-    .map((d) => path.join("client/platform-adapter", d.name, "frontend"))
-    .filter((rel) => fs.existsSync(path.join(CHANGMEN_ROOT, rel)));
+    .filter(
+      (d) =>
+        d.isDirectory() &&
+        !d.name.startsWith(".") &&
+        !ADAPTER_INFRA_DIRS.has(d.name),
+    )
+    .map((d) => path.join("client/platform-adapter", d.name));
+}
+
+function isPlatformBrowserFile(relPosixPath) {
+  const parts = relPosixPath.split("/");
+  const idx = parts.indexOf("platform-adapter");
+  if (idx < 0) return false;
+  const platform = parts[idx + 1];
+  if (!platform || ADAPTER_INFRA_DIRS.has(platform)) return false;
+  const rest = parts.slice(idx + 2);
+  if (rest[0] === "shared" || rest[0] === "scripts") return false;
+  return true;
 }
 
 const frontendRule = RULES.find((r) => r.id === "platform-adapter-frontend");
-frontendRule.roots = discoverPlatformFrontendRoots();
+frontendRule.roots = discoverPlatformBrowserRoots();
 
 const IMPORT_RE =
   /(?:import\s+(?:type\s+)?(?:[\w*{}\s,]+)\s+from\s+|import\s+|export\s+(?:type\s+)?(?:\*|{[^}]*})\s+from\s+|require\s*\(\s*|import\s*\(\s*)['"]([^'"]+)['"]/g;
@@ -145,6 +171,9 @@ function main() {
     for (const root of rule.roots) {
       const abs = path.join(CHANGMEN_ROOT, root);
       for (const file of listSourceFiles(abs)) {
+        if (rule.id === "platform-adapter-frontend" && !isPlatformBrowserFile(relPosix(file))) {
+          continue;
+        }
         const content = fs.readFileSync(file, "utf8");
         checkFile(rule, file, content, violations);
       }

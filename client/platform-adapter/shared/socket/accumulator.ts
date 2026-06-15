@@ -6,7 +6,7 @@ import {
   pickA8Field,
   pickImSportId,
   resolveImMapFromBet,
-} from "@platform/im/frontend/parse";
+} from "@platform/im/parse";
 import {
   a8StartTimeCollectAllowed,
   IM_ODDS_ACTIVE_MS,

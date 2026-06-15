@@ -161,7 +161,7 @@ npm run matcher:loop
 
 ### 3.4 platform-adapter（Node 库 / CLI）
 
-Node 库在 **`@changmen/platform-node`**（瘦包同步为 `server/backend/platform_node`），与 `platform_adapter` 并列。
+Node 探针在 **`@changmen/platform-probes`**（`devtools/platform-probes/`，瘦包同步为 `server/backend/platform_node`），与 `platform_adapter` 并列。**日常开发可不使用。**
 
 **标准部署（整仓 `git pull` + `npm install`）**：后端经 workspace 直接使用 `client/platform-adapter`，**不需要**拷贝到 `server/backend/platform_adapter`。`scripts/deploy-server-remote.sh` 亦无需额外步骤。
 
@@ -174,7 +174,7 @@ npm run sync:platform-adapter --workspace=@changmen/backend
 # npm run sync:platform-adapter
 ```
 
-将 `registry/` + 各平台 `node/` + 包级 `backend/_paths` 同步到 `server/backend/platform_adapter/`（跳过 `frontend/`）。可选在进程环境设置 `GAMEBET_ADAPTER_ROOT` 指向该目录（否则解析顺序见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)）。
+将 `registry/` + 各平台 `shared/`（若有）+ 包级 `backend/_paths` 同步到 `server/backend/platform_adapter/`（跳过浏览器采集 ts）。可选在进程环境设置 `GAMEBET_ADAPTER_ROOT` 指向该目录（否则解析顺序见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)）。
 
 冒烟：`npm run test:adapter --workspace=@changmen/backend`（模拟瘦包布局）。
 

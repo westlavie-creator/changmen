@@ -6,15 +6,15 @@
 
 | # | 能力 | A8 符号 | changmen 路径 | 状态 |
 |---|------|---------|---------------|------|
-| 1 | 采集轮询 5s | `AQ` | `client/platform-adapter/pb/frontend/collect.ts` | 已实现 |
-| 2 | 落库 60s | `GS` | `client/platform-adapter/pb/frontend/collect.ts` `SAVE_MS` | 已实现 |
-| 3 | 无账号 3s + clean | `AQ` | `client/platform-adapter/pb/frontend/collect.ts` | 已实现 |
-| 4 | 采集仅 `balance!==undefined` 的 PB 账号 | `bv` | `client/platform-adapter/pb/frontend/auth.ts` | 已实现 |
+| 1 | 采集轮询 5s | `AQ` | `client/platform-adapter/pb/collect.ts` | 已实现 |
+| 2 | 落库 60s | `GS` | `client/platform-adapter/pb/collect.ts` `SAVE_MS` | 已实现 |
+| 3 | 无账号 3s + clean | `AQ` | `client/platform-adapter/pb/collect.ts` | 已实现 |
+| 4 | 采集仅 `balance!==undefined` 的 PB 账号 | `bv` | `client/platform-adapter/pb/auth.ts` | 已实现 |
 | 5 | 不用 platforms.json 采盘 | — | 同上 | 已实现 |
 | 6 | `getPlatform(PB)` 仅过滤 games | `Vt.getPlatform` | `getCollectPlatform` + `getGames` | 已实现 |
-| 7 | 拉盘 `Zn.get` euro/odds | `_Ze` | `client/platform-adapter/pb/frontend/transport.ts` | 已实现 |
+| 7 | 拉盘 `Zn.get` euro/odds | `_Ze` | `client/platform-adapter/pb/transport.ts` | 已实现 |
 | 8 | 请求头 `k0` 固定 515 | `k0` | `shared/platforms/pbHeaders.ts` | 已实现 |
-| 9 | `TQ` key `${matchId}:${map}` | `TQ.set` | `client/platform-adapter/pb/frontend/lineCache.ts` | 已实现 |
+| 9 | `TQ` key `${matchId}:${map}` | `TQ.set` | `client/platform-adapter/pb/lineCache.ts` | 已实现 |
 | 10 | 余额 `Zn.post` account-balance | `PZe.getBalance` | `providers/pbProvider.ts` | 已实现 |
 | 11 | checkBet 仅 `TQ.get` | `PZe.checkBet` | `providers/pbProvider.ts` | 已实现 |
 | 12 | checkBet `Zn.post` all-odds-selections | `PZe.checkBet` | 同上 | 已实现 |

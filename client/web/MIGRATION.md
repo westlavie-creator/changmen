@@ -73,7 +73,7 @@ npm run build
 | `qZe` / `SQ` | `hgProvider` / `hg/followLoop.ts` | 皇冠跟单 |
 | 自动投注循环 | `src/stores/bettingStore.ts` | WinRate、anyOdds、补单阈值等 |
 | `Gi` | `src/stores/messageStore.ts` | 推送/Telegram |
-| `NMe` … `PQ` | `client/platform-adapter/*/frontend/*` | 各平台采集 |
+| `NMe` … `PQ` | `client/platform-adapter/*/*/` | 各平台采集 |
 | `SQ` | `hg/index.ts` + `hg/followLoop.ts` | HG 余额轮询 + 跟单（非 saveMatch） |
 | `LoginView` | `src/views/LoginView.vue` | |
 | `HomeView` | `src/views/HomeView.vue` | |

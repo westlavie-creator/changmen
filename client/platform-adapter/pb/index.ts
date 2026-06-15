@@ -1,11 +1,11 @@
 import type { PlatformAdapter } from "@platform/contract";
-import { pbProvider } from "./frontend/bet";
-import { startPbCollector } from "./frontend/collect";
+import { pbProvider } from "./bet";
+import { startPbCollector } from "./collect";
 
 export { pbProvider, startPbCollector };
-export * from "./frontend/auth";
-export * from "./frontend/bet";
-export * from "./frontend/collect";
+export * from "./auth";
+export * from "./bet";
+export * from "./collect";
 
 export const pbAdapter: PlatformAdapter = {
   id: "PB",

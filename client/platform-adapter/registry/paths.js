@@ -8,7 +8,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const REGISTRY_ROOT = __dirname;
 const ADAPTER_ROOT = path.join(REGISTRY_ROOT, "..");
-const DEFAULT_NODE_ROOT = path.join(CHANGMEN_ROOT, "server", "platform-node");
+const DEFAULT_PROBES_ROOT = path.join(CHANGMEN_ROOT, "devtools", "platform-probes");
+const LEGACY_PROBES_ROOTS = [
+  path.join(CHANGMEN_ROOT, "server", "platform-probes"),
+  path.join(CHANGMEN_ROOT, "server", "platform-node"),
+];
 
 /** @typedef {import("./manifest.json")[number]} PlatformManifestEntry */
 
@@ -45,37 +49,45 @@ export function platformDir(id) {
 /** requirePlatform 第二段字面量（历史兼容 `"backend"`） */
 export const PLATFORM_NODE_DIR = "node";
 
+function probesRootLooksValid(abs) {
+  return fs.existsSync(path.join(abs, "ob", "session.js"));
+}
+
 /**
- * @changmen/platform-node 包根（与 platform-adapter 并列）。
- * - `GAMEBET_NODE_ROOT`（瘦包 / 测试）
- * - 开发：`changmen/server/platform-node`
- * - 瘦包：`server/backend/platform_node`
+ * @changmen/platform-probes 包根（与 platform-adapter 并列）。
+ * - `GAMEBET_PLATFORM_PROBES_ROOT` / `GAMEBET_NODE_ROOT`（瘦包 / 测试）
+ * - 开发：`changmen/devtools/platform-probes`
+ * - 瘦包：`server/backend/platform_node`（历史目录名，同步产物）
  */
 export function getPlatformNodeRoot() {
   if (_platformNodeRootOverride) return _platformNodeRootOverride;
 
-  const forced = process.env.GAMEBET_NODE_ROOT?.trim();
+  const forced =
+    process.env.GAMEBET_PLATFORM_PROBES_ROOT?.trim() || process.env.GAMEBET_NODE_ROOT?.trim();
   if (forced) {
     const abs = path.resolve(forced);
-    if (fs.existsSync(path.join(abs, "ob", "session.js"))) return abs;
-    throw new Error(`GAMEBET_NODE_ROOT invalid (no ob/session.js): ${abs}`);
+    if (probesRootLooksValid(abs)) return abs;
+    throw new Error(`GAMEBET_PLATFORM_PROBES_ROOT invalid (no ob/session.js): ${abs}`);
   }
 
-  if (fs.existsSync(path.join(DEFAULT_NODE_ROOT, "ob", "session.js"))) {
-    return DEFAULT_NODE_ROOT;
+  for (const root of [DEFAULT_PROBES_ROOT, ...LEGACY_PROBES_ROOTS]) {
+    if (probesRootLooksValid(root)) return root;
   }
 
   const bundled = path.join(BACKEND_ROOT, "platform_node");
-  if (fs.existsSync(path.join(bundled, "ob", "session.js"))) {
+  if (probesRootLooksValid(bundled)) {
     return bundled;
   }
 
   const legacyNested = path.join(ADAPTER_ROOT, "node");
-  if (fs.existsSync(path.join(legacyNested, "ob", "session.js"))) {
+  if (probesRootLooksValid(legacyNested)) {
     return legacyNested;
   }
 
-  return DEFAULT_NODE_ROOT;
+  throw new Error(
+    `platform-probes not found: expected devtools/platform-probes (dev) or server/backend/platform_node (packaged); ` +
+      `set GAMEBET_PLATFORM_PROBES_ROOT if using a custom path`,
+  );
 }
 
 function normalizeNodeSegments(segments) {
@@ -85,7 +97,7 @@ function normalizeNodeSegments(segments) {
   return segments;
 }
 
-/** `requirePlatform(id, "node", …)` → `platform-node/{dir}/…` */
+/** `requirePlatform(id, "node", …)` → `platform-probes/{dir}/…` */
 export function resolvePlatformFile(id, ...segments) {
   const dir = platformDir(id);
   const normalized = normalizeNodeSegments(segments);

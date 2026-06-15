@@ -1,11 +1,11 @@
 import type { PlatformAdapter } from "@platform/contract";
-import { stakeProvider } from "./frontend/bet";
-import { startStakeCollector } from "./frontend/collect";
+import { stakeProvider } from "./bet";
+import { startStakeCollector } from "./collect";
 
 export { stakeProvider, startStakeCollector };
-export * from "./frontend/bet";
-export * from "./frontend/collect";
-export * from "./frontend/tabId";
+export * from "./bet";
+export * from "./collect";
+export * from "./tabId";
 
 export const stakeAdapter: PlatformAdapter = {
   id: "Stake",

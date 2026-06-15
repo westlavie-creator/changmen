@@ -2,9 +2,10 @@
   "name": "@changmen/platform-adapter",
   "private": true,
   "type": "commonjs",
-  "description": "各平台浏览器适配器（frontend + registry + loader）",
+  "description": "各平台浏览器适配器（collect/bet + registry + loader）",
   "scripts": {
-    "sync:backend-bundle": "node scripts/sync-backend-bundle.mjs"
+    "sync:backend-bundle": "node scripts/sync-backend-bundle.mjs",
+    "ob:lock-observe": "npx tsx ob/scripts/ob_lock_observe.ts"
   },
   "exports": {
     "./loader/adapter_paths.js": "./loader/adapter_paths.mjs",
