@@ -9,7 +9,11 @@
     "./envelope": "./src/envelope.ts",
     "./actions": "./src/actions.ts",
     "./dto": "./src/dto.ts",
-    "./urls": "./urls.mjs",
+    "./urls": {
+      "types": "./urls.d.ts",
+      "import": "./urls.mjs",
+      "default": "./urls.mjs"
+    },
     "./openapi.yaml": "./openapi.yaml"
   }
 }
