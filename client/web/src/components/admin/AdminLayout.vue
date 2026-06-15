@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/userStore";
 
@@ -29,6 +29,51 @@ const activeTab = computed(() => String(route.name || ""));
 async function logout() {
   await user.logout();
   await router.push({ name: "home" });
+}
+
+onMounted(() => {
+  document.documentElement.classList.add("admin-route");
+  document.addEventListener("wheel", onAdminWheel, { passive: false, capture: true });
+});
+onUnmounted(() => {
+  document.documentElement.classList.remove("admin-route", "admin-route--matrix");
+  document.removeEventListener("wheel", onAdminWheel, { capture: true });
+});
+
+watch(
+  () => route.name,
+  (name) => {
+    document.documentElement.classList.toggle("admin-route--matrix", name === "admin-orders-matrix");
+  },
+  { immediate: true },
+);
+
+/** body overflow:hidden 时，el-table 会截获滚轮；订单页筛选栏等非表格区域也需滚动列表 */
+function onAdminWheel(e: WheelEvent) {
+  const target = e.target;
+  if (!(target instanceof Element) || !target.closest(".admin-shell")) return;
+
+  const ordersCard = target.closest(".admin-card--orders");
+  if (ordersCard) {
+    const scrollEl = ordersCard.querySelector(".admin-card__scroll");
+    if (!(scrollEl instanceof HTMLElement)) return;
+    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+    if (maxScroll <= 0) return;
+    scrollEl.scrollTop = Math.max(0, Math.min(maxScroll, scrollEl.scrollTop + e.deltaY));
+    e.preventDefault();
+    return;
+  }
+
+  if (!target.closest(".el-table")) return;
+
+  const scrollEl = target.closest(".admin-shell__content");
+  if (!(scrollEl instanceof HTMLElement)) return;
+
+  const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+  if (maxScroll <= 0) return;
+
+  scrollEl.scrollTop = Math.max(0, Math.min(maxScroll, scrollEl.scrollTop + e.deltaY));
+  e.preventDefault();
 }
 </script>
 

@@ -47,6 +47,7 @@
     "db:apply": "node scripts/apply-rds-schema.mjs",
     "db:apply:cron": "node scripts/apply-rds-schema.mjs --with-cron",
     "db:migrate-players": "node scripts/migrate-players-to-rds.mjs",
+    "db:check-players": "node scripts/check-players-rds-migrate.mjs",
     "check:rds-schema": "node scripts/check-rds-schema.mjs",
     "db:prune": "node scripts/prune-stale.mjs",
     "check:collect": "node scripts/check-collect-platforms.js",

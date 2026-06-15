@@ -2,9 +2,10 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
+import AdminOrdersGroupedTable from "@/components/admin/AdminOrdersGroupedTable.vue";
 import { getAdminOrders, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
-import { formatLinkId, isSingleLegLink } from "@/shared/format";
+import { classifyLinkId, formatLinkId, isSingleLegLink, linkIdSourceLabel } from "@/shared/format";
 import { useUserStore } from "@/stores/userStore";
 
 const route = useRoute();
@@ -59,6 +60,19 @@ function groupLinkLabel(rows: AdminOrderRow[]) {
   return formatLinkId(rows[0]?.linkId);
 }
 
+function linkSourceTag(linkId: number | undefined) {
+  const source = classifyLinkId(linkId);
+  const label = linkIdSourceLabel(source);
+  if (!source || !label) return null;
+  const title =
+    source === "external"
+      ? "官网/外部下单，link 为 orderId hash"
+      : source === "arb"
+        ? "系统内套利 SaveOrderBind"
+        : "系统内单边下单";
+  return { source, label, title };
+}
+
 function groupIsLinked(rows: AdminOrderRow[]) {
   const link = Number(rows[0]?.linkId) || 0;
   return link !== 0 && !isSingleLegLink(link) && rows.length > 1;
@@ -99,22 +113,8 @@ function shiftDateKey(key: string, deltaDays: number) {
   return `${dt.getFullYear()}-${mm}-${dd}`;
 }
 
-function fmtTime(ts: number) {
-  if (!ts) return "—";
-  return new Date(ts).toLocaleString();
-}
-
 function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
-}
-
-function statusBadgeClass(status: string) {
-  const s = status.toLowerCase();
-  if (s === "win") return "admin-badge--win";
-  if (s === "lose") return "admin-badge--lose";
-  if (s === "reject") return "admin-badge--reject";
-  if (s === "pending") return "admin-badge--pending";
-  return "";
 }
 
 async function loadUsers() {
@@ -194,7 +194,7 @@ onMounted(async () => {
 
 <template>
   <AdminLayout :title="pageTitle" subtitle="按日期、用户与平台筛选订单">
-    <section class="admin-card" v-loading="loading">
+    <section class="admin-card admin-card--orders" v-loading="loading">
         <div class="admin-card__toolbar admin-orders-filters">
           <el-date-picker
             v-model="date"
@@ -233,67 +233,47 @@ onMounted(async () => {
           <el-button size="small" @click="date = shiftDateKey(date, -1)">昨天</el-button>
           <el-button size="small" @click="refresh">刷新</el-button>
         </div>
-        <div class="admin-card__body">
+        <div class="admin-card__body admin-card__scroll">
         <p v-if="loadError" class="admin-order-groups__empty admin-order-groups__empty--err">
           {{ loadError }}
         </p>
         <div class="admin-order-groups">
-          <section
-            v-for="[groupKey, groupRows] in orderGroups"
-            :key="groupKey"
-            class="admin-order-link"
-            :class="{ 'admin-order-link--paired': groupIsLinked(groupRows) }"
+          <AdminOrdersGroupedTable
+            v-if="orderGroups.length"
+            :groups="orderGroups"
+            :show-user-column="!filterUserId"
+            :user-name-by-id="userNameById"
           >
-            <header class="admin-order-link__head">
-              <span class="admin-order-link__id">Link {{ groupLinkLabel(groupRows) }}</span>
-              <span v-if="groupIsLinked(groupRows)" class="admin-order-link__meta">套利 {{ groupRows.length }} 笔</span>
-              <span v-else class="admin-order-link__meta">{{ groupMetaLabel(groupRows) }}</span>
-              <span class="admin-order-link__order-ids" :title="groupRows.map((r) => r.orderId).join(', ')">
-                OrderID {{ groupRows.map((r) => r.orderId).filter(Boolean).join(' · ') || '—' }}
-              </span>
-              <span class="admin-order-link__profit" :class="groupProfitClass(groupRows)">
-                合计 {{ fmtMoney(groupProfit(groupRows)) }}
-              </span>
-            </header>
-            <el-table :data="groupRows" size="small" class="admin-order-link__table">
-              <el-table-column label="OrderID" min-width="168" show-overflow-tooltip>
-                <template #default="{ row }">{{ row.orderId || '—' }}</template>
-              </el-table-column>
-              <el-table-column label="LinkID" width="108" show-overflow-tooltip>
-                <template #default="{ row }">{{ formatLinkId(row.linkId) }}</template>
-              </el-table-column>
-              <el-table-column v-if="!filterUserId" label="用户" width="100">
-                <template #default="{ row }">
-                  {{ userNameById.get(row.userId) || row.userId.slice(0, 8) }}
-                </template>
-              </el-table-column>
-              <el-table-column prop="provider" label="平台" width="70" />
-              <el-table-column prop="match" label="比赛" min-width="160" show-overflow-tooltip />
-              <el-table-column prop="bet" label="盘口" min-width="140" show-overflow-tooltip />
-              <el-table-column prop="item" label="选项" width="100" show-overflow-tooltip />
-              <el-table-column prop="odds" label="赔率" width="70" />
-              <el-table-column label="投注" width="88">
-                <template #default="{ row }">{{ fmtMoney(row.betMoney) }}</template>
-              </el-table-column>
-              <el-table-column label="盈利" width="88">
-                <template #default="{ row }">
-                  <span :class="{ pos: row.money > 0, neg: row.money < 0 }">{{ fmtMoney(row.money) }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="状态" width="88">
-                <template #default="{ row }">
-                  <span class="admin-badge" :class="statusBadgeClass(row.status)">{{ row.status }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="时间" width="160">
-                <template #default="{ row }">{{ fmtTime(row.createAt) }}</template>
-              </el-table-column>
-            </el-table>
-          </section>
+            <template #group-head="{ rows: groupRows }">
+              <div class="admin-order-group-bar__inner">
+                <div class="admin-order-group-bar__left">
+                  <span class="admin-order-group-bar__label">Link</span>
+                  <span class="admin-order-group-bar__link">{{ groupLinkLabel(groupRows) }}</span>
+                  <span
+                    v-for="src in [linkSourceTag(groupRows[0]?.linkId)].filter(Boolean)"
+                    :key="src!.source"
+                    class="admin-link-source"
+                    :class="`admin-link-source--${src!.source}`"
+                    :title="src!.title"
+                  >{{ src!.label }}</span>
+                  <span
+                    class="admin-order-group-bar__type"
+                    :class="{ 'admin-order-group-bar__type--arb': groupIsLinked(groupRows) }"
+                  >
+                    {{ groupIsLinked(groupRows) ? `套利 · ${groupRows.length} 笔` : groupMetaLabel(groupRows) }}
+                  </span>
+                </div>
+                <span class="admin-order-group-bar__profit" :class="groupProfitClass(groupRows)">
+                  合计 {{ fmtMoney(groupProfit(groupRows)) }}
+                </span>
+              </div>
+            </template>
+          </AdminOrdersGroupedTable>
           <p v-if="!loading && !loadError && !orderGroups.length" class="admin-order-groups__empty">
             {{ date }} 暂无订单。可点「昨天」查看近期数据；若应有数据仍为空，请确认服务器
             <code>GAMEBET_DB_SCRIPT=rds</code> 且已重启后端。
           </p>
+        </div>
         </div>
         <div class="admin-orders-pager">
           <el-pagination
@@ -304,7 +284,6 @@ onMounted(async () => {
             small
             @current-change="loadOrders"
           />
-        </div>
         </div>
       </section>
   </AdminLayout>

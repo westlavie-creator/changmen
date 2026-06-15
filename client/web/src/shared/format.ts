@@ -96,3 +96,29 @@ export function formatLinkId(link: number | null | undefined): string {
   if (n < 0) return `gb${Math.abs(n)}`;
   return String(n);
 }
+
+/** SaveOrderBind 时间戳 link vs SaveOrder linkFromOrder hash（u32） */
+export type LinkIdSource = "arb" | "single" | "external";
+
+const ARB_LINK_MIN = 1_000_000_000_000;
+
+export function classifyLinkId(link: number | null | undefined): LinkIdSource | null {
+  const n = Number(link);
+  if (!Number.isFinite(n) || n === 0) return null;
+  if (n < 0) return "single";
+  if (n >= ARB_LINK_MIN) return "arb";
+  return "external";
+}
+
+export function linkIdSourceLabel(source: LinkIdSource | null): string {
+  switch (source) {
+    case "arb":
+      return "系统";
+    case "single":
+      return "单边";
+    case "external":
+      return "外部";
+    default:
+      return "";
+  }
+}

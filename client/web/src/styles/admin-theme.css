@@ -61,9 +61,30 @@
 }
 
 /* ── Shell ── */
+html.admin-route,
+html.admin-route body {
+  height: 100%;
+  overflow: hidden;
+}
+html.admin-route #app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+html.admin-route #app > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
 .admin-shell {
   display: flex;
-  min-height: 100vh;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   background: var(--adm-bg-deep);
   color: var(--adm-text);
 }
@@ -174,13 +195,16 @@
 .admin-shell__main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background:
     radial-gradient(ellipse 80% 50% at 100% 0%, rgba(91, 154, 255, 0.06), transparent 50%),
     var(--adm-bg);
 }
 .admin-shell__topbar {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -218,9 +242,25 @@
   color: var(--adm-text-secondary);
 }
 .admin-shell__content {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 22px 28px 32px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-shell__content:has(.admin-card--orders) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.admin-shell__content::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+}
+.admin-shell__content::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 175, 0.35);
+  border-radius: 4px;
 }
 
 /* ── Cards ── */
@@ -296,6 +336,32 @@
 }
 .admin-card--grow {
   min-height: 280px;
+}
+.admin-card--orders {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.admin-card__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-card__scroll::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+}
+.admin-card__scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 175, 0.35);
+  border-radius: 4px;
+}
+.admin-card--orders .admin-orders-pager {
+  flex-shrink: 0;
+  border-top: 1px solid var(--adm-border);
 }
 
 /* ── Dashboard ── */
@@ -681,7 +747,7 @@
 .admin-order-groups {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
 }
 .admin-order-groups__empty {
   margin: 16px 0;
@@ -720,10 +786,157 @@
   background: rgba(7, 11, 20, 0.55);
   border-bottom: 1px solid var(--adm-border);
 }
+.admin-order-link__head--inline {
+  padding: 0;
+  background: transparent;
+  border-bottom: none;
+}
+
+/* 订单列表：单表 + 分组条（与用户页 el-table 风格一致） */
+.admin-orders-el-table {
+  border-radius: var(--adm-radius);
+  overflow: visible;
+  --el-table-border-color: var(--adm-border);
+}
+.admin-orders-el-table .el-table__inner-wrapper,
+.admin-orders-el-table .el-table__body-wrapper,
+.admin-orders-el-table .el-scrollbar__wrap {
+  overflow: visible !important;
+}
+.admin-shell .admin-orders-el-table .el-scrollbar__bar {
+  display: none !important;
+}
+.admin-orders-el-table .el-table__inner-wrapper::before {
+  display: none;
+}
+.admin-orders-el-table tr.admin-order-group-row > td.el-table__cell {
+  padding: 0 !important;
+  background: var(--adm-surface) !important;
+  border-bottom: 1px solid var(--adm-border) !important;
+}
+.admin-orders-el-table tr.admin-order-group-row.el-table__row--striped > td.el-table__cell,
+.admin-orders-el-table tr.admin-order-group-row:hover > td.el-table__cell {
+  background: var(--adm-surface) !important;
+}
+.admin-orders-el-table tr.admin-order-group-row--paired > td.el-table__cell {
+  box-shadow: inset 3px 0 0 var(--adm-accent);
+}
+.admin-orders-el-table tr.admin-order-group-row + tr.admin-order-data-row > td.el-table__cell {
+  border-top: none;
+}
+.admin-orders-el-table tr.admin-order-data-row:last-child > td.el-table__cell {
+  border-bottom: none;
+}
+.admin-order-group-bar {
+  width: 100%;
+}
+.admin-order-group-bar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  padding: 11px 16px;
+  background: linear-gradient(90deg, rgba(91, 154, 255, 0.1) 0%, rgba(7, 11, 20, 0.2) 55%);
+}
+.admin-order-group-bar__left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  min-width: 0;
+}
+.admin-order-group-bar__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--adm-text-muted);
+}
+.admin-order-group-bar__link {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--adm-text);
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.admin-order-group-bar__type {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--adm-text-secondary);
+  background: rgba(90, 111, 138, 0.18);
+  border: 1px solid var(--adm-border);
+}
+.admin-order-group-bar__type--arb {
+  color: var(--adm-accent);
+  background: var(--adm-accent-soft);
+  border-color: rgba(91, 154, 255, 0.25);
+}
+.admin-order-group-bar__profit {
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-secondary);
+  white-space: nowrap;
+}
+.admin-order-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--adm-text);
+}
+.admin-order-provider {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--adm-accent);
+  background: var(--adm-accent-soft);
+  border: 1px solid rgba(91, 154, 255, 0.2);
+}
+.admin-order-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.admin-order-time {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
 .admin-order-link__id {
   font-weight: 700;
   color: var(--adm-text);
   font-variant-numeric: tabular-nums;
+}
+.admin-link-id-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+.admin-link-source {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+.admin-link-source--arb {
+  color: #67c23a;
+  background: rgba(103, 194, 58, 0.16);
+}
+.admin-link-source--single {
+  color: #e6a23c;
+  background: rgba(230, 162, 60, 0.16);
+}
+.admin-link-source--external {
+  color: var(--adm-text-muted);
+  background: rgba(90, 111, 138, 0.2);
 }
 .admin-order-link__meta {
   padding: 2px 8px;
@@ -766,6 +979,23 @@
 /* 对阵矩阵：整页铺开，由浏览器/主内容区滚动，不用内嵌滚动框 */
 .admin-shell--matrix .admin-shell__main,
 .admin-shell--matrix .admin-shell__content {
+  overflow: visible;
+  min-height: auto;
+}
+.admin-shell--matrix {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+html.admin-route.admin-route--matrix,
+html.admin-route.admin-route--matrix body {
+  height: auto;
+  min-height: 100%;
+  overflow: auto;
+}
+html.admin-route.admin-route--matrix #app {
+  height: auto;
+  min-height: 100%;
   overflow: visible;
 }
 .admin-shell--matrix .admin-shell__content {
@@ -1025,6 +1255,16 @@
 }
 .admin-matrix__order--pending {
   background: var(--adm-warning-soft);
+}
+
+/* Element Plus：后台内表格 — 无固定高度时不截获页面滚动 */
+.admin-shell .el-table .el-table__inner-wrapper,
+.admin-shell .el-table .el-table__body-wrapper,
+.admin-shell .el-table .el-scrollbar__wrap {
+  overflow: visible !important;
+}
+.admin-shell .el-table .el-scrollbar__bar {
+  display: none !important;
 }
 
 /* ── Element Plus：后台内表格 / 表单 / 分页 ── */

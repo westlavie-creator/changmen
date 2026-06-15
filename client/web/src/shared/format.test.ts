@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arbPercent, arbProfitRate, formatDisplayOdds, formatLinkId, formatSecond, isSingleLegLink, percent, toFixed } from "./format";
+import { arbPercent, arbProfitRate, classifyLinkId, formatDisplayOdds, formatLinkId, formatSecond, isSingleLegLink, linkIdSourceLabel, percent, toFixed } from "./format";
 
 describe("format shared helpers", () => {
   it("rounds display odds to three decimals and drops invalid values", () => {
@@ -36,5 +36,15 @@ describe("format shared helpers", () => {
     expect(formatLinkId(-1710000000123)).toBe("gb1710000000123");
     expect(formatLinkId(42)).toBe("42");
     expect(formatLinkId(0)).toBe("—");
+  });
+
+  it("classifies link id source for admin tags", () => {
+    expect(classifyLinkId(1781532641651)).toBe("arb");
+    expect(linkIdSourceLabel("arb")).toBe("系统");
+    expect(classifyLinkId(-1781532641651)).toBe("single");
+    expect(linkIdSourceLabel("single")).toBe("单边");
+    expect(classifyLinkId(3864266867)).toBe("external");
+    expect(linkIdSourceLabel("external")).toBe("外部");
+    expect(classifyLinkId(0)).toBeNull();
   });
 });
