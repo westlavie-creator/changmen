@@ -21,26 +21,26 @@ describe("lock_decision HTTP", () => {
   });
 });
 
-describe("lock_decision changmen layers", () => {
-  test("pending blocks HTTP unlock", () => {
+describe("lock_decision A8 parity (fo/display)", () => {
+  test("HTTP save follows block formula only", () => {
     const r = compareHttpBlock(
       { id: "m1", status: 6, visible: 1, suspended: 0 },
       { pendingBetLocks: { m1: true } },
     );
     expect(r.http.official).toBe(false);
-    expect(r.http.changmenFoAfterHttp).toBe(true);
-    expect(r.changmenDiffersFromOfficial).toBe(true);
+    expect(r.http.changmenFoAfterHttp).toBe(false);
+    expect(r.changmenDiffersFromOfficial).toBe(false);
   });
 
-  test("sourceStatus Locked forces display lock", () => {
+  test("display ignores sourceStatus when fo open", () => {
     const d = changmenDisplayLocked({ sourceStatus: "Locked", foLocked: false });
-    expect(d.locked).toBe(true);
-    expect(d.layer).toBe("sourceStatus");
+    expect(d.locked).toBe(false);
+    expect(d.layer).toBe("open");
   });
 
-  test("changmenHttpSaveIsLock respects pending", () => {
-    expect(changmenHttpSaveIsLock(false, true)).toBe(true);
-    expect(changmenHttpSaveIsLock(false, false)).toBe(false);
+  test("changmenHttpSaveIsLock ignores pending", () => {
+    expect(changmenHttpSaveIsLock(false, true)).toBe(false);
+    expect(changmenHttpSaveIsLock(true, false)).toBe(true);
   });
 });
 

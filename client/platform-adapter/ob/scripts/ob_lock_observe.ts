@@ -1,11 +1,10 @@
 #!/usr/bin/env npx tsx
 /**
- * OB 锁盘观察 — 读 game/view fixture（或 stdin JSON），对照 HTTP / changmen 展示层。
+ * OB 锁盘观察 — 读 game/view fixture，对照 HTTP 与 changmen fo/展示（A8 parity）。
  *
  * 示例：
  *   npx tsx client/platform-adapter/ob/scripts/ob_lock_observe.ts --fixture path/to/view.json
- *   npx tsx client/platform-adapter/ob/scripts/ob_lock_observe.ts --fixture view.json --pending 1001,1002
- *   npx tsx client/platform-adapter/ob/scripts/ob_lock_observe.ts --fixture view.json --source-status Locked --json
+ *   npx tsx client/platform-adapter/ob/scripts/ob_lock_observe.ts --fixture view.json --json
  *
  * fixture：浏览器 Network 里 game/view 响应另存为 JSON（含 data 数组）。
  * 需要 live 拉盘时用可选包：npm run ob:view --workspace=@changmen/platform-probes
@@ -20,8 +19,6 @@ function parseArgs(argv: string[]) {
     fixture: null as string | null,
     json: false,
     onlyDiff: false,
-    pendingMarkets: [] as string[],
-    sourceStatus: "Normal",
   };
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
@@ -33,21 +30,9 @@ function parseArgs(argv: string[]) {
       out.json = true;
     } else if (key === "--only-diff") {
       out.onlyDiff = true;
-    } else if (key === "--pending" && val) {
-      out.pendingMarkets = val.split(",").map((s) => s.trim()).filter(Boolean);
-      i += 1;
-    } else if (key === "--source-status" && val) {
-      out.sourceStatus = val;
-      i += 1;
     }
   }
   return out;
-}
-
-function pendingMap(ids: string[]) {
-  const m: Record<string, boolean> = {};
-  for (const id of ids) m[id] = true;
-  return m;
 }
 
 function formatRow(r: ReturnType<typeof summarizeGameViewJson>["rows"][number]) {
@@ -66,15 +51,12 @@ function formatRow(r: ReturnType<typeof summarizeGameViewJson>["rows"][number]) 
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.fixture) {
-    console.error("usage: ob_lock_observe.ts --fixture <game-view.json> [--pending id,...] [--source-status Locked] [--json] [--only-diff]");
+    console.error("usage: ob_lock_observe.ts --fixture <game-view.json> [--json] [--only-diff]");
     process.exit(1);
   }
 
   const raw = JSON.parse(fs.readFileSync(args.fixture, "utf8"));
-  const summary = summarizeGameViewJson(raw, {
-    pendingBetLocks: pendingMap(args.pendingMarkets),
-    sourceStatus: args.sourceStatus,
-  });
+  const summary = summarizeGameViewJson(raw);
 
   let rows = summary.rows;
   if (args.onlyDiff) {

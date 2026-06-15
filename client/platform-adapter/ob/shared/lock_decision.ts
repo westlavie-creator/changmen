@@ -43,7 +43,9 @@ export type HttpBlockFields = {
 };
 
 export type CompareHttpOpts = {
+  /** @deprecated A8 parity：fo 与展示不再使用 pending / sourceStatus 挡板 */
   pendingBetLocks?: Record<string, boolean>;
+  /** @deprecated 见 pendingBetLocks */
   sourceStatus?: string;
 };
 
@@ -125,19 +127,15 @@ export function changmenMqttLockFromPayload(
   return a8MqttLockFromPayload(topicType, item);
 }
 
-/** changmen fo.save：HTTP 灌盘时 pendingBetLocks 为 true 则不得解锁 */
-export function changmenHttpSaveIsLock(httpLocked: boolean, pendingBetLocked?: boolean) {
-  if (pendingBetLocked === true) return true;
+/** [A8 可证实] fo.save：HTTP 灌盘直接覆盖 isLock，无 pending 合并 */
+export function changmenHttpSaveIsLock(httpLocked: boolean, _pendingBetLocked?: boolean) {
   return httpLocked;
 }
 
-/** changmen ViewBetItem.getOdds：sourceStatus 优先于 fo */
+/** [A8 可证实] FQ 展示只信 fo.isLock */
 export function changmenDisplayLocked(opts: { sourceStatus?: string; foLocked: boolean }) {
-  if (String(opts.sourceStatus) === "Locked") {
-    return { locked: true, layer: "sourceStatus" as const, reason: "ViewBetItem.sourceStatus===Locked" };
-  }
   if (opts.foLocked) {
-    return { locked: true, layer: "fo" as const, reason: "fo.isLock 或 pending 锁盘" };
+    return { locked: true, layer: "fo" as const, reason: "fo.isLock" };
   }
   return { locked: false, layer: "open" as const, reason: "可展示赔率" };
 }

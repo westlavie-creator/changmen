@@ -42,8 +42,7 @@ export class ViewBetItem {
   }
 
   getOdds(side: BetSide) {
-    // [A8 可证实] FQ.getOdds 不读 GetMatchs Sources.Status；RAY 展示只信 fo.isLock
-    if (this.type !== PLATFORMS.RAY && this.sourceStatus === "Locked") return 0;
+    // [A8 可证实] FQ 展示只经 updateOdds → fo.getOdds，不读 GetMatchs Sources.Status
     const oddsStore = useOddsStore();
     const fallback = side === "Home" ? this.fallbackHomeOdds : this.fallbackAwayOdds;
     return oddsStore.getOdds(this.type, this.getItemId(side), fallback) || 0;

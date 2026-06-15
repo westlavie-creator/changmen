@@ -12,7 +12,6 @@ import { defineStore } from "pinia";
 import type { PlatformId } from "@/types/esport";
 import type { LimitEntry } from "@/types/limit";
 import { formatDisplayOdds } from "@/shared/format";
-import { PLATFORMS } from "@/shared/platform";
 
 /** 写入 fo 的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
 export type OddsSaveSource = "mqtt" | "http";
@@ -29,7 +28,7 @@ export interface OddsEntry {
   id: string;
   /** 原始赔率数值；锁盘时 UI 显示 0，不读 fallback */
   odds: number;
-  /** 是否锁盘/不可下注（MQTT 锁盘、盘口 suspend、或 pending* 合并结果） */
+  /** 是否锁盘/不可下注（HTTP 灌盘公式或 MQTT 增量） */
   isLock: boolean;
   /** 所属盘口 ID（market / bet group id），用于 betIndex 按盘锁盘 */
   betId?: string;
@@ -65,20 +64,6 @@ export const useOddsStore = defineStore("odds", {
     betIndex: new Map<PlatformId, Map<string, string[]>>(),
 
     /**
-     * 待生效的 **盘口级** 锁盘：`platform → betId → locked`。
-     * MQTT 可能先于 HTTP 灌盘到达，此时 betIndex 为空，锁盘状态暂存于此；
-     * 后续 `save()` 写入该 betId 下条目时会合并到 `entry.isLock`。
-     */
-    pendingBetLocks: new Map<PlatformId, Map<string, boolean>>(),
-
-    /**
-     * 待生效的 **选项级** 锁盘：`platform → oddId → locked`。
-     * `applyObOddLock` 在 `isOdds(id)===false` 时无法改已有行，先写这里；
-     * 首次 `save()` 该 oddId 时应用。
-     */
-    pendingOddLocks: new Map<PlatformId, Map<string, boolean>>(),
-
-    /**
      * 调试：各平台最近一条 WS/MQTT 原始 payload 字符串（非业务主路径）。
      */
     messages: new Map<PlatformId, string>(),
@@ -112,22 +97,6 @@ export const useOddsStore = defineStore("odds", {
       const bucket = this.data.get(platform)!;
       const prev = bucket.get(id);
       const nextOdds = entry.odds;
-
-      // [A8 可证实] RAY fo.save 直接覆盖，无 pending* 合并（vQe HTTP/WS）
-      if (platform !== PLATFORMS.RAY) {
-        const pendingOddLocked = this.pendingOddLocks.get(platform)?.get(id);
-        const pendingBetLocked = entry.betId
-          ? this.pendingBetLocks.get(platform)?.get(String(entry.betId))
-          : undefined;
-        if (source !== "http") {
-          // MQTT/WS：pending 覆盖推送里的 isLock
-          if (pendingOddLocked !== undefined) entry.isLock = pendingOddLocked;
-          if (pendingBetLocked !== undefined) entry.isLock = pendingBetLocked;
-        } else if (pendingOddLocked === true || pendingBetLocked === true) {
-          // HTTP 灌盘：WS 已锁盘时 API 仍可能返回旧赔率，pending=true 不得被 HTTP 解锁
-          entry.isLock = true;
-        }
-      }
 
       if (
         prev &&
@@ -193,13 +162,9 @@ export const useOddsStore = defineStore("odds", {
       return formatDisplayOdds(row.odds);
     },
 
-    /** 更新单条 odd 锁盘；写入 pendingOddLocks，若 fo 中已有行则同步 isLock */
+    /** 更新单条 odd 锁盘（对齐 A8 `updateOddsLock`：仅改 fo 已有行） */
     updateOddsLock(platform: PlatformId, oddsId: string, locked: boolean) {
       const key = String(oddsId);
-      if (!this.pendingOddLocks.has(platform)) this.pendingOddLocks.set(platform, new Map());
-      const pending = this.pendingOddLocks.get(platform)!;
-      if (locked) pending.set(key, true);
-      else pending.delete(key);
       const row = this.data.get(platform)?.get(key);
       if (row) {
         row.isLock = locked;
@@ -207,13 +172,9 @@ export const useOddsStore = defineStore("odds", {
       }
     },
 
-    /** 更新整盘锁盘；写入 pendingBetLocks，并对 betIndex 下所有 oddId 调 updateOddsLock */
+    /** 更新整盘锁盘（对齐 A8 `updateBetLock`：betIndex 下所有 odd） */
     updateBetLock(platform: PlatformId, betId: string, locked: boolean) {
       const key = String(betId);
-      if (!this.pendingBetLocks.has(platform)) this.pendingBetLocks.set(platform, new Map());
-      const pending = this.pendingBetLocks.get(platform)!;
-      if (locked) pending.set(key, true);
-      else pending.delete(key);
 
       const indexed = this.betIndex.get(platform)?.get(key);
       if (indexed?.length) {
@@ -256,15 +217,13 @@ export const useOddsStore = defineStore("odds", {
 
     /**
      * 清理 fo 条目。
-     * - 传入 platform：清空该平台 data / betIndex / pending*（采集轮次切换时用）
+     * - 传入 platform：清空该平台 data / betIndex（采集轮次切换时用）
      * - 不传：全局扫描，删除 time 超过 1 小时的 stale odd（不碰 betIndex 孤儿索引，靠 save 重建）
      */
     clean(platform?: PlatformId) {
       if (platform) {
         this.data.set(platform, new Map());
         this.betIndex.set(platform, new Map());
-        this.pendingBetLocks.set(platform, new Map());
-        this.pendingOddLocks.set(platform, new Map());
         return;
       }
       const cutoff = Date.now() - 3_600_000;
