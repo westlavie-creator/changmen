@@ -72,13 +72,13 @@ npm run account:refresh
 
 ## 数据文件
 
-`scripts/data/esport/`：
+运行时目录 `server/backend/storage/`（见 [STORAGE.md](../../STORAGE.md)）：
 
-- `user_kv.json` — `ACCOUNT` 账号列表（前端 saveAccounts 写入）
+- `profiles`（RDS）— `ACCOUNT`、CollectConfig 等（前端 `Client_SaveData`）
 - `tag_platforms.json` — 标签平台目录
 - `players.json` — playerId / platformId / credit / totalBalance
-- `money_logs.json` — 充提流水
 - `player_orders.json` — 各 player 订单缓存
+- `money_logs` — **RDS 表**，非 JSON 文件
 
 ## 控制台使用
 

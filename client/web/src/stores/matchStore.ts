@@ -9,6 +9,7 @@ import type { PlatformId } from "@/types/esport";
 import type { MatchScoreBoard, PlatformScoreUpdate, ScoreRound } from "@/types/matchScore";
 import { useUserStore } from "@/stores/userStore";
 import { useOddsStore } from "@/stores/oddsStore";
+import { PLATFORMS } from "@/shared/platform";
 
 const POLL_MS = 30_000;
 const DEFAULT_ODDS_MS = 10 * 60 * 1000;
@@ -116,12 +117,13 @@ export const useMatchStore = defineStore("match", {
       }
     },
 
-    /** GetMatchs 已 Locked 时同步 fo pending，避免 HTTP status=2 旧赔率覆盖锁盘 */
+    /** GetMatchs 已 Locked 时同步 fo pending，避免 HTTP status=2 旧赔率覆盖锁盘（RAY 除外，对齐 A8 vQe） */
     syncFoLocksFromMatchs() {
       const odds = useOddsStore();
       for (const match of this.matchs) {
         for (const bet of match.bets) {
           for (const item of bet.items) {
+            if (item.type === PLATFORMS.RAY) continue;
             if (item.sourceStatus !== "Locked") continue;
             odds.updateBetLock(item.type, item.betId, true);
             if (item.homeId) odds.updateOddsLock(item.type, item.homeId, true);

@@ -74,6 +74,22 @@
   overflow: visible;
 }
 
+.orders .orderlink--paired {
+  border-color: #67c23a;
+  box-shadow: 0 0 0 1px rgba(103, 194, 58, 0.35);
+}
+
+.orders .orderlink__tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 11px;
+  line-height: 14px;
+  vertical-align: middle;
+}
+
 .orders .order {
   overflow: visible;
 }

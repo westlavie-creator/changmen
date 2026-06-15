@@ -12,7 +12,7 @@ export function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
   const awayTeam = teams.find((t) => t.pos === 2);
   if (!homeTeam || !awayTeam) return [];
 
-  const grouped = new Map();
+  const rows = [];
   for (const p of result?.odds ?? []) {
     if (!isRayOddCollectable(p, betRe)) continue;
 
@@ -20,13 +20,12 @@ export function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
     const oddsId = String(p.odds_id ?? "");
     const groupId = String(p.odds_group_id ?? "");
     const stage = rayMatchStage(p.match_stage);
-    const rowKey = `${stage}:${groupId}`;
     const prefix = stage === 0 ? "[全场]" : `[地图${stage}]`;
 
     const isHome = String(p.team_id) === String(homeTeam.team_id);
     const isAway = String(p.team_id) === String(awayTeam.team_id);
 
-    let row = grouped.get(rowKey);
+    let row = rows.find((v) => v.SourceBetID === groupId);
     if (row) {
       if (isHome) {
         row.SourceHomeID = oddsId;
@@ -40,7 +39,7 @@ export function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
       continue;
     }
 
-    row = {
+    rows.push({
       Type: platform,
       SourceMatchID: result.id,
       SourceBetID: groupId,
@@ -53,9 +52,8 @@ export function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
       AwayName: isAway ? String(p.name ?? "") : "",
       AwayOdds: isAway ? Number(p.odds) || 0 : 0,
       Status: p.status === 1 ? "Normal" : "Locked",
-    };
-    grouped.set(rowKey, row);
+    });
   }
 
-  return [...grouped.values()].sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
+  return rows.sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
 }

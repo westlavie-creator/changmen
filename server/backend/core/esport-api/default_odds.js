@@ -1,13 +1,18 @@
 export const DEFAULT_ODDS_FILE = "default_odds";
 
-export function createDefaultOddsApi(readJson, writeJson) {
+export function createDefaultOddsApi(readJson, writeJson, options = {}) {
+  const persist =
+    typeof options.writeDebounced === "function"
+      ? options.writeDebounced
+      : writeJson;
+
   function readStore() {
     const raw = readJson(DEFAULT_ODDS_FILE, {});
     return raw && typeof raw === "object" ? raw : {};
   }
 
   function writeStore(store) {
-    writeJson(DEFAULT_ODDS_FILE, store);
+    persist(DEFAULT_ODDS_FILE, store);
   }
 
   /** 从合并列表各盘 Sources 取主客最大赔，用于快照回退 */
@@ -71,8 +76,9 @@ export function createDefaultOddsApi(readJson, writeJson) {
     if (!wanted.size) return out;
 
     await pruneStaleKeys(buildMatchList);
-    const store = readStore();
     const matches = (await buildMatchList()) || [];
+    recordFromMatchList(matches);
+    const store = readStore();
     for (const match of matches) {
       if (!wanted.has(Number(match.ID))) continue;
       const snap = snapshotFromBets(match.Bets);

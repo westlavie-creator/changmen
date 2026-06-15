@@ -1,10 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
 import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
 import { formatBetOdds } from "@changmen/shared/odds_format.js";
 import { a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
+import { readJsonFile, writeJsonFile, writeJsonFileDebounced } from "@changmen/db/json_file_store.js";
 import {
-  ensureDefaultJsonFiles,
+  ensureStorageSeed,
   getPlatform as getPlatformRow,
   setPlatform as setPlatformRow,
 } from "@changmen/db/platform_storage.js";
@@ -23,26 +22,12 @@ const _matches = {}; // { [provider]: { [matchId]: matchData } }
 const _bets = {}; // { [provider:matchId]: { provider, matchId, bets } }
 const _timers = {}; // { [provider]: { provider, timer } }
 
-function filePath(name) {
-  return path.join(DATA_DIR, `${name}.json`);
-}
+const readJson = readJsonFile;
+const writeJson = writeJsonFile;
 
-function readJson(name, fallback) {
-  const fp = filePath(name);
-  try {
-    if (!fs.existsSync(fp)) return fallback;
-    return JSON.parse(fs.readFileSync(fp, "utf8"));
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJson(name, data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(filePath(name), JSON.stringify(data, null, 2), "utf8");
-}
-
-const defaultOddsApi = createDefaultOddsApi(readJson, writeJson);
+const defaultOddsApi = createDefaultOddsApi(readJson, writeJson, {
+  writeDebounced: (name, data) => writeJsonFileDebounced(name, data, 5000),
+});
 
 const DEFAULT_USER_KV = {
   CollectConfig: JSON.stringify({ log: false, collect: [] }),
@@ -72,7 +57,7 @@ const USER_SETTING_KEYS = [
 
 // ── 初始化 JSON 文件 ───────────────────────────────────────────────────────
 export function ensureSeed() {
-  ensureDefaultJsonFiles();
+  ensureStorageSeed();
 }
 
 // ── Auth：token → profile（鉴权逻辑在 @changmen/db）────────

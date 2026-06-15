@@ -27,6 +27,7 @@ Windows：`BAT\setup-dev-env.bat`（首次）→ `BAT\dev.bat` 或 `BAT\backend.
 | 平台适配器 | [client/platform-adapter/README.md](../../client/platform-adapter/README.md) |
 | 新控制台 / v4 | [client/web/docs/CREDIT_PLATE.md](../../client/web/docs/CREDIT_PLATE.md) |
 | 运维脚本 | [scripts/README.md](../../scripts/README.md) |
+| 本机 JSON（storage/） | [STORAGE.md](./STORAGE.md) |
 
 ## 目录概要
 
@@ -37,7 +38,8 @@ core/account/        # 场馆账号
 proxy/               # 各平台 HTTP 代理
 scripts/             # 运维 CLI（见 scripts/README.md）
 db/migrations/       # RDS 迁移
-data/esport/         # 开发用 JSON（platforms 等）
+storage/             # 运行时 JSON（gitignore，见 STORAGE.md）
+storage.example/     # 空模板
 public/esport2/      # A8 静态资源
 ```
 

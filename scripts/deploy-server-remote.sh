@@ -81,7 +81,7 @@ classify() {
       DO_APP_BUILD=1
       DO_PM2_MATCHER=1
       ;;
-    server/db/*|server/match-engine/*|server/platform-node/*|server/team-resolver/*)
+    server/db/*|server/match-engine/*|devtools/platform-probes/*|server/team-resolver/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       DO_PM2_MATCHER=1

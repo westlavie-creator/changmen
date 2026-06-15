@@ -12,6 +12,7 @@ import { defineStore } from "pinia";
 import type { PlatformId } from "@/types/esport";
 import type { LimitEntry } from "@/types/limit";
 import { formatDisplayOdds } from "@/shared/format";
+import { PLATFORMS } from "@/shared/platform";
 
 /** 写入 fo 的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
 export type OddsSaveSource = "mqtt" | "http";
@@ -112,17 +113,20 @@ export const useOddsStore = defineStore("odds", {
       const prev = bucket.get(id);
       const nextOdds = entry.odds;
 
-      const pendingOddLocked = this.pendingOddLocks.get(platform)?.get(id);
-      const pendingBetLocked = entry.betId
-        ? this.pendingBetLocks.get(platform)?.get(String(entry.betId))
-        : undefined;
-      if (source !== "http") {
-        // MQTT/WS：pending 覆盖推送里的 isLock
-        if (pendingOddLocked !== undefined) entry.isLock = pendingOddLocked;
-        if (pendingBetLocked !== undefined) entry.isLock = pendingBetLocked;
-      } else if (pendingOddLocked === true || pendingBetLocked === true) {
-        // HTTP 灌盘：WS 已锁盘时 API 仍可能返回旧赔率，pending=true 不得被 HTTP 解锁
-        entry.isLock = true;
+      // [A8 可证实] RAY fo.save 直接覆盖，无 pending* 合并（vQe HTTP/WS）
+      if (platform !== PLATFORMS.RAY) {
+        const pendingOddLocked = this.pendingOddLocks.get(platform)?.get(id);
+        const pendingBetLocked = entry.betId
+          ? this.pendingBetLocks.get(platform)?.get(String(entry.betId))
+          : undefined;
+        if (source !== "http") {
+          // MQTT/WS：pending 覆盖推送里的 isLock
+          if (pendingOddLocked !== undefined) entry.isLock = pendingOddLocked;
+          if (pendingBetLocked !== undefined) entry.isLock = pendingBetLocked;
+        } else if (pendingOddLocked === true || pendingBetLocked === true) {
+          // HTTP 灌盘：WS 已锁盘时 API 仍可能返回旧赔率，pending=true 不得被 HTTP 解锁
+          entry.isLock = true;
+        }
       }
 
       if (

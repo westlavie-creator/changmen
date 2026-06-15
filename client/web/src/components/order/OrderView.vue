@@ -2,7 +2,7 @@
 import { onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import type { OrderRow } from "@/types/order";
-import { useOrderStore } from "@/stores/orderStore";
+import { useOrderStore, isLinkedArbGroup } from "@/stores/orderStore";
 import { formatOrderTime, toFixed } from "@/shared/format";
 
 const orderStore = useOrderStore();
@@ -36,6 +36,10 @@ function playerLabel(row: OrderRow) {
 
 function platformClass(row: OrderRow) {
   return orderStore.platformClass(row);
+}
+
+function isArbGroup(rows: OrderRow[]) {
+  return isLinkedArbGroup(rows);
 }
 </script>
 
@@ -73,8 +77,16 @@ function platformClass(row: OrderRow) {
   </div>
 
   <div class="orders" :class="{ loading }">
-    <fieldset v-for="[link, rows] in orderEntries" :key="link" class="orderlink">
-      <legend :class="legendClass(rows)">{{ legendText(rows) }}</legend>
+    <fieldset
+      v-for="[link, rows] in orderEntries"
+      :key="link"
+      class="orderlink"
+      :class="{ 'orderlink--paired': isArbGroup(rows) }"
+    >
+      <legend :class="legendClass(rows)">
+        <span v-if="isArbGroup(rows)" class="orderlink__tag">套利</span>
+        {{ legendText(rows) }}
+      </legend>
       <div v-for="row in rows" :key="String(row.OrderID)" class="order">
         <label class="status" :class="row.Status" />
         <div class="platform flex" :class="platformClass(row)">

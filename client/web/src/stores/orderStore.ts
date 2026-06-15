@@ -15,14 +15,42 @@ function todayKey() {
   return `${y}-${m}-${day}`;
 }
 
+function groupKey(row: OrderRow) {
+  return Number(row.Link) || Number(row.OrderID) || 0;
+}
+
 function groupByLink(list: OrderRow[]) {
   const map = new Map<number, OrderRow[]>();
   for (const row of list) {
-    const link = Number(row.Link) || Number(row.OrderID) || 0;
+    const link = groupKey(row);
     if (!map.has(link)) map.set(link, []);
     map.get(link)!.push(row);
   }
   return map;
+}
+
+function sortRowsInGroup(rows: OrderRow[]) {
+  return [...rows].sort(
+    (a, b) => (Number(a.CreateAt) || 0) - (Number(b.CreateAt) || 0),
+  );
+}
+
+/** 订单组按组内最新 CreateAt 降序；组内按 CreateAt 升序（套利双腿固定在同一 fieldset） */
+export function sortOrderGroupEntries(
+  map: Map<number, OrderRow[]>,
+): [number, OrderRow[]][] {
+  return [...map.entries()]
+    .map(([key, rows]) => [key, sortRowsInGroup(rows)] as [number, OrderRow[]])
+    .sort((a, b) => {
+      const ta = Math.max(...a[1].map((r) => Number(r.CreateAt) || 0));
+      const tb = Math.max(...b[1].map((r) => Number(r.CreateAt) || 0));
+      return tb - ta;
+    });
+}
+
+export function isLinkedArbGroup(rows: OrderRow[]) {
+  const link = Number(rows[0]?.Link) || 0;
+  return link !== 0 && !isSingleLegLink(link) && rows.length > 1;
 }
 
 /** 对齐 A8 `Io.getOrders` / `orders` / `orderDate` */
@@ -46,9 +74,9 @@ export const useOrderStore = defineStore("order", {
       return out;
     },
 
-    /** 模板 v-for 用：Map 转稳定数组 */
+    /** 模板 v-for 用：按最新下单时间排序，同 Link 套利双腿为一组 */
     orderEntries(): [number, OrderRow[]][] {
-      return [...this.filteredOrders.entries()];
+      return sortOrderGroupEntries(this.filteredOrders);
     },
 
     accountOptions(): { value: number; label: string }[] {
@@ -71,9 +99,7 @@ export const useOrderStore = defineStore("order", {
       try {
         this.orderDate = date || todayKey();
         const page = await getOrderList({ date: this.orderDate, pageSize: 1024 });
-        const list = [...(page.list || [])].sort((a, b) =>
-          (b.Link || 0) > (a.Link || 0) ? 1 : -1,
-        );
+        const list = page.list || [];
         this.orders = groupByLink(list);
         this.updateTodayProfit(list);
         useMessageStore().orderReportMessage(accountStore.accounts, list);

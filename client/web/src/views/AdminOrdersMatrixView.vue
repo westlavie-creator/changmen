@@ -156,20 +156,17 @@ function linkGroupStatusLabel(g: LinkOrderGroup) {
   return g.rows[0]?.status || "—";
 }
 
-function linkKeysForBetRow(betRow: BetRow): number[] {
-  const meta = new Map<number, number>();
+/** 同盘口下各用户按时间排序后的第 N 组（0-based），用于跨用户同行对比 */
+function slotCountForBetRow(betRow: BetRow): number {
+  let max = 0;
   for (const groups of Object.values(betRow.cells)) {
-    for (const g of groups) {
-      if (!meta.has(g.key)) meta.set(g.key, g.createAt);
-    }
+    max = Math.max(max, groups.length);
   }
-  return [...meta.entries()]
-    .sort((a, b) => a[1] - b[1])
-    .map(([key]) => key);
+  return Math.max(max, 1);
 }
 
-function linkGroupForUser(betRow: BetRow, userColKey: string, linkKey: number) {
-  return (betRow.cells[userColKey] || []).find((g) => g.key === linkKey) || null;
+function linkGroupForUserAtSlot(betRow: BetRow, userColKey: string, slotIndex: number) {
+  return (betRow.cells[userColKey] || [])[slotIndex] ?? null;
 }
 
 function linkIdLabel(g: LinkOrderGroup | null) {
@@ -181,7 +178,7 @@ interface MatrixDisplayRow {
   rowKey: string;
   group: MatchGroup;
   betRow: BetRow;
-  linkKey: number;
+  slotIndex: number;
   cellsByUser: Record<string, LinkOrderGroup | null>;
   isFirstGroupRow: boolean;
   isFirstBetRow: boolean;
@@ -363,32 +360,30 @@ const matrixDisplayRows = computed<MatrixDisplayRow[]>(() => {
   const rows: MatrixDisplayRow[] = [];
   for (const group of matchGroups.value) {
     const groupRowspan = group.bets.reduce(
-      (sum, bet) => sum + Math.max(linkKeysForBetRow(bet).length, 1),
+      (sum, bet) => sum + slotCountForBetRow(bet),
       0
     );
     let groupStarted = false;
     for (const betRow of group.bets) {
-      const linkKeys = linkKeysForBetRow(betRow);
-      const keys = linkKeys.length ? linkKeys : [0];
-      const betRowspan = Math.max(linkKeys.length, 1);
-      keys.forEach((linkKey, linkIdx) => {
+      const slotCount = slotCountForBetRow(betRow);
+      for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
         const cellsByUser: Record<string, LinkOrderGroup | null> = {};
         for (const col of cols) {
-          cellsByUser[col.key] = linkGroupForUser(betRow, col.key, linkKey);
+          cellsByUser[col.key] = linkGroupForUserAtSlot(betRow, col.key, slotIndex);
         }
         rows.push({
-          rowKey: `${betRow.key}::${linkKey}`,
+          rowKey: `${betRow.key}::s${slotIndex}`,
           group,
           betRow,
-          linkKey,
+          slotIndex,
           cellsByUser,
           isFirstGroupRow: !groupStarted,
-          isFirstBetRow: linkIdx === 0,
+          isFirstBetRow: slotIndex === 0,
           groupRowspan,
-          betRowspan,
+          betRowspan: slotCount,
         });
         groupStarted = true;
-      });
+      }
     }
   }
   return rows;
@@ -464,7 +459,7 @@ onMounted(async () => {
   <AdminLayout
     class="admin-shell--matrix"
     title="对阵矩阵"
-    subtitle="比赛纵向排列，同场盘口在左侧合并展示"
+    subtitle="纵向按比赛与盘口展开，横向对比各用户下单；同格内按 LinkID 合并双腿套利"
   >
     <section class="admin-card admin-orders-matrix" v-loading="loading">
       <div class="admin-card__toolbar admin-orders-filters">

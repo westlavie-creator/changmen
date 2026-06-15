@@ -12,6 +12,8 @@
     "./paths.js": "./paths.js",
     "./paths.cjs": "./paths.cjs",
     "./platform_storage.js": "./platform_storage.js",
+    "./json_file_store.js": "./json_file_store.js",
+    "./ensure_storage_seed.js": "./ensure_storage_seed.js",
     "./pg.js": "./pg.js"
   },
   "dependencies": {

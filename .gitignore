@@ -26,9 +26,6 @@ desktop.ini
 *.swp
 *.swo
 
-# 遗留 apps/ 空目录（档 B 已迁至 client/ + server/）
-/apps/
-
 # Secrets & local runtime data (do not commit)
 server/backend/data/esport/*.json
 server/backend/data/esport/*.b64
@@ -36,12 +33,6 @@ server/backend/data/esport/*.b64
 server/backend/data/*.db
 server/backend/data/*.db-shm
 server/backend/data/*.db-wal
-gamebet_backend/data/esport/*.json
-gamebet_backend/data/esport/*.b64
-!gamebet_backend/data/esport/*.example.json
-gamebet_backend/data/*.db
-gamebet_backend/data/*.db-shm
-gamebet_backend/data/*.db-wal
 
 # Codex / AI tool backup files
 **/*.codex-backup-*
@@ -61,11 +52,6 @@ gamebet_chromeplug/scripts/_extracted/
 # Team name resolver runtime cache
 server/team-resolver/cache/*.json
 !server/team-resolver/cache/.gitkeep
-packages/team-resolver/cache/*.json
-!packages/team-resolver/cache/.gitkeep
-team-resolver/cache/*.json
-!team-resolver/cache/.gitkeep
-
 # AI/session scratch (not product code)
 memory/
 server/backend/platform_adapter/

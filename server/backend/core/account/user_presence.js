@@ -5,9 +5,10 @@ export const ONLINE_WINDOW_MS = 30 * 60 * 1000;
 
 /** @type {Map<string, number>} */
 const lastActive = new Map();
-/** @type {Map<string, number>} */
-const lastPersistAt = new Map();
 let hydrated = false;
+let persistTimer = null;
+
+const PERSIST_DEBOUNCE_MS = 60_000;
 
 function hydrateFromLegacySessions() {
   const sessions = store.readJson("sessions", {});
@@ -35,22 +36,26 @@ function persistSessions() {
   store.writeJson("sessions", sessions);
 }
 
-/** 用户发起已鉴权请求或登录成功时刷新活跃时间 */
-export function touchUserPresence(userId) {
-  if (!userId) return;
-  ensureHydrated();
-  const uid = String(userId);
-  const now = Date.now();
-  lastActive.set(uid, now);
-  const prevPersist = lastPersistAt.get(uid) || 0;
-  if (now - prevPersist >= 60_000) {
-    lastPersistAt.set(uid, now);
+function schedulePersist() {
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
     try {
       persistSessions();
     } catch {
       /* 磁盘写入失败不影响在线判定 */
     }
-  }
+  }, PERSIST_DEBOUNCE_MS);
+  if (typeof persistTimer.unref === "function") persistTimer.unref();
+}
+
+/** 用户发起已鉴权请求或登录成功时刷新活跃时间 */
+export function touchUserPresence(userId) {
+  if (!userId) return;
+  ensureHydrated();
+  const uid = String(userId);
+  lastActive.set(uid, Date.now());
+  schedulePersist();
 }
 
 export function getUserLastActiveAt(userId) {

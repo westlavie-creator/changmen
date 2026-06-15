@@ -8,6 +8,8 @@ describe("RAY match_stage", () => {
     expect(rayMatchStage("r1")).toBe(1);
     expect(rayMatchStage("r2")).toBe(2);
     expect(rayMatchStage("R3")).toBe(3);
+    expect(rayMatchStage("map1")).toBe(1);
+    expect(rayMatchStage("map2")).toBe(2);
   });
 });
 
