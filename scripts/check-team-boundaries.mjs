@@ -76,6 +76,12 @@ const RULES = [
   },
 ];
 
+const FORBIDDEN_LEGACY_DIRS = [
+  "server/platform-node",
+  "server/platform-probes",
+  "client/platform-adapter/node",
+];
+
 const ADAPTER_INFRA_DIRS = new Set([
   "registry",
   "loader",
@@ -164,8 +170,25 @@ function checkFile(rule, filePath, content, violations) {
   }
 }
 
+function checkLegacyDirs(violations) {
+  for (const rel of FORBIDDEN_LEGACY_DIRS) {
+    const abs = path.join(CHANGMEN_ROOT, rel);
+    if (fs.existsSync(abs)) {
+      violations.push({
+        rule: "legacy-dir",
+        file: rel,
+        line: 0,
+        spec: "directory exists",
+        pattern: "removed in P2; use devtools/platform-probes",
+      });
+    }
+  }
+}
+
 function main() {
   const violations = [];
+
+  checkLegacyDirs(violations);
 
   for (const rule of RULES) {
     for (const root of rule.roots) {
@@ -187,6 +210,10 @@ function main() {
 
   console.error(`check-team-boundaries: ${violations.length} violation(s)\n`);
   for (const v of violations) {
+    if (v.rule === "legacy-dir") {
+      console.error(`  [legacy-dir] ${v.file} still exists (${v.pattern})`);
+      continue;
+    }
     console.error(`  [${v.rule}] ${v.file}:${v.line}`);
     console.error(`    import "${v.spec}"`);
     console.error(`    matched /${v.pattern}/\n`);

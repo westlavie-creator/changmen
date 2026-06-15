@@ -11,6 +11,8 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 | **客户端** | `client/web/`、`client/chrome-extension/`、`client/platform-adapter/` | UI、采集、下注、插件、各平台适配源码 |
 | **服务端** | `server/backend/`、`server/matcher/`、`server/db/`、`server/match-engine/`、`server/team-resolver/` | API、合并、RDS、代理/余额、运维脚本 |
 | **开发工具** | `devtools/platform-probes/` | 可选：直连各平台探针 CLI（非主链路） |
+
+已移除的遗留目录（勿再创建）：`server/platform-node`、`server/platform-probes`、`client/platform-adapter/node/`。探针源码仅在 `devtools/platform-probes/`；瘦包同步产物为 `server/backend/platform_node/`。
 | **共同协商** | `packages/shared/`、`packages/api-contract/`、`docs/TEAM_BOUNDARIES.md`、`.github/CODEOWNERS` | 跨端工具、catalog、HTTP 契约 |
 
 `client/platform-adapter` 内的 `loader/`、`registry/`、`scripts/`、`backend/_paths` 属**适配器基础设施**：客户端团队主维护；服务端仅通过 `requirePlatform(..., "node")` 与瘦包同步消费，**不得**引用各平台根目录下的采集/下注模块（`{platform}/shared/` 除外）。

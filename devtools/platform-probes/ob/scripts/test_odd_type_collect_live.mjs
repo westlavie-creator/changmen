@@ -2,8 +2,8 @@
 /**
  * Live OB：用浏览�?home URL（含 token + addr）拉 game/view，验�?odd_type_id 采集过滤�? *
  * Usage:
- *   node platform-adapter/node/ob/scripts/test_odd_type_collect_live.mjs "<home url>"
- *   OB_HOME_URL="<home url>" node platform-adapter/node/ob/scripts/test_odd_type_collect_live.mjs
+ *   node devtools/platform-probes/ob/scripts/test_odd_type_collect_live.mjs "<home url>"
+ *   OB_HOME_URL="<home url>" node devtools/platform-probes/ob/scripts/test_odd_type_collect_live.mjs
  *
  * Options:
  *   --max-matches N   默认 5

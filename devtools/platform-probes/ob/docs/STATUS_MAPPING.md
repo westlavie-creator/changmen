@@ -174,5 +174,5 @@ node scripts/platforms/ob/fetch_ob_live.js --max-matches 3
 
 各平台原始字段不同，**不应**共用一张「原始值配置表」。接入 TF/RAY 时：
 
-1. 在 `client/platform-adapter/node/<id>/core.js` 实现各自的 `describeMatchStatus` / `describeMarketStatus`
+1. 在 `devtools/platform-probes/<id>/core.js` 实现各自的 `describeMatchStatus` / `describeMarketStatus`
 2. 浏览器与服务端展示应对齐 **SaveBet / fo / GetMatchs** 契约，而非共用 OB 原始 `is_live=2` 等字面量

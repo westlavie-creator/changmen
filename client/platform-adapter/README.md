@@ -4,6 +4,8 @@
 
 可选探针 CLI 在 [`@changmen/platform-probes`](../../devtools/platform-probes/README.md)（日常可不使用）。
 
+历史路径 `server/platform-node`、`platform-adapter/node/` 已删除；探针仅在 `devtools/platform-probes/`。
+
 ## 目录
 
 ```

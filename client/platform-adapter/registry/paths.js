@@ -9,10 +9,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REGISTRY_ROOT = __dirname;
 const ADAPTER_ROOT = path.join(REGISTRY_ROOT, "..");
 const DEFAULT_PROBES_ROOT = path.join(CHANGMEN_ROOT, "devtools", "platform-probes");
-const LEGACY_PROBES_ROOTS = [
-  path.join(CHANGMEN_ROOT, "server", "platform-probes"),
-  path.join(CHANGMEN_ROOT, "server", "platform-node"),
-];
 
 /** @typedef {import("./manifest.json")[number]} PlatformManifestEntry */
 
@@ -70,18 +66,11 @@ export function getPlatformNodeRoot() {
     throw new Error(`GAMEBET_PLATFORM_PROBES_ROOT invalid (no ob/session.js): ${abs}`);
   }
 
-  for (const root of [DEFAULT_PROBES_ROOT, ...LEGACY_PROBES_ROOTS]) {
-    if (probesRootLooksValid(root)) return root;
-  }
+  if (probesRootLooksValid(DEFAULT_PROBES_ROOT)) return DEFAULT_PROBES_ROOT;
 
   const bundled = path.join(BACKEND_ROOT, "platform_node");
   if (probesRootLooksValid(bundled)) {
     return bundled;
-  }
-
-  const legacyNested = path.join(ADAPTER_ROOT, "node");
-  if (probesRootLooksValid(legacyNested)) {
-    return legacyNested;
   }
 
   throw new Error(
