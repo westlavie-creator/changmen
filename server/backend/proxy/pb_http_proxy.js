@@ -61,7 +61,7 @@ async function tryPbHttpProxy(req, res) {
     res.end(
       JSON.stringify({
         error: "PB session not configured",
-        hint: "Set PB_GATEWAY + PB_TOKEN or apps/backend storage legacy esport platforms.json PB",
+        hint: "Set PB_GATEWAY + PB_TOKEN or server/backend storage legacy esport platforms.json PB",
       }),
     );
     return true;

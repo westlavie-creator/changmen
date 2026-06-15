@@ -13,12 +13,12 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `users` / `profiles` / `orders` | 鉴权、下单 API | 前端 | 登录与订单 |
 | `canonical_teams` / `team_platform_maps` | team-resolver、matcher | matcher 队名插件 | 队伍 canonical 映射 |
 
-- **RDS 迁移**：`apps/backend/db/migrations/`（`node scripts/apply-rds-schema.mjs`）
-- **统一 DB 入口**：`@changmen/db`（`packages/db/index.js`）
+- **RDS 迁移**：`server/backend/db/migrations/`（`node scripts/apply-rds-schema.mjs`）
+- **统一 DB 入口**：`@changmen/db`（`server/db/index.js`）
 
 ## 本机 JSON（开发 / 凭证 / legacy）
 
-根目录默认 `apps/backend/storage/`（可用 `GAMEBET_STORAGE_DIR` / `ESPORT_DATA_DIR` 覆盖）。
+根目录默认 `server/backend/storage/`（可用 `GAMEBET_STORAGE_DIR` / `ESPORT_DATA_DIR` 覆盖）。
 
 | 路径 | 用途 | 是否上云 |
 |------|------|----------|
@@ -32,7 +32,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 
 | 数据 | 机制 |
 |------|------|
-| 过期 `platform_*` / `client_matches` | matcher 每小时 prune（`packages/db/prune_stale.js`，1h 阈值）；`client_matches` 过期设 `list_status=-1` 不删行 |
+| 过期 `platform_*` / `client_matches` | matcher 每小时 prune（`server/db/prune_stale.js`，1h 阈值）；`client_matches` 过期设 `list_status=-1` 不删行 |
 | 手动兜底 | `node scripts/prune-stale.mjs` |
 
 详见 [ARCHITECTURE.md](./ARCHITECTURE.md) 数据流。

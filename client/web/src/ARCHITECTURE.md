@@ -1,4 +1,4 @@
-# apps/web 架构说明
+# client/web 架构说明
 
 本文档描述 `src/` 目录的职责划分与数据流，便于新增平台或排查问题。
 
@@ -8,10 +8,10 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ ① 本系统 API     api/ + types/       →  apps/backend /esport、/v4.0 │
+│ ① 本系统 API     api/ + types/       →  server/backend /esport、/v4.0 │
 │ ② 比赛列表       matcher → client_matches（浏览器 saveMatch 上报）   │
-│ ③ 赔率上报       packages/platform-adapter/{平台}/frontend/collect.ts → SaveBet（+ fo）        │
-│ ④ 平台下注       packages/platform-adapter/{平台}/frontend/bet.ts  →  场馆 gateway + 账号 token │
+│ ③ 赔率上报       client/platform-adapter/{平台}/frontend/collect.ts → SaveBet（+ fo）        │
+│ ④ 平台下注       client/platform-adapter/{平台}/frontend/bet.ts  →  场馆 gateway + 账号 token │
 │ ⑤ UI 编排        stores/ + views/ + components/                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -23,18 +23,18 @@
 | `types/` | DTO、用户配置、纯类型 | `types/collect.ts`, `types/esport.ts` |
 | `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
 | `domain/` | **套利/下注纯逻辑**（无 Pinia、可单测） | `domain/arbitrage`, `domain/betting` |
-| `packages/platform-adapter/` | **平台清单、能力与平台实现**（Vite `@platform`） | `registry/adapters.ts`, `ob/frontend/collect.ts`, `ob/frontend/bet.ts` |
+| `client/platform-adapter/` | **平台清单、能力与平台实现**（Vite `@platform`） | `registry/adapters.ts`, `ob/frontend/collect.ts`, `ob/frontend/bet.ts` |
 | `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp` |
 | `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts` |
-| `packages/platform-adapter/{id}/frontend/collect.ts` | **赔率上报链路** | `start*Collector` |
-| `packages/platform-adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
-| `packages/platform-adapter/{id}/frontend/bet.ts` | **下注** | `obProvider` 等 |
+| `client/platform-adapter/{id}/frontend/collect.ts` | **赔率上报链路** | `start*Collector` |
+| `client/platform-adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
+| `client/platform-adapter/{id}/frontend/bet.ts` | **下注** | `obProvider` 等 |
 | `stores/` | Pinia 状态与编排 | `matchStore`, `accountStore`, `bettingStore` |
-| `packages/platform-adapter/hg/frontend/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
+| `client/platform-adapter/hg/frontend/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
 
 **原则**：`bet.ts` 不依赖 `collect.ts`；二者都可用 `shared/`，但 `bet.ts` 不应依赖 `platforms/shared/`（采集专用）。
 
-### 平台能力矩阵（`packages/platform-adapter/registry/adapters.ts`）
+### 平台能力矩阵（`client/platform-adapter/registry/adapters.ts`）
 
 | 平台 | 采集 | 下注 | 备注 |
 |------|------|------|------|
@@ -42,9 +42,9 @@
 | XBet | ✓ | — | A8 Socket 频道，无 provider |
 | Stake | ✓ | ✓* | *`pluginOnly`：需 Chrome 扩展 + stake.com tab；`stakeProvider` 已实现 GraphQL 下单 |
 
-`ALL_PLATFORMS`、`PLATFORMS` 均从 `@platform/registry` 导出；新增平台时改 `packages/platform-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
+`ALL_PLATFORMS`、`PLATFORMS` 均从 `@platform/registry` 导出；新增平台时改 `client/platform-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
 
-账号鉴权（与采集解耦）：`packages/platform-adapter/pb/frontend/auth.ts`、`packages/platform-adapter/tf/frontend/auth.ts` ← `platformHttp` 与采集侧共同使用。
+账号鉴权（与采集解耦）：`client/platform-adapter/pb/frontend/auth.ts`、`client/platform-adapter/tf/frontend/auth.ts` ← `platformHttp` 与采集侧共同使用。
 
 ---
 
@@ -53,7 +53,7 @@
 ### 比赛列表（后端入库，Changmen 主路径）
 
 ```
-浏览器 saveMatch / saveBet（`packages/platform-adapter` / `@platform` 采集）
+浏览器 saveMatch / saveBet（`client/platform-adapter` / `@platform` 采集）
          ──► API_SaveMatch / API_SaveBet
          ──► matcher → client_matches
          ──► Client_GetMatchs
@@ -220,7 +220,7 @@ bettingStore.runTick
 4. `platforms/{平台}/bet.ts` — `xxxProvider`（实现 `PlatformProvider`）
 5. `platforms/{平台}/index.ts` — 导出 `PlatformAdapter`
 6. `runtime/collectors.ts` / `runtime/providers.ts` — 注册 adapter
-7. `apps/backend` — `platform_sync.js` 加 `syncXxxFromEnv` 并在 `ensurePlatformCredentials` 中调用
+7. `server/backend` — `platform_sync.js` 加 `syncXxxFromEnv` 并在 `ensurePlatformCredentials` 中调用
 8. UI — 采集开关、账号卡片（通常随 `ALL_PLATFORMS` 自动出现）
 
 ---

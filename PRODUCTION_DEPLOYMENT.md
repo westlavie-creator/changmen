@@ -243,7 +243,7 @@ npm run build
 | 项 | 开发 | 生产 |
 |----|------|------|
 | API 地址 | `localhost:3456` 或 Vite `:5174` + proxy | `https://your-domain.com` |
-| 启动 | `BAT\parity-dev.bat` / `BAT\dev-web.bat` + matcher | `web` + `matcher:loop` |
+| 启动 | `BAT\dev.bat parity` / `BAT\dev.bat` + matcher | `web` + `matcher:loop` |
 | 认证 | 可 `A8_AUTH=0` + TJ01 | JWT 真实用户（`users` + `profiles`） |
 | 采集 | 本机浏览器 + 插件 | 各操作员客户端上报同一 RDS |
 | Node Feed | **不存在** | **不存在** |

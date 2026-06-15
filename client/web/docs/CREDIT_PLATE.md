@@ -10,7 +10,7 @@
 | 用途 | 接口 | 账号 | 密码 |
 |------|------|------|------|
 | **主站登录**（进控制台） | `POST /esport/Client_Login` | 如 `admin` 或 `TJ01` | 登录页密码；`A8_AUTH=0` 时仅认 `users.json` |
-| **平博信用盘 v4**（点「平博体育」） | `POST /v4.0/user/account/login` | **A8 账号名**（默认 `TJ01`，见 `apps/backend/core/integrations/a8/constants.js`） | 固定 **`a123456`**（对齐 A8 bundle `RMe`） |
+| **平博信用盘 v4**（点「平博体育」） | `POST /v4.0/user/account/login` | **A8 账号名**（默认 `TJ01`，见 `server/backend/core/integrations/a8/constants.js`） | 固定 **`a123456`**（对齐 A8 bundle `RMe`） |
 
 用 `admin` 登录主站后点平博，**不会**把 `admin` 传给 v4；前端经 `/api/a8/credit-plate-user` 或 `GetUserInfo.CreditPlateUserName` 解析为 `TJ01`。
 
@@ -69,7 +69,7 @@ OB / SABA 为试玩分支，不走上述 v4 登录。
 
 ### Backend
 
-`apps/backend/core/esport-api/v4_router.js` 只做 **POST/GET 转发** 到 `A8_V4_URL`（默认 `https://api.a8.to/v4.0`）。`user/account/login` 的 body 由服务端用 `a8_constants.js` 账号重写后转发。
+`server/backend/core/esport-api/v4_router.js` 只做 **POST/GET 转发** 到 `A8_V4_URL`（默认 `https://api.a8.to/v4.0`）。`user/account/login` 的 body 由服务端用 `a8_constants.js` 账号重写后转发。
 
 ## 辅助 API
 
@@ -82,8 +82,8 @@ OB / SABA 为试玩分支，不走上述 v4 登录。
 ## 自动化 E2E（两步）
 
 ```bash
-# 先启动 apps/backend（默认 3456）
-cd changmen/apps/web
+# 先启动 server/backend（默认 3456）
+cd changmen/client/web
 npm run test:v4
 ```
 
@@ -106,5 +106,5 @@ npm run test:v4
 
 - [MIGRATION.md](../MIGRATION.md) — 迁移总表
 - [ARCHITECTURE.md](../src/ARCHITECTURE.md) — `api/v4.ts` 在架构中的位置
-- [apps/backend/README.md](../../backend/README.md) — `A8_V4_*` 环境变量
-- [packages/platform-adapter/pb/backend/docs/README.md](../../../packages/platform-adapter/pb/backend/docs/README.md) — PB 采集（与 v4 信用盘入口无关）
+- [server/backend/README.md](../../backend/README.md) — `A8_V4_*` 环境变量
+- [client/platform-adapter/pb/backend/docs/README.md](../../../client/platform-adapter/pb/backend/docs/README.md) — PB 采集（与 v4 信用盘入口无关）

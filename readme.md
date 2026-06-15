@@ -6,7 +6,7 @@
 
 0. **架构：客户端 / 服务端**
    - **客户端**：Vue 控制台 + Chrome 插件 — 连接各博彩平台、采集、下注。
-   - **服务端**：`apps/backend` + RDS + `apps/matcher` — 收数、合并、鉴权、订单。
+   - **服务端**：`server/backend` + RDS + `server/matcher` — 收数、合并、鉴权、订单。
    - 本仓库里的 `localhost` 与 `.bat` 是**开发联调**方式，不是产品形态「本地单机版」。
 
 1. **changmen 服务端 API 由 A8 前端反推**
@@ -50,11 +50,13 @@
 
 | 目录 | 职责 |
 |------|------|
-| [`apps/web/`](./apps/web/) | **新控制台**（Vue 3 + Pinia）+ 参考 bundle、`/console/` 对照 |
-| [`apps/backend/`](./apps/backend/) | **服务端**：esport-api、WS relay、静态托管 |
-| [`apps/matcher/`](./apps/matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
-| [`apps/chrome-extension/`](./apps/chrome-extension/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
-| [`packages/`](./packages/) | 共享库：`shared`、`platform-adapter`、`match-engine`、`@changmen/team-resolver` |
+| [`client/web/`](./client/web/) | **新控制台**（Vue 3 + Pinia）+ 参考 bundle、`/console/` 对照 |
+| [`server/backend/`](./server/backend/) | **服务端**：esport-api、WS relay、静态托管 |
+| [`server/matcher/`](./server/matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
+| [`client/chrome-extension/`](./client/chrome-extension/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
+| [`client/platform-adapter/`](./client/platform-adapter/) | 各平台采集/下注（`frontend/` + `node/`） |
+| [`packages/shared/`](./packages/shared/) · [`packages/api-contract/`](./packages/api-contract/) | 跨端工具与 HTTP 契约 |
+| [`server/db/`](./server/db/) · [`server/match-engine/`](./server/match-engine/) 等 | 服务端库（RDS、合并算法、平台 node 等） |
 | [`../A8/`](../A8/) | A8 原版参考（bundle + 官方插件拷贝，与 `changmen` 并列） |
 | [`../pingtai_offical/`](../pingtai_offical/) | 各平台官网抓包参考（可选） |
 
@@ -72,15 +74,15 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/
 
 **生产部署**：[PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 
-迁移阶段与模块对照见 [apps/web/MIGRATION.md](./apps/web/MIGRATION.md)。文档索引：[docs/README.md](./docs/README.md)。Monorepo 结构见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)。
+迁移阶段与模块对照见 [client/web/MIGRATION.md](./client/web/MIGRATION.md)。文档索引：[docs/README.md](./docs/README.md)。Monorepo 结构见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)。
 
-**OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[apps/web/docs/platforms/A8_COMPARE_OB_RAY.md](./apps/web/docs/platforms/A8_COMPARE_OB_RAY.md)。
+**OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[client/web/docs/platforms/A8_COMPARE_OB_RAY.md](./client/web/docs/platforms/A8_COMPARE_OB_RAY.md)。
 
-**OB 复刻计划**（A8 前端基线 + changmen 标注）：[apps/web/docs/A8_OB_REPLICATE_PLAN.md](./apps/web/docs/A8_OB_REPLICATE_PLAN.md)。
+**OB 复刻计划**（A8 前端基线 + changmen 标注）：[client/web/docs/A8_OB_REPLICATE_PLAN.md](./client/web/docs/A8_OB_REPLICATE_PLAN.md)。
 
-**TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[apps/web/docs/platforms/A8_TF_LOGIC_PARITY.md](./apps/web/docs/platforms/A8_TF_LOGIC_PARITY.md)。
+**TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[client/web/docs/platforms/A8_TF_LOGIC_PARITY.md](./client/web/docs/platforms/A8_TF_LOGIC_PARITY.md)。
 
-平台采集 canonical 源码目录：`packages/platform-adapter/{平台}/frontend/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 或旧名 `packages/platform-adapter/` 请以本目录为准。
+平台采集 canonical 源码目录：`client/platform-adapter/{平台}/frontend/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 或旧名 `client/platform-adapter/` 请以本目录为准。
 
 ---
 
@@ -89,7 +91,7 @@ npm run app:dev      # 新控制台 dev → http://localhost:5174/
 各平台采集在**客户端**完成，经 HTTP 上报服务端。
 
 ```text
-packages/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► RDS
+client/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► RDS
 服务端 matcher ──► client_matches ──► Client_GetMatchs ──► 客户端 matchStore
 客户端 oddsStore（实时赔，对齐 A8 fo）
 ```
@@ -98,28 +100,28 @@ packages/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API
 
 | 平台 | 源码 | 机制 | 凭证要求 |
 |------|------|------|----------|
-| OB | `packages/platform-adapter/ob/frontend/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
-| RAY | `packages/platform-adapter/ray/frontend/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `packages/platform-adapter/ray/backend/collect_credentials.js`） |
-| TF | `packages/platform-adapter/tf/frontend/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
-| IA | `packages/platform-adapter/ia/frontend/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
-| PB | `packages/platform-adapter/pb/frontend/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
-| IMT | `packages/platform-adapter/imt/frontend/collect.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
-| SABA | `packages/platform-adapter/saba/frontend/collect.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
-| IM | `packages/platform-adapter/im/frontend/collect.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
-| XBet | `packages/platform-adapter/xbet/frontend/collect.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
-| Stake | `packages/platform-adapter/stake/frontend/collect.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
-| HG | `packages/platform-adapter/hg/frontend/collect.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
+| OB | `client/platform-adapter/ob/frontend/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
+| RAY | `client/platform-adapter/ray/frontend/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `client/platform-adapter/ray/backend/collect_credentials.js`） |
+| TF | `client/platform-adapter/tf/frontend/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
+| IA | `client/platform-adapter/ia/frontend/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
+| PB | `client/platform-adapter/pb/frontend/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
+| IMT | `client/platform-adapter/imt/frontend/collect.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
+| SABA | `client/platform-adapter/saba/frontend/collect.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
+| IM | `client/platform-adapter/im/frontend/collect.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
+| XBet | `client/platform-adapter/xbet/frontend/collect.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
+| Stake | `client/platform-adapter/stake/frontend/collect.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
+| HG | `client/platform-adapter/hg/frontend/collect.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
 
 公共模块：
 
 | 模块 | 路径 | 说明 |
 |------|------|------|
-| 采集会话 | `packages/platform-adapter/shared/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
-| HTTP 采集 | `apps/web/src/shared/http.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
-| A8 Socket hub | `packages/platform-adapter/shared/socket/hub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
-| A8 盘口聚合 | `packages/platform-adapter/shared/socket/collector.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
+| 采集会话 | `client/platform-adapter/shared/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
+| HTTP 采集 | `client/web/src/shared/http.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
+| A8 Socket hub | `client/platform-adapter/shared/socket/hub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
+| A8 盘口聚合 | `client/platform-adapter/shared/socket/collector.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
 
-### 凭证存储：`apps/backend/data/esport/platforms.json`
+### 凭证存储：`server/backend/data/esport/platforms.json`
 
 `Client_GetCollectPlatform` 读取该文件（RAY 除外，见上）。前端 `getCollectPlatform(provider)` 与 Node 探针脚本共用同一数据源。
 
@@ -141,7 +143,7 @@ HTTP 代理（浏览器 CORS 回退）：`/esport/ob/proxy`、`/esport/ray/proxy
 任选其一：
 
 1. **插件导入**（推荐）
-   `cd apps/backend && npm run account:import-platform -- <base64> --sync-store`
+   `cd server/backend && npm run account:import-platform -- <base64> --sync-store`
 
 2. **环境变量**（启动时 `platform_sync.js` 写入 store）
 
@@ -163,15 +165,15 @@ HTTP 代理（浏览器 CORS 回退）：`/esport/ob/proxy`、`/esport/ray/proxy
 一键检查 `platforms.json`、`Client_GetCollectPlatform`、账号与可选 live 探针：
 
 ```bash
-cd apps/backend
+cd server/backend
 npm run check:collect          # 配置 + API 对照
 npm run check:collect:probe    # 额外 HTTP 探针（OB/RAY/PB 等）
 npm run check:collect -- --json   # CI / 机器可读
 ```
 
-- 脚本：`apps/backend/scripts/check-collect-platforms.js`（`npm run check:collect`）
+- 脚本：`server/backend/scripts/check-collect-platforms.js`（`npm run check:collect`）
 - 退出码 `0` = 所有**必需**凭证齐全；`1` = 仍有 TF/IA/IMT/SABA/Stake 等缺凭证
-- Stake：`platforms.json` 使用字段 `accessToken`；`Client_GetCollectPlatform` 已映射为返回的 `Token`（`apps/backend/core/esport-api/router.js`）
+- Stake：`platforms.json` 使用字段 `accessToken`；`Client_GetCollectPlatform` 已映射为返回的 `Token`（`server/backend/core/esport-api/router.js`）
 
 ### IM / XBet / Stake 实时赔率前置条件
 
@@ -198,7 +200,7 @@ npm run check:collect -- --json   # CI / 机器可读
 
 - `index.js`：A8 前端编译后的 Vue 代码，包含平台适配、实时赔率缓存、下单校验、WebSocket 连接等逻辑。
 - `index.css`：前端样式文件。
-- `plug/`：目标站使用的 Chrome 插件（现位于 `apps/chrome-extension/`；`apps/web/extension/` 为旧副本可参考）。
+- `plug/`：目标站使用的 Chrome 插件（现位于 `client/chrome-extension/`；`client/web/extension/` 为旧副本可参考）。
 - `browser_arch_scan_30min.js`：本地页面架构扫描脚本。
 - `arch_scan_extension/`：本地 Chrome 扫描插件，用于长期采集页面请求、WebSocket、storage、资源信息。
 - `arch-scan-report-2026-05-23T19-14-34-844Z.json`：已导出的扫描结果。

@@ -7,32 +7,32 @@
 
 | 路径 | 说明 |
 |------|------|
-| `apps/web/vendor/ui-bundle/index.js` | 第三方聚合前端打包产物（Vue 编译结果），**只读参考** |
-| `apps/web/console/` | `npm run patch:ui` 生成的 patch 版本，由浏览器加载 |
+| `client/web/vendor/ui-bundle/index.js` | 第三方聚合前端打包产物（Vue 编译结果），**只读参考** |
+| `client/web/console/` | `npm run patch:ui` 生成的 patch 版本，由浏览器加载 |
 
 ## 使用方式
 
 - **浏览器**：访问 `http://localhost:3456/console/`，加载 patch 后的 bundle
 - **Node**：禁止 `require` / import `vendor/ui-bundle/index.js`
-- **插件**：加载 `changmen/apps/chrome-extension/`（Chrome unpacked）
+- **插件**：加载 `changmen/client/chrome-extension/`（Chrome unpacked）
 
 ## 禁止连接的远程聚合基础设施
 
 | 地址 | 说明 |
 |------|------|
 | 第三方远程 API 域名 | 聚合后台，本项目用自建 `/esport/` 替代 |
-| 第三方 relay IP | WS 聚合，本项目用本地 `apps/backend/proxy` + `/esport/ws/*` |
+| 第三方 relay IP | WS 聚合，本项目用本地 `server/backend/proxy` + `/esport/ws/*` |
 
 各平台采集仍直连**源站**（OB gateway、365ray 等）。
 
 ## 本地 API
 
-- `POST /esport/Client_*`、`POST /esport/API_*` → `apps/backend/core/esport-api/`
-- `GET|POST /esport/pb/proxy?url=…` → `apps/backend/proxy/pb_http_proxy.js`（PB 余额/下单/注单，凭证来自 `PB_*` / `platforms.json`）
-- `GET /esport2/version.json` → 静态 stub（`apps/backend/public/esport2/`）
-- `WS /esport/ws/{OB,RAY,TF}` → `apps/backend/proxy/`
+- `POST /esport/Client_*`、`POST /esport/API_*` → `server/backend/core/esport-api/`
+- `GET|POST /esport/pb/proxy?url=…` → `server/backend/proxy/pb_http_proxy.js`（PB 余额/下单/注单，凭证来自 `PB_*` / `platforms.json`）
+- `GET /esport2/version.json` → 静态 stub（`server/backend/public/esport2/`）
+- `WS /esport/ws/{OB,RAY,TF}` → `server/backend/proxy/`
 
-默认账号：`admin` / `admin`（首次启动写入 `apps/backend/data/esport/`）。
+默认账号：`admin` / `admin`（首次启动写入 `server/backend/data/esport/`）。
 
 ## 前端复刻原则
 
@@ -64,6 +64,6 @@
 ## 开发约定
 
 1. 自写代码、路径、变量名中不使用第三方产品品牌字眼。
-2. 新平台接入在 `packages/platform-adapter/{id}/` 实现；UI 契约按 bundle 内 `Client_*` / `API_*` 对齐。
+2. 新平台接入在 `client/platform-adapter/{id}/` 实现；UI 契约按 bundle 内 `Client_*` / `API_*` 对齐。
 3. 改 **`/console/`** 行为时先查 `vendor/ui-bundle`；改 **`/`** 时查 `A8/A8frontendscipts/2.0.1`。patch 默认只改地址类配置。
-4. 禁止手改 `apps/web/console/index.js`，改 patch 后执行 `npm run patch:ui`。
+4. 禁止手改 `client/web/console/index.js`，改 patch 后执行 `npm run patch:ui`。

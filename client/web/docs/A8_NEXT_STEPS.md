@@ -82,7 +82,7 @@
 ## 阶段 E — 平台与信用盘
 
 - [x] 平博 v4 `game/play/Login` E2E（`npm run test:v4`，见 `CREDIT_PLATE.md`）
-- [ ] HG 真实赔率采集（**无 saveMatch**；已做：启用 HG 开关时 60s 刷余额，见 `packages/platform-adapter/hg/frontend/collect.ts`）
+- [ ] HG 真实赔率采集（**无 saveMatch**；已做：启用 HG 开关时 60s 刷余额，见 `client/platform-adapter/hg/frontend/collect.ts`）
 - [ ] Stake 插件下单（暂缓）
 
 ---
@@ -90,7 +90,7 @@
 ## 验收命令
 
 ```bash
-cd changmen/apps/web
+cd changmen/client/web
 npm run app:dev
 # 新 http://localhost:5174/
 # 旧 http://localhost:3456/console/  （PATCH_CONSOLE=1 + 后端 3456）
@@ -105,5 +105,5 @@ npm run app:dev
 **平博 v4**（backend 3456 已启动）：
 
 ```bash
-cd changmen/apps/web && npm run test:v4
+cd changmen/client/web && npm run test:v4
 ```

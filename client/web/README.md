@@ -1,4 +1,4 @@
-# apps/web（客户端 — Vue 控制台）
+# client/web（客户端 — Vue 控制台）
 
 浏览器/Electron 侧：新控制台 `/` 为主；旧 bundle `/console/` 仅对照。
 
@@ -13,9 +13,9 @@
 
 > 术语：用户中心「赛事采集」开关 = 是否**回传** `SaveMatch`/`SaveBet`，不是是否连接平台或更新 `oddsStore`。
 
-Chrome 扩展见 [`apps/chrome-extension/`](../chrome-extension/)。
+Chrome 扩展见 [`client/chrome-extension/`](../chrome-extension/)。
 
-生产部署（同源 `/` + 远程 API）：[../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md)
+生产部署（同源 `/` + 远程 API）：[../../PRODUCTION_DEPLOYMENT.md](../../PRODUCTION_DEPLOYMENT.md)
 
 ## 目录
 
@@ -29,7 +29,7 @@ Chrome 扩展见 [`apps/chrome-extension/`](../chrome-extension/)。
 | `MIGRATION.md` | 脱离 bundle 阶段表 |
 | `docs/README.md` | 文档索引 |
 
-平台采集源码在 **`packages/platform-adapter/`**（Vite 别名 `@platform`），不在 `src/` 下。
+平台采集源码在 **`client/platform-adapter/`**（Vite 别名 `@platform`），不在 `src/` 下。
 
 ## 常用命令
 
@@ -37,11 +37,11 @@ Chrome 扩展见 [`apps/chrome-extension/`](../chrome-extension/)。
 
 ```bash
 npm run app:build   # 构建 → dist/，由服务端托管 /
-npm run app:dev     # 开发 http://localhost:5174/（VITE_API_PROXY → 3456）
-npm run web         # 启动服务端
+npm run app:dev     # 开发 http://localhost:5174/（proxy → 3560）
+BAT\dev.bat         # 后端 + Vite 一键启动
 ```
 
-## 与 apps/backend 的关系
+## 与 server/backend 的关系
 
 - HTTP：`/esport/*`、`/common/*` → 服务端 `esport-api`
 - 浏览器采集经 `@platform` 上报 `API_SaveMatch` / `API_SaveBet`；WS 由浏览器直连平台或 A8 聚合机

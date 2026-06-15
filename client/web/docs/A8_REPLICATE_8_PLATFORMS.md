@@ -1,7 +1,7 @@
 # A8 复刻：OB / IM / TF / PB / RAY / IMT / STAKE / IA
 
 对照基线：**仅** `A8/A8frontendscipts/2.0.1/index.js`（不用 `vendor/ui-bundle`）。  
-changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-adapter/*/frontend/bet.ts`、`apps/backend/core/esport-api`；插件桥 `@/extension/bridge.ts`。
+changmen 实现：`client/platform-adapter/*/frontend`、`client/platform-adapter/*/frontend/bet.ts`、`server/backend/core/esport-api`；插件桥 `@/extension/bridge.ts`。
 
 ---
 
@@ -12,7 +12,7 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 | 层级 | 行为 |
 |------|------|
 | `collectStore.saveMatch` / `saveBets` | 开关关闭时直接 `return false`，不调后端 |
-| 各平台 `packages/platform-adapter/*/frontend` | **应常驻运行**（HTTP/WS/插件），继续写 `oddsStore`、刷新主列表 |
+| 各平台 `client/platform-adapter/*/frontend` | **应常驻运行**（HTTP/WS/插件），继续写 `oddsStore`、刷新主列表 |
 | `runtime/collectors.ts` | 不因开关关闭而 `stop` 采集器 |
 
 对齐 A8 Pinia `Tf`：`saveMatch` / `saveBet` 内判断 `e.collect.get(platform)`。
@@ -53,7 +53,7 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 | 项 | 内容 |
 |----|------|
 | A8 [可证实] | `UMe`：`getPlatform(OB)` → `game/index` → **saveMatch** → `game/view` → saveBets + fo；`token` 失效 → `$Me` 试玩写回；MQTT admin（与 platform token 无关） |
-| 代码 | `packages/platform-adapter/ob/frontend/*` | `packages/platform-adapter/ob/frontend/bet.ts` |
+| 代码 | `client/platform-adapter/ob/frontend/*` | `client/platform-adapter/ob/frontend/bet.ts` |
 | 凭证 | `platforms.json` OB；[changmen 扩展] 可 `syncObLogin` |
 | 下注 | 粘贴 OB 账号 JSON → `ACCOUNT` |
 | **parity 缺口** | — | 模式 P 下浏览器 saveMatch + 顺序灌盘 |
@@ -64,7 +64,7 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 | 项 | 内容 |
 |----|------|
 | A8 | **不**拉场馆 HTTP 列表；`join room` → `IM`；`EZe` 写 `oddsStore` |
-| 代码 | `packages/platform-adapter/im/frontend/*` | `packages/platform-adapter/im/frontend/bet.ts` |
+| 代码 | `client/platform-adapter/im/frontend/*` | `client/platform-adapter/im/frontend/bet.ts` |
 | 凭证 | Socket：`localStorage.getItem("token")`（A8 登录 JWT） |
 | 下注 | IM 账号 gateway/token → `imProvider` |
 | 验收 | ① 登录后 Socket 连 `47.115.75.57` ② 见 `join room` / `IM` 推送 ③ 主列表 IM 盘有赔率 ④ 用 IM 账号下单 |
@@ -74,7 +74,7 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 | 项 | 内容 |
 |----|------|
 | A8 | `UBe`：`getPlatform(TF)`；`/api/v8/events` + 赔率 WS；下注 `bYe` |
-| 代码 | `packages/platform-adapter/tf/frontend/*` | `packages/platform-adapter/tf/frontend/bet.ts` |
+| 代码 | `client/platform-adapter/tf/frontend/*` | `client/platform-adapter/tf/frontend/bet.ts` |
 | 凭证 | `Client_GetCollectPlatform` → `getTfA8CollectCredentials()`（可拉 A8 服或 env） |
 | 验收 | ① `Client_GetCollectPlatform` 有 Gateway/Token ② 30s 轮询 events ③ WS 赔率更新 ④ TF 账号下单 |
 
@@ -83,7 +83,7 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 | 项 | 内容 |
 |----|------|
 | A8 | `AQ`：须有 PB 账号且 `balance!==undefined`；`Zn.get` 扩展请求；`TQ` 缓存 lineId |
-| 代码 | `packages/platform-adapter/pb/frontend/*` | `packages/platform-adapter/pb/frontend/bet.ts` |
+| 代码 | `client/platform-adapter/pb/frontend/*` | `client/platform-adapter/pb/frontend/bet.ts` |
 | 凭证 | 采集：**有余额的 PB 账号**（非 platforms.json）；下注：同账号 |
 | 验收 | ① 安装 Gamebet/A8 扩展 ② PB 账号粘贴并刷余额 ③ 采集开关开 PB ④ 下单带 lineId |
 
@@ -92,7 +92,7 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 | 项 | 内容 |
 |----|------|
 | A8 | `vQe`：**写死** `cfinfo.365raylinks.com` + Bearer JWT（不读 getPlatform） |
-| 代码 | `packages/platform-adapter/ray/frontend/*` | `packages/platform-adapter/ray/frontend/bet.ts` |
+| 代码 | `client/platform-adapter/ray/frontend/*` | `client/platform-adapter/ray/frontend/bet.ts` |
 | 凭证 | `router.js` / `ray_a8_collect.js` 强制返回 A8 JWT |
 | 下注 | RAY 账号自己的 gateway/token |
 | 验收 | ① `Client_GetCollectPlatform(RAY)` 为 A8 JWT ② `/v2/match` ③ SC 频道 match ④ RAY 账号 `/v2/order` |
@@ -102,7 +102,7 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 | 项 | 内容 |
 |----|------|
 | A8 | `Pee`/`jQe`：`getPlatform(IMT)` + 已登录 IMT 账号；60s 快照 + Delta |
-| 代码 | `packages/platform-adapter/imt/frontend/*` | `packages/platform-adapter/imt/frontend/bet.ts` |
+| 代码 | `client/platform-adapter/imt/frontend/*` | `client/platform-adapter/imt/frontend/bet.ts` |
 | 凭证 | `resolveCollectSession("IMT")`：账号优先，否则 platforms.json |
 | 验收 | ① IMT 账号有余额 ② `GetAllLiveEvents` / Delta ③ 主列表 IMT 赔率 ④ IMT 下单 |
 
@@ -111,7 +111,7 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 | 项 | 内容 |
 |----|------|
 | A8 | `MQ`：等 `qs.tabId`（10×3s）→ GraphQL 各 sport → `saveMatch`/`saveBets` → 频道 `Stake`；下注 `rJe` 要 tabId |
-| 代码 | `packages/platform-adapter/stake/frontend/*` | `packages/platform-adapter/stake/frontend/bet.ts` |
+| 代码 | `client/platform-adapter/stake/frontend/*` | `client/platform-adapter/stake/frontend/bet.ts` |
 | 凭证 | 采集：`STAKE_ACCESS_TOKEN` 等；实时：A8 Socket；下注：账号 `x-access-token` + tabId |
 | 验收 | ① 扩展 + Stake 标签页 ② 控制台无「未找到 Stake 标签页」 ③ GraphQL 快照 ④ Stake 账号下注 |
 
@@ -120,7 +120,7 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 | 项 | 内容 |
 |----|------|
 | A8 | `wQe`：gateway=`https://ilustre-analytics.org`，**`token:""`**；HTTP `gameListPageSplit` + WS `/esport/ws/IA` |
-| 代码 | `packages/platform-adapter/ia/frontend/*` | `packages/platform-adapter/ia/frontend/bet.ts` |
+| 代码 | `client/platform-adapter/ia/frontend/*` | `client/platform-adapter/ia/frontend/bet.ts` |
 | 凭证 | **已补** `shared/ia_a8_collect.js` + `router.js` / `platform_sync` 默认写入 |
 | 验收 | ① 无 env 时 `Client_GetCollectPlatform(IA)` 仍有 Gateway ② HTTP 列表 ③ WS 推赔率 ④ IA 账号下注 |
 
@@ -179,17 +179,17 @@ changmen 实现：`packages/platform-adapter/*/frontend`、`packages/platform-ad
 
 | 平台 | 采集 | 下注 | 文档 |
 |------|------|------|------|
-| OB | `packages/platform-adapter/ob/frontend/` | `packages/platform-adapter/ob/frontend/bet.ts` | [OB.md](./platforms/OB.md) |
-| IM | `packages/platform-adapter/im/frontend/` | `packages/platform-adapter/im/frontend/bet.ts` | [IM.md](./platforms/IM.md) |
-| TF | `packages/platform-adapter/tf/frontend/` | `packages/platform-adapter/tf/frontend/bet.ts` | [A8_TF_LOGIC_PARITY.md](./platforms/A8_TF_LOGIC_PARITY.md) |
-| PB | `packages/platform-adapter/pb/frontend/` | `packages/platform-adapter/pb/frontend/bet.ts` | [A8_PB_LOGIC_PARITY.md](./platforms/A8_PB_LOGIC_PARITY.md) |
-| RAY | `packages/platform-adapter/ray/frontend/` | `packages/platform-adapter/ray/frontend/bet.ts` | [RAY.md](./platforms/RAY.md) |
-| IMT | `packages/platform-adapter/imt/frontend/` | `packages/platform-adapter/imt/frontend/bet.ts` | [IMT.md](./platforms/IMT.md) |
-| STAKE | `packages/platform-adapter/stake/frontend/` | `packages/platform-adapter/stake/frontend/bet.ts` | [Stake.md](./platforms/Stake.md) |
-| IA | `packages/platform-adapter/ia/frontend/` | `packages/platform-adapter/ia/frontend/bet.ts` | [IA.md](./platforms/IA.md) |
+| OB | `client/platform-adapter/ob/frontend/` | `client/platform-adapter/ob/frontend/bet.ts` | [OB.md](./platforms/OB.md) |
+| IM | `client/platform-adapter/im/frontend/` | `client/platform-adapter/im/frontend/bet.ts` | [IM.md](./platforms/IM.md) |
+| TF | `client/platform-adapter/tf/frontend/` | `client/platform-adapter/tf/frontend/bet.ts` | [A8_TF_LOGIC_PARITY.md](./platforms/A8_TF_LOGIC_PARITY.md) |
+| PB | `client/platform-adapter/pb/frontend/` | `client/platform-adapter/pb/frontend/bet.ts` | [A8_PB_LOGIC_PARITY.md](./platforms/A8_PB_LOGIC_PARITY.md) |
+| RAY | `client/platform-adapter/ray/frontend/` | `client/platform-adapter/ray/frontend/bet.ts` | [RAY.md](./platforms/RAY.md) |
+| IMT | `client/platform-adapter/imt/frontend/` | `client/platform-adapter/imt/frontend/bet.ts` | [IMT.md](./platforms/IMT.md) |
+| STAKE | `client/platform-adapter/stake/frontend/` | `client/platform-adapter/stake/frontend/bet.ts` | [Stake.md](./platforms/Stake.md) |
+| IA | `client/platform-adapter/ia/frontend/` | `client/platform-adapter/ia/frontend/bet.ts` | [IA.md](./platforms/IA.md) |
 
-共享：[A8_COMPARE_ALL_PLATFORMS.md](./platforms/A8_COMPARE_ALL_PLATFORMS.md)、`packages/platform-adapter/shared/socket/hub.ts`、`src/extension/bridge.ts`
+共享：[A8_COMPARE_ALL_PLATFORMS.md](./platforms/A8_COMPARE_ALL_PLATFORMS.md)、`client/platform-adapter/shared/socket/hub.ts`、`src/extension/bridge.ts`
 
 ---
 
-*IA 默认凭证：`packages/platform-adapter/ia/backend/collect_credentials.js`（A8 空 token）。*
+*IA 默认凭证：`client/platform-adapter/ia/backend/collect_credentials.js`（A8 空 token）。*

@@ -1,4 +1,4 @@
-# apps/backend — 服务端（Node）
+# server/backend — 服务端（Node）
 
 HTTP API（`Client_*` / `API_*`）、各平台 HTTP 代理、静态托管。开发默认 `localhost:3560`（Windows）/ `3456`。
 
@@ -24,8 +24,8 @@ Windows：`BAT\setup-dev-env.bat`（首次）→ `BAT\dev.bat` 或 `BAT\backend.
 | 游戏 catalog | [GAMES.md](./GAMES.md) |
 | 玩法选盘 | [MARKETS.md](./MARKETS.md) |
 | HTTP / WS 代理 | [proxy/README.md](./proxy/README.md) |
-| 平台适配器 | [packages/platform-adapter/README.md](../../packages/platform-adapter/README.md) |
-| 新控制台 / v4 | [apps/web/docs/CREDIT_PLATE.md](../web/docs/CREDIT_PLATE.md) |
+| 平台适配器 | [client/platform-adapter/README.md](../../client/platform-adapter/README.md) |
+| 新控制台 / v4 | [client/web/docs/CREDIT_PLATE.md](../../client/web/docs/CREDIT_PLATE.md) |
 | 运维脚本 | [scripts/README.md](../../scripts/README.md) |
 
 ## 目录概要
@@ -41,4 +41,4 @@ data/esport/         # 开发用 JSON（platforms 等）
 public/esport2/      # A8 静态资源
 ```
 
-平台 canonical 实现位于 `packages/platform-adapter/`，由 `core/shared/adapter_paths.js` 加载。
+平台 canonical 实现位于 `client/platform-adapter/`，由 `core/shared/adapter_paths.js` 加载。

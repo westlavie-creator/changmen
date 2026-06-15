@@ -11,13 +11,13 @@
 
 ## 0. 启动
 
-- [ ] `BAT\dev.bat` 或 `BAT\dev-web.bat`（3560 后端 + 5174 Vite）+ 可选 `BAT\matcher-loop.bat`
+- [ ] `BAT\dev.bat` 或 `BAT\dev.bat`（3560 后端 + 5174 Vite）+ 可选 `npm run matcher:loop`
 - [ ] 可选：`PATCH_CONSOLE=1` 启动以打开 `/console/` 对照
 
 自动化（无需浏览器）：
 
 ```bash
-cd changmen/apps/web
+cd changmen/client/web
 npm run audit:a8    # CSS / View 映射
 npm run test:v4     # 平博 v4 两步（需 3456）
 npm run build
@@ -94,7 +94,7 @@ npm run build
 ## 6. 已知可接受差异
 
 - 修改密码：新版为 TOTP（旧版验证码区多为占位）
-- HG：**无电竞赔率列表**；启用采集开关时会轮询 HG 账号余额（见 `packages/platform-adapter/hg/frontend/collect.ts`）
+- HG：**无电竞赔率列表**；启用采集开关时会轮询 HG 账号余额（见 `client/platform-adapter/hg/frontend/collect.ts`）
 - XBet：仅采集/比分，不可下注（与 bundle 一致）
 - Stake：依赖 Chrome 扩展 + stake.com 标签页（见走查脚本 §5.3）
 - IM 角标图 `Dv2UbQNP.png`：需部署到 `/esport2/assets/`（与 console 同源）
@@ -112,7 +112,7 @@ npm run build
 
 ## 7. OB 模式 P（A8 Parity，可选）
 
-启动：`changmen/BAT/parity-dev.bat` 或 `BAT\dev.bat` / `BAT\dev-web.bat` + matcher + 插件 build。
+启动：`BAT\dev.bat parity` 或 `BAT\dev.bat` + `npm run matcher:loop` + 插件 build。
 
 | 项 | 通过 |
 |----|------|

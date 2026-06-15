@@ -101,7 +101,7 @@
 
 ## 5. 盘口级：game/view + MQTT → marketStatus
 
-选盘（取哪一条「获胜」主盘）见 [MARKETS.md](../../../../apps/backend/MARKETS.md) → OB `match_winner`。
+选盘（取哪一条「获胜」主盘）见 [MARKETS.md](../../../../server/backend/MARKETS.md) → OB `match_winner`。
 
 详见 [MARKET_STATUS.md](./MARKET_STATUS.md)。
 
@@ -174,5 +174,5 @@ node scripts/platforms/ob/fetch_ob_live.js --max-matches 3
 
 各平台原始字段不同，**不应**共用一张「原始值配置表」。接入 TF/RAY 时：
 
-1. 在 `packages/platform-adapter/node/<id>/core.js` 实现各自的 `describeMatchStatus` / `describeMarketStatus`
+1. 在 `client/platform-adapter/node/<id>/core.js` 实现各自的 `describeMatchStatus` / `describeMarketStatus`
 2. 浏览器与服务端展示应对齐 **SaveBet / fo / GetMatchs** 契约，而非共用 OB 原始 `is_live=2` 等字面量

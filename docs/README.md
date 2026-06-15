@@ -6,8 +6,9 @@
 
 | 文档 | 内容 |
 |------|------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Monorepo 结构、`apps/*` / `packages/*`、数据流 |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Monorepo 结构、`client/*` / `server/*` / `packages/*`、数据流 |
 | [DATA_STORAGE.md](./DATA_STORAGE.md) | 云库 vs 本机 JSON、迁移目录、prune |
+| [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) | 客户端 / 服务端目录边界 |
 | [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) | 生产拓扑、环境变量、PM2 |
 | [../ecosystem.config.cjs](../ecosystem.config.cjs) | `gamebet-web` + `gamebet-matcher` 进程清单 |
 
@@ -15,14 +16,14 @@
 
 | 路径 | 文档 |
 |------|------|
-| `apps/backend` | [README.md](../apps/backend/README.md) · [GAMES.md](../apps/backend/GAMES.md) · [MARKETS.md](../apps/backend/MARKETS.md) · [proxy/README.md](../apps/backend/proxy/README.md) |
-| `apps/web` | [README.md](../apps/web/README.md) · [MIGRATION.md](../apps/web/MIGRATION.md) |
-| `apps/matcher` | [README.md](../apps/matcher/README.md) — 循环 vs UI vs `/matcher` 桥接 |
-| `apps/chrome-extension` | [README.md](../apps/chrome-extension/README.md) · `npm run chromeplug:pack` |
-| `packages/platform-adapter` | [README.md](../packages/platform-adapter/README.md) |
+| `server/backend` | [README.md](../server/backend/README.md) · [GAMES.md](../server/backend/GAMES.md) · [MARKETS.md](../server/backend/MARKETS.md) |
+| `client/web` | [README.md](../client/web/README.md) · [MIGRATION.md](../client/web/MIGRATION.md) |
+| `server/matcher` | [README.md](../server/matcher/README.md) |
+| `client/chrome-extension` | [README.md](../client/chrome-extension/README.md) · `npm run chromeplug:pack` |
+| `client/platform-adapter` | [README.md](../client/platform-adapter/README.md) |
 
 ## 运维脚本
 
-见 [scripts/README.md](../scripts/README.md)（`changmen/scripts/` + `apps/backend/scripts/` 索引）。
+见 [scripts/README.md](../scripts/README.md)（`changmen/scripts/` + `server/backend/scripts/` 索引）。
 
 Windows 启动：[BAT/README.md](../BAT/README.md)。

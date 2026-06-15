@@ -7,6 +7,6 @@
 | `@changmen/platform-node/ob/` | Node 库 + CLI |
 
 ```bat
-cd changmen/packages/platform-node
+cd changmen/server/platform-node
 npm run ob:view -- --match <match_id>
 ```

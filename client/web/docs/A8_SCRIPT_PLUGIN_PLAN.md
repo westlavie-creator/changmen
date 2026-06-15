@@ -1,7 +1,7 @@
 # A8 脚本 + 插件架构复刻计划
 
 对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `A8/A8chromeplug/2.0.149`。  
-changmen 实现：`apps/web` + `packages/platform-adapter/*/frontend` + `apps/chrome-extension` + `@/extension/bridge.ts`（A8 `Zn`）。
+changmen 实现：`client/web` + `client/platform-adapter/*/frontend` + `client/chrome-extension` + `@/extension/bridge.ts`（A8 `Zn`）。
 
 最后更新：2026-06-11
 
@@ -11,16 +11,16 @@ changmen 实现：`apps/web` + `packages/platform-adapter/*/frontend` + `apps/ch
 
 ```
 浏览器托管页（脚本）          Chrome 插件（Zn）
-├── packages/platform-adapter 采集     ├── GET/POST 跨域
+├── client/platform-adapter 采集     ├── GET/POST 跨域
 ├── oddsStore fo              ├── tabId / Stake content
 ├── collectStore 回传门控     ├── 11 站凭证浮窗
 └── *Provider 下注            └── ModifyHeader UA
          │                              │
          └──────────┬───────────────────┘
                     ▼
-         apps/backend Client_* / API_*
+         server/backend Client_* / API_*
                     ▼
-         apps/matcher → client_matches
+         server/matcher → client_matches
                     ▼
          Client_GetMatchs（前端只读列表）
 ```
@@ -37,8 +37,8 @@ changmen 实现：`apps/web` + `packages/platform-adapter/*/frontend` + `apps/ch
 
 | 脚本 | 组成 |
 |------|------|
-| `BAT\parity-dev.bat` | Web 后端 + Vite + matcher（推荐 parity 验收） |
-| `BAT\dev.bat` / `BAT\dev-web.bat` | 日常开发（浏览器 + 插件 + matcher） |
+| `BAT\dev.bat parity` | Web 后端 + Vite + matcher（推荐 parity 验收） |
+| `BAT\dev.bat` / `BAT\dev.bat` | 日常开发（浏览器 + 插件 + matcher） |
 
 插件准备：
 
@@ -47,7 +47,7 @@ cd changmen\apps\chrome-extension
 npm run build
 ```
 
-Chrome：加载已解压 `apps/chrome-extension`（ID `mogfpjihgoghabicofkbcmcidlcoofee`）。
+Chrome：加载已解压 `client/chrome-extension`（ID `mogfpjihgoghabicofkbcmcidlcoofee`）。
 
 ---
 
@@ -69,9 +69,9 @@ CollectConfig：只门控 `saveMatch`/`saveBets`，**不**停采集器。
 
 | 项 | 说明 |
 |----|------|
-| `packages/platform-adapter` 迁移 | 11 平台 frontend/backend + registry |
+| `client/platform-adapter` 迁移 | 11 平台 frontend/backend + registry |
 | 插件协议 | `bridge.ts` = Zn |
-| 开发脚本 | `BAT\parity-dev.bat`、`BAT\dev.bat` + matcher |
+| 开发脚本 | `BAT\dev.bat parity`、`BAT\dev.bat` + matcher |
 | 架构冻结 M1 | 删除 FeedHub；[PRODUCTION_DEPLOYMENT.md](../../../../../PRODUCTION_DEPLOYMENT.md) |
 | PB fail-fast | 无扩展且无 SOCKS → `PB_PLUGIN_REQUIRED_MSG` |
 | Stake 提示 | 无扩展 / 无 tabId → `notifyCollectError` |
@@ -92,7 +92,7 @@ CollectConfig：只门控 `saveMatch`/`saveBets`，**不**停采集器。
 | P1 | 8 平台 Mode P 实机 E2E（需账号/扩展） |
 | P1 | `A8_WALKTHROUGH_CHECKLIST` B4 同屏 UI 走查 |
 | P2 | 生产首次部署（域名、`db push`、matcher 进程）— 见 PRODUCTION_DEPLOYMENT |
-| P2 | 文档：`A8_COMPARE_ALL_PLATFORMS` 路径改 `packages/platform-adapter` |
+| P2 | 文档：`A8_COMPARE_ALL_PLATFORMS` 路径改 `client/platform-adapter` |
 | P3 | HG 跟单（无 saveMatch，非 8 平台 parity 核心） |
 
 ---
@@ -103,10 +103,10 @@ CollectConfig：只门控 `saveMatch`/`saveBets`，**不**停采集器。
 |------|------|
 | 插件桥 | `src/extension/bridge.ts` |
 | 采集注册 | `src/runtime/collectors.ts` → `@platform/registry` |
-| A8 Socket | `packages/platform-adapter/shared/socket/hub.ts` |
-| 平台实现 | `packages/platform-adapter/{ob,im,ray,...}/frontend/` |
-| 插件源码 | `apps/chrome-extension/src/` |
-| Matcher | `apps/matcher/matcher.js` |
+| A8 Socket | `client/platform-adapter/shared/socket/hub.ts` |
+| 平台实现 | `client/platform-adapter/{ob,im,ray,...}/frontend/` |
+| 插件源码 | `client/chrome-extension/src/` |
+| Matcher | `server/matcher/matcher.js` |
 
 平台明细：[A8_REPLICATE_8_PLATFORMS.md](./A8_REPLICATE_8_PLATFORMS.md)
 

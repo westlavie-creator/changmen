@@ -22,3 +22,5 @@
 | `npm run web` | 仅后端（同 backend.bat） |
 
 PM2：`changmen/ecosystem.config.cjs`。详见 [../scripts/README.md](../scripts/README.md)。
+
+**本地清理**：若仍存在空目录 `changmen/apps/`（`backend`、`web` 子目录被进程占用），请先关闭所有 dev/backend 窗口与 Cursor 终端，再 `rmdir /s /q apps`。

@@ -1,5 +1,5 @@
 /**
- * platforms.json / tag_platforms.json — 与 apps/backend store 共享的本地 JSON 存储。
+ * platforms.json / tag_platforms.json — 与 server/backend store 共享的本地 JSON 存储。
  */
 import fs from "node:fs";
 import path from "node:path";

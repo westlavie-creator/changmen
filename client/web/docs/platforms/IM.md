@@ -1,4 +1,4 @@
-﻿# IM 采集
+# IM 采集
 
 ## 入口
 
@@ -54,4 +54,4 @@ Socket 常无 `sportId`，采集侧 `SourceGameID` 多为 `"unknown"`。
 ## 后端对齐
 
 - `packages/shared/im_parse.mjs` — 与前端 parse 同步
-- `packages/match-engine/merge/`（`im_enrich.js`、`match_merge.js`）— enrich、去重、列表过滤
+- `server/match-engine/merge/`（`im_enrich.js`、`match_merge.js`）— enrich、去重、列表过滤

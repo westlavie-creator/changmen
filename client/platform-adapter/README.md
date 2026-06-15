@@ -7,7 +7,7 @@ Node 库与 CLI 在并列包 [`@changmen/platform-node`](../platform-node/README
 ## 目录
 
 ```
-packages/platform-adapter/
+client/platform-adapter/
 ├── registry/ manifest.json
 ├── loader/   adapter_paths（requirePlatform）
 ├── backend/  包级 _paths.js（npm 解析）

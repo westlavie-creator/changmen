@@ -10,7 +10,7 @@
 ???[https://ray164.com/](https://ray164.com/)
 
 ```bat
-cd changmen/packages/platform-adapter
+cd changmen/client/platform-adapter
 npm run ray:match
 npm run ray:odds -- 38386601
 npm run ray:ws

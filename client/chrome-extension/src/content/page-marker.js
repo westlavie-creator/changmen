@@ -1,4 +1,4 @@
-/** 页面侧识别扩展：不依赖固定 extension ID（见 apps/web/extension/bridge.ts） */
+/** 页面侧识别扩展：不依赖固定 extension ID（见 client/web extension bridge） */
 try {
   const manifest = chrome.runtime.getManifest();
   const root = document.documentElement;

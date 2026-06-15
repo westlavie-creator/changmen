@@ -1,4 +1,4 @@
-# apps/matcher — 赛事合并
+# server/matcher — 赛事合并
 
 两个独立入口，生产通常只跑 **循环进程**；人工 UI 为开发/运维可选。
 
@@ -16,11 +16,11 @@ PM2（`ecosystem.config.cjs`）仅注册 **合并循环**（`gamebet-matcher`）
 
 ## 依赖
 
-- `packages/match-engine` — 合并算法
-- `packages/db` — 读写 `platform_matches` / `client_matches` 等（`@changmen/db`）
-- `@changmen/team-resolver` — 可选队名 canonical 插件
+- `server/match-engine` — 合并算法
+- `server/db` — 读写 `platform_matches` / `client_matches` 等（`@changmen/db`）
+- `server/team-resolver` — 可选队名 canonical 插件
 
-环境变量：与 backend 共用 `apps/backend/.env`（或 `matcher/.env`）。`GAMEBET_DB_SCRIPT` 与 backend 保持一致。
+环境变量：与 backend 共用 `server/backend/.env`（或本目录 `matcher/.env`）。`GAMEBET_DB_SCRIPT` 与 backend 保持一致。
 
 ## 常用命令
 

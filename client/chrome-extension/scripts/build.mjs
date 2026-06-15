@@ -30,7 +30,7 @@ async function bundleSocketIo() {
     "../web/node_modules/socket.io-client/build/esm/index.js",
   );
   if (!fs.existsSync(entry)) {
-    console.warn("skip socket.io bundle — install apps/web deps first");
+    console.warn("skip socket.io bundle — install client/web deps first");
     return;
   }
   await esbuild.build({

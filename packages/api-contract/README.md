@@ -6,8 +6,8 @@
 
 | 包 | 用途 |
 |----|------|
-| `apps/web` | `post()`、`VITE_API_BASE`、类型 |
-| `apps/backend` | `EsportAction` 与 router 对齐 |
+| `client/web` | `post()`、`VITE_API_BASE`、类型 |
+| `server/backend` | `EsportAction` 与 router 对齐 |
 | 脚本 | `urls.mjs` 拼联调 URL |
 
 ## 导出

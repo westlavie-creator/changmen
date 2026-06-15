@@ -13,12 +13,12 @@
 
 ```bash
 # 终端 1：后端
-cd changmen/apps/backend
+cd changmen/server/backend
 node server.js
 # 确认 http://localhost:3456 可访问
 
 # 终端 2：新前端
-cd changmen/apps/web
+cd changmen/client/web
 npm run app:dev
 # → http://localhost:5174/
 
@@ -28,14 +28,14 @@ npm run app:dev
 
 ### 0.2 浏览器准备
 
-1. Chrome 安装 **Gamebet 扩展**（`apps/chrome-extension`，ID 见 `src/config/gamebetExtension.ts`）。
+1. Chrome 安装 **Gamebet 扩展**（`client/chrome-extension`，ID 见 `src/config/gamebetExtension.ts`）。
 2. 两个窗口各开 DevTools → **Network**，勾选 **Preserve log**。
 3. Filter 填：`Client_` 或 `/esport/`（后端 action 多为 `POST /esport/Client_XXX`）。
 
 ### 0.3 自动化预检（可选）
 
 ```bash
-cd changmen/apps/web
+cd changmen/client/web
 npm run audit:a8
 npm run test:v4    # 需 3456
 npm run build
@@ -242,7 +242,7 @@ npm run build
 
 ### 5.4 OB 模式 P（A8 Parity）
 
-前置：`BAT\parity-dev.bat` 或 `BAT\dev-web.bat` + matcher；登录 TJ01。
+前置：`BAT\dev.bat parity` 或 `BAT\dev.bat` + matcher；登录 TJ01。
 
 | 步骤 | 操作 | 预期 |
 |------|------|------|
@@ -253,7 +253,7 @@ npm run build
 | 5.4.5 | 账号编辑粘贴 OB Base64 账号 | `ACCOUNT` 写入 |
 | 5.4.6 | 双击 BetRow（OB 列） | 验盘 + 下单 prompt / 成功（需有效 token） |
 
-离线：`cd apps/web && npm run test:ob`。  
+离线：`cd client/web && npm run test:ob`。  
 Live 只读（后端 3456）：`ESPORT_TEST_BASE=http://127.0.0.1:3456 npm run test:ob-live`。  
 计划全文：[A8_OB_REPLICATE_PLAN.md](./A8_OB_REPLICATE_PLAN.md)。
 

@@ -50,7 +50,7 @@ const code = getGameCode("257578064923863"); // "cs2"
 
 ## 与跨平台 game_code 的对应
 
-本项目聚合范围以 [`GAMES.md`](../../../../apps/backend/GAMES.md) / [`game_catalog.json`](../../../../packages/shared/catalog/game_catalog.json) 为准（CS2、王者荣耀、无畏契约、英雄联盟、DOTA2）。
+本项目聚合范围以 [`GAMES.md`](../../../../server/backend/GAMES.md) / [`game_catalog.json`](../../../../packages/shared/catalog/game_catalog.json) 为准（CS2、王者荣耀、无畏契约、英雄联盟、DOTA2）。
 
 | game_code | OB game_id | RAY game_id |
 |-----------|------------|-------------|

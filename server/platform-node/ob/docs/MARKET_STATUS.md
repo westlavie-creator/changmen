@@ -39,7 +39,7 @@ Core.isMarketLocked({ status, visible, suspended });
 | `visible` | **`1`** | 非 1：前端不展示该盘 |
 | `suspended` | **`0`** | `1`：暂停/封盘（常伴随 `suspended_type`） |
 
-与 A8 采集端、浏览器插件逻辑一致（规则见 [`MARKETS.md`](../../../../apps/backend/MARKETS.md) → OB `openWhen`）：
+与 A8 采集端、浏览器插件逻辑一致（规则见 [`MARKETS.md`](../../../../server/backend/MARKETS.md) → OB `openWhen`）：
 
 ```javascript
 locked = status !== 6 || visible !== 1 || suspended !== 0
@@ -169,7 +169,7 @@ node scripts/platforms/ob/probe_market_status.js --matches 10 --stages 0,1
 ## 8. 调试命令
 
 ```bat
-cd changmen/packages/platform-adapter
+cd changmen/client/platform-adapter
 npm run ob:view -- --match <matchId> --stage 0
 node node/ob/scripts/probe_market_status.js
 npm run ob:mqtt -- --match <matchId> --stage 0 --duration 120
