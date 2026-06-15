@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { ViewBet } from "@/models/match";
+import { ViewBet, type ViewMatch } from "@/models/match";
 import type { BetRowDto } from "@/types/esport";
 import { PlatformAccount } from "@/models/platformAccount";
 import { createDefaultUserConfig } from "@/types/userConfig";
@@ -48,9 +48,11 @@ const matchStub = {
   bo: 3,
   startAt: 0,
   liveRound: 0,
-  roundStart: 0,
+  liveRoundStart: 0,
+  reverse: [],
+  providers: { PB: "m1", RAY: "m2" },
   bets: [],
-} as import("@/models/match").ViewMatch;
+} as ViewMatch;
 
 describe("evaluateArbOrderEligibility", () => {
   it("reports cannot order when only one funded platform", () => {

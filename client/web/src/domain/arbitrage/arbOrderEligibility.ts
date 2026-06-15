@@ -8,6 +8,7 @@ import {
   accountPassesMainBetFilter,
   explainMainBetAccountRejection,
   isLegSkippedByRate9999,
+  type BetFilterMatchContext,
 } from "@/stores/betting/betFilters";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import type { PlatformId } from "@/types/esport";
@@ -147,7 +148,7 @@ export function evaluateArbOrderEligibility(
   let legB = options[1];
   const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
 
-  const matchStoreShim = { getBetTarget: ctx.getBetTarget };
+  const matchStoreShim: BetFilterMatchContext = { getBetTarget: ctx.getBetTarget };
 
   const excludeA = config.noSameBet
     ? readUsedAccounts(bet.id, opponentSide(legA.target))

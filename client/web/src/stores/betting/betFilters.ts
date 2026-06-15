@@ -7,6 +7,12 @@ import {
   passesMaxBetCount,
 } from "@/shared/betTiming";
 import { useMatchStore } from "@/stores/matchStore";
+import type { PlatformId } from "@/types/esport";
+
+/** 下注过滤仅需 match store 的操盘目标查询 */
+export interface BetFilterMatchContext {
+  getBetTarget: (provider: PlatformId, betId: number) => BetSide | undefined;
+}
 
 /** 对齐 bundle：账号 minDefault / maxDefault 与初赔比较 */
 export function passesDefaultOddsAccount(
@@ -27,7 +33,7 @@ export function accountPassesMainBetFilterExceptRate(
   bet: ViewBet,
   match: ViewMatch,
   leg: BetOption,
-  matchStore: ReturnType<typeof useMatchStore>,
+  matchStore: BetFilterMatchContext,
   implied?: number,
 ): boolean {
   if (account.isPause() || account.markupOnly) return false;
@@ -46,7 +52,7 @@ export function accountPassesMainBetFilter(
   bet: ViewBet,
   match: ViewMatch,
   leg: BetOption,
-  matchStore: ReturnType<typeof useMatchStore>,
+  matchStore: BetFilterMatchContext,
   implied?: number,
 ): boolean {
   if (!account.canBetAtOdds(leg.odds)) return false;
@@ -66,7 +72,7 @@ export function explainMainBetAccountRejection(
   bet: ViewBet,
   match: ViewMatch,
   leg: BetOption,
-  matchStore: ReturnType<typeof useMatchStore>,
+  matchStore: BetFilterMatchContext,
   implied?: number,
 ): string | null {
   if (!account.canBetAtOdds(leg.odds)) {
@@ -104,7 +110,7 @@ export function isLegSkippedByRate9999(
   match: ViewMatch,
   accounts: PlatformAccount[],
   excludeAccountIds: number[],
-  matchStore: ReturnType<typeof useMatchStore>,
+  matchStore: BetFilterMatchContext,
   implied?: number,
 ): boolean {
   return accounts.some((acc) => {
