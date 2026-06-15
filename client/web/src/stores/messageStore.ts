@@ -30,6 +30,17 @@ function htmlTitle(text: string, urgent = false) {
   return urgent ? `<b>🔴 ${text}</b>` : `<b>${text}</b>`;
 }
 
+/** 对齐 A8 `Gi.send` 的 `l`：下单类标题前缀 📣 + 双腿状态 */
+function orderHtmlTitle(text: string, legStatus = "📣📣") {
+  return `<b>📣${legStatus}${text}</b>`;
+}
+
+/** 对齐 A8 `Gi.send` 的 `d`：单腿成功/失败/拒单 */
+function orderLegStatusEmoji(success?: boolean, rejected?: boolean) {
+  if (rejected) return "🔴";
+  return success ? "✅" : "❌";
+}
+
 function accountLine(acc: PlatformAccount) {
   return `${acc.platformName || acc.provider} / ${acc.playerName}`;
 }
@@ -216,7 +227,41 @@ export const useMessageStore = defineStore("message", {
         lines.push(`备注信息：${leg.result.message ?? "N/A"}</blockquote>`);
         return lines.join("\n");
       };
-      this.enqueueTelegram([formatLeg(legA), formatLeg(legB)].join("\n"));
+
+      const legStatus = [
+        orderLegStatusEmoji(legA.result.success, legA.reject),
+        orderLegStatusEmoji(legB.result.success, legB.reject),
+      ].join("");
+      const matchTitle = legA.options.match?.title ?? legB.options.match?.title ?? "";
+      const betName =
+        legA.options.bet?.getBetName?.() ?? legB.options.bet?.getBetName?.() ?? "";
+
+      this.enqueueTelegram(
+        [
+          orderHtmlTitle("下单提醒", legStatus),
+          `${matchTitle} / ${betName}`,
+          "",
+          formatLeg(legA),
+          formatLeg(legB),
+        ].join("\n"),
+      );
+
+      const homeLeg = [legA, legB].find((leg) => leg.options.target === "Home");
+      const awayLeg = [legA, legB].find((leg) => leg.options.target === "Away");
+      if (homeLeg && awayLeg) {
+        const implied = 1 / (1 / homeLeg.options.odds + 1 / awayLeg.options.odds);
+        const homePlatform = homeLeg.account.platformName || homeLeg.account.provider;
+        const awayPlatform = awayLeg.account.platformName || awayLeg.account.provider;
+        this.enqueuePush(
+          [
+            "<b>📣赛事推单</b>",
+            `<b>⚽️赛事：${matchTitle}</b>`,
+            `<b>1️⃣[${homePlatform}] 主队赔率：${homeLeg.options.odds}</b>`,
+            `<b>2️⃣[${awayPlatform}] 客队赔率：${awayLeg.options.odds}</b>`,
+            `<b>本单对冲利润：${percent(implied)}（投100块可无风险获利${toFixed(implied * 100 - 100, 2)}元利润）</b>`,
+          ].join("\n"),
+        );
+      }
     },
 
     /** [changmen 扩展] 发现满足阈值的套利腿时推送到个人 Telegram（A8 仅在下注成功后推单群） */
