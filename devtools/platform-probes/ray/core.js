@@ -1,5 +1,5 @@
 import { rayIsAggregatedOddsRow } from "@changmen/shared/catalog/market_catalog.mjs";
-import { rayMatchStage as matchStageToId } from "@changmen/platform-adapter/ray/shared/match_stage.js";
+import { rayMatchStage as matchStageToId } from "./shared/match_stage.js";
 
 export const DEFAULT_GATEWAYS = [
   "https://cfinfo.365raylinks.com/v2",

@@ -3,7 +3,7 @@
  * 将 client/platform-adapter 同步到 server/backend/platform_adapter（瘦包；不含 platform-probes）。
  * 仅用于「瘦包」部署（无 changmen/packages 目录）；标准 monorepo VPS 部署不需要。
  *
- * 各平台目录只同步 `shared/`（若有）；采集/下注 ts 留在客户端，不进瘦包。
+ * 各平台目录只同步基础设施；采集/下注 ts 与 `{platform}/shared/` 留在客户端，不进瘦包。
  *
  * 用法：
  *   npm run sync:backend-bundle --workspace=@changmen/platform-adapter
@@ -40,12 +40,6 @@ function cpDir(src, dst) {
   }
 }
 
-function cpPlatformSharedOnly(src, dst) {
-  const shared = path.join(src, "shared");
-  if (!fs.existsSync(shared)) return;
-  cpDir(shared, path.join(dst, "shared"));
-}
-
 /**
  * @param {{ dst?: string, src?: string, includeBrowserSources?: boolean }} [options]
  * @returns {string} 目标目录绝对路径
@@ -73,7 +67,6 @@ export function syncPlatformAdapterBackendBundle(options = {}) {
     }
     if (!ADAPTER_INFRA.has(name)) {
       if (options.includeBrowserSources) cpDir(from, to);
-      else cpPlatformSharedOnly(from, to);
       continue;
     }
     cpDir(from, to);

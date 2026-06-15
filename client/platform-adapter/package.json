@@ -9,9 +9,7 @@
   },
   "exports": {
     "./loader/adapter_paths.js": "./loader/adapter_paths.mjs",
-    "./loader/adapter_paths.mjs": "./loader/adapter_paths.mjs",
-    "./ray/shared/save_bets.js": "./ray/shared/save_bets.js",
-    "./ray/shared/match_stage.js": "./ray/shared/match_stage.js"
+    "./loader/adapter_paths.mjs": "./loader/adapter_paths.mjs"
   },
   "dependencies": {
     "@changmen/db": "*",

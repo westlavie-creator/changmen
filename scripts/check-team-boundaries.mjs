@@ -66,6 +66,14 @@ const RULES = [
     ],
   },
   {
+    id: "platform-probes",
+    roots: ["devtools/platform-probes"],
+    forbid: [
+      /@changmen\/platform-adapter\b/,
+      /(?:^|[/\\])client[/\\]platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\]/,
+    ],
+  },
+  {
     id: "server-matcher",
     roots: ["server/matcher"],
     forbid: [

@@ -1,14 +1,12 @@
-"use strict";
+import { rayMatchStage } from "./match_stage.js";
 
-const { rayMatchStage } = require("./match_stage.js");
-
-/** CJS 副本（Node 脚本 / ray/backend）；逻辑与 save_bets.ts 同步 */
+/** ESM（探针 verify_save_bets 等）；浏览器 canonical 见 platform-adapter/ray/shared/save_bets.ts */
 function isRayOddCollectable(p, betRe) {
   const group = String(p.group_name ?? "");
   return p.status !== 4 && betRe.test(group);
 }
 
-function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
+export function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
   const teams = result?.team ?? [];
   const homeTeam = teams.find((t) => t.pos === 1);
   const awayTeam = teams.find((t) => t.pos === 2);
@@ -61,5 +59,3 @@ function groupRayOddsToSaveBets(result, betRe, platform = "RAY") {
 
   return [...grouped.values()].sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
 }
-
-module.exports = { groupRayOddsToSaveBets };

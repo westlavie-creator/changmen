@@ -6,7 +6,7 @@
  */
 
 import { login, fetchOdds } from "../session.js";
-import { groupRayOddsToSaveBets } from "@changmen/platform-adapter/ray/shared/save_bets.js";
+import { groupRayOddsToSaveBets } from "../shared/save_bets.js";
 
 async function main() {
   const { buildBetsForMatch } = await import(

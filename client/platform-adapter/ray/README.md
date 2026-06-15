@@ -3,7 +3,8 @@
 | 目录 | 用途 |
 |------|------|
 | 根目录 `collect.ts` / `bet.ts` / `realtime.ts` 等 | **浏览器采集与下注**（主链路，HTTP + WebSocket） |
-| `shared/` | SaveBet / 赛段映射，与 `platform-probes` 共用 |
+| `shared/` | 浏览器 SaveBet / 赛段映射（`match_stage.ts`、`save_bets.ts`） |
+| `devtools/platform-probes/ray/shared/` | 探针 CJS（`core.js`、CLI，与 `.ts` 逻辑对齐） |
 | `devtools/platform-probes/ray/` | 可选 Node 探针 CLI |
 
 生产代码在平台根目录，不在 `frontend/`。

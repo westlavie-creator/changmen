@@ -9,7 +9,7 @@
 3. `index.ts` — 实现 `PlatformAdapter`
 4. `collect.ts` / `bet.ts` — 浏览器采集与下注
 5. `devtools/platform-probes/{dir}/` — Node 探针（`requirePlatform` 第二段 `"node"`）
-6. 可选 `shared/` — 与 platform-probes 共用的 save_bets / parse
+6. 可选 `shared/` — 浏览器内部共用（save_bets / parse）；探针侧放 `devtools/platform-probes/{dir}/shared/`
 
 ## 目录
 
@@ -18,10 +18,11 @@
 ├── index.ts
 ├── collect.ts
 ├── bet.ts
-└── shared/          # 可选
+└── shared/          # 可选，仅浏览器
 
 devtools/platform-probes/{dir}/
 ├── session.js
+├── shared/          # 可选，仅探针/CLI
 └── ...
 ```
 

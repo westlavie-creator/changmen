@@ -18,6 +18,7 @@
 | 目录 | 范围 | 示例 |
 |------|------|------|
 | **`client/platform-adapter/shared/`** | 跨平台 | A8 socket、采集通知 |
-| **`{platform}/shared/`** | 单平台，浏览器 + Node 探针共用 | `ob/shared/save_bets.ts` |
+| **`client/platform-adapter/{platform}/shared/`** | 单平台，**仅浏览器** | `ob/shared/save_bets.ts`、`ray/shared/match_stage.ts` |
+| **`devtools/platform-probes/{platform}/shared/`** | 单平台，**仅探针/CLI** | `ray/shared/save_bets.js`（CJS，与浏览器 `.ts` 逻辑对齐） |
 
-仅当 HTTP 解析 / SaveBet / MQTT 与 HTTP 逻辑需要被 `collect.ts` 与 `platform-probes` 共用时，才放在 `{platform}/shared/`。
+浏览器与探针若需相同业务逻辑，各自维护一份（TS 为生产 canonical；探针 CJS 供 `core.js`/CLI）。不要从探针 `import @changmen/platform-adapter`。

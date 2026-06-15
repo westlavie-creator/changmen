@@ -28,7 +28,6 @@
   },
   "dependencies": {
     "@changmen/db": "*",
-    "@changmen/platform-adapter": "*",
     "@changmen/shared": "*"
   }
 }

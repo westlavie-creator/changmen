@@ -15,7 +15,11 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 已移除的遗留目录（勿再创建）：`server/platform-node`、`server/platform-probes`、`client/platform-adapter/node/`。探针源码仅在 `devtools/platform-probes/`；瘦包同步产物为 `server/backend/platform_node/`。
 | **共同协商** | `packages/shared/`、`packages/api-contract/`、`docs/TEAM_BOUNDARIES.md`、`.github/CODEOWNERS` | 跨端工具、catalog、HTTP 契约 |
 
-`client/platform-adapter` 内的 `loader/`、`registry/`、`scripts/`、`backend/_paths` 属**适配器基础设施**：客户端团队主维护；服务端仅通过 `requirePlatform(..., "node")` 与瘦包同步消费，**不得**引用各平台根目录下的采集/下注模块（`{platform}/shared/` 除外）。
+`client/platform-adapter` 内的 `loader/`、`registry/`、`scripts/`、`backend/_paths` 属**适配器基础设施**；各平台 `{platform}/shared/` 为**浏览器采集**内部模块（collect / markets / parse 共用），**不同步**到瘦包。
+
+`devtools/platform-probes/{platform}/shared/` 为**探针/CLI** 内部模块（如 RAY 的 CJS `save_bets.js`），与浏览器 `shared/` 分离，由探针包 `sync:backend-bundle` 打入 `server/backend/platform_node/`。
+
+服务端通过 `requirePlatform(..., "node")` 加载探针；**不得**引用各平台根目录下的采集/下注 ts（`client/platform-adapter/{platform}/shared/` 亦不在瘦包内）。
 
 ## 唯一集成面（HTTP）
 
@@ -68,9 +72,16 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 | 允许 | 禁止 |
 |------|------|
-| `@changmen/db`、`@changmen/match-engine`、`@changmen/shared` | `client/platform-adapter/*/`（平台根目录 ts，不含 `shared/`） |
+| `@changmen/db`、`@changmen/match-engine`、`@changmen/shared` | `client/platform-adapter/*/`（平台根目录 ts 与 `shared/`） |
 | `@changmen/platform-adapter/loader`、`registry`、`requirePlatform` → **node** | `client/web/src/**` |
 | `@changmen/platform-probes` | |
+
+### 探针（`devtools/platform-probes`）
+
+| 允许 | 禁止 |
+|------|------|
+| `@changmen/shared`、`@changmen/db` | `@changmen/platform-adapter`（含各平台 `shared/`） |
+| 同平台 `shared/`、`core.js`、CLI 脚本 | `client/web`、`client/platform-adapter/{platform}/` 根目录 ts |
 
 ## 本地校验
 
