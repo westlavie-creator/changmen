@@ -731,6 +731,17 @@
   color: var(--adm-text-secondary);
   background: rgba(90, 111, 138, 0.15);
 }
+.admin-order-link__order-ids {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--adm-text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
 .admin-order-link__profit {
   margin-left: auto;
   font-weight: 700;

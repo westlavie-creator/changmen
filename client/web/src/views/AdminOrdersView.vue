@@ -248,11 +248,17 @@ onMounted(async () => {
               <span class="admin-order-link__id">Link {{ groupLinkLabel(groupRows) }}</span>
               <span v-if="groupIsLinked(groupRows)" class="admin-order-link__meta">套利 {{ groupRows.length }} 笔</span>
               <span v-else class="admin-order-link__meta">{{ groupMetaLabel(groupRows) }}</span>
+              <span class="admin-order-link__order-ids" :title="groupRows.map((r) => r.orderId).join(', ')">
+                OrderID {{ groupRows.map((r) => r.orderId).filter(Boolean).join(' · ') || '—' }}
+              </span>
               <span class="admin-order-link__profit" :class="groupProfitClass(groupRows)">
                 合计 {{ fmtMoney(groupProfit(groupRows)) }}
               </span>
             </header>
             <el-table :data="groupRows" size="small" class="admin-order-link__table">
+              <el-table-column label="OrderID" min-width="168" show-overflow-tooltip>
+                <template #default="{ row }">{{ row.orderId || '—' }}</template>
+              </el-table-column>
               <el-table-column label="LinkID" width="108" show-overflow-tooltip>
                 <template #default="{ row }">{{ formatLinkId(row.linkId) }}</template>
               </el-table-column>

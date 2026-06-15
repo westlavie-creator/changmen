@@ -374,7 +374,7 @@ async function handle(
       return ok(await store.buildMatchList());
     case "Client_SaveData": {
       if (!body.key) return fail("key required");
-      const saved = accountService.handleSaveData(body.key, body.content ?? "", ctx.user.id);
+      const saved = await accountService.handleSaveData(body.key, body.content ?? "", ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_GetAccounts":
@@ -382,9 +382,8 @@ async function handle(
     case "Client_SaveAccounts": {
       let accounts: unknown[] = [];
       try { accounts = JSON.parse((body.accounts as string) || "[]"); } catch { return fail("accounts JSON ??"); }
-      if (!Array.isArray(accounts)) return fail("accounts ????");
-      store.setAccountsForUser(ctx.user.id, accounts);
-      return ok(true);
+      const saved = await accountService.handleSaveAccounts(accounts, ctx.user.id);
+      return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_GetData": {
       const data = accountService.handleGetData(body.key, ctx.user.id);
@@ -423,7 +422,7 @@ async function handle(
       return deleted.ok ? ok(deleted.info) : fail(deleted.msg);
     }
     case "Client_UpdateBalance": {
-      const updated = accountService.handleUpdateBalance(body);
+      const updated = await accountService.handleUpdateBalance(body);
       return updated.ok ? ok(updated.info) : fail(updated.msg);
     }
     case "Client_RefreshAccountBalance": {
@@ -524,13 +523,13 @@ async function handle(
       return ok(await store.getMatchDefaultOdds(matchIds));
     }
     case "Client_CreateTagPlatform": {
-      accountStore.ensureSeed();
-      const created = accountService.handleCreateTagPlatform(body);
+      await accountStore.ensureSeed();
+      const created = await accountService.handleCreateTagPlatform(body);
       return created.ok ? ok(created.info) : fail(created.msg);
     }
     case "Client_GetTagPlatforms": {
-      accountStore.ensureSeed();
-      const tags = accountService.handleGetTagPlatforms();
+      await accountStore.ensureSeed();
+      const tags = await accountService.handleGetTagPlatforms();
       return ok(tags.info);
     }
     case "Client_GetPlayerOrder": {
@@ -569,7 +568,7 @@ export async function handleEsportRequest(
   const action = actionFromUrl(urlPath);
   try {
     store.ensureSeed();
-    accountStore.ensureSeed();
+    await accountStore.ensureSeed();
     if (!action) { sendJson(res, 404, fail("missing action")); return true; }
     if (req.method !== "POST" && req.method !== "GET") {
       sendJson(res, 405, fail("method not allowed"));
@@ -656,7 +655,7 @@ export async function callEsportAction(
 ): Promise<ApiEnvelope> {
   try {
     store.ensureSeed();
-    accountStore.ensureSeed();
+    await accountStore.ensureSeed();
     // IPC ????action ????query string?? "API_SaveMatch?XBet"?????
     const cleanAction = String(action || "").split("?")[0];
     if (!cleanAction) return fail("missing action");

@@ -7,8 +7,6 @@ import { BACKEND_ROOT, ESPORT_DATA_DIR } from "./paths.js";
 import { readJsonFile, writeJsonFile } from "./json_file_store.js";
 
 const EMPTY_OBJECTS = [
-  "tag_platforms",
-  "players",
   "player_orders",
   "default_odds",
   "sessions",
@@ -24,15 +22,11 @@ export function ensureDefaultJsonFiles() {
       writeJsonFile("platforms", {});
     }
   }
-  if (!fs.existsSync(filePath("tag_platforms"))) {
-    writeJsonFile("tag_platforms", {});
-  }
 }
 
 export function ensureStorageSeed() {
   ensureDefaultJsonFiles();
   for (const name of EMPTY_OBJECTS) {
-    if (name === "tag_platforms") continue;
     if (!fs.existsSync(filePath(name))) {
       writeJsonFile(name, {});
     }

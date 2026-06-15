@@ -48,6 +48,9 @@ async function main() {
     console.log("[rds] 执行 005_client_matches_list_status.sql …");
     await client.query(readSql("005_client_matches_list_status.sql"));
 
+    console.log("[rds] 执行 006_tag_platforms_players.sql …");
+    await client.query(readSql("006_tag_platforms_players.sql"));
+
     if (withCron) {
       console.log("[rds] 执行 002_prune_pg_cron.sql …");
       try {

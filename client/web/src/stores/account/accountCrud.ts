@@ -11,6 +11,7 @@ import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 import { refreshAccountBalance, refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
+import { updateVenueOrders } from "@/stores/account/venueOrders";
 import type { AccountStoreContext } from "@/stores/account/context";
 
 export function openCreateAccount(store: AccountStoreContext) {
@@ -70,21 +71,25 @@ export async function persistAccounts(store: AccountStoreContext) {
   return ok;
 }
 
-export async function upsertAccount(store: AccountStoreContext, record: Partial<AccountRecord>) {
+/** [A8 可证实] Io.createAccount：accountId 仅来自 CreateTagPlatform.playerId */
+async function createAccountFromPlayerId(
+  store: AccountStoreContext,
+  record: AccountRecord,
+) {
+  if (!record.accountId) {
+    throw new Error("accountId 必须来自 CreateTagPlatform 返回的 playerId");
+  }
   const existing = store.findAccount(record.accountId);
   if (existing) {
     existing.applyPatch(record);
-  } else if (record.accountId) {
-    store.accounts.push(new PlatformAccount(record as AccountRecord));
+  } else {
+    store.accounts.push(new PlatformAccount(record));
   }
   await persistAccounts(store);
-}
-
-export async function createAccount(store: AccountStoreContext, record: Partial<AccountRecord>) {
-  await upsertAccount(store, record);
   const acc = store.findAccount(record.accountId);
   if (acc) {
     await refreshAccountBalance(store, acc);
+    await updateVenueOrders(acc);
   }
 }
 
@@ -100,7 +105,10 @@ export async function createFromTagPlatform(
     form.platformName,
     form.playerName,
   );
-  await createAccount(store, {
+  if (!created?.playerId) {
+    throw new Error("CreateTagPlatform 未返回 playerId");
+  }
+  await createAccountFromPlayerId(store, {
     ...form,
     accountId: created.playerId,
     playerName: created.playerName,
@@ -109,7 +117,7 @@ export async function createFromTagPlatform(
     pause: form.pause ?? false,
     balance: undefined,
     updateTime: Date.now(),
-  });
+  } as AccountRecord);
   await loadTagPlatforms(store);
   return created;
 }

@@ -2,111 +2,71 @@ import store from "../esport-api/store.js";
 import * as sb from "@changmen/db";
 
 const FILES = {
-  tagPlatforms: "tag_platforms",
-  players: "players",
   playerOrders: "player_orders",
 };
 
-function nextId(collection) {
-  let max = 0;
-  for (const row of Object.values(collection || {})) {
-    const id = Number(row.id ?? row.ID ?? row.playerId ?? 0);
-    if (id > max) max = id;
-  }
-  return max + 1;
-}
-
-function listTagPlatforms() {
-  const all = store.readJson(FILES.tagPlatforms, {});
-  return Object.values(all)
-    .map((row) => ({ ID: row.id, Name: row.name }))
+async function listTagPlatforms() {
+  const rows = await sb.fetchTagPlatforms();
+  return rows
+    .map((row) => ({ ID: Number(row.id), Name: String(row.name) }))
     .sort((a, b) => a.ID - b.ID);
 }
 
-function findTagPlatformByName(name) {
-  const all = store.readJson(FILES.tagPlatforms, {});
-  return Object.values(all).find((row) => row.name === name) || null;
-}
+async function createTagPlatform(platformName, playerName) {
+  const label = String(platformName || "").trim();
+  const name = String(playerName || "").trim();
+  if (!label || !name) return null;
 
-function createTagPlatform(platformName, playerName) {
-  const platforms = store.readJson(FILES.tagPlatforms, {});
-  const players = store.readJson(FILES.players, {});
-
-  let platform = findTagPlatformByName(platformName);
+  const platform = await sb.upsertTagPlatformByName(label);
   if (!platform) {
-    const id = nextId(platforms);
-    platform = { id, name: platformName, createdAt: Date.now() };
-    platforms[id] = platform;
+    throw new Error("CreateTagPlatform 需要 DATABASE_URL（RDS tag_platforms / players）");
   }
 
-  const playerId = nextId(players);
-  const player = {
-    id: playerId,
+  const player = await sb.insertPlayerRow({
     platformId: platform.id,
     platformName: platform.name,
-    playerName: playerName || "",
-    credit: 0,
-    totalBalance: 0,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-  players[playerId] = player;
-
-  store.writeJson(FILES.tagPlatforms, platforms);
-  store.writeJson(FILES.players, players);
+    playerName: name,
+  });
+  if (!player) {
+    throw new Error("CreateTagPlatform 写入 players 失败");
+  }
 
   return {
-    playerId,
+    playerId: player.id,
     playerName: player.playerName,
-    platformId: platform.id,
-    platformName: platform.name,
+    platformId: player.platformId,
+    platformName: player.platformName,
   };
 }
 
-function getPlayer(playerId) {
-  const players = store.readJson(FILES.players, {});
-  return players[String(playerId)] || null;
-}
-
-function updatePlayerBalance(playerId, balance) {
-  const players = store.readJson(FILES.players, {});
-  const key = String(playerId);
-  const row = players[key];
+async function getPlayer(playerId) {
+  const row = await sb.fetchPlayerById(playerId);
   if (!row) return null;
-
-  row.totalBalance = Number(balance) || 0;
-  row.updatedAt = Date.now();
-  players[key] = row;
-  store.writeJson(FILES.players, players);
-
-  const platforms = store.readJson(FILES.tagPlatforms, {});
-  const platform = platforms[String(row.platformId)];
-
   return {
-    total: row.totalBalance,
+    id: row.id,
     platformId: row.platformId,
-    platformName: platform?.name || row.platformName || "",
-    credit: row.credit || 0,
+    platformName: row.platformName,
+    playerName: row.playerName,
+    credit: row.credit,
+    totalBalance: row.totalBalance,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
-function deletePlayer(playerId, description) {
-  const players = store.readJson(FILES.players, {});
-  const key = String(playerId);
-  if (!players[key]) return false;
+async function updatePlayerBalance(playerId, balance) {
+  return sb.updatePlayerBalanceRow(playerId, balance);
+}
 
-  players[key] = {
-    ...players[key],
-    deletedAt: Date.now(),
-    deleteDescription: description || "",
-  };
-  store.writeJson(FILES.players, players);
+async function deletePlayer(playerId, description) {
+  const ok = await sb.softDeletePlayerRow(playerId, description);
+  if (!ok) return false;
 
   const orders = store.readJson(FILES.playerOrders, {});
-  delete orders[key];
+  delete orders[String(playerId)];
   store.writeJson(FILES.playerOrders, orders);
 
-  removeAccountFromKv(key);
+  removeAccountFromKv();
   return true;
 }
 
@@ -251,11 +211,12 @@ function savePlayerOrders(playerId, provider, orders) {
 
 function getAccountsFromKv() { return []; }
 
-function ensureSeed() {
+async function ensureSeed() {
   store.ensureSeed();
-  for (const name of Object.values(FILES)) {
-    if (store.readJson(name, null) == null) store.writeJson(name, {});
+  if (store.readJson(FILES.playerOrders, null) == null) {
+    store.writeJson(FILES.playerOrders, {});
   }
+  await sb.migratePlayersJsonToRds();
 }
 
 export {

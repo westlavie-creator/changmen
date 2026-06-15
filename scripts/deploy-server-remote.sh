@@ -159,12 +159,15 @@ else
 fi
 
 LIVE_TIMER_TOUCHED=0
+PLAYERS_RDS_TOUCHED=0
 if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
   while IFS= read -r path; do
     case "$path" in
       *live_timer*|changmen/server/db/impl_rds.js|server/db/impl_rds.js)
         LIVE_TIMER_TOUCHED=1
-        break
+        ;;
+      *006_tag_platforms_players*|*players_json_migrate*|changmen/server/backend/core/account/account_store.js|server/backend/core/account/account_store.js)
+        PLAYERS_RDS_TOUCHED=1
         ;;
     esac
   done < <(git -C "$GIT_ROOT" diff --name-only "$OLD_HEAD" "$NEW_HEAD")
@@ -172,6 +175,11 @@ fi
 if [ "$LIVE_TIMER_TOUCHED" = "1" ]; then
   log "live_timer code changed — purge stale OB live_timers rows"
   node server/backend/scripts/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
+fi
+if [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
+  log "players/tag_platforms → RDS: apply schema + migrate JSON from storage/"
+  (cd server/backend && node scripts/apply-rds-schema.mjs) || echo "WARN: apply-rds-schema failed"
+  (cd server/backend && node scripts/migrate-players-to-rds.mjs) || echo "WARN: migrate-players failed"
 fi
 
 if command -v pm2 >/dev/null 2>&1; then

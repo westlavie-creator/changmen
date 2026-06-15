@@ -74,14 +74,6 @@ export const useAccountStore = defineStore("account", {
       return accountCrud.persistAccounts(this);
     },
 
-    upsertAccount(record: Partial<AccountRecord>) {
-      return accountCrud.upsertAccount(this, record);
-    },
-
-    createAccount(record: Partial<AccountRecord>) {
-      return accountCrud.createAccount(this, record);
-    },
-
     createFromTagPlatform(
       form: Partial<AccountRecord> & {
         platformName: string;

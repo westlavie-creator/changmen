@@ -15,38 +15,42 @@ import { listProfiles } from "../db/store.js";
 import { getOnlineUserIdSet } from "./user_presence.js";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 
-function handleCreateTagPlatform(body) {
+async function handleCreateTagPlatform(body) {
   const platformName = body.platform || body.platformName || "";
   const playerName = body.playerName || "";
   if (!platformName || !playerName) {
     return { ok: false, msg: "platform 与 playerName 必填" };
   }
-  const created = accountStore.createTagPlatform(platformName, playerName);
-  return { ok: true, info: created };
+  try {
+    const created = await accountStore.createTagPlatform(platformName, playerName);
+    return { ok: true, info: created };
+  } catch (err) {
+    return { ok: false, msg: err.message || "CreateTagPlatform 失败" };
+  }
 }
 
-function handleGetTagPlatforms() {
-  return { ok: true, info: accountStore.listTagPlatforms() };
+async function handleGetTagPlatforms() {
+  return { ok: true, info: await accountStore.listTagPlatforms() };
 }
 
-function handleUpdateBalance(body) {
+async function handleUpdateBalance(body) {
   const playerId = body.playerId;
   const balance = Number(body.balance);
   if (!playerId || Number.isNaN(balance)) {
     return { ok: false, msg: "playerId 与 balance 必填" };
   }
-  const player = accountStore.getPlayer(playerId);
+  const player = await accountStore.getPlayer(playerId);
   if (!player) {
     return { ok: false, msg: "player 不存在" };
   }
-  const info = accountStore.updatePlayerBalance(playerId, balance);
+  const info = await accountStore.updatePlayerBalance(playerId, balance);
   return { ok: true, info };
 }
 
 async function handleDeletePlayer(body, userId) {
   const playerId = body.playerId;
   if (!playerId) return { ok: false, msg: "playerId 必填" };
-  const ok = accountStore.deletePlayer(playerId, body.description || "");
+  const ok = await accountStore.deletePlayer(playerId, body.description || "");
   if (ok) await accountStore.deletePlayerData(playerId);
   if (userId) store.removeAccountForUser(userId, playerId);
   return ok ? { ok: true, info: true } : { ok: false, msg: "player 不存在" };
@@ -130,10 +134,10 @@ function handleGetUsers() {
 }
 
 /** 仅用于服务端 Refresh 对比；A8 不在 GetData 时注入余额 */
-function resolveStoredBalance(row) {
+async function resolveStoredBalance(row) {
   if (!row) return null;
   if (row.balance != null && row.balance !== 0) return Number(row.balance);
-  const player = row.accountId ? accountStore.getPlayer(row.accountId) : null;
+  const player = row.accountId ? await accountStore.getPlayer(row.accountId) : null;
   if (player?.totalBalance != null && player.totalBalance !== 0) {
     return Number(player.totalBalance);
   }
@@ -145,7 +149,33 @@ function enrichAccountRowFromPlayer(row) {
   return normalizeAccountMultiplyField(row);
 }
 
-function handleSaveData(key, content, userId) {
+/** [A8 可证实] accountId = CreateTagPlatform 返回的 playerId，禁止客户端自增 */
+async function validateAccountRows(accounts) {
+  if (!Array.isArray(accounts)) return { ok: false, msg: "ACCOUNT 必须是数组" };
+  const seen = new Set();
+  for (const row of accounts) {
+    const id = Number(row?.accountId ?? row?.AccountId);
+    if (!id) {
+      return { ok: false, msg: "accountId 无效，请先调用 Client_CreateTagPlatform" };
+    }
+    if (seen.has(id)) return { ok: false, msg: `accountId ${id} 重复` };
+    seen.add(id);
+    if (!(await accountStore.getPlayer(id))) {
+      return { ok: false, msg: `playerId ${id} 不存在，请先调用 Client_CreateTagPlatform` };
+    }
+  }
+  return { ok: true };
+}
+
+async function handleSaveAccounts(accounts, userId) {
+  const checked = await validateAccountRows(accounts);
+  if (!checked.ok) return checked;
+  const normalized = accounts.map((row) => enrichAccountRowFromPlayer(row));
+  store.setAccountsForUser(userId, normalized);
+  return { ok: true, info: true };
+}
+
+async function handleSaveData(key, content, userId) {
   if (key === "ACCOUNT") {
     let accounts = [];
     try {
@@ -153,9 +183,7 @@ function handleSaveData(key, content, userId) {
     } catch {
       return { ok: false, msg: "ACCOUNT JSON 无效" };
     }
-    if (!Array.isArray(accounts)) return { ok: false, msg: "ACCOUNT 必须是数组" };
-    store.setAccountsForUser(userId, accounts);
-    return { ok: true, info: true };
+    return handleSaveAccounts(accounts, userId);
   }
   if (store.isUserSettingKey(key)) {
     store.setUserSetting(userId, key, content ?? "");
@@ -221,7 +249,7 @@ async function refreshAccountBalance(accountRow) {
     const bal = await getAccountBalance(enriched);
     if (!bal) return { account: enriched, balance: null };
     if (enriched.accountId) {
-      accountStore.updatePlayerBalance(enriched.accountId, bal.balance);
+      await accountStore.updatePlayerBalance(enriched.accountId, bal.balance);
     }
     return { account: enriched, balance: bal };
   } catch (err) {
@@ -291,7 +319,7 @@ async function handleRefreshAccountBalance(body, userId) {
     accounts.find((r) => String(r.accountId) === String(playerId)),
   );
   if (!row) return { ok: false, msg: "account 不存在" };
-  const previousBalance = resolveStoredBalance(row);
+  const previousBalance = await resolveStoredBalance(row);
   const result = await refreshAccountBalance(row);
   if (result.balance != null) {
     const balance = Number(result.balance.balance) || 0;
@@ -339,6 +367,7 @@ export {
   handleGetUsers,
   handleGetData,
   handleSaveData,
+  handleSaveAccounts,
   refreshAccountBalance,
   refreshAllAccountBalances,
   handleRefreshAccountBalance,

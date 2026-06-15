@@ -71,6 +71,12 @@ export const {
   upsertMoneyLog,
   deleteMoneyLogById,
   deleteMoneyLogsByPlayer,
+  fetchTagPlatforms,
+  upsertTagPlatformByName,
+  insertPlayerRow,
+  fetchPlayerById,
+  updatePlayerBalanceRow,
+  softDeletePlayerRow,
   upsertOrders,
   updateOrderBind,
   authSignIn,
@@ -147,3 +153,5 @@ export {
 } from "./resolve_database_url.js";
 
 export { getPgPool, ensurePgPoolReady } from "./pg_pool.js";
+
+export { migratePlayersJsonToRds } from "./players_json_migrate.js";
