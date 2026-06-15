@@ -26,8 +26,16 @@ desktop.ini
 *.swp
 *.swo
 
+# 遗留 apps/ 空目录（档 B 已迁至 client/ + server/）
+/apps/
+
 # Secrets & local runtime data (do not commit)
-# data/esport/ 全是运行时数据，只跟踪 example 文件
+server/backend/data/esport/*.json
+server/backend/data/esport/*.b64
+!server/backend/data/esport/*.example.json
+server/backend/data/*.db
+server/backend/data/*.db-shm
+server/backend/data/*.db-wal
 apps/backend/data/esport/*.json
 apps/backend/data/esport/*.b64
 !apps/backend/data/esport/*.example.json
@@ -46,17 +54,22 @@ gamebet_backend/data/*.db-wal
 .env
 .env.*
 !.env.example
+server/matcher/.matcher-heartbeat.json
 apps/matcher/.matcher-heartbeat.json
 
-# Gamebet extension signing key (public key is in apps/chrome-extension/manifest.json)
+# Gamebet extension signing key
+client/chrome-extension/key.pem
 apps/chrome-extension/key.pem
 gamebet_chromeplug/key.pem
 
 # Chrome extension reverse-engineering scratch (local analysis only)
+client/chrome-extension/scripts/_extracted/
 apps/chrome-extension/scripts/_extracted/
 gamebet_chromeplug/scripts/_extracted/
 
 # Team name resolver runtime cache
+server/team-resolver/cache/*.json
+!server/team-resolver/cache/.gitkeep
 packages/team-resolver/cache/*.json
 !packages/team-resolver/cache/.gitkeep
 team-resolver/cache/*.json
@@ -64,6 +77,7 @@ team-resolver/cache/*.json
 
 # AI/session scratch (not product code)
 memory/
+server/backend/platform_adapter/
 apps/backend/platform_adapter/
 
 # Large local captures / dumps

@@ -2,7 +2,7 @@
 # Piped from BAT/sync-telegram-env.bat — upsert TELEGRAM_BOT_TOKEN on VPS .env
 set -euo pipefail
 
-ENV_FILE="${DEPLOY_REPO:-/root/gamebet}/changmen/apps/backend/.env"
+ENV_FILE="${DEPLOY_REPO:-/root/gamebet}/changmen/server/backend/.env"
 TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 
 if [[ -z "$TOKEN" ]]; then

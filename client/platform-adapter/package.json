@@ -1,0 +1,19 @@
+{
+  "name": "@changmen/platform-adapter",
+  "private": true,
+  "type": "commonjs",
+  "description": "各平台浏览器适配器（frontend + registry + loader）",
+  "scripts": {
+    "sync:backend-bundle": "node scripts/sync-backend-bundle.mjs"
+  },
+  "exports": {
+    "./loader/adapter_paths.js": "./loader/adapter_paths.mjs",
+    "./loader/adapter_paths.mjs": "./loader/adapter_paths.mjs",
+    "./ray/shared/save_bets.js": "./ray/shared/save_bets.js",
+    "./ray/shared/match_stage.js": "./ray/shared/match_stage.js"
+  },
+  "dependencies": {
+    "@changmen/db": "*",
+    "@changmen/shared": "*"
+  }
+}

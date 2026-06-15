@@ -1,0 +1,65 @@
+/**
+ * 所有合法 esport action（与 server/backend/core/esport-api/router.ts 同步）。
+ * 前端 post(action) 与后端 handleEsportRequest 均须使用此集合中的名称。
+ */
+export const ESPORT_ACTIONS = [
+  "Client_Login",
+  "Client_Logout",
+  "Client_RefreshToken",
+  "Client_GetUserInfo",
+  "Client_UpdateSetting",
+  "Client_GetCollectPlatform",
+  "Client_GetGames",
+  "API_UpdatePlatform",
+  "API_SaveMatch",
+  "API_SaveBet",
+  "API_SaveLiveTimer",
+  "Client_GetMatchs",
+  "Client_SaveData",
+  "Client_GetAccounts",
+  "Client_SaveAccounts",
+  "Client_GetData",
+  "Client_GetUserDetail",
+  "Client_GetOrderList",
+  "Client_SaveOrder",
+  "Client_SaveOrderBind",
+  "API_SaveScore",
+  "Client_SaveMoneyLog",
+  "Client_DeleteMoneyLog",
+  "Client_DeletePlayer",
+  "Client_UpdateBalance",
+  "Client_RefreshAccountBalance",
+  "Client_GetMoneyLogs",
+  "Client_GetMoneyLog",
+  "Client_MonthReport",
+  "Client_GetUserProfit",
+  "Client_AdminDashboard",
+  "Client_AdminUsers",
+  "Client_AdminOrders",
+  "Client_AdminOrdersMatrix",
+  "Client_AdminCreateUser",
+  "Client_AdminResetPassword",
+  "Client_AdminSetUserFrozen",
+  "Client_AdminSetUserAdmin",
+  "Client_GetDefaultOdds",
+  "Client_GetMatchDefaultOdds",
+  "Client_CreateTagPlatform",
+  "Client_GetTagPlatforms",
+  "Client_GetPlayerOrder",
+  "Client_GetUsers",
+  "Client_GetChatHistory",
+  "Client_SaveUserLog",
+  "SendMessage",
+] as const;
+
+export type EsportAction = (typeof ESPORT_ACTIONS)[number];
+
+/** 采集上报与列表拉取 — 团队边界文档中的核心契约面 */
+export const CORE_INTEGRATION_ACTIONS = [
+  "API_SaveMatch",
+  "API_SaveBet",
+  "API_SaveLiveTimer",
+  "API_SaveScore",
+  "Client_GetMatchs",
+  "Client_GetData",
+] as const satisfies readonly EsportAction[];

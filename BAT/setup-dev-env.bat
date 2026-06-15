@@ -1,10 +1,11 @@
 @echo off
-REM 开发联调：从 example 复制 apps/backend/.env（浏览器 + 插件模式，非 Electron）
 setlocal
+chcp 65001 >nul 2>&1
 
+REM 开发联调：从 example 复制 server/backend/.env（浏览器 + 插件模式，非 Electron）
 set "ROOT=%~dp0.."
-set "EXAMPLE=%ROOT%\apps\backend\.env.example"
-set "DEST=%ROOT%\apps\backend\.env"
+set "EXAMPLE=%ROOT%\server\backend\.env.example"
+set "DEST=%ROOT%\server\backend\.env"
 
 if exist "%DEST%" (
   echo OK: 已存在 %DEST%

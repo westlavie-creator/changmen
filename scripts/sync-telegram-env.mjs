@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Push TELEGRAM_BOT_TOKEN from local apps/backend/.env to VPS and restart gamebet-web.
+ * Push TELEGRAM_BOT_TOKEN from local server/backend/.env to VPS and restart gamebet-web.
  * Uses Node stdin (LF only) — PowerShell pipe to ssh adds CRLF and breaks bash -s.
  */
 import { spawnSync } from "node:child_process";
@@ -30,7 +30,7 @@ function loadDeployConfig() {
 }
 
 function readTelegramToken() {
-  const envPath = path.join(changmen, "apps/backend/.env");
+  const envPath = path.join(changmen, "server/backend/.env");
   if (!fs.existsSync(envPath)) {
     console.error("missing", envPath);
     process.exit(1);
@@ -76,7 +76,7 @@ const remoteCmd = [
 ].join(" && ");
 
 console.log(
-  `Sync TELEGRAM_BOT_TOKEN to ${deploy.user}@${deploy.host}:${deploy.repo}/changmen/apps/backend/.env`,
+  `Sync TELEGRAM_BOT_TOKEN to ${deploy.user}@${deploy.host}:${deploy.repo}/changmen/server/backend/.env`,
 );
 
 const result = spawnSync(

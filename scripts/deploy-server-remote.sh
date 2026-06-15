@@ -15,7 +15,7 @@ elapsed() { echo "==> done in $((SECONDS - t0))s total"; }
 if [ -f "$ROOT/changmen/package.json" ]; then
   GIT_ROOT="$ROOT"
   CHANGMEN="$ROOT/changmen"
-elif [ -f "$ROOT/package.json" ] && [ -d "$ROOT/apps/backend" ]; then
+elif [ -f "$ROOT/package.json" ] && { [ -d "$ROOT/server/backend" ] || [ -d "$ROOT/apps/backend" ]; }; then
   GIT_ROOT="$ROOT"
   CHANGMEN="$ROOT"
 else
@@ -75,26 +75,30 @@ classify() {
       DO_PM2_WEB=1
       DO_PM2_MATCHER=1
       ;;
-    packages/*|shared/*)
+    packages/shared/*|packages/api-contract/*|client/platform-adapter/*|packages/platform-adapter/*)
+      DO_INSTALL_ROOT=1
+      DO_INSTALL_FRONTEND=1
+      DO_APP_BUILD=1
+      DO_PM2_MATCHER=1
+      ;;
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       DO_PM2_MATCHER=1
       ;;
-    apps/backend/*)
+    server/backend/*|apps/backend/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       DO_COMPILE_ROUTER=1
       ;;
-    apps/matcher/*)
+    server/matcher/*|apps/matcher/*)
       DO_INSTALL_ROOT=1
       DO_PM2_MATCHER=1
       ;;
-    apps/web/*)
+    client/web/*|apps/web/*)
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
-      DO_PM2_WEB=1
       ;;
-    apps/chrome-extension/*|BAT/*|ecosystem.config.cjs|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
+    client/chrome-extension/*|apps/chrome-extension/*|BAT/*|ecosystem.config.cjs|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
       ;;
     *.md|.gitignore)
       ;;
@@ -129,14 +133,12 @@ fi
 
 if [ "$DEPLOY_SKIP_APP_BUILD" = "1" ]; then
   DO_APP_BUILD=0
-  DO_PM2_WEB=1
-  DO_COMPILE_ROUTER=1
 fi
 
 cd "$CHANGMEN"
 
 if [ "$DO_INSTALL_ROOT" = "1" ] || [ "$DO_INSTALL_FRONTEND" = "1" ]; then
-  log "npm install (changmen workspaces, incl. apps/web)"
+  log "npm install (changmen workspaces)"
   npm install
 fi
 
@@ -158,7 +160,7 @@ LIVE_TIMER_TOUCHED=0
 if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
   while IFS= read -r path; do
     case "$path" in
-      *live_timer*|changmen/packages/db/impl_rds.js|packages/db/impl_rds.js)
+      *live_timer*|changmen/server/db/impl_rds.js|server/db/impl_rds.js|changmen/packages/db/impl_rds.js|packages/db/impl_rds.js)
         LIVE_TIMER_TOUCHED=1
         break
         ;;
@@ -167,7 +169,7 @@ if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
 fi
 if [ "$LIVE_TIMER_TOUCHED" = "1" ]; then
   log "live_timer code changed — purge stale OB live_timers rows"
-  node apps/backend/scripts/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
+  node server/backend/scripts/purge-platform-live-timers.mjs OB 2>/dev/null || node apps/backend/scripts/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
 fi
 
 if command -v pm2 >/dev/null 2>&1; then

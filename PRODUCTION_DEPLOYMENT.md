@@ -2,7 +2,7 @@
 
 changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于开发联调；生产环境客户端连**远程 API**，服务端与 RDS 跑在服务器/云上。
 
-最后更新：2026-06-12
+最后更新：2026-06-14
 
 ---
 
@@ -12,15 +12,15 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 ┌─────────────────────────────────────────────────────────┐
 │ 客户端（每台操作员机器）                                   │
 │  Vue / + Chrome 插件                                 │
-│  packages/platform-adapter 采集 → API_SaveMatch / API_SaveBet     │
+│  client/platform-adapter 采集 → API_SaveMatch / API_SaveBet     │
 │  oddsStore（内存 fo）· 下注 Provider · CollectConfig 门控  │
 └───────────────────────────┬─────────────────────────────┘
                             │ HTTPS（/esport/*）
                             ▼
 ┌─────────────────────────────────────────────────────────┐
 │ 服务端（一台或多实例）                                     │
-│  apps/backend    — esport-api、HTTP 代理、静态 /          │
-│  apps/matcher    — 循环写 client_matches                 │
+│  server/backend    — esport-api、HTTP 代理、静态 /          │
+│  server/matcher    — 循环写 client_matches                 │
 │  RDS (PostgreSQL)  — platform_* / client_matches / orders / users  │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -38,13 +38,60 @@ Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `
 | 路径 | 服务 |
 |------|------|
 | `https://your-domain.com/` | 静态前端（`app:build` 产物） |
-| `https://your-domain.com/esport/*` | apps/backend |
+| `https://your-domain.com/esport/*` | server/backend |
 | `https://your-domain.com/v4.0/*` | 平博 v4 透明代理（可选） |
 
 Nginx / Caddy 反代示例要点：
-- 静态 `/` 指向 `apps/web/dist/` 或由 Node 托管
+- 静态 `/` 指向 `client/web/dist/`（推荐由 Caddy `file_server` 托管），或由 `server/backend` 读 `dist` 托管
 
-**分离域名**（如 `app.example.com` + `api.example.com`）需额外网关把 `/esport` 代理到 API，或改前端为绝对 base URL（当前未内置 `VITE_API_BASE`，M2 前优先同源）。
+**分离域名**（可选，非默认）：如 `app.example.com` + `api.example.com` 时设置 `VITE_API_BASE` 并配 CORS，见 `client/web/.env.example`。单机单 IP、浏览器只访问 `http://IP/` 时**不需要**。
+
+---
+
+## 2.1 两团队独立发版（单 IP + Caddy）
+
+目标：**前端团队与后端团队各改各的，发版时不必一起重启进程**。这与「双域名 / 跨域」无关；浏览器仍只访问同一 origin（如 `http://你的IP/`）。
+
+### 生产上有几个「进程」
+
+| 组件 | 生产形态 | 发版 / 重启 |
+|------|----------|-------------|
+| 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
+| API（`server/backend`） | PM2：`gamebet-web`（`:3456`） | `pm2 restart gamebet-web` |
+| 合并（`server/matcher`） | PM2：`gamebet-matcher` | 有改 matcher 时再 `pm2 restart gamebet-matcher` |
+
+开发联调才是两个进程：Vite `:5174` + backend `:3456`（`BAT\dev.bat` 等），那是本地用，不是生产模型。
+
+### 推荐拓扑（`scripts/Caddyfile`）
+
+```text
+浏览器 → http://IP:80 (Caddy)
+           ├─ /、/assets/     → client/web/dist（前端团队 build）
+           └─ /esport/* 等    → 127.0.0.1:3456 (PM2 gamebet-web)
+```
+
+- **前端发版**：`git pull` → `npm run app:build` → 更新 `dist/`（Caddy 直接读磁盘，无需 reload，更不必动 PM2）
+- **后端发版**：`git pull` → `npm install`（若依赖变）→ `pm2 restart gamebet-web`（**不必**重新 `app:build`）
+
+部署前把 Caddyfile 里 `root` 改成 VPS 上真实的 `.../changmen/client/web/dist` 路径。
+
+### 简化拓扑（全反代到 3456）
+
+若 Caddy 仅 `reverse_proxy 127.0.0.1:3456`，由 `server.js` 托管 `dist`，**独立发版仍然成立**：
+
+- 前端只更新 `dist` → 通常可不 restart PM2（静态按请求读盘）
+- 后端只 `pm2 restart gamebet-web` → 不必动 `dist`
+
+Caddy 分流只是把「谁托管静态」从 Node 挪到 Caddy，职责更清晰；不是换一套产品架构。
+
+### 团队分工（单仓）
+
+| 团队 | 改什么 | 生产动作 |
+|------|--------|----------|
+| 客户端 | `client/web`、`platform-adapter`、`chrome-extension` | `app:build` → 更新 `dist` |
+| 服务端 | `server/backend`、`matcher`、`server/db` 等 | `pm2 restart` 对应进程 |
+
+集成只走 HTTP `/esport/*`（`@changmen/api-contract`），禁止跨团队 `import` 源码。见 [docs/TEAM_BOUNDARIES.md](./docs/TEAM_BOUNDARIES.md)。
 
 ---
 
@@ -54,8 +101,8 @@ Nginx / Caddy 反代示例要点：
 
 ```bash
 cd changmen
-npm install          # workspaces: apps/backend、apps/matcher、packages/*
-npm run app:install  # apps/web 依赖（首次）
+npm install          # workspaces: server/backend、server/matcher、packages/*
+npm run app:install  # client/web 依赖（首次）
 ```
 
 | 变量 | 生产 | 说明 |
@@ -70,7 +117,7 @@ npm run app:install  # apps/web 依赖（首次）
 | `A8_V4_URL` | `https://api.a8.to/v4.0` | v4 上游 |
 | `NODE_ENV` | `production` | 常规 Node 约定 |
 
-HTTP 代理（按需，见 [apps/backend/proxy/README.md](./apps/backend/proxy/README.md)）：
+HTTP 代理（按需，见 [server/backend/proxy/README.md](./server/backend/proxy/README.md)）：
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
@@ -81,11 +128,11 @@ HTTP 代理（按需，见 [apps/backend/proxy/README.md](./apps/backend/proxy/R
 ### 3.2 数据库
 
 ```bash
-cd changmen/apps/backend
+cd changmen/server/backend
 node scripts/apply-rds-schema.mjs
 ```
 
-过期数据由 `apps/matcher` 每小时执行 prune（`packages/db/prune_stale.js`，1 小时阈值）。手动兜底：`node scripts/prune-stale.mjs`。
+过期数据由 `server/matcher` 每小时执行 prune（`server/db/prune_stale.js`，1 小时阈值）。手动兜底：`node scripts/prune-stale.mjs`。
 
 ### 3.3 构建并托管前端
 
@@ -94,7 +141,7 @@ cd changmen
 npm run app:build
 ```
 
-产物在 `apps/web/dist/`；后端启动时会托管 `/`（见 `apps/backend/server.js`）。
+产物在 `client/web/dist/`。推荐由 Caddy 托管静态（见 §2.1）；若未分流，后端启动时也会托管 `/`（见 `server/backend/server.js`）。
 
 ### 3.4 进程
 
@@ -108,15 +155,17 @@ npm run web
 npm run matcher:loop
 ```
 
-`ecosystem.config.cjs` 中入口为 `apps/backend/scripts/start-db.mjs` 与 `apps/matcher/scripts/start-db.mjs`（`GAMEBET_DB_SCRIPT=rds`）。
+`ecosystem.config.cjs` 中入口为 `server/backend/scripts/start-db.mjs` 与 `server/matcher/scripts/start-db.mjs`（`GAMEBET_DB_SCRIPT=rds`）。
 
 生产建议用 systemd / pm2 / Docker Compose 托管，并配置重启策略。
 
-### 3.4 platform-adapter（HTTP 代理 / 平台 backend）
+### 3.4 platform-adapter（Node 库 / CLI）
 
-**标准部署（整仓 `git pull` + `npm install`）**：后端经 workspace 直接使用 `packages/platform-adapter`，**不需要**拷贝到 `apps/backend/platform_adapter`。`scripts/deploy-server-remote.sh` 亦无需额外步骤。
+Node 库在 **`@changmen/platform-node`**（瘦包同步为 `server/backend/platform_node`），与 `platform_adapter` 并列。
 
-**瘦包部署**（仅发布 `apps/backend`、无 `packages/` 目录时）：
+**标准部署（整仓 `git pull` + `npm install`）**：后端经 workspace 直接使用 `client/platform-adapter`，**不需要**拷贝到 `server/backend/platform_adapter`。`scripts/deploy-server-remote.sh` 亦无需额外步骤。
+
+**瘦包部署**（仅发布 `server/backend`、无 `packages/` 目录时）：
 
 ```bash
 cd changmen
@@ -125,7 +174,7 @@ npm run sync:platform-adapter --workspace=@changmen/backend
 # npm run sync:platform-adapter
 ```
 
-将 `registry/` + 各平台 `backend/`（跳过 `frontend/`）同步到 `apps/backend/platform_adapter/`。可选在进程环境设置 `GAMEBET_ADAPTER_ROOT` 指向该目录（否则解析顺序见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)）。
+将 `registry/` + 各平台 `node/` + 包级 `backend/_paths` 同步到 `server/backend/platform_adapter/`（跳过 `frontend/`）。可选在进程环境设置 `GAMEBET_ADAPTER_ROOT` 指向该目录（否则解析顺序见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)）。
 
 冒烟：`npm run test:adapter --workspace=@changmen/backend`（模拟瘦包布局）。
 
@@ -144,12 +193,12 @@ npm run sync:platform-adapter --workspace=@changmen/backend
 ### 4.1 访问方式
 
 - **浏览器**：打开 `https://your-domain.com/`，登录 JWT 用户（`users` 表）
-- **Chrome 插件**：操作员在 Chrome/Edge 安装 `apps/chrome-extension`（见 4.2）。PB / Stake 采集与 v4 代发**依赖插件**。
+- **Chrome 插件**：操作员在 Chrome/Edge 安装 `client/chrome-extension`（见 4.2）。PB / Stake 采集与 v4 代发**依赖插件**。
 
 ### 4.2 Chrome 插件
 
 ```bash
-cd changmen/apps/chrome-extension
+cd changmen/client/chrome-extension
 npm run build
 ```
 
@@ -209,7 +258,7 @@ npm run build
 - [ ] 选定生产域名并完成首次 RDS schema + 双进程部署
 - [ ] 至少一台客户端连远程 API 登录成功
 
-M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [apps/web/docs/A8_WALKTHROUGH_CHECKLIST.md](./apps/web/docs/A8_WALKTHROUGH_CHECKLIST.md)。
+M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [client/web/docs/A8_WALKTHROUGH_CHECKLIST.md](./client/web/docs/A8_WALKTHROUGH_CHECKLIST.md)。
 
 ---
 
@@ -219,6 +268,7 @@ M1 签字后进入 **M2**（OB/RAY/IM 采集 E2E），见 [apps/web/docs/A8_WALK
 |------|------|
 | [readme.md](./readme.md) | 项目共识、目录 |
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | monorepo 布局、迁移阶段、adapter 解析 |
+| [docs/TEAM_BOUNDARIES.md](./docs/TEAM_BOUNDARIES.md) | 两团队目录归属、独立发版 |
 | [CLAUDE.md](./CLAUDE.md) | 开发命令、RDS 表 |
-| [apps/backend/README.md](./apps/backend/README.md) | API、HTTP 代理环境变量 |
+| [server/backend/README.md](./server/backend/README.md) | API、HTTP 代理环境变量 |
 | [scripts/README.md](./scripts/README.md) | `.bat` 脚本说明 |

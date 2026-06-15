@@ -9,7 +9,7 @@ module.exports = {
   apps: [
     {
       name: "gamebet-web",
-      cwd: "./apps/backend",
+      cwd: "./server/backend",
       script: "scripts/start-db.mjs",
       interpreter: "node",
       env: {
@@ -18,7 +18,7 @@ module.exports = {
     },
     {
       name: "gamebet-matcher",
-      cwd: "./apps/matcher",
+      cwd: "./server/matcher",
       script: "scripts/start-db.mjs",
       interpreter: "node",
       env: {

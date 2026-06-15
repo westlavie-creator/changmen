@@ -1,0 +1,20 @@
+﻿/** 兼容层：新代码请 `import from "@changmen/api-contract"` */
+export type {
+  ApiEnvelope,
+  PlatformId,
+  LoginInfo,
+  UserInfo,
+  ObGameOddTypeSpec,
+  CollectPlatformInfo,
+  BetSourceDto,
+  BetRowDto,
+  ClientMatchDto,
+  PageResult,
+  OrderRow,
+  MoneyLogRow,
+  UserProfitRow,
+  TagPlatformRow,
+  PlayerOrderRow,
+  UserListRow,
+  ChatMessageRow,
+} from "@changmen/api-contract";

@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "core/esport-api",
+    "outDir": "core/esport-api",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowJs": false,
+    "declaration": false,
+    "sourceMap": false,
+    "types": ["node"],
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@changmen/api-contract": ["../../packages/api-contract/src/index.ts"],
+      "@changmen/api-contract/*": ["../../packages/api-contract/src/*", "../../packages/api-contract/*"]
+    }
+  },
+  "include": ["core/esport-api/router.ts"],
+  "exclude": ["**/*.js", "node_modules"]
+}

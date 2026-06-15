@@ -1,0 +1,39 @@
+/** 对齐 console `mr.test`：Axios 经本地 PROXY 中继访问 `/IP` */
+import { a8Axios } from "@/shared/a8Axios";
+import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
+import { getApiBase } from "@/config/apiBase";
+
+function proxyRelayEntry(): string {
+  const proxyOrigin =
+    typeof localStorage !== "undefined" ? localStorage.getItem("PROXY")?.trim() : "";
+  return buildHttpRelayUrl({ apiBase: getApiBase(), proxyOrigin: proxyOrigin || undefined });
+}
+
+export type ProxyTestResult = {
+  delay: number;
+  ip?: string;
+  address?: string;
+};
+
+export async function testProxyUrl(proxyUrl: string): Promise<ProxyTestResult | undefined> {
+  const started = Date.now();
+  try {
+    const res = await a8Axios.get<{ info?: { IP?: string; Address?: string } }>(
+      proxyRelayEntry(),
+      {
+        headers: {
+          "x-proxy": proxyUrl,
+          "x-proxy-url": "/IP",
+        },
+      },
+    );
+    if (res.status !== 200 || !res.data?.info) return undefined;
+    return {
+      delay: Date.now() - started,
+      ip: res.data.info.IP,
+      address: res.data.info.Address,
+    };
+  } catch {
+    return undefined;
+  }
+}

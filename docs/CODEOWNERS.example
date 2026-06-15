@@ -1,0 +1,26 @@
+# changmen 团队 CODEOWNERS 模板
+#
+# 用法：
+#   1. 复制到仓库根：  .github/CODEOWNERS
+#   2. 将 @CHANGMEN_CLIENT_TEAM / @CHANGMEN_SERVER_TEAM 换成 GitHub 用户名或 org/team
+#
+# 路径相对于仓库根（gamebet/）
+
+# --- 客户端团队 ---
+/changmen/apps/web/                    @CHANGMEN_CLIENT_TEAM
+/changmen/apps/chrome-extension/       @CHANGMEN_CLIENT_TEAM
+/changmen/packages/platform-adapter/   @CHANGMEN_CLIENT_TEAM
+
+# --- 服务端团队 ---
+/changmen/apps/backend/                @CHANGMEN_SERVER_TEAM
+/changmen/apps/matcher/                @CHANGMEN_SERVER_TEAM
+/changmen/packages/db/                 @CHANGMEN_SERVER_TEAM
+/changmen/packages/platform-node/      @CHANGMEN_SERVER_TEAM
+/changmen/packages/match-engine/       @CHANGMEN_SERVER_TEAM
+/changmen/packages/team-resolver/      @CHANGMEN_SERVER_TEAM
+
+# --- 共同维护（双方都需 review）---
+/changmen/packages/shared/             @CHANGMEN_CLIENT_TEAM @CHANGMEN_SERVER_TEAM
+/changmen/packages/api-contract/       @CHANGMEN_CLIENT_TEAM @CHANGMEN_SERVER_TEAM
+/changmen/docs/TEAM_BOUNDARIES.md      @CHANGMEN_CLIENT_TEAM @CHANGMEN_SERVER_TEAM
+/changmen/scripts/check-team-boundaries.mjs @CHANGMEN_CLIENT_TEAM @CHANGMEN_SERVER_TEAM

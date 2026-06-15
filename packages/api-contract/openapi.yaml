@@ -1,0 +1,46 @@
+openapi: 3.0.3
+info:
+  title: changmen Esport API
+  version: 0.1.0
+  description: |
+    客户端（apps/web、platform-adapter）与服务端（apps/backend）之间的 HTTP 契约。
+    所有 action 均为 POST，路径 `/esport/{action}`，鉴权 header `token`（Client_Login 除外）。
+servers:
+  - url: /
+    description: 同源部署（推荐）
+  - url: https://api.example.com
+    description: 分离 API 域名时配合前端 VITE_API_BASE
+paths:
+  /esport/Client_Login:
+    post:
+      summary: 登录
+      operationId: Client_Login
+  /esport/Client_GetMatchs:
+    post:
+      summary: 合并后比赛列表（浏览器真相源）
+      operationId: Client_GetMatchs
+  /esport/API_SaveMatch:
+    post:
+      summary: 上报平台原始比赛
+      operationId: API_SaveMatch
+      parameters:
+        - in: query
+          name: provider
+          schema: { type: string }
+          description: 平台 ID，如 OB、RAY
+  /esport/API_SaveBet:
+    post:
+      summary: 上报平台原始赔率
+      operationId: API_SaveBet
+  /esport/API_SaveLiveTimer:
+    post:
+      summary: OB 局数/计时器
+      operationId: API_SaveLiveTimer
+  /esport/Client_GetData:
+    post:
+      summary: KV 配置（USERCONFIG、CollectConfig 等）
+      operationId: Client_GetData
+  /esport/http-relay:
+    post:
+      summary: 插件/账号 HTTP 代发（x-proxy-url）
+      operationId: http-relay

@@ -1,0 +1,107 @@
+{
+  "generatedAt": "2026-06-12T03:42:51.850Z",
+  "sources": {
+    "bundleJs": "vendor/ui-bundle/index.js",
+    "indexCss": "server/backend/public/esport2/assets/index.css",
+    "a8Css": "src/styles/a8.css (extract-a8-css.mjs)",
+    "a8AmIcon": "src/styles/a8-am-icon.css",
+    "a8Fallback": "src/styles/a8-fallback.css",
+    "appCss": "src/styles/app.css",
+    "userDiagCss": "src/styles/user-diag.css"
+  },
+  "css": {
+    "indexCssBytes": 372896,
+    "a8CssBytes": 371498,
+    "amIconCssBytes": 1637,
+    "fallbackCssBytes": 4460,
+    "indexSelectorCount": 1816,
+    "a8SelectorCount": 1816,
+    "selectorOnlyInIndexCount": 0,
+    "selectorOnlyInA8Count": 0,
+    "selectorOnlyInIndex": [],
+    "selectorOnlyInA8": []
+  },
+  "bundleAppViews": [
+    "AccountInfoView",
+    "MoneyRiskView",
+    "MoneyInfoView",
+    "MoneyView",
+    "AccountView",
+    "UserConfigView",
+    "UserPasswordView",
+    "UserMessageView",
+    "UserProxyView",
+    "UserReportView",
+    "UserRankView",
+    "UserCollectView",
+    "TradeView",
+    "FollowView",
+    "UserChatMessageView",
+    "UserWalletView",
+    "UserDiagView",
+    "UserInfoView",
+    "OrderView",
+    "LoseOrderView",
+    "CreateLoseView",
+    "ExtensionsView",
+    "LimitDiagView",
+    "HomeView",
+    "LoginView"
+  ],
+  "vueMap": {
+    "AccountInfoView": "AccountEditDialog.vue",
+    "MoneyRiskView": "MoneyRiskView.vue",
+    "MoneyInfoView": "MoneyInfoDialog.vue",
+    "MoneyView": "MoneyLogDialog.vue",
+    "AccountView": "AccountBar.vue + AccountCard.vue",
+    "UserConfigView": "UserConfigDialog.vue",
+    "UserPasswordView": "UserDiagPasswordTab.vue",
+    "UserMessageView": "UserDiagMessageTab.vue",
+    "UserProxyView": "UserDiagProxyTab.vue",
+    "UserReportView": "UserDiagReportTab.vue",
+    "UserRankView": "UserDiagRankTab.vue",
+    "UserCollectView": "UserDiagCollectTab.vue + CollectConfigPanel.vue",
+    "TradeView": "UserDiagTradeTab.vue",
+    "FollowView": "UserDiagFollowTab.vue",
+    "UserChatMessageView": "UserDiagChatTab.vue",
+    "UserWalletView": "UserDiagWalletTab.vue",
+    "UserDiagView": "UserDiagDialog.vue",
+    "UserInfoView": "UserInfoPanel.vue",
+    "OrderView": "OrderView.vue",
+    "LoseOrderView": "LoseOrderView.vue",
+    "CreateLoseView": "CreateLoseDialog.vue",
+    "ExtensionsView": "ExtensionsBadge.vue",
+    "LimitDiagView": "LimitDiagDialog.vue",
+    "HomeView": "HomeView.vue + MatchCard + BetRow",
+    "LoginView": "LoginView.vue"
+  },
+  "unmappedViews": [],
+  "bundleSemanticClassesMissingInVue": [
+    "balance trx",
+    "balance usdt",
+    "close am-icon-times",
+    "item-type default",
+    "provider-icon OB",
+    "provider-icon PB",
+    "provider-icon SABA",
+    "text-center"
+  ],
+  "vueScopedStyleFiles": [
+    {
+      "file": "components/ui/AppDialog.vue",
+      "bytes": 1508
+    },
+    {
+      "file": "components/layout/AppHeader.vue",
+      "bytes": 295
+    },
+    {
+      "file": "views/ConsoleRedirectView.vue",
+      "bytes": 102
+    },
+    {
+      "file": "views/LoginView.vue",
+      "bytes": 49
+    }
+  ]
+}

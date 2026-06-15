@@ -1,4 +1,39 @@
-# changmen — HTTP 反代到本机 Node (PM2 gamebet-web)
+# changmen — 单机单 IP：Caddy :80 托管前端静态，API 反代到 PM2 :3456
+#
+# 部署前请确认 WEB_DIST 与 VPS 上仓库路径一致（默认 /root/gamebet/changmen）。
+# 应用：BAT\setup-caddy.bat 或 scripts/setup-caddy-remote.sh
+
+{
+	# 仅 IP、无域名时不自动 HTTPS
+	auto_https off
+}
+
 :80 {
-	reverse_proxy 127.0.0.1:3456
+	# 前端团队发版目录：npm run app:build → client/web/dist
+	root * /root/gamebet/changmen/client/web/dist
+
+	handle /esport/* {
+		reverse_proxy 127.0.0.1:3456
+	}
+	handle /common/* {
+		reverse_proxy 127.0.0.1:3456
+	}
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3456
+	}
+	handle /esport2/* {
+		reverse_proxy 127.0.0.1:3456
+	}
+	handle /matcher/* {
+		reverse_proxy 127.0.0.1:3456
+	}
+	handle /v4.0/* {
+		reverse_proxy 127.0.0.1:3456
+	}
+
+	# Vue SPA（/、/assets/ 等）
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
 }

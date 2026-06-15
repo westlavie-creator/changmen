@@ -1,0 +1,15 @@
+{
+  "name": "@changmen/api-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "changmen 客户端与服务端 HTTP 契约：Esport action 名、DTO 类型、URL 拼装",
+  "exports": {
+    ".": "./src/index.ts",
+    "./envelope": "./src/envelope.ts",
+    "./actions": "./src/actions.ts",
+    "./dto": "./src/dto.ts",
+    "./urls": "./urls.mjs",
+    "./openapi.yaml": "./openapi.yaml"
+  }
+}

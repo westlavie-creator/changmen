@@ -23,8 +23,8 @@ if exist "%~dp0deploy-server.local.bat" call "%~dp0deploy-server.local.bat"
 
 set "REMOTE=%DEPLOY_USER%@%DEPLOY_HOST%"
 set "LOCAL_SCRIPT=%ROOT%\scripts\deploy-server-remote.sh"
-set "FRONTEND_DIST=%ROOT%\apps\web\dist"
-set "REMOTE_APP=%DEPLOY_REPO%/changmen/apps/web"
+set "FRONTEND_DIST=%ROOT%\client\web\dist"
+set "REMOTE_APP=%DEPLOY_REPO%/changmen/client/web"
 
 echo.
 echo ========================================
@@ -123,8 +123,7 @@ if errorlevel 1 (
   echo ERROR: remote dist incomplete after upload
   goto fail_network
 )
-ssh %SSH_OPTS% %REMOTE% "pm2 restart gamebet-web && pm2 status"
-if errorlevel 1 goto fail_network
+echo Remote dist uploaded (Caddy serves client/web/dist — no pm2 restart needed).
 
 :done
 echo.

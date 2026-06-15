@@ -28,7 +28,7 @@
 
 ## 工作目录
 
-**所有 `npm run`、`BAT\*.bat` 请在 `changmen/` 下执行**（本目录即应用根）。首次配置：运行 `BAT\setup-dev-env.bat` 从 `.env.example` 生成 `apps/backend/.env`，编辑 `JWT_SECRET` 与 `DATABASE_URL`。
+**所有 `npm run`、`BAT\*.bat` 请在 `changmen/` 下执行**（本目录即应用根）。首次配置：运行 `BAT\setup-dev-env.bat` 从 `.env.example` 生成 `server/backend/.env`，编辑 `JWT_SECRET` 与 `DATABASE_URL`。
 
 若 Git 仓库根仍是上一级的 `gamebet/`，可在该目录执行 `npm run web`（根目录 `package.json` 会转发 npm 脚本）；**`.bat` 请进入 `changmen/` 再双击**。说明见 [scripts/README.md](./scripts/README.md)。
 
@@ -44,7 +44,7 @@
 
 「赛事采集」开关：仅控制是否 **回传** `SaveMatch`/`SaveBet`，不停止拉数或 fo。
 
-启动：`BAT\setup-dev-env.bat`（首次）→ `BAT\dev.bat` / `BAT\dev-web.bat` / `BAT\parity-dev.bat`。详见 [BAT/README.md](./BAT/README.md)、[apps/backend/README.md](./apps/backend/README.md)。
+启动：`BAT\setup-dev-env.bat`（首次）→ `BAT\dev.bat`（或 `BAT\dev.bat parity`）。详见 [BAT/README.md](./BAT/README.md)、[server/backend/README.md](./server/backend/README.md)。
 
 ## 仓库结构
 
