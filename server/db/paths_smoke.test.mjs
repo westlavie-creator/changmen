@@ -14,7 +14,7 @@ if (pkg.name !== "@changmen/backend") {
   throw new Error(`BACKEND_ROOT not @changmen/backend: ${BACKEND_ROOT}`);
 }
 const parent = path.basename(path.dirname(BACKEND_ROOT));
-if (path.basename(BACKEND_ROOT) !== "backend" || (parent !== "server" && parent !== "apps")) {
+if (path.basename(BACKEND_ROOT) !== "backend" || parent !== "server") {
   throw new Error(`BACKEND_ROOT layout unexpected: ${BACKEND_ROOT}`);
 }
 if (!fs.existsSync(ESPORT_DATA_DIR)) {

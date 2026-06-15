@@ -6,7 +6,8 @@ import { ensureRouterCompiled } from "./ensure-router-compiled.mjs";
 
 ensureRouterCompiled({ label: "start-db" });
 
-await import("@changmen/db/load_env.js");
+const { loadChangmenEnv } = await import("@changmen/db/load_env.js");
+loadChangmenEnv();
 const {
   DB_SCRIPT_MODES,
   resolveDbScript,

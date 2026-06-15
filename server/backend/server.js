@@ -32,9 +32,7 @@ const PUBLIC_DIR = path.join(__dirname, "public");
 const WEB_DIR =
   process.env.GAMEBET_WEB_DIR ||
   process.env.GAMEBET_APP_DIR ||
-  (fs.existsSync(path.join(__dirname, "../../client/web/dist"))
-    ? path.join(__dirname, "../../client/web/dist")
-    : path.join(__dirname, "../web/dist"));
+  path.join(__dirname, "../../client/web/dist");
 const MATCHER_DIR =
   process.env.GAMEBET_MATCHER_DIR ||
   path.join(__dirname, "../matcher/ui/public");

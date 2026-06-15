@@ -63,7 +63,7 @@
 ```bash
 cd changmen   # 若尚未在本目录
 npm install          # workspaces：backend、matcher、web、packages
-npm run web          # preweb + 启动 http://localhost:3560（Win）/ 3456
+npm run web          # server/backend preweb + 启动 http://localhost:3560（Win）/ 3456
 npm run app:dev      # 新控制台 dev → http://localhost:5174/
 ```
 

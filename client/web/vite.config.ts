@@ -9,7 +9,7 @@ const DEV_API_PORT = process.platform === "win32" ? 3560 : 3456;
 const API_TARGET = process.env.VITE_API_PROXY || `http://127.0.0.1:${DEV_API_PORT}`;
 
 function platformChunkName(id: string): string | undefined {
-  const markers = ["client/platform-adapter/", "packages/platform-adapter/"];
+  const markers = ["client/platform-adapter/"];
   let idx = -1;
   let markerLen = 0;
   for (const marker of markers) {

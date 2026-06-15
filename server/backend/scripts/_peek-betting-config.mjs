@@ -1,4 +1,3 @@
-import "@changmen/db/load_env.js";
 import { initDatabaseUrl, buildPgClientConfig } from "@changmen/db";
 import pg from "@changmen/db/pg.js";
 

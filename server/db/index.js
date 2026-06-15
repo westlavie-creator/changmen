@@ -3,7 +3,9 @@
  * 内部走 RDS（pg）；业务代码勿直连 impl / team_store / matcher_store。
  */
 
-import "./load_env.js";
+import { loadChangmenEnv } from "./load_env.js";
+
+loadChangmenEnv();
 
 import { describeDbScript, getDbMode } from "./db_mode.js";
 
@@ -21,6 +23,8 @@ export {
   usesRdsImpl,
   getDbMode,
 } from "./db_mode.js";
+
+export { loadChangmenEnv } from "./load_env.js";
 
 /** 当前生效模式（进程启动时解析） */
 export function getActiveDbScript() {

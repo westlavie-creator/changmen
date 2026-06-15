@@ -15,7 +15,7 @@ elapsed() { echo "==> done in $((SECONDS - t0))s total"; }
 if [ -f "$ROOT/changmen/package.json" ]; then
   GIT_ROOT="$ROOT"
   CHANGMEN="$ROOT/changmen"
-elif [ -f "$ROOT/package.json" ] && { [ -d "$ROOT/server/backend" ] || [ -d "$ROOT/apps/backend" ]; }; then
+elif [ -f "$ROOT/package.json" ] && [ -d "$ROOT/server/backend" ]; then
   GIT_ROOT="$ROOT"
   CHANGMEN="$ROOT"
 else
@@ -75,31 +75,31 @@ classify() {
       DO_PM2_WEB=1
       DO_PM2_MATCHER=1
       ;;
-    packages/shared/*|packages/api-contract/*|client/platform-adapter/*|packages/platform-adapter/*)
+    packages/shared/*|packages/api-contract/*|client/platform-adapter/*)
       DO_INSTALL_ROOT=1
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       DO_PM2_MATCHER=1
       ;;
-    server/db/*|server/match-engine/*|server/platform-node/*|server/team-resolver/*|packages/db/*|packages/match-engine/*|packages/platform-node/*|packages/team-resolver/*)
+    server/db/*|server/match-engine/*|server/platform-node/*|server/team-resolver/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       DO_PM2_MATCHER=1
       ;;
-    server/backend/*|apps/backend/*)
+    server/backend/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       DO_COMPILE_ROUTER=1
       ;;
-    server/matcher/*|apps/matcher/*)
+    server/matcher/*)
       DO_INSTALL_ROOT=1
       DO_PM2_MATCHER=1
       ;;
-    client/web/*|apps/web/*)
+    client/web/*)
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       ;;
-    client/chrome-extension/*|apps/chrome-extension/*|BAT/*|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
+    client/chrome-extension/*|BAT/*|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
       ;;
     ecosystem.config.cjs)
       DO_PM2_WEB=1
@@ -131,9 +131,6 @@ else
   while IFS= read -r path; do
     [ -n "$path" ] && classify "$path"
   done < <(git diff --name-only "$OLD_HEAD" "$NEW_HEAD")
-  # Node 进程不会自动 reload 磁盘上新代码；只要 pull 到新 commit 就重启 matcher
-  DO_PM2_MATCHER=1
-  log "new commits pulled — always restart $PM2_MATCHER"
 fi
 
 if [ "$DEPLOY_SKIP_APP_BUILD" = "1" ]; then
@@ -165,7 +162,7 @@ LIVE_TIMER_TOUCHED=0
 if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
   while IFS= read -r path; do
     case "$path" in
-      *live_timer*|changmen/server/db/impl_rds.js|server/db/impl_rds.js|changmen/packages/db/impl_rds.js|packages/db/impl_rds.js)
+      *live_timer*|changmen/server/db/impl_rds.js|server/db/impl_rds.js)
         LIVE_TIMER_TOUCHED=1
         break
         ;;
@@ -174,7 +171,7 @@ if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
 fi
 if [ "$LIVE_TIMER_TOUCHED" = "1" ]; then
   log "live_timer code changed — purge stale OB live_timers rows"
-  node server/backend/scripts/purge-platform-live-timers.mjs OB 2>/dev/null || node apps/backend/scripts/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
+  node server/backend/scripts/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
 fi
 
 if command -v pm2 >/dev/null 2>&1; then

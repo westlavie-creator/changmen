@@ -124,7 +124,11 @@ if errorlevel 1 (
   goto fail_network
 )
 echo Remote dist uploaded to %REMOTE_APP%/dist
-echo NOTE: With old Caddy (full proxy to :3456), Node must read this path — migrate PM2 to server/backend (see PRODUCTION_DEPLOYMENT.md).
+echo [3/3] verify homepage (restart web only if still 404) ...
+ssh %SSH_OPTS% %REMOTE% "curl -sf -o /dev/null http://127.0.0.1:3456/ || (echo homepage not 200, restarting gamebet-web & pm2 restart gamebet-web); pm2 status gamebet-web"
+if errorlevel 1 (
+  echo WARN: verify/restart failed — on VPS run: pm2 restart gamebet-web
+)
 
 :done
 echo.

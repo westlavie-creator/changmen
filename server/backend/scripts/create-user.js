@@ -8,7 +8,6 @@
  */
 
 import crypto from "node:crypto";
-import "@changmen/db/load_env.js";
 import {
   buildPgClientConfig,
   initDatabaseUrl,

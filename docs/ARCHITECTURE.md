@@ -76,7 +76,7 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 ### `server/team-resolver` (`@changmen/team-resolver`)
 
 队名规范化插件；matcher `rebuild` 与 UI `merge_mode` 动态加载 `team_db.js`。  
-爬虫脚本在 `scrapers/`，环境变量通过 `@changmen/db/load_env` 加载。
+爬虫脚本在 `scrapers/`，环境变量通过 `@changmen/db` 的 `loadChangmenEnv()` 加载。
 
 ### `server/match-engine` (`@changmen/match-engine`)
 

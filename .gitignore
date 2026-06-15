@@ -36,12 +36,6 @@ server/backend/data/esport/*.b64
 server/backend/data/*.db
 server/backend/data/*.db-shm
 server/backend/data/*.db-wal
-apps/backend/data/esport/*.json
-apps/backend/data/esport/*.b64
-!apps/backend/data/esport/*.example.json
-apps/backend/data/*.db
-apps/backend/data/*.db-shm
-apps/backend/data/*.db-wal
 gamebet_backend/data/esport/*.json
 gamebet_backend/data/esport/*.b64
 !gamebet_backend/data/esport/*.example.json
@@ -55,16 +49,13 @@ gamebet_backend/data/*.db-wal
 .env.*
 !.env.example
 server/matcher/.matcher-heartbeat.json
-apps/matcher/.matcher-heartbeat.json
 
 # Gamebet extension signing key
 client/chrome-extension/key.pem
-apps/chrome-extension/key.pem
 gamebet_chromeplug/key.pem
 
 # Chrome extension reverse-engineering scratch (local analysis only)
 client/chrome-extension/scripts/_extracted/
-apps/chrome-extension/scripts/_extracted/
 gamebet_chromeplug/scripts/_extracted/
 
 # Team name resolver runtime cache
@@ -78,7 +69,7 @@ team-resolver/cache/*.json
 # AI/session scratch (not product code)
 memory/
 server/backend/platform_adapter/
-apps/backend/platform_adapter/
+server/backend/platform_node/
 
 # Large local captures / dumps
 obdata.json
