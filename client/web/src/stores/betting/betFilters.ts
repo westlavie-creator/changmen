@@ -60,6 +60,43 @@ export function accountPassesMainBetFilter(
   );
 }
 
+/** 主腿账号未通过时的人类可读原因（用于套利提醒 / UI） */
+export function explainMainBetAccountRejection(
+  account: PlatformAccount,
+  bet: ViewBet,
+  match: ViewMatch,
+  leg: BetOption,
+  matchStore: ReturnType<typeof useMatchStore>,
+  implied?: number,
+): string | null {
+  if (!account.canBetAtOdds(leg.odds)) {
+    return "投注比例 9999 跳过该赔率";
+  }
+  const pause = account.isPause();
+  if (pause) return pause;
+  if (account.markupOnly) return "仅限补单账号";
+  if (!account.checkOdds(leg.odds, match.gameId)) {
+    return `赔率 ${leg.odds} 不在账号区间 ${account.getMinOdds()}~${account.getMaxOdds()}`;
+  }
+  if (!account.passesGameSettings(match.game, leg.odds, implied)) {
+    return `游戏「${match.game}」配置不满足（利润/次数/赔率区间）`;
+  }
+  if (!passesDefaultOddsAccount(account, bet.id, leg.target)) {
+    return "初赔不在账号设定区间";
+  }
+  if (!passesLastOddsGate(account, bet.id, leg.target, leg.odds)) {
+    return "赔率不大于上笔成功单";
+  }
+  if (!passesMaxBetCount(account, bet.id, leg.target)) {
+    return "已达同场同边盘口订单上限";
+  }
+  const target = matchStore.getBetTarget(account.provider, bet.id);
+  if (target && target !== leg.target) {
+    return `操盘目标为 ${target === "Home" ? "主" : "客"}，与当前腿不一致`;
+  }
+  return null;
+}
+
 /** 该腿无可用账号，但存在仅因比例 9999 被排除的候选（changmen 单边负 linkId 场景） */
 export function isLegSkippedByRate9999(
   leg: BetOption,

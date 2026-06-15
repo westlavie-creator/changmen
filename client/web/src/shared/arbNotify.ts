@@ -1,10 +1,12 @@
-import { pickArbLegs } from "@/domain/arbitrage";
+import { pickArbLegs, evaluateArbOrderEligibility } from "@/domain/arbitrage";
 import { resolveArbProviderKeys } from "@/domain/betting";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useMessageStore } from "@/stores/messageStore";
 import { useUserStore } from "@/stores/userStore";
+import { getProviders } from "@/stores/account/accountPicker";
 
 let lastScanAt = 0;
 
@@ -20,8 +22,12 @@ export function scanArbTelegramNotifications(minIntervalMs = 5000) {
   const matchStore = useMatchStore();
   const configStore = useConfigStore();
   const accountStore = useAccountStore();
+  const loseStore = useLoseOrderStore();
   const messageStore = useMessageStore();
   const config = configStore.config;
+  const autoProviderKeys = resolveArbProviderKeys("auto", {
+    accountProviderKeys: getProviders(accountStore).keys(),
+  });
 
   for (const match of matchStore.matchs) {
     for (const bet of match.bets) {
@@ -33,7 +39,18 @@ export function scanArbTelegramNotifications(minIntervalMs = 5000) {
         accountStore.accounts,
         match.game,
       );
-      if (legs) messageStore.arbOpportunityMessage(match, bet, legs);
+      if (!legs) continue;
+      const eligibility = evaluateArbOrderEligibility({
+        match,
+        bet,
+        legs,
+        config,
+        accounts: accountStore.accounts,
+        autoProviderKeys,
+        loseOrderPending: loseStore.orders.has(bet.id),
+        getBetTarget: (provider, betId) => matchStore.getBetTarget(provider, betId),
+      });
+      messageStore.arbOpportunityMessage(match, bet, legs, eligibility);
     }
   }
 }

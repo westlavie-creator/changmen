@@ -9,7 +9,7 @@ import type { OrderRow } from "@/types/order";
 import { useUserStore } from "@/stores/userStore";
 import { useConfigStore } from "@/stores/configStore";
 import type { ViewBet, ViewMatch } from "@/models/match";
-import type { ArbLegs } from "@/domain/arbitrage";
+import type { ArbLegs, ArbOrderEligibility } from "@/domain/arbitrage";
 import { arbProfitRate, formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
 import { assessValueBet, formatValueBetTelegramLine } from "@/domain/arbitrage";
 import { wait } from "@/shared/wait";
@@ -265,7 +265,12 @@ export const useMessageStore = defineStore("message", {
     },
 
     /** [changmen 扩展] 发现满足阈值的套利腿时推送到个人 Telegram（A8 仅在下注成功后推单群） */
-    arbOpportunityMessage(match: ViewMatch, bet: ViewBet, legs: ArbLegs) {
+    arbOpportunityMessage(
+      match: ViewMatch,
+      bet: ViewBet,
+      legs: ArbLegs,
+      eligibility: ArbOrderEligibility,
+    ) {
       const user = useUserStore();
       if (!user.message?.telegramId?.trim()) return;
       const idx = NOTIFY_TYPES.indexOf("OrderNotify");
@@ -273,10 +278,18 @@ export const useMessageStore = defineStore("message", {
       if (!this.shouldNotify(idx, key, 600)) return;
 
       const value = assessValueBet(bet.id, legs);
+      const statusLine = eligibility.canOrder
+        ? "🟢 <b>可自动下单</b>"
+        : "🔴 <b>无法自动下单</b>";
+      const reasonLines = eligibility.canOrder
+        ? eligibility.reasons.map((r) => `⚠️ ${r}`)
+        : eligibility.reasons.map((r) => `• ${r}`);
       const body = [
         htmlTitle("套利机会"),
         match.title,
         bet.getBetName(),
+        statusLine,
+        ...reasonLines,
         "<blockquote>",
         `${legs.homeItem.type} 主胜 @ ${legs.homeOdds}`,
         `${legs.awayItem.type} 客胜 @ ${legs.awayOdds}`,

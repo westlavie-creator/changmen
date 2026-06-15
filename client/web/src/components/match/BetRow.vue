@@ -12,7 +12,9 @@ import { useMatchStore } from "@/stores/matchStore";
 import { useBettingStore } from "@/stores/bettingStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useAccountStore } from "@/stores/accountStore";
-import { arbLegSide, pickArbLegs } from "@/domain/arbitrage";
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
+import { getProviders } from "@/stores/account/accountPicker";
+import { arbLegSide, pickArbLegs, evaluateArbOrderEligibility } from "@/domain/arbitrage";
 import { resolveArbProviderKeys } from "@/domain/betting";
 import { arbPercent, arbProfitRate, formatSecond, percent, toFixed } from "@/shared/format";
 import type { PlatformId } from "@/types/esport";
@@ -29,6 +31,7 @@ const matchStore = useMatchStore();
 const bettingStore = useBettingStore();
 const configStore = useConfigStore();
 const accountStore = useAccountStore();
+const loseStore = useLoseOrderStore();
 const { revision } = storeToRefs(oddsStore);
 const { tick: matchTick } = storeToRefs(matchStore);
 
@@ -64,6 +67,26 @@ const arbLegs = computed(() => {
     accountStore.accounts,
     props.match.game,
   );
+});
+
+const arbEligibility = computed(() => {
+  void revision.value;
+  void matchTick.value;
+  const legs = arbLegs.value;
+  if (!legs) return undefined;
+  const autoProviderKeys = resolveArbProviderKeys("auto", {
+    accountProviderKeys: getProviders(accountStore).keys(),
+  });
+  return evaluateArbOrderEligibility({
+    match: props.match,
+    bet: props.bet,
+    legs,
+    config: configStore.config,
+    accounts: accountStore.accounts,
+    autoProviderKeys,
+    loseOrderPending: loseStore.orders.has(props.bet.id),
+    getBetTarget: (provider, betId) => matchStore.getBetTarget(provider, betId),
+  });
 });
 
 const arb = computed(() => {
@@ -173,6 +196,22 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
     </el-tag>
     <div class="bet-title" @dblclick="loseOpen = true">
       {{ bet.getBetName() }} - {{ arb }}
+      <el-tooltip
+        v-if="arbEligibility"
+        :content="arbEligibility.canOrder
+          ? arbEligibility.reasons.join('；')
+          : arbEligibility.reasons.join('\n')"
+        placement="top"
+      >
+        <el-tag
+          class="arb-order-tag"
+          :type="arbEligibility.canOrder ? 'success' : 'danger'"
+          size="small"
+          effect="plain"
+        >
+          {{ arbEligibility.summary }}
+        </el-tag>
+      </el-tooltip>
     </div>
     <div ref="betItemsRef" class="bet-items">
       <ArbLineOverlay :line="arbLine" :badge="arbBadge" :label="arbProfitLabel" />
@@ -252,3 +291,10 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
     />
   </div>
 </template>
+
+<style scoped>
+.bet-title .arb-order-tag {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+</style>
