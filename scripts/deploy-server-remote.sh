@@ -81,6 +81,7 @@ classify() {
       DO_APP_BUILD=1
       DO_PM2_MATCHER=1
       ;;
+    server/db/*|server/match-engine/*|server/platform-node/*|server/team-resolver/*|packages/db/*|packages/match-engine/*|packages/platform-node/*|packages/team-resolver/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       DO_PM2_MATCHER=1
@@ -98,7 +99,11 @@ classify() {
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       ;;
-    client/chrome-extension/*|apps/chrome-extension/*|BAT/*|ecosystem.config.cjs|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
+    client/chrome-extension/*|apps/chrome-extension/*|BAT/*|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
+      ;;
+    ecosystem.config.cjs)
+      DO_PM2_WEB=1
+      DO_PM2_MATCHER=1
       ;;
     *.md|.gitignore)
       ;;

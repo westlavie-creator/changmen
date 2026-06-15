@@ -123,7 +123,8 @@ if errorlevel 1 (
   echo ERROR: remote dist incomplete after upload
   goto fail_network
 )
-echo Remote dist uploaded (Caddy serves client/web/dist — no pm2 restart needed).
+echo Remote dist uploaded to %REMOTE_APP%/dist
+echo NOTE: With old Caddy (full proxy to :3456), Node must read this path — migrate PM2 to server/backend (see PRODUCTION_DEPLOYMENT.md).
 
 :done
 echo.
