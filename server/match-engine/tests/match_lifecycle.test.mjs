@@ -107,4 +107,50 @@ describe("isClientMatchEnded", () => {
       false,
     );
   });
+
+  it("returns false without OB when past 30min but map bets still Normal", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 45 * 60_000,
+          Matchs: { RAY: "ray1", IA: "ia1" },
+          Bets: [
+            { Map: 1, Sources: { RAY: { Status: "Locked" }, IA: { Status: "Locked" } } },
+            { Map: 2, Sources: { RAY: { Status: "Normal" }, IA: { Status: "Normal" } } },
+          ],
+        },
+        {
+          RAY: { ray1: { SourceMatchID: "ray1" } },
+          IA: { ia1: { SourceMatchID: "ia1" } },
+        },
+        {},
+        NOW,
+      ),
+      false,
+    );
+  });
+
+  it("returns true without OB when all map bets locked", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 45 * 60_000,
+          Matchs: { RAY: "ray1", IA: "ia1" },
+          Bets: [
+            { Map: 1, Sources: { RAY: { Status: "Locked" }, IA: { Status: "Locked" } } },
+            { Map: 2, Sources: { RAY: { Status: "Locked" }, IA: { Status: "Locked" } } },
+          ],
+        },
+        {
+          RAY: { ray1: { SourceMatchID: "ray1" } },
+          IA: { ia1: { SourceMatchID: "ia1" } },
+        },
+        {},
+        NOW,
+      ),
+      true,
+    );
+  });
 });

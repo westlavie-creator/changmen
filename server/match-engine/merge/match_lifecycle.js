@@ -55,6 +55,11 @@ function allMapBetsClosed(bets) {
   return true;
 }
 
+function matchHasObLink(matchs) {
+  const obId = matchs?.OB;
+  return obId != null && obId !== "";
+}
+
 /**
  * 是否应隐藏（list_status=-1）。未开赛、进行中返回 false。
  * @param {object} row client match 行（含 Round/StartTime/Matchs/Bets）
@@ -69,14 +74,16 @@ function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.n
   const startMs = normalizeEpochMs(row?.StartTime);
   if (startMs > now) return false;
 
-  const isLive = pickCanonicalIsLive(row?.Matchs, platformMatches);
+  const hasOb = matchHasObLink(row?.Matchs);
+  // is_live 仅 OB saveMatch 上报；无 OB 关联时不参与判定（避免 RAY/IA 场误触 30min 兜底）
+  const isLive = hasOb ? pickCanonicalIsLive(row?.Matchs, platformMatches) : null;
   const closed = allMapBetsClosed(row?.Bets);
 
-  if (isLive === 2) return false;
+  if (hasOb && isLive === 2) return false;
 
   if (startMs <= now && closed) return true;
 
-  if (isLive == null && startMs <= now - PAST_START_FALLBACK_MS) return true;
+  if (hasOb && isLive == null && startMs <= now - PAST_START_FALLBACK_MS) return true;
 
   return false;
 }
