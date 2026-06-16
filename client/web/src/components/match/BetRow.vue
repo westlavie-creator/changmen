@@ -10,7 +10,7 @@ import { useBettingStore } from "@/stores/bettingStore";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
 import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
 import type { PlatformId } from "@/types/esport";
-import { isA8StrictMode } from "@/shared/a8Strict";
+import { strictA8Mode } from "@/shared/a8Strict";
 
 const BET_SIDES: BetSide[] = ["Home", "Away"];
 
@@ -30,7 +30,7 @@ const limitOpen = ref(false);
 const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
 
-const strictA8 = computed(() => isA8StrictMode());
+const strictA8 = strictA8Mode;
 
 // 增强 UI（红线/角标/flash/source 标签）：严格 A8 模式下必须关闭
 const arbUi = useBetRowArbUi(() => props.match, () => props.bet);
