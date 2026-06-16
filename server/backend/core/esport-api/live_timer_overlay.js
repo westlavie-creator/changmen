@@ -6,8 +6,9 @@
 import {
   applyObLiveRoundGate,
   liveRound,
-  neutralizeMapZeroOnDeciderRound,
+  promoteFullMatchSourcesToLiveRoundInPlace,
   refreshClientMatchRoundsFromTimers,
+  trimMapZeroToObOnDeciderRound,
 } from "@changmen/match-engine";
 
 export { liveRound };
@@ -23,9 +24,16 @@ export function mergeTimerBlocks(memoryTimers, dbTimers) {
 
 export function overlayLiveTimersOnMatches(matches, timersByProvider) {
   if (!Array.isArray(matches) || !matches.length) return matches || [];
-  const out = matches.map((m) => ({ ...m }));
+  const out = matches.map((m) => ({
+    ...m,
+    Bets: (m.Bets || []).map((b) => ({
+      ...b,
+      Sources: { ...(b.Sources || {}) },
+    })),
+  }));
   refreshClientMatchRoundsFromTimers(out, timersByProvider || {});
-  neutralizeMapZeroOnDeciderRound(out);
+  promoteFullMatchSourcesToLiveRoundInPlace(out);
+  trimMapZeroToObOnDeciderRound(out);
   return out;
 }
 

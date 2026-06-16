@@ -215,16 +215,29 @@ export async function buildMatchList() {
 
   const dbTimers = await fetchDbTimersCached();
   const timers = mergeTimerBlocks(_timers, dbTimers);
+  defaultOddsApi.recordFromMatchList(fromDb);
   let matches = overlayLiveTimersOnMatches(fromDb, timers);
   matches = applyObLiveGateOnMatches(matches, _matches, timers);
+  defaultOddsApi.recordFromMatchList(matches);
   return matches;
 }
 
+const fetchPlatformBetsForDefaultOdds = () => sb.fetchPlatformBets();
+
 export function getMatchDefaultOdds(matchIds) {
-  return defaultOddsApi.getMatchDefaultOdds(matchIds, () => buildMatchList());
+  return defaultOddsApi.getMatchDefaultOdds(
+    matchIds,
+    () => buildMatchList(),
+    fetchPlatformBetsForDefaultOdds,
+  );
 }
 export function getDefaultOddsSingle(betId, team) {
-  return defaultOddsApi.getDefaultOddsSingle(betId, team, () => buildMatchList());
+  return defaultOddsApi.getDefaultOddsSingle(
+    betId,
+    team,
+    () => buildMatchList(),
+    fetchPlatformBetsForDefaultOdds,
+  );
 }
 export function parseKvContent(raw) {
   if (raw == null || raw === "") return null;

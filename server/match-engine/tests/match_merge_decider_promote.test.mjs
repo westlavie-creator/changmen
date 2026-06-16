@@ -26,18 +26,11 @@ function baseMatch(provider, sourceId, home, away) {
   };
 }
 
-/** 决胜局 Map=0：保留 Sources，赔率 0 + Locked */
-function assertMapZeroNeutralized(map0, { expectPlatforms = [] } = {}) {
+/** 决胜局 Map=0：[A8 可证实] 仅保留 OB */
+function assertMapZeroObOnly(map0) {
   assert.ok(map0, "Map=0 row exists");
-  assert.equal(map0.Status, "Locked");
-  for (const platform of expectPlatforms) {
-    const src = map0.Sources?.[platform];
-    assert.ok(src, `${platform} source kept on Map=0`);
-    assert.equal(src.Status, "Locked");
-    assert.equal(src.HomeOdds, 0);
-    assert.equal(src.AwayOdds, 0);
-    assert.ok(src.BetID, `${platform} BetID preserved`);
-  }
+  assert.deepEqual(Object.keys(map0.Sources || {}).sort(), ["OB"]);
+  assert.ok(map0.Sources.OB?.BetID, "OB BetID preserved");
 }
 
 test("promote: RAY final-only fills Map=5 when Round=5 (OB has native map5)", () => {
@@ -112,7 +105,8 @@ test("promote: RAY final-only fills Map=5 when Round=5 (OB has native map5)", ()
   assert.equal(list[0].Round, 5);
 
   const map0 = list[0].Bets.find((b) => b.Map === 0);
-  assertMapZeroNeutralized(map0, { expectPlatforms: ["OB", "RAY"] });
+  assertMapZeroObOnly(map0);
+  assert.equal(map0.Sources.OB.HomeOdds, 1.9);
   assert.equal(map5.Sources.OB?.Status, "Normal");
 });
 
@@ -178,7 +172,7 @@ test("promote: skips RAY when native Map=5 exists", () => {
   assert.equal(map5.Sources.RAY?.BetID, "ray-map5");
 });
 
-test("decider: Map=0 kept when Round=3 on BO5", () => {
+test("live Round=3 on BO5: Map=0 OB-only, no promote to Map=3", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -239,7 +233,8 @@ test("decider: Map=0 kept when Round=3 on BO5", () => {
   const map0 = list[0].Bets.find((b) => b.Map === 0);
   const map3 = list[0].Bets.find((b) => b.Map === 3);
   assert.equal(list[0].Round, 3);
-  assert.equal(map0?.Sources?.OB?.Status, "Normal");
+  assertMapZeroObOnly(map0);
+  assert.equal(map0.Sources.RAY, undefined);
   assert.equal(map3?.Sources?.RAY, undefined, "non-decider: no promote from final to Map=3");
 });
 
@@ -297,6 +292,16 @@ test("promote: IA full + settled Map1/2 fills Map=3 on BO3 decider (no native Ma
       provider: "OB",
       matchId: "ob1",
       bets: [
+        {
+          SourceBetID: "ob-full",
+          Map: 0,
+          BetName: "[全场]-全局-获胜",
+          SourceHomeID: "1",
+          HomeOdds: 1.3,
+          SourceAwayID: "2",
+          AwayOdds: 3.33,
+          Status: "Normal",
+        },
         {
           SourceBetID: "ob-map3",
           Map: 3,
@@ -368,7 +373,88 @@ test("promote: IA full + settled Map1/2 fills Map=3 on BO3 decider (no native Ma
   assert.equal(map3.Sources.IA?.BetID, "ia-full", "IA series winner promoted to Map=3");
 
   const map0 = list[0].Bets.find((b) => b.Map === 0);
-  assertMapZeroNeutralized(map0, { expectPlatforms: ["IA"] });
+  assertMapZeroObOnly(map0);
+  assert.equal(map0.Sources.OB.BetID, "ob-full");
+  assert.equal(map0.Sources.IA, undefined, "IA trimmed from Map=0 after promote");
+  assert.equal(map0.InitialHomeOdds, 1.44);
+  assert.equal(map0.InitialAwayOdds, 3.33);
+});
+
+test("decider: Map=0 OB-only when Round=BO (A8 95694 shape)", () => {
+  const bets = {
+    "OB:ob1": {
+      provider: "OB",
+      matchId: "ob1",
+      bets: [
+        {
+          SourceBetID: "ob-full",
+          Map: 0,
+          BetName: "[全场]-全局-获胜",
+          SourceHomeID: "1",
+          HomeOdds: 1.3,
+          SourceAwayID: "2",
+          AwayOdds: 3.33,
+          Status: "Normal",
+        },
+        {
+          SourceBetID: "ob-map3",
+          Map: 3,
+          BetName: "[地图3]-单局-获胜",
+          SourceHomeID: "3",
+          HomeOdds: 1.84,
+          SourceAwayID: "4",
+          AwayOdds: 1.9,
+          Status: "Normal",
+        },
+      ],
+    },
+    "RAY:ray1": {
+      provider: "RAY",
+      matchId: "ray1",
+      bets: [
+        {
+          SourceBetID: "ray-final",
+          Map: 0,
+          BetName: "[全场] 获胜者",
+          SourceHomeID: "5",
+          HomeOdds: 2.0,
+          SourceAwayID: "6",
+          AwayOdds: 1.8,
+          Status: "Normal",
+        },
+        {
+          SourceBetID: "ray-map3",
+          Map: 3,
+          BetName: "[地图3] 获胜者",
+          SourceHomeID: "7",
+          HomeOdds: 1.87,
+          SourceAwayID: "8",
+          AwayOdds: 1.87,
+          Status: "Normal",
+        },
+      ],
+    },
+  };
+
+  const matches = {
+    OB: { ob1: { ...baseMatch("OB", "ob1", "Team A", "Team B"), BO: 3 } },
+    RAY: { ray1: { ...baseMatch("RAY", "ray1", "Team A", "Team B"), BO: 3 } },
+  };
+  const timers = {
+    OB: {
+      provider: "OB",
+      timer: [{ MatchID: "ob1", Round: 3, StartTime: Date.now() - 30_000 }],
+    },
+  };
+
+  const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
+  const map0 = list[0].Bets.find((b) => b.Map === 0);
+  const map3 = list[0].Bets.find((b) => b.Map === 3);
+
+  assertMapZeroObOnly(map0);
+  assert.equal(map0.Sources.IA, undefined);
+  assert.equal(map3.Sources.OB?.BetID, "ob-map3");
+  assert.equal(map3.Sources.RAY?.BetID, "ray-map3");
 });
 
 test("promote: skips IA when native Map=3 exists", () => {

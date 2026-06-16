@@ -198,6 +198,12 @@
   display: inline;
 }
 
+.manual-bet-prompt-box .el-message-box__message {
+  white-space: pre-line;
+  line-height: 1.55;
+  text-align: left;
+}
+
 /* 对齐 A8 Io.betting：customClass `notification loading ${provider}` + provider 角标 */
 .el-notification.notification.loading {
   min-width: 320px;

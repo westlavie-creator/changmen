@@ -87,11 +87,8 @@ function refreshClientMatchRoundsFromTimers(rows, timersByProvider) {
     if (round > 0) {
       m.Round = round;
       if (roundStart > 0) m.RoundStart = roundStart;
-    } else if (Number(m.Round) > 0 || Number(m.RoundStart) > 0) {
-      // 有 timer 快照但本场未命中：已结束或不在 live 批次，清零 stale Round
-      m.Round = 0;
-      m.RoundStart = 0;
     }
+    // Round 清零仅由 applyObLiveRoundGate 处理；此处不清零，避免 trim 前 Round 被抹掉
   }
 }
 
@@ -478,46 +475,40 @@ function platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap) {
   return true;
 }
 
-/**
- * 决胜局（Round === BO）：保留 Map=0 行与各平台 Sources，赔率置 0 并标 Locked。
- * promote 已把无原生 Map=R 的平台全场源复制到 Map=R；Map=0 仍展示平台列但不可套利。
- */
-function neutralizeMapZeroSource(src) {
-  if (!src || typeof src !== "object") return src;
-  return {
-    ...src,
-    HomeOdds: 0,
-    AwayOdds: 0,
-    Status: "Locked",
-  };
-}
-
-function neutralizeMapZeroOnDeciderRound(rows) {
-  for (const row of rows || []) {
-    const liveMap = Number(row.Round) || 0;
-    const bo = Number(row.BO) || 0;
-    if (liveMap <= 0 || bo <= 0 || liveMap !== bo) continue;
-    const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
-    if (!fullBet?.Sources || !Object.keys(fullBet.Sources).length) continue;
-    fullBet.Sources = Object.fromEntries(
-      Object.entries(fullBet.Sources).map(([platform, src]) => [
-        platform,
-        neutralizeMapZeroSource(src),
-      ]),
-    );
-    fullBet.Status = "Locked";
+/** Map=0 裁剪前把各平台 Sources 最大赔写入 bet，供 Client_GetMatchDefaultOdds 初赔行 */
+function preserveInitialOddsFromSources(bet) {
+  if (!bet) return;
+  let home = Number(bet.InitialHomeOdds) || 0;
+  let away = Number(bet.InitialAwayOdds) || 0;
+  for (const src of Object.values(bet.Sources || {})) {
+    home = Math.max(home, Number(src.HomeOdds) || 0);
+    away = Math.max(away, Number(src.AwayOdds) || 0);
   }
+  if (home > 0) bet.InitialHomeOdds = home;
+  if (away > 0) bet.InitialAwayOdds = away;
+}
+
+function resolveRowBo(row, matches) {
+  const direct = Number(row.BO) || 0;
+  if (direct > 0) return direct;
+  for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
+    const pm = findPlatformMatch(matches, platform, sourceMatchId);
+    const n = Number(pm?.BO);
+    if (n > 0) return n;
+  }
+  const maps = (row.Bets || []).map((b) => Number(b.Map) || 0);
+  return maps.length ? Math.max(...maps) : 0;
 }
 
 /**
- * 决胜局对齐 [A8 推测]：Round === BO 时 Map=R 缺某平台源、Map=0 有全场盘且该平台无原生 Map=R，
- * 将 Map=0 源复制到 Map=R（RAY final、IA 全场 + 已结束地图盘）；BetID 不变。
+ * 决胜局 Map 行 / 全场盘：由 matcher 写入 client_matches.Bets，浏览器只读展示。
+ * 不在前端做 promote、锁盘、隐藏等二次判断；Map=0 / Map=R 是否出现、Sources 内容均以 GetMatchs 为准。
  */
 function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceFromBet) {
   if (!bets || !sourceFromBet) return;
   for (const row of rows || []) {
     const liveMap = Number(row.Round) || 0;
-    const bo = Number(row.BO) || 0;
+    const bo = resolveRowBo(row, matches);
     if (liveMap <= 0 || bo <= 0 || liveMap !== bo) continue;
 
     const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
@@ -555,6 +546,65 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
       liveBet.Sources[platform] = reverse.includes(platform)
         ? swapBetSource(fullSrc)
         : { ...fullSrc };
+    }
+  }
+}
+
+/**
+ * 仅基于 client row 已有 Bets 做决胜局 promote（GetMatchs overlay，无 platform bets 时用）。
+ */
+function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
+  for (const row of rows || []) {
+    const liveMap = Number(row.Round) || 0;
+    const bo = resolveRowBo(row, matches);
+    if (liveMap <= 0 || bo <= 0 || liveMap !== bo) continue;
+
+    const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
+    if (!fullBet?.Sources) continue;
+
+    const accByMap = new Map((row.Bets || []).map((b) => [b.Map ?? 0, b]));
+
+    let liveBet = accByMap.get(liveMap);
+    if (!liveBet) {
+      const template = (row.Bets || []).find((b) => (b.Map ?? 0) > 0) || fullBet;
+      liveBet = {
+        ...template,
+        Map: liveMap,
+        Name: `[地图${liveMap}]-单局-获胜`,
+        Sources: {},
+      };
+      row.Bets = row.Bets || [];
+      row.Bets.push(liveBet);
+      row.Bets.sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
+      accByMap.set(liveMap, liveBet);
+    }
+
+    const reverse = row.Reverse || [];
+    for (const [platform, fullSrc] of Object.entries(fullBet.Sources)) {
+      if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap)) continue;
+      liveBet.Sources[platform] = reverse.includes(platform)
+        ? swapBetSource(fullSrc)
+        : { ...fullSrc };
+    }
+  }
+}
+
+/**
+ * 进行中（Round > 0）：Map=0 全场行 Sources 仅保留 OB。[A8 可证实]
+ * 须在 promoteFullMatchSourcesToLiveRound 之后调用（先复制到 Map=R，再裁剪 Map=0）。
+ */
+function trimMapZeroToObOnDeciderRound(rows) {
+  for (const row of rows || []) {
+    const liveMap = Number(row.Round) || 0;
+    if (liveMap <= 0) continue;
+    const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
+    if (!fullBet) continue;
+    preserveInitialOddsFromSources(fullBet);
+    const ob = fullBet.Sources?.OB;
+    if (ob) {
+      fullBet.Sources = { OB: ob };
+    } else {
+      row.Bets = (row.Bets || []).filter((b) => (b.Map ?? 0) !== 0);
     }
   }
 }
@@ -663,9 +713,9 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
   refreshClientMatchGames(mergedList, matches);
   refreshClientMatchSides(mergedList, matches, bets, timers, sourceFromBet);
   refreshClientMatchRoundsFromTimers(mergedList, timers);
-  applyObLiveRoundGate(mergedList, matches, timers);
   promoteFullMatchSourcesToLiveRound(mergedList, matches, bets, timers, sourceFromBet);
-  neutralizeMapZeroOnDeciderRound(mergedList);
+  trimMapZeroToObOnDeciderRound(mergedList);
+  applyObLiveRoundGate(mergedList, matches, timers);
 
   return filterMultiPlatformClientMatches(mergedList)
     .sort((a, b) => a.StartTime - b.StartTime);
@@ -796,9 +846,9 @@ function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
   refreshClientMatchGames(list, normalized);
   refreshClientMatchSides(list, normalized, bets, timers, sourceFromBet);
   refreshClientMatchRoundsFromTimers(list, timers);
-  applyObLiveRoundGate(list, normalized, timers);
   promoteFullMatchSourcesToLiveRound(list, normalized, bets, timers, sourceFromBet);
-  neutralizeMapZeroOnDeciderRound(list);
+  trimMapZeroToObOnDeciderRound(list);
+  applyObLiveRoundGate(list, normalized, timers);
   return filterMultiPlatformClientMatches(list);
 }
 
@@ -818,7 +868,8 @@ export {
   refreshClientMatchRoundsFromTimers,
   applyObLiveRoundGate,
   promoteFullMatchSourcesToLiveRound,
-  neutralizeMapZeroOnDeciderRound,
+  promoteFullMatchSourcesToLiveRoundInPlace,
+  trimMapZeroToObOnDeciderRound,
   liveRound,
   pickCanonicalStartTime,
   titleFromMatchs,

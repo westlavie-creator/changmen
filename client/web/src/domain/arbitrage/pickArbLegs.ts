@@ -26,6 +26,7 @@ export function pickArbLegs(
   if (!config) return undefined;
 
   const allowSame = new Set(config.allowSameBet ?? []);
+  const oddsOf = (item: ViewBetItem, side: BetSide) => item.getOdds(side);
 
   const homeCandidates = bet.items.filter((v) => {
     if (
@@ -35,13 +36,13 @@ export function pickArbLegs(
     ) {
       return false;
     }
-    const homeOdds = v.getOdds("Home");
+    const homeOdds = oddsOf(v, "Home");
     if (config.maxOdds && homeOdds > config.maxOdds) return false;
     return homeOdds >= config.minOdds && homeOdds > 0 && providerKeys.includes(v.type);
   });
   const homeItem = homeCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
-    const odds = cur.getOdds("Home");
-    if (!best || odds > best.getOdds("Home")) return cur;
+    const odds = oddsOf(cur, "Home");
+    if (!best || odds > oddsOf(best, "Home")) return cur;
     return best;
   }, undefined);
 
@@ -54,20 +55,20 @@ export function pickArbLegs(
     ) {
       return false;
     }
-    const awayOdds = v.getOdds("Away");
+    const awayOdds = oddsOf(v, "Away");
     if (config.maxOdds && awayOdds > config.maxOdds) return false;
     return awayOdds >= config.minOdds && awayOdds > 0 && providerKeys.includes(v.type);
   });
   const awayItem = awayCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
-    const odds = cur.getOdds("Away");
-    if (!best || odds > best.getOdds("Away")) return cur;
+    const odds = oddsOf(cur, "Away");
+    if (!best || odds > oddsOf(best, "Away")) return cur;
     return best;
   }, undefined);
 
   if (!homeItem || !awayItem) return undefined;
 
-  const homeOdds = homeItem.getOdds("Home");
-  const awayOdds = awayItem.getOdds("Away");
+  const homeOdds = oddsOf(homeItem, "Home");
+  const awayOdds = oddsOf(awayItem, "Away");
   const implied = 1 / (1 / homeOdds + 1 / awayOdds);
 
   let targetProfit = config.profit;

@@ -23,7 +23,7 @@ export function buildManualBetPromptMessage(
   odds: number,
 ): string {
   const team = side === "Home" ? bet.homeName : bet.awayName;
-  const market = (bet.name?.trim() || bet.getBetName()).trim();
+  const market = bet.getBetName();
   const oddsText = odds > 0 ? toFixed(odds, 3) : "—";
   return [
     match.title,
