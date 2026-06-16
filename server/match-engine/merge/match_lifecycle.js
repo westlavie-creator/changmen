@@ -43,9 +43,17 @@ function pickCanonicalIsLive(matchs, platformMatches) {
   return null;
 }
 
-/** 地图盘（Map>0）均有源且全部 Locked */
+/** 地图盘（Map>0）均有源且全部 Locked；若有 Map=0 全场盘且任一侧 Normal，视为未结束 */
 function allMapBetsClosed(bets) {
-  const mapBets = (bets || []).filter((b) => (b.Map ?? 0) > 0);
+  const list = bets || [];
+  const full = list.find((b) => (b.Map ?? 0) === 0);
+  if (full) {
+    const fullSources = Object.values(full.Sources || {});
+    if (fullSources.length && fullSources.some((s) => String(s?.Status || "Normal") === "Normal")) {
+      return false;
+    }
+  }
+  const mapBets = list.filter((b) => (b.Map ?? 0) > 0);
   if (!mapBets.length) return false;
   for (const bet of mapBets) {
     const sources = Object.values(bet.Sources || {});

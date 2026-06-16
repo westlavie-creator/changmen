@@ -20,6 +20,14 @@ describe("allMapBetsClosed", () => {
       ]),
       true,
     );
+    assert.equal(
+      allMapBetsClosed([
+        { Map: 0, Sources: { RAY: { Status: "Normal" }, IA: { Status: "Normal" } } },
+        { Map: 1, Sources: { RAY: { Status: "Locked" }, IA: { Status: "Locked" } } },
+        { Map: 2, Sources: { RAY: { Status: "Locked" }, IA: { Status: "Locked" } } },
+      ]),
+      false,
+    );
   });
 });
 
@@ -151,6 +159,30 @@ describe("isClientMatchEnded", () => {
         NOW,
       ),
       true,
+    );
+  });
+
+  it("returns false without OB when Map 0 full match still Normal", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 45 * 60_000,
+          Matchs: { RAY: "ray1", IA: "ia1" },
+          Bets: [
+            { Map: 0, Sources: { RAY: { Status: "Normal" }, IA: { Status: "Normal" } } },
+            { Map: 1, Sources: { RAY: { Status: "Locked" }, IA: { Status: "Locked" } } },
+            { Map: 2, Sources: { RAY: { Status: "Locked" }, IA: { Status: "Locked" } } },
+          ],
+        },
+        {
+          RAY: { ray1: { SourceMatchID: "ray1" } },
+          IA: { ia1: { SourceMatchID: "ia1" } },
+        },
+        {},
+        NOW,
+      ),
+      false,
     );
   });
 });
