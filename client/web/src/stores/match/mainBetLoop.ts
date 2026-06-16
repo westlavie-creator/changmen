@@ -26,7 +26,6 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
   const user = useUserStore();
   const configStore = useConfigStore();
   const matchStore = useMatchStore();
-  const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
   const oddsStore = useOddsStore();
   const bettingStore = useBettingStore();

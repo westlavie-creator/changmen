@@ -8,7 +8,6 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { OrderRow } from "@/types/order";
 import { useUserStore } from "@/stores/userStore";
 import { useConfigStore } from "@/stores/configStore";
-import type { ViewMatch } from "@/models/match";
 import { formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
 import { wait } from "@/shared/wait";
 

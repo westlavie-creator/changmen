@@ -1,4 +1,5 @@
 import type { BetSide, ViewBet, ViewBetItem } from "@/models/match";
+import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 
@@ -20,7 +21,7 @@ export function pickArbLegs(
   config: UserConfig,
   providerKeys: PlatformId[],
   accounts: PlatformAccount[] = [],
-  gameName?: string,
+  _gameName?: string,
 ): ArbLegs | undefined {
   if (!config) return undefined;
 
