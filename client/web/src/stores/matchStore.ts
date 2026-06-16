@@ -7,6 +7,11 @@ import { toViewMatches, type ViewMatch } from "@/models/match";
 import type { BetSide } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
 import type { MatchScoreBoard, PlatformScoreUpdate, ScoreRound } from "@/types/matchScore";
+import {
+  runMainBetLoopFinally,
+  runMainBetLoopTick,
+  type MainBetLoopState,
+} from "@/stores/match/mainBetLoop";
 import { useUserStore } from "@/stores/userStore";
 
 const POLL_MS = 30_000;
@@ -22,17 +27,16 @@ export const useMatchStore = defineStore("match", {
     lastFetchAt: 0,
     /** platform → betRowId → Home|Away */
     betTargets: new Map<PlatformId, Map<number, BetSide>>(),
-    pollTimer: null as ReturnType<typeof setInterval> | null,
-    /** 从 fo 同步到 ViewBetItem.fallback，对齐 A8 高频 updateOdds */
-    oddsRefreshTimer: null as ReturnType<typeof setInterval> | null,
-    /** 对齐 bundle：约 10 分钟拉一次初赔（不依赖仅打开页面 2 分钟） */
-    defaultOddsTimer: null as ReturnType<typeof setInterval> | null,
     tick: 0,
     /** matchId → 局比分（对齐 A8 `Vg.score` / `eBe`） */
     score: new Map<number, MatchScoreBoard>(),
     /** key `${betId}:Home|Away`（对齐 A8 `defaultOdds`） */
     defaultOdds: new Map<string, number>(),
     defaultOddsFetchedAt: 0,
+    /** [A8 可证实] 单主循环 `P()` 是否在跑 */
+    mainLoopRunning: false,
+    mainLoopTimer: null as ReturnType<typeof setTimeout> | null,
+    lastLoseOrderPruneAt: 0,
   }),
 
   getters: {
@@ -135,8 +139,8 @@ export const useMatchStore = defineStore("match", {
         this.applyScoreDrivenLive(match);
       }
       this.tick += 1;
-      void import("@/shared/arbNotify").then(({ scanArbTelegramNotifications }) => {
-        scanArbTelegramNotifications();
+      void import("@/extensions/arbBet").then(({ onOddsRefreshed }) => {
+        onOddsRefreshed();
       });
     },
 
@@ -213,41 +217,52 @@ export const useMatchStore = defineStore("match", {
       }
     },
 
-    /** 启动比赛列表轮询 */
-    _startPollTimer() {
-      if (this.pollTimer) return;
-      this.pollTimer = setInterval(() => void this.fetchMatches(true), POLL_MS);
-    },
+    /** [A8 可证实] 单主循环：拉列表门控 + 每轮 updateOdds + 自动下单 + wait(100) */
+    async startMainLoop() {
+      this.stopMainLoop();
 
-    async startPolling() {
-      this.stopPolling();
-
+      this.mainLoopRunning = true;
       await this.fetchMatches(true);
       void this.fetchMatchDefaultOdds();
-
-      this.oddsRefreshTimer = setInterval(() => this.refreshOddsOnBets(), 200);
-      this.defaultOddsTimer = setInterval(() => void this.fetchMatchDefaultOdds(), DEFAULT_ODDS_MS);
 
       if (getToken()) {
         void ensureTokenRefresh();
       }
 
-      this._startPollTimer();
+      this.scheduleMainLoop(0);
     },
 
-    stopPolling() {
-      if (this.pollTimer) {
-        clearInterval(this.pollTimer);
-        this.pollTimer = null;
+    stopMainLoop() {
+      this.mainLoopRunning = false;
+      if (this.mainLoopTimer) {
+        clearTimeout(this.mainLoopTimer);
+        this.mainLoopTimer = null;
       }
-      if (this.oddsRefreshTimer) {
-        clearInterval(this.oddsRefreshTimer);
-        this.oddsRefreshTimer = null;
+    },
+
+    scheduleMainLoop(delayMs: number) {
+      if (!this.mainLoopRunning) return;
+      if (this.mainLoopTimer) clearTimeout(this.mainLoopTimer);
+      this.mainLoopTimer = setTimeout(() => {
+        void this.runMainLoopTick();
+      }, delayMs);
+    },
+
+    async runMainLoopTick() {
+      const state: MainBetLoopState = { lastLoseOrderPruneAt: this.lastLoseOrderPruneAt };
+      try {
+        await runMainBetLoopTick(state);
+        this.lastLoseOrderPruneAt = state.lastLoseOrderPruneAt;
+      } finally {
+        if (!this.mainLoopRunning) return;
+        await runMainBetLoopFinally();
+        this.scheduleMainLoop(0);
       }
-      if (this.defaultOddsTimer) {
-        clearInterval(this.defaultOddsTimer);
-        this.defaultOddsTimer = null;
-      }
+    },
+
+    /** @deprecated 使用 startMainLoop（对齐 A8 `P()`） */
+    async startPolling() {
+      await this.startMainLoop();
     },
   },
 });

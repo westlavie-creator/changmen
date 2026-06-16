@@ -33,9 +33,3 @@ export interface OrderBindRow {
   /** 可选；服务端 bind 也可用 Provider 匹配 */
   PlayerID?: number;
 }
-
-/** [changmen 扩展] 仅比例 9999 导致单边下注时用负数 link，展示为 gb{时间戳}；其余对齐 A8 `Date.now()` */
-export function createBetLinkId(rate9999SingleLeg = false) {
-  const ts = Date.now();
-  return rate9999SingleLeg ? -ts : ts;
-}

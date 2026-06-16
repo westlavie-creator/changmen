@@ -23,7 +23,6 @@ const ADAPTER_INFRA = new Set([
   "loader",
   "shared",
   "contract",
-  "backend",
   "scripts",
   "_template",
   "node_modules",

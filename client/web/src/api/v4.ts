@@ -56,7 +56,7 @@ function useBrowserDirectV4(): boolean {
 }
 
 /**
- * v4 基址：默认 `/v4.0/` → Vite(5174) → backend(3456) → api.a8.to（浏览器无 CORS）
+ * v4 基址：默认 `/v4.0/` → Vite dev → backend → api.a8.to（浏览器无 CORS；端口见 docs/ARCHITECTURE.md）
  * 设 VITE_V4_DIRECT=1 时改为浏览器直连 https://api.a8.to/v4.0/
  */
 function v4BaseUrl(): string {

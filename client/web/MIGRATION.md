@@ -4,7 +4,7 @@
 旧控制台（bundle）：`client/web/console/` → `/console/`
 生产访问：`http://localhost:3456/`（需先 `npm run app:build`）
 
-开发：`npm run app:dev` → `http://localhost:5174/`
+开发：`npm run app:dev` → Vite（Win `http://localhost:5274/` / 其它 `:5174`）
 
 ## 阶段进度
 
@@ -92,7 +92,7 @@ npm run build
 
 ## 双轨对照测试
 
-- 新（默认）：`http://localhost:3456/` 或 dev `http://localhost:5174/`
+- 新（默认）：backend 同源或 Vite dev（端口见 [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)）
 - Feed 调试：`http://localhost:3456/feed/`
 - 旧 bundle：`http://localhost:3456/console/`（需 `PATCH_CONSOLE=1`）
 

@@ -90,10 +90,10 @@ UI 点击 ──► accountStore.checkBetting / betting
 ### 自动套利（编排）
 
 ```
-bettingStore.runTick
-  ──► matchStore.fetchMatches + updateOdds
-  ──► notifyArb（Telegram 机会扫描）
-  ──► autoBetLoop.runAutoBetTick
+matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
+  ──► 30s 门控 fetchMatches + oddsStore.clean，否则 refreshOddsOnBets
+  ──► onOddsRefreshed（`extensions/arbBet` Telegram）
+  ──► autoBetLoop.runAutoBetTick（config.betting）
         └── executeArbBet（单场单 bet）
               ├── domain/betting.buildOrderOptions（经 ViewBet.getOrderOptions）
               ├── accountStore.getAccount / checkBetting / betting
@@ -102,6 +102,7 @@ bettingStore.runTick
               ├── autoBet/makeUp（补单门控 + loseOrder 入队）
               └── successMarkers.markSuccessfulBet + betTiming 计数
   ──► processLoseOrders（补单队列）
+  ──► 10min 门控 fetchMatchDefaultOdds
 ```
 
 手动双击：`bettingStore.manualBet` → `manualBet.ts`（同样走 `accountStore` + `successMarkers`）。
@@ -123,9 +124,10 @@ bettingStore.runTick
 | 路径 | 用途 | 对齐 A8 |
 |------|------|---------|
 | `domain/arbitrage/pickArbLegs.ts` | 跨平台选最优主客腿、隐含利润率 | bundle 套利检测 |
-| `domain/arbitrage/valueBet.ts` | 相对初赔公允线的价值下注评估 | [changmen 扩展] |
+| `extensions/arbBet/` | rate9999、Telegram、BetRow 红线/flash UI | [changmen 扩展] |
+| `extensions/arbBet/ui/` | 赔率涨跌动画、套利腿连线与利润角标 | [changmen 扩展] |
 | `domain/betting/buildOrderOptions.ts` | 对冲金额、`betSorting`、WinRate | `IQ.GetOrderOptions` / `oJe` |
-| `domain/betting/providerKeys.ts` | `display` vs `auto` 平台范围 | UI 全平台 / 自动仅在线账号 |
+| `domain/betting/providerKeys.ts` | `auto` = `getProviders()` | A8 下单平台范围 |
 | `domain/betting/venueReject.ts` | 场馆拒单判定 | bundle 拒单检测 |
 
 `models/match.ts` 的 `ViewBet.getOrderOptions` 委托 `buildOrderOptions`，保持模型 API 不变。
@@ -146,8 +148,8 @@ bettingStore.runTick
 
 | 路径 | 用途 |
 |------|------|
-| `bettingStore.ts` | 定时器、`runTick`、手动下注入口 |
-| `autoBetLoop.ts` | 自动投注 tick：清队列、随机金额、遍历比赛 |
+| `bettingStore.ts` | 手动下注、补单入口；主循环在 matchStore |
+| `autoBetLoop.ts` | 自动投注 tick：随机金额、遍历比赛 |
 | `autoBet/executeArbBet.ts` | 单场套利全流程 |
 | `autoBet/makeUp.ts` | 补单阈值 + 入队 |
 | `autoBet/rejectWait.ts` | 成功后拒单等待 |
@@ -156,7 +158,6 @@ bettingStore.runTick
 | `manualBet.ts` | 双击手动下单 |
 | `betFilters.ts` | 账号过滤（初赔、lastOdds、maxBetCount） |
 | `successMarkers.ts` | 成功标记、`BETACCOUNT` sessionStorage |
-| `notifyArb.ts` | 套利 Telegram 扫描 [changmen 扩展] |
 
 ### `shared/`（横切）
 
@@ -227,7 +228,7 @@ bettingStore.runTick
 
 ## 相关脚本
 
-- 开发：`npm run dev`（Vite 5174，`/` base）
+- 开发：`npm run dev`（Vite：Win `5274` / 其它 `5174`，`/` base）
 - 构建：`npm run build`
 - 后端代理：见 `vite.config.ts` 中 `/esport` → `VITE_API_PROXY`
 
@@ -251,7 +252,7 @@ bettingStore.runTick
 
 ### 信用盘 v4（平博入口）
 
-主站登录与 v4 登录账号不同；本地 Vite（`:5174`）默认**浏览器直连** `https://api.a8.to/v4.0/`（对齐 A8 bundle）；仅 `VITE_V4_PROXY=1` 时走 `/v4.0/` 经 backend 代理。
+主站登录与 v4 登录账号不同；本地 Vite（Win `:5274` / 其它 `:5174`）默认**浏览器直连** `https://api.a8.to/v4.0/`（对齐 A8 bundle）；仅 `VITE_V4_PROXY=1` 时走 `/v4.0/` 经 backend 代理。
 
 **联调状态**：`user/account/login` 第一步已通过（2026-05-26）。完整流程、环境与验收见 [docs/CREDIT_PLATE.md](../docs/CREDIT_PLATE.md)。
 

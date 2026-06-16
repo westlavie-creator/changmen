@@ -125,8 +125,8 @@
 ```bash
 cd changmen/client/web
 npm run app:dev
-# 新：http://localhost:5174/
-# 旧：http://localhost:3456/console/  （需 PATCH_CONSOLE=1 + 后端 3456）
+# 新：http://localhost:5274/（Win）或 :5174
+# 旧：http://localhost:3560/console/（Win）或 :3456（需 PATCH_CONSOLE=1 + 后端）
 ```
 
 同屏对比：登录页、侧栏用户区、用户中心各 Tab、顶栏账号卡、赛事列表 BetRow、订单区。

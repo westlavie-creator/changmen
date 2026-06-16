@@ -1,44 +1,26 @@
 import { defineStore } from "pinia";
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
-import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { useUserStore } from "@/stores/userStore";
-import { runAutoBetTick } from "@/stores/betting/autoBetLoop";
-import { processLoseOrders as runProcessLoseOrders } from "@/stores/betting/loseOrder";
 import { runManualBet } from "@/stores/betting/manualBet";
-import { notifyArbOpportunitiesOnBettingTick } from "@/stores/betting/notifyArb";
+import { processLoseOrders as runProcessLoseOrders } from "@/stores/betting/loseOrder";
 
-/** 对齐 A8 自动投注主循环（Vg + Io + jb） */
+/** 对齐 A8 自动投注：主循环在 matchStore（bundle `Vg.P()`）；本 store 保留手动下注与状态 */
 export const useBettingStore = defineStore("betting", {
   state: () => ({
-    running: false,
-    loopTimer: null as ReturnType<typeof setTimeout> | null,
     lastMessage: "",
     lastAt: 0,
   }),
 
   actions: {
+    /** @deprecated 主循环由 matchStore.startMainLoop 驱动；保留兼容旧调用 */
     start() {
-      if (this.running) return;
-      this.running = true;
-      void this.scheduleNext(0);
+      useMatchStore().startMainLoop();
     },
 
+    /** @deprecated 见 matchStore.stopMainLoop */
     stop() {
-      this.running = false;
-      if (this.loopTimer) {
-        clearTimeout(this.loopTimer);
-        this.loopTimer = null;
-      }
-    },
-
-    scheduleNext(delayMs: number) {
-      if (!this.running) return;
-      if (this.loopTimer) clearTimeout(this.loopTimer);
-      this.loopTimer = setTimeout(() => {
-        void this.runTick();
-      }, delayMs);
+      useMatchStore().stopMainLoop();
     },
 
     setMessage(msg: string) {
@@ -56,40 +38,6 @@ export const useBettingStore = defineStore("betting", {
           cfg.bettingAutoOpenTime = 0;
           void configStore.save();
         }
-      }
-    },
-
-    async runTick() {
-      const user = useUserStore();
-      const configStore = useConfigStore();
-      const matchStore = useMatchStore();
-      const accountStore = useAccountStore();
-
-      try {
-        this.tickAutoOpen();
-        if (!user.userId) return;
-
-        await matchStore.fetchMatches();
-        for (const match of matchStore.matchs) {
-          for (const bet of match.bets) {
-            bet.items.forEach((item) => item.updateOdds());
-          }
-        }
-
-        notifyArbOpportunitiesOnBettingTick();
-
-        if (!configStore.config.betting) return;
-
-        await runAutoBetTick({
-          setMessage: (m) => this.setMessage(m),
-          processLoseOrders: () => this.processLoseOrders(),
-        });
-      } finally {
-        for (const acc of accountStore.accounts) {
-          if (acc.active) acc.active = false;
-        }
-        const interval = Math.max(useConfigStore().config.betInterval, 1) * 1000;
-        this.scheduleNext(interval);
       }
     },
 

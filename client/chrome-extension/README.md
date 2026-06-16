@@ -63,7 +63,7 @@ npm run icons               # 重新生成占位图标
 
 仓库根目录也可：`npm run chromeplug:pack`（输出在 `changmen/dist/`）。
 
-Windows 双击：`changmen/BAT/pack-chromeplug.bat`。
+Windows：在仓库根目录执行 `npm run chromeplug:pack`，或双击 `BAT\dev.bat` 后于 `changmen/` 运行该命令。
 
 前端启动时会调用 `initGamebetExtension()`（`pluginBridge.ts`），将扩展版本写入 `localStorage.extensionVersion`，侧边栏 `ExtensionsBadge` 会显示该版本。
 

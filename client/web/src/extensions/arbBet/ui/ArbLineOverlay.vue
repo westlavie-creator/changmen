@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ArbLineBadge, ArbLineSegment } from "@/shared/arb_line";
+import type { ArbLineBadge, ArbLineSegment } from "@/extensions/arbBet/ui/arb_line";
 
 defineProps<{
   line: ArbLineSegment | null;

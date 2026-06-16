@@ -13,7 +13,6 @@ import { useCollectStore } from "@/stores/collectStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { useBettingStore } from "@/stores/bettingStore";
 import { useMessageStore } from "@/stores/messageStore";
 
 const user = useUserStore();
@@ -22,7 +21,6 @@ const collectStore = useCollectStore();
 const configStore = useConfigStore();
 const accountStore = useAccountStore();
 const loseOrderStore = useLoseOrderStore();
-const bettingStore = useBettingStore();
 const messageStore = useMessageStore();
 const { matchs } = storeToRefs(matchStore);
 const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
@@ -49,9 +47,8 @@ function stopHome() {
   void import("@platform/hg").then(({ stopHgFollowLoop }) => stopHgFollowLoop());
   void import("@/runtime/collectors").then(({ stopCollectors }) => stopCollectors());
   messageStore.stop();
-  bettingStore.stop();
+  matchStore.stopMainLoop();
   accountStore.stopBalanceRefreshLoop();
-  matchStore.stopPolling();
   homeStarted = false;
 }
 
@@ -65,7 +62,6 @@ async function startHome() {
     loseOrderStore.init();
     await Promise.all([collectStore.init(), configStore.load(), accountStore.loadAccounts(true)]);
     await matchStore.initBetTarget();
-    void matchStore.startPolling();
     const { startCollectors } = await import("@/runtime/collectors");
     await startCollectors();
     const [{ primeStakeTabId }, { startHgFollowLoop }] = await Promise.all([
@@ -73,7 +69,7 @@ async function startHome() {
       import("@platform/hg"),
     ]);
     primeStakeTabId();
-    bettingStore.start();
+    await matchStore.startMainLoop();
     messageStore.start();
     startHgFollowLoop();
   } catch (err) {

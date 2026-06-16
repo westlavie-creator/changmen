@@ -37,7 +37,7 @@
     location.replace(dest);
   };
 
-  // 与主页同源时 localStorage 已有 token；跨端口（5174 登录、3456 matcher）靠 cookie 共享
+  // 与主页同源时 localStorage 已有 token；跨端口（Vite 登录、backend/matcher 不同端口）靠 cookie 共享
   const token = window.getSiteToken();
   if (token && !readTokenCookie()) {
     document.cookie =

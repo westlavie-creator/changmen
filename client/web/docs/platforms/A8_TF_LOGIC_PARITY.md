@@ -89,7 +89,7 @@ changmen 后端：`shared/a8_esport_client.js` → `loginEsport()` 先尝试 esp
 本地复现：
 
 ```bash
-cd changmen && node --input-type=module -e "import('./client/platform-adapter/tf/backend/collect_credentials.js').then(m => m.getTfA8CollectCredentials()).then(console.log)"
+cd changmen && node --input-type=module -e "import('@changmen/platform-probes/tf/collect_credentials.js').then(m => m.getTfA8CollectCredentials()).then(console.log)"
 ```
 
 ---
@@ -256,11 +256,11 @@ Ticket body（摘要）：
 
 | 层级 | 文件 |
 |------|------|
-| A8 拉凭证 | `client/platform-adapter/tf/backend/collect_credentials.js` |
-| TF 缓存 | `client/platform-adapter/tf/backend/collect_credentials.js` |
+| A8 拉凭证 | `devtools/platform-probes/tf/collect_credentials.js` |
+| TF 缓存 | `devtools/platform-probes/tf/collect_credentials.js` |
 | API 路由 | `server/backend/core/esport-api/router.js`（`Client_GetCollectPlatform` TF 分支） |
 | 启动同步 | `server/backend/core/esport-api/platform_sync.js` `syncTfFromA8` |
-| 后端 TF relay | `client/platform-adapter/tf/backend/*` |
+| 后端 TF relay | `devtools/platform-probes/tf/ws.js`、`server/backend/proxy/*` |
 | 采集入口 | `client/platform-adapter/tf/collect.ts` |
 | WS | `client/platform-adapter/tf/ws.ts` |
 | HTTP 采集 | `client/platform-adapter/tf/http.ts` |
@@ -293,5 +293,5 @@ Ticket body（摘要）：
 
 - 采集实现摘要：[`TF.md`](./TF.md)
 - 全平台对照：[`A8_COMPARE_ALL_PLATFORMS.md`](./A8_COMPARE_ALL_PLATFORMS.md)
-- 后端 TF feed：[`../../../../client/platform-adapter/tf/backend/docs/README.md`](../../../../client/platform-adapter/tf/backend/docs/README.md)
+- 后端 TF feed：[`../../../../devtools/platform-probes/tf/docs/README.md`](../../../../devtools/platform-probes/tf/docs/README.md)
 - 项目总览 TF 章节：[`../../../../readme.md`](../../../../readme.md)（§9 TF 平台分析）

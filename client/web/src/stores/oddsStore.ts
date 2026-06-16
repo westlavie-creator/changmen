@@ -40,10 +40,10 @@ export interface OddsEntry {
   source?: OddsSaveSource;
 }
 
-/** 赔率相对上一条数值的涨跌方向，驱动 BetRow 闪烁样式 */
+/** 赔率相对上一条数值的涨跌方向；UI 样式见 `extensions/arbBet/ui` */
 export type OddsFlashDir = "up" | "down";
 
-/** 赔率涨跌高亮保持时长（与 BetRow 颜色 transition 配合） */
+/** 赔率涨跌高亮保持时长（与 arbBetUi.css 动画配合） */
 const ODDS_FLASH_MS = 4_000;
 /** OB MQTT `/odd/statusUpdate/`：status === 6 表示盘口开放，否则视为锁盘 */
 const OB_MARKET_OPEN = 6;

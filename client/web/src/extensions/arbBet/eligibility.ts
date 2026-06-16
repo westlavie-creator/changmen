@@ -7,17 +7,16 @@ import { buildOrderOptions } from "@/domain/betting/buildOrderOptions";
 import {
   accountPassesMainBetFilter,
   explainMainBetAccountRejection,
-  isLegSkippedByRate9999,
   type BetFilterMatchContext,
 } from "@/stores/betting/betFilters";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
+import { allowArbBetExecution, resolveRate9999SingleLeg } from "@/extensions/arbBet/rate9999";
 
 export interface ArbOrderEligibility {
   canOrder: boolean;
   reasons: string[];
-  /** 单行摘要，供列表 UI */
   summary: string;
 }
 
@@ -102,10 +101,7 @@ function missingPlatformsForLegs(
   return [...need].filter((p) => !have.has(p));
 }
 
-/**
- * 评估 display 套利腿在自动下单路径下是否可执行（对齐 executeArbBet 至 checkBetting 之前）。
- * 不包含场馆 checkBet / 封盘 / 限红（需实际请求才知道）。
- */
+/** Telegram 套利提醒：评估 display 腿是否可走自动下单路径（含 rate9999 单边） */
 export function evaluateArbOrderEligibility(
   ctx: ArbOrderEligibilityContext,
 ): ArbOrderEligibility {
@@ -144,8 +140,8 @@ export function evaluateArbOrderEligibility(
     return finalize(false, reasons);
   }
 
-  let legA = options[0];
-  let legB = options[1];
+  const legA = options[0];
+  const legB = options[1];
   const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
 
   const matchStoreShim: BetFilterMatchContext = { getBetTarget: ctx.getBetTarget };
@@ -191,39 +187,29 @@ export function evaluateArbOrderEligibility(
   }
 
   const betBothLegs = Boolean(accountA) && Boolean(accountB);
-  const rate9999SingleLeg =
-    !betBothLegs &&
-    ((!accountA &&
-      isLegSkippedByRate9999(
-        legA,
-        bet,
-        match,
-        accounts,
-        excludeA,
-        matchStoreShim,
-        implied,
-      )) ||
-      (!accountB &&
-        isLegSkippedByRate9999(
-          legB,
-          bet,
-          match,
-          accounts,
-          excludeB,
-          matchStoreShim,
-          implied,
-        )));
+  const rate9999SingleLeg = resolveRate9999SingleLeg({
+    betBothLegs,
+    accountA,
+    accountB,
+    legA,
+    legB,
+    bet,
+    match,
+    accounts,
+    excludeA,
+    excludeB,
+    matchStore: matchStoreShim,
+    implied,
+  });
 
-  if (!betBothLegs && !rate9999SingleLeg) {
-    if (accountA || accountB) {
-      reasons.push("仅一侧有可用账号，且非比例 9999 单边模式");
-    }
+  if (!allowArbBetExecution(betBothLegs, rate9999SingleLeg) && (accountA || accountB)) {
+    reasons.push("仅一侧有可用账号，且非比例 9999 单边模式");
   }
 
   const canOrder =
     config.betting &&
     !loseOrderPending &&
-    (betBothLegs || rate9999SingleLeg);
+    allowArbBetExecution(betBothLegs, rate9999SingleLeg);
 
   return finalize(canOrder, dedupeReasons(reasons), rate9999SingleLeg && !betBothLegs);
 }
@@ -245,9 +231,7 @@ function finalize(
       summary,
     };
   }
-  const filtered = reasons.filter(
-    (r) => !r.includes("场馆封盘"),
-  );
+  const filtered = reasons.filter((r) => !r.includes("场馆封盘"));
   const summary =
     filtered.length === 1
       ? `不可下单：${filtered[0]}`

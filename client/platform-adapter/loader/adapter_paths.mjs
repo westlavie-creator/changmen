@@ -12,6 +12,21 @@ const PLATFORM_ADAPTER_ROOT = path.join(LOADER_DIR, "..");
 
 export { BACKEND_ROOT, CHANGMEN_ROOT };
 
+const RESOLVE_PATHS = [
+  path.join(BACKEND_ROOT, "node_modules"),
+  path.join(CHANGMEN_ROOT, "node_modules"),
+];
+
+/** require `@changmen/shared/{...}` from backend / monorepo node_modules */
+export function reqS(...segments) {
+  const entry = `@changmen/shared/${segments.join("/")}`;
+  return require(require.resolve(entry, { paths: RESOLVE_PATHS }));
+}
+
+export function backendRequire(specifier) {
+  return require(require.resolve(specifier, { paths: RESOLVE_PATHS }));
+}
+
 let _adapterRoot;
 let _registryPaths;
 let _registryFeeds;

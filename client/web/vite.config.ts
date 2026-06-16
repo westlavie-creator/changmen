@@ -7,6 +7,9 @@ import { fileURLToPath, URL } from "node:url";
 // Windows Hyper-V 常保留 3426-3525，本地后端默认 3560；Linux/VPS 仍用 3456
 const DEV_API_PORT = process.platform === "win32" ? 3560 : 3456;
 const API_TARGET = process.env.VITE_API_PROXY || `http://127.0.0.1:${DEV_API_PORT}`;
+// Hyper-V/WSL 常保留 5123-5222（含 Vite 默认 5173/5174）
+const DEFAULT_DEV_PORT = process.platform === "win32" ? 5274 : 5174;
+const DEV_PORT = Number(process.env.VITE_DEV_PORT) || DEFAULT_DEV_PORT;
 
 function platformChunkName(id: string): string | undefined {
   const markers = ["client/platform-adapter/"];
@@ -88,7 +91,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   server: {
-    port: 5174,
+    port: DEV_PORT,
     proxy: {
       "/esport2": { target: API_TARGET, changeOrigin: true },
       "/esport": { target: API_TARGET, changeOrigin: true },

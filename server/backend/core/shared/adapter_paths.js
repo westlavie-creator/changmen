@@ -8,7 +8,9 @@ export {
   initAdapterRegistry,
   initEsmPlatformBackends,
   adapterRequire,
+  backendRequire,
   getRegistryPaths,
+  reqS,
   resolvePlatformFile,
   requirePlatform,
 } from "@changmen/platform-adapter/loader/adapter_paths.js";

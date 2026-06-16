@@ -35,7 +35,7 @@ start < horizon  // 毫秒
 
 | 用途 | changmen | A8 原版 |
 |------|----------|---------|
-| **采集** | [`a8Collect.ts`](./a8Collect.ts) 内联 `t`（与 `ray_a8_collect.js` 同步）；**不**调 `Client_GetCollectPlatform` | 插件 `bQe` 内写死 gateway + JWT + games |
+| **采集** | [`a8Collect.ts`](./a8Collect.ts) 内联 `t`（与 `devtools/platform-probes/ray/collect_credentials.js` 同步）；**不**调 `Client_GetCollectPlatform` | 插件 `bQe` 内写死 gateway + JWT + games |
 | **下注** | 剪贴板 → `ACCOUNT` → `rayProvider` | 同左 |
 
 `Client_GetCollectPlatform(RAY)` 仍返回同一 JWT（供探针/其它工具）；采集器与 A8 一样只读内联对象。
@@ -45,9 +45,9 @@ start < horizon  // 毫秒
 | 文件 | 说明 |
 |------|------|
 | `ray/a8Collect.ts` | A8 `bQe` 写死 gateway/token/games/betName |
-| `ray/scClient.ts` | SocketCluster；dev 经 `relayWsUrl` 直连 3456 |
+| `ray/scClient.ts` | SocketCluster；dev 经 backend relay（`3560` / `3456`） |
 | `ray/http.ts` | 采集 GET（直连 gateway） |
 | `ray/paths.ts` | API 路径 `/v2/...` |
 | `ray/index.ts` | 轮询 + SC 消费 |
 
-后端：`client/platform-adapter/ray/backend/collect_credentials.js`、`proxy/ray_sc_relay.js`。
+后端 Node 探针：`devtools/platform-probes/ray/collect_credentials.js`、`server/backend/proxy/ray_http_proxy.js`。

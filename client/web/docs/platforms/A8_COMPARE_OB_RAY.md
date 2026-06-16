@@ -163,7 +163,7 @@ startObCollector（约 3s 后 connectObMqtt）
 
 | 场景 | 实现 | 说明 |
 |------|------|------|
-| **采集** | `getCollectPlatform("RAY")` | 后端 [`router.js`](../../../backend/core/esport-api/router.js) 对 RAY **忽略** `platforms.json` 中的 token，强制 [`ray_a8_collect.js`](../../../../client/platform-adapter/ray/backend/collect_credentials.js)（与 A8 bundle **相同** gateway + JWT） |
+| **采集** | `getCollectPlatform("RAY")` | 后端 [`router.js`](../../../backend/core/esport-api/router.js) 对 RAY **忽略** `platforms.json` 中的 token，强制 [`collect_credentials.js`](../../../../devtools/platform-probes/ray/collect_credentials.js)（与 A8 bundle **相同** gateway + JWT） |
 | **启动同步** | `syncRayFromA8()` | 将同一套凭证写入 `platforms.json`（便于探针；API 仍强制 A8 凭证） |
 | **环境变量** | `RAY_COLLECT_USE_ENV=1` | 可用 `RAY_TOKEN` / `RAY_GATEWAY` 覆盖（**非 A8 行为**） |
 | **下注** | `AccountEditDialog` 剪贴板 | 同 A8 → `rayProvider` 使用 `account.token` |
@@ -202,7 +202,7 @@ waitForUser
 startRayCollector
   → RAY_A8_COLLECT（a8Collect.ts，对齐 bQe 内联 t）
   → SocketCluster：dev relayWsUrl /esport/ws/RAY；生产 location.host + /esport/ws/RAY
-      → 后端 ray_sc_relay → wss://cfsocket.365raylinks.com/socketcluster/
+      → 后端 ray_http_proxy → wss://cfsocket.365raylinks.com/socketcluster/
   → collectRayGet /v2/match、/v2/odds（ray/http.ts 直连 gateway）
   → 写死 5 个 gameId + betName ^获胜者$ → saveMatch + saveBets（空盘也写）
   → WS match 频道 source=odds → fo.save
@@ -214,10 +214,10 @@ startRayCollector
 | HTTP 路径 | `/v2/match`、`/v2/odds` | 同左 |
 | Authorization | `Bearer …` | 同左（`ray/http.ts`） |
 | 游戏 ID | 写死 5 个 | 同左（`RAY_A8_COLLECT.games`） |
-| WebSocket | 浏览器 → `47.115.75.57/esport/ws/RAY` | dev 3456 relay；生产同源 relay |
+| WebSocket | 浏览器 → `47.115.75.57/esport/ws/RAY` | dev backend relay；生产同源 relay |
 | 队徽 CDN | `statics.freestaticsasia.com` | 同左（`rayLogo`） |
 
-详细模块见 [RAY.md](./RAY.md)。后端 WS 说明见 [`platforms/ray/ray_ws.js`](../../../../client/platform-adapter/ray/backend/ws.js)、[`proxy/ray_sc_relay.js`](../../../backend/proxy/ray_sc_relay.js)。
+详细模块见 [RAY.md](./RAY.md)。后端 WS 说明见 [`devtools/platform-probes/ray/ws.js`](../../../../devtools/platform-probes/ray/ws.js)、[`proxy/ray_http_proxy.js`](../../../backend/proxy/ray_http_proxy.js)。
 
 ---
 
@@ -259,16 +259,16 @@ startRayCollector
 | MQTT | 插件内 `RMe.connect` | [`ob/mqtt.ts`](../ob/mqtt.ts) |
 | 试玩 UI | `UserCollectView` | [`api/v4.ts`](../../api/v4.ts) `enterCreditPlate("OB")` |
 | 下注 | OB Provider（bundle） | [`providers/obProvider.ts`](../../providers/obProvider.ts) |
-| 后端 OB | — | [`platforms/ob/`](../../../../client/platform-adapter/ob/backend/)、[`esport-api/router.js`](../../../backend/core/esport-api/router.js) |
+| 后端 OB | — | [`devtools/platform-probes/ob/`](../../../../devtools/platform-probes/ob/)、[`esport-api/router.js`](../../../backend/core/esport-api/router.js) |
 
 ## RAY
 
 | 能力 | A8（bundle） | changmen |
 |------|--------------|----------|
 | 采集入口 | `vQe` / `bQe()` | [`ray/index.ts`](../ray/index.ts) `startRayCollector` |
-| 采集凭证 | 插件内对象 `t` | [`a8Collect.ts`](../ray/a8Collect.ts) + [`ray_a8_collect.js`](../../../../client/platform-adapter/ray/backend/collect_credentials.js) |
+| 采集凭证 | 插件内对象 `t` | [`a8Collect.ts`](../ray/a8Collect.ts) + [`collect_credentials.js`](../../../../devtools/platform-probes/ray/collect_credentials.js) |
 | 采集 HTTP | `Rr.get` + `Authorization` | [`ray/http.ts`](../ray/http.ts) `collectRayGet` |
-| WS | `47.115.75.57` SC | [`ray/index.ts`](../ray/index.ts) + [`ray_sc_relay.js`](../../../backend/proxy/ray_sc_relay.js) |
+| WS | `47.115.75.57` SC | [`ray/index.ts`](../ray/index.ts) + [`ray_http_proxy.js`](../../../backend/proxy/ray_http_proxy.js) |
 | 下注 | `vYe` | [`providers/rayProvider.ts`](../../providers/rayProvider.ts) |
 | 账号粘贴 | `AccountInfoView` | [`AccountEditDialog.vue`](../../components/account/AccountEditDialog.vue) |
 

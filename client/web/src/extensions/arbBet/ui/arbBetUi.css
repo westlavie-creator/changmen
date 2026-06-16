@@ -1,0 +1,106 @@
+/* [changmen 扩展] BetRow 套利连线 + 赔率涨跌 flash */
+
+.bet .bet-items {
+  position: relative;
+}
+
+.bet .arb-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+
+.bet .arb-lines line {
+  stroke: #ff4d4f;
+  stroke-width: 2;
+}
+
+.item-odds.arb-leg {
+  border-color: #ff4d4f !important;
+  box-shadow: 0 0 6px #ff4d4fcc inset;
+}
+
+.bet .arb-profit-badge {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  background: #ff4d4f;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px #0006;
+}
+
+@keyframes arb-arrow-up {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-3px);
+    opacity: 0.6;
+  }
+}
+
+@keyframes arb-arrow-down {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(3px);
+    opacity: 0.6;
+  }
+}
+
+.item-odds.odds-up {
+  background: #52c41acc;
+  border-color: #237804;
+}
+
+.item-odds.odds-down {
+  background: #ff4d4fcc;
+  border-color: #a8071a;
+}
+
+.item-odds.odds-up::before {
+  content: "\25B2";
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: 14px;
+  color: #092b00;
+  line-height: 1;
+  animation: arb-arrow-up 0.6s ease-in-out infinite;
+}
+
+.item-odds.odds-down::before {
+  content: "\25BC";
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: 14px;
+  color: #3b0014;
+  line-height: 1;
+  animation: arb-arrow-down 0.6s ease-in-out infinite;
+}
+
+.odds-src {
+  font-size: 9px;
+  font-weight: bold;
+  line-height: 1;
+  vertical-align: super;
+  margin-left: 2px;
+  opacity: 0.75;
+}

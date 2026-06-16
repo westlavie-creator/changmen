@@ -41,8 +41,8 @@ export interface ValueBetLegsInput {
 }
 
 /**
- * 价值下注：相对初赔公允线，至少一腿 EV &gt; 0（现赔优于初赔隐含公允，不只是跨平台机械套利）。
- * [changmen 扩展] A8 bundle 无同名能力；初赔语义对齐 winRate / BetRow。
+ * 价值下注：相对初赔公允线，至少一腿 EV &gt; 0。
+ * A8 bundle 无同名能力；仅用于 Telegram 套利提醒文案。
  */
 export function assessValueBetFromDefaultOdds(
   defaultHome: number,

@@ -7,8 +7,6 @@ dist/
 **/dist/
 deploy-server.env
 deploy-server.local.bat
-BAT/deploy-server.local.bat
-BAT/_test*.txt
 .vite/
 **/.vite/
 *.tsbuildinfo

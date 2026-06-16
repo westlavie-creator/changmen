@@ -37,7 +37,7 @@ Chrome 扩展见 [`client/chrome-extension/`](../chrome-extension/)。
 
 ```bash
 npm run app:build   # 构建 → dist/，由服务端托管 /
-npm run app:dev     # 开发 http://localhost:5174/（proxy → 3560）
+npm run app:dev     # 开发 Vite（Win http://localhost:5274 / 其它 :5174，proxy → backend）
 BAT\dev.bat         # 后端 + Vite 一键启动
 ```
 

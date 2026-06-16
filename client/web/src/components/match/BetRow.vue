@@ -2,20 +2,13 @@
 import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
-import ArbLineOverlay from "@/components/match/ArbLineOverlay.vue";
 import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
-import { useArbLineOverlay, useOddsAnchorMap } from "@/composables/useArbLineOverlay";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useBettingStore } from "@/stores/bettingStore";
-import { useConfigStore } from "@/stores/configStore";
-import { useAccountStore } from "@/stores/accountStore";
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { getProviders } from "@/stores/account/accountPicker";
-import { arbLegSide, pickArbLegs, evaluateArbOrderEligibility } from "@/domain/arbitrage";
-import { resolveArbProviderKeys } from "@/domain/betting";
-import { arbPercent, arbProfitRate, formatSecond, percent, toFixed } from "@/shared/format";
+import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
+import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
 import type { PlatformId } from "@/types/esport";
 
 const BET_SIDES: BetSide[] = ["Home", "Away"];
@@ -28,9 +21,6 @@ const props = defineProps<{
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
 const bettingStore = useBettingStore();
-const configStore = useConfigStore();
-const accountStore = useAccountStore();
-const loseStore = useLoseOrderStore();
 const { revision } = storeToRefs(oddsStore);
 const { tick: matchTick } = storeToRefs(matchStore);
 
@@ -39,8 +29,17 @@ const limitOpen = ref(false);
 const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
 
-const betItemsRef = ref<HTMLElement | null>(null);
-const { bind: bindOddsRef, get: getOddsAnchor } = useOddsAnchorMap();
+const arbUi = useBetRowArbUi(() => props.match, () => props.bet);
+const {
+  itemsContainerRef,
+  line: arbLine,
+  badge: arbBadge,
+  overlayLabel,
+  isArbLeg,
+  bindOddsAnchor,
+  oddsCellClasses,
+  sourceLabel,
+} = arbUi;
 
 function itemOdds(item: ViewBet["items"][0], side: BetSide) {
   void revision.value;
@@ -48,50 +47,10 @@ function itemOdds(item: ViewBet["items"][0], side: BetSide) {
   return item.getOdds(side);
 }
 
-function itemFlash(item: ViewBet["items"][0], side: BetSide) {
-  void revision.value;
-  void matchTick.value;
-  return oddsStore.getFlash(item.type, side === "Home" ? item.homeId : item.awayId);
-}
-
-/** 默认开启：全平台赔率参与检测，与是否开启投注无关 */
-const arbLegs = computed(() => {
-  void revision.value;
-  void matchTick.value;
-  const providerKeys = resolveArbProviderKeys("display", { bet: props.bet });
-  return pickArbLegs(
-    props.bet,
-    configStore.config,
-    providerKeys,
-    accountStore.accounts,
-    props.match.game,
-  );
-});
-
-const arbEligibility = computed(() => {
-  void revision.value;
-  void matchTick.value;
-  const legs = arbLegs.value;
-  if (!legs) return undefined;
-  const autoProviderKeys = resolveArbProviderKeys("auto", {
-    accountProviderKeys: getProviders(accountStore).keys(),
-  });
-  return evaluateArbOrderEligibility({
-    match: props.match,
-    bet: props.bet,
-    legs,
-    config: configStore.config,
-    accounts: accountStore.accounts,
-    autoProviderKeys,
-    loseOrderPending: loseStore.orders.has(props.bet.id),
-    getBetTarget: (provider, betId) => matchStore.getBetTarget(provider, betId),
-  });
-});
-
+/** [A8 可证实] HomeView 内联 `c(bet)`：各行最高主/客赔 implied，无红线/可下单标签 */
 const arb = computed(() => {
-  if (arbLegs.value) {
-    return `${percent(arbLegs.value.implied)} / 利润 ${arbProfitRate(arbLegs.value.implied)}`;
-  }
+  void revision.value;
+  void matchTick.value;
   let bestHome = 0;
   let bestAway = 0;
   for (const item of props.bet.items) {
@@ -102,25 +61,6 @@ const arb = computed(() => {
   }
   return arbPercent(bestHome, bestAway);
 });
-
-const arbProfitLabel = computed(() => {
-  const legs = arbLegs.value;
-  if (!legs) return "";
-  return `利润率 ${arbProfitRate(legs.implied)}`;
-});
-
-const { line: arbLine, badge: arbBadge } = useArbLineOverlay(
-  betItemsRef,
-  () => {
-    const legs = arbLegs.value;
-    if (!legs) return null;
-    return {
-      home: getOddsAnchor(legs.homeItem.type, "Home"),
-      away: getOddsAnchor(legs.awayItem.type, "Away"),
-    };
-  },
-  [arbLegs, revision, matchTick],
-);
 
 const liveSeconds = computed(() => {
   void matchTick.value;
@@ -195,26 +135,8 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
     </el-tag>
     <div class="bet-title" @dblclick="loseOpen = true">
       {{ bet.getBetName() }} - {{ arb }}
-      <el-tooltip
-        v-if="arbEligibility"
-        :content="arbEligibility.canOrder
-          ? arbEligibility.reasons.join('；')
-          : arbEligibility.reasons.join('\n')"
-        placement="top"
-      >
-        <el-tag
-          class="arb-order-tag"
-          :type="arbEligibility.canOrder ? 'success' : 'danger'"
-          size="small"
-          effect="plain"
-        >
-          {{ arbEligibility.summary }}
-        </el-tag>
-      </el-tooltip>
     </div>
-    <div ref="betItemsRef" class="bet-items">
-      <ArbLineOverlay :line="arbLine" :badge="arbBadge" :label="arbProfitLabel" />
-
+    <div ref="itemsContainerRef" class="bet-items">
       <div v-if="roundScore" class="score">
         <div class="home">{{ roundScore.Home }}</div>
         <div class="away">{{ roundScore.Away }}</div>
@@ -244,36 +166,41 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
           @click="openLimit(item)"
         />
         <div
-          :ref="bindOddsRef(item.type, 'Home')"
+          :ref="bindOddsAnchor(item.type, 'Home')"
           class="item-odds home"
           :class="{
             lock: !itemOdds(item, 'Home'),
             target: matchStore.getBetTarget(item.type, bet.id) === 'Home',
-            'arb-leg': arbLegSide(arbLegs, item, 'Home'),
-            'odds-up': itemFlash(item, 'Home')?.dir === 'up',
-            'odds-down': itemFlash(item, 'Home')?.dir === 'down',
+            'arb-leg': isArbLeg(item, 'Home'),
+            ...oddsCellClasses(item, 'Home'),
           }"
           @click="onTarget(item.type, 'Home')"
           @dblclick.stop="onOddsDblClick(item, 'Home')"
         >
-          {{ itemOdds(item, "Home") || "" }}<span v-if="itemFlash(item, 'Home')" class="odds-src">{{ itemFlash(item, 'Home')?.source === 'mqtt' ? 'M' : 'H' }}</span>
+          {{ itemOdds(item, "Home") || ""
+          }}<span v-if="sourceLabel(item, 'Home')" class="odds-src">{{
+            sourceLabel(item, "Home")
+          }}</span>
         </div>
         <div
-          :ref="bindOddsRef(item.type, 'Away')"
+          :ref="bindOddsAnchor(item.type, 'Away')"
           class="item-odds away"
           :class="{
             lock: !itemOdds(item, 'Away'),
             target: matchStore.getBetTarget(item.type, bet.id) === 'Away',
-            'arb-leg': arbLegSide(arbLegs, item, 'Away'),
-            'odds-up': itemFlash(item, 'Away')?.dir === 'up',
-            'odds-down': itemFlash(item, 'Away')?.dir === 'down',
+            'arb-leg': isArbLeg(item, 'Away'),
+            ...oddsCellClasses(item, 'Away'),
           }"
           @click="onTarget(item.type, 'Away')"
           @dblclick.stop="onOddsDblClick(item, 'Away')"
         >
-          {{ itemOdds(item, "Away") || "" }}<span v-if="itemFlash(item, 'Away')" class="odds-src">{{ itemFlash(item, 'Away')?.source === 'mqtt' ? 'M' : 'H' }}</span>
+          {{ itemOdds(item, "Away") || ""
+          }}<span v-if="sourceLabel(item, 'Away')" class="odds-src">{{
+            sourceLabel(item, "Away")
+          }}</span>
         </div>
       </div>
+      <ArbLineOverlay :line="arbLine" :badge="arbBadge" :label="overlayLabel" />
     </div>
 
     <CreateLoseDialog
@@ -290,10 +217,3 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
     />
   </div>
 </template>
-
-<style scoped>
-.bet-title .arb-order-tag {
-  margin-left: 6px;
-  vertical-align: middle;
-}
-</style>

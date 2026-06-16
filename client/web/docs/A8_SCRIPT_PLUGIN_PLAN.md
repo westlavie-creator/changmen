@@ -1,7 +1,7 @@
 # A8 脚本 + 插件架构复刻计划
 
 对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `A8/A8chromeplug/2.0.149`。  
-changmen 实现：`client/web` + `client/platform-adapter/*/frontend` + `client/chrome-extension` + `@/extension/bridge.ts`（A8 `Zn`）。
+changmen 实现：`client/web` + `client/platform-adapter/{platform}/` + `client/chrome-extension` + `@/extension/bridge.ts`（A8 `Zn`）。
 
 最后更新：2026-06-11
 

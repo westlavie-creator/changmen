@@ -6,6 +6,7 @@ import {
   adapterRequire,
   initAdapterRegistry,
   requirePlatform,
+  reqS,
 } from "./adapter_paths.js";
 
 beforeAll(async () => {
@@ -21,6 +22,12 @@ describe("adapter_paths", () => {
   it("adapterRequire loads registry manifest (11 platforms)", () => {
     const { MANIFEST } = adapterRequire("registry", "paths.js");
     expect(MANIFEST).toHaveLength(11);
+  });
+
+  it("reqS loads @changmen/shared modules", () => {
+    const { getDefaultMarketCode } = reqS("catalog/market_catalog.mjs");
+    expect(typeof getDefaultMarketCode).toBe("function");
+    expect(getDefaultMarketCode("OB")).toBeTruthy();
   });
 
   it("requirePlatform loads OB session module (ESM backend)", () => {

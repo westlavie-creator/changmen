@@ -1,7 +1,7 @@
 # A8 同屏走查清单（`/console/` vs `/`）
 
-开发地址：`http://localhost:5174/`  
-对照地址：`http://localhost:3456/console/`（`PATCH_CONSOLE=1` + backend `3456`）
+开发地址：`http://localhost:5274/`（Windows）或 `5174`（其它）  
+对照地址：`http://localhost:3560/console/`（Win）或 `3456`（`PATCH_CONSOLE=1` + backend）
 
 登录建议：**TJ01** / 配置密码（与 `a8_constants.js` 一致），便于平博 v4 与初赔数据一致。
 
@@ -11,7 +11,7 @@
 
 ## 0. 启动
 
-- [ ] `BAT\dev.bat` 或 `BAT\dev.bat`（3560 后端 + 5174 Vite）+ 可选 `npm run matcher:loop`
+- [ ] `BAT\dev.bat`（Win: 3560+5274 / 其它: 3456+5174）+ 可选 `npm run matcher:loop`
 - [ ] 可选：`PATCH_CONSOLE=1` 启动以打开 `/console/` 对照
 
 自动化（无需浏览器）：

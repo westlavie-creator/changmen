@@ -6,7 +6,7 @@
  * 环境变量：
  *   SKIP_APP_BUILD=1   跳过构建（仅调试 API / 代理，前端可能 404）
  *
- * 日常开发推荐 dev.bat（Windows 后端 3560 + Vite 5174），无需每次 prebuild。
+ * 日常开发推荐 dev.bat（Win: backend 3560 + Vite 5274 / 其它: 3456 + 5174），无需每次 prebuild。
  */
 
 import { spawnSync } from "node:child_process";

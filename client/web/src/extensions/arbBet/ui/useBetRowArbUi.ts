@@ -1,0 +1,79 @@
+import { computed, ref, toValue, type MaybeRefOrGetter } from "vue";
+import { storeToRefs } from "pinia";
+import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
+import { arbLegSide, pickArbLegs } from "@/domain/arbitrage";
+import { providerKeysFromBetItems } from "@/domain/betting/providerKeys";
+import { percent } from "@/shared/format";
+import { useAccountStore } from "@/stores/accountStore";
+import { useConfigStore } from "@/stores/configStore";
+import { useOddsStore } from "@/stores/oddsStore";
+import { useOddsAnchorMap, useArbLineOverlay } from "@/extensions/arbBet/ui/useArbLineOverlay";
+import { useOddsFlashCell } from "@/extensions/arbBet/ui/useOddsFlash";
+
+/**
+ * [changmen 扩展] BetRow 套利 UI：全盘口 pickArbLegs 红线、利润角标、赔率涨跌 flash。
+ * A8 默认 BetRow 仅标题 implied；本 composable 集中扩展展示逻辑。
+ */
+export function useBetRowArbUi(
+  match: MaybeRefOrGetter<ViewMatch>,
+  bet: MaybeRefOrGetter<ViewBet>,
+) {
+  const configStore = useConfigStore();
+  const accountStore = useAccountStore();
+  const oddsStore = useOddsStore();
+  const { revision } = storeToRefs(oddsStore);
+
+  const itemsContainerRef = ref<HTMLElement | null>(null);
+  const anchorMap = useOddsAnchorMap();
+  const flash = useOddsFlashCell();
+
+  const legs = computed(() => {
+    void revision.value;
+    const b = toValue(bet);
+    const m = toValue(match);
+    const providerKeys = providerKeysFromBetItems(b);
+    return pickArbLegs(
+      b,
+      configStore.config,
+      providerKeys,
+      accountStore.accounts,
+      m.game,
+    );
+  });
+
+  const overlayLabel = computed(() => {
+    const L = legs.value;
+    return L ? percent(L.implied) : undefined;
+  });
+
+  function isArbLeg(item: ViewBetItem, side: BetSide): boolean {
+    return arbLegSide(legs.value, item, side);
+  }
+
+  function bindOddsAnchor(type: ViewBetItem["type"], side: BetSide) {
+    return anchorMap.bind(type, side);
+  }
+
+  const { line, badge } = useArbLineOverlay(
+    itemsContainerRef,
+    () => {
+      const L = legs.value;
+      if (!L) return null;
+      return {
+        home: anchorMap.get(L.homeItem.type, "Home"),
+        away: anchorMap.get(L.awayItem.type, "Away"),
+      };
+    },
+    [legs, revision],
+  );
+
+  return {
+    itemsContainerRef,
+    line,
+    badge,
+    overlayLabel,
+    isArbLeg,
+    bindOddsAnchor,
+    ...flash,
+  };
+}

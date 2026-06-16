@@ -1,7 +1,7 @@
 # A8 同屏走查操作脚本
 
 配合 [A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md) 使用：本文件写清**点哪里、看什么、Network 过滤什么**。  
-左右分屏：**左** `http://localhost:3456/console/` · **右** `http://localhost:5174/`
+左右分屏：**左** backend `/console/`（Win `3560` / 其它 `3456`）· **右** Vite dev（Win `5274` / 其它 `5174`）
 
 建议账号：**TJ01**（与 `changmen/TJ01.JSON`、平博 v4 测试一致）。
 
@@ -20,7 +20,7 @@ node server.js
 # 终端 2：新前端
 cd changmen/client/web
 npm run app:dev
-# → http://localhost:5174/
+# → Vite dev（Win http://localhost:5274 / 其它 :5174）
 
 # 终端 3（可选）：旧 bundle
 # 需 PATCH_CONSOLE=1 时按项目 README 启动，打开 /console/

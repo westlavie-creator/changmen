@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centerInContainer, computeArbLineOverlay } from "./arb_line";
+import { centerInContainer, computeArbLineOverlay } from "@/extensions/arbBet/ui/arb_line";
 
 describe("computeArbLineOverlay", () => {
   it("returns line and badge in container coordinates", () => {

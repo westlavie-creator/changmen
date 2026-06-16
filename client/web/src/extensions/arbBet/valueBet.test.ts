@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessValueBetFromDefaultOdds } from "@/domain/arbitrage/valueBet";
+import { assessValueBetFromDefaultOdds } from "@/extensions/arbBet/valueBet";
 
 describe("assessValueBetFromDefaultOdds", () => {
   const legs = {
@@ -16,7 +16,6 @@ describe("assessValueBetFromDefaultOdds", () => {
   });
 
   it("detects value when current odds beat fair line from 初赔", () => {
-    // 初赔 1.90 / 1.90 → fair ~50/50；现赔 2.1 主胜 → 正 EV
     const r = assessValueBetFromDefaultOdds(1.9, 1.9, legs);
     expect(r.ok).toBe(true);
     expect(r.isValue).toBe(true);

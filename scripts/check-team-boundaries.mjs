@@ -95,7 +95,6 @@ const ADAPTER_INFRA_DIRS = new Set([
   "loader",
   "shared",
   "contract",
-  "backend",
   "scripts",
   "_template",
   "node_modules",

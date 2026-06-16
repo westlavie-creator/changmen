@@ -10,16 +10,13 @@ export interface AutoBetTickContext {
   processLoseOrders: () => Promise<void>;
 }
 
-/** [A8 可证实] 自动投注主循环体（Vg + Io + jb）；config.betting 为 true 时由 runTick 调用 */
+/** [A8 可证实] 自动投注主循环体（Vg + Io + jb）；config.betting 时由 mainBetLoop 每轮调用 */
 export async function runAutoBetTick(ctx: AutoBetTickContext): Promise<void> {
   const configStore = useConfigStore();
   const matchStore = useMatchStore();
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
   const { setMessage, processLoseOrders } = ctx;
-
-  loseStore.ensureOrdersMap();
-  loseStore.removeOrders(matchStore.matchs.flatMap((m) => m.bets.map((b) => b.id)));
 
   const config = configStore.config;
   if (config.minMoney && config.maxMoney) {

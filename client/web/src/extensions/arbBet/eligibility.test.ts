@@ -3,7 +3,8 @@ import { ViewBet, type ViewMatch } from "@/models/match";
 import type { BetRowDto } from "@/types/esport";
 import { PlatformAccount } from "@/models/platformAccount";
 import { createDefaultUserConfig } from "@/types/userConfig";
-import { pickArbLegs, evaluateArbOrderEligibility } from "@/domain/arbitrage";
+import { pickArbLegs } from "@/domain/arbitrage";
+import { evaluateArbOrderEligibility } from "@/extensions/arbBet";
 
 let foOdds: Record<string, Record<string, number>> = {};
 

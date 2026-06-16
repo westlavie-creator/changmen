@@ -4,15 +4,14 @@
 
 可选探针 CLI 在 [`@changmen/platform-probes`](../../devtools/platform-probes/README.md)（日常可不使用）。
 
-历史路径 `server/platform-node`、`platform-adapter/node/` 已删除；探针仅在 `devtools/platform-probes/`。
+历史路径 `server/platform-node`、`platform-adapter/node/`、`platform-adapter/{platform}/backend/` 已删除；Node 探针与会话模块仅在 `devtools/platform-probes/`（经 `requirePlatform(id, "node", …)` 加载）。
 
 ## 目录
 
 ```
 client/platform-adapter/
 ├── registry/ manifest.json
-├── loader/   adapter_paths（requirePlatform）
-├── backend/  包级 _paths.js（npm 解析）
+├── loader/   adapter_paths（requirePlatform、reqS）
 ├── shared/   跨平台工具
 └── {platform}/          collect.ts、bet.ts 等（+ 可选 shared/、scripts/）
 ```

@@ -64,7 +64,7 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 
 各平台采集与下注的 canonical 源码。前端通过 Vite 别名 `@platform` → `client/platform-adapter`。
 
-**目录语义**：`{platform}/` 为浏览器采集；`@changmen/platform-probes`（`devtools/platform-probes/`）为可选 Node 探针 CLI。详见 [platform-adapter/README.md](../client/platform-adapter/README.md) 与 [platform-probes/README.md](../devtools/platform-probes/README.md)。
+**目录语义**：`{platform}/` 为浏览器采集（`collect.ts` / `bet.ts`）；Node 探针与会话模块在 `@changmen/platform-probes`（`devtools/platform-probes/{platform}/`），经 `requirePlatform(id, "node", …)` 加载。详见 [platform-adapter/README.md](../client/platform-adapter/README.md) 与 [platform-probes/README.md](../devtools/platform-probes/README.md)。
 
 各平台 CLI 采集脚本定义在本包 `package.json`；`server/backend` 通过 `npm run <script> --workspace=@changmen/platform-adapter` 转发。
 
@@ -86,11 +86,20 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 
 ## client / server 说明
 
+### 本地开发端口
+
+| 组件 | Windows | Linux / 其它 |
+|------|---------|----------------|
+| Vite（`client/web`） | `5274` | `5174` |
+| `server/backend` | `3560` | `3456` |
+
+Windows 上 Hyper-V 常保留 TCP `5123–5222`，故 Vite 不用 `5174`。配置见 `client/web/vite.config.ts` 与 `server/backend/server.js`。
+
 | 路径 | 职责 |
 |------|------|
 | `server/backend` | `server.js`、`/esport/*` API、HTTP 代理、静态资源 |
 | `server/matcher` | 30s rebuild、matcher UI、`/matcher/*` |
-| `client/web` | Vue 3 + Vite，端口 5174（开发） |
+| `client/web` | Vue 3 + Vite；开发端口 Win `5274` / 其它 `5174`（`vite.config.ts`） |
 | `client/chrome-extension` | MV3 跨域代理与凭证捕获 |
 
 ## 数据流（不变）

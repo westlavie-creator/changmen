@@ -31,7 +31,7 @@
 
 **不用改。** 与第一步相同：
 
-- 开发（5174）：`http://localhost:5174/v4.0/game/play/Login` → Vite 代理 → backend `3456`
+- 开发（Vite）：`http://localhost:5274/`（Win）或 `5174` → 可选 `/v4.0/` 代理 → backend（Win `3560` / 其它 `3456`）
 - 生产/3456：同源 `/v4.0/game/play/Login`
 
 A8 bundle 同样是 `i("game/play/Login", { gameId: 3 })`，注意路径里 **`Login` 大写 L**，不要写成 `login`。
@@ -61,8 +61,8 @@ OB / SABA 为试玩分支，不走上述 v4 登录。
 
 | 访问方式 | v4 请求 URL | 说明 |
 |----------|-------------|------|
-| `http://localhost:5174/`（Vite） | **`https://api.a8.to/v4.0/...`** | **默认**；与 A8 官方 bundle 一致，**浏览器直连**（真 SSO，目标页可登录） |
-| 可选 Node 代理 | `http://localhost:5174/v4.0/...` | 仅当 `.env.local` 设 `VITE_V4_PROXY=1`；易被 Cloudflare 403 |
+| `http://localhost:5274/` 或 `5174`（Vite） | **`https://api.a8.to/v4.0/...`** | **默认**；与 A8 官方 bundle 一致，**浏览器直连**（真 SSO，目标页可登录） |
+| 可选 Node 代理 | 同源 `/v4.0/...`（Vite dev） | 仅当 `.env.local` 设 `VITE_V4_PROXY=1`；易被 Cloudflare 403 |
 | `http://localhost:3456/`（构建产物） | 同源 `/v4.0/...` | 由 backend `v4_router.js` 转发（部署环境用） |
 
 本地 dev **不必** 为 v4 启动 backend（主站 `/esport` 仍要 3456）。`vite.config.ts` 的 `/v4.0` 代理仅在使用 `VITE_V4_PROXY=1` 时用到。
@@ -107,4 +107,4 @@ npm run test:v4
 - [MIGRATION.md](../MIGRATION.md) — 迁移总表
 - [ARCHITECTURE.md](../src/ARCHITECTURE.md) — `api/v4.ts` 在架构中的位置
 - [server/backend/README.md](../../backend/README.md) — `A8_V4_*` 环境变量
-- [client/platform-adapter/pb/backend/docs/README.md](../../../client/platform-adapter/pb/backend/docs/README.md) — PB 采集（与 v4 信用盘入口无关）
+- [devtools/platform-probes/pb/docs/README.md](../../../devtools/platform-probes/pb/docs/README.md) — PB 采集（与 v4 信用盘入口无关）

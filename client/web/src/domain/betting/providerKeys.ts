@@ -1,6 +1,6 @@
 import type { PlatformId } from "@/types/esport";
 
-/** UI / Telegram：盘口上全部平台参与套利检测 */
+/** auto 对齐 A8 `Io().getProviders()`；display 保留给测试/兼容，Telegram 用 `providerKeysFromBetItems` */
 export type ArbProviderScope = "display" | "auto";
 
 export function providerKeysFromBetItems(bet: {
@@ -11,8 +11,8 @@ export function providerKeysFromBetItems(bet: {
 
 /**
  * 收口套利检测用的平台列表。
- * - display：列表红线、Telegram 提醒（不依赖账号余额）
- * - auto：自动投注（仅有在线账号的平台）
+ * - display：兼容别名；Telegram 全盘口扫描见 `extensions/arbBet`
+ * - auto：自动投注与 `GetOrderOptions`（仅有余额 ≥ betMoney 的在线账号平台）
  */
 export function resolveArbProviderKeys(
   scope: ArbProviderScope,

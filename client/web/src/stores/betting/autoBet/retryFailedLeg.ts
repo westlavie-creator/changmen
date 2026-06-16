@@ -4,17 +4,14 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult } from "@/models/betResult";
 import type { UserConfig } from "@/types/userConfig";
 import type { PlatformId } from "@/types/esport";
-import { passesMaxBetCount } from "@/shared/betTiming";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMatchStore } from "@/stores/matchStore";
-import {
-  passesDefaultOddsAccount,
-} from "@/stores/betting/betFilters";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 
 /**
  * 对齐 bundle：一侧成功、一侧失败时换平台重试失败腿（最多 3 轮）。
  * anyOdds 仅影响最低赔阈值（makeProfit vs anyOddsProfit）。
+ * 选账号 filter 与 bundle 主循环 anyOdds 段一致：pause / 已试平台 / minOdds / betTarget。
  */
 export async function retryFailedLeg(
   match: ViewMatch,
@@ -49,10 +46,9 @@ export async function retryFailedLeg(
     let pickedAccount: PlatformAccount | undefined;
     let pickedItem: ViewBetItem | undefined;
     let stake = 0;
-    let odds = 0;
 
     for (const item of candidates) {
-      odds = item.getOdds(failedLeg.target);
+      const odds = item.getOdds(failedLeg.target);
       stake = Math.floor((successLeg.odds * successLeg.betMoney) / odds);
       const acc = accountStore.getAccount(
         item.type,
@@ -62,11 +58,7 @@ export async function retryFailedLeg(
           : [],
         (u) => {
           if (u.isPause() || tried.includes(u.provider)) return false;
-          if (!u.checkOdds(odds, match.gameId)) return false;
-          const retryImplied = 1 / (1 / successLeg.odds + 1 / odds);
-          if (!u.passesGameSettings(match.game, odds, retryImplied)) return false;
-          if (!passesDefaultOddsAccount(u, bet.id, failedLeg.target)) return false;
-          if (!passesMaxBetCount(u, bet.id, failedLeg.target)) return false;
+          if (u.getMinOdds() > odds) return false;
           const target = matchStore.getBetTarget(u.provider, bet.id);
           if (target && target !== failedLeg.target) return false;
           return true;
@@ -83,6 +75,7 @@ export async function retryFailedLeg(
 
     tried.push(pickedAccount.provider);
     let retryLeg = new BetOption(match, bet, pickedItem, failedLeg.target, stake);
+    retryLeg.odds = pickedItem.getOdds(failedLeg.target);
     retryLeg = await accountStore.checkBetting(pickedAccount, retryLeg);
     if (!retryLeg.data) continue;
 

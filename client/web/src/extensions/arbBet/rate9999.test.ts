@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
-import { createBetLinkId } from "@/models/betResult";
-import { isLegSkippedByRate9999 } from "@/stores/betting/betFilters";
+import { createArbLinkId, isLegSkippedByRate9999 } from "@/extensions/arbBet";
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({
@@ -30,14 +29,14 @@ function makeLeg(provider: "PB" | "RAY" = "PB"): BetOption {
   } as unknown as BetOption;
 }
 
-describe("createBetLinkId", () => {
+describe("createArbLinkId", () => {
   it("默认正数，对齐 A8 Date.now()", () => {
-    const id = createBetLinkId(false);
+    const id = createArbLinkId(false);
     expect(id).toBeGreaterThan(0);
   });
 
   it("仅比例 9999 单边为负", () => {
-    const id = createBetLinkId(true);
+    const id = createArbLinkId(true);
     expect(id).toBeLessThan(0);
   });
 });

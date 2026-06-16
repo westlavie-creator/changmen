@@ -60,7 +60,7 @@ Nginx / Caddy 反代示例要点：
 | API（`server/backend`） | PM2：`gamebet-web`（`:3456`） | `pm2 restart gamebet-web` |
 | 合并（`server/matcher`） | PM2：`gamebet-matcher` | 有改 matcher 时再 `pm2 restart gamebet-matcher` |
 
-开发联调才是两个进程：Vite `:5174` + backend `:3456`（`BAT\dev.bat` 等），那是本地用，不是生产模型。
+开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
 ### 推荐拓扑（`scripts/Caddyfile`）
 
@@ -174,7 +174,7 @@ npm run sync:platform-adapter --workspace=@changmen/backend
 # npm run sync:platform-adapter
 ```
 
-将 `registry/` + 各平台 `shared/`（若有）+ 包级 `backend/_paths` 同步到 `server/backend/platform_adapter/`（跳过浏览器采集 ts）。可选在进程环境设置 `GAMEBET_ADAPTER_ROOT` 指向该目录（否则解析顺序见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)）。
+将 `registry/`、`loader/` 等基础设施同步到 `server/backend/platform_adapter/`（跳过浏览器采集 ts）。`reqS` 经 `loader/adapter_paths.mjs` 解析 `@changmen/shared`。可选在进程环境设置 `GAMEBET_ADAPTER_ROOT` 指向该目录（否则解析顺序见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)）。
 
 冒烟：`npm run test:adapter --workspace=@changmen/backend`（模拟瘦包布局）。
 
@@ -242,7 +242,7 @@ npm run build
 
 | 项 | 开发 | 生产 |
 |----|------|------|
-| API 地址 | `localhost:3456` 或 Vite `:5174` + proxy | `https://your-domain.com` |
+| API 地址 | 本机 backend 或 Vite dev + proxy（端口见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)） | `https://your-domain.com` |
 | 启动 | `BAT\dev.bat parity` / `BAT\dev.bat` + matcher | `web` + `matcher:loop` |
 | 认证 | 可 `A8_AUTH=0` + TJ01 | JWT 真实用户（`users` + `profiles`） |
 | 采集 | 本机浏览器 + 插件 | 各操作员客户端上报同一 RDS |

@@ -20,7 +20,7 @@
 | 平台 | A8 采集 Token | changmen 采集 Token | A8 采集方式 | changmen 采集 | A8 下注 | changmen 下注 |
 |------|---------------|---------------------|-------------|---------------|---------|---------------|
 | **OB** | `Vt.getPlatform(OB)`；失效时 `$Me` 试玩 API **只写 token** | 同左 + 后端可选 `syncObLogin` 写 gateway+token | HTTP `game/index`+`game/view` + MQTT 固定 relay | 同左（MQTT 走本站 relay） | `yYe`；账号 gateway/token | `obProvider`；剪贴板 `ACCOUNT` |
-| **RAY** | 插件内 **写死** JWT + gateway | API 强制 `ray_a8_collect.js` 同 JWT | HTTP `/v2/match|odds` + SC→`47.115.75.57` | 同逻辑，WS 经 `ray_sc_relay` | `vYe` `/v2/order` | `rayProvider` |
+| **RAY** | 插件内 **写死** JWT + gateway | API 强制 `devtools/platform-probes/ray/collect_credentials.js` 同 JWT | HTTP `/v2/match|odds` + SC→`47.115.75.57` | 同逻辑，WS 经 `ray_http_proxy` | `vYe` `/v2/order` | `rayProvider` |
 | **TF** | `Vt.getPlatform(TF)` | `getCollectPlatform` + env `TF_*` | HTTP `/api/v8/events` + 赔率 WS | 同左 | `bYe` `/api/game-client/v8/single-bet/` | `tfProvider` |
 | **IA** | 插件内对象：`gateway=ilustre…`，**`token:""`**，固定 games | `getCollectPlatform`（需 Gateway+Token） | HTTP `gameListPageSplit`（header `token`）+ WS `/esport/ws/IA` | 同路径；默认 gateway 回退 ilustre | `CYe` | `iaProvider` |
 | **IM** | 无场馆采集 token；Socket 用 `localStorage token` | `socketHub` 同：`localStorage token` | A8 Socket `join room` **IM**；只推赔率 | `startA8BetsCollector` 频道 `IM` | `TZe` | `imProvider` |

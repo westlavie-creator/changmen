@@ -1,5 +1,4 @@
 import type { BetSide, ViewBet, ViewBetItem } from "@/models/match";
-import { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 
@@ -74,15 +73,11 @@ export function pickArbLegs(
   let targetProfit = config.profit;
   const profitOverrides = accounts.filter(
     (a) =>
-      (a.profit !== 0 || !!(gameName && a.game?.[gameName]?.profit)) &&
+      a.profit !== 0 &&
       (a.provider === homeItem.type || a.provider === awayItem.type),
   );
   if (profitOverrides.length) {
-    targetProfit = Math.max(
-      ...profitOverrides.map((a) =>
-        PlatformAccount.profitFloorForGame(a, gameName, config.profit),
-      ),
-    );
+    targetProfit = Math.max(...profitOverrides.map((a) => a.profit));
   }
   if (implied < targetProfit || implied > config.maxProfit) return undefined;
 

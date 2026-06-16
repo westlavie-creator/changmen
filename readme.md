@@ -28,9 +28,9 @@
 
 ## 工作目录
 
-**所有 `npm run`、`BAT\*.bat` 请在 `changmen/` 下执行**（本目录即应用根）。首次配置：运行 `BAT\setup-dev-env.bat` 从 `.env.example` 生成 `server/backend/.env`，编辑 `JWT_SECRET` 与 `DATABASE_URL`。
+**`npm run` 在 `changmen/` 下执行**；**`.bat` 在仓库根目录 `gamebet/` 下执行**（如 `BAT\dev.bat`，脚本会自动进入 `changmen/`）。首次配置：运行 `BAT\setup-dev-env.bat` 从 `.env.example` 生成 `server/backend/.env`，编辑 `JWT_SECRET` 与 `DATABASE_URL`。
 
-若 Git 仓库根仍是上一级的 `gamebet/`，可在该目录执行 `npm run web`（根目录 `package.json` 会转发 npm 脚本）；**`.bat` 请进入 `changmen/` 再双击**。说明见 [scripts/README.md](./scripts/README.md)。
+若 Git 仓库根是 `gamebet/`，可在该目录执行 `npm run web`（根 `package.json` 转发到 changmen）。说明见 [scripts/README.md](./scripts/README.md)。
 
 ## 数据职责
 
@@ -44,7 +44,7 @@
 
 「赛事采集」开关：仅控制是否 **回传** `SaveMatch`/`SaveBet`，不停止拉数或 fo。
 
-启动：`BAT\setup-dev-env.bat`（首次）→ `BAT\dev.bat`（或 `BAT\dev.bat parity`）。详见 [BAT/README.md](./BAT/README.md)、[server/backend/README.md](./server/backend/README.md)。
+启动：`BAT\setup-dev-env.bat`（首次）→ `BAT\dev.bat`（或 `BAT\dev.bat parity`）。详见 [BAT/README.md](../BAT/README.md)、[server/backend/README.md](./server/backend/README.md)。
 
 ## 仓库结构
 
@@ -64,7 +64,7 @@
 cd changmen   # 若尚未在本目录
 npm install          # workspaces：backend、matcher、web、packages
 npm run web          # server/backend preweb + 启动 http://localhost:3560（Win）/ 3456
-npm run app:dev      # 新控制台 dev → http://localhost:5174/
+npm run app:dev      # 新控制台 dev → Vite 5274（Win）/ 5174（其它）
 ```
 
 | 入口 | 说明 |
@@ -101,7 +101,7 @@ client/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API_S
 | 平台 | 源码 | 机制 | 凭证要求 |
 |------|------|------|----------|
 | OB | `client/platform-adapter/ob/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
-| RAY | `client/platform-adapter/ray/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `client/platform-adapter/ray/backend/collect_credentials.js`） |
+| RAY | `client/platform-adapter/ray/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `devtools/platform-probes/ray/collect_credentials.js`） |
 | TF | `client/platform-adapter/tf/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
 | IA | `client/platform-adapter/ia/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
 | PB | `client/platform-adapter/pb/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |

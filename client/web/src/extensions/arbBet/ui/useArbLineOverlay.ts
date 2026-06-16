@@ -7,9 +7,9 @@ import {
   resolveVueElement,
   type ArbLineBadge,
   type ArbLineSegment,
-} from "@/shared/arb_line";
+} from "@/extensions/arbBet/ui/arb_line";
 
-/** 登记赔率格 DOM，供单行或跨行套利划线取 anchor */
+/** 登记赔率格 DOM，供套利划线取 anchor */
 export function useOddsAnchorMap() {
   const map = new Map<string, HTMLElement>();
 
@@ -70,12 +70,21 @@ export function useArbLineOverlay(
 
   onMounted(() => {
     resizeObserver = new ResizeObserver(() => refresh());
-    if (containerRef.value) resizeObserver.observe(containerRef.value);
-    nextTick(refresh);
   });
+
+  watch(
+    containerRef,
+    (el) => {
+      resizeObserver?.disconnect();
+      if (el && resizeObserver) resizeObserver.observe(el);
+      nextTick(refresh);
+    },
+    { immediate: true },
+  );
 
   onUnmounted(() => {
     resizeObserver?.disconnect();
+    resizeObserver = null;
   });
 
   watch(watchSources, () => nextTick(refresh), { deep: true });

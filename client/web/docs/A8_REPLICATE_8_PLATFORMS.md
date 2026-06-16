@@ -1,7 +1,7 @@
 # A8 复刻：OB / IM / TF / PB / RAY / IMT / STAKE / IA
 
 对照基线：**仅** `A8/A8frontendscipts/2.0.1/index.js`（不用 `vendor/ui-bundle`）。  
-changmen 实现：`client/platform-adapter/*/frontend`、`client/platform-adapter/*/bet.ts`、`server/backend/core/esport-api`；插件桥 `@/extension/bridge.ts`。
+changmen 实现：`client/platform-adapter/{platform}/`（`collect.ts` / `bet.ts`）、`server/backend/core/esport-api`；插件桥 `@/extension/bridge.ts`。
 
 ---
 
@@ -12,7 +12,7 @@ changmen 实现：`client/platform-adapter/*/frontend`、`client/platform-adapte
 | 层级 | 行为 |
 |------|------|
 | `collectStore.saveMatch` / `saveBets` | 开关关闭时直接 `return false`，不调后端 |
-| 各平台 `client/platform-adapter/*/frontend` | **应常驻运行**（HTTP/WS/插件），继续写 `oddsStore`、刷新主列表 |
+| 各平台 `client/platform-adapter/{platform}/` | **应常驻运行**（HTTP/WS/插件），继续写 `oddsStore`、刷新主列表 |
 | `runtime/collectors.ts` | 不因开关关闭而 `stop` 采集器 |
 
 对齐 A8 Pinia `Tf`：`saveMatch` / `saveBet` 内判断 `e.collect.get(platform)`。
@@ -93,7 +93,7 @@ changmen 实现：`client/platform-adapter/*/frontend`、`client/platform-adapte
 |----|------|
 | A8 | `vQe`：**写死** `cfinfo.365raylinks.com` + Bearer JWT（不读 getPlatform） |
 | 代码 | `client/platform-adapter/ray/*` | `client/platform-adapter/ray/bet.ts` |
-| 凭证 | `router.js` / `ray_a8_collect.js` 强制返回 A8 JWT |
+| 凭证 | `router.js` + `devtools/platform-probes/ray/collect_credentials.js` 强制返回 A8 JWT |
 | 下注 | RAY 账号自己的 gateway/token |
 | 验收 | ① `Client_GetCollectPlatform(RAY)` 为 A8 JWT ② `/v2/match` ③ SC 频道 match ④ RAY 账号 `/v2/order` |
 
@@ -192,4 +192,4 @@ changmen 实现：`client/platform-adapter/*/frontend`、`client/platform-adapte
 
 ---
 
-*IA 默认凭证：`client/platform-adapter/ia/backend/collect_credentials.js`（A8 空 token）。*
+*IA 默认凭证：`devtools/platform-probes/ia/collect_credentials.js`（A8 空 token）。*

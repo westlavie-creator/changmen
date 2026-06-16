@@ -5,14 +5,18 @@ const path = require('path');
 const OUT = path.join('d:', 'River', 'arb', 'gamebet', 'changmen', '.smoke');
 fs.mkdirSync(OUT, { recursive: true });
 
+const VITE_DEV_PORT = process.platform === 'win32' ? 5274 : 5174;
+
 const PAGES = [
-  { name: 'local-3560', url: 'http://127.0.0.1:3560/' },
-  { name: 'vite-5174', url: 'http://127.0.0.1:5174/' },
+  { name: 'local-backend', url: `http://127.0.0.1:${process.platform === 'win32' ? 3560 : 3456}/` },
+  { name: 'vite-dev', url: `http://127.0.0.1:${VITE_DEV_PORT}/` },
   { name: 'prod-vps', url: 'http://47.82.100.166/' },
 ];
 
+const BACKEND_PORT = process.platform === 'win32' ? 3560 : 3456;
+
 const HEALTH = [
-  { name: 'health-local', url: 'http://127.0.0.1:3560/esport/health' },
+  { name: 'health-local', url: `http://127.0.0.1:${BACKEND_PORT}/esport/health` },
   { name: 'health-prod', url: 'http://47.82.100.166/esport/health' },
 ];
 

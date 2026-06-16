@@ -12,10 +12,10 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 | **服务端** | `server/backend/`、`server/matcher/`、`server/db/`、`server/match-engine/`、`server/team-resolver/` | API、合并、RDS、代理/余额、运维脚本 |
 | **开发工具** | `devtools/platform-probes/` | 可选：直连各平台探针 CLI（非主链路） |
 
-已移除的遗留目录（勿再创建）：`server/platform-node`、`server/platform-probes`、`client/platform-adapter/node/`。探针源码仅在 `devtools/platform-probes/`；瘦包同步产物为 `server/backend/platform_node/`。
+已移除的遗留目录（勿再创建）：`server/platform-node`、`server/platform-probes`、`client/platform-adapter/node/`、`client/platform-adapter/{platform}/backend/`。探针源码仅在 `devtools/platform-probes/`；瘦包同步产物为 `server/backend/platform_node/` 与 `server/backend/platform_adapter/`。
 | **共同协商** | `packages/shared/`、`packages/api-contract/`、`docs/TEAM_BOUNDARIES.md`、`.github/CODEOWNERS` | 跨端工具、catalog、HTTP 契约 |
 
-`client/platform-adapter` 内的 `loader/`、`registry/`、`scripts/`、`backend/_paths` 属**适配器基础设施**；各平台 `{platform}/shared/` 为**浏览器采集**内部模块（collect / markets / parse 共用），**不同步**到瘦包。
+`client/platform-adapter` 内的 `loader/`、`registry/`、`scripts/` 属**适配器基础设施**（`reqS` / `backendRequire` 在 `loader/adapter_paths.mjs`）；各平台 `{platform}/shared/` 为**浏览器采集**内部模块（collect / markets / parse 共用），**不同步**到瘦包。
 
 `devtools/platform-probes/{platform}/shared/` 为**探针/CLI** 内部模块（如 RAY 的 CJS `save_bets.js`），与浏览器 `shared/` 分离，由探针包 `sync:backend-bundle` 打入 `server/backend/platform_node/`。
 

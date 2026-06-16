@@ -25,7 +25,7 @@ export const ADMIN_SETTING_LABELS: Record<string, string> = {
   minOdds: "最低赔率",
   maxOdds: "最高赔率",
   betCount: "最大下注次数",
-  betInterval: "下注间隔(秒)",
+  betInterval: "下注间隔(秒，A8 未用于调度；主循环约 100ms)",
   checkTimeout: "前置检查超时(ms)",
   betChecked: "仅已检查",
   singleBet: "单注模式",
