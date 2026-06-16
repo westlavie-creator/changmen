@@ -8,9 +8,31 @@ import { useOrderStore } from "@/stores/orderStore";
 import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { betToastSeconds } from "@/shared/betTiming";
+import { toFixed } from "@/shared/format";
 
 export interface ManualBetContext {
   setMessage: (msg: string) => void;
+}
+
+/** 手动下单 prompt 正文：展示赛事、盘口、平台与所选边 */
+export function buildManualBetPromptMessage(
+  match: ViewMatch,
+  bet: ViewBet,
+  item: ViewBetItem,
+  side: BetSide,
+  odds: number,
+): string {
+  const team = side === "Home" ? bet.homeName : bet.awayName;
+  const market = (bet.name?.trim() || bet.getBetName()).trim();
+  const oddsText = odds > 0 ? toFixed(odds, 3) : "—";
+  return [
+    match.title,
+    `盘口：${market}`,
+    `平台：${item.type}`,
+    `选项：${team} @ ${oddsText}`,
+    "",
+    "请输入要投注的金额",
+  ].join("\n");
 }
 
 /** [A8 可证实] 双击赔率手动下单 */
@@ -34,22 +56,27 @@ export async function runManualBet(
     return;
   }
 
+  const odds = item.getOdds(side);
   let amount: number;
   try {
-    const { value } = await ElMessageBox.prompt("请输入要投注的金额", "手动下单", {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      inputValue: String(configStore.config.betMoney || 10),
-      inputType: "number",
-      inputValidator: (val) => (Number(val) > 0 ? true : "请输入有效金额"),
-    });
+    const { value } = await ElMessageBox.prompt(
+      buildManualBetPromptMessage(match, bet, item, side, odds),
+      "手动下单",
+      {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        inputValue: String(configStore.config.betMoney || 10),
+        inputType: "number",
+        inputValidator: (val) => (Number(val) > 0 ? true : "请输入有效金额"),
+        customClass: "manual-bet-prompt-box",
+      },
+    );
     amount = Number(value);
     if (!amount || amount <= 0) return;
   } catch {
     return;
   }
 
-  const odds = item.getOdds(side);
   let option = new BetOption(match, bet, item, side, amount);
   option.odds = odds;
   if (!accountPassesMainBetFilter(account, bet, match, option, matchStore)) {
