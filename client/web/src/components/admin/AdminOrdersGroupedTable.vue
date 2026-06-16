@@ -9,28 +9,24 @@ const props = defineProps<{
   userNameById?: Map<string, string>;
 }>();
 
-type GroupHeadRow = {
+interface OrderGroupRow {
   id: string;
-  _isGroupHead: true;
-  _groupRows: AdminOrderRow[];
-};
-
-type TableRow = AdminOrderRow | GroupHeadRow;
-
-function isGroupHead(row: TableRow): row is GroupHeadRow {
-  return "_isGroupHead" in row && row._isGroupHead === true;
+  key: number;
+  rows: AdminOrderRow[];
+  linkId: number;
 }
 
-const flatRows = computed(() => {
-  const out: TableRow[] = [];
-  for (const [key, rows] of props.groups) {
-    out.push({ id: `group-${key}`, _isGroupHead: true, _groupRows: rows });
-    out.push(...rows);
-  }
-  return out;
-});
-
-const colCount = computed(() => (props.showUserColumn ? 12 : 11));
+const tableRows = computed<OrderGroupRow[]>(() =>
+  props.groups.map(([key, rows]) => {
+    const sorted = [...rows].sort((a, b) => a.createAt - b.createAt);
+    return {
+      id: `group-${key}`,
+      key,
+      rows: sorted,
+      linkId: sorted[0]?.linkId || 0,
+    };
+  }),
+);
 
 function linkSourceTag(linkId: number | undefined) {
   const source = classifyLinkId(linkId);
@@ -68,21 +64,29 @@ function groupIsLinked(rows: AdminOrderRow[]) {
   return link !== 0 && !isSingleLegLink(link) && rows.length > 1;
 }
 
-function spanMethod({
-  row,
-  columnIndex,
-}: {
-  row: TableRow;
-  columnIndex: number;
-}) {
-  if (!isGroupHead(row)) return { rowspan: 1, colspan: 1 };
-  if (columnIndex === 0) return { rowspan: 1, colspan: colCount.value };
-  return { rowspan: 0, colspan: 0 };
+function groupMetaLabel(rows: AdminOrderRow[]) {
+  const link = Number(rows[0]?.linkId) || 0;
+  if (isSingleLegLink(link)) return "单边";
+  if (groupIsLinked(rows)) return `套利 ${rows.length} 笔`;
+  return "单笔";
 }
 
-function rowClassName({ row }: { row: TableRow }) {
-  if (!isGroupHead(row)) return "admin-order-data-row";
-  return groupIsLinked(row._groupRows)
+function groupProfit(rows: AdminOrderRow[]) {
+  return rows.reduce((sum, r) => sum + (Number(r.money) || 0), 0);
+}
+
+function groupProfitClass(rows: AdminOrderRow[]) {
+  const total = groupProfit(rows);
+  if (total === 0) return "";
+  return total > 0 ? "pos" : "neg";
+}
+
+function userLabel(row: AdminOrderRow) {
+  return props.userNameById?.get(row.userId) || row.userId.slice(0, 8);
+}
+
+function rowClassName({ row }: { row: OrderGroupRow }) {
+  return groupIsLinked(row.rows)
     ? "admin-order-group-row admin-order-group-row--paired"
     : "admin-order-group-row";
 }
@@ -90,94 +94,135 @@ function rowClassName({ row }: { row: TableRow }) {
 
 <template>
   <el-table
-    :data="flatRows"
+    :data="tableRows"
     row-key="id"
     size="small"
     stripe
     class="admin-orders-el-table"
-    :span-method="spanMethod"
     :row-class-name="rowClassName"
   >
-    <el-table-column label="OrderID" min-width="168" show-overflow-tooltip>
+    <el-table-column label="LinkID" width="168" fixed="left" show-overflow-tooltip>
       <template #default="{ row }">
-        <div v-if="isGroupHead(row)" class="admin-order-group-bar">
-          <slot name="group-head" :rows="row._groupRows" />
+        <div class="admin-order-link-cell">
+          <div class="admin-order-link-cell__id">{{ formatLinkId(row.linkId) }}</div>
+          <div class="admin-order-link-cell__meta">
+            <span
+              v-for="src in [linkSourceTag(row.linkId)].filter(Boolean)"
+              :key="src!.source"
+              class="admin-link-source"
+              :class="`admin-link-source--${src!.source}`"
+              :title="src!.title"
+            >{{ src!.label }}</span>
+            <span
+              class="admin-order-group-bar__type"
+              :class="{ 'admin-order-group-bar__type--arb': groupIsLinked(row.rows) }"
+            >
+              {{ groupMetaLabel(row.rows) }}
+            </span>
+          </div>
         </div>
-        <span v-else class="admin-order-mono">{{ row.orderId || "—" }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="LinkID" width="156" show-overflow-tooltip>
+    <el-table-column label="OrderID" min-width="168" show-overflow-tooltip>
       <template #default="{ row }">
-        <span v-if="!isGroupHead(row)" class="admin-link-id-cell">
-          {{ formatLinkId(row.linkId) }}
-          <span
-            v-for="src in [linkSourceTag(row.linkId)].filter(Boolean)"
-            :key="src!.source"
-            class="admin-link-source"
-            :class="`admin-link-source--${src!.source}`"
-            :title="src!.title"
-          >{{ src!.label }}</span>
-        </span>
+        <div class="admin-order-stack">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
+            <span class="admin-order-mono">{{ o.orderId || "—" }}</span>
+          </div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column v-if="showUserColumn" label="用户" width="100" show-overflow-tooltip>
       <template #default="{ row }">
-        <span v-if="!isGroupHead(row)">
-          {{ userNameById?.get(row.userId) || row.userId.slice(0, 8) }}
-        </span>
+        <div class="admin-order-stack">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
+            {{ userLabel(o) }}
+          </div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column label="平台" width="72" align="center">
       <template #default="{ row }">
-        <span v-if="!isGroupHead(row)" class="admin-order-provider">{{ row.provider }}</span>
+        <div class="admin-order-stack">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
+            <span class="admin-order-provider">{{ o.provider }}</span>
+          </div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column label="比赛" min-width="160" show-overflow-tooltip>
       <template #default="{ row }">
-        <span v-if="!isGroupHead(row)">{{ row.match }}</span>
+        <div class="admin-order-stack">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">{{ o.match }}</div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column label="盘口" min-width="140" show-overflow-tooltip>
       <template #default="{ row }">
-        <span v-if="!isGroupHead(row)">{{ row.bet }}</span>
+        <div class="admin-order-stack">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">{{ o.bet }}</div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column label="选项" width="100" show-overflow-tooltip>
       <template #default="{ row }">
-        <span v-if="!isGroupHead(row)">{{ row.item }}</span>
+        <div class="admin-order-stack">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">{{ o.item }}</div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column label="赔率" width="72" align="right">
       <template #default="{ row }">
-        <span v-if="!isGroupHead(row)" class="admin-order-num">{{ row.odds }}</span>
+        <div class="admin-order-stack admin-order-stack--num">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
+            <span class="admin-order-num">{{ o.odds }}</span>
+          </div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column label="投注" width="88" align="right">
       <template #default="{ row }">
-        <span v-if="!isGroupHead(row)" class="admin-order-num">{{ fmtMoney(row.betMoney) }}</span>
+        <div class="admin-order-stack admin-order-stack--num">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
+            <span class="admin-order-num">{{ fmtMoney(o.betMoney) }}</span>
+          </div>
+        </div>
       </template>
     </el-table-column>
-    <el-table-column label="盈利" width="88" align="right">
+    <el-table-column label="盈利" width="96" align="right">
       <template #default="{ row }">
-        <span
-          v-if="!isGroupHead(row)"
-          class="admin-order-num"
-          :class="{ pos: row.money > 0, neg: row.money < 0 }"
-        >{{ fmtMoney(row.money) }}</span>
+        <div class="admin-order-stack admin-order-stack--num">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
+            <span class="admin-order-num" :class="{ pos: o.money > 0, neg: o.money < 0 }">
+              {{ fmtMoney(o.money) }}
+            </span>
+          </div>
+          <div
+            v-if="row.rows.length > 1"
+            class="admin-order-stack__sum"
+            :class="groupProfitClass(row.rows)"
+          >
+            合计 {{ fmtMoney(groupProfit(row.rows)) }}
+          </div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column label="状态" width="88" align="center">
       <template #default="{ row }">
-        <span
-          v-if="!isGroupHead(row)"
-          class="admin-badge"
-          :class="statusBadgeClass(row.status)"
-        >{{ row.status }}</span>
+        <div class="admin-order-stack">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
+            <span class="admin-badge" :class="statusBadgeClass(o.status)">{{ o.status }}</span>
+          </div>
+        </div>
       </template>
     </el-table-column>
     <el-table-column label="时间" width="160" show-overflow-tooltip>
       <template #default="{ row }">
-        <span v-if="!isGroupHead(row)" class="admin-order-time">{{ fmtTime(row.createAt) }}</span>
+        <div class="admin-order-stack">
+          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line admin-order-time">
+            {{ fmtTime(o.createAt) }}
+          </div>
+        </div>
       </template>
     </el-table-column>
   </el-table>

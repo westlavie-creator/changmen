@@ -5,7 +5,14 @@ import AdminLayout from "@/components/admin/AdminLayout.vue";
 import { getAdminOrdersMatrix, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
-import { formatDate, formatLinkId, isSingleLegLink } from "@/shared/format";
+import { formatDate, formatLinkId } from "@/shared/format";
+import {
+  buildAdminOrdersMatrix,
+  linkGroupKey,
+  type LinkMatrixRow,
+  type LinkOrderGroup,
+  type MatchGroup,
+} from "@/shared/adminOrdersMatrix";
 
 const route = useRoute();
 const router = useRouter();
@@ -26,113 +33,13 @@ interface UserColumn {
   orderCount: number;
 }
 
-interface LinkOrderGroup {
-  key: number;
-  linkId: number;
-  rows: AdminOrderRow[];
-  createAt: number;
-  betMoney: number;
-  money: number;
-  isLinked: boolean;
-}
-
-interface BetRow {
-  key: string;
-  betLabel: string;
-  betSort: number;
-  orderCount: number;
-  cells: Record<string, LinkOrderGroup[]>;
-}
-
-interface MatchGroup {
-  key: string;
-  matchId: number;
-  label: string;
-  matchStartTime: number;
-  orderCount: number;
-  bets: BetRow[];
-}
-
-interface BetMapInfo {
-  key: string;
-  label: string;
-  sort: number;
-}
-
-/** 从订单盘口名解析地图（全场 / 地图N） */
-function parseBetMap(bet: string): BetMapInfo {
-  const s = String(bet || "").trim();
-  if (!s) return { key: "other", label: "其他", sort: 99 };
-
-  const bracketMap = /\[地图\s*(\d+)\]/i.exec(s);
-  if (bracketMap) {
-    const n = Number(bracketMap[1]);
-    return { key: `m${n}`, label: `地图${n}`, sort: n };
-  }
-
-  const plainMap = /地图\s*(\d+)/i.exec(s);
-  if (plainMap) {
-    const n = Number(plainMap[1]);
-    return { key: `m${n}`, label: `地图${n}`, sort: n };
-  }
-
-  const enMap = /\bMap\s*(\d+)\b/i.exec(s);
-  if (enMap) {
-    const n = Number(enMap[1]);
-    return { key: `m${n}`, label: `地图${n}`, sort: n };
-  }
-
-  if (/全场胜负/.test(s) || /\[全场\]/i.test(s) || /^全场\b/i.test(s)) {
-    return { key: "m0", label: "全场", sort: 0 };
-  }
-
-  return { key: "other", label: s.length > 14 ? `${s.slice(0, 14)}…` : s, sort: 50 };
-}
-
-function baseMatchKey(o: AdminOrderRow) {
-  return o.matchKey || o.match || `o:${o.id}`;
-}
-
-function normalizeBet(bet: string) {
-  return String(bet || "").trim() || "—";
-}
-
-function matrixRowKey(o: AdminOrderRow) {
-  return `${baseMatchKey(o)}::${normalizeBet(o.bet)}`;
-}
-
-/** 矩阵横向列：按登录用户，不按投注账号 */
-function userColumnKey(o: AdminOrderRow) {
-  return o.userId;
-}
-
-/** 同 LinkID 为一组；无 link 时按行 id 单独成组（与订单查询页一致） */
-function linkGroupKey(o: AdminOrderRow) {
-  return o.linkId || o.id;
-}
-
-function buildLinkGroups(rows: AdminOrderRow[]): LinkOrderGroup[] {
-  const map = new Map<number, AdminOrderRow[]>();
-  for (const o of rows) {
-    const k = linkGroupKey(o);
-    if (!map.has(k)) map.set(k, []);
-    map.get(k)!.push(o);
-  }
-  return [...map.entries()]
-    .map(([key, groupRows]) => {
-      const sorted = [...groupRows].sort((a, b) => a.createAt - b.createAt);
-      const linkId = sorted[0].linkId || 0;
-      return {
-        key,
-        linkId,
-        rows: sorted,
-        createAt: sorted[0].createAt,
-        betMoney: sorted.reduce((s, r) => s + (Number(r.betMoney) || 0), 0),
-        money: sorted.reduce((s, r) => s + (Number(r.money) || 0), 0),
-        isLinked: linkId !== 0 && !isSingleLegLink(linkId) && sorted.length > 1,
-      };
-    })
-    .sort((a, b) => a.createAt - b.createAt);
+interface MatrixDisplayRow {
+  rowKey: string;
+  group: MatchGroup;
+  linkRow: LinkMatrixRow;
+  cellsByUser: Record<string, LinkOrderGroup | null>;
+  isFirstGroupRow: boolean;
+  groupRowspan: number;
 }
 
 function linkGroupStatusClass(g: LinkOrderGroup) {
@@ -156,34 +63,9 @@ function linkGroupStatusLabel(g: LinkOrderGroup) {
   return g.rows[0]?.status || "—";
 }
 
-/** 同盘口下各用户按时间排序后的第 N 组（0-based），用于跨用户同行对比 */
-function slotCountForBetRow(betRow: BetRow): number {
-  let max = 0;
-  for (const groups of Object.values(betRow.cells)) {
-    max = Math.max(max, groups.length);
-  }
-  return Math.max(max, 1);
-}
-
-function linkGroupForUserAtSlot(betRow: BetRow, userColKey: string, slotIndex: number) {
-  return (betRow.cells[userColKey] || [])[slotIndex] ?? null;
-}
-
 function linkIdLabel(g: LinkOrderGroup | null) {
   if (!g) return "—";
   return formatLinkId(g.linkId);
-}
-
-interface MatrixDisplayRow {
-  rowKey: string;
-  group: MatchGroup;
-  betRow: BetRow;
-  slotIndex: number;
-  cellsByUser: Record<string, LinkOrderGroup | null>;
-  isFirstGroupRow: boolean;
-  isFirstBetRow: boolean;
-  groupRowspan: number;
-  betRowspan: number;
 }
 
 function todayKey() {
@@ -213,7 +95,6 @@ function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
 }
 
-
 function statusBadgeClass(status: string) {
   const s = status.toLowerCase();
   if (s === "win") return "admin-badge--win";
@@ -223,14 +104,13 @@ function statusBadgeClass(status: string) {
   return "";
 }
 
-
 const userColumns = computed<UserColumn[]>(() => {
   const userNameById = new Map(users.value.map((u) => [u.id, u.userName]));
   const map = new Map<string, UserColumn>();
   const linkSeen = new Set<string>();
 
   for (const o of orders.value ?? []) {
-    const key = userColumnKey(o);
+    const key = o.userId;
     const linkSeenKey = `${key}::${linkGroupKey(o)}`;
     const existing = map.get(key);
     if (existing) {
@@ -253,137 +133,38 @@ const userColumns = computed<UserColumn[]>(() => {
   return [...map.values()].sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
 });
 
-const linkGroupTotal = computed(() => {
-  const keys = new Set<number>();
-  for (const o of orders.value ?? []) keys.add(linkGroupKey(o));
-  return keys.size;
-});
+const matrixBuilt = computed(() => buildAdminOrdersMatrix(orders.value ?? []));
 
-const matchGroupCount = computed(() => {
-  const bases = new Set<string>();
-  for (const o of orders.value ?? []) bases.add(baseMatchKey(o));
-  return bases.size;
-});
+const linkGroupTotal = computed(() => matrixBuilt.value.linkGroupTotal);
 
-const matchGroups = computed<MatchGroup[]>(() => {
-  type BetRowBuild = BetRow & { baseKey: string; rawCells: Record<string, AdminOrderRow[]> };
-  const betRowMap = new Map<string, BetRowBuild>();
-  const groupMeta = new Map<
-    string,
-    { matchId: number; label: string; matchStartTime: number; linkKeys: Set<number> }
-  >();
+const matchGroupCount = computed(() => matrixBuilt.value.matchGroups.length);
 
-  for (const o of orders.value ?? []) {
-    const betLabel = normalizeBet(o.bet);
-    const betSort = parseBetMap(o.bet).sort;
-    const baseKey = baseMatchKey(o);
-    const rowKey = matrixRowKey(o);
+const matchGroups = computed(() => matrixBuilt.value.matchGroups);
 
-    if (!groupMeta.has(baseKey)) {
-      groupMeta.set(baseKey, {
-        matchId: o.matchId || 0,
-        label: o.matchLabel || o.match || "—",
-        matchStartTime: o.matchStartTime || 0,
-        linkKeys: new Set(),
-      });
-    }
-    const meta = groupMeta.get(baseKey)!;
-    if (!meta.matchStartTime && o.matchStartTime) meta.matchStartTime = o.matchStartTime;
-    meta.linkKeys.add(linkGroupKey(o));
-
-    if (!betRowMap.has(rowKey)) {
-      betRowMap.set(rowKey, {
-        key: rowKey,
-        baseKey,
-        betLabel,
-        betSort,
-        orderCount: 0,
-        cells: {},
-        rawCells: {},
-      });
-    }
-    const row = betRowMap.get(rowKey)!;
-    const uKey = userColumnKey(o);
-    if (!row.rawCells[uKey]) row.rawCells[uKey] = [];
-    row.rawCells[uKey].push(o);
-  }
-
-  for (const row of betRowMap.values()) {
-    const linkKeys = new Set<number>();
-    row.cells = {};
-    for (const [pKey, list] of Object.entries(row.rawCells)) {
-      row.cells[pKey] = buildLinkGroups(list);
-      for (const g of row.cells[pKey]) linkKeys.add(g.key);
-    }
-    row.orderCount = linkKeys.size;
-  }
-
-  const groupMap = new Map<string, MatchGroup>();
-  for (const row of betRowMap.values()) {
-    const meta = groupMeta.get(row.baseKey)!;
-    if (!groupMap.has(row.baseKey)) {
-      groupMap.set(row.baseKey, {
-        key: row.baseKey,
-        matchId: meta.matchId,
-        label: meta.label,
-        matchStartTime: meta.matchStartTime,
-        orderCount: meta.linkKeys.size,
-        bets: [],
-      });
-    }
-    const { rawCells: _raw, baseKey: _base, ...betRow } = row;
-    groupMap.get(row.baseKey)!.bets.push(betRow);
-  }
-
-  for (const group of groupMap.values()) {
-    group.bets.sort((a, b) => {
-      if (a.betSort !== b.betSort) return a.betSort - b.betSort;
-      return a.betLabel.localeCompare(b.betLabel, "zh-CN");
-    });
-  }
-
-  return [...groupMap.values()].sort((a, b) => {
-    if (a.matchStartTime && b.matchStartTime && a.matchStartTime !== b.matchStartTime) {
-      return a.matchStartTime - b.matchStartTime;
-    }
-    if (a.matchId && b.matchId && a.matchId !== b.matchId) return a.matchId - b.matchId;
-    return a.label.localeCompare(b.label, "zh-CN");
-  });
-});
-
-const betRowCount = computed(() =>
-  matchGroups.value.reduce((sum, group) => sum + group.bets.length, 0)
+const linkRowCount = computed(() =>
+  matchGroups.value.reduce((sum, group) => sum + group.links.length, 0),
 );
 
 const matrixDisplayRows = computed<MatrixDisplayRow[]>(() => {
   const cols = userColumns.value;
   const rows: MatrixDisplayRow[] = [];
   for (const group of matchGroups.value) {
-    const groupRowspan = group.bets.reduce(
-      (sum, bet) => sum + slotCountForBetRow(bet),
-      0
-    );
+    const groupRowspan = group.links.length;
     let groupStarted = false;
-    for (const betRow of group.bets) {
-      const slotCount = slotCountForBetRow(betRow);
-      for (let slotIndex = 0; slotIndex < slotCount; slotIndex += 1) {
-        const cellsByUser: Record<string, LinkOrderGroup | null> = {};
-        for (const col of cols) {
-          cellsByUser[col.key] = linkGroupForUserAtSlot(betRow, col.key, slotIndex);
-        }
-        rows.push({
-          rowKey: `${betRow.key}::s${slotIndex}`,
-          group,
-          betRow,
-          slotIndex,
-          cellsByUser,
-          isFirstGroupRow: !groupStarted,
-          isFirstBetRow: slotIndex === 0,
-          groupRowspan,
-          betRowspan: slotCount,
-        });
-        groupStarted = true;
+    for (const linkRow of group.links) {
+      const cellsByUser: Record<string, LinkOrderGroup | null> = {};
+      for (const col of cols) {
+        cellsByUser[col.key] = linkRow.cells[col.key] ?? null;
       }
+      rows.push({
+        rowKey: `${group.key}::lk${linkRow.key}`,
+        group,
+        linkRow,
+        cellsByUser,
+        isFirstGroupRow: !groupStarted,
+        groupRowspan,
+      });
+      groupStarted = true;
     }
   }
   return rows;
@@ -459,7 +240,7 @@ onMounted(async () => {
   <AdminLayout
     class="admin-shell--matrix"
     title="对阵矩阵"
-    subtitle="纵向按比赛与盘口展开，横向对比各用户下单；同格内按 LinkID 合并双腿套利"
+    subtitle="纵向按比赛与 LinkID 展开，横向对比各用户；同一 LinkID 的双腿合并在同一格"
   >
     <section class="admin-card admin-orders-matrix" v-loading="loading">
       <div class="admin-card__toolbar admin-orders-filters">
@@ -485,7 +266,7 @@ onMounted(async () => {
         <el-button size="small" @click="refresh">刷新</el-button>
         <span class="admin-orders-matrix__meta">
           {{ linkGroupTotal }} 组 · {{ orderTotal }} 笔 · {{ matchGroupCount }} 场 ·
-          {{ betRowCount }} 盘口 · {{ userColumns.length }} 个用户
+          {{ linkRowCount }} 行 · {{ userColumns.length }} 个用户
         </span>
       </div>
 
@@ -541,19 +322,16 @@ onMounted(async () => {
                     {{ formatDate(row.group.matchStartTime) }}
                   </div>
                   <div class="admin-matrix__match-count">
-                    {{ row.group.orderCount }} 组 · {{ row.group.bets.length }} 盘口
+                    {{ row.group.orderCount }} 组
                   </div>
                 </div>
               </th>
               <th
-                v-if="row.isFirstBetRow"
-                :rowspan="row.betRowspan"
                 class="admin-matrix__row-head admin-matrix__row-head--bet"
-                :title="row.betRow.betLabel"
+                :title="row.linkRow.betLabel"
               >
                 <div class="admin-matrix__head-center">
-                  <span class="admin-matrix__bet-label">{{ row.betRow.betLabel }}</span>
-                  <div class="admin-matrix__match-count">{{ row.betRow.orderCount }} 组</div>
+                  <span class="admin-matrix__bet-label">{{ row.linkRow.betLabel }}</span>
                 </div>
               </th>
               <template v-for="col in userColumns" :key="col.key">
@@ -569,7 +347,15 @@ onMounted(async () => {
                     :class="linkGroupStatusClass(row.cellsByUser[col.key]!)"
                   >
                     <div class="admin-matrix__order-top">
-                      <span class="admin-matrix__provider">{{ row.cellsByUser[col.key]!.rows[0]?.provider }}</span>
+                      <span
+                        v-if="row.cellsByUser[col.key]!.rows.length === 1"
+                        class="admin-matrix__provider"
+                      >
+                        {{ row.cellsByUser[col.key]!.rows[0]?.provider }}
+                      </span>
+                      <span v-else class="admin-matrix__leg-count">
+                        {{ row.cellsByUser[col.key]!.rows.length }} 笔
+                      </span>
                       <span class="admin-matrix__time">{{ fmtTime(row.cellsByUser[col.key]!.createAt) }}</span>
                     </div>
                     <template v-if="row.cellsByUser[col.key]!.rows.length === 1">
@@ -577,8 +363,11 @@ onMounted(async () => {
                         {{ row.cellsByUser[col.key]!.rows[0].bet }}
                       </div>
                       <div class="admin-matrix__item">
-                        {{ row.cellsByUser[col.key]!.rows[0].item }} @
-                        {{ row.cellsByUser[col.key]!.rows[0].odds }}
+                        {{ row.cellsByUser[col.key]!.rows[0].item }}
+                      </div>
+                      <div class="admin-matrix__leg-nums">
+                        赔 {{ row.cellsByUser[col.key]!.rows[0].odds }} · 投
+                        {{ fmtMoney(row.cellsByUser[col.key]!.rows[0].betMoney) }}
                       </div>
                     </template>
                     <template v-else>
@@ -588,12 +377,18 @@ onMounted(async () => {
                         class="admin-matrix__leg"
                         :title="`${o.provider} ${o.bet} ${o.item}`"
                       >
-                        <span class="admin-matrix__provider">{{ o.provider }}</span>
-                        <span class="admin-matrix__leg-item">{{ o.item }} @ {{ o.odds }}</span>
+                        <div class="admin-matrix__leg-head">
+                          <span class="admin-matrix__provider">{{ o.provider }}</span>
+                          <span class="admin-matrix__leg-item">{{ o.item }}</span>
+                        </div>
+                        <div class="admin-matrix__leg-nums">
+                          赔 {{ o.odds }} · 投 {{ fmtMoney(o.betMoney) }}
+                        </div>
                       </div>
                     </template>
                     <div class="admin-matrix__money">
-                      <span>投 {{ fmtMoney(row.cellsByUser[col.key]!.betMoney) }}</span>
+                      <span>{{ row.cellsByUser[col.key]!.rows.length > 1 ? "合计投" : "投" }}
+                        {{ fmtMoney(row.cellsByUser[col.key]!.betMoney) }}</span>
                       <span
                         :class="{
                           pos: row.cellsByUser[col.key]!.money > 0,

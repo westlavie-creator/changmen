@@ -5,6 +5,7 @@ import { readPreferences } from "./user_freeze.js";
 export const PROFILE_META_PREFERENCE_KEYS = new Set([
   "lastLoginIp",
   "lastLoginAt",
+  "lastActiveAt",
   "frozen",
   "frozenAt",
   "frozenBy",

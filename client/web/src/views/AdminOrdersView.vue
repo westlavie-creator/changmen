@@ -5,7 +5,6 @@ import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminOrdersGroupedTable from "@/components/admin/AdminOrdersGroupedTable.vue";
 import { getAdminOrders, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
-import { classifyLinkId, formatLinkId, isSingleLegLink, linkIdSourceLabel } from "@/shared/format";
 import { useUserStore } from "@/stores/userStore";
 
 const route = useRoute();
@@ -56,45 +55,6 @@ const orderGroups = computed(() => {
   });
 });
 
-function groupLinkLabel(rows: AdminOrderRow[]) {
-  return formatLinkId(rows[0]?.linkId);
-}
-
-function linkSourceTag(linkId: number | undefined) {
-  const source = classifyLinkId(linkId);
-  const label = linkIdSourceLabel(source);
-  if (!source || !label) return null;
-  const title =
-    source === "external"
-      ? "官网/外部下单，link 为 orderId hash"
-      : source === "arb"
-        ? "系统内套利 SaveOrderBind"
-        : "系统内单边下单";
-  return { source, label, title };
-}
-
-function groupIsLinked(rows: AdminOrderRow[]) {
-  const link = Number(rows[0]?.linkId) || 0;
-  return link !== 0 && !isSingleLegLink(link) && rows.length > 1;
-}
-
-function groupMetaLabel(rows: AdminOrderRow[]) {
-  const link = Number(rows[0]?.linkId) || 0;
-  if (isSingleLegLink(link)) return "单边";
-  if (groupIsLinked(rows)) return `套利 ${rows.length} 笔`;
-  return "单笔";
-}
-
-function groupProfit(rows: AdminOrderRow[]) {
-  return rows.reduce((sum, r) => sum + (Number(r.money) || 0), 0);
-}
-
-function groupProfitClass(rows: AdminOrderRow[]) {
-  const total = groupProfit(rows);
-  if (total === 0) return "";
-  return total > 0 ? "pos" : "neg";
-}
-
 function todayKey() {
   const d = new Date();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -111,10 +71,6 @@ function shiftDateKey(key: string, deltaDays: number) {
   const mm = String(dt.getMonth() + 1).padStart(2, "0");
   const dd = String(dt.getDate()).padStart(2, "0");
   return `${dt.getFullYear()}-${mm}-${dd}`;
-}
-
-function fmtMoney(n: number) {
-  return Math.floor(n).toLocaleString();
 }
 
 async function loadUsers() {
@@ -243,32 +199,7 @@ onMounted(async () => {
             :groups="orderGroups"
             :show-user-column="!filterUserId"
             :user-name-by-id="userNameById"
-          >
-            <template #group-head="{ rows: groupRows }">
-              <div class="admin-order-group-bar__inner">
-                <div class="admin-order-group-bar__left">
-                  <span class="admin-order-group-bar__label">Link</span>
-                  <span class="admin-order-group-bar__link">{{ groupLinkLabel(groupRows) }}</span>
-                  <span
-                    v-for="src in [linkSourceTag(groupRows[0]?.linkId)].filter(Boolean)"
-                    :key="src!.source"
-                    class="admin-link-source"
-                    :class="`admin-link-source--${src!.source}`"
-                    :title="src!.title"
-                  >{{ src!.label }}</span>
-                  <span
-                    class="admin-order-group-bar__type"
-                    :class="{ 'admin-order-group-bar__type--arb': groupIsLinked(groupRows) }"
-                  >
-                    {{ groupIsLinked(groupRows) ? `套利 · ${groupRows.length} 笔` : groupMetaLabel(groupRows) }}
-                  </span>
-                </div>
-                <span class="admin-order-group-bar__profit" :class="groupProfitClass(groupRows)">
-                  合计 {{ fmtMoney(groupProfit(groupRows)) }}
-                </span>
-              </div>
-            </template>
-          </AdminOrdersGroupedTable>
+          />
           <p v-if="!loading && !loadError && !orderGroups.length" class="admin-order-groups__empty">
             {{ date }} 暂无订单。可点「昨天」查看近期数据；若应有数据仍为空，请确认服务器
             <code>GAMEBET_DB_SCRIPT=rds</code> 且已重启后端。

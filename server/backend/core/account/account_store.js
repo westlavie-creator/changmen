@@ -211,12 +211,40 @@ function savePlayerOrders(playerId, provider, orders) {
 
 function getAccountsFromKv() { return []; }
 
+let _playersMigrateDone = false;
+/** @type {Promise<void> | null} */
+let _playersMigrateInflight = null;
+
+async function runPlayersJsonMigrateOnce() {
+  if (_playersMigrateDone) return;
+  if (_playersMigrateInflight) {
+    await _playersMigrateInflight;
+    return;
+  }
+  _playersMigrateInflight = (async () => {
+    try {
+      const result = await sb.migratePlayersJsonToRds();
+      if (result?.ok || result?.skipped) _playersMigrateDone = true;
+    } catch (err) {
+      console.warn("[account_store] migratePlayersJsonToRds:", err.message);
+      throw err;
+    } finally {
+      _playersMigrateInflight = null;
+    }
+  })();
+  try {
+    await _playersMigrateInflight;
+  } catch {
+    /* 迁移失败不阻塞 esport API；下次请求会重试 */
+  }
+}
+
 async function ensureSeed() {
   store.ensureSeed();
   if (store.readJson(FILES.playerOrders, null) == null) {
     store.writeJson(FILES.playerOrders, {});
   }
-  await sb.migratePlayersJsonToRds();
+  await runPlayersJsonMigrateOnce();
 }
 
 export {

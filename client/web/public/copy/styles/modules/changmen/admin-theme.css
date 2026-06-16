@@ -810,9 +810,10 @@ html.admin-route #app > * {
   display: none;
 }
 .admin-orders-el-table tr.admin-order-group-row > td.el-table__cell {
-  padding: 0 !important;
+  padding: 10px 12px !important;
   background: var(--adm-surface) !important;
   border-bottom: 1px solid var(--adm-border) !important;
+  vertical-align: top;
 }
 .admin-orders-el-table tr.admin-order-group-row.el-table__row--striped > td.el-table__cell,
 .admin-orders-el-table tr.admin-order-group-row:hover > td.el-table__cell {
@@ -821,11 +822,56 @@ html.admin-route #app > * {
 .admin-orders-el-table tr.admin-order-group-row--paired > td.el-table__cell {
   box-shadow: inset 3px 0 0 var(--adm-accent);
 }
-.admin-orders-el-table tr.admin-order-group-row + tr.admin-order-data-row > td.el-table__cell {
-  border-top: none;
+.admin-order-link-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
-.admin-orders-el-table tr.admin-order-data-row:last-child > td.el-table__cell {
-  border-bottom: none;
+.admin-order-link-cell__id {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--adm-text);
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+}
+.admin-order-link-cell__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+}
+.admin-order-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+.admin-order-stack__line {
+  padding: 5px 0;
+  line-height: 1.35;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-order-stack__line + .admin-order-stack__line {
+  border-top: 1px dashed var(--adm-border);
+}
+.admin-order-stack--num .admin-order-stack__line {
+  justify-content: flex-end;
+}
+.admin-order-stack__sum {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--adm-border);
+  font-weight: 700;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--adm-text-secondary);
 }
 .admin-order-group-bar {
   width: 100%;
@@ -1206,15 +1252,35 @@ html.admin-route.admin-route--matrix #app {
 }
 .admin-matrix__leg {
   display: flex;
-  justify-content: space-between;
-  gap: 6px;
+  flex-direction: column;
+  gap: 2px;
   font-size: 11px;
   line-height: 1.35;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--adm-border);
+}
+.admin-matrix__leg:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.admin-matrix__leg-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
 }
 .admin-matrix__leg-item {
   color: var(--adm-text);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  flex: 1;
+  min-width: 0;
+}
+.admin-matrix__leg-nums {
+  color: var(--adm-text-secondary);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .admin-badge--linked {

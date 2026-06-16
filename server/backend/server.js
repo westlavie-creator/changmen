@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensurePlatformCredentials } from "./core/esport-api/platform_sync.js";
 import { initLastWrittenIds, fetchPlatformMatches } from "@changmen/db";
+import { ensureSeed as ensureAccountSeed } from "./core/account/account_store.js";
 import store from "./core/esport-api/store.js";
 import { createStaticHandler } from "./static_files.js";
 import { createHttpHandler } from "./http_routes.js";
@@ -98,6 +99,9 @@ server.on("error", (err) => {
 
 function onListen() {
   store.ensureSeed();
+  void ensureAccountSeed().catch((err) => {
+    console.warn("[account_store] startup migrate:", err.message);
+  });
 
   // 从 platform_matches 恢复各平台数据（解决重启后 _matches 为空问题）
   fetchPlatformMatches()

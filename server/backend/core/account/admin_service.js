@@ -3,7 +3,7 @@ import * as sb from "@changmen/db";
 import { ensurePgPoolReady, getPgPool, insertProfile } from "@changmen/db";
 import { loadProfileById } from "../db/store.js";
 import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
-import { getOnlineUserIdSet, getUserLastActiveAt } from "./user_presence.js";
+import { resolvePresenceState } from "./user_presence.js";
 import { frozenFieldsFromProfile, isProfileFrozen, nextPreferencesForFreeze, readPreferences } from "./user_freeze.js";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 import {
@@ -170,7 +170,7 @@ function resolveBettingState(p) {
   };
 }
 
-function mapAdminUserRow(p, profitByUser = new Map(), onlineIds = null) {
+function mapAdminUserRow(p, profitByUser = new Map()) {
   const name = String(p.user_name || "");
   const stats = profitByUser.get(name.toLowerCase());
   const accountsRaw = Array.isArray(p.accounts) ? p.accounts : [];
@@ -178,14 +178,14 @@ function mapAdminUserRow(p, profitByUser = new Map(), onlineIds = null) {
     .map(sanitizeAccountForAdmin)
     .filter(Boolean);
   const id = String(p.id);
-  const onlineSet = onlineIds || getOnlineUserIdSet();
+  const presence = resolvePresenceState(id, p);
   const bettingState = resolveBettingState(p);
   return {
     id,
     userName: name,
     isAdmin: Boolean(p.is_admin),
-    isOnline: onlineSet.has(id) ? 1 : 0,
-    lastActiveAt: getUserLastActiveAt(id),
+    isOnline: presence.isOnline,
+    lastActiveAt: presence.lastActiveAt,
     ...bettingState,
     ...frozenFieldsFromProfile(p),
     ...lastLoginFieldsFromProfile(p),
@@ -235,9 +235,8 @@ export async function listAdminUsers(dateKey = toDateKey(Date.now())) {
   const profitByUser = new Map(
     (Array.isArray(rank) ? rank : []).map((r) => [String(r.UserName).toLowerCase(), r]),
   );
-  const onlineIds = getOnlineUserIdSet();
   return (profiles || [])
-    .map((p) => mapAdminUserRow(p, profitByUser, onlineIds))
+    .map((p) => mapAdminUserRow(p, profitByUser))
     .sort((a, b) => b.todayMoney - a.todayMoney);
 }
 
@@ -253,7 +252,7 @@ export async function getAdminUserDetail(userId, dateKey = toDateKey(Date.now())
   );
   const profile = (profiles || []).find((p) => String(p.id) === id);
   if (!profile) return null;
-  return mapAdminUserRow(profile, profitByUser, getOnlineUserIdSet());
+  return mapAdminUserRow(profile, profitByUser);
 }
 
 function stripOrderHtml(text) {

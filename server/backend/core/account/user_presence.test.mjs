@@ -5,6 +5,7 @@ import {
   getOnlineUserIdSet,
   isUserOnline,
   getUserLastActiveAt,
+  resolvePresenceState,
 } from "./user_presence.js";
 
 // 每个测试用独立 userId，避免模块级 Map 互相污染
@@ -16,8 +17,22 @@ function uid() {
   const id = uid();
   touchUserPresence(id);
   assert.equal(isUserOnline(id), true);
-  assert.ok(getOnlineUserIdSet().has(id));
+  assert.ok(getOnlineUserIdSet().has(id.toLowerCase()));
   assert.ok(getUserLastActiveAt(id) > 0);
+}
+
+{
+  const id = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890";
+  touchUserPresence(id.toLowerCase());
+  assert.equal(isUserOnline(id.toUpperCase()), true);
+}
+
+{
+  const id = uid();
+  const ts = Date.now() - 5 * 60 * 1000;
+  const state = resolvePresenceState(id, { preferences: { lastActiveAt: ts } });
+  assert.equal(state.isOnline, 1);
+  assert.equal(state.lastActiveAt, ts);
 }
 
 {

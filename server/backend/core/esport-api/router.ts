@@ -256,6 +256,7 @@ async function handle(
       } catch (err) {
         return fail((err as Error).message || "????????????");
       }
+      touchUserPresence(auth.userId);
       return ok({ token: auth.accessToken, refreshToken: auth.refreshToken });
     }
     case "Client_GetUserInfo": {
