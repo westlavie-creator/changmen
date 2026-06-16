@@ -5,8 +5,6 @@ import { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { buildOrderOptions } from "@/domain/betting";
 import { useOddsStore } from "@/stores/oddsStore";
-import { useAccountStore } from "@/stores/accountStore";
-import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
 export type BetSide = "Home" | "Away";
@@ -98,26 +96,17 @@ export class ViewBet {
     return max;
   }
 
-  /** 对齐 A8 `IQ.GetOrderOptions`：`providerKeys` 来自 `getProviders()`，`accounts` 仅用于 profit 覆盖 */
+  /** 对齐 A8 `IQ.GetOrderOptions(e,r,n)`：内部 `Io().getProviders()`，`accounts` 仅用于 profit 覆盖 */
   getOrderOptions(
     match: ViewMatch,
     config: UserConfig,
-    providerKeys: PlatformId[],
     accounts: PlatformAccount[] = [],
   ): BetOption[] | undefined {
-    return buildOrderOptions(this, match, config, providerKeys, accounts);
+    return buildOrderOptions(this, match, config, accounts);
   }
 
-  /** 对齐 bundle `isBet`（当前 bundle 为空实现，保留钩子供后续扩展） */
+  /** [A8 可证实] bundle `IQ.isBet` 为空实现；noSame 场管在 getAccount 排除列表处理 */
   isBetExcludedByNoSameRule(_type: PlatformId, _side: BetSide): boolean {
-    const used = readUsedAccounts(this.id, _side);
-    if (!used.length) return false;
-
-    const accountStore = useAccountStore();
-    for (const accountId of used) {
-      const acc = accountStore.findAccount(accountId);
-      if (acc && acc.provider === _type) return true;
-    }
     return false;
   }
 }

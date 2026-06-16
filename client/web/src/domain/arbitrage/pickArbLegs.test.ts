@@ -65,6 +65,24 @@ describe("pickArbLegs", () => {
     expect(legs!.implied).toBeGreaterThan(config.profit);
   });
 
+  it("excludes away leg on same platform as home leg (A8 GetOrderOptions)", () => {
+    foOdds = {
+      PB: { h1: 2.1, a1: 2.0 },
+    };
+    const bet = makeBet({
+      PB: {
+        Type: "PB",
+        BetID: "b1",
+        HomeID: "h1",
+        AwayID: "a1",
+        HomeOdds: 2.1,
+        AwayOdds: 2.0,
+      },
+    });
+    const config = { ...createDefaultUserConfig(), profit: 1.01, minOdds: 1.01 };
+    expect(pickArbLegs(bet, config, ["PB"])).toBeUndefined();
+  });
+
   it("returns undefined when implied below profit", () => {
     foOdds = {
       PB: { h1: 1.5, a1: 1.5 },

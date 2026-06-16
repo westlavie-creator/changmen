@@ -12,9 +12,14 @@ export interface ArbLegs {
   implied: number;
 }
 
+/** [A8 可证实] bundle `IQ.isBet` 为空实现；GetOrderOptions 不因 noSameBet 在此阶段排除平台 */
+function isBetStub(): boolean {
+  return false;
+}
+
 /**
  * 检测是否满足套利阈值（profit～maxProfit、minOdds、平台过滤等）。
- * UI 检测与自动下注共用；是否实际下单由 `config.betting` 控制。
+ * 对齐 A8 `IQ.GetOrderOptions` 选腿；是否实际下单由 `config.betting` 控制。
  */
 export function pickArbLegs(
   bet: ViewBet,
@@ -29,16 +34,11 @@ export function pickArbLegs(
   const oddsOf = (item: ViewBetItem, side: BetSide) => item.getOdds(side);
 
   const homeCandidates = bet.items.filter((v) => {
-    if (
-      config.noSameBet &&
-      !allowSame.has(v.type) &&
-      bet.isBetExcludedByNoSameRule(v.type, "Away")
-    ) {
+    if (config.noSameBet && !allowSame.has(v.type) && isBetStub()) {
       return false;
     }
     const homeOdds = oddsOf(v, "Home");
-    if (config.maxOdds && homeOdds > config.maxOdds) return false;
-    return homeOdds >= config.minOdds && homeOdds > 0 && providerKeys.includes(v.type);
+    return Boolean(homeOdds && homeOdds >= config.minOdds && providerKeys.includes(v.type));
   });
   const homeItem = homeCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
     const odds = oddsOf(cur, "Home");
@@ -47,19 +47,12 @@ export function pickArbLegs(
   }, undefined);
 
   const awayCandidates = bet.items.filter((v) => {
-    if (homeItem && homeItem.type === v.type) {
-      if (config.noSameBet && !allowSame.has(v.type)) return false;
-    }
-    if (
-      config.noSameBet &&
-      !allowSame.has(v.type) &&
-      bet.isBetExcludedByNoSameRule(v.type, "Home")
-    ) {
+    if (homeItem && homeItem.type === v.type) return false;
+    if (config.noSameBet && !allowSame.has(v.type) && isBetStub()) {
       return false;
     }
     const awayOdds = oddsOf(v, "Away");
-    if (config.maxOdds && awayOdds > config.maxOdds) return false;
-    return awayOdds >= config.minOdds && awayOdds > 0 && providerKeys.includes(v.type);
+    return Boolean(awayOdds && awayOdds >= config.minOdds && providerKeys.includes(v.type));
   });
   const awayItem = awayCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
     const odds = oddsOf(cur, "Away");

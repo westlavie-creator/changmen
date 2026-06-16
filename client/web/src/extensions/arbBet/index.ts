@@ -1,8 +1,8 @@
 /**
  * changmen 相对 A8 的「套利检测 + 自动下单」增强（集中入口）。
  *
- * A8 对齐路径（勿改本模块以外逻辑时参考）：
- * - 主循环 `matchStore.runMainLoopTick` → `pickArbLegs` + `getProviders()` + `executeArbBet`
+ * A8 对齐路径（核心逻辑，勿在 extensions 外加增强行为）：
+ * - 主循环 `matchStore.runMainLoopTick` → `GetOrderOptions`（内部 `getProviders()`）→ `executeArbBet`
  * - BetRow 标题：各行最高主/客赔 implied（bundle HomeView `c(bet)`）
  *
  * 本模块职责：

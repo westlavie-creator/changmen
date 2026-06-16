@@ -53,7 +53,7 @@ function stopHome() {
 }
 
 async function startHome() {
-  if (homeStarted || !extensionReady.value) return;
+  if (homeStarted) return;
   homeStarted = true;
   try {
     if (!user.userId) {
@@ -83,7 +83,9 @@ onMounted(() => {
 });
 
 watch(extensionReady, (ext) => {
-  if (ext) void startHome();
+  if (!ext) return;
+  if (!homeStarted) void startHome();
+  else void import("@platform/stake").then(({ primeStakeTabId }) => primeStakeTabId());
 });
 
 onUnmounted(() => {

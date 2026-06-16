@@ -53,7 +53,6 @@ export function accountPassesMainBetFilter(
   matchStore: BetFilterMatchContext,
   implied?: number,
 ): boolean {
-  if (!account.canBetAtOdds(leg.odds)) return false;
   return accountPassesMainBetFilterExceptRate(
     account,
     bet,

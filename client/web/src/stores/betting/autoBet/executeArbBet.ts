@@ -4,7 +4,6 @@ import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult, type OrderBindRow } from "@/models/betResult";
 import type { UserConfig } from "@/types/userConfig";
-import type { PlatformId } from "@/types/esport";
 import { isVenueReject } from "@/domain/betting";
 import type { VenueOrder } from "@platform/contract";
 import { betToastSeconds } from "@/shared/betTiming";
@@ -32,10 +31,9 @@ export async function executeArbBet(params: {
   match: ViewMatch;
   bet: ViewBet;
   config: UserConfig;
-  providerKeys: PlatformId[];
   setMessage: (msg: string) => void;
 }): Promise<void> {
-  const { match, bet, config, providerKeys, setMessage } = params;
+  const { match, bet, config, setMessage } = params;
   const matchStore = useMatchStore();
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
@@ -45,12 +43,7 @@ export async function executeArbBet(params: {
 
   bet.items.forEach((item) => item.updateOdds());
 
-  const options = bet.getOrderOptions(
-    match,
-    config,
-    providerKeys,
-    accountStore.accounts,
-  );
+  const options = bet.getOrderOptions(match, config, accountStore.accounts);
   if (!options || options.length !== 2) return;
 
   let legA = options[0];

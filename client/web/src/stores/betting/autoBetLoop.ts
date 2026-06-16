@@ -1,5 +1,3 @@
-import { resolveArbProviderKeys } from "@/domain/betting";
-import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -14,7 +12,6 @@ export interface AutoBetTickContext {
 export async function runAutoBetTick(ctx: AutoBetTickContext): Promise<void> {
   const configStore = useConfigStore();
   const matchStore = useMatchStore();
-  const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
   const { setMessage, processLoseOrders } = ctx;
 
@@ -24,14 +21,9 @@ export async function runAutoBetTick(ctx: AutoBetTickContext): Promise<void> {
       Math.floor(Math.random() * (config.maxMoney - config.minMoney + 1)) + config.minMoney;
   }
 
-  const providerKeys = resolveArbProviderKeys("auto", {
-    accountProviderKeys: accountStore.getProviders().keys(),
-  });
-  if (!providerKeys.length) return;
-
   for (const match of matchStore.matchs) {
     for (const bet of match.bets) {
-      await executeArbBet({ match, bet, config, providerKeys, setMessage });
+      await executeArbBet({ match, bet, config, setMessage });
     }
   }
 

@@ -133,7 +133,7 @@ export function evaluateArbOrderEligibility(
     reasons.push("有余额平台组合无法满足当前利润/赔率阈值");
   }
 
-  const options = buildOrderOptions(bet, match, config, autoProviderKeys, accounts);
+  const options = buildOrderOptions(bet, match, config, accounts, autoProviderKeys);
   if (!options || options.length !== 2) {
     if (!reasons.some((r) => r.includes("平台") || r.includes("余额"))) {
       reasons.push("无法构建双腿对冲订单");
