@@ -242,7 +242,7 @@ async function rdsUpsertTeamPlatformMaps(chunk, { ignoreDuplicates = false } = {
       : `INSERT INTO team_platform_maps (canonical_id, platform, platform_id, platform_name, game, source, confidence)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (platform, platform_id) DO UPDATE SET
-           canonical_id = EXCLUDED.canonical_id,
+           canonical_id = COALESCE(EXCLUDED.canonical_id, team_platform_maps.canonical_id),
            platform_name = EXCLUDED.platform_name,
            game = EXCLUDED.game,
            source = EXCLUDED.source,

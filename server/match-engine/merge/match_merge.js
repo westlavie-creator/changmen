@@ -468,37 +468,50 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
   }
 }
 
-/** 平台在 accumulate 行里是否仅有 Map=0 的 match_winner（如 RAY 决胜局 final） */
-function platformOnlyFullMapWinner(accByMap, platform) {
-  let hasAny = false;
-  for (const [map, accBet] of accByMap) {
-    if (!accBet?.Sources?.[platform]) continue;
-    hasAny = true;
-    if (map !== 0) return false;
-  }
-  return hasAny;
+/**
+ * 决胜局 promote：平台有 Map=0 全场盘、且尚无原生 Map=R 盘时可复制。
+ * RAY（仅 final）、IA（有已结束 Map1/2 但无 Map3 获胜者）均适用；已有 Map=R 原生盘则跳过。
+ */
+function platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap) {
+  if (!accByMap.get(0)?.Sources?.[platform]) return false;
+  if (accByMap.get(liveMap)?.Sources?.[platform]) return false;
+  return true;
 }
 
 /**
- * 决胜局（Round === BO）：保留 Map=0 行，清空其 Sources 并标 Locked。
- * promote 已把仅全场盘的平台源复制到 Map=R；Map=0 仍展示「全场胜负」标题但无腿可套，
- * 前端 pickArbLegs 扫不到平台项，避免与 Map=R 双行套利。不改 platform_bets。
+ * 决胜局（Round === BO）：保留 Map=0 行与各平台 Sources，赔率置 0 并标 Locked。
+ * promote 已把无原生 Map=R 的平台全场源复制到 Map=R；Map=0 仍展示平台列但不可套利。
  */
+function neutralizeMapZeroSource(src) {
+  if (!src || typeof src !== "object") return src;
+  return {
+    ...src,
+    HomeOdds: 0,
+    AwayOdds: 0,
+    Status: "Locked",
+  };
+}
+
 function neutralizeMapZeroOnDeciderRound(rows) {
   for (const row of rows || []) {
     const liveMap = Number(row.Round) || 0;
     const bo = Number(row.BO) || 0;
     if (liveMap <= 0 || bo <= 0 || liveMap !== bo) continue;
     const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
-    if (!fullBet) continue;
-    fullBet.Sources = {};
+    if (!fullBet?.Sources || !Object.keys(fullBet.Sources).length) continue;
+    fullBet.Sources = Object.fromEntries(
+      Object.entries(fullBet.Sources).map(([platform, src]) => [
+        platform,
+        neutralizeMapZeroSource(src),
+      ]),
+    );
     fullBet.Status = "Locked";
   }
 }
 
 /**
- * 决胜局对齐 [A8 推测]：Round === BO 时 Map=R 缺某平台源、但 Map=0 有且该平台仅有全场盘，
- * 将 Map=0 源复制到 Map=R，使同行套利（RAY final vs OB 地图 R）可见；BetID 不变。
+ * 决胜局对齐 [A8 推测]：Round === BO 时 Map=R 缺某平台源、Map=0 有全场盘且该平台无原生 Map=R，
+ * 将 Map=0 源复制到 Map=R（RAY final、IA 全场 + 已结束地图盘）；BetID 不变。
  */
 function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceFromBet) {
   if (!bets || !sourceFromBet) return;
@@ -537,7 +550,7 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
       if (!pm) continue;
       const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
       const accByMap = new Map((accRow.Bets || []).map((b) => [b.Map ?? 0, b]));
-      if (!platformOnlyFullMapWinner(accByMap, platform)) continue;
+      if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap)) continue;
 
       liveBet.Sources[platform] = reverse.includes(platform)
         ? swapBetSource(fullSrc)

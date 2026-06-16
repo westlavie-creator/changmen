@@ -70,8 +70,13 @@ describe("overlayLiveTimersOnMatches", () => {
     expect(out[0].Round).toBe(5);
     const map0 = out[0].Bets.find((b) => b.Map === 0);
     const map5 = out[0].Bets.find((b) => b.Map === 5);
-    expect(map0?.Sources).toEqual({});
     expect(map0?.Status).toBe("Locked");
+    expect(map0?.Sources?.OB).toMatchObject({
+      BetID: "1",
+      HomeOdds: 0,
+      AwayOdds: 0,
+      Status: "Locked",
+    });
     expect(map5?.Sources?.OB?.Status).toBe("Normal");
   });
 
