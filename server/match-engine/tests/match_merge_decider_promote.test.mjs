@@ -225,8 +225,10 @@ test("decider: Map=0 kept when Round=3 on BO5", () => {
 
   const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
   const map0 = list[0].Bets.find((b) => b.Map === 0);
+  const map3 = list[0].Bets.find((b) => b.Map === 3);
   assert.equal(list[0].Round, 3);
   assert.equal(map0?.Sources?.OB?.Status, "Normal");
+  assert.equal(map3?.Sources?.RAY, undefined, "non-decider: no promote from final to Map=3");
 });
 
 test("promote: no-op when Round=0", () => {

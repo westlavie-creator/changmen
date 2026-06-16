@@ -497,14 +497,15 @@ function neutralizeMapZeroOnDeciderRound(rows) {
 }
 
 /**
- * 决胜局对齐 [A8 推测]：当前局 Map=R 缺某平台源、但 Map=0 有且该平台仅有全场盘时，
+ * 决胜局对齐 [A8 推测]：Round === BO 时 Map=R 缺某平台源、但 Map=0 有且该平台仅有全场盘，
  * 将 Map=0 源复制到 Map=R，使同行套利（RAY final vs OB 地图 R）可见；BetID 不变。
  */
 function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceFromBet) {
   if (!bets || !sourceFromBet) return;
   for (const row of rows || []) {
     const liveMap = Number(row.Round) || 0;
-    if (liveMap <= 0) continue;
+    const bo = Number(row.BO) || 0;
+    if (liveMap <= 0 || bo <= 0 || liveMap !== bo) continue;
 
     const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
     if (!fullBet) continue;
