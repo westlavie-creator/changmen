@@ -1,7 +1,6 @@
 # A8 UI / 行为复刻缺口清单
 
-对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `index.css`（新 `/`）。  
-双轨对照可用 `vendor/ui-bundle` + `/console/`。  
+对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `index.css`。
 本清单只列**尚未对齐**或**仅部分对齐**项；数据层/采集/下单见 `MIGRATION.md` 与各 `docs/platforms/*`。
 
 文档索引：[README.md](./README.md)
@@ -95,7 +94,7 @@
 | `anyOdds` 被拒重试 | 有 | 已对齐 | `retryFailedLeg`（最多 3 轮换平台；阈值 `anyOdds ? anyOddsProfit : makeProfit`） |
 | `makeUp_defaultOdds` / `makeUp_odds` | 有 | 已对齐 | `autoBet/makeUp.allowMakeUpForLeg` + `Client_GetDefaultOdds` |
 | 账号 `minDefault` / `maxDefault` | 有 | 已对齐 | 主循环与补单选账号 |
-| `allowSameBet` / `noSameBet` | 有 | 部分 | 使用 `noSameBet` + sessionStorage；命名与 bundle 略有差异 |
+| `allowSameBet` / `noSameBet` | 有 | 已对齐 | `pickArbLegs` 同平台双腿 + `isBetExcludedByNoSameRule`；下单侧 `readUsedAccounts`（sessionStorage，[changmen 扩展]） |
 | `noSameProvider` | 有 | 已对齐 | 仅补单 `processLoseOrders`；主循环用 `noSameBet`（bundle 同） |
 | 定时开启投注 | 有 | 已对齐 | `bettingStore.tickAutoOpen` |
 | `maxBetCount` / `BETCOUNT` | 有 | 已对齐 | `betTiming.passesMaxBetCount` + `incrementBetCount` |

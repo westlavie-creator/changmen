@@ -30,10 +30,9 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 
 | 用途 | 基线 | 说明 |
 |------|------|------|
-| **新控制台 `/` 行为与 UI** | `A8/A8frontendscipts/2.0.1/index.js` + `index.css` | 官方 A8 前端；**不以** `vendor/ui-bundle` 为准 |
+| **控制台 `/` 行为与 UI** | `A8/A8frontendscipts/2.0.1/index.js` + `index.css` | 官方 A8 前端 bundle |
 | **changmen 后端 API** | 由上述前端 **反推** | **不是** A8 服务端源码；见 [项目共识](#项目共识) |
-| **旧控制台 `/console/`** | `vendor/ui-bundle/index.js` → `npm run patch:ui` | 仅双轨对照、patch 联调 |
-| **机器审计** | `npm run audit:a8` | 当前脚本仍读 `vendor/ui-bundle` 做 View/class 映射（25 个 View 与 2.0.1 一致）；CSS 对 `index.css` |
+| **机器审计** | `npm run audit:a8` | 读 `A8/A8frontendscipts/2.0.1/index.js` 做 View/class 映射；CSS 对 `server/backend/public/esport2/assets/index.css` |
 
 代码级缺口（只读审计）：[`_A8_VS_CHANGMEN_AUDIT.json`](./_A8_VS_CHANGMEN_AUDIT.json)  
 机器审计输出：[`A8_PARITY_AUDIT_MACHINE.json`](./A8_PARITY_AUDIT_MACHINE.json)
@@ -56,7 +55,7 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 | [CREDIT_PLATE.md](./CREDIT_PLATE.md) | 平博信用盘 v4 |
 | [QUICK_START_FILES.md](./QUICK_START_FILES.md) | 5 分钟按角色找源码 |
 
-仓库根：[../README.md](../README.md)、[../VENDOR_UI_REFERENCE.md](../VENDOR_UI_REFERENCE.md)（**仅** `/console/`）
+仓库根：[../README.md](../README.md)
 
 ---
 

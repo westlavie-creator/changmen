@@ -97,10 +97,9 @@ npm run test:v4
 - Payload：`userName=TJ01`（或你的 A8 账号）、`password=a123456`
 - 响应 JSON：`success: 1`，`info.token` 非空
 
-## 与 `patch-ui-bundle.js` 的关系
+## v4 与主站关系
 
-- **新控制台 `/`**：不依赖 `patch-ui-bundle.js`；逻辑在 `src/api/v4.ts`。
-- **旧 bundle `/console/`**：仍由 `npm run patch:ui` 生成；localhost 上 bundle 保留 `https://api.a8.to/v4.0/` 的行为见 `VENDOR_UI_REFERENCE.md`。
+- **控制台 `/`**：平博 v4 逻辑在 `src/api/v4.ts`；本地 dev 默认 **`/v4.0/`** 代理到 `server/backend`。
 
 ## 相关文档
 

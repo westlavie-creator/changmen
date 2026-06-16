@@ -1,6 +1,6 @@
 # A8 复刻：OB / IM / TF / PB / RAY / IMT / STAKE / IA
 
-对照基线：**仅** `A8/A8frontendscipts/2.0.1/index.js`（不用 `vendor/ui-bundle`）。  
+对照基线：`A8/A8frontendscipts/2.0.1/index.js`。  
 changmen 实现：`client/platform-adapter/{platform}/`（`collect.ts` / `bet.ts`）、`server/backend/core/esport-api`；插件桥 `@/chrome-plugin/bridge.ts`。
 
 ---

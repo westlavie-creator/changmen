@@ -1,19 +1,19 @@
 {
-  "generatedAt": "2026-06-12T03:42:51.850Z",
+  "generatedAt": "2026-06-16T13:30:07.821Z",
   "sources": {
-    "bundleJs": "vendor/ui-bundle/index.js",
+    "bundleJs": "A8/A8frontendscipts/2.0.1/index.js",
     "indexCss": "server/backend/public/esport2/assets/index.css",
     "a8Css": "src/styles/a8.css (extract-a8-css.mjs)",
-    "a8AmIcon": "src/styles/a8-am-icon.css",
-    "a8Fallback": "src/styles/a8-fallback.css",
-    "appCss": "src/styles/app.css",
-    "userDiagCss": "src/styles/user-diag.css"
+    "a8AmIcon": "app/src/styles/a8-am-icon.css",
+    "a8Fallback": "app/src/styles/a8-fallback.css",
+    "appCss": "app/src/styles/app.css",
+    "userDiagCss": "app/src/styles/user-diag.css"
   },
   "css": {
     "indexCssBytes": 372896,
     "a8CssBytes": 371498,
-    "amIconCssBytes": 1637,
-    "fallbackCssBytes": 4460,
+    "amIconCssBytes": 1919,
+    "fallbackCssBytes": 4902,
     "indexSelectorCount": 1816,
     "a8SelectorCount": 1816,
     "selectorOnlyInIndexCount": 0,
@@ -76,16 +76,7 @@
     "LoginView": "LoginView.vue"
   },
   "unmappedViews": [],
-  "bundleSemanticClassesMissingInVue": [
-    "balance trx",
-    "balance usdt",
-    "close am-icon-times",
-    "item-type default",
-    "provider-icon OB",
-    "provider-icon PB",
-    "provider-icon SABA",
-    "text-center"
-  ],
+  "bundleSemanticClassesMissingInVue": [],
   "vueScopedStyleFiles": [
     {
       "file": "components/ui/AppDialog.vue",
@@ -96,12 +87,16 @@
       "bytes": 295
     },
     {
-      "file": "views/ConsoleRedirectView.vue",
+      "file": "components/layout/GalaxySpinner.vue",
+      "bytes": 193
+    },
+    {
+      "file": "components/user/tabs/UserDiagExtensionTab.vue",
       "bytes": 102
     },
     {
-      "file": "views/LoginView.vue",
-      "bytes": 49
+      "file": "components/layout/PluginIntroShell.vue",
+      "bytes": 74
     }
   ]
 }

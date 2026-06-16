@@ -9,7 +9,6 @@
 | 参考源（只读） | changmen 实现 |
 |----------------|----------------|
 | [`../../../../../A8/A8frontendscipts/2.0.1/index.js`](../../../../../A8/A8frontendscipts/2.0.1/index.js) | 前端：[`../ob/`](../ob/)、[`../ray/`](../ray/)、[`../../providers/`](../../providers/) |
-| 同逻辑亦见于 `vendor/ui-bundle/index.js` | 后端：[`../../../backend/`](../../../backend/)（自 `client/web/docs/platforms` 上溯至 `changmen/`） |
 
 ---
 

@@ -1,6 +1,6 @@
 # client/web（客户端 — Vue 控制台）
 
-浏览器/Electron 侧：新控制台 `/` 为主；旧 bundle `/console/` 仅对照。
+浏览器/Electron 侧：Vue 控制台 `/` 为唯一入口（旧 `/console/` 已下线）。
 
 ## 分工
 
@@ -21,11 +21,8 @@ Chrome 扩展见 [`client/chrome-extension/`](../chrome-extension/)。
 
 | 路径 | 说明 |
 |------|------|
-| `src/` | **新控制台**（Vue3）源码 |
+| `src/` | **控制台**（Vue3）源码 |
 | `dist/` | 构建产物，由服务端托管在 `/` |
-| `vendor/ui-bundle/` | A8 参考 bundle（只读） |
-| `console/` | `npm run patch:ui` 输出，`/console/` |
-| `patch-ui-bundle.js` | 旧控制台 patch（域名 → 本地 API、WS relay） |
 | `MIGRATION.md` | 脱离 bundle 阶段表 |
 | `docs/README.md` | 文档索引 |
 

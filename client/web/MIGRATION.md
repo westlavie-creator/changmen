@@ -29,7 +29,7 @@
 
 ## 文档与验收
 
-**对照基线**：新控制台 `/` 以 `A8/A8frontendscipts/2.0.1` 为准；旧 `/console/` 仍以 `vendor/ui-bundle` 双轨对照。索引见 [docs/README.md](./docs/README.md)。
+**对照基线**：控制台 `/` 以 `A8/A8frontendscipts/2.0.1` 为准。索引见 [docs/README.md](./docs/README.md)。
 
 | 文档 | 用途 |
 |------|------|
@@ -41,7 +41,7 @@
 | [docs/A8_WALKTHROUGH_SCRIPT.md](./docs/A8_WALKTHROUGH_SCRIPT.md) | 同屏走查逐步操作（点哪里、看什么 API） |
 | [docs/CREDIT_PLATE.md](./docs/CREDIT_PLATE.md) | 平博 v4 信用盘 |
 | [docs/_A8_VS_CHANGMEN_AUDIT.json](./docs/_A8_VS_CHANGMEN_AUDIT.json) | 2.0.1 代码级缺口（只读审计） |
-| [docs/A8_PARITY_AUDIT_MACHINE.json](./docs/A8_PARITY_AUDIT_MACHINE.json) | 机器审计（`npm run audit:a8`，View 源为 vendor bundle） |
+| [docs/A8_PARITY_AUDIT_MACHINE.json](./docs/A8_PARITY_AUDIT_MACHINE.json) | 机器审计（`npm run audit:a8`，View 源为 `A8/A8frontendscipts/2.0.1`） |
 
 ```bash
 cd changmen/client/web
@@ -90,12 +90,10 @@ npm run build
 
 见 `client/web/src/api/esport.ts`。
 
-## 双轨对照测试
+## 对照测试
 
-- 新（默认）：backend 同源或 Vite dev（端口见 [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)）
+- 默认：backend 同源或 Vite dev（端口见 [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)）
 - Feed 调试：`http://localhost:3456/feed/`
-- 旧 bundle：`http://localhost:3456/console/`（需 `PATCH_CONSOLE=1`）
 
-**`/` 行为不一致时**：以 `A8/A8frontendscipts/2.0.1/index.js` 为准 grep 后 port。
-**仅 `/console/` 双轨对照时**：可用 `vendor/ui-bundle/index.js`。
+**行为不一致时**：以 `A8/A8frontendscipts/2.0.1/index.js` 为准 grep 后 port。  
 同屏走查用 [A8_WALKTHROUGH_CHECKLIST.md](./docs/A8_WALKTHROUGH_CHECKLIST.md)。
