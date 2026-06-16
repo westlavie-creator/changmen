@@ -6,6 +6,7 @@
 import {
   applyObLiveRoundGate,
   liveRound,
+  neutralizeMapZeroOnDeciderRound,
   refreshClientMatchRoundsFromTimers,
 } from "@changmen/match-engine";
 
@@ -24,6 +25,7 @@ export function overlayLiveTimersOnMatches(matches, timersByProvider) {
   if (!Array.isArray(matches) || !matches.length) return matches || [];
   const out = matches.map((m) => ({ ...m }));
   refreshClientMatchRoundsFromTimers(out, timersByProvider || {});
+  neutralizeMapZeroOnDeciderRound(out);
   return out;
 }
 

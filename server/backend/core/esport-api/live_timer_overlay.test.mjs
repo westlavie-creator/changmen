@@ -40,6 +40,41 @@ describe("overlayLiveTimersOnMatches", () => {
     expect(out[0].RoundStart).toBe(8000);
   });
 
+  it("neutralizes Map=0 sources when overlay Round equals BO (decider)", () => {
+    const match = {
+      ID: 1,
+      BO: 5,
+      Round: 0,
+      RoundStart: 0,
+      Matchs: { OB: "99" },
+      Bets: [
+        {
+          Map: 0,
+          Status: "Normal",
+          Sources: {
+            OB: { Type: "OB", BetID: "1", HomeOdds: 1.9, AwayOdds: 1.8, Status: "Normal" },
+          },
+        },
+        {
+          Map: 5,
+          Status: "Normal",
+          Sources: {
+            OB: { Type: "OB", BetID: "2", HomeOdds: 2.1, AwayOdds: 1.7, Status: "Normal" },
+          },
+        },
+      ],
+    };
+    const out = overlayLiveTimersOnMatches([match], {
+      OB: { provider: "OB", timer: [{ MatchID: "99", Round: 5, StartTime: 8000 }] },
+    });
+    expect(out[0].Round).toBe(5);
+    const map0 = out[0].Bets.find((b) => b.Map === 0);
+    const map5 = out[0].Bets.find((b) => b.Map === 5);
+    expect(map0?.Sources).toEqual({});
+    expect(map0?.Status).toBe("Locked");
+    expect(map5?.Sources?.OB?.Status).toBe("Normal");
+  });
+
   it("keeps Round when no timer snapshot exists (await matcher or next SaveLiveTimer)", () => {
     const out = overlayLiveTimersOnMatches([baseMatch], {});
     expect(out[0].Round).toBe(4);

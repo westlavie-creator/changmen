@@ -480,6 +480,23 @@ function platformOnlyFullMapWinner(accByMap, platform) {
 }
 
 /**
+ * 决胜局（Round === BO）：保留 Map=0 行，清空其 Sources 并标 Locked。
+ * promote 已把仅全场盘的平台源复制到 Map=R；Map=0 仍展示「全场胜负」标题但无腿可套，
+ * 前端 pickArbLegs 扫不到平台项，避免与 Map=R 双行套利。不改 platform_bets。
+ */
+function neutralizeMapZeroOnDeciderRound(rows) {
+  for (const row of rows || []) {
+    const liveMap = Number(row.Round) || 0;
+    const bo = Number(row.BO) || 0;
+    if (liveMap <= 0 || bo <= 0 || liveMap !== bo) continue;
+    const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
+    if (!fullBet) continue;
+    fullBet.Sources = {};
+    fullBet.Status = "Locked";
+  }
+}
+
+/**
  * 决胜局对齐 [A8 推测]：当前局 Map=R 缺某平台源、但 Map=0 有且该平台仅有全场盘时，
  * 将 Map=0 源复制到 Map=R，使同行套利（RAY final vs OB 地图 R）可见；BetID 不变。
  */
@@ -634,6 +651,7 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
   refreshClientMatchRoundsFromTimers(mergedList, timers);
   applyObLiveRoundGate(mergedList, matches, timers);
   promoteFullMatchSourcesToLiveRound(mergedList, matches, bets, timers, sourceFromBet);
+  neutralizeMapZeroOnDeciderRound(mergedList);
 
   return filterMultiPlatformClientMatches(mergedList)
     .sort((a, b) => a.StartTime - b.StartTime);
@@ -766,6 +784,7 @@ function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
   refreshClientMatchRoundsFromTimers(list, timers);
   applyObLiveRoundGate(list, normalized, timers);
   promoteFullMatchSourcesToLiveRound(list, normalized, bets, timers, sourceFromBet);
+  neutralizeMapZeroOnDeciderRound(list);
   return filterMultiPlatformClientMatches(list);
 }
 
@@ -785,6 +804,7 @@ export {
   refreshClientMatchRoundsFromTimers,
   applyObLiveRoundGate,
   promoteFullMatchSourcesToLiveRound,
+  neutralizeMapZeroOnDeciderRound,
   liveRound,
   pickCanonicalStartTime,
   titleFromMatchs,

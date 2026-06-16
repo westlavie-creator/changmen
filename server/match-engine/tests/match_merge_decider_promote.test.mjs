@@ -96,6 +96,12 @@ test("promote: RAY final-only fills Map=5 when Round=5 (OB has native map5)", ()
   assert.equal(map5.Sources.OB?.BetID, "ob-map5");
   assert.equal(map5.Sources.RAY?.BetID, "ray-final");
   assert.equal(list[0].Round, 5);
+
+  const map0 = list[0].Bets.find((b) => b.Map === 0);
+  assert.ok(map0, "Map=0 row kept on decider");
+  assert.deepEqual(map0.Sources, {});
+  assert.equal(map0.Status, "Locked");
+  assert.equal(map5.Sources.OB?.Status, "Normal");
 });
 
 test("promote: skips RAY when native Map=5 exists", () => {
@@ -158,6 +164,69 @@ test("promote: skips RAY when native Map=5 exists", () => {
   const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
   const map5 = list[0].Bets.find((b) => b.Map === 5);
   assert.equal(map5.Sources.RAY?.BetID, "ray-map5");
+});
+
+test("decider: Map=0 kept when Round=3 on BO5", () => {
+  const bets = {
+    "OB:ob1": {
+      provider: "OB",
+      matchId: "ob1",
+      bets: [
+        {
+          SourceBetID: "ob-full",
+          Map: 0,
+          BetName: "[全场]-全局-获胜",
+          SourceHomeID: "1",
+          HomeOdds: 1.9,
+          SourceAwayID: "2",
+          AwayOdds: 1.9,
+          Status: "Normal",
+        },
+        {
+          SourceBetID: "ob-map3",
+          Map: 3,
+          BetName: "[地图3]-单局-获胜",
+          SourceHomeID: "3",
+          HomeOdds: 2.1,
+          SourceAwayID: "4",
+          AwayOdds: 1.7,
+          Status: "Normal",
+        },
+      ],
+    },
+    "RAY:ray1": {
+      provider: "RAY",
+      matchId: "ray1",
+      bets: [
+        {
+          SourceBetID: "ray-final",
+          Map: 0,
+          BetName: "[全场] 获胜者",
+          SourceHomeID: "5",
+          HomeOdds: 2.05,
+          SourceAwayID: "6",
+          AwayOdds: 1.75,
+          Status: "Normal",
+        },
+      ],
+    },
+  };
+
+  const matches = {
+    OB: { ob1: baseMatch("OB", "ob1", "Team A", "Team B") },
+    RAY: { ray1: baseMatch("RAY", "ray1", "Team A", "Team B") },
+  };
+  const timers = {
+    OB: {
+      provider: "OB",
+      timer: [{ MatchID: "ob1", Round: 3, StartTime: Date.now() - 30_000 }],
+    },
+  };
+
+  const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
+  const map0 = list[0].Bets.find((b) => b.Map === 0);
+  assert.equal(list[0].Round, 3);
+  assert.equal(map0?.Sources?.OB?.Status, "Normal");
 });
 
 test("promote: no-op when Round=0", () => {
