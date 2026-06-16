@@ -21,6 +21,18 @@ describe("normalizeBalanceError", () => {
     expect(normalizeBalanceError(new Error("HTTP 403"), acc)).toContain("gateway");
   });
 
+  it("maps HTML 403 body to gateway hint", () => {
+    const acc = makeAccount();
+    expect(
+      normalizeBalanceError(new Error("<!DOCTYPE html><title>403 Forbidden</title>"), acc),
+    ).toContain("gateway");
+  });
+
+  it("maps bare 403 text to gateway hint", () => {
+    const acc = makeAccount();
+    expect(normalizeBalanceError(new Error("403 Forbidden"), acc)).toContain("gateway");
+  });
+
   it("maps auth-like errors to token error", () => {
     const acc = makeAccount();
     expect(normalizeBalanceError(new Error("401 Unauthorized"), acc)).toBe("token error");

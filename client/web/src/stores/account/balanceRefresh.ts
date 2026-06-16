@@ -21,9 +21,14 @@ export async function refreshAccountBalance(
       account.balanceError = `${account.provider} 暂不支持客户端刷新余额`;
       return false;
     }
-    if (!account.gateway || !account.token) {
+    if (!account.token) {
       account.balance = undefined;
-      account.balanceError = "token error";
+      account.balanceError = "token 未配置，请粘贴凭证";
+      return false;
+    }
+    if (!account.gateway) {
+      account.balance = undefined;
+      account.balanceError = "gateway 未配置，请粘贴凭证或手动填写";
       return false;
     }
 

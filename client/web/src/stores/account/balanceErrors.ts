@@ -40,11 +40,19 @@ export function normalizeBalanceError(err: unknown, account: PlatformAccount): s
   if (/ray not configured/.test(lower)) {
     return "token error";
   }
-  if (/^HTTP 403/i.test(message) || /<html/i.test(message)) {
+  if (
+    /^HTTP 403/i.test(message) ||
+    /<html/i.test(message) ||
+    /<!doctype html/i.test(lower) ||
+    /\b403 forbidden\b/i.test(lower)
+  ) {
     return "gateway 不可用（403），请重新粘贴账号或手动更换 gateway";
   }
-  if (!message || /token|auth|401|403|login|credential|请先登录/.test(lower)) {
+  if (!message || /token|auth|401|login|credential|请先登录/.test(lower)) {
     return "token error";
+  }
+  if (/\b403\b/.test(message)) {
+    return "gateway 不可用（403），请重新粘贴账号或手动更换 gateway";
   }
   return message;
 }
