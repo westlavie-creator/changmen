@@ -58,6 +58,7 @@ export async function retryFailedLeg(
           : [],
         (u) => {
           if (u.isPause() || tried.includes(u.provider)) return false;
+          if (!u.canBetAtOdds(odds)) return false;
           if (u.getMinOdds() > odds) return false;
           const target = matchStore.getBetTarget(u.provider, bet.id);
           if (target && target !== failedLeg.target) return false;
