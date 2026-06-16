@@ -13,6 +13,7 @@ import {
   type MainBetLoopState,
 } from "@/stores/match/mainBetLoop";
 import { useUserStore } from "@/stores/userStore";
+import { isA8StrictMode } from "@/shared/a8Strict";
 
 const POLL_MS = 30_000;
 const DEFAULT_ODDS_MS = 10 * 60 * 1000;
@@ -139,9 +140,12 @@ export const useMatchStore = defineStore("match", {
         this.applyScoreDrivenLive(match);
       }
       this.tick += 1;
-      void import("@/extensions/arbBet").then(({ onOddsRefreshed }) => {
-        onOddsRefreshed();
-      });
+      // 严格 A8 模式：关闭 Telegram 全盘口扫描等增强行为
+      if (!isA8StrictMode()) {
+        void import("@/extensions/arbBet").then(({ onOddsRefreshed }) => {
+          onOddsRefreshed();
+        });
+      }
     },
 
     getRoundScore(matchId: number, round: number): ScoreRound | undefined {

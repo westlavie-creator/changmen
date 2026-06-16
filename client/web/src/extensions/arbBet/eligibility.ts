@@ -13,6 +13,7 @@ import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 import { allowArbBetExecution, resolveRate9999SingleLeg } from "@/extensions/arbBet/rate9999";
+import { isA8StrictMode } from "@/shared/a8Strict";
 
 export interface ArbOrderEligibility {
   canOrder: boolean;
@@ -201,17 +202,19 @@ export function evaluateArbOrderEligibility(
     matchStore: matchStoreShim,
     implied,
   });
+  const strictA8 = isA8StrictMode();
+  const effectiveSingleLeg = strictA8 ? false : rate9999SingleLeg;
 
-  if (!allowArbBetExecution(betBothLegs, rate9999SingleLeg) && (accountA || accountB)) {
+  if (!allowArbBetExecution(betBothLegs, effectiveSingleLeg) && (accountA || accountB)) {
     reasons.push("仅一侧有可用账号，且非比例 9999 单边模式");
   }
 
   const canOrder =
     config.betting &&
     !loseOrderPending &&
-    allowArbBetExecution(betBothLegs, rate9999SingleLeg);
+    allowArbBetExecution(betBothLegs, effectiveSingleLeg);
 
-  return finalize(canOrder, dedupeReasons(reasons), rate9999SingleLeg && !betBothLegs);
+  return finalize(canOrder, dedupeReasons(reasons), effectiveSingleLeg && !betBothLegs);
 }
 
 function dedupeReasons(reasons: string[]): string[] {

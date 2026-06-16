@@ -10,7 +10,7 @@ import { passesDefaultOddsAccount } from "@/stores/betting/betFilters";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { wait } from "@/shared/wait";
 import { a8Tip } from "@/shared/a8Notify";
-import { betToastSeconds, passesMaxBetCount } from "@/shared/betTiming";
+import { betToastSeconds } from "@/shared/betTiming";
 
 export interface LoseOrderTickContext {
   setMessage: (msg: string) => void;
@@ -56,9 +56,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
           const odds = item.getOdds(order.target);
           if (acc.minOdds && odds < acc.minOdds) return false;
           if (acc.maxOdds && odds > acc.maxOdds) return false;
-          if (!acc.passesGameSettings(match.game, odds)) return false;
           if (!passesDefaultOddsAccount(acc, bet.id, order.target)) return false;
-          if (!passesMaxBetCount(acc, bet.id, order.target)) return false;
           return true;
         },
       );
@@ -120,7 +118,6 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
                 LinkID: order.linkId,
                 Provider: result.provider,
                 OrderID: venueOrders[0].orderId,
-                PlayerID: account.accountId,
               },
             ]),
           });

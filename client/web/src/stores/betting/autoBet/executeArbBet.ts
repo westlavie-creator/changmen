@@ -10,6 +10,7 @@ import type { VenueOrder } from "@platform/contract";
 import { betToastSeconds } from "@/shared/betTiming";
 import { wait } from "@/shared/wait";
 import { a8Tip } from "@/shared/a8Notify";
+import { isA8StrictMode } from "@/shared/a8Strict";
 import {
   allowArbBetExecution,
   createArbLinkId,
@@ -89,9 +90,16 @@ export async function executeArbBet(params: {
     matchStore,
     implied,
   });
-  if (!allowArbBetExecution(betBothLegs, rate9999SingleLeg)) return;
+  // 严格 A8 模式：不允许单边（rate9999）下单，对齐 A8 `if (!be || !Z) continue`
+  const strictA8 = isA8StrictMode();
+  const effectiveSingleLeg = strictA8 ? false : rate9999SingleLeg;
+  if (strictA8) {
+    if (!betBothLegs) return;
+  } else if (!allowArbBetExecution(betBothLegs, effectiveSingleLeg)) {
+    return;
+  }
 
-  const linkId = createArbLinkId(rate9999SingleLeg);
+  const linkId = createArbLinkId(effectiveSingleLeg);
   if (accountA) accountA.active = true;
   if (accountB) accountB.active = true;
   const checkStart = Date.now();
@@ -203,7 +211,6 @@ export async function executeArbBet(params: {
       LinkID: linkId,
       Provider: resultA.provider,
       OrderID: ordersA[0].orderId,
-      PlayerID: accountA.accountId,
     });
   }
   if (resultB?.success && accountB && ordersB.length) {
@@ -211,7 +218,6 @@ export async function executeArbBet(params: {
       LinkID: linkId,
       Provider: resultB.provider,
       OrderID: ordersB[0].orderId,
-      PlayerID: accountB.accountId,
     });
   }
   if (binds.length) {
