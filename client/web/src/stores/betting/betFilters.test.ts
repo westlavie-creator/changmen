@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
+import { isA8StrictMode } from "@/shared/a8Strict";
 import {
   accountPassesMainBetFilter,
   accountPassesMainBetFilterExceptRate,
 } from "@/stores/betting/betFilters";
+
+vi.mock("@/shared/a8Strict", () => ({
+  isA8StrictMode: vi.fn(() => false),
+}));
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({
@@ -62,5 +67,16 @@ describe("accountPassesMainBetFilter", () => {
     expect(
       accountPassesMainBetFilter(acc, bet, match, makeLeg(), matchStore),
     ).toBe(true);
+  });
+
+  it("严格 A8 模式下比例 9999 仍可选号", () => {
+    vi.mocked(isA8StrictMode).mockReturnValue(true);
+    const acc = makeAccount({
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
+    });
+    expect(
+      accountPassesMainBetFilter(acc, bet, match, makeLeg(), matchStore),
+    ).toBe(true);
+    vi.mocked(isA8StrictMode).mockReturnValue(false);
   });
 });

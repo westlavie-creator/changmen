@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PlatformAccount } from "@/models/platformAccount";
+import { isA8StrictMode } from "@/shared/a8Strict";
+
+vi.mock("@/shared/a8Strict", () => ({
+  isA8StrictMode: vi.fn(() => false),
+}));
 
 function makeAccount(patch: Record<string, unknown> = {}) {
   return new PlatformAccount({
@@ -57,6 +62,16 @@ describe("PlatformAccount rateConfig", () => {
     });
     expect(acc.canBetAtOdds(1.8)).toBe(false);
     expect(acc.getBetMoney(100, 1.8)).toBe(0);
+  });
+
+  it("严格 A8 模式下 9999 按 rate 乘金额", () => {
+    vi.mocked(isA8StrictMode).mockReturnValue(true);
+    const acc = makeAccount({
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
+    });
+    expect(acc.canBetAtOdds(1.8)).toBe(true);
+    expect(acc.getBetMoney(100, 1.8)).toBe(999900);
+    vi.mocked(isA8StrictMode).mockReturnValue(false);
   });
 
   it("无匹配比例行时按全额 1", () => {

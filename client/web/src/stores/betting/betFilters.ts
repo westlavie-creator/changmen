@@ -5,6 +5,7 @@ import {
   passesLastOddsGate,
   passesMaxBetCount,
 } from "@/shared/betTiming";
+import { isA8StrictMode } from "@/shared/a8Strict";
 import { useMatchStore } from "@/stores/matchStore";
 import type { PlatformId } from "@/types/esport";
 
@@ -53,7 +54,7 @@ export function accountPassesMainBetFilter(
   matchStore: BetFilterMatchContext,
   implied?: number,
 ): boolean {
-  if (!account.canBetAtOdds(leg.odds)) return false;
+  if (!isA8StrictMode() && !account.canBetAtOdds(leg.odds)) return false;
   return accountPassesMainBetFilterExceptRate(
     account,
     bet,
@@ -73,7 +74,7 @@ export function explainMainBetAccountRejection(
   matchStore: BetFilterMatchContext,
   _implied?: number,
 ): string | null {
-  if (!account.canBetAtOdds(leg.odds)) {
+  if (!isA8StrictMode() && !account.canBetAtOdds(leg.odds)) {
     return "投注比例 9999 跳过该赔率";
   }
   const pause = account.isPause();

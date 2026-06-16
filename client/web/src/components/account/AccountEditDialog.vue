@@ -7,7 +7,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
-import { pbProvider } from "@platform/pb";
+import { getProvider } from "@/runtime/providers";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 const props = defineProps<{
@@ -193,28 +193,33 @@ async function pasteFromClipboard() {
   }
 }
 
-async function pickFastestPbGateway(
+/** [A8 可证实] AccountInfoView：gateway.length>1 时对各 gateway 调 GetProvider().getBalance() 测速 */
+async function pickFastestGateway(
+  provider: PlatformId,
   gateways: string[],
   token: string,
   referer: string,
+  proxyId?: number,
 ): Promise<string> {
   const ranked: { gate: string; time: number; success: boolean }[] = [];
   for (const gate of gateways) {
     const probe = new PlatformAccount({
       accountId: 0,
-      provider: "PB",
+      provider,
       playerName: "",
       gateway: gate,
       token,
       referer,
+      proxyId,
       currency: "CNY",
       updateTime: Date.now(),
     });
+    const platformProvider = getProvider(probe);
+    const probeBalance = platformProvider?.getBalance?.bind(platformProvider);
     const started = Date.now();
     let success = false;
     try {
-      const bal = await pbProvider.getBalance?.(probe);
-      success = Boolean(bal);
+      success = probeBalance ? Boolean(await probeBalance(probe)) : false;
     } catch {
       success = false;
     }
@@ -258,25 +263,26 @@ async function applyPaste() {
     form.provider = parsed.provider;
     form.token = parsed.token ?? "";
     form.referer = parsed.referer ?? "";
+    form.gateway = gateways[0]!;
 
     if (gateways.length === 1) {
-      form.gateway = gateways[0]!;
       ElMessage.success("粘贴成功");
       return;
     }
 
     loading = ElLoading.service({ fullscreen: true, text: "正在检测最快网关" });
-    if (parsed.provider === "PB" && parsed.token) {
-      const gate = await pickFastestPbGateway(gateways, parsed.token, parsed.referer ?? "");
-      if (!gate) {
-        ElMessage.error("当前网关测试失败");
-        form.gateway = "";
-      } else {
-        form.gateway = gate;
-      }
+    const gate = await pickFastestGateway(
+      parsed.provider,
+      gateways,
+      parsed.token ?? "",
+      parsed.referer ?? "",
+      form.proxyId === 0 ? undefined : form.proxyId,
+    );
+    if (!gate) {
+      ElMessage.error("当前网关测试失败");
+      form.gateway = "";
     } else {
-      form.gateway = gateways[0]!;
-      ElMessage.warning(`检测到 ${gateways.length} 个网关，已选用第一个：${gateways[0]}`);
+      form.gateway = gate;
     }
     ElMessage.success("粘贴成功");
   } catch (err) {

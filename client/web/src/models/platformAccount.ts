@@ -3,6 +3,7 @@ import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 import { readGameBetCount } from "@/shared/betTiming";
 import { getExchange } from "@/shared/currency";
+import { isA8StrictMode } from "@/shared/a8Strict";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 /** [changmen 扩展] rateConfig.rate === 9999 表示该赔率区间不参与投注 */
@@ -111,13 +112,16 @@ export class PlatformAccount implements AccountRecord {
       (r) =>
         (r.minOdds === 0 || r.minOdds <= odds) && (r.maxOdds === 0 || r.maxOdds >= odds),
     );
-    const rate = row?.rate ?? 1;
-    if (rate === RATE_SKIP) return 0;
+    let rate = row?.rate ?? 0;
+    // [A8 可证实] `n===0&&(n=1)`；[changmen 扩展] rate===9999 时返回 0
+    if (rate === 0) rate = 1;
+    if (!isA8StrictMode() && rate === RATE_SKIP) return 0;
     return money < 1 ? money : Math.floor(money * rate);
   }
 
-  /** 比例 9999 时不选该账号（套利变单边） */
+  /** [changmen 扩展] 比例 9999 时不选该账号；严格 A8 模式无此概念 */
   canBetAtOdds(odds: number): boolean {
+    if (isA8StrictMode()) return true;
     return !isRateSkipAtOdds(this, odds);
   }
 

@@ -2,6 +2,7 @@ import { BetOption } from "@/models/betOption";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { isRateSkipAtOdds } from "@/models/platformAccount";
+import { isA8StrictMode } from "@/shared/a8Strict";
 import {
   accountPassesMainBetFilterExceptRate,
   type BetFilterMatchContext,
@@ -63,6 +64,7 @@ export function resolveRate9999SingleLeg(params: {
     matchStore,
     implied,
   } = params;
+  if (isA8StrictMode()) return false;
   if (betBothLegs) return false;
   return (
     (!accountA &&

@@ -16,6 +16,11 @@ function makeAccount(patch: Record<string, unknown> = {}) {
 }
 
 describe("normalizeBalanceError", () => {
+  it("maps HTTP 403 to gateway hint", () => {
+    const acc = makeAccount();
+    expect(normalizeBalanceError(new Error("HTTP 403"), acc)).toContain("gateway");
+  });
+
   it("maps auth-like errors to token error", () => {
     const acc = makeAccount();
     expect(normalizeBalanceError(new Error("401 Unauthorized"), acc)).toBe("token error");
