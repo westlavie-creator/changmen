@@ -1,6 +1,6 @@
 /** 对齐 A8 `Zn`（pluginBridge）+ `k0`（auth headers）+ account 解析 */
 
-import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@/extension/bridge";
+import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { buildPbAuthHeaders } from "./auth";
 import { useAccountStore } from "@/stores/accountStore";
 import { PLATFORMS } from "@/shared/platform";

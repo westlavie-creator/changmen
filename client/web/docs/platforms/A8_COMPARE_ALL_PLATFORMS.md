@@ -75,7 +75,7 @@ await waitForUser
 
 - **A8**：全局 Socket（`ou.io`）连接后 `emit("join room", Xt.IM | Xt.Stake | Xt.XBet | "XBet:Score")`；`extraHeaders.token = localStorage.getItem("token")`（A8 登录 JWT，**非** IM 场馆 token）。
 - **赔率**：如 `EZe` 类逻辑只 `oddsStore.save`，`homeSuffix` 1/2（XBet away 为 3）。
-- **changmen**：`client/platform-adapter/shared/socket/*` + `@/extension/bridge.ts`；IM 见 [`IM.md`](./IM.md)，XBet 见 [`XBet.md`](./XBet.md)。
+- **changmen**：`client/platform-adapter/shared/socket/*` + `@/chrome-plugin/bridge.ts`；IM 见 [`IM.md`](./IM.md)，XBet 见 [`XBet.md`](./XBet.md)。
 
 ### SABA
 

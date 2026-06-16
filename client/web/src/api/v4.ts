@@ -1,6 +1,6 @@
 ﻿import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 import { authHeaders } from "@/api/client";
-import { a8PluginPost, hasA8PluginRuntime } from "@/extension/bridge";
+import { a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { gamebetExtensionId } from "@/config/gamebetExtension";
 import type { PlatformId } from "@/types/esport";
 import { useUserStore } from "@/stores/userStore";

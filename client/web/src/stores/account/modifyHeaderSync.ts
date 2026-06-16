@@ -1,4 +1,4 @@
-import { a8PluginSetStore, hasA8PluginRuntime } from "@/extension/bridge";
+import { a8PluginSetStore, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import type { PlatformAccount } from "@/models/platformAccount";
 
 /** 对齐 A8 `HBe` / `$Be` */

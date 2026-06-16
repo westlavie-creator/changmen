@@ -1,7 +1,7 @@
 # A8 复刻：OB / IM / TF / PB / RAY / IMT / STAKE / IA
 
 对照基线：**仅** `A8/A8frontendscipts/2.0.1/index.js`（不用 `vendor/ui-bundle`）。  
-changmen 实现：`client/platform-adapter/{platform}/`（`collect.ts` / `bet.ts`）、`server/backend/core/esport-api`；插件桥 `@/extension/bridge.ts`。
+changmen 实现：`client/platform-adapter/{platform}/`（`collect.ts` / `bet.ts`）、`server/backend/core/esport-api`；插件桥 `@/chrome-plugin/bridge.ts`。
 
 ---
 
@@ -188,7 +188,7 @@ changmen 实现：`client/platform-adapter/{platform}/`（`collect.ts` / `bet.ts
 | STAKE | `client/platform-adapter/stake/` | `client/platform-adapter/stake/bet.ts` | [Stake.md](./platforms/Stake.md) |
 | IA | `client/platform-adapter/ia/` | `client/platform-adapter/ia/bet.ts` | [IA.md](./platforms/IA.md) |
 
-共享：[A8_COMPARE_ALL_PLATFORMS.md](./platforms/A8_COMPARE_ALL_PLATFORMS.md)、`client/platform-adapter/shared/socket/hub.ts`、`src/extension/bridge.ts`
+共享：[A8_COMPARE_ALL_PLATFORMS.md](./platforms/A8_COMPARE_ALL_PLATFORMS.md)、`client/platform-adapter/shared/socket/hub.ts`、`src/chrome-plugin/bridge.ts`
 
 ---
 

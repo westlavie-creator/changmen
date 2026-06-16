@@ -1,4 +1,4 @@
-import { a8PluginGetStore, hasA8PluginRuntime } from "@/extension/bridge";
+import { a8PluginGetStore, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 

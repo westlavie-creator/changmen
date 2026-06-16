@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import type { CollectPlatformInfo } from "@/types/esport";
 import { IA_PLUGIN_REQUIRED_MSG, iaCollectGet } from "./transport";
 
-vi.mock("@/extension/bridge", () => ({
+vi.mock("@/chrome-plugin/bridge", () => ({
   hasA8PluginRuntime: () => false,
   a8PluginGet: vi.fn(),
   a8PluginPost: vi.fn(),

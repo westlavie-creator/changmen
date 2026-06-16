@@ -1,5 +1,5 @@
 import { createA8BetsCollector } from "@platform/shared/socket/collector";
-import { a8PluginSend, hasA8PluginRuntime } from "@/extension/bridge";
+import { a8PluginSend, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { subscribeA8Channel } from "@platform/shared/socket/hub";
 import type { A8BetsMessage } from "@platform/shared/socket/accumulator";
 import type { CollectBetDto } from "@/types/collect";

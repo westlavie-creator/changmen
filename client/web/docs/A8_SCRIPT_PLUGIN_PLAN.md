@@ -1,7 +1,7 @@
 # A8 脚本 + 插件架构复刻计划
 
 对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `A8/A8chromeplug/2.0.149`。  
-changmen 实现：`client/web` + `client/platform-adapter/{platform}/` + `client/chrome-extension` + `@/extension/bridge.ts`（A8 `Zn`）。
+changmen 实现：`client/web` + `client/platform-adapter/{platform}/` + `client/chrome-extension` + `@/chrome-plugin/bridge.ts`（A8 `Zn`）。
 
 最后更新：2026-06-11
 
@@ -101,7 +101,7 @@ CollectConfig：只门控 `saveMatch`/`saveBets`，**不**停采集器。
 
 | 能力 | 路径 |
 |------|------|
-| 插件桥 | `src/extension/bridge.ts` |
+| 插件桥 | `src/chrome-plugin/bridge.ts` |
 | 采集注册 | `src/runtime/collectors.ts` → `@platform/registry` |
 | A8 Socket | `client/platform-adapter/shared/socket/hub.ts` |
 | 平台实现 | `client/platform-adapter/{ob,im,ray,...}/` |

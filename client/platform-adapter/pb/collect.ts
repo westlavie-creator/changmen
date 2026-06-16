@@ -1,4 +1,4 @@
-import { hasA8PluginRuntime } from "@/extension/bridge";
+import { hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { getCollectPlatform, getGames } from "@/api/esport";
 import { PB_PLUGIN_REQUIRED_MSG, pbGet, resolvePbAccount } from "./transport";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";

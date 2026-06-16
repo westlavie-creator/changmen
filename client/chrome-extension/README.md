@@ -1,6 +1,6 @@
 # Gamebet Chrome 扩展（复刻 A8 插件）
 
-changmen 前端通过 `extension/bridge.ts` 与扩展通信，协议对齐 A8 的 `Zn`（`GET` / `POST` / `getStore` / `setStore` / `setTab` / `version` / `proxy`）。
+changmen 前端通过 `chrome-plugin/bridge.ts` 与扩展通信，协议对齐 A8 的 `Zn`（`GET` / `POST` / `getStore` / `setStore` / `setTab` / `version` / `proxy`）。
 
 Mode P 启动：`BAT\dev.bat parity` 或 `BAT\dev.bat`（浏览器 + 插件）。
 

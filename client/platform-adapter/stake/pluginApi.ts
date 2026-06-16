@@ -1,4 +1,4 @@
-import { a8PluginPost } from "@/extension/bridge";
+import { a8PluginPost } from "@/chrome-plugin/bridge";
 import type { PlatformAccount } from "@/models/platformAccount";
 
 const STAKE_GRAPHQL_PATH = "https://stake.com/_api/graphql";

@@ -6,12 +6,12 @@ import {
   syncModifyHeaderRules,
 } from "@/stores/account/modifyHeaderSync";
 
-vi.mock("@/extension/bridge", () => ({
+vi.mock("@/chrome-plugin/bridge", () => ({
   hasA8PluginRuntime: vi.fn(() => true),
   a8PluginSetStore: vi.fn(async () => {}),
 }));
 
-import { a8PluginSetStore, hasA8PluginRuntime } from "@/extension/bridge";
+import { a8PluginSetStore, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 
 function makeAccount(patch: Record<string, unknown> = {}) {
   return new PlatformAccount({

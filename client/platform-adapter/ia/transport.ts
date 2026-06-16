@@ -1,6 +1,6 @@
 /** 对齐 A8 `wQe` 内 `Zn.get` / `Zn.post`（Chrome 扩展代发，绕过 IA 源站 CORS） */
 
-import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@/extension/bridge";
+import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import type { CollectPlatformInfo } from "@/types/esport";
 
 export const IA_PLUGIN_REQUIRED_MSG =
