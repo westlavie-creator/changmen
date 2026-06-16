@@ -140,8 +140,8 @@ async function _rdsUpsertPlatformMatches(pool, rows) {
   const sql = `
     INSERT INTO platform_matches (
       platform, source_match_id, source_game_id, start_time,
-      home_id, home, away_id, away, bo, teams, synced_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)
+      home_id, home, away_id, away, bo, is_live, teams, synced_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12)
     ON CONFLICT (platform, source_match_id) DO UPDATE SET
       source_game_id = EXCLUDED.source_game_id,
       start_time = EXCLUDED.start_time,
@@ -150,6 +150,7 @@ async function _rdsUpsertPlatformMatches(pool, rows) {
       away_id = EXCLUDED.away_id,
       away = EXCLUDED.away,
       bo = EXCLUDED.bo,
+      is_live = EXCLUDED.is_live,
       teams = EXCLUDED.teams,
       synced_at = EXCLUDED.synced_at
   `;
@@ -166,6 +167,7 @@ async function _rdsUpsertPlatformMatches(pool, rows) {
         r.away_id,
         r.away,
         r.bo,
+        r.is_live,
         JSON.stringify(Array.isArray(r.teams) ? r.teams : []),
         r.synced_at,
       ]);
@@ -303,7 +305,7 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
         _jsonb(r.bets, []),
         _jsonb(r.reverse, []),
         Number(r.built_at),
-        CLIENT_MATCH_LIST_DEFAULT,
+        Number(r.list_status ?? CLIENT_MATCH_LIST_DEFAULT),
       ]);
     }
     if (toDelete.length) {
@@ -323,7 +325,7 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
 
 async function _rdsFetchPlatformMatches(pool) {
   const { rows } = await pool.query(
-    `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, teams, match_id
+    `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, is_live, teams, match_id
      FROM platform_matches`,
   );
   const byPlatform = {};
@@ -339,6 +341,7 @@ async function _rdsFetchPlatformMatches(pool) {
       Away: r.away ?? "",
       AwayID: r.away_id ?? "",
       BO: r.bo ?? 0,
+      IsLive: r.is_live != null ? Number(r.is_live) : undefined,
       Teams: Array.isArray(r.teams) ? r.teams : [],
       ClientMatchId: r.match_id != null ? Number(r.match_id) : null,
     });
@@ -646,6 +649,7 @@ function mapPlatformMatchRows(provider, matchs) {
     away_id: m.AwayID != null ? String(m.AwayID) : null,
     away: String(m.Away || ""),
     bo: m.BO != null ? Number(m.BO) : null,
+    is_live: m.IsLive != null ? Number(m.IsLive) : null,
     teams: Array.isArray(m.Teams) ? m.Teams : [],
     synced_at: now,
   }));

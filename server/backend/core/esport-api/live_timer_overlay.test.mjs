@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   applyObLiveGate,
-  liveRound,
   mergeTimerBlocks,
   overlayLiveTimersOnMatches,
 } from "./live_timer_overlay.js";
@@ -25,12 +24,12 @@ describe("overlayLiveTimersOnMatches", () => {
     Bets: [],
   };
 
-  it("keeps Round when OB snapshot omits match but is_live still live (gate clears ended)", () => {
+  it("clears Round when OB snapshot omits ended match", () => {
     const out = overlayLiveTimersOnMatches([baseMatch], {
       OB: { provider: "OB", timer: [{ MatchID: "2", Round: 1, StartTime: 1000 }] },
     });
-    expect(out[0].Round).toBe(4);
-    expect(out[0].RoundStart).toBe(5000);
+    expect(out[0].Round).toBe(0);
+    expect(out[0].RoundStart).toBe(0);
   });
 
   it("keeps live Round when match is in OB snapshot", () => {
@@ -67,30 +66,43 @@ describe("applyObLiveGate", () => {
     expect(out[0].RoundStart).toBe(0);
   });
 
-  it("clears when match dropped from OB timer batch while not is_live=2", () => {
-    const out = applyObLiveGate(
-      [baseMatch],
-      { OB: { 99: { IsLive: 1 } } },
-      { OB: { timer: [{ MatchID: "2", Round: 1, StartTime: 1000 }] } },
-    );
-    expect(out[0].Round).toBe(0);
-  });
-
-  it("keeps Round when is_live=2 even if absent from timer batch", () => {
+  it("clears when match dropped from OB timer batch", () => {
     const out = applyObLiveGate(
       [baseMatch],
       { OB: { 99: { IsLive: 2 } } },
       { OB: { timer: [{ MatchID: "2", Round: 1, StartTime: 1000 }] } },
     );
+    expect(out[0].Round).toBe(0);
+    expect(out[0].RoundStart).toBe(0);
+  });
+
+  it("clears when OB timer batch is empty", () => {
+    const out = applyObLiveGate(
+      [baseMatch],
+      { OB: { 99: { IsLive: 2 } } },
+      { OB: { timer: [] } },
+    );
+    expect(out[0].Round).toBe(0);
+    expect(out[0].RoundStart).toBe(0);
+  });
+
+  it("clears when match no longer in OB index snapshot", () => {
+    const out = applyObLiveGate(
+      [baseMatch],
+      { OB: {} },
+      { OB: { timer: [] } },
+    );
+    expect(out[0].Round).toBe(0);
+    expect(out[0].RoundStart).toBe(0);
+  });
+
+  it("keeps Round when is_live=2 and still in timer batch", () => {
+    const out = applyObLiveGate(
+      [baseMatch],
+      { OB: { 99: { IsLive: 2 } } },
+      { OB: { timer: [{ MatchID: "99", Round: 4, StartTime: 8000 }] } },
+    );
     expect(out[0].Round).toBe(4);
     expect(out[0].RoundStart).toBe(5000);
-  });
-});
-
-describe("liveRound", () => {
-  it("returns zero when match id not in timer batch", () => {
-    expect(
-      liveRound({ OB: { timer: [{ MatchID: "1", Round: 2, StartTime: 1 }] } }, "OB", "9"),
-    ).toEqual({ round: 0, roundStart: 0 });
   });
 });

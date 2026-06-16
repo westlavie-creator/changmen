@@ -87,9 +87,55 @@ function refreshClientMatchRoundsFromTimers(rows, timersByProvider) {
     if (round > 0) {
       m.Round = round;
       if (roundStart > 0) m.RoundStart = roundStart;
+    } else if (Number(m.Round) > 0 || Number(m.RoundStart) > 0) {
+      // 有 timer 快照但本场未命中：已结束或不在 live 批次，清零 stale Round
+      m.Round = 0;
+      m.RoundStart = 0;
     }
-    // 有 OB/RAY 等平台 timer 快照但本场未命中：保留 client_matches 原 Round（避免漏采场次被误清零）
   }
+}
+
+function obTimerMatchIds(timersByProvider) {
+  const arr = timersByProvider?.OB?.timer;
+  if (!Array.isArray(arr)) return null;
+  return new Set(
+    arr.map((t) => String(t.matchId ?? t.SourceMatchID ?? t.MatchID ?? "")).filter(Boolean),
+  );
+}
+
+/** is_live≠2、已不在 OB index、或已不在 OB timer 批次时清零 Round（读路径 + matcher rebuild） */
+function applyObLiveRoundGate(rows, platformMatches, timersByProvider) {
+  if (!Array.isArray(rows)) return rows;
+  const obById = platformMatches?.OB;
+  if (!obById || typeof obById !== "object") return rows;
+  const timerIds = obTimerMatchIds(timersByProvider);
+  return rows.map((m) => {
+    const obId = m.Matchs?.OB;
+    if (obId == null || obId === "") return m;
+    const sid = String(obId);
+    const round = Number(m.Round) || 0;
+    const roundStart = Number(m.RoundStart) || 0;
+    if (!round && !roundStart) return m;
+
+    const row = obById[sid];
+    const raw = row?.IsLive ?? row?.is_live;
+
+    if (row == null) {
+      if (timerIds == null) return m;
+      if (!timerIds.has(sid)) return { ...m, Round: 0, RoundStart: 0 };
+      return m;
+    }
+
+    if (raw != null && raw !== "" && Number(raw) !== 2) {
+      return { ...m, Round: 0, RoundStart: 0 };
+    }
+
+    if (timerIds != null && !timerIds.has(sid)) {
+      return { ...m, Round: 0, RoundStart: 0 };
+    }
+
+    return m;
+  });
 }
 
 // ── 单平台行构建 ──────────────────────────────────────────────────────────────
@@ -422,6 +468,66 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
   }
 }
 
+/** 平台在 accumulate 行里是否仅有 Map=0 的 match_winner（如 RAY 决胜局 final） */
+function platformOnlyFullMapWinner(accByMap, platform) {
+  let hasAny = false;
+  for (const [map, accBet] of accByMap) {
+    if (!accBet?.Sources?.[platform]) continue;
+    hasAny = true;
+    if (map !== 0) return false;
+  }
+  return hasAny;
+}
+
+/**
+ * 决胜局对齐 [A8 推测]：当前局 Map=R 缺某平台源、但 Map=0 有且该平台仅有全场盘时，
+ * 将 Map=0 源复制到 Map=R，使同行套利（RAY final vs OB 地图 R）可见；BetID 不变。
+ */
+function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceFromBet) {
+  if (!bets || !sourceFromBet) return;
+  for (const row of rows || []) {
+    const liveMap = Number(row.Round) || 0;
+    if (liveMap <= 0) continue;
+
+    const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
+    if (!fullBet) continue;
+
+    let liveBet = (row.Bets || []).find((b) => (b.Map ?? 0) === liveMap);
+    if (!liveBet) {
+      const template = (row.Bets || []).find((b) => (b.Map ?? 0) > 0) || fullBet;
+      const rowKey = row.ID || row.MergeKey || row.Title || "row";
+      liveBet = {
+        ...template,
+        ID: stableId(`bet:${rowKey}:${liveMap}`),
+        Map: liveMap,
+        MatchID: row.ID ?? template.MatchID ?? 0,
+        Name: `[地图${liveMap}]-单局-获胜`,
+        Sources: {},
+      };
+      row.Bets = row.Bets || [];
+      row.Bets.push(liveBet);
+      row.Bets.sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
+    }
+
+    const reverse = row.Reverse || [];
+    for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
+      if (liveBet.Sources?.[platform]) continue;
+      const fullSrc = fullBet.Sources?.[platform];
+      if (!fullSrc) continue;
+
+      const pm = findPlatformMatch(matches, platform, sourceMatchId);
+      if (!pm) continue;
+      const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
+      const accByMap = new Map((accRow.Bets || []).map((b) => [b.Map ?? 0, b]));
+      if (!platformOnlyFullMapWinner(accByMap, platform)) continue;
+
+      liveBet.Sources[platform] = reverse.includes(platform)
+        ? swapBetSource(fullSrc)
+        : { ...fullSrc };
+    }
+  }
+}
+
 function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet) {
   refreshClientMatchTitles(rows, matches);
   refreshClientMatchBetNames(rows);
@@ -526,6 +632,8 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
   refreshClientMatchGames(mergedList, matches);
   refreshClientMatchSides(mergedList, matches, bets, timers, sourceFromBet);
   refreshClientMatchRoundsFromTimers(mergedList, timers);
+  applyObLiveRoundGate(mergedList, matches, timers);
+  promoteFullMatchSourcesToLiveRound(mergedList, matches, bets, timers, sourceFromBet);
 
   return filterMultiPlatformClientMatches(mergedList)
     .sort((a, b) => a.StartTime - b.StartTime);
@@ -656,6 +764,8 @@ function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
   refreshClientMatchGames(list, normalized);
   refreshClientMatchSides(list, normalized, bets, timers, sourceFromBet);
   refreshClientMatchRoundsFromTimers(list, timers);
+  applyObLiveRoundGate(list, normalized, timers);
+  promoteFullMatchSourcesToLiveRound(list, normalized, bets, timers, sourceFromBet);
   return filterMultiPlatformClientMatches(list);
 }
 
@@ -673,6 +783,8 @@ export {
   collectManualLinks,
   normalizeMatchesShape,
   refreshClientMatchRoundsFromTimers,
+  applyObLiveRoundGate,
+  promoteFullMatchSourcesToLiveRound,
   liveRound,
   pickCanonicalStartTime,
   titleFromMatchs,

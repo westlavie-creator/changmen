@@ -4,6 +4,7 @@
  */
 
 export * from "./merge/match_merge.js";
+export * from "./merge/match_lifecycle.js";
 export * from "./teams/team_key.js";
 export * from "./teams/match_utils.js";
 export {
