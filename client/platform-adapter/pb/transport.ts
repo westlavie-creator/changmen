@@ -37,7 +37,7 @@ export async function pbGet<T>(
   const url = pathOrUrl.startsWith("http") ? pathOrUrl : pbGatewayUrl(account, pathOrUrl);
   const headers = buildPbAuthHeaders(account, extraHeaders);
   if (!headers) throw new Error("token error");
-  const raw = await a8PluginGet(url, { headers, withCredentials: true });
+  const raw = await a8PluginGet(url, { headers });
   return unwrap<T>(raw);
 }
 
@@ -52,7 +52,7 @@ export async function pbPost<T>(
   const url = pathOrUrl.startsWith("http") ? pathOrUrl : pbGatewayUrl(account, pathOrUrl);
   const headers = buildPbAuthHeaders(account, extraHeaders);
   if (!headers) throw new Error("token error");
-  const raw = await a8PluginPost(url, body, { headers, withCredentials: true });
+  const raw = await a8PluginPost(url, body, { headers });
   return unwrap<T>(raw);
 }
 

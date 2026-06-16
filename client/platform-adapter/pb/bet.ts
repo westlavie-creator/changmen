@@ -4,9 +4,11 @@ import { pbPost } from "./transport";
 import { toNumber } from "./parse";
 import { startPbRejectPoll, pbRejectStorageKey } from "./rejectPoll";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
-import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import { formatPbDateTime } from "@/shared/format";
+import { getCurrency } from "@/shared/currency";
+import { useMessageStore } from "@/stores/messageStore";
 import { PLATFORMS } from "@/shared/platform";
+import { pbUuid } from "./uuid";
 
 interface PbOddsSelectionRow {
   status?: string;
@@ -38,7 +40,7 @@ function mapWagerRow(u: unknown[], multiply: number): VenueOrder {
   const odds = Number(u[16]) || 0;
   const reward = Number(u[29]) + Number(u[0] || 0);
   const betMoney = Number(u[29]) || 0;
-  const createAt = parseVenueCreateAt(u[19]);
+  const createAt = Number(u[19]) || 0;
   const state = String(u[18] ?? "");
 
   let status: VenueOrderStatus = "none";
@@ -69,27 +71,22 @@ function mapWagerRow(u: unknown[], multiply: number): VenueOrder {
 
 export const pbProvider: PlatformProvider = {
   async getBalance(account) {
-    if (!account.gateway || !account.token) {
-      throw new Error("token error");
+    try {
+      const path = `/member-service/v2/account-balance?locale=zh_CN&_=${Date.now()}&withCredentials=true`;
+      const data = await pbPost<{
+        success?: boolean;
+        betCredit?: number;
+        currency?: string;
+      }>(account, path, "");
+      if (!data?.success) return undefined;
+      const multiply = Math.max(1, account.multiply ?? 1);
+      return {
+        balance: Number(data.betCredit) * multiply || 0,
+        currency: getCurrency(data.currency),
+      };
+    } catch {
+      return undefined;
     }
-    const path = `/member-service/v2/account-balance?locale=zh_CN&_=${Date.now()}&withCredentials=true`;
-    const data = await pbPost<{
-      success?: boolean;
-      betCredit?: number;
-      currency?: string;
-      error?: string;
-    }>(account, path, "");
-    if (data.error) {
-      throw new Error(data.error === "MULTIPLE_LOGIN" ? "token error" : String(data.error));
-    }
-    if (!data.success) {
-      throw new Error("token error");
-    }
-    const multiply = Math.max(1, account.multiply ?? 1);
-    return {
-      balance: Number(data.betCredit) * multiply || 0,
-      currency: data.currency || "CNY",
-    };
   },
 
   async getOrders(account) {
@@ -201,24 +198,27 @@ export const pbProvider: PlatformProvider = {
     const minStake = Number(row.minStake) || 0;
     const maxStake = Number(row.maxStake) || 0;
     if (stake < minStake || stake > maxStake) {
-      option.checkError = `限红 ${minStake}-${maxStake}`;
+      option.checkError = useMessageStore().limitMessage(account, {
+        match: option.match?.title,
+        bet: option.bet?.getBetName(),
+        odds: option.odds,
+        betMoney: option.betMoney,
+        limit: maxStake,
+      });
       return option;
     }
 
     const liveOdds = toNumber(row.odds);
     option.newOdds = liveOdds;
     if (liveOdds < option.odds - 0.01) {
-      option.checkError = `赔率下降至 ${liveOdds}`;
-      option.updateOdds(liveOdds);
       return option;
     }
-    option.updateOdds(liveOdds);
 
     const parts = itemId.split("|");
     parts[5] = "0.00";
     parts[6] = option.target === "Home" ? "0" : "1";
     const lineId = row.lineId ?? cachedLine;
-    const uniqueRequestId = crypto.randomUUID();
+    const uniqueRequestId = pbUuid();
 
     option.data = {
       acceptBetterOdds: false,
@@ -267,7 +267,7 @@ export const pbProvider: PlatformProvider = {
     let status: string | undefined;
     let body: PbBuyResponse | undefined;
     try {
-      const path = `/bet-placement/buyV4?uniqueRequestId=${crypto.randomUUID()}&locale=zh_CN&_=${Date.now()}&withCredentials=true`;
+      const path = `/bet-placement/buyV4?uniqueRequestId=${pbUuid()}&locale=zh_CN&_=${Date.now()}&withCredentials=true`;
       body = await pbPost<PbBuyResponse>(account, path, option.data, {
         "content-type": "application/json; charset=UTF-8",
       });
