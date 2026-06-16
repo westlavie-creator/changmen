@@ -1,6 +1,5 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder, VenueOrderStatus } from "@platform/contract";
-import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import { pbGet } from "./transport";
 import { wait } from "@/shared/wait";
 import { PLATFORMS } from "@/shared/platform";
@@ -53,7 +52,7 @@ export async function startPbRejectPoll(account: PlatformAccount, startedAt: num
     const betLabel = mapNum === 0 ? "全场" : `地图${mapNum}`;
     const item = String(row[15] ?? "");
     const odds = Number(row[18]) || 0;
-    const createAt = parseVenueCreateAt(row[12]);
+    const createAt = Number(row[12]) || 0;
     const betMoney = (Number(row[42]) || 0) * multiply;
 
     const pending: VenueOrder = {
@@ -73,7 +72,15 @@ export async function startPbRejectPoll(account: PlatformAccount, startedAt: num
     sessionStorage.setItem(storageKey, JSON.stringify(pending));
   } finally {
     if (row) {
-      console.info(`[PB] - ${String(row[0] ?? "")} 拒单检测 => ${statusRaw}`, row);
+      const orderId = String(row[0] ?? "");
+      void import("@/api/chat")
+        .then(({ saveUserLog }) =>
+          saveUserLog({
+            title: `[PB] - ${orderId} 拒单检测 => ${statusRaw}`,
+            data: row,
+          }),
+        )
+        .catch(() => {});
     }
     if (statusRaw === "PENDING") {
       await wait(POLL_MS);
