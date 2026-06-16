@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
-import type { BetSide, ViewBet } from "@/models/match";
+import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
 import ArbLineOverlay from "@/components/match/ArbLineOverlay.vue";
 import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
