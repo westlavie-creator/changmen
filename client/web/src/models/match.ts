@@ -5,6 +5,8 @@ import { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { buildOrderOptions } from "@/domain/betting";
 import { useOddsStore } from "@/stores/oddsStore";
+import { useAccountStore } from "@/stores/accountStore";
+import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
 export type BetSide = "Home" | "Away";
@@ -108,6 +110,14 @@ export class ViewBet {
 
   /** 对齐 bundle `isBet`（当前 bundle 为空实现，保留钩子供后续扩展） */
   isBetExcludedByNoSameRule(_type: PlatformId, _side: BetSide): boolean {
+    const used = readUsedAccounts(this.id, _side);
+    if (!used.length) return false;
+
+    const accountStore = useAccountStore();
+    for (const accountId of used) {
+      const acc = accountStore.findAccount(accountId);
+      if (acc && acc.provider === _type) return true;
+    }
     return false;
   }
 }

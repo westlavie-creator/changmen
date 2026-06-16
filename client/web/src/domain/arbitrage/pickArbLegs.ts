@@ -47,11 +47,13 @@ export function pickArbLegs(
   }, undefined);
 
   const awayCandidates = bet.items.filter((v) => {
-    if (homeItem && homeItem.type === v.type) return false;
+    if (homeItem && homeItem.type === v.type) {
+      if (config.noSameBet && !allowSame.has(v.type)) return false;
+    }
     if (
       config.noSameBet &&
       !allowSame.has(v.type) &&
-      bet.isBetExcludedByNoSameRule(v.type, "Away")
+      bet.isBetExcludedByNoSameRule(v.type, "Home")
     ) {
       return false;
     }
