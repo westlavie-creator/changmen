@@ -1,8 +1,26 @@
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
+import { isA8StrictMode } from "@/shared/a8Strict";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { useConfigStore } from "@/stores/configStore";
+
+/** [A8 可证实] Io.getAccount：多账号时按 account.profit 与 implied 优选 */
+function pickByAccountProfitA8(
+  candidates: PlatformAccount[],
+  options: BetOption[],
+  configProfit: number,
+): PlatformAccount | undefined {
+  const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
+  const sorted = candidates
+    .filter((a) => a.profit === 0 || a.profit >= implied)
+    .sort((a, b) => {
+      const av = a.profit === 0 ? configProfit : a.profit;
+      const bv = b.profit === 0 ? configProfit : b.profit;
+      return av - bv;
+    });
+  return sorted[0];
+}
 
 export function getProviders(store: AccountStoreContext, minBetMoney?: number) {
   const config = useConfigStore().config;
@@ -39,7 +57,14 @@ export function pickAccount(
 
   const gameName = options?.[0]?.match?.game;
   const configProfit = useConfigStore().config.profit;
-  if (options?.length === 2 && candidates.some((a) => a.profit !== 0 || !!(gameName && a.game?.[gameName]?.profit))) {
+  if (options?.length === 2 && candidates.some((a) => a.profit !== 0)) {
+    const picked = pickByAccountProfitA8(candidates, options, configProfit);
+    if (picked) return picked;
+  } else if (
+    !isA8StrictMode() &&
+    options?.length === 2 &&
+    candidates.some((a) => !!(gameName && a.game?.[gameName]?.profit))
+  ) {
     const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
     const sorted = candidates
       .filter((a) => {

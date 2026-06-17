@@ -1,4 +1,7 @@
 import type { PlatformId } from "@/types/esport";
+import { saveUserLog } from "@/api/chat";
+import type { PlatformAccount } from "@/models/platformAccount";
+import { useAccountStore } from "@/stores/accountStore";
 
 /** 对齐 A8 bundle `uo` */
 export class BetResult {
@@ -23,6 +26,18 @@ export class BetResult {
     this.beginTime = Date.now();
     this.request = request;
     this.response = response;
+  }
+
+  /** [A8 可证实] bundle `uo.saveLog` */
+  saveLog(account: PlatformAccount, beginTime?: number) {
+    if (beginTime !== undefined) this.beginTime = beginTime;
+    const accountStore = useAccountStore();
+    const platformLabel = accountStore.getPlatformName(
+      account.platformId,
+      account.platformName,
+    );
+    const title = `[${this.provider}](${platformLabel},${account.playerName}) 下注 => ${this.success} / 耗时:${Date.now() - this.beginTime}ms`;
+    void saveUserLog(title, { result: this });
   }
 }
 

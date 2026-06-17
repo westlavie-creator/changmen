@@ -8,6 +8,7 @@ import { useOrderStore } from "@/stores/orderStore";
 import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { betToastSeconds } from "@/shared/betTiming";
+import { isA8StrictMode } from "@/shared/a8Strict";
 import { toFixed } from "@/shared/format";
 
 export interface ManualBetContext {
@@ -99,7 +100,9 @@ export async function runManualBet(
     markSuccessfulBet(account, bet.id, side, option.odds, match.game);
     setMessage(`手动下单成功 ${item.type}@${option.odds}`);
     void accountStore.refreshBalance(account);
-    void orderStore.fetchOrders();
+    if (!isA8StrictMode()) {
+      void orderStore.fetchOrders();
+    }
   } else {
     ElMessageBox.alert(result?.message || "下单失败", "下单失败");
   }

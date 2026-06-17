@@ -100,13 +100,14 @@ export class ViewBet {
     return max;
   }
 
-  /** 对齐 A8 `IQ.GetOrderOptions(e,r,n)`：内部 `Io().getProviders()`，`accounts` 仅用于 profit 覆盖 */
+  /** 对齐 A8 `IQ.GetOrderOptions(e,r,n)`：`providerKeys` = `Io().getProviders()` keys */
   getOrderOptions(
     match: ViewMatch,
     config: UserConfig,
     accounts: PlatformAccount[] = [],
+    providerKeys: PlatformId[],
   ): BetOption[] | undefined {
-    return buildOrderOptions(this, match, config, accounts);
+    return buildOrderOptions(this, match, config, accounts, providerKeys);
   }
 
   /** [A8 可证实] bundle `IQ.isBet` 为空实现；noSame 场管在 getAccount 排除列表处理 */

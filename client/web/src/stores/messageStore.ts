@@ -192,6 +192,17 @@ export const useMessageStore = defineStore("message", {
       return body;
     },
 
+    /** [A8 可证实] `Gi.send.DelayMessage`：耗时 ≥2s 时 Telegram 延迟提醒 */
+    delayMessage(account: PlatformAccount, elapsedMs: number) {
+      if (elapsedMs < 2000) return;
+      const body = [
+        htmlTitle("注单延迟收单提醒"),
+        balanceAccountLine(account),
+        `<blockquote>投注延迟：${toFixed(elapsedMs / 1000, 1)}秒</blockquote>`,
+      ].join("\n");
+      this.enqueueTelegram(body);
+    },
+
     hgFollowMessage(
       account: PlatformAccount,
       tid: string,

@@ -1,10 +1,7 @@
 import type { BetSide } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
-import {
-  incrementBetCount,
-  incrementGameBetCount,
-  setLastBetOdds,
-} from "@/shared/betTiming";
+import { isA8StrictMode } from "@/shared/a8Strict";
+import { incrementBetCount, incrementGameBetCount, setLastBetOdds } from "@/shared/betTiming";
 
 const BET_ACCOUNT_PREFIX = "BETACCOUNT:";
 
@@ -37,5 +34,7 @@ export function markSuccessfulBet(
   markUsedAccount(account.accountId, betId, side);
   incrementBetCount(account.accountId, betId, side);
   setLastBetOdds(account.accountId, betId, side, odds);
-  if (gameName) incrementGameBetCount(account.accountId, gameName);
+  if (!isA8StrictMode() && gameName) {
+    incrementGameBetCount(account.accountId, gameName);
+  }
 }

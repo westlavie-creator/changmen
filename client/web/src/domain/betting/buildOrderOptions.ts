@@ -3,7 +3,6 @@ import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { pickArbLegs } from "@/domain/arbitrage";
 import { sortOptionsByWinRate } from "@/shared/winRate";
-import { useAccountStore } from "@/stores/accountStore";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 
@@ -13,12 +12,10 @@ export function buildOrderOptions(
   match: ViewMatch,
   config: UserConfig,
   accounts: PlatformAccount[] = [],
-  /** [changmen 扩展] Telegram 可下单评估等可显式传入平台列表 */
-  providerKeys?: PlatformId[],
+  /** 对齐 A8 `Io().getProviders()` 的 keys */
+  providerKeys: PlatformId[],
 ): BetOption[] | undefined {
-  const keys =
-    providerKeys ?? ([...useAccountStore().getProviders().keys()] as PlatformId[]);
-  const legs = pickArbLegs(bet, config, keys, accounts, match.game);
+  const legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
   if (!legs) return undefined;
 
   const { homeItem, awayItem, homeOdds, awayOdds } = legs;

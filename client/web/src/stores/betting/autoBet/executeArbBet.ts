@@ -3,6 +3,7 @@ import { BetOption, opponentSide } from "@/models/betOption";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult, type OrderBindRow } from "@/models/betResult";
+import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 import { isVenueReject } from "@/domain/betting";
 import type { VenueOrder } from "@platform/contract";
@@ -10,11 +11,6 @@ import { betToastSeconds } from "@/shared/betTiming";
 import { wait } from "@/shared/wait";
 import { a8Tip } from "@/shared/a8Notify";
 import { isA8StrictMode } from "@/shared/a8Strict";
-import {
-  allowArbBetExecution,
-  createArbLinkId,
-  resolveRate9999SingleLeg,
-} from "@/extensions/arbBet";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -38,12 +34,14 @@ export async function executeArbBet(params: {
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
   const orderStore = useOrderStore();
+  const strictA8 = isA8StrictMode();
 
   if (loseStore.orders.has(bet.id)) return;
 
   bet.items.forEach((item) => item.updateOdds());
 
-  const options = bet.getOrderOptions(match, config, accountStore.accounts);
+  const providerKeys = [...accountStore.getProviders().keys()] as PlatformId[];
+  const options = bet.getOrderOptions(match, config, accountStore.accounts, providerKeys);
   if (!options || options.length !== 2) return;
 
   let legA = options[0];
@@ -66,33 +64,35 @@ export async function executeArbBet(params: {
   );
   if (!accountA && !accountB) return;
 
-  const betBothLegs = Boolean(accountA) && Boolean(accountB);
-  const excludeA = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [];
-  const excludeB = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legB.target)) : [];
-  const rate9999SingleLeg = resolveRate9999SingleLeg({
-    betBothLegs,
-    accountA,
-    accountB,
-    legA,
-    legB,
-    bet,
-    match,
-    accounts: accountStore.accounts,
-    excludeA,
-    excludeB,
-    matchStore,
-    implied,
-  });
-  // 严格 A8 模式：不允许单边（rate9999）下单，对齐 A8 `if (!be || !Z) continue`
-  const strictA8 = isA8StrictMode();
-  const effectiveSingleLeg = strictA8 ? false : rate9999SingleLeg;
+  let betBothLegs = Boolean(accountA) && Boolean(accountB);
+  let linkId: number;
+
   if (strictA8) {
     if (!betBothLegs) return;
-  } else if (!allowArbBetExecution(betBothLegs, effectiveSingleLeg)) {
-    return;
+    linkId = Date.now();
+  } else {
+    const { allowArbBetExecution, createArbLinkId, resolveRate9999SingleLeg } =
+      await import("@/extensions/arbBet");
+    const excludeA = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [];
+    const excludeB = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legB.target)) : [];
+    const rate9999SingleLeg = resolveRate9999SingleLeg({
+      betBothLegs,
+      accountA,
+      accountB,
+      legA,
+      legB,
+      bet,
+      match,
+      accounts: accountStore.accounts,
+      excludeA,
+      excludeB,
+      matchStore,
+      implied,
+    });
+    if (!allowArbBetExecution(betBothLegs, rate9999SingleLeg)) return;
+    linkId = createArbLinkId(rate9999SingleLeg);
   }
 
-  const linkId = createArbLinkId(effectiveSingleLeg);
   if (accountA) accountA.active = true;
   if (accountB) accountB.active = true;
   const checkStart = Date.now();
@@ -107,6 +107,10 @@ export async function executeArbBet(params: {
     await wait(1000);
     return;
   }
+
+  // [A8 可证实] orderIndex 在 checkTimeout 之前赋值
+  if (accountA) legA.orderIndex = 1;
+  if (accountB) legB.orderIndex = strictA8 || betBothLegs ? 2 : 1;
   if (config.checkTimeout && Date.now() - checkStart > config.checkTimeout) {
     const elapsed = Date.now() - checkStart;
     const msg = `超时时间：${elapsed}ms，大于设定值：${config.checkTimeout}ms`;
@@ -115,8 +119,6 @@ export async function executeArbBet(params: {
     return;
   }
 
-  if (accountA) legA.orderIndex = 1;
-  if (accountB) legB.orderIndex = betBothLegs ? 2 : 1;
   const waitSec = Math.max(
     accountA ? betToastSeconds(config, accountA.provider) : 0,
     accountB ? betToastSeconds(config, accountB.provider) : 0,
@@ -124,7 +126,7 @@ export async function executeArbBet(params: {
 
   let resultA: BetResult | undefined;
   let resultB: BetResult | undefined;
-  if (!betBothLegs) {
+  if (!strictA8 && !betBothLegs) {
     if (accountA) {
       resultA = await accountStore.betting(accountA, legA, waitSec);
       if (!resultA?.success) return;
@@ -134,8 +136,8 @@ export async function executeArbBet(params: {
     }
   } else if (config.betSorting === "Parallel") {
     const pair = await Promise.all([
-      accountStore.betting(accountA, legA, waitSec),
-      accountStore.betting(accountB, legB, waitSec),
+      accountStore.betting(accountA!, legA, waitSec),
+      accountStore.betting(accountB!, legB, waitSec),
     ]);
     resultA = pair[0];
     resultB = pair[1];
@@ -160,13 +162,6 @@ export async function executeArbBet(params: {
       resultB = retry.result;
       legB = retry.leg;
       accountB = retry.account;
-    }
-  } else if (betBothLegs && resultB?.success && !resultA?.success) {
-    const retry = await retryFailedLeg(match, bet, legB, legA, config, waitSec);
-    if (retry) {
-      resultA = retry.result;
-      legA = retry.leg;
-      accountA = retry.account;
     }
   }
 
@@ -213,7 +208,7 @@ export async function executeArbBet(params: {
       OrderID: ordersB[0].orderId,
     });
   }
-  if (binds.length) {
+  if (strictA8 || binds.length) {
     await saveOrderBind({ orders: JSON.stringify(binds) });
   }
 
@@ -284,7 +279,7 @@ export async function executeArbBet(params: {
     markSuccessfulBet(accountB, bet.id, legB.target, legB.odds, match.game);
   }
 
-  if (resultA?.success || resultB?.success) {
+  if (!strictA8 && (resultA?.success || resultB?.success)) {
     await orderStore.fetchOrders();
   }
 }

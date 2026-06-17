@@ -1,12 +1,18 @@
 import { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { publishBettingEvent } from "@/realtime/publishBetting";
 import { getProvider } from "@/runtime/providers";
 import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify";
 import type { AccountStoreContext } from "@/stores/account/context";
+import { useMessageStore } from "@/stores/messageStore";
 import { ElNotification } from "element-plus";
 
-export async function checkBetting(_store: AccountStoreContext, account: PlatformAccount | undefined, option: BetOption) {
+export async function checkBetting(
+  _store: AccountStoreContext,
+  account: PlatformAccount | undefined,
+  option: BetOption,
+) {
   if (!account) {
     option.checkError = `场馆${option.type}没有可用账号`;
     return option;
@@ -20,8 +26,10 @@ export async function checkBetting(_store: AccountStoreContext, account: Platfor
     option.betMoney = account.getBetMoney(option.betMoney, option.odds);
     return await provider.checkBet(account, option);
   } catch (e) {
-    option.checkError = e instanceof Error ? e.message : String(e);
+    option.checkError = e instanceof Error ? e.message : JSON.stringify(e);
     return option;
+  } finally {
+    option.saveLog(account);
   }
 }
 
@@ -55,6 +63,7 @@ export async function placeBet(
     customClass: `notification loading ${account.provider}`,
   });
 
+  const beginTime = Date.now();
   let result: BetResult = new BetResult(account.provider, false, "未知错误");
   try {
     if (!option.data) {
@@ -81,6 +90,11 @@ export async function placeBet(
       dangerouslyUseHTMLString: true,
       duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
     });
+    useMessageStore().delayMessage(account, Date.now() - beginTime);
+    result.saveLog(account, beginTime);
+    if (result.success) {
+      void publishBettingEvent(option);
+    }
   }
   return result;
 }
