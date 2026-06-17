@@ -7,7 +7,7 @@ function makeAccount(token: string): PlatformAccount {
 }
 
 describe("buildPbAuthHeaders (A8 k0)", () => {
-  it("固定 515 后缀与 A8 k0 字段一致", () => {
+  it("515 后缀与 A8 k0 字段一致", () => {
     const appData = { BrowserSessionId_515: "sess-1", foo: "bar" };
     const token = JSON.stringify({
       "x-app-data": JSON.stringify(appData),
@@ -22,6 +22,26 @@ describe("buildPbAuthHeaders (A8 k0)", () => {
       "v-hucode": "hu",
       "x-requested-with": "XMLHttpRequest",
     });
+  });
+
+  it("1228 后缀从 x-app-data 检测", () => {
+    const appData = {
+      BrowserSessionId_1228: "sess-1228",
+      custid_1228: "id%3Dabc",
+    };
+    const token = JSON.stringify({
+      "x-app-data": JSON.stringify(appData),
+      "v-hucode": "hu1228",
+      token: JSON.stringify({
+        "X-U-1228": "u-token",
+        "X-Custid-1228": "id=abc",
+      }),
+    });
+    const headers = buildPbAuthHeaders(makeAccount(token));
+    expect(headers?.["x-browser-session-id-1228"]).toBe("sess-1228");
+    expect(headers?.["x-custid-1228"]).toBe("id=abc");
+    expect(headers?.["x-u-1228"]).toBe("u-token");
+    expect(headers?.["x-browser-session-id-515"]).toBeUndefined();
   });
 
   it("合并 extra 头（对齐 k0 第二参）", () => {
