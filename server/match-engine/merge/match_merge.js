@@ -488,6 +488,18 @@ function preserveInitialOddsFromSources(bet) {
   if (away > 0) bet.InitialAwayOdds = away;
 }
 
+function betMapNumber(bet) {
+  return Number(bet?.Map) || 0;
+}
+
+/** 各场 Bets 按 Map 升序（Map=0 全场盘在最前） */
+function sortClientMatchBets(rows) {
+  for (const row of rows || []) {
+    if (!Array.isArray(row.Bets) || row.Bets.length < 2) continue;
+    row.Bets.sort((a, b) => betMapNumber(a) - betMapNumber(b));
+  }
+}
+
 /** 从各平台原始盘口合并 Map=0（DB 未 rebuild 时 GetMatchs overlay 补全场行） */
 function mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet) {
   const mergedSources = {};
@@ -525,7 +537,7 @@ function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
   for (const row of rows) {
     const liveMap = Number(row.Round) || 0;
     if (liveMap <= 0) continue;
-    const hasMap0 = (row.Bets || []).some((b) => (b.Map ?? 0) === 0);
+    const hasMap0 = (row.Bets || []).some((b) => betMapNumber(b) === 0);
     if (hasMap0) continue;
 
     const fullBet = mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet);
@@ -533,7 +545,6 @@ function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
 
     row.Bets = row.Bets || [];
     row.Bets.push(fullBet);
-    row.Bets.sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
   }
 }
 
@@ -657,6 +668,7 @@ function trimMapZeroToObOnDeciderRound(rows) {
       fullBet.Sources = {};
     }
   }
+  sortClientMatchBets(rows);
 }
 
 function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet) {
@@ -923,6 +935,8 @@ export {
   promoteFullMatchSourcesToLiveRoundInPlace,
   ensureMapZeroForLiveRound,
   trimMapZeroToObOnDeciderRound,
+  sortClientMatchBets,
+  betMapNumber,
   liveRound,
   pickCanonicalStartTime,
   titleFromMatchs,

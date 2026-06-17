@@ -627,4 +627,5 @@ test("live Round=2, OB no Map=0: keep Map=0 row with empty Sources and Initial o
   assert.ok(map2?.Sources?.OB);
   assert.ok(map2?.Sources?.IA);
   assert.ok(map2?.Sources?.RAY);
+  assert.deepEqual(list[0].Bets.map((b) => b.Map), [0, 1, 2]);
 });

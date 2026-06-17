@@ -233,6 +233,7 @@ describe("overlayLiveTimersOnMatches", () => {
     expect(map0?.Sources).toEqual({});
     expect(map0?.InitialHomeOdds).toBe(1.02);
     expect(map0?.InitialAwayOdds).toBe(12.52);
+    expect(out[0].Bets.map((b) => b.Map)).toEqual([0, 2]);
   });
 
   it("keeps Round when no timer snapshot exists (await matcher or next SaveLiveTimer)", () => {

@@ -141,9 +141,9 @@ export class ViewMatch {
     this.providers = dto.Matchs ?? {};
     this.liveRound = dto.Round ?? 0;
     this.liveRoundStart = dto.RoundStart ?? 0;
-    this.bets = (dto.Bets ?? []).map((b) =>
-      new ViewBet(b, this.providers, this.liveRound, this.liveRoundStart),
-    );
+    this.bets = (dto.Bets ?? [])
+      .map((b) => new ViewBet(b, this.providers, this.liveRound, this.liveRoundStart))
+      .sort((a, b) => a.round - b.round);
   }
 }
 
