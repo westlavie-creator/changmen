@@ -5,7 +5,9 @@
 
 文档索引：[README.md](./README.md)
 
-最后更新：2026-06-14
+最后更新：2026-06-16
+
+> **全量对齐索引**（含已对齐 + 扩展 + 配置项）：见 [A8_PARITY_REGISTRY.md](./A8_PARITY_REGISTRY.md)
 
 ---
 
@@ -98,10 +100,13 @@
 | `noSameProvider` | 有 | 已对齐 | 仅补单 `processLoseOrders`；主循环用 `noSameBet`（bundle 同） |
 | 定时开启投注 | 有 | 已对齐 | `bettingStore.tickAutoOpen` |
 | `maxBetCount` / `BETCOUNT` | 有 | 已对齐 | `betTiming.passesMaxBetCount` + `incrementBetCount` |
-| 拒单检测主循环 | 有 | 已对齐 | 成功后 `refreshBalance` → 等待 `waitTime ?? 5` → `updateVenueOrders` |
-| 补单拒单复检 | 有 | 已对齐 | `processLoseOrders` 成功后 countdown + 场馆订单 |
+| 拒单检测主循环 | 有 | 已对齐 | `refreshBalance` → tip(Oe) → wait(q) → `updateVenueOrders`；**q<=0 仍弹 tip** |
+| 补单拒单复检 | 有 | 已对齐 | `makeUpBetToastSeconds`（Pe）；复检前不调 refreshBalance（A8 jb 同） |
 | `checkTimeout` 弹窗 | 有 | 已对齐 | `a8Tip("前置检查超时", …)` |
-| 投注中 / 结果通知 | `Io.betting` | 已对齐 | `notification loading ${provider}` + `bettingDetailHtml` / `betToastSeconds` |
+| 投注中 / 结果通知 | `Io.betting` | 已对齐 | `placeBet`；自动套利 `arbBetToastSeconds`、补单 `makeUpBetToastSeconds`、手动固定 10s |
+| `betInterval` | 配置默认 30 | 已对齐 | A8/changmen 均**不参与调度**；主循环 100ms、列表 30s |
+| `rateConfig` rate=0 | 保存过滤；运行时当 1 | 已对齐 | `normalizeAccountRateConfig` + `getBetMoney` |
+| `rate 9999` 单边 / linkId | A8 无 | 🔶 扩展 | `extensions/arbBet/rate9999`；负 linkId → 展示 `gb{ts}` |
 | `Pr.tip` 补单/拒单 | 有 | 已对齐 | `a8Notify.a8Tip`（含 `<countdown>`） |
 | HG 采集 | `SQ` | 部分 | 无电竞赔率流；启用开关时 60s 刷 HG 账号余额；跟单见 `hgFollowLoop` |
 | Stake 下单 | 插件 GraphQL | **已对齐** | `stakeProvider` 完整实现；`pluginOnly` 需 Chrome 扩展 + stake.com 标签页（见 `client/platform-adapter/stake/README.md`） |

@@ -1,4 +1,5 @@
 import type { PlatformId } from "@/types/esport";
+import { normalizeWaitTime } from "@/shared/betTiming";
 import { ALL_PLATFORMS } from "@platform/registry";
 
 export type BetSorting = "Low" | "High" | "Parallel" | "WinRate" | "Custom";
@@ -90,6 +91,10 @@ export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): Us
     allowSameBet: Array.isArray(raw.allowSameBet)
       ? (raw.allowSameBet as PlatformId[])
       : base.allowSameBet,
-    waitTime: raw.waitTime && typeof raw.waitTime === "object" ? raw.waitTime : base.waitTime,
+    waitTime: normalizeWaitTime(
+      raw.waitTime && typeof raw.waitTime === "object"
+        ? (raw.waitTime as Record<string, unknown>)
+        : undefined,
+    ),
   };
 }

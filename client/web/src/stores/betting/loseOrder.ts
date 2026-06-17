@@ -5,12 +5,12 @@ import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useMessageStore } from "@/stores/messageStore";
-import { isVenueReject } from "@/domain/betting";
 import { passesDefaultOddsAccount } from "@/stores/betting/betFilters";
+import { fetchVenueOrdersWithReject } from "@/stores/betting/autoBet/venueRejectSync";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { wait } from "@/shared/wait";
 import { a8Tip } from "@/shared/a8Notify";
-import { betToastSeconds } from "@/shared/betTiming";
+import { makeUpBetToastSeconds } from "@/shared/betTiming";
 
 export interface LoseOrderTickContext {
   setMessage: (msg: string) => void;
@@ -79,14 +79,12 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       const checked = await accountStore.checkBetting(account, option);
       if (!checked.data) continue;
 
-      const waitSec = betToastSeconds(config, account.provider);
+      const waitSec = makeUpBetToastSeconds(config, account.provider);
       const result = await accountStore.betting(account, checked, waitSec);
       if (!result?.success) {
         if (!result) removeIds.push(betId);
         continue;
       }
-
-      void accountStore.refreshBalance(account);
 
       if (order.isCreateOrder) {
         removeIds.push(betId);
@@ -101,10 +99,8 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
         await wait(waitSec * 1000);
 
-        const venueOrders = (await accountStore.updateVenueOrders(account)) ?? [];
-        let rejected = false;
+        const { orders: venueOrders, rejected } = await fetchVenueOrdersWithReject(account);
         if (venueOrders.length > 0) {
-          rejected = isVenueReject(venueOrders);
           if (rejected) {
             setMessage(`${order.target} 再次被拒单`);
             a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);

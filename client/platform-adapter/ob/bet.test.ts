@@ -14,6 +14,10 @@ vi.mock("@/shared/md5", () => ({
   md5: (s: string) => `md5:${s}`,
 }));
 
+vi.mock("@/shared/wait", () => ({
+  wait: vi.fn().mockResolvedValue(undefined),
+}));
+
 function makeOption(): BetOption {
   return {
     matchId: "m1",
@@ -103,6 +107,57 @@ describe("obProvider.checkBet", () => {
     expect(accountPostForm).toHaveBeenCalledTimes(1);
     expect(out.data).toBeDefined();
     expect(out.newOdds).toBe(0);
+  });
+});
+
+describe("obProvider.getOrders", () => {
+  const account = new PlatformAccount({
+    accountId: 3,
+    playerName: "ob3",
+    provider: "OB",
+    gateway: "https://ob.example",
+    token: "tok",
+  });
+
+  beforeEach(() => {
+    accountGet.mockReset();
+  });
+
+  it("bet_status=2 映射为 reject（对齐 A8 yYe）", async () => {
+    accountGet.mockImplementation(async (_acc, path) => {
+      const p = String(path);
+      if (p.includes("status=1")) {
+        return { status: "true", data: { bet: [] } };
+      }
+      if (p.includes("status=2")) {
+        return {
+          status: "true",
+          data: {
+            bet: [
+              {
+                id: "99",
+                bet_status: 2,
+                odd: 1.9,
+                bet_time: 1_700_000_000_000,
+                bet_amount: 100,
+                win_amount: 0,
+                team_cn_names: "A,B",
+                round: 0,
+                market_cn_name: "独赢",
+                odd_name: "A",
+                game_id: "1",
+              },
+            ],
+          },
+        };
+      }
+      return {};
+    });
+
+    const orders = await obProvider.getOrders!(account);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]!.status).toBe("reject");
+    expect(orders[0]!.orderId).toBe("99");
   });
 });
 

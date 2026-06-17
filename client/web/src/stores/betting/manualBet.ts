@@ -7,7 +7,7 @@ import { useMatchStore } from "@/stores/matchStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
-import { betToastSeconds } from "@/shared/betTiming";
+import { manualBetToastSeconds } from "@/shared/betTiming";
 import { isA8StrictMode } from "@/shared/a8Strict";
 import { isRateSkipAtOdds } from "@/extensions/arbBet/rate9999";
 import { toFixed } from "@/shared/format";
@@ -94,7 +94,7 @@ export async function runManualBet(
     await ElMessageBox.alert(`余额不足（${bal} < ${amount}）`, String(item.type));
     return;
   }
-  const toastSec = betToastSeconds(configStore.config, account.provider);
+  const toastSec = manualBetToastSeconds();
   option = await accountStore.checkBetting(account, option);
   if (!option.data) {
     ElMessageBox.alert(option.checkError || "前置检查失败", "前置检查失败");

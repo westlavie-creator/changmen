@@ -8,6 +8,7 @@ import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
+import { normalizeWaitTime } from "@/shared/betTiming";
 import { ALL_PLATFORMS, type BetSorting, type UserConfig } from "@/types/userConfig";
 
 const props = defineProps<{ open: boolean }>();
@@ -108,7 +109,7 @@ async function save() {
     providerSortValue: [...form.providerSortValue],
     providerFixed: [...form.providerFixed],
     allowSameBet: [...form.allowSameBet],
-    waitTime: { ...form.waitTime },
+    waitTime: normalizeWaitTime(form.waitTime),
   });
   try {
     const ok = await configStore.save();

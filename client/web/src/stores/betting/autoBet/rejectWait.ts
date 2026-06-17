@@ -8,9 +8,12 @@ export function rejectWaitSeconds(config: UserConfig, accounts: PlatformAccount[
   return Math.max(...accounts.map((a) => config.waitTime[a.provider] ?? 5));
 }
 
+/** [A8 可证实] 自动套利：先 `Pr.tip` 用 Oe 显示 countdown，再 `for(ue<q) wait(1s)`；q<=0 仍弹窗 */
 export async function waitRejectDetection(countdownSec: number, actualWaitSec: number) {
+  if (countdownSec > 0) {
+    a8Tip("拒单检测", `等待<countdown>${countdownSec}</countdown>秒`, countdownSec * 1000);
+  }
   if (actualWaitSec <= 0) return;
-  a8Tip("拒单检测", `等待<countdown>${countdownSec}</countdown>秒`, countdownSec * 1000);
   for (let i = 0; i < actualWaitSec; i++) {
     await wait(1000);
   }

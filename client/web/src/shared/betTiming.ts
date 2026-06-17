@@ -2,11 +2,37 @@ import type { BetSide } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
 
-/** 结果通知停留秒数 — 对齐 A8 Io.betting 第三参（waitTime，-1 表示 0） */
-export function betToastSeconds(config: UserConfig, provider: string): number {
+/** [A8 可证实] D8 构造：逐键 `Number(waitTime[k])||0` */
+export function normalizeWaitTime(
+  raw: Record<string, unknown> | undefined | null,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const key of Object.keys(raw)) {
+    out[key] = Number(raw[key]) || 0;
+  }
+  return out;
+}
+
+/** 自动套利 Oe：`Math.max(waitTime[a]??0, waitTime[b]??0, 10)`（-1 不单独分支，由 floor 10 兜底） */
+export function arbBetToastSeconds(config: UserConfig, providers: string[]): number {
+  const waits = providers.map((p) => config.waitTime[p] ?? 0);
+  if (!waits.length) return 10;
+  return Math.max(...waits, 10);
+}
+
+/** 补单 Pe：`waitTime===-1 ? 0 : Math.max(waitTime??0, 10)` */
+export function makeUpBetToastSeconds(config: UserConfig, provider: string): number {
   const wait = config.waitTime[provider];
   if (wait === -1) return 0;
   return Math.max(wait ?? 0, 10);
+}
+
+/** 手动下单 `v=async(_,A,T=10)` 默认第三参，不读 waitTime */
+export const MANUAL_BET_TOAST_SECONDS = 10;
+
+export function manualBetToastSeconds(): number {
+  return MANUAL_BET_TOAST_SECONDS;
 }
 
 const BET_COUNT_PREFIX = "BETCOUNT:";

@@ -94,3 +94,45 @@ describe("rayProvider.checkBet", () => {
     expect(order.order_detail.odds).toBe(1.88);
   });
 });
+
+describe("rayProvider.getOrders", () => {
+  const account = new PlatformAccount({
+    accountId: 2,
+    playerName: "ray2",
+    provider: "RAY",
+    gateway: "https://ray.example",
+    token: "t",
+  });
+
+  beforeEach(() => {
+    accountGet.mockReset();
+  });
+
+  it("status=4 映射为 reject（对齐 A8 vYe）", async () => {
+    accountGet.mockResolvedValue({
+      code: 200,
+      result: [
+        {
+          order_number: "R-1",
+          status: 4,
+          win: 0,
+          total_bonus: 0,
+          create_time: "2024-01-01 12:00:00",
+          detail: [
+            {
+              title: "独赢\n主队",
+              odds: 1.85,
+              stake: 50,
+              game_id: 1,
+              match_name: "A vs B",
+              match_stage: "全场",
+            },
+          ],
+        },
+      ],
+    });
+    const orders = await rayProvider.getOrders!(account);
+    expect(orders[0]!.status).toBe("reject");
+    expect(orders[0]!.orderId).toBe("R-1");
+  });
+});

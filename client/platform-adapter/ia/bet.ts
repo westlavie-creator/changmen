@@ -1,8 +1,11 @@
 import { BetResult } from "@/models/betResult";
-import type { PlatformProvider } from "@platform/contract";
+import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { iaPointBettable } from "@platform/ia/shared/parse_fields";
 import { useMessageStore } from "@/stores/messageStore";
 import { accountIaPost } from "@/shared/platformHttp";
+import { PLATFORMS } from "@/shared/platform";
+import { wait } from "@/shared/wait";
 
 interface IaLimitResponse {
   code?: number;
@@ -38,6 +41,89 @@ interface IaBetResponse {
   };
 }
 
+interface IaHistoryRow {
+  order_id?: string | number;
+  odds?: number;
+  create_time?: number;
+  amount?: number;
+  bonus?: number;
+  desc?: string;
+  team_name_1?: string;
+  team_name_2?: string;
+  is_cancel?: number;
+  receive_status?: number;
+  prize_status?: number;
+  game_name?: string;
+}
+
+interface IaHistoryResponse {
+  code?: number;
+  data?: { data?: IaHistoryRow[] };
+}
+
+/** 对齐 A8 `CYe.getOrders` 单行映射 */
+export function mapIaHistoryRow(
+  row: IaHistoryRow,
+  provider: PlatformAccount["provider"],
+): VenueOrder {
+  let reward = 0;
+  let money = 0;
+  let status: VenueOrderStatus = "none";
+  const desc = String(row.desc ?? "");
+  let bet = "";
+  let item = "";
+  const t1 = String(row.team_name_1 ?? "");
+  const t2 = String(row.team_name_2 ?? "");
+  let splitAt = desc.indexOf(t1);
+  if (splitAt === -1) splitAt = desc.indexOf(t2);
+  if (splitAt !== -1) {
+    bet = desc.substring(0, splitAt - 1);
+    item = desc.substring(splitAt);
+  } else {
+    bet = desc;
+  }
+
+  if (row.is_cancel === 1) {
+    status = "return";
+  } else if (row.receive_status === 1) {
+    status = "pending";
+  } else if (row.receive_status === 2) {
+    status = "reject";
+  } else {
+    switch (row.prize_status) {
+      case 0:
+        status = "none";
+        break;
+      case 1:
+        status = "win";
+        reward = Number(row.bonus) || 0;
+        money = reward - (Number(row.amount) || 0);
+        break;
+      case 2:
+        status = "lose";
+        money = reward - (Number(row.amount) || 0);
+        break;
+      default:
+        status = "none";
+    }
+  }
+
+  return {
+    provider: provider ?? PLATFORMS.IA,
+    orderId: String(row.order_id ?? ""),
+    odds: Number(row.odds) || 0,
+    createAt: (Number(row.create_time) || 0) * 1000,
+    betMoney: Number(row.amount) || 0,
+    reward,
+    money,
+    status,
+    game: String(row.game_name ?? ""),
+    match: [t1, t2].filter(Boolean).join(" vs "),
+    bet,
+    item,
+  };
+}
+
 function findPoint(plays: IaPlaysResponse, betId: string, itemId: string): IaTeamPoint | null {
   for (const play of plays.data?.plays ?? []) {
     for (const child of play.child_plays ?? []) {
@@ -67,6 +153,31 @@ export const iaProvider: PlatformProvider = {
     } catch {
       return undefined;
     }
+  },
+
+  async getOrders(account) {
+    if (!account.gateway || !account.token) return [];
+    const endSec = Math.floor(Date.now() / 1000);
+    let orders: VenueOrder[] = [];
+    let hasPending = true;
+
+    while (hasPending) {
+      orders = [];
+      const body = `start_time=${endSec - 604_800}&end_time=${endSec}&page=1&limit=50&lang=1`;
+      const res = await accountIaPost<IaHistoryResponse>(
+        account,
+        "/api/game/user/getUserHistory/",
+        body,
+        { forceDirect: true },
+      );
+      for (const row of res.data?.data ?? []) {
+        orders.push(mapIaHistoryRow(row, account.provider));
+      }
+      hasPending = orders.some((o) => o.status === "pending");
+      if (hasPending) await wait(3000);
+    }
+
+    return orders;
   },
 
   async checkBet(account, option) {
