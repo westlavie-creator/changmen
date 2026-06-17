@@ -1,4 +1,4 @@
-import { stableId } from "../teams/match_utils.js";
+import { stableBetId } from "../teams/match_utils.js";
 
 function matchsSignature(matchs) {
   return Object.entries(matchs || {})
@@ -85,7 +85,7 @@ function assignMatchIds(row, id) {
     Bets: (row.Bets || []).map((bet) => ({
       ...bet,
       MatchID: numericId,
-      ID: stableId(`bet:${numericId}:${bet.Map ?? 0}`),
+      ID: stableBetId(numericId, bet.Map ?? 0),
     })),
   };
 }

@@ -2,7 +2,7 @@
  * 通用赔率过滤 + 构建（OB / RAY / IM 等各平台）。
  */
 
-import { stableId, betKey, isPlaceholderTeamName } from "../teams/match_utils.js";
+import { stableBetId, stableId, betKey, isPlaceholderTeamName } from "../teams/match_utils.js";
 import {
   obSavedBetIsMatchWinner,
   obLegacyWinBetName,
@@ -69,7 +69,10 @@ function buildBetRow(provider, sourceMatchId, clientMatchId, bet, sourceFromBet,
   const row = provider === "IM" ? normalizeImBet(bet) : bet;
   const map = row.Map ?? 0;
   const rowSeed = `${provider}:${sourceMatchId}:${map}`;
-  const betRowId = stableId(`bet:${rowSeed}`);
+  const betRowId =
+    Number(clientMatchId) > 0
+      ? stableBetId(clientMatchId, map)
+      : stableId(`bet:${rowSeed}`);
   const homeId = stableId(`home:${rowSeed}`);
   const awayId = stableId(`away:${rowSeed}`);
   const matchHome = matchTeams?.home || "";

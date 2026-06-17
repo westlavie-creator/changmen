@@ -98,7 +98,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
       }),
     );
     publishLoseOrderMessage.mockClear();
-    store.removeOrder(2, true);
+    store.removeOrder(1, 2, true);
     expect(publishLoseOrderMessage).not.toHaveBeenCalled();
   });
 });

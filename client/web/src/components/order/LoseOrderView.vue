@@ -10,14 +10,14 @@ const configStore = useConfigStore();
 const { orders } = storeToRefs(loseStore);
 const { config } = storeToRefs(configStore);
 
-function remove(betId: number) {
+function remove(order: { matchId: number; betId: number }) {
   ElMessageBox.confirm("确认要删除补单吗？", "补单删除", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
     type: "warning",
   })
     .then(() => {
-      loseStore.removeOrder(betId, true);
+      loseStore.removeOrder(order.matchId, order.betId, true);
     })
     .catch(() => {});
 }
@@ -27,7 +27,7 @@ function remove(betId: number) {
   <fieldset v-if="orders.size" class="loseorder-container">
     <legend>补单队列 ({{ orders.size }}笔)</legend>
     <div class="loseorders">
-      <div v-for="[betId, item] in orders" :key="betId" class="order">
+      <div v-for="[key, item] in orders" :key="key" class="order">
         <div class="match" v-html="item.match" />
         <div class="bet">
           <label v-html="item.bet" />
@@ -40,7 +40,7 @@ function remove(betId: number) {
           }}
           <span v-if="item.betCount > 1"> x {{ item.betCount }}</span>
         </div>
-        <div class="close am-icon-times" title="删除" @click="remove(betId)" />
+        <div class="close am-icon-times" title="删除" @click="remove(item)" />
       </div>
     </div>
   </fieldset>

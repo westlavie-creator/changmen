@@ -4,7 +4,9 @@ import {
   findReuseIdByMatchsSuperset,
   findLinkedClientIdFromMatchs,
   findReuseIdByPlatformOverlap,
+  assignMatchIds,
 } from "../ids/client_match_ids.js";
+import { stableBetId } from "../teams/match_utils.js";
 
 describe("client_match_ids", () => {
   it("detects when existing matchs are a subset of rebuilt matchs", () => {
@@ -46,5 +48,17 @@ describe("client_match_ids", () => {
     const existingRows = [{ id: 42, matchs: { OB: "ob1", RAY: "ray1" }, list_status: -1 }];
     const built = { OB: "ob1", RAY: "ray1" };
     expect(findReuseIdByPlatformOverlap(existingRows, built)).toBe(42);
+  });
+
+  it("assignMatchIds uses stableBetId per map", () => {
+    const row = {
+      ID: 0,
+      Bets: [{ Map: 0, Name: "full" }, { Map: 2, Name: "map2" }],
+    };
+    const out = assignMatchIds(row, 308);
+    expect(out.ID).toBe(308);
+    expect(out.Bets[0].ID).toBe(stableBetId(308, 0));
+    expect(out.Bets[1].ID).toBe(stableBetId(308, 2));
+    expect(out.Bets[0].MatchID).toBe(308);
   });
 });

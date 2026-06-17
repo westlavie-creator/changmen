@@ -22,7 +22,14 @@ function filterMultiPlatformClientMatches(list) {
   return (list || []).filter((m) => clientMatchPlatformCount(m) >= MIN_CLIENT_MATCH_PLATFORMS);
 }
 
-import { stableId, formatTitle, betKey, parseTitleTeams } from "../teams/match_utils.js";
+import {
+  stableBetId,
+  stablePendingBetId,
+  stableId,
+  formatTitle,
+  betKey,
+  parseTitleTeams,
+} from "../teams/match_utils.js";
 import { PROVIDER_PRIORITY, teamsFromPlatformRows } from "../teams/provider_priority.js";
 import {
   normalizeTeam,
@@ -187,7 +194,7 @@ function mergeGroupWithKey(group, mergeKey) {
     .sort(([a], [b]) => a - b)
     .map(([map, { canonBet, sources }]) => ({
       ...canonBet,
-      ID: stableId(`bet:pending:${mergeKey}:${map}`),
+      ID: stablePendingBetId(mergeKey, map),
       MatchID: 0,
       Sources: sources,
     }));
@@ -522,7 +529,7 @@ function mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet)
   const rowId = Number(row.ID) || 0;
   return {
     ...canonBet,
-    ID: stableId(`bet:${rowId}:0`),
+    ID: stableBetId(rowId, 0),
     MatchID: rowId,
     Map: 0,
     Sources: mergedSources,
@@ -577,10 +584,13 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
     let liveBet = (row.Bets || []).find((b) => (b.Map ?? 0) === liveMap);
     if (!liveBet) {
       const template = (row.Bets || []).find((b) => (b.Map ?? 0) > 0) || fullBet;
-      const rowKey = row.ID || row.MergeKey || row.Title || "row";
+      const clientId = Number(row.ID) || 0;
       liveBet = {
         ...template,
-        ID: stableId(`bet:${rowKey}:${liveMap}`),
+        ID:
+          clientId > 0
+            ? stableBetId(clientId, liveMap)
+            : stablePendingBetId(row.MergeKey || row.Title || "row", liveMap),
         Map: liveMap,
         MatchID: row.ID ?? template.MatchID ?? 0,
         Name: `[地图${liveMap}]-单局-获胜`,
@@ -740,7 +750,7 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
       row.ID = targetId;
       row.Bets = (row.Bets || []).map((b) => ({
         ...b,
-        ID: stableId(`bet:${targetId}:${b.Map ?? 0}`),
+        ID: stableBetId(targetId, b.Map ?? 0),
         MatchID: targetId,
       }));
       mergedList.push(row);
@@ -761,7 +771,7 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
       } else {
         const nb = {
           ...bet,
-          ID: stableId(`bet:${targetId}:${map}`),
+          ID: stableBetId(targetId, map),
           MatchID: targetId,
         };
         target.Bets = target.Bets || [];

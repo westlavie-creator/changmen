@@ -5,6 +5,7 @@
 import { useAccountStore } from "@/stores/accountStore";
 import { runArbBetRound } from "@/stores/betting/runArbBetRound";
 import { useBettingStore } from "@/stores/bettingStore";
+import { loseOrderKey } from "@/stores/loseOrderKey";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
@@ -38,7 +39,9 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
     oddsStore.clean();
     if (now - state.lastLoseOrderPruneAt >= LOSE_ORDER_PRUNE_MS) {
       loseStore.ensureOrdersMap();
-      loseStore.removeOrders(matchStore.matchs.flatMap((m) => m.bets.map((b) => b.id)));
+      loseStore.removeOrders(
+        matchStore.matchs.flatMap((m) => m.bets.map((b) => loseOrderKey(m.id, b.id))),
+      );
       state.lastLoseOrderPruneAt = now;
     }
   } else {

@@ -26,7 +26,7 @@ export async function prepareArbAttempt(
   const providerKeys = [...accountStore.getProviders().keys()] as PlatformId[];
   const accounts = accountStore.accounts;
 
-  if (loseStore.orders.has(bet.id)) {
+  if (loseStore.hasOrder(match.id, bet.id)) {
     return null;
   }
 

@@ -3,7 +3,7 @@ import { ViewBet, type ViewMatch } from "@/models/match";
 import type { BetRowDto } from "@/types/esport";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
-const loseOrderIds = vi.hoisted(() => new Set<number>());
+const loseOrderKeys = vi.hoisted(() => new Set<string>());
 
 let foOdds: Record<string, Record<string, number>> = {};
 
@@ -22,9 +22,8 @@ vi.mock("@/stores/matchStore", () => ({
 
 vi.mock("@/stores/loseOrderStore", () => ({
   useLoseOrderStore: () => ({
-    orders: {
-      has: (id: number) => loseOrderIds.has(id),
-    },
+    hasOrder: (matchId: number, betId: number) =>
+      loseOrderKeys.has(`${matchId}:${betId}`),
   }),
 }));
 
@@ -79,7 +78,7 @@ const arbSources: BetRowDto["Sources"] = {
 
 describe("prepareArbAttempt early return (A8 静默 continue)", () => {
   beforeEach(() => {
-    loseOrderIds.clear();
+    loseOrderKeys.clear();
     foOdds = {
       PB: { h1: 2.1, a1: 1.5 },
       RAY: { h2: 1.6, a2: 2.2 },
@@ -87,7 +86,7 @@ describe("prepareArbAttempt early return (A8 静默 continue)", () => {
   });
 
   it("returns null when bet is in lose order queue", async () => {
-    loseOrderIds.add(1);
+    loseOrderKeys.add("100:1");
     const bet = makeBet(arbSources);
     const config = { ...createDefaultUserConfig(), profit: 1.03, minOdds: 1.01 };
 
