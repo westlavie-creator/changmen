@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PlatformAccount } from "@/models/platformAccount";
+import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAccount";
 
 function makeAccount(patch: Record<string, unknown> = {}) {
   return new PlatformAccount({
@@ -41,6 +41,23 @@ describe("PlatformAccount currency exchange", () => {
   });
 });
 
+describe("normalizeAccountRateConfig", () => {
+  it("drops rate===0 rows like A8 save", () => {
+    expect(
+      normalizeAccountRateConfig([
+        { minOdds: 0, maxOdds: 0, rate: 0 },
+        { minOdds: 1.5, maxOdds: 2.5, rate: 0.5 },
+      ]),
+    ).toEqual([{ minOdds: 1.5, maxOdds: 2.5, rate: 0.5 }]);
+  });
+
+  it("drops NaN rate rows", () => {
+    expect(
+      normalizeAccountRateConfig([{ minOdds: 0, maxOdds: 0, rate: Number.NaN }]),
+    ).toEqual([]);
+  });
+});
+
 describe("PlatformAccount rateConfig", () => {
   it("applyPatch persists rateConfig through toJSON", () => {
     const acc = makeAccount();
@@ -49,6 +66,17 @@ describe("PlatformAccount rateConfig", () => {
     });
     expect(acc.toJSON().rateConfig).toEqual([{ minOdds: 1.5, maxOdds: 2.5, rate: 0.5 }]);
     expect(acc.getBetMoney(100, 2)).toBe(50);
+  });
+
+  it("applyPatch drops rate===0 rows", () => {
+    const acc = makeAccount();
+    acc.applyPatch({
+      rateConfig: [
+        { minOdds: 0, maxOdds: 0, rate: 0 },
+        { minOdds: 0, maxOdds: 0, rate: 9999 },
+      ],
+    });
+    expect(acc.toJSON().rateConfig).toEqual([{ minOdds: 0, maxOdds: 0, rate: 9999 }]);
   });
 
   it("比例 9999 按 A8 当作乘数", () => {

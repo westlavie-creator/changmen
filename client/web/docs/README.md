@@ -1,6 +1,6 @@
 # client/web 文档索引
 
-最后更新：2026-06-11
+最后更新：2026-06-16
 
 ## 项目共识
 
@@ -43,9 +43,10 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 
 | 文档 | 用途 |
 |------|------|
+| **[A8_PARITY_REGISTRY.md](./A8_PARITY_REGISTRY.md)** | **对齐总览**：配置/时序/投注/UI/平台/扩展/缺口 集中索引 |
 | [../MIGRATION.md](../MIGRATION.md) | 脱离 bundle 阶段表、模块映射 |
 | [A8_NEXT_STEPS.md](./A8_NEXT_STEPS.md) | 待办与验收命令 |
-| [A8_UI_PARITY_GAPS.md](./A8_UI_PARITY_GAPS.md) | UI/行为未对齐项 |
+| [A8_UI_PARITY_GAPS.md](./A8_UI_PARITY_GAPS.md) | UI/行为未对齐项（细节与 pixel diff） |
 | [A8_SCRIPT_PLUGIN_PLAN.md](./A8_SCRIPT_PLUGIN_PLAN.md) | **脚本+插件架构**、Mode P 启动、进度 |
 | [A8_REPLICATE_8_PLATFORMS.md](./A8_REPLICATE_8_PLATFORMS.md) | 8 平台采集/下注/回传开关语义 |
 | [A8_OB_REPLICATE_PLAN.md](./A8_OB_REPLICATE_PLAN.md) | **OB 复刻计划**（A8 前端基线 + changmen 推测/扩展标注） |

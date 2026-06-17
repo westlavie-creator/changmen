@@ -8,11 +8,30 @@ vi.mock("@changmen/db", () => ({
     ],
     total: 2,
   })),
+  ensurePgPoolReady: vi.fn(async () => {}),
+  getPgPool: vi.fn(() => ({
+    query: vi.fn(async (sql, params) => {
+      const q = String(sql);
+      if (q.includes("FROM users WHERE id = $1")) {
+        return { rows: [{ user_name: "alice" }] };
+      }
+      if (q.includes("lower(user_name) = lower($1) AND id <> $2")) {
+        return { rows: params[0] === "bob" ? [{ id: "other" }] : [] };
+      }
+      return { rows: [] };
+    }),
+  })),
+  updateUserName: vi.fn(async () => true),
+}));
+
+vi.mock("../db/store.js", () => ({
+  loadProfileById: vi.fn(async () => null),
 }));
 
 import {
   listAdminOrders,
   profileSettingForAdmin,
+  renameAdminUser,
   sanitizeAccountForAdmin,
   sanitizeSettingForAdmin,
 } from "./admin_service.js";
@@ -88,5 +107,20 @@ describe("lastLoginFieldsFromProfile", () => {
         preferences: { lastLoginIp: "203.0.113.1", lastLoginAt: 1700000000000 },
       }),
     ).toEqual({ lastLoginIp: "203.0.113.1", lastLoginAt: 1700000000000 });
+  });
+});
+
+describe("renameAdminUser", () => {
+  it("rejects empty user name", async () => {
+    await expect(renameAdminUser("u1", "  ")).rejects.toThrow("用户名必填");
+  });
+
+  it("rejects duplicate user name", async () => {
+    await expect(renameAdminUser("u1", "bob")).rejects.toThrow("用户名已存在");
+  });
+
+  it("renames user when name is available", async () => {
+    const result = await renameAdminUser("u1", "carol");
+    expect(result).toEqual({ id: "u1", userName: "carol" });
   });
 });

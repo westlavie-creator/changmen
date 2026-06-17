@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { ElLoading, ElMessage } from "element-plus";
-import { PlatformAccount } from "@/models/platformAccount";
+import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAccount";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import type { PlatformId } from "@/types/esport";
@@ -294,13 +294,7 @@ async function applyPaste() {
 }
 
 function normalizeRateConfig() {
-  return form.rateConfig
-    .map((r) => ({
-      minOdds: Number(r.minOdds) || 0,
-      maxOdds: Number(r.maxOdds) || 0,
-      rate: Number(r.rate),
-    }))
-    .filter((r) => !Number.isNaN(r.rate));
+  return normalizeAccountRateConfig(form.rateConfig);
 }
 
 function buildPatch() {

@@ -66,3 +66,9 @@ export async function resetAdminUserPassword(userId: string, password: string) {
     await post<AdminUserMutationResult>("Client_AdminResetPassword", { userId, password }),
   );
 }
+
+export async function renameAdminUser(userId: string, userName: string) {
+  return unwrap(
+    await post<AdminUserMutationResult>("Client_AdminRenameUser", { userId, userName }),
+  );
+}

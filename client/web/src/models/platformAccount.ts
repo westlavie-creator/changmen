@@ -7,6 +7,20 @@ import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 const DEFAULT_GAMES = ["英雄联盟", "DOTA2", "CS:GO", "王者荣耀", "无畏契约"];
 
+export type AccountRateRow = { minOdds: number; maxOdds: number; rate: number };
+
+/** [A8 可证实] 保存账号：`rateConfig.filter(C => C.rate !== 0)` */
+export function normalizeAccountRateConfig(rows: AccountRateRow[] | undefined): AccountRateRow[] {
+  if (!rows?.length) return [];
+  return rows
+    .map((r) => ({
+      minOdds: Number(r.minOdds) || 0,
+      maxOdds: Number(r.maxOdds) || 0,
+      rate: Number(r.rate),
+    }))
+    .filter((r) => !Number.isNaN(r.rate) && r.rate !== 0);
+}
+
 /** 对齐 A8 bundle `uv`（单平台投注账号） */
 export class PlatformAccount implements AccountRecord {
   accountId: number;
@@ -194,11 +208,7 @@ export class PlatformAccount implements AccountRecord {
     const { balance, rateConfig, game, workTimes, ...rest } = patch;
     Object.assign(this, rest);
     if (rateConfig !== undefined) {
-      this.rateConfig = rateConfig.map((r) => ({
-        minOdds: Number(r.minOdds) || 0,
-        maxOdds: Number(r.maxOdds) || 0,
-        rate: Number(r.rate),
-      }));
+      this.rateConfig = normalizeAccountRateConfig(rateConfig);
     }
     if (game !== undefined) {
       this.game = JSON.parse(JSON.stringify(game));

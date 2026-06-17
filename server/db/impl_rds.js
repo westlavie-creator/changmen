@@ -1554,6 +1554,48 @@ function writeUserMetadata(userId, metadata) {
     .catch((err) => console.warn("[rds] writeUserMetadata:", err.message));
 }
 
+/** 更新登录用户名（users + profiles 同步） */
+async function updateUserName(userId, userName) {
+  const pool = getPgPool();
+  if (!pool) return false;
+  const id = String(userId);
+  const name = String(userName);
+  const now = Date.now();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const u = await client.query(
+      "UPDATE users SET user_name = $2, updated_at = $3 WHERE id = $1",
+      [id, name, now],
+    );
+    if (!u.rowCount) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    const p = await client.query(
+      "UPDATE profiles SET user_name = $2, updated_at = $3 WHERE id = $1",
+      [id, name, now],
+    );
+    if (!p.rowCount) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    await client.query("COMMIT");
+    return true;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (err.code === "23505") {
+      const dup = new Error("用户名已存在");
+      dup.code = "DUPLICATE_USER_NAME";
+      throw dup;
+    }
+    console.warn("[rds] updateUserName:", err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 /** 更新用户管理员标志 */
 async function updateUserIsAdmin(userId, isAdmin) {
   const pool = getPgPool();
@@ -1592,6 +1634,7 @@ export {
   fetchProfileById,
   writeProfile,
   insertProfile,
+  updateUserName,
   updateUserIsAdmin,
   writeAccounts,
   writeClientMatches,

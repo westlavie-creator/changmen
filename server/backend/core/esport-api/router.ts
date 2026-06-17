@@ -65,6 +65,7 @@ const ADMIN_ACTIONS = new Set<EsportAction>([
   "Client_AdminOrdersMatrix",
   "Client_AdminCreateUser",
   "Client_AdminResetPassword",
+  "Client_AdminRenameUser",
   "Client_AdminSetUserAdmin",
 ]);
 
@@ -468,6 +469,18 @@ async function handle(
           await adminService.resetAdminUserPassword(
             (body.userId ?? body.id) as string,
             body.password as string,
+          ),
+        );
+      } catch (err) {
+        return fail((err as Error).message || "??????");
+      }
+    }
+    case "Client_AdminRenameUser": {
+      try {
+        return ok(
+          await adminService.renameAdminUser(
+            (body.userId ?? body.id) as string,
+            (body.userName ?? body.username) as string,
           ),
         );
       } catch (err) {

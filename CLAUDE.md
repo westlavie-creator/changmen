@@ -226,6 +226,7 @@ All A8 parity tracking lives under `client/web/docs/`:
 | File | Purpose |
 |------|---------|
 | `A8_OB_REPLICATE_PLAN.md` | OB-specific parity plan with `[A8 可证实]` / `[changmen 推测]` / `[changmen 扩展]` labels |
+| `A8_PARITY_REGISTRY.md` | **对齐总览**（配置/时序/投注/UI/平台/扩展/缺口） |
 | `A8_UI_PARITY_GAPS.md` | UI diff checklist |
 | `A8_WALKTHROUGH_CHECKLIST.md` | Manual side-by-side walkthrough checklist |
 | `A8_SCRIPT_PLUGIN_PLAN.md` | Script + plugin architecture, Mode P startup, progress |

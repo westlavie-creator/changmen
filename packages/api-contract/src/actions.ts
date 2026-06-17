@@ -39,6 +39,7 @@ export const ESPORT_ACTIONS = [
   "Client_AdminOrdersMatrix",
   "Client_AdminCreateUser",
   "Client_AdminResetPassword",
+  "Client_AdminRenameUser",
   "Client_AdminSetUserAdmin",
   "Client_GetDefaultOdds",
   "Client_GetMatchDefaultOdds",

@@ -420,6 +420,42 @@ export async function createAdminUser(userName, password) {
   return { id: userId, userName: name };
 }
 
+/** 管理端更改登录用户名 */
+export async function renameAdminUser(userId, userName) {
+  const id = String(userId || "").trim();
+  if (!id) throw new Error("用户 ID 无效");
+  const name = validateUserName(userName);
+
+  await ensurePgPoolReady();
+  const pool = getPgPool();
+  if (!pool) throw new Error("RDS 未配置");
+
+  const { rows } = await pool.query(
+    "SELECT user_name FROM users WHERE id = $1",
+    [id],
+  );
+  if (!rows[0]) throw new Error("用户不存在");
+  const current = String(rows[0].user_name || "");
+  if (current.toLowerCase() === name.toLowerCase()) {
+    if (current === name) return { id, userName: name };
+    const ok = await sb.updateUserName(id, name);
+    if (!ok) throw new Error("更新用户名失败");
+    await loadProfileById(id);
+    return { id, userName: name };
+  }
+
+  const existing = await pool.query(
+    "SELECT id FROM users WHERE lower(user_name) = lower($1) AND id <> $2",
+    [name, id],
+  );
+  if (existing.rows.length) throw new Error("用户名已存在");
+
+  const ok = await sb.updateUserName(id, name);
+  if (!ok) throw new Error("更新用户名失败");
+  await loadProfileById(id);
+  return { id, userName: name };
+}
+
 /** 管理端重置用户登录密码 */
 export async function resetAdminUserPassword(userId, password) {
   const id = String(userId || "").trim();

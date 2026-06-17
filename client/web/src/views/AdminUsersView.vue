@@ -7,6 +7,7 @@ import AdminUserDetail from "@/components/admin/AdminUserDetail.vue";
 import {
   createAdminUser,
   getAdminUsers,
+  renameAdminUser,
   resetAdminUserPassword,
 } from "@/api/admin";
 import type { AdminUserRow } from "@/types/admin";
@@ -30,6 +31,11 @@ const resetDialog = ref(false);
 const resetTarget = ref<AdminUserRow | null>(null);
 const resetForm = reactive({ password: "", confirm: "" });
 const resetLoading = ref(false);
+
+const renameDialog = ref(false);
+const renameTarget = ref<AdminUserRow | null>(null);
+const renameForm = reactive({ userName: "" });
+const renameLoading = ref(false);
 
 const filteredUsers = computed(() => {
   const q = keyword.value.trim().toLowerCase();
@@ -131,6 +137,12 @@ function openReset(row: AdminUserRow) {
   resetDialog.value = true;
 }
 
+function openRename(row: AdminUserRow) {
+  renameTarget.value = row;
+  renameForm.userName = row.userName;
+  renameDialog.value = true;
+}
+
 async function submitCreate() {
   const name = createForm.userName.trim();
   if (!name) {
@@ -177,6 +189,33 @@ async function submitReset() {
     ElMessage.error(err instanceof Error ? err.message : "重置失败");
   } finally {
     resetLoading.value = false;
+  }
+}
+
+async function submitRename() {
+  if (!renameTarget.value) return;
+  const name = renameForm.userName.trim();
+  if (!name) {
+    ElMessage.warning("请输入用户名");
+    return;
+  }
+  if (name === renameTarget.value.userName) {
+    renameDialog.value = false;
+    return;
+  }
+  renameLoading.value = true;
+  try {
+    await renameAdminUser(renameTarget.value.id, name);
+    ElMessage.success(`用户名已更改为 ${name}`);
+    renameDialog.value = false;
+    if (detailUser.value?.id === renameTarget.value.id) {
+      detailUser.value = { ...detailUser.value, userName: name };
+    }
+    await loadUsers();
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "更改失败");
+  } finally {
+    renameLoading.value = false;
   }
 }
 
@@ -299,10 +338,11 @@ onUnmounted(() => {
         <el-table-column label="注册时间" min-width="150">
           <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
             <el-button link type="primary" size="small" @click="viewOrders(row)">订单</el-button>
+            <el-button link type="primary" size="small" @click="openRename(row)">改用户名</el-button>
             <el-button link type="warning" size="small" @click="openReset(row)">重置密码</el-button>
           </template>
         </el-table-column>
@@ -363,6 +403,24 @@ onUnmounted(() => {
       <template #footer>
         <el-button @click="resetDialog = false">取消</el-button>
         <el-button type="primary" :loading="resetLoading" @click="submitReset">确认重置</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="renameDialog"
+      class="admin-dialog"
+      :title="renameTarget ? `更改用户名 · ${renameTarget.userName}` : '更改用户名'"
+      width="400px"
+      destroy-on-close
+    >
+      <el-form label-width="80px" @submit.prevent="submitRename">
+        <el-form-item label="新用户名" required>
+          <el-input v-model="renameForm.userName" autocomplete="off" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="renameDialog = false">取消</el-button>
+        <el-button type="primary" :loading="renameLoading" @click="submitRename">确认更改</el-button>
       </template>
     </el-dialog>
   </AdminLayout>
