@@ -126,6 +126,26 @@ export function allowArbBetExecution(betBothLegs: boolean, rate9999SingleLeg: bo
   return betBothLegs || rate9999SingleLeg;
 }
 
+/** 执行被 allowArbBetExecution 拒绝时的可读原因 */
+export function explainAllowArbRejection(params: {
+  betBothLegs: boolean;
+  rate9999SingleLeg: boolean;
+  accountA?: PlatformAccount;
+  accountB?: PlatformAccount;
+  legA: BetOption;
+  legB: BetOption;
+}): string {
+  const { betBothLegs, rate9999SingleLeg, accountA, accountB, legA, legB } = params;
+  if (betBothLegs || rate9999SingleLeg) return "不满足下单条件";
+  if (accountA && !accountB) {
+    return `仅 ${legA.type} 有可用账号，缺 ${legB.type}，且该侧非比例9999单边`;
+  }
+  if (accountB && !accountA) {
+    return `仅 ${legB.type} 有可用账号，缺 ${legA.type}，且该侧非比例9999单边`;
+  }
+  return "双腿均无可用账号";
+}
+
 /** 仅比例 9999 单边用负数 link（展示 gb{时间戳}）；双腿对齐 A8 `Date.now()` */
 export function createArbLinkId(rate9999SingleLeg = false): number {
   const ts = Date.now();

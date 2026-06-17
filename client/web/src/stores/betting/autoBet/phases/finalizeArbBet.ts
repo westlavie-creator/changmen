@@ -87,6 +87,26 @@ export async function finalizeArbBet(
       { account: accountA, result: resultA, options: legA, reject: rejectA },
       { account: accountB, result: resultB, options: legB, reject: rejectB },
     );
+  } else if (!strictA8 && !betBothLegs && (resultA?.success || resultB?.success)) {
+    const leg =
+      resultA?.success && accountA
+        ? {
+            account: accountA,
+            result: resultA,
+            options: legA,
+            reject: rejectA,
+          }
+        : resultB?.success && accountB
+          ? {
+              account: accountB,
+              result: resultB,
+              options: legB,
+              reject: rejectB,
+            }
+          : null;
+    if (leg) {
+      useMessageStore().singleLegBettingMessage(leg);
+    }
   }
 
   if (

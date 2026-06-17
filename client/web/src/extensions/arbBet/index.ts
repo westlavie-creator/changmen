@@ -30,6 +30,7 @@ export {
   allowArbBetExecution,
   arbAccountPickerFilter,
   createArbLinkId,
+  explainAllowArbRejection,
   explainArbAccountRejection,
   isLegSkippedByRate9999,
   isRateSkipAtOdds,

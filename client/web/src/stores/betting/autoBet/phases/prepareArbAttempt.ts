@@ -135,7 +135,18 @@ export async function prepareArbAttempt(
       implied,
     });
     if (!allowArbBetExecution(betBothLegs, rate9999SingleLeg)) {
-      trace.finish("skip", "不满足下单条件");
+      const { explainAllowArbRejection } = await import("@/extensions/arbBet/rate9999");
+      trace.finish(
+        "skip",
+        explainAllowArbRejection({
+          betBothLegs,
+          rate9999SingleLeg,
+          accountA,
+          accountB,
+          legA,
+          legB,
+        }),
+      );
       return null;
     }
     linkId = createArbLinkId(rate9999SingleLeg);

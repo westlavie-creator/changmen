@@ -2,6 +2,11 @@ import { defineStore } from "pinia";
 import { sendMessage } from "@/api/esport";
 import type { ArbFlowPayload } from "@/extensions/arbBet/betTrace";
 import { formatArbFlowTelegramBody } from "@/extensions/arbBet/betTrace";
+import {
+  clearOpportunityPending,
+  clearOpportunityPendingFromTraceId,
+} from "@/extensions/arbBet/arbOpportunityLink";
+import type { ArbOpportunityNotifyMeta } from "@/extensions/arbBet/telegramMessage";
 import type { ArbLegs } from "@/domain/arbitrage/pickArbLegs";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { ArbOrderEligibility } from "@/extensions/arbBet/eligibility";
@@ -182,20 +187,22 @@ export const useMessageStore = defineStore("message", {
 
     /**
      * [changmen 扩展] 套利机会雷达（原 telegramMessage）；严格 A8 模式不发送。
+     * @returns 是否实际入队（去重通过）
      */
     arbOpportunityMessage(
       match: ViewMatch,
       bet: ViewBet,
       legs: ArbLegs,
       eligibility: ArbOrderEligibility,
-    ) {
-      if (isA8StrictMode()) return;
+      meta: ArbOpportunityNotifyMeta,
+    ): boolean {
+      if (isA8StrictMode()) return false;
       const user = useUserStore();
-      if (!user.message?.telegramId?.trim()) return;
+      if (!user.message?.telegramId?.trim()) return false;
 
       const idx = NOTIFY_TYPES.indexOf("OrderNotify");
       const key = `${match.id}:${bet.id}:${legs.homeItem.type}:${legs.awayItem.type}`;
-      if (!this.shouldNotify(idx, key, 600)) return;
+      if (!this.shouldNotify(idx, key, 600)) return false;
 
       const value = assessValueBet(bet.id, legs);
       const statusLine = eligibility.canOrder
@@ -204,18 +211,51 @@ export const useMessageStore = defineStore("message", {
       const reasonLines = eligibility.canOrder
         ? eligibility.reasons.map((r) => `⚠️ ${r}`)
         : eligibility.reasons.map((r) => `• ${r}`);
+      const autoPlatforms =
+        meta.autoProviderKeys.length > 0
+          ? meta.autoProviderKeys.join(", ")
+          : "（无有余额账号平台）";
+      const autoLegLine = meta.autoLegs
+        ? `执行腿赔率：${meta.autoLegs.homeItem.type} @ ${meta.autoLegs.homeOdds} | ${meta.autoLegs.awayItem.type} @ ${meta.autoLegs.awayOdds}`
+        : "执行腿：auto 平台当前无套利";
       const body = [
         htmlTitle("套利机会"),
         match.title,
         bet.getBetName(),
         statusLine,
         ...reasonLines,
+        `<i>展示腿（全盘口）：${legs.homeItem.type} @ ${legs.homeOdds} / ${legs.awayItem.type} @ ${legs.awayOdds}</i>`,
+        `<i>执行平台（有余额账号）：${autoPlatforms}</i>`,
+        `<i>${autoLegLine}</i>`,
         "<blockquote>",
         `${legs.homeItem.type} 主胜 @ ${legs.homeOdds}`,
         `${legs.awayItem.type} 客胜 @ ${legs.awayOdds}`,
         `对冲 ${percent(legs.implied)} / 利润 ${arbProfitRate(legs.implied)}`,
         formatValueBetTelegramLine(value),
         "</blockquote>",
+      ].join("\n");
+      this.enqueueTelegram(body);
+      return true;
+    },
+
+    /**
+     * [changmen 扩展] 可自动下单机会发出后，同轮执行无其它推送时的续报。
+     */
+    arbExecutionFollowUpMessage(match: ViewMatch, bet: ViewBet, summary: string) {
+      if (isA8StrictMode()) return;
+      const user = useUserStore();
+      if (!user.message?.telegramId?.trim()) return;
+
+      clearOpportunityPending(match.id, bet.id);
+
+      const idx = NOTIFY_TYPES.indexOf("ArbFlow");
+      const key = `${match.id}:${bet.id}:followup:${summary}`;
+      if (!this.shouldNotify(idx, key, 120)) return;
+
+      const body = [
+        htmlTitle("套利执行续报"),
+        `${match.title} / ${bet.getBetName()}`,
+        `<i>${summary}</i>`,
       ].join("\n");
       this.enqueueTelegram(body);
     },
@@ -228,6 +268,8 @@ export const useMessageStore = defineStore("message", {
       if (isA8StrictMode()) return;
       const user = useUserStore();
       if (!user.message?.telegramId?.trim()) return;
+
+      clearOpportunityPendingFromTraceId(payload.id);
 
       const idx = NOTIFY_TYPES.indexOf("ArbFlow");
       const cooldown =
@@ -288,6 +330,12 @@ export const useMessageStore = defineStore("message", {
     },
 
     bettingMessage(legA: BettingMessageLeg, legB: BettingMessageLeg) {
+      const matchId = legA.options.match?.id ?? legB.options.match?.id;
+      const betId = legA.options.bet?.id ?? legB.options.bet?.id;
+      if (matchId != null && betId != null) {
+        clearOpportunityPending(matchId, betId);
+      }
+
       const formatLeg = (leg: BettingMessageLeg) => {
         const lines = [
           accountLine(leg.account),
@@ -337,6 +385,39 @@ export const useMessageStore = defineStore("message", {
           ].join("\n"),
         );
       }
+    },
+
+    /** [changmen 扩展] 比例9999 等单边成功时的简化下单提醒（A8 仅双腿推 📣） */
+    singleLegBettingMessage(leg: BettingMessageLeg) {
+      const matchId = leg.options.match?.id;
+      const betId = leg.options.bet?.id;
+      if (matchId != null && betId != null) {
+        clearOpportunityPending(matchId, betId);
+      }
+
+      const legStatus = orderLegStatusEmoji(leg.result.success, leg.reject);
+      const matchTitle = leg.options.match?.title ?? "";
+      const betName = leg.options.bet?.getBetName?.() ?? "";
+      const lines = [
+        accountLine(leg.account),
+        "<blockquote>",
+        `投注队伍：${leg.options.target}`,
+        `投注金额：${leg.options.betMoney}@${leg.options.odds}`,
+        `投注结果：${leg.result.success ? "✅ 成功" : "❌ 失败"}`,
+      ];
+      if (leg.result.success) {
+        lines.push(`是否拒单：${leg.reject ? "🔴是" : "否"}`);
+      }
+      lines.push(`备注信息：${leg.result.message ?? "N/A"}</blockquote>`);
+
+      this.enqueueTelegram(
+        [
+          orderHtmlTitle("下单提醒", legStatus),
+          `${matchTitle} / ${betName}`,
+          "",
+          lines.join("\n"),
+        ].join("\n"),
+      );
     },
 
     loseOrderMessage(

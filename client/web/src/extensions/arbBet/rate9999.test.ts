@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
-import { createArbLinkId, arbAccountPickerFilter, isLegSkippedByRate9999 } from "@/extensions/arbBet";
+import { createArbLinkId, arbAccountPickerFilter, explainAllowArbRejection, isLegSkippedByRate9999 } from "@/extensions/arbBet";
 
 vi.mock("@/shared/a8Strict", () => ({
   isA8StrictMode: vi.fn(() => false),
@@ -86,5 +86,24 @@ describe("arbAccountPickerFilter", () => {
     });
     acc.balance = 1000;
     expect(arbAccountPickerFilter(acc, bet, match, leg, matchStore)).toBe(false);
+  });
+});
+
+describe("explainAllowArbRejection", () => {
+  const legA = makeLeg("PB");
+  const legB = makeLeg("RAY");
+
+  it("explains single-account without rate9999", () => {
+    const acc = makeAccount({ provider: "PB" });
+    expect(
+      explainAllowArbRejection({
+        betBothLegs: false,
+        rate9999SingleLeg: false,
+        accountA: acc,
+        accountB: undefined,
+        legA,
+        legB,
+      }),
+    ).toContain("仅 PB 有可用账号");
   });
 });

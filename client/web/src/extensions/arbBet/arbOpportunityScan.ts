@@ -1,7 +1,7 @@
 import { pickArbLegs } from "@/domain/arbitrage/pickArbLegs";
 import { providerKeysFromBetItems, resolveArbProviderKeys } from "@/domain/betting";
 import { evaluateArbOrderEligibility } from "@/extensions/arbBet/eligibility";
-import { sendArbOpportunityTelegram } from "@/extensions/arbBet/telegramMessage";
+import { sendArbOpportunityTelegram, type ArbOpportunityNotifyResult } from "@/extensions/arbBet/telegramMessage";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import { isA8StrictMode } from "@/shared/a8Strict";
 import { getProviders } from "@/stores/account/accountPicker";
@@ -37,7 +37,10 @@ export function shouldRunOpportunityScan(
 }
 
 /** 单盘口：display 腿扫描 + 可下单评估 + Telegram（调用方保证本轮已开启机会扫描） */
-export function notifyArbOpportunityForBet(match: ViewMatch, bet: ViewBet): void {
+export function notifyArbOpportunityForBet(
+  match: ViewMatch,
+  bet: ViewBet,
+): ArbOpportunityNotifyResult | null {
   const configStore = useConfigStore();
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
@@ -52,11 +55,18 @@ export function notifyArbOpportunityForBet(match: ViewMatch, bet: ViewBet): void
     accountStore.accounts,
     match.game,
   );
-  if (!legs) return;
+  if (!legs) return null;
 
   const autoProviderKeys = resolveArbProviderKeys("auto", {
     accountProviderKeys: getProviders(accountStore).keys(),
   });
+  const autoLegs = pickArbLegs(
+    bet,
+    config,
+    autoProviderKeys,
+    accountStore.accounts,
+    match.game,
+  );
 
   const eligibility = evaluateArbOrderEligibility({
     match,
@@ -69,7 +79,10 @@ export function notifyArbOpportunityForBet(match: ViewMatch, bet: ViewBet): void
     getBetTarget: (provider, betId) => matchStore.getBetTarget(provider, betId),
   });
 
-  sendArbOpportunityTelegram(match, bet, legs, eligibility);
+  return sendArbOpportunityTelegram(match, bet, legs, eligibility, {
+    autoProviderKeys,
+    autoLegs: autoLegs ?? null,
+  });
 }
 
 /** @internal 测试重置节流时钟 */
