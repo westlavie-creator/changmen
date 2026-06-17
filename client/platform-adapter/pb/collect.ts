@@ -60,6 +60,10 @@ export function startPbCollector(): () => void {
           account,
           pbOddsUrl(account.gateway!, true),
         );
+        if (!data) {
+          await wait(POLL_MS);
+          continue;
+        }
         const { matches } = parseEuroOddsPayload(data, { allowedSlugs });
         matchCount = matches.length;
 
