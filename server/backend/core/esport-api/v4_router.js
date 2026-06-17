@@ -1,13 +1,10 @@
-import store from "./store.js";
+import { loginV4, playLoginV4 } from "../integrations/a8/v4_client.js";
+import { A8_GAME_ID_PB, A8_USER, A8_V4_PASSWORD } from "../integrations/a8/constants.js";
 
-/** v4.0 接口 — 本地处理，不再代理到 api.a8.to */
+/** v4.0 接口 — 转发 A8 api.a8.to（login/play）；body 可省略，默认 a8_constants 账号 */
 
 function fail(msg, info = null) {
   return { success: 0, msg, info };
-}
-
-function ok(info = null) {
-  return { success: 1, msg: "ok", info };
 }
 
 function sendJson(res, status, body) {
@@ -68,34 +65,34 @@ export async function handleV4Request(req, res, urlPath) {
 
   const body = parseFormBody(rawBody);
 
-  // ── 用户登录：走本地 store ────────────────────────────────────────────────
   if (sub === "user/account/login") {
-    const userName = String(body.userName || body.username || "").trim();
-    const password = body.password || "";
-    if (!userName || !password) {
-      sendJson(res, 200, fail("用户名或密码不能为空"));
+    const userName = String(body.userName || body.username || A8_USER).trim();
+    const password = body.password || A8_V4_PASSWORD;
+    try {
+      const data = await loginV4(userName, password);
+      sendJson(res, 200, data ?? fail("登录无响应"));
+    } catch (err) {
+      sendJson(res, 200, fail(err.message || "v4 登录失败"));
+    }
+    return true;
+  }
+
+  if (sub === "game/play/Login") {
+    const token = String(req.headers.token || req.headers.Token || "").trim();
+    const gameId = body.gameId ?? body.game_id ?? A8_GAME_ID_PB;
+    if (!token) {
+      sendJson(res, 200, fail("缺少 token"));
       return true;
     }
-    const user = store.getUserByName(userName);
-    if (user?.salt) {
-      const hash = store.hashPassword(password, user.salt);
-      if (hash === user.passwordHash) {
-        const sessionToken = store.createSession(user.id, { v4Token: null, a8UserName: userName });
-        sendJson(res, 200, ok({ token: sessionToken, userName: user.userName }));
-        return true;
-      }
+    try {
+      const data = await playLoginV4(gameId, token);
+      sendJson(res, 200, data ?? fail("game/play 无响应"));
+    } catch (err) {
+      sendJson(res, 200, fail(err.message || "game/play 请求失败"));
     }
-    sendJson(res, 200, fail("用户名或密码错误"));
     return true;
   }
 
-  // ── 游戏入口（credit plate PB 等）：需要 A8 v4，本地无法提供 ──────────────
-  if (sub === "game/play/Login") {
-    sendJson(res, 200, fail("游戏入口需配置 A8_V4_URL，当前未接入"));
-    return true;
-  }
-
-  // ── 其他 v4 路径：返回空占位 ─────────────────────────────────────────────
-  sendJson(res, 200, ok(null));
+  sendJson(res, 200, { success: 1, msg: "ok", info: null });
   return true;
 }

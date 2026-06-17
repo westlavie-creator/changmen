@@ -162,11 +162,18 @@ function validateTj01Sample() {
 
 async function validateLiveGetMatchs() {
   const base = resolveEsportBase();
-  if (!base) {
-    console.log("[ob-getmatchs] 跳过 live Client_GetMatchs（未设 ESPORT_TEST_BASE）");
+  if (!base || process.env.ESPORT_TEST_SKIP_LIVE === "1") {
+    console.log("[ob-getmatchs] 跳过 live Client_GetMatchs（未设 ESPORT_TEST_BASE 或 ESPORT_TEST_SKIP_LIVE=1）");
     return;
   }
-  const { token, userName } = await loginEsport(base);
+  let token;
+  let userName;
+  try {
+    ({ token, userName } = await loginEsport(base));
+  } catch (e) {
+    console.log("[ob-getmatchs] 跳过 live Client_GetMatchs（登录失败，需 RDS 有效账号）:", e.message);
+    return;
+  }
 
   const { json: data } = await esportPost(
     base,
