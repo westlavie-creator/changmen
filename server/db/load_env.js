@@ -4,14 +4,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-const { findChangmenRoot } = require("./changmen_root.cjs");
-
-const changmenRoot = findChangmenRoot(path.dirname(fileURLToPath(import.meta.url)));
+import { CHANGMEN_ROOT_FROM_DB_PKG } from "./changmen_root.js";
 
 function hasDatabaseUrl() {
   return !!(
@@ -25,7 +19,7 @@ function hasDatabaseUrl() {
 export function loadChangmenEnv(options = {}) {
   const rels = [...(options.prepend ?? []), "server/backend/.env"];
   for (const rel of rels) {
-    const envPath = path.join(changmenRoot, rel);
+    const envPath = path.join(CHANGMEN_ROOT_FROM_DB_PKG, rel);
     if (!fs.existsSync(envPath)) continue;
     dotenv.config({ path: envPath });
     if (hasDatabaseUrl()) break;

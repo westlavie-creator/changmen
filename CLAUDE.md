@@ -58,10 +58,13 @@ npm run app:build         # vue-tsc + vite build → client/web/dist/
 
 ```bat
 npm run check:boundaries   # 客户端/服务端 import 边界
-npm test                    # 后端 vitest + adapter 冒烟 + 前端 vitest（含 @platform）
+npm test                    # 后端 vitest + adapter 冒烟 + 前端 typecheck + vitest
 npm run test:backend
-npm run test:frontend
+npm run typecheck:frontend  # vue-tsc -b（与 app:build 同一道闸，deploy 前可先跑）
+npm run test:frontend       # typecheck:frontend && vitest
 ```
+
+`vitest` 不做完整 TS 检查；**只有 `typecheck:frontend` / `app:build` 会跑 `vue-tsc -b`**。改完前端代码后至少跑其一，否则 deploy 才报错。`BAT\push-git.bat` 在 commit 前会自动跑 `typecheck:frontend`。
 
 Frontend-only（在 `client/web/`）：
 

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "typecheck": "vue-tsc -b",
     "typecheck:node": "vue-tsc --noEmit -p tsconfig.node.json",
     "predev": "node scripts/extract-a8-css.mjs && node scripts/sync-copy-preview-styles.mjs && node scripts/extract-a8-to-modules.mjs && node scripts/verify-copy-module-stack.mjs && npm run typecheck:node",
     "dev": "vite",

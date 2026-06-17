@@ -3,13 +3,7 @@
  * 平博信用盘 v4 两步 E2E（经本地 backend /v4.0/ 代理）
  * 用法：先启动 backend（Win 3560 / 其它 3456），再 node scripts/test-v4-credit-plate.mjs
  */
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-const { A8_USER, A8_V4_PASSWORD } = require("../../../server/backend/core/integrations/a8/constants.js");
+import { A8_USER, A8_V4_PASSWORD } from "@changmen/shared/integrations/a8_dev_credentials.mjs";
 
 const BASE = process.env.V4_TEST_BASE || "http://127.0.0.1:3560/v4.0/";
 const FORWARD_SITE = "game.haijings.vip";

@@ -1,10 +1,9 @@
-"use strict";
-
-const fs = require("node:fs");
-const path = require("node:path");
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** 从任意 changmen 子目录向上查找 monorepo 根（含 server/backend）。 */
-function findChangmenRoot(fromDir) {
+export function findChangmenRoot(fromDir) {
   let cur = fromDir;
   for (let i = 0; i < 12; i++) {
     const backendPkg = path.join(cur, "server/backend/package.json");
@@ -23,4 +22,7 @@ function findChangmenRoot(fromDir) {
   return path.resolve(fromDir, "..", "..");
 }
 
-module.exports = { findChangmenRoot };
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** @changmen/db 包目录向上即 changmen 根（paths / load_env 用）。 */
+export const CHANGMEN_ROOT_FROM_DB_PKG = findChangmenRoot(__dirname);

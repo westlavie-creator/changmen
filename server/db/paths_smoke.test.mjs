@@ -1,9 +1,6 @@
-import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
-
-const require = createRequire(import.meta.url);
-const { CHANGMEN_ROOT, BACKEND_ROOT, ESPORT_DATA_DIR } = require("./paths.cjs");
+import { CHANGMEN_ROOT, BACKEND_ROOT, ESPORT_DATA_DIR } from "./paths.js";
 
 const backendPkg = path.join(BACKEND_ROOT, "package.json");
 if (!fs.existsSync(backendPkg)) {

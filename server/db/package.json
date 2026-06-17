@@ -8,9 +8,8 @@
   "exports": {
     ".": "./index.js",
     "./load_env.js": "./load_env.js",
-    "./load_env.cjs": "./load_env.cjs",
     "./paths.js": "./paths.js",
-    "./paths.cjs": "./paths.cjs",
+    "./changmen_root.js": "./changmen_root.js",
     "./platform_storage.js": "./platform_storage.js",
     "./json_file_store.js": "./json_file_store.js",
     "./ensure_storage_seed.js": "./ensure_storage_seed.js",

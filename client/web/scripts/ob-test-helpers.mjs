@@ -2,13 +2,7 @@
 /**
  * OB 联调脚本共用：登录 /esport、读取 a8_constants 默认账号
  */
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-const { A8_USER, A8_PASSWORD } = require("../../../server/backend/core/integrations/a8/constants.js");
+import { A8_USER, A8_PASSWORD } from "@changmen/shared/integrations/a8_dev_credentials.mjs";
 
 export function assert(cond, msg) {
   if (!cond) throw new Error(msg);
