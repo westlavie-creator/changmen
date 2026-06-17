@@ -15,6 +15,12 @@ vi.mock("@/stores/messageStore", () => ({
   }),
 }));
 
+vi.mock("@/stores/oddsStore", () => ({
+  useOddsStore: () => ({
+    save: vi.fn(),
+  }),
+}));
+
 function makeOption(odds: number): BetOption {
   return {
     matchId: "m1",

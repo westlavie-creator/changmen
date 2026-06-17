@@ -61,11 +61,7 @@ type ObBalanceResponse = {
 };
 
 async function obMemberHeartbeat(account: PlatformAccount) {
-  try {
-    await accountGet(account, "/game/member/heartbeat");
-  } catch {
-    /* optional */
-  }
+  await accountGet(account, "/game/member/heartbeat");
 }
 
 /** 对齐 A8 `R7`：每账号成功一次 odd/updateType */
@@ -111,7 +107,7 @@ function mapObBetStatus(raw: unknown): { status: VenueOrderStatus; money: number
   return { status, money };
 }
 
-function mapObOrderRow(row: Record<string, unknown>): VenueOrder {
+function mapObOrderRow(row: Record<string, unknown>, provider: PlatformAccount["provider"]): VenueOrder {
   const teams = String(row.team_cn_names ?? "")
     .split(",")
     .map((t) => t.replace(/&nbsp;/g, " "));
@@ -132,7 +128,7 @@ function mapObOrderRow(row: Record<string, unknown>): VenueOrder {
   const createAt = parseVenueCreateAt(row.bet_time);
 
   return {
-    provider: PLATFORMS.OB,
+    provider: provider ?? PLATFORMS.OB,
     orderId: String(row.id ?? ""),
     odds: obNum(row.odd),
     createAt,
@@ -216,7 +212,7 @@ export const obProvider: PlatformProvider = {
     if (bal.status !== "true") return undefined;
     try {
       if (account.accountId) {
-        uidByAccount.set(account.accountId, String(bal.data?.uid ?? ""));
+        uidByAccount.set(account.accountId, bal.data?.uid as string);
       }
       if (!oddUpdateDone.has(account.accountId ?? 0)) {
         await obEnsureOddUpdateType(account);
@@ -231,14 +227,12 @@ export const obProvider: PlatformProvider = {
   },
 
   async getOrders(account) {
-    if (!account.gateway || !account.token) return [];
-
     const byId = new Map<string, VenueOrder>();
     for (const status of [1, 2] as const) {
       const res = await fetchObOrderList(account, status);
       if (!res || res.status !== "true") continue;
       for (const row of res.data?.bet ?? []) {
-        const order = mapObOrderRow(row);
+        const order = mapObOrderRow(row, account.provider);
         if (!order.orderId || byId.has(order.orderId)) continue;
         byId.set(order.orderId, order);
       }
@@ -249,7 +243,7 @@ export const obProvider: PlatformProvider = {
 
   async checkBet(account, option) {
     const oddsAtStart = option.odds;
-    const timeStamp = Math.floor(Date.now() / 1000);
+    const timeStamp = Math.floor(new Date().getTime() / 1000);
     if (!option.loseOrder) {
       const probeBody = {
         c: 1,

@@ -99,19 +99,15 @@ const RAY_A8_V2 = {
 
 export const rayProvider: PlatformProvider = {
   async getBalance(account) {
-    try {
-      const res = await accountGet<{ code?: number; result?: { balance?: number } }>(
-        account,
-        RAY_A8_V2.user,
-      );
-      if (!res || res.code !== 200) return undefined;
-      return {
-        balance: Number(res.result?.balance) || 0,
-        currency: getCurrency(),
-      };
-    } catch {
-      return undefined;
-    }
+    const res = await accountGet<{ code?: number; result?: { balance?: number } }>(
+      account,
+      RAY_A8_V2.user,
+    );
+    if (!res || res.code !== 200) return undefined;
+    return {
+      balance: Number(res.result?.balance) || 0,
+      currency: getCurrency(),
+    };
   },
 
   async checkBet(account, option) {
@@ -181,7 +177,7 @@ export const rayProvider: PlatformProvider = {
             game_id: row.game_id,
             start_time: row.start_time,
             title,
-            isLive: new Date(res.result?.start_time || 0).getTime() < Date.now(),
+            isLive: new Date(res.result!.start_time!).getTime() < Date.now(),
           },
           betMin: row.bet_limit?.[0],
           betMax: row.bet_limit?.[1],

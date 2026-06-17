@@ -68,7 +68,6 @@ export class BetOption {
 
   /** [A8 可证实] bundle `Ap.updateOdds`：只写 fo/Xn，不改 e.odds / e.newOdds */
   updateOdds(next: number) {
-    if (!this.item) return;
     const oddsStore = useOddsStore();
     oddsStore.save(this.type, {
       id: this.itemId,
