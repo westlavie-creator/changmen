@@ -18,8 +18,20 @@ function account(provider: string): PlatformAccount {
   return { provider } as PlatformAccount;
 }
 
-function venueOrder(status: VenueOrder["status"]): VenueOrder {
-  return { orderId: "1", status, money: 100, odds: 1.5 };
+function makeVenueOrder(
+  partial: Pick<VenueOrder, "orderId" | "status" | "odds" | "betMoney">,
+): VenueOrder {
+  return {
+    provider: "RAY",
+    createAt: 0,
+    reward: 0,
+    money: 0,
+    game: "",
+    match: "",
+    bet: "",
+    item: "",
+    ...partial,
+  };
 }
 
 describe("fetchVenueOrdersWithReject", () => {
@@ -29,8 +41,8 @@ describe("fetchVenueOrdersWithReject", () => {
 
   it("marks rejected when first order status is reject", async () => {
     updateVenueOrders.mockResolvedValue([
-      venueOrder("reject"),
-      venueOrder("accepted"),
+      makeVenueOrder({ orderId: "1", status: "reject", odds: 1.5, betMoney: 100 }),
+      makeVenueOrder({ orderId: "2", status: "none", odds: 1.5, betMoney: 100 }),
     ]);
 
     const out = await fetchVenueOrdersWithReject(account("OB"));
@@ -39,11 +51,13 @@ describe("fetchVenueOrdersWithReject", () => {
     expect(out.rejected).toBe(true);
   });
 
-  it("not rejected when list empty or first order accepted", async () => {
+  it("not rejected when list empty or first order not reject", async () => {
     updateVenueOrders.mockResolvedValue([]);
     expect((await fetchVenueOrdersWithReject(account("OB"))).rejected).toBe(false);
 
-    updateVenueOrders.mockResolvedValue([venueOrder("accepted")]);
+    updateVenueOrders.mockResolvedValue([
+      makeVenueOrder({ orderId: "1", status: "none", odds: 1.5, betMoney: 100 }),
+    ]);
     expect((await fetchVenueOrdersWithReject(account("RAY"))).rejected).toBe(false);
   });
 });
@@ -57,8 +71,12 @@ describe("syncVenueRejectFlags", () => {
     const accA = account("OB");
     const accB = account("RAY");
     updateVenueOrders
-      .mockResolvedValueOnce([venueOrder("reject")])
-      .mockResolvedValueOnce([venueOrder("accepted")]);
+      .mockResolvedValueOnce([
+        makeVenueOrder({ orderId: "1", status: "reject", odds: 1.5, betMoney: 100 }),
+      ])
+      .mockResolvedValueOnce([
+        makeVenueOrder({ orderId: "2", status: "none", odds: 1.5, betMoney: 100 }),
+      ]);
 
     const out = await syncVenueRejectFlags(
       new BetResult("OB", true),
@@ -79,8 +97,12 @@ describe("syncVenueRejectFlags", () => {
     const accA = account("OB");
     const accB = account("IA");
     updateVenueOrders
-      .mockResolvedValueOnce([venueOrder("accepted")])
-      .mockResolvedValueOnce([venueOrder("reject")]);
+      .mockResolvedValueOnce([
+        makeVenueOrder({ orderId: "1", status: "none", odds: 1.5, betMoney: 100 }),
+      ])
+      .mockResolvedValueOnce([
+        makeVenueOrder({ orderId: "2", status: "reject", odds: 1.5, betMoney: 100 }),
+      ]);
 
     const out = await syncVenueRejectFlags(
       new BetResult("OB", true),
