@@ -23,6 +23,16 @@ import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
 import { createArbFlowTrace } from "@/extensions/arbBet/betTrace";
 
+function formatCheckFailDetail(leg: BetOption): string {
+  const err = leg.checkError?.trim();
+  if (err) return err;
+  const res = leg.response as { status?: string; data?: string } | undefined;
+  const data = String(res?.data ?? "").trim();
+  if (data) return data;
+  if (res?.status && res.status !== "true") return `status=${res.status}`;
+  return "失败";
+}
+
 function traceCheckLegs(
   trace: ReturnType<typeof createArbFlowTrace>,
   legA: BetOption,
@@ -33,13 +43,13 @@ function traceCheckLegs(
   if (accountA) {
     trace.event(
       "预检",
-      `${legA.type} ${legA.data ? "✅" : `❌ ${legA.checkError ?? "失败"}`}`,
+      `${legA.type} ${legA.data ? "✅" : `❌ ${formatCheckFailDetail(legA)}`}`,
     );
   }
   if (accountB) {
     trace.event(
       "预检",
-      `${legB.type} ${legB.data ? "✅" : `❌ ${legB.checkError ?? "失败"}`}`,
+      `${legB.type} ${legB.data ? "✅" : `❌ ${formatCheckFailDetail(legB)}`}`,
     );
   }
 }

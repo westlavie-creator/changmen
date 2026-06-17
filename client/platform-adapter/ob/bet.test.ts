@@ -21,8 +21,9 @@ function makeOption(): BetOption {
     itemId: "i1",
     betMoney: 100,
     odds: 1.85,
-    updateOdds: BetOption.prototype.updateOdds,
+    updateOdds: vi.fn(),
     type: "OB",
+    data: null,
   } as unknown as BetOption;
 }
 
@@ -75,7 +76,7 @@ describe("obProvider.checkBet", () => {
   });
 
   it("探针与下单 data 共用同一 time_stamp / secret_key（对齐 A8 yYe）", async () => {
-    accountPostForm.mockResolvedValue({ status: "true", data: "ok" });
+    accountPostForm.mockResolvedValue({ status: "false", data: "Minimum stake 10" });
     const option = makeOption();
     await obProvider.checkBet!(account, option);
 
@@ -85,6 +86,14 @@ describe("obProvider.checkBet", () => {
     expect(data.time_stamp).toBe(probeBody.time_stamp);
     expect(data.secret_key).toBe(probeBody.secret_key);
     expect(data["b[0]"]).toMatch(/a=100&/);
+  });
+
+  it("非 Minimum 探针响应一律预检失败（对齐 A8 yYe，不看 status）", async () => {
+    accountPostForm.mockResolvedValue({ status: "true", data: "ok" });
+    const option = makeOption();
+    const out = await obProvider.checkBet!(account, option);
+    expect(out.data).toBeFalsy();
+    expect(out.checkError).toBe("ok");
   });
 
   it("Minimum 后继续写 data 且不递归预检", async () => {

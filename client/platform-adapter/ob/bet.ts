@@ -261,12 +261,12 @@ export const obProvider: PlatformProvider = {
       option.response = probe;
       const msg = String(probe.data || "");
 
-      // [A8 可证实] yYe：Minimum → newOdds=0 继续；否则 return（无递归 checkBet）
+      // [A8 可证实] yYe：仅 Minimum 继续；其余一律 return（不看 status）
       if (/Minimum|最小投注金额/.test(msg)) {
         option.newOdds = 0;
-      } else if (probe.status !== "true") {
+      } else {
         option.newOdds = oddsAtStart;
-        option.checkError = msg;
+        option.checkError = msg || `status=${probe.status ?? "?"}`;
         noteObCheckFailure(account, msg);
         if (msg === "请勿重复提交") {
           await wait(3000);
