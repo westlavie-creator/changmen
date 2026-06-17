@@ -92,20 +92,20 @@ function mapRayOrderRow(row: RayOrderRow): VenueOrder | null {
 
 export const rayProvider: PlatformProvider = {
   async getBalance(account) {
-    if (!account.gateway || !account.token) {
-      throw new Error("token error");
+    if (!account.gateway || !account.token) return undefined;
+    try {
+      const res = await accountGet<{ code?: number; result?: { balance?: number } }>(
+        account,
+        rayApiPath(account.gateway, "user"),
+      );
+      if (!res || res.code !== 200) return undefined;
+      return {
+        balance: Number(res.result?.balance) || 0,
+        currency: "CNY",
+      };
+    } catch {
+      return undefined;
     }
-    const res = await accountGet<{ code?: number; result?: { balance?: number }; desc?: string }>(
-      account,
-      rayApiPath(account.gateway, "user"),
-    );
-    if (res.code !== 200) {
-      throw new Error(res.desc || "v2/user failed");
-    }
-    return {
-      balance: Number(res.result?.balance) || 0,
-      currency: "CNY",
-    };
   },
 
   async checkBet(account, option) {

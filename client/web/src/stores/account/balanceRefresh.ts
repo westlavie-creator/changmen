@@ -1,12 +1,11 @@
 import { updateBalance } from "@/api/esport";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { getProvider } from "@/runtime/providers";
-import { normalizeBalanceError } from "@/stores/account/balanceErrors";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 import { refreshVenueOrdersQuiet } from "@/stores/account/venueOrders";
 
-/** 对齐 A8 uv.updateBalance：浏览器 Provider 拉场馆 → Client_UpdateBalance 落库 */
+/** 对齐 A8 uv.updateBalance：失败仅 balance=undefined，无 balanceError 文案 */
 export async function refreshAccountBalance(
   store: AccountStoreContext,
   account: PlatformAccount,
@@ -16,58 +15,38 @@ export async function refreshAccountBalance(
 
   try {
     const provider = getProvider(account);
-    if (!provider?.getBalance) {
-      account.balance = undefined;
-      account.balanceError = `${account.provider} 暂不支持客户端刷新余额`;
-      return false;
-    }
-    if (!account.token) {
-      account.balance = undefined;
-      account.balanceError = "token 未配置，请粘贴凭证";
-      return false;
-    }
-    if (!account.gateway) {
-      account.balance = undefined;
-      account.balanceError = "gateway 未配置，请粘贴凭证或手动填写";
-      return false;
-    }
+    const result = await provider?.getBalance?.(account);
+    if (result) {
+      account.balance = result.balance;
+      if (result.currency) account.currency = result.currency;
+      account.updateTime = Date.now();
 
-    const result = await provider.getBalance(account);
-    if (!result) {
-      account.balance = undefined;
-      account.balanceError = "token error";
-      return false;
-    }
-
-    account.balance = result.balance;
-    if (result.currency) account.currency = result.currency;
-    account.balanceError = null;
-    account.updateTime = Date.now();
-
-    try {
-      const info = await updateBalance(account.accountId, account.balance);
-      if (info) {
-        account.totalProfit = info.total - (account.credit ?? 0);
-        if (info.platformId) account.platformId = info.platformId;
-        if (info.platformName) account.platformName = info.platformName;
+      try {
+        const info = await updateBalance(account.accountId, account.balance);
+        if (info) {
+          account.totalProfit = info.total - (account.credit ?? 0);
+          if (info.platformId) account.platformId = info.platformId;
+          if (info.platformName) account.platformName = info.platformName;
+        }
+      } catch {
+        /* 余额已从场馆读到，落库失败不阻断展示 */
       }
-    } catch {
-      /* 余额已从场馆读到，落库失败不阻断展示 */
+      await store.saveAccounts();
+      await refreshVenueOrdersQuiet(account);
+      try {
+        const { useMessageStore } = await import("@/stores/messageStore");
+        const msg = useMessageStore();
+        msg.balanceMessage(account);
+        msg.profitMessage(account);
+      } catch {
+        /* 消息队列未启动时不阻断余额刷新 */
+      }
+      return true;
     }
-    await store.saveAccounts();
-    await refreshVenueOrdersQuiet(account);
-    try {
-      const { useMessageStore } = await import("@/stores/messageStore");
-      const msg = useMessageStore();
-      msg.balanceMessage(account);
-      msg.profitMessage(account);
-    } catch {
-      /* 消息队列未启动时不阻断余额刷新 */
-    }
-    return true;
-  } catch (e) {
     account.balance = undefined;
-    account.balanceError = normalizeBalanceError(e, account);
+    return false;
+  } catch {
+    account.balance = undefined;
     return false;
   } finally {
     account.loadingBalance = false;

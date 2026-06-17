@@ -25,21 +25,12 @@ function obHeaders(account: PlatformAccount, _post = false) {
   return base;
 }
 
-/** [A8 可证实] kw：RAY 全部请求（含 POST /v2/order）均为 form-urlencoded */
+/** [A8 可证实] RAY `kw`：仅 authorization + Content-Type */
 function rayHeaders(account: PlatformAccount, _post = false) {
-  const origin = originFromReferer(account.referer);
-  const base: Record<string, string> = {
+  return {
     authorization: account.token || "",
-    Accept: "application/json, text/plain, */*",
-    "X-Unique": String(Date.now()),
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
   };
-  if (origin) {
-    base.Origin = origin;
-    base.Referer = account.referer!.endsWith("/") ? account.referer! : `${account.referer}/`;
-  }
-  if (account.userAgent) base["User-Agent"] = account.userAgent;
-  return base;
 }
 
 export function buildAccountHeaders(account: PlatformAccount, post = false) {

@@ -78,9 +78,6 @@ async function confirmRemove() {
       <template v-if="account.balance !== undefined">
         {{ formatBalance(account.balance) }}
       </template>
-      <template v-else-if="account.balanceError">
-        {{ account.balanceError }}
-      </template>
     </div>
 
     <div class="toolbar flex flex-wrap flex-center flex-middle">
