@@ -1,31 +1,18 @@
-"use strict";
-
 /**
  * 从 RDS 加载队伍映射，构建同步查找插件。
- *
- * 插件对象接口：
- *   lookupByName(gameCode, normalizedName) → canonical_teams.id string | null（内部合并用）
- *   lookupById(platform, platformId)       → gb_team_id string | null（仅手动映射）
- *   saveMapping(gbTeamId, ...)            → 仅当 gbTeamId 为手动 ID 时写 maps
  */
 
-const { createRequire } = require("module");
-const path = require("path");
+import { loadChangmenEnv } from "@changmen/db/load_env.js";
+import teamAliasesRaw from "@changmen/match-engine/teams/team_aliases.json" with { type: "json" };
 
-require("./load_changmen_env.cjs");
+loadChangmenEnv();
 
-const pkgRequire = createRequire(path.join(__dirname, "package.json"));
-
-// team_aliases.json 单源：@changmen/match-engine
 let _aliases = null;
 function _getAliases() {
   if (!_aliases) {
-    try {
-      const raw = pkgRequire("@changmen/match-engine/teams/team_aliases.json");
-      _aliases = Object.fromEntries(Object.entries(raw).filter(([k]) => !k.startsWith("_")));
-    } catch {
-      _aliases = {};
-    }
+    _aliases = Object.fromEntries(
+      Object.entries(teamAliasesRaw).filter(([k]) => !k.startsWith("_")),
+    );
   }
   return _aliases;
 }
@@ -41,13 +28,13 @@ function _norm(name) {
   return _getAliases()[base] || base;
 }
 
-async function loadAndCreatePlugin() {
+export async function loadAndCreatePlugin() {
   const teamDb = await import("@changmen/db");
 
   const allTeams = await teamDb.fetchAllCanonicalTeams();
 
-  const nameMap = new Map(); // `${gameCode}:${normalizedName}` → canonical_teams.id
-  const gbTeamNameMap = new Map(); // gb_team_id → display name
+  const nameMap = new Map();
+  const gbTeamNameMap = new Map();
   for (const team of allTeams) {
     const id = String(team.id);
     const g = team.game;
@@ -66,7 +53,7 @@ async function loadAndCreatePlugin() {
 
   const allMaps = await teamDb.fetchAllTeamPlatformMaps();
 
-  const idMap = new Map(); // `${platform}:${platformId}` → gb_team_id string
+  const idMap = new Map();
   const _savedIds = new Set();
 
   for (const row of allMaps) {
@@ -78,7 +65,7 @@ async function loadAndCreatePlugin() {
   }
 
   console.log(
-    `[team-resolver] 加载完成 — ${allTeams.length} 支队伍 / ${nameMap.size} 个名称映射 / ${idMap.size} 个平台ID映射`
+    `[team-resolver] 加载完成 — ${allTeams.length} 支队伍 / ${nameMap.size} 个名称映射 / ${idMap.size} 个平台ID映射`,
   );
 
   function lookupByName(gameCode, normalizedName) {
@@ -116,5 +103,3 @@ async function loadAndCreatePlugin() {
 
   return { lookupByName, lookupById, lookupCanonicalName, saveMapping };
 }
-
-module.exports = { loadAndCreatePlugin };

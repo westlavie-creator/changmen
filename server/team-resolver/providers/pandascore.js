@@ -1,27 +1,22 @@
-"use strict";
-
 /**
  * PandaScore provider
- *
- * 免费账号：https://pandascore.co  注册后在 Dashboard → API tokens 获取 token。
- * 免费额度：1000 req/小时。
  *
  * 配置：环境变量 PANDASCORE_TOKEN 或调用 setToken()。
  */
 
-const axios = require("axios");
-const { normalize, similarity, isAcronymOf } = require("../normalize");
-const { getPandascoreEndpoint } = require("../game_map");
+import axios from "axios";
+import { normalize, similarity, isAcronymOf } from "../normalize.js";
+import { getPandascoreEndpoint } from "../game_map.js";
 
 const BASE_URL = "https://api.pandascore.co";
 let _token = process.env.PANDASCORE_TOKEN || "";
-const ENABLE_ACRONYM_MATCHING = false; // 临时禁用 acronym 自动解析，避免短缩写歧义。
+const ENABLE_ACRONYM_MATCHING = false;
 
-function setToken(token) {
+export function setToken(token) {
   _token = token;
 }
 
-function isConfigured() {
+export function isConfigured() {
   return !!_token;
 }
 
@@ -48,42 +43,24 @@ async function _get(url) {
   }
 }
 
-/**
- * 搜索队伍：先尝试 acronym 精确过滤，再 fallback name 搜索。
- * 使用游戏专属端点（/lol/teams、/csgo/teams 等）自动限定游戏范围。
- *
- * @param {string} name      - 原始队名（"EDG"、"Natus Vincere"）
- * @param {string} gameCode  - 内部 gameCode（cs2 | lol | dota2 | valorant | kog）
- * @returns {Promise<Array>} - 候选列表 [{ id, name, acronym, slug }]
- */
-async function searchTeam(name, gameCode) {
+export async function searchTeam(name, gameCode) {
   if (!_token) throw new Error("PANDASCORE_TOKEN 未配置");
   const ep = getPandascoreEndpoint(gameCode);
   if (!ep) return [];
 
   const teamsPath = `${ep}/teams`;
 
-  // 1. acronym 精确过滤（临时禁用，DK/GG 等短缩写在同游戏内并不唯一）
   if (ENABLE_ACRONYM_MATCHING) {
     const acronymUrl = _buildUrl(teamsPath, { "filter[acronym]": name.toUpperCase(), per_page: 5 });
     const byAcronym = (await _get(acronymUrl)).map(_mapTeam);
     if (byAcronym.length) return byAcronym;
   }
 
-  // 2. name 全文搜索（适用于 "Edward Gaming"、"Natus Vincere" 等全称）
   const nameUrl = _buildUrl(teamsPath, { "search[name]": name, per_page: 10 });
   return (await _get(nameUrl)).map(_mapTeam);
 }
 
-/**
- * 从候选列表中选出最匹配的队伍。
- * 匹配优先级：
- *   1. acronym 完全匹配（大小写不敏感）
- *   2. name 规范化后完全匹配
- *   3. 缩写检测（isAcronymOf）
- *   4. token overlap 相似度 > 0.5
- */
-function pickBestMatch(query, candidates) {
+export function pickBestMatch(query, candidates) {
   const q = normalize(query);
   const qUpper = query.trim().toUpperCase();
 
@@ -122,18 +99,10 @@ function pickBestMatch(query, candidates) {
   return null;
 }
 
-/**
- * 解析队伍名称 → 规范信息。
- * @param {string} teamName
- * @param {string} gameCode  - 内部 gameCode
- * @returns {Promise<{id, name, acronym, confidence, matchType, source}|null>}
- */
-async function resolve(teamName, gameCode) {
+export async function resolve(teamName, gameCode) {
   const candidates = await searchTeam(teamName, gameCode);
   if (!candidates.length) return null;
   const match = pickBestMatch(teamName, candidates);
   if (!match) return null;
   return { ...match, source: "pandascore" };
 }
-
-module.exports = { resolve, searchTeam, pickBestMatch, setToken, isConfigured };

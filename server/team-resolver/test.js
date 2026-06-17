@@ -1,24 +1,19 @@
-"use strict";
-
 /**
  * 测试脚本
  *
  * 运行前：
  *   npm install
- *   export PANDASCORE_TOKEN=your_token_here   （或在下方直接赋值）
+ *   export PANDASCORE_TOKEN=your_token_here
  *
  * 运行：
  *   node test.js
- *   node test.js --no-pandascore    仅测试 Liquipedia
- *   node test.js --fresh            清空缓存后重新查询
+ *   node test.js --no-pandascore
+ *   node test.js --fresh
  */
 
-const resolver = require("./index");
-const cache = require("./cache");
-const pandascore = require("./providers/pandascore");
-
-// ── 可选：直接在此处设置 token（不提交到 git）──
-// pandascore.setToken("your_token_here");
+import * as resolver from "./index.js";
+import * as cache from "./cache.js";
+import * as pandascore from "./providers/pandascore.js";
 
 const noPandascore = process.argv.includes("--no-pandascore");
 const fresh = process.argv.includes("--fresh");
@@ -31,15 +26,12 @@ if (fresh) {
   console.log("缓存已清空\n");
 }
 
-// ── 测试用例 ──────────────────────────────────────────────
 const CASES = [
-  // CS2 — 缩写
   { teamName: "NaVi",        gameCode: "cs2",  expect: "Natus Vincere" },
   { teamName: "NAVI",        gameCode: "cs2",  expect: "Natus Vincere" },
   { teamName: "G2",          gameCode: "cs2",  expect: "G2 Esports" },
   { teamName: "FaZe",        gameCode: "cs2",  expect: "FaZe Clan" },
   { teamName: "Vitality",    gameCode: "cs2",  expect: "Team Vitality" },
-  // LOL — 中国队伍缩写
   { teamName: "EDG",         gameCode: "lol",  expect: "Edward Gaming" },
   { teamName: "JDG",         gameCode: "lol",  expect: "JD Gaming" },
   { teamName: "BLG",         gameCode: "lol",  expect: "Bilibili Gaming" },
@@ -47,15 +39,12 @@ const CASES = [
   { teamName: "RNG",         gameCode: "lol",  expect: "Royal Never Give Up" },
   { teamName: "T1",          gameCode: "lol",  expect: "T1" },
   { teamName: "Gen.G",       gameCode: "lol",  expect: "Gen.G" },
-  // Dota2
   { teamName: "OG",          gameCode: "dota2", expect: "OG" },
   { teamName: "Liquid",      gameCode: "dota2", expect: "Team Liquid" },
-  // Valorant
   { teamName: "Sentinels",   gameCode: "valorant", expect: "Sentinels" },
   { teamName: "LOUD",        gameCode: "valorant", expect: "LOUD" },
 ];
 
-// ── 运行 ──────────────────────────────────────────────────
 async function run() {
   console.log(`PandaScore: ${pandascore.isConfigured() ? "✅ 已配置" : "❌ 未配置（仅测试 Liquipedia）"}\n`);
   console.log(
@@ -64,7 +53,7 @@ async function run() {
     "结果".padEnd(35) +
     "ID".padEnd(30) +
     "置信度".padEnd(8) +
-    "来源"
+    "来源",
   );
   console.log("─".repeat(110));
 
@@ -87,7 +76,7 @@ async function run() {
         "NULL".padEnd(35) +
         "—".padEnd(30) +
         "—".padEnd(8) +
-        "—"
+        "—",
       );
       continue;
     }
@@ -103,14 +92,13 @@ async function run() {
       (result.name || "").padEnd(35) +
       (result.id || "").padEnd(30) +
       String((result.confidence || 0).toFixed(2)).padEnd(8) +
-      `${result.source} (${result.matchType || ""}) ${status}`
+      `${result.source} (${result.matchType || ""}) ${status}`,
     );
   }
 
   console.log("\n" + "─".repeat(110));
   console.log(`结果：✅ ${pass} 通过  ❌ ${fail} 失败  — ${skip} 未解析`);
 
-  // ── 额外：测试 scoreMatchPair ──────────────────────────
   console.log("\n\n── scoreMatchPair 测试 ─────────────────────────────\n");
 
   const pairTests = [

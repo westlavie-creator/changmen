@@ -1,56 +1,52 @@
-"use strict";
-
 /**
  * 内部 gameCode → 各数据源 slug 映射
  * gameCode 与 packages/shared/catalog/game_catalog.json 对齐
  */
-const GAME_MAP = {
+export const GAME_MAP = {
   cs2: {
     pandascore: "cs-go",
-    pandascoreEndpoint: "csgo",   // /csgo/teams
+    pandascoreEndpoint: "csgo",
     liquipedia: "counterstrike",
     label: "CS2",
   },
   lol: {
     pandascore: "league-of-legends",
-    pandascoreEndpoint: "lol",    // /lol/teams
+    pandascoreEndpoint: "lol",
     liquipedia: "leagueoflegends",
     label: "League of Legends",
   },
   dota2: {
     pandascore: "dota-2",
-    pandascoreEndpoint: "dota2",  // /dota2/teams
+    pandascoreEndpoint: "dota2",
     liquipedia: "dota2",
     label: "Dota 2",
   },
   valorant: {
     pandascore: "valorant",
-    pandascoreEndpoint: "valorant", // /valorant/teams
+    pandascoreEndpoint: "valorant",
     liquipedia: "valorant",
     label: "Valorant",
   },
   kog: {
     pandascore: null,
-    pandascoreEndpoint: null,     // PandaScore 不收录王者荣耀
+    pandascoreEndpoint: null,
     liquipedia: "honorofkings",
     label: "Honor of Kings",
   },
 };
 
-function getPandascoreSlug(gameCode) {
+export function getPandascoreSlug(gameCode) {
   return GAME_MAP[gameCode]?.pandascore ?? null;
 }
 
-function getPandascoreEndpoint(gameCode) {
+export function getPandascoreEndpoint(gameCode) {
   return GAME_MAP[gameCode]?.pandascoreEndpoint ?? null;
 }
 
-function getLiquipediaSlug(gameCode) {
+export function getLiquipediaSlug(gameCode) {
   return GAME_MAP[gameCode]?.liquipedia ?? null;
 }
 
-function getSupportedGameCodes() {
+export function getSupportedGameCodes() {
   return Object.keys(GAME_MAP);
 }
-
-module.exports = { GAME_MAP, getPandascoreSlug, getPandascoreEndpoint, getLiquipediaSlug, getSupportedGameCodes };

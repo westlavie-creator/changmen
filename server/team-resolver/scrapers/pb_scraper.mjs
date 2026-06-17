@@ -19,7 +19,7 @@ import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platfor
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
-const { loadAndCreatePlugin } = require("../team_db.js");
+import { loadAndCreatePlugin } from "../team_db.js";
 const { loadPlatformsJsonSession, fetchEuroOdds } = requirePlatform(
   "PB", "node",
   "session.js",

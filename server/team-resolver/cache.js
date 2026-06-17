@@ -1,8 +1,8 @@
-"use strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const fs = require("fs");
-const path = require("path");
-
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = path.join(__dirname, "cache");
 const CACHE_FILE = path.join(CACHE_DIR, "teams.json");
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7天
@@ -33,7 +33,7 @@ function _save() {
 }
 
 /** key = "{normalizedName}:{gameCode}" */
-function get(normalizedName, gameCode) {
+export function get(normalizedName, gameCode) {
   const data = _load();
   const entry = data[`${normalizedName}:${gameCode}`];
   if (!entry) return null;
@@ -41,20 +41,18 @@ function get(normalizedName, gameCode) {
   return entry;
 }
 
-function set(normalizedName, gameCode, result) {
+export function set(normalizedName, gameCode, result) {
   const data = _load();
   data[`${normalizedName}:${gameCode}`] = { ...result, resolvedAt: Date.now() };
   _save();
 }
 
 /** 列出所有缓存条目（调试用）*/
-function list() {
+export function list() {
   return Object.entries(_load()).map(([k, v]) => ({ key: k, ...v }));
 }
 
-function clear() {
+export function clear() {
   _mem = {};
   _save();
 }
-
-module.exports = { get, set, list, clear };

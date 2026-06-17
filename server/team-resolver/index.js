@@ -1,12 +1,5 @@
-"use strict";
-
 /**
  * team-resolver — 主入口
- *
- * 用法：
- *   const resolver = require('./index');
- *   const result = await resolver.resolve('EDG', 'lol');
- *   // → { id: 'pandascore:131583', name: 'Edward Gaming', confidence: 1.0, source: 'pandascore' }
  *
  * 解析顺序：
  *   1. 本地缓存（cache/teams.json，TTL 7天）
@@ -14,36 +7,18 @@
  *   3. Liquipedia（无需 token，有限速 2s/req）
  */
 
-const cache = require("./cache");
-const pandascore = require("./providers/pandascore");
-const liquipedia = require("./providers/liquipedia");
-const { normalize } = require("./normalize");
-const { getLiquipediaSlug } = require("./game_map");
+import * as cache from "./cache.js";
+import * as pandascore from "./providers/pandascore.js";
+import * as liquipedia from "./providers/liquipedia.js";
+import { normalize } from "./normalize.js";
+import { getLiquipediaSlug } from "./game_map.js";
 
-const ENABLE_ACRONYM_MATCHING = false; // 临时禁用 acronym 自动解析，缓存命中也要绕开。
+const ENABLE_ACRONYM_MATCHING = false;
 
-/**
- * 解析队伍名称。
- *
- * @param {string} teamName   - 任意形式的队名（缩写/全称/中文）
- * @param {string} gameCode   - 内部游戏代码：cs2 | lol | dota2 | valorant | kog
- * @param {object} [opts]
- * @param {boolean} [opts.forceRefresh]  - 忽略缓存强制重查
- * @param {boolean} [opts.pandascoreOnly] - 只用 PandaScore，不 fallback Liquipedia
- *
- * @returns {Promise<{
- *   id: string,
- *   name: string,
- *   confidence: number,
- *   matchType: string,
- *   source: 'pandascore'|'liquipedia'|'cache',
- * }|null>}
- */
-async function resolve(teamName, gameCode, opts = {}) {
+export async function resolve(teamName, gameCode, opts = {}) {
   const normalizedName = normalize(teamName);
   if (!normalizedName) return null;
 
-  // 1. 缓存
   if (!opts.forceRefresh) {
     const cached = cache.get(normalizedName, gameCode);
     if (cached && (ENABLE_ACRONYM_MATCHING || !String(cached.matchType || "").startsWith("acronym"))) {
@@ -55,7 +30,6 @@ async function resolve(teamName, gameCode, opts = {}) {
 
   let result = null;
 
-  // 2. PandaScore（直接传 gameCode，内部用游戏专属端点）
   if (pandascore.isConfigured()) {
     try {
       result = await pandascore.resolve(teamName, gameCode);
@@ -64,7 +38,6 @@ async function resolve(teamName, gameCode, opts = {}) {
     }
   }
 
-  // 3. Liquipedia fallback
   if (!result && !opts.pandascoreOnly && lpSlug) {
     try {
       result = await liquipedia.resolve(teamName, lpSlug);
@@ -80,11 +53,7 @@ async function resolve(teamName, gameCode, opts = {}) {
   return result;
 }
 
-/**
- * 批量解析一场比赛的双方队伍。
- * 返回 { home, away }，每项为 resolve() 的结果或 null。
- */
-async function resolveMatch(homeTeam, awayTeam, gameCode, opts = {}) {
+export async function resolveMatch(homeTeam, awayTeam, gameCode, opts = {}) {
   const [home, away] = await Promise.all([
     resolve(homeTeam, gameCode, opts),
     resolve(awayTeam, gameCode, opts),
@@ -92,15 +61,7 @@ async function resolveMatch(homeTeam, awayTeam, gameCode, opts = {}) {
   return { home, away };
 }
 
-/**
- * 计算两个平台对同一场比赛的匹配置信度。
- * 用于判断是否应该将两行合并。
- *
- * @param {object} matchA  - { home, away, gameCode, startTimeMs }
- * @param {object} matchB
- * @returns {Promise<{ shouldMerge: boolean, confidence: number, reason: string }>}
- */
-async function scoreMatchPair(matchA, matchB) {
+export async function scoreMatchPair(matchA, matchB) {
   if (matchA.gameCode !== matchB.gameCode) {
     return { shouldMerge: false, confidence: 0, reason: "game_mismatch" };
   }
@@ -127,13 +88,11 @@ async function scoreMatchPair(matchA, matchB) {
       ? { same: true, score: Math.min(resAwayA.confidence, resAwayB.confidence) }
       : { same: false, score: 0 };
 
-  // 正向匹配
   if (homeMatch.same && awayMatch.same) {
     const confidence = (homeMatch.score + awayMatch.score) / 2;
     return { shouldMerge: true, confidence, reason: "both_teams_matched" };
   }
 
-  // 交叉匹配（home/away 顺序反了）
   const [crossHomeA, crossAwayB] = [resHomeA, resAwayB];
   const [crossAwayA, crossHomeB] = [resAwayA, resHomeB];
   const crossHome = crossHomeA && crossHomeB && crossHomeA.id === crossHomeB.id;
@@ -148,5 +107,3 @@ async function scoreMatchPair(matchA, matchB) {
 
   return { shouldMerge: false, confidence: 0, reason: "teams_not_resolved" };
 }
-
-module.exports = { resolve, resolveMatch, scoreMatchPair };

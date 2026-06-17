@@ -1,5 +1,3 @@
-"use strict";
-
 /**
  * 冷启动脚本：用 PandaScore 数据填充 canonical_teams（含 acronym 字段）
  *
@@ -9,10 +7,10 @@
  *   node seed.js --game=lol    只跑一个游戏
  */
 
-const path = require("path");
-require("./load_changmen_env.cjs");
+import { loadChangmenEnv } from "@changmen/db/load_env.js";
+import axios from "axios";
 
-const axios = require("axios");
+loadChangmenEnv();
 
 const PANDASCORE_TOKEN = process.env.PANDASCORE_TOKEN || "";
 

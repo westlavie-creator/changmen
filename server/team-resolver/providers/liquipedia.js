@@ -1,17 +1,9 @@
-"use strict";
-
 /**
  * Liquipedia provider（无需注册，使用 MediaWiki opensearch API）
- *
- * 限速：请求间隔 >= 2s（Liquipedia 规定）。
- * 覆盖：王者荣耀等 PandaScore 没有的游戏。
- *
- * 注意：opensearch 返回的是 wiki 页面标题，不是结构化的队伍 ID。
- * 我们用页面标题 slug 作为 canonicalId。
  */
 
-const axios = require("axios");
-const { normalize, similarity } = require("../normalize");
+import axios from "axios";
+import { normalize, similarity } from "../normalize.js";
 
 const BASE_URL = "https://liquipedia.net";
 let _lastRequestAt = 0;
@@ -25,13 +17,7 @@ async function _throttle() {
   _lastRequestAt = Date.now();
 }
 
-/**
- * 用 opensearch 搜索 Liquipedia 页面标题。
- * @param {string} name
- * @param {string} lpSlug  - liquipedia game slug（如 "counterstrike"、"leagueoflegends"）
- * @returns {Promise<Array<{title, url}>>}
- */
-async function searchTeam(name, lpSlug) {
+export async function searchTeam(name, lpSlug) {
   await _throttle();
   const url = `${BASE_URL}/${lpSlug}/api.php`;
   const params = {
@@ -62,17 +48,15 @@ async function searchTeam(name, lpSlug) {
   }
 }
 
-function pickBestMatch(query, candidates) {
+export function pickBestMatch(query, candidates) {
   const q = normalize(query);
 
-  // 完全匹配
   for (const c of candidates) {
     if (normalize(c.title) === q) {
       return { ...c, confidence: 1.0, matchType: "exact" };
     }
   }
 
-  // 首个结果通常就是最相关的（opensearch 按相关度排序）
   if (candidates.length > 0) {
     const first = candidates[0];
     const score = similarity(query, first.title);
@@ -83,10 +67,7 @@ function pickBestMatch(query, candidates) {
   return null;
 }
 
-/**
- * @returns {Promise<{id, name, confidence, matchType, source}|null>}
- */
-async function resolve(teamName, lpSlug) {
+export async function resolve(teamName, lpSlug) {
   if (!lpSlug) return null;
   const candidates = await searchTeam(teamName, lpSlug);
   if (!candidates.length) return null;
@@ -100,5 +81,3 @@ async function resolve(teamName, lpSlug) {
     source: "liquipedia",
   };
 }
-
-module.exports = { resolve, searchTeam, pickBestMatch };
