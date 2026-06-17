@@ -1,28 +1,48 @@
 import { describe, expect, test, vi } from "vitest";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { PB_PLUGIN_REQUIRED_MSG, pbGet } from "./transport";
+import { pbGatewayUrl, pbGet } from "./transport";
 
+const a8PluginGet = vi.fn();
 vi.mock("@/chrome-plugin/bridge", () => ({
-  hasA8PluginRuntime: () => false,
-  a8PluginGet: vi.fn(),
+  a8PluginGet: (...args: unknown[]) => a8PluginGet(...args),
   a8PluginPost: vi.fn(),
 }));
 
 vi.mock("./auth", () => ({
-  buildPbAuthHeaders: () => ({ Authorization: "Bearer x" }),
+  buildPbAuthHeaders: () => ({ "x-custid-515": "1" }),
 }));
 
 const account: PlatformAccount = {
   provider: "PB",
   gateway: "https://pb.example",
   token: "t",
-  referer: "https://pb.example/",
 } as PlatformAccount;
 
-describe("pb transport plugin gate", () => {
-  test("pbGet without plugin throws", async () => {
-    await expect(pbGet(account, "/member-service/v2/account-balance")).rejects.toThrow(
-      PB_PLUGIN_REQUIRED_MSG,
+describe("pbGatewayUrl (A8 Ly)", () => {
+  test("gateway 与 path 直接拼接", () => {
+    expect(pbGatewayUrl({ gateway: "https://pb.example" }, "/member-service/v2/account-balance")).toBe(
+      "https://pb.example/member-service/v2/account-balance",
     );
+  });
+});
+
+describe("pbGet (A8 Zn.get)", () => {
+  test("unwrap axios response.data", async () => {
+    a8PluginGet.mockResolvedValue({ data: { success: true, betCredit: 100 } });
+    const data = await pbGet<{ success: boolean; betCredit: number }>(
+      account,
+      "/member-service/v2/account-balance",
+    );
+    expect(a8PluginGet).toHaveBeenCalledWith(
+      "https://pb.example/member-service/v2/account-balance",
+      { headers: { "x-custid-515": "1" } },
+    );
+    expect(data).toEqual({ success: true, betCredit: 100 });
+  });
+
+  test("Zn 返回 null 时得到 undefined", async () => {
+    a8PluginGet.mockResolvedValue(undefined);
+    const data = await pbGet(account, "/member-service/v2/account-balance");
+    expect(data).toBeUndefined();
   });
 });

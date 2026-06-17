@@ -7,7 +7,6 @@ import { getStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId"
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import type { LimitEntry } from "@/types/limit";
 import { PLATFORMS } from "@/shared/platform";
-import { isA8StrictMode } from "@/shared/a8Strict";
 import { toFixed } from "@/shared/format";
 import { useOddsStore } from "@/stores/oddsStore";
 
@@ -310,8 +309,7 @@ export const stakeProvider: PlatformProvider = {
       });
       const available = (usdt?.available as Record<string, unknown> | undefined) ?? {};
       const amount = available.amount != null ? Number(available.amount) : undefined;
-      const multiply = isA8StrictMode() ? 1 : Math.max(1, account.multiply ?? 1);
-      const balanceCny = amount !== undefined ? amount * STAKE_USDT_TO_CNY * multiply : undefined;
+      const balanceCny = amount !== undefined ? amount * STAKE_USDT_TO_CNY : undefined;
       if (balanceCny === undefined) return undefined;
 
       await stakeGraphqlForAccount(account, "UpdateUserBettingPreference", {

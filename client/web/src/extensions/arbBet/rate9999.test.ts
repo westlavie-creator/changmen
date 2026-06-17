@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
-import { createArbLinkId, isLegSkippedByRate9999 } from "@/extensions/arbBet";
+import { createArbLinkId, arbAccountPickerFilter, isLegSkippedByRate9999 } from "@/extensions/arbBet";
+
+vi.mock("@/shared/a8Strict", () => ({
+  isA8StrictMode: vi.fn(() => false),
+}));
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({
@@ -67,5 +71,20 @@ describe("isLegSkippedByRate9999", () => {
     expect(
       isLegSkippedByRate9999(leg, { id: 1 } as never, { game: "英雄联盟", gameId: 1 } as never, [acc], [], matchStore),
     ).toBe(false);
+  });
+});
+
+describe("arbAccountPickerFilter", () => {
+  const matchStore = { getBetTarget: () => undefined } as never;
+  const bet = { id: 1 } as never;
+  const match = { game: "英雄联盟", gameId: 1 } as never;
+  const leg = makeLeg("PB");
+
+  it("增强模式排除比例 9999", () => {
+    const acc = makeAccount({
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
+    });
+    acc.balance = 1000;
+    expect(arbAccountPickerFilter(acc, bet, match, leg, matchStore)).toBe(false);
   });
 });

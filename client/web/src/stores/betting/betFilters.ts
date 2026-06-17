@@ -5,7 +5,6 @@ import {
   passesLastOddsGate,
   passesMaxBetCount,
 } from "@/shared/betTiming";
-import { isA8StrictMode } from "@/shared/a8Strict";
 import { useMatchStore } from "@/stores/matchStore";
 import type { PlatformId } from "@/types/esport";
 
@@ -27,8 +26,8 @@ export function passesDefaultOddsAccount(
   return true;
 }
 
-/** 与 accountPassesMainBetFilter 相同，但不排除比例 9999 */
-export function accountPassesMainBetFilterExceptRate(
+/** [A8 可证实] 主循环选号过滤（不含 changmen rate9999，见 extensions/arbBet/rate9999） */
+export function accountPassesMainBetFilter(
   account: PlatformAccount,
   bet: ViewBet,
   match: ViewMatch,
@@ -46,26 +45,10 @@ export function accountPassesMainBetFilterExceptRate(
   return true;
 }
 
-export function accountPassesMainBetFilter(
-  account: PlatformAccount,
-  bet: ViewBet,
-  match: ViewMatch,
-  leg: BetOption,
-  matchStore: BetFilterMatchContext,
-  implied?: number,
-): boolean {
-  if (!isA8StrictMode() && !account.canBetAtOdds(leg.odds)) return false;
-  return accountPassesMainBetFilterExceptRate(
-    account,
-    bet,
-    match,
-    leg,
-    matchStore,
-    implied,
-  );
-}
+/** @deprecated 与 accountPassesMainBetFilter 相同；保留供扩展模块引用旧名 */
+export const accountPassesMainBetFilterExceptRate = accountPassesMainBetFilter;
 
-/** 主腿账号未通过时的人类可读原因（用于套利提醒 / UI） */
+/** 主腿账号未通过时的人类可读原因（A8 对齐；9999 见 explainArbAccountRejection） */
 export function explainMainBetAccountRejection(
   account: PlatformAccount,
   bet: ViewBet,
@@ -74,9 +57,6 @@ export function explainMainBetAccountRejection(
   matchStore: BetFilterMatchContext,
   _implied?: number,
 ): string | null {
-  if (!isA8StrictMode() && !account.canBetAtOdds(leg.odds)) {
-    return "投注比例 9999 跳过该赔率";
-  }
   const pause = account.isPause();
   if (pause) return pause;
   if (account.markupOnly) return "仅限补单账号";

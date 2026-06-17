@@ -3,23 +3,7 @@ import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 import { readGameBetCount } from "@/shared/betTiming";
 import { getExchange } from "@/shared/currency";
-import { isA8StrictMode } from "@/shared/a8Strict";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
-
-/** [changmen 扩展] rateConfig.rate === 9999 表示该赔率区间不参与投注 */
-export const RATE_SKIP = 9999;
-
-export function isRateSkipAtOdds(
-  account: Pick<PlatformAccount, "rateConfig">,
-  odds: number,
-): boolean {
-  if (!account.rateConfig?.length) return false;
-  const row = account.rateConfig.find(
-    (r) =>
-      (r.minOdds === 0 || r.minOdds <= odds) && (r.maxOdds === 0 || r.maxOdds >= odds),
-  );
-  return (row?.rate ?? 1) === RATE_SKIP;
-}
 
 const DEFAULT_GAMES = ["英雄联盟", "DOTA2", "CS:GO", "王者荣耀", "无畏契约"];
 
@@ -112,16 +96,9 @@ export class PlatformAccount implements AccountRecord {
         (r.minOdds === 0 || r.minOdds <= odds) && (r.maxOdds === 0 || r.maxOdds >= odds),
     );
     let rate = row?.rate ?? 0;
-    // [A8 可证实] `n===0&&(n=1)`；[changmen 扩展] rate===9999 时返回 0
+    // [A8 可证实] `n===0&&(n=1)`
     if (rate === 0) rate = 1;
-    if (!isA8StrictMode() && rate === RATE_SKIP) return 0;
     return money < 1 ? money : Math.floor(money * rate);
-  }
-
-  /** [changmen 扩展] 比例 9999 时不选该账号；严格 A8 模式无此概念 */
-  canBetAtOdds(odds: number): boolean {
-    if (isA8StrictMode()) return true;
-    return !isRateSkipAtOdds(this, odds);
   }
 
   getMinOdds() {

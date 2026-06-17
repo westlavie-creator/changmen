@@ -9,6 +9,7 @@ import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { betToastSeconds } from "@/shared/betTiming";
 import { isA8StrictMode } from "@/shared/a8Strict";
+import { isRateSkipAtOdds } from "@/extensions/arbBet/rate9999";
 import { toFixed } from "@/shared/format";
 
 export interface ManualBetContext {
@@ -80,6 +81,10 @@ export async function runManualBet(
 
   let option = new BetOption(match, bet, item, side, amount);
   option.odds = odds;
+  if (!isA8StrictMode() && isRateSkipAtOdds(account, odds)) {
+    await ElMessageBox.alert("投注比例 9999 跳过该赔率", "提示");
+    return;
+  }
   if (!accountPassesMainBetFilter(account, bet, match, option, matchStore)) {
     await ElMessageBox.alert(`当前 ${item.type} 账号不满足投注条件`, "提示");
     return;

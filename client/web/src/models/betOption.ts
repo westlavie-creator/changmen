@@ -66,20 +66,17 @@ export class BetOption {
     }
   }
 
+  /** [A8 可证实] bundle `Ap.updateOdds`：只写 fo/Xn，不改 e.odds / e.newOdds */
   updateOdds(next: number) {
-    if (!next) return;
-    this.newOdds = Number(toFixed(next));
-    this.odds = this.newOdds;
-    if (this.item) {
-      const oddsStore = useOddsStore();
-      oddsStore.save(this.type, {
-        id: this.itemId,
-        odds: this.newOdds,
-        isLock: false,
-        betId: this.betId,
-        time: Date.now(),
-      });
-    }
+    if (!this.item) return;
+    const oddsStore = useOddsStore();
+    oddsStore.save(this.type, {
+      id: this.itemId,
+      odds: Number(toFixed(next)),
+      isLock: false,
+      betId: this.betId,
+      time: Date.now(),
+    });
   }
 
   /** [A8 可证实] bundle `Ap.saveLog` */

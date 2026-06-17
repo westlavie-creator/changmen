@@ -1,10 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { PlatformAccount } from "@/models/platformAccount";
-import { isA8StrictMode } from "@/shared/a8Strict";
-
-vi.mock("@/shared/a8Strict", () => ({
-  isA8StrictMode: vi.fn(() => false),
-}));
 
 function makeAccount(patch: Record<string, unknown> = {}) {
   return new PlatformAccount({
@@ -56,22 +51,11 @@ describe("PlatformAccount rateConfig", () => {
     expect(acc.getBetMoney(100, 2)).toBe(50);
   });
 
-  it("比例 9999 时不下注", () => {
+  it("比例 9999 按 A8 当作乘数", () => {
     const acc = makeAccount({
       rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
     });
-    expect(acc.canBetAtOdds(1.8)).toBe(false);
-    expect(acc.getBetMoney(100, 1.8)).toBe(0);
-  });
-
-  it("严格 A8 模式下 9999 按 rate 乘金额", () => {
-    vi.mocked(isA8StrictMode).mockReturnValue(true);
-    const acc = makeAccount({
-      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
-    });
-    expect(acc.canBetAtOdds(1.8)).toBe(true);
     expect(acc.getBetMoney(100, 1.8)).toBe(999900);
-    vi.mocked(isA8StrictMode).mockReturnValue(false);
   });
 
   it("无匹配比例行时按全额 1", () => {
@@ -79,7 +63,6 @@ describe("PlatformAccount rateConfig", () => {
       rateConfig: [{ minOdds: 2, maxOdds: 3, rate: 0.5 }],
     });
     expect(acc.getBetMoney(100, 1.5)).toBe(100);
-    expect(acc.canBetAtOdds(1.5)).toBe(true);
   });
 });
 

@@ -28,8 +28,12 @@ export {
 
 export {
   allowArbBetExecution,
+  arbAccountPickerFilter,
   createArbLinkId,
+  explainArbAccountRejection,
   isLegSkippedByRate9999,
+  isRateSkipAtOdds,
+  RATE_SKIP,
   resolveRate9999SingleLeg,
 } from "@/extensions/arbBet/rate9999";
 

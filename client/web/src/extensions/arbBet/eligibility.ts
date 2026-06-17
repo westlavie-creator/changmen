@@ -4,15 +4,16 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbLegs } from "@/domain/arbitrage/pickArbLegs";
 import { pickArbLegs } from "@/domain/arbitrage/pickArbLegs";
 import { buildOrderOptions } from "@/domain/betting/buildOrderOptions";
-import {
-  accountPassesMainBetFilter,
-  explainMainBetAccountRejection,
-  type BetFilterMatchContext,
-} from "@/stores/betting/betFilters";
+import { type BetFilterMatchContext } from "@/stores/betting/betFilters";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
-import { allowArbBetExecution, resolveRate9999SingleLeg } from "@/extensions/arbBet/rate9999";
+import {
+  allowArbBetExecution,
+  arbAccountPickerFilter,
+  explainArbAccountRejection,
+  resolveRate9999SingleLeg,
+} from "@/extensions/arbBet/rate9999";
 import { isA8StrictMode } from "@/shared/a8Strict";
 
 export interface ArbOrderEligibility {
@@ -155,9 +156,9 @@ export function evaluateArbOrderEligibility(
     : [];
 
   const filterA = (acc: PlatformAccount) =>
-    accountPassesMainBetFilter(acc, bet, match, legA, matchStoreShim, implied);
+    arbAccountPickerFilter(acc, bet, match, legA, matchStoreShim, implied);
   const filterB = (acc: PlatformAccount) =>
-    accountPassesMainBetFilter(acc, bet, match, legB, matchStoreShim, implied);
+    arbAccountPickerFilter(acc, bet, match, legB, matchStoreShim, implied);
 
   const accountA = findMainBetAccount(accounts, legA, legA.betMoney, excludeA, filterA);
   const accountB = findMainBetAccount(accounts, legB, legB.betMoney, excludeB, filterB);
@@ -169,7 +170,7 @@ export function evaluateArbOrderEligibility(
       legA.type,
       legA.betMoney,
       excludeA,
-      (acc) => explainMainBetAccountRejection(acc, bet, match, legA, matchStoreShim, implied),
+      (acc) => explainArbAccountRejection(acc, bet, match, legA, matchStoreShim, implied),
     )) {
       reasons.push(`${legLabel}：${r}`);
     }
@@ -181,7 +182,7 @@ export function evaluateArbOrderEligibility(
       legB.type,
       legB.betMoney,
       excludeB,
-      (acc) => explainMainBetAccountRejection(acc, bet, match, legB, matchStoreShim, implied),
+      (acc) => explainArbAccountRejection(acc, bet, match, legB, matchStoreShim, implied),
     )) {
       reasons.push(`${legLabel}：${r}`);
     }

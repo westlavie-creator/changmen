@@ -118,19 +118,14 @@ export const rayProvider: PlatformProvider = {
     const res = await accountGet<{
       code?: number;
       result?: { odds?: RayOddsRow[]; start_time?: string };
-    }>(account, RAY_A8_V2.odds(String(option.matchId)));
+    }>(account, RAY_A8_V2.odds(String(option.matchId)), { forceDirect: true });
     option.response = res;
-    if (res.code !== 200) {
-      option.checkError = "获取赔率失败";
-      return option;
-    }
+    if (res.code !== 200) return option;
 
-    const row = res.result?.odds?.find((d) => String(d.odds_id) === String(option.itemId));
+    const row = res.result?.odds?.find((d) => d.odds_id == option.itemId);
     option.response = row ?? res;
     if (!row || row.enable_parlay !== 1 || row.status !== 1) {
-      option.checkError = row
-        ? `${row.match_name} / [${row.match_stage}] ${row.group_name} / ${row.name}@${row.odds} 已封盘`
-        : "盘口不存在";
+      option.checkError = `${row?.match_name} / [${row?.match_stage}] ${row?.group_name} / ${row?.name}@${row?.odds} 已封盘`;
       option.updateOdds(0);
       return option;
     }
@@ -151,6 +146,7 @@ export const rayProvider: PlatformProvider = {
     const liveOdds = Number(row.odds);
     option.updateOdds(liveOdds);
     if (option.odds > liveOdds + 0.01) return option;
+    option.odds = liveOdds;
 
     const title = `${row.group_name}\n${row.name}`;
     option.data = {
@@ -216,20 +212,31 @@ export const rayProvider: PlatformProvider = {
       RAY_A8_V2.order,
       { order: JSON.stringify(option.data) },
     );
-    let message = res.desc || "";
+    let message: string | null = null;
     let newOdds = 0;
-    if (res.code === 501) {
-      const rows = res.result as RayOddsRow[] | undefined;
-      newOdds = Number(rows?.[0]?.odds) || 0;
-      message = `赔率下降至${newOdds || ""}`;
-    } else if (res.code === 200) {
-      message = `当前余额:${res.result}`;
+    switch (res.code) {
+      case 501:
+        newOdds =
+          Number(
+            res.result &&
+              Array.isArray(res.result) &&
+              res.result.length &&
+              (res.result[0] as RayOddsRow).odds,
+          ) || 0;
+        message = `赔率下降至${newOdds || ""}`;
+        break;
+      case 200:
+        message = `当前余额:${res.result}`;
+        break;
+      default:
+        newOdds = 0;
+        break;
     }
     option.updateOdds(newOdds);
     return new BetResult(
       account.provider,
-      res.code === 200,
-      message || (res.code === 200 ? "下单成功" : "下单失败"),
+      Boolean(res && res.code === 200),
+      message || res.desc || "",
       option.data,
       res,
     );

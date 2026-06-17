@@ -1,7 +1,6 @@
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
-import { isA8StrictMode } from "@/shared/a8Strict";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { useConfigStore } from "@/stores/configStore";
 
@@ -55,29 +54,10 @@ export function pickAccount(
   if (!candidates.length) return undefined;
   if (candidates.length === 1) return candidates[0];
 
-  const gameName = options?.[0]?.match?.game;
   const configProfit = useConfigStore().config.profit;
   if (options?.length === 2 && candidates.some((a) => a.profit !== 0)) {
     const picked = pickByAccountProfitA8(candidates, options, configProfit);
     if (picked) return picked;
-  } else if (
-    !isA8StrictMode() &&
-    options?.length === 2 &&
-    candidates.some((a) => !!(gameName && a.game?.[gameName]?.profit))
-  ) {
-    const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
-    const sorted = candidates
-      .filter((a) => {
-        if (!a.profit && !(gameName && a.game?.[gameName]?.profit)) return true;
-        const floor = PlatformAccount.profitFloorForGame(a, gameName, configProfit);
-        return implied >= floor;
-      })
-      .sort((a, b) => {
-        const av = PlatformAccount.profitFloorForGame(a, gameName, configProfit);
-        const bv = PlatformAccount.profitFloorForGame(b, gameName, configProfit);
-        return av - bv;
-      });
-    if (sorted.length) return sorted[0];
   }
 
   const idx = store.providerPickIndex.get(provider) ?? 0;

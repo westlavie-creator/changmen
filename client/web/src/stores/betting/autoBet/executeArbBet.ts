@@ -16,7 +16,7 @@ import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useMessageStore } from "@/stores/messageStore";
-import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
+import { arbAccountPickerFilter } from "@/extensions/arbBet/rate9999";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
@@ -92,14 +92,14 @@ export async function executeArbBet(params: {
     legA.type,
     legA.betMoney,
     config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [],
-    (acc) => accountPassesMainBetFilter(acc, bet, match, legA, matchStore, implied),
+    (acc) => arbAccountPickerFilter(acc, bet, match, legA, matchStore, implied),
     options,
   );
   let accountB = accountStore.getAccount(
     legB.type,
     legB.betMoney,
     config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legB.target)) : [],
-    (acc) => accountPassesMainBetFilter(acc, bet, match, legB, matchStore, implied),
+    (acc) => arbAccountPickerFilter(acc, bet, match, legB, matchStore, implied),
     options,
   );
   if (!accountA && !accountB) {
@@ -285,8 +285,8 @@ export async function executeArbBet(params: {
     await saveOrderBind({ orders: JSON.stringify(binds) });
   }
 
+  // [A8 可证实] (Pe.success||ve.success) && BettingMessage（双腿场景；扩展单边无 accountB 则不推）
   if (
-    betBothLegs &&
     accountA &&
     accountB &&
     resultA &&

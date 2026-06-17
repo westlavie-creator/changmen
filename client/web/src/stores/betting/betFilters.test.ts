@@ -1,15 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
-import { isA8StrictMode } from "@/shared/a8Strict";
-import {
-  accountPassesMainBetFilter,
-  accountPassesMainBetFilterExceptRate,
-} from "@/stores/betting/betFilters";
-
-vi.mock("@/shared/a8Strict", () => ({
-  isA8StrictMode: vi.fn(() => false),
-}));
+import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({
@@ -42,21 +34,12 @@ const bet = { id: 1 } as never;
 const match = { game: "英雄联盟", gameId: 1 } as never;
 
 describe("accountPassesMainBetFilter", () => {
-  it("比例 9999 时拒绝该账号", () => {
+  it("比例 9999 仍通过主过滤（排除逻辑在 extensions/arbBet）", () => {
     const acc = makeAccount({
       rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
     });
     expect(
       accountPassesMainBetFilter(acc, bet, match, makeLeg(), matchStore),
-    ).toBe(false);
-  });
-
-  it("ExceptRate 仍允许 9999（供 isLegSkippedByRate9999 检测）", () => {
-    const acc = makeAccount({
-      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
-    });
-    expect(
-      accountPassesMainBetFilterExceptRate(acc, bet, match, makeLeg(), matchStore),
     ).toBe(true);
   });
 
@@ -67,16 +50,5 @@ describe("accountPassesMainBetFilter", () => {
     expect(
       accountPassesMainBetFilter(acc, bet, match, makeLeg(), matchStore),
     ).toBe(true);
-  });
-
-  it("严格 A8 模式下比例 9999 仍可选号", () => {
-    vi.mocked(isA8StrictMode).mockReturnValue(true);
-    const acc = makeAccount({
-      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
-    });
-    expect(
-      accountPassesMainBetFilter(acc, bet, match, makeLeg(), matchStore),
-    ).toBe(true);
-    vi.mocked(isA8StrictMode).mockReturnValue(false);
   });
 });

@@ -1,19 +1,18 @@
-/** 对齐 A8 `Zn`（pluginBridge）+ `k0`（auth headers）+ account 解析 */
+/** [A8 可证实] bundle `Zn.get/post` + `Ly` + `k0`；`unwrap` 等价 PZe 的 `r.data` */
 
-import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { a8PluginGet, a8PluginPost } from "@/chrome-plugin/bridge";
 import { buildPbAuthHeaders } from "./auth";
 import { useAccountStore } from "@/stores/accountStore";
 import { PLATFORMS } from "@/shared/platform";
 import type { PlatformAccount } from "@/models/platformAccount";
 
-/** 对齐 A8 `Zn`：PB 采集/下注仅扩展代发 */
+/** 采集层提示文案（A8 无等价常量；仅 collect 侧 UX） */
 export const PB_PLUGIN_REQUIRED_MSG =
   "平博 PB 需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）";
 
-/** 对齐 A8 `Ly(account, path)` */
+/** [A8 可证实] `Ly(t,e)=>`${t.gateway}${e}`` */
 export function pbGatewayUrl(account: Pick<PlatformAccount, "gateway">, path: string): string {
-  const base = (account.gateway || "").replace(/\/$/, "");
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+  return `${account.gateway}${path}`;
 }
 
 function unwrap<T>(response: unknown): T {
@@ -23,42 +22,36 @@ function unwrap<T>(response: unknown): T {
   return response as T;
 }
 
-function requirePluginRuntime(): void {
-  if (!hasA8PluginRuntime()) throw new Error(PB_PLUGIN_REQUIRED_MSG);
-}
-
-/** 对齐 A8 `Zn.get` + `k0` */
+/** [A8 可证实] `Zn.get(e,{headers:k0(...)})` → `r.data` */
 export async function pbGet<T>(
   account: PlatformAccount,
-  pathOrUrl: string,
+  path: string,
   extraHeaders: Record<string, string> = {},
-): Promise<T> {
-  requirePluginRuntime();
-  const url = pathOrUrl.startsWith("http") ? pathOrUrl : pbGatewayUrl(account, pathOrUrl);
+): Promise<T | undefined> {
+  const url = pbGatewayUrl(account, path);
   const headers = buildPbAuthHeaders(account, extraHeaders);
-  if (!headers) throw new Error("账号参数读取失败");
-  const raw = await a8PluginGet(url, { headers });
+  const raw = await a8PluginGet(url, headers ? { headers } : undefined);
+  if (raw == null) return undefined;
   return unwrap<T>(raw);
 }
 
-/** 对齐 A8 `Zn.post` + `k0` */
+/** [A8 可证实] `Zn.post(e,body,{headers:k0(...)})` → `r.data` */
 export async function pbPost<T>(
   account: PlatformAccount,
-  pathOrUrl: string,
+  path: string,
   body: unknown,
   extraHeaders: Record<string, string> = {},
-): Promise<T> {
-  requirePluginRuntime();
-  const url = pathOrUrl.startsWith("http") ? pathOrUrl : pbGatewayUrl(account, pathOrUrl);
+): Promise<T | undefined> {
+  const url = pbGatewayUrl(account, path);
   const headers = buildPbAuthHeaders(account, extraHeaders);
-  if (!headers) throw new Error("账号参数读取失败");
-  const raw = await a8PluginPost(url, body, { headers });
+  const raw = await a8PluginPost(url, body, headers ? { headers } : undefined);
+  if (raw == null) return undefined;
   return unwrap<T>(raw);
 }
 
-/** 对齐 A8 `AQ` 的 `bv`：须为 PB 且余额已知 */
+/** [A8 可证实] bundle `bv` */
 export function resolvePbAccount(): PlatformAccount | undefined {
   return useAccountStore().accounts.find(
-    (a) => a.provider === PLATFORMS.PB && a.gateway && a.token && a.balance !== undefined,
+    (a) => a.provider === PLATFORMS.PB && a.balance !== undefined,
   );
 }

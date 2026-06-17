@@ -3,20 +3,17 @@ import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
-import { useAccountStore } from "@/stores/accountStore";
 import { accountGet, accountPostForm } from "@/shared/platformHttp";
 import { formatDateKey, toFixed } from "@/shared/format";
 import { md5 } from "@/shared/md5";
 import { wait } from "@/shared/wait";
 import { PLATFORMS } from "@/shared/platform";
-import { isA8StrictMode } from "@/shared/a8Strict";
 
 function noteObCheckFailure(account: PlatformAccount, msg: string) {
-  if (/redis:\s*nil/i.test(msg)) {
+  if (/redis: nil/.test(msg)) {
     account.errorCount += 1;
     if (account.errorCount >= 3) {
       account.logout();
-      void useAccountStore().saveAccounts();
     }
   } else {
     account.errorCount = 0;
@@ -73,14 +70,11 @@ async function obMemberHeartbeat(account: PlatformAccount) {
 
 /** 对齐 A8 `R7`：每账号成功一次 odd/updateType */
 async function obEnsureOddUpdateType(account: PlatformAccount) {
-  if (oddUpdateDone.has(account.accountId)) return;
-  try {
-    const res = await accountGet<ObBalanceResponse>(account, "/game/odd/updateType?odd_update_type=2");
-    if (res.status === "true") {
-      oddUpdateDone.add(account.accountId);
-    }
-  } catch {
-    /* optional */
+  const oddKey = account.accountId ?? 0;
+  if (oddUpdateDone.has(oddKey)) return;
+  const res = await accountGet<ObBalanceResponse>(account, "/game/odd/updateType?odd_update_type=2");
+  if (res.status === "true") {
+    oddUpdateDone.add(oddKey);
   }
 }
 
@@ -216,50 +210,23 @@ function buildBetLine(option: BetOption, amount: number, odds: number) {
   return `mch=${option.matchId}&mkt=${option.betId}&oid=${option.itemId}&odd=${formatOdd(odds)}&a=${Math.round(amount)}&bt=1`;
 }
 
-function buildBetBody(account: PlatformAccount, option: BetOption, amount: number, odds: number) {
-  const timeStamp = Math.floor(Date.now() / 1000);
-  return {
-    c: "1",
-    "b[0]": buildBetLine(option, amount, odds),
-    types: "1",
-    time_stamp: String(timeStamp),
-    secret_key: secretKey(account, timeStamp),
-  };
-}
-
-async function ensureUid(account: PlatformAccount) {
-  if (uidByAccount.has(account.accountId)) return uidByAccount.get(account.accountId)!;
-  const bal = await accountGet<ObBalanceResponse>(account, "/game/balance");
-  if (bal.status !== "true" || !bal.data?.uid) {
-    throw new Error(String(bal.data || "game/balance failed"));
-  }
-  const uid = String(bal.data.uid);
-  uidByAccount.set(account.accountId, uid);
-  await obEnsureOddUpdateType(account);
-  await obMemberHeartbeat(account);
-  return uid;
-}
-
 export const obProvider: PlatformProvider = {
   async getBalance(account) {
-    if (!account.gateway || !account.token) return undefined;
+    const bal = await accountGet<ObBalanceResponse>(account, "/game/balance");
+    if (bal.status !== "true") return undefined;
     try {
-      const bal = await accountGet<ObBalanceResponse>(account, "/game/balance");
-      if (bal.status !== "true") return undefined;
-      try {
-        if (bal.data?.uid) {
-          uidByAccount.set(account.accountId, String(bal.data.uid));
-        }
-        await obEnsureOddUpdateType(account);
-        return {
-          balance: Number(bal.data?.balance) || 0,
-          currency: obVenueCurrency(bal.data?.currency_en),
-        };
-      } finally {
-        await obMemberHeartbeat(account);
+      if (account.accountId) {
+        uidByAccount.set(account.accountId, String(bal.data?.uid ?? ""));
       }
-    } catch {
-      return undefined;
+      if (!oddUpdateDone.has(account.accountId ?? 0)) {
+        await obEnsureOddUpdateType(account);
+      }
+      return {
+        balance: Number(bal.data?.balance) || 0,
+        currency: obVenueCurrency(bal.data?.currency_en),
+      };
+    } finally {
+      await obMemberHeartbeat(account);
     }
   },
 
@@ -281,15 +248,14 @@ export const obProvider: PlatformProvider = {
   },
 
   async checkBet(account, option) {
+    const oddsAtStart = option.odds;
+    const timeStamp = Math.floor(Date.now() / 1000);
     if (!option.loseOrder) {
-      await ensureUid(account);
-      let odds = option.odds;
-      const timeStamp = Math.floor(Date.now() / 1000);
       const probeBody = {
-        c: "1",
-        "b[0]": buildBetLine(option, 1, odds),
-        types: "1",
-        time_stamp: String(timeStamp),
+        c: 1,
+        "b[0]": buildBetLine(option, 1, oddsAtStart),
+        types: 1,
+        time_stamp: timeStamp,
         secret_key: secretKey(account, timeStamp),
       };
       const probe = await accountPostForm<{ status?: string; data?: string }>(
@@ -299,78 +265,52 @@ export const obProvider: PlatformProvider = {
         { forceDirect: true },
       );
       option.response = probe;
+      const msg = String(probe.data || "");
 
-      if (probe.status !== "true") {
-        const msg = String(probe.data || "");
-        const isMinimum = /Minimum|最小投注金额/.test(msg);
-
-        if (isMinimum && isA8StrictMode()) {
-          option.newOdds = 0;
-          account.errorCount = 0;
-        } else if (isMinimum) {
-          option.updateOdds(0);
-          return option;
-        } else if (isA8StrictMode()) {
-          option.checkError = msg;
-          noteObCheckFailure(account, msg);
-          if (msg === "请勿重复提交") {
-            await wait(3000);
-            option.updateOdds(odds);
-          } else if (msg === "Odds error" || msg === "赔率错误") {
-            option.updateOdds(Number(toFixed(odds * 0.99, 3)));
-          } else {
-            option.updateOdds(0);
-          }
-          return option;
-        }
+      // [A8 可证实] yYe：Minimum → newOdds=0 继续；否则 return（无递归 checkBet）
+      if (/Minimum|最小投注金额/.test(msg)) {
+        option.newOdds = 0;
+      } else if (probe.status !== "true") {
+        option.newOdds = oddsAtStart;
+        option.checkError = msg;
+        noteObCheckFailure(account, msg);
         if (msg === "请勿重复提交") {
           await wait(3000);
-          return this.checkBet(account, option);
+        } else if (msg === "Odds error" || msg === "赔率错误") {
+          option.newOdds = Number(toFixed(option.odds * 0.99, 3));
+        } else {
+          option.newOdds = 0;
         }
-        if (msg === "Odds error" || msg === "赔率错误") {
-          option.updateOdds(Number(toFixed(odds * 0.99, 3)));
-          return this.checkBet(account, option);
-        }
-        noteObCheckFailure(account, msg);
-        option.checkError = msg;
+        option.updateOdds(option.newOdds);
         return option;
       }
       account.errorCount = 0;
-    } else {
-      await ensureUid(account);
     }
 
-    const odds = option.odds;
-    const timeStamp = Math.floor(Date.now() / 1000);
     option.data = {
-      c: "1",
-      "b[0]": buildBetLine(option, option.betMoney, odds),
-      types: "1",
-      time_stamp: String(timeStamp),
+      c: 1,
+      "b[0]": buildBetLine(option, option.betMoney, option.odds),
+      types: 1,
+      time_stamp: timeStamp,
       secret_key: secretKey(account, timeStamp),
     };
     return option;
   },
 
   async betting(account, option) {
-    await ensureUid(account);
-    const oddsFromPayload = option.data?.["b[0]"]
-      ? Number(String(option.data["b[0]"]).match(/odd=([\d.]+)/)?.[1])
-      : NaN;
-    const odds = Number.isFinite(oddsFromPayload) ? oddsFromPayload : option.odds;
-    const body = buildBetBody(account, option, option.betMoney, odds);
+    const body = option.data as Record<string, string | number>;
     const res = await accountPostForm<{ status?: string; data?: string }>(
       account,
       "/game/bet",
       body,
     );
-    const ok = res.status === "true";
-    if (!ok && (res.data === "Odds error" || res.data === "赔率错误")) {
-      option.updateOdds(Number(toFixed(odds * 0.99, 3)));
+    if (res.data === "Odds error" || res.data === "赔率错误") {
+      option.updateOdds(Number(toFixed(option.odds * 0.99, 3)));
     }
+    const ok = res.status === "true";
     if (ok && account.accountId) {
       betSuccessAtByAccount.set(account.accountId, Date.now());
     }
-    return new BetResult(account.provider, ok, ok ? "下单成功" : String(res.data || "下单失败"), body, res);
+    return new BetResult(account.provider, ok, res.data, body, res);
   },
 };

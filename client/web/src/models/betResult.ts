@@ -7,8 +7,11 @@ import { useAccountStore } from "@/stores/accountStore";
 export class BetResult {
   provider: PlatformId;
   success: boolean;
-  message: string;
+  message: string | null | undefined;
+  tip: unknown = null;
+  reject: unknown = null;
   orderId: string | null = null;
+  link = 0;
   beginTime: number;
   request?: unknown;
   response?: unknown;
@@ -16,13 +19,13 @@ export class BetResult {
   constructor(
     provider: PlatformId,
     success: boolean,
-    message: string,
+    message?: string | null,
     request?: unknown,
     response?: unknown,
   ) {
     this.provider = provider;
     this.success = success;
-    this.message = message || (success ? "下单成功" : "下单失败");
+    this.message = message;
     this.beginTime = Date.now();
     this.request = request;
     this.response = response;

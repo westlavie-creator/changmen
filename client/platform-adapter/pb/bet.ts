@@ -208,16 +208,14 @@ export const pbProvider: PlatformProvider = {
       return option;
     }
 
-    const liveOdds = toNumber(row.odds);
-    option.newOdds = liveOdds;
-    if (liveOdds < option.odds - 0.01) {
+    option.newOdds = toNumber(row.odds);
+    if (option.newOdds < option.odds - 0.01) {
       return option;
     }
 
     const parts = itemId.split("|");
     parts[5] = "0.00";
     parts[6] = option.target === "Home" ? "0" : "1";
-    const lineId = row.lineId ?? cachedLine;
     const uniqueRequestId = pbUuid();
 
     option.data = {
@@ -225,9 +223,9 @@ export const pbProvider: PlatformProvider = {
       oddsFormat: 1,
       selections: [
         {
-          odds: liveOdds,
+          odds: row.odds,
           oddsId: itemId,
-          selectionId: `${lineId}|0|${parts.join("|")}`,
+          selectionId: `${row.lineId}|0|${parts.join("|")}`,
           stake,
           winRiskStake: "RISK",
           wagerType: "NORMAL",
@@ -261,7 +259,7 @@ export const pbProvider: PlatformProvider = {
   async betting(account, option) {
     const selection = (option.data?.selections as Array<{ uniqueRequestId?: string }> | undefined)?.[0];
     if (!selection?.uniqueRequestId) {
-      return new BetResult(account.provider, false, "requestId error", option.data);
+      return new BetResult(account.provider, false, "requestId error");
     }
 
     let status: string | undefined;
@@ -274,8 +272,7 @@ export const pbProvider: PlatformProvider = {
       status = body?.response?.[0]?.status;
       const errorCode = body?.response?.[0]?.errorCode;
       const ok = status === "ACCEPTED" || status === "PENDING_ACCEPTANCE";
-      const message = errorCode ?? status ?? body?.errorMessage ?? "下单失败";
-      return new BetResult(account.provider, ok, String(message), option.data, body);
+      return new BetResult(account.provider, ok, errorCode ?? status ?? body?.errorMessage, undefined, body);
     } finally {
       if (status === "PENDING_ACCEPTANCE") {
         void startPbRejectPoll(account, Date.now());
