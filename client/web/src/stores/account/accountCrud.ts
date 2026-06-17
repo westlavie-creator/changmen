@@ -8,6 +8,7 @@ import {
 } from "@/api/esport";
 import { PlatformAccount } from "@/models/platformAccount";
 import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
+import type { TagPlatformRow } from "@/types/esport";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 import { refreshAccountBalance, refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
 import { updateVenueOrders } from "@/stores/account/venueOrders";
@@ -30,7 +31,7 @@ export function closeAccountDialog(store: AccountStoreContext) {
 
 export async function loadTagPlatforms(store: AccountStoreContext) {
   const rows = await getTagPlatforms();
-  store.tagPlatforms = rows.map((r) => ({
+  store.tagPlatforms = rows.map((r: TagPlatformRow) => ({
     ID: r.ID ?? r.Id,
     Name: r.Name ?? r.Platform ?? "",
   }));

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, KeepAlive } from "vue";
+import { computed, defineAsyncComponent } from "vue";
 import { useRouter } from "vue-router";
 import LoginPanel from "@/components/auth/LoginPanel.vue";
 import CopyShellBanner from "@/components/layout/CopyShellBanner.vue";

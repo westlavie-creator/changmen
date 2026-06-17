@@ -25,7 +25,7 @@ function saveAccountRefreshLog(title: string, lines: string[]) {
 
 /** 对齐 A8 uv.updateBalance：成功写 balance；失败 balance=undefined（TOKEN ERROR 由 CSS 展示） */
 export async function refreshAccountBalance(
-  store: AccountStoreContext,
+  _store: AccountStoreContext,
   account: PlatformAccount,
 ): Promise<boolean> {
   account.loadingBalance = true;
