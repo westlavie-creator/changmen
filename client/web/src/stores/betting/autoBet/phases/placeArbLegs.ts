@@ -1,17 +1,34 @@
-import type { ViewBet, ViewMatch } from "@/models/match";
 import { BetResult } from "@/models/betResult";
-import type { UserConfig } from "@/types/userConfig";
+import { formatBetResult } from "@/extensions/notify";
+import type { ArbExecutionTrace } from "@/extensions/notify/arbExecutionTrace";
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
-import type { ArbBetChecked, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
+import type { ArbBetAttemptParams, ArbBetChecked, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 
-/** 下单 + anyOdds 换腿重试；失败时返回 null */
+function finishPlaceFailure(
+  trace: ArbExecutionTrace | undefined,
+  legA: { type: string; target: string; betMoney: number; odds: number },
+  legB: { type: string; target: string; betMoney: number; odds: number },
+  resultA?: BetResult,
+  resultB?: BetResult,
+): null {
+  trace?.event(
+    "下单",
+    [
+      formatBetResult(legA.type, legA.target, legA.betMoney, legA.odds, resultA),
+      formatBetResult(legB.type, legB.target, legB.betMoney, legB.odds, resultB),
+    ].join(" · "),
+  );
+  trace?.finish("fail", "下单未成功");
+  return null;
+}
+
+/** 下单 + anyOdds 换腿重试；失败时 trace.finish 并返回 null */
 export async function placeArbLegs(
-  match: ViewMatch,
-  bet: ViewBet,
-  config: UserConfig,
+  params: ArbBetAttemptParams,
   checked: ArbBetChecked,
 ): Promise<ArbBetPlaced | null> {
+  const { match, bet, config, trace } = params;
   const accountStore = useAccountStore();
   let { legA, legB, accountA, accountB, betBothLegs, waitSec } = checked;
 
@@ -19,17 +36,20 @@ export async function placeArbLegs(
   let resultB: BetResult | undefined;
   if (!betBothLegs) {
     if (accountA) {
+      trace?.event("下单", `开始 ${legA.type} ${legA.target}`);
       resultA = await accountStore.betting(accountA, legA, waitSec);
       if (!resultA?.success) {
-        return null;
+        return finishPlaceFailure(trace, legA, legB, resultA, resultB);
       }
     } else {
+      trace?.event("下单", `开始 ${legB.type} ${legB.target}`);
       resultB = await accountStore.betting(accountB!, legB, waitSec);
       if (!resultB?.success) {
-        return null;
+        return finishPlaceFailure(trace, legA, legB, resultA, resultB);
       }
     }
   } else if (config.betSorting === "Parallel") {
+    trace?.event("下单", `并行 ${legA.type} + ${legB.type}`);
     const pair = await Promise.all([
       accountStore.betting(accountA!, legA, waitSec),
       accountStore.betting(accountB!, legB, waitSec),
@@ -45,22 +65,40 @@ export async function placeArbLegs(
       resultB = pair[0];
     }
     if (!resultA?.success) {
-      return null;
+      return finishPlaceFailure(trace, legA, legB, resultA, resultB);
     }
   } else {
+    trace?.event("下单", `顺序 ${legA.type} → ${legB.type}`);
     resultA = await accountStore.betting(accountA!, legA, waitSec);
     if (!resultA.success) {
-      return null;
+      return finishPlaceFailure(trace, legA, legB, resultA, resultB);
     }
     resultB = await accountStore.betting(accountB!, legB, waitSec);
   }
 
+  trace?.event(
+    "下单",
+    [
+      accountA ? formatBetResult(legA.type, legA.target, legA.betMoney, legA.odds, resultA) : null,
+      accountB ? formatBetResult(legB.type, legB.target, legB.betMoney, legB.odds, resultB) : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  );
+
   if (betBothLegs && resultA?.success && !resultB?.success) {
-    const retry = await retryFailedLeg(match, bet, legA, legB, config, waitSec);
+    trace?.event("重试", `anyOdds 换腿补 ${legB.type} ${legB.target}`);
+    const retry = await retryFailedLeg(match, bet, legA, legB, config, waitSec, trace);
     if (retry) {
       resultB = retry.result;
       legB = retry.leg;
       accountB = retry.account;
+      trace?.event(
+        "重试",
+        formatBetResult(legB.type, legB.target, legB.betMoney, legB.odds, resultB),
+      );
+    } else {
+      trace?.event("重试", "换腿未成功");
     }
   }
 

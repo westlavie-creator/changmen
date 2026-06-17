@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { NOTIFY_TYPES } from "@/types/notifyTypes";
@@ -11,6 +11,13 @@ const user = useUserStore();
 const { message } = storeToRefs(user);
 const pushLocked = ref(true);
 const saving = ref(false);
+
+const notifyArbProgress = computed({
+  get: () => message.value.notifyArbProgress === true,
+  set: (v: boolean) => {
+    message.value.notifyArbProgress = v;
+  },
+});
 
 function unlockPush(type: string) {
   if (type === "OrderPush") pushLocked.value = false;
@@ -53,6 +60,11 @@ async function testTelegram() {
     </el-form-item>
     <el-form-item label="机器人推单:">
       <el-input v-model="message.pushOrderId" :disabled="pushLocked" />
+    </el-form-item>
+    <el-form-item label="套利进度报告:">
+      <el-checkbox v-model="notifyArbProgress">
+        开启投注时推送执行时间线（含检测失败、预检、下单；与 📣下单提醒 并存）
+      </el-checkbox>
     </el-form-item>
     <el-form-item label="消息通知类型:">
       <label

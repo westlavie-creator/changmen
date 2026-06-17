@@ -1,22 +1,29 @@
 import { opponentSide } from "@/models/betOption";
 import type { PlatformId } from "@/types/esport";
-import { useAccountStore } from "@/stores/accountStore";
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { useMatchStore } from "@/stores/matchStore";
 import {
   allowArbBetExecution,
   arbAccountPickerFilter,
   createArbLinkId,
+  explainAllowArbRejection,
   resolveSingleLegByRate,
 } from "@/extensions/arbBet/rate9999";
+import { describeGetOrderOptionsSkip } from "@/extensions/notify/describeArbPrepareSkip";
+import {
+  formatLegAccount,
+  setArbExecutionTraceMeta,
+} from "@/extensions/notify";
+import { arbProfitRate } from "@/shared/format";
+import { useAccountStore } from "@/stores/accountStore";
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
+import { useMatchStore } from "@/stores/matchStore";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import type { ArbBetAttemptParams, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
 
-/** 选腿、选号、比例 9999 单边 / linkId；失败时返回 null（A8 静默 continue） */
+/** 选腿、选号、比例 9999 单边 / linkId；失败时 return null（A8 静默 continue） */
 export async function prepareArbAttempt(
   params: ArbBetAttemptParams,
 ): Promise<ArbBetReady | null> {
-  const { match, bet, config } = params;
+  const { match, bet, config, trace } = params;
   const matchStore = useMatchStore();
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
@@ -27,6 +34,8 @@ export async function prepareArbAttempt(
   const accounts = accountStore.accounts;
 
   if (loseStore.orders.has(bet.id)) {
+    trace?.event("准备", "该盘口已在补单队列");
+    trace?.finish("skip", "该盘口已在补单队列，自动套利已跳过");
     return null;
   }
 
@@ -38,15 +47,36 @@ export async function prepareArbAttempt(
 
   const options = bet.getOrderOptions(match, config, accounts, providerKeys);
   if (!options || options.length !== 2) {
+    const skipReason = describeGetOrderOptionsSkip(
+      bet,
+      match,
+      config,
+      providerKeys,
+      accounts,
+    );
+    trace?.event(
+      "检测",
+      `执行平台 ${providerKeys.length ? providerKeys.join(", ") : "（无）"} · ${skipReason}`,
+    );
+    trace?.finish("skip", skipReason);
     return null;
   }
-
-  // [A8 可证实] `lBe`：GetOrderOptions 后立即 `linkId=Date.now()`（9999 扩展再取负）
-  const linkTs = Date.now();
 
   let legA = options[0];
   let legB = options[1];
   const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
+  setArbExecutionTraceMeta(trace, {
+    implied,
+    homeLine: `${legA.type}@${legA.odds}`,
+    awayLine: `${legB.type}@${legB.odds}`,
+  });
+  trace?.event(
+    "检测",
+    `平台 ${providerKeys.join(", ")} · ${legA.type}@${legA.odds} / ${legB.type}@${legB.odds} · 利润 ${arbProfitRate(implied)}`,
+  );
+
+  // [A8 可证实] `lBe`：GetOrderOptions 后立即 `linkId=Date.now()`（9999 扩展再取负）
+  const linkTs = Date.now();
 
   let accountA = accountStore.getAccount(
     legA.type,
@@ -63,7 +93,15 @@ export async function prepareArbAttempt(
     options,
   );
   if (!accountA && !accountB) {
+    trace?.finish("fail", "无可用账号");
     return null;
+  }
+
+  if (accountA) {
+    trace?.event("选号", `${legA.target} ${formatLegAccount(legA.type, accountA.playerName)}`);
+  }
+  if (accountB) {
+    trace?.event("选号", `${legB.target} ${formatLegAccount(legB.type, accountB.playerName)}`);
   }
 
   const betBothLegs = Boolean(accountA) && Boolean(accountB);
@@ -85,7 +123,22 @@ export async function prepareArbAttempt(
   });
 
   if (!allowArbBetExecution(betBothLegs, singleLegByRate)) {
+    trace?.finish(
+      "skip",
+      explainAllowArbRejection({
+        betBothLegs,
+        singleLegByRate,
+        accountA,
+        accountB,
+        legA,
+        legB,
+      }),
+    );
     return null;
+  }
+
+  if (singleLegByRate) {
+    trace?.event("模式", "比例 9999 单边（对侧不下单）");
   }
 
   return {

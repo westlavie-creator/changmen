@@ -7,6 +7,8 @@ export interface ProxyRow {
 export interface MessageConfig extends Record<string, unknown> {
   telegramId?: string;
   pushOrderId?: string;
+  /** [changmen 扩展] 套利执行进度报告（与 A8 bettingMessage 并存） */
+  notifyArbProgress?: boolean;
 }
 
 export interface WalletRow {

@@ -1,4 +1,5 @@
 import { BetOption } from "@/models/betOption";
+import type { ArbExecutionTrace } from "@/extensions/notify/arbExecutionTrace";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult } from "@/models/betResult";
@@ -30,4 +31,6 @@ export interface ArbBetAttemptParams {
   bet: ViewBet;
   config: UserConfig;
   setMessage: (msg: string) => void;
+  /** [changmen 扩展] 套利执行进度；由 prepare 在检测到腿后懒创建 */
+  trace?: ArbExecutionTrace;
 }

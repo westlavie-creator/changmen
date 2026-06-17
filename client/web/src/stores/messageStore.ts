@@ -1,5 +1,9 @@
 import { defineStore } from "pinia";
 import { sendMessage } from "@/api/esport";
+import {
+  formatArbProgressTelegramBody,
+  type ArbProgressPayload,
+} from "@/extensions/notify/arbExecutionTrace";
 import { formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
 import { NOTIFY_TYPES } from "@/types/notifyTypes";
 import type { BetOption } from "@/models/betOption";
@@ -216,6 +220,33 @@ export const useMessageStore = defineStore("message", {
         `<blockquote>投注延迟：${toFixed(elapsedMs / 1000, 1)}秒</blockquote>`,
       ].join("\n");
       this.enqueueTelegram(body);
+    },
+
+    /**
+     * [changmen 扩展] 套利执行进度报告（方案 A：与 A8 bettingMessage 并存）。
+     */
+    arbProgressMessage(payload: ArbProgressPayload) {
+      const user = useUserStore();
+      if (!user.message?.telegramId?.trim()) return;
+      if (user.message.notifyArbProgress !== true) return;
+
+      const scanSkip =
+        payload.outcome === "skip" &&
+        /利润\/赔率未达|无余额|仅 .+ 有余额/.test(payload.summary);
+      const cooldown =
+        payload.outcome === "fail"
+          ? 120
+          : scanSkip
+            ? 600
+            : payload.outcome === "skip"
+              ? 300
+              : 120;
+      const storageKey = `${DEDUP_PREFIX}arb-progress:${payload.matchId}:${payload.betId}:${payload.outcome}:${payload.summary}`;
+      const last = Number(sessionStorage.getItem(storageKey) || 0);
+      if (Date.now() - last < cooldown * 1000) return;
+      sessionStorage.setItem(storageKey, String(Date.now()));
+
+      this.enqueueTelegram(formatArbProgressTelegramBody(payload));
     },
 
     bettingMessage(legA: BettingMessagePeer, legB: BettingMessagePeer) {

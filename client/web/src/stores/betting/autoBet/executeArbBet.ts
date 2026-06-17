@@ -1,6 +1,8 @@
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { UserConfig } from "@/types/userConfig";
+import { beginArbExecutionTrace } from "@/extensions/notify/arbProgressConfig";
 import { checkArbLegs } from "@/stores/betting/autoBet/phases/checkArbLegs";
+import type { ArbBetAttemptParams } from "@/stores/betting/autoBet/phases/types";
 import { finalizeArbBet } from "@/stores/betting/autoBet/phases/finalizeArbBet";
 import { placeArbLegs } from "@/stores/betting/autoBet/phases/placeArbLegs";
 import { prepareArbAttempt } from "@/stores/betting/autoBet/phases/prepareArbAttempt";
@@ -12,14 +14,17 @@ export async function executeArbBet(params: {
   config: UserConfig;
   setMessage: (msg: string) => void;
 }): Promise<void> {
-  const ready = await prepareArbAttempt(params);
+  const attempt: ArbBetAttemptParams = { ...params };
+  beginArbExecutionTrace(attempt);
+
+  const ready = await prepareArbAttempt(attempt);
   if (!ready) return;
 
-  const checked = await checkArbLegs(params, ready);
+  const checked = await checkArbLegs(attempt, ready);
   if (!checked) return;
 
-  const placed = await placeArbLegs(params.match, params.bet, params.config, checked);
+  const placed = await placeArbLegs(attempt, checked);
   if (!placed) return;
 
-  await finalizeArbBet(params, placed);
+  await finalizeArbBet(attempt, placed);
 }

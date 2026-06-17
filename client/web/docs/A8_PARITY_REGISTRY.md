@@ -116,8 +116,8 @@
 | 9999 单边 Telegram | A8 无 | 双腿版式；9999 侧标注不下单 | 🔶 |
 | 补单入队 | 一腿成功一腿失败 | `enqueueMakeUpOrder` | ✅ |
 | 手动双击下单 | check + betting | `manualBet.ts` | ✅ |
-| Telegram 套利扫描 | 无（仅成功推单） | 无（已移除 changmen 扩展） | ✅ |
-| 套利执行 skip 通知 | 无 | 无（已移除 changmen 扩展） | ✅ |
+| Telegram 套利扫描 | 无（仅成功推单） | 无 | ✅ |
+| 套利执行进度报告 | 无 | `extensions/notify`：单次尝试一份报告（含 prepare 失败）；与 `bettingMessage` 并存 | 🔶 |
 | BetRow 套利红线 / flash | bundle 内联 / 无 | `extensions/arbBet/ui` | 🔶 |
 
 实现：`src/stores/betting/autoBet/*`、`src/stores/bettingStore.ts`

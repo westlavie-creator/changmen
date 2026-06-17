@@ -4,6 +4,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult } from "@/models/betResult";
 import type { UserConfig } from "@/types/userConfig";
 import type { PlatformId } from "@/types/esport";
+import type { ArbExecutionTrace } from "@/extensions/notify/arbExecutionTrace";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { isSingleLegRateAtOdds } from "@/extensions/arbBet/rate9999";
@@ -21,6 +22,7 @@ export async function retryFailedLeg(
   failedLeg: BetOption,
   config: UserConfig,
   waitSec: number,
+  trace?: ArbExecutionTrace,
 ): Promise<{ leg: BetOption; account: PlatformAccount; result: BetResult } | null> {
   const accountStore = useAccountStore();
   const matchStore = useMatchStore();
@@ -78,6 +80,7 @@ export async function retryFailedLeg(
     tried.push(pickedAccount.provider);
     let retryLeg = new BetOption(match, bet, pickedItem, failedLeg.target, stake);
     retryLeg.odds = pickedItem.getOdds(failedLeg.target);
+    trace?.event("重试", `第 ${round + 1} 轮 ${pickedAccount.provider}@${retryLeg.odds}`);
     retryLeg = await accountStore.checkBetting(pickedAccount, retryLeg);
     if (!retryLeg.data) continue;
 

@@ -93,13 +93,14 @@ export async function finalizeArbBet(
   params: ArbBetAttemptParams,
   placed: ArbBetPlaced,
 ): Promise<void> {
-  const { bet, config } = params;
+  const { bet, config, trace } = params;
   const accountStore = useAccountStore();
   const {
     legA,
     legB,
     accountA,
     accountB,
+    betBothLegs,
     linkId,
     waitSec,
     resultA,
@@ -123,12 +124,22 @@ export async function finalizeArbBet(
 
   if (successAccounts.length) {
     const rejectWait = rejectWaitSeconds(config, successAccounts);
+    trace?.event("拒单", `等待 ${waitSec}s 展示 / 检测 ${rejectWait}s`);
     await waitRejectDetection(waitSec, rejectWait);
     const synced = await syncVenueRejectFlags(resultA, accountA, resultB, accountB);
     ordersA = synced.ordersA;
     ordersB = synced.ordersB;
     rejectA = synced.rejectA;
     rejectB = synced.rejectB;
+    trace?.event(
+      "拒单",
+      [
+        accountA ? `${legA.type} ${rejectA ? "🔴拒单" : "否"}` : null,
+        accountB ? `${legB.type} ${rejectB ? "🔴拒单" : "否"}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    );
   }
 
   const binds: OrderBindRow[] = [];
@@ -148,6 +159,24 @@ export async function finalizeArbBet(
   }
 
   await applyArbMakeUpFromRejects(params, placed, rejectA, rejectB);
+  if (
+    betBothLegs &&
+    accountA &&
+    resultA?.success &&
+    !rejectA &&
+    (!resultB?.success || rejectB)
+  ) {
+    trace?.event("补单", `已入队 ${legB.type} ${legB.target}`);
+  }
+  if (
+    betBothLegs &&
+    accountB &&
+    resultB?.success &&
+    !rejectB &&
+    (!resultA?.success || rejectA)
+  ) {
+    trace?.event("补单", `已入队 ${legA.type} ${legA.target}`);
+  }
   if (resultA?.success && !rejectA && accountA) {
     markSuccessfulBet(accountA, bet.id, legA.target, legA.odds);
   }
@@ -157,10 +186,39 @@ export async function finalizeArbBet(
 
   if (binds.length) {
     await saveOrderBind({ orders: JSON.stringify(binds) });
+    trace?.event("绑单", `linkId ${linkId} · ${binds.length} 笔`);
   }
 
   const messagePeers = buildBettingMessagePeers(params, placed, rejectA, rejectB);
   if (messagePeers) {
     useMessageStore().bettingMessage(messagePeers[0], messagePeers[1]);
+  }
+
+  const okA = Boolean(resultA?.success && accountA && !rejectA);
+  const okB = Boolean(resultB?.success && accountB && !rejectB);
+  const makeupQueued =
+    (betBothLegs &&
+      accountA &&
+      resultA?.success &&
+      !rejectA &&
+      (!resultB?.success || rejectB)) ||
+    (betBothLegs &&
+      accountB &&
+      resultB?.success &&
+      !rejectB &&
+      (!resultA?.success || rejectA));
+
+  if (okA && okB) {
+    trace?.finish("success", "双腿成单");
+  } else if (resultA?.success || resultB?.success) {
+    const parts = [
+      okA ? `${legA.type} 成` : null,
+      okB ? `${legB.type} 成` : null,
+      rejectA || rejectB ? "含拒单" : null,
+      makeupQueued ? "已入补单" : null,
+    ].filter(Boolean);
+    trace?.finish("partial", parts.join(" · ") || "部分成功");
+  } else {
+    trace?.finish("fail", "收尾无成功腿");
   }
 }
