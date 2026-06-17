@@ -68,5 +68,4 @@ export interface UpdateBalanceResult {
   total: number;
   platformId?: number;
   platformName?: string;
-  credit?: number;
 }

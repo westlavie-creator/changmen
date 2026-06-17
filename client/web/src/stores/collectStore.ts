@@ -70,7 +70,7 @@ export const useCollectStore = defineStore("collect", {
 
     async logCollect(title: string, rows: unknown[]) {
       if (!this.log) return;
-      await saveUserLog({ title, rows });
+      await saveUserLog(title, rows);
     },
   },
 });

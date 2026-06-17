@@ -62,18 +62,19 @@ export function clearAuthSession() {
   setRefreshToken(null);
 }
 
-export async function post<T>(
+export type PostOptions = {
+  /** 对齐 A8 `_r.post` 的 `errorTip:false`：失败时不抛错（由调用方读 success） */
+  errorTip?: boolean;
+};
+
+async function executePost<T>(
   action: string,
-  body: Record<string, unknown> = {},
+  init: RequestInit,
   query = "",
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
   try {
-    const res = await fetch(buildEsportUrl(action, query, getApiBase()), {
-      method: "POST",
-      headers: { ...JSON_HEADERS, ...authHeaders() },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(buildEsportUrl(action, query, getApiBase()), init);
     const text = await res.text();
     if (!res.ok) {
       let serverMsg = "";
@@ -98,21 +99,57 @@ export async function post<T>(
       throw new Error(`${action} 响应无效: ${text.slice(0, 120)}`);
     }
 
-    // 会话失效或被其他设备登录踢出
     if (json.success === 0 && SESSION_KICK_MSGS.has(String(json.msg || "")) && action !== "Client_Login") {
       clearAuthSession();
       window.location.href = "/";
     }
     return json;
   } finally {
-    // 对齐 A8：延迟取样来自任意 API 请求耗时，而非专门心跳请求。
     try {
       const { useUserStore } = await import("@/stores/userStore");
       useUserStore().setApiDelay(Date.now() - started);
     } catch {
-      // 登录前或 pinia 尚未就绪时忽略。
+      /* 登录前或 pinia 尚未就绪时忽略 */
     }
   }
+}
+
+export async function post<T>(
+  action: string,
+  body: Record<string, unknown> = {},
+  query = "",
+  _opts?: PostOptions,
+): Promise<ApiEnvelope<T>> {
+  return executePost<T>(
+    action,
+    {
+      method: "POST",
+      headers: { ...JSON_HEADERS, ...authHeaders() },
+      body: JSON.stringify(body),
+    },
+    query,
+  );
+}
+
+/** [A8 可证实] `_r.post`：application/x-www-form-urlencoded */
+export async function postForm<T>(
+  action: string,
+  fields: Record<string, string>,
+  query = "",
+  _opts?: PostOptions,
+): Promise<ApiEnvelope<T>> {
+  return executePost<T>(
+    action,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;",
+        ...authHeaders(),
+      },
+      body: new URLSearchParams(fields).toString(),
+    },
+    query,
+  );
 }
 
 export function unwrap<T>(data: ApiEnvelope<T>): T {

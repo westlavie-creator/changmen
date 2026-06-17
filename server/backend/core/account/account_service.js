@@ -33,17 +33,26 @@ async function handleGetTagPlatforms() {
   return { ok: true, info: await accountStore.listTagPlatforms() };
 }
 
-async function handleUpdateBalance(body) {
+async function handleUpdateBalance(body, userId) {
   const playerId = body.playerId;
   const balance = Number(body.balance);
   if (!playerId || Number.isNaN(balance)) {
     return { ok: false, msg: "playerId 与 balance 必填" };
+  }
+  if (userId) {
+    const userAccountIds = new Set(store.getAccountsForUser(userId).map((a) => Number(a.accountId)));
+    if (!userAccountIds.has(Number(playerId))) {
+      return { ok: false, msg: "账号不属于当前用户" };
+    }
   }
   const player = await accountStore.getPlayer(playerId);
   if (!player) {
     return { ok: false, msg: "player 不存在" };
   }
   const info = await accountStore.updatePlayerBalance(playerId, balance);
+  if (!info) {
+    return { ok: false, msg: "更新余额失败" };
+  }
   return { ok: true, info };
 }
 
@@ -308,6 +317,20 @@ async function handleRefreshAccountBalance(body, userId) {
   return { ok: true, info: { ...row, balance: undefined } };
 }
 
+async function handleSaveUserLog(body, userId) {
+  if (!userId) return { ok: false, msg: "请先登录" };
+  const title = String(body.title || "").trim();
+  if (!title) return { ok: false, msg: "title 必填" };
+  let data = "";
+  if (body.data != null) {
+    data = typeof body.data === "string" ? body.data : JSON.stringify(body.data);
+  } else if (body.rows != null) {
+    data = typeof body.rows === "string" ? body.rows : JSON.stringify(body.rows);
+  }
+  const ok = await accountStore.saveUserLog(userId, title, data);
+  return ok ? { ok: true, info: true } : { ok: false, msg: "写入用户日志失败" };
+}
+
 export {
   handleCreateTagPlatform,
   handleGetTagPlatforms,
@@ -329,6 +352,7 @@ export {
   refreshAccountBalance,
   refreshAllAccountBalances,
   handleRefreshAccountBalance,
+  handleSaveUserLog,
   syncAccountRowInKv,
   emptyPage,
 };

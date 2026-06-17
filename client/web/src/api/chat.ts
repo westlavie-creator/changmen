@@ -20,8 +20,13 @@ export async function getChatHistory(body: Record<string, unknown> = {}) {
   return unwrap(await post<ChatMessageRow[]>("Client_GetChatHistory", body));
 }
 
-export async function saveUserLog(body: Record<string, unknown>) {
-  return unwrap(await post<boolean>("Client_SaveUserLog", body));
+/** [A8 可证实] Vt.saveLog(title, data) → Client_SaveUserLog */
+export async function saveUserLog(title: string, data?: unknown) {
+  const payload = {
+    title: String(title),
+    data: typeof data === "string" ? data : JSON.stringify(data ?? ""),
+  };
+  return unwrap(await post<boolean>("Client_SaveUserLog", payload));
 }
 
 export async function sendMessage(body: Record<string, unknown>) {

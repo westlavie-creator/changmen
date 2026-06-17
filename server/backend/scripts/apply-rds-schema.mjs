@@ -54,6 +54,9 @@ async function main() {
     console.log("[rds] 执行 007_platform_matches_is_live.sql …");
     await client.query(readSql("007_platform_matches_is_live.sql"));
 
+    console.log("[rds] 执行 008_user_logs.sql …");
+    await client.query(readSql("008_user_logs.sql"));
+
     if (withCron) {
       console.log("[rds] 执行 002_prune_pg_cron.sql …");
       try {

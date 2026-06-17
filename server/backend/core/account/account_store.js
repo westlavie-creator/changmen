@@ -58,6 +58,10 @@ async function updatePlayerBalance(playerId, balance) {
   return sb.updatePlayerBalanceRow(playerId, balance);
 }
 
+async function saveUserLog(userId, title, data) {
+  return sb.insertUserLogRow(userId, title, data);
+}
+
 async function deletePlayer(playerId, description) {
   const ok = await sb.softDeletePlayerRow(playerId, description);
   if (!ok) return false;
@@ -254,6 +258,7 @@ export {
   createTagPlatform,
   getPlayer,
   updatePlayerBalance,
+  saveUserLog,
   deletePlayer,
   deletePlayerData,
   listMoneyLogs,

@@ -76,6 +76,7 @@ export const {
   insertPlayerRow,
   fetchPlayerById,
   updatePlayerBalanceRow,
+  insertUserLogRow,
   softDeletePlayerRow,
   upsertOrders,
   updateOrderBind,

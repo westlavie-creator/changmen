@@ -75,10 +75,7 @@ export async function startPbRejectPoll(account: PlatformAccount, startedAt: num
       const orderId = String(row[0] ?? "");
       void import("@/api/chat")
         .then(({ saveUserLog }) =>
-          saveUserLog({
-            title: `[PB] - ${orderId} 拒单检测 => ${statusRaw}`,
-            data: row,
-          }),
+          saveUserLog(`[PB] - ${orderId} 拒单检测 => ${statusRaw}`, row),
         )
         .catch(() => {});
     }

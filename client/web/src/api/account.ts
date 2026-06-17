@@ -1,4 +1,4 @@
-import { post, unwrap } from "@/api/client";
+import { post, postForm } from "@/api/client";
 import type { AccountRecord, CreateTagPlatformResult, UpdateBalanceResult } from "@/types/account";
 import { formatPbDateTime } from "@/shared/format";
 import type { MoneyLogRow, PageResult, TagPlatformRow } from "@/types/esport";
@@ -16,10 +16,19 @@ export async function saveAccounts(accounts: AccountRecord[]): Promise<boolean> 
   return res.success === 1;
 }
 
-export async function updateBalance(playerId: number, balance: number) {
-  return unwrap(
-    await post<UpdateBalanceResult>("Client_UpdateBalance", { playerId, balance }),
+/** [A8 可证实] Vt.updateBalance：balance 未定义或无 playerId 时不请求；errorTip:false */
+export async function updateBalance(
+  playerId: number,
+  balance?: number,
+): Promise<UpdateBalanceResult | undefined> {
+  if (balance === undefined || !playerId) return undefined;
+  const res = await postForm<UpdateBalanceResult>(
+    "Client_UpdateBalance",
+    { playerId: String(playerId), balance: String(balance) },
+    "",
+    { errorTip: false },
   );
+  return res.success === 1 && res.info ? res.info : undefined;
 }
 
 /** @deprecated 余额刷新已改为 A8 方案（浏览器 Provider + Client_UpdateBalance），保留仅供调试 */

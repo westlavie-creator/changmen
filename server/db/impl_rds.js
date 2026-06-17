@@ -1305,6 +1305,25 @@ async function fetchPlayerById(playerId) {
   }
 }
 
+async function insertUserLogRow(userId, title, data) {
+  const uid = String(userId || '').trim()
+  if (!uid) return false
+  const pool = getPgPool()
+  if (!pool) return false
+  const now = Date.now()
+  try {
+    await pool.query(
+      `INSERT INTO user_logs (user_id, title, data, create_at)
+       VALUES ($1, $2, $3, $4)`,
+      [uid, String(title || ''), String(data ?? ''), now],
+    )
+    return true
+  } catch (err) {
+    console.warn('[rds] insertUserLogRow:', err.message)
+    return false
+  }
+}
+
 async function updatePlayerBalanceRow(playerId, balance) {
   const id = Number(playerId)
   if (!Number.isFinite(id) || id <= 0) return null
@@ -1326,7 +1345,6 @@ async function updatePlayerBalanceRow(playerId, balance) {
       total: row.totalBalance,
       platformId: row.platformId,
       platformName: row.platformName,
-      credit: row.credit,
     }
   } catch (err) {
     console.warn('[rds] updatePlayerBalanceRow:', err.message)
@@ -1610,6 +1628,7 @@ export {
   insertPlayerRow,
   fetchPlayerById,
   updatePlayerBalanceRow,
+  insertUserLogRow,
   softDeletePlayerRow,
   upsertOrders,
   updateOrderBind,

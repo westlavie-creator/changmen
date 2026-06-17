@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent } from "vue";
+import { computed, defineAsyncComponent, KeepAlive } from "vue";
 import { useRouter } from "vue-router";
 import LoginPanel from "@/components/auth/LoginPanel.vue";
 import CopyShellBanner from "@/components/layout/CopyShellBanner.vue";
@@ -28,7 +28,9 @@ async function onLoginSuccess() {
 
 <template>
   <CopyShellBanner v-if="showDevSkinBanner()" />
-  <HomeView v-if="sessionReady" />
+  <KeepAlive v-if="sessionReady">
+    <HomeView />
+  </KeepAlive>
   <PluginIntroShell v-else-if="showLoginGate" :show-login="true">
     <LoginPanel @success="onLoginSuccess" />
   </PluginIntroShell>

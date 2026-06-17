@@ -423,7 +423,7 @@ async function handle(
       return deleted.ok ? ok(deleted.info) : fail(deleted.msg);
     }
     case "Client_UpdateBalance": {
-      const updated = await accountService.handleUpdateBalance(body);
+      const updated = await accountService.handleUpdateBalance(body, ctx.user.id);
       return updated.ok ? ok(updated.info) : fail(updated.msg);
     }
     case "Client_RefreshAccountBalance": {
@@ -543,8 +543,10 @@ async function handle(
     }
     case "Client_GetChatHistory":
       return ok([]);
-    case "Client_SaveUserLog":
-      return ok(true);
+    case "Client_SaveUserLog": {
+      const saved = await accountService.handleSaveUserLog(body, ctx.user.id);
+      return saved.ok ? ok(saved.info) : fail(saved.msg);
+    }
     case "SendMessage": {
       const sent = await sendTelegramMessage(body);
       return sent.ok ? ok(true) : fail(sent.msg);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onActivated, onUnmounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import AccountBar from "@/components/account/AccountBar.vue";
@@ -25,6 +25,11 @@ const messageStore = useMessageStore();
 const { matchs } = storeToRefs(matchStore);
 const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 
+// [A8 可证实] zg：return P(),{matchs…} — store 创建时启动主循环
+void matchStore.startMainLoop();
+// [A8 可证实] Ki：a() — store 创建时启动 Telegram 队列
+messageStore.start();
+
 const searchQuery = ref("");
 const { extensionReady, refreshExtension } = useExtensionGate();
 
@@ -41,53 +46,50 @@ const filteredMatchs = computed(() => {
   });
 });
 
-let homeStarted = false;
+let runtimeBooted = false;
+
+/** [changmen 扩展] 浏览器内采集器 / HG 跟单；A8 在扩展 background 侧，不在 HomeView 钩子里 */
+async function bootRuntime() {
+  if (runtimeBooted) return;
+  runtimeBooted = true;
+  loseOrderStore.init();
+  await Promise.all([collectStore.init(), configStore.load()]);
+  const { startCollectors } = await import("@/runtime/collectors");
+  await startCollectors();
+  const [{ primeStakeTabId }, { startHgFollowLoop }] = await Promise.all([
+    import("@platform/stake"),
+    import("@platform/hg"),
+  ]);
+  primeStakeTabId();
+  startHgFollowLoop();
+}
 
 function stopHome() {
+  runtimeBooted = false;
   void import("@platform/hg").then(({ stopHgFollowLoop }) => stopHgFollowLoop());
   void import("@/runtime/collectors").then(({ stopCollectors }) => stopCollectors());
   messageStore.stop();
   matchStore.stopMainLoop();
   accountStore.stopBalanceRefreshLoop();
-  homeStarted = false;
 }
 
-async function startHome() {
-  if (homeStarted) return;
-  homeStarted = true;
-  try {
-    if (!user.userId) {
-      await user.fetchUserInfo();
-    }
-    loseOrderStore.init();
-    await Promise.all([collectStore.init(), configStore.load()]);
-    // [A8 可证实] onMounted: await loadAccounts(!0)，与 initBetTarget 分钩；此处不 await 以免阻塞后续启动
-    void accountStore.loadAccounts(true);
-    await matchStore.initBetTarget();
-    const { startCollectors } = await import("@/runtime/collectors");
-    await startCollectors();
-    const [{ primeStakeTabId }, { startHgFollowLoop }] = await Promise.all([
-      import("@platform/stake"),
-      import("@platform/hg"),
-    ]);
-    primeStakeTabId();
-    await matchStore.startMainLoop();
-    messageStore.start();
-    startHgFollowLoop();
-  } catch (err) {
-    homeStarted = false;
-    console.error("[home] startHome failed", err);
+/** [A8 可证实] xo：await getUserInfo(), loadAccounts(!0) — comma 不 await loadAccounts */
+onMounted(async () => {
+  if (!user.userId) {
+    await user.fetchUserInfo();
   }
-}
+  accountStore.loadAccounts(true);
+  void bootRuntime();
+});
 
-onMounted(() => {
-  void startHome();
+/** [A8 可证实] zt：await initBetTarget() */
+onActivated(async () => {
+  await matchStore.initBetTarget();
 });
 
 watch(extensionReady, (ext) => {
   if (!ext) return;
-  if (!homeStarted) void startHome();
-  else void import("@platform/stake").then(({ primeStakeTabId }) => primeStakeTabId());
+  void import("@platform/stake").then(({ primeStakeTabId }) => primeStakeTabId());
 });
 
 onUnmounted(() => {
