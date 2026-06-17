@@ -52,6 +52,8 @@ npm run matcher:ui        # 可选：独立 matcher UI http://localhost:4567
 npm run app:build         # vue-tsc + vite build → client/web/dist/
 ```
 
+`vite.config.ts` 在 `strict` 下参与 `vue-tsc`（仅 `app:build` 与 `predev` 的 `typecheck:node`）。**新增 Vite 插件/中间件请写到 `client/web/vite/plugins/*.ts`**，勿在 `vite.config.ts` 里写无类型 inline 函数，否则 dev 不报错、deploy 才炸。
+
 ### Tests
 
 ```bat

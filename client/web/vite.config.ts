@@ -1,9 +1,9 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vitest/config";
-import type { Connect, Plugin, ViteDevServer } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { visualizer } from "rollup-plugin-visualizer";
 import { fileURLToPath, URL } from "node:url";
+import { matcherDevRedirect } from "./vite/plugins/matcherDevRedirect";
 
 // Windows Hyper-V 常保留 3426-3525，本地后端默认 3560；Linux/VPS 仍用 3456
 const DEV_API_PORT = process.platform === "win32" ? 3560 : 3456;
@@ -30,30 +30,6 @@ function platformChunkName(id: string): string | undefined {
   if (!dir || dir === "registry" || dir === "contract" || dir === "shared") return undefined;
   // 各 platform-* 分包互相循环引用，拆成多 chunk 会在浏览器触发 TDZ 白屏
   return "platform-all";
-}
-
-function matcherDevRedirect(): Plugin {
-  return {
-    name: "matcher-dev-redirect",
-    configureServer(server: ViteDevServer) {
-      server.middlewares.use((req: Connect.IncomingMessage, res, next: Connect.NextFunction) => {
-        const raw = req.url || "";
-        const q = raw.indexOf("?");
-        const path = q >= 0 ? raw.slice(0, q) : raw;
-        const qs = q >= 0 ? raw.slice(q) : "";
-        const m = path.match(/^\/matcher(\/.*)?$/i);
-        if (!m) return next();
-        const canonical = "/matcher" + (m[1] || "/");
-        if (path !== canonical) {
-          res.statusCode = 301;
-          res.setHeader("Location", canonical + qs);
-          res.end();
-          return;
-        }
-        next();
-      });
-    },
-  };
 }
 
 export default defineConfig(({ mode }) => ({
