@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vitest/config";
+import type { Connect, Plugin, ViteDevServer } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { visualizer } from "rollup-plugin-visualizer";
 import { fileURLToPath, URL } from "node:url";
@@ -31,11 +32,11 @@ function platformChunkName(id: string): string | undefined {
   return "platform-all";
 }
 
-function matcherDevRedirect() {
+function matcherDevRedirect(): Plugin {
   return {
     name: "matcher-dev-redirect",
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use((req: Connect.IncomingMessage, res, next: Connect.NextFunction) => {
         const raw = req.url || "";
         const q = raw.indexOf("?");
         const path = q >= 0 ? raw.slice(0, q) : raw;
