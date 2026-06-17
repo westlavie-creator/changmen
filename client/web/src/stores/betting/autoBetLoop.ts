@@ -16,7 +16,8 @@ export async function runAutoBetTick(ctx: AutoBetTickContext): Promise<void> {
   const { setMessage, processLoseOrders } = ctx;
 
   const config = configStore.config;
-  if (config.minMoney && config.maxMoney) {
+  // [A8 可证实] minMoney!==0 && maxMoney!==0（0 是合法下限，不能用 truthy 判断）
+  if (config.minMoney !== 0 && config.maxMoney !== 0) {
     config.betMoney =
       Math.floor(Math.random() * (config.maxMoney - config.minMoney + 1)) + config.minMoney;
   }
