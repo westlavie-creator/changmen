@@ -4,12 +4,11 @@ import { ensurePgPoolReady, getPgPool, insertProfile } from "@changmen/db";
 import { loadProfileById } from "../db/store.js";
 import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
 import { resolvePresenceState } from "./user_presence.js";
-import { lastLoginFieldsFromProfile } from "./user_login_meta.js";
-import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 import {
   lastLoginFieldsFromProfile,
   PROFILE_META_PREFERENCE_KEYS,
 } from "./user_login_meta.js";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
