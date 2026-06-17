@@ -43,7 +43,10 @@ export const useLoseOrderStore = defineStore("loseorder", {
     createOrder(order: LoseOrder) {
       this.orders.set(order.betId, order);
       this.persist();
-      void useMessageStore().publishLoseOrderMessage();
+      // [A8 可证实] jb.createOrder：仅手动 isCreateOrder 时 PublishLoseOrderMessage
+      if (order.isCreateOrder) {
+        void useMessageStore().publishLoseOrderMessage();
+      }
     },
 
     createFollowOrder(
@@ -83,7 +86,6 @@ export const useLoseOrderStore = defineStore("loseorder", {
         this.orders.delete(betId);
       }
       this.persist();
-      void useMessageStore().publishLoseOrderMessage();
     },
 
     removeOrders(activeBetIds: number[]) {

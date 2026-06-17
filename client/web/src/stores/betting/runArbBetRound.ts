@@ -34,7 +34,7 @@ export async function runArbBetRound(ctx: ArbBetRoundContext): Promise<void> {
     }
   }
 
-  if (loseStore.orders.size && config.makeUp && config.betting) {
+  if (loseStore.orders.size && config.makeUp) {
     await processLoseOrders();
   }
 }

@@ -49,20 +49,36 @@ export const useMatchStore = defineStore("match", {
     },
 
     loadBetTarget(): Map<PlatformId, Map<number, BetSide>> {
-      const empty = new Map<PlatformId, Map<number, BetSide>>();
+      return this.parseBetTargetPayload(this.readBetTargetSession());
+    },
+
+    /** 对齐 A8 `Vg.loadBetTarget(r)`：GoEasy BetTarget 频道推送 */
+    applyRemoteBetTarget(raw: Record<string, Record<string, BetSide>>) {
+      this.betTargets = this.parseBetTargetPayload(raw);
+      this.persistBetTarget();
+      this.tick += 1;
+    },
+
+    readBetTargetSession(): Record<string, Record<string, BetSide>> {
       try {
         const raw = sessionStorage.getItem(BET_TARGET_KEY);
-        if (!raw) return empty;
-        const parsed = JSON.parse(raw) as Record<string, Record<string, BetSide>>;
-        for (const [platform, bets] of Object.entries(parsed)) {
-          const map = new Map<number, BetSide>();
-          for (const [betId, side] of Object.entries(bets)) {
-            map.set(Number(betId), side);
-          }
-          empty.set(platform as PlatformId, map);
-        }
+        if (!raw) return {};
+        return JSON.parse(raw) as Record<string, Record<string, BetSide>>;
       } catch {
-        /* ignore */
+        return {};
+      }
+    },
+
+    parseBetTargetPayload(
+      parsed: Record<string, Record<string, BetSide>>,
+    ): Map<PlatformId, Map<number, BetSide>> {
+      const empty = new Map<PlatformId, Map<number, BetSide>>();
+      for (const [platform, bets] of Object.entries(parsed)) {
+        const map = new Map<number, BetSide>();
+        for (const [betId, side] of Object.entries(bets ?? {})) {
+          map.set(Number(betId), side);
+        }
+        empty.set(platform as PlatformId, map);
       }
       return empty;
     },

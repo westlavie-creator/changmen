@@ -132,6 +132,10 @@
 | 补单 waitTime | `Pe` 逻辑 | `makeUpBetToastSeconds` | ✅ |
 | `isCreateOrder` 跳过拒单复检 | 有 | 有 | ✅ |
 | 拒单仍绑单、不移队 | 有 | 有 | ✅ |
+| 消费门控 | `makeUp`（不要求 `betting`） | `makeUp` only | ✅ |
+| 发布群通知 | 仅 `isCreateOrder` 创建 | 同左 | ✅ |
+| Follow→补单 | GoEasy `Publish` / `Betting` | `goeasyChannels` + `createFollowOrder` | ✅ |
+| GoEasy 全局频道 | BetTarget / Score / Publish | `ensureGoEasyGlobalChannels` | ✅ |
 
 ---
 
