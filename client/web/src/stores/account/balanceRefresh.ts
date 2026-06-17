@@ -4,7 +4,6 @@ import { getProvider } from "@/runtime/providers";
 import { Currency } from "@/shared/currency";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
-import { updateVenueOrders } from "@/stores/account/venueOrders";
 
 function a8RefreshDelayMs() {
   return 120_000 + Math.random() * 60_000;

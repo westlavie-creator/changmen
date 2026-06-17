@@ -6,8 +6,10 @@ vi.mock("@/shared/a8Strict", () => ({
   isA8StrictMode: vi.fn(() => false),
 }));
 
-const match = { id: "m1", title: "A VS B" } as import("@/models/match").ViewMatch;
-const bet = { id: 1, getBetName: () => "全场" } as import("@/models/match").ViewBet;
+import type { ViewBet, ViewMatch } from "@/models/match";
+
+const match = { id: "m1", title: "A VS B" } as unknown as ViewMatch;
+const bet = { id: 1, getBetName: () => "全场" } as unknown as ViewBet;
 
 describe("createArbFlowTrace", () => {
   it("is no-op in strict A8 mode", () => {
