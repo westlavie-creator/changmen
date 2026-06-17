@@ -190,11 +190,11 @@ export async function executeArbBet(params: {
   let rejectA = false;
   let rejectB = false;
   if (resultA?.success && accountA) {
-    ordersA = await accountStore.updateVenueOrders(accountA);
+    ordersA = (await accountStore.updateVenueOrders(accountA)) ?? [];
     rejectA = isVenueReject(ordersA);
   }
   if (resultB?.success && accountB) {
-    ordersB = await accountStore.updateVenueOrders(accountB);
+    ordersB = (await accountStore.updateVenueOrders(accountB)) ?? [];
     rejectB = isVenueReject(ordersB);
   }
 

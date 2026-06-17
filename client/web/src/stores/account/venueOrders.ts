@@ -12,21 +12,25 @@ export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder
 }
 
 /** 对齐 A8 `uv.updateOrders` + `Vt.saveOrders` */
-export async function syncVenueOrders(account: PlatformAccount): Promise<VenueOrder[]> {
+export async function syncVenueOrders(account: PlatformAccount): Promise<VenueOrder[] | undefined> {
   const provider = getProvider(account);
-  if (!provider?.getOrders) return [];
+  if (!provider?.getOrders) return undefined;
   const orders = await provider.getOrders(account);
+  if (!orders) return undefined;
   applyUnsettledStats(account, orders);
   await saveOrders(account, orders);
   return orders;
 }
 
 /** 对齐 A8 `uv.updateOrders`：拉场馆订单并返回（拒单检测用） */
-export async function updateVenueOrders(account: PlatformAccount): Promise<VenueOrder[]> {
+export async function updateVenueOrders(account: PlatformAccount): Promise<VenueOrder[] | undefined> {
+  account.loadingBalance = true;
   try {
     return await syncVenueOrders(account);
   } catch (err) {
-    console.warn(`[${account.provider}] updateVenueOrders`, err);
-    return [];
+    console.error(`[${account.provider}]${account.playerName} 加载订单出错`, err);
+    return undefined;
+  } finally {
+    account.loadingBalance = false;
   }
 }

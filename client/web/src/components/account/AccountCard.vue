@@ -71,7 +71,7 @@ async function confirmRemove() {
           account.balance !== undefined &&
           account.maxBalance !== 0 &&
           account.balance > account.maxBalance,
-        error: account.balance === undefined && !account.loadingBalance,
+        error: account.balance === undefined,
       }"
     >
       <label class="currency">{{ account.currency || "CNY" }}</label>

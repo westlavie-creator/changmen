@@ -101,7 +101,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
         await wait(waitSec * 1000);
 
-        const venueOrders = await accountStore.updateVenueOrders(account);
+        const venueOrders = (await accountStore.updateVenueOrders(account)) ?? [];
         let rejected = false;
         if (venueOrders.length > 0) {
           rejected = isVenueReject(venueOrders);

@@ -6,6 +6,16 @@ import type { AccountStoreContext } from "@/stores/account/context";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 import { updateVenueOrders } from "@/stores/account/venueOrders";
 
+function a8RefreshDelayMs() {
+  return 120_000 + Math.random() * 60_000;
+}
+
+function a8Wait(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 /** 对齐 A8 uv.updateBalance：成功写 balance；失败 balance=undefined（TOKEN ERROR 由 CSS 展示） */
 export async function refreshAccountBalance(
   store: AccountStoreContext,
@@ -50,55 +60,51 @@ export async function refreshAccountBalance(
   }
 }
 
-/** A8 Io.f：逐账号 updateBalance → updateOrders（跳过投注中）→ 保存 → 拉本地订单汇总 */
-export async function refreshAllFromVenues(store: AccountStoreContext) {
-  for (const acc of store.accounts) {
-    if (acc.active) continue;
+/**
+ * [A8 可证实] Io.f：逐账号 updateBalance → updateOrders（跳过 active）
+ * finally：E() → u() →（continuous）ModifyHeader → wait → f(_)
+ */
+export async function refreshAllFromVenues(
+  store: AccountStoreContext,
+  continuous = false,
+): Promise<void> {
+  try {
+    for (const acc of store.accounts) {
+      if (acc.active) continue;
+      try {
+        await refreshAccountBalance(store, acc);
+        await updateVenueOrders(acc);
+      } catch {
+        /* 单账号失败不阻断 */
+      }
+    }
+  } finally {
     try {
-      await refreshAccountBalance(store, acc);
-      await updateVenueOrders(acc);
+      const { useOrderStore } = await import("@/stores/orderStore");
+      await useOrderStore().fetchOrders();
     } catch {
-      /* 单账号失败不阻断 */
+      /* E() 失败不阻断 */
+    }
+    try {
+      await store.saveAccounts();
+    } catch {
+      /* u() 失败不阻断 */
+    }
+    if (continuous && store.balanceRefreshRunning) {
+      await syncModifyHeaderRules(store.accounts);
+      await a8Wait(a8RefreshDelayMs());
+      if (store.balanceRefreshRunning) {
+        await refreshAllFromVenues(store, true);
+      }
     }
   }
-  await store.saveAccounts();
-  try {
-    const { useOrderStore } = await import("@/stores/orderStore");
-    await useOrderStore().fetchOrders();
-  } catch {
-    /* 订单拉取失败不阻断余额结果 */
-  }
-  await syncModifyHeaderRules(store.accounts);
 }
 
+/** 对齐 A8 Io.f 连续轮询：由 loadAccounts(true) 置位，stopBalanceRefreshLoop 清位 */
 export function startBalanceRefreshLoop(store: AccountStoreContext) {
-  if (store.balanceRefreshRunning) return;
   store.balanceRefreshRunning = true;
-  scheduleBalanceRefreshCycle(store);
 }
 
 export function stopBalanceRefreshLoop(store: AccountStoreContext) {
   store.balanceRefreshRunning = false;
-  if (store.balanceRefreshTimer) {
-    clearTimeout(store.balanceRefreshTimer);
-    store.balanceRefreshTimer = null;
-  }
-}
-
-export function scheduleBalanceRefreshCycle(store: AccountStoreContext) {
-  if (!store.balanceRefreshRunning) return;
-  if (store.balanceRefreshTimer) clearTimeout(store.balanceRefreshTimer);
-  const delayMs = 120_000 + Math.random() * 60_000;
-  store.balanceRefreshTimer = setTimeout(() => {
-    void runBalanceRefreshCycle(store);
-  }, delayMs);
-}
-
-export async function runBalanceRefreshCycle(store: AccountStoreContext) {
-  if (!store.balanceRefreshRunning) return;
-  try {
-    await refreshAllFromVenues(store);
-  } finally {
-    scheduleBalanceRefreshCycle(store);
-  }
 }

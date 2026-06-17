@@ -20,7 +20,7 @@ function openMoney(account: PlatformAccount) {
 
 async function refreshOne(account: PlatformAccount) {
   await accountStore.refreshBalance(account);
-  await accountStore.saveAccounts();
+  await accountStore.updateVenueOrders(account);
 }
 
 async function removeAccount(account: PlatformAccount) {

@@ -16,9 +16,8 @@ export const useAccountStore = defineStore("account", {
     tagPlatforms: [] as import("@/types/esport").TagPlatformRow[],
     loaded: false,
     loading: false,
-    /** A8 Io.f 后台轮询：120s + 随机 60s */
+    /** A8 Io.f 连续轮询开关（loadAccounts(true) 置位） */
     balanceRefreshRunning: false,
-    balanceRefreshTimer: null as ReturnType<typeof setTimeout> | null,
     providerPickIndex: new Map<PlatformId, number>(),
     editDialogOpen: false,
     editDialogAccount: undefined as PlatformAccount | undefined,
@@ -97,7 +96,7 @@ export const useAccountStore = defineStore("account", {
     },
 
     refreshAllFromVenues() {
-      return balanceRefresh.refreshAllFromVenues(this);
+      return balanceRefresh.refreshAllFromVenues(this, false);
     },
 
     refreshAllBalances() {
@@ -110,14 +109,6 @@ export const useAccountStore = defineStore("account", {
 
     stopBalanceRefreshLoop() {
       balanceRefresh.stopBalanceRefreshLoop(this);
-    },
-
-    scheduleBalanceRefreshCycle() {
-      balanceRefresh.scheduleBalanceRefreshCycle(this);
-    },
-
-    runBalanceRefreshCycle() {
-      return balanceRefresh.runBalanceRefreshCycle(this);
     },
 
     saveMoneyLogForAccount(

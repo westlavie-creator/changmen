@@ -28,7 +28,6 @@ function makeStore(accounts: PlatformAccount[]): AccountStoreContext {
     tagPlatforms: [],
     providerPickIndex: new Map(),
     balanceRefreshRunning: false,
-    balanceRefreshTimer: null,
     loading: false,
     loaded: true,
     editDialogOpen: false,
@@ -38,7 +37,6 @@ function makeStore(accounts: PlatformAccount[]): AccountStoreContext {
     saveAccounts: async () => true,
     loadTagPlatforms: async () => {},
     refreshAllFromVenues: async () => {},
-    scheduleBalanceRefreshCycle: () => {},
   };
 }
 

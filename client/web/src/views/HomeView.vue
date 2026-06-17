@@ -60,7 +60,9 @@ async function startHome() {
       await user.fetchUserInfo();
     }
     loseOrderStore.init();
-    await Promise.all([collectStore.init(), configStore.load(), accountStore.loadAccounts(true)]);
+    await Promise.all([collectStore.init(), configStore.load()]);
+    // [A8 可证实] onMounted: await loadAccounts(!0)，与 initBetTarget 分钩；此处不 await 以免阻塞后续启动
+    void accountStore.loadAccounts(true);
     await matchStore.initBetTarget();
     const { startCollectors } = await import("@/runtime/collectors");
     await startCollectors();

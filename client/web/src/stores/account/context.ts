@@ -7,7 +7,6 @@ export interface AccountStoreContext {
   tagPlatforms: TagPlatformRow[];
   providerPickIndex: Map<PlatformId, number>;
   balanceRefreshRunning: boolean;
-  balanceRefreshTimer: ReturnType<typeof setTimeout> | null;
   loading: boolean;
   loaded: boolean;
   editDialogOpen: boolean;
@@ -17,5 +16,4 @@ export interface AccountStoreContext {
   saveAccounts(): Promise<boolean>;
   loadTagPlatforms(): Promise<void>;
   refreshAllFromVenues(): Promise<void>;
-  scheduleBalanceRefreshCycle(): void;
 }

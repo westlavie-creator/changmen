@@ -10,7 +10,6 @@ import { PlatformAccount } from "@/models/platformAccount";
 import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 import { refreshAccountBalance, refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
-import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 import { updateVenueOrders } from "@/stores/account/venueOrders";
 import type { AccountStoreContext } from "@/stores/account/context";
 
@@ -40,7 +39,7 @@ export async function loadTagPlatforms(store: AccountStoreContext) {
 export async function loadAccounts(store: AccountStoreContext, refreshBalances = false) {
   store.loading = true;
   try {
-    await loadTagPlatforms(store);
+    if (refreshBalances) await loadTagPlatforms(store);
     const list = await getAccounts();
     store.accounts = list
       .filter((row) => row.accountId)
@@ -52,12 +51,18 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
         return acc;
       });
     store.loaded = true;
-    if (refreshBalances) {
-      await refreshAllFromVenues(store);
-      startBalanceRefreshLoop(store);
-    }
   } finally {
     store.loading = false;
+  }
+  if (refreshBalances) {
+    startBalanceRefreshLoop(store);
+    await refreshAllFromVenues(store, true);
+    try {
+      const { useOrderStore } = await import("@/stores/orderStore");
+      await useOrderStore().fetchOrders();
+    } catch {
+      /* A8 l(_): await E() — continuous f 不返回时此处不可达 */
+    }
   }
 }
 
@@ -67,7 +72,6 @@ export async function persistAccounts(store: AccountStoreContext) {
     .map((a) => normalizeAccountMultiplyField(a.toJSON()));
   const ok = await saveAccounts(payload);
   if (!ok) throw new Error("账号保存失败，请检查登录状态或稍后重试");
-  await syncModifyHeaderRules(store.accounts);
   return ok;
 }
 
@@ -125,7 +129,7 @@ export async function createFromTagPlatform(
 export async function deleteAccount(store: AccountStoreContext, accountId: number) {
   await deletePlayer(accountId);
   store.accounts = store.accounts.filter((a) => a.accountId !== accountId);
-  await persistAccounts(store);
+  void persistAccounts(store);
 }
 
 export async function saveMoneyLogForAccount(

@@ -3,6 +3,7 @@ import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { accountTfGet, accountTfPost } from "@/shared/platformHttp";
+import { getCurrency } from "@/shared/currency";
 import { parseTfItemId, tfOddsPayload } from "./parse";
 import { PLATFORMS } from "@/shared/platform";
 
@@ -74,7 +75,7 @@ export const tfProvider: PlatformProvider = {
       const data = res.data;
       if (!data?.currency) return undefined;
       return {
-        currency: data.currency,
+        currency: getCurrency(data.currency),
         balance: Number(data.balance) || 0,
       };
     } catch {
