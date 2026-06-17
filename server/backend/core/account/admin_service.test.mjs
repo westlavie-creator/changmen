@@ -22,6 +22,7 @@ vi.mock("@changmen/db", () => ({
     }),
   })),
   updateUserName: vi.fn(async () => true),
+  deleteOrdersByIds: vi.fn(async (ids) => ids.length),
 }));
 
 vi.mock("../db/store.js", () => ({
@@ -29,6 +30,7 @@ vi.mock("../db/store.js", () => ({
 }));
 
 import {
+  deleteAdminOrders,
   listAdminOrders,
   profileSettingForAdmin,
   renameAdminUser,
@@ -107,6 +109,17 @@ describe("lastLoginFieldsFromProfile", () => {
         preferences: { lastLoginIp: "203.0.113.1", lastLoginAt: 1700000000000 },
       }),
     ).toEqual({ lastLoginIp: "203.0.113.1", lastLoginAt: 1700000000000 });
+  });
+});
+
+describe("deleteAdminOrders", () => {
+  it("deletes by orderIds array", async () => {
+    const result = await deleteAdminOrders({ orderIds: [1, 2] });
+    expect(result.deleted).toBe(2);
+  });
+
+  it("rejects empty ids", async () => {
+    await expect(deleteAdminOrders({ orderIds: [] })).rejects.toThrow("删除失败");
   });
 });
 

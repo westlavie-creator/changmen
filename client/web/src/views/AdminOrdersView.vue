@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { ElMessage, ElMessageBox } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminOrdersGroupedTable from "@/components/admin/AdminOrdersGroupedTable.vue";
-import { getAdminOrders, getAdminUsers } from "@/api/admin";
+import { deleteAdminOrders, getAdminOrders, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
 
@@ -124,6 +125,31 @@ function onSearch() {
   void loadOrders();
 }
 
+async function onDeleteOrders(rows: AdminOrderRow[]) {
+  if (!rows.length) return;
+  const ids = rows.map((r) => r.id);
+  const label =
+    rows.length > 1
+      ? `这 ${rows.length} 笔套利订单（Link ${rows[0]?.linkId || "—"}）`
+      : `订单 ${rows[0]?.orderId || ids[0]}`;
+  try {
+    await ElMessageBox.confirm(`确认删除 ${label}？此操作不可恢复。`, "删除订单", {
+      type: "warning",
+      confirmButtonText: "删除",
+      cancelButtonText: "取消",
+    });
+  } catch {
+    return;
+  }
+  try {
+    const res = await deleteAdminOrders(ids);
+    ElMessage.success(`已删除 ${res.deleted} 笔订单`);
+    await loadOrders();
+  } catch (e) {
+    ElMessage.error((e as Error).message || "删除失败");
+  }
+}
+
 watch(date, () => {
   orderPage.value = 1;
   syncRouteQuery();
@@ -199,6 +225,7 @@ onMounted(async () => {
             :groups="orderGroups"
             :show-user-column="!filterUserId"
             :user-name-by-id="userNameById"
+            @delete="onDeleteOrders"
           />
           <p v-if="!loading && !loadError && !orderGroups.length" class="admin-order-groups__empty">
             {{ date }} 暂无订单。可点「昨天」查看近期数据；若应有数据仍为空，请确认服务器

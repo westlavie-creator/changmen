@@ -63,6 +63,7 @@ export const {
   fetchProfilesAdmin,
   fetchOrdersAdminStats,
   fetchOrdersAdminPage,
+  deleteOrdersByIds,
   fetchOrdersAdminAll,
   fetchOrdersForMonthAggregate,
   fetchOrdersForProfitAggregate,

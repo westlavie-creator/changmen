@@ -67,6 +67,7 @@ const ADMIN_ACTIONS = new Set<EsportAction>([
   "Client_AdminResetPassword",
   "Client_AdminRenameUser",
   "Client_AdminSetUserAdmin",
+  "Client_AdminDeleteOrders",
 ]);
 
 /** ?????? public action ?????admin action ????????*/
@@ -500,6 +501,13 @@ async function handle(
         );
       } catch (err) {
         return fail((err as Error).message || "?????????");
+      }
+    }
+    case "Client_AdminDeleteOrders": {
+      try {
+        return ok(await adminService.deleteAdminOrders(body));
+      } catch (err) {
+        return fail((err as Error).message || "??????");
       }
     }
     case "Client_GetDefaultOdds": {

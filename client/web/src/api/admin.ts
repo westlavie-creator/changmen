@@ -72,3 +72,9 @@ export async function renameAdminUser(userId: string, userName: string) {
     await post<AdminUserMutationResult>("Client_AdminRenameUser", { userId, userName }),
   );
 }
+
+export async function deleteAdminOrders(orderIds: number[]) {
+  return unwrap(
+    await post<{ deleted: number }>("Client_AdminDeleteOrders", { orderIds }),
+  );
+}

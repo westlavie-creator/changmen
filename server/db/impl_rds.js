@@ -968,6 +968,24 @@ async function fetchOrdersAdminPage({ dateKey, userId, provider, pageIndex, page
   }
 }
 
+/** 管理端：按主键 id 删除订单 */
+async function deleteOrdersByIds(ids) {
+  if (!Array.isArray(ids) || !ids.length) return 0
+  const pool = getPgPool()
+  if (!pool) return 0
+  const clean = ids
+    .map((id) => Number(id))
+    .filter((n) => Number.isFinite(n) && n > 0)
+  if (!clean.length) return 0
+  try {
+    const res = await pool.query('DELETE FROM orders WHERE id = ANY($1::bigint[])', [clean])
+    return res.rowCount ?? 0
+  } catch (err) {
+    console.warn('[rds] deleteOrdersByIds:', err.message)
+    return 0
+  }
+}
+
 /** 管理端：当日全量订单（对阵矩阵，上限 5000 条） */
 async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
@@ -1657,6 +1675,7 @@ export {
   fetchProfilesAdmin,
   fetchOrdersAdminStats,
   fetchOrdersAdminPage,
+  deleteOrdersByIds,
   fetchOrdersAdminAll,
   fetchOrdersForMonthAggregate,
   fetchOrdersForProfitAggregate,

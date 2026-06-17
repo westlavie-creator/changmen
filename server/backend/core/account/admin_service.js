@@ -355,6 +355,15 @@ export async function listAdminOrders(body = {}) {
   return { date: dateKey, list, total, pageIndex, pageSize };
 }
 
+/** 管理端：按主键 id 删除订单（可批量，如同 Link 套利组） */
+export async function deleteAdminOrders(body = {}) {
+  const raw = body.orderIds ?? body.ids ?? body.id;
+  const ids = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+  const deleted = await sb.deleteOrdersByIds(ids);
+  if (!deleted) throw new Error("删除失败或订单不存在");
+  return { deleted };
+}
+
 /** 管理端：当日全量订单（对阵矩阵视图） */
 export async function listAdminOrdersMatrix(body = {}) {
   const dateKey = body.date ? String(body.date) : toDateKey(Date.now());

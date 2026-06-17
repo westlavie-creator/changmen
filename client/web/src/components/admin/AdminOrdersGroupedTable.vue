@@ -9,6 +9,10 @@ const props = defineProps<{
   userNameById?: Map<string, string>;
 }>();
 
+const emit = defineEmits<{
+  delete: [rows: AdminOrderRow[]];
+}>();
+
 interface OrderGroupRow {
   id: string;
   key: number;
@@ -223,6 +227,18 @@ function rowClassName({ row }: { row: OrderGroupRow }) {
             {{ fmtTime(o.createAt) }}
           </div>
         </div>
+      </template>
+    </el-table-column>
+    <el-table-column label="操作" width="72" align="center" fixed="right">
+      <template #default="{ row }">
+        <el-button
+          link
+          type="danger"
+          size="small"
+          @click="emit('delete', row.rows)"
+        >
+          删除
+        </el-button>
       </template>
     </el-table-column>
   </el-table>
