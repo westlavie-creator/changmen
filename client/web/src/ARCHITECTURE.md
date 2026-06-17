@@ -149,9 +149,15 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 |------|------|
 | `bettingStore.ts` | 手动下注、补单入口；主循环在 matchStore |
 | `autoBetLoop.ts` | 自动投注 tick：随机金额、遍历比赛 |
-| `autoBet/executeArbBet.ts` | 单场套利全流程 |
+| `autoBet/executeArbBet.ts` | 单场套利编排入口 |
+| `autoBet/phases/prepareArbAttempt.ts` | 选腿、选号、linkId |
+| `autoBet/phases/checkArbLegs.ts` | 预检 + checkTimeout |
+| `autoBet/phases/placeArbLegs.ts` | 下单（并行/串行/单边）+ retryFailedLeg |
+| `autoBet/phases/finalizeArbBet.ts` | 拒单 wait、绑单、补单入队、成功标记 |
+| `autoBet/arbBetTrace.ts` | trace 辅助函数 |
 | `autoBet/makeUp.ts` | 补单阈值 + 入队 |
 | `autoBet/rejectWait.ts` | 成功后拒单等待 |
+| `autoBet/venueRejectSync.ts` | `updateVenueOrders` + `isVenueReject`（套利/补单共用） |
 | `autoBet/retryFailedLeg.ts` | `anyOdds` 失败腿换平台重试 |
 | `loseOrder.ts` | 补单队列处理 |
 | `manualBet.ts` | 双击手动下单 |
