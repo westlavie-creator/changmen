@@ -62,6 +62,9 @@ export interface BetRowDto {
   AwayID: number;
   AwayName: string;
   Status?: string;
+  /** matcher 进行中 OB 无 Map=0 时保留，供 Web 初赔行 */
+  InitialHomeOdds?: number;
+  InitialAwayOdds?: number;
   Sources: Record<string, BetSourceDto>;
 }
 

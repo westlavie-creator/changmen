@@ -31,10 +31,35 @@ function platformChunkName(id: string): string | undefined {
   return "platform-all";
 }
 
+function matcherDevRedirect() {
+  return {
+    name: "matcher-dev-redirect",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const raw = req.url || "";
+        const q = raw.indexOf("?");
+        const path = q >= 0 ? raw.slice(0, q) : raw;
+        const qs = q >= 0 ? raw.slice(q) : "";
+        const m = path.match(/^\/matcher(\/.*)?$/i);
+        if (!m) return next();
+        const canonical = "/matcher" + (m[1] || "/");
+        if (path !== canonical) {
+          res.statusCode = 301;
+          res.setHeader("Location", canonical + qs);
+          res.end();
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   base: "/",
   plugins: [
     vue(),
+    matcherDevRedirect(),
     mode === "analyze"
       ? visualizer({
           filename: "dist/stats.html",

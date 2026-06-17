@@ -1,6 +1,7 @@
 (function () {
   const path = window.location.pathname;
-  const base = path === "/matcher" || path.startsWith("/matcher/") ? "/matcher" : "";
+  const onMatcher = /^\/matcher(\/|$)/i.test(path);
+  const base = onMatcher ? "/matcher" : "";
   window.MATCHER_BASE = base;
   window.MATCHER_API = base + "/api";
   window.matcherUrl = function matcherUrl(rel) {

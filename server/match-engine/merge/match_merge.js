@@ -488,6 +488,55 @@ function preserveInitialOddsFromSources(bet) {
   if (away > 0) bet.InitialAwayOdds = away;
 }
 
+/** 从各平台原始盘口合并 Map=0（DB 未 rebuild 时 GetMatchs overlay 补全场行） */
+function mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet) {
+  const mergedSources = {};
+  let canonBet = null;
+  const reverse = row.Reverse || [];
+
+  for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
+    const pm = findPlatformMatch(matches, platform, sourceMatchId);
+    if (!pm) continue;
+    const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
+    const accBet = (accRow.Bets || []).find((b) => (b.Map ?? 0) === 0);
+    const raw = accBet?.Sources?.[platform];
+    if (!raw) continue;
+    if (!canonBet) canonBet = accBet;
+    mergedSources[platform] = reverse.includes(platform) ? swapBetSource(raw) : { ...raw };
+  }
+
+  if (!Object.keys(mergedSources).length) return null;
+
+  const rowId = Number(row.ID) || 0;
+  return {
+    ...canonBet,
+    ID: stableId(`bet:${rowId}:0`),
+    MatchID: rowId,
+    Map: 0,
+    Sources: mergedSources,
+  };
+}
+
+/**
+ * 进行中且尚无 Map=0 时，从 platform_bets 补全场行（随后 trim 清 Sources、留 Initial*）。
+ */
+function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
+  if (!Array.isArray(rows) || !bets || !sourceFromBet || !matches) return;
+  for (const row of rows) {
+    const liveMap = Number(row.Round) || 0;
+    if (liveMap <= 0) continue;
+    const hasMap0 = (row.Bets || []).some((b) => (b.Map ?? 0) === 0);
+    if (hasMap0) continue;
+
+    const fullBet = mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet);
+    if (!fullBet) continue;
+
+    row.Bets = row.Bets || [];
+    row.Bets.push(fullBet);
+    row.Bets.sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
+  }
+}
+
 function resolveRowBo(row, matches) {
   const direct = Number(row.BO) || 0;
   if (direct > 0) return direct;
@@ -591,6 +640,7 @@ function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
 
 /**
  * 进行中（Round > 0）：Map=0 全场行 Sources 仅保留 OB。[A8 可证实]
+ * OB 无 Map=0 时保留该行但清空 Sources，Initial* 供 Web 初赔行展示（不展示平台实时盘）。
  * 须在 promoteFullMatchSourcesToLiveRound 之后调用（先复制到 Map=R，再裁剪 Map=0）。
  */
 function trimMapZeroToObOnDeciderRound(rows) {
@@ -604,7 +654,7 @@ function trimMapZeroToObOnDeciderRound(rows) {
     if (ob) {
       fullBet.Sources = { OB: ob };
     } else {
-      row.Bets = (row.Bets || []).filter((b) => (b.Map ?? 0) !== 0);
+      fullBet.Sources = {};
     }
   }
 }
@@ -714,6 +764,7 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
   refreshClientMatchSides(mergedList, matches, bets, timers, sourceFromBet);
   refreshClientMatchRoundsFromTimers(mergedList, timers);
   promoteFullMatchSourcesToLiveRound(mergedList, matches, bets, timers, sourceFromBet);
+  ensureMapZeroForLiveRound(mergedList, matches, bets, timers, sourceFromBet);
   trimMapZeroToObOnDeciderRound(mergedList);
   applyObLiveRoundGate(mergedList, matches, timers);
 
@@ -847,6 +898,7 @@ function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
   refreshClientMatchSides(list, normalized, bets, timers, sourceFromBet);
   refreshClientMatchRoundsFromTimers(list, timers);
   promoteFullMatchSourcesToLiveRound(list, normalized, bets, timers, sourceFromBet);
+  ensureMapZeroForLiveRound(list, normalized, bets, timers, sourceFromBet);
   trimMapZeroToObOnDeciderRound(list);
   applyObLiveRoundGate(list, normalized, timers);
   return filterMultiPlatformClientMatches(list);
@@ -869,6 +921,7 @@ export {
   applyObLiveRoundGate,
   promoteFullMatchSourcesToLiveRound,
   promoteFullMatchSourcesToLiveRoundInPlace,
+  ensureMapZeroForLiveRound,
   trimMapZeroToObOnDeciderRound,
   liveRound,
   pickCanonicalStartTime,

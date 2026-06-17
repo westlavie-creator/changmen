@@ -79,7 +79,9 @@ const roundScore = computed(() => {
 
 function defaultOddsValue(betId: number, side: BetSide): number {
   void matchTick.value;
-  return matchStore.getDefaultOdds(betId, side);
+  const fromStore = matchStore.getDefaultOdds(betId, side);
+  if (fromStore > 0) return fromStore;
+  return side === "Home" ? props.bet.initialHomeOdds : props.bet.initialAwayOdds;
 }
 
 const showDefaultOdds = computed(() => {

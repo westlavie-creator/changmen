@@ -62,6 +62,8 @@ export class ViewBet {
   name: string;
   round: number;
   items: ViewBetItem[];
+  initialHomeOdds: number;
+  initialAwayOdds: number;
   isLive?: boolean;
   startTime?: number;
 
@@ -71,6 +73,8 @@ export class ViewBet {
     this.awayName = row.AwayName;
     this.name = row.Name;
     this.round = row.Map;
+    this.initialHomeOdds = Number(row.InitialHomeOdds) || 0;
+    this.initialAwayOdds = Number(row.InitialAwayOdds) || 0;
     if (liveRound !== 0 && liveRound === this.round) {
       this.isLive = true;
       this.startTime = roundStart > 0 ? roundStart : Date.now();

@@ -518,3 +518,113 @@ test("promote: skips IA when native Map=3 exists", () => {
   const map3 = list[0].Bets.find((b) => b.Map === 3);
   assert.equal(map3?.Sources?.IA?.BetID, "ia-map3");
 });
+
+test("live Round=2, OB no Map=0: keep Map=0 row with empty Sources and Initial odds", () => {
+  const bets = {
+    "OB:ob1": {
+      provider: "OB",
+      matchId: "ob1",
+      bets: [
+        {
+          SourceBetID: "ob-map1",
+          Map: 1,
+          BetName: "[地图1]-单局-获胜",
+          SourceHomeID: "1",
+          HomeOdds: 1.001,
+          SourceAwayID: "2",
+          AwayOdds: 13,
+          Status: "Locked",
+        },
+        {
+          SourceBetID: "ob-map2",
+          Map: 2,
+          BetName: "[地图2]-单局-获胜",
+          SourceHomeID: "3",
+          HomeOdds: 1.1,
+          SourceAwayID: "4",
+          AwayOdds: 6,
+          Status: "Normal",
+        },
+      ],
+    },
+    "IA:ia1": {
+      provider: "IA",
+      matchId: "ia1",
+      bets: [
+        {
+          SourceBetID: "ia-full",
+          Map: 0,
+          BetName: "[全场] 获胜",
+          SourceHomeID: "5",
+          HomeOdds: 1.02,
+          SourceAwayID: "6",
+          AwayOdds: 11.22,
+          Status: "Normal",
+        },
+        {
+          SourceBetID: "ia-map2",
+          Map: 2,
+          BetName: "[地图2] 获胜者",
+          SourceHomeID: "7",
+          HomeOdds: 1.13,
+          SourceAwayID: "8",
+          AwayOdds: 5.418,
+          Status: "Normal",
+        },
+      ],
+    },
+    "RAY:ray1": {
+      provider: "RAY",
+      matchId: "ray1",
+      bets: [
+        {
+          SourceBetID: "ray-full",
+          Map: 0,
+          BetName: "[全场] 获胜者",
+          SourceHomeID: "9",
+          HomeOdds: 1.01,
+          SourceAwayID: "10",
+          AwayOdds: 12.52,
+          Status: "Normal",
+        },
+        {
+          SourceBetID: "ray-map2",
+          Map: 2,
+          BetName: "[地图2] 获胜者",
+          SourceHomeID: "11",
+          HomeOdds: 1.18,
+          SourceAwayID: "12",
+          AwayOdds: 4.49,
+          Status: "Normal",
+        },
+      ],
+    },
+  };
+
+  const matches = {
+    OB: { ob1: baseMatch("OB", "ob1", "PTime", "Estar Backs") },
+    IA: { ia1: baseMatch("IA", "ia1", "PTime", "Estar Backs") },
+    RAY: { ray1: baseMatch("RAY", "ray1", "PTime", "Estar Backs") },
+  };
+  const timers = {
+    OB: {
+      provider: "OB",
+      timer: [{ MatchID: "ob1", Round: 2, StartTime: Date.now() - 30_000 }],
+    },
+  };
+
+  const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
+  assert.equal(list.length, 1);
+  assert.equal(list[0].Round, 2);
+
+  const map0 = list[0].Bets.find((b) => b.Map === 0);
+  assert.ok(map0, "Map=0 row kept when OB has no full-match market");
+  assert.deepEqual(map0.Sources, {});
+  assert.equal(map0.InitialHomeOdds, 1.02);
+  assert.equal(map0.InitialAwayOdds, 12.52);
+
+  const map2 = list[0].Bets.find((b) => b.Map === 2);
+  assert.ok(map2?.Sources?.OB);
+  assert.ok(map2?.Sources?.IA);
+  assert.ok(map2?.Sources?.RAY);
+});

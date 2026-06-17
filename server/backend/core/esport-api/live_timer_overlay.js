@@ -5,6 +5,7 @@
 
 import {
   applyObLiveRoundGate,
+  ensureMapZeroForLiveRound,
   liveRound,
   promoteFullMatchSourcesToLiveRoundInPlace,
   refreshClientMatchRoundsFromTimers,
@@ -22,7 +23,7 @@ export function mergeTimerBlocks(memoryTimers, dbTimers) {
   return out;
 }
 
-export function overlayLiveTimersOnMatches(matches, timersByProvider) {
+export function overlayLiveTimersOnMatches(matches, timersByProvider, enrich = {}) {
   if (!Array.isArray(matches) || !matches.length) return matches || [];
   const out = matches.map((m) => ({
     ...m,
@@ -32,7 +33,16 @@ export function overlayLiveTimersOnMatches(matches, timersByProvider) {
     })),
   }));
   refreshClientMatchRoundsFromTimers(out, timersByProvider || {});
-  promoteFullMatchSourcesToLiveRoundInPlace(out);
+  promoteFullMatchSourcesToLiveRoundInPlace(out, enrich.matches || {});
+  if (enrich.matches && enrich.bets && enrich.sourceFromBet) {
+    ensureMapZeroForLiveRound(
+      out,
+      enrich.matches,
+      enrich.bets,
+      timersByProvider || {},
+      enrich.sourceFromBet,
+    );
+  }
   trimMapZeroToObOnDeciderRound(out);
   return out;
 }

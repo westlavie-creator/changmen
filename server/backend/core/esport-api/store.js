@@ -15,6 +15,7 @@ import {
   mergeTimerBlocks,
   applyObLiveGate,
 } from "./live_timer_overlay.js";
+import { normalizeMatchesShape } from "@changmen/match-engine";
 
 const DATA_DIR = ESPORT_DATA_DIR;
 // 内存缓存（替代 matches.json / bets.json / live_timers.json）
@@ -90,7 +91,6 @@ export function setPlatform(provider, data) {
   return setPlatformRow(provider, data);
 }
 
-// ── matches / bets ────────────────────────────────────────────────────────────
 function pruneBetsForProvider(provider, activeMatchIds) {
   const active = new Set(activeMatchIds.map(String));
   const prefix = `${provider}:`;
@@ -208,6 +208,18 @@ function applyObLiveGateOnMatches(matches, memoryMatches, timersByProvider) {
   return applyObLiveGate(matches, memoryMatches, timersByProvider);
 }
 
+function sourceFromBetForOverlay(provider, b) {
+  return {
+    Type: provider,
+    BetID: String(b.SourceBetID),
+    HomeID: String(b.SourceHomeID || ""),
+    AwayID: String(b.SourceAwayID || ""),
+    HomeOdds: formatBetOdds(b.HomeOdds),
+    AwayOdds: formatBetOdds(b.AwayOdds),
+    Status: b.Status || "Normal",
+  };
+}
+
 export async function buildMatchList() {
   // 只读 client_matches（gamebet_matcher rebuild 写入）；不在此做跨平台合并
   const fromDb = await dbStore.loadClientMatchesFromDb();
@@ -216,7 +228,25 @@ export async function buildMatchList() {
   const dbTimers = await fetchDbTimersCached();
   const timers = mergeTimerBlocks(_timers, dbTimers);
   defaultOddsApi.recordFromMatchList(fromDb);
-  let matches = overlayLiveTimersOnMatches(fromDb, timers);
+
+  let enrich = {};
+  try {
+    const [platformBets, platformMatches] = await Promise.all([
+      sb.fetchPlatformBets(),
+      sb.fetchPlatformMatches(),
+    ]);
+    if (platformBets && platformMatches) {
+      enrich = {
+        matches: normalizeMatchesShape(platformMatches),
+        bets: platformBets,
+        sourceFromBet: sourceFromBetForOverlay,
+      };
+    }
+  } catch {
+    /* 补 Map=0 可选；失败时仍走原有 overlay */
+  }
+
+  let matches = overlayLiveTimersOnMatches(fromDb, timers, enrich);
   matches = applyObLiveGateOnMatches(matches, _matches, timers);
   defaultOddsApi.recordFromMatchList(matches);
   return matches;

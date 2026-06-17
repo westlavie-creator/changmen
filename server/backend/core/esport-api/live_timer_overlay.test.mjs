@@ -123,6 +123,118 @@ describe("overlayLiveTimersOnMatches", () => {
     expect(map3?.Sources?.RAY).toMatchObject({ BetID: "9", HomeOdds: 1.9, AwayOdds: 1.84 });
   });
 
+  it("keeps Map=0 with empty Sources when live and OB has no full-match market", () => {
+    const match = {
+      ID: 1,
+      BO: 3,
+      Round: 0,
+      RoundStart: 0,
+      Matchs: { OB: "99", RAY: "88", IA: "77" },
+      Bets: [
+        {
+          Map: 0,
+          Status: "Normal",
+          Sources: {
+            RAY: { Type: "RAY", BetID: "9", HomeOdds: 1.01, AwayOdds: 12.52, Status: "Normal" },
+            IA: { Type: "IA", BetID: "8", HomeOdds: 1.02, AwayOdds: 11.22, Status: "Normal" },
+          },
+        },
+        {
+          Map: 2,
+          Status: "Normal",
+          Sources: {
+            OB: { Type: "OB", BetID: "2", HomeOdds: 1.1, AwayOdds: 6, Status: "Normal" },
+          },
+        },
+      ],
+    };
+    const out = overlayLiveTimersOnMatches([match], {
+      OB: { provider: "OB", timer: [{ MatchID: "99", Round: 2, StartTime: 8000 }] },
+    });
+    const map0 = out[0].Bets.find((b) => b.Map === 0);
+    expect(map0?.Sources).toEqual({});
+    expect(map0?.InitialHomeOdds).toBe(1.02);
+    expect(map0?.InitialAwayOdds).toBe(12.52);
+  });
+
+  it("restores Map=0 from platform bets when DB row omitted it", () => {
+    const match = {
+      ID: 167,
+      BO: 3,
+      Round: 0,
+      RoundStart: 0,
+      Matchs: { OB: "ob1", RAY: "ray1", IA: "ia1" },
+      Bets: [
+        {
+          Map: 2,
+          Status: "Normal",
+          Sources: {
+            OB: { Type: "OB", BetID: "2", HomeOdds: 1.1, AwayOdds: 6, Status: "Normal" },
+          },
+        },
+      ],
+    };
+    const enrich = {
+      matches: {
+        OB: { ob1: { SourceMatchID: "ob1", Home: "A", Away: "B", BO: 3, IsLive: 2 } },
+        RAY: { ray1: { SourceMatchID: "ray1", Home: "A", Away: "B", BO: 3 } },
+        IA: { ia1: { SourceMatchID: "ia1", Home: "A", Away: "B", BO: 3 } },
+      },
+      bets: {
+        "RAY:ray1": {
+          provider: "RAY",
+          matchId: "ray1",
+          bets: [
+            {
+              SourceBetID: "ray0",
+              Map: 0,
+              BetName: "[全场] 获胜者",
+              SourceHomeID: "h",
+              SourceAwayID: "a",
+              HomeOdds: 1.01,
+              AwayOdds: 12.52,
+              Status: "Normal",
+            },
+          ],
+        },
+        "IA:ia1": {
+          provider: "IA",
+          matchId: "ia1",
+          bets: [
+            {
+              SourceBetID: "ia0",
+              Map: 0,
+              BetName: "[全场] 获胜",
+              SourceHomeID: "h",
+              SourceAwayID: "a",
+              HomeOdds: 1.02,
+              AwayOdds: 11.22,
+              Status: "Normal",
+            },
+          ],
+        },
+      },
+      sourceFromBet: (p, b) => ({
+        Type: p,
+        BetID: String(b.SourceBetID),
+        HomeID: String(b.SourceHomeID),
+        AwayID: String(b.SourceAwayID),
+        HomeOdds: b.HomeOdds,
+        AwayOdds: b.AwayOdds,
+        Status: b.Status,
+      }),
+    };
+    const out = overlayLiveTimersOnMatches(
+      [match],
+      { OB: { provider: "OB", timer: [{ MatchID: "ob1", Round: 2, StartTime: 8000 }] } },
+      enrich,
+    );
+    const map0 = out[0].Bets.find((b) => b.Map === 0);
+    expect(map0?.Sources).toEqual({});
+    expect(map0?.InitialHomeOdds).toBe(1.02);
+    expect(map0?.InitialAwayOdds).toBe(12.52);
+  });
+
   it("keeps Round when no timer snapshot exists (await matcher or next SaveLiveTimer)", () => {
     const out = overlayLiveTimersOnMatches([baseMatch], {});
     expect(out[0].Round).toBe(4);
