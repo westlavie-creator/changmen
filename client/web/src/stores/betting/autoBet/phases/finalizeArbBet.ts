@@ -11,9 +11,8 @@ import {
 } from "@/stores/messageStore";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
-import { scheduleDeferredArbRejectMakeUp } from "@/stores/betting/autoBet/deferArbRejectMakeUp";
-import { rejectWaitSeconds } from "@/stores/betting/autoBet/rejectWait";
-import { pollVenueRejectFlags } from "@/stores/betting/autoBet/venueRejectSync";
+import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
+import { syncVenueRejectFlags } from "@/stores/betting/autoBet/venueRejectSync";
 import { findSingleLegRateAccount } from "@/extensions/arbBet/rate9999";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
@@ -101,7 +100,6 @@ export async function finalizeArbBet(
     legB,
     accountA,
     accountB,
-    betBothLegs,
     linkId,
     waitSec,
     resultA,
@@ -125,18 +123,12 @@ export async function finalizeArbBet(
 
   if (successAccounts.length) {
     const rejectWait = rejectWaitSeconds(config, successAccounts);
-    const polled = await pollVenueRejectFlags(
-      resultA,
-      accountA,
-      resultB,
-      accountB,
-      waitSec,
-      rejectWait,
-    );
-    ordersA = polled.ordersA;
-    ordersB = polled.ordersB;
-    rejectA = polled.rejectA;
-    rejectB = polled.rejectB;
+    await waitRejectDetection(waitSec, rejectWait);
+    const synced = await syncVenueRejectFlags(resultA, accountA, resultB, accountB);
+    ordersA = synced.ordersA;
+    ordersB = synced.ordersB;
+    rejectA = synced.rejectA;
+    rejectB = synced.rejectB;
   }
 
   const binds: OrderBindRow[] = [];
@@ -170,15 +162,5 @@ export async function finalizeArbBet(
   const messagePeers = buildBettingMessagePeers(params, placed, rejectA, rejectB);
   if (messagePeers) {
     useMessageStore().bettingMessage(messagePeers[0], messagePeers[1]);
-  }
-
-  if (
-    betBothLegs &&
-    resultA?.success &&
-    resultB?.success &&
-    !rejectA &&
-    !rejectB
-  ) {
-    scheduleDeferredArbRejectMakeUp(params, placed);
   }
 }

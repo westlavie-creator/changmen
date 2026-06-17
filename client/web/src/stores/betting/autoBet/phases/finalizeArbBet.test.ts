@@ -7,37 +7,34 @@ import { createDefaultUserConfig } from "@/types/userConfig";
 import type { VenueOrder } from "@platform/contract";
 
 const {
-  pollVenueRejectFlags,
+  waitRejectDetection,
+  syncVenueRejectFlags,
   applyArbMakeUpFromRejects,
-  scheduleDeferredArbRejectMakeUp,
   markSuccessfulBet,
   saveOrderBind,
   refreshBalance,
   bettingMessage,
 } = vi.hoisted(() => ({
-  pollVenueRejectFlags: vi.fn(),
+  waitRejectDetection: vi.fn(),
+  syncVenueRejectFlags: vi.fn(),
   applyArbMakeUpFromRejects: vi.fn(),
-  scheduleDeferredArbRejectMakeUp: vi.fn(),
   markSuccessfulBet: vi.fn(),
   saveOrderBind: vi.fn(),
   refreshBalance: vi.fn(),
   bettingMessage: vi.fn(),
 }));
 
+vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
+  rejectWaitSeconds: vi.fn(() => 3),
+  waitRejectDetection,
+}));
+
 vi.mock("@/stores/betting/autoBet/venueRejectSync", () => ({
-  pollVenueRejectFlags,
+  syncVenueRejectFlags,
 }));
 
 vi.mock("@/stores/betting/autoBet/arbMakeUpFromRejects", () => ({
   applyArbMakeUpFromRejects,
-}));
-
-vi.mock("@/stores/betting/autoBet/deferArbRejectMakeUp", () => ({
-  scheduleDeferredArbRejectMakeUp,
-}));
-
-vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
-  rejectWaitSeconds: vi.fn(() => 3),
 }));
 
 vi.mock("@/stores/betting/successMarkers", () => ({
@@ -160,7 +157,8 @@ describe("finalizeArbBet makeup enqueue", () => {
     vi.clearAllMocks();
     saveOrderBind.mockResolvedValue(undefined);
     applyArbMakeUpFromRejects.mockResolvedValue(undefined);
-    pollVenueRejectFlags.mockResolvedValue({
+    waitRejectDetection.mockResolvedValue(undefined);
+    syncVenueRejectFlags.mockResolvedValue({
       ordersA: [venueOrder("ob-1", "none", 2)],
       ordersB: [venueOrder("ray-reject", "reject", 3)],
       rejectA: false,
@@ -171,17 +169,18 @@ describe("finalizeArbBet makeup enqueue", () => {
   it("双腿 API 成功且 B 腿拒单时入队补单", async () => {
     await finalizeArbBet(params, makePlaced());
 
+    expect(waitRejectDetection).toHaveBeenCalledWith(10, 3);
+    expect(syncVenueRejectFlags).toHaveBeenCalledTimes(1);
     expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
       params,
       expect.anything(),
       false,
       true,
     );
-    expect(scheduleDeferredArbRejectMakeUp).not.toHaveBeenCalled();
   });
 
-  it("初检无拒单时启动延迟复检", async () => {
-    pollVenueRejectFlags.mockResolvedValue({
+  it("初检无拒单时不入队", async () => {
+    syncVenueRejectFlags.mockResolvedValue({
       ordersA: [venueOrder("ob-1", "none", 2)],
       ordersB: [venueOrder("ray-1", "none", 3)],
       rejectA: false,
@@ -190,7 +189,6 @@ describe("finalizeArbBet makeup enqueue", () => {
 
     await finalizeArbBet(params, makePlaced());
 
-    expect(scheduleDeferredArbRejectMakeUp).toHaveBeenCalledTimes(1);
     expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
       params,
       expect.anything(),
@@ -199,8 +197,8 @@ describe("finalizeArbBet makeup enqueue", () => {
     );
   });
 
-  it("双腿均被拒单时不启动延迟复检", async () => {
-    pollVenueRejectFlags.mockResolvedValue({
+  it("双腿均被拒单时不入队补单", async () => {
+    syncVenueRejectFlags.mockResolvedValue({
       ordersA: [venueOrder("ob-reject", "reject", 3)],
       ordersB: [venueOrder("ray-reject", "reject", 2)],
       rejectA: true,
@@ -209,10 +207,15 @@ describe("finalizeArbBet makeup enqueue", () => {
 
     await finalizeArbBet(params, makePlaced());
 
-    expect(scheduleDeferredArbRejectMakeUp).not.toHaveBeenCalled();
+    expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
+      params,
+      expect.anything(),
+      true,
+      true,
+    );
   });
 
-  it("9999 单边不启动延迟复检", async () => {
+  it("9999 单边仍走拒单等待与拉单", async () => {
     const placed = makePlaced({
       betBothLegs: false,
       accountB: undefined,
@@ -221,6 +224,7 @@ describe("finalizeArbBet makeup enqueue", () => {
 
     await finalizeArbBet(params, placed);
 
-    expect(scheduleDeferredArbRejectMakeUp).not.toHaveBeenCalled();
+    expect(waitRejectDetection).toHaveBeenCalled();
+    expect(syncVenueRejectFlags).toHaveBeenCalled();
   });
 });
