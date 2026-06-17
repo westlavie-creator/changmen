@@ -1,0 +1,19 @@
+/**
+ * A8 `wQe` / `CQe`：IA 采集默认对象（gateway 写死，token 为空字符串）。
+ * 与 `@changmen/platform-probes/ia/collect_credentials.js` 同步。
+ */
+export const IA_A8_COLLECT = {
+  gateway: "https://ilustre-analytics.org",
+  token: "",
+  betName: "([全场].+获胜$)|([地图\\d].+获胜者$)",
+  games: ["1", "2", "3", "16", "43"],
+} as const;
+
+/** A8 `wQe` → CollectPlatformInfo（仅采集 HTTP 用） */
+export function iaCollectPlatform() {
+  return {
+    Gateway: IA_A8_COLLECT.gateway,
+    Token: IA_A8_COLLECT.token,
+    BetName: IA_A8_COLLECT.betName,
+  };
+}

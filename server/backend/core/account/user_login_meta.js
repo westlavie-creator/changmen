@@ -1,16 +1,16 @@
 import * as sb from "@changmen/db";
-import { readPreferences } from "./user_freeze.js";
+
+export function readPreferences(row) {
+  const prefs = row?.preferences;
+  if (prefs && typeof prefs === "object" && !Array.isArray(prefs)) return prefs;
+  return {};
+}
 
 /** 不进入管理端「投注参数」展示的系统 preferences 字段 */
 export const PROFILE_META_PREFERENCE_KEYS = new Set([
   "lastLoginIp",
   "lastLoginAt",
   "lastActiveAt",
-  "frozen",
-  "frozenAt",
-  "frozenBy",
-  "unfrozenAt",
-  "unfrozenBy",
 ]);
 
 export function normalizeClientIp(raw) {

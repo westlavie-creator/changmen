@@ -1,5 +1,6 @@
 import { hasA8PluginRuntime } from "@/chrome-plugin/bridge";
-import { getCollectPlatform, getGames } from "@/api/esport";
+import { getGames } from "@/api/esport";
+import { iaCollectPlatform } from "./a8Collect";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
@@ -50,12 +51,7 @@ export function startIaCollector(): () => void {
       const started = Date.now();
       let matchCount = 0;
       try {
-        const platform = await getCollectPlatform(PLATFORM);
-        if (!platform?.Gateway) {
-          console.warn("[IA] 采集跳过：无 Gateway");
-          await wait(POLL_MS);
-          continue;
-        }
+        const platform = iaCollectPlatform();
 
         if (!hasA8PluginRuntime()) {
           if (!pluginMissingNotified) {

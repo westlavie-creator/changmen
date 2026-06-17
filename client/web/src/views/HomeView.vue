@@ -9,18 +9,13 @@ import MatchCard from "@/components/match/MatchCard.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
 import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { useCollectStore } from "@/stores/collectStore";
-import { useConfigStore } from "@/stores/configStore";
 import { useAccountStore } from "@/stores/accountStore";
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMessageStore } from "@/stores/messageStore";
+import { bootSessionRuntime, stopSessionRuntime } from "@/runtime/sessionBoot";
 
 const user = useUserStore();
 const matchStore = useMatchStore();
-const collectStore = useCollectStore();
-const configStore = useConfigStore();
 const accountStore = useAccountStore();
-const loseOrderStore = useLoseOrderStore();
 const messageStore = useMessageStore();
 const { matchs } = storeToRefs(matchStore);
 const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
@@ -46,28 +41,8 @@ const filteredMatchs = computed(() => {
   });
 });
 
-let runtimeBooted = false;
-
-/** [changmen 扩展] 浏览器内采集器 / HG 跟单；A8 在扩展 background 侧，不在 HomeView 钩子里 */
-async function bootRuntime() {
-  if (runtimeBooted) return;
-  runtimeBooted = true;
-  loseOrderStore.init();
-  await Promise.all([collectStore.init(), configStore.load()]);
-  const { startCollectors } = await import("@/runtime/collectors");
-  await startCollectors();
-  const [{ primeStakeTabId }, { startHgFollowLoop }] = await Promise.all([
-    import("@platform/stake"),
-    import("@platform/hg"),
-  ]);
-  primeStakeTabId();
-  startHgFollowLoop();
-}
-
 function stopHome() {
-  runtimeBooted = false;
-  void import("@platform/hg").then(({ stopHgFollowLoop }) => stopHgFollowLoop());
-  void import("@/runtime/collectors").then(({ stopCollectors }) => stopCollectors());
+  stopSessionRuntime();
   messageStore.stop();
   matchStore.stopMainLoop();
   accountStore.stopBalanceRefreshLoop();
@@ -79,7 +54,7 @@ onMounted(async () => {
     await user.fetchUserInfo();
   }
   accountStore.loadAccounts(true);
-  void bootRuntime();
+  void bootSessionRuntime();
 });
 
 /** [A8 可证实] zt：await initBetTarget() */

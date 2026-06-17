@@ -66,9 +66,3 @@ export async function resetAdminUserPassword(userId: string, password: string) {
     await post<AdminUserMutationResult>("Client_AdminResetPassword", { userId, password }),
   );
 }
-
-export async function setAdminUserFrozen(userId: string, frozen: boolean) {
-  return unwrap(
-    await post<AdminUserMutationResult>("Client_AdminSetUserFrozen", { userId, frozen }),
-  );
-}

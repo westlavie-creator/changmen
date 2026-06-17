@@ -23,7 +23,7 @@ async function hgPost(
   params: Record<string, string | number>,
 ): Promise<string> {
   const token = parseHgToken(account.token);
-  if (!account.gateway || !token) throw new Error("token error");
+  if (!account.gateway || !token) return "";
   const url = hgTransformUrl(account.gateway, token);
   const res = await accountRelayPost<string>(account, url, formBody(params), HG_FORM_HEADERS);
   return typeof res.data === "string" ? res.data : String(res.data ?? "");

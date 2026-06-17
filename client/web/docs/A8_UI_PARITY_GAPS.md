@@ -94,7 +94,7 @@
 | `anyOdds` 被拒重试 | 有 | 已对齐 | `retryFailedLeg`（最多 3 轮换平台；阈值 `anyOdds ? anyOddsProfit : makeProfit`） |
 | `makeUp_defaultOdds` / `makeUp_odds` | 有 | 已对齐 | `autoBet/makeUp.allowMakeUpForLeg` + `Client_GetDefaultOdds` |
 | 账号 `minDefault` / `maxDefault` | 有 | 已对齐 | 主循环与补单选账号 |
-| `allowSameBet` / `noSameBet` | 有 | 已对齐 | `pickArbLegs` 同平台双腿 + `isBetExcludedByNoSameRule`；下单侧 `readUsedAccounts`（sessionStorage，[changmen 扩展]） |
+| `allowSameBet` / `noSameBet` | 有 | 已对齐 | `pickArbLegs` + `readUsedAccounts`（`BETACCOUNT:` sessionStorage，[A8 可证实]） |
 | `noSameProvider` | 有 | 已对齐 | 仅补单 `processLoseOrders`；主循环用 `noSameBet`（bundle 同） |
 | 定时开启投注 | 有 | 已对齐 | `bettingStore.tickAutoOpen` |
 | `maxBetCount` / `BETCOUNT` | 有 | 已对齐 | `betTiming.passesMaxBetCount` + `incrementBetCount` |
@@ -169,8 +169,8 @@ node scripts/audit-a8-parity.mjs
 |------|------|
 | 主列表无赛事 | 已对齐空列表（仅保留错误提示条） |
 | 操盘 Tab | 「暂无在线用户」提示；A8 无 |
-| 钱包刷新 | 点击 toast 占位；A8 按钮也无链上刷新逻辑 |
-| 钱包地址生成 | A8 用 TronWeb；复刻为本地假地址（布局同，地址不同） |
+| 钱包刷新 | TronGrid 查 TRX/USDT | 已对齐 | `UserDiagWalletTab.refreshBalances` |
+| 钱包地址生成 | A8 用 TronWeb | 已对齐 | `tronWallet.generateTronWallet()` |
 | 谷歌验证码 | 复刻为动态 TOTP + 可添加；A8 为静态空码（**增强**，非缺口除非要像素级空码） |
 
 **P3 — 建议同屏 pixel diff**

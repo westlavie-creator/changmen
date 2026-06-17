@@ -16,7 +16,7 @@ function syncObFromSession(session) {
   return true;
 }
 
-/** 使用 data/esport/platforms.json 中已缓存�?gateway/token（前端采集与上轮 feed 写入�?*/
+/** ?? data/esport/platforms.json ??????gateway/token???????? feed ????*/
 function syncObFromStore() {
   const row = store.getPlatform("OB");
   if (!row?.gateway || !row?.token) return false;
@@ -39,7 +39,7 @@ async function probeObSession(gateway, token) {
 }
 
 /**
- * Feed / 采集优先复用 platforms.json 有效会话；试�?login 失败时仍能拉 index�? */
+ * Feed / ?????? platforms.json ????????login ?????? index?? */
 async function resolveObSession() {
   const row = store.getPlatform("OB");
   if (row?.gateway && row?.token) {
@@ -87,14 +87,14 @@ function syncRayFromEnv() {
   store.setPlatform("RAY", {
     gateway: process.env.RAY_GATEWAY || "https://cfinfo.365raylinks.com",
     token,
-    betName: "^获胜�?",
+    betName: "^????",
     games: getActivePlatformGameIds("RAY").map(String),
   });
   return true;
 }
 
 function syncRayFromSession(_session) {
-  // RAY 采集固定 A8 写死凭证；feed 登录 session 不写�?platforms.json
+  // RAY ???? A8 ?????feed ?? session ????platforms.json
   return syncRayFromA8();
 }
 
@@ -135,7 +135,7 @@ async function syncTfFromA8() {
     store.setPlatform("TF", {
       gateway: a8.gateway,
       token: a8.token,
-      betName: a8.betName || store.getPlatform("TF")?.betName || "^获胜�?",
+      betName: a8.betName || store.getPlatform("TF")?.betName || "^????",
       games: a8.games.length ? a8.games : getActivePlatformGameIds("TF").map(String),
     });
     return true;
@@ -152,7 +152,7 @@ function syncTfFromEnv() {
   store.setPlatform("TF", {
     gateway,
     token,
-    betName: process.env.TF_BET_NAME || "^获胜�?",
+    betName: process.env.TF_BET_NAME || "^????",
     games: getActivePlatformGameIds("TF").map(String),
   });
   return true;
@@ -163,7 +163,7 @@ function syncTfFromSession(session) {
   store.setPlatform("TF", {
     gateway: session.gateway,
     token: session.token,
-    betName: session.betName || store.getPlatform("TF")?.betName || "^获胜�?",
+    betName: session.betName || store.getPlatform("TF")?.betName || "^????",
     games: (session.gameIds || getActivePlatformGameIds("TF")).map(String),
   });
   return true;
@@ -183,32 +183,21 @@ function syncIaFromA8Defaults() {
 
 function syncIaFromEnv() {
   const gateway = process.env.IA_GATEWAY;
-  const token = process.env.IA_TOKEN;
   if (!gateway) return syncIaFromA8Defaults();
   store.setPlatform("IA", {
     gateway,
-    token: token ?? "",
+    token: "",
     betName:
       process.env.IA_BET_NAME ||
       store.getPlatform("IA")?.betName ||
-      "([全场].+获胜$)|([地图\\d].+获胜�?)",
+      "([??].+??$)|([??\\d].+????)",
     games: getActivePlatformGameIds("IA").map(String),
   });
   return true;
 }
 
-function syncIaFromSession(session) {
-  if (!session?.gateway || !session?.token) return false;
-  store.setPlatform("IA", {
-    gateway: session.gateway,
-    token: session.token,
-    betName:
-      session.betName ||
-      store.getPlatform("IA")?.betName ||
-      "([全场].+获胜$)|([地图\\d].+获胜�?)",
-    games: (session.gameIds || getActivePlatformGameIds("IA")).map(String),
-  });
-  return true;
+function syncIaFromSession(_session) {
+  return false;
 }
 
 function syncImtFromEnv() {

@@ -304,7 +304,7 @@ export const imProvider: PlatformProvider = {
   },
 
   async getOrders(account): Promise<VenueOrder[]> {
-    if (!account.token) throw new Error("token error");
+    if (!account.token) return [];
 
     const path = "/api/GetBetStatement";
     const now = new Date();

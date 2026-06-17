@@ -65,7 +65,6 @@ const ADMIN_ACTIONS = new Set<EsportAction>([
   "Client_AdminOrdersMatrix",
   "Client_AdminCreateUser",
   "Client_AdminResetPassword",
-  "Client_AdminSetUserFrozen",
   "Client_AdminSetUserAdmin",
 ]);
 
@@ -292,11 +291,6 @@ async function handle(
         gateway = row.gateway || row.apiUrl || "https://stake.com";
         token = row.accessToken || row.token || "";
       }
-      if (provider.toUpperCase() === "RAY") {
-        const { getRayA8CollectCredentials } = requirePlatform("RAY", "node", "collect_credentials.js");
-        const a8 = getRayA8CollectCredentials();
-        return ok({ Gateway: a8.gateway, Token: a8.token, BetName: a8.betName || betName });
-      }
       if (provider.toUpperCase() === "TF") {
         try {
           const { getTfA8CollectCredentials } = requirePlatform("TF", "node", "collect_credentials.js");
@@ -319,8 +313,8 @@ async function handle(
         const { getIaA8CollectCredentials } = requirePlatform("IA", "node", "collect_credentials.js");
         const a8 = getIaA8CollectCredentials();
         return ok({
-          Gateway: gateway || a8.gateway,
-          Token: row ? token ?? "" : a8.token,
+          Gateway: a8.gateway,
+          Token: a8.token,
           BetName: betName && betName !== ".*" ? betName : a8.betName,
         });
       }
@@ -426,10 +420,8 @@ async function handle(
       const updated = await accountService.handleUpdateBalance(body, ctx.user.id);
       return updated.ok ? ok(updated.info) : fail(updated.msg);
     }
-    case "Client_RefreshAccountBalance": {
-      const refreshed = await accountService.handleRefreshAccountBalance(body, ctx.user.id);
-      return refreshed.ok ? ok(refreshed.info) : fail(refreshed.msg);
-    }
+    case "Client_RefreshAccountBalance":
+      return fail("已废弃：余额请由浏览器 Provider.getBalance + Client_UpdateBalance");
     case "Client_GetMoneyLogs": {
       const page = await accountService.handleGetMoneyLogs(body, ctx.user.id);
       return page.ok ? ok(page.info) : fail(page.msg);
@@ -480,20 +472,6 @@ async function handle(
         );
       } catch (err) {
         return fail((err as Error).message || "??????");
-      }
-    }
-    case "Client_AdminSetUserFrozen": {
-      try {
-        const frozen = body.frozen === true || body.frozen === 1 || body.frozen === "1";
-        return ok(
-          await adminService.setAdminUserFrozen(
-            (body.userId ?? body.id) as string,
-            frozen,
-            ctx.user.id,
-          ),
-        );
-      } catch (err) {
-        return fail((err as Error).message || "??????????");
       }
     }
     case "Client_AdminSetUserAdmin": {

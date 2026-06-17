@@ -39,7 +39,6 @@ export {
   getAccounts,
   saveAccounts,
   updateBalance,
-  refreshAccountBalance,
   deletePlayer,
   saveMoneyLog,
   deleteMoneyLog,

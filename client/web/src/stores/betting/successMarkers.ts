@@ -26,7 +26,7 @@ function markUsedAccount(accountId: number, betRowId: number, side: BetSide) {
   }
 }
 
-/** 对齐 bundle `_()`：成功且未拒单后标记账号与下注计数 */
+/** [A8 可证实] BETACCOUNT sessionStorage + noSameBet 排除已用账号 */
 export function markSuccessfulBet(
   account: PlatformAccount,
   betId: number,

@@ -36,7 +36,7 @@ export async function pbGet<T>(
   requirePluginRuntime();
   const url = pathOrUrl.startsWith("http") ? pathOrUrl : pbGatewayUrl(account, pathOrUrl);
   const headers = buildPbAuthHeaders(account, extraHeaders);
-  if (!headers) throw new Error("token error");
+  if (!headers) throw new Error("账号参数读取失败");
   const raw = await a8PluginGet(url, { headers });
   return unwrap<T>(raw);
 }
@@ -51,7 +51,7 @@ export async function pbPost<T>(
   requirePluginRuntime();
   const url = pathOrUrl.startsWith("http") ? pathOrUrl : pbGatewayUrl(account, pathOrUrl);
   const headers = buildPbAuthHeaders(account, extraHeaders);
-  if (!headers) throw new Error("token error");
+  if (!headers) throw new Error("账号参数读取失败");
   const raw = await a8PluginPost(url, body, { headers });
   return unwrap<T>(raw);
 }

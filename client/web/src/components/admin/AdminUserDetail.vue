@@ -125,14 +125,7 @@ function fmtBetMoney() {
             {{ Number(user.isOnline) === 1 ? "在线" : "离线" }}
           </span>
           ·
-          <span
-            v-if="Number(user.frozen) === 1"
-            class="admin-user-status admin-user-status--frozen"
-          >
-            <i class="admin-user-status__dot" aria-hidden="true" />
-            已冻结
-          </span>
-          <span v-else class="admin-user-status admin-user-status--active">账号正常</span>
+          <span class="admin-user-status admin-user-status--active">账号正常</span>
           ·
           <span class="admin-user-status" :class="bettingStatusClass()">
             <i class="admin-user-status__dot" aria-hidden="true" />

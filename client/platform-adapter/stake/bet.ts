@@ -282,7 +282,7 @@ async function stakeGraphqlForAccount(
   const tabId = await resolveTabId();
   if (!tabId) throw new Error(stakeTabIdHint());
   const headers = stakeAccountHeaders(account);
-  if (!headers) throw new Error("token error");
+  if (!headers) throw new Error("账号参数读取失败");
   return stakePluginGraphql(label, body, { tabId, headers });
 }
 
@@ -333,6 +333,10 @@ export const stakeProvider: PlatformProvider = {
     const tabId = await resolveTabId();
     if (!tabId) {
       option.checkError = stakeTabIdHint();
+      return option;
+    }
+    if (!stakeAccountHeaders(account)) {
+      option.checkError = "账号参数读取失败";
       return option;
     }
 
@@ -444,7 +448,7 @@ export const stakeProvider: PlatformProvider = {
 
   async getOrders(account) {
     const tabId = await resolveTabId();
-    if (!tabId) return [];
+    if (!tabId || !stakeAccountHeaders(account)) return [];
 
     const queries = [
       {
@@ -470,18 +474,22 @@ export const stakeProvider: PlatformProvider = {
     ];
 
     const orders: VenueOrder[] = [];
-    for (const body of queries) {
-      const root = await stakeGraphqlForAccount(account, "getOrders", body);
-      const gql = (root.data as Record<string, unknown> | undefined) ?? {};
-      const user = (gql.user as Record<string, unknown> | undefined) ?? {};
-      const active = (user.activeSportBets as Array<Record<string, unknown>> | undefined) ?? [];
-      for (const row of active) orders.push(mapStakeOrderRow(row));
+    try {
+      for (const body of queries) {
+        const root = await stakeGraphqlForAccount(account, "getOrders", body);
+        const gql = (root.data as Record<string, unknown> | undefined) ?? {};
+        const user = (gql.user as Record<string, unknown> | undefined) ?? {};
+        const active = (user.activeSportBets as Array<Record<string, unknown>> | undefined) ?? [];
+        for (const row of active) orders.push(mapStakeOrderRow(row));
 
-      const list = (user.sportBetList as Array<Record<string, unknown>> | undefined) ?? [];
-      for (const row of list) {
-        const bet = (row.bet as Record<string, unknown> | undefined) ?? {};
-        orders.push(mapStakeOrderRow(bet));
+        const list = (user.sportBetList as Array<Record<string, unknown>> | undefined) ?? [];
+        for (const row of list) {
+          const bet = (row.bet as Record<string, unknown> | undefined) ?? {};
+          orders.push(mapStakeOrderRow(bet));
+        }
       }
+    } catch {
+      return [];
     }
     return orders;
   },

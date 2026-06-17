@@ -8,7 +8,6 @@ import {
   createAdminUser,
   getAdminUsers,
   resetAdminUserPassword,
-  setAdminUserFrozen,
 } from "@/api/admin";
 import type { AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
@@ -81,34 +80,6 @@ function bettingTitle(row: AdminUserRow) {
 function fmtBetMoney(row: AdminUserRow) {
   const base = Number(row.betMoney) || 0;
   return base > 0 ? fmtMoney(base) : "—";
-}
-
-function canToggleFreeze(row: AdminUserRow) {
-  return !row.isAdmin && String(row.id) !== String(userStore.userId);
-}
-
-async function toggleFreeze(row: AdminUserRow) {
-  if (!canToggleFreeze(row)) return;
-  const frozen = Number(row.frozen) === 1;
-  const action = frozen ? "解冻" : "冻结";
-  try {
-    await ElMessageBox.confirm(
-      frozen
-        ? `确认解冻用户 ${row.userName}？解冻后可正常登录与投注。`
-        : `确认冻结用户 ${row.userName}？冻结后将无法登录，已登录会话也会被拒绝。`,
-      `${action}账号`,
-      { type: frozen ? "info" : "warning", confirmButtonText: action, cancelButtonText: "取消" },
-    );
-  } catch {
-    return;
-  }
-  try {
-    await setAdminUserFrozen(row.id, !frozen);
-    ElMessage.success(`已${action} ${row.userName}`);
-    await loadUsers();
-  } catch (err) {
-    ElMessage.error(err instanceof Error ? err.message : `${action}失败`);
-  }
 }
 
 const onlineCount = computed(
@@ -286,18 +257,6 @@ onUnmounted(() => {
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="账号" width="88" align="center">
-          <template #default="{ row }">
-            <span
-              v-if="Number(row.frozen) === 1"
-              class="admin-user-status admin-user-status--frozen"
-            >
-              <i class="admin-user-status__dot" aria-hidden="true" />
-              已冻结
-            </span>
-            <span v-else class="admin-user-status admin-user-status--active">正常</span>
-          </template>
-        </el-table-column>
         <el-table-column label="投注" width="88" align="center">
           <template #default="{ row }">
             <span
@@ -340,20 +299,11 @@ onUnmounted(() => {
         <el-table-column label="注册时间" min-width="150">
           <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
             <el-button link type="primary" size="small" @click="viewOrders(row)">订单</el-button>
             <el-button link type="warning" size="small" @click="openReset(row)">重置密码</el-button>
-            <el-button
-              v-if="canToggleFreeze(row)"
-              link
-              :type="Number(row.frozen) === 1 ? 'success' : 'danger'"
-              size="small"
-              @click="toggleFreeze(row)"
-            >
-              {{ Number(row.frozen) === 1 ? "解冻" : "冻结" }}
-            </el-button>
           </template>
         </el-table-column>
       </el-table>

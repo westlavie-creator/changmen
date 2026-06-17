@@ -263,9 +263,7 @@ export const obProvider: PlatformProvider = {
   },
 
   async getOrders(account) {
-    if (!account.gateway || !account.token) {
-      throw new Error("token error");
-    }
+    if (!account.gateway || !account.token) return [];
 
     const byId = new Map<string, VenueOrder>();
     for (const status of [1, 2] as const) {

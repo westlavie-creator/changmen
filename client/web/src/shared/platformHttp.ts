@@ -281,7 +281,7 @@ export async function accountPbGet<T = unknown>(
   opts?: AccountHttpOptions,
 ): Promise<T> {
   const headers = buildPbAuthHeaders(account);
-  if (!headers) throw new Error("token error");
+  if (!headers) throw new Error("账号参数读取失败");
   const { status, text } = await accountHttpRaw(
     account,
     targetUrl,
@@ -305,7 +305,9 @@ export async function accountTfGet<T = unknown>(
   path: string,
   opts?: TfAccountHttpOptions,
 ): Promise<{ status: number; data: T }> {
-  if (!account.gateway || !account.token) throw new Error("token error");
+  if (!account.gateway || !account.token) {
+    return { status: 401, data: {} as T };
+  }
   const url = tfGatewayUrl(account.gateway, path);
   const headers = await buildTfAccountHeaders(account.token, { signed: opts?.signed });
   const { status, text } = await accountHttpRaw(
@@ -323,7 +325,9 @@ export async function accountTfPost<T = unknown>(
   body: unknown,
   opts?: TfAccountHttpOptions,
 ): Promise<{ status: number; data: T }> {
-  if (!account.gateway || !account.token) throw new Error("token error");
+  if (!account.gateway || !account.token) {
+    return { status: 401, data: {} as T };
+  }
   const url = tfGatewayUrl(account.gateway, path);
   const headers = await buildTfAccountHeaders(account.token, { signed: opts?.signed });
   const { status, text } = await accountHttpRaw(

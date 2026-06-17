@@ -31,20 +31,6 @@ export async function updateBalance(
   return res.success === 1 && res.info ? res.info : undefined;
 }
 
-/** @deprecated 余额刷新已改为 A8 方案（浏览器 Provider + Client_UpdateBalance），保留仅供调试 */
-export async function refreshAccountBalance(playerId: number) {
-  const row = unwrap(
-    await post<AccountRecord>("Client_RefreshAccountBalance", {
-      playerId,
-    }),
-  );
-  return {
-    balance: row.balance,
-    currency: row.currency,
-    account: row,
-  };
-}
-
 export async function deletePlayer(playerId: number, description = "") {
   await post<unknown>("Client_DeletePlayer", { playerId, description });
 }

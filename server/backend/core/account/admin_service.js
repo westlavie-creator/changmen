@@ -4,7 +4,7 @@ import { ensurePgPoolReady, getPgPool, insertProfile } from "@changmen/db";
 import { loadProfileById } from "../db/store.js";
 import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
 import { resolvePresenceState } from "./user_presence.js";
-import { frozenFieldsFromProfile, isProfileFrozen, nextPreferencesForFreeze, readPreferences } from "./user_freeze.js";
+import { lastLoginFieldsFromProfile } from "./user_login_meta.js";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 import {
   lastLoginFieldsFromProfile,
@@ -187,7 +187,6 @@ function mapAdminUserRow(p, profitByUser = new Map()) {
     isOnline: presence.isOnline,
     lastActiveAt: presence.lastActiveAt,
     ...bettingState,
-    ...frozenFieldsFromProfile(p),
     ...lastLoginFieldsFromProfile(p),
     accountCount: accounts.length,
     accounts,
@@ -457,29 +456,8 @@ async function writeProfilePreferencesAwait(uid, preferences) {
   if (!rowCount) throw new Error("用户不存在");
 }
 
-/** 管理端冻结/解冻用户（preferences.frozen） */
-export async function setAdminUserFrozen(userId, frozen, operatorUserId) {
-  const id = String(userId || "").trim();
-  if (!id) throw new Error("用户 ID 无效");
-  const op = String(operatorUserId || "").trim();
-  if (op && id === op) throw new Error("不能冻结当前登录账号");
-
-  const row = await sb.fetchProfileById(id);
-  if (!row) throw new Error("用户不存在");
-  const name = String(row.user_name || "");
-  if (Boolean(row.is_admin)) {
-    throw new Error("不能冻结管理员账号");
-  }
-
-  const wantFrozen = Boolean(frozen);
-  if (wantFrozen === isProfileFrozen(row)) {
-    return { id, userName: name, frozen: wantFrozen ? 1 : 0 };
-  }
-
-  const preferences = nextPreferencesForFreeze(readPreferences(row), wantFrozen, op);
-  await writeProfilePreferencesAwait(id, preferences);
-  return { id, userName: name, frozen: wantFrozen ? 1 : 0 };
-}
+/** 登录/API 鉴权占位（A8 bundle 无 admin 冻结用户） */
+export async function assertProfileActive(_userId) {}
 
 /** 管理端设置/取消管理员（users.is_admin） */
 export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
@@ -515,14 +493,4 @@ export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
   if (!ok) throw new Error("更新管理员状态失败");
   await loadProfileById(id);
   return { id, userName: name, isAdmin: wantAdmin ? 1 : 0 };
-}
-
-/** 登录/API 鉴权：冻结用户不可用 */
-export async function assertProfileActive(userId) {
-  const row = await sb.fetchProfileById(userId);
-  if (isProfileFrozen(row)) {
-    const err = new Error("账号已冻结，请联系管理员");
-    err.code = "FROZEN";
-    throw err;
-  }
 }
