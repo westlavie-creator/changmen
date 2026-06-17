@@ -2,7 +2,7 @@ import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { accountGet, accountPostForm } from "@/shared/platformHttp";
-import { rayApiPath } from "./collect";
+import { getCurrency } from "@/shared/currency";
 import { PLATFORMS } from "@/shared/platform";
 import { useMessageStore } from "@/stores/messageStore";
 
@@ -90,18 +90,24 @@ function mapRayOrderRow(row: RayOrderRow): VenueOrder | null {
   };
 }
 
+/** [A8 可证实] vYe：`${account.gateway}/v2/...` */
+const RAY_A8_V2 = {
+  user: "/v2/user",
+  odds: (matchId: string) => `/v2/odds?match_id=${matchId}`,
+  order: "/v2/order",
+} as const;
+
 export const rayProvider: PlatformProvider = {
   async getBalance(account) {
-    if (!account.gateway || !account.token) return undefined;
     try {
       const res = await accountGet<{ code?: number; result?: { balance?: number } }>(
         account,
-        rayApiPath(account.gateway, "user"),
+        RAY_A8_V2.user,
       );
       if (!res || res.code !== 200) return undefined;
       return {
         balance: Number(res.result?.balance) || 0,
-        currency: "CNY",
+        currency: getCurrency(),
       };
     } catch {
       return undefined;
@@ -112,7 +118,7 @@ export const rayProvider: PlatformProvider = {
     const res = await accountGet<{
       code?: number;
       result?: { odds?: RayOddsRow[]; start_time?: string };
-    }>(account, `${rayApiPath(account.gateway, "odds")}?match_id=${option.matchId}`);
+    }>(account, RAY_A8_V2.odds(String(option.matchId)));
     option.response = res;
     if (res.code !== 200) {
       option.checkError = "获取赔率失败";
@@ -192,7 +198,7 @@ export const rayProvider: PlatformProvider = {
   async getOrders(account) {
     const res = await accountGet<{ code?: number; result?: RayOrderRow[] }>(
       account,
-      rayApiPath(account.gateway, "order"),
+      RAY_A8_V2.order,
       { forceDirect: true },
     );
     if (res.code !== 200 || !Array.isArray(res.result)) return [];
@@ -207,7 +213,7 @@ export const rayProvider: PlatformProvider = {
   async betting(account, option) {
     const res = await accountPostForm<{ code?: number; desc?: string; result?: unknown }>(
       account,
-      rayApiPath(account.gateway, "order"),
+      RAY_A8_V2.order,
       { order: JSON.stringify(option.data) },
     );
     let message = res.desc || "";

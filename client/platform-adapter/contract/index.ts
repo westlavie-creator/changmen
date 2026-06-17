@@ -27,7 +27,7 @@ export interface VenueOrder {
 }
 
 export interface PlatformProvider {
-  getBalance?(account: PlatformAccount): Promise<AccountBalanceResult>;
+  getBalance?(account: PlatformAccount): Promise<AccountBalanceResult | undefined>;
   getOrders?(account: PlatformAccount): Promise<VenueOrder[]>;
   checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption>;
   betting(account: PlatformAccount, option: BetOption): Promise<BetResult>;

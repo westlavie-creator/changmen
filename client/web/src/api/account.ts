@@ -25,15 +25,14 @@ export async function updateBalance(playerId: number, balance: number) {
 /** @deprecated 余额刷新已改为 A8 方案（浏览器 Provider + Client_UpdateBalance），保留仅供调试 */
 export async function refreshAccountBalance(playerId: number) {
   const row = unwrap(
-    await post<AccountRecord & { balanceError?: string | null }>("Client_RefreshAccountBalance", {
+    await post<AccountRecord>("Client_RefreshAccountBalance", {
       playerId,
     }),
   );
   return {
-    balance: row.balanceError ? undefined : row.balance,
+    balance: row.balance,
     currency: row.currency,
     account: row,
-    balanceError: row.balanceError ?? null,
   };
 }
 

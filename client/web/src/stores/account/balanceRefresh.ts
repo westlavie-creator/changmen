@@ -1,24 +1,23 @@
 import { updateBalance } from "@/api/esport";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { getProvider } from "@/runtime/providers";
+import { Currency } from "@/shared/currency";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
-import { refreshVenueOrdersQuiet } from "@/stores/account/venueOrders";
+import { updateVenueOrders } from "@/stores/account/venueOrders";
 
-/** 对齐 A8 uv.updateBalance：失败仅 balance=undefined，无 balanceError 文案 */
+/** 对齐 A8 uv.updateBalance：成功写 balance；失败 balance=undefined（TOKEN ERROR 由 CSS 展示） */
 export async function refreshAccountBalance(
   store: AccountStoreContext,
   account: PlatformAccount,
 ): Promise<boolean> {
   account.loadingBalance = true;
-  account.balanceError = null;
-
   try {
     const provider = getProvider(account);
     const result = await provider?.getBalance?.(account);
     if (result) {
       account.balance = result.balance;
-      if (result.currency) account.currency = result.currency;
+      account.currency = result.currency ?? Currency.CNY;
       account.updateTime = Date.now();
 
       try {
@@ -31,8 +30,6 @@ export async function refreshAccountBalance(
       } catch {
         /* 余额已从场馆读到，落库失败不阻断展示 */
       }
-      await store.saveAccounts();
-      await refreshVenueOrdersQuiet(account);
       try {
         const { useMessageStore } = await import("@/stores/messageStore");
         const msg = useMessageStore();
@@ -53,12 +50,13 @@ export async function refreshAccountBalance(
   }
 }
 
-/** A8 Io.f：逐账号刷余额（跳过投注中）→ 保存 → 拉本地订单汇总 */
+/** A8 Io.f：逐账号 updateBalance → updateOrders（跳过投注中）→ 保存 → 拉本地订单汇总 */
 export async function refreshAllFromVenues(store: AccountStoreContext) {
   for (const acc of store.accounts) {
     if (acc.active) continue;
     try {
       await refreshAccountBalance(store, acc);
+      await updateVenueOrders(acc);
     } catch {
       /* 单账号失败不阻断 */
     }

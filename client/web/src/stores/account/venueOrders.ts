@@ -30,11 +30,3 @@ export async function updateVenueOrders(account: PlatformAccount): Promise<Venue
     return [];
   }
 }
-
-export async function refreshVenueOrdersQuiet(account: PlatformAccount) {
-  try {
-    await syncVenueOrders(account);
-  } catch (err) {
-    console.warn(`[${account.provider}] updateOrders`, err);
-  }
-}

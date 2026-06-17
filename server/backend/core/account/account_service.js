@@ -133,17 +133,6 @@ function handleGetUsers() {
   return { ok: true, info };
 }
 
-/** 仅用于服务端 Refresh 对比；A8 不在 GetData 时注入余额 */
-async function resolveStoredBalance(row) {
-  if (!row) return null;
-  if (row.balance != null && row.balance !== 0) return Number(row.balance);
-  const player = row.accountId ? await accountStore.getPlayer(row.accountId) : null;
-  if (player?.totalBalance != null && player.totalBalance !== 0) {
-    return Number(player.totalBalance);
-  }
-  return row.balance != null ? Number(row.balance) : null;
-}
-
 /** A8 Io.loadAccounts：ACCOUNT 返回时归一化 PB 乘网默认 */
 function enrichAccountRowFromPlayer(row) {
   return normalizeAccountMultiplyField(row);
@@ -230,20 +219,10 @@ function handleGetData(key, userId) {
   return { ok: true, info: parsed, direct: parsed };
 }
 
-function normalizeBalanceError(message) {
-  const text = String(message || "").trim();
-  if (!text) return "token error";
-  const lower = text.toLowerCase();
-  if (/token|auth|unauthorized|401|403|login|credential|redis:\s*nil|invalid session/.test(lower)) {
-    return "token error";
-  }
-  return text;
-}
-
 async function refreshAccountBalance(accountRow) {
   const enriched = enrichAccountFromPlatformDefaults(accountRow);
   if (!enriched.gateway || !enriched.token) {
-    return { account: enriched, balance: null, error: "token error" };
+    return { account: enriched, balance: null };
   }
   try {
     const bal = await getAccountBalance(enriched);
@@ -252,12 +231,8 @@ async function refreshAccountBalance(accountRow) {
       await accountStore.updatePlayerBalance(enriched.accountId, bal.balance);
     }
     return { account: enriched, balance: bal };
-  } catch (err) {
-    return {
-      account: enriched,
-      balance: null,
-      error: normalizeBalanceError(err.message),
-    };
+  } catch {
+    return { account: enriched, balance: null };
   }
 }
 
@@ -319,35 +294,18 @@ async function handleRefreshAccountBalance(body, userId) {
     accounts.find((r) => String(r.accountId) === String(playerId)),
   );
   if (!row) return { ok: false, msg: "account 不存在" };
-  const previousBalance = await resolveStoredBalance(row);
   const result = await refreshAccountBalance(row);
   if (result.balance != null) {
     const balance = Number(result.balance.balance) || 0;
-    if (balance === 0 && previousBalance != null && previousBalance > 0) {
-      return {
-        ok: true,
-        info: {
-          ...row,
-          balanceError: "token error",
-        },
-      };
-    }
     const credit = Number(row.credit) || 0;
     const synced = syncAccountRowInKv(playerId, {
       balance,
       currency: result.balance.currency || row.currency || "CNY",
       totalProfit: balance - credit,
     }, userId);
-    return { ok: true, info: { ...synced, balanceError: null } };
+    return { ok: true, info: { ...synced, balance } };
   }
-  const balanceError = result.error || "token error";
-  return {
-    ok: true,
-    info: {
-      ...row,
-      balanceError,
-    },
-  };
+  return { ok: true, info: { ...row, balance: undefined } };
 }
 
 export {

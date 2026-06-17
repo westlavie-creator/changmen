@@ -288,40 +288,45 @@ async function stakeGraphqlForAccount(
 
 export const stakeProvider: PlatformProvider = {
   async getBalance(account) {
-    const tabId = await resolveTabId();
-    if (!tabId) throw new Error(stakeTabIdHint());
+    try {
+      const tabId = await resolveTabId();
+      if (!tabId) return undefined;
 
-    const root = await stakeGraphqlForAccount(account, "getBalance", {
-      query: USER_BALANCES_QUERY,
-      operationName: "UserBalances",
-    });
-    const gql = (root.data as Record<string, unknown> | undefined) ?? {};
-    const user = (gql.user as Record<string, unknown> | undefined) ?? {};
-    const balances = (user.balances as Array<Record<string, unknown>> | undefined) ?? [];
-    const usdt = balances.find((row) => {
-      const available = row.available as Record<string, unknown> | undefined;
-      return available?.currency === "usdt";
-    });
-    const available = (usdt?.available as Record<string, unknown> | undefined) ?? {};
-    const amount = available.amount != null ? Number(available.amount) : undefined;
-    const multiply = Math.max(1, account.multiply ?? 1);
-    const balanceCny = amount !== undefined ? amount * STAKE_USDT_TO_CNY * multiply : undefined;
+      const root = await stakeGraphqlForAccount(account, "getBalance", {
+        query: USER_BALANCES_QUERY,
+        operationName: "UserBalances",
+      });
+      const gql = (root.data as Record<string, unknown> | undefined) ?? {};
+      const user = (gql.user as Record<string, unknown> | undefined) ?? {};
+      const balances = (user.balances as Array<Record<string, unknown>> | undefined) ?? [];
+      const usdt = balances.find((row) => {
+        const available = row.available as Record<string, unknown> | undefined;
+        return available?.currency === "usdt";
+      });
+      const available = (usdt?.available as Record<string, unknown> | undefined) ?? {};
+      const amount = available.amount != null ? Number(available.amount) : undefined;
+      const multiply = Math.max(1, account.multiply ?? 1);
+      const balanceCny = amount !== undefined ? amount * STAKE_USDT_TO_CNY * multiply : undefined;
+      if (balanceCny === undefined) return undefined;
 
-    await stakeGraphqlForAccount(account, "UpdateUserBettingPreference", {
-      query: UPDATE_PREFERENCE_MUTATION,
-      variables: {
-        preference: {
-          noBetConfirmation: false,
-          singleBetSlipDisplayFirst: true,
-          oddsChangeCondition: "higher",
+      await stakeGraphqlForAccount(account, "UpdateUserBettingPreference", {
+        query: UPDATE_PREFERENCE_MUTATION,
+        variables: {
+          preference: {
+            noBetConfirmation: false,
+            singleBetSlipDisplayFirst: true,
+            oddsChangeCondition: "higher",
+          },
         },
-      },
-    });
+      });
 
-    return {
-      currency: "CNY",
-      balance: balanceCny ?? 0,
-    };
+      return {
+        currency: "CNY",
+        balance: balanceCny,
+      };
+    } catch {
+      return undefined;
+    }
   },
 
   async checkBet(account, option) {

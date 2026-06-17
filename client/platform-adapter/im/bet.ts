@@ -149,31 +149,35 @@ function resolveImGameId(option: BetOption): number {
 
 export const imProvider: PlatformProvider = {
   async getBalance(account) {
-    if (!account.token) throw new Error("token error");
-    const path = "/api/GetMemberBalance";
-    const payload = await signImPayload(
-      {
-        BettingChannel: 1,
-        Token: account.token,
-        TriggeredBy: 1,
-        Type: 1,
-      },
-      path,
-    );
-    const res = await accountRelayPostJson<ImBalanceResponse>(
-      account,
-      imAccountUrl(account, path),
-      payload,
-      buildImAccountHeaders(account),
-    );
-    const body = res.data;
-    if (body.StatusCode !== 0) throw new Error(body.StatusDesc || "balance failed");
-    await extendImSession(account);
-    const row = body.MemberBalances?.[0];
-    return {
-      currency: row?.Currency || "CNY",
-      balance: Number(row?.AvailableBalance) || 0,
-    };
+    if (!account.token) return undefined;
+    try {
+      const path = "/api/GetMemberBalance";
+      const payload = await signImPayload(
+        {
+          BettingChannel: 1,
+          Token: account.token,
+          TriggeredBy: 1,
+          Type: 1,
+        },
+        path,
+      );
+      const res = await accountRelayPostJson<ImBalanceResponse>(
+        account,
+        imAccountUrl(account, path),
+        payload,
+        buildImAccountHeaders(account),
+      );
+      const body = res.data;
+      if (body.StatusCode !== 0) return undefined;
+      await extendImSession(account);
+      const row = body.MemberBalances?.[0];
+      return {
+        currency: row?.Currency || "CNY",
+        balance: Number(row?.AvailableBalance) || 0,
+      };
+    } catch {
+      return undefined;
+    }
   },
 
   async checkBet(account, option) {

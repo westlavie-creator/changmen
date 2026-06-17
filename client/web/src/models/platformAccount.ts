@@ -41,7 +41,6 @@ export class PlatformAccount implements AccountRecord {
   currency: AccountCurrency | string;
   updateTime: number;
   loadingBalance = false;
-  balanceError: string | null = null;
   active = false;
   today = 0;
   orderCount = 0;
@@ -214,8 +213,8 @@ export class PlatformAccount implements AccountRecord {
     this.errorCount = 0;
   }
 
-  applyPatch(patch: Partial<AccountRecord> & { balanceError?: string | null }) {
-    const { balanceError, balance, rateConfig, game, workTimes, ...rest } = patch;
+  applyPatch(patch: Partial<AccountRecord>) {
+    const { balance, rateConfig, game, workTimes, ...rest } = patch;
     Object.assign(this, rest);
     if (rateConfig !== undefined) {
       this.rateConfig = rateConfig.map((r) => ({
@@ -233,16 +232,13 @@ export class PlatformAccount implements AccountRecord {
     if (balance !== undefined) {
       this.balance = balance == null ? undefined : Number(balance);
     }
-    if (balanceError !== undefined) {
-      this.balanceError = balanceError;
-    }
     if (rest.multiply !== undefined) {
       this.multiply = resolveAccountMultiply(this.provider, rest.multiply);
     }
   }
 
   toJSON(): AccountRecord {
-    const { loadingBalance: _lb, balanceError: _be, ...rest } = this;
+    const { loadingBalance: _lb, ...rest } = this;
     return JSON.parse(JSON.stringify(rest)) as AccountRecord;
   }
 

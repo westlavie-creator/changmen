@@ -48,24 +48,26 @@ async function ensureOddsTypeEurope(
 
 export const hgProvider: PlatformProvider = {
   async getBalance(account) {
-    const token = parseHgToken(account.token);
-    if (!account.gateway || !token) throw new Error("token error");
-    await ensureOddsTypeEurope(account);
-    const xml = await hgPost(account, {
-      p: "get_member_data",
-      uid: token.uid,
-      ver: token.ver,
-      langx: "zh-cn",
-      change: "all",
-    });
-    const body = parseHgServerResponse(xml);
-    if (body.code === "error") {
-      throw new Error(body.msg || "balance failed");
+    try {
+      const token = parseHgToken(account.token);
+      if (!account.gateway || !token) return undefined;
+      await ensureOddsTypeEurope(account);
+      const xml = await hgPost(account, {
+        p: "get_member_data",
+        uid: token.uid,
+        ver: token.ver,
+        langx: "zh-cn",
+        change: "all",
+      });
+      const body = parseHgServerResponse(xml);
+      if (body.code === "error") return undefined;
+      return {
+        currency: body.currency || "CNY",
+        balance: Number(body.maxcredit) || 0,
+      };
+    } catch {
+      return undefined;
     }
-    return {
-      currency: body.currency || "CNY",
-      balance: Number(body.maxcredit) || 0,
-    };
   },
 
   async checkBet(account, option) {

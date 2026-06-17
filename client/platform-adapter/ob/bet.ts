@@ -241,24 +241,24 @@ async function ensureUid(account: PlatformAccount) {
 
 export const obProvider: PlatformProvider = {
   async getBalance(account) {
-    if (!account.gateway || !account.token) {
-      throw new Error("token error");
-    }
-    const bal = await accountGet<ObBalanceResponse>(account, "/game/balance");
-    if (bal.status !== "true") {
-      throw new Error(String(bal.data || "game/balance failed"));
-    }
+    if (!account.gateway || !account.token) return undefined;
     try {
-      if (bal.data?.uid) {
-        uidByAccount.set(account.accountId, String(bal.data.uid));
+      const bal = await accountGet<ObBalanceResponse>(account, "/game/balance");
+      if (bal.status !== "true") return undefined;
+      try {
+        if (bal.data?.uid) {
+          uidByAccount.set(account.accountId, String(bal.data.uid));
+        }
+        await obEnsureOddUpdateType(account);
+        return {
+          balance: Number(bal.data?.balance) || 0,
+          currency: obVenueCurrency(bal.data?.currency_en),
+        };
+      } finally {
+        await obMemberHeartbeat(account);
       }
-      await obEnsureOddUpdateType(account);
-      return {
-        balance: Number(bal.data?.balance) || 0,
-        currency: obVenueCurrency(bal.data?.currency_en),
-      };
-    } finally {
-      await obMemberHeartbeat(account);
+    } catch {
+      return undefined;
     }
   },
 

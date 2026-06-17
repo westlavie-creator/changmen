@@ -20,18 +20,22 @@ interface ImtBetInfoResponse {
 
 export const imtProvider: PlatformProvider = {
   async getBalance(account) {
-    const url = imtAccountUrl(account, "/mobilesitev2/api/Member/GetMemberBalance");
-    const res = await accountRelayPost<{ StatusCode?: number; ab?: number }>(
-      account,
-      url,
-      "",
-      buildImtAccountHeaders(account),
-    );
-    if (res.data?.StatusCode !== 100) throw new Error("balance failed");
-    return {
-      balance: Number(res.data.ab) || 0,
-      currency: "CNY",
-    };
+    try {
+      const url = imtAccountUrl(account, "/mobilesitev2/api/Member/GetMemberBalance");
+      const res = await accountRelayPost<{ StatusCode?: number; ab?: number }>(
+        account,
+        url,
+        "",
+        buildImtAccountHeaders(account),
+      );
+      if (res.data?.StatusCode !== 100) return undefined;
+      return {
+        balance: Number(res.data.ab) || 0,
+        currency: "CNY",
+      };
+    } catch {
+      return undefined;
+    }
   },
 
   async checkBet(account, option) {

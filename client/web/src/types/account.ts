@@ -20,7 +20,6 @@ export interface AccountRecord {
   currency?: AccountCurrency | string;
   updateTime?: number;
   loadingBalance?: boolean;
-  balanceError?: string | null;
   active?: boolean;
   today?: number;
   orderCount?: number;

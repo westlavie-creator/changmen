@@ -358,6 +358,7 @@ async function save() {
       await accountStore.saveAccounts();
       // [A8 可证实] 新建：CreateTagPlatform → createAccount → updateBalance + updateOrders
       await accountStore.refreshBalance(props.account);
+      await accountStore.updateVenueOrders(props.account);
     } else {
       await accountStore.createFromTagPlatform(patch);
     }

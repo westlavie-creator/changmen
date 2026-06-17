@@ -51,17 +51,21 @@ function findPoint(plays: IaPlaysResponse, betId: string, itemId: string): IaTea
 
 export const iaProvider: PlatformProvider = {
   async getBalance(account) {
-    if (!account.gateway || !account.token) throw new Error("token error");
-    const res = await accountIaPost<{ code?: number; data?: { amount?: number } }>(
-      account,
-      "/api/game/user/balance",
-      "lang=1",
-    );
-    if (!res || res.code !== 1) throw new Error("balance failed");
-    return {
-      currency: "CNY",
-      balance: Number(res.data?.amount) || 0,
-    };
+    if (!account.gateway || !account.token) return undefined;
+    try {
+      const res = await accountIaPost<{ code?: number; data?: { amount?: number } }>(
+        account,
+        "/api/game/user/balance",
+        "lang=1",
+      );
+      if (!res || res.code !== 1) return undefined;
+      return {
+        currency: "CNY",
+        balance: Number(res.data?.amount) || 0,
+      };
+    } catch {
+      return undefined;
+    }
   },
 
   async checkBet(account, option) {

@@ -160,23 +160,27 @@ function buildTicketItem(
 
 export const sabaProvider: PlatformProvider = {
   async getBalance(account) {
-    if (!account.gateway || !account.token) throw new Error("token error");
+    if (!account.gateway || !account.token) return undefined;
     try {
-      const url = sabaAccountUrl(account, "/Customer/Balance");
-      const res = await accountRelayPost<SabaBalanceResponse>(
-        account,
-        url,
-        toBracketForm({ TimeZone: 8 }),
-        sabaFormHeaders(),
-      );
-      const data = res.data?.Data;
-      if (!data) throw new Error("balance failed");
-      return {
-        currency: data.Curr || "CNY",
-        balance: toNum(data.BCredit),
-      };
-    } finally {
-      await ensureSabaSession(account);
+      try {
+        const url = sabaAccountUrl(account, "/Customer/Balance");
+        const res = await accountRelayPost<SabaBalanceResponse>(
+          account,
+          url,
+          toBracketForm({ TimeZone: 8 }),
+          sabaFormHeaders(),
+        );
+        const data = res.data?.Data;
+        if (!data) return undefined;
+        return {
+          currency: data.Curr || "CNY",
+          balance: toNum(data.BCredit),
+        };
+      } finally {
+        await ensureSabaSession(account);
+      }
+    } catch {
+      return undefined;
     }
   },
 

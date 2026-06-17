@@ -71,18 +71,22 @@ function mapWagerRow(u: unknown[], multiply: number): VenueOrder {
 
 export const pbProvider: PlatformProvider = {
   async getBalance(account) {
-    const path = `/member-service/v2/account-balance?locale=zh_CN&_=${Date.now()}&withCredentials=true`;
-    const data = await pbPost<{
-      success?: boolean;
-      betCredit?: number;
-      currency?: string;
-    }>(account, path, "");
-    if (!data?.success) throw new Error("balance failed");
-    const multiply = Math.max(1, account.multiply ?? 1);
-    return {
-      balance: Number(data.betCredit) * multiply || 0,
-      currency: getCurrency(data.currency),
-    };
+    try {
+      const path = `/member-service/v2/account-balance?locale=zh_CN&_=${Date.now()}&withCredentials=true`;
+      const data = await pbPost<{
+        success?: boolean;
+        betCredit?: number;
+        currency?: string;
+      }>(account, path, "");
+      if (!data?.success) return undefined;
+      const multiply = Math.max(1, account.multiply ?? 1);
+      return {
+        balance: Number(data.betCredit) * multiply || 0,
+        currency: getCurrency(data.currency),
+      };
+    } catch {
+      return undefined;
+    }
   },
 
   async getOrders(account) {

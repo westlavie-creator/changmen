@@ -66,16 +66,20 @@ function mapTfOrderStatus(raw: unknown): VenueOrderStatus {
 
 export const tfProvider: PlatformProvider = {
   async getBalance(account) {
-    const res = await accountTfGet<{ currency?: string; balance?: number }>(
-      account,
-      "/api/game-client/v8/wallet/",
-    );
-    const data = res.data;
-    if (!data?.currency) throw new Error("token error");
-    return {
-      currency: data.currency,
-      balance: Number(data.balance) || 0,
-    };
+    try {
+      const res = await accountTfGet<{ currency?: string; balance?: number }>(
+        account,
+        "/api/game-client/v8/wallet/",
+      );
+      const data = res.data;
+      if (!data?.currency) return undefined;
+      return {
+        currency: data.currency,
+        balance: Number(data.balance) || 0,
+      };
+    } catch {
+      return undefined;
+    }
   },
 
   async checkBet(account, option) {

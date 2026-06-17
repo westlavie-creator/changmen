@@ -142,7 +142,6 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `account/betGateway.ts` | `checkBetting`、`betting` 通知与场馆下单 |
 | `account/balanceRefresh.ts` | 余额刷新循环（120s + 随机 60s） |
 | `account/venueOrders.ts` | 场馆订单同步、拒单检测用 |
-| `account/balanceErrors.ts` | 余额错误文案归一 |
 
 ### `stores/betting/`（下注编排）
 
