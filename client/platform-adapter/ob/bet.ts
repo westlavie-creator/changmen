@@ -9,6 +9,7 @@ import { formatDateKey, toFixed } from "@/shared/format";
 import { md5 } from "@/shared/md5";
 import { wait } from "@/shared/wait";
 import { PLATFORMS } from "@/shared/platform";
+import { isA8StrictMode } from "@/shared/a8Strict";
 
 function noteObCheckFailure(account: PlatformAccount, msg: string) {
   if (/redis:\s*nil/i.test(msg)) {
@@ -301,19 +302,38 @@ export const obProvider: PlatformProvider = {
 
       if (probe.status !== "true") {
         const msg = String(probe.data || "");
-        if (/Minimum|最小投注金额/.test(msg)) {
+        const isMinimum = /Minimum|最小投注金额/.test(msg);
+
+        if (isMinimum && isA8StrictMode()) {
+          option.newOdds = 0;
+          account.errorCount = 0;
+        } else if (isMinimum) {
           option.updateOdds(0);
-        } else if (msg === "请勿重复提交") {
-          await wait(3000);
-          return this.checkBet(account, option);
-        } else if (msg === "Odds error" || msg === "赔率错误") {
-          option.updateOdds(Number(toFixed(odds * 0.99, 3)));
-          return this.checkBet(account, option);
-        } else {
-          noteObCheckFailure(account, msg);
+          return option;
+        } else if (isA8StrictMode()) {
           option.checkError = msg;
+          noteObCheckFailure(account, msg);
+          if (msg === "请勿重复提交") {
+            await wait(3000);
+            option.updateOdds(odds);
+          } else if (msg === "Odds error" || msg === "赔率错误") {
+            option.updateOdds(Number(toFixed(odds * 0.99, 3)));
+          } else {
+            option.updateOdds(0);
+          }
           return option;
         }
+        if (msg === "请勿重复提交") {
+          await wait(3000);
+          return this.checkBet(account, option);
+        }
+        if (msg === "Odds error" || msg === "赔率错误") {
+          option.updateOdds(Number(toFixed(odds * 0.99, 3)));
+          return this.checkBet(account, option);
+        }
+        noteObCheckFailure(account, msg);
+        option.checkError = msg;
+        return option;
       }
       account.errorCount = 0;
     } else {

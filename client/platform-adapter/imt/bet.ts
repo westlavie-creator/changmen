@@ -1,5 +1,7 @@
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider } from "@platform/contract";
+import { useMessageStore } from "@/stores/messageStore";
+import { useOddsStore } from "@/stores/oddsStore";
 import { accountRelayPost, accountRelayPostJson } from "@/shared/platformHttp";
 import { buildImtAccountHeaders, imtAccountUrl } from "./auth";
 
@@ -74,17 +76,30 @@ export const imtProvider: PlatformProvider = {
     );
     const body = res.data;
     option.response = body;
+    const oddsStore = useOddsStore();
+    const foEntry = {
+      id: option.itemId,
+      odds: 0,
+      isLock: true,
+      betId: option.betId,
+      time: Date.now(),
+    };
 
     if (body?.StatusCode !== 100) {
       const code = body?.StatusCode ?? 0;
       option.checkError = IMT_STATUS[code] || `StatusCode:${code}`;
-      option.updateOdds(0);
+      oddsStore.save(account.provider, foEntry);
       return option;
     }
 
     const live = body.wss?.[0];
     const liveOdds = Number(live?.o) || 0;
-    if (liveOdds) option.updateOdds(liveOdds);
+    option.newOdds = liveOdds;
+    oddsStore.save(account.provider, {
+      ...foEntry,
+      odds: liveOdds,
+      isLock: false,
+    });
 
     if (liveOdds - option.odds < -0.01) {
       option.checkError = `赔率变更为：${liveOdds}`;
@@ -98,7 +113,13 @@ export const imtProvider: PlatformProvider = {
 
     const limits = body.bset?.[0];
     if (limits && (betMoney > (limits.mab ?? 0) || betMoney < (limits.mib ?? 0))) {
-      option.checkError = `限红 ${limits.mib}-${limits.mab}`;
+      option.checkError = useMessageStore().limitMessage(account, {
+        match: option.match?.title,
+        bet: option.bet?.getBetName(),
+        odds: option.odds,
+        betMoney: option.betMoney,
+        limit: limits.mab ?? 0,
+      });
       return option;
     }
 

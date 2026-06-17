@@ -4,6 +4,7 @@ import { BetResult } from "@/models/betResult";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import type { PlatformProvider, VenueOrder } from "@platform/contract";
 import { useMatchStore } from "@/stores/matchStore";
+import { useMessageStore } from "@/stores/messageStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import type { LimitEntry } from "@/types/limit";
 import { imSportIdForGame, imSupportedGameIds, signImPayload } from "./sign";
@@ -225,82 +226,92 @@ export const imProvider: PlatformProvider = {
     );
     option.request = payload;
 
-    const res = await accountRelayPostJson<ImBetInfoResponse>(
-      account,
-      imAccountUrl(account, path),
-      payload,
-      buildImAccountHeaders(account),
-    );
-    const body = res.data;
-    option.response = body;
-
-    if (body.StatusCode !== 0) {
-      option.checkError = body.StatusDesc || "预检失败";
-      return option;
-    }
-
-    const info = body.BetInfos?.[0];
-    if (!info) {
-      option.checkError = "数据结构错误";
-      return option;
-    }
-    if (info.StatusCode !== 0) {
-      option.checkError = info.StatusDesc || "盘口不可用";
-      return option;
-    }
-    if (option.betMoney < (info.MinStake ?? 0) || option.betMoney > (info.MaxStake ?? 0)) {
-      // A8：c.setLimit(fy, e.itemId, h.MaxStake, h.Odds)
-      // 其中 payoutOdds = h.Odds
-      oddsStore.setLimit(
-        account.provider,
-        option.itemId,
-        Number(info.MaxStake ?? 0) || 0,
-        Number(info.Odds ?? option.odds) || 0,
+    try {
+      const res = await accountRelayPostJson<ImBetInfoResponse>(
+        account,
+        imAccountUrl(account, path),
+        payload,
+        buildImAccountHeaders(account),
       );
-      option.checkError = `限红 ${info.MinStake}-${info.MaxStake}`;
-      return option;
-    }
+      const body = res.data;
+      option.response = body;
 
-    const liveOdds = Number(info.Odds) || 0;
-    if (option.odds < liveOdds || Math.abs(option.odds - liveOdds) <= 0.01) {
-      option.newOdds = Math.min(option.odds, liveOdds);
-      option.odds = option.newOdds;
-      option.updateOdds(option.newOdds);
-    } else {
-      option.checkError = `赔率下降至 ${liveOdds}`;
-      option.updateOdds(liveOdds);
-      return option;
-    }
+      if (body.StatusCode !== 0) {
+        option.checkError = body.StatusDesc || "预检失败";
+        return option;
+      }
 
-    option.data = await signImPayload(
-      {
-        GameCat: 1,
-        CustomerIP: "",
-        BettingChannel: 2,
-        OddsType: 3,
-        Stake: option.betMoney.toString(),
-        IsParlay: false,
-        Hash: body.Hash,
-        ServerTicks: body.ServerTicks,
-        BetLists: [
-          {
-            MatchNo: option.betId,
-            SCode: sCode,
-            Odds: option.odds,
-            HDP: 0,
-            STId: 2,
-            ComboId: 0,
-            ComboSelection: null,
-          },
-        ],
-        Token: account.token,
-        Currency: "RMB",
-        IsLiveStreamOn: false,
-        TriggeredBy: 1,
-      },
-      "/api/PlaceBetV2",
-    );
-    return option;
+      const info = body.BetInfos?.[0];
+      if (!info) {
+        option.checkError = "数据结构错误";
+        return option;
+      }
+      if (info.StatusCode !== 0) {
+        option.checkError = info.StatusDesc || "盘口不可用";
+        return option;
+      }
+      if (option.betMoney < (info.MinStake ?? 0) || option.betMoney > (info.MaxStake ?? 0)) {
+        // A8：c.setLimit(fy, e.itemId, h.MaxStake, h.Odds)
+        // 其中 payoutOdds = h.Odds
+        oddsStore.setLimit(
+          account.provider,
+          option.itemId,
+          Number(info.MaxStake ?? 0) || 0,
+          Number(info.Odds ?? option.odds) || 0,
+        );
+        option.checkError = useMessageStore().limitMessage(account, {
+          match: option.match?.title,
+          bet: option.bet?.getBetName(),
+          odds: option.odds,
+          betMoney: option.betMoney,
+          limit: Number(info.MaxStake ?? 0) || 0,
+        });
+        return option;
+      }
+
+      const liveOdds = Number(info.Odds) || 0;
+      if (option.odds < liveOdds || Math.abs(option.odds - liveOdds) <= 0.01) {
+        option.newOdds = Math.min(option.odds, liveOdds);
+        option.odds = option.newOdds;
+        option.updateOdds(option.newOdds);
+      } else {
+        option.checkError = `赔率下降至 ${liveOdds}`;
+        option.updateOdds(liveOdds);
+        return option;
+      }
+
+      option.data = await signImPayload(
+        {
+          GameCat: 1,
+          CustomerIP: "",
+          BettingChannel: 2,
+          OddsType: 3,
+          Stake: option.betMoney.toString(),
+          IsParlay: false,
+          Hash: body.Hash,
+          ServerTicks: body.ServerTicks,
+          BetLists: [
+            {
+              MatchNo: option.betId,
+              SCode: sCode,
+              Odds: option.odds,
+              HDP: 0,
+              STId: 2,
+              ComboId: 0,
+              ComboSelection: null,
+            },
+          ],
+          Token: account.token,
+          Currency: "RMB",
+          IsLiveStreamOn: false,
+          TriggeredBy: 1,
+        },
+        "/api/PlaceBetV2",
+      );
+      return option;
+    } finally {
+      if (!option.data) option.updateOdds(option.newOdds ?? 0);
+    }
   },
 
   async getOrders(account): Promise<VenueOrder[]> {

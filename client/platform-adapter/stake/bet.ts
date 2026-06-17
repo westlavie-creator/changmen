@@ -7,6 +7,7 @@ import { getStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId"
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import type { LimitEntry } from "@/types/limit";
 import { PLATFORMS } from "@/shared/platform";
+import { isA8StrictMode } from "@/shared/a8Strict";
 import { toFixed } from "@/shared/format";
 import { useOddsStore } from "@/stores/oddsStore";
 
@@ -264,8 +265,12 @@ export function mapStakeOrderRow(bet: Record<string, unknown>): VenueOrder {
   };
 }
 
+export function stakeLimitGetValue(limit: LimitEntry): number {
+  return Number(limit.value) || 0;
+}
+
 export function stakeLimitExceeded(limit: LimitEntry, betMoney: number): boolean {
-  const value = Number(limit.value) || 0;
+  const value = stakeLimitGetValue(limit);
   if (limit.expireTime && limit.expireTime < Date.now()) return false;
   return betMoney > value;
 }
@@ -305,7 +310,7 @@ export const stakeProvider: PlatformProvider = {
       });
       const available = (usdt?.available as Record<string, unknown> | undefined) ?? {};
       const amount = available.amount != null ? Number(available.amount) : undefined;
-      const multiply = Math.max(1, account.multiply ?? 1);
+      const multiply = isA8StrictMode() ? 1 : Math.max(1, account.multiply ?? 1);
       const balanceCny = amount !== undefined ? amount * STAKE_USDT_TO_CNY * multiply : undefined;
       if (balanceCny === undefined) return undefined;
 
@@ -350,7 +355,7 @@ export const stakeProvider: PlatformProvider = {
     const oddsStore = useOddsStore();
     const localLimit = oddsStore.getLimit(account.provider, option.itemId);
     if (localLimit && stakeLimitExceeded(localLimit, option.betMoney)) {
-      option.checkError = `本地限红：${Number(localLimit.value).toFixed(2)}`;
+      option.checkError = `本地限红：${stakeLimitGetValue(localLimit).toFixed(2)}`;
       option.updateOdds(0);
       return option;
     }
@@ -366,6 +371,7 @@ export const stakeProvider: PlatformProvider = {
     const market = (outcome.market as Record<string, unknown> | undefined) ?? {};
     const marketInactive = market.status !== "active";
     const newOdds = marketInactive ? 0 : Number(outcome.odds) || 0;
+    option.newOdds = newOdds;
     option.updateOdds(newOdds);
 
     if (!newOdds) {

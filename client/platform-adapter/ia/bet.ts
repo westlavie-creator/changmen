@@ -1,6 +1,7 @@
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider } from "@platform/contract";
 import { iaPointBettable } from "@platform/ia/shared/parse_fields";
+import { useMessageStore } from "@/stores/messageStore";
 import { accountIaPost } from "@/shared/platformHttp";
 
 interface IaLimitResponse {
@@ -84,7 +85,13 @@ export const iaProvider: PlatformProvider = {
       option.betMoney < (limit.data.money_min ?? 0) ||
       option.betMoney > limit.data.money_max
     ) {
-      option.checkError = `限红 ${limit.data.money_min}-${limit.data.money_max}`;
+      option.checkError = useMessageStore().limitMessage(account, {
+        match: option.match?.title,
+        bet: option.bet?.getBetName(),
+        odds: option.odds,
+        betMoney: option.betMoney,
+        limit: limit.data.money_max,
+      });
       return option;
     }
 

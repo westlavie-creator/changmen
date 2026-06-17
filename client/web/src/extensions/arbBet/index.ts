@@ -51,3 +51,4 @@ export {
 
 export { onOddsRefreshed } from "@/extensions/arbBet/telegramScan";
 export { sendArbOpportunityTelegram } from "@/extensions/arbBet/telegramMessage";
+export { createArbFlowTrace, type ArbFlowTrace } from "@/extensions/arbBet/betTrace";

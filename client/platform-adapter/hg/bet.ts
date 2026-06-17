@@ -97,7 +97,7 @@ export const hgProvider: PlatformProvider = {
     option.response = body;
 
     if (body.code !== "501") {
-      option.checkError = body.errormsg || body.code;
+      option.checkError = body.errormsg ?? String(body.code ?? "");
       return option;
     }
 

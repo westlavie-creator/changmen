@@ -1,6 +1,8 @@
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformProvider } from "@platform/contract";
+import { useOddsStore } from "@/stores/oddsStore";
+import { useMessageStore } from "@/stores/messageStore";
 import { toBracketForm } from "@/shared/bracketForm";
 import { accountRelayPost } from "@/shared/platformHttp";
 
@@ -208,6 +210,12 @@ export const sabaProvider: PlatformProvider = {
 
     const data = res.data;
     option.response = data;
+    if (!data) {
+      account.errorCount += 1;
+      if (account.errorCount >= 3) account.logout();
+      return option;
+    }
+    account.errorCount = 0;
     if (data.ErrorCode !== 0 || data.Data?.length !== 1) {
       option.checkError = "预检失败";
       return option;
@@ -228,7 +236,13 @@ export const sabaProvider: PlatformProvider = {
     const minBet = toNum(ticket.Minbet);
     const maxBet = toNum(ticket.Maxbet);
     if (option.betMoney < minBet || option.betMoney > maxBet) {
-      option.checkError = `限红 ${minBet}-${maxBet}`;
+      option.checkError = useMessageStore().limitMessage(account, {
+        match: option.match?.title,
+        bet: option.bet?.getBetName(),
+        odds: option.odds,
+        betMoney: option.betMoney,
+        limit: maxBet,
+      });
       return option;
     }
 
@@ -260,7 +274,7 @@ export const sabaProvider: PlatformProvider = {
     const item = body?.Data?.ItemList?.[0];
     const ok = body?.ErrorCode === 0 && item?.ErrorCode === 0;
     const message = item?.Message || (ok ? "下单成功" : "下单失败");
-    if (!ok) option.updateOdds(0);
+    if (!ok) useOddsStore().updateOddsLock(account.provider, option.itemId, true);
     return new BetResult(account.provider, ok, message, option.data, body);
   },
 };

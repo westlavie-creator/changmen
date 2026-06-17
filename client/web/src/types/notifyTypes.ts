@@ -6,6 +6,8 @@ export const NOTIFY_TYPES = [
   "OrderReport",
   "OrderPush",
   "OrderNotify",
+  /** [changmen 扩展] 套利执行链路摘要 */
+  "ArbFlow",
 ] as const;
 
 export type NotifyType = (typeof NOTIFY_TYPES)[number];

@@ -1,5 +1,16 @@
 import { defineStore } from "pinia";
 import { sendMessage } from "@/api/esport";
+import type { ArbFlowPayload } from "@/extensions/arbBet/betTrace";
+import { formatArbFlowTelegramBody } from "@/extensions/arbBet/betTrace";
+import type { ArbLegs } from "@/domain/arbitrage/pickArbLegs";
+import type { ViewBet, ViewMatch } from "@/models/match";
+import type { ArbOrderEligibility } from "@/extensions/arbBet/eligibility";
+import {
+  assessValueBet,
+  formatValueBetTelegramLine,
+} from "@/extensions/arbBet/valueBet";
+import { arbProfitRate, percent } from "@/shared/format";
+import { isA8StrictMode } from "@/shared/a8Strict";
 import { NOTIFY_TYPES } from "@/types/notifyTypes";
 import type { BetOption } from "@/models/betOption";
 import type { BetResult } from "@/models/betResult";
@@ -168,6 +179,63 @@ export const useMessageStore = defineStore("message", {
         `<blockquote>${detail}</blockquote>`,
       ].join("\n");
       this.enqueueTelegram(body);
+    },
+
+    /**
+     * [changmen 扩展] 套利机会雷达（原 telegramMessage）；严格 A8 模式不发送。
+     */
+    arbOpportunityMessage(
+      match: ViewMatch,
+      bet: ViewBet,
+      legs: ArbLegs,
+      eligibility: ArbOrderEligibility,
+    ) {
+      if (isA8StrictMode()) return;
+      const user = useUserStore();
+      if (!user.message?.telegramId?.trim()) return;
+
+      const idx = NOTIFY_TYPES.indexOf("OrderNotify");
+      const key = `${match.id}:${bet.id}:${legs.homeItem.type}:${legs.awayItem.type}`;
+      if (!this.shouldNotify(idx, key, 600)) return;
+
+      const value = assessValueBet(bet.id, legs);
+      const statusLine = eligibility.canOrder
+        ? "🟢 <b>可自动下单</b>"
+        : "🔴 <b>无法自动下单</b>";
+      const reasonLines = eligibility.canOrder
+        ? eligibility.reasons.map((r) => `⚠️ ${r}`)
+        : eligibility.reasons.map((r) => `• ${r}`);
+      const body = [
+        htmlTitle("套利机会"),
+        match.title,
+        bet.getBetName(),
+        statusLine,
+        ...reasonLines,
+        "<blockquote>",
+        `${legs.homeItem.type} 主胜 @ ${legs.homeOdds}`,
+        `${legs.awayItem.type} 客胜 @ ${legs.awayOdds}`,
+        `对冲 ${percent(legs.implied)} / 利润 ${arbProfitRate(legs.implied)}`,
+        formatValueBetTelegramLine(value),
+        "</blockquote>",
+      ].join("\n");
+      this.enqueueTelegram(body);
+    },
+
+    /**
+     * [changmen 扩展] 套利执行链路摘要；严格 A8 模式不发送。
+     * 成功双腿仍由 A8 对齐的 `bettingMessage` 负责。
+     */
+    arbFlowMessage(payload: ArbFlowPayload) {
+      if (isA8StrictMode()) return;
+      if (payload.outcome === "skip") return;
+      const user = useUserStore();
+      if (!user.message?.telegramId?.trim()) return;
+
+      const idx = NOTIFY_TYPES.indexOf("ArbFlow");
+      const cooldown = payload.outcome === "fail" ? 120 : 600;
+      const key = `${payload.matchTitle}:${payload.betName}:${payload.outcome}:${payload.summary}`;
+      if (!this.shouldNotify(idx, key, cooldown)) return;
+      this.enqueueTelegram(formatArbFlowTelegramBody(payload));
     },
 
     /** 对齐 A8 `Gi.send.LimitMessage`：入队 Telegram 并返回 HTML 文案供 checkError */

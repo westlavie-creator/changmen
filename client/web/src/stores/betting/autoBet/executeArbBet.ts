@@ -21,6 +21,41 @@ import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMar
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
+import { createArbFlowTrace } from "@/extensions/arbBet/betTrace";
+
+function traceCheckLegs(
+  trace: ReturnType<typeof createArbFlowTrace>,
+  legA: BetOption,
+  legB: BetOption,
+  accountA: PlatformAccount | undefined,
+  accountB: PlatformAccount | undefined,
+) {
+  if (accountA) {
+    trace.event(
+      "预检",
+      `${legA.type} ${legA.data ? "✅" : `❌ ${legA.checkError ?? "失败"}`}`,
+    );
+  }
+  if (accountB) {
+    trace.event(
+      "预检",
+      `${legB.type} ${legB.data ? "✅" : `❌ ${legB.checkError ?? "失败"}`}`,
+    );
+  }
+}
+
+function traceBetLeg(
+  trace: ReturnType<typeof createArbFlowTrace>,
+  leg: BetOption,
+  account: PlatformAccount | undefined,
+  result: BetResult | undefined,
+) {
+  if (!account) return;
+  trace.event(
+    "下单",
+    `${leg.type}/${account.playerName} ${result?.success ? "✅" : `❌ ${result?.message ?? "失败"}`}`,
+  );
+}
 
 /** 单场单 bet 行的自动套利执行（选号、check、place、重试、绑单、补单、成功标记） */
 export async function executeArbBet(params: {
@@ -47,6 +82,11 @@ export async function executeArbBet(params: {
   let legA = options[0];
   let legB = options[1];
   const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
+  const trace = createArbFlowTrace(match, bet, {
+    implied,
+    homeLine: `${legA.type}@${legA.odds}`,
+    awayLine: `${legB.type}@${legB.odds}`,
+  });
 
   let accountA = accountStore.getAccount(
     legA.type,
@@ -62,13 +102,22 @@ export async function executeArbBet(params: {
     (acc) => accountPassesMainBetFilter(acc, bet, match, legB, matchStore, implied),
     options,
   );
-  if (!accountA && !accountB) return;
+  if (!accountA && !accountB) {
+    trace.finish("fail", "无可用账号");
+    return;
+  }
+
+  if (accountA) trace.event("选号", `${accountA.provider}/${accountA.playerName}`);
+  if (accountB) trace.event("选号", `${accountB.provider}/${accountB.playerName}`);
 
   let betBothLegs = Boolean(accountA) && Boolean(accountB);
   let linkId: number;
 
   if (strictA8) {
-    if (!betBothLegs) return;
+    if (!betBothLegs) {
+      trace.finish("fail", "严格模式需双腿账号");
+      return;
+    }
     linkId = Date.now();
   } else {
     const { allowArbBetExecution, createArbLinkId, resolveRate9999SingleLeg } =
@@ -89,7 +138,10 @@ export async function executeArbBet(params: {
       matchStore,
       implied,
     });
-    if (!allowArbBetExecution(betBothLegs, rate9999SingleLeg)) return;
+    if (!allowArbBetExecution(betBothLegs, rate9999SingleLeg)) {
+      trace.finish("skip", "不满足下单条件");
+      return;
+    }
     linkId = createArbLinkId(rate9999SingleLeg);
   }
 
@@ -104,6 +156,8 @@ export async function executeArbBet(params: {
   if (accountA) legA = checked[checkIdx++];
   if (accountB) legB = checked[checkIdx++];
   if ((accountA && !legA.data) || (accountB && !legB.data)) {
+    traceCheckLegs(trace, legA, legB, accountA, accountB);
+    trace.finish("fail", "预检未通过");
     await wait(1000);
     return;
   }
@@ -116,6 +170,7 @@ export async function executeArbBet(params: {
     const msg = `超时时间：${elapsed}ms，大于设定值：${config.checkTimeout}ms`;
     setMessage(`前置检查超时 ${elapsed}ms`);
     a8Tip("前置检查超时", msg, 3000);
+    trace.finish("fail", msg);
     return;
   }
 
@@ -129,10 +184,18 @@ export async function executeArbBet(params: {
   if (!strictA8 && !betBothLegs) {
     if (accountA) {
       resultA = await accountStore.betting(accountA, legA, waitSec);
-      if (!resultA?.success) return;
+      traceBetLeg(trace, legA, accountA, resultA);
+      if (!resultA?.success) {
+        trace.finish("fail", "单边下单失败");
+        return;
+      }
     } else {
       resultB = await accountStore.betting(accountB!, legB, waitSec);
-      if (!resultB?.success) return;
+      traceBetLeg(trace, legB, accountB, resultB);
+      if (!resultB?.success) {
+        trace.finish("fail", "单边下单失败");
+        return;
+      }
     }
   } else if (config.betSorting === "Parallel") {
     const pair = await Promise.all([
@@ -149,11 +212,21 @@ export async function executeArbBet(params: {
       resultA = pair[1];
       resultB = pair[0];
     }
-    if (!resultA?.success) return;
+    if (!resultA?.success) {
+      traceBetLeg(trace, legA, accountA, resultA);
+      traceBetLeg(trace, legB, accountB, resultB);
+      trace.finish("fail", "双腿下单均失败");
+      return;
+    }
   } else {
     resultA = await accountStore.betting(accountA!, legA, waitSec);
-    if (!resultA.success) return;
+    traceBetLeg(trace, legA, accountA, resultA);
+    if (!resultA.success) {
+      trace.finish("fail", "首腿下单失败");
+      return;
+    }
     resultB = await accountStore.betting(accountB!, legB, waitSec);
+    traceBetLeg(trace, legB, accountB, resultB);
   }
 
   if (betBothLegs && resultA?.success && !resultB?.success) {
@@ -277,6 +350,10 @@ export async function executeArbBet(params: {
   }
   if (resultB?.success && !rejectB && accountB) {
     markSuccessfulBet(accountB, bet.id, legB.target, legB.odds, match.game);
+  }
+
+  if (!strictA8 && !betBothLegs && (resultA?.success || resultB?.success)) {
+    trace.finish("partial", "单边下单成功");
   }
 
   if (!strictA8 && (resultA?.success || resultB?.success)) {
