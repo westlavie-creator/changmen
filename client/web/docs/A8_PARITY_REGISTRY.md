@@ -134,8 +134,9 @@
 | 拒单仍绑单、不移队 | 有 | 有 | ✅ |
 | 消费门控 | `makeUp`（不要求 `betting`） | `makeUp` only | ✅ |
 | 发布群通知 | 仅 `isCreateOrder` 创建 | 同左 | ✅ |
-| Follow→补单 | GoEasy `Publish` / `Betting` | `goeasyChannels` + `createFollowOrder` | ✅ |
-| GoEasy 全局频道 | BetTarget / Score / Publish | `ensureGoEasyGlobalChannels` | ✅ |
+| 自动入队 | 套利失败即入队（不要求 `makeUp`） | 同左 | ✅ |
+| 手动创建赔率 | 切换主客 `maxOdds + 0.5` | `createLoseTargetOdds` | ✅ |
+| Follow→补单 | GoEasy `Publish` | 暂缓（非补单核心） | ⏸ |
 
 ---
 

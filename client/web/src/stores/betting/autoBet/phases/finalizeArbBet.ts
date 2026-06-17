@@ -114,8 +114,7 @@ export async function finalizeArbBet(
     accountA &&
     resultA?.success &&
     !rejectA &&
-    (!resultB?.success || rejectB) &&
-    config.makeUp
+    (!resultB?.success || rejectB)
   ) {
     await enqueueMakeUpOrder({
       loseStore,
@@ -136,8 +135,7 @@ export async function finalizeArbBet(
     accountB &&
     resultB?.success &&
     !rejectB &&
-    (!resultA?.success || rejectA) &&
-    config.makeUp
+    (!resultA?.success || rejectA)
   ) {
     await enqueueMakeUpOrder({
       loseStore,

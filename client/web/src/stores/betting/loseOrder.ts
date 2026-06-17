@@ -54,8 +54,8 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         (acc) => {
           if (acc.isPause() || acc.noMarkup) return false;
           const odds = item.getOdds(order.target);
-          if (acc.minOdds && odds < acc.minOdds) return false;
-          if (acc.maxOdds && odds > acc.maxOdds) return false;
+          if (acc.minOdds !== 0 && odds < acc.minOdds) return false;
+          if (acc.maxOdds !== 0 && odds > acc.maxOdds) return false;
           if (!passesDefaultOddsAccount(acc, bet.id, order.target)) return false;
           return true;
         },

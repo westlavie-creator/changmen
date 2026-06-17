@@ -15,7 +15,6 @@ import type { UserInfo } from "@/types/esport";
 import type { MessageConfig, ProxyRow } from "@/types/userExtras";
 import type { FollowConfig } from "@/types/order";
 import { subscribeUserChannel, unsubscribeUserChannel } from "@/realtime/userChannel";
-import { ensureGoEasyGlobalChannels } from "@/realtime/goeasyChannels";
 
 const USER_KEY = "app:userName";
 const HIDDEN_NAME_KEY = "hiddenUserName";
@@ -86,9 +85,6 @@ export const useUserStore = defineStore("user", {
         const cp = info.CreditPlateUserName?.trim();
         if (cp) this.creditPlateUserName = cp;
         await this.loadExtras();
-        void ensureGoEasyGlobalChannels().catch((err) => {
-          console.warn("[goeasy] global channels:", err);
-        });
         void subscribeUserChannel(this.userId).catch((err) => {
           console.warn("[goeasy] USER channel:", err);
         });

@@ -5,6 +5,7 @@ import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
 import { LoseOrder } from "@/models/loseOrder";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
+import { createLoseTargetOdds } from "@/stores/betting/createLoseOdds";
 
 const props = defineProps<{
   open: boolean;
@@ -55,7 +56,7 @@ watch(
 );
 
 function onTargetChange() {
-  form.odds = maxOdds(form.target);
+  form.odds = createLoseTargetOdds(maxOdds(form.target));
 }
 
 function onClosed() {
