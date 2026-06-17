@@ -2,15 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDefaultUserConfig } from "@/types/userConfig";
 import type { ViewBet, ViewMatch } from "@/models/match";
 
-const notifyArbOpportunityForBet = vi.fn();
-const executeArbBet = vi.fn(async () => {});
+const notifyArbOpportunityForBet = vi.hoisted(() => vi.fn());
+const executeArbBetMock = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock("@/extensions/arbBet/arbOpportunityScan", () => ({
-  notifyArbOpportunityForBet: (...args: unknown[]) => notifyArbOpportunityForBet(...args),
+  notifyArbOpportunityForBet,
 }));
 
 vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
-  executeArbBet: (...args: unknown[]) => executeArbBet(...args),
+  executeArbBet: executeArbBetMock,
 }));
 
 import { processArbBet } from "@/extensions/arbBet/processArbBet";
@@ -21,7 +21,7 @@ const bet = { id: 2 } as unknown as ViewBet;
 describe("processArbBet", () => {
   beforeEach(() => {
     notifyArbOpportunityForBet.mockClear();
-    executeArbBet.mockClear();
+    executeArbBetMock.mockClear();
   });
 
   it("notifies then executes when opportunity round and betting on", async () => {
@@ -31,7 +31,7 @@ describe("processArbBet", () => {
     notifyArbOpportunityForBet.mockImplementation(() => {
       calls.push("notify");
     });
-    executeArbBet.mockImplementation(async () => {
+    executeArbBetMock.mockImplementation(async () => {
       calls.push("execute");
     });
 
@@ -59,7 +59,7 @@ describe("processArbBet", () => {
     });
 
     expect(notifyArbOpportunityForBet).toHaveBeenCalledOnce();
-    expect(executeArbBet).not.toHaveBeenCalled();
+    expect(executeArbBetMock).not.toHaveBeenCalled();
   });
 
   it("skips notify when not an opportunity round", async () => {
@@ -75,6 +75,6 @@ describe("processArbBet", () => {
     });
 
     expect(notifyArbOpportunityForBet).not.toHaveBeenCalled();
-    expect(executeArbBet).toHaveBeenCalledOnce();
+    expect(executeArbBetMock).toHaveBeenCalledOnce();
   });
 });
