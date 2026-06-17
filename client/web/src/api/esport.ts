@@ -33,6 +33,8 @@ export {
   updateUserSetting,
 } from "@/api/kv";
 
+export { ACCOUNT_KEY, getData, saveData, updateBalance as vtUpdateBalance } from "@/api/vt";
+
 export { getOrderList, saveOrder, saveOrderBind } from "@/api/order";
 
 export {

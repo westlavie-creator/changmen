@@ -1,7 +1,9 @@
-# A8 同屏走查清单（`/console/` vs `/`）
+# A8 走查清单（changmen `/`）
 
 开发地址：`http://localhost:5274/`（Windows）或 `5174`（其它）  
-对照地址：`http://localhost:3560/console/`（Win）或 `3456`（`PATCH_CONSOLE=1` + backend）
+联调/生产：`http://localhost:3560/`（Win）或 `3456`（backend 同源托管 Vue）
+
+对照基线：**只读** `A8/A8frontendscipts/2.0.1/index.js`（或 A8 原版环境 Network）。changmen 无 `/console/` 入口（`/console/*` → 301 `/`）。
 
 登录建议：**TJ01** / 配置密码（与 `a8_constants.js` 一致），便于平博 v4 与初赔数据一致。
 
@@ -12,7 +14,6 @@
 ## 0. 启动
 
 - [ ] `BAT\dev.bat`（Win: 3560+5274 / 其它: 3456+5174）+ 可选 `npm run matcher:loop`
-- [ ] 可选：`PATCH_CONSOLE=1` 启动以打开 `/console/` 对照
 
 自动化（无需浏览器）：
 
@@ -97,7 +98,7 @@ npm run build
 - HG：**无电竞赔率列表**；启用采集开关时会轮询 HG 账号余额（见 `client/platform-adapter/hg/collect.ts`）
 - XBet：仅采集/比分，不可下注（与 bundle 一致）
 - Stake：依赖 Chrome 扩展 + stake.com 标签页（见走查脚本 §5.3）
-- IM 角标图 `Dv2UbQNP.png`：需部署到 `/esport2/assets/`（与 console 同源）
+- IM 角标图 `Dv2UbQNP.png`：需部署到 `/esport2/assets/`（与 backend 静态同源）
 
 ---
 

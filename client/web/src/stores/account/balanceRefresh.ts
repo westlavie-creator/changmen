@@ -1,4 +1,4 @@
-import { updateBalance } from "@/api/esport";
+import { updateBalance } from "@/api/vt";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { getProvider } from "@/runtime/providers";
 import { Currency } from "@/shared/currency";
@@ -83,10 +83,10 @@ export async function refreshAllFromVenues(
       }
       try {
         let step = Date.now();
-        await refreshAccountBalance(store, acc);
+        await acc.updateBalance();
         lines.push(`读取余额：${Date.now() - step}ms`);
         step = Date.now();
-        await updateVenueOrders(acc);
+        await acc.updateOrders();
         lines.push(`读取订单：${Date.now() - step}ms`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

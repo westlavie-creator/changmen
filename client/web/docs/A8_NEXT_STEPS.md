@@ -1,7 +1,7 @@
 # A8 复刻 — 下一步执行清单
 
-对照基线：`A8/A8frontendscipts/2.0.1/index.js`（新 `/`）；可选双轨 `http://localhost:3456/console/`（`PATCH_CONSOLE=1`，vendor bundle）  
-新前端：`http://localhost:5274/`（Win）或 `5174`（`npm run app:dev`）
+对照基线：`A8/A8frontendscipts/2.0.1/index.js`（只读 bundle）  
+changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产为 backend 同源 `/`
 
 文档索引：[README.md](./README.md)
 
@@ -92,8 +92,8 @@
 ```bash
 cd changmen/client/web
 npm run app:dev
-# 新 http://localhost:5274/（Win）或 :5174
-# 旧 http://localhost:3456/console/  （PATCH_CONSOLE=1 + 后端 3456）
+# http://localhost:5274/（Win dev）或 :5174
+# 联调/生产：http://localhost:3560/（Win）或 :3456/
 ```
 
 **初赔 Network**：登录后保留 DevTools ≥10 分钟，过滤 `Client_GetMatchDefaultOdds`。

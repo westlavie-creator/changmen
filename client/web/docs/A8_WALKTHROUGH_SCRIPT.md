@@ -1,7 +1,7 @@
-# A8 同屏走查操作脚本
+# A8 走查操作脚本
 
 配合 [A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md) 使用：本文件写清**点哪里、看什么、Network 过滤什么**。  
-左右分屏：**左** backend `/console/`（Win `3560` / 其它 `3456`）· **右** Vite dev（Win `5274` / 其它 `5174`）
+changmen 唯一入口 **`/`**（dev：Win `5274` / 其它 `5174`；联调：backend 同源 `3560` / `3456`）。对照 A8 行为见 `A8/A8frontendscipts/2.0.1/index.js`。
 
 建议账号：**TJ01**（与 `changmen/TJ01.JSON`、平博 v4 测试一致）。
 
@@ -17,13 +17,12 @@ cd changmen/server/backend
 node server.js
 # 确认 http://localhost:3456 可访问
 
-# 终端 2：新前端
+# 终端 2：前端（dev）
 cd changmen/client/web
 npm run app:dev
-# → Vite dev（Win http://localhost:5274 / 其它 :5174）
+# → http://localhost:5274/（Win）或 :5174
 
-# 终端 3（可选）：旧 bundle
-# 需 PATCH_CONSOLE=1 时按项目 README 启动，打开 /console/
+# 或联调：BAT\dev.bat 后访问 backend 同源 http://localhost:3560/（Win）或 :3456/
 ```
 
 ### 0.2 浏览器准备
@@ -73,7 +72,7 @@ npm run build
 |------|------|------|
 | 2.5 | 看右上角版本数字 | class `version`，显示扩展版本或 `2.0.229` |
 | 2.6 | 若本地 `/esport2/version.json` 与当前版本不同 | 仅扩展版不一致时出现 class `new`；hover 有「最新版本」 |
-| 2.7 | 点击（有更新时） | 打开 `/console/extensions/{version}.zip` 或同源路径 |
+| 2.7 | 点击（有更新时） | 打开 `/esport2/extensions/{version}.zip` 或同源路径 |
 
 ### 2.3 账号横条（AccountView）
 

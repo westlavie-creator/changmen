@@ -124,11 +124,11 @@
 ```bash
 cd changmen/client/web
 npm run app:dev
-# 新：http://localhost:5274/（Win）或 :5174
-# 旧：http://localhost:3560/console/（Win）或 :3456（需 PATCH_CONSOLE=1 + 后端）
+# http://localhost:5274/（Win）或 :5174
+# 生产/联调：backend 同源 http://localhost:3560/（Win）或 :3456/
 ```
 
-同屏对比：登录页、侧栏用户区、用户中心各 Tab、顶栏账号卡、赛事列表 BetRow、订单区。
+对照基线：`A8/A8frontendscipts/2.0.1/index.js`（只读 bundle，非 changmen 路由）。同 changmen 对比：登录页、侧栏用户区、用户中心各 Tab、顶栏账号卡、赛事列表 BetRow、订单区。
 
 ```bash
 cd changmen/client/web
@@ -185,6 +185,6 @@ node scripts/audit-a8-parity.mjs
 
 ### 9.5 建议下一步（仅 UI）
 
-1. 同屏 `/console/` vs `/` 走一遍 11 个用户中心 Tab + 主界面关键路径。
+1. 走查 changmen `/` 的 11 个用户中心 Tab + 主界面关键路径（对照 `A8/.../index.js`）。
 2. 同屏 pixel diff：账号编辑、充提弹窗、版本角标。
 3. 钱包地址一致：接入 TronWeb 生成（行为改动，影响钱包 Tab 展示）。

@@ -1,34 +1,31 @@
-import { post, postForm, unwrap } from "@/api/client";
+import { post, unwrap } from "@/api/client";
+import { ACCOUNT_KEY, getData, saveData, updateBalance as vtUpdateBalance } from "@/api/vt";
 import type { AccountRecord, CreateTagPlatformResult, UpdateBalanceResult } from "@/types/account";
 import { formatPbDateTime } from "@/shared/format";
 import type { MoneyLogRow, PageResult, TagPlatformRow } from "@/types/esport";
+import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 
+/** [A8 可证实] Io.loadAccounts → Vt.getData("ACCOUNT") */
 export async function getAccounts(): Promise<AccountRecord[]> {
-  const res = await post<AccountRecord[]>("Client_GetAccounts", {});
-  if (res.success !== 1 || !Array.isArray(res.info)) return [];
-  return res.info;
+  const rows = (await getData<AccountRecord[]>(ACCOUNT_KEY)) ?? [];
+  if (!Array.isArray(rows)) return [];
+  return rows.filter((row) => row.accountId);
 }
 
+/** [A8 可证实] Io.saveAccounts → Vt.saveData("ACCOUNT", JSON.stringify(...)) */
 export async function saveAccounts(accounts: AccountRecord[]): Promise<boolean> {
-  const res = await post<boolean>("Client_SaveAccounts", {
-    accounts: JSON.stringify(accounts),
-  });
-  return res.success === 1;
+  const payload = accounts
+    .filter((a) => a.accountId)
+    .map((a) => normalizeAccountMultiplyField(a));
+  return saveData(ACCOUNT_KEY, JSON.stringify(payload));
 }
 
-/** [A8 可证实] Vt.updateBalance：balance 未定义或无 playerId 时不请求；errorTip:false */
+/** [A8 可证实] Vt.updateBalance → Client_UpdateBalance */
 export async function updateBalance(
   playerId: number,
   balance?: number,
 ): Promise<UpdateBalanceResult | undefined> {
-  if (balance === undefined || !playerId) return undefined;
-  const res = await postForm<UpdateBalanceResult>(
-    "Client_UpdateBalance",
-    { playerId: String(playerId), balance: String(balance) },
-    "",
-    { errorTip: false },
-  );
-  return res.success === 1 && res.info ? res.info : undefined;
+  return vtUpdateBalance(playerId, balance);
 }
 
 export async function deletePlayer(playerId: number, description = "") {

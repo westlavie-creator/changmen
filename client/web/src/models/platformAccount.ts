@@ -242,6 +242,19 @@ export class PlatformAccount implements AccountRecord {
     return JSON.parse(JSON.stringify(rest)) as AccountRecord;
   }
 
+  /** [A8 可证实] cv.updateBalance：Provider.getBalance → Vt.updateBalance */
+  async updateBalance(): Promise<boolean> {
+    const { useAccountStore } = await import("@/stores/accountStore");
+    const { refreshAccountBalance } = await import("@/stores/account/balanceRefresh");
+    return refreshAccountBalance(useAccountStore(), this);
+  }
+
+  /** [A8 可证实] cv.updateOrders */
+  async updateOrders() {
+    const { updateVenueOrders } = await import("@/stores/account/venueOrders");
+    return updateVenueOrders(this);
+  }
+
   static sortByProvider(a: PlatformAccount, b: PlatformAccount) {
     const ia = ALL_PLATFORMS.indexOf(a.provider);
     const ib = ALL_PLATFORMS.indexOf(b.provider);

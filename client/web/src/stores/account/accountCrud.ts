@@ -10,8 +10,7 @@ import { PlatformAccount } from "@/models/platformAccount";
 import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
 import type { TagPlatformRow } from "@/types/esport";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
-import { refreshAccountBalance, refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
-import { updateVenueOrders } from "@/stores/account/venueOrders";
+import { refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
 import type { AccountStoreContext } from "@/stores/account/context";
 
 export function openCreateAccount(store: AccountStoreContext) {
@@ -93,8 +92,8 @@ async function createAccountFromPlayerId(
   await persistAccounts(store);
   const acc = store.findAccount(record.accountId);
   if (acc) {
-    await refreshAccountBalance(store, acc);
-    await updateVenueOrders(acc);
+    await acc.updateBalance();
+    await acc.updateOrders();
   }
 }
 

@@ -1,8 +1,9 @@
 # client/web — 脱离 ui_bundle 迁移对照
 
-新控制台源码：`client/web/`
-旧控制台（bundle）：`client/web/console/` → `/console/`
+新控制台源码：`client/web/`  
 生产访问：`http://localhost:3456/`（需先 `npm run app:build`）
+
+> **已下线**：旧 bundle 路径 `/console/`（`PATCH_CONSOLE=1`）与目录 `client/web/console/` 不再作为入口；backend 对 `/console/*` 返回 301 → `/`。
 
 开发：`npm run app:dev` → Vite（Win `http://localhost:5274/` / 其它 `:5174`）
 
@@ -17,7 +18,7 @@
 | 4 订单 | **完成** | OrderView + LoseOrder 补单队列 + 后端 GetOrderList |
 | 5 下单 | **完成** | checkBetting/betting + OB/RAY provider + 自动投注循环 |
 | 6 多平台采集 | **完成** | 11 平台采集器；HG 无赔率流，启用时轮询余额 |
-| 7 下线 bundle | **完成** | 默认入口 `/`；`preweb` 构建 Vue；旧 `/console/` 需 `PATCH_CONSOLE=1` |
+| 7 下线 bundle | **完成** | 唯一入口 `/`；`/console/*` 301 重定向 |
 | 8 消息推送 | **完成** | `messageStore`（Gi）：Telegram/报表/补单发布 + 采集错误通知 |
 | 9 下单扩展 | **完成** | TF / IA 客户端 Provider |
 | 10 多平台下单 | **完成** | IM / IMT / SABA / PB；Stake 插件占位 |

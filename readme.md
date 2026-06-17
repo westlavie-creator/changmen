@@ -50,7 +50,7 @@
 
 | 目录 | 职责 |
 |------|------|
-| [`client/web/`](./client/web/) | **新控制台**（Vue 3 + Pinia）+ 参考 bundle、`/console/` 对照 |
+| [`client/web/`](./client/web/) | **控制台**（Vue 3 + Pinia）；parity 对照 `A8/.../index.js` |
 | [`server/backend/`](./server/backend/) | **服务端**：esport-api、WS relay、静态托管 |
 | [`server/matcher/`](./server/matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
 | [`client/chrome-extension/`](./client/chrome-extension/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
@@ -69,8 +69,8 @@ npm run app:dev      # 新控制台 dev → Vite 5274（Win）/ 5174（其它）
 
 | 入口 | 说明 |
 |------|------|
-| `/` | **新控制台**；`npm run app:build` 或 dev `npm run app:dev` |
-| `/console/` | 旧 bundle（可选：`PATCH_CONSOLE=1 npm run web`） |
+| `/` | **唯一控制台**；`npm run app:build` 或 dev `npm run app:dev` |
+| `/console/*` | **已废弃**；301 重定向到 `/`（兼容旧书签） |
 
 **生产部署**：[PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 

@@ -7,7 +7,6 @@ import * as accountCrud from "@/stores/account/accountCrud";
 import { getProviders, pickAccount } from "@/stores/account/accountPicker";
 import * as balanceRefresh from "@/stores/account/balanceRefresh";
 import { checkBetting, placeBet } from "@/stores/account/betGateway";
-import * as venueOrders from "@/stores/account/venueOrders";
 
 /** 对齐 A8 Pinia `Io` */
 export const useAccountStore = defineStore("account", {
@@ -88,11 +87,11 @@ export const useAccountStore = defineStore("account", {
     },
 
     refreshBalance(account: PlatformAccount) {
-      return balanceRefresh.refreshAccountBalance(this, account);
+      return account.updateBalance();
     },
 
     updateVenueOrders(account: PlatformAccount) {
-      return venueOrders.updateVenueOrders(account);
+      return account.updateOrders();
     },
 
     refreshAllFromVenues() {
