@@ -76,6 +76,8 @@
   min-height: 0;
 }
 
+.app-sidebar > .userinfo,
+.app-sidebar > .loseorder-container,
 .app-sidebar > .date {
   flex: 0 0 auto;
 }

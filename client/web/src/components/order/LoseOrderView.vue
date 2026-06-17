@@ -33,14 +33,13 @@ function remove(betId: number) {
           <label v-html="item.bet" />
           <label class="team"> => {{ item.target }}</label>
         </div>
-        <div class="time">时间: {{ formatDate(item.createAt) }}</div>
+        <div class="time"> 时间: {{ formatDate(item.createAt) }}</div>
         <div class="info">
           补单金额：{{ item.getBetMoney(item.getOdds(config.makeProfit)) }}@{{
             item.getOdds(config.makeProfit)
-          }}
-          <span v-if="item.betCount > 1"> x {{ item.betCount }}</span>
+          }}<span v-if="item.betCount"> x {{ item.betCount }}</span>
         </div>
-        <div class="close am-icon-times" title="删除" @click="remove(betId)" />
+        <i class="close am-icon-times" title="删除" @click="remove(betId)" />
       </div>
     </div>
   </fieldset>
@@ -48,14 +47,15 @@ function remove(betId: number) {
 
 <!-- [A8 可证实] LoseOrderView scoped（bundle data-v-6ad7135b） -->
 <style scoped>
-.loseorder-container {
+fieldset {
   border-radius: 6px;
   border-color: #000;
   margin: 5px;
   padding: 5px;
+  overflow: visible;
 }
 
-.loseorder-container legend {
+fieldset legend {
   font-size: 12px;
 }
 
@@ -65,9 +65,10 @@ function remove(betId: number) {
   background: linear-gradient(to bottom, #45484d, #000);
   margin-top: 10px;
   border-radius: 6px;
-  padding: 6px;
+  padding: 6px 22px 6px 6px;
   line-height: 20px;
   position: relative;
+  overflow: visible;
 }
 
 .loseorders .order:first-child {
@@ -82,9 +83,22 @@ function remove(betId: number) {
   position: absolute;
   right: 5px;
   top: 5px;
+  z-index: 2;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
   font-size: 14px;
+  font-style: normal;
+  color: #fff;
   transition: all 0.25s;
   cursor: pointer;
+}
+
+.loseorders .order .close::before {
+  display: inline-block;
+  font: normal normal normal 14px/1 FontAwesome, sans-serif;
+  content: "\f00d";
 }
 
 .loseorders .order .close:hover {
