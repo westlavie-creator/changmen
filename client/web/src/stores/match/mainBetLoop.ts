@@ -3,9 +3,8 @@
  * 轮间 `wait(100ms)` 再调度（不用 `betInterval`）。
  */
 import { useAccountStore } from "@/stores/accountStore";
-import { runAutoBetTick } from "@/stores/betting/autoBetLoop";
+import { runArbBetRound } from "@/stores/betting/runArbBetRound";
 import { useBettingStore } from "@/stores/bettingStore";
-import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
@@ -24,7 +23,6 @@ export interface MainBetLoopState {
 /** 单轮主循环体（不含 finally 调度） */
 export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void> {
   const user = useUserStore();
-  const configStore = useConfigStore();
   const matchStore = useMatchStore();
   const loseStore = useLoseOrderStore();
   const oddsStore = useOddsStore();
@@ -49,12 +47,10 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
 
   if (!matchStore.matchs.length) return;
 
-  if (configStore.config.betting) {
-    await runAutoBetTick({
-      setMessage: (m) => bettingStore.setMessage(m),
-      processLoseOrders: () => bettingStore.processLoseOrders(),
-    });
-  }
+  await runArbBetRound({
+    setMessage: (m) => bettingStore.setMessage(m),
+    processLoseOrders: () => bettingStore.processLoseOrders(),
+  });
 
   if (now - matchStore.defaultOddsFetchedAt >= DEFAULT_ODDS_MS) {
     await matchStore.fetchMatchDefaultOdds();

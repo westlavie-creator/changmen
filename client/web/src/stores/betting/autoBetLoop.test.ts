@@ -20,6 +20,10 @@ vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: vi.fn(async () => {}),
 }));
 
+vi.mock("@/extensions/arbBet/arbOpportunityScan", () => ({
+  shouldRunOpportunityScan: vi.fn(() => false),
+}));
+
 import { runAutoBetTick } from "./autoBetLoop";
 
 describe("runAutoBetTick random betMoney", () => {

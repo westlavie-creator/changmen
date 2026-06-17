@@ -13,7 +13,7 @@
  * | BetRow 红线 / flash | 无 / bundle 内联 | `extensions/arbBet/ui` |
  *
  * 集成点：
- * - `matchStore.refreshOddsOnBets` → `onOddsRefreshed()`
+ * - `mainBetLoop` → `runArbBetRound` → `processArbBet`（机会 5s 节流 + A8 `executeArbBet`）
  * - `executeArbBet` → `resolveRate9999SingleLeg` / `allowArbBetExecution` / `createArbLinkId`
  * - `BetRow.vue` → `useBetRowArbUi` + `ArbLineOverlay`
  */
@@ -53,6 +53,13 @@ export {
   type ValueBetLegsInput,
 } from "@/extensions/arbBet/valueBet";
 
+export {
+  OPPORTUNITY_SCAN_INTERVAL_MS,
+  notifyArbOpportunityForBet,
+  shouldRunOpportunityScan,
+} from "@/extensions/arbBet/arbOpportunityScan";
+export { processArbBet } from "@/extensions/arbBet/processArbBet";
+/** @deprecated 见 `arbOpportunityScan` / `runArbBetRound` */
 export { onOddsRefreshed } from "@/extensions/arbBet/telegramScan";
 export { sendArbOpportunityTelegram } from "@/extensions/arbBet/telegramMessage";
 export { createArbFlowTrace, type ArbFlowTrace } from "@/extensions/arbBet/betTrace";

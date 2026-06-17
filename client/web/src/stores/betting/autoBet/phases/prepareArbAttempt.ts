@@ -1,5 +1,9 @@
+import { pickArbLegs } from "@/domain/arbitrage/pickArbLegs";
 import { opponentSide } from "@/models/betOption";
+import type { ViewBet, ViewMatch } from "@/models/match";
+import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
+import type { UserConfig } from "@/types/userConfig";
 import { isA8StrictMode } from "@/shared/a8Strict";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
@@ -8,6 +12,28 @@ import { arbAccountPickerFilter } from "@/extensions/arbBet/rate9999";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { createArbFlowTrace } from "@/extensions/arbBet/betTrace";
 import type { ArbBetAttemptParams, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
+
+/** 有套利腿时推送 skip 摘要；无套利或严格 A8 仍静默 */
+function notifyPrepareSkipIfArb(
+  match: ViewMatch,
+  bet: ViewBet,
+  config: UserConfig,
+  accounts: PlatformAccount[],
+  providerKeys: PlatformId[],
+  summary: string,
+): void {
+  if (isA8StrictMode()) return;
+
+  const legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
+  if (!legs) return;
+
+  const trace = createArbFlowTrace(match, bet, {
+    implied: legs.implied,
+    homeLine: `${legs.homeItem.type}@${legs.homeOdds}`,
+    awayLine: `${legs.awayItem.type}@${legs.awayOdds}`,
+  });
+  trace.finish("skip", summary);
+}
 
 /** 选腿、选号、rate9999 / linkId；失败时内部 trace.finish 并返回 null */
 export async function prepareArbAttempt(
@@ -19,13 +45,35 @@ export async function prepareArbAttempt(
   const loseStore = useLoseOrderStore();
   const strictA8 = isA8StrictMode();
 
-  if (loseStore.orders.has(bet.id)) return null;
-
   bet.items.forEach((item) => item.updateOdds());
 
   const providerKeys = [...accountStore.getProviders().keys()] as PlatformId[];
-  const options = bet.getOrderOptions(match, config, accountStore.accounts, providerKeys);
-  if (!options || options.length !== 2) return null;
+  const accounts = accountStore.accounts;
+
+  if (loseStore.orders.has(bet.id)) {
+    notifyPrepareSkipIfArb(
+      match,
+      bet,
+      config,
+      accounts,
+      providerKeys,
+      "该盘口已在补单队列，自动套利已跳过",
+    );
+    return null;
+  }
+
+  const options = bet.getOrderOptions(match, config, accounts, providerKeys);
+  if (!options || options.length !== 2) {
+    notifyPrepareSkipIfArb(
+      match,
+      bet,
+      config,
+      accounts,
+      providerKeys,
+      "利润/赔率已不满足阈值，无法构建双腿",
+    );
+    return null;
+  }
 
   let legA = options[0];
   let legB = options[1];

@@ -96,7 +96,6 @@ export function createArbFlowTrace(
     finish(outcome, summary = "") {
       if (finished) return;
       finished = true;
-      if (outcome === "skip") return;
       void import("@/stores/messageStore").then(({ useMessageStore }) => {
         useMessageStore().arbFlowMessage({
           id,

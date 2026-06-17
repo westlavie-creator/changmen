@@ -92,8 +92,7 @@ UI 点击 ──► accountStore.checkBetting / betting
 ```
 matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
   ──► 30s 门控 fetchMatches + oddsStore.clean，否则 refreshOddsOnBets
-  ──► onOddsRefreshed（`extensions/arbBet` Telegram）
-  ──► autoBetLoop.runAutoBetTick（config.betting）
+  ──► runArbBetRound（机会 5s 节流 + config.betting 时 executeArbBet）
         └── executeArbBet（单场单 bet）
               ├── domain/betting.buildOrderOptions（经 ViewBet.getOrderOptions）
               ├── accountStore.getAccount / checkBetting / betting
@@ -148,7 +147,8 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | 路径 | 用途 |
 |------|------|
 | `bettingStore.ts` | 手动下注、补单入口；主循环在 matchStore |
-| `autoBetLoop.ts` | 自动投注 tick：随机金额、遍历比赛 |
+| `runArbBetRound.ts` | 主循环单轮：机会扫描（5s）+ A8 自动下单 + 补单 |
+| `autoBetLoop.ts` | `runArbBetRound` 兼容别名 |
 | `autoBet/executeArbBet.ts` | 单场套利编排入口 |
 | `autoBet/phases/prepareArbAttempt.ts` | 选腿、选号、linkId |
 | `autoBet/phases/checkArbLegs.ts` | 预检 + checkTimeout |

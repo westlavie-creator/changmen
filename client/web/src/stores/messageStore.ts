@@ -226,12 +226,12 @@ export const useMessageStore = defineStore("message", {
      */
     arbFlowMessage(payload: ArbFlowPayload) {
       if (isA8StrictMode()) return;
-      if (payload.outcome === "skip") return;
       const user = useUserStore();
       if (!user.message?.telegramId?.trim()) return;
 
       const idx = NOTIFY_TYPES.indexOf("ArbFlow");
-      const cooldown = payload.outcome === "fail" ? 120 : 600;
+      const cooldown =
+        payload.outcome === "fail" ? 120 : payload.outcome === "skip" ? 300 : 600;
       const key = `${payload.matchTitle}:${payload.betName}:${payload.outcome}:${payload.summary}`;
       if (!this.shouldNotify(idx, key, cooldown)) return;
       this.enqueueTelegram(formatArbFlowTelegramBody(payload));

@@ -114,7 +114,8 @@
 | 补单入队 | 一腿成功一腿失败 | `enqueueMakeUpOrder` | ✅ |
 | 手动双击下单 | check + betting | `manualBet.ts` | ✅ |
 | 严格 A8 模式 | — | `isA8StrictMode()` 关闭 9999 单边等 | 🔶 |
-| Telegram 套利扫描 | 无（仅成功推单） | `telegramScan` + `pickArbLegs` | 🔶 |
+| Telegram 套利扫描 | 无（仅成功推单） | `runArbBetRound` → `arbOpportunityScan`（5s 节流，主循环内） | 🔶 |
+| 套利执行 skip 通知 | 无 | `prepareArbAttempt` + `arbFlowMessage`（300s 去重） | 🔶 |
 | BetRow 套利红线 / flash | bundle 内联 / 无 | `extensions/arbBet/ui` | 🔶 |
 
 实现：`src/stores/betting/autoBet/*`、`src/stores/bettingStore.ts`
