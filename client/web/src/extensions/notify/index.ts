@@ -27,7 +27,7 @@ export function formatBetResult(
   target: string,
   betMoney: number,
   odds: number,
-  result?: { success: boolean; message?: string },
+  result?: { success: boolean; message?: string | null },
 ): string {
   if (!result) return `${provider} ${target} 未下单`;
   const icon = result.success ? "✅" : "❌";

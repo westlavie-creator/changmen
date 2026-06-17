@@ -3,6 +3,7 @@ import { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import { PlatformAccount } from "@/models/platformAccount";
 import { ViewBet, type ViewMatch } from "@/models/match";
+import type { PlatformId } from "@/types/esport";
 import { createDefaultUserConfig } from "@/types/userConfig";
 import type { VenueOrder } from "@platform/contract";
 
@@ -87,7 +88,7 @@ function makeBet(): ViewBet {
   return row as unknown as ViewBet;
 }
 
-function makeLeg(type: string, target: "T1" | "T2"): BetOption {
+function makeLeg(type: PlatformId, target: "T1" | "T2"): BetOption {
   return {
     type,
     target,
@@ -96,10 +97,10 @@ function makeLeg(type: string, target: "T1" | "T2"): BetOption {
     matchId: "m1",
     betId: "b1",
     itemId: "i1",
-  } as BetOption;
+  } as unknown as BetOption;
 }
 
-function makeAccount(provider: string): PlatformAccount {
+function makeAccount(provider: PlatformId): PlatformAccount {
   return new PlatformAccount({
     accountId: provider === "OB" ? 1 : 2,
     playerName: provider.toLowerCase(),
@@ -119,7 +120,7 @@ function makePlaced(overrides: Partial<ArbBetPlaced> = {}): ArbBetPlaced {
     accountB,
     implied: 1.04,
     betBothLegs: true,
-    singleLegByRate: null,
+    singleLegByRate: false,
     linkId: 1_700_000_000_000,
     waitSec: 10,
     resultA: new BetResult("OB", true),
