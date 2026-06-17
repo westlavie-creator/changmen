@@ -6,8 +6,7 @@ import type { UserConfig } from "@/types/userConfig";
 import type { PlatformId } from "@/types/esport";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { isA8StrictMode } from "@/shared/a8Strict";
-import { isRateSkipAtOdds } from "@/extensions/arbBet/rate9999";
+import { isSingleLegRateAtOdds } from "@/extensions/arbBet/rate9999";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 
 /**
@@ -60,7 +59,7 @@ export async function retryFailedLeg(
           : [],
         (u) => {
           if (u.isPause() || tried.includes(u.provider)) return false;
-          if (!isA8StrictMode() && isRateSkipAtOdds(u, odds)) return false;
+          if (isSingleLegRateAtOdds(u, odds)) return false;
           if (u.getMinOdds() > odds) return false;
           const target = matchStore.getBetTarget(u.provider, bet.id);
           if (target && target !== failedLeg.target) return false;

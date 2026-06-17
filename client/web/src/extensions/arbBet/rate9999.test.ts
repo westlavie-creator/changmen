@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
-import { createArbLinkId, arbAccountPickerFilter, explainAllowArbRejection, isLegSkippedByRate9999 } from "@/extensions/arbBet";
-
-vi.mock("@/shared/a8Strict", () => ({
-  isA8StrictMode: vi.fn(() => false),
-}));
+import {
+  arbAccountPickerFilter,
+  createArbLinkId,
+  explainAllowArbRejection,
+  legHasSingleLegRateAccount,
+} from "@/extensions/arbBet";
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({
@@ -34,24 +35,30 @@ function makeLeg(provider: "PB" | "RAY" = "PB"): BetOption {
 }
 
 describe("createArbLinkId", () => {
-  it("默认正数，对齐 A8 Date.now()", () => {
+  it("双腿套利为正时间戳", () => {
     const id = createArbLinkId(false);
     expect(id).toBeGreaterThan(0);
   });
 
-  it("仅比例 9999 单边为负", () => {
+  it("比例 9999 单边为负时间戳", () => {
     const id = createArbLinkId(true);
     expect(id).toBeLessThan(0);
   });
+
+  it("复用 GetOrderOptions 时刻时间戳（A8 lBe）", () => {
+    const ts = 1_700_000_000_000;
+    expect(createArbLinkId(false, ts)).toBe(ts);
+    expect(createArbLinkId(true, ts)).toBe(-ts);
+  });
 });
 
-describe("isLegSkippedByRate9999", () => {
+describe("legHasSingleLegRateAccount", () => {
   const matchStore = {
     getBetTarget: () => undefined,
     getDefaultOdds: () => undefined,
   } as never;
 
-  it("存在仅因 9999 被排除的候选时返回 true", () => {
+  it("存在比例 9999 单边模式账号时返回 true", () => {
     const leg = makeLeg("PB");
     const acc = makeAccount({
       accountId: 2,
@@ -60,16 +67,16 @@ describe("isLegSkippedByRate9999", () => {
     });
     acc.balance = 1000;
     expect(
-      isLegSkippedByRate9999(leg, { id: 1 } as never, { game: "英雄联盟", gameId: 1 } as never, [acc], [], matchStore),
+      legHasSingleLegRateAccount(leg, { id: 1 } as never, { game: "英雄联盟", gameId: 1 } as never, [acc], [], matchStore),
     ).toBe(true);
   });
 
-  it("无 9999 候选时返回 false", () => {
+  it("无 9999 账号时返回 false", () => {
     const leg = makeLeg("RAY");
     const acc = makeAccount({ accountId: 3, provider: "RAY" });
     acc.balance = 1000;
     expect(
-      isLegSkippedByRate9999(leg, { id: 1 } as never, { game: "英雄联盟", gameId: 1 } as never, [acc], [], matchStore),
+      legHasSingleLegRateAccount(leg, { id: 1 } as never, { game: "英雄联盟", gameId: 1 } as never, [acc], [], matchStore),
     ).toBe(false);
   });
 });
@@ -80,7 +87,7 @@ describe("arbAccountPickerFilter", () => {
   const match = { game: "英雄联盟", gameId: 1 } as never;
   const leg = makeLeg("PB");
 
-  it("增强模式排除比例 9999", () => {
+  it("排除比例 9999 单边模式账号", () => {
     const acc = makeAccount({
       rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
     });
@@ -93,12 +100,12 @@ describe("explainAllowArbRejection", () => {
   const legA = makeLeg("PB");
   const legB = makeLeg("RAY");
 
-  it("explains single-account without rate9999", () => {
+  it("仅一侧有账号且非 9999 单边时说明原因", () => {
     const acc = makeAccount({ provider: "PB" });
     expect(
       explainAllowArbRejection({
         betBothLegs: false,
-        rate9999SingleLeg: false,
+        singleLegByRate: false,
         accountA: acc,
         accountB: undefined,
         legA,

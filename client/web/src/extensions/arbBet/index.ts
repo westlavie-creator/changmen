@@ -1,5 +1,5 @@
 /**
- * changmen 相对 A8 的「套利检测 + 自动下单」增强（集中入口）。
+ * changmen 相对 A8 的「套利检测 + 自动下单」扩展（集中入口）。
  *
  * A8 对齐路径（核心逻辑，勿在 extensions 外加增强行为）：
  * - 主循环 `matchStore.runMainLoopTick` → `GetOrderOptions`（内部 `getProviders()`）→ `executeArbBet`
@@ -8,13 +8,13 @@
  * 本模块职责：
  * | 能力 | A8 | changmen |
  * |------|-----|----------|
- * | 比例 9999 单边下注 | 缺任一侧账号则 `continue` | 允许单边 + 负 `linkId` |
- * | Telegram 套利机会 | 无（仅下单成功推单群） | 全盘口 `pickArbLegs` + 可下单评估 + 价值下注 |
+ * | 比例 9999 单边下注 | 缺任一侧账号则 `continue` | 对侧真下单 + 负 `linkId` |
+ * | Telegram | 仅成功推单等（见 messageStore） | 同左（双腿版式，9999 侧标注不下单） |
  * | BetRow 红线 / flash | 无 / bundle 内联 | `extensions/arbBet/ui` |
  *
  * 集成点：
- * - `mainBetLoop` → `runArbBetRound` → `processArbBet`（机会 5s 节流 + A8 `executeArbBet`）
- * - `executeArbBet` → `resolveRate9999SingleLeg` / `allowArbBetExecution` / `createArbLinkId`
+ * - `mainBetLoop` → `runArbBetRound` → `executeArbBet`
+ * - `executeArbBet` → `resolveSingleLegByRate` / `allowArbBetExecution` / `createArbLinkId`
  * - `BetRow.vue` → `useBetRowArbUi` + `ArbLineOverlay`
  */
 
@@ -27,40 +27,14 @@ export {
 } from "@/extensions/arbBet/ui";
 
 export {
+  SINGLE_LEG_RATE,
   allowArbBetExecution,
   arbAccountPickerFilter,
   createArbLinkId,
   explainAllowArbRejection,
   explainArbAccountRejection,
-  isLegSkippedByRate9999,
-  isRateSkipAtOdds,
-  RATE_SKIP,
-  resolveRate9999SingleLeg,
+  findSingleLegRateAccount,
+  isSingleLegRateAtOdds,
+  legHasSingleLegRateAccount,
+  resolveSingleLegByRate,
 } from "@/extensions/arbBet/rate9999";
-
-export {
-  evaluateArbOrderEligibility,
-  type ArbOrderEligibility,
-  type ArbOrderEligibilityContext,
-} from "@/extensions/arbBet/eligibility";
-
-export {
-  assessValueBet,
-  assessValueBetFromDefaultOdds,
-  fairProbFromDefault,
-  formatValueBetTelegramLine,
-  type ValueBetAssessment,
-  type ValueBetLeg,
-  type ValueBetLegsInput,
-} from "@/extensions/arbBet/valueBet";
-
-export {
-  OPPORTUNITY_SCAN_INTERVAL_MS,
-  notifyArbOpportunityForBet,
-  shouldRunOpportunityScan,
-} from "@/extensions/arbBet/arbOpportunityScan";
-export { processArbBet } from "@/extensions/arbBet/processArbBet";
-/** @deprecated 见 `arbOpportunityScan` / `runArbBetRound` */
-export { onOddsRefreshed } from "@/extensions/arbBet/telegramScan";
-export { sendArbOpportunityTelegram } from "@/extensions/arbBet/telegramMessage";
-export { createArbFlowTrace, type ArbFlowTrace } from "@/extensions/arbBet/betTrace";

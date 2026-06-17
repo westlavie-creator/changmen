@@ -32,9 +32,9 @@
 | 版本角标 | `ExtensionsView` (`GHe`) | 基本对齐 | class `version`/`new`；扩展版本来源略有不同 |
 | 侧栏用户区 | `UserInfoView` | 已对齐 | 阶段 1–2 |
 | 侧栏订单 | `OrderView` | 已对齐 | `el-date-picker` + `el-select` + 刷新按钮 |
-| 侧栏补单 | `LoseOrderView` | 已对齐 | class 与 bundle 一致；删除确认改为 `ElMessageBox` |
+| 侧栏补单 | `LoseOrderView` | ⚠️ 部分 | DOM/class 同 A8；**侧栏顺序**与 **fieldset scoped 样式**已按 bundle 对齐（2026-06） |
 | 限红弹窗 | `LimitDiagView` | 已对齐 | `el-dialog` |
-| 创建补单 | `CreateLoseView` | 已对齐 | `el-dialog` + `el-form` |
+| 创建补单 | `CreateLoseView` | 基本对齐 | `el-dialog` + `el-form` 同 A8；changmen 挂各 `BetRow`（A8 为 HomeView 单例） |
 | 初赔行 | `defaultOdds` | 基本对齐 | `default_odds.json` 首次写入 + 快照回退；10min 轮询 |
 | 手动双击下单 | `prompt` 金额 | 已对齐 | 前置 `checkBetting` + `accountStore.betting`（含 loading 通知） |
 
@@ -106,7 +106,7 @@
 | 投注中 / 结果通知 | `Io.betting` | 已对齐 | `placeBet`；自动套利 `arbBetToastSeconds`、补单 `makeUpBetToastSeconds`、手动固定 10s |
 | `betInterval` | 配置默认 30 | 已对齐 | A8/changmen 均**不参与调度**；主循环 100ms、列表 30s |
 | `rateConfig` rate=0 | 保存过滤；运行时当 1 | 已对齐 | `normalizeAccountRateConfig` + `getBetMoney` |
-| `rate 9999` 单边 / linkId | A8 无 | 🔶 扩展 | `extensions/arbBet/rate9999`；负 linkId → 展示 `gb{ts}` |
+| `rate 9999` 单边 / linkId | A8 无 | 🔶 扩展 | `extensions/arbBet/rate9999`；比例 9999 = 单边模式；负 linkId → `gb{ts}` |
 | `Pr.tip` 补单/拒单 | 有 | 已对齐 | `a8Notify.a8Tip`（含 `<countdown>`） |
 | HG 采集 | `SQ` | 部分 | 无电竞赔率流；启用开关时 60s 刷 HG 账号余额；跟单见 `hgFollowLoop` |
 | Stake 下单 | 插件 GraphQL | **已对齐** | `stakeProvider` 完整实现；`pluginOnly` 需 Chrome 扩展 + stake.com 标签页（见 `client/platform-adapter/stake/README.md`） |

@@ -20,10 +20,6 @@ vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: vi.fn(async () => {}),
 }));
 
-vi.mock("@/extensions/arbBet/arbOpportunityScan", () => ({
-  shouldRunOpportunityScan: vi.fn(() => false),
-}));
-
 import { runAutoBetTick } from "./autoBetLoop";
 
 describe("runAutoBetTick random betMoney", () => {
@@ -52,13 +48,14 @@ describe("runAutoBetTick random betMoney", () => {
     expect(config.betMoney).toBe(999);
   });
 
-  it("randomizes when both min and max are non-zero", async () => {
+  it("does not randomize at round level (A8 rolls per bet in prepareArbAttempt)", async () => {
+    config.betting = true;
     config.betMoney = 999;
     config.minMoney = 10;
     config.maxMoney = 110;
 
     await runAutoBetTick({ setMessage: () => {}, processLoseOrders });
 
-    expect(config.betMoney).toBe(60);
+    expect(config.betMoney).toBe(999);
   });
 });

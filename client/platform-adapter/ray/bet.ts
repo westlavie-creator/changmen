@@ -1,6 +1,11 @@
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 import { BetResult } from "@/models/betResult";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
+import {
+  sortVenueOrdersNewestFirst,
+  type PlatformProvider,
+  type VenueOrder,
+  type VenueOrderStatus,
+} from "@platform/contract";
 import { accountGet, accountPostForm } from "@/shared/platformHttp";
 import { getCurrency } from "@/shared/currency";
 import { PLATFORMS } from "@/shared/platform";
@@ -199,7 +204,7 @@ export const rayProvider: PlatformProvider = {
       const mapped = mapRayOrderRow(row);
       if (mapped) orders.push(mapped);
     }
-    return orders;
+    return sortVenueOrdersNewestFirst(orders);
   },
 
   async betting(account, option) {

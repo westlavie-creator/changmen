@@ -135,4 +135,49 @@ describe("rayProvider.getOrders", () => {
     expect(orders[0]!.status).toBe("reject");
     expect(orders[0]!.orderId).toBe("R-1");
   });
+
+  it("按 createAt 降序，拒单检测取首条（对齐 A8 isVenueReject）", async () => {
+    accountGet.mockResolvedValue({
+      code: 200,
+      result: [
+        {
+          order_number: "old-win",
+          status: 1,
+          win: 0,
+          total_bonus: 100,
+          create_time: "2024-01-01 10:00:00",
+          detail: [
+            {
+              title: "独赢\n主队",
+              odds: 1.5,
+              stake: 100,
+              game_id: 1,
+              match_name: "A vs B",
+              match_stage: "全场",
+            },
+          ],
+        },
+        {
+          order_number: "new-reject",
+          status: 4,
+          win: 0,
+          total_bonus: 0,
+          create_time: "2024-01-01 12:00:00",
+          detail: [
+            {
+              title: "独赢\n客队",
+              odds: 2.1,
+              stake: 80,
+              game_id: 1,
+              match_name: "A vs B",
+              match_stage: "全场",
+            },
+          ],
+        },
+      ],
+    });
+    const orders = await rayProvider.getOrders!(account);
+    expect(orders[0]!.orderId).toBe("new-reject");
+    expect(orders[0]!.status).toBe("reject");
+  });
 });

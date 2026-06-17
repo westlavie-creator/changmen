@@ -16,12 +16,8 @@ vi.mock("@/stores/loseOrderStore", () => ({
   useLoseOrderStore: () => ({ orders: { size: 2 } }),
 }));
 
-vi.mock("@/extensions/arbBet/arbOpportunityScan", () => ({
-  shouldRunOpportunityScan: vi.fn(() => false),
-}));
-
-vi.mock("@/extensions/arbBet/processArbBet", () => ({
-  processArbBet: vi.fn(async () => {}),
+vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
+  executeArbBet: vi.fn(async () => {}),
 }));
 
 import { runArbBetRound } from "@/stores/betting/runArbBetRound";

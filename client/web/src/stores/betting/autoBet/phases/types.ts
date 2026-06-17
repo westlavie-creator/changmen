@@ -3,7 +3,6 @@ import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult } from "@/models/betResult";
 import type { UserConfig } from "@/types/userConfig";
-import type { ArbFlowTrace } from "@/extensions/arbBet/betTrace";
 
 export interface ArbBetReady {
   legA: BetOption;
@@ -11,10 +10,10 @@ export interface ArbBetReady {
   accountA?: PlatformAccount;
   accountB?: PlatformAccount;
   implied: number;
-  trace: ArbFlowTrace;
   betBothLegs: boolean;
+  /** 比例 9999 触发：仅对侧 live 腿真下单 */
+  singleLegByRate: boolean;
   linkId: number;
-  strictA8: boolean;
 }
 
 export interface ArbBetChecked extends ArbBetReady {

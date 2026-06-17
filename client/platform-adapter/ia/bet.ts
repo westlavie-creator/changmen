@@ -1,6 +1,11 @@
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
+import {
+  sortVenueOrdersNewestFirst,
+  type PlatformProvider,
+  type VenueOrder,
+  type VenueOrderStatus,
+} from "@platform/contract";
 import { iaPointBettable } from "@platform/ia/shared/parse_fields";
 import { useMessageStore } from "@/stores/messageStore";
 import { accountIaPost } from "@/shared/platformHttp";
@@ -177,7 +182,7 @@ export const iaProvider: PlatformProvider = {
       if (hasPending) await wait(3000);
     }
 
-    return orders;
+    return sortVenueOrdersNewestFirst(orders);
   },
 
   async checkBet(account, option) {

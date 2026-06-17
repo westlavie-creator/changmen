@@ -1,7 +1,7 @@
 import { saveOrders } from "@/api/order";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { getProvider } from "@/runtime/providers";
-import type { VenueOrder } from "@platform/contract";
+import { sortVenueOrdersNewestFirst, type VenueOrder } from "@platform/contract";
 
 export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder[]) {
   account.unsettle = orders.filter((o) => o.status === "none").length;
@@ -15,8 +15,8 @@ export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder
 export async function syncVenueOrders(account: PlatformAccount): Promise<VenueOrder[] | undefined> {
   const provider = getProvider(account);
   if (!provider?.getOrders) return undefined;
-  const orders = await provider.getOrders(account);
-  if (!orders) return undefined;
+  const orders = sortVenueOrdersNewestFirst((await provider.getOrders(account)) ?? []);
+  if (!orders.length) return undefined;
   applyUnsettledStats(account, orders);
   await saveOrders(account, orders);
   return orders;

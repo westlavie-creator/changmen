@@ -26,7 +26,7 @@ export function passesDefaultOddsAccount(
   return true;
 }
 
-/** [A8 可证实] 主循环选号过滤（不含 changmen rate9999，见 extensions/arbBet/rate9999） */
+/** [changmen 扩展] 比例 9999 单边模式见 extensions/arbBet/rate9999 */
 export function accountPassesMainBetFilter(
   account: PlatformAccount,
   bet: ViewBet,

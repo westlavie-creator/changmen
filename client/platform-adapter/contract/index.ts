@@ -26,6 +26,11 @@ export interface VenueOrder {
   item: string;
 }
 
+/** 对齐 A8 `isVenueReject`：拒单检测取列表首条，须保证最新单在前 */
+export function sortVenueOrdersNewestFirst(orders: VenueOrder[]): VenueOrder[] {
+  return [...orders].sort((a, b) => b.createAt - a.createAt || b.orderId.localeCompare(a.orderId));
+}
+
 export interface PlatformProvider {
   getBalance?(account: PlatformAccount): Promise<AccountBalanceResult | undefined>;
   getOrders?(account: PlatformAccount): Promise<VenueOrder[]>;

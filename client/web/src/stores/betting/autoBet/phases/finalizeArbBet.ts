@@ -1,34 +1,108 @@
+import { opponentSide } from "@/models/betOption";
 import { saveOrderBind } from "@/api/esport";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { OrderBindRow } from "@/models/betResult";
+import type { VenueOrder } from "@platform/contract";
 import { useAccountStore } from "@/stores/accountStore";
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { useOrderStore } from "@/stores/orderStore";
-import { useMessageStore } from "@/stores/messageStore";
+import {
+  useMessageStore,
+  type BettingMessageLeg,
+  type BettingMessageSingleLegRatePeer,
+} from "@/stores/messageStore";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
-import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
-import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
-import { syncVenueRejectFlags } from "@/stores/betting/autoBet/venueRejectSync";
+import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
+import { scheduleDeferredArbRejectMakeUp } from "@/stores/betting/autoBet/deferArbRejectMakeUp";
+import { rejectWaitSeconds } from "@/stores/betting/autoBet/rejectWait";
+import { pollVenueRejectFlags } from "@/stores/betting/autoBet/venueRejectSync";
+import { findSingleLegRateAccount } from "@/extensions/arbBet/rate9999";
+import { readUsedAccounts } from "@/stores/betting/successMarkers";
+import { useMatchStore } from "@/stores/matchStore";
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 
-/** 拒单等待、绑单、消息、补单入队、成功标记、拉订单 */
+function singleLegRatePeer(
+  params: ArbBetAttemptParams,
+  placed: ArbBetPlaced,
+): BettingMessageSingleLegRatePeer | null {
+  const { match, bet, config } = params;
+  const { legA, legB, accountA, accountB } = placed;
+  const matchStore = useMatchStore();
+  const accountStore = useAccountStore();
+
+  if (accountA && accountB) return null;
+
+  const skippedLeg = accountA ? legB : legA;
+  const exclude = config.noSameBet
+    ? readUsedAccounts(bet.id, opponentSide(skippedLeg.target))
+    : [];
+  const rateAccount = findSingleLegRateAccount(
+    skippedLeg,
+    bet,
+    match,
+    accountStore.accounts,
+    exclude,
+    matchStore,
+    placed.implied,
+  );
+  const platformLabel =
+    rateAccount?.platformName ||
+    rateAccount?.provider ||
+    skippedLeg.type;
+  return {
+    kind: "singleLegRate",
+    options: skippedLeg,
+    platformLabel,
+  };
+}
+
+function buildBettingMessagePeers(
+  params: ArbBetAttemptParams,
+  placed: ArbBetPlaced,
+  rejectA: boolean,
+  rejectB: boolean,
+): [BettingMessageLeg | BettingMessageSingleLegRatePeer, BettingMessageLeg | BettingMessageSingleLegRatePeer] | null {
+  const { legA, legB, accountA, accountB, resultA, resultB, betBothLegs } = placed;
+  if (!resultA && !resultB) return null;
+  if (!(resultA?.success || resultB?.success)) return null;
+
+  if (betBothLegs && accountA && accountB && resultA && resultB) {
+    return [
+      { account: accountA, result: resultA, options: legA, reject: rejectA },
+      { account: accountB, result: resultB, options: legB, reject: rejectB },
+    ];
+  }
+
+  const skipped = singleLegRatePeer(params, placed);
+  if (!skipped) return null;
+
+  if (accountA && resultA?.success) {
+    return [
+      { account: accountA, result: resultA, options: legA, reject: rejectA },
+      skipped,
+    ];
+  }
+  if (accountB && resultB?.success) {
+    return [
+      skipped,
+      { account: accountB, result: resultB, options: legB, reject: rejectB },
+    ];
+  }
+  return null;
+}
+
+/** 拒单等待、补单入队、成功标记、绑单、消息（顺序对齐 A8 bundle） */
 export async function finalizeArbBet(
   params: ArbBetAttemptParams,
   placed: ArbBetPlaced,
 ): Promise<void> {
-  const { match, bet, config, setMessage } = params;
+  const { bet, config } = params;
   const accountStore = useAccountStore();
-  const loseStore = useLoseOrderStore();
-  const orderStore = useOrderStore();
   const {
     legA,
     legB,
     accountA,
     accountB,
-    trace,
     betBothLegs,
     linkId,
-    strictA8,
     waitSec,
     resultA,
     resultB,
@@ -44,17 +118,26 @@ export async function finalizeArbBet(
     void accountStore.refreshBalance(accountB);
   }
 
+  let ordersA: VenueOrder[] = [];
+  let ordersB: VenueOrder[] = [];
+  let rejectA = false;
+  let rejectB = false;
+
   if (successAccounts.length) {
     const rejectWait = rejectWaitSeconds(config, successAccounts);
-    await waitRejectDetection(waitSec, rejectWait);
+    const polled = await pollVenueRejectFlags(
+      resultA,
+      accountA,
+      resultB,
+      accountB,
+      waitSec,
+      rejectWait,
+    );
+    ordersA = polled.ordersA;
+    ordersB = polled.ordersB;
+    rejectA = polled.rejectA;
+    rejectB = polled.rejectB;
   }
-
-  const { ordersA, ordersB, rejectA, rejectB } = await syncVenueRejectFlags(
-    resultA,
-    accountA,
-    resultB,
-    accountB,
-  );
 
   const binds: OrderBindRow[] = [];
   if (resultA?.success && accountA && ordersA.length) {
@@ -71,100 +154,31 @@ export async function finalizeArbBet(
       OrderID: ordersB[0].orderId,
     });
   }
-  if (strictA8 || binds.length) {
+
+  await applyArbMakeUpFromRejects(params, placed, rejectA, rejectB);
+  if (resultA?.success && !rejectA && accountA) {
+    markSuccessfulBet(accountA, bet.id, legA.target, legA.odds);
+  }
+  if (resultB?.success && !rejectB && accountB) {
+    markSuccessfulBet(accountB, bet.id, legB.target, legB.odds);
+  }
+
+  if (binds.length) {
     await saveOrderBind({ orders: JSON.stringify(binds) });
   }
 
-  // [A8 可证实] (Pe.success||ve.success) && BettingMessage（双腿场景；扩展单边无 accountB 则不推）
-  if (
-    accountA &&
-    accountB &&
-    resultA &&
-    resultB &&
-    (resultA.success || resultB.success)
-  ) {
-    useMessageStore().bettingMessage(
-      { account: accountA, result: resultA, options: legA, reject: rejectA },
-      { account: accountB, result: resultB, options: legB, reject: rejectB },
-    );
-  } else if (!strictA8 && !betBothLegs && (resultA?.success || resultB?.success)) {
-    const leg =
-      resultA?.success && accountA
-        ? {
-            account: accountA,
-            result: resultA,
-            options: legA,
-            reject: rejectA,
-          }
-        : resultB?.success && accountB
-          ? {
-              account: accountB,
-              result: resultB,
-              options: legB,
-              reject: rejectB,
-            }
-          : null;
-    if (leg) {
-      useMessageStore().singleLegBettingMessage(leg);
-    }
+  const messagePeers = buildBettingMessagePeers(params, placed, rejectA, rejectB);
+  if (messagePeers) {
+    useMessageStore().bettingMessage(messagePeers[0], messagePeers[1]);
   }
 
   if (
     betBothLegs &&
-    accountA &&
     resultA?.success &&
-    !rejectA &&
-    (!resultB?.success || rejectB)
-  ) {
-    await enqueueMakeUpOrder({
-      loseStore,
-      match,
-      bet,
-      config,
-      setMessage,
-      linkId,
-      accountId: accountA.accountId,
-      target: legB.target,
-      betMoney: legA.betMoney,
-      betOdds: legA.odds,
-      failedLegOdds: legB.odds,
-      failedPlatformLabel: legB.type,
-    });
-  } else if (
-    betBothLegs &&
-    accountB &&
     resultB?.success &&
-    !rejectB &&
-    (!resultA?.success || rejectA)
+    !rejectA &&
+    !rejectB
   ) {
-    await enqueueMakeUpOrder({
-      loseStore,
-      match,
-      bet,
-      config,
-      setMessage,
-      linkId,
-      accountId: accountB.accountId,
-      target: legA.target,
-      betMoney: legB.betMoney,
-      betOdds: legB.odds,
-      failedLegOdds: legA.odds,
-      failedPlatformLabel: legA.type,
-    });
-  }
-
-  if (resultA?.success && !rejectA && accountA) {
-    markSuccessfulBet(accountA, bet.id, legA.target, legA.odds, match.game);
-  }
-  if (resultB?.success && !rejectB && accountB) {
-    markSuccessfulBet(accountB, bet.id, legB.target, legB.odds, match.game);
-  }
-
-  if (!strictA8 && !betBothLegs && (resultA?.success || resultB?.success)) {
-    trace.finish("partial", "单边下单成功");
-  }
-
-  if (!strictA8 && (resultA?.success || resultB?.success)) {
-    await orderStore.fetchOrders();
+    scheduleDeferredArbRejectMakeUp(params, placed);
   }
 }

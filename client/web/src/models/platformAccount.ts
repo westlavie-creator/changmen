@@ -1,7 +1,6 @@
 import type { AccountRecord, AccountCurrency } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
-import { readGameBetCount } from "@/shared/betTiming";
 import { getExchange } from "@/shared/currency";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
@@ -168,14 +167,14 @@ export class PlatformAccount implements AccountRecord {
     return configProfit;
   }
 
-  /** 对齐 A8 账号编辑「游戏配置」：利润 / 订单数 / 赔率区间 */
+  /**
+   * 账号「游戏配置」辅助判断（未接入自动下单主循环）。
+   * [A8 可证实] `game[游戏].betCount` 仅存库/UI；bundle 主循环不累计、不拦单。
+   */
   passesGameSettings(gameName: string, odds: number, implied?: number): boolean {
     const row = this.game?.[gameName];
     if (!row) return true;
     if (row.profit && implied != null && implied < row.profit) return false;
-    if (row.betCount && readGameBetCount(this.accountId, gameName) >= row.betCount) {
-      return false;
-    }
     if (!PlatformAccount.passesGameOddsRanges(row.odds, odds)) return false;
     return true;
   }

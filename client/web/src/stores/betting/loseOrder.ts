@@ -88,7 +88,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
 
       if (order.isCreateOrder) {
         removeIds.push(betId);
-        markSuccessfulBet(account, bet.id, order.target, checked.odds, match.game);
+        markSuccessfulBet(account, bet.id, order.target, checked.odds);
         setMessage(`补单成功 ${item.type}@${checked.odds}`);
         useMessageStore().loseOrderMessage(account, order, checked, false);
         continue;
@@ -125,7 +125,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         removeIds.push(betId);
       }
 
-      markSuccessfulBet(account, bet.id, order.target, checked.odds, match.game);
+      markSuccessfulBet(account, bet.id, order.target, checked.odds);
     }
   }
 

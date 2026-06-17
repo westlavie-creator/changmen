@@ -30,6 +30,16 @@ export async function saveOrders(account: PlatformAccount, orders: VenueOrder[])
   }
 }
 
+/** [A8 可证实] `Vt.saveOrderBind`：空数组不 POST */
 export async function saveOrderBind(body: Record<string, unknown>) {
+  const raw = body.orders;
+  if (typeof raw === "string") {
+    try {
+      const rows = JSON.parse(raw) as unknown[];
+      if (!rows?.length) return;
+    } catch {
+      // 非 JSON 时仍交给服务端
+    }
+  }
   return unwrap(await post<boolean>("Client_SaveOrderBind", body));
 }

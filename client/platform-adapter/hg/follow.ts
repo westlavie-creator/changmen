@@ -2,7 +2,6 @@ import { getHgFollowOrders } from "@/api/hg";
 import { BetOption } from "@/models/betOption";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
-import { useMessageStore } from "@/stores/messageStore";
 import type { HgFollowOrder } from "./parse";
 import {
   hgBetIdFromOrder,
@@ -92,14 +91,6 @@ async function tick(): Promise<number> {
 
     const result = await accountStore.betting(account, option);
     recordHgFollowResult(order.TID, result.success);
-    if (!result.success) {
-      useMessageStore().hgFollowMessage(
-        account,
-        order.TID,
-        result.message || check.checkError || "下单失败",
-        false,
-      );
-    }
     await wait(INTERVAL_MS);
   }
 

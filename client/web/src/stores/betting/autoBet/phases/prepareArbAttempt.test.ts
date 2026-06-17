@@ -3,14 +3,9 @@ import { ViewBet, type ViewMatch } from "@/models/match";
 import type { BetRowDto } from "@/types/esport";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
-const finish = vi.hoisted(() => vi.fn());
 const loseOrderIds = vi.hoisted(() => new Set<number>());
 
 let foOdds: Record<string, Record<string, number>> = {};
-
-vi.mock("@/shared/a8Strict", () => ({
-  isA8StrictMode: vi.fn(() => false),
-}));
 
 vi.mock("@/stores/oddsStore", () => ({
   useOddsStore: () => ({
@@ -37,14 +32,6 @@ vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({
     getProviders: () => new Map([["PB", []], ["RAY", []]]),
     accounts: [],
-  }),
-}));
-
-vi.mock("@/extensions/arbBet/betTrace", () => ({
-  createArbFlowTrace: () => ({
-    id: "trace",
-    event: vi.fn(),
-    finish,
   }),
 }));
 
@@ -90,9 +77,8 @@ const arbSources: BetRowDto["Sources"] = {
   },
 };
 
-describe("prepareArbAttempt early skip notify", () => {
+describe("prepareArbAttempt early return (A8 静默 continue)", () => {
   beforeEach(() => {
-    finish.mockClear();
     loseOrderIds.clear();
     foOdds = {
       PB: { h1: 2.1, a1: 1.5 },
@@ -100,7 +86,7 @@ describe("prepareArbAttempt early skip notify", () => {
     };
   });
 
-  it("notifies skip when bet is in lose order queue and arb legs exist", async () => {
+  it("returns null when bet is in lose order queue", async () => {
     loseOrderIds.add(1);
     const bet = makeBet(arbSources);
     const config = { ...createDefaultUserConfig(), profit: 1.03, minOdds: 1.01 };
@@ -113,27 +99,9 @@ describe("prepareArbAttempt early skip notify", () => {
     });
 
     expect(result).toBeNull();
-    expect(finish).toHaveBeenCalledWith(
-      "skip",
-      "该盘口已在补单队列，自动套利已跳过",
-    );
   });
 
-  it("stays silent when no arb legs exist", async () => {
-    loseOrderIds.add(1);
-    foOdds = {
-      PB: { h1: 1.5, a1: 1.5 },
-      RAY: { h2: 1.5, a2: 1.5 },
-    };
-    const bet = makeBet(arbSources);
-    const config = { ...createDefaultUserConfig(), profit: 1.03, minOdds: 1.01 };
-
-    await prepareArbAttempt({ match, bet, config, setMessage: () => {} });
-
-    expect(finish).not.toHaveBeenCalled();
-  });
-
-  it("notifies skip when order options cannot be built", async () => {
+  it("returns null when order options cannot be built", async () => {
     const bet = makeBet(arbSources);
     const config = { ...createDefaultUserConfig(), profit: 1.03, minOdds: 1.01 };
     vi.spyOn(bet, "getOrderOptions").mockReturnValue(undefined);
@@ -146,9 +114,28 @@ describe("prepareArbAttempt early skip notify", () => {
     });
 
     expect(result).toBeNull();
-    expect(finish).toHaveBeenCalledWith(
-      "skip",
-      "利润/赔率已不满足阈值，无法构建双腿",
-    );
+  });
+
+  it("rolls betMoney per bet before getOrderOptions (A8)", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const bet = makeBet(arbSources);
+    const config = {
+      ...createDefaultUserConfig(),
+      profit: 1.03,
+      minOdds: 1.01,
+      betMoney: 999,
+      minMoney: 10,
+      maxMoney: 110,
+    };
+    vi.spyOn(bet, "getOrderOptions").mockReturnValue(undefined);
+
+    await prepareArbAttempt({
+      match,
+      bet,
+      config,
+      setMessage: () => {},
+    });
+
+    expect(config.betMoney).toBe(60);
   });
 });

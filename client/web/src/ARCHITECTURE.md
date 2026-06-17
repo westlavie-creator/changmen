@@ -92,7 +92,7 @@ UI 点击 ──► accountStore.checkBetting / betting
 ```
 matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
   ──► 30s 门控 fetchMatches + oddsStore.clean，否则 refreshOddsOnBets
-  ──► runArbBetRound（机会 5s 节流 + config.betting 时 executeArbBet）
+  ──► runArbBetRound（config.betting 时 executeArbBet）
         └── executeArbBet（单场单 bet）
               ├── domain/betting.buildOrderOptions（经 ViewBet.getOrderOptions）
               ├── accountStore.getAccount / checkBetting / betting
@@ -147,14 +147,13 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | 路径 | 用途 |
 |------|------|
 | `bettingStore.ts` | 手动下注、补单入口；主循环在 matchStore |
-| `runArbBetRound.ts` | 主循环单轮：机会扫描（5s）+ A8 自动下单 + 补单 |
+| `runArbBetRound.ts` | 主循环单轮：A8 自动下单 + 补单 |
 | `autoBetLoop.ts` | `runArbBetRound` 兼容别名 |
 | `autoBet/executeArbBet.ts` | 单场套利编排入口 |
 | `autoBet/phases/prepareArbAttempt.ts` | 选腿、选号、linkId |
 | `autoBet/phases/checkArbLegs.ts` | 预检 + checkTimeout |
 | `autoBet/phases/placeArbLegs.ts` | 下单（并行/串行/单边）+ retryFailedLeg |
 | `autoBet/phases/finalizeArbBet.ts` | 拒单 wait、绑单、补单入队、成功标记 |
-| `autoBet/arbBetTrace.ts` | trace 辅助函数 |
 | `autoBet/makeUp.ts` | 补单阈值 + 入队 |
 | `autoBet/rejectWait.ts` | 成功后拒单等待 |
 | `autoBet/venueRejectSync.ts` | `updateVenueOrders` + `isVenueReject`（套利/补单共用） |
@@ -175,7 +174,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `a8Axios.ts` | 对齐 A8 `Nr`：Axios 实例（15s 超时，500/504 不 throw） |
 | `http.ts` | 采集直连 `directGet` / `directPostJson`（**Axios**，非 fetch） |
 | `platformHttp.ts` | **投注账号** HTTP（OB/RAY/TF…；Axios + 可选 relay） |
-| `betTiming.ts` | 下注通知时长、`lastOdds`、`BETCOUNT` / `GAMEBETCOUNT` |
+| `betTiming.ts` | 下注通知时长、`lastOdds`、`BETCOUNT`（对齐 A8 `T()`） |
 | `winRate.ts` | WinRate 排序（`betSorting: WinRate`） |
 | `bracketForm.ts` | 嵌套 form-urlencoded（SABA 等） |
 

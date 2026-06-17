@@ -1,13 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
-import { isA8StrictMode } from "@/shared/a8Strict";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { getProviders, pickAccount } from "@/stores/account/accountPicker";
-
-vi.mock("@/shared/a8Strict", () => ({
-  isA8StrictMode: vi.fn(() => false),
-}));
 
 vi.mock("@/stores/configStore", () => ({
   useConfigStore: () => ({
@@ -98,23 +93,5 @@ describe("pickAccount", () => {
       makeAccount({ accountId: 2, provider: "RAY" }),
     ]);
     expect(pickAccount(store, "RAY", 100, [1])?.accountId).toBe(2);
-  });
-
-  it("strict A8: ignores game-level profit, uses account.profit only", () => {
-    vi.mocked(isA8StrictMode).mockReturnValue(true);
-    const store = makeStore([
-      makeAccount({
-        accountId: 1,
-        provider: "RAY",
-        profit: 1.05,
-        game: { 英雄联盟: { betCount: 0, profit: 1.01, odds: [] } },
-      }),
-      makeAccount({ accountId: 2, provider: "RAY", profit: 1.03 }),
-    ]);
-    const options = [
-      { odds: 2.0, match: { game: "英雄联盟" } },
-      { odds: 2.0, match: { game: "英雄联盟" } },
-    ] as BetOption[];
-    expect(pickAccount(store, "RAY", 100, [], undefined, options)?.accountId).toBe(2);
   });
 });

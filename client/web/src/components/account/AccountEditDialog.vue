@@ -416,6 +416,9 @@ function unlockRate() {
             <i class="am-icon-plus am-icon-fw" />
           </el-button>
         </legend>
+        <p class="rate-hint">
+          比例填 <strong>9999</strong> 表示<strong>单边模式</strong>：该赔率区间本账号不自动下单，套利时在对侧平台真下单。
+        </p>
         <el-form-item
           v-for="(row, index) in form.rateConfig"
           :key="index"
@@ -710,3 +713,13 @@ function unlockRate() {
     </div>
   </el-dialog>
 </template>
+
+<style scoped>
+.rate-hint {
+  margin: 0 0 12px;
+  padding: 0 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+</style>

@@ -1,7 +1,6 @@
 import type { BetSide } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { isA8StrictMode } from "@/shared/a8Strict";
-import { incrementBetCount, incrementGameBetCount, setLastBetOdds } from "@/shared/betTiming";
+import { incrementBetCount, setLastBetOdds } from "@/shared/betTiming";
 
 const BET_ACCOUNT_PREFIX = "BETACCOUNT:";
 
@@ -14,6 +13,7 @@ export function readUsedAccounts(betRowId: number, side: string) {
   }
 }
 
+/** [A8 可证实] bundle `_`：BETACCOUNT + BETCOUNT */
 function markUsedAccount(accountId: number, betRowId: number, side: BetSide) {
   const key = `${BET_ACCOUNT_PREFIX}${betRowId}:${side}`;
   const list = readUsedAccounts(betRowId, side);
@@ -23,18 +23,15 @@ function markUsedAccount(accountId: number, betRowId: number, side: BetSide) {
   }
 }
 
-/** [A8 可证实] BETACCOUNT sessionStorage + noSameBet 排除已用账号 */
+/** [A8 可证实] BETACCOUNT + BETCOUNT + lastOdds（`B`） */
 export function markSuccessfulBet(
   account: PlatformAccount,
   betId: number,
   side: BetSide,
   odds: number,
-  gameName?: string,
 ) {
+  if (!account.accountId) return;
   markUsedAccount(account.accountId, betId, side);
   incrementBetCount(account.accountId, betId, side);
   setLastBetOdds(account.accountId, betId, side, odds);
-  if (!isA8StrictMode() && gameName) {
-    incrementGameBetCount(account.accountId, gameName);
-  }
 }

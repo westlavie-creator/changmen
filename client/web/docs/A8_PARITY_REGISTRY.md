@@ -86,10 +86,10 @@
 | `noSameProvider` | 仅补单 | `processLoseOrders` | ✅ |
 | `maxBetCount` / `BETCOUNT` | sessionStorage | `betTiming.ts` | ✅ |
 | `lastOdds` | 拒更低赔重复 | `passesLastOddsGate` | ✅ |
-| `betCount`（配置） | 存库 | 存库 | ✅ |
+| 账号 `game[游戏].betCount` | 仅存库/UI；主循环不累计、不拦单 | 同（已删 `GAMEBETCOUNT` 运行时） | ✅ |
 | 账号 `rateConfig` 保存时过滤 `rate===0` | `filter(C=>C.rate!==0)` | `normalizeAccountRateConfig` | ✅ |
 | 账号 `rate===0` 运行时 | 当 1（全额） | `getBetMoney` 同逻辑 | ✅ |
-| **`rate===9999`** | A8 无此语义 | 选账号跳过 + 可单边 + 负 linkId | 🔶 `extensions/arbBet/rate9999.ts` |
+| **`rate===9999`** | A8 无此语义 | 单边模式：本侧不自动下，对侧真下单 + 负 linkId | 🔶 `extensions/arbBet/rate9999.ts` |
 
 测试：`src/shared/betTiming.test.ts`
 
@@ -108,14 +108,16 @@
 | 四平台 getOrders→reject | OB `bet_status=2`；RAY `status=4`；IA `receive_status=2`；PB `_Q`+缓存 | 同左 + 单元测试 | ✅ |
 | 拒单 q<=0 | 仍弹「拒单检测」(Oe)，不 wait | `waitRejectDetection` 同 | ✅ |
 | 补单拒单前 refreshBalance | 无 | 无（与 A8 jb 一致） | ✅ |
-| 绑单 `SaveOrderBind` | LinkID 时间戳 | `saveOrderBind` | ✅ |
-| 双腿 linkId | `Date.now()` 正数 | `createArbLinkId(false)` | ✅ |
+| 绑单 `SaveOrderBind` | 有绑单行才 POST；空数组跳过 | `api/order.saveOrderBind` | ✅ |
+| 随机 `betMoney` | 每 **bet** roll | `prepareArbAttempt` 内 per bet | ✅ |
+| 成功后 `fetchOrders` | 无（仅 `updateOrders` 拒单） | 无 | ✅ |
+| 双腿 linkId | GetOrderOptions 后 `Date.now()` 正数 | `prepareArbAttempt` 内 `linkTs` | ✅ |
 | 9999 单边 linkId | A8 无 | 负数 `-Date.now()`，展示 `gb{ts}` | 🔶 |
+| 9999 单边 Telegram | A8 无 | 双腿版式；9999 侧标注不下单 | 🔶 |
 | 补单入队 | 一腿成功一腿失败 | `enqueueMakeUpOrder` | ✅ |
 | 手动双击下单 | check + betting | `manualBet.ts` | ✅ |
-| 严格 A8 模式 | — | `isA8StrictMode()` 关闭 9999 单边等 | 🔶 |
-| Telegram 套利扫描 | 无（仅成功推单） | `runArbBetRound` → `arbOpportunityScan`（5s 节流，主循环内） | 🔶 |
-| 套利执行 skip 通知 | 无 | `prepareArbAttempt` + `arbFlowMessage`（300s 去重） | 🔶 |
+| Telegram 套利扫描 | 无（仅成功推单） | 无（已移除 changmen 扩展） | ✅ |
+| 套利执行 skip 通知 | 无 | 无（已移除 changmen 扩展） | ✅ |
 | BetRow 套利红线 / flash | bundle 内联 / 无 | `extensions/arbBet/ui` | 🔶 |
 
 实现：`src/stores/betting/autoBet/*`、`src/stores/bettingStore.ts`
@@ -127,7 +129,7 @@
 | 项 | A8 | changmen | 状态 |
 |----|-----|----------|------|
 | 队列 session | jb | `loseOrderStore` | ✅ |
-| 创建补单 UI | CreateLoseView | `CreateLoseDialog` | ✅ |
+| 创建补单 UI | CreateLoseView | CreateLoseDialog | ✅（弹窗字段同 A8；挂载于各 BetRow，非 HomeView 单例） |
 | 赔率 / 初赔过滤 | minDefault/maxDefault | `passesDefaultOddsAccount` | ✅ |
 | 补单 waitTime | `Pe` 逻辑 | `makeUpBetToastSeconds` | ✅ |
 | `isCreateOrder` 跳过拒单复检 | 有 | 有 | ✅ |

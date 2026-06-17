@@ -45,3 +45,50 @@ function remove(betId: number) {
     </div>
   </fieldset>
 </template>
+
+<!-- [A8 可证实] LoseOrderView scoped（bundle data-v-6ad7135b） -->
+<style scoped>
+.loseorder-container {
+  border-radius: 6px;
+  border-color: #000;
+  margin: 5px;
+  padding: 5px;
+}
+
+.loseorder-container legend {
+  font-size: 12px;
+}
+
+.loseorders .order {
+  color: #fffc;
+  font-size: 12px;
+  background: linear-gradient(to bottom, #45484d, #000);
+  margin-top: 10px;
+  border-radius: 6px;
+  padding: 6px;
+  line-height: 20px;
+  position: relative;
+}
+
+.loseorders .order:first-child {
+  margin-top: 0;
+}
+
+.loseorders .order .match {
+  font-size: 14px;
+}
+
+.loseorders .order .close {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  font-size: 14px;
+  transition: all 0.25s;
+  cursor: pointer;
+}
+
+.loseorders .order .close:hover {
+  transform: scale(1.2);
+  color: #fff;
+}
+</style>

@@ -5,12 +5,23 @@ import type { VenueOrder } from "@platform/contract";
 
 const updateVenueOrders = vi.fn<() => Promise<VenueOrder[] | undefined>>();
 
+vi.mock("@/shared/wait", () => ({
+  wait: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("@/shared/a8Notify", () => ({
+  a8Tip: vi.fn(),
+}));
+
+import { wait } from "@/shared/wait";
+
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ updateVenueOrders }),
 }));
 
 import {
   fetchVenueOrdersWithReject,
+  pollVenueRejectFlags,
   syncVenueRejectFlags,
 } from "./venueRejectSync";
 
@@ -114,5 +125,54 @@ describe("syncVenueRejectFlags", () => {
     expect(updateVenueOrders).toHaveBeenCalledTimes(2);
     expect(out.rejectA).toBe(false);
     expect(out.rejectB).toBe(true);
+  });
+});
+
+describe("pollVenueRejectFlags", () => {
+  beforeEach(() => {
+    updateVenueOrders.mockReset();
+    vi.mocked(wait).mockClear();
+  });
+
+  it("pollSec<=0 时只拉单一次、不 wait", async () => {
+    updateVenueOrders.mockResolvedValue([
+      makeVenueOrder({ orderId: "1", status: "none", odds: 1.5, betMoney: 100 }),
+    ]);
+
+    await pollVenueRejectFlags(
+      new BetResult("OB", true),
+      account("OB"),
+      undefined,
+      undefined,
+      10,
+      0,
+    );
+
+    expect(wait).not.toHaveBeenCalled();
+    expect(updateVenueOrders).toHaveBeenCalledTimes(1);
+  });
+
+  it("等待期间每秒拉单，检测到拒单后提前结束", async () => {
+    const acc = account("RAY");
+    updateVenueOrders
+      .mockResolvedValueOnce([
+        makeVenueOrder({ orderId: "1", status: "none", odds: 1.5, betMoney: 100 }),
+      ])
+      .mockResolvedValueOnce([
+        makeVenueOrder({ orderId: "1", status: "reject", odds: 1.5, betMoney: 100 }),
+      ]);
+
+    const out = await pollVenueRejectFlags(
+      new BetResult("RAY", true),
+      acc,
+      undefined,
+      undefined,
+      10,
+      5,
+    );
+
+    expect(wait).toHaveBeenCalledTimes(2);
+    expect(updateVenueOrders).toHaveBeenCalledTimes(2);
+    expect(out.rejectA).toBe(true);
   });
 });

@@ -9,7 +9,7 @@ defineEmits<{ logout: [] }>();
 <template>
   <div class="app-sidebar">
     <UserInfoPanel @logout="$emit('logout')" />
-    <OrderView />
     <LoseOrderView />
+    <OrderView />
   </div>
 </template>

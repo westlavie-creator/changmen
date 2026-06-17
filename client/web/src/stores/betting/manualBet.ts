@@ -4,12 +4,10 @@ import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { useOrderStore } from "@/stores/orderStore";
 import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { manualBetToastSeconds } from "@/shared/betTiming";
-import { isA8StrictMode } from "@/shared/a8Strict";
-import { isRateSkipAtOdds } from "@/extensions/arbBet/rate9999";
+import { isSingleLegRateAtOdds } from "@/extensions/arbBet/rate9999";
 import { toFixed } from "@/shared/format";
 
 export interface ManualBetContext {
@@ -46,7 +44,6 @@ export async function runManualBet(
   ctx: ManualBetContext,
 ): Promise<void> {
   const accountStore = useAccountStore();
-  const orderStore = useOrderStore();
   const configStore = useConfigStore();
   const matchStore = useMatchStore();
   const { setMessage } = ctx;
@@ -81,8 +78,11 @@ export async function runManualBet(
 
   let option = new BetOption(match, bet, item, side, amount);
   option.odds = odds;
-  if (!isA8StrictMode() && isRateSkipAtOdds(account, odds)) {
-    await ElMessageBox.alert("投注比例 9999 跳过该赔率", "提示");
+  if (isSingleLegRateAtOdds(account, odds)) {
+    await ElMessageBox.alert(
+      "该账号在此赔率区间为比例 9999 单边模式，本侧请用手动在其他平台对冲，或改比例后重试",
+      "提示",
+    );
     return;
   }
   if (!accountPassesMainBetFilter(account, bet, match, option, matchStore)) {
@@ -102,12 +102,9 @@ export async function runManualBet(
   }
   const result = await accountStore.betting(account, option, toastSec);
   if (result?.success) {
-    markSuccessfulBet(account, bet.id, side, option.odds, match.game);
+    markSuccessfulBet(account, bet.id, side, option.odds);
     setMessage(`手动下单成功 ${item.type}@${option.odds}`);
     void accountStore.refreshBalance(account);
-    if (!isA8StrictMode()) {
-      void orderStore.fetchOrders();
-    }
   } else {
     ElMessageBox.alert(result?.message || "下单失败", "下单失败");
   }

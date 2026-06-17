@@ -34,7 +34,7 @@ const bet = { id: 1 } as never;
 const match = { game: "英雄联盟", gameId: 1 } as never;
 
 describe("accountPassesMainBetFilter", () => {
-  it("比例 9999 仍通过主过滤（排除逻辑在 extensions/arbBet）", () => {
+  it("比例 9999 仍通过主过滤（单边模式逻辑在 extensions/arbBet）", () => {
     const acc = makeAccount({
       rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
     });

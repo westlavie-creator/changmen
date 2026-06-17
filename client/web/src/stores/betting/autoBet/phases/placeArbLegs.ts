@@ -2,11 +2,10 @@ import type { ViewBet, ViewMatch } from "@/models/match";
 import { BetResult } from "@/models/betResult";
 import type { UserConfig } from "@/types/userConfig";
 import { useAccountStore } from "@/stores/accountStore";
-import { traceBetLeg } from "@/stores/betting/autoBet/arbBetTrace";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
 import type { ArbBetChecked, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 
-/** 下单 + anyOdds 换腿重试；失败时 trace.finish 并返回 null */
+/** 下单 + anyOdds 换腿重试；失败时返回 null */
 export async function placeArbLegs(
   match: ViewMatch,
   bet: ViewBet,
@@ -14,23 +13,19 @@ export async function placeArbLegs(
   checked: ArbBetChecked,
 ): Promise<ArbBetPlaced | null> {
   const accountStore = useAccountStore();
-  let { legA, legB, accountA, accountB, trace, betBothLegs, strictA8, waitSec } = checked;
+  let { legA, legB, accountA, accountB, betBothLegs, waitSec } = checked;
 
   let resultA: BetResult | undefined;
   let resultB: BetResult | undefined;
-  if (!strictA8 && !betBothLegs) {
+  if (!betBothLegs) {
     if (accountA) {
       resultA = await accountStore.betting(accountA, legA, waitSec);
-      traceBetLeg(trace, legA, accountA, resultA);
       if (!resultA?.success) {
-        trace.finish("fail", "单边下单失败");
         return null;
       }
     } else {
       resultB = await accountStore.betting(accountB!, legB, waitSec);
-      traceBetLeg(trace, legB, accountB, resultB);
       if (!resultB?.success) {
-        trace.finish("fail", "单边下单失败");
         return null;
       }
     }
@@ -50,20 +45,14 @@ export async function placeArbLegs(
       resultB = pair[0];
     }
     if (!resultA?.success) {
-      traceBetLeg(trace, legA, accountA, resultA);
-      traceBetLeg(trace, legB, accountB, resultB);
-      trace.finish("fail", "双腿下单均失败");
       return null;
     }
   } else {
     resultA = await accountStore.betting(accountA!, legA, waitSec);
-    traceBetLeg(trace, legA, accountA, resultA);
     if (!resultA.success) {
-      trace.finish("fail", "首腿下单失败");
       return null;
     }
     resultB = await accountStore.betting(accountB!, legB, waitSec);
-    traceBetLeg(trace, legB, accountB, resultB);
   }
 
   if (betBothLegs && resultA?.success && !resultB?.success) {

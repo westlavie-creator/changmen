@@ -1,41 +1,18 @@
-import { pickArbLegs } from "@/domain/arbitrage/pickArbLegs";
 import { opponentSide } from "@/models/betOption";
-import type { ViewBet, ViewMatch } from "@/models/match";
-import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
-import type { UserConfig } from "@/types/userConfig";
-import { isA8StrictMode } from "@/shared/a8Strict";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { arbAccountPickerFilter } from "@/extensions/arbBet/rate9999";
+import {
+  allowArbBetExecution,
+  arbAccountPickerFilter,
+  createArbLinkId,
+  resolveSingleLegByRate,
+} from "@/extensions/arbBet/rate9999";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
-import { createArbFlowTrace } from "@/extensions/arbBet/betTrace";
 import type { ArbBetAttemptParams, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
 
-/** 有套利腿时推送 skip 摘要；无套利或严格 A8 仍静默 */
-function notifyPrepareSkipIfArb(
-  match: ViewMatch,
-  bet: ViewBet,
-  config: UserConfig,
-  accounts: PlatformAccount[],
-  providerKeys: PlatformId[],
-  summary: string,
-): void {
-  if (isA8StrictMode()) return;
-
-  const legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
-  if (!legs) return;
-
-  const trace = createArbFlowTrace(match, bet, {
-    implied: legs.implied,
-    homeLine: `${legs.homeItem.type}@${legs.homeOdds}`,
-    awayLine: `${legs.awayItem.type}@${legs.awayOdds}`,
-  });
-  trace.finish("skip", summary);
-}
-
-/** 选腿、选号、rate9999 / linkId；失败时内部 trace.finish 并返回 null */
+/** 选腿、选号、比例 9999 单边 / linkId；失败时返回 null（A8 静默 continue） */
 export async function prepareArbAttempt(
   params: ArbBetAttemptParams,
 ): Promise<ArbBetReady | null> {
@@ -43,7 +20,6 @@ export async function prepareArbAttempt(
   const matchStore = useMatchStore();
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
-  const strictA8 = isA8StrictMode();
 
   bet.items.forEach((item) => item.updateOdds());
 
@@ -51,38 +27,26 @@ export async function prepareArbAttempt(
   const accounts = accountStore.accounts;
 
   if (loseStore.orders.has(bet.id)) {
-    notifyPrepareSkipIfArb(
-      match,
-      bet,
-      config,
-      accounts,
-      providerKeys,
-      "该盘口已在补单队列，自动套利已跳过",
-    );
     return null;
+  }
+
+  // [A8 可证实] 每个 bet 循环内 roll（非每轮一次）
+  if (config.minMoney !== 0 && config.maxMoney !== 0) {
+    config.betMoney =
+      Math.floor(Math.random() * (config.maxMoney - config.minMoney + 1)) + config.minMoney;
   }
 
   const options = bet.getOrderOptions(match, config, accounts, providerKeys);
   if (!options || options.length !== 2) {
-    notifyPrepareSkipIfArb(
-      match,
-      bet,
-      config,
-      accounts,
-      providerKeys,
-      "利润/赔率已不满足阈值，无法构建双腿",
-    );
     return null;
   }
+
+  // [A8 可证实] `lBe`：GetOrderOptions 后立即 `linkId=Date.now()`（9999 扩展再取负）
+  const linkTs = Date.now();
 
   let legA = options[0];
   let legB = options[1];
   const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
-  const trace = createArbFlowTrace(match, bet, {
-    implied,
-    homeLine: `${legA.type}@${legA.odds}`,
-    awayLine: `${legB.type}@${legB.odds}`,
-  });
 
   let accountA = accountStore.getAccount(
     legA.type,
@@ -99,57 +63,29 @@ export async function prepareArbAttempt(
     options,
   );
   if (!accountA && !accountB) {
-    trace.finish("fail", "无可用账号");
     return null;
   }
 
-  if (accountA) trace.event("选号", `${accountA.provider}/${accountA.playerName}`);
-  if (accountB) trace.event("选号", `${accountB.provider}/${accountB.playerName}`);
-
   const betBothLegs = Boolean(accountA) && Boolean(accountB);
-  let linkId: number;
+  const excludeA = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [];
+  const excludeB = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legB.target)) : [];
+  const singleLegByRate = resolveSingleLegByRate({
+    betBothLegs,
+    accountA,
+    accountB,
+    legA,
+    legB,
+    bet,
+    match,
+    accounts: accountStore.accounts,
+    excludeA,
+    excludeB,
+    matchStore,
+    implied,
+  });
 
-  if (strictA8) {
-    if (!betBothLegs) {
-      trace.finish("fail", "严格模式需双腿账号");
-      return null;
-    }
-    linkId = Date.now();
-  } else {
-    const { allowArbBetExecution, createArbLinkId, resolveRate9999SingleLeg } =
-      await import("@/extensions/arbBet");
-    const excludeA = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [];
-    const excludeB = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legB.target)) : [];
-    const rate9999SingleLeg = resolveRate9999SingleLeg({
-      betBothLegs,
-      accountA,
-      accountB,
-      legA,
-      legB,
-      bet,
-      match,
-      accounts: accountStore.accounts,
-      excludeA,
-      excludeB,
-      matchStore,
-      implied,
-    });
-    if (!allowArbBetExecution(betBothLegs, rate9999SingleLeg)) {
-      const { explainAllowArbRejection } = await import("@/extensions/arbBet/rate9999");
-      trace.finish(
-        "skip",
-        explainAllowArbRejection({
-          betBothLegs,
-          rate9999SingleLeg,
-          accountA,
-          accountB,
-          legA,
-          legB,
-        }),
-      );
-      return null;
-    }
-    linkId = createArbLinkId(rate9999SingleLeg);
+  if (!allowArbBetExecution(betBothLegs, singleLegByRate)) {
+    return null;
   }
 
   return {
@@ -158,9 +94,8 @@ export async function prepareArbAttempt(
     accountA,
     accountB,
     implied,
-    trace,
     betBothLegs,
-    linkId,
-    strictA8,
+    singleLegByRate,
+    linkId: createArbLinkId(singleLegByRate, linkTs),
   };
 }
