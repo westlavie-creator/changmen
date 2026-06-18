@@ -7,9 +7,6 @@ export type BetSorting = "Low" | "High" | "Parallel" | "WinRate" | "Custom";
 
 export type { ArbDetectEngine };
 
-/** @deprecated 使用 ArbDetectEngine */
-export type ArbExecuteEngine = ArbDetectEngine;
-
 export { ALL_PLATFORMS };
 
 /** 对齐 A8 bundle `D8` 用户参数（阶段 2 常用字段） */

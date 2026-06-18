@@ -3,9 +3,6 @@ import type { PlatformId } from "@/types/esport";
 /** fullMarket=全盘口（通知旁路）；funded=getProviders（对齐 A8 GetOrderOptions） */
 export type ArbDetectScope = "fullMarket" | "funded";
 
-/** @deprecated 使用 fullMarket */
-export type ArbDetectScopeLegacy = "display" | "auto";
-
 /** 一次 detect 产出的单条套利机会 */
 export interface ArbOpportunity {
   scope: ArbDetectScope;

@@ -310,8 +310,6 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 `extensions/*` 整体可依赖 `stores/*`（UI / 运行时同步）；`stores/betting/autoBet` 与 `extensions/notify` 之间仅允许 **messageStore 投递** 方向，不允许 autoBet 直接 import notify。
 
-deprecated 独立 shim 已清理（5e）；`types/`、`domain/` 内 `@deprecated` 别名仍留在 canonical 文件内。
-
 ---
 
 ## api 分域（`api/*.ts`）

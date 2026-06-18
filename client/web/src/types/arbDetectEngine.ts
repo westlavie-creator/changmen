@@ -27,15 +27,3 @@ export function usesKakaxiArbDetectEngine(config: ArbDetectEngineConfig): boolea
 export function isKakaxiArbDetectSelectable(): boolean {
   return KAKAXI_ARB_DETECT_ENABLED;
 }
-
-/** @deprecated 使用 ArbDetectEngine */
-export type ArbExecutionMode = ArbDetectEngine;
-
-/** @deprecated 使用 resolveArbDetectEngine */
-export const resolveArbExecutionMode = resolveArbDetectEngine;
-
-/** @deprecated 使用 usesA8ArbDetectEngine */
-export const isA8ExecutionMode = usesA8ArbDetectEngine;
-
-/** @deprecated 使用 usesKakaxiArbDetectEngine */
-export const isKakaxiExecutionMode = usesKakaxiArbDetectEngine;

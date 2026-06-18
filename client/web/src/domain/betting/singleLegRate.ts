@@ -10,9 +10,6 @@ import {
 /** [changmen 扩展] 投注比例 9999 = 单边模式：本侧不参与自动下单，对侧可单边真下注 */
 export const SINGLE_LEG_RATE = 9999;
 
-/** @deprecated 使用 SINGLE_LEG_RATE */
-export const RATE_SKIP = SINGLE_LEG_RATE;
-
 export function isSingleLegRateAtOdds(
   account: Pick<PlatformAccount, "rateConfig">,
   odds: number,
@@ -24,9 +21,6 @@ export function isSingleLegRateAtOdds(
   );
   return (row?.rate ?? 1) === SINGLE_LEG_RATE;
 }
-
-/** @deprecated 使用 isSingleLegRateAtOdds */
-export const isRateSkipAtOdds = isSingleLegRateAtOdds;
 
 /** 自动套利选号：单边模式账号不参与本侧选号 */
 export function arbAccountPickerFilter(
@@ -87,9 +81,6 @@ export function legHasSingleLegRateAccount(
   ) != null;
 }
 
-/** @deprecated 使用 legHasSingleLegRateAccount */
-export const isLegSkippedByRate9999 = legHasSingleLegRateAccount;
-
 /** 取该腿首个比例 9999 账号（Telegram 展示对侧不下单时用） */
 export function findSingleLegRateAccount(
   leg: BetOption,
@@ -147,9 +138,6 @@ export function resolveSingleLegByRate(params: {
       legHasSingleLegRateAccount(legB, bet, match, accounts, excludeB, matchStore, implied))
   );
 }
-
-/** @deprecated 使用 resolveSingleLegByRate */
-export const resolveRate9999SingleLeg = resolveSingleLegByRate;
 
 /** 双腿均有 live 账号，或比例 9999 触发的单边模式 */
 export function allowArbBetExecution(betBothLegs: boolean, singleLegByRate: boolean): boolean {
