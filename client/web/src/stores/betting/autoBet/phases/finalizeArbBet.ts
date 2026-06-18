@@ -110,11 +110,11 @@ export async function finalizeArbBet(
   const successAccounts: PlatformAccount[] = [];
   if (resultA?.success && accountA) {
     successAccounts.push(accountA);
-    void accountStore.refreshBalance(accountA);
+    await accountStore.refreshBalance(accountA);
   }
   if (resultB?.success && accountB) {
     successAccounts.push(accountB);
-    void accountStore.refreshBalance(accountB);
+    await accountStore.refreshBalance(accountB);
   }
 
   let ordersA: VenueOrder[] = [];

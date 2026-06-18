@@ -159,6 +159,7 @@ describe("finalizeArbBet makeup enqueue", () => {
     saveOrderBind.mockResolvedValue(undefined);
     applyArbMakeUpFromRejects.mockResolvedValue(undefined);
     waitRejectDetection.mockResolvedValue(undefined);
+    refreshBalance.mockResolvedValue(undefined);
     syncVenueRejectFlags.mockResolvedValue({
       ordersA: [venueOrder("ob-1", "none", 2)],
       ordersB: [venueOrder("ray-reject", "reject", 3)],
@@ -170,6 +171,7 @@ describe("finalizeArbBet makeup enqueue", () => {
   it("双腿 API 成功且 B 腿拒单时入队补单", async () => {
     await finalizeArbBet(params, makePlaced());
 
+    expect(refreshBalance).toHaveBeenCalledTimes(2);
     expect(waitRejectDetection).toHaveBeenCalledWith(10, 3);
     expect(syncVenueRejectFlags).toHaveBeenCalledTimes(1);
     expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(

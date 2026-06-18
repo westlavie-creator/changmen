@@ -45,8 +45,7 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
     matchStore.refreshOddsOnBets();
   }
 
-  if (!matchStore.matchs.length) return;
-
+  // [A8 可证实] `if(!t.value)return` 仅对 null/undefined；空数组 [] 仍跑补单与初赔门控
   await runArbBetRound({
     setMessage: (m) => bettingStore.setMessage(m),
     processLoseOrders: () => bettingStore.processLoseOrders(),

@@ -60,6 +60,7 @@
 | 轮间仅刷新赔率 | 非 30s 轮 `updateOdds` | `refreshOddsOnBets` | ✅ |
 | 初赔轮询 | 10min | `DEFAULT_ODDS_MS` | ✅ |
 | 补单队列 prune | 60s 与列表门控同轮 | `LOSE_ORDER_PRUNE_MS` | ✅ |
+| 空列表 `[]` | 仍跑补单 + 10min 初赔门控（仅 `null` 早退） | `runMainBetLoopTick` 不对 `matchs.length` 早退 | ✅ |
 | **投注间隔 `betInterval`** | 配置默认 30，**不参与调度** | 同（仅 UI/存库） | ✅ |
 | 各平台 saveMatch 间隔 | RAY/Stake/TF 30s；OB/PB/XBet 60s 门控等 | `client/platform-adapter/*` | 📄 [A8_REPLICATE_8_PLATFORMS.md](./A8_REPLICATE_8_PLATFORMS.md) |
 
@@ -104,7 +105,7 @@
 | 并行 / 顺序下单 | `betSorting` Parallel 等 | `executeArbBet` | ✅ |
 | 预检超时 | tip 3s | `a8Tip("前置检查超时")` | ✅ |
 | 成功后 refreshBalance | 有 | 有 | ✅ |
-| 拒单检测 | `updateBalance` → tip(Oe) → wait(q) → `updateOrders` | `refreshBalance` → `waitRejectDetection(Oe,q)` → `updateVenueOrders` | ✅ |
+| 拒单检测 | `updateBalance` → tip(Oe) → wait(q) → `updateOrders` | `await refreshBalance` → `waitRejectDetection(Oe,q)` → `updateVenueOrders` | ✅ |
 | 四平台 getOrders→reject | OB `bet_status=2`；RAY `status=4`；IA `receive_status=2`；PB `_Q`+缓存 | 同左 + 单元测试 | ✅ |
 | 拒单 q<=0 | 仍弹「拒单检测」(Oe)，不 wait | `waitRejectDetection` 同 | ✅ |
 | 补单拒单前 refreshBalance | 无 | 无（与 A8 jb 一致） | ✅ |

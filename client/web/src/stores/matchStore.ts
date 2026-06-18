@@ -192,14 +192,16 @@ export const useMatchStore = defineStore("match", {
       const user = useUserStore();
       if (!user.isLoggedIn) return;
       const ids = this.matchs.map((m) => m.id);
-      if (!ids.length) return;
       try {
         const info = await getMatchDefaultOdds(ids);
-        const next = new Map<string, number>();
-        for (const [key, value] of Object.entries(info ?? {})) {
-          next.set(key, Number(value) || 0);
+        if (info && Object.keys(info).length) {
+          const next = new Map<string, number>();
+          for (const [key, value] of Object.entries(info)) {
+            next.set(key, Number(value) || 0);
+          }
+          this.defaultOdds = next;
         }
-        this.defaultOdds = next;
+        // [A8 可证实] 门控到期即 `b=Date.now()`，空列表也推进计时
         this.defaultOddsFetchedAt = Date.now();
         this.tick += 1;
       } catch {
