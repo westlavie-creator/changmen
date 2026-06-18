@@ -25,6 +25,8 @@ export interface ArbMarketWatchContext {
   minProfit: number;
   maxProfit: number;
   minOdds: number;
+  /** 参数配置「开启投注」；关投注时盯盘仅提醒，不会自动下单 */
+  bettingEnabled: boolean;
 }
 
 function findMatchBet(
@@ -73,6 +75,7 @@ export function buildMarketWatchContext(
     minProfit: params.config.profit,
     maxProfit: params.config.maxProfit,
     minOdds: params.config.minOdds,
+    bettingEnabled: params.config.betting,
   };
 }
 
@@ -81,6 +84,10 @@ export function explainNotExecutable(
   fullMarket: ArbOpportunity,
   ctx: ArbMarketWatchContext,
 ): string {
+  if (!ctx.bettingEnabled) {
+    return "未开启投注";
+  }
+
   const byPlatform = new Map(ctx.platformOdds.map((row) => [row.platform, row]));
   const missing: string[] = [];
 

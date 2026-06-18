@@ -84,6 +84,15 @@ export function createDefaultUserConfig(): UserConfig {
   };
 }
 
+/** [A8 可证实] D8 加载：保留用户顺序，将 ALL_PLATFORMS 中缺失的平台 append 到末尾 */
+export function mergeProviderSortValue(values: PlatformId[]): PlatformId[] {
+  const merged = [...values];
+  for (const platform of ALL_PLATFORMS) {
+    if (!merged.includes(platform)) merged.push(platform);
+  }
+  return merged;
+}
+
 function resolveArbDetectEngineFromRaw(
   raw: Partial<UserConfig> | null | undefined,
 ): ArbDetectEngine {
@@ -101,9 +110,11 @@ export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): Us
   return {
     ...base,
     ...rest,
-    providerSortValue: Array.isArray(raw.providerSortValue)
-      ? (raw.providerSortValue as PlatformId[])
-      : base.providerSortValue,
+    providerSortValue: mergeProviderSortValue(
+      Array.isArray(raw.providerSortValue)
+        ? (raw.providerSortValue as PlatformId[])
+        : base.providerSortValue,
+    ),
     providerFixed: Array.isArray(raw.providerFixed)
       ? (raw.providerFixed as PlatformId[])
       : base.providerFixed,

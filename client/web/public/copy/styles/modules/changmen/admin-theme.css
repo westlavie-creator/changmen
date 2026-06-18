@@ -1019,33 +1019,15 @@ html.admin-route #app > * {
   border: 1px solid var(--adm-border);
 }
 .admin-matrix-wrap {
-  background: rgba(7, 11, 20, 0.4);
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius-lg);
+  background: rgba(7, 11, 20, 0.55);
 }
 
-/* 对阵矩阵：整页铺开，由浏览器/主内容区滚动，不用内嵌滚动框 */
-.admin-shell--matrix .admin-shell__main,
+/* 对阵矩阵：主内容区滚动，宽表可横向展开 */
 .admin-shell--matrix .admin-shell__content {
-  overflow: visible;
-  min-height: auto;
-}
-.admin-shell--matrix {
-  height: auto;
-  min-height: 100vh;
-  overflow: visible;
-}
-html.admin-route.admin-route--matrix,
-html.admin-route.admin-route--matrix body {
-  height: auto;
-  min-height: 100%;
   overflow: auto;
-}
-html.admin-route.admin-route--matrix #app {
-  height: auto;
-  min-height: 100%;
-  overflow: visible;
-}
-.admin-shell--matrix .admin-shell__content {
-  flex: 1 1 auto;
+  -webkit-overflow-scrolling: touch;
 }
 .admin-shell--matrix .admin-orders-matrix {
   overflow: visible;
@@ -1055,8 +1037,11 @@ html.admin-route.admin-route--matrix #app {
   overflow: visible;
 }
 .admin-matrix {
-  --matrix-match-col: 156px;
-  --matrix-bet-col: 120px;
+  --matrix-match-col: 176px;
+  --matrix-map-col: 54px;
+  --matrix-bet-col: 72px;
+  --matrix-rail-bg: #0d1422;
+  --matrix-rail-head-bg: #0a0f1a;
   --matrix-player-link-col: 64px;
   border-collapse: separate;
   border-spacing: 0;
@@ -1072,62 +1057,88 @@ html.admin-route.admin-route--matrix #app {
 }
 .admin-matrix__corner,
 .admin-matrix__row-head {
-  background: var(--adm-surface);
-  padding: 10px 12px;
-  text-align: left;
   font-weight: 600;
   color: var(--adm-text);
+}
+.admin-matrix__corner--match,
+.admin-matrix__corner--map,
+.admin-matrix__corner--bet,
+.admin-matrix__row-head--match,
+.admin-matrix__row-head--map,
+.admin-matrix__row-head--bet {
+  background: var(--matrix-rail-bg);
 }
 .admin-matrix__corner--match,
 .admin-matrix__row-head--match {
   position: sticky;
   left: 0;
   z-index: 2;
+  width: var(--matrix-match-col);
   min-width: var(--matrix-match-col);
-  max-width: 220px;
+  max-width: var(--matrix-match-col);
 }
 .admin-matrix__corner--match,
+.admin-matrix__corner--map,
+.admin-matrix__corner--bet {
+  padding: 0 10px;
+  height: 44px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--adm-text-muted);
+  text-align: left;
+  vertical-align: middle;
+  background: var(--matrix-rail-head-bg);
+  border-bottom: 1px solid var(--adm-border-strong);
+}
+.admin-matrix__corner--map,
 .admin-matrix__corner--bet {
   text-align: center;
-  vertical-align: middle;
 }
-.admin-matrix__row-head--match,
+.admin-matrix__row-head--match {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.admin-matrix__row-head--map,
 .admin-matrix__row-head--bet {
   text-align: center;
   vertical-align: middle;
-}
-.admin-matrix__head-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-height: 100%;
-  gap: 3px;
 }
 .admin-matrix thead th {
   position: sticky;
   top: 0;
   z-index: 3;
+}
+.admin-matrix thead .admin-matrix__corner--match,
+.admin-matrix thead .admin-matrix__corner--map,
+.admin-matrix thead .admin-matrix__corner--bet {
+  background: var(--matrix-rail-head-bg);
+}
+.admin-matrix thead .admin-matrix__col-head {
   background: var(--adm-surface);
 }
 .admin-matrix__corner {
   z-index: 4;
 }
-.admin-matrix__corner--bet {
+.admin-matrix__corner--map {
   z-index: 5;
 }
+.admin-matrix__corner--bet {
+  z-index: 6;
+}
 .admin-matrix thead tr:nth-child(2) th {
-  top: 52px;
+  top: 44px;
   z-index: 3;
   font-size: 10px;
   font-weight: 500;
   color: var(--adm-text-muted);
   padding: 4px 6px;
+  background: var(--adm-surface);
 }
 .admin-matrix__group-start > th,
 .admin-matrix__group-start > td {
-  border-top: 2px solid rgba(212, 168, 83, 0.35);
+  border-top: 1px solid rgba(120, 140, 175, 0.28);
 }
 .admin-matrix__group-start:first-child > th,
 .admin-matrix__group-start:first-child > td {
@@ -1136,14 +1147,26 @@ html.admin-route.admin-route--matrix #app {
 .admin-matrix__row-head--match {
   border-right: 1px solid var(--adm-border);
 }
-.admin-matrix__corner--bet,
-.admin-matrix__row-head--bet {
+.admin-matrix__corner--map,
+.admin-matrix__row-head--map {
   position: sticky;
   left: var(--matrix-match-col);
   z-index: 2;
+  width: var(--matrix-map-col);
+  min-width: var(--matrix-map-col);
+  max-width: var(--matrix-map-col);
+  padding: 8px 4px;
+}
+.admin-matrix__corner--bet,
+.admin-matrix__row-head--bet {
+  position: sticky;
+  left: calc(var(--matrix-match-col) + var(--matrix-map-col));
+  z-index: 2;
+  width: var(--matrix-bet-col);
   min-width: var(--matrix-bet-col);
-  max-width: 180px;
-  padding: 8px 10px;
+  max-width: var(--matrix-bet-col);
+  padding: 8px 6px;
+  box-shadow: 8px 0 18px -8px rgba(0, 0, 0, 0.55);
 }
 .admin-matrix__col-head--player-link,
 .admin-matrix__cell-link {
@@ -1177,9 +1200,9 @@ html.admin-route.admin-route--matrix #app {
   -webkit-line-clamp: 3;
   overflow: hidden;
   font-size: 11px;
-  font-weight: 600;
-  color: var(--adm-gold);
-  line-height: 1.35;
+  font-weight: 500;
+  color: var(--adm-text-secondary);
+  line-height: 1.4;
   word-break: break-all;
 }
 .admin-matrix__col-head--player {
@@ -1199,35 +1222,68 @@ html.admin-route.admin-route--matrix #app {
   font-size: 11px;
   color: var(--adm-text-muted);
 }
-.admin-matrix__match-id {
-  font-size: 11px;
-  color: var(--adm-accent);
-}
-.admin-matrix__match-map {
-  display: inline-block;
-  margin-bottom: 4px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--adm-gold);
-  background: rgba(212, 168, 83, 0.12);
-  border: 1px solid rgba(212, 168, 83, 0.25);
+.admin-matrix__match-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
 }
 .admin-matrix__match-title {
+  font-size: 12px;
   font-weight: 600;
   color: var(--adm-text);
-  line-height: 1.35;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
 }
-.admin-matrix__match-start,
-.admin-matrix__match-count {
-  margin-top: 3px;
-  font-size: 11px;
+.admin-matrix__match-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 10px;
+  line-height: 1.3;
   color: var(--adm-text-muted);
+}
+.admin-matrix__match-id {
+  color: var(--adm-accent);
+  font-variant-numeric: tabular-nums;
+}
+.admin-matrix__map-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--adm-text-secondary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.admin-matrix__map-label--full {
+  color: var(--adm-accent);
+}
+.admin-matrix__handicap-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--adm-text);
+  line-height: 1.4;
+  word-break: break-word;
 }
 .admin-matrix__cell {
   min-width: 150px;
   background: rgba(19, 28, 46, 0.5);
+}
+.admin-matrix tbody tr:nth-child(even) .admin-matrix__cell {
+  background: rgba(19, 28, 46, 0.62);
+}
+.admin-matrix tbody tr:hover .admin-matrix__cell {
+  background: rgba(26, 38, 64, 0.72);
+}
+.admin-matrix tbody tr:hover .admin-matrix__row-head--match,
+.admin-matrix tbody tr:hover .admin-matrix__row-head--map,
+.admin-matrix tbody tr:hover .admin-matrix__row-head--bet {
+  background: #111a2c;
 }
 .admin-matrix__order {
   padding: 8px 10px;

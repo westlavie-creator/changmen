@@ -16,6 +16,8 @@ export interface LinkMatrixRow {
   linkId: number;
   createAt: number;
   betLabel: string;
+  mapLabel: string;
+  handicapLabel: string;
   betSort: number;
   cells: Record<string, LinkOrderGroup>;
 }
@@ -44,6 +46,43 @@ function parseBetMapSort(bet: string): number {
   if (enMap) return Number(enMap[1]);
   if (/全场胜负/.test(s) || /\[全场\]/i.test(s) || /^全场\b/i.test(s)) return 0;
   return 50;
+}
+
+/** 从 bet 字段提取地图槽位标签（全场 / 地图N） */
+export function parseBetMapLabel(bet: string): string {
+  const s = String(bet || "").trim();
+  if (!s) return "—";
+  const bracketMap = /^\[地图\s*(\d+)\]/i.exec(s);
+  if (bracketMap) return `地图${bracketMap[1]}`;
+  const bracketFull = /^\[全场\]/i.exec(s);
+  if (bracketFull) return "全场";
+  const plainMap = /^地图\s*(\d+)/i.exec(s);
+  if (plainMap) return `地图${plainMap[1]}`;
+  const enMap = /^Map\s*(\d+)\b/i.exec(s);
+  if (enMap) return `地图${enMap[1]}`;
+  if (/全场/.test(s)) return "全场";
+  return "—";
+}
+
+/** 从 bet 字段提取盘口类型（去掉地图前缀后的部分） */
+export function parseBetHandicapLabel(bet: string): string {
+  const s = String(bet || "").trim();
+  if (!s) return "—";
+  let rest = s
+    .replace(/^\[地图\s*\d+\]\s*[-–—]?\s*/i, "")
+    .replace(/^\[全场\]\s*[-–—]?\s*/i, "")
+    .replace(/^地图\s*\d+\s*[-–—]?\s*/i, "")
+    .replace(/^Map\s*\d+\s*[-–—]?\s*/i, "");
+  rest = rest.replace(/^单局\s*[-–—]\s*/i, "");
+  return rest.trim() || "—";
+}
+
+function uniqueRowLabels(values: string[]): string {
+  const items = [...new Set(values.map((v) => String(v || "").trim()).filter((v) => v && v !== "—"))];
+  if (!items.length) return "—";
+  if (items.length <= 1) return items[0];
+  if (items.length === 2) return items.join(" · ");
+  return `${items[0]} · ${items[1]} +${items.length - 2}`;
 }
 
 export function baseMatchKey(o: AdminOrderRow) {
@@ -97,6 +136,14 @@ function linkRowBetLabel(rows: AdminOrderRow[]) {
   if (bets.length <= 1) return bets[0] || "—";
   if (bets.length === 2) return bets.join(" · ");
   return `${bets[0]} · ${bets[1]} +${bets.length - 2}`;
+}
+
+function linkRowMapLabel(rows: AdminOrderRow[]) {
+  return uniqueRowLabels(rows.map((o) => parseBetMapLabel(o.bet)));
+}
+
+function linkRowHandicapLabel(rows: AdminOrderRow[]) {
+  return uniqueRowLabels(rows.map((o) => parseBetHandicapLabel(o.bet)));
 }
 
 export function buildLinkGroups(rows: AdminOrderRow[]): LinkOrderGroup[] {
@@ -186,6 +233,8 @@ export function buildAdminOrdersMatrix(orders: AdminOrderRow[]): {
         linkId: allRows[0]?.linkId || 0,
         createAt: Math.min(...allRows.map((r) => r.createAt)),
         betLabel,
+        mapLabel: linkRowMapLabel(allRows),
+        handicapLabel: linkRowHandicapLabel(allRows),
         betSort: parseBetMapSort(betLabel),
         cells,
       });

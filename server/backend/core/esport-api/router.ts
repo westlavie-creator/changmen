@@ -543,7 +543,7 @@ async function handle(
     case "Client_GetChatHistory":
       return ok([]);
     case "Client_SaveUserLog": {
-      const saved = await accountService.handleSaveUserLog(body, ctx.user.id);
+      const saved = await accountService.handleSaveUserLog(body, ctx.user?.id ?? "");
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "SendMessage": {

@@ -86,7 +86,9 @@ function formatAppearedBody(group: Extract<ArbMarketWatchGroup, { kind: "appeare
     lines.push(...formatPlatformOddsBlock(context));
   }
 
-  if (fullMarket && funded && sameOpportunityLegs(fullMarket, funded)) {
+  const bettingOff = context?.bettingEnabled === false;
+
+  if (fullMarket && funded && sameOpportunityLegs(fullMarket, funded) && !bettingOff) {
     lines.push("", "<b>可下单套利</b>");
     lines.push(formatLegLine(fullMarket));
     lines.push(formatProfitLine(fullMarket));
@@ -101,7 +103,10 @@ function formatAppearedBody(group: Extract<ArbMarketWatchGroup, { kind: "appeare
     lines.push(formatProfitLine(fullMarket));
   }
 
-  if (funded) {
+  if (bettingOff) {
+    lines.push("", "<b>可执行</b>：无");
+    lines.push("原因：未开启投注");
+  } else if (funded) {
     lines.push("", "<b>可执行</b>");
     lines.push(formatLegLine(funded));
     lines.push(formatProfitLine(funded));

@@ -285,6 +285,7 @@ onMounted(async () => {
           <thead>
             <tr>
               <th rowspan="2" class="admin-matrix__corner admin-matrix__corner--match">比赛</th>
+              <th rowspan="2" class="admin-matrix__corner admin-matrix__corner--map">地图</th>
               <th rowspan="2" class="admin-matrix__corner admin-matrix__corner--bet">盘口</th>
               <th
                 v-for="col in userColumns"
@@ -315,24 +316,29 @@ onMounted(async () => {
                 class="admin-matrix__row-head admin-matrix__row-head--match"
                 :title="row.group.label"
               >
-                <div class="admin-matrix__head-center">
-                  <div v-if="row.group.matchId" class="admin-matrix__match-id">#{{ row.group.matchId }}</div>
+                <div class="admin-matrix__match-cell">
                   <div class="admin-matrix__match-title">{{ row.group.label }}</div>
-                  <div v-if="row.group.matchStartTime" class="admin-matrix__match-start">
-                    {{ formatDate(row.group.matchStartTime) }}
-                  </div>
-                  <div class="admin-matrix__match-count">
-                    {{ row.group.orderCount }} 组
+                  <div class="admin-matrix__match-meta">
+                    <span v-if="row.group.matchId" class="admin-matrix__match-id">#{{ row.group.matchId }}</span>
+                    <span v-if="row.group.matchStartTime">{{ formatDate(row.group.matchStartTime) }}</span>
+                    <span>{{ row.group.orderCount }} 组</span>
                   </div>
                 </div>
               </th>
               <th
-                class="admin-matrix__row-head admin-matrix__row-head--bet"
-                :title="row.linkRow.betLabel"
+                class="admin-matrix__row-head admin-matrix__row-head--map"
+                :title="row.linkRow.mapLabel"
               >
-                <div class="admin-matrix__head-center">
-                  <span class="admin-matrix__bet-label">{{ row.linkRow.betLabel }}</span>
-                </div>
+                <span
+                  class="admin-matrix__map-label"
+                  :class="{ 'admin-matrix__map-label--full': row.linkRow.mapLabel === '全场' }"
+                >{{ row.linkRow.mapLabel }}</span>
+              </th>
+              <th
+                class="admin-matrix__row-head admin-matrix__row-head--bet"
+                :title="row.linkRow.handicapLabel"
+              >
+                <span class="admin-matrix__handicap-label">{{ row.linkRow.handicapLabel }}</span>
               </th>
               <template v-for="col in userColumns" :key="col.key">
                 <td class="admin-matrix__cell-link">

@@ -37,6 +37,7 @@ function makeContext(patch: Partial<ArbMarketWatchContext> = {}): ArbMarketWatch
     minProfit: 1.03,
     maxProfit: 1.2,
     minOdds: 1.5,
+    bettingEnabled: true,
     ...patch,
   };
 }
@@ -84,6 +85,45 @@ describe("formatMarketWatchGroup", () => {
     expect(body).toContain("可执行</b>：无");
     expect(body).toContain("原因：");
     expect(body).toContain("IA(客，无可用账号)");
+  });
+
+  it("formats appeared when betting disabled even if accounts exist", () => {
+    const body = formatMarketWatchGroup({
+      kind: "appeared",
+      anchor: "214:876547",
+      matchTitle: "WST vs 济南RW侠",
+      betName: "[地图3] 获胜",
+      fullMarket: makeOpp("fullMarket", {
+        matchId: 214,
+        betId: 876547,
+        homePlatform: "OB",
+        awayPlatform: "RAY",
+        homeOdds: 2.278,
+        awayOdds: 1.94,
+        implied: 1.048,
+      }),
+      funded: makeOpp("funded", {
+        matchId: 214,
+        betId: 876547,
+        homePlatform: "OB",
+        awayPlatform: "RAY",
+        homeOdds: 2.278,
+        awayOdds: 1.94,
+        implied: 1.048,
+      }),
+      context: makeContext({
+        bettingEnabled: false,
+        platformOdds: [
+          { platform: "OB", homeOdds: 2.278, awayOdds: 1.6, hasAccount: false },
+          { platform: "RAY", homeOdds: 1.8, awayOdds: 1.94, hasAccount: false },
+        ],
+      }),
+    });
+    expect(body).toContain("理论最优");
+    expect(body).toContain("可执行</b>：无");
+    expect(body).toContain("原因：未开启投注");
+    expect(body).not.toContain("无可用账号");
+    expect(body).not.toContain("账号可下单：是");
   });
 
   it("formats appeared with different fullMarket and funded legs", () => {

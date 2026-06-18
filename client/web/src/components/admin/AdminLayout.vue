@@ -64,6 +64,18 @@ function onAdminWheel(e: WheelEvent) {
     return;
   }
 
+  // 对阵矩阵：主内容区滚动（与订单页一致）
+  if (document.documentElement.classList.contains("admin-route--matrix")) {
+    if (target.closest(".admin-shell__nav")) return;
+    const scrollEl = target.closest(".admin-shell")?.querySelector(".admin-shell__content");
+    if (!(scrollEl instanceof HTMLElement)) return;
+    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
+    if (maxScroll <= 0) return;
+    scrollEl.scrollTop = Math.max(0, Math.min(maxScroll, scrollEl.scrollTop + e.deltaY));
+    e.preventDefault();
+    return;
+  }
+
   if (!target.closest(".el-table")) return;
 
   const scrollEl = target.closest(".admin-shell__content");

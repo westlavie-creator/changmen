@@ -29,8 +29,36 @@ describe("marketWatchContext", () => {
       minProfit: 1.03,
       maxProfit: 1.2,
       minOdds: 1.5,
+      bettingEnabled: true,
     });
     expect(reason).toContain("OB(客");
+  });
+
+  it("explainNotExecutable prioritizes betting disabled", () => {
+    const fullMarket = {
+      homePlatform: "OB",
+      awayPlatform: "RAY",
+    } as ArbOpportunity;
+    const reason = explainNotExecutable(fullMarket, {
+      game: "王者荣耀",
+      homeName: "WST",
+      awayName: "济南RW侠",
+      startAt: 0,
+      bo: 5,
+      liveRound: 3,
+      betRound: 3,
+      isLiveBet: true,
+      linkedPlatforms: ["OB", "RAY"],
+      platformOdds: [
+        { platform: "OB", homeOdds: 2.278, awayOdds: 1.6, hasAccount: false },
+        { platform: "RAY", homeOdds: 1.8, awayOdds: 1.94, hasAccount: false },
+      ],
+      minProfit: 1.03,
+      maxProfit: 1.2,
+      minOdds: 1.3,
+      bettingEnabled: false,
+    });
+    expect(reason).toBe("未开启投注");
   });
 });
 

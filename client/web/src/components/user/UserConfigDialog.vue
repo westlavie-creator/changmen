@@ -126,7 +126,7 @@ async function save() {
   <el-dialog
     v-model="visible"
     title="参数配置"
-    width="520"
+    width="1000"
     :close-on-press-escape="false"
     :close-on-click-modal="false"
   >
@@ -246,25 +246,17 @@ async function save() {
         </el-row>
       </el-form-item>
 
-      <fieldset>
-        <legend>补单配置</legend>
-        <el-form-item>
-          <el-row :gutter="10">
-            <el-col :span="8">
-              <el-form-item label="是否补单:">
-                <el-switch v-model="form.makeUp" />
-              </el-form-item>
-            </el-col>
-            <el-col v-if="form.makeUp" :span="10">
-              <el-form-item label="补单利润:">
-                <el-input v-model="form.makeProfit" autocomplete="off" :disabled="!form.makeUp" />
-              </el-form-item>
-            </el-col>
-          </el-row>
-        </el-form-item>
-        <el-form-item v-if="form.makeUp">
-          <el-row :gutter="10">
-            <el-col :span="10">
+      <el-row :gutter="12" class="config-sections-row">
+        <el-col :span="8">
+          <fieldset class="config-section">
+            <legend>补单配置</legend>
+            <el-form-item label="是否补单:">
+              <el-switch v-model="form.makeUp" />
+            </el-form-item>
+            <el-form-item v-if="form.makeUp" label="补单利润:">
+              <el-input v-model="form.makeProfit" autocomplete="off" :disabled="!form.makeUp" />
+            </el-form-item>
+            <template v-if="form.makeUp">
               <el-form-item label="初始赔率:" title="初赔大于此设定赔率不进行补单">
                 <el-input
                   v-model="form.makeUp_defaultOdds"
@@ -272,17 +264,11 @@ async function save() {
                   :disabled="!form.makeUp"
                 />
               </el-form-item>
-            </el-col>
-            <el-col :span="10">
               <el-form-item label="当前赔率:" title="补单的赔率大于此设定值不进行补单">
                 <el-input v-model="form.makeUp_odds" autocomplete="off" :disabled="!form.makeUp" />
               </el-form-item>
-            </el-col>
-          </el-row>
-        </el-form-item>
-        <el-form-item>
-          <el-row>
-            <el-col :span="8">
+            </template>
+            <el-form-item>
               <el-switch
                 v-model="form.noSameProvider"
                 inline-prompt
@@ -290,8 +276,8 @@ async function save() {
                 inactive-text="不补同场馆"
                 size="large"
               />
-            </el-col>
-            <el-col :span="8">
+            </el-form-item>
+            <el-form-item>
               <el-switch
                 v-model="form.noSameBet"
                 inline-prompt
@@ -299,21 +285,19 @@ async function save() {
                 inactive-text="场管不对打"
                 size="large"
               />
-            </el-col>
-            <el-col v-if="form.noSameBet" :span="24">
-              <el-form-item label="允许同场馆:">
-                <el-select
-                  v-model="form.allowSameBet"
-                  multiple
-                  collapse-tags
-                  placeholder="noSameBet 时仍参与选腿的平台"
-                  style="width: 100%"
-                >
-                  <el-option v-for="p in ALL_PLATFORMS" :key="p" :label="p" :value="p" />
-                </el-select>
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
+            </el-form-item>
+            <el-form-item v-if="form.noSameBet" label="允许同场馆:">
+              <el-select
+                v-model="form.allowSameBet"
+                multiple
+                collapse-tags
+                placeholder="noSameBet 时仍参与选腿的平台"
+                style="width: 100%"
+              >
+                <el-option v-for="p in ALL_PLATFORMS" :key="p" :label="p" :value="p" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
               <el-tooltip
                 effect="dark"
                 content="1、下单失败用当前可投注的最高赔率继续投注。2、被拒单马上用最高赔率进行补单"
@@ -327,81 +311,73 @@ async function save() {
                   size="large"
                 />
               </el-tooltip>
-            </el-col>
-            <el-col v-if="form.anyOdds" :span="12">
-              <el-form-item label="任意赔率利润要求:">
-                <el-input
-                  v-model="form.anyOddsProfit"
-                  autocomplete="off"
-                  :disabled="!form.anyOdds"
-                />
-              </el-form-item>
-            </el-col>
-          </el-row>
-        </el-form-item>
-      </fieldset>
+            </el-form-item>
+            <el-form-item v-if="form.anyOdds" label="任意赔率利润:">
+              <el-input v-model="form.anyOddsProfit" autocomplete="off" :disabled="!form.anyOdds" />
+            </el-form-item>
+          </fieldset>
+        </el-col>
 
-      <fieldset>
-        <legend>投注顺序</legend>
-        <el-form-item>
-          <el-radio-group v-model="form.betSorting" size="large">
-            <el-radio v-for="key in sortingKeys" :key="key" :value="key">
-              {{ sortingLabels[key] }}
-            </el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-row>
-          <el-col v-if="form.betSorting === 'WinRate'" :span="8">
-            <el-form-item label="胜率差额:">
+        <el-col :span="8">
+          <fieldset class="config-section">
+            <legend>投注顺序</legend>
+            <el-form-item>
+              <el-radio-group v-model="form.betSorting" size="large" class="bet-sorting-group">
+                <el-radio v-for="key in sortingKeys" :key="key" :value="key">
+                  {{ sortingLabels[key] }}
+                </el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item v-if="form.betSorting === 'WinRate'" label="胜率差额:">
               <el-input
                 v-model="form.winRateValue"
                 autocomplete="off"
                 :disabled="form.betSorting !== 'WinRate'"
               />
             </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="固定平台优先:">
-          <el-select
-            v-model="form.providerFixed"
-            multiple
-            collapse-tags
-            placeholder="选中的平台在选腿时优先"
-            style="width: 100%"
-          >
-            <el-option v-for="p in ALL_PLATFORMS" :key="`fixed-${p}`" :label="p" :value="p" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <TransitionGroup name="drag" tag="div" class="provider-sort">
-            <div
-              v-for="(p, index) in form.providerSortValue"
-              :key="p"
-              class="drag-item"
-              draggable="true"
-              @dragstart="onDragStart(index)"
-              @dragenter="onDragEnter(index, $event)"
-              @dragover="onDragOver"
-            >
-              {{ p }}
-            </div>
-          </TransitionGroup>
-        </el-form-item>
-      </fieldset>
+            <el-form-item label="固定平台优先:">
+              <el-select
+                v-model="form.providerFixed"
+                multiple
+                collapse-tags
+                placeholder="选中的平台在选腿时优先"
+                style="width: 100%"
+              >
+                <el-option v-for="p in ALL_PLATFORMS" :key="`fixed-${p}`" :label="p" :value="p" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <TransitionGroup name="drag" tag="div" class="provider-sort">
+                <div
+                  v-for="(p, index) in form.providerSortValue"
+                  :key="p"
+                  class="drag-item"
+                  draggable="true"
+                  @dragstart="onDragStart(index)"
+                  @dragenter="onDragEnter(index, $event)"
+                  @dragover="onDragOver"
+                >
+                  {{ p }}
+                </div>
+              </TransitionGroup>
+            </el-form-item>
+          </fieldset>
+        </el-col>
 
-      <fieldset>
-        <legend>拒单检测</legend>
-        <el-row :gutter="10">
-          <el-col v-for="p in ALL_PLATFORMS" :key="p" :span="8">
-            <el-input
-              :model-value="form.waitTime[p] ?? ''"
-              @update:model-value="(v: string | number) => (form.waitTime[p] = Number(v) || 0)"
-            >
-              <template #prepend>{{ p }}</template>
-            </el-input>
-          </el-col>
-        </el-row>
-      </fieldset>
+        <el-col :span="8">
+          <fieldset class="config-section">
+            <legend>拒单检测</legend>
+            <el-form-item v-for="p in ALL_PLATFORMS" :key="p">
+              <el-input
+                :model-value="form.waitTime[p] ?? ''"
+                @update:model-value="(v: string | number) => (form.waitTime[p] = Number(v) || 0)"
+              >
+                <template #prepend>{{ p }}</template>
+              </el-input>
+            </el-form-item>
+          </fieldset>
+        </el-col>
+      </el-row>
 
       <div class="flex flex-center">
         <el-button
@@ -419,3 +395,25 @@ async function save() {
     </el-form>
   </el-dialog>
 </template>
+
+<style scoped>
+.config-sections-row {
+  align-items: stretch;
+}
+
+.config-section {
+  height: 100%;
+  margin: 0;
+}
+
+.config-section :deep(.el-form-item) {
+  margin-bottom: 12px;
+}
+
+.bet-sorting-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+</style>
