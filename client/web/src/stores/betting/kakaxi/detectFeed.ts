@@ -59,19 +59,24 @@ function isBetLive(matchId: number, betId: number): boolean {
   return Boolean(bet?.isLive);
 }
 
+function enqueueFromOpportunity(opp: ArbOpportunity): void {
+  enqueueKakaxiBet({
+    matchId: opp.matchId,
+    betId: opp.betId,
+    enqueuedAt: Date.now(),
+    implied: opp.implied,
+    isLive: isBetLive(opp.matchId, opp.betId),
+    homePlatform: opp.homePlatform,
+    awayPlatform: opp.awayPlatform,
+  });
+}
+
 export function applyKakaxiDetectTransitions(
   transitions: KakaxiOpportunityTransition[],
 ): void {
   for (const transition of transitions) {
     if (transition.kind === "appeared") {
-      const opp = transition.opportunity;
-      enqueueKakaxiBet({
-        matchId: opp.matchId,
-        betId: opp.betId,
-        enqueuedAt: Date.now(),
-        implied: opp.implied,
-        isLive: isBetLive(opp.matchId, opp.betId),
-      });
+      enqueueFromOpportunity(transition.opportunity);
       continue;
     }
     if (transition.kind === "improved") {
@@ -81,15 +86,10 @@ export function applyKakaxiDetectTransitions(
         opp.betId,
         opp.implied,
         isBetLive(opp.matchId, opp.betId),
+        { homePlatform: opp.homePlatform, awayPlatform: opp.awayPlatform },
       );
       if (!boosted) {
-        enqueueKakaxiBet({
-          matchId: opp.matchId,
-          betId: opp.betId,
-          enqueuedAt: Date.now(),
-          implied: opp.implied,
-          isLive: isBetLive(opp.matchId, opp.betId),
-        });
+        enqueueFromOpportunity(opp);
       }
       continue;
     }

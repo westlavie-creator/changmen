@@ -17,3 +17,6 @@ export const KAKAXI_DRAIN_MAX_BETS = 5;
 
 /** 每主循环轮 drain 最长耗时（ms） */
 export const KAKAXI_DRAIN_MAX_MS = 400;
+
+/** 同一 drain 波次内最多并行 execute 条数（按 platform 互斥扩容） */
+export const KAKAXI_MAX_PARALLEL_EXECUTES = 4;

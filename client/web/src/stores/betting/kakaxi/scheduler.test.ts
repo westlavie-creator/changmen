@@ -37,9 +37,28 @@ import {
 import {
   drainKakaxiScheduler,
   getKakaxiInFlightKey,
+  getKakaxiInFlightPlatforms,
   processNextKakaxiBet,
   resetKakaxiScheduler,
 } from "@/stores/betting/kakaxi/scheduler";
+
+function enqueueWithPlatforms(
+  matchId: number,
+  betId: number,
+  implied: number,
+  homePlatform: "OB" | "RAY" | "TF" | "PB",
+  awayPlatform: "OB" | "RAY" | "TF" | "PB",
+) {
+  enqueueKakaxiBet({
+    matchId,
+    betId,
+    enqueuedAt: betId,
+    implied,
+    isLive: false,
+    homePlatform,
+    awayPlatform,
+  });
+}
 
 afterEach(() => {
   clearKakaxiQueue();
@@ -55,19 +74,14 @@ describe("processNextKakaxiBet", () => {
   });
 
   it("calls executeArbBet for queued bet", async () => {
-    enqueueKakaxiBet({
-      matchId: 100,
-      betId: 1,
-      enqueuedAt: 1,
-      implied: 1.1,
-      isLive: true,
-    });
+    enqueueWithPlatforms(100, 1, 1.1, "OB", "RAY");
 
     const ran = await processNextKakaxiBet({ setMessage: () => {} });
 
     expect(ran).toBe(true);
     expect(executeArbBet).toHaveBeenCalledOnce();
     expect(getKakaxiInFlightKey()).toBeNull();
+    expect(getKakaxiInFlightPlatforms().size).toBe(0);
   });
 
   it("returns false when queue empty", async () => {
@@ -80,27 +94,17 @@ describe("processNextKakaxiBet", () => {
 describe("drainKakaxiScheduler", () => {
   beforeEach(() => {
     config.betting = true;
+    executeArbBet.mockReset();
+    executeArbBet.mockResolvedValue(undefined);
     executeArbBet.mockClear();
     matchStoreState.matchs = [
       { id: 100, bets: [{ id: 1 }, { id: 2 }] },
     ];
   });
 
-  it("processes all queued bets serially", async () => {
-    enqueueKakaxiBet({
-      matchId: 100,
-      betId: 1,
-      enqueuedAt: 1,
-      implied: 1.1,
-      isLive: false,
-    });
-    enqueueKakaxiBet({
-      matchId: 100,
-      betId: 2,
-      enqueuedAt: 2,
-      implied: 1.2,
-      isLive: false,
-    });
+  it("processes all queued bets serially when platforms overlap", async () => {
+    enqueueWithPlatforms(100, 1, 1.1, "OB", "RAY");
+    enqueueWithPlatforms(100, 2, 1.2, "OB", "PB");
 
     const count = await drainKakaxiScheduler({ setMessage: () => {} });
 
@@ -108,21 +112,54 @@ describe("drainKakaxiScheduler", () => {
     expect(executeArbBet).toHaveBeenCalledTimes(2);
   });
 
+  it("runs non-overlapping legs in parallel within one wave", async () => {
+    let inFlight = 0;
+    let maxConcurrent = 0;
+    const gates: Array<() => void> = [];
+
+    executeArbBet.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          inFlight += 1;
+          maxConcurrent = Math.max(maxConcurrent, inFlight);
+          gates.push(() => {
+            inFlight -= 1;
+            resolve();
+          });
+        }),
+    );
+
+    enqueueWithPlatforms(100, 1, 1.1, "OB", "RAY");
+    enqueueWithPlatforms(100, 2, 1.2, "TF", "PB");
+    matchStoreState.matchs = [
+      { id: 100, bets: [{ id: 1 }, { id: 2 }] },
+    ];
+
+    const drainPromise = drainKakaxiScheduler(
+      { setMessage: () => {} },
+      { maxBets: 2, maxParallel: 4 },
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(gates.length).toBe(2);
+
+    gates.forEach((open) => open());
+    const count = await drainPromise;
+
+    expect(count).toBe(2);
+    expect(maxConcurrent).toBe(2);
+  });
+
   it("respects drain budget maxBets", async () => {
+    matchStoreState.matchs = [
+      {
+        id: 100,
+        bets: Array.from({ length: 8 }, (_, j) => ({ id: j + 1 })),
+      },
+    ];
     for (let i = 1; i <= 8; i++) {
-      enqueueKakaxiBet({
-        matchId: 100,
-        betId: i,
-        enqueuedAt: i,
-        implied: 1.1,
-        isLive: false,
-      });
-      matchStoreState.matchs = [
-        {
-          id: 100,
-          bets: Array.from({ length: 8 }, (_, j) => ({ id: j + 1 })),
-        },
-      ];
+      enqueueWithPlatforms(100, i, 1.1, "OB", "RAY");
     }
 
     const count = await drainKakaxiScheduler({ setMessage: () => {} }, { maxBets: 3 });
