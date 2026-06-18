@@ -44,8 +44,14 @@
 .am-icon-th:before {
   content: "\f00a";
 }
+.am-icon-bar-chart:before {
+  content: "\f080";
+}
 .am-icon-arrow-left:before {
   content: "\f060";
+}
+.am-icon-arrow-right:before {
+  content: "\f061";
 }
 .am-icon-power-off:before {
   content: "\f011";

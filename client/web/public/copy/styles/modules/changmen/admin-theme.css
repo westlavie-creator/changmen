@@ -737,6 +737,29 @@ html.admin-route #app > * {
   align-items: center;
   margin-bottom: 0;
 }
+.admin-orders-profit-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--adm-border);
+  background: var(--adm-surface-2);
+}
+.admin-orders-profit-summary__label {
+  font-size: 12px;
+  color: var(--adm-text-muted);
+}
+.admin-orders-profit-summary__value {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.admin-orders-profit-summary__meta {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+}
 .admin-orders-pager {
   display: flex;
   justify-content: flex-end;
@@ -810,23 +833,46 @@ html.admin-route #app > * {
   display: none;
 }
 .admin-orders-el-table tr.admin-order-group-row > td.el-table__cell {
-  padding: 10px 12px !important;
+  padding: 9px 12px !important;
   background: var(--adm-surface) !important;
-  border-bottom: 1px solid var(--adm-border) !important;
-  vertical-align: top;
+  border-bottom: 1px solid rgba(90, 111, 138, 0.22) !important;
+  vertical-align: middle !important;
+}
+.admin-orders-el-table tr.admin-order-group-row--alt > td.el-table__cell {
+  background: rgba(26, 38, 64, 0.72) !important;
+}
+.admin-orders-el-table tr.admin-order-group-row--group-end > td.el-table__cell {
+  border-bottom: 2px solid rgba(90, 111, 138, 0.38) !important;
+}
+.admin-orders-el-table tr.admin-order-group-row--inner > td.el-table__cell {
+  border-bottom-style: dashed;
+  border-bottom-color: rgba(90, 111, 138, 0.18) !important;
 }
 .admin-orders-el-table tr.admin-order-group-row.el-table__row--striped > td.el-table__cell,
 .admin-orders-el-table tr.admin-order-group-row:hover > td.el-table__cell {
-  background: var(--adm-surface) !important;
+  background: inherit !important;
 }
-.admin-orders-el-table tr.admin-order-group-row--paired > td.el-table__cell {
-  box-shadow: inset 3px 0 0 var(--adm-accent);
+.admin-orders-el-table tr.admin-order-group-row:hover > td.el-table__cell {
+  filter: brightness(1.04);
+}
+.admin-orders-el-table td.admin-order-cell--center.el-table__cell {
+  text-align: center !important;
+}
+.admin-orders-el-table td.admin-order-cell--num.el-table__cell {
+  text-align: right !important;
+}
+.admin-orders-el-table td.admin-order-cell--link.el-table__cell,
+.admin-orders-el-table td.admin-order-cell--group.el-table__cell,
+.admin-orders-el-table td.admin-order-cell--action.el-table__cell {
+  vertical-align: middle !important;
 }
 .admin-order-link-cell {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  justify-content: center;
+  gap: 5px;
   min-width: 0;
+  min-height: 36px;
 }
 .admin-order-link-cell__id {
   font-weight: 700;
@@ -842,26 +888,27 @@ html.admin-route #app > * {
   gap: 4px 6px;
   align-items: center;
 }
-.admin-order-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
+.admin-order-link-profit {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-text-secondary);
+  line-height: 1.2;
 }
-.admin-order-stack__line {
-  padding: 5px 0;
-  line-height: 1.35;
-  min-height: 28px;
-  display: flex;
+.admin-order-provider {
+  display: inline-flex;
   align-items: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.admin-order-stack__line + .admin-order-stack__line {
-  border-top: 1px dashed var(--adm-border);
-}
-.admin-order-stack--num .admin-order-stack__line {
-  justify-content: flex-end;
+  justify-content: center;
+  min-width: 44px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--adm-accent);
+  background: var(--adm-accent-soft);
+  border: 1px solid rgba(91, 154, 255, 0.2);
 }
 .admin-order-stack__sum {
   margin-top: 4px;
@@ -931,17 +978,6 @@ html.admin-route #app > * {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
   color: var(--adm-text);
-}
-.admin-order-provider {
-  display: inline-block;
-  padding: 2px 7px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--adm-accent);
-  background: var(--adm-accent-soft);
-  border: 1px solid rgba(91, 154, 255, 0.2);
 }
 .admin-order-num {
   font-variant-numeric: tabular-nums;

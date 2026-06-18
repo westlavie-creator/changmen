@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import type { OrderRow } from "@/types/order";
 import { useOrderStore, isLinkedArbGroup } from "@/stores/orderStore";
 import { formatOrderTime, toFixed } from "@/shared/format";
+import OrderDateNav from "@/components/order/OrderDateNav.vue";
 
 const orderStore = useOrderStore();
 const { orderEntries, orderDate, loading, filterAccountId, accountOptions } =
@@ -45,12 +46,11 @@ function isArbGroup(rows: OrderRow[]) {
 
 <template>
   <div class="date flex flex-center">
-    <el-date-picker
+    <OrderDateNav
       v-model="orderDate"
-      type="date"
+      class="date-nav--sidebar"
       placeholder="选择日期"
-      size="small"
-      value-format="YYYY-MM-DD"
+      picker-width="92px"
       :disabled="loading"
       @change="onDateChange"
     />

@@ -1,0 +1,163 @@
+/**
+ * tag_platforms、players、user_logs 表读写。
+ */
+
+import { getPgPool } from "./common.js";
+
+function _mapPlayerRow(row) {
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    playerId: Number(row.id),
+    platformId: Number(row.platform_id),
+    platformName: String(row.platform_name || ""),
+    playerName: String(row.player_name || ""),
+    credit: Number(row.credit) || 0,
+    totalBalance: Number(row.total_balance) || 0,
+    createdAt: Number(row.created_at) || 0,
+    updatedAt: Number(row.updated_at) || 0,
+    deletedAt: row.deleted_at != null ? Number(row.deleted_at) : null,
+    deleteDescription: String(row.delete_description || ""),
+  };
+}
+
+export async function fetchTagPlatforms() {
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const { rows } = await pool.query("SELECT id, name FROM tag_platforms ORDER BY id ASC");
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchTagPlatforms:", err.message);
+    return [];
+  }
+}
+
+export async function upsertTagPlatformByName(name) {
+  const label = String(name || "").trim();
+  if (!label) return null;
+  const pool = getPgPool();
+  if (!pool) return null;
+  const now = Date.now();
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO tag_platforms (name, created_at, updated_at)
+       VALUES ($1, $2, $2)
+       ON CONFLICT (name) DO UPDATE SET updated_at = EXCLUDED.updated_at
+       RETURNING id, name`,
+      [label, now],
+    );
+    return rows?.[0] ?? null;
+  } catch (err) {
+    console.warn("[rds] upsertTagPlatformByName:", err.message);
+    return null;
+  }
+}
+
+export async function insertPlayerRow({ platformId, platformName, playerName }) {
+  const pool = getPgPool();
+  if (!pool) return null;
+  const now = Date.now();
+  const pid = Number(platformId);
+  if (!Number.isFinite(pid) || pid <= 0) return null;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO players (
+         platform_id, platform_name, player_name, credit, total_balance, created_at, updated_at
+       ) VALUES ($1, $2, $3, 0, 0, $4, $4)
+       RETURNING id, platform_id, platform_name, player_name, credit, total_balance,
+                 created_at, updated_at, deleted_at, delete_description`,
+      [pid, String(platformName || ""), String(playerName || ""), now],
+    );
+    return _mapPlayerRow(rows?.[0]);
+  } catch (err) {
+    console.warn("[rds] insertPlayerRow:", err.message);
+    return null;
+  }
+}
+
+export async function fetchPlayerById(playerId) {
+  const id = Number(playerId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const pool = getPgPool();
+  if (!pool) return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, platform_id, platform_name, player_name, credit, total_balance,
+              created_at, updated_at, deleted_at, delete_description
+       FROM players WHERE id = $1 AND deleted_at IS NULL`,
+      [id],
+    );
+    return _mapPlayerRow(rows?.[0]);
+  } catch (err) {
+    console.warn("[rds] fetchPlayerById:", err.message);
+    return null;
+  }
+}
+
+export async function insertUserLogRow(userId, title, data) {
+  const uid = String(userId || "").trim();
+  if (!uid) return false;
+  const pool = getPgPool();
+  if (!pool) return false;
+  const now = Date.now();
+  try {
+    await pool.query(
+      `INSERT INTO user_logs (user_id, title, data, create_at)
+       VALUES ($1, $2, $3, $4)`,
+      [uid, String(title || ""), String(data ?? ""), now],
+    );
+    return true;
+  } catch (err) {
+    console.warn("[rds] insertUserLogRow:", err.message);
+    return false;
+  }
+}
+
+export async function updatePlayerBalanceRow(playerId, balance) {
+  const id = Number(playerId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const pool = getPgPool();
+  if (!pool) return null;
+  const now = Date.now();
+  const total = Number(balance) || 0;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE players SET total_balance = $2, updated_at = $3
+       WHERE id = $1 AND deleted_at IS NULL
+       RETURNING id, platform_id, platform_name, player_name, credit, total_balance,
+                 created_at, updated_at, deleted_at, delete_description`,
+      [id, total, now],
+    );
+    const row = _mapPlayerRow(rows?.[0]);
+    if (!row) return null;
+    return {
+      total: row.totalBalance,
+      platformId: row.platformId,
+      platformName: row.platformName,
+    };
+  } catch (err) {
+    console.warn("[rds] updatePlayerBalanceRow:", err.message);
+    return null;
+  }
+}
+
+export async function softDeletePlayerRow(playerId, description) {
+  const id = Number(playerId);
+  if (!Number.isFinite(id) || id <= 0) return false;
+  const pool = getPgPool();
+  if (!pool) return false;
+  const now = Date.now();
+  try {
+    const res = await pool.query(
+      `UPDATE players
+       SET deleted_at = $2, delete_description = $3, updated_at = $2
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [id, now, String(description || "")],
+    );
+    return (res.rowCount ?? 0) > 0;
+  } catch (err) {
+    console.warn("[rds] softDeletePlayerRow:", err.message);
+    return false;
+  }
+}

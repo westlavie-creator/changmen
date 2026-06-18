@@ -344,13 +344,12 @@ export async function listAdminOrders(body = {}) {
   const pageSize = Math.min(200, Math.max(1, Number(body.pageSize) || 50));
   const userId = body.userId ? String(body.userId) : "";
   const provider = body.provider ? String(body.provider) : "";
-  const { rows, total } = await sb.fetchOrdersAdminPage({
+  const filter = {
     dateKey,
     userId: userId || undefined,
     provider: provider || undefined,
-    pageIndex,
-    pageSize,
-  });
+  };
+  const { rows, total } = await sb.fetchOrdersAdminPage({ ...filter, pageIndex, pageSize });
   const list = (rows || []).map((r) => mapAdminOrderRow(r));
   return { date: dateKey, list, total, pageIndex, pageSize };
 }
@@ -364,15 +363,29 @@ export async function deleteAdminOrders(body = {}) {
   return { deleted };
 }
 
+/** 管理端：删除当日筛选范围内的全部外部订单 */
+export async function deleteAdminExternalOrders(body = {}) {
+  const dateKey = body.date ? String(body.date) : toDateKey(Date.now());
+  const userId = body.userId ? String(body.userId) : "";
+  const provider = body.provider ? String(body.provider) : "";
+  const deleted = await sb.deleteExternalOrdersAdmin({
+    dateKey,
+    userId: userId || undefined,
+    provider: provider || undefined,
+  });
+  return { deleted, date: dateKey };
+}
+
 /** 管理端：当日全量订单（对阵矩阵视图） */
 export async function listAdminOrdersMatrix(body = {}) {
   const dateKey = body.date ? String(body.date) : toDateKey(Date.now());
   const provider = body.provider ? String(body.provider) : "";
+  const filter = {
+    dateKey,
+    provider: provider || undefined,
+  };
   const [rows, clientMatches] = await Promise.all([
-    sb.fetchOrdersAdminAll({
-      dateKey,
-      provider: provider || undefined,
-    }),
+    sb.fetchOrdersAdminAll(filter),
     sb.fetchClientMatches(),
   ]);
   const startIndex = buildClientMatchStartIndex(clientMatches);

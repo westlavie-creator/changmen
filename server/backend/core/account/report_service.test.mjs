@@ -1,12 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@changmen/db", () => ({
-  fetchOrdersForMonthAggregate: vi.fn(async () => [
-    { create_at: new Date("2026-06-13T10:00:00").getTime(), money: 100, bet_money: 1000, status: "Win" },
-    { create_at: new Date("2026-06-13T15:00:00").getTime(), money: 50, bet_money: 500, status: "Win" },
-    { create_at: new Date("2026-06-14T12:00:00").getTime(), money: -20, bet_money: 200, status: "Lose" },
-    { create_at: new Date("2026-06-13T18:00:00").getTime(), money: 999, bet_money: 999, status: "Reject" },
-  ]),
+  fetchOrdersForMonthAggregate: vi.fn(async (_month, userId) => {
+    const siteOrders = [
+      { create_at: new Date("2026-06-13T10:00:00").getTime(), money: 100, bet_money: 1000, status: "Win" },
+      { create_at: new Date("2026-06-13T15:00:00").getTime(), money: 50, bet_money: 500, status: "Win" },
+      { create_at: new Date("2026-06-14T12:00:00").getTime(), money: -20, bet_money: 200, status: "Lose" },
+      { create_at: new Date("2026-06-13T18:00:00").getTime(), money: 999, bet_money: 999, status: "Reject" },
+    ];
+    const user2Orders = [
+      { create_at: new Date("2026-06-15T12:00:00").getTime(), money: 200, bet_money: 800, status: "Win" },
+    ];
+    if (userId === "u2") return user2Orders;
+    if (userId) return [];
+    return siteOrders;
+  }),
+  fetchMoneyLogsForMonthAggregate: vi.fn(async (_month, userId) => {
+    if (userId === "u2") {
+      return [{ create_at: new Date("2026-06-15T09:00:00").getTime(), type: "Recharge", money: 200 }];
+    }
+    if (userId) return [];
+    return [];
+  }),
   fetchAllMoneyLogs: vi.fn(async () => [
     { create_at: new Date("2026-06-13T08:00:00").getTime(), type: "Recharge", money: 5000 },
     { create_at: new Date("2026-06-13T20:00:00").getTime(), type: "Withdraw", money: 1000 },
@@ -46,5 +61,15 @@ describe("getMonthReport", () => {
     expect(report.total.Hacked).toBe(30);
     expect(report.total.Wallet).toBe(4200);
     expect(report.total.RealProfit).toBe(100);
+  });
+
+  it("filters by userId when provided", async () => {
+    const report = await getMonthReport("2026-06", "u2");
+    expect(report.userId).toBe("u2");
+    expect(report.total.Profit).toBe(200);
+    expect(report.total.OrderCount).toBe(1);
+    expect(report.total.Deposit).toBe(200);
+    expect(report.total.Withdraw).toBe(0);
+    expect(report.total.Hacked).toBe(0);
   });
 });

@@ -8,88 +8,50 @@
  */
 
 import crypto from "node:crypto";
-import { getDbMode } from "./db_mode.js";
-import { getPgPool as getSharedPgPool } from "./pg_pool.js";
 import { hasDatabaseUrlConfig } from "./resolve_database_url.js";
 import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "./client_match_list_status.js";
-
-const JWT_SECRET = process.env.JWT_SECRET || "";
-
-function parseJwtTtl(raw, fallbackSec) {
-  const s = String(raw || "").trim();
-  if (!s) return fallbackSec;
-  const m = s.match(/^(\d+)([smhd])?$/i);
-  if (!m) return fallbackSec;
-  const n = Number(m[1]);
-  const u = (m[2] || "s").toLowerCase();
-  const mult = { s: 1, m: 60, h: 3600, d: 86400 };
-  return n * (mult[u] || 1);
-}
-
-const JWT_ACCESS_TTL_SEC = parseJwtTtl(process.env.JWT_ACCESS_TTL, 7 * 86400);
-const JWT_REFRESH_TTL_SEC = parseJwtTtl(process.env.JWT_REFRESH_TTL, 30 * 86400);
-
-const _mode = getDbMode();
-
-function getPgPool() {
-  return getSharedPgPool(`GAMEBET_DB_SCRIPT=${_mode.script}`);
-}
-
-
-function signJwt(payload, secret, ttlSec) {
-  const header = { alg: "HS256", typ: "JWT" };
-  const now = Math.floor(Date.now() / 1000);
-  const body = { ...payload, iat: now, exp: now + ttlSec };
-  const h = Buffer.from(JSON.stringify(header)).toString("base64url");
-  const p = Buffer.from(JSON.stringify(body)).toString("base64url");
-  const sig = crypto.createHmac("sha256", secret).update(`${h}.${p}`).digest("base64url");
-  return `${h}.${p}.${sig}`;
-}
-
-function verifyJwt(token, secret) {
-  const parts = String(token || "").split(".");
-  if (parts.length !== 3) return null;
-  const [h, p, sig] = parts;
-  const expected = crypto.createHmac("sha256", secret).update(`${h}.${p}`).digest("base64url");
-  if (sig !== expected) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(p, "base64url").toString("utf8"));
-    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
-    return payload;
-  } catch {
-    return null;
-  }
-}
-
-function decodeJwtPayload(token) {
-  try {
-    const p = String(token || "").split(".")[1];
-    if (!p) return null;
-    return JSON.parse(Buffer.from(p, "base64url").toString("utf8"));
-  } catch {
-    return null;
-  }
-}
-
-/** fire-and-forget 写入 RDS */
-function _writeRds(fn, label = "") {
-  const pool = getPgPool();
-  if (!pool) return;
-  Promise.resolve()
-    .then(() => fn(pool))
-    .catch((err) => console.warn(`[rds${label ? ":" + label : ""}]`, err.message));
-}
-
-async function _writeRdsAsync(fn, label = "") {
-  const pool = getPgPool();
-  if (!pool) return;
-  try {
-    await fn(pool);
-  } catch (err) {
-    console.warn(`[rds${label ? ":" + label : ""}]`, err.message);
-    throw err;
-  }
-}
+import { getPgPool, _writeRds, _writeRdsAsync, _jsonb } from "./rds/common.js";
+import { localDayBounds, localMonthBounds } from "./rds/time_bounds.js";
+/** 读路径默认排除外部单：系统套利 link≥1e12 或单边 link<0 */
+const SQL_NON_EXT = '(link < 0 OR link >= 1000000000000)'
+/** 外部单：官网同步、未 SaveOrderBind */
+const SQL_EXT = '(link IS NULL OR link = 0 OR (link > 0 AND link < 1000000000000))'
+import {
+  JWT_SECRET,
+  JWT_ACCESS_TTL_SEC,
+  JWT_REFRESH_TTL_SEC,
+  signJwt,
+  verifyJwt,
+} from "./rds/jwt.js";
+import {
+  fetchMoneyLogsForMonthAggregate,
+  fetchMoneyLogsByPlayer,
+  fetchMoneyLogById,
+  fetchAllMoneyLogs,
+  upsertMoneyLog,
+  deleteMoneyLogById,
+  deleteMoneyLogsByPlayer,
+} from "./rds/money_log_store.js";
+import {
+  fetchTagPlatforms,
+  upsertTagPlatformByName,
+  insertPlayerRow,
+  fetchPlayerById,
+  updatePlayerBalanceRow,
+  insertUserLogRow,
+  softDeletePlayerRow,
+} from "./rds/player_store.js";
+import {
+  fetchProfiles,
+  fetchProfileById,
+  writeProfile,
+  insertProfile,
+  writeAccounts,
+  fetchProfilesAdmin,
+  writeUserMetadata,
+  updateUserName,
+  updateUserIsAdmin,
+} from "./rds/profile_store.js";
 
 function _mapLiveTimerRows(provider, timer) {
   if (!Array.isArray(timer)) return null;
@@ -108,11 +70,6 @@ function _mapLiveTimerRows(provider, timer) {
     });
   }
   return { plat, rows: [...seen.values()] };
-}
-
-function _jsonb(val, fallback) {
-  if (val == null) return JSON.stringify(fallback ?? null);
-  return JSON.stringify(val);
 }
 
 /** 删除该平台本批快照之外的 platform_matches / platform_bets（对齐 store._matches 整批替换） */
@@ -455,97 +412,6 @@ async function setPlatformMatchId(platform, sourceMatchId, matchId, opts = {}) {
   return { updated: n > 0, skipped: n === 0, conflict: false };
 }
 
-// ── profiles ──────────────────────────────────────────────────────────
-
-const PROFILE_WITH_ADMIN_FROM = `
-  FROM profiles p
-  JOIN users u ON u.id = p.id`;
-
-/** 拉取所有 profiles 到内存（启动时调用） */
-async function fetchProfiles(_sessionClient) {
-  const pool = getPgPool();
-  if (!pool) return [];
-  try {
-    const { rows } = await pool.query(`SELECT p.*, u.is_admin ${PROFILE_WITH_ADMIN_FROM}`);
-    return rows || [];
-  } catch (err) {
-    console.error("[rds] fetchProfiles 失败:", err.message);
-    return [];
-  }
-}
-
-/** 按 uid 读单个 profile */
-async function fetchProfileById(uid) {
-  const pool = getPgPool();
-  if (!pool) return null;
-  try {
-    const { rows } = await pool.query(
-      `SELECT p.*, u.is_admin ${PROFILE_WITH_ADMIN_FROM} WHERE p.id = $1`,
-      [String(uid)],
-    );
-    return rows[0] || null;
-  } catch (err) {
-    console.warn("[rds] fetchProfileById:", err.message);
-    return null;
-  }
-}
-
-/** fire-and-forget：更新 profile 字段 */
-function writeProfile(uid, patch) {
-  const now = Date.now();
-  const pool = getPgPool();
-  if (!pool) return;
-  const jsonbCols = new Set(["accounts", "betting_config", "collect_config", "preferences"]);
-  const keys = Object.keys(patch).filter((k) => k !== "updated_at");
-  if (!keys.length) return;
-  const sets = [];
-  const vals = [String(uid)];
-  for (const k of keys) {
-    vals.push(jsonbCols.has(k) ? _jsonb(patch[k], patch[k]) : patch[k]);
-    sets.push(jsonbCols.has(k) ? `${k} = $${vals.length}::jsonb` : `${k} = $${vals.length}`);
-  }
-  vals.push(now);
-  sets.push(`updated_at = $${vals.length}`);
-  Promise.resolve()
-    .then(() => pool.query(`UPDATE profiles SET ${sets.join(", ")} WHERE id = $1`, vals))
-    .catch((err) => console.warn("[rds:profiles]", err.message));
-}
-
-/** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */
-async function insertProfile(uid, data) {
-  const pool = getPgPool();
-  if (!pool) return false;
-  const rdsArgs = [
-    String(data.id || uid),
-    String(data.user_name || ""),
-    JSON.stringify(data.accounts ?? []),
-    JSON.stringify(data.betting_config ?? {}),
-    JSON.stringify(data.collect_config ?? {}),
-    JSON.stringify(data.preferences ?? {}),
-    Number(data.created_at) || Date.now(),
-    Number(data.updated_at) || Date.now(),
-  ];
-  try {
-    await pool.query(
-      `INSERT INTO profiles (id, user_name, accounts, betting_config, collect_config, preferences, created_at, updated_at)
-       VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8)
-       ON CONFLICT (id) DO NOTHING`,
-      rdsArgs,
-    );
-    return true;
-  } catch (err) {
-    console.warn("[rds] insertProfile:", err.message);
-    return false;
-  }
-}
-
-// ── accounts ──────────────────────────────────────────────────────────
-
-/** fire-and-forget：替换用户账号列表 */
-function writeAccounts(uid, accounts) {
-  writeProfile(uid, { accounts })
-}
-
 // ── client_matches ────────────────────────────────────────────────────
 
 // 上次写入的 id 集合，用于 diff-based 删除，避免每次 rebuild 全表扫描
@@ -816,44 +682,14 @@ async function _rdsUpsertOrders(pool, rows) {
   }
 }
 
-/** YYYY-MM → 本地时区当月 [start, end) 毫秒 */
-function localMonthBounds(monthKey) {
-  const parts = String(monthKey || '').split('-').map(Number)
-  const y = parts[0]
-  const m = parts[1]
-  if (!y || !m) {
-    const now = new Date()
-    return localMonthBounds(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
-  }
-  const monthStart = new Date(y, m - 1, 1, 0, 0, 0, 0).getTime()
-  const monthEnd = new Date(y, m, 1, 0, 0, 0, 0).getTime()
-  return { monthStart, monthEnd }
-}
-
-/** YYYY-MM-DD → 本地时区当日 [start, end) 毫秒 */
-function localDayBounds(dateKey) {
-  const parts = String(dateKey || '').split('-').map(Number)
-  if (parts.length < 3 || parts.some((n) => !Number.isFinite(n))) {
-    const now = Date.now()
-    const start = new Date(now)
-    start.setHours(0, 0, 0, 0)
-    return { dayStart: start.getTime(), dayEnd: start.getTime() + 86400000 }
-  }
-  const [y, m, d] = parts
-  const dayStart = new Date(y, m - 1, d, 0, 0, 0, 0).getTime()
-  const dayEnd = new Date(y, m - 1, d + 1, 0, 0, 0, 0).getTime()
-  return { dayStart, dayEnd }
-}
-
-/** 按日期读取订单（userId 隔离） */
+/** 按日期读取订单（userId 隔离；不含外部单） */
 async function fetchOrdersByDate(date, userId) {
   const { dayStart, dayEnd } = localDayBounds(date)
   const pool = getPgPool()
   if (!pool || !userId) return []
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1 AND create_at >= $2 AND create_at < $3
-       ORDER BY create_at DESC`,
+      `SELECT * FROM orders WHERE user_id = $1 AND create_at >= $2 AND create_at < $3 AND ${SQL_NON_EXT} ORDER BY create_at DESC`,
       [String(userId), dayStart, dayEnd],
     )
     return rows || []
@@ -863,18 +699,34 @@ async function fetchOrdersByDate(date, userId) {
   }
 }
 
-/** 按 playerId 读取订单 */
+/** 按 playerId 读取订单（不含外部单） */
 async function fetchOrdersByPlayer(playerId, userId) {
   const pool = getPgPool()
   if (!pool || !userId) return []
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 ORDER BY create_at DESC`,
+      `SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 AND ${SQL_NON_EXT} ORDER BY create_at DESC`,
       [String(userId), Number(playerId)],
     )
     return rows || []
   } catch (err) {
     console.warn('[rds] fetchOrdersByPlayer:', err.message)
+    return []
+  }
+}
+
+/** saveOrder 保留已有 link 绑定，需含外部单 */
+async function fetchOrdersByPlayerAll(playerId, userId) {
+  const pool = getPgPool()
+  if (!pool || !userId) return []
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 ORDER BY create_at DESC',
+      [String(userId), Number(playerId)],
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchOrdersByPlayerAll:', err.message)
     return []
   }
 }
@@ -893,32 +745,14 @@ async function upsertOrders(rows) {
   }
 }
 
-/** 管理端：全量 profiles 摘要 */
-async function fetchProfilesAdmin() {
-  const pool = getPgPool()
-  if (!pool) return []
-  try {
-    const { rows } = await pool.query(
-      `SELECT p.id, p.user_name, p.accounts, p.betting_config, p.collect_config, p.preferences,
-              p.created_at, p.updated_at, u.is_admin
-       ${PROFILE_WITH_ADMIN_FROM}
-       ORDER BY p.user_name ASC`,
-    )
-    return rows || []
-  } catch (err) {
-    console.warn('[rds] fetchProfilesAdmin:', err.message)
-    return []
-  }
-}
-
-/** 管理端：当日订单汇总 */
+/** 管理端：当日订单汇总（不含外部单） */
 async function fetchOrdersAdminStats(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
   const pool = getPgPool()
   if (!pool) return { count: 0, money: 0, betMoney: 0 }
   try {
     const { rows } = await pool.query(
-      `SELECT money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      `SELECT money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`,
       [dayStart, dayEnd],
     )
     let count = 0
@@ -937,15 +771,21 @@ async function fetchOrdersAdminStats(dateKey) {
   }
 }
 
-/** 管理端：分页订单 */
-async function fetchOrdersAdminPage({ dateKey, userId, provider, pageIndex, pageSize }) {
+/** 管理端：分页订单（不含外部单） */
+async function fetchOrdersAdminPage({
+  dateKey,
+  userId,
+  provider,
+  pageIndex,
+  pageSize,
+}) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
   const from = (Math.max(1, pageIndex) - 1) * pageSize
   const pool = getPgPool()
   if (!pool) return { rows: [], total: 0 }
   try {
     const params = [dayStart, dayEnd]
-    let where = "create_at >= $1 AND create_at < $2"
+    let where = `create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`
     if (userId) {
       params.push(String(userId))
       where += ` AND user_id = $${params.length}`
@@ -968,6 +808,30 @@ async function fetchOrdersAdminPage({ dateKey, userId, provider, pageIndex, page
   }
 }
 
+/** 管理端：按日删除外部订单（官网/未绑定套利 link） */
+async function deleteExternalOrdersAdmin({ dateKey, userId, provider }) {
+  const { dayStart, dayEnd } = localDayBounds(dateKey)
+  const pool = getPgPool()
+  if (!pool) return 0
+  try {
+    const params = [dayStart, dayEnd]
+    let where = `create_at >= $1 AND create_at < $2 AND ${SQL_EXT}`
+    if (userId) {
+      params.push(String(userId))
+      where += ` AND user_id = $${params.length}`
+    }
+    if (provider) {
+      params.push(String(provider))
+      where += ` AND provider = $${params.length}`
+    }
+    const res = await pool.query(`DELETE FROM orders WHERE ${where}`, params)
+    return res.rowCount ?? 0
+  } catch (err) {
+    console.warn('[rds] deleteExternalOrdersAdmin:', err.message)
+    return 0
+  }
+}
+
 /** 管理端：按主键 id 删除订单 */
 async function deleteOrdersByIds(ids) {
   if (!Array.isArray(ids) || !ids.length) return 0
@@ -986,7 +850,7 @@ async function deleteOrdersByIds(ids) {
   }
 }
 
-/** 管理端：当日全量订单（对阵矩阵，上限 5000 条） */
+/** 管理端：当日全量订单（对阵矩阵，上限 5000 条；不含外部单） */
 async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
   const cap = Math.min(5000, Math.max(1, Number(limit) || 5000))
@@ -994,7 +858,7 @@ async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   if (!pool) return []
   try {
     const params = [dayStart, dayEnd]
-    let where = "create_at >= $1 AND create_at < $2"
+    let where = `create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`
     if (provider) {
       params.push(String(provider))
       where += ` AND provider = $${params.length}`
@@ -1011,16 +875,19 @@ async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   }
 }
 
-/** 月报：读取指定月份全部订单聚合字段（全站，非按 user 隔离） */
-async function fetchOrdersForMonthAggregate(monthKey) {
+/** 月报：读取指定月份订单聚合字段；可选 user_id 筛选（不含外部单） */
+async function fetchOrdersForMonthAggregate(monthKey, userId) {
   const { monthStart, monthEnd } = localMonthBounds(monthKey)
   const pool = getPgPool()
   if (!pool) return []
   try {
-    const { rows } = await pool.query(
-      `SELECT create_at, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
-      [monthStart, monthEnd],
-    )
+    const params = [monthStart, monthEnd]
+    let sql = `SELECT create_at, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`
+    if (userId) {
+      params.push(String(userId))
+      sql += ` AND user_id = $${params.length}`
+    }
+    const { rows } = await pool.query(sql, params)
     return rows || []
   } catch (err) {
     console.warn('[rds] fetchOrdersForMonthAggregate:', err.message)
@@ -1028,365 +895,20 @@ async function fetchOrdersForMonthAggregate(monthKey) {
   }
 }
 
-/** 排行榜：按本地自然日读取订单盈利聚合字段 */
+/** 排行榜：按本地自然日读取订单盈利聚合字段（不含外部单） */
 async function fetchOrdersForProfitAggregate(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
   const pool = getPgPool()
   if (!pool) return []
   try {
     const { rows } = await pool.query(
-      `SELECT user_id, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      `SELECT user_id, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`,
       [dayStart, dayEnd],
     )
     return rows || []
   } catch (err) {
     console.warn('[rds] fetchOrdersForProfitAggregate:', err.message)
     return []
-  }
-}
-
-// ── money_logs ────────────────────────────────────────────────────────
-
-async function fetchMoneyLogsByPlayer(playerId, userId) {
-  const pid = Number(playerId)
-  if (!Number.isFinite(pid)) return []
-  const pool = getPgPool()
-  if (!pool) return []
-  try {
-    const params = [pid]
-    let where = 'player_id = $1'
-    if (userId) {
-      params.push(String(userId))
-      where += ` AND user_id = $${params.length}`
-    }
-    const { rows } = await pool.query(
-      `SELECT id, user_id, player_id, type, money, currency, description, is_auto, create_at, updated_at
-       FROM money_logs WHERE ${where} ORDER BY create_at DESC`,
-      params,
-    )
-    return rows || []
-  } catch (err) {
-    console.warn('[rds] fetchMoneyLogsByPlayer:', err.message)
-    return []
-  }
-}
-
-async function fetchMoneyLogById(logId, userId) {
-  const id = Number(logId)
-  if (!Number.isFinite(id) || id <= 0) return null
-  const pool = getPgPool()
-  if (!pool) return null
-  try {
-    const params = [id]
-    let where = 'id = $1'
-    if (userId) {
-      params.push(String(userId))
-      where += ` AND user_id = $${params.length}`
-    }
-    const { rows } = await pool.query(
-      `SELECT id, user_id, player_id, type, money, currency, description, is_auto, create_at, updated_at
-       FROM money_logs WHERE ${where} LIMIT 1`,
-      params,
-    )
-    return rows?.[0] ?? null
-  } catch (err) {
-    console.warn('[rds] fetchMoneyLogById:', err.message)
-    return null
-  }
-}
-
-async function fetchAllMoneyLogs() {
-  const pool = getPgPool()
-  if (!pool) return []
-  try {
-    const { rows } = await pool.query(
-      `SELECT id, player_id, type, money, create_at FROM money_logs ORDER BY create_at DESC`,
-    )
-    return rows || []
-  } catch (err) {
-    console.warn('[rds] fetchAllMoneyLogs:', err.message)
-    return []
-  }
-}
-
-async function _rdsUpsertMoneyLog(pool, row) {
-  const now = Date.now()
-  const payload = {
-    user_id: String(row.user_id),
-    player_id: Number(row.player_id),
-    type: String(row.type || 'Recharge'),
-    money: Number(row.money) || 0,
-    currency: String(row.currency || 'CNY'),
-    description: String(row.description || ''),
-    is_auto: Number(row.is_auto) ? 1 : 0,
-    create_at: Number(row.create_at) || now,
-    updated_at: Number(row.updated_at) || now,
-  }
-  const id = Number(row.id) || 0
-  if (id > 0) {
-    const { rows } = await pool.query(
-      `INSERT INTO money_logs (id, user_id, player_id, type, money, currency, description, is_auto, create_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       ON CONFLICT (id) DO UPDATE SET
-         type = EXCLUDED.type,
-         money = EXCLUDED.money,
-         currency = EXCLUDED.currency,
-         description = EXCLUDED.description,
-         is_auto = EXCLUDED.is_auto,
-         create_at = EXCLUDED.create_at,
-         updated_at = EXCLUDED.updated_at
-       RETURNING *`,
-      [
-        id,
-        payload.user_id,
-        payload.player_id,
-        payload.type,
-        payload.money,
-        payload.currency,
-        payload.description,
-        payload.is_auto,
-        payload.create_at,
-        payload.updated_at,
-      ],
-    )
-    return rows?.[0] ?? null
-  }
-  const { rows } = await pool.query(
-    `INSERT INTO money_logs (user_id, player_id, type, money, currency, description, is_auto, create_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-    [
-      payload.user_id,
-      payload.player_id,
-      payload.type,
-      payload.money,
-      payload.currency,
-      payload.description,
-      payload.is_auto,
-      payload.create_at,
-      payload.updated_at,
-    ],
-  )
-  return rows?.[0] ?? null
-}
-
-async function upsertMoneyLog(row) {
-  if (!row?.user_id || row?.player_id == null) return null
-  const now = Date.now()
-  const payload = {
-    user_id: String(row.user_id),
-    player_id: Number(row.player_id),
-    type: String(row.type || 'Recharge'),
-    money: Number(row.money) || 0,
-    currency: String(row.currency || 'CNY'),
-    description: String(row.description || ''),
-    is_auto: Number(row.is_auto) ? 1 : 0,
-    create_at: Number(row.create_at) || now,
-    updated_at: Number(row.updated_at) || now,
-  }
-  const id = Number(row.id) || 0
-  const pool = getPgPool()
-  if (!pool) return null
-  try {
-    return await _rdsUpsertMoneyLog(pool, { id: id || undefined, ...payload })
-  } catch (err) {
-    console.warn('[rds] upsertMoneyLog:', err.message)
-    return null
-  }
-}
-
-async function deleteMoneyLogById(logId, userId) {
-  const id = Number(logId)
-  if (!Number.isFinite(id) || id <= 0) return false
-  const pool = getPgPool()
-  if (!pool) return false
-  try {
-    const params = [id]
-    let where = 'id = $1'
-    if (userId) {
-      params.push(String(userId))
-      where += ` AND user_id = $${params.length}`
-    }
-    const res = await pool.query(`DELETE FROM money_logs WHERE ${where}`, params)
-    return (res.rowCount ?? 0) > 0
-  } catch (err) {
-    console.warn('[rds] deleteMoneyLogById:', err.message)
-    return false
-  }
-}
-
-async function deleteMoneyLogsByPlayer(playerId) {
-  const pid = Number(playerId)
-  if (!Number.isFinite(pid)) return false
-  const pool = getPgPool()
-  if (!pool) return false
-  try {
-    const res = await pool.query('DELETE FROM money_logs WHERE player_id = $1', [pid])
-    return (res.rowCount ?? 0) > 0
-  } catch (err) {
-    console.warn('[rds] deleteMoneyLogsByPlayer:', err.message)
-    return false
-  }
-}
-
-// ── tag_platforms / players（原 storage/*.json）────────────────────────
-
-function _mapPlayerRow(row) {
-  if (!row) return null
-  return {
-    id: Number(row.id),
-    playerId: Number(row.id),
-    platformId: Number(row.platform_id),
-    platformName: String(row.platform_name || ''),
-    playerName: String(row.player_name || ''),
-    credit: Number(row.credit) || 0,
-    totalBalance: Number(row.total_balance) || 0,
-    createdAt: Number(row.created_at) || 0,
-    updatedAt: Number(row.updated_at) || 0,
-    deletedAt: row.deleted_at != null ? Number(row.deleted_at) : null,
-    deleteDescription: String(row.delete_description || ''),
-  }
-}
-
-async function fetchTagPlatforms() {
-  const pool = getPgPool()
-  if (!pool) return []
-  try {
-    const { rows } = await pool.query(
-      'SELECT id, name FROM tag_platforms ORDER BY id ASC',
-    )
-    return rows || []
-  } catch (err) {
-    console.warn('[rds] fetchTagPlatforms:', err.message)
-    return []
-  }
-}
-
-async function upsertTagPlatformByName(name) {
-  const label = String(name || '').trim()
-  if (!label) return null
-  const pool = getPgPool()
-  if (!pool) return null
-  const now = Date.now()
-  try {
-    const { rows } = await pool.query(
-      `INSERT INTO tag_platforms (name, created_at, updated_at)
-       VALUES ($1, $2, $2)
-       ON CONFLICT (name) DO UPDATE SET updated_at = EXCLUDED.updated_at
-       RETURNING id, name`,
-      [label, now],
-    )
-    return rows?.[0] ?? null
-  } catch (err) {
-    console.warn('[rds] upsertTagPlatformByName:', err.message)
-    return null
-  }
-}
-
-async function insertPlayerRow({ platformId, platformName, playerName }) {
-  const pool = getPgPool()
-  if (!pool) return null
-  const now = Date.now()
-  const pid = Number(platformId)
-  if (!Number.isFinite(pid) || pid <= 0) return null
-  try {
-    const { rows } = await pool.query(
-      `INSERT INTO players (
-         platform_id, platform_name, player_name, credit, total_balance, created_at, updated_at
-       ) VALUES ($1, $2, $3, 0, 0, $4, $4)
-       RETURNING id, platform_id, platform_name, player_name, credit, total_balance,
-                 created_at, updated_at, deleted_at, delete_description`,
-      [pid, String(platformName || ''), String(playerName || ''), now],
-    )
-    return _mapPlayerRow(rows?.[0])
-  } catch (err) {
-    console.warn('[rds] insertPlayerRow:', err.message)
-    return null
-  }
-}
-
-async function fetchPlayerById(playerId) {
-  const id = Number(playerId)
-  if (!Number.isFinite(id) || id <= 0) return null
-  const pool = getPgPool()
-  if (!pool) return null
-  try {
-    const { rows } = await pool.query(
-      `SELECT id, platform_id, platform_name, player_name, credit, total_balance,
-              created_at, updated_at, deleted_at, delete_description
-       FROM players WHERE id = $1 AND deleted_at IS NULL`,
-      [id],
-    )
-    return _mapPlayerRow(rows?.[0])
-  } catch (err) {
-    console.warn('[rds] fetchPlayerById:', err.message)
-    return null
-  }
-}
-
-async function insertUserLogRow(userId, title, data) {
-  const uid = String(userId || '').trim()
-  if (!uid) return false
-  const pool = getPgPool()
-  if (!pool) return false
-  const now = Date.now()
-  try {
-    await pool.query(
-      `INSERT INTO user_logs (user_id, title, data, create_at)
-       VALUES ($1, $2, $3, $4)`,
-      [uid, String(title || ''), String(data ?? ''), now],
-    )
-    return true
-  } catch (err) {
-    console.warn('[rds] insertUserLogRow:', err.message)
-    return false
-  }
-}
-
-async function updatePlayerBalanceRow(playerId, balance) {
-  const id = Number(playerId)
-  if (!Number.isFinite(id) || id <= 0) return null
-  const pool = getPgPool()
-  if (!pool) return null
-  const now = Date.now()
-  const total = Number(balance) || 0
-  try {
-    const { rows } = await pool.query(
-      `UPDATE players SET total_balance = $2, updated_at = $3
-       WHERE id = $1 AND deleted_at IS NULL
-       RETURNING id, platform_id, platform_name, player_name, credit, total_balance,
-                 created_at, updated_at, deleted_at, delete_description`,
-      [id, total, now],
-    )
-    const row = _mapPlayerRow(rows?.[0])
-    if (!row) return null
-    return {
-      total: row.totalBalance,
-      platformId: row.platformId,
-      platformName: row.platformName,
-    }
-  } catch (err) {
-    console.warn('[rds] updatePlayerBalanceRow:', err.message)
-    return null
-  }
-}
-
-async function softDeletePlayerRow(playerId, description) {
-  const id = Number(playerId)
-  if (!Number.isFinite(id) || id <= 0) return false
-  const pool = getPgPool()
-  if (!pool) return false
-  const now = Date.now()
-  try {
-    const res = await pool.query(
-      `UPDATE players
-       SET deleted_at = $2, delete_description = $3, updated_at = $2
-       WHERE id = $1 AND deleted_at IS NULL`,
-      [id, now, String(description || '')],
-    )
-    return (res.rowCount ?? 0) > 0
-  } catch (err) {
-    console.warn('[rds] softDeletePlayerRow:', err.message)
-    return false
   }
 }
 
@@ -1558,78 +1080,6 @@ async function authRefreshToken(refreshToken) {
   }
 }
 
-/** 写入 user metadata（fire-and-forget；单 session 请用 setActiveSessionId） */
-function writeUserMetadata(userId, metadata) {
-  const pool = getPgPool();
-  if (!pool) return;
-  Promise.resolve()
-    .then(() =>
-      pool.query(
-        "UPDATE users SET metadata = metadata || $2::jsonb, updated_at = $3 WHERE id = $1",
-        [String(userId), JSON.stringify(metadata || {}), Date.now()],
-      ),
-    )
-    .catch((err) => console.warn("[rds] writeUserMetadata:", err.message));
-}
-
-/** 更新登录用户名（users + profiles 同步） */
-async function updateUserName(userId, userName) {
-  const pool = getPgPool();
-  if (!pool) return false;
-  const id = String(userId);
-  const name = String(userName);
-  const now = Date.now();
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const u = await client.query(
-      "UPDATE users SET user_name = $2, updated_at = $3 WHERE id = $1",
-      [id, name, now],
-    );
-    if (!u.rowCount) {
-      await client.query("ROLLBACK");
-      return false;
-    }
-    const p = await client.query(
-      "UPDATE profiles SET user_name = $2, updated_at = $3 WHERE id = $1",
-      [id, name, now],
-    );
-    if (!p.rowCount) {
-      await client.query("ROLLBACK");
-      return false;
-    }
-    await client.query("COMMIT");
-    return true;
-  } catch (err) {
-    await client.query("ROLLBACK");
-    if (err.code === "23505") {
-      const dup = new Error("用户名已存在");
-      dup.code = "DUPLICATE_USER_NAME";
-      throw dup;
-    }
-    console.warn("[rds] updateUserName:", err.message);
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-
-/** 更新用户管理员标志 */
-async function updateUserIsAdmin(userId, isAdmin) {
-  const pool = getPgPool();
-  if (!pool) return false;
-  try {
-    const { rowCount } = await pool.query(
-      `UPDATE users SET is_admin = $2, updated_at = $3 WHERE id = $1`,
-      [String(userId), Boolean(isAdmin), Date.now()],
-    );
-    return rowCount > 0;
-  } catch (err) {
-    console.warn("[rds] updateUserIsAdmin:", err.message);
-    return false;
-  }
-}
-
 function hasAdminAccess() {
   return !!getPgPool()
 }
@@ -1672,12 +1122,15 @@ export {
   purgePlatformLiveTimers,
   fetchOrdersByDate,
   fetchOrdersByPlayer,
+  fetchOrdersByPlayerAll,
   fetchProfilesAdmin,
   fetchOrdersAdminStats,
   fetchOrdersAdminPage,
   deleteOrdersByIds,
+  deleteExternalOrdersAdmin,
   fetchOrdersAdminAll,
   fetchOrdersForMonthAggregate,
+  fetchMoneyLogsForMonthAggregate,
   fetchOrdersForProfitAggregate,
   fetchMoneyLogsByPlayer,
   fetchMoneyLogById,

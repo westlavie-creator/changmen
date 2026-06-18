@@ -44,6 +44,12 @@ const router = createRouter({
       component: () => import("@/views/AdminOrdersMatrixView.vue"),
       meta: { requiresAdmin: true },
     },
+    {
+      path: "/admin/reports",
+      name: "admin-reports",
+      component: () => import("@/views/AdminReportsView.vue"),
+      meta: { requiresAdmin: true },
+    },
   ],
 });
 

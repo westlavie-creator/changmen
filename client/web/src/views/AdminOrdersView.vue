@@ -4,8 +4,10 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminOrdersGroupedTable from "@/components/admin/AdminOrdersGroupedTable.vue";
-import { deleteAdminOrders, getAdminOrders, getAdminUsers } from "@/api/admin";
+import OrderDateNav from "@/components/order/OrderDateNav.vue";
+import { deleteAdminExternalOrders, deleteAdminOrders, getAdminOrdersAll, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
+import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
 
 const route = useRoute();
@@ -17,9 +19,6 @@ const filterUserId = ref(String(route.query.userId || ""));
 const filterProvider = ref("");
 const loading = ref(false);
 const orders = ref<AdminOrderRow[]>([]);
-const orderTotal = ref(0);
-const orderPage = ref(1);
-const orderPageSize = ref(50);
 const users = ref<AdminUserRow[]>([]);
 const loadError = ref("");
 
@@ -56,22 +55,15 @@ const orderGroups = computed(() => {
   });
 });
 
-function todayKey() {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
+const profitTotal = computed(() =>
+  orderGroups.value.reduce(
+    (sum, [, rows]) => sum + rows.reduce((s, r) => s + (Number(r.money) || 0), 0),
+    0,
+  ),
+);
 
-function shiftDateKey(key: string, deltaDays: number) {
-  const parts = String(key || todayKey()).split("-").map(Number);
-  if (parts.length < 3) return todayKey();
-  const [y, m, d] = parts;
-  const dt = new Date(y, m - 1, d);
-  dt.setDate(dt.getDate() + deltaDays);
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  return `${dt.getFullYear()}-${mm}-${dd}`;
+function fmtMoney(n: number) {
+  return Math.floor(n).toLocaleString();
 }
 
 async function loadUsers() {
@@ -86,18 +78,14 @@ async function loadOrders() {
   loading.value = true;
   loadError.value = "";
   try {
-    const page = await getAdminOrders({
+    const page = await getAdminOrdersAll({
       date: date.value,
-      pageIndex: orderPage.value,
-      pageSize: orderPageSize.value,
       userId: filterUserId.value || undefined,
       provider: filterProvider.value || undefined,
     });
     orders.value = page.list ?? [];
-    orderTotal.value = page.total;
   } catch (e) {
     orders.value = [];
-    orderTotal.value = 0;
     loadError.value = (e as Error).message || "加载失败";
   } finally {
     loading.value = false;
@@ -120,7 +108,6 @@ function syncRouteQuery() {
 }
 
 function onSearch() {
-  orderPage.value = 1;
   syncRouteQuery();
   void loadOrders();
 }
@@ -150,8 +137,42 @@ async function onDeleteOrders(rows: AdminOrderRow[]) {
   }
 }
 
+async function onDeleteAllExternalOrders() {
+  const scopeParts = [date.value];
+  if (filterUserId.value) scopeParts.push(filterUserName.value || "指定用户");
+  if (filterProvider.value) scopeParts.push(`平台 ${filterProvider.value}`);
+  const scope = scopeParts.join(" · ");
+  try {
+    await ElMessageBox.confirm(
+      `将删除 ${scope} 下全部外部订单（官网/未绑定 link，不限当前页）。系统套利与单边订单不受影响。此操作不可恢复。`,
+      "删除全部外部订单",
+      {
+        type: "warning",
+        confirmButtonText: "全部删除",
+        cancelButtonText: "取消",
+      },
+    );
+  } catch {
+    return;
+  }
+  try {
+    const res = await deleteAdminExternalOrders({
+      date: date.value,
+      userId: filterUserId.value || undefined,
+      provider: filterProvider.value || undefined,
+    });
+    if (!res.deleted) {
+      ElMessage.info("没有可删除的外部订单");
+    } else {
+      ElMessage.success(`已删除 ${res.deleted} 笔外部订单`);
+    }
+    await loadOrders();
+  } catch (e) {
+    ElMessage.error((e as Error).message || "删除失败");
+  }
+}
+
 watch(date, () => {
-  orderPage.value = 1;
   syncRouteQuery();
   void refresh();
 });
@@ -178,14 +199,7 @@ onMounted(async () => {
   <AdminLayout :title="pageTitle" subtitle="按日期、用户与平台筛选订单">
     <section class="admin-card admin-card--orders" v-loading="loading">
         <div class="admin-card__toolbar admin-orders-filters">
-          <el-date-picker
-            v-model="date"
-            type="date"
-            value-format="YYYY-MM-DD"
-            size="small"
-            placeholder="统计日期"
-            style="width: 150px"
-          />
+          <OrderDateNav v-model="date" placeholder="统计日期" />
           <el-select
             v-model="filterUserId"
             clearable
@@ -212,8 +226,16 @@ onMounted(async () => {
           />
           <el-button size="small" type="primary" @click="onSearch">查询</el-button>
           <el-button size="small" @click="date = todayKey()">今天</el-button>
-          <el-button size="small" @click="date = shiftDateKey(date, -1)">昨天</el-button>
           <el-button size="small" @click="refresh">刷新</el-button>
+          <el-button
+            size="small"
+            type="danger"
+            plain
+            :disabled="loading"
+            @click="onDeleteAllExternalOrders"
+          >
+            删除全部外部订单
+          </el-button>
         </div>
         <div class="admin-card__body admin-card__scroll">
         <p v-if="loadError" class="admin-order-groups__empty admin-order-groups__empty--err">
@@ -228,20 +250,22 @@ onMounted(async () => {
             @delete="onDeleteOrders"
           />
           <p v-if="!loading && !loadError && !orderGroups.length" class="admin-order-groups__empty">
-            {{ date }} 暂无订单。可点「昨天」查看近期数据；若应有数据仍为空，请确认服务器
+            {{ date }} 暂无订单。可切换日期查看；若应有数据仍为空，请确认服务器
             <code>GAMEBET_DB_SCRIPT=rds</code> 且已重启后端。
           </p>
         </div>
         </div>
-        <div class="admin-orders-pager">
-          <el-pagination
-            v-model:current-page="orderPage"
-            :page-size="orderPageSize"
-            :total="orderTotal"
-            layout="total, prev, pager, next"
-            small
-            @current-change="loadOrders"
-          />
+        <div v-if="orderGroups.length" class="admin-orders-profit-summary">
+          <span class="admin-orders-profit-summary__label">利润合计</span>
+          <span
+            class="admin-orders-profit-summary__value"
+            :class="{ pos: profitTotal > 0, neg: profitTotal < 0 }"
+          >
+            {{ fmtMoney(profitTotal) }}
+          </span>
+          <span class="admin-orders-profit-summary__meta">
+            {{ orderGroups.length }} 个 Link · {{ orders.length }} 笔订单
+          </span>
         </div>
       </section>
   </AdminLayout>

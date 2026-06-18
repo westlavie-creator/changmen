@@ -76,7 +76,7 @@ export async function listByPlayer(playerId, userId) {
 
 export async function saveOrder(playerId, orders, userId) {
   if (!userId || !Array.isArray(orders)) return false;
-  const existing = await sb.fetchOrdersByPlayer(playerId, userId);
+  const existing = await sb.fetchOrdersByPlayerAll(playerId, userId);
   const linkByOrderId = new Map(
     existing.map((r) => [String(r.order_id), Number(r.link) || 0]),
   );

@@ -13,24 +13,38 @@ const emit = defineEmits<{
   delete: [rows: AdminOrderRow[]];
 }>();
 
-interface OrderGroupRow {
-  id: string;
-  key: number;
-  rows: AdminOrderRow[];
+interface FlatOrderRow {
+  rowKey: string;
+  groupKey: number;
+  groupIndex: number;
+  groupSize: number;
+  groupRowIndex: number;
   linkId: number;
+  order: AdminOrderRow;
+  groupRows: AdminOrderRow[];
 }
 
-const tableRows = computed<OrderGroupRow[]>(() =>
-  props.groups.map(([key, rows]) => {
+const SPAN_COLUMN_LABELS = new Set(["LinkID", "Link利润", "操作"]);
+
+const flatRows = computed<FlatOrderRow[]>(() => {
+  const result: FlatOrderRow[] = [];
+  props.groups.forEach(([key, rows], groupIndex) => {
     const sorted = [...rows].sort((a, b) => a.createAt - b.createAt);
-    return {
-      id: `group-${key}`,
-      key,
-      rows: sorted,
-      linkId: sorted[0]?.linkId || 0,
-    };
-  }),
-);
+    sorted.forEach((order, groupRowIndex) => {
+      result.push({
+        rowKey: `${key}-${order.id}`,
+        groupKey: key,
+        groupIndex,
+        groupSize: sorted.length,
+        groupRowIndex,
+        linkId: sorted[0]?.linkId || 0,
+        order,
+        groupRows: sorted,
+      });
+    });
+  });
+  return result;
+});
 
 function linkSourceTag(linkId: number | undefined) {
   const source = classifyLinkId(linkId);
@@ -89,23 +103,38 @@ function userLabel(row: AdminOrderRow) {
   return props.userNameById?.get(row.userId) || row.userId.slice(0, 8);
 }
 
-function rowClassName({ row }: { row: OrderGroupRow }) {
-  return groupIsLinked(row.rows)
-    ? "admin-order-group-row admin-order-group-row--paired"
-    : "admin-order-group-row";
+function rowClassName({ row }: { row: FlatOrderRow }) {
+  const classes = ["admin-order-group-row"];
+  if (row.groupIndex % 2 === 1) classes.push("admin-order-group-row--alt");
+  if (row.groupRowIndex > 0) classes.push("admin-order-group-row--inner");
+  if (row.groupRowIndex === row.groupSize - 1) classes.push("admin-order-group-row--group-end");
+  return classes.join(" ");
+}
+
+function spanMethod({
+  row,
+  column,
+}: {
+  row: FlatOrderRow;
+  column: { label?: string };
+}) {
+  const label = column.label || "";
+  if (!SPAN_COLUMN_LABELS.has(label)) return { rowspan: 1, colspan: 1 };
+  if (row.groupRowIndex === 0) return { rowspan: row.groupSize, colspan: 1 };
+  return { rowspan: 0, colspan: 0 };
 }
 </script>
 
 <template>
   <el-table
-    :data="tableRows"
-    row-key="id"
+    :data="flatRows"
+    row-key="rowKey"
     size="small"
-    stripe
     class="admin-orders-el-table"
     :row-class-name="rowClassName"
+    :span-method="spanMethod"
   >
-    <el-table-column label="LinkID" width="168" fixed="left" show-overflow-tooltip>
+    <el-table-column label="LinkID" width="168" fixed="left" class-name="admin-order-cell--link">
       <template #default="{ row }">
         <div class="admin-order-link-cell">
           <div class="admin-order-link-cell__id">{{ formatLinkId(row.linkId) }}</div>
@@ -119,123 +148,80 @@ function rowClassName({ row }: { row: OrderGroupRow }) {
             >{{ src!.label }}</span>
             <span
               class="admin-order-group-bar__type"
-              :class="{ 'admin-order-group-bar__type--arb': groupIsLinked(row.rows) }"
+              :class="{ 'admin-order-group-bar__type--arb': groupIsLinked(row.groupRows) }"
             >
-              {{ groupMetaLabel(row.rows) }}
+              {{ groupMetaLabel(row.groupRows) }}
             </span>
           </div>
         </div>
       </template>
     </el-table-column>
-    <el-table-column label="OrderID" min-width="168" show-overflow-tooltip>
+    <el-table-column label="OrderID" width="140" show-overflow-tooltip>
       <template #default="{ row }">
-        <div class="admin-order-stack">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
-            <span class="admin-order-mono">{{ o.orderId || "—" }}</span>
-          </div>
-        </div>
+        <span class="admin-order-mono">{{ row.order.orderId || "—" }}</span>
       </template>
     </el-table-column>
     <el-table-column v-if="showUserColumn" label="用户" width="100" show-overflow-tooltip>
-      <template #default="{ row }">
-        <div class="admin-order-stack">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
-            {{ userLabel(o) }}
-          </div>
-        </div>
-      </template>
+      <template #default="{ row }">{{ userLabel(row.order) }}</template>
     </el-table-column>
-    <el-table-column label="平台" width="72" align="center">
+    <el-table-column label="平台" width="72" align="center" class-name="admin-order-cell--center">
       <template #default="{ row }">
-        <div class="admin-order-stack">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
-            <span class="admin-order-provider">{{ o.provider }}</span>
-          </div>
-        </div>
+        <span class="admin-order-provider">{{ row.order.provider }}</span>
       </template>
     </el-table-column>
     <el-table-column label="比赛" min-width="160" show-overflow-tooltip>
-      <template #default="{ row }">
-        <div class="admin-order-stack">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">{{ o.match }}</div>
-        </div>
-      </template>
+      <template #default="{ row }">{{ row.order.match }}</template>
     </el-table-column>
     <el-table-column label="盘口" min-width="140" show-overflow-tooltip>
-      <template #default="{ row }">
-        <div class="admin-order-stack">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">{{ o.bet }}</div>
-        </div>
-      </template>
+      <template #default="{ row }">{{ row.order.bet }}</template>
     </el-table-column>
     <el-table-column label="选项" width="100" show-overflow-tooltip>
+      <template #default="{ row }">{{ row.order.item }}</template>
+    </el-table-column>
+    <el-table-column label="赔率" width="84" align="right" class-name="admin-order-cell--num">
       <template #default="{ row }">
-        <div class="admin-order-stack">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">{{ o.item }}</div>
-        </div>
+        <span class="admin-order-num">{{ row.order.odds }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="赔率" width="72" align="right">
+    <el-table-column label="投注" width="88" align="right" class-name="admin-order-cell--num">
       <template #default="{ row }">
-        <div class="admin-order-stack admin-order-stack--num">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
-            <span class="admin-order-num">{{ o.odds }}</span>
-          </div>
-        </div>
+        <span class="admin-order-num">{{ fmtMoney(row.order.betMoney) }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="投注" width="88" align="right">
+    <el-table-column label="单笔盈利" width="96" align="right" class-name="admin-order-cell--num">
       <template #default="{ row }">
-        <div class="admin-order-stack admin-order-stack--num">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
-            <span class="admin-order-num">{{ fmtMoney(o.betMoney) }}</span>
-          </div>
-        </div>
+        <span
+          class="admin-order-num"
+          :class="{ pos: row.order.money > 0, neg: row.order.money < 0 }"
+        >
+          {{ fmtMoney(row.order.money) }}
+        </span>
       </template>
     </el-table-column>
-    <el-table-column label="盈利" width="96" align="right">
+    <el-table-column label="Link利润" width="96" align="right" class-name="admin-order-cell--num admin-order-cell--group">
       <template #default="{ row }">
-        <div class="admin-order-stack admin-order-stack--num">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
-            <span class="admin-order-num" :class="{ pos: o.money > 0, neg: o.money < 0 }">
-              {{ fmtMoney(o.money) }}
-            </span>
-          </div>
-          <div
-            v-if="row.rows.length > 1"
-            class="admin-order-stack__sum"
-            :class="groupProfitClass(row.rows)"
-          >
-            合计 {{ fmtMoney(groupProfit(row.rows)) }}
-          </div>
-        </div>
+        <span class="admin-order-link-profit" :class="groupProfitClass(row.groupRows)">
+          {{ fmtMoney(groupProfit(row.groupRows)) }}
+        </span>
       </template>
     </el-table-column>
-    <el-table-column label="状态" width="88" align="center">
+    <el-table-column label="状态" width="88" align="center" class-name="admin-order-cell--center">
       <template #default="{ row }">
-        <div class="admin-order-stack">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line">
-            <span class="admin-badge" :class="statusBadgeClass(o.status)">{{ o.status }}</span>
-          </div>
-        </div>
+        <span class="admin-badge" :class="statusBadgeClass(row.order.status)">{{ row.order.status }}</span>
       </template>
     </el-table-column>
     <el-table-column label="时间" width="160" show-overflow-tooltip>
       <template #default="{ row }">
-        <div class="admin-order-stack">
-          <div v-for="o in row.rows" :key="o.id" class="admin-order-stack__line admin-order-time">
-            {{ fmtTime(o.createAt) }}
-          </div>
-        </div>
+        <span class="admin-order-time">{{ fmtTime(row.order.createAt) }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="操作" width="72" align="center" fixed="right">
+    <el-table-column label="操作" width="72" align="center" fixed="right" class-name="admin-order-cell--center admin-order-cell--action">
       <template #default="{ row }">
         <el-button
           link
           type="danger"
           size="small"
-          @click="emit('delete', row.rows)"
+          @click="emit('delete', row.groupRows)"
         >
           删除
         </el-button>

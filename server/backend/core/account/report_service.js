@@ -39,16 +39,17 @@ function finalizeRow(row) {
   return row;
 }
 
-/** 全站月报：orders 表 + money_logs 表 */
-export async function getMonthReport(month) {
+/** 月报：orders + money_logs；userId 可选（管理后台按用户筛选） */
+export async function getMonthReport(month, userId) {
   const { month: m, year, mon, days } = monthBounds(month);
+  const uid = userId ? String(userId).trim() : "";
   const byDate = new Map();
   for (let day = 1; day <= days; day += 1) {
     const key = dateKeyForDay(year, mon, day);
     byDate.set(key, emptyReportRow(new Date(year, mon - 1, day)));
   }
 
-  const orders = await sb.fetchOrdersForMonthAggregate(m);
+  const orders = await sb.fetchOrdersForMonthAggregate(m, uid || undefined);
   for (const o of orders || []) {
     if (String(o.status || "") === "Reject") continue;
     const key = toDateKey(o.create_at);
@@ -59,7 +60,10 @@ export async function getMonthReport(month) {
     row.OrderCount += 1;
   }
 
-  for (const log of await sb.fetchAllMoneyLogs()) {
+  const moneyLogs = uid
+    ? await sb.fetchMoneyLogsForMonthAggregate(m, uid)
+    : await sb.fetchAllMoneyLogs();
+  for (const log of moneyLogs || []) {
     const key = toDateKey(log.create_at);
     const row = byDate.get(key);
     if (!row) continue;
@@ -80,5 +84,5 @@ export async function getMonthReport(month) {
     for (const k of sumKeys) total[k] += row[k];
   }
   finalizeRow(total);
-  return { month: m, list, total };
+  return { month: m, userId: uid || undefined, list, total };
 }

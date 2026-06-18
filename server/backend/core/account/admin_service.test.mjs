@@ -23,6 +23,7 @@ vi.mock("@changmen/db", () => ({
   })),
   updateUserName: vi.fn(async () => true),
   deleteOrdersByIds: vi.fn(async (ids) => ids.length),
+  deleteExternalOrdersAdmin: vi.fn(async () => 3),
 }));
 
 vi.mock("../db/store.js", () => ({
@@ -30,6 +31,7 @@ vi.mock("../db/store.js", () => ({
 }));
 
 import {
+  deleteAdminExternalOrders,
   deleteAdminOrders,
   listAdminOrders,
   profileSettingForAdmin,
@@ -120,6 +122,18 @@ describe("deleteAdminOrders", () => {
 
   it("rejects empty ids", async () => {
     await expect(deleteAdminOrders({ orderIds: [] })).rejects.toThrow("删除失败");
+  });
+});
+
+describe("deleteAdminExternalOrders", () => {
+  it("deletes external orders for date and filters", async () => {
+    const result = await deleteAdminExternalOrders({
+      date: "2026-06-13",
+      userId: "u1",
+      provider: "OB",
+    });
+    expect(result.deleted).toBe(3);
+    expect(result.date).toBe("2026-06-13");
   });
 });
 

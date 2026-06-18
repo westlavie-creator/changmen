@@ -22,6 +22,12 @@ const navItems = [
     icon: "am-icon-th",
     to: { name: "admin-orders-matrix" as const },
   },
+  {
+    name: "admin-reports",
+    label: "报表查询",
+    icon: "am-icon-bar-chart",
+    to: { name: "admin-reports" as const },
+  },
 ];
 
 const activeTab = computed(() => String(route.name || ""));

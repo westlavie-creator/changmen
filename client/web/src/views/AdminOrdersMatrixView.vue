@@ -2,8 +2,10 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
+import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { getAdminOrdersMatrix, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
+import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
 import { formatDate, formatLinkId } from "@/shared/format";
 import {
@@ -66,24 +68,6 @@ function linkGroupStatusLabel(g: LinkOrderGroup) {
 function linkIdLabel(g: LinkOrderGroup | null) {
   if (!g) return "—";
   return formatLinkId(g.linkId);
-}
-
-function todayKey() {
-  const d = new Date();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
-function shiftDateKey(key: string, deltaDays: number) {
-  const parts = String(key || todayKey()).split("-").map(Number);
-  if (parts.length < 3) return todayKey();
-  const [y, m, d] = parts;
-  const dt = new Date(y, m - 1, d);
-  dt.setDate(dt.getDate() + deltaDays);
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  return `${dt.getFullYear()}-${mm}-${dd}`;
 }
 
 function fmtTime(ts: number) {
@@ -244,14 +228,7 @@ onMounted(async () => {
   >
     <section class="admin-card admin-orders-matrix" v-loading="loading">
       <div class="admin-card__toolbar admin-orders-filters">
-        <el-date-picker
-          v-model="date"
-          type="date"
-          value-format="YYYY-MM-DD"
-          size="small"
-          placeholder="统计日期"
-          style="width: 150px"
-        />
+        <OrderDateNav v-model="date" placeholder="统计日期" />
         <el-input
           v-model="filterProvider"
           clearable
@@ -262,7 +239,6 @@ onMounted(async () => {
         />
         <el-button size="small" type="primary" @click="onSearch">查询</el-button>
         <el-button size="small" @click="date = todayKey()">今天</el-button>
-        <el-button size="small" @click="date = shiftDateKey(date, -1)">昨天</el-button>
         <el-button size="small" @click="refresh">刷新</el-button>
         <span class="admin-orders-matrix__meta">
           {{ linkGroupTotal }} 组 · {{ orderTotal }} 笔 · {{ matchGroupCount }} 场 ·
@@ -276,7 +252,7 @@ onMounted(async () => {
       </p>
 
       <p v-else-if="!loading && !orders.length" class="admin-order-groups__empty">
-        {{ date }} 暂无订单。可点「昨天」查看近期数据；若应有数据仍为空，请确认服务器
+        {{ date }} 暂无订单。可切换日期查看；若应有数据仍为空，请确认服务器
         <code>GAMEBET_DB_SCRIPT=rds</code> 且已重启后端。
       </p>
 

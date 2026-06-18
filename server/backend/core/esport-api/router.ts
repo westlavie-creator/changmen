@@ -68,6 +68,8 @@ const ADMIN_ACTIONS = new Set<EsportAction>([
   "Client_AdminRenameUser",
   "Client_AdminSetUserAdmin",
   "Client_AdminDeleteOrders",
+  "Client_AdminDeleteExternalOrders",
+  "Client_AdminMonthReport",
 ]);
 
 /** ?????? public action ?????admin action ????????*/
@@ -509,6 +511,18 @@ async function handle(
       } catch (err) {
         return fail((err as Error).message || "??????");
       }
+    }
+    case "Client_AdminDeleteExternalOrders": {
+      return ok(await adminService.deleteAdminExternalOrders(body));
+    }
+    case "Client_AdminMonthReport": {
+      const userId = body.userId ?? body.user_id;
+      return ok(
+        await getMonthReport(
+          body.month ? String(body.month) : undefined,
+          userId != null && String(userId).trim() ? String(userId) : undefined,
+        ),
+      );
     }
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);

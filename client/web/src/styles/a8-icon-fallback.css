@@ -5,7 +5,7 @@
     [class*="am-icon-shield"]
   ):not([class*="am-icon-dashboard"]):not([class*="am-icon-users"]):not([class*="am-icon-list"]):not(
     [class*="am-icon-th"]
-  ):not([class*="am-icon-arrow-left"]):not(
+  ):not([class*="am-icon-arrow-left"]):not([class*="am-icon-arrow-right"]):not(
     [class*="am-icon-power-off"]
   ):not([class*="am-icon-refresh"]):not([class*="am-icon-times"]):not([class*="am-icon-save"]):not(
     [class*="am-icon-flash"]
