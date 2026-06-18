@@ -102,8 +102,12 @@ BetRow → item.getOdds()
 |------------|--------|
 | `extensions/arbBet/rate9999.ts`（已删） | `domain/betting/singleLegRate.ts` |
 | `utils/a8MatchTime.ts`（已删） | `shared/a8MatchTime.ts` |
+| `stores/betting/arbExecutionMode.ts`（已删） | `types/arbDetectEngine.ts` |
+| `extensions/arbOpportunity/arbDetectEngine.ts`（已删） | `types/arbDetectEngine.ts` |
+| `extensions/notify/arbProgressConfig.ts`（已删） | `stores/betting/autoBet/arbProgressTrace.ts` |
+| `extensions/notify/arbExecutionTrace.ts`（已删） | `stores/betting/autoBet/arbExecutionTrace.ts` |
+| `extensions/notify/describeArbPrepareSkip.ts`（已删） | `domain/betting/describeArbPrepareSkip.ts` |
 | `matchStore.startPolling()` | `matchStore.startMainLoop()`（HomeView 经 `runtime/appSession.startAppSession`） |
-| `extensions/notify/arbExecutionTrace.ts` | `stores/betting/autoBet/arbExecutionTrace.ts` |
 | `src/collectors/ob/` | `client/platform-adapter/ob/` |
 | `src/collectors/docs/` | `docs/platforms/` |
 | `src/platforms/registry.ts` | `client/platform-adapter/registry/adapters.ts` |

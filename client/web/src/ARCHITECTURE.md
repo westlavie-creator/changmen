@@ -170,7 +170,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 |------|------|
 | `bettingStore.ts` | 手动下注、补单入口；主循环在 matchStore |
 | `runArbBetRound.ts` | 主循环单轮：按调度模式分发套利 + 补单 |
-| `types/arbDetectEngine.ts` | 解析 `arbDetectEngine` → `a8` \| `kakaxi`（`stores/betting/arbExecutionMode.ts` 仅 deprecated 转发） |
+| `types/arbDetectEngine.ts` | 解析 `arbDetectEngine` → `a8` \| `kakaxi` |
 | `a8/runA8ArbRound.ts` | [A8 可证实] **调度模式 a8**：全表串行 `executeArbBet` |
 | `kakaxi/` | [changmen 扩展] **调度模式 kakaxi**（与 `a8/` 并列）：detectFeed → queue → scheduler |
 | `autoBet/executeArbBet.ts` | 单场套利编排入口（两种调度共用） |
@@ -303,4 +303,11 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 ## 已知待整理（非阻塞）
 
-（当前无阻塞项；deprecated shim 清理见架构批次 backlog。）
+**有意保留的跨层依赖**（非 shim，勿强行拆）：
+
+| 来源 | 目标 | 原因 |
+|------|------|------|
+| `messageStore` | `extensions/notify`、`extensions/arbMarketWatch` | Telegram 投递层 |
+| `stores/betting/kakaxi/*` | `extensions/arbOpportunity/detect` | 检测输入；调度仍在 `kakaxi/`，与 `a8/` 并列 |
+
+deprecated 兼容转发 shim 已清理（5e）；`types/`、`domain/` 内 `@deprecated` 别名仍保留在 canonical 文件内。
