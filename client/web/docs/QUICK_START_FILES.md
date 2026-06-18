@@ -51,8 +51,8 @@
 
 | 顺序 | 文件 | 看什么 |
 |------|------|--------|
-| 1 | [`src/views/HomeView.vue`](../src/views/HomeView.vue) | 登录后 `matchStore.startPolling()` |
-| 2 | [`src/stores/matchStore.ts`](../src/stores/matchStore.ts) | `getMatchs`、每 200ms `refreshOddsOnBets` |
+| 1 | [`src/views/HomeView.vue`](../src/views/HomeView.vue) | 登录后 [`runtime/appSession.ts`](../src/runtime/appSession.ts)：`startAppSession` / `mountAppSession` |
+| 2 | [`src/stores/matchStore.ts`](../src/stores/matchStore.ts) | `getMatchs`、主循环内 `refreshOddsOnBets`（100ms 轮） |
 | 3 | [`src/models/match.ts`](../src/models/match.ts) | `ViewBetItem.getOdds` / `updateOdds` |
 | 4 | [`src/components/match/BetRow.vue`](../src/components/match/BetRow.vue) | 赔率格子、`revision` / `tick` 触发刷新 |
 | 5 | [`src/stores/oddsStore.ts`](../src/stores/oddsStore.ts) | 数字从哪来 |
@@ -100,6 +100,9 @@ BetRow → item.getOdds()
 
 | 旧文档路径 | 现路径 |
 |------------|--------|
+| `extensions/arbBet/rate9999.ts` | `domain/betting/singleLegRate.ts`（兼容转发仍在 extensions） |
+| `matchStore.startPolling()` | `matchStore.startMainLoop()`（HomeView 经 `runtime/appSession.startAppSession`） |
+| `extensions/notify/arbExecutionTrace.ts` | `stores/betting/autoBet/arbExecutionTrace.ts` |
 | `src/collectors/ob/` | `client/platform-adapter/ob/` |
 | `src/collectors/docs/` | `docs/platforms/` |
 | `src/platforms/registry.ts` | `client/platform-adapter/registry/adapters.ts` |

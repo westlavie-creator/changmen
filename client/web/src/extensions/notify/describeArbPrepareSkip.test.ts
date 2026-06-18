@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ViewBet, type ViewMatch } from "@/models/match";
 import type { BetRowDto } from "@/types/esport";
 import { createDefaultUserConfig } from "@/types/userConfig";
-import { describeGetOrderOptionsSkip } from "@/extensions/notify/describeArbPrepareSkip";
+import { describeGetOrderOptionsSkip } from "@/domain/betting/describeArbPrepareSkip";
 
 function makeBet(sources: BetRowDto["Sources"]) {
   const row: BetRowDto = {

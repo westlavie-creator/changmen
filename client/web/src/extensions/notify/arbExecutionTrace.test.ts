@@ -3,7 +3,7 @@ import type { ViewBet, ViewMatch } from "@/models/match";
 import {
   createArbExecutionTrace,
   formatArbProgressTelegramBody,
-} from "@/extensions/notify/arbExecutionTrace";
+} from "@/extensions/notify";
 
 describe("arbExecutionTrace", () => {
   const match = { id: 1, title: "A vs B" } as ViewMatch;

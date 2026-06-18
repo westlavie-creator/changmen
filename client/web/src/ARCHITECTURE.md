@@ -25,7 +25,7 @@
 | `domain/` | **套利/下注纯逻辑**（无 Pinia、可单测） | `domain/arbitrage`, `domain/betting` |
 | `client/platform-adapter/` | **平台清单、能力与平台实现**（Vite `@platform`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
 | `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp` |
-| `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts` |
+| `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts`, `runtime/appSession.ts` |
 | `client/platform-adapter/{id}/collect.ts` | **赔率上报链路** | `start*Collector` |
 | `client/platform-adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
 | `client/platform-adapter/{id}/bet.ts` | **下注** | `obProvider` 等 |
@@ -122,6 +122,8 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 - kakaxi 的 `detectFeed` 可消费 `extensions/arbOpportunity/detect`，属于调度层**使用**扩展能力，故 **kakaxi 留在 `stores/betting/kakaxi/`**，与 `a8/` 并列，不迁入 `extensions/`。
 
 手动双击：`bettingStore.manualBet` → `manualBet.ts`（同样走 `accountStore` + `successMarkers`）。
+
+登录后会话生命周期由 `runtime/appSession.ts` 统一编排（`HomeView` 调用 `startAppSession` / `mountAppSession` / `stopAppSession`）；采集/HG 细节仍在 `runtime/sessionBoot.ts`。
 
 ### 用户信息与延迟显示（`Client_GetUserInfo`）
 

@@ -106,7 +106,7 @@
 | 投注中 / 结果通知 | `Io.betting` | 已对齐 | `placeBet`；自动套利 `arbBetToastSeconds`、补单 `makeUpBetToastSeconds`、手动固定 10s |
 | `betInterval` | 配置默认 30 | 已对齐 | A8/changmen 均**不参与调度**；主循环 100ms、列表 30s |
 | `rateConfig` rate=0 | 保存过滤；运行时当 1 | 已对齐 | `normalizeAccountRateConfig` + `getBetMoney` |
-| `rate 9999` 单边 / linkId | A8 无 | 🔶 扩展 | `extensions/arbBet/rate9999`；比例 9999 = 单边模式；负 linkId → `gb{ts}` |
+| `rate 9999` 单边 / linkId | A8 无 | 🔶 扩展 | `domain/betting/singleLegRate.ts`；比例 9999 = 单边模式；负 linkId → `gb{ts}` |
 | `Pr.tip` 补单/拒单 | 有 | 已对齐 | `a8Notify.a8Tip`（含 `<countdown>`） |
 | HG 采集 | `SQ` | 部分 | 无电竞赔率流；启用开关时 60s 刷 HG 账号余额；跟单见 `hgFollowLoop` |
 | Stake 下单 | 插件 GraphQL | **已对齐** | `stakeProvider` 完整实现；`pluginOnly` 需 Chrome 扩展 + stake.com 标签页（见 `client/platform-adapter/stake/README.md`） |

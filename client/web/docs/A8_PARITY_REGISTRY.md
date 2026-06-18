@@ -90,7 +90,7 @@
 | 账号 `game[游戏].betCount` | 仅存库/UI；主循环不累计、不拦单 | 同（已删 `GAMEBETCOUNT` 运行时） | ✅ |
 | 账号 `rateConfig` 保存时过滤 `rate===0` | `filter(C=>C.rate!==0)` | `normalizeAccountRateConfig` | ✅ |
 | 账号 `rate===0` 运行时 | 当 1（全额） | `getBetMoney` 同逻辑 | ✅ |
-| **`rate===9999`** | A8 无此语义 | 单边模式：本侧不自动下，对侧真下单 + 负 linkId | 🔶 `extensions/arbBet/rate9999.ts` |
+| **`rate===9999`** | A8 无此语义 | 单边模式：本侧不自动下，对侧真下单 + 负 linkId | 🔶 `domain/betting/singleLegRate.ts`（UI 见 `extensions/arbBet/ui`） |
 
 测试：`src/shared/betTiming.test.ts`
 
@@ -118,11 +118,11 @@
 | 补单入队 | 一腿成功一腿失败 | `enqueueMakeUpOrder` | ✅ |
 | 手动双击下单 | check + betting | `manualBet.ts` | ✅ |
 | Telegram 套利机会提醒（关投注） | 无 | `arbMarketWatch` + `notifyArbOpportunity` | 🔶 |
-| 套利执行调度 kakaxi | 无 | `arbDetectEngine=kakaxi`：`stores/betting/kakaxi` 队列调度；`a8` 路径与 bundle 一致 | 🔶 |
-| 套利执行进度报告 | 无 | `extensions/notify`：单次尝试一份报告（含 prepare 失败）；与 `bettingMessage` 并存 | 🔶 |
+| 套利执行调度 kakaxi | 无 | `arbDetectEngine=kakaxi`：`stores/betting/kakaxi/` 与 `a8/` 并列调度；默认 `a8` 与 bundle 一致 | 🔶 |
+| 套利执行进度报告 | 无 | `stores/betting/autoBet/arbExecutionTrace` + `arbProgressTrace`；Telegram 正文 `extensions/notify/formatArbProgress`；跳过文案 `domain/betting/describeArbPrepareSkip` | 🔶 |
 | BetRow 套利红线 / flash | bundle 内联 / 无 | `extensions/arbBet/ui` | 🔶 |
 
-实现：`src/stores/betting/autoBet/*`、`src/stores/bettingStore.ts`
+实现：`src/stores/betting/autoBet/*`、`src/domain/betting/*`、`src/stores/bettingStore.ts`
 
 ---
 
@@ -132,7 +132,7 @@
 |----|-----|----------|------|
 | 队列 session | jb | `loseOrderStore` | ✅ |
 | 创建补单 UI | CreateLoseView | CreateLoseDialog | ✅（弹窗字段同 A8；挂载于各 BetRow，非 HomeView 单例） |
-| 赔率 / 初赔过滤 | minDefault/maxDefault | `passesDefaultOddsAccount` | ✅ |
+| 赔率 / 初赔过滤 | minDefault/maxDefault | `domain/betting/betFilters`（`passesDefaultOddsAt`）；Pinia 入口 `stores/betting/betFilters` | ✅ |
 | 补单 waitTime | `Pe` 逻辑 | `makeUpBetToastSeconds` | ✅ |
 | `isCreateOrder` 跳过拒单复检 | 有 | 有 | ✅ |
 | 拒单仍绑单、不移队 | 有 | 有 | ✅ |

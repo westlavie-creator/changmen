@@ -10,28 +10,19 @@ import { useExtensionGate } from "@/composables/useExtensionGate";
 import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useAccountStore } from "@/stores/accountStore";
-import { useMessageStore } from "@/stores/messageStore";
 import {
-  installArbRuntimeSync,
-  syncArbRuntime,
-  teardownArbRuntimeSync,
-} from "@/extensions/arbOpportunity";
-import { bootSessionRuntime, stopSessionRuntime } from "@/runtime/sessionBoot";
+  mountAppSession,
+  startAppSession,
+  stopAppSession,
+} from "@/runtime/appSession";
 
 const user = useUserStore();
 const matchStore = useMatchStore();
 const accountStore = useAccountStore();
-const messageStore = useMessageStore();
 const { matchs } = storeToRefs(matchStore);
 const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 
-// [A8 可证实] zg：return P(),{matchs…} — store 创建时启动主循环
-void matchStore.startMainLoop();
-// [A8 可证实] Ki：a() — store 创建时启动 Telegram 队列
-messageStore.start();
-// [changmen 扩展] 按配置启停：arbMarketWatch / kakaxi 检测旁路（A8 主循环不变）
-installArbRuntimeSync();
-syncArbRuntime();
+startAppSession();
 
 const searchQuery = ref("");
 const { extensionReady, refreshExtension } = useExtensionGate();
@@ -49,21 +40,9 @@ const filteredMatchs = computed(() => {
   });
 });
 
-function stopHome() {
-  stopSessionRuntime();
-  teardownArbRuntimeSync();
-  messageStore.stop();
-  matchStore.stopMainLoop();
-  accountStore.stopBalanceRefreshLoop();
-}
-
 /** [A8 可证实] xo：await getUserInfo(), loadAccounts(!0) — comma 不 await loadAccounts */
-onMounted(async () => {
-  if (!user.userId) {
-    await user.fetchUserInfo();
-  }
-  accountStore.loadAccounts(true);
-  void bootSessionRuntime();
+onMounted(() => {
+  void mountAppSession();
 });
 
 /** [A8 可证实] zt：await initBetTarget() */
@@ -77,11 +56,11 @@ watch(extensionReady, (ext) => {
 });
 
 onUnmounted(() => {
-  stopHome();
+  stopAppSession();
 });
 
 async function logout() {
-  stopHome();
+  stopAppSession();
   await user.logout();
 }
 </script>

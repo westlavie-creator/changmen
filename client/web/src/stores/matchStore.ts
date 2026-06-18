@@ -274,10 +274,5 @@ export const useMatchStore = defineStore("match", {
         this.scheduleMainLoop(0);
       }
     },
-
-    /** @deprecated 使用 startMainLoop（对齐 A8 `P()`） */
-    async startPolling() {
-      await this.startMainLoop();
-    },
   },
 });

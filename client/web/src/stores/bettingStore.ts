@@ -1,7 +1,6 @@
 import { defineStore } from "pinia";
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import { useConfigStore } from "@/stores/configStore";
-import { useMatchStore } from "@/stores/matchStore";
 import { runManualBet } from "@/stores/betting/manualBet";
 import { processLoseOrders as runProcessLoseOrders } from "@/stores/betting/loseOrder";
 
@@ -13,16 +12,6 @@ export const useBettingStore = defineStore("betting", {
   }),
 
   actions: {
-    /** @deprecated 主循环由 matchStore.startMainLoop 驱动；保留兼容旧调用 */
-    start() {
-      useMatchStore().startMainLoop();
-    },
-
-    /** @deprecated 见 matchStore.stopMainLoop */
-    stop() {
-      useMatchStore().stopMainLoop();
-    },
-
     setMessage(msg: string) {
       this.lastMessage = msg;
       this.lastAt = Date.now();
