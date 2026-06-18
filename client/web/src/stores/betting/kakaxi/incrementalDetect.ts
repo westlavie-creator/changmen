@@ -3,7 +3,6 @@ import { useOddsStore } from "@/stores/oddsStore";
 import {
   buildPlatformBetLookup,
   platformBetLookupKey,
-  type PlatformBetLookupKey,
 } from "@/stores/betting/kakaxi/matchBetLookup";
 import type { ViewMatch } from "@/models/match";
 

@@ -13,7 +13,7 @@ import {
 const wakeKakaxiDrain = vi.fn();
 
 vi.mock("@/stores/betting/kakaxi/drainWake", () => ({
-  wakeKakaxiDrain: (...args: unknown[]) => wakeKakaxiDrain(...args),
+  wakeKakaxiDrain: (urgent?: boolean) => wakeKakaxiDrain(urgent),
 }));
 
 vi.mock("@/stores/matchStore", () => ({

@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KAKAXI_DRAIN_WAKE_DEBOUNCE_MS } from "@/stores/betting/kakaxi/config";
 
-const drainKakaxiScheduler = vi.fn(async () => 1);
+type DrainCtx = { setMessage: (msg: string) => void };
+
+const drainKakaxiScheduler = vi.fn(async (_ctx: DrainCtx) => 1);
 const config = { betting: true };
 const setMessage = vi.fn();
 let queueSize = 1;
 
 vi.mock("@/stores/betting/kakaxi/scheduler", () => ({
-  drainKakaxiScheduler: (...args: unknown[]) => drainKakaxiScheduler(...args),
+  drainKakaxiScheduler: (ctx: DrainCtx) => drainKakaxiScheduler(ctx),
 }));
 
 vi.mock("@/stores/configStore", () => ({
@@ -58,9 +60,7 @@ describe("wakeKakaxiDrain", () => {
     await vi.runAllTimersAsync();
     expect(drainKakaxiScheduler).toHaveBeenCalledOnce();
     expect(setMessage).not.toHaveBeenCalled();
-    const ctx = drainKakaxiScheduler.mock.calls[0]?.[0] as {
-      setMessage: (msg: string) => void;
-    };
+    const ctx = drainKakaxiScheduler.mock.calls[0][0];
     ctx.setMessage("ok");
     expect(setMessage).toHaveBeenCalledWith("ok");
   });

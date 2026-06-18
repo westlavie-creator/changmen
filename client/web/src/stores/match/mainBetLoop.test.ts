@@ -9,7 +9,12 @@ import {
   runMainBetLoopTick,
 } from "@/stores/match/mainBetLoop";
 
-const runArbBetRound = vi.fn(async () => {});
+type ArbRoundCtx = {
+  setMessage: (msg: string) => void;
+  processLoseOrders: () => void;
+};
+
+const runArbBetRound = vi.fn(async (_ctx: ArbRoundCtx) => {});
 const fetchMatchDefaultOdds = vi.fn(async () => {});
 const refreshOddsOnBets = vi.fn();
 const fetchMatches = vi.fn(async () => {});
@@ -21,10 +26,9 @@ const matchStoreState = {
 };
 
 const userState = { userId: "u1" as string | null };
-const configState = { makeUp: true, betting: false };
 
 vi.mock("@/stores/betting/runArbBetRound", () => ({
-  runArbBetRound: (...args: unknown[]) => runArbBetRound(...args),
+  runArbBetRound: (ctx: ArbRoundCtx) => runArbBetRound(ctx),
 }));
 
 vi.mock("@/stores/userStore", () => ({
