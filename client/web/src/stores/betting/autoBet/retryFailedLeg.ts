@@ -4,10 +4,10 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult } from "@/models/betResult";
 import type { UserConfig } from "@/types/userConfig";
 import type { PlatformId } from "@/types/esport";
-import type { ArbExecutionTrace } from "@/extensions/notify/arbExecutionTrace";
+import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { isSingleLegRateAtOdds } from "@/extensions/arbBet/rate9999";
+import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 
 /**

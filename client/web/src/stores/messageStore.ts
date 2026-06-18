@@ -1,9 +1,7 @@
 import { defineStore } from "pinia";
 import { sendMessage } from "@/api/esport";
-import {
-  formatArbProgressTelegramBody,
-  type ArbProgressPayload,
-} from "@/extensions/notify/arbExecutionTrace";
+import type { ArbProgressPayload } from "@/stores/betting/autoBet/arbExecutionTrace";
+import { formatArbProgressTelegramBody } from "@/extensions/notify/formatArbProgress";
 import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
 import type { ArbMarketWatchGroup } from "@/extensions/arbMarketWatch/watchSinks";
 import { formatDate, formatDateKey, percent, toFixed } from "@/shared/format";

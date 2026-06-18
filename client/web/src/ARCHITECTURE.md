@@ -110,6 +110,17 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 配置 `arbDetectEngine`：`a8`（默认，与 bundle 一致）| `kakaxi`（并列调度，扩展页「实验」解锁）。
 
+### 调度模式 vs `extensions/`（勿混淆）
+
+| 层级 | 目录 | 职责 |
+|------|------|------|
+| **调度** | `stores/betting/a8/`、`stores/betting/kakaxi/` | 并列的两种套利**调度系统**：决定跑哪些 bet、以何种顺序/队列调用 `executeArbBet` |
+| **执行** | `stores/betting/autoBet/` | A8 与 kakaxi **共用**的单场下注管线 |
+| **扩展能力** | `extensions/arbOpportunity`、`arbMarketWatch`、`arbBet`、`notify` | 检测输入、盯盘、UI、Telegram；可接入 kakaxi，**不是**调度模式本身 |
+
+- `runArbBetRound` 按 `arbExecutionMode` 在 **a8 | kakaxi** 间分发；默认 `a8` 与 bundle 一致。
+- kakaxi 的 `detectFeed` 可消费 `extensions/arbOpportunity/detect`，属于调度层**使用**扩展能力，故 **kakaxi 留在 `stores/betting/kakaxi/`**，与 `a8/` 并列，不迁入 `extensions/`。
+
 手动双击：`bettingStore.manualBet` → `manualBet.ts`（同样走 `accountStore` + `successMarkers`）。
 
 ### 用户信息与延迟显示（`Client_GetUserInfo`）
@@ -129,7 +140,10 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | 路径 | 用途 | 对齐 A8 |
 |------|------|---------|
 | `domain/arbitrage/pickArbLegs.ts` | 跨平台选最优主客腿、隐含利润率 | bundle 套利检测 |
-| `extensions/arbBet/` | rate9999、Telegram、BetRow 红线/flash UI | [changmen 扩展] |
+| `domain/betting/singleLegRate.ts` | 比例 9999 单边模式、linkId | [changmen 扩展] |
+| `domain/betting/betFilters.ts` | 账号主过滤（初赔、lastOdds、maxBetCount） | A8 对齐 |
+| `domain/betting/describeArbPrepareSkip.ts` | GetOrderOptions 跳过原因文案 | [changmen 扩展] |
+| `extensions/arbBet/` | BetRow 红线/flash UI（规则见 `domain/betting/singleLegRate`） | [changmen 扩展] |
 | `extensions/arbBet/ui/` | 赔率涨跌动画、套利腿连线与利润角标 | [changmen 扩展] |
 | `domain/betting/buildOrderOptions.ts` | 对冲金额、`betSorting`、WinRate | `IQ.GetOrderOptions` / `oJe` |
 | `domain/betting/providerKeys.ts` | `auto` = `getProviders()` | A8 下单平台范围 |
@@ -153,11 +167,13 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | 路径 | 用途 |
 |------|------|
 | `bettingStore.ts` | 手动下注、补单入口；主循环在 matchStore |
-| `runArbBetRound.ts` | 主循环单轮：按模式分发套利 + 补单 |
+| `runArbBetRound.ts` | 主循环单轮：按调度模式分发套利 + 补单 |
 | `arbExecutionMode.ts` | 解析 `arbDetectEngine` → `a8` \| `kakaxi` |
-| `a8/runA8ArbRound.ts` | [A8 可证实] 全表串行 `executeArbBet` |
-| `kakaxi/` | [changmen 扩展] 并列调度：detectFeed → queue → scheduler |
-| `autoBet/executeArbBet.ts` | 单场套利编排入口 |
+| `a8/runA8ArbRound.ts` | [A8 可证实] **调度模式 a8**：全表串行 `executeArbBet` |
+| `kakaxi/` | [changmen 扩展] **调度模式 kakaxi**（与 `a8/` 并列）：detectFeed → queue → scheduler |
+| `autoBet/executeArbBet.ts` | 单场套利编排入口（两种调度共用） |
+| `autoBet/arbExecutionTrace.ts` | 套利进度 trace 类型与 `createArbExecutionTrace` |
+| `autoBet/arbProgressTrace.ts` | `beginArbExecutionTrace`（接 messageStore / notify） |
 | `autoBet/phases/prepareArbAttempt.ts` | 选腿、选号、linkId |
 | `autoBet/phases/checkArbLegs.ts` | 预检 + checkTimeout |
 | `autoBet/phases/placeArbLegs.ts` | 下单（并行/串行/单边）+ retryFailedLeg |
@@ -168,8 +184,19 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `autoBet/retryFailedLeg.ts` | `anyOdds` 失败腿换平台重试 |
 | `loseOrder.ts` | 补单队列处理 |
 | `manualBet.ts` | 双击手动下单 |
-| `betFilters.ts` | 账号过滤（初赔、lastOdds、maxBetCount） |
+| `betFilters.ts` | `passesDefaultOddsAccount` 薄包装（规则在 `domain/betting/betFilters`） |
 | `successMarkers.ts` | 成功标记、`BETACCOUNT` sessionStorage |
+
+### `extensions/`（扩展能力，非调度模式）
+
+| 路径 | 用途 |
+|------|------|
+| `extensions/arbOpportunity/` | 套利机会检测（`detect`）；kakaxi `detectFeed` 可消费 |
+| `extensions/arbMarketWatch/` | 非投注时全盘口 Telegram 盯盘 |
+| `extensions/arbBet/` | BetRow UI 增强 |
+| `extensions/notify/` | Telegram 格式化与配置；trace 正文见 `formatArbProgress.ts` |
+
+依赖方向：`domain` ← `stores/betting` ← `extensions`（下注编排不 import notify；`messageStore` 负责投递 Telegram）。
 
 ### `shared/`（横切）
 
@@ -183,6 +210,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `http.ts` | 采集直连 `directGet` / `directPostJson`（**Axios**，非 fetch） |
 | `platformHttp.ts` | **投注账号** HTTP（OB/RAY/TF…；Axios + 可选 relay） |
 | `betTiming.ts` | 下注通知时长、`lastOdds`、`BETCOUNT`（对齐 A8 `T()`） |
+| `arbBetTraceFormat.ts` | trace 事件文案（`formatBetResult` / `formatLegAccount`） |
 | `winRate.ts` | WinRate 排序（`betSorting: WinRate`） |
 | `bracketForm.ts` | 嵌套 form-urlencoded（SABA 等） |
 

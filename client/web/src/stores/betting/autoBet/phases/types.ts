@@ -1,5 +1,5 @@
 import { BetOption } from "@/models/betOption";
-import type { ArbExecutionTrace } from "@/extensions/notify/arbExecutionTrace";
+import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetResult } from "@/models/betResult";

@@ -13,7 +13,7 @@ import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
 import { syncVenueRejectFlags } from "@/stores/betting/autoBet/venueRejectSync";
-import { findSingleLegRateAccount } from "@/extensions/arbBet/rate9999";
+import { findSingleLegRateAccount } from "@/domain/betting/singleLegRate";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";

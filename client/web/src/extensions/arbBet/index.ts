@@ -37,4 +37,4 @@ export {
   isSingleLegRateAtOdds,
   legHasSingleLegRateAccount,
   resolveSingleLegByRate,
-} from "@/extensions/arbBet/rate9999";
+} from "@/domain/betting/singleLegRate";

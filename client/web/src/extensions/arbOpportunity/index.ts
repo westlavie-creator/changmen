@@ -1,6 +1,6 @@
 /**
  * [changmen 扩展] 套利 detect 工具 + 全盘口观察见 arbMarketWatch。
- * A8 套利执行见 stores/betting/a8；kakaxi 调度见 stores/betting/kakaxi（待接）。
+ * A8 套利调度见 stores/betting/a8；kakaxi 调度见 stores/betting/kakaxi（与 a8 并列）。
  */
 export {
   detectOpportunities,

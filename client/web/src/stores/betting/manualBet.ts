@@ -4,10 +4,10 @@ import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { accountPassesMainBetFilter } from "@/stores/betting/betFilters";
+import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { manualBetToastSeconds } from "@/shared/betTiming";
-import { isSingleLegRateAtOdds } from "@/extensions/arbBet/rate9999";
+import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import { toFixed } from "@/shared/format";
 
 export interface ManualBetContext {

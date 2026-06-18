@@ -1,5 +1,5 @@
 import { BetOption } from "@/models/betOption";
-import { formatBetResult } from "@/extensions/notify";
+import { formatBetResult } from "@/shared/arbBetTraceFormat";
 import { arbBetToastSeconds } from "@/shared/betTiming";
 import { wait } from "@/shared/wait";
 import { a8Tip } from "@/shared/a8Notify";

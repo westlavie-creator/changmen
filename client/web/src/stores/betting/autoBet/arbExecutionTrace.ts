@@ -1,0 +1,88 @@
+import type { ViewBet, ViewMatch } from "@/models/match";
+import { arbProfitRate } from "@/shared/format";
+
+/** [changmen 扩展] 套利执行进度追踪结果 */
+export type ArbProgressOutcome = "success" | "partial" | "fail" | "skip";
+
+export interface ArbProgressEvent {
+  at: number;
+  stage: string;
+  detail: string;
+}
+
+export interface ArbProgressPayload {
+  id: string;
+  matchId: number;
+  betId: number;
+  matchTitle: string;
+  betName: string;
+  startedAt: number;
+  events: ArbProgressEvent[];
+  outcome: ArbProgressOutcome;
+  summary: string;
+  meta?: {
+    implied?: number;
+    homeLine?: string;
+    awayLine?: string;
+  };
+}
+
+export interface ArbExecutionTrace {
+  readonly id: string;
+  event(stage: string, detail: string): void;
+  setMeta(meta: ArbProgressPayload["meta"]): void;
+  finish(outcome: ArbProgressOutcome, summary?: string): void;
+}
+
+export function createArbExecutionTrace(
+  match: ViewMatch,
+  bet: ViewBet,
+  meta?: ArbProgressPayload["meta"],
+  deliver?: (payload: ArbProgressPayload) => void,
+): ArbExecutionTrace {
+  const events: ArbProgressEvent[] = [];
+  const startedAt = Date.now();
+  const id = `${match.id}:${bet.id}:${startedAt}`;
+  let finished = false;
+  let metaRef = meta;
+
+  const trace: ArbExecutionTrace = {
+    id,
+    event(stage, detail) {
+      if (finished) return;
+      events.push({ at: Date.now(), stage, detail });
+    },
+    setMeta(next) {
+      if (finished) return;
+      metaRef = next;
+      if (next?.implied != null && !events.some((e) => e.stage === "发现")) {
+        events.push({
+          at: Date.now(),
+          stage: "发现",
+          detail: `利润 ${arbProfitRate(next.implied)}`,
+        });
+      }
+    },
+    finish(outcome, summary = "") {
+      if (finished) return;
+      finished = true;
+      deliver?.({
+        id,
+        matchId: match.id,
+        betId: bet.id,
+        matchTitle: match.title,
+        betName: bet.getBetName(),
+        startedAt,
+        events: [...events],
+        outcome,
+        summary,
+        meta: metaRef,
+      });
+    },
+  };
+
+  if (metaRef?.implied != null) {
+    trace.event("发现", `利润 ${arbProfitRate(metaRef.implied)}`);
+  }
+  return trace;
+}

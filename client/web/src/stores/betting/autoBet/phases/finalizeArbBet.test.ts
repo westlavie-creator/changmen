@@ -63,7 +63,7 @@ vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({ getBetTarget: () => undefined }),
 }));
 
-vi.mock("@/extensions/arbBet/rate9999", () => ({
+vi.mock("@/domain/betting/singleLegRate", () => ({
   findSingleLegRateAccount: vi.fn(() => null),
 }));
 

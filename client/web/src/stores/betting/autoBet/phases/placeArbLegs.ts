@@ -1,6 +1,6 @@
 import { BetResult } from "@/models/betResult";
-import { formatBetResult } from "@/extensions/notify";
-import type { ArbExecutionTrace } from "@/extensions/notify/arbExecutionTrace";
+import { formatBetResult } from "@/shared/arbBetTraceFormat";
+import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
 import type { ArbBetAttemptParams, ArbBetChecked, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";

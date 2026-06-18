@@ -6,12 +6,10 @@ import {
   createArbLinkId,
   explainAllowArbRejection,
   resolveSingleLegByRate,
-} from "@/extensions/arbBet/rate9999";
-import { describeGetOrderOptionsSkip } from "@/extensions/notify/describeArbPrepareSkip";
-import {
-  formatLegAccount,
-  setArbExecutionTraceMeta,
-} from "@/extensions/notify";
+} from "@/domain/betting/singleLegRate";
+import { describeGetOrderOptionsSkip } from "@/domain/betting/describeArbPrepareSkip";
+import { formatLegAccount } from "@/shared/arbBetTraceFormat";
+import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
 import { arbProfitRate } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";

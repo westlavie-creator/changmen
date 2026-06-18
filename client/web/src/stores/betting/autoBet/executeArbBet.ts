@@ -1,6 +1,6 @@
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { UserConfig } from "@/types/userConfig";
-import { beginArbExecutionTrace } from "@/extensions/notify/arbProgressConfig";
+import { beginArbExecutionTrace } from "@/stores/betting/autoBet/arbProgressTrace";
 import {
   recordArbAttemptMetric,
   type ArbAttemptPhase,
