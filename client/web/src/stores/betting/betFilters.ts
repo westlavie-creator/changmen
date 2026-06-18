@@ -45,9 +45,6 @@ export function accountPassesMainBetFilter(
   return true;
 }
 
-/** @deprecated 与 accountPassesMainBetFilter 相同；保留供扩展模块引用旧名 */
-export const accountPassesMainBetFilterExceptRate = accountPassesMainBetFilter;
-
 /** 主腿账号未通过时的人类可读原因（A8 对齐；9999 见 explainArbAccountRejection） */
 export function explainMainBetAccountRejection(
   account: PlatformAccount,

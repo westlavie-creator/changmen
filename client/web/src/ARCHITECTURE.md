@@ -157,7 +157,6 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `arbExecutionMode.ts` | 解析 `arbDetectEngine` → `a8` \| `kakaxi` |
 | `a8/runA8ArbRound.ts` | [A8 可证实] 全表串行 `executeArbBet` |
 | `kakaxi/` | [changmen 扩展] 并列调度：detectFeed → queue → scheduler |
-| `autoBetLoop.ts` | `runArbBetRound` 兼容别名 |
 | `autoBet/executeArbBet.ts` | 单场套利编排入口 |
 | `autoBet/phases/prepareArbAttempt.ts` | 选腿、选号、linkId |
 | `autoBet/phases/checkArbLegs.ts` | 预检 + checkTimeout |

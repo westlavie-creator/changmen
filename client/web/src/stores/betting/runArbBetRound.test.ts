@@ -95,3 +95,45 @@ describe("runArbBetRound lose-order gate", () => {
     expect(runKakaxiArbRound).not.toHaveBeenCalled();
   });
 });
+
+describe("runArbBetRound betMoney (A8 rolls per bet in prepareArbAttempt)", () => {
+  beforeEach(() => {
+    Object.assign(config, createDefaultUserConfig());
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    runA8ArbRound.mockClear();
+    runKakaxiArbRound.mockClear();
+  });
+
+  it("does not randomize when minMoney is 0 (A8 minMoney!==0 gate)", async () => {
+    config.betMoney = 999;
+    config.minMoney = 0;
+    config.maxMoney = 100;
+    config.betting = true;
+
+    await runArbBetRound({ setMessage: () => {}, processLoseOrders });
+
+    expect(config.betMoney).toBe(999);
+  });
+
+  it("skips randomize when maxMoney is 0", async () => {
+    config.betMoney = 999;
+    config.minMoney = 0;
+    config.maxMoney = 0;
+    config.betting = true;
+
+    await runArbBetRound({ setMessage: () => {}, processLoseOrders });
+
+    expect(config.betMoney).toBe(999);
+  });
+
+  it("does not randomize at round level", async () => {
+    config.betting = true;
+    config.betMoney = 999;
+    config.minMoney = 10;
+    config.maxMoney = 110;
+
+    await runArbBetRound({ setMessage: () => {}, processLoseOrders });
+
+    expect(config.betMoney).toBe(999);
+  });
+});

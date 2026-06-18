@@ -2,6 +2,7 @@ import { saveOrderBind } from "@/api/esport";
 import { BetOption, opponentSide } from "@/models/betOption";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
+import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useMessageStore } from "@/stores/messageStore";
@@ -24,19 +25,16 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
   const loseStore = useLoseOrderStore();
   const config = configStore.config;
   const { setMessage } = ctx;
-  const removeIds: number[] = [];
+  const removeIds = new Set<number>();
+  const betLookup = buildLoseOrderBetLookup(matchStore.matchs);
 
   for (const [betId, order] of loseStore.orders) {
-    const match = matchStore.matchs.find((m) => m.id === order.matchId);
-    if (!match) {
-      removeIds.push(betId);
+    const ref = betLookup.get(order.betId);
+    if (!ref) {
+      removeIds.add(betId);
       continue;
     }
-    const bet = match.bets.find((b) => b.id === order.betId);
-    if (!bet) {
-      removeIds.push(betId);
-      continue;
-    }
+    const { match, bet } = ref;
 
     bet.items.forEach((item) => item.updateOdds());
     const minOdds = order.getOdds(config.makeProfit);
@@ -45,7 +43,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       .sort((a, b) => b.getOdds(order.target) - a.getOdds(order.target));
 
     for (const item of candidates) {
-      if (removeIds.includes(betId)) break;
+      if (removeIds.has(betId)) break;
       const stake = order.getBetMoney(item.getOdds(order.target));
       const account = accountStore.getAccount(
         item.type,
@@ -71,12 +69,12 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       const waitSec = makeUpBetToastSeconds(config, account.provider);
       const result = await accountStore.betting(account, checked, waitSec);
       if (!result?.success) {
-        if (!result) removeIds.push(betId);
+        if (!result) removeIds.add(betId);
         continue;
       }
 
       if (order.isCreateOrder) {
-        removeIds.push(betId);
+        removeIds.add(betId);
         markSuccessfulBet(account, bet.id, order.target, checked.odds);
         setMessage(`补单成功 ${item.type}@${checked.odds}`);
         useMessageStore().loseOrderMessage(account, order, checked, false);
@@ -94,7 +92,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
             setMessage(`${order.target} 再次被拒单`);
             a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
           } else {
-            removeIds.push(betId);
+            removeIds.add(betId);
             setMessage(`补单成功 ${item.type}@${checked.odds}`);
           }
           await saveOrderBind({
@@ -107,11 +105,11 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
             ]),
           });
         } else {
-          removeIds.push(betId);
+          removeIds.add(betId);
         }
         useMessageStore().loseOrderMessage(account, order, checked, rejected);
       } else {
-        removeIds.push(betId);
+        removeIds.add(betId);
       }
 
       markSuccessfulBet(account, bet.id, order.target, checked.odds);
