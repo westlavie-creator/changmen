@@ -60,9 +60,7 @@ export async function getMonthReport(month, userId) {
     row.OrderCount += 1;
   }
 
-  const moneyLogs = uid
-    ? await sb.fetchMoneyLogsForMonthAggregate(m, uid)
-    : await sb.fetchAllMoneyLogs();
+  const moneyLogs = await sb.fetchMoneyLogsForMonthAggregate(m, uid || undefined);
   for (const log of moneyLogs || []) {
     const key = toDateKey(log.create_at);
     const row = byDate.get(key);

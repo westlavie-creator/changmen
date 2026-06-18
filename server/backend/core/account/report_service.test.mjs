@@ -20,14 +20,13 @@ vi.mock("@changmen/db", () => ({
       return [{ create_at: new Date("2026-06-15T09:00:00").getTime(), type: "Recharge", money: 200 }];
     }
     if (userId) return [];
-    return [];
+    return [
+      { create_at: new Date("2026-06-13T08:00:00").getTime(), type: "Recharge", money: 5000 },
+      { create_at: new Date("2026-06-13T20:00:00").getTime(), type: "Withdraw", money: 1000 },
+      { create_at: new Date("2026-06-13T21:00:00").getTime(), type: "Lose", money: 30 },
+      { create_at: new Date("2026-06-15T09:00:00").getTime(), type: "Recharge", money: 200 },
+    ];
   }),
-  fetchAllMoneyLogs: vi.fn(async () => [
-    { create_at: new Date("2026-06-13T08:00:00").getTime(), type: "Recharge", money: 5000 },
-    { create_at: new Date("2026-06-13T20:00:00").getTime(), type: "Withdraw", money: 1000 },
-    { create_at: new Date("2026-06-13T21:00:00").getTime(), type: "Lose", money: 30 },
-    { create_at: new Date("2026-06-15T09:00:00").getTime(), type: "Recharge", money: 200 },
-  ]),
 }));
 
 import { getMonthReport } from "./report_service.js";
@@ -71,5 +70,13 @@ describe("getMonthReport", () => {
     expect(report.total.Deposit).toBe(200);
     expect(report.total.Withdraw).toBe(0);
     expect(report.total.Hacked).toBe(0);
+  });
+
+  it("returns empty order stats for user with no orders in month", async () => {
+    const report = await getMonthReport("2026-06", "admin-user");
+    expect(report.userId).toBe("admin-user");
+    expect(report.total.Profit).toBe(0);
+    expect(report.total.OrderCount).toBe(0);
+    expect(report.total.Deposit).toBe(0);
   });
 });

@@ -435,7 +435,7 @@ async function handle(
       return row.ok ? ok(row.info) : fail(row.msg);
     }
     case "Client_MonthReport":
-      return ok(await getMonthReport(body.month));
+      return ok(await getMonthReport(body.month, ctx.user.id));
     case "Client_GetUserProfit": {
       const profit = await accountService.handleGetUserProfit();
       return profit.ok ? ok(profit.info) : fail(profit.msg || "????????");
