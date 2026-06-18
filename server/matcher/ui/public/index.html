@@ -2503,7 +2503,10 @@ async function matcherAction(action) {
     const { res, data } = await fetchJson('/api/matcher/' + action, { method: 'POST' });
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
     await refreshMatcherStatus();
-    if (action === 'stop') showActionToast('匹配脚本已停止', 'ok', 2600);
+    if (action === 'stop') {
+      const via = data.source === 'pm2' ? '（PM2）' : data.pid ? `（PID ${data.pid}）` : '';
+      showActionToast(`匹配脚本已停止${via}`, 'ok', 3200);
+    }
     if (action === 'start') {
       showActionToast(data.warning || '匹配脚本已启动', 'ok', 3200);
       setTimeout(refreshMatcherStatus, 2000);

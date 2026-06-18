@@ -31,8 +31,8 @@ describe("provider_priority", () => {
     };
     const picked = teamsFromPlatformRows(
       [
-        { platform: "PB", home: "PB Home", away: "PB Away", homeId: "x", awayId: "a9" },
-        { platform: "OB", home: "OB Home", away: "OB Away", homeId: "h1", awayId: "y" },
+        { platform: "PB", home: "Team A", away: "Team B", homeId: "x", awayId: "a9" },
+        { platform: "OB", home: "Team A", away: "Team B", homeId: "h1", awayId: "y" },
       ],
       resolvers,
     );
@@ -60,5 +60,50 @@ describe("provider_priority", () => {
     );
     expect(picked?.title).toBe("OB Home vs OB Away");
     expect(picked?.canonical).toBeUndefined();
+  });
+
+  it("resolves canonical names when a platform has reversed home/away slots", () => {
+    const resolvers = {
+      lookupGbTeamId: (platform, platformId) => {
+        const map = {
+          "OB:158275076850578480": "100372",
+          "OB:2063523233553981534": "100071",
+          "TF:40143": "100071",
+          "TF:39820": "100372",
+        };
+        return map[`${platform}:${platformId}`] || null;
+      },
+      lookupCanonicalName: (gbTeamId) => {
+        if (gbTeamId === "100372") return "Passion Academy";
+        if (gbTeamId === "100071") return "ex-MANA eSports";
+        return null;
+      },
+    };
+    const picked = teamsFromPlatformRows(
+      [
+        {
+          platform: "OB",
+          home: "Passion Academy",
+          away: "ex-MANA eSports",
+          homeId: "158275076850578480",
+          awayId: "2063523233553981534",
+        },
+        {
+          platform: "TF",
+          home: "ex-MANA eSports",
+          away: "Passion Academy",
+          homeId: "40143",
+          awayId: "39820",
+        },
+      ],
+      resolvers,
+    );
+    expect(picked).toEqual({
+      platform: "OB",
+      home: "Passion Academy",
+      away: "ex-MANA eSports",
+      title: "Passion Academy vs ex-MANA eSports",
+      canonical: true,
+    });
   });
 });

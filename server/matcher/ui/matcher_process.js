@@ -7,12 +7,14 @@ import {
   isMatcherRunning,
   isPidAlive,
   clearMatcherHeartbeat,
+  sanitizeMatcherHeartbeat,
 } from "../lib/heartbeat.js";
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MATCHER_ROOT = path.join(__dirname, "..");
 const MATCHER_SCRIPT = path.join(MATCHER_ROOT, "matcher.js");
+const PM2_MATCHER_NAME = process.env.PM2_MATCHER_NAME || "gamebet-matcher";
 
 let managedChild = null;
 
@@ -88,13 +90,50 @@ function waitForMatcherReady(child) {
 }
 
 async function killPid(pid) {
-  if (!pid || pid <= 0) return;
+  if (!pid || pid <= 0) return true;
   if (process.platform === "win32") {
-    await execFileAsync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true }).catch(() => {});
+    try {
+      await execFileAsync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true });
+    } catch {
+      return !isPidAlive(pid);
+    }
   } else {
     try { process.kill(pid, "SIGTERM"); } catch { /* already gone */ }
     await new Promise((r) => setTimeout(r, 400));
+    if (!isPidAlive(pid)) return true;
     try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ }
+  }
+  return !isPidAlive(pid);
+}
+
+async function readPm2MatcherOnlinePid() {
+  try {
+    const { stdout } = await execFileAsync("pm2", ["jlist"], {
+      encoding: "utf8",
+      maxBuffer: 4 * 1024 * 1024,
+      timeout: 10_000,
+    });
+    const list = JSON.parse(stdout);
+    const app = (list || []).find((row) => row?.name === PM2_MATCHER_NAME);
+    if (app?.pm2_env?.status !== "online") return null;
+    const pid = Number(app.pid);
+    return Number.isFinite(pid) && pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+async function stopPm2Matcher() {
+  try {
+    await execFileAsync("pm2", ["stop", PM2_MATCHER_NAME], { timeout: 20_000 });
+    clearMatcherHeartbeat();
+    const still = await readPm2MatcherOnlinePid();
+    if (still) {
+      return { ok: false, error: `PM2 停止 ${PM2_MATCHER_NAME} 失败（仍在运行 PID ${still}）` };
+    }
+    return { ok: true, source: "pm2" };
+  } catch (err) {
+    return { ok: false, error: `PM2 停止失败：${err.message}` };
   }
 }
 
@@ -102,7 +141,14 @@ export async function startMatcherProcess() {
   if (isManagedChildAlive()) {
     return { ok: false, error: "匹配脚本已由本页面启动" };
   }
-  const hb = readMatcherHeartbeat();
+  const pm2Pid = await readPm2MatcherOnlinePid();
+  if (pm2Pid) {
+    return {
+      ok: false,
+      error: `匹配脚本已在运行（PM2 ${PM2_MATCHER_NAME}，PID ${pm2Pid}）`,
+    };
+  }
+  const hb = sanitizeMatcherHeartbeat(readMatcherHeartbeat());
   if (isMatcherRunning(hb)) {
     return { ok: false, error: `匹配脚本已在运行（PID ${hb.pid}）` };
   }
@@ -138,26 +184,45 @@ export async function startMatcherProcess() {
 export async function stopMatcherProcess() {
   if (isManagedChildAlive()) {
     const pid = managedChild.pid;
-    await killPid(pid);
+    const killed = await killPid(pid);
     managedChild = null;
     clearMatcherHeartbeat();
+    if (!killed) {
+      return { ok: false, error: `无法终止匹配脚本（PID ${pid}）` };
+    }
     console.log(`[matcher] matcher stopped pid=${pid}`);
     return { ok: true, pid, source: "managed" };
   }
 
-  const hb = readMatcherHeartbeat();
+  const pm2Pid = await readPm2MatcherOnlinePid();
+  if (pm2Pid) {
+    const pm2Result = await stopPm2Matcher();
+    if (pm2Result.ok) {
+      console.log(`[matcher] matcher stopped via pm2 (${PM2_MATCHER_NAME}, was pid=${pm2Pid})`);
+      return { ok: true, pid: pm2Pid, source: "pm2" };
+    }
+    return pm2Result;
+  }
+
+  const hb = sanitizeMatcherHeartbeat(readMatcherHeartbeat());
   if (hb?.pid && (isMatcherRunning(hb) || isPidAlive(hb.pid))) {
     const pid = hb.pid;
-    await killPid(pid);
+    const killed = await killPid(pid);
     clearMatcherHeartbeat();
-    if (isPidAlive(pid)) {
-      return { ok: false, error: `无法终止匹配脚本（PID ${pid}）` };
+    if (!killed) {
+      return {
+        ok: false,
+        error: `无法终止匹配脚本（PID ${pid}）。若在 VPS 使用 PM2，请执行：pm2 stop ${PM2_MATCHER_NAME}`,
+      };
     }
     console.log(`[matcher] matcher stopped pid=${pid} (heartbeat)`);
     return { ok: true, pid, source: "heartbeat" };
   }
 
-  return { ok: false, error: "未检测到本机可停止的匹配脚本" };
+  return {
+    ok: false,
+    error: `未检测到本机可停止的匹配脚本（PM2 名：${PM2_MATCHER_NAME}）`,
+  };
 }
 
 export function isManagedByServer() {
@@ -166,4 +231,8 @@ export function isManagedByServer() {
 
 export function getManagedMatcherPid() {
   return isManagedChildAlive() ? managedChild.pid : null;
+}
+
+export async function getPm2MatcherOnlinePid() {
+  return readPm2MatcherOnlinePid();
 }

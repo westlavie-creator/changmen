@@ -6,7 +6,7 @@ import {
   readMatcherHeartbeat,
   isMatcherRunning,
   isPidAlive,
-  clearMatcherHeartbeat,
+  sanitizeMatcherHeartbeat,
   STALE_FACTOR,
 } from "../lib/heartbeat.js";
 import {
@@ -14,6 +14,7 @@ import {
   stopMatcherProcess,
   isManagedByServer,
   getManagedMatcherPid,
+  getPm2MatcherOnlinePid,
 } from "./matcher_process.js";
 import { enrichClientMatchesMergeMode } from "./merge_mode.js";
 import {
@@ -79,11 +80,7 @@ function computeRecommendations(allMatches, clientMatches = []) {
 
 async function getMatcherStatus() {
   const now = Date.now();
-  let heartbeat = readMatcherHeartbeat();
-  if (heartbeat?.pid && !isPidAlive(heartbeat.pid)) {
-    clearMatcherHeartbeat();
-    heartbeat = null;
-  }
+  const heartbeat = sanitizeMatcherHeartbeat(readMatcherHeartbeat());
   const intervalMs = heartbeat?.intervalMs || MATCHER_INTERVAL_MS;
   const thresholdMs = intervalMs * STALE_FACTOR;
 
@@ -108,6 +105,16 @@ async function getMatcherStatus() {
     matchCount = heartbeat.matchCount;
     processLastRun = heartbeat.lastRun;
     processAgeMs = now - heartbeat.lastRun;
+  } else {
+    const pm2Pid = await getPm2MatcherOnlinePid();
+    if (pm2Pid && isPidAlive(pm2Pid)) {
+      processRunning = true;
+      processSource = "pm2";
+      pid = pm2Pid;
+      processLastRun = heartbeat?.lastRun || null;
+      processAgeMs = processLastRun ? now - processLastRun : null;
+      matchCount = heartbeat?.matchCount ?? null;
+    }
   }
 
   const lastBuilt = await fetchLatestClientMatchBuiltAt();

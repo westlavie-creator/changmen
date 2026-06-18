@@ -11,8 +11,6 @@ import { deleteClientMatch } from "../ops/delete_client_match.js";
 import { restoreClientMatch } from "../ops/restore_client_match.js";
 import { previewMergeClientMatches, mergeClientMatches } from "../ops/merge_client_matches.js";
 import { rebuildOnce } from "../ops/rebuild.js";
-import { MATCHER_INTERVAL_MS } from "../lib/config.js";
-import { writeMatcherHeartbeat } from "../lib/heartbeat.js";
 import { getMatcherStatus, fetchMatcherDashboard } from "./matcher_data.js";
 import { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } from "./matcher_api_log.js";
 import { startMatcherProcess, stopMatcherProcess } from "./matcher_process.js";
@@ -232,11 +230,6 @@ function registerMatcherApiRoutes(app) {
     _rebuildRunning = true;
     try {
       const result = await rebuildOnce();
-      writeMatcherHeartbeat({
-        matchCount: result.matchCount,
-        intervalMs: MATCHER_INTERVAL_MS,
-        builtAt: result.builtAt,
-      });
       const logLines = [`赛事合并完成 · client_matches ${result.matchCount} 场`];
       if (result.teamReg?.registered > 0) {
         logLines.push(`自动收录队伍 ${result.teamReg.registered} 条`);

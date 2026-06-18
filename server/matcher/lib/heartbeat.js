@@ -28,15 +28,37 @@ export function isPidAlive(pid) {
   }
 }
 
-export function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt }) {
+export function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt, pid = process.pid }) {
   const payload = {
-    pid: process.pid,
+    pid,
     lastRun: Date.now(),
     intervalMs: intervalMs || 30_000,
     matchCount: matchCount ?? null,
     builtAt: builtAt ?? null,
   };
   fs.writeFileSync(HEARTBEAT_PATH, JSON.stringify(payload));
+}
+
+/** 心跳 pid 指向当前面板/backend 进程（多为误写的 rebuild 心跳），不能当作匹配脚本 */
+export function isPanelProcessHeartbeat(hb, panelPid = process.pid) {
+  return !!(hb?.pid && Number(hb.pid) === Number(panelPid));
+}
+
+/**
+ * 丢弃已退出进程或面板进程误写的心跳。
+ * @returns {object|null} 仍有效的匹配脚本心跳
+ */
+export function sanitizeMatcherHeartbeat(hb, panelPid = process.pid) {
+  if (!hb) return null;
+  if (hb.pid && !isPidAlive(hb.pid)) {
+    clearMatcherHeartbeat();
+    return null;
+  }
+  if (isPanelProcessHeartbeat(hb, panelPid)) {
+    clearMatcherHeartbeat();
+    return null;
+  }
+  return hb;
 }
 
 export function readMatcherHeartbeat() {

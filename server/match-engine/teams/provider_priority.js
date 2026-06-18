@@ -1,4 +1,5 @@
 import { formatTitle, isPlaceholderTeamName } from "./match_utils.js";
+import { normalizeTeam } from "./team_key.js";
 
 /** 平台优先级：数值越大，队名 / Title 越优先采用 */
 const PROVIDER_PRIORITY = { OB: 10, RAY: 9, PB: 8, TF: 7, IA: 6, IMT: 5, IM: 4, SABA: 3, HG: 2 };
@@ -33,38 +34,55 @@ function titleFromPlatformRow(row) {
   return formatTitle(home, away);
 }
 
+function resolveCanonicalNameForId(resolvers, platform, platformId) {
+  const id = String(platformId ?? "").trim();
+  if (!id) return null;
+  const gbTeamId = resolvers.lookupGbTeamId(platform, id);
+  if (!gbTeamId) return null;
+  const name = String(resolvers.lookupCanonicalName(gbTeamId) || "").trim();
+  if (!name || isPlaceholderTeamName(name)) return null;
+  return name;
+}
+
+/**
+ * 按最高优先级平台的 canonical 主客取向解析队名。
+ * 各平台 home/away 槽位可能颠倒（如 TF），需用队名对齐后再取对应 platform_id 映射。
+ */
 function resolveCanonicalSideNames(rows, resolvers) {
   if (!resolvers?.lookupGbTeamId || !resolvers?.lookupCanonicalName) return null;
 
   const sorted = sortByProviderPriority(rows);
+  const ref = pickCanonicalPlatformRow(rows);
+  if (!ref) return null;
+
+  const refHome = normalizeTeam(ref.home);
+  const refAway = normalizeTeam(ref.away);
   let home = null;
   let away = null;
 
   for (const row of sorted) {
     const platform = row.platform ?? row.Platform;
-    const homeId = String(row.homeId ?? row.HomeID ?? "").trim();
-    if (!home && homeId) {
-      const gbTeamId = resolvers.lookupGbTeamId(platform, homeId);
-      if (gbTeamId) {
-        const name = String(resolvers.lookupCanonicalName(gbTeamId) || "").trim();
-        if (name && !isPlaceholderTeamName(name)) home = name;
-      }
+    const rowHome = normalizeTeam(row.home);
+    const rowAway = normalizeTeam(row.away);
+    const homeId = row.homeId ?? row.HomeID;
+    const awayId = row.awayId ?? row.AwayID;
+
+    if (!home && refHome) {
+      if (rowHome === refHome) home = resolveCanonicalNameForId(resolvers, platform, homeId);
+      else if (rowAway === refHome) home = resolveCanonicalNameForId(resolvers, platform, awayId);
     }
-    const awayId = String(row.awayId ?? row.AwayID ?? "").trim();
-    if (!away && awayId) {
-      const gbTeamId = resolvers.lookupGbTeamId(platform, awayId);
-      if (gbTeamId) {
-        const name = String(resolvers.lookupCanonicalName(gbTeamId) || "").trim();
-        if (name && !isPlaceholderTeamName(name)) away = name;
-      }
+    if (!away && refAway) {
+      if (rowAway === refAway) away = resolveCanonicalNameForId(resolvers, platform, awayId);
+      else if (rowHome === refAway) away = resolveCanonicalNameForId(resolvers, platform, homeId);
     }
     if (home && away) break;
   }
 
   if (!home || !away) return null;
-  const picked = pickCanonicalPlatformRow(rows);
+  if (normalizeTeam(home) === normalizeTeam(away)) return null;
+
   return {
-    platform: picked?.platform ?? sorted[0]?.platform,
+    platform: ref.platform,
     home,
     away,
     title: formatTitle(home, away),
