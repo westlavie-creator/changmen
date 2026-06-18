@@ -4,6 +4,8 @@ import {
   formatArbProgressTelegramBody,
   type ArbProgressPayload,
 } from "@/extensions/notify/arbExecutionTrace";
+import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
+import type { ArbMarketWatchGroup } from "@/extensions/arbMarketWatch/watchSinks";
 import { formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
 import { NOTIFY_TYPES } from "@/types/notifyTypes";
 import type { BetOption } from "@/models/betOption";
@@ -247,6 +249,24 @@ export const useMessageStore = defineStore("message", {
       sessionStorage.setItem(storageKey, String(Date.now()));
 
       this.enqueueTelegram(formatArbProgressTelegramBody(payload));
+    },
+
+    /**
+     * [changmen 扩展] 全盘口盯盘 Telegram（arbMarketWatch；与 arbProgressMessage 独立）。
+     */
+    marketWatchMessage(group: ArbMarketWatchGroup) {
+      const user = useUserStore();
+      if (!user.message?.telegramId?.trim()) return;
+      if (user.message.notifyArbOpportunity !== true) return;
+
+      if (group.kind === "appeared") {
+        const storageKey = `${DEDUP_PREFIX}arb-opp:appeared:${group.anchor}`;
+        const last = Number(sessionStorage.getItem(storageKey) || 0);
+        if (Date.now() - last < 600_000) return;
+        sessionStorage.setItem(storageKey, String(Date.now()));
+      }
+
+      this.enqueueTelegram(formatMarketWatchGroup(group));
     },
 
     bettingMessage(legA: BettingMessagePeer, legB: BettingMessagePeer) {

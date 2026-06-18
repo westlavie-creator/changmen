@@ -42,7 +42,7 @@ const tabDefs: TabDef[] = [
   { name: "rank", label: "排行榜", component: UserDiagRankTab },
   { name: "pass", label: "修改密码", component: UserDiagPasswordTab },
   { name: "message", label: "消息通知", component: UserDiagMessageTab },
-  { name: "extension", label: "9999单边", component: UserDiagExtensionTab },
+  { name: "extension", label: "扩展", component: UserDiagExtensionTab },
   { name: "proxy", label: "代理配置", component: UserDiagProxyTab },
   { name: "report", label: "报表查询", component: UserDiagReportTab },
   { name: "collect", label: "赛事采集", component: UserDiagCollectTab },

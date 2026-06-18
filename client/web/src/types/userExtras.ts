@@ -9,6 +9,8 @@ export interface MessageConfig extends Record<string, unknown> {
   pushOrderId?: string;
   /** [changmen 扩展] 套利执行进度报告（与 A8 bettingMessage 并存） */
   notifyArbProgress?: boolean;
+  /** [changmen 扩展] 套利机会出现/结束提醒（与自动下单无关） */
+  notifyArbOpportunity?: boolean;
 }
 
 export interface WalletRow {

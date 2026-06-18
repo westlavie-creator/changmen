@@ -1,8 +1,14 @@
 import type { PlatformId } from "@/types/esport";
+import type { ArbDetectEngine } from "@/extensions/arbOpportunity/arbDetectEngine";
 import { normalizeWaitTime } from "@/shared/betTiming";
 import { ALL_PLATFORMS } from "@platform/registry";
 
 export type BetSorting = "Low" | "High" | "Parallel" | "WinRate" | "Custom";
+
+export type { ArbDetectEngine };
+
+/** @deprecated 使用 ArbDetectEngine */
+export type ArbExecuteEngine = ArbDetectEngine;
 
 export { ALL_PLATFORMS };
 
@@ -39,6 +45,10 @@ export interface UserConfig {
   betChecked: boolean;
   singleBet: boolean;
   waitTime: Record<string, number>;
+  /** [changmen 扩展] 套利检测策略；缺省 a8（执行始终走主循环 executeArbBet） */
+  arbDetectEngine?: ArbDetectEngine;
+  /** @deprecated 读取时合并到 arbDetectEngine */
+  arbExecuteEngine?: ArbDetectEngine;
 }
 
 export function createDefaultUserConfig(): UserConfig {
@@ -73,7 +83,18 @@ export function createDefaultUserConfig(): UserConfig {
     betChecked: false,
     singleBet: false,
     waitTime: {},
+    arbDetectEngine: "a8",
   };
+}
+
+function resolveArbDetectEngineFromRaw(
+  raw: Partial<UserConfig> | null | undefined,
+): ArbDetectEngine {
+  const engine = (raw?.arbDetectEngine ?? raw?.arbExecuteEngine) as string | undefined;
+  if (engine === "kakaxi" || engine === "changmen") {
+    return "kakaxi";
+  }
+  return "a8";
 }
 
 export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): UserConfig {
@@ -96,5 +117,7 @@ export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): Us
         ? (raw.waitTime as Record<string, unknown>)
         : undefined,
     ),
+    arbDetectEngine: resolveArbDetectEngineFromRaw(raw),
+    arbExecuteEngine: resolveArbDetectEngineFromRaw(raw),
   };
 }

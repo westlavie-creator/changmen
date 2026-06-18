@@ -92,17 +92,23 @@ UI 点击 ──► accountStore.checkBetting / betting
 ```
 matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
   ──► 30s 门控 fetchMatches + oddsStore.clean，否则 refreshOddsOnBets
-  ──► runArbBetRound（config.betting 时 executeArbBet）
-        └── executeArbBet（单场单 bet）
+  ──► runArbBetRound（config.betting 时按 arbDetectEngine 分发）
+        ├── a8（默认）：a8/runA8ArbRound — 全表串行 executeArbBet
+        └── kakaxi：kakaxi/runKakaxiArbRound — 消费队列（不全表遍历）
+              ├── kakaxi/detectFeed（odds 事件 → funded pickArbLegs → 入队）
+              └── kakaxi/scheduler → executeArbBet（与 a8 共用管线）
+        └── executeArbBet（单场单 bet，a8 / kakaxi 共用）
               ├── domain/betting.buildOrderOptions（经 ViewBet.getOrderOptions）
               ├── accountStore.getAccount / checkBetting / betting
               ├── autoBet/retryFailedLeg（一侧失败换平台）
               ├── autoBet/rejectWait（拒单等待 + updateVenueOrders）
               ├── autoBet/makeUp（补单门控 + loseOrder 入队）
               └── successMarkers.markSuccessfulBet + betTiming 计数
-  ──► processLoseOrders（补单队列）
+  ──► processLoseOrders（补单队列，与执行模式无关）
   ──► 10min 门控 fetchMatchDefaultOdds
 ```
+
+配置 `arbDetectEngine`：`a8`（默认，与 bundle 一致）| `kakaxi`（并列调度，扩展页「实验」解锁）。
 
 手动双击：`bettingStore.manualBet` → `manualBet.ts`（同样走 `accountStore` + `successMarkers`）。
 
@@ -147,7 +153,10 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | 路径 | 用途 |
 |------|------|
 | `bettingStore.ts` | 手动下注、补单入口；主循环在 matchStore |
-| `runArbBetRound.ts` | 主循环单轮：A8 自动下单 + 补单 |
+| `runArbBetRound.ts` | 主循环单轮：按模式分发套利 + 补单 |
+| `arbExecutionMode.ts` | 解析 `arbDetectEngine` → `a8` \| `kakaxi` |
+| `a8/runA8ArbRound.ts` | [A8 可证实] 全表串行 `executeArbBet` |
+| `kakaxi/` | [changmen 扩展] 并列调度：detectFeed → queue → scheduler |
 | `autoBetLoop.ts` | `runArbBetRound` 兼容别名 |
 | `autoBet/executeArbBet.ts` | 单场套利编排入口 |
 | `autoBet/phases/prepareArbAttempt.ts` | 选腿、选号、linkId |

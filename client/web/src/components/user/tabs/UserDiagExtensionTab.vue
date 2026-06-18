@@ -1,5 +1,70 @@
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import { ElMessage } from "element-plus";
+import { storeToRefs } from "pinia";
+import {
+  isKakaxiArbDetectSelectable,
+  type ArbDetectEngine,
+} from "@/extensions/arbOpportunity/arbDetectEngine";
+import { useConfigStore } from "@/stores/configStore";
+
+const configStore = useConfigStore();
+const { config, saving } = storeToRefs(configStore);
+/** 双击「实验」后本会话内才可选 kakaxi（不自动切换引擎） */
+const kakaxiUnlocked = ref(false);
+
+const engine = computed({
+  get: () => config.value.arbDetectEngine ?? "a8",
+  set: (v: ArbDetectEngine) => {
+    config.value.arbDetectEngine = v;
+    config.value.arbExecuteEngine = v;
+  },
+});
+
+function unlockKakaxiEngine() {
+  if (kakaxiUnlocked.value) return;
+  kakaxiUnlocked.value = true;
+}
+
+async function save() {
+  if (engine.value === "kakaxi") {
+    if (!kakaxiUnlocked.value) {
+      config.value.arbDetectEngine = "a8";
+      config.value.arbExecuteEngine = "a8";
+      ElMessage.warning("请先双击「实验」解锁后再选择 kakaxi");
+      return;
+    }
+    if (!isKakaxiArbDetectSelectable()) {
+      config.value.arbDetectEngine = "a8";
+      config.value.arbExecuteEngine = "a8";
+      ElMessage.warning("kakaxi 检测尚未开放，已保持 A8");
+    }
+  }
+  const ok = await configStore.save();
+  if (ok) ElMessage.success("保存成功");
+  else ElMessage.error("保存失败");
+}
+</script>
+
 <template>
   <el-form label-width="120px" class="user-diag-extension">
+    <el-form-item label="套利检测引擎:">
+      <el-radio-group v-model="engine">
+        <el-radio value="a8">A8 检测（默认，每盘口试单）</el-radio>
+        <el-radio value="kakaxi" :disabled="!kakaxiUnlocked">
+          kakaxi 调度（<span
+            title="双击解锁"
+            @dblclick.stop="unlockKakaxiEngine"
+            >实验</span
+          >）
+        </el-radio>
+      </el-radio-group>
+      <p class="hint">
+        开启投注时，<strong>A8</strong> 由主循环 ~100ms 全表遍历；<strong>kakaxi</strong>
+        由赔率事件入队、主循环消费队列（不全表遍历）。补单与拉列表不变。机会 Telegram 由「消息通知」页单独开关。
+      </p>
+    </el-form-item>
+
     <el-form-item label="比例 9999:">
       <p class="hint title">单边模式（changmen 扩展，A8 无此语义）</p>
     </el-form-item>
@@ -12,6 +77,12 @@
         <li>缺腿若因余额不足、暂停等（非 9999），则整单跳过，与 A8 一致。</li>
       </ul>
     </el-form-item>
+
+    <div class="flex flex-center">
+      <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
+        &nbsp;保存
+      </el-button>
+    </div>
   </el-form>
 </template>
 

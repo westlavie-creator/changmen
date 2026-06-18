@@ -13,6 +13,16 @@ export {
   shouldSendArbProgress,
 } from "@/extensions/notify/arbProgressConfig";
 
+export { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
+
+export {
+  buildMarketWatchGroups,
+  sameOpportunityLegs,
+  type ArbMarketWatchGroup,
+} from "@/extensions/arbMarketWatch/watchSinks";
+
+export { shouldSendArbOpportunity } from "@/extensions/notify/arbOpportunityConfig";
+
 export { describeGetOrderOptionsSkip } from "@/extensions/notify/describeArbPrepareSkip";
 
 export function formatLegAccount(

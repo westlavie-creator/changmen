@@ -1,0 +1,127 @@
+import { detectOpportunities } from "@/extensions/arbOpportunity/detect";
+import {
+  diffOpportunities,
+  snapshotOpportunities,
+  type OpportunityTransition,
+} from "@/extensions/arbOpportunity/state";
+import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
+import { deliverMarketWatchSink } from "@/extensions/arbMarketWatch/watchSinks";
+import type { DetectOpportunitiesParams } from "@/extensions/arbOpportunity/detect";
+import type { ViewMatch } from "@/models/match";
+import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformId } from "@/types/esport";
+import type { UserConfig } from "@/types/userConfig";
+import { useAccountStore } from "@/stores/accountStore";
+import { useConfigStore } from "@/stores/configStore";
+import { useMatchStore } from "@/stores/matchStore";
+import { useOddsStore } from "@/stores/oddsStore";
+import { useUserStore } from "@/stores/userStore";
+
+export const MARKET_WATCH_LOOP_DEBOUNCE_MS = 250;
+export const MARKET_WATCH_LOOP_FALLBACK_MS = 5_000;
+
+export interface MarketWatchLoopTickInput {
+  snapshot: Map<OpportunityKey, ArbOpportunity>;
+  matches: ViewMatch[];
+  config: UserConfig;
+  accounts?: PlatformAccount[];
+  actionablePlatforms?: Iterable<PlatformId>;
+}
+
+export interface MarketWatchLoopTickResult {
+  snapshot: Map<OpportunityKey, ArbOpportunity>;
+  transitions: OpportunityTransition[];
+}
+
+/** 单拍：fullMarket detect → diff */
+export function runMarketWatchLoopTick(input: MarketWatchLoopTickInput): MarketWatchLoopTickResult {
+  const detectParams: DetectOpportunitiesParams = {
+    matches: input.matches,
+    config: input.config,
+    accounts: input.accounts,
+    actionablePlatforms: input.actionablePlatforms,
+  };
+  const current = detectOpportunities(detectParams, "fullMarket");
+  return {
+    snapshot: snapshotOpportunities(current),
+    transitions: diffOpportunities(input.snapshot, current),
+  };
+}
+
+let activeLoop: { stop: () => void } | null = null;
+
+/** [changmen 扩展] 全盘口盯盘旁路（关投注 + notifyArbOpportunity 时按需启动） */
+export function startMarketWatchLoop(): void {
+  stopMarketWatchLoop();
+
+  let snapshot = new Map<OpportunityKey, ArbOpportunity>();
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+
+  const runTick = () => {
+    if (stopped) return;
+
+    const configStore = useConfigStore();
+    const accountStore = useAccountStore();
+    const config = configStore.config;
+    const detectParams: DetectOpportunitiesParams = {
+      matches: [],
+      config,
+      accounts: accountStore.accounts,
+      actionablePlatforms: accountStore.getProviders().keys(),
+    };
+
+    const user = useUserStore();
+    const matchStore = useMatchStore();
+    const matches = user.userId && matchStore.matchs.length ? matchStore.matchs : [];
+    detectParams.matches = matches;
+
+    // 无用户或列表未就绪：静默清快照，避免误发「机会结束」
+    if (!matches.length) {
+      snapshot = new Map();
+      return;
+    }
+
+    const result = runMarketWatchLoopTick({
+      snapshot,
+      matches,
+      config,
+      accounts: detectParams.accounts,
+      actionablePlatforms: detectParams.actionablePlatforms,
+    });
+    snapshot = result.snapshot;
+
+    deliverMarketWatchSink(result.transitions, snapshot, detectParams);
+  };
+
+  const scheduleDebounced = () => {
+    if (stopped) return;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      debounceTimer = undefined;
+      runTick();
+    }, MARKET_WATCH_LOOP_DEBOUNCE_MS);
+  };
+
+  const oddsStore = useOddsStore();
+  const unsubscribeOdds = oddsStore.$subscribe(() => {
+    scheduleDebounced();
+  });
+
+  const fallbackInterval = setInterval(runTick, MARKET_WATCH_LOOP_FALLBACK_MS);
+  scheduleDebounced();
+
+  activeLoop = {
+    stop: () => {
+      stopped = true;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(fallbackInterval);
+      unsubscribeOdds();
+      activeLoop = null;
+    },
+  };
+}
+
+export function stopMarketWatchLoop(): void {
+  activeLoop?.stop();
+}

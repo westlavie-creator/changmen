@@ -19,6 +19,13 @@ const notifyArbProgress = computed({
   },
 });
 
+const notifyArbOpportunity = computed({
+  get: () => message.value.notifyArbOpportunity === true,
+  set: (v: boolean) => {
+    message.value.notifyArbOpportunity = v;
+  },
+});
+
 function unlockPush(type: string) {
   if (type === "OrderPush") pushLocked.value = false;
 }
@@ -64,6 +71,11 @@ async function testTelegram() {
     <el-form-item label="套利进度报告:">
       <el-checkbox v-model="notifyArbProgress">
         开启投注时推送执行时间线（含检测失败、预检、下单；与 📣下单提醒 并存）
+      </el-checkbox>
+    </el-form-item>
+    <el-form-item label="套利机会提醒:">
+      <el-checkbox v-model="notifyArbOpportunity">
+        出现或结束套利机会时推送（与自动下单无关；与进度报告独立）
       </el-checkbox>
     </el-form-item>
     <el-form-item label="消息通知类型:">

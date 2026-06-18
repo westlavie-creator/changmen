@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-17T05:52:54.000Z",
+  "generatedAt": "2026-06-18T01:56:31.108Z",
   "sources": {
     "bundleJs": "A8/A8frontendscipts/2.0.1/index.js",
     "indexCss": "server/backend/public/esport2/assets/index.css",
@@ -83,16 +83,24 @@
       "bytes": 1508
     },
     {
+      "file": "components/order/LoseOrderView.vue",
+      "bytes": 991
+    },
+    {
       "file": "components/layout/AppHeader.vue",
       "bytes": 295
+    },
+    {
+      "file": "components/user/tabs/UserDiagExtensionTab.vue",
+      "bytes": 248
     },
     {
       "file": "components/layout/GalaxySpinner.vue",
       "bytes": 193
     },
     {
-      "file": "components/user/tabs/UserDiagExtensionTab.vue",
-      "bytes": 102
+      "file": "components/account/AccountEditDialog.vue",
+      "bytes": 132
     },
     {
       "file": "components/layout/PluginIntroShell.vue",

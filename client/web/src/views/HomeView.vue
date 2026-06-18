@@ -11,6 +11,11 @@ import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
+import {
+  installArbRuntimeSync,
+  syncArbRuntime,
+  teardownArbRuntimeSync,
+} from "@/extensions/arbOpportunity";
 import { bootSessionRuntime, stopSessionRuntime } from "@/runtime/sessionBoot";
 
 const user = useUserStore();
@@ -24,6 +29,9 @@ const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 void matchStore.startMainLoop();
 // [A8 可证实] Ki：a() — store 创建时启动 Telegram 队列
 messageStore.start();
+// [changmen 扩展] 按配置启停：arbMarketWatch / kakaxi 检测旁路（A8 主循环不变）
+installArbRuntimeSync();
+syncArbRuntime();
 
 const searchQuery = ref("");
 const { extensionReady, refreshExtension } = useExtensionGate();
@@ -43,6 +51,7 @@ const filteredMatchs = computed(() => {
 
 function stopHome() {
   stopSessionRuntime();
+  teardownArbRuntimeSync();
   messageStore.stop();
   matchStore.stopMainLoop();
   accountStore.stopBalanceRefreshLoop();

@@ -4,7 +4,7 @@
 
 对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `index.css`（只读）
 
-最后更新：2026-06-16
+最后更新：2026-06-17
 
 ---
 
@@ -116,7 +116,8 @@
 | 9999 单边 Telegram | A8 无 | 双腿版式；9999 侧标注不下单 | 🔶 |
 | 补单入队 | 一腿成功一腿失败 | `enqueueMakeUpOrder` | ✅ |
 | 手动双击下单 | check + betting | `manualBet.ts` | ✅ |
-| Telegram 套利扫描 | 无（仅成功推单） | 无 | ✅ |
+| Telegram 套利机会提醒（关投注） | 无 | `arbMarketWatch` + `notifyArbOpportunity` | 🔶 |
+| 套利执行调度 kakaxi | 无 | `arbDetectEngine=kakaxi`：`stores/betting/kakaxi` 队列调度；`a8` 路径与 bundle 一致 | 🔶 |
 | 套利执行进度报告 | 无 | `extensions/notify`：单次尝试一份报告（含 prepare 失败）；与 `bettingMessage` 并存 | 🔶 |
 | BetRow 套利红线 / flash | bundle 内联 / 无 | `extensions/arbBet/ui` | 🔶 |
 

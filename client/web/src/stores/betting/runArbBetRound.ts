@@ -1,27 +1,27 @@
-import { executeArbBet } from "@/stores/betting/autoBet/executeArbBet";
+import { runA8ArbRound } from "@/stores/betting/a8/runA8ArbRound";
+import { isKakaxiExecutionMode } from "@/stores/betting/arbExecutionMode";
+import { runKakaxiArbRound } from "@/stores/betting/kakaxi/runKakaxiArbRound";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { useMatchStore } from "@/stores/matchStore";
 
 export interface ArbBetRoundContext {
   setMessage: (msg: string) => void;
   processLoseOrders: () => Promise<void>;
 }
 
-/** 主循环单轮：遍历盘口 → A8 自动下单（config.betting） */
+/** 主循环单轮：按执行模式调度套利 + 补单 */
 export async function runArbBetRound(ctx: ArbBetRoundContext): Promise<void> {
   const configStore = useConfigStore();
-  const matchStore = useMatchStore();
   const loseStore = useLoseOrderStore();
   const { setMessage, processLoseOrders } = ctx;
 
   const config = configStore.config;
 
   if (config.betting) {
-    for (const match of matchStore.matchs) {
-      for (const bet of match.bets) {
-        await executeArbBet({ match, bet, config, setMessage });
-      }
+    if (isKakaxiExecutionMode(config)) {
+      await runKakaxiArbRound({ setMessage });
+    } else {
+      await runA8ArbRound({ setMessage });
     }
   }
 
