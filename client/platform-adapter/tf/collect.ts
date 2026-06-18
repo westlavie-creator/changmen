@@ -6,7 +6,7 @@ import { notifyCollectError } from "@platform/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { a8StartTimeCollectAllowed } from "@/utils/a8MatchTime";
+import { a8StartTimeCollectAllowed } from "@/shared/a8MatchTime";
 import {
   buildTfCollectMatchDto,
   collectTfGet,

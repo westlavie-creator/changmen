@@ -212,6 +212,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `http.ts` | 采集直连 `directGet` / `directPostJson`（**Axios**，非 fetch） |
 | `platformHttp.ts` | **投注账号** HTTP（OB/RAY/TF…；Axios + 可选 relay） |
 | `betTiming.ts` | 下注通知时长、`lastOdds`、`BETCOUNT`（对齐 A8 `T()`） |
+| `a8MatchTime.ts` | 采集开赛时间窗（复用 `@changmen/shared` + 过去 12h 下限） |
 | `arbBetTraceFormat.ts` | trace 事件文案（`formatBetResult` / `formatLegAccount`） |
 | `winRate.ts` | WinRate 排序（`betSorting: WinRate`） |
 | `bracketForm.ts` | 嵌套 form-urlencoded（SABA 等） |
@@ -302,4 +303,4 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 ## 已知待整理（非阻塞）
 
-- `src/utils/a8MatchTime.ts` 被 `platforms/tf/collect.ts` 和 `platforms/shared/socket/accumulator.ts` 引用，暂保留；若后续移入 `shared/` 需同步更新两处 import
+（当前无阻塞项；deprecated shim 清理见架构批次 backlog。）

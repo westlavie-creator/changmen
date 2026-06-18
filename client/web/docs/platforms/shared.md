@@ -13,7 +13,7 @@
 
 ## a8MatchTime（前端）
 
-路径：[`utils/a8MatchTime.ts`](../../utils/a8MatchTime.ts)
+路径：[`shared/a8MatchTime.ts`](../../src/shared/a8MatchTime.ts)
 
 | 导出 | 含义 |
 |------|------|

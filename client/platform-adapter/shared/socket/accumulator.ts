@@ -11,7 +11,7 @@ import {
   a8StartTimeCollectAllowed,
   IM_ODDS_ACTIVE_MS,
   normalizeEpochMs,
-} from "@/utils/a8MatchTime";
+} from "@/shared/a8MatchTime";
 import { useOddsStore } from "@/stores/oddsStore";
 
 export interface A8BetRow {
