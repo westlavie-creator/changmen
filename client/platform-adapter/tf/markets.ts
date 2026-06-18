@@ -29,7 +29,7 @@ function parseTfStartTimeMs(raw: unknown): number {
   return Number.isNaN(ms) ? 0 : ms;
 }
 
-/** A8 NBe：浏览器直连 TF /api/v8/events/ */
+/** A8 `h4e`：浏览器直连 TF /api/v8/events/ */
 export async function collectTfGet<T>(
   platform: CollectPlatformInfo,
   query: Record<string, string>,

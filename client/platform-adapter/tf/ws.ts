@@ -5,12 +5,15 @@ import {
 } from "@platform/shared/directRealtimeStatus";
 import { PLATFORMS } from "@/shared/platform";
 import { tfWsAuthToken } from "./auth";
-import { buildTfDirectWsUrl } from "./wsConfig";
+import {
+  buildTfWsUrl,
+  TF_WS_CONNECTION_TIMEOUT_MS,
+  TF_WS_RECONNECT_MAX_MS,
+  TF_WS_RECONNECT_MIN_MS,
+} from "./wsConfig";
 
 const PLATFORM = PLATFORMS.TF;
 
-const WS_RECONNECT_MIN_MS = 1000;
-const WS_RECONNECT_MAX_MS = 5000;
 const WS_RECONNECT_GROW = 1.3;
 
 export type TfWsOddsPayload = {
@@ -18,8 +21,8 @@ export type TfWsOddsPayload = {
 };
 
 /**
- * A8 NBe：ReconnectingWebSocket（min 1s / max 5s）。
- * 浏览器直连 wss://47.115.75.57/esport/ws/TF（不经本地 relay / Electron IPC）。
+ * A8 `h4e` + `c4e`：ReconnectingWebSocket（connectionTimeout 4s，重连 1s–5s）。
+ * 浏览器直连 `wss://{api.a8.to|47.115.75.57}/esport/ws/TF`（不经本地 relay）。
  */
 export function startTfOddsWs(opts: {
   getToken: () => Promise<string | undefined>;
@@ -29,7 +32,15 @@ export function startTfOddsWs(opts: {
   let stopped = false;
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  let retryMs = WS_RECONNECT_MIN_MS;
+  let connectTimer: ReturnType<typeof setTimeout> | null = null;
+  let retryMs = TF_WS_RECONNECT_MIN_MS;
+
+  const clearConnectTimer = () => {
+    if (connectTimer) {
+      clearTimeout(connectTimer);
+      connectTimer = null;
+    }
+  };
 
   const scheduleReconnect = () => {
     if (stopped) return;
@@ -37,7 +48,7 @@ export function startTfOddsWs(opts: {
       reconnectTimer = null;
       void connect();
     }, retryMs);
-    retryMs = Math.min(Math.floor(retryMs * WS_RECONNECT_GROW), WS_RECONNECT_MAX_MS);
+    retryMs = Math.min(Math.floor(retryMs * WS_RECONNECT_GROW), TF_WS_RECONNECT_MAX_MS);
   };
 
   const connect = async () => {
@@ -58,13 +69,29 @@ export function startTfOddsWs(opts: {
     } catch {
       /* ignore */
     }
+    clearConnectTimer();
 
-    const url = buildTfDirectWsUrl(tfWsAuthToken(token));
+    const url = buildTfWsUrl(tfWsAuthToken(token));
     patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: null });
     ws = new WebSocket(url);
 
+    connectTimer = setTimeout(() => {
+      if (ws?.readyState !== WebSocket.OPEN) {
+        patchDirectRealtimeStatus(PLATFORM, {
+          upstreamConnected: false,
+          lastError: "ws connect timeout",
+        });
+        try {
+          ws?.close();
+        } catch {
+          /* ignore */
+        }
+      }
+    }, TF_WS_CONNECTION_TIMEOUT_MS);
+
     ws.onopen = () => {
-      retryMs = WS_RECONNECT_MIN_MS;
+      clearConnectTimer();
+      retryMs = TF_WS_RECONNECT_MIN_MS;
       patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: true, lastError: null });
       console.info("[TF] connected (direct)", url.replace(/auth_token=([^&]{0,8})[^&]*/, "auth_token=$1…"));
     };
@@ -81,6 +108,7 @@ export function startTfOddsWs(opts: {
     };
 
     ws.onerror = () => {
+      clearConnectTimer();
       patchDirectRealtimeStatus(PLATFORM, {
         upstreamConnected: false,
         lastError: "ws error",
@@ -90,6 +118,7 @@ export function startTfOddsWs(opts: {
     };
 
     ws.onclose = () => {
+      clearConnectTimer();
       patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false });
       ws = null;
       scheduleReconnect();
@@ -101,6 +130,7 @@ export function startTfOddsWs(opts: {
   return () => {
     stopped = true;
     if (reconnectTimer) clearTimeout(reconnectTimer);
+    clearConnectTimer();
     try {
       ws?.close();
     } catch {

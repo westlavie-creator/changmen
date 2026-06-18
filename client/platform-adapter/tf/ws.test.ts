@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { startTfOddsWs } from "./ws";
+import { resetTfWsHostRotateForTests } from "./wsConfig";
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
+  static OPEN = 1;
   url: string;
+  readyState = 0;
   onopen: (() => void) | null = null;
   onmessage: ((ev: { data: string }) => void) | null = null;
   onerror: (() => void) | null = null;
@@ -14,16 +17,21 @@ class MockWebSocket {
     MockWebSocket.instances.push(this);
   }
 
-  close = vi.fn();
+  close = vi.fn(() => {
+    this.readyState = 3;
+    this.onclose?.();
+  });
 }
 
 describe("startTfOddsWs", () => {
   afterEach(() => {
     MockWebSocket.instances = [];
+    resetTfWsHostRotateForTests();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
-  test("connects directly to A8 TF ws with stripped auth token", async () => {
+  test("connects to first A8 ws host with stripped auth token", async () => {
     vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
 
     const onMessage = vi.fn();
@@ -37,7 +45,7 @@ describe("startTfOddsWs", () => {
     await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
     const ws = MockWebSocket.instances[0]!;
     expect(ws.url).toBe(
-      "wss://47.115.75.57/esport/ws/TF?auth_token=abc123&combo=false",
+      "wss://api.a8.to/esport/ws/TF?auth_token=abc123&combo=false",
     );
 
     ws.onopen?.();
@@ -50,5 +58,27 @@ describe("startTfOddsWs", () => {
 
     stop();
     expect(ws.close).toHaveBeenCalled();
+  });
+
+  test("rotates ws host on reconnect", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
+
+    const stop = startTfOddsWs({
+      getToken: async () => "tok1",
+      onMessage: vi.fn(),
+      onError: vi.fn(),
+    });
+
+    await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(1));
+    expect(MockWebSocket.instances[0]!.url).toContain("api.a8.to");
+
+    MockWebSocket.instances[0]!.onclose?.();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(2));
+    expect(MockWebSocket.instances[1]!.url).toContain("47.115.75.57");
+
+    stop();
   });
 });

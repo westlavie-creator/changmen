@@ -24,7 +24,7 @@ function parseTfStartTimeMs(raw: unknown): number {
   return Number.isNaN(ms) ? 0 : ms;
 }
 
-/** A8 NBe 列表过滤：game_id ∈ games 且 start < now + 3600s */
+/** A8 `h4e` 列表过滤：game_id ∈ games 且 start < now + 3600s */
 function tfListEventCollectAllowed(row: Record<string, unknown>): boolean {
   return a8StartTimeCollectAllowed(parseTfStartTimeMs(row.start_datetime));
 }

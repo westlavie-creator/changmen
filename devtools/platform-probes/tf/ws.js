@@ -3,30 +3,43 @@ import { stripTokenPrefix } from "./auth.js";
 
 const WebSocket = backendRequire("ws");
 
-const TF_UPSTREAM_HOST = "47.115.75.57";
-const WS_HOSTS = ["api.a8.to", "47.115.75.57"];
+/** A8 `d4e` / `x5` [A8 可证实] */
+export const TF_WS_HOSTS = ["api.a8.to", "47.115.75.57"];
+export const TF_WS_PATH = "/esport/ws/TF";
+
 let hostRotate = 0;
 
-export function buildTfUpstreamUrl(_gateway, token) {
-  const auth = stripTokenPrefix(token);
-  return `wss://${TF_UPSTREAM_HOST}/esport/ws/TF?auth_token=${encodeURIComponent(auth)}&combo=false`;
+export function resetTfWsHostRotateForTests() {
+  hostRotate = 0;
 }
 
-export function buildA8StyleWsUrl(token) {
-  const auth = stripTokenPrefix(token);
-  const host = WS_HOSTS[hostRotate % WS_HOSTS.length];
+export function nextTfWsHost() {
+  const host = TF_WS_HOSTS[hostRotate % TF_WS_HOSTS.length];
   hostRotate += 1;
-  return `wss://${host}/esport/ws/TF?auth_token=${encodeURIComponent(auth)}&combo=false`;
+  return host;
 }
 
-/**
- * TF 实时 WebSocket（A8 模式：优先直连 TF ws，可选 A8 代理 host）。
- */
+/** 对齐 changmen 浏览器 adapter `buildTfWsUrl` */
+export function buildTfWsUrl(token, host = nextTfWsHost()) {
+  const auth = stripTokenPrefix(token);
+  return `wss://${host}${TF_WS_PATH}?auth_token=${auth}&combo=false`;
+}
+
+/** @deprecated 使用 buildTfWsUrl */
+export function buildTfUpstreamUrl(_gateway, token) {
+  return buildTfWsUrl(token, TF_WS_HOSTS[1]);
+}
+
+/** @deprecated 使用 buildTfWsUrl */
+export function buildA8StyleWsUrl(token) {
+  return buildTfWsUrl(token);
+}
+
+
 export class TfWsClient {
   constructor(options = {}) {
     this.gateway = options.gateway || process.env.TF_GATEWAY || "";
     this.token = options.token || process.env.TF_TOKEN || "";
-    this.useA8Proxy = options.useA8Proxy ?? process.env.TF_WS_A8 === "1";
     this.wsUrlOverride = options.wsUrl || process.env.TF_WS_URL || "";
     this.reconnectMinMs = options.reconnectMinMs || 1000;
     this.reconnectMaxMs = options.reconnectMaxMs || 5000;
@@ -40,8 +53,7 @@ export class TfWsClient {
 
   resolveWsUrl() {
     if (this.wsUrlOverride) return this.wsUrlOverride;
-    if (this.useA8Proxy) return buildA8StyleWsUrl(this.token);
-    return buildTfUpstreamUrl(this.gateway, this.token);
+    return buildTfWsUrl(this.token);
   }
 
   onOdds(fn) {
