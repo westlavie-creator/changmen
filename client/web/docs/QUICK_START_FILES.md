@@ -100,7 +100,7 @@ BetRow → item.getOdds()
 
 | 旧文档路径 | 现路径 |
 |------------|--------|
-| `extensions/arbBet/rate9999.ts` | `domain/betting/singleLegRate.ts`（兼容转发仍在 extensions） |
+| `extensions/arbBet/rate9999.ts`（已删） | `domain/betting/singleLegRate.ts` |
 | `matchStore.startPolling()` | `matchStore.startMainLoop()`（HomeView 经 `runtime/appSession.startAppSession`） |
 | `extensions/notify/arbExecutionTrace.ts` | `stores/betting/autoBet/arbExecutionTrace.ts` |
 | `src/collectors/ob/` | `client/platform-adapter/ob/` |

@@ -6,7 +6,7 @@ import {
   createArbLinkId,
   explainAllowArbRejection,
   legHasSingleLegRateAccount,
-} from "@/extensions/arbBet";
+} from "@/domain/betting/singleLegRate";
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({
