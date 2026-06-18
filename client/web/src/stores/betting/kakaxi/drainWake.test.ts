@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { KAKAXI_DRAIN_WAKE_DEBOUNCE_MS } from "@/stores/betting/kakaxi/config";
+import { KAKAXI_DRAIN_WAKE_DEBOUNCE_MS, KAKAXI_WAKE_DRAIN_MAX_BETS, KAKAXI_WAKE_DRAIN_MAX_MS } from "@/stores/betting/kakaxi/config";
 
 type DrainCtx = { setMessage: (msg: string) => void };
 
-const drainKakaxiScheduler = vi.fn(async (_ctx: DrainCtx) => 1);
+const drainKakaxiScheduler = vi.fn(async (_ctx: DrainCtx, _options?: unknown) => 1);
 const config = { betting: true };
 const setMessage = vi.fn();
 let queueSize = 1;
 
 vi.mock("@/stores/betting/kakaxi/scheduler", () => ({
-  drainKakaxiScheduler: (ctx: DrainCtx) => drainKakaxiScheduler(ctx),
+  drainKakaxiScheduler: (ctx: DrainCtx, options?: unknown) => drainKakaxiScheduler(ctx, options),
 }));
 
 vi.mock("@/stores/configStore", () => ({
@@ -59,6 +59,10 @@ describe("wakeKakaxiDrain", () => {
     wakeKakaxiDrain(true);
     await vi.runAllTimersAsync();
     expect(drainKakaxiScheduler).toHaveBeenCalledOnce();
+    expect(drainKakaxiScheduler).toHaveBeenCalledWith(
+      expect.objectContaining({ setMessage: expect.any(Function) }),
+      { maxBets: KAKAXI_WAKE_DRAIN_MAX_BETS, maxMs: KAKAXI_WAKE_DRAIN_MAX_MS },
+    );
     expect(setMessage).not.toHaveBeenCalled();
     const ctx = drainKakaxiScheduler.mock.calls[0][0];
     ctx.setMessage("ok");

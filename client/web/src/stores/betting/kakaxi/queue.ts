@@ -1,3 +1,4 @@
+import { KAKAXI_QUEUE_TTL_MS } from "@/stores/betting/kakaxi/config";
 import { kakaxiBetKey, type KakaxiQueuedBet } from "@/stores/betting/kakaxi/types";
 import type { PlatformId } from "@/types/esport";
 import {
@@ -5,8 +6,7 @@ import {
   platformsConflict,
 } from "@/stores/betting/kakaxi/platformResolve";
 
-const queue: KakaxiQueuedBet[] = [];
-const keys = new Set<string>();
+const items = new Map<string, KakaxiQueuedBet>();
 
 function comparePriority(a: KakaxiQueuedBet, b: KakaxiQueuedBet): number {
   if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
@@ -27,16 +27,18 @@ function mergeQueuedBet(prev: KakaxiQueuedBet, item: KakaxiQueuedBet): KakaxiQue
 /** 入队；已存在则刷新 implied / isLive，返回是否为新条目 */
 export function enqueueKakaxiBet(item: KakaxiQueuedBet): boolean {
   const key = kakaxiBetKey(item.matchId, item.betId);
-  const existingIdx = queue.findIndex(
-    (row) => row.matchId === item.matchId && row.betId === item.betId,
-  );
-  if (existingIdx >= 0) {
-    queue[existingIdx] = mergeQueuedBet(queue[existingIdx], item);
+  const prev = items.get(key);
+  if (prev) {
+    items.set(key, mergeQueuedBet(prev, item));
     return false;
   }
-  keys.add(key);
-  queue.push(item);
+  items.set(key, item);
   return true;
+}
+
+/** 闸门失败等场景的轻量回队（保留原 enqueuedAt 以尊重 TTL） */
+export function requeueKakaxiBet(item: KakaxiQueuedBet): void {
+  enqueueKakaxiBet(item);
 }
 
 /** improved 时提升 implied / live，不入新队 */
@@ -47,19 +49,20 @@ export function boostKakaxiBetImplied(
   isLive: boolean,
   platforms?: Pick<KakaxiQueuedBet, "homePlatform" | "awayPlatform">,
 ): boolean {
-  const existingIdx = queue.findIndex(
-    (row) => row.matchId === matchId && row.betId === betId,
+  const key = kakaxiBetKey(matchId, betId);
+  const prev = items.get(key);
+  if (!prev) return false;
+  items.set(
+    key,
+    mergeQueuedBet(prev, {
+      matchId,
+      betId,
+      enqueuedAt: prev.enqueuedAt,
+      implied,
+      isLive,
+      ...platforms,
+    }),
   );
-  if (existingIdx < 0) return false;
-  const prev = queue[existingIdx];
-  queue[existingIdx] = mergeQueuedBet(prev, {
-    matchId,
-    betId,
-    enqueuedAt: prev.enqueuedAt,
-    implied,
-    isLive,
-    ...platforms,
-  });
   return true;
 }
 
@@ -76,13 +79,12 @@ export function dequeueKakaxiBetExcludingPlatforms(
   busyPlatforms: ReadonlySet<PlatformId>,
   resolvePlatforms?: (item: KakaxiQueuedBet) => PlatformId[] | undefined,
 ): KakaxiQueuedBet | undefined {
-  if (!queue.length) return undefined;
+  if (!items.size) return undefined;
 
-  let bestIdx = -1;
+  let best: KakaxiQueuedBet | undefined;
   let bestPlatforms: PlatformId[] | undefined;
 
-  for (let i = 0; i < queue.length; i++) {
-    const item = queue[i];
+  for (const item of items.values()) {
     const platforms =
       kakaxiQueuedBetPlatforms(item) ?? resolvePlatforms?.(item) ?? undefined;
     if (platforms?.length) {
@@ -91,41 +93,49 @@ export function dequeueKakaxiBetExcludingPlatforms(
       continue;
     }
 
-    if (bestIdx < 0 || comparePriority(item, queue[bestIdx]) < 0) {
-      bestIdx = i;
+    if (!best || comparePriority(item, best) < 0) {
+      best = item;
       bestPlatforms = platforms;
     }
   }
 
-  if (bestIdx < 0) return undefined;
+  if (!best) return undefined;
 
-  const [next] = queue.splice(bestIdx, 1);
-  keys.delete(kakaxiBetKey(next.matchId, next.betId));
+  const key = kakaxiBetKey(best.matchId, best.betId);
+  items.delete(key);
 
-  if (bestPlatforms && (!next.homePlatform || !next.awayPlatform)) {
-    next.homePlatform = bestPlatforms[0];
-    next.awayPlatform = bestPlatforms[1];
+  if (bestPlatforms && (!best.homePlatform || !best.awayPlatform)) {
+    best.homePlatform = bestPlatforms[0];
+    best.awayPlatform = bestPlatforms[1];
   }
 
-  return next;
+  return best;
 }
 
 export function removeKakaxiBet(matchId: number, betId: number): void {
-  const key = kakaxiBetKey(matchId, betId);
-  const idx = queue.findIndex((row) => row.matchId === matchId && row.betId === betId);
-  if (idx >= 0) queue.splice(idx, 1);
-  keys.delete(key);
+  items.delete(kakaxiBetKey(matchId, betId));
+}
+
+/** 丢弃超过 TTL 的队列条目，返回清理数量 */
+export function pruneExpiredKakaxiQueue(now = Date.now()): number {
+  let pruned = 0;
+  for (const [key, item] of items) {
+    if (now - item.enqueuedAt > KAKAXI_QUEUE_TTL_MS) {
+      items.delete(key);
+      pruned += 1;
+    }
+  }
+  return pruned;
 }
 
 export function clearKakaxiQueue(): void {
-  queue.length = 0;
-  keys.clear();
+  items.clear();
 }
 
 export function kakaxiQueueSize(): number {
-  return queue.length;
+  return items.size;
 }
 
 export function hasKakaxiBet(matchId: number, betId: number): boolean {
-  return keys.has(kakaxiBetKey(matchId, betId));
+  return items.has(kakaxiBetKey(matchId, betId));
 }

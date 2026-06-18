@@ -3,7 +3,20 @@ import { createDefaultUserConfig } from "@/types/userConfig";
 
 const config = createDefaultUserConfig();
 const matchStoreState = {
-  matchs: [{ id: 100, bets: [{ id: 1 }] }],
+  matchs: [
+    {
+      id: 100,
+      bets: [
+        {
+          id: 1,
+          items: [
+            { type: "OB", updateOdds: vi.fn() },
+            { type: "RAY", updateOdds: vi.fn() },
+          ],
+        },
+      ],
+    },
+  ],
 };
 const executeArbBet = vi.fn(async (_params: unknown) => {});
 
@@ -26,6 +39,16 @@ vi.mock("@/stores/betting/kakaxi/preExecuteGate", () => ({
   passesKakaxiPreExecuteGate: () => ({ ok: true }),
 }));
 
+vi.mock("@/domain/arbitrage", () => ({
+  pickArbLegs: () => ({
+    homeItem: { type: "OB" },
+    awayItem: { type: "RAY" },
+    homeOdds: 2.2,
+    awayOdds: 2.1,
+    implied: 1.1,
+  }),
+}));
+
 vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: (params: unknown) => executeArbBet(params),
 }));
@@ -35,6 +58,7 @@ import {
   enqueueKakaxiBet,
 } from "@/stores/betting/kakaxi/queue";
 import {
+  armKakaxiScheduler,
   drainKakaxiScheduler,
   getKakaxiInFlightKey,
   getKakaxiInFlightPlatforms,
@@ -52,7 +76,7 @@ function enqueueWithPlatforms(
   enqueueKakaxiBet({
     matchId,
     betId,
-    enqueuedAt: betId,
+    enqueuedAt: Date.now(),
     implied,
     isLive: false,
     homePlatform,
@@ -65,12 +89,25 @@ afterEach(() => {
   resetKakaxiScheduler();
 });
 
+function armSchedulerForTests(): void {
+  armKakaxiScheduler();
+}
+
 describe("processNextKakaxiBet", () => {
   beforeEach(() => {
+    armSchedulerForTests();
     Object.assign(config, createDefaultUserConfig());
     config.betting = true;
     executeArbBet.mockClear();
-    matchStoreState.matchs = [{ id: 100, bets: [{ id: 1 }] }];
+    matchStoreState.matchs = [
+      {
+        id: 100,
+        bets: [
+          { id: 1, items: [{ type: "OB", updateOdds: vi.fn() }, { type: "RAY", updateOdds: vi.fn() }] },
+          { id: 2, items: [{ type: "OB", updateOdds: vi.fn() }, { type: "PB", updateOdds: vi.fn() }] },
+        ],
+      },
+    ];
   });
 
   it("calls executeArbBet for queued bet", async () => {
@@ -89,16 +126,31 @@ describe("processNextKakaxiBet", () => {
     expect(ran).toBe(false);
     expect(executeArbBet).not.toHaveBeenCalled();
   });
+
+  it("returns false when scheduler is disarmed", async () => {
+    enqueueWithPlatforms(100, 1, 1.1, "OB", "RAY");
+    resetKakaxiScheduler();
+    const ran = await processNextKakaxiBet({ setMessage: () => {} });
+    expect(ran).toBe(false);
+    expect(executeArbBet).not.toHaveBeenCalled();
+  });
 });
 
 describe("drainKakaxiScheduler", () => {
   beforeEach(() => {
+    armSchedulerForTests();
     config.betting = true;
     executeArbBet.mockReset();
     executeArbBet.mockResolvedValue(undefined);
     executeArbBet.mockClear();
     matchStoreState.matchs = [
-      { id: 100, bets: [{ id: 1 }, { id: 2 }] },
+      {
+        id: 100,
+        bets: [
+          { id: 1, items: [{ type: "OB", updateOdds: vi.fn() }, { type: "RAY", updateOdds: vi.fn() }] },
+          { id: 2, items: [{ type: "TF", updateOdds: vi.fn() }, { type: "PB", updateOdds: vi.fn() }] },
+        ],
+      },
     ];
   });
 
@@ -132,7 +184,13 @@ describe("drainKakaxiScheduler", () => {
     enqueueWithPlatforms(100, 1, 1.1, "OB", "RAY");
     enqueueWithPlatforms(100, 2, 1.2, "TF", "PB");
     matchStoreState.matchs = [
-      { id: 100, bets: [{ id: 1 }, { id: 2 }] },
+      {
+        id: 100,
+        bets: [
+          { id: 1, items: [{ type: "OB", updateOdds: vi.fn() }, { type: "RAY", updateOdds: vi.fn() }] },
+          { id: 2, items: [{ type: "TF", updateOdds: vi.fn() }, { type: "PB", updateOdds: vi.fn() }] },
+        ],
+      },
     ];
 
     const drainPromise = drainKakaxiScheduler(
@@ -155,7 +213,13 @@ describe("drainKakaxiScheduler", () => {
     matchStoreState.matchs = [
       {
         id: 100,
-        bets: Array.from({ length: 8 }, (_, j) => ({ id: j + 1 })),
+        bets: Array.from({ length: 8 }, (_, j) => ({
+          id: j + 1,
+          items: [
+            { type: "OB", updateOdds: vi.fn() },
+            { type: "RAY", updateOdds: vi.fn() },
+          ],
+        })),
       },
     ];
     for (let i = 1; i <= 8; i++) {

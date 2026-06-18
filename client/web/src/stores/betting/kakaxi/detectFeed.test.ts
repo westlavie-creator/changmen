@@ -17,10 +17,12 @@ vi.mock("@/stores/betting/kakaxi/drainWake", () => ({
 }));
 
 vi.mock("@/stores/matchStore", () => ({
-  useMatchStore: () => ({
-    matchs: [{ id: 100, bets: [{ id: 1, isLive: true }] }],
-  }),
+  useMatchStore: () => matchStoreState,
 }));
+
+const matchStoreState = {
+  matchs: [{ id: 100, bets: [{ id: 1, isLive: true }] }],
+};
 
 const sampleOpp: ArbOpportunity = {
   scope: "funded",
@@ -66,6 +68,24 @@ describe("applyKakaxiDetectTransitions", () => {
     const next = dequeueKakaxiBet();
     expect(next?.implied).toBe(1.12);
     expect(wakeKakaxiDrain).toHaveBeenCalledWith(true);
+  });
+
+  it("does not wake on prematch improved boost only", () => {
+    matchStoreState.matchs = [{ id: 100, bets: [{ id: 1, isLive: false }] }];
+    clearKakaxiQueue();
+    wakeKakaxiDrain.mockClear();
+    const prematchOpp = { ...sampleOpp, implied: 0.95 };
+    applyKakaxiDetectTransitions([{ kind: "appeared", opportunity: prematchOpp }]);
+    wakeKakaxiDrain.mockClear();
+    applyKakaxiDetectTransitions([
+      {
+        kind: "improved",
+        opportunity: { ...prematchOpp, implied: 1.12 },
+        previousImplied: 0.95,
+      },
+    ]);
+    expect(dequeueKakaxiBet()?.implied).toBe(1.12);
+    expect(wakeKakaxiDrain).not.toHaveBeenCalled();
   });
 });
 

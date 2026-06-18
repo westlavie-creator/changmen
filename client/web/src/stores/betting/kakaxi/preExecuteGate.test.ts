@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { ArbLegs } from "@/domain/arbitrage";
 import { createDefaultUserConfig } from "@/types/userConfig";
 import type { ViewBet, ViewMatch } from "@/models/match";
 
@@ -27,7 +28,7 @@ vi.mock("@/domain/arbitrage", () => ({
   })),
 }));
 
-import { passesKakaxiPreExecuteGate } from "@/stores/betting/kakaxi/preExecuteGate";
+import { passesKakaxiPreExecuteGate, shouldRequeueAfterKakaxiGate } from "@/stores/betting/kakaxi/preExecuteGate";
 import { clearKakaxiCooldowns, setKakaxiBetCooldown } from "@/stores/betting/kakaxi/cooldown";
 
 function makeMatchBet(): { match: ViewMatch; bet: ViewBet } {
@@ -104,5 +105,27 @@ describe("passesKakaxiPreExecuteGate", () => {
       accounts: [],
     });
     expect(result).toEqual({ ok: false, reason: "lose_order" });
+  });
+
+  it("returns stale_implied with current implied when legs lag queue", () => {
+    const { match, bet } = makeMatchBet();
+    const result = passesKakaxiPreExecuteGate({
+      match,
+      bet,
+      item: { matchId: 100, betId: 1, enqueuedAt: Date.now(), implied: 1.2, isLive: false },
+      config,
+      providerKeys: ["OB", "RAY"],
+      accounts: [],
+      legs: {
+        homeItem: { type: "OB" },
+        awayItem: { type: "RAY" },
+        homeOdds: 2.0,
+        awayOdds: 2.0,
+        implied: 1.05,
+      } as ArbLegs,
+    });
+    expect(result).toEqual({ ok: false, reason: "stale_implied", implied: 1.05 });
+    expect(shouldRequeueAfterKakaxiGate("stale_implied")).toBe(true);
+    expect(shouldRequeueAfterKakaxiGate("ttl")).toBe(false);
   });
 });

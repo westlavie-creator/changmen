@@ -1,4 +1,8 @@
-import { KAKAXI_DRAIN_WAKE_DEBOUNCE_MS } from "@/stores/betting/kakaxi/config";
+import {
+  KAKAXI_DRAIN_WAKE_DEBOUNCE_MS,
+  KAKAXI_WAKE_DRAIN_MAX_BETS,
+  KAKAXI_WAKE_DRAIN_MAX_MS,
+} from "@/stores/betting/kakaxi/config";
 import { kakaxiQueueSize } from "@/stores/betting/kakaxi/queue";
 import { drainKakaxiScheduler } from "@/stores/betting/kakaxi/scheduler";
 import { useBettingStore } from "@/stores/bettingStore";
@@ -34,9 +38,13 @@ async function runWakeDrain(wasUrgent: boolean): Promise<void> {
   if (kakaxiQueueSize() === 0) return;
 
   const bettingStore = useBettingStore();
-  const processed = await drainKakaxiScheduler({
-    setMessage: (msg) => bettingStore.setMessage(msg),
-  });
+  const processed = await drainKakaxiScheduler(
+    { setMessage: (msg) => bettingStore.setMessage(msg) },
+    {
+      maxBets: KAKAXI_WAKE_DRAIN_MAX_BETS,
+      maxMs: KAKAXI_WAKE_DRAIN_MAX_MS,
+    },
+  );
 
   if (processed > 0 && kakaxiQueueSize() > 0) {
     wakeKakaxiDrain(wasUrgent);

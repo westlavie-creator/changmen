@@ -12,11 +12,15 @@ export const KAKAXI_QUEUE_TTL_MS = 30_000;
 /** 预检失败或机会消失后的再入队冷却（ms） */
 export const KAKAXI_BET_COOLDOWN_MS = 2_000;
 
-/** 每主循环轮最多 drain 条数（避免挡住 makeUp） */
+/** 主循环每轮最多 drain 条数（避免挡住 makeUp） */
 export const KAKAXI_DRAIN_MAX_BETS = 5;
 
-/** 每主循环轮 drain 最长耗时（ms） */
+/** 主循环每轮 drain 最长耗时（ms） */
 export const KAKAXI_DRAIN_MAX_MS = 400;
+
+/** wake 路径 drain 预算（抢 live 首单，更小以免挡主循环补单） */
+export const KAKAXI_WAKE_DRAIN_MAX_BETS = 2;
+export const KAKAXI_WAKE_DRAIN_MAX_MS = 200;
 
 /** 同一 drain 波次内最多并行 execute 条数（按 platform 互斥扩容） */
 export const KAKAXI_MAX_PARALLEL_EXECUTES = 4;

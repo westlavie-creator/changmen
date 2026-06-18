@@ -1,4 +1,4 @@
-import { pickArbLegs } from "@/domain/arbitrage";
+import { pickArbLegs, type ArbLegs } from "@/domain/arbitrage";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
@@ -24,7 +24,7 @@ export interface KakaxiPreGateResult {
 
 /**
  * executeArbBet 前的轻量闸门（仅 kakaxi；不修改 A8 / execute 管线）。
- * 对齐 prepare 第一步：updateOdds + pickArbLegs。
+ * 可传入已算好的 legs，避免与 scheduler 重复 pickArbLegs。
  */
 export function passesKakaxiPreExecuteGate(params: {
   match: ViewMatch;
@@ -33,6 +33,7 @@ export function passesKakaxiPreExecuteGate(params: {
   config: UserConfig;
   providerKeys: PlatformId[];
   accounts: PlatformAccount[];
+  legs?: ArbLegs;
   now?: number;
 }): KakaxiPreGateResult {
   const { match, bet, item, config, providerKeys, accounts } = params;
@@ -48,8 +49,11 @@ export function passesKakaxiPreExecuteGate(params: {
     return { ok: false, reason: "lose_order" };
   }
 
-  bet.items.forEach((row) => row.updateOdds());
-  const legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
+  let legs = params.legs;
+  if (!legs) {
+    bet.items.forEach((row) => row.updateOdds());
+    legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
+  }
   if (!legs) {
     setKakaxiBetCooldown(item.matchId, item.betId);
     return { ok: false, reason: "no_legs" };
@@ -59,8 +63,15 @@ export function passesKakaxiPreExecuteGate(params: {
     return { ok: false, reason: "below_profit" };
   }
   if (legs.implied + 0.001 < item.implied) {
-    return { ok: false, reason: "stale_implied" };
+    return { ok: false, reason: "stale_implied", implied: legs.implied };
   }
 
   return { ok: true, implied: legs.implied };
+}
+
+/** 闸门失败后是否应回队（保留 enqueuedAt） */
+export function shouldRequeueAfterKakaxiGate(
+  reason: KakaxiPreGateSkipReason | undefined,
+): boolean {
+  return reason === "stale_implied";
 }

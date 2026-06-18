@@ -10,6 +10,7 @@ import {
 } from "@/stores/betting/kakaxi/config";
 import {
   collectDirtyBetAnchorsFromFlash,
+  invalidatePlatformBetLookupCache,
   shouldRunFullKakaxiDetect,
 } from "@/stores/betting/kakaxi/incrementalDetect";
 import {
@@ -20,6 +21,7 @@ import {
 import {
   boostKakaxiBetImplied,
   enqueueKakaxiBet,
+  pruneExpiredKakaxiQueue,
   removeKakaxiBet,
 } from "@/stores/betting/kakaxi/queue";
 import { wakeKakaxiDrain } from "@/stores/betting/kakaxi/drainWake";
@@ -98,9 +100,12 @@ export function applyKakaxiDetectTransitions(
       );
       if (!boosted) {
         enqueueFromOpportunity(opp);
+        shouldWake = true;
+        wakeUrgent ||= live;
+      } else if (live) {
+        shouldWake = true;
+        wakeUrgent = true;
       }
-      shouldWake = true;
-      wakeUrgent ||= live;
       continue;
     }
     removeKakaxiBet(transition.previous.matchId, transition.previous.betId);
@@ -119,8 +124,11 @@ export function runKakaxiDetectFeedTick(
   const user = useUserStore();
   const matchStore = useMatchStore();
   if (!user.userId || !matchStore.matchs.length) {
+    invalidatePlatformBetLookupCache();
     return new Map();
   }
+
+  pruneExpiredKakaxiQueue();
 
   const dirtyAnchors = collectDirtyBetAnchorsFromFlash(matchStore.matchs);
   if (!shouldRunFullKakaxiDetect(mode, dirtyAnchors)) {

@@ -5,9 +5,11 @@ import {
   enqueueKakaxiBet,
   hasKakaxiBet,
   kakaxiQueueSize,
+  pruneExpiredKakaxiQueue,
   removeKakaxiBet,
   boostKakaxiBetImplied,
 } from "@/stores/betting/kakaxi/queue";
+import { KAKAXI_QUEUE_TTL_MS } from "@/stores/betting/kakaxi/config";
 
 afterEach(() => {
   clearKakaxiQueue();
@@ -89,5 +91,28 @@ describe("boostKakaxiBetImplied", () => {
     const next = dequeueKakaxiBet();
     expect(next?.implied).toBe(1.12);
     expect(next?.isLive).toBe(true);
+  });
+});
+
+describe("pruneExpiredKakaxiQueue", () => {
+  it("removes entries older than TTL", () => {
+    const now = 1_000_000;
+    enqueueKakaxiBet({
+      matchId: 1,
+      betId: 1,
+      enqueuedAt: now - KAKAXI_QUEUE_TTL_MS - 1,
+      implied: 1.1,
+      isLive: false,
+    });
+    enqueueKakaxiBet({
+      matchId: 2,
+      betId: 1,
+      enqueuedAt: now,
+      implied: 1.1,
+      isLive: false,
+    });
+    expect(pruneExpiredKakaxiQueue(now)).toBe(1);
+    expect(kakaxiQueueSize()).toBe(1);
+    expect(hasKakaxiBet(2, 1)).toBe(true);
   });
 });
