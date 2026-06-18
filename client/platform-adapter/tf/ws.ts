@@ -2,6 +2,7 @@ import {
   bumpDirectRealtimeMessage,
   patchDirectRealtimeStatus,
   resetDirectRealtimeStatus,
+  upstreamRouteFromUrl,
 } from "@platform/shared/directRealtimeStatus";
 import { PLATFORMS } from "@/shared/platform";
 import { tfWsAuthToken } from "./auth";
@@ -58,6 +59,7 @@ export function startTfOddsWs(opts: {
     if (!token) {
       patchDirectRealtimeStatus(PLATFORM, {
         upstreamConnected: false,
+        upstreamRoute: null,
         lastError: "no token",
       });
       scheduleReconnect();
@@ -72,13 +74,18 @@ export function startTfOddsWs(opts: {
     clearConnectTimer();
 
     const url = buildTfWsUrl(tfWsAuthToken(token));
-    patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: null });
+    patchDirectRealtimeStatus(PLATFORM, {
+      upstreamConnected: false,
+      upstreamRoute: null,
+      lastError: null,
+    });
     ws = new WebSocket(url);
 
     connectTimer = setTimeout(() => {
       if (ws?.readyState !== WebSocket.OPEN) {
         patchDirectRealtimeStatus(PLATFORM, {
           upstreamConnected: false,
+          upstreamRoute: null,
           lastError: "ws connect timeout",
         });
         try {
@@ -92,7 +99,11 @@ export function startTfOddsWs(opts: {
     ws.onopen = () => {
       clearConnectTimer();
       retryMs = TF_WS_RECONNECT_MIN_MS;
-      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: true, lastError: null });
+      patchDirectRealtimeStatus(PLATFORM, {
+        upstreamConnected: true,
+        upstreamRoute: upstreamRouteFromUrl(url),
+        lastError: null,
+      });
       console.info("[TF] connected (direct)", url.replace(/auth_token=([^&]{0,8})[^&]*/, "auth_token=$1…"));
     };
 
@@ -111,6 +122,7 @@ export function startTfOddsWs(opts: {
       clearConnectTimer();
       patchDirectRealtimeStatus(PLATFORM, {
         upstreamConnected: false,
+        upstreamRoute: null,
         lastError: "ws error",
       });
       opts.onError();
@@ -119,7 +131,7 @@ export function startTfOddsWs(opts: {
 
     ws.onclose = () => {
       clearConnectTimer();
-      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false });
+      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, upstreamRoute: null });
       ws = null;
       scheduleReconnect();
     };

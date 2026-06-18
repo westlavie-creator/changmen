@@ -60,7 +60,11 @@ export function createIaRealtimeClient(
       });
 
       socket.on("connect", () => {
-        patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: true, lastError: null });
+        patchDirectRealtimeStatus(PLATFORM, {
+          upstreamConnected: true,
+          upstreamRoute: "a8",
+          lastError: null,
+        });
         console.info("[IA] connected (direct)", IA_A8_WS, "origin=", origin);
         socket?.emit("RoomJoin", IA_ROOM_JOIN);
         socket?.on("roomMessageCallBack", (message: unknown) => {
@@ -70,12 +74,13 @@ export function createIaRealtimeClient(
       });
 
       socket.on("disconnect", () => {
-        patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false });
+        patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, upstreamRoute: null });
       });
 
       socket.on("connect_error", (err: Error) => {
         patchDirectRealtimeStatus(PLATFORM, {
           upstreamConnected: false,
+          upstreamRoute: null,
           lastError: err.message,
         });
         console.warn("[IA] connect error", err.message);

@@ -38,7 +38,11 @@ function watchRaySocketState(
   void (async () => {
     for await (const _ of socket.listener("connect")) {
       if (stopped()) break;
-      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: true, lastError: null });
+      patchDirectRealtimeStatus(PLATFORM, {
+        upstreamConnected: true,
+        upstreamRoute: "official",
+        lastError: null,
+      });
       console.info("[RAY] connected (direct)", RAY_WS.hostname);
     }
   })();
@@ -46,7 +50,7 @@ function watchRaySocketState(
   void (async () => {
     for await (const _ of socket.listener("disconnect")) {
       if (stopped()) break;
-      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false });
+      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, upstreamRoute: null });
     }
   })();
 
@@ -57,7 +61,11 @@ function watchRaySocketState(
         event && typeof event === "object" && "error" in event
           ? String((event as { error?: unknown }).error ?? event)
           : String(event ?? "ws error");
-      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: message });
+      patchDirectRealtimeStatus(PLATFORM, {
+        upstreamConnected: false,
+        upstreamRoute: null,
+        lastError: message,
+      });
       console.warn("[RAY] ws error", message);
     }
   })();
@@ -71,7 +79,11 @@ function createDirectRayRealtimeClient(): RayRealtimeClient {
   return {
     async start(onMessage) {
       stopped = false;
-      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: null });
+      patchDirectRealtimeStatus(PLATFORM, {
+        upstreamConnected: false,
+        upstreamRoute: null,
+        lastError: null,
+      });
 
       const token = RAY_A8_COLLECT.token;
       const auth = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
@@ -98,7 +110,11 @@ function createDirectRayRealtimeClient(): RayRealtimeClient {
 
       const channel = socket.subscribe(RAY_SC_CHANNEL);
       await channel.listener("subscribe").once();
-      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: true, lastError: null });
+      patchDirectRealtimeStatus(PLATFORM, {
+        upstreamConnected: true,
+        upstreamRoute: "official",
+        lastError: null,
+      });
 
       void (async () => {
         try {
@@ -110,7 +126,11 @@ function createDirectRayRealtimeClient(): RayRealtimeClient {
         } catch (err) {
           if (!stopped) {
             const message = err instanceof Error ? err.message : String(err);
-            patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, lastError: message });
+            patchDirectRealtimeStatus(PLATFORM, {
+              upstreamConnected: false,
+              upstreamRoute: null,
+              lastError: message,
+            });
             console.warn("[RAY] ws loop", err);
           }
         }

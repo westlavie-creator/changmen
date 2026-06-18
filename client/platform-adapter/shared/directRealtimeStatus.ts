@@ -1,7 +1,11 @@
+/** 角标颜色：官方源站绿、A8 聚合蓝 */
+export type DirectRealtimeUpstreamRoute = "official" | "a8";
+
 /** 浏览器直连上游推送（WS / MQTT）的运行时状态，供网页角标等读取 */
 export type DirectRealtimeStatus = {
   platform: string;
   upstreamConnected: boolean;
+  upstreamRoute?: DirectRealtimeUpstreamRoute | null;
   messagesReceived?: number;
   lastError?: string | null;
   lastUpstreamAt?: number | null;
@@ -9,9 +13,22 @@ export type DirectRealtimeStatus = {
   mode: "direct";
 };
 
+/** A8 聚合机：47.115.75.57/esport/ws/*、api.a8.to 等 */
+const A8_UPSTREAM_HOSTS = new Set(["47.115.75.57", "api.a8.to"]);
+
+export function upstreamRouteFromUrl(url: string): DirectRealtimeUpstreamRoute {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return A8_UPSTREAM_HOSTS.has(host) ? "a8" : "official";
+  } catch {
+    return "official";
+  }
+}
+
 const EMPTY = (platform: string): DirectRealtimeStatus => ({
   platform,
   upstreamConnected: false,
+  upstreamRoute: null,
   messagesReceived: 0,
   lastError: null,
   lastUpstreamAt: null,

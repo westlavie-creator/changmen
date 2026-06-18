@@ -2,10 +2,19 @@ import { getCollectPlatform } from "@/api/esport";
 import { OB_DEMO_LOGIN_URL } from "@/api/v4";
 import { directGet } from "@/shared/http";
 import { PLATFORMS } from "@/shared/platform";
+import {
+  OB_A8_MQTT_PASSWORD,
+  OB_A8_MQTT_URL,
+  OB_A8_MQTT_USERNAME,
+} from "./mqttConfig";
+
+export type ObMqttEndpointSource = "demo" | "a8";
 
 export type ObMqttConnectConfig = {
   url: string;
-  token: string;
+  username: string;
+  password?: string;
+  source: ObMqttEndpointSource;
 };
 
 function decodeBase64Json(value: string): Record<string, unknown> {
@@ -27,11 +36,21 @@ function parseObEntryUrl(rawUrl: string): { token: string; mqttEndpoints: string
   };
 }
 
+/** A8 `yIe` [A8 可证实]：固定 admin / Qazqaz123...，与 platform token 无关 */
+export function getObA8MqttConfig(): ObMqttConnectConfig {
+  return {
+    url: OB_A8_MQTT_URL,
+    username: OB_A8_MQTT_USERNAME,
+    password: OB_A8_MQTT_PASSWORD,
+    source: "a8",
+  };
+}
+
 /**
- * 浏览器直连 OB 源站 MQTT（username = platform token，与 ObRelayCore upstream 一致）。
- * mqtt wss 来自试玩 login 的 pc.addr.mqtt；token 优先 Client_GetCollectPlatform。
+ * 试玩 login 返回的 OB 源站 MQTT（username = platform token）。
+ * 每次调用都会重新请求 login，用于 A8 中继失败后的地址刷新。
  */
-export async function resolveObMqttConnectConfig(): Promise<ObMqttConnectConfig | null> {
+export async function fetchObDemoMqttConfig(): Promise<ObMqttConnectConfig | null> {
   const platform = await getCollectPlatform(PLATFORMS.OB);
   let token = String(platform?.Token || "").trim();
 
@@ -48,10 +67,16 @@ export async function resolveObMqttConnectConfig(): Promise<ObMqttConnectConfig 
     }
     if (!token && body?.data?.token) token = String(body.data.token);
   } catch (err) {
-    console.warn("[OB MQTT] resolve mqtt endpoints failed", err);
+    console.warn("[OB MQTT] fetch demo mqtt endpoints failed", err);
+    return null;
   }
 
   const url = mqttEndpoints[0];
   if (!url || !token) return null;
-  return { url, token };
+  return { url, username: token, source: "demo" };
+}
+
+/** @deprecated 使用 fetchObDemoMqttConfig */
+export async function resolveObMqttConnectConfig(): Promise<ObMqttConnectConfig | null> {
+  return fetchObDemoMqttConfig();
 }
