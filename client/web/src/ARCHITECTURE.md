@@ -118,7 +118,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | **执行** | `stores/betting/autoBet/` | A8 与 kakaxi **共用**的单场下注管线 |
 | **扩展能力** | `extensions/arbOpportunity`、`arbMarketWatch`、`arbBet`、`notify` | 检测输入、盯盘、UI、Telegram；可接入 kakaxi，**不是**调度模式本身 |
 
-- `runArbBetRound` 按 `arbExecutionMode` 在 **a8 | kakaxi** 间分发；默认 `a8` 与 bundle 一致。
+- `runArbBetRound` 按 `arbDetectEngine`（`types/arbDetectEngine.ts`）在 **a8 | kakaxi** 间分发；默认 `a8` 与 bundle 一致。
 - kakaxi 的 `detectFeed` 可消费 `extensions/arbOpportunity/detect`，属于调度层**使用**扩展能力，故 **kakaxi 留在 `stores/betting/kakaxi/`**，与 `a8/` 并列，不迁入 `extensions/`。
 
 手动双击：`bettingStore.manualBet` → `manualBet.ts`（同样走 `accountStore` + `successMarkers`）。
@@ -170,7 +170,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 |------|------|
 | `bettingStore.ts` | 手动下注、补单入口；主循环在 matchStore |
 | `runArbBetRound.ts` | 主循环单轮：按调度模式分发套利 + 补单 |
-| `arbExecutionMode.ts` | 解析 `arbDetectEngine` → `a8` \| `kakaxi` |
+| `types/arbDetectEngine.ts` | 解析 `arbDetectEngine` → `a8` \| `kakaxi`（`stores/betting/arbExecutionMode.ts` 仅 deprecated 转发） |
 | `a8/runA8ArbRound.ts` | [A8 可证实] **调度模式 a8**：全表串行 `executeArbBet` |
 | `kakaxi/` | [changmen 扩展] **调度模式 kakaxi**（与 `a8/` 并列）：detectFeed → queue → scheduler |
 | `autoBet/executeArbBet.ts` | 单场套利编排入口（两种调度共用） |

@@ -1,5 +1,5 @@
 import { watch } from "vue";
-import { usesKakaxiArbDetectEngine } from "@/extensions/arbOpportunity/arbDetectEngine";
+import { usesKakaxiArbDetectEngine } from "@/types/arbDetectEngine";
 import { startMarketWatchLoop, stopMarketWatchLoop } from "@/extensions/arbMarketWatch";
 import {
   startKakaxiRuntime,

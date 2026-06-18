@@ -1,5 +1,5 @@
 import type { PlatformId } from "@/types/esport";
-import type { ArbDetectEngine } from "@/extensions/arbOpportunity/arbDetectEngine";
+import type { ArbDetectEngine } from "@/types/arbDetectEngine";
 import { normalizeWaitTime } from "@/shared/betTiming";
 import { ALL_PLATFORMS } from "@platform/registry";
 

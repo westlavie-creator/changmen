@@ -5,7 +5,7 @@ import { storeToRefs } from "pinia";
 import {
   isKakaxiArbDetectSelectable,
   type ArbDetectEngine,
-} from "@/extensions/arbOpportunity/arbDetectEngine";
+} from "@/types/arbDetectEngine";
 import { useConfigStore } from "@/stores/configStore";
 
 const configStore = useConfigStore();

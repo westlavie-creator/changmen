@@ -1,5 +1,5 @@
 import { runA8ArbRound } from "@/stores/betting/a8/runA8ArbRound";
-import { isKakaxiExecutionMode } from "@/stores/betting/arbExecutionMode";
+import { usesKakaxiArbDetectEngine } from "@/types/arbDetectEngine";
 import { runKakaxiArbRound } from "@/stores/betting/kakaxi/runKakaxiArbRound";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
@@ -18,7 +18,7 @@ export async function runArbBetRound(ctx: ArbBetRoundContext): Promise<void> {
   const config = configStore.config;
 
   if (config.betting) {
-    if (isKakaxiExecutionMode(config)) {
+    if (usesKakaxiArbDetectEngine(config)) {
       await runKakaxiArbRound({ setMessage });
     } else {
       await runA8ArbRound({ setMessage });

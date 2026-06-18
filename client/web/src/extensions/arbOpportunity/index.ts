@@ -24,7 +24,7 @@ export {
   KAKAXI_ARB_DETECT_ENABLED,
   ARB_DETECT_ENGINES,
   type ArbDetectEngine,
-} from "@/extensions/arbOpportunity/arbDetectEngine";
+} from "@/types/arbDetectEngine";
 
 export {
   installArbRuntimeSync,
