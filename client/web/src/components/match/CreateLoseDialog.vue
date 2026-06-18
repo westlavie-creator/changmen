@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import "@/styles/lose-order.css";
 import { computed, reactive, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
@@ -90,6 +91,7 @@ const canSubmit = computed(() => Boolean(props.match && props.bet));
 <template>
   <el-dialog
     v-model="visible"
+    class="create-lose-dialog"
     width="400"
     title="创建补单队列"
     @closed="onClosed"
@@ -109,7 +111,7 @@ const canSubmit = computed(() => Boolean(props.match && props.bet));
         </el-radio-group>
       </el-form-item>
       <el-form-item label="金额:">
-        <el-row :gutter="4">
+        <el-row>
           <el-col :span="4">
             <el-input v-model.number="form.betMoney" />
           </el-col>

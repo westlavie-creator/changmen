@@ -1,0 +1,185 @@
+/**
+ * 补单 UI 独立样式（对齐 A8 LoseOrderView / CreateLoseView）
+ * [A8 可证实] 视觉 token 来自 bundle scoped data-v-6ad7135b + 全局 fieldset/legend
+ * 由 LoseOrderView / CreateLoseDialog 直接 import，不依赖 a8.css。
+ */
+
+/* ── 侧栏布局 ── */
+.app-sidebar > .loseorder-container {
+  flex: 0 0 auto;
+}
+
+/* ── 补单队列 fieldset ── */
+.loseorder-container {
+  border: 1px solid #000;
+  border-radius: 6px;
+  margin: 5px;
+  padding: 5px;
+  overflow: visible;
+  box-shadow: none;
+  min-inline-size: 0;
+}
+
+.loseorder-container legend {
+  font-size: 12px;
+  padding: 0 6px;
+  line-height: 16px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  background: linear-gradient(to bottom, #f6f8f9, #e5ebee 50%, #d7dee3 51%, #f5f7f9);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: default;
+}
+
+/* ── 补单卡片 ── */
+.loseorders .order {
+  color: #fffc;
+  font-size: 12px;
+  background: linear-gradient(to bottom, #45484d, #000);
+  margin-top: 10px;
+  border-radius: 6px;
+  padding: 6px 22px 6px 6px;
+  line-height: 20px;
+  position: relative;
+  overflow: visible;
+}
+
+.loseorders .order:first-child {
+  margin-top: 0;
+}
+
+.loseorders .order .match {
+  font-size: 14px;
+}
+
+.loseorders .order .bet label {
+  cursor: default;
+}
+
+.loseorders .order .bet .team {
+  margin-left: 0.25em;
+}
+
+.loseorders .order .time,
+.loseorders .order .info {
+  opacity: 0.95;
+}
+
+.loseorders .order .close {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  z-index: 2;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  font-size: 14px;
+  font-style: normal;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.loseorders .order .close::before {
+  content: "\00d7";
+  display: block;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.loseorders .order .close:hover {
+  transform: scale(1.2);
+  color: #fff;
+}
+
+/* ── 创建补单弹窗（对齐 A8 CreateLoseView + Element Plus 浅色表单） ── */
+.create-lose-dialog.el-dialog {
+  --el-dialog-width: 400px;
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  margin: 15vh auto 0;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 12px 32px 4px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.create-lose-dialog .el-dialog__header {
+  padding: 16px 16px 10px;
+  margin-right: 0;
+}
+
+.create-lose-dialog .el-dialog__title {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+  color: #303133;
+}
+
+.create-lose-dialog .el-dialog__headerbtn {
+  width: 48px;
+  height: 48px;
+  top: 0;
+  right: 0;
+}
+
+.create-lose-dialog .el-dialog__body {
+  padding: 10px 16px 16px;
+  color: #606266;
+  font-size: 14px;
+}
+
+.create-lose-dialog .el-dialog__footer {
+  padding: 10px 16px 16px;
+  text-align: right;
+}
+
+.create-lose-dialog .el-form-item {
+  margin-bottom: 18px;
+}
+
+.create-lose-dialog .el-form-item__label {
+  color: #606266;
+  font-size: 14px;
+  line-height: 32px;
+}
+
+.create-lose-dialog .el-form-item__content {
+  line-height: 32px;
+}
+
+.create-lose-dialog .el-radio {
+  margin-right: 16px;
+  color: #606266;
+}
+
+.create-lose-dialog .el-radio__label {
+  font-size: 14px;
+}
+
+.create-lose-dialog .el-input__wrapper {
+  box-shadow: 0 0 0 1px #dcdfe6 inset;
+}
+
+.create-lose-dialog .el-input__inner {
+  color: #606266;
+}
+
+.create-lose-dialog .el-row {
+  width: 100%;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.create-lose-dialog .el-col {
+  font-size: 14px;
+  color: #606266;
+}
+
+.create-lose-dialog .el-button--primary {
+  --el-button-bg-color: #409eff;
+  --el-button-border-color: #409eff;
+  --el-button-hover-bg-color: #66b1ff;
+  --el-button-hover-border-color: #66b1ff;
+}
