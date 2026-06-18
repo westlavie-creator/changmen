@@ -1,11 +1,12 @@
 import { describe, expect, test } from "vitest";
+import { IA_A8_COLLECT } from "../a8Collect";
 import {
   buildIaSaveBetRowsFromPlays,
   iaMainWinBetKey,
   listIaChildFoOddEntries,
 } from "./save_bets";
 
-const BET_RE = new RegExp("(\\[全场\\].+获胜$)|(\\[地图\\d+\\]\\s*获胜者$)");
+const BET_RE = new RegExp(IA_A8_COLLECT.betName);
 
 function iaChild(partial: Record<string, unknown>): Record<string, unknown> {
   return {
@@ -30,7 +31,7 @@ describe("iaMainWinBetKey", () => {
 });
 
 describe("buildIaSaveBetRowsFromPlays", () => {
-  test("Map3: map winner included, second pistol excluded", () => {
+  test("A8 wQe: betRe match includes map pistol when name ends with 获胜者", () => {
     const plays = [
       {
         child_plays: [
@@ -41,11 +42,10 @@ describe("buildIaSaveBetRowsFromPlays", () => {
       },
     ];
     const rows = buildIaSaveBetRowsFromPlays(plays, "373450", BET_RE);
-    expect(rows.map((r) => r.Map)).toEqual([0, 1]);
-    expect(rows.find((r) => r.Map === 3)).toBeUndefined();
+    expect(rows.map((r) => r.Map)).toEqual([0, 1, 3]);
   });
 
-  test("Map2: map winner included when pistol also listed", () => {
+  test("A8 wQe: all betRe-matching children become SaveBet rows", () => {
     const plays = [
       {
         child_plays: [
@@ -71,19 +71,18 @@ describe("buildIaSaveBetRowsFromPlays", () => {
       },
     ];
     const rows = buildIaSaveBetRowsFromPlays(plays, "1", BET_RE);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].BetName).toBe("[地图2] 获胜者");
-    expect(rows[0].SourceBetID).toBe("map");
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.SourceBetID)).toEqual(["pistol", "map"]);
   });
 
-  test("child.status closed but points open stays Normal (live BO5 full match)", () => {
+  test("child.status=0 with open points stays Normal (A8 point.status rule)", () => {
     const child = iaChild({ id: "full", status: 0, match: 0, name: " 获胜" });
     const rows = buildIaSaveBetRowsFromPlays([{ child_plays: [child] }], "m1", BET_RE);
     expect(rows[0].Status).toBe("Normal");
     expect(rows[0].HomeOdds).toBeGreaterThan(0);
   });
 
-  test("locked when all present points are closed", () => {
+  test("locked when all present points are closed (status !== 1)", () => {
     const child = iaChild({
       id: "x",
       team_points: [
@@ -95,7 +94,7 @@ describe("buildIaSaveBetRowsFromPlays", () => {
     expect(rows[0].Status).toBe("Locked");
   });
 
-  test("live status=2 on points stays Normal (BO5 full match 373635)", () => {
+  test("live status=2 on points is Locked on HTTP (A8 Xn rule)", () => {
     const child = iaChild({
       id: "15348896",
       status: 2,
@@ -107,23 +106,9 @@ describe("buildIaSaveBetRowsFromPlays", () => {
     });
     const rows = buildIaSaveBetRowsFromPlays([{ child_plays: [child] }], "373635", BET_RE);
     expect(rows).toHaveLength(1);
-    expect(rows[0].Status).toBe("Normal");
+    expect(rows[0].Status).toBe("Locked");
     expect(rows[0].HomeOdds).toBe(1.55);
     expect(rows[0].AwayOdds).toBe(2.35);
-  });
-
-  test("child.status suspended locks SaveBet even when points status=2", () => {
-    const child = iaChild({
-      id: "full",
-      status: 3,
-      match: 0,
-      team_points: [
-        { id: "h", point: 1.87, status: 2 },
-        { id: "a", point: 2.1, status: 2 },
-      ],
-    });
-    const rows = buildIaSaveBetRowsFromPlays([{ child_plays: [child] }], "m1", BET_RE);
-    expect(rows[0].Status).toBe("Locked");
   });
 
   test("settled status=4 on points is Locked", () => {
@@ -142,7 +127,7 @@ describe("buildIaSaveBetRowsFromPlays", () => {
 });
 
 describe("listIaChildFoOddEntries", () => {
-  test("uses point status not child.status for fo lock when child.status=0", () => {
+  test("uses point.status !== 1 for fo lock (A8 Xn)", () => {
     const child = iaChild({
       id: "play-full",
       status: 0,
@@ -171,17 +156,15 @@ describe("listIaChildFoOddEntries", () => {
     expect(entries.every((e) => e.isLock === true)).toBe(true);
   });
 
-  test("child.status=3 locks fo even when points still status=2", () => {
+  test("includes all team_points like A8 forEach", () => {
     const child = iaChild({
       id: "play-full",
-      status: 3,
-      match: 0,
       team_points: [
-        { id: "51285134", point: 1.87, status: 2 },
-        { id: "51285135", point: 2.1, status: 2 },
+        { id: "h", point: 1.1, status: 1 },
+        { id: "a", point: 2.2, status: 1 },
+        { id: "x", point: 3.3, status: 1 },
       ],
     });
-    const entries = listIaChildFoOddEntries(child);
-    expect(entries.every((e) => e.isLock === true)).toBe(true);
+    expect(listIaChildFoOddEntries(child)).toHaveLength(3);
   });
 });

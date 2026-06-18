@@ -9,18 +9,12 @@ vi.mock("socket.io-client", () => ({
   io: ioMock,
 }));
 
-vi.mock("@/api/esport", () => ({
-  getCollectPlatform: vi.fn().mockResolvedValue({
-    Gateway: "https://ilustre-analytics.org",
-  }),
-}));
-
 describe("createIaRealtimeClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  test("connects directly to A8 IA ws with gateway origin", async () => {
+  test("connects directly to A8 IA ws with wQe gateway origin", async () => {
     const handlers: Record<string, Array<(...args: unknown[]) => void>> = {};
     const socket = {
       on(event: string, fn: (...args: unknown[]) => void) {
@@ -34,7 +28,7 @@ describe("createIaRealtimeClient", () => {
     ioMock.mockReturnValue(socket);
 
     const messages: IaRealtimeMessage[] = [];
-    const client = createIaRealtimeClient();
+    const client = createIaRealtimeClient("https://ilustre-analytics.org");
     await client.start((message) => messages.push(message));
 
     expect(ioMock).toHaveBeenCalledWith(

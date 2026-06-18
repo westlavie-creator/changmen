@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
+import DirectRealtimeBadge from "@/components/layout/DirectRealtimeBadge.vue";
 import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
@@ -78,7 +79,10 @@ async function logout() {
     <el-container>
       <el-header>
         <AccountBar />
-        <ExtensionsBadge />
+        <div class="home-header-trailing">
+          <DirectRealtimeBadge />
+          <ExtensionsBadge />
+        </div>
         <p v-if="!extensionReady" class="extension-banner">
           扩展未连通，采集/下注不可用。
           <el-button link type="primary" @click="refreshExtension">重新检测</el-button>

@@ -9,7 +9,7 @@
 | `socket/hub.ts` | A8 Socket.IO 公共频道 |
 | `socket/collector.ts` | IM / XBet / Stake 的 A8 聚合采集 |
 | `socket/accumulator.ts` | A8 bets 消息 → fo + saveMatch/saveBets |
-| `directRealtimeStatus.ts` | 直连 WS/MQTT 状态 |
+| `directRealtimeStatus.ts` | 直连 WS/MQTT 状态（IA/OB/RAY/TF；网页右上角角标） |
 
 引用：`import { … } from "@platform/shared/collectNotify"`
 

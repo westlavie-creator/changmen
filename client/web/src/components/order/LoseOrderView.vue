@@ -47,16 +47,25 @@ function remove(betId: number) {
 
 <!-- [A8 可证实] LoseOrderView scoped（bundle data-v-6ad7135b） -->
 <style scoped>
-fieldset {
+.loseorder-container {
+  border: 1px solid #000;
   border-radius: 6px;
-  border-color: #000;
   margin: 5px;
   padding: 5px;
   overflow: visible;
+  box-shadow: none;
 }
 
-fieldset legend {
+.loseorder-container legend {
   font-size: 12px;
+  padding: 2px 10px;
+  line-height: 16px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  background: #909399;
+  border: none;
+  border-radius: 0;
+  cursor: default;
 }
 
 .loseorders .order {

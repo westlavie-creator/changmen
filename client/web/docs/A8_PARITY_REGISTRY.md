@@ -174,7 +174,7 @@
 | RAY | HTTP + SC WS | rayProvider | ✅ |
 | IMT | 快照 + Delta | imtProvider | ✅ |
 | STAKE | GraphQL + 插件 | stakeProvider | ✅ 需扩展+tab |
-| IA | HTTP + WS | iaProvider | ✅ getOrders 已对齐 CYe |
+| IA | HTTP + WS；下注 Zn/PROXY | iaProvider | ✅ wQe/CYe + `iaMrPost` 已对齐 |
 
 HG / 跟单：⚠️ 见 [platforms/HG.md](./platforms/HG.md)、`hgFollowLoop`
 

@@ -4,19 +4,18 @@ import { PLATFORMS } from "@/shared/platform";
 import { iaLegacyWinBetName } from "@changmen/shared/catalog/market_catalog.browser";
 import { betKeyFromChild, iaChildLocked, iaPointLockedForFo, parseIaPoint } from "./parse_fields";
 
-/** ??market_catalog.mjs iaLegacyWinBetName ???????????????*/
+/** 与 market_catalog 对齐的盘口名判断（catalog 过滤；A8 `wQe` 仅 betRe） */
 export function iaMainWinBetKey(key: string): boolean {
   return iaLegacyWinBetName(key);
 }
 
-/** platform BetName + catalog ???? */
+/** A8 `wQe`：`n.test(f)`，无 catalog 二次过滤 */
 export function isIaChildCollectable(
   _child: Record<string, unknown>,
   betKey: string,
   betRe: RegExp,
 ): boolean {
-  if (!betRe.test(betKey)) return false;
-  return iaLegacyWinBetName(betKey);
+  return betRe.test(betKey);
 }
 
 /** child ??SaveBet ??*/
@@ -31,7 +30,7 @@ export function iaChildToSaveBetRow(
   const points = (child.team_points ?? []) as Array<Record<string, unknown>>;
   const homePt = points[0];
   const awayPt = points[1];
-  const locked = iaChildLocked(child, homePt, awayPt);
+  const locked = iaChildLocked(child);
 
   return {
     Type: platform,
@@ -56,7 +55,7 @@ export function listIaChildFoOddEntries(
   const playId = String(child.id ?? "");
   const points = (child.team_points ?? []) as Array<Record<string, unknown>>;
   const entries: Array<{ id: string; odds: number; isLock: boolean; betId: string }> = [];
-  for (const pt of points.slice(0, 2)) {
+  for (const pt of points) {
     if (!pt?.id) continue;
     entries.push({
       id: String(pt.id),

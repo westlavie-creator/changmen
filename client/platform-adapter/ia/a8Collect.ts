@@ -9,11 +9,12 @@ export const IA_A8_COLLECT = {
   games: ["1", "2", "3", "16", "43"],
 } as const;
 
-/** A8 `wQe` → CollectPlatformInfo（仅采集 HTTP 用） */
+/** A8 `wQe` 内联 `t` → HTTP / WS 共用 */
 export function iaCollectPlatform() {
   return {
     Gateway: IA_A8_COLLECT.gateway,
     Token: IA_A8_COLLECT.token,
     BetName: IA_A8_COLLECT.betName,
+    Games: [...IA_A8_COLLECT.games] as string[],
   };
 }

@@ -1,16 +1,11 @@
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import {
-  sortVenueOrdersNewestFirst,
-  type PlatformProvider,
-  type VenueOrder,
-  type VenueOrderStatus,
-} from "@platform/contract";
-import { iaPointBettable } from "@platform/ia/shared/parse_fields";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { useMessageStore } from "@/stores/messageStore";
-import { accountIaPost } from "@/shared/platformHttp";
+import { getCurrency } from "@/shared/currency";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
+import { iaBetHeaders, iaGatewayPath, iaMrPost } from "./bet_transport";
 
 interface IaLimitResponse {
   code?: number;
@@ -66,6 +61,30 @@ interface IaHistoryResponse {
   data?: { data?: IaHistoryRow[] };
 }
 
+/** A8 `CYe.checkBet` 内 `u.data.plays.forEach` 查找 point */
+function findIaBetPoint(
+  plays: IaPlaysResponse,
+  betId: string,
+  itemId: string,
+): IaTeamPoint | null {
+  let found: IaTeamPoint | null = null;
+  for (const play of plays.data?.plays ?? []) {
+    if (found) break;
+    for (const child of play.child_plays ?? []) {
+      if (found) break;
+      if (child.id != betId) continue;
+      if (child.status !== 1) continue;
+      for (const pt of child.team_points ?? []) {
+        if (pt.id === itemId) {
+          found = pt;
+          break;
+        }
+      }
+    }
+  }
+  return found;
+}
+
 /** 对齐 A8 `CYe.getOrders` 单行映射 */
 export function mapIaHistoryRow(
   row: IaHistoryRow,
@@ -77,10 +96,10 @@ export function mapIaHistoryRow(
   const desc = String(row.desc ?? "");
   let bet = "";
   let item = "";
-  const t1 = String(row.team_name_1 ?? "");
-  const t2 = String(row.team_name_2 ?? "");
-  let splitAt = desc.indexOf(t1);
-  if (splitAt === -1) splitAt = desc.indexOf(t2);
+  const t1 = row.team_name_1;
+  const t2 = row.team_name_2;
+  let splitAt = desc.indexOf(String(t1 ?? ""));
+  if (splitAt === -1) splitAt = desc.indexOf(String(t2 ?? ""));
   if (splitAt !== -1) {
     bet = desc.substring(0, splitAt - 1);
     item = desc.substring(splitAt);
@@ -123,36 +142,24 @@ export function mapIaHistoryRow(
     money,
     status,
     game: String(row.game_name ?? ""),
-    match: [t1, t2].filter(Boolean).join(" vs "),
+    match: [t1, t2].join(" vs "),
     bet,
     item,
   };
-}
-
-function findPoint(plays: IaPlaysResponse, betId: string, itemId: string): IaTeamPoint | null {
-  for (const play of plays.data?.plays ?? []) {
-    for (const child of play.child_plays ?? []) {
-      if (String(child.id) !== String(betId) || !iaPointBettable(child.status)) continue;
-      for (const pt of child.team_points ?? []) {
-        if (String(pt.id) === String(itemId)) return pt;
-      }
-    }
-  }
-  return null;
 }
 
 export const iaProvider: PlatformProvider = {
   async getBalance(account) {
     if (!account.gateway || !account.token) return undefined;
     try {
-      const res = await accountIaPost<{ code?: number; data?: { amount?: number } }>(
+      const res = await iaMrPost<{ code?: number; data?: { amount?: number } }>(
         account,
         "/api/game/user/balance",
         "lang=1",
       );
       if (!res || res.code !== 1) return undefined;
       return {
-        currency: "CNY",
+        currency: getCurrency(),
         balance: Number(res.data?.amount) || 0,
       };
     } catch {
@@ -169,7 +176,7 @@ export const iaProvider: PlatformProvider = {
     while (hasPending) {
       orders = [];
       const body = `start_time=${endSec - 604_800}&end_time=${endSec}&page=1&limit=50&lang=1`;
-      const res = await accountIaPost<IaHistoryResponse>(
+      const res = await iaMrPost<IaHistoryResponse>(
         account,
         "/api/game/user/getUserHistory/",
         body,
@@ -182,58 +189,64 @@ export const iaProvider: PlatformProvider = {
       if (hasPending) await wait(3000);
     }
 
-    return sortVenueOrdersNewestFirst(orders);
+    return orders;
   },
 
   async checkBet(account, option) {
     let liveOdds = 0;
-    const limitPath = "/api/game/game/getOrdinaryLimitInfo/";
+    const limitPath = iaGatewayPath(account, "/api/game/game/getOrdinaryLimitInfo/");
     const limitBody = `game_id=${option.matchId}&play_id=${option.betId}&point_id=${option.itemId}&is_champion=0&lang=1`;
-    option.request = { url: limitPath, data: limitBody };
 
-    const limit = await accountIaPost<IaLimitResponse>(account, limitPath, limitBody);
+    const limit = await iaMrPost<IaLimitResponse>(
+      account,
+      "/api/game/game/getOrdinaryLimitInfo/",
+      limitBody,
+      { forceDirect: true },
+    );
+    option.request = { url: limitPath, data: limitBody, headers: iaBetHeaders(account) };
     option.response = limit;
-    if (limit.code !== 1 || !limit.data?.money_max) {
-      option.checkError = limit.msg || "限红查询失败";
+    if (limit.code !== 1 || limit.data?.money_max === 0) {
+      option.checkError = limit.msg;
       return option;
     }
     if (
-      option.betMoney < (limit.data.money_min ?? 0) ||
-      option.betMoney > limit.data.money_max
+      option.betMoney < (limit.data?.money_min ?? 0) ||
+      option.betMoney > (limit.data!.money_max as number)
     ) {
       option.checkError = useMessageStore().limitMessage(account, {
         match: option.match?.title,
         bet: option.bet?.getBetName(),
         odds: option.odds,
         betMoney: option.betMoney,
-        limit: limit.data.money_max,
+        limit: limit.data!.money_max as number,
       });
       return option;
     }
 
     try {
-      const plays = await accountIaPost<IaPlaysResponse>(
+      const plays = await iaMrPost<IaPlaysResponse>(
         account,
         "/api/game/game/getPointsListSplit",
         `game_id=${option.matchId}&lang=1`,
+        { forceDirect: true },
       );
       option.response = plays;
       if (plays.code !== 1) {
-        option.checkError = plays.msg || "获取盘口失败";
+        option.checkError = plays.msg;
         return option;
       }
 
-      const point = findPoint(plays, option.betId, option.itemId);
+      const point = findIaBetPoint(plays, option.betId, option.itemId);
       if (point) option.response = point;
-      if (!point || !iaPointBettable(point.status)) {
+      if (!point || point.status !== 1) {
         option.checkError = "盘口已封盘";
         return option;
       }
 
       liveOdds = Number(point.point) || 0;
+      option.newOdds = liveOdds;
       if (!liveOdds || liveOdds < option.odds - 0.01) {
         option.checkError = `当前赔率:${liveOdds || 0}`;
-        option.updateOdds(liveOdds);
         return option;
       }
 
@@ -250,7 +263,7 @@ export const iaProvider: PlatformProvider = {
       };
       return option;
     } finally {
-      if (liveOdds) option.updateOdds(liveOdds);
+      option.updateOdds(liveOdds || 0);
     }
   },
 
@@ -260,23 +273,24 @@ export const iaProvider: PlatformProvider = {
         Object.entries(option.data ?? {}).map(([k, v]) => [k, String(v)]),
       ),
     ).toString();
-    const res = await accountIaPost<IaBetResponse>(account, "/api/game/user/playMore/", body);
-    const ok = res.data?.status === 1;
+    const res = await iaMrPost<IaBetResponse>(account, "/api/game/user/playMore/", body);
+    const ok = Boolean(res.data?.status === 1);
     let message = res.msg || "";
     if (!ok) {
       let newOdds = 0;
-      const ext = res.data?.ext?.[0];
-      if (ext) {
-        if (res.data?.error === 110019) {
-          message = `${ext.msg ?? ""}${ext.new_odd ?? ""}`;
-          newOdds = Number(ext.new_odd) || 0;
-        } else {
-          message = ext.msg || message;
+      if (res.data?.ext?.length) {
+        switch (res.data.error) {
+          case 110019:
+            message = `${res.data.ext[0]?.msg ?? ""}${res.data.ext[0]?.new_odd ?? ""}`;
+            newOdds = Number(res.data.ext[0]?.new_odd) || 0;
+            break;
+          default:
+            message = res.data.ext[0]?.msg || message;
+            break;
         }
       }
-      if (newOdds) option.updateOdds(newOdds);
+      option.updateOdds(newOdds);
     }
-    const result = new BetResult(account.provider, ok, message || (ok ? "下单成功" : "下单失败"), option.data, res);
-    return result;
+    return new BetResult(account.provider, ok, message || "", option.data, res);
   },
 };

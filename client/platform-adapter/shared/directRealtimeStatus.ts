@@ -1,4 +1,4 @@
-/** 浏览器直连平台 WS 的状态（供 Electron 右上角面板等读取） */
+/** 浏览器直连上游推送（WS / MQTT）的运行时状态，供网页角标等读取 */
 export type DirectRealtimeStatus = {
   platform: string;
   upstreamConnected: boolean;
@@ -19,7 +19,27 @@ const EMPTY = (platform: string): DirectRealtimeStatus => ({
   mode: "direct",
 });
 
+/** IA / OB / RAY / TF 使用本模块（浏览器直连，不经 A8 聚合 Socket） */
+export const DIRECT_REALTIME_PLATFORMS = ["IA", "OB", "RAY", "TF"] as const;
+
+export type DirectRealtimePlatformId = (typeof DIRECT_REALTIME_PLATFORMS)[number];
+
 const statusByPlatform = new Map<string, DirectRealtimeStatus>();
+const listeners = new Set<() => void>();
+
+function notifyDirectRealtimeListeners(): void {
+  for (const listener of listeners) listener();
+}
+
+/** 订阅状态变更（connect / 消息 / 错误）；返回取消函数 */
+export function subscribeDirectRealtimeStatus(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function listDirectRealtimeStatuses(): DirectRealtimeStatus[] {
+  return DIRECT_REALTIME_PLATFORMS.map((platform) => getDirectRealtimeStatus(platform));
+}
 
 export function patchDirectRealtimeStatus(
   platform: string,
@@ -27,6 +47,7 @@ export function patchDirectRealtimeStatus(
 ): void {
   const prev = statusByPlatform.get(platform) ?? EMPTY(platform);
   statusByPlatform.set(platform, { ...prev, ...patch, platform, mode: "direct" });
+  notifyDirectRealtimeListeners();
 }
 
 export function bumpDirectRealtimeMessage(platform: string): void {
@@ -43,4 +64,5 @@ export function getDirectRealtimeStatus(platform: string): DirectRealtimeStatus 
 
 export function resetDirectRealtimeStatus(platform: string): void {
   statusByPlatform.set(platform, EMPTY(platform));
+  notifyDirectRealtimeListeners();
 }

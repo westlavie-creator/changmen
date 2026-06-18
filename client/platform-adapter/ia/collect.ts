@@ -1,11 +1,11 @@
 import { hasA8PluginRuntime } from "@/chrome-plugin/bridge";
-import { getGames } from "@/api/esport";
 import { iaCollectPlatform } from "./a8Collect";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
+import { useUserStore } from "@/stores/userStore";
 import { handleIaRealtimeMessage } from "./messages";
 import { createIaRealtimeClient, type IaRealtimeClient } from "./realtime";
 import { loadIaBets } from "./markets";
@@ -15,8 +15,6 @@ export { iaMainWinBetKey } from "./shared/save_bets";
 
 const PLATFORM = PLATFORMS.IA;
 const POLL_MS = 30_000;
-/** 对齐 PB：拉数 30s，上报服务端至多 60s 一次（A8 本地上报；changmen 暂降频） */
-const SAVE_MS = 60_000;
 
 function parseStartTime(raw: unknown): number {
   if (!raw) return Date.now();
@@ -34,119 +32,131 @@ function pickIaTeamId(row: Record<string, unknown>, side: "home" | "away"): stri
   return String(raw).trim();
 }
 
+/** A8 `$a.waitForUser()` */
+async function waitForIaUser(): Promise<boolean> {
+  const user = useUserStore();
+  if (!user.userId) {
+    await user.fetchUserInfo();
+  }
+  return Boolean(user.userId);
+}
+
+function buildIaMatchDto(row: Record<string, unknown>): CollectMatchDto {
+  const homeName = String(
+    row.team_name_1 ||
+      row.team_a_name ||
+      row.home_team_name ||
+      row.home_name ||
+      row.team1_name ||
+      "主队",
+  ).trim();
+  const awayName = String(
+    row.team_name_2 ||
+      row.team_b_name ||
+      row.away_team_name ||
+      row.away_name ||
+      row.team2_name ||
+      "客队",
+  ).trim();
+  const homeId = pickIaTeamId(row, "home");
+  const awayId = pickIaTeamId(row, "away");
+
+  return {
+    Type: PLATFORM,
+    SourceMatchID: row.id as string | number,
+    SourceGameID: row.game_type_id as string | number,
+    BO: Number(row.bo || row.best_of || 0) || 0,
+    StartTime: parseStartTime(row.start_time || row.begin_time || row.game_start_time),
+    Home: homeName,
+    HomeID: homeId,
+    Away: awayName,
+    AwayID: awayId,
+    Teams: [
+      {
+        Type: PLATFORM,
+        GameID: row.game_type_id as string | number,
+        Name: homeName,
+        TeamID: homeId,
+        Logo: "",
+      },
+      {
+        Type: PLATFORM,
+        GameID: row.game_type_id as string | number,
+        Name: awayName,
+        TeamID: awayId,
+        Logo: "",
+      },
+    ],
+  };
+}
+
+/**
+ * A8 `wQe` 行级结构：
+ * waitForUser → t → fo + Socket.IO → RoomJoin/roomMessageCallBack → s()/o() 轮询
+ * [changmen 扩展] 每轮 poll 后 saveMatch/saveBets 上报服务端（A8 仅写本地 fo）
+ */
 export function startIaCollector(): () => void {
   let stopped = false;
-  let lastSaveAt = 0;
   let realtime: IaRealtimeClient | null = null;
   let pluginMissingNotified = false;
 
   const collect = useCollectStore();
 
-  // IA：浏览器直连 A8 聚合 wss://47.115.75.57/esport/ws/IA
-  realtime = createIaRealtimeClient();
-  void realtime.start(handleIaRealtimeMessage);
+  void (async () => {
+    if (!(await waitForIaUser()) || stopped) return;
 
-  const poll = async () => {
-    while (!stopped) {
+    const t = iaCollectPlatform();
+    const betRe = new RegExp(t.BetName);
+
+    realtime = createIaRealtimeClient(t.Gateway);
+    await realtime.start(handleIaRealtimeMessage);
+    if (stopped) return;
+
+    const loadMatchBets = async (matchId: string): Promise<CollectBetDto[]> => {
+      if (!matchId) return [];
+      return loadIaBets(t, matchId, betRe);
+    };
+
+    const poll = async (): Promise<void> => {
       const started = Date.now();
       let matchCount = 0;
       try {
-        const platform = iaCollectPlatform();
-
         if (!hasA8PluginRuntime()) {
           if (!pluginMissingNotified) {
             notifyCollectError("IA", IA_PLUGIN_REQUIRED_MSG);
             pluginMissingNotified = true;
           }
-          await wait(POLL_MS);
-          continue;
+          return;
         }
         pluginMissingNotified = false;
 
-        const games = await getGames(PLATFORM);
-        const betRe = new RegExp(
-          platform.BetName || "(\\[全场\\].+获胜$)|(\\[地图\\d+\\]\\s*获胜者$)",
-        );
-
-        const listRes = await iaCollectGet<{ code?: number; data?: { data?: Array<Record<string, unknown>> } }>(
-          platform,
-          "/api/game/game/gameListPageSplit/",
-        );
-        if (listRes.code !== undefined && listRes.code !== 1) {
-          await wait(POLL_MS);
-          continue;
-        }
-
+        const listRes = await iaCollectGet<{
+          data?: { data?: Array<Record<string, unknown>> };
+        }>(t, "/api/game/game/gameListPageSplit/");
         const rawList = listRes.data?.data ?? [];
-        const list = rawList.filter((row) => games.includes(String(row.game_type_id ?? "")));
+        const list = rawList.filter((row) =>
+          t.Games.includes(String(row.game_type_id ?? "")),
+        );
 
-        const shouldSave = Date.now() - lastSaveAt > SAVE_MS;
         const matchPayload: CollectMatchDto[] = [];
         const betsByMatch = new Map<string, CollectBetDto[]>();
 
         for (const row of list) {
           if (stopped) break;
-          const homeName = String(
-            row.team_name_1 ||
-            row.team_a_name ||
-            row.home_team_name ||
-            row.home_name ||
-            row.team1_name ||
-            "主队",
-          ).trim();
-          const awayName = String(
-            row.team_name_2 ||
-            row.team_b_name ||
-            row.away_team_name ||
-            row.away_name ||
-            row.team2_name ||
-            "客队",
-          ).trim();
-          const homeId = pickIaTeamId(row, "home");
-          const awayId = pickIaTeamId(row, "away");
           const matchId = String(row.id ?? "");
-
-          matchPayload.push({
-            Type: PLATFORM,
-            SourceMatchID: row.id as string | number,
-            SourceGameID: row.game_type_id as string | number,
-            BO: Number(row.bo || row.best_of || 0) || 0,
-            StartTime: parseStartTime(row.start_time || row.begin_time || row.game_start_time),
-            Home: homeName,
-            HomeID: homeId,
-            Away: awayName,
-            AwayID: awayId,
-            Teams: [
-              {
-                Type: PLATFORM,
-                GameID: row.game_type_id as string | number,
-                Name: homeName,
-                TeamID: homeId,
-                Logo: "",
-              },
-              {
-                Type: PLATFORM,
-                GameID: row.game_type_id as string | number,
-                Name: awayName,
-                TeamID: awayId,
-                Logo: "",
-              },
-            ],
-          });
-
-          const bets = await loadIaBets(platform, matchId, betRe);
-          betsByMatch.set(matchId, bets);
           matchCount += 1;
+          matchPayload.push(buildIaMatchDto(row));
+          const bets = await loadMatchBets(matchId);
+          betsByMatch.set(matchId, bets);
         }
 
-        if (shouldSave && matchPayload.length) {
+        if (matchPayload.length) {
           const saved = await collect.saveMatch(PLATFORM, matchPayload);
           if (saved) {
             for (const [mid, bets] of betsByMatch) {
               if (!bets.length) continue;
               await collect.saveBets(PLATFORM, mid, bets);
             }
-            lastSaveAt = Date.now();
           }
         }
       } catch (err) {
@@ -154,12 +164,15 @@ export function startIaCollector(): () => void {
         notifyCollectError("IA", err);
       } finally {
         console.debug(`[IA]比赛列表:${Date.now() - started}ms，读取比赛:${matchCount}场`);
-        await wait(POLL_MS);
+        if (!stopped) {
+          await wait(POLL_MS);
+          await poll();
+        }
       }
-    }
-  };
+    };
 
-  void poll();
+    await poll();
+  })();
 
   return () => {
     stopped = true;

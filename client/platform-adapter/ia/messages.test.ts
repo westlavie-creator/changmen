@@ -45,15 +45,8 @@ describe("handleIaRealtimeMessage", () => {
     expect(oddsStore.updateBetLock).toHaveBeenCalledWith("IA", "123", true);
   });
 
-  test("saves known IA point changes via mqtt and clears lock (A8 push rule)", () => {
+  test("saves known IA point changes via mqtt and clears lock (A8 Xn rule)", () => {
     oddsStore.isOdds.mockImplementation((_platform: string, id: string) => id === "point-1");
-    oddsStore.getEntry.mockReturnValue({
-      id: "point-1",
-      odds: 1.87,
-      isLock: true,
-      betId: "play-1",
-      time: 1,
-    });
 
     handleIaRealtimeMessage(
       {
@@ -69,8 +62,6 @@ describe("handleIaRealtimeMessage", () => {
         id: "point-1",
         odds: 1.88,
         isLock: false,
-        betId: "play-1",
-        side: undefined,
         time: 12345,
       },
       "mqtt",
@@ -80,7 +71,6 @@ describe("handleIaRealtimeMessage", () => {
 
   test("push point change always unlocks fo like A8", () => {
     oddsStore.isOdds.mockImplementation((_platform: string, id: string) => id === "point-1");
-    oddsStore.getEntry.mockReturnValue(undefined);
 
     handleIaRealtimeMessage(
       {
@@ -96,8 +86,6 @@ describe("handleIaRealtimeMessage", () => {
         id: "point-1",
         odds: 1.88,
         isLock: false,
-        betId: "play-1",
-        side: undefined,
         time: 12345,
       },
       "mqtt",

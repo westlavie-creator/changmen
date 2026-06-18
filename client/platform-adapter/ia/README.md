@@ -1,12 +1,18 @@
 # IA
 
-| 目录 | 用途 |
-|------|------|
-| 根目录 `collect.ts` / `bet.ts` / `realtime.ts` 等 | **浏览器采集与下注**（主链路，HTTP + Socket.IO） |
-| `shared/` | 浏览器 SaveBet / 字段解析（`collect.ts`、`markets.ts` 共用） |
-| `devtools/platform-probes/ia/` | 可选 Node 探针 CLI |
+浏览器主链路：`client/platform-adapter/ia/`（采集 `wQe` + 下注 `CYe`）。
 
-生产代码在平台根目录，不在 `frontend/`。
+| 文件 | 用途 |
+|------|------|
+| `a8Collect.ts` | A8 内联采集对象 `t` |
+| `collect.ts` / `transport.ts` / `realtime.ts` / `messages.ts` / `markets.ts` | 采集 |
+| `bet_transport.ts` | A8 `mr.post` 路由（Zn / PROXY） |
+| `bet.ts` | `iaProvider`（CYe） |
+| `shared/` | 盘口解析、SaveBet 行构建 |
+
+**文档**：[client/web/docs/platforms/IA.md](../../web/docs/platforms/IA.md)
+
+探针 CLI：
 
 ```bat
 cd changmen/devtools/platform-probes

@@ -23,6 +23,35 @@
   min-width: 0;
 }
 
+/* 右上角：直连推送 IA/OB/RAY/TF + 扩展版本号 */
+.common-layout.home-view .el-header .home-header-trailing {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.common-layout.home-view .el-header .home-header-trailing > * {
+  pointer-events: auto;
+}
+
+.common-layout.home-view .el-header .home-header-trailing .version {
+  position: static;
+  font-size: 13px;
+  color: #ffffff59;
+  padding-right: 8px;
+}
+
+.common-layout.home-view .el-header .home-header-trailing .version:before {
+  width: 6px;
+  height: 6px;
+}
+
 /* 账户卡片刷新动画（对齐 A8 AccountView.loading） */
 .providers .account.loading::before {
   content: "";

@@ -119,10 +119,10 @@ changmen 实现：`client/platform-adapter/{platform}/`（`collect.ts` / `bet.ts
 
 | 项 | 内容 |
 |----|------|
-| A8 | `wQe`：gateway=`https://ilustre-analytics.org`，**`token:""`**；HTTP `gameListPageSplit` + WS `/esport/ws/IA` |
-| 代码 | `client/platform-adapter/ia/*` | `client/platform-adapter/ia/bet.ts` |
-| 凭证 | **已补** `shared/ia_a8_collect.js` + `router.js` / `platform_sync` 默认写入 |
-| 验收 | ① 无 env 时 `Client_GetCollectPlatform(IA)` 仍有 Gateway ② HTTP 列表 ③ WS 推赔率 ④ IA 账号下注 |
+| A8 | `wQe`：ilustre + 空 token + `Zn` HTTP + WS `/esport/ws/IA`；`CYe`：`mr.post`（Zn / PROXY） |
+| 代码 | `ia/*`（`bet_transport.ts` = `mr.post`） | `ia/bet.ts` |
+| 凭证 | 采集写死 `a8Collect`；下注用 IA 账号 gateway/token | |
+| 验收 | ① 扩展已装 ② HTTP 列表 30s ③ WS（上游可用时）④ IA 账号 checkBet/playMore | |
 
 ---
 

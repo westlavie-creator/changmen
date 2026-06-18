@@ -1,5 +1,4 @@
 import { io, type Socket } from "socket.io-client";
-import { getCollectPlatform } from "@/api/esport";
 import {
   bumpDirectRealtimeMessage,
   getDirectRealtimeStatus,
@@ -7,6 +6,7 @@ import {
   resetDirectRealtimeStatus,
 } from "@platform/shared/directRealtimeStatus";
 import { PLATFORMS } from "@/shared/platform";
+import { IA_A8_COLLECT } from "./a8Collect";
 import { IA_A8_WS, IA_DEFAULT_GATEWAY, IA_ROOM_JOIN, IA_WS_PATH } from "./wsConfig";
 
 const PLATFORM = PLATFORMS.IA;
@@ -27,14 +27,16 @@ export type IaRealtimeClient = {
   status?(): Promise<IaRealtimeStatus | unknown>;
 };
 
-async function resolveIaGateway(): Promise<string> {
-  const platform = await getCollectPlatform(PLATFORM);
-  return String(platform?.Gateway || IA_DEFAULT_GATEWAY).replace(/\/+$/, "");
+function normalizeGateway(gateway: string): string {
+  return gateway.replace(/\/+$/, "");
 }
 
-/** A8 CQe：浏览器直连 47.115.75.57/esport/ws/IA（不经本地 relay / Electron IPC） */
-function createDirectIaRealtimeClient(): IaRealtimeClient {
+/** A8 `wQe`：浏览器直连 47.115.75.57/esport/ws/IA（不经本地 relay / Electron IPC） */
+export function createIaRealtimeClient(
+  gateway: string = IA_DEFAULT_GATEWAY,
+): IaRealtimeClient {
   let socket: Socket | null = null;
+  const origin = normalizeGateway(gateway);
 
   return {
     async start(onMessage) {
@@ -43,33 +45,28 @@ function createDirectIaRealtimeClient(): IaRealtimeClient {
       socket = null;
 
       resetDirectRealtimeStatus(PLATFORM);
-      const gateway = await resolveIaGateway();
 
       socket = io(IA_A8_WS, {
         transports: ["websocket"],
         withCredentials: true,
         path: IA_WS_PATH,
         extraHeaders: {
-          Origin: gateway,
+          Origin: origin,
           token: "hello",
         },
         auth: {
-          token: gateway,
+          token: origin,
         },
-        reconnection: true,
-        reconnectionDelay: 2000,
-        reconnectionDelayMax: 8000,
       });
 
       socket.on("connect", () => {
         patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: true, lastError: null });
-        console.info("[IA] connected (direct)", IA_A8_WS, "origin=", gateway);
+        console.info("[IA] connected (direct)", IA_A8_WS, "origin=", origin);
         socket?.emit("RoomJoin", IA_ROOM_JOIN);
-      });
-
-      socket.on("roomMessageCallBack", (message: unknown) => {
-        bumpDirectRealtimeMessage(PLATFORM);
-        onMessage((message ?? {}) as IaRealtimeMessage);
+        socket?.on("roomMessageCallBack", (message: unknown) => {
+          bumpDirectRealtimeMessage(PLATFORM);
+          onMessage((message ?? {}) as IaRealtimeMessage);
+        });
       });
 
       socket.on("disconnect", () => {
@@ -99,6 +96,5 @@ function createDirectIaRealtimeClient(): IaRealtimeClient {
   };
 }
 
-export function createIaRealtimeClient(): IaRealtimeClient {
-  return createDirectIaRealtimeClient();
-}
+/** A8 `wQe` 默认 gateway（与 HTTP 采集对象 `t` 同源） */
+export const IA_A8_REALTIME_GATEWAY = IA_A8_COLLECT.gateway;
