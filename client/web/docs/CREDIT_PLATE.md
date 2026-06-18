@@ -40,7 +40,7 @@ A8 bundle 同样是 `i("game/play/Login", { gameId: 3 })`，注意路径里 **`L
 |----|------|
 | Method | `POST` |
 | Header `token` | **第一步返回的 token**（不是主站 `/esport` 的 token） |
-| Header `x-forwarded-site` | `game.haijings.vip` |
+| Header `x-forwarded-site` | `api.a8.to`（A8 2.0.245+） |
 | Body | `gameId=3`（`application/x-www-form-urlencoded`） |
 
 实现见 `src/api/v4.ts` 中 `fetchPbPlayUrl`：先 `user/account/login`，再 `game/play/Login`，token 通过第二次 `v4Post` 的 header 传入。

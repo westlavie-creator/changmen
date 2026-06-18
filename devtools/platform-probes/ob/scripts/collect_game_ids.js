@@ -11,7 +11,7 @@ import { login, obGet } from "../session.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(__dirname, "../data/ob_game_ids.json");
-const PC_JSON = "https://uphw-cdn3.jomscxu.com/upload/json/pc.json";
+const PC_JSON = "https://uphw-cdn4.shudarong.com/upload/json/pc.json";
 
 function cleanLeague(name) {
   return String(name || "").replace(/&nbsp;/g, " ").trim();

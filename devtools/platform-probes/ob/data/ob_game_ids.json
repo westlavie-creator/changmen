@@ -1,6 +1,6 @@
 {
   "source": "OB platform game_id (game/index field game_id); names verified via league samples + order history",
-  "cdnGameList": "https://uphw-cdn3.jomscxu.com/upload/json/pc.json → game_imag keys",
+  "cdnGameList": "https://uphw-cdn4.shudarong.com/upload/json/pc.json → game_imag keys",
   "games": {
     "257154660915053": {
       "name": "英雄联盟",

@@ -89,7 +89,7 @@ waitForUser
 |----|-----|
 | HTTP 客户端 | `Rr.get` 直连 OB `gateway` |
 | MQTT | 主机 `47.115.75.57`，路径 `/esport/ws/OB` |
-| 队徽 | CDN `uphw-cdn3.jomscxu.com` → `pc.json` |
+| 队徽 | CDN `uphw-cdn4.shudarong.com` → `pc.json` + `${base}/${path}` |
 
 ### changmen（[`ob/index.ts`](../ob/index.ts)）
 

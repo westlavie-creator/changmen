@@ -1,6 +1,6 @@
 import { IA_A8_COLLECT } from "./a8Collect";
 
-/** A8 `bQe` / `_Qe` [A8 可证实]：IA Socket.IO 聚合入口 */
+/** A8 `bQe` / `wQe` [A8 可证实]：IA Socket.IO 聚合入口 */
 export const IA_A8_WS = "wss://47.115.75.57";
 
 export const IA_WS_PATH = "/esport/ws/IA";

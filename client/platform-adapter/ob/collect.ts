@@ -23,7 +23,9 @@ import type { CollectPlatformInfo } from "@/types/esport";
 const PLATFORM = PLATFORMS.OB;
 const POLL_MS = 30_000;
 
-const TEAM_LOGO_URL = "https://uphw-cdn3.jomscxu.com/upload/json/pc.json";
+/** [A8 可证实] bundle `tK` / `pIe`（2.0.245） */
+const OB_CDN_BASE = "https://uphw-cdn4.shudarong.com";
+const TEAM_LOGO_URL = `${OB_CDN_BASE}/upload/json/pc.json`;
 const TEAM_LOGO_LS = "OBService:TeamLogo";
 
 let teamLogos: Record<string, string> | null = null;
@@ -62,7 +64,7 @@ export async function ensureObTeamLogosLoaded(): Promise<void> {
 /** ?? URL????ensureObTeamLogosLoaded??*/
 export function resolveObTeamLogoSync(teamId: string): string {
   if (!teamLogos || !teamLogos[teamId]) return "";
-  return `https://uphw-cdn6.peyesight.com/${teamLogos[teamId]}`;
+  return `${OB_CDN_BASE}/${teamLogos[teamId]}`;
 }
 
 /** ?? A8 e9????CDN */

@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref } from "vue";
 
 /** 对齐 bundle `ExtensionsView` / class `version` / `yS.version` */
-const WEB_BUNDLE_VERSION = "2.0.229";
+const WEB_BUNDLE_VERSION = "2.0.245";
 
 const extVersion = ref<string | null>(null);
 const remoteVersion = ref<string | null>(null);

@@ -7,7 +7,8 @@ import { useUserStore } from "@/stores/userStore";
 
 /** 对齐 A8 bundle UserCollectView：RMe / FMe / WMe / uY */
 export const CREDIT_PLATE_PASSWORD = "a123456";
-export const CREDIT_FORWARD_SITE = "game.haijings.vip";
+/** [A8 可证实] bundle `AIe`（2.0.245，替代 `game.haijings.vip`） */
+export const CREDIT_FORWARD_SITE = "api.a8.to";
 export const CREDIT_PB_GAME_ID = 3;
 /** 对齐 A8 `l(TF)` → gameId 5 */
 export const CREDIT_TF_GAME_ID = 5;

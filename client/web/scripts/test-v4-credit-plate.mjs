@@ -6,7 +6,7 @@
 import { A8_USER, A8_V4_PASSWORD } from "@changmen/shared/integrations/a8_dev_credentials.mjs";
 
 const BASE = process.env.V4_TEST_BASE || "http://127.0.0.1:3560/v4.0/";
-const FORWARD_SITE = "game.haijings.vip";
+const FORWARD_SITE = "api.a8.to";
 const GAME_ID = 3;
 
 async function v4Post(path, body, token = "") {

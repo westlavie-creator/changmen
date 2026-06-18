@@ -20,7 +20,7 @@ node scripts/platforms/ob/collect_game_ids.js
 CDN 全量 game_id 列表（无名称）：
 
 ```
-https://uphw-cdn3.jomscxu.com/upload/json/pc.json  →  game_imag 对象的 key
+https://uphw-cdn4.shudarong.com/upload/json/pc.json  →  game_imag 对象的 key
 ```
 
 ## 已验证 game_id
