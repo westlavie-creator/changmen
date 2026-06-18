@@ -22,6 +22,8 @@
     "test:ob": "npm run test:ob-getmatchs && npm run test:ob-provider",
     "test:ob:all": "npm run test:ob && npm run test:ob-live",
     "audit:a8": "node scripts/audit-a8-parity.mjs",
+    "analyze:deps": "node scripts/analyze-module-deps.mjs",
+    "analyze:deps:check": "node scripts/analyze-module-deps.mjs --check",
     "verify:copy-modules": "node scripts/verify-copy-module-stack.mjs"
   },
   "dependencies": {

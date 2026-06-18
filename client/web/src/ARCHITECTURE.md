@@ -273,7 +273,44 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 - 开发：`npm run dev`（Vite：Win `5274` / 其它 `5174`，`/` base）
 - 构建：`npm run build`
+- 依赖基线：`npm run analyze:deps`（在 `changmen/` 根目录；`--check` 校验架构硬规则，违规非零退出）
 - 后端代理：见 `vite.config.ts` 中 `/esport` → `VITE_API_PROXY`
+
+---
+
+## 依赖基线（批次 5f，2026-06-18）
+
+在 `changmen/` 执行 `npm run analyze:deps`，或于 `client/web/` 执行 `npm run analyze:deps:check`。脚本输出模块规模、分层流向、stores/extensions 边，并校验下列**硬规则**（违反则 exit 1）：
+
+| 规则 ID | 约束 |
+|---------|------|
+| `domain-no-stores` | `domain/*` 不得 import `stores/*` |
+| `types-no-stores-extensions` | `types` 不得 import `stores/*` 或 `extensions/*` |
+| `betting-no-notify` | `stores/betting` 不得 import `extensions/notify`（trace 已迁至 `autoBet/`） |
+
+**当前快照**（`analyze-module-deps.mjs` 一次运行）：
+
+| 指标 | 值 |
+|------|-----|
+| 最大模块（文件数） | `stores/betting`（55） |
+| 入度最高 | `types`（28）、`shared`（20） |
+| `stores/betting` 外向依赖 | `domain/*`、`extensions/arbOpportunity`、`stores/*`（无 `extensions/notify`） |
+| 顶层分层 | `domain → models, shared, types`；`types → shared` |
+| 入口链 | `main → App, chrome-plugin, lib, router, stores/user` |
+
+**有意保留的跨层依赖**（不在 `--check` 中禁止，勿强行拆）：
+
+| 来源 | 目标 | 原因 |
+|------|------|------|
+| `stores/message` | `extensions/notify`、`extensions/arbMarketWatch` | Telegram / 盯盘投递层 |
+| `stores/betting` | `extensions/arbOpportunity` | kakaxi `detectFeed` 检测输入；调度仍在 `kakaxi/` |
+| `extensions/arbOpportunity` | `stores/betting/kakaxi`、`stores/config` | `syncArbRuntime` 启停 kakaxi / 盯盘 |
+| `extensions/arbBet/ui` | `stores/match`、`stores/odds`、`stores/account` | BetRow Vue 组合式，读 store 状态 |
+| `extensions/notify` | `stores/betting/autoBet/*` | 仅 **类型/trace API** 与格式化，非调度 |
+
+`extensions/*` 整体可依赖 `stores/*`（UI / 运行时同步）；`stores/betting/autoBet` 与 `extensions/notify` 之间仅允许 **messageStore 投递** 方向，不允许 autoBet 直接 import notify。
+
+deprecated 独立 shim 已清理（5e）；`types/`、`domain/` 内 `@deprecated` 别名仍留在 canonical 文件内。
 
 ---
 
@@ -300,14 +337,3 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 **联调状态**：`user/account/login` 第一步已通过（2026-05-26）。完整流程、环境与验收见 [docs/CREDIT_PLATE.md](../docs/CREDIT_PLATE.md)。
 
 业务代码可继续 `import { … } from "@/api/esport"`，或按域从 `@/api/match` 等直接引用。
-
-## 已知待整理（非阻塞）
-
-**有意保留的跨层依赖**（非 shim，勿强行拆）：
-
-| 来源 | 目标 | 原因 |
-|------|------|------|
-| `messageStore` | `extensions/notify`、`extensions/arbMarketWatch` | Telegram 投递层 |
-| `stores/betting/kakaxi/*` | `extensions/arbOpportunity/detect` | 检测输入；调度仍在 `kakaxi/`，与 `a8/` 并列 |
-
-deprecated 兼容转发 shim 已清理（5e）；`types/`、`domain/` 内 `@deprecated` 别名仍保留在 canonical 文件内。

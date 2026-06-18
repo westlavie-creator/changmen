@@ -137,3 +137,49 @@ while ((mm = importRe.exec(mainContent))) {
   if (resolved) mainTargets.add(topModule(resolved))
 }
 console.log('main -> ' + [...mainTargets].sort().join(', '))
+
+/** 架构硬规则：违反则 `--check` 非零退出。有意保留边见 ARCHITECTURE.md「依赖基线」。 */
+const ARCH_RULES = [
+  {
+    id: 'domain-no-stores',
+    test(fromMod, toMod) {
+      return fromMod.startsWith('domain/') && (toMod.startsWith('stores/') || toMod === 'stores')
+    },
+  },
+  {
+    id: 'types-no-stores-extensions',
+    test(fromMod, toMod) {
+      if (fromMod !== 'types') return false
+      return toMod.startsWith('stores/') || toMod.startsWith('extensions/') || toMod === 'stores' || toMod === 'extensions'
+    },
+  },
+  {
+    id: 'betting-no-notify',
+    test(fromMod, toMod) {
+      return fromMod === 'stores/betting' && toMod === 'extensions/notify'
+    },
+  },
+]
+
+const violations = []
+for (const [fromMod, tos] of edges) {
+  for (const toMod of tos) {
+    for (const rule of ARCH_RULES) {
+      if (rule.test(fromMod, toMod)) {
+        violations.push(`${rule.id}: ${fromMod} -> ${toMod}`)
+      }
+    }
+  }
+}
+
+console.log('\n=== ARCH RULE VIOLATIONS ===')
+if (violations.length === 0) {
+  console.log('(none)')
+} else {
+  for (const v of violations.sort()) console.log(v)
+}
+
+const checkMode = process.argv.includes('--check')
+if (checkMode && violations.length > 0) {
+  process.exitCode = 1
+}

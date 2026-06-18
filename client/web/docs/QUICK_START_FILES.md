@@ -1,7 +1,7 @@
 # 5 分钟文件导航（client/web）
 
 > 外行友好：不用背 180 个文件，按你的角色只打开下面几行即可。  
-> 总架构见 [`src/ARCHITECTURE.md`](../src/ARCHITECTURE.md)。  
+> 总架构与**依赖基线**见 [`src/ARCHITECTURE.md`](../src/ARCHITECTURE.md)（校验：`npm run analyze:deps`，在 `changmen/` 根目录）。  
 > **平台采集/下注 canonical 源码**在 [`../../../client/platform-adapter/`](../../../client/platform-adapter/README.md)（Vite 别名 `@platform`）。
 
 ---
