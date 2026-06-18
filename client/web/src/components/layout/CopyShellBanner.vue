@@ -12,6 +12,7 @@ const legacyOk = ref(false);
 const moduleSkinOk = ref(false);
 const moduleSkinMode = ref<"segments" | "fallback" | "bundle" | "missing">("missing");
 const useA8 = ref(getUseA8Css());
+const isProd = import.meta.env.PROD;
 
 const envLabel = computed(() => (isDevSkinLab() ? "dev" : "prod"));
 
@@ -30,7 +31,7 @@ const switchTitle = computed(() =>
 onMounted(() => {
   useA8.value = getUseA8Css();
 
-  if (import.meta.env.PROD) {
+  if (isProd) {
     legacyOk.value = useA8.value;
     if (!useA8.value) {
       void fetch(COPY_A8_MODULE_HREF, { method: "HEAD" }).then((res) => {
@@ -88,13 +89,13 @@ function toggleA8() {
       </button>
       <span class="copy-preview-banner__switch-label" :class="{ 'is-active': useA8 }">legacy</span>
     </div>
-    <p v-if="!import.meta.env.PROD && !legacyOk" class="copy-preview-banner__warn">
+    <p v-if="!isProd && !legacyOk" class="copy-preview-banner__warn">
       缺少 legacy 样式，请运行 node public/copy/sync-styles.mjs
     </p>
     <p v-else-if="!useA8 && !moduleSkinOk" class="copy-preview-banner__warn">
       缺少 modules 皮肤（/copy/styles/modules/a8-all.css），请重新 app:build
     </p>
-    <p v-else-if="!useA8 && import.meta.env.PROD" class="copy-preview-banner__hint">
+    <p v-else-if="!useA8 && isProd" class="copy-preview-banner__hint">
       生产 modules 试验中；有问题切 legacy 或控制台：localStorage.setItem('copy:useA8Css','1'); location.reload()
     </p>
     <p v-else-if="!useA8" class="copy-preview-banner__hint">
