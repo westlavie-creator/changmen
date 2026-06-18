@@ -1,5 +1,6 @@
 import { startKakaxiDetectFeed, stopKakaxiDetectFeed } from "@/stores/betting/kakaxi/detectFeed";
 import { clearKakaxiCooldowns } from "@/stores/betting/kakaxi/cooldown";
+import { resetKakaxiDrainWake } from "@/stores/betting/kakaxi/drainWake";
 import { clearKakaxiQueue } from "@/stores/betting/kakaxi/queue";
 import { resetKakaxiScheduler } from "@/stores/betting/kakaxi/scheduler";
 
@@ -10,6 +11,7 @@ export function startKakaxiRuntime(): void {
 
 export function stopKakaxiRuntime(): void {
   stopKakaxiDetectFeed();
+  resetKakaxiDrainWake();
   clearKakaxiQueue();
   clearKakaxiCooldowns();
   resetKakaxiScheduler();

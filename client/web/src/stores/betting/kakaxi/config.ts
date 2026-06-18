@@ -20,3 +20,6 @@ export const KAKAXI_DRAIN_MAX_MS = 400;
 
 /** 同一 drain 波次内最多并行 execute 条数（按 platform 互斥扩容） */
 export const KAKAXI_MAX_PARALLEL_EXECUTES = 4;
+
+/** detect 入队后非 live 唤醒 drain 的合并窗口（ms）；live 为 0 */
+export const KAKAXI_DRAIN_WAKE_DEBOUNCE_MS = 16;

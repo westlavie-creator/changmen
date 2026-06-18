@@ -10,6 +10,12 @@ import {
   kakaxiQueueSize,
 } from "@/stores/betting/kakaxi/queue";
 
+const wakeKakaxiDrain = vi.fn();
+
+vi.mock("@/stores/betting/kakaxi/drainWake", () => ({
+  wakeKakaxiDrain: (...args: unknown[]) => wakeKakaxiDrain(...args),
+}));
+
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({
     matchs: [{ id: 100, bets: [{ id: 1, isLive: true }] }],
@@ -32,18 +38,24 @@ const sampleOpp: ArbOpportunity = {
 describe("applyKakaxiDetectTransitions", () => {
   it("enqueues on appeared and removes on gone", () => {
     clearKakaxiQueue();
+    wakeKakaxiDrain.mockClear();
     applyKakaxiDetectTransitions([{ kind: "appeared", opportunity: sampleOpp }]);
     expect(kakaxiQueueSize()).toBe(1);
+    expect(wakeKakaxiDrain).toHaveBeenCalledWith(true);
 
+    wakeKakaxiDrain.mockClear();
     applyKakaxiDetectTransitions([
       { kind: "gone", key: "100:1:OB:RAY", previous: sampleOpp },
     ]);
     expect(dequeueKakaxiBet()).toBeUndefined();
+    expect(wakeKakaxiDrain).not.toHaveBeenCalled();
   });
 
   it("boosts implied on improved transition", () => {
     clearKakaxiQueue();
+    wakeKakaxiDrain.mockClear();
     applyKakaxiDetectTransitions([{ kind: "appeared", opportunity: sampleOpp }]);
+    wakeKakaxiDrain.mockClear();
     applyKakaxiDetectTransitions([
       {
         kind: "improved",
@@ -53,6 +65,7 @@ describe("applyKakaxiDetectTransitions", () => {
     ]);
     const next = dequeueKakaxiBet();
     expect(next?.implied).toBe(1.12);
+    expect(wakeKakaxiDrain).toHaveBeenCalledWith(true);
   });
 });
 

@@ -22,6 +22,7 @@ import {
   enqueueKakaxiBet,
   removeKakaxiBet,
 } from "@/stores/betting/kakaxi/queue";
+import { wakeKakaxiDrain } from "@/stores/betting/kakaxi/drainWake";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -74,27 +75,38 @@ function enqueueFromOpportunity(opp: ArbOpportunity): void {
 export function applyKakaxiDetectTransitions(
   transitions: KakaxiOpportunityTransition[],
 ): void {
+  let shouldWake = false;
+  let wakeUrgent = false;
+
   for (const transition of transitions) {
     if (transition.kind === "appeared") {
-      enqueueFromOpportunity(transition.opportunity);
+      const opp = transition.opportunity;
+      enqueueFromOpportunity(opp);
+      shouldWake = true;
+      wakeUrgent ||= isBetLive(opp.matchId, opp.betId);
       continue;
     }
     if (transition.kind === "improved") {
       const opp = transition.opportunity;
+      const live = isBetLive(opp.matchId, opp.betId);
       const boosted = boostKakaxiBetImplied(
         opp.matchId,
         opp.betId,
         opp.implied,
-        isBetLive(opp.matchId, opp.betId),
+        live,
         { homePlatform: opp.homePlatform, awayPlatform: opp.awayPlatform },
       );
       if (!boosted) {
         enqueueFromOpportunity(opp);
       }
+      shouldWake = true;
+      wakeUrgent ||= live;
       continue;
     }
     removeKakaxiBet(transition.previous.matchId, transition.previous.betId);
   }
+
+  if (shouldWake) wakeKakaxiDrain(wakeUrgent);
 }
 
 export type KakaxiDetectMode = "incremental" | "full";

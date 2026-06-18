@@ -33,6 +33,7 @@ export interface KakaxiDrainOptions {
 
 const inFlightPlatforms = new Set<PlatformId>();
 const inFlightBetKeys = new Set<string>();
+let drainTail: Promise<unknown> = Promise.resolve();
 
 export function getKakaxiInFlightPlatforms(): ReadonlySet<PlatformId> {
   return inFlightPlatforms;
@@ -128,8 +129,20 @@ export async function processNextKakaxiBet(ctx: KakaxiSchedulerContext): Promise
   return executeKakaxiQueuedBet(ctx, item);
 }
 
-/** 按预算 + platform 互斥并行消费队列 */
+/** 按预算 + platform 互斥并行消费队列（全局串行，避免与 wake 并发） */
 export async function drainKakaxiScheduler(
+  ctx: KakaxiSchedulerContext,
+  options: KakaxiDrainOptions = {},
+): Promise<number> {
+  const job = drainTail.then(() => drainKakaxiSchedulerBody(ctx, options));
+  drainTail = job.then(
+    () => undefined,
+    () => undefined,
+  );
+  return job;
+}
+
+async function drainKakaxiSchedulerBody(
   ctx: KakaxiSchedulerContext,
   options: KakaxiDrainOptions = {},
 ): Promise<number> {
