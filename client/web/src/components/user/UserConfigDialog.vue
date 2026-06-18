@@ -112,8 +112,9 @@ async function save() {
     waitTime: normalizeWaitTime(form.waitTime),
   });
   try {
-    const ok = await configStore.save();
-    if (ok) ElMessage.success("保存成功");
+    const result = await configStore.save();
+    if (result.ok) ElMessage.success("保存成功");
+    else ElMessage.error(result.msg || "保存失败");
   } finally {
     emit("close");
     await userStore.fetchUserInfo();

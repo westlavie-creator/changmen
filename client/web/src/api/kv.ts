@@ -1,4 +1,5 @@
 import { authHeaders, post, unwrap } from "@/api/client";
+import type { ApiEnvelope } from "@changmen/api-contract";
 import { buildEsportUrl } from "@changmen/api-contract/urls";
 import { getApiBase } from "@/config/apiBase";
 
@@ -45,9 +46,26 @@ export async function getClientDataArray<T>(key: string): Promise<T[]> {
   return Array.isArray(data) ? (data as T[]) : [];
 }
 
+export function isEsportSuccess(data: ApiEnvelope<unknown> | null | undefined): boolean {
+  return Boolean(data && data.success === 1);
+}
+
+export async function saveClientDataDetailed(
+  key: string,
+  content: string,
+): Promise<{ ok: boolean; msg?: string }> {
+  try {
+    const data = await post<boolean>("Client_SaveData", { key, content });
+    if (isEsportSuccess(data)) return { ok: true };
+    return { ok: false, msg: data?.msg || "保存失败" };
+  } catch (err) {
+    return { ok: false, msg: err instanceof Error ? err.message : "保存失败" };
+  }
+}
+
 export async function saveClientData(key: string, content: string) {
-  const data = await post<boolean>("Client_SaveData", { key, content });
-  return data.success === 1;
+  const result = await saveClientDataDetailed(key, content);
+  return result.ok;
 }
 
 export async function updateUserSetting(setting: Record<string, unknown>) {

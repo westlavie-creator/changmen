@@ -29,7 +29,9 @@ export {
 export {
   getClientData,
   getClientDataArray,
+  isEsportSuccess,
   saveClientData,
+  saveClientDataDetailed,
   updateUserSetting,
 } from "@/api/kv";
 

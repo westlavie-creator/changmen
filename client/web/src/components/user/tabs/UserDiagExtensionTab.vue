@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import {
   isKakaxiArbDetectSelectable,
   type ArbDetectEngine,
 } from "@/types/arbDetectEngine";
+import { syncArbRuntime } from "@/extensions/arbOpportunity";
 import { useConfigStore } from "@/stores/configStore";
 
 const configStore = useConfigStore();
@@ -25,6 +26,12 @@ function unlockKakaxiEngine() {
   kakaxiUnlocked.value = true;
 }
 
+onMounted(async () => {
+  if (!configStore.loaded) {
+    await configStore.load();
+  }
+});
+
 async function save() {
   if (engine.value === "kakaxi") {
     if (!kakaxiUnlocked.value) {
@@ -37,9 +44,13 @@ async function save() {
       ElMessage.warning("kakaxi 检测尚未开放，已保持 A8");
     }
   }
-  const ok = await configStore.save();
-  if (ok) ElMessage.success("保存成功");
-  else ElMessage.error("保存失败");
+  const result = await configStore.save();
+  if (result.ok) {
+    syncArbRuntime();
+    ElMessage.success("保存成功");
+  } else {
+    ElMessage.error(result.msg || "保存失败");
+  }
 }
 </script>
 
