@@ -6,7 +6,7 @@ import LoginPanel from "@/components/auth/LoginPanel.vue";
 import CopyShellBanner from "@/components/layout/CopyShellBanner.vue";
 import KakashiRaikiriLoader from "@/components/layout/KakashiRaikiriLoader.vue";
 import PluginIntroShell from "@/components/layout/PluginIntroShell.vue";
-import { showDevSkinBanner } from "@/lib/copyShell";
+import { showSkinBanner } from "@/lib/copyShell";
 import { useExtensionGate } from "@/composables/useExtensionGate";
 import { useUserStore } from "@/stores/userStore";
 
@@ -33,7 +33,7 @@ async function onLoginSuccess() {
 </script>
 
 <template>
-  <CopyShellBanner v-if="showDevSkinBanner()" />
+  <CopyShellBanner v-if="showSkinBanner()" />
   <KeepAlive v-if="sessionReady">
     <HomeView />
   </KeepAlive>

@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_V4_PROXY?: string;
   readonly VITE_V4_DIRECT?: string;
   readonly VITE_GAMEBET_EXTENSION_ID?: string;
+  readonly VITE_HIDE_SKIN_BANNER?: string;
 }
 
 interface ImportMeta {

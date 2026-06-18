@@ -1,4 +1,4 @@
-/* DEV 皮肤角标（CopyShellBanner.vue，仅 import.meta.env.DEV） */
+/* 皮肤切换角标（CopyShellBanner.vue；DEV + 生产方案 A） */
 .copy-preview-banner {
   position: fixed;
   right: 8px;

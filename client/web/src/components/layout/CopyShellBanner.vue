@@ -4,27 +4,43 @@ import {
   COPY_A8_MODULE_HREF,
   COPY_MODULE_SEGMENTS_MANIFEST,
   getUseA8Css,
+  isDevSkinLab,
   setUseA8Css,
 } from "@/lib/copyShell";
 
 const legacyOk = ref(false);
 const moduleSkinOk = ref(false);
-const moduleSkinMode = ref<"segments" | "fallback" | "missing">("missing");
+const moduleSkinMode = ref<"segments" | "fallback" | "bundle" | "missing">("missing");
 const useA8 = ref(getUseA8Css());
+
+const envLabel = computed(() => (isDevSkinLab() ? "dev" : "prod"));
 
 const moduleSkinLabel = computed(() => {
   if (useA8.value) return "";
   if (moduleSkinMode.value === "segments") return "segments";
   if (moduleSkinMode.value === "fallback") return "a8-all";
+  if (moduleSkinMode.value === "bundle") return "a8-all";
   return "?";
 });
 
 const switchTitle = computed(() =>
-  useA8.value ? "当前 legacy（生产 bundle），点击切 modules" : "当前 modules，点击切 legacy",
+  useA8.value ? "当前 legacy（Vite bundle），点击切 modules" : "当前 modules，点击切 legacy",
 );
 
 onMounted(() => {
   useA8.value = getUseA8Css();
+
+  if (import.meta.env.PROD) {
+    legacyOk.value = useA8.value;
+    if (!useA8.value) {
+      void fetch(COPY_A8_MODULE_HREF, { method: "HEAD" }).then((res) => {
+        moduleSkinOk.value = res.ok;
+        moduleSkinMode.value = res.ok ? "bundle" : "missing";
+      });
+    }
+    return;
+  }
+
   void fetch("/copy/styles/legacy/a8.css", { method: "HEAD" }).then((res) => {
     legacyOk.value = res.ok;
   });
@@ -48,12 +64,12 @@ function toggleA8() {
 <template>
   <div
     class="copy-preview-banner"
-    :data-styles="legacyOk ? 'ok' : undefined"
+    :data-styles="legacyOk || moduleSkinOk ? 'ok' : undefined"
     :data-a8="useA8 ? 'on' : 'off'"
   >
     <div class="copy-preview-banner__title">
-      dev · skin{{
-        useA8 ? " · legacy（= 生产 bundle）" : moduleSkinLabel ? ` · modules/${moduleSkinLabel}` : " · modules"
+      {{ envLabel }} · skin{{
+        useA8 ? " · legacy（Vite bundle）" : moduleSkinLabel ? ` · modules/${moduleSkinLabel}` : " · modules"
       }}
     </div>
     <div class="copy-preview-banner__switch-row">
@@ -72,11 +88,14 @@ function toggleA8() {
       </button>
       <span class="copy-preview-banner__switch-label" :class="{ 'is-active': useA8 }">legacy</span>
     </div>
-    <p v-if="!legacyOk" class="copy-preview-banner__warn">
+    <p v-if="!import.meta.env.PROD && !legacyOk" class="copy-preview-banner__warn">
       缺少 legacy 样式，请运行 node public/copy/sync-styles.mjs
     </p>
     <p v-else-if="!useA8 && !moduleSkinOk" class="copy-preview-banner__warn">
-      缺少 modules 皮肤，请运行 npm run app:dev 或 node scripts/extract-a8-to-modules.mjs
+      缺少 modules 皮肤（/copy/styles/modules/a8-all.css），请重新 app:build
+    </p>
+    <p v-else-if="!useA8 && import.meta.env.PROD" class="copy-preview-banner__hint">
+      生产 modules 试验中；有问题切 legacy 或控制台：localStorage.setItem('copy:useA8Css','1'); location.reload()
     </p>
     <p v-else-if="!useA8" class="copy-preview-banner__hint">
       modules = segments + changmen；走查主界面用 modules，对照生产请切 legacy
