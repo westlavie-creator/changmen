@@ -6,6 +6,10 @@ import {
   type ArbOpportunity,
   type OpportunityKey,
 } from "@/extensions/arbOpportunity/types";
+import {
+  buildMarketWatchContext,
+  type ArbMarketWatchContext,
+} from "@/extensions/arbMarketWatch/marketWatchContext";
 import { shouldSendArbOpportunity } from "@/extensions/notify/arbOpportunityConfig";
 import { useMessageStore } from "@/stores/messageStore";
 
@@ -18,6 +22,7 @@ export type ArbMarketWatchGroup =
       betName: string;
       fullMarket?: ArbOpportunity;
       funded?: ArbOpportunity;
+      context?: ArbMarketWatchContext;
     }
   | {
       kind: "gone";
@@ -26,6 +31,7 @@ export type ArbMarketWatchGroup =
       betName: string;
       fullMarket?: ArbOpportunity;
       funded?: ArbOpportunity;
+      context?: ArbMarketWatchContext;
     };
 
 function betStillActive(
@@ -41,6 +47,7 @@ export function sameOpportunityLegs(a: ArbOpportunity, b: ArbOpportunity): boole
 
 function toAppearedGroup(
   opp: ArbOpportunity,
+  detectParams: DetectOpportunitiesParams,
   funded?: ArbOpportunity,
 ): ArbMarketWatchGroup {
   return {
@@ -50,10 +57,15 @@ function toAppearedGroup(
     betName: opp.betName,
     fullMarket: opp,
     funded,
+    context: buildMarketWatchContext(detectParams, opp.matchId, opp.betId),
   };
 }
 
-function toGoneGroup(opp: ArbOpportunity, funded?: ArbOpportunity): ArbMarketWatchGroup {
+function toGoneGroup(
+  opp: ArbOpportunity,
+  detectParams: DetectOpportunitiesParams,
+  funded?: ArbOpportunity,
+): ArbMarketWatchGroup {
   return {
     kind: "gone",
     anchor: betAnchor(opp),
@@ -61,6 +73,7 @@ function toGoneGroup(opp: ArbOpportunity, funded?: ArbOpportunity): ArbMarketWat
     betName: opp.betName,
     fullMarket: opp,
     funded,
+    context: buildMarketWatchContext(detectParams, opp.matchId, opp.betId),
   };
 }
 
@@ -76,7 +89,7 @@ export function buildMarketWatchGroups(
     if (transition.kind === "appeared") {
       const opp = transition.opportunity;
       const funded = findFundedOpportunityForBet(detectParams, opp.matchId, opp.betId);
-      groups.push(toAppearedGroup(opp, funded));
+      groups.push(toAppearedGroup(opp, detectParams, funded));
       continue;
     }
 
@@ -84,7 +97,7 @@ export function buildMarketWatchGroups(
     const anchor = betAnchor(opp);
     if (betStillActive(anchor, snapshot)) continue;
     const funded = findFundedOpportunityForBet(detectParams, opp.matchId, opp.betId);
-    groups.push(toGoneGroup(opp, funded));
+    groups.push(toGoneGroup(opp, detectParams, funded));
   }
 
   return groups;

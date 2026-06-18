@@ -133,7 +133,8 @@ export async function refreshObMatchMarkets(
     teamNamesFromViewMatch(match),
     match.game || null,
   );
-  if (loaded.bets.length && !loaded.hadError) {
+  // [A8 可证实] UMe：h||saveBets — 仅 hadError 挡上报，空数组仍 saveBets
+  if (!loaded.hadError) {
     await collect.saveBets(PLATFORM, sourceMatchId, loaded.bets);
   }
 }

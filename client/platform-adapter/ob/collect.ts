@@ -263,7 +263,8 @@ export function startObCollector(): () => void {
             teamsFromListRow(row),
             gameCode,
           );
-          if (loaded.bets.length && !loaded.hadError) {
+          // [A8 可证实] UMe：h||saveBets — 仅 hadError 挡上报，空 f 仍 saveBets
+          if (!loaded.hadError) {
             await collect.saveBets(PLATFORM, matchId, loaded.bets);
           }
           await subscribeObMatchAfterView(matchId);
