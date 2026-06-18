@@ -108,7 +108,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
   ──► 10min 门控 fetchMatchDefaultOdds
 ```
 
-配置 `arbDetectEngine`：`a8`（默认，与 bundle 一致）| `kakaxi`（并列调度，扩展页「实验」解锁）。
+配置 `arbDetectEngine`：`a8`（默认，与 bundle 一致）| `kakaxi`（并列调度，扩展页「实验」解锁）。旧版 USERCONFIG 若仅有 `arbExecuteEngine`，加载时仍可读；保存只写 `arbDetectEngine`。
 
 ### 调度模式 vs `extensions/`（勿混淆）
 

@@ -47,7 +47,7 @@ export interface UserConfig {
   waitTime: Record<string, number>;
   /** [changmen 扩展] 套利检测策略；缺省 a8（执行始终走主循环 executeArbBet） */
   arbDetectEngine?: ArbDetectEngine;
-  /** @deprecated 读取时合并到 arbDetectEngine */
+  /** @deprecated 仅兼容旧版 USERCONFIG JSON 读取；merge/save 不再写入 */
   arbExecuteEngine?: ArbDetectEngine;
 }
 
@@ -100,9 +100,10 @@ function resolveArbDetectEngineFromRaw(
 export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): UserConfig {
   const base = createDefaultUserConfig();
   if (!raw || typeof raw !== "object") return base;
+  const { arbExecuteEngine: _legacyExecuteEngine, ...rest } = raw;
   return {
     ...base,
-    ...raw,
+    ...rest,
     providerSortValue: Array.isArray(raw.providerSortValue)
       ? (raw.providerSortValue as PlatformId[])
       : base.providerSortValue,
@@ -118,6 +119,5 @@ export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): Us
         : undefined,
     ),
     arbDetectEngine: resolveArbDetectEngineFromRaw(raw),
-    arbExecuteEngine: resolveArbDetectEngineFromRaw(raw),
   };
 }

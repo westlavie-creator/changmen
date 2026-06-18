@@ -26,8 +26,9 @@ export const useConfigStore = defineStore("config", {
     async save() {
       this.saving = true;
       try {
+        const { arbExecuteEngine: _legacyExecuteEngine, ...configBody } = this.config;
         const payload: UserConfig = {
-          ...this.config,
+          ...configBody,
           betMoney: Number(this.config.betMoney) || 100,
           minMoney: Number(this.config.minMoney) || 0,
           maxMoney: Number(this.config.maxMoney) || 0,

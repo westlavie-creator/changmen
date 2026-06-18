@@ -17,7 +17,6 @@ const engine = computed({
   get: () => config.value.arbDetectEngine ?? "a8",
   set: (v: ArbDetectEngine) => {
     config.value.arbDetectEngine = v;
-    config.value.arbExecuteEngine = v;
   },
 });
 
@@ -30,13 +29,11 @@ async function save() {
   if (engine.value === "kakaxi") {
     if (!kakaxiUnlocked.value) {
       config.value.arbDetectEngine = "a8";
-      config.value.arbExecuteEngine = "a8";
       ElMessage.warning("请先双击「实验」解锁后再选择 kakaxi");
       return;
     }
     if (!isKakaxiArbDetectSelectable()) {
       config.value.arbDetectEngine = "a8";
-      config.value.arbExecuteEngine = "a8";
       ElMessage.warning("kakaxi 检测尚未开放，已保持 A8");
     }
   }
