@@ -6,6 +6,7 @@ import {
   hasKakaxiBet,
   kakaxiQueueSize,
   removeKakaxiBet,
+  boostKakaxiBetImplied,
 } from "@/stores/betting/kakaxi/queue";
 
 afterEach(() => {
@@ -72,5 +73,21 @@ describe("removeKakaxiBet", () => {
     removeKakaxiBet(9, 1);
     expect(hasKakaxiBet(9, 1)).toBe(false);
     expect(dequeueKakaxiBet()).toBeUndefined();
+  });
+});
+
+describe("boostKakaxiBetImplied", () => {
+  it("updates implied for queued bet", () => {
+    enqueueKakaxiBet({
+      matchId: 1,
+      betId: 2,
+      enqueuedAt: 100,
+      implied: 1.05,
+      isLive: false,
+    });
+    boostKakaxiBetImplied(1, 2, 1.12, true);
+    const next = dequeueKakaxiBet();
+    expect(next?.implied).toBe(1.12);
+    expect(next?.isLive).toBe(true);
   });
 });

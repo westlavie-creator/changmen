@@ -29,6 +29,26 @@ export function enqueueKakaxiBet(item: KakaxiQueuedBet): boolean {
   return true;
 }
 
+/** improved 时提升 implied / live，不入新队 */
+export function boostKakaxiBetImplied(
+  matchId: number,
+  betId: number,
+  implied: number,
+  isLive: boolean,
+): boolean {
+  const existingIdx = queue.findIndex(
+    (row) => row.matchId === matchId && row.betId === betId,
+  );
+  if (existingIdx < 0) return false;
+  const prev = queue[existingIdx];
+  queue[existingIdx] = {
+    ...prev,
+    implied: Math.max(prev.implied, implied),
+    isLive: prev.isLive || isLive,
+  };
+  return true;
+}
+
 /** 按 live → implied → 入队时间取出队首 */
 export function dequeueKakaxiBet(): KakaxiQueuedBet | undefined {
   if (!queue.length) return undefined;

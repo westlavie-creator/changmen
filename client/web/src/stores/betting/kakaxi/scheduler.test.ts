@@ -15,6 +15,17 @@ vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => matchStoreState,
 }));
 
+vi.mock("@/stores/accountStore", () => ({
+  useAccountStore: () => ({
+    getProviders: () => new Map([["OB", {}], ["RAY", {}]]),
+    accounts: [],
+  }),
+}));
+
+vi.mock("@/stores/betting/kakaxi/preExecuteGate", () => ({
+  passesKakaxiPreExecuteGate: () => ({ ok: true }),
+}));
+
 vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: (params: unknown) => executeArbBet(params),
 }));
@@ -95,5 +106,28 @@ describe("drainKakaxiScheduler", () => {
 
     expect(count).toBe(2);
     expect(executeArbBet).toHaveBeenCalledTimes(2);
+  });
+
+  it("respects drain budget maxBets", async () => {
+    for (let i = 1; i <= 8; i++) {
+      enqueueKakaxiBet({
+        matchId: 100,
+        betId: i,
+        enqueuedAt: i,
+        implied: 1.1,
+        isLive: false,
+      });
+      matchStoreState.matchs = [
+        {
+          id: 100,
+          bets: Array.from({ length: 8 }, (_, j) => ({ id: j + 1 })),
+        },
+      ];
+    }
+
+    const count = await drainKakaxiScheduler({ setMessage: () => {} }, { maxBets: 3 });
+
+    expect(count).toBe(3);
+    expect(executeArbBet).toHaveBeenCalledTimes(3);
   });
 });

@@ -66,6 +66,45 @@ export function detectOpportunities(
   return out;
 }
 
+/** 仅对指定聚合盘口锚点（matchId:betId）做 detect；供 kakaxi 增量检测 */
+export function detectOpportunitiesForBets(
+  params: DetectOpportunitiesParams,
+  scope: ArbDetectScope,
+  betAnchors: Set<string>,
+): ArbOpportunity[] {
+  if (!betAnchors.size) return [];
+
+  const { matches, config, accounts = [], actionablePlatforms = [] } = params;
+  const out: ArbOpportunity[] = [];
+
+  for (const match of matches) {
+    for (const bet of match.bets) {
+      if (!betAnchors.has(betAnchor({ matchId: match.id, betId: bet.id }))) continue;
+
+      const providerKeys = resolveProviderKeys(scope, bet, actionablePlatforms);
+      if (scope === "funded" && !providerKeys.length) continue;
+
+      const legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
+      if (!legs) continue;
+
+      out.push({
+        scope,
+        matchId: match.id,
+        betId: bet.id,
+        matchTitle: match.title,
+        betName: bet.getBetName(),
+        homePlatform: legs.homeItem.type,
+        awayPlatform: legs.awayItem.type,
+        homeOdds: legs.homeOdds,
+        awayOdds: legs.awayOdds,
+        implied: legs.implied,
+      });
+    }
+  }
+
+  return out;
+}
+
 /** 同一盘口在 funded 检测中的可执行机会（供通知旁路懒算） */
 export function findFundedOpportunityForBet(
   params: DetectOpportunitiesParams,
