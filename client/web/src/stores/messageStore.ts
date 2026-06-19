@@ -16,9 +16,15 @@ import { useUserStore } from "@/stores/userStore";
 import { useConfigStore } from "@/stores/configStore";
 import { wait } from "@/shared/wait";
 
-/** A8 bundle 固定报表群 / 发布群（Gi 中 RBe / FBe） */
-const REPORT_CHAT_ID = "-1001949068832";
-const PUBLISH_CHAT_ID = "-4855267884";
+/**
+ * [A8 可证实] bundle 固定报表群 / 发布群（Gi 中 g4e / m4e）。
+ * 暂停发往 A8 运营群；后期自建时改 chat id 并置 true。
+ */
+export const FIXED_BROADCAST_TELEGRAM_ENABLED = false;
+
+/** 启用后替换为你自己的 Telegram 超级群/频道 chat_id */
+export const REPORT_CHAT_ID = "-1001949068832";
+export const PUBLISH_CHAT_ID = "-4855267884";
 const DEDUP_PREFIX = "MSG_DEDUP:";
 
 export interface BettingMessageLeg {
@@ -106,10 +112,15 @@ export const useMessageStore = defineStore("message", {
           if (push && cfg.pushOrderId) {
             await this.deliver(cfg.pushOrderId, push);
           }
-          const report = this.reportQueue.pop();
-          if (report) await this.deliver(REPORT_CHAT_ID, report);
-          const publish = this.publishQueue.pop();
-          if (publish) await this.deliver(PUBLISH_CHAT_ID, publish);
+          if (FIXED_BROADCAST_TELEGRAM_ENABLED) {
+            const report = this.reportQueue.pop();
+            if (report) await this.deliver(REPORT_CHAT_ID, report);
+            const publish = this.publishQueue.pop();
+            if (publish) await this.deliver(PUBLISH_CHAT_ID, publish);
+          } else {
+            this.reportQueue.length = 0;
+            this.publishQueue.length = 0;
+          }
         } catch (err) {
           console.error("[messageStore]", err);
         }
@@ -379,10 +390,13 @@ export const useMessageStore = defineStore("message", {
       }
       const text = lines.join("\n");
       this.enqueueTelegram(text);
-      this.reportQueue.push(text);
+      if (FIXED_BROADCAST_TELEGRAM_ENABLED) {
+        this.reportQueue.push(text);
+      }
     },
 
     async publishLoseOrderMessage() {
+      if (!FIXED_BROADCAST_TELEGRAM_ENABLED) return;
       const user = useUserStore();
       if (!user.setting?.Publisher) return;
       const { useLoseOrderStore } = await import("@/stores/loseOrderStore");

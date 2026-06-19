@@ -116,7 +116,7 @@ export async function notifyNewOrdersFromRows(dbRows) {
     const userName = String(profile?.user_name || userId).trim();
     const playerLabel = findPlayerLabel(profile, order.player_id, order.provider);
     const text = formatAdminOrderTelegramBody({ userName, playerLabel, order });
-    const res = await sendAdminNotify(text);
+    const res = await sendAdminNotify(text, "HTML", "新订单");
     if (!res.ok) {
       console.warn("[admin-tools:order]", res.msg || "send failed");
     }

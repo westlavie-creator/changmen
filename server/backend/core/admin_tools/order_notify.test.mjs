@@ -101,6 +101,7 @@ describe("admin_tools/order_notify", () => {
       },
     ]);
     expect(sendAdminNotify).toHaveBeenCalledTimes(1);
+    expect(sendAdminNotify.mock.calls[0][2]).toBe("新订单");
   });
 
   it("notifyNewOrdersFromRows skips PB hash links", async () => {
@@ -143,5 +144,6 @@ describe("admin_tools/order_notify", () => {
       },
     ]);
     expect(sendAdminNotify).toHaveBeenCalledTimes(1);
+    expect(sendAdminNotify.mock.calls[0][2]).toBe("新订单");
   });
 });
