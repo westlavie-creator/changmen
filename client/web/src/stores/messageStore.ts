@@ -1,3 +1,4 @@
+import { isArbScanSkipSummary } from "@/domain/betting/describeArbPrepareSkip";
 import { defineStore } from "pinia";
 import { sendMessage } from "@/api/esport";
 import type { ArbProgressPayload } from "@/stores/betting/autoBet/arbExecutionTrace";
@@ -230,17 +231,14 @@ export const useMessageStore = defineStore("message", {
       if (!user.message?.telegramId?.trim()) return;
       if (user.message.notifyArbProgress !== true) return;
 
-      const scanSkip =
-        payload.outcome === "skip" &&
-        /利润\/赔率未达|无余额|仅 .+ 有余额/.test(payload.summary);
+      if (payload.outcome === "skip" && isArbScanSkipSummary(payload.summary)) return;
+
       const cooldown =
         payload.outcome === "fail"
           ? 120
-          : scanSkip
-            ? 600
-            : payload.outcome === "skip"
-              ? 300
-              : 120;
+          : payload.outcome === "skip"
+            ? 300
+            : 120;
       const storageKey = `${DEDUP_PREFIX}arb-progress:${payload.matchId}:${payload.betId}:${payload.outcome}:${payload.summary}`;
       const last = Number(sessionStorage.getItem(storageKey) || 0);
       if (Date.now() - last < cooldown * 1000) return;

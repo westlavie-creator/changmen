@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ViewBet, type ViewMatch } from "@/models/match";
 import type { BetRowDto } from "@/types/esport";
+import { PlatformAccount } from "@/models/platformAccount";
 import { createDefaultUserConfig } from "@/types/userConfig";
 import { describeGetOrderOptionsSkip } from "@/domain/betting/describeArbPrepareSkip";
 
@@ -27,6 +28,18 @@ describe("describeGetOrderOptionsSkip", () => {
     expect(
       describeGetOrderOptionsSkip(makeBet({}), match, config, [], []),
     ).toContain("无余额");
+  });
+
+  it("explains balance not loaded yet", () => {
+    const config = createDefaultUserConfig();
+    const acc = new PlatformAccount({
+      accountId: 1,
+      provider: "OB",
+      playerName: "a",
+    });
+    expect(
+      describeGetOrderOptionsSkip(makeBet({}), match, config, [], [acc]),
+    ).toContain("尚未加载");
   });
 
   it("explains single provider", () => {

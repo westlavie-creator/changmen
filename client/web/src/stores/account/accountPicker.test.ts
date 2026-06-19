@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
 import type { AccountStoreContext } from "@/stores/account/context";
-import { getProviders, pickAccount } from "@/stores/account/accountPicker";
+import { getProviders, pickAccount, accountsFundingReady } from "@/stores/account/accountPicker";
 
 vi.mock("@/stores/configStore", () => ({
   useConfigStore: () => ({
@@ -39,6 +39,21 @@ function makeStore(accounts: PlatformAccount[]): AccountStoreContext {
     refreshAllFromVenues: async () => {},
   };
 }
+
+describe("accountsFundingReady", () => {
+  it("waits until at least one balance is loaded and none are loading", () => {
+    const loading = makeAccount({ accountId: 1 });
+    loading.loadingBalance = true;
+    const store = makeStore([loading]);
+    store.loaded = true;
+    expect(accountsFundingReady(store)).toBe(false);
+
+    const ready = makeAccount({ accountId: 2, balance: 200 });
+    const store2 = makeStore([ready]);
+    store2.loaded = true;
+    expect(accountsFundingReady(store2)).toBe(true);
+  });
+});
 
 describe("getProviders", () => {
   it("groups accounts with balance at or above threshold", () => {

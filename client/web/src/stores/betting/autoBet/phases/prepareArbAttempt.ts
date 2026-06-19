@@ -7,9 +7,9 @@ import {
   explainAllowArbRejection,
   resolveSingleLegByRate,
 } from "@/domain/betting/singleLegRate";
-import { describeGetOrderOptionsSkip } from "@/domain/betting/describeArbPrepareSkip";
+import { accountsFundingReady } from "@/stores/account/accountPicker";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
-import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
+import { ensureArbExecutionTrace, setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
 import { arbProfitRate } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
@@ -21,19 +21,20 @@ import type { ArbBetAttemptParams, ArbBetReady } from "@/stores/betting/autoBet/
 export async function prepareArbAttempt(
   params: ArbBetAttemptParams,
 ): Promise<ArbBetReady | null> {
-  const { match, bet, config, trace } = params;
+  const { match, bet, config } = params;
   const matchStore = useMatchStore();
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
 
   bet.items.forEach((item) => item.updateOdds());
 
-  const providerKeys = [...accountStore.getProviders().keys()] as PlatformId[];
   const accounts = accountStore.accounts;
 
+  if (!accountsFundingReady(accountStore)) {
+    return null;
+  }
+
   if (loseStore.orders.has(bet.id)) {
-    trace?.event("准备", "该盘口已在补单队列");
-    trace?.finish("skip", "该盘口已在补单队列，自动套利已跳过");
     return null;
   }
 
@@ -43,22 +44,15 @@ export async function prepareArbAttempt(
       Math.floor(Math.random() * (config.maxMoney - config.minMoney + 1)) + config.minMoney;
   }
 
+  const providerKeys = [...accountStore.getProviders(config.betMoney).keys()] as PlatformId[];
+
   const options = bet.getOrderOptions(match, config, accounts, providerKeys);
   if (!options || options.length !== 2) {
-    const skipReason = describeGetOrderOptionsSkip(
-      bet,
-      match,
-      config,
-      providerKeys,
-      accounts,
-    );
-    trace?.event(
-      "检测",
-      `执行平台 ${providerKeys.length ? providerKeys.join(", ") : "（无）"} · ${skipReason}`,
-    );
-    trace?.finish("skip", skipReason);
     return null;
   }
+
+  ensureArbExecutionTrace(params);
+  const trace = params.trace;
 
   let legA = options[0];
   let legB = options[1];

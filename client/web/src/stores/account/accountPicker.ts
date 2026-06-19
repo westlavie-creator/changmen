@@ -21,6 +21,28 @@ function pickByAccountProfitA8(
   return sorted[0];
 }
 
+/** 首屏余额刷新完成前不跑 getProviders / 自动套利（避免 balance=undefined 误判） */
+export function accountsFundingReady(store: AccountStoreContext): boolean {
+  if (!store.loaded || store.accounts.length === 0) return false;
+  if (store.accounts.some((a) => a.loadingBalance)) return false;
+  return store.accounts.some((a) => a.balance !== undefined);
+}
+
+export function formatAccountFundingHint(
+  accounts: PlatformAccount[],
+  threshold: number,
+): string {
+  if (!accounts.length) return "无已加载账号";
+  return accounts
+    .map((acc) => {
+      const bal = acc.getBalance();
+      if (bal === undefined) return `${acc.provider}/${acc.playerName}:未加载`;
+      const mark = bal < threshold ? `<${threshold}` : "";
+      return `${acc.provider}/${acc.playerName}:${Math.floor(bal)}${mark}`;
+    })
+    .join("，");
+}
+
 export function getProviders(store: AccountStoreContext, minBetMoney?: number) {
   const config = useConfigStore().config;
   const threshold = minBetMoney ?? config.betMoney;

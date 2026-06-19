@@ -1,6 +1,5 @@
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { UserConfig } from "@/types/userConfig";
-import { beginArbExecutionTrace } from "@/stores/betting/autoBet/arbProgressTrace";
 import {
   recordArbAttemptMetric,
   type ArbAttemptPhase,
@@ -25,7 +24,6 @@ export async function executeArbBet(params: {
   setMessage: (msg: string) => void;
 }): Promise<void> {
   const attempt: ArbBetAttemptParams = { ...params };
-  beginArbExecutionTrace(attempt);
 
   const phaseMsMap: Partial<Record<ArbAttemptPhase, number>> = {};
   const base = { at: Date.now(), matchId: params.match.id, betId: params.bet.id };

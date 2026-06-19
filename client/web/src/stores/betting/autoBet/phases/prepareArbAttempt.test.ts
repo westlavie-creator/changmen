@@ -30,8 +30,24 @@ vi.mock("@/stores/loseOrderStore", () => ({
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({
+    loaded: true,
+    accounts: [
+      {
+        balance: 1000,
+        loadingBalance: false,
+        getBalance: () => 1000,
+        provider: "PB",
+        playerName: "a",
+      },
+      {
+        balance: 1000,
+        loadingBalance: false,
+        getBalance: () => 1000,
+        provider: "RAY",
+        playerName: "b",
+      },
+    ],
     getProviders: () => new Map([["PB", []], ["RAY", []]]),
-    accounts: [],
   }),
 }));
 
