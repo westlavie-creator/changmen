@@ -126,6 +126,7 @@ export const {
   findCanonicalTeamByNormalizedName,
   updateCanonicalTeamById,
   insertCanonicalTeam,
+  syncCanonicalTeamNamesFromOb,
   saveTeamMappingFireAndForget,
 } = team;
 

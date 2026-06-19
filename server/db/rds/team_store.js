@@ -2,7 +2,7 @@
  * 队伍表读写 — canonical_teams / team_platform_maps（RDS）。
  */
 
-import { normalizeTeam } from "../../match-engine/index.js";
+import { normalizeTeam, resolveCanonicalTeamName } from "../../match-engine/index.js";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import { getPgPool } from "./common.js";
@@ -36,11 +36,12 @@ export async function fetchAllCanonicalTeams() {
 
 export async function fetchAllTeamPlatformMaps() {
   return rdsLoadAll(
-    "SELECT canonical_id, platform, platform_id FROM team_platform_maps ORDER BY id",
+    "SELECT canonical_id, platform, platform_id, platform_name FROM team_platform_maps ORDER BY id",
     (r) => ({
       canonical_id: r.canonical_id,
       platform: r.platform,
       platform_id: r.platform_id,
+      platform_name: r.platform_name,
     }),
   );
 }
@@ -360,6 +361,11 @@ export async function updateCanonicalTeamById(id, patch) {
     sets.push(`updated_by = $${n++}`);
     vals.push(patch.updated_by);
   }
+  if (patch.name != null) {
+    sets.push(`name = $${n++}`);
+    vals.push(String(patch.name).trim());
+    sets.push("updated_at = now()");
+  }
   if (!sets.length) return null;
   vals.push(rowId);
   const { rows } = await pool.query(
@@ -414,6 +420,50 @@ export async function reassignGbTeamId(fromId, toId) {
     processed++;
   }
   return processed;
+}
+
+/** rebuild：有 OB 映射时将 canonical_teams.name 同步为 OB platform_name */
+export async function syncCanonicalTeamNamesFromOb() {
+  const pool = getPgPool();
+  if (!pool) return { updated: 0, skipped: 0, conflicts: 0 };
+
+  const { rows } = await pool.query(
+    `SELECT DISTINCT ON (ct.gb_team_id)
+       ct.id, ct.gb_team_id, ct.game, ct.name AS stored_name, tpm.platform_name AS ob_name
+     FROM team_platform_maps tpm
+     INNER JOIN canonical_teams ct ON ct.gb_team_id = tpm.canonical_id
+     WHERE tpm.platform = 'OB' AND tpm.canonical_id IS NOT NULL
+     ORDER BY ct.gb_team_id, tpm.id ASC`,
+  );
+
+  let updated = 0;
+  let skipped = 0;
+  let conflicts = 0;
+
+  for (const row of rows || []) {
+    const target = resolveCanonicalTeamName(row.ob_name, row.stored_name);
+    const stored = String(row.stored_name || "").trim();
+    if (!target || target === stored) {
+      skipped++;
+      continue;
+    }
+    try {
+      const res = await updateCanonicalTeamById(row.id, { name: target, updated_by: "OB" });
+      if (res) updated++;
+      else skipped++;
+    } catch (err) {
+      if (err?.code === "23505") conflicts++;
+      else console.warn("[team_store] syncCanonicalTeamNamesFromOb:", err.message);
+      skipped++;
+    }
+  }
+
+  if (updated > 0) {
+    console.log(
+      `[team_store] canonical 队名同步 OB · 更新 ${updated} · 跳过 ${skipped}${conflicts ? ` · 冲突 ${conflicts}` : ""}`,
+    );
+  }
+  return { updated, skipped, conflicts };
 }
 
 export function saveTeamMappingFireAndForget(row) {

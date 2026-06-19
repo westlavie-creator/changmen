@@ -61,7 +61,6 @@ async function ensureTeamPlugin() {
 }
 
 async function rebuildOnceImpl() {
-  await ensureTeamPlugin();
   await db.initLastWrittenIds();
 
   const [matchesRaw, bets, timers, clientRows, alignClientRows] = await Promise.all([
@@ -73,10 +72,9 @@ async function rebuildOnceImpl() {
   ]);
 
   const teamReg = await autoRegisterTeams(matchesRaw);
-  if (teamReg.registered > 0) {
-    resetTeamPluginCache();
-    await ensureTeamPlugin();
-  }
+  const nameSync = await db.syncCanonicalTeamNamesFromOb();
+  resetTeamPluginCache();
+  await ensureTeamPlugin();
 
   const matches = normalizeMatchesShape(matchesRaw);
 
@@ -130,7 +128,7 @@ async function rebuildOnceImpl() {
 
   const matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(info);
 
-  return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, alignStats };
+  return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, nameSync, alignStats };
 }
 
 /** 进程内互斥：matcher 循环与 UI 人工 rebuild 共用同一 in-flight Promise */

@@ -1,5 +1,6 @@
 import * as sb from "@changmen/db";
 import { isPbHashOrder } from "@changmen/db";
+import { formatCnTime } from "./user_log_lookup.js";
 import { isAdminNotifyEnabled, sendAdminNotify } from "./telegram.js";
 
 const ARB_LINK_MIN = 1_000_000_000_000;
@@ -87,6 +88,7 @@ export function formatAdminOrderTelegramBody({
     `<blockquote>`,
     escapeHtml(match || "—"),
     `${escapeHtml(bet || "—")} / ${escapeHtml(item || "—")}`,
+    `投注时间：${escapeHtml(formatCnTime(order.create_at ?? order.createAt))}`,
     `金额：${Math.round(Number(order.bet_money) || 0)} @ ${Number(order.odds) || 0}`,
     `盈亏：${Math.round(Number(order.money) || 0)} · 状态：${escapeHtml(status)}`,
     `类型：${linkLabel} · LinkID：${escapeHtml(formatLinkId(order.link))} · 单号：${escapeHtml(String(order.order_id || ""))}`,

@@ -4,6 +4,7 @@
 
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import teamAliasesRaw from "@changmen/match-engine/teams/team_aliases.json" with { type: "json" };
+import { resolveCanonicalTeamName } from "@changmen/match-engine/teams/canonical_ob_name.js";
 
 loadChangmenEnv();
 
@@ -54,6 +55,7 @@ export async function loadAndCreatePlugin() {
   const allMaps = await teamDb.fetchAllTeamPlatformMaps();
 
   const idMap = new Map();
+  const obNameByGbId = new Map();
   const _savedIds = new Set();
 
   for (const row of allMaps) {
@@ -62,6 +64,22 @@ export async function loadAndCreatePlugin() {
     _savedIds.add(key);
     if (!row.canonical_id) continue;
     idMap.set(key, String(row.canonical_id));
+    if (row.platform === "OB" && !obNameByGbId.has(String(row.canonical_id))) {
+      const obName = String(row.platform_name || "").trim();
+      if (obName) obNameByGbId.set(String(row.canonical_id), obName);
+    }
+  }
+
+  for (const team of allTeams) {
+    if (team.gb_team_id == null) continue;
+    const g = team.game;
+    const displayName = resolveCanonicalTeamName(
+      obNameByGbId.get(String(team.gb_team_id)),
+      team.name,
+    );
+    if (!displayName) continue;
+    const nameKey = _norm(displayName);
+    if (nameKey) nameMap.set(`${g}:${nameKey}`, String(team.id));
   }
 
   console.log(
@@ -79,7 +97,8 @@ export async function loadAndCreatePlugin() {
 
   function lookupCanonicalName(gbTeamId) {
     if (gbTeamId == null || gbTeamId === "") return null;
-    return gbTeamNameMap.get(String(gbTeamId)) || null;
+    const key = String(gbTeamId);
+    return resolveCanonicalTeamName(obNameByGbId.get(key), gbTeamNameMap.get(key));
   }
 
   function saveMapping(gbTeamId, platform, platformId, platformName, gameCode) {

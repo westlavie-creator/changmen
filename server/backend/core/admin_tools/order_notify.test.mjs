@@ -55,6 +55,7 @@ describe("admin_tools/order_notify", () => {
   });
 
   it("formatAdminOrderTelegramBody strips html from match fields", () => {
+    const createAt = Date.parse("2026-06-18T12:00:00+08:00");
     const body = formatAdminOrderTelegramBody({
       userName: "alice",
       playerLabel: "OB/tester",
@@ -69,6 +70,7 @@ describe("admin_tools/order_notify", () => {
         status: "Pending",
         link: 1_000_000_000_001,
         order_id: "oid-1",
+        create_at: createAt,
       },
     });
     expect(body).toContain("alice");
@@ -76,6 +78,8 @@ describe("admin_tools/order_notify", () => {
     expect(body).not.toContain("<b>Team");
     expect(body).toContain("套利");
     expect(body).toContain("LinkID：1000000000001");
+    expect(body).toContain("投注时间：");
+    expect(body).toContain("2026/6/18");
   });
 
   it("notifyNewOrdersFromRows sends one message per qualifying row", async () => {
