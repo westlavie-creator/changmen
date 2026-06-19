@@ -4,10 +4,19 @@ import {
   getDirectRealtimeStatus,
   patchDirectRealtimeStatus,
   resetDirectRealtimeStatus,
+  upstreamRouteFromUrl,
 } from "@platform/shared/directRealtimeStatus";
 import { PLATFORMS } from "@/shared/platform";
 import { IA_A8_COLLECT } from "./a8Collect";
-import { IA_A8_WS, IA_DEFAULT_GATEWAY, IA_ROOM_JOIN, IA_WS_PATH } from "./wsConfig";
+import {
+  getIaA8WsConfig,
+  getIaOfficialWsConfig,
+  IA_DEFAULT_GATEWAY,
+  IA_ROOM_JOIN,
+  IA_WS_CONNECT_TIMEOUT_MS,
+  type IaWsConnectConfig,
+  type IaWsEndpointSource,
+} from "./wsConfig";
 
 const PLATFORM = PLATFORMS.IA;
 
@@ -27,71 +36,138 @@ export type IaRealtimeClient = {
   status?(): Promise<IaRealtimeStatus | unknown>;
 };
 
-function normalizeGateway(gateway: string): string {
-  return gateway.replace(/\/+$/, "");
-}
-
-/** A8 `wQe`：浏览器直连 47.115.75.57/esport/ws/IA（不经本地 relay / Electron IPC） */
-export function createIaRealtimeClient(
-  gateway: string = IA_DEFAULT_GATEWAY,
-): IaRealtimeClient {
+function createDirectIaRealtimeClient(gateway: string): IaRealtimeClient {
   let socket: Socket | null = null;
-  const origin = normalizeGateway(gateway);
+  let onMessageHandler: ((message: IaRealtimeMessage) => void) | null = null;
+  let activeConfig: IaWsConnectConfig | null = null;
+  let stopped = false;
+  let failoverBusy = false;
+  let intentionalDisconnect = false;
+  let connectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearConnectTimer = () => {
+    if (connectTimer) {
+      clearTimeout(connectTimer);
+      connectTimer = null;
+    }
+  };
+
+  const tearDownSocket = () => {
+    clearConnectTimer();
+    if (!socket) return;
+    intentionalDisconnect = true;
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+    intentionalDisconnect = false;
+  };
+
+  const requestFailover = (reason: string) => {
+    if (stopped || failoverBusy || intentionalDisconnect) return;
+    const failedSource = activeConfig?.source;
+    if (!failedSource) return;
+    void failoverFrom(failedSource, reason);
+  };
+
+  const failoverFrom = async (failedSource: IaWsEndpointSource, reason: string) => {
+    if (stopped || failoverBusy) return;
+    failoverBusy = true;
+    try {
+      tearDownSocket();
+      activeConfig = null;
+      patchDirectRealtimeStatus(PLATFORM, {
+        upstreamConnected: false,
+        upstreamRoute: null,
+        lastError: reason,
+      });
+
+      if (failedSource === "official") {
+        console.warn("[IA WS] official endpoint failed, switching to A8 relay:", reason);
+        await connectWithConfig(getIaA8WsConfig(gateway));
+        return;
+      }
+
+      console.warn("[IA WS] A8 relay failed, retrying official endpoint:", reason);
+      await connectWithConfig(getIaOfficialWsConfig());
+    } finally {
+      failoverBusy = false;
+    }
+  };
+
+  const connectWithConfig = async (config: IaWsConnectConfig) => {
+    if (stopped) return;
+
+    tearDownSocket();
+    activeConfig = config;
+    const { url, path, source, extraHeaders, auth, withCredentials } = config;
+
+    patchDirectRealtimeStatus(PLATFORM, {
+      upstreamConnected: false,
+      upstreamRoute: null,
+      lastError: null,
+    });
+
+    socket = io(url, {
+      transports: ["websocket"],
+      reconnection: false,
+      path,
+      ...(withCredentials ? { withCredentials: true } : {}),
+      ...(extraHeaders ? { extraHeaders } : {}),
+      auth,
+    });
+
+    socket.on("connect", () => {
+      clearConnectTimer();
+      console.info("[IA WS] connected", url, path, `(${source})`);
+      patchDirectRealtimeStatus(PLATFORM, {
+        upstreamConnected: true,
+        upstreamRoute: upstreamRouteFromUrl(url),
+        lastError: null,
+      });
+      socket?.emit("RoomJoin", IA_ROOM_JOIN);
+      socket?.on("roomMessageCallBack", (message: unknown) => {
+        bumpDirectRealtimeMessage(PLATFORM);
+        onMessageHandler?.((message ?? {}) as IaRealtimeMessage);
+      });
+    });
+
+    socket.on("disconnect", () => {
+      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, upstreamRoute: null });
+      if (!intentionalDisconnect) requestFailover("connection closed");
+    });
+
+    socket.on("connect_error", (err: Error) => {
+      console.warn("[IA WS] connect error", err.message, url, `(${source})`);
+      patchDirectRealtimeStatus(PLATFORM, {
+        upstreamConnected: false,
+        upstreamRoute: null,
+        lastError: err.message,
+      });
+      requestFailover(err.message);
+    });
+
+    connectTimer = setTimeout(() => {
+      if (stopped || socket?.connected) return;
+      console.warn("[IA WS] connect timeout", url, `(${source})`);
+      requestFailover("connect timeout");
+    }, IA_WS_CONNECT_TIMEOUT_MS);
+  };
 
   return {
     async start(onMessage) {
-      socket?.removeAllListeners();
-      socket?.disconnect();
-      socket = null;
+      onMessageHandler = onMessage;
+      stopped = false;
 
-      resetDirectRealtimeStatus(PLATFORM);
+      if (socket?.connected) return getDirectRealtimeStatus(PLATFORM);
 
-      socket = io(IA_A8_WS, {
-        transports: ["websocket"],
-        withCredentials: true,
-        path: IA_WS_PATH,
-        extraHeaders: {
-          Origin: origin,
-          token: "hello",
-        },
-        auth: {
-          token: origin,
-        },
-      });
-
-      socket.on("connect", () => {
-        patchDirectRealtimeStatus(PLATFORM, {
-          upstreamConnected: true,
-          upstreamRoute: "a8",
-          lastError: null,
-        });
-        console.info("[IA] connected (direct)", IA_A8_WS, "origin=", origin);
-        socket?.emit("RoomJoin", IA_ROOM_JOIN);
-        socket?.on("roomMessageCallBack", (message: unknown) => {
-          bumpDirectRealtimeMessage(PLATFORM);
-          onMessage((message ?? {}) as IaRealtimeMessage);
-        });
-      });
-
-      socket.on("disconnect", () => {
-        patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, upstreamRoute: null });
-      });
-
-      socket.on("connect_error", (err: Error) => {
-        patchDirectRealtimeStatus(PLATFORM, {
-          upstreamConnected: false,
-          upstreamRoute: null,
-          lastError: err.message,
-        });
-        console.warn("[IA] connect error", err.message);
-      });
-
+      await connectWithConfig(getIaOfficialWsConfig());
       return getDirectRealtimeStatus(PLATFORM);
     },
     async stop() {
-      socket?.removeAllListeners();
-      socket?.disconnect();
-      socket = null;
+      stopped = true;
+      tearDownSocket();
+      onMessageHandler = null;
+      activeConfig = null;
       resetDirectRealtimeStatus(PLATFORM);
       return getDirectRealtimeStatus(PLATFORM);
     },
@@ -99,6 +175,11 @@ export function createIaRealtimeClient(
       return getDirectRealtimeStatus(PLATFORM);
     },
   };
+}
+
+/** 官网 Socket.IO 优先，失败切 A8 `/esport/ws/IA`（对齐 OB demo↔relay） */
+export function createIaRealtimeClient(gateway: string = IA_DEFAULT_GATEWAY): IaRealtimeClient {
+  return createDirectIaRealtimeClient(gateway);
 }
 
 /** A8 `wQe` 默认 gateway（与 HTTP 采集对象 `t` 同源） */
