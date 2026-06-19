@@ -1,25 +1,33 @@
 import type { OrderRow } from "@/types/order";
 import { formatLinkId, isSingleLegLink, toFixed } from "@/shared/format";
 
-/** [A8 可证实] 与 bundle `Io.getOrders` 一致：分组键即 `Link` */
+/** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
 export function linkIdGroupKey(link: number | null | undefined): number {
   const n = Number(link);
   return Number.isFinite(n) ? n : 0;
 }
 
-/** [A8 可证实] `T.sort((S,P)=>S.Link>P.Link?-1:1)` */
-export function sortOrdersByLinkDesc<T extends { Link?: number }>(list: T[]): T[] {
-  return [...list].sort(
-    (a, b) => linkIdGroupKey(b.Link) - linkIdGroupKey(a.Link),
-  );
+/** [A8 可证实] `T.sort((S,P)=>S.Link>P.Link?-1:1)`（含相等时 comparator 行为） */
+export function compareOrderLinkDesc(
+  a: { Link?: number },
+  b: { Link?: number },
+): number {
+  const aLink = Number(a.Link);
+  const bLink = Number(b.Link);
+  return aLink > bLink ? -1 : 1;
 }
 
-/** [A8 可证实] `ft.groupBy(T, S=>S.Link)`（先按 Link 降序） */
+/** [A8 可证实] `T.sort((S,P)=>S.Link>P.Link?-1:1)` */
+export function sortOrdersByLinkDesc<T extends { Link?: number }>(list: T[]): T[] {
+  return [...list].sort(compareOrderLinkDesc);
+}
+
+/** [A8 可证实] `ft.groupBy(T, S=>S.Link)`（先 `T.sort` Link 降序） */
 export function groupOrdersByLink<T extends { Link?: number }>(list: T[]): Map<number, T[]> {
   const sorted = sortOrdersByLinkDesc(list);
   const map = new Map<number, T[]>();
   for (const row of sorted) {
-    const key = linkIdGroupKey(row.Link);
+    const key = Number(row.Link);
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(row);
   }

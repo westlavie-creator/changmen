@@ -31,7 +31,7 @@
 | 账号横条 | `AccountView` (`bDe`) | 已对齐 | `el-button` + `el-tag` + `el-progress` + `el-tooltip` |
 | 版本角标 | `ExtensionsView` (`GHe`) | 基本对齐 | class `version`/`new`；扩展版本来源略有不同 |
 | 侧栏用户区 | `UserInfoView` | 已对齐 | 阶段 1–2 |
-| 侧栏订单 | `OrderView` | 已对齐 | `el-date-picker` + `el-select` + 刷新按钮 |
+| 侧栏订单 | `OrderView` | 已对齐 | `el-date-picker` + `el-select` + 刷新；分组 `Link` 降序 + `groupBy(Link)` 同 bundle |
 | 侧栏补单 | `LoseOrderView` | ⚠️ 部分 | DOM/class 同 A8；**侧栏顺序**与 **fieldset scoped 样式**已按 bundle 对齐（2026-06） |
 | 限红弹窗 | `LimitDiagView` | 已对齐 | `el-dialog` |
 | 创建补单 | `CreateLoseView` | 基本对齐 | `el-dialog` + `el-form` 同 A8；changmen 挂各 `BetRow`（A8 为 HomeView 单例） |

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  compareOrderLinkDesc,
   groupOrdersByLink,
   isLinkedArbOrderGroup,
   linkIdGroupKey,
@@ -14,16 +15,6 @@ describe("orderLink A8 parity", () => {
     expect(linkIdGroupKey(undefined)).toBe(0);
   });
 
-  it("groups two legs with the same Link", () => {
-    const link = 1_700_000_000_999;
-    const grouped = groupOrdersByLink([
-      { OrderID: "a", Link: link, CreateAt: 2000 },
-      { OrderID: "b", Link: link, CreateAt: 1000 },
-    ]);
-    expect(grouped.size).toBe(1);
-    expect(grouped.get(link)?.map((r) => r.OrderID)).toEqual(["a", "b"]);
-  });
-
   it("sortOrdersByLinkDesc orders groups by Link descending", () => {
     const sorted = sortOrdersByLinkDesc([
       { Link: 100 },
@@ -31,6 +22,25 @@ describe("orderLink A8 parity", () => {
       { Link: 200 },
     ]);
     expect(sorted.map((r) => r.Link)).toEqual([300, 200, 100]);
+  });
+
+  it("compareOrderLinkDesc matches A8 bundle comparator", () => {
+    expect(compareOrderLinkDesc({ Link: 300 }, { Link: 100 })).toBe(-1);
+    expect(compareOrderLinkDesc({ Link: 100 }, { Link: 300 })).toBe(1);
+    expect(compareOrderLinkDesc({ Link: 100 }, { Link: 100 })).toBe(1);
+  });
+
+  it("groups two legs with the same Link (groupBy insertion order)", () => {
+    const link = 1_700_000_000_999;
+    const grouped = groupOrdersByLink([
+      { OrderID: "a", Link: link, CreateAt: 2000 },
+      { OrderID: "b", Link: link, CreateAt: 1000 },
+    ]);
+    expect(grouped.size).toBe(1);
+    const ids = grouped.get(link)?.map((r) => r.OrderID) ?? [];
+    expect(ids).toContain("a");
+    expect(ids).toContain("b");
+    expect(ids).toHaveLength(2);
   });
 
   it("legend joins unsettled preview with dash", () => {
