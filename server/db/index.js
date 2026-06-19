@@ -58,6 +58,7 @@ export const {
   writeClientMatches,
   writeClientMatchesAsync,
   fetchClientMatches,
+  fetchClientMatchesForAlign,
   fetchClientMatchesMeta,
   initLastWrittenIds,
   fetchPlatformMatches,

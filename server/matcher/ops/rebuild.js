@@ -13,7 +13,10 @@ import * as db from "@changmen/db";
 import { CLIENT_MATCH_LIST_DEFAULT, CLIENT_MATCH_LIST_HIDDEN } from "@changmen/db";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
-import { alignUnmatchedToClientMatches } from "./align_unmatched_to_client.js";
+import {
+  alignUnmatchedToClientMatches,
+  buildExistingClientIdKeyIndex,
+} from "./align_unmatched_to_client.js";
 
 /**
  * 单次 rebuild：供 matcher 与人工关联 API 共用。
@@ -61,11 +64,12 @@ async function rebuildOnceImpl() {
   await ensureTeamPlugin();
   await db.initLastWrittenIds();
 
-  const [matchesRaw, bets, timers, clientRows] = await Promise.all([
+  const [matchesRaw, bets, timers, clientRows, alignClientRows] = await Promise.all([
     db.fetchPlatformMatches(),
     db.fetchPlatformBets(),
     db.fetchLiveTimers(),
     db.fetchClientMatches(),
+    db.fetchClientMatchesForAlign(),
   ]);
 
   const teamReg = await autoRegisterTeams(matchesRaw);
@@ -76,8 +80,11 @@ async function rebuildOnceImpl() {
 
   const matches = normalizeMatchesShape(matchesRaw);
 
-  const alignStats = clientRows?.length
-    ? alignUnmatchedToClientMatches(matches, clientRows)
+  const alignRows = alignClientRows?.length ? alignClientRows : clientRows;
+  const existingIdKeyIndex = buildExistingClientIdKeyIndex(alignRows, matches);
+
+  const alignStats = alignRows?.length
+    ? alignUnmatchedToClientMatches(matches, alignRows)
     : { alignedById: 0, alignedByName: 0 };
   if (alignStats.alignedById || alignStats.alignedByName) {
     console.log(
@@ -95,7 +102,7 @@ async function rebuildOnceImpl() {
     );
   }
   const adapter = db.getClientMatchIdAdapter();
-  info = await resolveClientMatchIds(adapter, info, { matches });
+  info = await resolveClientMatchIds(adapter, info, { matches, existingIdKeyIndex });
   info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows);
   info = filterMultiPlatformClientMatches(info);
 

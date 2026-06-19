@@ -40,7 +40,7 @@ function findPlatformMatch(matches, provider, sourceMatchId) {
 }
 
 /** 对齐阶段已在内存写入的 ClientMatchId（链接到已有 client 行，禁止新建 id） */
-function findLinkedClientIdFromMatchs(builtMatchs, matches) {
+function findLinkedClientIdFromMatchs(builtMatchs, matches, { mergeKey, existingIdKeyIndex } = {}) {
   const ids = new Set();
   for (const [plat, srcId] of Object.entries(builtMatchs || {})) {
     const m = findPlatformMatch(matches, plat, srcId);
@@ -49,7 +49,22 @@ function findLinkedClientIdFromMatchs(builtMatchs, matches) {
   }
   if (!ids.size) return 0;
   if (ids.size === 1) return [...ids][0];
-  return Math.min(...ids);
+
+  const idList = [...ids].sort((a, b) => a - b);
+  const preferred =
+    mergeKey?.startsWith("match:id:") ? existingIdKeyIndex?.get(mergeKey) : null;
+  if (preferred != null && ids.has(preferred)) {
+    console.warn(
+      `[client_match_ids] platform match_id 冲突 ${idList.join(" vs ")}，采用 match:id 索引 #${preferred}`,
+    );
+    return preferred;
+  }
+
+  console.warn(
+    `[client_match_ids] platform match_id 冲突 ${idList.join(" vs ")}，回退最小 id #${idList[0]}`,
+    JSON.stringify(builtMatchs),
+  );
+  return idList[0];
 }
 
 /** 与已有 client 行存在相同 platform:sourceId 时复用其 id */
@@ -98,11 +113,12 @@ async function insertClientMatchRow(adapter, mergeKey, stub) {
  * 为 buildClientMatchList 产出的行分配 id。
  * 优先复用已有 client_matches.id（含对齐链接、平台重叠）；仅全新场次才 insert。
  */
-async function resolveClientMatchIds(adapter, builtRows, { matches } = {}) {
+async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKeyIndex } = {}) {
   if (!adapter) throw new Error("client match adapter required");
   if (!builtRows?.length) return [];
 
   const existing = await adapter.fetchClientMatchIndex();
+  const idKeyIndex = existingIdKeyIndex || new Map();
 
   const byMergeKey = new Map();
   const byMatchsSig = new Map();
@@ -112,6 +128,9 @@ async function resolveClientMatchIds(adapter, builtRows, { matches } = {}) {
     const sig = matchsSignature(row.matchs);
     if (sig && !byMatchsSig.has(sig)) byMatchsSig.set(sig, id);
   }
+  for (const [key, id] of idKeyIndex) {
+    if (!byMergeKey.has(key)) byMergeKey.set(key, id);
+  }
 
   const batchAssigned = new Map();
   const resolved = [];
@@ -120,8 +139,11 @@ async function resolveClientMatchIds(adapter, builtRows, { matches } = {}) {
     const mergeKey = row.MergeKey ? String(row.MergeKey) : null;
     let id = Number(row.ID) || 0;
 
+    if (!id && mergeKey?.startsWith("match:id:")) {
+      id = batchAssigned.get(mergeKey) || byMergeKey.get(mergeKey) || idKeyIndex.get(mergeKey) || 0;
+    }
     if (!id && matches) {
-      id = findLinkedClientIdFromMatchs(row.Matchs, matches);
+      id = findLinkedClientIdFromMatchs(row.Matchs, matches, { mergeKey, existingIdKeyIndex: idKeyIndex });
     }
     if (!id && mergeKey) {
       id = batchAssigned.get(mergeKey) || byMergeKey.get(mergeKey) || 0;

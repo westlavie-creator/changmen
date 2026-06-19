@@ -5,6 +5,7 @@ import {
   findLinkedClientIdFromMatchs,
   findReuseIdByPlatformOverlap,
   assignMatchIds,
+  resolveClientMatchIds,
 } from "../ids/client_match_ids.js";
 import { stableBetId } from "../teams/match_utils.js";
 
@@ -60,5 +61,52 @@ describe("client_match_ids", () => {
     expect(out.Bets[0].ID).toBe(stableBetId(308, 0));
     expect(out.Bets[1].ID).toBe(stableBetId(308, 2));
     expect(out.Bets[0].MatchID).toBe(308);
+  });
+
+  it("findLinkedClientIdFromMatchs prefers existingIdKeyIndex on conflict", () => {
+    const matches = {
+      OB: { ob1: { SourceMatchID: "ob1", ClientMatchId: 100 } },
+      RAY: { ray1: { SourceMatchID: "ray1", ClientMatchId: 200 } },
+    };
+    const built = { OB: "ob1", RAY: "ray1" };
+    const mergeKey = "match:id:3:100301:100302";
+    const index = new Map([[mergeKey, 200]]);
+    expect(
+      findLinkedClientIdFromMatchs(built, matches, { mergeKey, existingIdKeyIndex: index }),
+    ).toBe(200);
+  });
+
+  it("resolveClientMatchIds reuses id by match:id merge key before insert", async () => {
+    const mergeKey = "match:id:3:100301:100302";
+    const adapter = {
+      async fetchClientMatchIndex() {
+        return [
+          {
+            id: 501,
+            merge_key: "match:name:3:team a:team b",
+            matchs: { OB: "ob1" },
+          },
+        ];
+      },
+      async insertClientMatchStub() {
+        throw new Error("should not insert");
+      },
+      findClientMatchIdByMergeKey: async () => null,
+    };
+    const existingIdKeyIndex = new Map([[mergeKey, 501]]);
+    const rows = [
+      {
+        MergeKey: mergeKey,
+        Title: "A vs B",
+        Game: "CS2",
+        GameID: "3",
+        StartTime: 1,
+        BO: 3,
+        Matchs: { OB: "ob1", RAY: "ray1" },
+        Bets: [{ Map: 0, Name: "full" }],
+      },
+    ];
+    const out = await resolveClientMatchIds(adapter, rows, { existingIdKeyIndex });
+    expect(out[0].ID).toBe(501);
   });
 });

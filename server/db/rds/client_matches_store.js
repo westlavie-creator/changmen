@@ -164,3 +164,25 @@ export async function fetchClientMatches() {
     return null;
   }
 }
+
+/**
+ * align / ID 挂接专用：含 list_status=-1 隐藏行，避免复活场 id 分裂。
+ */
+async function _rdsFetchClientMatchesForAlign(pool) {
+  const { rows } = await pool.query(
+    `SELECT id, merge_key, title, game_id, start_time, matchs
+     FROM client_matches`,
+  );
+  return rows;
+}
+
+export async function fetchClientMatchesForAlign() {
+  const pool = getPgPool();
+  if (!pool) return null;
+  try {
+    return await _rdsFetchClientMatchesForAlign(pool);
+  } catch (err) {
+    console.warn("[rds] fetchClientMatchesForAlign 失败:", err.message);
+    return null;
+  }
+}

@@ -52,6 +52,7 @@ export {
   writeClientMatches,
   writeClientMatchesAsync,
   fetchClientMatches,
+  fetchClientMatchesForAlign,
   fetchClientMatchesMeta,
   initLastWrittenIds,
 } from "./rds/client_matches_store.js";

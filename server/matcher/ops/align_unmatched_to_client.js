@@ -13,9 +13,11 @@ import {
 
 /**
  * rebuild 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。
- * 1) gb_team_id 键（match:id:…）
+ * 1) gb_team_id 键（match:id:…）— 两队均有映射时不再回落队名
  * 2) 队名归一 + 开赛时间 ±15 分钟（match:name:…）
  * 命中后在内存写入 ClientMatchId，后续走 applyManualMatchLinks。
+ *
+ * clientRows 应使用 fetchClientMatchesForAlign（含 list_status=-1）。
  */
 
 function findPlatformMatch(matches, provider, sourceMatchId) {
@@ -37,6 +39,11 @@ function matchTeamIdsForLookup(platform, match, gameCode) {
     homeId: resolvePlatformTeamId(platform, match.HomeID, sourceGameId, gameCode),
     awayId: resolvePlatformTeamId(platform, match.AwayID, sourceGameId, gameCode),
   };
+}
+
+function pushClientToIndex(bucket, cm) {
+  const id = Number(cm.id);
+  if (!bucket.some((row) => Number(row.id) === id)) bucket.push(cm);
 }
 
 function resolveClientMatchIdKey(cm, matches) {
@@ -87,18 +94,41 @@ function buildClientMatchIndexes(clientRows, matches) {
   const byNameKey = new Map();
 
   for (const cm of clientRows || []) {
+    const stored = String(cm.merge_key || "");
+    if (stored.startsWith("match:id:")) {
+      if (!byIdKey.has(stored)) byIdKey.set(stored, []);
+      pushClientToIndex(byIdKey.get(stored), cm);
+    }
+
     const idKey = resolveClientMatchIdKey(cm, matches);
     if (idKey) {
       if (!byIdKey.has(idKey)) byIdKey.set(idKey, []);
-      byIdKey.get(idKey).push(cm);
+      pushClientToIndex(byIdKey.get(idKey), cm);
     }
     const nameKey = resolveClientMatchNameKey(cm, matches);
     if (nameKey) {
       if (!byNameKey.has(nameKey)) byNameKey.set(nameKey, []);
-      byNameKey.get(nameKey).push(cm);
+      pushClientToIndex(byNameKey.get(nameKey), cm);
     }
   }
   return { byIdKey, byNameKey };
+}
+
+/** match:id 键 → client_matches.id（供 resolveClientMatchIds 在合并后复用） */
+function buildExistingClientIdKeyIndex(clientRows, matches) {
+  const map = new Map();
+  for (const cm of clientRows || []) {
+    const id = Number(cm.id);
+    if (!Number.isFinite(id)) continue;
+
+    const stored = String(cm.merge_key || "");
+    if (stored.startsWith("match:id:") && !map.has(stored)) {
+      map.set(stored, id);
+    }
+    const idKey = resolveClientMatchIdKey(cm, matches);
+    if (idKey && !map.has(idKey)) map.set(idKey, id);
+  }
+  return map;
 }
 
 function canAlignPlatformToClient(platform, sourceMatchId, cm) {
@@ -153,13 +183,14 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
   if (idCk) {
     const candidates = (indexes.byIdKey.get(idCk.key) || [])
       .filter((cm) => String(cm.game_id ?? "") === gameId)
+      .filter((cm) => startTimesCompatible(startMs, cm.start_time ?? cm.StartTime))
       .filter((cm) => canAlignPlatformToClient(platform, sourceMatchId, cm));
     const hit = pickBestClientMatch(candidates, startMs);
     if (hit) {
       assignClientMatchId(match, hit.id);
       stats.alignedById++;
-      return;
     }
+    return;
   }
 
   const nameCk = canonicalMatchKeyByName(GameID, match.Home, match.Away);
@@ -178,7 +209,7 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
 
 /**
  * @param {Record<string, Record<string, object>>} matches normalizeMatchesShape 产物
- * @param {object[]} clientRows fetchClientMatches 产物
+ * @param {object[]} clientRows fetchClientMatchesForAlign 产物
  * @returns {{ alignedById: number, alignedByName: number }}
  */
 function alignUnmatchedToClientMatches(matches, clientRows) {
@@ -201,6 +232,7 @@ function alignUnmatchedToClientMatches(matches, clientRows) {
 export {
   MERGE_START_TIME_TOLERANCE_MS,
   alignUnmatchedToClientMatches,
+  buildExistingClientIdKeyIndex,
   resolveClientMatchIdKey,
   resolveClientMatchNameKey,
 };

@@ -190,4 +190,131 @@ describe("alignUnmatchedToClientMatches", () => {
     expect(stats.alignedById).toBe(1);
     expect(matches.PB.pb1.ClientMatchId).toBe(501);
   });
+
+  it("aligns late platform to hidden client row by gb_team_id", () => {
+    setTeamPlugin({
+      lookupById(platform, platformId) {
+        const maps = {
+          "OB:100217": "100217",
+          "OB:100218": "100218",
+          "RAY:200217": "100217",
+          "RAY:200218": "100218",
+        };
+        return maps[`${platform}:${platformId}`] || null;
+      },
+    });
+
+    const matches = rawMatches([
+      {
+        platform: "OB",
+        sourceMatchId: "ob1",
+        home: "Leviatán GC",
+        away: "Daruma Synergy",
+        homeId: "100217",
+        awayId: "100218",
+        clientMatchId: 777,
+      },
+      {
+        platform: "RAY",
+        sourceMatchId: "ray1",
+        home: "LEV.GC",
+        away: "Daruma Synergy",
+        homeId: "200217",
+        awayId: "200218",
+      },
+    ]);
+
+    const clientRows = [
+      {
+        id: 777,
+        merge_key: "match:name:8:daruma synergy:leviatn gc",
+        game_id: "8",
+        start_time: START,
+        matchs: { OB: "ob1" },
+        list_status: -1,
+      },
+    ];
+
+    const stats = alignUnmatchedToClientMatches(matches, clientRows);
+    expect(stats.alignedById).toBe(1);
+    expect(matches.RAY.ray1.ClientMatchId).toBe(777);
+  });
+
+  it("does not name-align when both teams have gb_team_id but no id client hit", () => {
+    setTeamPlugin({
+      lookupById(platform, platformId) {
+        const maps = {
+          "OB:100217": "100217",
+          "OB:100218": "100218",
+        };
+        return maps[`${platform}:${platformId}`] || null;
+      },
+    });
+
+    const matches = rawMatches([
+      {
+        platform: "OB",
+        sourceMatchId: "ob1",
+        home: "Leviatán GC",
+        away: "Daruma Synergy",
+        homeId: "100217",
+        awayId: "100218",
+      },
+    ]);
+
+    const clientRows = [
+      {
+        id: 888,
+        merge_key: "match:name:8:daruma synergy:leviatn gc",
+        game_id: "8",
+        start_time: START,
+        matchs: { RAY: "ray-other" },
+      },
+    ];
+
+    const stats = alignUnmatchedToClientMatches(matches, clientRows);
+    expect(stats.alignedById).toBe(0);
+    expect(stats.alignedByName).toBe(0);
+    expect(matches.OB.ob1.ClientMatchId).toBeNull();
+  });
+
+  it("id-align skips client row outside ±15min start window", () => {
+    setTeamPlugin({
+      lookupById(platform, platformId) {
+        const maps = {
+          "OB:100217": "100217",
+          "OB:100218": "100218",
+          "RAY:200217": "100217",
+          "RAY:200218": "100218",
+        };
+        return maps[`${platform}:${platformId}`] || null;
+      },
+    });
+
+    const matches = rawMatches([
+      {
+        platform: "RAY",
+        sourceMatchId: "ray1",
+        home: "LEV.GC",
+        away: "Daruma Synergy",
+        homeId: "200217",
+        awayId: "200218",
+        startTime: START + 2 * 60 * 60 * 1000,
+      },
+    ]);
+
+    const clientRows = [
+      {
+        id: 901,
+        merge_key: "match:id:8:100217:100218",
+        game_id: "8",
+        start_time: START,
+        matchs: { OB: "ob1" },
+      },
+    ];
+
+    const stats = alignUnmatchedToClientMatches(matches, clientRows);
+    expect(stats.alignedById).toBe(0);
+    expect(matches.RAY.ray1.ClientMatchId).toBeNull();
+  });
 });
