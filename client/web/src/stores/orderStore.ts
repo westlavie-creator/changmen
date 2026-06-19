@@ -9,6 +9,7 @@ import {
 } from "@/shared/orderLink";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
+import { useUserStore } from "@/stores/userStore";
 
 function todayKey() {
   const d = new Date();
@@ -57,19 +58,24 @@ export const useOrderStore = defineStore("order", {
   },
 
   actions: {
+    /** [A8 可证实] `Io.getOrders` / `E()`：`groupBy(Link)` + `updateTodayProfit` */
     async fetchOrders(date?: string) {
+      const userStore = useUserStore();
+      if (!userStore.userId) return false;
       const accountStore = useAccountStore();
       if (!accountStore.accounts.length && accountStore.loaded) {
         /* 允许空账号时仍拉订单 */
       }
       this.loading = true;
       try {
-        this.orderDate = date || todayKey();
+        this.orderDate = date ?? todayKey();
         const page = await getOrderList({ date: this.orderDate, pageSize: 1024 });
-        const list = page.list || [];
+        if (!page) return false;
+        const list = page.list ?? [];
         this.orders = groupOrdersByLink(list);
         this.updateTodayProfit(list);
         useMessageStore().orderReportMessage(accountStore.accounts, list);
+        return true;
       } finally {
         this.loading = false;
       }

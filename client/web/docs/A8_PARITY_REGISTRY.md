@@ -111,7 +111,7 @@
 | 补单拒单前 refreshBalance | 无 | 无（与 A8 jb 一致） | ✅ |
 | 绑单 `SaveOrderBind` | 有绑单行才 POST；空数组跳过 | `api/order.saveOrderBind` | ✅ |
 | 随机 `betMoney` | 每 **bet** roll | `prepareArbAttempt` 内 per bet | ✅ |
-| 成功后 `fetchOrders` | 无（仅 `updateOrders` 拒单） | 无 | ✅ |
+| 成功后 `fetchOrders` | 无（仅 `updateOrders` 拒单）；侧栏靠 Io.f finally `E()` 或手动刷新 | 套利收尾后 `fetchOrders`（等同 Io.f 在 saveOrders 后 `E()`） | ⚠️ |
 | 双腿 linkId | GetOrderOptions 后 `Date.now()` 正数 | `prepareArbAttempt` 内 `linkTs` | ✅ |
 | 9999 单边 linkId | A8 无 | 负数 `-Date.now()`，展示 `gb{ts}` | 🔶 |
 | 9999 单边 Telegram | A8 无 | 双腿版式；9999 侧标注不下单 | 🔶 |

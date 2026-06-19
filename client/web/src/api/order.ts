@@ -3,9 +3,10 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@platform/contract";
 import type { OrderRow, PageResult } from "@/types/esport";
 
+/** [A8 可证实] `Ut.getOrders`：success!==1 时不更新侧栏（返回 null） */
 export async function getOrderList(body: Record<string, unknown> = {}) {
   const data = await post<PageResult<OrderRow>>("Client_GetOrderList", body);
-  if (data.success !== 1) return { list: [], total: 0, pageIndex: 1, pageSize: 20 };
+  if (data.success !== 1) return null;
   return data.info ?? { list: [], total: 0, pageIndex: 1, pageSize: 20 };
 }
 

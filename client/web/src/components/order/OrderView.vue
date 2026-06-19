@@ -1,23 +1,40 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import type { OrderRow } from "@/types/order";
 import { useOrderStore, isLinkedArbGroup } from "@/stores/orderStore";
 import { formatOrderTime, formatDisplayOdds, toFixed } from "@/shared/format";
+import { wait } from "@/shared/wait";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 
 const orderStore = useOrderStore();
-const { orderEntries, orderDate, loading, filterAccountId, accountOptions } =
+const { orderEntries, orderDate, loading, filterAccountId, accountOptions, orders } =
   storeToRefs(orderStore);
+
+const viewLoading = ref(false);
 
 onMounted(() => {
   if (!orderStore.orders.size) void orderStore.fetchOrders();
 });
 
+/** [A8 可证实] OrderView `a(c,d)`：重置账号筛选 → getOrders → finally wait(1s) */
 async function reload(date?: string) {
   filterAccountId.value = 0;
-  await orderStore.fetchOrders(date);
+  viewLoading.value = true;
+  try {
+    await orderStore.fetchOrders(date);
+  } finally {
+    await wait(1000);
+    viewLoading.value = false;
+  }
 }
+
+const showFilteredEmpty = computed(
+  () =>
+    filterAccountId.value !== 0 &&
+    orderEntries.value.length === 0 &&
+    orders.value.size > 0,
+);
 
 function onDateChange(value: string) {
   if (value) void reload(value);
@@ -51,7 +68,7 @@ function isArbGroup(rows: OrderRow[]) {
       class="date-nav--sidebar"
       placeholder="选择日期"
       picker-width="92px"
-      :disabled="loading"
+      :disabled="loading || viewLoading"
       @change="onDateChange"
     />
     <el-select
@@ -59,7 +76,7 @@ function isArbGroup(rows: OrderRow[]) {
       placeholder="Select"
       size="small"
       style="width: 160px"
-      :disabled="loading"
+      :disabled="loading || viewLoading"
     >
       <el-option
         v-for="opt in accountOptions"
@@ -71,12 +88,16 @@ function isArbGroup(rows: OrderRow[]) {
     <el-button
       class="am-icon-refresh"
       size="small"
-      :loading="loading"
+      :loading="loading || viewLoading"
       @click="reload()"
     />
   </div>
 
-  <div class="orders" :class="{ loading }">
+  <p v-if="showFilteredEmpty" class="order-filter-empty">
+    当前账号筛选下无订单，请选「全部」或点刷新
+  </p>
+
+  <div class="orders" :class="{ loading: loading || viewLoading }">
     <fieldset
       v-for="[link, rows] in orderEntries"
       :key="link"
@@ -110,3 +131,12 @@ function isArbGroup(rows: OrderRow[]) {
     </fieldset>
   </div>
 </template>
+
+<style scoped>
+.order-filter-empty {
+  margin: 6px 8px 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #999);
+  text-align: center;
+}
+</style>
