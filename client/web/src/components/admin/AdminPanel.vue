@@ -149,10 +149,10 @@ onMounted(() => {
           <button
             type="button"
             class="admin-quick__item"
-            @click="router.push({ name: 'admin-orders-matrix', query: { date } })"
+            @click="router.push({ name: 'admin-reports', query: { date } })"
           >
-            <i class="am-icon-th" aria-hidden="true" />
-            <span>对阵矩阵</span>
+            <i class="am-icon-bar-chart" aria-hidden="true" />
+            <span>报表查询</span>
           </button>
         </div>
       </section>

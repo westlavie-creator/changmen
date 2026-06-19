@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "@/stores/userStore";
 
@@ -16,12 +16,6 @@ const navItems = [
   { name: "admin", label: "数据概览", icon: "am-icon-dashboard", to: { name: "admin" as const } },
   { name: "admin-users", label: "用户管理", icon: "am-icon-users", to: { name: "admin-users" as const } },
   { name: "admin-orders", label: "订单查询", icon: "am-icon-list", to: { name: "admin-orders" as const } },
-  {
-    name: "admin-orders-matrix",
-    label: "对阵矩阵",
-    icon: "am-icon-th",
-    to: { name: "admin-orders-matrix" as const },
-  },
   {
     name: "admin-reports",
     label: "报表查询",
@@ -42,17 +36,9 @@ onMounted(() => {
   document.addEventListener("wheel", onAdminWheel, { passive: false, capture: true });
 });
 onUnmounted(() => {
-  document.documentElement.classList.remove("admin-route", "admin-route--matrix");
+  document.documentElement.classList.remove("admin-route");
   document.removeEventListener("wheel", onAdminWheel, { capture: true });
 });
-
-watch(
-  () => route.name,
-  (name) => {
-    document.documentElement.classList.toggle("admin-route--matrix", name === "admin-orders-matrix");
-  },
-  { immediate: true },
-);
 
 /** body overflow:hidden 时，el-table 会截获滚轮；订单页筛选栏等非表格区域也需滚动列表 */
 function onAdminWheel(e: WheelEvent) {
@@ -70,29 +56,6 @@ function onAdminWheel(e: WheelEvent) {
   }
 
   if (!target.closest(".admin-shell")) return;
-
-  const ordersCard = target.closest(".admin-card--orders");
-  if (ordersCard) {
-    const scrollEl = ordersCard.querySelector(".admin-card__scroll");
-    if (!(scrollEl instanceof HTMLElement)) return;
-    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
-    if (maxScroll <= 0) return;
-    scrollEl.scrollTop = Math.max(0, Math.min(maxScroll, scrollEl.scrollTop + e.deltaY));
-    e.preventDefault();
-    return;
-  }
-
-  // 对阵矩阵：主内容区滚动（与订单页一致）
-  if (document.documentElement.classList.contains("admin-route--matrix")) {
-    if (target.closest(".admin-shell__nav")) return;
-    const scrollEl = target.closest(".admin-shell")?.querySelector(".admin-shell__content");
-    if (!(scrollEl instanceof HTMLElement)) return;
-    const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
-    if (maxScroll <= 0) return;
-    scrollEl.scrollTop = Math.max(0, Math.min(maxScroll, scrollEl.scrollTop + e.deltaY));
-    e.preventDefault();
-    return;
-  }
 
   if (!target.closest(".el-table")) return;
 

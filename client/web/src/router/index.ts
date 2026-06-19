@@ -40,9 +40,7 @@ const router = createRouter({
     },
     {
       path: "/admin/orders-matrix",
-      name: "admin-orders-matrix",
-      component: () => import("@/views/AdminOrdersMatrixView.vue"),
-      meta: { requiresAdmin: true },
+      redirect: (to) => ({ name: "admin-orders", query: to.query }),
     },
     {
       path: "/admin/reports",

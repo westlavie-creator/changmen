@@ -3,11 +3,10 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
-import AdminOrdersGroupedTable from "@/components/admin/AdminOrdersGroupedTable.vue";
+import AdminUserOrdersColumn from "@/components/admin/AdminUserOrdersColumn.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { deleteAdminOrders, getAdminOrdersAll, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
-import { linkGroupKey } from "@/shared/adminOrdersMatrix";
 import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
 
@@ -16,50 +15,45 @@ const router = useRouter();
 const userStore = useUserStore();
 
 const date = ref(String(route.query.date || todayKey()));
-const filterUserId = ref(String(route.query.userId || ""));
 const filterProvider = ref("");
 const loading = ref(false);
 const orders = ref<AdminOrderRow[]>([]);
 const users = ref<AdminUserRow[]>([]);
 const loadError = ref("");
 
-const filterUserName = computed(() => {
-  const fromQuery = String(route.query.userName || "");
-  if (fromQuery) return fromQuery;
-  return users.value.find((u) => u.id === filterUserId.value)?.userName || "";
-});
-
-const pageTitle = computed(() =>
-  filterUserId.value
-    ? `${filterUserName.value || "用户"} · 当日订单`
-    : "全部订单",
-);
-
-const userNameById = computed(() => {
-  const map = new Map<string, string>();
-  for (const u of users.value) map.set(u.id, u.userName);
-  return map;
-});
-
-/** 同 LinkID 归组（对齐 A8 `groupBy(Link)`，按 Link 降序） */
-const orderGroups = computed(() => {
-  const sorted = [...(orders.value ?? [])].sort(
-    (a, b) => linkGroupKey(b) - linkGroupKey(a),
-  );
-  const map = new Map<number, AdminOrderRow[]>();
-  for (const row of sorted) {
-    const key = linkGroupKey(row);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(row);
+const userColumns = computed(() => {
+  const byUser = new Map<string, AdminOrderRow[]>();
+  for (const row of orders.value) {
+    if (!byUser.has(row.userId)) byUser.set(row.userId, []);
+    byUser.get(row.userId)!.push(row);
   }
-  return [...map.entries()];
+
+  const userById = new Map(users.value.map((u) => [u.id, u]));
+  const cols = users.value.map((user) => ({
+    userId: user.id,
+    userName: user.userName,
+    accounts: user.accounts ?? [],
+    orders: byUser.get(user.id) ?? [],
+  }));
+
+  for (const [userId, userOrders] of byUser) {
+    if (userById.has(userId)) continue;
+    cols.push({
+      userId,
+      userName: userId.slice(0, 8),
+      accounts: [],
+      orders: userOrders,
+    });
+  }
+
+  cols.sort((a, b) => a.userName.localeCompare(b.userName, "zh-CN"));
+  return cols;
 });
+
+const hasUsers = computed(() => users.value.length > 0);
 
 const profitTotal = computed(() =>
-  orderGroups.value.reduce(
-    (sum, [, rows]) => sum + rows.reduce((s, r) => s + (Number(r.money) || 0), 0),
-    0,
-  ),
+  orders.value.reduce((sum, r) => sum + (Number(r.money) || 0), 0),
 );
 
 function fmtMoney(n: number) {
@@ -80,7 +74,6 @@ async function loadOrders() {
   try {
     const page = await getAdminOrdersAll({
       date: date.value,
-      userId: filterUserId.value || undefined,
       provider: filterProvider.value || undefined,
     });
     orders.value = page.list ?? [];
@@ -99,11 +92,7 @@ async function refresh() {
 function syncRouteQuery() {
   router.replace({
     name: "admin-orders",
-    query: {
-      ...(filterUserId.value ? { userId: filterUserId.value } : {}),
-      ...(filterUserName.value ? { userName: filterUserName.value } : {}),
-      date: date.value,
-    },
+    query: { date: date.value },
   });
 }
 
@@ -161,68 +150,62 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout :title="pageTitle" subtitle="按日期、用户与平台筛选订单">
+  <AdminLayout title="订单查询" subtitle="每位用户一列，订单纵向排列（对齐首页侧栏）">
     <section class="admin-card admin-card--orders" v-loading="loading">
-        <div class="admin-card__toolbar admin-orders-filters">
-          <OrderDateNav v-model="date" placeholder="统计日期" />
-          <el-select
-            v-model="filterUserId"
-            clearable
-            filterable
-            placeholder="用户"
-            size="small"
-            style="width: 180px"
-            @change="onSearch"
-          >
-            <el-option
-              v-for="u in users"
-              :key="u.id"
-              :label="u.userName"
-              :value="u.id"
-            />
-          </el-select>
-          <el-input
-            v-model="filterProvider"
-            clearable
-            placeholder="平台 OB/RAY..."
-            size="small"
-            style="width: 120px"
-            @keyup.enter="onSearch"
-          />
-          <el-button size="small" type="primary" @click="onSearch">查询</el-button>
-          <el-button size="small" @click="date = todayKey()">今天</el-button>
-          <el-button size="small" @click="refresh">刷新</el-button>
-        </div>
-        <div class="admin-card__body admin-card__scroll">
+      <div class="admin-card__toolbar admin-orders-filters">
+        <OrderDateNav v-model="date" placeholder="统计日期" />
+        <el-input
+          v-model="filterProvider"
+          clearable
+          placeholder="平台 OB/RAY..."
+          size="small"
+          style="width: 120px"
+          @keyup.enter="onSearch"
+        />
+        <el-button size="small" type="primary" @click="onSearch">查询</el-button>
+        <el-button size="small" @click="date = todayKey()">今天</el-button>
+        <el-button size="small" @click="refresh">刷新</el-button>
+      </div>
+
+      <div class="admin-card__body admin-orders-page__body">
         <p v-if="loadError" class="admin-order-groups__empty admin-order-groups__empty--err">
           {{ loadError }}
         </p>
-        <div class="admin-order-groups">
-          <AdminOrdersGroupedTable
-            v-if="orderGroups.length"
-            :groups="orderGroups"
-            :show-user-column="!filterUserId"
-            :user-name-by-id="userNameById"
+
+        <div v-if="hasUsers" class="admin-orders-by-user">
+          <AdminUserOrdersColumn
+            v-for="col in userColumns"
+            :key="col.userId"
+            class="admin-orders-by-user__col"
+            :user-name="col.userName"
+            :accounts="col.accounts"
+            :orders="col.orders"
             @delete="onDeleteOrders"
           />
-          <p v-if="!loading && !loadError && !orderGroups.length" class="admin-order-groups__empty">
-            {{ date }} 暂无订单。可切换日期查看；若应有数据仍为空，请确认服务器
-            <code>GAMEBET_DB_SCRIPT=rds</code> 且已重启后端。
-          </p>
         </div>
-        </div>
-        <div v-if="orderGroups.length" class="admin-orders-profit-summary">
-          <span class="admin-orders-profit-summary__label">利润合计</span>
-          <span
-            class="admin-orders-profit-summary__value"
-            :class="{ pos: profitTotal > 0, neg: profitTotal < 0 }"
-          >
-            {{ fmtMoney(profitTotal) }}
-          </span>
-          <span class="admin-orders-profit-summary__meta">
-            {{ orderGroups.length }} 个 Link · {{ orders.length }} 笔订单
-          </span>
-        </div>
-      </section>
+
+        <p
+          v-if="!loading && !loadError && !hasUsers"
+          class="admin-order-groups__empty"
+        >
+          {{ date }} 暂无订单。可切换日期查看；若应有数据仍为空，请确认服务器
+          <code>GAMEBET_DB_SCRIPT=rds</code> 且已重启后端。
+        </p>
+      </div>
+
+      <div v-if="hasUsers" class="admin-orders-profit-summary">
+        <span class="admin-orders-profit-summary__label">利润合计</span>
+        <span
+          class="admin-orders-profit-summary__value"
+          :class="{ pos: profitTotal > 0, neg: profitTotal < 0 }"
+        >
+          {{ fmtMoney(profitTotal) }}
+        </span>
+        <span class="admin-orders-profit-summary__meta">
+          {{ userColumns.length }} 位用户 · {{ orders.length }} 笔订单
+        </span>
+      </div>
+    </section>
   </AdminLayout>
 </template>
+

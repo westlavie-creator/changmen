@@ -250,9 +250,8 @@ html.admin-route #app > * {
   -webkit-overflow-scrolling: touch;
 }
 .admin-shell__content:has(.admin-card--orders) {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .admin-shell__content::-webkit-scrollbar {
   display: block;
@@ -338,11 +337,11 @@ html.admin-route #app > * {
   min-height: 280px;
 }
 .admin-card--orders {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
+}
+.admin-card--orders .admin-card__body {
+  overflow-x: auto;
+  overflow-y: visible;
 }
 .admin-card__scroll {
   flex: 1 1 auto;
@@ -820,6 +819,119 @@ html.admin-route #app > * {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+/* 订单页：用户横排、列内订单纵排（class 名与 AdminOrdersView 模板一致） */
+.admin-card--orders .admin-orders-by-user {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 8px;
+}
+.admin-card--orders .admin-orders-by-user__col {
+  flex: 0 0 292px;
+  width: 292px;
+  min-width: 292px;
+  max-width: 292px;
+}
+.admin-orders-page__body {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+.admin-orders-user-col {
+  flex: 0 0 292px;
+  width: 292px;
+  min-width: 292px;
+  max-width: 292px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--adm-surface-2, rgba(255, 255, 255, 0.02));
+  overflow: visible;
+}
+.admin-orders-user-col__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--adm-border);
+  background: var(--adm-surface-3, rgba(255, 255, 255, 0.04));
+}
+.admin-orders-user-col__name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--adm-text);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-orders-user-col__profit {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.admin-orders-user-col__profit.pos {
+  color: var(--adm-success, #67c23a);
+}
+.admin-orders-user-col__profit.neg {
+  color: var(--adm-danger, #f56c6c);
+}
+.admin-orders-user-col__meta {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+  width: 100%;
+}
+.admin-orders-user-col__empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--adm-text-muted);
+}
+.admin-orders-user-col__orders {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: visible;
+  padding: 6px 4px 8px;
+  white-space: normal;
+}
+.admin-orders-user-col__orders.orders {
+  position: relative;
+  font-size: 12px;
+  color: #fff;
+}
+.admin-orders-user-col__orders .orderlink {
+  display: block;
+  width: 100%;
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+.admin-orders-user-col__orders .order {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.admin-orders-user-col__group-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 6px 6px;
+  border-top: 1px dashed var(--adm-border);
+  margin-top: 2px;
+  padding-top: 4px;
 }
 .admin-order-groups__empty {
   margin: 16px 0;
