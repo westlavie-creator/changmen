@@ -9,7 +9,6 @@ import { readJsonFile, writeJsonFile } from "./json_file_store.js";
 const EMPTY_OBJECTS = [
   "player_orders",
   "default_odds",
-  "sessions",
 ];
 
 export function ensureDefaultJsonFiles() {

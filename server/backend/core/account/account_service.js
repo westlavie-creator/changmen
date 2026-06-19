@@ -11,8 +11,8 @@ import {
   wrapObjectDirect,
 } from "../esport-api/user_kv.js";
 import store from "../esport-api/store.js";
-import { listProfiles } from "../db/store.js";
-import { getOnlineUserIdSet } from "./user_presence.js";
+import { listProfileRows } from "../db/store.js";
+import { resolvePresenceState } from "./user_presence.js";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 
 async function handleCreateTagPlatform(body) {
@@ -139,12 +139,15 @@ async function handleSaveOrder(body, userId) {
 }
 
 function handleGetUsers() {
-  const onlineIds = getOnlineUserIdSet();
-  const info = listProfiles().map((u) => ({
-    userId: u.id,
-    userName: u.userName || "",
-    isOnline: onlineIds.has(String(u.id)) ? 1 : 0,
-  }));
+  const info = listProfileRows().map((p) => {
+    const id = String(p.id);
+    const presence = resolvePresenceState(id, p);
+    return {
+      userId: id,
+      userName: p.user_name || "",
+      isOnline: presence.isOnline,
+    };
+  });
   return { ok: true, info };
 }
 

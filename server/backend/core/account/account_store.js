@@ -249,6 +249,8 @@ async function ensureSeed() {
     store.writeJson(FILES.playerOrders, {});
   }
   await runPlayersJsonMigrateOnce();
+  const { migrateLegacySessionsJsonToRds } = await import("./user_presence.js");
+  await migrateLegacySessionsJsonToRds();
 }
 
 export {

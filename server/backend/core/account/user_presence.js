@@ -1,4 +1,4 @@
-import store from "../esport-api/store.js";
+import { readJsonFile } from "@changmen/storage/json_file_store.js";
 import * as sb from "@changmen/db";
 
 /** 与 A8 Client_GetUsers 一致：30 分钟内活跃视为在线 */
@@ -8,11 +8,9 @@ export const ONLINE_WINDOW_MS = 30 * 60 * 1000;
 const lastActive = new Map();
 /** @type {Set<string>} */
 const dirtyForRds = new Set();
-let hydrated = false;
-let persistTimer = null;
 let rdsPersistTimer = null;
+let legacySessionsMigrated = false;
 
-const PERSIST_DEBOUNCE_MS = 15_000;
 const RDS_PERSIST_DEBOUNCE_MS = 60_000;
 
 function normalizeUid(userId) {
@@ -23,45 +21,6 @@ function readPrefLastActiveAt(profileRow) {
   const prefs = profileRow?.preferences;
   if (!prefs || typeof prefs !== "object" || Array.isArray(prefs)) return 0;
   return Number(prefs.lastActiveAt) || 0;
-}
-
-function hydrateFromLegacySessions() {
-  const sessions = store.readJson("sessions", {});
-  for (const session of Object.values(sessions || {})) {
-    if (!session?.userId) continue;
-    const uid = normalizeUid(session.userId);
-    const ts = Number(session.lastActiveAt ?? session.createdAt ?? 0);
-    if (!ts) continue;
-    const prev = lastActive.get(uid) || 0;
-    if (ts > prev) lastActive.set(uid, ts);
-  }
-}
-
-function ensureHydrated() {
-  if (hydrated) return;
-  hydrateFromLegacySessions();
-  hydrated = true;
-}
-
-function persistSessions() {
-  const sessions = {};
-  for (const [userId, ts] of lastActive) {
-    sessions[`u:${userId}`] = { userId, createdAt: ts, lastActiveAt: ts };
-  }
-  store.writeJson("sessions", sessions);
-}
-
-function schedulePersist() {
-  if (persistTimer) return;
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    try {
-      persistSessions();
-    } catch {
-      /* 磁盘写入失败不影响在线判定 */
-    }
-  }, PERSIST_DEBOUNCE_MS);
-  if (typeof persistTimer.unref === "function") persistTimer.unref();
 }
 
 async function flushPresenceToRds(userIds) {
@@ -96,24 +55,63 @@ function scheduleRdsPersist() {
   if (typeof rdsPersistTimer.unref === "function") rdsPersistTimer.unref();
 }
 
+/**
+ * 一次性：legacy storage/sessions.json → profiles.preferences.lastActiveAt
+ * 幂等，可重复执行；仅在新值更大时更新。
+ */
+export async function migrateLegacySessionsJsonToRds() {
+  if (legacySessionsMigrated) return { migrated: 0, skipped: true };
+  legacySessionsMigrated = true;
+
+  const pool = sb.getPgPool?.();
+  if (!pool) return { migrated: 0, skipped: true, reason: "no_db" };
+
+  const sessions = readJsonFile("sessions", {});
+  const entries = Object.values(sessions || {}).filter((s) => s?.userId);
+  if (!entries.length) return { migrated: 0 };
+
+  let migrated = 0;
+  const now = Date.now();
+  for (const session of entries) {
+    const uid = normalizeUid(session.userId);
+    const ts = Number(session.lastActiveAt ?? session.createdAt ?? 0);
+    if (!uid || !ts) continue;
+    try {
+      const { rowCount } = await pool.query(
+        `UPDATE profiles
+         SET preferences = COALESCE(preferences, '{}'::jsonb) || $2::jsonb,
+             updated_at = $3
+         WHERE id = $1
+           AND COALESCE((preferences->>'lastActiveAt')::bigint, 0) < $4`,
+        [uid, JSON.stringify({ lastActiveAt: ts }), now, ts],
+      );
+      if (rowCount > 0) migrated += 1;
+      const prev = lastActive.get(uid) || 0;
+      if (ts > prev) lastActive.set(uid, ts);
+    } catch {
+      /* 单条失败不阻塞其余 */
+    }
+  }
+  if (migrated > 0) {
+    console.log(`[presence] legacy sessions.json → RDS: ${migrated} 条`);
+  }
+  return { migrated };
+}
+
 /** 用户发起已鉴权请求或登录成功时刷新活跃时间 */
 export function touchUserPresence(userId) {
   if (!userId) return;
-  ensureHydrated();
   const uid = normalizeUid(userId);
   lastActive.set(uid, Date.now());
   dirtyForRds.add(uid);
-  schedulePersist();
   scheduleRdsPersist();
 }
 
 export function getUserLastActiveAt(userId) {
-  ensureHydrated();
   return lastActive.get(normalizeUid(userId)) || 0;
 }
 
 export function getOnlineUserIdSet(now = Date.now()) {
-  ensureHydrated();
   const online = new Set();
   for (const [uid, ts] of lastActive) {
     if (now - ts < ONLINE_WINDOW_MS) online.add(uid);
@@ -126,7 +124,7 @@ export function isUserOnline(userId, now = Date.now()) {
   return ts > 0 && now - ts < ONLINE_WINDOW_MS;
 }
 
-/** 管理端：合并内存与 profiles.preferences.lastActiveAt */
+/** 管理端 / Client_GetUsers：合并进程内缓存与 profiles.preferences.lastActiveAt */
 export function resolvePresenceState(userId, profileRow = null, now = Date.now()) {
   const lastActiveAt = Math.max(
     getUserLastActiveAt(userId),

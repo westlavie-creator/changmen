@@ -49,6 +49,11 @@ export function listProfiles() {
   return [..._cache.values()].map(_toProfile).filter(Boolean);
 }
 
+/** 含 preferences 等完整行，供在线状态等管理端逻辑使用 */
+export function listProfileRows() {
+  return [..._cache.values()];
+}
+
 export function upsertProfile(profile) {
   const uid = String(profile.id);
   const existing = _get(uid) || {};

@@ -16,7 +16,6 @@
 | `players.json` | 信用盘 player 余额/归属 | `account_store` |
 | `player_orders.json` | 各 player 订单缓存 | `account_store` |
 | `default_odds.json` | 初赔快照（只增不改，5s 防抖写盘） | `default_odds` API |
-| `sessions.json` | 用户最后活跃时间（内存为主，60s 防抖落盘） | `user_presence` |
 | `*.b64` | 平台会话缓存（如 PB） | platform-probes 脚本 |
 
 ## 不在 storage 的数据
