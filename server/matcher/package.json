@@ -7,7 +7,7 @@
     "start": "node ui/server.js",
     "matcher": "node scripts/start-db.mjs",
     "matcher:rds": "node scripts/start-rds.mjs",
-    "test": "npm run test --prefix ../match-engine && node --test ui/matcher_auth.test.mjs lib/heartbeat.test.mjs"
+    "test": "npm run test --prefix ../match-engine && node --test ui/matcher_auth.test.mjs ui/merge_mode.test.mjs lib/heartbeat.test.mjs"
   },
   "dependencies": {
     "@changmen/db": "*",

@@ -11,7 +11,13 @@ import {
 import { resolveClientGame, getGameCodeForPlatformId, getPlatformGameId } from "@changmen/shared/catalog/game_catalog.mjs";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import { rebuildOnce, invalidateTeamPlugin } from "../ops/rebuild.js";
+import { resetMatcherUiTeamPlugin } from "../ui/merge_mode.js";
 import * as db from "@changmen/db";
+
+function invalidateTeamMappings() {
+  invalidateTeamPlugin();
+  resetMatcherUiTeamPlugin();
+}
 
 /**
  * 人工关联：平台赛事 → client_match，并写入队伍 ID 映射。
@@ -399,7 +405,7 @@ async function linkPlatformToPlatform({
     await db.setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
   }
 
-  invalidateTeamPlugin();
+  invalidateTeamMappings();
   const rebuild = await rebuildOnce();
 
   return {
@@ -604,7 +610,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
 
   await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
 
-  invalidateTeamPlugin();
+  invalidateTeamMappings();
   const rebuild = await rebuildOnce();
 
   resolveClientGame(plat, pm.source_game_id);
@@ -760,7 +766,7 @@ async function linkPlatformTeams({ a, b }) {
   written.push(await upsertManualTeamPlatformMap(gbTeamId, platA, normA, nameA, gameCode));
   written.push(await upsertManualTeamPlatformMap(gbTeamId, platB, normB, nameB, gameCode));
 
-  invalidateTeamPlugin();
+  invalidateTeamMappings();
   const rebuild = await rebuildOnce();
 
   const label = String(gbTeamId);
@@ -828,7 +834,7 @@ async function registerTeamPlatformMap({ platform, platformId, platformName, gam
   const result = await upsertTeamPlatformRecord(plat, pid, name, game);
   if (result.skipped) throw new Error("平台队伍 ID 不完整");
 
-  invalidateTeamPlugin();
+  invalidateTeamMappings();
 
   return {
     ok: true,

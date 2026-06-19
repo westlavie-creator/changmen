@@ -1346,7 +1346,9 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
     : '接收未匹配场次拖入合并';
   const footerHint = columnMode === 'id'
     ? `ID 已匹配 · ${rows.length} 个平台 · 可拖黄方点合并其它赛事`
-    : `队名已匹配 · ${rows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
+    : teamsIdMapped
+      ? `ID 映射已齐 · ${rows.length} 个平台 · 合并依据仍为队名阶段 · 可拖黄方点合并同场`
+      : `队名已匹配 · ${rows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
   const titleHtml = displayClientMatchTitleGbIds(cm, rows, teamMaps, gameCode);
   return `<article class="team-card matched" data-cm-id="${cm.id}">
     <div class="team-card-header">

@@ -1,7 +1,12 @@
 import { setTeamPlugin, classifyMergeBasis, PROVIDER_PRIORITY } from "@changmen/match-engine";
+import { isPlatformMatchRowFullyIdMapped } from "@changmen/db";
 import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 
 let _pluginPromise = null;
+
+export function resetMatcherUiTeamPlugin() {
+  _pluginPromise = null;
+}
 
 export function getTeamPlugin() {
   if (!_pluginPromise) {
@@ -30,11 +35,8 @@ function linkedPlatformRows(cm, byPlatform) {
   return rows;
 }
 
-export function classifyClientMatchMergeMode(cm, byPlatform) {
-  const rows = linkedPlatformRows(cm, byPlatform);
-  if (!rows.length) return { mode: "unknown", label: "未知" };
-
-  const modes = rows.map((row) =>
+function classifyViaPlugin(rows) {
+  return rows.map((row) =>
     classifyMergeBasis(String(row.home || ""), String(row.away || ""), row.game?.code, {
       provider: row.platform,
       homeId: resolvePlatformTeamId(
@@ -51,8 +53,20 @@ export function classifyClientMatchMergeMode(cm, byPlatform) {
       ),
     }),
   );
+}
 
-  const mode = modes.every((m) => m === "id") ? "id" : "name";
+export function classifyClientMatchMergeMode(cm, byPlatform, teamMaps = null) {
+  const rows = linkedPlatformRows(cm, byPlatform);
+  if (!rows.length) return { mode: "unknown", label: "未知" };
+
+  const mode = teamMaps
+    ? rows.every((row) => isPlatformMatchRowFullyIdMapped(row, teamMaps))
+      ? "id"
+      : "name"
+    : classifyViaPlugin(rows).every((m) => m === "id")
+      ? "id"
+      : "name";
+
   const refPlat = [...rows].sort(
     (a, b) => (PROVIDER_PRIORITY[b.platform] || 0) - (PROVIDER_PRIORITY[a.platform] || 0),
   )[0].platform;
@@ -65,10 +79,10 @@ export function classifyClientMatchMergeMode(cm, byPlatform) {
   };
 }
 
-export async function enrichClientMatchesMergeMode(clientMatches, byPlatform) {
-  await getTeamPlugin();
+export async function enrichClientMatchesMergeMode(clientMatches, byPlatform, teamMaps = null) {
+  if (!teamMaps) await getTeamPlugin();
   return (clientMatches || []).map((cm) => ({
     ...cm,
-    merge_mode: classifyClientMatchMergeMode(cm, byPlatform),
+    merge_mode: classifyClientMatchMergeMode(cm, byPlatform, teamMaps),
   }));
 }

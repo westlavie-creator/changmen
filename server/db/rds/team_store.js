@@ -99,6 +99,69 @@ function resolveStoredPlatformTeamId(platform, platformId, sourceGameId, teamGam
   return pid;
 }
 
+/** matcher UI 格子与 merge_mode 分栏同源：home_id/away_id → teams[] 按队名/顺序兜底 */
+export function resolvePlatformMatchTeamId(row, side, gameCodeHint = null) {
+  const platform = String(row?.platform || "").trim();
+  const gameCode = gameCodeHint || row?.game?.code || null;
+  const sourceGameId = row?.source_game_id ?? row?.SourceGameID ?? "";
+  const columnId = normalizePlatformIdStr(side === "home" ? row?.home_id : row?.away_id);
+  if (columnId) {
+    return resolveStoredPlatformTeamId(platform, columnId, sourceGameId, null, gameCode);
+  }
+  const name = side === "home" ? row?.home : row?.away;
+  const teams = parseTeamsArrayRaw(row?.teams);
+  const norm = normalizeTeam(name);
+  if (norm && teams.length) {
+    const hit = teams.find((t) => normalizeTeam(t.Name ?? t.name) === norm);
+    if (hit) {
+      const id = normalizePlatformIdStr(hit.TeamID ?? hit.team_id ?? hit.teamId ?? hit.id);
+      const teamGameId = hit.GameID ?? hit.game_id ?? hit.gameId ?? sourceGameId;
+      if (id) return resolveStoredPlatformTeamId(platform, id, sourceGameId, teamGameId, gameCode);
+    }
+  }
+  const idx = side === "home" ? 0 : 1;
+  const t = teams[idx];
+  if (t) {
+    const id = normalizePlatformIdStr(t.TeamID ?? t.team_id ?? t.teamId ?? t.id);
+    const teamGameId = t.GameID ?? t.game_id ?? t.gameId ?? sourceGameId;
+    if (id) return resolveStoredPlatformTeamId(platform, id, sourceGameId, teamGameId, gameCode);
+  }
+  return "";
+}
+
+export function lookupTeamMapEntry(teamMaps, platform, platformId, gameCode = null) {
+  const p = String(platform || "").trim();
+  const pid = normalizePlatformIdStr(platformId);
+  if (!p || !pid) return null;
+  const hit = teamMaps?.[`${p}:${pid}`];
+  if (hit) return hit;
+  if (p === "PB" && gameCode) {
+    const atIdx = pid.indexOf("@");
+    const raw = atIdx > 0 ? pid.slice(0, atIdx) : pid;
+    const viaGame = formatPbTeamPlatformId("", raw, gameCode);
+    if (viaGame && viaGame !== pid) {
+      const alt = teamMaps?.[`${p}:${viaGame}`];
+      if (alt) return alt;
+    }
+  }
+  return null;
+}
+
+/** 主客平台 id 均在 teamMaps 中有 gb_team_id（非待识别） */
+export function isPlatformMatchRowFullyIdMapped(row, teamMaps) {
+  const gameCode = row?.game?.code;
+  if (!gameCode) return false;
+  const platform = String(row?.platform || "").trim();
+  if (!platform) return false;
+  for (const side of ["home", "away"]) {
+    const pid = resolvePlatformMatchTeamId(row, side, gameCode);
+    if (!pid) return false;
+    const entry = lookupTeamMapEntry(teamMaps, platform, pid, gameCode);
+    if (entry?.canonical_id == null) return false;
+  }
+  return true;
+}
+
 function collectNeededTeamIds(allMatches) {
   const byPlatform = new Map();
   const add = (platform, platformId, sourceGameId, teamGameId, gameCode) => {

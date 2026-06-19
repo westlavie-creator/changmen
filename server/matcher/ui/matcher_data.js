@@ -204,8 +204,8 @@ async function fetchMatcherDashboard() {
     byPlatform[m.platform].push(enriched);
   }
 
-  const clientMatches = await enrichClientMatchesMergeMode(clientMatchesNorm, byPlatform);
   const teamMaps = await loadTeamMapsForMatcher(allMatches);
+  const clientMatches = await enrichClientMatchesMergeMode(clientMatchesNorm, byPlatform, teamMaps);
 
   return {
     platforms: byPlatform,
