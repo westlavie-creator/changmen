@@ -9,6 +9,7 @@ import { tryPbHttpProxy } from "./proxy/pb_http_proxy.js";
 import { tryObHttpProxy } from "./proxy/ob_http_proxy.js";
 import { tryRayHttpProxy } from "./proxy/ray_http_proxy.js";
 import { tryIaHttpProxy } from "./proxy/ia_http_proxy.js";
+import { getWsForwardStatus, isWsForwardHttpPath } from "@changmen/ws-forward";
 import { isFastStaticRequest } from "./static_files.js";
 
 const { listPlatforms } = adapterRequire("registry", "feeds.js");
@@ -73,6 +74,8 @@ export function createHttpHandler({ port, serveStatic }) {
   return async function handleHttp(req, res) {
     try {
       const url = req.url.split("?")[0];
+      // Socket.IO 握手由 ws_forward 处理，勿走 esport-api / 静态文件
+      if (isWsForwardHttpPath(url)) return;
       if (isFastStaticRequest(url, req.method)) {
         serveStatic(req, res);
         return;
@@ -116,7 +119,13 @@ export function createHttpHandler({ port, serveStatic }) {
         return;
       }
       if (url.toLowerCase() === "/api/proxy/status") {
-        jsonResponse(res, 200, { enabled: false, wsRelay: false });
+        const ws = getWsForwardStatus();
+        jsonResponse(res, 200, {
+          enabled: ws.enabled,
+          wsRelay: ws.wsForward,
+          wsForward: ws.wsForward,
+          platforms: ws.platforms,
+        });
         return;
       }
       if (await (await getTryHandleMatcherApi())(req, res)) return;

@@ -12,6 +12,7 @@ import { setupAdminTools } from "./core/admin_tools/setup.js";
 import store from "./core/esport-api/store.js";
 import { createStaticHandler } from "./static_files.js";
 import { createHttpHandler } from "./http_routes.js";
+import { attachWsForward } from "@changmen/ws-forward";
 
 ensureWinConsoleUtf8();
 
@@ -54,6 +55,8 @@ const server = http.createServer(
     serveStatic,
   }),
 );
+
+attachWsForward(server, { platforms: ["IA"] });
 
 ensurePlatformCredentials()
   .then((r) => {

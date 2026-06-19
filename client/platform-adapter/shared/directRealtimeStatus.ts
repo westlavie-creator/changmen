@@ -1,5 +1,5 @@
-/** 角标颜色：官方源站绿、A8 聚合蓝 */
-export type DirectRealtimeUpstreamRoute = "official" | "a8";
+/** 角标颜色：官方源站绿、CHANGMEN 转发紫、A8 聚合蓝 */
+export type DirectRealtimeUpstreamRoute = "official" | "changmen" | "a8";
 
 /** 浏览器直连上游推送（WS / MQTT）的运行时状态，供网页角标等读取 */
 export type DirectRealtimeStatus = {
@@ -16,10 +16,20 @@ export type DirectRealtimeStatus = {
 /** A8 聚合机：47.115.75.57/esport/ws/*、api.a8.to 等 */
 const A8_UPSTREAM_HOSTS = new Set(["47.115.75.57", "api.a8.to"]);
 
-export function upstreamRouteFromUrl(url: string): DirectRealtimeUpstreamRoute {
+const LOCAL_WS_FORWARD_HOSTS = new Set(["localhost", "127.0.0.1"]);
+
+export function upstreamRouteFromUrl(
+  url: string,
+  source?: "official" | "changmen" | "a8",
+): DirectRealtimeUpstreamRoute {
+  if (source === "changmen") return "changmen";
+  if (source === "a8") return "a8";
+  if (source === "official") return "official";
   try {
     const host = new URL(url).hostname.toLowerCase();
-    return A8_UPSTREAM_HOSTS.has(host) ? "a8" : "official";
+    if (A8_UPSTREAM_HOSTS.has(host)) return "a8";
+    if (LOCAL_WS_FORWARD_HOSTS.has(host)) return "changmen";
+    return "official";
   } catch {
     return "official";
   }

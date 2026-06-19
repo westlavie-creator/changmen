@@ -73,6 +73,7 @@
     "@changmen/platform-adapter": "*",
     "@changmen/platform-probes": "*",
     "@changmen/shared": "*",
+    "@changmen/ws-forward": "*",
     "mqtt": "^5.14.0",
     "socket.io-client": "^4.8.3",
     "socketcluster-client": "^20.0.1",

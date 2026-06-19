@@ -13,6 +13,7 @@
     "server/db",
     "server/storage",
     "server/match-engine",
+    "server/ws_forward",
     "devtools/platform-probes",
     "server/team-resolver"
   ],

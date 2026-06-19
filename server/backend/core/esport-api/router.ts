@@ -1,5 +1,6 @@
 import type { EsportAction } from "@changmen/api-contract/actions";
 import catalog from "@changmen/shared/catalog/game_catalog.json" with { type: "json" };
+import { isWsForwardHttpPath } from "@changmen/ws-forward";
 import store from "./store.js";
 import { emptyPage as _emptyPage } from "./stubs.js";
 import { getMonthReport } from "../account/report_service.js";
@@ -656,6 +657,7 @@ export async function tryEsportApi(
   res: ServerResponse,
 ): Promise<boolean> {
   const urlPath = req.url!.split("?")[0];
+  if (isWsForwardHttpPath(urlPath)) return false;
   if (urlPath.startsWith("/esport/"))       return handleEsportRequest(req, res, urlPath);
   if (urlPath.startsWith("/esport-ahao/"))  return handleEsportAhao(req, res, urlPath);
   if (urlPath.startsWith("/v4.0/"))         return handleV4Request(req, res, urlPath);

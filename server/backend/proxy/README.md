@@ -14,6 +14,8 @@
 
 ## WebSocket
 
-主前端与各平台 adapter **浏览器直连** 源站或 A8 聚合机（`47.115.75.57`），**不经** 本机 WS 网关。
+IA 等平台的 **CHANGMEN 出口** 经 `server/ws_forward/`（路径 `/esport/ws-forward/:platform`）：服务端代连官方上游后转发给浏览器。官方 / A8 出口仍为浏览器直连。
 
-`/api/proxy/status` 固定返回 `{ enabled: false, wsRelay: false }`。
+**dev**：IA WebSocket 直连 `http://127.0.0.1:3560`（不经 Vite 5274 代理）；HTTP 仍走 Vite `/esport` 代理。
+
+`/api/proxy/status` 返回 `{ wsForward: true, platforms: ["IA", ...] }`（启用时）。

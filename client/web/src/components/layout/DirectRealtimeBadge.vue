@@ -6,7 +6,9 @@ const { statuses } = useDirectRealtimeStatus();
 
 function dotClass(status: DirectRealtimeStatus): string {
   if (status.upstreamConnected) {
-    return status.upstreamRoute === "a8" ? "ok-a8" : "ok-official";
+    if (status.upstreamRoute === "a8") return "ok-a8";
+    if (status.upstreamRoute === "changmen") return "ok-changmen";
+    return "ok-official";
   }
   if (status.lastError) return "err";
   return "idle";
@@ -23,7 +25,9 @@ function formatAgo(ms: number): string {
 function tooltip(status: DirectRealtimeStatus): string {
   const lines = [status.platform];
   if (status.upstreamConnected) {
-    lines.push(status.upstreamRoute === "a8" ? "已连接 A8 聚合" : "已连接官方上游");
+    if (status.upstreamRoute === "a8") lines.push("已连接 A8 聚合");
+    else if (status.upstreamRoute === "changmen") lines.push("已连接 CHANGMEN 转发");
+    else lines.push("已连接官方上游");
   } else {
     lines.push("未连接上游");
   }
@@ -92,6 +96,11 @@ function tooltip(status: DirectRealtimeStatus): string {
 .direct-realtime-dot.ok-a8 {
   background-color: #409eff;
   box-shadow: 0 0 8px #409effcc;
+}
+
+.direct-realtime-dot.ok-changmen {
+  background-color: #a855f7;
+  box-shadow: 0 0 8px #a855f7cc;
 }
 
 .direct-realtime-dot.err {
