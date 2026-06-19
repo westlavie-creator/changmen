@@ -196,6 +196,10 @@
   line-height: inherit;
 }
 
+.orders .order .profit .order__odds {
+  color: #1fa2ff;
+}
+
 .orders .order .betname {
   float: left;
   max-width: 45%;

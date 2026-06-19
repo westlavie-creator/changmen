@@ -3,7 +3,7 @@ import { onMounted } from "vue";
 import { storeToRefs } from "pinia";
 import type { OrderRow } from "@/types/order";
 import { useOrderStore, isLinkedArbGroup } from "@/stores/orderStore";
-import { formatOrderTime, toFixed } from "@/shared/format";
+import { formatOrderTime, formatDisplayOdds, toFixed } from "@/shared/format";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 
 const orderStore = useOrderStore();
@@ -98,13 +98,15 @@ function isArbGroup(rows: OrderRow[]) {
           <div class="betname" v-html="row.Bet" />
           <div class="item">
             <label v-html="row.Item" />
-            @{{ row.Odds }}
           </div>
         </div>
-        <div class="time">投注时间：{{ formatOrderTime(row.CreateAt || 0) }}</div>
         <div class="profit">
-          投注金额：{{ row.BetMoney }} 盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
+          投注金额：{{ row.BetMoney }} 赔率：<span class="order__odds">{{
+            formatDisplayOdds(Number(row.Odds) || 0)
+          }}</span>
+          盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
         </div>
+        <div class="time">投注时间：{{ formatOrderTime(row.CreateAt || 0) }}</div>
       </div>
     </fieldset>
   </div>
