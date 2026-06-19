@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseOrderBindRow } from "./order_store.js";
+import { parseOrderBindRow, resolveStoredLink } from "./order_store.js";
+import { placeholderLinkFromCreateAt } from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 
 describe("parseVenueCreateAt in saveOrder path", () => {
@@ -11,6 +12,18 @@ describe("parseVenueCreateAt in saveOrder path", () => {
   it("reads CreateAt PascalCase shape", () => {
     expect(parseVenueCreateAt(undefined)).toBeGreaterThan(0);
     expect(parseVenueCreateAt(1700000000000)).toBe(1700000000000);
+  });
+});
+
+describe("resolveStoredLink", () => {
+  it("uses create_at placeholder when link is 0", () => {
+    const ca = 1_781_882_462_790;
+    expect(resolveStoredLink(0, "order-1", ca)).toBe(ca);
+    expect(resolveStoredLink(0, "order-1", ca)).toBe(placeholderLinkFromCreateAt(ca));
+  });
+
+  it("keeps non-zero stored link", () => {
+    expect(resolveStoredLink(1_700_000_000_123, "o", 99)).toBe(1_700_000_000_123);
   });
 });
 

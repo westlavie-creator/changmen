@@ -4,7 +4,7 @@
 
 import { getPgPool, _jsonb } from "./common.js";
 import { localDayBounds, localMonthBounds } from "./time_bounds.js";
-import { isHashLink } from "../order_link_filter.js";
+import { shouldFireOrderBoundHook } from "../order_link_filter.js";
 
 async function _rdsUpsertOrders(pool, rows) {
   if (!rows?.length) return [];
@@ -393,12 +393,7 @@ export async function updateOrderBind(orderId, userId, link, opts = {}) {
       `UPDATE orders SET link = $1 WHERE ${where}`,
       [linkVal, ...matchParams],
     );
-    if (
-      res.rowCount > 0 &&
-      isHashLink(prev.link) &&
-      !isHashLink(linkVal) &&
-      _ordersBoundHook
-    ) {
+    if (res.rowCount > 0 && shouldFireOrderBoundHook(prev, linkVal) && _ordersBoundHook) {
       try {
         _ordersBoundHook([{ ...prev, link: linkVal }]);
       } catch (hookErr) {

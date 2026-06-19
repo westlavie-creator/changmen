@@ -1,4 +1,5 @@
 import * as sb from "@changmen/db";
+import { placeholderLinkFromCreateAt } from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 
 export function toDateKey(ts) {
@@ -24,19 +25,10 @@ function parseNum(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function linkFromOrder(orderId, createAt) {
-  const id = String(orderId || createAt || "");
-  let hash = 0;
-  for (let i = 0; i < id.length; i += 1) {
-    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  }
-  return hash || Number(createAt) || Date.now();
-}
-
-function resolveStoredLink(link, orderId, createAt) {
+function resolveStoredLink(link, _orderId, createAt) {
   const n = Number(link);
   if (Number.isFinite(n) && n !== 0) return n;
-  return linkFromOrder(orderId, createAt);
+  return placeholderLinkFromCreateAt(createAt);
 }
 
 export { resolveStoredLink };
@@ -95,7 +87,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
     const link =
       boundLink != null && boundLink !== 0
         ? boundLink
-        : linkFromOrder(orderId, createAt);
+        : placeholderLinkFromCreateAt(createAt);
     return {
       user_id: String(userId),
       player_id: Number(playerId),

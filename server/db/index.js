@@ -39,7 +39,11 @@ export {
 
 export {
   ARB_LINK_MIN,
+  placeholderLinkFromCreateAt,
   isHashLink,
+  isCreateAtPlaceholderLink,
+  isArbBindLink,
+  shouldFireOrderBoundHook,
   isPbHashOrder,
   isOrderListVisible,
 } from "./order_link_filter.js";

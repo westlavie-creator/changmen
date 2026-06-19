@@ -2,7 +2,7 @@ import pg from "pg";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { isPbHashOrder } from "@changmen/db/order_link_filter.js";
+import { isPbHashOrder, placeholderLinkFromCreateAt } from "@changmen/db/order_link_filter.js";
 
 function isExternalLink(link, provider) {
   return isPbHashOrder(link, provider);
@@ -77,27 +77,19 @@ console.log({
   blocked_too_old: blockedAge,
 });
 
-console.log("--- simulate INSERT-time link (hash placeholder) ---");
-function linkFromOrder(orderId, createAt) {
-  const id = String(orderId || createAt || "");
-  let hash = 0;
-  for (let i = 0; i < id.length; i += 1) {
-    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  }
-  return hash || Number(createAt) || Date.now();
-}
+console.log("--- simulate INSERT-time link (create_at placeholder) ---");
 let insertWouldNotify = 0;
 let insertBlocked = 0;
 for (const r of orders.rows.slice(0, 15)) {
-  const hashLink = linkFromOrder(r.order_id, r.create_at);
-  const notifyAtInsert = shouldNotify(hashLink, r.create_at, r.provider, now);
+  const insertLink = placeholderLinkFromCreateAt(r.create_at);
+  const notifyAtInsert = shouldNotify(insertLink, r.create_at, r.provider, now);
   if (notifyAtInsert) insertWouldNotify += 1;
   else insertBlocked += 1;
   console.log(
     JSON.stringify({
       order_id: String(r.order_id).slice(0, 20),
       final_link: String(r.link),
-      insert_link_hash: hashLink,
+      insert_link_create_at: insertLink,
       notify_at_insert: notifyAtInsert,
       notify_after_bind: shouldNotify(r.link, r.create_at, r.provider, now),
     }),

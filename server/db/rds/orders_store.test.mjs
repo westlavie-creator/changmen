@@ -42,6 +42,29 @@ describe("updateOrderBind bound hook", () => {
     setOrdersBoundHook(null);
   });
 
+  it("fires when link changes from create_at placeholder to arb", async () => {
+    const ca = 1_781_882_462_790;
+    const prev = {
+      user_id: "u1",
+      order_id: "o1",
+      player_id: 7,
+      link: ca,
+      create_at: ca,
+      provider: "OB",
+    };
+    queryMock
+      .mockResolvedValueOnce({ rows: [prev] })
+      .mockResolvedValueOnce({ rowCount: 1 });
+    const hook = vi.fn();
+    setOrdersBoundHook(hook);
+
+    const ok = await updateOrderBind("o1", "u1", 1_700_000_000_000, { provider: "OB" });
+
+    expect(ok).toBe(true);
+    expect(hook).toHaveBeenCalledOnce();
+    expect(hook.mock.calls[0][0][0].link).toBe(1_700_000_000_000);
+  });
+
   it("fires when link changes from hash to arb", async () => {
     const prev = {
       user_id: "u1",
