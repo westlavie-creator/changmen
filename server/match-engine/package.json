@@ -9,6 +9,7 @@
     ".": "./index.js",
     "./teams/team_key.js": "./teams/team_key.js",
     "./teams/match_utils.js": "./teams/match_utils.js",
+    "./teams/canonical_ob_name.js": "./teams/canonical_ob_name.js",
     "./teams/team_aliases.json": "./teams/team_aliases.json"
   },
   "scripts": {
