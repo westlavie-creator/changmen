@@ -1,6 +1,6 @@
 # storage/ — 本机 JSON 运行时目录
 
-路径默认 `server/backend/storage/`，由 `@changmen/db/paths` 解析：
+路径默认 `server/backend/storage/`，由 `@changmen/storage/paths` 解析：
 
 - `GAMEBET_STORAGE_DIR` — 覆盖整个 storage 根
 - `ESPORT_DATA_DIR` — 覆盖 JSON 数据目录（默认同 storage）
@@ -12,8 +12,6 @@
 | 文件 | 用途 | 写入方 |
 |------|------|--------|
 | `platforms.json` | 各平台 gateway/token（采集凭证） | `platform_sync`、`setPlatform`、运维脚本 |
-| `tag_platforms.json` | 信用盘标签平台目录 | `account_store` |
-| `players.json` | 信用盘 player 余额/归属 | `account_store` |
 | `player_orders.json` | 各 player 订单缓存 | `account_store` |
 | `default_odds.json` | 初赔快照（只增不改，5s 防抖写盘） | `default_odds` API |
 | `*.b64` | 平台会话缓存（如 PB） | platform-probes 脚本 |
@@ -23,7 +21,9 @@
 | 数据 | 实际位置 |
 |------|----------|
 | 比赛/赔率/合并列表 | RDS `platform_*` / `client_matches` |
-| 充提流水 `money_logs` | RDS `money_logs` 表（非 `money_logs.json`） |
+| 信用盘 `tag_platforms` / `players` | RDS（原 `*.json` 仅迁移脚本读取，已废弃） |
+| 充提流水 `money_logs` | RDS `money_logs` 表 |
+| 用户活跃时间 | RDS `profiles.preferences.lastActiveAt` |
 | 用户账号/CollectConfig | RDS `profiles`（`ACCOUNT` 等 jsonb） |
 
 ## 新环境

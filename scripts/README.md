@@ -40,7 +40,6 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 | **`deploy-server-remote.sh`** | VPS 增量部署（由 `BAT\deploy-server.bat` 管道调用） |
 | **`setup-caddy-remote.sh`** | VPS 配置 Caddy（见 `Caddyfile`；生产文档） |
 | **`sync-telegram-env.mjs`** | `node scripts/sync-telegram-env.mjs` — Telegram env 同步 |
-| **`fix-im-stored-data.mjs`** | 修复 IM 历史存储（见 `client/web/docs/platforms/IM.md`） |
 
 ## `server/backend/scripts/`（后端运维）
 

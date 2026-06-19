@@ -1,12 +1,11 @@
-import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { parseClipboardCredential } from "../account/clipboard_credential.js";
 import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
+import { ESPORT_DATA_DIR } from "@changmen/storage/paths.js";
+import { readJsonFile, writeJsonFile } from "@changmen/storage/json_file_store.js";
+import { ensureDefaultJsonFiles } from "@changmen/storage/platform_storage.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const PLATFORMS_FILE = path.join(__dirname, "../../data/esport/platforms.json");
+const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 
 const PROVIDER_DEFAULTS = {
   OB: { betName: ".*" },
@@ -19,13 +18,12 @@ const PROVIDER_DEFAULTS = {
 };
 
 export function readPlatformsFile() {
-  if (!fs.existsSync(PLATFORMS_FILE)) return {};
-  return JSON.parse(fs.readFileSync(PLATFORMS_FILE, "utf8"));
+  return readJsonFile("platforms", {}) || {};
 }
 
 export function writePlatformsFile(data) {
-  fs.mkdirSync(path.dirname(PLATFORMS_FILE), { recursive: true });
-  fs.writeFileSync(PLATFORMS_FILE, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  ensureDefaultJsonFiles();
+  writeJsonFile("platforms", data);
 }
 
 function buildPlatformEntry(cred, prev = {}) {
@@ -61,9 +59,7 @@ function buildPlatformEntry(cred, prev = {}) {
   return entry;
 }
 
-/**
- * 将 A8 插件弹窗中的 data（Base64 JSON）写入 platforms.json，供 Node Feed 读取（与 OB 相同）。
- */
+/** 将 A8 插件弹窗中的 data（Base64 JSON）写入 storage/platforms.json */
 export function importPlatformCredential(base64Text) {
   const cred = parseClipboardCredential(base64Text);
   const key = cred.provider;

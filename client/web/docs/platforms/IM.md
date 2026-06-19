@@ -33,8 +33,6 @@ Socket 常无 `sportId`，采集侧 `SourceGameID` 多为 `"unknown"`。
 1. 用 OB/RAY 等同时间段赛事按 **队名** 或 **开赛时间 ±3h** 匹配
 2. `game_catalog` 将 OB 原生 `game_id` 转为 IM sportId（如 CS2 → `47`）
 
-修复历史数据：`node scripts/fix-im-stored-data.mjs`
-
 ## IM sportId 对照（节选）
 
 | A8 GameID | IM sportId | 游戏 |
