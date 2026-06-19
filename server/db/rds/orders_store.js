@@ -4,10 +4,7 @@
 
 import { getPgPool, _jsonb } from "./common.js";
 import { localDayBounds, localMonthBounds } from "./time_bounds.js";
-import { SQL_ORDERS_VISIBLE, isHashLink } from "../order_link_filter.js";
-
-/** 读路径：系统单 + 非 PB hash；仅排除 PB 未 bind 的 hash 单 */
-const SQL_NON_EXT = SQL_ORDERS_VISIBLE;
+import { isHashLink } from "../order_link_filter.js";
 
 async function _rdsUpsertOrders(pool, rows) {
   if (!rows?.length) return [];
@@ -102,14 +99,14 @@ export async function upsertOrders(rows) {
   }
 }
 
-/** 按日期读取订单（userId 隔离；不含 PB hash 占位单） */
+/** 按日期读取订单（userId 隔离） */
 export async function fetchOrdersByDate(date, userId) {
   const { dayStart, dayEnd } = localDayBounds(date);
   const pool = getPgPool();
   if (!pool || !userId) return [];
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1 AND create_at >= $2 AND create_at < $3 AND ${SQL_NON_EXT} ORDER BY create_at DESC`,
+      `SELECT * FROM orders WHERE user_id = $1 AND create_at >= $2 AND create_at < $3 ORDER BY create_at DESC`,
       [String(userId), dayStart, dayEnd],
     );
     return rows || [];
@@ -119,13 +116,13 @@ export async function fetchOrdersByDate(date, userId) {
   }
 }
 
-/** 按 playerId 读取订单（不含 PB hash 占位单） */
+/** 按 playerId 读取订单 */
 export async function fetchOrdersByPlayer(playerId, userId) {
   const pool = getPgPool();
   if (!pool || !userId) return [];
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 AND ${SQL_NON_EXT} ORDER BY create_at DESC`,
+      `SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 ORDER BY create_at DESC`,
       [String(userId), Number(playerId)],
     );
     return rows || [];
@@ -225,14 +222,14 @@ export async function fetchUserById(userId) {
   }
 }
 
-/** 管理端：当日订单汇总（不含 PB hash 占位单） */
+/** 管理端：当日订单汇总 */
 export async function fetchOrdersAdminStats(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const pool = getPgPool();
   if (!pool) return { count: 0, money: 0, betMoney: 0 };
   try {
     const { rows } = await pool.query(
-      `SELECT money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`,
+      `SELECT money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
       [dayStart, dayEnd],
     );
     let count = 0;
@@ -251,7 +248,7 @@ export async function fetchOrdersAdminStats(dateKey) {
   }
 }
 
-/** 管理端：分页订单（不含 PB hash 占位单） */
+/** 管理端：分页订单 */
 export async function fetchOrdersAdminPage({
   dateKey,
   userId,
@@ -265,7 +262,7 @@ export async function fetchOrdersAdminPage({
   if (!pool) return { rows: [], total: 0 };
   try {
     const params = [dayStart, dayEnd];
-    let where = `create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`;
+    let where = `create_at >= $1 AND create_at < $2`;
     if (userId) {
       params.push(String(userId));
       where += ` AND user_id = $${params.length}`;
@@ -306,7 +303,7 @@ export async function deleteOrdersByIds(ids) {
   }
 }
 
-/** 管理端：当日全量订单（对阵矩阵，上限 5000 条；不含 PB hash 占位单） */
+/** 管理端：当日全量订单（对阵矩阵，上限 5000 条） */
 export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const cap = Math.min(5000, Math.max(1, Number(limit) || 5000));
@@ -314,7 +311,7 @@ export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   if (!pool) return [];
   try {
     const params = [dayStart, dayEnd];
-    let where = `create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`;
+    let where = `create_at >= $1 AND create_at < $2`;
     if (provider) {
       params.push(String(provider));
       where += ` AND provider = $${params.length}`;
@@ -331,14 +328,14 @@ export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   }
 }
 
-/** 月报：读取指定月份订单聚合字段；可选 user_id 筛选（不含 PB hash 占位单） */
+/** 月报：读取指定月份订单聚合字段；可选 user_id 筛选 */
 export async function fetchOrdersForMonthAggregate(monthKey, userId) {
   const { monthStart, monthEnd } = localMonthBounds(monthKey);
   const pool = getPgPool();
   if (!pool) return [];
   try {
     const params = [monthStart, monthEnd];
-    let sql = `SELECT create_at, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`;
+    let sql = `SELECT create_at, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`;
     if (userId) {
       params.push(String(userId));
       sql += ` AND user_id = $${params.length}`;
@@ -351,14 +348,14 @@ export async function fetchOrdersForMonthAggregate(monthKey, userId) {
   }
 }
 
-/** 排行榜：按本地自然日读取订单盈利聚合字段（不含 PB hash 占位单） */
+/** 排行榜：按本地自然日读取订单盈利聚合字段 */
 export async function fetchOrdersForProfitAggregate(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const pool = getPgPool();
   if (!pool) return [];
   try {
     const { rows } = await pool.query(
-      `SELECT user_id, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`,
+      `SELECT user_id, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
       [dayStart, dayEnd],
     );
     return rows || [];

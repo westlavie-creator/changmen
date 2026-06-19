@@ -11,7 +11,7 @@
  *   rds/profile_store.js 等  — profile / player / money_log
  *   rds/team_store.js        — canonical_teams / team_platform_maps
  *   rds/matcher_store.js     — matcher UI/ops 专用查询与运维 SQL
- *   order_link_filter — 订单 link 可见性（读路径 SQL + JS 判断）
+ *   order_link_filter — 订单 link 分类（hash/套利 bind；读路径返回全量）
  *   prune_stale.js    — 过期 platform_* / client_matches 清理
  *
  * 本地 JSON / 路径见 @changmen/storage（非本包职责）。
@@ -42,7 +42,6 @@ export {
   isHashLink,
   isPbHashOrder,
   isOrderListVisible,
-  SQL_ORDERS_VISIBLE,
 } from "./order_link_filter.js";
 
 export const {

@@ -39,7 +39,7 @@ const usedSymbols = [
   "writeLiveTimers", "writeLiveTimersAsync", "purgePlatformLiveTimers",
   "writeClientMatches", "writeClientMatchesAsync", "fetchClientMatches",
   "fetchClientMatchesMeta", "initLastWrittenIds",
-  "isPbHashOrder", "isHashLink", "SQL_ORDERS_VISIBLE",
+  "isPbHashOrder", "isHashLink",
   "CLIENT_MATCH_LIST_HIDDEN", "CLIENT_MATCH_LIST_DEFAULT",
   "pruneStaleRows", "formatPruneCounts", "DEFAULT_PRUNE_INTERVAL_MS",
   "initDatabaseUrl", "buildPgClientConfig", "ensurePgPoolReady", "getPgPool",
@@ -121,21 +121,21 @@ const facadeLines = fs.readFileSync(path.join(__dirname, "impl_rds.js"), "utf8")
 ok(`impl_rds.js ${facadeLines} 行`);
 if (facadeLines > 120) fail(`impl_rds.js 仍偏大 (${facadeLines} 行)`);
 
-console.log("\n=== 7. order_link_filter 与 orders_store SQL 对齐 ===");
-const { isOrderListVisible, SQL_ORDERS_VISIBLE } = db;
+console.log("\n=== 7. order_link_filter 读路径返回全量 ===");
+const { isOrderListVisible } = db;
 const samples = [
-  [-1, "RAY", true],
-  [1_700_000_000_000, "RAY", true],
-  [12345, "RAY", true],
-  [12345, "PB", false],
-  [0, "OB", true],
+  [-1, "RAY"],
+  [1_700_000_000_000, "RAY"],
+  [12345, "RAY"],
+  [12345, "PB"],
+  [0, "OB"],
 ];
-for (const [link, provider, want] of samples) {
-  const got = isOrderListVisible(link, provider);
-  if (got !== want) fail(`isOrderListVisible(${link}, ${provider}) = ${got}, want ${want}`);
+for (const [link, provider] of samples) {
+  if (!isOrderListVisible(link, provider)) {
+    fail(`isOrderListVisible(${link}, ${provider}) 应为 true`);
+  }
 }
-if (!SQL_ORDERS_VISIBLE.includes("1000000000000")) fail("SQL_ORDERS_VISIBLE 缺少 ARB_LINK_MIN");
-ok("link 可见性规则一致");
+ok("订单列表读路径返回全部订单");
 
 console.log("\n=== 8. package.json 子路径 export ===");
 try {

@@ -180,20 +180,7 @@ export class PlatformAccount implements AccountRecord {
   }
 
   isPause(): string | false {
-    if (this.pause) return "手动设定账号暂停";
-    if (this.maxOrder && this.todayOrder >= this.maxOrder) {
-      return `当日订单 ${this.todayOrder} 笔，超过设定 ${this.maxOrder}`;
-    }
-    if (this.maxProfit && this.totalProfit && this.totalProfit >= this.maxProfit) {
-      return `整体盈利 ${this.totalProfit}，超过设定 ${this.maxProfit}`;
-    }
-    if (this.maxWinBalance && this.winBalance && this.winBalance >= this.maxWinBalance) {
-      return `盈利余额 ${this.winBalance}，超过设定 ${this.maxWinBalance}`;
-    }
-    if (this.workTimes?.length && !PlatformAccount.isWithinWorkTimes(this.workTimes)) {
-      return "不在工作时间";
-    }
-    return false;
+    return resolveAccountPauseReason(this);
   }
 
   /** 对齐 A8 uv.logout：清空会话，停止使用该账号下单 */
@@ -246,4 +233,33 @@ export class PlatformAccount implements AccountRecord {
     const ib = ALL_PLATFORMS.indexOf(b.provider);
     return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
   }
+}
+
+export type AccountPauseInput = {
+  pause?: boolean;
+  maxOrder?: number;
+  todayOrder?: number;
+  maxProfit?: number;
+  totalProfit?: number;
+  maxWinBalance?: number;
+  winBalance?: number;
+  workTimes?: string[];
+};
+
+/** 对齐 A8 `uv.isPause`：返回暂停原因文案，未暂停则 false */
+export function resolveAccountPauseReason(account: AccountPauseInput): string | false {
+  if (account.pause) return "手动设定账号暂停";
+  if (account.maxOrder && (account.todayOrder ?? 0) >= account.maxOrder) {
+    return `当日订单 ${account.todayOrder} 笔，超过设定 ${account.maxOrder}`;
+  }
+  if (account.maxProfit && account.totalProfit && account.totalProfit >= account.maxProfit) {
+    return `整体盈利 ${account.totalProfit}，超过设定 ${account.maxProfit}`;
+  }
+  if (account.maxWinBalance && account.winBalance && account.winBalance >= account.maxWinBalance) {
+    return `盈利余额 ${account.winBalance}，超过设定 ${account.maxWinBalance}`;
+  }
+  if (account.workTimes?.length && !PlatformAccount.isWithinWorkTimes(account.workTimes)) {
+    return "不在工作时间";
+  }
+  return false;
 }

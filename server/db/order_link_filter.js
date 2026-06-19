@@ -15,13 +15,7 @@ export function isPbHashOrder(link, provider) {
   return String(provider ?? "").trim() === "PB";
 }
 
-/** 与 impl_rds 读路径 SQL_NON_EXT 一致 */
-export function isOrderListVisible(link, provider) {
-  const n = Number(link);
-  if (Number.isFinite(n) && n < 0) return true;
-  if (Number.isFinite(n) && n >= ARB_LINK_MIN) return true;
-  return String(provider ?? "").trim() !== "PB";
+/** 订单列表读路径：返回全部订单（含外部 hash 占位单） */
+export function isOrderListVisible(_link, _provider) {
+  return true;
 }
-
-/** PostgreSQL WHERE 片段：系统单 + 非 PB hash */
-export const SQL_ORDERS_VISIBLE = "(link < 0 OR link >= 1000000000000)";

@@ -7,6 +7,8 @@ import { useUserStore } from "@/stores/userStore";
 
 /** 对齐 A8 bundle UserCollectView：RMe / FMe / WMe / uY */
 export const CREDIT_PLATE_PASSWORD = "a123456";
+/** 对齐 A8 bundle + `a8_dev_credentials` A8_USER */
+export const CREDIT_PLATE_USER = "TJ01";
 /** [A8 可证实] bundle `AIe`（2.0.245，替代 `game.haijings.vip`） */
 export const CREDIT_FORWARD_SITE = "api.a8.to";
 export const CREDIT_PB_GAME_ID = 3;
@@ -38,30 +40,35 @@ interface ObDemoResponse {
   data?: { pc?: string };
 }
 
-const A8_V4_REMOTE_BASE = "/v4.0/";
+const A8_V4_REMOTE_BASE = "https://api.a8.to/v4.0/";
 
-function remoteV4Base(): string {
+function isLocalDevHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
+
+/**
+ * 对齐 A8 `UserCollectView` 内 `i(d,f)`：
+ *   localhost / 127.0.0.1 → `https://api.a8.to/v4.0/`
+ *   其它 → 同源 `/v4.0/`（backend 转发）
+ * `VITE_V4_PROXY=1` 强制走本地代理；`VITE_V4_BASE_URL` 可覆盖。
+ */
+function resolveV4BaseUrl(): string {
   const custom = import.meta.env.VITE_V4_BASE_URL;
-  const base = (custom && String(custom).trim()) || A8_V4_REMOTE_BASE;
-  return base.endsWith("/") ? base : `${base}/`;
-}
-
-/**
- * 是否由浏览器直连 api.a8.to。
- * localhost 跨域会被 A8 预检拒绝（无 Access-Control-Allow-Origin），默认必须走同源代理。
- * 仅当显式设置 VITE_V4_DIRECT=1 时才直连（例如部署在已放行的域名上）。
- */
-function useBrowserDirectV4(): boolean {
-  if (import.meta.env.VITE_V4_PROXY === "1") return false;
-  return import.meta.env.VITE_V4_DIRECT === "1";
-}
-
-/**
- * v4 基址：默认 `/v4.0/` → Vite dev → backend → api.a8.to（浏览器无 CORS；端口见 docs/ARCHITECTURE.md）
- * 设 VITE_V4_DIRECT=1 时改为浏览器直连 https://api.a8.to/v4.0/
- */
-function v4BaseUrl(): string {
-  if (useBrowserDirectV4()) return remoteV4Base();
+  if (custom && String(custom).trim()) {
+    const base = String(custom).trim();
+    return base.endsWith("/") ? base : `${base}/`;
+  }
+  if (import.meta.env.VITE_V4_PROXY === "1") {
+    return "/v4.0/";
+  }
+  if (isLocalDevHost()) {
+    return A8_V4_REMOTE_BASE;
+  }
+  if (import.meta.env.VITE_V4_DIRECT === "1") {
+    return A8_V4_REMOTE_BASE;
+  }
   return "/v4.0/";
 }
 
@@ -70,14 +77,14 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * 平博 v4 必须用 A8 账号（如 TJ01 + a123456），不能用本地 admin。
- * 优先 userStore.creditPlateUserName，否则请求 /api/a8/credit-plate-user。
+ * 平博 v4 账号：对齐 A8 `o.userName` + `TIe` 密码。
+ * 已登录非 admin 用当前用户名；否则回落 TJ01（与 backend resolveCreditPlateUserName 一致）。
  */
 async function resolveCreditPlateUserName(): Promise<string> {
   const user = useUserStore();
-  if (user.creditPlateUserName.trim()) {
-    return user.creditPlateUserName.trim();
-  }
+  const logged = user.userName.trim();
+  if (logged && logged !== "admin") return logged;
+  if (user.creditPlateUserName.trim()) return user.creditPlateUserName.trim();
   const fromSetting = user.setting?.a8UserName;
   if (typeof fromSetting === "string" && fromSetting.trim()) {
     return fromSetting.trim();
@@ -93,13 +100,9 @@ async function resolveCreditPlateUserName(): Promise<string> {
       }
     }
   } catch {
-    /* 后端未启动时下面会报错 */
+    /* 后端未启动时用 TJ01 */
   }
-  const fallback = user.userName.trim();
-  if (fallback && fallback !== "admin") {
-    return fallback;
-  }
-  throw new Error("未配置 A8 信用盘账号，请用 TJ01 登录或编辑 server/backend/core/integrations/a8/constants.js");
+  return CREDIT_PLATE_USER;
 }
 
 function unwrapPluginV4<T>(response: unknown): V4Envelope<T> {
@@ -122,7 +125,7 @@ async function v4PostViaPlugin<T>(
   formBody: string,
   headers: Record<string, string>,
 ): Promise<V4Envelope<T>> {
-  const url = `${remoteV4Base()}${path}`;
+  const url = `${resolveV4BaseUrl()}${path}`;
   const response = await a8PluginPost(url, formBody, {
     headers,
     withCredentials: true,
@@ -160,7 +163,7 @@ async function v4Post<T>(
   if (hasA8PluginRuntime()) {
     try {
       if (import.meta.env.DEV) {
-        console.info("[v4] POST via A8 plugin", `${remoteV4Base()}${path}`, formBody);
+        console.info("[v4] POST via A8 plugin", `${resolveV4BaseUrl()}${path}`, formBody);
       }
       return await v4PostViaPlugin<T>(path, formBody, headers);
     } catch (e) {
@@ -169,9 +172,9 @@ async function v4Post<T>(
     }
   }
 
-  const base = v4BaseUrl();
+  const base = resolveV4BaseUrl();
   const url = `${base}${path}`;
-  const direct = useBrowserDirectV4();
+  const direct = base.startsWith("https://");
   if (import.meta.env.DEV) {
     console.info("[v4] POST", url, { direct, via: "fetch", body: formBody });
   }
@@ -228,7 +231,7 @@ async function v4Post<T>(
 }
 
 /**
- * v4 登录 + game/play/Login（确认框在 loading 关闭后弹出，对齐 A8 `l(d,f)`）。
+ * v4 登录 + game/play/Login（对齐 A8 `l(d,f)` 两步 API）。
  */
 async function fetchV4PlayUrl(userName: string, gameId: number): Promise<string | null> {
   let v4Token = "";
@@ -339,20 +342,14 @@ export async function enterCreditPlate(platform: PlatformId): Promise<void> {
   try {
     if (platform === "OB") {
       const pc = await fetchObDemoUrl();
-      if (pc) {
-        loading.close();
-        confirmAndOpenGame(platform, pc);
-      }
+      if (pc) confirmAndOpenGame(platform, pc);
       return;
     }
     const gameId = CREDIT_V4_GAME_IDS[platform];
     if (gameId) {
       const v4User = await resolveCreditPlateUserName();
       const url = await fetchV4PlayUrl(v4User, gameId);
-      if (url) {
-        loading.close();
-        confirmAndOpenGame(platform, url);
-      }
+      if (url) confirmAndOpenGame(platform, url);
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "进入游戏失败";

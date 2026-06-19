@@ -704,6 +704,55 @@ html.admin-route #app > * {
 .admin-user-detail__section .admin-card__body {
   padding-top: 8px;
 }
+.admin-user-detail__config {
+  padding: 4px 8px 12px;
+}
+.admin-user-detail__config :deep(.el-form-item__label) {
+  color: var(--adm-text-muted);
+}
+.admin-user-detail__config :deep(.config-section) {
+  background: rgba(7, 11, 20, 0.35);
+  border-color: var(--adm-border);
+}
+.admin-user-detail__config :deep(.config-section legend) {
+  color: var(--adm-text);
+}
+.admin-user-detail__config :deep(.drag-item) {
+  background: rgba(7, 11, 20, 0.5);
+  border-color: var(--adm-border);
+  color: var(--adm-text);
+}
+.admin-user-detail__accounts {
+  padding: 4px 8px 12px;
+}
+.admin-user-detail__accounts .providers {
+  margin-bottom: 16px;
+}
+.admin-account-detail {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-border);
+}
+.admin-account-detail__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.admin-account-detail__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--adm-text);
+}
+.admin-user-detail__accounts :deep(.account-edit-panel__fieldset) {
+  background: rgba(7, 11, 20, 0.35);
+  border-color: var(--adm-border);
+}
+.admin-user-detail__accounts :deep(.account-edit-panel__fieldset legend),
+.admin-user-detail__accounts :deep(.el-form-item__label) {
+  color: var(--adm-text-muted);
+}
 .admin-setting-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -2032,9 +2081,39 @@ html.admin-route #app > * {
   color: var(--adm-text);
 }
 .admin-drawer .el-drawer__body {
-  padding: 18px 22px 24px;
+  padding: 0;
   background: var(--adm-bg);
 }
+
+/* 用户工作台预览：复刻 home-view，隔离管理端主题覆盖 */
+.admin-drawer .user-workspace-preview {
+  min-height: 100%;
+  overflow: auto;
+  background: transparent;
+}
+.admin-drawer .user-workspace-preview .common-layout.home-view {
+  height: auto;
+  min-height: calc(100vh - 120px);
+}
+.admin-drawer .user-workspace-preview .el-aside {
+  overflow: visible;
+}
+.admin-drawer .user-workspace-preview .el-main {
+  overflow: visible;
+  min-height: 200px;
+}
+.admin-drawer .user-workspace-preview .el-input__wrapper,
+.admin-drawer .user-workspace-preview .el-select__wrapper {
+  background-color: var(--el-input-bg-color, var(--el-fill-color-blank));
+  box-shadow: 0 0 0 1px var(--el-input-border-color, var(--el-border-color)) inset;
+}
+.admin-drawer .user-workspace-preview .el-button--primary {
+  --el-button-bg-color: var(--el-color-primary);
+  --el-button-border-color: var(--el-color-primary);
+  --el-button-hover-bg-color: var(--el-color-primary-light-3);
+  --el-button-hover-border-color: var(--el-color-primary-light-3);
+}
+
 .admin-dialog.el-dialog {
   background: var(--adm-surface);
   border: 1px solid var(--adm-border);

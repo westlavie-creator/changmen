@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { SQL_ORDERS_VISIBLE } from "../order_link_filter.js";
 
 const queryMock = vi.fn();
 
@@ -21,19 +20,19 @@ describe("orders_store read SQL", () => {
     setOrdersBoundHook(null);
   });
 
-  it("fetchOrdersByDate applies SQL_ORDERS_VISIBLE", async () => {
+  it("fetchOrdersByDate returns all orders (no link filter)", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     await fetchOrdersByDate("2026-06-18", "user-1");
     expect(queryMock).toHaveBeenCalledOnce();
     const [sql] = queryMock.mock.calls[0];
-    expect(sql).toContain(SQL_ORDERS_VISIBLE);
+    expect(sql).not.toMatch(/\blink\b/i);
   });
 
-  it("fetchOrdersByPlayerAll includes hash orders (no list filter)", async () => {
+  it("fetchOrdersByPlayerAll has no extra link filter", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     await fetchOrdersByPlayerAll(7, "user-1");
     const [sql] = queryMock.mock.calls[0];
-    expect(sql).not.toContain(SQL_ORDERS_VISIBLE);
+    expect(sql).not.toMatch(/\blink\b/i);
   });
 });
 

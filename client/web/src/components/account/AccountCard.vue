@@ -4,6 +4,8 @@ import type { PlatformAccount } from "@/models/platformAccount";
 
 defineProps<{
   account: PlatformAccount;
+  readonly?: boolean;
+  preview?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -80,25 +82,33 @@ async function confirmRemove() {
       </template>
     </div>
 
-    <div class="toolbar flex flex-wrap flex-center flex-middle">
+    <div v-if="!readonly || preview" class="toolbar flex flex-wrap flex-center flex-middle">
       <el-button
         title="刷新"
         size="small"
         class="iconfont-base-refresh"
         :loading="account.loadingBalance"
+        :disabled="preview"
         @click="emit('refresh')"
       />
       <el-button
         title="充提登记"
         size="small"
         class="iconfont-base-bank"
+        :disabled="preview"
         @click="emit('money')"
       />
-      <el-button title="编辑账号" size="small" class="iconfont-base-edit" @click="emit('edit')" />
+      <el-button
+        title="编辑账号"
+        size="small"
+        class="iconfont-base-edit"
+        @click="emit('edit')"
+      />
       <el-button
         title="注销"
         size="small"
         class="am-icon-power-off"
+        :disabled="preview"
         @click="confirmRemove"
       />
       <el-button

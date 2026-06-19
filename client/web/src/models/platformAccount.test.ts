@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAccount";
+import {
+  normalizeAccountRateConfig,
+  PlatformAccount,
+  resolveAccountPauseReason,
+} from "@/models/platformAccount";
 
 function makeAccount(patch: Record<string, unknown> = {}) {
   return new PlatformAccount({
@@ -10,6 +14,16 @@ function makeAccount(patch: Record<string, unknown> = {}) {
     ...patch,
   });
 }
+
+describe("resolveAccountPauseReason", () => {
+  it("returns manual pause reason", () => {
+    expect(resolveAccountPauseReason({ pause: true })).toBe("手动设定账号暂停");
+  });
+
+  it("returns max order reason", () => {
+    expect(resolveAccountPauseReason({ maxOrder: 10, todayOrder: 10 })).toMatch(/超过设定 10/);
+  });
+});
 
 describe("PlatformAccount workTimes", () => {
   it("allows when workTimes empty", () => {
