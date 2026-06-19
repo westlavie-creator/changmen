@@ -6,7 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 const repoRoot = path.join(root, "../../..");
 const bundleJsPath = path.join(repoRoot, "A8/A8frontendscipts/2.0.1/index.js");
-const indexCssPath = path.join(root, "../../server/backend/public/esport2/assets/index.css");
+const indexCssPath = path.join(root, "../../server/backend/public/assets/index.css");
 const bundleJs = fs.readFileSync(bundleJsPath, "utf8");
 const indexCss = fs.readFileSync(indexCssPath, "utf8");
 const a8Css = fs.readFileSync(path.join(root, "src/styles/a8.css"), "utf8");
@@ -129,7 +129,7 @@ const out = {
   generatedAt: new Date().toISOString(),
   sources: {
     bundleJs: "A8/A8frontendscipts/2.0.1/index.js",
-    indexCss: "server/backend/public/esport2/assets/index.css",
+    indexCss: "server/backend/public/assets/index.css",
     a8Css: "src/styles/a8.css (extract-a8-css.mjs)",
     a8AmIcon: "app/src/styles/a8-am-icon.css",
     a8Fallback: "app/src/styles/a8-fallback.css",

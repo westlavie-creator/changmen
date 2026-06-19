@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import { esport2UrlToFileRel } from "./public/paths.js";
 
 function contentType(filePath) {
   if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
@@ -56,7 +57,7 @@ export function createStaticHandler({ publicDir, webDir, matcherDir }) {
       return { rootDir: matcherDir, fileRel: fileRel === "/" ? "/index.html" : fileRel, spa: false };
     }
     if (urlPath.startsWith("/esport2/")) {
-      return { rootDir: publicDir, fileRel: urlPath, spa: false };
+      return { rootDir: publicDir, fileRel: esport2UrlToFileRel(urlPath), spa: false };
     }
     const fileRel =
       urlPath === "/"

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 从 A8 官方 esport2 静态资源同步缺失文件到 public/esport2/assets/。
+ * 从 A8 官方 esport2 静态资源同步缺失文件到 public/assets/。
  * 资源列表来自 A8 index.css（与 bundle 使用的同源 CDN）。
  *
  *   node scripts/sync-a8-esport2-assets.mjs
@@ -9,10 +9,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ESPORT2_ASSETS_DIR,
+  ESPORT2_VERSION_FILE,
+} from "../public/paths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BACKEND_ROOT = path.join(__dirname, "..");
-const ASSETS_DIR = path.join(BACKEND_ROOT, "public/esport2/assets");
+const ASSETS_DIR = ESPORT2_ASSETS_DIR;
 const A8_CSS_URL = "https://api.a8.to/esport2/assets/index.css";
 const A8_BASE = "https://api.a8.to/esport2/assets/";
 /** A8 CDN 已下线；与 a8-am-icon.css 注释一致，使用 FA 4.7 官方字体 */
@@ -28,21 +32,24 @@ function collectUrlsFromCss(css, prefix = "/esport2/assets/") {
     if (u.startsWith("data:")) continue;
     if (u.startsWith("./")) u = u.slice(2);
     if (u.startsWith(prefix)) u = u.slice(prefix.length);
-    if (/^[A-Za-z0-9_.-]+$/.test(u)) names.add(u);
+    if (/^[A-Za-z0-9_./-]+$/.test(u)) names.add(u);
+  }
+  return names;
+}
+
+function listAssetNames(dir) {
+  const names = new Set();
+  if (!fs.existsSync(dir)) return names;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (ent.isFile()) names.add(ent.name);
   }
   return names;
 }
 
 function mergeLocalRefs() {
   const names = new Set();
-  const a8CssPath = path.join(
-    BACKEND_ROOT,
-    "../web/src/styles/a8.css",
-  );
-  const amIconPath = path.join(
-    BACKEND_ROOT,
-    "../web/src/styles/a8-am-icon.css",
-  );
+  const a8CssPath = path.join(BACKEND_ROOT, "../web/src/styles/a8.css");
+  const amIconPath = path.join(BACKEND_ROOT, "../web/src/styles/a8-am-icon.css");
   if (fs.existsSync(a8CssPath)) {
     for (const n of collectUrlsFromCss(fs.readFileSync(a8CssPath, "utf8"))) names.add(n);
   }
@@ -73,9 +80,7 @@ async function main() {
   const fromLocal = mergeLocalRefs();
   const all = new Set([...fromA8, ...fromLocal, "version.json"]);
 
-  const existing = new Set(
-    fs.existsSync(ASSETS_DIR) ? fs.readdirSync(ASSETS_DIR) : [],
-  );
+  const existing = listAssetNames(ASSETS_DIR);
   const todo = [...all].filter((n) => n !== "index.css" && !existing.has(n)).sort();
 
   console.log(`[sync-a8-esport2] A8 CSS 引用 ${fromA8.size} 个，本地 CSS 补充后共 ${all.size} 个`);
@@ -86,27 +91,26 @@ async function main() {
     return;
   }
 
-  // 始终更新 index.css（A8 源）供 extract-a8-css 使用
   fs.writeFileSync(path.join(ASSETS_DIR, "index.css"), indexCss);
-  console.log("[sync-a8-esport2] 已写入 index.css");
+  console.log("[sync-a8-esport2] 已写入 assets/index.css");
 
-  const esport2Dir = path.join(BACKEND_ROOT, "public/esport2");
-  fs.mkdirSync(esport2Dir, { recursive: true });
   try {
     const rootVersion = await fetchBinary("https://api.a8.to/esport2/version.json");
-    fs.writeFileSync(path.join(esport2Dir, "version.json"), rootVersion);
-    console.log("[sync-a8-esport2] 已写入 esport2/version.json");
+    fs.writeFileSync(ESPORT2_VERSION_FILE, rootVersion);
+    console.log("[sync-a8-esport2] 已写入 public/version.json");
   } catch (err) {
-    console.warn("[sync-a8-esport2] esport2/version.json 跳过:", err.message);
+    console.warn("[sync-a8-esport2] public/version.json 跳过:", err.message);
   }
 
   let ok = 0;
   let fail = 0;
   for (const name of todo) {
     const url = name === "fontawesome-webfont.woff2" ? FONTAWESOME_WOFF2 : A8_BASE + name;
+    const dest = path.join(ASSETS_DIR, name);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
     try {
       const data = await fetchBinary(url);
-      fs.writeFileSync(path.join(ASSETS_DIR, name), data);
+      fs.writeFileSync(dest, data);
       const src = name === "fontawesome-webfont.woff2" ? "cdnjs FA4.7" : "A8 CDN";
       console.log(`  OK ${name} (${data.length} bytes, ${src})`);
       ok++;

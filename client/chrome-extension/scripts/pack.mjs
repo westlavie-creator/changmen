@@ -99,11 +99,11 @@ function main() {
   const { outDir, folderName } = stage(version);
   const zipPath = zipDir(outDir, folderName);
 
-  const publishDir = path.join(changmenRoot, "apps", "backend", "public", "esport2", "extensions");
+  const publishDir = path.join(changmenRoot, "server", "backend", "public", "extensions");
   fs.mkdirSync(publishDir, { recursive: true });
   const publishZip = path.join(publishDir, `${version}.zip`);
   fs.copyFileSync(zipPath, publishZip);
-  console.log(`  发布: server/backend/public/esport2/extensions/${version}.zip`);
+  console.log(`  发布: server/backend/public/extensions/${version}.zip`);
 
   console.log("");
   console.log("打包完成");

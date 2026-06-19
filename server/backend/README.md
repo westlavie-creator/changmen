@@ -40,7 +40,7 @@ scripts/             # 运维 CLI（见 scripts/README.md）
 db/migrations/       # RDS 迁移
 storage/             # 运行时 JSON（gitignore，见 STORAGE.md）
 storage.example/     # 空模板
-public/esport2/      # A8 静态资源
+public/              # 静态资源（URL 仍为 /esport2/*，见 public/README.md）
 ```
 
 平台 canonical 实现位于 `client/platform-adapter/`，由 `core/shared/adapter_paths.js` 加载。
