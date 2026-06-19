@@ -123,5 +123,13 @@ for (const [link, provider, want] of samples) {
 if (!SQL_ORDERS_VISIBLE.includes("1000000000000")) fail("SQL_ORDERS_VISIBLE 缺少 ARB_LINK_MIN");
 ok("link 可见性规则一致");
 
+console.log("\n=== 8. package.json 子路径 export ===");
+try {
+  await import("@changmen/db/order_link_filter.js");
+  ok("@changmen/db/order_link_filter.js 可 import");
+} catch (err) {
+  fail(`order_link_filter 子路径: ${err.message}`);
+}
+
 console.log(failed ? `\n❌ 检测失败: ${failed} 项` : "\n✅ 全面检测通过");
 process.exit(failed ? 1 : 0);

@@ -2,7 +2,7 @@ import pg from "pg";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { isPbHashOrder } from "../db/order_link_filter.js";
+import { isPbHashOrder } from "@changmen/db/order_link_filter.js";
 
 function isExternalLink(link, provider) {
   return isPbHashOrder(link, provider);

@@ -12,6 +12,7 @@
     "./changmen_root.js": "./changmen_root.js",
     "./platform_storage.js": "./platform_storage.js",
     "./json_file_store.js": "./json_file_store.js",
+    "./order_link_filter.js": "./order_link_filter.js",
     "./ensure_storage_seed.js": "./ensure_storage_seed.js",
     "./pg.js": "./pg.js"
   },
