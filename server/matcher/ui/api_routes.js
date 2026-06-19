@@ -16,8 +16,6 @@ import { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } from "./matcher_
 import { startMatcherProcess, stopMatcherProcess } from "./matcher_process.js";
 import { fetchPlatformMatchesDebugRows } from "@changmen/db";
 
-let _rebuildRunning = false;
-
 function registerMatcherApiRoutes(app) {
   app.get("/api/link-preview", async (req, res) => {
     try {
@@ -224,10 +222,6 @@ function registerMatcherApiRoutes(app) {
   });
 
   app.post("/api/rebuild", async (req, res) => {
-    if (_rebuildRunning) {
-      return res.status(409).json({ ok: false, error: "赛事合并正在执行，请稍候" });
-    }
-    _rebuildRunning = true;
     try {
       const result = await rebuildOnce();
       const logLines = [`赛事合并完成 · client_matches ${result.matchCount} 场`];
@@ -252,8 +246,6 @@ function registerMatcherApiRoutes(app) {
     } catch (err) {
       logMatcherApiErr("/api/rebuild", err);
       res.status(500).json({ ok: false, error: err.message });
-    } finally {
-      _rebuildRunning = false;
     }
   });
 

@@ -21,4 +21,21 @@ describe("game_catalog IA mappings", () => {
     expect(getGameCodeForPlatformId("IA", "2")).toBe("dota2");
     expect(resolveClientGame("IA", "2")).toEqual({ Game: "DOTA2", GameID: 2 });
   });
+
+  it("maps IA native game id 16 to Honor of Kings", () => {
+    expect(getGameCodeForPlatformId("IA", "16")).toBe("kog");
+    expect(resolveClientGame("IA", "16")).toEqual({ Game: "王者荣耀", GameID: 4 });
+  });
+});
+
+describe("game_catalog TF mappings", () => {
+  it("maps TF native game id 14 to Honor of Kings", () => {
+    expect(getGameCodeForPlatformId("TF", "14")).toBe("kog");
+    expect(resolveClientGame("TF", "14")).toEqual({ Game: "王者荣耀", GameID: 4 });
+  });
+
+  it("still maps legacy TF game id 43 to Honor of Kings", () => {
+    expect(getGameCodeForPlatformId("TF", "43")).toBe("kog");
+    expect(resolveClientGame("TF", "43")).toEqual({ Game: "王者荣耀", GameID: 4 });
+  });
 });

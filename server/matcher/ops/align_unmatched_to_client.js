@@ -5,6 +5,10 @@ import {
   canonicalMatchKeyByName,
 } from "@changmen/match-engine/teams/team_key.js";
 import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
+import {
+  MERGE_START_TIME_TOLERANCE_MS,
+  startTimesCompatible,
+} from "@changmen/match-engine";
 
 /**
  * rebuild 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。
@@ -12,9 +16,6 @@ import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
  * 2) 队名归一 + 开赛时间 ±15 分钟（match:name:…）
  * 命中后在内存写入 ClientMatchId，后续走 applyManualMatchLinks。
  */
-
-/** 与 matcher 分组一致：开赛时间 ±15 分钟 */
-const MERGE_START_TIME_TOLERANCE_MS = 15 * 60 * 1000;
 
 function findPlatformMatch(matches, provider, sourceMatchId) {
   const sid = String(sourceMatchId);
@@ -27,13 +28,6 @@ function findPlatformMatch(matches, provider, sourceMatchId) {
 function platformMatchLinked(match) {
   const cid = match?.ClientMatchId ?? match?.client_match_id ?? match?.match_id;
   return cid != null && cid !== "";
-}
-
-function startTimesCompatible(aMs, bMs) {
-  const a = normalizeEpochMs(aMs);
-  const b = normalizeEpochMs(bMs);
-  if (!a || !b) return true;
-  return Math.abs(a - b) <= MERGE_START_TIME_TOLERANCE_MS;
 }
 
 function resolveClientMatchIdKey(cm, matches) {

@@ -24,6 +24,11 @@ const STAKE_A8_ALIASES = {
   Valorant: "valorant",
 };
 
+/** TF 王者荣耀：A8 采集用 14；旧 probe 曾记 43 */
+const TF_GAME_ALIASES = {
+  "43": "kog",
+};
+
 function listGames() {
   return catalog.games.slice();
 }
@@ -65,6 +70,10 @@ function getGameCodeForPlatformId(platform, gameId) {
   }
   if (platform === "Stake") {
     const alias = STAKE_A8_ALIASES[id];
+    if (alias) return alias;
+  }
+  if (platform === "TF") {
+    const alias = TF_GAME_ALIASES[id];
     if (alias) return alias;
   }
   for (const game of catalog.games) {

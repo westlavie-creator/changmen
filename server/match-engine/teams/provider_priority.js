@@ -2,7 +2,19 @@ import { formatTitle, isPlaceholderTeamName } from "./match_utils.js";
 import { normalizeTeam } from "./team_key.js";
 
 /** 平台优先级：数值越大，队名 / Title 越优先采用 */
-const PROVIDER_PRIORITY = { OB: 10, RAY: 9, PB: 8, TF: 7, IA: 6, IMT: 5, IM: 4, SABA: 3, HG: 2 };
+const PROVIDER_PRIORITY = {
+  OB: 10,
+  RAY: 9,
+  PB: 8,
+  TF: 7,
+  IA: 6,
+  IMT: 5,
+  IM: 4,
+  Stake: 3,
+  SABA: 3,
+  XBet: 3,
+  HG: 2,
+};
 
 function providerPriority(platform) {
   return PROVIDER_PRIORITY[String(platform || "").trim()] || 0;

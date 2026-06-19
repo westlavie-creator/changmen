@@ -10,7 +10,7 @@ import {
 } from "@changmen/match-engine";
 import { resolveClientGame, getGameCodeForPlatformId, getPlatformGameId } from "@changmen/shared/catalog/game_catalog.mjs";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
-import { rebuildOnce } from "../ops/rebuild.js";
+import { rebuildOnce, invalidateTeamPlugin } from "../ops/rebuild.js";
 import * as db from "@changmen/db";
 
 /**
@@ -390,15 +390,16 @@ async function linkPlatformToPlatform({
   const srcAwayName = reversed ? pmSource.home : pmSource.away;
 
   const mapResults = [];
-  mapResults.push(await upsertTeamPlatformRecord(pmTarget.platform, pmTarget.home_id, pmTarget.home, gameCode, pmTarget.source_game_id));
-  mapResults.push(await upsertTeamPlatformRecord(pmTarget.platform, pmTarget.away_id, pmTarget.away, gameCode, pmTarget.source_game_id));
-  mapResults.push(await upsertTeamPlatformRecord(pmSource.platform, srcHomeId, srcHomeName, gameCode, pmSource.source_game_id));
-  mapResults.push(await upsertTeamPlatformRecord(pmSource.platform, srcAwayId, srcAwayName, gameCode, pmSource.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(pmTarget.platform, pmTarget.home_id, pmTarget.home, gameCode, pmTarget.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(pmTarget.platform, pmTarget.away_id, pmTarget.away, gameCode, pmTarget.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(pmSource.platform, srcHomeId, srcHomeName, gameCode, pmSource.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(pmSource.platform, srcAwayId, srcAwayName, gameCode, pmSource.source_game_id));
 
   for (const pm of [pmSource, pmTarget]) {
     await db.setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
   }
 
+  invalidateTeamPlugin();
   const rebuild = await rebuildOnce();
 
   return {
@@ -421,7 +422,7 @@ async function linkPlatformToPlatform({
       `平台赛事关联成功 · client_match #${cmId}`,
       `${preview.platform} #${preview.sourceMatchId} ↔ ${preview.targetPlatform} #${preview.targetMatchId}`,
       `赛事 ${refHome} vs ${refAway} · 主客${reversed ? "颠倒" : "一致"}（${alignment.mode}）`,
-      `游戏 ${gameCode} · 写入 team_platform_maps ${mapResults.filter((r) => !r.skipped).length} 条（待识别，无 gb_team_id）`,
+      `游戏 ${gameCode} · ${formatTeamMapLogLine(mapResults)}`,
     ],
   };
 }
@@ -450,7 +451,7 @@ async function upsertTeamPlatformRecord(platform, platformId, platformName, game
       confidence: 1.0,
     },
   ]);
-  return { skipped: false };
+  return { skipped: false, hasGbTeamId: false };
 }
 
 /** 手动匹配：写入 gb_team_id 映射 */
@@ -471,7 +472,41 @@ async function upsertManualTeamPlatformMap(gbTeamId, platform, platformId, platf
       confidence: 1.0,
     },
   ]);
-  return { skipped: false };
+  return { skipped: false, hasGbTeamId: true };
+}
+
+/** 比赛连线：已有 gb 则沿用；队名有效则自动 resolve/create canonical，否则待识别 */
+async function upsertTeamMapForMatchLink(platform, platformId, platformName, gameCode, sourceGameId) {
+  const pid = normalizeStoredTeamPlatformId(platform, platformId, { sourceGameId, gameCode });
+  if (!pid) return { skipped: true, reason: "no_platform_id" };
+
+  const name = String(platformName || "").trim() || pid;
+  const existing = await fetchTeamPlatformMap(platform, pid);
+  let gbTeamId = parseGbTeamId(existing?.canonical_id);
+
+  if (gbTeamId == null && !isPlaceholderTeamName(name)) {
+    try {
+      gbTeamId = await resolveOrCreateManualTeam(gameCode, name);
+    } catch {
+      gbTeamId = null;
+    }
+  }
+
+  if (gbTeamId != null) {
+    return upsertManualTeamPlatformMap(gbTeamId, platform, pid, name, gameCode, sourceGameId);
+  }
+  return upsertTeamPlatformRecord(platform, platformId, platformName, gameCode, sourceGameId);
+}
+
+function formatTeamMapLogLine(mapResults) {
+  const written = (mapResults || []).filter((r) => !r.skipped);
+  const gbCount = written.filter((r) => r.hasGbTeamId).length;
+  const pendingCount = written.length - gbCount;
+  if (gbCount && pendingCount) {
+    return `写入 team_platform_maps ${written.length} 条（${gbCount} 含 gb_team_id，${pendingCount} 待识别）`;
+  }
+  if (gbCount) return `写入 team_platform_maps ${gbCount} 条（含 gb_team_id）`;
+  return `写入 team_platform_maps ${written.length} 条（待识别，无 gb_team_id）`;
 }
 
 async function previewLinkAlignment({ platform, sourceMatchId, clientMatchId }) {
@@ -564,11 +599,12 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   const pmAwayName = reversed ? pm.home : pm.away;
 
   const mapResults = [];
-  mapResults.push(await upsertTeamPlatformRecord(plat, pmHomeId, pmHomeName, gameCode, pm.source_game_id));
-  mapResults.push(await upsertTeamPlatformRecord(plat, pmAwayId, pmAwayName, gameCode, pm.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(plat, pmHomeId, pmHomeName, gameCode, pm.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(plat, pmAwayId, pmAwayName, gameCode, pm.source_game_id));
 
   await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
 
+  invalidateTeamPlugin();
   const rebuild = await rebuildOnce();
 
   resolveClientGame(plat, pm.source_game_id);
@@ -591,7 +627,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
       `赛事关联成功 · client_match #${cmId}`,
       `${plat} #${srcId} · ${pmHomeName} vs ${pmAwayName}`,
       `对齐 ${teams.home} vs ${teams.away} · 主客${reversed ? "颠倒" : "一致"}（${alignment.mode}）`,
-      `游戏 ${gameCode} · 写入 team_platform_maps ${mapResults.filter((r) => !r.skipped).length} 条（待识别，无 gb_team_id）`,
+      `游戏 ${gameCode} · ${formatTeamMapLogLine(mapResults)}`,
     ],
   };
 }
@@ -684,7 +720,7 @@ async function previewLinkPlatformTeams({ a, b }) {
   };
 }
 
-/** 仅关联两平台的队伍 ID 到同一 canonical（不写 match_id、不 rebuild） */
+/** 关联两平台的队伍 ID 到同一 canonical，并 rebuild 使 ID 合并立即生效 */
 async function linkPlatformTeams({ a, b }) {
   const { platA, platB, idA, idB, gameCode } = validateTeamLinkPair(a, b);
   const normA = normalizeStoredTeamPlatformId(platA, idA, { gameCode });
@@ -724,6 +760,9 @@ async function linkPlatformTeams({ a, b }) {
   written.push(await upsertManualTeamPlatformMap(gbTeamId, platA, normA, nameA, gameCode));
   written.push(await upsertManualTeamPlatformMap(gbTeamId, platB, normB, nameB, gameCode));
 
+  invalidateTeamPlugin();
+  const rebuild = await rebuildOnce();
+
   const label = String(gbTeamId);
   const mapsWritten = written.filter((r) => !r.skipped).length;
   let gbNote = "沿用已有 gb_team_id";
@@ -746,12 +785,14 @@ async function linkPlatformTeams({ a, b }) {
     team_a: { platform: platA, platform_id: normA, platform_name: nameA },
     team_b: { platform: platB, platform_id: normB, platform_name: nameB },
     teamMapsWritten: mapsWritten,
+    rebuild,
     summary: `${platA} · ${nameA} ↔ ${platB} · ${nameB} → gb_team_id ${label}`,
     logLines: [
       `队伍关联成功 · gb_team_id ${label}（${gbNote}）`,
       `A ${platA} · ${nameA} · 平台 id ${idA}`,
       `B ${platB} · ${nameB} · 平台 id ${idB}`,
       `游戏 ${gameCode} · 写入 team_platform_maps ${mapsWritten} 条 · updated_by 手动`,
+      `赛事合并完成 · client_matches ${rebuild.matchCount} 场`,
     ],
   };
 }
@@ -786,6 +827,8 @@ async function registerTeamPlatformMap({ platform, platformId, platformName, gam
 
   const result = await upsertTeamPlatformRecord(plat, pid, name, game);
   if (result.skipped) throw new Error("平台队伍 ID 不完整");
+
+  invalidateTeamPlugin();
 
   return {
     ok: true,

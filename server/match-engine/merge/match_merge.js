@@ -47,6 +47,7 @@ import { buildBetsForMatch } from "./bet_builder.js";
 import { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import { normalizeEpochMs, a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
+import { startTimesCompatible } from "./merge_constants.js";
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -216,9 +217,22 @@ function mergeGroupWithKey(group, mergeKey) {
   };
 }
 
+/** 同 merge 键下按开赛时间 ±15min 拆分子组，避免同日多赛误合并 */
+function findCompatibleGroupKey(groups, baseKey, startMs) {
+  const st = normalizeEpochMs(startMs);
+  for (const [key, bucket] of groups) {
+    if (key !== baseKey && !key.startsWith(`${baseKey}@`)) continue;
+    const refStart = bucket[0]?.row?.StartTime ?? 0;
+    if (startTimesCompatible(st, refStart)) return key;
+  }
+  if (st) return `${baseKey}@${st}`;
+  return baseKey;
+}
+
 function addToKeyGroup(groups, mapKey, entry) {
-  if (!groups.has(mapKey)) groups.set(mapKey, []);
-  const bucket = groups.get(mapKey);
+  const resolvedKey = findCompatibleGroupKey(groups, mapKey, entry.row.StartTime);
+  if (!groups.has(resolvedKey)) groups.set(resolvedKey, []);
+  const bucket = groups.get(resolvedKey);
   const existIdx = bucket.findIndex((e) => e.row._provider === entry.row._provider);
   if (existIdx >= 0) {
     if (entry.row.StartTime > bucket[existIdx].row.StartTime) bucket[existIdx] = entry;
@@ -318,30 +332,45 @@ function refreshClientMatchStartTimes(rows, matches) {
   }
 }
 
-/** 合并后 Game 为空时，从关联平台原始赛按优先级补全 */
+function isUnknownClientGame(game) {
+  return /^未知\(.+\)$/.test(String(game || "").trim());
+}
+
+/** 从关联平台原始赛按优先级取 Game；catalog 已知优先于未知 */
 function pickCanonicalGame(matchs, matches) {
-  let bestPri = -1;
-  let best = { Game: "", GameID: 0 };
+  let bestKnownPri = -1;
+  let bestKnown = { Game: "", GameID: 0 };
+  let bestUnknownPri = -1;
+  let bestUnknown = { Game: "", GameID: 0 };
+
   for (const [provider, sourceMatchId] of Object.entries(matchs || {})) {
     const m = findPlatformMatch(matches, provider, sourceMatchId);
     if (!m) continue;
     const pri = PROVIDER_PRIORITY[provider] || 0;
     const sourceGameId = m.SourceGameID ?? m.GameID;
+    const info = describePlatformGame(provider, sourceGameId);
     const { Game, GameID } = resolveClientGame(provider, sourceGameId);
-    if (!Game || pri < bestPri) continue;
-    if (pri > bestPri) {
-      bestPri = pri;
-      best = { Game, GameID };
+    if (!Game) continue;
+    if (info.inCatalog) {
+      if (pri > bestKnownPri) {
+        bestKnownPri = pri;
+        bestKnown = { Game, GameID };
+      }
+    } else if (pri > bestUnknownPri) {
+      bestUnknownPri = pri;
+      bestUnknown = { Game, GameID };
     }
   }
-  return best;
+
+  if (bestKnown.Game) return bestKnown;
+  return bestUnknown;
 }
 
 function refreshClientMatchGames(rows, matches) {
   for (const row of rows || []) {
-    if (row.Game) continue;
     const picked = pickCanonicalGame(row.Matchs, matches);
-    if (picked.Game) {
+    if (!picked.Game) continue;
+    if (!row.Game || isUnknownClientGame(row.Game)) {
       row.Game = picked.Game;
       row.GameID = picked.GameID;
     }

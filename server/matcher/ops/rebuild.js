@@ -20,9 +20,15 @@ import { alignUnmatchedToClientMatches } from "./align_unmatched_to_client.js";
  */
 
 let _pluginReady = null;
+let _rebuildInFlight = null;
 
 function resetTeamPluginCache() {
   _pluginReady = null;
+}
+
+/** 队伍映射 / canonical 写入后调用，使下次 rebuild 重载 team-resolver */
+function invalidateTeamPlugin() {
+  resetTeamPluginCache();
 }
 
 function sourceFromBet(provider, b) {
@@ -51,7 +57,7 @@ async function ensureTeamPlugin() {
   return _pluginReady;
 }
 
-async function rebuildOnce() {
+async function rebuildOnceImpl() {
   await ensureTeamPlugin();
   await db.initLastWrittenIds();
 
@@ -120,4 +126,13 @@ async function rebuildOnce() {
   return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, alignStats };
 }
 
-export { rebuildOnce, ensureTeamPlugin, resetTeamPluginCache };
+/** 进程内互斥：matcher 循环与 UI 人工 rebuild 共用同一 in-flight Promise */
+async function rebuildOnce() {
+  if (_rebuildInFlight) return _rebuildInFlight;
+  _rebuildInFlight = rebuildOnceImpl().finally(() => {
+    _rebuildInFlight = null;
+  });
+  return _rebuildInFlight;
+}
+
+export { rebuildOnce, ensureTeamPlugin, resetTeamPluginCache, invalidateTeamPlugin };
