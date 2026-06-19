@@ -15,7 +15,6 @@ const {
   saveOrderBind,
   refreshBalance,
   bettingMessage,
-  fetchOrders,
 } = vi.hoisted(() => ({
   waitRejectDetection: vi.fn(),
   syncVenueRejectFlags: vi.fn(),
@@ -24,7 +23,6 @@ const {
   saveOrderBind: vi.fn(),
   refreshBalance: vi.fn(),
   bettingMessage: vi.fn(),
-  fetchOrders: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
@@ -63,10 +61,6 @@ vi.mock("@/stores/messageStore", () => ({
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({ getBetTarget: () => undefined }),
-}));
-
-vi.mock("@/stores/orderStore", () => ({
-  useOrderStore: () => ({ fetchOrders }),
 }));
 
 vi.mock("@/domain/betting/singleLegRate", () => ({
@@ -256,9 +250,9 @@ describe("finalizeArbBet makeup enqueue", () => {
     });
   });
 
-  it("收尾成功后刷新侧栏订单（对齐 Io.f finally E）", async () => {
+  it("套利收尾不刷新侧栏（A8 套利块不调用 E）", async () => {
     await finalizeArbBet(params, makePlaced());
-    expect(fetchOrders).toHaveBeenCalled();
+    // 侧栏仅 Io.f / 手动刷新 / loadAccounts(true) 时 E()
   });
 
   it("仅一腿拉单有首条时只绑该腿（对齐 A8 R.length>0 / X.length>0）", async () => {

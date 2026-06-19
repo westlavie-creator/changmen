@@ -4,7 +4,7 @@
 
 对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `index.css`（只读）
 
-最后更新：2026-06-17
+最后更新：2026-06-19
 
 ---
 
@@ -105,13 +105,13 @@
 | 并行 / 顺序下单 | `betSorting` Parallel 等 | `executeArbBet` | ✅ |
 | 预检超时 | tip 3s | `a8Tip("前置检查超时")` | ✅ |
 | 成功后 refreshBalance | 有 | 有 | ✅ |
-| 拒单检测 | `updateBalance` → tip(Oe) → wait(q) → `updateOrders` | `await refreshBalance` → `waitRejectDetection(Oe,q)` → `updateVenueOrders` | ✅ |
+| 拒单检测 | `updateBalance`（不 await）→ tip(Oe) → wait(q) → `updateOrders` | `void refreshBalance` → `waitRejectDetection(Oe,q)` → `updateVenueOrders` | ✅ |
+| 套利收尾侧栏 | 不调用 `E()`；仅 `updateOrders`→`saveOrders` | 同（已移除 `fetchOrders`） | ✅ |
 | 四平台 getOrders→reject | OB `bet_status=2`；RAY `status=4`；IA `receive_status=2`；PB `_Q`+缓存 | 同左 + 单元测试 | ✅ |
 | 拒单 q<=0 | 仍弹「拒单检测」(Oe)，不 wait | `waitRejectDetection` 同 | ✅ |
 | 补单拒单前 refreshBalance | 无 | 无（与 A8 jb 一致） | ✅ |
-| 绑单 `SaveOrderBind` | 有绑单行才 POST；空数组跳过 | `api/order.saveOrderBind` | ✅ |
+| 绑单 `SaveOrderBind` | 有绑单行才 POST；空数组跳过；`vx` 仅 LinkID+Provider+OrderID | `api/order.saveOrderBind` | ✅ |
 | 随机 `betMoney` | 每 **bet** roll | `prepareArbAttempt` 内 per bet | ✅ |
-| 成功后 `fetchOrders` | 无（仅 `updateOrders` 拒单）；侧栏靠 Io.f finally `E()` 或手动刷新 | 套利收尾后 `fetchOrders`（等同 Io.f 在 saveOrders 后 `E()`） | ⚠️ |
 | 双腿 linkId | GetOrderOptions 后 `Date.now()` 正数 | `prepareArbAttempt` 内 `linkTs` | ✅ |
 | 9999 单边 linkId | A8 无 | 负数 `-Date.now()`，展示 `gb{ts}` | 🔶 |
 | 9999 单边 Telegram | A8 无 | 双腿版式；9999 侧标注不下单 | 🔶 |
@@ -228,6 +228,48 @@ cd changmen/client/web && npm run audit:a8
 ```
 
 **2026-06-17 自动化验收**：上述 vitest（20）、`test:ob`、`test:v4`、`audit:a8`、`build` 已通过；`Client_Login` live 与四平台实机拒单 E2E 仍依赖 RDS/场馆账号。
+
+---
+
+## 十一、严格 A8 全量审计（2026-06-19）
+
+对照 `index.js` 逐段抽取 + `npm run audit:a8`（25 View 全映射、CSS 1816 选择器 0 diff）。
+
+### 11.1 订单 / 绑单 / 套利收尾（核心）
+
+| 项 | A8 bundle | changmen | 状态 |
+|----|-----------|----------|------|
+| 侧栏 `E()` | `getOrders` → Link 降序 → `groupBy(Link)` → `updateTodayProfit` | `orderStore.fetchOrders` + `orderLink.ts` | ✅ |
+| 套利收尾 `saveOrderBind` | `vx(LinkID, Provider, OrderID)`；`R.length>0` 才 push | `finalizeArbBet.ts` 同 | ✅ |
+| 套利收尾 **不**调 `E()` | 仅 `updateOrders`→`saveOrders` | 已移除收尾 `fetchOrders` | ✅ |
+| 拒单等待 | `updateBalance` 不 await → tip(Oe) → wait(q) → 单次 `updateOrders` | `finalizeArbBet` + `venueRejectSync` | ✅ |
+| OB 下单后 orderList 重试 | `ZT` + 300s 窗口 + max 3 | `ob/bet.ts` `betSuccessAtByAccount` | ✅ |
+| RAY `getOrders` | 单次 GET，无重试、无 `ZT` | `ray/bet.ts` 同 | ✅ |
+| 绑单前轮询拉单 | **无** | **已删除** `syncVenueRejectFlagsForBind` | ✅ |
+| RAY 下单后 getOrders 重试 | **无** | **已删除** `fetchRayOrderList` | ✅ |
+| 绑单带 `PlayerID` | **无**（仅 3 字段） | **已删除** | ✅ |
+
+**侧栏刷新时机（A8）**：`Io.f` finally `E()`；`loadAccounts(true)` → `f` + `E()`；OrderView 手动刷新。套利下注成功**不会**自动刷新侧栏。
+
+**sz01 未合并根因（严格 A8 语义）**：拒单等待后 `updateOrders` 若返回空列表（RAY 无重试、场馆延迟），`saveOrderBind` 不执行；之后 `Io.f` 才把订单 sync 入库（hash Link），但绑单时机已过。这是 **A8 同等行为**，非排序逻辑错误。
+
+### 11.2 仍为 changmen 扩展（勿标「已对齐 A8」）
+
+| 项 | 路径 |
+|----|------|
+| 比例 9999 单边 / 负 linkId | `domain/betting/singleLegRate.ts` |
+| 套利进度 Telegram | `arbExecutionTrace.ts`、`messageStore` |
+| 套利机会盯盘 | `extensions/arbMarketWatch/` |
+| kakaxi 调度 | `stores/betting/kakaxi/`（默认 `a8`） |
+| BetRow 红线 / flash | `extensions/arbBet/ui/` |
+| legend 负 Link 前缀、`orderlink--paired` | `orderLink.ts`、`OrderView.vue` |
+| matcher / RDS | 服务端 |
+
+### 11.3 UI / 结构（机器审计）
+
+- bundle **25** 个 `*View` → Vue 全映射（`unmappedViews: []`）
+- `a8.css` 与官方 **1816** 选择器一致
+- 待 pixel diff：账号编辑、充提弹窗（见 `A8_UI_PARITY_GAPS.md` §9.3）
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-18T02:39:04.169Z",
+  "generatedAt": "2026-06-19T15:50:33.849Z",
   "sources": {
     "bundleJs": "A8/A8frontendscipts/2.0.1/index.js",
     "indexCss": "server/backend/public/assets/index.css",
@@ -12,8 +12,8 @@
   "css": {
     "indexCssBytes": 372896,
     "a8CssBytes": 371498,
-    "amIconCssBytes": 1919,
-    "fallbackCssBytes": 4902,
+    "amIconCssBytes": 2012,
+    "fallbackCssBytes": 5579,
     "indexSelectorCount": 1816,
     "a8SelectorCount": 1816,
     "selectorOnlyInIndexCount": 0,
@@ -79,12 +79,44 @@
   "bundleSemanticClassesMissingInVue": [],
   "vueScopedStyleFiles": [
     {
+      "file": "components/layout/KakashiRaikiriLoader.vue",
+      "bytes": 7163
+    },
+    {
       "file": "components/ui/AppDialog.vue",
       "bytes": 1508
     },
     {
-      "file": "components/order/LoseOrderView.vue",
-      "bytes": 991
+      "file": "components/admin/preview/EmbeddedUserDialog.vue",
+      "bytes": 1061
+    },
+    {
+      "file": "components/layout/DirectRealtimeBadge.vue",
+      "bytes": 997
+    },
+    {
+      "file": "components/user/UserConfigPanel.vue",
+      "bytes": 918
+    },
+    {
+      "file": "components/order/OrderDateNav.vue",
+      "bytes": 592
+    },
+    {
+      "file": "components/account/AccountEditPanel.vue",
+      "bytes": 560
+    },
+    {
+      "file": "components/admin/preview/UserWorkspacePreview.vue",
+      "bytes": 447
+    },
+    {
+      "file": "components/report/MonthReportTable.vue",
+      "bytes": 360
+    },
+    {
+      "file": "components/admin/AdminOrdersGroupedTable.vue",
+      "bytes": 325
     },
     {
       "file": "components/layout/AppHeader.vue",
@@ -99,7 +131,7 @@
       "bytes": 193
     },
     {
-      "file": "components/account/AccountEditDialog.vue",
+      "file": "components/order/OrderView.vue",
       "bytes": 132
     },
     {

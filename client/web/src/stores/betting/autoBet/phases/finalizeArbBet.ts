@@ -16,7 +16,6 @@ import { syncVenueRejectFlags } from "@/stores/betting/autoBet/venueRejectSync";
 import { findSingleLegRateAccount } from "@/domain/betting/singleLegRate";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
-import { useOrderStore } from "@/stores/orderStore";
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 
 function singleLegRatePeer(
@@ -194,11 +193,6 @@ export async function finalizeArbBet(
   const messagePeers = buildBettingMessagePeers(params, placed, rejectA, rejectB);
   if (messagePeers) {
     useMessageStore().bettingMessage(messagePeers[0], messagePeers[1]);
-  }
-
-  // [A8 可证实] Io.f finally 在 saveOrders 后调用 E()；套利收尾已 updateOrders→saveOrders，同步侧栏
-  if (successAccounts.length) {
-    void useOrderStore().fetchOrders();
   }
 
   const okA = Boolean(resultA?.success && accountA && !rejectA);

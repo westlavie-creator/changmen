@@ -40,7 +40,7 @@ export function orderLinkMapEntries<T>(map: Map<number, T[]>): [number, T[]][] {
 
 const LOSE_REJECT = new Set(["Reject", "Return"]);
 
-/** [A8 可证实] OrderView legend：未结 `bet*odds-stake` 用 ` - ` 拼接，已结为 Money 合计 */
+/** [changmen 扩展] 9999 单边负 Link 前缀；A8 legend 无前缀 */
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
   const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
@@ -59,7 +59,7 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   return prefix + toFixed(total, 0);
 }
 
-/** 同 Link 且非单边、双腿以上 → fieldset `orderlink--paired` */
+/** [changmen 扩展] A8 fieldset 仅 `orderlink`，无 `--paired` */
 export function isLinkedArbOrderGroup(rows: OrderRow[]): boolean {
   const link = linkIdGroupKey(rows[0]?.Link);
   return link !== 0 && !isSingleLegLink(link) && rows.length > 1;
