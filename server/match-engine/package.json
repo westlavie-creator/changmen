@@ -13,7 +13,7 @@
   },
   "scripts": {
     "test": "vitest run && npm run test:node",
-    "test:node": "node --test tests/ob_bet_builder.test.mjs tests/ia_bet_builder.test.mjs tests/ray_bet_builder.test.mjs tests/match_lifecycle.test.mjs tests/match_merge_decider_promote.test.mjs tests/promote_side_alignment.test.mjs"
+    "test:node": "node --test tests/ob_bet_builder.test.mjs tests/ia_bet_builder.test.mjs tests/ray_bet_builder.test.mjs tests/match_lifecycle.test.mjs tests/match_merge_decider_promote.test.mjs tests/promote_side_alignment.test.mjs tests/reconcile_side_align.test.mjs"
   },
   "dependencies": {
     "@changmen/shared": "*"

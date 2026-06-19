@@ -317,4 +317,34 @@ describe("alignUnmatchedToClientMatches", () => {
     expect(stats.alignedById).toBe(0);
     expect(matches.RAY.ray1.ClientMatchId).toBeNull();
   });
+
+  it("name-align skips when platform row has no start time", () => {
+    setTeamPlugin(null);
+
+    const matches = rawMatches([
+      {
+        platform: "OB",
+        sourceMatchId: "ob1",
+        home: "Team Alpha",
+        away: "Team Beta",
+        homeId: "1",
+        awayId: "2",
+        startTime: 0,
+      },
+    ]);
+
+    const clientRows = [
+      {
+        id: 401,
+        merge_key: "match:name:8:team alpha:team beta",
+        game_id: "8",
+        start_time: START,
+        matchs: { RAY: "ray1" },
+      },
+    ];
+
+    const stats = alignUnmatchedToClientMatches(matches, clientRows);
+    expect(stats.alignedByName).toBe(0);
+    expect(matches.OB.ob1.ClientMatchId).toBeNull();
+  });
 });

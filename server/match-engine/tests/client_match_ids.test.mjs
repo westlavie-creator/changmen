@@ -109,4 +109,19 @@ describe("client_match_ids", () => {
     const out = await resolveClientMatchIds(adapter, rows, { existingIdKeyIndex });
     expect(out[0].ID).toBe(501);
   });
+
+  it("findLinkedClientIdFromMatchs returns 0 on conflict without resolvable index", () => {
+    const matches = {
+      OB: { ob1: { SourceMatchID: "ob1", ClientMatchId: 100 } },
+      RAY: { ray1: { SourceMatchID: "ray1", ClientMatchId: 200 } },
+    };
+    const built = { OB: "ob1", RAY: "ray1" };
+    expect(findLinkedClientIdFromMatchs(built, matches)).toBe(0);
+    expect(
+      findLinkedClientIdFromMatchs(built, matches, {
+        mergeKey: "match:name:8:a:b",
+        existingIdKeyIndex: new Map(),
+      }),
+    ).toBe(0);
+  });
 });

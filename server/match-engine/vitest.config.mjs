@@ -8,6 +8,8 @@ export default {
       "tests/ob_bet_builder.test.mjs",
       "tests/ia_bet_builder.test.mjs",
       "tests/ray_bet_builder.test.mjs",
+      "tests/promote_side_alignment.test.mjs",
+      "tests/reconcile_side_align.test.mjs",
     ],
   },
 };

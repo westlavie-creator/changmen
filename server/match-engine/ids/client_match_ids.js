@@ -61,10 +61,10 @@ function findLinkedClientIdFromMatchs(builtMatchs, matches, { mergeKey, existing
   }
 
   console.warn(
-    `[client_match_ids] platform match_id 冲突 ${idList.join(" vs ")}，回退最小 id #${idList[0]}`,
+    `[client_match_ids] platform match_id 冲突 ${idList.join(" vs ")}，跳过链接 id，改由 merge_key/重叠复用`,
     JSON.stringify(builtMatchs),
   );
-  return idList[0];
+  return 0;
 }
 
 /** 与已有 client 行存在相同 platform:sourceId 时复用其 id */

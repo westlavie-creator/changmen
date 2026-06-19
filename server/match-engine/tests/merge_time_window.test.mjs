@@ -101,4 +101,21 @@ describe("buildMatchListMerged start time window", () => {
     const list = buildMatchListMerged(matches, {}, {}, () => null);
     expect(list).toHaveLength(0);
   });
+
+  it("does not name-merge when either platform lacks start time", () => {
+    const matches = {
+      OB: {
+        ob1: baseMatch("OB", "ob1", "Team Alpha", "Team Beta", "1", "2", T0),
+      },
+      RAY: {
+        ray1: {
+          ...baseMatch("RAY", "ray1", "Team Alpha", "Team Beta", "3", "4", 0),
+          StartTime: 0,
+        },
+      },
+    };
+
+    const list = buildMatchListMerged(matches, {}, {}, () => null);
+    expect(list).toHaveLength(0);
+  });
 });

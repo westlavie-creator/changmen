@@ -47,7 +47,7 @@ import { buildBetsForMatch } from "./bet_builder.js";
 import { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
 import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import { normalizeEpochMs, a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
-import { startTimesCompatible } from "./merge_constants.js";
+import { startTimesCompatible, startTimesCompatibleStrict } from "./merge_constants.js";
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
@@ -218,19 +218,29 @@ function mergeGroupWithKey(group, mergeKey) {
 }
 
 /** 同 merge 键下按开赛时间 ±15min 拆分子组，避免同日多赛误合并 */
-function findCompatibleGroupKey(groups, baseKey, startMs) {
+function findCompatibleGroupKey(groups, baseKey, startMs, { strictTime = false, soloKey = "" } = {}) {
   const st = normalizeEpochMs(startMs);
+  if (strictTime && !st) {
+    return `${baseKey}@notime:${soloKey || "unknown"}`;
+  }
   for (const [key, bucket] of groups) {
     if (key !== baseKey && !key.startsWith(`${baseKey}@`)) continue;
     const refStart = bucket[0]?.row?.StartTime ?? 0;
-    if (startTimesCompatible(st, refStart)) return key;
+    const compatible = strictTime
+      ? startTimesCompatibleStrict(st, refStart)
+      : startTimesCompatible(st, refStart);
+    if (compatible) return key;
   }
   if (st) return `${baseKey}@${st}`;
-  return baseKey;
+  return strictTime ? `${baseKey}@notime:${soloKey || "unknown"}` : baseKey;
 }
 
-function addToKeyGroup(groups, mapKey, entry) {
-  const resolvedKey = findCompatibleGroupKey(groups, mapKey, entry.row.StartTime);
+function addToKeyGroup(groups, mapKey, entry, options) {
+  const soloKey = entry.rowKey || entry.row?._provider || "unknown";
+  const resolvedKey = findCompatibleGroupKey(groups, mapKey, entry.row.StartTime, {
+    ...options,
+    soloKey,
+  });
   if (!groups.has(resolvedKey)) groups.set(resolvedKey, []);
   const bucket = groups.get(resolvedKey);
   const existIdx = bucket.findIndex((e) => e.row._provider === entry.row._provider);
@@ -485,17 +495,33 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
     if (!teams) continue;
 
     const reverse = [];
+    const ambiguousPlatforms = [];
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
       if (!pm) continue;
-      if (
-        sideAlignmentMode(pm.Home ?? pm.home, pm.Away ?? pm.away, teams.home, teams.away) ===
-        "reversed"
-      ) {
+      const mode = sideAlignmentMode(
+        pm.Home ?? pm.home,
+        pm.Away ?? pm.away,
+        teams.home,
+        teams.away,
+      );
+      if (mode === "reversed") {
         reverse.push(platform);
+      } else if (mode === "ambiguous") {
+        ambiguousPlatforms.push(platform);
+        console.warn(
+          `[match_merge] 主客 ambiguous · client #${row.ID ?? "?"} · ${platform}`
+            + ` · Title「${teams.home} vs ${teams.away}」`
+            + ` · 平台「${pm.Home ?? pm.home} vs ${pm.Away ?? pm.away}」`,
+        );
       }
     }
     row.Reverse = [...new Set(reverse)];
+    if (ambiguousPlatforms.length) {
+      row.SideAlignAmbiguous = [...new Set(ambiguousPlatforms)];
+    } else {
+      delete row.SideAlignAmbiguous;
+    }
 
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
@@ -907,7 +933,9 @@ function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
     const ck = canonicalMatchKeyByName(entry.gameId, entry.home, entry.away);
     const mapKey = ck ? ck.mergeKey : entry.row.MergeKey;
     const reversed = ck ? ck.reversed : false;
-    addToKeyGroup(nameGroups, mapKey, { row: entry.row, reversed });
+    addToKeyGroup(nameGroups, mapKey, { row: entry.row, reversed, rowKey: entry.rowKey }, {
+      strictTime: true,
+    });
   }
 
   const result = [

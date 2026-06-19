@@ -13,3 +13,11 @@ export function startTimesCompatible(aMs, bMs) {
   if (!a || !b) return true;
   return Math.abs(a - b) <= MERGE_START_TIME_TOLERANCE_MS;
 }
+
+/** 队名合并 / 队名 align：双方均需有效开赛时间且在 ±15min 内 */
+export function startTimesCompatibleStrict(aMs, bMs) {
+  const a = normalizeEpochMs(aMs);
+  const b = normalizeEpochMs(bMs);
+  if (!a || !b) return false;
+  return Math.abs(a - b) <= MERGE_START_TIME_TOLERANCE_MS;
+}

@@ -5,7 +5,7 @@
 
 export * from "./merge/match_merge.js";
 export * from "./merge/match_lifecycle.js";
-export { MERGE_START_TIME_TOLERANCE_MS, startTimesCompatible } from "./merge/merge_constants.js";
+export { MERGE_START_TIME_TOLERANCE_MS, startTimesCompatible, startTimesCompatibleStrict } from "./merge/merge_constants.js";
 export * from "./teams/team_key.js";
 export * from "./teams/match_utils.js";
 export { resolveCanonicalTeamName } from "./teams/canonical_ob_name.js";

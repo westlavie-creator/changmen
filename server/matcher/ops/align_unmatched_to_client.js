@@ -9,6 +9,7 @@ import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
 import {
   MERGE_START_TIME_TOLERANCE_MS,
   startTimesCompatible,
+  startTimesCompatibleStrict,
 } from "@changmen/match-engine";
 
 /**
@@ -198,7 +199,7 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
 
   const candidates = (indexes.byNameKey.get(nameCk.key) || [])
     .filter((cm) => String(cm.game_id ?? "") === gameId)
-    .filter((cm) => startTimesCompatible(startMs, cm.start_time ?? cm.StartTime))
+    .filter((cm) => startTimesCompatibleStrict(startMs, cm.start_time ?? cm.StartTime))
     .filter((cm) => canAlignPlatformToClient(platform, sourceMatchId, cm));
   const hit = pickBestClientMatch(candidates, startMs);
   if (!hit) return;
