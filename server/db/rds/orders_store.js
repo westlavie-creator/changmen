@@ -1,0 +1,416 @@
+/**
+ * orders 表读写 — upsert、查询、管理端、SaveOrderBind。
+ */
+
+import { getPgPool, _jsonb } from "./common.js";
+import { localDayBounds, localMonthBounds } from "./time_bounds.js";
+import { SQL_ORDERS_VISIBLE, isHashLink } from "../order_link_filter.js";
+
+/** 读路径：系统单 + 非 PB hash；仅排除 PB 未 bind 的 hash 单 */
+const SQL_NON_EXT = SQL_ORDERS_VISIBLE;
+
+async function _rdsUpsertOrders(pool, rows) {
+  if (!rows?.length) return [];
+  const sql = `
+    INSERT INTO orders (
+      user_id, player_id, order_id, link, provider, match, bet, item,
+      odds, bet_money, money, status, create_at, raw
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
+    ON CONFLICT (user_id, order_id, player_id) DO UPDATE SET
+      link = EXCLUDED.link,
+      provider = EXCLUDED.provider,
+      match = EXCLUDED.match,
+      bet = EXCLUDED.bet,
+      item = EXCLUDED.item,
+      odds = EXCLUDED.odds,
+      bet_money = EXCLUDED.bet_money,
+      money = EXCLUDED.money,
+      status = EXCLUDED.status,
+      create_at = EXCLUDED.create_at,
+      raw = EXCLUDED.raw
+    RETURNING *, (xmax = 0) AS was_inserted
+  `;
+  const inserted = [];
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const o of rows) {
+      const res = await client.query(sql, [
+        String(o.user_id),
+        Number(o.player_id),
+        String(o.order_id),
+        o.link != null ? Number(o.link) : null,
+        o.provider != null ? String(o.provider) : null,
+        o.match != null ? String(o.match) : null,
+        o.bet != null ? String(o.bet) : null,
+        o.item != null ? String(o.item) : null,
+        Number(o.odds) || 0,
+        Number(o.bet_money) || 0,
+        Number(o.money) || 0,
+        String(o.status || "None"),
+        Number(o.create_at),
+        _jsonb(o.raw, {}),
+      ]);
+      const row = res.rows?.[0];
+      if (row?.was_inserted) {
+        const { was_inserted: _wi, ...clean } = row;
+        inserted.push(clean);
+      }
+    }
+    await client.query("COMMIT");
+    return inserted;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** orders 新行写入后回调（由 backend 注册 Telegram 等） */
+let _ordersInsertedHook = null;
+
+export function setOrdersInsertedHook(fn) {
+  _ordersInsertedHook = typeof fn === "function" ? fn : null;
+}
+
+/** SaveOrderBind 将 link 从外部 hash 改为套利/单边后回调 */
+let _ordersBoundHook = null;
+
+export function setOrdersBoundHook(fn) {
+  _ordersBoundHook = typeof fn === "function" ? fn : null;
+}
+
+/** upsert 订单列表；新插入行经 setOrdersInsertedHook 通知 */
+export async function upsertOrders(rows) {
+  if (!rows?.length) return false;
+  const pool = getPgPool();
+  if (!pool) return false;
+  try {
+    const inserted = await _rdsUpsertOrders(pool, rows);
+    if (inserted.length && _ordersInsertedHook) {
+      try {
+        _ordersInsertedHook(inserted);
+      } catch (hookErr) {
+        console.warn("[rds] ordersInsertedHook:", hookErr.message);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.warn("[rds] upsertOrders:", err.message);
+    return false;
+  }
+}
+
+/** 按日期读取订单（userId 隔离；不含 PB hash 占位单） */
+export async function fetchOrdersByDate(date, userId) {
+  const { dayStart, dayEnd } = localDayBounds(date);
+  const pool = getPgPool();
+  if (!pool || !userId) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE user_id = $1 AND create_at >= $2 AND create_at < $3 AND ${SQL_NON_EXT} ORDER BY create_at DESC`,
+      [String(userId), dayStart, dayEnd],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchOrdersByDate:", err.message);
+    return [];
+  }
+}
+
+/** 按 playerId 读取订单（不含 PB hash 占位单） */
+export async function fetchOrdersByPlayer(playerId, userId) {
+  const pool = getPgPool();
+  if (!pool || !userId) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 AND ${SQL_NON_EXT} ORDER BY create_at DESC`,
+      [String(userId), Number(playerId)],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchOrdersByPlayer:", err.message);
+    return [];
+  }
+}
+
+/** saveOrder 保留已有 link 绑定，需含外部单 */
+export async function fetchOrdersByPlayerAll(playerId, userId) {
+  const pool = getPgPool();
+  if (!pool || !userId) return [];
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 ORDER BY create_at DESC",
+      [String(userId), Number(playerId)],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchOrdersByPlayerAll:", err.message);
+    return [];
+  }
+}
+
+/** 运维：同 Link 订单（含外部 hash link） */
+export async function fetchOrdersByLink(userId, link) {
+  const pool = getPgPool();
+  const uid = String(userId || "").trim();
+  const linkVal = Number(link);
+  if (!pool || !uid || !Number.isFinite(linkVal) || linkVal === 0) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT order_id, user_id, player_id, link, provider, match, bet, item,
+              odds, bet_money, money, status, create_at
+       FROM orders WHERE user_id = $1 AND link = $2
+       ORDER BY create_at ASC`,
+      [uid, linkVal],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchOrdersByLink:", err.message);
+    return [];
+  }
+}
+
+/** 运维：按 order_id 查单行（含外部单） */
+export async function fetchOrderByOrderId(userId, orderId) {
+  const pool = getPgPool();
+  const uid = String(userId || "").trim();
+  const oid = String(orderId || "").trim();
+  if (!pool || !uid || !oid) return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT order_id, user_id, player_id, link, provider, match, bet, item,
+              odds, bet_money, money, status, create_at
+       FROM orders WHERE user_id = $1 AND order_id = $2
+       LIMIT 1`,
+      [uid, oid],
+    );
+    return rows?.[0] ?? null;
+  } catch (err) {
+    console.warn("[rds] fetchOrderByOrderId:", err.message);
+    return null;
+  }
+}
+
+export async function fetchUserByName(userName) {
+  const pool = getPgPool();
+  const name = String(userName || "").trim();
+  if (!pool || !name) return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, user_name FROM users WHERE lower(user_name) = lower($1) LIMIT 1`,
+      [name],
+    );
+    return rows?.[0] ?? null;
+  } catch (err) {
+    console.warn("[rds] fetchUserByName:", err.message);
+    return null;
+  }
+}
+
+export async function fetchUserById(userId) {
+  const pool = getPgPool();
+  const uid = String(userId || "").trim();
+  if (!pool || !uid) return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, user_name FROM users WHERE id = $1 LIMIT 1`,
+      [uid],
+    );
+    return rows?.[0] ?? null;
+  } catch (err) {
+    console.warn("[rds] fetchUserById:", err.message);
+    return null;
+  }
+}
+
+/** 管理端：当日订单汇总（不含 PB hash 占位单） */
+export async function fetchOrdersAdminStats(dateKey) {
+  const { dayStart, dayEnd } = localDayBounds(dateKey);
+  const pool = getPgPool();
+  if (!pool) return { count: 0, money: 0, betMoney: 0 };
+  try {
+    const { rows } = await pool.query(
+      `SELECT money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`,
+      [dayStart, dayEnd],
+    );
+    let count = 0;
+    let money = 0;
+    let betMoney = 0;
+    for (const o of rows || []) {
+      if (String(o.status || "") === "Reject") continue;
+      count += 1;
+      money += Number(o.money) || 0;
+      betMoney += Number(o.bet_money) || 0;
+    }
+    return { count, money, betMoney };
+  } catch (err) {
+    console.warn("[rds] fetchOrdersAdminStats:", err.message);
+    return { count: 0, money: 0, betMoney: 0 };
+  }
+}
+
+/** 管理端：分页订单（不含 PB hash 占位单） */
+export async function fetchOrdersAdminPage({
+  dateKey,
+  userId,
+  provider,
+  pageIndex,
+  pageSize,
+}) {
+  const { dayStart, dayEnd } = localDayBounds(dateKey);
+  const from = (Math.max(1, pageIndex) - 1) * pageSize;
+  const pool = getPgPool();
+  if (!pool) return { rows: [], total: 0 };
+  try {
+    const params = [dayStart, dayEnd];
+    let where = `create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`;
+    if (userId) {
+      params.push(String(userId));
+      where += ` AND user_id = $${params.length}`;
+    }
+    if (provider) {
+      params.push(String(provider));
+      where += ` AND provider = $${params.length}`;
+    }
+    const countRes = await pool.query(`SELECT COUNT(*)::int AS n FROM orders WHERE ${where}`, params);
+    const total = countRes.rows[0]?.n ?? 0;
+    params.push(pageSize, from);
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE ${where} ORDER BY create_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params,
+    );
+    return { rows: rows || [], total };
+  } catch (err) {
+    console.warn("[rds] fetchOrdersAdminPage:", err.message);
+    return { rows: [], total: 0 };
+  }
+}
+
+/** 管理端：按主键 id 删除订单 */
+export async function deleteOrdersByIds(ids) {
+  if (!Array.isArray(ids) || !ids.length) return 0;
+  const pool = getPgPool();
+  if (!pool) return 0;
+  const clean = ids
+    .map((id) => Number(id))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (!clean.length) return 0;
+  try {
+    const res = await pool.query("DELETE FROM orders WHERE id = ANY($1::bigint[])", [clean]);
+    return res.rowCount ?? 0;
+  } catch (err) {
+    console.warn("[rds] deleteOrdersByIds:", err.message);
+    return 0;
+  }
+}
+
+/** 管理端：当日全量订单（对阵矩阵，上限 5000 条；不含 PB hash 占位单） */
+export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
+  const { dayStart, dayEnd } = localDayBounds(dateKey);
+  const cap = Math.min(5000, Math.max(1, Number(limit) || 5000));
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const params = [dayStart, dayEnd];
+    let where = `create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`;
+    if (provider) {
+      params.push(String(provider));
+      where += ` AND provider = $${params.length}`;
+    }
+    params.push(cap);
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE ${where} ORDER BY create_at ASC LIMIT $${params.length}`,
+      params,
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchOrdersAdminAll:", err.message);
+    return [];
+  }
+}
+
+/** 月报：读取指定月份订单聚合字段；可选 user_id 筛选（不含 PB hash 占位单） */
+export async function fetchOrdersForMonthAggregate(monthKey, userId) {
+  const { monthStart, monthEnd } = localMonthBounds(monthKey);
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const params = [monthStart, monthEnd];
+    let sql = `SELECT create_at, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`;
+    if (userId) {
+      params.push(String(userId));
+      sql += ` AND user_id = $${params.length}`;
+    }
+    const { rows } = await pool.query(sql, params);
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchOrdersForMonthAggregate:", err.message);
+    return [];
+  }
+}
+
+/** 排行榜：按本地自然日读取订单盈利聚合字段（不含 PB hash 占位单） */
+export async function fetchOrdersForProfitAggregate(dateKey) {
+  const { dayStart, dayEnd } = localDayBounds(dateKey);
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT user_id, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2 AND ${SQL_NON_EXT}`,
+      [dayStart, dayEnd],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchOrdersForProfitAggregate:", err.message);
+    return [];
+  }
+}
+
+/**
+ * 更新订单 link 绑定。
+ * A8 客户端只传 LinkID + Provider + OrderID（无 PlayerID），需用 provider 或仅 user+order_id 匹配。
+ */
+export async function updateOrderBind(orderId, userId, link, opts = {}) {
+  if (!orderId || !userId) return false;
+  const playerId = Number(opts.playerId);
+  const provider = opts.provider ? String(opts.provider) : "";
+  const linkVal = Number(link) || 0;
+  const pool = getPgPool();
+  if (!pool) return false;
+  try {
+    const matchParams = [String(userId), String(orderId)];
+    let where = "user_id = $1 AND order_id = $2";
+    if (Number.isFinite(playerId) && playerId > 0) {
+      matchParams.push(playerId);
+      where += ` AND player_id = $${matchParams.length}`;
+    } else if (provider) {
+      matchParams.push(provider);
+      where += ` AND provider = $${matchParams.length}`;
+    }
+    const sel = await pool.query(`SELECT * FROM orders WHERE ${where}`, matchParams);
+    const prev = sel.rows?.[0];
+    if (!prev) return false;
+    const res = await pool.query(
+      `UPDATE orders SET link = $1 WHERE ${where}`,
+      [linkVal, ...matchParams],
+    );
+    if (
+      res.rowCount > 0 &&
+      isHashLink(prev.link) &&
+      !isHashLink(linkVal) &&
+      _ordersBoundHook
+    ) {
+      try {
+        _ordersBoundHook([{ ...prev, link: linkVal }]);
+      } catch (hookErr) {
+        console.warn("[rds] ordersBoundHook:", hookErr.message);
+      }
+    }
+    return res.rowCount > 0;
+  } catch (err) {
+    console.warn("[rds] updateOrderBind:", err.message);
+    return false;
+  }
+}

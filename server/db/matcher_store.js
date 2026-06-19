@@ -3,6 +3,7 @@
  */
 
 import { getPgPool } from "./pg_pool.js";
+import { jsonb } from "./rds/common.js";
 import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "./client_match_list_status.js";
 
 function pool() {
@@ -13,11 +14,6 @@ async function rdsQuery(sql, params = []) {
   const p = pool();
   if (!p) throw new Error("RDS 未配置");
   return p.query(sql, params);
-}
-
-function jsonb(val, fallback) {
-  if (val == null) return JSON.stringify(fallback ?? null);
-  return JSON.stringify(val);
 }
 
 export function isMatcherStoreReady() {

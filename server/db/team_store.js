@@ -21,10 +21,6 @@ async function rdsLoadAll(sql, mapRow) {
   return result;
 }
 
-export function getTeamDbScript() {
-  return "rds";
-}
-
 export async function fetchAllCanonicalTeams() {
   return rdsLoadAll(
     "SELECT id, gb_team_id, game, name, acronym FROM canonical_teams ORDER BY id",

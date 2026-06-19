@@ -1,28 +1,40 @@
 /**
  * 数据层唯一入口 — 所有数据库读写均从此文件 import。
  * 内部走 RDS（pg）；业务代码勿直连 impl / team_store / matcher_store。
+ *
+ * 模块地图：
+ *   impl_rds.js              — facade，re-export 各 rds/*_store.js
+ *   rds/orders_store.js      — orders 读写与 SaveOrderBind
+ *   rds/auth_store.js          — JWT 登录/刷新/会话
+ *   rds/platform_collector_store.js — SaveMatch/SaveBet/LiveTimer 采集
+ *   rds/client_matches_store.js — matcher rebuild 写入 client_matches
+ *   rds/profile_store.js 等  — profile / player / money_log
+ *   team_store.js     — canonical_teams / team_platform_maps
+ *   matcher_store.js  — matcher UI/ops 专用查询与运维 SQL
+ *   order_link_filter — 订单 link 可见性（读路径 SQL + JS 判断）
+ *   json_file_store   — legacy 本地 JSON（platforms、default_odds 等，非 RDS 主路径）
+ *   prune_stale.js    — 过期 platform_* / client_matches 清理
  */
 
 import { loadChangmenEnv } from "./load_env.js";
 
 loadChangmenEnv();
 
-import { describeDbScript, getDbMode } from "./db_mode.js";
+import { describeDbScript, getDbMode } from "./db_script.js";
 
 const mode = getDbMode();
 
 const impl = await import("./impl_rds.js");
 const team = await import("./team_store.js");
 
-console.log(`[db] ${mode.script} — ${describeDbScript(mode.script)} (${mode.impl})`);
+console.log(`[db] ${mode.script} — ${describeDbScript(mode.script)}`);
 
 export {
   DB_SCRIPT_MODES,
   resolveDbScript,
   describeDbScript,
-  usesRdsImpl,
   getDbMode,
-} from "./db_mode.js";
+} from "./db_script.js";
 
 export { loadChangmenEnv } from "./load_env.js";
 
@@ -42,7 +54,6 @@ export function getActiveDbScript() {
 export const {
   hasAdminAccess,
   isAuthConfigured,
-  getServiceClient,
   setPlatformMatchId,
   fetchProfiles,
   fetchProfileById,
@@ -107,7 +118,6 @@ export const {
 } = impl;
 
 export const {
-  getTeamDbScript,
   fetchAllCanonicalTeams,
   fetchAllTeamPlatformMaps,
   fetchExistingTeamMapKeys,

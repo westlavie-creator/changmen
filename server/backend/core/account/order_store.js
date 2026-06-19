@@ -128,7 +128,7 @@ function stringToHashNumber(value) {
 export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
   const [orders, profiles] = await Promise.all([
     sb.fetchOrdersForProfitAggregate(dateKey),
-    sb.fetchProfiles(sb.getServiceClient()),
+    sb.fetchProfiles(),
   ]);
   const nameById = new Map(
     (profiles || []).map((p) => [String(p.id), String(p.user_name || "").trim()]),

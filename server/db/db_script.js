@@ -16,8 +16,9 @@ export function resolveDbScript(env = process.env) {
   return "rds";
 }
 
-export function usesRdsImpl(_script) {
-  return true;
+/** @returns {{ script: string }} */
+export function getDbMode(env = process.env) {
+  return { script: resolveDbScript(env) };
 }
 
 export function describeDbScript(_script) {

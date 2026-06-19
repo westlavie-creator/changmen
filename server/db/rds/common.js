@@ -2,7 +2,7 @@
  * RDS 公共工具 — pool 访问、fire-and-forget 写入、jsonb 序列化。
  */
 
-import { getDbMode } from "../db_mode.js";
+import { getDbMode } from "../db_script.js";
 import { getPgPool as getSharedPgPool } from "../pg_pool.js";
 
 const _mode = getDbMode();

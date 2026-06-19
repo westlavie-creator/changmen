@@ -9,7 +9,7 @@ const PROFILE_WITH_ADMIN_FROM = `
   JOIN users u ON u.id = p.id`;
 
 /** 拉取所有 profiles 到内存（启动时调用） */
-export async function fetchProfiles(_sessionClient) {
+export async function fetchProfiles() {
   const pool = getPgPool();
   if (!pool) return [];
   try {

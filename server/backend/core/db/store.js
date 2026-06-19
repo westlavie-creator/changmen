@@ -85,8 +85,8 @@ export async function loadProfileById(uid) {
   return _toProfile(data);
 }
 
-export async function pullProfilesFromDb(sessionClient) {
-  const profiles = await sb.fetchProfiles(sessionClient);
+export async function pullProfilesFromDb() {
+  const profiles = await sb.fetchProfiles();
   if (profiles.length) {
     for (const p of profiles) _set(p.id, p);
     console.log("[db] 加载 profiles:", profiles.length, "条");
