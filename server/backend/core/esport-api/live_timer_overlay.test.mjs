@@ -123,6 +123,60 @@ describe("overlayLiveTimersOnMatches", () => {
     expect(map3?.Sources?.RAY).toMatchObject({ BetID: "9", HomeOdds: 1.9, AwayOdds: 1.84 });
   });
 
+  it("overlay promote keeps reconciled RAY odds when Reverse includes RAY", () => {
+    const match = {
+      ID: 1,
+      BO: 3,
+      Round: 0,
+      RoundStart: 0,
+      Reverse: ["RAY"],
+      Title: "9z Team vs FURIA",
+      Matchs: { OB: "99", RAY: "88" },
+      Bets: [
+        {
+          Map: 0,
+          HomeName: "9z Team",
+          AwayName: "FURIA",
+          Sources: {
+            OB: {
+              Type: "OB",
+              BetID: "1",
+              HomeOdds: 2.5,
+              AwayOdds: 1.55,
+              Status: "Normal",
+            },
+            RAY: {
+              Type: "RAY",
+              BetID: "9",
+              HomeOdds: 2.08,
+              AwayOdds: 1.85,
+              Status: "Normal",
+            },
+          },
+        },
+        {
+          Map: 3,
+          HomeName: "9z Team",
+          AwayName: "FURIA",
+          Sources: {
+            OB: {
+              Type: "OB",
+              BetID: "2",
+              HomeOdds: 2.065,
+              AwayOdds: 1.75,
+              Status: "Normal",
+            },
+          },
+        },
+      ],
+    };
+    const out = overlayLiveTimersOnMatches([match], {
+      OB: { provider: "OB", timer: [{ MatchID: "99", Round: 3, StartTime: 8000 }] },
+    });
+    const map3 = out[0].Bets.find((b) => b.Map === 3);
+    expect(map3?.Sources?.RAY).toMatchObject({ HomeOdds: 2.08, AwayOdds: 1.85 });
+  });
+
   it("keeps Map=0 with empty Sources when live and OB has no full-match market", () => {
     const match = {
       ID: 1,

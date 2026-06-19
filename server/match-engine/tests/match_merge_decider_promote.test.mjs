@@ -519,6 +519,92 @@ test("promote: skips IA when native Map=3 exists", () => {
   assert.equal(map3?.Sources?.IA?.BetID, "ia-map3");
 });
 
+test("promote: BO3 decider aligns RAY final to Title when OB home/away reversed vs RAY", () => {
+  const bets = {
+    "OB:ob1": {
+      provider: "OB",
+      matchId: "ob1",
+      bets: [
+        {
+          SourceBetID: "ob-full",
+          Map: 0,
+          BetName: "[全场]-全局-获胜",
+          SourceHomeID: "ob-h-9z",
+          HomeOdds: 2.5,
+          SourceAwayID: "ob-a-furia",
+          AwayOdds: 1.55,
+          Status: "Normal",
+        },
+        {
+          SourceBetID: "ob-map3",
+          Map: 3,
+          BetName: "[地图3]-单局-获胜",
+          SourceHomeID: "ob-m3-h-9z",
+          HomeOdds: 2.065,
+          SourceAwayID: "ob-m3-a-furia",
+          AwayOdds: 1.75,
+          Status: "Normal",
+        },
+      ],
+    },
+    "RAY:ray1": {
+      provider: "RAY",
+      matchId: "ray1",
+      bets: [
+        {
+          SourceBetID: "ray-final",
+          Map: 0,
+          BetName: "[全场] 获胜者",
+          SourceHomeID: "ray-h-furia",
+          HomeOdds: 1.85,
+          SourceAwayID: "ray-a-9z",
+          AwayOdds: 2.08,
+          Status: "Normal",
+        },
+      ],
+    },
+  };
+
+  const matches = {
+    OB: {
+      ob1: {
+        ...baseMatch("OB", "ob1", "9z", "FURIA"),
+        BO: 3,
+      },
+    },
+    RAY: {
+      ray1: {
+        ...baseMatch("RAY", "ray1", "FURIA", "9z"),
+        BO: 3,
+      },
+    },
+  };
+  const timers = {
+    OB: {
+      provider: "OB",
+      timer: [{ MatchID: "ob1", Round: 3, StartTime: Date.now() - 30_000 }],
+    },
+  };
+
+  const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
+  assert.equal(list.length, 1);
+  assert.equal(list[0].Title, "9z vs FURIA");
+  assert.ok(list[0].Reverse.includes("RAY"));
+  assert.ok(!list[0].Reverse.includes("OB"));
+
+  const map3 = list[0].Bets.find((b) => b.Map === 3);
+  assert.ok(map3?.Sources?.OB, "OB native map3");
+  assert.ok(map3?.Sources?.RAY, "RAY final promoted to map3");
+
+  // Title canonical：Home=9z，Away=FURIA；两平台 Home 赔均为 9z、Away 赔均为 FURIA
+  assert.equal(map3.Sources.OB.HomeOdds, 2.065);
+  assert.equal(map3.Sources.OB.AwayOdds, 1.75);
+  assert.equal(map3.Sources.RAY.HomeOdds, 2.08);
+  assert.equal(map3.Sources.RAY.AwayOdds, 1.85);
+  assert.equal(map3.HomeName, "9z");
+  assert.equal(map3.AwayName, "FURIA");
+});
+
 test("live Round=2, OB no Map=0: keep Map=0 row with empty Sources and Initial odds", () => {
   const bets = {
     "OB:ob1": {

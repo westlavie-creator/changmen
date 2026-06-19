@@ -84,6 +84,8 @@ export const {
   insertUserLogRow,
   softDeletePlayerRow,
   upsertOrders,
+  setOrdersInsertedHook,
+  setOrdersBoundHook,
   updateOrderBind,
   authSignIn,
   authSignOut,

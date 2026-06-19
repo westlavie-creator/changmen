@@ -7,11 +7,14 @@ import { fileURLToPath } from "node:url";
 import { ensurePlatformCredentials } from "./core/esport-api/platform_sync.js";
 import { initLastWrittenIds, fetchPlatformMatches } from "@changmen/db";
 import { ensureSeed as ensureAccountSeed } from "./core/account/account_store.js";
+import { setupAdminTools } from "./core/admin_tools/setup.js";
 import store from "./core/esport-api/store.js";
 import { createStaticHandler } from "./static_files.js";
 import { createHttpHandler } from "./http_routes.js";
 
 ensureWinConsoleUtf8();
+
+setupAdminTools();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

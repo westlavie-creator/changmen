@@ -601,7 +601,6 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
       row.Bets.sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
     }
 
-    const reverse = row.Reverse || [];
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
       if (liveBet.Sources?.[platform]) continue;
       const fullSrc = fullBet.Sources?.[platform];
@@ -613,9 +612,8 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
       const accByMap = new Map((accRow.Bets || []).map((b) => [b.Map ?? 0, b]));
       if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap)) continue;
 
-      liveBet.Sources[platform] = reverse.includes(platform)
-        ? swapBetSource(fullSrc)
-        : { ...fullSrc };
+      // fullBet.Sources 已由 reconcileClientMatchReverse 按 Title canonical 对齐，勿再 swap
+      liveBet.Sources[platform] = { ...fullSrc };
     }
   }
 }
@@ -649,12 +647,10 @@ function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
       accByMap.set(liveMap, liveBet);
     }
 
-    const reverse = row.Reverse || [];
     for (const [platform, fullSrc] of Object.entries(fullBet.Sources)) {
       if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap)) continue;
-      liveBet.Sources[platform] = reverse.includes(platform)
-        ? swapBetSource(fullSrc)
-        : { ...fullSrc };
+      // client_matches 写入前已 reconcile；overlay 只复制，避免 Reverse 平台二次 swap
+      liveBet.Sources[platform] = { ...fullSrc };
     }
   }
 }

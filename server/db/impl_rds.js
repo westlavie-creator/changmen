@@ -633,7 +633,7 @@ async function purgePlatformLiveTimers(platform) {
 // ── orders ────────────────────────────────────────────────────────────
 
 async function _rdsUpsertOrders(pool, rows) {
-  if (!rows?.length) return;
+  if (!rows?.length) return [];
   const sql = `
     INSERT INTO orders (
       user_id, player_id, order_id, link, provider, match, bet, item,
@@ -651,12 +651,14 @@ async function _rdsUpsertOrders(pool, rows) {
       status = EXCLUDED.status,
       create_at = EXCLUDED.create_at,
       raw = EXCLUDED.raw
+    RETURNING *, (xmax = 0) AS was_inserted
   `;
+  const inserted = [];
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     for (const o of rows) {
-      await client.query(sql, [
+      const res = await client.query(sql, [
         String(o.user_id),
         Number(o.player_id),
         String(o.order_id),
@@ -672,13 +674,61 @@ async function _rdsUpsertOrders(pool, rows) {
         Number(o.create_at),
         _jsonb(o.raw, {}),
       ]);
+      const row = res.rows?.[0];
+      if (row?.was_inserted) {
+        const { was_inserted: _wi, ...clean } = row;
+        inserted.push(clean);
+      }
     }
     await client.query("COMMIT");
+    return inserted;
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
   } finally {
     client.release();
+  }
+}
+
+/** orders 新行写入后回调（由 backend 注册 Telegram 等） */
+let _ordersInsertedHook = null;
+
+function setOrdersInsertedHook(fn) {
+  _ordersInsertedHook = typeof fn === "function" ? fn : null;
+}
+
+/** SaveOrderBind 将 link 从外部 hash 改为套利/单边后回调 */
+let _ordersBoundHook = null;
+
+function setOrdersBoundHook(fn) {
+  _ordersBoundHook = typeof fn === "function" ? fn : null;
+}
+
+function _isExternalOrderLink(link) {
+  const n = Number(link);
+  if (!Number.isFinite(n) || n === 0) return true;
+  if (n > 0 && n < 1_000_000_000_000) return true;
+  return false;
+}
+
+/** upsert 订单列表；新插入行经 setOrdersInsertedHook 通知 */
+async function upsertOrders(rows) {
+  if (!rows?.length) return false
+  const pool = getPgPool()
+  if (!pool) return false
+  try {
+    const inserted = await _rdsUpsertOrders(pool, rows)
+    if (inserted.length && _ordersInsertedHook) {
+      try {
+        _ordersInsertedHook(inserted)
+      } catch (hookErr) {
+        console.warn('[rds] ordersInsertedHook:', hookErr.message)
+      }
+    }
+    return true
+  } catch (err) {
+    console.warn('[rds] upsertOrders:', err.message)
+    return false
   }
 }
 
@@ -728,20 +778,6 @@ async function fetchOrdersByPlayerAll(playerId, userId) {
   } catch (err) {
     console.warn('[rds] fetchOrdersByPlayerAll:', err.message)
     return []
-  }
-}
-
-/** upsert 订单列表 */
-async function upsertOrders(rows) {
-  if (!rows?.length) return false
-  const pool = getPgPool()
-  if (!pool) return false
-  try {
-    await _rdsUpsertOrders(pool, rows)
-    return true
-  } catch (err) {
-    console.warn('[rds] upsertOrders:', err.message)
-    return false
   }
 }
 
@@ -924,16 +960,34 @@ async function updateOrderBind(orderId, userId, link, opts = {}) {
   const pool = getPgPool()
   if (!pool) return false
   try {
-    const params = [linkVal, String(userId), String(orderId)]
-    let where = "user_id = $2 AND order_id = $3"
+    const matchParams = [String(userId), String(orderId)]
+    let where = "user_id = $1 AND order_id = $2"
     if (Number.isFinite(playerId) && playerId > 0) {
-      params.push(playerId)
-      where += ` AND player_id = $${params.length}`
+      matchParams.push(playerId)
+      where += ` AND player_id = $${matchParams.length}`
     } else if (provider) {
-      params.push(provider)
-      where += ` AND provider = $${params.length}`
+      matchParams.push(provider)
+      where += ` AND provider = $${matchParams.length}`
     }
-    const res = await pool.query(`UPDATE orders SET link = $1 WHERE ${where}`, params)
+    const sel = await pool.query(`SELECT * FROM orders WHERE ${where}`, matchParams)
+    const prev = sel.rows?.[0]
+    if (!prev) return false
+    const res = await pool.query(
+      `UPDATE orders SET link = $1 WHERE ${where}`,
+      [linkVal, ...matchParams],
+    )
+    if (
+      res.rowCount > 0 &&
+      _isExternalOrderLink(prev.link) &&
+      !_isExternalOrderLink(linkVal) &&
+      _ordersBoundHook
+    ) {
+      try {
+        _ordersBoundHook([{ ...prev, link: linkVal }])
+      } catch (hookErr) {
+        console.warn('[rds] ordersBoundHook:', hookErr.message)
+      }
+    }
     return res.rowCount > 0
   } catch (err) {
     console.warn('[rds] updateOrderBind:', err.message)
@@ -1146,6 +1200,8 @@ export {
   insertUserLogRow,
   softDeletePlayerRow,
   upsertOrders,
+  setOrdersInsertedHook,
+  setOrdersBoundHook,
   updateOrderBind,
   authSignIn,
   authSignOut,
