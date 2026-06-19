@@ -43,8 +43,8 @@ describe("format shared helpers", () => {
     expect(linkIdSourceLabel("arb")).toBe("系统");
     expect(classifyLinkId(-1781532641651)).toBe("single");
     expect(linkIdSourceLabel("single")).toBe("单边");
-    expect(classifyLinkId(3864266867)).toBe("external");
-    expect(linkIdSourceLabel("external")).toBe("外部");
+    expect(classifyLinkId(3864266867)).toBe("hash");
+    expect(linkIdSourceLabel("hash")).toBe("hash");
     expect(classifyLinkId(0)).toBeNull();
   });
 });

@@ -31,7 +31,7 @@ export function linkTypeLabel(link) {
   const n = Number(link);
   if (Number.isFinite(n) && n >= ARB_LINK_MIN) return "套利";
   if (Number.isFinite(n) && n < 0) return "单边";
-  return "外部";
+  return "hash";
 }
 
 /** 展示 LinkID：原样数字字符串（负数为单边，对齐前端 formatLinkId） */

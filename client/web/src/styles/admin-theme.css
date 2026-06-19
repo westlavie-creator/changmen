@@ -1554,7 +1554,7 @@ html.admin-route #app > * {
   color: #e6a23c;
   background: rgba(230, 162, 60, 0.16);
 }
-.admin-link-source--external {
+.admin-link-source--hash {
   color: var(--adm-text-muted);
   background: rgba(90, 111, 138, 0.2);
 }

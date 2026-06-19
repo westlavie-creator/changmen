@@ -30,7 +30,7 @@ describe("admin_tools/order_notify", () => {
   it("linkTypeLabel classifies link ids", () => {
     expect(linkTypeLabel(1_000_000_000_000)).toBe("套利");
     expect(linkTypeLabel(-1)).toBe("单边");
-    expect(linkTypeLabel(12345)).toBe("外部");
+    expect(linkTypeLabel(12345)).toBe("hash");
   });
 
   it("shouldNotifyOrderCreateAt respects max age window", () => {

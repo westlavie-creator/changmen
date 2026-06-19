@@ -12,10 +12,8 @@ import { hasDatabaseUrlConfig } from "./resolve_database_url.js";
 import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "./client_match_list_status.js";
 import { getPgPool, _writeRds, _writeRdsAsync, _jsonb } from "./rds/common.js";
 import { localDayBounds, localMonthBounds } from "./rds/time_bounds.js";
-/** 读路径默认排除外部单：系统套利 link≥1e12 或单边 link<0 */
+/** 读路径默认排除 hash 占位单：系统套利 link≥1e12 或单边 link<0 */
 const SQL_NON_EXT = '(link < 0 OR link >= 1000000000000)'
-/** 外部单：官网同步、未 SaveOrderBind */
-const SQL_EXT = '(link IS NULL OR link = 0 OR (link > 0 AND link < 1000000000000))'
 import {
   JWT_SECRET,
   JWT_ACCESS_TTL_SEC,
@@ -919,30 +917,6 @@ async function fetchOrdersAdminPage({
   }
 }
 
-/** 管理端：按日删除外部订单（官网/未绑定套利 link） */
-async function deleteExternalOrdersAdmin({ dateKey, userId, provider }) {
-  const { dayStart, dayEnd } = localDayBounds(dateKey)
-  const pool = getPgPool()
-  if (!pool) return 0
-  try {
-    const params = [dayStart, dayEnd]
-    let where = `create_at >= $1 AND create_at < $2 AND ${SQL_EXT}`
-    if (userId) {
-      params.push(String(userId))
-      where += ` AND user_id = $${params.length}`
-    }
-    if (provider) {
-      params.push(String(provider))
-      where += ` AND provider = $${params.length}`
-    }
-    const res = await pool.query(`DELETE FROM orders WHERE ${where}`, params)
-    return res.rowCount ?? 0
-  } catch (err) {
-    console.warn('[rds] deleteExternalOrdersAdmin:', err.message)
-    return 0
-  }
-}
-
 /** 管理端：按主键 id 删除订单 */
 async function deleteOrdersByIds(ids) {
   if (!Array.isArray(ids) || !ids.length) return 0
@@ -1260,7 +1234,6 @@ export {
   fetchOrdersAdminStats,
   fetchOrdersAdminPage,
   deleteOrdersByIds,
-  deleteExternalOrdersAdmin,
   fetchOrdersAdminAll,
   fetchOrdersForMonthAggregate,
   fetchMoneyLogsForMonthAggregate,

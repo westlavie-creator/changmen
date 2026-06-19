@@ -19,7 +19,7 @@ describe("user_log_lookup", () => {
   it("linkTypeLabel and groupMetaLabel", () => {
     expect(linkTypeLabel(1_781_802_360_547)).toBe("套利");
     expect(linkTypeLabel(-1)).toBe("单边");
-    expect(linkTypeLabel(12345)).toBe("外部");
+    expect(linkTypeLabel(12345)).toBe("hash");
     expect(groupMetaLabel(1_781_802_360_547, 1)).toBe("单笔");
     expect(groupMetaLabel(1_781_802_360_547, 2)).toBe("套利 2 笔");
   });

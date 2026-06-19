@@ -16,7 +16,7 @@ function linkType(link) {
   const n = Number(link);
   if (Number.isFinite(n) && n >= ARB_LINK_MIN) return "arb";
   if (Number.isFinite(n) && n < 0) return "single";
-  return "external";
+  return "hash";
 }
 
 function shouldNotify(link, createAt, now = Date.now()) {

@@ -364,19 +364,6 @@ export async function deleteAdminOrders(body = {}) {
   return { deleted };
 }
 
-/** 管理端：删除当日筛选范围内的全部外部订单 */
-export async function deleteAdminExternalOrders(body = {}) {
-  const dateKey = body.date ? String(body.date) : toDateKey(Date.now());
-  const userId = body.userId ? String(body.userId) : "";
-  const provider = body.provider ? String(body.provider) : "";
-  const deleted = await sb.deleteExternalOrdersAdmin({
-    dateKey,
-    userId: userId || undefined,
-    provider: provider || undefined,
-  });
-  return { deleted, date: dateKey };
-}
-
 /** 管理端：当日全量订单（对阵矩阵视图） */
 export async function listAdminOrdersMatrix(body = {}) {
   const dateKey = body.date ? String(body.date) : toDateKey(Date.now());

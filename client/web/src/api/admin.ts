@@ -96,16 +96,6 @@ export async function deleteAdminOrders(orderIds: number[]) {
   );
 }
 
-export async function deleteAdminExternalOrders(body: {
-  date?: string;
-  userId?: string;
-  provider?: string;
-}) {
-  return unwrap(
-    await post<{ deleted: number; date: string }>("Client_AdminDeleteExternalOrders", body),
-  );
-}
-
 /** Link / order_id 关联 Client_SaveUserLog（管理端诊断） */
 export async function getAdminOrderLogs(body: {
   userId: string;

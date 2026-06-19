@@ -58,8 +58,8 @@ function linkSourceTag(linkId: number | undefined) {
   const label = linkIdSourceLabel(source);
   if (!source || !label) return null;
   const title =
-    source === "external"
-      ? "官网/外部下单，link 为 orderId hash"
+    source === "hash"
+      ? "SaveOrder 占位 link（orderId hash），未 SaveOrderBind"
       : source === "arb"
         ? "系统内套利 SaveOrderBind"
         : "系统内单边下单";

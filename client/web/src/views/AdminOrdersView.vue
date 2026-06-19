@@ -5,7 +5,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminOrdersGroupedTable from "@/components/admin/AdminOrdersGroupedTable.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
-import { deleteAdminExternalOrders, deleteAdminOrders, getAdminOrdersAll, getAdminUsers } from "@/api/admin";
+import { deleteAdminOrders, getAdminOrdersAll, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
 import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
@@ -137,41 +137,6 @@ async function onDeleteOrders(rows: AdminOrderRow[]) {
   }
 }
 
-async function onDeleteAllExternalOrders() {
-  const scopeParts = [date.value];
-  if (filterUserId.value) scopeParts.push(filterUserName.value || "指定用户");
-  if (filterProvider.value) scopeParts.push(`平台 ${filterProvider.value}`);
-  const scope = scopeParts.join(" · ");
-  try {
-    await ElMessageBox.confirm(
-      `将删除 ${scope} 下全部外部订单（官网/未绑定 link，不限当前页）。系统套利与单边订单不受影响。此操作不可恢复。`,
-      "删除全部外部订单",
-      {
-        type: "warning",
-        confirmButtonText: "全部删除",
-        cancelButtonText: "取消",
-      },
-    );
-  } catch {
-    return;
-  }
-  try {
-    const res = await deleteAdminExternalOrders({
-      date: date.value,
-      userId: filterUserId.value || undefined,
-      provider: filterProvider.value || undefined,
-    });
-    if (!res.deleted) {
-      ElMessage.info("没有可删除的外部订单");
-    } else {
-      ElMessage.success(`已删除 ${res.deleted} 笔外部订单`);
-    }
-    await loadOrders();
-  } catch (e) {
-    ElMessage.error((e as Error).message || "删除失败");
-  }
-}
-
 watch(date, () => {
   syncRouteQuery();
   void refresh();
@@ -227,15 +192,6 @@ onMounted(async () => {
           <el-button size="small" type="primary" @click="onSearch">查询</el-button>
           <el-button size="small" @click="date = todayKey()">今天</el-button>
           <el-button size="small" @click="refresh">刷新</el-button>
-          <el-button
-            size="small"
-            type="danger"
-            plain
-            :disabled="loading"
-            @click="onDeleteAllExternalOrders"
-          >
-            删除全部外部订单
-          </el-button>
         </div>
         <div class="admin-card__body admin-card__scroll">
         <p v-if="loadError" class="admin-order-groups__empty admin-order-groups__empty--err">

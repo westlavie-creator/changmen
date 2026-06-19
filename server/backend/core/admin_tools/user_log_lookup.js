@@ -17,7 +17,7 @@ export function linkTypeLabel(link) {
   if (!Number.isFinite(n) || n === 0) return "未知";
   if (n < 0) return "单边";
   if (n >= ARB_LINK_MIN) return "套利";
-  return "外部";
+  return "hash";
 }
 
 export function groupMetaLabel(link, orderCount) {
@@ -27,7 +27,7 @@ export function groupMetaLabel(link, orderCount) {
     return `套利 ${orderCount} 笔`;
   }
   if (Number.isFinite(n) && n >= ARB_LINK_MIN) return "单笔";
-  return "外部/未绑定";
+  return "hash/未绑定";
 }
 
 /** 以订单 create_at 与 link 时间戳估窗口 */

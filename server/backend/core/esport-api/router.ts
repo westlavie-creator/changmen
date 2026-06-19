@@ -69,7 +69,6 @@ const ADMIN_ACTIONS = new Set<EsportAction>([
   "Client_AdminRenameUser",
   "Client_AdminSetUserAdmin",
   "Client_AdminDeleteOrders",
-  "Client_AdminDeleteExternalOrders",
   "Client_AdminMonthReport",
 ]);
 
@@ -519,9 +518,6 @@ async function handle(
       } catch (err) {
         return fail((err as Error).message || "??????");
       }
-    }
-    case "Client_AdminDeleteExternalOrders": {
-      return ok(await adminService.deleteAdminExternalOrders(body));
     }
     case "Client_AdminMonthReport": {
       const userId = body.userId ?? body.user_id;
