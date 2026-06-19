@@ -39,6 +39,7 @@ import {
   fetchPlayerById,
   updatePlayerBalanceRow,
   insertUserLogRow,
+  fetchUserLogsInRange,
   softDeletePlayerRow,
 } from "./rds/player_store.js";
 import {
@@ -781,6 +782,80 @@ async function fetchOrdersByPlayerAll(playerId, userId) {
   }
 }
 
+/** 运维：同 Link 订单（含外部 hash link） */
+async function fetchOrdersByLink(userId, link) {
+  const pool = getPgPool()
+  const uid = String(userId || '').trim()
+  const linkVal = Number(link)
+  if (!pool || !uid || !Number.isFinite(linkVal) || linkVal === 0) return []
+  try {
+    const { rows } = await pool.query(
+      `SELECT order_id, user_id, player_id, link, provider, match, bet, item,
+              odds, bet_money, money, status, create_at
+       FROM orders WHERE user_id = $1 AND link = $2
+       ORDER BY create_at ASC`,
+      [uid, linkVal],
+    )
+    return rows || []
+  } catch (err) {
+    console.warn('[rds] fetchOrdersByLink:', err.message)
+    return []
+  }
+}
+
+/** 运维：按 order_id 查单行（含外部单） */
+async function fetchOrderByOrderId(userId, orderId) {
+  const pool = getPgPool()
+  const uid = String(userId || '').trim()
+  const oid = String(orderId || '').trim()
+  if (!pool || !uid || !oid) return null
+  try {
+    const { rows } = await pool.query(
+      `SELECT order_id, user_id, player_id, link, provider, match, bet, item,
+              odds, bet_money, money, status, create_at
+       FROM orders WHERE user_id = $1 AND order_id = $2
+       LIMIT 1`,
+      [uid, oid],
+    )
+    return rows?.[0] ?? null
+  } catch (err) {
+    console.warn('[rds] fetchOrderByOrderId:', err.message)
+    return null
+  }
+}
+
+async function fetchUserByName(userName) {
+  const pool = getPgPool()
+  const name = String(userName || '').trim()
+  if (!pool || !name) return null
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, user_name FROM users WHERE lower(user_name) = lower($1) LIMIT 1`,
+      [name],
+    )
+    return rows?.[0] ?? null
+  } catch (err) {
+    console.warn('[rds] fetchUserByName:', err.message)
+    return null
+  }
+}
+
+async function fetchUserById(userId) {
+  const pool = getPgPool()
+  const uid = String(userId || '').trim()
+  if (!pool || !uid) return null
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, user_name FROM users WHERE id = $1 LIMIT 1`,
+      [uid],
+    )
+    return rows?.[0] ?? null
+  } catch (err) {
+    console.warn('[rds] fetchUserById:', err.message)
+    return null
+  }
+}
+
 /** 管理端：当日订单汇总（不含外部单） */
 async function fetchOrdersAdminStats(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
@@ -1177,6 +1252,10 @@ export {
   fetchOrdersByDate,
   fetchOrdersByPlayer,
   fetchOrdersByPlayerAll,
+  fetchOrdersByLink,
+  fetchOrderByOrderId,
+  fetchUserByName,
+  fetchUserById,
   fetchProfilesAdmin,
   fetchOrdersAdminStats,
   fetchOrdersAdminPage,
@@ -1198,6 +1277,7 @@ export {
   fetchPlayerById,
   updatePlayerBalanceRow,
   insertUserLogRow,
+  fetchUserLogsInRange,
   softDeletePlayerRow,
   upsertOrders,
   setOrdersInsertedHook,

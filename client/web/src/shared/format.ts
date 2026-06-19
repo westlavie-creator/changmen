@@ -89,11 +89,10 @@ export function isSingleLegLink(link: number | null | undefined): boolean {
   return Number.isFinite(n) && n < 0;
 }
 
-/** 展示 LinkID：单边为 gb{时间戳}，双腿为数字字符串 */
+/** 展示 LinkID：原样数字字符串（负数为单边） */
 export function formatLinkId(link: number | null | undefined): string {
   const n = Number(link);
   if (!Number.isFinite(n) || n === 0) return "—";
-  if (n < 0) return `gb${Math.abs(n)}`;
   return String(n);
 }
 

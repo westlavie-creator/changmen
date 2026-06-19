@@ -128,7 +128,13 @@ async function handleSaveOrder(body, userId) {
   } catch {
     return { ok: false, msg: "orders JSON 无效" };
   }
-  await orderStore.saveOrder(playerId, orders, userId);
+  const saved = await orderStore.saveOrder(
+    playerId,
+    orders,
+    userId,
+    body.type || body.Type || "",
+  );
+  if (!saved) return { ok: false, msg: "保存订单失败" };
   return { ok: true, info: true };
 }
 

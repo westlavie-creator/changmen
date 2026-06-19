@@ -34,11 +34,10 @@ export function linkTypeLabel(link) {
   return "外部";
 }
 
-/** 展示 LinkID：单边 gb{时间戳}，套利为数字字符串（对齐前端 formatLinkId） */
+/** 展示 LinkID：原样数字字符串（负数为单边，对齐前端 formatLinkId） */
 export function formatLinkId(link) {
   const n = Number(link);
   if (!Number.isFinite(n) || n === 0) return "—";
-  if (n < 0) return `gb${Math.abs(n)}`;
   return String(n);
 }
 

@@ -37,6 +37,7 @@ export const ESPORT_ACTIONS = [
   "Client_AdminUsers",
   "Client_AdminOrders",
   "Client_AdminOrdersMatrix",
+  "Client_AdminOrderLogs",
   "Client_AdminCreateUser",
   "Client_AdminResetPassword",
   "Client_AdminRenameUser",

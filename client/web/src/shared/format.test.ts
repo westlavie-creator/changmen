@@ -30,10 +30,10 @@ describe("format shared helpers", () => {
     expect(arbProfitRate(1.032, 2)).toBe("3.20%");
   });
 
-  it("formats single-leg link id with gb prefix", () => {
+  it("formats link id as numeric string", () => {
     expect(isSingleLegLink(-1710000000123)).toBe(true);
     expect(isSingleLegLink(1710000000123)).toBe(false);
-    expect(formatLinkId(-1710000000123)).toBe("gb1710000000123");
+    expect(formatLinkId(-1710000000123)).toBe("-1710000000123");
     expect(formatLinkId(42)).toBe("42");
     expect(formatLinkId(0)).toBe("—");
   });

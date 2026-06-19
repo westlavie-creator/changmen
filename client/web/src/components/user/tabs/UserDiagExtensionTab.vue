@@ -80,7 +80,7 @@ async function save() {
       <ul class="hint list">
         <li>在账号「投注比例」某区间填 <strong>9999</strong>：该侧<strong>不参与</strong>自动下单。</li>
         <li>出现套利机会时，系统在对侧平台<strong>真下单</strong>（单边敞口，非假单）。</li>
-        <li>LinkID 为负时间戳，后台展示为 <code>gb&#123;时间戳&#125;</code>。</li>
+        <li>LinkID 为负时间戳表示单边（展示为负数，如 <code>-1710000000123</code>）。</li>
         <li>Telegram 仍用双腿版式：9999 侧标注「本侧不下单」，对侧显示真实结果。</li>
         <li>缺腿若因余额不足、暂停等（非 9999），则整单跳过，与 A8 一致。</li>
       </ul>

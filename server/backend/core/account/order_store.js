@@ -74,8 +74,10 @@ export async function listByPlayer(playerId, userId) {
   return rows.map(rowToOrder);
 }
 
-export async function saveOrder(playerId, orders, userId) {
+export async function saveOrder(playerId, orders, userId, typeFallback = "") {
   if (!userId || !Array.isArray(orders)) return false;
+  if (!orders.length) return true;
+  const defaultProvider = String(typeFallback || "").trim();
   const existing = await sb.fetchOrdersByPlayerAll(playerId, userId);
   const linkByOrderId = new Map(
     existing.map((r) => [String(r.order_id), Number(r.link) || 0]),
@@ -99,7 +101,7 @@ export async function saveOrder(playerId, orders, userId) {
       player_id: Number(playerId),
       order_id: String(orderId),
       link,
-      provider: o.provider || o.Type || "",
+      provider: o.provider || o.Type || defaultProvider || "",
       match: o.match || o.Match || "",
       bet: o.bet || o.Bet || "",
       item: o.item || o.Item || "",

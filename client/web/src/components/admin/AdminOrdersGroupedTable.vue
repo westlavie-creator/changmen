@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { AdminOrderRow } from "@/types/admin";
 import { classifyLinkId, formatLinkId, isSingleLegLink, linkIdSourceLabel } from "@/shared/format";
+import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 
 const props = defineProps<{
   groups: [number, AdminOrderRow[]][];
@@ -12,6 +13,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   delete: [rows: AdminOrderRow[]];
 }>();
+
+const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null);
+
+function openLogs(rows: AdminOrderRow[]) {
+  logsDialogRef.value?.open(rows);
+}
 
 interface FlatOrderRow {
   rowKey: string;
@@ -215,17 +222,42 @@ function spanMethod({
         <span class="admin-order-time">{{ fmtTime(row.order.createAt) }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="操作" width="72" align="center" fixed="right" class-name="admin-order-cell--center admin-order-cell--action">
+    <el-table-column label="操作" width="132" align="center" fixed="right" class-name="admin-order-cell--center admin-order-cell--action">
       <template #default="{ row }">
-        <el-button
-          link
-          type="danger"
-          size="small"
-          @click="emit('delete', row.groupRows)"
-        >
-          删除
-        </el-button>
+        <div class="admin-order-actions">
+          <el-button link type="primary" size="small" @click="openLogs(row.groupRows)">
+            诊断
+          </el-button>
+          <el-button
+            link
+            type="danger"
+            size="small"
+            @click="emit('delete', row.groupRows)"
+          >
+            删除
+          </el-button>
+        </div>
       </template>
     </el-table-column>
   </el-table>
+  <AdminOrderLogsDialog ref="logsDialogRef" />
 </template>
+
+<style scoped>
+.admin-order-actions {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.admin-order-actions :deep(.el-button) {
+  margin: 0 !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+</style>

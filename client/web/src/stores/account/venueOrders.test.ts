@@ -50,4 +50,13 @@ describe("applyUnsettledStats", () => {
     expect(acc.unsettle).toBe(1);
     expect(acc.winBalance).toBe(100);
   });
+
+  it("clears unsettle stats when venue returns no open orders", () => {
+    const acc = makeAccount(500);
+    acc.unsettle = 3;
+    acc.winBalance = 999;
+    applyUnsettledStats(acc, []);
+    expect(acc.unsettle).toBe(0);
+    expect(acc.winBalance).toBe(500);
+  });
 });

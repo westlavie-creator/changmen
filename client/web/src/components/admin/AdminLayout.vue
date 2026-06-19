@@ -57,7 +57,19 @@ watch(
 /** body overflow:hidden 时，el-table 会截获滚轮；订单页筛选栏等非表格区域也需滚动列表 */
 function onAdminWheel(e: WheelEvent) {
   const target = e.target;
-  if (!(target instanceof Element) || !target.closest(".admin-shell")) return;
+  if (!(target instanceof Element)) return;
+
+  // 弹窗 / 抽屉 / MessageBox 内滚轮交给组件自身，勿劫持到订单列表
+  if (
+    target.closest(".el-overlay") ||
+    target.closest(".el-dialog") ||
+    target.closest(".el-drawer") ||
+    target.closest(".el-message-box")
+  ) {
+    return;
+  }
+
+  if (!target.closest(".admin-shell")) return;
 
   const ordersCard = target.closest(".admin-card--orders");
   if (ordersCard) {

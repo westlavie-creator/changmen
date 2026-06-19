@@ -9,6 +9,7 @@ import {
   PROFILE_META_PREFERENCE_KEYS,
 } from "./user_login_meta.js";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
+import { lookupOrderLogs, toAdminOrderLogPayload } from "../admin_tools/user_log_lookup.js";
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
@@ -391,6 +392,26 @@ export async function listAdminOrdersMatrix(body = {}) {
   const startIndex = buildClientMatchStartIndex(clientMatches);
   const list = (rows || []).map((r) => mapAdminOrderRow(r, startIndex));
   return { date: dateKey, list, total: list.length };
+}
+
+/** 管理端：Link / order_id 关联 Client_SaveUserLog 诊断 */
+export async function listAdminOrderLogs(body = {}) {
+  const userId = String(body.userId ?? body.user_id ?? "").trim();
+  const linkRaw = body.linkId ?? body.link ?? body.LinkID;
+  const orderId = body.orderId ?? body.order_id ?? body.OrderID;
+  if (!userId) throw new Error("缺少 userId");
+  if (linkRaw == null && !orderId) throw new Error("请指定 linkId 或 orderId");
+
+  const result = await lookupOrderLogs({
+    userId,
+    link: linkRaw != null ? linkRaw : undefined,
+    orderId: orderId ? String(orderId) : undefined,
+    paddingMs: body.paddingMs,
+    logLimit: body.logLimit,
+  });
+  const payload = toAdminOrderLogPayload(result);
+  if (!payload.ok) throw new Error(payload.error || "查询失败");
+  return payload;
 }
 
 function validateNewPassword(password) {

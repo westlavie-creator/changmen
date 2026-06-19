@@ -21,6 +21,20 @@ function resolveDefaultOdds(
   return matchStore.getDefaultOdds?.(betId, side);
 }
 
+/** [A8 可证实] jb 补单 getAccount filter：pause / noMarkup / 账号赔率区间 / 初赔区间 */
+export function passesMakeUpAccountFilter(
+  account: PlatformAccount,
+  sideOdds: number,
+  betId: number,
+  side: BetSide,
+  matchStore: BetFilterMatchContext,
+): boolean {
+  if (account.isPause() || account.noMarkup) return false;
+  if (account.minOdds !== 0 && sideOdds < account.minOdds) return false;
+  if (account.maxOdds !== 0 && sideOdds > account.maxOdds) return false;
+  return passesDefaultOddsAt(account, resolveDefaultOdds(matchStore, betId, side));
+}
+
 /** 对齐 bundle：账号 minDefault / maxDefault 与初赔比较（纯函数） */
 export function passesDefaultOddsAt(
   account: PlatformAccount,

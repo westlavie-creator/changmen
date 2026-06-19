@@ -844,6 +844,544 @@ html.admin-route #app > * {
 .admin-orders-el-table tr.admin-order-group-row--group-end > td.el-table__cell {
   border-bottom: 2px solid rgba(90, 111, 138, 0.38) !important;
 }
+.admin-order-actions {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.admin-orders-el-table td.admin-order-cell--action.el-table__cell .admin-order-actions {
+  display: inline-flex !important;
+  flex-direction: row !important;
+}
+
+.admin-orders-el-table td.admin-order-cell--action.el-table__cell .admin-order-actions .el-button {
+  margin: 0 !important;
+}
+
+.admin-order-log-dialog__body {
+  min-height: 120px;
+}
+.admin-order-log-dialog.el-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, 860px);
+  margin-bottom: 0;
+}
+.admin-order-log-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  overflow: hidden;
+}
+.admin-order-log-dialog__scroll {
+  max-height: min(72vh, 640px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+.admin-order-log-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.admin-order-log-overview {
+  border: 1px solid var(--adm-border, rgba(90, 111, 138, 0.28));
+  border-radius: 8px;
+  background: var(--adm-surface-2, rgba(12, 18, 28, 0.35));
+  padding: 12px 14px;
+}
+.admin-order-log-overview__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--adm-border, rgba(90, 111, 138, 0.2));
+}
+.admin-order-log-overview__primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.admin-order-log-overview__user {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--adm-text);
+}
+.admin-order-log-overview__link {
+  font-family: var(--adm-mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--adm-text);
+}
+.admin-order-log-overview__tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(74, 138, 232, 0.18);
+  color: #79bbff;
+}
+.admin-order-log-overview__tag--muted {
+  background: rgba(90, 111, 138, 0.22);
+  color: var(--adm-text-muted);
+}
+.admin-order-log-overview__window {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+  font-family: var(--adm-mono, ui-monospace, monospace);
+  line-height: 1.5;
+  text-align: right;
+}
+.admin-order-log-overview__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.admin-order-log-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.admin-order-log-stat--wide {
+  grid-column: span 2;
+}
+@media (max-width: 640px) {
+  .admin-order-log-stat--wide {
+    grid-column: span 1;
+  }
+}
+.admin-order-log-stat__label {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+}
+.admin-order-log-stat__value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--adm-text);
+  word-break: break-word;
+}
+.admin-order-log-stat--pnl-pos .admin-order-log-stat__value {
+  color: var(--adm-success, #67c23a);
+}
+.admin-order-log-stat--pnl-neg .admin-order-log-stat__value {
+  color: var(--adm-danger, #f56c6c);
+}
+.admin-order-log-overview__empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--adm-text-muted);
+  font-style: italic;
+}
+.admin-order-log-overview__orders {
+  margin-top: 4px;
+}
+.admin-order-log-overview__orders-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--adm-text-muted);
+}
+.admin-order-log-overview-leg {
+  padding: 10px 12px;
+}
+.admin-order-log-overview-leg__pnl {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.admin-order-log-overview-leg__pnl.pos {
+  color: var(--adm-success, #67c23a);
+}
+.admin-order-log-overview-leg__pnl.neg {
+  color: var(--adm-danger, #f56c6c);
+}
+.admin-order-log-overview-order {
+  font-size: 12px;
+}
+.admin-order-log-overview-order + .admin-order-log-overview-order {
+  margin-top: 2px;
+}
+.admin-order-log-overview-order__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.admin-order-log-overview-order__match {
+  font-weight: 600;
+  color: var(--adm-text);
+  margin-bottom: 4px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-order-log-overview-order__bet {
+  color: var(--adm-text);
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-order-log-overview-order__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--adm-text-muted);
+  min-width: 0;
+}
+.admin-order-log-overview-order__meta span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-order-log-overview-order__meta .pos {
+  color: var(--adm-success, #67c23a);
+}
+.admin-order-log-overview-order__meta .neg {
+  color: var(--adm-danger, #f56c6c);
+}
+.admin-order-log-overview-order__time {
+  font-family: var(--adm-mono, ui-monospace, monospace);
+  font-size: 10px;
+}
+.admin-order-log-order-table {
+  font-size: 12px;
+  border: 1px solid var(--adm-border, rgba(90, 111, 138, 0.18));
+  border-radius: 6px;
+  overflow: hidden;
+}
+.admin-order-log-order-table__head,
+.admin-order-log-order-table__row {
+  display: grid;
+  grid-template-columns: 52px 72px minmax(0, 1fr) 72px 72px 148px;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+}
+.admin-order-log-order-table__head {
+  background: rgba(90, 111, 138, 0.12);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--adm-text-muted);
+}
+.admin-order-log-order-table__row + .admin-order-log-order-table__row {
+  border-top: 1px solid var(--adm-border, rgba(90, 111, 138, 0.15));
+}
+.admin-order-log-order-table__prov {
+  font-weight: 700;
+  color: var(--adm-text);
+}
+.admin-order-log-order-table__bet {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-order-log-order-table__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--adm-mono, ui-monospace, monospace);
+}
+.admin-order-log-order-table__num.pos {
+  color: var(--adm-success, #67c23a);
+}
+.admin-order-log-order-table__num.neg {
+  color: var(--adm-danger, #f56c6c);
+}
+.admin-order-log-order-table__time {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+  font-family: var(--adm-mono, ui-monospace, monospace);
+}
+.admin-order-log-logs-row__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+}
+.admin-order-log-logs-row__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--adm-text);
+}
+.admin-order-log-logs-row__hint {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+}
+.admin-order-log-dialog__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--adm-text-muted);
+}
+.admin-order-log-dialog__window {
+  font-family: var(--adm-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+.admin-order-log-dialog__err {
+  color: var(--adm-danger, #f56c6c);
+}
+.admin-order-log-dialog__empty {
+  color: var(--adm-text-muted);
+  font-size: 13px;
+}
+.admin-order-log-section__title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--adm-text);
+}
+.admin-order-log-section + .admin-order-log-section {
+  margin-top: 16px;
+}
+.admin-order-log-platforms {
+  display: grid;
+  grid-template-columns: repeat(var(--order-log-cols, 1), minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+  width: 100%;
+}
+.admin-order-log-platform-col {
+  border: 1px solid var(--adm-border, rgba(90, 111, 138, 0.28));
+  border-radius: 8px;
+  background: var(--adm-surface-2, rgba(12, 18, 28, 0.35));
+  padding: 10px 12px;
+  min-width: 0;
+}
+.admin-order-log-platform-col__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--adm-border, rgba(90, 111, 138, 0.22));
+  flex-shrink: 0;
+}
+.admin-order-log-platform-col__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--adm-text);
+  letter-spacing: 0.02em;
+}
+.admin-order-log-platform-col__counts {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+}
+.admin-order-log-platform-col__empty {
+  margin: 0;
+  flex: 1;
+}
+.admin-order-log-leg-col__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--adm-border, rgba(90, 111, 138, 0.22));
+}
+.admin-order-log-leg-col__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--adm-text);
+}
+.admin-order-log-attempt + .admin-order-log-attempt {
+  margin-top: 4px;
+}
+.admin-order-log-attempt-divider {
+  position: relative;
+  border: none;
+  border-top: 2px dashed rgba(230, 162, 60, 0.55);
+  margin: 14px 0 12px;
+  height: 0;
+}
+.admin-order-log-attempt-divider::after {
+  content: attr(data-label);
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--adm-warning, #e6a23c);
+  background: var(--adm-surface-2, rgba(12, 18, 28, 0.92));
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.admin-order-log-segment + .admin-order-log-segment {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(90, 111, 138, 0.35);
+}
+.admin-order-log-segment__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+.admin-order-log-segment__account {
+  font-weight: 600;
+  color: var(--adm-accent);
+}
+.admin-order-log-segment__tag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--adm-warning, #e6a23c);
+  background: rgba(230, 162, 60, 0.12);
+}
+.admin-order-log-segment__round {
+  color: var(--adm-text-muted);
+  font-family: var(--adm-mono, ui-monospace, monospace);
+}
+.admin-order-log-attempt__head {
+  margin-bottom: 6px;
+}
+.admin-order-log-attempt__index {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--adm-text-muted);
+}
+.admin-order-log-order-col__head {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--adm-border, rgba(90, 111, 138, 0.22));
+}
+.admin-order-log-order-col__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-bottom: 4px;
+}
+.admin-order-log-order-col__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--adm-text);
+}
+.admin-order-log-order-col__status {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+.admin-order-log-order-col__pending {
+  font-size: 11px;
+  color: var(--adm-warning, #e6a23c);
+  font-weight: 600;
+}
+.admin-order-log-order-col__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--adm-text-muted);
+  line-height: 1.4;
+  margin-top: 4px;
+  min-width: 0;
+}
+.admin-order-log-order-col__meta span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-order-log-order-col__meta--muted {
+  font-style: italic;
+  margin-top: 6px;
+}
+.admin-order-log-order-col__oid {
+  font-family: var(--adm-mono, ui-monospace, monospace);
+  word-break: break-all;
+}
+.admin-order-log-order-col .admin-order-log-platform-col__head {
+  display: none;
+}
+.admin-order-log-list--scroll {
+  max-height: none;
+  overflow: visible;
+}
+.admin-order-log-orders,
+.admin-order-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.admin-order-log-orders__row,
+.admin-order-log-list__row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 6px 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--adm-border);
+  font-size: 12px;
+}
+.admin-order-log-list__time,
+.admin-order-log-orders__time {
+  flex: 0 0 auto;
+  min-width: 0;
+  font-family: var(--adm-mono, ui-monospace, monospace);
+  color: var(--adm-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.admin-order-log-orders__prov {
+  flex: 0 0 40px;
+  font-weight: 600;
+}
+.admin-order-log-kind {
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-align: center;
+  background: rgba(90, 111, 138, 0.25);
+}
+.admin-order-log-kind--check {
+  background: rgba(64, 158, 255, 0.2);
+  color: #79bbff;
+}
+.admin-order-log-kind--bet {
+  background: rgba(103, 194, 58, 0.15);
+  color: #95d475;
+}
+.admin-order-log-kind--reject {
+  background: rgba(245, 108, 108, 0.15);
+  color: #f89898;
+}
+.admin-order-log-list__summary {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .admin-orders-el-table tr.admin-order-group-row--inner > td.el-table__cell {
   border-bottom-style: dashed;
   border-bottom-color: rgba(90, 111, 138, 0.18) !important;

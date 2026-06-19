@@ -163,7 +163,7 @@ export function explainAllowArbRejection(params: {
   return "双腿均无可用账号";
 }
 
-/** 比例 9999 单边用负数 link（展示 gb{时间戳}）；双腿套利为正时间戳 */
+/** 比例 9999 单边用负数 link；双腿套利为正时间戳 */
 export function createArbLinkId(singleLegByRate = false, linkTs = Date.now()): number {
   return singleLegByRate ? -linkTs : linkTs;
 }

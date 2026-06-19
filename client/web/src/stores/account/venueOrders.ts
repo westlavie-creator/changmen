@@ -15,8 +15,9 @@ export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder
 export async function syncVenueOrders(account: PlatformAccount): Promise<VenueOrder[] | undefined> {
   const provider = getProvider(account);
   if (!provider?.getOrders) return undefined;
-  const orders = sortVenueOrdersNewestFirst((await provider.getOrders(account)) ?? []);
-  if (!orders.length) return undefined;
+  const raw = await provider.getOrders(account);
+  if (raw == null) return undefined;
+  const orders = sortVenueOrdersNewestFirst(raw);
   applyUnsettledStats(account, orders);
   await saveOrders(account, orders);
   return orders;

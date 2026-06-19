@@ -132,3 +132,83 @@ export interface AdminOrderMatrix {
   list: AdminOrderRow[];
   total: number;
 }
+
+export interface AdminOrderLogEntry {
+  id?: number;
+  createAt: number;
+  title: string;
+  kind: "check" | "bet" | "reject" | "other" | string;
+  provider?: string | null;
+  orderId?: string | null;
+  target?: "Home" | "Away" | string | null;
+  accountLabel?: string | null;
+  loseOrder?: boolean;
+  summary: string;
+}
+
+export interface AdminOrderLogLogSegment {
+  key: string;
+  accountLabel: string | null;
+  provider: string | null;
+  isMakeUp: boolean;
+  logs: AdminOrderLogEntry[];
+}
+
+export interface AdminOrderLogPlatform {
+  provider: string | null;
+  label: string;
+  orders: AdminOrderLogOrder[];
+  logs: AdminOrderLogEntry[];
+}
+
+export interface AdminOrderLogAttempt {
+  key: string;
+  order: AdminOrderLogOrder | null;
+  logs: AdminOrderLogEntry[];
+  logSegments?: AdminOrderLogLogSegment[];
+}
+
+export interface AdminOrderLogLegSection {
+  key: string;
+  legIndex: number;
+  side: "Home" | "Away" | string;
+  label: string;
+  provider: string | null;
+  attempts: AdminOrderLogAttempt[];
+}
+
+export interface AdminOrderLogOrderSection {
+  key: string;
+  label: string;
+  order: AdminOrderLogOrder | null;
+  logs: AdminOrderLogEntry[];
+}
+
+export interface AdminOrderLogOrder {
+  orderId: string;
+  link: number;
+  provider: string;
+  playerId: number | string;
+  match: string;
+  bet: string;
+  item: string;
+  odds: number;
+  betMoney: number;
+  money: number;
+  status: string;
+  createAt: number;
+}
+
+export interface AdminOrderLogLookup {
+  user: { id: string; userName: string };
+  anchor: { type: string; value: string | number };
+  link: number;
+  linkType: string;
+  groupLabel: string;
+  logWindow: { fromMs: number; toMs: number };
+  orders: AdminOrderLogOrder[];
+  logs: AdminOrderLogEntry[];
+  platforms?: AdminOrderLogPlatform[];
+  orderSections?: AdminOrderLogOrderSection[];
+  legSections?: AdminOrderLogLegSection[];
+}

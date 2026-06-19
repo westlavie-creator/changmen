@@ -63,6 +63,7 @@ const ADMIN_ACTIONS = new Set<EsportAction>([
   "Client_AdminUsers",
   "Client_AdminOrders",
   "Client_AdminOrdersMatrix",
+  "Client_AdminOrderLogs",
   "Client_AdminCreateUser",
   "Client_AdminResetPassword",
   "Client_AdminRenameUser",
@@ -453,6 +454,13 @@ async function handle(
     }
     case "Client_AdminOrdersMatrix": {
       return ok(await adminService.listAdminOrdersMatrix(body));
+    }
+    case "Client_AdminOrderLogs": {
+      try {
+        return ok(await adminService.listAdminOrderLogs(body));
+      } catch (err) {
+        return fail((err as Error).message || "查询失败");
+      }
     }
     case "Client_AdminCreateUser": {
       try {

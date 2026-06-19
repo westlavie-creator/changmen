@@ -114,6 +114,31 @@ export async function insertUserLogRow(userId, title, data) {
   }
 }
 
+/** 运维：按用户 + 时间窗读取 Client_SaveUserLog 诊断日志 */
+export async function fetchUserLogsInRange(userId, fromMs, toMs, limit = 200) {
+  const uid = String(userId || "").trim();
+  if (!uid) return [];
+  const pool = getPgPool();
+  if (!pool) return [];
+  const from = Number(fromMs) || 0;
+  const to = Number(toMs) || Date.now();
+  const cap = Math.min(Math.max(Number(limit) || 200, 1), 500);
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, user_id, title, data, create_at
+       FROM user_logs
+       WHERE user_id = $1 AND create_at >= $2 AND create_at <= $3
+       ORDER BY create_at ASC
+       LIMIT $4`,
+      [uid, from, to, cap],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchUserLogsInRange:", err.message);
+    return [];
+  }
+}
+
 export async function updatePlayerBalanceRow(playerId, balance) {
   const id = Number(playerId);
   if (!Number.isFinite(id) || id <= 0) return null;
