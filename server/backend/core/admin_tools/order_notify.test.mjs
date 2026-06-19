@@ -5,12 +5,16 @@ vi.mock("./telegram.js", () => ({
   sendAdminNotify: vi.fn(async () => ({ ok: true })),
 }));
 
-vi.mock("@changmen/db", () => ({
-  fetchProfileById: vi.fn(async () => ({
-    user_name: "alice",
-    accounts: [{ accountId: 12, platformName: "OB", playerName: "tester" }],
-  })),
-}));
+vi.mock("@changmen/db", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    fetchProfileById: vi.fn(async () => ({
+      user_name: "alice",
+      accounts: [{ accountId: 12, platformName: "OB", playerName: "tester" }],
+    })),
+  };
+});
 
 import {
   formatAdminOrderTelegramBody,
@@ -39,13 +43,15 @@ describe("admin_tools/order_notify", () => {
     expect(shouldNotifyOrderCreateAt(now - 3 * 60 * 60 * 1000, now)).toBe(false);
   });
 
-  it("shouldNotifyAdminOrder skips external links", () => {
+  it("shouldNotifyAdminOrder skips PB hash only", () => {
     const now = Date.parse("2026-06-18T12:00:00");
     const recent = now - 5 * 60 * 1000;
-    expect(isExternalLink(12345)).toBe(true);
-    expect(shouldNotifyAdminOrder(12345, recent, now)).toBe(false);
-    expect(shouldNotifyAdminOrder(1_000_000_000_001, recent, now)).toBe(true);
-    expect(shouldNotifyAdminOrder(-1, recent, now)).toBe(true);
+    expect(isExternalLink(12345, "PB")).toBe(true);
+    expect(isExternalLink(12345, "OB")).toBe(false);
+    expect(shouldNotifyAdminOrder(12345, recent, "PB", now)).toBe(false);
+    expect(shouldNotifyAdminOrder(12345, recent, "OB", now)).toBe(true);
+    expect(shouldNotifyAdminOrder(1_000_000_000_001, recent, "PB", now)).toBe(true);
+    expect(shouldNotifyAdminOrder(-1, recent, "OB", now)).toBe(true);
   });
 
   it("formatAdminOrderTelegramBody strips html from match fields", () => {
@@ -93,13 +99,13 @@ describe("admin_tools/order_notify", () => {
     expect(sendAdminNotify).toHaveBeenCalledTimes(1);
   });
 
-  it("notifyNewOrdersFromRows skips external links", async () => {
+  it("notifyNewOrdersFromRows skips PB hash links", async () => {
     await notifyNewOrdersFromRows([
       {
         user_id: "u1",
         player_id: 12,
         order_id: "o2",
-        provider: "OB",
+        provider: "PB",
         match: "A vs B",
         bet: "map1",
         item: "主",
@@ -112,5 +118,26 @@ describe("admin_tools/order_notify", () => {
       },
     ]);
     expect(sendAdminNotify).not.toHaveBeenCalled();
+  });
+
+  it("notifyNewOrdersFromRows sends for non-PB hash links", async () => {
+    await notifyNewOrdersFromRows([
+      {
+        user_id: "u1",
+        player_id: 12,
+        order_id: "o3",
+        provider: "OB",
+        match: "A vs B",
+        bet: "map1",
+        item: "主",
+        bet_money: 50,
+        odds: 2,
+        money: 0,
+        status: "Pending",
+        link: 99,
+        create_at: Date.now() - 60_000,
+      },
+    ]);
+    expect(sendAdminNotify).toHaveBeenCalledTimes(1);
   });
 });

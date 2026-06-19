@@ -12,8 +12,7 @@ import { hasDatabaseUrlConfig } from "./resolve_database_url.js";
 import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "./client_match_list_status.js";
 import { getPgPool, _writeRds, _writeRdsAsync, _jsonb } from "./rds/common.js";
 import { localDayBounds, localMonthBounds } from "./rds/time_bounds.js";
-/** 读路径默认排除 hash 占位单：系统套利 link≥1e12 或单边 link<0 */
-const SQL_NON_EXT = '(link < 0 OR link >= 1000000000000)'
+import { SQL_ORDERS_VISIBLE } from "./order_link_filter.js";
 import {
   JWT_SECRET,
   JWT_ACCESS_TTL_SEC,
@@ -51,6 +50,9 @@ import {
   updateUserName,
   updateUserIsAdmin,
 } from "./rds/profile_store.js";
+
+/** 读路径：系统单 + 非 PB hash；仅排除 PB 未 bind 的 hash 单 */
+const SQL_NON_EXT = SQL_ORDERS_VISIBLE;
 
 function _mapLiveTimerRows(provider, timer) {
   if (!Array.isArray(timer)) return null;
@@ -731,7 +733,7 @@ async function upsertOrders(rows) {
   }
 }
 
-/** 按日期读取订单（userId 隔离；不含外部单） */
+/** 按日期读取订单（userId 隔离；不含 PB hash 占位单） */
 async function fetchOrdersByDate(date, userId) {
   const { dayStart, dayEnd } = localDayBounds(date)
   const pool = getPgPool()
@@ -748,7 +750,7 @@ async function fetchOrdersByDate(date, userId) {
   }
 }
 
-/** 按 playerId 读取订单（不含外部单） */
+/** 按 playerId 读取订单（不含 PB hash 占位单） */
 async function fetchOrdersByPlayer(playerId, userId) {
   const pool = getPgPool()
   if (!pool || !userId) return []
@@ -854,7 +856,7 @@ async function fetchUserById(userId) {
   }
 }
 
-/** 管理端：当日订单汇总（不含外部单） */
+/** 管理端：当日订单汇总（不含 PB hash 占位单） */
 async function fetchOrdersAdminStats(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
   const pool = getPgPool()
@@ -880,7 +882,7 @@ async function fetchOrdersAdminStats(dateKey) {
   }
 }
 
-/** 管理端：分页订单（不含外部单） */
+/** 管理端：分页订单（不含 PB hash 占位单） */
 async function fetchOrdersAdminPage({
   dateKey,
   userId,
@@ -935,7 +937,7 @@ async function deleteOrdersByIds(ids) {
   }
 }
 
-/** 管理端：当日全量订单（对阵矩阵，上限 5000 条；不含外部单） */
+/** 管理端：当日全量订单（对阵矩阵，上限 5000 条；不含 PB hash 占位单） */
 async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
   const cap = Math.min(5000, Math.max(1, Number(limit) || 5000))
@@ -960,7 +962,7 @@ async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   }
 }
 
-/** 月报：读取指定月份订单聚合字段；可选 user_id 筛选（不含外部单） */
+/** 月报：读取指定月份订单聚合字段；可选 user_id 筛选（不含 PB hash 占位单） */
 async function fetchOrdersForMonthAggregate(monthKey, userId) {
   const { monthStart, monthEnd } = localMonthBounds(monthKey)
   const pool = getPgPool()
@@ -980,7 +982,7 @@ async function fetchOrdersForMonthAggregate(monthKey, userId) {
   }
 }
 
-/** 排行榜：按本地自然日读取订单盈利聚合字段（不含外部单） */
+/** 排行榜：按本地自然日读取订单盈利聚合字段（不含 PB hash 占位单） */
 async function fetchOrdersForProfitAggregate(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey)
   const pool = getPgPool()

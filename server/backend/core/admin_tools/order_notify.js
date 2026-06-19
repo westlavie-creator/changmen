@@ -1,4 +1,5 @@
 import * as sb from "@changmen/db";
+import { isPbHashOrder } from "@changmen/db";
 import { isAdminNotifyEnabled, sendAdminNotify } from "./telegram.js";
 
 const ARB_LINK_MIN = 1_000_000_000_000;
@@ -47,16 +48,13 @@ export function shouldNotifyOrderCreateAt(createAt, now = Date.now()) {
   return ts >= now - maxNotifyAgeMs();
 }
 
-/** 与 DB 读路径一致：外部 = link 为 0 或 0<link<1e12 */
-export function isExternalLink(link) {
-  const n = Number(link);
-  if (!Number.isFinite(n) || n === 0) return true;
-  if (n > 0 && n < ARB_LINK_MIN) return true;
-  return false;
+/** 与 DB 读路径一致：仅 PB hash 占位单不通知 */
+export function isExternalLink(link, provider) {
+  return isPbHashOrder(link, provider);
 }
 
-export function shouldNotifyAdminOrder(link, createAt, now = Date.now()) {
-  if (isExternalLink(link)) return false;
+export function shouldNotifyAdminOrder(link, createAt, provider, now = Date.now()) {
+  if (isPbHashOrder(link, provider)) return false;
   return shouldNotifyOrderCreateAt(createAt, now);
 }
 
@@ -103,7 +101,7 @@ export async function notifyNewOrdersFromRows(dbRows) {
 
   const profileCache = new Map();
   for (const order of dbRows) {
-    if (!shouldNotifyAdminOrder(order.link, order.create_at)) continue;
+    if (!shouldNotifyAdminOrder(order.link, order.create_at, order.provider)) continue;
 
     const userId = String(order.user_id || "");
     if (!userId) continue;

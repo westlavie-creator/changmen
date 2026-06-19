@@ -2,27 +2,24 @@ import pg from "pg";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import { isPbHashOrder } from "../db/order_link_filter.js";
 
-const ARB_LINK_MIN = 1_000_000_000_000;
-
-function isExternalLink(link) {
-  const n = Number(link);
-  if (!Number.isFinite(n) || n === 0) return true;
-  if (n > 0 && n < ARB_LINK_MIN) return true;
-  return false;
+function isExternalLink(link, provider) {
+  return isPbHashOrder(link, provider);
 }
 
 function linkType(link) {
   const n = Number(link);
+  const ARB_LINK_MIN = 1_000_000_000_000;
   if (Number.isFinite(n) && n >= ARB_LINK_MIN) return "arb";
   if (Number.isFinite(n) && n < 0) return "single";
   return "hash";
 }
 
-function shouldNotify(link, createAt, now = Date.now()) {
+function shouldNotify(link, createAt, provider, now = Date.now()) {
   const ts = Number(createAt) || 0;
   const ageOk = ts && ts >= now - 120 * 60 * 1000;
-  return !isExternalLink(link) && ageOk;
+  return !isExternalLink(link, provider) && ageOk;
 }
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -52,9 +49,9 @@ let wouldNotify = 0;
 let blockedExternal = 0;
 let blockedAge = 0;
 for (const r of orders.rows) {
-  const ext = isExternalLink(r.link);
+  const ext = isExternalLink(r.link, r.provider);
   const ageOk = Number(r.create_at) >= now - 120 * 60 * 1000;
-  const notify = shouldNotify(r.link, r.create_at, now);
+  const notify = shouldNotify(r.link, r.create_at, r.provider, now);
   if (notify) wouldNotify += 1;
   else if (ext) blockedExternal += 1;
   else if (!ageOk) blockedAge += 1;
@@ -93,7 +90,7 @@ let insertWouldNotify = 0;
 let insertBlocked = 0;
 for (const r of orders.rows.slice(0, 15)) {
   const hashLink = linkFromOrder(r.order_id, r.create_at);
-  const notifyAtInsert = shouldNotify(hashLink, r.create_at, now);
+  const notifyAtInsert = shouldNotify(hashLink, r.create_at, r.provider, now);
   if (notifyAtInsert) insertWouldNotify += 1;
   else insertBlocked += 1;
   console.log(
@@ -102,7 +99,7 @@ for (const r of orders.rows.slice(0, 15)) {
       final_link: String(r.link),
       insert_link_hash: hashLink,
       notify_at_insert: notifyAtInsert,
-      notify_after_bind: shouldNotify(r.link, r.create_at, now),
+      notify_after_bind: shouldNotify(r.link, r.create_at, r.provider, now),
     }),
   );
 }
