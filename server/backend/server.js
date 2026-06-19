@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { ensurePlatformCredentials } from "./core/esport-api/platform_sync.js";
 import { initLastWrittenIds, fetchPlatformMatches } from "@changmen/db";
 import { ensureSeed as ensureAccountSeed } from "./core/account/account_store.js";
+import { pullProfilesFromDb } from "./core/db/store.js";
 import { setupAdminTools } from "./core/admin_tools/setup.js";
 import store from "./core/esport-api/store.js";
 import { createStaticHandler } from "./static_files.js";
@@ -102,6 +103,9 @@ server.on("error", (err) => {
 
 function onListen() {
   store.ensureSeed();
+  void pullProfilesFromDb().catch((err) => {
+    console.warn("[db] pullProfilesFromDb:", err.message);
+  });
   void ensureAccountSeed().catch((err) => {
     console.warn("[account_store] startup migrate:", err.message);
   });

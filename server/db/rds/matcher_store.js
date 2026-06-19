@@ -189,16 +189,6 @@ export async function fetchPlatformMatchesByClientMatchId(cmId) {
   return rows;
 }
 
-export async function updatePlatformMatchMatchId(platform, sourceMatchId, matchId) {
-  const plat = String(platform || "").trim();
-  const srcId = String(sourceMatchId || "").trim();
-  const cmId = Number(matchId);
-  await rdsQuery(
-    "UPDATE platform_matches SET match_id = $1 WHERE platform = $2 AND source_match_id = $3",
-    [cmId, plat, srcId],
-  );
-}
-
 export async function reassignPlatformMatchIds(fromId, toId) {
   const from = Number(fromId);
   const to = Number(toId);

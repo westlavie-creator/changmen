@@ -158,7 +158,6 @@ export {
   fetchLatestClientMatchBuiltAt,
   fetchPlatformMatchesDebugRows,
   fetchPlatformMatchesByClientMatchId,
-  updatePlatformMatchMatchId,
   reassignPlatformMatchIds,
   deletePlatformMatchRow,
   deleteClientMatchRow,

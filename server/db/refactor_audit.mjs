@@ -46,7 +46,7 @@ const usedSymbols = [
   "getResolvedDatabaseLabel", "getDbMode",
   "isMatcherStoreReady", "getClientMatchIdAdapter", "fetchClientMatchRow",
   "setClientMatchListStatus", "fetchPlatformMatchesByClientMatchId",
-  "deletePlatformMatchRow", "updatePlatformMatchMatchId", "reassignPlatformMatchIds",
+  "deletePlatformMatchRow", "reassignPlatformMatchIds",
   "deleteClientMatchRow", "fetchPlatformMatchesHomeAway", "fetchPlatformMatchesDebugRows",
   "fetchTeamPlatformMap", "countTeamMapsForGbId", "reassignGbTeamId",
   "nextManualGbTeamId", "updateCanonicalTeamById", "insertCanonicalTeam",
@@ -61,6 +61,7 @@ const removedSymbols = [
   "hasAdminAccess",
   "getActiveDbScript",
   "clearClientMatchesOnStartup",
+  "updatePlatformMatchMatchId",
 ];
 
 let failed = 0;

@@ -74,7 +74,7 @@ async function mergeClientMatches({ sourceClientMatchId, targetClientMatchId }) 
   const targetId = preview.targetClientMatchId;
 
   for (const [plat, srcId] of Object.entries(preview.source.matchs)) {
-    await db.updatePlatformMatchMatchId(plat, String(srcId), targetId);
+    await db.setPlatformMatchId(plat, String(srcId), targetId, { force: true });
   }
 
   await db.reassignPlatformMatchIds(sourceId, targetId);
