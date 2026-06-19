@@ -1,4 +1,5 @@
 import { resolveClientGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 import {
   canonicalMatchKeyByIdOnly,
@@ -30,6 +31,14 @@ function platformMatchLinked(match) {
   return cid != null && cid !== "";
 }
 
+function matchTeamIdsForLookup(platform, match, gameCode) {
+  const sourceGameId = match.SourceGameID ?? match.GameID;
+  return {
+    homeId: resolvePlatformTeamId(platform, match.HomeID, sourceGameId, gameCode),
+    awayId: resolvePlatformTeamId(platform, match.AwayID, sourceGameId, gameCode),
+  };
+}
+
 function resolveClientMatchIdKey(cm, matches) {
   const stored = String(cm.merge_key || "");
   if (stored.startsWith("match:id:")) return stored;
@@ -39,12 +48,13 @@ function resolveClientMatchIdKey(cm, matches) {
     if (!m) continue;
     const { GameID } = resolveClientGame(platform, m.SourceGameID ?? m.GameID);
     const gameCode = getGameCodeForPlatformId(platform, m.SourceGameID ?? m.GameID);
+    const { homeId, awayId } = matchTeamIdsForLookup(platform, m, gameCode);
     const ck = canonicalMatchKeyByIdOnly(
       GameID,
       m.Home,
       m.Away,
       gameCode,
-      { provider: platform, homeId: m.HomeID, awayId: m.AwayID },
+      { provider: platform, homeId, awayId },
     );
     if (ck) return ck.key;
   }
@@ -132,12 +142,13 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
   const gameCode = getGameCodeForPlatformId(platform, match.SourceGameID ?? match.GameID);
   const gameId = String(GameID || "");
 
+  const { homeId, awayId } = matchTeamIdsForLookup(platform, match, gameCode);
   const idCk = canonicalMatchKeyByIdOnly(
     GameID,
     match.Home,
     match.Away,
     gameCode,
-    { provider: platform, homeId: match.HomeID, awayId: match.AwayID },
+    { provider: platform, homeId, awayId },
   );
   if (idCk) {
     const candidates = (indexes.byIdKey.get(idCk.key) || [])

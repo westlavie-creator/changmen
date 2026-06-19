@@ -1,4 +1,5 @@
 import { setTeamPlugin, classifyMergeBasis, PROVIDER_PRIORITY } from "@changmen/match-engine";
+import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 
 let _pluginPromise = null;
 
@@ -36,8 +37,18 @@ export function classifyClientMatchMergeMode(cm, byPlatform) {
   const modes = rows.map((row) =>
     classifyMergeBasis(String(row.home || ""), String(row.away || ""), row.game?.code, {
       provider: row.platform,
-      homeId: String(row.home_id || ""),
-      awayId: String(row.away_id || ""),
+      homeId: resolvePlatformTeamId(
+        row.platform,
+        row.home_id,
+        row.source_game_id,
+        row.game?.code,
+      ),
+      awayId: resolvePlatformTeamId(
+        row.platform,
+        row.away_id,
+        row.source_game_id,
+        row.game?.code,
+      ),
     }),
   );
 

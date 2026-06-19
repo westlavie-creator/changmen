@@ -45,7 +45,7 @@ import {
 } from "./im_enrich.js";
 import { buildBetsForMatch } from "./bet_builder.js";
 import { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
-import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
+import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import { normalizeEpochMs, a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
 import { startTimesCompatible } from "./merge_constants.js";
 
@@ -388,12 +388,24 @@ function titleFromMatchs(matchs, matches) {
   for (const [platform, sourceMatchId] of Object.entries(matchs || {})) {
     const m = findPlatformMatch(matches, platform, sourceMatchId);
     if (!m) continue;
+    const sourceGameId = m.SourceGameID ?? m.GameID;
+    const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
     rows.push({
       platform,
       home: String(m.Home ?? m.home ?? ""),
       away: String(m.Away ?? m.away ?? ""),
-      homeId: String(m.HomeID ?? m.home_id ?? m.SourceHomeID ?? ""),
-      awayId: String(m.AwayID ?? m.away_id ?? m.SourceAwayID ?? ""),
+      homeId: resolvePlatformTeamId(
+        platform,
+        m.HomeID ?? m.home_id ?? m.SourceHomeID,
+        sourceGameId,
+        gameCode,
+      ),
+      awayId: resolvePlatformTeamId(
+        platform,
+        m.AwayID ?? m.away_id ?? m.SourceAwayID,
+        sourceGameId,
+        gameCode,
+      ),
     });
   }
   return teamsFromPlatformRows(rows, _titleResolvers);
@@ -846,12 +858,8 @@ function collectMergeEntries(matches, bets, timers, sourceFromBet) {
       row._provider = provider;
       const nativeGameId = String(m.SourceGameID || m.GameID || "");
       const gameCode = getGameCodeForPlatformId(provider, nativeGameId);
-      let homeId = String(m.HomeID || "");
-      let awayId = String(m.AwayID || "");
-      if (provider === "PB") {
-        homeId = formatPbTeamPlatformId(nativeGameId, homeId, gameCode);
-        awayId = formatPbTeamPlatformId(nativeGameId, awayId, gameCode);
-      }
+      const homeId = resolvePlatformTeamId(provider, m.HomeID, nativeGameId, gameCode);
+      const awayId = resolvePlatformTeamId(provider, m.AwayID, nativeGameId, gameCode);
 
       entries.push({
         rowKey: `${provider}:${String(m.SourceMatchID)}`,

@@ -137,4 +137,57 @@ describe("alignUnmatchedToClientMatches", () => {
     expect(stats.alignedById).toBe(0);
     expect(matches.OB["ob-new"].ClientMatchId).toBeNull();
   });
+
+  it("aligns late PB row by gb_team_id when raw HomeID lacks @gameSlug", () => {
+    setTeamPlugin({
+      lookupById(platform, platformId) {
+        const maps = {
+          "OB:navi-h": "100301",
+          "OB:spirit-a": "100302",
+          "PB:navi@cs2": "100301",
+          "PB:spirit@cs2": "100302",
+        };
+        return maps[`${platform}:${platformId}`] || null;
+      },
+    });
+
+    const CS2_OB = "257578064923863";
+    const CS2_PB = "cs2";
+
+    const matches = rawMatches([
+      {
+        platform: "OB",
+        sourceMatchId: "ob1",
+        sourceGameId: CS2_OB,
+        home: "NAVI",
+        away: "Spirit",
+        homeId: "navi-h",
+        awayId: "spirit-a",
+        clientMatchId: 501,
+      },
+      {
+        platform: "PB",
+        sourceMatchId: "pb1",
+        sourceGameId: CS2_PB,
+        home: "Natus Vincere",
+        away: "Team Spirit",
+        homeId: "navi",
+        awayId: "spirit",
+      },
+    ]);
+
+    const clientRows = [
+      {
+        id: 501,
+        merge_key: "match:name:3:natus vincere:team spirit",
+        game_id: "3",
+        start_time: START,
+        matchs: { OB: "ob1" },
+      },
+    ];
+
+    const stats = alignUnmatchedToClientMatches(matches, clientRows);
+    expect(stats.alignedById).toBe(1);
+    expect(matches.PB.pb1.ClientMatchId).toBe(501);
+  });
 });

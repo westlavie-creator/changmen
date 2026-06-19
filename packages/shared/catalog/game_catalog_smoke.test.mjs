@@ -16,5 +16,8 @@ assert.equal(pb.formatPbTeamPlatformId("cs2", "cs2:navi"), "navi@cs2");
 assert.equal(pb.formatPbTeamPlatformId("", "navi"), "navi");
 assert.equal(pb.formatPbTeamPlatformId("", "ilbirs", "dota2"), "ilbirs@dota-2");
 assert.equal(pb.formatPbTeamPlatformId("dota2", "ilbirs", "dota2"), "ilbirs@dota-2");
+assert.equal(pb.resolvePlatformTeamId("OB", "navi", "cs2"), "navi");
+assert.equal(pb.resolvePlatformTeamId("PB", "navi", "cs2"), "navi@cs2");
+assert.equal(pb.resolvePlatformTeamId("PB", "navi", "cs2", "cs2"), "navi@cs2");
 
 console.log("game_catalog_smoke: ok");

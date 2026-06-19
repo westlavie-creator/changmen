@@ -33,4 +33,13 @@ function formatPbTeamPlatformId(sourceGameId, teamId, gameCode) {
   return `${pid}@${gameId}`;
 }
 
-export { resolvePbGameSlug, formatPbTeamPlatformId };
+/** team_platform_maps / canonicalMatchKeyByIdOnly 查找用的 platform_id（仅 PB 需 @gameSlug） */
+function resolvePlatformTeamId(platform, teamId, sourceGameId, gameCode) {
+  const pid = String(teamId ?? "").trim();
+  if (!pid) return "";
+  if (platform !== "PB") return pid;
+  const code = gameCode || getGameCodeForPlatformId("PB", String(sourceGameId ?? "").trim()) || null;
+  return formatPbTeamPlatformId(sourceGameId, pid, code);
+}
+
+export { resolvePbGameSlug, formatPbTeamPlatformId, resolvePlatformTeamId };
