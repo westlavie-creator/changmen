@@ -3,21 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "changmen 数据层唯一入口（RDS / PostgreSQL）",
+  "description": "changmen PostgreSQL 数据层（RDS）",
   "main": "./index.js",
   "exports": {
     ".": "./index.js",
-    "./load_env.js": "./load_env.js",
-    "./paths.js": "./paths.js",
-    "./changmen_root.js": "./changmen_root.js",
-    "./platform_storage.js": "./platform_storage.js",
-    "./json_file_store.js": "./json_file_store.js",
     "./order_link_filter.js": "./order_link_filter.js",
-    "./ensure_storage_seed.js": "./ensure_storage_seed.js",
     "./pg.js": "./pg.js"
   },
   "dependencies": {
-    "dotenv": "^17.4.2",
+    "@changmen/storage": "*",
     "pg": "^8.21.0"
   }
 }

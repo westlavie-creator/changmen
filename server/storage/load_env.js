@@ -1,11 +1,11 @@
 /**
- * 在创建数据库客户端之前加载 changmen .env。
+ * 在连接 RDS 或读写 storage 之前加载 changmen .env。
  * 默认读 server/backend/.env；matcher 可 prepend server/matcher/.env。
  */
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
-import { CHANGMEN_ROOT_FROM_DB_PKG } from "./changmen_root.js";
+import { CHANGMEN_ROOT_FROM_PKG } from "./changmen_root.js";
 
 function hasDatabaseUrl() {
   return !!(
@@ -19,7 +19,7 @@ function hasDatabaseUrl() {
 export function loadChangmenEnv(options = {}) {
   const rels = [...(options.prepend ?? []), "server/backend/.env"];
   for (const rel of rels) {
-    const envPath = path.join(CHANGMEN_ROOT_FROM_DB_PKG, rel);
+    const envPath = path.join(CHANGMEN_ROOT_FROM_PKG, rel);
     if (!fs.existsSync(envPath)) continue;
     dotenv.config({ path: envPath });
     if (hasDatabaseUrl()) break;

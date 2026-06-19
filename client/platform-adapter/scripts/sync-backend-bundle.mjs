@@ -13,7 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { BACKEND_ROOT } from "@changmen/db/paths.js";
+import { BACKEND_ROOT } from "@changmen/storage/paths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ADAPTER_PKG_ROOT = path.join(__dirname, "..");

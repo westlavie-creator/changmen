@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { CHANGMEN_ROOT_FROM_DB_PKG, findChangmenRoot } from "./changmen_root.js";
+import { CHANGMEN_ROOT_FROM_PKG, findChangmenRoot } from "./changmen_root.js";
 
 export { findChangmenRoot };
 
-export const CHANGMEN_ROOT = CHANGMEN_ROOT_FROM_DB_PKG;
+export const CHANGMEN_ROOT = CHANGMEN_ROOT_FROM_PKG;
 
 export const BACKEND_ROOT =
   process.env.GAMEBET_BACKEND_ROOT || path.join(CHANGMEN_ROOT, "server", "backend");

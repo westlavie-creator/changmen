@@ -68,6 +68,7 @@
   "dependencies": {
     "@changmen/api-contract": "*",
     "@changmen/db": "*",
+    "@changmen/storage": "*",
     "@changmen/match-engine": "*",
     "@changmen/platform-adapter": "*",
     "@changmen/platform-probes": "*",

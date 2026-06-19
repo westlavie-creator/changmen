@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { ESPORT_DATA_DIR } from "@changmen/db/paths.js";
+import { ESPORT_DATA_DIR } from "@changmen/storage/paths.js";
 import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
 import {
   ensureDefaultJsonFiles,
   getPlatform,
   setPlatform,
-} from "@changmen/db/platform_storage.js";
+} from "@changmen/storage/platform_storage.js";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 

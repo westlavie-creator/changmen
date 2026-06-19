@@ -144,6 +144,20 @@ try {
 } catch (err) {
   fail(`order_link_filter 子路径: ${err.message}`);
 }
+try {
+  await import("@changmen/storage/paths.js");
+  ok("@changmen/storage/paths.js 可 import");
+} catch (err) {
+  fail(`storage paths 子路径: ${err.message}`);
+}
+for (const legacy of ["paths.js", "json_file_store.js", "load_env.js"]) {
+  try {
+    await import(`@changmen/db/${legacy}`);
+    fail(`@changmen/db/${legacy} 应已迁至 @changmen/storage`);
+  } catch {
+    ok(`@changmen/db/${legacy} 不再 export`);
+  }
+}
 
 console.log(failed ? `\n❌ 检测失败: ${failed} 项` : "\n✅ 全面检测通过");
 process.exit(failed ? 1 : 0);

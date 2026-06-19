@@ -24,5 +24,5 @@ export function findChangmenRoot(fromDir) {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** @changmen/db 包目录向上即 changmen 根（paths / load_env 用）。 */
-export const CHANGMEN_ROOT_FROM_DB_PKG = findChangmenRoot(__dirname);
+/** @changmen/storage 包目录向上即 changmen 根。 */
+export const CHANGMEN_ROOT_FROM_PKG = findChangmenRoot(__dirname);

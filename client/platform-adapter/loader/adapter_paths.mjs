@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { BACKEND_ROOT, CHANGMEN_ROOT } from "@changmen/db/paths.js";
+import { BACKEND_ROOT, CHANGMEN_ROOT } from "@changmen/storage/paths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);

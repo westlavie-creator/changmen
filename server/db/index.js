@@ -12,11 +12,12 @@
  *   rds/team_store.js        — canonical_teams / team_platform_maps
  *   rds/matcher_store.js     — matcher UI/ops 专用查询与运维 SQL
  *   order_link_filter — 订单 link 可见性（读路径 SQL + JS 判断）
- *   json_file_store   — legacy 本地 JSON（platforms、default_odds 等，非 RDS 主路径）
  *   prune_stale.js    — 过期 platform_* / client_matches 清理
+ *
+ * 本地 JSON / 路径见 @changmen/storage（非本包职责）。
  */
 
-import { loadChangmenEnv } from "./load_env.js";
+import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 
 loadChangmenEnv();
 
@@ -35,8 +36,6 @@ export {
   describeDbScript,
   getDbMode,
 } from "./db_script.js";
-
-export { loadChangmenEnv } from "./load_env.js";
 
 export {
   ARB_LINK_MIN,

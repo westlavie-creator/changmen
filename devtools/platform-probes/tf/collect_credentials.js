@@ -7,7 +7,7 @@
  */
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { getPlatform } from "@changmen/db/platform_storage.js";
+import { getPlatform } from "@changmen/storage/platform_storage.js";
 import { tryLoadSession } from "./session.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

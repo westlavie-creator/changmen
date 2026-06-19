@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@changmen/db": "*",
+    "@changmen/storage": "*",
     "@changmen/shared": "*"
   }
 }

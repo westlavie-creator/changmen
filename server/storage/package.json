@@ -1,0 +1,19 @@
+{
+  "name": "@changmen/storage",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "changmen 本地 storage 路径与 JSON 读写（非 PostgreSQL）",
+  "exports": {
+    ".": "./index.js",
+    "./paths.js": "./paths.js",
+    "./changmen_root.js": "./changmen_root.js",
+    "./json_file_store.js": "./json_file_store.js",
+    "./platform_storage.js": "./platform_storage.js",
+    "./ensure_storage_seed.js": "./ensure_storage_seed.js",
+    "./load_env.js": "./load_env.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

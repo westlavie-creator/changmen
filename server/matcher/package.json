@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@changmen/db": "*",
+    "@changmen/storage": "*",
     "@changmen/match-engine": "*",
     "@changmen/shared": "*",
     "@changmen/team-resolver": "*",

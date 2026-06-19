@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@changmen/db": "*",
+    "@changmen/storage": "*",
     "@changmen/match-engine": "*",
     "@changmen/platform-adapter": "*",
     "@changmen/shared": "*",

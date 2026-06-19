@@ -18,8 +18,7 @@ if (!fs.existsSync(ESPORT_DATA_DIR)) {
   throw new Error(`ESPORT_DATA_DIR missing: ${ESPORT_DATA_DIR}`);
 }
 const dbDir = path.join(CHANGMEN_ROOT, "server", "db");
-const legacyDb = path.join(CHANGMEN_ROOT, "packages", "db");
-if (!fs.existsSync(dbDir) && !fs.existsSync(legacyDb)) {
+if (!fs.existsSync(dbDir)) {
   throw new Error(`CHANGMEN_ROOT missing server/db: ${CHANGMEN_ROOT}`);
 }
 

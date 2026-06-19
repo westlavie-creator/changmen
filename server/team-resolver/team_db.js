@@ -2,7 +2,7 @@
  * 从 RDS 加载队伍映射，构建同步查找插件。
  */
 
-import { loadChangmenEnv } from "@changmen/db/load_env.js";
+import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import teamAliasesRaw from "@changmen/match-engine/teams/team_aliases.json" with { type: "json" };
 
 loadChangmenEnv();

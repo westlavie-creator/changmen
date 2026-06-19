@@ -11,6 +11,7 @@
     "server/backend",
     "server/matcher",
     "server/db",
+    "server/storage",
     "server/match-engine",
     "devtools/platform-probes",
     "server/team-resolver"
@@ -28,7 +29,7 @@
     "typecheck:frontend": "npm run typecheck --prefix client/web",
     "analyze:deps": "npm run analyze:deps:check --prefix client/web",
     "test:frontend": "npm run typecheck:frontend && npm run test --prefix client/web",
-    "test:catalog-smoke": "node packages/shared/catalog/market_catalog_smoke.test.mjs && node packages/shared/catalog/game_catalog_smoke.test.mjs && node packages/shared/im_parse_smoke.test.mjs && node packages/shared/time/match_time_smoke.test.mjs && node server/db/paths_smoke.test.mjs && node server/db/order_link_filter.test.mjs",
+    "test:catalog-smoke": "node packages/shared/catalog/market_catalog_smoke.test.mjs && node packages/shared/catalog/game_catalog_smoke.test.mjs && node packages/shared/im_parse_smoke.test.mjs && node packages/shared/time/match_time_smoke.test.mjs && node server/storage/paths_smoke.test.mjs && node server/db/order_link_filter.test.mjs",
     "matcher:ui": "npm run start --prefix server/matcher",
     "matcher:loop": "npm run matcher --prefix server/matcher",
     "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension",

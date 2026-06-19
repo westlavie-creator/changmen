@@ -1,7 +1,7 @@
 /**
  * 按 GAMEBET_DB_SCRIPT 启动 matcher 循环进程。
  */
-import { loadChangmenEnv } from "@changmen/db/load_env.js";
+import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 
 loadChangmenEnv({ prepend: ["server/matcher/.env"] });
 
