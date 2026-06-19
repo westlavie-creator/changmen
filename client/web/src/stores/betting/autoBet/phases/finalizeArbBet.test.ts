@@ -230,4 +230,70 @@ describe("finalizeArbBet makeup enqueue", () => {
     expect(waitRejectDetection).toHaveBeenCalled();
     expect(syncVenueRejectFlags).toHaveBeenCalled();
   });
+
+  it("双腿成功且拉单有首条时按 linkId 绑单", async () => {
+    const linkId = 1_700_000_000_000;
+    syncVenueRejectFlags.mockResolvedValue({
+      ordersA: [venueOrder("ob-1", "none", 2)],
+      ordersB: [venueOrder("ray-1", "none", 3)],
+      rejectA: false,
+      rejectB: false,
+    });
+
+    await finalizeArbBet(params, makePlaced({ linkId }));
+
+    expect(saveOrderBind).toHaveBeenCalledWith({
+      orders: JSON.stringify([
+        { LinkID: linkId, Provider: "OB", OrderID: "ob-1" },
+        { LinkID: linkId, Provider: "RAY", OrderID: "ray-1" },
+      ]),
+    });
+  });
+
+  it("仅一腿拉单有首条时只绑该腿（对齐 A8 R.length>0 / X.length>0）", async () => {
+    const linkId = 1_700_000_000_000;
+    syncVenueRejectFlags.mockResolvedValue({
+      ordersA: [],
+      ordersB: [venueOrder("ray-1", "none", 3)],
+      rejectA: false,
+      rejectB: false,
+    });
+
+    await finalizeArbBet(params, makePlaced({ linkId }));
+
+    expect(saveOrderBind).toHaveBeenCalledWith({
+      orders: JSON.stringify([{ LinkID: linkId, Provider: "RAY", OrderID: "ray-1" }]),
+    });
+  });
+
+  it("双腿拉单均为空时不绑单", async () => {
+    syncVenueRejectFlags.mockResolvedValue({
+      ordersA: [],
+      ordersB: [],
+      rejectA: false,
+      rejectB: false,
+    });
+
+    await finalizeArbBet(params, makePlaced());
+
+    expect(saveOrderBind).not.toHaveBeenCalled();
+  });
+
+  it("refreshBalance 不阻塞拒单等待", async () => {
+    let rejectWaitStarted = false;
+    refreshBalance.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, 50);
+        }),
+    );
+    waitRejectDetection.mockImplementation(async () => {
+      rejectWaitStarted = true;
+    });
+
+    await finalizeArbBet(params, makePlaced());
+
+    expect(refreshBalance).toHaveBeenCalled();
+    expect(rejectWaitStarted).toBe(true);
+  });
 });

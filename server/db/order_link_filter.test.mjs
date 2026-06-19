@@ -19,10 +19,10 @@ describe("order_link_filter", () => {
     assert.equal(isPbHashOrder(1_000_000_000_001, "PB"), false);
   });
 
-  it("isOrderListVisible returns true for all orders", () => {
+  it("isOrderListVisible matches A8 JS helper (not SQL)", () => {
     assert.equal(isOrderListVisible(1_000_000_000_001, "PB"), true);
     assert.equal(isOrderListVisible(12345, "OB"), true);
-    assert.equal(isOrderListVisible(12345, "PB"), true);
+    assert.equal(isOrderListVisible(12345, "PB"), false);
     assert.equal(isOrderListVisible(-1, "RAY"), true);
   });
 });

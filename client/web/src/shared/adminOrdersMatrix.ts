@@ -1,5 +1,6 @@
 import type { AdminOrderRow } from "@/types/admin";
 import { isSingleLegLink } from "@/shared/format";
+import { linkIdGroupKey } from "@/shared/orderLink";
 
 export interface LinkOrderGroup {
   key: number;
@@ -89,11 +90,9 @@ export function baseMatchKey(o: AdminOrderRow) {
   return o.matchKey || o.match || `o:${o.id}`;
 }
 
-/** 同 LinkID 为一组；无 link 时按行 id 单独成组 */
+/** 同 LinkID 为一组（对齐 A8 `groupBy(Link)`） */
 export function linkGroupKey(o: AdminOrderRow) {
-  const linkId = Number(o.linkId) || 0;
-  if (linkId !== 0) return linkId;
-  return o.id;
+  return linkIdGroupKey(o.linkId);
 }
 
 function buildArbLinkIndex(orders: AdminOrderRow[]) {

@@ -110,11 +110,12 @@ export async function finalizeArbBet(
   const successAccounts: PlatformAccount[] = [];
   if (resultA?.success && accountA) {
     successAccounts.push(accountA);
-    await accountStore.refreshBalance(accountA);
+    // [A8 可证实] bundle：`Y.updateBalance()` 不 await，与拒单等待并行
+    void accountStore.refreshBalance(accountA);
   }
   if (resultB?.success && accountB) {
     successAccounts.push(accountB);
-    await accountStore.refreshBalance(accountB);
+    void accountStore.refreshBalance(accountB);
   }
 
   let ordersA: VenueOrder[] = [];

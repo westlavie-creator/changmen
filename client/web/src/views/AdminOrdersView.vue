@@ -7,6 +7,7 @@ import AdminOrdersGroupedTable from "@/components/admin/AdminOrdersGroupedTable.
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { deleteAdminOrders, getAdminOrdersAll, getAdminUsers } from "@/api/admin";
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
+import { linkGroupKey } from "@/shared/adminOrdersMatrix";
 import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
 
@@ -40,19 +41,18 @@ const userNameById = computed(() => {
   return map;
 });
 
-/** 同 LinkID 订单归为一组（无 link 时按行 id 单独成组） */
+/** 同 LinkID 归组（对齐 A8 `groupBy(Link)`，按 Link 降序） */
 const orderGroups = computed(() => {
+  const sorted = [...(orders.value ?? [])].sort(
+    (a, b) => linkGroupKey(b) - linkGroupKey(a),
+  );
   const map = new Map<number, AdminOrderRow[]>();
-  for (const row of orders.value ?? []) {
-    const key = row.linkId || row.id;
+  for (const row of sorted) {
+    const key = linkGroupKey(row);
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(row);
   }
-  return [...map.entries()].sort((a, b) => {
-    const ta = Math.max(...a[1].map((r) => r.createAt));
-    const tb = Math.max(...b[1].map((r) => r.createAt));
-    return tb - ta;
-  });
+  return [...map.entries()];
 });
 
 const profitTotal = computed(() =>

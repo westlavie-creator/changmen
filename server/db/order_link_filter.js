@@ -15,7 +15,10 @@ export function isPbHashOrder(link, provider) {
   return String(provider ?? "").trim() === "PB";
 }
 
-/** 订单列表读路径：返回全部订单（含外部 hash 占位单） */
-export function isOrderListVisible(_link, _provider) {
-  return true;
+/** [A8 可证实] bundle 无客户端过滤；仅作通知等辅助判断，不用于 SQL WHERE */
+export function isOrderListVisible(link, provider) {
+  const n = Number(link);
+  if (Number.isFinite(n) && n < 0) return true;
+  if (Number.isFinite(n) && n >= ARB_LINK_MIN) return true;
+  return String(provider ?? "").trim() !== "PB";
 }
