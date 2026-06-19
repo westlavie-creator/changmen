@@ -5,6 +5,7 @@ import { createObRealtimeClient, type ObMqttMessage } from "./realtime";
 const connectMock = vi.fn();
 const fetchObDemoMqttConfig = vi.fn();
 const getObA8MqttConfig = vi.fn();
+const getObChangmenMqttConfig = vi.fn();
 
 vi.mock("mqtt", () => ({
   default: {
@@ -15,6 +16,7 @@ vi.mock("mqtt", () => ({
 vi.mock("./mqttSession", () => ({
   fetchObDemoMqttConfig: (...args: unknown[]) => fetchObDemoMqttConfig(...args),
   getObA8MqttConfig: (...args: unknown[]) => getObA8MqttConfig(...args),
+  getObChangmenMqttConfig: (...args: unknown[]) => getObChangmenMqttConfig(...args),
 }));
 
 function fakeMqttClient() {
@@ -43,6 +45,12 @@ const demoConfig = {
   source: "demo" as const,
 };
 
+const changmenConfig = {
+  url: "ws://127.0.0.1:3560/esport/ws-forward/OB?u=wss%3A%2F%2Fob-mqtt.example%2Fws",
+  username: "ob-session-token",
+  source: "changmen" as const,
+};
+
 const a8Config = {
   url: OB_A8_MQTT_URL,
   username: "admin",
@@ -53,7 +61,9 @@ const a8Config = {
 beforeEach(() => {
   fetchObDemoMqttConfig.mockReset();
   getObA8MqttConfig.mockReset();
+  getObChangmenMqttConfig.mockReset();
   getObA8MqttConfig.mockReturnValue(a8Config);
+  getObChangmenMqttConfig.mockReturnValue(changmenConfig);
 });
 
 afterEach(() => {
@@ -88,11 +98,11 @@ describe("createObRealtimeClient", () => {
     await client.stop();
   });
 
-  test("falls back to A8 relay when demo connection closes", async () => {
+  test("falls back to CHANGMEN forward when demo connection closes", async () => {
     fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
     const demoClient = fakeMqttClient();
-    const a8Client = fakeMqttClient();
-    connectMock.mockReturnValueOnce(demoClient).mockReturnValueOnce(a8Client);
+    const changmenClient = fakeMqttClient();
+    connectMock.mockReturnValueOnce(demoClient).mockReturnValueOnce(changmenClient);
 
     const client = createObRealtimeClient();
     await client.start(() => {});
@@ -102,8 +112,41 @@ describe("createObRealtimeClient", () => {
       expect(connectMock).toHaveBeenCalledTimes(2);
     });
 
+    expect(getObChangmenMqttConfig).toHaveBeenCalledWith(demoConfig.url, demoConfig.username);
     expect(connectMock).toHaveBeenNthCalledWith(
       2,
+      changmenConfig.url,
+      expect.objectContaining({
+        username: "ob-session-token",
+        reconnectPeriod: 0,
+      }),
+    );
+
+    await client.stop();
+  });
+
+  test("falls back to A8 relay when CHANGMEN forward fails", async () => {
+    fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
+    const demoClient = fakeMqttClient();
+    const changmenClient = fakeMqttClient();
+    const a8Client = fakeMqttClient();
+    connectMock
+      .mockReturnValueOnce(demoClient)
+      .mockReturnValueOnce(changmenClient)
+      .mockReturnValueOnce(a8Client);
+
+    const client = createObRealtimeClient();
+    await client.start(() => {});
+    demoClient.emit("close");
+    await vi.waitFor(() => expect(connectMock).toHaveBeenCalledTimes(2));
+    changmenClient.emit("close");
+
+    await vi.waitFor(() => {
+      expect(connectMock).toHaveBeenCalledTimes(3);
+    });
+
+    expect(connectMock).toHaveBeenNthCalledWith(
+      3,
       OB_A8_MQTT_URL,
       expect.objectContaining({
         username: "admin",

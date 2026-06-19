@@ -21,5 +21,6 @@ describe("upstreamRouteFromUrl", () => {
     expect(upstreamRouteFromUrl("wss://socket.ajj123.net/socket.io/")).toBe("official");
     expect(upstreamRouteFromUrl("wss://pro-dj-aws-mqtt.x7hsa3.com:8084/mqtt")).toBe("official");
     expect(upstreamRouteFromUrl("wss://cfsocket.365raylinks.com/socketcluster/")).toBe("official");
+    expect(upstreamRouteFromUrl("wss://ob-mqtt.example/ws", "demo")).toBe("official");
   });
 });

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { OB_A8_MQTT_PASSWORD, OB_A8_MQTT_URL, OB_A8_MQTT_USERNAME } from "./mqttConfig";
-import { fetchObDemoMqttConfig, getObA8MqttConfig } from "./mqttSession";
+import { fetchObDemoMqttConfig, getObA8MqttConfig, getObChangmenMqttConfig } from "./mqttSession";
 
 vi.mock("@/api/esport", () => ({
   getCollectPlatform: vi.fn().mockResolvedValue({ Token: "platform-token" }),
@@ -19,6 +19,18 @@ describe("getObA8MqttConfig", () => {
       username: OB_A8_MQTT_USERNAME,
       password: OB_A8_MQTT_PASSWORD,
       source: "a8",
+    });
+  });
+});
+
+describe("getObChangmenMqttConfig", () => {
+  test("builds ws-forward url with encoded upstream mqtt wss", () => {
+    expect(
+      getObChangmenMqttConfig("wss://pro-dj-aws-mqtt.example:8084/mqtt", "platform-token"),
+    ).toEqual({
+      url: "ws://127.0.0.1:3560/esport/ws-forward/OB?u=wss%3A%2F%2Fpro-dj-aws-mqtt.example%3A8084%2Fmqtt",
+      username: "platform-token",
+      source: "changmen",
     });
   });
 });

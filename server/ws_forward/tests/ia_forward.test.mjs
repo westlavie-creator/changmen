@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { iaForwardDefinition, IA_OFFICIAL_WS, IA_OFFICIAL_WS_PATH } from "../platforms/ia.js";
 
 describe("iaForwardDefinition", () => {
+  it("uses socket.io transport", () => {
+    assert.equal(iaForwardDefinition.transport, "socket.io");
+  });
+
   it("exposes browser path under /esport/ws-forward/", () => {
     assert.equal(iaForwardDefinition.browserPath, "/esport/ws-forward/IA");
   });

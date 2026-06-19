@@ -1,20 +1,31 @@
 # ws_forward
 
-平台实时 WebSocket **转发**：浏览器连 CHANGMEN，服务端代连官方上游（可设正确 `Origin`），再双向转发 Socket.IO 事件。
+平台实时 WebSocket **转发**：浏览器连 CHANGMEN，服务端代连官方上游（可设正确 `Origin` / `Authorization`），再双向 pipe。
 
 ## 路由
 
-| 平台 | 浏览器 Socket.IO path | 上游 |
-|------|----------------------|------|
-| IA | `/esport/ws-forward/IA` | `wss://socket.ajj123.net`（`/socket.io`） |
+| 平台 | 传输 | 浏览器 path | 上游 |
+|------|------|-------------|------|
+| IA | Socket.IO | `/esport/ws-forward/IA` | `wss://socket.ajj123.net`（`/socket.io`，`Origin: ilustre`） |
+| OB | raw WebSocket (MQTT) | `/esport/ws-forward/OB?u=<官方 wss>` | query `u` 指定的 OB demo MQTT wss |
+| RAY | raw WebSocket (SocketCluster) | `/esport/ws-forward/RAY` | `wss://cfsocket.365raylinks.com/socketcluster/`（服务端注入 `Origin` + `Authorization`） |
 
-Vite dev：HTTP 走 `5274/esport` 代理；**IA WebSocket 直连** `http://127.0.0.1:3560/esport/ws-forward/IA`（Vite 不代理 Socket.IO upgrade）。
+Vite dev：HTTP 走 `5274/esport` 代理；**实时 WS 直连** `http://127.0.0.1:3560`（Vite 不代理 upgrade）。
+
+## 客户端 failover
+
+| 平台 | 顺序 |
+|------|------|
+| IA | official → changmen → a8 |
+| OB | demo → changmen → a8（a8 失败后刷新 demo login） |
+| RAY | official → changmen → a8 |
 
 ## 扩展新平台
 
-1. 在 `platforms/` 增加定义并实现 `buildUpstream`
+1. 在 `platforms/` 增加定义（`socket.io` 或 `raw-ws`）
 2. `registerPlatformForward` 注册
-3. 在 `platform-adapter` 增加 `changmen` 出口与 failover
+3. 在 `server/backend/server.js` 的 `attachWsForward` 增加平台 id
+4. 在 `platform-adapter` 增加 `changmen` 出口与 failover
 
 ## 测试
 

@@ -1,8 +1,19 @@
 /**
- * @typedef {object} PlatformForwardDefinition
+ * @typedef {object} SocketIoForwardDefinition
+ * @property {'socket.io'} transport
  * @property {string} id
- * @property {string} browserPath - Socket.IO path exposed to browser (e.g. /esport/ws-forward/IA)
- * @property {(gateway: string) => { url: string, options: Record<string, unknown> }} buildUpstream
+ * @property {string} browserPath
+ * @property {(gateway?: string) => { url: string, options: Record<string, unknown> }} buildUpstream
  */
+
+/**
+ * @typedef {object} RawWsForwardDefinition
+ * @property {'raw-ws'} transport
+ * @property {string} id
+ * @property {string} browserPath
+ * @property {(req: import('node:http').IncomingMessage) => { url: string, headers?: Record<string, string> }} resolveUpstream
+ */
+
+/** @typedef {SocketIoForwardDefinition | RawWsForwardDefinition} PlatformForwardDefinition */
 
 export {};

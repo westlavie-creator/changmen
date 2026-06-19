@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { createRayRealtimeClient, type RayRealtimeMessage } from "./realtime";
+import { RAY_WS_FORWARD_PATH } from "./wsConfig";
 
 const createMock = vi.fn();
 const subscribeMock = vi.fn();
-const listenerMock = vi.fn();
 const disconnectMock = vi.fn();
 
 vi.mock("socketcluster-client", () => ({
@@ -12,6 +12,35 @@ vi.mock("socketcluster-client", () => ({
   },
 }));
 
+vi.mock("@platform/shared/changmenWsBase", () => ({
+  resolveChangmenWsBase: () => "http://127.0.0.1:3560",
+}));
+
+function mockSocketCluster(messages: RayRealtimeMessage[] = []) {
+  subscribeMock.mockReturnValue({
+    listener: () => ({ once: () => Promise.resolve() }),
+    [Symbol.asyncIterator]: async function* () {
+      for (const msg of messages) yield msg;
+    },
+  });
+  return {
+    subscribe: subscribeMock,
+    disconnect: disconnectMock,
+    state: "closed",
+    listener: (event: string) => ({
+      [Symbol.asyncIterator]: async function* () {
+        if (event === "connect") yield {};
+      },
+    }),
+  };
+}
+
+beforeEach(() => {
+  createMock.mockReset();
+  subscribeMock.mockReset();
+  disconnectMock.mockReset();
+});
+
 afterEach(() => {
   vi.clearAllMocks();
 });
@@ -19,26 +48,7 @@ afterEach(() => {
 describe("createRayRealtimeClient", () => {
   test("connects directly to cfsocket with A8 collect token", async () => {
     const messages = [{ source: "odds", odds: [{ id: "ray-odd-1", odds: 1.92 }] }];
-    subscribeMock.mockReturnValue({
-      listener: () => ({ once: () => Promise.resolve() }),
-      [Symbol.asyncIterator]: async function* () {
-        for (const msg of messages) yield msg;
-      },
-    });
-    createMock.mockReturnValue({
-      subscribe: subscribeMock,
-      disconnect: disconnectMock,
-      listener: (event: string) => {
-        if (event === "connect" || event === "disconnect" || event === "error") {
-          return {
-            [Symbol.asyncIterator]: async function* empty() {
-              /* watchRaySocketState background loops */
-            },
-          };
-        }
-        return { once: () => Promise.resolve() };
-      },
-    });
+    createMock.mockReturnValue(mockSocketCluster(messages));
 
     const received: RayRealtimeMessage[] = [];
     const client = createRayRealtimeClient();
@@ -64,5 +74,45 @@ describe("createRayRealtimeClient", () => {
 
     await client.stop();
     expect(disconnectMock).toHaveBeenCalledOnce();
+  });
+
+  test("falls back to CHANGMEN forward when official connection fails", async () => {
+    const officialSocket = {
+      subscribe: subscribeMock,
+      disconnect: disconnectMock,
+      state: "closed",
+      listener: (event: string) => ({
+        [Symbol.asyncIterator]: async function* () {
+          if (event === "error") yield { error: "upstream refused" };
+        },
+      }),
+    };
+    const changmenSocket = mockSocketCluster([]);
+    createMock.mockReturnValueOnce(officialSocket).mockReturnValueOnce(changmenSocket);
+
+    const client = createRayRealtimeClient();
+    await client.start(() => {});
+
+    await vi.waitFor(() => {
+      expect(createMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(createMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        hostname: "127.0.0.1",
+        port: 3560,
+        secure: false,
+        path: RAY_WS_FORWARD_PATH,
+        wsOptions: expect.objectContaining({
+          headers: expect.objectContaining({
+            Origin: "https://ray164.com",
+            Authorization: expect.stringContaining("Bearer "),
+          }),
+        }),
+      }),
+    );
+
+    await client.stop();
   });
 });

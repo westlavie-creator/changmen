@@ -56,7 +56,7 @@ const server = http.createServer(
   }),
 );
 
-attachWsForward(server, { platforms: ["IA"] });
+attachWsForward(server, { platforms: ["IA", "OB", "RAY"] });
 
 ensurePlatformCredentials()
   .then((r) => {

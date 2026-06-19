@@ -5,9 +5,10 @@ export const IA_OFFICIAL_WS_PATH = "/socket.io";
 /** A8 `wQe` 内联 gateway；CHANGMEN 上游仅连官方，用此 Origin */
 export const IA_DEFAULT_GATEWAY = "https://ilustre-analytics.org";
 
-/** @type {import('../core/types.js').PlatformForwardDefinition} */
+/** @type {import('../core/types.js').SocketIoForwardDefinition} */
 export const iaForwardDefinition = {
   id: "IA",
+  transport: "socket.io",
   browserPath: "/esport/ws-forward/IA",
   buildUpstream(gateway = IA_DEFAULT_GATEWAY) {
     const origin = String(gateway || IA_DEFAULT_GATEWAY).replace(/\/+$/, "");

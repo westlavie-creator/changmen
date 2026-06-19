@@ -4,12 +4,22 @@ import {
   getDirectRealtimeStatus,
   patchDirectRealtimeStatus,
   resetDirectRealtimeStatus,
+  upstreamRouteFromUrl,
 } from "@platform/shared/directRealtimeStatus";
 import { PLATFORMS } from "@/shared/platform";
-import { RAY_A8_COLLECT, RAY_WS } from "./a8Collect";
+import {
+  getRayA8ScConfig,
+  getRayChangmenScConfig,
+  getRayOfficialScConfig,
+  RAY_SC_CHANNEL,
+  RAY_WS_CONNECT_TIMEOUT_MS,
+  type RayScConnectConfig,
+  type RayWsEndpointSource,
+} from "./wsConfig";
 
 const PLATFORM = PLATFORMS.RAY;
-const RAY_SC_CHANNEL = RAY_WS.channel;
+
+const FAILOVER_ORDER: RayWsEndpointSource[] = ["official", "changmen", "a8"];
 
 export type RayRealtimeMessage = {
   source?: "odds" | "match" | string;
@@ -31,115 +41,172 @@ export type RayRealtimeClient = {
   status?(): Promise<RayRealtimeStatus>;
 };
 
-function watchRaySocketState(
-  socket: ReturnType<typeof socketClusterClient.create>,
-  stopped: () => boolean,
-): void {
-  void (async () => {
-    for await (const _ of socket.listener("connect")) {
-      if (stopped()) break;
-      patchDirectRealtimeStatus(PLATFORM, {
-        upstreamConnected: true,
-        upstreamRoute: "official",
-        lastError: null,
-      });
-      console.info("[RAY] connected (direct)", RAY_WS.hostname);
-    }
-  })();
-
-  void (async () => {
-    for await (const _ of socket.listener("disconnect")) {
-      if (stopped()) break;
-      patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, upstreamRoute: null });
-    }
-  })();
-
-  void (async () => {
-    for await (const event of socket.listener("error")) {
-      if (stopped()) break;
-      const message =
-        event && typeof event === "object" && "error" in event
-          ? String((event as { error?: unknown }).error ?? event)
-          : String(event ?? "ws error");
-      patchDirectRealtimeStatus(PLATFORM, {
-        upstreamConnected: false,
-        upstreamRoute: null,
-        lastError: message,
-      });
-      console.warn("[RAY] ws error", message);
-    }
-  })();
+function scUrlLabel(config: RayScConnectConfig): string {
+  const scheme = config.secure ? "wss" : "ws";
+  return `${scheme}://${config.hostname}:${config.port}${config.path}`;
 }
 
-/** A8 bQe：浏览器直连 cfsocket.365raylinks.com（不经 /esport/ws/RAY relay） */
+function nextFailoverConfig(failedSource: RayWsEndpointSource): RayScConnectConfig {
+  const idx = FAILOVER_ORDER.indexOf(failedSource);
+  const next = FAILOVER_ORDER[(idx + 1) % FAILOVER_ORDER.length]!;
+  switch (next) {
+    case "official":
+      return getRayOfficialScConfig();
+    case "changmen":
+      return getRayChangmenScConfig();
+    case "a8":
+      return getRayA8ScConfig();
+    default:
+      return getRayOfficialScConfig();
+  }
+}
+
 function createDirectRayRealtimeClient(): RayRealtimeClient {
   let socket: ReturnType<typeof socketClusterClient.create> | null = null;
+  let activeConfig: RayScConnectConfig | null = null;
   let stopped = false;
+  let failoverBusy = false;
+  let connectTimer: ReturnType<typeof setTimeout> | null = null;
+  let onMessageHandler: ((message: RayRealtimeMessage) => void) | null = null;
 
-  return {
-    async start(onMessage) {
-      stopped = false;
+  const clearConnectTimer = () => {
+    if (connectTimer) {
+      clearTimeout(connectTimer);
+      connectTimer = null;
+    }
+  };
+
+  const tearDownSocket = () => {
+    clearConnectTimer();
+    socket?.disconnect();
+    socket = null;
+  };
+
+  const requestFailover = (reason: string) => {
+    if (stopped || failoverBusy) return;
+    const failedSource = activeConfig?.source;
+    if (!failedSource) return;
+    void failoverFrom(failedSource, reason);
+  };
+
+  const failoverFrom = async (failedSource: RayWsEndpointSource, reason: string) => {
+    if (stopped || failoverBusy) return;
+    failoverBusy = true;
+    try {
+      tearDownSocket();
+      activeConfig = null;
       patchDirectRealtimeStatus(PLATFORM, {
         upstreamConnected: false,
         upstreamRoute: null,
-        lastError: null,
+        lastError: reason,
       });
+      const nextConfig = nextFailoverConfig(failedSource);
+      console.warn(`[RAY WS] ${failedSource} failed, switching to ${nextConfig.source}:`, reason);
+      await connectWithConfig(nextConfig);
+    } finally {
+      failoverBusy = false;
+    }
+  };
 
-      const token = RAY_A8_COLLECT.token;
-      const auth = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+  const connectWithConfig = async (config: RayScConnectConfig) => {
+    if (stopped) return;
 
-      socket = socketClusterClient.create({
-        hostname: RAY_WS.hostname,
-        secure: true,
-        port: 443,
-        path: RAY_WS.path,
-        protocolVersion: 1,
-        autoConnect: true,
-        connectTimeout: 15_000,
-        ackTimeout: 10_000,
-        wsOptions: {
-          headers: {
-            Origin: RAY_WS.origin,
-            Referer: `${RAY_WS.origin}/`,
-            Authorization: auth,
-          },
-        },
-      });
+    tearDownSocket();
+    activeConfig = config;
+    const label = scUrlLabel(config);
 
-      watchRaySocketState(socket, () => stopped);
+    patchDirectRealtimeStatus(PLATFORM, {
+      upstreamConnected: false,
+      upstreamRoute: null,
+      lastError: null,
+    });
 
+    socket = socketClusterClient.create({
+      hostname: config.hostname,
+      secure: config.secure,
+      port: config.port,
+      path: config.path,
+      protocolVersion: 1,
+      autoConnect: true,
+      connectTimeout: RAY_WS_CONNECT_TIMEOUT_MS,
+      ackTimeout: 10_000,
+      wsOptions: config.wsOptions,
+    });
+
+    void (async () => {
+      for await (const _ of socket!.listener("connect")) {
+        if (stopped) break;
+        clearConnectTimer();
+        console.info("[RAY WS] connected", label, `(${config.source})`);
+        patchDirectRealtimeStatus(PLATFORM, {
+          upstreamConnected: true,
+          upstreamRoute: upstreamRouteFromUrl(label, config.source),
+          lastError: null,
+        });
+      }
+    })();
+
+    void (async () => {
+      for await (const _ of socket!.listener("disconnect")) {
+        if (stopped) break;
+        patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, upstreamRoute: null });
+        requestFailover("connection closed");
+      }
+    })();
+
+    void (async () => {
+      for await (const event of socket!.listener("error")) {
+        if (stopped) break;
+        const message =
+          event && typeof event === "object" && "error" in event
+            ? String((event as { error?: unknown }).error ?? event)
+            : String(event ?? "ws error");
+        patchDirectRealtimeStatus(PLATFORM, {
+          upstreamConnected: false,
+          upstreamRoute: null,
+          lastError: message,
+        });
+        console.warn("[RAY WS] error", message, label, `(${config.source})`);
+        requestFailover(message);
+      }
+    })();
+
+    connectTimer = setTimeout(() => {
+      if (stopped || socket?.state === socket!.OPEN) return;
+      console.warn("[RAY WS] connect timeout", label, `(${config.source})`);
+      requestFailover("connect timeout");
+    }, RAY_WS_CONNECT_TIMEOUT_MS);
+
+    try {
       const channel = socket.subscribe(RAY_SC_CHANNEL);
       await channel.listener("subscribe").once();
-      patchDirectRealtimeStatus(PLATFORM, {
-        upstreamConnected: true,
-        upstreamRoute: "official",
-        lastError: null,
-      });
-
       void (async () => {
         try {
           for await (const msg of channel) {
             if (stopped) break;
             bumpDirectRealtimeMessage(PLATFORM);
-            onMessage(msg as RayRealtimeMessage);
+            onMessageHandler?.(msg as RayRealtimeMessage);
           }
         } catch (err) {
-          if (!stopped) {
-            const message = err instanceof Error ? err.message : String(err);
-            patchDirectRealtimeStatus(PLATFORM, {
-              upstreamConnected: false,
-              upstreamRoute: null,
-              lastError: message,
-            });
-            console.warn("[RAY] ws loop", err);
-          }
+          if (!stopped) requestFailover(err instanceof Error ? err.message : String(err));
         }
       })();
+    } catch (err) {
+      requestFailover(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  return {
+    async start(onMessage) {
+      onMessageHandler = onMessage;
+      stopped = false;
+      await connectWithConfig(getRayOfficialScConfig());
     },
     async stop() {
       stopped = true;
-      socket?.disconnect();
-      socket = null;
+      tearDownSocket();
+      onMessageHandler = null;
+      activeConfig = null;
       resetDirectRealtimeStatus(PLATFORM);
     },
     async status() {

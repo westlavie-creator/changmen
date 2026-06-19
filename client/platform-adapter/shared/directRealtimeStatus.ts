@@ -20,11 +20,12 @@ const LOCAL_WS_FORWARD_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
 export function upstreamRouteFromUrl(
   url: string,
-  source?: "official" | "changmen" | "a8",
+  source?: "official" | "changmen" | "a8" | "demo",
 ): DirectRealtimeUpstreamRoute {
   if (source === "changmen") return "changmen";
   if (source === "a8") return "a8";
   if (source === "official") return "official";
+  if (source === "demo") return "official";
   try {
     const host = new URL(url).hostname.toLowerCase();
     if (A8_UPSTREAM_HOSTS.has(host)) return "a8";

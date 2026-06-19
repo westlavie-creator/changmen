@@ -1,3 +1,4 @@
+import { resolveChangmenWsBase } from "@platform/shared/changmenWsBase";
 import { IA_A8_COLLECT } from "./a8Collect";
 
 
@@ -100,39 +101,7 @@ export function buildIaWsA8ShapeOptions(gateway: string = IA_DEFAULT_GATEWAY): I
 
 
 
-/** dev 下 WS 直连 backend（Vite 对 Socket.IO upgrade 代理不可靠） */
-function changmenDevBackendOrigin(): string {
-  const isWin =
-    typeof navigator !== "undefined"
-      ? /win/i.test(navigator.platform || navigator.userAgent)
-      : typeof process !== "undefined" && process.platform === "win32";
-  const port = isWin ? 3560 : 3456;
-  return `http://127.0.0.1:${port}`;
-}
-
-/** 浏览器连 CHANGMEN 时的基址：`VITE_API_BASE` > dev 直连 backend > 同源 */
-export function resolveIaChangmenWsBase(): string {
-  if (typeof window !== "undefined") {
-    const envBase =
-      typeof import.meta !== "undefined" &&
-      import.meta.env &&
-      String(import.meta.env.VITE_API_BASE || "").trim();
-    if (envBase) return String(envBase).replace(/\/+$/, "");
-    if (import.meta.env?.DEV) return changmenDevBackendOrigin();
-    return window.location.origin;
-  }
-  return changmenDevBackendOrigin();
-}
-
-
-
-/**
-
- * 官网：`auth.token` = localStorage `token` 或 `"123"`。
-
- * path `/socket.io`（与 A8 形不同，仅官方直连使用）。
-
- */
+/** 官网：`auth.token` = localStorage `token` 或 `"123"`；path `/socket.io`（仅官方直连） */
 
 export function getIaOfficialWsConfig(gateway: string = IA_DEFAULT_GATEWAY): IaWsConnectConfig {
 
@@ -174,7 +143,7 @@ export function getIaChangmenWsConfig(
 
   gateway: string = IA_DEFAULT_GATEWAY,
 
-  baseUrl: string = resolveIaChangmenWsBase(),
+  baseUrl: string = resolveChangmenWsBase(),
 
 ): IaWsConnectConfig {
 

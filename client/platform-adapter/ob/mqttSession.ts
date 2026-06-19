@@ -2,13 +2,15 @@ import { getCollectPlatform } from "@/api/esport";
 import { OB_DEMO_LOGIN_URL } from "@/api/v4";
 import { directGet } from "@/shared/http";
 import { PLATFORMS } from "@/shared/platform";
+import { changmenHttpBaseToWs, resolveChangmenWsBase } from "@platform/shared/changmenWsBase";
 import {
   OB_A8_MQTT_PASSWORD,
   OB_A8_MQTT_URL,
   OB_A8_MQTT_USERNAME,
+  OB_WS_FORWARD_PATH,
 } from "./mqttConfig";
 
-export type ObMqttEndpointSource = "demo" | "a8";
+export type ObMqttEndpointSource = "demo" | "changmen" | "a8";
 
 export type ObMqttConnectConfig = {
   url: string;
@@ -44,6 +46,19 @@ export function getObA8MqttConfig(): ObMqttConnectConfig {
     password: OB_A8_MQTT_PASSWORD,
     source: "a8",
   };
+}
+
+/**
+ * CHANGMEN：服务端透明中继到官方 demo MQTT（`?u=` 传官方 wss 地址）。
+ * 浏览器 mqtt 选项与 demo 相同，仅 url 不同。
+ */
+export function getObChangmenMqttConfig(
+  officialDemoUrl: string,
+  username: string,
+): ObMqttConnectConfig {
+  const base = changmenHttpBaseToWs(resolveChangmenWsBase());
+  const forwardUrl = `${base}${OB_WS_FORWARD_PATH}?u=${encodeURIComponent(officialDemoUrl)}`;
+  return { url: forwardUrl, username, source: "changmen" };
 }
 
 /**
