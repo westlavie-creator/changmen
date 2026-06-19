@@ -24,5 +24,4 @@ export function isOrderListVisible(link, provider) {
 }
 
 /** PostgreSQL WHERE 片段：系统单 + 非 PB hash */
-export const SQL_ORDERS_VISIBLE =
-  "(link < 0 OR link >= 1000000000000 OR provider IS DISTINCT FROM 'PB')";
+export const SQL_ORDERS_VISIBLE = "(link < 0 OR link >= 1000000000000)";

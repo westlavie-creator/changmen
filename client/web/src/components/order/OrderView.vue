@@ -84,7 +84,6 @@ function isArbGroup(rows: OrderRow[]) {
       :class="{ 'orderlink--paired': isArbGroup(rows) }"
     >
       <legend :class="legendClass(rows)">
-        <span v-if="isArbGroup(rows)" class="orderlink__tag">套利</span>
         {{ legendText(rows) }}
       </legend>
       <div v-for="row in rows" :key="String(row.OrderID)" class="order">
