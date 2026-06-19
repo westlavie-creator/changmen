@@ -73,13 +73,29 @@ export async function resolveObTeamLogo(teamId: string): Promise<string> {
   return resolveObTeamLogoSync(teamId);
 }
 
-/** ?? A8 $Me????token ?????????????? */
+function parseObPcEntry(pc: string): { token: string; gateway: string | null } {
+  const url = new URL(pc);
+  const token = url.searchParams.get("token") || "";
+  const addrRaw = url.searchParams.get("addr") || "";
+  let gateway: string | null = null;
+  if (addrRaw) {
+    try {
+      const addr = JSON.parse(atob(decodeURIComponent(addrRaw))) as { api?: unknown };
+      if (Array.isArray(addr.api) && addr.api[0]) gateway = String(addr.api[0]);
+    } catch {
+      /* ignore */
+    }
+  }
+  return { token, gateway };
+}
+
+/** [A8 可证实] bundle `$Me`/`gIe`：试玩 login 只写 token */
 export async function refreshObCollectToken(): Promise<string | null> {
   try {
-    const body = await directGet<{ data?: { pc?: string } }>(OB_DEMO_LOGIN_URL, {});
+    const body = await directGet<{ data?: { pc?: string; token?: string } }>(OB_DEMO_LOGIN_URL, {});
     const pc = body?.data?.pc;
     if (!pc) return null;
-    const token = new URL(pc).searchParams.get("token");
+    const token = body.data?.token || parseObPcEntry(pc).token;
     if (!token) return null;
     await updatePlatform({ provider: PLATFORMS.OB, token });
     return token;
@@ -88,66 +104,42 @@ export async function refreshObCollectToken(): Promise<string | null> {
   }
 }
 
-/** [changmen ??] getTimer ????is_live=2 ??????????h+a+1? */
-export function inferLiveRoundFromObIndexRow(row: Record<string, unknown>): number {
-  if (num(row.is_live) !== 2) return 0;
-  const score = String(row.score ?? "0:0").replace(/\s/g, "");
-  const m = score.match(/^(\d+):(\d+)$/);
-  const home = m ? num(m[1]) : 0;
-  const away = m ? num(m[2]) : 0;
-  const round = Math.max(1, home + away + 1);
-  const bo = num(row.bo);
-  return bo > 0 ? Math.min(round, bo) : round;
+/**
+ * platforms.json 里 gateway 失效（HTTP 510 等）时，用试玩 login 换新 gateway+token。
+ * A8 由服务端 getPlatform 保活 gateway；changmen 本地需此补货，否则 MQTT 仍可用但采集到不了 mIe。
+ */
+async function refreshObCollectGateway(): Promise<CollectPlatformInfo | null> {
+  try {
+    const body = await directGet<{ data?: { pc?: string; token?: string } }>(OB_DEMO_LOGIN_URL, {});
+    const pc = body?.data?.pc;
+    if (!pc) return null;
+    const { token: urlToken, gateway } = parseObPcEntry(pc);
+    const token = body.data?.token || urlToken;
+    if (!token || !gateway) return null;
+    await updatePlatform({ provider: PLATFORMS.OB, gateway, token });
+    return (await getCollectPlatform(PLATFORM)) ?? null;
+  } catch {
+    return null;
+  }
 }
 
-/** ?? A8 MMe??? live timer?index is_live=2 ???getTimer ???? score ?? */
-export async function syncObLiveTimer(
-  platform: CollectPlatformInfo,
-  indexRows?: ReadonlyArray<Record<string, unknown>>,
-): Promise<void> {
-  const indexById = new Map(
-    (indexRows ?? []).map((row) => [String(row.id ?? ""), row]),
-  );
+/** [A8 可证实] bundle `mIe`：`game/getTimer` → `Ut.saveLiveTimer(OB, rows)`，无 is_live 过滤、无 index 推断、不上报后拉 GetMatchs */
+export async function syncObLiveTimer(platform: CollectPlatformInfo): Promise<void> {
   const res = await collectObGet<{
     status: string;
     data?: Record<string, Record<string, unknown>>;
   }>(platform, "game/getTimer", "");
+  if (res.status !== "true" || !res.data) return;
 
-  const byId = new Map<string, { MatchID: string | number; Round: number; StartTime: number }>();
-  if (res.status === "true" && res.data) {
-    for (const row of Object.values(res.data)) {
-      const matchId = row.match_id;
-      const mid = String(matchId ?? "");
-      if (!mid) continue;
-      const idx = indexById.get(mid);
-      if (indexById.size && !idx) continue;
-      if (indexById.size && num(idx?.is_live) !== 2) continue;
-      byId.set(mid, {
-        MatchID: matchId as string | number,
-        Round: num(row.round),
-        StartTime: num(row.start_time) * 1000,
-      });
-    }
-  }
-
-  for (const row of indexRows ?? []) {
-    if (num(row.is_live) !== 2) continue;
-    const mid = String(row.id ?? "");
-    if (!mid) continue;
-    const inferred = inferLiveRoundFromObIndexRow(row);
-    if (inferred <= 0) continue;
-    const existing = byId.get(mid);
-    if (existing && num(existing.Round) > 0) continue;
-    byId.set(mid, {
-      MatchID: row.id as string | number,
-      Round: inferred,
-      StartTime: num(existing?.StartTime) > 0 ? num(existing!.StartTime) : Date.now(),
+  const timer: Array<{ MatchID: string | number; Round: number; StartTime: number }> = [];
+  for (const row of Object.values(res.data)) {
+    timer.push({
+      MatchID: row.match_id as string | number,
+      Round: num(row.round),
+      StartTime: num(row.start_time) * 1000,
     });
   }
-
-  await saveLiveTimer(PLATFORMS.OB, [...byId.values()]);
-  // ?? A8?timer ????????GetMatchs???? 30s ??
-  void useMatchStore().fetchMatches(true);
+  await saveLiveTimer(PLATFORMS.OB, timer);
 }
 
 /** game/index ???? match_team ?????? */
@@ -225,11 +217,24 @@ export function startObCollector(): () => void {
 
         const betRe = getObBetNameRe(platform.BetName);
 
-        const index = await collectObGet<{ status: string; data?: Array<Record<string, unknown>> | string }>(
-          platform,
-          "game/index",
-          "game_id=0&flag=1&day=1",
-        );
+        let index: { status: string; data?: Array<Record<string, unknown>> | string };
+        try {
+          index = await collectObGet<{ status: string; data?: Array<Record<string, unknown>> | string }>(
+            platform,
+            "game/index",
+            "game_id=0&flag=1&day=1",
+          );
+        } catch (err) {
+          console.warn("[OB] game/index failed, refreshing gateway from demo login", err);
+          const refreshed = await refreshObCollectGateway();
+          if (!refreshed) throw err;
+          platform = refreshed;
+          index = await collectObGet<{ status: string; data?: Array<Record<string, unknown>> | string }>(
+            platform,
+            "game/index",
+            "game_id=0&flag=1&day=1",
+          );
+        }
         if (index.status === "false") {
           if (index.data === "token") {
             const token = await refreshObCollectToken();
@@ -269,15 +274,15 @@ export function startObCollector(): () => void {
           if (!loaded.hadError) {
             await collect.saveBets(PLATFORM, matchId, loaded.bets);
           }
-          await subscribeObMatchAfterView(matchId);
+          void subscribeObMatchAfterView(matchId);
         }
 
-        await syncObLiveTimer(platform, rawList);
+        await syncObLiveTimer(platform);
       } catch (err) {
         console.warn("[OB] collect error", err);
         notifyCollectError("OB", err);
       } finally {
-        console.debug(`[OB]????:${Date.now() - started}ms??????${matchCount}?`);
+        console.debug(`[OB] poll:${Date.now() - started}ms views:${matchCount}`);
         await wait(POLL_MS);
       }
     }
