@@ -1,5 +1,5 @@
 /**
- * RDS 连接池（impl_rds / team_store 共用）。
+ * RDS 连接池（@changmen/db 各 store 经 rds/common 或脚本直连）。
  */
 
 import { createRequire } from "node:module";

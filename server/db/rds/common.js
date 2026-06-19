@@ -1,5 +1,6 @@
 /**
  * RDS 公共工具 — pool 访问、fire-and-forget 写入、jsonb 序列化。
+ * rds/*_store 均经此 getPgPool() 取连接池。
  */
 
 import { getDbMode } from "../db_script.js";

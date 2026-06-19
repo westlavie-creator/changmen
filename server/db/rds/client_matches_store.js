@@ -135,17 +135,6 @@ export async function initLastWrittenIds() {
   }
 }
 
-/** 启动时清空 client_matches */
-export async function clearClientMatchesOnStartup() {
-  const pool = getPgPool();
-  if (!pool) return;
-  try {
-    await pool.query("DELETE FROM client_matches WHERE id != 0");
-  } catch (err) {
-    console.warn("[rds] clearClientMatchesOnStartup 失败:", err.message);
-  }
-}
-
 /**
  * 轻量探测 client_matches 是否变化（供 backend 快照缓存失效，避免每次 Client_GetMatchs 全表 SELECT *）。
  * @returns {Promise<{ builtAt: number, count: number }|null>} 失败时 null

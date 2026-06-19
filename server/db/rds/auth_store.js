@@ -150,10 +150,6 @@ export async function authRefreshToken(refreshToken) {
   }
 }
 
-export function hasAdminAccess() {
-  return !!getPgPool();
-}
-
 export function isAuthConfigured() {
   return !!(hasDatabaseUrlConfig() && JWT_SECRET.length >= 16);
 }

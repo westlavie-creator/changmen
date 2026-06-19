@@ -2,10 +2,10 @@
  * 队伍表读写 — canonical_teams / team_platform_maps（RDS）。
  */
 
-import { normalizeTeam } from "../match-engine/index.js";
+import { normalizeTeam } from "../../match-engine/index.js";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
-import { getPgPool } from "./pg_pool.js";
+import { getPgPool } from "./common.js";
 
 async function rdsLoadAll(sql, mapRow) {
   const pool = getPgPool();

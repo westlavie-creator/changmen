@@ -16,8 +16,8 @@ const dbPkgRoot = join(backendRoot, "..", "db");
 
 const CODE_FILES = [
   join(dbPkgRoot, "impl_rds.js"),
-  join(dbPkgRoot, "team_store.js"),
-  join(dbPkgRoot, "matcher_store.js"),
+  join(dbPkgRoot, "rds", "team_store.js"),
+  join(dbPkgRoot, "rds", "matcher_store.js"),
 ];
 
 const SQL_KEYWORDS = new Set([

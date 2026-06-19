@@ -2,12 +2,11 @@
  * Matcher 数据访问 — 读写均走 RDS（PostgreSQL）。
  */
 
-import { getPgPool } from "./pg_pool.js";
-import { jsonb } from "./rds/common.js";
-import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "./client_match_list_status.js";
+import { getPgPool, jsonb } from "./common.js";
+import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "../client_match_list_status.js";
 
 function pool() {
-  return getPgPool("matcher_store");
+  return getPgPool();
 }
 
 async function rdsQuery(sql, params = []) {

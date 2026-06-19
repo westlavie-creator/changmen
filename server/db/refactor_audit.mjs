@@ -16,6 +16,8 @@ const stores = [
   "./rds/profile_store.js",
   "./rds/money_log_store.js",
   "./rds/player_store.js",
+  "./rds/team_store.js",
+  "./rds/matcher_store.js",
 ];
 
 const usedSymbols = [
@@ -36,7 +38,7 @@ const usedSymbols = [
   "fetchLiveTimers", "writePlatformBets", "replacePlatformBetsForMatch",
   "writeLiveTimers", "writeLiveTimersAsync", "purgePlatformLiveTimers",
   "writeClientMatches", "writeClientMatchesAsync", "fetchClientMatches",
-  "fetchClientMatchesMeta", "initLastWrittenIds", "clearClientMatchesOnStartup",
+  "fetchClientMatchesMeta", "initLastWrittenIds",
   "isPbHashOrder", "isHashLink", "SQL_ORDERS_VISIBLE",
   "CLIENT_MATCH_LIST_HIDDEN", "CLIENT_MATCH_LIST_DEFAULT",
   "pruneStaleRows", "formatPruneCounts", "DEFAULT_PRUNE_INTERVAL_MS",
@@ -52,7 +54,14 @@ const usedSymbols = [
   "fetchPlatformMatchRow",
 ];
 
-const removedSymbols = ["getServiceClient", "usesRdsImpl", "getTeamDbScript"];
+const removedSymbols = [
+  "getServiceClient",
+  "usesRdsImpl",
+  "getTeamDbScript",
+  "hasAdminAccess",
+  "getActiveDbScript",
+  "clearClientMatchesOnStartup",
+];
 
 let failed = 0;
 function ok(msg) {
@@ -92,7 +101,7 @@ for (const sym of usedSymbols) {
 }
 if (failed === 0) ok(`${usedSymbols.length} 个业务符号均存在`);
 
-console.log("\n=== 4. 已删除的 Supabase 遗留 API ===");
+console.log("\n=== 4. 已删除的遗留 / 死 export ===");
 for (const sym of removedSymbols) {
   if (sym in db) fail(`应已删除但仍存在: ${sym}`);
   else ok(`${sym} 已移除`);
@@ -101,6 +110,10 @@ for (const sym of removedSymbols) {
 console.log("\n=== 5. 废弃文件 ===");
 if (fs.existsSync(path.join(__dirname, "db_mode.js"))) fail("db_mode.js 应已删除");
 else ok("db_mode.js 不存在");
+for (const legacy of ["team_store.js", "matcher_store.js"]) {
+  if (fs.existsSync(path.join(__dirname, legacy))) fail(`${legacy} 应已迁入 rds/`);
+  else ok(`${legacy} 不在 db 根目录`);
+}
 
 console.log("\n=== 6. facade 行数 ===");
 const facadeLines = fs.readFileSync(path.join(__dirname, "impl_rds.js"), "utf8").split("\n").length;

@@ -12,7 +12,6 @@ export {
   authSignOut,
   authGetUser,
   authRefreshToken,
-  hasAdminAccess,
   isAuthConfigured,
 } from "./rds/auth_store.js";
 
@@ -55,7 +54,6 @@ export {
   fetchClientMatches,
   fetchClientMatchesMeta,
   initLastWrittenIds,
-  clearClientMatchesOnStartup,
 } from "./rds/client_matches_store.js";
 
 export {
