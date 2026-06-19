@@ -11,7 +11,7 @@
  *   rds/profile_store.js 等  — profile / player / money_log
  *   rds/team_store.js        — canonical_teams / team_platform_maps
  *   rds/matcher_store.js     — matcher UI/ops 专用查询与运维 SQL
- *   order_link_filter — LinkID 分类（hash/套利/单边；SQL 返回全量）
+ *   order_link_filter — LinkID 分类（hash/套利/占位）
  *   prune_stale.js    — 过期 platform_* / client_matches 清理
  *
  * 本地 JSON / 路径见 @changmen/storage（非本包职责）。
@@ -40,13 +40,35 @@ export {
 export {
   ARB_LINK_MIN,
   placeholderLinkFromCreateAt,
+  placeholderLinkFromInsertAt,
+  backendBindLinkFromCreateAt,
   isHashLink,
   isCreateAtPlaceholderLink,
+  isInsertTimePlaceholderLink,
   isArbBindLink,
   shouldFireOrderBoundHook,
   isPbHashOrder,
   isOrderListVisible,
+  CLIENT_ORDER_LIST_SQL,
+  isClientOrderListVisible,
+  orderVisibleSqlAnd,
 } from "./order_link_filter.js";
+
+export {
+  CHANGMEN_ORDER_LIST_SQL,
+  orderChangmenBetSqlAnd,
+  BET_LOG_BEFORE_MS,
+  BET_LOG_AFTER_MS,
+  parseBetLogData,
+  isSuccessBetLogTitle,
+  isSuccessCheckLogTitle,
+  extractBetLogProvider,
+  extractBetLogOrderId,
+  betLogMatchesOrder,
+  checkLogMatchesOrder,
+  matchChangmenBetFromLogs,
+  betLogWindowForOrders,
+} from "./order_changmen_bet.js";
 
 export const {
   isAuthConfigured,

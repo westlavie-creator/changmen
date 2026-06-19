@@ -1,5 +1,5 @@
 /**
- * 验证未绑单占位 Link：新单 link ≈ create_at；旧单可能仍为 hash。
+ * 验证未绑单占位 Link：新单 link = RDS 入库时刻；legacy 可能 link=create_at 或 hash。
  * 用法：cd changmen/server/backend && node scripts/verify-order-link-placeholder.mjs
  */
 import { getPgPool } from "@changmen/db";
@@ -7,7 +7,7 @@ import {
   ARB_LINK_MIN,
   isCreateAtPlaceholderLink,
   isHashLink,
-  placeholderLinkFromCreateAt,
+  isInsertTimePlaceholderLink,
 } from "@changmen/db";
 
 const pool = getPgPool();
@@ -29,23 +29,27 @@ const { rows } = await pool.query(
 );
 
 let createAtMatch = 0;
+let insertTimePlaceholder = 0;
 let hashPlaceholder = 0;
 let arbBind = 0;
 let other = 0;
-const samples = { createAtMatch: [], hash: [], arb: [] };
+const samples = { createAtMatch: [], insertTime: [], hash: [], arb: [] };
 
 for (const r of rows) {
   const link = Number(r.link);
   const ca = Number(r.create_at);
-  if (link >= ARB_LINK_MIN && link !== ca) {
-    arbBind += 1;
-    if (samples.arb.length < 3) samples.arb.push(r);
-  } else if (isCreateAtPlaceholderLink(link, ca)) {
+  if (isCreateAtPlaceholderLink(link, ca)) {
     createAtMatch += 1;
     if (samples.createAtMatch.length < 3) samples.createAtMatch.push(r);
+  } else if (isInsertTimePlaceholderLink(link, ca)) {
+    insertTimePlaceholder += 1;
+    if (samples.insertTime.length < 3) samples.insertTime.push(r);
   } else if (isHashLink(link)) {
     hashPlaceholder += 1;
     if (samples.hash.length < 3) samples.hash.push(r);
+  } else if (link >= ARB_LINK_MIN) {
+    arbBind += 1;
+    if (samples.arb.length < 3) samples.arb.push(r);
   } else {
     other += 1;
   }
@@ -54,21 +58,34 @@ for (const r of rows) {
 console.log(`--- orders since ${days}d (max 500 rows) ---`);
 console.log({
   total: rows.length,
-  create_at_placeholder: createAtMatch,
+  legacy_create_at_placeholder: createAtMatch,
+  insert_time_placeholder: insertTimePlaceholder,
   hash_placeholder: hashPlaceholder,
   arb_bind: arbBind,
   other,
 });
 
 if (samples.createAtMatch.length) {
-  console.log("--- sample create_at placeholder ---");
+  console.log("--- sample legacy create_at placeholder ---");
   for (const r of samples.createAtMatch) {
     console.log({
       order_id: String(r.order_id).slice(0, 24),
       provider: r.provider,
       link: String(r.link),
       create_at: String(r.create_at),
-      expected: placeholderLinkFromCreateAt(r.create_at),
+    });
+  }
+}
+
+if (samples.insertTime.length) {
+  console.log("--- sample insert-time placeholder ---");
+  for (const r of samples.insertTime) {
+    console.log({
+      order_id: String(r.order_id).slice(0, 24),
+      provider: r.provider,
+      link: String(r.link),
+      create_at: String(r.create_at),
+      delta_ms: Number(r.link) - Number(r.create_at),
     });
   }
 }

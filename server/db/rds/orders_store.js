@@ -12,7 +12,7 @@ async function _rdsUpsertOrders(pool, rows) {
     INSERT INTO orders (
       user_id, player_id, order_id, link, provider, match, bet, item,
       odds, bet_money, money, status, create_at, raw
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
     ON CONFLICT (user_id, order_id, player_id) DO UPDATE SET
       link = EXCLUDED.link,
       provider = EXCLUDED.provider,
@@ -99,14 +99,16 @@ export async function upsertOrders(rows) {
   }
 }
 
-/** 按日期读取订单（userId 隔离） */
+/** 按日期读取订单（全量，不做 changmen_bet / link 筛选） */
 export async function fetchOrdersByDate(date, userId) {
   const { dayStart, dayEnd } = localDayBounds(date);
   const pool = getPgPool();
   if (!pool || !userId) return [];
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1 AND create_at >= $2 AND create_at < $3 ORDER BY create_at DESC`,
+      `SELECT * FROM orders
+       WHERE user_id = $1 AND create_at >= $2 AND create_at < $3
+       ORDER BY create_at DESC`,
       [String(userId), dayStart, dayEnd],
     );
     return rows || [];
@@ -116,13 +118,15 @@ export async function fetchOrdersByDate(date, userId) {
   }
 }
 
-/** 按 playerId 读取订单 */
+/** 按 playerId 读取订单（全量） */
 export async function fetchOrdersByPlayer(playerId, userId) {
   const pool = getPgPool();
   if (!pool || !userId) return [];
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 ORDER BY create_at DESC`,
+      `SELECT * FROM orders
+       WHERE user_id = $1 AND player_id = $2
+       ORDER BY create_at DESC`,
       [String(userId), Number(playerId)],
     );
     return rows || [];
@@ -132,7 +136,7 @@ export async function fetchOrdersByPlayer(playerId, userId) {
   }
 }
 
-/** saveOrder 保留已有 link 绑定，需含外部单 */
+/** saveOrder 读已有行（不过滤，含 A8 被动 sync） */
 export async function fetchOrdersByPlayerAll(playerId, userId) {
   const pool = getPgPool();
   if (!pool || !userId) return [];
@@ -148,7 +152,7 @@ export async function fetchOrdersByPlayerAll(playerId, userId) {
   }
 }
 
-/** 运维：同 Link 订单（含外部 hash link） */
+/** 运维：同 Link 订单 */
 export async function fetchOrdersByLink(userId, link) {
   const pool = getPgPool();
   const uid = String(userId || "").trim();
@@ -169,7 +173,7 @@ export async function fetchOrdersByLink(userId, link) {
   }
 }
 
-/** 运维：按 order_id 查单行（含外部单） */
+/** 按 order_id 查单行 */
 export async function fetchOrderByOrderId(userId, orderId) {
   const pool = getPgPool();
   const uid = String(userId || "").trim();
@@ -367,7 +371,7 @@ export async function fetchOrdersForProfitAggregate(dateKey) {
 
 /**
  * 更新订单 link 绑定。
- * A8 客户端只传 LinkID + Provider + OrderID（无 PlayerID），需用 provider 或仅 user+order_id 匹配。
+ * 内部 SELECT 不过滤 link（需匹配占位行后再写 bind link）。
  */
 export async function updateOrderBind(orderId, userId, link, opts = {}) {
   if (!orderId || !userId) return false;

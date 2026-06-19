@@ -7,14 +7,14 @@ vi.mock("@changmen/db", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    fetchOrdersByPlayerAll: fetchOrdersByPlayerAll,
-    upsertOrders: upsertOrders,
+    fetchOrdersByPlayerAll,
+    upsertOrders,
   };
 });
 
 import { saveOrder } from "./order_store.js";
 
-describe("saveOrder placeholder link", () => {
+describe("saveOrder backend bind link", () => {
   beforeEach(() => {
     fetchOrdersByPlayerAll.mockReset();
     upsertOrders.mockReset();
@@ -22,7 +22,7 @@ describe("saveOrder placeholder link", () => {
     upsertOrders.mockResolvedValue(true);
   });
 
-  it("sets link = create_at for new unbound order", async () => {
+  it("sets link just before create_at for new unbound order", async () => {
     const createAt = 1_781_882_462_790;
     await saveOrder(
       7,
@@ -32,7 +32,8 @@ describe("saveOrder placeholder link", () => {
 
     expect(upsertOrders).toHaveBeenCalledOnce();
     const row = upsertOrders.mock.calls[0][0][0];
-    expect(row.link).toBe(createAt);
+    expect(row.link).toBe(createAt - 1);
+    expect(row.link).toBeLessThan(createAt);
     expect(row.create_at).toBe(createAt);
   });
 
@@ -53,7 +54,7 @@ describe("saveOrder placeholder link", () => {
     expect(row.link).toBe(arbLink);
   });
 
-  it("uses create_at placeholder when existing link is 0", async () => {
+  it("backend-binds when existing link is 0", async () => {
     const createAt = 1_781_882_462_790;
     fetchOrdersByPlayerAll.mockResolvedValue([
       { order_id: "venue-2", link: 0, create_at: createAt },
@@ -66,6 +67,6 @@ describe("saveOrder placeholder link", () => {
     );
 
     const row = upsertOrders.mock.calls[0][0][0];
-    expect(row.link).toBe(createAt);
+    expect(row.link).toBe(createAt - 1);
   });
 });

@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ARB_LINK_MIN,
   isArbBindLink,
   isCreateAtPlaceholderLink,
   isHashLink,
+  isInsertTimePlaceholderLink,
   isOrderListVisible,
+  isClientOrderListVisible,
+  CLIENT_ORDER_LIST_SQL,
+  orderVisibleSqlAnd,
   isPbHashOrder,
   placeholderLinkFromCreateAt,
+  placeholderLinkFromInsertAt,
+  backendBindLinkFromCreateAt,
   shouldFireOrderBoundHook,
 } from "./order_link_filter.js";
 
@@ -21,6 +28,19 @@ describe("order_link_filter", () => {
     assert.equal(isPbHashOrder(12345, "PB"), true);
     assert.equal(isPbHashOrder(12345, "OB"), false);
     assert.equal(isPbHashOrder(1_000_000_000_001, "PB"), false);
+  });
+
+  it("orderVisibleSqlAnd appends link filter", () => {
+    assert.equal(orderVisibleSqlAnd("user_id = $1"), "user_id = $1 AND link < create_at");
+    assert.equal(orderVisibleSqlAnd(""), "link < create_at");
+  });
+
+  it("isClientOrderListVisible uses link < create_at", () => {
+    const ca = 1_781_890_412_000;
+    assert.equal(isClientOrderListVisible(1_781_890_411_000, ca), true);
+    assert.equal(isClientOrderListVisible(ca + 50_000, ca), false);
+    assert.equal(isClientOrderListVisible(-ca, ca), true);
+    assert.equal(CLIENT_ORDER_LIST_SQL, "link < create_at");
   });
 
   it("isOrderListVisible matches A8 JS helper (not SQL)", () => {
@@ -43,6 +63,24 @@ describe("order_link_filter", () => {
     assert.equal(isCreateAtPlaceholderLink(12345, ca), false);
   });
 
+  it("backendBindLinkFromCreateAt is before create_at", () => {
+    const ca = 1_781_882_462_790;
+    assert.equal(backendBindLinkFromCreateAt(ca), ca - 1);
+    assert.ok(backendBindLinkFromCreateAt(ca) < ca);
+  });
+
+  it("placeholderLinkFromInsertAt uses insert ms", () => {
+    assert.equal(placeholderLinkFromInsertAt(1_781_900_000_000), 1_781_900_000_000);
+    assert.ok(placeholderLinkFromInsertAt(0) >= ARB_LINK_MIN);
+  });
+
+  it("isInsertTimePlaceholderLink requires link after create_at", () => {
+    const ca = 1_781_882_462_790;
+    assert.equal(isInsertTimePlaceholderLink(ca + 50_000, ca), true);
+    assert.equal(isInsertTimePlaceholderLink(ca, ca), false);
+    assert.equal(isInsertTimePlaceholderLink(ca - 1, ca), false);
+  });
+
   it("shouldFireOrderBoundHook covers hash and create_at placeholders", () => {
     const arb = 1_700_000_000_123;
     assert.equal(
@@ -52,6 +90,10 @@ describe("order_link_filter", () => {
     const ca = 1_781_882_462_790;
     assert.equal(
       shouldFireOrderBoundHook({ link: ca, create_at: ca }, arb),
+      true,
+    );
+    assert.equal(
+      shouldFireOrderBoundHook({ link: ca + 60_000, create_at: ca }, arb),
       true,
     );
     assert.equal(

@@ -9,6 +9,7 @@ vi.mock("./common.js", () => ({
 
 import {
   fetchOrdersByDate,
+  fetchOrdersByPlayer,
   fetchOrdersByPlayerAll,
   setOrdersBoundHook,
   updateOrderBind,
@@ -20,19 +21,43 @@ describe("orders_store read SQL", () => {
     setOrdersBoundHook(null);
   });
 
-  it("fetchOrdersByDate returns all orders (no link filter)", async () => {
+  it("fetchOrdersByDate returns all orders (no filter)", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     await fetchOrdersByDate("2026-06-18", "user-1");
     expect(queryMock).toHaveBeenCalledOnce();
     const [sql] = queryMock.mock.calls[0];
-    expect(sql).not.toMatch(/\blink\b/i);
+    expect(sql).not.toMatch(/link\s*<\s*create_at/i);
+    expect(sql).not.toMatch(/changmen_bet/i);
   });
 
-  it("fetchOrdersByPlayerAll has no extra link filter", async () => {
+  it("fetchOrdersByPlayer returns all orders (no filter)", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    await fetchOrdersByPlayer(7, "user-1");
+    const [sql] = queryMock.mock.calls[0];
+    expect(sql).not.toMatch(/link\s*<\s*create_at/i);
+    expect(sql).not.toMatch(/changmen_bet/i);
+  });
+
+  it("fetchOrdersAdminPage returns all orders (no filter)", async () => {
+    queryMock.mockResolvedValue({ rows: [{ n: 0 }] });
+    await import("./orders_store.js").then((m) =>
+      m.fetchOrdersAdminPage({
+        dateKey: "2026-06-18",
+        pageIndex: 1,
+        pageSize: 20,
+      }),
+    );
+    const [sql] = queryMock.mock.calls[0];
+    expect(sql).not.toMatch(/link\s*<\s*create_at/i);
+    expect(sql).not.toMatch(/changmen_bet/i);
+  });
+
+  it("fetchOrdersByPlayerAll returns all orders (saveOrder internal)", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     await fetchOrdersByPlayerAll(7, "user-1");
     const [sql] = queryMock.mock.calls[0];
-    expect(sql).not.toMatch(/\blink\b/i);
+    expect(sql).not.toMatch(/link\s*<\s*create_at/i);
+    expect(sql).not.toMatch(/changmen_bet/i);
   });
 });
 
@@ -100,7 +125,13 @@ describe("updateOrderBind bound hook", () => {
   });
 
   it("does not fire when previous link was already arb", async () => {
-    const prev = { user_id: "u1", order_id: "o1", link: 1_700_000_000_001, provider: "OB" };
+    const prev = {
+      user_id: "u1",
+      order_id: "o1",
+      link: 1_700_000_000_001,
+      create_at: 1_781_890_412_000,
+      provider: "OB",
+    };
     queryMock
       .mockResolvedValueOnce({ rows: [prev] })
       .mockResolvedValueOnce({ rowCount: 1 });

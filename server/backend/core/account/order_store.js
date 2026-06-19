@@ -1,5 +1,8 @@
 import * as sb from "@changmen/db";
-import { placeholderLinkFromCreateAt } from "@changmen/db";
+import {
+  backendBindLinkFromCreateAt,
+  placeholderLinkFromCreateAt,
+} from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
 
 export function toDateKey(ts) {
@@ -77,6 +80,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
   const existingByOrderId = new Map(
     existing.map((r) => [String(r.order_id), r]),
   );
+
   const rows = orders.map((o) => {
     const rawCreate = o.createAt ?? o.CreateAt;
     const parsed = parseVenueCreateAt(rawCreate, 0);
@@ -87,11 +91,11 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
     const link =
       boundLink != null && boundLink !== 0
         ? boundLink
-        : placeholderLinkFromCreateAt(createAt);
+        : backendBindLinkFromCreateAt(createAt);
     return {
       user_id: String(userId),
       player_id: Number(playerId),
-      order_id: String(orderId),
+      order_id: orderId,
       link,
       provider: o.provider || o.Type || defaultProvider || "",
       match: o.match || o.Match || "",
