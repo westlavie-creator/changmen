@@ -11,6 +11,8 @@ import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import {
   backendBindLinkFromCreateAt,
   getPgPool,
+  hasDatabaseUrlConfig,
+  initDatabaseUrl,
   setOrdersBoundHook,
   setOrdersInsertedHook,
   updateOrderBind,
@@ -181,9 +183,22 @@ async function checkTelegram(userName) {
 async function main() {
   console.log(`== post-deploy-check ${probeTag} ==`);
 
-  const pool = getPgPool();
+  if (!hasDatabaseUrlConfig()) {
+    fail(
+      "database",
+      "未配置 DATABASE_URL / DATABASE_URL_INTERNAL / DATABASE_URL_PUBLIC（server/backend/.env）",
+    );
+    process.exit(1);
+  }
+
+  await initDatabaseUrl();
+
+  const pool = getPgPool("post-deploy-check");
   if (!pool) {
-    fail("database", "无 DATABASE_URL / RDS 连接池");
+    fail(
+      "database",
+      "initDatabaseUrl 后仍无连接池（检查 RDS 地址与 DATABASE_RDS_TARGET）",
+    );
     process.exit(1);
   }
 
