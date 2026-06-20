@@ -62,10 +62,18 @@ export interface AdminAccountDetail {
   description: string;
   realName: string;
   mobile: string;
+  city: string;
   multiply: number;
+  maxBalanceOdds: number;
+  lastOdds: boolean;
   workTimes: string[];
   rateConfig: AdminAccountRateRow[];
   game: Record<string, AdminAccountGameRow>;
+  gateway?: string;
+  token?: string;
+  referer?: string;
+  userAgent?: string;
+  cookie?: string;
   gatewayHost: string;
   hasCredentials: boolean;
   updateTime: number;

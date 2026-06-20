@@ -346,7 +346,7 @@ function unlockRate() {
     <AccountEditPanel
       :form="form"
       :readonly="readonly"
-      :hide-sensitive="Boolean(previewForm) || readonly"
+      :hide-sensitive="Boolean(previewForm)"
       :rate-locked="rateLocked"
       :game-expanded="gameShow"
       :proxy-options="proxyOptions"

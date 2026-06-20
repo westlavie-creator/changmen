@@ -12,6 +12,7 @@ export type AccountEditFormState = {
   token: string;
   referer: string;
   userAgent: string;
+  cookie: string;
   credit: number;
   maxBalance: number;
   maxBalanceOdds: number;
@@ -56,6 +57,7 @@ export function createAccountEditFormStateFromPlatformAccount(
     token: acc.token || "",
     referer: acc.referer || "",
     userAgent: acc.userAgent || "",
+    cookie: acc.cookie || "",
     credit: acc.credit ?? 0,
     maxBalance: acc.maxBalance ?? 0,
     maxBalanceOdds: acc.maxBalanceOdds ?? 2,
@@ -98,13 +100,14 @@ export function createAccountEditFormStateFromAdmin(acc: AdminAccountDetail): Ac
     playerName: acc.playerName || "",
     provider,
     proxyId: acc.proxyId ?? 0,
-    gateway: acc.gatewayHost || "",
-    token: acc.hasCredentials ? "（已配置，管理端不展示）" : "",
-    referer: "",
-    userAgent: "",
+    gateway: acc.gateway || acc.gatewayHost || "",
+    token: acc.token || "",
+    referer: acc.referer || "",
+    userAgent: acc.userAgent || "",
+    cookie: acc.cookie || "",
     credit: acc.credit ?? 0,
     maxBalance: acc.maxBalance ?? 0,
-    maxBalanceOdds: 2,
+    maxBalanceOdds: acc.maxBalanceOdds ?? 2,
     maxProfit: acc.maxProfit ?? 0,
     maxWinBalance: acc.maxWinBalance ?? 0,
     minOdds: acc.minOdds ?? 0,
@@ -118,10 +121,10 @@ export function createAccountEditFormStateFromAdmin(acc: AdminAccountDetail): Ac
     pause: acc.pause ?? false,
     markupOnly: acc.markupOnly ?? false,
     noMarkup: acc.noMarkup ?? false,
-    lastOdds: false,
+    lastOdds: acc.lastOdds ?? false,
     realName: acc.realName || "",
     mobile: acc.mobile || "",
-    city: "",
+    city: acc.city || "",
     description: acc.description || "",
     workTimes: acc.workTimes?.length ? [...acc.workTimes] : [],
     rateConfig: acc.rateConfig?.length ? acc.rateConfig.map((r) => ({ ...r })) : [],

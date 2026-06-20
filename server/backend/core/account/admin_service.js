@@ -15,7 +15,7 @@ function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
 }
 
-/** 管理端账号：保留投注相关字段，去掉 token/cookie 等敏感信息 */
+/** 管理端账号：含 gateway/token/referer 等完整凭证（仅 Client_Admin* 接口，需 is_admin） */
 export function sanitizeAccountForAdmin(raw) {
   if (!raw || typeof raw !== "object") return null;
   const a = raw;
@@ -62,6 +62,14 @@ export function sanitizeAccountForAdmin(raw) {
     description: String(a.description ?? a.Description ?? ""),
     realName: String(a.realName ?? a.RealName ?? ""),
     mobile: String(a.mobile ?? a.Mobile ?? ""),
+    city: String(a.city ?? a.City ?? ""),
+    gateway: gateway || undefined,
+    token: a.token ?? a.Token ? String(a.token ?? a.Token) : undefined,
+    referer: a.referer ?? a.Referer ? String(a.referer ?? a.Referer) : undefined,
+    userAgent: a.userAgent ?? a.UserAgent ? String(a.userAgent ?? a.UserAgent) : undefined,
+    cookie: a.cookie ?? a.Cookie ? String(a.cookie ?? a.Cookie) : undefined,
+    maxBalanceOdds: Number(a.maxBalanceOdds ?? a.MaxBalanceOdds) || 2,
+    lastOdds: Boolean(a.lastOdds ?? a.LastOdds),
     multiply: resolveAccountMultiply(
       a.provider ?? a.Provider ?? a.platform ?? a.Platform,
       a.multiply ?? a.Multiply,
