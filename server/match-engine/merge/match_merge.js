@@ -590,8 +590,11 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
 
       for (const bet of row.Bets || []) {
         const raw = accByMap.get(bet.Map ?? 0)?.Sources?.[platform];
-        if (!raw) continue;
-        bet.Sources[platform] = shouldSwap ? swapBetSource(raw) : { ...raw };
+        if (raw) {
+          bet.Sources[platform] = shouldSwap ? swapBetSource(raw) : { ...raw };
+        } else if (shouldSwap && bet.Sources?.[platform]) {
+          bet.Sources[platform] = swapBetSource(bet.Sources[platform]);
+        }
       }
     }
   }
