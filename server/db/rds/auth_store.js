@@ -74,13 +74,48 @@ async function fetchUserActiveSessionId(userId) {
   }
 }
 
+const _sessionCache = new Map();
+const SESSION_CACHE_TTL_MS = 60_000;
+
+function _sessionCacheKey(userId, sessionId) {
+  return `${userId}:${sessionId}`;
+}
+
+function _sessionCacheGet(userId, sessionId) {
+  const key = _sessionCacheKey(userId, sessionId);
+  const entry = _sessionCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expireAt) {
+    _sessionCache.delete(key);
+    return undefined;
+  }
+  return entry.active;
+}
+
+function _sessionCacheSet(userId, sessionId, active) {
+  _sessionCache.set(_sessionCacheKey(userId, sessionId), {
+    active,
+    expireAt: Date.now() + SESSION_CACHE_TTL_MS,
+  });
+}
+
+function _sessionCacheEvictUser(userId) {
+  const prefix = `${userId}:`;
+  for (const key of _sessionCache.keys()) {
+    if (key.startsWith(prefix)) _sessionCache.delete(key);
+  }
+}
+
 /** 无 active_session_id 时放行（旧会话）；有则必须与 token 内 session_id 一致 */
 async function isSessionActive(userId, sessionId) {
   if (!sessionId) return false;
+  const cached = _sessionCacheGet(userId, sessionId);
+  if (cached !== undefined) return cached;
   const active = await fetchUserActiveSessionId(userId);
   if (active === null) return false;
-  if (!active) return true;
-  return active === String(sessionId);
+  const result = !active || active === String(sessionId);
+  _sessionCacheSet(userId, sessionId, result);
+  return result;
 }
 
 async function setActiveSessionId(userId, sessionId) {
@@ -91,6 +126,7 @@ async function setActiveSessionId(userId, sessionId) {
       `UPDATE users SET metadata = metadata || $2::jsonb, updated_at = $3 WHERE id = $1`,
       [String(userId), JSON.stringify({ active_session_id: String(sessionId) }), Date.now()],
     );
+    if (rowCount > 0) _sessionCacheEvictUser(userId);
     return rowCount > 0;
   } catch (err) {
     console.warn("[rds] setActiveSessionId:", err.message);

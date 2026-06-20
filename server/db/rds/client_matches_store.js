@@ -14,7 +14,12 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
     INSERT INTO client_matches (
       id, merge_key, title, game, game_id, start_time, bo, round, round_start,
       matchs, bets, reverse, built_at, list_status
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11::jsonb,$12::jsonb,$13,$14)
+    )
+    SELECT * FROM unnest(
+      $1::bigint[], $2::text[], $3::text[], $4::text[], $5::text[],
+      $6::bigint[], $7::integer[], $8::integer[], $9::bigint[],
+      $10::jsonb[], $11::jsonb[], $12::jsonb[], $13::bigint[], $14::integer[]
+    )
     ON CONFLICT (id) DO UPDATE SET
       merge_key = EXCLUDED.merge_key,
       title = EXCLUDED.title,
@@ -32,22 +37,22 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
   `;
   try {
     await client.query("BEGIN");
-    for (const r of dedupedRows) {
+    if (dedupedRows.length) {
       await client.query(sql, [
-        Number(r.id),
-        r.merge_key != null ? String(r.merge_key) : null,
-        String(r.title || ""),
-        r.game != null ? String(r.game) : null,
-        r.game_id != null ? String(r.game_id) : null,
-        r.start_time != null ? Number(r.start_time) : null,
-        r.bo != null ? Number(r.bo) : null,
-        r.round != null ? Number(r.round) : null,
-        Number(r.round_start) || 0,
-        _jsonb(r.matchs, {}),
-        _jsonb(r.bets, []),
-        _jsonb(r.reverse, []),
-        Number(r.built_at),
-        Number(r.list_status ?? CLIENT_MATCH_LIST_DEFAULT),
+        dedupedRows.map((r) => Number(r.id)),
+        dedupedRows.map((r) => (r.merge_key != null ? String(r.merge_key) : null)),
+        dedupedRows.map((r) => String(r.title || "")),
+        dedupedRows.map((r) => (r.game != null ? String(r.game) : null)),
+        dedupedRows.map((r) => (r.game_id != null ? String(r.game_id) : null)),
+        dedupedRows.map((r) => (r.start_time != null ? Number(r.start_time) : null)),
+        dedupedRows.map((r) => (r.bo != null ? Number(r.bo) : null)),
+        dedupedRows.map((r) => (r.round != null ? Number(r.round) : null)),
+        dedupedRows.map((r) => Number(r.round_start) || 0),
+        dedupedRows.map((r) => _jsonb(r.matchs, {})),
+        dedupedRows.map((r) => _jsonb(r.bets, [])),
+        dedupedRows.map((r) => _jsonb(r.reverse, [])),
+        dedupedRows.map((r) => Number(r.built_at)),
+        dedupedRows.map((r) => Number(r.list_status ?? CLIENT_MATCH_LIST_DEFAULT)),
       ]);
     }
     if (toDelete.length) {

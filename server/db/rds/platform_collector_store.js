@@ -49,7 +49,12 @@ async function _rdsUpsertPlatformMatches(pool, rows) {
     INSERT INTO platform_matches (
       platform, source_match_id, source_game_id, start_time,
       home_id, home, away_id, away, bo, is_live, teams, synced_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12)
+    )
+    SELECT * FROM unnest(
+      $1::text[], $2::text[], $3::text[], $4::bigint[],
+      $5::text[], $6::text[], $7::text[], $8::text[],
+      $9::smallint[], $10::smallint[], $11::jsonb[], $12::bigint[]
+    )
     ON CONFLICT (platform, source_match_id) DO UPDATE SET
       source_game_id = EXCLUDED.source_game_id,
       start_time = EXCLUDED.start_time,
@@ -64,22 +69,20 @@ async function _rdsUpsertPlatformMatches(pool, rows) {
   `;
   try {
     await client.query("BEGIN");
-    for (const r of rows) {
-      await client.query(sql, [
-        r.platform,
-        r.source_match_id,
-        r.source_game_id,
-        r.start_time,
-        r.home_id,
-        r.home,
-        r.away_id,
-        r.away,
-        r.bo,
-        r.is_live,
-        JSON.stringify(Array.isArray(r.teams) ? r.teams : []),
-        r.synced_at,
-      ]);
-    }
+    await client.query(sql, [
+      rows.map((r) => r.platform),
+      rows.map((r) => r.source_match_id),
+      rows.map((r) => r.source_game_id),
+      rows.map((r) => r.start_time),
+      rows.map((r) => r.home_id),
+      rows.map((r) => r.home),
+      rows.map((r) => r.away_id),
+      rows.map((r) => r.away),
+      rows.map((r) => r.bo),
+      rows.map((r) => r.is_live),
+      rows.map((r) => JSON.stringify(Array.isArray(r.teams) ? r.teams : [])),
+      rows.map((r) => r.synced_at),
+    ]);
     await _rdsDeletePlatformSnapshotOrphans(client, platform, keepIds);
     await client.query("COMMIT");
   } catch (err) {
@@ -96,7 +99,11 @@ async function _rdsUpsertPlatformBets(exec, rows) {
     INSERT INTO platform_bets (
       platform, source_match_id, source_bet_id, map, bet_name,
       home_odds, away_odds, is_locked, source_home_id, source_away_id, updated_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    )
+    SELECT * FROM unnest(
+      $1::text[], $2::text[], $3::text[], $4::smallint[], $5::text[],
+      $6::numeric[], $7::numeric[], $8::boolean[], $9::text[], $10::text[], $11::bigint[]
+    )
     ON CONFLICT (platform, source_match_id, source_bet_id) DO UPDATE SET
       map = EXCLUDED.map,
       bet_name = EXCLUDED.bet_name,
@@ -107,21 +114,19 @@ async function _rdsUpsertPlatformBets(exec, rows) {
       source_away_id = EXCLUDED.source_away_id,
       updated_at = EXCLUDED.updated_at
   `;
-  for (const r of rows) {
-    await exec.query(sql, [
-      r.platform,
-      r.source_match_id,
-      r.source_bet_id,
-      r.map,
-      r.bet_name,
-      r.home_odds,
-      r.away_odds,
-      r.is_locked,
-      r.source_home_id,
-      r.source_away_id,
-      r.updated_at,
-    ]);
-  }
+  await exec.query(sql, [
+    rows.map((r) => r.platform),
+    rows.map((r) => r.source_match_id),
+    rows.map((r) => r.source_bet_id),
+    rows.map((r) => r.map),
+    rows.map((r) => r.bet_name),
+    rows.map((r) => r.home_odds),
+    rows.map((r) => r.away_odds),
+    rows.map((r) => r.is_locked),
+    rows.map((r) => r.source_home_id),
+    rows.map((r) => r.source_away_id),
+    rows.map((r) => r.updated_at),
+  ]);
 }
 
 async function _rdsReplacePlatformBets(pool, platform, matchId, rows) {
@@ -145,25 +150,25 @@ async function _rdsReplacePlatformBets(pool, platform, matchId, rows) {
 /** 全量替换某平台 timer 快照：先删该平台全部行，再 upsert 本批（空批 = 清空该平台） */
 async function _rdsReplaceLiveTimersForPlatform(pool, platform, rows) {
   const client = await pool.connect();
-  const sql = `
-    INSERT INTO live_timers (platform, source_match_id, round, round_start, updated_at)
-    VALUES ($1,$2,$3,$4,$5)
-    ON CONFLICT (platform, source_match_id) DO UPDATE SET
-      round = EXCLUDED.round,
-      round_start = EXCLUDED.round_start,
-      updated_at = EXCLUDED.updated_at
-  `;
   try {
     await client.query("BEGIN");
     await client.query("DELETE FROM live_timers WHERE platform = $1", [String(platform)]);
-    for (const r of rows) {
-      await client.query(sql, [
-        r.platform,
-        r.source_match_id,
-        r.round,
-        r.round_start,
-        r.updated_at,
-      ]);
+    if (rows.length) {
+      await client.query(
+        `INSERT INTO live_timers (platform, source_match_id, round, round_start, updated_at)
+         SELECT * FROM unnest($1::text[], $2::text[], $3::smallint[], $4::bigint[], $5::bigint[])
+         ON CONFLICT (platform, source_match_id) DO UPDATE SET
+           round = EXCLUDED.round,
+           round_start = EXCLUDED.round_start,
+           updated_at = EXCLUDED.updated_at`,
+        [
+          rows.map((r) => r.platform),
+          rows.map((r) => r.source_match_id),
+          rows.map((r) => r.round),
+          rows.map((r) => r.round_start),
+          rows.map((r) => r.updated_at),
+        ],
+      );
     }
     await client.query("COMMIT");
   } catch (err) {
