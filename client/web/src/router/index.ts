@@ -60,6 +60,12 @@ const router = createRouter({
       component: () => import("@/views/AdminHealthView.vue"),
       meta: { requiresAdmin: true },
     },
+    {
+      path: "/admin/value-bet",
+      name: "admin-value-bet",
+      component: () => import("@/views/AdminValueBetView.vue"),
+      meta: { requiresAdmin: true },
+    },
   ],
 });
 

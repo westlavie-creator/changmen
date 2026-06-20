@@ -72,6 +72,7 @@ const ADMIN_ACTIONS = new Set<EsportAction>([
   "Client_AdminDeleteOrders",
   "Client_AdminMonthReport",
   "Client_AdminPlatformAnalytics",
+  "Client_AdminValueBet",
 ]);
 
 /** ?????? public action ?????admin action ????????*/
@@ -532,6 +533,10 @@ async function handle(
     }
     case "Client_AdminPlatformAnalytics": {
       return ok(await adminService.getPlatformAnalytics(body));
+    }
+    case "Client_AdminValueBet": {
+      const { getValueBetDashboard } = await import("./value_bet_service.js");
+      return ok(await getValueBetDashboard());
     }
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);

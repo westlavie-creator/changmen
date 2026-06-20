@@ -15,7 +15,8 @@
     "server/match-engine",
     "server/ws_forward",
     "devtools/platform-probes",
-    "server/team-resolver"
+    "server/team-resolver",
+    "server/value-bet"
   ],
   "scripts": {
     "install:all": "npm install",
@@ -34,6 +35,8 @@
     "matcher:ui": "npm run start --prefix server/matcher",
     "matcher:loop": "npm run matcher --prefix server/matcher",
     "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension",
-    "ob:lock-observe": "npm run ob:lock-observe --workspace=@changmen/platform-adapter"
+    "ob:lock-observe": "npm run ob:lock-observe --workspace=@changmen/platform-adapter",
+    "value-bet": "npm run start --prefix server/value-bet",
+    "value-bet:scan": "npm run scan:once --prefix server/value-bet"
   }
 }

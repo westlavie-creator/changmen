@@ -34,6 +34,12 @@ const navItems = [
     icon: "am-icon-heartbeat",
     to: { name: "admin-health" as const },
   },
+  {
+    name: "admin-value-bet",
+    label: "价值投注",
+    icon: "am-icon-flash",
+    to: { name: "admin-value-bet" as const },
+  },
 ];
 
 const activeTab = computed(() => String(route.name || ""));

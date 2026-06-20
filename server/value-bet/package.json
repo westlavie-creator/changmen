@@ -1,0 +1,16 @@
+{
+  "name": "@changmen/value-bet",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "正EV 单边价值投注引擎 — 以 PB(平博) 为基准线扫描软盘正EV机会",
+  "scripts": {
+    "start": "node value-bet.js",
+    "scan:once": "node scripts/scan-once.mjs"
+  },
+  "dependencies": {
+    "@changmen/db": "*",
+    "@changmen/storage": "*",
+    "@changmen/shared": "*",
+    "dotenv": "^16.0.0"
+  }
+}
