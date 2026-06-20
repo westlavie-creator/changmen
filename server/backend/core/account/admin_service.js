@@ -586,9 +586,12 @@ export async function getPlatformAnalytics(body = {}) {
     startMs = d.getTime();
     endMs = startMs + 86400000;
   }
-  const [platforms, pairs] = await Promise.all([
+  const [platforms, pairs, games, hourly, accounts] = await Promise.all([
     sb.fetchPlatformAnalytics(startMs, endMs),
     sb.fetchArbPairAnalytics(startMs, endMs),
+    sb.fetchGameAnalytics(startMs, endMs),
+    sb.fetchHourlyAnalytics(startMs, endMs),
+    sb.fetchAccountAnalytics(startMs, endMs),
   ]);
-  return { startMs, endMs, platforms, pairs };
+  return { startMs, endMs, platforms, pairs, games, hourly, accounts };
 }

@@ -7,6 +7,9 @@ import {
   getAdminPlatformAnalytics,
   type PlatformAnalyticsRow,
   type ArbPairRow,
+  type GameAnalyticsRow,
+  type HourlyAnalyticsRow,
+  type AccountAnalyticsRow,
 } from "@/api/admin";
 import { todayKey } from "@/shared/dateKey";
 import { toFixed } from "@/shared/format";
@@ -24,6 +27,9 @@ const monthKey = ref((() => {
 const loading = ref(false);
 const platforms = ref<PlatformAnalyticsRow[]>([]);
 const pairs = ref<ArbPairRow[]>([]);
+const games = ref<GameAnalyticsRow[]>([]);
+const hourly = ref<HourlyAnalyticsRow[]>([]);
+const accounts = ref<AccountAnalyticsRow[]>([]);
 
 const totalOrders = computed(() => platforms.value.reduce((s, p) => s + p.total_orders, 0));
 const totalProfit = computed(() => platforms.value.reduce((s, p) => s + p.total_profit, 0));
@@ -33,6 +39,22 @@ const maxBarProfit = computed(() => {
   const vals = platforms.value.map((p) => Math.abs(p.total_profit));
   return Math.max(...vals, 1);
 });
+
+function winRateGeneric(wins: number, losses: number): string {
+  const settled = wins + losses;
+  return settled ? toFixed((wins / settled) * 100, 1) + "%" : "-";
+}
+
+const maxHourlyOrders = computed(() => Math.max(...hourly.value.map((h) => h.total_orders), 1));
+
+const fullHourly = computed(() => {
+  const byHour = new Map(hourly.value.map((h) => [h.hour, h]));
+  return Array.from({ length: 24 }, (_, i) => byHour.get(i) ?? { hour: i, total_orders: 0, wins: 0, losses: 0, total_profit: 0, total_bet: 0 });
+});
+
+function hourlyBarHeight(count: number): string {
+  return toFixed((count / maxHourlyOrders.value) * 100, 0) + "%";
+}
 
 function winRate(p: PlatformAnalyticsRow): string {
   const settled = p.wins + p.losses;
@@ -59,9 +81,15 @@ async function fetchData() {
     const data = await getAdminPlatformAnalytics(body);
     platforms.value = data.platforms;
     pairs.value = data.pairs;
+    games.value = data.games ?? [];
+    hourly.value = data.hourly ?? [];
+    accounts.value = data.accounts ?? [];
   } catch {
     platforms.value = [];
     pairs.value = [];
+    games.value = [];
+    hourly.value = [];
+    accounts.value = [];
   } finally {
     loading.value = false;
   }
@@ -194,6 +222,79 @@ onMounted(async () => {
       </el-table>
       <div v-else class="analytics-empty">暂无套利配对数据</div>
     </div>
+
+    <!-- Game dimension -->
+    <div v-if="games.length" class="analytics-section">
+      <h3 class="analytics-section__title">游戏维度</h3>
+      <el-table :data="games" stripe size="small">
+        <el-table-column prop="game" label="游戏" width="120" />
+        <el-table-column prop="total_orders" label="订单数" width="80" align="right" />
+        <el-table-column label="胜率" width="80" align="right">
+          <template #default="{ row }">{{ winRateGeneric(row.wins, row.losses) }}</template>
+        </el-table-column>
+        <el-table-column label="投注额" width="120" align="right">
+          <template #default="{ row }">{{ toFixed(row.total_bet, 0) }}</template>
+        </el-table-column>
+        <el-table-column label="盈亏" min-width="160">
+          <template #default="{ row }">
+            <span :class="row.total_profit >= 0 ? 'text-green' : 'text-red'">
+              {{ row.total_profit >= 0 ? "+" : "" }}{{ toFixed(row.total_profit, 0) }}
+            </span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <!-- Hourly dimension -->
+    <div v-if="hourly.length" class="analytics-section">
+      <h3 class="analytics-section__title">时段分布</h3>
+      <div class="hourly-chart">
+        <div
+          v-for="h in fullHourly"
+          :key="h.hour"
+          class="hourly-bar-group"
+          :title="`${h.hour}:00 — 订单 ${h.total_orders} / 盈亏 ${toFixed(h.total_profit, 0)}`"
+        >
+          <div class="hourly-bar-wrapper">
+            <div
+              class="hourly-bar"
+              :class="h.total_profit >= 0 ? 'bar-green' : 'bar-red'"
+              :style="{ height: hourlyBarHeight(h.total_orders) }"
+            />
+          </div>
+          <div class="hourly-label">{{ h.hour }}</div>
+          <div class="hourly-count">{{ h.total_orders || "" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Account dimension -->
+    <div v-if="accounts.length" class="analytics-section">
+      <h3 class="analytics-section__title">账号维度</h3>
+      <el-table :data="accounts" stripe size="small" max-height="400">
+        <el-table-column prop="player_id" label="账号 ID" width="100" />
+        <el-table-column prop="provider" label="平台" width="80" />
+        <el-table-column prop="total_orders" label="订单数" width="80" align="right" />
+        <el-table-column label="胜率" width="80" align="right">
+          <template #default="{ row }">{{ winRateGeneric(row.wins, row.losses) }}</template>
+        </el-table-column>
+        <el-table-column label="拒单" width="60" align="right">
+          <template #default="{ row }">
+            <span :class="{ 'text-warn': row.rejects > 0 }">{{ row.rejects }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="投注额" width="120" align="right">
+          <template #default="{ row }">{{ toFixed(row.total_bet, 0) }}</template>
+        </el-table-column>
+        <el-table-column label="盈亏" min-width="140">
+          <template #default="{ row }">
+            <span :class="row.total_profit >= 0 ? 'text-green' : 'text-red'">
+              {{ row.total_profit >= 0 ? "+" : "" }}{{ toFixed(row.total_profit, 0) }}
+            </span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
   </AdminLayout>
 </template>
 
@@ -241,4 +342,23 @@ onMounted(async () => {
 .text-red { color: #f56c6c; }
 .text-warn { color: #e6a23c; }
 .analytics-empty { text-align: center; padding: 30px; color: var(--el-text-color-secondary); }
+.hourly-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 140px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+.hourly-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.hourly-bar-wrapper { width: 100%; height: 100px; display: flex; align-items: flex-end; justify-content: center; }
+.hourly-bar { width: 80%; max-width: 24px; border-radius: 2px 2px 0 0; transition: height .4s; min-height: 1px; }
+.hourly-label { font-size: 10px; color: var(--el-text-color-secondary); margin-top: 4px; }
+.hourly-count { font-size: 10px; color: var(--el-text-color-regular); font-variant-numeric: tabular-nums; }
 </style>

@@ -118,11 +118,44 @@ export interface ArbPairRow {
   total_bet: number;
 }
 
+export interface GameAnalyticsRow {
+  game: string;
+  total_orders: number;
+  wins: number;
+  losses: number;
+  rejects: number;
+  total_bet: number;
+  total_profit: number;
+}
+
+export interface HourlyAnalyticsRow {
+  hour: number;
+  total_orders: number;
+  wins: number;
+  losses: number;
+  total_profit: number;
+  total_bet: number;
+}
+
+export interface AccountAnalyticsRow {
+  player_id: number;
+  provider: string;
+  total_orders: number;
+  wins: number;
+  losses: number;
+  rejects: number;
+  total_bet: number;
+  total_profit: number;
+}
+
 export interface PlatformAnalyticsPayload {
   startMs: number;
   endMs: number;
   platforms: PlatformAnalyticsRow[];
   pairs: ArbPairRow[];
+  games: GameAnalyticsRow[];
+  hourly: HourlyAnalyticsRow[];
+  accounts: AccountAnalyticsRow[];
 }
 
 export async function getAdminPlatformAnalytics(body: Record<string, unknown> = {}) {

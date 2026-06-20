@@ -35,6 +35,9 @@ export {
   fetchOrdersForProfitAggregate,
   fetchPlatformAnalytics,
   fetchArbPairAnalytics,
+  fetchGameAnalytics,
+  fetchHourlyAnalytics,
+  fetchAccountAnalytics,
 } from "./rds/orders_store.js";
 
 export {

@@ -491,3 +491,92 @@ export async function fetchArbPairAnalytics(startMs, endMs) {
     return [];
   }
 }
+
+/** 数据分析：按游戏维度聚合（通过 match 名关联 client_matches.game） */
+export async function fetchGameAnalytics(startMs, endMs) {
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+        COALESCE(cm.game, '未知') AS game,
+        COUNT(*)::int AS total_orders,
+        COUNT(*) FILTER (WHERE o.status = 'Win')::int AS wins,
+        COUNT(*) FILTER (WHERE o.status = 'Lose')::int AS losses,
+        COUNT(*) FILTER (WHERE o.status = 'Reject')::int AS rejects,
+        COALESCE(SUM(o.bet_money), 0)::float AS total_bet,
+        COALESCE(SUM(o.money), 0)::float AS total_profit
+       FROM orders o
+       LEFT JOIN LATERAL (
+         SELECT game FROM client_matches
+         WHERE title = o.match
+         LIMIT 1
+       ) cm ON true
+       WHERE o.create_at >= $1 AND o.create_at < $2
+         AND o.provider IS NOT NULL AND o.provider != ''
+       GROUP BY COALESCE(cm.game, '未知')
+       ORDER BY total_orders DESC`,
+      [startMs, endMs],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchGameAnalytics:", err.message);
+    return [];
+  }
+}
+
+/** 数据分析：按小时聚合（时段分布） */
+export async function fetchHourlyAnalytics(startMs, endMs) {
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+        EXTRACT(HOUR FROM to_timestamp(create_at / 1000.0))::int AS hour,
+        COUNT(*)::int AS total_orders,
+        COUNT(*) FILTER (WHERE status = 'Win')::int AS wins,
+        COUNT(*) FILTER (WHERE status = 'Lose')::int AS losses,
+        COALESCE(SUM(money), 0)::float AS total_profit,
+        COALESCE(SUM(bet_money), 0)::float AS total_bet
+       FROM orders
+       WHERE create_at >= $1 AND create_at < $2
+         AND provider IS NOT NULL AND provider != ''
+       GROUP BY hour
+       ORDER BY hour`,
+      [startMs, endMs],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchHourlyAnalytics:", err.message);
+    return [];
+  }
+}
+
+/** 数据分析：按账号（player_id）聚合 */
+export async function fetchAccountAnalytics(startMs, endMs) {
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+        o.player_id,
+        o.provider,
+        COUNT(*)::int AS total_orders,
+        COUNT(*) FILTER (WHERE o.status = 'Win')::int AS wins,
+        COUNT(*) FILTER (WHERE o.status = 'Lose')::int AS losses,
+        COUNT(*) FILTER (WHERE o.status = 'Reject')::int AS rejects,
+        COALESCE(SUM(o.bet_money), 0)::float AS total_bet,
+        COALESCE(SUM(o.money), 0)::float AS total_profit
+       FROM orders o
+       WHERE o.create_at >= $1 AND o.create_at < $2
+         AND o.provider IS NOT NULL AND o.provider != ''
+       GROUP BY o.player_id, o.provider
+       ORDER BY total_profit DESC`,
+      [startMs, endMs],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchAccountAnalytics:", err.message);
+    return [];
+  }
+}
