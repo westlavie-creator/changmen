@@ -405,7 +405,7 @@ export async function updateOrderBind(orderId, userId, link, opts = {}) {
     if (!prev) return false;
     const updateWhere = offsetSqlPlaceholders(where, 1);
     const res = await pool.query(
-      `UPDATE orders SET link = $1 WHERE ${updateWhere}`,
+      `UPDATE orders SET link = $1::bigint WHERE ${updateWhere}`,
       [linkVal, ...params],
     );
     if (res.rowCount > 0 && shouldFireOrderBoundHook(prev, linkVal) && _ordersBoundHook) {
