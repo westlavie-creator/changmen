@@ -32,7 +32,7 @@ const usedSymbols = [
   "fetchMoneyLogsForMonthAggregate", "fetchMoneyLogsByPlayer", "fetchMoneyLogById",
   "fetchAllMoneyLogs", "upsertMoneyLog", "deleteMoneyLogById", "deleteMoneyLogsByPlayer",
   "fetchTagPlatforms", "upsertTagPlatformByName", "insertPlayerRow", "fetchPlayerById",
-  "updatePlayerBalanceRow", "insertUserLogRow", "fetchUserLogsInRange", "softDeletePlayerRow",
+  "updatePlayerDisplayName", "updatePlayerBalanceRow", "insertUserLogRow", "fetchUserLogsInRange", "softDeletePlayerRow",
   "migratePlayersJsonToRds",
   "setPlatformMatchId", "writePlatformMatches", "fetchPlatformMatches", "fetchPlatformBets",
   "fetchLiveTimers", "writePlatformBets", "replacePlatformBetsForMatch",

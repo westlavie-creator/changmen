@@ -1,59 +1,22 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import {
-  COPY_A8_MODULE_HREF,
-  COPY_MODULE_SEGMENTS_MANIFEST,
-  getUseA8Css,
-  isDevSkinLab,
-  setUseA8Css,
-} from "@/lib/copyShell";
+import { COPY_EP_CHALK_HREF, getUseA8Css, isDevSkinLab, setUseA8Css } from "@/lib/copyShell";
 
-const legacyOk = ref(false);
 const moduleSkinOk = ref(false);
-const moduleSkinMode = ref<"segments" | "fallback" | "bundle" | "missing">("missing");
 const useA8 = ref(getUseA8Css());
 const isProd = import.meta.env.PROD;
 
 const envLabel = computed(() => (isDevSkinLab() ? "dev" : "prod"));
 
-const moduleSkinLabel = computed(() => {
-  if (useA8.value) return "";
-  if (moduleSkinMode.value === "segments") return "segments";
-  if (moduleSkinMode.value === "fallback") return "a8-all";
-  if (moduleSkinMode.value === "bundle") return "a8-all";
-  return "?";
-});
-
 const switchTitle = computed(() =>
-  useA8.value ? "当前 legacy（Vite bundle），点击切 modules" : "当前 modules，点击切 legacy",
+  useA8.value ? "当前 legacy（Vite bundle），点击切 modules" : "当前 modules（EP + changmen），点击切 legacy",
 );
 
 onMounted(() => {
   useA8.value = getUseA8Css();
-
-  if (isProd) {
-    legacyOk.value = useA8.value;
-    if (!useA8.value) {
-      void fetch(COPY_A8_MODULE_HREF, { method: "HEAD" }).then((res) => {
-        moduleSkinOk.value = res.ok;
-        moduleSkinMode.value = res.ok ? "bundle" : "missing";
-      });
-    }
-    return;
-  }
-
-  void fetch("/copy/styles/legacy/a8.css", { method: "HEAD" }).then((res) => {
-    legacyOk.value = res.ok;
-  });
-  void fetch(COPY_MODULE_SEGMENTS_MANIFEST, { method: "HEAD" }).then(async (segRes) => {
-    if (segRes.ok) {
-      moduleSkinOk.value = true;
-      moduleSkinMode.value = "segments";
-      return;
-    }
-    const allRes = await fetch(COPY_A8_MODULE_HREF, { method: "HEAD" });
-    moduleSkinOk.value = allRes.ok;
-    moduleSkinMode.value = allRes.ok ? "fallback" : "missing";
+  if (useA8.value) return;
+  void fetch(COPY_EP_CHALK_HREF, { method: "HEAD" }).then((res) => {
+    moduleSkinOk.value = res.ok;
   });
 });
 
@@ -65,12 +28,12 @@ function toggleA8() {
 <template>
   <div
     class="copy-preview-banner"
-    :data-styles="legacyOk || moduleSkinOk ? 'ok' : undefined"
+    :data-styles="moduleSkinOk ? 'ok' : undefined"
     :data-a8="useA8 ? 'on' : 'off'"
   >
     <div class="copy-preview-banner__title">
       {{ envLabel }} · skin{{
-        useA8 ? " · legacy（Vite bundle）" : moduleSkinLabel ? ` · modules/${moduleSkinLabel}` : " · modules"
+        useA8 ? " · legacy（Vite bundle）" : " · modules（EP + changmen）"
       }}
     </div>
     <div class="copy-preview-banner__switch-row">
@@ -89,17 +52,17 @@ function toggleA8() {
       </button>
       <span class="copy-preview-banner__switch-label" :class="{ 'is-active': useA8 }">legacy</span>
     </div>
-    <p v-if="!isProd && !legacyOk" class="copy-preview-banner__warn">
-      缺少 legacy 样式，请运行 node public/copy/sync-styles.mjs
-    </p>
-    <p v-else-if="!useA8 && !moduleSkinOk" class="copy-preview-banner__warn">
-      缺少 modules 皮肤（/copy/styles/modules/a8-all.css），请重新 app:build
+    <p v-if="!useA8 && !moduleSkinOk" class="copy-preview-banner__warn">
+      缺少 ep-chalk.css，请运行 npm run predev 或 node scripts/bootstrap-ep-chalk.mjs
     </p>
     <p v-else-if="!useA8 && isProd" class="copy-preview-banner__hint">
-      生产 modules 试验中；有问题切 legacy 或控制台：localStorage.setItem('copy:useA8Css','1'); location.reload()
+      生产 modules；有问题切 legacy 或 localStorage.setItem('copy:useA8Css','1'); location.reload()
     </p>
     <p v-else-if="!useA8" class="copy-preview-banner__hint">
-      modules = segments + changmen；走查主界面用 modules，对照生产请切 legacy
+      modules = Element Plus 官方主题 + changmen；对照 A8 视觉请切 legacy
+    </p>
+    <p v-else class="copy-preview-banner__hint">
+      legacy 仅 Vite 加载 a8.css 等 8 个文件；Network 验证请清空记录并关闭 Preserve log
     </p>
   </div>
 </template>

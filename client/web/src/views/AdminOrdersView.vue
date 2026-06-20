@@ -150,7 +150,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout title="订单查询" subtitle="每位用户一列，订单纵向排列（对齐首页侧栏）">
+  <AdminLayout title="订单查询" subtitle="每位用户一列，订单按 Link 分组展示">
     <section class="admin-card admin-card--orders" v-loading="loading">
       <div class="admin-card__toolbar admin-orders-filters">
         <OrderDateNav v-model="date" placeholder="统计日期" />

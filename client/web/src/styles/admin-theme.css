@@ -897,31 +897,24 @@ html.admin-route #app > * {
   font-size: 12px;
   color: var(--adm-text-muted);
 }
-.admin-orders-user-col__orders {
-  flex: 0 0 auto;
+.admin-orders-user-col__list {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  overflow: visible;
-  padding: 6px 4px 8px;
-  white-space: normal;
-}
-.admin-orders-user-col__orders.orders {
-  position: relative;
+  gap: 10px;
+  padding: 8px 6px 10px;
   font-size: 12px;
   color: #fff;
+  white-space: normal;
 }
-.admin-orders-user-col__orders .orderlink {
-  display: block;
-  width: 100%;
-  flex: 0 0 auto;
-  margin-bottom: 10px;
-  box-sizing: border-box;
+
+.admin-orders-user-col .orders {
+  flex: none;
+  overflow: visible;
 }
-.admin-orders-user-col__orders .order {
-  display: block;
+
+.admin-orders-user-col .orders .order {
   width: 100%;
-  max-width: 100%;
+  max-width: none;
   box-sizing: border-box;
 }
 .admin-orders-user-col__group-actions {
@@ -929,7 +922,7 @@ html.admin-route #app > * {
   justify-content: flex-end;
   gap: 4px;
   padding: 0 6px 6px;
-  border-top: 1px dashed var(--adm-border);
+  border-top: 1px dashed rgba(0, 0, 0, 0.35);
   margin-top: 2px;
   padding-top: 4px;
 }
@@ -950,15 +943,191 @@ html.admin-route #app > * {
 .admin-order-groups__empty--err {
   color: var(--adm-danger);
 }
+/* 管理后台订单卡片：视觉对齐侧栏 sidebar-orders，class 独立不依赖 .orders/.order */
 .admin-order-link {
-  border: 1px solid var(--adm-border);
-  border-radius: var(--adm-radius);
-  overflow: hidden;
-  background: rgba(7, 11, 20, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  overflow: visible;
+  background: transparent;
 }
 .admin-order-link--paired {
-  border-color: var(--adm-accent-glow);
-  box-shadow: inset 4px 0 0 var(--adm-accent);
+  border-color: #67c23a;
+  box-shadow: 0 0 0 1px rgba(103, 194, 58, 0.35);
+}
+.admin-order-link__legend {
+  display: block;
+  margin: 0;
+  padding: 2px 10px;
+  line-height: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  border-radius: 11px 11px 0 0;
+}
+.admin-order-link__legend--default {
+  background: #909399;
+}
+.admin-order-link__legend--success {
+  background: #67c23a;
+}
+.admin-order-link__legend--success::before {
+  content: "+";
+}
+.admin-order-link__legend--fail {
+  background: #f56c6c;
+}
+.admin-order-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  margin: 10px 6px 5px;
+  padding: 16px 4px 4px;
+  line-height: 22px;
+  overflow: visible;
+}
+.admin-order-card__status {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  line-height: 18px;
+  padding: 0 2px;
+  border: 1px solid hsla(0, 0%, 100%, 0.27);
+  border-radius: 1px;
+  color: #ffe6c0;
+  text-align: center;
+  z-index: 1;
+  font-size: 12px;
+}
+.admin-order-card__status::after {
+  font-size: 12px;
+}
+.admin-order-card__status.None {
+  color: #aeaeae;
+  background: rgba(174, 174, 174, 0.1);
+  border-color: #aeaeae;
+}
+.admin-order-card__status.None::after {
+  content: "待结算";
+}
+.admin-order-card__status.Pending {
+  color: #aeaeae;
+  background: rgba(174, 174, 174, 0.1);
+  border-color: #aeaeae;
+}
+.admin-order-card__status.Pending::after {
+  content: "待结算";
+}
+.admin-order-card__status.Win {
+  background-image: linear-gradient(180deg, #f50000, #ff5353);
+  color: #fff;
+  border-color: transparent;
+}
+.admin-order-card__status.Win::after {
+  content: "赢";
+}
+.admin-order-card__status.Lose {
+  background-image: linear-gradient(180deg, #4e6084, #6e7fa3);
+  color: #fff;
+  border-color: transparent;
+}
+.admin-order-card__status.Lose::after {
+  content: "输";
+}
+.admin-order-card__status.Return {
+  background-image: linear-gradient(180deg, #8d8d8d, #9d9d9d 99%);
+  color: #fff;
+  border-color: transparent;
+}
+.admin-order-card__status.Return::after {
+  content: "退";
+}
+.admin-order-card__status.Reject {
+  background-image: linear-gradient(180deg, #cc4319, #280946 99%);
+  color: #fff;
+  border-color: transparent;
+}
+.admin-order-card__status.Reject::after {
+  content: "拒";
+}
+.admin-order-card__platform {
+  position: absolute;
+  left: -5px;
+  top: -12px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  width: auto;
+  max-width: calc(100% + 6px);
+  min-height: 22px;
+  line-height: 22px;
+  padding: 2px 4px 2px 0;
+  background-color: #000;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.admin-order-card__provider-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: no-repeat center center;
+  background-size: contain;
+}
+.admin-order-card__player {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #fff;
+}
+.admin-order-card__match {
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  word-break: break-word;
+}
+.admin-order-card__bet::after {
+  clear: both;
+  content: " ";
+  display: block;
+}
+.admin-order-card__betname {
+  float: left;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-order-card__item {
+  float: right;
+  max-width: 54%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: #1fa2ff;
+}
+.admin-order-card__item label {
+  display: inline;
+}
+.admin-order-card__profit {
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+.admin-order-card__profit .admin-order-card__odds {
+  color: #1fa2ff;
+}
+.admin-order-card__time {
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
 }
 .admin-order-link__head {
   display: flex;
@@ -2195,17 +2364,16 @@ html.admin-route #app > * {
 .admin-drawer .el-drawer__body {
   padding: 0;
   background: var(--adm-bg);
+  overflow: auto;
 }
 
 /* 用户工作台预览：复刻 home-view，隔离管理端主题覆盖 */
 .admin-drawer .user-workspace-preview {
-  min-height: 100%;
-  overflow: auto;
+  min-height: 560px;
   background: transparent;
 }
 .admin-drawer .user-workspace-preview .common-layout.home-view {
-  height: auto;
-  min-height: calc(100vh - 120px);
+  min-height: 560px;
 }
 .admin-drawer .user-workspace-preview .el-aside {
   overflow: visible;

@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
-import type { OrderRow } from "@/types/order";
-import { useOrderStore, isLinkedArbGroup } from "@/stores/orderStore";
-import { formatOrderTime, formatDisplayOdds, toFixed } from "@/shared/format";
+import { useOrderStore } from "@/stores/orderStore";
 import { wait } from "@/shared/wait";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
+import OrderList from "@/components/order/OrderList.vue";
+import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
+
+const props = withDefaults(
+  defineProps<{
+    embedded?: boolean;
+    embeddedUserId?: string;
+  }>(),
+  { embedded: false },
+);
 
 const orderStore = useOrderStore();
 const { orderEntries, orderDate, loading, filterAccountId, accountOptions, orders } =
@@ -14,7 +22,11 @@ const { orderEntries, orderDate, loading, filterAccountId, accountOptions, order
 const viewLoading = ref(false);
 
 onMounted(() => {
-  if (!orderStore.orders.size) void orderStore.fetchOrders();
+  if (props.embedded && props.embeddedUserId && !orderStore.orders.size) {
+    void loadEmbeddedUserOrders(props.embeddedUserId, orderDate.value);
+  } else if (!props.embedded && !orderStore.orders.size) {
+    void orderStore.fetchOrders();
+  }
 });
 
 /** [A8 可证实] OrderView `a(c,d)`：重置账号筛选 → getOrders → finally wait(1s) */
@@ -22,7 +34,11 @@ async function reload(date?: string) {
   filterAccountId.value = 0;
   viewLoading.value = true;
   try {
-    await orderStore.fetchOrders(date);
+    if (props.embedded && props.embeddedUserId) {
+      await loadEmbeddedUserOrders(props.embeddedUserId, date ?? orderDate.value);
+    } else {
+      await orderStore.fetchOrders(date);
+    }
   } finally {
     await wait(1000);
     viewLoading.value = false;
@@ -40,42 +56,30 @@ function onDateChange(value: string) {
   if (value) void reload(value);
 }
 
-function legendText(rows: OrderRow[]) {
-  return orderStore.linkLegend(rows);
-}
-
-function legendClass(rows: OrderRow[]) {
-  return orderStore.linkClass(rows);
-}
-
-function playerLabel(row: OrderRow) {
+function playerLabel(row: Parameters<typeof orderStore.playerLabel>[0]) {
   return orderStore.playerLabel(row);
 }
 
-function platformClass(row: OrderRow) {
+function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
   return orderStore.platformClass(row);
-}
-
-function isArbGroup(rows: OrderRow[]) {
-  return isLinkedArbGroup(rows);
 }
 </script>
 
 <template>
-  <div class="date flex flex-center">
+  <div class="date flex flex-middle order-date-bar">
     <OrderDateNav
       v-model="orderDate"
       class="date-nav--sidebar"
       placeholder="选择日期"
-      picker-width="92px"
+      picker-width="76px"
       :disabled="loading || viewLoading"
       @change="onDateChange"
     />
     <el-select
       v-model="filterAccountId"
+      class="order-account-filter"
       placeholder="Select"
       size="small"
-      style="width: 160px"
       :disabled="loading || viewLoading"
     >
       <el-option
@@ -86,7 +90,7 @@ function isArbGroup(rows: OrderRow[]) {
       />
     </el-select>
     <el-button
-      class="am-icon-refresh"
+      class="am-icon-refresh order-date-bar__refresh"
       size="small"
       :loading="loading || viewLoading"
       @click="reload()"
@@ -97,46 +101,54 @@ function isArbGroup(rows: OrderRow[]) {
     当前账号筛选下无订单，请选「全部」或点刷新
   </p>
 
-  <div class="orders" :class="{ loading: loading || viewLoading }">
-    <fieldset
-      v-for="[link, rows] in orderEntries"
-      :key="link"
-      class="orderlink"
-      :class="{ 'orderlink--paired': isArbGroup(rows) }"
-    >
-      <legend :class="legendClass(rows)">
-        {{ legendText(rows) }}
-      </legend>
-      <div v-for="row in rows" :key="String(row.OrderID)" class="order">
-        <label class="status" :class="row.Status" />
-        <div class="platform flex" :class="platformClass(row)">
-          <div class="provider-icon" :class="row.Type" />
-          <div class="player">{{ playerLabel(row) }}</div>
-        </div>
-        <div class="match" v-html="row.Match" />
-        <div class="bet">
-          <div class="betname" v-html="row.Bet" />
-          <div class="item">
-            <label v-html="row.Item" />
-          </div>
-        </div>
-        <div class="profit">
-          投注金额：{{ row.BetMoney }} 赔率：<span class="order__odds">{{
-            formatDisplayOdds(Number(row.Odds) || 0)
-          }}</span>
-          盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
-        </div>
-        <div class="time">投注时间：{{ formatOrderTime(row.CreateAt || 0) }}</div>
-      </div>
-    </fieldset>
-  </div>
+  <OrderList
+    :order-entries="orderEntries"
+    :loading="loading || viewLoading"
+    :player-label="playerLabel"
+    :platform-class="platformClass"
+  />
 </template>
 
 <style scoped>
+.order-date-bar {
+  justify-content: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 8px 5px;
+}
+
+.order-date-bar__refresh {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .order-filter-empty {
   margin: 6px 8px 0;
   font-size: 12px;
   color: var(--el-text-color-secondary, #999);
   text-align: center;
+}
+
+/** 侧栏账号筛选：触发器窄，下拉仍随选项文案展宽 */
+.order-account-filter {
+  width: 56px;
+  flex: 0 0 auto;
+}
+
+.order-account-filter :deep(.el-select__wrapper) {
+  padding-left: 4px;
+  padding-right: 2px;
+}
+
+.order-account-filter :deep(.el-select__selected-item) {
+  font-size: 11px;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-account-filter :deep(.el-select__suffix) {
+  margin-left: 0;
 }
 </style>

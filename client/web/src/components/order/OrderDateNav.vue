@@ -73,8 +73,8 @@ function shift(delta: number) {
   padding: 5px 8px;
 }
 .date-nav--sidebar .date-nav__arrow {
-  min-width: 24px;
-  padding: 4px 5px;
+  min-width: 22px;
+  padding: 4px 4px;
 }
 .date-nav :deep(.el-input__prefix) {
   display: none;
@@ -84,14 +84,15 @@ function shift(delta: number) {
   padding-right: 6px;
 }
 .date-nav--sidebar :deep(.el-input__wrapper) {
-  padding-left: 4px;
-  padding-right: 4px;
+  padding-left: 3px;
+  padding-right: 3px;
 }
 .date-nav :deep(.el-input__inner) {
   font-size: 12px;
 }
 .date-nav--sidebar :deep(.el-input__inner) {
   font-size: 11px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  padding: 0;
 }
 </style>

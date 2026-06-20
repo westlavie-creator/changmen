@@ -1,4 +1,6 @@
-# copy：legacy 为 sync 产出；index.css + modules/ 为自有源码（进 git）
+# copy：legacy 为 sync 产出；modules/changmen 为自有源码 + bootstrap 产出
 public/copy/styles/legacy/
+src/styles/ep-chalk.css
+public/copy/styles/modules/changmen/ep-chalk.css
 public/copy/styles/modules/a8-all.css
 public/copy/styles/modules/segments/

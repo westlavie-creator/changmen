@@ -3,13 +3,27 @@ import UserInfoPanel from "@/components/user/UserInfoPanel.vue";
 import LoseOrderView from "@/components/order/LoseOrderView.vue";
 import OrderView from "@/components/order/OrderView.vue";
 
-defineEmits<{ logout: [] }>();
+withDefaults(
+  defineProps<{
+    embedded?: boolean;
+    embeddedUserId?: string;
+    embeddedUserName?: string;
+  }>(),
+  { embedded: false },
+);
+
+defineEmits<{ logout: []; viewOrders: [] }>();
 </script>
 
 <template>
   <div class="app-sidebar">
-    <UserInfoPanel @logout="$emit('logout')" />
-    <LoseOrderView />
-    <OrderView />
+    <UserInfoPanel
+      :embedded="embedded"
+      :embedded-user-name="embeddedUserName"
+      @logout="$emit('logout')"
+      @view-orders="$emit('viewOrders')"
+    />
+    <LoseOrderView v-if="!embedded" />
+    <OrderView :embedded="embedded" :embedded-user-id="embeddedUserId" />
   </div>
 </template>

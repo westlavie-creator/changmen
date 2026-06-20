@@ -24,13 +24,24 @@ export const COPY_LEGACY_FILES = [
 
 /** src/styles → modules/changmen/（/copy modules 皮肤用，进 git；顺序与 main.ts 一致） */
 export const CHANGMEN_MODULE_MAP = [
+  ["ep-chalk.css", "ep-chalk.css"],
   ["login-carousel.css", "login-carousel.css"],
+  ["tokens.css", "tokens.css"],
+  ["layout.css", "layout.css"],
+  ["misc.css", "misc.css"],
   ["a8-fallback.css", "ep-fallback.css"],
   ["a8-am-icon.css", "am-icon.css"],
+  ["platform-icons.css", "platform-icons.css"],
   ["a8-icon-fallback.css", "icon-fallback.css"],
   ["user-diag.css", "user-diag.css"],
   ["app.css", "app.css"],
+  ["account-bar.css", "account-bar.css"],
+  ["match-list.css", "match-list.css"],
+  ["bet-row.css", "bet-row.css"],
+  ["sidebar-user.css", "sidebar-user.css"],
+  ["extension-banner.css", "extension-banner.css"],
   ["admin-theme.css", "admin-theme.css"],
+  ["sidebar-orders.css", "sidebar-orders.css"],
 ];
 
 /** @deprecated 使用 COPY_LEGACY_FILES */

@@ -178,6 +178,13 @@ async function handleSaveAccounts(accounts, userId) {
   const checked = await validateAccountRows(accounts);
   if (!checked.ok) return checked;
   const normalized = accounts.map((row) => enrichAccountRowFromPlayer(row));
+  for (const row of normalized) {
+    const id = Number(row?.accountId ?? row?.AccountId);
+    const label = String(row?.platformName ?? row?.PlatformName ?? "").trim();
+    if (id && label) {
+      await accountStore.syncPlayerDisplayName(id, label);
+    }
+  }
   store.setAccountsForUser(userId, normalized);
   return { ok: true, info: true };
 }
@@ -291,7 +298,8 @@ async function handleSaveOrderBind(body, userId) {
     }
   }
   if (!Array.isArray(orders)) return { ok: false, msg: "orders 必须是数组" };
-  await orderStore.saveOrderBind(orders, userId);
+  const bound = await orderStore.saveOrderBind(orders, userId);
+  if (!bound) return { ok: false, msg: "绑单失败（订单不存在或 link 更新失败）" };
   return { ok: true, info: true };
 }
 

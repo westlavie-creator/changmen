@@ -1,18 +1,28 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { probeGamebetExtension, readDomExtensionId } from "@/chrome-plugin/bridge";
+import { skipExtensionGate } from "@/config/gamebetExtension";
 
 const PROBE_INTERVAL_MS = 2000;
+const DEV_SKIP_VERSION = "local-skip";
 
 export function useExtensionGate() {
-  const extensionStatus = ref<"installed" | "missing">("missing");
-  const extensionVersion = ref("");
-  const extensionId = ref("");
+  const devSkip = skipExtensionGate();
+  const extensionStatus = ref<"installed" | "missing">(devSkip ? "installed" : "missing");
+  const extensionVersion = ref(devSkip ? DEV_SKIP_VERSION : "");
+  const extensionId = ref(devSkip ? "dev-skip" : "");
   const domExtensionId = ref("");
   const extensionReady = computed(() => extensionStatus.value === "installed");
 
   let probeTimer: ReturnType<typeof setInterval> | undefined;
 
   async function refreshExtension() {
+    if (devSkip) {
+      extensionStatus.value = "installed";
+      extensionVersion.value = DEV_SKIP_VERSION;
+      extensionId.value = "dev-skip";
+      return true;
+    }
+
     domExtensionId.value = readDomExtensionId();
     const info = await probeGamebetExtension();
     if (info) {
@@ -30,6 +40,7 @@ export function useExtensionGate() {
   }
 
   onMounted(() => {
+    if (devSkip) return;
     void refreshExtension();
     probeTimer = setInterval(() => {
       void refreshExtension();

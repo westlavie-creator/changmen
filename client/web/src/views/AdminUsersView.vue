@@ -12,6 +12,10 @@ import {
 } from "@/api/admin";
 import type { AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
+import {
+  mountAdminUserWorkspace,
+  unmountAdminUserWorkspace,
+} from "@/composables/adminUserWorkspaceMount";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -112,8 +116,19 @@ async function loadUsers() {
 }
 
 function openDetail(row: AdminUserRow) {
-  detailUser.value = row;
-  drawerOpen.value = true;
+  try {
+    mountAdminUserWorkspace(row);
+    detailUser.value = row;
+    drawerOpen.value = true;
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "无法打开用户详情");
+    console.error("[AdminUsersView] openDetail:", err);
+  }
+}
+
+function closeDetailDrawer() {
+  detailUser.value = null;
+  unmountAdminUserWorkspace();
 }
 
 function viewOrders(row: AdminUserRow) {
@@ -245,6 +260,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (refreshTimer) clearInterval(refreshTimer);
+  unmountAdminUserWorkspace();
 });
 </script>
 
@@ -359,6 +375,7 @@ onUnmounted(() => {
       size="92%"
       direction="rtl"
       destroy-on-close
+      @closed="closeDetailDrawer"
     >
       <AdminUserDetail
         v-if="detailUser"

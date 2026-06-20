@@ -58,6 +58,11 @@ async function updatePlayerBalance(playerId, balance) {
   return sb.updatePlayerBalanceRow(playerId, balance);
 }
 
+/** ACCOUNT 保存时同步显示用 platform_name（余额刷新会从 players 读回） */
+async function syncPlayerDisplayName(playerId, platformName) {
+  return sb.updatePlayerDisplayName(playerId, platformName);
+}
+
 async function saveUserLog(userId, title, data) {
   return sb.insertUserLogRow(userId, title, data);
 }
@@ -260,6 +265,7 @@ export {
   createTagPlatform,
   getPlayer,
   updatePlayerBalance,
+  syncPlayerDisplayName,
   saveUserLog,
   deletePlayer,
   deletePlayerData,

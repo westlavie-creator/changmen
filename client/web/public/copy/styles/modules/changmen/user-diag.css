@@ -1,4 +1,4 @@
-/* UserDiagView / 用户中心 Tab 对齐 A8（index.css 未收录的 googlecode 等） */
+/* UserDiagView / 用户中心 Tab（modules：dialogs 分桶 partial skip，样式由 changmen 维护） */
 
 .googlecode {
   display: flex;

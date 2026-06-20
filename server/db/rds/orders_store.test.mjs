@@ -188,6 +188,28 @@ describe("updateOrderBind bound hook", () => {
     expect(hook).not.toHaveBeenCalled();
   });
 
+  it("UPDATE uses $1 for link and $2+ for WHERE (no placeholder clash)", async () => {
+    const prev = {
+      user_id: "u1",
+      order_id: "o1",
+      link: 12345,
+      provider: "OB",
+    };
+    queryMock
+      .mockResolvedValueOnce({ rows: [prev] })
+      .mockResolvedValueOnce({ rowCount: 1 });
+
+    await updateOrderBind("o1", "u1", 1_700_000_000_000, { provider: "OB" });
+
+    const updateCall = queryMock.mock.calls.find(([sql]) => String(sql).startsWith("UPDATE"));
+    expect(updateCall).toBeDefined();
+    const [sql, params] = updateCall;
+    expect(sql).toBe(
+      "UPDATE orders SET link = $1 WHERE user_id = $2 AND order_id = $3 AND provider = $4",
+    );
+    expect(params).toEqual([1_700_000_000_000, "u1", "o1", "OB"]);
+  });
+
   it("returns false when order row is missing", async () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
     const hook = vi.fn();

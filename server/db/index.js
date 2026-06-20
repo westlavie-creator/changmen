@@ -120,6 +120,7 @@ export const {
   upsertTagPlatformByName,
   insertPlayerRow,
   fetchPlayerById,
+  updatePlayerDisplayName,
   updatePlayerBalanceRow,
   insertUserLogRow,
   fetchUserLogsInRange,

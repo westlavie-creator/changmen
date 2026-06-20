@@ -7,6 +7,13 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { useAccountStore } from "@/stores/accountStore";
 
 /** 对齐 bundle AccountView：顶栏仅 providers 横排账号卡 */
+withDefaults(
+  defineProps<{
+    embedded?: boolean;
+  }>(),
+  { embedded: false },
+);
+
 const accountStore = useAccountStore();
 const { sortedAccounts } = storeToRefs(accountStore);
 
@@ -34,6 +41,7 @@ async function removeAccount(account: PlatformAccount) {
       v-for="acc in sortedAccounts"
       :key="acc.accountId"
       :account="acc"
+      :preview="embedded"
       @refresh="refreshOne(acc)"
       @edit="accountStore.openEditAccount(acc)"
       @money="openMoney(acc)"
@@ -41,6 +49,7 @@ async function removeAccount(account: PlatformAccount) {
     />
 
     <MoneyLogDialog
+      v-if="!embedded"
       :open="moneyOpen"
       :account-id="moneyAccountId"
       @close="moneyOpen = false"

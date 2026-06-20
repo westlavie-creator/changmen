@@ -373,29 +373,40 @@ export async function fetchOrdersForProfitAggregate(dateKey) {
  * 更新订单 link 绑定。
  * 内部 SELECT 不过滤 link（需匹配占位行后再写 bind link）。
  */
-export async function updateOrderBind(orderId, userId, link, opts = {}) {
-  if (!orderId || !userId) return false;
+function buildOrderBindMatch(userId, orderId, opts = {}) {
   const playerId = Number(opts.playerId);
   const provider = opts.provider ? String(opts.provider) : "";
+  const params = [String(userId), String(orderId)];
+  const parts = ["user_id = $1", "order_id = $2"];
+  if (Number.isFinite(playerId) && playerId > 0) {
+    params.push(playerId);
+    parts.push(`player_id = $${params.length}`);
+  } else if (provider) {
+    params.push(provider);
+    parts.push(`provider = $${params.length}`);
+  }
+  return { where: parts.join(" AND "), params };
+}
+
+/** UPDATE SET link = $1 时，WHERE 占位符整体 +1 */
+function offsetSqlPlaceholders(clause, offset) {
+  return clause.replace(/\$(\d+)/g, (_, n) => `$${Number(n) + offset}`);
+}
+
+export async function updateOrderBind(orderId, userId, link, opts = {}) {
+  if (!orderId || !userId) return false;
   const linkVal = Number(link) || 0;
   const pool = getPgPool();
   if (!pool) return false;
   try {
-    const matchParams = [String(userId), String(orderId)];
-    let where = "user_id = $1 AND order_id = $2";
-    if (Number.isFinite(playerId) && playerId > 0) {
-      matchParams.push(playerId);
-      where += ` AND player_id = $${matchParams.length}`;
-    } else if (provider) {
-      matchParams.push(provider);
-      where += ` AND provider = $${matchParams.length}`;
-    }
-    const sel = await pool.query(`SELECT * FROM orders WHERE ${where}`, matchParams);
+    const { where, params } = buildOrderBindMatch(userId, orderId, opts);
+    const sel = await pool.query(`SELECT * FROM orders WHERE ${where}`, params);
     const prev = sel.rows?.[0];
     if (!prev) return false;
+    const updateWhere = offsetSqlPlaceholders(where, 1);
     const res = await pool.query(
-      `UPDATE orders SET link = $1 WHERE ${where}`,
-      [linkVal, ...matchParams],
+      `UPDATE orders SET link = $1 WHERE ${updateWhere}`,
+      [linkVal, ...params],
     );
     if (res.rowCount > 0 && shouldFireOrderBoundHook(prev, linkVal) && _ordersBoundHook) {
       try {

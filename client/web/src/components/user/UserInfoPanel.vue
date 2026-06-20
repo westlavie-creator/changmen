@@ -9,7 +9,16 @@ import { useUserStore } from "@/stores/userStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 
-const emit = defineEmits<{ logout: [] }>();
+const emit = defineEmits<{ logout: []; viewOrders: [] }>();
+
+const props = withDefaults(
+  defineProps<{
+    /** 管理端用户详情：只读嵌入，不改动当前登录会话 */
+    embedded?: boolean;
+    embeddedUserName?: string;
+  }>(),
+  { embedded: false },
+);
 
 const router = useRouter();
 const user = useUserStore();
@@ -29,12 +38,17 @@ const userDiagOpen = ref(false);
 
 /** 对齐 bundle `UserInfoView` 延迟按钮 type（success / warning / danger） */
 const delayButtonType = computed(() => {
+  if (props.embedded) return undefined;
   const d = apiDelay.value;
   if (!d) return undefined;
   if (d < 100) return "success";
   if (d < 500) return "warning";
   return "danger";
 });
+
+const shownUserName = computed(() =>
+  props.embedded ? props.embeddedUserName || displayName.value : displayName.value,
+);
 </script>
 
 <template>
@@ -42,17 +56,28 @@ const delayButtonType = computed(() => {
     <div class="info flex flex-between flex-middle">
       <div class="userName">
         <el-button-group>
-          <el-button type="primary" size="small" @click="userDiagOpen = true">
-            {{ displayName }}
+          <el-button
+            type="primary"
+            size="small"
+            :disabled="embedded"
+            @click="userDiagOpen = true"
+          >
+            {{ shownUserName }}
           </el-button>
-          <el-button size="small" :type="delayButtonType" @click="user.toggleHiddenUserName()">
-            {{ apiDelay }}<span class="ms">ms</span>
+          <el-button
+            size="small"
+            :type="delayButtonType"
+            :disabled="embedded"
+            @click="user.toggleHiddenUserName()"
+          >
+            {{ embedded ? "—" : apiDelay }}<span class="ms">ms</span>
           </el-button>
         </el-button-group>
       </div>
       <div class="actions flex">
         <el-button-group>
           <el-button
+            v-if="!embedded"
             size="small"
             class="am-icon-plus"
             type="primary"
@@ -60,7 +85,7 @@ const delayButtonType = computed(() => {
             @click="accountStore.openCreateAccount()"
           />
           <el-button
-            v-if="user.isAdmin"
+            v-if="!embedded && user.isAdmin"
             size="small"
             class="am-icon-shield"
             type="warning"
@@ -76,6 +101,15 @@ const delayButtonType = computed(() => {
             @click="configOpen = true"
           />
           <el-button
+            v-if="embedded"
+            size="small"
+            class="am-icon-list"
+            type="info"
+            title="查看订单"
+            @click="emit('viewOrders')"
+          />
+          <el-button
+            v-if="!embedded"
             size="small"
             class="am-icon-power-off"
             type="info"
@@ -115,7 +149,7 @@ const delayButtonType = computed(() => {
       </el-row>
     </div>
 
-    <UserConfigDialog :open="configOpen" @close="configOpen = false" />
-    <UserDiagDialog :open="userDiagOpen" @close="userDiagOpen = false" />
+    <UserConfigDialog :open="configOpen" :readonly="embedded" @close="configOpen = false" />
+    <UserDiagDialog v-if="!embedded" :open="userDiagOpen" @close="userDiagOpen = false" />
   </section>
 </template>

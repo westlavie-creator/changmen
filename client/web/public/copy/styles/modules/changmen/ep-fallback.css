@@ -8,7 +8,7 @@
   flex-direction: column;
 }
 
-/* HomeView 顶栏：AccountView(.providers) + ExtensionsView(.version) */
+/* HomeView 顶栏：AccountView(.providers)；版本角标见 extension-banner.css（modules） */
 .common-layout.home-view .el-header {
   position: relative;
   display: flex;
@@ -23,7 +23,7 @@
   min-width: 0;
 }
 
-/* 右上角：直连推送 IA/OB/RAY/TF + 扩展版本号 */
+/* 右上角：直连推送 + 扩展版本号（modules 另有 extension-banner.css） */
 .common-layout.home-view .el-header .home-header-trailing {
   position: absolute;
   right: 8px;
@@ -47,7 +47,7 @@
   padding-right: 8px;
 }
 
-.common-layout.home-view .el-header .home-header-trailing .version:before {
+.common-layout.home-view .el-header .home-header-trailing .version::before {
   width: 6px;
   height: 6px;
 }

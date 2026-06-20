@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_V4_PROXY?: string;
   readonly VITE_V4_DIRECT?: string;
   readonly VITE_GAMEBET_EXTENSION_ID?: string;
+  /** DEV：1/true/未设=跳过扩展门控；0/false=强制检测 */
+  readonly VITE_SKIP_EXTENSION_GATE?: string;
   readonly VITE_HIDE_SKIN_BANNER?: string;
 }
 

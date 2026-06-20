@@ -14,6 +14,17 @@ export function gamebetExtensionId(): string {
   return GAMEBET_EXTENSION_ID_DEFAULT;
 }
 
+/**
+ * DEV 本地联调：跳过扩展探测，Gate 直接出登录框；采集/下注仍依赖真实扩展。
+ * DEV 默认跳过；设 VITE_SKIP_EXTENSION_GATE=0 恢复强制检测。
+ */
+export function skipExtensionGate(): boolean {
+  if (!import.meta.env.DEV) return false;
+  const flag = import.meta.env.VITE_SKIP_EXTENSION_GATE;
+  if (flag === "0" || flag === "false") return false;
+  return true;
+}
+
 /** 登录页 / 采集报错时展示的安装说明 */
 export function gamebetExtensionInstallHint(): string {
   const id = gamebetExtensionId();

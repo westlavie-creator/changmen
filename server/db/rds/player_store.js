@@ -139,6 +139,27 @@ export async function fetchUserLogsInRange(userId, fromMs, toMs, limit = 200) {
   }
 }
 
+/** 仅更新 players.platform_name（账号显示名；不改 platform_id） */
+export async function updatePlayerDisplayName(playerId, platformName) {
+  const id = Number(playerId);
+  const label = String(platformName || "").trim();
+  if (!Number.isFinite(id) || id <= 0 || !label) return false;
+  const pool = getPgPool();
+  if (!pool) return false;
+  const now = Date.now();
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE players SET platform_name = $2, updated_at = $3
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [id, label, now],
+    );
+    return rowCount > 0;
+  } catch (err) {
+    console.warn("[rds] updatePlayerDisplayName:", err.message);
+    return false;
+  }
+}
+
 export async function updatePlayerBalanceRow(playerId, balance) {
   const id = Number(playerId);
   if (!Number.isFinite(id) || id <= 0) return null;

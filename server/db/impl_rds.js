@@ -84,6 +84,7 @@ export {
   upsertTagPlatformByName,
   insertPlayerRow,
   fetchPlayerById,
+  updatePlayerDisplayName,
   updatePlayerBalanceRow,
   insertUserLogRow,
   fetchUserLogsInRange,

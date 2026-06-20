@@ -1,19 +1,13 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
+import { storeToRefs } from "pinia";
 import type { AdminUserRow } from "@/types/admin";
-import { PlatformAccount } from "@/models/platformAccount";
-import UserConfigPanel from "@/components/user/UserConfigPanel.vue";
-import AccountEditPanel from "@/components/account/AccountEditPanel.vue";
-import EmbeddedUserDialog from "@/components/admin/preview/EmbeddedUserDialog.vue";
-import UserInfoPanelPreview from "@/components/admin/preview/UserInfoPanelPreview.vue";
-import AccountBarPreview from "@/components/admin/preview/AccountBarPreview.vue";
-import {
-  adminAccountToPlatformAccount,
-  buildAdminAccountDisplayRows,
-} from "@/components/admin/adminAccountDisplay";
-import { createAccountEditFormStateFromPlatformAccount } from "@/components/account/accountEditFormState";
-import { createUserConfigFormState } from "@/components/user/userConfigFormState";
-import { mergeUserConfig, type UserConfig } from "@/types/userConfig";
+import AppSidebar from "@/components/layout/AppSidebar.vue";
+import AccountBar from "@/components/account/AccountBar.vue";
+import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
+import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
+import { useAccountStore } from "@/stores/accountStore";
+import { todayKey } from "@/shared/dateKey";
 
 const props = defineProps<{
   user: AdminUserRow;
@@ -21,112 +15,58 @@ const props = defineProps<{
 
 const emit = defineEmits<{ viewOrders: [] }>();
 
-const configPanelOpen = ref(false);
-const accountPanelOpen = ref(false);
+const accountStore = useAccountStore();
+const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 
-const configForm = reactive(createUserConfigFormState(mergeUserConfig({})));
-const accountForm = reactive(
-  createAccountEditFormStateFromPlatformAccount(
-    new PlatformAccount({ accountId: 0, playerName: "", provider: "RAY" }),
-  ),
-);
-const accountProxyOptions = ref<{ label: string; value: number }[]>([{ label: "无代理", value: 0 }]);
+const ordersError = ref("");
 
-const displayAccounts = computed(() =>
-  (props.user.accounts ?? [])
-    .map(adminAccountToPlatformAccount)
-    .sort(PlatformAccount.sortByProvider),
-);
-
-const accountDisplayRows = computed(() => buildAdminAccountDisplayRows(props.user.accounts ?? []));
-
-const accountRowMap = computed(
-  () => new Map(accountDisplayRows.value.map((row) => [row.accountId, row])),
-);
-
-const totalBalance = computed(() =>
-  displayAccounts.value.reduce((sum, acc) => sum + (acc.getBalance() ?? 0), 0),
-);
-
-const bettingOn = computed(() =>
-  Boolean(mergeUserConfig(props.user.setting as Partial<UserConfig>).betting),
-);
-
-function openConfigPanel() {
-  Object.assign(
-    configForm,
-    createUserConfigFormState(mergeUserConfig(props.user.setting as Partial<UserConfig>)),
-  );
-  configPanelOpen.value = true;
-  accountPanelOpen.value = false;
+async function refreshOrders(date = todayKey()) {
+  ordersError.value = "";
+  try {
+    await loadEmbeddedUserOrders(props.user.id, date);
+  } catch (err) {
+    ordersError.value = err instanceof Error ? err.message : "订单加载失败";
+    console.warn("[adminUserWorkspace] load orders:", err);
+  }
 }
 
-function openAccountEdit(account: PlatformAccount) {
-  const row = accountRowMap.value.get(account.accountId);
-  if (!row) return;
-  Object.assign(accountForm, structuredClone(row.form));
-  accountProxyOptions.value = row.proxyOptions;
-  accountPanelOpen.value = true;
-  configPanelOpen.value = false;
-}
+onMounted(() => {
+  void refreshOrders();
+});
+
+watch(
+  () => props.user.id,
+  () => {
+    void refreshOrders();
+  },
+);
 </script>
 
 <template>
   <div class="user-workspace-preview">
-    <el-container class="common-layout home-view">
+    <AccountEditDialog
+      :open="editDialogOpen"
+      :account="editDialogAccount"
+      readonly
+      @close="accountStore.closeAccountDialog()"
+    />
+    <p v-if="ordersError" class="user-workspace-preview__err">{{ ordersError }}</p>
+    <el-container class="common-layout home-view user-workspace-preview__layout">
       <el-aside width="260px">
-        <div class="app-sidebar">
-          <UserInfoPanelPreview
-            :user-name="user.userName"
-            :total-balance="totalBalance"
-            :total-today="user.todayMoney"
-            :total-orders="user.todayCount"
-            :betting="bettingOn"
-            @open-config="openConfigPanel"
-            @view-orders="emit('viewOrders')"
-          />
-          <div class="date flex flex-center user-workspace-preview__orders-bar">
-            <el-input size="small" disabled model-value="今日" style="width: 92px" />
-            <el-select placeholder="Select" size="small" style="width: 160px" disabled />
-            <el-button class="am-icon-refresh" size="small" disabled />
-          </div>
-          <div class="orders user-workspace-preview__orders-empty">
-            <p>侧栏订单为该用户会话实时数据，请使用「查看订单」查看历史订单。</p>
-          </div>
-        </div>
+        <AppSidebar
+          embedded
+          :embedded-user-id="user.id"
+          :embedded-user-name="user.userName"
+          @view-orders="emit('viewOrders')"
+        />
       </el-aside>
-
       <el-container>
         <el-header>
-          <AccountBarPreview :accounts="displayAccounts" @edit="openAccountEdit" />
+          <AccountBar embedded />
         </el-header>
         <el-main class="user-workspace-preview__main">
-          <EmbeddedUserDialog
-            v-if="configPanelOpen"
-            title="参数配置"
-            width="1000px"
-            @close="configPanelOpen = false"
-          >
-            <UserConfigPanel :form="configForm" readonly />
-          </EmbeddedUserDialog>
-
-          <EmbeddedUserDialog
-            v-else-if="accountPanelOpen"
-            title="平台账号设置"
-            width="800px"
-            @close="accountPanelOpen = false"
-          >
-            <AccountEditPanel
-              :form="accountForm"
-              readonly
-              hide-sensitive
-              game-expanded
-              :proxy-options="accountProxyOptions"
-            />
-          </EmbeddedUserDialog>
-
-          <p v-else class="user-workspace-preview__hint">
-            点击侧栏齿轮查看「参数配置」，点击账号卡「编辑」查看「平台账号设置」。
+          <p class="user-workspace-preview__hint">
+            与前台布局一致：侧栏为当日订单（只读），顶栏为账号卡；点齿轮 / 编辑可查看配置（不可保存）。
           </p>
         </el-main>
       </el-container>
@@ -135,18 +75,11 @@ function openAccountEdit(account: PlatformAccount) {
 </template>
 
 <style scoped>
-.user-workspace-preview__orders-bar {
-  margin-top: 8px;
-  opacity: 0.72;
+.user-workspace-preview {
+  min-height: 560px;
 }
-.user-workspace-preview__orders-empty {
-  padding: 10px 12px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #ffffff8c;
-}
-.user-workspace-preview__orders-empty p {
-  margin: 0;
+.user-workspace-preview__layout {
+  min-height: 560px;
 }
 .user-workspace-preview__main {
   padding: 12px 16px 20px;
@@ -157,5 +90,13 @@ function openAccountEdit(account: PlatformAccount) {
   text-align: center;
   font-size: 13px;
   color: #94a3b8;
+}
+.user-workspace-preview__err {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+  border-bottom: 1px solid rgba(248, 113, 113, 0.2);
 }
 </style>

@@ -21,7 +21,7 @@
   flex-direction: column;
 }
 
-/* 瀵归綈 A8锛歄B 骞冲彴瑙掓爣锛坅8.css 浜︽湁锛屾澶勪繚鐣?limit 鏍峰紡閭昏繎澹版槑锛?*/
+/* 对齐 A8：OB 平台角标（a8.css 亦有，此处保留 limit 样式邻近声明） */
 .provider-icon.OB {
   background-image: url(/esport2/assets/D1aW4vdu.png);
 }
@@ -31,7 +31,7 @@
   outline-offset: -1px;
 }
 
-/* HomeView / 渚ф爮 / 鐧诲綍锛堥伩鍏?scoped 瑕嗙洊 a8.css锛?*/
+/* HomeView / 侧栏 / 登录（避免 scoped 覆盖 a8.css） */
 .home-view {
   height: 100%;
 }

@@ -95,6 +95,23 @@
   line-height: 1.35;
 }
 
+.copy-preview-banner__link {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #93c5fd;
+  font-size: 9px;
+  line-height: 1.35;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.copy-preview-banner__link:hover {
+  color: #bfdbfe;
+}
+
 .copy-preview-banner__warn {
   margin-top: 6px;
   color: #f87171;
