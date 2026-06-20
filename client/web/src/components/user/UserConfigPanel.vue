@@ -75,7 +75,7 @@ function setWaitTime(platform: string, v: string | number) {
             <el-input v-model="form.betMoney" autocomplete="off" :disabled="fieldDisabled()" style="width: 120px" />
           </el-form-item>
         </el-col>
-        <el-col :span="5">
+        <el-col :span="4" :offset="1">
           <el-switch
             v-model="form.tenNumber"
             inline-prompt
@@ -85,7 +85,7 @@ function setWaitTime(platform: string, v: string | number) {
             :disabled="fieldDisabled()"
           />
         </el-col>
-        <el-col :span="5">
+        <el-col :span="4" :offset="1">
           <el-switch
             v-model="form.betting"
             inline-prompt
@@ -95,7 +95,7 @@ function setWaitTime(platform: string, v: string | number) {
             :disabled="fieldDisabled()"
           />
         </el-col>
-        <el-col v-if="!form.betting" :span="6">
+        <el-col v-if="!form.betting" :span="4" :offset="1">
           <el-switch
             v-model="form.bettingAutoOpen"
             inline-prompt
