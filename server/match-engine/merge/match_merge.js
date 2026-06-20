@@ -485,9 +485,49 @@ function sideAlignmentMode(pmHome, pmAway, cmHome, cmAway) {
   return "ambiguous";
 }
 
+/** canonical ID 回退：队名 ambiguous 时用 team_platform_maps 判断 aligned / reversed */
+function sideAlignmentByCanonicalId(platform, pm, refCanonIds) {
+  if (!refCanonIds) return "ambiguous";
+  const sourceGameId = pm.SourceGameID ?? pm.GameID;
+  const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
+  const homeId = resolvePlatformTeamId(
+    platform, pm.HomeID ?? pm.home_id ?? pm.SourceHomeID, sourceGameId, gameCode,
+  );
+  const awayId = resolvePlatformTeamId(
+    platform, pm.AwayID ?? pm.away_id ?? pm.SourceAwayID, sourceGameId, gameCode,
+  );
+  const hcid = lookupGbTeamIdByPlatform(platform, homeId);
+  const acid = lookupGbTeamIdByPlatform(platform, awayId);
+  if (!hcid || !acid) return "ambiguous";
+  if (hcid === refCanonIds.home && acid === refCanonIds.away) return "aligned";
+  if (hcid === refCanonIds.away && acid === refCanonIds.home) return "reversed";
+  return "ambiguous";
+}
+
+/** 从已 aligned 的平台中取 canonical home/away ID 作为参考 */
+function resolveRefCanonIds(alignedPlatforms, matches) {
+  for (const { platform, sourceMatchId } of alignedPlatforms) {
+    const pm = findPlatformMatch(matches, platform, sourceMatchId);
+    if (!pm) continue;
+    const sourceGameId = pm.SourceGameID ?? pm.GameID;
+    const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
+    const homeId = resolvePlatformTeamId(
+      platform, pm.HomeID ?? pm.home_id ?? pm.SourceHomeID, sourceGameId, gameCode,
+    );
+    const awayId = resolvePlatformTeamId(
+      platform, pm.AwayID ?? pm.away_id ?? pm.SourceAwayID, sourceGameId, gameCode,
+    );
+    const hcid = lookupGbTeamIdByPlatform(platform, homeId);
+    const acid = lookupGbTeamIdByPlatform(platform, awayId);
+    if (hcid && acid) return { home: hcid, away: acid };
+  }
+  return null;
+}
+
 /**
  * 按 Title canonical 主客重算 Reverse[]，并从平台原始盘口重建 Sources（含 swap）。
  * 自动合并与人工关联共用，幂等。
+ * 队名 ambiguous 时回退 canonical ID 对比（需 team_platform_maps 映射）。
  */
 function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet) {
   for (const row of rows || []) {
@@ -495,7 +535,8 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
     if (!teams) continue;
 
     const reverse = [];
-    const ambiguousPlatforms = [];
+    const aligned = [];
+    const ambiguousEntries = [];
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
       if (!pm) continue;
@@ -507,21 +548,38 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
       );
       if (mode === "reversed") {
         reverse.push(platform);
-      } else if (mode === "ambiguous") {
-        ambiguousPlatforms.push(platform);
-        console.warn(
-          `[match_merge] 主客 ambiguous · client #${row.ID ?? "?"} · ${platform}`
-            + ` · Title「${teams.home} vs ${teams.away}」`
-            + ` · 平台「${pm.Home ?? pm.home} vs ${pm.Away ?? pm.away}」`,
-        );
+      } else if (mode === "aligned") {
+        aligned.push({ platform, sourceMatchId });
+      } else {
+        ambiguousEntries.push({ platform, sourceMatchId, pm });
       }
     }
-    row.Reverse = [...new Set(reverse)];
-    if (ambiguousPlatforms.length) {
-      row.SideAlignAmbiguous = [...new Set(ambiguousPlatforms)];
+
+    if (ambiguousEntries.length) {
+      const refIds = resolveRefCanonIds(aligned, matches);
+      const stillAmbiguous = [];
+      for (const { platform, pm } of ambiguousEntries) {
+        const idMode = sideAlignmentByCanonicalId(platform, pm, refIds);
+        if (idMode === "reversed") {
+          reverse.push(platform);
+        } else if (idMode === "ambiguous") {
+          stillAmbiguous.push(platform);
+          console.warn(
+            `[match_merge] 主客 ambiguous · client #${row.ID ?? "?"} · ${platform}`
+              + ` · Title「${teams.home} vs ${teams.away}」`
+              + ` · 平台「${pm.Home ?? pm.home} vs ${pm.Away ?? pm.away}」`,
+          );
+        }
+      }
+      if (stillAmbiguous.length) {
+        row.SideAlignAmbiguous = [...new Set(stillAmbiguous)];
+      } else {
+        delete row.SideAlignAmbiguous;
+      }
     } else {
       delete row.SideAlignAmbiguous;
     }
+    row.Reverse = [...new Set(reverse)];
 
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
