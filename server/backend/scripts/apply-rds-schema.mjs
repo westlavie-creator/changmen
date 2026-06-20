@@ -63,6 +63,9 @@ async function main() {
     console.log("[rds] 执行 010_value_signals.sql …");
     await client.query(readSql("010_value_signals.sql"));
 
+    console.log("[rds] 执行 011_odds_history.sql …");
+    await client.query(readSql("011_odds_history.sql"));
+
     if (withCron) {
       console.log("[rds] 执行 002_prune_pg_cron.sql …");
       try {
