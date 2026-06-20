@@ -72,7 +72,7 @@ function setWaitTime(platform: string, v: string | number) {
       <el-row>
         <el-col :span="8">
           <el-form-item label="投注金额:" :label-width="LABEL_W">
-            <el-input v-model="form.betMoney" autocomplete="off" :disabled="fieldDisabled()" />
+            <el-input v-model="form.betMoney" autocomplete="off" :disabled="fieldDisabled()" style="width: 120px" />
           </el-form-item>
         </el-col>
         <el-col :span="5">
