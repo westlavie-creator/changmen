@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { pbOddsPath, pbOddsUrl } from "./parse";
 import { pbGatewayUrl, pbGet } from "./transport";
 
 const a8PluginGet = vi.fn();
@@ -22,6 +23,15 @@ describe("pbGatewayUrl (A8 Ly)", () => {
   test("gateway 与 path 直接拼接", () => {
     expect(pbGatewayUrl({ gateway: "https://pb.example" }, "/member-service/v2/account-balance")).toBe(
       "https://pb.example/member-service/v2/account-balance",
+    );
+  });
+
+  test("euro/odds：path 不含 gateway，避免 pbGet 二次拼接", () => {
+    const path = pbOddsPath(true, 1_781_939_873_254);
+    expect(path.startsWith("/sports-service/sv/euro/odds?")).toBe(true);
+    expect(path).not.toMatch(/^https?:\/\//);
+    expect(pbGatewayUrl({ gateway: "https://rsokff9.auremi88.com" }, path)).toBe(
+      pbOddsUrl("https://rsokff9.auremi88.com", true, 1_781_939_873_254),
     );
   });
 });
