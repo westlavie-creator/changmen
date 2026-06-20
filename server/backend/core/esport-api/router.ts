@@ -71,6 +71,7 @@ const ADMIN_ACTIONS = new Set<EsportAction>([
   "Client_AdminSetUserAdmin",
   "Client_AdminDeleteOrders",
   "Client_AdminMonthReport",
+  "Client_AdminPlatformAnalytics",
 ]);
 
 /** ?????? public action ?????admin action ????????*/
@@ -528,6 +529,9 @@ async function handle(
           userId != null && String(userId).trim() ? String(userId) : undefined,
         ),
       );
+    }
+    case "Client_AdminPlatformAnalytics": {
+      return ok(await adminService.getPlatformAnalytics(body));
     }
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);

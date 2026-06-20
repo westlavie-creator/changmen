@@ -96,6 +96,39 @@ export async function deleteAdminOrders(orderIds: number[]) {
   );
 }
 
+export interface PlatformAnalyticsRow {
+  provider: string;
+  total_orders: number;
+  wins: number;
+  losses: number;
+  rejects: number;
+  pending: number;
+  total_bet: number;
+  total_profit: number;
+}
+
+export interface ArbPairRow {
+  provider_a: string;
+  provider_b: string;
+  pair_count: number;
+  both_win: number;
+  both_settled: number;
+  has_reject: number;
+  net_profit: number;
+  total_bet: number;
+}
+
+export interface PlatformAnalyticsPayload {
+  startMs: number;
+  endMs: number;
+  platforms: PlatformAnalyticsRow[];
+  pairs: ArbPairRow[];
+}
+
+export async function getAdminPlatformAnalytics(body: Record<string, unknown> = {}) {
+  return unwrap(await post<PlatformAnalyticsPayload>("Client_AdminPlatformAnalytics", body));
+}
+
 /** Link / order_id 关联 Client_SaveUserLog（管理端诊断） */
 export async function getAdminOrderLogs(body: {
   userId: string;

@@ -110,6 +110,8 @@ export const {
   fetchOrdersForMonthAggregate,
   fetchMoneyLogsForMonthAggregate,
   fetchOrdersForProfitAggregate,
+  fetchPlatformAnalytics,
+  fetchArbPairAnalytics,
   fetchMoneyLogsByPlayer,
   fetchMoneyLogById,
   fetchAllMoneyLogs,

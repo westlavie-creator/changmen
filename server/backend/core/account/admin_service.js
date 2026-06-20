@@ -567,3 +567,25 @@ export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
   await loadProfileById(id);
   return { id, userName: name, isAdmin: wantAdmin ? 1 : 0 };
 }
+
+export async function getPlatformAnalytics(body = {}) {
+  const { localDayBounds, localMonthBounds } = await import("@changmen/db/rds/time_bounds.js");
+  let startMs, endMs;
+  if (body.startMs && body.endMs) {
+    startMs = Number(body.startMs);
+    endMs = Number(body.endMs);
+  } else if (body.month) {
+    const b = localMonthBounds(String(body.month));
+    startMs = b.monthStart;
+    endMs = b.monthEnd;
+  } else {
+    const b = localDayBounds(body.date || toDateKey(Date.now()));
+    startMs = b.dayStart;
+    endMs = b.dayEnd;
+  }
+  const [platforms, pairs] = await Promise.all([
+    sb.fetchPlatformAnalytics(startMs, endMs),
+    sb.fetchArbPairAnalytics(startMs, endMs),
+  ]);
+  return { startMs, endMs, platforms, pairs };
+}

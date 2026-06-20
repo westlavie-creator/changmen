@@ -425,3 +425,69 @@ export async function updateOrderBind(orderId, userId, link, opts = {}) {
     return false;
   }
 }
+
+/** 数据分析：按平台聚合盈亏统计 */
+export async function fetchPlatformAnalytics(startMs, endMs) {
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT provider,
+        COUNT(*)::int AS total_orders,
+        COUNT(*) FILTER (WHERE status = 'Win')::int AS wins,
+        COUNT(*) FILTER (WHERE status = 'Lose')::int AS losses,
+        COUNT(*) FILTER (WHERE status = 'Reject')::int AS rejects,
+        COUNT(*) FILTER (WHERE status = 'None')::int AS pending,
+        COALESCE(SUM(bet_money), 0)::float AS total_bet,
+        COALESCE(SUM(money), 0)::float AS total_profit
+       FROM orders
+       WHERE create_at >= $1 AND create_at < $2 AND provider IS NOT NULL AND provider != ''
+       GROUP BY provider
+       ORDER BY total_orders DESC`,
+      [startMs, endMs],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchPlatformAnalytics:", err.message);
+    return [];
+  }
+}
+
+/** 数据分析：套利配对统计（按 link 配对两腿，含 9999 单边负 link） */
+export async function fetchArbPairAnalytics(startMs, endMs) {
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const { rows } = await pool.query(
+      `WITH pairs AS (
+        SELECT
+          a.provider AS provider_a, b.provider AS provider_b,
+          a.status AS status_a, b.status AS status_b,
+          a.money AS money_a, b.money AS money_b,
+          a.bet_money AS bet_a, b.bet_money AS bet_b
+        FROM orders a
+        JOIN orders b ON ABS(a.link) = ABS(b.link)
+          AND a.provider < b.provider
+          AND a.user_id = b.user_id
+        WHERE ABS(a.link) >= 1000000000000
+          AND a.create_at >= $1 AND a.create_at < $2
+      )
+      SELECT
+        provider_a, provider_b,
+        COUNT(*)::int AS pair_count,
+        COUNT(*) FILTER (WHERE status_a = 'Win' AND status_b = 'Win')::int AS both_win,
+        COUNT(*) FILTER (WHERE status_a != 'Reject' AND status_b != 'Reject')::int AS both_settled,
+        COUNT(*) FILTER (WHERE status_a = 'Reject' OR status_b = 'Reject')::int AS has_reject,
+        COALESCE(SUM(money_a + money_b), 0)::float AS net_profit,
+        COALESCE(SUM(bet_a + bet_b), 0)::float AS total_bet
+      FROM pairs
+      GROUP BY provider_a, provider_b
+      ORDER BY pair_count DESC`,
+      [startMs, endMs],
+    );
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchArbPairAnalytics:", err.message);
+    return [];
+  }
+}

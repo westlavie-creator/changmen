@@ -33,6 +33,8 @@ export {
   fetchOrdersAdminAll,
   fetchOrdersForMonthAggregate,
   fetchOrdersForProfitAggregate,
+  fetchPlatformAnalytics,
+  fetchArbPairAnalytics,
 } from "./rds/orders_store.js";
 
 export {

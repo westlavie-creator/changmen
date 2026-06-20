@@ -23,6 +23,12 @@ const navItems = [
     to: { name: "admin-reports" as const },
   },
   {
+    name: "admin-analytics",
+    label: "数据分析",
+    icon: "am-icon-line-chart",
+    to: { name: "admin-analytics" as const },
+  },
+  {
     name: "admin-health",
     label: "系统健康",
     icon: "am-icon-heartbeat",
