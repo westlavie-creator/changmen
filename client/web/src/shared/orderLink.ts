@@ -7,13 +7,13 @@ export function linkIdGroupKey(link: number | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** [A8 可证实] `T.sort((S,P)=>S.Link>P.Link?-1:1)`（含相等时 comparator 行为） */
+/** [changmen 扩展] A8 原版按 Link 原值降序；changmen 取绝对值排序，使 9999 单边负 Link 按时间归位 */
 export function compareOrderLinkDesc(
   a: { Link?: number },
   b: { Link?: number },
 ): number {
-  const aLink = Number(a.Link);
-  const bLink = Number(b.Link);
+  const aLink = Math.abs(Number(a.Link));
+  const bLink = Math.abs(Number(b.Link));
   return aLink > bLink ? -1 : 1;
 }
 
