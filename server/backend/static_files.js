@@ -11,6 +11,11 @@ function contentType(filePath) {
   if (filePath.endsWith(".woff2")) return "font/woff2";
   if (filePath.endsWith(".woff")) return "font/woff";
   if (filePath.endsWith(".zip")) return "application/zip";
+  if (filePath.endsWith(".svg")) return "image/svg+xml";
+  if (filePath.endsWith(".png")) return "image/png";
+  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) return "image/jpeg";
+  if (filePath.endsWith(".webp")) return "image/webp";
+  if (filePath.endsWith(".gif")) return "image/gif";
   return "application/octet-stream";
 }
 
