@@ -197,5 +197,14 @@ else
   echo "WARN: pm2 not found, skip restart"
 fi
 
+if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
+  log "post-deploy check (orders upsert + admin telegram)"
+  if (cd server/backend && node scripts/post-deploy-check.mjs); then
+    log "post-deploy check passed"
+  else
+    echo "WARN: post-deploy-check failed — 见上方 FAIL 项；订单入库或 Telegram 可能异常"
+  fi
+fi
+
 log "deploy done"
 elapsed

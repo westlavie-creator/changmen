@@ -49,6 +49,7 @@
     "db:migrate-players": "node scripts/migrate-players-to-rds.mjs",
     "db:check-players": "node scripts/check-players-rds-migrate.mjs",
     "check:rds-schema": "node scripts/check-rds-schema.mjs",
+    "post-deploy:check": "node scripts/post-deploy-check.mjs",
     "db:prune": "node scripts/prune-stale.mjs",
     "check:collect": "node scripts/check-collect-platforms.js",
     "check:collect:probe": "node scripts/check-collect-platforms.js --probe",
