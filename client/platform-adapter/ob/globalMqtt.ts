@@ -9,6 +9,12 @@ import { PLATFORMS } from "@/shared/platform";
 import { useOddsStore } from "@/stores/oddsStore";
 import { parseObOddField } from "./parse";
 import {
+  bumpDirectRealtimeMessage,
+  patchDirectRealtimeStatus,
+  resetDirectRealtimeStatus,
+  upstreamRouteFromUrl,
+} from "@platform/shared/directRealtimeStatus";
+import {
   OB_MQTT_CONNECT_TIMEOUT_MS,
 } from "./mqttConfig";
 import {
@@ -95,18 +101,32 @@ async function connectGlobal(): Promise<void> {
   client.on("connect", () => {
     _connected = true;
     console.info("[OB Global MQTT] connected, subscribing global topics");
+    patchDirectRealtimeStatus(PLATFORM, {
+      upstreamConnected: true,
+      upstreamRoute: upstreamRouteFromUrl(config.url, config.source),
+      lastError: null,
+    });
     for (const t of GLOBAL_TOPICS) client?.subscribe(t);
   });
 
-  client.on("message", handleGlobalMessage);
+  client.on("message", (topic: string, buf: Buffer) => {
+    bumpDirectRealtimeMessage(PLATFORM);
+    handleGlobalMessage(topic, buf);
+  });
 
   client.on("error", (err: Error) => {
     _connected = false;
+    patchDirectRealtimeStatus(PLATFORM, {
+      upstreamConnected: false,
+      upstreamRoute: null,
+      lastError: err.message,
+    });
     console.warn("[OB Global MQTT] error:", err.message);
   });
 
   client.on("close", () => {
     _connected = false;
+    patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, upstreamRoute: null });
   });
 }
 
@@ -122,6 +142,7 @@ export function stopObGlobalMqtt(): void {
     client.end(true);
     client = null;
   }
+  resetDirectRealtimeStatus(PLATFORM);
 }
 
 export function isObGlobalMqttConnected(): boolean {
