@@ -11,6 +11,7 @@ import { tryRayHttpProxy } from "./proxy/ray_http_proxy.js";
 import { tryIaHttpProxy } from "./proxy/ia_http_proxy.js";
 import { getWsForwardStatus, isWsForwardHttpPath } from "@changmen/ws-forward";
 import { isFastStaticRequest } from "./static_files.js";
+import { getPgPool } from "@changmen/db";
 
 const { listPlatforms } = adapterRequire("registry", "feeds.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "node", "session.js");
@@ -125,6 +126,19 @@ export function createHttpHandler({ port, serveStatic }) {
           wsRelay: ws.wsForward,
           wsForward: ws.wsForward,
           platforms: ws.platforms,
+        });
+        return;
+      }
+      if (url === "/health") {
+        const pool = getPgPool();
+        let db = false;
+        if (pool) {
+          try { await pool.query("SELECT 1"); db = true; } catch { /* */ }
+        }
+        jsonResponse(res, db ? 200 : 503, {
+          status: db ? "ok" : "degraded",
+          db,
+          uptime: Math.floor(process.uptime()),
         });
         return;
       }
