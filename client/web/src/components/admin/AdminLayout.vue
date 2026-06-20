@@ -22,6 +22,12 @@ const navItems = [
     icon: "am-icon-bar-chart",
     to: { name: "admin-reports" as const },
   },
+  {
+    name: "admin-health",
+    label: "系统健康",
+    icon: "am-icon-heartbeat",
+    to: { name: "admin-health" as const },
+  },
 ];
 
 const activeTab = computed(() => String(route.name || ""));
