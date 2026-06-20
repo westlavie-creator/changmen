@@ -1,12 +1,10 @@
 import { computed, ref, toValue, type MaybeRefOrGetter } from "vue";
-import { storeToRefs } from "pinia";
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import { arbLegSide, pickArbLegs } from "@/domain/arbitrage";
 import { providerKeysFromBetItems } from "@/domain/betting/providerKeys";
 import { percent } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
-import { useOddsStore } from "@/stores/oddsStore";
 import { useOddsAnchorMap, useArbLineOverlay } from "@/extensions/arbBet/ui/useArbLineOverlay";
 import { useOddsFlashCell } from "@/extensions/arbBet/ui/useOddsFlash";
 
@@ -20,15 +18,11 @@ export function useBetRowArbUi(
 ) {
   const configStore = useConfigStore();
   const accountStore = useAccountStore();
-  const oddsStore = useOddsStore();
-  const { revision } = storeToRefs(oddsStore);
-
   const itemsContainerRef = ref<HTMLElement | null>(null);
   const anchorMap = useOddsAnchorMap();
   const flash = useOddsFlashCell();
 
   const legs = computed(() => {
-    void revision.value;
     const b = toValue(bet);
     const m = toValue(match);
     const providerKeys = providerKeysFromBetItems(b);
@@ -64,7 +58,7 @@ export function useBetRowArbUi(
         away: anchorMap.get(L.awayItem.type, "Away"),
       };
     },
-    [legs, revision],
+    [legs],
   );
 
   return {

@@ -21,7 +21,6 @@ const props = defineProps<{
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
 const bettingStore = useBettingStore();
-const { revision } = storeToRefs(oddsStore);
 const { tick: matchTick } = storeToRefs(matchStore);
 
 const loseOpen = ref(false);
@@ -42,14 +41,12 @@ const {
 } = arbUi;
 
 function itemOdds(item: ViewBet["items"][0], side: BetSide) {
-  void revision.value;
   void matchTick.value;
   return item.getOdds(side);
 }
 
 /** [A8 可证实] HomeView 内联 `c(bet)`：各行最高主/客赔 implied，无红线/可下单标签 */
 const arb = computed(() => {
-  void revision.value;
   void matchTick.value;
   let bestHome = 0;
   let bestAway = 0;

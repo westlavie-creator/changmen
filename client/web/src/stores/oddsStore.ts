@@ -80,10 +80,6 @@ export const useOddsStore = defineStore("odds", {
      */
     flash: new Map<string, { dir: OddsFlashDir; until: number; source: OddsSaveSource }>(),
 
-    /**
-     * 任意 fo 变更（save / 锁盘 / limit）时递增，供 Vue 依赖 fo 的组件强制刷新。
-     */
-    revision: 0,
   }),
 
   actions: {
@@ -113,7 +109,6 @@ export const useOddsStore = defineStore("odds", {
         });
       }
       bucket.set(id, { ...entry, id, source });
-      this.revision += 1;
 
       if (entry.betId) {
         const betId = String(entry.betId);
@@ -168,8 +163,7 @@ export const useOddsStore = defineStore("odds", {
       const row = this.data.get(platform)?.get(key);
       if (row) {
         row.isLock = locked;
-        this.revision += 1;
-      }
+        }
     },
 
     /** 更新整盘锁盘（对齐 A8 `updateBetLock`：betIndex 下所有 odd） */
@@ -273,13 +267,11 @@ export const useOddsStore = defineStore("odds", {
       const entry: LimitEntry = { value, expireTime };
       if (payout) entry.payout = payout;
       this.limits.get(platform)!.set(oddsId, entry);
-      this.revision += 1;
     },
 
     /** 删除单条限红 */
     deleteLimit(platform: PlatformId, oddsId: string) {
       this.limits.get(platform)?.delete(oddsId);
-      this.revision += 1;
     },
 
     /** 删除已过期的 limits 条目；可只清某平台 */

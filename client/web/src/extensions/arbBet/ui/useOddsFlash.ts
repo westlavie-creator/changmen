@@ -7,11 +7,9 @@ import { useOddsStore } from "@/stores/oddsStore";
 export function useOddsFlashCell() {
   const oddsStore = useOddsStore();
   const matchStore = useMatchStore();
-  const { revision } = storeToRefs(oddsStore);
   const { tick: matchTick } = storeToRefs(matchStore);
 
   function flashState(item: ViewBetItem, side: BetSide) {
-    void revision.value;
     void matchTick.value;
     const id = side === "Home" ? item.homeId : item.awayId;
     return oddsStore.getFlash(item.type, id);
