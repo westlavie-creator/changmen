@@ -183,7 +183,7 @@ async function buildHealthData() {
       accounts: countAccounts(),
       clientMatches: matches?.length ?? 0,
     },
-    wsForward: { enabled: ws.enabled, platforms: ws.platforms },
+    wsForward: { enabled: ws.enabled, platforms: ws.platforms, platformStats: ws.platformStats },
   };
 }
 
