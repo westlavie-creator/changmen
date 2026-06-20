@@ -7,6 +7,7 @@ import UserConfigDialog from "@/components/user/UserConfigDialog.vue";
 import UserDiagDialog from "@/components/user/UserDiagDialog.vue";
 import { useUserStore } from "@/stores/userStore";
 import { useAccountStore } from "@/stores/accountStore";
+import { useOrderStore } from "@/stores/orderStore";
 import { useConfigStore } from "@/stores/configStore";
 
 const emit = defineEmits<{ logout: []; viewOrders: [] }>();
@@ -23,14 +24,22 @@ const props = withDefaults(
 const router = useRouter();
 const user = useUserStore();
 const accountStore = useAccountStore();
+const orderStore = useOrderStore();
 const configStore = useConfigStore();
 const { displayName, apiDelay } = storeToRefs(user);
-const { totalBalance, totalToday, totalOrders } = storeToRefs(accountStore);
+const { totalBalance } = storeToRefs(accountStore);
 const { config } = storeToRefs(configStore);
+const { dayProfit } = storeToRefs(orderStore);
+
+const totalOrders = computed(() => {
+  let n = 0;
+  for (const rows of orderStore.orders.values()) n += rows.length;
+  return n;
+});
 
 /** 对齐 A8 UserInfoView `TT`：统计数字过渡 */
 const animBalance = useTransition(totalBalance, { duration: 1000 });
-const animToday = useTransition(totalToday, { duration: 1000 });
+const animToday = useTransition(dayProfit, { duration: 1000 });
 const animOrders = useTransition(totalOrders, { duration: 1000 });
 
 const configOpen = ref(false);
