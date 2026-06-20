@@ -250,27 +250,31 @@ function setWaitTime(platform: string, v: string | number) {
             </el-select>
           </el-form-item>
           <el-form-item>
-            <el-tooltip
-              effect="dark"
-              content="1、下单失败用当前可投注的最高赔率继续投注。2、被拒单马上用最高赔率进行补单"
-              placement="bottom"
-            >
-              <el-switch
-                v-model="form.anyOdds"
-                inline-prompt
-                active-text="任意赔率"
-                inactive-text="任意赔率"
-                size="large"
-                :disabled="fieldDisabled()"
-              />
-            </el-tooltip>
-          </el-form-item>
-          <el-form-item v-if="form.anyOdds" label="任意赔率利润:">
-            <el-input
-              v-model="form.anyOddsProfit"
-              autocomplete="off"
-              :disabled="fieldDisabled(!form.anyOdds)"
-            />
+            <div class="any-odds-row">
+              <el-tooltip
+                effect="dark"
+                content="1、下单失败用当前可投注的最高赔率继续投注。2、被拒单马上用最高赔率进行补单"
+                placement="bottom"
+              >
+                <el-switch
+                  v-model="form.anyOdds"
+                  inline-prompt
+                  active-text="任意赔率"
+                  inactive-text="任意赔率"
+                  size="large"
+                  :disabled="fieldDisabled()"
+                />
+              </el-tooltip>
+              <template v-if="form.anyOdds">
+                <span class="any-odds-label">利润:</span>
+                <el-input
+                  v-model="form.anyOddsProfit"
+                  autocomplete="off"
+                  style="width: 80px"
+                  :disabled="fieldDisabled(!form.anyOdds)"
+                />
+              </template>
+            </div>
           </el-form-item>
         </fieldset>
       </el-col>
@@ -370,6 +374,18 @@ function setWaitTime(platform: string, v: string | number) {
   display: flex;
   gap: 20px;
   margin-left: 40px;
+}
+
+.any-odds-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.any-odds-label {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  white-space: nowrap;
 }
 
 .user-config-panel :deep(.el-form-item) {
