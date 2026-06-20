@@ -12,6 +12,7 @@ import { tryIaHttpProxy } from "./proxy/ia_http_proxy.js";
 import { getWsForwardStatus, isWsForwardHttpPath } from "@changmen/ws-forward";
 import { isFastStaticRequest } from "./static_files.js";
 import { getPgPool } from "@changmen/db";
+import { listProfiles, countAccounts, getClientMatches } from "./core/db/store.js";
 
 const { listPlatforms } = adapterRequire("registry", "feeds.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "node", "session.js");
@@ -132,13 +133,35 @@ export function createHttpHandler({ port, serveStatic }) {
       if (url === "/health") {
         const pool = getPgPool();
         let db = false;
+        let dbLatencyMs = -1;
+        const poolStats = { total: 0, idle: 0, waiting: 0 };
         if (pool) {
-          try { await pool.query("SELECT 1"); db = true; } catch { /* */ }
+          const t0 = Date.now();
+          try { await pool.query("SELECT 1"); db = true; dbLatencyMs = Date.now() - t0; } catch { /* */ }
+          poolStats.total = pool.totalCount ?? 0;
+          poolStats.idle = pool.idleCount ?? 0;
+          poolStats.waiting = pool.waitingCount ?? 0;
         }
+        const mem = process.memoryUsage();
+        const profiles = listProfiles();
+        const matches = getClientMatches();
+        const ws = getWsForwardStatus();
         jsonResponse(res, db ? 200 : 503, {
           status: db ? "ok" : "degraded",
-          db,
           uptime: Math.floor(process.uptime()),
+          version: "1.0.2",
+          db: { connected: db, latencyMs: dbLatencyMs, pool: poolStats },
+          memory: {
+            rss: Math.round(mem.rss / 1048576),
+            heapUsed: Math.round(mem.heapUsed / 1048576),
+            heapTotal: Math.round(mem.heapTotal / 1048576),
+          },
+          data: {
+            users: profiles.length,
+            accounts: countAccounts(),
+            clientMatches: matches?.length ?? 0,
+          },
+          wsForward: { enabled: ws.enabled, platforms: ws.platforms },
         });
         return;
       }
