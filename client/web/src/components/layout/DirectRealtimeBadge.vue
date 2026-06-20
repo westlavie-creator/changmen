@@ -1,8 +1,25 @@
 <script setup lang="ts">
 import type { DirectRealtimeStatus } from "@platform/shared/directRealtimeStatus";
 import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
+import {
+  getObMqttMode,
+  isObGlobalConnected,
+  switchObMqttMode,
+} from "@platform/ob/mqttModeSwitch";
 
 const { statuses } = useDirectRealtimeStatus();
+const obMqttMode = getObMqttMode();
+
+function toggleObMode() {
+  void switchObMqttMode(obMqttMode.value === "a8" ? "official" : "a8");
+}
+
+function obModeTooltip(): string {
+  if (obMqttMode.value === "official") {
+    return `OB MQTT: 官网模式（全局 /market/odds/update）\n${isObGlobalConnected() ? "已连接" : "连接中..."}\n点击切换回 A8 模式`;
+  }
+  return "OB MQTT: A8 模式（按场订阅）\n点击切换到官网模式（全局推送）";
+}
 
 function dotClass(status: DirectRealtimeStatus): string {
   if (status.upstreamConnected) {
@@ -49,6 +66,13 @@ function tooltip(status: DirectRealtimeStatus): string {
     >
       <span class="direct-realtime-dot" :class="dotClass(status)" />
       {{ status.platform }}
+      <span
+        v-if="status.platform === 'OB'"
+        class="ob-mode-dot"
+        :class="obMqttMode === 'official' ? 'ob-mode-official' : 'ob-mode-a8'"
+        :title="obModeTooltip()"
+        @click.stop="toggleObMode"
+      />
     </span>
   </div>
 </template>
@@ -110,5 +134,29 @@ function tooltip(status: DirectRealtimeStatus): string {
 
 .direct-realtime-dot.idle {
   background-color: #ffffff66;
+}
+
+.ob-mode-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin-left: -4px;
+  transition: background-color 0.3s;
+}
+
+.ob-mode-dot:hover {
+  transform: scale(1.3);
+}
+
+.ob-mode-a8 {
+  background-color: #ffffff44;
+  border: 1px solid #ffffff66;
+}
+
+.ob-mode-official {
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px #f59e0bcc;
 }
 </style>
