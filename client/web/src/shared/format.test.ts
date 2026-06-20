@@ -33,7 +33,7 @@ describe("format shared helpers", () => {
   it("formats link id as numeric string", () => {
     expect(isSingleLegLink(-1710000000123)).toBe(true);
     expect(isSingleLegLink(1710000000123)).toBe(false);
-    expect(formatLinkId(-1710000000123)).toBe("-1710000000123");
+    expect(formatLinkId(-1710000000123)).toBe("🏆");
     expect(formatLinkId(42)).toBe("42");
     expect(formatLinkId(0)).toBe("—");
   });

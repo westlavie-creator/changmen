@@ -89,10 +89,11 @@ export function isSingleLegLink(link: number | null | undefined): boolean {
   return Number.isFinite(n) && n < 0;
 }
 
-/** 展示 LinkID：原样数字字符串（负数为单边） */
+/** 展示 LinkID：正数原样，负数（9999 单边）显示 🏆 */
 export function formatLinkId(link: number | null | undefined): string {
   const n = Number(link);
   if (!Number.isFinite(n) || n === 0) return "—";
+  if (n < 0) return "🏆";
   return String(n);
 }
 

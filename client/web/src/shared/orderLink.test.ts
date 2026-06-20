@@ -51,12 +51,12 @@ describe("orderLink A8 parity", () => {
     expect(text).toContain(" - ");
   });
 
-  it("9999 单边 link 在 legend 前缀展示负 LinkID", () => {
+  it("9999 单边 link 在 legend 前缀展示 🏆", () => {
     const link = -1_700_000_000_123;
     const text = orderLinkLegend([
       { Link: link, Status: "None", BetMoney: 100, Odds: 2.0, Money: 0 },
     ]);
-    expect(text.startsWith(String(link))).toBe(true);
+    expect(text.startsWith("🏆")).toBe(true);
   });
 
   it("isLinkedArbOrderGroup detects positive multi-leg link", () => {
