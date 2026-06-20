@@ -43,10 +43,52 @@ export interface ValuePlatformDistRow {
   avg_edge: string;
 }
 
+export interface EdgeEntry {
+  edge: number;
+  platform: string;
+  side: string;
+  softOdds: number;
+  fairOdds: number;
+  sharpHome: number;
+  sharpAway: number;
+  match: string;
+  game: string;
+  betName: string;
+  map: number;
+}
+
+export interface PlatformCoverage {
+  platform: string;
+  count: number;
+  pct: number;
+}
+
+export interface VbConfig {
+  sharpPlatform: string;
+  softPlatforms: string[];
+  minEdge: number;
+  kellyMultiplier: number;
+  minOdds: number;
+  maxOdds: number;
+}
+
+export interface VbDiagnostics {
+  matchCount: number;
+  totalBets: number;
+  betsWithSharp: number;
+  sharpPct: number;
+  platformCoverage: PlatformCoverage[];
+  edgeDist: Record<string, number>;
+  topEdges: EdgeEntry[];
+  config: VbConfig;
+}
+
 export interface ValueBetDashboard {
   available: boolean;
+  dbAvailable: boolean;
   signals: ValueSignalRow[];
   stats: ValueSignalStatRow[];
   platformDist: ValuePlatformDistRow[];
+  diagnostics: VbDiagnostics;
   queriedAt: number;
 }
