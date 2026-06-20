@@ -569,19 +569,22 @@ export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
 }
 
 export async function getPlatformAnalytics(body = {}) {
-  const { localDayBounds, localMonthBounds } = await import("@changmen/db/rds/time_bounds.js");
   let startMs, endMs;
   if (body.startMs && body.endMs) {
     startMs = Number(body.startMs);
     endMs = Number(body.endMs);
   } else if (body.month) {
-    const b = localMonthBounds(String(body.month));
-    startMs = b.monthStart;
-    endMs = b.monthEnd;
+    const parts = String(body.month).split("-").map(Number);
+    const y = parts[0] || new Date().getFullYear();
+    const m = parts[1] || new Date().getMonth() + 1;
+    startMs = new Date(y, m - 1, 1, 0, 0, 0, 0).getTime();
+    endMs = new Date(y, m, 1, 0, 0, 0, 0).getTime();
   } else {
-    const b = localDayBounds(body.date || toDateKey(Date.now()));
-    startMs = b.dayStart;
-    endMs = b.dayEnd;
+    const dk = body.date || toDateKey(Date.now());
+    const parts = String(dk).split("-").map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2] || 1, 0, 0, 0, 0);
+    startMs = d.getTime();
+    endMs = startMs + 86400000;
   }
   const [platforms, pairs] = await Promise.all([
     sb.fetchPlatformAnalytics(startMs, endMs),
