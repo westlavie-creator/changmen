@@ -83,11 +83,15 @@ ensurePlatformCredentials()
   });
 
 setTimeout(() => {
-  ensurePlatformCredentials().catch(() => {});
+  ensurePlatformCredentials().catch((err) => {
+    console.warn("[platform-sync] retry failed:", err.message);
+  });
 }, 20000);
 
 // 预填 _lastWrittenIds，使首次 rebuild 的差量删除能覆盖上次遗留的 client_matches 行
-initLastWrittenIds().catch(() => {});
+initLastWrittenIds().catch((err) => {
+  console.warn("[store] initLastWrittenIds failed:", err.message);
+});
 
 server.listen(PORT, onListen);
 
