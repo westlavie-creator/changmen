@@ -417,7 +417,11 @@ export async function updateOrderBind(orderId, userId, link, opts = {}) {
     }
     return res.rowCount > 0;
   } catch (err) {
-    console.warn("[rds] updateOrderBind:", err.message);
+    console.warn(
+      "[rds] updateOrderBind:", err.message,
+      `| orderId=${orderId} userId=${userId} link=${link} linkVal=${linkVal}`,
+      `| opts=${JSON.stringify(opts)}`,
+    );
     return false;
   }
 }
