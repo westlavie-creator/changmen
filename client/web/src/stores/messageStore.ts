@@ -97,6 +97,10 @@ export const useMessageStore = defineStore("message", {
 
     stop() {
       this.running = false;
+      this.telegramQueue.length = 0;
+      this.pushQueue.length = 0;
+      this.reportQueue.length = 0;
+      this.publishQueue.length = 0;
     },
 
     async runLoop() {

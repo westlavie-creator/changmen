@@ -37,6 +37,8 @@ export const useMatchStore = defineStore("match", {
     mainLoopRunning: false,
     mainLoopTimer: null as ReturnType<typeof setTimeout> | null,
     lastLoseOrderPruneAt: 0,
+    /** "platform:sourceMatchId" → matchs 数组下标；fetchMatches 后重建 */
+    _providerIndex: new Map<string, number>(),
   }),
 
   getters: {
@@ -170,7 +172,8 @@ export const useMatchStore = defineStore("match", {
       for (const row of rows) {
         const sourceId = row.SourceID != null ? String(row.SourceID) : "";
         if (!sourceId) continue;
-        const match = this.matchs.find((m) => String(m.providers[platform] ?? "") === sourceId);
+        const idx = this._providerIndex.get(`${platform}:${sourceId}`);
+        const match = idx != null ? this.matchs[idx] : undefined;
         if (!match) continue;
         const reversed = match.reverse.includes(platform);
         const board = new Map<number, ScoreRound>();
@@ -220,6 +223,7 @@ export const useMatchStore = defineStore("match", {
       try {
         const list = await getMatchs(user.userName);
         this.matchs = toViewMatches(list);
+        this._rebuildProviderIndex();
         this.lastFetchAt = Date.now();
         this.refreshOddsOnBets();
         if (Date.now() - this.defaultOddsFetchedAt > DEFAULT_ODDS_MS) {
@@ -273,6 +277,16 @@ export const useMatchStore = defineStore("match", {
         await runMainBetLoopFinally();
         this.scheduleMainLoop(0);
       }
+    },
+
+    _rebuildProviderIndex() {
+      const idx = new Map<string, number>();
+      for (let i = 0; i < this.matchs.length; i++) {
+        for (const [platform, sourceId] of Object.entries(this.matchs[i].providers)) {
+          idx.set(`${platform}:${sourceId}`, i);
+        }
+      }
+      this._providerIndex = idx;
     },
   },
 });

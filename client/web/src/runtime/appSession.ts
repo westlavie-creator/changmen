@@ -7,6 +7,8 @@ import { bootSessionRuntime, stopSessionRuntime } from "@/runtime/sessionBoot";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useMessageStore } from "@/stores/messageStore";
+import { useOddsStore } from "@/stores/oddsStore";
+import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 
 /** HomeView 挂载时：主循环、消息队列、扩展旁路 sync（调用顺序与原先 HomeView 一致） */
@@ -34,4 +36,19 @@ export function stopAppSession(): void {
   useMessageStore().stop();
   useMatchStore().stopMainLoop();
   useAccountStore().stopBalanceRefreshLoop();
+  clearSessionCaches();
+}
+
+/** 清除运行时缓存，避免 SPA 切换用户后残留上一 session 的数据 */
+function clearSessionCaches(): void {
+  const matchStore = useMatchStore();
+  matchStore.matchs = [];
+  matchStore.score.clear();
+  matchStore.defaultOdds.clear();
+  matchStore.defaultOddsFetchedAt = 0;
+  matchStore.lastFetchAt = 0;
+  matchStore.lastLoseOrderPruneAt = 0;
+
+  useOddsStore().$reset();
+  useOrderStore().$reset();
 }
