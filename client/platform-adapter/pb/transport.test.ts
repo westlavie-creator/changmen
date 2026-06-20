@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { pbOddsPath, pbOddsUrl } from "./parse";
-import { pbGatewayUrl, pbGet } from "./transport";
+import { pbCollectEuroOdds, pbGatewayUrl, pbGet } from "./transport";
 
 const a8PluginGet = vi.fn();
 vi.mock("@/chrome-plugin/bridge", () => ({
@@ -26,13 +25,18 @@ describe("pbGatewayUrl (A8 Ly)", () => {
     );
   });
 
-  test("euro/odds：path 不含 gateway，避免 pbGet 二次拼接", () => {
-    const path = pbOddsPath(true, 1_781_939_873_254);
-    expect(path.startsWith("/sports-service/sv/euro/odds?")).toBe(true);
-    expect(path).not.toMatch(/^https?:\/\//);
-    expect(pbGatewayUrl({ gateway: "https://rsokff9.auremi88.com" }, path)).toBe(
-      pbOddsUrl("https://rsokff9.auremi88.com", true, 1_781_939_873_254),
-    );
+});
+
+describe("pbCollectEuroOdds (A8 gHe)", () => {
+  test("Zn.get 完整 URL，不经 pbGatewayUrl", async () => {
+    a8PluginGet.mockResolvedValue({ data: { leagues: [] } });
+    const data = await pbCollectEuroOdds(account, true);
+    expect(a8PluginGet).toHaveBeenCalledTimes(1);
+    const [url, opts] = a8PluginGet.mock.calls[0] as [string, { headers: Record<string, string> }];
+    expect(url).toMatch(/^https:\/\/pb\.example\/sports-service\/sv\/euro\/odds\?/);
+    expect(url).not.toContain("pb.examplehttps");
+    expect(opts.headers["x-custid-515"]).toBe("1");
+    expect(data).toEqual({ leagues: [] });
   });
 });
 

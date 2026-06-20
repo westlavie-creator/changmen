@@ -1,9 +1,9 @@
 import { hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { getCollectPlatform, getGames } from "@/api/esport";
-import { PB_PLUGIN_REQUIRED_MSG, pbGet, resolvePbAccount } from "./transport";
+import { PB_PLUGIN_REQUIRED_MSG, pbCollectEuroOdds, resolvePbAccount } from "./transport";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/shared/platform";
-import { parseEuroOddsPayload, pbOddsPath, slugify } from "./parse";
+import { parseEuroOddsPayload, slugify } from "./parse";
 import { ingestAndReportPbParsedMatch } from "./markets";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
@@ -56,7 +56,7 @@ export function startPbCollector(): () => void {
 
         const games = await getGames(PLATFORM);
         const allowedSlugs = games.map(slugify);
-        const data = await pbGet<Record<string, unknown>>(account, pbOddsPath(true));
+        const data = await pbCollectEuroOdds(account, true);
         if (!data) {
           await wait(POLL_MS);
           continue;

@@ -168,7 +168,7 @@ export const PB_EURO_ODDS_QUERY_BASE =
 /** @deprecated 仅滚球；采集应同时拉 live + prematch */
 export const PB_DEFAULT_ODDS_QUERY = `${PB_EURO_ODDS_QUERY_BASE}&isLive=true`;
 
-/** [A8 可证实] `gHe` 传给 `Zn.get` 的 path 段（`Ly`/`pbGatewayUrl` 再拼 gateway） */
+/** `gHe` URL 的 path+query 段；由 `pbOddsUrl` 与 gateway 拼成完整 URL（不经 `Am`/`pbGet`） */
 export function pbOddsPath(isLive = true, now = Date.now()): string {
   return `/sports-service/sv/euro/odds?${PB_EURO_ODDS_QUERY_BASE}&isLive=${isLive}&timeStamp=${now}&_=${now}&withCredentials=true`;
 }

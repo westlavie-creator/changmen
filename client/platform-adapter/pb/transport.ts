@@ -2,6 +2,7 @@
 
 import { a8PluginGet, a8PluginPost } from "@/chrome-plugin/bridge";
 import { buildPbAuthHeaders } from "./auth";
+import { pbOddsUrl } from "./parse";
 import { useAccountStore } from "@/stores/accountStore";
 import { PLATFORMS } from "@/shared/platform";
 import type { PlatformAccount } from "@/models/platformAccount";
@@ -22,7 +23,22 @@ function unwrap<T>(response: unknown): T {
   return response as T;
 }
 
-/** [A8 可证实] `Zn.get(e,{headers:k0(...)})` → `r.data` */
+/**
+ * [A8 可证实] `gHe`：inline `${ny.gateway}/sports-service/sv/euro/odds?...` + `$n.get(e,{headers:Ah})`。
+ * 不经 `Am`/`Ly`；与下注 `PZe` 的 `Am(account, path)` 路径分离。
+ */
+export async function pbCollectEuroOdds(
+  account: PlatformAccount,
+  isLive = true,
+): Promise<Record<string, unknown> | undefined> {
+  const url = pbOddsUrl(account.gateway!, isLive);
+  const headers = buildPbAuthHeaders(account);
+  const raw = await a8PluginGet(url, headers ? { headers } : undefined);
+  if (raw == null) return undefined;
+  return unwrap<Record<string, unknown>>(raw);
+}
+
+/** [A8 可证实] `PZe`/`Am` + `Zn.get(e,{headers:k0(...)})` → `r.data` */
 export async function pbGet<T>(
   account: PlatformAccount,
   path: string,
