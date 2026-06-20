@@ -9,6 +9,9 @@ import { liveRound } from "./match_merge.js";
 /** 无 is_live 且无地图锁盘信号时的兜底等待（避免误判） */
 const PAST_START_FALLBACK_MS = 30 * 60 * 1000;
 
+/** 所有平台停止 saveMatch 后视为结束的等待时间（最长采集间隔 60s × 3） */
+const ALL_SOURCES_GONE_MS = 3 * 60 * 1000;
+
 function findPlatformMatch(matches, provider, sourceMatchId) {
   const sid = String(sourceMatchId);
   const byId = matches?.[provider];
@@ -68,6 +71,16 @@ function matchHasObLink(matchs) {
   return obId != null && obId !== "";
 }
 
+/** 所有平台来源都已从 platform_matches 消失（saveMatch 不再上报） */
+function allPlatformSourcesGone(matchs, platformMatches) {
+  const providers = Object.entries(matchs || {});
+  if (!providers.length) return true;
+  for (const [provider, sourceId] of providers) {
+    if (findPlatformMatch(platformMatches, provider, sourceId)) return false;
+  }
+  return true;
+}
+
 /**
  * 是否应隐藏（list_status=-1）。未开赛、进行中返回 false。
  * @param {object} row client match 行（含 Round/StartTime/Matchs/Bets）
@@ -76,14 +89,22 @@ function matchHasObLink(matchs) {
  * @param {number} [now]
  */
 function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.now()) {
+  const startMs = normalizeEpochMs(row?.StartTime);
+
+  // 所有平台都已停止 saveMatch 上报：即使 live_timers 残留（OB getTimer 不清已结束
+  // 比赛），也判定为结束。saveMatch 是整批快照替换，不在最新批次里 = 该平台认为比赛
+  // 已结束。等待 3 分钟（最长采集间隔 60s × 3）确保不是采集临时中断。
+  if (startMs > 0 && startMs <= now - ALL_SOURCES_GONE_MS
+      && allPlatformSourcesGone(row?.Matchs, platformMatches)) {
+    return true;
+  }
+
   if (Number(row?.Round) > 0) return false;
   if (isInLiveTimer(row?.Matchs, timersByProvider)) return false;
 
-  const startMs = normalizeEpochMs(row?.StartTime);
   if (startMs > now) return false;
 
   const hasOb = matchHasObLink(row?.Matchs);
-  // is_live 仅 OB saveMatch 上报；无 OB 关联时不参与判定（避免 RAY/IA 场误触 30min 兜底）
   const isLive = hasOb ? pickCanonicalIsLive(row?.Matchs, platformMatches) : null;
   const closed = allMapBetsClosed(row?.Bets);
 
@@ -100,5 +121,7 @@ export {
   isClientMatchEnded,
   pickCanonicalIsLive,
   allMapBetsClosed,
+  allPlatformSourcesGone,
   isInLiveTimer,
+  ALL_SOURCES_GONE_MS,
 };
