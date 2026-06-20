@@ -56,7 +56,8 @@ export function orderLinkLegend(rows: OrderRow[]): string {
     });
   if (unsettled.length) return prefix + unsettled.join(" - ");
   const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
-  return prefix + toFixed(total, 0);
+  const sign = total > 0 ? "+" : "";
+  return prefix + sign + toFixed(total, 0);
 }
 
 /** [changmen 扩展] A8 fieldset 仅 `orderlink`，无 `--paired` */
