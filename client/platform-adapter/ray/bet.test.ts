@@ -136,6 +136,25 @@ describe("rayProvider.getOrders", () => {
     expect(orders[0]!.orderId).toBe("R-1");
   });
 
+  it("status=1 win=0 maps to lose", async () => {
+    accountGet.mockResolvedValue({
+      code: 200,
+      result: [
+        {
+          order_number: "R-lose",
+          status: 1,
+          win: 0,
+          total_bonus: 0,
+          create_time: "2024-01-01 12:00:00",
+          detail: [{ title: "独赢\n主队", odds: 1.85, stake: 50, match_name: "A vs B", match_stage: "全场" }],
+        },
+      ],
+    });
+    const orders = await rayProvider.getOrders!(account);
+    expect(orders[0]!.status).toBe("lose");
+    expect(orders[0]!.money).toBe(-50);
+  });
+
   it("按 createAt 降序，拒单检测取首条（对齐 A8 isVenueReject）", async () => {
     accountGet.mockResolvedValue({
       code: 200,

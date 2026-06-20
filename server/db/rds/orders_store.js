@@ -12,7 +12,7 @@ async function _rdsUpsertOrders(pool, rows) {
     INSERT INTO orders (
       user_id, player_id, order_id, link, provider, match, bet, item,
       odds, bet_money, money, status, create_at, raw
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
     ON CONFLICT (user_id, order_id, player_id) DO UPDATE SET
       link = EXCLUDED.link,
       provider = EXCLUDED.provider,

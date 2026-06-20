@@ -1,9 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const queryMock = vi.fn();
+const clientQueryMock = vi.fn();
+const connectMock = vi.fn(async () => ({
+  query: clientQueryMock,
+  release: vi.fn(),
+}));
 
 vi.mock("./common.js", () => ({
-  getPgPool: () => ({ query: queryMock }),
+  getPgPool: () => ({ query: queryMock, connect: connectMock }),
   _jsonb: (val, fallback) => JSON.stringify(val ?? fallback ?? null),
 }));
 
@@ -13,6 +18,7 @@ import {
   fetchOrdersByPlayerAll,
   setOrdersBoundHook,
   updateOrderBind,
+  upsertOrders,
 } from "./orders_store.js";
 
 describe("orders_store read SQL", () => {
@@ -58,6 +64,45 @@ describe("orders_store read SQL", () => {
     const [sql] = queryMock.mock.calls[0];
     expect(sql).not.toMatch(/link\s*<\s*create_at/i);
     expect(sql).not.toMatch(/changmen_bet/i);
+  });
+});
+
+describe("upsertOrders SQL", () => {
+  beforeEach(() => {
+    clientQueryMock.mockReset();
+    connectMock.mockClear();
+    clientQueryMock.mockResolvedValue({ rows: [{ was_inserted: false }] });
+  });
+
+  it("INSERT binds 14 columns including create_at and raw", async () => {
+    const ok = await upsertOrders([
+      {
+        user_id: "u1",
+        player_id: 12,
+        order_id: "o1",
+        link: 1_781_890_412_000,
+        provider: "OB",
+        match: "A vs B",
+        bet: "[地图1]获胜",
+        item: "A",
+        odds: 1.62,
+        bet_money: 100,
+        money: -100,
+        status: "Lose",
+        create_at: 1_781_890_412_099,
+        raw: { status: "lose" },
+      },
+    ]);
+    expect(ok).toBe(true);
+    expect(connectMock).toHaveBeenCalledOnce();
+    const insertCall = clientQueryMock.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO orders"));
+    expect(insertCall).toBeDefined();
+    const [sql, params] = insertCall;
+    expect(sql).toMatch(/\$13,\$14::jsonb/);
+    expect(params).toHaveLength(14);
+    expect(params[11]).toBe("Lose");
+    expect(params[12]).toBe(1_781_890_412_099);
+    expect(params[13]).toContain("lose");
   });
 });
 
