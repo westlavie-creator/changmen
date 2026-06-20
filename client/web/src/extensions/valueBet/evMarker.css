@@ -1,0 +1,23 @@
+/* [changmen 扩展] value-bet EV 标记 — 金色系，不与套利红色冲突 */
+
+.item-odds.ev-positive {
+  border-color: #d4a24a !important;
+  box-shadow: 0 0 5px rgba(212, 162, 74, 0.5) inset;
+}
+
+.item-odds.ev-near {
+  border-color: rgba(212, 162, 74, 0.4) !important;
+  border-style: dashed !important;
+}
+
+.ev-badge {
+  font-size: 9px;
+  color: #d4a24a;
+  font-weight: 700;
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.item-odds.ev-positive .ev-badge {
+  color: #e8b84a;
+}

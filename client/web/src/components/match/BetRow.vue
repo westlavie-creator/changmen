@@ -8,6 +8,7 @@ import { useOddsStore } from "@/stores/oddsStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useBettingStore } from "@/stores/bettingStore";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
+import { useEvMarker } from "@/extensions/valueBet";
 import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
 import type { PlatformId } from "@/types/esport";
 
@@ -39,6 +40,8 @@ const {
   oddsCellClasses,
   sourceLabel,
 } = arbUi;
+
+const evMarker = useEvMarker(() => props.bet);
 
 function itemOdds(item: ViewBet["items"][0], side: BetSide) {
   void matchTick.value;
@@ -172,12 +175,16 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
             target: matchStore.getBetTarget(item.type, bet.id) === 'Home',
             'arb-leg': isArbLeg(item, 'Home'),
             ...oddsCellClasses(item, 'Home'),
+            'ev-positive': evMarker.isPositiveEv(item, 'Home'),
+            'ev-near': evMarker.isNearEv(item, 'Home'),
           }"
           @click="onTarget(item.type, 'Home')"
           @dblclick.stop="onOddsDblClick(item, 'Home')"
         >
           {{ itemOdds(item, "Home") || ""
-          }}<span v-if="sourceLabel(item, 'Home')" class="odds-src">{{
+          }}<span v-if="evMarker.evLabel(item, 'Home')" class="ev-badge">{{
+            evMarker.evLabel(item, "Home")
+          }}</span><span v-if="sourceLabel(item, 'Home')" class="odds-src">{{
             sourceLabel(item, "Home")
           }}</span>
         </div>
@@ -189,12 +196,16 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
             target: matchStore.getBetTarget(item.type, bet.id) === 'Away',
             'arb-leg': isArbLeg(item, 'Away'),
             ...oddsCellClasses(item, 'Away'),
+            'ev-positive': evMarker.isPositiveEv(item, 'Away'),
+            'ev-near': evMarker.isNearEv(item, 'Away'),
           }"
           @click="onTarget(item.type, 'Away')"
           @dblclick.stop="onOddsDblClick(item, 'Away')"
         >
           {{ itemOdds(item, "Away") || ""
-          }}<span v-if="sourceLabel(item, 'Away')" class="odds-src">{{
+          }}<span v-if="evMarker.evLabel(item, 'Away')" class="ev-badge">{{
+            evMarker.evLabel(item, "Away")
+          }}</span><span v-if="sourceLabel(item, 'Away')" class="odds-src">{{
             sourceLabel(item, "Away")
           }}</span>
         </div>
