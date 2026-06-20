@@ -504,9 +504,9 @@ function sideAlignmentByCanonicalId(platform, pm, refCanonIds) {
   return "ambiguous";
 }
 
-/** 从已 aligned 的平台中取 canonical home/away ID 作为参考 */
-function resolveRefCanonIds(alignedPlatforms, matches) {
-  for (const { platform, sourceMatchId } of alignedPlatforms) {
+/** 从队名已确定的平台中取 canonical home/away ID 作为参考（支持 aligned 和 reversed） */
+function resolveRefCanonIds(resolvedPlatforms, matches) {
+  for (const { platform, sourceMatchId, reversed } of resolvedPlatforms) {
     const pm = findPlatformMatch(matches, platform, sourceMatchId);
     if (!pm) continue;
     const sourceGameId = pm.SourceGameID ?? pm.GameID;
@@ -519,7 +519,8 @@ function resolveRefCanonIds(alignedPlatforms, matches) {
     );
     const hcid = lookupGbTeamIdByPlatform(platform, homeId);
     const acid = lookupGbTeamIdByPlatform(platform, awayId);
-    if (hcid && acid) return { home: hcid, away: acid };
+    if (!hcid || !acid) continue;
+    return reversed ? { home: acid, away: hcid } : { home: hcid, away: acid };
   }
   return null;
 }
@@ -527,59 +528,54 @@ function resolveRefCanonIds(alignedPlatforms, matches) {
 /**
  * 按 Title canonical 主客重算 Reverse[]，并从平台原始盘口重建 Sources（含 swap）。
  * 自动合并与人工关联共用，幂等。
- * 队名 ambiguous 时回退 canonical ID 对比（需 team_platform_maps 映射）。
+ * 优先用 canonical ID 判断（准确），ID 不可用时降级队名比较。
  */
 function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet) {
   for (const row of rows || []) {
     const teams = parseTitleTeams(row.Title);
     if (!teams) continue;
 
-    const reverse = [];
-    const aligned = [];
-    const ambiguousEntries = [];
+    // 第一遍：按队名分类，收集可信平台用于构建 refCanonIds
+    const nameResults = {};
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
       if (!pm) continue;
       const mode = sideAlignmentMode(
-        pm.Home ?? pm.home,
-        pm.Away ?? pm.away,
-        teams.home,
-        teams.away,
+        pm.Home ?? pm.home, pm.Away ?? pm.away, teams.home, teams.away,
       );
-      if (mode === "reversed") {
+      nameResults[platform] = { mode, sourceMatchId, pm };
+    }
+
+    // 从队名已确定的平台（aligned 或 reversed）中取 canonical ID 参考
+    const nameResolved = Object.entries(nameResults)
+      .filter(([, v]) => v.mode === "aligned" || v.mode === "reversed")
+      .map(([platform, v]) => ({ platform, sourceMatchId: v.sourceMatchId, reversed: v.mode === "reversed" }));
+    const refIds = resolveRefCanonIds(nameResolved, matches);
+
+    // 第二遍：每个平台先尝试 ID，ID 不可用时用队名结果
+    const reverse = [];
+    const ambiguousPlatforms = [];
+    for (const [platform, { mode: nameMode, pm }] of Object.entries(nameResults)) {
+      const idMode = refIds ? sideAlignmentByCanonicalId(platform, pm, refIds) : "ambiguous";
+      const finalMode = idMode !== "ambiguous" ? idMode : nameMode;
+      if (finalMode === "reversed") {
         reverse.push(platform);
-      } else if (mode === "aligned") {
-        aligned.push({ platform, sourceMatchId });
-      } else {
-        ambiguousEntries.push({ platform, sourceMatchId, pm });
+      } else if (finalMode === "ambiguous") {
+        ambiguousPlatforms.push(platform);
+        console.warn(
+          `[match_merge] 主客 ambiguous · client #${row.ID ?? "?"} · ${platform}`
+            + ` · Title「${teams.home} vs ${teams.away}」`
+            + ` · 平台「${pm.Home ?? pm.home} vs ${pm.Away ?? pm.away}」`,
+        );
       }
     }
 
-    if (ambiguousEntries.length) {
-      const refIds = resolveRefCanonIds(aligned, matches);
-      const stillAmbiguous = [];
-      for (const { platform, pm } of ambiguousEntries) {
-        const idMode = sideAlignmentByCanonicalId(platform, pm, refIds);
-        if (idMode === "reversed") {
-          reverse.push(platform);
-        } else if (idMode === "ambiguous") {
-          stillAmbiguous.push(platform);
-          console.warn(
-            `[match_merge] 主客 ambiguous · client #${row.ID ?? "?"} · ${platform}`
-              + ` · Title「${teams.home} vs ${teams.away}」`
-              + ` · 平台「${pm.Home ?? pm.home} vs ${pm.Away ?? pm.away}」`,
-          );
-        }
-      }
-      if (stillAmbiguous.length) {
-        row.SideAlignAmbiguous = [...new Set(stillAmbiguous)];
-      } else {
-        delete row.SideAlignAmbiguous;
-      }
+    row.Reverse = [...new Set(reverse)];
+    if (ambiguousPlatforms.length) {
+      row.SideAlignAmbiguous = [...new Set(ambiguousPlatforms)];
     } else {
       delete row.SideAlignAmbiguous;
     }
-    row.Reverse = [...new Set(reverse)];
 
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
