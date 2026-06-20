@@ -69,13 +69,11 @@ function setWaitTime(platform: string, v: string | number) {
 <template>
   <el-form :model="form" class="user-config-panel" :class="{ 'user-config-panel--readonly': readonly }">
     <el-form-item>
-      <el-row>
-        <el-col :span="8">
-          <el-form-item label="投注金额:" :label-width="LABEL_W">
-            <el-input v-model="form.betMoney" autocomplete="off" :disabled="fieldDisabled()" style="width: 120px" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="4" :offset="1">
+      <div class="bet-money-row">
+        <el-form-item label="投注金额:" :label-width="LABEL_W" class="bet-money-row__input">
+          <el-input v-model="form.betMoney" autocomplete="off" :disabled="fieldDisabled()" style="width: 120px" />
+        </el-form-item>
+        <div class="bet-money-row__switches">
           <el-switch
             v-model="form.tenNumber"
             inline-prompt
@@ -84,8 +82,6 @@ function setWaitTime(platform: string, v: string | number) {
             size="large"
             :disabled="fieldDisabled()"
           />
-        </el-col>
-        <el-col :span="4" :offset="1">
           <el-switch
             v-model="form.betting"
             inline-prompt
@@ -94,9 +90,8 @@ function setWaitTime(platform: string, v: string | number) {
             size="large"
             :disabled="fieldDisabled()"
           />
-        </el-col>
-        <el-col v-if="!form.betting" :span="4" :offset="1">
           <el-switch
+            v-if="!form.betting"
             v-model="form.bettingAutoOpen"
             inline-prompt
             active-text="定时打开"
@@ -104,8 +99,8 @@ function setWaitTime(platform: string, v: string | number) {
             size="large"
             :disabled="fieldDisabled()"
           />
-        </el-col>
-      </el-row>
+        </div>
+      </div>
     </el-form-item>
 
     <el-form-item v-if="!form.betting && form.bettingAutoOpen">
@@ -360,6 +355,23 @@ function setWaitTime(platform: string, v: string | number) {
 </template>
 
 <style scoped>
+.bet-money-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.bet-money-row__input {
+  flex-shrink: 0;
+  margin-bottom: 0 !important;
+}
+
+.bet-money-row__switches {
+  display: flex;
+  gap: 20px;
+  margin-left: 40px;
+}
+
 .user-config-panel :deep(.el-form-item) {
   margin-bottom: 14px;
 }
