@@ -1,5 +1,6 @@
 import { attachForwardEngine, closeForwardEngine } from "./core/forward_engine.js";
 import { registerPlatformForward, listPlatformForwards } from "./platforms/registry.js";
+import { getForwardStats } from "./core/forward_stats.js";
 import { iaForwardDefinition } from "./platforms/ia.js";
 import { obForwardDefinition } from "./platforms/ob.js";
 import { rayForwardDefinition } from "./platforms/ray.js";
@@ -36,10 +37,12 @@ export function attachWsForward(httpServer, opts = {}) {
 }
 
 export function getWsForwardStatus() {
+  const stats = getForwardStats();
   return {
     enabled,
     wsForward: enabled,
     platforms: listPlatformForwards().map((p) => p.id),
+    platformStats: stats,
   };
 }
 

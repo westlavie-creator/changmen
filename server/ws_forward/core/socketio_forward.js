@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import { io as ioClient } from "socket.io-client";
 import { IA_DEFAULT_GATEWAY } from "../platforms/ia.js";
+import { recordConnect, recordDisconnect, recordError } from "./forward_stats.js";
 
 /** @type {import("socket.io").Server[]} */
 const servers = [];
@@ -51,21 +52,27 @@ export function attachSocketIoForwards(httpServer, definitions) {
       });
 
       upstream.on("connect", () => {
+        recordConnect(definition.id);
         console.info(`[ws_forward/${definition.id}] upstream connected`, url);
       });
 
       upstream.on("connect_error", (err) => {
+        recordError(definition.id, err.message);
         console.warn(`[ws_forward/${definition.id}] upstream connect_error:`, err.message);
         browserSocket.disconnect(true);
         cleanup();
       });
 
       upstream.on("disconnect", () => {
+        recordDisconnect(definition.id);
         if (!closed) browserSocket.disconnect(true);
         cleanup();
       });
 
-      browserSocket.on("disconnect", cleanup);
+      browserSocket.on("disconnect", () => {
+        recordDisconnect(definition.id);
+        cleanup();
+      });
     });
 
     servers.push(io);

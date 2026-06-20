@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
+import { recordConnect, recordDisconnect, recordError } from "./forward_stats.js";
 
 /** @type {import("ws").WebSocketServer | null} */
 let wss = null;
@@ -80,13 +81,17 @@ export function attachRawWsForwards(httpServer, defs) {
       }
 
       upstreamWs.on("open", () => {
+        recordConnect(definition.id);
         console.info(`[ws_forward/${definition.id}] upstream connected`, upstreamSpec.url);
         pipeSockets(clientWs, upstreamWs, definition.id);
       });
       upstreamWs.on("error", (err) => {
+        recordError(definition.id, err.message);
         console.warn(`[ws_forward/${definition.id}] upstream error:`, err.message);
         clientWs.close();
       });
+      clientWs.on("close", () => recordDisconnect(definition.id));
+      upstreamWs.on("close", () => recordDisconnect(definition.id));
     });
   });
 

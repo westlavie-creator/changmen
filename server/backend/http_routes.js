@@ -258,8 +258,22 @@ body{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#e2
   </div>
   <div class="card">
     <div class="card-title">WebSocket Forward</div>
-    <div class="row"><span class="label">Status</span><span class="badge" style="background:${d.wsForward.enabled ? "#22c55e20" : "#ef444420"};color:${d.wsForward.enabled ? "#22c55e" : "#ef4444"}">${d.wsForward.enabled ? "Enabled" : "Disabled"}</span></div>
-    <div class="row"><span class="label">Platforms</span><div class="platforms">${(d.wsForward.platforms || []).map((p) => `<span class="platform-tag">${esc(p)}</span>`).join("")}</div></div>
+    <div class="row"><span class="label">Relay</span><span class="badge" style="background:${d.wsForward.enabled ? "#22c55e20" : "#ef444420"};color:${d.wsForward.enabled ? "#22c55e" : "#ef4444"}">${d.wsForward.enabled ? "Enabled" : "Disabled"}</span></div>
+${(d.wsForward.platforms || []).map((pid) => {
+  const ps = d.wsForward.platformStats?.[pid];
+  if (!ps) return `    <div class="row"><span class="label">${esc(pid)}</span><span class="value" style="color:#475569">idle</span></div>`;
+  const hasError = ps.lastError && ps.lastErrorAt && (Date.now() - ps.lastErrorAt < 600_000);
+  const color = ps.active > 0 ? "#22c55e" : hasError ? "#ef4444" : "#94a3b8";
+  const ago = ps.lastConnectedAt ? Math.floor((Date.now() - ps.lastConnectedAt) / 1000) : 0;
+  const agoStr = ago > 3600 ? `${Math.floor(ago / 3600)}h ago` : ago > 60 ? `${Math.floor(ago / 60)}m ago` : ago > 0 ? `${ago}s ago` : "";
+  let detail = `${ps.active} conn`;
+  if (ps.totalConnections) detail += ` (total ${ps.totalConnections})`;
+  return [
+    `    <div class="row"><span class="label">${esc(pid)}</span><span class="value"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px"></span>${detail}</span></div>`,
+    agoStr ? `    <div class="row"><span class="label"></span><span class="value" style="color:#475569;font-size:12px">last: ${esc(agoStr)}</span></div>` : "",
+    hasError ? `    <div class="row"><span class="label"></span><span class="value" style="color:#ef4444;font-size:12px">${esc(ps.lastError)}</span></div>` : "",
+  ].filter(Boolean).join("\n");
+}).join("\n")}
   </div>
 </div>
 <div class="refresh-note">Auto-refresh 5s</div>
