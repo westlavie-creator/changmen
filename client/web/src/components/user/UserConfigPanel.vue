@@ -360,6 +360,14 @@ function setWaitTime(platform: string, v: string | number) {
 </template>
 
 <style scoped>
+.user-config-panel :deep(.el-form-item) {
+  margin-bottom: 14px;
+}
+
+.user-config-panel :deep(.el-form-item__label) {
+  font-size: 13px;
+}
+
 .config-sections-row {
   align-items: stretch;
 }
@@ -373,13 +381,17 @@ function setWaitTime(platform: string, v: string | number) {
 }
 
 .config-section legend {
-  padding: 0 6px;
+  padding: 2px 10px;
   font-size: 13px;
   font-weight: 600;
 }
 
 .config-section :deep(.el-form-item) {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+}
+
+.config-section :deep(.el-form-item__label) {
+  font-size: 12px;
 }
 
 .bet-sorting-group {

@@ -123,14 +123,14 @@ async function save() {
   >
     <UserConfigPanel v-model:auto-open-date="autoOpenDate" :form="form" :readonly="readonly">
       <template v-if="!readonly" #footer>
-        <div class="flex flex-center">
+        <div class="flex flex-center" style="padding-top: 8px">
           <el-button
-            size="large"
+            size="default"
             type="primary"
             class="am-icon-save"
             :loading="saving"
             round
-            style="width: 100%"
+            style="width: 240px"
             @click="save"
           >
             &nbsp;保存配置
