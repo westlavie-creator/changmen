@@ -55,8 +55,18 @@ export async function authSignIn(userName, password) {
   }
 }
 
-/** 登出（JWT 无服务端 session，no-op） */
-export async function authSignOut(_token) {}
+/** 登出：清除 active_session_id 使当前 token 立即失效 */
+export async function authSignOut(token) {
+  if (!token || !JWT_SECRET) return;
+  const payload = verifyJwt(token, JWT_SECRET);
+  if (!payload?.sub) return;
+  const userId = String(payload.sub);
+  const sessionId = payload.session_id ? String(payload.session_id) : "";
+  if (!sessionId) return;
+  const current = await fetchUserActiveSessionId(userId);
+  if (current && current !== sessionId) return;
+  await setActiveSessionId(userId, "logged_out");
+}
 
 async function fetchUserActiveSessionId(userId) {
   const pool = getPgPool();
