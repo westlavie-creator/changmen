@@ -153,11 +153,23 @@ async function checkUpsertAndBind(pool, userId, userName) {
 }
 
 async function checkTelegram(userName) {
-  if (!isAdminNotifyEnabled()) {
+  const tokenOk = Boolean(String(process.env.TELEGRAM_BOT_TOKEN || "").trim());
+  const chatOk = Boolean(String(process.env.TELEGRAM_ADMIN_CHAT_ID || "").trim());
+  if (!tokenOk || !chatOk) {
+    const missing = [
+      !tokenOk ? "TELEGRAM_BOT_TOKEN" : null,
+      !chatOk ? "TELEGRAM_ADMIN_CHAT_ID" : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
     fail(
       "telegram env",
-      "需 TELEGRAM_BOT_TOKEN + TELEGRAM_ADMIN_CHAT_ID，且 TELEGRAM_ADMIN_NOTIFY≠0",
+      `缺少 ${missing}（server/backend/.env；可 node changmen/scripts/sync-telegram-env.mjs 同步到 VPS）`,
     );
+    return false;
+  }
+  if (!isAdminNotifyEnabled()) {
+    fail("telegram env", "TELEGRAM_ADMIN_NOTIFY=0 或配置无效");
     return false;
   }
   pass("telegram env", "管理员通道已启用");
