@@ -587,13 +587,20 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
       const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
       const accByMap = new Map((accRow.Bets || []).map((b) => [b.Map ?? 0, b]));
       const shouldSwap = row.Reverse.includes(platform);
+      const pmHomeId = String(pm.HomeID ?? pm.home_id ?? pm.SourceHomeID ?? "");
 
       for (const bet of row.Bets || []) {
         const raw = accByMap.get(bet.Map ?? 0)?.Sources?.[platform];
         if (raw) {
           bet.Sources[platform] = shouldSwap ? swapBetSource(raw) : { ...raw };
-        } else if (shouldSwap && bet.Sources?.[platform]) {
-          bet.Sources[platform] = swapBetSource(bet.Sources[platform]);
+        } else if (bet.Sources?.[platform]) {
+          const existing = bet.Sources[platform];
+          const isOriginalOrder = pmHomeId && existing.HomeID === pmHomeId;
+          if (shouldSwap && isOriginalOrder) {
+            bet.Sources[platform] = swapBetSource(existing);
+          } else if (!shouldSwap && !isOriginalOrder && pmHomeId) {
+            bet.Sources[platform] = swapBetSource(existing);
+          }
         }
       }
     }
