@@ -393,25 +393,23 @@ function unlockRate() {
 
     <template v-if="!hideSensitive">
       <el-form-item label="网关：">
-        <el-input v-model="form.gateway" type="textarea" :autosize="{ minRows: 1, maxRows: 4 }" :disabled="fieldDisabled()" />
+        <el-input v-model="form.gateway" :disabled="fieldDisabled()" />
       </el-form-item>
       <el-form-item label="Token：">
-        <el-input v-model="form.token" type="textarea" :autosize="{ minRows: 2, maxRows: 8 }" :disabled="fieldDisabled()" />
+        <el-input v-model="form.token" :disabled="fieldDisabled()" />
       </el-form-item>
       <el-form-item label="Referer：">
-        <el-input v-model="form.referer" type="textarea" :autosize="{ minRows: 1, maxRows: 4 }" :disabled="fieldDisabled()" />
+        <el-input v-model="form.referer" :disabled="fieldDisabled()" />
       </el-form-item>
       <el-form-item label="UserAgent:">
         <el-input
           v-model="form.userAgent"
-          type="textarea"
-          :autosize="{ minRows: 1, maxRows: 4 }"
           placeholder="请求访问的浏览器标识，不知道可留空"
           :disabled="fieldDisabled()"
         />
       </el-form-item>
       <el-form-item label="Cookie：">
-        <el-input v-model="form.cookie" type="textarea" :autosize="{ minRows: 2, maxRows: 8 }" :disabled="fieldDisabled()" />
+        <el-input v-model="form.cookie" :disabled="fieldDisabled()" />
       </el-form-item>
     </template>
     <el-form-item v-else-if="form.gateway" label="网关：">
