@@ -4,8 +4,8 @@
 
 import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
-/** 开赛时间 ±15 分钟视为同一场（与 alignUnmatchedToClientMatches 一致） */
-export const MERGE_START_TIME_TOLERANCE_MS = 15 * 60 * 1000;
+/** 开赛时间 ±30 分钟视为同一场（各平台上报时间差异较大） */
+export const MERGE_START_TIME_TOLERANCE_MS = 30 * 60 * 1000;
 
 export function startTimesCompatible(aMs, bMs) {
   const a = normalizeEpochMs(aMs);
