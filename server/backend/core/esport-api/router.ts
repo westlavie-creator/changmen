@@ -8,7 +8,8 @@ import { handleV4Request } from "./v4_router.js";
 import { handleCommonApi } from "./hg_follow.js";
 import * as accountStore from "../account/account_store.js";
 import * as accountService from "../account/account_service.js";
-import { isAdminUser, canAccessAdminPanel } from "../account/admin_auth.js";
+import { isAdminUser, canAccessAdminPanel } from "../auth/admin_auth.js";
+import { checkActionAuth } from "../auth/action_permissions.js";
 import { touchUserPresence } from "../account/user_presence.js";
 import { normalizeClientIp, recordUserLastLogin } from "../account/user_login_meta.js";
 import { assertProfileActive } from "../account/admin_service.js";
@@ -54,50 +55,12 @@ interface EsportContext {
   user: EsportUser | null;
 }
 
-/** ??????????action?Client_Login ??handle ??????????action ??????????????????*/
-const PUBLIC_ACTIONS = new Set<EsportAction>([
-  "Client_Logout",
-  "Client_RefreshToken",
-  "Client_SaveUserLog",
-]);
-
-const ADMIN_ONLY_ACTIONS = new Set<EsportAction>([
-  "Client_AdminCreateUser",
-  "Client_AdminSetUserAdmin",
-  "Client_AdminSetUserRole",
-  "Client_AdminDeleteUser",
-  "Client_AdminDeleteOrders",
-  "Client_AdminUpsertTeam",
-  "Client_AdminDeleteTeam",
-]);
-
-const LEADER_ALLOWED_ACTIONS = new Set<EsportAction>([
-  "Client_AdminDashboard",
-  "Client_AdminUsers",
-  "Client_AdminOrders",
-  "Client_AdminOrdersMatrix",
-  "Client_AdminOrderLogs",
-  "Client_AdminResetPassword",
-  "Client_AdminRenameUser",
-  "Client_AdminMonthReport",
-  "Client_AdminTeams",
-  "Client_AdminPlatformAnalytics",
-  "Client_AdminValueBet",
-]);
-
 function requireActionAuth(
   action: EsportAction | string,
   ctx: EsportContext,
 ): ApiFailure | null {
-  if (PUBLIC_ACTIONS.has(action as EsportAction)) return null;
-  if (!ctx.user) return fail("未登录");
-  if (ADMIN_ONLY_ACTIONS.has(action as EsportAction) && !isAdminUser(ctx.user)) {
-    return fail("无管理员权限");
-  }
-  if (LEADER_ALLOWED_ACTIONS.has(action as EsportAction) && !canAccessAdminPanel(ctx.user)) {
-    return fail("无管理权限");
-  }
-  return null;
+  const result = checkActionAuth(action, ctx.user);
+  return result as ApiFailure | null;
 }
 
 // ?? Helpers ??????????????????????????????????????????????????????????????????

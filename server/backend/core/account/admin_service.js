@@ -10,7 +10,8 @@ import {
 } from "./user_login_meta.js";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 import { lookupOrderLogs, toAdminOrderLogPayload } from "../admin_tools/user_log_lookup.js";
-import { isAdminUser, isLeaderUser, getTeamId } from "./admin_auth.js";
+import { isAdminUser, isLeaderUser, getTeamId } from "../auth/admin_auth.js";
+import { resolveVisibleUserIds, getVisibleUserIds, filterProfiles } from "../auth/role_filter.js";
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
@@ -177,27 +178,6 @@ function resolveBettingState(p) {
     bettingAutoOpenTime: autoOpenTime,
     betMoney,
   };
-}
-
-function resolveVisibleUserIds(caller, allProfiles) {
-  if (!caller || isAdminUser(caller)) return null;
-  const teamId = getTeamId(caller);
-  if (isLeaderUser(caller) && teamId) {
-    return new Set((allProfiles || []).filter((p) => p.team_id === teamId).map((p) => String(p.id)));
-  }
-  return new Set([String(caller.id)]);
-}
-
-/** 团队长权限下可见的 userId 列表（admin 返回 null = 全部可见） */
-export async function getVisibleUserIds(caller) {
-  if (!caller || isAdminUser(caller)) return null;
-  const allProfiles = await sb.fetchProfilesAdmin();
-  return resolveVisibleUserIds(caller, allProfiles);
-}
-
-function filterProfiles(profiles, visibleIds) {
-  if (!visibleIds) return profiles;
-  return (profiles || []).filter((p) => visibleIds.has(String(p.id)));
 }
 
 function mapAdminUserRow(p, profitByUser = new Map()) {
