@@ -9,6 +9,7 @@
     "url": "https://github.com/westlavie-creator/gamebet.git"
   },
   "scripts": {
+    "dev": "npm run web",
     "preweb": "node scripts/preweb.js",
     "web": "node scripts/start-db.mjs",
     "web:rds": "node scripts/start-rds.mjs",

@@ -1,4 +1,4 @@
-import { describe, it, after } from "vitest";
+import { afterAll, describe, it } from "vitest";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { attachWsForward, closeForwardEngine, isWsForwardHttpPath } from "../index.js";
@@ -78,7 +78,7 @@ const ctx = await (async () => {
   return { server, forwardPort, obUpstream, obUpstreamPort };
 })();
 
-after(async () => {
+afterAll(async () => {
   await new Promise((resolve) => ctx.obUpstream.close(() => resolve()));
   await new Promise((resolve) => ctx.server.close(() => resolve()));
   closeForwardEngine();

@@ -2,6 +2,7 @@
   "name": "gamebet",
   "private": true,
   "description": "A8 esports aggregator — frontend replica + local backend",
+  "packageManager": "npm@11.16.0",
   "workspaces": [
     "packages/shared",
     "packages/api-contract",
@@ -20,17 +21,20 @@
   ],
   "scripts": {
     "install:all": "npm install",
+    "dev": "turbo run dev",
+    "dev:backend": "turbo run dev --filter=@changmen/backend",
+    "dev:frontend": "turbo run dev --filter=@changmen/web",
     "web": "npm run web --prefix server/backend",
     "web:restart": "npm run web:restart --prefix server/backend",
     "app:dev": "npm run dev --prefix client/web",
-    "app:build": "npm run build --prefix client/web",
+    "app:build": "turbo run build --filter=@changmen/web",
     "check:boundaries": "node scripts/check-team-boundaries.mjs",
     "test:api-contract": "node packages/api-contract/urls.test.mjs",
-    "test": "npm run check:boundaries && npm run test:api-contract && npm run test:catalog-smoke && npm run check:rds-schema --prefix server/backend && npm run test:backend && npm run test:frontend",
-    "test:backend": "npm run test --prefix server/backend",
-    "typecheck:frontend": "npm run typecheck --prefix client/web",
+    "test": "npm run check:boundaries && npm run test:api-contract && npm run test:catalog-smoke && turbo run test",
+    "test:backend": "turbo run test --filter=@changmen/backend",
+    "typecheck:frontend": "turbo run typecheck --filter=@changmen/web",
     "analyze:deps": "npm run analyze:deps:check --prefix client/web",
-    "test:frontend": "npm run typecheck:frontend && npm run test --prefix client/web",
+    "test:frontend": "turbo run typecheck test --filter=@changmen/web",
     "test:catalog-smoke": "node packages/shared/catalog/market_catalog_smoke.test.mjs && node packages/shared/catalog/game_catalog_smoke.test.mjs && node packages/shared/im_parse_smoke.test.mjs && node packages/shared/time/match_time_smoke.test.mjs && node server/storage/paths_smoke.test.mjs && vitest run server/db/order_link_filter.test.mjs server/db/order_changmen_bet.test.mjs",
     "matcher:ui": "npm run start --prefix server/matcher",
     "matcher:loop": "npm run matcher --prefix server/matcher",
@@ -43,6 +47,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",
-    "eslint": "^10.5.0"
+    "eslint": "^10.5.0",
+    "turbo": "^2.9.18"
   }
 }
