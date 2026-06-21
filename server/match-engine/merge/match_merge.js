@@ -583,7 +583,12 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
       const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
       const accByMap = new Map((accRow.Bets || []).map((b) => [b.Map ?? 0, b]));
       const shouldSwap = row.Reverse.includes(platform);
-      const pmHomeId = String(pm.HomeID ?? pm.home_id ?? pm.SourceHomeID ?? "");
+      // Sources.HomeID 是 platform_bets 的选项 ID，与 pm.HomeID（队伍 ID）体系不同。
+      // 用 platform_bets Map=0 的 HomeID 作基准，保证与 existing.HomeID 同体系对比。
+      const accMap0Src = accByMap.get(0)?.Sources?.[platform];
+      const refHomeId = accMap0Src
+        ? String(accMap0Src.HomeID ?? "")
+        : String(pm.HomeID ?? pm.home_id ?? pm.SourceHomeID ?? "");
 
       for (const bet of row.Bets || []) {
         const raw = accByMap.get(bet.Map ?? 0)?.Sources?.[platform];
@@ -591,10 +596,10 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
           bet.Sources[platform] = shouldSwap ? swapBetSource(raw) : { ...raw };
         } else if (bet.Sources?.[platform]) {
           const existing = bet.Sources[platform];
-          const isOriginalOrder = pmHomeId && existing.HomeID === pmHomeId;
+          const isOriginalOrder = refHomeId && existing.HomeID === refHomeId;
           if (shouldSwap && isOriginalOrder) {
             bet.Sources[platform] = swapBetSource(existing);
-          } else if (!shouldSwap && !isOriginalOrder && pmHomeId) {
+          } else if (!shouldSwap && !isOriginalOrder && refHomeId) {
             bet.Sources[platform] = swapBetSource(existing);
           }
         }
