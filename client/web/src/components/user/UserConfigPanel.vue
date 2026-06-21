@@ -11,7 +11,6 @@ import {
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const props = defineProps<{
-  form: UserConfigFormState;
   readonly?: boolean;
   autoOpenDate?: Date | null;
 }>();
@@ -19,6 +18,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   "update:autoOpenDate": [Date | null];
 }>();
+
+const form = defineModel<UserConfigFormState>("form", { required: true });
 
 const LABEL_W = USER_CONFIG_LABEL_W;
 const sortingLabels = BET_SORTING_LABELS;
@@ -31,7 +32,7 @@ const openDate = computed({
   get() {
     if (props.autoOpenDate !== undefined)
       return props.autoOpenDate;
-    return props.form.bettingAutoOpenTime ? new Date(props.form.bettingAutoOpenTime) : null;
+    return form.value.bettingAutoOpenTime ? new Date(form.value.bettingAutoOpenTime) : null;
   },
   set(v: Date | null) {
     if (!props.readonly)
@@ -55,9 +56,9 @@ function onDragEnter(index: number, e: DragEvent) {
   e.preventDefault();
   if (dragIndex.value === index)
     return;
-  const moved = props.form.providerSortValue[dragIndex.value];
-  props.form.providerSortValue.splice(dragIndex.value, 1);
-  props.form.providerSortValue.splice(index, 0, moved);
+  const moved = form.value.providerSortValue[dragIndex.value];
+  form.value.providerSortValue.splice(dragIndex.value, 1);
+  form.value.providerSortValue.splice(index, 0, moved);
   dragIndex.value = index;
 }
 
@@ -70,7 +71,7 @@ function onDragOver(e: DragEvent) {
 function setWaitTime(platform: string, v: string | number) {
   if (props.readonly)
     return;
-  props.form.waitTime[platform] = Number(v) || 0;
+  form.value.waitTime[platform] = Number(v) || 0;
 }
 </script>
 

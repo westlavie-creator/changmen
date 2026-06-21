@@ -129,7 +129,7 @@ async function save() {
     :close-on-press-escape="false"
     :close-on-click-modal="false"
   >
-    <UserConfigPanel v-model:auto-open-date="autoOpenDate" :form="form" :readonly="readonly">
+    <UserConfigPanel v-model:auto-open-date="autoOpenDate" v-model:form="form" :readonly="readonly">
       <template v-if="!readonly" #footer>
         <div class="flex flex-center" style="padding-top: 8px">
           <el-button

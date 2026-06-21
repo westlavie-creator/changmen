@@ -7,7 +7,6 @@ interface PlatformSuggestion { value: string; link: string }
 
 const props = withDefaults(
   defineProps<{
-    form: AccountEditFormState;
     readonly?: boolean;
     rateLocked?: boolean;
     gameExpanded?: boolean;
@@ -28,6 +27,8 @@ const emit = defineEmits<{
   noMarkupChange: [];
   normalizeGameOdds: [gameName: string];
 }>();
+
+const form = defineModel<AccountEditFormState>("form", { required: true });
 
 const gameShow = ref(props.gameExpanded ?? false);
 

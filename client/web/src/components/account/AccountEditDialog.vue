@@ -364,7 +364,7 @@ function unlockRate() {
     :close-on-click-modal="false"
   >
     <AccountEditPanel
-      :form="form"
+      v-model:form="form"
       :readonly="readonly"
       :hide-sensitive="Boolean(previewForm)"
       :rate-locked="rateLocked"

@@ -18,7 +18,7 @@ export default antfu({
   ],
 
   rules: {
-    "vue/no-mutating-props": "off",
+    "vue/no-mutating-props": "error",
     "style/max-statements-per-line": "off",
     "no-console": "warn",
     "no-alert": "warn",
