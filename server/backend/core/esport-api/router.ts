@@ -580,11 +580,14 @@ async function handle(
       }
     }
     case "Client_AdminMonthReport": {
-      const userId = body.userId ?? body.user_id;
+      let userId = body.userId ?? body.user_id;
       const visibleIds = await adminService.getVisibleUserIds(ctx.user);
       if (visibleIds) {
         if (userId && !visibleIds.has(String(userId))) {
           return fail("无权查看该用户的报表");
+        }
+        if (!userId) {
+          userId = ctx.user.id;
         }
       }
       return ok(
