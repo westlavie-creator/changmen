@@ -49,5 +49,8 @@
     "@antfu/eslint-config": "^9.0.0",
     "eslint": "^10.5.0",
     "turbo": "^2.9.18"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }
