@@ -112,9 +112,9 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
 <style scoped>
 .order-date-bar {
   justify-content: flex-start;
-  gap: 4px;
+  gap: 8px;
   width: 100%;
-  padding: 8px 5px;
+  padding: 8px 8px;
 }
 
 .order-date-bar__refresh {
