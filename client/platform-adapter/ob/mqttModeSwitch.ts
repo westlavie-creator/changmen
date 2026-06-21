@@ -4,6 +4,7 @@
  */
 import { ref } from "vue";
 import { startObGlobalMqtt, stopObGlobalMqtt, isObGlobalMqttConnected } from "./globalMqtt";
+import { setFoIngestOnlyNew } from "./markets";
 
 export type ObMqttMode = "a8" | "official";
 
@@ -25,12 +26,14 @@ export async function switchObMqttMode(target: ObMqttMode): Promise<void> {
   try {
     if (target === "official") {
       startObGlobalMqtt();
+      setFoIngestOnlyNew(true);
       currentMode.value = "official";
-      console.info("[OB MQTT] switched to official (global + per-match, no unsub rotation)");
+      console.info("[OB MQTT] switched to official (global + per-match, HTTP only writes new oddIds)");
     } else {
       stopObGlobalMqtt();
+      setFoIngestOnlyNew(false);
       currentMode.value = "a8";
-      console.info("[OB MQTT] switched to A8 (per-match only, with unsub rotation)");
+      console.info("[OB MQTT] switched to A8 (per-match only, HTTP overwrites fo)");
     }
   } finally {
     switching.value = false;

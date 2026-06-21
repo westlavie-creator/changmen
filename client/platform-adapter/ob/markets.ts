@@ -45,6 +45,10 @@ export function maxStageForObLoad(match: ViewMatch): number {
   return Math.max(fromBets, fromBo);
 }
 
+let _foIngestOnlyNew = false;
+
+export function setFoIngestOnlyNew(v: boolean) { _foIngestOnlyNew = v; }
+
 /** Ingest：可采集 block 写入 fo（不含 API 回传） */
 function ingestObViewBlocksToFo(
   blocks: Array<Record<string, unknown>>,
@@ -53,11 +57,13 @@ function ingestObViewBlocksToFo(
 ): void {
   const odds = useOddsStore();
   const now = Date.now();
+  const onlyNew = _foIngestOnlyNew;
   for (const block of blocks) {
     const label = obBlockLabel(block);
     if (!isObBlockCollectable(block, label, betRe, gameCode)) continue;
     const locked = obBlockLocked(block);
     for (const entry of listObBlockFoOddEntries(block, locked)) {
+      if (onlyNew && odds.isOdds(PLATFORM, entry.id)) continue;
       odds.save(
         PLATFORM,
         {
@@ -92,7 +98,6 @@ export async function loadMarketsForMatch(
   betRe: RegExp,
   teamNames: [string, string],
   gameCode?: string | null,
-  opts?: { skipFoIngest?: boolean },
 ): Promise<{ bets: CollectBetDto[]; hadError: boolean }> {
   const bets: CollectBetDto[] = [];
   let hadError = false;
@@ -105,7 +110,7 @@ export async function loadMarketsForMatch(
       );
       if (view.status !== "true" || !Array.isArray(view.data)) continue;
 
-      if (!opts?.skipFoIngest) ingestObViewBlocksToFo(view.data, betRe, gameCode);
+      ingestObViewBlocksToFo(view.data, betRe, gameCode);
       bets.push(...reportObViewBlocksToSaveBetRows(view.data, matchId, teamNames, betRe, gameCode));
     } catch (err) {
       hadError = true;

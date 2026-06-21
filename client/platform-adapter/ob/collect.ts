@@ -22,7 +22,6 @@ import type { CollectPlatformInfo } from "@/types/esport";
 
 const PLATFORM = PLATFORMS.OB;
 const POLL_MS = 30_000;
-let _officialFirstPollDone = false;
 
 /** [A8 可证实] bundle `tK` / `pIe`（2.0.245） */
 const OB_CDN_BASE = "https://uphw-cdn4.shudarong.com";
@@ -257,8 +256,6 @@ export function startObCollector(): () => void {
 
         const { getObMqttMode: _getMode } = await import("./mqttModeSwitch");
         const isOfficialMode = _getMode().value === "official";
-        const skipFo = isOfficialMode && _officialFirstPollDone;
-        if (isOfficialMode) _officialFirstPollDone = true;
 
         for (const row of list) {
           if (stopped) break;
@@ -275,7 +272,6 @@ export function startObCollector(): () => void {
             betRe,
             teamsFromListRow(row),
             gameCode,
-            skipFo ? { skipFoIngest: true } : undefined,
           );
           // [A8 可证实] UMe：h||saveBets — 仅 hadError 挡上报，空 f 仍 saveBets
           if (!loaded.hadError) {
@@ -302,7 +298,9 @@ export function startObCollector(): () => void {
     const { getObMqttMode } = await import("./mqttModeSwitch");
     if (getObMqttMode().value === "official") {
       const { startObGlobalMqtt } = await import("./globalMqtt");
+      const { setFoIngestOnlyNew } = await import("./markets");
       startObGlobalMqtt();
+      setFoIngestOnlyNew(true);
     }
     loopPromise = poll();
   })();
