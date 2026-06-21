@@ -89,13 +89,16 @@ onMounted(load);
 </template>
 
 <style scoped>
-.rank :deep(.item .face),
-.rank :deep(.item .face:hover),
+.rank :deep(.item .face) {
+  background-image: url(/esport2/assets/rank-sasuke.svg) !important;
+}
 .rank :deep(.item.boss .face),
-.rank :deep(.item.boss .face:hover),
+.rank :deep(.item.boss .face:hover) {
+  background-image: url(/esport2/assets/rank-kurama.svg) !important;
+}
 .rank :deep(.item.loser .face),
 .rank :deep(.item.loser:last-child .face:hover) {
-  background-image: none !important;
+  background-image: url(/esport2/assets/rank-naruto.svg) !important;
 }
 .rank :deep(.item .face:before) {
   content: none !important;
