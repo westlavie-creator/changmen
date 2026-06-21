@@ -126,9 +126,8 @@ function applyObLiveRoundGate(rows, platformMatches, timersByProvider) {
     const raw = row?.IsLive ?? row?.is_live;
 
     if (row == null) {
-      if (timerIds == null) return m;
-      if (!timerIds.has(sid)) return { ...m, Round: 0, RoundStart: 0 };
-      return m;
+      // OB 已不再上报此比赛（SaveMatch 停止） → 比赛结束，清零 Round
+      return { ...m, Round: 0, RoundStart: 0 };
     }
 
     if (raw != null && raw !== "" && Number(raw) !== 2) {
