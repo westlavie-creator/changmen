@@ -122,7 +122,7 @@ function authNotConfiguredMessage(): string {
 }
 
 function profileLoadFailMessage(): string {
-  return "???????????? RDS profiles ?";
+  return "加载用户失败，请检查 RDS profiles 连接";
 }
 
 export function resolveCreditPlateUserName(user: EsportUser | null): string {
@@ -201,16 +201,16 @@ async function handleClientLogin(
 ): Promise<ApiEnvelope> {
   const userName = String(body.userName || body.username || "").trim();
   const password = body.password;
-  if (!userName || !password) return fail("????????");
+  if (!userName || !password) return fail("用户名或密码不能为空");
   if (!sb.isAuthConfigured()) {
     return fail(authNotConfiguredMessage());
   }
 
   const auth = await sb.authSignIn(userName, password);
   if (auth && "error" in auth && auth.error === "db") {
-    return fail("??????????? DATABASE_URL ??");
+    return fail("数据库连接失败，请检查 DATABASE_URL 配置");
   }
-  if (!auth || "error" in auth) return fail("????????");
+  if (!auth || "error" in auth) return fail("用户名或密码错误");
 
   const { accessToken, refreshToken, userId: uid, email } = auth;
 
@@ -230,7 +230,7 @@ async function handleClientLogin(
   try {
     await assertProfileActive(uid);
   } catch (err) {
-    return fail((err as Error).message || "????????????");
+    return fail((err as Error).message || "账号状态异常，请联系管理员");
   }
 
   touchUserPresence(uid);
@@ -251,7 +251,7 @@ async function handle(
     try {
       await assertProfileActive(ctx.user.id);
     } catch (err) {
-      return fail((err as Error).message || "????????????");
+      return fail((err as Error).message || "账号状态异常，请联系管理员");
     }
     touchUserPresence(ctx.user.id);
   }
@@ -262,16 +262,16 @@ async function handle(
     }
     case "Client_RefreshToken": {
       const refreshToken = body.refreshToken ?? body.refresh_token;
-      if (!refreshToken) return fail("?? refreshToken");
+      if (!refreshToken) return fail("缺少 refreshToken");
       const auth = await sb.authRefreshToken(String(refreshToken));
       if (auth && "revoked" in auth && auth.revoked) {
-        return fail("??????????");
+        return fail("会话已失效，请重新登录");
       }
-      if (!auth || !("accessToken" in auth)) return fail("?? token ??");
+      if (!auth || !("accessToken" in auth)) return fail("刷新 token 失败");
       try {
         await assertProfileActive(auth.userId);
       } catch (err) {
-        return fail((err as Error).message || "????????????");
+        return fail((err as Error).message || "账号状态异常，请联系管理员");
       }
       touchUserPresence(auth.userId);
       return ok({ token: auth.accessToken, refreshToken: auth.refreshToken });
@@ -454,7 +454,7 @@ async function handle(
       return ok(await getMonthReport(body.month, ctx.user.id));
     case "Client_GetUserProfit": {
       const profit = await accountService.handleGetUserProfit();
-      return profit.ok ? ok(profit.info) : fail(profit.msg || "????????");
+      return profit.ok ? ok(profit.info) : fail(profit.msg || "操作失败");
     }
     case "Client_AdminDashboard": {
       const date = body.date ? String(body.date) : undefined;
@@ -486,7 +486,7 @@ async function handle(
           ),
         );
       } catch (err) {
-        return fail((err as Error).message || "??????");
+        return fail((err as Error).message || "操作失败");
       }
     }
     case "Client_AdminResetPassword": {
@@ -498,7 +498,7 @@ async function handle(
           ),
         );
       } catch (err) {
-        return fail((err as Error).message || "??????");
+        return fail((err as Error).message || "操作失败");
       }
     }
     case "Client_AdminRenameUser": {
@@ -510,7 +510,7 @@ async function handle(
           ),
         );
       } catch (err) {
-        return fail((err as Error).message || "??????");
+        return fail((err as Error).message || "操作失败");
       }
     }
     case "Client_AdminSetUserAdmin": {
@@ -525,7 +525,7 @@ async function handle(
           ),
         );
       } catch (err) {
-        return fail((err as Error).message || "?????????");
+        return fail((err as Error).message || "操作失败");
       }
     }
     case "Client_AdminSetUserRole": {
@@ -563,7 +563,7 @@ async function handle(
       try {
         return ok(await adminService.deleteAdminOrders(body));
       } catch (err) {
-        return fail((err as Error).message || "??????");
+        return fail((err as Error).message || "操作失败");
       }
     }
     case "Client_AdminMonthReport": {
@@ -669,7 +669,7 @@ export async function handleEsportRequest(
     return true;
   } catch (err: any) {
     console.error("[esport]", action || urlPath, err);
-    if (!res.headersSent) sendJson(res, 200, fail(err.message || "????"));
+    if (!res.headersSent) sendJson(res, 200, fail(err.message || "服务器错误"));
     return true;
   }
 }
@@ -739,6 +739,6 @@ export async function callEsportAction(
     return handle(cleanAction, body || {}, { token, user });
   } catch (err: any) {
     console.error("[esport:ipc]", action, err);
-    return fail(err.message || "????");
+    return fail(err.message || "服务器错误");
   }
 }
