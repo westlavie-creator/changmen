@@ -72,6 +72,39 @@ const filteredUsers = computed(() => {
   );
 });
 
+interface TeamGroup {
+  teamId: string | null;
+  label: string;
+  users: AdminUserRow[];
+}
+
+const groupedUsers = computed<TeamGroup[]>(() => {
+  const map = new Map<string, AdminUserRow[]>();
+  for (const u of filteredUsers.value) {
+    const key = u.teamId || "__none__";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(u);
+  }
+  const groups: TeamGroup[] = [];
+  for (const t of teams.value) {
+    const list = map.get(t.id);
+    if (list?.length) {
+      groups.push({ teamId: t.id, label: t.name, users: list });
+      map.delete(t.id);
+    }
+  }
+  const none = map.get("__none__");
+  if (none?.length) {
+    groups.push({ teamId: null, label: "未分组", users: none });
+  }
+  for (const [key, list] of map) {
+    if (key !== "__none__" && list.length) {
+      groups.push({ teamId: key, label: key, users: list });
+    }
+  }
+  return groups;
+});
+
 function todayKey() {
   const d = new Date();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -322,12 +355,6 @@ async function removeTeam(id: string) {
   }
 }
 
-function teamName(teamId: string | null | undefined): string {
-  if (!teamId) return "—";
-  const t = teams.value.find((t) => t.id === teamId);
-  return t ? t.name : teamId;
-}
-
 watch(date, () => {
   void loadUsers();
 });
@@ -389,88 +416,79 @@ onUnmounted(() => {
       </div>
 
       <div class="admin-card__body">
-        <el-table :data="filteredUsers" size="small" stripe class="admin-users-table">
-        <el-table-column prop="userName" label="用户名" min-width="120">
-          <template #default="{ row }">
-            <div class="admin-user-cell">
-              <span class="admin-user-cell__avatar">{{ userInitial(row.userName) }}</span>
-              <span>{{ row.userName }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="角色" width="88" align="center">
-          <template #default="{ row }">
-            <el-tag v-if="row.role === 'admin'" type="danger" size="small" effect="dark">管理员</el-tag>
-            <el-tag v-else-if="row.role === 'leader'" type="success" size="small" effect="dark">团队长</el-tag>
-            <el-tag v-else type="info" size="small">用户</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="团队" width="100" align="center">
-          <template #default="{ row }">{{ teamName(row.teamId) }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="88" align="center">
-          <template #default="{ row }">
-            <span
-              class="admin-user-status"
-              :class="Number(row.isOnline) === 1 ? 'admin-user-status--online' : 'admin-user-status--offline'"
-            >
-              <i class="admin-user-status__dot" aria-hidden="true" />
-              {{ onlineLabel(row) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="投注" width="88" align="center">
-          <template #default="{ row }">
-            <span
-              class="admin-user-status"
-              :class="bettingStatusClass(row)"
-              :title="bettingTitle(row)"
-            >
-              <i class="admin-user-status__dot" aria-hidden="true" />
-              {{ bettingLabel(row) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="下注金额" width="96" align="right">
-          <template #default="{ row }">{{ fmtBetMoney(row) }}</template>
-        </el-table-column>
-        <el-table-column prop="accountCount" label="账号数" width="72" align="center" />
-        <el-table-column label="当日盈利" width="96" align="right">
-          <template #default="{ row }">
-            <span :class="{ pos: row.todayMoney > 0, neg: row.todayMoney < 0 }">
-              {{ fmtMoney(row.todayMoney) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="todayCount" label="当日订单" width="80" align="center" />
-        <el-table-column label="当日流水" width="96" align="right">
-          <template #default="{ row }">{{ fmtMoney(row.todayBetMoney) }}</template>
-        </el-table-column>
-        <el-table-column label="最近活跃" min-width="150">
-          <template #default="{ row }">{{ fmtTime(row.lastActiveAt || 0) }}</template>
-        </el-table-column>
-        <el-table-column label="最后登录 IP" min-width="130" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span
-              :title="row.lastLoginAt ? `登录于 ${fmtTime(row.lastLoginAt)}` : ''"
-            >
-              {{ row.lastLoginIp || "—" }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="注册时间" min-width="150">
-          <template #default="{ row }">{{ fmtTime(row.createdAt) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
-            <el-button link type="primary" size="small" @click="viewOrders(row)">订单</el-button>
-            <el-button v-if="userStore.isAdmin" link type="primary" size="small" @click="openRename(row)">改用户名</el-button>
-            <el-button link type="warning" size="small" @click="openReset(row)">重置密码</el-button>
-            <el-button v-if="userStore.isAdmin" link type="primary" size="small" @click="openRole(row)">设角色</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        <div v-for="group in groupedUsers" :key="group.teamId ?? '__none__'" class="admin-team-group">
+          <div class="admin-team-group__header">
+            <span class="admin-team-group__label">{{ group.label }}</span>
+            <el-tag size="small" type="info">{{ group.users.length }} 人</el-tag>
+          </div>
+          <el-table :data="group.users" size="small" stripe class="admin-users-table">
+          <el-table-column prop="userName" label="用户名" min-width="120">
+            <template #default="{ row }">
+              <div class="admin-user-cell">
+                <span class="admin-user-cell__avatar">{{ userInitial(row.userName) }}</span>
+                <span>{{ row.userName }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="角色" width="88" align="center">
+            <template #default="{ row }">
+              <el-tag v-if="row.role === 'admin'" type="danger" size="small" effect="dark">管理员</el-tag>
+              <el-tag v-else-if="row.role === 'leader'" type="success" size="small" effect="dark">团队长</el-tag>
+              <el-tag v-else type="info" size="small">用户</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="88" align="center">
+            <template #default="{ row }">
+              <span
+                class="admin-user-status"
+                :class="Number(row.isOnline) === 1 ? 'admin-user-status--online' : 'admin-user-status--offline'"
+              >
+                <i class="admin-user-status__dot" aria-hidden="true" />
+                {{ onlineLabel(row) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="投注" width="88" align="center">
+            <template #default="{ row }">
+              <span
+                class="admin-user-status"
+                :class="bettingStatusClass(row)"
+                :title="bettingTitle(row)"
+              >
+                <i class="admin-user-status__dot" aria-hidden="true" />
+                {{ bettingLabel(row) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="下注金额" width="96" align="right">
+            <template #default="{ row }">{{ fmtBetMoney(row) }}</template>
+          </el-table-column>
+          <el-table-column prop="accountCount" label="账号数" width="72" align="center" />
+          <el-table-column label="当日盈利" width="96" align="right">
+            <template #default="{ row }">
+              <span :class="{ pos: row.todayMoney > 0, neg: row.todayMoney < 0 }">
+                {{ fmtMoney(row.todayMoney) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="todayCount" label="当日订单" width="80" align="center" />
+          <el-table-column label="当日流水" width="96" align="right">
+            <template #default="{ row }">{{ fmtMoney(row.todayBetMoney) }}</template>
+          </el-table-column>
+          <el-table-column label="最近活跃" min-width="150">
+            <template #default="{ row }">{{ fmtTime(row.lastActiveAt || 0) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="240" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
+              <el-button link type="primary" size="small" @click="viewOrders(row)">订单</el-button>
+              <el-button v-if="userStore.isAdmin" link type="primary" size="small" @click="openRename(row)">改用户名</el-button>
+              <el-button link type="warning" size="small" @click="openReset(row)">重置密码</el-button>
+              <el-button v-if="userStore.isAdmin" link type="primary" size="small" @click="openRole(row)">设角色</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        </div>
 
       <p v-if="!loading && !filteredUsers.length" class="admin-card__empty">暂无用户</p>
       </div>
@@ -612,3 +630,26 @@ onUnmounted(() => {
     </el-dialog>
   </AdminLayout>
 </template>
+
+<style scoped>
+.admin-team-group {
+  margin-bottom: 20px;
+}
+.admin-team-group:last-child {
+  margin-bottom: 0;
+}
+.admin-team-group__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  border-bottom: 2px solid var(--el-border-color);
+  margin-bottom: 4px;
+}
+.admin-team-group__label {
+  font-size: 15px;
+}
+</style>
