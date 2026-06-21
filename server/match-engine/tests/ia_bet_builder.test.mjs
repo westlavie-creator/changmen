@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { it } from "vitest";
 import { buildBetsForMatch } from "../merge/bet_builder.js";
 
 function src(p, b) {
@@ -14,7 +14,7 @@ function src(p, b) {
   };
 }
 
-test("IA Map3: 无地图获胜者时排除第二手枪局", () => {
+it("iA Map3: 无地图获胜者时排除第二手枪局", () => {
   const bets = {
     "IA:373450": {
       provider: "IA",
@@ -59,7 +59,7 @@ test("IA Map3: 无地图获胜者时排除第二手枪局", () => {
   assert.equal(out.find(b => b.Map === 3), undefined);
 });
 
-test("IA Map2: 地图获胜者 wins over 第二手枪局 when both present", () => {
+it("iA Map2: 地图获胜者 wins over 第二手枪局 when both present", () => {
   const bets = {
     "IA:1": {
       provider: "IA",

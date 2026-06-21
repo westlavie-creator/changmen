@@ -32,6 +32,14 @@ vi.mock("@/stores/betting/kakaxi/runKakaxiArbRound", () => ({
   runKakaxiArbRound: () => runKakaxiArbRound(),
 }));
 
+vi.mock("@/stores/accountStore", () => ({
+  useAccountStore: () => ({}),
+}));
+
+vi.mock("@/stores/account/accountPicker", () => ({
+  accountsFundingReady: () => true,
+}));
+
 vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: vi.fn(async () => {}),
 }));

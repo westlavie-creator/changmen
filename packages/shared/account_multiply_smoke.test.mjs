@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { it } from "vitest";
 import {
   accountsMultiplyNeedsPersist,
   normalizeAccountList,
@@ -7,18 +7,18 @@ import {
   resolveAccountMultiply,
 } from "./account_multiply.mjs";
 
-test("PB multiply defaults to 10", () => {
+it("pB multiply defaults to 10", () => {
   assert.equal(resolveAccountMultiply("PB", undefined), PB_MULTIPLY_DEFAULT);
   assert.equal(resolveAccountMultiply("PB", 1), PB_MULTIPLY_DEFAULT);
   assert.equal(resolveAccountMultiply("PB", 5), 5);
 });
 
-test("non-PB multiply defaults to 1", () => {
+it("non-PB multiply defaults to 1", () => {
   assert.equal(resolveAccountMultiply("RAY", undefined), 1);
   assert.equal(resolveAccountMultiply("OB", 0), 1);
 });
 
-test("normalizeAccountList migrates PB rows", () => {
+it("normalizeAccountList migrates PB rows", () => {
   const out = normalizeAccountList([
     { accountId: 1, provider: "PB", multiply: 1 },
     { accountId: 2, provider: "RAY" },

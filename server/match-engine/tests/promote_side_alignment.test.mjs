@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 /**
  * promote 主客对齐 + 套利选腿回归（gb12 OB×RAY Map3 同向 bug）
  */
-import { test } from "vitest";
+import { it } from "vitest";
 import { overlayLiveTimersOnMatches } from "../../backend/core/esport-api/live_timer_overlay.js";
 import {
   buildClientMatchList,
@@ -144,7 +144,7 @@ function buildGb12List() {
   });
 }
 
-test("gb12: rebuild Map3 OB×RAY 主客对齐，套利两侧非同一队", () => {
+it("gb12: rebuild Map3 OB×RAY 主客对齐，套利两侧非同一队", () => {
   const list = buildGb12List();
   assert.equal(list.length, 1);
   const map3 = list[0].Bets.find(b => b.Map === 3);
@@ -156,7 +156,7 @@ test("gb12: rebuild Map3 OB×RAY 主客对齐，套利两侧非同一队", () =>
   assertSourcesMatchTitleSides(map3);
 });
 
-test("gb12: 旧 bug 形态（RAY Map3 二次 swap）会被检出", () => {
+it("gb12: 旧 bug 形态（RAY Map3 二次 swap）会被检出", () => {
   const list = buildGb12List();
   const map3 = list[0].Bets.find(b => b.Map === 3);
   const buggyRay = swapBetSource(map3.Sources.RAY);
@@ -169,7 +169,7 @@ test("gb12: 旧 bug 形态（RAY Map3 二次 swap）会被检出", () => {
   assert.ok(homeOdds >= 2.065 && awayOdds >= 2.08, "bug 形态：Home/ Away 最高赔都在 9z");
 });
 
-test("gb12: GetMatchs overlay 在 Round 切到 3 后 promote 仍对齐", () => {
+it("gb12: GetMatchs overlay 在 Round 切到 3 后 promote 仍对齐", () => {
   // 模拟 DB 尚未 rebuild：Round=0，Map=0 仍含 reconcile 后的 RAY（trim 在 overlay 最后执行）
   const staleDbRow = {
     ID: 1,
@@ -227,7 +227,7 @@ test("gb12: GetMatchs overlay 在 Round 切到 3 后 promote 仍对齐", () => {
   assert.deepEqual(Object.keys(map0.Sources || {}), ["OB"], "trim Map=0 to OB only");
 });
 
-test("gb12: inPlace promote 在 Reverse 含 RAY 时不二次 swap", () => {
+it("gb12: inPlace promote 在 Reverse 含 RAY 时不二次 swap", () => {
   const rows = [
     {
       ID: 1,
@@ -263,7 +263,7 @@ test("gb12: inPlace promote 在 Reverse 含 RAY 时不二次 swap", () => {
   assertMapBetArbSidesOpposite(map3);
 });
 
-test("aligned teams: OB 与 RAY 同向主客时 Reverse 为空且 Map3 可对冲", () => {
+it("aligned teams: OB 与 RAY 同向主客时 Reverse 为空且 Map3 可对冲", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -314,7 +314,7 @@ test("aligned teams: OB 与 RAY 同向主客时 Reverse 为空且 Map3 可对冲
   assertMapBetArbSidesOpposite(map3);
 });
 
-test("swapBetSource 连换两次回到原方向（说明 promote 不可再 swap）", () => {
+it("swapBetSource 连换两次回到原方向（说明 promote 不可再 swap）", () => {
   const raw = {
     Type: "RAY",
     BetID: "9",

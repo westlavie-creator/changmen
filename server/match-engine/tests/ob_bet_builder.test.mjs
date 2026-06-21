@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { it } from "vitest";
 import { buildBetsForMatch } from "../merge/bet_builder.js";
 
 function src(p, b) {
@@ -14,7 +14,7 @@ function src(p, b) {
   };
 }
 
-test("OB CS2 Map1: 单局-获胜 wins over 第一手枪局 when pistol listed first", () => {
+it("oB CS2 Map1: 单局-获胜 wins over 第一手枪局 when pistol listed first", () => {
   const bets = {
     "OB:4272745136855916": {
       provider: "OB",
@@ -50,7 +50,7 @@ test("OB CS2 Map1: 单局-获胜 wins over 第一手枪局 when pistol listed fi
   assert.equal(out[0].Sources.OB.BetID, "5561517888837431");
 });
 
-test("OB CS2 Map1: 单局-获胜 wins over 第二十二回合 when round bet listed first", () => {
+it("oB CS2 Map1: 单局-获胜 wins over 第二十二回合 when round bet listed first", () => {
   const bets = {
     "OB:1": {
       provider: "OB",
@@ -84,7 +84,7 @@ test("OB CS2 Map1: 单局-获胜 wins over 第二十二回合 when round bet lis
   assert.equal(out[0].Name, "[地图1]-单局-获胜");
 });
 
-test("OB CS2 Map1: odd_type_id match beats name-only rows", () => {
+it("oB CS2 Map1: odd_type_id match beats name-only rows", () => {
   const bets = {
     "OB:1": {
       provider: "OB",

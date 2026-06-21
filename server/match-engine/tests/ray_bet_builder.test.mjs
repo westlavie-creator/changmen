@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { it } from "vitest";
 import { buildBetsForMatch } from "../merge/bet_builder.js";
 
 function src(p, b) {
@@ -14,7 +14,7 @@ function src(p, b) {
   };
 }
 
-test("RAY: three rows all Map=0 collapse to one client bet (old bug)", () => {
+it("rAY: three rows all Map=0 collapse to one client bet (old bug)", () => {
   const bets = {
     "RAY:1": {
       provider: "RAY",
@@ -30,7 +30,7 @@ test("RAY: three rows all Map=0 collapse to one client bet (old bug)", () => {
   assert.equal(out.length, 1);
 });
 
-test("RAY: Map 0/1/2 yields three client bets", () => {
+it("rAY: Map 0/1/2 yields three client bets", () => {
   const bets = {
     "RAY:1": {
       provider: "RAY",

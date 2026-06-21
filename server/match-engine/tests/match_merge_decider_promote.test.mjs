@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { it } from "vitest";
 import { buildClientMatchList } from "../merge/match_merge.js";
 
 function src(p, b) {
@@ -35,7 +35,7 @@ function assertMapZeroObOnly(map0) {
   assert.ok(map0.Sources.OB?.BetID, "OB BetID preserved");
 }
 
-test("promote: RAY final-only fills Map=5 when Round=5 (OB has native map5)", () => {
+it("promote: RAY final-only fills Map=5 when Round=5 (OB has native map5)", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -112,7 +112,7 @@ test("promote: RAY final-only fills Map=5 when Round=5 (OB has native map5)", ()
   assert.equal(map5.Sources.OB?.Status, "Normal");
 });
 
-test("promote: skips RAY when native Map=5 exists", () => {
+it("promote: skips RAY when native Map=5 exists", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -174,7 +174,7 @@ test("promote: skips RAY when native Map=5 exists", () => {
   assert.equal(map5.Sources.RAY?.BetID, "ray-map5");
 });
 
-test("live Round=3 on BO5: Map=0 OB-only, no promote to Map=3", () => {
+it("live Round=3 on BO5: Map=0 OB-only, no promote to Map=3", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -240,7 +240,7 @@ test("live Round=3 on BO5: Map=0 OB-only, no promote to Map=3", () => {
   assert.equal(map3?.Sources?.RAY, undefined, "non-decider: no promote from final to Map=3");
 });
 
-test("promote: no-op when Round=0", () => {
+it("promote: no-op when Round=0", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -288,7 +288,7 @@ test("promote: no-op when Round=0", () => {
   assert.equal(map5?.Sources?.RAY, undefined);
 });
 
-test("promote: IA full + settled Map1/2 fills Map=3 on BO3 decider (no native Map=3)", () => {
+it("promote: IA full + settled Map1/2 fills Map=3 on BO3 decider (no native Map=3)", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -382,7 +382,7 @@ test("promote: IA full + settled Map1/2 fills Map=3 on BO3 decider (no native Ma
   assert.equal(map0.InitialAwayOdds, 3.33);
 });
 
-test("decider: Map=0 OB-only when Round=BO (A8 95694 shape)", () => {
+it("decider: Map=0 OB-only when Round=BO (A8 95694 shape)", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -459,7 +459,7 @@ test("decider: Map=0 OB-only when Round=BO (A8 95694 shape)", () => {
   assert.equal(map3.Sources.RAY?.BetID, "ray-map3");
 });
 
-test("promote: skips IA when native Map=3 exists", () => {
+it("promote: skips IA when native Map=3 exists", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -521,7 +521,7 @@ test("promote: skips IA when native Map=3 exists", () => {
   assert.equal(map3?.Sources?.IA?.BetID, "ia-map3");
 });
 
-test("promote: BO3 decider aligns RAY final to Title when OB home/away reversed vs RAY", () => {
+it("promote: BO3 decider aligns RAY final to Title when OB home/away reversed vs RAY", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",
@@ -607,7 +607,7 @@ test("promote: BO3 decider aligns RAY final to Title when OB home/away reversed 
   assert.equal(map3.AwayName, "FURIA");
 });
 
-test("live Round=2, OB no Map=0: keep Map=0 row with empty Sources and Initial odds", () => {
+it("live Round=2, OB no Map=0: keep Map=0 row with empty Sources and Initial odds", () => {
   const bets = {
     "OB:ob1": {
       provider: "OB",

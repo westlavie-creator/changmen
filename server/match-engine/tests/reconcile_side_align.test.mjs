@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { it } from "vitest";
 import { reconcileClientMatchReverse, setTeamPlugin } from "../merge/match_merge.js";
 
-test("reconcile flags ambiguous platform and does not reverse", () => {
+it("reconcile flags ambiguous platform and does not reverse", () => {
   const rows = [
     {
       ID: 99,
@@ -29,7 +29,7 @@ test("reconcile flags ambiguous platform and does not reverse", () => {
   assert.deepEqual(rows[0].SideAlignAmbiguous, ["RAY"]);
 });
 
-test("ambiguous platform resolved to reversed via canonical ID fallback", () => {
+it("ambiguous platform resolved to reversed via canonical ID fallback", () => {
   // Simulate: RAY aligned (1win vs VP), PB reversed with different team names
   const idMap = {
     "RAY:h1": "C1",
