@@ -211,11 +211,13 @@
     .team-card-title-id { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; }
     .title-team-slot { display: inline-flex; align-items: center; gap: 5px; max-width: 46%; }
     .matched-header-layout { display: flex; align-items: center; gap: 8px; width: 100%; }
-    .matched-header-home { flex: 1; text-align: left; min-width: 0; }
-    .matched-header-center { flex-shrink: 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-    .matched-header-away { flex: 1; text-align: right; min-width: 0; }
-    .matched-header-away .title-team-slot { flex-direction: row-reverse; }
-    .matched-header-center .team-card-meta { margin-top: 4px; }
+    .matched-header-home { flex: 1; min-width: 0; }
+    .matched-header-center { flex-shrink: 0; text-align: center; display: flex; flex-direction: row; align-items: center; gap: 10px; }
+    .matched-header-away { flex: 1; min-width: 0; }
+    .matched-header-home .title-team-slot,
+    .matched-header-away .title-team-slot { flex-direction: column; align-items: flex-start; gap: 2px; max-width: 100%; }
+    .matched-header-away .title-team-slot { align-items: flex-end; }
+    .matched-header-center .team-card-meta { margin-top: 0; }
     .title-gb-id { font-family: ui-monospace, monospace; color: #60a5fa; font-weight: 800; font-size: 15px; }
     .title-gb-id.pending { color: #fbbf24; }
     .title-gb-id.missing { color: #64748b; font-weight: 600; }
