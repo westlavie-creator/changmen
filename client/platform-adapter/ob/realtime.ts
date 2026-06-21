@@ -165,7 +165,7 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
       password,
       clientId: OB_MQTT_CLIENT_ID,
       clean: true,
-      keepalive: 30,
+      keepalive: 60,
       reconnectPeriod: 0,
       protocolId: "MQTT",
       protocolVersion: 4,
