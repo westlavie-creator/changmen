@@ -384,6 +384,9 @@ onUnmounted(() => {
         </span>
         <el-button v-if="userStore.isAdmin" size="small" type="primary" @click="openCreate">新建用户</el-button>
         <el-button v-if="userStore.isAdmin" size="small" @click="openTeamDialog()">管理团队</el-button>
+        <el-tag v-if="userStore.isLeader" type="success" size="small" effect="plain">
+          团队视图 · {{ filteredUsers.length }} 个成员
+        </el-tag>
       </div>
 
       <div class="admin-card__body">

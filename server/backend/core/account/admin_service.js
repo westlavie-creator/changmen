@@ -633,8 +633,9 @@ export async function setAdminUserRole(userId, role, teamId, operatorUserId) {
   if (!id) throw new Error("用户 ID 无效");
   if (!VALID_ROLES.includes(role)) throw new Error("无效角色，可选：admin / leader / user");
   const op = String(operatorUserId || "").trim();
-  if (op && id === op && role !== "admin") {
-    throw new Error("不能降低当前登录账号的角色");
+  const currentRole = op ? (await sb.fetchProfileById(op))?.role : null;
+  if (op && id === op && role !== currentRole) {
+    throw new Error("不能更改当前登录账号的角色");
   }
 
   const row = await sb.fetchProfileById(id);
@@ -654,11 +655,23 @@ export async function setAdminUserRole(userId, role, teamId, operatorUserId) {
     }
   }
 
+  const tid = teamId !== undefined ? (teamId || null) : row.team_id;
+
+  if (role === "leader" && !tid) {
+    throw new Error("团队长必须分配到一个团队");
+  }
+
+  if (tid) {
+    const teams = await sb.fetchTeams();
+    if (!teams.find((t) => t.id === tid)) {
+      throw new Error(`团队「${tid}」不存在，请先创建`);
+    }
+  }
+
   const roleOk = await sb.updateUserRole(id, role);
   if (!roleOk) throw new Error("更新角色失败");
-  const tid = teamId !== undefined ? teamId : row.team_id;
   if (tid !== row.team_id) {
-    await sb.updateUserTeamId(id, tid || null);
+    await sb.updateUserTeamId(id, tid);
   }
   await loadProfileById(id);
   return { id, userName: name, role, teamId: tid || null, isAdmin: role === "admin" ? 1 : 0 };
@@ -680,10 +693,21 @@ export async function upsertTeam(id, name) {
   return { id: tid, name: tname };
 }
 
-/** 管理端：删除团队（users.team_id ON DELETE SET NULL 自动清空） */
+/** 管理端：删除团队 */
 export async function deleteTeam(id) {
   const tid = String(id || "").trim();
   if (!tid) throw new Error("团队 ID 必填");
+  await ensurePgPoolReady();
+  const pool = getPgPool();
+  if (pool) {
+    const { rows } = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM users WHERE team_id = $1",
+      [tid],
+    );
+    if ((rows[0]?.n ?? 0) > 0) {
+      throw new Error(`团队内还有 ${rows[0].n} 个成员，请先移除`);
+    }
+  }
   const ok = await sb.deleteTeam(tid);
   if (!ok) throw new Error("删除团队失败或不存在");
   return { id: tid };

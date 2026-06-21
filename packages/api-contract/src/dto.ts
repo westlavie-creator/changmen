@@ -28,6 +28,8 @@ export interface UserInfo {
   Setting: Record<string, unknown>;
   CreditPlateUserName?: string;
   IsAdmin?: boolean | 0 | 1;
+  Role?: "admin" | "leader" | "user";
+  TeamId?: string | null;
 }
 
 export interface ObGameOddTypeSpec {

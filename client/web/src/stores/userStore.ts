@@ -86,9 +86,8 @@ export const useUserStore = defineStore("user", {
         this.userName = info.UserName;
         this.setting = info.Setting ?? {};
         this.isAdmin = info.IsAdmin === true || info.IsAdmin === 1;
-        const raw = info as unknown as Record<string, unknown>;
-        this.role = (raw.Role as "admin" | "leader" | "user") || "user";
-        this.teamId = (raw.TeamId as string) || null;
+        this.role = info.Role || "user";
+        this.teamId = info.TeamId || null;
         const cp = info.CreditPlateUserName?.trim();
         if (cp) this.creditPlateUserName = cp;
         await this.loadExtras();
