@@ -94,7 +94,7 @@ const shownUserName = computed(() =>
             @click="accountStore.openCreateAccount()"
           />
           <el-button
-            v-if="!embedded && user.isAdmin"
+            v-if="!embedded && user.canAccessAdmin"
             size="small"
             class="am-icon-shield"
             type="warning"
