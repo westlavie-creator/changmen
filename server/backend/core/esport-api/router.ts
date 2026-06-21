@@ -10,6 +10,7 @@ import * as accountStore from "../account/account_store.js";
 import * as accountService from "../account/account_service.js";
 import { isAdminUser, canAccessAdminPanel } from "../auth/admin_auth.js";
 import { checkActionAuth } from "../auth/action_permissions.js";
+import { getVisibleUserIds } from "../auth/role_filter.js";
 import { touchUserPresence } from "../account/user_presence.js";
 import { normalizeClientIp, recordUserLastLogin } from "../account/user_login_meta.js";
 import { assertProfileActive } from "../account/admin_service.js";
@@ -546,7 +547,7 @@ async function handle(
     }
     case "Client_AdminMonthReport": {
       const userId = body.userId ?? body.user_id;
-      const visibleIds = await adminService.getVisibleUserIds(ctx.user);
+      const visibleIds = await getVisibleUserIds(ctx.user);
       if (visibleIds) {
         if (userId && !visibleIds.has(String(userId))) {
           return fail("无权查看该用户的报表");
