@@ -504,6 +504,25 @@ function sideAlignmentByCanonicalId(platform, pm, refCanonIds) {
   return "ambiguous";
 }
 
+/** 从 DB 已有 client_matches 构建锁定 Reverse 索引 */
+function buildLockedReverseIndex(existingClientRows) {
+  if (!existingClientRows?.length) return null;
+  const idx = { _matchs: {} };
+  for (const row of existingClientRows) {
+    const id = Number(row.id ?? row.ID);
+    if (!id) continue;
+    const rev = row.reverse ?? row.Reverse;
+    if (Array.isArray(rev)) {
+      idx[id] = rev;
+    }
+    const matchs = row.matchs ?? row.Matchs;
+    if (matchs && typeof matchs === "object") {
+      idx._matchs[id] = matchs;
+    }
+  }
+  return idx;
+}
+
 /** 从队名已确定的平台中取 canonical home/away ID 作为参考（支持 aligned 和 reversed） */
 function resolveRefCanonIds(resolvedPlatforms, matches) {
   for (const { platform, sourceMatchId, reversed } of resolvedPlatforms) {
@@ -527,13 +546,22 @@ function resolveRefCanonIds(resolvedPlatforms, matches) {
 
 /**
  * 按 Title canonical 主客重算 Reverse[]，并从平台原始盘口重建 Sources（含 swap）。
- * 自动合并与人工关联共用，幂等。
+ * 自动合并与人工关联共用。
  * 优先用 canonical ID 判断（准确），ID 不可用时降级队名比较。
+ *
+ * lockedReverse：上次 DB 中已确定的 Reverse（按 client match ID 索引）。
+ * 已有平台沿用已锁定的判定，只对新加入的平台计算。
  */
-function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet) {
+function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet, lockedReverse) {
+  const locked = lockedReverse || {};
+
   for (const row of rows || []) {
     const teams = parseTitleTeams(row.Title);
     if (!teams) continue;
+
+    const rowId = Number(row.ID) || 0;
+    const prev = rowId ? locked[rowId] : null;
+    const prevSet = prev ? new Set(prev) : null;
 
     // 第一遍：按队名分类，收集可信平台用于构建 refCanonIds
     const nameResults = {};
@@ -552,10 +580,26 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
       .map(([platform, v]) => ({ platform, sourceMatchId: v.sourceMatchId, reversed: v.mode === "reversed" }));
     const refIds = resolveRefCanonIds(nameResolved, matches);
 
-    // 第二遍：每个平台先尝试 ID，ID 不可用时用队名结果
+    // 第二遍：已锁定的平台沿用，新平台计算
     const reverse = [];
     const ambiguousPlatforms = [];
     for (const [platform, { mode: nameMode, pm }] of Object.entries(nameResults)) {
+      // 该平台在上次 Reverse 中已有记录（prevSet 存在且已包含该平台的判定）
+      if (prevSet) {
+        if (prevSet.has(platform)) {
+          reverse.push(platform);
+          continue;
+        }
+        // prevSet 存在但不含该平台 — 可能是已确定为 aligned 的老平台，
+        // 也可能是新加入的平台。检查上次 Matchs 是否包含该平台来区分。
+        const prevMatchs = locked._matchs?.[rowId];
+        if (prevMatchs && prevMatchs[platform]) {
+          // 老平台，上次判定为 aligned，沿用
+          continue;
+        }
+        // 新平台，走正常计算
+      }
+
       const idMode = refIds ? sideAlignmentByCanonicalId(platform, pm, refIds) : "ambiguous";
       const finalMode = idMode !== "ambiguous" ? idMode : nameMode;
       if (finalMode === "reversed") {
@@ -577,32 +621,20 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet)
       delete row.SideAlignAmbiguous;
     }
 
-    for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
-      const pm = findPlatformMatch(matches, platform, sourceMatchId);
+    for (const [platform] of Object.entries(row.Matchs || {})) {
+      const pm = findPlatformMatch(matches, platform, row.Matchs[platform]);
       if (!pm) continue;
       const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
       const accByMap = new Map((accRow.Bets || []).map((b) => [b.Map ?? 0, b]));
       const shouldSwap = row.Reverse.includes(platform);
-      // Sources.HomeID 是 platform_bets 的选项 ID，与 pm.HomeID（队伍 ID）体系不同。
-      // 用 platform_bets Map=0 的 HomeID 作基准，保证与 existing.HomeID 同体系对比。
-      const accMap0Src = accByMap.get(0)?.Sources?.[platform];
-      const refHomeId = accMap0Src
-        ? String(accMap0Src.HomeID ?? "")
-        : String(pm.HomeID ?? pm.home_id ?? pm.SourceHomeID ?? "");
 
       for (const bet of row.Bets || []) {
         const raw = accByMap.get(bet.Map ?? 0)?.Sources?.[platform];
         if (raw) {
           bet.Sources[platform] = shouldSwap ? swapBetSource(raw) : { ...raw };
-        } else if (bet.Sources?.[platform]) {
-          const existing = bet.Sources[platform];
-          const isOriginalOrder = refHomeId && existing.HomeID === refHomeId;
-          if (shouldSwap && isOriginalOrder) {
-            bet.Sources[platform] = swapBetSource(existing);
-          } else if (!shouldSwap && !isOriginalOrder && refHomeId) {
-            bet.Sources[platform] = swapBetSource(existing);
-          }
         }
+        // 已锁定 Reverse 后不再对已有 Sources 做"纠正" swap——
+        // 方向在首次确定后不变，不存在需要纠正的场景。
       }
     }
   }
@@ -813,11 +845,11 @@ function trimMapZeroToObOnDeciderRound(rows) {
   sortClientMatchBets(rows);
 }
 
-function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet) {
+function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet, lockedReverse) {
   refreshClientMatchTitles(rows, matches);
   refreshClientMatchBetNames(rows);
   if (bets && sourceFromBet) {
-    reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet);
+    reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet, lockedReverse);
     refreshClientMatchBetMapNames(rows, matches, bets, timers, sourceFromBet);
   }
 }
@@ -915,7 +947,7 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
 
   refreshClientMatchStartTimes(mergedList, matches);
   refreshClientMatchGames(mergedList, matches);
-  refreshClientMatchSides(mergedList, matches, bets, timers, sourceFromBet);
+  refreshClientMatchSides(mergedList, matches, bets, timers, sourceFromBet, null);
   refreshClientMatchRoundsFromTimers(mergedList, timers);
   promoteFullMatchSourcesToLiveRound(mergedList, matches, bets, timers, sourceFromBet);
   ensureMapZeroForLiveRound(mergedList, matches, bets, timers, sourceFromBet);
@@ -1042,12 +1074,13 @@ function buildMatchListAccumulate(matches, bets, timers, sourceFromBet) {
 }
 
 /** 仅自动合并（一/二阶段）；人工关联在分配自增 id 后由 rebuild 调用 applyManualMatchLinks */
-function buildClientMatchList({ matches, bets, timers, sourceFromBet }) {
+function buildClientMatchList({ matches, bets, timers, sourceFromBet, existingClientRows }) {
   const normalized = normalizeMatchesShape(matches);
   const list = buildMatchListMerged(normalized, bets, timers, sourceFromBet);
   refreshClientMatchStartTimes(list, normalized);
   refreshClientMatchGames(list, normalized);
-  refreshClientMatchSides(list, normalized, bets, timers, sourceFromBet);
+  const lockedReverse = buildLockedReverseIndex(existingClientRows);
+  refreshClientMatchSides(list, normalized, bets, timers, sourceFromBet, lockedReverse);
   refreshClientMatchRoundsFromTimers(list, timers);
   promoteFullMatchSourcesToLiveRound(list, normalized, bets, timers, sourceFromBet);
   ensureMapZeroForLiveRound(list, normalized, bets, timers, sourceFromBet);

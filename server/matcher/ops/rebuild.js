@@ -90,7 +90,7 @@ async function rebuildOnceImpl() {
     );
   }
 
-  let info = buildClientMatchList({ matches, bets, timers, sourceFromBet });
+  let info = buildClientMatchList({ matches, bets, timers, sourceFromBet, existingClientRows: clientRows });
 
   if (!db.isMatcherStoreReady()) {
     const { script } = db.getDbMode();
