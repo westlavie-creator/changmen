@@ -392,7 +392,7 @@
 <div class="header">
   <div>
     <h1>GameBet 队伍映射</h1>
-    <div class="header-sub">左：平台 ID 已匹配合并 · 中：队名已匹配合并 · 右：推荐组待办与未匹配</div>
+    <div class="header-sub">左：队名已匹配合并 · 中：平台 ID 已匹配合并 · 右：推荐组待办与未匹配</div>
   </div>
   <div class="header-right">
     <a class="btn btn-sm btn-ghost" href="canvas.html" style="text-decoration:none">画布视图</a>
@@ -434,15 +434,6 @@
     <div class="team-link-board" id="team-link-board">
       <svg class="team-link-svg" id="team-link-svg" aria-hidden="true"></svg>
       <div class="queue-split">
-        <section class="split-col split-col-matched split-col-matched-id">
-          <div class="split-col-header">
-            <div class="split-col-title">ID 已匹配 <span class="badge" id="matched-id-count">0</span></div>
-            <div class="split-col-desc">主客平台 ID 均已映射 gb_team_id · 多平台合并稳定 · 可跨栏拖线合并</div>
-          </div>
-          <div class="split-col-body">
-            <div class="game-sections" id="matched-id-panels"><div class="empty">加载中…</div></div>
-          </div>
-        </section>
         <section class="split-col split-col-matched split-col-matched-name">
           <div class="split-col-header">
             <div class="split-col-title">队名已匹配 <span class="badge" id="matched-name-count">0</span></div>
@@ -450,6 +441,15 @@
           </div>
           <div class="split-col-body">
             <div class="game-sections" id="matched-name-panels"><div class="empty">加载中…</div></div>
+          </div>
+        </section>
+        <section class="split-col split-col-matched split-col-matched-id">
+          <div class="split-col-header">
+            <div class="split-col-title">ID 已匹配 <span class="badge" id="matched-id-count">0</span></div>
+            <div class="split-col-desc">主客平台 ID 均已映射 gb_team_id · 多平台合并稳定 · 可跨栏拖线合并</div>
+          </div>
+          <div class="split-col-body">
+            <div class="game-sections" id="matched-id-panels"><div class="empty">加载中…</div></div>
           </div>
         </section>
         <section class="split-col split-col-pending">
