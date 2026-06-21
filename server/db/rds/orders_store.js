@@ -434,11 +434,19 @@ export async function updateOrderBind(orderId, userId, link, opts = {}) {
   }
 }
 
+function appendUserIdsFilter(params, userIds) {
+  if (!Array.isArray(userIds) || !userIds.length) return "";
+  params.push(userIds);
+  return ` AND user_id = ANY($${params.length}::uuid[])`;
+}
+
 /** 数据分析：按平台聚合盈亏统计 */
-export async function fetchPlatformAnalytics(startMs, endMs) {
+export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
   if (!pool) return [];
   try {
+    const params = [startMs, endMs];
+    const uf = appendUserIdsFilter(params, userIds);
     const { rows } = await pool.query(
       `SELECT provider,
         COUNT(*)::int AS total_orders,
@@ -449,10 +457,10 @@ export async function fetchPlatformAnalytics(startMs, endMs) {
         COALESCE(SUM(bet_money), 0)::float AS total_bet,
         COALESCE(SUM(money), 0)::float AS total_profit
        FROM orders
-       WHERE create_at >= $1 AND create_at < $2 AND provider IS NOT NULL AND provider != ''
+       WHERE create_at >= $1 AND create_at < $2 AND provider IS NOT NULL AND provider != ''${uf}
        GROUP BY provider
        ORDER BY total_orders DESC`,
-      [startMs, endMs],
+      params,
     );
     return rows || [];
   } catch (err) {
@@ -462,10 +470,12 @@ export async function fetchPlatformAnalytics(startMs, endMs) {
 }
 
 /** 数据分析：套利配对统计（按 link 配对两腿，含 9999 单边负 link） */
-export async function fetchArbPairAnalytics(startMs, endMs) {
+export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
   if (!pool) return [];
   try {
+    const params = [startMs, endMs];
+    const uf = appendUserIdsFilter(params, userIds);
     const { rows } = await pool.query(
       `WITH pairs AS (
         SELECT
@@ -478,7 +488,7 @@ export async function fetchArbPairAnalytics(startMs, endMs) {
           AND a.provider < b.provider
           AND a.user_id = b.user_id
         WHERE ABS(a.link) >= 1000000000000
-          AND a.create_at >= $1 AND a.create_at < $2
+          AND a.create_at >= $1 AND a.create_at < $2${uf ? uf.replace('user_id', 'a.user_id') : ''}
       )
       SELECT
         provider_a, provider_b,
@@ -491,7 +501,7 @@ export async function fetchArbPairAnalytics(startMs, endMs) {
       FROM pairs
       GROUP BY provider_a, provider_b
       ORDER BY pair_count DESC`,
-      [startMs, endMs],
+      params,
     );
     return rows || [];
   } catch (err) {
@@ -501,10 +511,12 @@ export async function fetchArbPairAnalytics(startMs, endMs) {
 }
 
 /** 数据分析：按游戏维度聚合（通过 match 名关联 client_matches.game） */
-export async function fetchGameAnalytics(startMs, endMs) {
+export async function fetchGameAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
   if (!pool) return [];
   try {
+    const params = [startMs, endMs];
+    const uf = appendUserIdsFilter(params, userIds);
     const { rows } = await pool.query(
       `SELECT
         COALESCE(cm.game, '未知') AS game,
@@ -521,10 +533,10 @@ export async function fetchGameAnalytics(startMs, endMs) {
          LIMIT 1
        ) cm ON true
        WHERE o.create_at >= $1 AND o.create_at < $2
-         AND o.provider IS NOT NULL AND o.provider != ''
+         AND o.provider IS NOT NULL AND o.provider != ''${uf ? uf.replace('user_id', 'o.user_id') : ''}
        GROUP BY COALESCE(cm.game, '未知')
        ORDER BY total_orders DESC`,
-      [startMs, endMs],
+      params,
     );
     return rows || [];
   } catch (err) {
@@ -534,10 +546,12 @@ export async function fetchGameAnalytics(startMs, endMs) {
 }
 
 /** 数据分析：按小时聚合（时段分布） */
-export async function fetchHourlyAnalytics(startMs, endMs) {
+export async function fetchHourlyAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
   if (!pool) return [];
   try {
+    const params = [startMs, endMs];
+    const uf = appendUserIdsFilter(params, userIds);
     const { rows } = await pool.query(
       `SELECT
         EXTRACT(HOUR FROM to_timestamp(create_at / 1000.0))::int AS hour,
@@ -548,10 +562,10 @@ export async function fetchHourlyAnalytics(startMs, endMs) {
         COALESCE(SUM(bet_money), 0)::float AS total_bet
        FROM orders
        WHERE create_at >= $1 AND create_at < $2
-         AND provider IS NOT NULL AND provider != ''
+         AND provider IS NOT NULL AND provider != ''${uf}
        GROUP BY hour
        ORDER BY hour`,
-      [startMs, endMs],
+      params,
     );
     return rows || [];
   } catch (err) {
@@ -561,10 +575,12 @@ export async function fetchHourlyAnalytics(startMs, endMs) {
 }
 
 /** 数据分析：按账号（player_id）聚合 */
-export async function fetchAccountAnalytics(startMs, endMs) {
+export async function fetchAccountAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
   if (!pool) return [];
   try {
+    const params = [startMs, endMs];
+    const uf = appendUserIdsFilter(params, userIds);
     const { rows } = await pool.query(
       `SELECT
         o.player_id,
@@ -577,10 +593,10 @@ export async function fetchAccountAnalytics(startMs, endMs) {
         COALESCE(SUM(o.money), 0)::float AS total_profit
        FROM orders o
        WHERE o.create_at >= $1 AND o.create_at < $2
-         AND o.provider IS NOT NULL AND o.provider != ''
+         AND o.provider IS NOT NULL AND o.provider != ''${uf ? uf.replace('user_id', 'o.user_id') : ''}
        GROUP BY o.player_id, o.provider
        ORDER BY total_profit DESC`,
-      [startMs, endMs],
+      params,
     );
     return rows || [];
   } catch (err) {

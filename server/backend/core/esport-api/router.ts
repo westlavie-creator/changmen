@@ -581,6 +581,12 @@ async function handle(
     }
     case "Client_AdminMonthReport": {
       const userId = body.userId ?? body.user_id;
+      const visibleIds = await adminService.getVisibleUserIds(ctx.user);
+      if (visibleIds) {
+        if (userId && !visibleIds.has(String(userId))) {
+          return fail("无权查看该用户的报表");
+        }
+      }
       return ok(
         await getMonthReport(
           body.month ? String(body.month) : undefined,
@@ -589,7 +595,7 @@ async function handle(
       );
     }
     case "Client_AdminPlatformAnalytics": {
-      return ok(await adminService.getPlatformAnalytics(body));
+      return ok(await adminService.getPlatformAnalytics(body, ctx.user));
     }
     case "Client_AdminValueBet": {
       const { getValueBetDashboard } = await import("./value_bet_service.js");

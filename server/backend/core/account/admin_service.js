@@ -188,6 +188,13 @@ function resolveVisibleUserIds(caller, allProfiles) {
   return new Set([String(caller.id)]);
 }
 
+/** 团队长权限下可见的 userId 列表（admin 返回 null = 全部可见） */
+export async function getVisibleUserIds(caller) {
+  if (!caller || isAdminUser(caller)) return null;
+  const allProfiles = await sb.fetchProfilesAdmin();
+  return resolveVisibleUserIds(caller, allProfiles);
+}
+
 function filterProfiles(profiles, visibleIds) {
   if (!visibleIds) return profiles;
   return (profiles || []).filter((p) => visibleIds.has(String(p.id)));
@@ -734,7 +741,7 @@ export async function deleteTeam(id) {
   return { id: tid };
 }
 
-export async function getPlatformAnalytics(body = {}) {
+export async function getPlatformAnalytics(body = {}, caller = null) {
   let startMs, endMs;
   if (body.startMs && body.endMs) {
     startMs = Number(body.startMs);
@@ -752,12 +759,18 @@ export async function getPlatformAnalytics(body = {}) {
     startMs = d.getTime();
     endMs = startMs + 86400000;
   }
+  let userIds;
+  if (caller && !isAdminUser(caller)) {
+    const allProfiles = await sb.fetchProfilesAdmin();
+    const visibleIds = resolveVisibleUserIds(caller, allProfiles);
+    if (visibleIds) userIds = [...visibleIds];
+  }
   const [platforms, pairs, games, hourly, accounts] = await Promise.all([
-    sb.fetchPlatformAnalytics(startMs, endMs),
-    sb.fetchArbPairAnalytics(startMs, endMs),
-    sb.fetchGameAnalytics(startMs, endMs),
-    sb.fetchHourlyAnalytics(startMs, endMs),
-    sb.fetchAccountAnalytics(startMs, endMs),
+    sb.fetchPlatformAnalytics(startMs, endMs, userIds),
+    sb.fetchArbPairAnalytics(startMs, endMs, userIds),
+    sb.fetchGameAnalytics(startMs, endMs, userIds),
+    sb.fetchHourlyAnalytics(startMs, endMs, userIds),
+    sb.fetchAccountAnalytics(startMs, endMs, userIds),
   ]);
   return { startMs, endMs, platforms, pairs, games, hourly, accounts };
 }
