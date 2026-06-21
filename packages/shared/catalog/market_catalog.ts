@@ -1,4 +1,4 @@
-import { getPlatformGameId } from "./game_catalog.ts";
+import { getPlatformGameId } from "./game_catalog.js";
 import catalog from "./market_catalog.json" with { type: "json" };
 
 const patternCache = new Map<string, RegExp>();

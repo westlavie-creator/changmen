@@ -24,8 +24,8 @@ describe("adapter_paths", () => {
     expect(MANIFEST).toHaveLength(11);
   });
 
-  it("reqS loads @changmen/shared modules", () => {
-    const { getDefaultMarketCode } = reqS("catalog/market_catalog");
+  it("reqS loads @changmen/shared modules", async () => {
+    const { getDefaultMarketCode } = await import("@changmen/shared/catalog/market_catalog");
     expect(typeof getDefaultMarketCode).toBe("function");
     expect(getDefaultMarketCode("OB")).toBeTruthy();
   });

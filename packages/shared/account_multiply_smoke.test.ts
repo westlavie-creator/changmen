@@ -5,7 +5,7 @@ import {
   normalizeAccountList,
   PB_MULTIPLY_DEFAULT,
   resolveAccountMultiply,
-} from "./account_multiply.ts";
+} from "./account_multiply.js";
 
 it("pB multiply defaults to 10", () => {
   assert.equal(resolveAccountMultiply("PB", undefined), PB_MULTIPLY_DEFAULT);

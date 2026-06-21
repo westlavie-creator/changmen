@@ -2,7 +2,7 @@
  * PB 在 team_platform_maps.platform_id 中的格式：{teamSlug}@{SourceGameID}
  * SourceGameID 归一化为 game_catalog platforms.PB（如 dota2 → dota-2）。
  */
-import { getGameCodeForPlatformId, getPlatformGameId } from "./game_catalog.ts";
+import { getGameCodeForPlatformId, getPlatformGameId } from "./game_catalog.js";
 
 function resolvePbGameSlug(sourceGameId: unknown, gameCode: unknown): string {
   const raw = String(sourceGameId ?? "").trim();
