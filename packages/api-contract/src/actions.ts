@@ -46,6 +46,7 @@ export const ESPORT_ACTIONS = [
   "Client_AdminTeams",
   "Client_AdminUpsertTeam",
   "Client_AdminDeleteTeam",
+  "Client_AdminDeleteUser",
   "Client_AdminDeleteOrders",
   "Client_AdminMonthReport",
   "Client_AdminPlatformAnalytics",

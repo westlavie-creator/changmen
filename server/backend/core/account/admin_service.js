@@ -515,6 +515,28 @@ export async function createAdminUser(userName, password) {
   return { id: userId, userName: name };
 }
 
+/** 管理端删除用户（profiles ON DELETE CASCADE 自动级联） */
+export async function deleteAdminUser(userId, operatorUserId) {
+  const id = String(userId || "").trim();
+  if (!id) throw new Error("用户 ID 无效");
+  if (id === String(operatorUserId || "").trim()) {
+    throw new Error("不能删除当前登录账号");
+  }
+  await ensurePgPoolReady();
+  const pool = getPgPool();
+  if (!pool) throw new Error("RDS 未配置");
+  const { rows } = await pool.query("SELECT user_name, is_admin FROM users WHERE id = $1", [id]);
+  if (!rows[0]) throw new Error("用户不存在");
+  if (rows[0].is_admin) {
+    const { rows: admins } = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM users WHERE is_admin = true",
+    );
+    if ((admins[0]?.n ?? 0) <= 1) throw new Error("至少保留一名管理员");
+  }
+  await pool.query("DELETE FROM users WHERE id = $1", [id]);
+  return { id, userName: String(rows[0].user_name) };
+}
+
 /** 管理端更改登录用户名 */
 export async function renameAdminUser(userId, userName) {
   const id = String(userId || "").trim();

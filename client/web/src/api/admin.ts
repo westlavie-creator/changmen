@@ -96,6 +96,12 @@ export async function deleteTeam(id: string) {
   return unwrap(await post<{ id: string }>("Client_AdminDeleteTeam", { id }));
 }
 
+export async function deleteAdminUser(userId: string) {
+  return unwrap(
+    await post<AdminUserMutationResult>("Client_AdminDeleteUser", { userId }),
+  );
+}
+
 export async function createAdminUser(userName: string, password: string) {
   return unwrap(
     await post<AdminUserMutationResult>("Client_AdminCreateUser", { userName, password }),

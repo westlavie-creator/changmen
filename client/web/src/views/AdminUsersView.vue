@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminUserDetail from "@/components/admin/AdminUserDetail.vue";
 import {
   createAdminUser,
+  deleteAdminUser,
   getAdminUsers,
   getTeams,
   upsertTeam,
@@ -353,6 +354,25 @@ async function removeTeam(id: string) {
   }
 }
 
+async function removeUser(row: AdminUserRow) {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除用户「${row.userName}」？此操作不可恢复。`,
+      "删除用户",
+      { confirmButtonText: "删除", cancelButtonText: "取消", type: "warning" },
+    );
+  } catch {
+    return;
+  }
+  try {
+    await deleteAdminUser(row.id);
+    ElMessage.success(`用户 ${row.userName} 已删除`);
+    await loadUsers();
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "删除失败");
+  }
+}
+
 watch(date, () => {
   void loadUsers();
 });
@@ -469,16 +489,17 @@ onUnmounted(() => {
           <el-table-column label="当日流水" width="96" align="right">
             <template #default="{ row }">{{ fmtMoney(row.todayBetMoney) }}</template>
           </el-table-column>
-          <el-table-column label="最近活跃" min-width="150">
+          <el-table-column label="最近活跃" width="100">
             <template #default="{ row }">{{ fmtTime(row.lastActiveAt || 0) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="240" fixed="right">
+          <el-table-column label="操作" width="280" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
               <el-button link type="primary" size="small" @click="viewOrders(row)">订单</el-button>
               <el-button v-if="userStore.isAdmin" link type="primary" size="small" @click="openRename(row)">改用户名</el-button>
               <el-button link type="warning" size="small" @click="openReset(row)">重置密码</el-button>
               <el-button v-if="userStore.isAdmin" link type="primary" size="small" @click="openRole(row)">设角色</el-button>
+              <el-button v-if="userStore.isAdmin" link type="danger" size="small" @click="removeUser(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>

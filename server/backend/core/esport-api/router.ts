@@ -65,6 +65,7 @@ const ADMIN_ONLY_ACTIONS = new Set<EsportAction>([
   "Client_AdminCreateUser",
   "Client_AdminSetUserAdmin",
   "Client_AdminSetUserRole",
+  "Client_AdminDeleteUser",
   "Client_AdminDeleteOrders",
   "Client_AdminPlatformAnalytics",
   "Client_AdminValueBet",
@@ -557,6 +558,18 @@ async function handle(
         return ok(await adminService.deleteTeam((body.id ?? body.teamId) as string));
       } catch (err) {
         return fail((err as Error).message || "删除团队失败");
+      }
+    }
+    case "Client_AdminDeleteUser": {
+      try {
+        return ok(
+          await adminService.deleteAdminUser(
+            (body.userId ?? body.id) as string,
+            ctx.user.id,
+          ),
+        );
+      } catch (err) {
+        return fail((err as Error).message || "删除用户失败");
       }
     }
     case "Client_AdminDeleteOrders": {
