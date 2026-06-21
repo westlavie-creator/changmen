@@ -580,20 +580,20 @@ async function handle(
       }
     }
     case "Client_AdminMonthReport": {
-      let userId = body.userId ?? body.user_id;
+      const userId = body.userId ?? body.user_id;
       const visibleIds = await adminService.getVisibleUserIds(ctx.user);
       if (visibleIds) {
         if (userId && !visibleIds.has(String(userId))) {
           return fail("无权查看该用户的报表");
         }
-        if (!userId) {
-          userId = ctx.user.id;
-        }
       }
+      const uidStr = userId != null && String(userId).trim() ? String(userId) : undefined;
+      const teamUserIds = !uidStr && visibleIds ? [...visibleIds] : undefined;
       return ok(
         await getMonthReport(
           body.month ? String(body.month) : undefined,
-          userId != null && String(userId).trim() ? String(userId) : undefined,
+          uidStr,
+          teamUserIds,
         ),
       );
     }

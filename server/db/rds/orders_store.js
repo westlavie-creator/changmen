@@ -341,7 +341,7 @@ export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000, use
 }
 
 /** 月报：读取指定月份订单聚合字段；可选 user_id 筛选 */
-export async function fetchOrdersForMonthAggregate(monthKey, userId) {
+export async function fetchOrdersForMonthAggregate(monthKey, userId, userIds) {
   const { monthStart, monthEnd } = localMonthBounds(monthKey);
   const pool = getPgPool();
   if (!pool) return [];
@@ -351,6 +351,9 @@ export async function fetchOrdersForMonthAggregate(monthKey, userId) {
     if (userId) {
       params.push(String(userId));
       sql += ` AND user_id = $${params.length}`;
+    } else if (Array.isArray(userIds) && userIds.length) {
+      params.push(userIds);
+      sql += ` AND user_id = ANY($${params.length}::uuid[])`;
     }
     const { rows } = await pool.query(sql, params);
     return rows || [];

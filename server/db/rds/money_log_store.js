@@ -66,7 +66,7 @@ async function _rdsUpsertMoneyLog(pool, row) {
 }
 
 /** 月报：读取指定月份充提/被黑流水；可选 user_id 筛选 */
-export async function fetchMoneyLogsForMonthAggregate(monthKey, userId) {
+export async function fetchMoneyLogsForMonthAggregate(monthKey, userId, userIds) {
   const { monthStart, monthEnd } = localMonthBounds(monthKey);
   const pool = getPgPool();
   if (!pool) return [];
@@ -77,6 +77,9 @@ export async function fetchMoneyLogsForMonthAggregate(monthKey, userId) {
     if (userId) {
       params.push(String(userId));
       sql += ` AND user_id = $${params.length}`;
+    } else if (Array.isArray(userIds) && userIds.length) {
+      params.push(userIds);
+      sql += ` AND user_id = ANY($${params.length}::uuid[])`;
     }
     sql += " ORDER BY create_at DESC";
     const { rows } = await pool.query(sql, params);

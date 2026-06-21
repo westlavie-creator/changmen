@@ -40,7 +40,7 @@ function finalizeRow(row) {
 }
 
 /** 月报：orders + money_logs；userId 可选（管理后台按用户筛选） */
-export async function getMonthReport(month, userId) {
+export async function getMonthReport(month, userId, userIds) {
   const { month: m, year, mon, days } = monthBounds(month);
   const uid = userId ? String(userId).trim() : "";
   const byDate = new Map();
@@ -49,7 +49,7 @@ export async function getMonthReport(month, userId) {
     byDate.set(key, emptyReportRow(new Date(year, mon - 1, day)));
   }
 
-  const orders = await sb.fetchOrdersForMonthAggregate(m, uid || undefined);
+  const orders = await sb.fetchOrdersForMonthAggregate(m, uid || undefined, userIds);
   for (const o of orders || []) {
     if (String(o.status || "") === "Reject") continue;
     const key = toDateKey(o.create_at);
@@ -60,7 +60,7 @@ export async function getMonthReport(month, userId) {
     row.OrderCount += 1;
   }
 
-  const moneyLogs = await sb.fetchMoneyLogsForMonthAggregate(m, uid || undefined);
+  const moneyLogs = await sb.fetchMoneyLogsForMonthAggregate(m, uid || undefined, userIds);
   for (const log of moneyLogs || []) {
     const key = toDateKey(log.create_at);
     const row = byDate.get(key);

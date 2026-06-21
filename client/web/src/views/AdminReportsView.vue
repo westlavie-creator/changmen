@@ -94,10 +94,6 @@ onMounted(async () => {
     return;
   }
   await loadUsers();
-  if (!filterUserId.value && !userStore.isAdmin) {
-    const self = users.value.find((u) => u.id === String(userStore.userId));
-    if (self) filterUserId.value = self.id;
-  }
   await load();
 });
 </script>
@@ -118,9 +114,9 @@ onMounted(async () => {
           />
           <el-select
             v-model="filterUserId"
-            :clearable="userStore.isAdmin"
+            clearable
             filterable
-            :placeholder="userStore.isAdmin ? '全部用户' : '选择用户'"
+            :placeholder="userStore.isAdmin ? '全部用户' : '团队全部'"
             size="small"
             style="width: 180px"
           >
