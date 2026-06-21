@@ -100,6 +100,7 @@ export default defineConfig(({ mode }) => ({
       "/common": { target: API_TARGET, changeOrigin: true, ws: true },
       "/api": { target: API_TARGET, changeOrigin: true, ws: true },
       "/matcher": { target: API_TARGET, changeOrigin: true, ws: true },
+      "/health": { target: API_TARGET, changeOrigin: true },
       "/v4.0": { target: API_TARGET, changeOrigin: true, ws: true },
     },
   },

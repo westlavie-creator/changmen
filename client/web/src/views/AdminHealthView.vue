@@ -40,6 +40,10 @@ async function fetchHealth() {
   try {
     const base = getApiBase();
     const res = await fetch(`${base}/health`, { headers: { Accept: "application/json" } });
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      throw new Error(`后端返回非 JSON（${res.status}），请确认 /health 代理已配置`);
+    }
     health.value = await res.json();
     error.value = "";
   } catch (e) {
