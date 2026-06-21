@@ -92,6 +92,7 @@ export async function loadMarketsForMatch(
   betRe: RegExp,
   teamNames: [string, string],
   gameCode?: string | null,
+  opts?: { skipFoIngest?: boolean },
 ): Promise<{ bets: CollectBetDto[]; hadError: boolean }> {
   const bets: CollectBetDto[] = [];
   let hadError = false;
@@ -104,7 +105,7 @@ export async function loadMarketsForMatch(
       );
       if (view.status !== "true" || !Array.isArray(view.data)) continue;
 
-      ingestObViewBlocksToFo(view.data, betRe, gameCode);
+      if (!opts?.skipFoIngest) ingestObViewBlocksToFo(view.data, betRe, gameCode);
       bets.push(...reportObViewBlocksToSaveBetRows(view.data, matchId, teamNames, betRe, gameCode));
     } catch (err) {
       hadError = true;
