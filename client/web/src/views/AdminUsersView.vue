@@ -489,7 +489,7 @@ onUnmounted(() => {
           <el-table-column label="最近活跃" width="100">
             <template #default="{ row }">{{ fmtTime(row.lastActiveAt || 0) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="操作" width="340" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
               <el-button link type="primary" size="small" @click="viewOrders(row)">订单</el-button>
@@ -588,14 +588,9 @@ onUnmounted(() => {
     >
       <el-form label-width="80px" @submit.prevent="submitRole">
         <el-form-item label="角色" required>
-          <el-select v-model="roleForm.role" style="width: 100%">
-            <el-option
-              v-for="opt in roleOptions"
-              :key="opt.value"
-              :label="opt.label"
-              :value="opt.value"
-            />
-          </el-select>
+          <el-radio-group v-model="roleForm.role">
+            <el-radio v-for="opt in roleOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</el-radio>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="团队">
           <el-select v-model="roleForm.teamId" clearable placeholder="无团队" style="width: 100%">
