@@ -73,7 +73,8 @@ async function rebuildOnceImpl() {
 
   const teamReg = await autoRegisterTeams(matchesRaw);
   const nameSync = await db.syncCanonicalTeamNamesFromOb();
-  resetTeamPluginCache();
+  const teamDataChanged = (teamReg?.registered > 0) || (nameSync?.updated > 0);
+  if (teamDataChanged) resetTeamPluginCache();
   await ensureTeamPlugin();
 
   const matches = normalizeMatchesShape(matchesRaw);
