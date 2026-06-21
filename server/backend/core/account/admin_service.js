@@ -419,7 +419,8 @@ export async function listAdminOrders(body = {}, caller = null) {
 }
 
 /** 管理端：按主键 id 删除订单（可批量，如同 Link 套利组） */
-export async function deleteAdminOrders(body = {}) {
+export async function deleteAdminOrders(body = {}, caller = null) {
+  if (caller && !isAdminUser(caller)) throw new Error("仅管理员可删除订单");
   const raw = body.orderIds ?? body.ids ?? body.id;
   const ids = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
   const deleted = await sb.deleteOrdersByIds(ids);
@@ -459,6 +460,10 @@ export async function listAdminOrderLogs(body = {}, caller = null) {
   const linkRaw = body.linkId ?? body.link ?? body.LinkID;
   const orderId = body.orderId ?? body.order_id ?? body.OrderID;
   if (!userId) throw new Error("缺少 userId");
+  if (caller && !isAdminUser(caller)) {
+    const visibleIds = await getVisibleUserIds(caller);
+    if (visibleIds && !visibleIds.has(userId)) throw new Error("无权查看该用户的日志");
+  }
   if (linkRaw == null && !orderId) throw new Error("请指定 linkId 或 orderId");
 
   const result = await lookupOrderLogs({
@@ -545,9 +550,10 @@ export async function deleteAdminUser(userId, operatorUserId) {
 }
 
 /** 管理端更改登录用户名 */
-export async function renameAdminUser(userId, userName) {
+export async function renameAdminUser(userId, userName, caller = null) {
   const id = String(userId || "").trim();
   if (!id) throw new Error("用户 ID 无效");
+  if (caller && !isAdminUser(caller)) throw new Error("仅管理员可更改用户名");
   const name = validateUserName(userName);
 
   await ensurePgPoolReady();
@@ -581,9 +587,13 @@ export async function renameAdminUser(userId, userName) {
 }
 
 /** 管理端重置用户登录密码 */
-export async function resetAdminUserPassword(userId, password) {
+export async function resetAdminUserPassword(userId, password, caller = null) {
   const id = String(userId || "").trim();
   if (!id) throw new Error("用户 ID 无效");
+  if (caller && !isAdminUser(caller)) {
+    const visibleIds = await getVisibleUserIds(caller);
+    if (visibleIds && !visibleIds.has(id)) throw new Error("无权操作该用户");
+  }
   const pwd = validateNewPassword(password);
   const now = Date.now();
 

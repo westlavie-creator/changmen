@@ -496,6 +496,7 @@ async function handle(
           await adminService.resetAdminUserPassword(
             (body.userId ?? body.id) as string,
             body.password as string,
+            ctx.user,
           ),
         );
       } catch (err) {
@@ -508,6 +509,7 @@ async function handle(
           await adminService.renameAdminUser(
             (body.userId ?? body.id) as string,
             (body.userName ?? body.username) as string,
+            ctx.user,
           ),
         );
       } catch (err) {
@@ -574,7 +576,7 @@ async function handle(
     }
     case "Client_AdminDeleteOrders": {
       try {
-        return ok(await adminService.deleteAdminOrders(body));
+        return ok(await adminService.deleteAdminOrders(body, ctx.user));
       } catch (err) {
         return fail((err as Error).message || "操作失败");
       }
