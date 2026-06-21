@@ -116,7 +116,7 @@ onMounted(async () => {
             v-model="filterUserId"
             clearable
             filterable
-            :placeholder="userStore.isAdmin ? '全部用户' : '团队全部'"
+            placeholder="全部"
             size="small"
             style="width: 180px"
           >
