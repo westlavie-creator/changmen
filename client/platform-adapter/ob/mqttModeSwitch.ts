@@ -9,7 +9,7 @@ import { useMatchStore } from "@/stores/matchStore";
 
 export type ObMqttMode = "a8" | "official";
 
-const currentMode = ref<ObMqttMode>("a8");
+const currentMode = ref<ObMqttMode>("official");
 const switching = ref(false);
 
 export function getObMqttMode() {

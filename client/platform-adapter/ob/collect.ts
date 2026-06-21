@@ -291,13 +291,25 @@ export function startObCollector(): () => void {
   void (async () => {
     await wait(3000);
     if (stopped) return;
-    connectObMqtt(() => matchStore.refreshOddsOnBets());
+    const { getObMqttMode } = await import("./mqttModeSwitch");
+    if (getObMqttMode().value === "official") {
+      const { startObGlobalMqtt } = await import("./globalMqtt");
+      startObGlobalMqtt();
+    } else {
+      connectObMqtt(() => matchStore.refreshOddsOnBets());
+    }
     loopPromise = poll();
   })();
 
   return () => {
     stopped = true;
-    disconnectObMqtt();
+    void import("./mqttModeSwitch").then(({ getObMqttMode }) => {
+      if (getObMqttMode().value === "official") {
+        void import("./globalMqtt").then(({ stopObGlobalMqtt }) => stopObGlobalMqtt());
+      } else {
+        disconnectObMqtt();
+      }
+    });
     void loopPromise;
   };
 }
