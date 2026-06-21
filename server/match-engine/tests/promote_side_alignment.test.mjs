@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 /**
  * promote 主客对齐 + 套利选腿回归（gb12 OB×RAY Map3 同向 bug）
  */
-import test from "node:test";
+import { test } from "vitest";
 import { overlayLiveTimersOnMatches } from "../../backend/core/esport-api/live_timer_overlay.js";
 import {
   buildClientMatchList,

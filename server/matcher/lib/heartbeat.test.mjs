@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it } from "vitest";
 import {
   clearMatcherHeartbeat,
   HEARTBEAT_PATH,

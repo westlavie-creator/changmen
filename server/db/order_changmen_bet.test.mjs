@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import {
   BET_LOG_AFTER_MS,
   BET_LOG_BEFORE_MS,

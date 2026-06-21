@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { test } from "node:test";
+import { test } from "vitest";
 import { scanBetForValue } from "./edge.js";
 
 test("detects positive EV when soft odds exceed fair odds", () => {

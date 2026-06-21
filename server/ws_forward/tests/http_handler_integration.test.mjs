@@ -1,4 +1,4 @@
-import { describe, it, after } from "node:test";
+import { describe, it, after } from "vitest";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { attachWsForward, closeForwardEngine, isWsForwardHttpPath } from "../index.js";

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it } from "vitest";
 import { isMatcherSkipAuthEnabled } from "../lib/config.js";
 import { getRequestToken, isMatcherAuthBypassed } from "./matcher_auth.js";
 

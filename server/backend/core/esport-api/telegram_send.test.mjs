@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "vitest";
+import { test } from "vitest";
 import { handleSendMessage, isValidChatId } from "./telegram_send.js";
 
 test("isValidChatId accepts user and group ids", () => {

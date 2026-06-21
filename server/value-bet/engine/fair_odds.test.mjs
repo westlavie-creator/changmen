@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { test } from "node:test";
+import { test } from "vitest";
 import { removVig } from "./fair_odds.js";
 
 test("multiplicative vig removal — symmetric odds", () => {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { allMapBetsClosed, isClientMatchEnded } from "../merge/match_lifecycle.js";
 
 const NOW = Date.parse("2026-06-16T10:00:00+08:00");

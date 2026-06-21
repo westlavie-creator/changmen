@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { obForwardDefinition } from "../platforms/ob.js";
 import { rayForwardDefinition, RAY_OFFICIAL_WS_URL } from "../platforms/ray.js";

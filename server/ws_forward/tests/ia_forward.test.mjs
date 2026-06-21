@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { iaForwardDefinition, IA_OFFICIAL_WS, IA_OFFICIAL_WS_PATH } from "../platforms/ia.js";
 
