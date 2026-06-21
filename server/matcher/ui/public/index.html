@@ -1333,11 +1333,12 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
       <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'home' } : null)}</td>
       <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away' } : null)}</td>
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
-      <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}${reverseTag}</td>
+      <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
+      <td>${reverseTag}</td>
     </tr>`;
   }).join('');
   return `<table class="team-table">
-    <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>客</th><th>开赛</th><th>场次 ID</th></tr></thead>
+    <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>客</th><th>开赛</th><th>场次 ID</th><th>方向</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table>`;
 }
