@@ -601,14 +601,13 @@ onUnmounted(() => {
         </el-table-column>
       </el-table>
       <el-form :inline="true" @submit.prevent="submitTeam">
-        <el-form-item label="ID">
-          <el-input v-model="teamForm.id" size="small" style="width: 100px" placeholder="team1" />
-        </el-form-item>
         <el-form-item label="名称">
-          <el-input v-model="teamForm.name" size="small" style="width: 120px" placeholder="团队名" />
+          <el-input v-model="teamForm.name" size="small" style="width: 160px" placeholder="团队名称" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" size="small" :loading="teamLoading" @click="submitTeam">保存</el-button>
+          <el-button type="primary" size="small" :loading="teamLoading" @click="submitTeam">
+            {{ teamForm.id ? '保存' : '新建' }}
+          </el-button>
         </el-form-item>
       </el-form>
     </el-dialog>

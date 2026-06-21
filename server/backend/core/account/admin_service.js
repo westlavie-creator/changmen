@@ -682,12 +682,11 @@ export async function listTeams() {
   return sb.fetchTeams();
 }
 
-/** 管理端：创建或更新团队 */
+/** 管理端：创建或更新团队（id 为空时自动生成） */
 export async function upsertTeam(id, name) {
-  const tid = String(id || "").trim();
-  if (!tid) throw new Error("团队 ID 必填");
   const tname = String(name || "").trim();
   if (!tname) throw new Error("团队名称必填");
+  const tid = String(id || "").trim() || `t${Date.now().toString(36)}`;
   const ok = await sb.upsertTeam(tid, tname);
   if (!ok) throw new Error("保存团队失败");
   return { id: tid, name: tname };
