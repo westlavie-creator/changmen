@@ -210,6 +210,12 @@
     .team-card-title .vs { color: #64748b; font-weight: 400; font-size: 12px; margin: 0 6px; }
     .team-card-title-id { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; }
     .title-team-slot { display: inline-flex; align-items: center; gap: 5px; max-width: 46%; }
+    .matched-header-layout { display: flex; align-items: center; gap: 8px; width: 100%; }
+    .matched-header-home { flex: 1; text-align: left; min-width: 0; }
+    .matched-header-center { flex-shrink: 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .matched-header-away { flex: 1; text-align: right; min-width: 0; }
+    .matched-header-away .title-team-slot { flex-direction: row-reverse; }
+    .matched-header-center .team-card-meta { margin-top: 4px; }
     .title-gb-id { font-family: ui-monospace, monospace; color: #60a5fa; font-weight: 800; font-size: 15px; }
     .title-gb-id.pending { color: #fbbf24; }
     .title-gb-id.missing { color: #64748b; font-weight: 600; }
@@ -1360,23 +1366,28 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
     : teamsIdMapped
       ? `ID 映射已齐 · ${rows.length} 个平台 · 合并依据仍为队名阶段 · 可拖黄方点合并同场`
       : `队名已匹配 · ${rows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
-  const titleHtml = displayClientMatchTitleGbIds(cm, rows, teamMaps, gameCode);
+  const homeSlot = renderTitleTeamSlot('home', rows, teamMaps, gameCode, cm.id, cm);
+  const awaySlot = renderTitleTeamSlot('away', rows, teamMaps, gameCode, cm.id, cm);
   return `<article class="team-card matched" data-cm-id="${cm.id}">
     <div class="team-card-header">
-      <div>
-        <div class="team-card-title">${gbadge(gameCode)} ${titleHtml}</div>
-        <div class="team-card-meta">
-          <span>开赛 ${fmtTime(cm.start_time)}</span>
-          <span>${Object.keys(cm.matchs || {}).map(pbadge).join(' ')}</span>
-          ${cm.merge_mode?.label ? `<span>合并依据 ${esc(cm.merge_mode.label)}</span>` : ''}
+      <div class="matched-header-layout">
+        <div class="matched-header-home">${homeSlot}</div>
+        <div class="matched-header-center">
+          ${gbadge(gameCode)}
+          <div class="${idBannerClass}" data-merge-cm-id="${cm.id}" title="${esc(idBannerTitle)}">
+            ${renderMatchMergeTarget(cm.id)}
+            <div>
+              <span class="match-id-label">比赛 ID</span>
+              <span class="match-id-value">#${cm.id}</span>
+            </div>
+          </div>
+          <div class="team-card-meta">
+            <span>开赛 ${fmtTime(cm.start_time)}</span>
+            <span>${Object.keys(cm.matchs || {}).map(pbadge).join(' ')}</span>
+            ${cm.merge_mode?.label ? `<span>合并依据 ${esc(cm.merge_mode.label)}</span>` : ''}
+          </div>
         </div>
-      </div>
-      <div class="${idBannerClass}" data-merge-cm-id="${cm.id}" title="${esc(idBannerTitle)}">
-        ${renderMatchMergeTarget(cm.id)}
-        <div>
-          <span class="match-id-label">比赛 ID</span>
-          <span class="match-id-value">#${cm.id}</span>
-        </div>
+        <div class="matched-header-away">${awaySlot}</div>
       </div>
     </div>
     ${tableHtml}
