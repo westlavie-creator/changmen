@@ -189,7 +189,7 @@ fieldset+fieldset {
 }
 
 .date {
-  padding:10px;
+  padding:8px 10px;gap:8px;
 }
 
 fieldset {
