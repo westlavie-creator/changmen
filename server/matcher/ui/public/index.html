@@ -218,6 +218,7 @@
     .matched-header-away .title-team-slot { flex-direction: column; align-items: flex-start; gap: 2px; max-width: 100%; }
     .matched-header-away .title-team-slot { align-items: flex-end; }
     .matched-header-center .team-card-meta { margin-top: 0; }
+    .title-id-row { display: inline-flex; align-items: center; gap: 4px; }
     .title-gb-id { font-family: ui-monospace, monospace; color: #60a5fa; font-weight: 800; font-size: 15px; }
     .title-gb-id.pending { color: #fbbf24; }
     .title-gb-id.missing { color: #64748b; font-weight: 600; }
@@ -1314,7 +1315,7 @@ function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId, cm) {
         data-game-code="${esc(gameCode || 'unknown')}"
         data-canonical-id="${esc(canonVal)}"></button>`
     : '';
-  return `<span class="title-team-slot title-team-${side}">${handle}${gbLabel}${sub}</span>`;
+  return `<span class="title-team-slot title-team-${side}"><span class="title-id-row">${handle}${gbLabel}</span>${sub}</span>`;
 }
 
 function displayClientMatchTitleGbIds(cm, rows, teamMaps, gameCode) {
