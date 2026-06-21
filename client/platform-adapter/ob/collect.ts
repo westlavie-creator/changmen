@@ -254,13 +254,16 @@ export function startObCollector(): () => void {
         const matchPayload = await buildMatchesFromList(list);
         await collect.saveMatch(PLATFORM, matchPayload);
 
+        const { getObMqttMode: _getMode } = await import("./mqttModeSwitch");
+        const isOfficialMode = _getMode().value === "official";
+
         for (const row of list) {
           if (stopped) break;
           const matchId = String(row.id ?? "");
           if (!matchId) continue;
           matchCount += 1;
 
-          unsubscribeObMatchBeforeView(matchId);
+          if (!isOfficialMode) unsubscribeObMatchBeforeView(matchId);
           const gameCode = getGameCodeForPlatformId("OB", String(row.game_id ?? "")) || null;
           const loaded = await loadMarketsForMatch(
             platform,
@@ -274,7 +277,7 @@ export function startObCollector(): () => void {
           if (!loaded.hadError) {
             await collect.saveBets(PLATFORM, matchId, loaded.bets);
           }
-          void subscribeObMatchAfterView(matchId);
+          if (!isOfficialMode) void subscribeObMatchAfterView(matchId);
         }
 
         await syncObLiveTimer(platform);
