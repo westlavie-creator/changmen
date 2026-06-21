@@ -1,11 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="45%" r="55%">
-      <stop offset="0%" stop-color="#ff6b35"/>
-      <stop offset="100%" stop-color="#c41e00"/>
-    </radialGradient>
-  </defs>
-  <circle cx="64" cy="64" r="62" fill="url(#bg)"/>
   <!-- 9 tails fanned behind -->
   <g opacity="0.7">
     <path d="M64 30 Q30 5 20 25" stroke="#ffb347" stroke-width="5" fill="none" stroke-linecap="round"/>

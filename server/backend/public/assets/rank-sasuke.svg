@@ -1,11 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="45%" r="55%">
-      <stop offset="0%" stop-color="#2d3561"/>
-      <stop offset="100%" stop-color="#1a1a2e"/>
-    </radialGradient>
-  </defs>
-  <circle cx="64" cy="64" r="62" fill="url(#bg)"/>
   <!-- hair - spiky black -->
   <path d="M30 55 Q28 30 40 20 Q45 35 50 28 Q52 18 58 15 Q60 25 64 12 Q68 25 70 15 Q76 18 78 28 Q83 35 88 20 Q100 30 98 55 Z" fill="#1a1a2e"/>
   <path d="M32 55 Q34 40 42 32 Q47 42 52 35 Q55 28 60 22 Q62 32 64 20 Q66 32 68 22 Q73 28 76 35 Q81 42 86 32 Q94 40 96 55 Z" fill="#0d0d1a"/>
