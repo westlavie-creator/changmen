@@ -89,7 +89,7 @@ onMounted(async () => {
       return;
     }
   }
-  if (!userStore.isAdmin) {
+  if (!userStore.canAccessAdmin) {
     await router.replace({ name: "home" });
     return;
   }

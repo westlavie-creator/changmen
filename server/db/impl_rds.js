@@ -72,6 +72,8 @@ export {
   writeUserMetadata,
   updateUserName,
   updateUserIsAdmin,
+  updateUserRole,
+  updateUserTeamId,
 } from "./rds/profile_store.js";
 
 export {

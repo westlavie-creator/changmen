@@ -86,7 +86,7 @@ router.beforeEach(async (to) => {
         return { name: "home" };
       }
     }
-    if (!user.isAdmin) return { name: "home" };
+    if (!user.canAccessAdmin) return { name: "home" };
   }
   return true;
 });

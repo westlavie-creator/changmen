@@ -259,6 +259,7 @@ export async function fetchOrdersAdminPage({
   provider,
   pageIndex,
   pageSize,
+  userIds,
 }) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const from = (Math.max(1, pageIndex) - 1) * pageSize;
@@ -270,6 +271,9 @@ export async function fetchOrdersAdminPage({
     if (userId) {
       params.push(String(userId));
       where += ` AND user_id = $${params.length}`;
+    } else if (Array.isArray(userIds) && userIds.length) {
+      params.push(userIds);
+      where += ` AND user_id = ANY($${params.length}::uuid[])`;
     }
     if (provider) {
       params.push(String(provider));
@@ -308,7 +312,7 @@ export async function deleteOrdersByIds(ids) {
 }
 
 /** 管理端：当日全量订单（对阵矩阵，上限 5000 条） */
-export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
+export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000, userIds }) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const cap = Math.min(5000, Math.max(1, Number(limit) || 5000));
   const pool = getPgPool();
@@ -316,6 +320,10 @@ export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000 }) {
   try {
     const params = [dayStart, dayEnd];
     let where = `create_at >= $1 AND create_at < $2`;
+    if (Array.isArray(userIds) && userIds.length) {
+      params.push(userIds);
+      where += ` AND user_id = ANY($${params.length}::uuid[])`;
+    }
     if (provider) {
       params.push(String(provider));
       where += ` AND provider = $${params.length}`;

@@ -18,7 +18,7 @@ onMounted(async () => {
       return;
     }
   }
-  if (!user.isAdmin) {
+  if (!user.canAccessAdmin) {
     await router.replace({ name: "home" });
   }
 });

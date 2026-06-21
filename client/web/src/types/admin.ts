@@ -85,6 +85,8 @@ export interface AdminUserRow {
   id: string;
   userName: string;
   isAdmin?: boolean;
+  role?: "admin" | "leader" | "user";
+  teamId?: string | null;
   isOnline?: number;
   lastActiveAt?: number;
   lastLoginIp?: string;

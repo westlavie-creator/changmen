@@ -10,6 +10,7 @@ import {
 } from "./user_login_meta.js";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 import { lookupOrderLogs, toAdminOrderLogPayload } from "../admin_tools/user_log_lookup.js";
+import { isAdminUser, isLeaderUser, getTeamId } from "./admin_auth.js";
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
@@ -178,6 +179,20 @@ function resolveBettingState(p) {
   };
 }
 
+function resolveVisibleUserIds(caller, allProfiles) {
+  if (!caller || isAdminUser(caller)) return null;
+  const teamId = getTeamId(caller);
+  if (isLeaderUser(caller) && teamId) {
+    return new Set((allProfiles || []).filter((p) => p.team_id === teamId).map((p) => String(p.id)));
+  }
+  return new Set([String(caller.id)]);
+}
+
+function filterProfiles(profiles, visibleIds) {
+  if (!visibleIds) return profiles;
+  return (profiles || []).filter((p) => visibleIds.has(String(p.id)));
+}
+
 function mapAdminUserRow(p, profitByUser = new Map()) {
   const name = String(p.user_name || "");
   const stats = profitByUser.get(name.toLowerCase());
@@ -192,6 +207,8 @@ function mapAdminUserRow(p, profitByUser = new Map()) {
     id,
     userName: name,
     isAdmin: Boolean(p.is_admin),
+    role: p.role || (Boolean(p.is_admin) ? "admin" : "user"),
+    teamId: p.team_id || null,
     isOnline: presence.isOnline,
     lastActiveAt: presence.lastActiveAt,
     ...bettingState,
@@ -207,42 +224,59 @@ function mapAdminUserRow(p, profitByUser = new Map()) {
   };
 }
 
-export async function getAdminDashboard(dateKey = toDateKey(Date.now())) {
-  const [profiles, rank, orderStats] = await Promise.all([
+export async function getAdminDashboard(dateKey = toDateKey(Date.now()), caller = null) {
+  const [allProfiles, rank, orderStats] = await Promise.all([
     sb.fetchProfilesAdmin(),
     listUserProfitRank(dateKey),
     sb.fetchOrdersAdminStats(dateKey),
   ]);
+  const visibleIds = resolveVisibleUserIds(caller, allProfiles);
+  const profiles = filterProfiles(allProfiles, visibleIds);
   const profitByUser = new Map(
     (Array.isArray(rank) ? rank : []).map((r) => [String(r.UserName).toLowerCase(), r]),
   );
   let activeUsersToday = 0;
-  for (const p of profiles || []) {
+  let totalMoney = 0;
+  let totalBetMoney = 0;
+  let orderCount = 0;
+  for (const p of profiles) {
     const name = String(p.user_name || "").toLowerCase();
-    if (profitByUser.has(name) && (profitByUser.get(name)?.Count ?? 0) > 0) {
+    const stats = profitByUser.get(name);
+    if (stats && (stats.Count ?? 0) > 0) {
       activeUsersToday += 1;
+      totalMoney += Number(stats.Money ?? 0) || 0;
+      totalBetMoney += Number(stats.BetMoney ?? 0) || 0;
+      orderCount += Number(stats.Count ?? 0) || 0;
     }
   }
+  const visibleNames = visibleIds
+    ? new Set(profiles.map((p) => String(p.user_name || "").toLowerCase()))
+    : null;
+  const topProfit = (Array.isArray(rank) ? rank : [])
+    .filter((r) => !visibleNames || visibleNames.has(String(r.UserName).toLowerCase()))
+    .slice(0, 5);
   return {
     date: dateKey,
-    userCount: (profiles || []).length,
+    userCount: profiles.length,
     activeUsersToday,
-    orderCount: orderStats.count,
-    totalMoney: orderStats.money,
-    totalBetMoney: orderStats.betMoney,
-    topProfit: (Array.isArray(rank) ? rank : []).slice(0, 5),
+    orderCount: visibleIds ? orderCount : orderStats.count,
+    totalMoney: visibleIds ? totalMoney : orderStats.money,
+    totalBetMoney: visibleIds ? totalBetMoney : orderStats.betMoney,
+    topProfit,
   };
 }
 
-export async function listAdminUsers(dateKey = toDateKey(Date.now())) {
-  const [profiles, rank] = await Promise.all([
+export async function listAdminUsers(dateKey = toDateKey(Date.now()), caller = null) {
+  const [allProfiles, rank] = await Promise.all([
     sb.fetchProfilesAdmin(),
     listUserProfitRank(dateKey),
   ]);
+  const visibleIds = resolveVisibleUserIds(caller, allProfiles);
+  const profiles = filterProfiles(allProfiles, visibleIds);
   const profitByUser = new Map(
     (Array.isArray(rank) ? rank : []).map((r) => [String(r.UserName).toLowerCase(), r]),
   );
-  return (profiles || [])
+  return profiles
     .map((p) => mapAdminUserRow(p, profitByUser))
     .sort((a, b) => b.todayMoney - a.todayMoney);
 }
@@ -347,16 +381,30 @@ function mapAdminOrderRow(r, startIndex = null) {
   };
 }
 
-export async function listAdminOrders(body = {}) {
+export async function listAdminOrders(body = {}, caller = null) {
   const dateKey = body.date ? String(body.date) : toDateKey(Date.now());
   const pageIndex = Math.max(1, Number(body.pageIndex) || 1);
   const pageSize = Math.min(200, Math.max(1, Number(body.pageSize) || 50));
   const userId = body.userId ? String(body.userId) : "";
   const provider = body.provider ? String(body.provider) : "";
+
+  let userIds;
+  if (caller && !isAdminUser(caller)) {
+    const allProfiles = await sb.fetchProfilesAdmin();
+    const visibleIds = resolveVisibleUserIds(caller, allProfiles);
+    if (visibleIds) {
+      if (userId && !visibleIds.has(userId)) {
+        return { date: dateKey, list: [], total: 0, pageIndex, pageSize };
+      }
+      userIds = [...visibleIds];
+    }
+  }
+
   const filter = {
     dateKey,
     userId: userId || undefined,
     provider: provider || undefined,
+    userIds,
   };
   const { rows, total } = await sb.fetchOrdersAdminPage({ ...filter, pageIndex, pageSize });
   const list = (rows || []).map((r) => mapAdminOrderRow(r));
@@ -373,12 +421,21 @@ export async function deleteAdminOrders(body = {}) {
 }
 
 /** 管理端：当日全量订单（对阵矩阵视图） */
-export async function listAdminOrdersMatrix(body = {}) {
+export async function listAdminOrdersMatrix(body = {}, caller = null) {
   const dateKey = body.date ? String(body.date) : toDateKey(Date.now());
   const provider = body.provider ? String(body.provider) : "";
+
+  let userIds;
+  if (caller && !isAdminUser(caller)) {
+    const allProfiles = await sb.fetchProfilesAdmin();
+    const visibleIds = resolveVisibleUserIds(caller, allProfiles);
+    if (visibleIds) userIds = [...visibleIds];
+  }
+
   const filter = {
     dateKey,
     provider: provider || undefined,
+    userIds,
   };
   const [rows, clientMatches] = await Promise.all([
     sb.fetchOrdersAdminAll(filter),
@@ -390,7 +447,7 @@ export async function listAdminOrdersMatrix(body = {}) {
 }
 
 /** 管理端：Link / order_id 关联 Client_SaveUserLog 诊断 */
-export async function listAdminOrderLogs(body = {}) {
+export async function listAdminOrderLogs(body = {}, caller = null) {
   const userId = String(body.userId ?? body.user_id ?? "").trim();
   const linkRaw = body.linkId ?? body.link ?? body.LinkID;
   const orderId = body.orderId ?? body.order_id ?? body.OrderID;
@@ -566,6 +623,45 @@ export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
   if (!ok) throw new Error("更新管理员状态失败");
   await loadProfileById(id);
   return { id, userName: name, isAdmin: wantAdmin ? 1 : 0 };
+}
+
+const VALID_ROLES = ["admin", "leader", "user"];
+
+/** 管理端设置用户角色和团队 */
+export async function setAdminUserRole(userId, role, teamId, operatorUserId) {
+  const id = String(userId || "").trim();
+  if (!id) throw new Error("用户 ID 无效");
+  if (!VALID_ROLES.includes(role)) throw new Error("无效角色，可选：admin / leader / user");
+  const op = String(operatorUserId || "").trim();
+  if (op && id === op && role !== "admin") {
+    throw new Error("不能降低当前登录账号的角色");
+  }
+
+  const row = await sb.fetchProfileById(id);
+  if (!row) throw new Error("用户不存在");
+  const name = String(row.user_name || "");
+  const wasAdmin = Boolean(row.is_admin) || row.role === "admin";
+
+  if (wasAdmin && role !== "admin") {
+    await ensurePgPoolReady();
+    const pool = getPgPool();
+    if (!pool) throw new Error("RDS 未配置");
+    const { rows } = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM users WHERE is_admin = true",
+    );
+    if ((rows[0]?.n ?? 0) <= 1) {
+      throw new Error("至少保留一名管理员");
+    }
+  }
+
+  const roleOk = await sb.updateUserRole(id, role);
+  if (!roleOk) throw new Error("更新角色失败");
+  const tid = teamId !== undefined ? teamId : row.team_id;
+  if (tid !== row.team_id) {
+    await sb.updateUserTeamId(id, tid || null);
+  }
+  await loadProfileById(id);
+  return { id, userName: name, role, teamId: tid || null, isAdmin: role === "admin" ? 1 : 0 };
 }
 
 export async function getPlatformAnalytics(body = {}) {

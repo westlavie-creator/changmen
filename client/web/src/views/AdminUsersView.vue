@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminUserDetail from "@/components/admin/AdminUserDetail.vue";
 import {
@@ -9,7 +9,7 @@ import {
   getAdminUsers,
   renameAdminUser,
   resetAdminUserPassword,
-  setAdminUserAdmin,
+  setAdminUserRole,
 } from "@/api/admin";
 import type { AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
@@ -41,6 +41,17 @@ const renameDialog = ref(false);
 const renameTarget = ref<AdminUserRow | null>(null);
 const renameForm = reactive({ userName: "" });
 const renameLoading = ref(false);
+
+const roleDialog = ref(false);
+const roleTarget = ref<AdminUserRow | null>(null);
+const roleForm = reactive({ role: "user" as string, teamId: "" });
+const roleLoading = ref(false);
+
+const roleOptions = [
+  { label: "普通用户", value: "user" },
+  { label: "团队长", value: "leader" },
+  { label: "管理员", value: "admin" },
+];
 
 const filteredUsers = computed(() => {
   const q = keyword.value.trim().toLowerCase();
@@ -235,24 +246,29 @@ async function submitRename() {
   }
 }
 
-async function toggleAdmin(row: AdminUserRow) {
-  const isAdmin = !row.isAdmin;
-  const label = isAdmin ? "管理员" : "普通用户";
+function openRole(row: AdminUserRow) {
+  roleTarget.value = row;
+  roleForm.role = row.role || (row.isAdmin ? "admin" : "user");
+  roleForm.teamId = row.teamId || "";
+  roleDialog.value = true;
+}
+
+async function submitRole() {
+  if (!roleTarget.value) return;
+  roleLoading.value = true;
   try {
-    await ElMessageBox.confirm(
-      `确认将 ${row.userName} 设为${label}？`,
-      "更改角色",
-      { confirmButtonText: "确认", cancelButtonText: "取消", type: "warning" },
+    await setAdminUserRole(
+      roleTarget.value.id,
+      roleForm.role,
+      roleForm.teamId.trim() || null,
     );
-  } catch {
-    return;
-  }
-  try {
-    await setAdminUserAdmin(row.id, isAdmin);
-    ElMessage.success(`${row.userName} 已设为${label}`);
+    ElMessage.success(`${roleTarget.value.userName} 角色已更新`);
+    roleDialog.value = false;
     await loadUsers();
   } catch (err) {
     ElMessage.error(err instanceof Error ? err.message : "操作失败");
+  } finally {
+    roleLoading.value = false;
   }
 }
 
@@ -270,7 +286,7 @@ onMounted(async () => {
       return;
     }
   }
-  if (!userStore.isAdmin) {
+  if (!userStore.canAccessAdmin) {
     await router.replace({ name: "home" });
     return;
   }
@@ -309,7 +325,7 @@ onUnmounted(() => {
         <span v-if="users.length" class="admin-users-online-hint">
           在线 {{ onlineCount }} / {{ users.length }}
         </span>
-        <el-button size="small" type="primary" @click="openCreate">新建用户</el-button>
+        <el-button v-if="userStore.isAdmin" size="small" type="primary" @click="openCreate">新建用户</el-button>
       </div>
 
       <div class="admin-card__body">
@@ -319,15 +335,18 @@ onUnmounted(() => {
             <div class="admin-user-cell">
               <span class="admin-user-cell__avatar">{{ userInitial(row.userName) }}</span>
               <span>{{ row.userName }}</span>
-              <span v-if="row.isAdmin" class="admin-badge admin-badge--admin">管理员</span>
             </div>
           </template>
         </el-table-column>
         <el-table-column label="角色" width="88" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.isAdmin" type="danger" size="small" effect="dark">管理员</el-tag>
+            <el-tag v-if="row.role === 'admin'" type="danger" size="small" effect="dark">管理员</el-tag>
+            <el-tag v-else-if="row.role === 'leader'" type="success" size="small" effect="dark">团队长</el-tag>
             <el-tag v-else type="info" size="small">用户</el-tag>
           </template>
+        </el-table-column>
+        <el-table-column label="团队" width="88" align="center">
+          <template #default="{ row }">{{ row.teamId || "—" }}</template>
         </el-table-column>
         <el-table-column label="状态" width="88" align="center">
           <template #default="{ row }">
@@ -386,14 +405,9 @@ onUnmounted(() => {
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDetail(row)">详情</el-button>
             <el-button link type="primary" size="small" @click="viewOrders(row)">订单</el-button>
-            <el-button link type="primary" size="small" @click="openRename(row)">改用户名</el-button>
+            <el-button v-if="userStore.isAdmin" link type="primary" size="small" @click="openRename(row)">改用户名</el-button>
             <el-button link type="warning" size="small" @click="openReset(row)">重置密码</el-button>
-            <el-button
-              link
-              :type="row.isAdmin ? 'info' : 'danger'"
-              size="small"
-              @click="toggleAdmin(row)"
-            >{{ row.isAdmin ? '取消管理员' : '设为管理员' }}</el-button>
+            <el-button v-if="userStore.isAdmin" link type="primary" size="small" @click="openRole(row)">设角色</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -472,6 +486,34 @@ onUnmounted(() => {
       <template #footer>
         <el-button @click="renameDialog = false">取消</el-button>
         <el-button type="primary" :loading="renameLoading" @click="submitRename">确认更改</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="roleDialog"
+      class="admin-dialog"
+      :title="roleTarget ? `设置角色 · ${roleTarget.userName}` : '设置角色'"
+      width="400px"
+      destroy-on-close
+    >
+      <el-form label-width="80px" @submit.prevent="submitRole">
+        <el-form-item label="角色" required>
+          <el-select v-model="roleForm.role" style="width: 100%">
+            <el-option
+              v-for="opt in roleOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="团队">
+          <el-input v-model="roleForm.teamId" placeholder="团队标识（如 teamA）" clearable />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="roleDialog = false">取消</el-button>
+        <el-button type="primary" :loading="roleLoading" @click="submitRole">确认</el-button>
       </template>
     </el-dialog>
   </AdminLayout>

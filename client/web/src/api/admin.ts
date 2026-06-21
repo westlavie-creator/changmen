@@ -63,6 +63,20 @@ export async function setAdminUserAdmin(userId: string, isAdmin: boolean) {
   );
 }
 
+export async function setAdminUserRole(
+  userId: string,
+  role: string,
+  teamId?: string | null,
+) {
+  return unwrap(
+    await post<AdminUserMutationResult>("Client_AdminSetUserRole", {
+      userId,
+      role,
+      teamId: teamId ?? null,
+    }),
+  );
+}
+
 export async function createAdminUser(userName: string, password: string) {
   return unwrap(
     await post<AdminUserMutationResult>("Client_AdminCreateUser", { userName, password }),

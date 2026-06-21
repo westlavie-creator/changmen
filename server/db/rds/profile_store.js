@@ -13,7 +13,7 @@ export async function fetchProfiles() {
   const pool = getPgPool();
   if (!pool) return [];
   try {
-    const { rows } = await pool.query(`SELECT p.*, u.is_admin ${PROFILE_WITH_ADMIN_FROM}`);
+    const { rows } = await pool.query(`SELECT p.*, u.is_admin, u.role, u.team_id ${PROFILE_WITH_ADMIN_FROM}`);
     return rows || [];
   } catch (err) {
     console.error("[rds] fetchProfiles 失败:", err.message);
@@ -27,7 +27,7 @@ export async function fetchProfileById(uid) {
   if (!pool) return null;
   try {
     const { rows } = await pool.query(
-      `SELECT p.*, u.is_admin ${PROFILE_WITH_ADMIN_FROM} WHERE p.id = $1`,
+      `SELECT p.*, u.is_admin, u.role, u.team_id ${PROFILE_WITH_ADMIN_FROM} WHERE p.id = $1`,
       [String(uid)],
     );
     return rows[0] || null;
@@ -98,7 +98,7 @@ export async function fetchProfilesAdmin() {
   try {
     const { rows } = await pool.query(
       `SELECT p.id, p.user_name, p.accounts, p.betting_config, p.collect_config, p.preferences,
-              p.created_at, p.updated_at, u.is_admin
+              p.created_at, p.updated_at, u.is_admin, u.role, u.team_id
        ${PROFILE_WITH_ADMIN_FROM}
        ORDER BY p.user_name ASC`,
     );
@@ -177,6 +177,41 @@ export async function updateUserIsAdmin(userId, isAdmin) {
     return rowCount > 0;
   } catch (err) {
     console.warn("[rds] updateUserIsAdmin:", err.message);
+    return false;
+  }
+}
+
+const VALID_ROLES = ["admin", "leader", "user"];
+
+/** 更新用户角色，同步 is_admin */
+export async function updateUserRole(userId, role) {
+  const pool = getPgPool();
+  if (!pool) return false;
+  if (!VALID_ROLES.includes(role)) return false;
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE users SET role = $2, is_admin = $3, updated_at = $4 WHERE id = $1`,
+      [String(userId), role, role === "admin", Date.now()],
+    );
+    return rowCount > 0;
+  } catch (err) {
+    console.warn("[rds] updateUserRole:", err.message);
+    return false;
+  }
+}
+
+/** 更新用户所属团队 */
+export async function updateUserTeamId(userId, teamId) {
+  const pool = getPgPool();
+  if (!pool) return false;
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE users SET team_id = $2, updated_at = $3 WHERE id = $1`,
+      [String(userId), teamId || null, Date.now()],
+    );
+    return rowCount > 0;
+  } catch (err) {
+    console.warn("[rds] updateUserTeamId:", err.message);
     return false;
   }
 }

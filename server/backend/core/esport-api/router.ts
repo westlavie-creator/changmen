@@ -8,7 +8,7 @@ import { handleV4Request } from "./v4_router.js";
 import { handleCommonApi } from "./hg_follow.js";
 import * as accountStore from "../account/account_store.js";
 import * as accountService from "../account/account_service.js";
-import { isAdminUser } from "../account/admin_auth.js";
+import { isAdminUser, canAccessAdminPanel } from "../account/admin_auth.js";
 import { touchUserPresence } from "../account/user_presence.js";
 import { normalizeClientIp, recordUserLastLogin } from "../account/user_login_meta.js";
 import { assertProfileActive } from "../account/admin_service.js";
@@ -44,6 +44,8 @@ export interface EsportUser {
   id: string;
   userName: string;
   isAdmin?: boolean;
+  role?: string;
+  teamId?: string | null;
   setting?: Record<string, unknown>;
 }
 
@@ -59,31 +61,37 @@ const PUBLIC_ACTIONS = new Set<EsportAction>([
   "Client_SaveUserLog",
 ]);
 
-const ADMIN_ACTIONS = new Set<EsportAction>([
+const ADMIN_ONLY_ACTIONS = new Set<EsportAction>([
+  "Client_AdminCreateUser",
+  "Client_AdminSetUserAdmin",
+  "Client_AdminSetUserRole",
+  "Client_AdminDeleteOrders",
+  "Client_AdminPlatformAnalytics",
+  "Client_AdminValueBet",
+]);
+
+const LEADER_ALLOWED_ACTIONS = new Set<EsportAction>([
   "Client_AdminDashboard",
   "Client_AdminUsers",
   "Client_AdminOrders",
   "Client_AdminOrdersMatrix",
   "Client_AdminOrderLogs",
-  "Client_AdminCreateUser",
   "Client_AdminResetPassword",
   "Client_AdminRenameUser",
-  "Client_AdminSetUserAdmin",
-  "Client_AdminDeleteOrders",
   "Client_AdminMonthReport",
-  "Client_AdminPlatformAnalytics",
-  "Client_AdminValueBet",
 ]);
 
-/** ?????? public action ?????admin action ????????*/
 function requireActionAuth(
   action: EsportAction | string,
   ctx: EsportContext,
 ): ApiFailure | null {
   if (PUBLIC_ACTIONS.has(action as EsportAction)) return null;
-  if (!ctx.user) return fail("????");
-  if (ADMIN_ACTIONS.has(action as EsportAction) && !isAdminUser(ctx.user)) {
-    return fail("??????");
+  if (!ctx.user) return fail("未登录");
+  if (ADMIN_ONLY_ACTIONS.has(action as EsportAction) && !isAdminUser(ctx.user)) {
+    return fail("无管理员权限");
+  }
+  if (LEADER_ALLOWED_ACTIONS.has(action as EsportAction) && !canAccessAdminPanel(ctx.user)) {
+    return fail("无管理权限");
   }
   return null;
 }
@@ -272,6 +280,8 @@ async function handle(
         Setting: ctx.user.setting || {},
         CreditPlateUserName: resolveCreditPlateUserName(ctx.user),
         IsAdmin: isAdminUser(ctx.user),
+        Role: ctx.user.role || "user",
+        TeamId: ctx.user.teamId || null,
       });
     }
     case "Client_UpdateSetting": {
@@ -445,21 +455,21 @@ async function handle(
     }
     case "Client_AdminDashboard": {
       const date = body.date ? String(body.date) : undefined;
-      return ok(await adminService.getAdminDashboard(date));
+      return ok(await adminService.getAdminDashboard(date, ctx.user));
     }
     case "Client_AdminUsers": {
       const date = body.date ? String(body.date) : undefined;
-      return ok(await adminService.listAdminUsers(date));
+      return ok(await adminService.listAdminUsers(date, ctx.user));
     }
     case "Client_AdminOrders": {
-      return ok(await adminService.listAdminOrders(body));
+      return ok(await adminService.listAdminOrders(body, ctx.user));
     }
     case "Client_AdminOrdersMatrix": {
-      return ok(await adminService.listAdminOrdersMatrix(body));
+      return ok(await adminService.listAdminOrdersMatrix(body, ctx.user));
     }
     case "Client_AdminOrderLogs": {
       try {
-        return ok(await adminService.listAdminOrderLogs(body));
+        return ok(await adminService.listAdminOrderLogs(body, ctx.user));
       } catch (err) {
         return fail((err as Error).message || "查询失败");
       }
@@ -513,6 +523,20 @@ async function handle(
         );
       } catch (err) {
         return fail((err as Error).message || "?????????");
+      }
+    }
+    case "Client_AdminSetUserRole": {
+      try {
+        return ok(
+          await adminService.setAdminUserRole(
+            (body.userId ?? body.id) as string,
+            body.role as string,
+            (body.teamId ?? null) as string | null,
+            ctx.user.id,
+          ),
+        );
+      } catch (err) {
+        return fail((err as Error).message || "设置失败");
       }
     }
     case "Client_AdminDeleteOrders": {

@@ -42,6 +42,7 @@ export const ESPORT_ACTIONS = [
   "Client_AdminResetPassword",
   "Client_AdminRenameUser",
   "Client_AdminSetUserAdmin",
+  "Client_AdminSetUserRole",
   "Client_AdminDeleteOrders",
   "Client_AdminMonthReport",
   "Client_AdminPlatformAnalytics",

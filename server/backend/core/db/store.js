@@ -28,6 +28,8 @@ function _toProfile(row) {
     id: String(row.id),
     userName: row.user_name,
     isAdmin: Boolean(row.is_admin),
+    role: row.role || (Boolean(row.is_admin) ? "admin" : "user"),
+    teamId: row.team_id || null,
     setting,
   };
 }

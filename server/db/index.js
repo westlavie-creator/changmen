@@ -79,6 +79,8 @@ export const {
   insertProfile,
   updateUserName,
   updateUserIsAdmin,
+  updateUserRole,
+  updateUserTeamId,
   writeAccounts,
   writeClientMatches,
   writeClientMatchesAsync,

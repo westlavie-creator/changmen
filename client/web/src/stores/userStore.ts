@@ -38,10 +38,14 @@ export const useUserStore = defineStore("user", {
     follow: null as FollowConfig | null,
     extrasLoaded: false,
     isAdmin: false,
+    role: "user" as "admin" | "leader" | "user",
+    teamId: null as string | null,
   }),
 
   getters: {
     isLoggedIn: () => Boolean(getToken()),
+    isLeader: (state) => state.role === "leader",
+    canAccessAdmin: (state) => state.isAdmin || state.role === "leader",
 
     displayName(state): string {
       return state.hiddenUserName ? String(state.userId || "—") : state.userName;
@@ -82,6 +86,9 @@ export const useUserStore = defineStore("user", {
         this.userName = info.UserName;
         this.setting = info.Setting ?? {};
         this.isAdmin = info.IsAdmin === true || info.IsAdmin === 1;
+        const raw = info as unknown as Record<string, unknown>;
+        this.role = (raw.Role as "admin" | "leader" | "user") || "user";
+        this.teamId = (raw.TeamId as string) || null;
         const cp = info.CreditPlateUserName?.trim();
         if (cp) this.creditPlateUserName = cp;
         await this.loadExtras();
@@ -133,6 +140,8 @@ export const useUserStore = defineStore("user", {
       this.follow = null;
       this.extrasLoaded = false;
       this.isAdmin = false;
+      this.role = "user";
+      this.teamId = null;
       this.ready = false;
       localStorage.removeItem(USER_KEY);
     },

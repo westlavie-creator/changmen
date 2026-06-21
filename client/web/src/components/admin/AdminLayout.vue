@@ -42,6 +42,13 @@ const navItems = [
   },
 ];
 
+const ADMIN_ONLY_NAV = new Set(["admin-analytics", "admin-health", "admin-value-bet"]);
+
+const visibleNavItems = computed(() => {
+  if (user.isAdmin) return navItems;
+  return navItems.filter((item) => !ADMIN_ONLY_NAV.has(item.name));
+});
+
 const activeTab = computed(() => String(route.name || ""));
 
 async function logout() {
@@ -101,7 +108,7 @@ function onAdminWheel(e: WheelEvent) {
 
       <nav class="admin-shell__nav" aria-label="后台导航">
         <router-link
-          v-for="item in navItems"
+          v-for="item in visibleNavItems"
           :key="item.name"
           :to="item.to"
           class="admin-shell__nav-item"
@@ -131,6 +138,7 @@ function onAdminWheel(e: WheelEvent) {
           <div class="admin-shell__user">
             <span class="admin-shell__user-name">{{ user.userName }}</span>
             <el-tag v-if="user.isAdmin" size="small" type="warning" effect="dark">管理员</el-tag>
+            <el-tag v-else-if="user.isLeader" size="small" type="success" effect="dark">团队长</el-tag>
             <el-button size="small" type="info" plain @click="logout">退出</el-button>
           </div>
         </div>
