@@ -28,7 +28,8 @@ const emit = defineEmits<{
   normalizeGameOdds: [gameName: string];
 }>();
 
-const form = defineModel<AccountEditFormState>("form", { required: true });
+// eslint-disable-next-line prefer-const -- defineModel ref is not reassigned, but Vue compiler requires `let`
+let form = defineModel<AccountEditFormState>("form", { required: true });
 
 const gameShow = ref(props.gameExpanded ?? false);
 

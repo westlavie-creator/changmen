@@ -19,7 +19,8 @@ const emit = defineEmits<{
   "update:autoOpenDate": [Date | null];
 }>();
 
-const form = defineModel<UserConfigFormState>("form", { required: true });
+// eslint-disable-next-line prefer-const -- defineModel ref is not reassigned, but Vue compiler requires `let` for v-model
+let form = defineModel<UserConfigFormState>("form", { required: true });
 
 const LABEL_W = USER_CONFIG_LABEL_W;
 const sortingLabels = BET_SORTING_LABELS;
