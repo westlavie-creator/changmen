@@ -38,6 +38,7 @@ import {
   canonicalMatchKeyByName,
   setTeamPlugin,
   lookupGbTeamIdByPlatform,
+  lookupGbTeamIdByName,
   lookupCanonicalTeamName,
 } from "../teams/team_key.js";
 import {
@@ -562,43 +563,47 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
     const prev = rowId ? locked[rowId] : null;
     const prevSet = prev ? new Set(prev) : null;
 
-    // 第一遍：按队名分类，收集可信平台用于构建 refCanonIds
-    const nameResults = {};
+    // 收集各平台的 platform_match 和队名匹配结果
+    const platformEntries = {};
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
       if (!pm) continue;
-      const mode = sideAlignmentMode(
+      const nameMode = sideAlignmentMode(
         pm.Home ?? pm.home, pm.Away ?? pm.away, teams.home, teams.away,
       );
-      nameResults[platform] = { mode, sourceMatchId, pm };
+      platformEntries[platform] = { nameMode, sourceMatchId, pm };
     }
 
-    // 从队名已确定的平台（aligned 或 reversed）中取 canonical ID 参考
-    const nameResolved = Object.entries(nameResults)
-      .filter(([, v]) => v.mode === "aligned" || v.mode === "reversed")
-      .map(([platform, v]) => ({ platform, sourceMatchId: v.sourceMatchId, reversed: v.mode === "reversed" }));
-    const refIds = resolveRefCanonIds(nameResolved, matches);
+    // 构建 refCanonIds：
+    // 1. 优先从队名已确定的平台取（最可靠）
+    const nameResolved = Object.entries(platformEntries)
+      .filter(([, v]) => v.nameMode === "aligned" || v.nameMode === "reversed")
+      .map(([platform, v]) => ({ platform, sourceMatchId: v.sourceMatchId, reversed: v.nameMode === "reversed" }));
+    let refIds = resolveRefCanonIds(nameResolved, matches);
+    // 2. 队名全 ambiguous 时，从 Title 队名直接查 canonical_teams 获取 ID
+    if (!refIds) {
+      const homeGb = lookupGbTeamIdByName(teams.home);
+      const awayGb = lookupGbTeamIdByName(teams.away);
+      if (homeGb && awayGb) refIds = { home: homeGb, away: awayGb };
+    }
 
-    // 第二遍：已锁定的平台沿用，新平台计算
+    // 每个平台判定：已锁定沿用，新平台先查 ID 再降级队名
     const reverse = [];
     const ambiguousPlatforms = [];
-    for (const [platform, { mode: nameMode, pm }] of Object.entries(nameResults)) {
-      // 该平台在上次 Reverse 中已有记录（prevSet 存在且已包含该平台的判定）
+    for (const [platform, { nameMode, pm }] of Object.entries(platformEntries)) {
+      // 老平台：沿用上次锁定的判定
       if (prevSet) {
         if (prevSet.has(platform)) {
           reverse.push(platform);
           continue;
         }
-        // prevSet 存在但不含该平台 — 可能是已确定为 aligned 的老平台，
-        // 也可能是新加入的平台。检查上次 Matchs 是否包含该平台来区分。
         const prevMatchs = locked._matchs?.[rowId];
         if (prevMatchs && prevMatchs[platform]) {
-          // 老平台，上次判定为 aligned，沿用
           continue;
         }
-        // 新平台，走正常计算
       }
 
+      // 新平台：优先 gb_team_id，ID 不可用时降级队名
       const idMode = refIds ? sideAlignmentByCanonicalId(platform, pm, refIds) : "ambiguous";
       const finalMode = idMode !== "ambiguous" ? idMode : nameMode;
       if (finalMode === "reversed") {

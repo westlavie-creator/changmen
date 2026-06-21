@@ -70,6 +70,7 @@ export async function loadAndCreatePlugin() {
     }
   }
 
+  const nameOnlyMap = new Map();
   for (const team of allTeams) {
     if (team.gb_team_id == null) continue;
     const g = team.game;
@@ -79,7 +80,10 @@ export async function loadAndCreatePlugin() {
     );
     if (!displayName) continue;
     const nameKey = _norm(displayName);
-    if (nameKey) nameMap.set(`${g}:${nameKey}`, String(team.id));
+    if (nameKey) {
+      nameMap.set(`${g}:${nameKey}`, String(team.id));
+      if (!nameOnlyMap.has(nameKey)) nameOnlyMap.set(nameKey, String(team.gb_team_id));
+    }
   }
 
   console.log(
@@ -120,5 +124,9 @@ export async function loadAndCreatePlugin() {
     });
   }
 
-  return { lookupByName, lookupById, lookupCanonicalName, saveMapping };
+  function lookupGbTeamIdByNormalizedName(normalizedName) {
+    return nameOnlyMap.get(normalizedName) || null;
+  }
+
+  return { lookupByName, lookupById, lookupCanonicalName, lookupGbTeamIdByNormalizedName, saveMapping };
 }

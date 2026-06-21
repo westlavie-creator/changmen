@@ -158,6 +158,16 @@ function classifyMergeBasis(home, away, gameCode, ctx) {
   return "name";
 }
 
+function lookupGbTeamIdByName(teamName) {
+  const normalized = normalizeTeam(teamName);
+  if (!normalized) return null;
+  if (!_teamPlugin) return null;
+  if (typeof _teamPlugin.lookupGbTeamIdByNormalizedName === "function") {
+    return _teamPlugin.lookupGbTeamIdByNormalizedName(normalized) || null;
+  }
+  return null;
+}
+
 export {
   normalizeTeam,
   canonicalMatchKey,
@@ -166,5 +176,6 @@ export {
   classifyMergeBasis,
   setTeamPlugin,
   lookupGbTeamIdByPlatform,
+  lookupGbTeamIdByName,
   lookupCanonicalTeamName,
 };
