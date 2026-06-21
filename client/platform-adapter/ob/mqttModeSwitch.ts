@@ -3,9 +3,7 @@
  * 同一时刻只有一种模式在工作。
  */
 import { ref } from "vue";
-import { connectObMqtt, disconnectObMqtt } from "./mqtt";
 import { startObGlobalMqtt, stopObGlobalMqtt, isObGlobalMqttConnected } from "./globalMqtt";
-import { useMatchStore } from "@/stores/matchStore";
 
 export type ObMqttMode = "a8" | "official";
 
@@ -26,15 +24,13 @@ export async function switchObMqttMode(target: ObMqttMode): Promise<void> {
 
   try {
     if (target === "official") {
-      disconnectObMqtt();
       startObGlobalMqtt();
       currentMode.value = "official";
-      console.info("[OB MQTT] switched to official (global) mode");
+      console.info("[OB MQTT] switched to official (global + per-match, no unsub rotation)");
     } else {
       stopObGlobalMqtt();
-      connectObMqtt(() => useMatchStore().refreshOddsOnBets());
       currentMode.value = "a8";
-      console.info("[OB MQTT] switched to A8 (per-match) mode");
+      console.info("[OB MQTT] switched to A8 (per-match only, with unsub rotation)");
     }
   } finally {
     switching.value = false;
