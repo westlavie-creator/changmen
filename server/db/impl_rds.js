@@ -74,6 +74,9 @@ export {
   updateUserIsAdmin,
   updateUserRole,
   updateUserTeamId,
+  fetchTeams,
+  upsertTeam,
+  deleteTeam,
 } from "./rds/profile_store.js";
 
 export {

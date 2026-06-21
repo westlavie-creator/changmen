@@ -68,6 +68,9 @@ const ADMIN_ONLY_ACTIONS = new Set<EsportAction>([
   "Client_AdminDeleteOrders",
   "Client_AdminPlatformAnalytics",
   "Client_AdminValueBet",
+  "Client_AdminTeams",
+  "Client_AdminUpsertTeam",
+  "Client_AdminDeleteTeam",
 ]);
 
 const LEADER_ALLOWED_ACTIONS = new Set<EsportAction>([
@@ -537,6 +540,23 @@ async function handle(
         );
       } catch (err) {
         return fail((err as Error).message || "设置失败");
+      }
+    }
+    case "Client_AdminTeams": {
+      return ok(await adminService.listTeams());
+    }
+    case "Client_AdminUpsertTeam": {
+      try {
+        return ok(await adminService.upsertTeam(body.id as string, body.name as string));
+      } catch (err) {
+        return fail((err as Error).message || "保存团队失败");
+      }
+    }
+    case "Client_AdminDeleteTeam": {
+      try {
+        return ok(await adminService.deleteTeam((body.id ?? body.teamId) as string));
+      } catch (err) {
+        return fail((err as Error).message || "删除团队失败");
       }
     }
     case "Client_AdminDeleteOrders": {

@@ -664,6 +664,31 @@ export async function setAdminUserRole(userId, role, teamId, operatorUserId) {
   return { id, userName: name, role, teamId: tid || null, isAdmin: role === "admin" ? 1 : 0 };
 }
 
+/** 管理端：团队列表 */
+export async function listTeams() {
+  return sb.fetchTeams();
+}
+
+/** 管理端：创建或更新团队 */
+export async function upsertTeam(id, name) {
+  const tid = String(id || "").trim();
+  if (!tid) throw new Error("团队 ID 必填");
+  const tname = String(name || "").trim();
+  if (!tname) throw new Error("团队名称必填");
+  const ok = await sb.upsertTeam(tid, tname);
+  if (!ok) throw new Error("保存团队失败");
+  return { id: tid, name: tname };
+}
+
+/** 管理端：删除团队（users.team_id ON DELETE SET NULL 自动清空） */
+export async function deleteTeam(id) {
+  const tid = String(id || "").trim();
+  if (!tid) throw new Error("团队 ID 必填");
+  const ok = await sb.deleteTeam(tid);
+  if (!ok) throw new Error("删除团队失败或不存在");
+  return { id: tid };
+}
+
 export async function getPlatformAnalytics(body = {}) {
   let startMs, endMs;
   if (body.startMs && body.endMs) {

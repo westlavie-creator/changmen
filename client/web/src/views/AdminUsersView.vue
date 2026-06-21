@@ -7,10 +7,14 @@ import AdminUserDetail from "@/components/admin/AdminUserDetail.vue";
 import {
   createAdminUser,
   getAdminUsers,
+  getTeams,
+  upsertTeam,
+  deleteTeam as apiDeleteTeam,
   renameAdminUser,
   resetAdminUserPassword,
   setAdminUserRole,
 } from "@/api/admin";
+import type { TeamRow } from "@/api/admin";
 import type { AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
 import {
@@ -52,6 +56,11 @@ const roleOptions = [
   { label: "团队长", value: "leader" },
   { label: "管理员", value: "admin" },
 ];
+
+const teams = ref<TeamRow[]>([]);
+const teamDialog = ref(false);
+const teamForm = reactive({ id: "", name: "" });
+const teamLoading = ref(false);
 
 const filteredUsers = computed(() => {
   const q = keyword.value.trim().toLowerCase();
@@ -272,6 +281,54 @@ async function submitRole() {
   }
 }
 
+async function loadTeams() {
+  try {
+    teams.value = await getTeams();
+  } catch { /* ignore */ }
+}
+
+function openTeamDialog(team?: TeamRow) {
+  teamForm.id = team?.id || "";
+  teamForm.name = team?.name || "";
+  teamDialog.value = true;
+}
+
+async function submitTeam() {
+  const id = teamForm.id.trim();
+  const name = teamForm.name.trim();
+  if (!id || !name) {
+    ElMessage.warning("团队 ID 和名称必填");
+    return;
+  }
+  teamLoading.value = true;
+  try {
+    await upsertTeam(id, name);
+    ElMessage.success(`团队 ${name} 已保存`);
+    teamDialog.value = false;
+    await loadTeams();
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "保存失败");
+  } finally {
+    teamLoading.value = false;
+  }
+}
+
+async function removeTeam(id: string) {
+  try {
+    await apiDeleteTeam(id);
+    ElMessage.success("团队已删除");
+    await Promise.all([loadTeams(), loadUsers()]);
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "删除失败");
+  }
+}
+
+function teamName(teamId: string | null | undefined): string {
+  if (!teamId) return "—";
+  const t = teams.value.find((t) => t.id === teamId);
+  return t ? t.name : teamId;
+}
+
 watch(date, () => {
   void loadUsers();
 });
@@ -290,7 +347,7 @@ onMounted(async () => {
     await router.replace({ name: "home" });
     return;
   }
-  await loadUsers();
+  await Promise.all([loadUsers(), loadTeams()]);
   refreshTimer = setInterval(() => {
     void loadUsers();
   }, 30_000);
@@ -326,6 +383,7 @@ onUnmounted(() => {
           在线 {{ onlineCount }} / {{ users.length }}
         </span>
         <el-button v-if="userStore.isAdmin" size="small" type="primary" @click="openCreate">新建用户</el-button>
+        <el-button v-if="userStore.isAdmin" size="small" @click="openTeamDialog()">管理团队</el-button>
       </div>
 
       <div class="admin-card__body">
@@ -345,8 +403,8 @@ onUnmounted(() => {
             <el-tag v-else type="info" size="small">用户</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="团队" width="88" align="center">
-          <template #default="{ row }">{{ row.teamId || "—" }}</template>
+        <el-table-column label="团队" width="100" align="center">
+          <template #default="{ row }">{{ teamName(row.teamId) }}</template>
         </el-table-column>
         <el-table-column label="状态" width="88" align="center">
           <template #default="{ row }">
@@ -508,13 +566,48 @@ onUnmounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="团队">
-          <el-input v-model="roleForm.teamId" placeholder="团队标识（如 teamA）" clearable />
+          <el-select v-model="roleForm.teamId" clearable placeholder="无团队" style="width: 100%">
+            <el-option v-for="t in teams" :key="t.id" :label="t.name" :value="t.id" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="roleDialog = false">取消</el-button>
         <el-button type="primary" :loading="roleLoading" @click="submitRole">确认</el-button>
       </template>
+    </el-dialog>
+    <el-dialog
+      v-model="teamDialog"
+      class="admin-dialog"
+      title="管理团队"
+      width="480px"
+      destroy-on-close
+    >
+      <el-table :data="teams" size="small" style="margin-bottom: 16px">
+        <el-table-column prop="id" label="团队 ID" width="120" />
+        <el-table-column prop="name" label="团队名称" />
+        <el-table-column label="" width="120" align="right">
+          <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="openTeamDialog(row)">编辑</el-button>
+            <el-popconfirm title="确认删除？成员将自动移出团队" @confirm="removeTeam(row.id)">
+              <template #reference>
+                <el-button link type="danger" size="small">删除</el-button>
+              </template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-form :inline="true" @submit.prevent="submitTeam">
+        <el-form-item label="ID">
+          <el-input v-model="teamForm.id" size="small" style="width: 100px" placeholder="team1" />
+        </el-form-item>
+        <el-form-item label="名称">
+          <el-input v-model="teamForm.name" size="small" style="width: 120px" placeholder="团队名" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" size="small" :loading="teamLoading" @click="submitTeam">保存</el-button>
+        </el-form-item>
+      </el-form>
     </el-dialog>
   </AdminLayout>
 </template>

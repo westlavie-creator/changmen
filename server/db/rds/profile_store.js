@@ -215,3 +215,46 @@ export async function updateUserTeamId(userId, teamId) {
     return false;
   }
 }
+
+// ── teams 表 CRUD ──────────────────────────────────────────────────
+
+export async function fetchTeams() {
+  const pool = getPgPool();
+  if (!pool) return [];
+  try {
+    const { rows } = await pool.query("SELECT * FROM teams ORDER BY name ASC");
+    return rows || [];
+  } catch (err) {
+    console.warn("[rds] fetchTeams:", err.message);
+    return [];
+  }
+}
+
+export async function upsertTeam(id, name) {
+  const pool = getPgPool();
+  if (!pool) return false;
+  const now = Date.now();
+  try {
+    await pool.query(
+      `INSERT INTO teams (id, name, created_at, updated_at) VALUES ($1, $2, $3, $3)
+       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, updated_at = EXCLUDED.updated_at`,
+      [String(id), String(name), now],
+    );
+    return true;
+  } catch (err) {
+    console.warn("[rds] upsertTeam:", err.message);
+    return false;
+  }
+}
+
+export async function deleteTeam(id) {
+  const pool = getPgPool();
+  if (!pool) return false;
+  try {
+    const { rowCount } = await pool.query("DELETE FROM teams WHERE id = $1", [String(id)]);
+    return rowCount > 0;
+  } catch (err) {
+    console.warn("[rds] deleteTeam:", err.message);
+    return false;
+  }
+}

@@ -77,6 +77,25 @@ export async function setAdminUserRole(
   );
 }
 
+export interface TeamRow {
+  id: string;
+  name: string;
+  created_at?: number;
+  updated_at?: number;
+}
+
+export async function getTeams(): Promise<TeamRow[]> {
+  return unwrap(await post<TeamRow[]>("Client_AdminTeams", {}));
+}
+
+export async function upsertTeam(id: string, name: string) {
+  return unwrap(await post<TeamRow>("Client_AdminUpsertTeam", { id, name }));
+}
+
+export async function deleteTeam(id: string) {
+  return unwrap(await post<{ id: string }>("Client_AdminDeleteTeam", { id }));
+}
+
 export async function createAdminUser(userName: string, password: string) {
   return unwrap(
     await post<AdminUserMutationResult>("Client_AdminCreateUser", { userName, password }),
