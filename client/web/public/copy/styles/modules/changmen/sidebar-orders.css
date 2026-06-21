@@ -35,9 +35,7 @@
   background: #67c23a;
 }
 
-.orders legend.success::before {
-  content: "+";
-}
+/* [changmen 扩展] + 号移至 orderLinkLegend 文本层，避免 9999 单边 linkId 前缀时错位 */
 
 .orders legend.fail {
   background: #f56c6c;

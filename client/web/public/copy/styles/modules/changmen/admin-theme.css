@@ -972,9 +972,7 @@ html.admin-route #app > * {
 .admin-order-link__legend--success {
   background: #67c23a;
 }
-.admin-order-link__legend--success::before {
-  content: "+";
-}
+/* [changmen 扩展] + 号移至文本层 */
 .admin-order-link__legend--fail {
   background: #f56c6c;
 }
