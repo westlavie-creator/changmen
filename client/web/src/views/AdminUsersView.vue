@@ -150,8 +150,6 @@ const onlineCount = computed(
   () => filteredUsers.value.filter((u) => Number(u.isOnline) === 1).length,
 );
 
-let refreshTimer: ReturnType<typeof setInterval> | null = null;
-
 function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
 }
@@ -374,13 +372,9 @@ onMounted(async () => {
     return;
   }
   await Promise.all([loadUsers(), loadTeams()]);
-  refreshTimer = setInterval(() => {
-    void loadUsers();
-  }, 30_000);
 });
 
 onUnmounted(() => {
-  if (refreshTimer) clearInterval(refreshTimer);
   unmountAdminUserWorkspace();
 });
 </script>
@@ -422,7 +416,7 @@ onUnmounted(() => {
             <el-tag size="small" type="info">{{ group.users.length }} 人</el-tag>
           </div>
           <el-table :data="group.users" size="small" stripe class="admin-users-table">
-          <el-table-column prop="userName" label="用户名" min-width="120">
+          <el-table-column prop="userName" label="用户名" width="100">
             <template #default="{ row }">
               <div class="admin-user-cell">
                 <span class="admin-user-cell__avatar">{{ userInitial(row.userName) }}</span>
