@@ -15,13 +15,16 @@
  */
 
 function assertBetRef(ref) {
-  if (!ref || typeof ref !== "object") throw new Error("betRef required");
-  const missing = ["platform", "matchId", "marketId", "oddsId"].filter((k) => !ref[k]);
-  if (missing.length) throw new Error(`betRef missing: ${missing.join(", ")}`);
+  if (!ref || typeof ref !== "object")
+    throw new Error("betRef required");
+  const missing = ["platform", "matchId", "marketId", "oddsId"].filter(k => !ref[k]);
+  if (missing.length)
+    throw new Error(`betRef missing: ${missing.join(", ")}`);
   if (ref.odds == null || Number.isNaN(Number(ref.odds))) {
     throw new Error("betRef.odds required");
   }
-  if (ref.locked) throw new Error("盘口已锁，无法下单");
+  if (ref.locked)
+    throw new Error("盘口已锁，无法下单");
   return ref;
 }
 
@@ -88,7 +91,8 @@ function attachImtMatchBetRefs(detail, matchId, gameCode) {
 }
 
 function aggregatorStageBetRefs(stage, matchId, gameCode, platform) {
-  if (!stage?.winMarketId) return { winHomeRef: null, winAwayRef: null };
+  if (!stage?.winMarketId)
+    return { winHomeRef: null, winAwayRef: null };
   const base = {
     platform: String(platform),
     gameCode,
@@ -124,8 +128,9 @@ function aggregatorStageBetRefs(stage, matchId, gameCode, platform) {
 }
 
 function attachAggregatorMatchBetRefs(detail, matchId, gameCode, platform) {
-  if (!detail?.stages?.length) return detail;
-  detail.stages = detail.stages.map((stage) => ({
+  if (!detail?.stages?.length)
+    return detail;
+  detail.stages = detail.stages.map(stage => ({
     ...stage,
     ...aggregatorStageBetRefs(stage, matchId, gameCode, platform),
   }));
@@ -141,22 +146,22 @@ function attachSabaMatchBetRefs(detail, matchId, gameCode) {
 }
 
 export {
-  assertBetRef,
-  createBetRef,
-  obStageBetRefs,
-  attachObMatchBetRefs,
-  rayStageBetRefs,
-  attachRayMatchBetRefs,
-  pbStageBetRefs,
-  attachPbMatchBetRefs,
-  tfStageBetRefs,
-  attachTfMatchBetRefs,
-  iaStageBetRefs,
-  attachIaMatchBetRefs,
-  imtStageBetRefs,
-  attachImtMatchBetRefs,
   aggregatorStageBetRefs,
+  assertBetRef,
   attachAggregatorMatchBetRefs,
-  sabaStageBetRefs,
+  attachIaMatchBetRefs,
+  attachImtMatchBetRefs,
+  attachObMatchBetRefs,
+  attachPbMatchBetRefs,
+  attachRayMatchBetRefs,
   attachSabaMatchBetRefs,
+  attachTfMatchBetRefs,
+  createBetRef,
+  iaStageBetRefs,
+  imtStageBetRefs,
+  obStageBetRefs,
+  pbStageBetRefs,
+  rayStageBetRefs,
+  sabaStageBetRefs,
+  tfStageBetRefs,
 };

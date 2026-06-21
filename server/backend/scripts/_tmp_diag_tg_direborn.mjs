@@ -1,13 +1,13 @@
+import {
+  isCreateAtPlaceholderLink,
+  isPbHashOrder,
+  shouldFireOrderBoundHook,
+} from "@changmen/db";
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 
 loadChangmenEnv();
 
 const { getPgPool } = await import("@changmen/db");
-import {
-  isPbHashOrder,
-  isCreateAtPlaceholderLink,
-  shouldFireOrderBoundHook,
-} from "@changmen/db";
 
 const pool = getPgPool();
 const { rows: users } = await pool.query(

@@ -1,16 +1,18 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { buildClientMatchList } from "../merge/match_merge.js";
 
-const src = (p, b) => ({
-  Type: p,
-  BetID: String(b.SourceBetID),
-  HomeID: String(b.SourceHomeID),
-  AwayID: String(b.SourceAwayID),
-  HomeOdds: b.HomeOdds,
-  AwayOdds: b.AwayOdds,
-  Status: b.Status,
-});
+function src(p, b) {
+  return {
+    Type: p,
+    BetID: String(b.SourceBetID),
+    HomeID: String(b.SourceHomeID),
+    AwayID: String(b.SourceAwayID),
+    HomeOdds: b.HomeOdds,
+    AwayOdds: b.AwayOdds,
+    Status: b.Status,
+  };
+}
 
 function baseMatch(provider, sourceId, home, away) {
   return {
@@ -98,13 +100,13 @@ test("promote: RAY final-only fills Map=5 when Round=5 (OB has native map5)", ()
   });
   assert.equal(list.length, 1);
 
-  const map5 = list[0].Bets.find((b) => b.Map === 5);
+  const map5 = list[0].Bets.find(b => b.Map === 5);
   assert.ok(map5, "Map=5 row exists");
   assert.equal(map5.Sources.OB?.BetID, "ob-map5");
   assert.equal(map5.Sources.RAY?.BetID, "ray-final");
   assert.equal(list[0].Round, 5);
 
-  const map0 = list[0].Bets.find((b) => b.Map === 0);
+  const map0 = list[0].Bets.find(b => b.Map === 0);
   assertMapZeroObOnly(map0);
   assert.equal(map0.Sources.OB.HomeOdds, 1.9);
   assert.equal(map5.Sources.OB?.Status, "Normal");
@@ -168,7 +170,7 @@ test("promote: skips RAY when native Map=5 exists", () => {
   };
 
   const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
-  const map5 = list[0].Bets.find((b) => b.Map === 5);
+  const map5 = list[0].Bets.find(b => b.Map === 5);
   assert.equal(map5.Sources.RAY?.BetID, "ray-map5");
 });
 
@@ -230,8 +232,8 @@ test("live Round=3 on BO5: Map=0 OB-only, no promote to Map=3", () => {
   };
 
   const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
-  const map0 = list[0].Bets.find((b) => b.Map === 0);
-  const map3 = list[0].Bets.find((b) => b.Map === 3);
+  const map0 = list[0].Bets.find(b => b.Map === 0);
+  const map3 = list[0].Bets.find(b => b.Map === 3);
   assert.equal(list[0].Round, 3);
   assertMapZeroObOnly(map0);
   assert.equal(map0.Sources.RAY, undefined);
@@ -281,7 +283,7 @@ test("promote: no-op when Round=0", () => {
   const timers = { OB: { provider: "OB", timer: [] } };
 
   const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
-  const map5 = list[0].Bets.find((b) => b.Map === 5);
+  const map5 = list[0].Bets.find(b => b.Map === 5);
   assert.equal(list[0].Round, 0);
   assert.equal(map5?.Sources?.RAY, undefined);
 });
@@ -367,12 +369,12 @@ test("promote: IA full + settled Map1/2 fills Map=3 on BO3 decider (no native Ma
   assert.equal(list.length, 1);
   assert.equal(list[0].Round, 3);
 
-  const map3 = list[0].Bets.find((b) => b.Map === 3);
+  const map3 = list[0].Bets.find(b => b.Map === 3);
   assert.ok(map3, "Map=3 row exists");
   assert.equal(map3.Sources.OB?.BetID, "ob-map3");
   assert.equal(map3.Sources.IA?.BetID, "ia-full", "IA series winner promoted to Map=3");
 
-  const map0 = list[0].Bets.find((b) => b.Map === 0);
+  const map0 = list[0].Bets.find(b => b.Map === 0);
   assertMapZeroObOnly(map0);
   assert.equal(map0.Sources.OB.BetID, "ob-full");
   assert.equal(map0.Sources.IA, undefined, "IA trimmed from Map=0 after promote");
@@ -448,8 +450,8 @@ test("decider: Map=0 OB-only when Round=BO (A8 95694 shape)", () => {
   };
 
   const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
-  const map0 = list[0].Bets.find((b) => b.Map === 0);
-  const map3 = list[0].Bets.find((b) => b.Map === 3);
+  const map0 = list[0].Bets.find(b => b.Map === 0);
+  const map3 = list[0].Bets.find(b => b.Map === 3);
 
   assertMapZeroObOnly(map0);
   assert.equal(map0.Sources.IA, undefined);
@@ -515,7 +517,7 @@ test("promote: skips IA when native Map=3 exists", () => {
   };
 
   const list = buildClientMatchList({ matches, bets, timers, sourceFromBet: src });
-  const map3 = list[0].Bets.find((b) => b.Map === 3);
+  const map3 = list[0].Bets.find(b => b.Map === 3);
   assert.equal(map3?.Sources?.IA?.BetID, "ia-map3");
 });
 
@@ -592,7 +594,7 @@ test("promote: BO3 decider aligns RAY final to Title when OB home/away reversed 
   assert.ok(list[0].Reverse.includes("RAY"));
   assert.ok(!list[0].Reverse.includes("OB"));
 
-  const map3 = list[0].Bets.find((b) => b.Map === 3);
+  const map3 = list[0].Bets.find(b => b.Map === 3);
   assert.ok(map3?.Sources?.OB, "OB native map3");
   assert.ok(map3?.Sources?.RAY, "RAY final promoted to map3");
 
@@ -703,15 +705,15 @@ test("live Round=2, OB no Map=0: keep Map=0 row with empty Sources and Initial o
   assert.equal(list.length, 1);
   assert.equal(list[0].Round, 2);
 
-  const map0 = list[0].Bets.find((b) => b.Map === 0);
+  const map0 = list[0].Bets.find(b => b.Map === 0);
   assert.ok(map0, "Map=0 row kept when OB has no full-match market");
   assert.deepEqual(map0.Sources, {});
   assert.equal(map0.InitialHomeOdds, 1.02);
   assert.equal(map0.InitialAwayOdds, 12.52);
 
-  const map2 = list[0].Bets.find((b) => b.Map === 2);
+  const map2 = list[0].Bets.find(b => b.Map === 2);
   assert.ok(map2?.Sources?.OB);
   assert.ok(map2?.Sources?.IA);
   assert.ok(map2?.Sources?.RAY);
-  assert.deepEqual(list[0].Bets.map((b) => b.Map), [0, 1, 2]);
+  assert.deepEqual(list[0].Bets.map(b => b.Map), [0, 1, 2]);
 });

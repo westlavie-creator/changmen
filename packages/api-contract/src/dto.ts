@@ -2,18 +2,18 @@ import type { ApiEnvelope } from "./envelope.js";
 
 export type { ApiEnvelope };
 
-export type PlatformId =
-  | "OB"
-  | "RAY"
-  | "TF"
-  | "IA"
-  | "SABA"
-  | "PB"
-  | "IM"
-  | "IMT"
-  | "HG"
-  | "Stake"
-  | "XBet";
+export type PlatformId
+  = | "OB"
+    | "RAY"
+    | "TF"
+    | "IA"
+    | "SABA"
+    | "PB"
+    | "IM"
+    | "IMT"
+    | "HG"
+    | "Stake"
+    | "XBet";
 
 export interface LoginInfo {
   token: string;

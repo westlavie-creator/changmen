@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildMatchListMerged,
   setTeamPlugin,
@@ -35,8 +35,9 @@ describe("buildMatchListMerged id phase", () => {
   it("does not block name merge when a platform is only in a solo ID group", () => {
     setTeamPlugin({
       lookupById(platform, platformId) {
-        if (platform !== "OB") return null;
-        const obMaps = { "100217": "100217", "100218": "100218" };
+        if (platform !== "OB")
+          return null;
+        const obMaps = { 100217: "100217", 100218: "100218" };
         return obMaps[String(platformId)] || null;
       },
     });

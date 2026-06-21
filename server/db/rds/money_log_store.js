@@ -69,22 +69,25 @@ async function _rdsUpsertMoneyLog(pool, row) {
 export async function fetchMoneyLogsForMonthAggregate(monthKey, userId, userIds) {
   const { monthStart, monthEnd } = localMonthBounds(monthKey);
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const params = [monthStart, monthEnd];
-    let sql =
-      "SELECT id, player_id, type, money, create_at FROM money_logs WHERE create_at >= $1 AND create_at < $2";
+    let sql
+      = "SELECT id, player_id, type, money, create_at FROM money_logs WHERE create_at >= $1 AND create_at < $2";
     if (userId) {
       params.push(String(userId));
       sql += ` AND user_id = $${params.length}`;
-    } else if (Array.isArray(userIds) && userIds.length) {
+    }
+    else if (Array.isArray(userIds) && userIds.length) {
       params.push(userIds);
       sql += ` AND user_id = ANY($${params.length}::uuid[])`;
     }
     sql += " ORDER BY create_at DESC";
     const { rows } = await pool.query(sql, params);
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchMoneyLogsForMonthAggregate:", err.message);
     return [];
   }
@@ -92,9 +95,11 @@ export async function fetchMoneyLogsForMonthAggregate(monthKey, userId, userIds)
 
 export async function fetchMoneyLogsByPlayer(playerId, userId) {
   const pid = Number(playerId);
-  if (!Number.isFinite(pid)) return [];
+  if (!Number.isFinite(pid))
+    return [];
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const params = [pid];
     let where = "player_id = $1";
@@ -108,7 +113,8 @@ export async function fetchMoneyLogsByPlayer(playerId, userId) {
       params,
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchMoneyLogsByPlayer:", err.message);
     return [];
   }
@@ -116,9 +122,11 @@ export async function fetchMoneyLogsByPlayer(playerId, userId) {
 
 export async function fetchMoneyLogById(logId, userId) {
   const id = Number(logId);
-  if (!Number.isFinite(id) || id <= 0) return null;
+  if (!Number.isFinite(id) || id <= 0)
+    return null;
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   try {
     const params = [id];
     let where = "id = $1";
@@ -132,7 +140,8 @@ export async function fetchMoneyLogById(logId, userId) {
       params,
     );
     return rows?.[0] ?? null;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchMoneyLogById:", err.message);
     return null;
   }
@@ -140,20 +149,23 @@ export async function fetchMoneyLogById(logId, userId) {
 
 export async function fetchAllMoneyLogs() {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const { rows } = await pool.query(
       `SELECT id, player_id, type, money, create_at FROM money_logs ORDER BY create_at DESC`,
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchAllMoneyLogs:", err.message);
     return [];
   }
 }
 
 export async function upsertMoneyLog(row) {
-  if (!row?.user_id || row?.player_id == null) return null;
+  if (!row?.user_id || row?.player_id == null)
+    return null;
   const now = Date.now();
   const payload = {
     user_id: String(row.user_id),
@@ -168,10 +180,12 @@ export async function upsertMoneyLog(row) {
   };
   const id = Number(row.id) || 0;
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   try {
     return await _rdsUpsertMoneyLog(pool, { id: id || undefined, ...payload });
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] upsertMoneyLog:", err.message);
     return null;
   }
@@ -179,9 +193,11 @@ export async function upsertMoneyLog(row) {
 
 export async function deleteMoneyLogById(logId, userId) {
   const id = Number(logId);
-  if (!Number.isFinite(id) || id <= 0) return false;
+  if (!Number.isFinite(id) || id <= 0)
+    return false;
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   try {
     const params = [id];
     let where = "id = $1";
@@ -191,7 +207,8 @@ export async function deleteMoneyLogById(logId, userId) {
     }
     const res = await pool.query(`DELETE FROM money_logs WHERE ${where}`, params);
     return (res.rowCount ?? 0) > 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] deleteMoneyLogById:", err.message);
     return false;
   }
@@ -199,13 +216,16 @@ export async function deleteMoneyLogById(logId, userId) {
 
 export async function deleteMoneyLogsByPlayer(playerId) {
   const pid = Number(playerId);
-  if (!Number.isFinite(pid)) return false;
+  if (!Number.isFinite(pid))
+    return false;
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   try {
     const res = await pool.query("DELETE FROM money_logs WHERE player_id = $1", [pid]);
     return (res.rowCount ?? 0) > 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] deleteMoneyLogsByPlayer:", err.message);
     return false;
   }

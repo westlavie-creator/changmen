@@ -5,7 +5,7 @@
  *   cd changmen/server/backend && node scripts/check-rds-schema.mjs
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -76,8 +76,8 @@ function readText(path) {
 
 function tablesFromMigrations() {
   const tables = new Set();
-  const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z][a-z0-9_]*)/gi;
-  for (const name of readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort()) {
+  const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z]\w*)/gi;
+  for (const name of readdirSync(migrationsDir).filter(f => f.endsWith(".sql")).sort()) {
     const sql = readText(join(migrationsDir, name));
     for (const m of sql.matchAll(re)) {
       tables.add(m[1].toLowerCase());
@@ -88,12 +88,13 @@ function tablesFromMigrations() {
 
 function tablesFromCode() {
   const tables = new Set();
-  const re = /\b(?:FROM|INTO|UPDATE|JOIN|DELETE\s+FROM)\s+([a-z][a-z0-9_]*)\b/gi;
+  const re = /\b(?:FROM|INTO|UPDATE|JOIN|DELETE\s+FROM)\s+([a-z]\w*)\b/gi;
   for (const file of CODE_FILES) {
     const src = readText(file);
     for (const m of src.matchAll(re)) {
       const name = m[1].toLowerCase();
-      if (!SQL_KEYWORDS.has(name)) tables.add(name);
+      if (!SQL_KEYWORDS.has(name))
+        tables.add(name);
     }
   }
   return tables;
@@ -102,7 +103,7 @@ function tablesFromCode() {
 function main() {
   const migrationTables = tablesFromMigrations();
   const codeTables = tablesFromCode();
-  const missing = [...codeTables].filter((t) => !migrationTables.has(t)).sort();
+  const missing = [...codeTables].filter(t => !migrationTables.has(t)).sort();
 
   if (missing.length) {
     console.error("[check-rds-schema] 代码引用的表缺少迁移定义:");

@@ -1,4 +1,5 @@
-import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
+import * as sb from "@changmen/db";
+import { normalizeMatchesShape } from "@changmen/match-engine";
 import { formatBetOdds } from "@changmen/shared/odds_format.js";
 import { a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
 import { readJsonFile, writeJsonFile, writeJsonFileDebounced } from "@changmen/storage/json_file_store.js";
@@ -7,15 +8,14 @@ import {
   getPlatform as getPlatformRow,
   setPlatform as setPlatformRow,
 } from "@changmen/storage/platform_storage.js";
-import { createDefaultOddsApi } from "./default_odds.js";
 import * as dbStore from "../db/store.js";
-import * as sb from "@changmen/db";
+import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
+import { createDefaultOddsApi } from "./default_odds.js";
 import {
-  overlayLiveTimersOnMatches,
-  mergeTimerBlocks,
   applyObLiveGate,
+  mergeTimerBlocks,
+  overlayLiveTimersOnMatches,
 } from "./live_timer_overlay.js";
-import { normalizeMatchesShape } from "@changmen/match-engine";
 
 const DATA_DIR = ESPORT_DATA_DIR;
 // 内存缓存（替代 matches.json / bets.json / live_timers.json）
@@ -63,13 +63,16 @@ export function ensureSeed() {
 
 // ── Auth：token → profile（鉴权逻辑在 @changmen/db）────────
 export async function getUserByToken(token) {
-  if (!token) return null;
+  if (!token)
+    return null;
 
   const auth = await sb.authGetUser(token);
-  if (!auth?.userId) return null;
+  if (!auth?.userId)
+    return null;
 
   let profile = dbStore.getProfileById(auth.userId);
-  if (!profile) profile = await dbStore.loadProfileById(auth.userId);
+  if (!profile)
+    profile = await dbStore.loadProfileById(auth.userId);
   return profile || null;
 }
 
@@ -95,8 +98,10 @@ function pruneBetsForProvider(provider, activeMatchIds) {
   const active = new Set(activeMatchIds.map(String));
   const prefix = `${provider}:`;
   for (const key of Object.keys(_bets)) {
-    if (!key.startsWith(prefix)) continue;
-    if (!active.has(key.slice(prefix.length))) delete _bets[key];
+    if (!key.startsWith(prefix))
+      continue;
+    if (!active.has(key.slice(prefix.length)))
+      delete _bets[key];
   }
 }
 
@@ -108,9 +113,11 @@ export function saveMatches(provider, matchs) {
   if (!list.length && prev && typeof prev === "object" && Object.keys(prev).length > 0)
     return;
   for (const m of list) {
-    if (!m || m.SourceMatchID == null) continue;
+    if (!m || m.SourceMatchID == null)
+      continue;
     const start = Number(m.StartTime || 0);
-    if (start > 0 && !a8StartTimeListAllowed(start)) continue;
+    if (start > 0 && !a8StartTimeListAllowed(start))
+      continue;
     next[String(m.SourceMatchID)] = { ...m, provider, savedAt: now };
   }
   _matches[provider] = next;
@@ -121,7 +128,7 @@ export function saveMatches(provider, matchs) {
 /** [A8 可证实] 客户端每次 saveBets 上报该场完整盘口快照，服务端整包替换（非按 Map 增量合并） */
 function normalizeSaveBetRows(bets) {
   return (bets || [])
-    .filter((b) => b && b.SourceBetID != null && !String(b.BetName ?? "").includes("+"))
+    .filter(b => b && b.SourceBetID != null && !String(b.BetName ?? "").includes("+"))
     .map(formatBetOdds)
     .sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
 }
@@ -160,12 +167,14 @@ export function isUserSettingKey(key) {
 }
 
 export function getUserSetting(userId, key) {
-  if (!isUserSettingKey(key)) return null;
+  if (!isUserSettingKey(key))
+    return null;
   return dbStore.getUserSetting(userId, key);
 }
 
 export function setUserSetting(userId, key, content) {
-  if (!isUserSettingKey(key)) return;
+  if (!isUserSettingKey(key))
+    return;
   dbStore.setUserSetting(userId, key, content ?? "");
 }
 
@@ -196,7 +205,8 @@ async function fetchDbTimersCached() {
   }
   try {
     _dbTimersCache = (await sb.fetchLiveTimers()) || {};
-  } catch {
+  }
+  catch {
     _dbTimersCache = {};
   }
   _dbTimersCacheAt = now;
@@ -223,7 +233,8 @@ function sourceFromBetForOverlay(provider, b) {
 export async function buildMatchList() {
   // 只读 client_matches（gamebet_matcher rebuild 写入）；不在此做跨平台合并
   const fromDb = await dbStore.loadClientMatchesFromDb();
-  if (!fromDb?.length) return [];
+  if (!fromDb?.length)
+    return [];
 
   const dbTimers = await fetchDbTimersCached();
   const timers = mergeTimerBlocks(_timers, dbTimers);
@@ -242,7 +253,8 @@ export async function buildMatchList() {
         sourceFromBet: sourceFromBetForOverlay,
       };
     }
-  } catch {
+  }
+  catch {
     /* 补 Map=0 可选；失败时仍走原有 overlay */
   }
 
@@ -270,10 +282,12 @@ export function getDefaultOddsSingle(betId, team) {
   );
 }
 export function parseKvContent(raw) {
-  if (raw == null || raw === "") return null;
+  if (raw == null || raw === "")
+    return null;
   try {
     return JSON.parse(raw);
-  } catch {
+  }
+  catch {
     return raw;
   }
 }

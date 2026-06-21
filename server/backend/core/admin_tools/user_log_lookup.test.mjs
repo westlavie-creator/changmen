@@ -71,7 +71,7 @@ describe("user_log_lookup", () => {
     expect(sections[0].orders).toHaveLength(1);
     expect(sections[0].logs).toHaveLength(1);
     expect(sections[1].label).toBe("RAY");
-    expect(sections[1].logs.map((l) => l.createAt)).toEqual([60, 70]);
+    expect(sections[1].logs.map(l => l.createAt)).toEqual([60, 70]);
   });
 
   it("extractLogProvider reads bracket title", () => {

@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  deleteAdminOrders,
+  listAdminOrders,
+  profileSettingForAdmin,
+  renameAdminUser,
+  sanitizeAccountForAdmin,
+  sanitizeSettingForAdmin,
+} from "./admin_service.js";
+import { lastLoginFieldsFromProfile } from "./user_login_meta.js";
+
 vi.mock("@changmen/db", () => ({
   fetchOrdersAdminPage: vi.fn(async () => ({
     rows: [
@@ -22,22 +32,12 @@ vi.mock("@changmen/db", () => ({
     }),
   })),
   updateUserName: vi.fn(async () => true),
-  deleteOrdersByIds: vi.fn(async (ids) => ids.length),
+  deleteOrdersByIds: vi.fn(async ids => ids.length),
 }));
 
 vi.mock("../db/store.js", () => ({
   loadProfileById: vi.fn(async () => null),
 }));
-
-import {
-  deleteAdminOrders,
-  listAdminOrders,
-  profileSettingForAdmin,
-  renameAdminUser,
-  sanitizeAccountForAdmin,
-  sanitizeSettingForAdmin,
-} from "./admin_service.js";
-import { lastLoginFieldsFromProfile } from "./user_login_meta.js";
 
 describe("listAdminOrders", () => {
   it("maps multiple rows without treating array index as startIndex", async () => {

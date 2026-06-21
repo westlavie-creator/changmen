@@ -5,16 +5,16 @@
  *   - collapseImClientRows（合并结果里的 IM 重复行）
  */
 
-import { isPlaceholderTeamName } from "../teams/match_utils.js";
 import { getGameCodeForPlatformId, getPlatformGameId } from "@changmen/shared/catalog/game_catalog.mjs";
 import { matchesSavedBet } from "@changmen/shared/catalog/market_catalog.mjs";
-import { pickStr, imBetNameIsCollectible, normalizeImBet } from "@changmen/shared/im_parse.mjs";
+import { imBetNameIsCollectible, normalizeImBet, pickStr } from "@changmen/shared/im_parse.mjs";
 import {
-  IM_ODDS_ACTIVE_MS,
   A8_MATCH_MAX_FUTURE_MS,
-  normalizeEpochMs,
   a8StartTimeListAllowed,
+  IM_ODDS_ACTIVE_MS,
+  normalizeEpochMs,
 } from "@changmen/shared/time/match_time.mjs";
+import { isPlaceholderTeamName } from "../teams/match_utils.js";
 
 const IM_ENRICH_WINDOW_MS = 3 * 60 * 60 * 1000;
 
@@ -26,10 +26,13 @@ const IM_ENRICH_WINDOW_MS = 3 * 60 * 60 * 1000;
 function buildTeamEnrichIndex(matches) {
   const rows = [];
   for (const [provider, byId] of Object.entries(matches || {})) {
-    if (provider === "IM" || !byId || typeof byId !== "object") continue;
+    if (provider === "IM" || !byId || typeof byId !== "object")
+      continue;
     for (const m of Object.values(byId)) {
-      if (!m?.SourceMatchID) continue;
-      if (isPlaceholderTeamName(m.Home) || isPlaceholderTeamName(m.Away)) continue;
+      if (!m?.SourceMatchID)
+        continue;
+      if (isPlaceholderTeamName(m.Home) || isPlaceholderTeamName(m.Away))
+        continue;
       const teams = Array.isArray(m.Teams) ? m.Teams : [];
       const nativeGameId = String(m.SourceGameID || "").trim();
       const gameCode = getGameCodeForPlatformId(provider, nativeGameId);
@@ -52,11 +55,12 @@ function buildTeamEnrichIndex(matches) {
 }
 
 function enrichImMatch(match, teamIndex) {
-  const needTeams =
-    isPlaceholderTeamName(match.Home) || isPlaceholderTeamName(match.Away);
-  const needGame =
-    !match.SourceGameID || String(match.SourceGameID).trim() === "unknown";
-  if (!needTeams && !needGame) return match;
+  const needTeams
+    = isPlaceholderTeamName(match.Home) || isPlaceholderTeamName(match.Away);
+  const needGame
+    = !match.SourceGameID || String(match.SourceGameID).trim() === "unknown";
+  if (!needTeams && !needGame)
+    return match;
 
   const st = normalizeEpochMs(match.StartTime);
   const homeKey = String(match.Home || "").trim().toLowerCase();
@@ -77,11 +81,13 @@ function enrichImMatch(match, teamIndex) {
   if (!best) {
     let bestGap = IM_ENRICH_WINDOW_MS + 1;
     for (const row of teamIndex) {
-      if (!st || !row.start) continue;
+      if (!st || !row.start)
+        continue;
       const gap = Math.abs(row.start - st);
       if (gap < bestGap) { bestGap = gap; best = row; }
     }
-    if (!best || bestGap > IM_ENRICH_WINDOW_MS) return match;
+    if (!best || bestGap > IM_ENRICH_WINDOW_MS)
+      return match;
   }
 
   const homeId = String(match.HomeID || "");
@@ -89,8 +95,8 @@ function enrichImMatch(match, teamIndex) {
   const home = needTeams && isPlaceholderTeamName(match.Home) ? best.home : match.Home;
   const away = needTeams && isPlaceholderTeamName(match.Away) ? best.away : match.Away;
   const sourceGameId = needGame && best.imSourceGameId ? best.imSourceGameId : match.SourceGameID;
-  const teams =
-    match.Teams?.length && !needTeams
+  const teams
+    = match.Teams?.length && !needTeams
       ? match.Teams
       : [
           { Type: "IM", GameID: sourceGameId, Name: home, TeamID: homeId.includes("-home") ? best.homeId : match.HomeID, Logo: best.homeLogo || "" },
@@ -99,7 +105,9 @@ function enrichImMatch(match, teamIndex) {
 
   return {
     ...match,
-    Home: home, Away: away, SourceGameID: sourceGameId,
+    Home: home,
+    Away: away,
+    SourceGameID: sourceGameId,
     StartTime: st || normalizeEpochMs(best.start) || match.StartTime,
     HomeID: homeId.includes("-home") ? best.homeId : match.HomeID,
     AwayID: awayId.includes("-away") ? best.awayId : match.AwayID,
@@ -109,10 +117,13 @@ function enrichImMatch(match, teamIndex) {
 
 function imMatchIsStale(match, betsBlock) {
   const start = normalizeEpochMs(match.StartTime);
-  if (start > 0 && !a8StartTimeListAllowed(start)) return true;
+  if (start > 0 && !a8StartTimeListAllowed(start))
+    return true;
   const savedAt = Number(betsBlock?.savedAt || match.savedAt) || 0;
-  if (savedAt > 0 && Date.now() - savedAt > IM_ODDS_ACTIVE_MS) return true;
-  if (start > 0 && start > Date.now() + A8_MATCH_MAX_FUTURE_MS) return true;
+  if (savedAt > 0 && Date.now() - savedAt > IM_ODDS_ACTIVE_MS)
+    return true;
+  if (start > 0 && start > Date.now() + A8_MATCH_MAX_FUTURE_MS)
+    return true;
   return false;
 }
 
@@ -121,7 +132,8 @@ function imMatchIsStale(match, betsBlock) {
 function filterImStoredWinBets(bets) {
   return (bets || []).filter((bet) => {
     const name = pickStr(bet, "BetName", "Name", "name", "betName");
-    if (name && !imBetNameIsCollectible(name)) return false;
+    if (name && !imBetNameIsCollectible(name))
+      return false;
     return matchesSavedBet("IM", bet, { gameCode: null });
   });
 }
@@ -133,7 +145,8 @@ function dedupeImBetsByMap(bets) {
     const map = row.Map ?? 0;
     const prev = byMap.get(map);
     if (!prev) { byMap.set(map, row); continue; }
-    if (String(row.SourceBetID || "") > String(prev.SourceBetID || "")) byMap.set(map, row);
+    if (String(row.SourceBetID || "") > String(prev.SourceBetID || ""))
+      byMap.set(map, row);
   }
   return [...byMap.values()].sort((a, b) => (a.Map ?? 0) - (b.Map ?? 0));
 }
@@ -144,7 +157,8 @@ function collapseImClientRows(list) {
   const imRows = [];
   const other = [];
   for (const row of list) {
-    if (row.Matchs?.IM) imRows.push(row);
+    if (row.Matchs?.IM)
+      imRows.push(row);
     else other.push(row);
   }
   const byKey = new Map();
@@ -154,10 +168,11 @@ function collapseImClientRows(list) {
     const key = placeholder ? `ph:${row.GameID}` : `${title}|${row.GameID}`;
     const prev = byKey.get(key);
     if (!prev) { byKey.set(key, row); continue; }
-    const pick =
-      row.Bets.length > prev.Bets.length ||
-      (row.Bets.length === prev.Bets.length && row.StartTime > prev.StartTime)
-        ? row : prev;
+    const pick
+      = row.Bets.length > prev.Bets.length
+        || (row.Bets.length === prev.Bets.length && row.StartTime > prev.StartTime)
+        ? row
+        : prev;
     byKey.set(key, pick);
   }
   return [...other, ...byKey.values()].sort((a, b) => a.StartTime - b.StartTime);
@@ -165,9 +180,9 @@ function collapseImClientRows(list) {
 
 export {
   buildTeamEnrichIndex,
-  enrichImMatch,
-  imMatchIsStale,
-  filterImStoredWinBets,
-  dedupeImBetsByMap,
   collapseImClientRows,
+  dedupeImBetsByMap,
+  enrichImMatch,
+  filterImStoredWinBets,
+  imMatchIsStale,
 };

@@ -1,7 +1,7 @@
 function flattenMessage(msg) {
   return String(msg || "")
     .split("\n")
-    .map((line) => line.trim())
+    .map(line => line.trim())
     .filter(Boolean);
 }
 
@@ -10,9 +10,11 @@ export function logMatcherApiOk(route, result) {
   const lines = [];
   if (Array.isArray(result?.logLines) && result.logLines.length) {
     lines.push(...result.logLines);
-  } else if (result?.summary) {
+  }
+  else if (result?.summary) {
     lines.push(result.summary);
-  } else if (result?.detail) {
+  }
+  else if (result?.detail) {
     lines.push(result.detail);
   }
 

@@ -1,17 +1,17 @@
 import crypto from "node:crypto";
 import * as sb from "@changmen/db";
 import { ensurePgPoolReady, getPgPool, insertProfile } from "@changmen/db";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
+import { lookupOrderLogs, toAdminOrderLogPayload } from "../admin_tools/user_log_lookup.js";
+import { isAdminUser } from "../auth/admin_auth.js";
+import { filterProfiles, getVisibleUserIds, resolveVisibleUserIds } from "../auth/role_filter.js";
 import { loadProfileById } from "../db/store.js";
-import { resolveStoredLink, toDateKey, listUserProfitRank } from "./order_store.js";
-import { resolvePresenceState } from "./user_presence.js";
+import { listUserProfitRank, resolveStoredLink, toDateKey } from "./order_store.js";
 import {
   lastLoginFieldsFromProfile,
   PROFILE_META_PREFERENCE_KEYS,
 } from "./user_login_meta.js";
-import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
-import { lookupOrderLogs, toAdminOrderLogPayload } from "../admin_tools/user_log_lookup.js";
-import { isAdminUser, isLeaderUser, getTeamId } from "../auth/admin_auth.js";
-import { resolveVisibleUserIds, getVisibleUserIds, filterProfiles } from "../auth/role_filter.js";
+import { resolvePresenceState } from "./user_presence.js";
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
@@ -19,14 +19,16 @@ function accountCount(accounts) {
 
 /** 管理端账号：含 gateway/token/referer 等完整凭证（仅 Client_Admin* 接口，需 is_admin） */
 export function sanitizeAccountForAdmin(raw) {
-  if (!raw || typeof raw !== "object") return null;
+  if (!raw || typeof raw !== "object")
+    return null;
   const a = raw;
   const gateway = String(a.gateway ?? a.Gateway ?? "");
   let gatewayHost = "";
   if (gateway) {
     try {
       gatewayHost = new URL(gateway).host;
-    } catch {
+    }
+    catch {
       gatewayHost = gateway.length > 48 ? `${gateway.slice(0, 45)}…` : gateway;
     }
   }
@@ -78,7 +80,7 @@ export function sanitizeAccountForAdmin(raw) {
     ),
     workTimes: Array.isArray(a.workTimes) ? a.workTimes.map(String) : [],
     rateConfig: Array.isArray(a.rateConfig)
-      ? a.rateConfig.map((r) => ({
+      ? a.rateConfig.map(r => ({
           minOdds: Number(r?.minOdds) || 0,
           maxOdds: Number(r?.maxOdds) || 0,
           rate: Number(r?.rate) || 0,
@@ -101,36 +103,40 @@ export function sanitizeAccountForAdmin(raw) {
 }
 
 export function sanitizeSettingForAdmin(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    return {};
   return { ...raw };
 }
 
 /** 合并 profiles 三列配置，兼容已迁移库与仍含 setting 的旧行 */
 export function profileSettingForAdmin(row) {
-  if (!row || typeof row !== "object") return {};
+  if (!row || typeof row !== "object")
+    return {};
   const legacy = row.setting;
   if (legacy && typeof legacy === "object" && !Array.isArray(legacy) && Object.keys(legacy).length) {
     const out = { ...legacy };
     if (typeof out.USERCONFIG === "string") {
       try {
         out.USERCONFIG = JSON.parse(out.USERCONFIG);
-      } catch {
+      }
+      catch {
         /* keep string */
       }
     }
     if (typeof out.CollectConfig === "string") {
       try {
         out.CollectConfig = JSON.parse(out.CollectConfig);
-      } catch {
+      }
+      catch {
         /* keep string */
       }
     }
-    const betting =
-      out.USERCONFIG && typeof out.USERCONFIG === "object" && !Array.isArray(out.USERCONFIG)
+    const betting
+      = out.USERCONFIG && typeof out.USERCONFIG === "object" && !Array.isArray(out.USERCONFIG)
         ? out.USERCONFIG
         : {};
-    const collect =
-      out.CollectConfig && typeof out.CollectConfig === "object" && !Array.isArray(out.CollectConfig)
+    const collect
+      = out.CollectConfig && typeof out.CollectConfig === "object" && !Array.isArray(out.CollectConfig)
         ? out.CollectConfig
         : {};
     const { USERCONFIG, CollectConfig, ...prefs } = out;
@@ -143,16 +149,16 @@ export function profileSettingForAdmin(row) {
       ...(Object.keys(collect).length ? { CollectConfig: collect } : {}),
     });
   }
-  const betting =
-    row.betting_config && typeof row.betting_config === "object" && !Array.isArray(row.betting_config)
+  const betting
+    = row.betting_config && typeof row.betting_config === "object" && !Array.isArray(row.betting_config)
       ? row.betting_config
       : {};
-  const collect =
-    row.collect_config && typeof row.collect_config === "object" && !Array.isArray(row.collect_config)
+  const collect
+    = row.collect_config && typeof row.collect_config === "object" && !Array.isArray(row.collect_config)
       ? row.collect_config
       : {};
-  const prefs =
-    row.preferences && typeof row.preferences === "object" && !Array.isArray(row.preferences)
+  const prefs
+    = row.preferences && typeof row.preferences === "object" && !Array.isArray(row.preferences)
       ? row.preferences
       : {};
   const prefsForAdmin = Object.fromEntries(
@@ -194,7 +200,7 @@ function mapAdminUserRow(p, profitByUser = new Map()) {
     id,
     userName: name,
     isAdmin: Boolean(p.is_admin),
-    role: p.role || (Boolean(p.is_admin) ? "admin" : "user"),
+    role: p.role || (p.is_admin ? "admin" : "user"),
     teamId: p.team_id || null,
     isOnline: presence.isOnline,
     lastActiveAt: presence.lastActiveAt,
@@ -220,7 +226,7 @@ export async function getAdminDashboard(dateKey = toDateKey(Date.now()), caller 
   const visibleIds = resolveVisibleUserIds(caller, allProfiles);
   const profiles = filterProfiles(allProfiles, visibleIds);
   const profitByUser = new Map(
-    (Array.isArray(rank) ? rank : []).map((r) => [String(r.UserName).toLowerCase(), r]),
+    (Array.isArray(rank) ? rank : []).map(r => [String(r.UserName).toLowerCase(), r]),
   );
   let activeUsersToday = 0;
   let totalMoney = 0;
@@ -237,10 +243,10 @@ export async function getAdminDashboard(dateKey = toDateKey(Date.now()), caller 
     }
   }
   const visibleNames = visibleIds
-    ? new Set(profiles.map((p) => String(p.user_name || "").toLowerCase()))
+    ? new Set(profiles.map(p => String(p.user_name || "").toLowerCase()))
     : null;
   const topProfit = (Array.isArray(rank) ? rank : [])
-    .filter((r) => !visibleNames || visibleNames.has(String(r.UserName).toLowerCase()))
+    .filter(r => !visibleNames || visibleNames.has(String(r.UserName).toLowerCase()))
     .slice(0, 5);
   return {
     date: dateKey,
@@ -261,25 +267,27 @@ export async function listAdminUsers(dateKey = toDateKey(Date.now()), caller = n
   const visibleIds = resolveVisibleUserIds(caller, allProfiles);
   const profiles = filterProfiles(allProfiles, visibleIds);
   const profitByUser = new Map(
-    (Array.isArray(rank) ? rank : []).map((r) => [String(r.UserName).toLowerCase(), r]),
+    (Array.isArray(rank) ? rank : []).map(r => [String(r.UserName).toLowerCase(), r]),
   );
   return profiles
-    .map((p) => mapAdminUserRow(p, profitByUser))
+    .map(p => mapAdminUserRow(p, profitByUser))
     .sort((a, b) => b.todayMoney - a.todayMoney);
 }
 
 export async function getAdminUserDetail(userId, dateKey = toDateKey(Date.now())) {
   const id = String(userId || "").trim();
-  if (!id) return null;
+  if (!id)
+    return null;
   const [profiles, rank] = await Promise.all([
     sb.fetchProfilesAdmin(),
     listUserProfitRank(dateKey),
   ]);
   const profitByUser = new Map(
-    (Array.isArray(rank) ? rank : []).map((r) => [String(r.UserName).toLowerCase(), r]),
+    (Array.isArray(rank) ? rank : []).map(r => [String(r.UserName).toLowerCase(), r]),
   );
-  const profile = (profiles || []).find((p) => String(p.id) === id);
-  if (!profile) return null;
+  const profile = (profiles || []).find(p => String(p.id) === id);
+  if (!profile)
+    return null;
   return mapAdminUserRow(profile, profitByUser);
 }
 
@@ -311,10 +319,13 @@ function buildClientMatchStartIndex(clientMatches) {
   for (const m of list) {
     const id = Number(m.id ?? m.ID) || 0;
     const startTime = Number(m.start_time ?? m.StartTime) || 0;
-    if (!startTime) continue;
-    if (id) byId.set(id, startTime);
+    if (!startTime)
+      continue;
+    if (id)
+      byId.set(id, startTime);
     const title = stripOrderHtml(m.title ?? m.Title ?? "");
-    if (title && !byTitle.has(title)) byTitle.set(title, startTime);
+    if (title && !byTitle.has(title))
+      byTitle.set(title, startTime);
   }
   return { byId, byTitle };
 }
@@ -324,8 +335,10 @@ function resolveMatchStartTime(col, startIndex) {
   const fromRaw = Number(
     raw.startTime ?? raw.StartTime ?? raw.start_time ?? raw.matchStartTime ?? 0,
   ) || 0;
-  if (fromRaw) return fromRaw;
-  if (!startIndex) return 0;
+  if (fromRaw)
+    return fromRaw;
+  if (!startIndex)
+    return 0;
   const byId = startIndex.byId instanceof Map ? startIndex.byId : null;
   const byTitle = startIndex.byTitle instanceof Map ? startIndex.byTitle : null;
   if (col.matchId && byId?.has(col.matchId)) {
@@ -339,11 +352,11 @@ function resolveMatchStartTime(col, startIndex) {
 
 function mapAdminOrderRow(r, startIndex = null) {
   const col = orderMatchColumn(r);
-  const safeStartIndex =
-    startIndex &&
-    typeof startIndex === "object" &&
-    !Array.isArray(startIndex) &&
-    (startIndex.byId instanceof Map || startIndex.byTitle instanceof Map)
+  const safeStartIndex
+    = startIndex
+      && typeof startIndex === "object"
+      && !Array.isArray(startIndex)
+      && (startIndex.byId instanceof Map || startIndex.byTitle instanceof Map)
       ? startIndex
       : null;
   return {
@@ -394,17 +407,19 @@ export async function listAdminOrders(body = {}, caller = null) {
     userIds,
   };
   const { rows, total } = await sb.fetchOrdersAdminPage({ ...filter, pageIndex, pageSize });
-  const list = (rows || []).map((r) => mapAdminOrderRow(r));
+  const list = (rows || []).map(r => mapAdminOrderRow(r));
   return { date: dateKey, list, total, pageIndex, pageSize };
 }
 
 /** 管理端：按主键 id 删除订单（可批量，如同 Link 套利组） */
 export async function deleteAdminOrders(body = {}, caller = null) {
-  if (caller && !isAdminUser(caller)) throw new Error("仅管理员可删除订单");
+  if (caller && !isAdminUser(caller))
+    throw new Error("仅管理员可删除订单");
   const raw = body.orderIds ?? body.ids ?? body.id;
   const ids = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
   const deleted = await sb.deleteOrdersByIds(ids);
-  if (!deleted) throw new Error("删除失败或订单不存在");
+  if (!deleted)
+    throw new Error("删除失败或订单不存在");
   return { deleted };
 }
 
@@ -417,7 +432,8 @@ export async function listAdminOrdersMatrix(body = {}, caller = null) {
   if (caller && !isAdminUser(caller)) {
     const allProfiles = await sb.fetchProfilesAdmin();
     const visibleIds = resolveVisibleUserIds(caller, allProfiles);
-    if (visibleIds) userIds = [...visibleIds];
+    if (visibleIds)
+      userIds = [...visibleIds];
   }
 
   const filter = {
@@ -430,7 +446,7 @@ export async function listAdminOrdersMatrix(body = {}, caller = null) {
     sb.fetchClientMatches(),
   ]);
   const startIndex = buildClientMatchStartIndex(clientMatches);
-  const list = (rows || []).map((r) => mapAdminOrderRow(r, startIndex));
+  const list = (rows || []).map(r => mapAdminOrderRow(r, startIndex));
   return { date: dateKey, list, total: list.length };
 }
 
@@ -439,35 +455,41 @@ export async function listAdminOrderLogs(body = {}, caller = null) {
   const userId = String(body.userId ?? body.user_id ?? "").trim();
   const linkRaw = body.linkId ?? body.link ?? body.LinkID;
   const orderId = body.orderId ?? body.order_id ?? body.OrderID;
-  if (!userId) throw new Error("缺少 userId");
+  if (!userId)
+    throw new Error("缺少 userId");
   if (caller && !isAdminUser(caller)) {
     const visibleIds = await getVisibleUserIds(caller);
-    if (visibleIds && !visibleIds.has(userId)) throw new Error("无权查看该用户的日志");
+    if (visibleIds && !visibleIds.has(userId))
+      throw new Error("无权查看该用户的日志");
   }
-  if (linkRaw == null && !orderId) throw new Error("请指定 linkId 或 orderId");
+  if (linkRaw == null && !orderId)
+    throw new Error("请指定 linkId 或 orderId");
 
   const result = await lookupOrderLogs({
     userId,
-    link: linkRaw != null ? linkRaw : undefined,
+    link: linkRaw ?? undefined,
     orderId: orderId ? String(orderId) : undefined,
     paddingMs: body.paddingMs,
     logLimit: body.logLimit,
   });
   const payload = toAdminOrderLogPayload(result);
-  if (!payload.ok) throw new Error(payload.error || "查询失败");
+  if (!payload.ok)
+    throw new Error(payload.error || "查询失败");
   return payload;
 }
 
 function validateNewPassword(password) {
   const pwd = String(password || "");
-  if (pwd.length < 6) throw new Error("密码至少 6 位");
+  if (pwd.length < 6)
+    throw new Error("密码至少 6 位");
   return pwd;
 }
 
 function validateUserName(userName) {
   const name = String(userName || "").trim();
-  if (!name) throw new Error("用户名必填");
-  if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(name)) {
+  if (!name)
+    throw new Error("用户名必填");
+  if (!/^[\w\u4E00-\u9FA5]+$/.test(name)) {
     throw new Error("用户名仅支持字母、数字、下划线或中文");
   }
   return name;
@@ -481,12 +503,14 @@ export async function createAdminUser(userName, password) {
 
   await ensurePgPoolReady();
   const pool = getPgPool();
-  if (!pool) throw new Error("RDS 未配置，无法创建用户");
+  if (!pool)
+    throw new Error("RDS 未配置，无法创建用户");
   const existing = await pool.query(
     "SELECT id FROM users WHERE lower(user_name) = lower($1)",
     [name],
   );
-  if (existing.rows.length) throw new Error("用户名已存在");
+  if (existing.rows.length)
+    throw new Error("用户名已存在");
   const userId = crypto.randomUUID();
   await pool.query(
     `INSERT INTO users (id, user_name, password_hash, metadata, created_at, updated_at)
@@ -503,27 +527,32 @@ export async function createAdminUser(userName, password) {
     created_at: now,
     updated_at: now,
   });
-  if (!ok) throw new Error("profiles 创建失败");
+  if (!ok)
+    throw new Error("profiles 创建失败");
   return { id: userId, userName: name };
 }
 
 /** 管理端删除用户（profiles ON DELETE CASCADE 自动级联） */
 export async function deleteAdminUser(userId, operatorUserId) {
   const id = String(userId || "").trim();
-  if (!id) throw new Error("用户 ID 无效");
+  if (!id)
+    throw new Error("用户 ID 无效");
   if (id === String(operatorUserId || "").trim()) {
     throw new Error("不能删除当前登录账号");
   }
   await ensurePgPoolReady();
   const pool = getPgPool();
-  if (!pool) throw new Error("RDS 未配置");
+  if (!pool)
+    throw new Error("RDS 未配置");
   const { rows } = await pool.query("SELECT user_name, is_admin FROM users WHERE id = $1", [id]);
-  if (!rows[0]) throw new Error("用户不存在");
+  if (!rows[0])
+    throw new Error("用户不存在");
   if (rows[0].is_admin) {
     const { rows: admins } = await pool.query(
       "SELECT COUNT(*)::int AS n FROM users WHERE is_admin = true",
     );
-    if ((admins[0]?.n ?? 0) <= 1) throw new Error("至少保留一名管理员");
+    if ((admins[0]?.n ?? 0) <= 1)
+      throw new Error("至少保留一名管理员");
   }
   await pool.query("DELETE FROM users WHERE id = $1", [id]);
   return { id, userName: String(rows[0].user_name) };
@@ -532,24 +561,30 @@ export async function deleteAdminUser(userId, operatorUserId) {
 /** 管理端更改登录用户名 */
 export async function renameAdminUser(userId, userName, caller = null) {
   const id = String(userId || "").trim();
-  if (!id) throw new Error("用户 ID 无效");
-  if (caller && !isAdminUser(caller)) throw new Error("仅管理员可更改用户名");
+  if (!id)
+    throw new Error("用户 ID 无效");
+  if (caller && !isAdminUser(caller))
+    throw new Error("仅管理员可更改用户名");
   const name = validateUserName(userName);
 
   await ensurePgPoolReady();
   const pool = getPgPool();
-  if (!pool) throw new Error("RDS 未配置");
+  if (!pool)
+    throw new Error("RDS 未配置");
 
   const { rows } = await pool.query(
     "SELECT user_name FROM users WHERE id = $1",
     [id],
   );
-  if (!rows[0]) throw new Error("用户不存在");
+  if (!rows[0])
+    throw new Error("用户不存在");
   const current = String(rows[0].user_name || "");
   if (current.toLowerCase() === name.toLowerCase()) {
-    if (current === name) return { id, userName: name };
+    if (current === name)
+      return { id, userName: name };
     const ok = await sb.updateUserName(id, name);
-    if (!ok) throw new Error("更新用户名失败");
+    if (!ok)
+      throw new Error("更新用户名失败");
     await loadProfileById(id);
     return { id, userName: name };
   }
@@ -558,10 +593,12 @@ export async function renameAdminUser(userId, userName, caller = null) {
     "SELECT id FROM users WHERE lower(user_name) = lower($1) AND id <> $2",
     [name, id],
   );
-  if (existing.rows.length) throw new Error("用户名已存在");
+  if (existing.rows.length)
+    throw new Error("用户名已存在");
 
   const ok = await sb.updateUserName(id, name);
-  if (!ok) throw new Error("更新用户名失败");
+  if (!ok)
+    throw new Error("更新用户名失败");
   await loadProfileById(id);
   return { id, userName: name };
 }
@@ -569,22 +606,26 @@ export async function renameAdminUser(userId, userName, caller = null) {
 /** 管理端重置用户登录密码 */
 export async function resetAdminUserPassword(userId, password, caller = null) {
   const id = String(userId || "").trim();
-  if (!id) throw new Error("用户 ID 无效");
+  if (!id)
+    throw new Error("用户 ID 无效");
   if (caller && !isAdminUser(caller)) {
     const visibleIds = await getVisibleUserIds(caller);
-    if (visibleIds && !visibleIds.has(id)) throw new Error("无权操作该用户");
+    if (visibleIds && !visibleIds.has(id))
+      throw new Error("无权操作该用户");
   }
   const pwd = validateNewPassword(password);
   const now = Date.now();
 
   await ensurePgPoolReady();
   const pool = getPgPool();
-  if (!pool) throw new Error("RDS 未配置");
+  if (!pool)
+    throw new Error("RDS 未配置");
   const { rows } = await pool.query(
     "SELECT user_name FROM users WHERE id = $1",
     [id],
   );
-  if (!rows[0]) throw new Error("用户不存在");
+  if (!rows[0])
+    throw new Error("用户不存在");
   await pool.query(
     `UPDATE users SET password_hash = crypt($2, gen_salt('bf')), updated_at = $3 WHERE id = $1`,
     [id, pwd, now],
@@ -597,12 +638,14 @@ async function writeProfilePreferencesAwait(uid, preferences) {
   const now = Date.now();
   await ensurePgPoolReady();
   const pool = getPgPool();
-  if (!pool) throw new Error("RDS 未配置");
+  if (!pool)
+    throw new Error("RDS 未配置");
   const { rowCount } = await pool.query(
     `UPDATE profiles SET preferences = $2::jsonb, updated_at = $3 WHERE id = $1`,
     [id, JSON.stringify(preferences || {}), now],
   );
-  if (!rowCount) throw new Error("用户不存在");
+  if (!rowCount)
+    throw new Error("用户不存在");
 }
 
 /** 登录/API 鉴权占位（A8 bundle 无 admin 冻结用户） */
@@ -611,7 +654,8 @@ export async function assertProfileActive(_userId) {}
 /** 管理端设置/取消管理员（users.is_admin） */
 export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
   const id = String(userId || "").trim();
-  if (!id) throw new Error("用户 ID 无效");
+  if (!id)
+    throw new Error("用户 ID 无效");
   const wantAdmin = Boolean(isAdmin);
   const op = String(operatorUserId || "").trim();
   if (op && id === op && !wantAdmin) {
@@ -619,7 +663,8 @@ export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
   }
 
   const row = await sb.fetchProfileById(id);
-  if (!row) throw new Error("用户不存在");
+  if (!row)
+    throw new Error("用户不存在");
   const name = String(row.user_name || "");
   const wasAdmin = Boolean(row.is_admin);
   if (wasAdmin === wantAdmin) {
@@ -629,7 +674,8 @@ export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
   if (wasAdmin && !wantAdmin) {
     await ensurePgPoolReady();
     const pool = getPgPool();
-    if (!pool) throw new Error("RDS 未配置");
+    if (!pool)
+      throw new Error("RDS 未配置");
     const { rows } = await pool.query(
       "SELECT COUNT(*)::int AS n FROM users WHERE is_admin = true",
     );
@@ -639,7 +685,8 @@ export async function setAdminUserAdmin(userId, isAdmin, operatorUserId) {
   }
 
   const ok = await sb.updateUserIsAdmin(id, wantAdmin);
-  if (!ok) throw new Error("更新管理员状态失败");
+  if (!ok)
+    throw new Error("更新管理员状态失败");
   await loadProfileById(id);
   return { id, userName: name, isAdmin: wantAdmin ? 1 : 0 };
 }
@@ -649,8 +696,10 @@ const VALID_ROLES = ["admin", "leader", "user"];
 /** 管理端设置用户角色和团队 */
 export async function setAdminUserRole(userId, role, teamId, operatorUserId) {
   const id = String(userId || "").trim();
-  if (!id) throw new Error("用户 ID 无效");
-  if (!VALID_ROLES.includes(role)) throw new Error("无效角色，可选：admin / leader / user");
+  if (!id)
+    throw new Error("用户 ID 无效");
+  if (!VALID_ROLES.includes(role))
+    throw new Error("无效角色，可选：admin / leader / user");
   const op = String(operatorUserId || "").trim();
   const currentRole = op ? (await sb.fetchProfileById(op))?.role : null;
   if (op && id === op && role !== currentRole) {
@@ -658,14 +707,16 @@ export async function setAdminUserRole(userId, role, teamId, operatorUserId) {
   }
 
   const row = await sb.fetchProfileById(id);
-  if (!row) throw new Error("用户不存在");
+  if (!row)
+    throw new Error("用户不存在");
   const name = String(row.user_name || "");
   const wasAdmin = Boolean(row.is_admin) || row.role === "admin";
 
   if (wasAdmin && role !== "admin") {
     await ensurePgPoolReady();
     const pool = getPgPool();
-    if (!pool) throw new Error("RDS 未配置");
+    if (!pool)
+      throw new Error("RDS 未配置");
     const { rows } = await pool.query(
       "SELECT COUNT(*)::int AS n FROM users WHERE is_admin = true",
     );
@@ -682,13 +733,14 @@ export async function setAdminUserRole(userId, role, teamId, operatorUserId) {
 
   if (tid) {
     const teams = await sb.fetchTeams();
-    if (!teams.find((t) => t.id === tid)) {
+    if (!teams.some(t => t.id === tid)) {
       throw new Error(`团队「${tid}」不存在，请先创建`);
     }
   }
 
   const roleOk = await sb.updateUserRole(id, role);
-  if (!roleOk) throw new Error("更新角色失败");
+  if (!roleOk)
+    throw new Error("更新角色失败");
   if (tid !== row.team_id) {
     await sb.updateUserTeamId(id, tid);
   }
@@ -704,17 +756,20 @@ export async function listTeams() {
 /** 管理端：创建或更新团队（id 为空时自动生成） */
 export async function upsertTeam(id, name) {
   const tname = String(name || "").trim();
-  if (!tname) throw new Error("团队名称必填");
+  if (!tname)
+    throw new Error("团队名称必填");
   const tid = String(id || "").trim() || `t${Date.now().toString(36)}`;
   const ok = await sb.upsertTeam(tid, tname);
-  if (!ok) throw new Error("保存团队失败");
+  if (!ok)
+    throw new Error("保存团队失败");
   return { id: tid, name: tname };
 }
 
 /** 管理端：删除团队 */
 export async function deleteTeam(id) {
   const tid = String(id || "").trim();
-  if (!tid) throw new Error("团队 ID 必填");
+  if (!tid)
+    throw new Error("团队 ID 必填");
   await ensurePgPoolReady();
   const pool = getPgPool();
   if (pool) {
@@ -727,7 +782,8 @@ export async function deleteTeam(id) {
     }
   }
   const ok = await sb.deleteTeam(tid);
-  if (!ok) throw new Error("删除团队失败或不存在");
+  if (!ok)
+    throw new Error("删除团队失败或不存在");
   return { id: tid };
 }
 
@@ -736,13 +792,15 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
   if (body.startMs && body.endMs) {
     startMs = Number(body.startMs);
     endMs = Number(body.endMs);
-  } else if (body.month) {
+  }
+  else if (body.month) {
     const parts = String(body.month).split("-").map(Number);
     const y = parts[0] || new Date().getFullYear();
     const m = parts[1] || new Date().getMonth() + 1;
     startMs = new Date(y, m - 1, 1, 0, 0, 0, 0).getTime();
     endMs = new Date(y, m, 1, 0, 0, 0, 0).getTime();
-  } else {
+  }
+  else {
     const dk = body.date || toDateKey(Date.now());
     const parts = String(dk).split("-").map(Number);
     const d = new Date(parts[0], parts[1] - 1, parts[2] || 1, 0, 0, 0, 0);
@@ -753,7 +811,8 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
   if (caller && !isAdminUser(caller)) {
     const allProfiles = await sb.fetchProfilesAdmin();
     const visibleIds = resolveVisibleUserIds(caller, allProfiles);
-    if (visibleIds) userIds = [...visibleIds];
+    if (visibleIds)
+      userIds = [...visibleIds];
   }
   const [platforms, pairs, games, hourly, accounts] = await Promise.all([
     sb.fetchPlatformAnalytics(startMs, endMs, userIds),

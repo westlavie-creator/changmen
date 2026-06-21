@@ -15,7 +15,7 @@ export function localMonthBounds(monthKey) {
 /** YYYY-MM-DD → 本地时区当日 [start, end) 毫秒 */
 export function localDayBounds(dateKey) {
   const parts = String(dateKey || "").split("-").map(Number);
-  if (parts.length < 3 || parts.some((n) => !Number.isFinite(n))) {
+  if (parts.length < 3 || parts.some(n => !Number.isFinite(n))) {
     const now = Date.now();
     const start = new Date(now);
     start.setHours(0, 0, 0, 0);

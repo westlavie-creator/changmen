@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { formatBetOdds, formatOdds } from "@changmen/shared/odds_format.js";
+import { describe, expect, it } from "vitest";
 
 describe("formatOdds", () => {
   it("rounds finite odds to three decimals", () => {

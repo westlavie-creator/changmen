@@ -7,7 +7,8 @@ export const DB_SCRIPT_MODES = ["rds"];
 /** @param {Record<string, string|undefined>} [env] */
 export function resolveDbScript(env = process.env) {
   const raw = String(env.GAMEBET_DB_SCRIPT || "rds").trim().toLowerCase();
-  if (raw === "rds") return "rds";
+  if (raw === "rds")
+    return "rds";
   if (raw === "supabase" || raw === "dual") {
     console.warn(`[db] GAMEBET_DB_SCRIPT=${raw} 已废弃，使用 rds`);
     return "rds";

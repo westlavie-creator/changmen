@@ -19,9 +19,9 @@
 
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 
-loadChangmenEnv();
-
 import { describeDbScript, getDbMode } from "./db_script.js";
+
+loadChangmenEnv();
 
 const mode = getDbMode();
 
@@ -31,43 +31,32 @@ const team = await import("./rds/team_store.js");
 console.log(`[db] ${mode.script} — ${describeDbScript(mode.script)}`);
 
 export {
+  CLIENT_MATCH_LIST_DEFAULT,
+  CLIENT_MATCH_LIST_HIDDEN,
+  isClientMatchListVisible,
+} from "./client_match_list_status.js";
+
+export {
   DB_SCRIPT_MODES,
-  resolveDbScript,
   describeDbScript,
   getDbMode,
+  resolveDbScript,
 } from "./db_script.js";
 
 export {
-  ARB_LINK_MIN,
-  placeholderLinkFromCreateAt,
-  placeholderLinkFromInsertAt,
-  backendBindLinkFromCreateAt,
-  isHashLink,
-  isCreateAtPlaceholderLink,
-  isInsertTimePlaceholderLink,
-  isArbBindLink,
-  shouldFireOrderBoundHook,
-  isPbHashOrder,
-  isOrderListVisible,
-  CLIENT_ORDER_LIST_SQL,
-  isClientOrderListVisible,
-  orderVisibleSqlAnd,
-} from "./order_link_filter.js";
-
-export {
-  CHANGMEN_ORDER_LIST_SQL,
-  orderChangmenBetSqlAnd,
-  BET_LOG_BEFORE_MS,
   BET_LOG_AFTER_MS,
-  parseBetLogData,
+  BET_LOG_BEFORE_MS,
+  betLogMatchesOrder,
+  betLogWindowForOrders,
+  CHANGMEN_ORDER_LIST_SQL,
+  checkLogMatchesOrder,
+  extractBetLogOrderId,
+  extractBetLogProvider,
   isSuccessBetLogTitle,
   isSuccessCheckLogTitle,
-  extractBetLogProvider,
-  extractBetLogOrderId,
-  betLogMatchesOrder,
-  checkLogMatchesOrder,
   matchChangmenBetFromLogs,
-  betLogWindowForOrders,
+  orderChangmenBetSqlAnd,
+  parseBetLogData,
 } from "./order_changmen_bet.js";
 
 export const {
@@ -170,50 +159,61 @@ export const {
 } = team;
 
 export {
-  STALE_MS,
+  ARB_LINK_MIN,
+  backendBindLinkFromCreateAt,
+  CLIENT_ORDER_LIST_SQL,
+  isArbBindLink,
+  isClientOrderListVisible,
+  isCreateAtPlaceholderLink,
+  isHashLink,
+  isInsertTimePlaceholderLink,
+  isOrderListVisible,
+  isPbHashOrder,
+  orderVisibleSqlAnd,
+  placeholderLinkFromCreateAt,
+  placeholderLinkFromInsertAt,
+  shouldFireOrderBoundHook,
+} from "./order_link_filter.js";
+
+export { ensurePgPoolReady, getPgPool } from "./pg_pool.js";
+
+export { migratePlayersJsonToRds } from "./players_json_migrate.js";
+
+export {
   DEFAULT_PRUNE_INTERVAL_MS,
+  formatPruneCounts,
   getStaleCutoffMs,
   pruneStaleRows,
-  formatPruneCounts,
+  STALE_MS,
 } from "./prune_stale.js";
 
 export {
-  CLIENT_MATCH_LIST_HIDDEN,
-  CLIENT_MATCH_LIST_DEFAULT,
-  isClientMatchListVisible,
-} from "./client_match_list_status.js";
-
-export {
-  isMatcherStoreReady,
-  getClientMatchIdAdapter,
-  fetchClientMatchIdIndex,
-  findClientMatchIdByMergeKey,
-  insertClientMatchStub,
-  fetchPlatformMatchRow,
-  fetchClientMatchRow,
-  fetchPlatformMatchesHomeAway,
-  fetchPlatformMatchesDashboard,
+  deleteClientMatchRow,
+  deletePlatformMatchRow,
   fetchClientMatchesDashboard,
   fetchClientMatchesHidden,
+  fetchClientMatchIdIndex,
+  fetchClientMatchRow,
   fetchLatestClientMatchBuiltAt,
-  fetchPlatformMatchesDebugRows,
   fetchPlatformMatchesByClientMatchId,
+  fetchPlatformMatchesDashboard,
+  fetchPlatformMatchesDebugRows,
+  fetchPlatformMatchesHomeAway,
+  fetchPlatformMatchRow,
+  findClientMatchIdByMergeKey,
+  getClientMatchIdAdapter,
+  insertClientMatchStub,
+  isMatcherStoreReady,
   reassignPlatformMatchIds,
-  deletePlatformMatchRow,
-  deleteClientMatchRow,
   setClientMatchListStatus,
 } from "./rds/matcher_store.js";
 
 export {
-  initDatabaseUrl,
   buildPgClientConfig,
-  wantsPgSsl,
   getDatabaseUrlCandidates,
-  hasDatabaseUrlConfig,
-  getResolvedDatabaseUrl,
   getResolvedDatabaseLabel,
+  getResolvedDatabaseUrl,
+  hasDatabaseUrlConfig,
+  initDatabaseUrl,
+  wantsPgSsl,
 } from "./resolve_database_url.js";
-
-export { getPgPool, ensurePgPoolReady } from "./pg_pool.js";
-
-export { migratePlayersJsonToRds } from "./players_json_migrate.js";

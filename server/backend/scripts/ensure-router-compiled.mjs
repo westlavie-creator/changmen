@@ -14,13 +14,14 @@ const routerJs = path.join(BACKEND_ROOT, "core/esport-api/router.js");
 
 export function routerJsIsStale() {
   return (
-    !fs.existsSync(routerJs) ||
-    fs.statSync(routerTs).mtimeMs > fs.statSync(routerJs).mtimeMs
+    !fs.existsSync(routerJs)
+    || fs.statSync(routerTs).mtimeMs > fs.statSync(routerJs).mtimeMs
   );
 }
 
 export function ensureRouterCompiled({ label = "ensure-router" } = {}) {
-  if (!routerJsIsStale()) return true;
+  if (!routerJsIsStale())
+    return true;
 
   console.log(`[${label}] router.ts 较新，编译 router.js …`);
   const r = spawnSync("npm", ["run", "compile:router"], {

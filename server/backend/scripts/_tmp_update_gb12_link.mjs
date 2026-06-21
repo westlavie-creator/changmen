@@ -1,8 +1,8 @@
+import { getPgPool } from "@changmen/db";
+
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 
 loadChangmenEnv();
-
-import { getPgPool } from "@changmen/db";
 
 const pool = getPgPool();
 if (!pool) {
@@ -64,7 +64,7 @@ if (dryRun) {
   process.exit(0);
 }
 
-const orderIds = rows.map((r) => r.order_id);
+const orderIds = rows.map(r => r.order_id);
 const { rowCount } = await pool.query(
   `UPDATE orders SET link = $1::bigint WHERE user_id = $2 AND order_id = ANY($3::text[])`,
   [linkTs, userId, orderIds],

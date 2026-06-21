@@ -1,13 +1,13 @@
-import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { afterEach, describe, it } from "node:test";
 import {
+  clearMatcherHeartbeat,
   HEARTBEAT_PATH,
-  writeMatcherHeartbeat,
+  isPanelProcessHeartbeat,
   readMatcherHeartbeat,
   sanitizeMatcherHeartbeat,
-  isPanelProcessHeartbeat,
-  clearMatcherHeartbeat,
+  writeMatcherHeartbeat,
 } from "./heartbeat.js";
 
 afterEach(() => {

@@ -1,14 +1,16 @@
 import * as sb from "@changmen/db";
 import { isPbHashOrder } from "@changmen/db";
-import { formatCnTime } from "./user_log_lookup.js";
 import { isAdminNotifyEnabled, sendAdminNotify } from "./telegram.js";
+import { formatCnTime } from "./user_log_lookup.js";
 
 const ARB_LINK_MIN = 1_000_000_000_000;
 const DEFAULT_MAX_AGE_MIN = 120;
 
 function isOrderNotifyEnabled() {
-  if (!isAdminNotifyEnabled()) return false;
-  if (String(process.env.TELEGRAM_ORDER_NOTIFY ?? "1").trim() === "0") return false;
+  if (!isAdminNotifyEnabled())
+    return false;
+  if (String(process.env.TELEGRAM_ORDER_NOTIFY ?? "1").trim() === "0")
+    return false;
   return true;
 }
 
@@ -31,21 +33,25 @@ function stripHtml(s) {
 
 export function linkTypeLabel(link) {
   const n = Number(link);
-  if (Number.isFinite(n) && n >= ARB_LINK_MIN) return "套利";
-  if (Number.isFinite(n) && n < 0) return "单边";
+  if (Number.isFinite(n) && n >= ARB_LINK_MIN)
+    return "套利";
+  if (Number.isFinite(n) && n < 0)
+    return "单边";
   return "hash";
 }
 
 /** 展示 LinkID：原样数字字符串（负数为单边，对齐前端 formatLinkId） */
 export function formatLinkId(link) {
   const n = Number(link);
-  if (!Number.isFinite(n) || n === 0) return "—";
+  if (!Number.isFinite(n) || n === 0)
+    return "—";
   return String(n);
 }
 
 export function shouldNotifyOrderCreateAt(createAt, now = Date.now()) {
   const ts = Number(createAt) || 0;
-  if (!ts) return false;
+  if (!ts)
+    return false;
   return ts >= now - maxNotifyAgeMs();
 }
 
@@ -55,20 +61,24 @@ export function isExternalLink(link, provider) {
 }
 
 export function shouldNotifyAdminOrder(link, createAt, provider, now = Date.now()) {
-  if (isPbHashOrder(link, provider)) return false;
+  if (isPbHashOrder(link, provider))
+    return false;
   return shouldNotifyOrderCreateAt(createAt, now);
 }
 
 function findPlayerLabel(profile, playerId, provider) {
   const accounts = Array.isArray(profile?.accounts) ? profile.accounts : [];
-  const hit = accounts.find((a) => Number(a?.accountId ?? a?.AccountId) === Number(playerId));
+  const hit = accounts.find(a => Number(a?.accountId ?? a?.AccountId) === Number(playerId));
   const playerName = String(hit?.playerName ?? hit?.PlayerName ?? "").trim();
   const platform = String(
     hit?.platformName ?? hit?.PlatformName ?? hit?.provider ?? hit?.Provider ?? provider ?? "",
   ).trim();
-  if (playerName && platform) return `${platform}/${playerName}`;
-  if (playerName) return playerName;
-  if (platform) return platform;
+  if (playerName && platform)
+    return `${platform}/${playerName}`;
+  if (playerName)
+    return playerName;
+  if (platform)
+    return platform;
   return `#${playerId}`;
 }
 
@@ -99,14 +109,17 @@ export function formatAdminOrderTelegramBody({
 
 /** RDS orders 表新行 → 管理员 Telegram */
 export async function notifyNewOrdersFromRows(dbRows) {
-  if (!isOrderNotifyEnabled() || !dbRows?.length) return;
+  if (!isOrderNotifyEnabled() || !dbRows?.length)
+    return;
 
   const profileCache = new Map();
   for (const order of dbRows) {
-    if (!shouldNotifyAdminOrder(order.link, order.create_at, order.provider)) continue;
+    if (!shouldNotifyAdminOrder(order.link, order.create_at, order.provider))
+      continue;
 
     const userId = String(order.user_id || "");
-    if (!userId) continue;
+    if (!userId)
+      continue;
 
     let profile = profileCache.get(userId);
     if (!profile) {
@@ -125,7 +138,8 @@ export async function notifyNewOrdersFromRows(dbRows) {
 
 /** 不阻塞 upsertOrders */
 export function enqueueNewOrdersFromRows(dbRows) {
-  if (!isOrderNotifyEnabled() || !dbRows?.length) return;
+  if (!isOrderNotifyEnabled() || !dbRows?.length)
+    return;
   notifyNewOrdersFromRows(dbRows).catch((err) => {
     console.warn("[admin-tools:order]", err instanceof Error ? err.message : String(err));
   });

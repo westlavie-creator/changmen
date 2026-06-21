@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn, execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,11 +9,11 @@ const PORT = Number(
   process.env.PORT || (process.platform === "win32" ? 3560 : 3456),
 );
 const SERVER = path.join(__dirname, "server.js");
-const background =
-  process.argv.includes("--background") || process.argv.includes("-b");
+const background
+  = process.argv.includes("--background") || process.argv.includes("-b");
 
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function killPort(port) {
@@ -26,15 +26,18 @@ function killPort(port) {
       );
       for (const pid of out.trim().split(/\s+/).filter(Boolean)) {
         const n = Number(pid);
-        if (!n || killed.has(n)) continue;
+        if (!n || killed.has(n))
+          continue;
         try {
           execSync(`taskkill /PID ${n} /F`, { stdio: "ignore" });
           killed.add(n);
-        } catch {
+        }
+        catch {
           /* ignore */
         }
       }
-    } catch {
+    }
+    catch {
       /* no listener on port */
     }
     return [...killed];
@@ -47,15 +50,18 @@ function killPort(port) {
     });
     for (const pid of out.trim().split(/\s+/).filter(Boolean)) {
       const n = Number(pid);
-      if (!n || killed.has(n)) continue;
+      if (!n || killed.has(n))
+        continue;
       try {
         process.kill(n, "SIGTERM");
         killed.add(n);
-      } catch {
+      }
+      catch {
         /* ignore */
       }
     }
-  } catch {
+  }
+  catch {
     /* no listener on port */
   }
   return [...killed];
@@ -75,7 +81,8 @@ function startServer() {
     return;
   }
   child.on("exit", (code, signal) => {
-    if (signal) process.kill(process.pid, signal);
+    if (signal)
+      process.kill(process.pid, signal);
     else process.exit(code ?? 0);
   });
 }
@@ -85,7 +92,8 @@ async function main() {
   if (pids.length) {
     console.log(`Stopped process on port ${PORT}: ${pids.join(", ")}`);
     await sleep(1000);
-  } else {
+  }
+  else {
     console.log(`No process listening on port ${PORT}`);
   }
   startServer();

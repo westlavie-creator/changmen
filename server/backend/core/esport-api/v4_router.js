@@ -1,5 +1,5 @@
-import { loginV4, playLoginV4 } from "../integrations/a8/v4_client.js";
 import { A8_GAME_ID_PB, A8_USER, A8_V4_PASSWORD } from "../integrations/a8/constants.js";
+import { loginV4, playLoginV4 } from "../integrations/a8/v4_client.js";
 
 /** v4.0 接口 — 转发 A8 api.a8.to（login/play）；body 可省略，默认 a8_constants 账号 */
 
@@ -28,11 +28,13 @@ function readBody(req) {
 }
 
 function parseFormBody(raw) {
-  if (!raw) return {};
+  if (!raw)
+    return {};
   if (raw.trim().startsWith("{")) {
     try {
       return JSON.parse(raw);
-    } catch {
+    }
+    catch {
       return {};
     }
   }
@@ -57,7 +59,8 @@ export async function handleV4Request(req, res, urlPath) {
   if (req.method === "POST") {
     try {
       rawBody = await readBody(req);
-    } catch (err) {
+    }
+    catch (err) {
       sendJson(res, 400, fail(err.message));
       return true;
     }
@@ -71,7 +74,8 @@ export async function handleV4Request(req, res, urlPath) {
     try {
       const data = await loginV4(userName, password);
       sendJson(res, 200, data ?? fail("登录无响应"));
-    } catch (err) {
+    }
+    catch (err) {
       sendJson(res, 200, fail(err.message || "v4 登录失败"));
     }
     return true;
@@ -87,7 +91,8 @@ export async function handleV4Request(req, res, urlPath) {
     try {
       const data = await playLoginV4(gameId, token);
       sendJson(res, 200, data ?? fail("game/play 无响应"));
-    } catch (err) {
+    }
+    catch (err) {
       sendJson(res, 200, fail(err.message || "game/play 请求失败"));
     }
     return true;

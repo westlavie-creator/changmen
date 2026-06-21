@@ -10,9 +10,11 @@ function matchsSignature(matchs) {
 /** existing ⊆ built（平台与 source id 一致）时视为同场升级，复用旧 client_matches.id */
 function matchsIsSubset(subMatchs, superMatchs) {
   const sub = Object.entries(subMatchs || {});
-  if (!sub.length) return false;
+  if (!sub.length)
+    return false;
   for (const [plat, srcId] of sub) {
-    if (String(superMatchs?.[plat] ?? "") !== String(srcId)) return false;
+    if (String(superMatchs?.[plat] ?? "") !== String(srcId))
+      return false;
   }
   return true;
 }
@@ -21,7 +23,8 @@ function findReuseIdByMatchsSuperset(existingRows, builtMatchs) {
   let bestId = 0;
   let bestCount = 0;
   for (const row of existingRows || []) {
-    if (!matchsIsSubset(row.matchs, builtMatchs)) continue;
+    if (!matchsIsSubset(row.matchs, builtMatchs))
+      continue;
     const count = Object.keys(row.matchs || {}).length;
     if (count > bestCount) {
       bestCount = count;
@@ -34,9 +37,11 @@ function findReuseIdByMatchsSuperset(existingRows, builtMatchs) {
 function findPlatformMatch(matches, provider, sourceMatchId) {
   const sid = String(sourceMatchId);
   const byId = matches?.[provider];
-  if (!byId) return null;
-  if (byId[sid]) return byId[sid];
-  return Object.values(byId).find((m) => String(m.SourceMatchID) === sid) || null;
+  if (!byId)
+    return null;
+  if (byId[sid])
+    return byId[sid];
+  return Object.values(byId).find(m => String(m.SourceMatchID) === sid) || null;
 }
 
 /** 对齐阶段已在内存写入的 ClientMatchId（链接到已有 client 行，禁止新建 id） */
@@ -45,14 +50,17 @@ function findLinkedClientIdFromMatchs(builtMatchs, matches, { mergeKey, existing
   for (const [plat, srcId] of Object.entries(builtMatchs || {})) {
     const m = findPlatformMatch(matches, plat, srcId);
     const cid = m?.ClientMatchId ?? m?.client_match_id ?? m?.match_id;
-    if (cid != null && cid !== "") ids.add(Number(cid));
+    if (cid != null && cid !== "")
+      ids.add(Number(cid));
   }
-  if (!ids.size) return 0;
-  if (ids.size === 1) return [...ids][0];
+  if (!ids.size)
+    return 0;
+  if (ids.size === 1)
+    return [...ids][0];
 
   const idList = [...ids].sort((a, b) => a - b);
-  const preferred =
-    mergeKey?.startsWith("match:id:") ? existingIdKeyIndex?.get(mergeKey) : null;
+  const preferred
+    = mergeKey?.startsWith("match:id:") ? existingIdKeyIndex?.get(mergeKey) : null;
   if (preferred != null && ids.has(preferred)) {
     console.warn(
       `[client_match_ids] platform match_id 冲突 ${idList.join(" vs ")}，采用 match:id 索引 #${preferred}`,
@@ -74,7 +82,8 @@ function findReuseIdByPlatformOverlap(existingRows, builtMatchs) {
   for (const row of existingRows || []) {
     let overlap = 0;
     for (const [plat, srcId] of Object.entries(builtMatchs || {})) {
-      if (String(row.matchs?.[plat] ?? "") === String(srcId)) overlap++;
+      if (String(row.matchs?.[plat] ?? "") === String(srcId))
+        overlap++;
     }
     if (overlap > bestOverlap) {
       bestOverlap = overlap;
@@ -97,7 +106,7 @@ function assignMatchIds(row, id) {
   return {
     ...row,
     ID: numericId,
-    Bets: (row.Bets || []).map((bet) => ({
+    Bets: (row.Bets || []).map(bet => ({
       ...bet,
       MatchID: numericId,
       ID: stableBetId(numericId, bet.Map ?? 0),
@@ -114,8 +123,10 @@ async function insertClientMatchRow(adapter, mergeKey, stub) {
  * 优先复用已有 client_matches.id（含对齐链接、平台重叠）；仅全新场次才 insert。
  */
 async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKeyIndex } = {}) {
-  if (!adapter) throw new Error("client match adapter required");
-  if (!builtRows?.length) return [];
+  if (!adapter)
+    throw new Error("client match adapter required");
+  if (!builtRows?.length)
+    return [];
 
   const existing = await adapter.fetchClientMatchIndex();
   const idKeyIndex = existingIdKeyIndex || new Map();
@@ -124,12 +135,15 @@ async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKe
   const byMatchsSig = new Map();
   for (const row of existing || []) {
     const id = Number(row.id);
-    if (row.merge_key) byMergeKey.set(row.merge_key, id);
+    if (row.merge_key)
+      byMergeKey.set(row.merge_key, id);
     const sig = matchsSignature(row.matchs);
-    if (sig && !byMatchsSig.has(sig)) byMatchsSig.set(sig, id);
+    if (sig && !byMatchsSig.has(sig))
+      byMatchsSig.set(sig, id);
   }
   for (const [key, id] of idKeyIndex) {
-    if (!byMergeKey.has(key)) byMergeKey.set(key, id);
+    if (!byMergeKey.has(key))
+      byMergeKey.set(key, id);
   }
 
   const batchAssigned = new Map();
@@ -150,7 +164,8 @@ async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKe
     }
     if (!id) {
       const sig = matchsSignature(row.Matchs);
-      if (sig) id = byMatchsSig.get(sig) || 0;
+      if (sig)
+        id = byMatchsSig.get(sig) || 0;
     }
     if (!id) {
       id = findReuseIdByMatchsSuperset(existing, row.Matchs);
@@ -175,9 +190,11 @@ async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKe
       throw new Error(`无法为赛事分配 id（merge_key=${mergeKey || "null"}）`);
     }
 
-    if (mergeKey) batchAssigned.set(mergeKey, id);
+    if (mergeKey)
+      batchAssigned.set(mergeKey, id);
     const sig = matchsSignature(row.Matchs);
-    if (sig) byMatchsSig.set(sig, id);
+    if (sig)
+      byMatchsSig.set(sig, id);
     resolved.push(assignMatchIds(row, id));
   }
 
@@ -186,24 +203,27 @@ async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKe
 
 /** 人工关联前确保 client_matches 行存在，返回自增 id */
 async function ensureClientMatchId(adapter, mergeKey, stub = {}) {
-  if (!adapter) throw new Error("client match adapter required");
+  if (!adapter)
+    throw new Error("client match adapter required");
   const key = String(mergeKey || "").trim();
-  if (!key) throw new Error("merge_key 不能为空");
+  if (!key)
+    throw new Error("merge_key 不能为空");
 
   const existing = await adapter.findClientMatchIdByMergeKey(key);
-  if (existing != null) return Number(existing);
+  if (existing != null)
+    return Number(existing);
 
   return insertClientMatchRow(adapter, key, stub);
 }
 
 export {
-  matchsSignature,
-  matchsIsSubset,
-  findReuseIdByMatchsSuperset,
+  assignMatchIds,
+  ensureClientMatchId,
   findLinkedClientIdFromMatchs,
+  findReuseIdByMatchsSuperset,
   findReuseIdByPlatformOverlap,
   manualMergeKey,
-  assignMatchIds,
+  matchsIsSubset,
+  matchsSignature,
   resolveClientMatchIds,
-  ensureClientMatchId,
 };

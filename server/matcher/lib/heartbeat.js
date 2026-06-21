@@ -1,6 +1,6 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -8,7 +8,8 @@ export const HEARTBEAT_PATH = path.join(__dirname, "..", ".matcher-heartbeat.jso
 export const STALE_FACTOR = 2.5;
 
 export function isPidAlive(pid) {
-  if (!pid || pid <= 0) return false;
+  if (!pid || pid <= 0)
+    return false;
   if (process.platform === "win32") {
     try {
       const out = execFileSync("tasklist", ["/FI", `PID eq ${pid}`, "/NH"], {
@@ -16,14 +17,16 @@ export function isPidAlive(pid) {
         windowsHide: true,
       });
       return out.includes(String(pid));
-    } catch {
+    }
+    catch {
       return false;
     }
   }
   try {
     process.kill(pid, 0);
     return true;
-  } catch (err) {
+  }
+  catch (err) {
     return err.code === "EPERM";
   }
 }
@@ -49,7 +52,8 @@ export function isPanelProcessHeartbeat(hb, panelPid = process.pid) {
  * @returns {object|null} 仍有效的匹配脚本心跳
  */
 export function sanitizeMatcherHeartbeat(hb, panelPid = process.pid) {
-  if (!hb) return null;
+  if (!hb)
+    return null;
   if (hb.pid && !isPidAlive(hb.pid)) {
     clearMatcherHeartbeat();
     return null;
@@ -63,25 +67,32 @@ export function sanitizeMatcherHeartbeat(hb, panelPid = process.pid) {
 
 export function readMatcherHeartbeat() {
   try {
-    if (!fs.existsSync(HEARTBEAT_PATH)) return null;
+    if (!fs.existsSync(HEARTBEAT_PATH))
+      return null;
     return JSON.parse(fs.readFileSync(HEARTBEAT_PATH, "utf8"));
-  } catch {
+  }
+  catch {
     return null;
   }
 }
 
 export function isMatcherRunning(hb, now = Date.now()) {
-  if (!hb?.lastRun) return false;
+  if (!hb?.lastRun)
+    return false;
   const ageMs = now - hb.lastRun;
-  if (ageMs > (hb.intervalMs || 30_000) * STALE_FACTOR) return false;
-  if (hb.pid && !isPidAlive(hb.pid)) return false;
+  if (ageMs > (hb.intervalMs || 30_000) * STALE_FACTOR)
+    return false;
+  if (hb.pid && !isPidAlive(hb.pid))
+    return false;
   return true;
 }
 
 export function clearMatcherHeartbeat() {
   try {
-    if (fs.existsSync(HEARTBEAT_PATH)) fs.unlinkSync(HEARTBEAT_PATH);
-  } catch {
+    if (fs.existsSync(HEARTBEAT_PATH))
+      fs.unlinkSync(HEARTBEAT_PATH);
+  }
+  catch {
     /* best effort */
   }
 }

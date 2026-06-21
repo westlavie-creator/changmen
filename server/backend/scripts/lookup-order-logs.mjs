@@ -11,19 +11,25 @@ import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 loadChangmenEnv();
 
 const { lookupOrderLogs, formatLookupReport } = await import(
-  "../core/admin_tools/user_log_lookup.js"
+  "../core/admin_tools/user_log_lookup.js",
 );
 
 function parseArgs(argv) {
   const out = { userName: "", link: "", orderId: "", json: false, paddingMs: 0 };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
-    if (a === "--json") out.json = true;
-    else if (a === "--user") out.userName = argv[++i] ?? "";
-    else if (a === "--link") out.link = argv[++i] ?? "";
-    else if (a === "--order") out.orderId = argv[++i] ?? "";
-    else if (a === "--padding-ms") out.paddingMs = Number(argv[++i]) || 0;
-    else if (a === "--help" || a === "-h") out.help = true;
+    if (a === "--json")
+      out.json = true;
+    else if (a === "--user")
+      out.userName = argv[++i] ?? "";
+    else if (a === "--link")
+      out.link = argv[++i] ?? "";
+    else if (a === "--order")
+      out.orderId = argv[++i] ?? "";
+    else if (a === "--padding-ms")
+      out.paddingMs = Number(argv[++i]) || 0;
+    else if (a === "--help" || a === "-h")
+      out.help = true;
   }
   return out;
 }
@@ -60,7 +66,8 @@ if (args.json) {
     ? { ...result, logsRaw: result.logsRaw }
     : result;
   console.log(JSON.stringify(payload, null, 2));
-} else {
+}
+else {
   console.log(formatLookupReport(result));
 }
 

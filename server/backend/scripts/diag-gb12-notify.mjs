@@ -1,8 +1,8 @@
-import pg from "pg";
-import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isPbHashOrder, placeholderLinkFromCreateAt } from "@changmen/db/order_link_filter.js";
+import pg from "pg";
 
 function isExternalLink(link, provider) {
   return isPbHashOrder(link, provider);
@@ -11,8 +11,10 @@ function isExternalLink(link, provider) {
 function linkType(link) {
   const n = Number(link);
   const ARB_LINK_MIN = 1_000_000_000_000;
-  if (Number.isFinite(n) && n >= ARB_LINK_MIN) return "arb";
-  if (Number.isFinite(n) && n < 0) return "single";
+  if (Number.isFinite(n) && n >= ARB_LINK_MIN)
+    return "arb";
+  if (Number.isFinite(n) && n < 0)
+    return "single";
   return "hash";
 }
 
@@ -52,9 +54,12 @@ for (const r of orders.rows) {
   const ext = isExternalLink(r.link, r.provider);
   const ageOk = Number(r.create_at) >= now - 120 * 60 * 1000;
   const notify = shouldNotify(r.link, r.create_at, r.provider, now);
-  if (notify) wouldNotify += 1;
-  else if (ext) blockedExternal += 1;
-  else if (!ageOk) blockedAge += 1;
+  if (notify)
+    wouldNotify += 1;
+  else if (ext)
+    blockedExternal += 1;
+  else if (!ageOk)
+    blockedAge += 1;
   const t = new Date(Number(r.create_at)).toLocaleString("zh-CN", {
     timeZone: "Asia/Shanghai",
   });
@@ -83,7 +88,8 @@ let insertBlocked = 0;
 for (const r of orders.rows.slice(0, 15)) {
   const insertLink = placeholderLinkFromCreateAt(r.create_at);
   const notifyAtInsert = shouldNotify(insertLink, r.create_at, r.provider, now);
-  if (notifyAtInsert) insertWouldNotify += 1;
+  if (notifyAtInsert)
+    insertWouldNotify += 1;
   else insertBlocked += 1;
   console.log(
     JSON.stringify({

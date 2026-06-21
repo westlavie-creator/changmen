@@ -1,16 +1,18 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { buildBetsForMatch } from "../merge/bet_builder.js";
 
-const src = (p, b) => ({
-  Type: p,
-  BetID: String(b.SourceBetID),
-  HomeID: String(b.SourceHomeID),
-  AwayID: String(b.SourceAwayID),
-  HomeOdds: b.HomeOdds,
-  AwayOdds: b.AwayOdds,
-  Status: b.Status,
-});
+function src(p, b) {
+  return {
+    Type: p,
+    BetID: String(b.SourceBetID),
+    HomeID: String(b.SourceHomeID),
+    AwayID: String(b.SourceAwayID),
+    HomeOdds: b.HomeOdds,
+    AwayOdds: b.AwayOdds,
+    Status: b.Status,
+  };
+}
 
 test("IA Map3: 无地图获胜者时排除第二手枪局", () => {
   const bets = {
@@ -52,9 +54,9 @@ test("IA Map3: 无地图获胜者时排除第二手枪局", () => {
     },
   };
   const out = buildBetsForMatch("IA", "373450", 0, bets, src, "cs2");
-  const maps = out.map((b) => b.Map);
+  const maps = out.map(b => b.Map);
   assert.deepEqual(maps, [0, 1]);
-  assert.equal(out.find((b) => b.Map === 3), undefined);
+  assert.equal(out.find(b => b.Map === 3), undefined);
 });
 
 test("IA Map2: 地图获胜者 wins over 第二手枪局 when both present", () => {

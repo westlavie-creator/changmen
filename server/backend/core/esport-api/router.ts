@@ -1,28 +1,26 @@
 import type { EsportAction } from "@changmen/api-contract/actions";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import * as sb from "@changmen/db";
 import catalog from "@changmen/shared/catalog/game_catalog.json" with { type: "json" };
+import { getDefaultMarketCode, getPlatformRules } from "@changmen/shared/catalog/market_catalog.mjs";
 import { isWsForwardHttpPath } from "@changmen/ws-forward";
-import store from "./store.js";
-import { emptyPage as _emptyPage } from "./stubs.js";
-import { getMonthReport } from "../account/report_service.js";
-import { handleV4Request } from "./v4_router.js";
-import { handleCommonApi } from "./hg_follow.js";
-import * as accountStore from "../account/account_store.js";
 import * as accountService from "../account/account_service.js";
-import { isAdminUser, canAccessAdminPanel } from "../auth/admin_auth.js";
-import { checkActionAuth } from "../auth/action_permissions.js";
-import { getVisibleUserIds } from "../auth/role_filter.js";
-import { touchUserPresence } from "../account/user_presence.js";
-import { normalizeClientIp, recordUserLastLogin } from "../account/user_login_meta.js";
+import * as accountStore from "../account/account_store.js";
 import { assertProfileActive } from "../account/admin_service.js";
 import * as adminService from "../account/admin_service.js";
-import { resolveA8Credentials } from "../integrations/a8/config.js";
-import { loginV4 } from "../integrations/a8/v4_client.js";
-import { getPlatformRules, getDefaultMarketCode } from "@changmen/shared/catalog/market_catalog.mjs";
-import { requirePlatform } from "../shared/adapter_paths.js";
-import * as sb from "@changmen/db";
+import { getMonthReport } from "../account/report_service.js";
+import { normalizeClientIp, recordUserLastLogin } from "../account/user_login_meta.js";
+import { touchUserPresence } from "../account/user_presence.js";
+import { checkActionAuth } from "../auth/action_permissions.js";
+import { isAdminUser } from "../auth/admin_auth.js";
+import { getVisibleUserIds } from "../auth/role_filter.js";
 import * as dbStore from "../db/store.js";
+import { resolveA8Credentials } from "../integrations/a8/config.js";
+import { requirePlatform } from "../shared/adapter_paths.js";
+import { handleCommonApi } from "./hg_follow.js";
+import store from "./store.js";
 import { handleSendMessage as sendTelegramMessage } from "./telegram_send.js";
-import type { IncomingMessage, ServerResponse } from "http";
+import { handleV4Request } from "./v4_router.js";
 
 export type { EsportAction } from "@changmen/api-contract/actions";
 
@@ -77,7 +75,8 @@ function fail(msg: string, info = null): ApiFailure {
 function getJwtClaim(token: string, claim: string): unknown {
   try {
     return JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString())[claim];
-  } catch {
+  }
+  catch {
     return null;
   }
 }
@@ -127,11 +126,14 @@ function readBody(req: IncomingMessage): Promise<string> {
 async function parseRequest(req: IncomingMessage): Promise<Record<string, unknown>> {
   const raw = await readBody(req);
   const ct = String(req.headers["content-type"] || "");
-  if (ct.includes("application/x-www-form-urlencoded")) return parseFormBody(raw);
+  if (ct.includes("application/x-www-form-urlencoded"))
+    return parseFormBody(raw);
   if (ct.includes("application/json")) {
-    try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+    try { return raw ? JSON.parse(raw) : {}; }
+    catch { return {}; }
   }
-  if (raw.includes("=")) return parseFormBody(raw);
+  if (raw.includes("="))
+    return parseFormBody(raw);
   return raw ? { _raw: raw } : {};
 }
 
@@ -144,7 +146,8 @@ function gamesForProvider(provider: string): string[] {
   const ids = new Set<string>();
   for (const game of catalog.games || []) {
     const id = game.platforms?.[provider];
-    if (id) ids.add(String(id));
+    if (id)
+      ids.add(String(id));
   }
   return [...ids];
 }
@@ -152,11 +155,12 @@ function gamesForProvider(provider: string): string[] {
 // ?? Action handlers ??????????????????????????????????????????????????????????
 
 function clientIpFromRequest(req?: IncomingMessage): string {
-  if (!req) return "";
-  const raw =
-    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-    || req.socket?.remoteAddress
-    || "";
+  if (!req)
+    return "";
+  const raw
+    = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+      || req.socket?.remoteAddress
+      || "";
   return normalizeClientIp(raw);
 }
 
@@ -166,7 +170,8 @@ async function handleClientLogin(
 ): Promise<ApiEnvelope> {
   const userName = String(body.userName || body.username || "").trim();
   const password = body.password;
-  if (!userName || !password) return fail("用户名或密码不能为空");
+  if (!userName || !password)
+    return fail("用户名或密码不能为空");
   if (!sb.isAuthConfigured()) {
     return fail(authNotConfiguredMessage());
   }
@@ -175,7 +180,8 @@ async function handleClientLogin(
   if (auth && "error" in auth && auth.error === "db") {
     return fail("数据库连接失败，请检查 DATABASE_URL 配置");
   }
-  if (!auth || "error" in auth) return fail("用户名或密码错误");
+  if (!auth || "error" in auth)
+    return fail("用户名或密码错误");
 
   const { accessToken, refreshToken, userId: uid, email } = auth;
 
@@ -184,17 +190,25 @@ async function handleClientLogin(
     const inferredName = (email as string).split("@")[0];
     const now = Date.now();
     const ok2 = await sb.insertProfile(uid, {
-      id: uid, user_name: inferredName,
-      accounts: [], betting_config: {}, collect_config: {},
-      preferences: {}, created_at: now, updated_at: now,
+      id: uid,
+      user_name: inferredName,
+      accounts: [],
+      betting_config: {},
+      collect_config: {},
+      preferences: {},
+      created_at: now,
+      updated_at: now,
     });
-    if (ok2) profile = await dbStore.loadProfileById(uid);
+    if (ok2)
+      profile = await dbStore.loadProfileById(uid);
   }
-  if (!profile) return fail(profileLoadFailMessage());
+  if (!profile)
+    return fail(profileLoadFailMessage());
 
   try {
     await assertProfileActive(uid);
-  } catch (err) {
+  }
+  catch (err) {
     return fail((err as Error).message || "账号状态异常，请联系管理员");
   }
 
@@ -210,12 +224,14 @@ async function handle(
   ctx: EsportContext,
 ): Promise<ApiEnvelope> {
   const authFailure = requireActionAuth(action, ctx);
-  if (authFailure) return authFailure;
+  if (authFailure)
+    return authFailure;
 
   if (ctx.user?.id) {
     try {
       await assertProfileActive(ctx.user.id);
-    } catch (err) {
+    }
+    catch (err) {
       return fail((err as Error).message || "账号状态异常，请联系管理员");
     }
     touchUserPresence(ctx.user.id);
@@ -227,15 +243,18 @@ async function handle(
     }
     case "Client_RefreshToken": {
       const refreshToken = body.refreshToken ?? body.refresh_token;
-      if (!refreshToken) return fail("缺少 refreshToken");
+      if (!refreshToken)
+        return fail("缺少 refreshToken");
       const auth = await sb.authRefreshToken(String(refreshToken));
       if (auth && "revoked" in auth && auth.revoked) {
         return fail("会话已失效，请重新登录");
       }
-      if (!auth || !("accessToken" in auth)) return fail("刷新 token 失败");
+      if (!auth || !("accessToken" in auth))
+        return fail("刷新 token 失败");
       try {
         await assertProfileActive(auth.userId);
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "账号状态异常，请联系管理员");
       }
       touchUserPresence(auth.userId);
@@ -255,18 +274,22 @@ async function handle(
     case "Client_UpdateSetting": {
       let patch = body.setting ?? body;
       if (typeof patch === "string") {
-        try { patch = JSON.parse(patch); } catch { return fail("invalid setting json"); }
+        try { patch = JSON.parse(patch); }
+        catch { return fail("invalid setting json"); }
       }
-      if (!patch || typeof patch !== "object" || Array.isArray(patch)) return fail("setting required");
+      if (!patch || typeof patch !== "object" || Array.isArray(patch))
+        return fail("setting required");
       const user = store.updateUserSetting(ctx.user.id, patch);
-      if (!user) return fail("user not found");
+      if (!user)
+        return fail("user not found");
       return ok(user.setting || {});
     }
     case "Client_GetCollectPlatform": {
       const provider = String(body.provider || "");
       const row = store.getPlatform(provider);
       const catalogBetName = getPlatformRules(provider, getDefaultMarketCode())?.betName || ".*";
-      if (!row) return ok({ Gateway: "", Token: "", BetName: catalogBetName });
+      if (!row)
+        return ok({ Gateway: "", Token: "", BetName: catalogBetName });
 
       const betName = row.betName && row.betName !== ".*" ? row.betName : catalogBetName;
       let gateway: string = row.gateway || "";
@@ -281,11 +304,14 @@ async function handle(
           const { getTfA8CollectCredentials } = requirePlatform("TF", "node", "collect_credentials.js");
           const a8 = await getTfA8CollectCredentials();
           store.setPlatform("TF", {
-            gateway: a8.gateway, token: a8.token,
-            betName: a8.betName || betName, games: a8.games,
+            gateway: a8.gateway,
+            token: a8.token,
+            betName: a8.betName || betName,
+            games: a8.games,
           });
           return ok({ Gateway: a8.gateway, Token: a8.token, BetName: a8.betName || betName });
-        } catch (err: any) {
+        }
+        catch (err: any) {
           console.warn("[TF] A8 Client_GetCollectPlatform failed:", err.message);
           const fallback = store.getPlatform("TF");
           if (fallback?.gateway && fallback?.token) {
@@ -318,20 +344,22 @@ async function handle(
     }
     case "API_UpdatePlatform": {
       const provider = body.provider;
-      if (!provider) return fail("provider required");
+      if (!provider)
+        return fail("provider required");
       const prev = store.getPlatform(provider) || {};
       const next = store.setPlatform(provider, {
         gateway: body.gateway ?? prev.gateway ?? "",
-        token:   body.token   ?? prev.token   ?? "",
+        token: body.token ?? prev.token ?? "",
         betName: body.betName ?? prev.betName ?? ".*",
-        games:   body.games ? JSON.parse(body.games as string) : prev.games,
+        games: body.games ? JSON.parse(body.games as string) : prev.games,
       });
       return ok(next);
     }
     case "API_SaveMatch": {
       const provider = body.provider;
       let matchs: unknown[] = [];
-      try { matchs = JSON.parse((body.matchs as string) || "[]"); } catch { return fail("invalid matchs json"); }
+      try { matchs = JSON.parse((body.matchs as string) || "[]"); }
+      catch { return fail("invalid matchs json"); }
       store.saveMatches(provider, matchs);
       return ok(true);
     }
@@ -339,21 +367,24 @@ async function handle(
       const provider = body.provider;
       const matchId = body.matchId;
       let bets: unknown[] = [];
-      try { bets = JSON.parse((body.bets as string) || "[]"); } catch { return fail("invalid bets json"); }
+      try { bets = JSON.parse((body.bets as string) || "[]"); }
+      catch { return fail("invalid bets json"); }
       store.saveBets(provider, matchId, bets);
       return ok(true);
     }
     case "API_SaveLiveTimer": {
       const provider = body.provider;
       let timer: unknown[] = [];
-      try { timer = JSON.parse((body.timer as string) || "[]"); } catch { return fail("invalid timer json"); }
+      try { timer = JSON.parse((body.timer as string) || "[]"); }
+      catch { return fail("invalid timer json"); }
       await store.saveLiveTimer(provider, timer);
       return ok(true);
     }
     case "Client_GetMatchs":
       return ok(await store.buildMatchList());
     case "Client_SaveData": {
-      if (!body.key) return fail("key required");
+      if (!body.key)
+        return fail("key required");
       const saved = await accountService.handleSaveData(body.key, body.content ?? "", ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
@@ -361,7 +392,8 @@ async function handle(
       return ok(store.getAccountsForUser(ctx.user.id));
     case "Client_SaveAccounts": {
       let accounts: unknown[] = [];
-      try { accounts = JSON.parse((body.accounts as string) || "[]"); } catch { return fail("accounts JSON ??"); }
+      try { accounts = JSON.parse((body.accounts as string) || "[]"); }
+      catch { return fail("accounts JSON ??"); }
       const saved = await accountService.handleSaveAccounts(accounts, ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
@@ -369,8 +401,10 @@ async function handle(
       const data = accountService.handleGetData(body.key, ctx.user.id);
       // ACCOUNT/PROXY ? key ????? JSON??? ok() ??
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      if (Array.isArray(data.direct)) return data.direct as any;
-      if (data.direct && typeof data.direct === "object") return data.direct as any;
+      if (Array.isArray(data.direct))
+        return data.direct as any;
+      if (data.direct && typeof data.direct === "object")
+        return data.direct as any;
       return ok(data.info);
     }
     case "Client_GetUserDetail":
@@ -438,7 +472,8 @@ async function handle(
     case "Client_AdminOrderLogs": {
       try {
         return ok(await adminService.listAdminOrderLogs(body, ctx.user));
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "查询失败");
       }
     }
@@ -450,7 +485,8 @@ async function handle(
             body.password as string,
           ),
         );
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "操作失败");
       }
     }
@@ -463,7 +499,8 @@ async function handle(
             ctx.user,
           ),
         );
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "操作失败");
       }
     }
@@ -476,14 +513,15 @@ async function handle(
             ctx.user,
           ),
         );
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "操作失败");
       }
     }
     case "Client_AdminSetUserAdmin": {
       try {
-        const isAdmin =
-          body.isAdmin === true || body.isAdmin === 1 || body.isAdmin === "1";
+        const isAdmin
+          = body.isAdmin === true || body.isAdmin === 1 || body.isAdmin === "1";
         return ok(
           await adminService.setAdminUserAdmin(
             (body.userId ?? body.id) as string,
@@ -491,7 +529,8 @@ async function handle(
             ctx.user.id,
           ),
         );
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "操作失败");
       }
     }
@@ -505,7 +544,8 @@ async function handle(
             ctx.user.id,
           ),
         );
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "设置失败");
       }
     }
@@ -515,14 +555,16 @@ async function handle(
     case "Client_AdminUpsertTeam": {
       try {
         return ok(await adminService.upsertTeam(body.id as string, body.name as string));
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "保存团队失败");
       }
     }
     case "Client_AdminDeleteTeam": {
       try {
         return ok(await adminService.deleteTeam((body.id ?? body.teamId) as string));
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "删除团队失败");
       }
     }
@@ -534,14 +576,16 @@ async function handle(
             ctx.user.id,
           ),
         );
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "删除用户失败");
       }
     }
     case "Client_AdminDeleteOrders": {
       try {
         return ok(await adminService.deleteAdminOrders(body, ctx.user));
-      } catch (err) {
+      }
+      catch (err) {
         return fail((err as Error).message || "操作失败");
       }
     }
@@ -573,13 +617,15 @@ async function handle(
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);
       const team = String(body.team || "");
-      if (!betId || (team !== "Home" && team !== "Away")) return fail("betId / team ??");
+      if (!betId || (team !== "Home" && team !== "Away"))
+        return fail("betId / team ??");
       const odds = await store.getDefaultOddsSingle(betId, team);
       return ok({ odds });
     }
     case "Client_GetMatchDefaultOdds": {
       let matchIds: unknown[] = [];
-      try { matchIds = JSON.parse((body.matchs as string) || "[]"); } catch { return fail("matchs JSON ??"); }
+      try { matchIds = JSON.parse((body.matchs as string) || "[]"); }
+      catch { return fail("matchs JSON ??"); }
       return ok(await store.getMatchDefaultOdds(matchIds));
     }
     case "Client_CreateTagPlatform": {
@@ -639,7 +685,8 @@ export async function handleEsportRequest(
 
     let body: Record<string, unknown> = {};
     if (req.method === "POST") {
-      try { body = await parseRequest(req); } catch (err: any) {
+      try { body = await parseRequest(req); }
+      catch (err: any) {
         sendJson(res, 400, fail(err.message));
         return true;
       }
@@ -655,18 +702,20 @@ export async function handleEsportRequest(
 
     sendJson(res, 200, await handle(action, body, { token, user }));
     return true;
-  } catch (err: any) {
+  }
+  catch (err: any) {
     console.error("[esport]", action || urlPath, err);
-    if (!res.headersSent) sendJson(res, 200, fail(err.message || "服务器错误"));
+    if (!res.headersSent)
+      sendJson(res, 200, fail(err.message || "服务器错误"));
     return true;
   }
 }
 
 function handleIp(req: IncomingMessage, res: ServerResponse): true {
-  const ip =
-    (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-    || req.socket?.remoteAddress
-    || "127.0.0.1";
+  const ip
+    = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+      || req.socket?.remoteAddress
+      || "127.0.0.1";
   sendJson(res, 200, ok({ IP: ip, Address: ip === "127.0.0.1" ? "??" : ip }));
   return true;
 }
@@ -677,7 +726,8 @@ async function handleIpAddress(req: IncomingMessage, res: ServerResponse): Promi
   try {
     const raw = await readBody(req);
     body = raw ? JSON.parse(raw) : [];
-  } catch { body = []; }
+  }
+  catch { body = []; }
   const info: Record<string, string> = {};
   for (const ip of body) info[String(ip)] = String(ip);
   sendJson(res, 200, ok(info));
@@ -698,11 +748,16 @@ export async function tryEsportApi(
   res: ServerResponse,
 ): Promise<boolean> {
   const urlPath = req.url!.split("?")[0];
-  if (isWsForwardHttpPath(urlPath)) return false;
-  if (urlPath.startsWith("/esport/"))       return handleEsportRequest(req, res, urlPath);
-  if (urlPath.startsWith("/esport-ahao/"))  return handleEsportAhao(req, res, urlPath);
-  if (urlPath.startsWith("/v4.0/"))         return handleV4Request(req, res, urlPath);
-  if (urlPath.startsWith("/common/"))       return handleCommonApi(req, res, req.url);
+  if (isWsForwardHttpPath(urlPath))
+    return false;
+  if (urlPath.startsWith("/esport/"))
+    return handleEsportRequest(req, res, urlPath);
+  if (urlPath.startsWith("/esport-ahao/"))
+    return handleEsportAhao(req, res, urlPath);
+  if (urlPath.startsWith("/v4.0/"))
+    return handleV4Request(req, res, urlPath);
+  if (urlPath.startsWith("/common/"))
+    return handleCommonApi(req, res, req.url);
   if (urlPath === "/IP" || urlPath === "/IP/Address") {
     return urlPath === "/IP/Address" ? handleIpAddress(req, res) : handleIp(req, res);
   }
@@ -710,7 +765,8 @@ export async function tryEsportApi(
 }
 
 /**
- * IPC / ?????? ????handleEsportRequest ??????????HTTP req/res?? * ?????? ApiEnvelope????throw?? */
+ * IPC / ?????? ????handleEsportRequest ??????????HTTP req/res?? * ?????? ApiEnvelope????throw??
+ */
 export async function callEsportAction(
   action: string,
   body: Record<string, unknown>,
@@ -721,11 +777,14 @@ export async function callEsportAction(
     await accountStore.ensureSeed();
     // IPC ????action ????query string?? "API_SaveMatch?XBet"?????
     const cleanAction = String(action || "").split("?")[0];
-    if (!cleanAction) return fail("missing action");
+    if (!cleanAction)
+      return fail("missing action");
     const user = await store.getUserByToken(token);
-    if (cleanAction === "Client_Login") return handleClientLogin(body);
+    if (cleanAction === "Client_Login")
+      return handleClientLogin(body);
     return handle(cleanAction, body || {}, { token, user });
-  } catch (err: any) {
+  }
+  catch (err: any) {
     console.error("[esport:ipc]", action, err);
     return fail(err.message || "服务器错误");
   }

@@ -9,6 +9,37 @@
  *   merge/bet_builder  — 通用赔率过滤 + 构建
  */
 
+import { describePlatformGame, getGameCodeForPlatformId, resolveClientGame } from "@changmen/shared/catalog/game_catalog.mjs";
+import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
+import { a8StartTimeListAllowed, normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import {
+  betKey,
+  formatTitle,
+  parseTitleTeams,
+  stableBetId,
+  stableId,
+  stablePendingBetId,
+} from "../teams/match_utils.js";
+import { PROVIDER_PRIORITY, teamsFromPlatformRows } from "../teams/provider_priority.js";
+import {
+  canonicalMatchKey,
+  canonicalMatchKeyByIdOnly,
+  canonicalMatchKeyByName,
+  lookupCanonicalTeamName,
+  lookupGbTeamIdByName,
+  lookupGbTeamIdByPlatform,
+  normalizeTeam,
+  setTeamPlugin,
+} from "../teams/team_key.js";
+import { buildBetsForMatch } from "./bet_builder.js";
+import {
+  buildTeamEnrichIndex,
+  collapseImClientRows,
+  enrichImMatch,
+  imMatchIsStale,
+} from "./im_enrich.js";
+import { startTimesCompatible, startTimesCompatibleStrict } from "./merge_constants.js";
+
 const MERGE_MODE = "merge";
 
 /** 写入 client_matches 所需的最少平台数（跨平台匹配成功） */
@@ -19,46 +50,20 @@ function clientMatchPlatformCount(row) {
 }
 
 function filterMultiPlatformClientMatches(list) {
-  return (list || []).filter((m) => clientMatchPlatformCount(m) >= MIN_CLIENT_MATCH_PLATFORMS);
+  return (list || []).filter(m => clientMatchPlatformCount(m) >= MIN_CLIENT_MATCH_PLATFORMS);
 }
-
-import {
-  stableBetId,
-  stablePendingBetId,
-  stableId,
-  formatTitle,
-  betKey,
-  parseTitleTeams,
-} from "../teams/match_utils.js";
-import { PROVIDER_PRIORITY, teamsFromPlatformRows } from "../teams/provider_priority.js";
-import {
-  normalizeTeam,
-  canonicalMatchKey,
-  canonicalMatchKeyByIdOnly,
-  canonicalMatchKeyByName,
-  setTeamPlugin,
-  lookupGbTeamIdByPlatform,
-  lookupGbTeamIdByName,
-  lookupCanonicalTeamName,
-} from "../teams/team_key.js";
-import {
-  buildTeamEnrichIndex, enrichImMatch, imMatchIsStale, collapseImClientRows,
-} from "./im_enrich.js";
-import { buildBetsForMatch } from "./bet_builder.js";
-import { resolveClientGame, describePlatformGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
-import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
-import { normalizeEpochMs, a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
-import { startTimesCompatible, startTimesCompatibleStrict } from "./merge_constants.js";
 
 // ── 工具函数 ──────────────────────────────────────────────────────────────────
 
 function liveRound(timers, provider, sourceMatchId) {
   const block = timers?.[provider];
   const arr = block?.timer;
-  if (!Array.isArray(arr)) return { round: 0, roundStart: 0 };
+  if (!Array.isArray(arr))
+    return { round: 0, roundStart: 0 };
   const sid = String(sourceMatchId);
-  const hit = arr.find((x) => String(x.matchId ?? x.SourceMatchID ?? x.MatchID ?? "") === sid);
-  if (!hit) return { round: 0, roundStart: 0 };
+  const hit = arr.find(x => String(x.matchId ?? x.SourceMatchID ?? x.MatchID ?? "") === sid);
+  if (!hit)
+    return { round: 0, roundStart: 0 };
   return {
     round: Number(hit.round ?? hit.Round ?? hit.Map ?? hit.roundId ?? 0) || 0,
     roundStart: Number(hit.startTime ?? hit.StartTime ?? hit.RoundStart ?? 0) || 0,
@@ -78,11 +83,13 @@ function timerSnapshotProviders(match, timersByProvider) {
 
 /** matcher rebuild + Client_GetMatchs overlay：用 live timer 快照刷新 Round/RoundStart */
 function refreshClientMatchRoundsFromTimers(rows, timersByProvider) {
-  if (!Array.isArray(rows)) return;
+  if (!Array.isArray(rows))
+    return;
   const timers = timersByProvider || {};
   for (const m of rows) {
     const linked = timerSnapshotProviders(m, timers);
-    if (!linked.length) continue;
+    if (!linked.length)
+      continue;
     let round = 0;
     let roundStart = 0;
     for (const { provider, sourceId } of linked) {
@@ -95,7 +102,8 @@ function refreshClientMatchRoundsFromTimers(rows, timersByProvider) {
     }
     if (round > 0) {
       m.Round = round;
-      if (roundStart > 0) m.RoundStart = roundStart;
+      if (roundStart > 0)
+        m.RoundStart = roundStart;
     }
     // Round 清零仅由 applyObLiveRoundGate 处理；此处不清零，避免 trim 前 Round 被抹掉
   }
@@ -103,25 +111,30 @@ function refreshClientMatchRoundsFromTimers(rows, timersByProvider) {
 
 function obTimerMatchIds(timersByProvider) {
   const arr = timersByProvider?.OB?.timer;
-  if (!Array.isArray(arr)) return null;
+  if (!Array.isArray(arr))
+    return null;
   return new Set(
-    arr.map((t) => String(t.matchId ?? t.SourceMatchID ?? t.MatchID ?? "")).filter(Boolean),
+    arr.map(t => String(t.matchId ?? t.SourceMatchID ?? t.MatchID ?? "")).filter(Boolean),
   );
 }
 
 /** is_live≠2、已不在 OB index、或已不在 OB timer 批次时清零 Round（读路径 + matcher rebuild） */
 function applyObLiveRoundGate(rows, platformMatches, timersByProvider) {
-  if (!Array.isArray(rows)) return rows;
+  if (!Array.isArray(rows))
+    return rows;
   const obById = platformMatches?.OB;
-  if (!obById || typeof obById !== "object") return rows;
+  if (!obById || typeof obById !== "object")
+    return rows;
   const timerIds = obTimerMatchIds(timersByProvider);
   return rows.map((m) => {
     const obId = m.Matchs?.OB;
-    if (obId == null || obId === "") return m;
+    if (obId == null || obId === "")
+      return m;
     const sid = String(obId);
     const round = Number(m.Round) || 0;
     const roundStart = Number(m.RoundStart) || 0;
-    if (!round && !roundStart) return m;
+    if (!round && !roundStart)
+      return m;
 
     const row = obById[sid];
     const raw = row?.IsLive ?? row?.is_live;
@@ -159,7 +172,8 @@ function buildAccumulateRow(provider, match, bets, timers, sourceFromBet) {
     MergeKey: mergeKey,
     Title: formatTitle(match.Home, match.Away),
     StartTime: normalizeEpochMs(match.StartTime),
-    Game, GameID,
+    Game,
+    GameID,
     BO: Number(match.BO) || 0,
     Matchs: { [provider]: sourceMatchId },
     Bets: buildBetsForMatch(provider, sourceMatchId, 0, bets, sourceFromBet, gameCode, matchTeams),
@@ -181,7 +195,8 @@ function mergeGroupWithKey(group, mergeKey) {
   for (const { row, reversed } of group) {
     for (const bet of row.Bets) {
       const map = bet.Map ?? 0;
-      if (!byMap.has(map)) byMap.set(map, { canonBet: bet, sources: {} });
+      if (!byMap.has(map))
+        byMap.set(map, { canonBet: bet, sources: {} });
       const entry = byMap.get(map);
       for (const [p, src] of Object.entries(bet.Sources)) {
         entry.sources[p] = reversed
@@ -212,7 +227,7 @@ function mergeGroupWithKey(group, mergeKey) {
     Round: canonical.Round,
     RoundStart: canonical.RoundStart,
     Reverse: [...new Set(
-      group.filter((g) => g.reversed).flatMap((g) => Object.keys(g.row.Matchs)),
+      group.filter(g => g.reversed).flatMap(g => Object.keys(g.row.Matchs)),
     )],
   };
 }
@@ -224,14 +239,17 @@ function findCompatibleGroupKey(groups, baseKey, startMs, { strictTime = false, 
     return `${baseKey}@notime:${soloKey || "unknown"}`;
   }
   for (const [key, bucket] of groups) {
-    if (key !== baseKey && !key.startsWith(`${baseKey}@`)) continue;
+    if (key !== baseKey && !key.startsWith(`${baseKey}@`))
+      continue;
     const refStart = bucket[0]?.row?.StartTime ?? 0;
     const compatible = strictTime
       ? startTimesCompatibleStrict(st, refStart)
       : startTimesCompatible(st, refStart);
-    if (compatible) return key;
+    if (compatible)
+      return key;
   }
-  if (st) return `${baseKey}@${st}`;
+  if (st)
+    return `${baseKey}@${st}`;
   return strictTime ? `${baseKey}@notime:${soloKey || "unknown"}` : baseKey;
 }
 
@@ -241,12 +259,15 @@ function addToKeyGroup(groups, mapKey, entry, options) {
     ...options,
     soloKey,
   });
-  if (!groups.has(resolvedKey)) groups.set(resolvedKey, []);
+  if (!groups.has(resolvedKey))
+    groups.set(resolvedKey, []);
   const bucket = groups.get(resolvedKey);
-  const existIdx = bucket.findIndex((e) => e.row._provider === entry.row._provider);
+  const existIdx = bucket.findIndex(e => e.row._provider === entry.row._provider);
   if (existIdx >= 0) {
-    if (entry.row.StartTime > bucket[existIdx].row.StartTime) bucket[existIdx] = entry;
-  } else {
+    if (entry.row.StartTime > bucket[existIdx].row.StartTime)
+      bucket[existIdx] = entry;
+  }
+  else {
     bucket.push(entry);
   }
 }
@@ -254,7 +275,8 @@ function addToKeyGroup(groups, mapKey, entry, options) {
 function finalizeKeyGroups(keyGroups, mergeBasis) {
   const result = [];
   for (const [key, group] of keyGroups) {
-    if (group.length < MIN_CLIENT_MATCH_PLATFORMS) continue;
+    if (group.length < MIN_CLIENT_MATCH_PLATFORMS)
+      continue;
     const out = mergeGroupWithKey(group, key);
     out.MergeBasis = mergeBasis;
     delete out._provider;
@@ -266,7 +288,8 @@ function finalizeKeyGroups(keyGroups, mergeBasis) {
 function collectManualLinkKeys(matches) {
   const keys = new Set();
   for (const [provider, byId] of Object.entries(matches || {})) {
-    if (!byId) continue;
+    if (!byId)
+      continue;
     for (const match of Object.values(byId)) {
       const cid = match?.ClientMatchId ?? match?.client_match_id ?? match?.match_id;
       if (cid != null && cid !== "") {
@@ -280,10 +303,12 @@ function collectManualLinkKeys(matches) {
 function collectManualLinks(matches) {
   const links = [];
   for (const [provider, byId] of Object.entries(matches || {})) {
-    if (!byId) continue;
+    if (!byId)
+      continue;
     for (const match of Object.values(byId)) {
       const cid = match?.ClientMatchId ?? match?.client_match_id ?? match?.match_id;
-      if (cid == null || cid === "") continue;
+      if (cid == null || cid === "")
+        continue;
       links.push({
         platform: provider,
         source_match_id: String(match.SourceMatchID),
@@ -298,13 +323,16 @@ function collectManualLinks(matches) {
 function normalizeMatchesShape(raw) {
   const out = {};
   for (const [provider, block] of Object.entries(raw || {})) {
-    if (!block) continue;
+    if (!block)
+      continue;
     if (Array.isArray(block)) {
       out[provider] = {};
       for (const m of block) {
-        if (m?.SourceMatchID != null) out[provider][String(m.SourceMatchID)] = m;
+        if (m?.SourceMatchID != null)
+          out[provider][String(m.SourceMatchID)] = m;
       }
-    } else if (typeof block === "object") {
+    }
+    else if (typeof block === "object") {
       out[provider] = block;
     }
   }
@@ -314,9 +342,11 @@ function normalizeMatchesShape(raw) {
 function findPlatformMatch(matches, provider, sourceMatchId) {
   const sid = String(sourceMatchId);
   const byId = matches?.[provider];
-  if (!byId) return null;
-  if (byId[sid]) return byId[sid];
-  return Object.values(byId).find((m) => String(m.SourceMatchID) === sid) || null;
+  if (!byId)
+    return null;
+  if (byId[sid])
+    return byId[sid];
+  return Object.values(byId).find(m => String(m.SourceMatchID) === sid) || null;
 }
 
 /** 从 Matchs 关联的各平台原始赛中，按 PROVIDER_PRIORITY 取最高优先级平台的 StartTime */
@@ -325,7 +355,8 @@ function pickCanonicalStartTime(matchs, matches) {
   let bestStart = 0;
   for (const [provider, sourceMatchId] of Object.entries(matchs || {})) {
     const m = findPlatformMatch(matches, provider, sourceMatchId);
-    if (!m) continue;
+    if (!m)
+      continue;
     const pri = PROVIDER_PRIORITY[provider] || 0;
     if (pri > bestPri) {
       bestPri = pri;
@@ -338,7 +369,8 @@ function pickCanonicalStartTime(matchs, matches) {
 function refreshClientMatchStartTimes(rows, matches) {
   for (const row of rows || []) {
     const picked = pickCanonicalStartTime(row.Matchs, matches);
-    if (picked > 0) row.StartTime = picked;
+    if (picked > 0)
+      row.StartTime = picked;
   }
 }
 
@@ -355,31 +387,36 @@ function pickCanonicalGame(matchs, matches) {
 
   for (const [provider, sourceMatchId] of Object.entries(matchs || {})) {
     const m = findPlatformMatch(matches, provider, sourceMatchId);
-    if (!m) continue;
+    if (!m)
+      continue;
     const pri = PROVIDER_PRIORITY[provider] || 0;
     const sourceGameId = m.SourceGameID ?? m.GameID;
     const info = describePlatformGame(provider, sourceGameId);
     const { Game, GameID } = resolveClientGame(provider, sourceGameId);
-    if (!Game) continue;
+    if (!Game)
+      continue;
     if (info.inCatalog) {
       if (pri > bestKnownPri) {
         bestKnownPri = pri;
         bestKnown = { Game, GameID };
       }
-    } else if (pri > bestUnknownPri) {
+    }
+    else if (pri > bestUnknownPri) {
       bestUnknownPri = pri;
       bestUnknown = { Game, GameID };
     }
   }
 
-  if (bestKnown.Game) return bestKnown;
+  if (bestKnown.Game)
+    return bestKnown;
   return bestUnknown;
 }
 
 function refreshClientMatchGames(rows, matches) {
   for (const row of rows || []) {
     const picked = pickCanonicalGame(row.Matchs, matches);
-    if (!picked.Game) continue;
+    if (!picked.Game)
+      continue;
     if (!row.Game || isUnknownClientGame(row.Game)) {
       row.Game = picked.Game;
       row.GameID = picked.GameID;
@@ -397,7 +434,8 @@ function titleFromMatchs(matchs, matches) {
   const rows = [];
   for (const [platform, sourceMatchId] of Object.entries(matchs || {})) {
     const m = findPlatformMatch(matches, platform, sourceMatchId);
-    if (!m) continue;
+    if (!m)
+      continue;
     const sourceGameId = m.SourceGameID ?? m.GameID;
     const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
     rows.push({
@@ -424,7 +462,8 @@ function titleFromMatchs(matchs, matches) {
 function refreshClientMatchTitles(rows, matches) {
   for (const row of rows || []) {
     const picked = titleFromMatchs(row.Matchs, matches);
-    if (picked?.title) row.Title = picked.title;
+    if (picked?.title)
+      row.Title = picked.title;
   }
 }
 
@@ -432,7 +471,8 @@ function refreshClientMatchTitles(rows, matches) {
 function refreshClientMatchBetNames(rows) {
   for (const row of rows || []) {
     const teams = parseTitleTeams(row.Title);
-    if (!teams) continue;
+    if (!teams)
+      continue;
     for (const bet of row.Bets || []) {
       bet.HomeName = teams.home;
       bet.AwayName = teams.away;
@@ -450,9 +490,10 @@ function refreshClientMatchBetMapNames(rows, matches, bets, timers, sourceFromBe
       const map = bet.Map ?? 0;
       for (const platform of platforms) {
         const pm = findPlatformMatch(matches, platform, row.Matchs[platform]);
-        if (!pm) continue;
+        if (!pm)
+          continue;
         const acc = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
-        const accBet = (acc.Bets || []).find((b) => (b.Map ?? 0) === map);
+        const accBet = (acc.Bets || []).find(b => (b.Map ?? 0) === map);
         if (accBet?.Name) {
           bet.Name = accBet.Name;
           break;
@@ -463,7 +504,8 @@ function refreshClientMatchBetMapNames(rows, matches, bets, timers, sourceFromBe
 }
 
 function swapBetSource(src) {
-  if (!src || typeof src !== "object") return src;
+  if (!src || typeof src !== "object")
+    return src;
   return {
     ...src,
     HomeID: src.AwayID,
@@ -479,38 +521,53 @@ function sideAlignmentMode(pmHome, pmAway, cmHome, cmAway) {
   const pa = normalizeTeam(pmAway);
   const ch = normalizeTeam(cmHome);
   const ca = normalizeTeam(cmAway);
-  if (!ph || !pa || !ch || !ca) return "ambiguous";
-  if (ph === ch && pa === ca) return "aligned";
-  if (ph === ca && pa === ch) return "reversed";
+  if (!ph || !pa || !ch || !ca)
+    return "ambiguous";
+  if (ph === ch && pa === ca)
+    return "aligned";
+  if (ph === ca && pa === ch)
+    return "reversed";
   return "ambiguous";
 }
 
 /** canonical ID 回退：队名 ambiguous 时用 team_platform_maps 判断 aligned / reversed */
 function sideAlignmentByCanonicalId(platform, pm, refCanonIds) {
-  if (!refCanonIds) return "ambiguous";
+  if (!refCanonIds)
+    return "ambiguous";
   const sourceGameId = pm.SourceGameID ?? pm.GameID;
   const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
   const homeId = resolvePlatformTeamId(
-    platform, pm.HomeID ?? pm.home_id ?? pm.SourceHomeID, sourceGameId, gameCode,
+    platform,
+    pm.HomeID ?? pm.home_id ?? pm.SourceHomeID,
+    sourceGameId,
+    gameCode,
   );
   const awayId = resolvePlatformTeamId(
-    platform, pm.AwayID ?? pm.away_id ?? pm.SourceAwayID, sourceGameId, gameCode,
+    platform,
+    pm.AwayID ?? pm.away_id ?? pm.SourceAwayID,
+    sourceGameId,
+    gameCode,
   );
   const hcid = lookupGbTeamIdByPlatform(platform, homeId);
   const acid = lookupGbTeamIdByPlatform(platform, awayId);
-  if (!hcid || !acid) return "ambiguous";
-  if (hcid === refCanonIds.home && acid === refCanonIds.away) return "aligned";
-  if (hcid === refCanonIds.away && acid === refCanonIds.home) return "reversed";
+  if (!hcid || !acid)
+    return "ambiguous";
+  if (hcid === refCanonIds.home && acid === refCanonIds.away)
+    return "aligned";
+  if (hcid === refCanonIds.away && acid === refCanonIds.home)
+    return "reversed";
   return "ambiguous";
 }
 
 /** 从 DB 已有 client_matches 构建锁定 Reverse 索引 */
 function buildLockedReverseIndex(existingClientRows) {
-  if (!existingClientRows?.length) return null;
+  if (!existingClientRows?.length)
+    return null;
   const idx = { _matchs: {} };
   for (const row of existingClientRows) {
     const id = Number(row.id ?? row.ID);
-    if (!id) continue;
+    if (!id)
+      continue;
     const rev = row.reverse ?? row.Reverse;
     if (Array.isArray(rev)) {
       idx[id] = rev;
@@ -527,18 +584,26 @@ function buildLockedReverseIndex(existingClientRows) {
 function resolveRefCanonIds(resolvedPlatforms, matches) {
   for (const { platform, sourceMatchId, reversed } of resolvedPlatforms) {
     const pm = findPlatformMatch(matches, platform, sourceMatchId);
-    if (!pm) continue;
+    if (!pm)
+      continue;
     const sourceGameId = pm.SourceGameID ?? pm.GameID;
     const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
     const homeId = resolvePlatformTeamId(
-      platform, pm.HomeID ?? pm.home_id ?? pm.SourceHomeID, sourceGameId, gameCode,
+      platform,
+      pm.HomeID ?? pm.home_id ?? pm.SourceHomeID,
+      sourceGameId,
+      gameCode,
     );
     const awayId = resolvePlatformTeamId(
-      platform, pm.AwayID ?? pm.away_id ?? pm.SourceAwayID, sourceGameId, gameCode,
+      platform,
+      pm.AwayID ?? pm.away_id ?? pm.SourceAwayID,
+      sourceGameId,
+      gameCode,
     );
     const hcid = lookupGbTeamIdByPlatform(platform, homeId);
     const acid = lookupGbTeamIdByPlatform(platform, awayId);
-    if (!hcid || !acid) continue;
+    if (!hcid || !acid)
+      continue;
     return reversed ? { home: acid, away: hcid } : { home: hcid, away: acid };
   }
   return null;
@@ -557,7 +622,8 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
 
   for (const row of rows || []) {
     const teams = parseTitleTeams(row.Title);
-    if (!teams) continue;
+    if (!teams)
+      continue;
 
     const rowId = Number(row.ID) || 0;
     const prev = rowId ? locked[rowId] : null;
@@ -567,9 +633,13 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
     const platformEntries = {};
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
-      if (!pm) continue;
+      if (!pm)
+        continue;
       const nameMode = sideAlignmentMode(
-        pm.Home ?? pm.home, pm.Away ?? pm.away, teams.home, teams.away,
+        pm.Home ?? pm.home,
+        pm.Away ?? pm.away,
+        teams.home,
+        teams.away,
       );
       platformEntries[platform] = { nameMode, sourceMatchId, pm };
     }
@@ -584,7 +654,8 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
     if (!refIds) {
       const homeGb = lookupGbTeamIdByName(teams.home);
       const awayGb = lookupGbTeamIdByName(teams.away);
-      if (homeGb && awayGb) refIds = { home: homeGb, away: awayGb };
+      if (homeGb && awayGb)
+        refIds = { home: homeGb, away: awayGb };
     }
 
     // 每个平台判定：已锁定沿用，新平台先查 ID 再降级队名
@@ -608,12 +679,13 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
       const finalMode = idMode !== "ambiguous" ? idMode : nameMode;
       if (finalMode === "reversed") {
         reverse.push(platform);
-      } else if (finalMode === "ambiguous") {
+      }
+      else if (finalMode === "ambiguous") {
         ambiguousPlatforms.push(platform);
         console.warn(
           `[match_merge] 主客 ambiguous · client #${row.ID ?? "?"} · ${platform}`
-            + ` · Title「${teams.home} vs ${teams.away}」`
-            + ` · 平台「${pm.Home ?? pm.home} vs ${pm.Away ?? pm.away}」`,
+          + ` · Title「${teams.home} vs ${teams.away}」`
+          + ` · 平台「${pm.Home ?? pm.home} vs ${pm.Away ?? pm.away}」`,
         );
       }
     }
@@ -621,15 +693,17 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
     row.Reverse = [...new Set(reverse)];
     if (ambiguousPlatforms.length) {
       row.SideAlignAmbiguous = [...new Set(ambiguousPlatforms)];
-    } else {
+    }
+    else {
       delete row.SideAlignAmbiguous;
     }
 
     for (const [platform] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, row.Matchs[platform]);
-      if (!pm) continue;
+      if (!pm)
+        continue;
       const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
-      const accByMap = new Map((accRow.Bets || []).map((b) => [b.Map ?? 0, b]));
+      const accByMap = new Map((accRow.Bets || []).map(b => [b.Map ?? 0, b]));
       const shouldSwap = row.Reverse.includes(platform);
 
       for (const bet of row.Bets || []) {
@@ -649,22 +723,27 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
  * RAY（仅 final）、IA（有已结束 Map1/2 但无 Map3 获胜者）均适用；已有 Map=R 原生盘则跳过。
  */
 function platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap) {
-  if (!accByMap.get(0)?.Sources?.[platform]) return false;
-  if (accByMap.get(liveMap)?.Sources?.[platform]) return false;
+  if (!accByMap.get(0)?.Sources?.[platform])
+    return false;
+  if (accByMap.get(liveMap)?.Sources?.[platform])
+    return false;
   return true;
 }
 
 /** Map=0 裁剪前把各平台 Sources 最大赔写入 bet，供 Client_GetMatchDefaultOdds 初赔行 */
 function preserveInitialOddsFromSources(bet) {
-  if (!bet) return;
+  if (!bet)
+    return;
   let home = Number(bet.InitialHomeOdds) || 0;
   let away = Number(bet.InitialAwayOdds) || 0;
   for (const src of Object.values(bet.Sources || {})) {
     home = Math.max(home, Number(src.HomeOdds) || 0);
     away = Math.max(away, Number(src.AwayOdds) || 0);
   }
-  if (home > 0) bet.InitialHomeOdds = home;
-  if (away > 0) bet.InitialAwayOdds = away;
+  if (home > 0)
+    bet.InitialHomeOdds = home;
+  if (away > 0)
+    bet.InitialAwayOdds = away;
 }
 
 function betMapNumber(bet) {
@@ -674,7 +753,8 @@ function betMapNumber(bet) {
 /** 各场 Bets 按 Map 升序（Map=0 全场盘在最前） */
 function sortClientMatchBets(rows) {
   for (const row of rows || []) {
-    if (!Array.isArray(row.Bets) || row.Bets.length < 2) continue;
+    if (!Array.isArray(row.Bets) || row.Bets.length < 2)
+      continue;
     row.Bets.sort((a, b) => betMapNumber(a) - betMapNumber(b));
   }
 }
@@ -687,16 +767,20 @@ function mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet)
 
   for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
     const pm = findPlatformMatch(matches, platform, sourceMatchId);
-    if (!pm) continue;
+    if (!pm)
+      continue;
     const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
-    const accBet = (accRow.Bets || []).find((b) => (b.Map ?? 0) === 0);
+    const accBet = (accRow.Bets || []).find(b => (b.Map ?? 0) === 0);
     const raw = accBet?.Sources?.[platform];
-    if (!raw) continue;
-    if (!canonBet) canonBet = accBet;
+    if (!raw)
+      continue;
+    if (!canonBet)
+      canonBet = accBet;
     mergedSources[platform] = reverse.includes(platform) ? swapBetSource(raw) : { ...raw };
   }
 
-  if (!Object.keys(mergedSources).length) return null;
+  if (!Object.keys(mergedSources).length)
+    return null;
 
   const rowId = Number(row.ID) || 0;
   return {
@@ -712,15 +796,19 @@ function mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet)
  * 进行中且尚无 Map=0 时，从 platform_bets 补全场行（随后 trim 清 Sources、留 Initial*）。
  */
 function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
-  if (!Array.isArray(rows) || !bets || !sourceFromBet || !matches) return;
+  if (!Array.isArray(rows) || !bets || !sourceFromBet || !matches)
+    return;
   for (const row of rows) {
     const liveMap = Number(row.Round) || 0;
-    if (liveMap <= 0) continue;
-    const hasMap0 = (row.Bets || []).some((b) => betMapNumber(b) === 0);
-    if (hasMap0) continue;
+    if (liveMap <= 0)
+      continue;
+    const hasMap0 = (row.Bets || []).some(b => betMapNumber(b) === 0);
+    if (hasMap0)
+      continue;
 
     const fullBet = mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet);
-    if (!fullBet) continue;
+    if (!fullBet)
+      continue;
 
     row.Bets = row.Bets || [];
     row.Bets.push(fullBet);
@@ -729,13 +817,15 @@ function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
 
 function resolveRowBo(row, matches) {
   const direct = Number(row.BO) || 0;
-  if (direct > 0) return direct;
+  if (direct > 0)
+    return direct;
   for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
     const pm = findPlatformMatch(matches, platform, sourceMatchId);
     const n = Number(pm?.BO);
-    if (n > 0) return n;
+    if (n > 0)
+      return n;
   }
-  const maps = (row.Bets || []).map((b) => Number(b.Map) || 0);
+  const maps = (row.Bets || []).map(b => Number(b.Map) || 0);
   return maps.length ? Math.max(...maps) : 0;
 }
 
@@ -744,18 +834,21 @@ function resolveRowBo(row, matches) {
  * 不在前端做 promote、锁盘、隐藏等二次判断；Map=0 / Map=R 是否出现、Sources 内容均以 GetMatchs 为准。
  */
 function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceFromBet) {
-  if (!bets || !sourceFromBet) return;
+  if (!bets || !sourceFromBet)
+    return;
   for (const row of rows || []) {
     const liveMap = Number(row.Round) || 0;
     const bo = resolveRowBo(row, matches);
-    if (liveMap <= 0 || bo <= 0 || liveMap !== bo) continue;
+    if (liveMap <= 0 || bo <= 0 || liveMap !== bo)
+      continue;
 
-    const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
-    if (!fullBet) continue;
+    const fullBet = (row.Bets || []).find(b => (b.Map ?? 0) === 0);
+    if (!fullBet)
+      continue;
 
-    let liveBet = (row.Bets || []).find((b) => (b.Map ?? 0) === liveMap);
+    let liveBet = (row.Bets || []).find(b => (b.Map ?? 0) === liveMap);
     if (!liveBet) {
-      const template = (row.Bets || []).find((b) => (b.Map ?? 0) > 0) || fullBet;
+      const template = (row.Bets || []).find(b => (b.Map ?? 0) > 0) || fullBet;
       const clientId = Number(row.ID) || 0;
       liveBet = {
         ...template,
@@ -774,15 +867,19 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
     }
 
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
-      if (liveBet.Sources?.[platform]) continue;
+      if (liveBet.Sources?.[platform])
+        continue;
       const fullSrc = fullBet.Sources?.[platform];
-      if (!fullSrc) continue;
+      if (!fullSrc)
+        continue;
 
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
-      if (!pm) continue;
+      if (!pm)
+        continue;
       const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
-      const accByMap = new Map((accRow.Bets || []).map((b) => [b.Map ?? 0, b]));
-      if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap)) continue;
+      const accByMap = new Map((accRow.Bets || []).map(b => [b.Map ?? 0, b]));
+      if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap))
+        continue;
 
       // fullBet.Sources 已由 reconcileClientMatchReverse 按 Title canonical 对齐，勿再 swap
       liveBet.Sources[platform] = { ...fullSrc };
@@ -797,16 +894,18 @@ function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
   for (const row of rows || []) {
     const liveMap = Number(row.Round) || 0;
     const bo = resolveRowBo(row, matches);
-    if (liveMap <= 0 || bo <= 0 || liveMap !== bo) continue;
+    if (liveMap <= 0 || bo <= 0 || liveMap !== bo)
+      continue;
 
-    const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
-    if (!fullBet?.Sources) continue;
+    const fullBet = (row.Bets || []).find(b => (b.Map ?? 0) === 0);
+    if (!fullBet?.Sources)
+      continue;
 
-    const accByMap = new Map((row.Bets || []).map((b) => [b.Map ?? 0, b]));
+    const accByMap = new Map((row.Bets || []).map(b => [b.Map ?? 0, b]));
 
     let liveBet = accByMap.get(liveMap);
     if (!liveBet) {
-      const template = (row.Bets || []).find((b) => (b.Map ?? 0) > 0) || fullBet;
+      const template = (row.Bets || []).find(b => (b.Map ?? 0) > 0) || fullBet;
       liveBet = {
         ...template,
         Map: liveMap,
@@ -820,7 +919,8 @@ function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
     }
 
     for (const [platform, fullSrc] of Object.entries(fullBet.Sources)) {
-      if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap)) continue;
+      if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap))
+        continue;
       // client_matches 写入前已 reconcile；overlay 只复制，避免 Reverse 平台二次 swap
       liveBet.Sources[platform] = { ...fullSrc };
     }
@@ -835,14 +935,17 @@ function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
 function trimMapZeroToObOnDeciderRound(rows) {
   for (const row of rows || []) {
     const liveMap = Number(row.Round) || 0;
-    if (liveMap <= 0) continue;
-    const fullBet = (row.Bets || []).find((b) => (b.Map ?? 0) === 0);
-    if (!fullBet) continue;
+    if (liveMap <= 0)
+      continue;
+    const fullBet = (row.Bets || []).find(b => (b.Map ?? 0) === 0);
+    if (!fullBet)
+      continue;
     preserveInitialOddsFromSources(fullBet);
     const ob = fullBet.Sources?.OB;
     if (ob) {
       fullBet.Sources = { OB: ob };
-    } else {
+    }
+    else {
       fullBet.Sources = {};
     }
   }
@@ -877,15 +980,17 @@ function clientMatchRowToBuilt(cm) {
 
 function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows) {
   const links = collectManualLinks(matches);
-  if (!links.length) return mergedList;
+  if (!links.length)
+    return mergedList;
 
-  const targetById = new Map(mergedList.map((m) => [Number(m.ID), m]));
-  const linkedIds = new Set(links.map((l) => Number(l.match_id)));
+  const targetById = new Map(mergedList.map(m => [Number(m.ID), m]));
+  const linkedIds = new Set(links.map(l => Number(l.match_id)));
 
   // 仅预填本次链接目标 id：晚到平台挂到已有 client 行，保留原 id / merge_key
   for (const cm of existingClientRows || []) {
     const id = Number(cm.id);
-    if (!linkedIds.has(id) || !Number.isFinite(id) || targetById.has(id)) continue;
+    if (!linkedIds.has(id) || !Number.isFinite(id) || targetById.has(id))
+      continue;
     const seeded = clientMatchRowToBuilt(cm);
     mergedList.push(seeded);
     targetById.set(id, seeded);
@@ -898,9 +1003,10 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
         delete row.Matchs[link.platform];
         if (Array.isArray(row.Bets)) {
           for (const bet of row.Bets) {
-            if (bet.Sources?.[link.platform]) delete bet.Sources[link.platform];
+            if (bet.Sources?.[link.platform])
+              delete bet.Sources[link.platform];
           }
-          row.Bets = row.Bets.filter((b) => Object.keys(b.Sources || {}).length > 0);
+          row.Bets = row.Bets.filter(b => Object.keys(b.Sources || {}).length > 0);
         }
       }
     }
@@ -909,14 +1015,15 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
   for (const link of links) {
     const targetId = Number(link.match_id);
     const match = findPlatformMatch(matches, link.platform, link.source_match_id);
-    if (!match) continue;
+    if (!match)
+      continue;
 
     const row = buildAccumulateRow(link.platform, match, bets, timers, sourceFromBet);
-    let target = targetById.get(targetId);
+    const target = targetById.get(targetId);
 
     if (!target) {
       row.ID = targetId;
-      row.Bets = (row.Bets || []).map((b) => ({
+      row.Bets = (row.Bets || []).map(b => ({
         ...b,
         ID: stableBetId(targetId, b.Map ?? 0),
         MatchID: targetId,
@@ -930,13 +1037,14 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
     if (!alreadyLinked) {
       target.Matchs[link.platform] = String(link.source_match_id);
     }
-    const betByMap = new Map((target.Bets || []).map((b) => [b.Map ?? 0, b]));
+    const betByMap = new Map((target.Bets || []).map(b => [b.Map ?? 0, b]));
     for (const bet of row.Bets || []) {
       const map = bet.Map ?? 0;
       const existing = betByMap.get(map);
       if (existing) {
         Object.assign(existing.Sources, bet.Sources);
-      } else {
+      }
+      else {
         const nb = {
           ...bet,
           ID: stableBetId(targetId, map),
@@ -968,21 +1076,27 @@ function collectMergeEntries(matches, bets, timers, sourceFromBet) {
   const entries = [];
 
   for (const [provider, byId] of Object.entries(matches || {})) {
-    if (!byId || typeof byId !== "object") continue;
+    if (!byId || typeof byId !== "object")
+      continue;
     for (const match of Object.values(byId)) {
-      if (!match?.SourceMatchID) continue;
+      if (!match?.SourceMatchID)
+        continue;
       const rowKey = `${provider}:${String(match.SourceMatchID)}`;
-      if (manualKeys.has(rowKey)) continue;
+      if (manualKeys.has(rowKey))
+        continue;
       const startMs = normalizeEpochMs(match.StartTime);
-      if (startMs > 0 && !a8StartTimeListAllowed(startMs)) continue;
+      if (startMs > 0 && !a8StartTimeListAllowed(startMs))
+        continue;
 
       let m = match;
       if (provider === "IM") {
         const block = bets[betKey("IM", match.SourceMatchID)];
-        if (imMatchIsStale(match, block)) continue;
+        if (imMatchIsStale(match, block))
+          continue;
         m = enrichImMatch(match, teamIndex);
         const unknownGame = !m.SourceGameID || String(m.SourceGameID).trim() === "unknown";
-        if (!m.Home && !m.Away && unknownGame) continue;
+        if (!m.Home && !m.Away && unknownGame)
+          continue;
       }
 
       const row = buildAccumulateRow(provider, m, bets, timers, sourceFromBet);
@@ -1017,7 +1131,8 @@ function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
   // 第一阶段：各平台 home_id / away_id 均已映射 → 按 canonical_id 合并
   for (const entry of entries) {
     const ck = canonicalMatchKeyByIdOnly(entry.gameId, entry.home, entry.away, entry.gameCode, entry.ctx);
-    if (!ck) continue;
+    if (!ck)
+      continue;
     addToKeyGroup(idGroups, ck.key, {
       row: entry.row,
       reversed: ck.reversed,
@@ -1026,15 +1141,18 @@ function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
   }
   // 仅当 ID 组达到最少平台数时才占用 idMatched；否则回退队名阶段，避免「ID 合并未成且无法队名合并」
   for (const group of idGroups.values()) {
-    if (group.length < MIN_CLIENT_MATCH_PLATFORMS) continue;
+    if (group.length < MIN_CLIENT_MATCH_PLATFORMS)
+      continue;
     for (const { rowKey } of group) {
-      if (rowKey) idMatched.add(rowKey);
+      if (rowKey)
+        idMatched.add(rowKey);
     }
   }
 
   // 第二阶段：未进入第一阶段的场次 → 按归一化队名合并
   for (const entry of entries) {
-    if (idMatched.has(entry.rowKey)) continue;
+    if (idMatched.has(entry.rowKey))
+      continue;
     const ck = canonicalMatchKeyByName(entry.gameId, entry.home, entry.away);
     const mapKey = ck ? ck.mergeKey : entry.row.MergeKey;
     const reversed = ck ? ck.reversed : false;
@@ -1056,17 +1174,22 @@ function buildMatchListAccumulate(matches, bets, timers, sourceFromBet) {
   const list = [];
   const teamIndex = buildTeamEnrichIndex(matches);
   for (const [provider, byId] of Object.entries(matches || {})) {
-    if (!byId || typeof byId !== "object") continue;
+    if (!byId || typeof byId !== "object")
+      continue;
     for (const match of Object.values(byId)) {
-      if (!match?.SourceMatchID) continue;
+      if (!match?.SourceMatchID)
+        continue;
       const startMs = normalizeEpochMs(match.StartTime);
-      if (startMs > 0 && !a8StartTimeListAllowed(startMs)) continue;
+      if (startMs > 0 && !a8StartTimeListAllowed(startMs))
+        continue;
       if (provider === "IM") {
         const block = bets[betKey("IM", match.SourceMatchID)];
-        if (imMatchIsStale(match, block)) continue;
+        if (imMatchIsStale(match, block))
+          continue;
         const enriched = enrichImMatch(match, teamIndex);
         const unknownGame = !enriched.SourceGameID || String(enriched.SourceGameID).trim() === "unknown";
-        if (!enriched.Home && !enriched.Away && unknownGame) continue;
+        if (!enriched.Home && !enriched.Away && unknownGame)
+          continue;
         list.push(buildAccumulateRow(provider, enriched, bets, timers, sourceFromBet));
         continue;
       }
@@ -1094,40 +1217,40 @@ function buildClientMatchList({ matches, bets, timers, sourceFromBet, existingCl
 }
 
 export {
-  MERGE_MODE,
-  MIN_CLIENT_MATCH_PLATFORMS,
-  clientMatchPlatformCount,
-  filterMultiPlatformClientMatches,
+  applyManualMatchLinks,
+  applyObLiveRoundGate,
+  betMapNumber,
+  buildAccumulateRow,
   buildClientMatchList,
   buildMatchListAccumulate,
   buildMatchListMerged,
-  buildAccumulateRow,
-  clientMatchRowToBuilt,
-  applyManualMatchLinks,
-  collectManualLinks,
-  normalizeMatchesShape,
-  refreshClientMatchRoundsFromTimers,
-  applyObLiveRoundGate,
-  promoteFullMatchSourcesToLiveRound,
-  promoteFullMatchSourcesToLiveRoundInPlace,
-  ensureMapZeroForLiveRound,
-  trimMapZeroToObOnDeciderRound,
-  sortClientMatchBets,
-  betMapNumber,
-  liveRound,
-  pickCanonicalStartTime,
-  titleFromMatchs,
-  refreshClientMatchTitles,
-  refreshClientMatchBetNames,
-  refreshClientMatchSides,
-  reconcileClientMatchReverse,
-  swapBetSource,
-  sideAlignmentMode,
-  PROVIDER_PRIORITY,
-  stableId,
-  normalizeTeam,
   canonicalMatchKey,
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
+  clientMatchPlatformCount,
+  clientMatchRowToBuilt,
+  collectManualLinks,
+  ensureMapZeroForLiveRound,
+  filterMultiPlatformClientMatches,
+  liveRound,
+  MERGE_MODE,
+  MIN_CLIENT_MATCH_PLATFORMS,
+  normalizeMatchesShape,
+  normalizeTeam,
+  pickCanonicalStartTime,
+  promoteFullMatchSourcesToLiveRound,
+  promoteFullMatchSourcesToLiveRoundInPlace,
+  PROVIDER_PRIORITY,
+  reconcileClientMatchReverse,
+  refreshClientMatchBetNames,
+  refreshClientMatchRoundsFromTimers,
+  refreshClientMatchSides,
+  refreshClientMatchTitles,
   setTeamPlugin,
+  sideAlignmentMode,
+  sortClientMatchBets,
+  stableId,
+  swapBetSource,
+  titleFromMatchs,
+  trimMapZeroToObOnDeciderRound,
 };

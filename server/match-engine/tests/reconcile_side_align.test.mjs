@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { reconcileClientMatchReverse, setTeamPlugin } from "../merge/match_merge.js";
 
 test("reconcile flags ambiguous platform and does not reverse", () => {

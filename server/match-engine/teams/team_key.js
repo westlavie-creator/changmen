@@ -1,5 +1,5 @@
+import { isPlaceholderTeamName } from "./match_utils.js";
 import teamAliasesJson from "./team_aliases.json" with { type: "json" };
-import { isPlaceholderTeamName, stableId } from "./match_utils.js";
 
 /**
  * 队伍名称归一化 + 跨平台 canonical key 计算。
@@ -13,18 +13,22 @@ let _teamPlugin = null;
 function setTeamPlugin(plugin) { _teamPlugin = plugin; }
 
 function _lookupByName(gameCode, normalizedName) {
-  if (!_teamPlugin) return null;
-  if (typeof _teamPlugin === "function") return _teamPlugin(gameCode, normalizedName);
+  if (!_teamPlugin)
+    return null;
+  if (typeof _teamPlugin === "function")
+    return _teamPlugin(gameCode, normalizedName);
   return _teamPlugin.lookupByName?.(gameCode, normalizedName) || null;
 }
 
 function _lookupById(platform, platformId) {
-  if (!_teamPlugin || typeof _teamPlugin === "function") return null;
+  if (!_teamPlugin || typeof _teamPlugin === "function")
+    return null;
   return _teamPlugin.lookupById?.(platform, platformId) || null;
 }
 
 function _saveMapping(canonId, platform, platformId, platformName) {
-  if (!_teamPlugin || typeof _teamPlugin === "function") return;
+  if (!_teamPlugin || typeof _teamPlugin === "function")
+    return;
   _teamPlugin.saveMapping?.(canonId, platform, platformId, platformName);
 }
 
@@ -33,7 +37,8 @@ function lookupGbTeamIdByPlatform(platform, platformId) {
 }
 
 function lookupCanonicalTeamName(gbTeamId) {
-  if (!_teamPlugin || typeof _teamPlugin === "function") return null;
+  if (!_teamPlugin || typeof _teamPlugin === "function")
+    return null;
   return _teamPlugin.lookupCanonicalName?.(String(gbTeamId)) || null;
 }
 
@@ -53,7 +58,7 @@ function getAliases() {
 function normalizeTeam(name) {
   const base = String(name || "")
     .toLowerCase()
-    .replace(/[·\-—_·•\s]+/g, " ")
+    .replace(/[·\-—_•\s]+/g, " ")
     .replace(/[^\w\s一-鿿]/g, "")
     .trim()
     .replace(/\s+(?:esports?|gaming)$/, "")
@@ -70,20 +75,22 @@ function normalizeTeam(name) {
 function canonicalMatchKey(gameId, home, away, gameCode, ctx) {
   const nh = normalizeTeam(home);
   const na = normalizeTeam(away);
-  if (!nh || !na) return null;
-  if (isPlaceholderTeamName(nh) || isPlaceholderTeamName(na)) return null;
+  if (!nh || !na)
+    return null;
+  if (isPlaceholderTeamName(nh) || isPlaceholderTeamName(na))
+    return null;
 
   let hk = nh;
   let ak = na;
 
   if (_teamPlugin && gameCode) {
     const provider = ctx?.provider;
-    const homeCanonId =
-      (provider && _lookupById(provider, ctx?.homeId)) ||
-      _lookupByName(gameCode, nh);
-    const awayCanonId =
-      (provider && _lookupById(provider, ctx?.awayId)) ||
-      _lookupByName(gameCode, na);
+    const homeCanonId
+      = (provider && _lookupById(provider, ctx?.homeId))
+        || _lookupByName(gameCode, nh);
+    const awayCanonId
+      = (provider && _lookupById(provider, ctx?.awayId))
+        || _lookupByName(gameCode, na);
 
     if (homeCanonId && awayCanonId) {
       hk = homeCanonId;
@@ -91,8 +98,10 @@ function canonicalMatchKey(gameId, home, away, gameCode, ctx) {
     }
 
     if (provider) {
-      if (homeCanonId && ctx?.homeId) _saveMapping(homeCanonId, provider, ctx.homeId, home, gameCode);
-      if (awayCanonId && ctx?.awayId) _saveMapping(awayCanonId, provider, ctx.awayId, away, gameCode);
+      if (homeCanonId && ctx?.homeId)
+        _saveMapping(homeCanonId, provider, ctx.homeId, home, gameCode);
+      if (awayCanonId && ctx?.awayId)
+        _saveMapping(awayCanonId, provider, ctx.awayId, away, gameCode);
     }
   }
 
@@ -103,17 +112,22 @@ function canonicalMatchKey(gameId, home, away, gameCode, ctx) {
 function canonicalMatchKeyByIdOnly(gameId, home, away, gameCode, ctx) {
   const nh = normalizeTeam(home);
   const na = normalizeTeam(away);
-  if (!nh || !na) return null;
-  if (isPlaceholderTeamName(nh) || isPlaceholderTeamName(na)) return null;
-  if (!_teamPlugin || !gameCode || !ctx?.provider) return null;
+  if (!nh || !na)
+    return null;
+  if (isPlaceholderTeamName(nh) || isPlaceholderTeamName(na))
+    return null;
+  if (!_teamPlugin || !gameCode || !ctx?.provider)
+    return null;
 
   const homeId = String(ctx.homeId || "").trim();
   const awayId = String(ctx.awayId || "").trim();
-  if (!homeId || !awayId) return null;
+  if (!homeId || !awayId)
+    return null;
 
   const homeCanonId = _lookupById(ctx.provider, homeId);
   const awayCanonId = _lookupById(ctx.provider, awayId);
-  if (!homeCanonId || !awayCanonId) return null;
+  if (!homeCanonId || !awayCanonId)
+    return null;
 
   return _packMatchKey(gameId, homeCanonId, awayCanonId, "id");
 }
@@ -122,8 +136,10 @@ function canonicalMatchKeyByIdOnly(gameId, home, away, gameCode, ctx) {
 function canonicalMatchKeyByName(gameId, home, away) {
   const nh = normalizeTeam(home);
   const na = normalizeTeam(away);
-  if (!nh || !na) return null;
-  if (isPlaceholderTeamName(nh) || isPlaceholderTeamName(na)) return null;
+  if (!nh || !na)
+    return null;
+  if (isPlaceholderTeamName(nh) || isPlaceholderTeamName(na))
+    return null;
   return _packMatchKey(gameId, nh, na, "name");
 }
 
@@ -144,7 +160,8 @@ function _packMatchKey(gameId, hk, ak, kind) {
 function classifyMergeBasis(home, away, gameCode, ctx) {
   const nh = normalizeTeam(home);
   const na = normalizeTeam(away);
-  if (!nh || !na) return "unknown";
+  if (!nh || !na)
+    return "unknown";
 
   if (_teamPlugin && gameCode && ctx?.provider) {
     const homeId = String(ctx.homeId || "").trim();
@@ -152,7 +169,8 @@ function classifyMergeBasis(home, away, gameCode, ctx) {
     if (homeId && awayId) {
       const hi = _lookupById(ctx.provider, homeId);
       const ai = _lookupById(ctx.provider, awayId);
-      if (hi && ai) return "id";
+      if (hi && ai)
+        return "id";
     }
   }
   return "name";
@@ -160,8 +178,10 @@ function classifyMergeBasis(home, away, gameCode, ctx) {
 
 function lookupGbTeamIdByName(teamName) {
   const normalized = normalizeTeam(teamName);
-  if (!normalized) return null;
-  if (!_teamPlugin) return null;
+  if (!normalized)
+    return null;
+  if (!_teamPlugin)
+    return null;
   if (typeof _teamPlugin.lookupGbTeamIdByNormalizedName === "function") {
     return _teamPlugin.lookupGbTeamIdByNormalizedName(normalized) || null;
   }
@@ -169,13 +189,13 @@ function lookupGbTeamIdByName(teamName) {
 }
 
 export {
-  normalizeTeam,
   canonicalMatchKey,
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
   classifyMergeBasis,
-  setTeamPlugin,
-  lookupGbTeamIdByPlatform,
-  lookupGbTeamIdByName,
   lookupCanonicalTeamName,
+  lookupGbTeamIdByName,
+  lookupGbTeamIdByPlatform,
+  normalizeTeam,
+  setTeamPlugin,
 };

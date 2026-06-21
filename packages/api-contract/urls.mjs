@@ -9,7 +9,8 @@ export const HTTP_RELAY_SUFFIX = `${ESPORT_PATH_PREFIX}/http-relay`;
  * @returns {string}
  */
 export function normalizeApiBase(base) {
-  if (base == null || !String(base).trim()) return "";
+  if (base == null || !String(base).trim())
+    return "";
   return String(base).replace(/\/+$/, "");
 }
 
@@ -43,7 +44,9 @@ export function buildEsportUrl(action, query = "", apiBase) {
 export function buildHttpRelayUrl(opts = {}) {
   const relay = HTTP_RELAY_SUFFIX;
   const origin = normalizeApiBase(opts.proxyOrigin) || normalizeApiBase(opts.apiBase);
-  if (!origin) return relay;
-  if (origin.endsWith(relay)) return origin;
+  if (!origin)
+    return relay;
+  if (origin.endsWith(relay))
+    return origin;
   return `${origin}${relay}`;
 }

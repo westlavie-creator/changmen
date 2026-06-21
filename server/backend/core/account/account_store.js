@@ -1,5 +1,5 @@
-import store from "../esport-api/store.js";
 import * as sb from "@changmen/db";
+import store from "../esport-api/store.js";
 
 const FILES = {
   playerOrders: "player_orders",
@@ -8,14 +8,15 @@ const FILES = {
 async function listTagPlatforms() {
   const rows = await sb.fetchTagPlatforms();
   return rows
-    .map((row) => ({ ID: Number(row.id), Name: String(row.name) }))
+    .map(row => ({ ID: Number(row.id), Name: String(row.name) }))
     .sort((a, b) => a.ID - b.ID);
 }
 
 async function createTagPlatform(platformName, playerName) {
   const label = String(platformName || "").trim();
   const name = String(playerName || "").trim();
-  if (!label || !name) return null;
+  if (!label || !name)
+    return null;
 
   const platform = await sb.upsertTagPlatformByName(label);
   if (!platform) {
@@ -41,7 +42,8 @@ async function createTagPlatform(platformName, playerName) {
 
 async function getPlayer(playerId) {
   const row = await sb.fetchPlayerById(playerId);
-  if (!row) return null;
+  if (!row)
+    return null;
   return {
     id: row.id,
     platformId: row.platformId,
@@ -69,7 +71,8 @@ async function saveUserLog(userId, title, data) {
 
 async function deletePlayer(playerId, description) {
   const ok = await sb.softDeletePlayerRow(playerId, description);
-  if (!ok) return false;
+  if (!ok)
+    return false;
 
   const orders = store.readJson(FILES.playerOrders, {});
   delete orders[String(playerId)];
@@ -86,34 +89,39 @@ async function deletePlayerData(playerId) {
 function removeAccountFromKv() {}
 
 function parseCreateAt(value) {
-  if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "number" && !Number.isNaN(value))
+    return value;
   if (typeof value === "string" && value.trim()) {
     const parsed = Date.parse(value.includes("T") ? value : value.replace(" ", "T"));
-    if (!Number.isNaN(parsed)) return parsed;
+    if (!Number.isNaN(parsed))
+      return parsed;
   }
   return Date.now();
 }
 
 function resolveIsAuto(payload, description, type) {
-  if (type !== "Withdraw") return 0;
-  if (payload.isAuto === true || payload.isAuto === 1 || payload.IsAuto === 1) return 1;
+  if (type !== "Withdraw")
+    return 0;
+  if (payload.isAuto === true || payload.isAuto === 1 || payload.IsAuto === 1)
+    return 1;
   return /\d+sec|\d+s$/i.test(description || "") ? 1 : 0;
 }
 
 /** A8 `Client_GetMoneyLog` / 表格行：PascalCase + 小写兼容字段 */
 function normalizeMoneyLogRow(row) {
-  if (!row) return null;
+  if (!row)
+    return null;
   const logId = Number(row.logId ?? row.ID ?? row.id) || 0;
   const type = row.type ?? row.Type ?? "Recharge";
   const description = row.description ?? row.Description ?? row.Remark ?? "";
   const currency = row.currency ?? row.Currency ?? "CNY";
   const money = Number(row.money ?? row.Money) || 0;
   const createAt = Number(row.createAt ?? row.CreateAt) || 0;
-  const isAuto =
-    row.isAuto === 1 ||
-    row.isAuto === true ||
-    row.IsAuto === 1 ||
-    (type === "Withdraw" && /\d+sec|\d+s$/i.test(description))
+  const isAuto
+    = row.isAuto === 1
+      || row.isAuto === true
+      || row.IsAuto === 1
+      || (type === "Withdraw" && /\d+sec|\d+s$/i.test(description))
       ? 1
       : 0;
   return {
@@ -139,7 +147,8 @@ function normalizeMoneyLogRow(row) {
 }
 
 function dbRowToMoneyLog(row) {
-  if (!row) return null;
+  if (!row)
+    return null;
   return normalizeMoneyLogRow({
     logId: row.id,
     playerId: row.player_id,
@@ -207,9 +216,10 @@ function savePlayerOrders(playerId, provider, orders) {
 
   for (const order of orders || []) {
     const idx = merged.findIndex(
-      (row) => row.orderId === order.orderId && row.provider === (order.provider || provider)
+      row => row.orderId === order.orderId && row.provider === (order.provider || provider),
     );
-    if (idx >= 0) merged[idx] = { ...merged[idx], ...order };
+    if (idx >= 0)
+      merged[idx] = { ...merged[idx], ...order };
     else merged.push({ ...order, provider: order.provider || provider });
   }
 
@@ -225,7 +235,8 @@ let _playersMigrateDone = false;
 let _playersMigrateInflight = null;
 
 async function runPlayersJsonMigrateOnce() {
-  if (_playersMigrateDone) return;
+  if (_playersMigrateDone)
+    return;
   if (_playersMigrateInflight) {
     await _playersMigrateInflight;
     return;
@@ -233,17 +244,21 @@ async function runPlayersJsonMigrateOnce() {
   _playersMigrateInflight = (async () => {
     try {
       const result = await sb.migratePlayersJsonToRds();
-      if (result?.ok || result?.skipped) _playersMigrateDone = true;
-    } catch (err) {
+      if (result?.ok || result?.skipped)
+        _playersMigrateDone = true;
+    }
+    catch (err) {
       console.warn("[account_store] migratePlayersJsonToRds:", err.message);
       throw err;
-    } finally {
+    }
+    finally {
       _playersMigrateInflight = null;
     }
   })();
   try {
     await _playersMigrateInflight;
-  } catch {
+  }
+  catch {
     /* 迁移失败不阻塞 esport API；下次请求会重试 */
   }
 }
@@ -259,22 +274,22 @@ async function ensureSeed() {
 }
 
 export {
-  FILES,
-  ensureSeed,
-  listTagPlatforms,
   createTagPlatform,
-  getPlayer,
-  updatePlayerBalance,
-  syncPlayerDisplayName,
-  saveUserLog,
+  deleteMoneyLog,
   deletePlayer,
   deletePlayerData,
-  listMoneyLogs,
-  getMoneyLog,
-  saveMoneyLog,
-  deleteMoneyLog,
-  getPlayerOrders,
-  savePlayerOrders,
+  ensureSeed,
+  FILES,
   getAccountsFromKv,
+  getMoneyLog,
+  getPlayer,
+  getPlayerOrders,
+  listMoneyLogs,
+  listTagPlatforms,
   removeAccountFromKv,
+  saveMoneyLog,
+  savePlayerOrders,
+  saveUserLog,
+  syncPlayerDisplayName,
+  updatePlayerBalance,
 };

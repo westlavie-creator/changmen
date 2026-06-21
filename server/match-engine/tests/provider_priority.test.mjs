@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { teamsFromPlatformRows, providerPriority } from "../teams/provider_priority.js";
+import { providerPriority, teamsFromPlatformRows } from "../teams/provider_priority.js";
 
 describe("provider_priority", () => {
   it("ranks OB above PB and picks higher-priority team names", () => {
@@ -19,13 +19,17 @@ describe("provider_priority", () => {
   it("uses canonical_teams names when both sides have gb_team_id mapping", () => {
     const resolvers = {
       lookupGbTeamId: (platform, platformId) => {
-        if (platform === "OB" && platformId === "h1") return "100001";
-        if (platform === "PB" && platformId === "a9") return "100002";
+        if (platform === "OB" && platformId === "h1")
+          return "100001";
+        if (platform === "PB" && platformId === "a9")
+          return "100002";
         return null;
       },
       lookupCanonicalName: (gbTeamId) => {
-        if (gbTeamId === "100001") return "Canonical Home";
-        if (gbTeamId === "100002") return "Canonical Away";
+        if (gbTeamId === "100001")
+          return "Canonical Home";
+        if (gbTeamId === "100002")
+          return "Canonical Away";
         return null;
       },
     };
@@ -49,7 +53,7 @@ describe("provider_priority", () => {
     const resolvers = {
       lookupGbTeamId: (platform, platformId) =>
         platform === "OB" && platformId === "h1" ? "100001" : null,
-      lookupCanonicalName: (gbTeamId) => (gbTeamId === "100001" ? "Canonical Home" : null),
+      lookupCanonicalName: gbTeamId => (gbTeamId === "100001" ? "Canonical Home" : null),
     };
     const picked = teamsFromPlatformRows(
       [
@@ -74,8 +78,10 @@ describe("provider_priority", () => {
         return map[`${platform}:${platformId}`] || null;
       },
       lookupCanonicalName: (gbTeamId) => {
-        if (gbTeamId === "100372") return "Passion Academy";
-        if (gbTeamId === "100071") return "ex-MANA eSports";
+        if (gbTeamId === "100372")
+          return "Passion Academy";
+        if (gbTeamId === "100071")
+          return "ex-MANA eSports";
         return null;
       },
     };

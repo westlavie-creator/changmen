@@ -1,19 +1,19 @@
-import * as accountStore from "./account_store.js";
-import * as orderStore from "./order_store.js";
-import {
-  getAccountBalance,
-  enrichAccountFromPlatformDefaults,
-} from "./balance_provider.js";
+import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
+import { listProfileRows } from "../db/store.js";
+import store from "../esport-api/store.js";
 import { emptyPage } from "../esport-api/stubs.js";
 import {
-  isArrayKey,
   emptyDirectValue,
+  isArrayKey,
   wrapObjectDirect,
 } from "../esport-api/user_kv.js";
-import store from "../esport-api/store.js";
-import { listProfileRows } from "../db/store.js";
+import * as accountStore from "./account_store.js";
+import {
+  enrichAccountFromPlatformDefaults,
+  getAccountBalance,
+} from "./balance_provider.js";
+import * as orderStore from "./order_store.js";
 import { resolvePresenceState } from "./user_presence.js";
-import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 
 async function handleCreateTagPlatform(body) {
   const platformName = body.platform || body.platformName || "";
@@ -24,7 +24,8 @@ async function handleCreateTagPlatform(body) {
   try {
     const created = await accountStore.createTagPlatform(platformName, playerName);
     return { ok: true, info: created };
-  } catch (err) {
+  }
+  catch (err) {
     return { ok: false, msg: err.message || "CreateTagPlatform 失败" };
   }
 }
@@ -40,7 +41,7 @@ async function handleUpdateBalance(body, userId) {
     return { ok: false, msg: "playerId 与 balance 必填" };
   }
   if (userId) {
-    const userAccountIds = new Set(store.getAccountsForUser(userId).map((a) => Number(a.accountId)));
+    const userAccountIds = new Set(store.getAccountsForUser(userId).map(a => Number(a.accountId)));
     if (!userAccountIds.has(Number(playerId))) {
       return { ok: false, msg: "账号不属于当前用户" };
     }
@@ -58,16 +59,20 @@ async function handleUpdateBalance(body, userId) {
 
 async function handleDeletePlayer(body, userId) {
   const playerId = body.playerId;
-  if (!playerId) return { ok: false, msg: "playerId 必填" };
+  if (!playerId)
+    return { ok: false, msg: "playerId 必填" };
   const ok = await accountStore.deletePlayer(playerId, body.description || "");
-  if (ok) await accountStore.deletePlayerData(playerId);
-  if (userId) store.removeAccountForUser(userId, playerId);
+  if (ok)
+    await accountStore.deletePlayerData(playerId);
+  if (userId)
+    store.removeAccountForUser(userId, playerId);
   return ok ? { ok: true, info: true } : { ok: false, msg: "player 不存在" };
 }
 
 async function handleGetMoneyLogs(body, userId) {
   const playerId = body.playerId;
-  if (!playerId) return { ok: false, msg: "playerId 必填" };
+  if (!playerId)
+    return { ok: false, msg: "playerId 必填" };
   const pageIndex = Number(body.pageIndex) || 1;
   const pageSize = Number(body.pageSize) || 20;
   return { ok: true, info: await accountStore.listMoneyLogs(playerId, pageIndex, pageSize, userId) };
@@ -79,15 +84,18 @@ async function handleGetMoneyLog(body, userId) {
 }
 
 async function handleSaveMoneyLog(body, userId) {
-  if (!userId) return { ok: false, msg: "请先登录" };
+  if (!userId)
+    return { ok: false, msg: "请先登录" };
   const playerId = body.playerId ?? body.PlayerID;
-  if (!playerId) return { ok: false, msg: "playerId 必填" };
-  const userAccountIds = new Set(store.getAccountsForUser(userId).map((a) => Number(a.accountId)));
+  if (!playerId)
+    return { ok: false, msg: "playerId 必填" };
+  const userAccountIds = new Set(store.getAccountsForUser(userId).map(a => Number(a.accountId)));
   if (!userAccountIds.has(Number(playerId))) {
     return { ok: false, msg: "账号不属于当前用户" };
   }
   const row = await accountStore.saveMoneyLog(body, userId);
-  if (!row) return { ok: false, msg: "保存失败" };
+  if (!row)
+    return { ok: false, msg: "保存失败" };
   return { ok: true, info: row };
 }
 
@@ -98,9 +106,10 @@ async function handleDeleteMoneyLog(body, userId) {
 
 async function handleGetPlayerOrder(body, userId) {
   const playerId = body.playerId;
-  if (!playerId) return { ok: false, msg: "playerId 必填" };
+  if (!playerId)
+    return { ok: false, msg: "playerId 必填" };
   const page = await accountStore.listMoneyLogs(playerId, 1, 10000, userId);
-  const logs = (page.data || []).map((row) => ({
+  const logs = (page.data || []).map(row => ({
     ID: row.logId,
     Type: row.type,
     Money: Number(row.money) || 0,
@@ -115,9 +124,10 @@ async function handleGetPlayerOrder(body, userId) {
 
 async function handleSaveOrder(body, userId) {
   const playerId = body.playerId;
-  if (!playerId) return { ok: false, msg: "playerId 必填" };
+  if (!playerId)
+    return { ok: false, msg: "playerId 必填" };
   if (userId) {
-    const userAccountIds = new Set(store.getAccountsForUser(userId).map((a) => Number(a.accountId)));
+    const userAccountIds = new Set(store.getAccountsForUser(userId).map(a => Number(a.accountId)));
     if (!userAccountIds.has(Number(playerId))) {
       return { ok: false, msg: "账号不属于当前用户" };
     }
@@ -125,7 +135,8 @@ async function handleSaveOrder(body, userId) {
   let orders = [];
   try {
     orders = JSON.parse(body.orders || "[]");
-  } catch {
+  }
+  catch {
     return { ok: false, msg: "orders JSON 无效" };
   }
   const saved = await orderStore.saveOrder(
@@ -134,7 +145,8 @@ async function handleSaveOrder(body, userId) {
     userId,
     body.type || body.Type || "",
   );
-  if (!saved) return { ok: false, msg: "保存订单失败" };
+  if (!saved)
+    return { ok: false, msg: "保存订单失败" };
   return { ok: true, info: true };
 }
 
@@ -158,14 +170,16 @@ function enrichAccountRowFromPlayer(row) {
 
 /** [A8 可证实] accountId = CreateTagPlatform 返回的 playerId，禁止客户端自增 */
 async function validateAccountRows(accounts) {
-  if (!Array.isArray(accounts)) return { ok: false, msg: "ACCOUNT 必须是数组" };
+  if (!Array.isArray(accounts))
+    return { ok: false, msg: "ACCOUNT 必须是数组" };
   const seen = new Set();
   for (const row of accounts) {
     const id = Number(row?.accountId ?? row?.AccountId);
     if (!id) {
       return { ok: false, msg: "accountId 无效，请先调用 Client_CreateTagPlatform" };
     }
-    if (seen.has(id)) return { ok: false, msg: `accountId ${id} 重复` };
+    if (seen.has(id))
+      return { ok: false, msg: `accountId ${id} 重复` };
     seen.add(id);
     if (!(await accountStore.getPlayer(id))) {
       return { ok: false, msg: `playerId ${id} 不存在，请先调用 Client_CreateTagPlatform` };
@@ -176,8 +190,9 @@ async function validateAccountRows(accounts) {
 
 async function handleSaveAccounts(accounts, userId) {
   const checked = await validateAccountRows(accounts);
-  if (!checked.ok) return checked;
-  const normalized = accounts.map((row) => enrichAccountRowFromPlayer(row));
+  if (!checked.ok)
+    return checked;
+  const normalized = accounts.map(row => enrichAccountRowFromPlayer(row));
   for (const row of normalized) {
     const id = Number(row?.accountId ?? row?.AccountId);
     const label = String(row?.platformName ?? row?.PlatformName ?? "").trim();
@@ -194,7 +209,8 @@ async function handleSaveData(key, content, userId) {
     let accounts = [];
     try {
       accounts = content ? JSON.parse(content) : [];
-    } catch {
+    }
+    catch {
       return { ok: false, msg: "ACCOUNT JSON 无效" };
     }
     return handleSaveAccounts(accounts, userId);
@@ -225,13 +241,14 @@ function handleGetData(key, userId) {
   let parsed;
   try {
     parsed = JSON.parse(raw);
-  } catch {
+  }
+  catch {
     parsed = raw;
   }
 
   if (Array.isArray(parsed)) {
-    const rows =
-      key === "ACCOUNT" ? parsed.map((row) => enrichAccountRowFromPlayer(row)) : parsed;
+    const rows
+      = key === "ACCOUNT" ? parsed.map(row => enrichAccountRowFromPlayer(row)) : parsed;
     return { ok: true, info: rows, direct: rows };
   }
   if (parsed && typeof parsed === "object") {
@@ -251,12 +268,14 @@ async function refreshAccountBalance(accountRow) {
   }
   try {
     const bal = await getAccountBalance(enriched);
-    if (!bal) return { account: enriched, balance: null };
+    if (!bal)
+      return { account: enriched, balance: null };
     if (enriched.accountId) {
       await accountStore.updatePlayerBalance(enriched.accountId, bal.balance);
     }
     return { account: enriched, balance: bal };
-  } catch {
+  }
+  catch {
     return { account: enriched, balance: null };
   }
 }
@@ -277,7 +296,7 @@ async function handleGetUserProfit() {
 
 async function handleGetOrderList(body, userId) {
   const date = body.date || orderStore.toDateKey(Date.now());
-  const pageSize  = Number(body.pageSize)  || 1024;
+  const pageSize = Number(body.pageSize) || 1024;
   const pageIndex = Number(body.pageIndex) || 1;
   const all = await orderStore.listByDate(date, userId);
   const start = (pageIndex - 1) * pageSize;
@@ -293,33 +312,40 @@ async function handleSaveOrderBind(body, userId) {
   if (typeof orders === "string") {
     try {
       orders = JSON.parse(orders);
-    } catch {
+    }
+    catch {
       return { ok: false, msg: "orders JSON 无效" };
     }
   }
-  if (!Array.isArray(orders)) return { ok: false, msg: "orders 必须是数组" };
+  if (!Array.isArray(orders))
+    return { ok: false, msg: "orders 必须是数组" };
   const bound = await orderStore.saveOrderBind(orders, userId);
-  if (!bound) return { ok: false, msg: "绑单失败（订单不存在或 link 更新失败）" };
+  if (!bound)
+    return { ok: false, msg: "绑单失败（订单不存在或 link 更新失败）" };
   return { ok: true, info: true };
 }
 
 function syncAccountRowInKv(accountId, updates, userId) {
   const list = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
-  const idx = list.findIndex((row) => String(row.accountId) === String(accountId));
-  if (idx < 0) return null;
+  const idx = list.findIndex(row => String(row.accountId) === String(accountId));
+  if (idx < 0)
+    return null;
   list[idx] = { ...list[idx], ...updates, updateTime: Date.now() };
-  if (userId) store.setAccountsForUser(userId, list);
+  if (userId)
+    store.setAccountsForUser(userId, list);
   return list[idx];
 }
 
 async function handleRefreshAccountBalance(body, userId) {
   const playerId = body.playerId;
-  if (!playerId) return { ok: false, msg: "playerId 必填" };
+  if (!playerId)
+    return { ok: false, msg: "playerId 必填" };
   const accounts = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
   const row = enrichAccountRowFromPlayer(
-    accounts.find((r) => String(r.accountId) === String(playerId)),
+    accounts.find(r => String(r.accountId) === String(playerId)),
   );
-  if (!row) return { ok: false, msg: "account 不存在" };
+  if (!row)
+    return { ok: false, msg: "account 不存在" };
   const result = await refreshAccountBalance(row);
   if (result.balance != null) {
     const balance = Number(result.balance.balance) || 0;
@@ -335,13 +361,16 @@ async function handleRefreshAccountBalance(body, userId) {
 }
 
 async function handleSaveUserLog(body, userId) {
-  if (!userId) return { ok: false, msg: "请先登录" };
+  if (!userId)
+    return { ok: false, msg: "请先登录" };
   const title = String(body.title || "").trim();
-  if (!title) return { ok: false, msg: "title 必填" };
+  if (!title)
+    return { ok: false, msg: "title 必填" };
   let data = "";
   if (body.data != null) {
     data = typeof body.data === "string" ? body.data : JSON.stringify(body.data);
-  } else if (body.rows != null) {
+  }
+  else if (body.rows != null) {
     data = typeof body.rows === "string" ? body.rows : JSON.stringify(body.rows);
   }
   const ok = await accountStore.saveUserLog(userId, title, data);
@@ -349,27 +378,27 @@ async function handleSaveUserLog(body, userId) {
 }
 
 export {
+  emptyPage,
   handleCreateTagPlatform,
-  handleGetTagPlatforms,
-  handleUpdateBalance,
-  handleDeletePlayer,
-  handleGetMoneyLogs,
-  handleGetMoneyLog,
-  handleSaveMoneyLog,
   handleDeleteMoneyLog,
-  handleGetPlayerOrder,
-  handleSaveOrder,
-  handleGetOrderList,
-  handleGetUserProfit,
-  handleSaveOrderBind,
-  handleGetUsers,
+  handleDeletePlayer,
   handleGetData,
-  handleSaveData,
+  handleGetMoneyLog,
+  handleGetMoneyLogs,
+  handleGetOrderList,
+  handleGetPlayerOrder,
+  handleGetTagPlatforms,
+  handleGetUserProfit,
+  handleGetUsers,
+  handleRefreshAccountBalance,
   handleSaveAccounts,
+  handleSaveData,
+  handleSaveMoneyLog,
+  handleSaveOrder,
+  handleSaveOrderBind,
+  handleSaveUserLog,
+  handleUpdateBalance,
   refreshAccountBalance,
   refreshAllAccountBalances,
-  handleRefreshAccountBalance,
-  handleSaveUserLog,
   syncAccountRowInKv,
-  emptyPage,
 };

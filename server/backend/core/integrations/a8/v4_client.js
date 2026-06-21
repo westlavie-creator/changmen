@@ -29,7 +29,8 @@ export async function requestV4(sub, { method = "POST", body = "", headers = {} 
   let data;
   try {
     data = text ? JSON.parse(text) : null;
-  } catch {
+  }
+  catch {
     throw new Error(`A8 v4 响应非 JSON (${res.status}): ${text.slice(0, 160)}`);
   }
   return { status: res.status, data, text };
@@ -50,4 +51,4 @@ export async function playLoginV4(gameId, v4Token) {
   return data;
 }
 
-export { A8_V4_BASE, A8_FORWARD_SITE };
+export { A8_FORWARD_SITE, A8_V4_BASE };

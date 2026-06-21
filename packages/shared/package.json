@@ -1,8 +1,8 @@
 {
   "name": "@changmen/shared",
+  "type": "module",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "description": "changmen 跨进程共享模块（catalog、odds、time 等；数据层见 @changmen/db）",
   "exports": {
     "./catalog/game_catalog.mjs": "./catalog/game_catalog.mjs",

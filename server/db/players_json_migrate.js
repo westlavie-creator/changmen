@@ -11,7 +11,8 @@ function rowId(row) {
 
 export async function migratePlayersJsonToRds() {
   const pool = getPgPool();
-  if (!pool) return { ok: false, skipped: true, reason: "no DATABASE_URL" };
+  if (!pool)
+    return { ok: false, skipped: true, reason: "no DATABASE_URL" };
 
   const tagPlatforms = readJsonFile("tag_platforms", {});
   const players = readJsonFile("players", {});
@@ -54,13 +55,16 @@ export async function migratePlayersJsonToRds() {
           stats.tagPlatforms.skipped += 1;
           continue;
         }
-        if (rows[0].inserted) stats.tagPlatforms.inserted += 1;
+        if (rows[0].inserted)
+          stats.tagPlatforms.inserted += 1;
         else stats.tagPlatforms.updated += 1;
-      } catch (err) {
+      }
+      catch (err) {
         if (err.code === "23505") {
           stats.tagPlatforms.skipped += 1;
           console.warn(`[migrate-players] tag_platform id=${id} name=${name} 冲突，已跳过`);
-        } else {
+        }
+        else {
           throw err;
         }
       }
@@ -107,7 +111,8 @@ export async function migratePlayersJsonToRds() {
         stats.players.skipped += 1;
         continue;
       }
-      if (rows[0].inserted) stats.players.inserted += 1;
+      if (rows[0].inserted)
+        stats.players.inserted += 1;
       else stats.players.updated += 1;
     }
 
@@ -127,10 +132,12 @@ export async function migratePlayersJsonToRds() {
       },
       ...stats,
     };
-  } catch (err) {
+  }
+  catch (err) {
     await client.query("ROLLBACK");
     throw err;
-  } finally {
+  }
+  finally {
     client.release();
   }
 }

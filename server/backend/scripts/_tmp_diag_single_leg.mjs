@@ -1,9 +1,9 @@
+import { getPgPool } from "@changmen/db";
+
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
+import { lookupOrderLogs } from "../core/admin_tools/user_log_lookup.js";
 
 loadChangmenEnv();
-
-import { getPgPool } from "@changmen/db";
-import { lookupOrderLogs } from "../core/admin_tools/user_log_lookup.js";
 
 const pool = getPgPool();
 if (!pool) {
@@ -58,10 +58,10 @@ for (const r of orders) {
 }
 
 const obOrder = orders.find(
-  (r) =>
-    r.provider === "OB" &&
-    Number(r.bet_money) === 60 &&
-    String(r.match || "").includes("Leviat"),
+  r =>
+    r.provider === "OB"
+    && Number(r.bet_money) === 60
+    && String(r.match || "").includes("Leviat"),
 );
 
 if (obOrder) {
@@ -103,7 +103,8 @@ if (obOrder) {
     link: String(link),
   });
   console.log(byLink.ok ? byLink.summary : byLink);
-} else {
+}
+else {
   console.log("\n未精确匹配 OB 60@Leviatán，列出时间窗内全部订单");
 }
 

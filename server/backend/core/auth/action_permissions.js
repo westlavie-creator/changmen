@@ -1,4 +1,4 @@
-import { isAdminUser, canAccessAdminPanel } from "./admin_auth.js";
+import { canAccessAdminPanel, isAdminUser } from "./admin_auth.js";
 
 const PUBLIC_ACTIONS = new Set([
   "Client_Logout",
@@ -34,8 +34,10 @@ const LEADER_ALLOWED_ACTIONS = new Set([
  * @returns {{ success: 0, msg: string } | null} 返回 null 表示通过
  */
 export function checkActionAuth(action, user) {
-  if (PUBLIC_ACTIONS.has(action)) return null;
-  if (!user) return { success: 0, msg: "未登录", info: null };
+  if (PUBLIC_ACTIONS.has(action))
+    return null;
+  if (!user)
+    return { success: 0, msg: "未登录", info: null };
   if (ADMIN_ONLY_ACTIONS.has(action) && !isAdminUser(user)) {
     return { success: 0, msg: "无管理员权限", info: null };
   }
@@ -45,4 +47,4 @@ export function checkActionAuth(action, user) {
   return null;
 }
 
-export { PUBLIC_ACTIONS, ADMIN_ONLY_ACTIONS, LEADER_ALLOWED_ACTIONS };
+export { ADMIN_ONLY_ACTIONS, LEADER_ALLOWED_ACTIONS, PUBLIC_ACTIONS };

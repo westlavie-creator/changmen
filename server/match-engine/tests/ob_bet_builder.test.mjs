@@ -1,16 +1,18 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { buildBetsForMatch } from "../merge/bet_builder.js";
 
-const src = (p, b) => ({
-  Type: p,
-  BetID: String(b.SourceBetID),
-  HomeID: String(b.SourceHomeID),
-  AwayID: String(b.SourceAwayID),
-  HomeOdds: b.HomeOdds,
-  AwayOdds: b.AwayOdds,
-  Status: b.Status,
-});
+function src(p, b) {
+  return {
+    Type: p,
+    BetID: String(b.SourceBetID),
+    HomeID: String(b.SourceHomeID),
+    AwayID: String(b.SourceAwayID),
+    HomeOdds: b.HomeOdds,
+    AwayOdds: b.AwayOdds,
+    Status: b.Status,
+  };
+}
 
 test("OB CS2 Map1: 单局-获胜 wins over 第一手枪局 when pistol listed first", () => {
   const bets = {

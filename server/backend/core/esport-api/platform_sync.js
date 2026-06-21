@@ -1,12 +1,13 @@
-import store from "./store.js";
 import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
 import { requirePlatform } from "../shared/adapter_paths.js";
+import store from "./store.js";
 
 const { getRayA8CollectCredentials } = requirePlatform("RAY", "node", "collect_credentials.js");
 const { login, obGet } = requirePlatform("OB", "node", "session.js");
 
 function syncObFromSession(session) {
-  if (!session?.gateway || !session?.token) return false;
+  if (!session?.gateway || !session?.token)
+    return false;
   store.setPlatform("OB", {
     gateway: session.gateway,
     token: session.token,
@@ -16,10 +17,11 @@ function syncObFromSession(session) {
   return true;
 }
 
-/** ?? data/esport/platforms.json ??????gateway/token???????? feed ????*/
+/** ?? data/esport/platforms.json ??????gateway/token???????? feed ???? */
 function syncObFromStore() {
   const row = store.getPlatform("OB");
-  if (!row?.gateway || !row?.token) return false;
+  if (!row?.gateway || !row?.token)
+    return false;
   return syncObFromSession({
     gateway: row.gateway,
     token: row.token,
@@ -33,13 +35,14 @@ async function probeObSession(gateway, token) {
     gateway,
     "/game/index?game_id=0&flag=1&day=1",
     token,
-    "cn"
+    "cn",
   );
   return r.json.status === "true" || Array.isArray(r.json.data);
 }
 
 /**
- * Feed / ?????? platforms.json ????????login ?????? index?? */
+ * Feed / ?????? platforms.json ????????login ?????? index??
+ */
 async function resolveObSession() {
   const row = store.getPlatform("OB");
   if (row?.gateway && row?.token) {
@@ -54,7 +57,8 @@ async function resolveObSession() {
         syncObFromSession(session);
         return session;
       }
-    } catch (err) {
+    }
+    catch (err) {
       console.warn("[OB] stored session invalid:", err.message);
     }
   }
@@ -80,9 +84,11 @@ function syncRayFromA8() {
 }
 
 function syncRayFromEnv() {
-  if (process.env.RAY_COLLECT_USE_ENV !== "1") return false;
+  if (process.env.RAY_COLLECT_USE_ENV !== "1")
+    return false;
   const raw = process.env.RAY_TOKEN || process.env.RAY_WS_TOKEN || "";
-  if (!raw) return false;
+  if (!raw)
+    return false;
   const token = raw.startsWith("Bearer ") ? raw : `Bearer ${raw}`;
   store.setPlatform("RAY", {
     gateway: process.env.RAY_GATEWAY || "https://cfinfo.365raylinks.com",
@@ -101,7 +107,8 @@ function syncRayFromSession(_session) {
 function syncPbFromEnv() {
   const gateway = process.env.PB_GATEWAY;
   const token = process.env.PB_TOKEN;
-  if (!gateway || !token) return false;
+  if (!gateway || !token)
+    return false;
   store.setPlatform("PB", {
     gateway,
     token,
@@ -115,7 +122,8 @@ function syncPbFromEnv() {
 }
 
 function syncPbFromSession(session) {
-  if (!session?.gateway || !session?.token) return false;
+  if (!session?.gateway || !session?.token)
+    return false;
   store.setPlatform("PB", {
     gateway: session.gateway,
     token: typeof session.token === "string" ? session.token : JSON.stringify(session.token),
@@ -139,7 +147,8 @@ async function syncTfFromA8() {
       games: a8.games.length ? a8.games : getActivePlatformGameIds("TF").map(String),
     });
     return true;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[platform-sync] TF A8 collect failed:", err.message);
     return false;
   }
@@ -148,7 +157,8 @@ async function syncTfFromA8() {
 function syncTfFromEnv() {
   const gateway = process.env.TF_GATEWAY;
   const token = process.env.TF_TOKEN;
-  if (!gateway || !token) return false;
+  if (!gateway || !token)
+    return false;
   store.setPlatform("TF", {
     gateway,
     token,
@@ -159,7 +169,8 @@ function syncTfFromEnv() {
 }
 
 function syncTfFromSession(session) {
-  if (!session?.gateway || !session?.token) return false;
+  if (!session?.gateway || !session?.token)
+    return false;
   store.setPlatform("TF", {
     gateway: session.gateway,
     token: session.token,
@@ -183,14 +194,15 @@ function syncIaFromA8Defaults() {
 
 function syncIaFromEnv() {
   const gateway = process.env.IA_GATEWAY;
-  if (!gateway) return syncIaFromA8Defaults();
+  if (!gateway)
+    return syncIaFromA8Defaults();
   store.setPlatform("IA", {
     gateway,
     token: "",
     betName:
-      process.env.IA_BET_NAME ||
-      store.getPlatform("IA")?.betName ||
-      "([??].+??$)|([??\\d].+????)",
+      process.env.IA_BET_NAME
+      || store.getPlatform("IA")?.betName
+      || "([??].+??$)|([??\\d].+????)",
     games: getActivePlatformGameIds("IA").map(String),
   });
   return true;
@@ -203,7 +215,8 @@ function syncIaFromSession(_session) {
 function syncImtFromEnv() {
   const gateway = process.env.IMT_GATEWAY;
   const token = process.env.IMT_TOKEN;
-  if (!gateway || !token) return false;
+  if (!gateway || !token)
+    return false;
   const sportIds = process.env.IMT_SPORT_IDS
     ? process.env.IMT_SPORT_IDS.split(/[,;\s]+/).filter(Boolean)
     : [...new Set(getActivePlatformGameIds("IMT"))];
@@ -219,7 +232,8 @@ function syncImtFromEnv() {
 }
 
 function syncImtFromSession(session) {
-  if (!session?.gateway || !session?.token) return false;
+  if (!session?.gateway || !session?.token)
+    return false;
   store.setPlatform("IMT", {
     gateway: session.gateway,
     token: session.token,
@@ -253,7 +267,8 @@ function syncXbetFromEnv() {
 
 function syncStakeFromEnv() {
   const accessToken = process.env.STAKE_ACCESS_TOKEN || process.env.STAKE_TOKEN;
-  if (!accessToken) return false;
+  if (!accessToken)
+    return false;
   store.setPlatform("Stake", {
     gateway: process.env.STAKE_API_URL || "https://stake.com",
     accessToken,
@@ -265,7 +280,8 @@ function syncStakeFromEnv() {
 }
 
 function syncStakeFromSession(session) {
-  if (!session?.accessToken) return false;
+  if (!session?.accessToken)
+    return false;
   store.setPlatform("Stake", {
     gateway: session.apiUrl || session.gateway,
     accessToken: session.accessToken,
@@ -277,7 +293,8 @@ function syncStakeFromSession(session) {
 function syncSabaFromEnv() {
   const gateway = process.env.SABA_GATEWAY;
   const token = process.env.SABA_TOKEN;
-  if (!gateway || !token) return false;
+  if (!gateway || !token)
+    return false;
   store.setPlatform("SABA", {
     gateway,
     token,
@@ -287,7 +304,8 @@ function syncSabaFromEnv() {
 }
 
 function syncSabaFromSession(session) {
-  if (!session?.gateway || !session?.token) return false;
+  if (!session?.gateway || !session?.token)
+    return false;
   store.setPlatform("SABA", {
     gateway: session.gateway,
     token: session.token,
@@ -299,7 +317,8 @@ function syncSabaFromSession(session) {
 function syncHgFromEnv() {
   const gateway = process.env.HG_GATEWAY;
   const token = process.env.HG_TOKEN;
-  if (!gateway || !token) return false;
+  if (!gateway || !token)
+    return false;
   store.setPlatform("HG", {
     gateway,
     token: typeof token === "string" ? token : JSON.stringify(token),
@@ -308,7 +327,8 @@ function syncHgFromEnv() {
 }
 
 function syncHgFromSession(session) {
-  if (!session?.gateway || !session?.token) return false;
+  if (!session?.gateway || !session?.token)
+    return false;
   store.setPlatform("HG", {
     gateway: session.gateway,
     token: JSON.stringify(session.token),
@@ -324,7 +344,8 @@ async function ensurePlatformCredentials() {
     try {
       await syncObLogin();
       obSynced = true;
-    } catch (err) {
+    }
+    catch (err) {
       console.warn("[platform-sync] OB login failed:", err.message);
     }
   }
@@ -338,8 +359,10 @@ async function ensurePlatformCredentials() {
   try {
     const { tryLoadSession } = requirePlatform("PB", "node", "session.js");
     const session = tryLoadSession();
-    if (session) pbSynced = syncPbFromSession(session);
-  } catch (err) {
+    if (session)
+      pbSynced = syncPbFromSession(session);
+  }
+  catch (err) {
     console.warn("[platform-sync] PB platforms.json load failed:", err.message);
   }
   if (!pbSynced) {
@@ -351,9 +374,9 @@ async function ensurePlatformCredentials() {
     tfSynced = syncTfFromEnv();
   }
 
-  let iaSynced = syncIaFromEnv() || syncIaFromA8Defaults();
+  const iaSynced = syncIaFromEnv() || syncIaFromA8Defaults();
 
-  let imtSynced = syncImtFromEnv();
+  const imtSynced = syncImtFromEnv();
 
   const imSynced = syncImFromEnv();
   const xbetSynced = syncXbetFromEnv();
@@ -377,30 +400,30 @@ async function ensurePlatformCredentials() {
 }
 
 export {
-  syncObFromSession,
-  syncObFromStore,
+  ensurePlatformCredentials,
   resolveObSession,
-  syncObLogin,
-  syncRayFromA8,
-  syncRayFromEnv,
-  syncRayFromSession,
-  syncPbFromEnv,
-  syncPbFromSession,
-  syncTfFromA8,
-  syncTfFromEnv,
-  syncTfFromSession,
+  syncHgFromEnv,
+  syncHgFromSession,
   syncIaFromA8Defaults,
   syncIaFromEnv,
   syncIaFromSession,
+  syncImFromEnv,
   syncImtFromEnv,
   syncImtFromSession,
-  syncImFromEnv,
-  syncXbetFromEnv,
-  syncStakeFromEnv,
-  syncStakeFromSession,
+  syncObFromSession,
+  syncObFromStore,
+  syncObLogin,
+  syncPbFromEnv,
+  syncPbFromSession,
+  syncRayFromA8,
+  syncRayFromEnv,
+  syncRayFromSession,
   syncSabaFromEnv,
   syncSabaFromSession,
-  syncHgFromEnv,
-  syncHgFromSession,
-  ensurePlatformCredentials,
+  syncStakeFromEnv,
+  syncStakeFromSession,
+  syncTfFromA8,
+  syncTfFromEnv,
+  syncTfFromSession,
+  syncXbetFromEnv,
 };

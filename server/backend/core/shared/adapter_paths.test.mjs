@@ -2,11 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
-  getAdapterRoot,
   adapterRequire,
+  getAdapterRoot,
   initAdapterRegistry,
-  requirePlatform,
   reqS,
+  requirePlatform,
 } from "./adapter_paths.js";
 
 beforeAll(async () => {
@@ -71,7 +71,8 @@ describe("adapter_paths", () => {
 
   it("requirePlatform loads PB session module (ESM backend)", () => {
     const { tryLoadSession, buildAuthHeaders, parsePbTokenBalance } = requirePlatform(
-      "PB", "node",
+      "PB",
+      "node",
       "session.js",
     );
     expect(typeof tryLoadSession).toBe("function");

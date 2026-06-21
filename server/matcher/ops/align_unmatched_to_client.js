@@ -1,16 +1,16 @@
-import { resolveClientGame, getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
-import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
-import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
-import {
-  canonicalMatchKeyByIdOnly,
-  canonicalMatchKeyByName,
-} from "@changmen/match-engine/teams/team_key.js";
-import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
 import {
   MERGE_START_TIME_TOLERANCE_MS,
   startTimesCompatible,
   startTimesCompatibleStrict,
 } from "@changmen/match-engine";
+import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
+import {
+  canonicalMatchKeyByIdOnly,
+  canonicalMatchKeyByName,
+} from "@changmen/match-engine/teams/team_key.js";
+import { getGameCodeForPlatformId, resolveClientGame } from "@changmen/shared/catalog/game_catalog.mjs";
+import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
 /**
  * rebuild 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。
@@ -24,9 +24,11 @@ import {
 function findPlatformMatch(matches, provider, sourceMatchId) {
   const sid = String(sourceMatchId);
   const byId = matches?.[provider];
-  if (!byId) return null;
-  if (byId[sid]) return byId[sid];
-  return Object.values(byId).find((m) => String(m.SourceMatchID) === sid) || null;
+  if (!byId)
+    return null;
+  if (byId[sid])
+    return byId[sid];
+  return Object.values(byId).find(m => String(m.SourceMatchID) === sid) || null;
 }
 
 function platformMatchLinked(match) {
@@ -44,16 +46,19 @@ function matchTeamIdsForLookup(platform, match, gameCode) {
 
 function pushClientToIndex(bucket, cm) {
   const id = Number(cm.id);
-  if (!bucket.some((row) => Number(row.id) === id)) bucket.push(cm);
+  if (!bucket.some(row => Number(row.id) === id))
+    bucket.push(cm);
 }
 
 function resolveClientMatchIdKey(cm, matches) {
   const stored = String(cm.merge_key || "");
-  if (stored.startsWith("match:id:")) return stored;
+  if (stored.startsWith("match:id:"))
+    return stored;
 
   for (const [platform, srcId] of Object.entries(cm.matchs || {})) {
     const m = findPlatformMatch(matches, platform, srcId);
-    if (!m) continue;
+    if (!m)
+      continue;
     const { GameID } = resolveClientGame(platform, m.SourceGameID ?? m.GameID);
     const gameCode = getGameCodeForPlatformId(platform, m.SourceGameID ?? m.GameID);
     const { homeId, awayId } = matchTeamIdsForLookup(platform, m, gameCode);
@@ -64,28 +69,33 @@ function resolveClientMatchIdKey(cm, matches) {
       gameCode,
       { provider: platform, homeId, awayId },
     );
-    if (ck) return ck.key;
+    if (ck)
+      return ck.key;
   }
   return null;
 }
 
 function resolveClientMatchNameKey(cm, matches) {
   const stored = String(cm.merge_key || "");
-  if (stored.startsWith("match:name:")) return stored;
+  if (stored.startsWith("match:name:"))
+    return stored;
 
   for (const [platform, srcId] of Object.entries(cm.matchs || {})) {
     const m = findPlatformMatch(matches, platform, srcId);
-    if (!m) continue;
+    if (!m)
+      continue;
     const { GameID } = resolveClientGame(platform, m.SourceGameID ?? m.GameID);
     const ck = canonicalMatchKeyByName(GameID, m.Home, m.Away);
-    if (ck) return ck.key;
+    if (ck)
+      return ck.key;
   }
 
   const teams = parseTitleTeams(cm.title || cm.Title || "");
   if (teams) {
     const gameId = String(cm.game_id ?? cm.GameID ?? "");
     const ck = canonicalMatchKeyByName(gameId, teams.home, teams.away);
-    if (ck) return ck.key;
+    if (ck)
+      return ck.key;
   }
   return null;
 }
@@ -102,28 +112,33 @@ function buildClientMatchIndexes(clientRows, matches) {
   for (const cm of clientRows || []) {
     const stored = String(cm.merge_key || "");
     if (stored.startsWith("match:id:")) {
-      if (!byIdKey.has(stored)) byIdKey.set(stored, []);
+      if (!byIdKey.has(stored))
+        byIdKey.set(stored, []);
       pushClientToIndex(byIdKey.get(stored), cm);
       const base = stripTimeSuffix(stored);
       if (base !== stored) {
-        if (!byIdKey.has(base)) byIdKey.set(base, []);
+        if (!byIdKey.has(base))
+          byIdKey.set(base, []);
         pushClientToIndex(byIdKey.get(base), cm);
       }
     }
 
     const idKey = resolveClientMatchIdKey(cm, matches);
     if (idKey) {
-      if (!byIdKey.has(idKey)) byIdKey.set(idKey, []);
+      if (!byIdKey.has(idKey))
+        byIdKey.set(idKey, []);
       pushClientToIndex(byIdKey.get(idKey), cm);
       const base = stripTimeSuffix(idKey);
       if (base !== idKey) {
-        if (!byIdKey.has(base)) byIdKey.set(base, []);
+        if (!byIdKey.has(base))
+          byIdKey.set(base, []);
         pushClientToIndex(byIdKey.get(base), cm);
       }
     }
     const nameKey = resolveClientMatchNameKey(cm, matches);
     if (nameKey) {
-      if (!byNameKey.has(nameKey)) byNameKey.set(nameKey, []);
+      if (!byNameKey.has(nameKey))
+        byNameKey.set(nameKey, []);
       pushClientToIndex(byNameKey.get(nameKey), cm);
     }
   }
@@ -135,19 +150,22 @@ function buildExistingClientIdKeyIndex(clientRows, matches) {
   const map = new Map();
   for (const cm of clientRows || []) {
     const id = Number(cm.id);
-    if (!Number.isFinite(id)) continue;
+    if (!Number.isFinite(id))
+      continue;
 
     const stored = String(cm.merge_key || "");
     if (stored.startsWith("match:id:") && !map.has(stored)) {
       map.set(stored, id);
       const base = stripTimeSuffix(stored);
-      if (base !== stored && !map.has(base)) map.set(base, id);
+      if (base !== stored && !map.has(base))
+        map.set(base, id);
     }
     const idKey = resolveClientMatchIdKey(cm, matches);
     if (idKey && !map.has(idKey)) {
       map.set(idKey, id);
       const base = stripTimeSuffix(idKey);
-      if (base !== idKey && !map.has(base)) map.set(base, id);
+      if (base !== idKey && !map.has(base))
+        map.set(base, id);
     }
   }
   return map;
@@ -155,13 +173,16 @@ function buildExistingClientIdKeyIndex(clientRows, matches) {
 
 function canAlignPlatformToClient(platform, sourceMatchId, cm) {
   const slot = cm.matchs?.[platform];
-  if (slot != null && slot !== "" && String(slot) !== String(sourceMatchId)) return false;
+  if (slot != null && slot !== "" && String(slot) !== String(sourceMatchId))
+    return false;
   return true;
 }
 
 function pickBestClientMatch(candidates, platformStartMs) {
-  if (!candidates?.length) return null;
-  if (candidates.length === 1) return candidates[0];
+  if (!candidates?.length)
+    return null;
+  if (candidates.length === 1)
+    return candidates[0];
 
   let best = candidates[0];
   let bestDelta = Number.POSITIVE_INFINITY;
@@ -186,7 +207,8 @@ function assignClientMatchId(match, clientMatchId) {
 }
 
 function alignOnePlatformMatch(match, platform, indexes, stats) {
-  if (platformMatchLinked(match)) return;
+  if (platformMatchLinked(match))
+    return;
 
   const sourceMatchId = String(match.SourceMatchID);
   const startMs = normalizeEpochMs(match.StartTime);
@@ -204,9 +226,9 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
   );
   if (idCk) {
     const candidates = (indexes.byIdKey.get(idCk.key) || [])
-      .filter((cm) => String(cm.game_id ?? "") === gameId)
-      .filter((cm) => startTimesCompatible(startMs, cm.start_time ?? cm.StartTime))
-      .filter((cm) => canAlignPlatformToClient(platform, sourceMatchId, cm));
+      .filter(cm => String(cm.game_id ?? "") === gameId)
+      .filter(cm => startTimesCompatible(startMs, cm.start_time ?? cm.StartTime))
+      .filter(cm => canAlignPlatformToClient(platform, sourceMatchId, cm));
     const hit = pickBestClientMatch(candidates, startMs);
     if (hit) {
       assignClientMatchId(match, hit.id);
@@ -216,14 +238,16 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
   }
 
   const nameCk = canonicalMatchKeyByName(GameID, match.Home, match.Away);
-  if (!nameCk) return;
+  if (!nameCk)
+    return;
 
   const candidates = (indexes.byNameKey.get(nameCk.key) || [])
-    .filter((cm) => String(cm.game_id ?? "") === gameId)
-    .filter((cm) => startTimesCompatibleStrict(startMs, cm.start_time ?? cm.StartTime))
-    .filter((cm) => canAlignPlatformToClient(platform, sourceMatchId, cm));
+    .filter(cm => String(cm.game_id ?? "") === gameId)
+    .filter(cm => startTimesCompatibleStrict(startMs, cm.start_time ?? cm.StartTime))
+    .filter(cm => canAlignPlatformToClient(platform, sourceMatchId, cm));
   const hit = pickBestClientMatch(candidates, startMs);
-  if (!hit) return;
+  if (!hit)
+    return;
 
   assignClientMatchId(match, hit.id);
   stats.alignedByName++;
@@ -236,14 +260,17 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
  */
 function alignUnmatchedToClientMatches(matches, clientRows) {
   const stats = { alignedById: 0, alignedByName: 0 };
-  if (!clientRows?.length || !matches) return stats;
+  if (!clientRows?.length || !matches)
+    return stats;
 
   const indexes = buildClientMatchIndexes(clientRows, matches);
 
   for (const [platform, byId] of Object.entries(matches)) {
-    if (!byId || typeof byId !== "object") continue;
+    if (!byId || typeof byId !== "object")
+      continue;
     for (const match of Object.values(byId)) {
-      if (!match?.SourceMatchID) continue;
+      if (!match?.SourceMatchID)
+        continue;
       alignOnePlatformMatch(match, platform, indexes, stats);
     }
   }
@@ -252,9 +279,9 @@ function alignUnmatchedToClientMatches(matches, clientRows) {
 }
 
 export {
-  MERGE_START_TIME_TOLERANCE_MS,
   alignUnmatchedToClientMatches,
   buildExistingClientIdKeyIndex,
+  MERGE_START_TIME_TOLERANCE_MS,
   resolveClientMatchIdKey,
   resolveClientMatchNameKey,
 };

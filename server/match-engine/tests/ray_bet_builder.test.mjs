@@ -1,16 +1,18 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { buildBetsForMatch } from "../merge/bet_builder.js";
 
-const src = (p, b) => ({
-  Type: p,
-  BetID: String(b.SourceBetID),
-  HomeID: String(b.SourceHomeID),
-  AwayID: String(b.SourceAwayID),
-  HomeOdds: b.HomeOdds,
-  AwayOdds: b.AwayOdds,
-  Status: b.Status,
-});
+function src(p, b) {
+  return {
+    Type: p,
+    BetID: String(b.SourceBetID),
+    HomeID: String(b.SourceHomeID),
+    AwayID: String(b.SourceAwayID),
+    HomeOdds: b.HomeOdds,
+    AwayOdds: b.AwayOdds,
+    Status: b.Status,
+  };
+}
 
 test("RAY: three rows all Map=0 collapse to one client bet (old bug)", () => {
   const bets = {
@@ -41,5 +43,5 @@ test("RAY: Map 0/1/2 yields three client bets", () => {
     },
   };
   const out = buildBetsForMatch("RAY", "1", 0, bets, src, "cs2");
-  assert.deepEqual(out.map((b) => b.Map), [0, 1, 2]);
+  assert.deepEqual(out.map(b => b.Map), [0, 1, 2]);
 });

@@ -14,54 +14,71 @@ const CN_DIGIT = {
 };
 
 export function pickStr(obj, ...keys) {
-  if (!obj || typeof obj !== "object") return "";
+  if (!obj || typeof obj !== "object")
+    return "";
   for (const k of keys) {
     const v = obj[k];
-    if (v != null && v !== "") return String(v);
+    if (v != null && v !== "")
+      return String(v);
   }
   return "";
 }
 
 export function imBetNameIsFullMatch(name) {
   const text = String(name || "").replace(/\s+/g, "");
-  if (!text) return false;
-  if (/全场|总比赛|系列赛|BO\d/i.test(text)) return true;
-  if ((/比赛.*胜|胜负/.test(text) || /获胜/.test(text)) && !/第.+局/.test(text)) return true;
+  if (!text)
+    return false;
+  if (/全场|总比赛|系列赛|BO\d/i.test(text))
+    return true;
+  if ((/比赛.*胜|胜负/.test(text) || /获胜/.test(text)) && !/第.+局/.test(text))
+    return true;
   return false;
 }
 
 export function parseImMapFromBetName(name) {
   const text = String(name || "").replace(/\s+/g, "");
-  if (!text || imBetNameIsFullMatch(name)) return 0;
+  if (!text || imBetNameIsFullMatch(name))
+    return 0;
   const m = text.match(/第([一二三四五六七八九十\d]+)局/);
-  if (!m) return 0;
+  if (!m)
+    return 0;
   const token = m[1];
-  if (/^\d+$/.test(token)) return Number(token) || 0;
-  if (token.length === 1) return CN_DIGIT[token] ?? 0;
-  if (token === "十") return 10;
-  if (token.startsWith("十") && token.length === 2) return CN_DIGIT[token[1]] ?? 0;
-  if (token.endsWith("十") && token.length === 2) return (CN_DIGIT[token[0]] ?? 0) * 10;
+  if (/^\d+$/.test(token))
+    return Number(token) || 0;
+  if (token.length === 1)
+    return CN_DIGIT[token] ?? 0;
+  if (token === "十")
+    return 10;
+  if (token.startsWith("十") && token.length === 2)
+    return CN_DIGIT[token[1]] ?? 0;
+  if (token.endsWith("十") && token.length === 2)
+    return (CN_DIGIT[token[0]] ?? 0) * 10;
   return 0;
 }
 
 export function imBetNameIsMapWinner(name) {
   const text = String(name || "");
-  if (!text || imBetNameIsFullMatch(name)) return false;
-  return /第\s*.+\s*局.*胜/.test(text) || /局.*胜利/.test(text);
+  if (!text || imBetNameIsFullMatch(name))
+    return false;
+  return /第\s*(?:\S.*|[\t\v\f \xA0\u1680\u2000-\u200A\u202F\u205F\u3000\uFEFF])\s*局.*胜/.test(text) || /局.*胜利/.test(text);
 }
 
 export function imBetNameIsCollectible(name) {
-  if (!name) return true;
+  if (!name)
+    return true;
   return imBetNameIsFullMatch(name) || imBetNameIsMapWinner(name);
 }
 
 export function resolveImMap(bet) {
   const name = pickStr(bet, "name", "Name", "betName", "BetName");
-  if (name && imBetNameIsFullMatch(name)) return 0;
+  if (name && imBetNameIsFullMatch(name))
+    return 0;
   const fromName = name ? parseImMapFromBetName(name) : 0;
-  if (fromName > 0) return fromName;
+  if (fromName > 0)
+    return fromName;
   const raw = bet.map ?? bet.Map ?? bet.gamenr ?? bet.gameNr;
-  if (raw == null || raw === "") return 0;
+  if (raw == null || raw === "")
+    return 0;
   const n = Number(raw);
   return Number.isFinite(n) ? n : 0;
 }
@@ -80,7 +97,8 @@ export function normalizeImBet(bet) {
 }
 
 export function pickImSportId(obj) {
-  if (!obj || typeof obj !== "object") return "";
+  if (!obj || typeof obj !== "object")
+    return "";
   return pickStr(
     obj,
     "sportId",
@@ -96,7 +114,8 @@ export function pickImSportId(obj) {
 }
 
 export function normalizeImMatchFields(match) {
-  if (!match) return match;
+  if (!match)
+    return match;
   const sportId = pickImSportId(match) || match.SourceGameID;
   const home = pickStr(match, "homeName", "HomeName", "Home", "home");
   const away = pickStr(match, "awayName", "AwayName", "Away", "away");

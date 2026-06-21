@@ -1,5 +1,6 @@
 {
   "name": "@changmen/backend",
+  "type": "module",
   "version": "1.0.2",
   "private": true,
   "description": "Server: esport-api, HTTP proxy, static hosting for clients",
@@ -7,7 +8,6 @@
     "type": "git",
     "url": "https://github.com/westlavie-creator/gamebet.git"
   },
-  "type": "module",
   "scripts": {
     "preweb": "node scripts/preweb.js",
     "web": "node scripts/start-db.mjs",
@@ -60,25 +60,25 @@
     "sync:a8-assets": "node scripts/sync-a8-esport2-assets.mjs",
     "compile:router": "tsc -p tsconfig.router.json"
   },
-  "devDependencies": {
-    "@types/node": "^25.9.2",
-    "tsx": "^4.22.4",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.8"
-  },
   "dependencies": {
     "@changmen/api-contract": "*",
     "@changmen/db": "*",
-    "@changmen/storage": "*",
     "@changmen/match-engine": "*",
     "@changmen/platform-adapter": "*",
     "@changmen/platform-probes": "*",
     "@changmen/shared": "*",
+    "@changmen/storage": "*",
     "@changmen/ws-forward": "*",
     "mqtt": "^5.14.0",
     "socket.io-client": "^4.8.3",
     "socketcluster-client": "^20.0.1",
     "socks-proxy-agent": "^8.0.5",
     "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   }
 }

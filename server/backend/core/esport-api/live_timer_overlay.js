@@ -18,16 +18,18 @@ export { liveRound };
 export function mergeTimerBlocks(memoryTimers, dbTimers) {
   const out = { ...(dbTimers || {}) };
   for (const [platform, block] of Object.entries(memoryTimers || {})) {
-    if (block && Array.isArray(block.timer)) out[platform] = block;
+    if (block && Array.isArray(block.timer))
+      out[platform] = block;
   }
   return out;
 }
 
 export function overlayLiveTimersOnMatches(matches, timersByProvider, enrich = {}) {
-  if (!Array.isArray(matches) || !matches.length) return matches || [];
-  const out = matches.map((m) => ({
+  if (!Array.isArray(matches) || !matches.length)
+    return matches || [];
+  const out = matches.map(m => ({
     ...m,
-    Bets: (m.Bets || []).map((b) => ({
+    Bets: (m.Bets || []).map(b => ({
       ...b,
       Sources: { ...(b.Sources || {}) },
     })),

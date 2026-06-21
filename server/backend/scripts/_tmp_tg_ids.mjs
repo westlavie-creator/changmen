@@ -1,4 +1,5 @@
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
+
 loadChangmenEnv();
 
 const { getPgPool } = await import("@changmen/db");
@@ -16,7 +17,8 @@ for (const name of ["gb12", "sz01"]) {
   if (typeof msg === "string") {
     try {
       msg = JSON.parse(msg);
-    } catch {
+    }
+    catch {
       /* keep string */
     }
   }

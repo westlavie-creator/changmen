@@ -29,7 +29,8 @@ function requirePg() {
 /** @param {string} [reason] 首次建池时的日志说明 */
 export function getPgPool(reason = "") {
   const url = getResolvedDatabaseUrl();
-  if (!url) return null;
+  if (!url)
+    return null;
   if (!_pgPool) {
     const { Pool } = requirePg();
     _pgPool = new Pool({ ...buildPgClientConfig(url), max: 4 });

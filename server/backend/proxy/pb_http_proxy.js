@@ -1,4 +1,5 @@
 import { requirePlatform } from "../core/shared/adapter_paths.js";
+
 const { tryLoadSession, buildAuthHeaders } = requirePlatform("PB", "node", "session.js");
 
 const PB_PATH_RE = /\/(sports-service|member-service|member-betslip|bet-placement)\//i;
@@ -6,7 +7,8 @@ const PB_PATH_RE = /\/(sports-service|member-service|member-betslip|bet-placemen
 function isPbApiUrl(url) {
   try {
     return PB_PATH_RE.test(new URL(url).pathname);
-  } catch {
+  }
+  catch {
     return false;
   }
 }
@@ -41,11 +43,12 @@ function pickForwardHeaders(reqHeaders, sessionHeaders) {
 }
 
 /**
- * 控制�?PB 下单/余额：Yn.get/post �?本地 Node 代发（凭证来�?platforms.json / PB_* env）�? * GET|POST /esport/pb/proxy?url=<encoded upstream URL>
+ * 控制�?PB 下单/余额：Yn.get/post �?本地 Node 代发（凭证来�?platforms.json / PB_* env）�? * GET|POST /esport/pb/proxy?url=<encoded upstream URL>
  */
 async function tryPbHttpProxy(req, res) {
   const pathname = req.url.split("?")[0];
-  if (pathname !== "/esport/pb/proxy") return false;
+  if (pathname !== "/esport/pb/proxy")
+    return false;
 
   const params = new URL(req.url, "http://127.0.0.1").searchParams;
   const targetUrl = params.get("url");
@@ -75,8 +78,8 @@ async function tryPbHttpProxy(req, res) {
   }
 
   const headers = pickForwardHeaders(req.headers, authHeaders);
-  const body =
-    req.method !== "GET" && req.method !== "HEAD" ? await readRequestBody(req) : undefined;
+  const body
+    = req.method !== "GET" && req.method !== "HEAD" ? await readRequestBody(req) : undefined;
 
   try {
     const upstream = await fetch(targetUrl, {
@@ -92,11 +95,12 @@ async function tryPbHttpProxy(req, res) {
     });
     res.end(text);
     return true;
-  } catch (err) {
+  }
+  catch (err) {
     res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ success: false, errorMessage: err.message || "pb proxy failed" }));
     return true;
   }
 }
 
-export { tryPbHttpProxy, isPbApiUrl, PB_PATH_RE };
+export { isPbApiUrl, PB_PATH_RE, tryPbHttpProxy };

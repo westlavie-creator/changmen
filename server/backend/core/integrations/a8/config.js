@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  A8_USER,
-  A8_PASSWORD,
   A8_FORWARD_SITE,
+  A8_PASSWORD,
+  A8_USER,
 } from "./constants.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -13,11 +13,14 @@ const CONFIG_FILE = path.join(__dirname, "..", "..", "..", "data", "esport", "a8
 
 export function loadA8ConfigFile() {
   try {
-    if (!fs.existsSync(CONFIG_FILE)) return null;
+    if (!fs.existsSync(CONFIG_FILE))
+      return null;
     const data = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
-    if (!data?.userName || !data?.password) return null;
+    if (!data?.userName || !data?.password)
+      return null;
     return data;
-  } catch {
+  }
+  catch {
     return null;
   }
 }
@@ -38,7 +41,8 @@ export function saveA8Config({ userName, password }) {
 
 /** 默认走 A8；A8_AUTH=0 时退回本地 users.json */
 export function isA8AuthEnabled() {
-  if (process.env.A8_AUTH === "0") return false;
+  if (process.env.A8_AUTH === "0")
+    return false;
   return true;
 }
 
@@ -64,4 +68,4 @@ export function getHardcodedCredentials() {
   return { userName: A8_USER, password: A8_PASSWORD };
 }
 
-export { CONFIG_FILE, A8_FORWARD_SITE };
+export { A8_FORWARD_SITE, CONFIG_FILE };

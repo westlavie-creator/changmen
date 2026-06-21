@@ -1,18 +1,18 @@
+import { getPgPool } from "@changmen/db";
 import { getCatalogSummary } from "@changmen/shared/catalog/game_catalog.mjs";
 import { getCatalogSummary as getMarketCatalogSummary } from "@changmen/shared/catalog/market_catalog.mjs";
-import { adapterRequire, requirePlatform } from "./core/shared/adapter_paths.js";
-import { tryEsportApi, resolveCreditPlateUserName } from "./core/esport-api/router.js";
+import { getWsForwardStatus, isWsForwardHttpPath } from "@changmen/ws-forward";
+import { countAccounts, getClientMatches, listProfiles } from "./core/db/store.js";
+import { resolveCreditPlateUserName, tryEsportApi } from "./core/esport-api/router.js";
 import store from "./core/esport-api/store.js";
 import { getHardcodedCredentials } from "./core/integrations/a8/config.js";
+import { adapterRequire, requirePlatform } from "./core/shared/adapter_paths.js";
 import { tryHttpProxyRelay } from "./proxy/http_proxy_relay.js";
-import { tryPbHttpProxy } from "./proxy/pb_http_proxy.js";
-import { tryObHttpProxy } from "./proxy/ob_http_proxy.js";
-import { tryRayHttpProxy } from "./proxy/ray_http_proxy.js";
 import { tryIaHttpProxy } from "./proxy/ia_http_proxy.js";
-import { getWsForwardStatus, isWsForwardHttpPath } from "@changmen/ws-forward";
+import { tryObHttpProxy } from "./proxy/ob_http_proxy.js";
+import { tryPbHttpProxy } from "./proxy/pb_http_proxy.js";
+import { tryRayHttpProxy } from "./proxy/ray_http_proxy.js";
 import { isFastStaticRequest } from "./static_files.js";
-import { getPgPool } from "@changmen/db";
-import { listProfiles, countAccounts, getClientMatches } from "./core/db/store.js";
 
 const { listPlatforms } = adapterRequire("registry", "feeds.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "node", "session.js");
@@ -21,7 +21,7 @@ let _tryHandleMatcherApi;
 async function getTryHandleMatcherApi() {
   if (!_tryHandleMatcherApi) {
     ({ tryHandleMatcherApi: _tryHandleMatcherApi } = await import(
-      "../matcher/ui/http_bridge.js"
+      "../matcher/ui/http_bridge.js",
     ));
   }
   return _tryHandleMatcherApi;
@@ -40,7 +40,8 @@ function readJsonBody(req) {
     req.on("end", () => {
       try {
         resolve(raw ? JSON.parse(raw) : {});
-      } catch {
+      }
+      catch {
         reject(new Error("invalid JSON body"));
       }
     });
@@ -62,7 +63,8 @@ async function handleObDemoLogin(req, res) {
     const loginUrl = process.env.OB_LOGIN_URL || DEFAULT_LOGIN_URL;
     const { json } = await fetchObLogin(loginUrl);
     jsonResponse(res, 200, json);
-  } catch (err) {
+  }
+  catch (err) {
     jsonResponse(res, 502, {
       status: false,
       message: err.message || String(err),
@@ -77,18 +79,25 @@ export function createHttpHandler({ port, serveStatic }) {
     try {
       const url = req.url.split("?")[0];
       // Socket.IO 握手由 ws_forward 处理，勿走 esport-api / 静态文件
-      if (isWsForwardHttpPath(url)) return;
+      if (isWsForwardHttpPath(url))
+        return;
       if (isFastStaticRequest(url, req.method)) {
         serveStatic(req, res);
         return;
       }
       const baseOrigin = `http://127.0.0.1:${port}`;
-      if (await tryHttpProxyRelay(req, res, baseOrigin)) return;
-      if (await tryPbHttpProxy(req, res)) return;
-      if (await tryObHttpProxy(req, res)) return;
-      if (await tryRayHttpProxy(req, res)) return;
-      if (await tryIaHttpProxy(req, res)) return;
-      if (await tryEsportApi(req, res)) return;
+      if (await tryHttpProxyRelay(req, res, baseOrigin))
+        return;
+      if (await tryPbHttpProxy(req, res))
+        return;
+      if (await tryObHttpProxy(req, res))
+        return;
+      if (await tryRayHttpProxy(req, res))
+        return;
+      if (await tryIaHttpProxy(req, res))
+        return;
+      if (await tryEsportApi(req, res))
+        return;
       if (url === "/api/ob/demo-login") {
         await handleObDemoLogin(req, res);
         return;
@@ -99,10 +108,10 @@ export function createHttpHandler({ port, serveStatic }) {
         return;
       }
       if (url === "/api/a8/credit-plate-user") {
-        const token =
-          (typeof req.headers.token === "string" && req.headers.token) ||
-          (typeof req.headers.Token === "string" && req.headers.Token) ||
-          "";
+        const token
+          = (typeof req.headers.token === "string" && req.headers.token)
+            || (typeof req.headers.Token === "string" && req.headers.Token)
+            || "";
         const user = await store.getUserByToken(token);
         const userName = resolveCreditPlateUserName(user);
         jsonResponse(res, 200, { userName });
@@ -136,17 +145,20 @@ export function createHttpHandler({ port, serveStatic }) {
         if (accept.includes("text/html")) {
           res.writeHead(healthData.db.connected ? 200 : 503, { "Content-Type": "text/html; charset=utf-8" });
           res.end(renderHealthPage(healthData));
-        } else {
+        }
+        else {
           jsonResponse(res, healthData.db.connected ? 200 : 503, healthData);
         }
         return;
       }
-      if (await (await getTryHandleMatcherApi())(req, res)) return;
+      if (await (await getTryHandleMatcherApi())(req, res))
+        return;
       serveStatic(req, res);
-    } catch (err) {
+    }
+    catch (err) {
       console.error("[server]", req.url, err);
       if (!res.headersSent) {
-        jsonResponse(res, 500, { success: 0, msg: err.message || "\u670d\u52a1\u5668\u9519\u8bef", info: null });
+        jsonResponse(res, 500, { success: 0, msg: err.message || "\u670D\u52A1\u5668\u9519\u8BEF", info: null });
       }
     }
   };
@@ -159,7 +171,8 @@ async function buildHealthData() {
   const poolStats = { total: 0, idle: 0, waiting: 0 };
   if (pool) {
     const t0 = Date.now();
-    try { await pool.query("SELECT 1"); db = true; dbLatencyMs = Date.now() - t0; } catch { /* */ }
+    try { await pool.query("SELECT 1"); db = true; dbLatencyMs = Date.now() - t0; }
+    catch { /* */ }
     poolStats.total = pool.totalCount ?? 0;
     poolStats.idle = pool.idleCount ?? 0;
     poolStats.waiting = pool.waitingCount ?? 0;
@@ -188,7 +201,7 @@ async function buildHealthData() {
 }
 
 function renderHealthPage(d) {
-  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const statusColor = d.status === "ok" ? "#22c55e" : "#ef4444";
   const dbColor = d.db.connected ? "#22c55e" : "#ef4444";
   const latencyColor = d.db.latencyMs < 10 ? "#22c55e" : d.db.latencyMs < 50 ? "#eab308" : "#ef4444";
@@ -241,14 +254,14 @@ body{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#e2
     <div class="row"><span class="label">Status</span><span class="badge" style="background:${dbColor}20;color:${dbColor}">${d.db.connected ? "Connected" : "Down"}</span></div>
     <div class="row"><span class="label">Latency</span><span class="value" style="color:${latencyColor}">${d.db.latencyMs}ms</span></div>
     <div class="row"><span class="label">Pool</span><span class="value">${poolActive} / ${d.db.pool.total} active</span></div>
-    <div class="bar-bg"><div class="bar-fill" style="width:${poolPct}%;background:${poolPct > 80 ? '#ef4444' : '#3b82f6'}"></div></div>
+    <div class="bar-bg"><div class="bar-fill" style="width:${poolPct}%;background:${poolPct > 80 ? "#ef4444" : "#3b82f6"}"></div></div>
     ${d.db.pool.waiting ? `<div class="row"><span class="label">Waiting</span><span class="value" style="color:#eab308">${d.db.pool.waiting}</span></div>` : ""}
   </div>
   <div class="card">
     <div class="card-title">Memory</div>
     <div class="row"><span class="label">RSS</span><span class="value">${d.memory.rss} MB</span></div>
     <div class="row"><span class="label">Heap</span><span class="value">${d.memory.heapUsed} / ${d.memory.heapTotal} MB</span></div>
-    <div class="bar-bg"><div class="bar-fill" style="width:${heapPct}%;background:${heapPct > 85 ? '#ef4444' : heapPct > 60 ? '#eab308' : '#22c55e'}"></div></div>
+    <div class="bar-bg"><div class="bar-fill" style="width:${heapPct}%;background:${heapPct > 85 ? "#ef4444" : heapPct > 60 ? "#eab308" : "#22c55e"}"></div></div>
   </div>
   <div class="card">
     <div class="card-title">Data</div>
@@ -261,13 +274,15 @@ body{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#e2
     <div class="row"><span class="label">Relay</span><span class="badge" style="background:${d.wsForward.enabled ? "#22c55e20" : "#ef444420"};color:${d.wsForward.enabled ? "#22c55e" : "#ef4444"}">${d.wsForward.enabled ? "Enabled" : "Disabled"}</span></div>
 ${(d.wsForward.platforms || []).map((pid) => {
   const ps = d.wsForward.platformStats?.[pid];
-  if (!ps) return `    <div class="row"><span class="label">${esc(pid)}</span><span class="value" style="color:#475569">idle</span></div>`;
+  if (!ps)
+    return `    <div class="row"><span class="label">${esc(pid)}</span><span class="value" style="color:#475569">idle</span></div>`;
   const hasError = ps.lastError && ps.lastErrorAt && (Date.now() - ps.lastErrorAt < 600_000);
   const color = ps.active > 0 ? "#22c55e" : hasError ? "#ef4444" : "#94a3b8";
   const ago = ps.lastConnectedAt ? Math.floor((Date.now() - ps.lastConnectedAt) / 1000) : 0;
   const agoStr = ago > 3600 ? `${Math.floor(ago / 3600)}h ago` : ago > 60 ? `${Math.floor(ago / 60)}m ago` : ago > 0 ? `${ago}s ago` : "";
   let detail = `${ps.active} conn`;
-  if (ps.totalConnections) detail += ` (total ${ps.totalConnections})`;
+  if (ps.totalConnections)
+    detail += ` (total ${ps.totalConnections})`;
   return [
     `    <div class="row"><span class="label">${esc(pid)}</span><span class="value"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px"></span>${detail}</span></div>`,
     agoStr ? `    <div class="row"><span class="label"></span><span class="value" style="color:#475569;font-size:12px">last: ${esc(agoStr)}</span></div>` : "",

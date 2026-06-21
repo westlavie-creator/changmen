@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import {
-  ONLINE_WINDOW_MS,
-  touchUserPresence,
   getOnlineUserIdSet,
-  isUserOnline,
   getUserLastActiveAt,
+  isUserOnline,
+  ONLINE_WINDOW_MS,
   resolvePresenceState,
+  touchUserPresence,
 } from "./user_presence.js";
 
 // 每个测试用独立 userId，避免模块级 Map 互相污染

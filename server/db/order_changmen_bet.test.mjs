@@ -3,9 +3,9 @@ import { describe, it } from "node:test";
 import {
   BET_LOG_AFTER_MS,
   BET_LOG_BEFORE_MS,
-  matchChangmenBetFromLogs,
   isSuccessBetLogTitle,
   isSuccessCheckLogTitle,
+  matchChangmenBetFromLogs,
 } from "./order_changmen_bet.js";
 
 describe("order_changmen_bet", () => {

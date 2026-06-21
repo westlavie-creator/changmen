@@ -2,15 +2,15 @@ import catalog from "./game_catalog.json" with { type: "json" };
 
 /** 平博 league.gameCode 经 slugify 后的别名 → catalog code */
 const PB_SLUG_ALIASES = {
-  cs: "cs2",
-  cs2: "cs2",
+  "cs": "cs2",
+  "cs2": "cs2",
   "counter-strike-2": "cs2",
-  valorant: "valorant",
-  lol: "lol",
+  "valorant": "valorant",
+  "lol": "lol",
   "league-of-legends": "lol",
-  dota2: "dota2",
+  "dota2": "dota2",
   "dota-2": "dota2",
-  kog: "kog",
+  "kog": "kog",
   "king-of-glory": "kog",
   "honor-of-kings": "kog",
 };
@@ -26,7 +26,7 @@ const STAKE_A8_ALIASES = {
 
 /** TF 王者荣耀：A8 采集用 14；旧 probe 曾记 43 */
 const TF_GAME_ALIASES = {
-  "43": "kog",
+  43: "kog",
 };
 
 function listGames() {
@@ -34,26 +34,26 @@ function listGames() {
 }
 
 function getGameByCode(code) {
-  return catalog.games.find((g) => g.code === code) || null;
+  return catalog.games.find(g => g.code === code) || null;
 }
 
 function parseActiveGameCodes() {
   const raw = process.env.AGGREGATE_GAME_CODES;
   if (!raw || raw === "*") {
-    return catalog.games.map((g) => g.code);
+    return catalog.games.map(g => g.code);
   }
   const wanted = new Set(
     raw
       .split(/[,;\s]+/)
-      .map((s) => s.trim().toLowerCase())
+      .map(s => s.trim().toLowerCase())
       .filter(Boolean),
   );
-  return catalog.games.filter((g) => wanted.has(g.code)).map((g) => g.code);
+  return catalog.games.filter(g => wanted.has(g.code)).map(g => g.code);
 }
 
 function getActiveGames() {
   const codes = new Set(parseActiveGameCodes());
-  return catalog.games.filter((g) => codes.has(g.code));
+  return catalog.games.filter(g => codes.has(g.code));
 }
 
 function getPlatformGameId(platform, code) {
@@ -66,15 +66,18 @@ function getGameCodeForPlatformId(platform, gameId) {
   const id = String(gameId);
   if (platform === "PB") {
     const alias = PB_SLUG_ALIASES[id];
-    if (alias) return alias;
+    if (alias)
+      return alias;
   }
   if (platform === "Stake") {
     const alias = STAKE_A8_ALIASES[id];
-    if (alias) return alias;
+    if (alias)
+      return alias;
   }
   if (platform === "TF") {
     const alias = TF_GAME_ALIASES[id];
-    if (alias) return alias;
+    if (alias)
+      return alias;
   }
   for (const game of catalog.games) {
     if (String(game.platforms?.[platform]) === id) {
@@ -86,13 +89,14 @@ function getGameCodeForPlatformId(platform, gameId) {
 
 function isAllowedPlatformGameId(platform, gameId) {
   const code = getGameCodeForPlatformId(platform, gameId);
-  if (!code) return false;
+  if (!code)
+    return false;
   return parseActiveGameCodes().includes(code);
 }
 
 function getActivePlatformGameIds(platform) {
   return getActiveGames()
-    .map((g) => g.platforms?.[platform])
+    .map(g => g.platforms?.[platform])
     .filter(Boolean)
     .map(String);
 }
@@ -132,7 +136,7 @@ function getCatalogSummary() {
     version: catalog.version,
     updatedAt: catalog.updatedAt,
     activeCodes: parseActiveGameCodes(),
-    games: getActiveGames().map((g) => ({
+    games: getActiveGames().map(g => ({
       code: g.code,
       name: g.name,
       nameEn: g.nameEn,
@@ -143,15 +147,15 @@ function getCatalogSummary() {
 
 export {
   catalog,
-  listGames,
-  getGameByCode,
-  parseActiveGameCodes,
-  getActiveGames,
-  getPlatformGameId,
-  getGameCodeForPlatformId,
-  isAllowedPlatformGameId,
-  getActivePlatformGameIds,
   describePlatformGame,
-  resolveClientGame,
+  getActiveGames,
+  getActivePlatformGameIds,
   getCatalogSummary,
+  getGameByCode,
+  getGameCodeForPlatformId,
+  getPlatformGameId,
+  isAllowedPlatformGameId,
+  listGames,
+  parseActiveGameCodes,
+  resolveClientGame,
 };

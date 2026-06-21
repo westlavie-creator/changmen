@@ -13,7 +13,8 @@ export function getPgPool() {
 }
 
 export function jsonb(val, fallback) {
-  if (val == null) return JSON.stringify(fallback ?? null);
+  if (val == null)
+    return JSON.stringify(fallback ?? null);
   return JSON.stringify(val);
 }
 
@@ -23,19 +24,22 @@ export const _jsonb = jsonb;
 /** fire-and-forget 写入 RDS */
 export function _writeRds(fn, label = "") {
   const pool = getPgPool();
-  if (!pool) return;
+  if (!pool)
+    return;
   Promise.resolve()
     .then(() => fn(pool))
-    .catch((err) => console.warn(`[rds${label ? ":" + label : ""}]`, err.message));
+    .catch(err => console.warn(`[rds${label ? `:${label}` : ""}]`, err.message));
 }
 
 export async function _writeRdsAsync(fn, label = "") {
   const pool = getPgPool();
-  if (!pool) return;
+  if (!pool)
+    return;
   try {
     await fn(pool);
-  } catch (err) {
-    console.warn(`[rds${label ? ":" + label : ""}]`, err.message);
+  }
+  catch (err) {
+    console.warn(`[rds${label ? `:${label}` : ""}]`, err.message);
     throw err;
   }
 }

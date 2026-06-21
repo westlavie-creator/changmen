@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { getMonthReport } from "./report_service.js";
+
 vi.mock("@changmen/db", () => ({
   fetchOrdersForMonthAggregate: vi.fn(async (_month, userId) => {
     const siteOrders = [
@@ -11,15 +13,18 @@ vi.mock("@changmen/db", () => ({
     const user2Orders = [
       { create_at: new Date("2026-06-15T12:00:00").getTime(), money: 200, bet_money: 800, status: "Win" },
     ];
-    if (userId === "u2") return user2Orders;
-    if (userId) return [];
+    if (userId === "u2")
+      return user2Orders;
+    if (userId)
+      return [];
     return siteOrders;
   }),
   fetchMoneyLogsForMonthAggregate: vi.fn(async (_month, userId) => {
     if (userId === "u2") {
       return [{ create_at: new Date("2026-06-15T09:00:00").getTime(), type: "Recharge", money: 200 }];
     }
-    if (userId) return [];
+    if (userId)
+      return [];
     return [
       { create_at: new Date("2026-06-13T08:00:00").getTime(), type: "Recharge", money: 5000 },
       { create_at: new Date("2026-06-13T20:00:00").getTime(), type: "Withdraw", money: 1000 },
@@ -29,15 +34,13 @@ vi.mock("@changmen/db", () => ({
   }),
 }));
 
-import { getMonthReport } from "./report_service.js";
-
 describe("getMonthReport", () => {
   it("aggregates orders and money logs by day with derived fields", async () => {
     const report = await getMonthReport("2026-06");
     expect(report.month).toBe("2026-06");
     expect(report.list).toHaveLength(30);
 
-    const day13 = report.list.find((r) => new Date(r.Date).getDate() === 13);
+    const day13 = report.list.find(r => new Date(r.Date).getDate() === 13);
     expect(day13.Profit).toBe(150);
     expect(day13.OrderCount).toBe(2);
     expect(day13.BetMoney).toBe(1500);
@@ -48,7 +51,7 @@ describe("getMonthReport", () => {
     expect(day13.Wallet).toBe(4000);
     expect(day13.RealProfit).toBe(120);
 
-    const day14 = report.list.find((r) => new Date(r.Date).getDate() === 14);
+    const day14 = report.list.find(r => new Date(r.Date).getDate() === 14);
     expect(day14.Profit).toBe(-20);
     expect(day14.OrderCount).toBe(1);
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { ensurePgPoolReady } from "@changmen/db";
 import {
-  isClientMatchEnded,
   allMapBetsClosed,
+  isClientMatchEnded,
   isInLiveTimer,
 } from "../../match-engine/merge/match_lifecycle.js";
 
@@ -23,7 +23,8 @@ const timers = (await pool.query("SELECT platform, source_match_id, round FROM l
 
 const platformMatches = {};
 for (const pm of pms) {
-  if (!platformMatches[pm.platform]) platformMatches[pm.platform] = {};
+  if (!platformMatches[pm.platform])
+    platformMatches[pm.platform] = {};
   platformMatches[pm.platform][pm.source_match_id] = {
     SourceMatchID: pm.source_match_id,
     IsLive: pm.is_live,
@@ -31,7 +32,8 @@ for (const pm of pms) {
 }
 const timersByProvider = {};
 for (const t of timers) {
-  if (!timersByProvider[t.platform]) timersByProvider[t.platform] = {};
+  if (!timersByProvider[t.platform])
+    timersByProvider[t.platform] = {};
   timersByProvider[t.platform][t.source_match_id] = t;
 }
 
@@ -43,7 +45,7 @@ const row = {
 };
 
 const now = Date.now();
-console.log("── lifecycle diag #" + matchId + " ──");
+console.log(`── lifecycle diag #${matchId} ──`);
 console.log("Round:", cm.round, "| hasOb:", !!(cm.matchs?.OB));
 console.log("isInLiveTimer:", isInLiveTimer(cm.matchs, timersByProvider));
 console.log("allMapBetsClosed:", allMapBetsClosed(cm.bets));
@@ -55,10 +57,10 @@ for (const b of cm.bets || []) {
     .join(", ");
   console.log(`  Map ${b.Map} | ${src}`);
 }
-console.log("\nplatform_matches is_live:", pms.map((p) => `${p.platform}=${p.is_live}`).join(", "));
+console.log("\nplatform_matches is_live:", pms.map(p => `${p.platform}=${p.is_live}`).join(", "));
 console.log("\nbo:", cm.bo, "| start:", cm.start_time);
 
-const map0 = (cm.bets || []).find((b) => (b.Map ?? 0) === 0);
+const map0 = (cm.bets || []).find(b => (b.Map ?? 0) === 0);
 if (map0) {
   console.log(
     "Map0 statuses:",

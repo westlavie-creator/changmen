@@ -1,10 +1,10 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import {
+  accountsMultiplyNeedsPersist,
+  normalizeAccountList,
   PB_MULTIPLY_DEFAULT,
   resolveAccountMultiply,
-  normalizeAccountList,
-  accountsMultiplyNeedsPersist,
 } from "./account_multiply.mjs";
 
 test("PB multiply defaults to 10", () => {

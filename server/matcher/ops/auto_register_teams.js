@@ -1,9 +1,9 @@
-import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
-import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 import {
   fetchExistingTeamMapKeys,
   upsertTeamPlatformMaps,
 } from "@changmen/db";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 
 /**
  * rebuild 时自动收录 TF / OB / RAY / IA / PB 平台尚未在 team_platform_maps 中的队伍。
@@ -14,16 +14,19 @@ const AUTO_REGISTER_PLATFORMS = new Set(["TF", "OB", "RAY", "IA", "PB"]);
 const UPSERT_BATCH = 200;
 
 function normalizePlatformId(id) {
-  if (id == null || id === "") return "";
+  if (id == null || id === "")
+    return "";
   return String(id).trim();
 }
 
 function parseTeamsArray(teams) {
-  if (Array.isArray(teams)) return teams;
+  if (Array.isArray(teams))
+    return teams;
   if (typeof teams === "string") {
     try {
       return JSON.parse(teams);
-    } catch {
+    }
+    catch {
       return [];
     }
   }
@@ -32,7 +35,8 @@ function parseTeamsArray(teams) {
 
 function resolveStoredPlatformTeamId(platform, platformId, sourceGameId, gameCode) {
   const pid = normalizePlatformId(platformId);
-  if (!pid) return "";
+  if (!pid)
+    return "";
   if (platform === "PB") {
     const gameSlug = String(sourceGameId ?? "").trim();
     const code = gameCode || getGameCodeForPlatformId("PB", gameSlug) || null;
@@ -43,9 +47,11 @@ function resolveStoredPlatformTeamId(platform, platformId, sourceGameId, gameCod
 
 function addCandidate(candidates, platform, platformId, platformName, gameCode, sourceGameId) {
   const pid = resolveStoredPlatformTeamId(platform, platformId, sourceGameId, gameCode);
-  if (!pid || !gameCode || gameCode === "unknown") return;
+  if (!pid || !gameCode || gameCode === "unknown")
+    return;
   const key = `${platform}:${pid}`;
-  if (candidates.has(key)) return;
+  if (candidates.has(key))
+    return;
   const name = String(platformName || "").trim() || pid;
   candidates.set(key, {
     platform: String(platform),
@@ -62,13 +68,16 @@ function collectTeamCandidates(matchesRaw) {
   const candidates = new Map();
 
   for (const [platform, block] of Object.entries(matchesRaw || {})) {
-    if (!AUTO_REGISTER_PLATFORMS.has(platform)) continue;
+    if (!AUTO_REGISTER_PLATFORMS.has(platform))
+      continue;
     const list = Array.isArray(block) ? block : Object.values(block || {});
     for (const m of list) {
-      if (!m) continue;
+      if (!m)
+        continue;
       const sourceGameId = String(m.SourceGameID ?? m.source_game_id ?? "");
       const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
-      if (!gameCode || gameCode === "unknown") continue;
+      if (!gameCode || gameCode === "unknown")
+        continue;
 
       addCandidate(candidates, platform, m.HomeID ?? m.home_id, m.Home ?? m.home, gameCode, sourceGameId);
       addCandidate(candidates, platform, m.AwayID ?? m.away_id, m.Away ?? m.away, gameCode, sourceGameId);
@@ -96,13 +105,15 @@ function collectTeamCandidates(matchesRaw) {
  */
 async function autoRegisterTeams(matchesRaw) {
   const candidates = collectTeamCandidates(matchesRaw);
-  if (!candidates.size) return { scanned: 0, registered: 0 };
+  if (!candidates.size)
+    return { scanned: 0, registered: 0 };
 
   const existing = await fetchExistingTeamMapKeys(candidates);
   const toWrite = [...candidates.values()].filter(
-    (row) => !existing.has(`${row.platform}:${row.platform_id}`),
+    row => !existing.has(`${row.platform}:${row.platform_id}`),
   );
-  if (!toWrite.length) return { scanned: candidates.size, registered: 0 };
+  if (!toWrite.length)
+    return { scanned: candidates.size, registered: 0 };
 
   let registered = 0;
   for (let i = 0; i < toWrite.length; i += UPSERT_BATCH) {
@@ -118,4 +129,4 @@ async function autoRegisterTeams(matchesRaw) {
   return { scanned: candidates.size, registered };
 }
 
-export { autoRegisterTeams, AUTO_REGISTER_PLATFORMS };
+export { AUTO_REGISTER_PLATFORMS, autoRegisterTeams };

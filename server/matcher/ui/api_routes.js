@@ -1,20 +1,20 @@
+import { fetchPlatformMatchesDebugRows } from "@changmen/db";
 import {
-  previewLinkAlignment,
-  previewLinkPlatformAlignment,
+  linkPlatformTeams,
   linkPlatformToClientMatch,
   linkPlatformToPlatform,
+  previewLinkAlignment,
+  previewLinkPlatformAlignment,
   previewLinkPlatformTeams,
-  linkPlatformTeams,
   registerTeamPlatformMap,
 } from "../link/index.js";
 import { deleteClientMatch } from "../ops/delete_client_match.js";
-import { restoreClientMatch } from "../ops/restore_client_match.js";
-import { previewMergeClientMatches, mergeClientMatches } from "../ops/merge_client_matches.js";
+import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_client_matches.js";
 import { rebuildOnce } from "../ops/rebuild.js";
-import { getMatcherStatus, fetchMatcherDashboard } from "./matcher_data.js";
-import { logMatcherApiOk, logMatcherApiWarn, logMatcherApiErr } from "./matcher_api_log.js";
+import { restoreClientMatch } from "../ops/restore_client_match.js";
+import { logMatcherApiErr, logMatcherApiOk, logMatcherApiWarn } from "./matcher_api_log.js";
+import { fetchMatcherDashboard, getMatcherStatus } from "./matcher_data.js";
 import { startMatcherProcess, stopMatcherProcess } from "./matcher_process.js";
-import { fetchPlatformMatchesDebugRows } from "@changmen/db";
 
 function registerMatcherApiRoutes(app) {
   app.get("/api/link-preview", async (req, res) => {
@@ -25,7 +25,8 @@ function registerMatcherApiRoutes(app) {
         clientMatchId: req.query.clientMatchId,
       });
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       res.status(400).json({ error: err.message });
     }
   });
@@ -39,7 +40,8 @@ function registerMatcherApiRoutes(app) {
         targetMatchId: req.query.targetMatchId,
       });
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       res.status(400).json({ error: err.message });
     }
   });
@@ -55,7 +57,8 @@ function registerMatcherApiRoutes(app) {
       });
       logMatcherApiOk("/api/link-match", result);
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       logMatcherApiErr("/api/link-match", err);
       res.status(400).json({ ok: false, error: err.message });
     }
@@ -73,7 +76,8 @@ function registerMatcherApiRoutes(app) {
       });
       logMatcherApiOk("/api/link-platform-match", result);
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       logMatcherApiErr("/api/link-platform-match", err);
       res.status(400).json({ ok: false, error: err.message });
     }
@@ -96,7 +100,8 @@ function registerMatcherApiRoutes(app) {
         },
       });
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       res.status(400).json({ error: err.message });
     }
   });
@@ -107,7 +112,8 @@ function registerMatcherApiRoutes(app) {
       const result = await linkPlatformTeams({ a, b });
       logMatcherApiOk("/api/link-team", result);
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       logMatcherApiErr("/api/link-team", err);
       res.status(400).json({ ok: false, error: err.message });
     }
@@ -124,9 +130,11 @@ function registerMatcherApiRoutes(app) {
       });
       logMatcherApiOk("/api/register-team-map", result);
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       const label = err.code === "already_registered" ? "skip" : "error";
-      if (label === "skip") logMatcherApiWarn("/api/register-team-map", err, "skip");
+      if (label === "skip")
+        logMatcherApiWarn("/api/register-team-map", err, "skip");
       else logMatcherApiErr("/api/register-team-map", err);
       res.status(err.code === "already_registered" ? 409 : 400).json({
         ok: false,
@@ -141,7 +149,8 @@ function registerMatcherApiRoutes(app) {
       const result = await deleteClientMatch(req.params.id);
       logMatcherApiOk("/api/client-match", result);
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       logMatcherApiErr("/api/client-match", err);
       res.status(400).json({ ok: false, error: err.message });
     }
@@ -152,7 +161,8 @@ function registerMatcherApiRoutes(app) {
       const result = await restoreClientMatch(req.params.id);
       logMatcherApiOk("/api/client-match/restore", result);
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       logMatcherApiErr("/api/client-match/restore", err);
       res.status(400).json({ ok: false, error: err.message });
     }
@@ -165,7 +175,8 @@ function registerMatcherApiRoutes(app) {
         targetClientMatchId: req.query.targetClientMatchId,
       });
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       res.status(400).json({ error: err.message });
     }
   });
@@ -178,7 +189,8 @@ function registerMatcherApiRoutes(app) {
         targetClientMatchId,
       });
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       console.error("[matcher] /api/merge-client-matches error:", err.message);
       res.status(400).json({ ok: false, error: err.message });
     }
@@ -187,7 +199,8 @@ function registerMatcherApiRoutes(app) {
   app.get("/api/data", async (req, res) => {
     try {
       res.json(await fetchMatcherDashboard());
-    } catch (err) {
+    }
+    catch (err) {
       console.error("[matcher] /api/data error:", err.message);
       res.status(500).json({ error: err.message });
     }
@@ -196,7 +209,8 @@ function registerMatcherApiRoutes(app) {
   app.get("/api/matcher-status", async (req, res) => {
     try {
       res.json(await getMatcherStatus());
-    } catch (err) {
+    }
+    catch (err) {
       res.status(500).json({ running: false, error: err.message });
     }
   });
@@ -204,9 +218,11 @@ function registerMatcherApiRoutes(app) {
   app.post("/api/matcher/start", async (req, res) => {
     try {
       const result = await startMatcherProcess();
-      if (!result.ok) return res.status(409).json(result);
+      if (!result.ok)
+        return res.status(409).json(result);
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }
   });
@@ -214,9 +230,11 @@ function registerMatcherApiRoutes(app) {
   app.post("/api/matcher/stop", async (req, res) => {
     try {
       const result = await stopMatcherProcess();
-      if (!result.ok) return res.status(409).json(result);
+      if (!result.ok)
+        return res.status(409).json(result);
       res.json(result);
-    } catch (err) {
+    }
+    catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }
   });
@@ -243,7 +261,8 @@ function registerMatcherApiRoutes(app) {
       };
       logMatcherApiOk("/api/rebuild", body);
       res.json(body);
-    } catch (err) {
+    }
+    catch (err) {
       logMatcherApiErr("/api/rebuild", err);
       res.status(500).json({ ok: false, error: err.message });
     }
@@ -254,14 +273,16 @@ function registerMatcherApiRoutes(app) {
       const data = await fetchPlatformMatchesDebugRows();
       const summary = {};
       for (const r of data || []) {
-        if (!summary[r.platform]) summary[r.platform] = { count: 0, sample: [] };
+        if (!summary[r.platform])
+          summary[r.platform] = { count: 0, sample: [] };
         summary[r.platform].count++;
         if (summary[r.platform].sample.length < 2) {
           summary[r.platform].sample.push({ home: r.home, away: r.away, start_time: r.start_time });
         }
       }
       res.json({ total: (data || []).length, byPlatform: summary });
-    } catch (err) {
+    }
+    catch (err) {
       res.json({ error: err.message });
     }
   });

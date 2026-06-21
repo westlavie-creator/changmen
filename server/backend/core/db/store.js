@@ -1,9 +1,9 @@
 import * as sb from "@changmen/db";
-import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 import {
   accountsMultiplyNeedsPersist,
   normalizeAccountList,
 } from "@changmen/shared/account_multiply.mjs";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
 const _cache = new Map();
@@ -16,19 +16,21 @@ function _get(uid) {
 }
 
 function _toProfile(row) {
-  if (!row) return null;
+  if (!row)
+    return null;
   let setting = {};
   try {
     const bc = row.betting_config;
     setting = typeof bc === "object" && bc !== null ? bc : JSON.parse(bc || "{}");
-  } catch {
+  }
+  catch {
     /* ignore */
   }
   return {
     id: String(row.id),
     userName: row.user_name,
     isAdmin: Boolean(row.is_admin),
-    role: row.role || (Boolean(row.is_admin) ? "admin" : "user"),
+    role: row.role || (row.is_admin ? "admin" : "user"),
     teamId: row.team_id || null,
     setting,
   };
@@ -42,7 +44,8 @@ export function getProfileById(uid) {
 
 export function getProfileByName(userName) {
   for (const row of _cache.values()) {
-    if (row.user_name === userName) return _toProfile(row);
+    if (row.user_name === userName)
+      return _toProfile(row);
   }
   return null;
 }
@@ -74,8 +77,8 @@ export function upsertProfile(profile) {
 
 export function updateProfileSetting(uid, patch) {
   const row = _get(uid) || {};
-  const bc =
-    typeof row.betting_config === "object" && row.betting_config !== null
+  const bc
+    = typeof row.betting_config === "object" && row.betting_config !== null
       ? { ...row.betting_config }
       : {};
   Object.assign(bc, patch || {});
@@ -87,7 +90,8 @@ export function updateProfileSetting(uid, patch) {
 
 export async function loadProfileById(uid) {
   const data = await sb.fetchProfileById(uid);
-  if (!data) return null;
+  if (!data)
+    return null;
   _set(data.id, data);
   return _toProfile(data);
 }
@@ -104,14 +108,18 @@ export async function pullProfilesFromDb() {
 
 export function listAccountsForUser(uid) {
   const row = _get(uid);
-  if (!row) return [];
+  if (!row)
+    return [];
   const a = row.accounts;
   let raw;
-  if (Array.isArray(a)) raw = a;
+  if (Array.isArray(a)) {
+    raw = a;
+  }
   else {
     try {
       raw = JSON.parse(a || "[]");
-    } catch {
+    }
+    catch {
       raw = [];
     }
   }
@@ -140,8 +148,9 @@ export function replaceAccountsForUser(uid, accounts) {
 
 export function updateAccountForUser(uid, accountId, updates) {
   const accounts = listAccountsForUser(uid);
-  const idx = accounts.findIndex((a) => String(a.accountId) === String(accountId));
-  if (idx < 0) return null;
+  const idx = accounts.findIndex(a => String(a.accountId) === String(accountId));
+  if (idx < 0)
+    return null;
   accounts[idx] = { ...accounts[idx], ...updates, updateTime: Date.now() };
   replaceAccountsForUser(uid, accounts);
   return accounts[idx];
@@ -149,8 +158,9 @@ export function updateAccountForUser(uid, accountId, updates) {
 
 export function removeAccountForUser(uid, accountId) {
   const accounts = listAccountsForUser(uid);
-  const next = accounts.filter((a) => String(a.accountId) !== String(accountId));
-  if (next.length === accounts.length) return false;
+  const next = accounts.filter(a => String(a.accountId) !== String(accountId));
+  if (next.length === accounts.length)
+    return false;
   replaceAccountsForUser(uid, next);
   return true;
 }
@@ -158,8 +168,10 @@ export function removeAccountForUser(uid, accountId) {
 // ─── user_settings ───────────────────────────────────────────────────
 
 function _colForKey(key) {
-  if (key === "USERCONFIG") return "betting_config";
-  if (key === "CollectConfig") return "collect_config";
+  if (key === "USERCONFIG")
+    return "betting_config";
+  if (key === "CollectConfig")
+    return "collect_config";
   return "preferences";
 }
 
@@ -171,14 +183,16 @@ export function setUserSetting(uid, key, content) {
     let parsed = {};
     try {
       parsed = JSON.parse(String(content ?? "{}"));
-    } catch {
+    }
+    catch {
       /* ignore */
     }
     _set(uid, { ...row, [col]: parsed, updated_at: now });
     sb.writeProfile(uid, { [col]: parsed });
-  } else {
-    const prefs =
-      typeof row.preferences === "object" && row.preferences !== null
+  }
+  else {
+    const prefs
+      = typeof row.preferences === "object" && row.preferences !== null
         ? { ...row.preferences }
         : {};
     prefs[String(key)] = String(content ?? "");
@@ -190,10 +204,12 @@ export function setUserSetting(uid, key, content) {
 export function getUserSetting(uid, key) {
   const col = _colForKey(key);
   const row = _get(uid);
-  if (!row) return null;
+  if (!row)
+    return null;
   if (col !== "preferences") {
     const val = row[col];
-    if (!val || (typeof val === "object" && !Object.keys(val).length)) return null;
+    if (!val || (typeof val === "object" && !Object.keys(val).length))
+      return null;
     return typeof val === "string" ? val : JSON.stringify(val);
   }
   const prefs = row.preferences || {};
@@ -215,7 +231,8 @@ let _matchesCacheLoadedAt = 0;
 const MATCHES_CACHE_MAX_AGE_MS = 90_000;
 
 function _matchesCacheSignature(meta) {
-  if (!meta) return "";
+  if (!meta)
+    return "";
   return `${meta.builtAt}:${meta.count}`;
 }
 
@@ -251,13 +268,14 @@ function _applyClientMatchRows(data) {
 }
 
 export function saveClientMatches(info) {
-  if (!Array.isArray(info) || !info.length) return;
+  if (!Array.isArray(info) || !info.length)
+    return;
   const now = Date.now();
   _invalidateClientMatchesCache();
   _clientMatches.clear();
   for (const m of info) _clientMatches.set(Number(m.ID), { ...m, built_at: now });
   sb.writeClientMatches(
-    info.map((m) => ({
+    info.map(m => ({
       id: Number(m.ID),
       merge_key: m.MergeKey ? String(m.MergeKey) : null,
       title: String(m.Title || ""),
@@ -283,12 +301,14 @@ export function pruneClientMatches(activeIds) {
   }
   const active = new Set(activeIds.map(Number));
   for (const id of _clientMatches.keys()) {
-    if (!active.has(id)) _clientMatches.delete(id);
+    if (!active.has(id))
+      _clientMatches.delete(id);
   }
 }
 
 export function getClientMatches() {
-  if (!_clientMatches.size) return null;
+  if (!_clientMatches.size)
+    return null;
   return [..._clientMatches.values()].sort(
     (a, b) => (a.StartTime || 0) - (b.StartTime || 0),
   );
@@ -300,8 +320,8 @@ export function getClientMatches() {
  */
 export async function loadClientMatchesFromDb() {
   const now = Date.now();
-  const cacheStale =
-    !_matchesCacheLoadedAt || now - _matchesCacheLoadedAt > MATCHES_CACHE_MAX_AGE_MS;
+  const cacheStale
+    = !_matchesCacheLoadedAt || now - _matchesCacheLoadedAt > MATCHES_CACHE_MAX_AGE_MS;
 
   if (_clientMatches.size && _matchesCacheKey && !cacheStale) {
     const meta = await sb.fetchClientMatchesMeta();
@@ -315,7 +335,8 @@ export async function loadClientMatchesFromDb() {
 
   const data = await sb.fetchClientMatches();
   // null = 查询失败，暂用内存兜底；[] = 库确认为空，清掉遗留内存（避免 pg_cron 删库后仍返回旧列表）
-  if (data === null) return _clientMatches.size ? getClientMatches() : null;
+  if (data === null)
+    return _clientMatches.size ? getClientMatches() : null;
   if (!data.length) {
     _clientMatches.clear();
     _matchesCacheKey = "0:0";

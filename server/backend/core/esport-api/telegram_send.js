@@ -58,12 +58,13 @@ export async function handleSendMessage(body) {
     if (res.ok && data.ok === true) {
       return { ok: true };
     }
-    const desc =
-      (data.description && String(data.description)) ||
-      (data.error_code ? `Telegram error ${data.error_code}` : "") ||
-      `HTTP ${res.status}`;
+    const desc
+      = (data.description && String(data.description))
+        || (data.error_code ? `Telegram error ${data.error_code}` : "")
+        || `HTTP ${res.status}`;
     return { ok: false, msg: desc };
-  } catch (err) {
+  }
+  catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: false, msg: msg || "Telegram 请求失败" };
   }

@@ -32,27 +32,33 @@ function pickCanonicalPlatformRow(rows, platformKey = "platform") {
   for (const row of sorted) {
     const home = String(row.home ?? row.Home ?? "").trim();
     const away = String(row.away ?? row.Away ?? "").trim();
-    if (isPlaceholderTeamName(home) && isPlaceholderTeamName(away)) continue;
+    if (isPlaceholderTeamName(home) && isPlaceholderTeamName(away))
+      continue;
     return { ...row, home, away, platform: row[platformKey] ?? row.platform };
   }
   return null;
 }
 
 function titleFromPlatformRow(row) {
-  if (!row) return null;
+  if (!row)
+    return null;
   const home = String(row.home ?? row.Home ?? "").trim();
   const away = String(row.away ?? row.Away ?? "").trim();
-  if (isPlaceholderTeamName(home) && isPlaceholderTeamName(away)) return null;
+  if (isPlaceholderTeamName(home) && isPlaceholderTeamName(away))
+    return null;
   return formatTitle(home, away);
 }
 
 function resolveCanonicalNameForId(resolvers, platform, platformId) {
   const id = String(platformId ?? "").trim();
-  if (!id) return null;
+  if (!id)
+    return null;
   const gbTeamId = resolvers.lookupGbTeamId(platform, id);
-  if (!gbTeamId) return null;
+  if (!gbTeamId)
+    return null;
   const name = String(resolvers.lookupCanonicalName(gbTeamId) || "").trim();
-  if (!name || isPlaceholderTeamName(name)) return null;
+  if (!name || isPlaceholderTeamName(name))
+    return null;
   return name;
 }
 
@@ -61,11 +67,13 @@ function resolveCanonicalNameForId(resolvers, platform, platformId) {
  * 各平台 home/away 槽位可能颠倒（如 TF），需用队名对齐后再取对应 platform_id 映射。
  */
 function resolveCanonicalSideNames(rows, resolvers) {
-  if (!resolvers?.lookupGbTeamId || !resolvers?.lookupCanonicalName) return null;
+  if (!resolvers?.lookupGbTeamId || !resolvers?.lookupCanonicalName)
+    return null;
 
   const sorted = sortByProviderPriority(rows);
   const ref = pickCanonicalPlatformRow(rows);
-  if (!ref) return null;
+  if (!ref)
+    return null;
 
   const refHome = normalizeTeam(ref.home);
   const refAway = normalizeTeam(ref.away);
@@ -80,18 +88,25 @@ function resolveCanonicalSideNames(rows, resolvers) {
     const awayId = row.awayId ?? row.AwayID;
 
     if (!home && refHome) {
-      if (rowHome === refHome) home = resolveCanonicalNameForId(resolvers, platform, homeId);
-      else if (rowAway === refHome) home = resolveCanonicalNameForId(resolvers, platform, awayId);
+      if (rowHome === refHome)
+        home = resolveCanonicalNameForId(resolvers, platform, homeId);
+      else if (rowAway === refHome)
+        home = resolveCanonicalNameForId(resolvers, platform, awayId);
     }
     if (!away && refAway) {
-      if (rowAway === refAway) away = resolveCanonicalNameForId(resolvers, platform, awayId);
-      else if (rowHome === refAway) away = resolveCanonicalNameForId(resolvers, platform, homeId);
+      if (rowAway === refAway)
+        away = resolveCanonicalNameForId(resolvers, platform, awayId);
+      else if (rowHome === refAway)
+        away = resolveCanonicalNameForId(resolvers, platform, homeId);
     }
-    if (home && away) break;
+    if (home && away)
+      break;
   }
 
-  if (!home || !away) return null;
-  if (normalizeTeam(home) === normalizeTeam(away)) return null;
+  if (!home || !away)
+    return null;
+  if (normalizeTeam(home) === normalizeTeam(away))
+    return null;
 
   return {
     platform: ref.platform,
@@ -104,10 +119,12 @@ function resolveCanonicalSideNames(rows, resolvers) {
 
 function teamsFromPlatformRows(rows, resolvers) {
   const canonical = resolveCanonicalSideNames(rows, resolvers);
-  if (canonical) return canonical;
+  if (canonical)
+    return canonical;
 
   const picked = pickCanonicalPlatformRow(rows);
-  if (!picked) return null;
+  if (!picked)
+    return null;
   return {
     platform: picked.platform,
     home: picked.home,
@@ -117,11 +134,11 @@ function teamsFromPlatformRows(rows, resolvers) {
 }
 
 export {
+  pickCanonicalPlatformRow,
   PROVIDER_PRIORITY,
   providerPriority,
-  sortByProviderPriority,
-  pickCanonicalPlatformRow,
-  titleFromPlatformRow,
-  teamsFromPlatformRows,
   resolveCanonicalSideNames,
+  sortByProviderPriority,
+  teamsFromPlatformRows,
+  titleFromPlatformRow,
 };

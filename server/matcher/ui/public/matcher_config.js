@@ -3,15 +3,19 @@
   const onMatcher = /^\/matcher(\/|$)/i.test(path);
   const base = onMatcher ? "/matcher" : "";
   window.MATCHER_BASE = base;
-  window.MATCHER_API = base + "/api";
+  window.MATCHER_API = `${base}/api`;
   window.matcherUrl = function matcherUrl(rel) {
-    if (!rel) return base || "/";
-    if (!rel.startsWith("/")) rel = "/" + rel;
+    if (!rel)
+      return base || "/";
+    if (!rel.startsWith("/"))
+      rel = `/${rel}`;
     return base + rel;
   };
   window.matcherApi = function matcherApi(path) {
-    if (!path) return window.MATCHER_API;
-    if (!path.startsWith("/")) path = "/" + path;
+    if (!path)
+      return window.MATCHER_API;
+    if (!path.startsWith("/"))
+      path = `/${path}`;
     return window.MATCHER_API + path;
   };
 
@@ -23,7 +27,8 @@
   window.getSiteToken = function getSiteToken() {
     try {
       return localStorage.getItem("app:token") || readTokenCookie() || "";
-    } catch {
+    }
+    catch {
       return readTokenCookie();
     }
   };
@@ -34,15 +39,15 @@
   };
 
   window.redirectToSiteLogin = function redirectToSiteLogin() {
-    const dest = "/login?redirect=" + encodeURIComponent(location.pathname + location.search);
+    const dest = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
     location.replace(dest);
   };
 
   // 与主页同源时 localStorage 已有 token；跨端口（Vite 登录、backend/matcher 不同端口）靠 cookie 共享
   const token = window.getSiteToken();
   if (token && !readTokenCookie()) {
-    document.cookie =
-      "app_token=" + encodeURIComponent(token) + "; path=/; max-age=" + 60 * 60 * 24 * 7 + "; SameSite=Lax";
+    document.cookie
+      = `app_token=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
   }
 
   window.formatPbTeamPlatformId = function formatPbTeamPlatformId(sourceGameId, teamId, gameCode) {
@@ -57,24 +62,31 @@
       const raw = String(src ?? "").trim();
       if (raw) {
         for (const [c, slug] of Object.entries(PB_GAME_SLUG_BY_CODE)) {
-          if (raw === slug || raw === c) return slug;
+          if (raw === slug || raw === c)
+            return slug;
         }
         return raw;
       }
-      if (code && PB_GAME_SLUG_BY_CODE[code]) return PB_GAME_SLUG_BY_CODE[code];
+      if (code && PB_GAME_SLUG_BY_CODE[code])
+        return PB_GAME_SLUG_BY_CODE[code];
       return "";
     }
     const gameId = resolvePbGameSlug(sourceGameId, gameCode);
     let pid = String(teamId ?? "").trim();
-    if (!pid) return "";
-    if (!gameId) return pid;
-    const suffix = "@" + gameId;
-    if (pid.endsWith(suffix)) return pid;
-    const oldPrefix = gameId + ":";
-    if (pid.startsWith(oldPrefix)) pid = pid.slice(oldPrefix.length);
+    if (!pid)
+      return "";
+    if (!gameId)
+      return pid;
+    const suffix = `@${gameId}`;
+    if (pid.endsWith(suffix))
+      return pid;
+    const oldPrefix = `${gameId}:`;
+    if (pid.startsWith(oldPrefix))
+      pid = pid.slice(oldPrefix.length);
     const atIdx = pid.indexOf("@");
-    if (atIdx > 0) pid = pid.slice(0, atIdx);
-    return pid + "@" + gameId;
+    if (atIdx > 0)
+      pid = pid.slice(0, atIdx);
+    return `${pid}@${gameId}`;
   };
 
   if (!window.getSiteToken()) {

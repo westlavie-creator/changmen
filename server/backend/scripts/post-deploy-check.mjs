@@ -1,13 +1,4 @@
 #!/usr/bin/env node
-/**
- * Deploy 后自检：RDS orders upsert / SaveOrderBind + 管理员 Telegram。
- *
- *   cd changmen/server/backend && node scripts/post-deploy-check.mjs
- *   node scripts/post-deploy-check.mjs --skip-telegram   # 只测 DB，不发 Telegram
- *
- * 退出码 0 = 全过；非 0 = 至少一项失败（deploy 脚本会 WARN）。
- */
-import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import {
   backendBindLinkFromCreateAt,
   getPgPool,
@@ -18,6 +9,15 @@ import {
   updateOrderBind,
   upsertOrders,
 } from "@changmen/db";
+/**
+ * Deploy 后自检：RDS orders upsert / SaveOrderBind + 管理员 Telegram。
+ *
+ *   cd changmen/server/backend && node scripts/post-deploy-check.mjs
+ *   node scripts/post-deploy-check.mjs --skip-telegram   # 只测 DB，不发 Telegram
+ *
+ * 退出码 0 = 全过；非 0 = 至少一项失败（deploy 脚本会 WARN）。
+ */
+import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import {
   isAdminNotifyEnabled,
   sendAdminNotify,
@@ -112,7 +112,8 @@ async function checkUpsertAndBind(pool, userId, userName) {
 
   if (insertHookRows.length !== 1) {
     fail("ordersInsertedHook", `期望 1 行，实际 ${insertHookRows.length}`);
-  } else {
+  }
+  else {
     pass("ordersInsertedHook", "INSERT hook 已触发");
   }
 
@@ -123,7 +124,8 @@ async function checkUpsertAndBind(pool, userId, userName) {
   });
   if (!boundOk) {
     fail("updateOrderBind", "UPDATE 未命中行");
-  } else {
+  }
+  else {
     const { rows: bound } = await pool.query(
       `SELECT link::text FROM orders
        WHERE user_id = $1::uuid AND order_id = $2 AND player_id = $3`,
@@ -131,14 +133,16 @@ async function checkUpsertAndBind(pool, userId, userName) {
     );
     if (Number(bound[0]?.link) !== arbLink) {
       fail("updateOrderBind", `link 未更新为 ${arbLink}`);
-    } else {
+    }
+    else {
       pass("updateOrderBind", `link ${placeholderLink} → ${arbLink}`);
     }
   }
 
   if (boundHookRows.length === 1) {
     pass("ordersBoundHook", "绑单 hook 已触发");
-  } else {
+  }
+  else {
     pass(
       "ordersBoundHook",
       "未触发（link=create_at-1 占位不触发 bound hook，属预期；INSERT 通知仍走 inserted hook）",
@@ -149,7 +153,7 @@ async function checkUpsertAndBind(pool, userId, userName) {
   setOrdersInsertedHook(null);
   setOrdersBoundHook(null);
   const dbChecks = ["upsertOrders", "ordersInsertedHook", "updateOrderBind"];
-  return dbChecks.every((name) => results.find((r) => r.name === name)?.ok);
+  return dbChecks.every(name => results.find(r => r.name === name)?.ok);
 }
 
 async function checkTelegram(userName) {
@@ -226,7 +230,7 @@ async function main() {
 
   await pool.end();
 
-  const failed = results.filter((r) => !r.ok);
+  const failed = results.filter(r => !r.ok);
   console.log("");
   if (failed.length) {
     console.error(`== FAIL (${failed.length}/${results.length}) ==`);

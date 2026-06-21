@@ -1,18 +1,17 @@
-import "../lib/env.js";
+import * as db from "@changmen/db";
 import {
-  normalizeTeam,
-  manualMergeKey,
   ensureClientMatchId,
   isPlaceholderTeamName,
-  formatTitle,
+  manualMergeKey,
+  normalizeTeam,
   providerPriority,
   teamsFromPlatformRows,
 } from "@changmen/match-engine";
-import { resolveClientGame, getGameCodeForPlatformId, getPlatformGameId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { getGameCodeForPlatformId, getPlatformGameId, resolveClientGame } from "@changmen/shared/catalog/game_catalog.mjs";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
-import { rebuildOnce, invalidateTeamPlugin } from "../ops/rebuild.js";
+import { invalidateTeamPlugin, rebuildOnce } from "../ops/rebuild.js";
 import { resetMatcherUiTeamPlugin } from "../ui/merge_mode.js";
-import * as db from "@changmen/db";
+import "../lib/env.js";
 
 function invalidateTeamMappings() {
   invalidateTeamPlugin();
@@ -28,24 +27,29 @@ function gameCodeForPlatform(platform, sourceGameId) {
 }
 
 function parseGbTeamId(value) {
-  if (value == null || value === "") return null;
+  if (value == null || value === "")
+    return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
 function parseTitleTeams(title) {
   const t = String(title || "").trim();
-  if (!t.includes(" vs ")) return null;
-  const parts = t.split(" vs ").map((s) => s.trim());
-  if (parts.length < 2) return null;
+  if (!t.includes(" vs "))
+    return null;
+  const parts = t.split(" vs ").map(s => s.trim());
+  if (parts.length < 2)
+    return null;
   const [home, away] = parts;
-  if (isPlaceholderTeamName(home) || isPlaceholderTeamName(away)) return null;
+  if (isPlaceholderTeamName(home) || isPlaceholderTeamName(away))
+    return null;
   return { home, away };
 }
 
 function resolveClientTeams(cm, pm, platformsById) {
   const fromTitle = parseTitleTeams(cm.title);
-  if (fromTitle) return fromTitle;
+  if (fromTitle)
+    return fromTitle;
 
   const bets = Array.isArray(cm.bets) ? cm.bets : [];
   if (bets.length) {
@@ -96,10 +100,14 @@ function analyzeSideAlignment(pmHome, pmAway, cmHome, cmAway) {
   }
 
   const parts = [];
-  if (directHome) parts.push("主队名一致");
-  else if (swapHome) parts.push("平台主与系统客名一致");
-  if (directAway) parts.push("客队名一致");
-  else if (swapAway) parts.push("平台客与系统主名一致");
+  if (directHome)
+    parts.push("主队名一致");
+  else if (swapHome)
+    parts.push("平台主与系统客名一致");
+  if (directAway)
+    parts.push("客队名一致");
+  else if (swapAway)
+    parts.push("平台客与系统主名一致");
   const detail = parts.length ? `${parts.join("，")}，但整体无法判定` : "队名无法对应";
   return { mode: "ambiguous", reversed: null, detail };
 }
@@ -110,8 +118,10 @@ async function allocateManualGbTeamId() {
 }
 
 async function ensureManualGbTeamIdOnRow(row) {
-  if (!row) return null;
-  if (row.gb_team_id != null) return parseGbTeamId(row.gb_team_id);
+  if (!row)
+    return null;
+  if (row.gb_team_id != null)
+    return parseGbTeamId(row.gb_team_id);
   const manualGbTeamId = await allocateManualGbTeamId();
   const updated = await db.updateCanonicalTeamById(row.id, {
     gb_team_id: manualGbTeamId,
@@ -131,13 +141,16 @@ function isPgUniqueViolation(error) {
 
 function uniqueConstraintKind(error) {
   const msg = String(error?.message || error?.details || "");
-  if (msg.includes("canonical_teams_game_name_key")) return "game_name";
-  if (msg.includes("canonical_teams_gb_team_id_key")) return "gb_team_id";
+  if (msg.includes("canonical_teams_game_name_key"))
+    return "game_name";
+  if (msg.includes("canonical_teams_gb_team_id_key"))
+    return "gb_team_id";
   return "unknown";
 }
 
 async function describeCanonicalTeamRow(row) {
-  if (!row) return null;
+  if (!row)
+    return null;
   const game = row.game || "?";
   const label = row.name || "?";
   if (row.gb_team_id != null) {
@@ -148,9 +161,11 @@ async function describeCanonicalTeamRow(row) {
 
 async function recoverCanonicalTeamAfterUniqueViolation(gameCode, name, norm) {
   const exact = await fetchCanonicalTeamExact(gameCode, name);
-  if (exact) return exact;
+  if (exact)
+    return exact;
   const byNorm = await findCanonicalTeamByNormalizedName(gameCode, norm);
-  if (byNorm) return byNorm;
+  if (byNorm)
+    return byNorm;
   return null;
 }
 
@@ -202,10 +217,12 @@ async function resolveOrCreateManualTeam(gameCode, teamName) {
   const norm = normalizeTeam(name);
 
   const exact = await fetchCanonicalTeamExact(gameCode, name);
-  if (exact) return ensureManualGbTeamIdOnRow(exact);
+  if (exact)
+    return ensureManualGbTeamIdOnRow(exact);
 
   const byNorm = await findCanonicalTeamByNormalizedName(gameCode, norm);
-  if (byNorm) return ensureManualGbTeamIdOnRow(byNorm);
+  if (byNorm)
+    return ensureManualGbTeamIdOnRow(byNorm);
 
   const manualGbTeamId = await allocateManualGbTeamId();
   try {
@@ -216,23 +233,25 @@ async function resolveOrCreateManualTeam(gameCode, teamName) {
       updated_by: "手动",
     });
     return parseGbTeamId(inserted.gb_team_id);
-  } catch (error) {
+  }
+  catch (error) {
     if (isPgUniqueViolation(error)) {
       const existing = await recoverCanonicalTeamAfterUniqueViolation(gameCode, name, norm);
       if (existing) {
         try {
           return await ensureManualGbTeamIdOnRow(existing);
-        } catch (reuseErr) {
+        }
+        catch (reuseErr) {
           const detail = await describeCanonicalTeamRow(existing);
           throw new Error(
-            [`复用已有标准队伍失败`, detail, reuseErr.message].filter(Boolean).join("\n")
+            [`复用已有标准队伍失败`, detail, reuseErr.message].filter(Boolean).join("\n"),
           );
         }
       }
       throw new Error(await buildCanonicalInsertConflictMessage(gameCode, name, error));
     }
     throw new Error(
-      `新建标准队伍失败（${gameCode} · 「${name}」）：${error.message}`
+      `新建标准队伍失败（${gameCode} · 「${name}」）：${error.message}`,
     );
   }
 }
@@ -240,15 +259,18 @@ async function resolveOrCreateManualTeam(gameCode, teamName) {
 function resolveGameCodeForPlatformPair(pmA, pmB, cmHint) {
   for (const pm of [pmA, pmB]) {
     const code = gameCodeForPlatform(pm.platform, pm.source_game_id);
-    if (code) return code;
+    if (code)
+      return code;
   }
   if (cmHint) {
     const gid = String(cmHint.game_id || "").trim();
     const a8Map = { 1: "lol", 2: "dota2", 3: "cs2", 4: "kog", 8: "valorant" };
     const fromGid = a8Map[gid] || a8Map[Number(gid)];
-    if (fromGid) return fromGid;
+    if (fromGid)
+      return fromGid;
     const parsed = String(cmHint.game || "").match(/\(([^)]+)\)\s*$/);
-    if (parsed) return parsed[1].toLowerCase();
+    if (parsed)
+      return parsed[1].toLowerCase();
   }
   return "unknown";
 }
@@ -265,14 +287,15 @@ function resolvePairClientMatchKey(pmSource, pmTarget) {
       pmSource.platform,
       pmSource.source_match_id,
       pmTarget.platform,
-      pmTarget.source_match_id
+      pmTarget.source_match_id,
     ),
   };
 }
 
 async function resolvePairClientMatchId(pmSource, pmTarget, stub = {}) {
   const { existingId, mergeKey } = resolvePairClientMatchKey(pmSource, pmTarget);
-  if (existingId) return existingId;
+  if (existingId)
+    return existingId;
   const adapter = db.getClientMatchIdAdapter();
   return ensureClientMatchId(adapter, mergeKey, stub);
 }
@@ -292,8 +315,10 @@ async function previewLinkPlatformAlignment({ platform, sourceMatchId, targetPla
   const tgtPlat = String(targetPlatform || "").trim();
   const srcId = String(sourceMatchId || "").trim();
   const tgtId = String(targetMatchId || "").trim();
-  if (!srcPlat || !tgtPlat || !srcId || !tgtId) throw new Error("参数不完整");
-  if (srcPlat === tgtPlat) throw new Error("请拖到另一个平台的赛事");
+  if (!srcPlat || !tgtPlat || !srcId || !tgtId)
+    throw new Error("参数不完整");
+  if (srcPlat === tgtPlat)
+    throw new Error("请拖到另一个平台的赛事");
 
   const [pmSource, pmTarget] = await Promise.all([
     fetchPlatformMatchRow(srcPlat, srcId),
@@ -304,7 +329,8 @@ async function previewLinkPlatformAlignment({ platform, sourceMatchId, targetPla
     { platform: pmSource.platform, home: pmSource.home, away: pmSource.away },
     { platform: pmTarget.platform, home: pmTarget.home, away: pmTarget.away },
   ]);
-  if (!refTeamsPick) throw new Error("平台赛事队名不完整");
+  if (!refTeamsPick)
+    throw new Error("平台赛事队名不完整");
   const refTeams = { home: refTeamsPick.home, away: refTeamsPick.away };
 
   const alignment = analyzeSideAlignment(pmSource.home, pmSource.away, refTeams.home, refTeams.away);
@@ -359,7 +385,8 @@ async function linkPlatformToPlatform({
     { platform: pmSource.platform, home: pmSource.home, away: pmSource.away },
     { platform: pmTarget.platform, home: pmTarget.home, away: pmTarget.away },
   ]);
-  if (!refTeamsPick) throw new Error("平台赛事队名不完整");
+  if (!refTeamsPick)
+    throw new Error("平台赛事队名不完整");
   const refHome = refTeamsPick.home;
   const refAway = refTeamsPick.away;
   const cmId = await resolvePairClientMatchId(pmSource, pmTarget, {
@@ -382,11 +409,14 @@ async function linkPlatformToPlatform({
   let reversed;
   if (typeof reversedInput === "boolean") {
     reversed = reversedInput;
-  } else if (alignment.mode === "aligned") {
+  }
+  else if (alignment.mode === "aligned") {
     reversed = false;
-  } else if (alignment.mode === "reversed") {
+  }
+  else if (alignment.mode === "reversed") {
     reversed = true;
-  } else {
+  }
+  else {
     throw new Error("无法自动判断主客是否一致，请在确认框中选择「主客一致」或「主客颠倒」");
   }
 
@@ -421,7 +451,7 @@ async function linkPlatformToPlatform({
     gameCode,
     teams: { home: refHome, away: refAway },
     title: refTeamsPick.title,
-    teamMapsWritten: mapResults.filter((r) => !r.skipped).length,
+    teamMapsWritten: mapResults.filter(r => !r.skipped).length,
     rebuild,
     summary: `${preview.platform} #${preview.sourceMatchId} ↔ ${preview.targetPlatform} #${preview.targetMatchId} → 赛事 ${cmId}（${refHome} vs ${refAway}）`,
     logLines: [
@@ -435,17 +465,19 @@ async function linkPlatformToPlatform({
 
 function normalizeStoredTeamPlatformId(platform, platformId, { sourceGameId, gameCode } = {}) {
   const pid = String(platformId || "").trim();
-  if (!pid || platform !== "PB") return pid;
-  const gameSlug =
-    String(sourceGameId || "").trim() ||
-    (gameCode ? getPlatformGameId("PB", gameCode) : null) ||
-    "";
+  if (!pid || platform !== "PB")
+    return pid;
+  const gameSlug
+    = String(sourceGameId || "").trim()
+      || (gameCode ? getPlatformGameId("PB", gameCode) : null)
+      || "";
   return formatPbTeamPlatformId(gameSlug, pid, gameCode);
 }
 
 async function upsertTeamPlatformRecord(platform, platformId, platformName, gameCode, sourceGameId) {
   const pid = normalizeStoredTeamPlatformId(platform, platformId, { sourceGameId, gameCode });
-  if (!pid) return { skipped: true, reason: "no_platform_id" };
+  if (!pid)
+    return { skipped: true, reason: "no_platform_id" };
 
   await db.upsertTeamPlatformMaps([
     {
@@ -463,9 +495,11 @@ async function upsertTeamPlatformRecord(platform, platformId, platformName, game
 /** 手动匹配：写入 gb_team_id 映射 */
 async function upsertManualTeamPlatformMap(gbTeamId, platform, platformId, platformName, gameCode, sourceGameId) {
   const pid = normalizeStoredTeamPlatformId(platform, platformId, { sourceGameId, gameCode });
-  if (!pid) return { skipped: true, reason: "no_platform_id" };
+  if (!pid)
+    return { skipped: true, reason: "no_platform_id" };
   const id = parseGbTeamId(gbTeamId);
-  if (id == null) throw new Error("gb_team_id 无效");
+  if (id == null)
+    throw new Error("gb_team_id 无效");
 
   await db.upsertTeamPlatformMaps([
     {
@@ -484,7 +518,8 @@ async function upsertManualTeamPlatformMap(gbTeamId, platform, platformId, platf
 /** 比赛连线：已有 gb 则沿用；队名有效则自动 resolve/create canonical，否则待识别 */
 async function upsertTeamMapForMatchLink(platform, platformId, platformName, gameCode, sourceGameId) {
   const pid = normalizeStoredTeamPlatformId(platform, platformId, { sourceGameId, gameCode });
-  if (!pid) return { skipped: true, reason: "no_platform_id" };
+  if (!pid)
+    return { skipped: true, reason: "no_platform_id" };
 
   const name = String(platformName || "").trim() || pid;
   const existing = await fetchTeamPlatformMap(platform, pid);
@@ -493,7 +528,8 @@ async function upsertTeamMapForMatchLink(platform, platformId, platformName, gam
   if (gbTeamId == null && !isPlaceholderTeamName(name)) {
     try {
       gbTeamId = await resolveOrCreateManualTeam(gameCode, name);
-    } catch {
+    }
+    catch {
       gbTeamId = null;
     }
   }
@@ -505,13 +541,14 @@ async function upsertTeamMapForMatchLink(platform, platformId, platformName, gam
 }
 
 function formatTeamMapLogLine(mapResults) {
-  const written = (mapResults || []).filter((r) => !r.skipped);
-  const gbCount = written.filter((r) => r.hasGbTeamId).length;
+  const written = (mapResults || []).filter(r => !r.skipped);
+  const gbCount = written.filter(r => r.hasGbTeamId).length;
   const pendingCount = written.length - gbCount;
   if (gbCount && pendingCount) {
     return `写入 team_platform_maps ${written.length} 条（${gbCount} 含 gb_team_id，${pendingCount} 待识别）`;
   }
-  if (gbCount) return `写入 team_platform_maps ${gbCount} 条（含 gb_team_id）`;
+  if (gbCount)
+    return `写入 team_platform_maps ${gbCount} 条（含 gb_team_id）`;
   return `写入 team_platform_maps ${written.length} 条（待识别，无 gb_team_id）`;
 }
 
@@ -526,7 +563,8 @@ async function previewLinkAlignment({ platform, sourceMatchId, clientMatchId }) 
   const pm = await fetchPlatformMatchRow(plat, srcId);
 
   const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
-  if (!cm) throw new Error("目标已匹配赛事不存在");
+  if (!cm)
+    throw new Error("目标已匹配赛事不存在");
 
   const allPm = await db.fetchPlatformMatchesHomeAway();
   const platformsById = {};
@@ -535,7 +573,8 @@ async function previewLinkAlignment({ platform, sourceMatchId, clientMatchId }) 
   }
 
   const teams = resolveClientTeams(cm, pm, platformsById);
-  if (!teams) throw new Error("无法解析目标赛事的主客队");
+  if (!teams)
+    throw new Error("无法解析目标赛事的主客队");
 
   const alignment = analyzeSideAlignment(pm.home, pm.away, teams.home, teams.away);
   return {
@@ -565,7 +604,8 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   const pm = await fetchPlatformMatchRow(plat, srcId);
 
   const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
-  if (!cm) throw new Error("目标已匹配赛事不存在");
+  if (!cm)
+    throw new Error("目标已匹配赛事不存在");
 
   const allPm = await db.fetchPlatformMatchesHomeAway();
   const platformsById = {};
@@ -574,7 +614,8 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   }
 
   const teams = resolveClientTeams(cm, pm, platformsById);
-  if (!teams) throw new Error("无法解析目标赛事的主客队");
+  if (!teams)
+    throw new Error("无法解析目标赛事的主客队");
 
   let gameCode = gameCodeForPlatform(plat, pm.source_game_id);
   if (!gameCode) {
@@ -591,11 +632,14 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   let reversed;
   if (typeof reversedInput === "boolean") {
     reversed = reversedInput;
-  } else if (alignment.mode === "aligned") {
+  }
+  else if (alignment.mode === "aligned") {
     reversed = false;
-  } else if (alignment.mode === "reversed") {
+  }
+  else if (alignment.mode === "reversed") {
     reversed = true;
-  } else {
+  }
+  else {
     throw new Error("无法自动判断主客是否一致，请在确认框中选择「主客一致」或「主客颠倒」");
   }
 
@@ -626,7 +670,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
     teams: { home: teams.home, away: teams.away },
     platformTeams: { home: pmHomeName, away: pmAwayName },
     platformTeamIds: { home: String(pmHomeId || ""), away: String(pmAwayId || "") },
-    teamMapsWritten: mapResults.filter((r) => !r.skipped).length,
+    teamMapsWritten: mapResults.filter(r => !r.skipped).length,
     rebuild,
     summary: `${plat} #${srcId} → 赛事 ${cmId}（${teams.home} vs ${teams.away}）`,
     logLines: [
@@ -647,15 +691,18 @@ function validateTeamLinkPair(a, b) {
   const platB = String(b?.platform || "").trim();
   const idA = String(a?.platformId || "").trim();
   const idB = String(b?.platformId || "").trim();
-  if (!platA || !platB || !idA || !idB) throw new Error("平台队伍 ID 不完整");
-  if (platA === platB && idA === idB) throw new Error("不能关联同一支队伍");
+  if (!platA || !platB || !idA || !idB)
+    throw new Error("平台队伍 ID 不完整");
+  if (platA === platB && idA === idB)
+    throw new Error("不能关联同一支队伍");
   if (platA === platB) {
     throw new Error(
-      `不能关联同一平台的两支队伍\n${platA} · ${String(a?.platformName || idA).trim()} (id ${idA})\n↔\n${platA} · ${String(b?.platformName || idB).trim()} (id ${idB})\n\n请拖到另一个平台的圆点`
+      `不能关联同一平台的两支队伍\n${platA} · ${String(a?.platformName || idA).trim()} (id ${idA})\n↔\n${platA} · ${String(b?.platformName || idB).trim()} (id ${idB})\n\n请拖到另一个平台的圆点`,
     );
   }
   const gameCode = String(a?.gameCode || b?.gameCode || "").trim();
-  if (!gameCode || gameCode === "unknown") throw new Error("无法解析游戏类型");
+  if (!gameCode || gameCode === "unknown")
+    throw new Error("无法解析游戏类型");
   return { platA, platB, idA, idB, gameCode };
 }
 
@@ -745,10 +792,12 @@ async function linkPlatformTeams({ a, b }) {
 
   if (!gbTeamId) {
     const pickName = String(a?.platformName || mapA?.platform_name || b?.platformName || mapB?.platform_name || "").trim();
-    if (!pickName || isPlaceholderTeamName(pickName)) throw new Error("队名为空，无法创建 canonical");
+    if (!pickName || isPlaceholderTeamName(pickName))
+      throw new Error("队名为空，无法创建 canonical");
     try {
       gbTeamId = await resolveOrCreateManualTeam(gameCode, pickName);
-    } catch (err) {
+    }
+    catch (err) {
       const head = [
         "队伍关联失败：需要为标准队伍分配 gb_team_id",
         `A ${platA} · ${String(a?.platformName || mapA?.platform_name || idA).trim()}`,
@@ -770,13 +819,20 @@ async function linkPlatformTeams({ a, b }) {
   const rebuild = await rebuildOnce();
 
   const label = String(gbTeamId);
-  const mapsWritten = written.filter((r) => !r.skipped).length;
+  const mapsWritten = written.filter(r => !r.skipped).length;
   let gbNote = "沿用已有 gb_team_id";
-  if (plan.gbTeamIdAllocated) gbNote = "新分配 gb_team_id";
+  if (plan.gbTeamIdAllocated) {
+    gbNote = "新分配 gb_team_id";
+  }
   else if (plan.mode === "merge") {
     gbNote = `合并 gb_team_id ${plan.loserGb} → ${label}（较小编号为准，已改写 ${mapsReassigned} 条映射）`;
-  } else if (plan.mode === "same") gbNote = "两队已同属该 gb_team_id，刷新映射";
-  else if (gbA || gbB) gbNote = "沿用一侧已有 gb_team_id";
+  }
+  else if (plan.mode === "same") {
+    gbNote = "两队已同属该 gb_team_id，刷新映射";
+  }
+  else if (gbA || gbB) {
+    gbNote = "沿用一侧已有 gb_team_id";
+  }
 
   return {
     ok: true,
@@ -808,8 +864,10 @@ async function registerTeamPlatformMap({ platform, platformId, platformName, gam
   const pid = String(platformId || "").trim();
   const name = String(platformName || "").trim() || pid;
   const game = String(gameCode || "").trim();
-  if (!plat || !pid) throw new Error("平台队伍 ID 不完整");
-  if (!game || game === "unknown") throw new Error(`无法解析游戏类型（${plat} · ${name}）`);
+  if (!plat || !pid)
+    throw new Error("平台队伍 ID 不完整");
+  if (!game || game === "unknown")
+    throw new Error(`无法解析游戏类型（${plat} · ${name}）`);
 
   const storedPid = normalizeStoredTeamPlatformId(plat, pid, { gameCode });
   const existing = await db.fetchTeamPlatformMap(plat, storedPid);
@@ -819,20 +877,21 @@ async function registerTeamPlatformMap({ platform, platformId, platformName, gam
     const gameLabel = String(existing.game || game).trim() || game;
     if (existing.canonical_id != null) {
       const err = new Error(
-        `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已有 gb_team_id ${existing.canonical_id}`
+        `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已有 gb_team_id ${existing.canonical_id}`,
       );
       err.code = "already_registered";
       throw err;
     }
     const err = new Error(
-      `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已在 team_platform_maps，状态：待识别`
+      `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已在 team_platform_maps，状态：待识别`,
     );
     err.code = "already_registered";
     throw err;
   }
 
   const result = await upsertTeamPlatformRecord(plat, pid, name, game);
-  if (result.skipped) throw new Error("平台队伍 ID 不完整");
+  if (result.skipped)
+    throw new Error("平台队伍 ID 不完整");
 
   invalidateTeamMappings();
 
@@ -856,12 +915,12 @@ async function registerTeamPlatformMap({ platform, platformId, platformName, gam
 }
 
 export {
+  analyzeSideAlignment,
+  linkPlatformTeams,
   linkPlatformToClientMatch,
   linkPlatformToPlatform,
-  linkPlatformTeams,
-  previewLinkPlatformTeams,
-  registerTeamPlatformMap,
-  analyzeSideAlignment,
   previewLinkAlignment,
   previewLinkPlatformAlignment,
+  previewLinkPlatformTeams,
+  registerTeamPlatformMap,
 };

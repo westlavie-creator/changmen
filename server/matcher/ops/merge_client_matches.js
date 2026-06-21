@@ -1,5 +1,5 @@
-import { rebuildOnce } from "./rebuild.js";
 import * as db from "@changmen/db";
+import { rebuildOnce } from "./rebuild.js";
 
 /**
  * 合并两条 client_matches：source 并入 target，保留 target.id。
@@ -9,9 +9,10 @@ async function previewMergeClientMatches({ sourceClientMatchId, targetClientMatc
   const sourceId = Number(sourceClientMatchId);
   const targetId = Number(targetClientMatchId);
   if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) {
-    throw new Error("无效的赛事 ID");
+    throw new TypeError("无效的赛事 ID");
   }
-  if (sourceId === targetId) throw new Error("不能合并同一条赛事");
+  if (sourceId === targetId)
+    throw new Error("不能合并同一条赛事");
 
   const source = await db.fetchClientMatchRow(
     sourceId,
@@ -21,8 +22,10 @@ async function previewMergeClientMatches({ sourceClientMatchId, targetClientMatc
     targetId,
     "id,title,game,game_id,start_time,matchs,bets",
   );
-  if (!source) throw new Error("源赛事不存在");
-  if (!target) throw new Error("目标赛事不存在");
+  if (!source)
+    throw new Error("源赛事不存在");
+  if (!target)
+    throw new Error("目标赛事不存在");
 
   const sourceMatchs = source.matchs || {};
   const targetMatchs = target.matchs || {};
@@ -66,7 +69,7 @@ async function mergeClientMatches({ sourceClientMatchId, targetClientMatchId }) 
     targetClientMatchId,
   });
   if (!preview.canMerge) {
-    const names = preview.conflicts.map((c) => c.platform).join("、");
+    const names = preview.conflicts.map(c => c.platform).join("、");
     throw new Error(`无法合并：${names} 在两场赛事中指向不同 platform_match`);
   }
 
@@ -92,4 +95,4 @@ async function mergeClientMatches({ sourceClientMatchId, targetClientMatchId }) 
   };
 }
 
-export { previewMergeClientMatches, mergeClientMatches };
+export { mergeClientMatches, previewMergeClientMatches };

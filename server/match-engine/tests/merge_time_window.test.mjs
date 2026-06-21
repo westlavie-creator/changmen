@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { buildMatchListMerged, setTeamPlugin } from "../merge/match_merge.js";
 import { MERGE_START_TIME_TOLERANCE_MS } from "../merge/merge_constants.js";
 

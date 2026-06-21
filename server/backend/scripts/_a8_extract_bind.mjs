@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from "node:fs";
 
 const c = fs.readFileSync(
   "d:/River/arb/gamebet/A8/A8frontendscipts/2.0.1/index.js",

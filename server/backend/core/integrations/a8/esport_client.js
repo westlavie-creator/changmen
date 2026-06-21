@@ -1,8 +1,8 @@
+import { resolveA8Credentials } from "./config.js";
 /**
  * A8 bundle `_r.post`：esport API 使用 form-urlencoded + header `token`。
  */
 import { buildFormBody, loginV4 } from "./v4_client.js";
-import { resolveA8Credentials } from "./config.js";
 
 const A8_ESPORT_BASE = (process.env.A8_ESPORT_URL || "https://api.a8.to/esport").replace(/\/+$/, "");
 const CACHE_MS = Number(process.env.A8_ESPORT_CACHE_MS || 60_000);
@@ -16,7 +16,7 @@ async function postEsport(action, fields, sessionToken) {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      token: sessionToken,
+      "token": sessionToken,
     },
     body: buildFormBody(fields),
     signal: AbortSignal.timeout(Number(process.env.A8_ESPORT_TIMEOUT_MS || 30_000)),
@@ -25,7 +25,8 @@ async function postEsport(action, fields, sessionToken) {
   let data;
   try {
     data = text ? JSON.parse(text) : null;
-  } catch {
+  }
+  catch {
     throw new Error(`A8 esport 响应非 JSON (${res.status}): ${text.slice(0, 160)}`);
   }
   if (!res.ok) {
@@ -63,14 +64,16 @@ export async function fetchCollectPlatform(provider, sessionToken) {
 export async function fetchCollectGames(provider, sessionToken) {
   const data = await postEsport("Client_GetGames", { provider }, sessionToken);
   const list = data?.info;
-  if (!Array.isArray(list)) return [];
+  if (!Array.isArray(list))
+    return [];
   return list.filter(Boolean).map(String);
 }
 
 export async function fetchCollectPlatformWithGames(provider) {
   const key = `platform:${provider}`;
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+  if (hit && Date.now() - hit.at < CACHE_MS)
+    return hit.value;
 
   const sessionToken = await loginEsportSession();
   const platform = await fetchCollectPlatform(provider, sessionToken);

@@ -1,4 +1,13 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "node:test";
+
+import {
+  fetchOrdersByDate,
+  fetchOrdersByPlayer,
+  fetchOrdersByPlayerAll,
+  setOrdersBoundHook,
+  updateOrderBind,
+  upsertOrders,
+} from "./orders_store.js";
 
 const queryMock = vi.fn();
 const clientQueryMock = vi.fn();
@@ -11,15 +20,6 @@ vi.mock("./common.js", () => ({
   getPgPool: () => ({ query: queryMock, connect: connectMock }),
   _jsonb: (val, fallback) => JSON.stringify(val ?? fallback ?? null),
 }));
-
-import {
-  fetchOrdersByDate,
-  fetchOrdersByPlayer,
-  fetchOrdersByPlayerAll,
-  setOrdersBoundHook,
-  updateOrderBind,
-  upsertOrders,
-} from "./orders_store.js";
 
 describe("orders_store read SQL", () => {
   beforeEach(() => {
@@ -46,7 +46,7 @@ describe("orders_store read SQL", () => {
 
   it("fetchOrdersAdminPage returns all orders (no filter)", async () => {
     queryMock.mockResolvedValue({ rows: [{ n: 0 }] });
-    await import("./orders_store.js").then((m) =>
+    await import("./orders_store.js").then(m =>
       m.fetchOrdersAdminPage({
         dateKey: "2026-06-18",
         pageIndex: 1,
@@ -74,7 +74,7 @@ describe("upsertOrders SQL", () => {
     clientQueryMock.mockResolvedValue({ rows: [{ was_inserted: false }] });
   });
 
-  it("INSERT binds 14 columns including create_at and raw", async () => {
+  it("iNSERT binds 14 columns including create_at and raw", async () => {
     const ok = await upsertOrders([
       {
         user_id: "u1",
@@ -188,7 +188,7 @@ describe("updateOrderBind bound hook", () => {
     expect(hook).not.toHaveBeenCalled();
   });
 
-  it("UPDATE uses $1 for link and $2+ for WHERE (no placeholder clash)", async () => {
+  it("uPDATE uses $1 for link and $2+ for WHERE (no placeholder clash)", async () => {
     const prev = {
       user_id: "u1",
       order_id: "o1",

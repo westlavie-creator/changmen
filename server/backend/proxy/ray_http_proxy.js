@@ -1,5 +1,5 @@
-import { requirePlatform } from "../core/shared/adapter_paths.js";
 import store from "../core/esport-api/store.js";
+import { requirePlatform } from "../core/shared/adapter_paths.js";
 import { rayApiUrl } from "../core/shared/ray_paths.js";
 
 const { rayHeaders } = requirePlatform("RAY", "node", "session.js");
@@ -8,22 +8,23 @@ const { getRayA8CollectCredentials } = requirePlatform("RAY", "node", "collect_c
 const ALLOWED = new Set(["match", "odds"]);
 
 function originFromReferer(referer) {
-  if (!referer) return undefined;
+  if (!referer)
+    return undefined;
   try {
     return new URL(referer).origin;
-  } catch {
+  }
+  catch {
     return String(referer).replace(/\/+$/, "");
   }
 }
 
-/** platforms.json �?A8 写死采集凭证 �?环境变量 �?ACCOUNT（下注账号，非采集） */
+/** platforms.json �?A8 写死采集凭证 �?环境变量 �?ACCOUNT（下注账号，非采集） */
 function resolveRayCredentials() {
   const row = store.getPlatform("RAY") || {};
   const a8 = getRayA8CollectCredentials();
-  let gateway = row.gateway || a8.gateway || process.env.RAY_GATEWAY || "";
-  let token = row.token || a8.token || process.env.RAY_TOKEN || process.env.RAY_WS_TOKEN || "";
-  let origin = process.env.RAY_ORIGIN;
-
+  const gateway = row.gateway || a8.gateway || process.env.RAY_GATEWAY || "";
+  const token = row.token || a8.token || process.env.RAY_TOKEN || process.env.RAY_WS_TOKEN || "";
+  const origin = process.env.RAY_ORIGIN;
 
   return {
     gateway: String(gateway || "").trim(),
@@ -33,11 +34,12 @@ function resolveRayCredentials() {
 }
 
 /**
- * Frontve：代�?RAY v2 API（Authorization 来自 platforms.json）�? * GET /esport/ray/proxy?path=match&query=match_type=2&page=1
+ * Frontve：代�?RAY v2 API（Authorization 来自 platforms.json）�? * GET /esport/ray/proxy?path=match&query=match_type=2&page=1
  */
 async function tryRayHttpProxy(req, res) {
   const pathname = req.url.split("?")[0];
-  if (pathname !== "/esport/ray/proxy") return false;
+  if (pathname !== "/esport/ray/proxy")
+    return false;
   if (req.method !== "GET") {
     res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "method not allowed" }));
@@ -76,11 +78,12 @@ async function tryRayHttpProxy(req, res) {
     const ct = upstream.headers.get("content-type") || "application/json; charset=utf-8";
     res.writeHead(upstream.status, { "Content-Type": ct });
     res.end(body);
-  } catch (err) {
+  }
+  catch (err) {
     res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: err.message || "RAY proxy failed" }));
   }
   return true;
 }
 
-export { tryRayHttpProxy, resolveRayCredentials };
+export { resolveRayCredentials, tryRayHttpProxy };

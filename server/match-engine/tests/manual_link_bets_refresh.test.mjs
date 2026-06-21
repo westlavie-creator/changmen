@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { applyManualMatchLinks } from "../merge/match_merge.js";
 
-const src = (p, b) => ({
-  Type: p,
-  BetID: String(b.SourceBetID),
-  HomeID: String(b.SourceHomeID || ""),
-  AwayID: String(b.SourceAwayID || ""),
-  HomeOdds: b.HomeOdds,
-  AwayOdds: b.AwayOdds,
-  Status: b.Status || "Normal",
-});
+function src(p, b) {
+  return {
+    Type: p,
+    BetID: String(b.SourceBetID),
+    HomeID: String(b.SourceHomeID || ""),
+    AwayID: String(b.SourceAwayID || ""),
+    HomeOdds: b.HomeOdds,
+    AwayOdds: b.AwayOdds,
+    Status: b.Status || "Normal",
+  };
+}
 
 function baseMatch(provider, sourceId, clientMatchId) {
   return {
@@ -71,9 +73,9 @@ describe("applyManualMatchLinks", () => {
     ];
 
     const result = applyManualMatchLinks([], matches, bets, {}, src, existingClientRows);
-    const row = result.find((m) => Number(m.ID) === clientId);
+    const row = result.find(m => Number(m.ID) === clientId);
     expect(row).toBeTruthy();
-    expect(row.Bets.map((b) => b.Map).sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
-    expect(row.Bets.find((b) => b.Map === 3)?.Sources?.OB?.BetID).toBe("ob3");
+    expect(row.Bets.map(b => b.Map).sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+    expect(row.Bets.find(b => b.Map === 3)?.Sources?.OB?.BetID).toBe("ob3");
   });
 });

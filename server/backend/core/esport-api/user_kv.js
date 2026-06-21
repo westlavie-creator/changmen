@@ -11,8 +11,10 @@ export function isObjectKey(key) {
 }
 
 export function emptyDirectValue(key) {
-  if (isArrayKey(key)) return [];
-  if (isObjectKey(key)) return { success: 1, msg: "ok" };
+  if (isArrayKey(key))
+    return [];
+  if (isObjectKey(key))
+    return { success: 1, msg: "ok" };
   return null;
 }
 

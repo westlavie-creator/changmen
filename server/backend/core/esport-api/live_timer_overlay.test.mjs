@@ -77,13 +77,13 @@ describe("overlayLiveTimersOnMatches", () => {
       OB: { provider: "OB", timer: [{ MatchID: "99", Round: 3, StartTime: 8000 }] },
     });
     expect(out[0].Round).toBe(3);
-    const map0 = out[0].Bets.find((b) => b.Map === 0);
+    const map0 = out[0].Bets.find(b => b.Map === 0);
     expect(map0?.Sources).toEqual({
       OB: { Type: "OB", BetID: "1", HomeOdds: 1.3, AwayOdds: 3.33, Status: "Normal" },
     });
     expect(map0?.InitialHomeOdds).toBe(1.9);
     expect(map0?.InitialAwayOdds).toBe(3.33);
-    const map3 = out[0].Bets.find((b) => b.Map === 3);
+    const map3 = out[0].Bets.find(b => b.Map === 3);
     expect(map3?.Sources?.RAY?.BetID).toBe("3");
   });
 
@@ -115,8 +115,8 @@ describe("overlayLiveTimersOnMatches", () => {
     const out = overlayLiveTimersOnMatches([match], {
       OB: { provider: "OB", timer: [{ MatchID: "99", Round: 3, StartTime: 8000 }] },
     });
-    const map0 = out[0].Bets.find((b) => b.Map === 0);
-    const map3 = out[0].Bets.find((b) => b.Map === 3);
+    const map0 = out[0].Bets.find(b => b.Map === 0);
+    const map3 = out[0].Bets.find(b => b.Map === 3);
     expect(map0?.Sources).toEqual({
       OB: { Type: "OB", BetID: "1", HomeOdds: 1.3, AwayOdds: 3.33, Status: "Normal" },
     });
@@ -173,7 +173,7 @@ describe("overlayLiveTimersOnMatches", () => {
     const out = overlayLiveTimersOnMatches([match], {
       OB: { provider: "OB", timer: [{ MatchID: "99", Round: 3, StartTime: 8000 }] },
     });
-    const map3 = out[0].Bets.find((b) => b.Map === 3);
+    const map3 = out[0].Bets.find(b => b.Map === 3);
     expect(map3?.Sources?.RAY).toMatchObject({ HomeOdds: 2.08, AwayOdds: 1.85 });
   });
 
@@ -205,7 +205,7 @@ describe("overlayLiveTimersOnMatches", () => {
     const out = overlayLiveTimersOnMatches([match], {
       OB: { provider: "OB", timer: [{ MatchID: "99", Round: 2, StartTime: 8000 }] },
     });
-    const map0 = out[0].Bets.find((b) => b.Map === 0);
+    const map0 = out[0].Bets.find(b => b.Map === 0);
     expect(map0?.Sources).toEqual({});
     expect(map0?.InitialHomeOdds).toBe(1.02);
     expect(map0?.InitialAwayOdds).toBe(12.52);
@@ -283,11 +283,11 @@ describe("overlayLiveTimersOnMatches", () => {
       { OB: { provider: "OB", timer: [{ MatchID: "ob1", Round: 2, StartTime: 8000 }] } },
       enrich,
     );
-    const map0 = out[0].Bets.find((b) => b.Map === 0);
+    const map0 = out[0].Bets.find(b => b.Map === 0);
     expect(map0?.Sources).toEqual({});
     expect(map0?.InitialHomeOdds).toBe(1.02);
     expect(map0?.InitialAwayOdds).toBe(12.52);
-    expect(out[0].Bets.map((b) => b.Map)).toEqual([0, 2]);
+    expect(out[0].Bets.map(b => b.Map)).toEqual([0, 2]);
   });
 
   it("keeps Round when no timer snapshot exists (await matcher or next SaveLiveTimer)", () => {

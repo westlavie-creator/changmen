@@ -8,9 +8,11 @@ export const JWT_SECRET = process.env.JWT_SECRET || "";
 
 export function parseJwtTtl(raw, fallbackSec) {
   const s = String(raw || "").trim();
-  if (!s) return fallbackSec;
+  if (!s)
+    return fallbackSec;
   const m = s.match(/^(\d+)([smhd])?$/i);
-  if (!m) return fallbackSec;
+  if (!m)
+    return fallbackSec;
   const n = Number(m[1]);
   const u = (m[2] || "s").toLowerCase();
   const mult = { s: 1, m: 60, h: 3600, d: 86400 };
@@ -32,15 +34,19 @@ export function signJwt(payload, secret, ttlSec) {
 
 export function verifyJwt(token, secret) {
   const parts = String(token || "").split(".");
-  if (parts.length !== 3) return null;
+  if (parts.length !== 3)
+    return null;
   const [h, p, sig] = parts;
   const expected = crypto.createHmac("sha256", secret).update(`${h}.${p}`).digest("base64url");
-  if (sig !== expected) return null;
+  if (sig !== expected)
+    return null;
   try {
     const payload = JSON.parse(Buffer.from(p, "base64url").toString("utf8"));
-    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+    if (payload.exp && payload.exp * 1000 < Date.now())
+      return null;
     return payload;
-  } catch {
+  }
+  catch {
     return null;
   }
 }
@@ -48,9 +54,11 @@ export function verifyJwt(token, secret) {
 export function decodeJwtPayload(token) {
   try {
     const p = String(token || "").split(".")[1];
-    if (!p) return null;
+    if (!p)
+      return null;
     return JSON.parse(Buffer.from(p, "base64url").toString("utf8"));
-  } catch {
+  }
+  catch {
     return null;
   }
 }

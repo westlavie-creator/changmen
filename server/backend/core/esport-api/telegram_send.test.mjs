@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test from "vitest";
 import { handleSendMessage, isValidChatId } from "./telegram_send.js";
 
 test("isValidChatId accepts user and group ids", () => {
@@ -17,8 +17,10 @@ test("handleSendMessage requires bot token", async () => {
     const r = await handleSendMessage({ chat_id: "1", text: "hi" });
     assert.equal(r.ok, false);
     assert.match(r.msg, /TELEGRAM_BOT_TOKEN/);
-  } finally {
-    if (prev !== undefined) process.env.TELEGRAM_BOT_TOKEN = prev;
+  }
+  finally {
+    if (prev !== undefined)
+      process.env.TELEGRAM_BOT_TOKEN = prev;
   }
 });
 
@@ -28,7 +30,8 @@ test("handleSendMessage validates body", async () => {
     assert.equal((await handleSendMessage({ text: "x" })).ok, false);
     assert.equal((await handleSendMessage({ chat_id: "bad", text: "x" })).ok, false);
     assert.equal((await handleSendMessage({ chat_id: "1", text: "  " })).ok, false);
-  } finally {
+  }
+  finally {
     delete process.env.TELEGRAM_BOT_TOKEN;
   }
 });

@@ -16,7 +16,8 @@ async function backfillPlatformMatchIdsForIdMerges(clientMatchRows) {
 
   for (const cm of clientMatchRows) {
     const cmId = Number(cm.ID);
-    if (!Number.isFinite(cmId)) continue;
+    if (!Number.isFinite(cmId))
+      continue;
 
     for (const [plat, srcId] of Object.entries(cm.Matchs || {})) {
       const { updated: did, skipped: skip, conflict } = await setPlatformMatchId(
@@ -30,8 +31,13 @@ async function backfillPlatformMatchIdsForIdMerges(clientMatchRows) {
         console.warn(
           `[rebuild] platform_matches ${plat}:${srcId} 已有其他 match_id，跳过回写 ${cmId}`,
         );
-      } else if (did) updated++;
-      else if (skip) skipped++;
+      }
+      else if (did) {
+        updated++;
+      }
+      else if (skip) {
+        skipped++;
+      }
     }
   }
 

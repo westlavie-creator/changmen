@@ -3,7 +3,8 @@ import { createMatcherApiApp } from "./create_matcher_api_app.js";
 function splitUrl(url) {
   const raw = url || "/";
   const q = raw.indexOf("?");
-  if (q < 0) return { pathname: raw, search: "" };
+  if (q < 0)
+    return { pathname: raw, search: "" };
   return { pathname: raw.slice(0, q), search: raw.slice(q) };
 }
 
@@ -15,14 +16,15 @@ export function tryHandleMatcherApi(req, res) {
   const { pathname, search } = splitUrl(req.url);
   const matcherApiPrefix = "/matcher/api";
   const lower = pathname.toLowerCase();
-  if (!lower.startsWith(matcherApiPrefix + "/") && lower !== matcherApiPrefix) {
+  if (!lower.startsWith(`${matcherApiPrefix}/`) && lower !== matcherApiPrefix) {
     return Promise.resolve(false);
   }
 
   let app;
   try {
     app = createMatcherApiApp();
-  } catch (err) {
+  }
+  catch (err) {
     res.writeHead(503, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ ok: false, error: err.message }));
     return Promise.resolve(true);
@@ -34,7 +36,8 @@ export function tryHandleMatcherApi(req, res) {
   return new Promise((resolve) => {
     let settled = false;
     const done = () => {
-      if (settled) return;
+      if (settled)
+        return;
       settled = true;
       req.url = saved;
       resolve(true);

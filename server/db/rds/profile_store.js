@@ -2,7 +2,7 @@
  * profiles 表读写及 users 用户名/管理员/metadata 更新。
  */
 
-import { getPgPool, _jsonb } from "./common.js";
+import { _jsonb, getPgPool } from "./common.js";
 
 const PROFILE_WITH_ADMIN_FROM = `
   FROM profiles p
@@ -11,11 +11,13 @@ const PROFILE_WITH_ADMIN_FROM = `
 /** 拉取所有 profiles 到内存（启动时调用） */
 export async function fetchProfiles() {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const { rows } = await pool.query(`SELECT p.*, u.is_admin, u.role, u.team_id ${PROFILE_WITH_ADMIN_FROM}`);
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.error("[rds] fetchProfiles 失败:", err.message);
     return [];
   }
@@ -24,14 +26,16 @@ export async function fetchProfiles() {
 /** 按 uid 读单个 profile */
 export async function fetchProfileById(uid) {
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   try {
     const { rows } = await pool.query(
       `SELECT p.*, u.is_admin, u.role, u.team_id ${PROFILE_WITH_ADMIN_FROM} WHERE p.id = $1`,
       [String(uid)],
     );
     return rows[0] || null;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchProfileById:", err.message);
     return null;
   }
@@ -41,10 +45,12 @@ export async function fetchProfileById(uid) {
 export function writeProfile(uid, patch) {
   const now = Date.now();
   const pool = getPgPool();
-  if (!pool) return;
+  if (!pool)
+    return;
   const jsonbCols = new Set(["accounts", "betting_config", "collect_config", "preferences"]);
-  const keys = Object.keys(patch).filter((k) => k !== "updated_at");
-  if (!keys.length) return;
+  const keys = Object.keys(patch).filter(k => k !== "updated_at");
+  if (!keys.length)
+    return;
   const sets = [];
   const vals = [String(uid)];
   for (const k of keys) {
@@ -55,13 +61,14 @@ export function writeProfile(uid, patch) {
   sets.push(`updated_at = $${vals.length}`);
   Promise.resolve()
     .then(() => pool.query(`UPDATE profiles SET ${sets.join(", ")} WHERE id = $1`, vals))
-    .catch((err) => console.warn("[rds:profiles]", err.message));
+    .catch(err => console.warn("[rds:profiles]", err.message));
 }
 
 /** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */
 export async function insertProfile(uid, data) {
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   const rdsArgs = [
     String(data.id || uid),
     String(data.user_name || ""),
@@ -80,7 +87,8 @@ export async function insertProfile(uid, data) {
       rdsArgs,
     );
     return true;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] insertProfile:", err.message);
     return false;
   }
@@ -94,7 +102,8 @@ export function writeAccounts(uid, accounts) {
 /** 管理端：全量 profiles 摘要 */
 export async function fetchProfilesAdmin() {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const { rows } = await pool.query(
       `SELECT p.id, p.user_name, p.accounts, p.betting_config, p.collect_config, p.preferences,
@@ -103,7 +112,8 @@ export async function fetchProfilesAdmin() {
        ORDER BY p.user_name ASC`,
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchProfilesAdmin:", err.message);
     return [];
   }
@@ -112,7 +122,8 @@ export async function fetchProfilesAdmin() {
 /** 写入 user metadata（fire-and-forget；单 session 请用 setActiveSessionId） */
 export function writeUserMetadata(userId, metadata) {
   const pool = getPgPool();
-  if (!pool) return;
+  if (!pool)
+    return;
   Promise.resolve()
     .then(() =>
       pool.query(
@@ -120,13 +131,14 @@ export function writeUserMetadata(userId, metadata) {
         [String(userId), JSON.stringify(metadata || {}), Date.now()],
       ),
     )
-    .catch((err) => console.warn("[rds] writeUserMetadata:", err.message));
+    .catch(err => console.warn("[rds] writeUserMetadata:", err.message));
 }
 
 /** 更新登录用户名（users + profiles 同步） */
 export async function updateUserName(userId, userName) {
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   const id = String(userId);
   const name = String(userName);
   const now = Date.now();
@@ -151,7 +163,8 @@ export async function updateUserName(userId, userName) {
     }
     await client.query("COMMIT");
     return true;
-  } catch (err) {
+  }
+  catch (err) {
     await client.query("ROLLBACK");
     if (err.code === "23505") {
       const dup = new Error("用户名已存在");
@@ -160,7 +173,8 @@ export async function updateUserName(userId, userName) {
     }
     console.warn("[rds] updateUserName:", err.message);
     throw err;
-  } finally {
+  }
+  finally {
     client.release();
   }
 }
@@ -168,14 +182,16 @@ export async function updateUserName(userId, userName) {
 /** 更新用户管理员标志 */
 export async function updateUserIsAdmin(userId, isAdmin) {
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   try {
     const { rowCount } = await pool.query(
       `UPDATE users SET is_admin = $2, updated_at = $3 WHERE id = $1`,
       [String(userId), Boolean(isAdmin), Date.now()],
     );
     return rowCount > 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] updateUserIsAdmin:", err.message);
     return false;
   }
@@ -186,15 +202,18 @@ const VALID_ROLES = ["admin", "leader", "user"];
 /** 更新用户角色，同步 is_admin */
 export async function updateUserRole(userId, role) {
   const pool = getPgPool();
-  if (!pool) return false;
-  if (!VALID_ROLES.includes(role)) return false;
+  if (!pool)
+    return false;
+  if (!VALID_ROLES.includes(role))
+    return false;
   try {
     const { rowCount } = await pool.query(
       `UPDATE users SET role = $2, is_admin = $3, updated_at = $4 WHERE id = $1`,
       [String(userId), role, role === "admin", Date.now()],
     );
     return rowCount > 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] updateUserRole:", err.message);
     return false;
   }
@@ -203,14 +222,16 @@ export async function updateUserRole(userId, role) {
 /** 更新用户所属团队 */
 export async function updateUserTeamId(userId, teamId) {
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   try {
     const { rowCount } = await pool.query(
       `UPDATE users SET team_id = $2, updated_at = $3 WHERE id = $1`,
       [String(userId), teamId || null, Date.now()],
     );
     return rowCount > 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] updateUserTeamId:", err.message);
     return false;
   }
@@ -220,11 +241,13 @@ export async function updateUserTeamId(userId, teamId) {
 
 export async function fetchTeams() {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const { rows } = await pool.query("SELECT * FROM teams ORDER BY name ASC");
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchTeams:", err.message);
     return [];
   }
@@ -232,7 +255,8 @@ export async function fetchTeams() {
 
 export async function upsertTeam(id, name) {
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   const now = Date.now();
   try {
     await pool.query(
@@ -241,7 +265,8 @@ export async function upsertTeam(id, name) {
       [String(id), String(name), now],
     );
     return true;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] upsertTeam:", err.message);
     return false;
   }
@@ -249,11 +274,13 @@ export async function upsertTeam(id, name) {
 
 export async function deleteTeam(id) {
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   try {
     const { rowCount } = await pool.query("DELETE FROM teams WHERE id = $1", [String(id)]);
     return rowCount > 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] deleteTeam:", err.message);
     return false;
   }

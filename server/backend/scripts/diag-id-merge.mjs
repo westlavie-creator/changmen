@@ -3,7 +3,8 @@ import { ensurePgPoolReady } from "@changmen/db";
 
 const obSourceId = process.argv[2] || "4338949224517918";
 const pool = await ensurePgPoolReady();
-if (!pool) process.exit(1);
+if (!pool)
+  process.exit(1);
 
 const pm = await pool.query(
   `SELECT platform, source_match_id, match_id, home, away, home_id, away_id, source_game_id, start_time
@@ -20,7 +21,7 @@ for (const r of pm.rows) {
   console.log(JSON.stringify(r));
 }
 
-const allIds = pm.rows.flatMap((r) => [r.home_id, r.away_id]).filter(Boolean);
+const allIds = pm.rows.flatMap(r => [r.home_id, r.away_id]).filter(Boolean);
 const maps = await pool.query(
   `SELECT tpm.platform, tpm.platform_id, tpm.platform_name, tpm.canonical_id, ct.name AS canonical_name, ct.game
    FROM team_platform_maps tpm

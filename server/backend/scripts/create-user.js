@@ -68,7 +68,8 @@ async function createJwtUser(userName, password, asAdmin = false) {
       "成功:",
       JSON.stringify({ id: userId, userName: name, auth: "jwt", isAdmin: Boolean(asAdmin) }, null, 2),
     );
-  } finally {
+  }
+  finally {
     await client.end();
   }
 }

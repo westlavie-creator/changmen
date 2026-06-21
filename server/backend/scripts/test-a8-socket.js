@@ -49,7 +49,8 @@ socket.on("chat message", (raw) => {
       const preview = JSON.stringify(pkt).slice(0, 200);
       console.log(`[test]   内容预览: ${preview}`);
     }
-  } catch {
+  }
+  catch {
     console.log(`[test] 📨 raw message (non-JSON): ${String(raw).slice(0, 100)}`);
   }
 });
@@ -66,7 +67,8 @@ setTimeout(() => {
   const total = Object.values(received).reduce((a, b) => a + b, 0);
   if (total > 0) {
     console.log(`[test] ✅ 共收到 ${total} 条消息`);
-  } else {
+  }
+  else {
     console.log("[test] ⚠️  未收到任何消息");
   }
   socket.disconnect();

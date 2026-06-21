@@ -9,7 +9,8 @@ export function parseClipboardCredential(text) {
   let payload;
   try {
     payload = JSON.parse(Buffer.from(String(text).trim(), "base64").toString("utf8"));
-  } catch (err) {
+  }
+  catch (err) {
     throw new Error(`凭证解析失败: ${err.message}`);
   }
 
@@ -18,8 +19,10 @@ export function parseClipboardCredential(text) {
   }
 
   let gateways = payload.gateway;
-  if (typeof gateways === "string") gateways = [gateways];
-  if (!Array.isArray(gateways)) gateways = [];
+  if (typeof gateways === "string")
+    gateways = [gateways];
+  if (!Array.isArray(gateways))
+    gateways = [];
   gateways = gateways.map(String).filter(Boolean);
   if (!gateways.length) {
     throw new Error("缺少 gateway");
@@ -47,6 +50,7 @@ export function encodeClipboardCredential(credential) {
       ? credential.gateways
       : [credential.gateway].filter(Boolean),
   };
-  if (credential.userAgent) body.userAgent = credential.userAgent;
+  if (credential.userAgent)
+    body.userAgent = credential.userAgent;
   return Buffer.from(JSON.stringify(body), "utf8").toString("base64");
 }

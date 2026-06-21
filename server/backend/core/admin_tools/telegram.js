@@ -8,7 +8,8 @@ export function getAdminChatId() {
 
 /** 管理员通知总开关：需 TELEGRAM_BOT_TOKEN + TELEGRAM_ADMIN_CHAT_ID；TELEGRAM_ADMIN_NOTIFY=0 关闭全部 */
 export function isAdminNotifyEnabled() {
-  if (String(process.env.TELEGRAM_ADMIN_NOTIFY ?? "1").trim() === "0") return false;
+  if (String(process.env.TELEGRAM_ADMIN_NOTIFY ?? "1").trim() === "0")
+    return false;
   return Boolean(getTelegramBotToken() && getAdminChatId());
 }
 

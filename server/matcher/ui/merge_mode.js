@@ -1,5 +1,5 @@
-import { setTeamPlugin, classifyMergeBasis, PROVIDER_PRIORITY } from "@changmen/match-engine";
 import { isPlatformMatchRowFullyIdMapped } from "@changmen/db";
+import { classifyMergeBasis, PROVIDER_PRIORITY, setTeamPlugin } from "@changmen/match-engine";
 import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
 
 let _pluginPromise = null;
@@ -16,7 +16,8 @@ export function getTeamPlugin() {
         const plugin = await loadAndCreatePlugin();
         setTeamPlugin(plugin);
         return plugin;
-      } catch (err) {
+      }
+      catch (err) {
         console.warn("[matcher] team-resolver unavailable:", err.message);
         setTeamPlugin(null);
         return null;
@@ -29,14 +30,15 @@ export function getTeamPlugin() {
 function linkedPlatformRows(cm, byPlatform) {
   const rows = [];
   for (const [plat, srcId] of Object.entries(cm.matchs || {})) {
-    const row = (byPlatform[plat] || []).find((m) => String(m.source_match_id) === String(srcId));
-    if (row) rows.push(row);
+    const row = (byPlatform[plat] || []).find(m => String(m.source_match_id) === String(srcId));
+    if (row)
+      rows.push(row);
   }
   return rows;
 }
 
 function classifyViaPlugin(rows) {
-  return rows.map((row) =>
+  return rows.map(row =>
     classifyMergeBasis(String(row.home || ""), String(row.away || ""), row.game?.code, {
       provider: row.platform,
       homeId: resolvePlatformTeamId(
@@ -57,13 +59,14 @@ function classifyViaPlugin(rows) {
 
 export function classifyClientMatchMergeMode(cm, byPlatform, teamMaps = null) {
   const rows = linkedPlatformRows(cm, byPlatform);
-  if (!rows.length) return { mode: "unknown", label: "未知" };
+  if (!rows.length)
+    return { mode: "unknown", label: "未知" };
 
   const mode = teamMaps
-    ? rows.every((row) => isPlatformMatchRowFullyIdMapped(row, teamMaps))
+    ? rows.every(row => isPlatformMatchRowFullyIdMapped(row, teamMaps))
       ? "id"
       : "name"
-    : classifyViaPlugin(rows).every((m) => m === "id")
+    : classifyViaPlugin(rows).every(m => m === "id")
       ? "id"
       : "name";
 
@@ -80,8 +83,9 @@ export function classifyClientMatchMergeMode(cm, byPlatform, teamMaps = null) {
 }
 
 export async function enrichClientMatchesMergeMode(clientMatches, byPlatform, teamMaps = null) {
-  if (!teamMaps) await getTeamPlugin();
-  return (clientMatches || []).map((cm) => ({
+  if (!teamMaps)
+    await getTeamPlugin();
+  return (clientMatches || []).map(cm => ({
     ...cm,
     merge_mode: classifyClientMatchMergeMode(cm, byPlatform, teamMaps),
   }));

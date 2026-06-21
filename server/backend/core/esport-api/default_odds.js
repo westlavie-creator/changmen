@@ -1,8 +1,8 @@
 export const DEFAULT_ODDS_FILE = "default_odds";
 
 export function createDefaultOddsApi(readJson, writeJson, options = {}) {
-  const persist =
-    typeof options.writeDebounced === "function"
+  const persist
+    = typeof options.writeDebounced === "function"
       ? options.writeDebounced
       : writeJson;
 
@@ -17,24 +17,30 @@ export function createDefaultOddsApi(readJson, writeJson, options = {}) {
 
   /** Map=0 全场盘：从各平台 platform_bets 原始行取主客最大赔（决胜局裁剪后兜底） */
   function snapshotMapZeroFromPlatformBets(match, map0Bet, platformBetsByKey) {
-    if (!map0Bet || (Number(map0Bet.Map) || 0) !== 0) return {};
+    if (!map0Bet || (Number(map0Bet.Map) || 0) !== 0)
+      return {};
     let home = Number(map0Bet.InitialHomeOdds) || 0;
     let away = Number(map0Bet.InitialAwayOdds) || 0;
     const matchs = match.Matchs || match.matchs || {};
     for (const [platform, sourceMatchId] of Object.entries(matchs)) {
       const block = platformBetsByKey?.[`${platform}:${sourceMatchId}`];
-      if (!block?.bets?.length) continue;
+      if (!block?.bets?.length)
+        continue;
       for (const b of block.bets) {
-        if ((Number(b.Map) || 0) !== 0) continue;
+        if ((Number(b.Map) || 0) !== 0)
+          continue;
         home = Math.max(home, Number(b.HomeOdds) || 0);
         away = Math.max(away, Number(b.AwayOdds) || 0);
       }
     }
     const id = Number(map0Bet.ID);
-    if (!id) return {};
+    if (!id)
+      return {};
     const out = {};
-    if (home > 0) out[`${id}:Home`] = home;
-    if (away > 0) out[`${id}:Away`] = away;
+    if (home > 0)
+      out[`${id}:Home`] = home;
+    if (away > 0)
+      out[`${id}:Away`] = away;
     return out;
   }
 
@@ -60,9 +66,12 @@ export function createDefaultOddsApi(readJson, writeJson, options = {}) {
         away = Math.max(away, Number(src.AwayOdds) || 0);
       }
       const id = Number(bet.ID);
-      if (!id) continue;
-      if (home > 0) out[`${id}:Home`] = home;
-      if (away > 0) out[`${id}:Away`] = away;
+      if (!id)
+        continue;
+      if (home > 0)
+        out[`${id}:Home`] = home;
+      if (away > 0)
+        out[`${id}:Away`] = away;
     }
     return out;
   }
@@ -80,7 +89,8 @@ export function createDefaultOddsApi(readJson, writeJson, options = {}) {
         }
       }
     }
-    if (changed) writeStore(store);
+    if (changed)
+      writeStore(store);
     return store;
   }
 
@@ -89,7 +99,8 @@ export function createDefaultOddsApi(readJson, writeJson, options = {}) {
     for (const match of (await buildMatchList()) || []) {
       for (const bet of match.Bets || []) {
         const id = Number(bet.ID);
-        if (id) activeBetIds.add(id);
+        if (id)
+          activeBetIds.add(id);
       }
     }
     const store = readStore();
@@ -101,23 +112,27 @@ export function createDefaultOddsApi(readJson, writeJson, options = {}) {
         changed = true;
       }
     }
-    if (changed) writeStore(store);
+    if (changed)
+      writeStore(store);
   }
 
   async function loadPlatformBets(fetchPlatformBets) {
-    if (typeof fetchPlatformBets !== "function") return {};
+    if (typeof fetchPlatformBets !== "function")
+      return {};
     try {
       const raw = await fetchPlatformBets();
       return raw && typeof raw === "object" ? raw : {};
-    } catch {
+    }
+    catch {
       return {};
     }
   }
 
   async function getMatchDefaultOdds(matchIds, buildMatchList, fetchPlatformBets) {
-    const wanted = new Set((matchIds || []).map((id) => Number(id)).filter(Boolean));
+    const wanted = new Set((matchIds || []).map(id => Number(id)).filter(Boolean));
     const out = {};
-    if (!wanted.size) return out;
+    if (!wanted.size)
+      return out;
 
     await pruneStaleKeys(buildMatchList);
     const matches = (await buildMatchList()) || [];
@@ -126,44 +141,53 @@ export function createDefaultOddsApi(readJson, writeJson, options = {}) {
     const store = readStore();
     let storeChanged = false;
     for (const match of matches) {
-      if (!wanted.has(Number(match.ID))) continue;
+      if (!wanted.has(Number(match.ID)))
+        continue;
       const snap = snapshotFromBets(match.Bets);
-      const map0Bet = (match.Bets || []).find((b) => (Number(b.Map) || 0) === 0);
+      const map0Bet = (match.Bets || []).find(b => (Number(b.Map) || 0) === 0);
       if (map0Bet) {
         const pbSnap = snapshotMapZeroFromPlatformBets(match, map0Bet, platformBets);
         for (const [key, odds] of Object.entries(pbSnap)) {
-          if (odds > 0 && (!snap[key] || snap[key] <= 0)) snap[key] = odds;
+          if (odds > 0 && (!snap[key] || snap[key] <= 0))
+            snap[key] = odds;
         }
-        if (mergeSnapshotIntoStore(store, pbSnap)) storeChanged = true;
+        if (mergeSnapshotIntoStore(store, pbSnap))
+          storeChanged = true;
       }
       for (const bet of match.Bets || []) {
         const betId = Number(bet.ID);
-        if (!betId) continue;
+        if (!betId)
+          continue;
         for (const side of ["Home", "Away"]) {
           const key = `${betId}:${side}`;
           const fromSnap = snap[key] || 0;
           const fromStore = Number(store[key]) || 0;
           const odds = fromStore > 0 ? fromStore : fromSnap;
-          if (odds > 0) out[key] = odds;
+          if (odds > 0)
+            out[key] = odds;
         }
       }
     }
-    if (storeChanged) writeStore(store);
+    if (storeChanged)
+      writeStore(store);
     return out;
   }
 
   async function getDefaultOddsSingle(betId, team, buildMatchList, fetchPlatformBets) {
     const key = `${Number(betId)}:${team}`;
     const store = readStore();
-    if (store[key] > 0) return store[key];
+    if (store[key] > 0)
+      return store[key];
 
     const matches = (await buildMatchList()) || [];
     const platformBets = await loadPlatformBets(fetchPlatformBets);
     for (const match of matches) {
       for (const bet of match.Bets || []) {
-        if (Number(bet.ID) !== Number(betId)) continue;
+        if (Number(bet.ID) !== Number(betId))
+          continue;
         const snap = snapshotFromBets([bet]);
-        if (snap[key] > 0) return snap[key];
+        if (snap[key] > 0)
+          return snap[key];
         if ((Number(bet.Map) || 0) === 0) {
           const pbSnap = snapshotMapZeroFromPlatformBets(match, bet, platformBets);
           if (pbSnap[key] > 0) {

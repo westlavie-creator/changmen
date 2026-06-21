@@ -31,7 +31,8 @@ function run(cmd, args, opts = {}) {
 
 if (process.env.SKIP_APP_BUILD === "1") {
   console.log("[preweb] SKIP_APP_BUILD=1，跳过 app:build");
-} else {
+}
+else {
   console.log("[preweb] 构建新控制台 client/web → / …");
   run("npm", ["run", "app:build"], { cwd: ROOT });
 }

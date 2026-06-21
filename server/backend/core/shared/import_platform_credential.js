@@ -1,9 +1,9 @@
 import path from "node:path";
-import { parseClipboardCredential } from "../account/clipboard_credential.js";
 import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
-import { ESPORT_DATA_DIR } from "@changmen/storage/paths.js";
 import { readJsonFile, writeJsonFile } from "@changmen/storage/json_file_store.js";
+import { ESPORT_DATA_DIR } from "@changmen/storage/paths.js";
 import { ensureDefaultJsonFiles } from "@changmen/storage/platform_storage.js";
+import { parseClipboardCredential } from "../account/clipboard_credential.js";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 
@@ -38,7 +38,8 @@ function buildPlatformEntry(cred, prev = {}) {
     updatedAt: Date.now(),
   };
 
-  if (cred.userAgent) entry.userAgent = cred.userAgent;
+  if (cred.userAgent)
+    entry.userAgent = cred.userAgent;
   if (defaults.betName !== undefined) {
     entry.betName = prev.betName ?? defaults.betName;
   }
@@ -48,8 +49,10 @@ function buildPlatformEntry(cred, prev = {}) {
     if (gameIds.length) {
       entry.games = prev.games?.length ? prev.games : gameIds.map(String);
     }
-  } catch {
-    if (prev.games?.length) entry.games = prev.games;
+  }
+  catch {
+    if (prev.games?.length)
+      entry.games = prev.games;
   }
 
   if (provider === "PB" && entry.cookie === undefined) {

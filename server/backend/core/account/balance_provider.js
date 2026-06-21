@@ -1,6 +1,6 @@
+import store from "../esport-api/store.js";
 import { requirePlatform } from "../shared/adapter_paths.js";
 import { rayApiPath } from "../shared/ray_paths.js";
-import store from "../esport-api/store.js";
 
 const {
   fetchBalance: fetchPbBalance,
@@ -16,21 +16,26 @@ const { rayGet } = requirePlatform("RAY", "node", "session.js");
 const { DEFAULT_GATEWAYS } = requirePlatform("RAY", "node", "core.js");
 
 function originFromReferer(referer) {
-  if (!referer) return undefined;
+  if (!referer)
+    return undefined;
   try {
     return new URL(referer).origin;
-  } catch {
+  }
+  catch {
     return String(referer).replace(/\/+$/, "");
   }
 }
 
 /**
- * 按账号凭证拉余额，供 uv.updateBalance() 对齐�? * 未接入的 provider 返回 null，前端会显示余额未知�? */
+ * 按账号凭证拉余额，供 uv.updateBalance() 对齐�? * 未接入的 provider 返回 null，前端会显示余额未知�?
+ */
 export async function getAccountBalance(account) {
-  if (!account?.provider) return null;
+  if (!account?.provider)
+    return null;
 
   const session = accountToSession(account);
-  if (!session) return null;
+  if (!session)
+    return null;
 
   switch (String(account.provider).toUpperCase()) {
     case "PB": {
@@ -56,11 +61,12 @@ export async function getAccountBalance(account) {
       const origin = originFromReferer(session.referer);
       const gateways = [
         session.gateway,
-        ...DEFAULT_GATEWAYS.filter((g) => g !== session.gateway),
+        ...DEFAULT_GATEWAYS.filter(g => g !== session.gateway),
       ];
       let lastErr;
       for (const gw of gateways) {
-        if (!gw) continue;
+        if (!gw)
+          continue;
         try {
           const apiPath = rayApiPath(gw, "user");
           const r = await rayGet(gw, apiPath, session.token, origin);
@@ -72,7 +78,8 @@ export async function getAccountBalance(account) {
             balance: Number(json.result?.balance) || 0,
             currency: normalizeCurrency(json.result?.currency),
           };
-        } catch (err) {
+        }
+        catch (err) {
           lastErr = err;
         }
       }
@@ -85,12 +92,14 @@ export async function getAccountBalance(account) {
 
 function normalizeCurrency(code) {
   const c = String(code || "CNY").toUpperCase();
-  if (c === "USD" || c === "USDT") return "USDT";
+  if (c === "USD" || c === "USDT")
+    return "USDT";
   return "CNY";
 }
 
 export function accountToSession(account) {
-  if (!account?.gateway || !account?.token) return null;
+  if (!account?.gateway || !account?.token)
+    return null;
   return {
     gateway: account.gateway,
     token: account.token,
@@ -101,11 +110,14 @@ export function accountToSession(account) {
 }
 
 /**
- * �?platforms.json / 环境变量里已有同 provider 凭证，可给空 token 账号补全�? */
+ * �?platforms.json / 环境变量里已有同 provider 凭证，可给空 token 账号补全�?
+ */
 export function enrichAccountFromPlatformDefaults(account) {
-  if (!account?.provider) return account;
+  if (!account?.provider)
+    return account;
   const provider = String(account.provider).toUpperCase();
-  if (account.gateway && account.token) return account;
+  if (account.gateway && account.token)
+    return account;
 
   if (provider === "PB") {
     const session = tryPbSession();

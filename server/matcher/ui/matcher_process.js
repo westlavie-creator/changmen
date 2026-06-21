@@ -1,12 +1,12 @@
+import { execFile, spawn } from "node:child_process";
 import path from "node:path";
-import { spawn, execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import {
-  readMatcherHeartbeat,
+  clearMatcherHeartbeat,
   isMatcherRunning,
   isPidAlive,
-  clearMatcherHeartbeat,
+  readMatcherHeartbeat,
   sanitizeMatcherHeartbeat,
 } from "../lib/heartbeat.js";
 
@@ -19,7 +19,8 @@ const PM2_MATCHER_NAME = process.env.PM2_MATCHER_NAME || "gamebet-matcher";
 let managedChild = null;
 
 function isManagedChildAlive() {
-  if (!managedChild) return false;
+  if (!managedChild)
+    return false;
   if (managedChild.exitCode != null || managedChild.signalCode) {
     managedChild = null;
     return false;
@@ -29,20 +30,23 @@ function isManagedChildAlive() {
 
 function tailText(text, maxChars = 400) {
   const s = String(text || "").trim();
-  if (s.length <= maxChars) return s;
+  if (s.length <= maxChars)
+    return s;
   return s.slice(-maxChars);
 }
 
 function attachChildHandlers(child, { onStderr } = {}) {
-  child.stdout?.on("data", (buf) => process.stdout.write(`[matcher] ${buf}`));
+  child.stdout?.on("data", buf => process.stdout.write(`[matcher] ${buf}`));
   child.stderr?.on("data", (buf) => {
     const chunk = buf.toString();
-    if (onStderr) onStderr(chunk);
+    if (onStderr)
+      onStderr(chunk);
     process.stderr.write(`[matcher] ${buf}`);
   });
   child.on("exit", (code, signal) => {
     console.log(`[matcher] matcher exited code=${code ?? "null"} signal=${signal ?? "null"}`);
-    if (managedChild === child) managedChild = null;
+    if (managedChild === child)
+      managedChild = null;
   });
 }
 
@@ -59,7 +63,8 @@ function waitForMatcherReady(child) {
     const tick = () => {
       if (childExited(child)) {
         const hb = readMatcherHeartbeat();
-        if (hb?.pid === child.pid) clearMatcherHeartbeat();
+        if (hb?.pid === child.pid)
+          clearMatcherHeartbeat();
         resolve({
           ok: false,
           error: `匹配脚本已退出（code=${child.exitCode ?? "?"}）`,
@@ -78,7 +83,8 @@ function waitForMatcherReady(child) {
             pid: child.pid,
             warning: "脚本已启动，首次 rebuild 较慢，心跳稍后写入",
           });
-        } else {
+        }
+        else {
           resolve({ ok: false, error: "匹配脚本启动超时" });
         }
         return;
@@ -90,18 +96,24 @@ function waitForMatcherReady(child) {
 }
 
 async function killPid(pid) {
-  if (!pid || pid <= 0) return true;
+  if (!pid || pid <= 0)
+    return true;
   if (process.platform === "win32") {
     try {
       await execFileAsync("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true });
-    } catch {
+    }
+    catch {
       return !isPidAlive(pid);
     }
-  } else {
-    try { process.kill(pid, "SIGTERM"); } catch { /* already gone */ }
-    await new Promise((r) => setTimeout(r, 400));
-    if (!isPidAlive(pid)) return true;
-    try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ }
+  }
+  else {
+    try { process.kill(pid, "SIGTERM"); }
+    catch { /* already gone */ }
+    await new Promise(r => setTimeout(r, 400));
+    if (!isPidAlive(pid))
+      return true;
+    try { process.kill(pid, "SIGKILL"); }
+    catch { /* already gone */ }
   }
   return !isPidAlive(pid);
 }
@@ -114,11 +126,13 @@ async function readPm2MatcherOnlinePid() {
       timeout: 10_000,
     });
     const list = JSON.parse(stdout);
-    const app = (list || []).find((row) => row?.name === PM2_MATCHER_NAME);
-    if (app?.pm2_env?.status !== "online") return null;
+    const app = (list || []).find(row => row?.name === PM2_MATCHER_NAME);
+    if (app?.pm2_env?.status !== "online")
+      return null;
     const pid = Number(app.pid);
     return Number.isFinite(pid) && pid > 0 ? pid : null;
-  } catch {
+  }
+  catch {
     return null;
   }
 }
@@ -132,7 +146,8 @@ async function stopPm2Matcher() {
       return { ok: false, error: `PM2 停止 ${PM2_MATCHER_NAME} 失败（仍在运行 PID ${still}）` };
     }
     return { ok: true, source: "pm2" };
-  } catch (err) {
+  }
+  catch (err) {
     return { ok: false, error: `PM2 停止失败：${err.message}` };
   }
 }
@@ -171,7 +186,8 @@ export async function startMatcherProcess() {
   const result = await waitForMatcherReady(child);
   if (!result.ok) {
     managedChild = null;
-    if (!childExited(child)) await killPid(child.pid);
+    if (!childExited(child))
+      await killPid(child.pid);
     const detail = tailText(stderrTail);
     return {
       ok: false,

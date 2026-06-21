@@ -15,11 +15,16 @@ export function toDateKey(ts) {
 
 function mapStatus(raw) {
   const s = String(raw || "").toLowerCase();
-  if (s === "win") return "Win";
-  if (s === "lose") return "Lose";
-  if (s === "reject") return "Reject";
-  if (s === "return") return "Return";
-  if (s === "pending") return "Pending";
+  if (s === "win")
+    return "Win";
+  if (s === "lose")
+    return "Lose";
+  if (s === "reject")
+    return "Reject";
+  if (s === "return")
+    return "Return";
+  if (s === "pending")
+    return "Pending";
   return "None";
 }
 
@@ -30,7 +35,8 @@ function parseNum(v, fallback = 0) {
 
 function resolveStoredLink(link, _orderId, createAt) {
   const n = Number(link);
-  if (Number.isFinite(n) && n !== 0) return n;
+  if (Number.isFinite(n) && n !== 0)
+    return n;
   return placeholderLinkFromCreateAt(createAt);
 }
 
@@ -70,15 +76,17 @@ export async function listByPlayer(playerId, userId) {
 }
 
 export async function saveOrder(playerId, orders, userId, typeFallback = "") {
-  if (!userId || !Array.isArray(orders)) return false;
-  if (!orders.length) return true;
+  if (!userId || !Array.isArray(orders))
+    return false;
+  if (!orders.length)
+    return true;
   const defaultProvider = String(typeFallback || "").trim();
   const existing = await sb.fetchOrdersByPlayerAll(playerId, userId);
   const linkByOrderId = new Map(
-    existing.map((r) => [String(r.order_id), Number(r.link) || 0]),
+    existing.map(r => [String(r.order_id), Number(r.link) || 0]),
   );
   const existingByOrderId = new Map(
-    existing.map((r) => [String(r.order_id), r]),
+    existing.map(r => [String(r.order_id), r]),
   );
 
   const rows = orders.map((o) => {
@@ -88,8 +96,8 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
     const prevAt = Number(existingByOrderId.get(orderId)?.create_at) || 0;
     const createAt = parsed > 0 ? parsed : prevAt > 0 ? prevAt : Date.now();
     const boundLink = linkByOrderId.get(orderId);
-    const link =
-      boundLink != null && boundLink !== 0
+    const link
+      = boundLink != null && boundLink !== 0
         ? boundLink
         : backendBindLinkFromCreateAt(createAt);
     return {
@@ -127,16 +135,19 @@ export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
     sb.fetchProfiles(),
   ]);
   const nameById = new Map(
-    (profiles || []).map((p) => [String(p.id), String(p.user_name || "").trim()]),
+    (profiles || []).map(p => [String(p.id), String(p.user_name || "").trim()]),
   );
   const agg = new Map();
   for (const o of orders || []) {
     const uid = String(o.user_id || "");
-    if (!uid) continue;
-    if (!agg.has(uid)) agg.set(uid, { money: 0, count: 0, betMoney: 0 });
+    if (!uid)
+      continue;
+    if (!agg.has(uid))
+      agg.set(uid, { money: 0, count: 0, betMoney: 0 });
     const row = agg.get(uid);
     const status = String(o.status || "");
-    if (status === "Reject") continue;
+    if (status === "Reject")
+      continue;
     row.money += Number(o.money) || 0;
     row.betMoney += Number(o.bet_money) || 0;
     row.count += 1;
@@ -167,16 +178,19 @@ export function parseOrderBindRow(row) {
 }
 
 export async function saveOrderBind(orders, userId) {
-  if (!userId || !Array.isArray(orders)) return false;
+  if (!userId || !Array.isArray(orders))
+    return false;
   let ok = true;
   for (const raw of orders) {
     const { orderId, playerId, linkId, provider } = parseOrderBindRow(raw);
-    if (!orderId || !linkId) continue;
+    if (!orderId || !linkId)
+      continue;
     const updated = await sb.updateOrderBind(orderId, userId, linkId, {
       playerId,
       provider,
     });
-    if (!updated) ok = false;
+    if (!updated)
+      ok = false;
   }
   return ok;
 }

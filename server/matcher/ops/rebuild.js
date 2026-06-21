@@ -1,22 +1,22 @@
-import "../lib/env.js";
-import {
-  buildClientMatchList,
-  applyManualMatchLinks,
-  filterMultiPlatformClientMatches,
-  setTeamPlugin,
-  normalizeMatchesShape,
-  resolveClientMatchIds,
-  isClientMatchEnded,
-} from "@changmen/match-engine";
-import { formatOdds } from "@changmen/shared/odds_format.js";
 import * as db from "@changmen/db";
 import { CLIENT_MATCH_LIST_DEFAULT, CLIENT_MATCH_LIST_HIDDEN } from "@changmen/db";
-import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
-import { autoRegisterTeams } from "./auto_register_teams.js";
+import {
+  applyManualMatchLinks,
+  buildClientMatchList,
+  filterMultiPlatformClientMatches,
+  isClientMatchEnded,
+  normalizeMatchesShape,
+  resolveClientMatchIds,
+  setTeamPlugin,
+} from "@changmen/match-engine";
+import { formatOdds } from "@changmen/shared/odds_format.js";
 import {
   alignUnmatchedToClientMatches,
   buildExistingClientIdKeyIndex,
 } from "./align_unmatched_to_client.js";
+import { autoRegisterTeams } from "./auto_register_teams.js";
+import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
+import "../lib/env.js";
 
 /**
  * 单次 rebuild：供 matcher 与人工关联 API 共用。
@@ -47,13 +47,15 @@ function sourceFromBet(provider, b) {
 }
 
 async function ensureTeamPlugin() {
-  if (_pluginReady) return _pluginReady;
+  if (_pluginReady)
+    return _pluginReady;
   _pluginReady = (async () => {
     try {
       const { loadAndCreatePlugin } = await import("@changmen/team-resolver/team_db.js");
       const plugin = await loadAndCreatePlugin();
       setTeamPlugin(plugin);
-    } catch (err) {
+    }
+    catch (err) {
       console.warn("[rebuild] team-resolver 加载失败:", err.message);
     }
   })();
@@ -74,7 +76,8 @@ async function rebuildOnceImpl() {
   const teamReg = await autoRegisterTeams(matchesRaw);
   const nameSync = await db.syncCanonicalTeamNamesFromOb();
   const teamDataChanged = (teamReg?.registered > 0) || (nameSync?.updated > 0);
-  if (teamDataChanged) resetTeamPluginCache();
+  if (teamDataChanged)
+    resetTeamPluginCache();
   await ensureTeamPlugin();
 
   const matches = normalizeMatchesShape(matchesRaw);
@@ -97,7 +100,7 @@ async function rebuildOnceImpl() {
     const { script } = db.getDbMode();
     throw new Error(
       `无法 rebuild：数据库未配置（GAMEBET_DB_SCRIPT=${script}）。`
-        + " 请配置 DATABASE_URL（或 DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL）。",
+      + " 请配置 DATABASE_URL（或 DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL）。",
     );
   }
   const adapter = db.getClientMatchIdAdapter();
@@ -107,7 +110,7 @@ async function rebuildOnceImpl() {
 
   const now = Date.now();
   await db.writeClientMatchesAsync(
-    info.map((m) => ({
+    info.map(m => ({
       id: Number(m.ID),
       merge_key: m.MergeKey ? String(m.MergeKey) : null,
       title: String(m.Title || ""),
@@ -124,7 +127,7 @@ async function rebuildOnceImpl() {
       list_status: isClientMatchEnded(m, matches, timers, now)
         ? CLIENT_MATCH_LIST_HIDDEN
         : CLIENT_MATCH_LIST_DEFAULT,
-    }))
+    })),
   );
 
   const matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(info);
@@ -134,11 +137,12 @@ async function rebuildOnceImpl() {
 
 /** 进程内互斥：matcher 循环与 UI 人工 rebuild 共用同一 in-flight Promise */
 async function rebuildOnce() {
-  if (_rebuildInFlight) return _rebuildInFlight;
+  if (_rebuildInFlight)
+    return _rebuildInFlight;
   _rebuildInFlight = rebuildOnceImpl().finally(() => {
     _rebuildInFlight = null;
   });
   return _rebuildInFlight;
 }
 
-export { rebuildOnce, ensureTeamPlugin, resetTeamPluginCache, invalidateTeamPlugin };
+export { ensureTeamPlugin, invalidateTeamPlugin, rebuildOnce, resetTeamPluginCache };

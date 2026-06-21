@@ -20,8 +20,8 @@ const ASSETS_DIR = ESPORT2_ASSETS_DIR;
 const A8_CSS_URL = "https://api.a8.to/esport2/assets/index.css";
 const A8_BASE = "https://api.a8.to/esport2/assets/";
 /** A8 CDN 已下线；与 a8-am-icon.css 注释一致，使用 FA 4.7 官方字体 */
-const FONTAWESOME_WOFF2 =
-  "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/fonts/fontawesome-webfont.woff2";
+const FONTAWESOME_WOFF2
+  = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/fonts/fontawesome-webfont.woff2";
 
 const dryRun = process.argv.includes("--dry-run");
 
@@ -29,19 +29,25 @@ function collectUrlsFromCss(css, prefix = "/esport2/assets/") {
   const names = new Set();
   for (const m of css.matchAll(/url\(([^)]+)\)/g)) {
     let u = m[1].replace(/^['"]|['"]$/g, "").trim();
-    if (u.startsWith("data:")) continue;
-    if (u.startsWith("./")) u = u.slice(2);
-    if (u.startsWith(prefix)) u = u.slice(prefix.length);
-    if (/^[A-Za-z0-9_./-]+$/.test(u)) names.add(u);
+    if (u.startsWith("data:"))
+      continue;
+    if (u.startsWith("./"))
+      u = u.slice(2);
+    if (u.startsWith(prefix))
+      u = u.slice(prefix.length);
+    if (/^[\w./-]+$/.test(u))
+      names.add(u);
   }
   return names;
 }
 
 function listAssetNames(dir) {
   const names = new Set();
-  if (!fs.existsSync(dir)) return names;
+  if (!fs.existsSync(dir))
+    return names;
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (ent.isFile()) names.add(ent.name);
+    if (ent.isFile())
+      names.add(ent.name);
   }
   return names;
 }
@@ -61,13 +67,15 @@ function mergeLocalRefs() {
 
 async function fetchText(url) {
   const res = await fetch(url, { redirect: "follow" });
-  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+  if (!res.ok)
+    throw new Error(`${url} → HTTP ${res.status}`);
   return res.text();
 }
 
 async function fetchBinary(url) {
   const res = await fetch(url, { redirect: "follow" });
-  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+  if (!res.ok)
+    throw new Error(`${url} → HTTP ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
 }
 
@@ -81,7 +89,7 @@ async function main() {
   const all = new Set([...fromA8, ...fromLocal, "version.json"]);
 
   const existing = listAssetNames(ASSETS_DIR);
-  const todo = [...all].filter((n) => n !== "index.css" && !existing.has(n)).sort();
+  const todo = [...all].filter(n => n !== "index.css" && !existing.has(n)).sort();
 
   console.log(`[sync-a8-esport2] A8 CSS 引用 ${fromA8.size} 个，本地 CSS 补充后共 ${all.size} 个`);
   console.log(`[sync-a8-esport2] 磁盘已有 ${existing.size} 个，待下载 ${todo.length} 个`);
@@ -98,7 +106,8 @@ async function main() {
     const rootVersion = await fetchBinary("https://api.a8.to/esport2/version.json");
     fs.writeFileSync(ESPORT2_VERSION_FILE, rootVersion);
     console.log("[sync-a8-esport2] 已写入 public/version.json");
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[sync-a8-esport2] public/version.json 跳过:", err.message);
   }
 
@@ -114,14 +123,16 @@ async function main() {
       const src = name === "fontawesome-webfont.woff2" ? "cdnjs FA4.7" : "A8 CDN";
       console.log(`  OK ${name} (${data.length} bytes, ${src})`);
       ok++;
-    } catch (err) {
+    }
+    catch (err) {
       console.error(`  FAIL ${name}: ${err.message}`);
       fail++;
     }
   }
 
   console.log(`[sync-a8-esport2] 完成：成功 ${ok}，失败 ${fail}`);
-  if (fail > 0) process.exitCode = 1;
+  if (fail > 0)
+    process.exitCode = 1;
 }
 
 main().catch((err) => {

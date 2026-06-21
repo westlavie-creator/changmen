@@ -2,7 +2,8 @@ import * as sb from "@changmen/db";
 
 export function readPreferences(row) {
   const prefs = row?.preferences;
-  if (prefs && typeof prefs === "object" && !Array.isArray(prefs)) return prefs;
+  if (prefs && typeof prefs === "object" && !Array.isArray(prefs))
+    return prefs;
   return {};
 }
 
@@ -15,9 +16,12 @@ export const PROFILE_META_PREFERENCE_KEYS = new Set([
 
 export function normalizeClientIp(raw) {
   const ip = String(raw || "").trim();
-  if (!ip) return "";
-  if (ip === "::1") return "127.0.0.1";
-  if (ip.startsWith("::ffff:")) return ip.slice(7);
+  if (!ip)
+    return "";
+  if (ip === "::1")
+    return "127.0.0.1";
+  if (ip.startsWith("::ffff:"))
+    return ip.slice(7);
   return ip;
 }
 
@@ -34,7 +38,8 @@ async function persistProfilePreferences(uid, preferences) {
   const now = Date.now();
   await sb.ensurePgPoolReady();
   const pool = sb.getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   const { rowCount } = await pool.query(
     `UPDATE profiles SET preferences = $2::jsonb, updated_at = $3 WHERE id = $1`,
     [id, JSON.stringify(preferences || {}), now],
@@ -46,9 +51,11 @@ async function persistProfilePreferences(uid, preferences) {
 export async function recordUserLastLogin(userId, clientIp) {
   const uid = String(userId || "").trim();
   const ip = normalizeClientIp(clientIp);
-  if (!uid || !ip) return false;
+  if (!uid || !ip)
+    return false;
   const row = await sb.fetchProfileById(uid);
-  if (!row) return false;
+  if (!row)
+    return false;
   const prefs = {
     ...readPreferences(row),
     lastLoginIp: ip,

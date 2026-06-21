@@ -27,7 +27,8 @@ export async function handleCommonApi(req, res, url) {
     if (req.method === "POST") {
       try {
         await readBody(req);
-      } catch {
+      }
+      catch {
         /* body optional */
       }
       if (key.startsWith("HG:")) {

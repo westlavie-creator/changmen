@@ -15,15 +15,18 @@ const ALL_SOURCES_GONE_MS = 3 * 60 * 1000;
 function findPlatformMatch(matches, provider, sourceMatchId) {
   const sid = String(sourceMatchId);
   const byId = matches?.[provider];
-  if (!byId) return null;
-  if (byId[sid]) return byId[sid];
-  return Object.values(byId).find((m) => String(m.SourceMatchID) === sid) || null;
+  if (!byId)
+    return null;
+  if (byId[sid])
+    return byId[sid];
+  return Object.values(byId).find(m => String(m.SourceMatchID) === sid) || null;
 }
 
 function isInLiveTimer(matchs, timersByProvider) {
   for (const [provider, sourceId] of Object.entries(matchs || {})) {
     const hit = liveRound(timersByProvider, provider, sourceId);
-    if (hit.round > 0) return true;
+    if (hit.round > 0)
+      return true;
   }
   return false;
 }
@@ -39,9 +42,11 @@ function pickCanonicalIsLive(matchs, platformMatches) {
     .sort((a, b) => b.pri - a.pri);
   for (const { provider, sourceId } of linked) {
     const pm = findPlatformMatch(platformMatches, provider, sourceId);
-    if (!pm) continue;
+    if (!pm)
+      continue;
     const raw = pm.IsLive ?? pm.is_live;
-    if (raw != null && raw !== "") return Number(raw);
+    if (raw != null && raw !== "")
+      return Number(raw);
   }
   return null;
 }
@@ -49,19 +54,22 @@ function pickCanonicalIsLive(matchs, platformMatches) {
 /** 地图盘（Map>0）均有源且全部 Locked；若有 Map=0 全场盘且任一侧 Normal，视为未结束 */
 function allMapBetsClosed(bets) {
   const list = bets || [];
-  const full = list.find((b) => (b.Map ?? 0) === 0);
+  const full = list.find(b => (b.Map ?? 0) === 0);
   if (full) {
     const fullSources = Object.values(full.Sources || {});
-    if (fullSources.length && fullSources.some((s) => String(s?.Status || "Normal") === "Normal")) {
+    if (fullSources.length && fullSources.some(s => String(s?.Status || "Normal") === "Normal")) {
       return false;
     }
   }
-  const mapBets = list.filter((b) => (b.Map ?? 0) > 0);
-  if (!mapBets.length) return false;
+  const mapBets = list.filter(b => (b.Map ?? 0) > 0);
+  if (!mapBets.length)
+    return false;
   for (const bet of mapBets) {
     const sources = Object.values(bet.Sources || {});
-    if (!sources.length) return false;
-    if (sources.some((s) => String(s?.Status || "Normal") === "Normal")) return false;
+    if (!sources.length)
+      return false;
+    if (sources.some(s => String(s?.Status || "Normal") === "Normal"))
+      return false;
   }
   return true;
 }
@@ -74,9 +82,11 @@ function matchHasObLink(matchs) {
 /** 所有平台来源都已从 platform_matches 消失（saveMatch 不再上报） */
 function allPlatformSourcesGone(matchs, platformMatches) {
   const providers = Object.entries(matchs || {});
-  if (!providers.length) return true;
+  if (!providers.length)
+    return true;
   for (const [provider, sourceId] of providers) {
-    if (findPlatformMatch(platformMatches, provider, sourceId)) return false;
+    if (findPlatformMatch(platformMatches, provider, sourceId))
+      return false;
   }
   return true;
 }
@@ -95,33 +105,39 @@ function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.n
   // 比赛），也判定为结束。saveMatch 是整批快照替换，不在最新批次里 = 该平台认为比赛
   // 已结束。等待 3 分钟（最长采集间隔 60s × 3）确保不是采集临时中断。
   if (startMs > 0 && startMs <= now - ALL_SOURCES_GONE_MS
-      && allPlatformSourcesGone(row?.Matchs, platformMatches)) {
+    && allPlatformSourcesGone(row?.Matchs, platformMatches)) {
     return true;
   }
 
-  if (Number(row?.Round) > 0) return false;
-  if (isInLiveTimer(row?.Matchs, timersByProvider)) return false;
+  if (Number(row?.Round) > 0)
+    return false;
+  if (isInLiveTimer(row?.Matchs, timersByProvider))
+    return false;
 
-  if (startMs > now) return false;
+  if (startMs > now)
+    return false;
 
   const hasOb = matchHasObLink(row?.Matchs);
   const isLive = hasOb ? pickCanonicalIsLive(row?.Matchs, platformMatches) : null;
   const closed = allMapBetsClosed(row?.Bets);
 
-  if (hasOb && isLive === 2) return false;
+  if (hasOb && isLive === 2)
+    return false;
 
-  if (startMs <= now && closed) return true;
+  if (startMs <= now && closed)
+    return true;
 
-  if (hasOb && isLive == null && startMs <= now - PAST_START_FALLBACK_MS) return true;
+  if (hasOb && isLive == null && startMs <= now - PAST_START_FALLBACK_MS)
+    return true;
 
   return false;
 }
 
 export {
-  isClientMatchEnded,
-  pickCanonicalIsLive,
+  ALL_SOURCES_GONE_MS,
   allMapBetsClosed,
   allPlatformSourcesGone,
+  isClientMatchEnded,
   isInLiveTimer,
-  ALL_SOURCES_GONE_MS,
+  pickCanonicalIsLive,
 };

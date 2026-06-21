@@ -14,7 +14,8 @@ export function stableId(seed) {
 export function stableBetId(clientMatchId, map = 0) {
   const m = Math.floor(Number(clientMatchId)) || 0;
   const p = Math.floor(Number(map)) || 0;
-  if (m <= 0) return stableId(`bet:unassigned:${p}`);
+  if (m <= 0)
+    return stableId(`bet:unassigned:${p}`);
   if (p < 0 || p >= BET_MAP_SLOT) {
     throw new Error(`bet Map 超出范围 0..${BET_MAP_SLOT - 1}: ${p}`);
   }
@@ -30,7 +31,8 @@ export function stablePendingBetId(mergeKey, map = 0) {
 export function formatTitle(home, away) {
   const h = String(home || "").trim();
   const a = String(away || "").trim();
-  if (h && a) return `${h} vs ${a}`;
+  if (h && a)
+    return `${h} vs ${a}`;
   return h || a || "Unknown";
 }
 
@@ -46,10 +48,13 @@ export function isPlaceholderTeamName(name) {
 /** `Title` 形如「主队 vs 客队」→ { home, away } */
 export function parseTitleTeams(title) {
   const t = String(title || "").trim();
-  if (!t.includes(" vs ")) return null;
-  const parts = t.split(" vs ").map((s) => s.trim());
-  if (parts.length < 2) return null;
+  if (!t.includes(" vs "))
+    return null;
+  const parts = t.split(" vs ").map(s => s.trim());
+  if (parts.length < 2)
+    return null;
   const [home, away] = parts;
-  if (isPlaceholderTeamName(home) || isPlaceholderTeamName(away)) return null;
+  if (isPlaceholderTeamName(home) || isPlaceholderTeamName(away))
+    return null;
   return { home, away };
 }

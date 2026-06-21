@@ -2,33 +2,41 @@
  * 通用赔率过滤 + 构建（OB / RAY / IM 等各平台）。
  */
 
-import { stableBetId, stableId, betKey, isPlaceholderTeamName } from "../teams/match_utils.js";
 import {
-  obSavedBetIsMatchWinner,
-  obLegacyWinBetName,
-  matchesSavedBet,
-  rayLegacyWinBetName,
   iaLegacyWinBetName,
+  matchesSavedBet,
+  obLegacyWinBetName,
+  obSavedBetIsMatchWinner,
+  rayLegacyWinBetName,
 } from "@changmen/shared/catalog/market_catalog.mjs";
-import { pickStr, imBetNameIsCollectible, normalizeImBet } from "@changmen/shared/im_parse.mjs";
-import { filterImStoredWinBets, dedupeImBetsByMap } from "./im_enrich.js";
+import { imBetNameIsCollectible, normalizeImBet, pickStr } from "@changmen/shared/im_parse.mjs";
+import { betKey, isPlaceholderTeamName, stableBetId, stableId } from "../teams/match_utils.js";
+import { dedupeImBetsByMap, filterImStoredWinBets } from "./im_enrich.js";
 
-const OB_WIN_BET_RE =
-  /(\[全场\].+获胜)|(\[地图\d+\].+获胜)|(.+全局.+获胜)|(.+单局.+获胜)/;
+const OB_WIN_BET_RE
+  = /(\[全场\].+获胜)|(\[地图\d+\].+获胜)|(.+全局.+获胜)|(.+单局.+获胜)/;
 function winBetPriority(bet, provider, gameCode) {
   const name = String(bet?.BetName ?? bet?.Name ?? "");
-  if (name.includes("+")) return 0;
-  if (provider === "OB" && gameCode && obSavedBetIsMatchWinner(bet, gameCode)) return 200;
+  if (name.includes("+"))
+    return 0;
+  if (provider === "OB" && gameCode && obSavedBetIsMatchWinner(bet, gameCode))
+    return 200;
   if (provider === "OB" && obLegacyWinBetName(name)) {
     let p = 150;
-    if (name.includes("单局")) p += 10;
-    if (name.includes("全局")) p += 5;
+    if (name.includes("单局"))
+      p += 10;
+    if (name.includes("全局"))
+      p += 5;
     return p;
   }
-  if (provider === "RAY" && rayLegacyWinBetName(name)) return 100;
-  if (provider === "IA" && iaLegacyWinBetName(name)) return 100;
-  if (provider === "OB" && OB_WIN_BET_RE.test(name)) return 100;
-  if (bet?.OddTypeID || bet?.odd_type_id) return 90;
+  if (provider === "RAY" && rayLegacyWinBetName(name))
+    return 100;
+  if (provider === "IA" && iaLegacyWinBetName(name))
+    return 100;
+  if (provider === "OB" && OB_WIN_BET_RE.test(name))
+    return 100;
+  if (bet?.OddTypeID || bet?.odd_type_id)
+    return 90;
   return 0;
 }
 
@@ -48,17 +56,24 @@ function filterStoredWinBets(bets, provider, gameCode) {
   return (bets || []).filter((bet) => {
     if (provider === "OB") {
       const name = String(bet?.BetName ?? "");
-      if (name.includes("+")) return false;
-      if (gameCode && obSavedBetIsMatchWinner(bet, gameCode)) return true;
-      if (gameCode && obLegacyWinBetName(name)) return true;
-      if (!gameCode) return OB_WIN_BET_RE.test(name);
+      if (name.includes("+"))
+        return false;
+      if (gameCode && obSavedBetIsMatchWinner(bet, gameCode))
+        return true;
+      if (gameCode && obLegacyWinBetName(name))
+        return true;
+      if (!gameCode)
+        return OB_WIN_BET_RE.test(name);
       return false;
     }
-    if (provider === "RAY") return matchesSavedBet("RAY", bet, { gameCode });
-    if (provider === "IA") return matchesSavedBet("IA", bet, { gameCode });
+    if (provider === "RAY")
+      return matchesSavedBet("RAY", bet, { gameCode });
+    if (provider === "IA")
+      return matchesSavedBet("IA", bet, { gameCode });
     if (provider === "IM") {
       const name = pickStr(bet, "BetName", "Name", "name", "betName");
-      if (name && !imBetNameIsCollectible(name)) return false;
+      if (name && !imBetNameIsCollectible(name))
+        return false;
       return matchesSavedBet("IM", bet, { gameCode });
     }
     return true;
@@ -69,8 +84,8 @@ function buildBetRow(provider, sourceMatchId, clientMatchId, bet, sourceFromBet,
   const row = provider === "IM" ? normalizeImBet(bet) : bet;
   const map = row.Map ?? 0;
   const rowSeed = `${provider}:${sourceMatchId}:${map}`;
-  const betRowId =
-    Number(clientMatchId) > 0
+  const betRowId
+    = Number(clientMatchId) > 0
       ? stableBetId(clientMatchId, map)
       : stableId(`bet:${rowSeed}`);
   const homeId = stableId(`home:${rowSeed}`);
@@ -78,8 +93,10 @@ function buildBetRow(provider, sourceMatchId, clientMatchId, bet, sourceFromBet,
   const matchHome = matchTeams?.home || "";
   const matchAway = matchTeams?.away || "";
   const pickTeamName = (betName, fromMatch) => {
-    if (fromMatch && !isPlaceholderTeamName(fromMatch)) return fromMatch;
-    if (betName && !isPlaceholderTeamName(betName)) return betName;
+    if (fromMatch && !isPlaceholderTeamName(fromMatch))
+      return fromMatch;
+    if (betName && !isPlaceholderTeamName(betName))
+      return betName;
     return fromMatch || betName || "";
   };
   return {
@@ -98,11 +115,12 @@ function buildBetRow(provider, sourceMatchId, clientMatchId, bet, sourceFromBet,
 
 function buildBetsForMatch(provider, sourceMatchId, clientMatchId, bets, sourceFromBet, gameCode, matchTeams) {
   const stored = bets[betKey(provider, sourceMatchId)];
-  if (!stored?.bets?.length) return [];
+  if (!stored?.bets?.length)
+    return [];
   const winBets = provider === "IM"
     ? dedupeImBetsByMap(filterImStoredWinBets(stored.bets))
     : dedupeWinBetsByMap(filterStoredWinBets(stored.bets, provider, gameCode), provider, gameCode);
-  return winBets.map((b) => buildBetRow(provider, sourceMatchId, clientMatchId, b, sourceFromBet, matchTeams));
+  return winBets.map(b => buildBetRow(provider, sourceMatchId, clientMatchId, b, sourceFromBet, matchTeams));
 }
 
 export { buildBetsForMatch };

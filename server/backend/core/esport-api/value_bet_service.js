@@ -1,4 +1,4 @@
-import { getPgPool, fetchClientMatches } from "@changmen/db";
+import { fetchClientMatches, getPgPool } from "@changmen/db";
 
 const SHARP = process.env.VB_SHARP_PLATFORM || "PB";
 const SOFT = (process.env.VB_SOFT_PLATFORMS || "OB,IM,RAY,TF,IA,SABA,IMT,HG").split(",").map(s => s.trim()).filter(Boolean);
@@ -8,47 +8,57 @@ const MIN_ODDS = Number(process.env.VB_MIN_ODDS || 1.40);
 const MAX_ODDS = Number(process.env.VB_MAX_ODDS || 5.00);
 
 function removVig(h, a) {
-  if (!h || !a || h <= 1 || a <= 1) return null;
-  const ih = 1 / h, ia = 1 / a, or = ih + ia;
-  if (or <= 1) return null;
+  if (!h || !a || h <= 1 || a <= 1)
+    return null;
+  const ih = 1 / h; const ia = 1 / a; const or = ih + ia;
+  if (or <= 1)
+    return null;
   return { fairHome: 1 / (ih / or), fairAway: 1 / (ia / or), overround: or };
 }
 
 function buildDiagnostics() {
   const matches = _cachedMatches;
-  if (!matches || !matches.length) return { matchCount: 0, totalBets: 0, betsWithSharp: 0, sharpPct: 0, platformCoverage: [], edgeDist: {}, topEdges: [], config: getConfig() };
+  if (!matches || !matches.length)
+    return { matchCount: 0, totalBets: 0, betsWithSharp: 0, sharpPct: 0, platformCoverage: [], edgeDist: {}, topEdges: [], config: getConfig() };
 
-  let totalBets = 0, betsWithSharp = 0;
+  let totalBets = 0; let betsWithSharp = 0;
   const platCount = {};
   const edgeDist = { "neg": 0, "0-1": 0, "1-2": 0, "2-3": 0, "3-5": 0, "5-10": 0, "10+": 0 };
   const allEdges = [];
 
   for (const match of matches) {
     const bets = match.bets;
-    if (!bets) continue;
+    if (!bets)
+      continue;
     const betRows = Array.isArray(bets) ? bets : bets.Bets || bets.bets || [];
     for (const bet of betRows) {
       const sources = bet.Sources || bet.sources;
-      if (!sources) continue;
+      if (!sources)
+        continue;
       totalBets++;
       for (const p of Object.keys(sources)) platCount[p] = (platCount[p] || 0) + 1;
       const sharp = sources[SHARP];
-      if (!sharp) continue;
+      if (!sharp)
+        continue;
       betsWithSharp++;
       const fair = removVig(sharp.HomeOdds, sharp.AwayOdds);
-      if (!fair) continue;
+      if (!fair)
+        continue;
       for (const p of SOFT) {
         const src = sources[p];
-        if (!src || src.Status === "Locked") continue;
+        if (!src || src.Status === "Locked")
+          continue;
         for (const side of ["Home", "Away"]) {
           const so = side === "Home" ? src.HomeOdds : src.AwayOdds;
           const fo = side === "Home" ? fair.fairHome : fair.fairAway;
-          if (!so || so <= 1) continue;
+          if (!so || so <= 1)
+            continue;
           const edge = so / fo - 1;
           const r = Math.round;
           allEdges.push({
             edge: r(edge * 100000) / 100000,
-            platform: p, side,
+            platform: p,
+            side,
             softOdds: r(so * 1000) / 1000,
             fairOdds: r(fo * 1000) / 1000,
             sharpHome: sharp.HomeOdds,
@@ -58,12 +68,18 @@ function buildDiagnostics() {
             betName: bet.Name || bet.name || "",
             map: bet.Map ?? bet.map ?? 0,
           });
-          if (edge < 0) edgeDist["neg"]++;
-          else if (edge < 0.01) edgeDist["0-1"]++;
-          else if (edge < 0.02) edgeDist["1-2"]++;
-          else if (edge < 0.03) edgeDist["2-3"]++;
-          else if (edge < 0.05) edgeDist["3-5"]++;
-          else if (edge < 0.10) edgeDist["5-10"]++;
+          if (edge < 0)
+            edgeDist.neg++;
+          else if (edge < 0.01)
+            edgeDist["0-1"]++;
+          else if (edge < 0.02)
+            edgeDist["1-2"]++;
+          else if (edge < 0.03)
+            edgeDist["2-3"]++;
+          else if (edge < 0.05)
+            edgeDist["3-5"]++;
+          else if (edge < 0.10)
+            edgeDist["5-10"]++;
           else edgeDist["10+"]++;
         }
       }
@@ -97,7 +113,8 @@ const CACHE_TTL = 8000;
 
 async function refreshMatchCache() {
   const now = Date.now();
-  if (_cachedMatches && now - _cacheAt < CACHE_TTL) return;
+  if (_cachedMatches && now - _cacheAt < CACHE_TTL)
+    return;
   _cachedMatches = await fetchClientMatches() || [];
   _cacheAt = now;
 }
@@ -108,7 +125,7 @@ export async function getValueBetDashboard() {
   await refreshMatchCache();
   const diagnostics = buildDiagnostics();
 
-  let signals = [], stats = [], platformDist = [];
+  let signals = []; let stats = []; let platformDist = [];
   let dbAvailable = false;
 
   if (pool) {
@@ -122,8 +139,10 @@ export async function getValueBetDashboard() {
       stats = statsRes.rows;
       platformDist = distRes.rows;
       dbAvailable = true;
-    } catch (err) {
-      if (err.code !== "42P01") throw err;
+    }
+    catch (err) {
+      if (err.code !== "42P01")
+        throw err;
     }
   }
 

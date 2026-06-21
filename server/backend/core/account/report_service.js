@@ -51,10 +51,12 @@ export async function getMonthReport(month, userId, userIds) {
 
   const orders = await sb.fetchOrdersForMonthAggregate(m, uid || undefined, userIds);
   for (const o of orders || []) {
-    if (String(o.status || "") === "Reject") continue;
+    if (String(o.status || "") === "Reject")
+      continue;
     const key = toDateKey(o.create_at);
     const row = byDate.get(key);
-    if (!row) continue;
+    if (!row)
+      continue;
     row.Profit += Number(o.money) || 0;
     row.BetMoney += Number(o.bet_money) || 0;
     row.OrderCount += 1;
@@ -64,12 +66,16 @@ export async function getMonthReport(month, userId, userIds) {
   for (const log of moneyLogs || []) {
     const key = toDateKey(log.create_at);
     const row = byDate.get(key);
-    if (!row) continue;
+    if (!row)
+      continue;
     const money = Number(log.money) || 0;
     const type = String(log.type || "");
-    if (type === "Recharge") row.Deposit += money;
-    else if (type === "Withdraw") row.Withdraw += money;
-    else if (type === "Lose") row.Hacked += money;
+    if (type === "Recharge")
+      row.Deposit += money;
+    else if (type === "Withdraw")
+      row.Withdraw += money;
+    else if (type === "Lose")
+      row.Hacked += money;
   }
 
   const list = [];

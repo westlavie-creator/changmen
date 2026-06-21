@@ -10,7 +10,8 @@ export const MERGE_START_TIME_TOLERANCE_MS = 30 * 60 * 1000;
 export function startTimesCompatible(aMs, bMs) {
   const a = normalizeEpochMs(aMs);
   const b = normalizeEpochMs(bMs);
-  if (!a || !b) return true;
+  if (!a || !b)
+    return true;
   return Math.abs(a - b) <= MERGE_START_TIME_TOLERANCE_MS;
 }
 
@@ -18,6 +19,7 @@ export function startTimesCompatible(aMs, bMs) {
 export function startTimesCompatibleStrict(aMs, bMs) {
   const a = normalizeEpochMs(aMs);
   const b = normalizeEpochMs(bMs);
-  if (!a || !b) return false;
+  if (!a || !b)
+    return false;
   return Math.abs(a - b) <= MERGE_START_TIME_TOLERANCE_MS;
 }

@@ -2,8 +2,8 @@
  * client_matches 表 — matcher rebuild 写入与 backend 读取。
  */
 
-import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "../client_match_list_status.js";
-import { getPgPool, _writeRds, _jsonb } from "./common.js";
+import { CLIENT_MATCH_LIST_DEFAULT, CLIENT_MATCH_LIST_HIDDEN } from "../client_match_list_status.js";
+import { _jsonb, _writeRds, getPgPool } from "./common.js";
 
 /** 上次写入的 id 集合，用于 diff-based 删除，避免每次 rebuild 全表扫描 */
 let _lastWrittenIds = new Set();
@@ -39,20 +39,20 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
     await client.query("BEGIN");
     if (dedupedRows.length) {
       await client.query(sql, [
-        dedupedRows.map((r) => Number(r.id)),
-        dedupedRows.map((r) => (r.merge_key != null ? String(r.merge_key) : null)),
-        dedupedRows.map((r) => String(r.title || "")),
-        dedupedRows.map((r) => (r.game != null ? String(r.game) : null)),
-        dedupedRows.map((r) => (r.game_id != null ? String(r.game_id) : null)),
-        dedupedRows.map((r) => (r.start_time != null ? Number(r.start_time) : null)),
-        dedupedRows.map((r) => (r.bo != null ? Number(r.bo) : null)),
-        dedupedRows.map((r) => (r.round != null ? Number(r.round) : null)),
-        dedupedRows.map((r) => Number(r.round_start) || 0),
-        dedupedRows.map((r) => _jsonb(r.matchs, {})),
-        dedupedRows.map((r) => _jsonb(r.bets, [])),
-        dedupedRows.map((r) => _jsonb(r.reverse, [])),
-        dedupedRows.map((r) => Number(r.built_at)),
-        dedupedRows.map((r) => Number(r.list_status ?? CLIENT_MATCH_LIST_DEFAULT)),
+        dedupedRows.map(r => Number(r.id)),
+        dedupedRows.map(r => (r.merge_key != null ? String(r.merge_key) : null)),
+        dedupedRows.map(r => String(r.title || "")),
+        dedupedRows.map(r => (r.game != null ? String(r.game) : null)),
+        dedupedRows.map(r => (r.game_id != null ? String(r.game_id) : null)),
+        dedupedRows.map(r => (r.start_time != null ? Number(r.start_time) : null)),
+        dedupedRows.map(r => (r.bo != null ? Number(r.bo) : null)),
+        dedupedRows.map(r => (r.round != null ? Number(r.round) : null)),
+        dedupedRows.map(r => Number(r.round_start) || 0),
+        dedupedRows.map(r => _jsonb(r.matchs, {})),
+        dedupedRows.map(r => _jsonb(r.bets, [])),
+        dedupedRows.map(r => _jsonb(r.reverse, [])),
+        dedupedRows.map(r => Number(r.built_at)),
+        dedupedRows.map(r => Number(r.list_status ?? CLIENT_MATCH_LIST_DEFAULT)),
       ]);
     }
     if (toDelete.length) {
@@ -62,10 +62,12 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
       );
     }
     await client.query("COMMIT");
-  } catch (err) {
+  }
+  catch (err) {
     await client.query("ROLLBACK");
     throw err;
-  } finally {
+  }
+  finally {
     client.release();
   }
 }
@@ -93,17 +95,18 @@ async function _rdsFetchClientMatchesMeta(pool) {
 
 async function _rdsInitLastWrittenIds(pool) {
   const { rows } = await pool.query("SELECT id FROM client_matches");
-  _lastWrittenIds = new Set(rows.map((r) => Number(r.id)));
+  _lastWrittenIds = new Set(rows.map(r => Number(r.id)));
   console.log(`[rds] 已从 client_matches 加载 ${_lastWrittenIds.size} 条 id`);
 }
 
 function _prepareClientMatchWrite(rows) {
-  if (!Array.isArray(rows)) return null;
+  if (!Array.isArray(rows))
+    return null;
   const seen = new Map();
   for (const row of rows) seen.set(Number(row.id), row);
   const dedupedRows = [...seen.values()];
-  const activeIds = new Set(dedupedRows.map((r) => Number(r.id)));
-  const toDelete = [..._lastWrittenIds].filter((id) => !activeIds.has(id));
+  const activeIds = new Set(dedupedRows.map(r => Number(r.id)));
+  const toDelete = [..._lastWrittenIds].filter(id => !activeIds.has(id));
   _lastWrittenIds = activeIds;
   return { dedupedRows, toDelete };
 }
@@ -111,15 +114,17 @@ function _prepareClientMatchWrite(rows) {
 /** fire-and-forget：upsert 客户端比赛列表，只删离开活跃列表的行 */
 export function writeClientMatches(rows) {
   const prepared = _prepareClientMatchWrite(rows);
-  if (!prepared) return;
+  if (!prepared)
+    return;
   const { dedupedRows, toDelete } = prepared;
-  _writeRds((pool) => _rdsUpsertClientMatches(pool, dedupedRows, toDelete), "client_matches");
+  _writeRds(pool => _rdsUpsertClientMatches(pool, dedupedRows, toDelete), "client_matches");
 }
 
 /** await 写入完成（matcher / rebuild 使用，避免前端读到上一版） */
 export async function writeClientMatchesAsync(rows) {
   const prepared = _prepareClientMatchWrite(rows);
-  if (!prepared) return;
+  if (!prepared)
+    return;
   const { dedupedRows, toDelete } = prepared;
   const pool = getPgPool();
   if (!pool) {
@@ -132,10 +137,12 @@ export async function writeClientMatchesAsync(rows) {
 /** 启动时预填 _lastWrittenIds，使差量删除能覆盖上次遗留行 */
 export async function initLastWrittenIds() {
   const pool = getPgPool();
-  if (!pool) return;
+  if (!pool)
+    return;
   try {
     await _rdsInitLastWrittenIds(pool);
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] initLastWrittenIds 失败:", err.message);
   }
 }
@@ -146,10 +153,12 @@ export async function initLastWrittenIds() {
  */
 export async function fetchClientMatchesMeta() {
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   try {
     return await _rdsFetchClientMatchesMeta(pool);
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchClientMatchesMeta 失败:", err.message);
     return null;
   }
@@ -161,10 +170,12 @@ export async function fetchClientMatchesMeta() {
  */
 export async function fetchClientMatches() {
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   try {
     return await _rdsFetchClientMatches(pool);
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchClientMatches 失败:", err.message);
     return null;
   }
@@ -183,10 +194,12 @@ async function _rdsFetchClientMatchesForAlign(pool) {
 
 export async function fetchClientMatchesForAlign() {
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   try {
     return await _rdsFetchClientMatchesForAlign(pool);
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchClientMatchesForAlign 失败:", err.message);
     return null;
   }

@@ -1,4 +1,14 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  formatAdminOrderTelegramBody,
+  isExternalLink,
+  linkTypeLabel,
+  notifyNewOrdersFromRows,
+  shouldNotifyAdminOrder,
+  shouldNotifyOrderCreateAt,
+} from "./order_notify.js";
+import { sendAdminNotify } from "./telegram.js";
 
 vi.mock("./telegram.js", () => ({
   isAdminNotifyEnabled: vi.fn(() => true),
@@ -15,16 +25,6 @@ vi.mock("@changmen/db", async (importOriginal) => {
     })),
   };
 });
-
-import {
-  formatAdminOrderTelegramBody,
-  isExternalLink,
-  linkTypeLabel,
-  notifyNewOrdersFromRows,
-  shouldNotifyAdminOrder,
-  shouldNotifyOrderCreateAt,
-} from "./order_notify.js";
-import { sendAdminNotify } from "./telegram.js";
 
 describe("admin_tools/order_notify", () => {
   beforeEach(() => {

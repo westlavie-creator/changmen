@@ -22,12 +22,13 @@ export const ESPORT2_VERSION_FILE = path.join(PUBLIC_ROOT, "version.json");
  * @param {string} urlPath 以 /esport2 开头
  */
 export function esport2UrlToFileRel(urlPath) {
-  if (urlPath === "/esport2/version.json") return "version.json";
+  if (urlPath === "/esport2/version.json")
+    return "version.json";
   if (urlPath.startsWith("/esport2/assets/")) {
-    return "assets/" + urlPath.slice("/esport2/assets/".length);
+    return `assets/${urlPath.slice("/esport2/assets/".length)}`;
   }
   if (urlPath.startsWith("/esport2/extensions/")) {
-    return "extensions/" + urlPath.slice("/esport2/extensions/".length);
+    return `extensions/${urlPath.slice("/esport2/extensions/".length)}`;
   }
   const tail = urlPath.replace(/^\/esport2\/?/, "");
   return tail || "index.html";

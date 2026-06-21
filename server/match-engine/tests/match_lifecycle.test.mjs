@@ -1,6 +1,6 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { isClientMatchEnded, allMapBetsClosed } from "../merge/match_lifecycle.js";
+import { describe, it } from "node:test";
+import { allMapBetsClosed, isClientMatchEnded } from "../merge/match_lifecycle.js";
 
 const NOW = Date.parse("2026-06-16T10:00:00+08:00");
 
@@ -34,7 +34,7 @@ describe("allMapBetsClosed", () => {
 describe("isClientMatchEnded", () => {
   const platformMatches = {
     OB: {
-      "99": { SourceMatchID: "99", IsLive: 1, StartTime: NOW - 3600_000 },
+      99: { SourceMatchID: "99", IsLive: 1, StartTime: NOW - 3600_000 },
     },
   };
 
@@ -71,7 +71,7 @@ describe("isClientMatchEnded", () => {
           Matchs: { OB: "99" },
           Bets: [{ Map: 2, Sources: { OB: { Status: "Normal" } } }],
         },
-        { OB: { "99": { SourceMatchID: "99", IsLive: 2 } } },
+        { OB: { 99: { SourceMatchID: "99", IsLive: 2 } } },
         {},
         NOW,
       ),

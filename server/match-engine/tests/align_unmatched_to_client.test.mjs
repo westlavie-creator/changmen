@@ -1,9 +1,9 @@
-import { describe, expect, it, beforeEach } from "vitest";
-import { normalizeMatchesShape, setTeamPlugin } from "../merge/match_merge.js";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   alignUnmatchedToClientMatches,
   MERGE_START_TIME_TOLERANCE_MS,
 } from "../../matcher/ops/align_unmatched_to_client.js";
+import { normalizeMatchesShape, setTeamPlugin } from "../merge/match_merge.js";
 
 const START = 1_700_000_000_000;
 
@@ -13,7 +13,8 @@ const VALORANT_RAY = "37197927";
 function rawMatches(rows) {
   const byPlatform = {};
   for (const r of rows) {
-    if (!byPlatform[r.platform]) byPlatform[r.platform] = [];
+    if (!byPlatform[r.platform])
+      byPlatform[r.platform] = [];
     byPlatform[r.platform].push({
       Type: r.platform,
       SourceMatchID: r.sourceMatchId,

@@ -5,7 +5,8 @@
 import { getPgPool } from "./common.js";
 
 function _mapPlayerRow(row) {
-  if (!row) return null;
+  if (!row)
+    return null;
   return {
     id: Number(row.id),
     playerId: Number(row.id),
@@ -23,11 +24,13 @@ function _mapPlayerRow(row) {
 
 export async function fetchTagPlatforms() {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const { rows } = await pool.query("SELECT id, name FROM tag_platforms ORDER BY id ASC");
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchTagPlatforms:", err.message);
     return [];
   }
@@ -35,9 +38,11 @@ export async function fetchTagPlatforms() {
 
 export async function upsertTagPlatformByName(name) {
   const label = String(name || "").trim();
-  if (!label) return null;
+  if (!label)
+    return null;
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   const now = Date.now();
   try {
     const { rows } = await pool.query(
@@ -48,7 +53,8 @@ export async function upsertTagPlatformByName(name) {
       [label, now],
     );
     return rows?.[0] ?? null;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] upsertTagPlatformByName:", err.message);
     return null;
   }
@@ -56,10 +62,12 @@ export async function upsertTagPlatformByName(name) {
 
 export async function insertPlayerRow({ platformId, platformName, playerName }) {
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   const now = Date.now();
   const pid = Number(platformId);
-  if (!Number.isFinite(pid) || pid <= 0) return null;
+  if (!Number.isFinite(pid) || pid <= 0)
+    return null;
   try {
     const { rows } = await pool.query(
       `INSERT INTO players (
@@ -70,7 +78,8 @@ export async function insertPlayerRow({ platformId, platformName, playerName }) 
       [pid, String(platformName || ""), String(playerName || ""), now],
     );
     return _mapPlayerRow(rows?.[0]);
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] insertPlayerRow:", err.message);
     return null;
   }
@@ -78,9 +87,11 @@ export async function insertPlayerRow({ platformId, platformName, playerName }) 
 
 export async function fetchPlayerById(playerId) {
   const id = Number(playerId);
-  if (!Number.isFinite(id) || id <= 0) return null;
+  if (!Number.isFinite(id) || id <= 0)
+    return null;
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   try {
     const { rows } = await pool.query(
       `SELECT id, platform_id, platform_name, player_name, credit, total_balance,
@@ -89,7 +100,8 @@ export async function fetchPlayerById(playerId) {
       [id],
     );
     return _mapPlayerRow(rows?.[0]);
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchPlayerById:", err.message);
     return null;
   }
@@ -97,9 +109,11 @@ export async function fetchPlayerById(playerId) {
 
 export async function insertUserLogRow(userId, title, data) {
   const uid = String(userId || "").trim();
-  if (!uid) return false;
+  if (!uid)
+    return false;
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   const now = Date.now();
   try {
     await pool.query(
@@ -108,7 +122,8 @@ export async function insertUserLogRow(userId, title, data) {
       [uid, String(title || ""), String(data ?? ""), now],
     );
     return true;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] insertUserLogRow:", err.message);
     return false;
   }
@@ -117,9 +132,11 @@ export async function insertUserLogRow(userId, title, data) {
 /** 运维：按用户 + 时间窗读取 Client_SaveUserLog 诊断日志 */
 export async function fetchUserLogsInRange(userId, fromMs, toMs, limit = 200) {
   const uid = String(userId || "").trim();
-  if (!uid) return [];
+  if (!uid)
+    return [];
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   const from = Number(fromMs) || 0;
   const to = Number(toMs) || Date.now();
   const cap = Math.min(Math.max(Number(limit) || 200, 1), 500);
@@ -133,7 +150,8 @@ export async function fetchUserLogsInRange(userId, fromMs, toMs, limit = 200) {
       [uid, from, to, cap],
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchUserLogsInRange:", err.message);
     return [];
   }
@@ -143,9 +161,11 @@ export async function fetchUserLogsInRange(userId, fromMs, toMs, limit = 200) {
 export async function updatePlayerDisplayName(playerId, platformName) {
   const id = Number(playerId);
   const label = String(platformName || "").trim();
-  if (!Number.isFinite(id) || id <= 0 || !label) return false;
+  if (!Number.isFinite(id) || id <= 0 || !label)
+    return false;
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   const now = Date.now();
   try {
     const { rowCount } = await pool.query(
@@ -154,7 +174,8 @@ export async function updatePlayerDisplayName(playerId, platformName) {
       [id, label, now],
     );
     return rowCount > 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] updatePlayerDisplayName:", err.message);
     return false;
   }
@@ -162,9 +183,11 @@ export async function updatePlayerDisplayName(playerId, platformName) {
 
 export async function updatePlayerBalanceRow(playerId, balance) {
   const id = Number(playerId);
-  if (!Number.isFinite(id) || id <= 0) return null;
+  if (!Number.isFinite(id) || id <= 0)
+    return null;
   const pool = getPgPool();
-  if (!pool) return null;
+  if (!pool)
+    return null;
   const now = Date.now();
   const total = Number(balance) || 0;
   try {
@@ -176,13 +199,15 @@ export async function updatePlayerBalanceRow(playerId, balance) {
       [id, total, now],
     );
     const row = _mapPlayerRow(rows?.[0]);
-    if (!row) return null;
+    if (!row)
+      return null;
     return {
       total: row.totalBalance,
       platformId: row.platformId,
       platformName: row.platformName,
     };
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] updatePlayerBalanceRow:", err.message);
     return null;
   }
@@ -190,9 +215,11 @@ export async function updatePlayerBalanceRow(playerId, balance) {
 
 export async function softDeletePlayerRow(playerId, description) {
   const id = Number(playerId);
-  if (!Number.isFinite(id) || id <= 0) return false;
+  if (!Number.isFinite(id) || id <= 0)
+    return false;
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   const now = Date.now();
   try {
     const res = await pool.query(
@@ -202,7 +229,8 @@ export async function softDeletePlayerRow(playerId, description) {
       [id, now, String(description || "")],
     );
     return (res.rowCount ?? 0) > 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] softDeletePlayerRow:", err.message);
     return false;
   }

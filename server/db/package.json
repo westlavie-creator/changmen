@@ -1,15 +1,15 @@
 {
   "name": "@changmen/db",
+  "type": "module",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "description": "changmen PostgreSQL 数据层（RDS）",
-  "main": "./index.js",
   "exports": {
     ".": "./index.js",
     "./order_link_filter.js": "./order_link_filter.js",
     "./pg.js": "./pg.js"
   },
+  "main": "./index.js",
   "dependencies": {
     "@changmen/storage": "*",
     "pg": "^8.21.0"

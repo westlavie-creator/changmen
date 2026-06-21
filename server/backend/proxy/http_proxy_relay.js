@@ -1,8 +1,8 @@
 import http from "node:http";
 import https from "node:https";
-import zlib from "node:zlib";
-import { URL } from "node:url";
 import { createRequire } from "node:module";
+import { URL } from "node:url";
+import zlib from "node:zlib";
 
 const require = createRequire(import.meta.url);
 
@@ -22,11 +22,13 @@ function readRequestBody(req) {
 }
 
 function createDispatcher(proxyUrl) {
-  if (!proxyUrl) return null;
+  if (!proxyUrl)
+    return null;
   try {
     const { SocksProxyAgent } = require("socks-proxy-agent");
     return new SocksProxyAgent(proxyUrl);
-  } catch {
+  }
+  catch {
     return null;
   }
 }
@@ -44,7 +46,7 @@ function nodeFetch(url, options = {}) {
       },
       (res) => {
         const chunks = [];
-        res.on("data", (c) => chunks.push(c));
+        res.on("data", c => chunks.push(c));
         res.on("end", () => {
           resolve({
             status: res.statusCode || 502,
@@ -55,14 +57,17 @@ function nodeFetch(url, options = {}) {
       },
     );
     req.on("error", reject);
-    if (options.body) req.write(options.body);
+    if (options.body)
+      req.write(options.body);
     req.end();
   });
 }
 
 function resolveTargetUrl(proxyUrlHeader, baseOrigin) {
-  if (!proxyUrlHeader) return null;
-  if (/^https?:\/\//i.test(proxyUrlHeader)) return proxyUrlHeader;
+  if (!proxyUrlHeader)
+    return null;
+  if (/^https?:\/\//i.test(proxyUrlHeader))
+    return proxyUrlHeader;
   const path = proxyUrlHeader.startsWith("/") ? proxyUrlHeader : `/${proxyUrlHeader}`;
   return `${baseOrigin}${path}`;
 }
@@ -70,35 +75,41 @@ function resolveTargetUrl(proxyUrlHeader, baseOrigin) {
 function forwardHeaders(req, targetUrl) {
   const out = {};
   for (const [key, value] of Object.entries(req.headers)) {
-        const lower = key.toLowerCase();
-        if (
-          ["host", "connection", "content-length", "x-proxy", "x-proxy-url",
-            "x-proxy-referer", "x-proxy-useragent", "x-proxy-origin",
-            // 浏览器 fetch 会带 gzip；relay 只回写 Content-Type 时会导致压缩体无法解压
-            "accept-encoding"].includes(lower)
-        ) {
-          continue;
-        }
-        out[key] = value;
-      }
+    const lower = key.toLowerCase();
+    if (
+      ["host", "connection", "content-length", "x-proxy", "x-proxy-url", "x-proxy-referer", "x-proxy-useragent", "x-proxy-origin",
+        // 浏览器 fetch 会带 gzip；relay 只回写 Content-Type 时会导致压缩体无法解压
+        "accept-encoding"].includes(lower)
+    ) {
+      continue;
+    }
+    out[key] = value;
+  }
   const referer = req.headers["x-proxy-referer"];
-  if (referer) out.Referer = referer;
+  if (referer)
+    out.Referer = referer;
   const origin = req.headers["x-proxy-origin"];
-  if (origin) out.Origin = origin;
+  if (origin) {
+    out.Origin = origin;
+  }
   else if (referer) {
     try {
       out.Origin = new URL(String(referer)).origin;
-    } catch {
+    }
+    catch {
       /* ignore */
     }
   }
   const ua = req.headers["x-proxy-useragent"];
-  if (ua) out["User-Agent"] = ua;
+  if (ua)
+    out["User-Agent"] = ua;
   const auth = req.headers.authorization || req.headers.Authorization;
-  if (auth) out.Authorization = String(auth);
+  if (auth)
+    out.Authorization = String(auth);
   try {
     out.Host = new URL(targetUrl).host;
-  } catch {
+  }
+  catch {
     /* ignore */
   }
   return out;
@@ -111,13 +122,16 @@ const RELAY_PATH = "/esport/http-relay";
  */
 async function tryHttpProxyRelay(req, res, baseOrigin) {
   const pathname = req.url.split("?")[0];
-  if (pathname !== RELAY_PATH) return false;
+  if (pathname !== RELAY_PATH)
+    return false;
 
   const proxyTarget = req.headers["x-proxy-url"];
-  if (!proxyTarget) return false;
+  if (!proxyTarget)
+    return false;
 
   const targetUrl = resolveTargetUrl(String(proxyTarget), baseOrigin);
-  if (!targetUrl) return false;
+  if (!targetUrl)
+    return false;
 
   const dispatcher = createDispatcher(req.headers["x-proxy"]);
   const requestBody = req.method !== "GET" && req.method !== "HEAD" ? await readRequestBody(req) : undefined;
@@ -135,20 +149,25 @@ async function tryHttpProxyRelay(req, res, baseOrigin) {
     if (encoding.includes("gzip")) {
       try {
         responseBody = zlib.gunzipSync(responseBody);
-      } catch {
+      }
+      catch {
         /* keep raw body */
       }
-    } else if (encoding.includes("deflate")) {
+    }
+    else if (encoding.includes("deflate")) {
       try {
         responseBody = zlib.inflateSync(responseBody);
-      } catch {
+      }
+      catch {
         /* keep raw body */
       }
-    } else if (responseBody.length >= 2 && responseBody[0] === 0x1f && responseBody[1] === 0x8b) {
+    }
+    else if (responseBody.length >= 2 && responseBody[0] === 0x1F && responseBody[1] === 0x8B) {
       // 上游 gzip 但未带 Content-Encoding（部分 CDN）
       try {
         responseBody = zlib.gunzipSync(responseBody);
-      } catch {
+      }
+      catch {
         /* keep raw body */
       }
     }
@@ -156,11 +175,12 @@ async function tryHttpProxyRelay(req, res, baseOrigin) {
     res.writeHead(upstream.status, { "Content-Type": ct });
     res.end(responseBody);
     return true;
-  } catch (err) {
+  }
+  catch (err) {
     res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ success: 0, msg: err.message || "proxy relay failed" }));
     return true;
   }
 }
 
-export { tryHttpProxyRelay, RELAY_PATH };
+export { RELAY_PATH, tryHttpProxyRelay };

@@ -19,6 +19,6 @@ const obTypes = m.getObGameOddTypesByPlatformGameId();
 assert.ok(typeof obTypes === "object" && Object.keys(obTypes).length > 0);
 
 assert.equal(m.getDefaultMarketCode(), "match_winner");
-assert.ok(m.listMarkets().some((x) => x.code === "match_winner"));
+assert.ok(m.listMarkets().some(x => x.code === "match_winner"));
 
 console.log("market_catalog_smoke: ok");

@@ -1,5 +1,5 @@
-import { readJsonFile } from "@changmen/storage/json_file_store.js";
 import * as sb from "@changmen/db";
+import { readJsonFile } from "@changmen/storage/json_file_store.js";
 
 /** 与 A8 Client_GetUsers 一致：30 分钟内活跃视为在线 */
 export const ONLINE_WINDOW_MS = 30 * 60 * 1000;
@@ -19,17 +19,20 @@ function normalizeUid(userId) {
 
 function readPrefLastActiveAt(profileRow) {
   const prefs = profileRow?.preferences;
-  if (!prefs || typeof prefs !== "object" || Array.isArray(prefs)) return 0;
+  if (!prefs || typeof prefs !== "object" || Array.isArray(prefs))
+    return 0;
   return Number(prefs.lastActiveAt) || 0;
 }
 
 async function flushPresenceToRds(userIds) {
   const pool = sb.getPgPool?.();
-  if (!pool || !userIds.length) return;
+  if (!pool || !userIds.length)
+    return;
   const now = Date.now();
   for (const uid of userIds) {
     const ts = lastActive.get(uid);
-    if (!ts) continue;
+    if (!ts)
+      continue;
     try {
       await pool.query(
         `UPDATE profiles
@@ -38,21 +41,24 @@ async function flushPresenceToRds(userIds) {
          WHERE id = $1`,
         [uid, JSON.stringify({ lastActiveAt: ts }), now],
       );
-    } catch {
+    }
+    catch {
       /* RDS 写入失败不影响内存在线判定 */
     }
   }
 }
 
 function scheduleRdsPersist() {
-  if (rdsPersistTimer) return;
+  if (rdsPersistTimer)
+    return;
   rdsPersistTimer = setTimeout(() => {
     rdsPersistTimer = null;
     const batch = [...dirtyForRds];
     dirtyForRds.clear();
     void flushPresenceToRds(batch);
   }, RDS_PERSIST_DEBOUNCE_MS);
-  if (typeof rdsPersistTimer.unref === "function") rdsPersistTimer.unref();
+  if (typeof rdsPersistTimer.unref === "function")
+    rdsPersistTimer.unref();
 }
 
 /**
@@ -60,22 +66,26 @@ function scheduleRdsPersist() {
  * 幂等，可重复执行；仅在新值更大时更新。
  */
 export async function migrateLegacySessionsJsonToRds() {
-  if (legacySessionsMigrated) return { migrated: 0, skipped: true };
+  if (legacySessionsMigrated)
+    return { migrated: 0, skipped: true };
   legacySessionsMigrated = true;
 
   const pool = sb.getPgPool?.();
-  if (!pool) return { migrated: 0, skipped: true, reason: "no_db" };
+  if (!pool)
+    return { migrated: 0, skipped: true, reason: "no_db" };
 
   const sessions = readJsonFile("sessions", {});
-  const entries = Object.values(sessions || {}).filter((s) => s?.userId);
-  if (!entries.length) return { migrated: 0 };
+  const entries = Object.values(sessions || {}).filter(s => s?.userId);
+  if (!entries.length)
+    return { migrated: 0 };
 
   let migrated = 0;
   const now = Date.now();
   for (const session of entries) {
     const uid = normalizeUid(session.userId);
     const ts = Number(session.lastActiveAt ?? session.createdAt ?? 0);
-    if (!uid || !ts) continue;
+    if (!uid || !ts)
+      continue;
     try {
       const { rowCount } = await pool.query(
         `UPDATE profiles
@@ -85,10 +95,13 @@ export async function migrateLegacySessionsJsonToRds() {
            AND COALESCE((preferences->>'lastActiveAt')::bigint, 0) < $4`,
         [uid, JSON.stringify({ lastActiveAt: ts }), now, ts],
       );
-      if (rowCount > 0) migrated += 1;
+      if (rowCount > 0)
+        migrated += 1;
       const prev = lastActive.get(uid) || 0;
-      if (ts > prev) lastActive.set(uid, ts);
-    } catch {
+      if (ts > prev)
+        lastActive.set(uid, ts);
+    }
+    catch {
       /* 单条失败不阻塞其余 */
     }
   }
@@ -100,7 +113,8 @@ export async function migrateLegacySessionsJsonToRds() {
 
 /** 用户发起已鉴权请求或登录成功时刷新活跃时间 */
 export function touchUserPresence(userId) {
-  if (!userId) return;
+  if (!userId)
+    return;
   const uid = normalizeUid(userId);
   lastActive.set(uid, Date.now());
   dirtyForRds.add(uid);
@@ -114,7 +128,8 @@ export function getUserLastActiveAt(userId) {
 export function getOnlineUserIdSet(now = Date.now()) {
   const online = new Set();
   for (const [uid, ts] of lastActive) {
-    if (now - ts < ONLINE_WINDOW_MS) online.add(uid);
+    if (now - ts < ONLINE_WINDOW_MS)
+      online.add(uid);
   }
   return online;
 }

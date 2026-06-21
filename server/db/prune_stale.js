@@ -3,8 +3,8 @@
  * client_matches 过期时不 DELETE，改为 list_status = -1（浏览器不返回）。
  */
 
-import { getPgPool } from "./pg_pool.js";
 import { CLIENT_MATCH_LIST_HIDDEN } from "./client_match_list_status.js";
+import { getPgPool } from "./pg_pool.js";
 
 export const STALE_MS = 60 * 60 * 1000;
 /** 默认每小时整点等效 */
@@ -36,7 +36,8 @@ function emptyCounts() {
 
 async function pruneRds(cutoff) {
   const pool = getPgPool();
-  if (!pool) throw new Error("DATABASE_URL 未配置，无法 prune");
+  if (!pool)
+    throw new Error("DATABASE_URL 未配置，无法 prune");
   const counts = emptyCounts();
   for (const { table, column, key } of DELETE_SPECS) {
     const { rowCount } = await pool.query(

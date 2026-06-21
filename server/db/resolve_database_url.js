@@ -73,10 +73,12 @@ async function probeUrl(url, timeoutMs = 2500) {
     await client.query("SELECT 1");
     await client.end();
     return true;
-  } catch {
+  }
+  catch {
     try {
       await client.end();
-    } catch {
+    }
+    catch {
       /* ignore */
     }
     return false;
@@ -95,7 +97,8 @@ function applyResolved(url, label) {
  * @returns {Promise<string|null>}
  */
 export async function initDatabaseUrl() {
-  if (_resolvedUrl) return _resolvedUrl;
+  if (_resolvedUrl)
+    return _resolvedUrl;
 
   const { explicit, internal, public: pub } = getDatabaseUrlCandidates();
   const target = trimUrl(process.env.DATABASE_RDS_TARGET).toLowerCase() || "auto";

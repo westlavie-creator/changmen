@@ -1,4 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { saveOrder } from "./order_store.js";
 
 const fetchOrdersByPlayerAll = vi.hoisted(() => vi.fn(async () => []));
 const upsertOrders = vi.hoisted(() => vi.fn(async () => true));
@@ -11,8 +13,6 @@ vi.mock("@changmen/db", async (importOriginal) => {
     upsertOrders,
   };
 });
-
-import { saveOrder } from "./order_store.js";
 
 describe("saveOrder backend bind link", () => {
   beforeEach(() => {

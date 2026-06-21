@@ -15,16 +15,20 @@ export const CHANGMEN_ORDER_LIST_SQL = "changmen_bet = true";
 
 export function orderChangmenBetSqlAnd(baseWhere) {
   const w = String(baseWhere || "").trim();
-  if (!w) return CHANGMEN_ORDER_LIST_SQL;
+  if (!w)
+    return CHANGMEN_ORDER_LIST_SQL;
   return `${w} AND ${CHANGMEN_ORDER_LIST_SQL}`;
 }
 
 export function parseBetLogData(raw) {
-  if (raw == null || raw === "") return null;
-  if (typeof raw === "object") return raw;
+  if (raw == null || raw === "")
+    return null;
+  if (typeof raw === "object")
+    return raw;
   try {
     return JSON.parse(String(raw));
-  } catch {
+  }
+  catch {
     return null;
   }
 }
@@ -42,16 +46,20 @@ export function isSuccessCheckLogTitle(title) {
 
 export function extractBetLogProvider(title, parsed) {
   const bracket = String(title || "").match(/^\[([^\]]+)\]/);
-  if (bracket?.[1]) return String(bracket[1]).trim();
-  if (parsed?.result?.provider) return String(parsed.result.provider).trim();
-  if (parsed?.options?.type) return String(parsed.options.type).trim();
+  if (bracket?.[1])
+    return String(bracket[1]).trim();
+  if (parsed?.result?.provider)
+    return String(parsed.result.provider).trim();
+  if (parsed?.options?.type)
+    return String(parsed.options.type).trim();
   return "";
 }
 
 /** 下注结果里的场馆 orderId（与 user_log_lookup.extractLogOrderId 对齐） */
 export function extractBetLogOrderId(parsed) {
   const oid = parsed?.result?.orderId ?? parsed?.result?.order_id;
-  if (oid == null || oid === "") return "";
+  if (oid == null || oid === "")
+    return "";
   return String(oid).trim();
 }
 
@@ -72,7 +80,8 @@ function normOdds(n) {
 function orderTimeWindow(order, opts) {
   const createAt = Number(order?.create_at ?? order?.createAt) || 0;
   const provider = normProvider(order?.provider ?? order?.Type);
-  if (!createAt || !provider) return null;
+  if (!createAt || !provider)
+    return null;
   const beforeMs = Number(opts.beforeMs) || BET_LOG_BEFORE_MS;
   const afterMs = Number(opts.afterMs) || BET_LOG_AFTER_MS;
   return {
@@ -90,48 +99,61 @@ function logInWindow(row, from, to) {
 
 /** 日志 options 与订单字段弱匹配（降误关联） */
 export function betLogMatchesOrder(parsed, order) {
-  if (!parsed || !order) return true;
+  if (!parsed || !order)
+    return true;
   const opts = parsed.options || parsed.result?.request?.options;
-  if (!opts || typeof opts !== "object") return true;
+  if (!opts || typeof opts !== "object")
+    return true;
 
   const logMoney = normMoney(opts.betMoney ?? opts.bet_money);
   const orderMoney = normMoney(order.bet_money ?? order.betMoney);
-  if (logMoney != null && orderMoney != null && logMoney !== orderMoney) return false;
+  if (logMoney != null && orderMoney != null && logMoney !== orderMoney)
+    return false;
 
   const logOdds = normOdds(opts.odds);
   const orderOdds = normOdds(order.odds);
-  if (logOdds != null && orderOdds != null && logOdds !== orderOdds) return false;
+  if (logOdds != null && orderOdds != null && logOdds !== orderOdds)
+    return false;
 
   return true;
 }
 
 /** 预检 options 与订单对齐（比下注 fallback 更严，避免「只点预检」误判） */
 export function checkLogMatchesOrder(parsed, order) {
-  if (!parsed || !order) return false;
+  if (!parsed || !order)
+    return false;
   const opts = parsed.options;
-  if (!opts || typeof opts !== "object") return false;
+  if (!opts || typeof opts !== "object")
+    return false;
 
   const orderProvider = normProvider(order?.provider ?? order?.Type);
-  if (opts.type && normProvider(opts.type) !== orderProvider) return false;
+  if (opts.type && normProvider(opts.type) !== orderProvider)
+    return false;
 
   const logMatch = String(opts.match || "").trim();
   const orderMatch = String(order.match ?? order.Match ?? "").trim();
-  if (logMatch && orderMatch && logMatch !== orderMatch) return false;
+  if (logMatch && orderMatch && logMatch !== orderMatch)
+    return false;
 
   return betLogMatchesOrder(parsed, order);
 }
 
 function matchBetLogByOrderId(order, logs, win) {
   const orderId = String(order?.order_id ?? order?.orderId ?? "").trim();
-  if (!orderId) return false;
+  if (!orderId)
+    return false;
 
   for (const row of logs || []) {
-    if (!logInWindow(row, win.from, win.to)) continue;
-    if (!isSuccessBetLogTitle(row.title)) continue;
+    if (!logInWindow(row, win.from, win.to))
+      continue;
+    if (!isSuccessBetLogTitle(row.title))
+      continue;
     const parsed = parseBetLogData(row.data);
-    if (extractBetLogOrderId(parsed) !== orderId) continue;
+    if (extractBetLogOrderId(parsed) !== orderId)
+      continue;
     const logProvider = normProvider(extractBetLogProvider(row.title, parsed));
-    if (logProvider !== win.provider) continue;
+    if (logProvider !== win.provider)
+      continue;
     return true;
   }
   return false;
@@ -139,12 +161,16 @@ function matchBetLogByOrderId(order, logs, win) {
 
 function matchBetLogByProvider(order, logs, win) {
   for (const row of logs || []) {
-    if (!logInWindow(row, win.from, win.to)) continue;
-    if (!isSuccessBetLogTitle(row.title)) continue;
+    if (!logInWindow(row, win.from, win.to))
+      continue;
+    if (!isSuccessBetLogTitle(row.title))
+      continue;
     const parsed = parseBetLogData(row.data);
     const logProvider = normProvider(extractBetLogProvider(row.title, parsed));
-    if (logProvider !== win.provider) continue;
-    if (!betLogMatchesOrder(parsed, order)) continue;
+    if (logProvider !== win.provider)
+      continue;
+    if (!betLogMatchesOrder(parsed, order))
+      continue;
     return true;
   }
   return false;
@@ -152,12 +178,16 @@ function matchBetLogByProvider(order, logs, win) {
 
 function matchCheckLogFallback(order, logs, win) {
   for (const row of logs || []) {
-    if (!logInWindow(row, win.from, win.to)) continue;
-    if (!isSuccessCheckLogTitle(row.title)) continue;
+    if (!logInWindow(row, win.from, win.to))
+      continue;
+    if (!isSuccessCheckLogTitle(row.title))
+      continue;
     const parsed = parseBetLogData(row.data);
     const logProvider = normProvider(extractBetLogProvider(row.title, parsed));
-    if (logProvider !== win.provider) continue;
-    if (!checkLogMatchesOrder(parsed, order)) continue;
+    if (logProvider !== win.provider)
+      continue;
+    if (!checkLogMatchesOrder(parsed, order))
+      continue;
     return true;
   }
   return false;
@@ -170,11 +200,15 @@ function matchCheckLogFallback(order, logs, win) {
  */
 export function matchChangmenBetFromLogs(order, logs, opts = {}) {
   const win = orderTimeWindow(order, opts);
-  if (!win) return false;
+  if (!win)
+    return false;
 
-  if (matchBetLogByOrderId(order, logs, win)) return true;
-  if (matchBetLogByProvider(order, logs, win)) return true;
-  if (matchCheckLogFallback(order, logs, win)) return true;
+  if (matchBetLogByOrderId(order, logs, win))
+    return true;
+  if (matchBetLogByProvider(order, logs, win))
+    return true;
+  if (matchCheckLogFallback(order, logs, win))
+    return true;
   return false;
 }
 
@@ -183,9 +217,10 @@ export function betLogWindowForOrders(orders, opts = {}) {
   const beforeMs = Number(opts.beforeMs) || BET_LOG_BEFORE_MS;
   const afterMs = Number(opts.afterMs) || BET_LOG_AFTER_MS;
   const times = (orders || [])
-    .map((o) => Number(o.create_at ?? o.createAt) || 0)
-    .filter((t) => t > 0);
-  if (!times.length) return null;
+    .map(o => Number(o.create_at ?? o.createAt) || 0)
+    .filter(t => t > 0);
+  if (!times.length)
+    return null;
   const min = Math.min(...times);
   const max = Math.max(...times);
   return { fromMs: min - beforeMs, toMs: max + afterMs };

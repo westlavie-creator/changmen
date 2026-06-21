@@ -11,8 +11,8 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildPgClientConfig, initDatabaseUrl } from "@changmen/db";
 import pg from "@changmen/db/pg.js";
-import { initDatabaseUrl, buildPgClientConfig } from "@changmen/db";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(__dirname, "..");
@@ -74,7 +74,8 @@ async function main() {
       try {
         await client.query(readSql("002_prune_pg_cron.sql"));
         console.log("[rds] pg_cron 任务已注册");
-      } catch (err) {
+      }
+      catch (err) {
         console.warn("[rds] pg_cron 未启用（可改用 prune-stale.mjs）:", err.message);
       }
     }
@@ -84,9 +85,10 @@ async function main() {
       WHERE schemaname = 'public'
       ORDER BY tablename
     `);
-    console.log("[rds] 当前 public 表:", tables.rows.map((r) => r.tablename).join(", "));
+    console.log("[rds] 当前 public 表:", tables.rows.map(r => r.tablename).join(", "));
     console.log("[rds] 完成");
-  } finally {
+  }
+  finally {
     await client.end();
   }
 }

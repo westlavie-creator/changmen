@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { ensurePgPoolReady } from "@changmen/db";
-import { normalizeTeam, canonicalMatchKeyByName } from "@changmen/match-engine/teams/team_key.js";
+import { canonicalMatchKeyByName, normalizeTeam } from "@changmen/match-engine/teams/team_key.js";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
 
-const terms = (process.argv[2] || "1w,INOX").split(",").map((s) => s.trim()).filter(Boolean);
+const terms = (process.argv[2] || "1w,INOX").split(",").map(s => s.trim()).filter(Boolean);
 const pool = await ensurePgPoolReady();
 if (!pool) {
   console.error("无法连接 RDS");
@@ -11,9 +11,9 @@ if (!pool) {
 }
 
 const likeClauses = terms
-  .flatMap((t) => [`home ILIKE $p`, `away ILIKE $p`, `title ILIKE $p`])
+  .flatMap(t => [`home ILIKE $p`, `away ILIKE $p`, `title ILIKE $p`])
   .join(" OR ");
-const params = terms.map((t) => `%${t}%`);
+const params = terms.map(t => `%${t}%`);
 
 console.log("搜索词:", terms.join(", "), "\n");
 
@@ -68,18 +68,19 @@ if (pm.rows.length >= 2) {
   const byKey = new Map();
   for (const r of pm.rows) {
     const ck = canonicalMatchKeyByName(r.source_game_id, r.home, r.away);
-    if (!ck) continue;
+    if (!ck)
+      continue;
     const list = byKey.get(ck.mergeKey) || [];
     list.push(r);
     byKey.set(ck.mergeKey, list);
   }
   for (const [key, rows] of byKey) {
-    const platforms = new Set(rows.map((r) => r.platform));
+    const platforms = new Set(rows.map(r => r.platform));
     if (platforms.size < 2) {
-      console.log(`单平台组 ${key}: ${rows.map((r) => r.platform).join(",")}`);
+      console.log(`单平台组 ${key}: ${rows.map(r => r.platform).join(",")}`);
       continue;
     }
-    const times = rows.map((r) => normalizeEpochMs(r.start_time)).filter(Boolean);
+    const times = rows.map(r => normalizeEpochMs(r.start_time)).filter(Boolean);
     const maxDiff = times.length >= 2 ? Math.max(...times) - Math.min(...times) : 0;
     console.log(`多平台组 ${key} (${Math.round(maxDiff / 60000)}min 差):`);
     for (const r of rows) {
@@ -88,7 +89,7 @@ if (pm.rows.length >= 2) {
   }
 }
 
-const obOnly = pm.rows.find((r) => r.platform === "OB");
+const obOnly = pm.rows.find(r => r.platform === "OB");
 if (obOnly) {
   const maps = await pool.query(
     `SELECT tpm.platform, tpm.platform_team_id, tpm.platform_name, tpm.canonical_id, ct.name

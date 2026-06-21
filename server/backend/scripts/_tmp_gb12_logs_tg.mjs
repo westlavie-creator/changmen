@@ -44,8 +44,8 @@ const cd = await pool.query(
   `SELECT key, value FROM client_data WHERE user_id = $1::uuid`,
   [uid],
 );
-console.log("\nclient_data keys:", cd.rows.map((r) => r.key));
-const msgRow = cd.rows.find((r) => r.key === "Message" || r.key === "message");
+console.log("\nclient_data keys:", cd.rows.map(r => r.key));
+const msgRow = cd.rows.find(r => r.key === "Message" || r.key === "message");
 console.log("Message client_data:", msgRow?.value);
 
 await pool.end();

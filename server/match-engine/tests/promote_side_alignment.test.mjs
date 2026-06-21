@@ -1,24 +1,26 @@
+import assert from "node:assert/strict";
 /**
  * promote 主客对齐 + 套利选腿回归（gb12 OB×RAY Map3 同向 bug）
  */
 import test from "node:test";
-import assert from "node:assert/strict";
+import { overlayLiveTimersOnMatches } from "../../backend/core/esport-api/live_timer_overlay.js";
 import {
   buildClientMatchList,
-  swapBetSource,
   promoteFullMatchSourcesToLiveRoundInPlace,
+  swapBetSource,
 } from "../merge/match_merge.js";
-import { overlayLiveTimersOnMatches } from "../../backend/core/esport-api/live_timer_overlay.js";
 
-const src = (p, b) => ({
-  Type: p,
-  BetID: String(b.SourceBetID),
-  HomeID: String(b.SourceHomeID),
-  AwayID: String(b.SourceAwayID),
-  HomeOdds: b.HomeOdds,
-  AwayOdds: b.AwayOdds,
-  Status: b.Status,
-});
+function src(p, b) {
+  return {
+    Type: p,
+    BetID: String(b.SourceBetID),
+    HomeID: String(b.SourceHomeID),
+    AwayID: String(b.SourceAwayID),
+    HomeOdds: b.HomeOdds,
+    AwayOdds: b.AwayOdds,
+    Status: b.Status,
+  };
+}
 
 function baseMatch(provider, sourceId, home, away, bo = 3) {
   return {
@@ -51,8 +53,8 @@ function pickArbOddsLikeA8(sources) {
  */
 function assertMapBetArbSidesOpposite(mapBet, underdogThreshold = 1.95) {
   const { homeOdds, awayOdds, implied } = pickArbOddsLikeA8(mapBet.Sources);
-  const bothUnderdog =
-    homeOdds >= underdogThreshold && awayOdds >= underdogThreshold;
+  const bothUnderdog
+    = homeOdds >= underdogThreshold && awayOdds >= underdogThreshold;
   assert.ok(
     !bothUnderdog,
     `Map${mapBet.Map} 两侧最高赔都像 underdog（H=${homeOdds} A=${awayOdds} implied=${implied.toFixed(4)}）`,
@@ -145,7 +147,7 @@ function buildGb12List() {
 test("gb12: rebuild Map3 OB×RAY 主客对齐，套利两侧非同一队", () => {
   const list = buildGb12List();
   assert.equal(list.length, 1);
-  const map3 = list[0].Bets.find((b) => b.Map === 3);
+  const map3 = list[0].Bets.find(b => b.Map === 3);
   assert.ok(map3?.Sources?.OB && map3?.Sources?.RAY);
   assert.equal(map3.Sources.OB.HomeOdds, 2.065);
   assert.equal(map3.Sources.RAY.HomeOdds, 2.08);
@@ -156,7 +158,7 @@ test("gb12: rebuild Map3 OB×RAY 主客对齐，套利两侧非同一队", () =>
 
 test("gb12: 旧 bug 形态（RAY Map3 二次 swap）会被检出", () => {
   const list = buildGb12List();
-  const map3 = list[0].Bets.find((b) => b.Map === 3);
+  const map3 = list[0].Bets.find(b => b.Map === 3);
   const buggyRay = swapBetSource(map3.Sources.RAY);
   const buggy = {
     ...map3,
@@ -217,11 +219,11 @@ test("gb12: GetMatchs overlay 在 Round 切到 3 后 promote 仍对齐", () => {
   };
   const out = overlayLiveTimersOnMatches([staleDbRow], gb12Timers);
   assert.equal(out[0].Round, 3);
-  const map3 = out[0].Bets.find((b) => b.Map === 3);
+  const map3 = out[0].Bets.find(b => b.Map === 3);
   assert.ok(map3?.Sources?.RAY, "overlay promote RAY");
   assert.equal(map3.Sources.RAY.HomeOdds, 2.08);
   assertMapBetArbSidesOpposite(map3);
-  const map0 = out[0].Bets.find((b) => b.Map === 0);
+  const map0 = out[0].Bets.find(b => b.Map === 0);
   assert.deepEqual(Object.keys(map0.Sources || {}), ["OB"], "trim Map=0 to OB only");
 });
 
@@ -256,7 +258,7 @@ test("gb12: inPlace promote 在 Reverse 含 RAY 时不二次 swap", () => {
     },
   ];
   promoteFullMatchSourcesToLiveRoundInPlace(rows);
-  const map3 = rows[0].Bets.find((b) => b.Map === 3);
+  const map3 = rows[0].Bets.find(b => b.Map === 3);
   assert.equal(map3.Sources.RAY.HomeOdds, 2.08);
   assertMapBetArbSidesOpposite(map3);
 });
@@ -307,7 +309,7 @@ test("aligned teams: OB 与 RAY 同向主客时 Reverse 为空且 Map3 可对冲
     sourceFromBet: src,
   });
   assert.equal(list[0].Reverse?.length || 0, 0);
-  const map3 = list[0].Bets.find((b) => b.Map === 3);
+  const map3 = list[0].Bets.find(b => b.Map === 3);
   assert.ok(map3?.Sources?.RAY);
   assertMapBetArbSidesOpposite(map3);
 });

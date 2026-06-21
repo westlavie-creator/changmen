@@ -6,7 +6,8 @@ export function rayApiPath(gateway, apiPath) {
     p = p.replace(/^v2\//, "");
     return `/${p}`;
   }
-  if (p.startsWith("v2/")) return `/${p}`;
+  if (p.startsWith("v2/"))
+    return `/${p}`;
   return `/v2/${p}`;
 }
 

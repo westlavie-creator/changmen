@@ -16,7 +16,8 @@ try {
   }
   await purgePlatformLiveTimers(platform);
   console.log(`[purge-live-timers] cleared live_timers for platform=${platform}`);
-} catch (err) {
+}
+catch (err) {
   console.error("[purge-live-timers] failed:", err.message);
   process.exit(1);
 }

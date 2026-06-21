@@ -26,10 +26,12 @@ function readBody(req) {
  */
 async function tryIaHttpProxy(req, res) {
   const pathname = req.url.split("?")[0];
-  if (pathname !== "/esport/ia/proxy") return false;
+  if (pathname !== "/esport/ia/proxy")
+    return false;
 
   let apiPath = new URL(req.url, "http://127.0.0.1").searchParams.get("path") || "";
-  if (!apiPath.startsWith("/")) apiPath = `/${apiPath}`;
+  if (!apiPath.startsWith("/"))
+    apiPath = `/${apiPath}`;
   if (!apiPath.startsWith(IA_ALLOWED_PREFIX)) {
     res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "invalid IA api path" }));
@@ -62,7 +64,8 @@ async function tryIaHttpProxy(req, res) {
     const ct = upstream.headers.get("content-type") || "application/json; charset=utf-8";
     res.writeHead(upstream.status, { "Content-Type": ct });
     res.end(body);
-  } catch (err) {
+  }
+  catch (err) {
     res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: err.message || "IA proxy failed" }));
   }

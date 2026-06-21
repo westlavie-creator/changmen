@@ -1,7 +1,7 @@
-import { describe, it, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { afterEach, describe, it } from "node:test";
 import { isMatcherSkipAuthEnabled } from "../lib/config.js";
-import { isMatcherAuthBypassed, getRequestToken } from "./matcher_auth.js";
+import { getRequestToken, isMatcherAuthBypassed } from "./matcher_auth.js";
 
 const saved = { ...process.env };
 
@@ -22,7 +22,7 @@ describe("isMatcherSkipAuthEnabled", () => {
     assert.equal(isMatcherSkipAuthEnabled(), true);
   });
 
-  it("SKIP_AUTH=1 但 NODE_ENV 未设置时不开启", () => {
+  it("sKIP_AUTH=1 但 NODE_ENV 未设置时不开启", () => {
     process.env.MATCHER_SKIP_AUTH = "1";
     delete process.env.NODE_ENV;
     assert.equal(isMatcherSkipAuthEnabled(), false);

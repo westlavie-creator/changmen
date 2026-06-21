@@ -5,7 +5,7 @@
  *   cd changmen/server/backend && node scripts/check-players-rds-migrate.mjs
  */
 
-import { initDatabaseUrl, getPgPool } from "@changmen/db";
+import { getPgPool, initDatabaseUrl } from "@changmen/db";
 import { readJsonFile } from "@changmen/storage/json_file_store.js";
 
 function rowId(row) {
@@ -40,8 +40,11 @@ if (tpIds.length) {
     "SELECT id FROM tag_platforms WHERE id = ANY($1::bigint[])",
     [tpIds],
   );
-  const have = new Set(rows.map((r) => Number(r.id)));
-  for (const id of tpIds) if (!have.has(id)) missingTp.push(id);
+  const have = new Set(rows.map(r => Number(r.id)));
+  for (const id of tpIds) {
+    if (!have.has(id))
+      missingTp.push(id);
+  }
 }
 
 const missingPl = [];
@@ -50,8 +53,11 @@ if (plIds.length) {
     "SELECT id FROM players WHERE id = ANY($1::bigint[])",
     [plIds],
   );
-  const have = new Set(rows.map((r) => Number(r.id)));
-  for (const id of plIds) if (!have.has(id)) missingPl.push(id);
+  const have = new Set(rows.map(r => Number(r.id)));
+  for (const id of plIds) {
+    if (!have.has(id))
+      missingPl.push(id);
+  }
 }
 
 const { rows: [seq] } = await pool.query(`
@@ -62,11 +68,11 @@ const { rows: [seq] } = await pool.query(`
     (SELECT last_value FROM players_id_seq) AS players_seq
 `);
 
-const ok =
-  missingTp.length === 0 &&
-  missingPl.length === 0 &&
-  counts.tag_platforms > 0 &&
-  counts.players >= plEntries.filter((r) => rowId(r) && Number(r?.platformId ?? r?.platform_id)).length;
+const ok
+  = missingTp.length === 0
+    && missingPl.length === 0
+    && counts.tag_platforms > 0
+    && counts.players >= plEntries.filter(r => rowId(r) && Number(r?.platformId ?? r?.platform_id)).length;
 
 const report = {
   ok,

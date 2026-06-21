@@ -2,10 +2,10 @@
  * [changmen 扩展] 运维：订单 Link / order_id ↔ user_logs 关联（不改前端 A8 链路）
  */
 import {
-  fetchUserByName,
-  fetchUserById,
-  fetchOrdersByLink,
   fetchOrderByOrderId,
+  fetchOrdersByLink,
+  fetchUserById,
+  fetchUserByName,
   fetchUserLogsInRange,
 } from "@changmen/db";
 
@@ -14,19 +14,24 @@ export const DEFAULT_LOG_PADDING_MS = 180_000;
 
 export function linkTypeLabel(link) {
   const n = Number(link);
-  if (!Number.isFinite(n) || n === 0) return "未知";
-  if (n < 0) return "单边";
-  if (n >= ARB_LINK_MIN) return "套利";
+  if (!Number.isFinite(n) || n === 0)
+    return "未知";
+  if (n < 0)
+    return "单边";
+  if (n >= ARB_LINK_MIN)
+    return "套利";
   return "hash";
 }
 
 export function groupMetaLabel(link, orderCount) {
   const n = Number(link);
-  if (Number.isFinite(n) && n < 0) return "单边";
+  if (Number.isFinite(n) && n < 0)
+    return "单边";
   if (orderCount > 1 && Number.isFinite(n) && n >= ARB_LINK_MIN) {
     return `套利 ${orderCount} 笔`;
   }
-  if (Number.isFinite(n) && n >= ARB_LINK_MIN) return "单笔";
+  if (Number.isFinite(n) && n >= ARB_LINK_MIN)
+    return "单笔";
   return "hash/未绑定";
 }
 
@@ -34,42 +39,53 @@ export function groupMetaLabel(link, orderCount) {
 export function computeLogWindow(orders, paddingMs = DEFAULT_LOG_PADDING_MS) {
   const pad = Math.max(Number(paddingMs) || DEFAULT_LOG_PADDING_MS, 30_000);
   const times = (orders || [])
-    .map((o) => Number(o.create_at) || 0)
-    .filter((t) => t > 0);
+    .map(o => Number(o.create_at) || 0)
+    .filter(t => t > 0);
   for (const o of orders || []) {
     const linkTs = Number(o.link) || 0;
-    if (linkTs >= ARB_LINK_MIN) times.push(linkTs);
+    if (linkTs >= ARB_LINK_MIN)
+      times.push(linkTs);
   }
-  if (!times.length) return null;
+  if (!times.length)
+    return null;
   const min = Math.min(...times);
   const max = Math.max(...times);
   return { fromMs: min - pad, toMs: max + pad };
 }
 
 export function parseLogData(raw) {
-  if (raw == null || raw === "") return null;
-  if (typeof raw === "object") return raw;
+  if (raw == null || raw === "")
+    return null;
+  if (typeof raw === "object")
+    return raw;
   try {
     return JSON.parse(String(raw));
-  } catch {
+  }
+  catch {
     return { raw: String(raw) };
   }
 }
 
 export function classifyLogTitle(title) {
   const t = String(title || "");
-  if (t.includes("请求盘口数据")) return "check";
-  if (t.includes("下注 =>")) return "bet";
-  if (t.includes("拒单")) return "reject";
+  if (t.includes("请求盘口数据"))
+    return "check";
+  if (t.includes("下注 =>"))
+    return "bet";
+  if (t.includes("拒单"))
+    return "reject";
   return "other";
 }
 
 /** 从 title / data 推断平台（如 [RAY](...)） */
 export function extractLogProvider(title, parsed, kind) {
   const bracket = String(title || "").match(/^\[([^\]]+)\]/);
-  if (bracket?.[1]) return bracket[1];
-  if (kind === "check" && parsed?.options?.type) return String(parsed.options.type);
-  if (kind === "bet" && parsed?.result?.provider) return String(parsed.result.provider);
+  if (bracket?.[1])
+    return bracket[1];
+  if (kind === "check" && parsed?.options?.type)
+    return String(parsed.options.type);
+  if (kind === "bet" && parsed?.result?.provider)
+    return String(parsed.result.provider);
   return null;
 }
 
@@ -78,8 +94,8 @@ export function buildPlatformSections(orders, logs) {
   const sections = [];
   const byKey = new Map();
 
-  const keyOf = (provider) => (provider ? String(provider) : "__other__");
-  const labelOf = (provider) => provider || "其他";
+  const keyOf = provider => (provider ? String(provider) : "__other__");
+  const labelOf = provider => provider || "其他";
 
   const touch = (provider) => {
     const key = keyOf(provider);
@@ -117,7 +133,8 @@ export function extractLogOrderId(title, parsed, kind) {
   }
   if (kind === "reject") {
     const m = String(title || "").match(/-\s*(\S+)\s+拒单/);
-    if (m?.[1]) return m[1];
+    if (m?.[1])
+      return m[1];
   }
   return null;
 }
@@ -141,7 +158,8 @@ export function buildOrderSections(orders, logs) {
     sections.push(section);
     byOrderId.set(order.orderId, section);
     const prov = order.provider;
-    if (!ordersByProvider.has(prov)) ordersByProvider.set(prov, []);
+    if (!ordersByProvider.has(prov))
+      ordersByProvider.set(prov, []);
     ordersByProvider.get(prov).push(order);
   }
 
@@ -197,11 +215,14 @@ export function buildOrderSections(orders, logs) {
   }
 
   return sections
-    .filter((s) => s.order || s.logs.length > 0)
+    .filter(s => s.order || s.logs.length > 0)
     .sort((a, b) => {
-      if (a.order && b.order) return a.order.createAt - b.order.createAt;
-      if (a.order) return -1;
-      if (b.order) return 1;
+      if (a.order && b.order)
+        return a.order.createAt - b.order.createAt;
+      if (a.order)
+        return -1;
+      if (b.order)
+        return 1;
       return (a.logs[0]?.createAt || 0) - (b.logs[0]?.createAt || 0);
     });
 }
@@ -210,15 +231,18 @@ export function buildOrderSections(orders, logs) {
 export function extractLogTarget(parsed, kind, summary) {
   if (kind === "check" && parsed?.options?.target) {
     const t = String(parsed.options.target);
-    if (t === "Home" || t === "Away") return t;
+    if (t === "Home" || t === "Away")
+      return t;
   }
   const m = String(summary || "").match(/\s(Home|Away)@/);
   return m?.[1] || null;
 }
 
 export function sideDisplayLabel(side) {
-  if (side === "Home") return "主队";
-  if (side === "Away") return "客队";
+  if (side === "Home")
+    return "主队";
+  if (side === "Away")
+    return "客队";
   return "未知";
 }
 
@@ -228,11 +252,13 @@ function formatLegLabel(side) {
 
 function inferTargetFromLogs(logs) {
   for (const log of logs || []) {
-    if (log.target === "Home" || log.target === "Away") return log.target;
+    if (log.target === "Home" || log.target === "Away")
+      return log.target;
   }
   for (const log of logs || []) {
     const m = String(log.summary || "").match(/\s(Home|Away)@/);
-    if (m) return m[1];
+    if (m)
+      return m[1];
   }
   return null;
 }
@@ -249,12 +275,14 @@ function legIndexForSide(side) {
 }
 
 function touchLegProvider(leg, provider) {
-  if (!provider) return;
+  if (!provider)
+    return;
   if (!leg.provider) {
     leg.provider = provider;
     return;
   }
-  if (leg.provider.includes(provider)) return;
+  if (leg.provider.includes(provider))
+    return;
   leg.provider = `${leg.provider}/${provider}`;
 }
 
@@ -265,11 +293,14 @@ function refreshLegLabels(legs) {
 }
 
 function resolveLegIndexByProvider(provider, legs) {
-  if (!provider) return legs[0].attempts.length <= legs[1].attempts.length ? 0 : 1;
+  if (!provider)
+    return legs[0].attempts.length <= legs[1].attempts.length ? 0 : 1;
   for (let i = 0; i < 2; i++) {
-    if (legs[i].provider === provider || legs[i].provider?.includes(provider)) return i;
+    if (legs[i].provider === provider || legs[i].provider?.includes(provider))
+      return i;
     for (const att of legs[i].attempts) {
-      if (att.order?.provider === provider) return i;
+      if (att.order?.provider === provider)
+        return i;
     }
   }
   return legs[0].attempts.length <= legs[1].attempts.length ? 0 : 1;
@@ -278,13 +309,16 @@ function resolveLegIndexByProvider(provider, legs) {
 function pickLegIndexForUnassigned(legs) {
   const homeN = legs[0].attempts.length;
   const awayN = legs[1].attempts.length;
-  if (homeN && !awayN) return 1;
-  if (!homeN && awayN) return 0;
+  if (homeN && !awayN)
+    return 1;
+  if (!homeN && awayN)
+    return 0;
   return homeN <= awayN ? 0 : 1;
 }
 
 function assignOrphanLogsToAttempts(attempts, orphanLogs) {
-  if (!orphanLogs.length) return;
+  if (!orphanLogs.length)
+    return;
   if (!attempts.length) {
     attempts.push({ key: "orphan", order: null, logs: [...orphanLogs], logSegments: [] });
     return;
@@ -307,7 +341,8 @@ function assignOrphanLogsToAttempts(attempts, orphanLogs) {
 /** 从 Client_SaveUserLog title 解析账号展示，如 [OB](星空,4) → OB · 星空 / 4 */
 export function extractLogAccountLabel(title) {
   const m = String(title || "").match(/^\[([^\]]+)\]\(([^,]+),([^)]+)\)/);
-  if (!m) return null;
+  if (!m)
+    return null;
   const provider = m[1];
   const platformName = String(m[2]).trim();
   const playerName = String(m[3]).trim();
@@ -324,7 +359,8 @@ export function extractLogAccountLabel(title) {
  */
 export function buildLogSegments(logs) {
   const sorted = [...(logs || [])].sort((a, b) => a.createAt - b.createAt);
-  if (!sorted.length) return [];
+  if (!sorted.length)
+    return [];
 
   const segments = [];
   let current = null;
@@ -347,9 +383,11 @@ export function buildLogSegments(logs) {
         isMakeUp: Boolean(log.loseOrder),
         logs: [log],
       };
-    } else if (current) {
+    }
+    else if (current) {
       current.logs.push(log);
-    } else {
+    }
+    else {
       flush();
       const parsed = extractLogAccountLabel(log.title);
       current = {
@@ -373,27 +411,28 @@ export function buildLegSections(orders, logs, meta = {}) {
   const sortedLogs = [...(logs || [])].sort((a, b) => a.createAt - b.createAt);
   const groupLabel = String(meta.groupLabel || "");
   const linkType = String(meta.linkType || "");
-  const isArb =
-    linkType === "套利" ||
-    groupLabel.includes("套利") ||
-    (sortedOrders.length > 1 && sortedOrders.every((o) => Number(o.link) >= ARB_LINK_MIN));
+  const isArb
+    = linkType === "套利"
+      || groupLabel.includes("套利")
+      || (sortedOrders.length > 1 && sortedOrders.every(o => Number(o.link) >= ARB_LINK_MIN));
 
   const legs = createSideLegs();
-  const attempts = sortedOrders.map((order) => ({
+  const attempts = sortedOrders.map(order => ({
     key: order.orderId,
     order,
     logs: [],
     logSegments: [],
     side: null,
   }));
-  const attemptByOrderId = new Map(attempts.map((a) => [a.order.orderId, a]));
+  const attemptByOrderId = new Map(attempts.map(a => [a.order.orderId, a]));
   const orphanLogs = [];
 
   for (const log of sortedLogs) {
     const orderId = log.orderId ? String(log.orderId) : null;
     if (orderId && attemptByOrderId.has(orderId)) {
       attemptByOrderId.get(orderId).logs.push(log);
-    } else {
+    }
+    else {
       orphanLogs.push(log);
     }
   }
@@ -409,7 +448,8 @@ export function buildLegSections(orders, logs, meta = {}) {
       const leg = legs[legIndexForSide(att.side)];
       leg.attempts.push(att);
       touchLegProvider(leg, att.order.provider);
-    } else {
+    }
+    else {
       unassigned.push(att);
     }
   }
@@ -427,23 +467,27 @@ export function buildLegSections(orders, logs, meta = {}) {
 
   const orphanBySide = { Home: [], Away: [], unknown: [] };
   for (const log of orphanLogs) {
-    const side =
-      log.target === "Home" || log.target === "Away"
+    const side
+      = log.target === "Home" || log.target === "Away"
         ? log.target
         : extractLogTarget(null, log.kind, log.summary);
-    if (side === "Home") orphanBySide.Home.push(log);
-    else if (side === "Away") orphanBySide.Away.push(log);
+    if (side === "Home")
+      orphanBySide.Home.push(log);
+    else if (side === "Away")
+      orphanBySide.Away.push(log);
     else orphanBySide.unknown.push(log);
   }
 
   for (const side of ["Home", "Away"]) {
     const idx = legIndexForSide(side);
     const list = orphanBySide[side];
-    if (!list.length) continue;
+    if (!list.length)
+      continue;
     assignOrphanLogsToAttempts(legs[idx].attempts, list);
     if (!legs[idx].provider) {
-      const prov = list.find((l) => l.provider)?.provider;
-      if (prov) legs[idx].provider = prov;
+      const prov = list.find(l => l.provider)?.provider;
+      if (prov)
+        legs[idx].provider = prov;
     }
   }
 
@@ -466,7 +510,7 @@ export function buildLegSections(orders, logs, meta = {}) {
   if (isArb) {
     return legs;
   }
-  return legs.filter((leg) => leg.attempts.some((a) => a.order || a.logs.length > 0));
+  return legs.filter(leg => leg.attempts.some(a => a.order || a.logs.length > 0));
 }
 
 /** 从 saveUserLog 行提取可读摘要 */
@@ -491,15 +535,18 @@ export function summarizeUserLog(row) {
   };
 
   const acct = extractLogAccountLabel(title);
-  if (acct) out.accountLabel = acct.label;
+  if (acct)
+    out.accountLabel = acct.label;
 
   if (kind === "check" && parsed?.options) {
     const o = parsed.options;
     out.target = out.target || (o.target === "Home" || o.target === "Away" ? o.target : null);
     out.loseOrder = Boolean(o.loseOrder);
     out.summary = `${o.type} 预检 ${o.match || ""} ${o.bet || ""} ${o.target}@${o.odds} 金额${o.betMoney}`;
-    if (parsed.checkError) out.summary += ` · ${parsed.checkError}`;
-  } else if (kind === "bet" && parsed?.result) {
+    if (parsed.checkError)
+      out.summary += ` · ${parsed.checkError}`;
+  }
+  else if (kind === "bet" && parsed?.result) {
     const r = parsed.result;
     out.summary = `${r.provider} 下注 ${r.success ? "成功" : "失败"} · ${r.message || ""}`.trim();
   }
@@ -508,7 +555,8 @@ export function summarizeUserLog(row) {
 }
 
 function normalizeOrderRow(row) {
-  if (!row) return null;
+  if (!row)
+    return null;
   return {
     orderId: String(row.order_id),
     link: Number(row.link) || 0,
@@ -527,15 +575,18 @@ function normalizeOrderRow(row) {
 
 async function resolveLookupUser(opts) {
   const userId = String(opts?.userId || "").trim();
-  if (userId) return fetchUserById(userId);
+  if (userId)
+    return fetchUserById(userId);
   const userName = String(opts?.userName || "").trim();
-  if (userName) return fetchUserByName(userName);
+  if (userName)
+    return fetchUserByName(userName);
   return null;
 }
 
 /** 管理端 API：不含 logsRaw */
 export function toAdminOrderLogPayload(result) {
-  if (!result.ok) return result;
+  if (!result.ok)
+    return result;
   const orders = result.orders || [];
   const logs = result.logs || [];
   return {
@@ -588,7 +639,8 @@ export async function lookupOrderLogs(opts) {
         user: { id: user.id, userName: user.user_name },
       };
     }
-  } else if (opts?.orderId) {
+  }
+  else if (opts?.orderId) {
     const row = await fetchOrderByOrderId(user.id, opts.orderId);
     if (!row) {
       return {
@@ -600,10 +652,12 @@ export async function lookupOrderLogs(opts) {
     orders = [row];
     if (row.link) {
       const linked = await fetchOrdersByLink(user.id, row.link);
-      if (linked.length) orders = linked;
+      if (linked.length)
+        orders = linked;
     }
     anchor = { type: "orderId", value: String(opts.orderId) };
-  } else {
+  }
+  else {
     return { ok: false, error: "请指定 link 或 orderId" };
   }
 
@@ -678,6 +732,7 @@ export function formatLookupReport(result) {
 
 export function formatCnTime(ts) {
   const n = Number(ts);
-  if (!n) return "—";
+  if (!n)
+    return "—";
   return new Date(n).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
 }

@@ -4,7 +4,7 @@
  *   cd changmen/server/backend && node scripts/check-client-match.mjs 161
  */
 
-import { ensurePgPoolReady, CLIENT_MATCH_LIST_HIDDEN, getResolvedDatabaseLabel } from "@changmen/db";
+import { CLIENT_MATCH_LIST_HIDDEN, ensurePgPoolReady, getResolvedDatabaseLabel } from "@changmen/db";
 
 const matchId = Number(process.argv[2] || 161);
 if (!Number.isFinite(matchId)) {
@@ -28,9 +28,10 @@ const cm = await pool.query(
 );
 
 if (!cm.rows.length) {
-  console.log("❌ client_matches 中不存在 id=" + matchId);
+  console.log(`❌ client_matches 中不存在 id=${matchId}`);
   console.log("   → rebuild 可能已差量删除（filterMultiPlatform 后未写入活跃列表）\n");
-} else {
+}
+else {
   const row = cm.rows[0];
   const platforms = Object.keys(row.matchs || {});
   const betCount = Array.isArray(row.bets) ? row.bets.length : 0;
@@ -68,17 +69,18 @@ const pm = await pool.query(
 console.log("\n── platform_matches（RAY/IA 关联行）──");
 if (!pm.rows.length) {
   console.log("  (无匹配行)");
-} else {
+}
+else {
   const now = Date.now();
   for (const r of pm.rows) {
     const syncedRaw = r.synced_at;
-    const syncedMs = syncedRaw != null ? Number(syncedRaw) : NaN;
-    const synced =
-      Number.isFinite(syncedMs) && syncedMs > 0
+    const syncedMs = syncedRaw != null ? Number(syncedRaw) : Number.NaN;
+    const synced
+      = Number.isFinite(syncedMs) && syncedMs > 0
         ? new Date(syncedMs < 1e12 ? syncedMs * 1000 : syncedMs).toISOString()
         : String(syncedRaw ?? "(无)");
-    const ageMin =
-      Number.isFinite(syncedMs) && syncedMs > 0
+    const ageMin
+      = Number.isFinite(syncedMs) && syncedMs > 0
         ? Math.round((now - (syncedMs < 1e12 ? syncedMs * 1000 : syncedMs)) / 60000)
         : null;
     const stale = ageMin != null && ageMin > 60 ? " ⚠️ >1h 未刷新，可能被 prune" : "";

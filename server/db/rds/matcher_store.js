@@ -2,8 +2,8 @@
  * Matcher 数据访问 — 读写均走 RDS（PostgreSQL）。
  */
 
+import { CLIENT_MATCH_LIST_DEFAULT, CLIENT_MATCH_LIST_HIDDEN } from "../client_match_list_status.js";
 import { getPgPool, jsonb } from "./common.js";
-import { CLIENT_MATCH_LIST_HIDDEN, CLIENT_MATCH_LIST_DEFAULT } from "../client_match_list_status.js";
 
 function pool() {
   return getPgPool();
@@ -11,7 +11,8 @@ function pool() {
 
 async function rdsQuery(sql, params = []) {
   const p = pool();
-  if (!p) throw new Error("RDS 未配置");
+  if (!p)
+    throw new Error("RDS 未配置");
   return p.query(sql, params);
 }
 
@@ -24,7 +25,7 @@ export async function fetchClientMatchIdIndex() {
   const { rows } = await rdsQuery(
     "SELECT id, merge_key, matchs FROM client_matches",
   );
-  return rows.map((r) => ({
+  return rows.map(r => ({
     id: Number(r.id),
     merge_key: r.merge_key,
     matchs: r.matchs || {},
@@ -33,7 +34,8 @@ export async function fetchClientMatchIdIndex() {
 
 export async function findClientMatchIdByMergeKey(mergeKey) {
   const key = String(mergeKey || "").trim();
-  if (!key) return null;
+  if (!key)
+    return null;
   const { rows } = await rdsQuery(
     "SELECT id FROM client_matches WHERE merge_key = $1 LIMIT 1",
     [key],
@@ -65,10 +67,12 @@ async function insertClientMatchStubRds(mergeKey, stub) {
       ],
     );
     return Number(rows[0].id);
-  } catch (err) {
+  }
+  catch (err) {
     if (err.code === "23505") {
       const { rows } = await rdsQuery("SELECT id FROM client_matches WHERE merge_key = $1", [mergeKey]);
-      if (!rows.length) throw err;
+      if (!rows.length)
+        throw err;
       return Number(rows[0].id);
     }
     throw err;
@@ -77,7 +81,8 @@ async function insertClientMatchStubRds(mergeKey, stub) {
 
 export async function insertClientMatchStub(mergeKey, stub = {}) {
   const key = String(mergeKey || "").trim();
-  if (!key) throw new Error("merge_key 不能为空");
+  if (!key)
+    throw new Error("merge_key 不能为空");
   return insertClientMatchStubRds(key, stub);
 }
 
@@ -92,7 +97,8 @@ export function getClientMatchIdAdapter() {
 export async function fetchPlatformMatchRow(platform, sourceMatchId) {
   const plat = String(platform || "").trim();
   const srcId = String(sourceMatchId || "").trim();
-  if (!plat || !srcId) return null;
+  if (!plat || !srcId)
+    return null;
   const { rows } = await rdsQuery(
     `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, teams, match_id, synced_at
      FROM platform_matches WHERE platform = $1 AND source_match_id = $2`,
@@ -103,9 +109,10 @@ export async function fetchPlatformMatchRow(platform, sourceMatchId) {
 
 export async function fetchClientMatchRow(id, columns = "*") {
   const cmId = Number(id);
-  if (!Number.isFinite(cmId)) return null;
-  const cols =
-    columns === "*"
+  if (!Number.isFinite(cmId))
+    return null;
+  const cols
+    = columns === "*"
       ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at, list_status"
       : columns;
   const { rows } = await rdsQuery(`SELECT ${cols} FROM client_matches WHERE id = $1`, [cmId]);
@@ -162,14 +169,17 @@ export async function fetchLatestClientMatchBuiltAt() {
 export async function setClientMatchListStatus(id, listStatus) {
   const cmId = Number(id);
   const status = Number(listStatus);
-  if (!Number.isFinite(cmId)) throw new Error("无效的赛事 ID");
-  if (!Number.isFinite(status)) throw new Error("无效的 list_status");
+  if (!Number.isFinite(cmId))
+    throw new Error("无效的赛事 ID");
+  if (!Number.isFinite(status))
+    throw new Error("无效的 list_status");
   const builtAt = Date.now();
   const { rowCount } = await rdsQuery(
     "UPDATE client_matches SET list_status = $2, built_at = $3 WHERE id = $1",
     [cmId, status, builtAt],
   );
-  if (!rowCount) throw new Error("赛事不存在");
+  if (!rowCount)
+    throw new Error("赛事不存在");
   return { id: cmId, list_status: status, built_at: builtAt };
 }
 

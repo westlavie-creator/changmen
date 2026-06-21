@@ -2,12 +2,13 @@
  * orders 表读写 — upsert、查询、管理端、SaveOrderBind。
  */
 
-import { getPgPool, _jsonb } from "./common.js";
-import { localDayBounds, localMonthBounds } from "./time_bounds.js";
 import { shouldFireOrderBoundHook } from "../order_link_filter.js";
+import { _jsonb, getPgPool } from "./common.js";
+import { localDayBounds, localMonthBounds } from "./time_bounds.js";
 
 async function _rdsUpsertOrders(pool, rows) {
-  if (!rows?.length) return [];
+  if (!rows?.length)
+    return [];
   const sql = `
     INSERT INTO orders (
       user_id, player_id, order_id, link, provider, match, bet, item,
@@ -56,10 +57,12 @@ async function _rdsUpsertOrders(pool, rows) {
     }
     await client.query("COMMIT");
     return inserted;
-  } catch (err) {
+  }
+  catch (err) {
     await client.query("ROLLBACK");
     throw err;
-  } finally {
+  }
+  finally {
     client.release();
   }
 }
@@ -80,20 +83,24 @@ export function setOrdersBoundHook(fn) {
 
 /** upsert 订单列表；新插入行经 setOrdersInsertedHook 通知 */
 export async function upsertOrders(rows) {
-  if (!rows?.length) return false;
+  if (!rows?.length)
+    return false;
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   try {
     const inserted = await _rdsUpsertOrders(pool, rows);
     if (inserted.length && _ordersInsertedHook) {
       try {
         _ordersInsertedHook(inserted);
-      } catch (hookErr) {
+      }
+      catch (hookErr) {
         console.warn("[rds] ordersInsertedHook:", hookErr.message);
       }
     }
     return true;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] upsertOrders:", err.message);
     return false;
   }
@@ -103,7 +110,8 @@ export async function upsertOrders(rows) {
 export async function fetchOrdersByDate(date, userId) {
   const { dayStart, dayEnd } = localDayBounds(date);
   const pool = getPgPool();
-  if (!pool || !userId) return [];
+  if (!pool || !userId)
+    return [];
   try {
     const { rows } = await pool.query(
       `SELECT * FROM orders
@@ -112,7 +120,8 @@ export async function fetchOrdersByDate(date, userId) {
       [String(userId), dayStart, dayEnd],
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrdersByDate:", err.message);
     return [];
   }
@@ -121,7 +130,8 @@ export async function fetchOrdersByDate(date, userId) {
 /** 按 playerId 读取订单（全量） */
 export async function fetchOrdersByPlayer(playerId, userId) {
   const pool = getPgPool();
-  if (!pool || !userId) return [];
+  if (!pool || !userId)
+    return [];
   try {
     const { rows } = await pool.query(
       `SELECT * FROM orders
@@ -130,7 +140,8 @@ export async function fetchOrdersByPlayer(playerId, userId) {
       [String(userId), Number(playerId)],
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrdersByPlayer:", err.message);
     return [];
   }
@@ -139,14 +150,16 @@ export async function fetchOrdersByPlayer(playerId, userId) {
 /** saveOrder 读已有行（不过滤，含 A8 被动 sync） */
 export async function fetchOrdersByPlayerAll(playerId, userId) {
   const pool = getPgPool();
-  if (!pool || !userId) return [];
+  if (!pool || !userId)
+    return [];
   try {
     const { rows } = await pool.query(
       "SELECT * FROM orders WHERE user_id = $1 AND player_id = $2 ORDER BY create_at DESC",
       [String(userId), Number(playerId)],
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrdersByPlayerAll:", err.message);
     return [];
   }
@@ -157,7 +170,8 @@ export async function fetchOrdersByLink(userId, link) {
   const pool = getPgPool();
   const uid = String(userId || "").trim();
   const linkVal = Number(link);
-  if (!pool || !uid || !Number.isFinite(linkVal) || linkVal === 0) return [];
+  if (!pool || !uid || !Number.isFinite(linkVal) || linkVal === 0)
+    return [];
   try {
     const { rows } = await pool.query(
       `SELECT order_id, user_id, player_id, link, provider, match, bet, item,
@@ -167,7 +181,8 @@ export async function fetchOrdersByLink(userId, link) {
       [uid, linkVal],
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrdersByLink:", err.message);
     return [];
   }
@@ -178,7 +193,8 @@ export async function fetchOrderByOrderId(userId, orderId) {
   const pool = getPgPool();
   const uid = String(userId || "").trim();
   const oid = String(orderId || "").trim();
-  if (!pool || !uid || !oid) return null;
+  if (!pool || !uid || !oid)
+    return null;
   try {
     const { rows } = await pool.query(
       `SELECT order_id, user_id, player_id, link, provider, match, bet, item,
@@ -188,7 +204,8 @@ export async function fetchOrderByOrderId(userId, orderId) {
       [uid, oid],
     );
     return rows?.[0] ?? null;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrderByOrderId:", err.message);
     return null;
   }
@@ -197,14 +214,16 @@ export async function fetchOrderByOrderId(userId, orderId) {
 export async function fetchUserByName(userName) {
   const pool = getPgPool();
   const name = String(userName || "").trim();
-  if (!pool || !name) return null;
+  if (!pool || !name)
+    return null;
   try {
     const { rows } = await pool.query(
       `SELECT id, user_name FROM users WHERE lower(user_name) = lower($1) LIMIT 1`,
       [name],
     );
     return rows?.[0] ?? null;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchUserByName:", err.message);
     return null;
   }
@@ -213,14 +232,16 @@ export async function fetchUserByName(userName) {
 export async function fetchUserById(userId) {
   const pool = getPgPool();
   const uid = String(userId || "").trim();
-  if (!pool || !uid) return null;
+  if (!pool || !uid)
+    return null;
   try {
     const { rows } = await pool.query(
       `SELECT id, user_name FROM users WHERE id = $1 LIMIT 1`,
       [uid],
     );
     return rows?.[0] ?? null;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchUserById:", err.message);
     return null;
   }
@@ -230,7 +251,8 @@ export async function fetchUserById(userId) {
 export async function fetchOrdersAdminStats(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const pool = getPgPool();
-  if (!pool) return { count: 0, money: 0, betMoney: 0 };
+  if (!pool)
+    return { count: 0, money: 0, betMoney: 0 };
   try {
     const { rows } = await pool.query(
       `SELECT money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
@@ -240,13 +262,15 @@ export async function fetchOrdersAdminStats(dateKey) {
     let money = 0;
     let betMoney = 0;
     for (const o of rows || []) {
-      if (String(o.status || "") === "Reject") continue;
+      if (String(o.status || "") === "Reject")
+        continue;
       count += 1;
       money += Number(o.money) || 0;
       betMoney += Number(o.bet_money) || 0;
     }
     return { count, money, betMoney };
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrdersAdminStats:", err.message);
     return { count: 0, money: 0, betMoney: 0 };
   }
@@ -264,14 +288,16 @@ export async function fetchOrdersAdminPage({
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const from = (Math.max(1, pageIndex) - 1) * pageSize;
   const pool = getPgPool();
-  if (!pool) return { rows: [], total: 0 };
+  if (!pool)
+    return { rows: [], total: 0 };
   try {
     const params = [dayStart, dayEnd];
     let where = `create_at >= $1 AND create_at < $2`;
     if (userId) {
       params.push(String(userId));
       where += ` AND user_id = $${params.length}`;
-    } else if (Array.isArray(userIds) && userIds.length) {
+    }
+    else if (Array.isArray(userIds) && userIds.length) {
       params.push(userIds);
       where += ` AND user_id = ANY($${params.length}::uuid[])`;
     }
@@ -287,7 +313,8 @@ export async function fetchOrdersAdminPage({
       params,
     );
     return { rows: rows || [], total };
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrdersAdminPage:", err.message);
     return { rows: [], total: 0 };
   }
@@ -295,17 +322,21 @@ export async function fetchOrdersAdminPage({
 
 /** 管理端：按主键 id 删除订单 */
 export async function deleteOrdersByIds(ids) {
-  if (!Array.isArray(ids) || !ids.length) return 0;
+  if (!Array.isArray(ids) || !ids.length)
+    return 0;
   const pool = getPgPool();
-  if (!pool) return 0;
+  if (!pool)
+    return 0;
   const clean = ids
-    .map((id) => Number(id))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  if (!clean.length) return 0;
+    .map(id => Number(id))
+    .filter(n => Number.isFinite(n) && n > 0);
+  if (!clean.length)
+    return 0;
   try {
     const res = await pool.query("DELETE FROM orders WHERE id = ANY($1::bigint[])", [clean]);
     return res.rowCount ?? 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] deleteOrdersByIds:", err.message);
     return 0;
   }
@@ -316,7 +347,8 @@ export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000, use
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const cap = Math.min(5000, Math.max(1, Number(limit) || 5000));
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const params = [dayStart, dayEnd];
     let where = `create_at >= $1 AND create_at < $2`;
@@ -334,7 +366,8 @@ export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000, use
       params,
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrdersAdminAll:", err.message);
     return [];
   }
@@ -344,20 +377,23 @@ export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000, use
 export async function fetchOrdersForMonthAggregate(monthKey, userId, userIds) {
   const { monthStart, monthEnd } = localMonthBounds(monthKey);
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const params = [monthStart, monthEnd];
     let sql = `SELECT create_at, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`;
     if (userId) {
       params.push(String(userId));
       sql += ` AND user_id = $${params.length}`;
-    } else if (Array.isArray(userIds) && userIds.length) {
+    }
+    else if (Array.isArray(userIds) && userIds.length) {
       params.push(userIds);
       sql += ` AND user_id = ANY($${params.length}::uuid[])`;
     }
     const { rows } = await pool.query(sql, params);
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrdersForMonthAggregate:", err.message);
     return [];
   }
@@ -367,14 +403,16 @@ export async function fetchOrdersForMonthAggregate(monthKey, userId, userIds) {
 export async function fetchOrdersForProfitAggregate(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const { rows } = await pool.query(
       `SELECT user_id, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
       [dayStart, dayEnd],
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchOrdersForProfitAggregate:", err.message);
     return [];
   }
@@ -392,7 +430,8 @@ function buildOrderBindMatch(userId, orderId, opts = {}) {
   if (Number.isFinite(playerId) && playerId > 0) {
     params.push(playerId);
     parts.push(`player_id = $${params.length}`);
-  } else if (provider) {
+  }
+  else if (provider) {
     params.push(provider);
     parts.push(`provider = $${params.length}`);
   }
@@ -405,15 +444,18 @@ function offsetSqlPlaceholders(clause, offset) {
 }
 
 export async function updateOrderBind(orderId, userId, link, opts = {}) {
-  if (!orderId || !userId) return false;
+  if (!orderId || !userId)
+    return false;
   const linkVal = Number(link) || 0;
   const pool = getPgPool();
-  if (!pool) return false;
+  if (!pool)
+    return false;
   try {
     const { where, params } = buildOrderBindMatch(userId, orderId, opts);
     const sel = await pool.query(`SELECT * FROM orders WHERE ${where}`, params);
     const prev = sel.rows?.[0];
-    if (!prev) return false;
+    if (!prev)
+      return false;
     const updateWhere = offsetSqlPlaceholders(where, 1);
     const res = await pool.query(
       `UPDATE orders SET link = $1 WHERE ${updateWhere}`,
@@ -422,14 +464,17 @@ export async function updateOrderBind(orderId, userId, link, opts = {}) {
     if (res.rowCount > 0 && shouldFireOrderBoundHook(prev, linkVal) && _ordersBoundHook) {
       try {
         _ordersBoundHook([{ ...prev, link: linkVal }]);
-      } catch (hookErr) {
+      }
+      catch (hookErr) {
         console.warn("[rds] ordersBoundHook:", hookErr.message);
       }
     }
     return res.rowCount > 0;
-  } catch (err) {
+  }
+  catch (err) {
     console.warn(
-      "[rds] updateOrderBind:", err.message,
+      "[rds] updateOrderBind:",
+      err.message,
       `| orderId=${orderId} userId=${userId} link=${link} linkVal=${linkVal}`,
       `| opts=${JSON.stringify(opts)}`,
     );
@@ -438,7 +483,8 @@ export async function updateOrderBind(orderId, userId, link, opts = {}) {
 }
 
 function appendUserIdsFilter(params, userIds) {
-  if (!Array.isArray(userIds) || !userIds.length) return "";
+  if (!Array.isArray(userIds) || !userIds.length)
+    return "";
   params.push(userIds);
   return ` AND user_id = ANY($${params.length}::uuid[])`;
 }
@@ -446,7 +492,8 @@ function appendUserIdsFilter(params, userIds) {
 /** 数据分析：按平台聚合盈亏统计 */
 export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const params = [startMs, endMs];
     const uf = appendUserIdsFilter(params, userIds);
@@ -466,7 +513,8 @@ export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
       params,
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchPlatformAnalytics:", err.message);
     return [];
   }
@@ -475,7 +523,8 @@ export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
 /** 数据分析：套利配对统计（按 link 配对两腿，含 9999 单边负 link） */
 export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const params = [startMs, endMs];
     const uf = appendUserIdsFilter(params, userIds);
@@ -491,7 +540,7 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
           AND a.provider < b.provider
           AND a.user_id = b.user_id
         WHERE ABS(a.link) >= 1000000000000
-          AND a.create_at >= $1 AND a.create_at < $2${uf ? uf.replace('user_id', 'a.user_id') : ''}
+          AND a.create_at >= $1 AND a.create_at < $2${uf ? uf.replace("user_id", "a.user_id") : ""}
       )
       SELECT
         provider_a, provider_b,
@@ -507,7 +556,8 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
       params,
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchArbPairAnalytics:", err.message);
     return [];
   }
@@ -516,7 +566,8 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
 /** 数据分析：按游戏维度聚合（通过 match 名关联 client_matches.game） */
 export async function fetchGameAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const params = [startMs, endMs];
     const uf = appendUserIdsFilter(params, userIds);
@@ -536,13 +587,14 @@ export async function fetchGameAnalytics(startMs, endMs, userIds) {
          LIMIT 1
        ) cm ON true
        WHERE o.create_at >= $1 AND o.create_at < $2
-         AND o.provider IS NOT NULL AND o.provider != ''${uf ? uf.replace('user_id', 'o.user_id') : ''}
+         AND o.provider IS NOT NULL AND o.provider != ''${uf ? uf.replace("user_id", "o.user_id") : ""}
        GROUP BY COALESCE(cm.game, '未知')
        ORDER BY total_orders DESC`,
       params,
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchGameAnalytics:", err.message);
     return [];
   }
@@ -551,7 +603,8 @@ export async function fetchGameAnalytics(startMs, endMs, userIds) {
 /** 数据分析：按小时聚合（时段分布） */
 export async function fetchHourlyAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const params = [startMs, endMs];
     const uf = appendUserIdsFilter(params, userIds);
@@ -571,7 +624,8 @@ export async function fetchHourlyAnalytics(startMs, endMs, userIds) {
       params,
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchHourlyAnalytics:", err.message);
     return [];
   }
@@ -580,7 +634,8 @@ export async function fetchHourlyAnalytics(startMs, endMs, userIds) {
 /** 数据分析：按账号（player_id）聚合 */
 export async function fetchAccountAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
-  if (!pool) return [];
+  if (!pool)
+    return [];
   try {
     const params = [startMs, endMs];
     const uf = appendUserIdsFilter(params, userIds);
@@ -596,13 +651,14 @@ export async function fetchAccountAnalytics(startMs, endMs, userIds) {
         COALESCE(SUM(o.money), 0)::float AS total_profit
        FROM orders o
        WHERE o.create_at >= $1 AND o.create_at < $2
-         AND o.provider IS NOT NULL AND o.provider != ''${uf ? uf.replace('user_id', 'o.user_id') : ''}
+         AND o.provider IS NOT NULL AND o.provider != ''${uf ? uf.replace("user_id", "o.user_id") : ""}
        GROUP BY o.player_id, o.provider
        ORDER BY total_profit DESC`,
       params,
     );
     return rows || [];
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[rds] fetchAccountAnalytics:", err.message);
     return [];
   }

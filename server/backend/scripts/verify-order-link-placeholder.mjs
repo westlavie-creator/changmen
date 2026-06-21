@@ -40,17 +40,25 @@ for (const r of rows) {
   const ca = Number(r.create_at);
   if (isCreateAtPlaceholderLink(link, ca)) {
     createAtMatch += 1;
-    if (samples.createAtMatch.length < 3) samples.createAtMatch.push(r);
-  } else if (isInsertTimePlaceholderLink(link, ca)) {
+    if (samples.createAtMatch.length < 3)
+      samples.createAtMatch.push(r);
+  }
+  else if (isInsertTimePlaceholderLink(link, ca)) {
     insertTimePlaceholder += 1;
-    if (samples.insertTime.length < 3) samples.insertTime.push(r);
-  } else if (isHashLink(link)) {
+    if (samples.insertTime.length < 3)
+      samples.insertTime.push(r);
+  }
+  else if (isHashLink(link)) {
     hashPlaceholder += 1;
-    if (samples.hash.length < 3) samples.hash.push(r);
-  } else if (link >= ARB_LINK_MIN) {
+    if (samples.hash.length < 3)
+      samples.hash.push(r);
+  }
+  else if (link >= ARB_LINK_MIN) {
     arbBind += 1;
-    if (samples.arb.length < 3) samples.arb.push(r);
-  } else {
+    if (samples.arb.length < 3)
+      samples.arb.push(r);
+  }
+  else {
     other += 1;
   }
 }
