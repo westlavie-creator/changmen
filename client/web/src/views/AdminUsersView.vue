@@ -294,15 +294,14 @@ function openTeamDialog(team?: TeamRow) {
 }
 
 async function submitTeam() {
-  const id = teamForm.id.trim();
   const name = teamForm.name.trim();
-  if (!id || !name) {
-    ElMessage.warning("团队 ID 和名称必填");
+  if (!name) {
+    ElMessage.warning("团队名称必填");
     return;
   }
   teamLoading.value = true;
   try {
-    await upsertTeam(id, name);
+    await upsertTeam(teamForm.id.trim() || "", name);
     ElMessage.success(`团队 ${name} 已保存`);
     teamDialog.value = false;
     await loadTeams();
