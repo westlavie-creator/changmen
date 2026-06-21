@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminUserDetail from "@/components/admin/AdminUserDetail.vue";
 import {
@@ -9,6 +9,7 @@ import {
   getAdminUsers,
   renameAdminUser,
   resetAdminUserPassword,
+  setAdminUserAdmin,
 } from "@/api/admin";
 import type { AdminUserRow } from "@/types/admin";
 import { useUserStore } from "@/stores/userStore";
@@ -234,6 +235,27 @@ async function submitRename() {
   }
 }
 
+async function toggleAdmin(row: AdminUserRow) {
+  const isAdmin = !row.isAdmin;
+  const label = isAdmin ? "管理员" : "普通用户";
+  try {
+    await ElMessageBox.confirm(
+      `确认将 ${row.userName} 设为${label}？`,
+      "更改角色",
+      { confirmButtonText: "确认", cancelButtonText: "取消", type: "warning" },
+    );
+  } catch {
+    return;
+  }
+  try {
+    await setAdminUserAdmin(row.id, isAdmin);
+    ElMessage.success(`${row.userName} 已设为${label}`);
+    await loadUsers();
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "操作失败");
+  }
+}
+
 watch(date, () => {
   void loadUsers();
 });
@@ -301,6 +323,12 @@ onUnmounted(() => {
             </div>
           </template>
         </el-table-column>
+        <el-table-column label="角色" width="88" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.isAdmin" type="danger" size="small" effect="dark">管理员</el-tag>
+            <el-tag v-else type="info" size="small">用户</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="88" align="center">
           <template #default="{ row }">
             <span
@@ -360,6 +388,12 @@ onUnmounted(() => {
             <el-button link type="primary" size="small" @click="viewOrders(row)">订单</el-button>
             <el-button link type="primary" size="small" @click="openRename(row)">改用户名</el-button>
             <el-button link type="warning" size="small" @click="openReset(row)">重置密码</el-button>
+            <el-button
+              link
+              :type="row.isAdmin ? 'info' : 'danger'"
+              size="small"
+              @click="toggleAdmin(row)"
+            >{{ row.isAdmin ? '取消管理员' : '设为管理员' }}</el-button>
           </template>
         </el-table-column>
       </el-table>
