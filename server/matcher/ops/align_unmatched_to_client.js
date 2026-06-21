@@ -90,6 +90,11 @@ function resolveClientMatchNameKey(cm, matches) {
   return null;
 }
 
+function stripTimeSuffix(key) {
+  const at = key.indexOf("@");
+  return at > 0 ? key.slice(0, at) : key;
+}
+
 function buildClientMatchIndexes(clientRows, matches) {
   const byIdKey = new Map();
   const byNameKey = new Map();
@@ -99,12 +104,22 @@ function buildClientMatchIndexes(clientRows, matches) {
     if (stored.startsWith("match:id:")) {
       if (!byIdKey.has(stored)) byIdKey.set(stored, []);
       pushClientToIndex(byIdKey.get(stored), cm);
+      const base = stripTimeSuffix(stored);
+      if (base !== stored) {
+        if (!byIdKey.has(base)) byIdKey.set(base, []);
+        pushClientToIndex(byIdKey.get(base), cm);
+      }
     }
 
     const idKey = resolveClientMatchIdKey(cm, matches);
     if (idKey) {
       if (!byIdKey.has(idKey)) byIdKey.set(idKey, []);
       pushClientToIndex(byIdKey.get(idKey), cm);
+      const base = stripTimeSuffix(idKey);
+      if (base !== idKey) {
+        if (!byIdKey.has(base)) byIdKey.set(base, []);
+        pushClientToIndex(byIdKey.get(base), cm);
+      }
     }
     const nameKey = resolveClientMatchNameKey(cm, matches);
     if (nameKey) {
@@ -125,9 +140,15 @@ function buildExistingClientIdKeyIndex(clientRows, matches) {
     const stored = String(cm.merge_key || "");
     if (stored.startsWith("match:id:") && !map.has(stored)) {
       map.set(stored, id);
+      const base = stripTimeSuffix(stored);
+      if (base !== stored && !map.has(base)) map.set(base, id);
     }
     const idKey = resolveClientMatchIdKey(cm, matches);
-    if (idKey && !map.has(idKey)) map.set(idKey, id);
+    if (idKey && !map.has(idKey)) {
+      map.set(idKey, id);
+      const base = stripTimeSuffix(idKey);
+      if (base !== idKey && !map.has(base)) map.set(base, id);
+    }
   }
   return map;
 }
