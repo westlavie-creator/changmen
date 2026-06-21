@@ -67,8 +67,6 @@ const ADMIN_ONLY_ACTIONS = new Set<EsportAction>([
   "Client_AdminSetUserRole",
   "Client_AdminDeleteUser",
   "Client_AdminDeleteOrders",
-  "Client_AdminPlatformAnalytics",
-  "Client_AdminValueBet",
   "Client_AdminUpsertTeam",
   "Client_AdminDeleteTeam",
 ]);
@@ -83,6 +81,8 @@ const LEADER_ALLOWED_ACTIONS = new Set<EsportAction>([
   "Client_AdminRenameUser",
   "Client_AdminMonthReport",
   "Client_AdminTeams",
+  "Client_AdminPlatformAnalytics",
+  "Client_AdminValueBet",
 ]);
 
 function requireActionAuth(

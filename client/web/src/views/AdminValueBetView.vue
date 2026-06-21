@@ -94,7 +94,7 @@ onMounted(async () => {
       return;
     }
   }
-  if (!user.isAdmin) { await router.replace({ name: "home" }); return; }
+  if (!user.canAccessAdmin) { await router.replace({ name: "home" }); return; }
   await fetchData();
   timer = setInterval(fetchData, 10000);
 });

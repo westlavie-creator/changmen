@@ -42,7 +42,7 @@ const navItems = [
   },
 ];
 
-const ADMIN_ONLY_NAV = new Set(["admin-analytics", "admin-health", "admin-value-bet"]);
+const ADMIN_ONLY_NAV = new Set(["admin-health"]);
 
 const visibleNavItems = computed(() => {
   if (user.isAdmin) return navItems;
