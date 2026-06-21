@@ -71,7 +71,7 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
       v-model="orderDate"
       class="date-nav--sidebar"
       placeholder="选择日期"
-      picker-width="76px"
+      picker-width="100px"
       :disabled="loading || viewLoading"
       @change="onDateChange"
     />
