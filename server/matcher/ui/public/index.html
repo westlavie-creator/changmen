@@ -205,9 +205,10 @@
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
       padding: 14px 16px 10px; border-bottom: 1px solid #334155;
     }
+    .team-card-header > div:first-child { flex: 1; text-align: center; }
     .team-card-title { font-size: 16px; font-weight: 700; color: #f1f5f9; }
     .team-card-title .vs { color: #64748b; font-weight: 400; font-size: 12px; margin: 0 6px; }
-    .team-card-title-id { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; }
+    .team-card-title-id { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; }
     .title-team-slot { display: inline-flex; align-items: center; gap: 5px; max-width: 46%; }
     .title-gb-id { font-family: ui-monospace, monospace; color: #60a5fa; font-weight: 800; font-size: 15px; }
     .title-gb-id.pending { color: #fbbf24; }
@@ -223,7 +224,7 @@
     }
     .split-col-matched-id .team-name,
     .split-col-matched-name .team-name { font-size: 14px; }
-    .team-card-meta { font-size: 11px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .team-card-meta { font-size: 11px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
     .conf-wrap { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
     .conf-bar { width: 72px; height: 5px; background: #334155; border-radius: 3px; overflow: hidden; }
     .conf-fill { height: 100%; border-radius: 3px; }
@@ -248,7 +249,7 @@
     }
     .team-card-hint { font-size: 11px; color: #64748b; line-height: 1.45; }
 
-    .gbadge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; text-transform: uppercase; }
+    .gbadge { font-size: 13px; font-weight: 600; padding: 3px 9px; border-radius: 10px; text-transform: uppercase; }
     .g-cs2 { background: #ff6b3518; color: #fb923c; }
     .g-lol { background: #c89b3c18; color: #fbbf24; }
     .g-dota2 { background: #ef444418; color: #f87171; }
