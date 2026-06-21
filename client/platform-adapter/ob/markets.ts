@@ -45,10 +45,6 @@ export function maxStageForObLoad(match: ViewMatch): number {
   return Math.max(fromBets, fromBo);
 }
 
-let _foIngestOnlyNew = false;
-
-export function setFoIngestOnlyNew(v: boolean) { _foIngestOnlyNew = v; }
-
 /** Ingest：可采集 block 写入 fo（不含 API 回传） */
 function ingestObViewBlocksToFo(
   blocks: Array<Record<string, unknown>>,
@@ -57,13 +53,11 @@ function ingestObViewBlocksToFo(
 ): void {
   const odds = useOddsStore();
   const now = Date.now();
-  const onlyNew = _foIngestOnlyNew;
   for (const block of blocks) {
     const label = obBlockLabel(block);
     if (!isObBlockCollectable(block, label, betRe, gameCode)) continue;
     const locked = obBlockLocked(block);
     for (const entry of listObBlockFoOddEntries(block, locked)) {
-      if (onlyNew && odds.isOdds(PLATFORM, entry.id)) continue;
       odds.save(
         PLATFORM,
         {

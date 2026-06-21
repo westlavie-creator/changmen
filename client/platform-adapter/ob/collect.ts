@@ -254,16 +254,13 @@ export function startObCollector(): () => void {
         const matchPayload = await buildMatchesFromList(list);
         await collect.saveMatch(PLATFORM, matchPayload);
 
-        const { getObMqttMode: _getMode } = await import("./mqttModeSwitch");
-        const isOfficialMode = _getMode().value === "official";
-
         for (const row of list) {
           if (stopped) break;
           const matchId = String(row.id ?? "");
           if (!matchId) continue;
           matchCount += 1;
 
-          if (!isOfficialMode) unsubscribeObMatchBeforeView(matchId);
+          unsubscribeObMatchBeforeView(matchId);
           const gameCode = getGameCodeForPlatformId("OB", String(row.game_id ?? "")) || null;
           const loaded = await loadMarketsForMatch(
             platform,
@@ -277,7 +274,7 @@ export function startObCollector(): () => void {
           if (!loaded.hadError) {
             await collect.saveBets(PLATFORM, matchId, loaded.bets);
           }
-          if (!isOfficialMode) void subscribeObMatchAfterView(matchId);
+          void subscribeObMatchAfterView(matchId);
         }
 
         await syncObLiveTimer(platform);
@@ -295,20 +292,12 @@ export function startObCollector(): () => void {
     await wait(3000);
     if (stopped) return;
     connectObMqtt(() => matchStore.refreshOddsOnBets());
-    const { getObMqttMode } = await import("./mqttModeSwitch");
-    if (getObMqttMode().value === "official") {
-      const { startObGlobalMqtt } = await import("./globalMqtt");
-      const { setFoIngestOnlyNew } = await import("./markets");
-      startObGlobalMqtt();
-      setFoIngestOnlyNew(true);
-    }
     loopPromise = poll();
   })();
 
   return () => {
     stopped = true;
     disconnectObMqtt();
-    void import("./globalMqtt").then(({ stopObGlobalMqtt }) => stopObGlobalMqtt());
     void loopPromise;
   };
 }
