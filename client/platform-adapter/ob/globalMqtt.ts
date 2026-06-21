@@ -36,8 +36,14 @@ const GLOBAL_TOPICS = [
 let client: MqttClient | null = null;
 let _connected = false;
 let _statusLabel = "";
+let _msgCount = 0;
+let _oddsUpdateCount = 0;
+let _oddsAppliedCount = 0;
+let _oddsDroppedCount = 0;
+let _lastCountResetAt = Date.now();
 
 function handleGlobalMessage(topic: string, buf: Buffer): void {
+  _msgCount++;
   let rows: Array<Record<string, unknown>>;
   try {
     rows = JSON.parse(buf.toString());
@@ -50,9 +56,14 @@ function handleGlobalMessage(topic: string, buf: Buffer): void {
   const now = Date.now();
 
   if (topic === "/market/odds/update") {
+    _oddsUpdateCount++;
     for (const row of rows) {
       const id = String(row.id ?? "");
-      if (!id || !odds.isOdds(PLATFORM, id)) continue;
+      if (!id) continue;
+      if (!odds.isOdds(PLATFORM, id)) {
+        _oddsDroppedCount++;
+        continue;
+      }
       const nextOdd = parseObOddField(row.odd);
       if (nextOdd <= 0) continue;
       const prev = odds.getEntry(PLATFORM, id);
@@ -68,6 +79,7 @@ function handleGlobalMessage(topic: string, buf: Buffer): void {
         },
         "mqtt",
       );
+      _oddsAppliedCount++;
     }
   } else if (topic === "/market/status/update" || topic === "/market/action/suspended") {
     for (const row of rows) {
@@ -137,6 +149,11 @@ export function startObGlobalMqtt(): void {
 export function stopObGlobalMqtt(): void {
   _connected = false;
   _statusLabel = "";
+  _msgCount = 0;
+  _oddsUpdateCount = 0;
+  _oddsAppliedCount = 0;
+  _oddsDroppedCount = 0;
+  _lastCountResetAt = Date.now();
   if (client) {
     client.removeAllListeners();
     client.end(true);
@@ -151,4 +168,20 @@ export function isObGlobalMqttConnected(): boolean {
 
 export function obGlobalMqttStatusLabel(): string {
   return _statusLabel;
+}
+
+export function obGlobalMqttDiag(): {
+  msgCount: number;
+  oddsUpdateCount: number;
+  oddsAppliedCount: number;
+  oddsDroppedCount: number;
+  uptimeSec: number;
+} {
+  return {
+    msgCount: _msgCount,
+    oddsUpdateCount: _oddsUpdateCount,
+    oddsAppliedCount: _oddsAppliedCount,
+    oddsDroppedCount: _oddsDroppedCount,
+    uptimeSec: Math.floor((Date.now() - _lastCountResetAt) / 1000),
+  };
 }

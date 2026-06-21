@@ -6,6 +6,7 @@ import {
   isObGlobalConnected,
   switchObMqttMode,
 } from "@platform/ob/mqttModeSwitch";
+import { obGlobalMqttDiag } from "@platform/ob/globalMqtt";
 
 const { statuses } = useDirectRealtimeStatus();
 const obMqttMode = getObMqttMode();
@@ -16,7 +17,15 @@ function toggleObMode() {
 
 function obModeTooltip(): string {
   if (obMqttMode.value === "official") {
-    return `OB MQTT: 官网模式（全局 /market/odds/update）\n${isObGlobalConnected() ? "已连接" : "连接中..."}\n点击切换回 A8 模式`;
+    const d = obGlobalMqttDiag();
+    return [
+      `OB MQTT: 官网模式（全局 /market/odds/update）`,
+      isObGlobalConnected() ? "已连接" : "连接中...",
+      `运行 ${d.uptimeSec}s`,
+      `总消息 ${d.msgCount} | 赔率推送 ${d.oddsUpdateCount}`,
+      `已应用 ${d.oddsAppliedCount} | 被丢弃(isOdds) ${d.oddsDroppedCount}`,
+      `点击切换回 A8 模式`,
+    ].join("\n");
   }
   return "OB MQTT: A8 模式（按场订阅）\n点击切换到官网模式（全局推送）";
 }
