@@ -8,8 +8,8 @@ import {
   obLegacyWinBetName,
   obSavedBetIsMatchWinner,
   rayLegacyWinBetName,
-} from "@changmen/shared/catalog/market_catalog.mjs";
-import { imBetNameIsCollectible, normalizeImBet, pickStr } from "@changmen/shared/im_parse.mjs";
+} from "@changmen/shared/catalog/market_catalog";
+import { imBetNameIsCollectible, normalizeImBet, pickStr } from "@changmen/shared/im_parse";
 import { betKey, isPlaceholderTeamName, stableBetId, stableId } from "../teams/match_utils.js";
 import { dedupeImBetsByMap, filterImStoredWinBets } from "./im_enrich.js";
 

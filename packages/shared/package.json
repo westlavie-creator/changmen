@@ -5,17 +5,17 @@
   "private": true,
   "description": "changmen 跨进程共享模块（catalog、odds、time 等；数据层见 @changmen/db）",
   "exports": {
-    "./catalog/game_catalog.mjs": "./catalog/game_catalog.mjs",
-    "./catalog/pb_team_platform_id.mjs": "./catalog/pb_team_platform_id.mjs",
+    "./catalog/game_catalog": "./catalog/game_catalog.ts",
     "./catalog/game_catalog.json": "./catalog/game_catalog.json",
     "./catalog/game_catalog.browser": "./catalog/game_catalog.browser.ts",
-    "./catalog/market_catalog.mjs": "./catalog/market_catalog.mjs",
+    "./catalog/market_catalog": "./catalog/market_catalog.ts",
     "./catalog/market_catalog.json": "./catalog/market_catalog.json",
     "./catalog/market_catalog.browser": "./catalog/market_catalog.browser.ts",
-    "./odds_format.js": "./odds_format.js",
-    "./time/match_time.mjs": "./time/match_time.mjs",
-    "./im_parse.mjs": "./im_parse.mjs",
-    "./account_multiply.mjs": "./account_multiply.mjs",
-    "./integrations/a8_dev_credentials.mjs": "./integrations/a8_dev_credentials.mjs"
+    "./odds_format": "./odds_format.ts",
+    "./time/match_time": "./time/match_time.ts",
+    "./im_parse": "./im_parse.ts",
+    "./account_multiply": "./account_multiply.ts",
+    "./integrations/a8_dev_credentials": "./integrations/a8_dev_credentials.ts",
+    "./catalog/pb_team_platform_id": "./catalog/pb_team_platform_id.ts"
   }
 }

@@ -9,7 +9,7 @@ import {
   resolveClientMatchIds,
   setTeamPlugin,
 } from "@changmen/match-engine";
-import { formatOdds } from "@changmen/shared/odds_format.js";
+import { formatOdds } from "@changmen/shared/odds_format";
 import {
   alignUnmatchedToClientMatches,
   buildExistingClientIdKeyIndex,

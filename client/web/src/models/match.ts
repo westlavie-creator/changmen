@@ -2,7 +2,7 @@ import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { BetRowDto, ClientMatchDto, PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
-import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { buildOrderOptions } from "@/domain/betting";
 import { PLATFORMS } from "@/shared/platform";
 import { useOddsStore } from "@/stores/oddsStore";

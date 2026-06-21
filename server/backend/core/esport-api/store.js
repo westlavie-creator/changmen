@@ -1,7 +1,7 @@
 import * as sb from "@changmen/db";
 import { normalizeMatchesShape } from "@changmen/match-engine";
-import { formatBetOdds } from "@changmen/shared/odds_format.js";
-import { a8StartTimeListAllowed } from "@changmen/shared/time/match_time.mjs";
+import { formatBetOdds } from "@changmen/shared/odds_format";
+import { a8StartTimeListAllowed } from "@changmen/shared/time/match_time";
 import { readJsonFile, writeJsonFile, writeJsonFileDebounced } from "@changmen/storage/json_file_store.js";
 import {
   ensureStorageSeed,

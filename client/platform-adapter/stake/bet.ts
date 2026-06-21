@@ -1,4 +1,4 @@
-import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 export const STAKE_USDT_TO_CNY = 6.977023058793687;

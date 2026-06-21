@@ -1,6 +1,6 @@
 import { getPgPool } from "@changmen/db";
-import { getCatalogSummary } from "@changmen/shared/catalog/game_catalog.mjs";
-import { getCatalogSummary as getMarketCatalogSummary } from "@changmen/shared/catalog/market_catalog.mjs";
+import { getCatalogSummary } from "@changmen/shared/catalog/game_catalog";
+import { getCatalogSummary as getMarketCatalogSummary } from "@changmen/shared/catalog/market_catalog";
 import { getWsForwardStatus, isWsForwardHttpPath } from "@changmen/ws-forward";
 import { countAccounts, getClientMatches, listProfiles } from "./core/db/store.js";
 import { resolveCreditPlateUserName, tryEsportApi } from "./core/esport-api/router.js";

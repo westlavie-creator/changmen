@@ -1,6 +1,6 @@
 import type { AccountCurrency, AccountRecord } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
-import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import { getExchange } from "@/shared/currency";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 

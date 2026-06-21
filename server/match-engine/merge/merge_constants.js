@@ -2,7 +2,7 @@
  * 跨平台合并与 align 共用的时间窗常量。
  */
 
-import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 
 /** 开赛时间 ±30 分钟视为同一场（各平台上报时间差异较大） */
 export const MERGE_START_TIME_TOLERANCE_MS = 30 * 60 * 1000;

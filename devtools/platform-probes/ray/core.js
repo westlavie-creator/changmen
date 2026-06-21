@@ -1,4 +1,4 @@
-import { rayIsAggregatedOddsRow } from "@changmen/shared/catalog/market_catalog.mjs";
+import { rayIsAggregatedOddsRow } from "@changmen/shared/catalog/market_catalog";
 import { rayMatchStage as matchStageToId } from "./shared/match_stage.js";
 
 export const DEFAULT_GATEWAYS = [

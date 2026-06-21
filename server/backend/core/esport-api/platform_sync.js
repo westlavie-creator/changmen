@@ -1,4 +1,4 @@
-import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
+import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog";
 import { requirePlatform } from "../shared/adapter_paths.js";
 import store from "./store.js";
 

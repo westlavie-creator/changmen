@@ -1,5 +1,5 @@
 import type { BetOption } from "@/models/betOption";
-import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@platform/contract";
 import { accountTfGet, accountTfPost } from "@/shared/platformHttp";

@@ -2,7 +2,7 @@
  * client_matches 列表可见性：进行中/未开赛保持 0，已结束 → list_status -1。
  */
 
-import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { PROVIDER_PRIORITY } from "../teams/provider_priority.js";
 import { liveRound } from "./match_merge.js";
 

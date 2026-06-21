@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AccountEditFormState } from "@/components/account/accountEditFormState";
 import type { PlatformId } from "@/types/esport";
-import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import { ElLoading, ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { computed, reactive, ref, watch } from "vue";

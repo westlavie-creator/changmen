@@ -1,4 +1,4 @@
-import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";

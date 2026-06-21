@@ -1,0 +1,195 @@
+import catalog from "./game_catalog.json" with { type: "json" };
+
+interface GameEntry {
+  code: string;
+  name: string;
+  nameEn: string;
+  a8GameId?: number;
+  a8Name?: string;
+  platforms?: Record<string, string>;
+}
+
+/** 平博 league.gameCode 经 slugify 后的别名 → catalog code */
+const PB_SLUG_ALIASES: Record<string, string> = {
+  "cs": "cs2",
+  "cs2": "cs2",
+  "counter-strike-2": "cs2",
+  "valorant": "valorant",
+  "lol": "lol",
+  "league-of-legends": "lol",
+  "dota2": "dota2",
+  "dota-2": "dota2",
+  "kog": "kog",
+  "king-of-glory": "kog",
+  "honor-of-kings": "kog",
+};
+
+/** A8 Stake `_Q` SourceGameID aliases. */
+const STAKE_A8_ALIASES: Record<string, string> = {
+  CS2: "cs2",
+  LOL: "lol",
+  GOK: "kog",
+  Dota2: "dota2",
+  Valorant: "valorant",
+};
+
+/** TF 王者荣耀：A8 采集用 14；旧 probe 曾记 43 */
+const TF_GAME_ALIASES: Record<number, string> = {
+  43: "kog",
+};
+
+function listGames(): GameEntry[] {
+  return (catalog.games as GameEntry[]).slice();
+}
+
+function getGameByCode(code: string): GameEntry | null {
+  return (catalog.games as GameEntry[]).find(g => g.code === code) || null;
+}
+
+function parseActiveGameCodes(): string[] {
+  const raw = process.env.AGGREGATE_GAME_CODES;
+  if (!raw || raw === "*") {
+    return (catalog.games as GameEntry[]).map(g => g.code);
+  }
+  const wanted = new Set(
+    raw
+      .split(/[,;\s]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  return (catalog.games as GameEntry[]).filter(g => wanted.has(g.code)).map(g => g.code);
+}
+
+function getActiveGames(): GameEntry[] {
+  const codes = new Set(parseActiveGameCodes());
+  return (catalog.games as GameEntry[]).filter(g => codes.has(g.code));
+}
+
+function getPlatformGameId(platform: string, code: string): string | null {
+  const game = getGameByCode(code);
+  const id = game?.platforms?.[platform];
+  return id != null ? String(id) : null;
+}
+
+function getGameCodeForPlatformId(platform: string, gameId: string | number): string | null {
+  const id = String(gameId);
+  if (platform === "PB") {
+    const alias = PB_SLUG_ALIASES[id];
+    if (alias)
+      return alias;
+  }
+  if (platform === "Stake") {
+    const alias = STAKE_A8_ALIASES[id];
+    if (alias)
+      return alias;
+  }
+  if (platform === "TF") {
+    const alias = TF_GAME_ALIASES[id as unknown as number];
+    if (alias)
+      return alias;
+  }
+  for (const game of catalog.games as GameEntry[]) {
+    if (String(game.platforms?.[platform]) === id) {
+      return game.code;
+    }
+  }
+  return null;
+}
+
+function isAllowedPlatformGameId(platform: string, gameId: string | number): boolean {
+  const code = getGameCodeForPlatformId(platform, gameId);
+  if (!code)
+    return false;
+  return parseActiveGameCodes().includes(code);
+}
+
+function getActivePlatformGameIds(platform: string): string[] {
+  return getActiveGames()
+    .map(g => g.platforms?.[platform])
+    .filter(Boolean)
+    .map(String);
+}
+
+interface PlatformGameDescription {
+  gameCode: string;
+  gameName: string;
+  gameNameEn: string;
+  a8GameId: number | null;
+  inCatalog: boolean;
+}
+
+function describePlatformGame(platform: string, gameId: string | number): PlatformGameDescription {
+  const code = getGameCodeForPlatformId(platform, gameId);
+  if (code) {
+    const game = getGameByCode(code);
+    return {
+      gameCode: code,
+      gameName: game?.a8Name || game?.name || code,
+      gameNameEn: game?.nameEn || code,
+      a8GameId: game?.a8GameId ?? null,
+      inCatalog: true,
+    };
+  }
+  return {
+    gameCode: "unknown",
+    gameName: `未知(${gameId})`,
+    gameNameEn: "Unknown",
+    a8GameId: null,
+    inCatalog: false,
+  };
+}
+
+interface ClientGameResult {
+  Game: string;
+  GameID: number;
+}
+
+/** Client_GetMatchs 的 Game / GameID（A8 服务端整理后下发，前端直接展示 Game） */
+function resolveClientGame(platform: string, sourceGameId: string | number): ClientGameResult {
+  const info = describePlatformGame(platform, sourceGameId);
+  return {
+    Game: info.gameName,
+    GameID: info.a8GameId ?? 0,
+  };
+}
+
+interface CatalogSummary {
+  version: number;
+  updatedAt: string;
+  activeCodes: string[];
+  games: {
+    code: string;
+    name: string;
+    nameEn: string;
+    platformIds: Record<string, string> | undefined;
+  }[];
+}
+
+function getCatalogSummary(): CatalogSummary {
+  return {
+    version: catalog.version,
+    updatedAt: catalog.updatedAt,
+    activeCodes: parseActiveGameCodes(),
+    games: getActiveGames().map(g => ({
+      code: g.code,
+      name: g.name,
+      nameEn: g.nameEn,
+      platformIds: g.platforms,
+    })),
+  };
+}
+
+export {
+  catalog,
+  describePlatformGame,
+  getActiveGames,
+  getActivePlatformGameIds,
+  getCatalogSummary,
+  getGameByCode,
+  getGameCodeForPlatformId,
+  getPlatformGameId,
+  isAllowedPlatformGameId,
+  listGames,
+  parseActiveGameCodes,
+  resolveClientGame,
+};

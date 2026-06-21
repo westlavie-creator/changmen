@@ -1,4 +1,4 @@
-import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
+import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply";
 import { listProfileRows } from "../db/store.js";
 import store from "../esport-api/store.js";
 import { emptyPage } from "../esport-api/stubs.js";

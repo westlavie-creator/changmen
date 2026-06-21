@@ -1,7 +1,7 @@
 import {
   getGameCodeForPlatformId,
   resolveClientGame,
-} from "@changmen/shared/catalog/game_catalog.mjs";
+} from "@changmen/shared/catalog/game_catalog";
 import { describe, expect, it } from "vitest";
 
 describe("game_catalog IA mappings", () => {

@@ -2,8 +2,8 @@
  * 队伍表读写 — canonical_teams / team_platform_maps（RDS）。
  */
 
-import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
-import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 import { normalizeTeam, resolveCanonicalTeamName } from "../../match-engine/index.js";
 import { getPgPool } from "./common.js";
 

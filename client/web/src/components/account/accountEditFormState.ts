@@ -1,6 +1,6 @@
 import type { AdminAccountDetail } from "@/types/admin";
 import type { PlatformId } from "@/types/esport";
-import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import { PlatformAccount } from "@/models/platformAccount";
 
 export interface AccountEditFormState {

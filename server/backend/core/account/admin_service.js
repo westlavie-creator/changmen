@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import * as sb from "@changmen/db";
 import { ensurePgPoolReady, getPgPool, insertProfile } from "@changmen/db";
-import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import { lookupOrderLogs, toAdminOrderLogPayload } from "../admin_tools/user_log_lookup.js";
 import { isAdminUser } from "../auth/admin_auth.js";
 import { filterProfiles, getVisibleUserIds, resolveVisibleUserIds } from "../auth/role_filter.js";

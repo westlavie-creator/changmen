@@ -5,15 +5,15 @@
  *   - collapseImClientRows（合并结果里的 IM 重复行）
  */
 
-import { getGameCodeForPlatformId, getPlatformGameId } from "@changmen/shared/catalog/game_catalog.mjs";
-import { matchesSavedBet } from "@changmen/shared/catalog/market_catalog.mjs";
-import { imBetNameIsCollectible, normalizeImBet, pickStr } from "@changmen/shared/im_parse.mjs";
+import { getGameCodeForPlatformId, getPlatformGameId } from "@changmen/shared/catalog/game_catalog";
+import { matchesSavedBet } from "@changmen/shared/catalog/market_catalog";
+import { imBetNameIsCollectible, normalizeImBet, pickStr } from "@changmen/shared/im_parse";
 import {
   A8_MATCH_MAX_FUTURE_MS,
   a8StartTimeListAllowed,
   IM_ODDS_ACTIVE_MS,
   normalizeEpochMs,
-} from "@changmen/shared/time/match_time.mjs";
+} from "@changmen/shared/time/match_time";
 import { isPlaceholderTeamName } from "../teams/match_utils.js";
 
 const IM_ENRICH_WINDOW_MS = 3 * 60 * 60 * 1000;

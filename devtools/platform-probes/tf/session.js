@@ -5,7 +5,7 @@ import {
   ensureDefaultJsonFiles,
   setPlatform,
 } from "@changmen/storage/platform_storage.js";
-import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog.mjs";
+import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog";
 import { tfRequestHeaders } from "./auth.js";
 
 export const DEFAULT_GATEWAY = "https://api-v4.tf-api-rr3h.com";

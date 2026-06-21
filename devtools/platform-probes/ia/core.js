@@ -1,4 +1,4 @@
-import { matchesMarketCode } from "@changmen/shared/catalog/market_catalog.mjs";
+import { matchesMarketCode } from "@changmen/shared/catalog/market_catalog";
 import { getGameCode, getGameName } from "./game_ids.js";
 
 export function sleep(ms) {

@@ -6,7 +6,7 @@ import {
   loadTeamMapsForMatcher,
 } from "@changmen/db";
 import { normalizeTeam } from "@changmen/match-engine";
-import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { MATCHER_INTERVAL_MS } from "../lib/config.js";
 import { resolveUiGame } from "../lib/game_ui.js";
 import {

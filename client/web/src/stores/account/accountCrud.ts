@@ -1,7 +1,7 @@
 import type { AccountStoreContext } from "@/stores/account/context";
 import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
 import type { TagPlatformRow } from "@/types/esport";
-import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
+import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply";
 import {
   createTagPlatform,
   deletePlayer,

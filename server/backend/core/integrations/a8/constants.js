@@ -7,4 +7,4 @@ export {
   A8_PASSWORD,
   A8_USER,
   A8_V4_PASSWORD,
-} from "@changmen/shared/integrations/a8_dev_credentials.mjs";
+} from "@changmen/shared/integrations/a8_dev_credentials";

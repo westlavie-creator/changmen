@@ -7,7 +7,7 @@ import {
   a8StartTimeListAllowed,
   IM_ODDS_ACTIVE_MS,
   normalizeEpochMs,
-} from "@changmen/shared/time/match_time.mjs";
+} from "@changmen/shared/time/match_time";
 
 export { A8_MATCH_MAX_FUTURE_MS, a8StartTimeListAllowed, IM_ODDS_ACTIVE_MS, normalizeEpochMs };
 

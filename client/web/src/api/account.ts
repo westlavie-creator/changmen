@@ -1,6 +1,6 @@
 import type { AccountRecord, CreateTagPlatformResult, UpdateBalanceResult } from "@/types/account";
 import type { MoneyLogRow, PageResult, TagPlatformRow } from "@/types/esport";
-import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
+import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply";
 import { post, unwrap } from "@/api/client";
 import { ACCOUNT_KEY, getData, saveData, updateBalance as vtUpdateBalance } from "@/api/vt";
 import { formatPbDateTime } from "@/shared/format";

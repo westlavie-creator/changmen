@@ -25,7 +25,7 @@ describe("adapter_paths", () => {
   });
 
   it("reqS loads @changmen/shared modules", () => {
-    const { getDefaultMarketCode } = reqS("catalog/market_catalog.mjs");
+    const { getDefaultMarketCode } = reqS("catalog/market_catalog");
     expect(typeof getDefaultMarketCode).toBe("function");
     expect(getDefaultMarketCode("OB")).toBeTruthy();
   });

@@ -9,7 +9,7 @@
  *   node ray_scraper.js --dry-run         # 只打印，不写�? */
 
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
-import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
 import { loadAndCreatePlugin } from "../team_db.js";
 
 loadChangmenEnv();

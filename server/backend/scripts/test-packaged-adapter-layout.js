@@ -34,9 +34,9 @@ adapterRequire("registry", "feeds.js");
 requirePlatform("OB", "node", "session.js");
 requirePlatform("RAY", "node", "session.js");
 
-const marketCatalog = reqS("catalog/market_catalog.mjs");
+const marketCatalog = reqS("catalog/market_catalog");
 if (typeof marketCatalog.getDefaultMarketCode !== "function") {
-  throw new TypeError("shared/catalog/market_catalog.mjs did not export getDefaultMarketCode");
+  throw new TypeError("shared/catalog/market_catalog did not export getDefaultMarketCode");
 }
 console.log("shared resolve OK:", marketCatalog.getDefaultMarketCode("OB"));
 

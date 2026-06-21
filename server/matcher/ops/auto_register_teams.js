@@ -2,8 +2,8 @@ import {
   fetchExistingTeamMapKeys,
   upsertTeamPlatformMaps,
 } from "@changmen/db";
-import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
-import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 
 /**
  * rebuild 时自动收录 TF / OB / RAY / IA / PB 平台尚未在 team_platform_maps 中的队伍。

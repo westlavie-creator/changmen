@@ -1,7 +1,7 @@
 /** 对齐 A8 bundle `pt` 常用格式化 */
 
-import { formatOdds } from "@changmen/shared/odds_format.js";
-import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import { formatOdds } from "@changmen/shared/odds_format";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 
 export function formatDate(ts: number | string | null | undefined): string {
   const ms = normalizeEpochMs(ts);

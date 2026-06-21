@@ -13,8 +13,8 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { upsertTeamPlatformMapsBatched } from "@changmen/db";
 import { requirePlatform } from "@changmen/platform-adapter/loader/adapter_paths.js";
-import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
-import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);

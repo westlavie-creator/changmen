@@ -8,9 +8,9 @@ import {
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
 } from "@changmen/match-engine/teams/team_key.js";
-import { getGameCodeForPlatformId, resolveClientGame } from "@changmen/shared/catalog/game_catalog.mjs";
-import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
-import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import { getGameCodeForPlatformId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
+import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 
 /**
  * rebuild 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。

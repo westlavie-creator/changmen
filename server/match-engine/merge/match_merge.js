@@ -9,9 +9,9 @@
  *   merge/bet_builder  — 通用赔率过滤 + 构建
  */
 
-import { describePlatformGame, getGameCodeForPlatformId, resolveClientGame } from "@changmen/shared/catalog/game_catalog.mjs";
-import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
-import { a8StartTimeListAllowed, normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import { describePlatformGame, getGameCodeForPlatformId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
+import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
+import { a8StartTimeListAllowed, normalizeEpochMs } from "@changmen/shared/time/match_time";
 import {
   betKey,
   formatTitle,

@@ -35,7 +35,7 @@
     "typecheck:frontend": "turbo run typecheck --filter=@changmen/web",
     "analyze:deps": "npm run analyze:deps:check --prefix client/web",
     "test:frontend": "turbo run typecheck test --filter=@changmen/web",
-    "test:catalog-smoke": "node packages/shared/catalog/market_catalog_smoke.test.mjs && node packages/shared/catalog/game_catalog_smoke.test.mjs && node packages/shared/im_parse_smoke.test.mjs && node packages/shared/time/match_time_smoke.test.mjs && node server/storage/paths_smoke.test.mjs && vitest run server/db/order_link_filter.test.mjs server/db/order_changmen_bet.test.mjs",
+    "test:catalog-smoke": "node --experimental-strip-types packages/shared/catalog/market_catalog_smoke.test.ts && node --experimental-strip-types packages/shared/catalog/game_catalog_smoke.test.ts && node --experimental-strip-types packages/shared/im_parse_smoke.test.ts && node --experimental-strip-types packages/shared/time/match_time_smoke.test.ts && node server/storage/paths_smoke.test.mjs && vitest run server/db/order_link_filter.test.mjs server/db/order_changmen_bet.test.mjs",
     "matcher:ui": "npm run start --prefix server/matcher",
     "matcher:loop": "npm run matcher --prefix server/matcher",
     "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension",

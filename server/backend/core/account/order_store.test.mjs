@@ -1,5 +1,5 @@
 import { placeholderLinkFromCreateAt } from "@changmen/db";
-import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import { describe, expect, it } from "vitest";
 import { parseOrderBindRow, resolveStoredLink } from "./order_store.js";
 

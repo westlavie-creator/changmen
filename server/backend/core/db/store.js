@@ -2,8 +2,8 @@ import * as sb from "@changmen/db";
 import {
   accountsMultiplyNeedsPersist,
   normalizeAccountList,
-} from "@changmen/shared/account_multiply.mjs";
-import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+} from "@changmen/shared/account_multiply";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
 const _cache = new Map();

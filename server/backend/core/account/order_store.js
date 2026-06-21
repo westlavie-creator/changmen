@@ -3,7 +3,7 @@ import {
   backendBindLinkFromCreateAt,
   placeholderLinkFromCreateAt,
 } from "@changmen/db";
-import { parseVenueCreateAt } from "@changmen/shared/time/match_time.mjs";
+import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 
 export function toDateKey(ts) {
   const d = new Date(Number(ts) || Date.now());

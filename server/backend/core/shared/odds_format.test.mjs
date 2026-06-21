@@ -1,4 +1,4 @@
-import { formatBetOdds, formatOdds } from "@changmen/shared/odds_format.js";
+import { formatBetOdds, formatOdds } from "@changmen/shared/odds_format";
 import { describe, expect, it } from "vitest";
 
 describe("formatOdds", () => {

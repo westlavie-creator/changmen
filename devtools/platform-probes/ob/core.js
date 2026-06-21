@@ -1,7 +1,7 @@
 import {
   obPickWinMarket,
   obFormatNormalizedMarketName,
-} from "@changmen/shared/catalog/market_catalog.mjs";
+} from "@changmen/shared/catalog/market_catalog";
 
 /** �̿ڿ���̬��game/view �� market.status ����֪��Ͷעֵ */
 const MARKET_STATUS_OPEN = 6;

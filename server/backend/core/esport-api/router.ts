@@ -1,8 +1,18 @@
 import type { EsportAction } from "@changmen/api-contract/actions";
+import {
+  GetCollectPlatformRequest,
+  GetGamesRequest,
+  LoginRequest,
+  RefreshTokenRequest,
+  SaveBetRequest,
+  SaveMatchRequest,
+  SaveLiveTimerRequest,
+  UpdatePlatformRequest,
+} from "@changmen/api-contract/schemas";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as sb from "@changmen/db";
 import catalog from "@changmen/shared/catalog/game_catalog.json" with { type: "json" };
-import { getDefaultMarketCode, getPlatformRules } from "@changmen/shared/catalog/market_catalog.mjs";
+import { getDefaultMarketCode, getPlatformRules } from "@changmen/shared/catalog/market_catalog";
 import { isWsForwardHttpPath } from "@changmen/ws-forward";
 import * as accountService from "../account/account_service.js";
 import * as accountStore from "../account/account_store.js";
@@ -168,10 +178,10 @@ async function handleClientLogin(
   body: Record<string, unknown>,
   clientIp = "",
 ): Promise<ApiEnvelope> {
-  const userName = String(body.userName || body.username || "").trim();
-  const password = body.password;
-  if (!userName || !password)
+  const parsed = LoginRequest.safeParse({ userName: body.userName || body.username, password: body.password });
+  if (!parsed.success)
     return fail("用户名或密码不能为空");
+  const { userName, password } = parsed.data;
   if (!sb.isAuthConfigured()) {
     return fail(authNotConfiguredMessage());
   }
@@ -242,9 +252,10 @@ async function handle(
       return ok(null);
     }
     case "Client_RefreshToken": {
-      const refreshToken = body.refreshToken ?? body.refresh_token;
-      if (!refreshToken)
+      const rtParsed = RefreshTokenRequest.safeParse(body);
+      if (!rtParsed.success)
         return fail("缺少 refreshToken");
+      const refreshToken = rtParsed.data.refreshToken || rtParsed.data.refresh_token;
       const auth = await sb.authRefreshToken(String(refreshToken));
       if (auth && "revoked" in auth && auth.revoked) {
         return fail("会话已失效，请重新登录");
@@ -285,7 +296,8 @@ async function handle(
       return ok(user.setting || {});
     }
     case "Client_GetCollectPlatform": {
-      const provider = String(body.provider || "");
+      const cpParsed = GetCollectPlatformRequest.safeParse(body);
+      const provider = cpParsed.success ? cpParsed.data.provider : String(body.provider || "");
       const row = store.getPlatform(provider);
       const catalogBetName = getPlatformRules(provider, getDefaultMarketCode())?.betName || ".*";
       if (!row)
@@ -336,48 +348,54 @@ async function handle(
       return ok(out);
     }
     case "Client_GetGames": {
-      const provider = String(body.provider || "");
+      const ggParsed = GetGamesRequest.safeParse(body);
+      const provider = ggParsed.success ? ggParsed.data.provider : String(body.provider || "");
       const fromCatalog = gamesForProvider(provider);
       const row = store.getPlatform(provider);
       const fromPlatform: string[] = Array.isArray(row?.games) ? row.games.map(String) : [];
       return ok([...new Set([...fromCatalog, ...fromPlatform])]);
     }
     case "API_UpdatePlatform": {
-      const provider = body.provider;
-      if (!provider)
+      const upParsed = UpdatePlatformRequest.safeParse(body);
+      if (!upParsed.success)
         return fail("provider required");
-      const prev = store.getPlatform(provider) || {};
-      const next = store.setPlatform(provider, {
-        gateway: body.gateway ?? prev.gateway ?? "",
-        token: body.token ?? prev.token ?? "",
-        betName: body.betName ?? prev.betName ?? ".*",
-        games: body.games ? JSON.parse(body.games as string) : prev.games,
+      const prev = store.getPlatform(upParsed.data.provider) || {};
+      const next = store.setPlatform(upParsed.data.provider, {
+        gateway: upParsed.data.gateway ?? prev.gateway ?? "",
+        token: upParsed.data.token ?? prev.token ?? "",
+        betName: upParsed.data.betName ?? prev.betName ?? ".*",
+        games: upParsed.data.games ? JSON.parse(upParsed.data.games) : prev.games,
       });
       return ok(next);
     }
     case "API_SaveMatch": {
-      const provider = body.provider;
+      const smParsed = SaveMatchRequest.safeParse(body);
+      if (!smParsed.success)
+        return fail("provider and matchs required");
       let matchs: unknown[] = [];
-      try { matchs = JSON.parse((body.matchs as string) || "[]"); }
+      try { matchs = JSON.parse(smParsed.data.matchs); }
       catch { return fail("invalid matchs json"); }
-      store.saveMatches(provider, matchs);
+      store.saveMatches(smParsed.data.provider, matchs);
       return ok(true);
     }
     case "API_SaveBet": {
-      const provider = body.provider;
-      const matchId = body.matchId;
+      const sbParsed = SaveBetRequest.safeParse(body);
+      if (!sbParsed.success)
+        return fail("provider, matchId and bets required");
       let bets: unknown[] = [];
-      try { bets = JSON.parse((body.bets as string) || "[]"); }
+      try { bets = JSON.parse(sbParsed.data.bets as string); }
       catch { return fail("invalid bets json"); }
-      store.saveBets(provider, matchId, bets);
+      store.saveBets(sbParsed.data.provider, sbParsed.data.matchId, bets);
       return ok(true);
     }
     case "API_SaveLiveTimer": {
-      const provider = body.provider;
+      const stParsed = SaveLiveTimerRequest.safeParse(body);
+      if (!stParsed.success)
+        return fail("provider and timer required");
       let timer: unknown[] = [];
-      try { timer = JSON.parse((body.timer as string) || "[]"); }
+      try { timer = JSON.parse(stParsed.data.timer); }
       catch { return fail("invalid timer json"); }
-      await store.saveLiveTimer(provider, timer);
+      await store.saveLiveTimer(stParsed.data.provider, timer);
       return ok(true);
     }
     case "Client_GetMatchs":

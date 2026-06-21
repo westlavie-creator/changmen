@@ -14,6 +14,7 @@
       "import": "./urls.mjs",
       "default": "./urls.mjs"
     },
+    "./schemas": "./src/schemas.ts",
     "./openapi.yaml": "./openapi.yaml"
   }
 }

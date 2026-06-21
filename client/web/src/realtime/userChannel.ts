@@ -1,6 +1,6 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
-import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import {
   ensureGoEasyConnected,
   goeasyPublish,

@@ -10,7 +10,7 @@
  *   node ob_scraper.js --dry-run        # 坪打坰，丝写�? */
 
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
-import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.mjs";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
 import { loadAndCreatePlugin } from "../team_db.js";
 
 loadChangmenEnv();

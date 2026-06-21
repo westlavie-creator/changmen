@@ -2,7 +2,7 @@
 /**
  * OB 联调脚本共用：登录 /esport、读取 a8_constants 默认账号
  */
-import { A8_USER, A8_PASSWORD } from "@changmen/shared/integrations/a8_dev_credentials.mjs";
+import { A8_USER, A8_PASSWORD } from "@changmen/shared/integrations/a8_dev_credentials";
 
 export function assert(cond, msg) {
   if (!cond) throw new Error(msg);

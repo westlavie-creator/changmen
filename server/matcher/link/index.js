@@ -7,8 +7,8 @@ import {
   providerPriority,
   teamsFromPlatformRows,
 } from "@changmen/match-engine";
-import { getGameCodeForPlatformId, getPlatformGameId, resolveClientGame } from "@changmen/shared/catalog/game_catalog.mjs";
-import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id.mjs";
+import { getGameCodeForPlatformId, getPlatformGameId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 import { invalidateTeamPlugin, rebuildOnce } from "../ops/rebuild.js";
 import { resetMatcherUiTeamPlugin } from "../ui/merge_mode.js";
 import "../lib/env.js";
