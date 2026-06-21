@@ -28,13 +28,13 @@ const filterUserName = computed(() => {
 const pageTitle = computed(() =>
   filterUserId.value
     ? `${filterUserName.value || "用户"} · 月报表`
-    : "全站月报表",
+    : userStore.isAdmin ? "全站月报表" : "团队月报表",
 );
 
 const pageSubtitle = computed(() =>
   filterUserId.value
     ? "按用户筛选：盈利、流水、充提与被黑"
-    : "全站按月汇总：盈利、流水、充提与被黑",
+    : "按月汇总：盈利、流水、充提与被黑",
 );
 
 async function loadUsers() {
@@ -94,6 +94,10 @@ onMounted(async () => {
     return;
   }
   await loadUsers();
+  if (!filterUserId.value && !userStore.isAdmin) {
+    const self = users.value.find((u) => u.id === String(userStore.userId));
+    if (self) filterUserId.value = self.id;
+  }
   await load();
 });
 </script>
@@ -114,9 +118,9 @@ onMounted(async () => {
           />
           <el-select
             v-model="filterUserId"
-            clearable
+            :clearable="userStore.isAdmin"
             filterable
-            placeholder="全部用户"
+            :placeholder="userStore.isAdmin ? '全部用户' : '选择用户'"
             size="small"
             style="width: 180px"
           >
