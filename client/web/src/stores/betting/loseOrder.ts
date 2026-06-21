@@ -1,17 +1,17 @@
 import { saveOrderBind } from "@/api/esport";
 import { isVenueReject } from "@/domain/betting";
 import { BetOption, opponentSide } from "@/models/betOption";
+import { a8Tip } from "@/shared/a8Notify";
+import { makeUpBetToastSeconds } from "@/shared/betTiming";
+import { wait } from "@/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
-import { useConfigStore } from "@/stores/configStore";
-import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
+import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
+import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
+import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useMessageStore } from "@/stores/messageStore";
-import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
-import { wait } from "@/shared/wait";
-import { a8Tip } from "@/shared/a8Notify";
-import { makeUpBetToastSeconds } from "@/shared/betTiming";
 
 export interface LoseOrderTickContext {
   setMessage: (msg: string) => void;
@@ -41,14 +41,15 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
     }
     const { match, bet } = ref;
 
-    bet.items.forEach((item) => item.updateOdds());
+    bet.items.forEach(item => item.updateOdds());
     const minOdds = order.getOdds(config.makeProfit);
     const candidates = bet.items
-      .filter((item) => item.getOdds(order.target) >= minOdds)
+      .filter(item => item.getOdds(order.target) >= minOdds)
       .sort((a, b) => b.getOdds(order.target) - a.getOdds(order.target));
 
     for (const item of candidates) {
-      if (removeIds.has(betId)) break;
+      if (removeIds.has(betId))
+        break;
 
       const sideOdds = item.getOdds(order.target);
       const stake = order.getBetMoney(sideOdds);
@@ -56,21 +57,24 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         item.type,
         stake,
         config.noSameProvider ? readUsedAccounts(bet.id, opponentSide(order.target)) : [],
-        (acc) => passesMakeUpAccount(acc, sideOdds, bet.id, order.target),
+        acc => passesMakeUpAccount(acc, sideOdds, bet.id, order.target),
       );
-      if (!account) continue;
+      if (!account)
+        continue;
 
       const option = new BetOption(match, bet, item, order.target, stake);
       option.loseOrder = true;
 
       const checked = await accountStore.checkBetting(account, option);
-      if (!checked.data) continue;
+      if (!checked.data)
+        continue;
 
       const waitSec = makeUpBetToastSeconds(config, account.provider);
       const result = await accountStore.betting(account, checked, waitSec);
 
       if (!result?.success) {
-        if (!result) removeIds.add(betId);
+        if (!result)
+          removeIds.add(betId);
         continue;
       }
 
@@ -92,7 +96,8 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
           if (rejected) {
             setMessage(`${order.target} 再次被拒单`);
             a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
-          } else {
+          }
+          else {
             removeIds.add(betId);
             setMessage(`补单成功 ${item.type}@${checked.odds}`);
           }
@@ -105,11 +110,13 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
               },
             ]),
           });
-        } else {
+        }
+        else {
           removeIds.add(betId);
         }
         useMessageStore().loseOrderMessage(account, order, checked, rejected);
-      } else {
+      }
+      else {
         removeIds.add(betId);
       }
 
@@ -118,6 +125,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
   }
 
   for (const betId of removeIds) {
-    if (loseStore.orders.has(betId)) loseStore.removeOrder(betId, true);
+    if (loseStore.orders.has(betId))
+      loseStore.removeOrder(betId, true);
   }
 }

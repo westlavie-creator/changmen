@@ -1,7 +1,7 @@
-import type { PlatformAccount } from "@/models/platformAccount";
-import { BetResult } from "@/models/betResult";
-import { isVenueReject } from "@/domain/betting";
 import type { VenueOrder } from "@platform/contract";
+import type { BetResult } from "@/models/betResult";
+import type { PlatformAccount } from "@/models/platformAccount";
+import { isVenueReject } from "@/domain/betting";
 import { useAccountStore } from "@/stores/accountStore";
 
 export interface VenueRejectFlags {
@@ -42,4 +42,3 @@ export async function syncVenueRejectFlags(
   }
   return { ordersA, ordersB, rejectA, rejectB };
 }
-

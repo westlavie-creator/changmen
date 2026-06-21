@@ -1,7 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ArbLegs } from "@/domain/arbitrage";
-import { createDefaultUserConfig } from "@/types/userConfig";
 import type { ViewBet, ViewMatch } from "@/models/match";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { clearKakaxiCooldowns, setKakaxiBetCooldown } from "@/stores/betting/kakaxi/cooldown";
+
+import { passesKakaxiPreExecuteGate, shouldRequeueAfterKakaxiGate } from "@/stores/betting/kakaxi/preExecuteGate";
+import { createDefaultUserConfig } from "@/types/userConfig";
 
 const config = createDefaultUserConfig();
 const loseOrders = new Set<number>();
@@ -27,9 +30,6 @@ vi.mock("@/domain/arbitrage", () => ({
     implied: 1.08,
   })),
 }));
-
-import { passesKakaxiPreExecuteGate, shouldRequeueAfterKakaxiGate } from "@/stores/betting/kakaxi/preExecuteGate";
-import { clearKakaxiCooldowns, setKakaxiBetCooldown } from "@/stores/betting/kakaxi/cooldown";
 
 function makeMatchBet(): { match: ViewMatch; bet: ViewBet } {
   const bet = {

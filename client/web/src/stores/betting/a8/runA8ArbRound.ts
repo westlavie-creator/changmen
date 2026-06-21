@@ -13,7 +13,8 @@ export async function runA8ArbRound(ctx: A8ArbRoundContext): Promise<void> {
   const config = configStore.config;
   const { setMessage } = ctx;
 
-  if (!config.betting) return;
+  if (!config.betting)
+    return;
 
   for (const match of matchStore.matchs) {
     for (const bet of match.bets) {

@@ -1,20 +1,21 @@
-import { pickArbLegs, type ArbLegs } from "@/domain/arbitrage";
+import type { ArbLegs } from "@/domain/arbitrage";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
+import type { KakaxiQueuedBet } from "@/stores/betting/kakaxi/types";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { isKakaxiBetOnCooldown, setKakaxiBetCooldown } from "@/stores/betting/kakaxi/cooldown";
+import { pickArbLegs } from "@/domain/arbitrage";
 import { KAKAXI_QUEUE_TTL_MS } from "@/stores/betting/kakaxi/config";
-import type { KakaxiQueuedBet } from "@/stores/betting/kakaxi/types";
+import { isKakaxiBetOnCooldown, setKakaxiBetCooldown } from "@/stores/betting/kakaxi/cooldown";
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
-export type KakaxiPreGateSkipReason =
-  | "cooldown"
-  | "ttl"
-  | "lose_order"
-  | "no_legs"
-  | "below_profit"
-  | "stale_implied";
+export type KakaxiPreGateSkipReason
+  = | "cooldown"
+    | "ttl"
+    | "lose_order"
+    | "no_legs"
+    | "below_profit"
+    | "stale_implied";
 
 export interface KakaxiPreGateResult {
   ok: boolean;
@@ -51,7 +52,7 @@ export function passesKakaxiPreExecuteGate(params: {
 
   let legs = params.legs;
   if (!legs) {
-    bet.items.forEach((row) => row.updateOdds());
+    bet.items.forEach(row => row.updateOdds());
     legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
   }
   if (!legs) {

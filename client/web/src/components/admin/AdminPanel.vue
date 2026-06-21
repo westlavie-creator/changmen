@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import type { AdminDashboard } from "@/types/admin";
 import { onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getAdminDashboard } from "@/api/admin";
-import type { AdminDashboard } from "@/types/admin";
 
 const router = useRouter();
 const date = ref(todayKey());
@@ -22,8 +22,10 @@ function fmtMoney(n: number) {
 }
 
 function moneyClass(n: number) {
-  if (n > 0) return "pos";
-  if (n < 0) return "neg";
+  if (n > 0)
+    return "pos";
+  if (n < 0)
+    return "neg";
   return "";
 }
 
@@ -31,7 +33,8 @@ async function loadOverview() {
   loadError.value = "";
   try {
     dashboard.value = await getAdminDashboard(date.value);
-  } catch (e) {
+  }
+  catch (e) {
     dashboard.value = null;
     loadError.value = (e as Error).message || "加载失败";
   }
@@ -41,7 +44,8 @@ async function loadAll() {
   loading.value = true;
   try {
     await loadOverview();
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
@@ -56,7 +60,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="admin-dashboard" v-loading="loading">
+  <div v-loading="loading" class="admin-dashboard">
     <section class="admin-card admin-card--toolbar">
       <div class="admin-card__toolbar">
         <div class="admin-card__toolbar-left">
@@ -71,12 +75,16 @@ onMounted(() => {
           />
         </div>
         <div class="admin-card__toolbar-right">
-          <el-button size="small" @click="loadAll">刷新数据</el-button>
+          <el-button size="small" @click="loadAll">
+            刷新数据
+          </el-button>
         </div>
       </div>
     </section>
 
-    <p v-if="loadError" class="admin-card__empty admin-card__empty--error">{{ loadError }}</p>
+    <p v-if="loadError" class="admin-card__empty admin-card__empty--error">
+      {{ loadError }}
+    </p>
 
     <section v-if="dashboard" class="admin-kpi-grid">
       <article
@@ -85,15 +93,23 @@ onMounted(() => {
       >
         <i class="admin-kpi__icon am-icon-users" aria-hidden="true" />
         <div class="admin-kpi__body">
-          <div class="admin-kpi__label">注册用户</div>
-          <div class="admin-kpi__value">{{ dashboard.userCount }}</div>
+          <div class="admin-kpi__label">
+            注册用户
+          </div>
+          <div class="admin-kpi__value">
+            {{ dashboard.userCount }}
+          </div>
         </div>
       </article>
       <article class="admin-kpi admin-kpi--active">
         <i class="admin-kpi__icon am-icon-flash" aria-hidden="true" />
         <div class="admin-kpi__body">
-          <div class="admin-kpi__label">当日活跃</div>
-          <div class="admin-kpi__value">{{ dashboard.activeUsersToday }}</div>
+          <div class="admin-kpi__label">
+            当日活跃
+          </div>
+          <div class="admin-kpi__value">
+            {{ dashboard.activeUsersToday }}
+          </div>
         </div>
       </article>
       <article
@@ -102,14 +118,20 @@ onMounted(() => {
       >
         <i class="admin-kpi__icon am-icon-list" aria-hidden="true" />
         <div class="admin-kpi__body">
-          <div class="admin-kpi__label">当日订单</div>
-          <div class="admin-kpi__value">{{ dashboard.orderCount }}</div>
+          <div class="admin-kpi__label">
+            当日订单
+          </div>
+          <div class="admin-kpi__value">
+            {{ dashboard.orderCount }}
+          </div>
         </div>
       </article>
       <article class="admin-kpi admin-kpi--profit">
         <i class="admin-kpi__icon am-icon-arrow-circle-down" aria-hidden="true" />
         <div class="admin-kpi__body">
-          <div class="admin-kpi__label">当日盈利</div>
+          <div class="admin-kpi__label">
+            当日盈利
+          </div>
           <div class="admin-kpi__value" :class="moneyClass(dashboard.totalMoney)">
             {{ fmtMoney(dashboard.totalMoney) }}
           </div>
@@ -118,8 +140,12 @@ onMounted(() => {
       <article class="admin-kpi admin-kpi--volume">
         <i class="admin-kpi__icon am-icon-save" aria-hidden="true" />
         <div class="admin-kpi__body">
-          <div class="admin-kpi__label">当日流水</div>
-          <div class="admin-kpi__value">{{ fmtMoney(dashboard.totalBetMoney) }}</div>
+          <div class="admin-kpi__label">
+            当日流水
+          </div>
+          <div class="admin-kpi__value">
+            {{ fmtMoney(dashboard.totalBetMoney) }}
+          </div>
         </div>
       </article>
     </section>
@@ -127,7 +153,9 @@ onMounted(() => {
     <div class="admin-dashboard__grid">
       <section class="admin-card">
         <header class="admin-card__head">
-          <h2 class="admin-card__title">快捷入口</h2>
+          <h2 class="admin-card__title">
+            快捷入口
+          </h2>
         </header>
         <div class="admin-quick">
           <button
@@ -159,7 +187,9 @@ onMounted(() => {
 
       <section class="admin-card admin-card--grow">
         <header class="admin-card__head">
-          <h2 class="admin-card__title">当日盈利 TOP</h2>
+          <h2 class="admin-card__title">
+            当日盈利 TOP
+          </h2>
           <span class="admin-card__meta">{{ date }}</span>
         </header>
         <el-table
@@ -182,10 +212,14 @@ onMounted(() => {
           </el-table-column>
           <el-table-column prop="Count" label="订单" width="72" align="center" />
           <el-table-column label="流水" width="110" align="right">
-            <template #default="{ row }">{{ fmtMoney(row.BetMoney ?? 0) }}</template>
+            <template #default="{ row }">
+              {{ fmtMoney(row.BetMoney ?? 0) }}
+            </template>
           </el-table-column>
         </el-table>
-        <p v-else class="admin-card__empty">当日暂无盈利数据</p>
+        <p v-else class="admin-card__empty">
+          当日暂无盈利数据
+        </p>
       </section>
     </div>
   </div>

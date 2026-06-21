@@ -1,6 +1,6 @@
-import { authHeaders, post, unwrap } from "@/api/client";
 import type { ApiEnvelope } from "@changmen/api-contract";
 import { buildEsportUrl } from "@changmen/api-contract/urls";
+import { authHeaders, post, unwrap } from "@/api/client";
 import { getApiBase } from "@/config/apiBase";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -11,21 +11,26 @@ export async function getClientData<T extends Record<string, unknown>>(key: stri
     headers: { ...JSON_HEADERS, ...authHeaders() },
     body: JSON.stringify({ key }),
   });
-  if (!res.ok) return null;
+  if (!res.ok)
+    return null;
   const data = (await res.json()) as Record<string, unknown>;
 
-  if (data.success === 0) return null;
+  if (data.success === 0)
+    return null;
 
   if (data.success === 1) {
     if (data.info && typeof data.info === "object" && !Array.isArray(data.info)) {
       return data.info as T;
     }
     const { success: _s, msg: _m, info: _i, ...rest } = data;
-    if (Object.keys(rest).length) return rest as T;
+    if (Object.keys(rest).length)
+      return rest as T;
   }
 
-  if (Array.isArray(data)) return data as unknown as T;
-  if (Array.isArray(data.collect)) return data as T;
+  if (Array.isArray(data))
+    return data as unknown as T;
+  if (Array.isArray(data.collect))
+    return data as T;
 
   // USERCONFIG / CollectConfig / Follow / Message：有数据时后端直接返回裸对象（无 success 包裹）
   if (data && typeof data === "object") {
@@ -41,7 +46,8 @@ export async function getClientDataArray<T>(key: string): Promise<T[]> {
     headers: { ...JSON_HEADERS, ...authHeaders() },
     body: JSON.stringify({ key }),
   });
-  if (!res.ok) return [];
+  if (!res.ok)
+    return [];
   const data = await res.json();
   return Array.isArray(data) ? (data as T[]) : [];
 }
@@ -56,9 +62,11 @@ export async function saveClientDataDetailed(
 ): Promise<{ ok: boolean; msg?: string }> {
   try {
     const data = await post<boolean>("Client_SaveData", { key, content });
-    if (isEsportSuccess(data)) return { ok: true };
+    if (isEsportSuccess(data))
+      return { ok: true };
     return { ok: false, msg: data?.msg || "保存失败" };
-  } catch (err) {
+  }
+  catch (err) {
     return { ok: false, msg: err instanceof Error ? err.message : "保存失败" };
   }
 }

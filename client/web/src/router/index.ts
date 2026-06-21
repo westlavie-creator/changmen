@@ -40,7 +40,7 @@ const router = createRouter({
     },
     {
       path: "/admin/orders-matrix",
-      redirect: (to) => ({ name: "admin-orders", query: to.query }),
+      redirect: to => ({ name: "admin-orders", query: to.query }),
     },
     {
       path: "/admin/reports",
@@ -70,7 +70,8 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to) => {
-  if (to.meta.public) return true;
+  if (to.meta.public)
+    return true;
   if (!getToken()) {
     if (to.fullPath !== "/") {
       sessionStorage.setItem("gamebet:postLoginRedirect", to.fullPath);
@@ -82,11 +83,13 @@ router.beforeEach(async (to) => {
     if (!user.ready) {
       try {
         await user.fetchUserInfo();
-      } catch {
+      }
+      catch {
         return { name: "home" };
       }
     }
-    if (!user.canAccessAdmin) return { name: "home" };
+    if (!user.canAccessAdmin)
+      return { name: "home" };
   }
   return true;
 });

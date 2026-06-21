@@ -40,7 +40,8 @@ export function useExtensionGate() {
   }
 
   onMounted(() => {
-    if (devSkip) return;
+    if (devSkip)
+      return;
     void refreshExtension();
     probeTimer = setInterval(() => {
       void refreshExtension();
@@ -48,7 +49,8 @@ export function useExtensionGate() {
   });
 
   onUnmounted(() => {
-    if (probeTimer) clearInterval(probeTimer);
+    if (probeTimer)
+      clearInterval(probeTimer);
   });
 
   return {

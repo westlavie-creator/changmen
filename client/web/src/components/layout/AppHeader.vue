@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
-import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
+import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
 const matchStore = useMatchStore();

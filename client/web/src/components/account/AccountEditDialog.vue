@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
-import { storeToRefs } from "pinia";
+import type { AccountEditFormState } from "@/components/account/accountEditFormState";
+import type { PlatformId } from "@/types/esport";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 import { ElLoading, ElMessage } from "element-plus";
-import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAccount";
-import AccountEditPanel from "@/components/account/AccountEditPanel.vue";
+import { storeToRefs } from "pinia";
+import { computed, reactive, ref, watch } from "vue";
 import {
+
   createAccountEditFormStateFromPlatformAccount,
-  type AccountEditFormState,
 } from "@/components/account/accountEditFormState";
+import AccountEditPanel from "@/components/account/AccountEditPanel.vue";
+import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAccount";
+import { getProvider } from "@/runtime/providers";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
-import type { PlatformId } from "@/types/esport";
-import { getProvider } from "@/runtime/providers";
-import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 const props = defineProps<{
   open: boolean;
@@ -36,7 +37,8 @@ const saving = ref(false);
 const visible = computed({
   get: () => props.open,
   set: (v: boolean) => {
-    if (!v) emit("close");
+    if (!v)
+      emit("close");
   },
 });
 const pasteRaw = ref("");
@@ -44,7 +46,7 @@ const gameShow = ref(false);
 /** A8：PB 默认锁定比例，legend「投」双击解锁 */
 const rateLocked = ref(false);
 
-type PlatformSuggestion = { value: string; link: string };
+interface PlatformSuggestion { value: string; link: string }
 
 const form = reactive<AccountEditFormState>(
   createAccountEditFormStateFromPlatformAccount(
@@ -53,17 +55,18 @@ const form = reactive<AccountEditFormState>(
 );
 
 const platformSuggestions = computed<PlatformSuggestion[]>(() =>
-  tagPlatforms.value.map((p) => ({
+  tagPlatforms.value.map(p => ({
     value: p.Name || "",
     link: String(p.ID ?? ""),
   })),
 );
 
 const proxyOptions = computed(() => {
-  if (props.previewProxyOptions?.length) return props.previewProxyOptions;
+  if (props.previewProxyOptions?.length)
+    return props.previewProxyOptions;
   return [
     { label: "无代理", value: 0 },
-    ...proxyList.value.map((px) => ({
+    ...proxyList.value.map(px => ({
       label: px.label || String(px.proxyId),
       value: px.proxyId,
     })),
@@ -92,7 +95,8 @@ function syncForm() {
 watch(
   () => props.open,
   (open) => {
-    if (!open) return;
+    if (!open)
+      return;
     if (props.previewForm) {
       syncForm();
       return;
@@ -114,7 +118,7 @@ watch(
 function queryPlatforms(query: string, cb: (rows: PlatformSuggestion[]) => void) {
   const q = query.trim();
   const list = q
-    ? platformSuggestions.value.filter((s) => s.value.includes(q))
+    ? platformSuggestions.value.filter(s => s.value.includes(q))
     : platformSuggestions.value;
   cb(list);
 }
@@ -124,33 +128,39 @@ function addRate() {
 }
 
 function removeRate(index: number) {
-  if (index >= 0 && index < form.rateConfig.length) form.rateConfig.splice(index, 1);
+  if (index >= 0 && index < form.rateConfig.length)
+    form.rateConfig.splice(index, 1);
 }
 
 function normalizeGameOdds(gameName: string) {
   const g = form.game[gameName];
-  if (!g) return;
+  if (!g)
+    return;
   const next: string[] = [];
   for (const raw of g.odds) {
-    const [lo, hi] = raw.split("-").map((x) => Number(x));
-    if (!Number.isNaN(lo) && !Number.isNaN(hi) && lo <= hi) next.push(`${lo}-${hi}`);
+    const [lo, hi] = raw.split("-").map(x => Number(x));
+    if (!Number.isNaN(lo) && !Number.isNaN(hi) && lo <= hi)
+      next.push(`${lo}-${hi}`);
   }
   g.odds = next;
 }
 
 function onMarkupOnlyChange() {
-  if (form.markupOnly) form.noMarkup = false;
+  if (form.markupOnly)
+    form.noMarkup = false;
 }
 
 function onNoMarkupChange() {
-  if (form.noMarkup) form.markupOnly = false;
+  if (form.noMarkup)
+    form.markupOnly = false;
 }
 
 async function pasteFromClipboard() {
   try {
     pasteRaw.value = await navigator.clipboard.readText();
     await applyPaste();
-  } catch {
+  }
+  catch {
     ElMessage.error("无法访问剪贴板，请检查浏览器权限或手动粘贴！");
   }
 }
@@ -182,7 +192,8 @@ async function pickFastestGateway(
     let success = false;
     try {
       success = probeBalance ? Boolean(await probeBalance(probe)) : false;
-    } catch {
+    }
+    catch {
       success = false;
     }
     const ms = Date.now() - started;
@@ -193,16 +204,17 @@ async function pickFastestGateway(
       duration: 3000,
     });
   }
-  const fast = ranked.filter((r) => r.success && r.time < 500);
-  const best =
-    fast.length > 0
+  const fast = ranked.filter(r => r.success && r.time < 500);
+  const best
+    = fast.length > 0
       ? fast[Math.floor(Math.random() * fast.length)]!
-      : ranked.filter((r) => r.success).sort((a, b) => a.time - b.time)[0];
+      : ranked.filter(r => r.success).sort((a, b) => a.time - b.time)[0];
   return best?.gate ?? "";
 }
 
 async function applyPaste() {
-  if (!pasteRaw.value.trim()) return;
+  if (!pasteRaw.value.trim())
+    return;
   let loading: ReturnType<typeof ElLoading.service> | undefined;
   try {
     const parsed = JSON.parse(window.atob(pasteRaw.value.trim())) as {
@@ -220,7 +232,8 @@ async function applyPaste() {
       : parsed.gateway
         ? [parsed.gateway]
         : [];
-    if (!gateways.length) return;
+    if (!gateways.length)
+      return;
 
     form.provider = parsed.provider;
     form.token = parsed.token ?? "";
@@ -243,13 +256,16 @@ async function applyPaste() {
     if (!gate) {
       ElMessage.error("当前网关测试失败");
       form.gateway = "";
-    } else {
+    }
+    else {
       form.gateway = gate;
     }
     ElMessage.success("粘贴成功");
-  } catch (err) {
+  }
+  catch (err) {
     ElMessage.error(err instanceof Error ? err.message : "解析失败");
-  } finally {
+  }
+  finally {
     loading?.close();
     pasteRaw.value = "";
   }
@@ -297,12 +313,13 @@ function buildPatch() {
 }
 
 async function save() {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   if (!form.platformName.trim() || !form.playerName.trim()) {
     ElMessage.error("平台名与账号名必填");
     return;
   }
-  const invalidRate = form.rateConfig.some((r) => Number.isNaN(Number(r.rate)));
+  const invalidRate = form.rateConfig.some(r => Number.isNaN(Number(r.rate)));
   if (invalidRate) {
     ElMessage.error("投注比例不能为空，请填写有效数字");
     return;
@@ -316,14 +333,17 @@ async function save() {
       // [A8 可证实] 新建：CreateTagPlatform → createAccount → updateBalance + updateOrders
       await accountStore.refreshBalance(props.account);
       await accountStore.updateVenueOrders(props.account);
-    } else {
+    }
+    else {
       await accountStore.createFromTagPlatform(patch);
     }
     ElMessage.success("账号设置已保存");
     emit("close");
-  } catch (err) {
+  }
+  catch (err) {
     ElMessage.error(err instanceof Error ? err.message : "保存失败");
-  } finally {
+  }
+  finally {
     saving.value = false;
   }
 }
@@ -366,7 +386,9 @@ function unlockRate() {
             @change="applyPaste"
           >
             <template #append>
-              <div class="parse" @click="pasteFromClipboard">粘贴</div>
+              <div class="parse" @click="pasteFromClipboard">
+                粘贴
+              </div>
             </template>
           </el-input>
         </el-form-item>

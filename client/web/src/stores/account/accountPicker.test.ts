@@ -1,8 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { BetOption } from "@/models/betOption";
-import { PlatformAccount } from "@/models/platformAccount";
+import type { BetOption } from "@/models/betOption";
 import type { AccountStoreContext } from "@/stores/account/context";
-import { getProviders, pickAccount, accountsFundingReady } from "@/stores/account/accountPicker";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PlatformAccount } from "@/models/platformAccount";
+import { accountsFundingReady, getProviders, pickAccount } from "@/stores/account/accountPicker";
 
 vi.mock("@/stores/configStore", () => ({
   useConfigStore: () => ({
@@ -63,8 +63,8 @@ describe("getProviders", () => {
       makeAccount({ accountId: 3, provider: "OB", balance: 500 }),
     ]);
     const map = getProviders(store, 100);
-    expect(map.get("RAY")?.map((a) => a.accountId)).toEqual([1]);
-    expect(map.get("OB")?.map((a) => a.accountId)).toEqual([3]);
+    expect(map.get("RAY")?.map(a => a.accountId)).toEqual([1]);
+    expect(map.get("OB")?.map(a => a.accountId)).toEqual([3]);
   });
 });
 

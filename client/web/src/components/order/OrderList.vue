@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { OrderRow } from "@/types/order";
-import { formatOrderTime, formatDisplayOdds, toFixed } from "@/shared/format";
+import { formatDisplayOdds, formatOrderTime, toFixed } from "@/shared/format";
 import {
   isArbGroup,
   orderLegendModifier,
@@ -25,7 +25,7 @@ withDefaults(
 </script>
 
 <template>
-  <div class="orders" :class="{ loading: loading }">
+  <div class="orders" :class="{ loading }">
     <fieldset
       v-for="[link, rows] in orderEntries"
       :key="link"
@@ -39,7 +39,9 @@ withDefaults(
         <label class="status" :class="row.Status" />
         <div class="platform flex" :class="platformClass(row)">
           <div class="provider-icon" :class="row.Type" />
-          <div class="player">{{ playerLabel(row) }}</div>
+          <div class="player">
+            {{ playerLabel(row) }}
+          </div>
         </div>
         <div class="match" v-html="row.Match" />
         <div class="bet">
@@ -54,7 +56,9 @@ withDefaults(
           }}</span>
           盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
         </div>
-        <div class="time">投注时间：{{ formatOrderTime(row.CreateAt || 0) }}</div>
+        <div class="time">
+          投注时间：{{ formatOrderTime(row.CreateAt || 0) }}
+        </div>
       </div>
       <div v-if="$slots['group-actions']" class="order-list__group-actions">
         <slot name="group-actions" :link="link" :rows="rows" />

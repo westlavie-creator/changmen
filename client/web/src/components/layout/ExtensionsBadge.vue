@@ -17,11 +17,13 @@ let tick = 0;
 async function fetchVersionJson(url: string): Promise<string | null> {
   try {
     const res = await fetch(`${url}?${Date.now()}`);
-    if (!res.ok) return null;
+    if (!res.ok)
+      return null;
     const data = (await res.json()) as { version?: string };
     const v = data.version?.trim();
     return v || null;
-  } catch {
+  }
+  catch {
     return null;
   }
 }
@@ -36,15 +38,18 @@ async function loadVersions() {
   hasUpdate.value = extMismatch;
   if (extMismatch && remoteVersion.value) {
     tooltip.value = `最新版本：${remoteVersion.value}`;
-  } else if (webVersion.value && webVersion.value !== WEB_BUNDLE_VERSION) {
+  }
+  else if (webVersion.value && webVersion.value !== WEB_BUNDLE_VERSION) {
     tooltip.value = `最新版本：${webVersion.value}`;
-  } else {
+  }
+  else {
     tooltip.value = "当前已是最新版本";
   }
 }
 
 function openDownload() {
-  if (!hasUpdate.value || !remoteVersion.value) return;
+  if (!hasUpdate.value || !remoteVersion.value)
+    return;
   window.open(`/esport2/extensions/${remoteVersion.value}.zip`, "_blank");
 }
 
@@ -60,7 +65,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   globalThis.removeEventListener("gamebet-extension-version", loadVersions);
-  if (titleTimer) clearInterval(titleTimer);
+  if (titleTimer)
+    clearInterval(titleTimer);
   document.title = titleBase;
 });
 </script>

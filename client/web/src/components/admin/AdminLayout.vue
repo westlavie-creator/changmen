@@ -45,8 +45,9 @@ const navItems = [
 const ADMIN_ONLY_NAV = new Set(["admin-health"]);
 
 const visibleNavItems = computed(() => {
-  if (user.isAdmin) return navItems;
-  return navItems.filter((item) => !ADMIN_ONLY_NAV.has(item.name));
+  if (user.isAdmin)
+    return navItems;
+  return navItems.filter(item => !ADMIN_ONLY_NAV.has(item.name));
 });
 
 const activeTab = computed(() => String(route.name || ""));
@@ -68,27 +69,32 @@ onUnmounted(() => {
 /** body overflow:hidden 时，el-table 会截获滚轮；订单页筛选栏等非表格区域也需滚动列表 */
 function onAdminWheel(e: WheelEvent) {
   const target = e.target;
-  if (!(target instanceof Element)) return;
+  if (!(target instanceof Element))
+    return;
 
   // 弹窗 / 抽屉 / MessageBox 内滚轮交给组件自身，勿劫持到订单列表
   if (
-    target.closest(".el-overlay") ||
-    target.closest(".el-dialog") ||
-    target.closest(".el-drawer") ||
-    target.closest(".el-message-box")
+    target.closest(".el-overlay")
+    || target.closest(".el-dialog")
+    || target.closest(".el-drawer")
+    || target.closest(".el-message-box")
   ) {
     return;
   }
 
-  if (!target.closest(".admin-shell")) return;
+  if (!target.closest(".admin-shell"))
+    return;
 
-  if (!target.closest(".el-table")) return;
+  if (!target.closest(".el-table"))
+    return;
 
   const scrollEl = target.closest(".admin-shell__content");
-  if (!(scrollEl instanceof HTMLElement)) return;
+  if (!(scrollEl instanceof HTMLElement))
+    return;
 
   const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
-  if (maxScroll <= 0) return;
+  if (maxScroll <= 0)
+    return;
 
   scrollEl.scrollTop = Math.max(0, Math.min(maxScroll, scrollEl.scrollTop + e.deltaY));
   e.preventDefault();
@@ -130,16 +136,26 @@ function onAdminWheel(e: WheelEvent) {
     <div class="admin-shell__main">
       <header class="admin-shell__topbar">
         <div class="admin-shell__topbar-left">
-          <h1 class="admin-shell__page-title">{{ title || "管理后台" }}</h1>
-          <p v-if="subtitle" class="admin-shell__page-sub">{{ subtitle }}</p>
+          <h1 class="admin-shell__page-title">
+            {{ title || "管理后台" }}
+          </h1>
+          <p v-if="subtitle" class="admin-shell__page-sub">
+            {{ subtitle }}
+          </p>
         </div>
         <div class="admin-shell__topbar-right">
           <slot name="toolbar" />
           <div class="admin-shell__user">
             <span class="admin-shell__user-name">{{ user.userName }}</span>
-            <el-tag v-if="user.isAdmin" size="small" type="warning" effect="dark">管理员</el-tag>
-            <el-tag v-else-if="user.isLeader" size="small" type="success" effect="dark">团队长</el-tag>
-            <el-button size="small" type="info" plain @click="logout">退出</el-button>
+            <el-tag v-if="user.isAdmin" size="small" type="warning" effect="dark">
+              管理员
+            </el-tag>
+            <el-tag v-else-if="user.isLeader" size="small" type="success" effect="dark">
+              团队长
+            </el-tag>
+            <el-button size="small" type="info" plain @click="logout">
+              退出
+            </el-button>
           </div>
         </div>
       </header>

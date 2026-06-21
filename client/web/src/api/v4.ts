@@ -1,8 +1,8 @@
-﻿import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
+import type { PlatformId } from "@/types/esport";
+import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
 import { authHeaders } from "@/api/client";
 import { a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { gamebetExtensionId } from "@/config/gamebetExtension";
-import type { PlatformId } from "@/types/esport";
 import { useUserStore } from "@/stores/userStore";
 
 /** 对齐 A8 bundle UserCollectView：RMe / FMe / WMe / uY */
@@ -23,10 +23,10 @@ const CREDIT_V4_GAME_IDS: Partial<Record<PlatformId, number>> = {
   IM: CREDIT_IM_GAME_ID,
 };
 /** 对齐 A8 bundle `gY`：浏览器直连 OB 试玩登录 */
-export const OB_DEMO_LOGIN_URL =
-  "https://djtop-capi.v662n.com/cApi/v2/member/login?merchant=6107384714184464&demo=1";
-export const SABA_DEMO_URL =
-  "https://www.sabab2b.com/zh-CN/freetrial/demo?platform=Mobile&site=liteDemo&skin=7";
+export const OB_DEMO_LOGIN_URL
+  = "https://djtop-capi.v662n.com/cApi/v2/member/login?merchant=6107384714184464&demo=1";
+export const SABA_DEMO_URL
+  = "https://www.sabab2b.com/zh-CN/freetrial/demo?platform=Mobile&site=liteDemo&skin=7";
 
 interface V4Envelope<T = unknown> {
   success: 0 | 1;
@@ -43,7 +43,8 @@ interface ObDemoResponse {
 const A8_V4_REMOTE_BASE = "https://api.a8.to/v4.0/";
 
 function isLocalDevHost(): boolean {
-  if (typeof window === "undefined") return false;
+  if (typeof window === "undefined")
+    return false;
   const host = window.location.hostname;
   return host === "localhost" || host === "127.0.0.1";
 }
@@ -73,7 +74,7 @@ function resolveV4BaseUrl(): string {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
@@ -83,8 +84,10 @@ function sleep(ms: number): Promise<void> {
 async function resolveCreditPlateUserName(): Promise<string> {
   const user = useUserStore();
   const logged = user.userName.trim();
-  if (logged && logged !== "admin") return logged;
-  if (user.creditPlateUserName.trim()) return user.creditPlateUserName.trim();
+  if (logged && logged !== "admin")
+    return logged;
+  if (user.creditPlateUserName.trim())
+    return user.creditPlateUserName.trim();
   const fromSetting = user.setting?.a8UserName;
   if (typeof fromSetting === "string" && fromSetting.trim()) {
     return fromSetting.trim();
@@ -99,7 +102,8 @@ async function resolveCreditPlateUserName(): Promise<string> {
         return name;
       }
     }
-  } catch {
+  }
+  catch {
     /* 后端未启动时用 TJ01 */
   }
   return CREDIT_PLATE_USER;
@@ -135,8 +139,8 @@ async function v4PostViaPlugin<T>(
 
 function cloudflareProxyHint(): string {
   return (
-    `api.a8.to 被 Cloudflare 拦截（本地 Node 代理无法访问）。请安装并启用 Gamebet 扩展（${gamebetExtensionId()}），` +
-    "由扩展代发 v4 请求；或换可访问 A8 的网络。localhost 勿设 VITE_V4_DIRECT=1（会 CORS）。"
+    `api.a8.to 被 Cloudflare 拦截（本地 Node 代理无法访问）。请安装并启用 Gamebet 扩展（${gamebetExtensionId()}），`
+    + "由扩展代发 v4 请求；或换可访问 A8 的网络。localhost 勿设 VITE_V4_DIRECT=1（会 CORS）。"
   );
 }
 
@@ -156,7 +160,8 @@ async function v4Post<T>(
     "Content-Type": "application/x-www-form-urlencoded;",
     "x-forwarded-site": CREDIT_FORWARD_SITE,
   };
-  if (token) headers.token = token;
+  if (token)
+    headers.token = token;
 
   const formBody = params.toString();
 
@@ -166,9 +171,11 @@ async function v4Post<T>(
         console.info("[v4] POST via A8 plugin", `${resolveV4BaseUrl()}${path}`, formBody);
       }
       return await v4PostViaPlugin<T>(path, formBody, headers);
-    } catch (e) {
+    }
+    catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (import.meta.env.DEV) console.warn("[v4] A8 插件代发失败，回退 /v4.0/ 代理", msg);
+      if (import.meta.env.DEV)
+        console.warn("[v4] A8 插件代发失败，回退 /v4.0/ 代理", msg);
     }
   }
 
@@ -187,7 +194,8 @@ async function v4Post<T>(
       body: formBody,
       credentials: direct ? "include" : "same-origin",
     });
-  } catch {
+  }
+  catch {
     const viaProxy = base.startsWith("/");
     const hint = viaProxy
       ? hasA8PluginRuntime()
@@ -211,20 +219,25 @@ async function v4Post<T>(
       return { success: 0, msg: hint, info: json.info };
     }
     return json;
-  } catch {
+  }
+  catch {
     const viaProxy = base.startsWith("/");
     const cf = /cloudflare|cf-error|you have been blocked/i.test(raw);
     let hint: string;
     if (viaProxy && cf) {
       hint = cloudflareProxyHint();
-    } else if (cf) {
+    }
+    else if (cf) {
       hint = "api.a8.to 被 Cloudflare 拦截：请安装 A8 扩展或先在浏览器打开 A8 主站后重试";
-    } else if (res.status === 403) {
+    }
+    else if (res.status === 403) {
       hint = "api.a8.to 返回 403，请检查网络或账号";
-    } else {
+    }
+    else {
       hint = `v4 响应非 JSON (HTTP ${res.status})，请查看 Network 中该请求的 URL 与响应体`;
     }
-    if (import.meta.env.DEV) console.warn("[v4] 非 JSON 响应", res.status, raw.slice(0, 200));
+    if (import.meta.env.DEV)
+      console.warn("[v4] 非 JSON 响应", res.status, raw.slice(0, 200));
     ElMessage.error(hint);
     return { success: 0, msg: hint };
   }
@@ -241,13 +254,14 @@ async function fetchV4PlayUrl(userName: string, gameId: number): Promise<string 
     v4Token,
   );
   if (login.success !== 1) {
-    const code =
-      login.info && typeof login.info === "object" && "code" in login.info
+    const code
+      = login.info && typeof login.info === "object" && "code" in login.info
         ? String((login.info as { code?: string }).code)
         : "";
     if (code === "A8CloudflareBlocked") {
       ElMessage.error(cloudflareProxyHint());
-    } else {
+    }
+    else {
       ElMessage.error(login.msg || "登录失败");
     }
     return null;
@@ -265,8 +279,8 @@ async function fetchV4PlayUrl(userName: string, gameId: number): Promise<string 
     v4Token,
   );
   if (play.success !== 1) {
-    const detail =
-      play.info && typeof play.info === "object" && "code" in play.info
+    const detail
+      = play.info && typeof play.info === "object" && "code" in play.info
         ? ` (${String((play.info as { code?: string }).code)})`
         : "";
     ElMessage.error((play.msg || "进入游戏失败") + detail);
@@ -276,8 +290,8 @@ async function fetchV4PlayUrl(userName: string, gameId: number): Promise<string 
   const url = (playInfo?.Url ?? playInfo?.url ?? "").trim();
   if (!url || url === "about:blank") {
     ElMessage.error(
-      play.msg ||
-        "进入游戏失败：A8 未返回游戏 Url（请确认 api.a8.to 可访问且账号有效）",
+      play.msg
+      || "进入游戏失败：A8 未返回游戏 Url（请确认 api.a8.to 可访问且账号有效）",
     );
     return null;
   }
@@ -342,19 +356,23 @@ export async function enterCreditPlate(platform: PlatformId): Promise<void> {
   try {
     if (platform === "OB") {
       const pc = await fetchObDemoUrl();
-      if (pc) confirmAndOpenGame(platform, pc);
+      if (pc)
+        confirmAndOpenGame(platform, pc);
       return;
     }
     const gameId = CREDIT_V4_GAME_IDS[platform];
     if (gameId) {
       const v4User = await resolveCreditPlateUserName();
       const url = await fetchV4PlayUrl(v4User, gameId);
-      if (url) confirmAndOpenGame(platform, url);
+      if (url)
+        confirmAndOpenGame(platform, url);
     }
-  } catch (e) {
+  }
+  catch (e) {
     const msg = e instanceof Error ? e.message : "进入游戏失败";
     ElMessage.error(msg);
-  } finally {
+  }
+  finally {
     await sleep(1000);
     loading.close();
   }

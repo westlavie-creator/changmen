@@ -1,15 +1,17 @@
-import { post, unwrap } from "@/api/client";
 import type { CollectPlatformInfo } from "@/types/esport";
+import { post, unwrap } from "@/api/client";
 
 export async function getCollectPlatform(provider: string) {
   const data = await post<CollectPlatformInfo>("Client_GetCollectPlatform", { provider });
-  if (data.success !== 1) return null;
+  if (data.success !== 1)
+    return null;
   return data.info ?? null;
 }
 
 export async function getGames(provider: string) {
   const data = await post<string[]>("Client_GetGames", { provider });
-  if (data.success !== 1 || !Array.isArray(data.info)) return [];
+  if (data.success !== 1 || !Array.isArray(data.info))
+    return [];
   return data.info.filter(Boolean).map(String);
 }
 

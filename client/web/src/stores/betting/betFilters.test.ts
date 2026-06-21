@@ -1,7 +1,7 @@
+import type { BetOption } from "@/models/betOption";
 import { describe, expect, it, vi } from "vitest";
-import { BetOption } from "@/models/betOption";
-import { PlatformAccount } from "@/models/platformAccount";
 import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
+import { PlatformAccount } from "@/models/platformAccount";
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({

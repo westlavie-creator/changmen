@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import type { RiskTag } from "@/shared/moneyRisk";
 import { onMounted, ref } from "vue";
 import { getPlayerOrder } from "@/api/chat";
+import { executeMoneyRisk } from "@/shared/moneyRisk";
 import { useAccountStore } from "@/stores/accountStore";
-import { executeMoneyRisk, type RiskTag } from "@/shared/moneyRisk";
 
 const props = defineProps<{
   playerId: number;
@@ -13,14 +14,16 @@ const tags = ref<RiskTag[]>([]);
 onMounted(async () => {
   try {
     const info = await getPlayerOrder({ playerId: props.playerId });
-    if (!info) return;
+    if (!info)
+      return;
     const account = useAccountStore().findAccount(props.playerId);
     tags.value = executeMoneyRisk({
       MoneyLog: info.logs ?? [],
       Orders: info.orders ?? [],
       Balance: account?.balance ?? 0,
     });
-  } catch {
+  }
+  catch {
     tags.value = [];
   }
 });

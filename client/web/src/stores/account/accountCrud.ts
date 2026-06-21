@@ -1,3 +1,7 @@
+import type { AccountStoreContext } from "@/stores/account/context";
+import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
+import type { TagPlatformRow } from "@/types/esport";
+import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 import {
   createTagPlatform,
   deletePlayer,
@@ -7,11 +11,7 @@ import {
   saveMoneyLog,
 } from "@/api/esport";
 import { PlatformAccount } from "@/models/platformAccount";
-import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
-import type { TagPlatformRow } from "@/types/esport";
-import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
 import { refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
-import type { AccountStoreContext } from "@/stores/account/context";
 
 export function openCreateAccount(store: AccountStoreContext) {
   store.editDialogAccount = undefined;
@@ -39,10 +39,11 @@ export async function loadTagPlatforms(store: AccountStoreContext) {
 export async function loadAccounts(store: AccountStoreContext, refreshBalances = false) {
   store.loading = true;
   try {
-    if (refreshBalances) await loadTagPlatforms(store);
+    if (refreshBalances)
+      await loadTagPlatforms(store);
     const list = await getAccounts();
     store.accounts = list
-      .filter((row) => row.accountId)
+      .filter(row => row.accountId)
       .map((row) => {
         const acc = new PlatformAccount(row);
         if (!acc.platformName && acc.platformId) {
@@ -51,7 +52,8 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
         return acc;
       });
     store.loaded = true;
-  } finally {
+  }
+  finally {
     store.loading = false;
   }
   if (refreshBalances) {
@@ -60,7 +62,8 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
     try {
       const { useOrderStore } = await import("@/stores/orderStore");
       await useOrderStore().fetchOrders();
-    } catch {
+    }
+    catch {
       /* A8 l(_): await E() — continuous f 不返回时此处不可达 */
     }
   }
@@ -68,10 +71,11 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
 
 export async function persistAccounts(store: AccountStoreContext) {
   const payload = store.accounts
-    .filter((a) => a.accountId)
-    .map((a) => normalizeAccountMultiplyField(a.toJSON()));
+    .filter(a => a.accountId)
+    .map(a => normalizeAccountMultiplyField(a.toJSON()));
   const ok = await saveAccounts(payload);
-  if (!ok) throw new Error("账号保存失败，请检查登录状态或稍后重试");
+  if (!ok)
+    throw new Error("账号保存失败，请检查登录状态或稍后重试");
   return ok;
 }
 
@@ -86,7 +90,8 @@ async function createAccountFromPlayerId(
   const existing = store.findAccount(record.accountId);
   if (existing) {
     existing.applyPatch(record);
-  } else {
+  }
+  else {
     store.accounts.push(new PlatformAccount(record));
   }
   await persistAccounts(store);
@@ -128,7 +133,7 @@ export async function createFromTagPlatform(
 
 export async function deleteAccount(store: AccountStoreContext, accountId: number) {
   await deletePlayer(accountId);
-  store.accounts = store.accounts.filter((a) => a.accountId !== accountId);
+  store.accounts = store.accounts.filter(a => a.accountId !== accountId);
   void persistAccounts(store);
 }
 

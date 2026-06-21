@@ -6,35 +6,47 @@ const { statuses } = useDirectRealtimeStatus();
 
 function dotClass(status: DirectRealtimeStatus): string {
   if (status.upstreamConnected) {
-    if (status.upstreamRoute === "a8") return "ok-a8";
-    if (status.upstreamRoute === "changmen") return "ok-changmen";
+    if (status.upstreamRoute === "a8")
+      return "ok-a8";
+    if (status.upstreamRoute === "changmen")
+      return "ok-changmen";
     return "ok-official";
   }
-  if (status.lastError) return "err";
+  if (status.lastError)
+    return "err";
   return "idle";
 }
 
 function formatAgo(ms: number): string {
   const sec = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (sec < 60) return `${sec}秒前`;
+  if (sec < 60)
+    return `${sec}秒前`;
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}分钟前`;
+  if (min < 60)
+    return `${min}分钟前`;
   return `${Math.floor(min / 60)}小时前`;
 }
 
 function tooltip(status: DirectRealtimeStatus): string {
   const lines = [status.platform];
   if (status.upstreamConnected) {
-    if (status.upstreamRoute === "a8") lines.push("已连接 A8 聚合");
-    else if (status.upstreamRoute === "changmen") lines.push("已连接 CHANGMEN 转发");
+    if (status.upstreamRoute === "a8")
+      lines.push("已连接 A8 聚合");
+    else if (status.upstreamRoute === "changmen")
+      lines.push("已连接 CHANGMEN 转发");
     else lines.push("已连接官方上游");
-  } else {
+  }
+  else {
     lines.push("未连接上游");
   }
-  if (status.lastError) lines.push(`错误：${status.lastError}`);
-  if (status.messagesReceived) lines.push(`已收 ${status.messagesReceived} 条推送`);
-  if (status.lastUpstreamAt) lines.push(`最近推送：${formatAgo(status.lastUpstreamAt)}`);
-  if (status.forwardedTopics) lines.push(`MQTT 订阅 ${status.forwardedTopics} 个 topic`);
+  if (status.lastError)
+    lines.push(`错误：${status.lastError}`);
+  if (status.messagesReceived)
+    lines.push(`已收 ${status.messagesReceived} 条推送`);
+  if (status.lastUpstreamAt)
+    lines.push(`最近推送：${formatAgo(status.lastUpstreamAt)}`);
+  if (status.forwardedTopics)
+    lines.push(`MQTT 订阅 ${status.forwardedTopics} 个 topic`);
   return lines.join("\n");
 }
 </script>
@@ -111,5 +123,4 @@ function tooltip(status: DirectRealtimeStatus): string {
 .direct-realtime-dot.idle {
   background-color: #ffffff66;
 }
-
 </style>

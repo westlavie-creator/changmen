@@ -1,4 +1,3 @@
-import { post, unwrap } from "@/api/client";
 import type {
   AdminDashboard,
   AdminOrderLogLookup,
@@ -7,6 +6,9 @@ import type {
   AdminOrderRow,
   AdminUserRow,
 } from "@/types/admin";
+import type { MonthReportPayload } from "@/types/monthReport";
+
+import { post, unwrap } from "@/api/client";
 
 export async function getAdminDashboard(date?: string) {
   return unwrap(await post<AdminDashboard>("Client_AdminDashboard", date ? { date } : {}));
@@ -32,9 +34,11 @@ export async function getAdminOrdersAll(body: Record<string, unknown> = {}) {
     dateKey = page.date;
     total = page.total;
     all.push(...(page.list ?? []));
-    if (all.length >= total || !page.list?.length) break;
+    if (all.length >= total || !page.list?.length)
+      break;
     pageIndex += 1;
-    if (pageIndex > 50) break;
+    if (pageIndex > 50)
+      break;
   }
   return { date: dateKey, list: all, total };
 }
@@ -43,9 +47,11 @@ export async function getAdminOrdersAll(body: Record<string, unknown> = {}) {
 export async function getAdminOrdersMatrix(body: Record<string, unknown> = {}) {
   try {
     return unwrap(await post<AdminOrderMatrix>("Client_AdminOrdersMatrix", body));
-  } catch (e) {
+  }
+  catch (e) {
     const msg = String((e as Error).message || "");
-    if (!msg.includes("unknown action")) throw e;
+    if (!msg.includes("unknown action"))
+      throw e;
     return getAdminOrdersAll(body);
   }
 }
@@ -120,12 +126,12 @@ export async function renameAdminUser(userId: string, userName: string) {
   );
 }
 
-import type { MonthReportPayload } from "@/types/monthReport";
-
 export async function getAdminMonthReport(month?: string, userId?: string) {
   const body: Record<string, string> = {};
-  if (month) body.month = month;
-  if (userId) body.userId = userId;
+  if (month)
+    body.month = month;
+  if (userId)
+    body.userId = userId;
   return unwrap(await post<MonthReportPayload>("Client_AdminMonthReport", body));
 }
 

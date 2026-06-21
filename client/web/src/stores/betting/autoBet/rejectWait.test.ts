@@ -1,7 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { UserConfig } from "@/types/userConfig";
-import { createDefaultUserConfig } from "@/types/userConfig";
 import type { PlatformAccount } from "@/models/platformAccount";
+import type { UserConfig } from "@/types/userConfig";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { a8Tip } from "@/shared/a8Notify";
+
+import { wait } from "@/shared/wait";
+import { createDefaultUserConfig } from "@/types/userConfig";
+import { rejectWaitSeconds, waitRejectDetection } from "./rejectWait";
 
 vi.mock("@/shared/a8Notify", () => ({
   a8Tip: vi.fn(),
@@ -10,10 +14,6 @@ vi.mock("@/shared/a8Notify", () => ({
 vi.mock("@/shared/wait", () => ({
   wait: vi.fn(() => Promise.resolve()),
 }));
-
-import { a8Tip } from "@/shared/a8Notify";
-import { wait } from "@/shared/wait";
-import { rejectWaitSeconds, waitRejectDetection } from "./rejectWait";
 
 function cfg(waitTime: Record<string, number>): UserConfig {
   return { ...createDefaultUserConfig(), waitTime };

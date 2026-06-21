@@ -1,10 +1,11 @@
-import { PlatformAccount, resolveAccountPauseReason } from "@/models/platformAccount";
-import {
-  createAccountEditFormStateFromAdmin,
-  type AccountEditFormState,
-} from "@/components/account/accountEditFormState";
+import type { AccountEditFormState } from "@/components/account/accountEditFormState";
 import type { AdminAccountDetail } from "@/types/admin";
 import type { PlatformId } from "@/types/esport";
+import {
+
+  createAccountEditFormStateFromAdmin,
+} from "@/components/account/accountEditFormState";
+import { PlatformAccount, resolveAccountPauseReason } from "@/models/platformAccount";
 
 export function adminAccountToPlatformAccount(acc: AdminAccountDetail): PlatformAccount {
   const provider = (acc.platform || "OB") as PlatformId;
@@ -58,13 +59,13 @@ export function adminAccountToPlatformAccount(acc: AdminAccountDetail): Platform
   return account;
 }
 
-export type AdminAccountDisplayRow = {
+export interface AdminAccountDisplayRow {
   accountId: number;
   title: string;
   pauseReason: string | false;
   form: AccountEditFormState;
   proxyOptions: { label: string; value: number }[];
-};
+}
 
 export function buildAdminAccountDisplayRows(accounts: AdminAccountDetail[]): AdminAccountDisplayRow[] {
   return accounts.map((acc) => {

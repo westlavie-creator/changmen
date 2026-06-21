@@ -1,10 +1,10 @@
+import type { UpdateBalanceResult } from "@/types/account";
 /**
  * A8 bundle `Vt` 门面：Client_GetData / Client_SaveData / Client_UpdateBalance。
  * 账号 KV 键 HF = "ACCOUNT"（Io store loadAccounts / saveAccounts）。
  */
 import { post } from "@/api/client";
 import { getClientDataArray, saveClientData } from "@/api/kv";
-import type { UpdateBalanceResult } from "@/types/account";
 
 /** [A8 可证实] const HF = "ACCOUNT" */
 export const ACCOUNT_KEY = "ACCOUNT";
@@ -30,7 +30,8 @@ export async function updateBalance(
   playerId: number,
   balance?: number,
 ): Promise<UpdateBalanceResult | undefined> {
-  if (balance === undefined || !playerId) return undefined;
+  if (balance === undefined || !playerId)
+    return undefined;
   const res = await post<UpdateBalanceResult>(
     "Client_UpdateBalance",
     { playerId, balance },

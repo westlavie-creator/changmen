@@ -7,11 +7,13 @@ import axios from "axios";
  */
 export const a8Axios = axios.create({
   timeout: 15_000,
-  validateStatus: (status) => ![500, 504].includes(status),
+  validateStatus: status => ![500, 504].includes(status),
 });
 
 export function responseBodyText(data: unknown): string {
-  if (typeof data === "string") return data;
-  if (data == null) return "";
+  if (typeof data === "string")
+    return data;
+  if (data == null)
+    return "";
   return JSON.stringify(data);
 }

@@ -1,5 +1,5 @@
 export {
+  type ArbLegs,
   arbLegSide,
   pickArbLegs,
-  type ArbLegs,
 } from "@/domain/arbitrage/pickArbLegs";

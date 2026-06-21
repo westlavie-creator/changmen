@@ -1,11 +1,11 @@
-import { BetOption } from "@/models/betOption";
+import type { BetOption } from "@/models/betOption";
 import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformId } from "@/types/esport";
 import {
   passesLastOddsGate,
   passesMaxBetCount,
 } from "@/shared/betTiming";
-import type { PlatformId } from "@/types/esport";
 
 /** 下注过滤：操盘目标 + 可选初赔查询（缺省时视为无初赔约束） */
 export interface BetFilterMatchContext {
@@ -29,9 +29,12 @@ export function passesMakeUpAccountFilter(
   side: BetSide,
   matchStore: BetFilterMatchContext,
 ): boolean {
-  if (account.isPause() || account.noMarkup) return false;
-  if (account.minOdds !== 0 && sideOdds < account.minOdds) return false;
-  if (account.maxOdds !== 0 && sideOdds > account.maxOdds) return false;
+  if (account.isPause() || account.noMarkup)
+    return false;
+  if (account.minOdds !== 0 && sideOdds < account.minOdds)
+    return false;
+  if (account.maxOdds !== 0 && sideOdds > account.maxOdds)
+    return false;
   return passesDefaultOddsAt(account, resolveDefaultOdds(matchStore, betId, side));
 }
 
@@ -41,9 +44,12 @@ export function passesDefaultOddsAt(
   defaultOdds: number | undefined,
 ): boolean {
   const def = defaultOdds;
-  if (!def) return true;
-  if (account.minDefault && def < account.minDefault) return false;
-  if (account.maxDefault && def > account.maxDefault) return false;
+  if (!def)
+    return true;
+  if (account.minDefault && def < account.minDefault)
+    return false;
+  if (account.maxDefault && def > account.maxDefault)
+    return false;
   return true;
 }
 
@@ -56,15 +62,20 @@ export function accountPassesMainBetFilter(
   matchStore: BetFilterMatchContext,
   _implied?: number,
 ): boolean {
-  if (account.isPause() || account.markupOnly) return false;
-  if (!account.checkOdds(leg.odds, match.gameId)) return false;
+  if (account.isPause() || account.markupOnly)
+    return false;
+  if (!account.checkOdds(leg.odds, match.gameId))
+    return false;
   if (!passesDefaultOddsAt(account, resolveDefaultOdds(matchStore, bet.id, leg.target))) {
     return false;
   }
-  if (!passesLastOddsGate(account, bet.id, leg.target, leg.odds)) return false;
-  if (!passesMaxBetCount(account, bet.id, leg.target)) return false;
+  if (!passesLastOddsGate(account, bet.id, leg.target, leg.odds))
+    return false;
+  if (!passesMaxBetCount(account, bet.id, leg.target))
+    return false;
   const target = matchStore.getBetTarget(account.provider, bet.id);
-  if (target && target !== leg.target) return false;
+  if (target && target !== leg.target)
+    return false;
   return true;
 }
 
@@ -78,8 +89,10 @@ export function explainMainBetAccountRejection(
   _implied?: number,
 ): string | null {
   const pause = account.isPause();
-  if (pause) return pause;
-  if (account.markupOnly) return "仅限补单账号";
+  if (pause)
+    return pause;
+  if (account.markupOnly)
+    return "仅限补单账号";
   if (!account.checkOdds(leg.odds, match.gameId)) {
     return `赔率 ${leg.odds} 不在账号区间 ${account.getMinOdds()}~${account.getMaxOdds()}`;
   }

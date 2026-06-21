@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
-import { NOTIFY_TYPES } from "@/types/notifyTypes";
-import { TELEGRAM_BOT_URL, TELEGRAM_BOT_NAME } from "@/config/gamebetExtension";
+import { computed, ref } from "vue";
 import { sendMessage } from "@/api/esport";
+import { TELEGRAM_BOT_NAME, TELEGRAM_BOT_URL } from "@/config/gamebetExtension";
 import { useUserStore } from "@/stores/userStore";
+import { NOTIFY_TYPES } from "@/types/notifyTypes";
 
 const user = useUserStore();
 const { message } = storeToRefs(user);
@@ -27,7 +27,8 @@ const notifyArbOpportunity = computed({
 });
 
 function unlockPush(type: string) {
-  if (type === "OrderPush") pushLocked.value = false;
+  if (type === "OrderPush")
+    pushLocked.value = false;
 }
 
 async function save() {
@@ -35,7 +36,8 @@ async function save() {
   try {
     await user.saveMessageConfig();
     ElMessage.success("保存成功");
-  } finally {
+  }
+  finally {
     saving.value = false;
   }
 }
@@ -52,9 +54,11 @@ async function testTelegram() {
       text: "<b>测试消息</b>\nTelegram 推送配置正常。",
       parse_mode: "HTML",
     });
-    if (ok) ElMessage.success("测试消息已发送，请在 Telegram 查看");
+    if (ok)
+      ElMessage.success("测试消息已发送，请在 Telegram 查看");
     else ElMessage.error("发送失败");
-  } catch (err) {
+  }
+  catch (err) {
     ElMessage.error(err instanceof Error ? err.message : "发送失败");
   }
 }
@@ -89,13 +93,17 @@ async function testTelegram() {
       </label>
     </el-form-item>
     <el-form-item label="机器人:">
-      <el-link :href="TELEGRAM_BOT_URL" target="_blank">{{ TELEGRAM_BOT_NAME }}</el-link>
+      <el-link :href="TELEGRAM_BOT_URL" target="_blank">
+        {{ TELEGRAM_BOT_NAME }}
+      </el-link>
     </el-form-item>
     <div class="flex flex-center">
       <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
         &nbsp;保存
       </el-button>
-      <el-button size="large" style="margin-left: 12px" @click="testTelegram">发送测试</el-button>
+      <el-button size="large" style="margin-left: 12px" @click="testTelegram">
+        发送测试
+      </el-button>
     </div>
   </el-form>
 </template>

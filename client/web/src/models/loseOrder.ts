@@ -1,5 +1,5 @@
-import type { LoseOrderRecord } from "@/types/order";
 import type { BetSide } from "@/models/match";
+import type { LoseOrderRecord } from "@/types/order";
 import { toFixed } from "@/shared/format";
 
 /** 对齐 A8 bundle `eb`（补单队列项） */
@@ -33,12 +33,14 @@ export class LoseOrder implements LoseOrderRecord {
   }
 
   getBetMoney(odds: number) {
-    if (!odds) return 0;
+    if (!odds)
+      return 0;
     return Math.round((this.betMoney * this.betOdds) / odds);
   }
 
   getOdds(makeProfit = 1.01) {
-    if (this.isCreateOrder) return Number(this.betOdds);
+    if (this.isCreateOrder)
+      return Number(this.betOdds);
     const p = makeProfit || 1.01;
     const implied = 1 / (1 / p - 1 / this.betOdds);
     return Number(toFixed(implied));

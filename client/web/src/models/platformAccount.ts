@@ -1,23 +1,24 @@
-import type { AccountRecord, AccountCurrency } from "@/types/account";
+import type { AccountCurrency, AccountRecord } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
-import { ALL_PLATFORMS } from "@/types/userConfig";
-import { getExchange } from "@/shared/currency";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
+import { getExchange } from "@/shared/currency";
+import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const DEFAULT_GAMES = ["英雄联盟", "DOTA2", "CS:GO", "王者荣耀", "无畏契约"];
 
-export type AccountRateRow = { minOdds: number; maxOdds: number; rate: number };
+export interface AccountRateRow { minOdds: number; maxOdds: number; rate: number }
 
 /** [A8 可证实] 保存账号：`rateConfig.filter(C => C.rate !== 0)` */
 export function normalizeAccountRateConfig(rows: AccountRateRow[] | undefined): AccountRateRow[] {
-  if (!rows?.length) return [];
+  if (!rows?.length)
+    return [];
   return rows
-    .map((r) => ({
+    .map(r => ({
       minOdds: Number(r.minOdds) || 0,
       maxOdds: Number(r.maxOdds) || 0,
       rate: Number(r.rate),
     }))
-    .filter((r) => !Number.isNaN(r.rate) && r.rate !== 0);
+    .filter(r => !Number.isNaN(r.rate) && r.rate !== 0);
 }
 
 /** 对齐 A8 bundle `uv`（单平台投注账号） */
@@ -97,26 +98,29 @@ export class PlatformAccount implements AccountRecord {
 
   /** 对齐 A8 `uv.getBalance`：场馆原币余额 × 汇率（CNY 口径） */
   getBalance(): number | undefined {
-    if (this.balance === undefined) return undefined;
+    if (this.balance === undefined)
+      return undefined;
     return this.balance * getExchange(this.currency);
   }
 
   getBetMoney(amount: number, odds: number) {
-    let money = Math.round(amount / getExchange(this.currency));
-    if (!this.rateConfig?.length) return money;
+    const money = Math.round(amount / getExchange(this.currency));
+    if (!this.rateConfig?.length)
+      return money;
     const row = this.rateConfig.find(
-      (r) =>
+      r =>
         (r.minOdds === 0 || r.minOdds <= odds) && (r.maxOdds === 0 || r.maxOdds >= odds),
     );
     let rate = row?.rate ?? 0;
     // [A8 可证实] `n===0&&(n=1)`
-    if (rate === 0) rate = 1;
+    if (rate === 0)
+      rate = 1;
     return money < 1 ? money : Math.floor(money * rate);
   }
 
   getMinOdds() {
-    const extra =
-      this.maxBalance && (this.balance ?? 0) >= this.maxBalance ? this.maxBalanceOdds : 0;
+    const extra
+      = this.maxBalance && (this.balance ?? 0) >= this.maxBalance ? this.maxBalanceOdds : 0;
     return Math.max(this.minOdds, extra);
   }
 
@@ -130,14 +134,16 @@ export class PlatformAccount implements AccountRecord {
 
   /** 对齐 A8 `uv.isPause`：当前小时是否落在任一 workTimes 区间（格式 `9-18`） */
   static isWithinWorkTimes(workTimes: string[] | undefined): boolean {
-    if (!workTimes?.length) return true;
+    if (!workTimes?.length)
+      return true;
     const hour = new Date().getHours();
     let inRange = false;
     for (const slot of workTimes) {
       const [startRaw, endRaw] = slot.split("-");
       const start = Number(startRaw);
       const end = Number(endRaw);
-      if (Number.isNaN(start) || Number.isNaN(end)) continue;
+      if (Number.isNaN(start) || Number.isNaN(end))
+        continue;
       if (start <= hour && hour <= end) {
         inRange = true;
         break;
@@ -148,9 +154,10 @@ export class PlatformAccount implements AccountRecord {
 
   /** 账号游戏配置：赔率区间 `min-max` 列表 */
   static passesGameOddsRanges(ranges: string[] | undefined, odds: number): boolean {
-    if (!ranges?.length) return true;
+    if (!ranges?.length)
+      return true;
     return ranges.some((raw) => {
-      const [lo, hi] = raw.split("-").map((x) => Number(x));
+      const [lo, hi] = raw.split("-").map(x => Number(x));
       return !Number.isNaN(lo) && !Number.isNaN(hi) && lo <= odds && odds <= hi;
     });
   }
@@ -162,8 +169,10 @@ export class PlatformAccount implements AccountRecord {
     configProfit: number,
   ): number {
     const gameProfit = gameName ? account.game?.[gameName]?.profit : 0;
-    if (gameProfit) return gameProfit;
-    if (account.profit) return account.profit;
+    if (gameProfit)
+      return gameProfit;
+    if (account.profit)
+      return account.profit;
     return configProfit;
   }
 
@@ -173,9 +182,12 @@ export class PlatformAccount implements AccountRecord {
    */
   passesGameSettings(gameName: string, odds: number, implied?: number): boolean {
     const row = this.game?.[gameName];
-    if (!row) return true;
-    if (row.profit && implied != null && implied < row.profit) return false;
-    if (!PlatformAccount.passesGameOddsRanges(row.odds, odds)) return false;
+    if (!row)
+      return true;
+    if (row.profit && implied != null && implied < row.profit)
+      return false;
+    if (!PlatformAccount.passesGameOddsRanges(row.odds, odds))
+      return false;
     return true;
   }
 
@@ -235,7 +247,7 @@ export class PlatformAccount implements AccountRecord {
   }
 }
 
-export type AccountPauseInput = {
+export interface AccountPauseInput {
   pause?: boolean;
   maxOrder?: number;
   todayOrder?: number;
@@ -244,11 +256,12 @@ export type AccountPauseInput = {
   maxWinBalance?: number;
   winBalance?: number;
   workTimes?: string[];
-};
+}
 
 /** 对齐 A8 `uv.isPause`：返回暂停原因文案，未暂停则 false */
 export function resolveAccountPauseReason(account: AccountPauseInput): string | false {
-  if (account.pause) return "手动设定账号暂停";
+  if (account.pause)
+    return "手动设定账号暂停";
   if (account.maxOrder && (account.todayOrder ?? 0) >= account.maxOrder) {
     return `当日订单 ${account.todayOrder} 笔，超过设定 ${account.maxOrder}`;
   }

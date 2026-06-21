@@ -1,5 +1,5 @@
-import { storeToRefs } from "pinia";
 import type { BetSide, ViewBetItem } from "@/models/match";
+import { storeToRefs } from "pinia";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 
@@ -25,7 +25,8 @@ export function useOddsFlashCell() {
 
   function sourceLabel(item: ViewBetItem, side: BetSide): string | undefined {
     const flash = flashState(item, side);
-    if (!flash) return undefined;
+    if (!flash)
+      return undefined;
     return flash.source === "mqtt" ? "M" : "H";
   }
 

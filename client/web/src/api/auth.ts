@@ -1,19 +1,22 @@
-import { post, setToken, setRefreshToken, unwrap } from "@/api/client";
 import type { LoginInfo, UserInfo } from "@/types/esport";
+import { post, setRefreshToken, setToken, unwrap } from "@/api/client";
 
 export async function login(userName: string, password: string) {
   const data = await post<LoginInfo>("Client_Login", { userName, password });
   const info = unwrap(data);
-  if (!info?.token) throw new Error(data.msg || "登录失败");
+  if (!info?.token)
+    throw new Error(data.msg || "登录失败");
   setToken(info.token);
-  if (info.refreshToken) setRefreshToken(info.refreshToken);
+  if (info.refreshToken)
+    setRefreshToken(info.refreshToken);
   return info;
 }
 
 export async function logout() {
   try {
     await post<null>("Client_Logout");
-  } finally {
+  }
+  finally {
     setToken(null);
     setRefreshToken(null);
   }

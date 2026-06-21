@@ -1,11 +1,12 @@
 import type { ViewBet, ViewMatch } from "@/models/match";
+import type { ArbAttemptPhase } from "@/stores/betting/autoBet/arbAttemptMetrics";
+import type { ArbBetAttemptParams } from "@/stores/betting/autoBet/phases/types";
 import type { UserConfig } from "@/types/userConfig";
 import {
+
   recordArbAttemptMetric,
-  type ArbAttemptPhase,
 } from "@/stores/betting/autoBet/arbAttemptMetrics";
 import { checkArbLegs } from "@/stores/betting/autoBet/phases/checkArbLegs";
-import type { ArbBetAttemptParams } from "@/stores/betting/autoBet/phases/types";
 import { finalizeArbBet } from "@/stores/betting/autoBet/phases/finalizeArbBet";
 import { placeArbLegs } from "@/stores/betting/autoBet/phases/placeArbLegs";
 import { prepareArbAttempt } from "@/stores/betting/autoBet/phases/prepareArbAttempt";

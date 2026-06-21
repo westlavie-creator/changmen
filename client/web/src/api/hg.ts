@@ -5,7 +5,8 @@ export async function getHgFollowOrders(agentId: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
-  if (!res.ok) throw new Error(`HG follow HTTP ${res.status}`);
+  if (!res.ok)
+    throw new Error(`HG follow HTTP ${res.status}`);
   const data = (await res.json()) as unknown;
   return Array.isArray(data) ? data : [];
 }

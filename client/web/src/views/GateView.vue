@@ -6,8 +6,8 @@ import LoginPanel from "@/components/auth/LoginPanel.vue";
 import CopyShellBanner from "@/components/layout/CopyShellBanner.vue";
 import KakashiRaikiriLoader from "@/components/layout/KakashiRaikiriLoader.vue";
 import PluginIntroShell from "@/components/layout/PluginIntroShell.vue";
-import { showSkinBanner } from "@/lib/copyShell";
 import { useExtensionGate } from "@/composables/useExtensionGate";
+import { showSkinBanner } from "@/lib/copyShell";
 import { useUserStore } from "@/stores/userStore";
 
 const HomeView = defineAsyncComponent(() => import("@/views/HomeView.vue"));

@@ -7,7 +7,8 @@ export function sortOptionsByWinRate(
   options: BetOption[],
   config: UserConfig,
 ): BetOption[] | undefined {
-  if (options.length !== 2) return undefined;
+  if (options.length !== 2)
+    return undefined;
 
   const matchStore = useMatchStore();
   const legs = options.map((opt) => {
@@ -16,7 +17,8 @@ export function sortOptionsByWinRate(
     return { opt, odds, winRate: 0 };
   });
 
-  if (legs.some((l) => !l.odds)) return undefined;
+  if (legs.some(l => !l.odds))
+    return undefined;
 
   const implied = 1 / legs.reduce((sum, l) => sum + 1 / l.odds, 0);
   for (const leg of legs) {
@@ -26,7 +28,7 @@ export function sortOptionsByWinRate(
   const diff = Math.abs(legs[0].winRate - legs[1].winRate);
   if (diff >= config.winRateValue) {
     legs.sort((a, b) => b.winRate - a.winRate);
-    return legs.map((l) => l.opt);
+    return legs.map(l => l.opt);
   }
   return undefined;
 }

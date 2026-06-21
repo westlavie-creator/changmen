@@ -1,6 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ViewBet, type ViewMatch } from "@/models/match";
+import type { ViewMatch } from "@/models/match";
 import type { BetRowDto } from "@/types/esport";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ViewBet } from "@/models/match";
+import { prepareArbAttempt } from "@/stores/betting/autoBet/phases/prepareArbAttempt";
+
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 const loseOrderIds = vi.hoisted(() => new Set<number>());
@@ -50,8 +53,6 @@ vi.mock("@/stores/accountStore", () => ({
     getProviders: () => new Map([["PB", []], ["RAY", []]]),
   }),
 }));
-
-import { prepareArbAttempt } from "@/stores/betting/autoBet/phases/prepareArbAttempt";
 
 function makeBet(sources: BetRowDto["Sources"]) {
   const row: BetRowDto = {

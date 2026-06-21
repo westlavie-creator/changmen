@@ -1,44 +1,47 @@
-import { findFundedOpportunityForBet, type DetectOpportunitiesParams } from "@/extensions/arbOpportunity/detect";
+import type { ArbMarketWatchContext } from "@/extensions/arbMarketWatch/marketWatchContext";
+import type { DetectOpportunitiesParams } from "@/extensions/arbOpportunity/detect";
 import type { OpportunityTransition } from "@/extensions/arbOpportunity/state";
+import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
 import {
+
+  buildMarketWatchContext,
+} from "@/extensions/arbMarketWatch/marketWatchContext";
+import { findFundedOpportunityForBet } from "@/extensions/arbOpportunity/detect";
+import {
+
   betAnchor,
   opportunityKey,
-  type ArbOpportunity,
-  type OpportunityKey,
+
 } from "@/extensions/arbOpportunity/types";
-import {
-  buildMarketWatchContext,
-  type ArbMarketWatchContext,
-} from "@/extensions/arbMarketWatch/marketWatchContext";
 import { shouldSendArbOpportunity } from "@/extensions/notify/arbOpportunityConfig";
 import { useMessageStore } from "@/stores/messageStore";
 
 /** 全盘口盯盘事件（按 matchId:betId 关联 fullMarket + 懒算 funded） */
-export type ArbMarketWatchGroup =
+export type ArbMarketWatchGroup
+  = | {
+    kind: "appeared";
+    anchor: string;
+    matchTitle: string;
+    betName: string;
+    fullMarket?: ArbOpportunity;
+    funded?: ArbOpportunity;
+    context?: ArbMarketWatchContext;
+  }
   | {
-      kind: "appeared";
-      anchor: string;
-      matchTitle: string;
-      betName: string;
-      fullMarket?: ArbOpportunity;
-      funded?: ArbOpportunity;
-      context?: ArbMarketWatchContext;
-    }
-  | {
-      kind: "gone";
-      anchor: string;
-      matchTitle: string;
-      betName: string;
-      fullMarket?: ArbOpportunity;
-      funded?: ArbOpportunity;
-      context?: ArbMarketWatchContext;
-    };
+    kind: "gone";
+    anchor: string;
+    matchTitle: string;
+    betName: string;
+    fullMarket?: ArbOpportunity;
+    funded?: ArbOpportunity;
+    context?: ArbMarketWatchContext;
+  };
 
 function betStillActive(
   anchor: string,
   snapshot: Map<OpportunityKey, ArbOpportunity>,
 ): boolean {
-  return [...snapshot.values()].some((o) => betAnchor(o) === anchor);
+  return [...snapshot.values()].some(o => betAnchor(o) === anchor);
 }
 
 export function sameOpportunityLegs(a: ArbOpportunity, b: ArbOpportunity): boolean {
@@ -95,7 +98,8 @@ export function buildMarketWatchGroups(
 
     const opp = transition.previous;
     const anchor = betAnchor(opp);
-    if (betStillActive(anchor, snapshot)) continue;
+    if (betStillActive(anchor, snapshot))
+      continue;
     const funded = findFundedOpportunityForBet(detectParams, opp.matchId, opp.betId);
     groups.push(toGoneGroup(opp, detectParams, funded));
   }
@@ -108,7 +112,8 @@ export function deliverMarketWatchSink(
   snapshot: Map<OpportunityKey, ArbOpportunity>,
   detectParams: DetectOpportunitiesParams,
 ): void {
-  if (!shouldSendArbOpportunity()) return;
+  if (!shouldSendArbOpportunity())
+    return;
   const messageStore = useMessageStore();
   for (const group of buildMarketWatchGroups(transitions, snapshot, detectParams)) {
     messageStore.marketWatchMessage(group);

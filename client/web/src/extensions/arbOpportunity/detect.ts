@@ -1,15 +1,16 @@
-import { pickArbLegs } from "@/domain/arbitrage";
-import { resolveArbProviderKeys, type ArbProviderScope } from "@/domain/betting/providerKeys";
+import type { ArbProviderScope } from "@/domain/betting/providerKeys";
+import type { ArbDetectScope, ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
 import type { ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
+import { pickArbLegs } from "@/domain/arbitrage";
+import { resolveArbProviderKeys } from "@/domain/betting/providerKeys";
 import {
-  opportunityKey,
+
   betAnchor,
-  type ArbDetectScope,
-  type ArbOpportunity,
-  type OpportunityKey,
+  opportunityKey,
+
 } from "@/extensions/arbOpportunity/types";
 
 export interface DetectOpportunitiesParams {
@@ -43,10 +44,12 @@ export function detectOpportunities(
   for (const match of matches) {
     for (const bet of match.bets) {
       const providerKeys = resolveProviderKeys(scope, bet, actionablePlatforms);
-      if (scope === "funded" && !providerKeys.length) continue;
+      if (scope === "funded" && !providerKeys.length)
+        continue;
 
       const legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
-      if (!legs) continue;
+      if (!legs)
+        continue;
 
       out.push({
         scope,
@@ -72,20 +75,24 @@ export function detectOpportunitiesForBets(
   scope: ArbDetectScope,
   betAnchors: Set<string>,
 ): ArbOpportunity[] {
-  if (!betAnchors.size) return [];
+  if (!betAnchors.size)
+    return [];
 
   const { matches, config, accounts = [], actionablePlatforms = [] } = params;
   const out: ArbOpportunity[] = [];
 
   for (const match of matches) {
     for (const bet of match.bets) {
-      if (!betAnchors.has(betAnchor({ matchId: match.id, betId: bet.id }))) continue;
+      if (!betAnchors.has(betAnchor({ matchId: match.id, betId: bet.id })))
+        continue;
 
       const providerKeys = resolveProviderKeys(scope, bet, actionablePlatforms);
-      if (scope === "funded" && !providerKeys.length) continue;
+      if (scope === "funded" && !providerKeys.length)
+        continue;
 
       const legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
-      if (!legs) continue;
+      if (!legs)
+        continue;
 
       out.push({
         scope,
@@ -112,7 +119,7 @@ export function findFundedOpportunityForBet(
   betId: number,
 ): ArbOpportunity | undefined {
   return detectOpportunities(params, "funded").find(
-    (o) => o.matchId === matchId && o.betId === betId,
+    o => o.matchId === matchId && o.betId === betId,
   );
 }
 

@@ -1,9 +1,9 @@
-import { describe, expect, test } from "vitest";
-import { toA8LiveTimerRow, toA8SaveBetRow, toA8SaveMatchRow } from "./collectWire";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
+import { describe, expect, it } from "vitest";
+import { toA8LiveTimerRow, toA8SaveBetRow, toA8SaveMatchRow } from "./collectWire";
 
 describe("collectWire A8 parity", () => {
-  test("toA8SaveMatchRow strips extra top-level fields", () => {
+  it("toA8SaveMatchRow strips extra top-level fields", () => {
     const row = toA8SaveMatchRow({
       Type: "RAY",
       SourceMatchID: 1,
@@ -39,7 +39,7 @@ describe("collectWire A8 parity", () => {
     });
   });
 
-  test("toA8SaveBetRow drops changmen-only extensions", () => {
+  it("toA8SaveBetRow drops changmen-only extensions", () => {
     const row = toA8SaveBetRow({
       Type: "OB",
       SourceMatchID: "m1",
@@ -73,7 +73,7 @@ describe("collectWire A8 parity", () => {
     });
   });
 
-  test("toA8LiveTimerRow keeps three timer fields", () => {
+  it("toA8LiveTimerRow keeps three timer fields", () => {
     expect(
       toA8LiveTimerRow({ MatchID: 9, Round: 2, StartTime: 123456 }),
     ).toEqual({ MatchID: 9, Round: 2, StartTime: 123456 });

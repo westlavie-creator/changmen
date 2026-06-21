@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from "vue";
+import type { FollowConfig } from "@/types/order";
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
+import { onMounted, reactive, ref } from "vue";
 import { getUsers } from "@/api/esport";
-import { useUserStore } from "@/stores/userStore";
 import { useConfigStore } from "@/stores/configStore";
-import type { FollowConfig } from "@/types/order";
+import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
 const configStore = useConfigStore();
@@ -28,18 +28,20 @@ onMounted(async () => {
   if (follow.value) {
     Object.assign(form, follow.value);
     form.users = [...(follow.value.users ?? follow.value.publishers ?? [])];
-  } else {
+  }
+  else {
     form.betMoney = configStore.config.betMoney;
   }
   try {
     const users = await getUsers();
     publishers.value = (users ?? [])
-      .filter((u) => Boolean(u.Setting?.Publisher))
-      .map((u) => ({
+      .filter(u => Boolean(u.Setting?.Publisher))
+      .map(u => ({
         userId: Number(u.Id ?? u.UserID ?? 0),
         userName: u.UserName ?? String(u.Id ?? ""),
       }));
-  } catch {
+  }
+  catch {
     /* ignore */
   }
 });
@@ -54,7 +56,8 @@ async function save() {
     };
     await user.saveFollowConfig(payload);
     ElMessage.success("保存成功");
-  } finally {
+  }
+  finally {
     saving.value = false;
   }
 }
@@ -85,7 +88,9 @@ async function save() {
             <el-col :span="10">
               <el-input v-model.number="form.minMoney" type="number" />
             </el-col>
-            <el-col :span="2" class="text-gray-500">-</el-col>
+            <el-col :span="2" class="text-gray-500">
+              -
+            </el-col>
             <el-col :span="10">
               <el-input v-model.number="form.maxMoney" type="number" />
             </el-col>

@@ -1,16 +1,17 @@
-import { defineStore } from "pinia";
-import { getMatchs } from "@/api/esport";
-import { getToken } from "@/api/client";
-import { ensureTokenRefresh } from "@/lib/sessionRefresh";
-import { getMatchDefaultOdds } from "@/api/report";
-import { toViewMatches, type ViewMatch } from "@/models/match";
-import type { BetSide } from "@/models/match";
+import type { BetSide, ViewMatch } from "@/models/match";
+import type { MainBetLoopState } from "@/stores/match/mainBetLoop";
 import type { PlatformId } from "@/types/esport";
 import type { MatchScoreBoard, PlatformScoreUpdate, ScoreRound } from "@/types/matchScore";
+import { defineStore } from "pinia";
+import { getToken } from "@/api/client";
+import { getMatchs } from "@/api/esport";
+import { getMatchDefaultOdds } from "@/api/report";
+import { ensureTokenRefresh } from "@/lib/sessionRefresh";
+import { toViewMatches } from "@/models/match";
 import {
+
   runMainBetLoopFinally,
   runMainBetLoopTick,
-  type MainBetLoopState,
 } from "@/stores/match/mainBetLoop";
 import { useUserStore } from "@/stores/userStore";
 
@@ -42,7 +43,7 @@ export const useMatchStore = defineStore("match", {
   }),
 
   getters: {
-    matchCount: (s) => s.matchs.length,
+    matchCount: s => s.matchs.length,
   },
 
   actions: {
@@ -64,9 +65,11 @@ export const useMatchStore = defineStore("match", {
     readBetTargetSession(): Record<string, Record<string, BetSide>> {
       try {
         const raw = sessionStorage.getItem(BET_TARGET_KEY);
-        if (!raw) return {};
+        if (!raw)
+          return {};
         return JSON.parse(raw) as Record<string, Record<string, BetSide>>;
-      } catch {
+      }
+      catch {
         return {};
       }
     },
@@ -103,13 +106,16 @@ export const useMatchStore = defineStore("match", {
 
     setBetTarget(platform: PlatformId, betRowId: number, side: BetSide) {
       const user = useUserStore();
-      if (!user.betTargetEnabled()) return false;
+      if (!user.betTargetEnabled())
+        return false;
       if (!this.betTargets || !(this.betTargets instanceof Map)) {
         this.betTargets = new Map();
       }
-      if (!this.betTargets.has(platform)) this.betTargets.set(platform, new Map());
+      if (!this.betTargets.has(platform))
+        this.betTargets.set(platform, new Map());
       const bucket = this.betTargets.get(platform)!;
-      if (bucket.get(betRowId) === side) bucket.delete(betRowId);
+      if (bucket.get(betRowId) === side)
+        bucket.delete(betRowId);
       else bucket.set(betRowId, side);
       this.persistBetTarget();
       return true;
@@ -117,12 +123,15 @@ export const useMatchStore = defineStore("match", {
 
     /** [A8 可证实] P()：有比分时以最高局号覆盖 Round 驱动的 isLive（仅当服务端仍报 liveRound>0） */
     applyScoreDrivenLive(match: ViewMatch) {
-      if (!match.liveRound) return;
+      if (!match.liveRound)
+        return;
       const board = this.score.get(match.id);
-      if (!board?.score.size) return;
+      if (!board?.score.size)
+        return;
       const maxRound = Math.max(...board.score.keys());
-      if (!maxRound) return;
-      const liveBet = match.bets.find((b) => b.round === maxRound);
+      if (!maxRound)
+        return;
+      const liveBet = match.bets.find(b => b.round === maxRound);
       if (liveBet) {
         liveBet.isLive = true;
         if (!liveBet.startTime || liveBet.startTime <= 0) {
@@ -144,9 +153,10 @@ export const useMatchStore = defineStore("match", {
         for (const bet of match.bets) {
           if (lr !== 0 && lr === bet.round) {
             bet.isLive = true;
-            bet.startTime =
-              rs > 0 ? rs : bet.startTime && bet.startTime > 0 ? bet.startTime : Date.now();
-          } else {
+            bet.startTime
+              = rs > 0 ? rs : bet.startTime && bet.startTime > 0 ? bet.startTime : Date.now();
+          }
+          else {
             bet.isLive = undefined;
             bet.startTime = undefined;
           }
@@ -171,10 +181,12 @@ export const useMatchStore = defineStore("match", {
     updateScore(platform: PlatformId, rows: PlatformScoreUpdate[]) {
       for (const row of rows) {
         const sourceId = row.SourceID != null ? String(row.SourceID) : "";
-        if (!sourceId) continue;
+        if (!sourceId)
+          continue;
         const idx = this._providerIndex.get(`${platform}:${sourceId}`);
         const match = idx != null ? this.matchs[idx] : undefined;
-        if (!match) continue;
+        if (!match)
+          continue;
         const reversed = match.reverse.includes(platform);
         const board = new Map<number, ScoreRound>();
         for (const [roundKey, raw] of Object.entries(row.Score ?? {})) {
@@ -193,8 +205,9 @@ export const useMatchStore = defineStore("match", {
 
     async fetchMatchDefaultOdds() {
       const user = useUserStore();
-      if (!user.isLoggedIn) return;
-      const ids = this.matchs.map((m) => m.id);
+      if (!user.isLoggedIn)
+        return;
+      const ids = this.matchs.map(m => m.id);
       try {
         const info = await getMatchDefaultOdds(ids);
         if (info && Object.keys(info).length) {
@@ -207,16 +220,19 @@ export const useMatchStore = defineStore("match", {
         // [A8 可证实] 门控到期即 `b=Date.now()`，空列表也推进计时
         this.defaultOddsFetchedAt = Date.now();
         this.tick += 1;
-      } catch {
+      }
+      catch {
         /* 后端未实现时保持空 Map */
       }
     },
 
     async fetchMatches(force = false) {
       const user = useUserStore();
-      if (!user.isLoggedIn) return;
+      if (!user.isLoggedIn)
+        return;
       const now = Date.now();
-      if (!force && now - this.lastFetchAt < POLL_MS) return;
+      if (!force && now - this.lastFetchAt < POLL_MS)
+        return;
 
       this.loading = true;
       this.error = null;
@@ -229,9 +245,11 @@ export const useMatchStore = defineStore("match", {
         if (Date.now() - this.defaultOddsFetchedAt > DEFAULT_ODDS_MS) {
           await this.fetchMatchDefaultOdds();
         }
-      } catch (e) {
+      }
+      catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
-      } finally {
+      }
+      finally {
         this.loading = false;
       }
     },
@@ -260,8 +278,10 @@ export const useMatchStore = defineStore("match", {
     },
 
     scheduleMainLoop(delayMs: number) {
-      if (!this.mainLoopRunning) return;
-      if (this.mainLoopTimer) clearTimeout(this.mainLoopTimer);
+      if (!this.mainLoopRunning)
+        return;
+      if (this.mainLoopTimer)
+        clearTimeout(this.mainLoopTimer);
       this.mainLoopTimer = setTimeout(() => {
         void this.runMainLoopTick();
       }, delayMs);
@@ -272,11 +292,15 @@ export const useMatchStore = defineStore("match", {
       try {
         await runMainBetLoopTick(state);
         this.lastLoseOrderPruneAt = state.lastLoseOrderPruneAt;
-      } finally {
-        if (!this.mainLoopRunning) return;
+      }
+      /* eslint-disable no-unsafe-finally */
+      finally {
+        if (!this.mainLoopRunning)
+          return; // intentional: skip cleanup when loop is stopped
         await runMainBetLoopFinally();
         this.scheduleMainLoop(0);
       }
+      /* eslint-enable no-unsafe-finally */
     },
 
     _rebuildProviderIndex() {

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
 import type { AdminOrderRow } from "@/types/admin";
-import { classifyLinkId, formatLinkId, isSingleLegLink, linkIdSourceLabel } from "@/shared/format";
+import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
+import { classifyLinkId, formatLinkId, isSingleLegLink, linkIdSourceLabel } from "@/shared/format";
 
 const props = defineProps<{
   groups: [number, AdminOrderRow[]][];
@@ -56,9 +56,10 @@ const flatRows = computed<FlatOrderRow[]>(() => {
 function linkSourceTag(linkId: number | undefined) {
   const source = classifyLinkId(linkId);
   const label = linkIdSourceLabel(source);
-  if (!source || !label) return null;
-  const title =
-    source === "hash"
+  if (!source || !label)
+    return null;
+  const title
+    = source === "hash"
       ? "SaveOrder 占位 link（orderId hash），未 SaveOrderBind"
       : source === "arb"
         ? "系统内套利 SaveOrderBind"
@@ -67,7 +68,8 @@ function linkSourceTag(linkId: number | undefined) {
 }
 
 function fmtTime(ts: number) {
-  if (!ts) return "—";
+  if (!ts)
+    return "—";
   return new Date(ts).toLocaleString();
 }
 
@@ -77,10 +79,14 @@ function fmtMoney(n: number) {
 
 function statusBadgeClass(status: string) {
   const s = status.toLowerCase();
-  if (s === "win") return "admin-badge--win";
-  if (s === "lose") return "admin-badge--lose";
-  if (s === "reject") return "admin-badge--reject";
-  if (s === "pending") return "admin-badge--pending";
+  if (s === "win")
+    return "admin-badge--win";
+  if (s === "lose")
+    return "admin-badge--lose";
+  if (s === "reject")
+    return "admin-badge--reject";
+  if (s === "pending")
+    return "admin-badge--pending";
   return "";
 }
 
@@ -91,8 +97,10 @@ function groupIsLinked(rows: AdminOrderRow[]) {
 
 function groupMetaLabel(rows: AdminOrderRow[]) {
   const link = Number(rows[0]?.linkId) || 0;
-  if (isSingleLegLink(link)) return "单边";
-  if (groupIsLinked(rows)) return `套利 ${rows.length} 笔`;
+  if (isSingleLegLink(link))
+    return "单边";
+  if (groupIsLinked(rows))
+    return `套利 ${rows.length} 笔`;
   return "单笔";
 }
 
@@ -102,7 +110,8 @@ function groupProfit(rows: AdminOrderRow[]) {
 
 function groupProfitClass(rows: AdminOrderRow[]) {
   const total = groupProfit(rows);
-  if (total === 0) return "";
+  if (total === 0)
+    return "";
   return total > 0 ? "pos" : "neg";
 }
 
@@ -112,9 +121,12 @@ function userLabel(row: AdminOrderRow) {
 
 function rowClassName({ row }: { row: FlatOrderRow }) {
   const classes = ["admin-order-group-row"];
-  if (row.groupIndex % 2 === 1) classes.push("admin-order-group-row--alt");
-  if (row.groupRowIndex > 0) classes.push("admin-order-group-row--inner");
-  if (row.groupRowIndex === row.groupSize - 1) classes.push("admin-order-group-row--group-end");
+  if (row.groupIndex % 2 === 1)
+    classes.push("admin-order-group-row--alt");
+  if (row.groupRowIndex > 0)
+    classes.push("admin-order-group-row--inner");
+  if (row.groupRowIndex === row.groupSize - 1)
+    classes.push("admin-order-group-row--group-end");
   return classes.join(" ");
 }
 
@@ -126,8 +138,10 @@ function spanMethod({
   column: { label?: string };
 }) {
   const label = column.label || "";
-  if (!SPAN_COLUMN_LABELS.has(label)) return { rowspan: 1, colspan: 1 };
-  if (row.groupRowIndex === 0) return { rowspan: row.groupSize, colspan: 1 };
+  if (!SPAN_COLUMN_LABELS.has(label))
+    return { rowspan: 1, colspan: 1 };
+  if (row.groupRowIndex === 0)
+    return { rowspan: row.groupSize, colspan: 1 };
   return { rowspan: 0, colspan: 0 };
 }
 </script>
@@ -144,7 +158,9 @@ function spanMethod({
     <el-table-column label="LinkID" width="168" fixed="left" class-name="admin-order-cell--link">
       <template #default="{ row }">
         <div class="admin-order-link-cell">
-          <div class="admin-order-link-cell__id">{{ formatLinkId(row.linkId) }}</div>
+          <div class="admin-order-link-cell__id">
+            {{ formatLinkId(row.linkId) }}
+          </div>
           <div class="admin-order-link-cell__meta">
             <span
               v-for="src in [linkSourceTag(row.linkId)].filter(Boolean)"
@@ -169,7 +185,9 @@ function spanMethod({
       </template>
     </el-table-column>
     <el-table-column v-if="showUserColumn" label="用户" width="100" show-overflow-tooltip>
-      <template #default="{ row }">{{ userLabel(row.order) }}</template>
+      <template #default="{ row }">
+        {{ userLabel(row.order) }}
+      </template>
     </el-table-column>
     <el-table-column label="平台" width="72" align="center" class-name="admin-order-cell--center">
       <template #default="{ row }">
@@ -177,13 +195,19 @@ function spanMethod({
       </template>
     </el-table-column>
     <el-table-column label="比赛" min-width="160" show-overflow-tooltip>
-      <template #default="{ row }">{{ row.order.match }}</template>
+      <template #default="{ row }">
+        {{ row.order.match }}
+      </template>
     </el-table-column>
     <el-table-column label="盘口" min-width="140" show-overflow-tooltip>
-      <template #default="{ row }">{{ row.order.bet }}</template>
+      <template #default="{ row }">
+        {{ row.order.bet }}
+      </template>
     </el-table-column>
     <el-table-column label="选项" width="100" show-overflow-tooltip>
-      <template #default="{ row }">{{ row.order.item }}</template>
+      <template #default="{ row }">
+        {{ row.order.item }}
+      </template>
     </el-table-column>
     <el-table-column label="赔率" width="84" align="right" class-name="admin-order-cell--num">
       <template #default="{ row }">

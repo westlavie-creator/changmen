@@ -8,7 +8,8 @@ export function readUsedAccounts(betRowId: number, side: string) {
   try {
     const raw = sessionStorage.getItem(`${BET_ACCOUNT_PREFIX}${betRowId}:${side}`);
     return raw ? (JSON.parse(raw) as number[]) : [];
-  } catch {
+  }
+  catch {
     return [];
   }
 }
@@ -30,7 +31,8 @@ export function markSuccessfulBet(
   side: BetSide,
   odds: number,
 ) {
-  if (!account.accountId) return;
+  if (!account.accountId)
+    return;
   markUsedAccount(account.accountId, betId, side);
   incrementBetCount(account.accountId, betId, side);
   setLastBetOdds(account.accountId, betId, side, odds);

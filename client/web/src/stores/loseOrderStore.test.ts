@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoseOrder } from "@/models/loseOrder";
+
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 const publishLoseOrderMessage = vi.fn();
 
@@ -21,8 +23,6 @@ vi.mock("@/stores/matchStore", () => ({
     ],
   }),
 }));
-
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 describe("useLoseOrderStore A8 publish parity", () => {
   beforeEach(() => {

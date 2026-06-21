@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { ElMessage } from "element-plus";
-import { getAdminOrderLogs } from "@/api/admin";
 import type {
   AdminOrderLogAttempt,
   AdminOrderLogEntry,
@@ -9,8 +6,11 @@ import type {
   AdminOrderLogLookup,
   AdminOrderRow,
 } from "@/types/admin";
-import { formatLinkId } from "@/shared/format";
+import { ElMessage } from "element-plus";
+import { computed, ref } from "vue";
+import { getAdminOrderLogs } from "@/api/admin";
 import { attemptLogSegments } from "@/shared/adminOrderLogSegments";
+import { formatLinkId } from "@/shared/format";
 
 const ARB_LINK_MIN = 1_000_000_000_000;
 
@@ -28,7 +28,8 @@ const kindLabel: Record<string, string> = {
 };
 
 function fmtTime(ts: number) {
-  if (!ts) return "—";
+  if (!ts)
+    return "—";
   return new Date(ts).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
 
@@ -37,35 +38,46 @@ function fmtMoney(n: number) {
 }
 
 function kindClass(kind: string) {
-  if (kind === "bet") return "admin-order-log-kind--bet";
-  if (kind === "check") return "admin-order-log-kind--check";
-  if (kind === "reject") return "admin-order-log-kind--reject";
+  if (kind === "bet")
+    return "admin-order-log-kind--bet";
+  if (kind === "check")
+    return "admin-order-log-kind--check";
+  if (kind === "reject")
+    return "admin-order-log-kind--reject";
   return "";
 }
 
 function statusBadgeClass(status: string) {
   const s = status.toLowerCase();
-  if (s === "win") return "admin-badge--win";
-  if (s === "lose") return "admin-badge--lose";
-  if (s === "reject") return "admin-badge--reject";
-  if (s === "pending") return "admin-badge--pending";
+  if (s === "win")
+    return "admin-badge--win";
+  if (s === "lose")
+    return "admin-badge--lose";
+  if (s === "reject")
+    return "admin-badge--reject";
+  if (s === "pending")
+    return "admin-badge--pending";
   return "";
 }
 
 function pnlClass(money: number) {
-  if (money > 0) return "pos";
-  if (money < 0) return "neg";
+  if (money > 0)
+    return "pos";
+  if (money < 0)
+    return "neg";
   return "";
 }
 
 function isArbLookup(payload: AdminOrderLogLookup) {
-  if (payload.linkType === "套利" || payload.groupLabel.includes("套利")) return true;
+  if (payload.linkType === "套利" || payload.groupLabel.includes("套利"))
+    return true;
   const orders = payload.orders || [];
-  return orders.length > 1 && orders.every((o) => Number(o.link) >= ARB_LINK_MIN);
+  return orders.length > 1 && orders.every(o => Number(o.link) >= ARB_LINK_MIN);
 }
 
 function assignOrphanLogs(attempts: AdminOrderLogAttempt[], orphanLogs: AdminOrderLogEntry[]) {
-  if (!orphanLogs.length) return;
+  if (!orphanLogs.length)
+    return;
   if (!attempts.length) {
     attempts.push({ key: "orphan", order: null, logs: [...orphanLogs] });
     return;
@@ -86,11 +98,13 @@ function assignOrphanLogs(attempts: AdminOrderLogAttempt[], orphanLogs: AdminOrd
 
 function inferTargetFromLogs(logs: AdminOrderLogEntry[]) {
   for (const log of logs) {
-    if (log.target === "Home" || log.target === "Away") return log.target;
+    if (log.target === "Home" || log.target === "Away")
+      return log.target;
   }
   for (const log of logs) {
     const m = String(log.summary || "").match(/\s(Home|Away)@/);
-    if (m) return m[1] as "Home" | "Away";
+    if (m)
+      return m[1] as "Home" | "Away";
   }
   return null;
 }
@@ -104,29 +118,36 @@ function attemptProvider(attempt: AdminOrderLogAttempt) {
 }
 
 function touchLegProvider(leg: AdminOrderLogLegSection, provider: string | null | undefined) {
-  if (!provider) return;
+  if (!provider)
+    return;
   if (!leg.provider) {
     leg.provider = provider;
     return;
   }
-  if (leg.provider.includes(provider)) return;
+  if (leg.provider.includes(provider))
+    return;
   leg.provider = `${leg.provider}/${provider}`;
 }
 
 function pickLegIndexForUnassigned(legs: AdminOrderLogLegSection[]) {
   const homeN = legs[0]!.attempts.length;
   const awayN = legs[1]!.attempts.length;
-  if (homeN && !awayN) return 1;
-  if (!homeN && awayN) return 0;
+  if (homeN && !awayN)
+    return 1;
+  if (!homeN && awayN)
+    return 0;
   return homeN <= awayN ? 0 : 1;
 }
 
 function resolveLegIndexByProvider(provider: string | null | undefined, legs: AdminOrderLogLegSection[]) {
-  if (!provider) return pickLegIndexForUnassigned(legs);
+  if (!provider)
+    return pickLegIndexForUnassigned(legs);
   for (let i = 0; i < 2; i++) {
-    if (legs[i]!.provider === provider || legs[i]!.provider?.includes(provider)) return i;
+    if (legs[i]!.provider === provider || legs[i]!.provider?.includes(provider))
+      return i;
     for (const att of legs[i]!.attempts) {
-      if (att.order?.provider === provider) return i;
+      if (att.order?.provider === provider)
+        return i;
     }
   }
   return pickLegIndexForUnassigned(legs);
@@ -143,19 +164,20 @@ function fallbackLegSections(payload: AdminOrderLogLookup): AdminOrderLogLegSect
     { key: "leg-away", legIndex: 1, side: "Away", label: "客队", provider: null, attempts: [] },
   ];
 
-  const attempts = sortedOrders.map((order) => ({
+  const attempts = sortedOrders.map(order => ({
     key: order.orderId,
     order,
     logs: [] as AdminOrderLogEntry[],
   }));
-  const attemptByOrderId = new Map(attempts.map((a) => [a.order.orderId, a]));
+  const attemptByOrderId = new Map(attempts.map(a => [a.order.orderId, a]));
   const orphanLogs: AdminOrderLogEntry[] = [];
 
   for (const log of sortedLogs) {
     const orderId = log.orderId ? String(log.orderId) : null;
     if (orderId && attemptByOrderId.has(orderId)) {
       attemptByOrderId.get(orderId)!.logs.push(log);
-    } else {
+    }
+    else {
       orphanLogs.push(log);
     }
   }
@@ -163,8 +185,8 @@ function fallbackLegSections(payload: AdminOrderLogLookup): AdminOrderLogLegSect
   for (const att of attempts) {
     att.logs.sort((a, b) => a.createAt - b.createAt);
     const side = inferTargetFromLogs(att.logs);
-    const legIdx =
-      side === "Away" ? 1 : side === "Home" ? 0 : pickLegIndexForUnassigned(legs);
+    const legIdx
+      = side === "Away" ? 1 : side === "Home" ? 0 : pickLegIndexForUnassigned(legs);
     legs[legIdx]!.attempts.push(att);
     touchLegProvider(legs[legIdx]!, att.order.provider);
   }
@@ -179,12 +201,14 @@ function fallbackLegSections(payload: AdminOrderLogLookup): AdminOrderLogLegSect
     unknown: [],
   };
   for (const log of orphanLogs) {
-    const side =
-      log.target === "Home" || log.target === "Away"
+    const side
+      = log.target === "Home" || log.target === "Away"
         ? log.target
         : (String(log.summary || "").match(/\s(Home|Away)@/)?.[1] as "Home" | "Away" | undefined);
-    if (side === "Home") orphanBySide.Home.push(log);
-    else if (side === "Away") orphanBySide.Away.push(log);
+    if (side === "Home")
+      orphanBySide.Home.push(log);
+    else if (side === "Away")
+      orphanBySide.Away.push(log);
     else orphanBySide.unknown.push(log);
   }
 
@@ -200,19 +224,23 @@ function fallbackLegSections(payload: AdminOrderLogLookup): AdminOrderLogLegSect
     leg.label = sideLabel(leg);
   }
 
-  if (isArb) return legs;
-  return legs.filter((leg) => leg.attempts.some((a) => a.order || a.logs.length > 0));
+  if (isArb)
+    return legs;
+  return legs.filter(leg => leg.attempts.some(a => a.order || a.logs.length > 0));
 }
 
 const legColumns = computed(() => {
-  if (!data.value) return [];
-  if (data.value.legSections?.length) return data.value.legSections;
+  if (!data.value)
+    return [];
+  if (data.value.legSections?.length)
+    return data.value.legSections;
   return fallbackLegSections(data.value);
 });
 
 const dialogWidth = computed(() => {
   const n = legColumns.value.length;
-  if (n <= 2) return "min(980px, 98vw)";
+  if (n <= 2)
+    return "min(980px, 98vw)";
   return `min(${720 + n * 240}px, 98vw)`;
 });
 
@@ -221,15 +249,17 @@ const legColumnsStyle = computed(() => ({
 }));
 
 const sortedOrders = computed(() => {
-  if (!data.value?.orders.length) return [];
+  if (!data.value?.orders.length)
+    return [];
   return [...data.value.orders].sort((a, b) => a.createAt - b.createAt);
 });
 
 const overviewMatch = computed(() => {
-  const matches = sortedOrders.value.map((o) => o.match).filter(Boolean);
-  if (!matches.length) return "";
+  const matches = sortedOrders.value.map(o => o.match).filter(Boolean);
+  if (!matches.length)
+    return "";
   const first = matches[0];
-  return matches.every((m) => m === first) ? first : matches[0];
+  return matches.every(m => m === first) ? first : matches[0];
 });
 
 const totalProfit = computed(() =>
@@ -239,19 +269,22 @@ const totalProfit = computed(() =>
 const platformLabels = computed(() => {
   const labels = new Set<string>();
   for (const o of sortedOrders.value) {
-    if (o.provider) labels.add(o.provider);
+    if (o.provider)
+      labels.add(o.provider);
   }
   return [...labels].join(" · ");
 });
 
 function attemptDividerLabel(prev: AdminOrderLogAttempt, next: AdminOrderLogAttempt) {
-  if (prev.order?.status?.toLowerCase() === "reject") return "拒单后重下";
-  if (!prev.order && next.order) return "再次下单";
+  if (prev.order?.status?.toLowerCase() === "reject")
+    return "拒单后重下";
+  if (!prev.order && next.order)
+    return "再次下单";
   return "再次下单";
 }
 
 function legOrderAttempts(leg: AdminOrderLogLegSection) {
-  return leg.attempts.filter((a) => a.order);
+  return leg.attempts.filter(a => a.order);
 }
 
 function legProfit(leg: AdminOrderLogLegSection) {
@@ -261,7 +294,8 @@ function legProfit(leg: AdminOrderLogLegSection) {
 const hasOverviewOrders = computed(() => sortedOrders.value.length > 0);
 
 async function open(rows: AdminOrderRow[]) {
-  if (!rows.length) return;
+  if (!rows.length)
+    return;
   const head = rows[0]!;
   visible.value = true;
   loading.value = true;
@@ -274,10 +308,12 @@ async function open(rows: AdminOrderRow[]) {
       linkId: head.linkId || undefined,
       orderId: rows.length === 1 && !head.linkId ? head.orderId : undefined,
     });
-  } catch (e) {
+  }
+  catch (e) {
     error.value = (e as Error).message || "加载失败";
     ElMessage.error(error.value);
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
@@ -301,7 +337,9 @@ defineExpose({ open });
   >
     <div v-loading="loading" class="admin-order-log-dialog__scroll">
       <div class="admin-order-log-dialog__body">
-        <p v-if="error" class="admin-order-log-dialog__err">{{ error }}</p>
+        <p v-if="error" class="admin-order-log-dialog__err">
+          {{ error }}
+        </p>
         <template v-else-if="data">
           <div class="admin-order-log-layout">
             <section class="admin-order-log-overview">
@@ -350,7 +388,9 @@ defineExpose({ open });
               </div>
 
               <div v-if="legColumns.length" class="admin-order-log-overview__orders">
-                <h5 class="admin-order-log-overview__orders-title">订单概况</h5>
+                <h5 class="admin-order-log-overview__orders-title">
+                  订单概况
+                </h5>
                 <div class="admin-order-log-platforms" :style="legColumnsStyle">
                   <section
                     v-for="leg in legColumns"
@@ -420,16 +460,22 @@ defineExpose({ open });
                         </div>
                       </div>
                     </template>
-                    <p v-else class="admin-order-log-overview__empty">{{ sideLabel(leg) }}无落库订单</p>
+                    <p v-else class="admin-order-log-overview__empty">
+                      {{ sideLabel(leg) }}无落库订单
+                    </p>
                   </section>
                 </div>
               </div>
-              <p v-else-if="!hasOverviewOrders" class="admin-order-log-overview__empty">该 Link 无落库订单</p>
+              <p v-else-if="!hasOverviewOrders" class="admin-order-log-overview__empty">
+                该 Link 无落库订单
+              </p>
             </section>
 
             <section class="admin-order-log-logs-row">
               <header class="admin-order-log-logs-row__head">
-                <h4 class="admin-order-log-logs-row__title">主客队诊断日志</h4>
+                <h4 class="admin-order-log-logs-row__title">
+                  主客队诊断日志
+                </h4>
                 <span class="admin-order-log-logs-row__hint">主队 / 客队；同侧拒单重下以分隔线区分；补单按预检轮次分账号</span>
               </header>
 
@@ -544,14 +590,18 @@ defineExpose({ open });
                   </p>
                 </section>
               </div>
-              <p v-else class="admin-order-log-dialog__empty">该时间窗内无 Client_SaveUserLog 记录</p>
+              <p v-else class="admin-order-log-dialog__empty">
+                该时间窗内无 Client_SaveUserLog 记录
+              </p>
             </section>
           </div>
         </template>
       </div>
     </div>
     <template #footer>
-      <el-button @click="visible = false">关闭</el-button>
+      <el-button @click="visible = false">
+        关闭
+      </el-button>
     </template>
   </el-dialog>
 </template>

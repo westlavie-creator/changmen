@@ -1,5 +1,5 @@
 declare module "socketcluster-client" {
-  export type SocketClusterClientOptions = {
+  export interface SocketClusterClientOptions {
     hostname?: string;
     protocolVersion?: number;
     secure?: boolean;
@@ -8,7 +8,7 @@ declare module "socketcluster-client" {
     autoConnect?: boolean;
     ackTimeout?: number;
     [key: string]: unknown;
-  };
+  }
 
   export type SocketClusterChannel = AsyncIterable<unknown> & {
     listener(eventName: string): {
@@ -16,10 +16,10 @@ declare module "socketcluster-client" {
     };
   };
 
-  export type SocketClusterClient = {
+  export interface SocketClusterClient {
     subscribe(channelName: string): SocketClusterChannel;
     disconnect(): void;
-  };
+  }
 
   const socketClusterClient: {
     create(options: SocketClusterClientOptions): SocketClusterClient;

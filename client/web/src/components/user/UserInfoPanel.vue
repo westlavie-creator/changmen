@@ -1,16 +1,14 @@
 <script setup lang="ts">
+import { useTransition } from "@vueuse/core";
+import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { storeToRefs } from "pinia";
-import { useTransition } from "@vueuse/core";
 import UserConfigDialog from "@/components/user/UserConfigDialog.vue";
 import UserDiagDialog from "@/components/user/UserDiagDialog.vue";
-import { useUserStore } from "@/stores/userStore";
 import { useAccountStore } from "@/stores/accountStore";
-import { useOrderStore } from "@/stores/orderStore";
 import { useConfigStore } from "@/stores/configStore";
-
-const emit = defineEmits<{ logout: []; viewOrders: [] }>();
+import { useOrderStore } from "@/stores/orderStore";
+import { useUserStore } from "@/stores/userStore";
 
 const props = withDefaults(
   defineProps<{
@@ -20,6 +18,8 @@ const props = withDefaults(
   }>(),
   { embedded: false },
 );
+
+const emit = defineEmits<{ logout: []; viewOrders: [] }>();
 
 const router = useRouter();
 const user = useUserStore();
@@ -47,11 +47,15 @@ const userDiagOpen = ref(false);
 
 /** 对齐 bundle `UserInfoView` 延迟按钮 type（success / warning / danger） */
 const delayButtonType = computed(() => {
-  if (props.embedded) return undefined;
+  if (props.embedded)
+    return undefined;
   const d = apiDelay.value;
-  if (!d) return undefined;
-  if (d < 100) return "success";
-  if (d < 500) return "warning";
+  if (!d)
+    return undefined;
+  if (d < 100)
+    return "success";
+  if (d < 500)
+    return "warning";
   return "danger";
 });
 

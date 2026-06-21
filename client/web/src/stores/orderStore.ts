@@ -1,6 +1,6 @@
+import type { OrderRow } from "@/types/order";
 import { defineStore } from "pinia";
 import { getOrderList } from "@/api/esport";
-import type { OrderRow } from "@/types/order";
 import {
   groupOrdersByLink,
   isLinkedArbOrderGroup,
@@ -33,11 +33,13 @@ export const useOrderStore = defineStore("order", {
 
   getters: {
     filteredOrders(state): Map<number, OrderRow[]> {
-      if (!state.filterAccountId) return state.orders;
+      if (!state.filterAccountId)
+        return state.orders;
       const out = new Map<number, OrderRow[]>();
       for (const [link, rows] of state.orders) {
-        const filtered = rows.filter((r) => r.PlayerID === state.filterAccountId);
-        if (filtered.length) out.set(link, filtered);
+        const filtered = rows.filter(r => r.PlayerID === state.filterAccountId);
+        if (filtered.length)
+          out.set(link, filtered);
       }
       return out;
     },
@@ -49,7 +51,7 @@ export const useOrderStore = defineStore("order", {
 
     accountOptions(): { value: number; label: string }[] {
       const accounts = useAccountStore().accounts;
-      const opts = accounts.map((a) => ({
+      const opts = accounts.map(a => ({
         value: a.accountId,
         label: `${a.platformName || a.provider}/${a.playerName}`,
       }));
@@ -61,7 +63,8 @@ export const useOrderStore = defineStore("order", {
     /** [A8 可证实] `Io.getOrders` / `E()`：`groupBy(Link)` + `updateTodayProfit` */
     async fetchOrders(date?: string) {
       const userStore = useUserStore();
-      if (!userStore.userId) return false;
+      if (!userStore.userId)
+        return false;
       const accountStore = useAccountStore();
       if (!accountStore.accounts.length && accountStore.loaded) {
         /* 允许空账号时仍拉订单 */
@@ -70,13 +73,15 @@ export const useOrderStore = defineStore("order", {
       try {
         this.orderDate = date ?? todayKey();
         const page = await getOrderList({ date: this.orderDate, pageSize: 1024 });
-        if (!page) return false;
+        if (!page)
+          return false;
         const list = page.list ?? [];
         this.orders = groupOrdersByLink(list);
         this.updateTodayProfit(list);
         useMessageStore().orderReportMessage(accountStore.accounts, list);
         return true;
-      } finally {
+      }
+      finally {
         this.loading = false;
       }
     },
@@ -87,31 +92,34 @@ export const useOrderStore = defineStore("order", {
       const byPlayer = new Map<number, OrderRow[]>();
       for (const row of list) {
         const pid = Number(row.PlayerID) || 0;
-        if (!byPlayer.has(pid)) byPlayer.set(pid, []);
+        if (!byPlayer.has(pid))
+          byPlayer.set(pid, []);
         byPlayer.get(pid)!.push(row);
       }
 
-      const accById = new Map(accountStore.accounts.map((a) => [a.accountId, a]));
+      const accById = new Map(accountStore.accounts.map(a => [a.accountId, a]));
 
       for (const acc of accById.values()) {
         acc.today = 0;
         acc.orderCount = 0;
-        if (today === todayKey()) acc.todayOrder = 0;
+        if (today === todayKey())
+          acc.todayOrder = 0;
       }
 
       for (const [playerId, rows] of byPlayer) {
         const acc = accById.get(playerId);
-        if (!acc) continue;
+        if (!acc)
+          continue;
         const profit = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
         acc.today = Math.round(profit);
         acc.orderCount = rows.length;
         if (today === todayKey()) {
           acc.todayOrder = rows.length;
-          const unsettled = rows.filter((r) => r.Status === "None");
+          const unsettled = rows.filter(r => r.Status === "None");
           acc.unsettle = unsettled.length;
-          acc.winBalance =
-            (acc.balance ?? 0) +
-            unsettled.reduce((sum, r) => sum + (Number(r.BetMoney) || 0) * (Number(r.Odds) || 0), 0);
+          acc.winBalance
+            = (acc.balance ?? 0)
+              + unsettled.reduce((sum, r) => sum + (Number(r.BetMoney) || 0) * (Number(r.Odds) || 0), 0);
         }
       }
 
@@ -124,7 +132,8 @@ export const useOrderStore = defineStore("order", {
 
     linkClass(rows: OrderRow[]) {
       const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
-      if (total === 0) return "default";
+      if (total === 0)
+        return "default";
       return total > 0 ? "success" : "fail";
     },
 
@@ -143,7 +152,8 @@ export const useOrderStore = defineStore("order", {
     /** 对齐 A8 OrderView：暂停账号平台角标加 `.Stop` 删除线 */
     platformClass(row: OrderRow) {
       const acc = useAccountStore().findAccount(row.PlayerID);
-      if (acc?.active) return "Stop";
+      if (acc?.active)
+        return "Stop";
       return undefined;
     },
   },

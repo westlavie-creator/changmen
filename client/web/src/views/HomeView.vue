@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, onUnmounted, watch } from "vue";
 import { storeToRefs } from "pinia";
-import AppSidebar from "@/components/layout/AppSidebar.vue";
+import { computed, onActivated, onMounted, onUnmounted, ref, watch } from "vue";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
+import AppSidebar from "@/components/layout/AppSidebar.vue";
 import DirectRealtimeBadge from "@/components/layout/DirectRealtimeBadge.vue";
 import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
-import { useUserStore } from "@/stores/userStore";
-import { useMatchStore } from "@/stores/matchStore";
-import { useAccountStore } from "@/stores/accountStore";
 import {
   mountAppSession,
   startAppSession,
   stopAppSession,
 } from "@/runtime/appSession";
+import { useAccountStore } from "@/stores/accountStore";
+import { useMatchStore } from "@/stores/matchStore";
+import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
 const matchStore = useMatchStore();
@@ -30,13 +30,17 @@ const { extensionReady, refreshExtension } = useExtensionGate();
 
 const filteredMatchs = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
-  if (!q) return matchs.value;
+  if (!q)
+    return matchs.value;
   return matchs.value.filter((m) => {
-    if (String(m.id).includes(q)) return true;
-    if (m.title.toLowerCase().includes(q)) return true;
-    if (m.game.toLowerCase().includes(q)) return true;
+    if (String(m.id).includes(q))
+      return true;
+    if (m.title.toLowerCase().includes(q))
+      return true;
+    if (m.game.toLowerCase().includes(q))
+      return true;
     return m.bets.some(
-      (b) => b.homeName.toLowerCase().includes(q) || b.awayName.toLowerCase().includes(q),
+      b => b.homeName.toLowerCase().includes(q) || b.awayName.toLowerCase().includes(q),
     );
   });
 });
@@ -52,7 +56,8 @@ onActivated(async () => {
 });
 
 watch(extensionReady, (ext) => {
-  if (!ext) return;
+  if (!ext)
+    return;
   void import("@platform/stake").then(({ primeStakeTabId }) => primeStakeTabId());
 });
 
@@ -85,7 +90,9 @@ async function logout() {
         </div>
         <p v-if="!extensionReady" class="extension-banner">
           扩展未连通，采集/下注不可用。
-          <el-button link type="primary" @click="refreshExtension">重新检测</el-button>
+          <el-button link type="primary" @click="refreshExtension">
+            重新检测
+          </el-button>
         </p>
       </el-header>
       <el-main>
@@ -98,7 +105,9 @@ async function logout() {
         <div v-if="filteredMatchs.length" class="matchs">
           <MatchCard v-for="m in filteredMatchs" :key="m.id" :match="m" />
         </div>
-        <div v-else-if="searchQuery" class="match-empty">无匹配比赛</div>
+        <div v-else-if="searchQuery" class="match-empty">
+          无匹配比赛
+        </div>
       </el-main>
     </el-container>
   </el-container>

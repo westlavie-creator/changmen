@@ -1,8 +1,8 @@
-import { defineStore } from "pinia";
-import { PlatformAccount } from "@/models/platformAccount";
+import type { BetOption } from "@/models/betOption";
 import type { AccountRecord } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
-import { BetOption } from "@/models/betOption";
+import { defineStore } from "pinia";
+import { PlatformAccount } from "@/models/platformAccount";
 import * as accountCrud from "@/stores/account/accountCrud";
 import { getProviders, pickAccount } from "@/stores/account/accountPicker";
 import * as balanceRefresh from "@/stores/account/balanceRefresh";
@@ -23,19 +23,20 @@ export const useAccountStore = defineStore("account", {
   }),
 
   getters: {
-    sortedAccounts: (s) => [...s.accounts].sort(PlatformAccount.sortByProvider),
+    sortedAccounts: s => [...s.accounts].sort(PlatformAccount.sortByProvider),
 
-    totalBalance: (s) =>
+    totalBalance: s =>
       s.accounts.reduce((sum, a) => sum + (a.balance ?? 0), 0),
 
-    totalToday: (s) => s.accounts.reduce((sum, a) => sum + (a.today ?? 0), 0),
+    totalToday: s => s.accounts.reduce((sum, a) => sum + (a.today ?? 0), 0),
 
-    totalOrders: (s) => s.accounts.reduce((sum, a) => sum + (a.orderCount ?? 0), 0),
+    totalOrders: s => s.accounts.reduce((sum, a) => sum + (a.orderCount ?? 0), 0),
 
-    getPlatformName: (s) => (platformId?: number, fallback = "") => {
-      if (!platformId) return fallback;
+    getPlatformName: s => (platformId?: number, fallback = "") => {
+      if (!platformId)
+        return fallback;
       const row = s.tagPlatforms.find(
-        (p) => p.ID === platformId || p.Id === platformId,
+        p => p.ID === platformId || p.Id === platformId,
       );
       return row?.Name || row?.Platform || fallback;
     },
@@ -43,9 +44,10 @@ export const useAccountStore = defineStore("account", {
 
   actions: {
     findAccount(accountId?: number) {
-      if (!accountId) return undefined;
+      if (!accountId)
+        return undefined;
       const id = Number(accountId);
-      return this.accounts.find((a) => Number(a.accountId) === id);
+      return this.accounts.find(a => Number(a.accountId) === id);
     },
 
     openCreateAccount() {

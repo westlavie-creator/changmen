@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { KAKAXI_QUEUE_TTL_MS } from "@/stores/betting/kakaxi/config";
 import {
+  boostKakaxiBetImplied,
   clearKakaxiQueue,
   dequeueKakaxiBet,
   enqueueKakaxiBet,
@@ -7,9 +9,7 @@ import {
   kakaxiQueueSize,
   pruneExpiredKakaxiQueue,
   removeKakaxiBet,
-  boostKakaxiBetImplied,
 } from "@/stores/betting/kakaxi/queue";
-import { KAKAXI_QUEUE_TTL_MS } from "@/stores/betting/kakaxi/config";
 
 afterEach(() => {
   clearKakaxiQueue();

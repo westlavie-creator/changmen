@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
 import type { PlatformId } from "@/types/esport";
-import { useOddsStore } from "@/stores/oddsStore";
+import { computed, ref, watch } from "vue";
 import { formatDate } from "@/shared/format";
+import { useOddsStore } from "@/stores/oddsStore";
 
 const props = defineProps<{
   open: boolean;
@@ -39,7 +39,8 @@ function onClosed() {
 }
 
 function removeLimit(oddsId: string) {
-  if (!props.provider) return;
+  if (!props.provider)
+    return;
   oddsStore.deleteLimit(props.provider, oddsId);
 }
 </script>
@@ -57,7 +58,9 @@ function removeLimit(oddsId: string) {
       :key="row.id"
       class="items flex"
     >
-      <div class="item">{{ row.label }}</div>
+      <div class="item">
+        {{ row.label }}
+      </div>
       <div class="item flex-1">
         限红金额: {{ row.limit ? row.limit.value.toFixed(2) : "—" }}
       </div>

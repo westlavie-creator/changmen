@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
-import { useOrderStore } from "@/stores/orderStore";
-import { wait } from "@/shared/wait";
+import { computed, onMounted, ref } from "vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
+import { wait } from "@/shared/wait";
+import { useOrderStore } from "@/stores/orderStore";
 
 const props = withDefaults(
   defineProps<{
@@ -16,15 +16,16 @@ const props = withDefaults(
 );
 
 const orderStore = useOrderStore();
-const { orderEntries, orderDate, loading, filterAccountId, accountOptions, orders } =
-  storeToRefs(orderStore);
+const { orderEntries, orderDate, loading, filterAccountId, accountOptions, orders }
+  = storeToRefs(orderStore);
 
 const viewLoading = ref(false);
 
 onMounted(() => {
   if (props.embedded && props.embeddedUserId && !orderStore.orders.size) {
     void loadEmbeddedUserOrders(props.embeddedUserId, orderDate.value);
-  } else if (!props.embedded && !orderStore.orders.size) {
+  }
+  else if (!props.embedded && !orderStore.orders.size) {
     void orderStore.fetchOrders();
   }
 });
@@ -36,10 +37,12 @@ async function reload(date?: string) {
   try {
     if (props.embedded && props.embeddedUserId) {
       await loadEmbeddedUserOrders(props.embeddedUserId, date ?? orderDate.value);
-    } else {
+    }
+    else {
       await orderStore.fetchOrders(date);
     }
-  } finally {
+  }
+  finally {
     await wait(1000);
     viewLoading.value = false;
   }
@@ -47,13 +50,14 @@ async function reload(date?: string) {
 
 const showFilteredEmpty = computed(
   () =>
-    filterAccountId.value !== 0 &&
-    orderEntries.value.length === 0 &&
-    orders.value.size > 0,
+    filterAccountId.value !== 0
+    && orderEntries.value.length === 0
+    && orders.value.size > 0,
 );
 
 function onDateChange(value: string) {
-  if (value) void reload(value);
+  if (value)
+    void reload(value);
 }
 
 function playerLabel(row: Parameters<typeof orderStore.playerLabel>[0]) {

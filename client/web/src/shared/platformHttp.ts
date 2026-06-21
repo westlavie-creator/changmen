@@ -1,66 +1,72 @@
 import type { PlatformAccount } from "@/models/platformAccount";
-import { useUserStore } from "@/stores/userStore";
-import { a8Axios, responseBodyText } from "@/shared/a8Axios";
+import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
 import { buildPbAuthHeaders } from "@platform/pb";
 import { buildTfAccountHeaders, tfGatewayUrl } from "@platform/tf";
-import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
 import { getApiBase } from "@/config/apiBase";
+import { a8Axios, responseBodyText } from "@/shared/a8Axios";
+import { useUserStore } from "@/stores/userStore";
 
-export type AccountHttpOptions = {
+export interface AccountHttpOptions {
   /** 对齐 A8 mr 最后一参 `!0`：有 proxyId 也强制浏览器直连 gateway */
   forceDirect?: boolean;
-};
+}
 
 /** 对齐 A8 `b0(account)`：GET 也带 form Content-Type */
 function obHeaders(account: PlatformAccount, _post = false) {
   const mobile = Boolean(account.userAgent && /mobile/i.test(account.userAgent));
   const base: Record<string, string> = {
-    device: mobile ? "2" : "1",
-    lang: "cn",
-    token: account.token || "",
+    "device": mobile ? "2" : "1",
+    "lang": "cn",
+    "token": account.token || "",
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
   };
-  if (account.userAgent) base["User-Agent"] = account.userAgent;
-  if (account.referer) base.Referer = account.referer;
+  if (account.userAgent)
+    base["User-Agent"] = account.userAgent;
+  if (account.referer)
+    base.Referer = account.referer;
   return base;
 }
 
 /** [A8 可证实] RAY `kw`：仅 authorization + Content-Type */
 function rayHeaders(account: PlatformAccount, _post = false) {
   return {
-    authorization: account.token || "",
+    "authorization": account.token || "",
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
   };
 }
 
 export function buildAccountHeaders(account: PlatformAccount, post = false) {
-  if (account.provider === "RAY") return rayHeaders(account, post);
+  if (account.provider === "RAY")
+    return rayHeaders(account, post);
   return obHeaders(account, post);
 }
 
 function originFromReferer(referer?: string): string | undefined {
-  if (!referer) return undefined;
+  if (!referer)
+    return undefined;
   try {
     return new URL(referer).origin;
-  } catch {
+  }
+  catch {
     return String(referer).replace(/\/+$/, "");
   }
 }
 
 function resolveProxyUrl(account: PlatformAccount): string | undefined {
-  if (!account.proxyId) return undefined;
+  if (!account.proxyId)
+    return undefined;
   const user = useUserStore();
-  return user.proxyList.find((p) => p.proxyId === account.proxyId)?.url;
+  return user.proxyList.find(p => p.proxyId === account.proxyId)?.url;
 }
 
 /** 对齐 A8 `vS`：localStorage.PROXY ?? VITE_API_BASE，并落到 http-relay */
 function getA8ProxyRelayEntry(): string {
-  const proxyOrigin =
-    typeof localStorage !== "undefined" ? localStorage.getItem("PROXY")?.trim() : "";
+  const proxyOrigin
+    = typeof localStorage !== "undefined" ? localStorage.getItem("PROXY")?.trim() : "";
   return buildHttpRelayUrl({ apiBase: getApiBase(), proxyOrigin: proxyOrigin || undefined });
 }
 
-type AccountHttpResult = { status: number; text: string };
+interface AccountHttpResult { status: number; text: string }
 
 /**
  * 对齐 A8 mr.get/post：默认 Rr(Nr) 直连 gateway；仅 proxyId 且非 forceDirect 时走 PROXY + x-proxy-url。
@@ -78,19 +84,22 @@ async function accountHttpRequest(
   const method = (init.method || "GET").toUpperCase();
   const headers: Record<string, string> = { ...(init.headers || {}) };
 
-  const requestUrl =
-    account.proxyId && !forceDirect ? getA8ProxyRelayEntry() : targetUrl;
+  const requestUrl
+    = account.proxyId && !forceDirect ? getA8ProxyRelayEntry() : targetUrl;
 
   if (account.proxyId && !forceDirect) {
     headers["x-proxy-url"] = targetUrl;
     if (account.referer) {
       headers["x-proxy-referer"] = account.referer;
       const origin = originFromReferer(account.referer);
-      if (origin) headers["x-proxy-origin"] = origin;
+      if (origin)
+        headers["x-proxy-origin"] = origin;
     }
-    if (account.userAgent) headers["x-proxy-useragent"] = account.userAgent;
+    if (account.userAgent)
+      headers["x-proxy-useragent"] = account.userAgent;
     const socksProxy = resolveProxyUrl(account);
-    if (socksProxy) headers["x-proxy"] = socksProxy;
+    if (socksProxy)
+      headers["x-proxy"] = socksProxy;
   }
 
   try {
@@ -100,19 +109,22 @@ async function accountHttpRequest(
       headers,
       data: init.body,
       responseType: "text",
-      transformResponse: [(d) => d],
+      transformResponse: [d => d],
     });
     const text = responseBodyText(res.data);
     if (res.status >= 400 && /json/i.test(String(res.headers["content-type"] || ""))) {
       try {
         const parsed = JSON.parse(text) as { msg?: string; error?: string };
         throw new Error(parsed.msg || parsed.error || `HTTP ${res.status}`);
-      } catch (e) {
-        if (e instanceof Error && !e.message.startsWith("HTTP ")) throw e;
+      }
+      catch (e) {
+        if (e instanceof Error && !e.message.startsWith("HTTP "))
+          throw e;
       }
     }
     return { status: res.status, text };
-  } catch (e) {
+  }
+  catch (e) {
     if (account.proxyId && !forceDirect) {
       const hint = e instanceof Error ? e.message : String(e);
       throw new Error(`http-relay 不可用（${getA8ProxyRelayEntry()}）：${hint}`);
@@ -127,7 +139,8 @@ async function accountFetch(
   init: { method?: string; body?: string; headers?: Record<string, string> } = {},
   opts?: AccountHttpOptions,
 ): Promise<AccountHttpResult> {
-  if (!account.gateway) throw new Error("账号未配置 gateway");
+  if (!account.gateway)
+    throw new Error("账号未配置 gateway");
   const targetUrl = `${account.gateway.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
   const headers = buildAccountHeaders(account, init.method === "POST");
   return accountHttpRequest(
@@ -155,7 +168,8 @@ export async function accountGet<T = unknown>(
       try {
         const parsed = JSON.parse(text) as { error?: string; msg?: string; hint?: string };
         message = parsed.msg || parsed.error || message;
-      } catch {
+      }
+      catch {
         /* keep text slice */
       }
     }
@@ -163,7 +177,8 @@ export async function accountGet<T = unknown>(
   }
   try {
     return JSON.parse(text) as T;
-  } catch {
+  }
+  catch {
     throw new Error(`Invalid JSON: ${text.slice(0, 120)}`);
   }
 }
@@ -188,7 +203,8 @@ export async function accountPostForm<T = unknown>(
   const text = res.text;
   try {
     return JSON.parse(text) as T;
-  } catch {
+  }
+  catch {
     throw new Error(`Invalid JSON: ${text.slice(0, 120)}`);
   }
 }
@@ -212,7 +228,8 @@ export async function accountPostJson<T = unknown>(
   const text = res.text;
   try {
     return JSON.parse(text) as T;
-  } catch {
+  }
+  catch {
     throw new Error(`Invalid JSON: ${text.slice(0, 120)}`);
   }
 }
@@ -244,7 +261,8 @@ export async function accountPostText<T = unknown>(
       try {
         const parsed = JSON.parse(text) as { error?: string; msg?: string };
         message = parsed.msg || parsed.error || message;
-      } catch {
+      }
+      catch {
         /* keep slice */
       }
     }
@@ -252,7 +270,8 @@ export async function accountPostText<T = unknown>(
   }
   try {
     return JSON.parse(text) as T;
-  } catch {
+  }
+  catch {
     throw new Error(`Invalid JSON: ${text.slice(0, 120)}`);
   }
 }
@@ -260,7 +279,8 @@ export async function accountPostText<T = unknown>(
 function parseJsonLoose(text: string): unknown {
   try {
     return JSON.parse(text);
-  } catch {
+  }
+  catch {
     return text;
   }
 }
@@ -281,7 +301,8 @@ export async function accountPbGet<T = unknown>(
   opts?: AccountHttpOptions,
 ): Promise<T> {
   const headers = buildPbAuthHeaders(account);
-  if (!headers) throw new Error("账号参数读取失败");
+  if (!headers)
+    throw new Error("账号参数读取失败");
   const { status, text } = await accountHttpRaw(
     account,
     targetUrl,
@@ -345,7 +366,7 @@ export async function accountTfPost<T = unknown>(
 
 function iaHeaders(account: PlatformAccount): Record<string, string> {
   return {
-    token: account.token || "",
+    "token": account.token || "",
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
   };
 }
@@ -357,7 +378,8 @@ export async function accountIaPost<T = unknown>(
   body: string,
   opts?: AccountHttpOptions,
 ): Promise<T> {
-  if (!account.gateway) throw new Error("账号未配置 gateway");
+  if (!account.gateway)
+    throw new Error("账号未配置 gateway");
   const targetUrl = `${account.gateway.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
   const res = await accountHttpRequest(
     account,

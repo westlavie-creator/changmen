@@ -1,17 +1,18 @@
 import type { AdminUserRow } from "@/types/admin";
-import { adminAccountToPlatformAccount } from "@/components/admin/adminAccountDisplay";
-import { adminOrderToOrderRow } from "@/shared/adminOrderDisplay";
-import { groupOrdersByLink } from "@/shared/orderLink";
-import { todayKey } from "@/shared/dateKey";
-import { mergeUserConfig, type UserConfig } from "@/types/userConfig";
 import type { OrderRow } from "@/types/order";
-import { PlatformAccount } from "@/models/platformAccount";
+import type { UserConfig } from "@/types/userConfig";
 import { getAdminOrdersAll } from "@/api/admin";
+import { adminAccountToPlatformAccount } from "@/components/admin/adminAccountDisplay";
+import { PlatformAccount } from "@/models/platformAccount";
+import { adminOrderToOrderRow } from "@/shared/adminOrderDisplay";
+import { todayKey } from "@/shared/dateKey";
+import { groupOrdersByLink } from "@/shared/orderLink";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useOrderStore } from "@/stores/orderStore";
+import { mergeUserConfig } from "@/types/userConfig";
 
-type WorkspaceSnapshot = {
+interface WorkspaceSnapshot {
   accounts: PlatformAccount[];
   accountLoaded: boolean;
   editDialogOpen: boolean;
@@ -21,11 +22,11 @@ type WorkspaceSnapshot = {
   orders: Map<number, OrderRow[]>;
   orderDate: string;
   filterAccountId: number;
-};
+}
 
 function cloneAccounts(accounts: PlatformAccount[]): PlatformAccount[] {
   return accounts.map(
-    (acc) =>
+    acc =>
       new PlatformAccount({
         accountId: acc.accountId,
         platformId: acc.platformId,
@@ -145,7 +146,8 @@ export function mountAdminUserWorkspace(user: AdminUserRow): void {
 function toRawConfig(config: UserConfig): UserConfig {
   try {
     return structuredClone(config);
-  } catch {
+  }
+  catch {
     return mergeUserConfig(config);
   }
 }

@@ -1,7 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { BetRowDto, ClientMatchDto } from "@/types/esport";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runMarketWatchLoopTick } from "@/extensions/arbMarketWatch/marketWatchLoop";
 import { ViewBet, ViewMatch } from "@/models/match";
-import type { BetRowDto, ClientMatchDto } from "@/types/esport";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 let foOdds: Record<string, Record<string, number>> = {};

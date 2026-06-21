@@ -25,7 +25,7 @@ describe("resolveAccountPauseReason", () => {
   });
 });
 
-describe("PlatformAccount workTimes", () => {
+describe("platformAccount workTimes", () => {
   it("allows when workTimes empty", () => {
     const acc = makeAccount({ workTimes: [] });
     expect(acc.isPause()).toBe(false);
@@ -39,7 +39,7 @@ describe("PlatformAccount workTimes", () => {
   });
 });
 
-describe("PlatformAccount currency exchange", () => {
+describe("platformAccount currency exchange", () => {
   it("getBalance 按汇率换算为 CNY 口径", () => {
     const acc = makeAccount({ currency: "USDT" });
     acc.balance = 10;
@@ -72,7 +72,7 @@ describe("normalizeAccountRateConfig", () => {
   });
 });
 
-describe("PlatformAccount rateConfig", () => {
+describe("platformAccount rateConfig", () => {
   it("applyPatch persists rateConfig through toJSON", () => {
     const acc = makeAccount();
     acc.applyPatch({
@@ -108,7 +108,7 @@ describe("PlatformAccount rateConfig", () => {
   });
 });
 
-describe("PlatformAccount game settings", () => {
+describe("platformAccount game settings", () => {
   it("requires implied profit when game profit set", () => {
     const acc = makeAccount({
       game: { 英雄联盟: { betCount: 0, profit: 1.1, odds: [] } },

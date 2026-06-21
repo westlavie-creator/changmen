@@ -1,7 +1,7 @@
-import type { PlatformId } from "@/types/esport";
 import type { ArbDetectEngine } from "@/types/arbDetectEngine";
-import { normalizeWaitTime } from "@/shared/betTiming";
+import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@platform/registry";
+import { normalizeWaitTime } from "@/shared/betTiming";
 
 export type BetSorting = "Low" | "High" | "Parallel" | "WinRate" | "Custom";
 
@@ -88,7 +88,8 @@ export function createDefaultUserConfig(): UserConfig {
 export function mergeProviderSortValue(values: PlatformId[]): PlatformId[] {
   const merged = [...values];
   for (const platform of ALL_PLATFORMS) {
-    if (!merged.includes(platform)) merged.push(platform);
+    if (!merged.includes(platform))
+      merged.push(platform);
   }
   return merged;
 }
@@ -105,7 +106,8 @@ function resolveArbDetectEngineFromRaw(
 
 export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): UserConfig {
   const base = createDefaultUserConfig();
-  if (!raw || typeof raw !== "object") return base;
+  if (!raw || typeof raw !== "object")
+    return base;
   const { arbExecuteEngine: _legacyExecuteEngine, ...rest } = raw;
   return {
     ...base,

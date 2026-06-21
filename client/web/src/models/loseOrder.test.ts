@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { LoseOrder } from "@/models/loseOrder";
 import { createLoseTargetOdds } from "@/stores/betting/createLoseOdds";
 
-describe("LoseOrder amount formulas (A8 tb)", () => {
+describe("loseOrder amount formulas (A8 tb)", () => {
   it("getBetMoney hedges stake from reference odds", () => {
     const order = new LoseOrder({
       betMoney: 100,

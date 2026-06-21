@@ -1,6 +1,7 @@
+import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
 import { describe, expect, it, vi } from "vitest";
 import { buildMarketWatchGroups } from "@/extensions/arbMarketWatch/watchSinks";
-import { opportunityKey, type ArbOpportunity } from "@/extensions/arbOpportunity/types";
+import { opportunityKey } from "@/extensions/arbOpportunity/types";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 vi.mock("@/extensions/arbOpportunity/detect", () => ({

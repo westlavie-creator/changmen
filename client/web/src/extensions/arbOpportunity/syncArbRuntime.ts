@@ -1,5 +1,4 @@
 import { watch } from "vue";
-import { usesKakaxiArbDetectEngine } from "@/types/arbDetectEngine";
 import { startMarketWatchLoop, stopMarketWatchLoop } from "@/extensions/arbMarketWatch";
 import {
   startKakaxiRuntime,
@@ -7,6 +6,7 @@ import {
 } from "@/stores/betting/kakaxi/lifecycle";
 import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
+import { usesKakaxiArbDetectEngine } from "@/types/arbDetectEngine";
 
 export interface ArbRuntimeFlags {
   needMarketWatchLoop: boolean;
@@ -20,17 +20,19 @@ export function resolveArbRuntimeFlags(input: {
   notifyArbOpportunity?: boolean;
 }): ArbRuntimeFlags {
   const needMarketWatchLoop = !input.betting && input.notifyArbOpportunity === true;
-  const needKakaxiRuntime =
-    Boolean(input.betting) &&
-    usesKakaxiArbDetectEngine({ arbDetectEngine: input.arbDetectEngine as "a8" | "kakaxi" });
+  const needKakaxiRuntime
+    = Boolean(input.betting)
+      && usesKakaxiArbDetectEngine({ arbDetectEngine: input.arbDetectEngine as "a8" | "kakaxi" });
   return { needMarketWatchLoop, needKakaxiRuntime };
 }
 
 export function applyArbRuntimeState(flags: ArbRuntimeFlags): void {
-  if (flags.needMarketWatchLoop) startMarketWatchLoop();
+  if (flags.needMarketWatchLoop)
+    startMarketWatchLoop();
   else stopMarketWatchLoop();
 
-  if (flags.needKakaxiRuntime) startKakaxiRuntime();
+  if (flags.needKakaxiRuntime)
+    startKakaxiRuntime();
   else stopKakaxiRuntime();
 }
 
@@ -50,7 +52,8 @@ let stopWatch: (() => void) | null = null;
 
 /** HomeView 挂载时安装：配置变化自动 sync（A8 主循环不受影响） */
 export function installArbRuntimeSync(): void {
-  if (stopWatch) return;
+  if (stopWatch)
+    return;
   const configStore = useConfigStore();
   const user = useUserStore();
   stopWatch = watch(

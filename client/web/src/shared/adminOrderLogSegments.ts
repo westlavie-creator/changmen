@@ -2,7 +2,8 @@ import type { AdminOrderLogEntry, AdminOrderLogLogSegment } from "@/types/admin"
 
 export function extractLogAccountLabel(title: string) {
   const m = String(title || "").match(/^\[([^\]]+)\]\(([^,]+),([^)]+)\)/);
-  if (!m) return null;
+  if (!m)
+    return null;
   const provider = m[1]!;
   const platformName = m[2]!.trim();
   const playerName = m[3]!.trim();
@@ -17,7 +18,8 @@ export function extractLogAccountLabel(title: string) {
 /** 按预检切分轮次（与 backend buildLogSegments 一致） */
 export function buildLogSegments(logs: AdminOrderLogEntry[]): AdminOrderLogLogSegment[] {
   const sorted = [...logs].sort((a, b) => a.createAt - b.createAt);
-  if (!sorted.length) return [];
+  if (!sorted.length)
+    return [];
 
   const segments: AdminOrderLogLogSegment[] = [];
   let current: AdminOrderLogLogSegment | null = null;
@@ -40,9 +42,11 @@ export function buildLogSegments(logs: AdminOrderLogEntry[]): AdminOrderLogLogSe
         isMakeUp: Boolean(log.loseOrder),
         logs: [log],
       };
-    } else if (current) {
+    }
+    else if (current) {
       current.logs.push(log);
-    } else {
+    }
+    else {
       flush();
       const parsed = extractLogAccountLabel(log.title);
       current = {
@@ -61,7 +65,8 @@ export function buildLogSegments(logs: AdminOrderLogEntry[]): AdminOrderLogLogSe
 export function attemptLogSegments(
   attempt: { logs: AdminOrderLogEntry[]; logSegments?: AdminOrderLogLogSegment[] },
 ): AdminOrderLogLogSegment[] {
-  if (attempt.logSegments?.length) return attempt.logSegments;
+  if (attempt.logSegments?.length)
+    return attempt.logSegments;
   const built = buildLogSegments(attempt.logs);
   return built.length ? built : attempt.logs.length ? [{ key: "flat", accountLabel: null, provider: null, isMakeUp: false, logs: attempt.logs }] : [];
 }

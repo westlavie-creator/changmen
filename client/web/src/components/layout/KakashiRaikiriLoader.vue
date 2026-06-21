@@ -26,7 +26,7 @@
           src="/login/kakashi.png"
           alt=""
           decoding="async"
-        />
+        >
         <div class="raikiri-loader__hand" aria-hidden="true">
           <div class="raikiri-loader__core" />
           <div class="raikiri-loader__core raikiri-loader__core--halo" />

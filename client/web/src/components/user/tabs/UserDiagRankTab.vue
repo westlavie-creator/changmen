@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { UserProfitRow } from "@/types/esport";
 import { computed, onMounted, ref } from "vue";
 import { getRankList } from "@/api/esport";
-import type { UserProfitRow } from "@/types/esport";
 
 const sortBy = ref<"Money" | "Count" | "BetMoney">("Money");
 const rows = ref<UserProfitRow[]>([]);
@@ -15,7 +15,8 @@ const sortOptions = [
 
 const topUserId = computed(() => {
   const top = [...rows.value].sort((a, b) => b.Money - a.Money)[0];
-  if (!top || top.Money < 0) return undefined;
+  if (!top || top.Money < 0)
+    return undefined;
   return top.UserID;
 });
 
@@ -25,23 +26,26 @@ const sorted = computed(() => {
     return list.sort((a, b) => b.Money - a.Money);
   }
   if (sortBy.value === "Count") {
-    return list.filter((r) => r.Count).sort((a, b) => (b.Count ?? 0) - (a.Count ?? 0));
+    return list.filter(r => r.Count).sort((a, b) => (b.Count ?? 0) - (a.Count ?? 0));
   }
-  return list.filter((r) => r.BetMoney).sort((a, b) => (b.BetMoney ?? 0) - (a.BetMoney ?? 0));
+  return list.filter(r => r.BetMoney).sort((a, b) => (b.BetMoney ?? 0) - (a.BetMoney ?? 0));
 });
 
 async function load() {
   loading.value = true;
   try {
     rows.value = await getRankList();
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
 
 function metric(row: UserProfitRow) {
-  if (sortBy.value === "Money") return Math.floor(row.Money).toLocaleString();
-  if (sortBy.value === "Count") return String(row.Count ?? 0);
+  if (sortBy.value === "Money")
+    return Math.floor(row.Money).toLocaleString();
+  if (sortBy.value === "Count")
+    return String(row.Count ?? 0);
   return Math.floor(row.BetMoney ?? 0).toLocaleString();
 }
 
@@ -65,7 +69,9 @@ onMounted(load);
       :class="{ lose: row.Money < 0, boss: isBoss(row), loser: isLoser(row) }"
     >
       <div class="face">
-        <div class="name">{{ row.UserName }}</div>
+        <div class="name">
+          {{ row.UserName }}
+        </div>
       </div>
       <div class="profit">
         <el-tag round :type="row.Money > 0 ? 'success' : 'danger'">
@@ -87,4 +93,3 @@ onMounted(load);
     </el-button-group>
   </div>
 </template>
-

@@ -1,9 +1,9 @@
+import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
 import { describe, expect, it, vi } from "vitest";
 import {
   applyKakaxiDetectTransitions,
   mergeIncrementalKakaxiSnapshot,
 } from "@/stores/betting/kakaxi/detectFeed";
-import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
 import {
   clearKakaxiQueue,
   dequeueKakaxiBet,

@@ -1,18 +1,18 @@
+import type { VenueOrder } from "@platform/contract";
+import type { PlatformAccount } from "@/models/platformAccount";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetResult } from "@/models/betResult";
-import type { PlatformAccount } from "@/models/platformAccount";
-import type { VenueOrder } from "@platform/contract";
+
+import {
+  fetchVenueOrdersWithReject,
+  syncVenueRejectFlags,
+} from "./venueRejectSync";
 
 const updateVenueOrders = vi.fn<() => Promise<VenueOrder[] | undefined>>();
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ updateVenueOrders }),
 }));
-
-import {
-  fetchVenueOrdersWithReject,
-  syncVenueRejectFlags,
-} from "./venueRejectSync";
 
 function account(provider: string): PlatformAccount {
   return { provider } as PlatformAccount;

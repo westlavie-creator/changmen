@@ -1,11 +1,14 @@
+import type { VenueOrder } from "@platform/contract";
+import type { ArbBetAttemptParams, ArbBetPlaced } from "./types";
+import type { BetOption } from "@/models/betOption";
+import type { ViewBet, ViewMatch } from "@/models/match";
+import type { PlatformId } from "@/types/esport";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import { PlatformAccount } from "@/models/platformAccount";
-import { ViewBet, type ViewMatch } from "@/models/match";
-import type { PlatformId } from "@/types/esport";
+
 import { createDefaultUserConfig } from "@/types/userConfig";
-import type { VenueOrder } from "@platform/contract";
+import { finalizeArbBet } from "./finalizeArbBet";
 
 const {
   waitRejectDetection,
@@ -66,9 +69,6 @@ vi.mock("@/stores/matchStore", () => ({
 vi.mock("@/domain/betting/singleLegRate", () => ({
   findSingleLegRateAccount: vi.fn(() => null),
 }));
-
-import { finalizeArbBet } from "./finalizeArbBet";
-import type { ArbBetAttemptParams, ArbBetPlaced } from "./types";
 
 function makeMatch(): ViewMatch {
   return {

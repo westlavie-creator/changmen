@@ -1,15 +1,15 @@
-import { describe, expect, it } from "vitest";
+import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
+import { describe, expect, it } from "vitest";
+import { rejectWaitSeconds } from "@/stores/betting/autoBet/rejectWait";
 import { createDefaultUserConfig } from "@/types/userConfig";
 import {
   arbBetToastSeconds,
   makeUpBetToastSeconds,
-  manualBetToastSeconds,
   MANUAL_BET_TOAST_SECONDS,
+  manualBetToastSeconds,
   normalizeWaitTime,
 } from "./betTiming";
-import { rejectWaitSeconds } from "@/stores/betting/autoBet/rejectWait";
-import type { PlatformAccount } from "@/models/platformAccount";
 
 function cfg(waitTime: Record<string, number>): UserConfig {
   return { ...createDefaultUserConfig(), waitTime };

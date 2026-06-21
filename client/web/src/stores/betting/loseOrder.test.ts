@@ -1,9 +1,11 @@
+import type { ViewMatch } from "@/models/match";
+import type { PlatformId } from "@/types/esport";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { LoseOrder } from "@/models/loseOrder";
 import { PlatformAccount } from "@/models/platformAccount";
-import type { PlatformId } from "@/types/esport";
-import type { ViewMatch } from "@/models/match";
+import { processLoseOrders } from "@/stores/betting/loseOrder";
+
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 const loseOrders = vi.hoisted(() => new Map<number, LoseOrder>());
@@ -73,8 +75,6 @@ vi.mock("@/shared/wait", () => ({ wait }));
 vi.mock("@/shared/betTiming", () => ({
   makeUpBetToastSeconds: vi.fn(() => 10),
 }));
-
-import { processLoseOrders } from "@/stores/betting/loseOrder";
 
 function makeItem(type: PlatformId, homeOdds: number) {
   return {
@@ -158,7 +158,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(removeOrder).not.toHaveBeenCalled();
   });
 
-  it("API 成功 + 场馆拒单：不移出队列，仍绑单并发 LoseOrderMessage", async () => {
+  it("aPI 成功 + 场馆拒单：不移出队列，仍绑单并发 LoseOrderMessage", async () => {
     const bet = makeBet([makeItem("OB", 2.5)]);
     matchs.push(makeMatch(bet));
     queueOrder();

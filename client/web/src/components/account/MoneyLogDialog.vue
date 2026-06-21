@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import type { MoneyLogRow } from "@/types/esport";
 import { ElMessage } from "element-plus";
+import { computed, ref, watch } from "vue";
+import { deleteMoneyLog, getMoneyLogs } from "@/api/esport";
 import MoneyInfoDialog from "@/components/account/MoneyInfoDialog.vue";
 import MoneyRiskView from "@/components/account/MoneyRiskView.vue";
-import { deleteMoneyLog, getMoneyLogs } from "@/api/esport";
-import { useAccountStore } from "@/stores/accountStore";
 import { Currency, getExchange } from "@/shared/currency";
 import { formatDate } from "@/shared/format";
-import type { MoneyLogRow } from "@/types/esport";
+import { useAccountStore } from "@/stores/accountStore";
 
 /** 对齐 A8 bundle `MoneyView`（fDe） */
 const props = defineProps<{
@@ -34,7 +34,8 @@ const account = computed(() => accountStore.findAccount(props.accountId));
 
 const title = computed(() => {
   const acc = account.value;
-  if (!acc) return "充提登记";
+  if (!acc)
+    return "充提登记";
   return `${acc.platformName || acc.provider} / ${acc.playerName}`;
 });
 
@@ -46,7 +47,7 @@ const typeLabels: Record<string, string> = {
 
 function sumMoney(rows: MoneyLogRow[], type: string) {
   return rows
-    .filter((r) => (r.Type ?? r.type) === type)
+    .filter(r => (r.Type ?? r.type) === type)
     .reduce(
       (s, r) =>
         s + (Number(r.Money ?? r.money) || 0) * getExchange(r.Currency ?? r.currency),
@@ -59,9 +60,10 @@ const withdrawTotal = computed(() => sumMoney(allLogs.value, "Withdraw"));
 
 const accountProfit = computed(() => {
   const acc = account.value;
-  if (!acc) return 0;
-  const balanceFx =
-    (acc.balance ?? 0) * getExchange(acc.currency ?? Currency.CNY);
+  if (!acc)
+    return 0;
+  const balanceFx
+    = (acc.balance ?? 0) * getExchange(acc.currency ?? Currency.CNY);
   return withdrawTotal.value - rechargeTotal.value + balanceFx - (acc.credit ?? 0);
 });
 
@@ -70,7 +72,8 @@ function tableRowClass({ row }: { row: MoneyLogRow }) {
 }
 
 async function loadLogs(page = pageIndex.value) {
-  if (!props.accountId) return;
+  if (!props.accountId)
+    return;
   loading.value = true;
   try {
     const res = await getMoneyLogs({
@@ -84,9 +87,11 @@ async function loadLogs(page = pageIndex.value) {
     total.value = res?.total ?? res?.RecordCount ?? logs.value.length;
     pageIndex.value = page;
     riskKey.value += 1;
-  } catch (e) {
+  }
+  catch (e) {
     ElMessage.error(e instanceof Error ? e.message : "加载充提记录失败");
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
@@ -95,7 +100,8 @@ watch(
   () => props.open,
   (open) => {
     visible.value = open;
-    if (open) void loadLogs(1);
+    if (open)
+      void loadLogs(1);
   },
   { immediate: true },
 );
@@ -103,7 +109,8 @@ watch(
 watch(
   () => props.accountId,
   (id) => {
-    if (props.open && id) void loadLogs(1);
+    if (props.open && id)
+      void loadLogs(1);
   },
 );
 
@@ -123,17 +130,21 @@ function openEdit(row: MoneyLogRow) {
 
 async function removeLog(row: MoneyLogRow) {
   const id = row.ID ?? row.logId;
-  if (!id) return;
-  if (!window.confirm("确认删除吗？")) return;
+  if (!id)
+    return;
+  if (!window.confirm("确认删除吗？"))
+    return;
   await deleteMoneyLog({ logId: id });
   await loadLogs(pageIndex.value);
 }
 
 function editCredit() {
   const acc = account.value;
-  if (!acc) return;
+  if (!acc)
+    return;
   const raw = window.prompt("请输入当前的授信额度", String(acc.credit ?? 0));
-  if (!raw || Number.isNaN(Number(raw))) return;
+  if (!raw || Number.isNaN(Number(raw)))
+    return;
   acc.credit = Number(raw);
   void accountStore.saveAccounts();
 }
@@ -214,7 +225,7 @@ async function onInfoClosed() {
           </el-table-column>
           <el-table-column label="金额" width="100" align="center">
             <template #default="{ row }">
-              <label :class="['currency', row.Currency ?? row.currency]">
+              <label class="currency" :class="[row.Currency ?? row.currency]">
                 {{ row.Money ?? row.money }}
               </label>
             </template>
@@ -249,11 +260,11 @@ async function onInfoClosed() {
 
         <div class="pageSplit flex flex-center">
           <el-pagination
+            v-model:current-page="pageIndex"
             background
             layout="prev, pager, next"
             :total="total"
             :page-size="pageSize"
-            v-model:current-page="pageIndex"
             @current-change="loadLogs"
           />
         </div>

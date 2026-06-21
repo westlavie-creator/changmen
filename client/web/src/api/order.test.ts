@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { saveOrderBind } from "@/api/order";
+
 const post = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/client", () => ({
   post,
   unwrap: (x: unknown) => x,
 }));
-
-import { saveOrderBind } from "@/api/order";
 
 describe("saveOrderBind", () => {
   beforeEach(() => {
@@ -20,7 +20,7 @@ describe("saveOrderBind", () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  it("POSTs when binds array has rows", async () => {
+  it("pOSTs when binds array has rows", async () => {
     await saveOrderBind({
       orders: JSON.stringify([{ LinkID: 1, Provider: "PB", OrderID: "x" }]),
     });

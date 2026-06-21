@@ -4,19 +4,20 @@
  */
 import {
   A8_MATCH_MAX_FUTURE_MS,
+  a8StartTimeListAllowed,
   IM_ODDS_ACTIVE_MS,
   normalizeEpochMs,
-  a8StartTimeListAllowed,
 } from "@changmen/shared/time/match_time.mjs";
 
-export { A8_MATCH_MAX_FUTURE_MS, IM_ODDS_ACTIVE_MS, normalizeEpochMs, a8StartTimeListAllowed };
+export { A8_MATCH_MAX_FUTURE_MS, a8StartTimeListAllowed, IM_ODDS_ACTIVE_MS, normalizeEpochMs };
 
 /** [changmen 扩展] 客户端采集：拒绝开赛超过 12h 的比赛 */
 export const A8_MATCH_MAX_PAST_MS = 12 * 3600 * 1000;
 
 export function a8StartTimeCollectAllowed(startMs: number): boolean {
   const ms = normalizeEpochMs(startMs);
-  if (!ms) return true;
+  if (!ms)
+    return true;
   const now = Date.now();
   return ms >= now - A8_MATCH_MAX_PAST_MS && ms <= now + A8_MATCH_MAX_FUTURE_MS;
 }

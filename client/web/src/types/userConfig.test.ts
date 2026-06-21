@@ -1,10 +1,11 @@
+import type { UserConfig } from "@/types/userConfig";
 import { describe, expect, it } from "vitest";
 import {
   ALL_PLATFORMS,
   createDefaultUserConfig,
   mergeProviderSortValue,
   mergeUserConfig,
-  type UserConfig,
+
 } from "@/types/userConfig";
 
 describe("mergeProviderSortValue", () => {

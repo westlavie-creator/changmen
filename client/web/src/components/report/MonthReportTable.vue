@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { toRef } from "vue";
 import type { TableColumnCtx } from "element-plus";
 import type { MonthReportRow } from "@/types/monthReport";
+import { toRef } from "vue";
 import { percent } from "@/shared/format";
 
 const props = withDefaults(
@@ -24,15 +24,19 @@ const totalRef = toRef(props, "total");
 
 function moneyCellClass(value: number | undefined) {
   const n = Number(value ?? 0);
-  if (n > 0) return "win";
-  if (n < 0) return "lose";
+  if (n > 0)
+    return "win";
+  if (n < 0)
+    return "lose";
   return "";
 }
 
 function formatDay(_row: MonthReportRow, _col: unknown, cellValue: string | number | undefined) {
-  if (!cellValue) return "—";
+  if (!cellValue)
+    return "—";
   const d = new Date(cellValue);
-  if (Number.isNaN(d.getTime())) return String(cellValue);
+  if (Number.isNaN(d.getTime()))
+    return String(cellValue);
   return String(d.getDate()).padStart(2, "0");
 }
 
@@ -49,10 +53,13 @@ function summaryMethod({
   const total = totalRef.value ?? {};
   return columns.map((col, index) => {
     const prop = col.property as keyof MonthReportRow | undefined;
-    if (index === 0) return "统计";
-    if (!prop || total[prop] == null) return "";
+    if (index === 0)
+      return "统计";
+    if (!prop || total[prop] == null)
+      return "";
     const val = Number(total[prop] ?? 0);
-    if (prop === "Rate") return percent(val);
+    if (prop === "Rate")
+      return percent(val);
     if (["OrderCount", "Deposit", "Withdraw", "Hacked"].includes(prop)) {
       return Math.round(val).toLocaleString();
     }

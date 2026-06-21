@@ -1,12 +1,13 @@
-import { post, unwrap } from "@/api/client";
-import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@platform/contract";
+import type { PlatformAccount } from "@/models/platformAccount";
 import type { OrderRow, PageResult } from "@/types/esport";
+import { post, unwrap } from "@/api/client";
 
 /** [A8 可证实] `Ut.getOrders`：success!==1 时不更新侧栏（返回 null） */
 export async function getOrderList(body: Record<string, unknown> = {}) {
   const data = await post<PageResult<OrderRow>>("Client_GetOrderList", body);
-  if (data.success !== 1) return null;
+  if (data.success !== 1)
+    return null;
   return data.info ?? { list: [], total: 0, pageIndex: 1, pageSize: 20 };
 }
 
@@ -37,8 +38,10 @@ export async function saveOrderBind(body: Record<string, unknown>) {
   if (typeof raw === "string") {
     try {
       const rows = JSON.parse(raw) as unknown[];
-      if (!rows?.length) return;
-    } catch {
+      if (!rows?.length)
+        return;
+    }
+    catch {
       // 非 JSON 时仍交给服务端
     }
   }

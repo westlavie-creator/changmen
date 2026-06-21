@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
 import type { ArbMarketWatchContext } from "@/extensions/arbMarketWatch/marketWatchContext";
 import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
+import { describe, expect, it } from "vitest";
+import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
 
 function makeOpp(scope: "fullMarket" | "funded", patch: Partial<ArbOpportunity> = {}): ArbOpportunity {
   return {

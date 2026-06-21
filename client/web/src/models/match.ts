@@ -1,11 +1,11 @@
-import type { BetRowDto, ClientMatchDto, PlatformId } from "@/types/esport";
-import { PLATFORMS } from "@/shared/platform";
-import type { UserConfig } from "@/types/userConfig";
-import { BetOption } from "@/models/betOption";
+import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { buildOrderOptions } from "@/domain/betting";
-import { useOddsStore } from "@/stores/oddsStore";
+import type { BetRowDto, ClientMatchDto, PlatformId } from "@/types/esport";
+import type { UserConfig } from "@/types/userConfig";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time.mjs";
+import { buildOrderOptions } from "@/domain/betting";
+import { PLATFORMS } from "@/shared/platform";
+import { useOddsStore } from "@/stores/oddsStore";
 
 export type BetSide = "Home" | "Away";
 
@@ -31,7 +31,8 @@ export class ViewBetItem {
     if (source.Type === PLATFORMS.HG) {
       this.fallbackHomeOdds = Number(source.HomeOdds) || 0;
       this.fallbackAwayOdds = Number(source.AwayOdds) || 0;
-    } else {
+    }
+    else {
       this.fallbackHomeOdds = 0;
       this.fallbackAwayOdds = 0;
     }
@@ -80,13 +81,15 @@ export class ViewBet {
       this.startTime = roundStart > 0 ? roundStart : Date.now();
     }
     this.items = Object.values(row.Sources).map(
-      (s) => new ViewBetItem(s, String(providers[s.Type] ?? "")),
+      s => new ViewBetItem(s, String(providers[s.Type] ?? "")),
     );
   }
 
   getBetName(): string {
-    if (this.round === -1) return this.name ?? "";
-    if (this.round === 0) return "全场胜负";
+    if (this.round === -1)
+      return this.name ?? "";
+    if (this.round === 0)
+      return "全场胜负";
     return `[地图${this.round}] 获胜`;
   }
 
@@ -95,7 +98,8 @@ export class ViewBet {
     let max = 0;
     for (const item of this.items) {
       const v = item[fallbackKey];
-      if (v > max) max = v;
+      if (v > max)
+        max = v;
     }
     return max;
   }
@@ -143,11 +147,11 @@ export class ViewMatch {
     this.liveRound = dto.Round ?? 0;
     this.liveRoundStart = dto.RoundStart ?? 0;
     this.bets = (dto.Bets ?? [])
-      .map((b) => new ViewBet(b, this.providers, this.liveRound, this.liveRoundStart))
+      .map(b => new ViewBet(b, this.providers, this.liveRound, this.liveRoundStart))
       .sort((a, b) => a.round - b.round);
   }
 }
 
 export function toViewMatches(list: ClientMatchDto[]): ViewMatch[] {
-  return list.map((m) => new ViewMatch(m));
+  return list.map(m => new ViewMatch(m));
 }

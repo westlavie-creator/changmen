@@ -1,6 +1,6 @@
+import type { ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import { describe, expect, it } from "vitest";
 import { buildManualBetPromptMessage } from "@/stores/betting/manualBet";
-import type { ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 
 describe("buildManualBetPromptMessage", () => {
   it("uses bet.getBetName for market label (A8 parity)", () => {

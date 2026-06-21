@@ -67,11 +67,15 @@ function defaultUseLegacyBundle(): boolean {
  */
 export function getUseA8Css(): boolean {
   const param = new URLSearchParams(location.search).get("a8");
-  if (param === "0") return false;
-  if (param === "1") return true;
+  if (param === "0")
+    return false;
+  if (param === "1")
+    return true;
   const stored = localStorage.getItem(COPY_A8_STORAGE_KEY);
-  if (stored === "1") return true;
-  if (stored === "0") return false;
+  if (stored === "1")
+    return true;
+  if (stored === "0")
+    return false;
   return defaultUseLegacyBundle();
 }
 
@@ -119,16 +123,19 @@ function loadStylesheet(href: string): Promise<void> {
 function removeModuleSkinLinkTags(): void {
   document.querySelectorAll("link[data-copy-shell]").forEach((node) => {
     const href = node.getAttribute("href");
-    if (href && MODULE_SKIN_HREFS.has(href)) node.remove();
+    if (href && MODULE_SKIN_HREFS.has(href))
+      node.remove();
   });
 }
 
 /** DEV：去掉 legacy 动态 import 注入的 <style>（切 modules 前调用） */
 function removeLegacyViteStyleTags(): void {
-  if (!import.meta.env.DEV) return;
+  if (!import.meta.env.DEV)
+    return;
   document.querySelectorAll("style[data-vite-dev-id]").forEach((node) => {
     const id = node.getAttribute("data-vite-dev-id") ?? "";
-    if (LEGACY_VITE_STYLE_MARKERS.some((m) => id.includes(m))) node.remove();
+    if (LEGACY_VITE_STYLE_MARKERS.some(m => id.includes(m)))
+      node.remove();
   });
 }
 
@@ -164,13 +171,15 @@ export async function loadStylesForBootstrap(): Promise<void> {
     removeLegacyViteStyleTags();
     try {
       await loadModuleSkinStyles();
-    } catch (err) {
+    }
+    catch (err) {
       console.error("[copyShell] modules skin failed, falling back to legacy bundle", err);
       removeModuleSkinLinkTags();
       localStorage.setItem(COPY_A8_STORAGE_KEY, "1");
       await loadAppStyles();
     }
-  } else {
+  }
+  else {
     removeModuleSkinLinkTags();
     await loadAppStyles();
   }
@@ -178,7 +187,8 @@ export async function loadStylesForBootstrap(): Promise<void> {
   if (showSkinBanner()) {
     try {
       await loadStylesheet("/copy/copy-chrome.css");
-    } catch {
+    }
+    catch {
       /* 角标样式缺失不影响主界面 */
     }
   }

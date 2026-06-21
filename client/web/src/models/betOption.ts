@@ -3,9 +3,9 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 import { saveUserLog } from "@/api/chat";
-import { useOddsStore } from "@/stores/oddsStore";
-import { useAccountStore } from "@/stores/accountStore";
 import { toFixed } from "@/shared/format";
+import { useAccountStore } from "@/stores/accountStore";
+import { useOddsStore } from "@/stores/oddsStore";
 
 /** 对齐 A8 bundle `Tp` */
 export class BetOption {
@@ -48,7 +48,8 @@ export class BetOption {
       this.betMoney = Math.round(Number(betMoneyOrTarget) || 0);
       this.target = (targetOrOdds as BetSide) || "Home";
       this.odds = Number(oddsArg) || 0;
-    } else {
+    }
+    else {
       const match = matchOrType;
       const bet = betOrMatchId as ViewBet;
       const item = itemOrBetId as ViewBetItem;

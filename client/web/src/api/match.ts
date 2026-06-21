@@ -1,18 +1,19 @@
+import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
+import type { ClientMatchDto } from "@/types/esport";
 import { post, postForm, unwrap } from "@/api/client";
 import {
   toA8LiveTimerRow,
   toA8SaveBetRow,
   toA8SaveMatchRow,
 } from "@/api/collectWire";
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
-import type { ClientMatchDto } from "@/types/esport";
 
 /** [A8 可证实] `Ar.post`：application/x-www-form-urlencoded，失败不抛错，以 success===1 为准 */
 async function postCollectApi(action: string, fields: Record<string, string>): Promise<boolean> {
   try {
     const data = await postForm<boolean>(action, fields);
     return data.success === 1;
-  } catch {
+  }
+  catch {
     return false;
   }
 }
@@ -55,6 +56,7 @@ export async function getMatchs(userName: string) {
     {},
     `?user=${encodeURIComponent(userName)}`,
   );
-  if (data.success !== 1 || !Array.isArray(data.info)) return [];
+  if (data.success !== 1 || !Array.isArray(data.info))
+    return [];
   return data.info;
 }

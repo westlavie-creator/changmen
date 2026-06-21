@@ -2,8 +2,8 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
-import { useUserStore } from "@/stores/userStore";
 import { getApiBase } from "@/config/apiBase";
+import { useUserStore } from "@/stores/userStore";
 
 const router = useRouter();
 const user = useUserStore();
@@ -46,24 +46,31 @@ async function fetchHealth() {
     }
     health.value = await res.json();
     error.value = "";
-  } catch (e) {
+  }
+  catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
 
 function uptimeStr(sec: number): string {
-  if (sec >= 86400) return `${Math.floor(sec / 86400)}d ${Math.floor((sec % 86400) / 3600)}h`;
-  if (sec >= 3600) return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
+  if (sec >= 86400)
+    return `${Math.floor(sec / 86400)}d ${Math.floor((sec % 86400) / 3600)}h`;
+  if (sec >= 3600)
+    return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m`;
   return `${Math.floor(sec / 60)}m ${sec % 60}s`;
 }
 
 function agoStr(ts: number): string {
-  if (!ts) return "";
+  if (!ts)
+    return "";
   const sec = Math.floor((Date.now() - ts) / 1000);
-  if (sec > 3600) return `${Math.floor(sec / 3600)}h ago`;
-  if (sec > 60) return `${Math.floor(sec / 60)}m ago`;
+  if (sec > 3600)
+    return `${Math.floor(sec / 3600)}h ago`;
+  if (sec > 60)
+    return `${Math.floor(sec / 60)}m ago`;
   return `${sec}s ago`;
 }
 
@@ -78,7 +85,8 @@ function poolActivePct(d: HealthData): number {
 
 onMounted(async () => {
   if (!user.ready) {
-    try { await user.fetchUserInfo(); } catch {
+    try { await user.fetchUserInfo(); }
+    catch {
       sessionStorage.setItem("gamebet:postLoginRedirect", "/admin/health");
       await router.replace({ name: "home" });
       return;
@@ -90,7 +98,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer);
+  if (timer)
+    clearInterval(timer);
 });
 </script>
 
@@ -109,7 +118,9 @@ onUnmounted(() => {
 
       <!-- Database -->
       <div class="health-card">
-        <div class="health-card__title">数据库</div>
+        <div class="health-card__title">
+          数据库
+        </div>
         <div class="health-row">
           <span>连接状态</span>
           <el-tag :type="health.db.connected ? 'success' : 'danger'" size="small" effect="dark">
@@ -140,7 +151,9 @@ onUnmounted(() => {
 
       <!-- Memory -->
       <div class="health-card">
-        <div class="health-card__title">内存</div>
+        <div class="health-card__title">
+          内存
+        </div>
         <div class="health-row">
           <span>RSS</span>
           <span class="health-val">{{ health.memory.rss }} MB</span>
@@ -159,7 +172,9 @@ onUnmounted(() => {
 
       <!-- Data -->
       <div class="health-card">
-        <div class="health-card__title">数据缓存</div>
+        <div class="health-card__title">
+          数据缓存
+        </div>
         <div class="health-row">
           <span>在线用户</span>
           <span class="health-val">{{ health.data.users }}</span>
@@ -176,7 +191,9 @@ onUnmounted(() => {
 
       <!-- WebSocket Forward -->
       <div class="health-card health-card--wide">
-        <div class="health-card__title">WebSocket 转发</div>
+        <div class="health-card__title">
+          WebSocket 转发
+        </div>
         <div class="health-row">
           <span>中继服务</span>
           <el-tag :type="health.wsForward.enabled ? 'success' : 'danger'" size="small" effect="dark">
@@ -219,7 +236,9 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-    <div v-else-if="loading" class="health-loading">加载中...</div>
+    <div v-else-if="loading" class="health-loading">
+      加载中...
+    </div>
   </AdminLayout>
 </template>
 

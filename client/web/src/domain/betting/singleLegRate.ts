@@ -1,10 +1,11 @@
-import { BetOption } from "@/models/betOption";
+import type { BetFilterMatchContext } from "@/domain/betting/betFilters";
+import type { BetOption } from "@/models/betOption";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import {
   accountPassesMainBetFilter,
+
   explainMainBetAccountRejection,
-  type BetFilterMatchContext,
 } from "@/domain/betting/betFilters";
 
 /** [changmen 扩展] 投注比例 9999 = 单边模式：本侧不参与自动下单，对侧可单边真下注 */
@@ -14,9 +15,10 @@ export function isSingleLegRateAtOdds(
   account: Pick<PlatformAccount, "rateConfig">,
   odds: number,
 ): boolean {
-  if (!account.rateConfig?.length) return false;
+  if (!account.rateConfig?.length)
+    return false;
   const row = account.rateConfig.find(
-    (r) =>
+    r =>
       (r.minOdds === 0 || r.minOdds <= odds) && (r.maxOdds === 0 || r.maxOdds >= odds),
   );
   return (row?.rate ?? 1) === SINGLE_LEG_RATE;
@@ -53,7 +55,8 @@ export function explainArbAccountRejection(
     matchStore,
     implied,
   );
-  if (base) return base;
+  if (base)
+    return base;
   if (isSingleLegRateAtOdds(account, leg.odds)) {
     return "比例 9999 单边模式（本侧不下，对侧可自动下单）";
   }
@@ -92,12 +95,17 @@ export function findSingleLegRateAccount(
   implied?: number,
 ): PlatformAccount | undefined {
   return accounts.find((acc) => {
-    if (excludeAccountIds.includes(acc.accountId)) return false;
-    if (acc.provider !== leg.type) return false;
-    if (acc.maxOrder && acc.todayOrder && acc.todayOrder >= acc.maxOrder) return false;
+    if (excludeAccountIds.includes(acc.accountId))
+      return false;
+    if (acc.provider !== leg.type)
+      return false;
+    if (acc.maxOrder && acc.todayOrder && acc.todayOrder >= acc.maxOrder)
+      return false;
     const bal = acc.getBalance();
-    if (bal === undefined || bal < leg.betMoney) return false;
-    if (!isSingleLegRateAtOdds(acc, leg.odds)) return false;
+    if (bal === undefined || bal < leg.betMoney)
+      return false;
+    if (!isSingleLegRateAtOdds(acc, leg.odds))
+      return false;
     return accountPassesMainBetFilter(acc, bet, match, leg, matchStore, implied);
   });
 }
@@ -130,12 +138,13 @@ export function resolveSingleLegByRate(params: {
     matchStore,
     implied,
   } = params;
-  if (betBothLegs) return false;
+  if (betBothLegs)
+    return false;
   return (
-    (!accountA &&
-      legHasSingleLegRateAccount(legA, bet, match, accounts, excludeA, matchStore, implied)) ||
-    (!accountB &&
-      legHasSingleLegRateAccount(legB, bet, match, accounts, excludeB, matchStore, implied))
+    (!accountA
+      && legHasSingleLegRateAccount(legA, bet, match, accounts, excludeA, matchStore, implied))
+    || (!accountB
+      && legHasSingleLegRateAccount(legB, bet, match, accounts, excludeB, matchStore, implied))
   );
 }
 
@@ -153,7 +162,8 @@ export function explainAllowArbRejection(params: {
   legB: BetOption;
 }): string {
   const { betBothLegs, singleLegByRate, accountA, accountB, legA, legB } = params;
-  if (betBothLegs || singleLegByRate) return "不满足下单条件";
+  if (betBothLegs || singleLegByRate)
+    return "不满足下单条件";
   if (accountA && !accountB) {
     return `仅 ${legA.type} 有可用账号，缺 ${legB.type}，且该侧非比例 9999 单边模式`;
   }

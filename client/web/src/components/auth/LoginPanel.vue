@@ -17,16 +17,19 @@ const loading = ref(false);
 const error = ref("");
 
 async function submit() {
-  if (!form.userName.trim() || !form.password || loading.value) return;
+  if (!form.userName.trim() || !form.password || loading.value)
+    return;
 
   loading.value = true;
   error.value = "";
   try {
     await user.login(form.password, form.userName.trim());
     emit("success");
-  } catch (e) {
+  }
+  catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
@@ -52,7 +55,9 @@ async function submit() {
         autocomplete="current-password"
       />
     </el-form-item>
-    <p v-if="error" class="login-error">{{ error }}</p>
+    <p v-if="error" class="login-error">
+      {{ error }}
+    </p>
     <el-form-item>
       <el-button
         native-type="submit"

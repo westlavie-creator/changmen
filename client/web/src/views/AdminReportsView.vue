@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import AdminLayout from "@/components/admin/AdminLayout.vue";
-import MonthReportTable from "@/components/report/MonthReportTable.vue";
-import { getAdminMonthReport, getAdminUsers } from "@/api/admin";
 import type { AdminUserRow } from "@/types/admin";
 import type { MonthReportPayload } from "@/types/monthReport";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { getAdminMonthReport, getAdminUsers } from "@/api/admin";
+import AdminLayout from "@/components/admin/AdminLayout.vue";
+import MonthReportTable from "@/components/report/MonthReportTable.vue";
 import { useUserStore } from "@/stores/userStore";
 
 const route = useRoute();
@@ -21,8 +21,9 @@ const loadError = ref("");
 
 const filterUserName = computed(() => {
   const fromQuery = String(route.query.userName || "");
-  if (fromQuery) return fromQuery;
-  return users.value.find((u) => u.id === filterUserId.value)?.userName || "";
+  if (fromQuery)
+    return fromQuery;
+  return users.value.find(u => u.id === filterUserId.value)?.userName || "";
 });
 
 const pageTitle = computed(() =>
@@ -40,7 +41,8 @@ const pageSubtitle = computed(() =>
 async function loadUsers() {
   try {
     users.value = await getAdminUsers();
-  } catch {
+  }
+  catch {
     users.value = [];
   }
 }
@@ -53,10 +55,12 @@ async function load() {
       month.value,
       filterUserId.value || undefined,
     );
-  } catch (e) {
+  }
+  catch (e) {
     report.value = null;
     loadError.value = (e as Error).message || "加载失败";
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
@@ -65,7 +69,8 @@ function syncRouteQuery() {
   const q: Record<string, string> = {};
   if (filterUserId.value) {
     q.userId = filterUserId.value;
-    if (filterUserName.value) q.userName = filterUserName.value;
+    if (filterUserName.value)
+      q.userName = filterUserName.value;
   }
   void router.replace({ name: "admin-reports", query: q });
 }
@@ -83,7 +88,8 @@ onMounted(async () => {
   if (!userStore.ready) {
     try {
       await userStore.fetchUserInfo();
-    } catch {
+    }
+    catch {
       sessionStorage.setItem("gamebet:postLoginRedirect", route.fullPath);
       await router.replace({ name: "home" });
       return;
@@ -129,12 +135,18 @@ onMounted(async () => {
           </el-select>
         </div>
         <div class="admin-card__toolbar-right">
-          <el-button size="small" type="primary" @click="load">查询</el-button>
-          <el-button size="small" @click="load">刷新</el-button>
+          <el-button size="small" type="primary" @click="load">
+            查询
+          </el-button>
+          <el-button size="small" @click="load">
+            刷新
+          </el-button>
         </div>
       </div>
       <div class="admin-card__body">
-        <p v-if="loadError" class="admin-card__empty admin-card__empty--error">{{ loadError }}</p>
+        <p v-if="loadError" class="admin-card__empty admin-card__empty--error">
+          {{ loadError }}
+        </p>
         <MonthReportTable
           v-else
           variant="admin"

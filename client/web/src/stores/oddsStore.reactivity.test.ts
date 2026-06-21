@@ -1,3 +1,4 @@
+import { createPinia, setActivePinia } from "pinia";
 /**
  * 验证 Vue reactive Map 的追踪能力，决定 revision 计数器能否安全移除。
  *
@@ -6,11 +7,10 @@
  *    排除 "revision 间接触发" 的干扰。
  * 2. 集成测试：用真实 oddsStore，但 computed 不读 revision，验证端到端链路。
  */
-import { beforeEach, describe, expect, test } from "vitest";
-import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it } from "vitest";
 import { computed, nextTick, reactive, watchEffect } from "vue";
-import { useOddsStore } from "@/stores/oddsStore";
 import { formatDisplayOdds } from "@/shared/format";
+import { useOddsStore } from "@/stores/oddsStore";
 
 // ─── 第一组：纯 Vue reactive Map 隔离测试（无 Pinia、无 revision）────────
 
@@ -20,26 +20,30 @@ describe("纯 reactive Map 追踪（排除 revision 干扰）", () => {
     const data = reactive(new Map<string, Map<string, { odds: number; isLock: boolean }>>());
 
     function save(platform: string, id: string, odds: number, isLock = false) {
-      if (!data.has(platform)) data.set(platform, new Map());
+      if (!data.has(platform))
+        data.set(platform, new Map());
       data.get(platform)!.set(id, { odds, isLock });
     }
 
     function getOdds(platform: string, id: string, fallback = 0): number {
       const row = data.get(platform)?.get(id);
-      if (row === undefined) return fallback;
-      if (row.isLock) return 0;
+      if (row === undefined)
+        return fallback;
+      if (row.isLock)
+        return 0;
       return row.odds;
     }
 
     function setLock(platform: string, id: string, locked: boolean) {
       const row = data.get(platform)?.get(id);
-      if (row) row.isLock = locked;
+      if (row)
+        row.isLock = locked;
     }
 
     return { data, save, getOdds, setLock };
   }
 
-  test("save 新值 → computed 重算", async () => {
+  it("save 新值 → computed 重算", async () => {
     const fo = createBareOddsMap();
     const displayed = computed(() => fo.getOdds("OB", "odd1", 0));
 
@@ -50,7 +54,7 @@ describe("纯 reactive Map 追踪（排除 revision 干扰）", () => {
     expect(displayed.value).toBe(1.85);
   });
 
-  test("save 更新已有值 → computed 重算", async () => {
+  it("save 更新已有值 → computed 重算", async () => {
     const fo = createBareOddsMap();
     fo.save("OB", "odd1", 1.85);
 
@@ -66,7 +70,7 @@ describe("纯 reactive Map 追踪（排除 revision 干扰）", () => {
     expect(displayed.value).toBe(1.75);
   });
 
-  test("原地修改 isLock → computed 重算", async () => {
+  it("原地修改 isLock → computed 重算", async () => {
     const fo = createBareOddsMap();
     fo.save("OB", "odd1", 1.85);
 
@@ -82,7 +86,7 @@ describe("纯 reactive Map 追踪（排除 revision 干扰）", () => {
     expect(displayed.value).toBe(1.85);
   });
 
-  test("watchEffect 逐次触发", async () => {
+  it("watchEffect 逐次触发", async () => {
     const fo = createBareOddsMap();
     const seen: number[] = [];
 
@@ -104,7 +108,7 @@ describe("纯 reactive Map 追踪（排除 revision 干扰）", () => {
     expect(seen).toEqual([0, 1.85, 2.10, 0]);
   });
 
-  test("不同 oddId 独立追踪：改 odd1 不触发 odd2", async () => {
+  it("不同 oddId 独立追踪：改 odd1 不触发 odd2", async () => {
     const fo = createBareOddsMap();
     fo.save("OB", "odd1", 1.85);
     fo.save("OB", "odd2", 2.30);
@@ -133,7 +137,7 @@ describe("纯 reactive Map 追踪（排除 revision 干扰）", () => {
     );
   });
 
-  test("不同平台独立追踪：改 OB 不触发 RAY", async () => {
+  it("不同平台独立追踪：改 OB 不触发 RAY", async () => {
     const fo = createBareOddsMap();
     fo.save("OB", "odd1", 1.85);
     fo.save("RAY", "odd1", 2.00);
@@ -168,7 +172,7 @@ describe("真实 oddsStore（computed 不读 revision）", () => {
     setActivePinia(createPinia());
   });
 
-  test("save → getOdds computed 重算", async () => {
+  it("save → getOdds computed 重算", async () => {
     const odds = useOddsStore();
     const displayed = computed(() => odds.getOdds("OB", "odd1", 0));
 
@@ -179,7 +183,7 @@ describe("真实 oddsStore（computed 不读 revision）", () => {
     expect(displayed.value).toBe(1.85);
   });
 
-  test("连续 save 更新 → 逐次重算", async () => {
+  it("连续 save 更新 → 逐次重算", async () => {
     const odds = useOddsStore();
     const displayed = computed(() => odds.getOdds("OB", "odd1", 0));
 
@@ -196,7 +200,7 @@ describe("真实 oddsStore（computed 不读 revision）", () => {
     expect(displayed.value).toBe(1.75);
   });
 
-  test("updateOddsLock 原地修改 → 重算", async () => {
+  it("updateOddsLock 原地修改 → 重算", async () => {
     const odds = useOddsStore();
     odds.save("OB", { id: "odd1", odds: 1.85, isLock: false, betId: "m1", time: Date.now() }, "http");
 
@@ -212,7 +216,7 @@ describe("真实 oddsStore（computed 不读 revision）", () => {
     expect(displayed.value).toBe(1.85);
   });
 
-  test("updateBetLock 批量锁盘 → 重算", async () => {
+  it("updateBetLock 批量锁盘 → 重算", async () => {
     const odds = useOddsStore();
     odds.save("OB", { id: "h1", odds: 1.85, isLock: false, betId: "m1", side: "home", time: Date.now() }, "http");
     odds.save("OB", { id: "a1", odds: 2.10, isLock: false, betId: "m1", side: "away", time: Date.now() }, "http");
@@ -234,7 +238,7 @@ describe("真实 oddsStore（computed 不读 revision）", () => {
     expect(away.value).toBe(2.10);
   });
 
-  test("clean(platform) 清空 → 回到 fallback", async () => {
+  it("clean(platform) 清空 → 回到 fallback", async () => {
     const odds = useOddsStore();
     odds.save("OB", { id: "odd1", odds: 1.85, isLock: false, time: Date.now() }, "http");
 
@@ -246,7 +250,7 @@ describe("真实 oddsStore（computed 不读 revision）", () => {
     expect(displayed.value).toBe(formatDisplayOdds(99));
   });
 
-  test("hasLimit / setLimit / deleteLimit 也可追踪", async () => {
+  it("hasLimit / setLimit / deleteLimit 也可追踪", async () => {
     const odds = useOddsStore();
     const has = computed(() => odds.hasLimit("OB", ["odd1"]));
     expect(has.value).toBe(false);
@@ -260,7 +264,7 @@ describe("真实 oddsStore（computed 不读 revision）", () => {
     expect(has.value).toBe(false);
   });
 
-  test("模拟 BetRow 场景：多个 item 各自追踪", async () => {
+  it("模拟 BetRow 场景：多个 item 各自追踪", async () => {
     const odds = useOddsStore();
     // 模拟 3 个平台的同一场比赛
     odds.save("OB", { id: "ob_h", odds: 1.85, isLock: false, time: Date.now() }, "http");

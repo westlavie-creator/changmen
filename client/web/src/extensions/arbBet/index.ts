@@ -19,15 +19,6 @@
  */
 
 export {
-  ArbLineOverlay,
-  useBetRowArbUi,
-  useOddsFlashCell,
-  useOddsAnchorMap,
-  useArbLineOverlay,
-} from "@/extensions/arbBet/ui";
-
-export {
-  SINGLE_LEG_RATE,
   allowArbBetExecution,
   arbAccountPickerFilter,
   createArbLinkId,
@@ -37,4 +28,13 @@ export {
   isSingleLegRateAtOdds,
   legHasSingleLegRateAccount,
   resolveSingleLegByRate,
+  SINGLE_LEG_RATE,
 } from "@/domain/betting/singleLegRate";
+
+export {
+  ArbLineOverlay,
+  useArbLineOverlay,
+  useBetRowArbUi,
+  useOddsAnchorMap,
+  useOddsFlashCell,
+} from "@/extensions/arbBet/ui";

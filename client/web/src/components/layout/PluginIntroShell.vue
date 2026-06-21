@@ -13,13 +13,13 @@ defineProps<{
           src="/login/nagato.png"
           alt="长门"
           decoding="async"
-        />
+        >
         <img
           class="login-hero login-hero--right"
           src="/login/kakashi.png"
           alt="卡卡西"
           decoding="async"
-        />
+        >
       </div>
     </div>
     <div v-else class="login-page container flex flex-middle flex-center">
@@ -29,7 +29,7 @@ defineProps<{
           src="/login/nagato.png"
           alt="长门"
           decoding="async"
-        />
+        >
         <div class="login-center flex flex-column flex-middle">
           <h1 class="login-jiraiya-title" aria-label="自来也">
             <span class="login-jiraiya-char">自</span>
@@ -41,7 +41,7 @@ defineProps<{
             src="/login/akatsuki.png"
             alt="晓组织"
             decoding="async"
-          />
+          >
           <div class="loginbox">
             <slot />
           </div>
@@ -51,7 +51,7 @@ defineProps<{
           src="/login/kakashi.png"
           alt="卡卡西"
           decoding="async"
-        />
+        >
       </div>
     </div>
   </div>

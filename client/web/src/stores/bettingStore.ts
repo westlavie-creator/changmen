@@ -1,8 +1,8 @@
-import { defineStore } from "pinia";
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
-import { useConfigStore } from "@/stores/configStore";
-import { runManualBet } from "@/stores/betting/manualBet";
+import { defineStore } from "pinia";
 import { processLoseOrders as runProcessLoseOrders } from "@/stores/betting/loseOrder";
+import { runManualBet } from "@/stores/betting/manualBet";
+import { useConfigStore } from "@/stores/configStore";
 
 /** 对齐 A8 自动投注：主循环在 matchStore（bundle `Vg.P()`）；本 store 保留手动下注与状态 */
 export const useBettingStore = defineStore("betting", {
@@ -32,13 +32,13 @@ export const useBettingStore = defineStore("betting", {
 
     async manualBet(match: ViewMatch, bet: ViewBet, item: ViewBetItem, side: BetSide) {
       await runManualBet(match, bet, item, side, {
-        setMessage: (m) => this.setMessage(m),
+        setMessage: m => this.setMessage(m),
       });
     },
 
     async processLoseOrders() {
       await runProcessLoseOrders({
-        setMessage: (m) => this.setMessage(m),
+        setMessage: m => this.setMessage(m),
       });
     },
   },

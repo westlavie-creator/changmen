@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it } from "vitest";
 import { useOddsStore } from "@/stores/oddsStore";
 
 /** [A8 可证实] fo.save 直接覆盖；HTTP 灌盘用 block 公式重算 isLock，可解开 MQTT 误锁 */
@@ -8,7 +8,7 @@ describe("oddsStore A8 fo parity", () => {
     setActivePinia(createPinia());
   });
 
-  test("HTTP save unlocks after MQTT bet lock (OB)", () => {
+  it("hTTP save unlocks after MQTT bet lock (OB)", () => {
     const odds = useOddsStore();
     odds.save(
       "OB",
@@ -26,7 +26,7 @@ describe("oddsStore A8 fo parity", () => {
     expect(odds.getOdds("OB", "odd1", 0)).toBe(2.1);
   });
 
-  test("HTTP save applies locked from block formula", () => {
+  it("hTTP save applies locked from block formula", () => {
     const odds = useOddsStore();
     odds.save(
       "OB",

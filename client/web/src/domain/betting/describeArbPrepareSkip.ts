@@ -1,10 +1,10 @@
-import { pickArbLegs } from "@/domain/arbitrage";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
-import { formatAccountFundingHint } from "@/stores/account/accountPicker";
+import { pickArbLegs } from "@/domain/arbitrage";
 import { arbProfitRate } from "@/shared/format";
+import { formatAccountFundingHint } from "@/stores/account/accountPicker";
 
 /** 主循环扫描阶段跳过（未选出双腿，不应发套利执行 Telegram） */
 export function isArbScanSkipSummary(summary: string): boolean {
@@ -20,7 +20,7 @@ export function describeGetOrderOptionsSkip(
   accounts: PlatformAccount[],
 ): string {
   if (!providerKeys.length) {
-    const anyLoaded = accounts.some((a) => a.getBalance() !== undefined);
+    const anyLoaded = accounts.some(a => a.getBalance() !== undefined);
     if (!anyLoaded && accounts.length) {
       return "账号余额尚未加载（请等待刷新或点账号栏刷新）";
     }

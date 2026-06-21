@@ -34,8 +34,8 @@ function findMatchBet(
   matchId: number,
   betId: number,
 ): { match?: ViewMatch; bet?: ViewBet } {
-  const match = params.matches.find((m) => m.id === matchId);
-  const bet = match?.bets.find((b) => b.id === betId);
+  const match = params.matches.find(m => m.id === matchId);
+  const bet = match?.bets.find(b => b.id === betId);
   return { match, bet };
 }
 
@@ -45,20 +45,21 @@ export function buildMarketWatchContext(
   betId: number,
 ): ArbMarketWatchContext | undefined {
   const { match, bet } = findMatchBet(params, matchId, betId);
-  if (!match || !bet) return undefined;
+  if (!match || !bet)
+    return undefined;
 
   const actionable = new Set<PlatformId>(
     params.actionablePlatforms ? [...params.actionablePlatforms] : [],
   );
 
   const platformOdds: ArbMarketWatchPlatformOdds[] = bet.items
-    .map((item) => ({
+    .map(item => ({
       platform: item.type,
       homeOdds: item.getOdds("Home"),
       awayOdds: item.getOdds("Away"),
       hasAccount: actionable.has(item.type),
     }))
-    .filter((row) => row.homeOdds > 0 || row.awayOdds > 0)
+    .filter(row => row.homeOdds > 0 || row.awayOdds > 0)
     .sort((a, b) => a.platform.localeCompare(b.platform));
 
   return {
@@ -88,7 +89,7 @@ export function explainNotExecutable(
     return "未开启投注";
   }
 
-  const byPlatform = new Map(ctx.platformOdds.map((row) => [row.platform, row]));
+  const byPlatform = new Map(ctx.platformOdds.map(row => [row.platform, row]));
   const missing: string[] = [];
 
   for (const leg of [
@@ -105,6 +106,7 @@ export function explainNotExecutable(
     }
   }
 
-  if (missing.length) return missing.join("；");
+  if (missing.length)
+    return missing.join("；");
   return "有余额账号无法凑齐理论最优组合（限红/利润门槛/同平台限制）";
 }

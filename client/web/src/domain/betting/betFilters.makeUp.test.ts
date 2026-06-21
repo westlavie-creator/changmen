@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PlatformAccount } from "@/models/platformAccount";
 import { passesMakeUpAccountFilter } from "@/domain/betting/betFilters";
+import { PlatformAccount } from "@/models/platformAccount";
 
 const matchStore = {
   getBetTarget: () => undefined,

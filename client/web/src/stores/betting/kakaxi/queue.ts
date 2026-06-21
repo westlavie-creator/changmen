@@ -1,16 +1,19 @@
-import { KAKAXI_QUEUE_TTL_MS } from "@/stores/betting/kakaxi/config";
-import { kakaxiBetKey, type KakaxiQueuedBet } from "@/stores/betting/kakaxi/types";
+import type { KakaxiQueuedBet } from "@/stores/betting/kakaxi/types";
 import type { PlatformId } from "@/types/esport";
+import { KAKAXI_QUEUE_TTL_MS } from "@/stores/betting/kakaxi/config";
 import {
   kakaxiQueuedBetPlatforms,
   platformsConflict,
 } from "@/stores/betting/kakaxi/platformResolve";
+import { kakaxiBetKey } from "@/stores/betting/kakaxi/types";
 
 const items = new Map<string, KakaxiQueuedBet>();
 
 function comparePriority(a: KakaxiQueuedBet, b: KakaxiQueuedBet): number {
-  if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
-  if (b.implied !== a.implied) return b.implied - a.implied;
+  if (a.isLive !== b.isLive)
+    return a.isLive ? -1 : 1;
+  if (b.implied !== a.implied)
+    return b.implied - a.implied;
   return a.enqueuedAt - b.enqueuedAt;
 }
 
@@ -51,7 +54,8 @@ export function boostKakaxiBetImplied(
 ): boolean {
   const key = kakaxiBetKey(matchId, betId);
   const prev = items.get(key);
-  if (!prev) return false;
+  if (!prev)
+    return false;
   items.set(
     key,
     mergeQueuedBet(prev, {
@@ -79,17 +83,20 @@ export function dequeueKakaxiBetExcludingPlatforms(
   busyPlatforms: ReadonlySet<PlatformId>,
   resolvePlatforms?: (item: KakaxiQueuedBet) => PlatformId[] | undefined,
 ): KakaxiQueuedBet | undefined {
-  if (!items.size) return undefined;
+  if (!items.size)
+    return undefined;
 
   let best: KakaxiQueuedBet | undefined;
   let bestPlatforms: PlatformId[] | undefined;
 
   for (const item of items.values()) {
-    const platforms =
-      kakaxiQueuedBetPlatforms(item) ?? resolvePlatforms?.(item) ?? undefined;
+    const platforms
+      = kakaxiQueuedBetPlatforms(item) ?? resolvePlatforms?.(item) ?? undefined;
     if (platforms?.length) {
-      if (platformsConflict(platforms, busyPlatforms)) continue;
-    } else if (busyPlatforms.size > 0) {
+      if (platformsConflict(platforms, busyPlatforms))
+        continue;
+    }
+    else if (busyPlatforms.size > 0) {
       continue;
     }
 
@@ -99,7 +106,8 @@ export function dequeueKakaxiBetExcludingPlatforms(
     }
   }
 
-  if (!best) return undefined;
+  if (!best)
+    return undefined;
 
   const key = kakaxiBetKey(best.matchId, best.betId);
   items.delete(key);

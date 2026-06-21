@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BetResult } from "./betResult";
 
-describe("BetResult", () => {
+describe("betResult", () => {
   it("message 原样赋值，空值不兜底（对齐 A8 uo）", () => {
     expect(new BetResult("OB", true, "").message).toBe("");
     expect(new BetResult("OB", true, undefined).message).toBeUndefined();

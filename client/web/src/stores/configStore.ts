@@ -1,10 +1,11 @@
+import type { UserConfig } from "@/types/userConfig";
 import { defineStore } from "pinia";
 import { toRaw } from "vue";
 import { getClientData, saveClientDataDetailed } from "@/api/esport";
 import {
   createDefaultUserConfig,
   mergeUserConfig,
-  type UserConfig,
+
 } from "@/types/userConfig";
 
 const CONFIG_KEY = "USERCONFIG";
@@ -56,7 +57,8 @@ export const useConfigStore = defineStore("config", {
         let content: string;
         try {
           content = JSON.stringify(payload);
-        } catch {
+        }
+        catch {
           return { ok: false, msg: "配置无法序列化，请刷新页面后重试" };
         }
         const result = await saveClientDataDetailed(CONFIG_KEY, content);
@@ -64,7 +66,8 @@ export const useConfigStore = defineStore("config", {
           this.config = payload;
         }
         return result;
-      } finally {
+      }
+      finally {
         this.saving = false;
       }
     },

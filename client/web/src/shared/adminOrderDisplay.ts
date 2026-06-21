@@ -1,16 +1,16 @@
 import type { AdminAccountDetail, AdminOrderRow } from "@/types/admin";
 import type { OrderRow } from "@/types/order";
 import {
-  groupOrdersByLink,
-  orderLinkMapEntries,
-} from "@/shared/orderLink";
-import {
   isArbGroup,
   normalizeOrderStatus,
   orderLegendModifier,
   orderLegendText,
   orderStatusClass,
 } from "@/shared/orderDisplay";
+import {
+  groupOrdersByLink,
+  orderLinkMapEntries,
+} from "@/shared/orderLink";
 
 export { isArbGroup, orderLegendText, orderStatusClass };
 
@@ -37,12 +37,13 @@ export function adminOrderToOrderRow(row: AdminOrderRow): OrderRow {
 
 export function adminPlayerLabel(row: OrderRow, accounts: AdminAccountDetail[]): string {
   const pid = Number(row.PlayerID) || 0;
-  const acc = accounts.find((a) => a.accountId === pid);
+  const acc = accounts.find(a => a.accountId === pid);
   if (acc) {
     const platform = acc.platformName || acc.platform || row.Type || "";
     return `${platform} / ${acc.playerName}`;
   }
-  if (row.Type) return String(row.Type);
+  if (row.Type)
+    return String(row.Type);
   return pid ? `#${pid}` : "";
 }
 
@@ -53,9 +54,9 @@ export function orderLegendClass(rows: OrderRow[]) {
 export function groupAdminOrderEntries(orders: AdminOrderRow[]) {
   const map = groupOrdersByLink(orders.map(adminOrderToOrderRow));
   return orderLinkMapEntries(map).map(([link, orderRows]) => {
-    const byId = new Map(orders.map((o) => [o.orderId, o]));
+    const byId = new Map(orders.map(o => [o.orderId, o]));
     const adminRows = orderRows
-      .map((r) => byId.get(String(r.OrderID ?? "")))
+      .map(r => byId.get(String(r.OrderID ?? "")))
       .filter((r): r is AdminOrderRow => Boolean(r));
     return { link, orderRows, adminRows };
   });

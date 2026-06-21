@@ -1,9 +1,10 @@
-import { onMounted, onUnmounted, ref } from "vue";
+import type { DirectRealtimeStatus } from "@platform/shared/directRealtimeStatus";
 import {
+
   listDirectRealtimeStatuses,
   subscribeDirectRealtimeStatus,
-  type DirectRealtimeStatus,
 } from "@platform/shared/directRealtimeStatus";
+import { onMounted, onUnmounted, ref } from "vue";
 
 export function useDirectRealtimeStatus() {
   const statuses = ref<DirectRealtimeStatus[]>(listDirectRealtimeStatuses());

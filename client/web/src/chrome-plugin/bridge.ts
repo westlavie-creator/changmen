@@ -58,13 +58,15 @@ export function resolveGamebetExtensionId(): string {
     return fromDom;
   }
   const fromStorage = localStorage.getItem("gamebet:extensionId")?.trim();
-  if (fromStorage) return fromStorage;
+  if (fromStorage)
+    return fromStorage;
   return gamebetExtensionId();
 }
 
 export async function a8PluginSend(message: Omit<A8PluginMessage, "uuid">): Promise<unknown> {
   const runtime = getRuntime();
-  if (!runtime?.sendMessage) throw new Error("Gamebet 扩展未安装或不可访问");
+  if (!runtime?.sendMessage)
+    throw new Error("Gamebet 扩展未安装或不可访问");
 
   const extensionId = resolveGamebetExtensionId();
   return new Promise((resolve, reject) => {
@@ -118,7 +120,8 @@ export interface GamebetExtensionInfo {
 function probeFromDom(): GamebetExtensionInfo | null {
   const extensionId = readDomExtensionId();
   const version = readDomExtensionVersion();
-  if (!extensionId || !version) return null;
+  if (!extensionId || !version)
+    return null;
   localStorage.setItem("gamebet:extensionId", extensionId);
   return { name: "gamebet", version, extensionId };
 }
@@ -126,14 +129,18 @@ function probeFromDom(): GamebetExtensionInfo | null {
 /** 向扩展发送 version 探测；未安装或不可访问时返回 null */
 export async function probeGamebetExtension(): Promise<GamebetExtensionInfo | null> {
   const dom = probeFromDom();
-  if (dom) return dom;
-  if (!hasA8PluginRuntime()) return null;
+  if (dom)
+    return dom;
+  if (!hasA8PluginRuntime())
+    return null;
   try {
     const info = (await a8PluginSend({ type: "version" })) as GamebetExtensionInfo | null;
-    if (!info || (!info.version && !info.name)) return null;
+    if (!info || (!info.version && !info.name))
+      return null;
     info.extensionId = resolveGamebetExtensionId();
     return info;
-  } catch {
+  }
+  catch {
     return null;
   }
 }
@@ -143,12 +150,13 @@ export async function initGamebetExtension(
   minVersion = 1,
 ): Promise<GamebetExtensionInfo | undefined> {
   const info = await probeGamebetExtension();
-  if (!info) return undefined;
+  if (!info)
+    return undefined;
   if (info.version) {
     localStorage.setItem("extensionVersion", info.version);
     globalStorageDispatch(info.version);
   }
-  const numeric = parseFloat(info.version ?? "");
+  const numeric = Number.parseFloat(info.version ?? "");
   if (info.version && !Number.isNaN(numeric) && numeric < minVersion) {
     info.error = `当前版本 ${info.version} 低于要求的最低版本 ${minVersion}`;
   }

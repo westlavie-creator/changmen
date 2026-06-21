@@ -4,7 +4,8 @@ let timer: ReturnType<typeof setInterval> | null = null;
 
 export async function refreshJwtSession(): Promise<boolean> {
   const rt = getRefreshToken();
-  if (!rt) return false;
+  if (!rt)
+    return false;
   try {
     const info = unwrap(
       await post<{ token: string; refreshToken?: string }>("Client_RefreshToken", {
@@ -12,9 +13,11 @@ export async function refreshJwtSession(): Promise<boolean> {
       }),
     );
     setToken(info.token);
-    if (info.refreshToken) setRefreshToken(info.refreshToken);
+    if (info.refreshToken)
+      setRefreshToken(info.refreshToken);
     return true;
-  } catch {
+  }
+  catch {
     clearAuthSession();
     return false;
   }

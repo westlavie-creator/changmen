@@ -22,10 +22,12 @@ const BADGE_Y_OFFSET = 14;
 
 /** Vue :ref 可能收到组件实例，统一解析为 HTMLElement */
 export function resolveVueElement(el: unknown): HTMLElement | null {
-  if (el instanceof HTMLElement) return el;
+  if (el instanceof HTMLElement)
+    return el;
   if (el && typeof el === "object" && "$el" in el) {
     const root = (el as { $el: unknown }).$el;
-    if (root instanceof HTMLElement) return root;
+    if (root instanceof HTMLElement)
+      return root;
   }
   return null;
 }
@@ -50,7 +52,8 @@ export function computeArbLineOverlay(
   homeEl: HTMLElement | undefined | null,
   awayEl: HTMLElement | undefined | null,
 ): ArbLineOverlayGeometry | null {
-  if (!homeEl || !awayEl) return null;
+  if (!homeEl || !awayEl)
+    return null;
   const box = container.getBoundingClientRect();
   const p1 = centerInContainer(homeEl, box);
   const p2 = centerInContainer(awayEl, box);

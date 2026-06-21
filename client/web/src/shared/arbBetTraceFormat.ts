@@ -12,7 +12,8 @@ export function formatBetResult(
   odds: number,
   result?: { success: boolean; message?: string | null },
 ): string {
-  if (!result) return `${provider} ${target} 未下单`;
+  if (!result)
+    return `${provider} ${target} 未下单`;
   const icon = result.success ? "✅" : "❌";
   const msg = result.message ? ` (${result.message})` : "";
   return `${provider} ${target} ${icon} ${betMoney}@${odds}${msg}`;

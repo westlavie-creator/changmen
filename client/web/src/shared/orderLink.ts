@@ -28,7 +28,8 @@ export function groupOrdersByLink<T extends { Link?: number }>(list: T[]): Map<n
   const map = new Map<number, T[]>();
   for (const row of sorted) {
     const key = Number(row.Link);
-    if (!map.has(key)) map.set(key, []);
+    if (!map.has(key))
+      map.set(key, []);
     map.get(key)!.push(row);
   }
   return map;
@@ -45,16 +46,17 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
   const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
   const stake = rows
-    .filter((r) => !LOSE_REJECT.has(String(r.Status)))
+    .filter(r => !LOSE_REJECT.has(String(r.Status)))
     .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
   const unsettled = rows
-    .filter((r) => r.Status === "None")
+    .filter(r => r.Status === "None")
     .map((r) => {
       const odds = Number(r.Odds) || 0;
       const bet = Number(r.BetMoney) || 0;
       return toFixed(bet * odds - stake, 0);
     });
-  if (unsettled.length) return prefix + unsettled.join(" - ");
+  if (unsettled.length)
+    return prefix + unsettled.join(" - ");
   const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
   const sign = total > 0 ? "+" : "";
   return prefix + sign + toFixed(total, 0);

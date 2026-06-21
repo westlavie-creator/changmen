@@ -1,12 +1,13 @@
-import { nextTick, onMounted, onUnmounted, ref, watch, type Ref, type WatchSource } from "vue";
+import type { Ref, WatchSource } from "vue";
+import type { ArbLineBadge, ArbLineSegment } from "@/extensions/arbBet/ui/arb_line";
 import type { BetSide } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
+import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import {
+
   computeArbLineOverlay,
   oddsAnchorKey,
   resolveVueElement,
-  type ArbLineBadge,
-  type ArbLineSegment,
 } from "@/extensions/arbBet/ui/arb_line";
 
 /** 登记赔率格 DOM，供套利划线取 anchor */
@@ -17,7 +18,8 @@ export function useOddsAnchorMap() {
     return (el: unknown) => {
       const key = oddsAnchorKey(type, side);
       const node = resolveVueElement(el);
-      if (node) map.set(key, node);
+      if (node)
+        map.set(key, node);
       else map.delete(key);
     };
   }
@@ -76,7 +78,8 @@ export function useArbLineOverlay(
     containerRef,
     (el) => {
       resizeObserver?.disconnect();
-      if (el && resizeObserver) resizeObserver.observe(el);
+      if (el && resizeObserver)
+        resizeObserver.observe(el);
       nextTick(refresh);
     },
     { immediate: true },

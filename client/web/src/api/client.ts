@@ -6,34 +6,40 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 const TOKEN_COOKIE = "app_token";
 
 function readTokenCookie(): string | null {
-  if (typeof document === "undefined") return null;
+  if (typeof document === "undefined")
+    return null;
   const m = document.cookie.match(/(?:^|; )app_token=([^;]*)/);
   return m ? decodeURIComponent(m[1]) : null;
 }
 
 function syncTokenCookie(token: string | null) {
-  if (typeof document === "undefined") return;
+  if (typeof document === "undefined")
+    return;
   if (token) {
     document.cookie = `${TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-  } else {
+  }
+  else {
     document.cookie = `${TOKEN_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
   }
 }
 
-let authToken: string | null =
-  typeof localStorage !== "undefined" ? localStorage.getItem("app:token") : null;
-if (!authToken) authToken = readTokenCookie();
-if (authToken) syncTokenCookie(authToken);
+let authToken: string | null
+  = typeof localStorage !== "undefined" ? localStorage.getItem("app:token") : null;
+if (!authToken)
+  authToken = readTokenCookie();
+if (authToken)
+  syncTokenCookie(authToken);
 
-let refreshToken: string | null =
-  typeof localStorage !== "undefined" ? localStorage.getItem("app:refresh-token") : null;
+let refreshToken: string | null
+  = typeof localStorage !== "undefined" ? localStorage.getItem("app:refresh-token") : null;
 
 export function getRefreshToken(): string | null { return refreshToken; }
 
 export function setRefreshToken(token: string | null) {
   refreshToken = token;
   if (typeof localStorage !== "undefined") {
-    if (token) localStorage.setItem("app:refresh-token", token);
+    if (token)
+      localStorage.setItem("app:refresh-token", token);
     else localStorage.removeItem("app:refresh-token");
   }
 }
@@ -45,7 +51,8 @@ export function getToken(): string | null {
 export function setToken(token: string | null) {
   authToken = token;
   if (typeof localStorage !== "undefined") {
-    if (token) localStorage.setItem("app:token", token);
+    if (token)
+      localStorage.setItem("app:token", token);
     else localStorage.removeItem("app:token");
   }
   syncTokenCookie(token);
@@ -62,10 +69,10 @@ export function clearAuthSession() {
   setRefreshToken(null);
 }
 
-export type PostOptions = {
+export interface PostOptions {
   /** 对齐 A8 `_r.post` 的 `errorTip:false`：失败时不抛错（由调用方读 success） */
   errorTip?: boolean;
-};
+}
 
 async function executePost<T>(
   action: string,
@@ -80,8 +87,10 @@ async function executePost<T>(
       let serverMsg = "";
       try {
         const parsed = JSON.parse(text) as { msg?: string };
-        if (parsed?.msg) serverMsg = parsed.msg;
-      } catch {
+        if (parsed?.msg)
+          serverMsg = parsed.msg;
+      }
+      catch {
         /* 非 JSON 响应 */
       }
       const hint = text && !serverMsg ? `: ${text.slice(0, 160)}` : "";
@@ -95,7 +104,8 @@ async function executePost<T>(
     let json: ApiEnvelope<T>;
     try {
       json = JSON.parse(text) as ApiEnvelope<T>;
-    } catch {
+    }
+    catch {
       throw new Error(`${action} 响应无效: ${text.slice(0, 120)}`);
     }
 
@@ -104,11 +114,13 @@ async function executePost<T>(
       window.location.href = "/";
     }
     return json;
-  } finally {
+  }
+  finally {
     try {
       const { useUserStore } = await import("@/stores/userStore");
       useUserStore().setApiDelay(Date.now() - started);
-    } catch {
+    }
+    catch {
       /* 登录前或 pinia 尚未就绪时忽略 */
     }
   }
@@ -153,6 +165,7 @@ export async function postForm<T>(
 }
 
 export function unwrap<T>(data: ApiEnvelope<T>): T {
-  if (data.success !== 1) throw new Error(data.msg || "请求失败");
+  if (data.success !== 1)
+    throw new Error(data.msg || "请求失败");
   return data.info as T;
 }

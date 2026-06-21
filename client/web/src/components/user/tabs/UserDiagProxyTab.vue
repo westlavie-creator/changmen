@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
-import { useUserStore } from "@/stores/userStore";
+import { reactive, ref } from "vue";
 import { testProxyUrl } from "@/shared/proxyTest";
+import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
 const { proxyList } = storeToRefs(user);
@@ -14,11 +14,13 @@ const testMsg = ref<Record<number, string>>({});
 function normalizeUrl(raw: string) {
   const socks = /^socks5:\/\/([\d.]+):(\d+):(\w+):(\w+)$/;
   const m1 = raw.match(socks);
-  if (m1) return `socks5://${m1[3]}:${m1[4]}@${m1[1]}:${m1[2]}`;
+  if (m1)
+    return `socks5://${m1[3]}:${m1[4]}@${m1[1]}:${m1[2]}`;
 
   const pipe = /^([\d.]+)\|(\d+)\|(\w+)\|(\w+)\|/;
   const m2 = raw.match(pipe);
-  if (m2) return `socks5://${m2[3]}:${m2[4]}@${m2[1]}:${m2[2]}`;
+  if (m2)
+    return `socks5://${m2[3]}:${m2[4]}@${m2[1]}:${m2[2]}`;
 
   return raw;
 }
@@ -26,11 +28,13 @@ function normalizeUrl(raw: string) {
 const canAdd = () => !saving.value && Boolean(draft.label.trim() && draft.url.trim());
 
 async function addProxy() {
-  if (!canAdd()) return;
+  if (!canAdd())
+    return;
   const url = normalizeUrl(draft.url.trim());
   try {
     new URL(url);
-  } catch {
+  }
+  catch {
     ElMessage.error("代理地址格式错误");
     return;
   }
@@ -46,16 +50,19 @@ async function addProxy() {
     draft.label = "";
     draft.url = "";
     ElMessage.success("保存成功");
-  } finally {
+  }
+  finally {
     saving.value = false;
   }
 }
 
 async function removeProxy(proxyId: number) {
-  if (!confirm("删除此代理？")) return;
+  if (!confirm("删除此代理？"))
+    return;
   try {
     await user.deleteProxy(proxyId);
-  } catch (e) {
+  }
+  catch (e) {
     window.alert(e instanceof Error ? e.message : String(e));
   }
 }
@@ -65,7 +72,8 @@ async function saveRow(row: { proxyId: number; label: string; url: string }) {
   saving.value = true;
   try {
     await user.saveProxyList();
-  } finally {
+  }
+  finally {
     saving.value = false;
   }
 }
@@ -91,12 +99,16 @@ async function testProxy(row: { proxyId: number; url: string }) {
             :disabled="saving"
             @change="saveRow(row)"
           >
-            <template #prepend>标签</template>
+            <template #prepend>
+              标签
+            </template>
           </el-input>
         </el-col>
         <el-col :span="14">
           <el-input v-model="row.url" :disabled="saving" @change="saveRow(row)">
-            <template #prepend>地址</template>
+            <template #prepend>
+              地址
+            </template>
           </el-input>
         </el-col>
         <el-col :span="4">
@@ -110,7 +122,9 @@ async function testProxy(row: { proxyId: number; url: string }) {
         </el-col>
         <el-col v-if="testMsg[row.proxyId]" :span="24">
           <el-form-item label="测试结果:">
-            <div class="test-result">{{ testMsg[row.proxyId] }}</div>
+            <div class="test-result">
+              {{ testMsg[row.proxyId] }}
+            </div>
           </el-form-item>
         </el-col>
       </el-row>

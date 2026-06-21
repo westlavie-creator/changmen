@@ -29,9 +29,9 @@ export interface ArbProgressPayload {
 
 export interface ArbExecutionTrace {
   readonly id: string;
-  event(stage: string, detail: string): void;
-  setMeta(meta: ArbProgressPayload["meta"]): void;
-  finish(outcome: ArbProgressOutcome, summary?: string): void;
+  event: (stage: string, detail: string) => void;
+  setMeta: (meta: ArbProgressPayload["meta"]) => void;
+  finish: (outcome: ArbProgressOutcome, summary?: string) => void;
 }
 
 export function createArbExecutionTrace(
@@ -49,13 +49,15 @@ export function createArbExecutionTrace(
   const trace: ArbExecutionTrace = {
     id,
     event(stage, detail) {
-      if (finished) return;
+      if (finished)
+        return;
       events.push({ at: Date.now(), stage, detail });
     },
     setMeta(next) {
-      if (finished) return;
+      if (finished)
+        return;
       metaRef = next;
-      if (next?.implied != null && !events.some((e) => e.stage === "发现")) {
+      if (next?.implied != null && !events.some(e => e.stage === "发现")) {
         events.push({
           at: Date.now(),
           stage: "发现",
@@ -64,7 +66,8 @@ export function createArbExecutionTrace(
       }
     },
     finish(outcome, summary = "") {
-      if (finished) return;
+      if (finished)
+        return;
       finished = true;
       deliver?.({
         id,

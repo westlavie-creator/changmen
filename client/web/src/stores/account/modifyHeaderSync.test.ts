@@ -1,5 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { a8PluginSetStore, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { PlatformAccount } from "@/models/platformAccount";
+
 import {
   collectModifyHeaderRules,
   MODIFY_HEADER_KEY,
@@ -10,8 +12,6 @@ vi.mock("@/chrome-plugin/bridge", () => ({
   hasA8PluginRuntime: vi.fn(() => true),
   a8PluginSetStore: vi.fn(async () => {}),
 }));
-
-import { a8PluginSetStore, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 
 function makeAccount(patch: Record<string, unknown> = {}) {
   return new PlatformAccount({

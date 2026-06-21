@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { onMounted, onUnmounted, ref } from "vue";
 import { getClientData, saveClientData } from "@/api/esport";
 import { generateTotp, totpSecondsLeft } from "@/shared/totp";
 
@@ -33,7 +33,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer);
+  if (timer)
+    clearInterval(timer);
 });
 
 async function addGoogleCode() {
@@ -42,17 +43,20 @@ async function addGoogleCode() {
       confirmButtonText: "下一步",
       cancelButtonText: "取消",
     });
-    if (!name?.trim()) return;
+    if (!name?.trim())
+      return;
     const { value: key } = await ElMessageBox.prompt("密钥", name.trim(), {
       confirmButtonText: "确定",
       cancelButtonText: "取消",
     });
-    if (!key?.trim()) return;
+    if (!key?.trim())
+      return;
     codes.value.push({ name: name.trim(), key: key.trim() });
     await saveClientData("GoogleCode", JSON.stringify(codes.value));
     await refreshCodes();
     ElMessage.success("已添加");
-  } catch {
+  }
+  catch {
     /* cancel */
   }
 }
@@ -69,8 +73,12 @@ async function addGoogleCode() {
     </legend>
     <div class="flex googlecode">
       <div v-for="item in codes" :key="item.name" class="item">
-        <div class="name">{{ item.name }}</div>
-        <div class="code">{{ otpMap[item.name] ?? "------" }}</div>
+        <div class="name">
+          {{ item.name }}
+        </div>
+        <div class="code">
+          {{ otpMap[item.name] ?? "------" }}
+        </div>
       </div>
     </div>
   </fieldset>

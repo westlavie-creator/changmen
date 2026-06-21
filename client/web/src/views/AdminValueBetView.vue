@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from "vue";
+import type { EdgeEntry, ValueBetDashboard } from "@/types/valueBet";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { getValueBetDashboard } from "@/api/valueBet";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import { useUserStore } from "@/stores/userStore";
-import { getValueBetDashboard } from "@/api/valueBet";
-import type { ValueBetDashboard, EdgeEntry } from "@/types/valueBet";
 
 const router = useRouter();
 const user = useUserStore();
@@ -19,9 +19,11 @@ async function fetchData() {
   try {
     data.value = await getValueBetDashboard();
     error.value = "";
-  } catch (e) {
+  }
+  catch (e) {
     error.value = e instanceof Error ? e.message : String(e);
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
@@ -30,7 +32,8 @@ const diag = computed(() => data.value?.diagnostics);
 const cfg = computed(() => diag.value?.config);
 const openCount = computed(() => data.value?.signals.length ?? 0);
 const edgeDistTotal = computed(() => {
-  if (!diag.value?.edgeDist) return 0;
+  if (!diag.value?.edgeDist)
+    return 0;
   return Object.values(diag.value.edgeDist).reduce((s, n) => s + n, 0);
 });
 
@@ -50,9 +53,12 @@ function edgePct(e: number | string): string {
 }
 
 function edgeClass(e: number): string {
-  if (e >= 0.05) return "vb-edge--hot";
-  if (e >= 0.03) return "vb-edge--ok";
-  if (e >= 0.01) return "vb-edge--near";
+  if (e >= 0.05)
+    return "vb-edge--hot";
+  if (e >= 0.03)
+    return "vb-edge--ok";
+  if (e >= 0.01)
+    return "vb-edge--near";
   return "";
 }
 
@@ -61,7 +67,8 @@ function sideLabel(side: string): string {
 }
 
 function barWidth(count: number, total: number): string {
-  if (!total) return "0%";
+  if (!total)
+    return "0%";
   return `${Math.max(2, Math.round(count / total * 100))}%`;
 }
 
@@ -70,10 +77,13 @@ function isAboveThreshold(key: string): boolean {
 }
 
 function timeAgo(ts: string): string {
-  if (!ts) return "";
+  if (!ts)
+    return "";
   const sec = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
-  if (sec > 3600) return `${Math.floor(sec / 3600)}h`;
-  if (sec > 60) return `${Math.floor(sec / 60)}m`;
+  if (sec > 3600)
+    return `${Math.floor(sec / 3600)}h`;
+  if (sec > 60)
+    return `${Math.floor(sec / 60)}m`;
   return `${sec}s`;
 }
 
@@ -88,7 +98,8 @@ function topEdgeRowClass({ row }: { row: EdgeEntry }) {
 
 onMounted(async () => {
   if (!user.ready) {
-    try { await user.fetchUserInfo(); } catch {
+    try { await user.fetchUserInfo(); }
+    catch {
       sessionStorage.setItem("gamebet:postLoginRedirect", "/admin/value-bet");
       await router.replace({ name: "home" });
       return;
@@ -100,7 +111,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer);
+  if (timer)
+    clearInterval(timer);
 });
 </script>
 
@@ -113,19 +125,37 @@ onUnmounted(() => {
     <div v-if="data" class="vb-grid">
       <!-- ═══ 引擎配置 ═══ -->
       <div v-if="cfg" class="vb-card">
-        <div class="vb-card__title">引擎配置</div>
-        <div class="vb-row"><span>基准线（Sharp）</span><span class="vb-val vb-val--accent">{{ cfg.sharpPlatform }}</span></div>
-        <div class="vb-row"><span>目标平台</span><span class="vb-val">{{ cfg.softPlatforms.join(', ') }}</span></div>
-        <div class="vb-row"><span>最小 Edge</span><span class="vb-val">{{ (cfg.minEdge * 100).toFixed(1) }}%</span></div>
-        <div class="vb-row"><span>Kelly 系数</span><span class="vb-val">{{ cfg.kellyMultiplier }}x</span></div>
-        <div class="vb-row"><span>赔率范围</span><span class="vb-val">{{ cfg.minOdds }} ~ {{ cfg.maxOdds }}</span></div>
+        <div class="vb-card__title">
+          引擎配置
+        </div>
+        <div class="vb-row">
+          <span>基准线（Sharp）</span><span class="vb-val vb-val--accent">{{ cfg.sharpPlatform }}</span>
+        </div>
+        <div class="vb-row">
+          <span>目标平台</span><span class="vb-val">{{ cfg.softPlatforms.join(', ') }}</span>
+        </div>
+        <div class="vb-row">
+          <span>最小 Edge</span><span class="vb-val">{{ (cfg.minEdge * 100).toFixed(1) }}%</span>
+        </div>
+        <div class="vb-row">
+          <span>Kelly 系数</span><span class="vb-val">{{ cfg.kellyMultiplier }}x</span>
+        </div>
+        <div class="vb-row">
+          <span>赔率范围</span><span class="vb-val">{{ cfg.minOdds }} ~ {{ cfg.maxOdds }}</span>
+        </div>
       </div>
 
       <!-- ═══ 扫描概况 ═══ -->
       <div v-if="diag" class="vb-card">
-        <div class="vb-card__title">扫描概况</div>
-        <div class="vb-row"><span>活跃比赛</span><span class="vb-val vb-val--big">{{ diag.matchCount }}</span></div>
-        <div class="vb-row"><span>总盘口</span><span class="vb-val vb-val--big">{{ diag.totalBets }}</span></div>
+        <div class="vb-card__title">
+          扫描概况
+        </div>
+        <div class="vb-row">
+          <span>活跃比赛</span><span class="vb-val vb-val--big">{{ diag.matchCount }}</span>
+        </div>
+        <div class="vb-row">
+          <span>总盘口</span><span class="vb-val vb-val--big">{{ diag.totalBets }}</span>
+        </div>
         <div class="vb-row">
           <span>有 {{ cfg?.sharpPlatform }} 的盘口</span>
           <span class="vb-val" :class="diag.sharpPct > 20 ? 'vb-val--ok' : diag.sharpPct > 0 ? 'vb-val--warn' : 'vb-val--bad'">
@@ -144,7 +174,9 @@ onUnmounted(() => {
 
       <!-- ═══ 平台覆盖率 ═══ -->
       <div v-if="diag && diag.platformCoverage.length" class="vb-card">
-        <div class="vb-card__title">平台覆盖率</div>
+        <div class="vb-card__title">
+          平台覆盖率
+        </div>
         <div v-for="p in diag.platformCoverage" :key="p.platform" class="vb-coverage-row">
           <span class="vb-coverage-name" :class="{ 'vb-coverage-name--sharp': p.platform === cfg?.sharpPlatform }">
             {{ p.platform }}
@@ -159,7 +191,9 @@ onUnmounted(() => {
 
       <!-- ═══ Edge 分布 ═══ -->
       <div v-if="diag && edgeDistTotal > 0" class="vb-card">
-        <div class="vb-card__title">Edge 分布（PB vs 软盘）</div>
+        <div class="vb-card__title">
+          Edge 分布（PB vs 软盘）
+        </div>
         <div v-for="key in edgeDistOrder" :key="key" class="vb-dist-row">
           <span class="vb-dist-label" :class="{ 'vb-dist-label--pass': isAboveThreshold(key) }">
             {{ edgeDistLabels[key] }}
@@ -177,7 +211,9 @@ onUnmounted(() => {
 
       <!-- ═══ Top Edges（含低于阈值的） ═══ -->
       <div v-if="diag && diag.topEdges.length" class="vb-card vb-card--wide">
-        <div class="vb-card__title">Top 赔率偏差（含未达阈值）</div>
+        <div class="vb-card__title">
+          Top 赔率偏差（含未达阈值）
+        </div>
         <el-table :data="diag.topEdges.map(topEdgeRow)" size="small" stripe :row-class-name="topEdgeRowClass">
           <el-table-column label="比赛" min-width="160">
             <template #default="{ row }">
@@ -188,19 +224,27 @@ onUnmounted(() => {
             </template>
           </el-table-column>
           <el-table-column label="盘口" min-width="100">
-            <template #default="{ row }">{{ row.label }}</template>
+            <template #default="{ row }">
+              {{ row.label }}
+            </template>
           </el-table-column>
           <el-table-column prop="platform" label="软盘" width="65" align="center" />
           <el-table-column label="方向" width="55" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :type="row.side === 'Home' ? 'primary' : 'warning'" effect="plain">{{ sideLabel(row.side) }}</el-tag>
+              <el-tag size="small" :type="row.side === 'Home' ? 'primary' : 'warning'" effect="plain">
+                {{ sideLabel(row.side) }}
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="软赔率" width="75" align="right">
-            <template #default="{ row }">{{ row.softOdds.toFixed(3) }}</template>
+            <template #default="{ row }">
+              {{ row.softOdds.toFixed(3) }}
+            </template>
           </el-table-column>
           <el-table-column label="公平赔率" width="75" align="right">
-            <template #default="{ row }">{{ row.fairOdds.toFixed(3) }}</template>
+            <template #default="{ row }">
+              {{ row.fairOdds.toFixed(3) }}
+            </template>
           </el-table-column>
           <el-table-column label="Edge" width="80" align="right">
             <template #default="{ row }">
@@ -217,7 +261,9 @@ onUnmounted(() => {
 
       <!-- ═══ DB 信号（如果有） ═══ -->
       <div v-if="data.dbAvailable && data.signals.length" class="vb-card vb-card--wide">
-        <div class="vb-card__title">持久化信号（value_signals 表）</div>
+        <div class="vb-card__title">
+          持久化信号（value_signals 表）
+        </div>
         <el-table :data="data.signals" size="small" stripe>
           <el-table-column label="比赛" min-width="160">
             <template #default="{ row }">
@@ -228,12 +274,16 @@ onUnmounted(() => {
             </template>
           </el-table-column>
           <el-table-column label="盘口" min-width="100">
-            <template #default="{ row }">{{ row.map > 0 ? `M${row.map} ` : '' }}{{ row.bet_name }}</template>
+            <template #default="{ row }">
+              {{ row.map > 0 ? `M${row.map} ` : '' }}{{ row.bet_name }}
+            </template>
           </el-table-column>
           <el-table-column prop="soft_platform" label="软盘" width="65" align="center" />
           <el-table-column label="方向" width="55" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :type="row.soft_side === 'Home' ? 'primary' : 'warning'" effect="plain">{{ sideLabel(row.soft_side) }}</el-tag>
+              <el-tag size="small" :type="row.soft_side === 'Home' ? 'primary' : 'warning'" effect="plain">
+                {{ sideLabel(row.soft_side) }}
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="Edge" width="80" align="right">
@@ -242,25 +292,35 @@ onUnmounted(() => {
             </template>
           </el-table-column>
           <el-table-column label="Kelly" width="70" align="right">
-            <template #default="{ row }">{{ (Number(row.kelly_frac) * 100).toFixed(2) }}%</template>
+            <template #default="{ row }">
+              {{ (Number(row.kelly_frac) * 100).toFixed(2) }}%
+            </template>
           </el-table-column>
           <el-table-column label="发现" width="55" align="center">
-            <template #default="{ row }"><span class="vb-time">{{ timeAgo(row.created_at) }}</span></template>
+            <template #default="{ row }">
+              <span class="vb-time">{{ timeAgo(row.created_at) }}</span>
+            </template>
           </el-table-column>
         </el-table>
       </div>
 
       <!-- ═══ 历史统计 ═══ -->
       <div v-if="data.dbAvailable && data.stats.length" class="vb-card">
-        <div class="vb-card__title">信号历史</div>
+        <div class="vb-card__title">
+          信号历史
+        </div>
         <div v-for="s in data.stats" :key="s.status" class="vb-row">
-          <el-tag size="small" effect="dark" :type="s.status === 'open' ? 'success' : s.status === 'expired' ? 'info' : 'primary'">{{ s.status }}</el-tag>
+          <el-tag size="small" effect="dark" :type="s.status === 'open' ? 'success' : s.status === 'expired' ? 'info' : 'primary'">
+            {{ s.status }}
+          </el-tag>
           <span class="vb-val">{{ s.count }} 条 <span class="vb-sub">avg {{ edgePct(s.avg_edge) }}%</span></span>
         </div>
       </div>
     </div>
 
-    <div v-else-if="loading" class="vb-loading">加载中...</div>
+    <div v-else-if="loading" class="vb-loading">
+      加载中...
+    </div>
   </AdminLayout>
 </template>
 

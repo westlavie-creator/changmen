@@ -1,4 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearKakaxiQueue,
+  enqueueKakaxiBet,
+} from "@/stores/betting/kakaxi/queue";
+
+import {
+  armKakaxiScheduler,
+  drainKakaxiScheduler,
+  getKakaxiInFlightKey,
+  getKakaxiInFlightPlatforms,
+  processNextKakaxiBet,
+  resetKakaxiScheduler,
+} from "@/stores/betting/kakaxi/scheduler";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 const config = createDefaultUserConfig();
@@ -52,19 +65,6 @@ vi.mock("@/domain/arbitrage", () => ({
 vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: (params: unknown) => executeArbBet(params),
 }));
-
-import {
-  clearKakaxiQueue,
-  enqueueKakaxiBet,
-} from "@/stores/betting/kakaxi/queue";
-import {
-  armKakaxiScheduler,
-  drainKakaxiScheduler,
-  getKakaxiInFlightKey,
-  getKakaxiInFlightPlatforms,
-  processNextKakaxiBet,
-  resetKakaxiScheduler,
-} from "@/stores/betting/kakaxi/scheduler";
 
 function enqueueWithPlatforms(
   matchId: number,
@@ -202,7 +202,7 @@ describe("drainKakaxiScheduler", () => {
     await Promise.resolve();
     expect(gates.length).toBe(2);
 
-    gates.forEach((open) => open());
+    gates.forEach(open => open());
     const count = await drainPromise;
 
     expect(count).toBe(2);

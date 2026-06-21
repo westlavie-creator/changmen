@@ -1,8 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { ViewBet } from "@/models/match";
 import type { BetRowDto } from "@/types/esport";
-import { createDefaultUserConfig } from "@/types/userConfig";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pickArbLegs } from "@/domain/arbitrage/pickArbLegs";
+import { ViewBet } from "@/models/match";
+import { createDefaultUserConfig } from "@/types/userConfig";
 
 /** 模拟 fo 缓存；非 HG 平台不再用 Sources 快照作 fallback */
 let foOdds: Record<string, Record<string, number>> = {};

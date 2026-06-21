@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { shiftDateKey } from "@/shared/dateKey";
 
-const model = defineModel<string>({ required: true });
-
 withDefaults(
   defineProps<{
     disabled?: boolean;
@@ -19,8 +17,11 @@ const emit = defineEmits<{
   change: [value: string];
 }>();
 
+const model = defineModel<string>({ required: true });
+
 function onChange(value: string) {
-  if (value) emit("change", value);
+  if (value)
+    emit("change", value);
 }
 
 function shift(delta: number) {

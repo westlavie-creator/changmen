@@ -1,22 +1,21 @@
-import { opponentSide } from "@/models/betOption";
-import { saveOrderBind } from "@/api/esport";
-import type { PlatformAccount } from "@/models/platformAccount";
-import type { OrderBindRow } from "@/models/betResult";
 import type { VenueOrder } from "@platform/contract";
+import type { OrderBindRow } from "@/models/betResult";
+import type { PlatformAccount } from "@/models/platformAccount";
+import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
+import type { BettingMessageLeg, BettingMessageSingleLegRatePeer } from "@/stores/messageStore";
+import { saveOrderBind } from "@/api/esport";
+import { findSingleLegRateAccount } from "@/domain/betting/singleLegRate";
+import { opponentSide } from "@/models/betOption";
 import { useAccountStore } from "@/stores/accountStore";
-import {
-  useMessageStore,
-  type BettingMessageLeg,
-  type BettingMessageSingleLegRatePeer,
-} from "@/stores/messageStore";
-import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
 import { syncVenueRejectFlags } from "@/stores/betting/autoBet/venueRejectSync";
-import { findSingleLegRateAccount } from "@/domain/betting/singleLegRate";
-import { readUsedAccounts } from "@/stores/betting/successMarkers";
+import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
-import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
+import {
+
+  useMessageStore,
+} from "@/stores/messageStore";
 
 function singleLegRatePeer(
   params: ArbBetAttemptParams,
@@ -27,7 +26,8 @@ function singleLegRatePeer(
   const matchStore = useMatchStore();
   const accountStore = useAccountStore();
 
-  if (accountA && accountB) return null;
+  if (accountA && accountB)
+    return null;
 
   const skippedLeg = accountA ? legB : legA;
   const exclude = config.noSameBet
@@ -42,10 +42,10 @@ function singleLegRatePeer(
     matchStore,
     placed.implied,
   );
-  const platformLabel =
-    rateAccount?.platformName ||
-    rateAccount?.provider ||
-    skippedLeg.type;
+  const platformLabel
+    = rateAccount?.platformName
+      || rateAccount?.provider
+      || skippedLeg.type;
   return {
     kind: "singleLegRate",
     options: skippedLeg,
@@ -60,8 +60,10 @@ function buildBettingMessagePeers(
   rejectB: boolean,
 ): [BettingMessageLeg | BettingMessageSingleLegRatePeer, BettingMessageLeg | BettingMessageSingleLegRatePeer] | null {
   const { legA, legB, accountA, accountB, resultA, resultB, betBothLegs } = placed;
-  if (!resultA && !resultB) return null;
-  if (!(resultA?.success || resultB?.success)) return null;
+  if (!resultA && !resultB)
+    return null;
+  if (!(resultA?.success || resultB?.success))
+    return null;
 
   if (betBothLegs && accountA && accountB && resultA && resultB) {
     return [
@@ -71,7 +73,8 @@ function buildBettingMessagePeers(
   }
 
   const skipped = singleLegRatePeer(params, placed);
-  if (!skipped) return null;
+  if (!skipped)
+    return null;
 
   if (accountA && resultA?.success) {
     return [
@@ -161,20 +164,20 @@ export async function finalizeArbBet(
 
   await applyArbMakeUpFromRejects(params, placed, rejectA, rejectB);
   if (
-    betBothLegs &&
-    accountA &&
-    resultA?.success &&
-    !rejectA &&
-    (!resultB?.success || rejectB)
+    betBothLegs
+    && accountA
+    && resultA?.success
+    && !rejectA
+    && (!resultB?.success || rejectB)
   ) {
     trace?.event("补单", `已入队 ${legB.type} ${legB.target}`);
   }
   if (
-    betBothLegs &&
-    accountB &&
-    resultB?.success &&
-    !rejectB &&
-    (!resultA?.success || rejectA)
+    betBothLegs
+    && accountB
+    && resultB?.success
+    && !rejectB
+    && (!resultA?.success || rejectA)
   ) {
     trace?.event("补单", `已入队 ${legA.type} ${legA.target}`);
   }
@@ -197,21 +200,22 @@ export async function finalizeArbBet(
 
   const okA = Boolean(resultA?.success && accountA && !rejectA);
   const okB = Boolean(resultB?.success && accountB && !rejectB);
-  const makeupQueued =
-    (betBothLegs &&
-      accountA &&
-      resultA?.success &&
-      !rejectA &&
-      (!resultB?.success || rejectB)) ||
-    (betBothLegs &&
-      accountB &&
-      resultB?.success &&
-      !rejectB &&
-      (!resultA?.success || rejectA));
+  const makeupQueued
+    = (betBothLegs
+      && accountA
+      && resultA?.success
+      && !rejectA
+      && (!resultB?.success || rejectB))
+    || (betBothLegs
+      && accountB
+      && resultB?.success
+      && !rejectB
+      && (!resultA?.success || rejectA));
 
   if (okA && okB) {
     trace?.finish("success", "双腿成单");
-  } else if (resultA?.success || resultB?.success) {
+  }
+  else if (resultA?.success || resultB?.success) {
     const parts = [
       okA ? `${legA.type} 成` : null,
       okB ? `${legB.type} 成` : null,
@@ -219,7 +223,8 @@ export async function finalizeArbBet(
       makeupQueued ? "已入补单" : null,
     ].filter(Boolean);
     trace?.finish("partial", parts.join(" · ") || "部分成功");
-  } else {
+  }
+  else {
     trace?.finish("fail", "收尾无成功腿");
   }
 }

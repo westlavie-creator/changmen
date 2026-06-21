@@ -1,14 +1,14 @@
-import { ElMessageBox } from "element-plus";
-import { BetOption } from "@/models/betOption";
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
+import { ElMessageBox } from "element-plus";
+import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
+import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
+import { BetOption } from "@/models/betOption";
+import { manualBetToastSeconds } from "@/shared/betTiming";
+import { toFixed } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
+import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
-import { markSuccessfulBet } from "@/stores/betting/successMarkers";
-import { manualBetToastSeconds } from "@/shared/betTiming";
-import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
-import { toFixed } from "@/shared/format";
 
 export interface ManualBetContext {
   setMessage: (msg: string) => void;
@@ -66,13 +66,15 @@ export async function runManualBet(
         cancelButtonText: "取消",
         inputValue: String(configStore.config.betMoney || 10),
         inputType: "number",
-        inputValidator: (val) => (Number(val) > 0 ? true : "请输入有效金额"),
+        inputValidator: val => (Number(val) > 0 ? true : "请输入有效金额"),
         customClass: "manual-bet-prompt-box",
       },
     );
     amount = Number(value);
-    if (!amount || amount <= 0) return;
-  } catch {
+    if (!amount || amount <= 0)
+      return;
+  }
+  catch {
     return;
   }
 
@@ -105,7 +107,8 @@ export async function runManualBet(
     markSuccessfulBet(account, bet.id, side, option.odds);
     setMessage(`手动下单成功 ${item.type}@${option.odds}`);
     void accountStore.refreshBalance(account);
-  } else {
+  }
+  else {
     ElMessageBox.alert(result?.message || "下单失败", "下单失败");
   }
 }

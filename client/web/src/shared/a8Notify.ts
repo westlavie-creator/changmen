@@ -1,4 +1,5 @@
-import { ElNotification, type NotificationHandle } from "element-plus";
+import type { NotificationHandle } from "element-plus";
+import { ElNotification } from "element-plus";
 
 /** 对齐 A8 bundle `Pr.tip`：Element 通知 + 可选 countdown 倒计时 */
 export function a8Tip(title: string, message: string, durationMs = 3000): NotificationHandle {

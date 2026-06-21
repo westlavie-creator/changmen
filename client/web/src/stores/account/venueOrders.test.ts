@@ -1,7 +1,7 @@
+import type { VenueOrder } from "@platform/contract";
 import { describe, expect, it } from "vitest";
 import { PlatformAccount } from "@/models/platformAccount";
 import { applyUnsettledStats } from "@/stores/account/venueOrders";
-import type { VenueOrder } from "@platform/contract";
 
 function makeVenueOrder(
   partial: Pick<VenueOrder, "orderId" | "status" | "odds" | "betMoney">,

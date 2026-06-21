@@ -28,7 +28,8 @@ export function pickArbLegs(
   accounts: PlatformAccount[] = [],
   _gameName?: string,
 ): ArbLegs | undefined {
-  if (!config) return undefined;
+  if (!config)
+    return undefined;
 
   const allowSame = new Set(config.allowSameBet ?? []);
   const oddsOf = (item: ViewBetItem, side: BetSide) => item.getOdds(side);
@@ -42,12 +43,14 @@ export function pickArbLegs(
   });
   const homeItem = homeCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
     const odds = oddsOf(cur, "Home");
-    if (!best || odds > oddsOf(best, "Home")) return cur;
+    if (!best || odds > oddsOf(best, "Home"))
+      return cur;
     return best;
   }, undefined);
 
   const awayCandidates = bet.items.filter((v) => {
-    if (homeItem && homeItem.type === v.type) return false;
+    if (homeItem && homeItem.type === v.type)
+      return false;
     if (config.noSameBet && !allowSame.has(v.type) && isBetStub()) {
       return false;
     }
@@ -56,11 +59,13 @@ export function pickArbLegs(
   });
   const awayItem = awayCandidates.reduce<ViewBetItem | undefined>((best, cur) => {
     const odds = oddsOf(cur, "Away");
-    if (!best || odds > oddsOf(best, "Away")) return cur;
+    if (!best || odds > oddsOf(best, "Away"))
+      return cur;
     return best;
   }, undefined);
 
-  if (!homeItem || !awayItem) return undefined;
+  if (!homeItem || !awayItem)
+    return undefined;
 
   const homeOdds = oddsOf(homeItem, "Home");
   const awayOdds = oddsOf(awayItem, "Away");
@@ -68,14 +73,15 @@ export function pickArbLegs(
 
   let targetProfit = config.profit;
   const profitOverrides = accounts.filter(
-    (a) =>
-      a.profit !== 0 &&
-      (a.provider === homeItem.type || a.provider === awayItem.type),
+    a =>
+      a.profit !== 0
+      && (a.provider === homeItem.type || a.provider === awayItem.type),
   );
   if (profitOverrides.length) {
-    targetProfit = Math.max(...profitOverrides.map((a) => a.profit));
+    targetProfit = Math.max(...profitOverrides.map(a => a.profit));
   }
-  if (implied < targetProfit || implied > config.maxProfit) return undefined;
+  if (implied < targetProfit || implied > config.maxProfit)
+    return undefined;
 
   return { homeItem, awayItem, homeOdds, awayOdds, implied };
 }
@@ -85,7 +91,9 @@ export function arbLegSide(
   item: ViewBetItem,
   side: BetSide,
 ): boolean {
-  if (!legs) return false;
-  if (side === "Home") return legs.homeItem.type === item.type;
+  if (!legs)
+    return false;
+  if (side === "Home")
+    return legs.homeItem.type === item.type;
   return legs.awayItem.type === item.type;
 }

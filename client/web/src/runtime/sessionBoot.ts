@@ -6,7 +6,8 @@ let sessionBooted = false;
 
 /** [A8 可证实] 采集/HG 跟单在 SPA bundle（index.js）内启动，扩展 background 仅 HTTP 中继 */
 export async function bootSessionRuntime(): Promise<void> {
-  if (sessionBooted) return;
+  if (sessionBooted)
+    return;
   sessionBooted = true;
   useLoseOrderStore().init();
   const collectStore = useCollectStore();
@@ -23,7 +24,8 @@ export async function bootSessionRuntime(): Promise<void> {
 }
 
 export function stopSessionRuntime(): void {
-  if (!sessionBooted) return;
+  if (!sessionBooted)
+    return;
   sessionBooted = false;
   void import("@platform/hg").then(({ stopHgFollowLoop }) => stopHgFollowLoop());
   void import("@/runtime/collectors").then(({ stopCollectors }) => stopCollectors());

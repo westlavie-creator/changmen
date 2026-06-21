@@ -1,10 +1,10 @@
-import { getDefaultOdds } from "@/api/report";
 import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
-import { LoseOrder } from "@/models/loseOrder";
+import type { useLoseOrderStore } from "@/stores/loseOrderStore";
 import type { UserConfig } from "@/types/userConfig";
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { wait } from "@/shared/wait";
+import { getDefaultOdds } from "@/api/report";
+import { LoseOrder } from "@/models/loseOrder";
 import { a8Tip } from "@/shared/a8Notify";
+import { wait } from "@/shared/wait";
 
 /** 对齐 bundle `S()`：补单前初赔 / 当前赔阈值 */
 export async function allowMakeUpForLeg(
@@ -74,7 +74,8 @@ export async function enqueueMakeUpOrder(params: {
     config,
     setMessage,
   );
-  if (!okMakeUp) return;
+  if (!okMakeUp)
+    return;
 
   loseStore.createOrder(
     new LoseOrder({

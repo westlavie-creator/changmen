@@ -5,8 +5,8 @@ import { wait } from "@/shared/wait";
 const GOEASY_APPKEY = "BC-f7e9e309dbe5400eb34041afd4a0c6ad";
 const GOEASY_HOST = "hangzhou.goeasy.io";
 
-type GoEasyMessage = { content?: string };
-type PubSubLike = {
+interface GoEasyMessage { content?: string }
+interface PubSubLike {
   subscribe: (opts: {
     channel: string;
     onMessage: (msg: GoEasyMessage) => void;
@@ -20,15 +20,15 @@ type PubSubLike = {
     onFailed?: (err: { content?: string }) => void;
   }) => void;
   unsubscribe?: (opts: { channel: string }) => void;
-};
+}
 
-type GoEasyInstance = {
+interface GoEasyInstance {
   connect: (opts: {
     onSuccess?: () => void;
     onFailed?: (err: { code?: number; content?: string }) => void;
   }) => void;
   pubsub: PubSubLike;
-};
+}
 
 let instance: GoEasyInstance | null = null;
 let connectPromise: Promise<void> | null = null;
@@ -46,7 +46,8 @@ function getGoEasy(): GoEasyInstance {
 
 /** 对齐 A8 `W8e`：连接 GoEasy（BetTarget / 操盘 / USER 通道共用） */
 export function ensureGoEasyConnected(): Promise<void> {
-  if (connectPromise) return connectPromise;
+  if (connectPromise)
+    return connectPromise;
   connectPromise = new Promise((resolve, reject) => {
     getGoEasy().connect({
       onSuccess: () => resolve(),
@@ -69,9 +70,9 @@ export function goeasySubscribe(
       new Promise((resolve, reject) => {
         getGoEasy().pubsub.subscribe({
           channel,
-          onMessage: (msg) => onMessage(String(msg?.content ?? "")),
+          onMessage: msg => onMessage(String(msg?.content ?? "")),
           onSuccess: () => resolve(),
-          onFailed: (err) => reject(new Error(err?.content || "订阅失败")),
+          onFailed: err => reject(new Error(err?.content || "订阅失败")),
         });
       }),
   );
@@ -110,7 +111,8 @@ export async function goeasyRequestReply(
   payload: string,
   timeoutMs = 3000,
 ): Promise<unknown> {
-  if (!(await goeasyPublish(channel, payload))) return undefined;
+  if (!(await goeasyPublish(channel, payload)))
+    return undefined;
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     if (replyWaiters.has(msgId)) {

@@ -1,19 +1,19 @@
+import type { UserInfo } from "@/types/esport";
+import type { FollowConfig } from "@/types/order";
+import type { MessageConfig, ProxyRow } from "@/types/userExtras";
 import { defineStore } from "pinia";
+import { clearAuthSession, getRefreshToken } from "@/api/client";
 import {
-  getToken,
-  getUserInfo,
   login as apiLogin,
   logout as apiLogout,
   updateUserSetting as apiUpdateUserSetting,
   getClientData,
   getClientDataArray,
+  getToken,
+  getUserInfo,
   saveClientData,
 } from "@/api/esport";
-import { clearAuthSession, getRefreshToken } from "@/api/client";
 import { ensureTokenRefresh, stopTokenRefresh } from "@/lib/sessionRefresh";
-import type { UserInfo } from "@/types/esport";
-import type { MessageConfig, ProxyRow } from "@/types/userExtras";
-import type { FollowConfig } from "@/types/order";
 import { subscribeUserChannel, unsubscribeUserChannel } from "@/realtime/userChannel";
 
 const USER_KEY = "app:userName";
@@ -44,17 +44,20 @@ export const useUserStore = defineStore("user", {
 
   getters: {
     isLoggedIn: () => Boolean(getToken()),
-    isLeader: (state) => state.role === "leader",
-    canAccessAdmin: (state) => state.isAdmin || state.role === "leader",
+    isLeader: state => state.role === "leader",
+    canAccessAdmin: state => state.isAdmin || state.role === "leader",
 
     displayName(state): string {
       return state.hiddenUserName ? String(state.userId || "—") : state.userName;
     },
 
     delayLevel(state): "ok" | "warn" | "bad" | "none" {
-      if (!state.apiDelay) return "none";
-      if (state.apiDelay < 100) return "ok";
-      if (state.apiDelay < 500) return "warn";
+      if (!state.apiDelay)
+        return "none";
+      if (state.apiDelay < 100)
+        return "ok";
+      if (state.apiDelay < 500)
+        return "warn";
       return "bad";
     },
 
@@ -89,14 +92,16 @@ export const useUserStore = defineStore("user", {
         this.role = info.Role || "user";
         this.teamId = info.TeamId || null;
         const cp = info.CreditPlateUserName?.trim();
-        if (cp) this.creditPlateUserName = cp;
+        if (cp)
+          this.creditPlateUserName = cp;
         await this.loadExtras();
         void subscribeUserChannel(this.userId).catch((err) => {
           console.warn("[goeasy] USER channel:", err);
         });
         this.ready = true;
         this.error = null;
-      } catch (e) {
+      }
+      catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
         this.ready = false;
         throw e;
@@ -117,11 +122,13 @@ export const useUserStore = defineStore("user", {
       try {
         await this.fetchUserInfo();
         return true;
-      } catch {
+      }
+      catch {
         clearAuthSession();
         this.ready = false;
         return false;
-      } finally {
+      }
+      finally {
         this.sessionChecked = true;
       }
     },
@@ -146,9 +153,10 @@ export const useUserStore = defineStore("user", {
     },
 
     async loadExtras(force = false) {
-      if (this.extrasLoaded && !force) return;
+      if (this.extrasLoaded && !force)
+        return;
       const proxies = await getClientDataArray<ProxyRow>("PROXY");
-      this.proxyList = proxies.filter((p) => p?.proxyId != null);
+      this.proxyList = proxies.filter(p => p?.proxyId != null);
       const msg = await getClientData<MessageConfig>("Message");
       this.message = msg ?? {};
       const follow = await getClientData<FollowConfig & Record<string, unknown>>("Follow");
@@ -172,11 +180,11 @@ export const useUserStore = defineStore("user", {
     async deleteProxy(proxyId: number) {
       const { useAccountStore } = await import("@/stores/accountStore");
       const accounts = useAccountStore().accounts;
-      const inUse = accounts.some((a) => a.proxyId === proxyId);
+      const inUse = accounts.some(a => a.proxyId === proxyId);
       if (inUse) {
         throw new Error("当前代理正在被账号使用");
       }
-      this.proxyList = this.proxyList.filter((p) => p.proxyId !== proxyId);
+      this.proxyList = this.proxyList.filter(p => p.proxyId !== proxyId);
       await this.saveProxyList();
     },
 

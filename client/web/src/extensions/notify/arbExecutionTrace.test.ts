@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import type { ViewBet, ViewMatch } from "@/models/match";
+import { describe, expect, it, vi } from "vitest";
 import {
   createArbExecutionTrace,
   formatArbProgressTelegramBody,

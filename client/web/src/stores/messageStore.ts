@@ -1,20 +1,20 @@
-import { isArbScanSkipSummary } from "@/domain/betting/describeArbPrepareSkip";
-import { defineStore } from "pinia";
-import { sendMessage } from "@/api/esport";
-import type { ArbProgressPayload } from "@/stores/betting/autoBet/arbExecutionTrace";
-import { formatArbProgressTelegramBody } from "@/extensions/notify/formatArbProgress";
-import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
 import type { ArbMarketWatchGroup } from "@/extensions/arbMarketWatch/watchSinks";
-import { formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
-import { NOTIFY_TYPES } from "@/types/notifyTypes";
 import type { BetOption } from "@/models/betOption";
 import type { BetResult } from "@/models/betResult";
 import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
+import type { ArbProgressPayload } from "@/stores/betting/autoBet/arbExecutionTrace";
 import type { OrderRow } from "@/types/order";
-import { useUserStore } from "@/stores/userStore";
-import { useConfigStore } from "@/stores/configStore";
+import { defineStore } from "pinia";
+import { sendMessage } from "@/api/esport";
+import { isArbScanSkipSummary } from "@/domain/betting/describeArbPrepareSkip";
+import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
+import { formatArbProgressTelegramBody } from "@/extensions/notify/formatArbProgress";
+import { formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
 import { wait } from "@/shared/wait";
+import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
+import { NOTIFY_TYPES } from "@/types/notifyTypes";
 
 /**
  * [A8 可证实] bundle 固定报表群 / 发布群（Gi 中 g4e / m4e）。
@@ -60,7 +60,8 @@ function orderHtmlTitle(text: string, legStatus = "📣📣") {
 
 /** 对齐 A8 `Gi.send` 的 `d`：单腿成功/失败/拒单 */
 function orderLegStatusEmoji(success?: boolean, rejected?: boolean) {
-  if (rejected) return "🔴";
+  if (rejected)
+    return "🔴";
   return success ? "✅" : "❌";
 }
 
@@ -90,7 +91,8 @@ export const useMessageStore = defineStore("message", {
 
   actions: {
     start() {
-      if (this.running) return;
+      if (this.running)
+        return;
       this.running = true;
       void this.runLoop();
     },
@@ -118,14 +120,18 @@ export const useMessageStore = defineStore("message", {
           }
           if (FIXED_BROADCAST_TELEGRAM_ENABLED) {
             const report = this.reportQueue.pop();
-            if (report) await this.deliver(REPORT_CHAT_ID, report);
+            if (report)
+              await this.deliver(REPORT_CHAT_ID, report);
             const publish = this.publishQueue.pop();
-            if (publish) await this.deliver(PUBLISH_CHAT_ID, publish);
-          } else {
+            if (publish)
+              await this.deliver(PUBLISH_CHAT_ID, publish);
+          }
+          else {
             this.reportQueue.length = 0;
             this.publishQueue.length = 0;
           }
-        } catch (err) {
+        }
+        catch (err) {
           console.error("[messageStore]", err);
         }
         await wait(1000);
@@ -135,10 +141,10 @@ export const useMessageStore = defineStore("message", {
     async deliver(chatIds: string, text: string) {
       const ids = chatIds
         .split(",")
-        .map((s) => s.trim())
+        .map(s => s.trim())
         .filter(Boolean);
       await Promise.all(
-        ids.map((chat_id) =>
+        ids.map(chat_id =>
           sendMessage({ chat_id, text, parse_mode: "HTML" }).catch(() => false),
         ),
       );
@@ -146,10 +152,12 @@ export const useMessageStore = defineStore("message", {
 
     /** typeIndex 对应 NOTIFY_TYPES；cooldownSec=0 表示不去重 */
     shouldNotify(typeIndex: number, key: string, cooldownSec = 1800) {
-      if (cooldownSec === 0) return true;
+      if (cooldownSec === 0)
+        return true;
       const storageKey = `${DEDUP_PREFIX}${typeIndex}:${key}`;
       const last = Number(sessionStorage.getItem(storageKey) || 0);
-      if (Date.now() - last < cooldownSec * 1000) return false;
+      if (Date.now() - last < cooldownSec * 1000)
+        return false;
       sessionStorage.setItem(storageKey, String(Date.now()));
       return true;
     },
@@ -164,9 +172,11 @@ export const useMessageStore = defineStore("message", {
 
     /** 对齐 A8 `Gi.send.BalanceMessage`：余额 ≥ maxBalance 时 Telegram 提醒 */
     balanceMessage(account: PlatformAccount, cooldownSec = 1800) {
-      if (!account.maxBalance || (account.balance ?? 0) < account.maxBalance) return;
+      if (!account.maxBalance || (account.balance ?? 0) < account.maxBalance)
+        return;
       const idx = NOTIFY_TYPES.indexOf("Balance");
-      if (!this.shouldNotify(idx, String(account.accountId), cooldownSec)) return;
+      if (!this.shouldNotify(idx, String(account.accountId), cooldownSec))
+        return;
       const body = [
         htmlTitle("余额超限提醒"),
         balanceAccountLine(account),
@@ -178,15 +188,16 @@ export const useMessageStore = defineStore("message", {
     /** 对齐 A8 `Gi.send.ProfitMessage`：totalProfit ≥ maxProfit 时 Telegram 提醒 */
     profitMessage(account: PlatformAccount, cooldownSec = 1800) {
       if (
-        !account.maxProfit ||
-        !account.totalProfit ||
-        account.totalProfit < account.maxProfit ||
-        account.pause
+        !account.maxProfit
+        || !account.totalProfit
+        || account.totalProfit < account.maxProfit
+        || account.pause
       ) {
         return;
       }
       const idx = NOTIFY_TYPES.indexOf("Profit");
-      if (!this.shouldNotify(idx, String(account.accountId), cooldownSec)) return;
+      if (!this.shouldNotify(idx, String(account.accountId), cooldownSec))
+        return;
       const body = [
         htmlTitle("账号盈利超过预设值"),
         balanceAccountLine(account),
@@ -197,7 +208,8 @@ export const useMessageStore = defineStore("message", {
 
     collectMessage(platform: string, detail: string) {
       const idx = NOTIFY_TYPES.indexOf("Balance");
-      if (!this.shouldNotify(idx, platform, 600)) return;
+      if (!this.shouldNotify(idx, platform, 600))
+        return;
       const body = [
         htmlTitle(`${platform} 本地采集发生错误`),
         `<blockquote>${detail}</blockquote>`,
@@ -229,7 +241,8 @@ export const useMessageStore = defineStore("message", {
 
     /** [A8 可证实] `Gi.send.DelayMessage`：耗时 ≥2s 时 Telegram 延迟提醒 */
     delayMessage(account: PlatformAccount, elapsedMs: number) {
-      if (elapsedMs < 2000) return;
+      if (elapsedMs < 2000)
+        return;
       const body = [
         htmlTitle("注单延迟收单提醒"),
         balanceAccountLine(account),
@@ -243,20 +256,24 @@ export const useMessageStore = defineStore("message", {
      */
     arbProgressMessage(payload: ArbProgressPayload) {
       const user = useUserStore();
-      if (!user.message?.telegramId?.trim()) return;
-      if (user.message.notifyArbProgress !== true) return;
+      if (!user.message?.telegramId?.trim())
+        return;
+      if (user.message.notifyArbProgress !== true)
+        return;
 
-      if (payload.outcome === "skip" && isArbScanSkipSummary(payload.summary)) return;
+      if (payload.outcome === "skip" && isArbScanSkipSummary(payload.summary))
+        return;
 
-      const cooldown =
-        payload.outcome === "fail"
+      const cooldown
+        = payload.outcome === "fail"
           ? 120
           : payload.outcome === "skip"
             ? 300
             : 120;
       const storageKey = `${DEDUP_PREFIX}arb-progress:${payload.matchId}:${payload.betId}:${payload.outcome}:${payload.summary}`;
       const last = Number(sessionStorage.getItem(storageKey) || 0);
-      if (Date.now() - last < cooldown * 1000) return;
+      if (Date.now() - last < cooldown * 1000)
+        return;
       sessionStorage.setItem(storageKey, String(Date.now()));
 
       this.enqueueTelegram(formatArbProgressTelegramBody(payload));
@@ -267,13 +284,16 @@ export const useMessageStore = defineStore("message", {
      */
     marketWatchMessage(group: ArbMarketWatchGroup) {
       const user = useUserStore();
-      if (!user.message?.telegramId?.trim()) return;
-      if (user.message.notifyArbOpportunity !== true) return;
+      if (!user.message?.telegramId?.trim())
+        return;
+      if (user.message.notifyArbOpportunity !== true)
+        return;
 
       if (group.kind === "appeared") {
         const storageKey = `${DEDUP_PREFIX}arb-opp:appeared:${group.anchor}`;
         const last = Number(sessionStorage.getItem(storageKey) || 0);
-        if (Date.now() - last < 600_000) return;
+        if (Date.now() - last < 600_000)
+          return;
         sessionStorage.setItem(storageKey, String(Date.now()));
       }
 
@@ -307,14 +327,15 @@ export const useMessageStore = defineStore("message", {
       };
 
       const peerStatusEmoji = (leg: BettingMessagePeer) => {
-        if (isSingleLegRatePeer(leg)) return "⏭";
+        if (isSingleLegRatePeer(leg))
+          return "⏭";
         return orderLegStatusEmoji(leg.result.success, leg.reject);
       };
 
       const legStatus = [peerStatusEmoji(legA), peerStatusEmoji(legB)].join("");
       const matchTitle = legA.options.match?.title ?? legB.options.match?.title ?? "";
-      const betName =
-        legA.options.bet?.getBetName?.() ?? legB.options.bet?.getBetName?.() ?? "";
+      const betName
+        = legA.options.bet?.getBetName?.() ?? legB.options.bet?.getBetName?.() ?? "";
 
       this.enqueueTelegram(
         [
@@ -327,10 +348,10 @@ export const useMessageStore = defineStore("message", {
       );
 
       const homeLeg = [legA, legB].find(
-        (leg) => leg.options.target === "Home" && !isSingleLegRatePeer(leg),
+        leg => leg.options.target === "Home" && !isSingleLegRatePeer(leg),
       );
       const awayLeg = [legA, legB].find(
-        (leg) => leg.options.target === "Away" && !isSingleLegRatePeer(leg),
+        leg => leg.options.target === "Away" && !isSingleLegRatePeer(leg),
       );
       if (homeLeg && awayLeg && !isSingleLegRatePeer(homeLeg) && !isSingleLegRatePeer(awayLeg)) {
         const implied = 1 / (1 / homeLeg.options.odds + 1 / awayLeg.options.odds);
@@ -371,11 +392,13 @@ export const useMessageStore = defineStore("message", {
     },
 
     orderReportMessage(accounts: PlatformAccount[], orders: OrderRow[]) {
-      if (!orders.length) return;
+      if (!orders.length)
+        return;
       const today = formatDateKey();
       const firstDay = formatDateKey(new Date(Number(orders[0].CreateAt) || Date.now()));
       const reportIdx = NOTIFY_TYPES.indexOf("OrderReport");
-      if (firstDay !== today || !this.shouldNotify(reportIdx, "ORDERREPORT", 3600)) return;
+      if (firstDay !== today || !this.shouldNotify(reportIdx, "ORDERREPORT", 3600))
+        return;
 
       const totalProfit = orders.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
       const lines = [
@@ -400,16 +423,19 @@ export const useMessageStore = defineStore("message", {
     },
 
     async publishLoseOrderMessage() {
-      if (!FIXED_BROADCAST_TELEGRAM_ENABLED) return;
+      if (!FIXED_BROADCAST_TELEGRAM_ENABLED)
+        return;
       const user = useUserStore();
-      if (!user.setting?.Publisher) return;
+      if (!user.setting?.Publisher)
+        return;
       const { useLoseOrderStore } = await import("@/stores/loseOrderStore");
       const loseStore = useLoseOrderStore();
       const lines = [htmlTitle(`[${user.userName}] 补单队列变化`)];
       for (const order of loseStore.orders.values()) {
         lines.push("<blockquote>", order.match, order.bet, `目标：${order.target}`, "</blockquote>");
       }
-      if (lines.length <= 1) return;
+      if (lines.length <= 1)
+        return;
       this.publishQueue.push(lines.join("\n"));
     },
   },

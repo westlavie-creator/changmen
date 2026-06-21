@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { storeToRefs } from "pinia";
 import type { PlatformId } from "@/types/esport";
-import { ALL_PLATFORMS } from "@/types/userConfig";
-import { useCollectStore } from "@/stores/collectStore";
+import { storeToRefs } from "pinia";
+import { computed, ref } from "vue";
 import { CREDIT_PLATE_ENTRIES, enterCreditPlate } from "@/api/v4";
 import { syncCollectorsFromConfig } from "@/runtime/collectors";
+import { useCollectStore } from "@/stores/collectStore";
+import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const collect = useCollectStore();
 const { log } = storeToRefs(collect);
@@ -14,7 +14,7 @@ const { log } = storeToRefs(collect);
 const switchesDisabled = ref(true);
 
 const platformRows = computed(() =>
-  ALL_PLATFORMS.map((id) => [id, collect.isEnabled(id)] as [PlatformId, boolean]),
+  ALL_PLATFORMS.map(id => [id, collect.isEnabled(id)] as [PlatformId, boolean]),
 );
 
 function toggleSwitchesLock() {
@@ -22,12 +22,14 @@ function toggleSwitchesLock() {
 }
 
 async function toggleLog() {
-  if (switchesDisabled.value) return;
+  if (switchesDisabled.value)
+    return;
   await collect.saveConfig({ log: !log.value });
 }
 
 async function togglePlatform(platform: PlatformId, on: boolean) {
-  if (switchesDisabled.value) return;
+  if (switchesDisabled.value)
+    return;
   const next = new Map(collect.collect);
   next.set(platform, on);
   await collect.saveConfig({ collect: next });
@@ -74,7 +76,9 @@ async function openCredit(platform: PlatformId) {
       <el-button type="primary" @click="openCredit(entry.id)">
         <div class="flex flex-middle">
           <div class="provider-icon" :class="entry.id" />
-          <div class="name">{{ entry.label }}</div>
+          <div class="name">
+            {{ entry.label }}
+          </div>
         </div>
       </el-button>
     </div>

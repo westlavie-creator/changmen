@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import type { CurrencyCode } from "@/shared/currency";
 import { ElMessage } from "element-plus";
+import { computed, ref, watch } from "vue";
 import { getMoneyLog, saveMoneyLog } from "@/api/esport";
-import { Currency, MONEY_CURRENCIES, type CurrencyCode } from "@/shared/currency";
+import { Currency, MONEY_CURRENCIES } from "@/shared/currency";
 
 /** 对齐 A8 bundle `MoneyInfoView`（lDe） */
 const props = defineProps<{
@@ -61,7 +62,8 @@ watch(
 watch(
   () => [props.open, props.logId, props.playerId] as const,
   async ([open, logId, playerId]) => {
-    if (!open) return;
+    if (!open)
+      return;
     loading.value = true;
     try {
       form.value.PlayerID = playerId;
@@ -83,7 +85,8 @@ watch(
           IsAuto: (row.IsAuto ?? row.isAuto ?? 0) as 0 | 1,
           CreateAt: Number(row.CreateAt ?? row.createAt) || Date.now(),
         };
-      } else {
+      }
+      else {
         form.value = {
           ID: 0,
           UserID: 0,
@@ -96,7 +99,8 @@ watch(
           CreateAt: Date.now(),
         };
       }
-    } finally {
+    }
+    finally {
       loading.value = false;
     }
   },
@@ -106,9 +110,9 @@ watch(
 function onDescriptionChange() {
   const c = /\d+sec|\d+s$/i;
   if (
-    form.value.Type === "Withdraw" &&
-    form.value.Description &&
-    c.test(form.value.Description)
+    form.value.Type === "Withdraw"
+    && form.value.Description
+    && c.test(form.value.Description)
   ) {
     form.value.IsAuto = 1;
   }
@@ -119,7 +123,8 @@ function onClosed() {
 }
 
 async function save() {
-  if (!canSave.value) return;
+  if (!canSave.value)
+    return;
   const ok = await saveMoneyLog({
     logId: props.logId,
     playerId: props.playerId,
@@ -178,7 +183,9 @@ async function save() {
 
       <el-form-item label="金额:">
         <el-input v-model.number="form.Money" class="money-item">
-          <template #prepend>{{ typeLabels[form.Type] }} {{ form.Currency }}</template>
+          <template #prepend>
+            {{ typeLabels[form.Type] }} {{ form.Currency }}
+          </template>
           <template #append>
             <el-date-picker
               v-model="createAtModel"

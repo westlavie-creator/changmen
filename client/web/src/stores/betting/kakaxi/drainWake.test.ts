@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KAKAXI_DRAIN_WAKE_DEBOUNCE_MS, KAKAXI_WAKE_DRAIN_MAX_BETS, KAKAXI_WAKE_DRAIN_MAX_MS } from "@/stores/betting/kakaxi/config";
 
-type DrainCtx = { setMessage: (msg: string) => void };
+import {
+  resetKakaxiDrainWake,
+  wakeKakaxiDrain,
+} from "@/stores/betting/kakaxi/drainWake";
+
+interface DrainCtx { setMessage: (msg: string) => void }
 
 const drainKakaxiScheduler = vi.fn(async (_ctx: DrainCtx, _options?: unknown) => 1);
 const config = { betting: true };
@@ -23,11 +28,6 @@ vi.mock("@/stores/bettingStore", () => ({
 vi.mock("@/stores/betting/kakaxi/queue", () => ({
   kakaxiQueueSize: () => queueSize,
 }));
-
-import {
-  resetKakaxiDrainWake,
-  wakeKakaxiDrain,
-} from "@/stores/betting/kakaxi/drainWake";
 
 describe("wakeKakaxiDrain", () => {
   beforeEach(() => {

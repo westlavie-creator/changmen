@@ -1,19 +1,19 @@
-/** 对齐 console `mr.test`：Axios 经本地 PROXY 中继访问 `/IP` */
-import { a8Axios } from "@/shared/a8Axios";
 import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
 import { getApiBase } from "@/config/apiBase";
+/** 对齐 console `mr.test`：Axios 经本地 PROXY 中继访问 `/IP` */
+import { a8Axios } from "@/shared/a8Axios";
 
 function proxyRelayEntry(): string {
-  const proxyOrigin =
-    typeof localStorage !== "undefined" ? localStorage.getItem("PROXY")?.trim() : "";
+  const proxyOrigin
+    = typeof localStorage !== "undefined" ? localStorage.getItem("PROXY")?.trim() : "";
   return buildHttpRelayUrl({ apiBase: getApiBase(), proxyOrigin: proxyOrigin || undefined });
 }
 
-export type ProxyTestResult = {
+export interface ProxyTestResult {
   delay: number;
   ip?: string;
   address?: string;
-};
+}
 
 export async function testProxyUrl(proxyUrl: string): Promise<ProxyTestResult | undefined> {
   const started = Date.now();
@@ -27,13 +27,15 @@ export async function testProxyUrl(proxyUrl: string): Promise<ProxyTestResult | 
         },
       },
     );
-    if (res.status !== 200 || !res.data?.info) return undefined;
+    if (res.status !== 200 || !res.data?.info)
+      return undefined;
     return {
       delay: Date.now() - started,
       ip: res.data.info.IP,
       address: res.data.info.Address,
     };
-  } catch {
+  }
+  catch {
     return undefined;
   }
 }

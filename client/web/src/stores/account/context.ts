@@ -11,9 +11,9 @@ export interface AccountStoreContext {
   loaded: boolean;
   editDialogOpen: boolean;
   editDialogAccount: PlatformAccount | undefined;
-  findAccount(accountId?: number): PlatformAccount | undefined;
-  getPlatformName(platformId?: number, fallback?: string): string;
-  saveAccounts(): Promise<boolean>;
-  loadTagPlatforms(): Promise<void>;
-  refreshAllFromVenues(): Promise<void>;
+  findAccount: (accountId?: number) => PlatformAccount | undefined;
+  getPlatformName: (platformId?: number, fallback?: string) => string;
+  saveAccounts: () => Promise<boolean>;
+  loadTagPlatforms: () => Promise<void>;
+  refreshAllFromVenues: () => Promise<void>;
 }

@@ -1,12 +1,12 @@
-import { BetOption } from "@/models/betOption";
-import { BetResult } from "@/models/betResult";
+import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
+import type { AccountStoreContext } from "@/stores/account/context";
+import { ElNotification } from "element-plus";
+import { BetResult } from "@/models/betResult";
 import { publishBettingEvent } from "@/realtime/publishBetting";
 import { getProvider } from "@/runtime/providers";
 import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify";
-import type { AccountStoreContext } from "@/stores/account/context";
 import { useMessageStore } from "@/stores/messageStore";
-import { ElNotification } from "element-plus";
 
 export async function checkBetting(
   _store: AccountStoreContext,
@@ -25,10 +25,12 @@ export async function checkBetting(
   try {
     option.betMoney = account.getBetMoney(option.betMoney, option.odds);
     return await provider.checkBet(account, option);
-  } catch (e) {
+  }
+  catch (e) {
     option.checkError = e instanceof Error ? e.message : JSON.stringify(e);
     return option;
-  } finally {
+  }
+  finally {
     option.saveLog(account);
   }
 }
@@ -39,9 +41,11 @@ export async function placeBet(
   option: BetOption,
   toastSeconds = 10,
 ) {
-  if (!account) return new BetResult(option.type, false, "无可用账号");
+  if (!account)
+    return new BetResult(option.type, false, "无可用账号");
   const provider = getProvider(account);
-  if (!provider) return new BetResult(option.type, false, "平台不支持");
+  if (!provider)
+    return new BetResult(option.type, false, "平台不支持");
 
   const platformLabel = store.getPlatformName(account.platformId, account.platformName);
   const accountTitle = `${account.provider} / ${platformLabel} / ${account.playerName}`;
@@ -71,17 +75,20 @@ export async function placeBet(
     }
     if (!option.data) {
       result = new BetResult(option.type, false, option.checkError || "预检失败");
-    } else {
+    }
+    else {
       result = await provider.betting(account, option);
     }
-  } catch (e) {
+  }
+  catch (e) {
     result = new BetResult(
       account.provider,
       false,
       e instanceof Error ? e.message : String(e),
       option.data,
     );
-  } finally {
+  }
+  finally {
     loading.close();
     ElNotification({
       title: accountTitle,

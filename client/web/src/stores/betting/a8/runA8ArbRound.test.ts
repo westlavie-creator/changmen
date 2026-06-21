@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { runA8ArbRound } from "@/stores/betting/a8/runA8ArbRound";
+
+import { executeArbBet } from "@/stores/betting/autoBet/executeArbBet";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 const config = createDefaultUserConfig();
@@ -17,9 +20,6 @@ vi.mock("@/stores/matchStore", () => ({
 vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: vi.fn(async () => {}),
 }));
-
-import { runA8ArbRound } from "@/stores/betting/a8/runA8ArbRound";
-import { executeArbBet } from "@/stores/betting/autoBet/executeArbBet";
 
 describe("runA8ArbRound", () => {
   beforeEach(() => {

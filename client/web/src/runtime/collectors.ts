@@ -1,5 +1,5 @@
-import type { PlatformId } from "@/types/esport";
 import type { CollectorFactory } from "@platform/contract";
+import type { PlatformId } from "@/types/esport";
 import { buildCollectorFactories } from "@platform/registry/adapters";
 import { useCollectStore } from "@/stores/collectStore";
 
@@ -11,7 +11,8 @@ const COLLECTOR_FACTORIES: Partial<Record<PlatformId, CollectorFactory>> = build
 
 export async function startCollectors() {
   const collect = useCollectStore();
-  if (!collect.ready) await collect.init();
+  if (!collect.ready)
+    await collect.init();
 
   for (const [platform, factory] of Object.entries(COLLECTOR_FACTORIES) as [PlatformId, CollectorFactory][]) {
     syncCollector(platform, true, factory);
@@ -25,7 +26,8 @@ export function stopCollectors() {
 
 export function syncCollectorsFromConfig() {
   const collect = useCollectStore();
-  if (!collect.ready) return;
+  if (!collect.ready)
+    return;
   for (const [platform, factory] of Object.entries(COLLECTOR_FACTORIES) as [PlatformId, CollectorFactory][]) {
     if (!runners.has(platform)) {
       syncCollector(platform, true, factory);
@@ -41,5 +43,6 @@ function syncCollector(platform: PlatformId, enabled: boolean, factory: Collecto
     prev();
     runners.delete(platform);
   }
-  if (enabled) runners.set(platform, factory());
+  if (enabled)
+    runners.set(platform, factory());
 }

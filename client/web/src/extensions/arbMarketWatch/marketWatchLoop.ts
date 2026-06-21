@@ -1,16 +1,17 @@
-import { detectOpportunities } from "@/extensions/arbOpportunity/detect";
-import {
-  diffOpportunities,
-  snapshotOpportunities,
-  type OpportunityTransition,
-} from "@/extensions/arbOpportunity/state";
-import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
-import { deliverMarketWatchSink } from "@/extensions/arbMarketWatch/watchSinks";
 import type { DetectOpportunitiesParams } from "@/extensions/arbOpportunity/detect";
+import type { OpportunityTransition } from "@/extensions/arbOpportunity/state";
+import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
 import type { ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
+import { deliverMarketWatchSink } from "@/extensions/arbMarketWatch/watchSinks";
+import { detectOpportunities } from "@/extensions/arbOpportunity/detect";
+import {
+  diffOpportunities,
+
+  snapshotOpportunities,
+} from "@/extensions/arbOpportunity/state";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -59,7 +60,8 @@ export function startMarketWatchLoop(): void {
   let stopped = false;
 
   const runTick = () => {
-    if (stopped) return;
+    if (stopped)
+      return;
 
     const configStore = useConfigStore();
     const accountStore = useAccountStore();
@@ -95,8 +97,10 @@ export function startMarketWatchLoop(): void {
   };
 
   const scheduleDebounced = () => {
-    if (stopped) return;
-    if (debounceTimer) clearTimeout(debounceTimer);
+    if (stopped)
+      return;
+    if (debounceTimer)
+      clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       debounceTimer = undefined;
       runTick();
@@ -114,7 +118,8 @@ export function startMarketWatchLoop(): void {
   activeLoop = {
     stop: () => {
       stopped = true;
-      if (debounceTimer) clearTimeout(debounceTimer);
+      if (debounceTimer)
+        clearTimeout(debounceTimer);
       clearInterval(fallbackInterval);
       unsubscribeOdds();
       activeLoop = null;

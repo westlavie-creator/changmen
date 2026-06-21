@@ -1,8 +1,8 @@
-import { BetOption } from "@/models/betOption";
-import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
+import type { BetOption } from "@/models/betOption";
+import type { BetResult } from "@/models/betResult";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { BetResult } from "@/models/betResult";
+import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import type { UserConfig } from "@/types/userConfig";
 
 export interface ArbBetReady {

@@ -12,7 +12,8 @@ onMounted(async () => {
   if (!user.ready) {
     try {
       await user.fetchUserInfo();
-    } catch {
+    }
+    catch {
       sessionStorage.setItem("gamebet:postLoginRedirect", "/admin");
       await router.replace({ name: "home" });
       return;

@@ -1,9 +1,9 @@
-import { PlatformAccount } from "@/models/platformAccount";
 import type { AdminAccountDetail } from "@/types/admin";
 import type { PlatformId } from "@/types/esport";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
+import { PlatformAccount } from "@/models/platformAccount";
 
-export type AccountEditFormState = {
+export interface AccountEditFormState {
   platformName: string;
   playerName: string;
   provider: PlatformId;
@@ -37,7 +37,7 @@ export type AccountEditFormState = {
   workTimes: string[];
   rateConfig: { minOdds: number; maxOdds: number; rate: number }[];
   game: Record<string, { betCount: number; profit: number; odds: string[] }>;
-};
+}
 
 function defaultGameMap() {
   return JSON.parse(
@@ -80,7 +80,7 @@ export function createAccountEditFormStateFromPlatformAccount(
     city: acc.city || "",
     description: acc.description || "",
     workTimes: acc.workTimes?.length ? [...acc.workTimes] : [],
-    rateConfig: acc.rateConfig?.length ? acc.rateConfig.map((r) => ({ ...r })) : [],
+    rateConfig: acc.rateConfig?.length ? acc.rateConfig.map(r => ({ ...r })) : [],
     game: JSON.parse(JSON.stringify(acc.game ?? defaultGameMap())),
   };
 }
@@ -127,7 +127,7 @@ export function createAccountEditFormStateFromAdmin(acc: AdminAccountDetail): Ac
     city: acc.city || "",
     description: acc.description || "",
     workTimes: acc.workTimes?.length ? [...acc.workTimes] : [],
-    rateConfig: acc.rateConfig?.length ? acc.rateConfig.map((r) => ({ ...r })) : [],
+    rateConfig: acc.rateConfig?.length ? acc.rateConfig.map(r => ({ ...r })) : [],
     game: JSON.parse(JSON.stringify(acc.game ?? base.game)),
   };
 }

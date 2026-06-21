@@ -1,4 +1,5 @@
-import { ALL_PLATFORMS, type BetSorting, type UserConfig } from "@/types/userConfig";
+import type { BetSorting, UserConfig } from "@/types/userConfig";
+import { ALL_PLATFORMS } from "@/types/userConfig";
 
 export const USER_CONFIG_LABEL_W = "80px";
 

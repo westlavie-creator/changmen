@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ViewMatch } from "@/models/match";
-import { formatDate } from "@/shared/format";
 import BetRow from "@/components/match/BetRow.vue";
+import { formatDate } from "@/shared/format";
 
 defineProps<{
   match: ViewMatch;

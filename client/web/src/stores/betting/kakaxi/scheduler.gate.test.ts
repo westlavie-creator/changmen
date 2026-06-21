@@ -1,6 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createDefaultUserConfig } from "@/types/userConfig";
 import type { KakaxiPreGateResult } from "@/stores/betting/kakaxi/preExecuteGate";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearKakaxiQueue,
+  enqueueKakaxiBet,
+  hasKakaxiBet,
+  kakaxiQueueSize,
+} from "@/stores/betting/kakaxi/queue";
+
+import {
+  armKakaxiScheduler,
+  processNextKakaxiBet,
+  resetKakaxiScheduler,
+} from "@/stores/betting/kakaxi/scheduler";
+import { createDefaultUserConfig } from "@/types/userConfig";
 
 const config = createDefaultUserConfig();
 const matchStoreState = {
@@ -56,18 +68,6 @@ vi.mock("@/domain/arbitrage", () => ({
 vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: (params: unknown) => executeArbBet(params),
 }));
-
-import {
-  clearKakaxiQueue,
-  enqueueKakaxiBet,
-  hasKakaxiBet,
-  kakaxiQueueSize,
-} from "@/stores/betting/kakaxi/queue";
-import {
-  armKakaxiScheduler,
-  processNextKakaxiBet,
-  resetKakaxiScheduler,
-} from "@/stores/betting/kakaxi/scheduler";
 
 afterEach(() => {
   clearKakaxiQueue();

@@ -1,4 +1,4 @@
-import { opponentSide } from "@/models/betOption";
+import type { ArbBetAttemptParams, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
 import type { PlatformId } from "@/types/esport";
 import {
   allowArbBetExecution,
@@ -7,15 +7,15 @@ import {
   explainAllowArbRejection,
   resolveSingleLegByRate,
 } from "@/domain/betting/singleLegRate";
-import { accountsFundingReady } from "@/stores/account/accountPicker";
+import { opponentSide } from "@/models/betOption";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
-import { ensureArbExecutionTrace, setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
 import { arbProfitRate } from "@/shared/format";
+import { accountsFundingReady } from "@/stores/account/accountPicker";
 import { useAccountStore } from "@/stores/accountStore";
+import { ensureArbExecutionTrace, setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
+import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { readUsedAccounts } from "@/stores/betting/successMarkers";
-import type { ArbBetAttemptParams, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
 
 /** 选腿、选号、比例 9999 单边 / linkId；失败时 return null（A8 静默 continue） */
 export async function prepareArbAttempt(
@@ -26,7 +26,7 @@ export async function prepareArbAttempt(
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
 
-  bet.items.forEach((item) => item.updateOdds());
+  bet.items.forEach(item => item.updateOdds());
 
   const accounts = accountStore.accounts;
 
@@ -40,8 +40,8 @@ export async function prepareArbAttempt(
 
   // [A8 可证实] 每个 bet 循环内 roll（非每轮一次）
   if (config.minMoney !== 0 && config.maxMoney !== 0) {
-    config.betMoney =
-      Math.floor(Math.random() * (config.maxMoney - config.minMoney + 1)) + config.minMoney;
+    config.betMoney
+      = Math.floor(Math.random() * (config.maxMoney - config.minMoney + 1)) + config.minMoney;
   }
 
   const providerKeys = [...accountStore.getProviders(config.betMoney).keys()] as PlatformId[];
@@ -54,8 +54,8 @@ export async function prepareArbAttempt(
   ensureArbExecutionTrace(params);
   const trace = params.trace;
 
-  let legA = options[0];
-  let legB = options[1];
+  const legA = options[0];
+  const legB = options[1];
   const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
   setArbExecutionTraceMeta(trace, {
     implied,
@@ -70,18 +70,18 @@ export async function prepareArbAttempt(
   // [A8 可证实] `lBe`：GetOrderOptions 后立即 `linkId=Date.now()`（9999 扩展再取负）
   const linkTs = Date.now();
 
-  let accountA = accountStore.getAccount(
+  const accountA = accountStore.getAccount(
     legA.type,
     legA.betMoney,
     config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [],
-    (acc) => arbAccountPickerFilter(acc, bet, match, legA, matchStore, implied),
+    acc => arbAccountPickerFilter(acc, bet, match, legA, matchStore, implied),
     options,
   );
-  let accountB = accountStore.getAccount(
+  const accountB = accountStore.getAccount(
     legB.type,
     legB.betMoney,
     config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legB.target)) : [],
-    (acc) => arbAccountPickerFilter(acc, bet, match, legB, matchStore, implied),
+    acc => arbAccountPickerFilter(acc, bet, match, legB, matchStore, implied),
     options,
   );
   if (!accountA && !accountB) {

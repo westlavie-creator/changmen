@@ -14,7 +14,8 @@ const switchTitle = computed(() =>
 
 onMounted(() => {
   useA8.value = getUseA8Css();
-  if (useA8.value) return;
+  if (useA8.value)
+    return;
   void fetch(COPY_EP_CHALK_HREF, { method: "HEAD" }).then((res) => {
     moduleSkinOk.value = res.ok;
   });

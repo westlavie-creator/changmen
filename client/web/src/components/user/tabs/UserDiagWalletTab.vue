@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
-import { ElMessage } from "element-plus";
-import { getClientDataArray, saveClientData } from "@/api/esport";
-import { generateTronWallet, fetchTronBalances } from "@/shared/tronWallet";
 import type { WalletRow } from "@/types/userExtras";
+import { ElMessage } from "element-plus";
+import { onMounted, ref } from "vue";
+import { getClientDataArray, saveClientData } from "@/api/esport";
+import { fetchTronBalances, generateTronWallet } from "@/shared/tronWallet";
 
 const rows = ref<WalletRow[]>([]);
 const saving = ref(false);
@@ -17,7 +17,8 @@ async function persist() {
   saving.value = true;
   try {
     await saveClientData("Wallet", JSON.stringify(rows.value));
-  } finally {
+  }
+  finally {
     saving.value = false;
   }
 }
@@ -29,12 +30,13 @@ async function addWallet() {
 }
 
 async function removeWallet(row: WalletRow) {
-  if (!confirm("确认要删除钱包吗？删除之后不可恢复")) return;
+  if (!confirm("确认要删除钱包吗？删除之后不可恢复"))
+    return;
   if ((row.usdt ?? 0) > 0.1) {
     ElMessage.error("账户内还存在余额");
     return;
   }
-  rows.value = rows.value.filter((w) => w.address !== row.address);
+  rows.value = rows.value.filter(w => w.address !== row.address);
   await persist();
   ElMessage.success("删除成功");
 }
@@ -43,29 +45,34 @@ async function copyKey(key: string) {
   try {
     await navigator.clipboard.writeText(key);
     ElMessage.info("私钥已复制到剪贴板");
-  } catch {
+  }
+  catch {
     ElMessage.error("复制失败");
   }
 }
 
 async function refreshBalances() {
-  if (!rows.value.length) return;
+  if (!rows.value.length)
+    return;
   refreshing.value = true;
   try {
     for (const row of rows.value) {
-      if (!row.address) continue;
+      if (!row.address)
+        continue;
       try {
         const { trx, usdt } = await fetchTronBalances(row.address);
         row.trx = trx;
         row.usdt = usdt;
-      } catch (err) {
+      }
+      catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.warn("[Wallet] balance", row.address, msg);
       }
     }
     await persist();
     ElMessage.success("余额已刷新");
-  } finally {
+  }
+  finally {
     refreshing.value = false;
   }
 }
@@ -76,7 +83,9 @@ onMounted(load);
 <template>
   <div class="header flex flex-between">
     <div class="tit">
-      <el-text size="large">波场钱包</el-text>
+      <el-text size="large">
+        波场钱包
+      </el-text>
     </div>
     <div class="action">
       <el-button-group>
@@ -94,22 +103,30 @@ onMounted(load);
     <div v-for="row in rows" :key="row.address" class="wallet flex flex-middle">
       <div class="name">
         <el-input v-model="row.name" @change="persist">
-          <template #prepend>名称</template>
+          <template #prepend>
+            名称
+          </template>
         </el-input>
       </div>
       <div class="address flex-1">
         <el-input :model-value="row.address" readonly>
-          <template #prepend>地址</template>
+          <template #prepend>
+            地址
+          </template>
         </el-input>
       </div>
       <div class="balance trx">
         <el-input :model-value="row.trx ?? 0" disabled>
-          <template #prepend>TRX</template>
+          <template #prepend>
+            TRX
+          </template>
         </el-input>
       </div>
       <div class="balance usdt">
         <el-input :model-value="row.usdt ?? 0" disabled>
-          <template #prepend>USDT</template>
+          <template #prepend>
+            USDT
+          </template>
         </el-input>
       </div>
       <div class="action">

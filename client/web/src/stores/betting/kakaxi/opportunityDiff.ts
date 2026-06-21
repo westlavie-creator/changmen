@@ -1,11 +1,11 @@
-import { indexOpportunities } from "@/extensions/arbOpportunity/detect";
 import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
+import { indexOpportunities } from "@/extensions/arbOpportunity/detect";
 import { KAKAXI_IMPROVED_EPSILON } from "@/stores/betting/kakaxi/config";
 
-export type KakaxiOpportunityTransition =
-  | { kind: "appeared"; opportunity: ArbOpportunity }
-  | { kind: "improved"; opportunity: ArbOpportunity; previousImplied: number }
-  | { kind: "gone"; key: OpportunityKey; previous: ArbOpportunity };
+export type KakaxiOpportunityTransition
+  = | { kind: "appeared"; opportunity: ArbOpportunity }
+    | { kind: "improved"; opportunity: ArbOpportunity; previousImplied: number }
+    | { kind: "gone"; key: OpportunityKey; previous: ArbOpportunity };
 
 /** kakaxi 专用 diff：appeared / improved / gone（marketWatch 仍用通用 appeared/gone） */
 export function diffKakaxiOpportunities(

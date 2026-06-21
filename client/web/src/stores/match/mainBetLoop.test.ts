@@ -1,18 +1,18 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_ODDS_MS,
+  LOSE_ORDER_PRUNE_MS,
   MAIN_LOOP_DELAY_MS,
   MATCH_POLL_MS,
-  LOSE_ORDER_PRUNE_MS,
   runMainBetLoopFinally,
   runMainBetLoopTick,
 } from "@/stores/match/mainBetLoop";
 
-type ArbRoundCtx = {
+interface ArbRoundCtx {
   setMessage: (msg: string) => void;
   processLoseOrders: () => void;
-};
+}
 
 const runArbBetRound = vi.fn(async (_ctx: ArbRoundCtx) => {});
 const fetchMatchDefaultOdds = vi.fn(async () => {});

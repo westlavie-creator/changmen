@@ -2,11 +2,11 @@
 
 export type ArbAttemptPhase = "prepare" | "check" | "place" | "finalize";
 
-export type ArbAttemptStopReason =
-  | "complete"
-  | "skip_prepare"
-  | "skip_check"
-  | "skip_place";
+export type ArbAttemptStopReason
+  = | "complete"
+    | "skip_prepare"
+    | "skip_check"
+    | "skip_place";
 
 export interface ArbAttemptMetricEntry {
   at: number;
@@ -54,7 +54,8 @@ export function summarizeArbAttemptMetrics(): ArbAttemptMetricsSummary {
     byStop[row.stop] += 1;
     for (const phase of ["prepare", "check", "place", "finalize"] as const) {
       const ms = row.phaseMs[phase];
-      if (ms == null) continue;
+      if (ms == null)
+        continue;
       phaseTotals[phase] = (phaseTotals[phase] ?? 0) + ms;
       phaseCounts[phase] = (phaseCounts[phase] ?? 0) + 1;
     }
@@ -63,7 +64,8 @@ export function summarizeArbAttemptMetrics(): ArbAttemptMetricsSummary {
   const avgPhaseMs: Partial<Record<ArbAttemptPhase, number>> = {};
   for (const phase of ["prepare", "check", "place", "finalize"] as const) {
     const count = phaseCounts[phase];
-    if (count) avgPhaseMs[phase] = Math.round((phaseTotals[phase] ?? 0) / count);
+    if (count)
+      avgPhaseMs[phase] = Math.round((phaseTotals[phase] ?? 0) / count);
   }
 
   return { total: entries.length, byStop, avgPhaseMs };

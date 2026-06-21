@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ElMessageBox } from "element-plus";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { ElMessageBox } from "element-plus";
 
 defineProps<{
   account: PlatformAccount;
@@ -16,23 +16,27 @@ const emit = defineEmits<{
 }>();
 
 function formatBalance(value?: number) {
-  if (value === undefined || Number.isNaN(value)) return "";
+  if (value === undefined || Number.isNaN(value))
+    return "";
   return Math.floor(value).toLocaleString();
 }
 
 function todayTagType(value: number) {
-  if (value === 0) return undefined;
+  if (value === 0)
+    return undefined;
   return value > 0 ? "success" : "danger";
 }
 
 function profitPercent(account: PlatformAccount) {
-  if (!account.maxProfit || !account.totalProfit) return 0;
+  if (!account.maxProfit || !account.totalProfit)
+    return 0;
   const pct = (account.totalProfit * 100) / account.maxProfit;
   return Math.min(100, Math.max(0, pct));
 }
 
 async function showPause(reason: string | false) {
-  if (!reason) return;
+  if (!reason)
+    return;
   await ElMessageBox.alert(String(reason), "暂停原因");
 }
 
@@ -44,7 +48,8 @@ async function confirmRemove() {
       type: "warning",
     });
     emit("remove");
-  } catch {
+  }
+  catch {
     /* cancelled */
   }
 }
@@ -70,9 +75,9 @@ async function confirmRemove() {
       class="balance"
       :class="{
         danger:
-          account.balance !== undefined &&
-          account.maxBalance !== 0 &&
-          account.balance > account.maxBalance,
+          account.balance !== undefined
+          && account.maxBalance !== 0
+          && account.balance > account.maxBalance,
         error: account.balance === undefined,
       }"
     >

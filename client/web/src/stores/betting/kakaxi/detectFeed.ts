@@ -1,13 +1,16 @@
+import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
+import type { KakaxiOpportunityTransition } from "@/stores/betting/kakaxi/opportunityDiff";
 import {
   detectOpportunities,
   detectOpportunitiesForBets,
 } from "@/extensions/arbOpportunity/detect";
-import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
 import { opportunityKey } from "@/extensions/arbOpportunity/types";
+import { useAccountStore } from "@/stores/accountStore";
 import {
   KAKAXI_DETECT_DEBOUNCE_MS,
   KAKAXI_DETECT_FALLBACK_MS,
 } from "@/stores/betting/kakaxi/config";
+import { wakeKakaxiDrain } from "@/stores/betting/kakaxi/drainWake";
 import {
   collectDirtyBetAnchorsFromFlash,
   invalidatePlatformBetLookupCache,
@@ -15,8 +18,8 @@ import {
 } from "@/stores/betting/kakaxi/incrementalDetect";
 import {
   diffKakaxiOpportunities,
+
   snapshotKakaxiOpportunities,
-  type KakaxiOpportunityTransition,
 } from "@/stores/betting/kakaxi/opportunityDiff";
 import {
   boostKakaxiBetImplied,
@@ -24,8 +27,6 @@ import {
   pruneExpiredKakaxiQueue,
   removeKakaxiBet,
 } from "@/stores/betting/kakaxi/queue";
-import { wakeKakaxiDrain } from "@/stores/betting/kakaxi/drainWake";
-import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
@@ -57,8 +58,8 @@ export function mergeIncrementalKakaxiSnapshot(
 }
 
 function isBetLive(matchId: number, betId: number): boolean {
-  const match = useMatchStore().matchs.find((m) => m.id === matchId);
-  const bet = match?.bets.find((b) => b.id === betId);
+  const match = useMatchStore().matchs.find(m => m.id === matchId);
+  const bet = match?.bets.find(b => b.id === betId);
   return Boolean(bet?.isLive);
 }
 
@@ -102,7 +103,8 @@ export function applyKakaxiDetectTransitions(
         enqueueFromOpportunity(opp);
         shouldWake = true;
         wakeUrgent ||= live;
-      } else if (live) {
+      }
+      else if (live) {
         shouldWake = true;
         wakeUrgent = true;
       }
@@ -111,7 +113,8 @@ export function applyKakaxiDetectTransitions(
     removeKakaxiBet(transition.previous.matchId, transition.previous.betId);
   }
 
-  if (shouldWake) wakeKakaxiDrain(wakeUrgent);
+  if (shouldWake)
+    wakeKakaxiDrain(wakeUrgent);
 }
 
 export type KakaxiDetectMode = "incremental" | "full";
@@ -150,7 +153,8 @@ export function runKakaxiDetectFeedTick(
   if (mode === "full") {
     diffBase = detectOpportunities(detectParams, "funded");
     nextSnapshot = snapshotKakaxiOpportunities(diffBase);
-  } else {
+  }
+  else {
     const partial = detectOpportunitiesForBets(detectParams, "funded", dirtyAnchors);
     nextSnapshot = mergeIncrementalKakaxiSnapshot(snapshot, partial, dirtyAnchors);
     diffBase = [...nextSnapshot.values()];
@@ -172,8 +176,10 @@ export function startKakaxiDetectFeed(): void {
   let stopped = false;
 
   const scheduleDebounced = () => {
-    if (stopped) return;
-    if (debounceTimer) clearTimeout(debounceTimer);
+    if (stopped)
+      return;
+    if (debounceTimer)
+      clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       debounceTimer = undefined;
       snapshot = runKakaxiDetectFeedTick(snapshot, "incremental");
@@ -193,7 +199,8 @@ export function startKakaxiDetectFeed(): void {
   activeFeed = {
     stop: () => {
       stopped = true;
-      if (debounceTimer) clearTimeout(debounceTimer);
+      if (debounceTimer)
+        clearTimeout(debounceTimer);
       clearInterval(fallbackInterval);
       unsubscribeOdds();
       snapshot = new Map();

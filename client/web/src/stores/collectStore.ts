@@ -1,7 +1,7 @@
-import { defineStore } from "pinia";
-import { getClientData, saveClientData, saveBetSource, saveMatchSource, saveUserLog } from "@/api/esport";
 import type { CollectBetDto, CollectConfigDto, CollectMatchDto } from "@/types/collect";
 import type { PlatformId } from "@/types/esport";
+import { defineStore } from "pinia";
+import { getClientData, saveBetSource, saveClientData, saveMatchSource, saveUserLog } from "@/api/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const CONFIG_KEY = "CollectConfig";
@@ -18,7 +18,7 @@ export const useCollectStore = defineStore("collect", {
   }),
 
   getters: {
-    isEnabled: (s) => (platform: PlatformId) => Boolean(s.collect.get(platform)),
+    isEnabled: s => (platform: PlatformId) => Boolean(s.collect.get(platform)),
   },
 
   actions: {
@@ -40,8 +40,10 @@ export const useCollectStore = defineStore("collect", {
     },
 
     async saveConfig(patch: Partial<{ log: boolean; collect: Map<PlatformId, boolean> }>) {
-      if (patch.log !== undefined) this.log = patch.log;
-      if (patch.collect) this.collect = patch.collect;
+      if (patch.log !== undefined)
+        this.log = patch.log;
+      if (patch.collect)
+        this.collect = patch.collect;
       const payload: CollectConfigDto = {
         log: this.log,
         collect: [...this.collect.entries()],
@@ -50,8 +52,10 @@ export const useCollectStore = defineStore("collect", {
     },
 
     async saveMatch(platform: PlatformId, matchs: CollectMatchDto[]): Promise<boolean> {
-      if (!this.collect.get(platform)) return false;
-      if (!matchs.length) return false;
+      if (!this.collect.get(platform))
+        return false;
+      if (!matchs.length)
+        return false;
       const ok = await saveMatchSource(platform, matchs);
       await this.logCollect(`${platform}赛事采集${matchs.length}场 => ${ok}`, matchs);
       return ok;
@@ -62,14 +66,16 @@ export const useCollectStore = defineStore("collect", {
       matchId: string | number,
       bets: CollectBetDto[],
     ): Promise<boolean> {
-      if (!this.collect.get(platform)) return false;
+      if (!this.collect.get(platform))
+        return false;
       const ok = await saveBetSource(platform, matchId, bets);
       await this.logCollect(`${platform}盘口采集${matchId}/${bets.length} => ${ok}`, bets);
       return ok;
     },
 
     async logCollect(title: string, rows: unknown[]) {
-      if (!this.log) return;
+      if (!this.log)
+        return;
       await saveUserLog(title, rows);
     },
   },

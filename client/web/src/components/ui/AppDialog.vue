@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onUnmounted, watch } from "vue";
+
 const props = withDefaults(
   defineProps<{
     open: boolean;
@@ -19,19 +20,23 @@ const props = withDefaults(
 const emit = defineEmits<{ close: [] }>();
 
 function onBackdrop(e: MouseEvent) {
-  if (!props.closeOnBackdrop) return;
+  if (!props.closeOnBackdrop)
+    return;
   if ((e.target as HTMLElement).classList.contains("app-dialog")) {
     emit("close");
   }
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (!props.open || !props.closeOnEscape) return;
-  if (e.key === "Escape") emit("close");
+  if (!props.open || !props.closeOnEscape)
+    return;
+  if (e.key === "Escape")
+    emit("close");
 }
 
 function bindEscape(open: boolean) {
-  if (open) window.addEventListener("keydown", onKeydown);
+  if (open)
+    window.addEventListener("keydown", onKeydown);
   else window.removeEventListener("keydown", onKeydown);
 }
 

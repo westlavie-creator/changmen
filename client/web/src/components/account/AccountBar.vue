@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import type { PlatformAccount } from "@/models/platformAccount";
 import { storeToRefs } from "pinia";
+import { ref } from "vue";
 import AccountCard from "@/components/account/AccountCard.vue";
 import MoneyLogDialog from "@/components/account/MoneyLogDialog.vue";
-import type { PlatformAccount } from "@/models/platformAccount";
 import { useAccountStore } from "@/stores/accountStore";
 
 /** 对齐 bundle AccountView：顶栏仅 providers 横排账号卡 */

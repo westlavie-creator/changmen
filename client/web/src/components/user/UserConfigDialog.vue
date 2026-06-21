@@ -1,19 +1,20 @@
 <script setup lang="ts">
+import type { UserConfigFormState } from "@/components/user/userConfigFormState";
+import { ElMessage } from "element-plus";
+import { storeToRefs } from "pinia";
 /**
  * 对齐 console bundle `UserConfigView`（EDe）+ 侧栏 `el-dialog` 参数配置。
  * 样式来自 `a8.css`（与 A8 bundle 同源），组件使用 Element Plus。
  */
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { ElMessage } from "element-plus";
-import { storeToRefs } from "pinia";
-import { useConfigStore } from "@/stores/configStore";
-import { useUserStore } from "@/stores/userStore";
-import { normalizeWaitTime } from "@/shared/betTiming";
-import UserConfigPanel from "@/components/user/UserConfigPanel.vue";
 import {
   createUserConfigFormState,
-  type UserConfigFormState,
+
 } from "@/components/user/userConfigFormState";
+import UserConfigPanel from "@/components/user/UserConfigPanel.vue";
+import { normalizeWaitTime } from "@/shared/betTiming";
+import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 
 const props = defineProps<{
   open: boolean;
@@ -33,7 +34,8 @@ const autoOpenDate = ref<Date | null>(null);
 const visible = computed({
   get: () => props.open,
   set: (v: boolean) => {
-    if (!v) emit("close");
+    if (!v)
+      emit("close");
   },
 });
 
@@ -58,14 +60,16 @@ function syncForm() {
 watch(
   () => props.open,
   (v) => {
-    if (v) syncForm();
+    if (v)
+      syncForm();
   },
 );
 
 watch(
   () => props.previewForm,
   () => {
-    if (props.open && props.previewForm) syncForm();
+    if (props.open && props.previewForm)
+      syncForm();
   },
   { deep: true },
 );
@@ -75,12 +79,14 @@ onMounted(async () => {
     syncForm();
     return;
   }
-  if (!configStore.loaded) await configStore.load();
+  if (!configStore.loaded)
+    await configStore.load();
   syncFormFromStore();
 });
 
 async function save() {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   Object.assign(configStore.config, {
     ...form,
     profit: Number(form.profit),
@@ -102,9 +108,11 @@ async function save() {
   });
   try {
     const result = await configStore.save();
-    if (result.ok) ElMessage.success("保存成功");
+    if (result.ok)
+      ElMessage.success("保存成功");
     else ElMessage.error(result.msg || "保存失败");
-  } finally {
+  }
+  finally {
     emit("close");
     await userStore.fetchUserInfo();
   }

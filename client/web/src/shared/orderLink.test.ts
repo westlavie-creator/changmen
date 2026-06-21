@@ -21,7 +21,7 @@ describe("orderLink A8 parity", () => {
       { Link: 300 },
       { Link: 200 },
     ]);
-    expect(sorted.map((r) => r.Link)).toEqual([300, 200, 100]);
+    expect(sorted.map(r => r.Link)).toEqual([300, 200, 100]);
   });
 
   it("compareOrderLinkDesc matches A8 bundle comparator", () => {
@@ -37,7 +37,7 @@ describe("orderLink A8 parity", () => {
       { OrderID: "b", Link: link, CreateAt: 1000 },
     ]);
     expect(grouped.size).toBe(1);
-    const ids = grouped.get(link)?.map((r) => r.OrderID) ?? [];
+    const ids = grouped.get(link)?.map(r => r.OrderID) ?? [];
     expect(ids).toContain("a");
     expect(ids).toContain("b");
     expect(ids).toHaveLength(2);

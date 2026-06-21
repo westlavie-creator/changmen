@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, test } from "vitest";
-import { createPinia, setActivePinia } from "pinia";
-import { useMatchStore } from "@/stores/matchStore";
-import { ViewMatch } from "@/models/match";
 import type { ClientMatchDto } from "@/types/esport";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it } from "vitest";
+import { ViewMatch } from "@/models/match";
+import { useMatchStore } from "@/stores/matchStore";
 
 function makeMatch(
   id: number,
@@ -29,7 +29,7 @@ describe("matchStore._providerIndex + updateScore", () => {
     setActivePinia(createPinia());
   });
 
-  test("_rebuildProviderIndex builds correct index from matchs", () => {
+  it("_rebuildProviderIndex builds correct index from matchs", () => {
     const store = useMatchStore();
     store.matchs = [
       makeMatch(1, { OB: "ob_100", RAY: "ray_200" }),
@@ -45,7 +45,7 @@ describe("matchStore._providerIndex + updateScore", () => {
     expect(store._providerIndex.get("OB:nonexistent")).toBeUndefined();
   });
 
-  test("updateScore finds match via index and sets score", () => {
+  it("updateScore finds match via index and sets score", () => {
     const store = useMatchStore();
     store.matchs = [
       makeMatch(1, { OB: "ob_100" }),
@@ -54,7 +54,7 @@ describe("matchStore._providerIndex + updateScore", () => {
     store._rebuildProviderIndex();
 
     store.updateScore("OB", [
-      { SourceID: "ob_101", Score: { "1": { Home: 13, Away: 7 } } },
+      { SourceID: "ob_101", Score: { 1: { Home: 13, Away: 7 } } },
     ]);
 
     expect(store.score.has(2)).toBe(true);
@@ -63,7 +63,7 @@ describe("matchStore._providerIndex + updateScore", () => {
     expect(store.score.has(1)).toBe(false);
   });
 
-  test("updateScore respects reverse", () => {
+  it("updateScore respects reverse", () => {
     const store = useMatchStore();
     store.matchs = [
       makeMatch(1, { OB: "ob_100" }, ["OB"]),
@@ -71,32 +71,32 @@ describe("matchStore._providerIndex + updateScore", () => {
     store._rebuildProviderIndex();
 
     store.updateScore("OB", [
-      { SourceID: "ob_100", Score: { "1": { Home: 10, Away: 5 } } },
+      { SourceID: "ob_100", Score: { 1: { Home: 10, Away: 5 } } },
     ]);
 
     const round = store.score.get(1)!.score.get(1)!;
     expect(round).toEqual({ Home: 5, Away: 10 });
   });
 
-  test("updateScore ignores unknown sourceId", () => {
+  it("updateScore ignores unknown sourceId", () => {
     const store = useMatchStore();
     store.matchs = [makeMatch(1, { OB: "ob_100" })];
     store._rebuildProviderIndex();
 
     store.updateScore("OB", [
-      { SourceID: "ob_999", Score: { "1": { Home: 1, Away: 0 } } },
+      { SourceID: "ob_999", Score: { 1: { Home: 1, Away: 0 } } },
     ]);
 
     expect(store.score.size).toBe(0);
   });
 
-  test("updateScore ignores unknown platform", () => {
+  it("updateScore ignores unknown platform", () => {
     const store = useMatchStore();
     store.matchs = [makeMatch(1, { OB: "ob_100" })];
     store._rebuildProviderIndex();
 
     store.updateScore("RAY", [
-      { SourceID: "ob_100", Score: { "1": { Home: 1, Away: 0 } } },
+      { SourceID: "ob_100", Score: { 1: { Home: 1, Away: 0 } } },
     ]);
 
     expect(store.score.size).toBe(0);

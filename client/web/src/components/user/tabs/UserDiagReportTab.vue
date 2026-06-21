@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { MonthReportPayload } from "@/types/monthReport";
 import { onMounted, ref } from "vue";
 import { monthReport } from "@/api/esport";
-import type { MonthReportPayload } from "@/types/monthReport";
 import MonthReportTable from "@/components/report/MonthReportTable.vue";
 
 const month = ref(new Date().toISOString().slice(0, 7));
@@ -12,7 +12,8 @@ async function load() {
   loading.value = true;
   try {
     report.value = (await monthReport(month.value)) as MonthReportPayload;
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }

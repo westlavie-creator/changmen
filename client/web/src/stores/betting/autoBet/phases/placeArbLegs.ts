@@ -1,9 +1,9 @@
-import { BetResult } from "@/models/betResult";
-import { formatBetResult } from "@/shared/arbBetTraceFormat";
+import type { BetResult } from "@/models/betResult";
 import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
+import type { ArbBetAttemptParams, ArbBetChecked, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
+import { formatBetResult } from "@/shared/arbBetTraceFormat";
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
-import type { ArbBetAttemptParams, ArbBetChecked, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 
 function finishPlaceFailure(
   trace: ArbExecutionTrace | undefined,
@@ -41,14 +41,16 @@ export async function placeArbLegs(
       if (!resultA?.success) {
         return finishPlaceFailure(trace, legA, legB, resultA, resultB);
       }
-    } else {
+    }
+    else {
       trace?.event("下单", `开始 ${legB.type} ${legB.target}`);
       resultB = await accountStore.betting(accountB!, legB, waitSec);
       if (!resultB?.success) {
         return finishPlaceFailure(trace, legA, legB, resultA, resultB);
       }
     }
-  } else if (config.betSorting === "Parallel") {
+  }
+  else if (config.betSorting === "Parallel") {
     trace?.event("下单", `并行 ${legA.type} + ${legB.type}`);
     const pair = await Promise.all([
       accountStore.betting(accountA!, legA, waitSec),
@@ -56,9 +58,10 @@ export async function placeArbLegs(
     ]);
     resultA = pair[0];
     resultB = pair[1];
-    if (resultA?.success || !pair.some((r) => r?.success)) {
+    if (resultA?.success || !pair.some(r => r?.success)) {
       // keep leg/account assignment
-    } else if (resultB?.success) {
+    }
+    else if (resultB?.success) {
       [legA, legB] = [legB, legA];
       [accountA, accountB] = [accountB, accountA];
       resultA = pair[1];
@@ -67,7 +70,8 @@ export async function placeArbLegs(
     if (!resultA?.success) {
       return finishPlaceFailure(trace, legA, legB, resultA, resultB);
     }
-  } else {
+  }
+  else {
     trace?.event("下单", `顺序 ${legA.type} → ${legB.type}`);
     resultA = await accountStore.betting(accountA!, legA, waitSec);
     if (!resultA.success) {
@@ -97,7 +101,8 @@ export async function placeArbLegs(
         "重试",
         formatBetResult(legB.type, legB.target, legB.betMoney, legB.odds, resultB),
       );
-    } else {
+    }
+    else {
       trace?.event("重试", "换腿未成功");
     }
   }

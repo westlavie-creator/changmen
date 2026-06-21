@@ -1,10 +1,11 @@
-import {
-  explainNotExecutable,
-  type ArbMarketWatchContext,
-} from "@/extensions/arbMarketWatch/marketWatchContext";
+import type { ArbMarketWatchContext } from "@/extensions/arbMarketWatch/marketWatchContext";
 import type { ArbMarketWatchGroup } from "@/extensions/arbMarketWatch/watchSinks";
-import { sameOpportunityLegs } from "@/extensions/arbMarketWatch/watchSinks";
 import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
+import {
+
+  explainNotExecutable,
+} from "@/extensions/arbMarketWatch/marketWatchContext";
+import { sameOpportunityLegs } from "@/extensions/arbMarketWatch/watchSinks";
 import { arbProfitRate, toFixed } from "@/shared/format";
 
 function formatLegCompact(opp: ArbOpportunity): string {
@@ -24,10 +25,12 @@ function formatExecutableStatus(
   funded: ArbOpportunity | undefined,
   context: ArbMarketWatchContext | undefined,
 ): string {
-  if (!fullMarket) return "可执行：—";
+  if (!fullMarket)
+    return "可执行：—";
 
   const bettingOff = context?.bettingEnabled === false;
-  if (bettingOff) return "可执行：未开启投注";
+  if (bettingOff)
+    return "可执行：未开启投注";
 
   if (funded && sameOpportunityLegs(fullMarket, funded)) {
     return "可执行：是";
@@ -46,7 +49,8 @@ function formatExecutableStatus(
 function formatAppearedBody(group: Extract<ArbMarketWatchGroup, { kind: "appeared" }>): string {
   const { fullMarket, funded, context } = group;
   const opp = fullMarket ?? funded;
-  if (!opp) return "<b>🔶 套利机会</b>\n" + formatMatchLine(group);
+  if (!opp)
+    return `<b>🔶 套利机会</b>\n${formatMatchLine(group)}`;
 
   const lines = [
     "<b>🔶 套利机会</b>",

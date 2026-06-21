@@ -1,42 +1,43 @@
 <script setup lang="ts">
+import type { Component } from "vue";
+import { storeToRefs } from "pinia";
 /**
  * 对齐 console bundle `UserDiagView`（dHe）：`el-dialog` width 880 + `border-card` tabs。
  */
-import { computed, onMounted, ref, watch, type Component } from "vue";
-import { storeToRefs } from "pinia";
-import UserDiagRankTab from "@/components/user/tabs/UserDiagRankTab.vue";
-import UserDiagPasswordTab from "@/components/user/tabs/UserDiagPasswordTab.vue";
-import UserDiagMessageTab from "@/components/user/tabs/UserDiagMessageTab.vue";
-import UserDiagProxyTab from "@/components/user/tabs/UserDiagProxyTab.vue";
-import UserDiagReportTab from "@/components/user/tabs/UserDiagReportTab.vue";
-import UserDiagCollectTab from "@/components/user/tabs/UserDiagCollectTab.vue";
-import UserDiagTradeTab from "@/components/user/tabs/UserDiagTradeTab.vue";
-import UserDiagFollowTab from "@/components/user/tabs/UserDiagFollowTab.vue";
+import { computed, onMounted, ref, watch } from "vue";
 import UserDiagChatTab from "@/components/user/tabs/UserDiagChatTab.vue";
-import UserDiagWalletTab from "@/components/user/tabs/UserDiagWalletTab.vue";
+import UserDiagCollectTab from "@/components/user/tabs/UserDiagCollectTab.vue";
 import UserDiagExtensionTab from "@/components/user/tabs/UserDiagExtensionTab.vue";
+import UserDiagFollowTab from "@/components/user/tabs/UserDiagFollowTab.vue";
+import UserDiagMessageTab from "@/components/user/tabs/UserDiagMessageTab.vue";
+import UserDiagPasswordTab from "@/components/user/tabs/UserDiagPasswordTab.vue";
+import UserDiagProxyTab from "@/components/user/tabs/UserDiagProxyTab.vue";
+import UserDiagRankTab from "@/components/user/tabs/UserDiagRankTab.vue";
+import UserDiagReportTab from "@/components/user/tabs/UserDiagReportTab.vue";
+import UserDiagTradeTab from "@/components/user/tabs/UserDiagTradeTab.vue";
+import UserDiagWalletTab from "@/components/user/tabs/UserDiagWalletTab.vue";
 import { useUserStore } from "@/stores/userStore";
 
 const props = defineProps<{ open: boolean }>();
-const user = useUserStore();
 const emit = defineEmits<{ close: [] }>();
-
+const user = useUserStore();
 const { setting } = storeToRefs(user);
 const active = ref("rank");
 
 const visible = computed({
   get: () => props.open,
   set: (v: boolean) => {
-    if (!v) emit("close");
+    if (!v)
+      emit("close");
   },
 });
 
-type TabDef = {
+interface TabDef {
   name: string;
   label: string;
   component: Component;
   show?: () => boolean;
-};
+}
 
 const tabDefs: TabDef[] = [
   { name: "rank", label: "排行榜", component: UserDiagRankTab },
@@ -62,12 +63,12 @@ const tabDefs: TabDef[] = [
   { name: "wallet", label: "钱包", component: UserDiagWalletTab },
 ];
 
-const visibleTabs = computed(() => tabDefs.filter((t) => !t.show || t.show()));
+const visibleTabs = computed(() => tabDefs.filter(t => !t.show || t.show()));
 
 watch(
   () => props.open,
   () => {
-    if (!visibleTabs.value.some((t) => t.name === active.value)) {
+    if (!visibleTabs.value.some(t => t.name === active.value)) {
       active.value = "rank";
     }
   },
@@ -75,7 +76,7 @@ watch(
 );
 
 onMounted(() => {
-  if (!visibleTabs.value.some((t) => t.name === active.value)) {
+  if (!visibleTabs.value.some(t => t.name === active.value)) {
     active.value = "rank";
   }
 });

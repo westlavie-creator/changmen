@@ -1,12 +1,12 @@
+import type { BetOption } from "@/models/betOption";
 import { describe, expect, it, vi } from "vitest";
-import { BetOption } from "@/models/betOption";
-import { PlatformAccount } from "@/models/platformAccount";
 import {
   arbAccountPickerFilter,
   createArbLinkId,
   explainAllowArbRejection,
   legHasSingleLegRateAccount,
 } from "@/domain/betting/singleLegRate";
+import { PlatformAccount } from "@/models/platformAccount";
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({

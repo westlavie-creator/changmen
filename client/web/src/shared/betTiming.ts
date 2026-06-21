@@ -7,7 +7,8 @@ export function normalizeWaitTime(
   raw: Record<string, unknown> | undefined | null,
 ): Record<string, number> {
   const out: Record<string, number> = {};
-  if (!raw || typeof raw !== "object") return out;
+  if (!raw || typeof raw !== "object")
+    return out;
   for (const key of Object.keys(raw)) {
     out[key] = Number(raw[key]) || 0;
   }
@@ -16,15 +17,17 @@ export function normalizeWaitTime(
 
 /** 自动套利 Oe：`Math.max(waitTime[a]??0, waitTime[b]??0, 10)`（-1 不单独分支，由 floor 10 兜底） */
 export function arbBetToastSeconds(config: UserConfig, providers: string[]): number {
-  const waits = providers.map((p) => config.waitTime[p] ?? 0);
-  if (!waits.length) return 10;
+  const waits = providers.map(p => config.waitTime[p] ?? 0);
+  if (!waits.length)
+    return 10;
   return Math.max(...waits, 10);
 }
 
 /** 补单 Pe：`waitTime===-1 ? 0 : Math.max(waitTime??0, 10)` */
 export function makeUpBetToastSeconds(config: UserConfig, provider: string): number {
   const wait = config.waitTime[provider];
-  if (wait === -1) return 0;
+  if (wait === -1)
+    return 0;
   return Math.max(wait ?? 0, 10);
 }
 
@@ -67,9 +70,11 @@ export function passesLastOddsGate(
   side: BetSide,
   currentOdds: number,
 ): boolean {
-  if (!account.lastOdds) return true;
+  if (!account.lastOdds)
+    return true;
   const prev = getLastBetOdds(account.accountId, betId, side);
-  if (prev != null && prev >= currentOdds) return false;
+  if (prev != null && prev >= currentOdds)
+    return false;
   return true;
 }
 
@@ -78,7 +83,8 @@ export function readBetCount(accountId: number, betId: number, side: BetSide): n
   try {
     const raw = sessionStorage.getItem(`${BET_COUNT_PREFIX}${accountId}:${betId}:${side}`);
     return raw ? Number(raw) || 0 : 0;
-  } catch {
+  }
+  catch {
     return 0;
   }
 }
@@ -94,6 +100,7 @@ export function passesMaxBetCount(
   betId: number,
   side: BetSide,
 ): boolean {
-  if (!account.maxBetCount) return true;
+  if (!account.maxBetCount)
+    return true;
   return readBetCount(account.accountId, betId, side) < account.maxBetCount;
 }

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
 import type { AccountEditFormState } from "@/components/account/accountEditFormState";
+import { ref, watch } from "vue";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
-type PlatformSuggestion = { value: string; link: string };
+interface PlatformSuggestion { value: string; link: string }
 
 const props = withDefaults(
   defineProps<{
@@ -34,7 +34,8 @@ const gameShow = ref(props.gameExpanded ?? false);
 watch(
   () => props.gameExpanded,
   (v) => {
-    if (v !== undefined) gameShow.value = v;
+    if (v !== undefined)
+      gameShow.value = v;
   },
 );
 
@@ -43,22 +44,26 @@ function fieldDisabled(extra = false) {
 }
 
 function onMarkupOnlyChange() {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   emit("markupOnlyChange");
 }
 
 function onNoMarkupChange() {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   emit("noMarkupChange");
 }
 
 function toggleGame() {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   gameShow.value = !gameShow.value;
 }
 
 function unlockRate() {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   emit("unlockRate");
 }
 </script>
@@ -79,7 +84,9 @@ function unlockRate() {
         </el-col>
         <el-col :span="7">
           <el-input v-model="form.playerName" placeholder="账号" :disabled="fieldDisabled()">
-            <template #prepend>账号</template>
+            <template #prepend>
+              账号
+            </template>
           </el-input>
         </el-col>
         <el-col :span="6">
@@ -117,7 +124,9 @@ function unlockRate() {
               placeholder="最低赔率"
               :disabled="fieldDisabled()"
             >
-              <template #prepend>低赔</template>
+              <template #prepend>
+                低赔
+              </template>
             </el-input>
           </el-col>
           <el-col :span="6">
@@ -127,7 +136,9 @@ function unlockRate() {
               placeholder="最高赔率"
               :disabled="fieldDisabled()"
             >
-              <template #prepend>高赔</template>
+              <template #prepend>
+                高赔
+              </template>
             </el-input>
           </el-col>
           <el-col :span="6">
@@ -137,7 +148,9 @@ function unlockRate() {
               placeholder="比例"
               :disabled="fieldDisabled(rateLocked)"
             >
-              <template #prepend>比例</template>
+              <template #prepend>
+                比例
+              </template>
             </el-input>
           </el-col>
           <el-col v-if="!readonly" :span="6">
@@ -147,7 +160,9 @@ function unlockRate() {
           </el-col>
         </el-row>
       </el-form-item>
-      <p v-if="!form.rateConfig.length" class="account-edit-panel__empty">暂无比例配置</p>
+      <p v-if="!form.rateConfig.length" class="account-edit-panel__empty">
+        暂无比例配置
+      </p>
     </fieldset>
 
     <fieldset class="account-edit-panel__fieldset game-container" :class="{ show: gameShow }">
@@ -170,7 +185,9 @@ function unlockRate() {
                 placeholder="利润"
                 :disabled="fieldDisabled()"
               >
-                <template #prepend>利润</template>
+                <template #prepend>
+                  利润
+                </template>
               </el-input>
             </el-col>
             <el-col :span="6">
@@ -179,7 +196,9 @@ function unlockRate() {
                 placeholder="订单量"
                 :disabled="fieldDisabled()"
               >
-                <template #prepend>订单数</template>
+                <template #prepend>
+                  订单数
+                </template>
               </el-input>
             </el-col>
             <el-col :span="12">
@@ -189,7 +208,9 @@ function unlockRate() {
                 placeholder="赔率范围"
                 @change="emit('normalizeGameOdds', gameName)"
               >
-                <template #prepend>赔率</template>
+                <template #prepend>
+                  赔率
+                </template>
               </el-input-tag>
               <el-input
                 v-else
@@ -197,7 +218,9 @@ function unlockRate() {
                 placeholder="赔率范围"
                 :disabled="fieldDisabled()"
               >
-                <template #prepend>赔率</template>
+                <template #prepend>
+                  赔率
+                </template>
               </el-input>
             </el-col>
           </el-row>
@@ -213,12 +236,16 @@ function unlockRate() {
           <el-row :gutter="10">
             <el-col :span="12">
               <el-input v-model.number="form.minDefault" placeholder="最低" :disabled="fieldDisabled()">
-                <template #prepend>最低</template>
+                <template #prepend>
+                  最低
+                </template>
               </el-input>
             </el-col>
             <el-col :span="12">
               <el-input v-model.number="form.maxDefault" placeholder="最高" :disabled="fieldDisabled()">
-                <template #prepend>最高</template>
+                <template #prepend>
+                  最高
+                </template>
               </el-input>
             </el-col>
           </el-row>
@@ -229,12 +256,16 @@ function unlockRate() {
           <el-row :gutter="10">
             <el-col :span="12">
               <el-input v-model.number="form.minOdds" placeholder="最低" :disabled="fieldDisabled()">
-                <template #prepend>最低</template>
+                <template #prepend>
+                  最低
+                </template>
               </el-input>
             </el-col>
             <el-col :span="12">
               <el-input v-model.number="form.maxOdds" placeholder="最高" :disabled="fieldDisabled()">
-                <template #prepend>最高</template>
+                <template #prepend>
+                  最高
+                </template>
               </el-input>
             </el-col>
           </el-row>
@@ -272,7 +303,9 @@ function unlockRate() {
             </el-col>
             <el-col :span="6">
               <el-input v-model.number="form.profit" type="number" placeholder="利润" :disabled="fieldDisabled()">
-                <template #prepend>利润</template>
+                <template #prepend>
+                  利润
+                </template>
               </el-input>
             </el-col>
             <el-col :span="6">
@@ -282,7 +315,9 @@ function unlockRate() {
                 placeholder="下注单数"
                 :disabled="fieldDisabled()"
               >
-                <template #prepend>盘口订单</template>
+                <template #prepend>
+                  盘口订单
+                </template>
               </el-input>
             </el-col>
           </el-row>
@@ -320,7 +355,9 @@ function unlockRate() {
           </el-col>
           <el-col :span="3">
             <el-input v-model.number="form.multiply" type="number" placeholder="乘网倍数" readonly>
-              <template #prepend>乘网</template>
+              <template #prepend>
+                乘网
+              </template>
             </el-input>
           </el-col>
         </el-row>
@@ -334,17 +371,23 @@ function unlockRate() {
         </el-col>
         <el-col :span="6">
           <el-input v-model.number="form.maxOrder" placeholder="单日最多订单" :disabled="fieldDisabled()">
-            <template #prepend>单日订单</template>
+            <template #prepend>
+              单日订单
+            </template>
           </el-input>
         </el-col>
         <el-col :span="7">
           <el-input v-model="form.maxBalance" placeholder="最大余额" :disabled="fieldDisabled()">
-            <template #prepend>最大余额</template>
+            <template #prepend>
+              最大余额
+            </template>
           </el-input>
         </el-col>
         <el-col :span="6">
           <el-input v-model="form.maxBalanceOdds" placeholder="超额赔率" :disabled="fieldDisabled()">
-            <template #prepend>超额赔率</template>
+            <template #prepend>
+              超额赔率
+            </template>
           </el-input>
         </el-col>
       </el-row>
@@ -363,17 +406,23 @@ function unlockRate() {
         </el-col>
         <el-col :span="6">
           <el-input v-model="form.realName" :disabled="fieldDisabled()">
-            <template #prepend>姓名</template>
+            <template #prepend>
+              姓名
+            </template>
           </el-input>
         </el-col>
         <el-col :span="7">
           <el-input v-model="form.mobile" :disabled="fieldDisabled()">
-            <template #prepend>手机</template>
+            <template #prepend>
+              手机
+            </template>
           </el-input>
         </el-col>
         <el-col :span="6">
           <el-input v-model="form.city" :disabled="fieldDisabled()">
-            <template #prepend>城市</template>
+            <template #prepend>
+              城市
+            </template>
           </el-input>
         </el-col>
       </el-row>

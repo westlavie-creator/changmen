@@ -109,7 +109,7 @@ export function md5(input: string): string {
   function toHex(n: number) {
     let s = "";
     for (let j = 0; j < 4; j += 1) {
-      s += ("0" + ((n >> (j * 8)) & 255).toString(16)).slice(-2);
+      s += (`0${((n >> (j * 8)) & 255).toString(16)}`).slice(-2);
     }
     return s;
   }

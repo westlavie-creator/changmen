@@ -37,6 +37,12 @@
     "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension",
     "ob:lock-observe": "npm run ob:lock-observe --workspace=@changmen/platform-adapter",
     "value-bet": "npm run start --prefix server/value-bet",
-    "value-bet:scan": "npm run scan:once --prefix server/value-bet"
+    "value-bet:scan": "npm run scan:once --prefix server/value-bet",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^9.0.0",
+    "eslint": "^10.5.0"
   }
 }

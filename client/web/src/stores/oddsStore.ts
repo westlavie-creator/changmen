@@ -1,3 +1,5 @@
+import type { PlatformId } from "@/types/esport";
+import type { LimitEntry } from "@/types/limit";
 /**
  * 实时赔率缓存（对齐 A8 Pinia 模块 `fo`）。
  *
@@ -9,8 +11,6 @@
  * fo 里可能出现 ViewMatch 未引用的 oddId（多盘口、列表已下架残留、采集先于合并等）。
  */
 import { defineStore } from "pinia";
-import type { PlatformId } from "@/types/esport";
-import type { LimitEntry } from "@/types/limit";
 import { formatDisplayOdds } from "@/shared/format";
 
 /** 写入 fo 的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
@@ -89,18 +89,19 @@ export const useOddsStore = defineStore("odds", {
      */
     save(platform: PlatformId, entry: OddsEntry, source: OddsSaveSource = "http") {
       const id = String(entry.id);
-      if (!this.data.has(platform)) this.data.set(platform, new Map());
+      if (!this.data.has(platform))
+        this.data.set(platform, new Map());
       const bucket = this.data.get(platform)!;
       const prev = bucket.get(id);
       const nextOdds = entry.odds;
 
       if (
-        prev &&
-        !entry.isLock &&
-        !prev.isLock &&
-        prev.odds > 0 &&
-        nextOdds > 0 &&
-        prev.odds !== nextOdds
+        prev
+        && !entry.isLock
+        && !prev.isLock
+        && prev.odds > 0
+        && nextOdds > 0
+        && prev.odds !== nextOdds
       ) {
         this.flash.set(`${platform}:${id}`, {
           dir: nextOdds > prev.odds ? "up" : "down",
@@ -112,7 +113,8 @@ export const useOddsStore = defineStore("odds", {
 
       if (entry.betId) {
         const betId = String(entry.betId);
-        if (!this.betIndex.has(platform)) this.betIndex.set(platform, new Map());
+        if (!this.betIndex.has(platform))
+          this.betIndex.set(platform, new Map());
         const idx = this.betIndex.get(platform)!;
         const list = idx.get(betId) ?? [];
         if (!list.includes(id)) {
@@ -126,7 +128,8 @@ export const useOddsStore = defineStore("odds", {
     getFlash(platform: PlatformId, oddsId: string): { dir: OddsFlashDir; source: OddsSaveSource } | undefined {
       const key = `${platform}:${String(oddsId)}`;
       const row = this.flash.get(key);
-      if (!row) return undefined;
+      if (!row)
+        return undefined;
       if (row.until < Date.now()) {
         this.flash.delete(key);
         return undefined;
@@ -152,8 +155,10 @@ export const useOddsStore = defineStore("odds", {
      */
     getOdds(platform: PlatformId, oddsId: string, fallback = 0): number {
       const row = this.data.get(platform)?.get(String(oddsId));
-      if (row === undefined) return formatDisplayOdds(fallback);
-      if (row.isLock) return 0;
+      if (row === undefined)
+        return formatDisplayOdds(fallback);
+      if (row.isLock)
+        return 0;
       return formatDisplayOdds(row.odds);
     },
 
@@ -163,7 +168,7 @@ export const useOddsStore = defineStore("odds", {
       const row = this.data.get(platform)?.get(key);
       if (row) {
         row.isLock = locked;
-        }
+      }
     },
 
     /** 更新整盘锁盘（对齐 A8 `updateBetLock`：betIndex 下所有 odd） */
@@ -176,9 +181,11 @@ export const useOddsStore = defineStore("odds", {
         return;
       }
       const bucket = this.data.get(platform);
-      if (!bucket) return;
+      if (!bucket)
+        return;
       for (const [id, row] of bucket.entries()) {
-        if (row.betId === key) this.updateOddsLock(platform, id, locked);
+        if (row.betId === key)
+          this.updateOddsLock(platform, id, locked);
       }
     },
 
@@ -192,14 +199,18 @@ export const useOddsStore = defineStore("odds", {
       topic: string,
     ) {
       const oddsId = String(row.id ?? "");
-      if (!oddsId) return;
+      if (!oddsId)
+        return;
       let locked = false;
       if (topic === "/odd/suspended/") {
         locked = Number(row.suspended) === 1;
-      } else if (topic === "/odd/visible/") {
+      }
+      else if (topic === "/odd/visible/") {
         locked = Number(row.visible) !== 1;
-      } else if (topic === "/odd/statusUpdate/") {
-        if (row.status !== undefined) locked = Number(row.status) !== OB_MARKET_OPEN;
+      }
+      else if (topic === "/odd/statusUpdate/") {
+        if (row.status !== undefined)
+          locked = Number(row.status) !== OB_MARKET_OPEN;
       }
       this.updateOddsLock(platform, oddsId, locked);
     },
@@ -223,7 +234,8 @@ export const useOddsStore = defineStore("odds", {
       const cutoff = Date.now() - 3_600_000;
       for (const bucket of this.data.values()) {
         for (const [id, row] of [...bucket.entries()]) {
-          if (row.time < cutoff) bucket.delete(id);
+          if (row.time < cutoff)
+            bucket.delete(id);
         }
       }
     },
@@ -232,7 +244,8 @@ export const useOddsStore = defineStore("odds", {
     hasLimit(platform: PlatformId, ids: string[]): boolean {
       this.cleanExpiredLimits();
       const bucket = this.limits.get(platform);
-      if (!bucket) return false;
+      if (!bucket)
+        return false;
       const now = Date.now();
       return ids.some((id) => {
         const row = bucket.get(id);
@@ -244,8 +257,10 @@ export const useOddsStore = defineStore("odds", {
     getLimit(platform: PlatformId, oddsId: string): LimitEntry | undefined {
       this.cleanExpiredLimits();
       const row = this.limits.get(platform)?.get(oddsId);
-      if (!row) return undefined;
-      if (row.expireTime && row.expireTime < Date.now()) return undefined;
+      if (!row)
+        return undefined;
+      if (row.expireTime && row.expireTime < Date.now())
+        return undefined;
       return row;
     },
 
@@ -262,10 +277,12 @@ export const useOddsStore = defineStore("odds", {
       payout?: number,
       ttlSec?: number,
     ) {
-      if (!this.limits.has(platform)) this.limits.set(platform, new Map());
+      if (!this.limits.has(platform))
+        this.limits.set(platform, new Map());
       const expireTime = ttlSec ? Date.now() + ttlSec * 1000 : undefined;
       const entry: LimitEntry = { value, expireTime };
-      if (payout) entry.payout = payout;
+      if (payout)
+        entry.payout = payout;
       this.limits.get(platform)!.set(oddsId, entry);
     },
 
@@ -281,9 +298,11 @@ export const useOddsStore = defineStore("odds", {
         ? [[platform, this.limits.get(platform)] as const]
         : [...this.limits.entries()];
       for (const [, bucket] of buckets) {
-        if (!bucket) continue;
+        if (!bucket)
+          continue;
         for (const [id, row] of [...bucket.entries()]) {
-          if (row.expireTime && row.expireTime < now) bucket.delete(id);
+          if (row.expireTime && row.expireTime < now)
+            bucket.delete(id);
         }
       }
     },

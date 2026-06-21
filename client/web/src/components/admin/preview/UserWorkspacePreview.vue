@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
-import { storeToRefs } from "pinia";
 import type { AdminUserRow } from "@/types/admin";
-import AppSidebar from "@/components/layout/AppSidebar.vue";
+import { storeToRefs } from "pinia";
+import { onMounted, ref, watch } from "vue";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
+import AppSidebar from "@/components/layout/AppSidebar.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
-import { useAccountStore } from "@/stores/accountStore";
 import { todayKey } from "@/shared/dateKey";
+import { useAccountStore } from "@/stores/accountStore";
 
 const props = defineProps<{
   user: AdminUserRow;
@@ -24,7 +24,8 @@ async function refreshOrders(date = todayKey()) {
   ordersError.value = "";
   try {
     await loadEmbeddedUserOrders(props.user.id, date);
-  } catch (err) {
+  }
+  catch (err) {
     ordersError.value = err instanceof Error ? err.message : "订单加载失败";
     console.warn("[adminUserWorkspace] load orders:", err);
   }
@@ -50,7 +51,9 @@ watch(
       readonly
       @close="accountStore.closeAccountDialog()"
     />
-    <p v-if="ordersError" class="user-workspace-preview__err">{{ ordersError }}</p>
+    <p v-if="ordersError" class="user-workspace-preview__err">
+      {{ ordersError }}
+    </p>
     <el-container class="common-layout home-view user-workspace-preview__layout">
       <el-aside width="260px">
         <AppSidebar

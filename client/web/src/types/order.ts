@@ -1,14 +1,14 @@
 import type { PlatformId } from "@/types/esport";
 
 /** 对齐 A8 `Yt` */
-export type OrderStatus =
-  | "Pending"
-  | "None"
-  | "Win"
-  | "Lose"
-  | "Return"
-  | "Reject"
-  | string;
+export type OrderStatus
+  = | "Pending"
+    | "None"
+    | "Win"
+    | "Lose"
+    | "Return"
+    | "Reject"
+    | string;
 
 export interface OrderPlayerInfo {
   Platform?: string;

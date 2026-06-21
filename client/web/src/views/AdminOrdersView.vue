@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { deleteAdminOrders, getAdminOrdersAll, getAdminUsers } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminUserOrdersColumn from "@/components/admin/AdminUserOrdersColumn.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
-import { deleteAdminOrders, getAdminOrdersAll, getAdminUsers } from "@/api/admin";
-import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
 import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
 
@@ -24,12 +24,13 @@ const loadError = ref("");
 const userColumns = computed(() => {
   const byUser = new Map<string, AdminOrderRow[]>();
   for (const row of orders.value) {
-    if (!byUser.has(row.userId)) byUser.set(row.userId, []);
+    if (!byUser.has(row.userId))
+      byUser.set(row.userId, []);
     byUser.get(row.userId)!.push(row);
   }
 
-  const userById = new Map(users.value.map((u) => [u.id, u]));
-  const cols = users.value.map((user) => ({
+  const userById = new Map(users.value.map(u => [u.id, u]));
+  const cols = users.value.map(user => ({
     userId: user.id,
     userName: user.userName,
     accounts: user.accounts ?? [],
@@ -37,7 +38,8 @@ const userColumns = computed(() => {
   }));
 
   for (const [userId, userOrders] of byUser) {
-    if (userById.has(userId)) continue;
+    if (userById.has(userId))
+      continue;
     cols.push({
       userId,
       userName: userId.slice(0, 8),
@@ -63,7 +65,8 @@ function fmtMoney(n: number) {
 async function loadUsers() {
   try {
     users.value = await getAdminUsers(date.value);
-  } catch {
+  }
+  catch {
     users.value = [];
   }
 }
@@ -77,10 +80,12 @@ async function loadOrders() {
       provider: filterProvider.value || undefined,
     });
     orders.value = page.list ?? [];
-  } catch (e) {
+  }
+  catch (e) {
     orders.value = [];
     loadError.value = (e as Error).message || "加载失败";
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
@@ -102,10 +107,11 @@ function onSearch() {
 }
 
 async function onDeleteOrders(rows: AdminOrderRow[]) {
-  if (!rows.length) return;
-  const ids = rows.map((r) => r.id);
-  const label =
-    rows.length > 1
+  if (!rows.length)
+    return;
+  const ids = rows.map(r => r.id);
+  const label
+    = rows.length > 1
       ? `这 ${rows.length} 笔套利订单（Link ${rows[0]?.linkId || "—"}）`
       : `订单 ${rows[0]?.orderId || ids[0]}`;
   try {
@@ -114,14 +120,16 @@ async function onDeleteOrders(rows: AdminOrderRow[]) {
       confirmButtonText: "删除",
       cancelButtonText: "取消",
     });
-  } catch {
+  }
+  catch {
     return;
   }
   try {
     const res = await deleteAdminOrders(ids);
     ElMessage.success(`已删除 ${res.deleted} 笔订单`);
     await loadOrders();
-  } catch (e) {
+  }
+  catch (e) {
     ElMessage.error((e as Error).message || "删除失败");
   }
 }
@@ -135,7 +143,8 @@ onMounted(async () => {
   if (!userStore.ready) {
     try {
       await userStore.fetchUserInfo();
-    } catch {
+    }
+    catch {
       sessionStorage.setItem("gamebet:postLoginRedirect", route.fullPath);
       await router.replace({ name: "home" });
       return;
@@ -151,7 +160,7 @@ onMounted(async () => {
 
 <template>
   <AdminLayout title="订单查询" subtitle="每位用户一列，订单按 Link 分组展示">
-    <section class="admin-card admin-card--orders" v-loading="loading">
+    <section v-loading="loading" class="admin-card admin-card--orders">
       <div class="admin-card__toolbar admin-orders-filters">
         <OrderDateNav v-model="date" placeholder="统计日期" />
         <el-input
@@ -162,9 +171,15 @@ onMounted(async () => {
           style="width: 120px"
           @keyup.enter="onSearch"
         />
-        <el-button size="small" type="primary" @click="onSearch">查询</el-button>
-        <el-button size="small" @click="date = todayKey()">今天</el-button>
-        <el-button size="small" @click="refresh">刷新</el-button>
+        <el-button size="small" type="primary" @click="onSearch">
+          查询
+        </el-button>
+        <el-button size="small" @click="date = todayKey()">
+          今天
+        </el-button>
+        <el-button size="small" @click="refresh">
+          刷新
+        </el-button>
       </div>
 
       <div class="admin-card__body admin-orders-page__body">
@@ -208,4 +223,3 @@ onMounted(async () => {
     </section>
   </AdminLayout>
 </template>
-

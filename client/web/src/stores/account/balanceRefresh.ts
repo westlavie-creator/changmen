@@ -1,8 +1,8 @@
-import { updateBalance } from "@/api/vt";
 import type { PlatformAccount } from "@/models/platformAccount";
+import type { AccountStoreContext } from "@/stores/account/context";
+import { updateBalance } from "@/api/vt";
 import { getProvider } from "@/runtime/providers";
 import { Currency } from "@/shared/currency";
-import type { AccountStoreContext } from "@/stores/account/context";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 
 function a8RefreshDelayMs() {
@@ -39,25 +39,30 @@ export async function refreshAccountBalance(
       const info = await updateBalance(account.accountId, account.balance);
       if (info) {
         account.totalProfit = info.total - (account.credit ?? 0);
-        if (info.platformId) account.platformId = info.platformId;
-        if (info.platformName) account.platformName = info.platformName;
+        if (info.platformId)
+          account.platformId = info.platformId;
+        if (info.platformName)
+          account.platformName = info.platformName;
       }
       try {
         const { useMessageStore } = await import("@/stores/messageStore");
         const msg = useMessageStore();
         msg.balanceMessage(account);
         msg.profitMessage(account);
-      } catch {
+      }
+      catch {
         /* 消息队列未启动时不阻断余额刷新 */
       }
       return true;
     }
     account.balance = undefined;
     return false;
-  } catch {
+  }
+  catch {
     account.balance = undefined;
     return false;
-  } finally {
+  }
+  finally {
     account.loadingBalance = false;
   }
 }
@@ -87,18 +92,21 @@ export async function refreshAllFromVenues(
         step = Date.now();
         await acc.updateOrders();
         lines.push(`读取订单：${Date.now() - step}ms`);
-      } catch (err) {
+      }
+      catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         lines.push(`发生错误：${msg}`);
       }
     }
-  } finally {
+  }
+  finally {
     let step = Date.now();
     try {
       const { useOrderStore } = await import("@/stores/orderStore");
       await useOrderStore().fetchOrders();
       lines.push(`加载本地订单：${Date.now() - step}ms`);
-    } catch {
+    }
+    catch {
       lines.push(`加载本地订单：${Date.now() - step}ms（失败）`);
     }
 
@@ -106,7 +114,8 @@ export async function refreshAllFromVenues(
     try {
       await store.saveAccounts();
       lines.push(`保存账号：${Date.now() - step}ms`);
-    } catch {
+    }
+    catch {
       lines.push(`保存账号：${Date.now() - step}ms（失败）`);
     }
 

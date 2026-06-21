@@ -1,13 +1,12 @@
 import type { ArbLegs } from "@/domain/arbitrage";
+import type { ViewBet, ViewMatch } from "@/models/match";
+import type { PlatformAccount } from "@/models/platformAccount";
+import type { KakaxiQueuedBet } from "@/stores/betting/kakaxi/types";
+import type { PlatformId } from "@/types/esport";
+import type { UserConfig } from "@/types/userConfig";
 import { pickArbLegs } from "@/domain/arbitrage";
+import { useAccountStore } from "@/stores/accountStore";
 import { executeArbBet } from "@/stores/betting/autoBet/executeArbBet";
-import {
-  dequeueKakaxiBetExcludingPlatforms,
-  enqueueKakaxiBet,
-  kakaxiQueueSize,
-  pruneExpiredKakaxiQueue,
-  requeueKakaxiBet,
-} from "@/stores/betting/kakaxi/queue";
 import {
   KAKAXI_DRAIN_MAX_BETS,
   KAKAXI_DRAIN_MAX_MS,
@@ -21,12 +20,14 @@ import {
   passesKakaxiPreExecuteGate,
   shouldRequeueAfterKakaxiGate,
 } from "@/stores/betting/kakaxi/preExecuteGate";
-import { kakaxiBetKey, type KakaxiQueuedBet } from "@/stores/betting/kakaxi/types";
-import type { PlatformId } from "@/types/esport";
-import type { ViewBet, ViewMatch } from "@/models/match";
-import type { PlatformAccount } from "@/models/platformAccount";
-import type { UserConfig } from "@/types/userConfig";
-import { useAccountStore } from "@/stores/accountStore";
+import {
+  dequeueKakaxiBetExcludingPlatforms,
+  enqueueKakaxiBet,
+  kakaxiQueueSize,
+  pruneExpiredKakaxiQueue,
+  requeueKakaxiBet,
+} from "@/stores/betting/kakaxi/queue";
+import { kakaxiBetKey } from "@/stores/betting/kakaxi/types";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
 
@@ -65,7 +66,8 @@ export function armKakaxiScheduler(): void {
 
 function resolvePlatformsForQueueItem(item: KakaxiQueuedBet): PlatformId[] | undefined {
   const stored = kakaxiQueuedBetPlatforms(item);
-  if (stored) return stored;
+  if (stored)
+    return stored;
 
   const prepared = prepareKakaxiExecute(item);
   return prepared?.platforms;
@@ -80,9 +82,10 @@ function prepareKakaxiExecute(item: KakaxiQueuedBet): KakaxiExecutePrep | undefi
   const configStore = useConfigStore();
   const accountStore = useAccountStore();
   const matchStore = useMatchStore();
-  const match = matchStore.matchs.find((m) => m.id === item.matchId);
-  const bet = match?.bets.find((b) => b.id === item.betId);
-  if (!match || !bet) return undefined;
+  const match = matchStore.matchs.find(m => m.id === item.matchId);
+  const bet = match?.bets.find(b => b.id === item.betId);
+  if (!match || !bet)
+    return undefined;
 
   const providerKeys = [...accountStore.getProviders().keys()] as PlatformId[];
   return prepareKakaxiExecuteForBet(
@@ -103,9 +106,10 @@ function prepareKakaxiExecuteForBet(
   providerKeys: PlatformId[],
   accounts: PlatformAccount[],
 ): KakaxiExecutePrep | undefined {
-  bet.items.forEach((row) => row.updateOdds());
+  bet.items.forEach(row => row.updateOdds());
   const legs = pickArbLegs(bet, config, providerKeys, accounts, match.game);
-  if (!legs) return undefined;
+  if (!legs)
+    return undefined;
 
   const stored = kakaxiQueuedBetPlatforms(item);
   const platforms = stored ?? [legs.homeItem.type, legs.awayItem.type];
@@ -113,7 +117,8 @@ function prepareKakaxiExecuteForBet(
 }
 
 function handleGateFailure(item: KakaxiQueuedBet, gate: ReturnType<typeof passesKakaxiPreExecuteGate>): void {
-  if (!shouldRequeueAfterKakaxiGate(gate.reason)) return;
+  if (!shouldRequeueAfterKakaxiGate(gate.reason))
+    return;
   requeueKakaxiBet({
     ...item,
     implied: gate.implied ?? item.implied,
@@ -125,17 +130,20 @@ export async function executeKakaxiQueuedBet(
   ctx: KakaxiSchedulerContext,
   item: KakaxiQueuedBet,
 ): Promise<boolean> {
-  if (!schedulerArmed) return false;
+  if (!schedulerArmed)
+    return false;
 
   const configStore = useConfigStore();
   const config = configStore.config;
-  if (!config.betting) return false;
+  if (!config.betting)
+    return false;
 
   const matchStore = useMatchStore();
   const accountStore = useAccountStore();
-  const match = matchStore.matchs.find((m) => m.id === item.matchId);
-  const bet = match?.bets.find((b) => b.id === item.betId);
-  if (!match || !bet) return false;
+  const match = matchStore.matchs.find(m => m.id === item.matchId);
+  const bet = match?.bets.find(b => b.id === item.betId);
+  if (!match || !bet)
+    return false;
 
   const providerKeys = [...accountStore.getProviders().keys()] as PlatformId[];
   const prepared = prepareKakaxiExecuteForBet(
@@ -146,7 +154,8 @@ export async function executeKakaxiQueuedBet(
     providerKeys,
     accountStore.accounts,
   );
-  if (!prepared) return false;
+  if (!prepared)
+    return false;
 
   const { platforms, legs } = prepared;
   const betKey = kakaxiBetKey(item.matchId, item.betId);
@@ -173,10 +182,12 @@ export async function executeKakaxiQueuedBet(
   inFlightBetKeys.add(betKey);
 
   try {
-    if (!schedulerArmed) return false;
+    if (!schedulerArmed)
+      return false;
     await executeArbBet({ match, bet, config, setMessage: ctx.setMessage });
     return true;
-  } finally {
+  }
+  finally {
     for (const platform of platforms) inFlightPlatforms.delete(platform);
     inFlightBetKeys.delete(betKey);
   }
@@ -184,12 +195,14 @@ export async function executeKakaxiQueuedBet(
 
 /** 消费队首一条（兼容单条串行调用） */
 export async function processNextKakaxiBet(ctx: KakaxiSchedulerContext): Promise<boolean> {
-  if (!schedulerArmed) return false;
+  if (!schedulerArmed)
+    return false;
   const item = dequeueKakaxiBetExcludingPlatforms(
     inFlightPlatforms,
     resolvePlatformsForQueueItem,
   );
-  if (!item) return false;
+  if (!item)
+    return false;
   return executeKakaxiQueuedBet(ctx, item);
 }
 
@@ -198,7 +211,8 @@ export async function drainKakaxiScheduler(
   ctx: KakaxiSchedulerContext,
   options: KakaxiDrainOptions = {},
 ): Promise<number> {
-  if (!schedulerArmed) return 0;
+  if (!schedulerArmed)
+    return 0;
   const job = drainTail.then(() => drainKakaxiSchedulerBody(ctx, options));
   drainTail = job.then(
     () => undefined,
@@ -211,7 +225,8 @@ async function drainKakaxiSchedulerBody(
   ctx: KakaxiSchedulerContext,
   options: KakaxiDrainOptions = {},
 ): Promise<number> {
-  if (!schedulerArmed) return 0;
+  if (!schedulerArmed)
+    return 0;
 
   pruneExpiredKakaxiQueue();
 
@@ -221,20 +236,21 @@ async function drainKakaxiSchedulerBody(
   const startedAt = Date.now();
   let processed = 0;
 
+  /* eslint-disable no-unmodified-loop-condition -- schedulerArmed is module-level, changed via resetKakaxiScheduler() during await */
   while (
-    schedulerArmed &&
-    kakaxiQueueSize() > 0 &&
-    processed < maxBets &&
-    Date.now() - startedAt < maxMs
+    schedulerArmed
+    && kakaxiQueueSize() > 0
+    && processed < maxBets
+    && Date.now() - startedAt < maxMs
   ) {
     const waveBusy = new Set(inFlightPlatforms);
     const wave: Promise<boolean>[] = [];
 
     while (
-      schedulerArmed &&
-      wave.length < maxParallel &&
-      processed + wave.length < maxBets &&
-      Date.now() - startedAt < maxMs
+      schedulerArmed
+      && wave.length < maxParallel
+      && processed + wave.length < maxBets
+      && Date.now() - startedAt < maxMs
     ) {
       const item = dequeueKakaxiBetExcludingPlatforms(waveBusy, (queued) => {
         const resolved = resolvePlatformsForQueueItem(queued);
@@ -244,7 +260,8 @@ async function drainKakaxiSchedulerBody(
         }
         return resolved;
       });
-      if (!item) break;
+      if (!item)
+        break;
 
       const platforms = kakaxiQueuedBetPlatforms(item);
       if (!platforms?.length) {
@@ -256,12 +273,14 @@ async function drainKakaxiSchedulerBody(
       wave.push(executeKakaxiQueuedBet(ctx, item));
     }
 
-    if (!wave.length) break;
+    if (!wave.length)
+      break;
 
     const results = await Promise.all(wave);
     processed += results.filter(Boolean).length;
   }
 
+  /* eslint-enable no-unmodified-loop-condition */
   return processed;
 }
 

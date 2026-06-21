@@ -6,7 +6,7 @@ export type ArbProviderScope = "display" | "auto";
 export function providerKeysFromBetItems(bet: {
   items: { type: PlatformId }[];
 }): PlatformId[] {
-  return bet.items.map((item) => item.type);
+  return bet.items.map(item => item.type);
 }
 
 /**

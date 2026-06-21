@@ -17,7 +17,8 @@ export function getExchange(currency?: string | null): number {
 
 /** 对齐 A8 `Pr.getCurrency` */
 export function getCurrency(raw?: string | null): CurrencyCode {
-  if (!raw) return Currency.CNY;
+  if (!raw)
+    return Currency.CNY;
   switch (raw) {
     case "CNY":
     case "RMB":

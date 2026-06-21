@@ -1,7 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { BetRowDto } from "@/types/esport";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pickArbLegs } from "@/domain/arbitrage/pickArbLegs";
 import { ViewBet } from "@/models/match";
-import type { BetRowDto } from "@/types/esport";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 let foOdds: Record<string, Record<string, number>> = {};

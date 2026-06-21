@@ -1,9 +1,9 @@
-import { indexOpportunities } from "@/extensions/arbOpportunity/detect";
 import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
+import { indexOpportunities } from "@/extensions/arbOpportunity/detect";
 
-export type OpportunityTransition =
-  | { kind: "appeared"; opportunity: ArbOpportunity }
-  | { kind: "gone"; key: OpportunityKey; previous: ArbOpportunity };
+export type OpportunityTransition
+  = | { kind: "appeared"; opportunity: ArbOpportunity }
+    | { kind: "gone"; key: OpportunityKey; previous: ArbOpportunity };
 
 /** 上一拍快照 → 当前列表，产出 appeared / gone（持续存在且利润微变不重报） */
 export function diffOpportunities(

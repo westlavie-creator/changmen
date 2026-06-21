@@ -1,22 +1,23 @@
-import { post, unwrap } from "@/api/client";
-import { ACCOUNT_KEY, getData, saveData, updateBalance as vtUpdateBalance } from "@/api/vt";
 import type { AccountRecord, CreateTagPlatformResult, UpdateBalanceResult } from "@/types/account";
-import { formatPbDateTime } from "@/shared/format";
 import type { MoneyLogRow, PageResult, TagPlatformRow } from "@/types/esport";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply.mjs";
+import { post, unwrap } from "@/api/client";
+import { ACCOUNT_KEY, getData, saveData, updateBalance as vtUpdateBalance } from "@/api/vt";
+import { formatPbDateTime } from "@/shared/format";
 
 /** [A8 可证实] Io.loadAccounts → Vt.getData("ACCOUNT") */
 export async function getAccounts(): Promise<AccountRecord[]> {
   const rows = (await getData<AccountRecord[]>(ACCOUNT_KEY)) ?? [];
-  if (!Array.isArray(rows)) return [];
-  return rows.filter((row) => row.accountId);
+  if (!Array.isArray(rows))
+    return [];
+  return rows.filter(row => row.accountId);
 }
 
 /** [A8 可证实] Io.saveAccounts → Vt.saveData("ACCOUNT", JSON.stringify(...)) */
 export async function saveAccounts(accounts: AccountRecord[]): Promise<boolean> {
   const payload = accounts
-    .filter((a) => a.accountId)
-    .map((a) => normalizeAccountMultiplyField(a));
+    .filter(a => a.accountId)
+    .map(a => normalizeAccountMultiplyField(a));
   return saveData(ACCOUNT_KEY, JSON.stringify(payload));
 }
 
@@ -40,7 +41,8 @@ export async function saveMoneyLog(body: Record<string, unknown>) {
   try {
     await unwrap(await post<unknown>("Client_SaveMoneyLog", payload));
     return true;
-  } catch {
+  }
+  catch {
     return false;
   }
 }

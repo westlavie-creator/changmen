@@ -1,3 +1,6 @@
+import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformId } from "@/types/esport";
+import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 import {
   ensureGoEasyConnected,
   goeasyPublish,
@@ -9,9 +12,6 @@ import {
 } from "@/realtime/goeasyClient";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
-import type { PlatformId } from "@/types/esport";
-import type { PlatformAccount } from "@/models/platformAccount";
-import { resolveAccountMultiply } from "@changmen/shared/account_multiply.mjs";
 
 let subscribedUserId: number | null = null;
 
@@ -53,13 +53,20 @@ async function handleUserChannelMessage(raw: string) {
     case "account": {
       const info = envelope.info ?? {};
       const acc = accountStore.findAccount(Number(info.accountId));
-      if (!acc) return;
-      if (info.pause !== undefined) acc.pause = Boolean(info.pause);
-      if (info.profit !== undefined) acc.profit = Number(info.profit);
-      if (info.maxBetCount !== undefined) acc.maxBetCount = Number(info.maxBetCount);
-      if (info.minOdds !== undefined) acc.minOdds = Number(info.minOdds);
-      if (info.maxOdds !== undefined) acc.maxOdds = Number(info.maxOdds);
-      if (info.lastOdds !== undefined) acc.lastOdds = Boolean(info.lastOdds);
+      if (!acc)
+        return;
+      if (info.pause !== undefined)
+        acc.pause = Boolean(info.pause);
+      if (info.profit !== undefined)
+        acc.profit = Number(info.profit);
+      if (info.maxBetCount !== undefined)
+        acc.maxBetCount = Number(info.maxBetCount);
+      if (info.minOdds !== undefined)
+        acc.minOdds = Number(info.minOdds);
+      if (info.maxOdds !== undefined)
+        acc.maxOdds = Number(info.maxOdds);
+      if (info.lastOdds !== undefined)
+        acc.lastOdds = Boolean(info.lastOdds);
       if (info.multiply !== undefined) {
         acc.multiply = resolveAccountMultiply(acc.provider, info.multiply);
       }
@@ -67,8 +74,10 @@ async function handleUserChannelMessage(raw: string) {
     }
     case "upload": {
       const type = (envelope.info as { type?: string })?.type;
-      if (type === "account") await accountStore.saveAccounts();
-      if (type === "config") await configStore.save();
+      if (type === "account")
+        await accountStore.saveAccounts();
+      if (type === "config")
+        await configStore.save();
       break;
     }
     case "query": {
@@ -88,14 +97,15 @@ async function handleUserChannelMessage(raw: string) {
         case "accounts": {
           const provider = info.data?.provider as PlatformId | undefined;
           content = accountStore.accounts
-            .filter((a) => !provider || a.provider === provider)
+            .filter(a => !provider || a.provider === provider)
             .map(serializeTradeAccount);
           break;
         }
         default:
           return;
       }
-      if (!info.reply || !info.msgId) return;
+      if (!info.reply || !info.msgId)
+        return;
       await goeasyPublish(
         info.reply,
         JSON.stringify({ msgId: info.msgId, content }),
@@ -127,8 +137,10 @@ function serializeTradeAccount(d: PlatformAccount): TradeRemoteAccount {
 
 /** 对齐 A8 `$8e`：登录后订阅 USER 通道 */
 export async function subscribeUserChannel(userId: number) {
-  if (!userId || subscribedUserId === userId) return;
-  if (subscribedUserId) goeasyUnsubscribe(userChannel(subscribedUserId));
+  if (!userId || subscribedUserId === userId)
+    return;
+  if (subscribedUserId)
+    goeasyUnsubscribe(userChannel(subscribedUserId));
   subscribedUserId = userId;
   await goeasySubscribe(userChannel(userId), (content) => {
     void handleUserChannelMessage(content);
@@ -147,13 +159,16 @@ let tradeReplyBound = false;
 /** 操盘端：订阅 TRADE 频道接收 query 回复（对齐 TradeView onMounted） */
 export async function ensureTradeReplyChannel(adminUserId: number) {
   await ensureGoEasyConnected();
-  if (tradeReplyBound) return;
+  if (tradeReplyBound)
+    return;
   tradeReplyBound = true;
   await goeasySubscribe(tradeChannel(adminUserId), (raw) => {
     try {
       const envelope = JSON.parse(raw) as { msgId?: string; content?: unknown };
-      if (envelope.msgId) goeasySetReply(envelope.msgId, envelope.content);
-    } catch {
+      if (envelope.msgId)
+        goeasySetReply(envelope.msgId, envelope.content);
+    }
+    catch {
       /* ignore */
     }
   });
@@ -177,8 +192,10 @@ export async function queryRemoteAccounts(
     },
   });
   const result = await goeasyRequestReply(userChannel(remoteUserId), msgId, payload);
-  if (!result) return [];
-  if (Array.isArray(result)) return result as TradeRemoteAccount[];
+  if (!result)
+    return [];
+  if (Array.isArray(result))
+    return result as TradeRemoteAccount[];
   return [];
 }
 

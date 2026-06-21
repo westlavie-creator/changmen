@@ -4,7 +4,8 @@ export async function runPool<T>(
   concurrency: number,
   worker: (item: T) => Promise<void>,
 ): Promise<void> {
-  if (items.length === 0) return;
+  if (items.length === 0)
+    return;
   const limit = Math.max(1, Math.min(concurrency, items.length));
   let next = 0;
 
@@ -12,7 +13,8 @@ export async function runPool<T>(
     for (;;) {
       const i = next;
       next += 1;
-      if (i >= items.length) return;
+      if (i >= items.length)
+        return;
       await worker(items[i]!);
     }
   }

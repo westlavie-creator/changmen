@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import type { AdminOrderRow } from "@/types/admin";
+import { describe, expect, it } from "vitest";
 import { buildAdminOrdersMatrix, buildLinkGroups, parseBetHandicapLabel, parseBetMapLabel } from "./adminOrdersMatrix";
 
 function order(partial: Partial<AdminOrderRow> & Pick<AdminOrderRow, "id">): AdminOrderRow {

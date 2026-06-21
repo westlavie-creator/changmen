@@ -1,9 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { BetRowDto, ClientMatchDto, PlatformId } from "@/types/esport";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pickArbLegs } from "@/domain/arbitrage";
 import { providerKeysFromBetItems } from "@/domain/betting/providerKeys";
-import { ViewBet, ViewMatch } from "@/models/match";
-import type { BetRowDto, ClientMatchDto, PlatformId } from "@/types/esport";
-import { createDefaultUserConfig } from "@/types/userConfig";
 import {
   detectOpportunities,
   detectOpportunitiesForBets,
@@ -11,6 +9,8 @@ import {
   indexOpportunities,
 } from "@/extensions/arbOpportunity/detect";
 import { betAnchor, opportunityKey } from "@/extensions/arbOpportunity/types";
+import { ViewBet, ViewMatch } from "@/models/match";
+import { createDefaultUserConfig } from "@/types/userConfig";
 
 let foOdds: Record<string, Record<string, number>> = {};
 

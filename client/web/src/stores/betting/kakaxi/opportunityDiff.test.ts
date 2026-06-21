@@ -1,9 +1,9 @@
+import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
 import { describe, expect, it } from "vitest";
 import {
   diffKakaxiOpportunities,
+  snapshotKakaxiOpportunities,
 } from "@/stores/betting/kakaxi/opportunityDiff";
-import { snapshotKakaxiOpportunities } from "@/stores/betting/kakaxi/opportunityDiff";
-import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
 
 function makeOpp(patch: Partial<ArbOpportunity> = {}): ArbOpportunity {
   return {

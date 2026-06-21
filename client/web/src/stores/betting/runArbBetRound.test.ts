@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { runArbBetRound } from "@/stores/betting/runArbBetRound";
+
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 const config = createDefaultUserConfig();
@@ -33,8 +35,6 @@ vi.mock("@/stores/betting/kakaxi/runKakaxiArbRound", () => ({
 vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: vi.fn(async () => {}),
 }));
-
-import { runArbBetRound } from "@/stores/betting/runArbBetRound";
 
 describe("runArbBetRound lose-order gate", () => {
   beforeEach(() => {

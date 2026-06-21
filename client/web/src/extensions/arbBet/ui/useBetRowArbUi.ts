@@ -1,12 +1,13 @@
-import { computed, ref, toValue, type MaybeRefOrGetter } from "vue";
+import type { MaybeRefOrGetter } from "vue";
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
+import { computed, ref, toValue } from "vue";
 import { arbLegSide, pickArbLegs } from "@/domain/arbitrage";
 import { providerKeysFromBetItems } from "@/domain/betting/providerKeys";
+import { useArbLineOverlay, useOddsAnchorMap } from "@/extensions/arbBet/ui/useArbLineOverlay";
+import { useOddsFlashCell } from "@/extensions/arbBet/ui/useOddsFlash";
 import { percent } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
-import { useOddsAnchorMap, useArbLineOverlay } from "@/extensions/arbBet/ui/useArbLineOverlay";
-import { useOddsFlashCell } from "@/extensions/arbBet/ui/useOddsFlash";
 
 /**
  * [changmen 扩展] BetRow 套利 UI：全盘口 pickArbLegs 红线、利润角标、赔率涨跌 flash。
@@ -52,7 +53,8 @@ export function useBetRowArbUi(
     itemsContainerRef,
     () => {
       const L = legs.value;
-      if (!L) return null;
+      if (!L)
+        return null;
       return {
         home: anchorMap.get(L.homeItem.type, "Home"),
         away: anchorMap.get(L.awayItem.type, "Away"),

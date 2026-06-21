@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
 
-type Star = {
+interface Star {
   angle: number;
   radius: number;
   speed: number;
@@ -9,7 +9,7 @@ type Star = {
   alpha: number;
   twinkle: number;
   twinkleSpeed: number;
-};
+}
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 let frameId = 0;
@@ -26,7 +26,7 @@ function buildStars(maxRadius: number) {
   stars = [];
   for (let i = 0; i < STAR_COUNT; i += 1) {
     const arm = i % ARM_COUNT;
-    const t = Math.pow(Math.random(), 0.72);
+    const t = Math.random() ** 0.72;
     const radius = 18 + t * maxRadius;
     const spiral = arm * ((Math.PI * 2) / ARM_COUNT) + radius * 0.11;
     stars.push({
@@ -43,9 +43,11 @@ function buildStars(maxRadius: number) {
 
 function resize() {
   const canvas = canvasRef.value;
-  if (!canvas) return;
+  if (!canvas)
+    return;
   const parent = canvas.parentElement;
-  if (!parent) return;
+  if (!parent)
+    return;
 
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   width = parent.clientWidth;
@@ -60,9 +62,11 @@ function resize() {
 
 function drawGalaxy(time: number) {
   const canvas = canvasRef.value;
-  if (!canvas) return;
+  if (!canvas)
+    return;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  if (!ctx)
+    return;
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);

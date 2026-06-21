@@ -1,10 +1,10 @@
+import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
 import { describe, expect, it } from "vitest";
 import {
   buildMarketWatchContext,
   explainNotExecutable,
 } from "@/extensions/arbMarketWatch/marketWatchContext";
 import { createDefaultUserConfig } from "@/types/userConfig";
-import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
 
 describe("marketWatchContext", () => {
   it("explainNotExecutable lists missing account platforms", () => {

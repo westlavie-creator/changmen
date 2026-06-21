@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import type { UserConfigFormState } from "@/components/user/userConfigFormState";
 import { computed, ref } from "vue";
-import { ALL_PLATFORMS } from "@/types/userConfig";
 import {
   BET_SORTING_KEYS,
   BET_SORTING_LABELS,
   USER_CONFIG_LABEL_W,
-  type UserConfigFormState,
+
   waitTimePlatformPairs,
 } from "@/components/user/userConfigFormState";
+import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const props = defineProps<{
   form: UserConfigFormState;
@@ -28,11 +29,13 @@ const dragIndex = ref(0);
 
 const openDate = computed({
   get() {
-    if (props.autoOpenDate !== undefined) return props.autoOpenDate;
+    if (props.autoOpenDate !== undefined)
+      return props.autoOpenDate;
     return props.form.bettingAutoOpenTime ? new Date(props.form.bettingAutoOpenTime) : null;
   },
   set(v: Date | null) {
-    if (!props.readonly) emit("update:autoOpenDate", v);
+    if (!props.readonly)
+      emit("update:autoOpenDate", v);
   },
 });
 
@@ -41,14 +44,17 @@ function fieldDisabled(extra = false) {
 }
 
 function onDragStart(index: number) {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   dragIndex.value = index;
 }
 
 function onDragEnter(index: number, e: DragEvent) {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   e.preventDefault();
-  if (dragIndex.value === index) return;
+  if (dragIndex.value === index)
+    return;
   const moved = props.form.providerSortValue[dragIndex.value];
   props.form.providerSortValue.splice(dragIndex.value, 1);
   props.form.providerSortValue.splice(index, 0, moved);
@@ -56,12 +62,14 @@ function onDragEnter(index: number, e: DragEvent) {
 }
 
 function onDragOver(e: DragEvent) {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   e.preventDefault();
 }
 
 function setWaitTime(platform: string, v: string | number) {
-  if (props.readonly) return;
+  if (props.readonly)
+    return;
   props.form.waitTime[platform] = Number(v) || 0;
 }
 </script>
@@ -138,7 +146,9 @@ function setWaitTime(platform: string, v: string | number) {
         <el-col :span="6">
           <el-form-item label="投注间隔" :label-width="LABEL_W">
             <el-input v-model="form.betInterval" autocomplete="off" :disabled="fieldDisabled()">
-              <template #append>秒</template>
+              <template #append>
+                秒
+              </template>
             </el-input>
           </el-form-item>
         </el-col>
@@ -180,7 +190,9 @@ function setWaitTime(platform: string, v: string | number) {
         <el-col :span="7">
           <el-form-item label="检测超时" :label-width="LABEL_W">
             <el-input v-model="form.checkTimeout" type="text" autocomplete="off" :disabled="fieldDisabled()">
-              <template #append>ms</template>
+              <template #append>
+                ms
+              </template>
             </el-input>
           </el-form-item>
         </el-col>
@@ -344,7 +356,9 @@ function setWaitTime(platform: string, v: string | number) {
                     :disabled="fieldDisabled()"
                     @update:model-value="(v: string | number) => setWaitTime(p, v)"
                   >
-                    <template #prepend>{{ p }}</template>
+                    <template #prepend>
+                      {{ p }}
+                    </template>
                   </el-input>
                 </el-form-item>
               </el-col>

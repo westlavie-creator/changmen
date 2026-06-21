@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import "@/styles/lose-order.css";
-import { storeToRefs } from "pinia";
 import { ElMessageBox } from "element-plus";
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { useConfigStore } from "@/stores/configStore";
+import { storeToRefs } from "pinia";
 import { formatDate } from "@/shared/format";
+import { useConfigStore } from "@/stores/configStore";
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
+import "@/styles/lose-order.css";
 
 const loseStore = useLoseOrderStore();
 const configStore = useConfigStore();
@@ -34,7 +34,9 @@ function remove(betId: number) {
           <label v-html="item.bet" />
           <label class="team"> => {{ item.target }}</label>
         </div>
-        <div class="time"> 时间: {{ formatDate(item.createAt) }}</div>
+        <div class="time">
+          时间: {{ formatDate(item.createAt) }}
+        </div>
         <div class="info">
           补单金额：{{ item.getBetMoney(item.getOdds(config.makeProfit)) }}@{{
             item.getOdds(config.makeProfit)

@@ -1,11 +1,12 @@
+import type { ViewMatch } from "@/models/match";
+import type { PlatformBetLookupKey } from "@/stores/betting/kakaxi/matchBetLookup";
 import type { PlatformId } from "@/types/esport";
-import { useOddsStore } from "@/stores/oddsStore";
 import {
   buildPlatformBetLookup,
   platformBetLookupKey,
-  type PlatformBetLookupKey,
+
 } from "@/stores/betting/kakaxi/matchBetLookup";
-import type { ViewMatch } from "@/models/match";
+import { useOddsStore } from "@/stores/oddsStore";
 
 type OddFlashKey = `${PlatformId}:${string}`;
 
@@ -54,15 +55,19 @@ export function collectDirtyBetAnchorsFromFlash(
   const now = Date.now();
 
   for (const [flashKey, row] of oddsStore.flash) {
-    if (row.until < now) continue;
+    if (row.until < now)
+      continue;
     const sep = flashKey.indexOf(":");
-    if (sep <= 0) continue;
+    if (sep <= 0)
+      continue;
     const platform = flashKey.slice(0, sep) as PlatformId;
     const oddId = flashKey.slice(sep + 1);
     const platformBetId = oddIndex.get(`${platform}:${oddId}`);
-    if (!platformBetId) continue;
+    if (!platformBetId)
+      continue;
     const anchor = lookup.get(platformBetLookupKey(platform, platformBetId));
-    if (anchor) anchors.add(anchor);
+    if (anchor)
+      anchors.add(anchor);
   }
 
   return anchors;
@@ -72,6 +77,7 @@ export function shouldRunFullKakaxiDetect(
   mode: "incremental" | "full",
   dirtyAnchors: Set<string>,
 ): boolean {
-  if (mode === "full") return true;
+  if (mode === "full")
+    return true;
   return dirtyAnchors.size > 0;
 }

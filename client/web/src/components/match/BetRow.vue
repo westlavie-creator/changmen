@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { storeToRefs } from "pinia";
 import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
+import type { PlatformId } from "@/types/esport";
+import { storeToRefs } from "pinia";
+import { computed, ref } from "vue";
 import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
-import { useOddsStore } from "@/stores/oddsStore";
-import { useMatchStore } from "@/stores/matchStore";
-import { useBettingStore } from "@/stores/bettingStore";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
 import { useEvMarker } from "@/extensions/valueBet";
 import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
-import type { PlatformId } from "@/types/esport";
-
-const BET_SIDES: BetSide[] = ["Home", "Away"];
+import { useBettingStore } from "@/stores/bettingStore";
+import { useMatchStore } from "@/stores/matchStore";
+import { useOddsStore } from "@/stores/oddsStore";
 
 const props = defineProps<{
   match: ViewMatch;
   bet: ViewBet;
 }>();
+
+const BET_SIDES: BetSide[] = ["Home", "Away"];
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
@@ -56,15 +56,18 @@ const arb = computed(() => {
   for (const item of props.bet.items) {
     const h = itemOdds(item, "Home");
     const a = itemOdds(item, "Away");
-    if (h > bestHome) bestHome = h;
-    if (a > bestAway) bestAway = a;
+    if (h > bestHome)
+      bestHome = h;
+    if (a > bestAway)
+      bestAway = a;
   }
   return arbPercent(bestHome, bestAway);
 });
 
 const liveSeconds = computed(() => {
   void matchTick.value;
-  if (!props.bet.isLive || !props.bet.startTime) return 0;
+  if (!props.bet.isLive || !props.bet.startTime)
+    return 0;
   return (Date.now() - props.bet.startTime) / 1000;
 });
 
@@ -76,7 +79,8 @@ const roundScore = computed(() => {
 function defaultOddsValue(betId: number, side: BetSide): number {
   void matchTick.value;
   const fromStore = matchStore.getDefaultOdds(betId, side);
-  if (fromStore > 0) return fromStore;
+  if (fromStore > 0)
+    return fromStore;
   return side === "Home" ? props.bet.initialHomeOdds : props.bet.initialAwayOdds;
 }
 
@@ -89,10 +93,12 @@ const showDefaultOdds = computed(() => {
 function defaultOddsPercent(betId: number, side: BetSide): string | undefined {
   const home = defaultOddsValue(betId, "Home");
   const away = defaultOddsValue(betId, "Away");
-  if (!home || !away) return undefined;
+  if (!home || !away)
+    return undefined;
   const implied = 1 / (1 / home + 1 / away);
   const line = defaultOddsValue(betId, side);
-  if (!line) return undefined;
+  if (!line)
+    return undefined;
   return percent(implied / line, 0);
 }
 
@@ -140,8 +146,12 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
     </div>
     <div ref="itemsContainerRef" class="bet-items">
       <div v-if="roundScore" class="score">
-        <div class="home">{{ roundScore.Home }}</div>
-        <div class="away">{{ roundScore.Away }}</div>
+        <div class="home">
+          {{ roundScore.Home }}
+        </div>
+        <div class="away">
+          {{ roundScore.Away }}
+        </div>
       </div>
 
       <div v-if="showDefaultOdds" class="item flex defaultOdds">
@@ -171,8 +181,8 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
           :ref="bindOddsAnchor(item.type, 'Home')"
           class="item-odds home"
           :class="{
-            lock: !itemOdds(item, 'Home'),
-            target: matchStore.getBetTarget(item.type, bet.id) === 'Home',
+            'lock': !itemOdds(item, 'Home'),
+            'target': matchStore.getBetTarget(item.type, bet.id) === 'Home',
             'arb-leg': isArbLeg(item, 'Home'),
             ...oddsCellClasses(item, 'Home'),
             'ev-positive': evMarker.isPositiveEv(item, 'Home'),
@@ -192,8 +202,8 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
           :ref="bindOddsAnchor(item.type, 'Away')"
           class="item-odds away"
           :class="{
-            lock: !itemOdds(item, 'Away'),
-            target: matchStore.getBetTarget(item.type, bet.id) === 'Away',
+            'lock': !itemOdds(item, 'Away'),
+            'target': matchStore.getBetTarget(item.type, bet.id) === 'Away',
             'arb-leg': isArbLeg(item, 'Away'),
             ...oddsCellClasses(item, 'Away'),
             'ev-positive': evMarker.isPositiveEv(item, 'Away'),

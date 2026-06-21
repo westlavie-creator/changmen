@@ -1,18 +1,16 @@
 <script setup lang="ts">
+import type { AccountAnalyticsRow, ArbPairRow, GameAnalyticsRow, HourlyAnalyticsRow, PlatformAnalyticsRow } from "@/api/admin";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import AdminLayout from "@/components/admin/AdminLayout.vue";
-import { useUserStore } from "@/stores/userStore";
 import {
+
   getAdminPlatformAnalytics,
-  type PlatformAnalyticsRow,
-  type ArbPairRow,
-  type GameAnalyticsRow,
-  type HourlyAnalyticsRow,
-  type AccountAnalyticsRow,
+
 } from "@/api/admin";
+import AdminLayout from "@/components/admin/AdminLayout.vue";
 import { todayKey } from "@/shared/dateKey";
 import { toFixed } from "@/shared/format";
+import { useUserStore } from "@/stores/userStore";
 
 const router = useRouter();
 const user = useUserStore();
@@ -36,68 +34,71 @@ const totalProfit = computed(() => platforms.value.reduce((s, p) => s + p.total_
 const totalBet = computed(() => platforms.value.reduce((s, p) => s + p.total_bet, 0));
 
 const maxBarProfit = computed(() => {
-  const vals = platforms.value.map((p) => Math.abs(p.total_profit));
+  const vals = platforms.value.map(p => Math.abs(p.total_profit));
   return Math.max(...vals, 1);
 });
 
 function winRateGeneric(wins: number, losses: number): string {
   const settled = wins + losses;
-  return settled ? toFixed((wins / settled) * 100, 1) + "%" : "-";
+  return settled ? `${toFixed((wins / settled) * 100, 1)}%` : "-";
 }
 
-const maxHourlyOrders = computed(() => Math.max(...hourly.value.map((h) => h.total_orders), 1));
+const maxHourlyOrders = computed(() => Math.max(...hourly.value.map(h => h.total_orders), 1));
 
 const fullHourly = computed(() => {
-  const byHour = new Map(hourly.value.map((h) => [h.hour, h]));
+  const byHour = new Map(hourly.value.map(h => [h.hour, h]));
   return Array.from({ length: 24 }, (_, i) => byHour.get(i) ?? { hour: i, total_orders: 0, wins: 0, losses: 0, total_profit: 0, total_bet: 0 });
 });
 
 function hourlyBarHeight(count: number): string {
-  return toFixed((count / maxHourlyOrders.value) * 100, 0) + "%";
+  return `${toFixed((count / maxHourlyOrders.value) * 100, 0)}%`;
 }
 
 function winRate(p: PlatformAnalyticsRow): string {
   const settled = p.wins + p.losses;
-  return settled ? toFixed((p.wins / settled) * 100, 1) + "%" : "-";
+  return settled ? `${toFixed((p.wins / settled) * 100, 1)}%` : "-";
 }
 
 function rejectRate(p: PlatformAnalyticsRow): string {
-  return p.total_orders ? toFixed((p.rejects / p.total_orders) * 100, 1) + "%" : "-";
+  return p.total_orders ? `${toFixed((p.rejects / p.total_orders) * 100, 1)}%` : "-";
 }
 
 function pairSuccessRate(p: ArbPairRow): string {
-  return p.pair_count ? toFixed((p.both_settled / p.pair_count) * 100, 1) + "%" : "-";
+  return p.pair_count ? `${toFixed((p.both_settled / p.pair_count) * 100, 1)}%` : "-";
 }
 
 function profitBarWidth(val: number): string {
-  return toFixed((Math.abs(val) / maxBarProfit.value) * 100, 0) + "%";
+  return `${toFixed((Math.abs(val) / maxBarProfit.value) * 100, 0)}%`;
 }
 
 async function fetchData() {
   loading.value = true;
   try {
-    const body: Record<string, unknown> =
-      rangeMode.value === "month" ? { month: monthKey.value } : { date: dateKey.value };
+    const body: Record<string, unknown>
+      = rangeMode.value === "month" ? { month: monthKey.value } : { date: dateKey.value };
     const data = await getAdminPlatformAnalytics(body);
     platforms.value = data.platforms;
     pairs.value = data.pairs;
     games.value = data.games ?? [];
     hourly.value = data.hourly ?? [];
     accounts.value = data.accounts ?? [];
-  } catch {
+  }
+  catch {
     platforms.value = [];
     pairs.value = [];
     games.value = [];
     hourly.value = [];
     accounts.value = [];
-  } finally {
+  }
+  finally {
     loading.value = false;
   }
 }
 
 onMounted(async () => {
   if (!user.ready) {
-    try { await user.fetchUserInfo(); } catch {
+    try { await user.fetchUserInfo(); }
+    catch {
       sessionStorage.setItem("gamebet:postLoginRedirect", "/admin/analytics");
       await router.replace({ name: "home" });
       return;
@@ -113,8 +114,12 @@ onMounted(async () => {
     <!-- Toolbar -->
     <div class="analytics-toolbar">
       <el-radio-group v-model="rangeMode" size="small" @change="fetchData">
-        <el-radio-button value="day">按日</el-radio-button>
-        <el-radio-button value="month">按月</el-radio-button>
+        <el-radio-button value="day">
+          按日
+        </el-radio-button>
+        <el-radio-button value="month">
+          按月
+        </el-radio-button>
       </el-radio-group>
       <el-date-picker
         v-if="rangeMode === 'day'"
@@ -134,33 +139,51 @@ onMounted(async () => {
         style="width: 150px"
         @change="fetchData"
       />
-      <el-button size="small" :loading="loading" @click="fetchData">刷新</el-button>
+      <el-button size="small" :loading="loading" @click="fetchData">
+        刷新
+      </el-button>
     </div>
 
     <!-- Summary cards -->
     <div class="analytics-summary">
       <div class="summary-card">
-        <div class="summary-label">总订单</div>
-        <div class="summary-value">{{ totalOrders }}</div>
+        <div class="summary-label">
+          总订单
+        </div>
+        <div class="summary-value">
+          {{ totalOrders }}
+        </div>
       </div>
       <div class="summary-card">
-        <div class="summary-label">总投注额</div>
-        <div class="summary-value">{{ toFixed(totalBet, 0) }}</div>
+        <div class="summary-label">
+          总投注额
+        </div>
+        <div class="summary-value">
+          {{ toFixed(totalBet, 0) }}
+        </div>
       </div>
       <div class="summary-card" :class="totalProfit >= 0 ? 'summary-card--green' : 'summary-card--red'">
-        <div class="summary-label">总盈亏</div>
-        <div class="summary-value">{{ totalProfit >= 0 ? "+" : "" }}{{ toFixed(totalProfit, 0) }}</div>
+        <div class="summary-label">
+          总盈亏
+        </div>
+        <div class="summary-value">
+          {{ totalProfit >= 0 ? "+" : "" }}{{ toFixed(totalProfit, 0) }}
+        </div>
       </div>
     </div>
 
     <!-- Platform table -->
     <div class="analytics-section">
-      <h3 class="analytics-section__title">平台盈亏</h3>
+      <h3 class="analytics-section__title">
+        平台盈亏
+      </h3>
       <el-table :data="platforms" stripe size="small" :show-header="true">
         <el-table-column prop="provider" label="平台" width="90" />
         <el-table-column prop="total_orders" label="订单数" width="80" align="right" />
         <el-table-column label="胜率" width="80" align="right">
-          <template #default="{ row }">{{ winRate(row) }}</template>
+          <template #default="{ row }">
+            {{ winRate(row) }}
+          </template>
         </el-table-column>
         <el-table-column label="拒单率" width="80" align="right">
           <template #default="{ row }">
@@ -168,7 +191,9 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column label="投注额" width="120" align="right">
-          <template #default="{ row }">{{ toFixed(row.total_bet, 0) }}</template>
+          <template #default="{ row }">
+            {{ toFixed(row.total_bet, 0) }}
+          </template>
         </el-table-column>
         <el-table-column label="盈亏" min-width="200">
           <template #default="{ row }">
@@ -195,14 +220,20 @@ onMounted(async () => {
 
     <!-- Arb pairs table -->
     <div class="analytics-section">
-      <h3 class="analytics-section__title">套利配对</h3>
+      <h3 class="analytics-section__title">
+        套利配对
+      </h3>
       <el-table v-if="pairs.length" :data="pairs" stripe size="small">
         <el-table-column label="平台组合" width="150">
-          <template #default="{ row }">{{ row.provider_a }} + {{ row.provider_b }}</template>
+          <template #default="{ row }">
+            {{ row.provider_a }} + {{ row.provider_b }}
+          </template>
         </el-table-column>
         <el-table-column prop="pair_count" label="配对数" width="80" align="right" />
         <el-table-column label="成功率" width="80" align="right">
-          <template #default="{ row }">{{ pairSuccessRate(row) }}</template>
+          <template #default="{ row }">
+            {{ pairSuccessRate(row) }}
+          </template>
         </el-table-column>
         <el-table-column label="含拒单" width="80" align="right">
           <template #default="{ row }">
@@ -210,7 +241,9 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column label="总投注额" width="120" align="right">
-          <template #default="{ row }">{{ toFixed(row.total_bet, 0) }}</template>
+          <template #default="{ row }">
+            {{ toFixed(row.total_bet, 0) }}
+          </template>
         </el-table-column>
         <el-table-column label="净利润" min-width="160">
           <template #default="{ row }">
@@ -220,20 +253,28 @@ onMounted(async () => {
           </template>
         </el-table-column>
       </el-table>
-      <div v-else class="analytics-empty">暂无套利配对数据</div>
+      <div v-else class="analytics-empty">
+        暂无套利配对数据
+      </div>
     </div>
 
     <!-- Game dimension -->
     <div v-if="games.length" class="analytics-section">
-      <h3 class="analytics-section__title">游戏维度</h3>
+      <h3 class="analytics-section__title">
+        游戏维度
+      </h3>
       <el-table :data="games" stripe size="small">
         <el-table-column prop="game" label="游戏" width="120" />
         <el-table-column prop="total_orders" label="订单数" width="80" align="right" />
         <el-table-column label="胜率" width="80" align="right">
-          <template #default="{ row }">{{ winRateGeneric(row.wins, row.losses) }}</template>
+          <template #default="{ row }">
+            {{ winRateGeneric(row.wins, row.losses) }}
+          </template>
         </el-table-column>
         <el-table-column label="投注额" width="120" align="right">
-          <template #default="{ row }">{{ toFixed(row.total_bet, 0) }}</template>
+          <template #default="{ row }">
+            {{ toFixed(row.total_bet, 0) }}
+          </template>
         </el-table-column>
         <el-table-column label="盈亏" min-width="160">
           <template #default="{ row }">
@@ -247,7 +288,9 @@ onMounted(async () => {
 
     <!-- Hourly dimension -->
     <div v-if="hourly.length" class="analytics-section">
-      <h3 class="analytics-section__title">时段分布</h3>
+      <h3 class="analytics-section__title">
+        时段分布
+      </h3>
       <div class="hourly-chart">
         <div
           v-for="h in fullHourly"
@@ -262,21 +305,29 @@ onMounted(async () => {
               :style="{ height: hourlyBarHeight(h.total_orders) }"
             />
           </div>
-          <div class="hourly-label">{{ h.hour }}</div>
-          <div class="hourly-count">{{ h.total_orders || "" }}</div>
+          <div class="hourly-label">
+            {{ h.hour }}
+          </div>
+          <div class="hourly-count">
+            {{ h.total_orders || "" }}
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Account dimension -->
     <div v-if="accounts.length" class="analytics-section">
-      <h3 class="analytics-section__title">账号维度</h3>
+      <h3 class="analytics-section__title">
+        账号维度
+      </h3>
       <el-table :data="accounts" stripe size="small" max-height="400">
         <el-table-column prop="player_id" label="账号 ID" width="100" />
         <el-table-column prop="provider" label="平台" width="80" />
         <el-table-column prop="total_orders" label="订单数" width="80" align="right" />
         <el-table-column label="胜率" width="80" align="right">
-          <template #default="{ row }">{{ winRateGeneric(row.wins, row.losses) }}</template>
+          <template #default="{ row }">
+            {{ winRateGeneric(row.wins, row.losses) }}
+          </template>
         </el-table-column>
         <el-table-column label="拒单" width="60" align="right">
           <template #default="{ row }">
@@ -284,7 +335,9 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column label="投注额" width="120" align="right">
-          <template #default="{ row }">{{ toFixed(row.total_bet, 0) }}</template>
+          <template #default="{ row }">
+            {{ toFixed(row.total_bet, 0) }}
+          </template>
         </el-table-column>
         <el-table-column label="盈亏" min-width="140">
           <template #default="{ row }">

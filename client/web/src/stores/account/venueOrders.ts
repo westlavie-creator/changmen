@@ -1,12 +1,13 @@
-import { saveOrders } from "@/api/order";
+import type { VenueOrder } from "@platform/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { sortVenueOrdersNewestFirst } from "@platform/contract";
+import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
-import { sortVenueOrdersNewestFirst, type VenueOrder } from "@platform/contract";
 
 export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder[]) {
-  account.unsettle = orders.filter((o) => o.status === "none").length;
+  account.unsettle = orders.filter(o => o.status === "none").length;
   const unsettledExposure = orders
-    .filter((o) => o.status === "none")
+    .filter(o => o.status === "none")
     .reduce((sum, o) => sum + o.odds * o.betMoney, 0);
   account.winBalance = (account.balance ?? 0) + unsettledExposure;
 }
@@ -14,9 +15,11 @@ export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder
 /** 对齐 A8 `uv.updateOrders` + `Vt.saveOrders` */
 export async function syncVenueOrders(account: PlatformAccount): Promise<VenueOrder[] | undefined> {
   const provider = getProvider(account);
-  if (!provider?.getOrders) return undefined;
+  if (!provider?.getOrders)
+    return undefined;
   const raw = await provider.getOrders(account);
-  if (raw == null) return undefined;
+  if (raw == null)
+    return undefined;
   const orders = sortVenueOrdersNewestFirst(raw);
   applyUnsettledStats(account, orders);
   await saveOrders(account, orders);
@@ -28,10 +31,12 @@ export async function updateVenueOrders(account: PlatformAccount): Promise<Venue
   account.loadingBalance = true;
   try {
     return await syncVenueOrders(account);
-  } catch (err) {
+  }
+  catch (err) {
     console.error(`[${account.provider}]${account.playerName} 加载订单出错`, err);
     return undefined;
-  } finally {
+  }
+  finally {
     account.loadingBalance = false;
   }
 }

@@ -19,9 +19,11 @@ export function gamebetExtensionId(): string {
  * DEV 默认跳过；设 VITE_SKIP_EXTENSION_GATE=0 恢复强制检测。
  */
 export function skipExtensionGate(): boolean {
-  if (!import.meta.env.DEV) return false;
+  if (!import.meta.env.DEV)
+    return false;
   const flag = import.meta.env.VITE_SKIP_EXTENSION_GATE;
-  if (flag === "0" || flag === "false") return false;
+  if (flag === "0" || flag === "false")
+    return false;
   return true;
 }
 
@@ -29,9 +31,9 @@ export function skipExtensionGate(): boolean {
 export function gamebetExtensionInstallHint(): string {
   const id = gamebetExtensionId();
   return (
-    `请先在 Chrome 或 Edge 打开 chrome://extensions，开启「开发者模式」，` +
-    `选择「加载已解压的扩展程序」并指向仓库中的 changmen/client/chrome-extension 目录。` +
-    `扩展 ID 应为 ${id}。安装并启用后刷新本页再登录。`
+    `请先在 Chrome 或 Edge 打开 chrome://extensions，开启「开发者模式」，`
+    + `选择「加载已解压的扩展程序」并指向仓库中的 changmen/client/chrome-extension 目录。`
+    + `扩展 ID 应为 ${id}。安装并启用后刷新本页再登录。`
   );
 }
 

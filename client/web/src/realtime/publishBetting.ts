@@ -8,8 +8,10 @@ export const PUBLISH_CHANNEL = "Publish";
 /** 下单成功且用户为 Publisher 时广播（对齐 A8 `q8e`） */
 export async function publishBettingEvent(option: BetOption): Promise<boolean> {
   const user = useUserStore();
-  if (!user.setting?.Publisher) return false;
-  if (!option.match || !option.bet) return false;
+  if (!user.setting?.Publisher)
+    return false;
+  if (!option.match || !option.bet)
+    return false;
 
   const payload = {
     userId: user.userId ?? 0,
