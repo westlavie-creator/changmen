@@ -1675,11 +1675,11 @@ function renderRecModalBody() {
     <div class="link-side-options">
       <label class="link-side-option${alignedSel}">
         <input type="radio" name="rec-side-mode" value="aligned"${reversed === false ? ' checked' : ''}>
-        <span class="link-side-option-text"><strong>主客一致</strong> — 该平台主/客与参考侧一一对应</span>
+        <span class="link-side-option-text"><strong>主客一致</strong> — ${esc(platTeams?.home || '?')} = ${esc(refTeams?.home || '?')}（主队对主队）</span>
       </label>
       <label class="link-side-option${reversedSel}">
         <input type="radio" name="rec-side-mode" value="reversed"${reversed === true ? ' checked' : ''}>
-        <span class="link-side-option-text"><strong>主客颠倒</strong> — 该平台主客与参考侧对调</span>
+        <span class="link-side-option-text"><strong>主客颠倒</strong> — ${esc(platTeams?.home || '?')} = ${esc(refTeams?.away || '?')}（主队对客队）</span>
       </label>
     </div>
   `;
