@@ -35,7 +35,7 @@ export function sanitizeAccountForAdmin(raw) {
   const game = a.game && typeof a.game === "object" ? a.game : {};
   return {
     accountId: Number(a.accountId ?? a.AccountId) || 0,
-    platform: String(a.platform ?? a.Platform ?? a.Type ?? ""),
+    platform: String(a.provider ?? a.Provider ?? a.platform ?? a.Platform ?? a.Type ?? ""),
     platformId: Number(a.platformId ?? a.PlatformId) || 0,
     platformName: String(a.platformName ?? a.PlatformName ?? ""),
     playerName: String(a.playerName ?? a.PlayerName ?? ""),
