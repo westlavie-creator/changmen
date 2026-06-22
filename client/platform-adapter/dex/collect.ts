@@ -12,6 +12,7 @@ import {
   parseTopEvents,
   dexEventToMatch,
   parseInlineMarkets,
+  parseMapFromMarketName,
 } from "./parse";
 import { startDexSocket, stopDexSocket, onDexBatch } from "./socket";
 import type { DexBatchItem } from "./socket";

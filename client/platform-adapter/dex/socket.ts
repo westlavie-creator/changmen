@@ -85,15 +85,24 @@ function handleBatchItems(items: unknown[][]) {
     const action = Number(row[2]);
     const data = (row[3] ?? {}) as Record<string, unknown>;
 
-    if (model === "discipline" && Array.isArray(data.tournamentIds)) {
-      joinNew("tournament", data.tournamentIds as string[]);
+    if (model === "discipline") {
+      const tids = Array.isArray(data.tournamentIds) ? data.tournamentIds as string[] : [];
+      console.log("[Dex WS]", model, lid, "→", tids.length, "tournaments");
+      if (tids.length) joinNew("tournament", tids);
     }
-    if (model === "tournament" && Array.isArray(data.eventIds)) {
-      joinNew("event", data.eventIds as string[]);
+    if (model === "tournament") {
+      const eids = Array.isArray(data.eventIds) ? data.eventIds as string[] : [];
+      console.log("[Dex WS]", model, lid, "→", eids.length, "events");
+      if (eids.length) joinNew("event", eids);
     }
-    if (model === "event" && Array.isArray(data.marketIds)) {
-      const ids = (data.marketIds as (string | null)[]).filter(Boolean).slice(0, 10) as string[];
+    if (model === "event") {
+      const allIds = (data.marketIds as (string | null)[] ?? []).filter(Boolean);
+      const ids = allIds.slice(0, 10) as string[];
+      console.log("[Dex WS]", model, lid, "→ join", ids.length, "/", allIds.length, "markets");
       if (ids.length) joinNew("market", ids);
+    }
+    if (model === "market") {
+      console.log("[Dex WS]", model, lid, "name:", data.name);
     }
 
     parsed.push({ model, lid, action, data });
@@ -129,6 +138,8 @@ function connect() {
       const parsed = JSON.parse(event.data as string) as unknown[];
       const type = parsed[0] as string;
 
+      console.log("[Dex WS] msg:", type, type === "batch" ? (parsed[1] as unknown[]).length + " items" : "");
+
       if (type === "config") {
         setStatus("connected");
         wsSend(["join", "discipline", dexSportSlugs()]);
@@ -148,8 +159,8 @@ function connect() {
           ws?.close();
         }
       }
-    } catch {
-      // ignore malformed
+    } catch (err) {
+      console.error("[Dex WS] parse error:", err, "raw data type:", typeof event.data, "data:", String(event.data).substring(0, 200));
     }
   };
 
