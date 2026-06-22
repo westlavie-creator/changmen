@@ -3,6 +3,8 @@ import { directGet } from "@/shared/http";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
+import { useMatchStore } from "@/stores/matchStore";
+import { useOddsStore } from "@/stores/oddsStore";
 import {
   DEX_LINE_API,
   DEX_CID,
@@ -10,7 +12,6 @@ import {
   parseTopEvents,
   dexEventToMatch,
   parseInlineMarkets,
-  parseMapFromMarketName,
 } from "./parse";
 import { startDexSocket, stopDexSocket, onDexBatch } from "./socket";
 import type { DexBatchItem } from "./socket";
@@ -22,11 +23,12 @@ export function startDexCollector(): () => void {
   let stopped = false;
 
   const collect = useCollectStore();
+  const matchStore = useMatchStore();
+  const odds = useOddsStore();
 
+  /** WS 推送：只更新内存赔率（oddsStore），不写数据库 */
   const handleBatch = (items: DexBatchItem[]) => {
-    if (!collect.ready || !collect.collect.get(PLATFORMS.Dex)) return;
-
-    const betsToSave: Array<{ matchId: string; bets: CollectBetDto[] }> = [];
+    let updated = false;
 
     for (const item of items) {
       if (item.model !== "market") continue;
@@ -34,41 +36,39 @@ export function startDexCollector(): () => void {
       const outcomes = (mkt.outcomes ?? []) as Array<Record<string, unknown>>;
       if (outcomes.length !== 2) continue;
 
-      const eventLid = String(mkt.pid ?? "");
-      const eventId = eventLid.split(".").pop() || eventLid;
-      if (!eventId) continue;
-
-      const name = String(mkt.name ?? mkt.identity ?? "");
-      const map = parseMapFromMarketName(name);
       const home = outcomes[0]!;
       const away = outcomes[1]!;
-      const homeFrozen = Boolean(home.isFrozen);
-      const awayFrozen = Boolean(away.isFrozen);
+      const locked = Boolean(home.isFrozen) && Boolean(away.isFrozen);
+      const marketId = String(mkt.id ?? "");
 
-      betsToSave.push({
-        matchId: eventId,
-        bets: [{
-          Type: PLATFORMS.Dex,
-          SourceMatchID: eventId,
-          Map: map,
-          SourceBetID: String(mkt.id ?? ""),
-          BetName: name,
-          SourceHomeID: String(home.id ?? ""),
-          HomeName: String(home.name ?? ""),
-          HomeOdds: !homeFrozen ? Number(home.price ?? 0) : 0,
-          SourceAwayID: String(away.id ?? ""),
-          AwayName: String(away.name ?? ""),
-          AwayOdds: !awayFrozen ? Number(away.price ?? 0) : 0,
-          Status: homeFrozen && awayFrozen ? "Locked" : "Normal",
-        }],
-      });
+      if (home.id) {
+        odds.save(PLATFORMS.Dex, {
+          id: String(home.id),
+          odds: Number(home.price ?? 0),
+          isLock: locked || Boolean(home.isFrozen),
+          betId: marketId,
+          time: Date.now(),
+        });
+        updated = true;
+      }
+      if (away.id) {
+        odds.save(PLATFORMS.Dex, {
+          id: String(away.id),
+          odds: Number(away.price ?? 0),
+          isLock: locked || Boolean(away.isFrozen),
+          betId: marketId,
+          time: Date.now(),
+        });
+        updated = true;
+      }
     }
 
-    for (const { matchId, bets } of betsToSave) {
-      if (bets.length) void collect.saveBets(PLATFORMS.Dex, matchId, bets);
+    if (updated) {
+      matchStore.refreshOddsOnBets();
     }
   };
 
+  /** HTTP 轮询：全量快照写数据库（saveMatch + saveBets） */
   const runCycle = async () => {
     while (!collect.ready) {
       if (stopped) return;
