@@ -76,14 +76,10 @@ function joinNew(model: string, ids: string[]) {
   wsSend(["join", model, fresh]);
 }
 
-/** 从 event 数据提取赢家类 marketIds（mainMarketIds 前几个 + 不超限） */
-function pickWinnerMarketIds(data: Record<string, unknown>): string[] {
-  const main = (data.mainMarketIds ?? []) as (string | null)[];
-  const all = (data.marketIds ?? []) as (string | null)[];
-  const ids = new Set<string>();
-  for (const id of main) { if (id) ids.add(id); }
-  for (const id of all.slice(0, 6)) { if (id) ids.add(id); }
-  return [...ids];
+/** 由 HTTP 轮询调用：传入已知的赢家类 marketIds，让 WS 订阅 */
+export function subscribeDexMarkets(marketIds: string[]) {
+  if (!marketIds.length) return;
+  joinNew("market", marketIds);
 }
 
 function handleBatchItems(items: unknown[][]) {
@@ -101,10 +97,7 @@ function handleBatchItems(items: unknown[][]) {
     if (model === "tournament" && Array.isArray(data.eventIds)) {
       joinNew("event", data.eventIds as string[]);
     }
-    if (model === "event") {
-      const marketIds = pickWinnerMarketIds(data);
-      if (marketIds.length) joinNew("market", marketIds);
-    }
+    // event 层不自动订阅 market，由 HTTP 轮询按名字筛选后调 subscribeDexMarkets
 
     parsed.push({ model, lid, action, data });
   }

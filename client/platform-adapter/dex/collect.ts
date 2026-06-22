@@ -13,7 +13,7 @@ import {
   dexEventToMatch,
   parseInlineMarkets,
 } from "./parse";
-import { startDexSocket, stopDexSocket, onDexBatch } from "./socket";
+import { startDexSocket, stopDexSocket, onDexBatch, subscribeDexMarkets } from "./socket";
 import type { DexBatchItem } from "./socket";
 import type { CollectBetDto } from "@/types/collect";
 
@@ -77,6 +77,7 @@ export function startDexCollector(): () => void {
 
     const matches = [];
     const betsToSave: Array<{ matchId: string; bets: CollectBetDto[] }> = [];
+    const winnerMarketIds: string[] = [];
 
     for (const slug of dexSportSlugs()) {
       try {
@@ -97,12 +98,19 @@ export function startDexCollector(): () => void {
             if (eventId && markets.length) {
               const bets = parseInlineMarkets(eventId, markets);
               if (bets.length) betsToSave.push({ matchId: eventId, bets });
+              for (const b of bets) {
+                if (b.SourceBetID) winnerMarketIds.push(b.SourceBetID);
+              }
             }
           }
         }
       } catch (err) {
         console.warn(`[Dex] ${slug} failed`, err);
       }
+    }
+
+    if (winnerMarketIds.length) {
+      subscribeDexMarkets(winnerMarketIds);
     }
 
     if (matches.length) {
