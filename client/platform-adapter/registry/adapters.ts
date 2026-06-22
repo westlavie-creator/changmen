@@ -11,6 +11,7 @@ import { sabaAdapter } from "@platform/saba";
 import { imAdapter } from "@platform/im";
 import { xbetAdapter } from "@platform/xbet";
 import { stakeAdapter } from "@platform/stake";
+import { dexAdapter } from "@platform/dex";
 import { hgAdapter } from "@platform/hg";
 import {
   betPlatformIds,
@@ -32,6 +33,7 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
   imtAdapter,
   hgAdapter,
   stakeAdapter,
+  dexAdapter,
 ];
 
 const adapterById = new Map<PlatformId, PlatformAdapter>(

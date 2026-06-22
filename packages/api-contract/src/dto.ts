@@ -13,7 +13,8 @@ export type PlatformId
     | "IMT"
     | "HG"
     | "Stake"
-    | "XBet";
+    | "XBet"
+    | "Dex";
 
 export interface LoginInfo {
   token: string;

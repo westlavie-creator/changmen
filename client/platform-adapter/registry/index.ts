@@ -34,6 +34,7 @@ export const PLATFORMS = {
   IMT: "IMT",
   HG: "HG",
   Stake: "Stake",
+  Dex: "Dex",
 } as const satisfies Record<string, PlatformId>;
 
 const metaById = new Map(PLATFORM_REGISTRY.map((p) => [p.id, p]));

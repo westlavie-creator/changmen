@@ -172,5 +172,19 @@
       "key": "ws",
       "protocol": "Socket.IO"
     }
+  },
+  {
+    "id": "Dex",
+    "dir": "dex",
+    "sort": 11,
+    "collect": true,
+    "bet": true,
+    "pluginOnly": true,
+    "label": "DexSport",
+    "labelZh": "DexSport",
+    "collectionMode": "plugin_http",
+    "collectionDesc": "插件 HTTP 代理 → Sportsbook REST API",
+    "implementation": "wip",
+    "streamMeta": null
   }
 ]
