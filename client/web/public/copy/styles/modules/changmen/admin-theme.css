@@ -926,6 +926,129 @@ html.admin-route #app > * {
   margin-top: 2px;
   padding-top: 4px;
 }
+/* 订单页：按投注账号分列（class 名与 AdminOrdersView 模板一致） */
+.admin-orders-by-account {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 12px;
+  position: relative;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+.admin-orders-account-col {
+  flex: 0 0 292px;
+  width: 292px;
+  min-width: 292px;
+  max-width: 292px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--adm-surface-2, rgba(255, 255, 255, 0.02));
+  overflow: visible;
+}
+.admin-orders-account-col__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--adm-border);
+  background: var(--adm-surface-3, rgba(255, 255, 255, 0.04));
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.admin-orders-account-col__stats {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.admin-orders-account-col__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.admin-orders-account-col__title .provider-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+.admin-orders-account-col__name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--adm-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-orders-account-col__profit {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.admin-orders-account-col__profit.pos {
+  color: var(--adm-success, #67c23a);
+}
+.admin-orders-account-col__profit.neg {
+  color: var(--adm-danger, #f56c6c);
+}
+.admin-orders-account-col__meta {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+  width: 100%;
+}
+.admin-orders-account-col__empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--adm-text-muted);
+}
+.admin-orders-account-col__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 6px 10px;
+  font-size: 12px;
+  color: #fff;
+  white-space: normal;
+}
+.admin-orders-account-col .orders {
+  flex: none;
+  overflow: visible;
+}
+.admin-orders-account-col .orders .order {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+.admin-orders-account-col__group-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 6px 6px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.35);
+  margin-top: 2px;
+  padding-top: 4px;
+}
+/* SVG 连线覆盖层 */
+.admin-link-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+}
 .admin-order-groups__empty {
   margin: 16px 0;
   text-align: center;

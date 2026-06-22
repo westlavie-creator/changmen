@@ -147,15 +147,6 @@ function onAdminWheel(e: WheelEvent) {
           <slot name="toolbar" />
           <div class="admin-shell__user">
             <span class="admin-shell__user-name">{{ user.userName }}</span>
-            <el-tag v-if="user.isAdmin" size="small" type="warning" effect="dark">
-              管理员
-            </el-tag>
-            <el-tag v-else-if="user.isLeader" size="small" type="success" effect="dark">
-              团队长
-            </el-tag>
-            <el-tag v-else size="small" type="info">
-              用户
-            </el-tag>
             <el-button size="small" type="info" plain @click="logout">
               退出
             </el-button>
