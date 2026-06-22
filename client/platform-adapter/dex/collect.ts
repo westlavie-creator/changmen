@@ -1,12 +1,8 @@
 import { PLATFORMS } from "@/shared/platform";
+import { directGet } from "@/shared/http";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@platform/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
-import {
-  getDexTabId,
-  isDexPluginAvailable,
-  dexPluginGet,
-} from "./pluginApi";
 import {
   DEX_LINE_API,
   DEX_CID,
@@ -30,24 +26,13 @@ export function startDexCollector(): () => void {
       await wait(500);
     }
 
-    if (!isDexPluginAvailable()) {
-      notifyCollectError("Dex", "未安装 Gamebet 扩展；DexSport 采集需在浏览器打开 dexsport.io");
-      return;
-    }
-
-    const tabId = await getDexTabId();
-    if (!tabId) {
-      notifyCollectError("Dex", "未找到 DexSport 标签页：请先在浏览器打开 dexsport.io 并登录");
-      return;
-    }
-
     const matches = [];
     const betsToSave: Array<{ matchId: string; bets: CollectBetDto[] }> = [];
 
     for (const slug of dexSportSlugs()) {
       try {
         const url = `${DEX_LINE_API}/top-events/${slug}?cid=${DEX_CID}&locale=zh`;
-        const rawData = await dexPluginGet<{ data?: unknown[] }>(tabId, url);
+        const rawData = await directGet<{ data?: unknown[] }>(url, {});
         const list = Array.isArray(rawData) ? rawData : rawData?.data;
         const events = parseTopEvents(slug, list);
 
