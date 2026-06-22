@@ -153,6 +153,9 @@ function onAdminWheel(e: WheelEvent) {
             <el-tag v-else-if="user.isLeader" size="small" type="success" effect="dark">
               团队长
             </el-tag>
+            <el-tag v-else size="small" type="info">
+              用户
+            </el-tag>
             <el-button size="small" type="info" plain @click="logout">
               退出
             </el-button>
