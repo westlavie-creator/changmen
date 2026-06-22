@@ -539,7 +539,7 @@ onUnmounted(() => {
             </el-table-column>
             <el-table-column label="操作" width="340" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="openDetail(row)">
+                <el-button v-if="userStore.isAdmin" link type="primary" size="small" @click="openDetail(row)">
                   详情
                 </el-button>
                 <el-button link type="primary" size="small" @click="viewOrders(row)">
