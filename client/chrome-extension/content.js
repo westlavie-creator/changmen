@@ -4154,7 +4154,7 @@
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const tabId = message?.options?.tabId;
       if (!tabId) return false;
-      const handler = findHandler();
+      const handler = tabHandlers[PLATFORMS.Stake] || tabHandlers[PLATFORMS.Dex];
       if (!handler) return false;
       void (async () => {
         try {
@@ -4171,12 +4171,6 @@
       })();
       return true;
     });
-  }
-  function findHandler() {
-    for (const id of Object.keys(tabHandlers)) {
-      if (tabHandlers[id]) return tabHandlers[id];
-    }
-    return null;
   }
 
   // src/content/index.js

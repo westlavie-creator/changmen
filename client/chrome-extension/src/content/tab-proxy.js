@@ -4,7 +4,7 @@ import { PLATFORMS } from "./platforms.js";
 const tabHandlers = {};
 
 /**
- * 注册标签页代发 handler（Stake）
+ * 注册标签页代发 handler
  * @param {string} platformId
  * @param {(message: unknown) => Promise<unknown>} handler
  */
@@ -12,13 +12,13 @@ export function registerTabHandler(platformId, handler) {
   tabHandlers[platformId] = handler;
 }
 
-/** 对齐 A8 `Me` — 通用标签页代发（Stake / Dex 等） */
+/** 对齐 A8 `Me` — 按已注册 handler 路由消息 */
 export function installTabProxyListener() {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const tabId = message?.options?.tabId;
     if (!tabId) return false;
 
-    const handler = findHandler();
+    const handler = tabHandlers[PLATFORMS.Stake] || tabHandlers[PLATFORMS.Dex];
     if (!handler) return false;
 
     void (async () => {
@@ -37,11 +37,4 @@ export function installTabProxyListener() {
 
     return true;
   });
-}
-
-function findHandler() {
-  for (const id of Object.keys(tabHandlers)) {
-    if (tabHandlers[id]) return tabHandlers[id];
-  }
-  return null;
 }
