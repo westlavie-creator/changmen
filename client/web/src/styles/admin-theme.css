@@ -956,12 +956,19 @@ html.admin-route #app > * {
 }
 .admin-orders-account-col__head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 10px;
+  flex-direction: column;
+  gap: 4px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--adm-border);
   background: var(--adm-surface-3, rgba(255, 255, 255, 0.04));
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.admin-orders-account-col__stats {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 .admin-orders-account-col__title {
   display: flex;

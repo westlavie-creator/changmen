@@ -60,16 +60,18 @@ function openLogs(rows: AdminOrderRow[]) {
       <div class="admin-orders-account-col__title">
         <div class="provider-icon" :class="provider" />
         <h3 class="admin-orders-account-col__name">
-          {{ playerName || `#${playerId}` }}
+          {{ provider }} / {{ playerName || `#${playerId}` }}
         </h3>
       </div>
-      <span
-        class="admin-orders-account-col__profit"
-        :class="{ pos: dayProfit > 0, neg: dayProfit < 0 }"
-      >
-        {{ fmtMoney(dayProfit) }}
-      </span>
-      <span class="admin-orders-account-col__meta">{{ orders.length }} 笔</span>
+      <div class="admin-orders-account-col__stats">
+        <span
+          class="admin-orders-account-col__profit"
+          :class="{ pos: dayProfit > 0, neg: dayProfit < 0 }"
+        >
+          {{ fmtMoney(dayProfit) }}
+        </span>
+        <span class="admin-orders-account-col__meta">{{ orders.length }} 笔</span>
+      </div>
     </header>
 
     <div v-if="!orderEntries.length" class="admin-orders-account-col__empty">
