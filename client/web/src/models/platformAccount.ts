@@ -78,10 +78,11 @@ export class PlatformAccount implements AccountRecord {
     this.platformName = raw.platformName;
     this.playerName = raw.playerName || "";
     this.provider = (raw.provider as PlatformId) || "OB";
-    // A8 uv 构造/update 均不恢复 balance，仅 updateBalance() 成功后才有值
-    const { balance: _storedBalance, ...rest } = raw;
+    // [A8 可证实] uv 构造不恢复 balance 和 active；active 是运行时临时标记
+    const { balance: _storedBalance, active: _storedActive, ...rest } = raw;
     Object.assign(this, rest);
     this.balance = undefined;
+    this.active = false;
     this.credit = raw.credit ?? 0;
     this.currency = raw.currency ?? "CNY";
     this.updateTime = raw.updateTime ?? 0;
