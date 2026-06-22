@@ -101,10 +101,6 @@ function handleBatchItems(items: unknown[][]) {
       console.log("[Dex WS]", model, lid, "→ join", ids.length, "/", allIds.length, "markets");
       if (ids.length) joinNew("market", ids);
     }
-    if (model === "market") {
-      console.log("[Dex WS]", model, lid, "name:", data.name);
-    }
-
     parsed.push({ model, lid, action, data });
   }
 

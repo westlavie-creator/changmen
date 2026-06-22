@@ -112,7 +112,6 @@ export function startDexCollector(): () => void {
 
         cache[slot] = { id: oid, name: String(o.name ?? ""), odds: price, frozen };
       }
-
       if (cache.home && cache.away && eventId) {
         const locked = cache.home.frozen && cache.away.frozen;
         pendingSave.set(marketId, {
