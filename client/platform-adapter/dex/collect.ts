@@ -39,38 +39,30 @@ export function startDexCollector(): () => void {
       const name = String(mkt.name ?? "");
       if (!/winner|赢家|获胜/i.test(name)) continue;
       const outcomes = (mkt.outcomes ?? []) as Array<Record<string, unknown>>;
-      if (outcomes.length !== 2) continue;
+      if (outcomes.length < 1 || outcomes.length > 3) continue;
 
-      const home = outcomes[0]!;
-      const away = outcomes[1]!;
-      const locked = Boolean(home.isFrozen) && Boolean(away.isFrozen);
       const marketId = String(mkt.id ?? "");
       const eventLid = String(mkt.pid ?? "");
       const eventId = eventLid.split(".").pop() || eventLid;
       const map = parseMapFromMarketName(name);
 
-      if (home.id) {
+      for (const o of outcomes) {
+        if (!o.id) continue;
+        const frozen = Boolean(o.isFrozen);
         odds.save(PLATFORMS.Dex, {
-          id: String(home.id),
-          odds: Number(home.price ?? 0),
-          isLock: locked || Boolean(home.isFrozen),
-          betId: marketId,
-          time: Date.now(),
-        });
-        updated = true;
-      }
-      if (away.id) {
-        odds.save(PLATFORMS.Dex, {
-          id: String(away.id),
-          odds: Number(away.price ?? 0),
-          isLock: locked || Boolean(away.isFrozen),
+          id: String(o.id),
+          odds: !frozen ? Number(o.price ?? 0) : 0,
+          isLock: frozen,
           betId: marketId,
           time: Date.now(),
         });
         updated = true;
       }
 
-      if (eventId) {
+      if (eventId && outcomes.length === 2) {
+        const home = outcomes[0]!;
+        const away = outcomes[1]!;
+        const locked = Boolean(home.isFrozen) && Boolean(away.isFrozen);
         betsToSave.push({
           matchId: eventId,
           bets: [{
@@ -89,7 +81,6 @@ export function startDexCollector(): () => void {
           }],
         });
       }
-    }
 
     if (updated) {
       matchStore.refreshOddsOnBets();
