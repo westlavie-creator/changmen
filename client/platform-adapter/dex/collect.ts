@@ -17,8 +17,8 @@ import { startDexSocket, stopDexSocket, onDexBatch } from "./socket";
 import type { DexBatchItem } from "./socket";
 import type { CollectBetDto } from "@/types/collect";
 
-const LOOP_MS = 10_000;
-const WS_SAVE_INTERVAL_MS = 5 * 60 * 1000;
+const LOOP_MS = 30_000;
+const WS_SAVE_INTERVAL_MS = 30_000;
 
 function mapFromName(name: string): number {
   const lower = name.toLowerCase();
