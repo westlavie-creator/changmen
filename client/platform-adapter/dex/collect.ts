@@ -26,7 +26,17 @@ export function startDexCollector(): () => void {
   const matchStore = useMatchStore();
   const odds = useOddsStore();
 
-  /** WS 推送：赢家盘口写 oddsStore（UI 实时更新）+ saveBets（持久化地图赔率） */
+  interface MarketCache {
+    eventId: string;
+    name: string;
+    map: number;
+    marketId: string;
+    home?: { id: string; name: string; odds: number; frozen: boolean };
+    away?: { id: string; name: string; odds: number; frozen: boolean };
+  }
+  const marketCache = new Map<string, MarketCache>();
+
+  /** WS 推送：赢家盘口写 oddsStore + 缓存后 saveBets */
   const handleBatch = (items: DexBatchItem[]) => {
     if (!collect.ready || !collect.collect.get(PLATFORMS.Dex)) return;
 
@@ -46,23 +56,32 @@ export function startDexCollector(): () => void {
       const eventId = eventLid.split(".").pop() || eventLid;
       const map = parseMapFromMarketName(name);
 
-      for (const o of outcomes) {
+      if (!marketCache.has(marketId)) {
+        marketCache.set(marketId, { eventId, name, map, marketId });
+      }
+      const cache = marketCache.get(marketId)!;
+
+      for (let i = 0; i < outcomes.length; i++) {
+        const o = outcomes[i]!;
         if (!o.id) continue;
         const frozen = Boolean(o.isFrozen);
+        const price = !frozen ? Number(o.price ?? 0) : 0;
+
         odds.save(PLATFORMS.Dex, {
           id: String(o.id),
-          odds: !frozen ? Number(o.price ?? 0) : 0,
+          odds: price,
           isLock: frozen,
           betId: marketId,
           time: Date.now(),
         });
         updated = true;
+
+        const slot = i === 0 ? "home" : "away";
+        cache[slot] = { id: String(o.id), name: String(o.name ?? ""), odds: price, frozen };
       }
 
-      if (eventId && outcomes.length === 2) {
-        const home = outcomes[0]!;
-        const away = outcomes[1]!;
-        const locked = Boolean(home.isFrozen) && Boolean(away.isFrozen);
+      if (cache.home && cache.away && eventId) {
+        const locked = cache.home.frozen && cache.away.frozen;
         betsToSave.push({
           matchId: eventId,
           bets: [{
@@ -71,12 +90,12 @@ export function startDexCollector(): () => void {
             Map: map,
             SourceBetID: marketId,
             BetName: name,
-            SourceHomeID: String(home.id ?? ""),
-            HomeName: String(home.name ?? ""),
-            HomeOdds: !Boolean(home.isFrozen) ? Number(home.price ?? 0) : 0,
-            SourceAwayID: String(away.id ?? ""),
-            AwayName: String(away.name ?? ""),
-            AwayOdds: !Boolean(away.isFrozen) ? Number(away.price ?? 0) : 0,
+            SourceHomeID: cache.home.id,
+            HomeName: cache.home.name,
+            HomeOdds: cache.home.odds,
+            SourceAwayID: cache.away.id,
+            AwayName: cache.away.name,
+            AwayOdds: cache.away.odds,
             Status: locked ? "Locked" : "Normal",
           }],
         });
