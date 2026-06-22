@@ -1,5 +1,4 @@
 import * as db from "@changmen/db";
-import { CLIENT_MATCH_LIST_DEFAULT, CLIENT_MATCH_LIST_HIDDEN } from "@changmen/db";
 import {
   applyManualMatchLinks,
   buildClientMatchList,
@@ -124,9 +123,6 @@ async function rebuildOnceImpl() {
       matchs: m.Matchs || {},
       bets: m.Bets || [],
       built_at: now,
-      list_status: isClientMatchEnded(m, matches, timers, now)
-        ? CLIENT_MATCH_LIST_HIDDEN
-        : CLIENT_MATCH_LIST_DEFAULT,
     })),
   );
 

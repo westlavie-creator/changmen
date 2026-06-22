@@ -18,7 +18,7 @@ import { normalizeEpochMs } from "@changmen/shared/time/match_time";
  * 2) 队名归一 + 开赛时间 ±15 分钟（match:name:…）
  * 命中后在内存写入 ClientMatchId，后续走 applyManualMatchLinks。
  *
- * clientRows 应使用 fetchClientMatchesForAlign（含 list_status=-1）。
+ * clientRows 应使用 fetchClientMatchesForAlign。
  */
 
 function findPlatformMatch(matches, provider, sourceMatchId) {

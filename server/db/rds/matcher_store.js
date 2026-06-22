@@ -2,7 +2,6 @@
  * Matcher 数据访问 — 读写均走 RDS（PostgreSQL）。
  */
 
-import { CLIENT_MATCH_LIST_DEFAULT, CLIENT_MATCH_LIST_HIDDEN } from "../client_match_list_status.js";
 import { getPgPool, jsonb } from "./common.js";
 
 function pool() {
@@ -21,7 +20,6 @@ export function isMatcherStoreReady() {
 }
 
 export async function fetchClientMatchIdIndex() {
-  // 含 list_status=-1：rebuild 须复用原 id，写入时再复活为可见
   const { rows } = await rdsQuery(
     "SELECT id, merge_key, matchs FROM client_matches",
   );
@@ -48,8 +46,8 @@ async function insertClientMatchStubRds(mergeKey, stub) {
   try {
     const { rows } = await rdsQuery(
       `INSERT INTO client_matches (
-        merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at, list_status
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11,$12)
+        merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
       RETURNING id`,
       [
         mergeKey,
@@ -63,7 +61,6 @@ async function insertClientMatchStubRds(mergeKey, stub) {
         jsonb(stub.matchs, {}),
         jsonb([], []),
         builtAt,
-        CLIENT_MATCH_LIST_DEFAULT,
       ],
     );
     return Number(rows[0].id);
@@ -113,7 +110,7 @@ export async function fetchClientMatchRow(id, columns = "*") {
     return null;
   const cols
     = columns === "*"
-      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at, list_status"
+      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at"
       : columns;
   const { rows } = await rdsQuery(`SELECT ${cols} FROM client_matches WHERE id = $1`, [cmId]);
   return rows[0] || null;

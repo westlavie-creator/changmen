@@ -1,5 +1,5 @@
 /**
- * client_matches 列表可见性：进行中/未开赛保持 0，已结束 → list_status -1。
+ * client_matches 生命周期：判断比赛是否已结束（供 prune 归档到 history）。
  */
 
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
@@ -92,7 +92,7 @@ function allPlatformSourcesGone(matchs, platformMatches) {
 }
 
 /**
- * 是否应隐藏（list_status=-1）。未开赛、进行中返回 false。
+ * 比赛是否已结束。未开赛、进行中返回 false。
  * @param {object} row client match 行（含 Round/StartTime/Matchs/Bets）
  * @param {object} platformMatches normalizeMatchesShape 结果
  * @param {object} timersByProvider live_timers 快照

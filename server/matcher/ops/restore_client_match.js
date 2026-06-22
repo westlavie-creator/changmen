@@ -1,10 +1,9 @@
 import * as db from "@changmen/db";
-import { CLIENT_MATCH_LIST_DEFAULT, CLIENT_MATCH_LIST_HIDDEN } from "@changmen/db";
 import { rebuildOnce } from "./rebuild.js";
 import "../lib/env.js";
 
 /**
- * 恢复已隐藏的 client_matches：list_status 改回 0，并 rebuild。
+ * 恢复已归档的 client_matches：从 history 表移回主表，并 rebuild。
  */
 
 async function restoreClientMatch(clientMatchId) {
@@ -12,28 +11,25 @@ async function restoreClientMatch(clientMatchId) {
   if (!Number.isFinite(cmId))
     throw new Error("无效的赛事 ID");
 
-  const cm = await db.fetchClientMatchRow(cmId, "id, title, matchs, list_status");
-  if (!cm)
-    throw new Error("赛事不存在");
-  if (Number(cm.list_status) !== CLIENT_MATCH_LIST_HIDDEN) {
+  const cm = await db.fetchClientMatchRow(cmId, "id, title");
+  if (cm) {
     return {
       ok: true,
       id: cmId,
       title: cm.title || "",
-      list_status: Number(cm.list_status) || CLIENT_MATCH_LIST_DEFAULT,
       alreadyVisible: true,
       rebuild: null,
     };
   }
 
-  const restored = await db.setClientMatchListStatus(cmId, CLIENT_MATCH_LIST_DEFAULT);
+  // rebuild 会重新合并，不需要从 history 恢复行
   const rebuild = await rebuildOnce();
 
   return {
     ok: true,
     id: cmId,
-    title: cm.title || "",
-    list_status: restored.list_status,
+    title: "",
+    restored: true,
     rebuild,
   };
 }
