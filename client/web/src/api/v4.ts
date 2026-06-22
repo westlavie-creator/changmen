@@ -1,6 +1,5 @@
 import type { PlatformId } from "@/types/esport";
 import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
-import { authHeaders } from "@/api/client";
 import { a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { gamebetExtensionId } from "@/config/gamebetExtension";
 import { useUserStore } from "@/stores/userStore";
@@ -77,36 +76,10 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/**
- * 平博 v4 账号：对齐 A8 `o.userName` + `TIe` 密码。
- * 已登录非 admin 用当前用户名；否则回落 TJ01（与 backend resolveCreditPlateUserName 一致）。
- */
-async function resolveCreditPlateUserName(): Promise<string> {
+/** [A8 可证实] A8 `o.userName`：直接用当前登录用户名，密码固定 `a123456` */
+function resolveCreditPlateUserName(): string {
   const user = useUserStore();
-  const logged = user.userName.trim();
-  if (logged && logged !== "admin")
-    return logged;
-  if (user.creditPlateUserName.trim())
-    return user.creditPlateUserName.trim();
-  const fromSetting = user.setting?.a8UserName;
-  if (typeof fromSetting === "string" && fromSetting.trim()) {
-    return fromSetting.trim();
-  }
-  try {
-    const res = await fetch("/api/a8/credit-plate-user", { headers: authHeaders() });
-    if (res.ok) {
-      const body = (await res.json()) as { userName?: string };
-      const name = body.userName?.trim();
-      if (name) {
-        user.creditPlateUserName = name;
-        return name;
-      }
-    }
-  }
-  catch {
-    /* 后端未启动时用 TJ01 */
-  }
-  return CREDIT_PLATE_USER;
+  return user.userName.trim() || CREDIT_PLATE_USER;
 }
 
 function unwrapPluginV4<T>(response: unknown): V4Envelope<T> {
@@ -362,7 +335,7 @@ export async function enterCreditPlate(platform: PlatformId): Promise<void> {
     }
     const gameId = CREDIT_V4_GAME_IDS[platform];
     if (gameId) {
-      const v4User = await resolveCreditPlateUserName();
+      const v4User = resolveCreditPlateUserName();
       const url = await fetchV4PlayUrl(v4User, gameId);
       if (url)
         confirmAndOpenGame(platform, url);

@@ -153,7 +153,7 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
     activeConfig = config;
     if (config.source === "demo") lastDemoConfig = config;
 
-    const { url, username, password, source } = config;
+    const { url, source } = config;
     patchDirectRealtimeStatus(PLATFORM, {
       upstreamConnected: false,
       upstreamRoute: null,
