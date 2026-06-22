@@ -2504,14 +2504,22 @@ html.admin-route #app > * {
   min-height: 200px;
 }
 .admin-drawer .user-workspace-preview {
+  --el-fill-color: rgba(255, 255, 255, 0.06);
   --el-fill-color-blank: rgba(7, 11, 20, 0.5);
-  --el-bg-color: transparent;
-  --el-input-bg-color: rgba(7, 11, 20, 0.5);
   --el-fill-color-light: rgba(255, 255, 255, 0.06);
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.04);
+  --el-bg-color: transparent;
+  --el-bg-color-overlay: rgba(7, 11, 20, 0.9);
+  --el-input-bg-color: rgba(7, 11, 20, 0.5);
+  --el-text-color-primary: var(--adm-text, #e2e8f0);
   --el-text-color-regular: var(--adm-text, #e2e8f0);
+  --el-text-color-secondary: var(--adm-text-muted, #94a3b8);
   --el-text-color-placeholder: var(--adm-text-muted, #64748b);
   --el-border-color: var(--adm-border);
   --el-border-color-light: var(--adm-border);
+  --el-border-color-lighter: var(--adm-border);
+  --el-color-white: rgba(7, 11, 20, 0.5);
+  color: var(--adm-text, #e2e8f0);
 }
 .admin-drawer .user-workspace-preview .el-form-item__label {
   color: var(--adm-text-muted, #94a3b8);
