@@ -45,7 +45,9 @@ function parseMapFromMarketName(name) {
 function normalizeGraphqlSport(sportSlug, payload) {
   const gameCode = SPORT_SLUG_TO_CODE[sportSlug] || sportSlug;
   const matches = [];
-  const list = payload?.data?.slugSport?.firstTournament?.fixtureList || [];
+  const tournaments = payload?.data?.slugSport?.firstTournament;
+  const tournamentArr = Array.isArray(tournaments) ? tournaments : tournaments ? [tournaments] : [];
+  const list = tournamentArr.flatMap((t) => t?.fixtureList || []);
   const horizon = Date.now() + 3600 * 1000;
 
   for (const fixture of list) {

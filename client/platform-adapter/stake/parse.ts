@@ -76,8 +76,11 @@ export function normalizeGraphqlSport(sportSlug: string, payload: Record<string,
   const matches: StakeParsedMatch[] = [];
   const data = payload.data as Record<string, unknown> | undefined;
   const slugSport = data?.slugSport as Record<string, unknown> | undefined;
-  const firstTournament = slugSport?.firstTournament as Record<string, unknown> | undefined;
-  const list = (firstTournament?.fixtureList ?? []) as Array<Record<string, unknown>>;
+  const tournaments = slugSport?.firstTournament;
+  const tournamentArr = Array.isArray(tournaments) ? tournaments : tournaments ? [tournaments] : [];
+  const list = tournamentArr.flatMap(
+    (t: Record<string, unknown>) => ((t?.fixtureList ?? []) as Array<Record<string, unknown>>),
+  );
   const horizon = Date.now() + 3600_000;
 
   for (const fixture of list) {

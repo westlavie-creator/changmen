@@ -99,7 +99,7 @@ export function parseSportIndexResponse(
     (t: Record<string, unknown>) => ((t?.fixtureList ?? []) as Array<Record<string, unknown>>),
   );
   const horizon = Date.now() + 3600_000;
-  const gameId = sportSlug;
+  const gameId = STAKE_SPORT_SLUGS[sportSlug] || sportSlug;
 
   for (const fixture of list) {
     if (!["live", "active"].includes(String(fixture.status))) continue;
