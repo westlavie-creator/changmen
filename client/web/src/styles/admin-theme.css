@@ -2517,7 +2517,8 @@ html.admin-route #app > * {
   color: var(--adm-text-muted, #94a3b8);
 }
 .admin-drawer .user-workspace-preview .el-radio__inner {
-  background-color: transparent;
+  background-color: transparent !important;
+  border-color: var(--adm-border) !important;
 }
 .admin-drawer .user-workspace-preview .el-switch {
   --el-switch-off-color: rgba(255, 255, 255, 0.15);
