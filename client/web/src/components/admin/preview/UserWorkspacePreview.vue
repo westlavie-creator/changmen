@@ -52,8 +52,8 @@ const sortingLabel = computed(() => BET_SORTING_LABELS[form.betSorting] || form.
       <div class="cfg">
         <div class="cfg__grid">
           <!-- 基本配置 -->
-          <fieldset class="cfg__box">
-            <legend>基本配置</legend>
+          <div class="cfg__box">
+            <div class="cfg__title">基本配置</div>
             <div class="cfg__row"><span class="cfg__k">下注金额</span><span class="cfg__v">{{ form.betMoney }}</span></div>
             <div class="cfg__row"><span class="cfg__k">尾数随机</span><span class="cfg__v">{{ form.tenNumber ? '开' : '关' }}</span></div>
             <div class="cfg__row"><span class="cfg__k">最小金额</span><span class="cfg__v">{{ form.minMoney }}</span></div>
@@ -63,11 +63,11 @@ const sortingLabel = computed(() => BET_SORTING_LABELS[form.betSorting] || form.
             <div class="cfg__row"><span class="cfg__k">利润区间</span><span class="cfg__v">{{ form.profit }} ~ {{ form.maxProfit }}</span></div>
             <div class="cfg__row"><span class="cfg__k">最小赔率</span><span class="cfg__v">{{ form.minOdds }}</span></div>
             <div class="cfg__row"><span class="cfg__k">检测超时</span><span class="cfg__v">{{ form.checkTimeout }}ms</span></div>
-          </fieldset>
+          </div>
 
           <!-- 补单配置 -->
-          <fieldset class="cfg__box">
-            <legend>补单配置</legend>
+          <div class="cfg__box">
+            <div class="cfg__title">补单配置</div>
             <div class="cfg__row"><span class="cfg__k">是否补单</span><span class="cfg__v" :class="form.makeUp ? 'on' : 'off'">{{ form.makeUp ? '开' : '关' }}</span></div>
             <div class="cfg__row"><span class="cfg__k">补单利润</span><span class="cfg__v">{{ form.makeProfit }}</span></div>
             <div class="cfg__row"><span class="cfg__k">初始赔率</span><span class="cfg__v">{{ form.makeUp_defaultOdds }}</span></div>
@@ -75,11 +75,11 @@ const sortingLabel = computed(() => BET_SORTING_LABELS[form.betSorting] || form.
             <div class="cfg__row"><span class="cfg__k">不补同馆</span><span class="cfg__v">{{ form.noSameProvider ? '开' : '关' }}</span></div>
             <div class="cfg__row"><span class="cfg__k">不同场下注</span><span class="cfg__v">{{ form.noSameBet ? '开' : '关' }}</span></div>
             <div class="cfg__row"><span class="cfg__k">任意赔率</span><span class="cfg__v">{{ form.anyOdds ? '开' : '关' }}{{ form.anyOdds ? ` (${form.anyOddsProfit})` : '' }}</span></div>
-          </fieldset>
+          </div>
 
           <!-- 排序 & 策略 -->
-          <fieldset class="cfg__box">
-            <legend>排序策略</legend>
+          <div class="cfg__box">
+            <div class="cfg__title">排序策略</div>
             <div class="cfg__row"><span class="cfg__k">下注排序</span><span class="cfg__v">{{ sortingLabel }}</span></div>
             <div v-if="form.betSorting === 'WinRate'" class="cfg__row"><span class="cfg__k">胜率阈值</span><span class="cfg__v">{{ form.winRateValue }}</span></div>
             <div class="cfg__row"><span class="cfg__k">平台顺序</span></div>
@@ -90,11 +90,11 @@ const sortingLabel = computed(() => BET_SORTING_LABELS[form.betSorting] || form.
             <div v-if="form.providerFixed.length" class="cfg__tags">
               <span v-for="p in form.providerFixed" :key="p" class="cfg__tag cfg__tag--fixed">{{ p }}</span>
             </div>
-          </fieldset>
+          </div>
 
           <!-- 拒单检测 -->
-          <fieldset class="cfg__box">
-            <legend>拒单检测</legend>
+          <div class="cfg__box">
+            <div class="cfg__title">拒单检测</div>
             <template v-for="pair in platformPairs" :key="pair.join('-')">
               <div class="cfg__wait-row">
                 <div v-for="p in pair" :key="p" class="cfg__wait-item">
@@ -103,7 +103,7 @@ const sortingLabel = computed(() => BET_SORTING_LABELS[form.betSorting] || form.
                 </div>
               </div>
             </template>
-          </fieldset>
+          </div>
         </div>
       </div>
     </section>
@@ -131,11 +131,13 @@ const sortingLabel = computed(() => BET_SORTING_LABELS[form.betSorting] || form.
   padding: 10px 12px;
   margin: 0;
 }
-.cfg__box legend {
+.cfg__title {
   font-size: 13px;
   font-weight: 600;
   color: var(--adm-text, #e2e8f0);
-  padding: 0 4px;
+  padding: 0 0 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--adm-border, rgba(255,255,255,0.1));
 }
 .cfg__row {
   display: flex;
