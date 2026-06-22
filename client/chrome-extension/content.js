@@ -3384,7 +3384,8 @@
     IMT: "IMT",
     HGA: "HGA",
     HG: "HG",
-    Stake: "Stake"
+    Stake: "Stake",
+    Dex: "Dex"
   });
   var PLATFORM_LIST = Object.values(PLATFORMS);
 
@@ -3729,11 +3730,148 @@
         };
         return { ...payload, data: btoa(JSON.stringify(payload)) };
       }
+    },
+    [PLATFORMS.Dex]: class DexProvider {
+      async Check() {
+        return location.hostname.includes("dexsport");
+      }
+      async GetConfig() {
+        const el = document.documentElement;
+        const jwt = el.dataset.dexAccessToken;
+        const hash = el.dataset.dexHash;
+        if (!jwt && !hash) return void 0;
+        const network = localStorage.getItem("main_network_name") || "";
+        const currency = localStorage.getItem("main_currency_contract") || "";
+        const sportsbookToken = hash ? `${hash}_${network}_${currency}_sportsbook` : "";
+        const gateway = "https://prod.dexsport.work";
+        const payload = {
+          provider: PLATFORMS.Dex,
+          gateway,
+          token: jwt || "",
+          sportsbookToken,
+          hash: hash || "",
+          network,
+          currency,
+          referer: location.href
+        };
+        return { ...payload, data: btoa(JSON.stringify(payload)) };
+      }
     }
   };
   function createProvider(platformId) {
     const Cls = PROVIDER_REGISTRY[platformId];
     return Cls ? new Cls() : null;
+  }
+
+  // src/content/dex/intercept.js
+  var INTERCEPT_SCRIPT = `
+(function() {
+  if (window.__dexInterceptInstalled) return;
+  window.__dexInterceptInstalled = true;
+
+  var root = document.documentElement;
+  var origFetch = window.fetch;
+
+  window.fetch = function(input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var headers = (init && init.headers) || {};
+
+    // \u6355\u83B7 Authorization: Bearer <token>
+    var auth = headers.Authorization || headers.authorization || '';
+    if (!auth && headers instanceof Headers) {
+      auth = headers.get('Authorization') || headers.get('authorization') || '';
+    }
+    if (auth && auth.startsWith('Bearer ') && !auth.includes('Signature ')) {
+      root.dataset.dexAccessToken = auth.slice(7);
+    }
+
+    return origFetch.apply(this, arguments).then(function(response) {
+      // \u6355\u83B7 /v3/address_info \u54CD\u5E94\u4E2D\u7684 hash
+      if (url.includes('/v3/address_info') || url.includes('/address_info')) {
+        response.clone().json().then(function(data) {
+          if (data && data.hash) {
+            root.dataset.dexHash = data.hash;
+          }
+          if (data && data.nickname) {
+            root.dataset.dexNickname = data.nickname;
+          }
+        }).catch(function() {});
+      }
+      return response;
+    });
+  };
+})();
+`;
+  function injectDexInterceptor() {
+    try {
+      const script = document.createElement("script");
+      script.textContent = INTERCEPT_SCRIPT;
+      (document.head || document.documentElement).appendChild(script);
+      script.remove();
+    } catch (err) {
+      console.warn("[Dex] intercept inject failed", err);
+    }
+  }
+
+  // src/content/dex/init.js
+  function initDexPage(registerHandler) {
+    if (!location.hostname.includes("dexsport")) return;
+    injectDexInterceptor();
+    chrome.runtime.sendMessage(
+      { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.Dex } },
+      (response) => {
+        console.log("[Dex] tabId written =>", response?.response ?? response);
+      }
+    );
+    registerHandler(handleDexMessage);
+  }
+  async function handleDexMessage(message) {
+    const { type, url, data, options } = message || {};
+    if (type === "GET" || type === "POST") {
+      return proxyHttpRequest(type, url, data, options);
+    }
+    if (type === "getCredentials") {
+      return getDexCredentials();
+    }
+    return null;
+  }
+  function getDexCredentials() {
+    const el = document.documentElement;
+    const jwt = el.dataset.dexAccessToken || "";
+    const hash = el.dataset.dexHash || "";
+    const nickname = el.dataset.dexNickname || "";
+    const network = localStorage.getItem("main_network_name") || "";
+    const currency = localStorage.getItem("main_currency_contract") || "";
+    const sportsbookToken = hash ? `${hash}_${network}_${currency}_sportsbook` : "";
+    return {
+      jwt,
+      hash,
+      nickname,
+      network,
+      currency,
+      sportsbookToken,
+      gateway: "https://prod.dexsport.work",
+      apiUrl: "https://dexsport.io/api"
+    };
+  }
+  async function proxyHttpRequest(method, url, body, options) {
+    const headers = { ...options?.headers || {} };
+    if (!headers["Authorization"] && !headers["authorization"]) {
+      const jwt = document.documentElement.dataset.dexAccessToken;
+      if (jwt) {
+        headers["Authorization"] = `Bearer ${jwt}`;
+      }
+    }
+    const fetchOpts = { method, headers };
+    if (method === "POST" && body) {
+      if (!headers["content-type"] && !headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
+      }
+      fetchOpts.body = typeof body === "string" ? body : JSON.stringify(body);
+    }
+    const response = await fetch(url, fetchOpts);
+    const data = await response.json();
+    return { data, status: response.status, statusText: response.statusText };
   }
 
   // src/content/config.js
@@ -4060,11 +4198,12 @@
   function installTabProxyListener() {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const tabId = message?.options?.tabId;
-      const stakeHandler = tabHandlers[PLATFORMS.Stake];
-      if (!stakeHandler || !tabId) return false;
+      if (!tabId) return false;
+      const handler = findHandler();
+      if (!handler) return false;
       void (async () => {
         try {
-          const response = await stakeHandler(message);
+          const response = await handler(message);
           sendResponse({ success: true, type: message.type, uuid: message.uuid, response });
         } catch (err) {
           sendResponse({
@@ -4077,6 +4216,12 @@
       })();
       return true;
     });
+  }
+  function findHandler() {
+    for (const id of Object.keys(tabHandlers)) {
+      if (tabHandlers[id]) return tabHandlers[id];
+    }
+    return null;
   }
 
   // src/content/index.js
@@ -4126,6 +4271,9 @@
     installTabProxyListener();
     initStakePage((handler) => {
       registerTabHandler(PLATFORMS.Stake, handler);
+    });
+    initDexPage((handler) => {
+      registerTabHandler(PLATFORMS.Dex, handler);
     });
     const startDetect = () => void detectAndMountCollectUi();
     if (document.body) {

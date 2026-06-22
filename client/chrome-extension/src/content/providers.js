@@ -374,6 +374,34 @@ export const PROVIDER_REGISTRY = {
       return { ...payload, data: btoa(JSON.stringify(payload)) };
     }
   },
+
+  [PLATFORMS.Dex]: class DexProvider {
+    async Check() {
+      return location.hostname.includes("dexsport");
+    }
+
+    async GetConfig() {
+      const el = document.documentElement;
+      const jwt = el.dataset.dexAccessToken;
+      const hash = el.dataset.dexHash;
+      if (!jwt && !hash) return undefined;
+      const network = localStorage.getItem("main_network_name") || "";
+      const currency = localStorage.getItem("main_currency_contract") || "";
+      const sportsbookToken = hash ? `${hash}_${network}_${currency}_sportsbook` : "";
+      const gateway = "https://prod.dexsport.work";
+      const payload = {
+        provider: PLATFORMS.Dex,
+        gateway,
+        token: jwt || "",
+        sportsbookToken,
+        hash: hash || "",
+        network,
+        currency,
+        referer: location.href,
+      };
+      return { ...payload, data: btoa(JSON.stringify(payload)) };
+    }
+  },
 };
 
 export function createProvider(platformId) {

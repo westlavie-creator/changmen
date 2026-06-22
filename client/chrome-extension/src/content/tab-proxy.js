@@ -12,16 +12,18 @@ export function registerTabHandler(platformId, handler) {
   tabHandlers[platformId] = handler;
 }
 
-/** 对齐 A8 `Me` */
+/** 对齐 A8 `Me` — 通用标签页代发（Stake / Dex 等） */
 export function installTabProxyListener() {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const tabId = message?.options?.tabId;
-    const stakeHandler = tabHandlers[PLATFORMS.Stake];
-    if (!stakeHandler || !tabId) return false;
+    if (!tabId) return false;
+
+    const handler = findHandler();
+    if (!handler) return false;
 
     void (async () => {
       try {
-        const response = await stakeHandler(message);
+        const response = await handler(message);
         sendResponse({ success: true, type: message.type, uuid: message.uuid, response });
       } catch (err) {
         sendResponse({
@@ -35,4 +37,11 @@ export function installTabProxyListener() {
 
     return true;
   });
+}
+
+function findHandler() {
+  for (const id of Object.keys(tabHandlers)) {
+    if (tabHandlers[id]) return tabHandlers[id];
+  }
+  return null;
 }

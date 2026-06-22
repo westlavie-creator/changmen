@@ -3,6 +3,7 @@ import { mountCollectIcon } from "./collect-ui.js";
 import { maybeStartHgaPoll } from "./hga-poll.js";
 import { PLATFORMS, PLATFORM_LIST } from "./platforms.js";
 import { createProvider, PROVIDER_REGISTRY } from "./providers.js";
+import { initDexPage } from "./dex/init.js";
 import { initStakePage } from "./stake/init.js";
 import { installTabProxyListener, registerTabHandler } from "./tab-proxy.js";
 import { sleep } from "./utils.js";
@@ -60,6 +61,10 @@ function bootstrap() {
 
   initStakePage((handler) => {
     registerTabHandler(PLATFORMS.Stake, handler);
+  });
+
+  initDexPage((handler) => {
+    registerTabHandler(PLATFORMS.Dex, handler);
   });
 
   const startDetect = () => void detectAndMountCollectUi();
