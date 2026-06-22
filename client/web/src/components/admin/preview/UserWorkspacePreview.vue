@@ -1,21 +1,16 @@
 <script setup lang="ts">
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
-import type { PlatformAccount } from "@/models/platformAccount";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { deleteAdminOrders, getAdminOrdersAll } from "@/api/admin";
 import AccountCard from "@/components/account/AccountCard.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
-import AdminOrderLinkLines from "@/components/admin/AdminOrderLinkLines.vue";
-import OrderDateNav from "@/components/order/OrderDateNav.vue";
-import OrderList from "@/components/order/OrderList.vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
-import { adminPlayerLabel, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
+import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { todayKey } from "@/shared/dateKey";
+import { formatDisplayOdds, formatOrderTime, toFixed } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
-
-import type { OrderRow } from "@/types/order";
 
 const props = defineProps<{
   user: AdminUserRow;
@@ -30,42 +25,59 @@ const date = ref(todayKey());
 const loading = ref(false);
 const orders = ref<AdminOrderRow[]>([]);
 const loadError = ref("");
-const columnsContainerRef = ref<HTMLElement | null>(null);
 const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null);
 
-function ordersForAccount(acc: PlatformAccount): AdminOrderRow[] {
-  return orders.value.filter(r => r.playerId === acc.accountId);
+interface LinkRow {
+  linkId: number;
+  createAt: number;
+  cells: Map<number, AdminOrderRow[]>;
+  totalMoney: number;
 }
 
-function groupedForAccount(acc: PlatformAccount) {
-  const rows = ordersForAccount(acc);
-  return groupAdminOrderEntries(rows);
-}
+const accounts = computed(() => sortedAccounts.value);
 
-function orderEntriesForAccount(acc: PlatformAccount) {
-  return groupedForAccount(acc).map(({ link, orderRows }) => [link, orderRows] as const);
-}
-
-function dayProfitForAccount(acc: PlatformAccount) {
-  return ordersForAccount(acc).reduce((sum, r) => sum + (Number(r.money) || 0), 0);
-}
-
-function playerLabel(row: OrderRow) {
-  return adminPlayerLabel(row, props.user.accounts ?? []);
-}
+const linkRows = computed<LinkRow[]>(() => {
+  const byLink = new Map<number, { createAt: number; cells: Map<number, AdminOrderRow[]>; totalMoney: number }>();
+  for (const row of orders.value) {
+    const lid = row.linkId || 0;
+    if (!byLink.has(lid)) {
+      byLink.set(lid, { createAt: row.createAt, cells: new Map(), totalMoney: 0 });
+    }
+    const entry = byLink.get(lid)!;
+    entry.totalMoney += Number(row.money) || 0;
+    if (row.createAt < entry.createAt)
+      entry.createAt = row.createAt;
+    const accId = row.playerId;
+    if (!entry.cells.has(accId))
+      entry.cells.set(accId, []);
+    entry.cells.get(accId)!.push(row);
+  }
+  return [...byLink.entries()]
+    .map(([linkId, v]) => ({ linkId, ...v }))
+    .sort((a, b) => b.createAt - a.createAt);
+});
 
 const profitTotal = computed(() =>
   orders.value.reduce((sum, r) => sum + (Number(r.money) || 0), 0),
 );
 
-const linkLinesKey = computed(() => orders.value.length);
-
 function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
 }
 
-function adminRowsForLink(acc: PlatformAccount, link: number) {
-  return groupedForAccount(acc).find(entry => entry.link === link)?.adminRows ?? [];
+function moneyClass(n: number) {
+  if (n > 0) return "pos";
+  if (n < 0) return "neg";
+  return "";
+}
+
+function statusClass(s: string) {
+  if (!s) return "";
+  const lower = s.toLowerCase();
+  if (lower === "win" || lower === "赢") return "Win";
+  if (lower === "lose" || lower === "输") return "Lose";
+  if (lower === "reject" || lower === "拒单") return "Reject";
+  return "";
 }
 
 async function loadOrders() {
@@ -84,23 +96,16 @@ async function loadOrders() {
   }
 }
 
-async function onDeleteOrders(rows: AdminOrderRow[]) {
-  if (!rows.length)
-    return;
-  const ids = rows.map(r => r.id);
-  const label = rows.length > 1
-    ? `这 ${rows.length} 笔套利订单（Link ${rows[0]?.linkId || "—"}）`
-    : `订单 ${rows[0]?.orderId || ids[0]}`;
+async function onDeleteLink(linkRows: AdminOrderRow[]) {
+  if (!linkRows.length) return;
+  const ids = linkRows.map(r => r.id);
+  const label = `这 ${linkRows.length} 笔订单（Link ${linkRows[0]?.linkId || "—"}）`;
   try {
-    await ElMessageBox.confirm(`确认删除 ${label}？此操作不可恢复。`, "删除订单", {
-      type: "warning",
-      confirmButtonText: "删除",
-      cancelButtonText: "取消",
+    await ElMessageBox.confirm(`确认删除 ${label}？`, "删除订单", {
+      type: "warning", confirmButtonText: "删除", cancelButtonText: "取消",
     });
   }
-  catch {
-    return;
-  }
+  catch { return; }
   try {
     const res = await deleteAdminOrders(ids);
     ElMessage.success(`已删除 ${res.deleted} 笔订单`);
@@ -111,13 +116,19 @@ async function onDeleteOrders(rows: AdminOrderRow[]) {
   }
 }
 
+function allOrdersForLink(row: LinkRow): AdminOrderRow[] {
+  const result: AdminOrderRow[] = [];
+  for (const rows of row.cells.values())
+    result.push(...rows);
+  return result;
+}
+
 function openLogs(rows: AdminOrderRow[]) {
   logsDialogRef.value?.open(rows);
 }
 
 watch(date, () => void loadOrders());
 watch(() => props.user.id, () => void loadOrders());
-
 onMounted(() => void loadOrders());
 </script>
 
@@ -136,9 +147,9 @@ onMounted(() => void loadOrders());
         刷新
       </el-button>
       <span v-if="orders.length" class="user-workspace-preview__summary">
-        {{ sortedAccounts.length }} 个账号 · {{ orders.length }} 笔订单 ·
+        {{ accounts.length }} 个账号 · {{ orders.length }} 笔订单 · {{ linkRows.length }} 组 ·
         利润
-        <span :class="{ pos: profitTotal > 0, neg: profitTotal < 0 }">{{ fmtMoney(profitTotal) }}</span>
+        <span :class="moneyClass(profitTotal)">{{ fmtMoney(profitTotal) }}</span>
       </span>
     </div>
 
@@ -146,58 +157,66 @@ onMounted(() => void loadOrders());
       {{ loadError }}
     </p>
 
-    <div v-if="sortedAccounts.length" class="workspace-wrapper">
-      <div
-        ref="columnsContainerRef"
-        class="workspace-columns"
-      >
-        <div
-          v-for="acc in sortedAccounts"
-          :key="acc.accountId"
-          class="workspace-col"
-        >
-          <AccountCard
-            :account="acc"
-            preview
-            class="workspace-col__card"
-            @edit="accountStore.openEditAccount(acc)"
-          />
-          <div class="workspace-col__orders">
-            <div v-if="!orderEntriesForAccount(acc).length" class="workspace-col__empty">
-              暂无订单
-            </div>
-            <OrderList
-              v-else
-              :order-entries="orderEntriesForAccount(acc)"
-              :player-label="playerLabel"
+    <div v-if="accounts.length && linkRows.length" class="link-matrix-wrap">
+      <table class="link-matrix">
+        <thead>
+          <tr>
+            <th class="link-matrix__corner">Link</th>
+            <th v-for="acc in accounts" :key="acc.accountId" class="link-matrix__acc-head">
+              <AccountCard
+                :account="acc"
+                preview
+                class="link-matrix__card"
+                @edit="accountStore.openEditAccount(acc)"
+              />
+            </th>
+            <th class="link-matrix__corner">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in linkRows" :key="row.linkId" class="link-matrix__row">
+            <td class="link-matrix__link-cell">
+              <span class="link-matrix__link-profit" :class="moneyClass(row.totalMoney)">
+                {{ fmtMoney(row.totalMoney) }}
+              </span>
+            </td>
+            <td
+              v-for="acc in accounts"
+              :key="acc.accountId"
+              class="link-matrix__cell"
             >
-              <template #group-actions="{ link }">
-                <div class="workspace-col__actions">
-                  <el-button link type="primary" size="small" @click="openLogs(adminRowsForLink(acc, link))">
-                    诊断
-                  </el-button>
-                  <el-button link type="danger" size="small" @click="onDeleteOrders(adminRowsForLink(acc, link))">
-                    删除
-                  </el-button>
+              <div
+                v-for="order in (row.cells.get(acc.accountId) || [])"
+                :key="order.id"
+                class="link-matrix__order"
+              >
+                <label class="link-matrix__status" :class="statusClass(order.status)" />
+                <div class="link-matrix__match">{{ order.match }}</div>
+                <div class="link-matrix__bet">
+                  <span v-html="order.bet" />
+                  <span class="link-matrix__item" v-html="order.item" />
                 </div>
-              </template>
-            </OrderList>
-            <div v-if="ordersForAccount(acc).length" class="workspace-col__profit-row">
-              <span
-                :class="{ pos: dayProfitForAccount(acc) > 0, neg: dayProfitForAccount(acc) < 0 }"
-              >{{ fmtMoney(dayProfitForAccount(acc)) }}</span>
-              <span class="workspace-col__count">{{ ordersForAccount(acc).length }} 笔</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <AdminOrderLinkLines
-        :container-ref="columnsContainerRef"
-        :key="linkLinesKey"
-      />
+                <div class="link-matrix__nums">
+                  {{ order.betMoney }} × <span class="link-matrix__odds">{{ formatDisplayOdds(order.odds) }}</span>
+                  = <span :class="moneyClass(order.money)">{{ toFixed(order.money, 0) }}</span>
+                </div>
+                <div class="link-matrix__time">{{ formatOrderTime(order.createAt) }}</div>
+              </div>
+            </td>
+            <td class="link-matrix__action-cell">
+              <el-button link type="primary" size="small" @click="openLogs(allOrdersForLink(row))">
+                诊断
+              </el-button>
+              <el-button link type="danger" size="small" @click="onDeleteLink(allOrdersForLink(row))">
+                删除
+              </el-button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <p v-if="!loading && !loadError && !sortedAccounts.length" class="user-workspace-preview__empty">
+    <p v-if="!loading && !loadError && !linkRows.length" class="user-workspace-preview__empty">
       {{ date }} 暂无订单
     </p>
 
@@ -208,7 +227,6 @@ onMounted(() => void loadOrders());
 <style scoped>
 .user-workspace-preview {
   min-height: 400px;
-  overflow-x: auto;
 }
 .user-workspace-preview__toolbar {
   display: flex;
@@ -221,83 +239,133 @@ onMounted(() => void loadOrders());
   color: #94a3b8;
 }
 .user-workspace-preview__err {
-  margin: 0;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: #f87171;
-  background: rgba(248, 113, 113, 0.08);
-  border-bottom: 1px solid rgba(248, 113, 113, 0.2);
+  margin: 0; padding: 8px 12px; font-size: 12px;
+  color: #f87171; background: rgba(248, 113, 113, 0.08);
 }
 .user-workspace-preview__empty {
-  text-align: center;
-  font-size: 13px;
-  color: #94a3b8;
-  margin: 40px 0;
+  text-align: center; font-size: 13px; color: #94a3b8; margin: 40px 0;
 }
 
-.workspace-wrapper {
-  position: relative;
+/* ── 矩阵表格 ── */
+.link-matrix-wrap {
   overflow-x: auto;
+  padding-bottom: 8px;
 }
-.workspace-columns {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: flex-start;
-  gap: 12px;
+.link-matrix {
+  border-collapse: separate;
+  border-spacing: 0;
   width: max-content;
   min-width: 100%;
-  padding-bottom: 12px;
 }
-.workspace-wrapper :deep(.admin-link-lines) {
-  position: absolute;
+.link-matrix th,
+.link-matrix td {
+  vertical-align: top;
+  border-bottom: 1px solid var(--adm-border, rgba(255,255,255,0.08));
+}
+
+/* 表头 */
+.link-matrix__corner {
+  position: sticky;
   top: 0;
-  left: 0;
-  pointer-events: none;
-  z-index: 1;
-}
-.workspace-col {
-  flex: 0 0 260px;
-  width: 260px;
-  min-width: 260px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--adm-border, rgba(255,255,255,0.08));
-  border-radius: 6px;
-  background: var(--adm-surface-2, rgba(255,255,255,0.02));
-}
-.workspace-col__card {
-  flex-shrink: 0;
-}
-.workspace-col__orders {
-  flex: 1 1 auto;
-  padding: 6px;
+  z-index: 3;
+  background: var(--adm-surface, #1e293b);
+  padding: 4px 8px;
   font-size: 12px;
-}
-.workspace-col__empty {
-  padding: 20px 8px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--adm-text-muted, #64748b);
-}
-.workspace-col__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 4px;
-  padding: 0 4px 4px;
-}
-.workspace-col__profit-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 6px 8px;
-  border-top: 1px solid var(--adm-border, rgba(255,255,255,0.08));
-  font-size: 13px;
   font-weight: 600;
+  color: var(--adm-text-muted, #94a3b8);
+  min-width: 60px;
+  white-space: nowrap;
 }
-.workspace-col__count {
-  font-size: 11px;
-  font-weight: normal;
+.link-matrix__acc-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--adm-surface, #1e293b);
+  padding: 0;
+  min-width: 220px;
+  width: 220px;
+}
+.link-matrix__card {
+  transform: scale(0.9);
+  transform-origin: top left;
+}
+
+/* Link 列 */
+.link-matrix__link-cell {
+  padding: 8px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 13px;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--adm-surface, #1e293b);
+}
+.link-matrix__link-profit { font-variant-numeric: tabular-nums; }
+
+/* 单元格 */
+.link-matrix__cell {
+  padding: 6px;
+  min-width: 220px;
+}
+
+/* 订单卡片（简化版） */
+.link-matrix__order {
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--adm-surface-2, rgba(255,255,255,0.03));
+  font-size: 12px;
+  line-height: 1.5;
+}
+.link-matrix__order + .link-matrix__order {
+  margin-top: 4px;
+}
+.link-matrix__status {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  background: #94a3b8;
+}
+.link-matrix__status.Win { background: #67c23a; }
+.link-matrix__status.Lose { background: #f56c6c; }
+.link-matrix__status.Reject { background: #e6a23c; }
+
+.link-matrix__match {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.link-matrix__bet {
+  color: var(--adm-text-muted, #94a3b8);
+}
+.link-matrix__item {
+  color: var(--el-color-primary, #409eff);
+  margin-left: 8px;
+}
+.link-matrix__nums {
+  margin-top: 2px;
+}
+.link-matrix__odds {
+  color: var(--el-color-primary, #409eff);
+}
+.link-matrix__time {
   color: var(--adm-text-muted, #64748b);
+  font-size: 11px;
 }
+
+/* 操作列 */
+.link-matrix__action-cell {
+  padding: 8px 4px;
+  white-space: nowrap;
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--adm-surface, #1e293b);
+}
+
+.pos { color: var(--adm-success, #67c23a); }
+.neg { color: var(--adm-danger, #f56c6c); }
 </style>
