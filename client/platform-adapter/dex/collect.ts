@@ -192,19 +192,19 @@ export function startDexCollector(): () => void {
         const locked = b.Status === "Locked";
         if (b.SourceHomeID) {
           odds.save(PLATFORMS.Dex, {
-            id: b.SourceHomeID,
+            id: String(b.SourceHomeID),
             odds: b.HomeOdds,
             isLock: locked,
-            betId: b.SourceBetID,
+            betId: String(b.SourceBetID),
             time: Date.now(),
           });
         }
         if (b.SourceAwayID) {
           odds.save(PLATFORMS.Dex, {
-            id: b.SourceAwayID,
+            id: String(b.SourceAwayID),
             odds: b.AwayOdds,
             isLock: locked,
-            betId: b.SourceBetID,
+            betId: String(b.SourceBetID),
             time: Date.now(),
           });
         }
