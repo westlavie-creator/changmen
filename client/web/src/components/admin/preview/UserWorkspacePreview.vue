@@ -27,23 +27,31 @@ const orders = ref<AdminOrderRow[]>([]);
 const loadError = ref("");
 const columnsContainerRef = ref<HTMLElement | null>(null);
 
-interface ProviderColumn {
+interface AccountColumn {
   key: string;
   provider: string;
+  playerId: number;
+  playerName: string;
   orders: AdminOrderRow[];
 }
 
-const providerColumns = computed<ProviderColumn[]>(() => {
-  const byProvider = new Map<string, ProviderColumn>();
+const accountColumns = computed<AccountColumn[]>(() => {
+  const byAccount = new Map<string, AccountColumn>();
   for (const row of orders.value) {
-    const key = row.provider;
-    if (!byProvider.has(key)) {
-      byProvider.set(key, { key, provider: key, orders: [] });
+    const key = `${row.provider}:${row.playerId}`;
+    if (!byAccount.has(key)) {
+      byAccount.set(key, { key, provider: row.provider, playerId: row.playerId, playerName: "", orders: [] });
     }
-    byProvider.get(key)!.orders.push(row);
+    byAccount.get(key)!.orders.push(row);
   }
-  return [...byProvider.values()].sort((a, b) =>
-    a.provider.localeCompare(b.provider),
+  for (const acc of props.user.accounts ?? []) {
+    const key = `${acc.platform}:${acc.accountId}`;
+    const col = byAccount.get(key);
+    if (col)
+      col.playerName = acc.playerName;
+  }
+  return [...byAccount.values()].sort((a, b) =>
+    a.provider.localeCompare(b.provider) || a.playerName.localeCompare(b.playerName),
   );
 });
 
@@ -124,7 +132,7 @@ onMounted(() => void loadOrders());
         刷新
       </el-button>
       <span v-if="orders.length" class="user-workspace-preview__summary">
-        {{ providerColumns.length }} 个场馆 · {{ orders.length }} 笔订单 ·
+        {{ accountColumns.length }} 个账号 · {{ orders.length }} 笔订单 ·
         利润
         <span :class="{ pos: profitTotal > 0, neg: profitTotal < 0 }">{{ fmtMoney(profitTotal) }}</span>
       </span>
@@ -136,16 +144,16 @@ onMounted(() => void loadOrders());
 
     <!-- 按场馆分列 + LinkID 连线 -->
     <div
-      v-if="providerColumns.length"
+      v-if="accountColumns.length"
       ref="columnsContainerRef"
       class="admin-orders-by-account"
     >
       <AdminAccountOrdersColumn
-        v-for="col in providerColumns"
+        v-for="col in accountColumns"
         :key="col.key"
         :provider="col.provider"
-        :player-id="0"
-        :player-name="col.provider"
+        :player-id="col.playerId"
+        :player-name="col.playerName"
         :orders="col.orders"
         :accounts="user.accounts ?? []"
         @delete="onDeleteOrders"
@@ -156,7 +164,7 @@ onMounted(() => void loadOrders());
       />
     </div>
 
-    <p v-if="!loading && !loadError && !providerColumns.length" class="user-workspace-preview__empty">
+    <p v-if="!loading && !loadError && !accountColumns.length" class="user-workspace-preview__empty">
       {{ date }} 暂无订单
     </p>
   </div>
