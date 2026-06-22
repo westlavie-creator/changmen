@@ -173,6 +173,23 @@ onMounted(() => void loadOrders());
 <style scoped>
 .user-workspace-preview {
   min-height: 400px;
+  overflow-x: auto;
+}
+.user-workspace-preview :deep(.admin-orders-by-account) {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-start;
+  gap: 12px;
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 12px;
+  position: relative;
+}
+.user-workspace-preview :deep(.admin-orders-account-col) {
+  flex: 0 0 292px;
+  width: 292px;
+  min-width: 292px;
 }
 .user-workspace-preview__toolbar {
   display: flex;
