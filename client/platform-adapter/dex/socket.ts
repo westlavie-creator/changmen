@@ -106,7 +106,8 @@ function handleBatchItems(items: unknown[][]) {
     }
     if (model === "market") {
       const name = String(data.name ?? "");
-      if (/winner|赢家|获胜/i.test(name)) {
+      const outcomes = Array.isArray(data.outcomes) ? data.outcomes.length : 0;
+      if (/winner|赢家|获胜/i.test(name) && !/1x2/i.test(name) && outcomes <= 2) {
         winnerMarketIds.add(lid);
       } else if (!winnerMarketIds.has(lid)) {
         toLeave.push(lid);

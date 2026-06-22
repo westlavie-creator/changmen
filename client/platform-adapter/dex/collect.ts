@@ -71,7 +71,7 @@ export function startDexCollector(): () => void {
       if (item.model !== "market") continue;
       const mkt = item.data;
       const name = String(mkt.name ?? "");
-      if (!/winner|赢家|获胜/i.test(name)) continue;
+      if (!/winner|赢家|获胜/i.test(name) || /1x2/i.test(name)) continue;
       const outcomes = (mkt.outcomes ?? []) as Array<Record<string, unknown>>;
       if (outcomes.length < 1 || outcomes.length > 3) continue;
 
