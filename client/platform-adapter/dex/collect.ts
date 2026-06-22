@@ -13,7 +13,7 @@ import {
   dexEventToMatch,
   parseInlineMarkets,
 } from "./parse";
-import { startDexSocket, stopDexSocket, onDexBatch, subscribeDexMarkets } from "./socket";
+import { startDexSocket, stopDexSocket, onDexBatch } from "./socket";
 import type { DexBatchItem } from "./socket";
 import type { CollectBetDto } from "@/types/collect";
 
@@ -66,9 +66,10 @@ export function startDexCollector(): () => void {
         if (!o.id) continue;
         const frozen = Boolean(o.isFrozen);
         const price = !frozen ? Number(o.price ?? 0) : 0;
+        const oid = String(o.id);
 
         odds.save(PLATFORMS.Dex, {
-          id: String(o.id),
+          id: oid,
           odds: price,
           isLock: frozen,
           betId: marketId,
@@ -76,8 +77,19 @@ export function startDexCollector(): () => void {
         });
         updated = true;
 
-        const slot = i === 0 ? "home" : "away";
-        cache[slot] = { id: String(o.id), name: String(o.name ?? ""), odds: price, frozen };
+        // 按 outcome identity 区分 home/away（101=home, 103=away），否则按位置
+        const identity = Number(o.identity ?? 0);
+        let slot: "home" | "away";
+        if (identity === 103) slot = "away";
+        else if (identity === 101) slot = "home";
+        else if (cache.home && cache.home.id === oid) slot = "home";
+        else if (cache.away && cache.away.id === oid) slot = "away";
+        else slot = i === 0 && !cache.home ? "home" : "away";
+
+        cache[slot] = { id: oid, name: String(o.name ?? ""), odds: price, frozen };
+      }
+      if (outcomes.length > 0) {
+        console.log("[Dex WS bet]", name, "| map:", map, "| home:", !!cache.home, "away:", !!cache.away, "| outcomes:", outcomes.length);
       }
 
       if (cache.home && cache.away && eventId) {
@@ -120,7 +132,6 @@ export function startDexCollector(): () => void {
 
     const matches = [];
     const betsToSave: Array<{ matchId: string; bets: CollectBetDto[] }> = [];
-    const winnerMarketIds: string[] = [];
 
     for (const slug of dexSportSlugs()) {
       try {
@@ -141,19 +152,12 @@ export function startDexCollector(): () => void {
             if (eventId && markets.length) {
               const bets = parseInlineMarkets(eventId, markets);
               if (bets.length) betsToSave.push({ matchId: eventId, bets });
-              for (const b of bets) {
-                if (b.SourceBetID) winnerMarketIds.push(b.SourceBetID);
-              }
             }
           }
         }
       } catch (err) {
         console.warn(`[Dex] ${slug} failed`, err);
       }
-    }
-
-    if (winnerMarketIds.length) {
-      subscribeDexMarkets(winnerMarketIds);
     }
 
     if (matches.length) {

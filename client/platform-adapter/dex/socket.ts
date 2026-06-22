@@ -76,12 +76,6 @@ function joinNew(model: string, ids: string[]) {
   wsSend(["join", model, fresh]);
 }
 
-/** 由 HTTP 轮询调用：传入已知的赢家类 marketIds，让 WS 订阅 */
-export function subscribeDexMarkets(marketIds: string[]) {
-  if (!marketIds.length) return;
-  joinNew("market", marketIds);
-}
-
 function handleBatchItems(items: unknown[][]) {
   const parsed: DexBatchItem[] = [];
 
