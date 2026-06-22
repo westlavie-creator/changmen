@@ -575,6 +575,7 @@ onUnmounted(() => {
       size="92%"
       direction="rtl"
       destroy-on-close
+      :teleported="false"
       @closed="closeDetailDrawer"
     >
       <AdminUserDetail
