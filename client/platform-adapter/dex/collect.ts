@@ -81,6 +81,7 @@ export function startDexCollector(): () => void {
           }],
         });
       }
+    }
 
     if (updated) {
       matchStore.refreshOddsOnBets();
