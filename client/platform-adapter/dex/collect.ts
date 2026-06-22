@@ -26,9 +26,12 @@ export function startDexCollector(): () => void {
   const matchStore = useMatchStore();
   const odds = useOddsStore();
 
-  /** WS 推送：只更新内存赔率（oddsStore），不写数据库 */
+  /** WS 推送：赢家盘口写 oddsStore（UI 实时更新）+ saveBets（持久化地图赔率） */
   const handleBatch = (items: DexBatchItem[]) => {
+    if (!collect.ready || !collect.collect.get(PLATFORMS.Dex)) return;
+
     let updated = false;
+    const betsToSave: Array<{ matchId: string; bets: CollectBetDto[] }> = [];
 
     for (const item of items) {
       if (item.model !== "market") continue;
@@ -42,6 +45,9 @@ export function startDexCollector(): () => void {
       const away = outcomes[1]!;
       const locked = Boolean(home.isFrozen) && Boolean(away.isFrozen);
       const marketId = String(mkt.id ?? "");
+      const eventLid = String(mkt.pid ?? "");
+      const eventId = eventLid.split(".").pop() || eventLid;
+      const map = parseMapFromMarketName(name);
 
       if (home.id) {
         odds.save(PLATFORMS.Dex, {
@@ -63,10 +69,34 @@ export function startDexCollector(): () => void {
         });
         updated = true;
       }
+
+      if (eventId) {
+        betsToSave.push({
+          matchId: eventId,
+          bets: [{
+            Type: PLATFORMS.Dex,
+            SourceMatchID: eventId,
+            Map: map,
+            SourceBetID: marketId,
+            BetName: name,
+            SourceHomeID: String(home.id ?? ""),
+            HomeName: String(home.name ?? ""),
+            HomeOdds: !Boolean(home.isFrozen) ? Number(home.price ?? 0) : 0,
+            SourceAwayID: String(away.id ?? ""),
+            AwayName: String(away.name ?? ""),
+            AwayOdds: !Boolean(away.isFrozen) ? Number(away.price ?? 0) : 0,
+            Status: locked ? "Locked" : "Normal",
+          }],
+        });
+      }
     }
 
     if (updated) {
       matchStore.refreshOddsOnBets();
+    }
+
+    for (const { matchId, bets } of betsToSave) {
+      if (bets.length) void collect.saveBets(PLATFORMS.Dex, matchId, bets);
     }
   };
 
