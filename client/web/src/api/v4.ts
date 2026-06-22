@@ -316,6 +316,8 @@ function enterSabaDemo(): void {
  * API 完成后立即 Lc.confirm（不 await），finally 里 wait(1s) 再关 Loading。
  */
 export async function enterCreditPlate(platform: PlatformId): Promise<void> {
+  if (platform === "PB")
+    return;
   if (platform === "SABA") {
     enterSabaDemo();
     return;
