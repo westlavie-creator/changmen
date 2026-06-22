@@ -1,14 +1,12 @@
 import { PLATFORMS } from "../platforms.js";
-import { injectDexInterceptor } from "./intercept.js";
 
 /**
- * dexsport.io 页：注入 fetch 拦截器 + 注册 tabId + 代理 HTTP 请求
+ * dexsport.io 页：注册 tabId + 代理 HTTP 请求 + 凭证读取
+ * 网络拦截器由 manifest world:MAIN（dex-intercept.js）自动注入。
  * @param {(handler: (msg: unknown) => Promise<unknown>) => void} registerHandler
  */
 export function initDexPage(registerHandler) {
   if (!location.hostname.includes("dexsport")) return;
-
-  injectDexInterceptor();
 
   chrome.runtime.sendMessage(
     { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.Dex } },
@@ -36,9 +34,9 @@ async function handleDexMessage(message) {
 
 function getDexCredentials() {
   const el = document.documentElement;
-  const jwt = el.dataset.dexAccessToken || "";
   const hash = el.dataset.dexHash || "";
   const nickname = el.dataset.dexNickname || "";
+  const jwt = el.dataset.dexAccessToken || "";
   const network = localStorage.getItem("main_network_name") || "";
   const currency = localStorage.getItem("main_currency_contract") || "";
   const sportsbookToken = hash ? `${hash}_${network}_${currency}_sportsbook` : "";
@@ -74,6 +72,7 @@ async function proxyHttpRequest(method, url, body, options) {
   }
 
   const response = await fetch(url, fetchOpts);
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("json") ? await response.json() : await response.text();
   return { data, status: response.status, statusText: response.statusText };
 }
