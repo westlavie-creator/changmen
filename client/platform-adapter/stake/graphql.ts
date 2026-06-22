@@ -1,4 +1,3 @@
-import { directPostJson } from "@/shared/http";
 import { stakePluginGraphql } from "./pluginApi";
 import { parseMapFromMarketName, STAKE_GRAPHQL, STAKE_SPORT_SLUGS } from "./parse";
 import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@/types/collect";
@@ -70,30 +69,6 @@ const STAKE_COLLECT_HEADERS: Record<string, string> = {
   "x-operation-type": "query",
 };
 
-/** Stake GraphQL SportIndex 直连 */
-export async function collectStakeGraphql<T>(
-  apiUrl: string,
-  accessToken: string,
-  sportSlug: string,
-): Promise<T> {
-  const url = `${apiUrl.replace(/\/+$/, "")}/_api/graphql`;
-  const headers = {
-    "content-type": "application/json",
-    "x-language": "zh",
-    "x-access-token": accessToken,
-    "x-operation-name": "SportIndex",
-    "x-operation-type": "query",
-  };
-  return directPostJson<T>(
-    url,
-    headers,
-    {
-      query: STAKE_GRAPHQL,
-      variables: { sport: sportSlug, groups: ["winner", "maps"] },
-    },
-  );
-}
-
 /** 对齐 A8 `eJe` */
 export async function fetchStakeSportIndex(
   tabId: number,
@@ -118,8 +93,11 @@ export function parseSportIndexResponse(
   const subscribe: StakeSubscribeRow[] = [];
   const data = payload.data as Record<string, unknown> | undefined;
   const slugSport = data?.slugSport as Record<string, unknown> | undefined;
-  const firstTournament = slugSport?.firstTournament as Record<string, unknown> | undefined;
-  const list = (firstTournament?.fixtureList ?? []) as Array<Record<string, unknown>>;
+  const tournaments = slugSport?.firstTournament;
+  const tournamentArr = Array.isArray(tournaments) ? tournaments : tournaments ? [tournaments] : [];
+  const list = tournamentArr.flatMap(
+    (t: Record<string, unknown>) => ((t?.fixtureList ?? []) as Array<Record<string, unknown>>),
+  );
   const horizon = Date.now() + 3600_000;
   const gameId = sportSlug;
 
