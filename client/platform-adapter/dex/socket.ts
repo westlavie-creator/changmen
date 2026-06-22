@@ -85,20 +85,15 @@ function handleBatchItems(items: unknown[][]) {
     const action = Number(row[2]);
     const data = (row[3] ?? {}) as Record<string, unknown>;
 
-    if (model === "discipline") {
-      const tids = Array.isArray(data.tournamentIds) ? data.tournamentIds as string[] : [];
-      console.log("[Dex WS]", model, lid, "→", tids.length, "tournaments");
-      if (tids.length) joinNew("tournament", tids);
+    if (model === "discipline" && Array.isArray(data.tournamentIds)) {
+      joinNew("tournament", data.tournamentIds as string[]);
     }
-    if (model === "tournament") {
-      const eids = Array.isArray(data.eventIds) ? data.eventIds as string[] : [];
-      console.log("[Dex WS]", model, lid, "→", eids.length, "events");
-      if (eids.length) joinNew("event", eids);
+    if (model === "tournament" && Array.isArray(data.eventIds)) {
+      joinNew("event", data.eventIds as string[]);
     }
     if (model === "event") {
-      const allIds = (data.marketIds as (string | null)[] ?? []).filter(Boolean);
-      const ids = allIds.slice(0, 10) as string[];
-      console.log("[Dex WS]", model, lid, "→ join", ids.length, "/", allIds.length, "markets");
+      const allIds = (data.marketIds as (string | null)[] ?? []).filter(Boolean) as string[];
+      const ids = allIds.length <= 30 ? allIds : allIds.slice(0, 25);
       if (ids.length) joinNew("market", ids);
     }
     parsed.push({ model, lid, action, data });
