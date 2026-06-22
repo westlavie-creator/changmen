@@ -2522,6 +2522,37 @@ html.admin-route #app > * {
 .admin-drawer .user-workspace-preview .el-switch {
   --el-switch-off-color: rgba(255, 255, 255, 0.15);
 }
+.admin-drawer .user-workspace-preview .drag-item {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--adm-text, #e2e8f0);
+}
+.admin-drawer .user-workspace-preview .el-input__wrapper {
+  background-color: rgba(7, 11, 20, 0.5) !important;
+  box-shadow: 0 0 0 1px var(--adm-border) inset !important;
+}
+.admin-drawer .user-workspace-preview .el-select__wrapper {
+  background-color: rgba(7, 11, 20, 0.5) !important;
+  box-shadow: 0 0 0 1px var(--adm-border) inset !important;
+}
+.admin-drawer .user-workspace-preview .el-input-group__prepend {
+  background-color: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+.admin-drawer .user-workspace-preview .el-checkbox__inner {
+  background-color: transparent;
+  border-color: var(--adm-border);
+}
+.admin-drawer .user-workspace-preview .el-tag {
+  --el-tag-bg-color: rgba(255, 255, 255, 0.06);
+  --el-tag-text-color: var(--adm-text, #e2e8f0);
+  --el-tag-border-color: var(--adm-border);
+}
+.admin-drawer .user-workspace-preview fieldset {
+  border-color: var(--adm-border);
+}
+.admin-drawer .user-workspace-preview legend {
+  color: var(--adm-text, #e2e8f0);
+}
 .admin-drawer .user-workspace-preview .el-button--primary {
   --el-button-bg-color: var(--el-color-primary);
   --el-button-border-color: var(--el-color-primary);
