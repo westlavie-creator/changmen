@@ -31,6 +31,10 @@ function recalc() {
     return;
   }
 
+  const cRect = container.getBoundingClientRect();
+  const sl = container.scrollLeft;
+  const st = container.scrollTop;
+
   svgWidth.value = container.scrollWidth;
   svgHeight.value = container.scrollHeight;
 
@@ -52,7 +56,6 @@ function recalc() {
   const newPaths: LinkPath[] = [];
 
   for (const [linkId, items] of byLinkId) {
-    // 按列分组，只要跨列的
     const colMap = new Map<HTMLElement, HTMLElement[]>();
     for (const { el, col } of items) {
       if (!colMap.has(col))
@@ -62,10 +65,12 @@ function recalc() {
     if (colMap.size < 2)
       continue;
 
-    // 按列的 offsetLeft 排序
-    const cols = [...colMap.entries()].sort((a, b) => a[0].offsetLeft - b[0].offsetLeft);
+    const cols = [...colMap.entries()].sort((a, b) => {
+      const ar = a[0].getBoundingClientRect();
+      const br = b[0].getBoundingClientRect();
+      return ar.left - br.left;
+    });
 
-    // 判断颜色：看 legend class
     let color = "rgba(144, 147, 153, 0.5)";
     for (const { el } of items) {
       const legend = el.querySelector("legend");
@@ -79,23 +84,21 @@ function recalc() {
       }
     }
 
-    // 相邻列之间画线
     for (let i = 0; i < cols.length - 1; i++) {
-      const [leftCol, leftEls] = cols[i];
-      const [rightCol, rightEls] = cols[i + 1];
+      const leftEls = cols[i][1];
+      const rightEls = cols[i + 1][1];
 
-      // 左侧：取第一个 fieldset 的中点，用 offsetTop/offsetLeft 相对于 container
-      const leftEl = leftEls[0];
-      const rightEl = rightEls[0];
+      const lr = leftEls[0].getBoundingClientRect();
+      const rr = rightEls[0].getBoundingClientRect();
 
-      const x1 = leftCol.offsetLeft + leftCol.offsetWidth;
-      const y1 = leftEl.offsetTop + leftEl.offsetHeight / 2
-        + leftCol.offsetTop;
-      const x2 = rightCol.offsetLeft;
-      const y2 = rightEl.offsetTop + rightEl.offsetHeight / 2
-        + rightCol.offsetTop;
+      // 相对于容器内容区（含滚动偏移）
+      const x1 = lr.right - cRect.left + sl;
+      const y1 = lr.top + lr.height / 2 - cRect.top + st;
+      const x2 = rr.left - cRect.left + sl;
+      const y2 = rr.top + rr.height / 2 - cRect.top + st;
 
-      const dx = Math.abs(x2 - x1) * 0.4;
+      const gap = Math.abs(x2 - x1);
+      const dx = Math.min(gap * 0.4, 40);
       const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 
       newPaths.push({ id: `link-${linkId}-${i}`, d, color });
@@ -109,19 +112,23 @@ function setupObservers() {
   const container = props.containerRef;
   if (!container)
     return;
-
   resizeObs = new ResizeObserver(() => scheduleRecalc());
   resizeObs.observe(container);
-
   mutationObs = new MutationObserver(() => scheduleRecalc());
   mutationObs.observe(container, { childList: true, subtree: true });
-
   container.addEventListener("scroll", scheduleRecalc, { passive: true });
+  // drawer 的滚动容器也要监听
+  const drawer = container.closest(".el-drawer__body, .el-drawer");
+  if (drawer)
+    drawer.addEventListener("scroll", scheduleRecalc, { passive: true });
 }
 
 function teardownObservers() {
   const container = props.containerRef;
   container?.removeEventListener("scroll", scheduleRecalc);
+  const drawer = container?.closest(".el-drawer__body, .el-drawer");
+  if (drawer)
+    drawer.removeEventListener("scroll", scheduleRecalc);
   resizeObs?.disconnect();
   resizeObs = null;
   mutationObs?.disconnect();
