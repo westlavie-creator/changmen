@@ -48,7 +48,7 @@ const rateLocked = ref(false);
 
 interface PlatformSuggestion { value: string; link: string }
 
-const form = reactive<AccountEditFormState>(
+let form = reactive<AccountEditFormState>(
   createAccountEditFormStateFromPlatformAccount(
     new PlatformAccount({ accountId: 0, playerName: "", provider: "RAY" }),
   ),

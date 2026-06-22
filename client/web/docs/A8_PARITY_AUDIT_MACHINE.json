@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-19T15:50:33.849Z",
+  "generatedAt": "2026-06-22T02:56:55.649Z",
   "sources": {
     "bundleJs": "A8/A8frontendscipts/2.0.1/index.js",
     "indexCss": "server/backend/public/assets/index.css",
@@ -13,7 +13,7 @@
     "indexCssBytes": 372896,
     "a8CssBytes": 371498,
     "amIconCssBytes": 2012,
-    "fallbackCssBytes": 5579,
+    "fallbackCssBytes": 5609,
     "indexSelectorCount": 1816,
     "a8SelectorCount": 1816,
     "selectorOnlyInIndexCount": 0,
@@ -83,24 +83,36 @@
       "bytes": 7163
     },
     {
-      "file": "components/ui/AppDialog.vue",
-      "bytes": 1508
+      "file": "views/AdminValueBetView.vue",
+      "bytes": 3232
     },
     {
-      "file": "components/admin/preview/EmbeddedUserDialog.vue",
-      "bytes": 1061
+      "file": "views/AdminAnalyticsView.vue",
+      "bytes": 2192
+    },
+    {
+      "file": "views/AdminHealthView.vue",
+      "bytes": 2173
+    },
+    {
+      "file": "components/user/UserConfigPanel.vue",
+      "bytes": 1534
+    },
+    {
+      "file": "components/ui/AppDialog.vue",
+      "bytes": 1508
     },
     {
       "file": "components/layout/DirectRealtimeBadge.vue",
       "bytes": 997
     },
     {
-      "file": "components/user/UserConfigPanel.vue",
-      "bytes": 918
+      "file": "components/order/OrderView.vue",
+      "bytes": 734
     },
     {
       "file": "components/order/OrderDateNav.vue",
-      "bytes": 592
+      "bytes": 606
     },
     {
       "file": "components/account/AccountEditPanel.vue",
@@ -108,7 +120,11 @@
     },
     {
       "file": "components/admin/preview/UserWorkspacePreview.vue",
-      "bytes": 447
+      "bytes": 495
+    },
+    {
+      "file": "views/AdminUsersView.vue",
+      "bytes": 398
     },
     {
       "file": "components/report/MonthReportTable.vue",
@@ -129,10 +145,6 @@
     {
       "file": "components/layout/GalaxySpinner.vue",
       "bytes": 193
-    },
-    {
-      "file": "components/order/OrderView.vue",
-      "bytes": 132
     },
     {
       "file": "components/layout/PluginIntroShell.vue",

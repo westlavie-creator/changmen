@@ -28,15 +28,18 @@ export default antfu({
     "jsdoc/check-param-names": "warn",
     "jsdoc/require-property-description": "off",
     "jsdoc/require-returns-description": "off",
-    // 后端 Node 环境，process/Buffer 全局使用正常
     "node/prefer-global/process": "off",
     "node/prefer-global/buffer": "off",
-    // 禁止 node:test，统一用 vitest
     "no-restricted-imports": ["error", {
       paths: [{
         name: "node:test",
         message: "Use 'vitest' instead of 'node:test'.",
       }],
     }],
+  },
+}, {
+  files: ["**/*.vue"],
+  rules: {
+    "prefer-const": "off",
   },
 });

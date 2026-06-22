@@ -22,7 +22,7 @@ const { config } = storeToRefs(configStore);
 
 const visible = ref(false);
 
-const form = reactive({
+let form = reactive({
   target: "Home" as BetSide,
   betMoney: 100,
   odds: 0,

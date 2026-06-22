@@ -23,7 +23,7 @@ const typeLabels: Record<string, string> = {
 const visible = ref(false);
 const loading = ref(false);
 
-const form = ref({
+let form = ref({
   ID: 0,
   UserID: 0,
   PlayerID: 0,

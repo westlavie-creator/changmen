@@ -28,7 +28,7 @@ const configStore = useConfigStore();
 const userStore = useUserStore();
 const { saving } = storeToRefs(configStore);
 
-const form = reactive(createUserConfigFormState(configStore.config));
+let form = reactive(createUserConfigFormState(configStore.config));
 const autoOpenDate = ref<Date | null>(null);
 
 const visible = computed({

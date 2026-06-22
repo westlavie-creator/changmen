@@ -11,7 +11,7 @@ const user = useUserStore();
 const configStore = useConfigStore();
 const { follow } = storeToRefs(user);
 
-const form = reactive<FollowConfig>({
+let form = reactive<FollowConfig>({
   isOpen: false,
   betMoney: 100,
   minMoney: 0,

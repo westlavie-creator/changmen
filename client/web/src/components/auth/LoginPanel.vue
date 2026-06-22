@@ -8,7 +8,7 @@ const emit = defineEmits<{
 
 const user = useUserStore();
 
-const form = reactive({
+let form = reactive({
   userName: "",
   password: "",
 });
