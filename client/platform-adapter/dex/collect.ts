@@ -12,13 +12,21 @@ import {
   parseTopEvents,
   dexEventToMatch,
   parseInlineMarkets,
-  parseMapFromMarketName,
 } from "./parse";
 import { startDexSocket, stopDexSocket, onDexBatch } from "./socket";
 import type { DexBatchItem } from "./socket";
 import type { CollectBetDto } from "@/types/collect";
 
 const LOOP_MS = 10_000;
+
+function mapFromName(name: string): number {
+  const lower = name.toLowerCase();
+  const m = /map\s*(\d)\b/.exec(lower);
+  if (m) return Number(m[1]);
+  const cn = /(\d)\s*号地图|地图\s*(\d)/.exec(name);
+  if (cn) return Number(cn[1] || cn[2]);
+  return 0;
+}
 
 export function startDexCollector(): () => void {
   let stopped = false;
@@ -55,7 +63,7 @@ export function startDexCollector(): () => void {
       const marketId = String(mkt.id ?? "");
       const eventLid = String(mkt.pid ?? "");
       const eventId = eventLid.split(".").pop() || eventLid;
-      const map = parseMapFromMarketName(name);
+      const map = mapFromName(name);
 
       if (!marketCache.has(marketId)) {
         marketCache.set(marketId, { eventId, name, map, marketId });
