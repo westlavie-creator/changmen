@@ -8,11 +8,12 @@ import {
   dexPluginGet,
 } from "./pluginApi";
 import {
-  DEX_SPORTSBOOK_API,
+  DEX_LINE_API,
+  DEX_CID,
   dexSportSlugs,
-  parseScheduleEvents,
+  parseTopEvents,
   dexEventToMatch,
-  parseMarketsToBets,
+  parseInlineMarkets,
 } from "./parse";
 import type { CollectBetDto } from "@/types/collect";
 
@@ -45,30 +46,28 @@ export function startDexCollector(): () => void {
 
     for (const slug of dexSportSlugs()) {
       try {
-        const scheduleData = await dexPluginGet(
-          tabId,
-          `${DEX_SPORTSBOOK_API}/schedule/${slug}?locale=zh`,
-        );
-        const events = parseScheduleEvents(slug, scheduleData);
+        const url = `${DEX_LINE_API}/top-events/${slug}?cid=${DEX_CID}&locale=zh`;
+        const rawData = await dexPluginGet<{ data?: unknown[] }>(tabId, url);
+        const list = Array.isArray(rawData) ? rawData : rawData?.data;
+        const events = parseTopEvents(slug, list);
 
         for (const ev of events) {
           matches.push(dexEventToMatch(ev));
+        }
 
-          try {
-            const marketsData = await dexPluginGet(
-              tabId,
-              `${DEX_SPORTSBOOK_API}/events/${ev.id}/markets?locale=zh`,
-            );
-            const bets = parseMarketsToBets(ev.id, marketsData);
-            if (bets.length) {
-              betsToSave.push({ matchId: ev.id, bets });
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            const raw = item as Record<string, unknown>;
+            const eventId = String(raw.id ?? "");
+            const markets = (raw.markets ?? []) as unknown[];
+            if (eventId && markets.length) {
+              const bets = parseInlineMarkets(eventId, markets);
+              if (bets.length) betsToSave.push({ matchId: eventId, bets });
             }
-          } catch {
-            // markets 请求失败不影响 match 采集
           }
         }
       } catch (err) {
-        console.warn(`[Dex] ${slug} schedule failed`, err);
+        console.warn(`[Dex] ${slug} failed`, err);
       }
     }
 

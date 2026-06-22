@@ -46,22 +46,24 @@ export async function getDexCredentials(tabId: number): Promise<DexCredentials |
   }
 }
 
+/** 通过扩展 background 直接发 HTTP 请求（不经 tab 代理，绕过 CORS） */
 export async function dexPluginGet<T>(
-  tabId: number,
+  _tabId: number,
   url: string,
   headers?: Record<string, string>,
 ): Promise<T> {
   const raw = await a8PluginSend({
     type: "GET",
     url,
-    options: { tabId, headers },
+    options: { headers },
   });
-  const envelope = raw as { data?: T; status?: number };
-  return envelope?.data as T;
+  const resp = raw as Record<string, unknown> | undefined;
+  if (resp && "data" in resp) return resp.data as T;
+  return raw as T;
 }
 
 export async function dexPluginPost<T>(
-  tabId: number,
+  _tabId: number,
   url: string,
   body: Record<string, unknown>,
   headers?: Record<string, string>,
@@ -70,8 +72,9 @@ export async function dexPluginPost<T>(
     type: "POST",
     url,
     data: body,
-    options: { tabId, headers },
+    options: { headers },
   });
-  const envelope = raw as { data?: T; status?: number };
-  return envelope?.data as T;
+  const resp = raw as Record<string, unknown> | undefined;
+  if (resp && "data" in resp) return resp.data as T;
+  return raw as T;
 }
