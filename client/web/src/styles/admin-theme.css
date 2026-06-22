@@ -2543,9 +2543,12 @@ html.admin-route #app > * {
   background-color: rgba(7, 11, 20, 0.5) !important;
   box-shadow: 0 0 0 1px var(--adm-border) inset !important;
 }
-.admin-drawer .user-workspace-preview .el-input-group__prepend {
-  background-color: rgba(255, 255, 255, 0.06);
-  box-shadow: none;
+.admin-drawer .user-workspace-preview .el-input-group__prepend,
+.admin-drawer .user-workspace-preview .el-input-group__append {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  color: var(--adm-text, #e2e8f0) !important;
+  border-color: var(--adm-border) !important;
 }
 .admin-drawer .user-workspace-preview .el-checkbox__inner {
   background-color: transparent;
