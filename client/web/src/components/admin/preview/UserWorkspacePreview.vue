@@ -35,7 +35,7 @@ const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null
 
 function ordersForAccount(acc: PlatformAccount): AdminOrderRow[] {
   return orders.value.filter(
-    r => r.provider === (acc.platformName || acc.provider) && r.playerId === acc.accountId,
+    r => r.provider === acc.provider && r.playerId === acc.accountId,
   );
 }
 
