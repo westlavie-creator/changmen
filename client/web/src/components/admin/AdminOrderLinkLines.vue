@@ -153,8 +153,10 @@ function setupObservers() {
   resizeObs = new ResizeObserver(() => recalc());
   resizeObs.observe(container);
 
-  mutationObs = new MutationObserver(() => recalc());
-  mutationObs.observe(container, { childList: true, subtree: true });
+  mutationObs = new MutationObserver(() => {
+    requestAnimationFrame(() => recalc());
+  });
+  mutationObs.observe(container, { childList: true, subtree: true, attributes: true });
 
   const onScroll = () => recalc();
   container.addEventListener("scroll", onScroll, { passive: true });
@@ -184,6 +186,8 @@ onMounted(() => {
     setupObservers();
     void nextTick(() => recalc());
   }
+  // 延迟重算确保 DOM 完全就绪
+  setTimeout(() => recalc(), 300);
 });
 
 onBeforeUnmount(() => {
@@ -193,7 +197,6 @@ onBeforeUnmount(() => {
 
 <template>
   <svg
-    v-if="paths.length"
     class="admin-link-lines"
     :width="svgWidth"
     :height="svgHeight"
