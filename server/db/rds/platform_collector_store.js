@@ -426,7 +426,8 @@ export function writePlatformBets(provider, matchId, bets) {
   if (!rows.length)
     return;
   _writeRds(pool => _rdsUpsertPlatformBets(pool, rows), "platform_bets");
-  _writeRds(pool => _appendOddsHistory(pool, rows), "odds_history");
+  if (String(provider) !== "Dex")
+    _writeRds(pool => _appendOddsHistory(pool, rows), "odds_history");
 }
 
 /** [A8 可证实] 每场 saveBets 为完整快照：先删该场旧行再 upsert */
@@ -437,7 +438,8 @@ export function replacePlatformBetsForMatch(provider, matchId, bets) {
   const plat = String(provider);
   const mid = String(matchId);
   _writeRds(pool => _rdsReplacePlatformBets(pool, plat, mid, rows), "platform_bets");
-  _writeRds(pool => _appendOddsHistory(pool, rows), "odds_history");
+  if (plat !== "Dex")
+    _writeRds(pool => _appendOddsHistory(pool, rows), "odds_history");
 }
 
 /** fire-and-forget：全量替换某平台 timer 快照（对齐 A8 getTimer 整包提交；空数组清空该平台） */
