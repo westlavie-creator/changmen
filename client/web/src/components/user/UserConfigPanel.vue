@@ -203,8 +203,8 @@ function setWaitTime(platform: string, v: string | number) {
 
     <el-row :gutter="12" class="config-sections-row">
       <el-col :span="8">
-        <fieldset class="config-section">
-          <legend>补单配置</legend>
+        <div class="config-section">
+          <div class="config-section__title">补单配置</div>
           <el-form-item label="是否补单:">
             <el-switch v-model="form.makeUp" :disabled="fieldDisabled()" />
           </el-form-item>
@@ -290,12 +290,12 @@ function setWaitTime(platform: string, v: string | number) {
               </template>
             </div>
           </el-form-item>
-        </fieldset>
+        </div>
       </el-col>
 
       <el-col :span="8">
-        <fieldset class="config-section">
-          <legend>投注顺序</legend>
+        <div class="config-section">
+          <div class="config-section__title">投注顺序</div>
           <el-form-item>
             <el-radio-group
               v-model="form.betSorting"
@@ -343,12 +343,12 @@ function setWaitTime(platform: string, v: string | number) {
               </div>
             </div>
           </el-form-item>
-        </fieldset>
+        </div>
       </el-col>
 
       <el-col :span="8">
-        <fieldset class="config-section">
-          <legend>拒单检测</legend>
+        <div class="config-section">
+          <div class="config-section__title">拒单检测</div>
           <template v-for="pair in platformPairs" :key="pair.join('-')">
             <el-row :gutter="8">
               <el-col v-for="p in pair" :key="p" :span="12">
@@ -366,7 +366,7 @@ function setWaitTime(platform: string, v: string | number) {
               </el-col>
             </el-row>
           </template>
-        </fieldset>
+        </div>
       </el-col>
     </el-row>
 
@@ -424,10 +424,12 @@ function setWaitTime(platform: string, v: string | number) {
   padding: 12px 14px 4px;
 }
 
-.config-section legend {
-  padding: 2px 10px;
+.config-section__title {
+  padding: 0 0 6px;
+  margin: -4px 0 8px;
   font-size: 13px;
   font-weight: 600;
+  border-bottom: 1px solid var(--el-border-color);
 }
 
 .config-section :deep(.el-form-item) {
