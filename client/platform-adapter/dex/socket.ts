@@ -27,6 +27,10 @@ let tokenTimer: ReturnType<typeof setTimeout> | null = null;
 const statusListeners = new Set<StatusListener>();
 const batchListeners = new Set<BatchListener>();
 
+const joinedTournaments = new Set<string>();
+const joinedEvents = new Set<string>();
+const joinedMarkets = new Set<string>();
+
 function setStatus(s: DexSocketStatus) {
   status = s;
   for (const fn of statusListeners) fn(s);
@@ -55,11 +59,59 @@ async function fetchGuestJwt(): Promise<string> {
   return resp?.token ?? "";
 }
 
+function wsSend(msg: unknown) {
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(msg));
+  }
+}
+
+function joinNew(model: string, ids: string[], seen: Set<string>) {
+  const fresh = ids.filter(id => id && !seen.has(id));
+  if (!fresh.length) return;
+  fresh.forEach(id => seen.add(id));
+  wsSend(["join", model, fresh]);
+}
+
+function handleBatchItems(items: unknown[][]) {
+  const parsed: DexBatchItem[] = [];
+
+  for (const row of items) {
+    const model = String(row[0]);
+    const lid = String(row[1]);
+    const action = Number(row[2]);
+    const data = (row[3] ?? {}) as Record<string, unknown>;
+
+    if (model === "discipline" && Array.isArray(data.tournamentIds)) {
+      joinNew("tournament", data.tournamentIds as string[], joinedTournaments);
+    }
+    if (model === "tournament" && Array.isArray(data.eventIds)) {
+      joinNew("event", data.eventIds as string[], joinedEvents);
+    }
+    if (model === "event" && Array.isArray(data.marketIds)) {
+      joinNew("market", data.marketIds as string[], joinedMarkets);
+    }
+
+    parsed.push({ model, lid, action, data });
+  }
+
+  if (parsed.length) {
+    for (const fn of batchListeners) fn(parsed);
+  }
+}
+
+function clearJoinSets() {
+  joinedTournaments.clear();
+  joinedEvents.clear();
+  joinedMarkets.clear();
+}
+
 function connect() {
   if (ws) return;
   if (!jwt) return;
 
   setStatus("connecting");
+  clearJoinSets();
+
   const url = `${WS_HOST}?cid=${DEX_CID}&token=${encodeURIComponent(jwt)}`;
   ws = new WebSocket(url);
 
@@ -74,19 +126,12 @@ function connect() {
 
       if (type === "config") {
         setStatus("connected");
-        const slugs = dexSportSlugs();
-        ws?.send(JSON.stringify(["join", "discipline", slugs]));
+        wsSend(["join", "discipline", dexSportSlugs()]);
         return;
       }
 
       if (type === "batch") {
-        const items = (parsed[1] as unknown[][]).map((row) => ({
-          model: String(row[0]),
-          lid: String(row[1]),
-          action: Number(row[2]),
-          data: (row[3] ?? {}) as Record<string, unknown>,
-        }));
-        for (const fn of batchListeners) fn(items);
+        handleBatchItems(parsed[1] as unknown[][]);
         return;
       }
 
@@ -160,5 +205,6 @@ export function stopDexSocket(): void {
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   if (tokenTimer) { clearInterval(tokenTimer); tokenTimer = null; }
   if (ws) { ws.close(); ws = null; }
+  clearJoinSets();
   setStatus("disconnected");
 }

@@ -10,6 +10,7 @@ import {
   parseTopEvents,
   dexEventToMatch,
   parseInlineMarkets,
+  parseMapFromMarketName,
 } from "./parse";
 import { startDexSocket, stopDexSocket, onDexBatch } from "./socket";
 import type { DexBatchItem } from "./socket";
@@ -38,6 +39,7 @@ export function startDexCollector(): () => void {
       if (!eventId) continue;
 
       const name = String(mkt.name ?? mkt.identity ?? "");
+      const map = parseMapFromMarketName(name);
       const home = outcomes[0]!;
       const away = outcomes[1]!;
       const homeFrozen = Boolean(home.isFrozen);
@@ -48,7 +50,7 @@ export function startDexCollector(): () => void {
         bets: [{
           Type: PLATFORMS.Dex,
           SourceMatchID: eventId,
-          Map: 0,
+          Map: map,
           SourceBetID: String(mkt.id ?? ""),
           BetName: name,
           SourceHomeID: String(home.id ?? ""),

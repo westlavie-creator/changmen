@@ -159,13 +159,12 @@ export function parseInlineMarkets(
   return bets;
 }
 
-function parseMapFromMarketName(name: string): number {
+export function parseMapFromMarketName(name: string): number {
   const lower = name.toLowerCase();
-  if (/map\s*1\b/.test(lower)) return 1;
-  if (/map\s*2\b/.test(lower)) return 2;
-  if (/map\s*3\b/.test(lower)) return 3;
-  if (/map\s*4\b/.test(lower)) return 4;
-  if (/map\s*5\b/.test(lower)) return 5;
-  if (/winner|match|result/i.test(lower)) return 0;
+  const mapMatch = /map\s*(\d)\b/.exec(lower);
+  if (mapMatch) return Number(mapMatch[1]);
+  const cnMatch = /(\d)\s*号地图|地图\s*(\d)/.exec(name);
+  if (cnMatch) return Number(cnMatch[1] || cnMatch[2]);
+  if (/match\s*winner|比赛赢家|比赛获胜/i.test(name)) return 0;
   return 0;
 }
