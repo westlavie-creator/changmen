@@ -48,6 +48,17 @@
         "assets/content.css"
       ],
       "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.dexsport.io/*",
+        "*://*.dexsport.app/*"
+      ],
+      "js": [
+        "dex-intercept.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start"
     }
   ],
   "host_permissions": [

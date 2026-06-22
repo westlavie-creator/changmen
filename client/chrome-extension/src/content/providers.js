@@ -382,19 +382,19 @@ export const PROVIDER_REGISTRY = {
 
     async GetConfig() {
       const el = document.documentElement;
-      const jwt = el.dataset.dexAccessToken;
       const hash = el.dataset.dexHash;
-      if (!jwt && !hash) return undefined;
+      if (!hash) return undefined;
+      const jwt = el.dataset.dexAccessToken || "";
       const network = localStorage.getItem("main_network_name") || "";
       const currency = localStorage.getItem("main_currency_contract") || "";
-      const sportsbookToken = hash ? `${hash}_${network}_${currency}_sportsbook` : "";
+      const sportsbookToken = `${hash}_${network}_${currency}_sportsbook`;
       const gateway = "https://prod.dexsport.work";
       const payload = {
         provider: PLATFORMS.Dex,
         gateway,
-        token: jwt || "",
-        sportsbookToken,
-        hash: hash || "",
+        token: sportsbookToken,
+        hash,
+        jwt,
         network,
         currency,
         referer: location.href,

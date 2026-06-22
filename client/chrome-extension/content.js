@@ -3737,19 +3737,19 @@
       }
       async GetConfig() {
         const el = document.documentElement;
-        const jwt = el.dataset.dexAccessToken;
         const hash = el.dataset.dexHash;
-        if (!jwt && !hash) return void 0;
+        if (!hash) return void 0;
+        const jwt = el.dataset.dexAccessToken || "";
         const network = localStorage.getItem("main_network_name") || "";
         const currency = localStorage.getItem("main_currency_contract") || "";
-        const sportsbookToken = hash ? `${hash}_${network}_${currency}_sportsbook` : "";
+        const sportsbookToken = `${hash}_${network}_${currency}_sportsbook`;
         const gateway = "https://prod.dexsport.work";
         const payload = {
           provider: PLATFORMS.Dex,
           gateway,
-          token: jwt || "",
-          sportsbookToken,
-          hash: hash || "",
+          token: sportsbookToken,
+          hash,
+          jwt,
           network,
           currency,
           referer: location.href
@@ -3764,53 +3764,8 @@
   }
 
   // src/content/dex/intercept.js
-  var INTERCEPT_SCRIPT = `
-(function() {
-  if (window.__dexInterceptInstalled) return;
-  window.__dexInterceptInstalled = true;
-
-  var root = document.documentElement;
-  var origFetch = window.fetch;
-
-  window.fetch = function(input, init) {
-    var url = typeof input === 'string' ? input : (input && input.url) || '';
-    var headers = (init && init.headers) || {};
-
-    // \u6355\u83B7 Authorization: Bearer <token>
-    var auth = headers.Authorization || headers.authorization || '';
-    if (!auth && headers instanceof Headers) {
-      auth = headers.get('Authorization') || headers.get('authorization') || '';
-    }
-    if (auth && auth.startsWith('Bearer ') && !auth.includes('Signature ')) {
-      root.dataset.dexAccessToken = auth.slice(7);
-    }
-
-    return origFetch.apply(this, arguments).then(function(response) {
-      // \u6355\u83B7 /v3/address_info \u54CD\u5E94\u4E2D\u7684 hash
-      if (url.includes('/v3/address_info') || url.includes('/address_info')) {
-        response.clone().json().then(function(data) {
-          if (data && data.hash) {
-            root.dataset.dexHash = data.hash;
-          }
-          if (data && data.nickname) {
-            root.dataset.dexNickname = data.nickname;
-          }
-        }).catch(function() {});
-      }
-      return response;
-    });
-  };
-})();
-`;
   function injectDexInterceptor() {
-    try {
-      const script = document.createElement("script");
-      script.textContent = INTERCEPT_SCRIPT;
-      (document.head || document.documentElement).appendChild(script);
-      script.remove();
-    } catch (err) {
-      console.warn("[Dex] intercept inject failed", err);
-    }
+    console.log("[Dex] interceptor via manifest MAIN world");
   }
 
   // src/content/dex/init.js
