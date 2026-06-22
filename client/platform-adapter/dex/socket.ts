@@ -27,10 +27,6 @@ let tokenTimer: ReturnType<typeof setTimeout> | null = null;
 const statusListeners = new Set<StatusListener>();
 const batchListeners = new Set<BatchListener>();
 
-const joinedTournaments = new Set<string>();
-const joinedEvents = new Set<string>();
-const joinedMarkets = new Set<string>();
-
 function setStatus(s: DexSocketStatus) {
   status = s;
   for (const fn of statusListeners) fn(s);
@@ -65,13 +61,6 @@ function wsSend(msg: unknown) {
   }
 }
 
-function joinNew(model: string, ids: string[], seen: Set<string>) {
-  const fresh = ids.filter(id => id && !seen.has(id));
-  if (!fresh.length) return;
-  fresh.forEach(id => seen.add(id));
-  wsSend(["join", model, fresh]);
-}
-
 function handleBatchItems(items: unknown[][]) {
   const parsed: DexBatchItem[] = [];
 
@@ -81,16 +70,6 @@ function handleBatchItems(items: unknown[][]) {
     const action = Number(row[2]);
     const data = (row[3] ?? {}) as Record<string, unknown>;
 
-    if (model === "discipline" && Array.isArray(data.tournamentIds)) {
-      joinNew("tournament", data.tournamentIds as string[], joinedTournaments);
-    }
-    if (model === "tournament" && Array.isArray(data.eventIds)) {
-      joinNew("event", data.eventIds as string[], joinedEvents);
-    }
-    if (model === "event" && Array.isArray(data.marketIds)) {
-      joinNew("market", data.marketIds as string[], joinedMarkets);
-    }
-
     parsed.push({ model, lid, action, data });
   }
 
@@ -99,18 +78,11 @@ function handleBatchItems(items: unknown[][]) {
   }
 }
 
-function clearJoinSets() {
-  joinedTournaments.clear();
-  joinedEvents.clear();
-  joinedMarkets.clear();
-}
-
 function connect() {
   if (ws) return;
   if (!jwt) return;
 
   setStatus("connecting");
-  clearJoinSets();
 
   const url = `${WS_HOST}?cid=${DEX_CID}&token=${encodeURIComponent(jwt)}`;
   ws = new WebSocket(url);
@@ -205,6 +177,5 @@ export function stopDexSocket(): void {
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   if (tokenTimer) { clearInterval(tokenTimer); tokenTimer = null; }
   if (ws) { ws.close(); ws = null; }
-  clearJoinSets();
   setStatus("disconnected");
 }
