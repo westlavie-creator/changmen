@@ -100,4 +100,8 @@ watch(() => configStore.config, (c) => { Object.assign(configForm, createUserCon
   box-shadow: none !important;
   background: rgba(255, 255, 255, 0.04) !important;
 }
+.user-workspace-preview :deep(.el-radio__inner) {
+  background-color: transparent !important;
+  border-color: var(--adm-border, rgba(255,255,255,0.15)) !important;
+}
 </style>
