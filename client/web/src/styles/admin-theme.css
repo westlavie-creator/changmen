@@ -2505,8 +2505,22 @@ html.admin-route #app > * {
 }
 .admin-drawer .user-workspace-preview .el-input__wrapper,
 .admin-drawer .user-workspace-preview .el-select__wrapper {
-  background-color: var(--el-input-bg-color, var(--el-fill-color-blank));
-  box-shadow: 0 0 0 1px var(--el-input-border-color, var(--el-border-color)) inset;
+  background-color: rgba(7, 11, 20, 0.5);
+  box-shadow: 0 0 0 1px var(--adm-border) inset;
+}
+.admin-drawer .user-workspace-preview .el-textarea__inner {
+  background-color: rgba(7, 11, 20, 0.5);
+  box-shadow: 0 0 0 1px var(--adm-border) inset;
+}
+.admin-drawer .user-workspace-preview .el-switch {
+  --el-switch-off-color: rgba(255, 255, 255, 0.15);
+}
+.admin-drawer .user-workspace-preview .el-radio__inner {
+  background-color: transparent;
+  border-color: var(--adm-border);
+}
+.admin-drawer .user-workspace-preview .el-form-item__label {
+  color: var(--adm-text-muted, #94a3b8);
 }
 .admin-drawer .user-workspace-preview .el-button--primary {
   --el-button-bg-color: var(--el-color-primary);
