@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
+import type { AdminAccountDetail, AdminOrderRow, AdminUserRow } from "@/types/admin";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { deleteAdminOrders, getAdminOrdersAll, getAdminUsers } from "@/api/admin";
+import AdminAccountOrdersColumn from "@/components/admin/AdminAccountOrdersColumn.vue";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
-import AdminUserOrdersColumn from "@/components/admin/AdminUserOrdersColumn.vue";
+import AdminOrderLinkLines from "@/components/admin/AdminOrderLinkLines.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
@@ -20,39 +21,57 @@ const loading = ref(false);
 const orders = ref<AdminOrderRow[]>([]);
 const users = ref<AdminUserRow[]>([]);
 const loadError = ref("");
+const columnsContainerRef = ref<HTMLElement | null>(null);
 
-const userColumns = computed(() => {
-  const byUser = new Map<string, AdminOrderRow[]>();
+interface AccountColumn {
+  key: string;
+  provider: string;
+  playerId: number;
+  playerName: string;
+  orders: AdminOrderRow[];
+}
+
+const accountColumns = computed<AccountColumn[]>(() => {
+  const byAccount = new Map<string, AccountColumn>();
   for (const row of orders.value) {
-    if (!byUser.has(row.userId))
-      byUser.set(row.userId, []);
-    byUser.get(row.userId)!.push(row);
+    const key = `${row.provider}:${row.playerId}`;
+    if (!byAccount.has(key)) {
+      byAccount.set(key, {
+        key,
+        provider: row.provider,
+        playerId: row.playerId,
+        playerName: "",
+        orders: [],
+      });
+    }
+    byAccount.get(key)!.orders.push(row);
   }
-
-  const userById = new Map(users.value.map(u => [u.id, u]));
-  const cols = users.value.map(user => ({
-    userId: user.id,
-    userName: user.userName,
-    accounts: user.accounts ?? [],
-    orders: byUser.get(user.id) ?? [],
-  }));
-
-  for (const [userId, userOrders] of byUser) {
-    if (userById.has(userId))
-      continue;
-    cols.push({
-      userId,
-      userName: userId.slice(0, 8),
-      accounts: [],
-      orders: userOrders,
-    });
+  // Enrich with account names from users data
+  for (const user of users.value) {
+    for (const acc of user.accounts ?? []) {
+      const key = `${acc.platform}:${acc.accountId}`;
+      const col = byAccount.get(key);
+      if (col)
+        col.playerName = acc.playerName;
+    }
   }
-
-  cols.sort((a, b) => a.userName.localeCompare(b.userName, "zh-CN"));
-  return cols;
+  return [...byAccount.values()].sort(
+    (a, b) => a.provider.localeCompare(b.provider) || a.playerName.localeCompare(b.playerName, "zh-CN"),
+  );
 });
 
-const hasUsers = computed(() => users.value.length > 0);
+const allAccounts = computed<AdminAccountDetail[]>(() => {
+  const result: AdminAccountDetail[] = [];
+  for (const user of users.value) {
+    for (const acc of user.accounts ?? [])
+      result.push(acc);
+  }
+  return result;
+});
+
+const hasColumns = computed(() => accountColumns.value.length > 0);
+
+const linkLinesKey = computed(() => orders.value.length);
 
 const profitTotal = computed(() =>
   orders.value.reduce((sum, r) => sum + (Number(r.money) || 0), 0),
@@ -159,7 +178,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout title="订单查询" subtitle="每位用户一列，订单按 Link 分组展示">
+  <AdminLayout title="订单查询" subtitle="按投注账号分列，同 Link 订单以连线标识">
     <section v-loading="loading" class="admin-card admin-card--orders">
       <div class="admin-card__toolbar admin-orders-filters">
         <OrderDateNav v-model="date" placeholder="统计日期" />
@@ -187,20 +206,22 @@ onMounted(async () => {
           {{ loadError }}
         </p>
 
-        <div v-if="hasUsers" class="admin-orders-by-user">
-          <AdminUserOrdersColumn
-            v-for="col in userColumns"
-            :key="col.userId"
-            class="admin-orders-by-user__col"
-            :user-name="col.userName"
-            :accounts="col.accounts"
+        <div v-if="hasColumns" ref="columnsContainerRef" class="admin-orders-by-account">
+          <AdminAccountOrdersColumn
+            v-for="col in accountColumns"
+            :key="col.key"
+            :provider="col.provider"
+            :player-id="col.playerId"
+            :player-name="col.playerName"
             :orders="col.orders"
+            :accounts="allAccounts"
             @delete="onDeleteOrders"
           />
+          <AdminOrderLinkLines :container-ref="columnsContainerRef" :key="linkLinesKey" />
         </div>
 
         <p
-          v-if="!loading && !loadError && !hasUsers"
+          v-if="!loading && !loadError && !hasColumns"
           class="admin-order-groups__empty"
         >
           {{ date }} 暂无订单。可切换日期查看；若应有数据仍为空，请确认服务器
@@ -208,7 +229,7 @@ onMounted(async () => {
         </p>
       </div>
 
-      <div v-if="hasUsers" class="admin-orders-profit-summary">
+      <div v-if="hasColumns" class="admin-orders-profit-summary">
         <span class="admin-orders-profit-summary__label">利润合计</span>
         <span
           class="admin-orders-profit-summary__value"
@@ -217,7 +238,7 @@ onMounted(async () => {
           {{ fmtMoney(profitTotal) }}
         </span>
         <span class="admin-orders-profit-summary__meta">
-          {{ userColumns.length }} 位用户 · {{ orders.length }} 笔订单
+          {{ accountColumns.length }} 个账号 · {{ orders.length }} 笔订单
         </span>
       </div>
     </section>

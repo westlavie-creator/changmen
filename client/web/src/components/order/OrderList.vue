@@ -31,6 +31,7 @@ withDefaults(
       :key="link"
       class="orderlink"
       :class="{ 'orderlink--paired': isArbGroup(rows) }"
+      :data-link-id="link"
     >
       <legend :class="orderLegendModifier(rows)">
         {{ orderLegendText(rows) }}
