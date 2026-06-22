@@ -67,6 +67,8 @@ function wsSend(msg: unknown) {
   }
 }
 
+const winnerMarketIds = new Set<string>();
+
 function joinNew(model: string, ids: string[]) {
   const seen = joined[model as keyof typeof joined];
   if (!seen) return;
@@ -76,8 +78,15 @@ function joinNew(model: string, ids: string[]) {
   wsSend(["join", model, fresh]);
 }
 
+function leaveNonWinner(ids: string[]) {
+  if (!ids.length) return;
+  ids.forEach(id => joined.market.delete(id));
+  wsSend(["leave", "market", ids]);
+}
+
 function handleBatchItems(items: unknown[][]) {
   const parsed: DexBatchItem[] = [];
+  const toLeave: string[] = [];
 
   for (const row of items) {
     const model = String(row[0]);
@@ -95,7 +104,19 @@ function handleBatchItems(items: unknown[][]) {
       const ids = (data.marketIds as (string | null)[]).filter(Boolean) as string[];
       if (ids.length) joinNew("market", ids);
     }
+    if (model === "market") {
+      const name = String(data.name ?? "");
+      if (/winner|赢家|获胜/i.test(name)) {
+        winnerMarketIds.add(lid);
+      } else if (!winnerMarketIds.has(lid)) {
+        toLeave.push(lid);
+      }
+    }
     parsed.push({ model, lid, action, data });
+  }
+
+  if (toLeave.length) {
+    leaveNonWinner(toLeave);
   }
 
   if (parsed.length) {
@@ -107,6 +128,7 @@ function clearJoined() {
   joined.tournament.clear();
   joined.event.clear();
   joined.market.clear();
+  winnerMarketIds.clear();
 }
 
 function connect() {
