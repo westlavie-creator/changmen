@@ -15,13 +15,13 @@ export function getStaleCutoffMs(now = Date.now()) {
 }
 
 const DELETE_SPECS = [
-  { table: "platform_matches", column: "synced_at", key: "platform_matches" },
   { table: "platform_bets", column: "updated_at", key: "platform_bets" },
   { table: "live_timers", column: "updated_at", key: "live_timers" },
 ];
 
 /** 过期后隐藏（list_status=-1），不删行 */
 const HIDE_SPECS = [
+  { table: "platform_matches", column: "synced_at", key: "platform_matches" },
   { table: "client_matches", column: "built_at", key: "client_matches" },
 ];
 

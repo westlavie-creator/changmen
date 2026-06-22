@@ -219,7 +219,7 @@ async function _rdsReplaceLiveTimersForPlatform(pool, platform, rows) {
 async function _rdsFetchPlatformMatches(pool) {
   const { rows } = await pool.query(
     `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, is_live, teams, match_id
-     FROM platform_matches`,
+     FROM platform_matches WHERE list_status IS DISTINCT FROM -1`,
   );
   const byPlatform = {};
   for (const r of rows) {
