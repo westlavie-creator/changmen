@@ -27,6 +27,12 @@ let tokenTimer: ReturnType<typeof setTimeout> | null = null;
 const statusListeners = new Set<StatusListener>();
 const batchListeners = new Set<BatchListener>();
 
+const joined = {
+  tournament: new Set<string>(),
+  event: new Set<string>(),
+  market: new Set<string>(),
+};
+
 function setStatus(s: DexSocketStatus) {
   status = s;
   for (const fn of statusListeners) fn(s);
@@ -61,6 +67,25 @@ function wsSend(msg: unknown) {
   }
 }
 
+function joinNew(model: string, ids: string[]) {
+  const seen = joined[model as keyof typeof joined];
+  if (!seen) return;
+  const fresh = ids.filter(id => id && !seen.has(id));
+  if (!fresh.length) return;
+  fresh.forEach(id => seen.add(id));
+  wsSend(["join", model, fresh]);
+}
+
+/** 从 event 数据提取赢家类 marketIds（mainMarketIds 前几个 + 不超限） */
+function pickWinnerMarketIds(data: Record<string, unknown>): string[] {
+  const main = (data.mainMarketIds ?? []) as (string | null)[];
+  const all = (data.marketIds ?? []) as (string | null)[];
+  const ids = new Set<string>();
+  for (const id of main) { if (id) ids.add(id); }
+  for (const id of all.slice(0, 6)) { if (id) ids.add(id); }
+  return [...ids];
+}
+
 function handleBatchItems(items: unknown[][]) {
   const parsed: DexBatchItem[] = [];
 
@@ -70,6 +95,17 @@ function handleBatchItems(items: unknown[][]) {
     const action = Number(row[2]);
     const data = (row[3] ?? {}) as Record<string, unknown>;
 
+    if (model === "discipline" && Array.isArray(data.tournamentIds)) {
+      joinNew("tournament", data.tournamentIds as string[]);
+    }
+    if (model === "tournament" && Array.isArray(data.eventIds)) {
+      joinNew("event", data.eventIds as string[]);
+    }
+    if (model === "event") {
+      const marketIds = pickWinnerMarketIds(data);
+      if (marketIds.length) joinNew("market", marketIds);
+    }
+
     parsed.push({ model, lid, action, data });
   }
 
@@ -78,11 +114,18 @@ function handleBatchItems(items: unknown[][]) {
   }
 }
 
+function clearJoined() {
+  joined.tournament.clear();
+  joined.event.clear();
+  joined.market.clear();
+}
+
 function connect() {
   if (ws) return;
   if (!jwt) return;
 
   setStatus("connecting");
+  clearJoined();
 
   const url = `${WS_HOST}?cid=${DEX_CID}&token=${encodeURIComponent(jwt)}`;
   ws = new WebSocket(url);
@@ -177,5 +220,6 @@ export function stopDexSocket(): void {
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   if (tokenTimer) { clearInterval(tokenTimer); tokenTimer = null; }
   if (ws) { ws.close(); ws = null; }
+  clearJoined();
   setStatus("disconnected");
 }
