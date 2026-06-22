@@ -927,7 +927,7 @@ html.admin-route #app > * {
   padding-top: 4px;
 }
 /* 订单页：按投注账号分列（class 名与 AdminOrdersView 模板一致） */
-.admin-card--orders .admin-orders-by-account {
+.admin-orders-by-account {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
