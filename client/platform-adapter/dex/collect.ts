@@ -11,6 +11,8 @@ import {
   dexEventToMatch,
   parseInlineMarkets,
 } from "./parse";
+import { startDexSocket, stopDexSocket, onDexBatch } from "./socket";
+import type { DexBatchItem } from "./socket";
 import type { CollectBetDto } from "@/types/collect";
 
 const LOOP_MS = 30_000;
@@ -19,6 +21,51 @@ export function startDexCollector(): () => void {
   let stopped = false;
 
   const collect = useCollectStore();
+
+  const handleBatch = (items: DexBatchItem[]) => {
+    if (!collect.ready || !collect.collect.get(PLATFORMS.Dex)) return;
+
+    const betsToSave: Array<{ matchId: string; bets: CollectBetDto[] }> = [];
+
+    for (const item of items) {
+      if (item.model !== "market") continue;
+      const mkt = item.data;
+      const outcomes = (mkt.outcomes ?? []) as Array<Record<string, unknown>>;
+      if (outcomes.length !== 2) continue;
+
+      const eventLid = String(mkt.pid ?? "");
+      const eventId = eventLid.split(".").pop() || eventLid;
+      if (!eventId) continue;
+
+      const name = String(mkt.name ?? mkt.identity ?? "");
+      const home = outcomes[0]!;
+      const away = outcomes[1]!;
+      const homeFrozen = Boolean(home.isFrozen);
+      const awayFrozen = Boolean(away.isFrozen);
+
+      betsToSave.push({
+        matchId: eventId,
+        bets: [{
+          Type: PLATFORMS.Dex,
+          SourceMatchID: eventId,
+          Map: 0,
+          SourceBetID: String(mkt.id ?? ""),
+          BetName: name,
+          SourceHomeID: String(home.id ?? ""),
+          HomeName: String(home.name ?? ""),
+          HomeOdds: !homeFrozen ? Number(home.price ?? 0) : 0,
+          SourceAwayID: String(away.id ?? ""),
+          AwayName: String(away.name ?? ""),
+          AwayOdds: !awayFrozen ? Number(away.price ?? 0) : 0,
+          Status: homeFrozen && awayFrozen ? "Locked" : "Normal",
+        }],
+      });
+    }
+
+    for (const { matchId, bets } of betsToSave) {
+      if (bets.length) void collect.saveBets(PLATFORMS.Dex, matchId, bets);
+    }
+  };
 
   const runCycle = async () => {
     while (!collect.ready) {
@@ -64,6 +111,9 @@ export function startDexCollector(): () => void {
     }
   };
 
+  const unsubBatch = onDexBatch(handleBatch);
+  void startDexSocket();
+
   const loop = async () => {
     while (!stopped) {
       try {
@@ -80,5 +130,7 @@ export function startDexCollector(): () => void {
 
   return () => {
     stopped = true;
+    unsubBatch();
+    stopDexSocket();
   };
 }
