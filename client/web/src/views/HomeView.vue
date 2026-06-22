@@ -4,7 +4,6 @@ import { computed, onActivated, onMounted, onUnmounted, ref, watch } from "vue";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
-import DexSocketBadge from "@/components/layout/DexSocketBadge.vue";
 import DirectRealtimeBadge from "@/components/layout/DirectRealtimeBadge.vue";
 import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
@@ -86,7 +85,6 @@ async function logout() {
       <el-header>
         <AccountBar />
         <div class="home-header-trailing">
-          <DexSocketBadge />
           <DirectRealtimeBadge />
           <ExtensionsBadge />
         </div>

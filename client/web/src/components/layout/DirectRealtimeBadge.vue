@@ -1,8 +1,16 @@
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from "vue";
 import type { DirectRealtimeStatus } from "@platform/shared/directRealtimeStatus";
 import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
+import { getDexSocketStatus, onDexSocketStatus } from "@platform/dex";
+import type { DexSocketStatus } from "@platform/dex";
 
 const { statuses } = useDirectRealtimeStatus();
+
+const dexStatus = ref<DexSocketStatus>(getDexSocketStatus());
+let dexUnsub: (() => void) | undefined;
+onMounted(() => { dexUnsub = onDexSocketStatus(s => { dexStatus.value = s; }); });
+onUnmounted(() => { dexUnsub?.(); });
 
 function dotClass(status: DirectRealtimeStatus): string {
   if (status.upstreamConnected) {
@@ -26,6 +34,22 @@ function formatAgo(ms: number): string {
     return `${min}分钟前`;
   return `${Math.floor(min / 60)}小时前`;
 }
+
+const dexDotClass = ref("idle");
+const dexTooltip = ref("DexSport WS 未连接");
+
+function updateDexDot(s: DexSocketStatus) {
+  switch (s) {
+    case "connected": dexDotClass.value = "ok-official"; dexTooltip.value = "DexSport WS 已连接\n实时赔率推送中"; break;
+    case "connecting": dexDotClass.value = "connecting"; dexTooltip.value = "DexSport WS 连接中..."; break;
+    case "error": dexDotClass.value = "err"; dexTooltip.value = "DexSport WS 断开\n正在重连..."; break;
+    default: dexDotClass.value = "idle"; dexTooltip.value = "DexSport WS 未连接";
+  }
+}
+updateDexDot(dexStatus.value);
+onMounted(() => {
+  dexUnsub = onDexSocketStatus(s => { dexStatus.value = s; updateDexDot(s); });
+});
 
 function tooltip(status: DirectRealtimeStatus): string {
   const lines = [status.platform];
@@ -52,7 +76,7 @@ function tooltip(status: DirectRealtimeStatus): string {
 </script>
 
 <template>
-  <div class="direct-realtime-bar" aria-label="直连推送状态 IA OB RAY TF">
+  <div class="direct-realtime-bar" aria-label="直连推送状态 IA OB RAY TF DEX">
     <span
       v-for="status in statuses"
       :key="status.platform"
@@ -61,6 +85,10 @@ function tooltip(status: DirectRealtimeStatus): string {
     >
       <span class="direct-realtime-dot" :class="dotClass(status)" />
       {{ status.platform }}
+    </span>
+    <span class="direct-realtime-item" :title="dexTooltip">
+      <span class="direct-realtime-dot" :class="dexDotClass" />
+      DEX
     </span>
   </div>
 </template>
@@ -122,5 +150,16 @@ function tooltip(status: DirectRealtimeStatus): string {
 
 .direct-realtime-dot.idle {
   background-color: #ffffff66;
+}
+
+.direct-realtime-dot.connecting {
+  background-color: #e6a23c;
+  box-shadow: 0 0 8px #e6a23ccc;
+  animation: dex-pulse 1.5s infinite;
+}
+
+@keyframes dex-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 </style>
