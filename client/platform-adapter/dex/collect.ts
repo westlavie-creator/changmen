@@ -119,6 +119,31 @@ export function startDexCollector(): () => void {
         if (bets.length) await collect.saveBets(PLATFORMS.Dex, matchId, bets);
       }
     }
+
+    for (const { bets } of betsToSave) {
+      for (const b of bets) {
+        const locked = b.Status === "Locked";
+        if (b.SourceHomeID) {
+          odds.save(PLATFORMS.Dex, {
+            id: b.SourceHomeID,
+            odds: b.HomeOdds,
+            isLock: locked,
+            betId: b.SourceBetID,
+            time: Date.now(),
+          });
+        }
+        if (b.SourceAwayID) {
+          odds.save(PLATFORMS.Dex, {
+            id: b.SourceAwayID,
+            odds: b.AwayOdds,
+            isLock: locked,
+            betId: b.SourceBetID,
+            time: Date.now(),
+          });
+        }
+      }
+    }
+    matchStore.refreshOddsOnBets();
   };
 
   const unsubBatch = onDexBatch(handleBatch);
