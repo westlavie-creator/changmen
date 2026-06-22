@@ -403,7 +403,7 @@
     <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动脚本</button>
     <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止脚本</button>
     <button class="btn btn-sm btn-ghost" id="btn-rebuild-now" type="button" title="立即执行一次赛事合并（rebuild client_matches）">立即执行赛事合并</button>
-    <button class="btn btn-sm btn-ghost btn-hidden-toggle" id="btn-hidden-toggle" type="button" title="查看 list_status=-1 的历史赛事，可手动恢复展示">已隐藏 <span class="badge" id="hidden-count-badge">0</span></button>
+    <button class="btn btn-sm btn-ghost btn-hidden-toggle" id="btn-hidden-toggle" type="button" title="查看已归档的历史赛事">历史赛事 <span class="badge" id="hidden-count-badge">0</span></button>
     <span class="updated-at" id="updated-at">—</span>
     <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
   </div>
@@ -418,8 +418,8 @@
 <div class="hidden-panel-wrap" id="hidden-panel-wrap" style="display:none">
   <div class="hidden-panel">
     <div class="hidden-panel-header">
-      <div class="hidden-panel-title">已隐藏赛事 <span class="badge" id="hidden-panel-count">0</span></div>
-      <span class="queue-search-hint">list_status=-1 · 浏览器与主列表不展示 · 可恢复</span>
+      <div class="hidden-panel-title">历史赛事 <span class="badge" id="hidden-panel-count">0</span></div>
+      <span class="queue-search-hint">已归档到历史表 · 不在浏览器列表中</span>
     </div>
     <div class="hidden-panel-body" id="hidden-panel-body"><div class="empty" style="padding:20px">加载中…</div></div>
   </div>
@@ -861,7 +861,7 @@ function renderHiddenPanel(list) {
   const body = document.getElementById('hidden-panel-body');
   if (!body) return;
   if (!items.length) {
-    body.innerHTML = '<div class="empty" style="padding:20px">暂无已隐藏赛事</div>';
+    body.innerHTML = '<div class="empty" style="padding:20px">暂无历史赛事</div>';
     return;
   }
   const rows = items.map(cm => {
@@ -880,7 +880,7 @@ function renderHiddenPanel(list) {
     </tr>`;
   }).join('');
   body.innerHTML = `<table class="hidden-table"><thead><tr>
-    <th>ID</th><th>标题</th><th>游戏</th><th>开赛</th><th>隐藏于</th><th>平台 matchs</th><th></th>
+    <th>ID</th><th>标题</th><th>游戏</th><th>开赛</th><th>归档于</th><th>平台 matchs</th><th></th>
   </tr></thead><tbody>${rows}</tbody></table>`;
   body.querySelectorAll('[data-restore-cm]').forEach(btn => {
     btn.addEventListener('click', () => restoreClientMatch(Number(btn.dataset.restoreCm)));
@@ -1396,7 +1396,7 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
     ${tableHtml}
     <div class="team-card-footer">
       <div class="team-card-hint">${footerHint}</div>
-      <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="list_status 设为 -1，浏览器不再返回；并删除各平台 platform_matches 行">比赛已结束</button>
+      <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="归档到历史表，浏览器不再返回；并归档各平台 platform_matches 行">比赛已结束</button>
     </div>
   </article>`;
 }
@@ -2411,12 +2411,12 @@ async function endClientMatch(cmId) {
     `#${cmId} ${cm?.title || ''}`,
     '',
     '将执行：',
-    '· client_matches.list_status 设为 -1（浏览器列表不再返回）',
-    '· 删除各平台 platform_matches 对应行',
+    '· client_matches 归档到历史表（浏览器列表不再返回）',
+    '· platform_matches 对应行归档到历史表',
     '',
     `平台场次：${plats}`,
     '',
-    '前端列表将不再显示；若采集器仍上报同场，platform_matches 可能再次出现。',
+    '前端列表将不再显示；若采集器仍上报同场，会重新创建。',
   ].join('\n');
   if (!confirm(msg)) return;
   try {
@@ -2424,7 +2424,7 @@ async function endClientMatch(cmId) {
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
     const n = data.platformMatchesDeleted ?? 0;
     showActionToast(
-      [`比赛已结束`, `#${cmId} ${data.title || cm?.title || ''}`, `list_status=-1 · 已删除 ${n} 条 platform_matches`].join('\n'),
+      [`比赛已结束`, `#${cmId} ${data.title || cm?.title || ''}`, `已归档 · ${n} 条 platform_matches 已归档`].join('\n'),
       'ok',
       5200,
     );
@@ -2440,8 +2440,8 @@ async function restoreClientMatch(cmId) {
     `恢复展示？`,
     `#${cmId} ${cm?.title || ''}`,
     '',
-    '将 list_status 改回 0，并执行一次 rebuild。',
-    '若无平台数据，赛事可能很快被 prune 再次隐藏。',
+    '执行一次 rebuild 尝试恢复。',
+    '若无平台数据，赛事不会出现在列表中。',
   ].join('\n');
   if (!confirm(msg)) return;
   try {
