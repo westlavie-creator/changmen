@@ -5,6 +5,7 @@ import { computed, reactive, watch } from "vue";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import { BET_SORTING_LABELS, createUserConfigFormState, waitTimePlatformPairs } from "@/components/user/userConfigFormState";
+import UserConfigPanel from "@/components/user/UserConfigPanel.vue";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
@@ -108,6 +109,10 @@ const sortingLabel = computed(() => BET_SORTING_LABELS[form.betSorting] || form.
       </div>
     </section>
 
+    <section class="wp__sec">
+      <h3 class="wp__h">用户配置（Element Plus dark 模式对比）</h3>
+      <UserConfigPanel v-model:form="form" readonly />
+    </section>
   </div>
 </template>
 

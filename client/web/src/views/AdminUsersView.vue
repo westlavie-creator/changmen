@@ -571,7 +571,7 @@ onUnmounted(() => {
     <el-drawer
       v-model="drawerOpen"
       :title="detailUser ? `${detailUser.userName} · 用户详情` : '用户详情'"
-      class="admin-drawer"
+      class="admin-drawer dark"
       size="92%"
       direction="rtl"
       destroy-on-close
