@@ -3,10 +3,14 @@ import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, onMounted, ref, watch } from "vue";
 import { deleteAdminOrders, getAdminOrdersAll } from "@/api/admin";
+import AccountBar from "@/components/account/AccountBar.vue";
+import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import AdminAccountOrdersColumn from "@/components/admin/AdminAccountOrdersColumn.vue";
 import AdminOrderLinkLines from "@/components/admin/AdminOrderLinkLines.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { todayKey } from "@/shared/dateKey";
+import { useAccountStore } from "@/stores/accountStore";
+import { storeToRefs } from "pinia";
 
 const props = defineProps<{
   user: AdminUserRow;
@@ -14,37 +18,32 @@ const props = defineProps<{
 
 defineEmits<{ viewOrders: [] }>();
 
+const accountStore = useAccountStore();
+const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
+
 const date = ref(todayKey());
 const loading = ref(false);
 const orders = ref<AdminOrderRow[]>([]);
 const loadError = ref("");
 const columnsContainerRef = ref<HTMLElement | null>(null);
 
-interface AccountColumn {
+interface ProviderColumn {
   key: string;
   provider: string;
-  playerId: number;
-  playerName: string;
   orders: AdminOrderRow[];
 }
 
-const accountColumns = computed<AccountColumn[]>(() => {
-  const byAccount = new Map<string, AccountColumn>();
+const providerColumns = computed<ProviderColumn[]>(() => {
+  const byProvider = new Map<string, ProviderColumn>();
   for (const row of orders.value) {
-    const key = `${row.provider}:${row.playerId}`;
-    if (!byAccount.has(key)) {
-      byAccount.set(key, { key, provider: row.provider, playerId: row.playerId, playerName: "", orders: [] });
+    const key = row.provider;
+    if (!byProvider.has(key)) {
+      byProvider.set(key, { key, provider: key, orders: [] });
     }
-    byAccount.get(key)!.orders.push(row);
+    byProvider.get(key)!.orders.push(row);
   }
-  for (const acc of props.user.accounts ?? []) {
-    const key = `${acc.platform}:${acc.accountId}`;
-    const col = byAccount.get(key);
-    if (col)
-      col.playerName = acc.playerName;
-  }
-  return [...byAccount.values()].sort((a, b) =>
-    a.provider.localeCompare(b.provider) || a.playerName.localeCompare(b.playerName),
+  return [...byProvider.values()].sort((a, b) =>
+    a.provider.localeCompare(b.provider),
   );
 });
 
@@ -109,13 +108,23 @@ onMounted(() => void loadOrders());
 
 <template>
   <div class="user-workspace-preview" v-loading="loading">
+    <!-- 顶部投注账号卡片列表 -->
+    <AccountEditDialog
+      :open="editDialogOpen"
+      :account="editDialogAccount"
+      readonly
+      @close="accountStore.closeAccountDialog()"
+    />
+    <AccountBar embedded />
+
+    <!-- 工具栏 -->
     <div class="user-workspace-preview__toolbar">
       <OrderDateNav v-model="date" placeholder="日期" />
       <el-button size="small" @click="loadOrders">
         刷新
       </el-button>
       <span v-if="orders.length" class="user-workspace-preview__summary">
-        {{ accountColumns.length }} 个账号 · {{ orders.length }} 笔订单 ·
+        {{ providerColumns.length }} 个场馆 · {{ orders.length }} 笔订单 ·
         利润
         <span :class="{ pos: profitTotal > 0, neg: profitTotal < 0 }">{{ fmtMoney(profitTotal) }}</span>
       </span>
@@ -125,17 +134,18 @@ onMounted(() => void loadOrders());
       {{ loadError }}
     </p>
 
+    <!-- 按场馆分列 + LinkID 连线 -->
     <div
-      v-if="accountColumns.length"
+      v-if="providerColumns.length"
       ref="columnsContainerRef"
       class="admin-orders-by-account"
     >
       <AdminAccountOrdersColumn
-        v-for="col in accountColumns"
+        v-for="col in providerColumns"
         :key="col.key"
         :provider="col.provider"
-        :player-id="col.playerId"
-        :player-name="col.playerName"
+        :player-id="0"
+        :player-name="col.provider"
         :orders="col.orders"
         :accounts="user.accounts ?? []"
         @delete="onDeleteOrders"
@@ -146,7 +156,7 @@ onMounted(() => void loadOrders());
       />
     </div>
 
-    <p v-if="!loading && !loadError && !accountColumns.length" class="user-workspace-preview__empty">
+    <p v-if="!loading && !loadError && !providerColumns.length" class="user-workspace-preview__empty">
       {{ date }} 暂无订单
     </p>
   </div>
