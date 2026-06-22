@@ -136,22 +136,19 @@ export async function fetchPlatformMatchesDashboard() {
 
 export async function fetchClientMatchesDashboard() {
   const { rows } = await rdsQuery(
-    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, list_status
+    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at
      FROM client_matches
-     WHERE list_status IS DISTINCT FROM $1
      ORDER BY start_time ASC NULLS LAST`,
-    [CLIENT_MATCH_LIST_HIDDEN],
   );
   return rows;
 }
 
 export async function fetchClientMatchesHidden() {
   const { rows } = await rdsQuery(
-    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at, list_status
-     FROM client_matches
-     WHERE list_status = $1
-     ORDER BY built_at DESC NULLS LAST`,
-    [CLIENT_MATCH_LIST_HIDDEN],
+    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at
+     FROM client_matches_history
+     ORDER BY archived_at DESC NULLS LAST
+     LIMIT 100`,
   );
   return rows;
 }
@@ -159,28 +156,27 @@ export async function fetchClientMatchesHidden() {
 export async function fetchLatestClientMatchBuiltAt() {
   const { rows } = await rdsQuery(
     `SELECT built_at FROM client_matches
-     WHERE list_status IS DISTINCT FROM $1
      ORDER BY built_at DESC NULLS LAST LIMIT 1`,
-    [CLIENT_MATCH_LIST_HIDDEN],
   );
   return rows[0]?.built_at ? Number(rows[0].built_at) : 0;
 }
 
-export async function setClientMatchListStatus(id, listStatus) {
+export async function archiveClientMatch(id) {
   const cmId = Number(id);
-  const status = Number(listStatus);
   if (!Number.isFinite(cmId))
     throw new Error("无效的赛事 ID");
-  if (!Number.isFinite(status))
-    throw new Error("无效的 list_status");
-  const builtAt = Date.now();
   const { rowCount } = await rdsQuery(
-    "UPDATE client_matches SET list_status = $2, built_at = $3 WHERE id = $1",
-    [cmId, status, builtAt],
+    `WITH moved AS (
+       DELETE FROM client_matches WHERE id = $1
+       RETURNING *
+     )
+     INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at)
+     SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at FROM moved`,
+    [cmId],
   );
   if (!rowCount)
     throw new Error("赛事不存在");
-  return { id: cmId, list_status: status, built_at: builtAt };
+  return { id: cmId, archived: true };
 }
 
 export async function fetchPlatformMatchesDebugRows() {
@@ -209,7 +205,12 @@ export async function deletePlatformMatchRow(platform, sourceMatchId) {
   const plat = String(platform || "").trim();
   const srcId = String(sourceMatchId || "").trim();
   await rdsQuery(
-    "UPDATE platform_matches SET list_status = -1 WHERE platform = $1 AND source_match_id = $2 AND list_status IS DISTINCT FROM -1",
+    `WITH moved AS (
+       DELETE FROM platform_matches WHERE platform = $1 AND source_match_id = $2
+       RETURNING *
+     )
+     INSERT INTO platform_matches_history (platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id)
+     SELECT platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id FROM moved`,
     [plat, srcId],
   );
 }

@@ -1,9 +1,8 @@
 /**
  * 过期行清理 — matcher 每小时调用；prune-stale.mjs 为手动/兜底 CLI。
- * client_matches 过期时不 DELETE，改为 list_status = -1（浏览器不返回）。
+ * platform_matches / client_matches 过期行移入 history 表再删除。
  */
 
-import { CLIENT_MATCH_LIST_HIDDEN } from "./client_match_list_status.js";
 import { getPgPool } from "./pg_pool.js";
 
 export const STALE_MS = 60 * 60 * 1000;
@@ -19,10 +18,21 @@ const DELETE_SPECS = [
   { table: "live_timers", column: "updated_at", key: "live_timers" },
 ];
 
-/** 过期后隐藏（list_status=-1），不删行 */
-const HIDE_SPECS = [
-  { table: "platform_matches", column: "synced_at", key: "platform_matches" },
-  { table: "client_matches", column: "built_at", key: "client_matches" },
+const ARCHIVE_SPECS = [
+  {
+    table: "platform_matches",
+    history: "platform_matches_history",
+    column: "synced_at",
+    key: "platform_matches",
+    cols: "platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id",
+  },
+  {
+    table: "client_matches",
+    history: "client_matches_history",
+    column: "built_at",
+    key: "client_matches",
+    cols: "id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at",
+  },
 ];
 
 function emptyCounts() {
@@ -46,11 +56,15 @@ async function pruneRds(cutoff) {
     );
     counts[key] = rowCount ?? 0;
   }
-  for (const { table, column, key } of HIDE_SPECS) {
+  for (const { table, history, column, key, cols } of ARCHIVE_SPECS) {
     const { rowCount } = await pool.query(
-      `UPDATE ${table} SET list_status = $2
-       WHERE ${column} < $1 AND list_status IS DISTINCT FROM $2`,
-      [cutoff, CLIENT_MATCH_LIST_HIDDEN],
+      `WITH moved AS (
+         DELETE FROM ${table} WHERE ${column} < $1
+         RETURNING *
+       )
+       INSERT INTO ${history} (${cols})
+       SELECT ${cols} FROM moved`,
+      [cutoff],
     );
     counts[key] = rowCount ?? 0;
   }

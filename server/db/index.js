@@ -205,7 +205,7 @@ export {
   insertClientMatchStub,
   isMatcherStoreReady,
   reassignPlatformMatchIds,
-  setClientMatchListStatus,
+  archiveClientMatch,
 } from "./rds/matcher_store.js";
 
 export {

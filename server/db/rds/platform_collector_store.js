@@ -37,8 +37,13 @@ async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatch
     [plat, ids],
   );
   await exec.query(
-    `UPDATE platform_matches SET list_status = -1
-     WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[])) AND list_status IS DISTINCT FROM -1`,
+    `WITH moved AS (
+       DELETE FROM platform_matches
+       WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))
+       RETURNING *
+     )
+     INSERT INTO platform_matches_history (platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id)
+     SELECT platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id FROM moved`,
     [plat, ids],
   );
 }
@@ -69,8 +74,7 @@ async function _rdsUpsertPlatformMatches(pool, rows) {
       bo = EXCLUDED.bo,
       is_live = EXCLUDED.is_live,
       teams = EXCLUDED.teams,
-      synced_at = EXCLUDED.synced_at,
-      list_status = 0
+      synced_at = EXCLUDED.synced_at
   `;
   try {
     await client.query("BEGIN");
@@ -220,7 +224,7 @@ async function _rdsReplaceLiveTimersForPlatform(pool, platform, rows) {
 async function _rdsFetchPlatformMatches(pool) {
   const { rows } = await pool.query(
     `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, is_live, teams, match_id
-     FROM platform_matches WHERE list_status IS DISTINCT FROM -1`,
+     FROM platform_matches`,
   );
   const byPlatform = {};
   for (const r of rows) {
