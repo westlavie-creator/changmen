@@ -2503,10 +2503,79 @@ html.admin-route #app > * {
   overflow: visible;
   min-height: 200px;
 }
-.admin-drawer .user-workspace-preview .el-input__wrapper,
+.admin-drawer .user-workspace-preview {
+  --el-fill-color: rgba(255, 255, 255, 0.06);
+  --el-fill-color-blank: rgba(7, 11, 20, 0.5);
+  --el-fill-color-light: rgba(255, 255, 255, 0.06);
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.04);
+  --el-bg-color: transparent;
+  --el-bg-color-overlay: rgba(7, 11, 20, 0.9);
+  --el-input-bg-color: rgba(7, 11, 20, 0.5);
+  --el-text-color-primary: var(--adm-text, #e2e8f0);
+  --el-text-color-regular: var(--adm-text, #e2e8f0);
+  --el-text-color-secondary: var(--adm-text-muted, #94a3b8);
+  --el-text-color-placeholder: var(--adm-text-muted, #64748b);
+  --el-border-color: var(--adm-border);
+  --el-border-color-light: var(--adm-border);
+  --el-border-color-lighter: var(--adm-border);
+  --el-color-white: rgba(7, 11, 20, 0.5);
+  color: var(--adm-text, #e2e8f0);
+}
+.admin-drawer .user-workspace-preview .el-form-item__label {
+  color: var(--adm-text-muted, #94a3b8);
+}
+.admin-drawer .user-workspace-preview .el-radio__inner {
+  background-color: transparent !important;
+  border-color: var(--adm-border) !important;
+}
+.admin-drawer .user-workspace-preview .el-switch {
+  --el-switch-off-color: rgba(255, 255, 255, 0.15);
+}
+.admin-drawer .user-workspace-preview .drag-item {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--adm-text, #e2e8f0);
+}
+.admin-drawer .user-workspace-preview .el-input__wrapper {
+  background-color: rgba(7, 11, 20, 0.5) !important;
+  box-shadow: 0 0 0 1px var(--adm-border) inset !important;
+}
 .admin-drawer .user-workspace-preview .el-select__wrapper {
-  background-color: var(--el-input-bg-color, var(--el-fill-color-blank));
-  box-shadow: 0 0 0 1px var(--el-input-border-color, var(--el-border-color)) inset;
+  background-color: rgba(7, 11, 20, 0.5) !important;
+  box-shadow: 0 0 0 1px var(--adm-border) inset !important;
+}
+.admin-drawer .user-workspace-preview .el-input-group__prepend,
+.admin-drawer .user-workspace-preview .el-input-group__append {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: none !important;
+  color: var(--adm-text, #e2e8f0) !important;
+  border-color: var(--adm-border) !important;
+}
+.admin-drawer .user-workspace-preview .el-checkbox__inner {
+  background-color: transparent;
+  border-color: var(--adm-border);
+}
+.admin-drawer .user-workspace-preview .el-tag {
+  --el-tag-bg-color: rgba(255, 255, 255, 0.06);
+  --el-tag-text-color: var(--adm-text, #e2e8f0);
+  --el-tag-border-color: var(--adm-border);
+}
+.admin-drawer .user-workspace-preview fieldset {
+  border-color: var(--adm-border);
+}
+.admin-drawer .user-workspace-preview legend,
+.admin-drawer .wp legend,
+.admin-drawer legend {
+  color: var(--adm-text, #e2e8f0);
+  background: var(--adm-bg, #0c1220) !important;
+}
+/* 兜底：暗色模式下所有 legend 不允许白色背景 */
+html.dark legend {
+  background: #141414 !important;
+  color: #e5eaf3;
+}
+html.dark .config-section legend {
+  background: #0c1220 !important;
+  color: #e5eaf3;
 }
 .admin-drawer .user-workspace-preview .el-button--primary {
   --el-button-bg-color: var(--el-color-primary);
