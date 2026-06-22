@@ -460,6 +460,8 @@ function setWaitTime(platform: string, v: string | number) {
   font-size: 12px;
   cursor: grab;
   user-select: none;
+  background: var(--el-fill-color, rgba(255,255,255,0.04));
+  color: var(--el-text-color-regular, inherit);
 }
 
 .drag-item--static {
