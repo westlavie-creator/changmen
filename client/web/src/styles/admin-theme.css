@@ -2568,6 +2568,15 @@ html.admin-route #app > * {
   color: var(--adm-text, #e2e8f0);
   background: var(--adm-bg, #0c1220) !important;
 }
+/* 兜底：暗色模式下所有 legend 不允许白色背景 */
+html.dark legend {
+  background: #141414 !important;
+  color: #e5eaf3;
+}
+html.dark .config-section legend {
+  background: #0c1220 !important;
+  color: #e5eaf3;
+}
 .admin-drawer .user-workspace-preview .el-button--primary {
   --el-button-bg-color: var(--el-color-primary);
   --el-button-border-color: var(--el-color-primary);
