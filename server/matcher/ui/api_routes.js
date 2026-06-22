@@ -8,7 +8,7 @@ import {
   previewLinkPlatformTeams,
   registerTeamPlatformMap,
 } from "../link/index.js";
-import { deleteClientMatch } from "../ops/delete_client_match.js";
+import { clientMatchToHistory } from "../ops/delete_client_match.js";
 import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_client_matches.js";
 import { rebuildOnce } from "../ops/rebuild.js";
 import { restoreClientMatch } from "../ops/restore_client_match.js";
@@ -146,7 +146,7 @@ function registerMatcherApiRoutes(app) {
 
   app.delete("/api/client-match/:id", async (req, res) => {
     try {
-      const result = await deleteClientMatch(req.params.id);
+      const result = await clientMatchToHistory(req.params.id);
       logMatcherApiOk("/api/client-match", result);
       res.json(result);
     }

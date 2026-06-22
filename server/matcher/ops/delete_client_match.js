@@ -10,7 +10,7 @@ function platformMatchKey(platform, sourceMatchId) {
   return `${platform}\0${String(sourceMatchId)}`;
 }
 
-async function deleteClientMatch(clientMatchId) {
+async function clientMatchToHistory(clientMatchId) {
   const cmId = Number(clientMatchId);
   if (!Number.isFinite(cmId))
     throw new Error("无效的赛事 ID");
@@ -64,4 +64,4 @@ async function deleteClientMatch(clientMatchId) {
   };
 }
 
-export { deleteClientMatch };
+export { clientMatchToHistory };
