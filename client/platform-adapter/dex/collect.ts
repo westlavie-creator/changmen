@@ -47,10 +47,6 @@ export function startDexCollector(): () => void {
   const marketCache = new Map<string, MarketCache>();
   let lastWsSaveAt = 0;
   const pendingSave = new Map<string, { matchId: string; bet: CollectBetDto }>();
-  let pendingItems: DexBatchItem[] = [];
-  let throttleTimer: ReturnType<typeof setTimeout> | null = null;
-  const THROTTLE_MS = 3_000;
-
   function flushWsBets() {
     if (!pendingSave.size) return;
     const byMatch = new Map<string, CollectBetDto[]>();
@@ -65,20 +61,8 @@ export function startDexCollector(): () => void {
     lastWsSaveAt = Date.now();
   }
 
-  function onBatchRaw(items: DexBatchItem[]) {
-    pendingItems.push(...items);
-    if (!throttleTimer) {
-      throttleTimer = setTimeout(() => {
-        throttleTimer = null;
-        const batch = pendingItems;
-        pendingItems = [];
-        processBatch(batch);
-      }, THROTTLE_MS);
-    }
-  }
-
-  /** WS 推送（节流 3s）：更新 UI（oddsStore），每 5 分钟批量 saveBets */
-  function processBatch(items: DexBatchItem[]) {
+  /** WS 推送：实时更新 UI（oddsStore），每 5 分钟批量 saveBets */
+  function handleBatch(items: DexBatchItem[]) {
     if (!collect.ready || !collect.collect.get(PLATFORMS.Dex)) return;
 
     let updated = false;
@@ -228,7 +212,7 @@ export function startDexCollector(): () => void {
     matchStore.refreshOddsOnBets();
   };
 
-  const unsubBatch = onDexBatch(onBatchRaw);
+  const unsubBatch = onDexBatch(handleBatch);
   void startDexSocket();
 
   const loop = async () => {
@@ -247,7 +231,6 @@ export function startDexCollector(): () => void {
 
   return () => {
     stopped = true;
-    if (throttleTimer) { clearTimeout(throttleTimer); throttleTimer = null; }
     unsubBatch();
     stopDexSocket();
   };
