@@ -2503,24 +2503,24 @@ html.admin-route #app > * {
   overflow: visible;
   min-height: 200px;
 }
-.admin-drawer .user-workspace-preview .el-input__wrapper,
-.admin-drawer .user-workspace-preview .el-select__wrapper {
-  background-color: rgba(7, 11, 20, 0.5);
-  box-shadow: 0 0 0 1px var(--adm-border) inset;
-}
-.admin-drawer .user-workspace-preview .el-textarea__inner {
-  background-color: rgba(7, 11, 20, 0.5);
-  box-shadow: 0 0 0 1px var(--adm-border) inset;
-}
-.admin-drawer .user-workspace-preview .el-switch {
-  --el-switch-off-color: rgba(255, 255, 255, 0.15);
-}
-.admin-drawer .user-workspace-preview .el-radio__inner {
-  background-color: transparent;
-  border-color: var(--adm-border);
+.admin-drawer .user-workspace-preview {
+  --el-fill-color-blank: rgba(7, 11, 20, 0.5);
+  --el-bg-color: transparent;
+  --el-input-bg-color: rgba(7, 11, 20, 0.5);
+  --el-fill-color-light: rgba(255, 255, 255, 0.06);
+  --el-text-color-regular: var(--adm-text, #e2e8f0);
+  --el-text-color-placeholder: var(--adm-text-muted, #64748b);
+  --el-border-color: var(--adm-border);
+  --el-border-color-light: var(--adm-border);
 }
 .admin-drawer .user-workspace-preview .el-form-item__label {
   color: var(--adm-text-muted, #94a3b8);
+}
+.admin-drawer .user-workspace-preview .el-radio__inner {
+  background-color: transparent;
+}
+.admin-drawer .user-workspace-preview .el-switch {
+  --el-switch-off-color: rgba(255, 255, 255, 0.15);
 }
 .admin-drawer .user-workspace-preview .el-button--primary {
   --el-button-bg-color: var(--el-color-primary);
