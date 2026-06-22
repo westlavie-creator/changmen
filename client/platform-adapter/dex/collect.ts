@@ -17,7 +17,7 @@ import { startDexSocket, stopDexSocket, onDexBatch, subscribeDexMarkets } from "
 import type { DexBatchItem } from "./socket";
 import type { CollectBetDto } from "@/types/collect";
 
-const LOOP_MS = 30_000;
+const LOOP_MS = 10_000;
 
 export function startDexCollector(): () => void {
   let stopped = false;
