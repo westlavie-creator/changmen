@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
+import type { PlatformAccount } from "@/models/platformAccount";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { deleteAdminOrders, getAdminOrdersAll } from "@/api/admin";
-import AccountBar from "@/components/account/AccountBar.vue";
+import AccountCard from "@/components/account/AccountCard.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
-import AdminAccountOrdersColumn from "@/components/admin/AdminAccountOrdersColumn.vue";
 import AdminOrderLinkLines from "@/components/admin/AdminOrderLinkLines.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
+import OrderList from "@/components/order/OrderList.vue";
+import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
+import { adminPlayerLabel, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
 import { todayKey } from "@/shared/dateKey";
 import { useAccountStore } from "@/stores/accountStore";
-import { storeToRefs } from "pinia";
+
+import type { OrderRow } from "@/types/order";
 
 const props = defineProps<{
   user: AdminUserRow;
@@ -19,41 +24,37 @@ const props = defineProps<{
 defineEmits<{ viewOrders: [] }>();
 
 const accountStore = useAccountStore();
-const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
+const { sortedAccounts, editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 
 const date = ref(todayKey());
 const loading = ref(false);
 const orders = ref<AdminOrderRow[]>([]);
 const loadError = ref("");
 const columnsContainerRef = ref<HTMLElement | null>(null);
+const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null);
 
-interface AccountColumn {
-  key: string;
-  provider: string;
-  playerId: number;
-  playerName: string;
-  orders: AdminOrderRow[];
+function ordersForAccount(acc: PlatformAccount): AdminOrderRow[] {
+  return orders.value.filter(
+    r => r.provider === (acc.platformName || acc.provider) && r.playerId === acc.accountId,
+  );
 }
 
-const accountColumns = computed<AccountColumn[]>(() => {
-  const byAccount = new Map<string, AccountColumn>();
-  for (const row of orders.value) {
-    const key = `${row.provider}:${row.playerId}`;
-    if (!byAccount.has(key)) {
-      byAccount.set(key, { key, provider: row.provider, playerId: row.playerId, playerName: "", orders: [] });
-    }
-    byAccount.get(key)!.orders.push(row);
-  }
-  for (const acc of props.user.accounts ?? []) {
-    const key = `${acc.platform}:${acc.accountId}`;
-    const col = byAccount.get(key);
-    if (col)
-      col.playerName = acc.playerName;
-  }
-  return [...byAccount.values()].sort((a, b) =>
-    a.provider.localeCompare(b.provider) || a.playerName.localeCompare(b.playerName),
-  );
-});
+function groupedForAccount(acc: PlatformAccount) {
+  const rows = ordersForAccount(acc);
+  return groupAdminOrderEntries(rows);
+}
+
+function orderEntriesForAccount(acc: PlatformAccount) {
+  return groupedForAccount(acc).map(({ link, orderRows }) => [link, orderRows] as const);
+}
+
+function dayProfitForAccount(acc: PlatformAccount) {
+  return ordersForAccount(acc).reduce((sum, r) => sum + (Number(r.money) || 0), 0);
+}
+
+function playerLabel(row: OrderRow) {
+  return adminPlayerLabel(row, props.user.accounts ?? []);
+}
 
 const profitTotal = computed(() =>
   orders.value.reduce((sum, r) => sum + (Number(r.money) || 0), 0),
@@ -63,6 +64,10 @@ const linkLinesKey = computed(() => orders.value.length);
 
 function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
+}
+
+function adminRowsForLink(acc: PlatformAccount, link: number) {
+  return groupedForAccount(acc).find(entry => entry.link === link)?.adminRows ?? [];
 }
 
 async function loadOrders() {
@@ -108,6 +113,10 @@ async function onDeleteOrders(rows: AdminOrderRow[]) {
   }
 }
 
+function openLogs(rows: AdminOrderRow[]) {
+  logsDialogRef.value?.open(rows);
+}
+
 watch(date, () => void loadOrders());
 watch(() => props.user.id, () => void loadOrders());
 
@@ -116,23 +125,20 @@ onMounted(() => void loadOrders());
 
 <template>
   <div class="user-workspace-preview" v-loading="loading">
-    <!-- 顶部投注账号卡片列表 -->
     <AccountEditDialog
       :open="editDialogOpen"
       :account="editDialogAccount"
       readonly
       @close="accountStore.closeAccountDialog()"
     />
-    <AccountBar embedded />
 
-    <!-- 工具栏 -->
     <div class="user-workspace-preview__toolbar">
       <OrderDateNav v-model="date" placeholder="日期" />
       <el-button size="small" @click="loadOrders">
         刷新
       </el-button>
       <span v-if="orders.length" class="user-workspace-preview__summary">
-        {{ accountColumns.length }} 个账号 · {{ orders.length }} 笔订单 ·
+        {{ sortedAccounts.length }} 个账号 · {{ orders.length }} 笔订单 ·
         利润
         <span :class="{ pos: profitTotal > 0, neg: profitTotal < 0 }">{{ fmtMoney(profitTotal) }}</span>
       </span>
@@ -142,31 +148,62 @@ onMounted(() => void loadOrders());
       {{ loadError }}
     </p>
 
-    <!-- 按场馆分列 + LinkID 连线 -->
     <div
-      v-if="accountColumns.length"
+      v-if="sortedAccounts.length"
       ref="columnsContainerRef"
-      class="admin-orders-by-account"
+      class="workspace-columns"
     >
-      <AdminAccountOrdersColumn
-        v-for="col in accountColumns"
-        :key="col.key"
-        :provider="col.provider"
-        :player-id="col.playerId"
-        :player-name="col.playerName"
-        :orders="col.orders"
-        :accounts="user.accounts ?? []"
-        @delete="onDeleteOrders"
-      />
+      <div
+        v-for="acc in sortedAccounts"
+        :key="acc.accountId"
+        class="workspace-col"
+      >
+        <AccountCard
+          :account="acc"
+          preview
+          class="workspace-col__card"
+          @edit="accountStore.openEditAccount(acc)"
+        />
+        <div class="workspace-col__orders">
+          <div v-if="!orderEntriesForAccount(acc).length" class="workspace-col__empty">
+            暂无订单
+          </div>
+          <OrderList
+            v-else
+            :order-entries="orderEntriesForAccount(acc)"
+            :player-label="playerLabel"
+          >
+            <template #group-actions="{ link }">
+              <div class="workspace-col__actions">
+                <el-button link type="primary" size="small" @click="openLogs(adminRowsForLink(acc, link))">
+                  诊断
+                </el-button>
+                <el-button link type="danger" size="small" @click="onDeleteOrders(adminRowsForLink(acc, link))">
+                  删除
+                </el-button>
+              </div>
+            </template>
+          </OrderList>
+          <div v-if="ordersForAccount(acc).length" class="workspace-col__profit-row">
+            <span
+              :class="{ pos: dayProfitForAccount(acc) > 0, neg: dayProfitForAccount(acc) < 0 }"
+            >{{ fmtMoney(dayProfitForAccount(acc)) }}</span>
+            <span class="workspace-col__count">{{ ordersForAccount(acc).length }} 笔</span>
+          </div>
+        </div>
+      </div>
+
       <AdminOrderLinkLines
         :container-ref="columnsContainerRef"
         :key="linkLinesKey"
       />
     </div>
 
-    <p v-if="!loading && !loadError && !accountColumns.length" class="user-workspace-preview__empty">
+    <p v-if="!loading && !loadError && !sortedAccounts.length" class="user-workspace-preview__empty">
       {{ date }} 暂无订单
     </p>
+
+    <AdminOrderLogsDialog ref="logsDialogRef" />
   </div>
 </template>
 
@@ -174,22 +211,6 @@ onMounted(() => void loadOrders());
 .user-workspace-preview {
   min-height: 400px;
   overflow-x: auto;
-}
-.user-workspace-preview :deep(.admin-orders-by-account) {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
-  align-items: flex-start;
-  gap: 12px;
-  width: max-content;
-  min-width: 100%;
-  padding-bottom: 12px;
-  position: relative;
-}
-.user-workspace-preview :deep(.admin-orders-account-col) {
-  flex: 0 0 292px;
-  width: 292px;
-  min-width: 292px;
 }
 .user-workspace-preview__toolbar {
   display: flex;
@@ -214,5 +235,62 @@ onMounted(() => void loadOrders());
   font-size: 13px;
   color: #94a3b8;
   margin: 40px 0;
+}
+
+.workspace-columns {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 12px;
+  position: relative;
+  overflow-x: auto;
+}
+.workspace-col {
+  flex: 0 0 260px;
+  width: 260px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--adm-border, rgba(255,255,255,0.08));
+  border-radius: 6px;
+  background: var(--adm-surface-2, rgba(255,255,255,0.02));
+}
+.workspace-col__card {
+  flex-shrink: 0;
+}
+.workspace-col__orders {
+  flex: 1 1 auto;
+  padding: 6px;
+  font-size: 12px;
+}
+.workspace-col__empty {
+  padding: 20px 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--adm-text-muted, #64748b);
+}
+.workspace-col__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 4px 4px;
+}
+.workspace-col__profit-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--adm-border, rgba(255,255,255,0.08));
+  font-size: 13px;
+  font-weight: 600;
+}
+.workspace-col__count {
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--adm-text-muted, #64748b);
 }
 </style>
