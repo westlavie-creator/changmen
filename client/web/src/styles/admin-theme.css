@@ -2562,8 +2562,11 @@ html.admin-route #app > * {
 .admin-drawer .user-workspace-preview fieldset {
   border-color: var(--adm-border);
 }
-.admin-drawer .user-workspace-preview legend {
+.admin-drawer .user-workspace-preview legend,
+.admin-drawer .wp legend,
+.admin-drawer legend {
   color: var(--adm-text, #e2e8f0);
+  background: var(--adm-bg, #0c1220) !important;
 }
 .admin-drawer .user-workspace-preview .el-button--primary {
   --el-button-bg-color: var(--el-color-primary);
