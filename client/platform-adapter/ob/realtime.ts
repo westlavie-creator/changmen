@@ -7,7 +7,7 @@ import {
   upstreamRouteFromUrl,
 } from "@platform/shared/directRealtimeStatus";
 import { PLATFORMS } from "@/shared/platform";
-import { OB_MQTT_CLIENT_ID, OB_MQTT_CONNECT_TIMEOUT_MS } from "./mqttConfig";
+import { OB_A8_MQTT_PASSWORD, OB_A8_MQTT_USERNAME, OB_MQTT_CLIENT_ID, OB_MQTT_CONNECT_TIMEOUT_MS } from "./mqttConfig";
 import {
   fetchObDemoMqttConfig,
   getObA8MqttConfig,
@@ -161,14 +161,13 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
     });
 
     client = mqtt.connect(url, {
-      username,
-      password,
+      username: OB_A8_MQTT_USERNAME,
+      password: OB_A8_MQTT_PASSWORD,
       clientId: OB_MQTT_CLIENT_ID,
       clean: true,
       keepalive: 60,
-      reconnectPeriod: 0,
+      reconnectPeriod: 5000,
       protocolId: "MQTT",
-      protocolVersion: 4,
       connectTimeout: OB_MQTT_CONNECT_TIMEOUT_MS,
     });
 
@@ -189,7 +188,7 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
 
     client.on("close", () => {
       patchDirectRealtimeStatus(PLATFORM, { upstreamConnected: false, upstreamRoute: null });
-      requestFailover("connection closed");
+      // reconnectPeriod=5000: mqtt.js 会自动重连，close 不触发 failover
     });
 
     client.on("connect", () => {

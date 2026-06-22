@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { OB_A8_MQTT_URL } from "./mqttConfig";
+import { OB_A8_MQTT_PASSWORD, OB_A8_MQTT_URL, OB_A8_MQTT_USERNAME } from "./mqttConfig";
 import { createObRealtimeClient, type ObMqttMessage } from "./realtime";
 
 const connectMock = vi.fn();
@@ -53,8 +53,8 @@ const changmenConfig = {
 
 const a8Config = {
   url: OB_A8_MQTT_URL,
-  username: "admin",
-  password: "Qazqaz123...",
+  username: OB_A8_MQTT_USERNAME,
+  password: OB_A8_MQTT_PASSWORD,
   source: "a8" as const,
 };
 
@@ -71,7 +71,7 @@ afterEach(() => {
 });
 
 describe("createObRealtimeClient", () => {
-  test("connects to demo mqtt first with platform token as username", async () => {
+  test("connects with A8 fixed credentials (admin/Qazqaz123...) and reconnectPeriod 5s", async () => {
     fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
     const fake = fakeMqttClient();
     connectMock.mockReturnValue(fake);
@@ -87,9 +87,9 @@ describe("createObRealtimeClient", () => {
     expect(connectMock).toHaveBeenCalledWith(
       "wss://ob-mqtt.example/ws",
       expect.objectContaining({
-        username: "ob-session-token",
-        reconnectPeriod: 0,
-        protocolVersion: 4,
+        username: OB_A8_MQTT_USERNAME,
+        password: OB_A8_MQTT_PASSWORD,
+        reconnectPeriod: 5000,
       }),
     );
     expect(received).toEqual([{ topic: "/market/oddsUpdate/1", payload: "[{}]" }]);
@@ -98,7 +98,7 @@ describe("createObRealtimeClient", () => {
     await client.stop();
   });
 
-  test("falls back to CHANGMEN forward when demo connection closes", async () => {
+  test("falls back to CHANGMEN forward when demo connection errors", async () => {
     fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
     const demoClient = fakeMqttClient();
     const changmenClient = fakeMqttClient();
@@ -106,7 +106,7 @@ describe("createObRealtimeClient", () => {
 
     const client = createObRealtimeClient();
     await client.start(() => {});
-    demoClient.emit("close");
+    demoClient.emit("error", new Error("connection refused"));
 
     await vi.waitFor(() => {
       expect(connectMock).toHaveBeenCalledTimes(2);
@@ -117,15 +117,16 @@ describe("createObRealtimeClient", () => {
       2,
       changmenConfig.url,
       expect.objectContaining({
-        username: "ob-session-token",
-        reconnectPeriod: 0,
+        username: OB_A8_MQTT_USERNAME,
+        password: OB_A8_MQTT_PASSWORD,
+        reconnectPeriod: 5000,
       }),
     );
 
     await client.stop();
   });
 
-  test("falls back to A8 relay when CHANGMEN forward fails", async () => {
+  test("falls back to A8 relay when CHANGMEN forward errors", async () => {
     fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
     const demoClient = fakeMqttClient();
     const changmenClient = fakeMqttClient();
@@ -137,9 +138,9 @@ describe("createObRealtimeClient", () => {
 
     const client = createObRealtimeClient();
     await client.start(() => {});
-    demoClient.emit("close");
+    demoClient.emit("error", new Error("refused"));
     await vi.waitFor(() => expect(connectMock).toHaveBeenCalledTimes(2));
-    changmenClient.emit("close");
+    changmenClient.emit("error", new Error("refused"));
 
     await vi.waitFor(() => {
       expect(connectMock).toHaveBeenCalledTimes(3);
@@ -149,16 +150,16 @@ describe("createObRealtimeClient", () => {
       3,
       OB_A8_MQTT_URL,
       expect.objectContaining({
-        username: "admin",
-        password: "Qazqaz123...",
-        reconnectPeriod: 0,
+        username: OB_A8_MQTT_USERNAME,
+        password: OB_A8_MQTT_PASSWORD,
+        reconnectPeriod: 5000,
       }),
     );
 
     await client.stop();
   });
 
-  test("refreshes demo login after A8 relay fails", async () => {
+  test("refreshes demo login after A8 relay errors", async () => {
     fetchObDemoMqttConfig
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
@@ -174,7 +175,7 @@ describe("createObRealtimeClient", () => {
     await client.start(() => {});
     expect(connectMock).toHaveBeenNthCalledWith(1, OB_A8_MQTT_URL, expect.any(Object));
 
-    a8Client.emit("close");
+    a8Client.emit("error", new Error("A8 relay down"));
 
     await vi.waitFor(() => {
       expect(fetchObDemoMqttConfig).toHaveBeenCalledTimes(2);
@@ -184,7 +185,10 @@ describe("createObRealtimeClient", () => {
     expect(connectMock).toHaveBeenNthCalledWith(
       2,
       "wss://ob-mqtt-refreshed.example/ws",
-      expect.objectContaining({ username: "fresh-token" }),
+      expect.objectContaining({
+        username: OB_A8_MQTT_USERNAME,
+        password: OB_A8_MQTT_PASSWORD,
+      }),
     );
 
     await client.stop();
