@@ -97,7 +97,10 @@ function handleBatchItems(items: unknown[][]) {
     if (model === "tournament" && Array.isArray(data.eventIds)) {
       joinNew("event", data.eventIds as string[]);
     }
-    // event 层不自动订阅 market，由 HTTP 轮询按名字筛选后调 subscribeDexMarkets
+    if (model === "event" && Array.isArray(data.marketIds)) {
+      const ids = (data.marketIds as (string | null)[]).filter(Boolean).slice(0, 10) as string[];
+      if (ids.length) joinNew("market", ids);
+    }
 
     parsed.push({ model, lid, action, data });
   }

@@ -33,6 +33,8 @@ export function startDexCollector(): () => void {
     for (const item of items) {
       if (item.model !== "market") continue;
       const mkt = item.data;
+      const name = String(mkt.name ?? "");
+      if (!/winner|赢家|获胜/i.test(name)) continue;
       const outcomes = (mkt.outcomes ?? []) as Array<Record<string, unknown>>;
       if (outcomes.length !== 2) continue;
 
