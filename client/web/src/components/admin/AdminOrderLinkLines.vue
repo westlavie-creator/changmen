@@ -17,7 +17,12 @@ const paths = ref<LinkPath[]>([]);
 
 let resizeObs: ResizeObserver | null = null;
 let mutationObs: MutationObserver | null = null;
-let scrollCleanup: (() => void) | null = null;
+let rafId = 0;
+
+function scheduleRecalc() {
+  cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(recalc);
+}
 
 function recalc() {
   const container = props.containerRef;
@@ -26,119 +31,74 @@ function recalc() {
     return;
   }
 
-  const containerRect = container.getBoundingClientRect();
-  const scrollLeft = container.scrollLeft;
-  const scrollTop = container.scrollTop;
-
   svgWidth.value = container.scrollWidth;
   svgHeight.value = container.scrollHeight;
 
-  // Find all fieldsets with data-link-id
   const allFieldsets = container.querySelectorAll<HTMLElement>("[data-link-id]");
-  const byLinkId = new Map<string, HTMLElement[]>();
+  const byLinkId = new Map<string, { el: HTMLElement; col: HTMLElement }[]>();
 
   for (const el of allFieldsets) {
     const linkId = el.dataset.linkId;
     if (!linkId || linkId === "0" || Number(linkId) <= 0)
       continue;
+    const col = el.closest(".workspace-col, .admin-orders-account-col") as HTMLElement | null;
+    if (!col)
+      continue;
     if (!byLinkId.has(linkId))
       byLinkId.set(linkId, []);
-    byLinkId.get(linkId)!.push(el);
+    byLinkId.get(linkId)!.push({ el, col });
   }
 
   const newPaths: LinkPath[] = [];
 
-  for (const [linkId, elements] of byLinkId) {
-    if (elements.length < 2)
-      continue;
-
-    // Find which column each element belongs to
-    const colElements = new Map<HTMLElement, HTMLElement[]>();
-    for (const el of elements) {
-      const col = (el.closest(".admin-orders-account-col") || el.closest(".workspace-col")) as HTMLElement | null;
-      if (!col)
-        continue;
-      if (!colElements.has(col))
-        colElements.set(col, []);
-      colElements.get(col)!.push(el);
+  for (const [linkId, items] of byLinkId) {
+    // 按列分组，只要跨列的
+    const colMap = new Map<HTMLElement, HTMLElement[]>();
+    for (const { el, col } of items) {
+      if (!colMap.has(col))
+        colMap.set(col, []);
+      colMap.get(col)!.push(el);
     }
-
-    // Only draw lines between different columns
-    const columns = [...colElements.entries()];
-    if (columns.length < 2)
+    if (colMap.size < 2)
       continue;
 
-    // Sort columns by their horizontal position
-    columns.sort((a, b) => {
-      const aRect = a[0].getBoundingClientRect();
-      const bRect = b[0].getBoundingClientRect();
-      return aRect.left - bRect.left;
-    });
+    // 按列的 offsetLeft 排序
+    const cols = [...colMap.entries()].sort((a, b) => a[0].offsetLeft - b[0].offsetLeft);
 
-    // Compute the profit for this link group to determine color
-    let totalMoney = 0;
-    let hasPending = false;
-    for (const el of elements) {
-      const fieldset = el;
-      const legendEl = fieldset.querySelector("legend");
-      if (legendEl) {
-        if (legendEl.classList.contains("default"))
-          hasPending = true;
-        else if (legendEl.classList.contains("success"))
-          totalMoney = 1; // positive
-        else if (legendEl.classList.contains("fail"))
-          totalMoney = -1; // negative
+    // 判断颜色：看 legend class
+    let color = "rgba(144, 147, 153, 0.5)";
+    for (const { el } of items) {
+      const legend = el.querySelector("legend");
+      if (legend?.classList.contains("success")) {
+        color = "rgba(103, 194, 58, 0.6)";
+        break;
+      }
+      if (legend?.classList.contains("fail")) {
+        color = "rgba(245, 108, 108, 0.6)";
+        break;
       }
     }
 
-    let color: string;
-    if (hasPending)
-      color = "rgba(144, 147, 153, 0.6)"; // gray for pending
-    else if (totalMoney > 0)
-      color = "rgba(103, 194, 58, 0.6)"; // green for profit
-    else if (totalMoney < 0)
-      color = "rgba(245, 108, 108, 0.6)"; // red for loss
-    else
-      color = "rgba(144, 147, 153, 0.6)"; // gray default
+    // 相邻列之间画线
+    for (let i = 0; i < cols.length - 1; i++) {
+      const [leftCol, leftEls] = cols[i];
+      const [rightCol, rightEls] = cols[i + 1];
 
-    // Draw lines between adjacent column pairs
-    for (let i = 0; i < columns.length - 1; i++) {
-      const leftCol = columns[i];
-      const rightCol = columns[i + 1];
+      // 左侧：取第一个 fieldset 的中点，用 offsetTop/offsetLeft 相对于 container
+      const leftEl = leftEls[0];
+      const rightEl = rightEls[0];
 
-      // Get the vertical center of the fieldset group in each column
-      const leftEls = leftCol[1];
-      const rightEls = rightCol[1];
+      const x1 = leftCol.offsetLeft + leftCol.offsetWidth;
+      const y1 = leftEl.offsetTop + leftEl.offsetHeight / 2
+        + leftCol.offsetTop;
+      const x2 = rightCol.offsetLeft;
+      const y2 = rightEl.offsetTop + rightEl.offsetHeight / 2
+        + rightCol.offsetTop;
 
-      // Use the bounding box of all elements in the column for this link
-      const leftRects = leftEls.map(el => el.getBoundingClientRect());
-      const rightRects = rightEls.map(el => el.getBoundingClientRect());
-
-      const leftTop = Math.min(...leftRects.map(r => r.top));
-      const leftBottom = Math.max(...leftRects.map(r => r.bottom));
-      const leftRight = Math.max(...leftRects.map(r => r.right));
-      const leftMidY = (leftTop + leftBottom) / 2;
-
-      const rightTop = Math.min(...rightRects.map(r => r.top));
-      const rightBottom = Math.max(...rightRects.map(r => r.bottom));
-      const rightLeft = Math.min(...rightRects.map(r => r.left));
-      const rightMidY = (rightTop + rightBottom) / 2;
-
-      // Convert to coordinates relative to the scrollable container
-      const x1 = leftRight - containerRect.left + scrollLeft;
-      const y1 = leftMidY - containerRect.top + scrollTop;
-      const x2 = rightLeft - containerRect.left + scrollLeft;
-      const y2 = rightMidY - containerRect.top + scrollTop;
-
-      // Cubic bezier: control points at 40% of the horizontal distance
-      const dx = (x2 - x1) * 0.4;
+      const dx = Math.abs(x2 - x1) * 0.4;
       const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 
-      newPaths.push({
-        id: `link-${linkId}-${i}`,
-        d,
-        color,
-      });
+      newPaths.push({ id: `link-${linkId}-${i}`, d, color });
     }
   }
 
@@ -150,26 +110,23 @@ function setupObservers() {
   if (!container)
     return;
 
-  resizeObs = new ResizeObserver(() => recalc());
+  resizeObs = new ResizeObserver(() => scheduleRecalc());
   resizeObs.observe(container);
 
-  mutationObs = new MutationObserver(() => {
-    requestAnimationFrame(() => recalc());
-  });
-  mutationObs.observe(container, { childList: true, subtree: true, attributes: true });
+  mutationObs = new MutationObserver(() => scheduleRecalc());
+  mutationObs.observe(container, { childList: true, subtree: true });
 
-  const onScroll = () => recalc();
-  container.addEventListener("scroll", onScroll, { passive: true });
-  scrollCleanup = () => container.removeEventListener("scroll", onScroll);
+  container.addEventListener("scroll", scheduleRecalc, { passive: true });
 }
 
 function teardownObservers() {
+  const container = props.containerRef;
+  container?.removeEventListener("scroll", scheduleRecalc);
   resizeObs?.disconnect();
   resizeObs = null;
   mutationObs?.disconnect();
   mutationObs = null;
-  scrollCleanup?.();
-  scrollCleanup = null;
+  cancelAnimationFrame(rafId);
 }
 
 watch(() => props.containerRef, (newRef, oldRef) => {
@@ -177,17 +134,16 @@ watch(() => props.containerRef, (newRef, oldRef) => {
     teardownObservers();
   if (newRef) {
     setupObservers();
-    void nextTick(() => recalc());
+    void nextTick(() => scheduleRecalc());
   }
 });
 
 onMounted(() => {
   if (props.containerRef) {
     setupObservers();
-    void nextTick(() => recalc());
+    void nextTick(() => scheduleRecalc());
   }
-  // 延迟重算确保 DOM 完全就绪
-  setTimeout(() => recalc(), 300);
+  setTimeout(() => recalc(), 500);
 });
 
 onBeforeUnmount(() => {
