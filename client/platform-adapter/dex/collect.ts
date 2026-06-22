@@ -18,6 +18,7 @@ import type { DexBatchItem } from "./socket";
 import type { CollectBetDto } from "@/types/collect";
 
 const LOOP_MS = 10_000;
+const WS_SAVE_INTERVAL_MS = 5 * 60 * 1000;
 
 function mapFromName(name: string): number {
   const lower = name.toLowerCase();
@@ -44,13 +45,28 @@ export function startDexCollector(): () => void {
     away?: { id: string; name: string; odds: number; frozen: boolean };
   }
   const marketCache = new Map<string, MarketCache>();
+  let lastWsSaveAt = 0;
+  const pendingSave = new Map<string, { matchId: string; bet: CollectBetDto }>();
 
-  /** WS 推送：赢家盘口写 oddsStore + 缓存后 saveBets */
+  function flushWsBets() {
+    if (!pendingSave.size) return;
+    const byMatch = new Map<string, CollectBetDto[]>();
+    for (const { matchId, bet } of pendingSave.values()) {
+      if (!byMatch.has(matchId)) byMatch.set(matchId, []);
+      byMatch.get(matchId)!.push(bet);
+    }
+    pendingSave.clear();
+    for (const [matchId, bets] of byMatch) {
+      void collect.saveBets(PLATFORMS.Dex, matchId, bets);
+    }
+    lastWsSaveAt = Date.now();
+  }
+
+  /** WS 推送：实时更新 UI（oddsStore），每 5 分钟批量 saveBets */
   const handleBatch = (items: DexBatchItem[]) => {
     if (!collect.ready || !collect.collect.get(PLATFORMS.Dex)) return;
 
     let updated = false;
-    const betsToSave: Array<{ matchId: string; bets: CollectBetDto[] }> = [];
 
     for (const item of items) {
       if (item.model !== "market") continue;
@@ -86,7 +102,6 @@ export function startDexCollector(): () => void {
         });
         updated = true;
 
-        // 按 outcome identity 区分 home/away（101=home, 103=away），否则按位置
         const identity = Number(o.identity ?? 0);
         let slot: "home" | "away";
         if (identity === 103) slot = "away";
@@ -97,15 +112,12 @@ export function startDexCollector(): () => void {
 
         cache[slot] = { id: oid, name: String(o.name ?? ""), odds: price, frozen };
       }
-      if (outcomes.length > 0) {
-        console.log("[Dex WS bet]", name, "| map:", map, "| home:", !!cache.home, "away:", !!cache.away, "| outcomes:", outcomes.length);
-      }
 
       if (cache.home && cache.away && eventId) {
         const locked = cache.home.frozen && cache.away.frozen;
-        betsToSave.push({
+        pendingSave.set(marketId, {
           matchId: eventId,
-          bets: [{
+          bet: {
             Type: PLATFORMS.Dex,
             SourceMatchID: eventId,
             Map: map,
@@ -118,7 +130,7 @@ export function startDexCollector(): () => void {
             AwayName: cache.away.name,
             AwayOdds: cache.away.odds,
             Status: locked ? "Locked" : "Normal",
-          }],
+          },
         });
       }
     }
@@ -127,8 +139,8 @@ export function startDexCollector(): () => void {
       matchStore.refreshOddsOnBets();
     }
 
-    for (const { matchId, bets } of betsToSave) {
-      if (bets.length) void collect.saveBets(PLATFORMS.Dex, matchId, bets);
+    if (Date.now() - lastWsSaveAt >= WS_SAVE_INTERVAL_MS) {
+      flushWsBets();
     }
   };
 
