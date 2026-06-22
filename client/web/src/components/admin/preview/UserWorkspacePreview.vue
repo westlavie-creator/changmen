@@ -34,9 +34,7 @@ const columnsContainerRef = ref<HTMLElement | null>(null);
 const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null);
 
 function ordersForAccount(acc: PlatformAccount): AdminOrderRow[] {
-  return orders.value.filter(
-    r => r.provider === acc.provider && r.playerId === acc.accountId,
-  );
+  return orders.value.filter(r => r.playerId === acc.accountId);
 }
 
 function groupedForAccount(acc: PlatformAccount) {
