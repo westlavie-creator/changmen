@@ -91,9 +91,8 @@ function handleBatchItems(items: unknown[][]) {
     if (model === "tournament" && Array.isArray(data.eventIds)) {
       joinNew("event", data.eventIds as string[]);
     }
-    if (model === "event") {
-      const allIds = (data.marketIds as (string | null)[] ?? []).filter(Boolean) as string[];
-      const ids = allIds.length <= 30 ? allIds : allIds.slice(0, 25);
+    if (model === "event" && Array.isArray(data.marketIds)) {
+      const ids = (data.marketIds as (string | null)[]).filter(Boolean) as string[];
       if (ids.length) joinNew("market", ids);
     }
     parsed.push({ model, lid, action, data });
