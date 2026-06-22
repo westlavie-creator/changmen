@@ -58,11 +58,11 @@ async function logout() {
 }
 
 onMounted(() => {
-  document.documentElement.classList.add("admin-route");
+  document.documentElement.classList.add("admin-route", "dark");
   document.addEventListener("wheel", onAdminWheel, { passive: false, capture: true });
 });
 onUnmounted(() => {
-  document.documentElement.classList.remove("admin-route");
+  document.documentElement.classList.remove("admin-route", "dark");
   document.removeEventListener("wheel", onAdminWheel, { capture: true });
 });
 
