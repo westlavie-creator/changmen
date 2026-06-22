@@ -39,6 +39,8 @@
     .btn-success:hover:not(:disabled) { background: #15803d; }
     .btn-danger { background: #dc2626; }
     .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+    .btn-danger { background: #dc2626; }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
     .btn-ghost { background: transparent; border: 1px solid #475569; color: #cbd5e1; }
     .btn-ghost:hover { background: #334155; }
     .btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -496,8 +498,19 @@
   </div>
 </div>
 
+<div class="link-modal-backdrop hidden" id="archive-modal">
+  <div class="link-modal" role="dialog" aria-modal="true" style="max-width:520px">
+    <h3 id="archive-modal-title">归档比赛</h3>
+    <div class="link-modal-body" id="archive-modal-body"></div>
+    <div class="link-modal-actions">
+      <button type="button" class="btn btn-sm btn-ghost" id="archive-modal-cancel">取消</button>
+      <button type="button" class="btn btn-sm btn-danger" id="archive-modal-confirm">确认归档</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const PLATFORM_REF_ORDER = ['OB', 'RAY', 'PB', 'TF', 'IA', 'IMT', 'IM', 'Stake', 'SABA', 'HG'];
+const PLATFORM_REF_ORDER = ['OB', 'RAY', 'PB', 'TF', 'IA', 'IMT', 'IM', 'Stake', 'SABA', 'HG', 'Dex'];
 const GAME_NAMES = { cs2: 'CS2', lol: 'LOL', dota2: 'DOTA2', valorant: 'Valorant', kog: 'KOG' };
 
 let _lastData = null;
@@ -2405,32 +2418,64 @@ async function confirmRecTeamMapping() {
 
 async function endClientMatch(cmId) {
   const cm = (_lastData?.clientMatches || []).find(c => Number(c.id) === Number(cmId));
-  const plats = Object.entries(cm?.matchs || {}).map(([p, id]) => `${p}:${id}`).join('、') || '—';
-  const msg = [
-    `标记比赛已结束？`,
-    `#${cmId} ${cm?.title || ''}`,
-    '',
-    '将执行：',
-    '· client_matches 归档到历史表（浏览器列表不再返回）',
-    '· platform_matches 对应行归档到历史表',
-    '',
-    `平台场次：${plats}`,
-    '',
-    '前端列表将不再显示；若采集器仍上报同场，会重新创建。',
-  ].join('\n');
-  if (!confirm(msg)) return;
+  const matchs = cm?.matchs || {};
+  const platCount = Object.keys(matchs).length;
+  const startStr = cm?.start_time ? new Date(Number(cm.start_time)).toLocaleString() : '—';
+  const gameStr = typeof cm?.game === 'object' ? (cm.game.name || cm.game.code || '—') : (cm?.game || '—');
+
+  const platRows = Object.entries(matchs).map(([p, id]) =>
+    `<tr><td style="padding:4px 10px;color:#94a3b8">${p}</td><td style="padding:4px 10px;font-family:monospace;font-size:12px;color:#64748b">${id}</td></tr>`
+  ).join('');
+
+  const html = `
+    <div style="margin-bottom:12px">
+      <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:4px">${cm?.title || '未知比赛'}</div>
+      <div style="font-size:13px;color:#94a3b8">ID: #${cmId} · ${gameStr} · ${startStr}</div>
+    </div>
+    <div style="background:#1e293b;border-radius:6px;padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:13px;color:#cbd5e1;margin-bottom:6px">涉及 ${platCount} 个平台：</div>
+      <table style="width:100%;font-size:13px">${platRows || '<tr><td style="color:#64748b">无</td></tr>'}</table>
+    </div>
+    <div style="font-size:13px;color:#94a3b8;line-height:1.6">
+      <div>· 比赛从 <b>client_matches</b> 移入历史表</div>
+      <div>· 各平台 <b>platform_matches</b> 对应行移入历史表</div>
+      <div style="margin-top:6px;color:#64748b">若采集器仍在上报同场比赛，会自动重新创建。</div>
+    </div>
+  `;
+
+  const modal = document.getElementById('archive-modal');
+  document.getElementById('archive-modal-title').textContent = '确认归档比赛';
+  document.getElementById('archive-modal-body').innerHTML = html;
+  modal.classList.remove('hidden');
+
+  const result = await new Promise(resolve => {
+    const onConfirm = () => { cleanup(); resolve(true); };
+    const onCancel = () => { cleanup(); resolve(false); };
+    const onBackdrop = (e) => { if (e.target === modal) { cleanup(); resolve(false); } };
+    function cleanup() {
+      document.getElementById('archive-modal-confirm').removeEventListener('click', onConfirm);
+      document.getElementById('archive-modal-cancel').removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      modal.classList.add('hidden');
+    }
+    document.getElementById('archive-modal-confirm').addEventListener('click', onConfirm);
+    document.getElementById('archive-modal-cancel').addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+  });
+
+  if (!result) return;
   try {
     const { res, data } = await fetchJson('/api/client-match/' + cmId, { method: 'DELETE' });
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
     const n = data.platformMatchesDeleted ?? 0;
     showActionToast(
-      [`比赛已结束`, `#${cmId} ${data.title || cm?.title || ''}`, `已归档 · ${n} 条 platform_matches 已归档`].join('\n'),
+      [`比赛已归档`, `#${cmId} ${data.title || cm?.title || ''}`, `${n} 条平台数据已归档`].join('\n'),
       'ok',
       5200,
     );
     await load();
   } catch (err) {
-    showActionToast(`比赛已结束失败\n#${cmId}\n${err.message}`, 'err', 6000);
+    showActionToast(`归档失败\n#${cmId}\n${err.message}`, 'err', 6000);
   }
 }
 
