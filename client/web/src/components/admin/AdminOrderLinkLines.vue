@@ -55,7 +55,7 @@ function recalc() {
     // Find which column each element belongs to
     const colElements = new Map<HTMLElement, HTMLElement[]>();
     for (const el of elements) {
-      const col = el.closest(".admin-orders-account-col") as HTMLElement | null;
+      const col = (el.closest(".admin-orders-account-col") || el.closest(".workspace-col")) as HTMLElement | null;
       if (!col)
         continue;
       if (!colElements.has(col))
