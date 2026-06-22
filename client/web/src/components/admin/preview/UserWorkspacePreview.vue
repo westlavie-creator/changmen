@@ -1,96 +1,168 @@
 <script setup lang="ts">
-import type { AdminUserRow } from "@/types/admin";
-import { storeToRefs } from "pinia";
-import { onMounted, ref, watch } from "vue";
-import AccountBar from "@/components/account/AccountBar.vue";
-import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
-import AppSidebar from "@/components/layout/AppSidebar.vue";
-import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
+import type { AdminOrderRow, AdminUserRow } from "@/types/admin";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { computed, onMounted, ref, watch } from "vue";
+import { deleteAdminOrders, getAdminOrdersAll } from "@/api/admin";
+import AdminAccountOrdersColumn from "@/components/admin/AdminAccountOrdersColumn.vue";
+import AdminOrderLinkLines from "@/components/admin/AdminOrderLinkLines.vue";
+import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { todayKey } from "@/shared/dateKey";
-import { useAccountStore } from "@/stores/accountStore";
 
 const props = defineProps<{
   user: AdminUserRow;
 }>();
 
-const emit = defineEmits<{ viewOrders: [] }>();
+defineEmits<{ viewOrders: [] }>();
 
-const accountStore = useAccountStore();
-const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
+const date = ref(todayKey());
+const loading = ref(false);
+const orders = ref<AdminOrderRow[]>([]);
+const loadError = ref("");
+const columnsContainerRef = ref<HTMLElement | null>(null);
 
-const ordersError = ref("");
+interface AccountColumn {
+  key: string;
+  provider: string;
+  playerId: number;
+  playerName: string;
+  orders: AdminOrderRow[];
+}
 
-async function refreshOrders(date = todayKey()) {
-  ordersError.value = "";
-  try {
-    await loadEmbeddedUserOrders(props.user.id, date);
+const accountColumns = computed<AccountColumn[]>(() => {
+  const byAccount = new Map<string, AccountColumn>();
+  for (const row of orders.value) {
+    const key = `${row.provider}:${row.playerId}`;
+    if (!byAccount.has(key)) {
+      byAccount.set(key, { key, provider: row.provider, playerId: row.playerId, playerName: "", orders: [] });
+    }
+    byAccount.get(key)!.orders.push(row);
   }
-  catch (err) {
-    ordersError.value = err instanceof Error ? err.message : "订单加载失败";
-    console.warn("[adminUserWorkspace] load orders:", err);
+  for (const acc of props.user.accounts ?? []) {
+    const key = `${acc.platform}:${acc.accountId}`;
+    const col = byAccount.get(key);
+    if (col)
+      col.playerName = acc.playerName;
+  }
+  return [...byAccount.values()].sort((a, b) =>
+    a.provider.localeCompare(b.provider) || a.playerName.localeCompare(b.playerName),
+  );
+});
+
+const profitTotal = computed(() =>
+  orders.value.reduce((sum, r) => sum + (Number(r.money) || 0), 0),
+);
+
+const linkLinesKey = computed(() => orders.value.length);
+
+function fmtMoney(n: number) {
+  return Math.floor(n).toLocaleString();
+}
+
+async function loadOrders() {
+  loading.value = true;
+  loadError.value = "";
+  try {
+    const page = await getAdminOrdersAll({ userId: props.user.id, date: date.value });
+    orders.value = page.list ?? [];
+  }
+  catch (e) {
+    orders.value = [];
+    loadError.value = (e as Error).message || "加载失败";
+  }
+  finally {
+    loading.value = false;
   }
 }
 
-onMounted(() => {
-  void refreshOrders();
-});
+async function onDeleteOrders(rows: AdminOrderRow[]) {
+  if (!rows.length)
+    return;
+  const ids = rows.map(r => r.id);
+  const label = rows.length > 1
+    ? `这 ${rows.length} 笔套利订单（Link ${rows[0]?.linkId || "—"}）`
+    : `订单 ${rows[0]?.orderId || ids[0]}`;
+  try {
+    await ElMessageBox.confirm(`确认删除 ${label}？此操作不可恢复。`, "删除订单", {
+      type: "warning",
+      confirmButtonText: "删除",
+      cancelButtonText: "取消",
+    });
+  }
+  catch {
+    return;
+  }
+  try {
+    const res = await deleteAdminOrders(ids);
+    ElMessage.success(`已删除 ${res.deleted} 笔订单`);
+    await loadOrders();
+  }
+  catch (e) {
+    ElMessage.error((e as Error).message || "删除失败");
+  }
+}
 
-watch(
-  () => props.user.id,
-  () => {
-    void refreshOrders();
-  },
-);
+watch(date, () => void loadOrders());
+watch(() => props.user.id, () => void loadOrders());
+
+onMounted(() => void loadOrders());
 </script>
 
 <template>
-  <div class="user-workspace-preview">
-    <AccountEditDialog
-      :open="editDialogOpen"
-      :account="editDialogAccount"
-      readonly
-      @close="accountStore.closeAccountDialog()"
-    />
-    <p v-if="ordersError" class="user-workspace-preview__err">
-      {{ ordersError }}
+  <div class="user-workspace-preview" v-loading="loading">
+    <div class="user-workspace-preview__toolbar">
+      <OrderDateNav v-model="date" placeholder="日期" />
+      <el-button size="small" @click="loadOrders">
+        刷新
+      </el-button>
+      <span v-if="orders.length" class="user-workspace-preview__summary">
+        {{ accountColumns.length }} 个账号 · {{ orders.length }} 笔订单 ·
+        利润
+        <span :class="{ pos: profitTotal > 0, neg: profitTotal < 0 }">{{ fmtMoney(profitTotal) }}</span>
+      </span>
+    </div>
+
+    <p v-if="loadError" class="user-workspace-preview__err">
+      {{ loadError }}
     </p>
-    <el-container class="common-layout home-view user-workspace-preview__layout">
-      <el-aside width="260px">
-        <AppSidebar
-          embedded
-          :embedded-user-id="user.id"
-          :embedded-user-name="user.userName"
-          @view-orders="emit('viewOrders')"
-        />
-      </el-aside>
-      <el-container>
-        <el-header>
-          <AccountBar embedded />
-        </el-header>
-        <el-main class="user-workspace-preview__main">
-          <p class="user-workspace-preview__hint">
-            与前台布局一致：侧栏为当日订单（只读），顶栏为账号卡；点齿轮 / 编辑可查看配置（不可保存）。
-          </p>
-        </el-main>
-      </el-container>
-    </el-container>
+
+    <div
+      v-if="accountColumns.length"
+      ref="columnsContainerRef"
+      class="admin-orders-by-account"
+    >
+      <AdminAccountOrdersColumn
+        v-for="col in accountColumns"
+        :key="col.key"
+        :provider="col.provider"
+        :player-id="col.playerId"
+        :player-name="col.playerName"
+        :orders="col.orders"
+        :accounts="user.accounts ?? []"
+        @delete="onDeleteOrders"
+      />
+      <AdminOrderLinkLines
+        :container-ref="columnsContainerRef"
+        :key="linkLinesKey"
+      />
+    </div>
+
+    <p v-if="!loading && !loadError && !accountColumns.length" class="user-workspace-preview__empty">
+      {{ date }} 暂无订单
+    </p>
   </div>
 </template>
 
 <style scoped>
 .user-workspace-preview {
-  min-height: 560px;
+  min-height: 400px;
 }
-.user-workspace-preview__layout {
-  min-height: 560px;
+.user-workspace-preview__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px 12px;
 }
-.user-workspace-preview__main {
-  padding: 12px 16px 20px;
-  overflow: auto;
-}
-.user-workspace-preview__hint {
-  margin: 24px 0 0;
-  text-align: center;
+.user-workspace-preview__summary {
   font-size: 13px;
   color: #94a3b8;
 }
@@ -101,5 +173,11 @@ watch(
   color: #f87171;
   background: rgba(248, 113, 113, 0.08);
   border-bottom: 1px solid rgba(248, 113, 113, 0.2);
+}
+.user-workspace-preview__empty {
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 40px 0;
 }
 </style>
