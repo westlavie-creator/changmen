@@ -146,51 +146,51 @@ onMounted(() => void loadOrders());
       {{ loadError }}
     </p>
 
-    <div
-      v-if="sortedAccounts.length"
-      ref="columnsContainerRef"
-      class="workspace-columns"
-    >
+    <div v-if="sortedAccounts.length" class="workspace-wrapper">
       <div
-        v-for="acc in sortedAccounts"
-        :key="acc.accountId"
-        class="workspace-col"
+        ref="columnsContainerRef"
+        class="workspace-columns"
       >
-        <AccountCard
-          :account="acc"
-          preview
-          class="workspace-col__card"
-          @edit="accountStore.openEditAccount(acc)"
-        />
-        <div class="workspace-col__orders">
-          <div v-if="!orderEntriesForAccount(acc).length" class="workspace-col__empty">
-            暂无订单
-          </div>
-          <OrderList
-            v-else
-            :order-entries="orderEntriesForAccount(acc)"
-            :player-label="playerLabel"
-          >
-            <template #group-actions="{ link }">
-              <div class="workspace-col__actions">
-                <el-button link type="primary" size="small" @click="openLogs(adminRowsForLink(acc, link))">
-                  诊断
-                </el-button>
-                <el-button link type="danger" size="small" @click="onDeleteOrders(adminRowsForLink(acc, link))">
-                  删除
-                </el-button>
-              </div>
-            </template>
-          </OrderList>
-          <div v-if="ordersForAccount(acc).length" class="workspace-col__profit-row">
-            <span
-              :class="{ pos: dayProfitForAccount(acc) > 0, neg: dayProfitForAccount(acc) < 0 }"
-            >{{ fmtMoney(dayProfitForAccount(acc)) }}</span>
-            <span class="workspace-col__count">{{ ordersForAccount(acc).length }} 笔</span>
+        <div
+          v-for="acc in sortedAccounts"
+          :key="acc.accountId"
+          class="workspace-col"
+        >
+          <AccountCard
+            :account="acc"
+            preview
+            class="workspace-col__card"
+            @edit="accountStore.openEditAccount(acc)"
+          />
+          <div class="workspace-col__orders">
+            <div v-if="!orderEntriesForAccount(acc).length" class="workspace-col__empty">
+              暂无订单
+            </div>
+            <OrderList
+              v-else
+              :order-entries="orderEntriesForAccount(acc)"
+              :player-label="playerLabel"
+            >
+              <template #group-actions="{ link }">
+                <div class="workspace-col__actions">
+                  <el-button link type="primary" size="small" @click="openLogs(adminRowsForLink(acc, link))">
+                    诊断
+                  </el-button>
+                  <el-button link type="danger" size="small" @click="onDeleteOrders(adminRowsForLink(acc, link))">
+                    删除
+                  </el-button>
+                </div>
+              </template>
+            </OrderList>
+            <div v-if="ordersForAccount(acc).length" class="workspace-col__profit-row">
+              <span
+                :class="{ pos: dayProfitForAccount(acc) > 0, neg: dayProfitForAccount(acc) < 0 }"
+              >{{ fmtMoney(dayProfitForAccount(acc)) }}</span>
+              <span class="workspace-col__count">{{ ordersForAccount(acc).length }} 笔</span>
+            </div>
           </div>
         </div>
       </div>
-
       <AdminOrderLinkLines
         :container-ref="columnsContainerRef"
         :key="linkLinesKey"
@@ -235,6 +235,10 @@ onMounted(() => void loadOrders());
   margin: 40px 0;
 }
 
+.workspace-wrapper {
+  position: relative;
+  overflow-x: auto;
+}
 .workspace-columns {
   display: flex;
   flex-direction: row;
@@ -244,8 +248,13 @@ onMounted(() => void loadOrders());
   width: max-content;
   min-width: 100%;
   padding-bottom: 12px;
-  position: relative;
-  overflow-x: auto;
+}
+.workspace-wrapper :deep(.admin-link-lines) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
 }
 .workspace-col {
   flex: 0 0 260px;
