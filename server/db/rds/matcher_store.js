@@ -209,7 +209,7 @@ export async function deletePlatformMatchRow(platform, sourceMatchId) {
   const plat = String(platform || "").trim();
   const srcId = String(sourceMatchId || "").trim();
   await rdsQuery(
-    "DELETE FROM platform_matches WHERE platform = $1 AND source_match_id = $2",
+    "UPDATE platform_matches SET list_status = -1 WHERE platform = $1 AND source_match_id = $2 AND list_status IS DISTINCT FROM -1",
     [plat, srcId],
   );
 }

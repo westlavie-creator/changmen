@@ -37,8 +37,8 @@ async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatch
     [plat, ids],
   );
   await exec.query(
-    `DELETE FROM platform_matches
-     WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))`,
+    `UPDATE platform_matches SET list_status = -1
+     WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[])) AND list_status IS DISTINCT FROM -1`,
     [plat, ids],
   );
 }
@@ -69,7 +69,8 @@ async function _rdsUpsertPlatformMatches(pool, rows) {
       bo = EXCLUDED.bo,
       is_live = EXCLUDED.is_live,
       teams = EXCLUDED.teams,
-      synced_at = EXCLUDED.synced_at
+      synced_at = EXCLUDED.synced_at,
+      list_status = 0
   `;
   try {
     await client.query("BEGIN");
