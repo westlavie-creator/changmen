@@ -7,9 +7,14 @@ type PluginAxiosLike = { data?: unknown };
 
 function unwrapPluginEnvelope(response: unknown): Record<string, unknown> {
   if (response && typeof response === "object" && "data" in response) {
-    return (response as PluginAxiosLike).data as Record<string, unknown>;
+    const data = (response as PluginAxiosLike).data;
+    if (data && typeof data === "object" && !Array.isArray(data))
+      return data as Record<string, unknown>;
+    return {};
   }
-  return (response as Record<string, unknown>) ?? {};
+  if (response && typeof response === "object" && !Array.isArray(response))
+    return response as Record<string, unknown>;
+  return {};
 }
 
 /** 对齐 A8 `by(account)` */

@@ -244,9 +244,9 @@ export function mapStakeOrderRow(bet: Record<string, unknown>): VenueOrder {
   const outcome = (o0?.outcome as Record<string, unknown> | undefined) ?? {};
   const market = (o0?.market as Record<string, unknown> | undefined) ?? {};
   const fixture = (o0?.fixture as Record<string, unknown> | undefined) ?? {};
-  const tournament = (fixture.tournament as Record<string, unknown> | undefined) ?? {};
-  const category = (tournament.category as Record<string, unknown> | undefined) ?? {};
-  const sport = (category.sport as Record<string, unknown> | undefined) ?? {};
+  const tournament = (fixture?.tournament as Record<string, unknown> | undefined) ?? {};
+  const category = (tournament?.category as Record<string, unknown> | undefined) ?? {};
+  const sport = (category?.sport as Record<string, unknown> | undefined) ?? {};
 
   return {
     provider: PLATFORMS.Stake,
@@ -434,7 +434,7 @@ export const stakeProvider: PlatformProvider = {
     }
 
     const sportBet = data.sportBet as Record<string, unknown>;
-    const outcomes = (sportBet.outcomes as Array<Record<string, unknown>> | undefined) ?? [];
+    const outcomes = (sportBet?.outcomes as Array<Record<string, unknown>> | undefined) ?? [];
     const o0 = first(outcomes);
     lastBetAtByMarket.set(option.betId, Date.now());
 
