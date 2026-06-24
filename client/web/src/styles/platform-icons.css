@@ -74,6 +74,26 @@
   background-image:url(/copy/img/dex-logo-color.webp);
 }
 
+.cm-platform-icon.Polymarket,
+.provider-icon.Polymarket {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  border-radius:50%;
+  background:#1652f0;
+  color:#fff;
+  font-size:9px;
+  font-weight:800;
+  line-height:1;
+  letter-spacing:-.6px;
+}
+
+.cm-platform-icon.Polymarket::after,
+.provider-icon.Polymarket::after {
+  content:"PM";
+}
+
 .credit .cm-platform-icon,
 .credit .provider-icon {
   width:22px;height:22px;

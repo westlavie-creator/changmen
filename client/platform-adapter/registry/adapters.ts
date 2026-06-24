@@ -13,6 +13,7 @@ import { xbetAdapter } from "@platform/xbet";
 import { stakeAdapter } from "@platform/stake";
 import { dexAdapter } from "@platform/dex";
 import { hgAdapter } from "@platform/hg";
+import { polymarketAdapter } from "@platform/polymarket";
 import {
   betPlatformIds,
   collectPlatformIds,
@@ -34,6 +35,7 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
   hgAdapter,
   stakeAdapter,
   dexAdapter,
+  polymarketAdapter,
 ];
 
 const adapterById = new Map<PlatformId, PlatformAdapter>(

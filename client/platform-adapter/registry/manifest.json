@@ -186,5 +186,22 @@
     "collectionDesc": "插件 HTTP 代理 → Sportsbook REST API",
     "implementation": "wip",
     "streamMeta": null
+  },
+  {
+    "id": "Polymarket",
+    "dir": "polymarket",
+    "sort": 12,
+    "collect": true,
+    "bet": false,
+    "label": "Polymarket",
+    "labelZh": "Polymarket",
+    "collectionMode": "http_ws",
+    "collectionDesc": "Gamma/CLOB REST 快照 + Market WebSocket，只读数据",
+    "implementation": "wip",
+    "saveMatchIntervalMs": 60000,
+    "streamMeta": {
+      "key": "ws",
+      "protocol": "WS"
+    }
   }
 ]

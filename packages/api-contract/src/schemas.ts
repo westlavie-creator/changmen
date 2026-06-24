@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const PlatformId = z.enum(["OB", "RAY", "TF", "IA", "SABA", "PB", "IM", "IMT", "HG", "Stake", "XBet", "Dex"]);
+const PlatformId = z.enum(["OB", "RAY", "TF", "IA", "SABA", "PB", "IM", "IMT", "HG", "Stake", "XBet", "Dex", "Polymarket"]);
 
 // ── Auth ──
 

@@ -14,7 +14,8 @@ export type PlatformId
     | "HG"
     | "Stake"
     | "XBet"
-    | "Dex";
+    | "Dex"
+    | "Polymarket";
 
 export interface LoginInfo {
   token: string;

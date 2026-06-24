@@ -33,6 +33,23 @@ const STAKE_A8_ALIASES: Record<string, string> = {
   Valorant: "valorant",
 };
 
+/** Polymarket Gamma events series_slug / tag slug aliases. */
+const POLYMARKET_ALIASES: Record<string, string> = {
+  "counter-strike": "cs2",
+  "counter-strike-2": "cs2",
+  "cs2": "cs2",
+  "league-of-legends": "lol",
+  "lol": "lol",
+  "dota-2": "dota2",
+  "dota2": "dota2",
+  "honor-of-kings": "kog",
+  "king-of-glory": "kog",
+  "kings-of-glory": "kog",
+  "hok": "kog",
+  "kog": "kog",
+  "valorant": "valorant",
+};
+
 /** TF 王者荣耀：A8 采集用 14；旧 probe 曾记 43 */
 const TF_GAME_ALIASES: Record<number, string> = {
   43: "kog",
@@ -80,6 +97,11 @@ function getGameCodeForPlatformId(platform: string, gameId: string | number): st
   }
   if (platform === "Stake") {
     const alias = STAKE_A8_ALIASES[id];
+    if (alias)
+      return alias;
+  }
+  if (platform === "Polymarket") {
+    const alias = POLYMARKET_ALIASES[id.toLowerCase()];
     if (alias)
       return alias;
   }

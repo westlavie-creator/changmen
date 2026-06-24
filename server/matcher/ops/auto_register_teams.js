@@ -6,11 +6,12 @@ import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog"
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 
 /**
- * rebuild 时自动收录 TF / OB / RAY / IA / PB 平台尚未在 team_platform_maps 中的队伍。
+ * rebuild 时自动收录指定平台尚未在 team_platform_maps 中的队伍。
  * 仅写入待识别记录（canonical_id = NULL），不分配 gb_team_id。
  */
 
-const AUTO_REGISTER_PLATFORMS = new Set(["TF", "OB", "RAY", "IA", "PB"]);
+const AUTO_REGISTER_PLATFORMS = new Set(["TF", "OB", "RAY", "IA", "PB", "Stake", "Polymarket"]);
+const AUTO_REGISTER_PLATFORM_LABEL = [...AUTO_REGISTER_PLATFORMS].join("/");
 const UPSERT_BATCH = 200;
 
 function normalizePlatformId(id) {
@@ -123,7 +124,7 @@ async function autoRegisterTeams(matchesRaw) {
   }
 
   if (registered > 0) {
-    console.log(`[matcher] 自动收录 ${registered} 条平台队伍（TF/OB/RAY/IA/PB）`);
+    console.log(`[matcher] 自动收录 ${registered} 条平台队伍（${AUTO_REGISTER_PLATFORM_LABEL}）`);
   }
 
   return { scanned: candidates.size, registered };

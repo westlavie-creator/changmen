@@ -7,6 +7,13 @@ assert.deepEqual(g.resolveClientGame("IA", "3"), { Game: "CS:GO", GameID: 3 });
 assert.equal(g.getGameCodeForPlatformId("TF", "14"), "kog");
 assert.equal(g.getGameCodeForPlatformId("IA", "16"), "kog");
 assert.equal(g.getGameCodeForPlatformId("RAY", "140"), "cs2");
+assert.equal(g.getGameCodeForPlatformId("Polymarket", "cs2"), "cs2");
+assert.equal(g.getPlatformGameId("Polymarket", "lol"), "lol");
+assert.equal(g.getGameCodeForPlatformId("Polymarket", "kog"), "kog");
+assert.equal(g.getGameCodeForPlatformId("Polymarket", "counter-strike"), "cs2");
+assert.equal(g.getGameCodeForPlatformId("Polymarket", "league-of-legends"), "lol");
+assert.equal(g.getGameCodeForPlatformId("Polymarket", "dota-2"), "dota2");
+assert.equal(g.getGameCodeForPlatformId("Polymarket", "honor-of-kings"), "kog");
 assert.ok(g.getActivePlatformGameIds("OB").length > 0);
 
 const pb = await import("./pb_team_platform_id.ts");

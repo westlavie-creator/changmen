@@ -19,6 +19,7 @@
         "SABA": "43",
         "Stake": "counter-strike",
         "Dex": "csgo",
+        "Polymarket": "cs2",
         "IM": "47",
         "XBet": "43"
       }
@@ -38,6 +39,7 @@
         "SABA": "43",
         "Stake": "kings-of-glory",
         "Dex": "king-of-glory",
+        "Polymarket": "kog",
         "IM": "48",
         "XBet": "43"
       }
@@ -57,6 +59,7 @@
         "SABA": "43",
         "Stake": "valorant",
         "Dex": "valorant",
+        "Polymarket": "valorant",
         "IM": "65",
         "XBet": "43"
       }
@@ -76,6 +79,7 @@
         "SABA": "43",
         "Stake": "league-of-legends",
         "Dex": "lol",
+        "Polymarket": "lol",
         "IM": "45",
         "XBet": "43"
       }
@@ -95,6 +99,7 @@
         "SABA": "43",
         "Stake": "dota-2",
         "Dex": "dota2",
+        "Polymarket": "dota2",
         "IM": "46",
         "XBet": "43"
       }
