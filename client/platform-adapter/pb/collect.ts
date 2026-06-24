@@ -34,16 +34,7 @@ export function startPbCollector(): () => void {
           await wait(POLL_MS);
           continue;
         }
-
-        if (!hasA8PluginRuntime()) {
-          if (!pluginMissingNotified) {
-            notifyCollectError("PB", PB_PLUGIN_REQUIRED_MSG);
-            pluginMissingNotified = true;
-          }
-          await wait(POLL_MS);
-          continue;
-        }
-        pluginMissingNotified = false;
+        const games = await getGames(PLATFORM);
 
         const account = resolvePbAccount();
 
@@ -54,7 +45,17 @@ export function startPbCollector(): () => void {
           continue;
         }
 
-        const games = await getGames(PLATFORM);
+        const pluginReady = hasA8PluginRuntime();
+        if (!pluginReady) {
+          if (!pluginMissingNotified) {
+            notifyCollectError("PB", PB_PLUGIN_REQUIRED_MSG);
+            pluginMissingNotified = true;
+          }
+          await wait(POLL_MS);
+          continue;
+        }
+        pluginMissingNotified = false;
+
         const allowedSlugs = games.map(slugify);
         const data = await pbCollectEuroOdds(account, true);
         if (!data) {

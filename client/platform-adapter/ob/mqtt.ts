@@ -1,10 +1,10 @@
-import { getCollectPlatform } from "@/api/esport";
 import type { ViewMatch } from "@/models/match";
 import { PLATFORMS } from "@/shared/platform";
 import { getObBetNameRe } from "./parse";
 import { refreshObMatchMarkets } from "./markets";
 import { parseObOddField } from "./parse";
 import { useOddsStore } from "@/stores/oddsStore";
+import type { CollectPlatformInfo } from "@/types/esport";
 import {
   createObRealtimeClient,
   getObMqttSourceMode,
@@ -48,6 +48,7 @@ let realtime: ObRealtimeClient | null = null;
 const subscribedIds = new Set<string>();
 let onRefresh: (() => void) | null = null;
 let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let latestCollectPlatform: CollectPlatformInfo | null = null;
 
 const MQTT_REFRESH_DEBOUNCE_MS = 200;
 
@@ -74,6 +75,10 @@ export function isObMqttConnected(): boolean {
 
 export function isObMatchSubscribed(sourceMatchId: string): boolean {
   return subscribedIds.has(String(sourceMatchId));
+}
+
+export function setObMqttCollectPlatform(platform: CollectPlatformInfo | null): void {
+  latestCollectPlatform = platform;
 }
 
 export function handleObMqttMessage(
@@ -178,6 +183,7 @@ export function disconnectObMqtt(): void {
   subscribedIds.clear();
   void realtime?.stop();
   realtime = null;
+  latestCollectPlatform = null;
 }
 
 function subscribeObMatch(matchId: string): Promise<void> {
@@ -236,7 +242,7 @@ export async function syncObMqttFromGetMatchs(
 
 /** Client_GetMatchs 拉完后：只订列表里的 OB 场；新场灌 fo 后 subscribe */
 export async function syncObMqttSubscriptionsForGetMatchs(matches: ViewMatch[]): Promise<void> {
-  const platform = await getCollectPlatform(PLATFORM);
+  const platform = latestCollectPlatform;
   if (!platform?.Gateway) return;
   const betRe = getObBetNameRe(platform.BetName);
 

@@ -54,28 +54,33 @@ export function startImtCollector(): () => void {
       const started = Date.now();
       let matchCount = 0;
       try {
-        const platform = await getCollectPlatform(PLATFORM);
+        const [platform, games] = await Promise.all([
+          getCollectPlatform(PLATFORM),
+          getGames(PLATFORM),
+        ]);
         if (!platform) {
           await wait(POLL_MS);
           continue;
         }
 
-        const session = await resolveCollectSession(PLATFORM, { preferAccountWithBalance: true });
+        const session = await resolveCollectSession(PLATFORM, {
+          preferAccountWithBalance: true,
+          allowPlatformFallback: false,
+        });
         if (!session) {
-          console.warn("[IMT] 采集跳过：无账号或 platforms.json 凭证");
+          console.log(PLATFORM, "当前未检测到账号");
           odds.clean(PLATFORM);
           await wait(3_000);
           continue;
         }
 
-        const games = await getGames(PLATFORM);
-        const sportIdList = games.length
-          ? games.map((g) => Number(g)).filter((n) => !Number.isNaN(n))
-          : IMT_DEFAULT_SPORT_IDS.map(Number);
-
         const shouldSave = Date.now() - lastSaveAt > SAVE_MS;
 
         if (shouldSave) {
+          const sportIdList = games.length
+            ? games.map((g) => Number(g)).filter((n) => !Number.isNaN(n))
+            : IMT_DEFAULT_SPORT_IDS.map(Number);
+
           const body = {
             AllLiveEventsRequestGroups: sportIdList.map((id) => ({
               SportId: id,

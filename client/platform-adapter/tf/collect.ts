@@ -31,55 +31,57 @@ function tfListEventCollectAllowed(row: Record<string, unknown>): boolean {
 
 export function startTfCollector(): () => void {
   let stopped = false;
+  let stopWs: (() => void) | null = null;
 
   const odds = useOddsStore();
   const collect = useCollectStore();
   const matchStore = useMatchStore();
 
-  const stopWs = startTfOddsWs({
-    getToken: async () => {
-      const platform = await getCollectPlatform(PLATFORM);
-      return platform?.Token;
-    },
-    onMessage: (payload) => {
-      const data = payload.data;
-      if (!data?.selection || !data.market_id) return;
+  const start = async () => {
+    const [platform, games] = await Promise.all([
+      getCollectPlatform(PLATFORM),
+      getGames(PLATFORM),
+    ]);
+    if (!platform?.Gateway || !platform.Token) {
+      console.warn("[TF] 采集跳过：无 Gateway/Token（A8 Client_GetCollectPlatform）");
+      return;
+    }
 
-      const marketId = String(data.market_id);
-      const now = Date.now();
-      for (const sel of data.selection) {
-        const id = selectionOddsId(marketId, String(sel.name ?? ""));
-        if (!odds.isOdds(PLATFORM, id)) continue;
-        odds.save(PLATFORM, {
-          id,
-          odds: Number(sel.euro_odds) || 0,
-          isLock: sel.status !== "open",
-          betId: marketId,
-          time: now,
-        });
-      }
-      matchStore.refreshOddsOnBets();
-    },
-    onError: () => {
-      notifyCollectError(PLATFORM, "WebSocket链接发生错误");
-    },
-  });
+    const betRe = compileTfBetNameRegex(platform.BetName);
 
-  const poll = async () => {
+    stopWs = startTfOddsWs({
+      getToken: async () => {
+        const wsPlatform = await getCollectPlatform(PLATFORM);
+        return wsPlatform?.Token;
+      },
+      onMessage: (payload) => {
+        const data = payload.data;
+        if (!data?.selection || !data.market_id) return;
+
+        const marketId = String(data.market_id);
+        const now = Date.now();
+        for (const sel of data.selection) {
+          const id = selectionOddsId(marketId, String(sel.name ?? ""));
+          if (!odds.isOdds(PLATFORM, id)) continue;
+          odds.save(PLATFORM, {
+            id,
+            odds: Number(sel.euro_odds) || 0,
+            isLock: sel.status !== "open",
+            betId: marketId,
+            time: now,
+          });
+        }
+        matchStore.refreshOddsOnBets();
+      },
+      onError: () => {
+        notifyCollectError(PLATFORM, "WebSocket链接发生错误");
+      },
+    });
+
     while (!stopped) {
       const started = Date.now();
       let matchCount = 0;
       try {
-        const platform = await getCollectPlatform(PLATFORM);
-        if (!platform?.Gateway || !platform.Token) {
-          console.warn("[TF] 采集跳过：无 Gateway/Token（A8 Client_GetCollectPlatform）");
-          await wait(TF_POLL_MS);
-          continue;
-        }
-
-        const games = await getGames(PLATFORM);
-        const betRe = compileTfBetNameRegex(platform.BetName);
-
         const listRes = await collectTfGet<{ results?: Array<Record<string, unknown>> }>(platform, {
           game_id: "",
           timing: "today",
@@ -119,10 +121,10 @@ export function startTfCollector(): () => void {
     }
   };
 
-  void poll();
+  void start();
 
   return () => {
     stopped = true;
-    stopWs();
+    stopWs?.();
   };
 }

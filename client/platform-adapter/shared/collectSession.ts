@@ -13,9 +13,9 @@ export interface CollectHttpSession {
 
 export async function resolveCollectSession(
   provider: PlatformId,
-  opts: { preferAccountWithBalance?: boolean } = {},
+  opts: { preferAccountWithBalance?: boolean; allowPlatformFallback?: boolean } = {},
 ): Promise<CollectHttpSession | null> {
-  const { preferAccountWithBalance = true } = opts;
+  const { preferAccountWithBalance = true, allowPlatformFallback = true } = opts;
   const accounts = useAccountStore().accounts;
 
   const acc = accounts.find((a) => {
@@ -32,6 +32,9 @@ export async function resolveCollectSession(
       userAgent: acc.userAgent,
     };
   }
+
+  if (!allowPlatformFallback)
+    return null;
 
   const platform = await getCollectPlatform(provider);
   if (platform?.Gateway && platform.Token) {

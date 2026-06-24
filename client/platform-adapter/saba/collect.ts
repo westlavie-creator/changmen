@@ -1,7 +1,6 @@
 import { io, type Socket } from "socket.io-client";
-import { getGames } from "@/api/esport";
+import { getCollectPlatform, getGames } from "@/api/esport";
 import { fetchSabaEsportsPage } from "./parse";
-import { resolveCollectSession } from "@platform/shared/collectSession";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/shared/platform";
 import {
@@ -36,13 +35,20 @@ export function startSabaCollector(): () => void {
   const matchStore = useMatchStore();
 
   const runOnce = async () => {
-    const session = await resolveCollectSession(PLATFORM, { preferAccountWithBalance: false });
-    if (!session) {
+    const [platform, games] = await Promise.all([
+      getCollectPlatform(PLATFORM),
+      getGames(PLATFORM),
+    ]);
+    if (!platform?.Gateway || !platform.Token) {
       console.warn("[SABA] 采集跳过：无 Gateway/Token");
       odds.clean(PLATFORM);
       await wait(60_000);
       return;
     }
+    const session = {
+      gateway: platform.Gateway,
+      token: platform.Token,
+    };
 
     let html = sessionStorage.getItem(SABA_CACHE_KEY) ?? "";
     if (!html) {
@@ -59,7 +65,6 @@ export function startSabaCollector(): () => void {
     }
 
     const wsConfig = buildSabaWsConfig(parsed, session);
-    const games = await getGames(PLATFORM);
     const matchRows = new Map<string, SabaMatchRow>();
     const oddRows = new Map<string, SabaOddsRow>();
     const leagueRows = new Map<string, Record<string, unknown>>();

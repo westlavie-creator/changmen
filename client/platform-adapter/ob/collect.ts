@@ -10,6 +10,7 @@ import { collectObGet, loadMarketsForMatch, maxStageFromBo } from "./markets";
 import {
   connectObMqtt,
   disconnectObMqtt,
+  setObMqttCollectPlatform,
   subscribeObMatchAfterView,
   unsubscribeObMatchBeforeView,
 } from "./mqtt";
@@ -99,25 +100,6 @@ export async function refreshObCollectToken(): Promise<string | null> {
     if (!token) return null;
     await updatePlatform({ provider: PLATFORMS.OB, token });
     return token;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * platforms.json 里 gateway 失效（HTTP 510 等）时，用试玩 login 换新 gateway+token。
- * A8 由服务端 getPlatform 保活 gateway；changmen 本地需此补货，否则 MQTT 仍可用但采集到不了 mIe。
- */
-async function refreshObCollectGateway(): Promise<CollectPlatformInfo | null> {
-  try {
-    const body = await directGet<{ data?: { pc?: string; token?: string } }>(OB_DEMO_LOGIN_URL, {});
-    const pc = body?.data?.pc;
-    if (!pc) return null;
-    const { token: urlToken, gateway } = parseObPcEntry(pc);
-    const token = body.data?.token || urlToken;
-    if (!token || !gateway) return null;
-    await updatePlatform({ provider: PLATFORMS.OB, gateway, token });
-    return (await getCollectPlatform(PLATFORM)) ?? null;
   } catch {
     return null;
   }
@@ -214,27 +196,15 @@ export function startObCollector(): () => void {
           await wait(POLL_MS);
           continue;
         }
+        setObMqttCollectPlatform(platform);
 
         const betRe = getObBetNameRe(platform.BetName);
 
-        let index: { status: string; data?: Array<Record<string, unknown>> | string };
-        try {
-          index = await collectObGet<{ status: string; data?: Array<Record<string, unknown>> | string }>(
-            platform,
-            "game/index",
-            "game_id=0&flag=1&day=1",
-          );
-        } catch (err) {
-          console.warn("[OB] game/index failed, refreshing gateway from demo login", err);
-          const refreshed = await refreshObCollectGateway();
-          if (!refreshed) throw err;
-          platform = refreshed;
-          index = await collectObGet<{ status: string; data?: Array<Record<string, unknown>> | string }>(
-            platform,
-            "game/index",
-            "game_id=0&flag=1&day=1",
-          );
-        }
+        const index = await collectObGet<{ status: string; data?: Array<Record<string, unknown>> | string }>(
+          platform,
+          "game/index",
+          "game_id=0&flag=1&day=1",
+        );
         if (index.status === "false") {
           if (index.data === "token") {
             const token = await refreshObCollectToken();
