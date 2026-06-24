@@ -193,10 +193,11 @@
     "sort": 12,
     "collect": true,
     "bet": false,
+    "pluginOnly": true,
     "label": "Polymarket",
     "labelZh": "Polymarket",
-    "collectionMode": "http_ws",
-    "collectionDesc": "Gamma/CLOB REST 快照 + Market WebSocket，只读数据",
+    "collectionMode": "plugin_http_ws",
+    "collectionDesc": "扩展代发 Gamma/CLOB REST（绕过 CORS）+ Market WebSocket，只读数据",
     "implementation": "wip",
     "saveMatchIntervalMs": 60000,
     "streamMeta": {

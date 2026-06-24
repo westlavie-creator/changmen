@@ -39,3 +39,11 @@ describe("game_catalog TF mappings", () => {
     expect(resolveClientGame("TF", "43")).toEqual({ Game: "王者荣耀", GameID: 4 });
   });
 });
+
+describe("game_catalog Polymarket mappings", () => {
+  it("maps Polymarket aliases regardless of platform casing", () => {
+    expect(getGameCodeForPlatformId("Polymarket", "league-of-legends")).toBe("lol");
+    expect(getGameCodeForPlatformId("polymarket", "lol")).toBe("lol");
+    expect(resolveClientGame("polymarket", "honor-of-kings")).toEqual({ Game: "王者荣耀", GameID: 4 });
+  });
+});

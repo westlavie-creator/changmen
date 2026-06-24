@@ -1,4 +1,5 @@
 import type { CollectBetDto } from "@/types/collect";
+import { hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { a8StartTimeCollectAllowed } from "@/shared/a8MatchTime";
@@ -20,6 +21,7 @@ import {
   type PolymarketMappedMarket,
   type PolymarketBook,
 } from "./parse";
+import { POLYMARKET_PLUGIN_REQUIRED_MSG } from "./transport";
 
 const PLATFORM = PLATFORMS.Polymarket;
 const DISCOVERY_MS = 60_000;
@@ -95,6 +97,7 @@ export function startPolymarketCollector(): () => void {
   const marketsById = new Map<string, PolymarketMappedMarket>();
   const assetToMarket = new Map<string, string>();
   const pendingSave = new Map<string, CollectBetDto>();
+  let pluginMissingNotified = false;
 
   function trackedAssetIds(): string[] {
     const ids: string[] = [];
@@ -226,6 +229,15 @@ export function startPolymarketCollector(): () => void {
     connectWs();
     while (!stopped) {
       try {
+        if (!hasA8PluginRuntime()) {
+          if (!pluginMissingNotified) {
+            notifyCollectError("Polymarket", POLYMARKET_PLUGIN_REQUIRED_MSG);
+            pluginMissingNotified = true;
+          }
+          await wait(DISCOVERY_MS);
+          continue;
+        }
+        pluginMissingNotified = false;
         await runDiscovery();
       } catch (err) {
         console.warn("[Polymarket] collect error", err);

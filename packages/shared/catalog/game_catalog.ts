@@ -63,6 +63,17 @@ function getGameByCode(code: string): GameEntry | null {
   return (catalog.games as GameEntry[]).find(g => g.code === code) || null;
 }
 
+function normalizePlatformKey(platform: string): string {
+  const raw = String(platform || "").trim();
+  if (!raw)
+    return raw;
+  const lower = raw.toLowerCase();
+  const hit = (catalog.games as GameEntry[])
+    .flatMap(g => Object.keys(g.platforms || {}))
+    .find(key => key.toLowerCase() === lower);
+  return hit || raw;
+}
+
 function parseActiveGameCodes(): string[] {
   const raw = process.env.AGGREGATE_GAME_CODES;
   if (!raw || raw === "*") {
@@ -83,12 +94,14 @@ function getActiveGames(): GameEntry[] {
 }
 
 function getPlatformGameId(platform: string, code: string): string | null {
+  platform = normalizePlatformKey(platform);
   const game = getGameByCode(code);
   const id = game?.platforms?.[platform];
   return id != null ? String(id) : null;
 }
 
 function getGameCodeForPlatformId(platform: string, gameId: string | number): string | null {
+  platform = normalizePlatformKey(platform);
   const id = String(gameId);
   if (platform === "PB") {
     const alias = PB_SLUG_ALIASES[id];
@@ -126,6 +139,7 @@ function isAllowedPlatformGameId(platform: string, gameId: string | number): boo
 }
 
 function getActivePlatformGameIds(platform: string): string[] {
+  platform = normalizePlatformKey(platform);
   return getActiveGames()
     .map(g => g.platforms?.[platform])
     .filter(Boolean)

@@ -1,5 +1,5 @@
 import type { PolymarketBook, PolymarketRawEvent, PolymarketRawMarket } from "./parse";
-import { directGet } from "@/shared/http";
+import { polymarketPluginGet } from "./transport";
 
 export const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
 export const POLYMARKET_CLOB_API = "https://clob.polymarket.com";
@@ -47,13 +47,14 @@ export async function fetchPolymarketMarkets(limit = DEFAULT_MARKET_LIMIT): Prom
     order: "volume",
     ascending: "false",
   });
-  const data = await directGet<unknown>(`${POLYMARKET_GAMMA_API}/markets?${params.toString()}`, {});
+  const data = await polymarketPluginGet<unknown>(`${POLYMARKET_GAMMA_API}/markets?${params.toString()}`);
   return unwrapArray<PolymarketRawMarket>(data);
 }
 
 export async function fetchPolymarketEsportsMarkets(limit = DEFAULT_MARKET_LIMIT): Promise<PolymarketRawMarket[]> {
   const perSeriesLimit = Math.max(20, Math.ceil(limit / ESPORTS_SERIES_SLUGS.length));
-  const blocks = await Promise.all(ESPORTS_SERIES_SLUGS.map(async (seriesSlug) => {
+  const blocks: PolymarketRawMarket[] = [];
+  for (const seriesSlug of ESPORTS_SERIES_SLUGS) {
     const params = new URLSearchParams({
       active: "true",
       closed: "false",
@@ -61,23 +62,22 @@ export async function fetchPolymarketEsportsMarkets(limit = DEFAULT_MARKET_LIMIT
       limit: String(perSeriesLimit),
       series_slug: seriesSlug,
     });
-    const data = await directGet<unknown>(`${POLYMARKET_GAMMA_API}/events?${params.toString()}`, {});
+    const data = await polymarketPluginGet<unknown>(`${POLYMARKET_GAMMA_API}/events?${params.toString()}`);
     const events = unwrapArray<PolymarketRawEvent>(data);
-    return events.flatMap((event) => {
+    blocks.push(...events.flatMap((event) => {
       const markets = Array.isArray(event.markets) ? event.markets : [];
       return markets.map(market => marketWithEventContext(market, event));
-    });
-  }));
-  return blocks.flat();
+    }));
+  }
+  return blocks;
 }
 
 export async function fetchPolymarketBook(assetId: string): Promise<PolymarketBook | null> {
   if (!assetId)
     return null;
   const params = new URLSearchParams({ token_id: assetId });
-  const data = await directGet<PolymarketBook | { book?: PolymarketBook }>(
+  const data = await polymarketPluginGet<PolymarketBook | { book?: PolymarketBook }>(
     `${POLYMARKET_CLOB_API}/book?${params.toString()}`,
-    {},
   );
   if (!data)
     return null;
