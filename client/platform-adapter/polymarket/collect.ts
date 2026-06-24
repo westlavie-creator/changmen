@@ -27,7 +27,7 @@ const PLATFORM = PLATFORMS.Polymarket;
 const DISCOVERY_MS = 60_000;
 const WS_RECONNECT_MS = 5_000;
 const WS_PING_MS = 10_000;
-const WS_SAVE_INTERVAL_MS = 30_000;
+const SAVE_BETS_INTERVAL_MS = 5 * 60_000;
 const MAX_TRACKED_MARKETS = 80;
 
 function saveOddsEntry(odds: ReturnType<typeof useOddsStore>, bet: CollectBetDto, source: "http" | "mqtt") {
@@ -89,7 +89,7 @@ export function startPolymarketCollector(): () => void {
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
-  let lastWsSaveAt = 0;
+  let lastSaveBetsAt = 0;
 
   const collect = useCollectStore();
   const matchStore = useMatchStore();
@@ -113,12 +113,13 @@ export function startPolymarketCollector(): () => void {
 
   async function flushPendingBets() {
     if (!pendingSave.size) return;
+    if (Date.now() - lastSaveBetsAt < SAVE_BETS_INTERVAL_MS) return;
     const rows = [...pendingSave.values()];
     pendingSave.clear();
     for (const bet of rows) {
       await collect.saveBets(PLATFORM, bet.SourceMatchID, [bet]);
     }
-    lastWsSaveAt = Date.now();
+    lastSaveBetsAt = Date.now();
   }
 
   function updateBetFromAsset(assetId: string, bestAsk: string | number | undefined) {
@@ -145,7 +146,7 @@ export function startPolymarketCollector(): () => void {
     for (const update of extractPolymarketWsBestAsks(raw)) {
       updateBetFromAsset(update.assetId, update.bestAsk);
     }
-    if (Date.now() - lastWsSaveAt >= WS_SAVE_INTERVAL_MS) {
+    if (Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS) {
       void flushPendingBets();
     }
   }
@@ -214,13 +215,19 @@ export function startPolymarketCollector(): () => void {
     if (!candidates.length) return;
     const matches = [...new Map(candidates.map(row => [String(row.match.SourceMatchID), row.match])).values()];
     const saved = await collect.saveMatch(PLATFORM, matches);
+    const shouldSaveBets = saved && Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS;
     for (const mapped of candidates) {
       marketsById.set(mapped.marketId, mapped);
       assetToMarket.set(mapped.assetIds[0], mapped.marketId);
       assetToMarket.set(mapped.assetIds[1], mapped.marketId);
       saveOddsEntry(odds, mapped.bet, "http");
-      if (saved) await collect.saveBets(PLATFORM, mapped.match.SourceMatchID, [mapped.bet]);
+      if (shouldSaveBets) {
+        await collect.saveBets(PLATFORM, mapped.match.SourceMatchID, [mapped.bet]);
+        pendingSave.delete(mapped.marketId);
+      }
     }
+    if (shouldSaveBets)
+      lastSaveBetsAt = Date.now();
     matchStore.refreshOddsOnBets();
     subscribeTrackedAssets();
   };
