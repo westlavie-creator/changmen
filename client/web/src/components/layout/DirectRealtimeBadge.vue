@@ -4,12 +4,18 @@ import type { DirectRealtimeStatus } from "@platform/shared/directRealtimeStatus
 import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
 import { getDexSocketStatus, onDexSocketStatus } from "@platform/dex";
 import type { DexSocketStatus } from "@platform/dex";
+import {
+  getObMqttSourceMode,
+  toggleObMqttSourceModeAndReconnect,
+  type ObMqttSourceMode,
+} from "@platform/ob";
+import { ElMessage } from "element-plus";
 
 const { statuses } = useDirectRealtimeStatus();
 
 const dexStatus = ref<DexSocketStatus>(getDexSocketStatus());
+const obSourceMode = ref<ObMqttSourceMode>(getObMqttSourceMode());
 let dexUnsub: (() => void) | undefined;
-onMounted(() => { dexUnsub = onDexSocketStatus(s => { dexStatus.value = s; }); });
 onUnmounted(() => { dexUnsub?.(); });
 
 function dotClass(status: DirectRealtimeStatus): string {
@@ -71,7 +77,27 @@ function tooltip(status: DirectRealtimeStatus): string {
     lines.push(`最近推送：${formatAgo(status.lastUpstreamAt)}`);
   if (status.forwardedTopics)
     lines.push(`MQTT 订阅 ${status.forwardedTopics} 个 topic`);
+  if (status.platform === "OB") {
+    lines.push(`当前选择：${obSourceMode.value === "a8" ? "A8 源" : "官方源"}`);
+    lines.push("点击切换 A8 / 官方源");
+  }
   return lines.join("\n");
+}
+
+function itemClass(status: DirectRealtimeStatus): Record<string, boolean> {
+  return {
+    "direct-realtime-item--clickable": status.platform === "OB",
+  };
+}
+
+function handleStatusClick(status: DirectRealtimeStatus): void {
+  if (status.platform !== "OB") return;
+  obSourceMode.value = toggleObMqttSourceModeAndReconnect();
+  ElMessage({
+    message: `OB MQTT 已切换到${obSourceMode.value === "a8" ? "A8 源" : "官方源"}，正在重连`,
+    type: "success",
+    plain: true,
+  });
 }
 </script>
 
@@ -81,7 +107,13 @@ function tooltip(status: DirectRealtimeStatus): string {
       v-for="status in statuses"
       :key="status.platform"
       class="direct-realtime-item"
+      :class="itemClass(status)"
       :title="tooltip(status)"
+      :role="status.platform === 'OB' ? 'button' : undefined"
+      :tabindex="status.platform === 'OB' ? 0 : undefined"
+      @click="handleStatusClick(status)"
+      @keydown.enter.prevent="handleStatusClick(status)"
+      @keydown.space.prevent="handleStatusClick(status)"
     >
       <span class="direct-realtime-dot" :class="dotClass(status)" />
       {{ status.platform }}
@@ -121,11 +153,20 @@ function tooltip(status: DirectRealtimeStatus): string {
   color: #fff;
 }
 
+.direct-realtime-item--clickable {
+  cursor: pointer;
+}
+
+.direct-realtime-item--clickable:hover .direct-realtime-dot {
+  transform: scale(1.12);
+}
+
 .direct-realtime-dot {
   width: 14px;
   height: 14px;
   border-radius: 50%;
   flex-shrink: 0;
+  transition: transform 0.15s ease;
 }
 
 .direct-realtime-dot.ok-official {

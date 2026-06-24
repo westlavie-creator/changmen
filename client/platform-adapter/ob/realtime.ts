@@ -7,7 +7,7 @@ import {
   upstreamRouteFromUrl,
 } from "@platform/shared/directRealtimeStatus";
 import { PLATFORMS } from "@/shared/platform";
-import { OB_A8_MQTT_PASSWORD, OB_A8_MQTT_USERNAME, OB_MQTT_CLIENT_ID, OB_MQTT_CONNECT_TIMEOUT_MS } from "./mqttConfig";
+import { OB_MQTT_CLIENT_ID, OB_MQTT_CONNECT_TIMEOUT_MS } from "./mqttConfig";
 import {
   fetchObDemoMqttConfig,
   getObA8MqttConfig,
@@ -18,7 +18,10 @@ import {
 
 const PLATFORM = PLATFORMS.OB;
 
-const FAILOVER_ORDER: ObMqttEndpointSource[] = ["demo", "changmen", "a8"];
+export type ObMqttSourceMode = "official" | "a8";
+
+const OB_MQTT_SOURCE_MODE_KEY = "changmen:ob:mqtt-source-mode";
+const OFFICIAL_FAILOVER_ORDER: ObMqttEndpointSource[] = ["demo", "changmen"];
 
 export type ObMqttMessage = {
   topic: string;
@@ -44,6 +47,40 @@ export type ObRealtimeClient = {
   connected(): boolean;
 };
 
+function readStoredSourceMode(): ObMqttSourceMode {
+  try {
+    const value = globalThis.localStorage?.getItem(OB_MQTT_SOURCE_MODE_KEY);
+    return value === "a8" ? "a8" : "official";
+  } catch {
+    return "official";
+  }
+}
+
+let obMqttSourceMode: ObMqttSourceMode = readStoredSourceMode();
+
+export function getObMqttSourceMode(): ObMqttSourceMode {
+  return obMqttSourceMode;
+}
+
+export function setObMqttSourceMode(mode: ObMqttSourceMode): ObMqttSourceMode {
+  obMqttSourceMode = mode;
+  try {
+    globalThis.localStorage?.setItem(OB_MQTT_SOURCE_MODE_KEY, mode);
+  } catch {
+    /* ignore storage errors */
+  }
+  patchDirectRealtimeStatus(PLATFORM, {
+    upstreamConnected: false,
+    upstreamRoute: mode === "a8" ? "a8" : "official",
+    lastError: `OB MQTT 切换到${mode === "a8" ? "A8" : "官方"}源，等待重连`,
+  });
+  return obMqttSourceMode;
+}
+
+export function toggleObMqttSourceMode(): ObMqttSourceMode {
+  return setObMqttSourceMode(obMqttSourceMode === "a8" ? "official" : "a8");
+}
+
 function syncObStatus(topics: Set<string>): void {
   patchDirectRealtimeStatus(PLATFORM, { forwardedTopics: topics.size });
 }
@@ -52,14 +89,16 @@ function nextFailoverConfig(
   failedSource: ObMqttEndpointSource,
   lastDemo: ObMqttConnectConfig | null,
 ): ObMqttConnectConfig | null {
-  const idx = FAILOVER_ORDER.indexOf(failedSource);
-  const next = idx === -1 ? FAILOVER_ORDER[0]! : FAILOVER_ORDER[(idx + 1) % FAILOVER_ORDER.length]!;
+  const idx = OFFICIAL_FAILOVER_ORDER.indexOf(failedSource);
+  const next = idx === -1
+    ? OFFICIAL_FAILOVER_ORDER[0]!
+    : OFFICIAL_FAILOVER_ORDER[(idx + 1) % OFFICIAL_FAILOVER_ORDER.length]!;
   switch (next) {
     case "demo":
       return null;
     case "changmen":
-      if (!lastDemo?.url || !lastDemo.username) return getObA8MqttConfig();
-      return getObChangmenMqttConfig(lastDemo.url, lastDemo.username);
+      if (!lastDemo?.url || !lastDemo.clientId) return getObA8MqttConfig();
+      return getObChangmenMqttConfig(lastDemo.url, lastDemo);
     case "a8":
       return getObA8MqttConfig();
     default:
@@ -77,6 +116,21 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
   let failoverBusy = false;
   let intentionalDisconnect = false;
   let connectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const mqttOptionsForConfig = (config: ObMqttConnectConfig) => {
+    const clientId = config.clientId || (config.source === "a8" ? OB_MQTT_CLIENT_ID : "");
+    if (!clientId) return null;
+    return {
+      username: config.username,
+      password: config.password,
+      clientId,
+      clean: true,
+      keepalive: 60,
+      reconnectPeriod: 5000,
+      protocolId: "MQTT" as const,
+      connectTimeout: OB_MQTT_CONNECT_TIMEOUT_MS,
+    };
+  };
 
   const clearConnectTimer = () => {
     if (connectTimer) {
@@ -114,16 +168,21 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
         lastError: reason,
       });
 
+      const sourceMode = getObMqttSourceMode();
+      if (sourceMode === "a8") {
+        console.warn("[OB MQTT] A8 source failed, staying on selected A8 source:", reason);
+        return;
+      }
+
       if (failedSource === "a8") {
-        console.warn("[OB MQTT] A8 relay failed, refreshing demo login:", reason);
+        console.warn("[OB MQTT] A8 relay failed while official source is selected, refreshing demo login:", reason);
         const demo = await fetchObDemoMqttConfig();
         if (demo) {
           lastDemoConfig = demo;
           await connectWithConfig(demo);
           return;
         }
-        console.warn("[OB MQTT] demo refresh returned no endpoint, retrying A8 relay");
-        await connectWithConfig(getObA8MqttConfig());
+        console.warn("[OB MQTT] demo refresh returned no endpoint, staying on official source");
         return;
       }
 
@@ -133,11 +192,11 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
         if (demo) {
           lastDemoConfig = demo;
           await connectWithConfig(demo);
-        } else {
-          await connectWithConfig(getObA8MqttConfig());
         }
         return;
       }
+
+      if (nextConfig.source === "a8") return;
 
       console.warn(`[OB MQTT] ${failedSource} failed, switching to ${nextConfig.source}:`, reason);
       await connectWithConfig(nextConfig);
@@ -160,16 +219,18 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
       lastError: null,
     });
 
-    client = mqtt.connect(url, {
-      username: OB_A8_MQTT_USERNAME,
-      password: OB_A8_MQTT_PASSWORD,
-      clientId: OB_MQTT_CLIENT_ID,
-      clean: true,
-      keepalive: 60,
-      reconnectPeriod: 5000,
-      protocolId: "MQTT",
-      connectTimeout: OB_MQTT_CONNECT_TIMEOUT_MS,
-    });
+    const options = mqttOptionsForConfig(config);
+    if (!options) {
+      patchDirectRealtimeStatus(PLATFORM, {
+        upstreamConnected: false,
+        upstreamRoute: null,
+        lastError: "missing OB MQTT clientId",
+      });
+      requestFailover("missing OB MQTT clientId");
+      return;
+    }
+
+    client = mqtt.connect(url, options);
 
     client.on("message", (topic: string, buf: Buffer) => {
       bumpDirectRealtimeMessage(PLATFORM);
@@ -217,13 +278,21 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
 
       if (client?.connected) return getDirectRealtimeStatus(PLATFORM);
 
-      const demo = await fetchObDemoMqttConfig();
-      if (demo) {
-        lastDemoConfig = demo;
-        await connectWithConfig(demo);
-      } else {
-        console.warn("[OB MQTT] no demo endpoint, starting with A8 relay");
+      if (getObMqttSourceMode() === "a8") {
         await connectWithConfig(getObA8MqttConfig());
+      } else {
+        const demo = await fetchObDemoMqttConfig();
+        if (demo) {
+          lastDemoConfig = demo;
+          await connectWithConfig(demo);
+        } else {
+          console.warn("[OB MQTT] no official demo endpoint");
+          patchDirectRealtimeStatus(PLATFORM, {
+            upstreamConnected: false,
+            upstreamRoute: "official",
+            lastError: "no official OB MQTT endpoint",
+          });
+        }
       }
 
       return getDirectRealtimeStatus(PLATFORM);

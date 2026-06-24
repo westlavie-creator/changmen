@@ -5,6 +5,8 @@ import { startObCollector } from "./collect";
 export { obProvider, startObCollector };
 export * from "./bet";
 export * from "./collect";
+export { getObMqttSourceMode, toggleObMqttSourceModeAndReconnect } from "./mqtt";
+export type { ObMqttSourceMode } from "./mqtt";
 
 export const obAdapter: PlatformAdapter = {
   id: "OB",

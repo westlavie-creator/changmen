@@ -2,9 +2,14 @@
 export const OB_WS_FORWARD_PATH = "/esport/ws-forward/OB";
 
 export const OB_MQTT_CLIENT_ID = "mqttjs_dj1250901313125773543";
+export const OB_OFFICIAL_MQTT_CLIENT_ID_PREFIX = "mqttjs_dj";
 
 export const OB_A8_MQTT_URL = "wss://47.115.75.57/esport/ws/OB";
 export const OB_A8_MQTT_USERNAME = "admin";
 export const OB_A8_MQTT_PASSWORD = "Qazqaz123...";
 
 export const OB_MQTT_CONNECT_TIMEOUT_MS = 15_000;
+
+export function buildObOfficialMqttClientId(memberId: string): string {
+  return `${OB_OFFICIAL_MQTT_CLIENT_ID_PREFIX}${String(memberId).trim()}`;
+}

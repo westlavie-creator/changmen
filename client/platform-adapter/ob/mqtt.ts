@@ -5,7 +5,13 @@ import { getObBetNameRe } from "./parse";
 import { refreshObMatchMarkets } from "./markets";
 import { parseObOddField } from "./parse";
 import { useOddsStore } from "@/stores/oddsStore";
-import { createObRealtimeClient, type ObRealtimeClient } from "./realtime";
+import {
+  createObRealtimeClient,
+  getObMqttSourceMode,
+  toggleObMqttSourceMode,
+  type ObMqttSourceMode,
+  type ObRealtimeClient,
+} from "./realtime";
 
 const PLATFORM = PLATFORMS.OB;
 
@@ -145,6 +151,21 @@ export function connectObMqtt(refresh: () => void): void {
     }
     scheduleMqttRefresh();
   });
+}
+
+export { getObMqttSourceMode };
+export type { ObMqttSourceMode };
+
+export function toggleObMqttSourceModeAndReconnect(): ObMqttSourceMode {
+  const next = toggleObMqttSourceMode();
+  if (!realtime || !onRefresh) return next;
+
+  const oldRealtime = realtime;
+  realtime = null;
+  void oldRealtime.stop().finally(() => {
+    if (onRefresh) connectObMqtt(onRefresh);
+  });
+  return next;
 }
 
 export function disconnectObMqtt(): void {
