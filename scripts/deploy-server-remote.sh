@@ -64,6 +64,7 @@ DO_APP_BUILD=0
 DO_COMPILE_ROUTER=0
 DO_PM2_WEB=0
 DO_PM2_MATCHER=0
+NEED_DIST_UPLOAD=0
 
 classify() {
   local raw="$1"
@@ -133,11 +134,22 @@ else
   done < <(git diff --name-only "$OLD_HEAD" "$NEW_HEAD")
 fi
 
+if [ "$DEPLOY_SKIP_APP_BUILD" = "1" ] && [ "$DO_APP_BUILD" = "1" ]; then
+  NEED_DIST_UPLOAD=1
+fi
 if [ "$DEPLOY_SKIP_APP_BUILD" = "1" ]; then
   DO_APP_BUILD=0
 fi
 
 cd "$CHANGMEN"
+DIST_UPLOAD_MARKER="$CHANGMEN/client/web/.deploy-needs-dist-upload"
+rm -f "$DIST_UPLOAD_MARKER"
+if [ "$NEED_DIST_UPLOAD" = "1" ]; then
+  log "frontend changed; local dist upload required"
+  printf '%s\n' "$NEW_HEAD" > "$DIST_UPLOAD_MARKER"
+else
+  log "frontend dist upload not required"
+fi
 
 if [ "$DO_INSTALL_ROOT" = "1" ] || [ "$DO_INSTALL_FRONTEND" = "1" ]; then
   log "npm install (changmen workspaces)"
