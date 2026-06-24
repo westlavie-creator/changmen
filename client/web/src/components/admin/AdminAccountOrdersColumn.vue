@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null);
 
-const grouped = computed(() => groupAdminOrderEntries(props.orders));
+const grouped = computed(() => groupAdminOrderEntries(props.orders, props.accounts));
 
 const orderEntries = computed(() =>
   grouped.value.map(({ link, orderRows }) => [link, orderRows] as const),

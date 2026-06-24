@@ -77,8 +77,9 @@ function cloneAccounts(accounts: PlatformAccount[]): PlatformAccount[] {
 /** 管理端详情：拉取指定用户订单并写入 orderStore（供 OrderView 展示） */
 export async function loadEmbeddedUserOrders(userId: string, date: string) {
   const orderStore = useOrderStore();
+  const accountStore = useAccountStore();
   const page = await getAdminOrdersAll({ userId, date });
-  const list = (page.list ?? []).map(adminOrderToOrderRow);
+  const list = (page.list ?? []).map(row => adminOrderToOrderRow(row, accountStore.accounts));
   orderStore.orders = groupOrdersByLink(list);
   orderStore.orderDate = date || page.date || todayKey();
   orderStore.updateTodayProfit(list);

@@ -14,15 +14,32 @@ import {
 
 export { isArbGroup, orderLegendText, orderStatusClass };
 
+interface AdminOrderDisplayAccount {
+  accountId: number;
+  platform?: string;
+  provider?: string;
+}
+
 function normalizeStatus(raw: string): OrderRow["Status"] {
   return normalizeOrderStatus(raw);
 }
 
-export function adminOrderToOrderRow(row: AdminOrderRow): OrderRow {
+export function adminOrderDisplayProvider(
+  row: AdminOrderRow,
+  accounts: AdminOrderDisplayAccount[] = [],
+): string {
+  const account = accounts.find(a => Number(a.accountId) === Number(row.playerId));
+  return account?.platform || account?.provider || row.provider;
+}
+
+export function adminOrderToOrderRow(
+  row: AdminOrderRow,
+  accounts: AdminOrderDisplayAccount[] = [],
+): OrderRow {
   return {
     OrderID: row.orderId,
     Link: row.linkId,
-    Type: row.provider,
+    Type: adminOrderDisplayProvider(row, accounts),
     Match: row.match,
     Bet: row.bet,
     Item: row.item,
@@ -51,8 +68,11 @@ export function orderLegendClass(rows: OrderRow[]) {
   return `admin-order-link__legend--${orderLegendModifier(rows)}`;
 }
 
-export function groupAdminOrderEntries(orders: AdminOrderRow[]) {
-  const map = groupOrdersByLink(orders.map(adminOrderToOrderRow));
+export function groupAdminOrderEntries(
+  orders: AdminOrderRow[],
+  accounts: AdminOrderDisplayAccount[] = [],
+) {
+  const map = groupOrdersByLink(orders.map(row => adminOrderToOrderRow(row, accounts)));
   return orderLinkMapEntries(map).map(([link, orderRows]) => {
     const byId = new Map(orders.map(o => [o.orderId, o]));
     const adminRows = orderRows

@@ -63,6 +63,36 @@ export function explainArbAccountRejection(
   return null;
 }
 
+export function explainMissingLegAccount(
+  leg: BetOption,
+  bet: ViewBet,
+  match: ViewMatch,
+  accounts: PlatformAccount[],
+  excludeAccountIds: number[],
+  matchStore: BetFilterMatchContext,
+  implied?: number,
+): string {
+  const sameProvider = accounts.filter(acc => acc.provider === leg.type);
+  if (!sameProvider.length)
+    return `没有 ${leg.type} 账号`;
+
+  const parts = sameProvider.map((acc) => {
+    const label = acc.playerName || `#${acc.accountId}`;
+    if (excludeAccountIds.includes(acc.accountId))
+      return `${label}: noSameBet 已排除`;
+    if (acc.maxOrder && acc.todayOrder && acc.todayOrder >= acc.maxOrder)
+      return `${label}: 已达账号当日订单上限 ${acc.todayOrder}/${acc.maxOrder}`;
+    const balance = acc.getBalance();
+    if (balance === undefined)
+      return `${label}: 余额尚未加载`;
+    if (balance < leg.betMoney)
+      return `${label}: 余额 ${Math.floor(balance)} < 本腿金额 ${Math.ceil(leg.betMoney)}`;
+    return `${label}: ${explainArbAccountRejection(acc, bet, match, leg, matchStore, implied) ?? "未知过滤"}`;
+  });
+
+  return parts.join("；");
+}
+
 /** 该腿无 live 账号，但存在比例 9999 单边模式账号 */
 export function legHasSingleLegRateAccount(
   leg: BetOption,
@@ -160,17 +190,29 @@ export function explainAllowArbRejection(params: {
   accountB?: PlatformAccount;
   legA: BetOption;
   legB: BetOption;
+  missingAReason?: string;
+  missingBReason?: string;
 }): string {
-  const { betBothLegs, singleLegByRate, accountA, accountB, legA, legB } = params;
+  const {
+    betBothLegs,
+    singleLegByRate,
+    accountA,
+    accountB,
+    legA,
+    legB,
+    missingAReason,
+    missingBReason,
+  } = params;
   if (betBothLegs || singleLegByRate)
     return "不满足下单条件";
   if (accountA && !accountB) {
-    return `仅 ${legA.type} 有可用账号，缺 ${legB.type}，且该侧非比例 9999 单边模式`;
+    return `仅 ${legA.type} 有可用账号，缺 ${legB.type}，且该侧非比例 9999 单边模式${missingBReason ? `（${missingBReason}）` : ""}`;
   }
   if (accountB && !accountA) {
-    return `仅 ${legB.type} 有可用账号，缺 ${legA.type}，且该侧非比例 9999 单边模式`;
+    return `仅 ${legB.type} 有可用账号，缺 ${legA.type}，且该侧非比例 9999 单边模式${missingAReason ? `（${missingAReason}）` : ""}`;
   }
-  return "双腿均无可用账号";
+  const reasons = [missingAReason, missingBReason].filter(Boolean).join("；");
+  return `双腿均无可用账号${reasons ? `（${reasons}）` : ""}`;
 }
 
 /** 比例 9999 单边用负数 link；双腿套利为正时间戳 */

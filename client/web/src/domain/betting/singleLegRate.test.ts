@@ -4,6 +4,7 @@ import {
   arbAccountPickerFilter,
   createArbLinkId,
   explainAllowArbRejection,
+  explainMissingLegAccount,
   legHasSingleLegRateAccount,
 } from "@/domain/betting/singleLegRate";
 import { PlatformAccount } from "@/models/platformAccount";
@@ -112,5 +113,53 @@ describe("explainAllowArbRejection", () => {
         legB,
       }),
     ).toContain("仅 PB 有可用账号");
+  });
+
+  it("带出缺失腿账号的实际过滤原因", () => {
+    const acc = makeAccount({ provider: "PB" });
+    expect(
+      explainAllowArbRejection({
+        betBothLegs: false,
+        singleLegByRate: false,
+        accountA: acc,
+        accountB: undefined,
+        legA,
+        legB,
+        missingBReason: "ray-a: 赔率 1.8 不在账号区间 2~99",
+      }),
+    ).toContain("ray-a: 赔率 1.8 不在账号区间 2~99");
+  });
+});
+
+describe("explainMissingLegAccount", () => {
+  const matchStore = {
+    getBetTarget: () => undefined,
+    getDefaultOdds: () => undefined,
+  } as never;
+  const bet = { id: 1 } as never;
+  const match = { game: "英雄联盟", gameId: 1 } as never;
+
+  it("说明账号被 noSameBet 排除", () => {
+    const leg = makeLeg("RAY");
+    const acc = makeAccount({ accountId: 9, provider: "RAY", playerName: "ray-a" });
+    acc.balance = 1000;
+
+    expect(explainMissingLegAccount(leg, bet, match, [acc], [9], matchStore)).toContain(
+      "ray-a: noSameBet 已排除",
+    );
+  });
+
+  it("说明账号未通过主下注过滤", () => {
+    const leg = makeLeg("RAY");
+    const acc = makeAccount({
+      provider: "RAY",
+      playerName: "ray-a",
+      minOdds: 2,
+    });
+    acc.balance = 1000;
+
+    expect(explainMissingLegAccount(leg, bet, match, [acc], [], matchStore)).toContain(
+      "赔率 1.8 不在账号区间 2~99",
+    );
   });
 });

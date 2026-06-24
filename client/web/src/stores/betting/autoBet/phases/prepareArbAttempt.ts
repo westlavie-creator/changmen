@@ -5,6 +5,7 @@ import {
   arbAccountPickerFilter,
   createArbLinkId,
   explainAllowArbRejection,
+  explainMissingLegAccount,
   resolveSingleLegByRate,
 } from "@/domain/betting/singleLegRate";
 import { opponentSide } from "@/models/betOption";
@@ -115,6 +116,28 @@ export async function prepareArbAttempt(
   });
 
   if (!allowArbBetExecution(betBothLegs, singleLegByRate)) {
+    const missingAReason = accountA
+      ? undefined
+      : explainMissingLegAccount(
+          legA,
+          bet,
+          match,
+          accounts,
+          excludeA,
+          matchStore,
+          implied,
+        );
+    const missingBReason = accountB
+      ? undefined
+      : explainMissingLegAccount(
+          legB,
+          bet,
+          match,
+          accounts,
+          excludeB,
+          matchStore,
+          implied,
+        );
     trace?.finish(
       "skip",
       explainAllowArbRejection({
@@ -124,6 +147,8 @@ export async function prepareArbAttempt(
         accountB,
         legA,
         legB,
+        missingAReason,
+        missingBReason,
       }),
     );
     return null;
