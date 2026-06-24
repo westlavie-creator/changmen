@@ -161,32 +161,6 @@ async function _rdsReplacePlatformBets(pool, platform, matchId, rows) {
   }
 }
 
-async function _appendOddsHistory(exec, rows) {
-  if (!rows.length)
-    return;
-  const sql = `
-    INSERT INTO odds_history (
-      platform, source_match_id, source_bet_id, map, bet_name,
-      home_odds, away_odds, is_locked, recorded_at
-    )
-    SELECT * FROM unnest(
-      $1::text[], $2::text[], $3::text[], $4::smallint[], $5::text[],
-      $6::numeric[], $7::numeric[], $8::boolean[], $9::bigint[]
-    )
-  `;
-  await exec.query(sql, [
-    rows.map(r => r.platform),
-    rows.map(r => r.source_match_id),
-    rows.map(r => r.source_bet_id),
-    rows.map(r => r.map),
-    rows.map(r => r.bet_name),
-    rows.map(r => r.home_odds),
-    rows.map(r => r.away_odds),
-    rows.map(r => r.is_locked),
-    rows.map(r => r.updated_at),
-  ]);
-}
-
 /** 全量替换某平台 timer 快照：先删该平台全部行，再 upsert 本批（空批 = 清空该平台） */
 async function _rdsReplaceLiveTimersForPlatform(pool, platform, rows) {
   const client = await pool.connect();
@@ -431,8 +405,6 @@ export function writePlatformBets(provider, matchId, bets) {
   if (!rows.length)
     return;
   _writeRds(pool => _rdsUpsertPlatformBets(pool, rows), "platform_bets");
-  if (String(provider) !== "Dex")
-    _writeRds(pool => _appendOddsHistory(pool, rows), "odds_history");
 }
 
 /** [A8 可证实] 每场 saveBets 为完整快照：先删该场旧行再 upsert */
@@ -443,8 +415,6 @@ export function replacePlatformBetsForMatch(provider, matchId, bets) {
   const plat = String(provider);
   const mid = String(matchId);
   _writeRds(pool => _rdsReplacePlatformBets(pool, plat, mid, rows), "platform_bets");
-  if (plat !== "Dex")
-    _writeRds(pool => _appendOddsHistory(pool, rows), "odds_history");
 }
 
 /** fire-and-forget：全量替换某平台 timer 快照（对齐 A8 getTimer 整包提交；空数组清空该平台） */
