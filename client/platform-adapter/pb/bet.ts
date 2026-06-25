@@ -205,7 +205,12 @@ export const pbProvider: PlatformProvider = {
     }
 
     option.newOdds = toNumber(row.odds);
+    if (!option.newOdds) {
+      option.checkError = "赔率不可用";
+      return option;
+    }
     if (option.newOdds < option.odds - 0.01) {
+      option.checkError = `赔率下降 ${option.newOdds} < ${option.odds}`;
       return option;
     }
 

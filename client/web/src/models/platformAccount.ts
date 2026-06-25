@@ -81,6 +81,7 @@ export class PlatformAccount implements AccountRecord {
     // [A8 可证实] uv 构造不恢复 balance 和 active；active 是运行时临时标记
     const { balance: _storedBalance, active: _storedActive, ...rest } = raw;
     Object.assign(this, rest);
+    this.rateConfig = normalizeAccountRateConfig(raw.rateConfig);
     this.balance = undefined;
     this.active = false;
     this.credit = raw.credit ?? 0;

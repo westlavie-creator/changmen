@@ -4,6 +4,7 @@ import {
   PlatformAccount,
   resolveAccountPauseReason,
 } from "@/models/platformAccount";
+import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 
 function makeAccount(patch: Record<string, unknown> = {}) {
   return new PlatformAccount({
@@ -73,6 +74,15 @@ describe("normalizeAccountRateConfig", () => {
 });
 
 describe("platformAccount rateConfig", () => {
+  it("constructor normalizes persisted string rate rows", () => {
+    const acc = makeAccount({
+      rateConfig: [{ minOdds: "0", maxOdds: "0", rate: "9999" }],
+    });
+
+    expect(acc.toJSON().rateConfig).toEqual([{ minOdds: 0, maxOdds: 0, rate: 9999 }]);
+    expect(isSingleLegRateAtOdds(acc, 2.05)).toBe(true);
+  });
+
   it("applyPatch persists rateConfig through toJSON", () => {
     const acc = makeAccount();
     acc.applyPatch({
