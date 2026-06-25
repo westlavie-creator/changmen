@@ -30,6 +30,26 @@ const WS_PING_MS = 10_000;
 const SAVE_BETS_INTERVAL_MS = 5 * 60_000;
 const MAX_TRACKED_MARKETS = 80;
 
+export type PolymarketWsStatus = "disconnected" | "connecting" | "connected" | "error";
+type PolymarketWsStatusListener = (status: PolymarketWsStatus) => void;
+
+let polymarketWsStatus: PolymarketWsStatus = "disconnected";
+const polymarketWsStatusListeners = new Set<PolymarketWsStatusListener>();
+
+function setPolymarketWsStatus(status: PolymarketWsStatus) {
+  polymarketWsStatus = status;
+  for (const fn of polymarketWsStatusListeners) fn(status);
+}
+
+export function getPolymarketWsStatus(): PolymarketWsStatus {
+  return polymarketWsStatus;
+}
+
+export function onPolymarketWsStatus(fn: PolymarketWsStatusListener): () => void {
+  polymarketWsStatusListeners.add(fn);
+  return () => polymarketWsStatusListeners.delete(fn);
+}
+
 function saveOddsEntry(odds: ReturnType<typeof useOddsStore>, bet: CollectBetDto, source: "http" | "mqtt") {
   const locked = bet.Status === "Locked";
   odds.save(PLATFORM, {
@@ -169,8 +189,10 @@ export function startPolymarketCollector(): () => void {
 
   function connectWs() {
     if (stopped || ws) return;
+    setPolymarketWsStatus("connecting");
     ws = new WebSocket(POLYMARKET_MARKET_WS);
     ws.onopen = () => {
+      setPolymarketWsStatus("connected");
       subscribeTrackedAssets();
       pingTimer = setInterval(() => {
         if (ws?.readyState === WebSocket.OPEN) ws.send("PING");
@@ -185,9 +207,11 @@ export function startPolymarketCollector(): () => void {
     };
     ws.onclose = () => {
       cleanupWs();
+      setPolymarketWsStatus(stopped ? "disconnected" : "error");
       scheduleReconnect();
     };
     ws.onerror = () => {
+      setPolymarketWsStatus("error");
       ws?.close();
     };
   }
@@ -262,5 +286,6 @@ export function startPolymarketCollector(): () => void {
     if (pingTimer) clearInterval(pingTimer);
     ws?.close();
     cleanupWs();
+    setPolymarketWsStatus("disconnected");
   };
 }

@@ -4,6 +4,8 @@ import type { DirectRealtimeStatus } from "@platform/shared/directRealtimeStatus
 import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
 import { getDexSocketStatus, onDexSocketStatus } from "@platform/dex";
 import type { DexSocketStatus } from "@platform/dex";
+import { getPolymarketWsStatus, onPolymarketWsStatus } from "@platform/polymarket";
+import type { PolymarketWsStatus } from "@platform/polymarket";
 import {
   getObMqttSourceMode,
   toggleObMqttSourceModeAndReconnect,
@@ -14,9 +16,14 @@ import { ElMessage } from "element-plus";
 const { statuses } = useDirectRealtimeStatus();
 
 const dexStatus = ref<DexSocketStatus>(getDexSocketStatus());
+const polymarketStatus = ref<PolymarketWsStatus>(getPolymarketWsStatus());
 const obSourceMode = ref<ObMqttSourceMode>(getObMqttSourceMode());
 let dexUnsub: (() => void) | undefined;
-onUnmounted(() => { dexUnsub?.(); });
+let polymarketUnsub: (() => void) | undefined;
+onUnmounted(() => {
+  dexUnsub?.();
+  polymarketUnsub?.();
+});
 
 function dotClass(status: DirectRealtimeStatus): string {
   if (status.upstreamConnected) {
@@ -43,18 +50,40 @@ function formatAgo(ms: number): string {
 
 const dexDotClass = ref("idle");
 const dexTooltip = ref("DexSport WS 未连接");
+const polymarketDotClass = ref("idle");
+const polymarketTooltip = ref("Polymarket WS 未连接");
 
-function updateDexDot(s: DexSocketStatus) {
+function realtimeDotAndTooltip(
+  s: DexSocketStatus | PolymarketWsStatus,
+  label: string,
+): { dot: string; tooltip: string } {
   switch (s) {
-    case "connected": dexDotClass.value = "ok-official"; dexTooltip.value = "DexSport WS 已连接\n实时赔率推送中"; break;
-    case "connecting": dexDotClass.value = "connecting"; dexTooltip.value = "DexSport WS 连接中..."; break;
-    case "error": dexDotClass.value = "err"; dexTooltip.value = "DexSport WS 断开\n正在重连..."; break;
-    default: dexDotClass.value = "idle"; dexTooltip.value = "DexSport WS 未连接";
+    case "connected": return { dot: "ok-official", tooltip: `${label} WS 已连接\n实时赔率推送中` };
+    case "connecting": return { dot: "connecting", tooltip: `${label} WS 连接中...` };
+    case "error": return { dot: "err", tooltip: `${label} WS 断开\n正在重连...` };
+    default: return { dot: "idle", tooltip: `${label} WS 未连接` };
   }
 }
+
+function updateDexDot(s: DexSocketStatus) {
+  const next = realtimeDotAndTooltip(s, "DexSport");
+  dexDotClass.value = next.dot;
+  dexTooltip.value = next.tooltip;
+}
+
+function updatePolymarketDot(s: PolymarketWsStatus) {
+  const next = realtimeDotAndTooltip(s, "Polymarket");
+  polymarketDotClass.value = next.dot;
+  polymarketTooltip.value = next.tooltip;
+}
 updateDexDot(dexStatus.value);
+updatePolymarketDot(polymarketStatus.value);
 onMounted(() => {
   dexUnsub = onDexSocketStatus(s => { dexStatus.value = s; updateDexDot(s); });
+  polymarketUnsub = onPolymarketWsStatus((s) => {
+    polymarketStatus.value = s;
+    updatePolymarketDot(s);
+  });
 });
 
 function tooltip(status: DirectRealtimeStatus): string {
@@ -102,7 +131,7 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 </script>
 
 <template>
-  <div class="direct-realtime-bar" aria-label="直连推送状态 IA OB RAY TF DEX">
+  <div class="direct-realtime-bar" aria-label="直连推送状态 IA OB RAY TF POLY DEX">
     <span
       v-for="status in statuses"
       :key="status.platform"
@@ -117,6 +146,10 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
     >
       <span class="direct-realtime-dot" :class="dotClass(status)" />
       {{ status.platform }}
+    </span>
+    <span class="direct-realtime-item" :title="polymarketTooltip">
+      <span class="direct-realtime-dot" :class="polymarketDotClass" />
+      POLY
     </span>
     <span class="direct-realtime-item" :title="dexTooltip">
       <span class="direct-realtime-dot" :class="dexDotClass" />
