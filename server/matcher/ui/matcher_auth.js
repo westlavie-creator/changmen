@@ -1,4 +1,4 @@
-import { isAdminUser } from "../../backend/core/account/admin_auth.js";
+import { canAccessAdminPanel } from "../../backend/core/account/admin_auth.js";
 import store from "../../backend/core/esport-api/store.js";
 import { isMatcherSkipAuthEnabled } from "../lib/config.js";
 
@@ -52,7 +52,11 @@ export async function isMatcherAuthed(req) {
     return true;
   if (!user)
     return false;
-  return isAdminUser(user);
+  return canAccessMatcherUi(user);
+}
+
+export function canAccessMatcherUi(user) {
+  return canAccessAdminPanel(user);
 }
 
 export function createMatcherAuthMiddleware() {
@@ -68,8 +72,8 @@ export function createMatcherAuthMiddleware() {
       if (!user) {
         return res.status(401).json({ ok: false, error: "unauthorized", login: "/login" });
       }
-      if (!isAdminUser(user)) {
-        return res.status(403).json({ ok: false, error: "forbidden", message: "需要管理员权限" });
+      if (!canAccessMatcherUi(user)) {
+        return res.status(403).json({ ok: false, error: "forbidden", message: "需要团队长或管理员权限" });
       }
       return next();
     }

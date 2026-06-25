@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "vitest";
 import { isMatcherSkipAuthEnabled } from "../lib/config.js";
-import { getRequestToken, isMatcherAuthBypassed } from "./matcher_auth.js";
+import { canAccessMatcherUi, getRequestToken, isMatcherAuthBypassed } from "./matcher_auth.js";
 
 const saved = { ...process.env };
 
@@ -49,5 +49,19 @@ describe("getRequestToken", () => {
     assert.equal(getRequestToken({ headers: { authorization: "Bearer xyz" } }), "xyz");
     assert.equal(getRequestToken({ headers: { cookie: "app_token=tok%201" } }), "tok 1");
     assert.equal(getRequestToken({ headers: {} }), "");
+  });
+});
+
+describe("canAccessMatcherUi", () => {
+  it("允许管理员和团队长访问 matcher", () => {
+    assert.equal(canAccessMatcherUi({ role: "admin" }), true);
+    assert.equal(canAccessMatcherUi({ role: "leader" }), true);
+    assert.equal(canAccessMatcherUi({ isAdmin: true }), true);
+  });
+
+  it("拒绝普通用户访问 matcher", () => {
+    assert.equal(canAccessMatcherUi({ role: "user" }), false);
+    assert.equal(canAccessMatcherUi({}), false);
+    assert.equal(canAccessMatcherUi(null), false);
   });
 });
