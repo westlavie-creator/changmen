@@ -40,6 +40,7 @@ export const useUserStore = defineStore("user", {
     isAdmin: false,
     role: "user" as "admin" | "leader" | "user",
     teamId: null as string | null,
+    apiDelayAction: "",
   }),
 
   getters: {
@@ -193,8 +194,9 @@ export const useUserStore = defineStore("user", {
       localStorage.setItem(HIDDEN_NAME_KEY, this.hiddenUserName ? "1" : "0");
     },
 
-    setApiDelay(ms: number) {
+    setApiDelay(ms: number, action = "") {
       this.apiDelay = ms > 0 ? ms : 0;
+      this.apiDelayAction = action;
     },
 
     async patchSetting(patch: Record<string, unknown>) {

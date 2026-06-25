@@ -26,7 +26,7 @@ const user = useUserStore();
 const accountStore = useAccountStore();
 const orderStore = useOrderStore();
 const configStore = useConfigStore();
-const { displayName, apiDelay } = storeToRefs(user);
+const { displayName, apiDelay, apiDelayAction } = storeToRefs(user);
 const { totalBalance } = storeToRefs(accountStore);
 const { config } = storeToRefs(configStore);
 const { dayProfit } = storeToRefs(orderStore);
@@ -62,6 +62,13 @@ const delayButtonType = computed(() => {
 const shownUserName = computed(() =>
   props.embedded ? props.embeddedUserName || displayName.value : displayName.value,
 );
+
+const delayTitle = computed(() => {
+  if (props.embedded)
+    return "";
+  const action = apiDelayAction.value || "未知接口";
+  return `最后一次 API：${action} · ${apiDelay.value}ms`;
+});
 </script>
 
 <template>
@@ -81,6 +88,7 @@ const shownUserName = computed(() =>
             size="small"
             :type="delayButtonType"
             :disabled="embedded"
+            :title="delayTitle"
             @click="user.toggleHiddenUserName()"
           >
             {{ embedded ? "—" : apiDelay }}<span class="ms">ms</span>

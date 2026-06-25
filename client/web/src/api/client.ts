@@ -118,7 +118,7 @@ async function executePost<T>(
   finally {
     try {
       const { useUserStore } = await import("@/stores/userStore");
-      useUserStore().setApiDelay(Date.now() - started);
+      useUserStore().setApiDelay(Date.now() - started, action);
     }
     catch {
       /* 登录前或 pinia 尚未就绪时忽略 */
