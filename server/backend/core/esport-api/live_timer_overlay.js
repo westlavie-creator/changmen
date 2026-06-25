@@ -35,7 +35,6 @@ export function overlayLiveTimersOnMatches(matches, timersByProvider, enrich = {
     })),
   }));
   refreshClientMatchRoundsFromTimers(out, timersByProvider || {});
-  promoteFullMatchSourcesToLiveRoundInPlace(out, enrich.matches || {});
   if (enrich.matches && enrich.bets && enrich.sourceFromBet) {
     ensureMapZeroForLiveRound(
       out,
@@ -45,6 +44,7 @@ export function overlayLiveTimersOnMatches(matches, timersByProvider, enrich = {
       enrich.sourceFromBet,
     );
   }
+  promoteFullMatchSourcesToLiveRoundInPlace(out, enrich.matches || {});
   trimMapZeroToObOnDeciderRound(out);
   return out;
 }

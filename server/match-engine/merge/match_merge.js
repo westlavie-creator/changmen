@@ -793,7 +793,8 @@ function mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet)
 }
 
 /**
- * 进行中且尚无 Map=0 时，从 platform_bets 补全场行（随后 trim 清 Sources、留 Initial*）。
+ * 进行中时，从 platform_bets 补/刷新全场行。
+ * GetMatchs overlay 会先用这里的最新、已按 Reverse 对齐的 Map=0，再做决胜局 promote。
  */
 function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
   if (!Array.isArray(rows) || !bets || !sourceFromBet || !matches)
@@ -802,16 +803,19 @@ function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
     const liveMap = Number(row.Round) || 0;
     if (liveMap <= 0)
       continue;
-    const hasMap0 = (row.Bets || []).some(b => betMapNumber(b) === 0);
-    if (hasMap0)
-      continue;
 
     const fullBet = mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet);
     if (!fullBet)
       continue;
 
     row.Bets = row.Bets || [];
-    row.Bets.push(fullBet);
+    const existing = row.Bets.find(b => betMapNumber(b) === 0);
+    if (existing) {
+      existing.Sources = fullBet.Sources || {};
+    }
+    else {
+      row.Bets.push(fullBet);
+    }
   }
 }
 
@@ -867,8 +871,6 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
     }
 
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
-      if (liveBet.Sources?.[platform])
-        continue;
       const fullSrc = fullBet.Sources?.[platform];
       if (!fullSrc)
         continue;
@@ -919,7 +921,8 @@ function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
     }
 
     for (const [platform, fullSrc] of Object.entries(fullBet.Sources)) {
-      if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap))
+      const liveSrc = accByMap.get(liveMap)?.Sources?.[platform];
+      if (liveSrc && String(liveSrc.BetID || "") !== String(fullSrc.BetID || ""))
         continue;
       // client_matches 写入前已 reconcile；overlay 只复制，避免 Reverse 平台二次 swap
       liveBet.Sources[platform] = { ...fullSrc };
