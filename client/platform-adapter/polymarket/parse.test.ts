@@ -118,6 +118,27 @@ describe("Polymarket parse", () => {
       SourceAwayID: "asset-map1-away",
       Status: "Locked",
     });
+
+    const gameWinner = buildPolymarketMappedMarket({
+      ...baseMarket,
+      id: "m-game2",
+      condition_id: "0xgame2",
+      question: "Dota 2: Carstensz vs Mentality Monster - Game 2 Winner",
+      sports_market_type: "child_moneyline",
+      groupItemTitle: "Game 2 Winner",
+      clob_token_ids: JSON.stringify(["asset-game2-home", "asset-game2-away"]),
+      tags: [],
+      events: [{ id: "dota-event", seriesSlug: "dota-2" }],
+    });
+
+    expect(gameWinner?.bet).toMatchObject({
+      SourceMatchID: "dota-event",
+      SourceBetID: "0xgame2",
+      Map: 2,
+      BetName: "[地图2] 获胜者",
+      SourceHomeID: "asset-game2-home",
+      SourceAwayID: "asset-game2-away",
+    });
   });
 
   test("filters generic Yes/No markets and locks missing asks", () => {

@@ -177,7 +177,7 @@ function mapNumberOf(market: PolymarketRawMarket): number | null {
   const groupTitle = String(market.group_item_title ?? market.groupItemTitle ?? "").trim().toLowerCase();
   if (groupTitle === "match winner")
     return 0;
-  const groupMap = /^map\s*(\d+)\s+winner$/.exec(groupTitle);
+  const groupMap = /^(?:map|game)\s*(\d+)\s+winner$/.exec(groupTitle);
   if (groupMap)
     return Number(groupMap[1]);
 
@@ -189,7 +189,7 @@ function mapNumberOf(market: PolymarketRawMarket): number | null {
   if (type === "moneyline" && WINNER_RE.test(text))
     return 0;
   if (type === "child_moneyline") {
-    const questionMap = /\bmap\s*(\d+)\s+winner\b/i.exec(text);
+    const questionMap = /\b(?:map|game)\s*(\d+)\s+winner\b/i.exec(text);
     if (questionMap)
       return Number(questionMap[1]);
   }
