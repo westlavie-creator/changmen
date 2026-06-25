@@ -34,6 +34,9 @@ function readSql(name) {
 
 async function main() {
   const client = new pg.Client(buildPgClientConfig(url, 30000));
+  client.on("error", (err) => {
+    console.warn("[rds] client error:", err.message);
+  });
   await client.connect();
   try {
     console.log("[rds] 执行 001_baseline.sql …");
@@ -68,6 +71,9 @@ async function main() {
 
     console.log("[rds] 执行 012_user_roles_teams.sql …");
     await client.query(readSql("012_user_roles_teams.sql"));
+
+    console.log("[rds] 执行 013_widen_odds_numeric.sql …");
+    await client.query(readSql("013_widen_odds_numeric.sql"));
 
     if (withCron) {
       console.log("[rds] 执行 002_prune_pg_cron.sql …");

@@ -1,6 +1,7 @@
 import {
   fetchClientMatchesDashboard,
   fetchClientMatchesHidden,
+  fetchClientMatchesHiddenCount,
   fetchLatestClientMatchBuiltAt,
   fetchPlatformMatchesDashboard,
   loadTeamMapsForMatcher,
@@ -162,14 +163,13 @@ function normalizeDashboardStartTime(row) {
 }
 
 async function fetchMatcherDashboard() {
-  const [allMatchesRaw, clientMatchesRaw, hiddenClientMatchesRaw] = await Promise.all([
+  const [allMatchesRaw, clientMatchesRaw, hiddenClientMatchCount] = await Promise.all([
     fetchPlatformMatchesDashboard(),
     fetchClientMatchesDashboard(),
-    fetchClientMatchesHidden(),
+    fetchClientMatchesHiddenCount(),
   ]);
 
   const clientMatchesNorm = (clientMatchesRaw || []).map(normalizeDashboardStartTime);
-  const hiddenClientMatches = (hiddenClientMatchesRaw || []).map(normalizeDashboardStartTime);
 
   const gameByPlatformMatch = new Map();
   for (const cm of clientMatchesNorm) {
@@ -219,9 +219,22 @@ async function fetchMatcherDashboard() {
   return {
     platforms: byPlatform,
     clientMatches,
-    hiddenClientMatches,
+    hiddenClientMatches: [],
+    hiddenClientMatchCount,
     recommendations,
     teamMaps,
+    updatedAt: Date.now(),
+  };
+}
+
+async function fetchMatcherHiddenClientMatches() {
+  const [rows, count] = await Promise.all([
+    fetchClientMatchesHidden(),
+    fetchClientMatchesHiddenCount(),
+  ]);
+  return {
+    hiddenClientMatches: (rows || []).map(normalizeDashboardStartTime),
+    hiddenClientMatchCount: count,
     updatedAt: Date.now(),
   };
 }
@@ -229,5 +242,6 @@ async function fetchMatcherDashboard() {
 export {
   computeRecommendations,
   fetchMatcherDashboard,
+  fetchMatcherHiddenClientMatches,
   getMatcherStatus,
 };

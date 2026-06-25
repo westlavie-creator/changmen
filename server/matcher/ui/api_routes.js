@@ -1,4 +1,4 @@
-import { fetchPlatformMatchesDebugRows } from "@changmen/db";
+import { fetchPlatformMatchesDebugRows, setClientMatchPlatformReverse } from "@changmen/db";
 import {
   linkPlatformTeams,
   linkPlatformToClientMatch,
@@ -13,7 +13,7 @@ import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_clie
 import { rebuildOnce } from "../ops/rebuild.js";
 import { restoreClientMatch } from "../ops/restore_client_match.js";
 import { logMatcherApiErr, logMatcherApiOk, logMatcherApiWarn } from "./matcher_api_log.js";
-import { fetchMatcherDashboard, getMatcherStatus } from "./matcher_data.js";
+import { fetchMatcherDashboard, fetchMatcherHiddenClientMatches, getMatcherStatus } from "./matcher_data.js";
 import { startMatcherProcess, stopMatcherProcess } from "./matcher_process.js";
 
 function registerMatcherApiRoutes(app) {
@@ -168,6 +168,24 @@ function registerMatcherApiRoutes(app) {
     }
   });
 
+  app.post("/api/client-match/:id/reverse", async (req, res) => {
+    try {
+      const { platform, reversed } = req.body || {};
+      const update = await setClientMatchPlatformReverse(req.params.id, platform, !!reversed);
+      const body = {
+        ok: true,
+        ...update,
+        summary: `${update.platform} 主客方向已${update.reversed ? "标记反转" : "恢复正向"}`,
+      };
+      logMatcherApiOk("/api/client-match/reverse", body);
+      res.json(body);
+    }
+    catch (err) {
+      logMatcherApiErr("/api/client-match/reverse", err);
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
   app.get("/api/merge-preview", async (req, res) => {
     try {
       const result = await previewMergeClientMatches({
@@ -202,6 +220,16 @@ function registerMatcherApiRoutes(app) {
     }
     catch (err) {
       console.error("[matcher] /api/data error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/hidden-client-matches", async (req, res) => {
+    try {
+      res.json(await fetchMatcherHiddenClientMatches());
+    }
+    catch (err) {
+      console.error("[matcher] /api/hidden-client-matches error:", err.message);
       res.status(500).json({ error: err.message });
     }
   });

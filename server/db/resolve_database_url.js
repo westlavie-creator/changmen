@@ -68,6 +68,9 @@ export function getResolvedDatabaseLabel() {
 async function probeUrl(url, timeoutMs = 2500) {
   const { Client } = requirePg();
   const client = new Client(buildPgClientConfig(url, timeoutMs));
+  client.on("error", (err) => {
+    console.warn("[db] RDS probe client error:", err.message);
+  });
   try {
     await client.connect();
     await client.query("SELECT 1");

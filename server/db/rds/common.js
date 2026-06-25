@@ -7,6 +7,17 @@ import { getDbMode } from "../db_script.js";
 import { getPgPool as getSharedPgPool } from "../pg_pool.js";
 
 const _mode = getDbMode();
+const _writeQueue = [];
+let _activeWrites = 0;
+let _droppedWrites = 0;
+
+function envInt(name, fallback) {
+  const n = Number(process.env[name]);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+const WRITE_CONCURRENCY = envInt("RDS_WRITE_CONCURRENCY", 3);
+const WRITE_QUEUE_MAX = envInt("RDS_WRITE_QUEUE_MAX", 2000);
 
 export function getPgPool() {
   return getSharedPgPool(`GAMEBET_DB_SCRIPT=${_mode.script}`);
@@ -26,9 +37,31 @@ export function _writeRds(fn, label = "") {
   const pool = getPgPool();
   if (!pool)
     return;
-  Promise.resolve()
-    .then(() => fn(pool))
-    .catch(err => console.warn(`[rds${label ? `:${label}` : ""}]`, err.message));
+  if (_writeQueue.length >= WRITE_QUEUE_MAX) {
+    _droppedWrites += 1;
+    if (_droppedWrites === 1 || _droppedWrites % 100 === 0) {
+      console.warn(
+        `[rds${label ? `:${label}` : ""}] write queue full, dropped=${_droppedWrites}, pending=${_writeQueue.length}`,
+      );
+    }
+    return;
+  }
+  _writeQueue.push({ fn, label, pool });
+  _drainWriteQueue();
+}
+
+function _drainWriteQueue() {
+  while (_activeWrites < WRITE_CONCURRENCY && _writeQueue.length) {
+    const item = _writeQueue.shift();
+    _activeWrites += 1;
+    Promise.resolve()
+      .then(() => item.fn(item.pool))
+      .catch(err => console.warn(`[rds${item.label ? `:${item.label}` : ""}]`, err.message))
+      .finally(() => {
+        _activeWrites -= 1;
+        _drainWriteQueue();
+      });
+  }
 }
 
 export async function _writeRdsAsync(fn, label = "") {

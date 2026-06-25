@@ -192,6 +192,7 @@ export {
   deletePlatformMatchRow,
   fetchClientMatchesDashboard,
   fetchClientMatchesHidden,
+  fetchClientMatchesHiddenCount,
   fetchClientMatchIdIndex,
   fetchClientMatchRow,
   fetchLatestClientMatchBuiltAt,
@@ -206,6 +207,7 @@ export {
   isMatcherStoreReady,
   reassignPlatformMatchIds,
   archiveClientMatch,
+  setClientMatchPlatformReverse,
 } from "./rds/matcher_store.js";
 
 export {

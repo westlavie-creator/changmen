@@ -6,13 +6,27 @@ export const POLYMARKET_CLOB_API = "https://clob.polymarket.com";
 export const POLYMARKET_MARKET_WS = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
 
 const DEFAULT_MARKET_LIMIT = 200;
-const ESPORTS_SERIES_SLUGS = [
-  "counter-strike",
-  "league-of-legends",
-  "dota-2",
-  "honor-of-kings",
-  "valorant",
-];
+const KEYSET_PAGE_LIMIT = 500;
+const MAX_KEYSET_PAGES = 3;
+const SPORTS_METADATA_TTL_MS = 60 * 60_000;
+const COLLECT_PAST_MS = 12 * 3600 * 1000;
+const COLLECT_FUTURE_MS = 3600 * 1000;
+const ESPORTS_SPORT_KEYS = ["cs2", "lol", "dota2", "hok", "val"];
+const DEFAULT_ESPORTS_SERIES_IDS = ["10310", "10311", "10309", "10434", "10369"];
+
+interface PolymarketSportsMetadata {
+  sport?: string;
+  series?: string | number;
+}
+
+interface PolymarketKeysetResponse {
+  data?: PolymarketRawEvent[];
+  events?: PolymarketRawEvent[];
+  next_cursor?: string | null;
+  nextCursor?: string | null;
+}
+
+let esportsSeriesCache: { ids: string[]; expiresAt: number } | null = null;
 
 function unwrapArray<T>(data: unknown): T[] {
   if (Array.isArray(data))
@@ -38,6 +52,43 @@ function marketWithEventContext(market: PolymarketRawMarket, event: PolymarketRa
   };
 }
 
+function marketKeyOf(market: PolymarketRawMarket): string {
+  return String(market.condition_id ?? market.conditionId ?? market.market ?? market.id ?? "");
+}
+
+function keysetEvents(data: unknown): PolymarketRawEvent[] {
+  return unwrapArray<PolymarketRawEvent>(data);
+}
+
+function nextKeysetCursor(data: unknown): string {
+  if (!data || typeof data !== "object") return "";
+  const wrapped = data as PolymarketKeysetResponse;
+  return String(wrapped.next_cursor ?? wrapped.nextCursor ?? "");
+}
+
+async function fetchEsportsSeriesIds(): Promise<string[]> {
+  const now = Date.now();
+  if (esportsSeriesCache && esportsSeriesCache.expiresAt > now) return esportsSeriesCache.ids;
+
+  try {
+    const data = await polymarketPluginGet<unknown>(`${POLYMARKET_GAMMA_API}/sports`);
+    const sports = unwrapArray<PolymarketSportsMetadata>(data);
+    const ids = sports
+      .filter(row => row.sport && ESPORTS_SPORT_KEYS.includes(String(row.sport)))
+      .map(row => String(row.series ?? "").trim())
+      .filter(Boolean);
+    if (ids.length) {
+      esportsSeriesCache = { ids: [...new Set(ids)], expiresAt: now + SPORTS_METADATA_TTL_MS };
+      return esportsSeriesCache.ids;
+    }
+  } catch (err) {
+    console.warn("[Polymarket] sports metadata fallback", err);
+  }
+
+  esportsSeriesCache = { ids: DEFAULT_ESPORTS_SERIES_IDS, expiresAt: now + SPORTS_METADATA_TTL_MS };
+  return esportsSeriesCache.ids;
+}
+
 export async function fetchPolymarketMarkets(limit = DEFAULT_MARKET_LIMIT): Promise<PolymarketRawMarket[]> {
   const params = new URLSearchParams({
     active: "true",
@@ -52,22 +103,38 @@ export async function fetchPolymarketMarkets(limit = DEFAULT_MARKET_LIMIT): Prom
 }
 
 export async function fetchPolymarketEsportsMarkets(limit = DEFAULT_MARKET_LIMIT): Promise<PolymarketRawMarket[]> {
-  const perSeriesLimit = Math.max(20, Math.ceil(limit / ESPORTS_SERIES_SLUGS.length));
+  const pageLimit = Math.min(KEYSET_PAGE_LIMIT, Math.max(100, limit));
   const blocks: PolymarketRawMarket[] = [];
-  for (const seriesSlug of ESPORTS_SERIES_SLUGS) {
+  const seenMarketIds = new Set<string>();
+  const seriesIds = await fetchEsportsSeriesIds();
+  let cursor = "";
+
+  for (let page = 0; page < MAX_KEYSET_PAGES; page += 1) {
+    const now = Date.now();
     const params = new URLSearchParams({
-      active: "true",
       closed: "false",
-      archived: "false",
-      limit: String(perSeriesLimit),
-      series_slug: seriesSlug,
+      limit: String(pageLimit),
+      order: "startTime",
+      ascending: "true",
+      start_time_min: new Date(now - COLLECT_PAST_MS).toISOString(),
+      start_time_max: new Date(now + COLLECT_FUTURE_MS).toISOString(),
     });
-    const data = await polymarketPluginGet<unknown>(`${POLYMARKET_GAMMA_API}/events?${params.toString()}`);
-    const events = unwrapArray<PolymarketRawEvent>(data);
-    blocks.push(...events.flatMap((event) => {
+    for (const id of seriesIds) params.append("series_id", id);
+    if (cursor) params.set("after_cursor", cursor);
+
+    const data = await polymarketPluginGet<unknown>(`${POLYMARKET_GAMMA_API}/events/keyset?${params.toString()}`);
+    const events = keysetEvents(data);
+    for (const event of events) {
       const markets = Array.isArray(event.markets) ? event.markets : [];
-      return markets.map(market => marketWithEventContext(market, event));
-    }));
+      for (const market of markets) {
+        const marketKey = marketKeyOf(market);
+        if (marketKey && seenMarketIds.has(marketKey)) continue;
+        if (marketKey) seenMarketIds.add(marketKey);
+        blocks.push(marketWithEventContext(market, event));
+      }
+    }
+    cursor = nextKeysetCursor(data);
+    if (!cursor) break;
   }
   return blocks;
 }

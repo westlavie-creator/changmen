@@ -385,6 +385,15 @@
     .btn-hidden-toggle.active { border-color: #64748b; color: #e2e8f0; background: #33415544; }
     .reverse-tag { font-size: 10px; font-weight: 600; color: #fbbf24; background: #fbbf2418; padding: 1px 5px; border-radius: 4px; margin-left: 6px; }
     .aligned-tag { font-size: 10px; font-weight: 600; color: #4ade80; background: #4ade8018; padding: 1px 5px; border-radius: 4px; margin-left: 6px; }
+    .reverse-cell { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .reverse-toggle-btn {
+      border: 1px solid #475569; background: #1e293b; color: #cbd5e1;
+      border-radius: 5px; padding: 2px 7px; font-size: 10px; line-height: 1.4;
+      cursor: pointer; white-space: nowrap;
+    }
+    .reverse-toggle-btn:hover:not(:disabled) { background: #334155; border-color: #64748b; color: #f1f5f9; }
+    .reverse-toggle-btn.reverse-on { border-color: #f59e0b66; color: #fde68a; background: #78350f33; }
+    .reverse-toggle-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -532,6 +541,9 @@ let _matchDrag = null;
 let _matchLinkBound = false;
 let _matchLinkSubmitting = false;
 let _hiddenPanelOpen = false;
+let _hiddenClientMatchesLoaded = false;
+let _hiddenClientMatchesLoading = false;
+let _reverseSubmitting = false;
 
 function resolvePlatformClientMatchId(m, platform, cms) {
   if (m?.match_id != null && m.match_id !== '') return Number(m.match_id);
@@ -863,14 +875,22 @@ function toggleHiddenPanel() {
   const btn = document.getElementById('btn-hidden-toggle');
   if (wrap) wrap.style.display = _hiddenPanelOpen ? '' : 'none';
   if (btn) btn.classList.toggle('active', _hiddenPanelOpen);
+  if (_hiddenPanelOpen && !_hiddenClientMatchesLoaded) {
+    void loadHiddenClientMatches();
+  }
+}
+
+function setHiddenMatchCount(count) {
+  const n = Number(count || 0);
+  const badge = document.getElementById('hidden-count-badge');
+  const panelCount = document.getElementById('hidden-panel-count');
+  if (badge) badge.textContent = n;
+  if (panelCount) panelCount.textContent = n;
 }
 
 function renderHiddenPanel(list) {
   const items = list || [];
-  const badge = document.getElementById('hidden-count-badge');
-  const panelCount = document.getElementById('hidden-panel-count');
-  if (badge) badge.textContent = items.length;
-  if (panelCount) panelCount.textContent = items.length;
+  setHiddenMatchCount(_lastData?.hiddenClientMatchCount ?? items.length);
   const body = document.getElementById('hidden-panel-body');
   if (!body) return;
   if (!items.length) {
@@ -898,6 +918,26 @@ function renderHiddenPanel(list) {
   body.querySelectorAll('[data-restore-cm]').forEach(btn => {
     btn.addEventListener('click', () => restoreClientMatch(Number(btn.dataset.restoreCm)));
   });
+}
+
+async function loadHiddenClientMatches() {
+  if (_hiddenClientMatchesLoading) return;
+  _hiddenClientMatchesLoading = true;
+  const body = document.getElementById('hidden-panel-body');
+  if (body) body.innerHTML = '<div class="empty" style="padding:20px">加载历史赛事…</div>';
+  try {
+    const { data } = await fetchJson('/api/hidden-client-matches');
+    if (data.error) throw new Error(data.error);
+    if (!_lastData) _lastData = {};
+    _lastData.hiddenClientMatches = data.hiddenClientMatches || [];
+    _lastData.hiddenClientMatchCount = data.hiddenClientMatchCount ?? _lastData.hiddenClientMatches.length;
+    _hiddenClientMatchesLoaded = true;
+    renderHiddenPanel(_lastData.hiddenClientMatches);
+  } catch (err) {
+    if (body) body.innerHTML = `<div class="empty" style="color:#f87171;padding:20px">历史赛事加载失败: ${esc(err.message)}</div>`;
+  } finally {
+    _hiddenClientMatchesLoading = false;
+  }
 }
 
 async function fetchJson(url, options) {
@@ -1337,6 +1377,24 @@ function displayClientMatchTitleGbIds(cm, rows, teamMaps, gameCode) {
   return `<span class="team-card-title-id">${home}<span class="vs">vs</span>${away}</span>`;
 }
 
+function renderReverseCell(cmId, platform, isReversed) {
+  const tag = isReversed
+    ? '<span class="reverse-tag">反</span>'
+    : '<span class="aligned-tag">正</span>';
+  const nextReversed = !isReversed;
+  const btnClass = isReversed ? 'reverse-toggle-btn reverse-on' : 'reverse-toggle-btn';
+  const btnText = isReversed ? '取消反转' : '主客反转';
+  const title = isReversed
+    ? '取消该场馆比赛的主客反转标记'
+    : '将该场馆比赛标记为主客反转';
+  return `<span class="reverse-cell">${tag}<button type="button" class="${btnClass}"
+    data-reverse-toggle="1"
+    data-cm-id="${esc(String(cmId || ''))}"
+    data-platform="${esc(platform || '')}"
+    data-reversed="${nextReversed ? '1' : '0'}"
+    title="${title}">${btnText}</button></span>`;
+}
+
 function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
   const visible = searchQuery
     ? rows.filter(m => matchMatchesTeamSearch(m, searchQuery))
@@ -1347,9 +1405,6 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
   const reverseSet = new Set(Array.isArray(cm?.reverse) ? cm.reverse : []);
   const rowsHtml = visible.map(m => {
     const isReversed = reverseSet.has(m.platform);
-    const reverseTag = isReversed
-      ? '<span class="reverse-tag">反</span>'
-      : '<span class="aligned-tag">正</span>';
     return `<tr>
       <td class="col-match-id">${renderMatchLinkCell(m, m.platform, cms)}</td>
       <td class="col-platform">${pbadge(m.platform)} <span class="team-status ts-done">已映射</span></td>
@@ -1357,7 +1412,7 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
       <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away' } : null)}</td>
       <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
-      <td>${reverseTag}</td>
+      <td>${renderReverseCell(cm.id, m.platform, isReversed)}</td>
     </tr>`;
   }).join('');
   return `<table class="team-table">
@@ -2498,7 +2553,9 @@ async function restoreClientMatch(cmId) {
       const rb = data.rebuild?.matchCount != null ? ` · rebuild ${data.rebuild.matchCount} 场` : '';
       showActionToast([`已恢复展示`, `#${cmId} ${data.title || cm?.title || ''}${rb}`].join('\n'), 'ok', 5200);
     }
+    _hiddenClientMatchesLoaded = false;
     await load();
+    if (_hiddenPanelOpen) await loadHiddenClientMatches();
   } catch (err) {
     showActionToast(`恢复失败\n#${cmId}\n${err.message}`, 'err', 6000);
   }
@@ -2591,6 +2648,35 @@ async function matcherAction(action) {
   }
 }
 
+async function toggleClientMatchPlatformReverse(btn) {
+  if (_reverseSubmitting || _rebuildBusy || _matcherBusy) return;
+  const cmId = btn?.dataset?.cmId;
+  const platform = btn?.dataset?.platform;
+  const reversed = btn?.dataset?.reversed === '1';
+  if (!cmId || !platform) return;
+  _reverseSubmitting = true;
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '处理中…';
+  try {
+    const { res, data } = await fetchJson(`/api/client-match/${encodeURIComponent(cmId)}/reverse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, reversed }),
+    });
+    if (!res.ok || data.error) throw new Error(data.error || '主客方向更新失败');
+    showActionToast(data.summary || `${platform} 主客方向已更新`, 'ok', 3600);
+    await load();
+    await refreshMatcherStatus();
+  } catch (err) {
+    showActionToast(`主客方向更新失败\n${err.message}`, 'err', 6000);
+    btn.disabled = false;
+    btn.textContent = oldText;
+  } finally {
+    _reverseSubmitting = false;
+  }
+}
+
 async function refreshMatcherStatus() {
   const el = document.getElementById('matcher-status');
   const label = el?.querySelector('.matcher-label');
@@ -2615,7 +2701,14 @@ async function load() {
     const displayCms = filterDisplayClientMatches(d.clientMatches, d.platforms);
     const teamMaps = d.teamMaps || {};
     renderStats(d, displayCms);
-    renderHiddenPanel(d.hiddenClientMatches || []);
+    setHiddenMatchCount(d.hiddenClientMatchCount ?? 0);
+    if (!_hiddenPanelOpen) {
+      _hiddenClientMatchesLoaded = false;
+      const body = document.getElementById('hidden-panel-body');
+      if (body) body.innerHTML = '<div class="empty" style="padding:20px">点击“历史赛事”后加载</div>';
+    } else if (!_hiddenClientMatchesLoaded) {
+      await loadHiddenClientMatches();
+    }
     const recs = filterRecsByTeamSearch(d.recommendations || [], _teamSearchQuery);
     renderTeamQueue(recs, d.clientMatches || [], teamMaps);
     const { idCount, nameCount } = renderMatchedLists(d.clientMatches || [], d.platforms, teamMaps, _teamSearchQuery);
@@ -2645,6 +2738,10 @@ document.getElementById('link-modal-cancel')?.addEventListener('click', hideLink
 document.getElementById('link-modal-confirm')?.addEventListener('click', confirmLinkModal);
 document.getElementById('link-modal')?.addEventListener('click', e => {
   if (e.target.id === 'link-modal') hideLinkModal();
+});
+document.addEventListener('click', e => {
+  const btn = e.target?.closest?.('[data-reverse-toggle]');
+  if (btn) toggleClientMatchPlatformReverse(btn);
 });
 
 document.querySelectorAll('[data-unmatched-filter]').forEach(btn => {

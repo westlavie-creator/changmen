@@ -140,6 +140,35 @@ export async function fetchClientMatchesDashboard() {
   return rows;
 }
 
+export async function setClientMatchPlatformReverse(id, platform, reversed) {
+  const cmId = Number(id);
+  const plat = String(platform || "").trim();
+  if (!Number.isFinite(cmId) || cmId <= 0)
+    throw new Error("无效的赛事 ID");
+  if (!plat)
+    throw new Error("平台不能为空");
+
+  const cm = await fetchClientMatchRow(cmId, "id, matchs, reverse");
+  if (!cm)
+    throw new Error("赛事不存在");
+  const matchs = cm.matchs && typeof cm.matchs === "object" ? cm.matchs : {};
+  if (!Object.hasOwn(matchs, plat))
+    throw new Error(`赛事 ${cmId} 未关联平台 ${plat}`);
+
+  const reverseSet = new Set(Array.isArray(cm.reverse) ? cm.reverse.map(String) : []);
+  if (reversed)
+    reverseSet.add(plat);
+  else
+    reverseSet.delete(plat);
+
+  const nextReverse = [...reverseSet].filter(p => Object.hasOwn(matchs, p));
+  await rdsQuery(
+    "UPDATE client_matches SET reverse = $2::jsonb WHERE id = $1",
+    [cmId, jsonb(nextReverse, [])],
+  );
+  return { id: cmId, platform: plat, reversed: !!reversed, reverse: nextReverse };
+}
+
 export async function fetchClientMatchesHidden() {
   const { rows } = await rdsQuery(
     `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at
@@ -148,6 +177,14 @@ export async function fetchClientMatchesHidden() {
      LIMIT 100`,
   );
   return rows;
+}
+
+export async function fetchClientMatchesHiddenCount() {
+  const { rows } = await rdsQuery(
+    `SELECT COUNT(*)::int AS count
+     FROM client_matches_history`,
+  );
+  return rows[0]?.count ?? 0;
 }
 
 export async function fetchLatestClientMatchBuiltAt() {
