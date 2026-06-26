@@ -28,7 +28,8 @@ const DISCOVERY_MS = 60_000;
 const WS_RECONNECT_MS = 5_000;
 const WS_PING_MS = 10_000;
 const SAVE_BETS_INTERVAL_MS = 5 * 60_000;
-const MAX_TRACKED_MARKETS = 80;
+const MAX_TRACKED_MARKETS = 400;
+const COLLECT_MARKET_TYPES = new Set(["moneyline", "child_moneyline"]);
 
 export type PolymarketWsStatus = "disconnected" | "connecting" | "connected" | "error";
 type PolymarketWsStatusListener = (status: PolymarketWsStatus) => void;
@@ -225,6 +226,7 @@ export function startPolymarketCollector(): () => void {
     const rawMarkets = await fetchPolymarketEsportsMarkets();
     const candidates: PolymarketMappedMarket[] = [];
     for (const raw of rawMarkets) {
+      if (!COLLECT_MARKET_TYPES.has(raw.sportsMarketType ?? "")) continue;
       const assetIds = parseJsonArray(raw.clob_token_ids ?? raw.clobTokenIds);
       if (assetIds.length !== 2) continue;
       const initial = buildPolymarketMappedMarket(raw);
