@@ -27,7 +27,7 @@
     "web": "npm run web --prefix server/backend",
     "web:restart": "npm run web:restart --prefix server/backend",
     "app:dev": "npm run dev --prefix client/web",
-    "app:build": "turbo run build --filter=@changmen/web",
+    "app:build": "turbo run build --filter=@changmen/web --force",
     "check:boundaries": "node scripts/check-team-boundaries.mjs",
     "test:api-contract": "node packages/api-contract/urls.test.mjs",
     "test": "npm run check:boundaries && npm run test:api-contract && npm run test:catalog-smoke && turbo run test",
