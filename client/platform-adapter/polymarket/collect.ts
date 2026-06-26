@@ -130,9 +130,15 @@ export function startPolymarketCollector(): () => void {
     if (Date.now() - lastSaveBetsAt < SAVE_BETS_INTERVAL_MS) return;
     const rows = [...pendingSave.values()];
     pendingSave.clear();
+    // 按 matchId 分组后再提交，避免 replacePlatformBetsForMatch 逐条覆盖
+    const byMatch = new Map<string, CollectBetDto[]>();
     for (const bet of rows) {
-      await collect.saveBets(PLATFORM, bet.SourceMatchID, [bet]);
+      const sid = String(bet.SourceMatchID);
+      if (!byMatch.has(sid)) byMatch.set(sid, []);
+      byMatch.get(sid)!.push(bet);
     }
+    for (const [sid, bets] of byMatch)
+      await collect.saveBets(PLATFORM, sid, bets);
     lastSaveBetsAt = Date.now();
   }
 
@@ -299,18 +305,27 @@ export function startPolymarketCollector(): () => void {
     const matches = [...new Map(candidates.map(row => [String(row.match.SourceMatchID), row.match])).values()];
     const saved = await collect.saveMatch(PLATFORM, matches);
     const shouldSaveBets = saved && Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS;
+
+    // 按 sourceMatchId 分组 — replacePlatformBetsForMatch 是整场替换，
+    // 必须一次性提交该场所有盘口，否则后调用的 saveBets 会删掉先提交的 map
+    const betsByMatch = new Map<string, CollectBetDto[]>();
     for (const mapped of candidates) {
       marketsById.set(mapped.marketId, mapped);
       assetToMarket.set(mapped.assetIds[0], mapped.marketId);
       assetToMarket.set(mapped.assetIds[1], mapped.marketId);
       saveOddsEntry(odds, mapped.bet, "http");
       if (shouldSaveBets) {
-        await collect.saveBets(PLATFORM, mapped.match.SourceMatchID, [mapped.bet]);
+        const sid = String(mapped.match.SourceMatchID);
+        if (!betsByMatch.has(sid)) betsByMatch.set(sid, []);
+        betsByMatch.get(sid)!.push(mapped.bet);
         pendingSave.delete(mapped.marketId);
       }
     }
-    if (shouldSaveBets)
+    if (shouldSaveBets) {
+      for (const [sid, bets] of betsByMatch)
+        await collect.saveBets(PLATFORM, sid, bets);
       lastSaveBetsAt = Date.now();
+    }
     matchStore.refreshOddsOnBets();
     subscribeTrackedAssets();
   };
