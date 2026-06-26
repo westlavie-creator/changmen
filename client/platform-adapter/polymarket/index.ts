@@ -7,6 +7,7 @@ export * from "./api";
 export * from "./bet";
 export * from "./collect";
 export * from "./parse";
+export * from "./ws";
 
 export const polymarketAdapter: PlatformAdapter = {
   id: "Polymarket",

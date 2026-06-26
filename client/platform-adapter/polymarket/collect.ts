@@ -8,12 +8,12 @@ import { useCollectStore } from "@/stores/collectStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import {
-  POLYMARKET_MARKET_WS,
   fetchBatchBuyPrices,
   fetchPolymarketEsportsMarkets,
   polymarketMarketSubscribeMessage,
   type PolymarketWsMessage,
 } from "./api";
+import { startPolymarketMarketWs } from "./ws";
 import {
   buildPolymarketMappedMarket,
   decimalOddsFromProbability,
@@ -24,31 +24,9 @@ import { POLYMARKET_PLUGIN_REQUIRED_MSG } from "./transport";
 
 const PLATFORM = PLATFORMS.Polymarket;
 const DISCOVERY_MS = 60_000;
-const WS_RECONNECT_MS = 5_000;
-const WS_PING_MS = 10_000;
 const SAVE_BETS_INTERVAL_MS = 5 * 60_000;
 const MAX_TRACKED_MARKETS = 400;
 const COLLECT_MARKET_TYPES = new Set(["moneyline", "child_moneyline"]);
-
-export type PolymarketWsStatus = "disconnected" | "connecting" | "connected" | "error";
-type PolymarketWsStatusListener = (status: PolymarketWsStatus) => void;
-
-let polymarketWsStatus: PolymarketWsStatus = "disconnected";
-const polymarketWsStatusListeners = new Set<PolymarketWsStatusListener>();
-
-function setPolymarketWsStatus(status: PolymarketWsStatus) {
-  polymarketWsStatus = status;
-  for (const fn of polymarketWsStatusListeners) fn(status);
-}
-
-export function getPolymarketWsStatus(): PolymarketWsStatus {
-  return polymarketWsStatus;
-}
-
-export function onPolymarketWsStatus(fn: PolymarketWsStatusListener): () => void {
-  polymarketWsStatusListeners.add(fn);
-  return () => polymarketWsStatusListeners.delete(fn);
-}
 
 function saveOddsEntry(odds: ReturnType<typeof useOddsStore>, bet: CollectBetDto, source: "http" | "mqtt") {
   const locked = bet.Status === "Locked";
@@ -91,10 +69,6 @@ export function extractPolymarketWsBestAsks(raw: string): Array<{ assetId: strin
 }
 
 export function startPolymarketCollector(): () => void {
-  let stopped = false;
-  let ws: WebSocket | null = null;
-  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  let pingTimer: ReturnType<typeof setInterval> | null = null;
   let lastSaveBetsAt = 0;
 
   const collect = useCollectStore();
@@ -112,9 +86,8 @@ export function startPolymarketCollector(): () => void {
   }
 
   function subscribeTrackedAssets() {
-    if (ws?.readyState !== WebSocket.OPEN) return;
     const assetIds = trackedAssetIds();
-    if (assetIds.length) ws.send(polymarketMarketSubscribeMessage(assetIds));
+    if (assetIds.length) wsHandle.send(polymarketMarketSubscribeMessage(assetIds));
   }
 
   async function flushPendingBets() {
@@ -163,50 +136,10 @@ export function startPolymarketCollector(): () => void {
     }
   }
 
-  function cleanupWs() {
-    if (pingTimer) {
-      clearInterval(pingTimer);
-      pingTimer = null;
-    }
-    ws = null;
-  }
-
-  function scheduleReconnect() {
-    if (stopped || reconnectTimer) return;
-    reconnectTimer = setTimeout(() => {
-      reconnectTimer = null;
-      connectWs();
-    }, WS_RECONNECT_MS);
-  }
-
-  function connectWs() {
-    if (stopped || ws) return;
-    setPolymarketWsStatus("connecting");
-    ws = new WebSocket(POLYMARKET_MARKET_WS);
-    ws.onopen = () => {
-      setPolymarketWsStatus("connected");
-      subscribeTrackedAssets();
-      pingTimer = setInterval(() => {
-        if (ws?.readyState === WebSocket.OPEN) ws.send("PING");
-      }, WS_PING_MS);
-    };
-    ws.onmessage = (event) => {
-      try {
-        handleWsMessage(String(event.data));
-      } catch (err) {
-        console.warn("[Polymarket WS] parse error", err);
-      }
-    };
-    ws.onclose = () => {
-      cleanupWs();
-      setPolymarketWsStatus(stopped ? "disconnected" : "error");
-      scheduleReconnect();
-    };
-    ws.onerror = () => {
-      setPolymarketWsStatus("error");
-      ws?.close();
-    };
-  }
+  const wsHandle = startPolymarketMarketWs({
+    onOpen: subscribeTrackedAssets,
+    onMessage: handleWsMessage,
+  });
 
   const runDiscovery = async () => {
     while (!collect.ready) {
@@ -270,8 +203,8 @@ export function startPolymarketCollector(): () => void {
     subscribeTrackedAssets();
   };
 
+  let stopped = false;
   const loop = async () => {
-    connectWs();
     while (!stopped) {
       try {
         if (!hasA8PluginRuntime()) {
@@ -296,10 +229,6 @@ export function startPolymarketCollector(): () => void {
 
   return () => {
     stopped = true;
-    if (reconnectTimer) clearTimeout(reconnectTimer);
-    if (pingTimer) clearInterval(pingTimer);
-    ws?.close();
-    cleanupWs();
-    setPolymarketWsStatus("disconnected");
+    wsHandle.stop();
   };
 }
