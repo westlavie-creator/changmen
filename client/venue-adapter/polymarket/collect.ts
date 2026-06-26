@@ -76,7 +76,6 @@ export function startPolymarketCollector(): () => void {
   const odds = useOddsStore();
   const marketsById = new Map<string, PolymarketMappedMarket>();
   const assetToMarket = new Map<string, string>();
-  const pendingSave = new Map<string, CollectBetDto>();
   let pluginMissingNotified = false;
 
   function trackedAssetIds(): string[] {
@@ -88,23 +87,6 @@ export function startPolymarketCollector(): () => void {
   function subscribeTrackedAssets() {
     const assetIds = trackedAssetIds();
     if (assetIds.length) wsHandle.send(polymarketMarketSubscribeMessage(assetIds));
-  }
-
-  async function flushPendingBets() {
-    if (!pendingSave.size) return;
-    if (Date.now() - lastSaveBetsAt < SAVE_BETS_INTERVAL_MS) return;
-    const rows = [...pendingSave.values()];
-    pendingSave.clear();
-    // 按 matchId 分组后再提交，避免 replacePlatformBetsForMatch 逐条覆盖
-    const byMatch = new Map<string, CollectBetDto[]>();
-    for (const bet of rows) {
-      const sid = String(bet.SourceMatchID);
-      if (!byMatch.has(sid)) byMatch.set(sid, []);
-      byMatch.get(sid)!.push(bet);
-    }
-    for (const [sid, bets] of byMatch)
-      await collect.saveBets(PLATFORM, sid, bets);
-    lastSaveBetsAt = Date.now();
   }
 
   function updateBetFromAsset(assetId: string, bestAsk: string | number | undefined) {
@@ -123,16 +105,12 @@ export function startPolymarketCollector(): () => void {
     next.Status = next.HomeOdds > 0 && next.AwayOdds > 0 ? "Normal" : "Locked";
     mapped.bet = next;
     saveOddsEntry(odds, next, "mqtt");
-    pendingSave.set(marketId, next);
     matchStore.refreshOddsOnBets();
   }
 
   function handleWsMessage(raw: string) {
     for (const update of extractPolymarketWsBestAsks(raw)) {
       updateBetFromAsset(update.assetId, update.bestAsk);
-    }
-    if (Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS) {
-      void flushPendingBets();
     }
   }
 
@@ -191,7 +169,6 @@ export function startPolymarketCollector(): () => void {
         const sid = String(mapped.match.SourceMatchID);
         if (!betsByMatch.has(sid)) betsByMatch.set(sid, []);
         betsByMatch.get(sid)!.push(mapped.bet);
-        pendingSave.delete(mapped.marketId);
       }
     }
     if (shouldSaveBets) {
