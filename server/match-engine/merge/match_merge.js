@@ -931,8 +931,8 @@ function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
 }
 
 /**
- * 进行中（Round > 0）：Map=0 全场行 Sources 仅保留 OB。[A8 可证实]
- * OB 无 Map=0 时保留该行但清空 Sources，Initial* 供 Web 初赔行展示（不展示平台实时盘）。
+ * 进行中（Round > 0）：Map=0 全场行 Sources 仅保留 OB 和 Polymarket。[A8 可证实 OB 部分；changmen 扩展 Polymarket]
+ * 两者均无 Map=0 时保留该行但清空 Sources，Initial* 供 Web 初赔行展示（不展示平台实时盘）。
  * 须在 promoteFullMatchSourcesToLiveRound 之后调用（先复制到 Map=R，再裁剪 Map=0）。
  */
 function trimMapZeroToObOnDeciderRound(rows) {
@@ -944,13 +944,12 @@ function trimMapZeroToObOnDeciderRound(rows) {
     if (!fullBet)
       continue;
     preserveInitialOddsFromSources(fullBet);
-    const ob = fullBet.Sources?.OB;
-    if (ob) {
-      fullBet.Sources = { OB: ob };
-    }
-    else {
-      fullBet.Sources = {};
-    }
+    const kept = {};
+    if (fullBet.Sources?.OB)
+      kept.OB = fullBet.Sources.OB;
+    if (fullBet.Sources?.Polymarket)
+      kept.Polymarket = fullBet.Sources.Polymarket;
+    fullBet.Sources = kept;
   }
   sortClientMatchBets(rows);
 }
