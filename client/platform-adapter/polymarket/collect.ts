@@ -111,6 +111,8 @@ export function startPolymarketCollector(): () => void {
   const pendingSave = new Map<string, CollectBetDto>();
   /** Sports WS: pandascore gameId → Polymarket sourceMatchId */
   const gameIdToMatchId = new Map<number, string>();
+  /** Sports WS: sourceMatchId → 当前局数（整场快照，整包提交给 saveLiveTimer） */
+  const polyTimers = new Map<string, { MatchID: string; Round: number; StartTime: number }>();
   let pluginMissingNotified = false;
 
   function trackedAssetIds(): string[] {
@@ -205,7 +207,9 @@ export function startPolymarketCollector(): () => void {
     if (!sourceMatchId) return;
     const round = parsePeriodToRound(data.period);
     if (round === null) return;
-    void saveLiveTimer(PLATFORM, [{ MatchID: sourceMatchId, Round: round, StartTime: Date.now() }]);
+    polyTimers.set(sourceMatchId, { MatchID: sourceMatchId, Round: round, StartTime: Date.now() });
+    // 整包提交所有 Polymarket 比赛的 timer（saveLiveTimer 是 DELETE+INSERT 全平台快照）
+    void saveLiveTimer(PLATFORM, [...polyTimers.values()]);
   }
 
   function connectSportsWs() {
