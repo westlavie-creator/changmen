@@ -1,6 +1,6 @@
 /** Polymarket Gamma/CLOB REST — 扩展 background 代发（绕过页面 CORS，对齐 A8 Zn） */
 
-import { a8PluginGet, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 
 export const POLYMARKET_PLUGIN_REQUIRED_MSG =
   "Polymarket 采集需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）";
@@ -34,6 +34,15 @@ export async function polymarketPluginGet<T>(
 ): Promise<T> {
   requirePluginRuntime();
   const raw = await a8PluginGet(url, { timeout: PLUGIN_TIMEOUT_MS, ...options });
+  if (raw == null)
+    throw new Error("Polymarket API 无响应");
+  return unwrapPluginResponse<T>(raw);
+}
+
+/** 扩展 background axios POST（CLOB /prices /midpoints 等批量接口） */
+export async function polymarketPluginPost<T>(url: string, data: unknown): Promise<T> {
+  requirePluginRuntime();
+  const raw = await a8PluginPost(url, data, { timeout: PLUGIN_TIMEOUT_MS });
   if (raw == null)
     throw new Error("Polymarket API 无响应");
   return unwrapPluginResponse<T>(raw);

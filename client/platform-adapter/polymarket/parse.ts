@@ -44,6 +44,8 @@ export interface PolymarketRawEvent {
   startDate?: string | number;
   tags?: unknown;
   markets?: PolymarketRawMarket[];
+  /** Pandascore match ID，与 Sports WS `gameId` 对应 */
+  gameId?: string | number;
 }
 
 export interface PolymarketBook {
@@ -63,6 +65,8 @@ export interface PolymarketMappedMarket {
   bet: CollectBetDto;
   assetIds: [string, string];
   marketId: string;
+  /** 对应 Sports WS 的 gameId（pandascore match ID） */
+  gameId?: number;
 }
 
 export function parseJsonArray(value: unknown): string[] {
@@ -200,6 +204,14 @@ function betNameOf(map: number): string {
   return map > 0 ? `[地图${map}] 获胜者` : "[全场] 获胜者";
 }
 
+/** Sports WS period "1/3" → 1；无效格式返回 null */
+export function parsePeriodToRound(period: string | undefined): number | null {
+  if (!period)
+    return null;
+  const n = Number.parseInt(period, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function decimalOddsFromProbability(price: string | number | undefined): number {
   const value = Number(price);
   if (!Number.isFinite(value) || value <= 0 || value >= 1) return 0;
@@ -219,9 +231,14 @@ export function bestAskFromBook(book: PolymarketBook | undefined): number {
   return Number.isFinite(best) ? best : 0;
 }
 
+/**
+ * 将 Polymarket market 原始数据解析为内部结构。
+ * `buyPrices`：从 CLOB /prices?sides=BUY 批量获取的概率价格 Record<assetId, probability>。
+ * 缺失 assetId 时 odds=0，Status="Locked"（等 WS 推送更新）。
+ */
 export function buildPolymarketMappedMarket(
   market: PolymarketRawMarket,
-  books: Partial<Record<string, PolymarketBook>> = {},
+  buyPrices: Record<string, number | string> = {},
 ): PolymarketMappedMarket | null {
   if (!isOpenMarket(market)) return null;
   const map = mapNumberOf(market);
@@ -258,15 +275,17 @@ export function buildPolymarketMappedMarket(
     Logo: "",
   };
 
-  const homeAsk = bestAskFromBook(books[homeId]);
-  const awayAsk = bestAskFromBook(books[awayId]);
-  const homeOdds = decimalOddsFromProbability(homeAsk);
-  const awayOdds = decimalOddsFromProbability(awayAsk);
+  const homeOdds = decimalOddsFromProbability(buyPrices[homeId]);
+  const awayOdds = decimalOddsFromProbability(buyPrices[awayId]);
   const locked = !homeOdds || !awayOdds;
+
+  const event = eventOf(market);
+  const pandascoreId = event?.gameId ? Number(event.gameId) : undefined;
 
   return {
     marketId,
     assetIds: [homeId, awayId],
+    gameId: pandascoreId,
     match: {
       Type: PLATFORM,
       SourceMatchID: sourceMatchId,

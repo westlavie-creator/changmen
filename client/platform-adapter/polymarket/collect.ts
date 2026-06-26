@@ -4,22 +4,25 @@ import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { a8StartTimeCollectAllowed } from "@/shared/a8MatchTime";
 import { notifyCollectError } from "@platform/shared/collectNotify";
+import { saveLiveTimer } from "@/api/esport";
 import { useCollectStore } from "@/stores/collectStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import {
   POLYMARKET_MARKET_WS,
-  fetchPolymarketBook,
+  POLYMARKET_SPORTS_WS,
+  fetchBatchBuyPrices,
   fetchPolymarketEsportsMarkets,
   polymarketMarketSubscribeMessage,
+  type PolymarketSportResult,
   type PolymarketWsMessage,
 } from "./api";
 import {
   buildPolymarketMappedMarket,
   decimalOddsFromProbability,
   parseJsonArray,
+  parsePeriodToRound,
   type PolymarketMappedMarket,
-  type PolymarketBook,
 } from "./parse";
 import { POLYMARKET_PLUGIN_REQUIRED_MSG } from "./transport";
 
@@ -71,20 +74,6 @@ function saveOddsEntry(odds: ReturnType<typeof useOddsStore>, bet: CollectBetDto
   }, source);
 }
 
-async function fetchBooks(assetIds: [string, string]): Promise<Partial<Record<string, PolymarketBook>>> {
-  const pairs = await Promise.all(assetIds.map(async (assetId) => {
-    try {
-      return [assetId, await fetchPolymarketBook(assetId)] as const;
-    } catch {
-      return [assetId, null] as const;
-    }
-  }));
-  const books: Partial<Record<string, PolymarketBook>> = {};
-  for (const [assetId, book] of pairs) {
-    if (book) books[assetId] = book;
-  }
-  return books;
-}
 
 export function extractPolymarketWsBestAsks(raw: string): Array<{ assetId: string; bestAsk: string | number }> {
   if (raw === "PONG") return [];
@@ -108,7 +97,9 @@ export function extractPolymarketWsBestAsks(raw: string): Array<{ assetId: strin
 export function startPolymarketCollector(): () => void {
   let stopped = false;
   let ws: WebSocket | null = null;
+  let sportsWs: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let sportsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
   let lastSaveBetsAt = 0;
 
@@ -118,6 +109,8 @@ export function startPolymarketCollector(): () => void {
   const marketsById = new Map<string, PolymarketMappedMarket>();
   const assetToMarket = new Map<string, string>();
   const pendingSave = new Map<string, CollectBetDto>();
+  /** Sports WS: pandascore gameId → Polymarket sourceMatchId */
+  const gameIdToMatchId = new Map<number, string>();
   let pluginMissingNotified = false;
 
   function trackedAssetIds(): string[] {
@@ -188,6 +181,52 @@ export function startPolymarketCollector(): () => void {
     }, WS_RECONNECT_MS);
   }
 
+  // ── Sports WebSocket：实时比赛状态（period/score），补充 OB live_timers ──────
+  function handleSportsMessage(raw: string) {
+    if (raw === "ping") {
+      sportsWs?.send("pong");
+      return;
+    }
+    let data: PolymarketSportResult;
+    try {
+      data = JSON.parse(raw) as PolymarketSportResult;
+    }
+    catch {
+      return;
+    }
+    if (!data.gameId) return;
+    const sourceMatchId = gameIdToMatchId.get(data.gameId);
+    if (!sourceMatchId) return;
+    const round = parsePeriodToRound(data.period);
+    if (round === null) return;
+    void saveLiveTimer(PLATFORM, [{ MatchID: sourceMatchId, Round: round, StartTime: Date.now() }]);
+  }
+
+  function connectSportsWs() {
+    if (stopped || sportsWs) return;
+    sportsWs = new WebSocket(POLYMARKET_SPORTS_WS);
+    sportsWs.onmessage = (event) => {
+      try {
+        handleSportsMessage(String(event.data));
+      }
+      catch (err) {
+        console.warn("[Polymarket Sports WS] parse error", err);
+      }
+    };
+    sportsWs.onclose = () => {
+      sportsWs = null;
+      if (!stopped) {
+        sportsReconnectTimer = setTimeout(() => {
+          sportsReconnectTimer = null;
+          connectSportsWs();
+        }, WS_RECONNECT_MS);
+      }
+    };
+    sportsWs.onerror = () => {
+      sportsWs?.close();
+    };
+  }
+
   function connectWs() {
     if (stopped || ws) return;
     setPolymarketWsStatus("connecting");
@@ -224,7 +263,9 @@ export function startPolymarketCollector(): () => void {
     }
 
     const rawMarkets = await fetchPolymarketEsportsMarkets();
-    const candidates: PolymarketMappedMarket[] = [];
+
+    // 第一阶段：过滤，不调用价格接口
+    const filtered: typeof rawMarkets = [];
     for (const raw of rawMarkets) {
       if (!COLLECT_MARKET_TYPES.has(raw.sportsMarketType ?? "")) continue;
       const assetIds = parseJsonArray(raw.clob_token_ids ?? raw.clobTokenIds);
@@ -232,13 +273,29 @@ export function startPolymarketCollector(): () => void {
       const initial = buildPolymarketMappedMarket(raw);
       if (!initial) continue;
       if (!a8StartTimeCollectAllowed(initial.match.StartTime)) continue;
-      const books = await fetchBooks(initial.assetIds);
-      const mapped = buildPolymarketMappedMarket(raw, books);
+      filtered.push(raw);
+    }
+
+    // 第二阶段：一次批量获取所有 token 的 BUY 价格（单次 CLOB /prices 请求）
+    const allAssetIds = filtered.flatMap(raw => parseJsonArray(raw.clob_token_ids ?? raw.clobTokenIds));
+    const buyPrices = await fetchBatchBuyPrices(allAssetIds);
+
+    // 第三阶段：用批量价格构建候选市场
+    const candidates: PolymarketMappedMarket[] = [];
+    for (const raw of filtered) {
+      const mapped = buildPolymarketMappedMarket(raw, buyPrices);
       if (mapped) candidates.push(mapped);
       if (candidates.length >= MAX_TRACKED_MARKETS) break;
     }
 
     if (!candidates.length) return;
+
+    // 维护 Sports WS gameId → sourceMatchId 映射
+    for (const mapped of candidates) {
+      if (mapped.gameId)
+        gameIdToMatchId.set(mapped.gameId, String(mapped.match.SourceMatchID));
+    }
+
     const matches = [...new Map(candidates.map(row => [String(row.match.SourceMatchID), row.match])).values()];
     const saved = await collect.saveMatch(PLATFORM, matches);
     const shouldSaveBets = saved && Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS;
@@ -260,6 +317,7 @@ export function startPolymarketCollector(): () => void {
 
   const loop = async () => {
     connectWs();
+    connectSportsWs();
     while (!stopped) {
       try {
         if (!hasA8PluginRuntime()) {
@@ -285,8 +343,10 @@ export function startPolymarketCollector(): () => void {
   return () => {
     stopped = true;
     if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (sportsReconnectTimer) clearTimeout(sportsReconnectTimer);
     if (pingTimer) clearInterval(pingTimer);
     ws?.close();
+    sportsWs?.close();
     cleanupWs();
     setPolymarketWsStatus("disconnected");
   };

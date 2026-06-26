@@ -1,9 +1,10 @@
 import type { PolymarketBook, PolymarketRawEvent, PolymarketRawMarket } from "./parse";
-import { polymarketPluginGet } from "./transport";
+import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 export const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
 export const POLYMARKET_CLOB_API = "https://clob.polymarket.com";
 export const POLYMARKET_MARKET_WS = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
+export const POLYMARKET_SPORTS_WS = "wss://sports-api.polymarket.com/ws";
 
 const DEFAULT_MARKET_LIMIT = 200;
 const KEYSET_PAGE_LIMIT = 500;
@@ -139,6 +140,37 @@ export async function fetchPolymarketEsportsMarkets(limit = DEFAULT_MARKET_LIMIT
   return blocks;
 }
 
+/**
+ * 批量获取 token 的 BUY 侧最优价格（买入概率），替代逐个调用 /book。
+ * 每批最多 200 个 token，超出自动分块。
+ * 返回 Record<assetId, probability>，缺失的 assetId 不在结果中（市场将显示 Locked）。
+ */
+export async function fetchBatchBuyPrices(assetIds: string[]): Promise<Record<string, number>> {
+  if (!assetIds.length)
+    return {};
+  const CHUNK = 200;
+  const result: Record<string, number> = {};
+  for (let i = 0; i < assetIds.length; i += CHUNK) {
+    const chunk = assetIds.slice(i, i + CHUNK);
+    const body = chunk.map(token_id => ({ token_id, side: "BUY" }));
+    try {
+      const data = await polymarketPluginPost<Record<string, Record<string, unknown>>>(
+        `${POLYMARKET_CLOB_API}/prices`,
+        body,
+      );
+      for (const [tokenId, sides] of Object.entries(data ?? {})) {
+        const price = Number(sides?.BUY ?? 0);
+        if (price > 0 && price < 1)
+          result[tokenId] = price;
+      }
+    }
+    catch {
+      // 分块失败不阻断其余分块；缺失的 token 保持 Locked
+    }
+  }
+  return result;
+}
+
 export async function fetchPolymarketBook(assetId: string): Promise<PolymarketBook | null> {
   if (!assetId)
     return null;
@@ -151,6 +183,21 @@ export async function fetchPolymarketBook(assetId: string): Promise<PolymarketBo
   if ("book" in data && data.book)
     return data.book;
   return data as PolymarketBook;
+}
+
+/** Sports WS `wss://sports-api.polymarket.com/ws` 推送的比赛状态消息 */
+export interface PolymarketSportResult {
+  gameId?: number;
+  leagueAbbreviation?: string;
+  slug?: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  status?: string;  // "not_started" | "running" | "finished" | "postponed" | "canceled"
+  score?: string;   // "000-000|0-0|Bo3"
+  period?: string;  // "1/3" | "2/3" | "3/3"
+  live?: boolean;
+  ended?: boolean;
+  finished_timestamp?: string;
 }
 
 export interface PolymarketWsMessage {

@@ -74,8 +74,8 @@ describe("Polymarket parse", () => {
 
   test("builds CollectMatchDto and CollectBetDto for team winner market", () => {
     const mapped = buildPolymarketMappedMarket(baseMarket, {
-      "asset-home": { asks: [{ price: "0.5", size: "100" }] },
-      "asset-away": { asks: [{ price: "0.25", size: "100" }] },
+      "asset-home": 0.5,
+      "asset-away": 0.25,
     });
 
     expect(mapped?.match).toMatchObject({
