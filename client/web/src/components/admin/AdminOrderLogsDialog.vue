@@ -37,6 +37,12 @@ function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
 }
 
+function fmtMaybeNumber(n: number | null | undefined) {
+  if (n === null || n === undefined || Number.isNaN(Number(n)))
+    return "";
+  return String(n);
+}
+
 function kindClass(kind: string) {
   if (kind === "bet")
     return "admin-order-log-kind--bet";
@@ -275,6 +281,42 @@ const platformLabels = computed(() => {
   return [...labels].join(" · ");
 });
 
+const logStats = computed(() => data.value?.logStats ?? {
+  total: data.value?.logs.length ?? 0,
+  related: data.value?.logs.length ?? 0,
+  unrelated: data.value?.unrelatedLogs?.length ?? 0,
+  truncated: false,
+  limit: 0,
+});
+
+const hasFilteredLogs = computed(() => (logStats.value.unrelated || 0) > 0);
+
+function logDetailParts(log: AdminOrderLogEntry) {
+  const parts: string[] = [];
+  if (log.accountLabel)
+    parts.push(log.accountLabel);
+  if (log.match)
+    parts.push(log.match);
+  if (log.bet)
+    parts.push(log.bet);
+  const odds = fmtMaybeNumber(log.requestOdds ?? log.odds);
+  const amount = fmtMaybeNumber(log.requestAmount ?? log.betMoney);
+  if (log.target || odds || amount) {
+    parts.push(
+      [
+        log.target || "",
+        odds ? `@${odds}` : "",
+        amount ? `¥${amount}` : "",
+      ].filter(Boolean).join(" "),
+    );
+  }
+  if (log.matchedOrderId && !log.orderId)
+    parts.push(`关联订单 #${log.matchedOrderId}`);
+  if (log.relationReason)
+    parts.push(`依据：${log.relationReason}`);
+  return parts.filter(Boolean);
+}
+
 function attemptDividerLabel(prev: AdminOrderLogAttempt, next: AdminOrderLogAttempt) {
   if (prev.order?.status?.toLowerCase() === "reject")
     return "拒单后重下";
@@ -368,7 +410,26 @@ defineExpose({ open });
                 </div>
                 <div class="admin-order-log-stat">
                   <span class="admin-order-log-stat__label">日志</span>
-                  <span class="admin-order-log-stat__value">{{ data.logs.length }} 条</span>
+                  <span class="admin-order-log-stat__value">
+                    {{ logStats.related }} / {{ logStats.total }} 条相关
+                  </span>
+                </div>
+                <div
+                  class="admin-order-log-stat"
+                  :class="{ 'admin-order-log-stat--warn': hasFilteredLogs || logStats.truncated }"
+                >
+                  <span class="admin-order-log-stat__label">诊断质量</span>
+                  <span class="admin-order-log-stat__value">
+                    <template v-if="logStats.truncated">
+                      日志已截断 {{ logStats.limit }} 条
+                    </template>
+                    <template v-else-if="hasFilteredLogs">
+                      已过滤 {{ logStats.unrelated }} 条噪声
+                    </template>
+                    <template v-else>
+                      全部匹配
+                    </template>
+                  </span>
                 </div>
                 <div v-if="overviewMatch" class="admin-order-log-stat admin-order-log-stat--wide">
                   <span class="admin-order-log-stat__label">比赛</span>
@@ -476,7 +537,9 @@ defineExpose({ open });
                 <h4 class="admin-order-log-logs-row__title">
                   主客队诊断日志
                 </h4>
-                <span class="admin-order-log-logs-row__hint">主队 / 客队；同侧拒单重下以分隔线区分；补单按预检轮次分账号</span>
+                <span class="admin-order-log-logs-row__hint">
+                  仅展示已关联当前订单/比赛的日志；窗口噪声会被过滤，避免串单
+                </span>
               </header>
 
               <div
@@ -579,6 +642,18 @@ defineExpose({ open });
                               <span class="admin-order-log-list__summary" :title="log.summary">{{
                                 log.summary
                               }}</span>
+                              <div
+                                v-if="logDetailParts(log).length"
+                                class="admin-order-log-list__details"
+                              >
+                                <span
+                                  v-for="part in logDetailParts(log)"
+                                  :key="part"
+                                  class="admin-order-log-list__detail"
+                                >
+                                  {{ part }}
+                                </span>
+                              </div>
                             </li>
                           </ul>
                         </div>
@@ -592,6 +667,46 @@ defineExpose({ open });
               </div>
               <p v-else class="admin-order-log-dialog__empty">
                 该时间窗内无 Client_SaveUserLog 记录
+              </p>
+            </section>
+
+            <section
+              v-if="data.unrelatedLogs?.length"
+              class="admin-order-log-filtered"
+            >
+              <header class="admin-order-log-filtered__head">
+                <h4 class="admin-order-log-logs-row__title">
+                  已过滤的窗口日志
+                </h4>
+                <span class="admin-order-log-logs-row__hint">
+                  这些日志在时间窗内，但未匹配当前订单，通常是其他比赛或账号刷新日志
+                </span>
+              </header>
+              <ul class="admin-order-log-list admin-order-log-list--filtered">
+                <li
+                  v-for="(log, i) in data.unrelatedLogs.slice(0, 8)"
+                  :key="log.id ?? `filtered-${i}`"
+                  class="admin-order-log-list__row admin-order-log-list__row--filtered"
+                >
+                  <span class="admin-order-log-list__time">{{ fmtTime(log.createAt) }}</span>
+                  <span class="admin-order-log-kind" :class="kindClass(log.kind)">
+                    {{ kindLabel[log.kind] || log.kind }}
+                  </span>
+                  <span class="admin-order-log-list__summary" :title="log.summary">
+                    {{ log.summary }}
+                  </span>
+                  <div class="admin-order-log-list__details">
+                    <span class="admin-order-log-list__detail">
+                      {{ log.relationReason || "未匹配当前订单" }}
+                    </span>
+                  </div>
+                </li>
+              </ul>
+              <p
+                v-if="data.unrelatedLogs.length > 8"
+                class="admin-order-log-filtered__more"
+              >
+                还有 {{ data.unrelatedLogs.length - 8 }} 条已过滤日志未展开
               </p>
             </section>
           </div>

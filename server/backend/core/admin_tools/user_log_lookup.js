@@ -11,6 +11,7 @@ import {
 
 export const ARB_LINK_MIN = 1_000_000_000_000;
 export const DEFAULT_LOG_PADDING_MS = 180_000;
+const RELATED_BET_LOG_WINDOW_MS = 15_000;
 
 export function linkTypeLabel(link) {
   const n = Number(link);
@@ -43,8 +44,9 @@ export function computeLogWindow(orders, paddingMs = DEFAULT_LOG_PADDING_MS) {
     .filter(t => t > 0);
   for (const o of orders || []) {
     const linkTs = Number(o.link) || 0;
-    if (linkTs >= ARB_LINK_MIN)
-      times.push(linkTs);
+    const absLinkTs = Math.abs(linkTs);
+    if (absLinkTs >= ARB_LINK_MIN)
+      times.push(absLinkTs);
   }
   if (!times.length)
     return null;
@@ -64,6 +66,147 @@ export function parseLogData(raw) {
   catch {
     return { raw: String(raw) };
   }
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function textMatches(a, b) {
+  const left = normalizeText(a);
+  const right = normalizeText(b);
+  if (!left || !right)
+    return false;
+  return left.includes(right) || right.includes(left);
+}
+
+function orderLogMatchScore(order, log) {
+  let score = 0;
+  const reasons = [];
+  if (log.orderId && String(log.orderId) === String(order.orderId)) {
+    score += 100;
+    reasons.push("order_id");
+  }
+  if (log.provider && order.provider && String(log.provider) === String(order.provider)) {
+    score += 12;
+    reasons.push("平台");
+  }
+  if (log.match && order.match && textMatches(log.match, order.match)) {
+    score += 60;
+    reasons.push("比赛");
+  }
+  if (log.bet && order.bet && textMatches(log.bet, order.bet)) {
+    score += 18;
+    reasons.push("盘口");
+  }
+  if (log.item && order.item && textMatches(log.item, order.item)) {
+    score += 8;
+    reasons.push("选项");
+  }
+  if (Number(log.odds) && Number(order.odds)) {
+    const diff = Math.abs(Number(log.odds) - Number(order.odds));
+    if (diff <= 0.001) {
+      score += 12;
+      reasons.push("赔率");
+    }
+    else if (diff <= 0.08) {
+      score += 5;
+      reasons.push("近似赔率");
+    }
+  }
+  if (Number(log.betMoney) && Number(order.betMoney)) {
+    const diff = Math.abs(Number(log.betMoney) - Number(order.betMoney));
+    if (diff <= 1) {
+      score += 8;
+      reasons.push("金额");
+    }
+  }
+  const delta = Math.abs(Number(log.createAt) - Number(order.createAt));
+  if (delta <= RELATED_BET_LOG_WINDOW_MS) {
+    score += 8;
+    reasons.push("时间");
+  }
+  else if (delta <= DEFAULT_LOG_PADDING_MS) {
+    score += 2;
+  }
+  return { score, reasons };
+}
+
+function findBestOrderMatch(orders, log) {
+  let best = null;
+  for (const order of orders || []) {
+    const match = orderLogMatchScore(order, log);
+    if (!best || match.score > best.score) {
+      best = { order, ...match };
+    }
+  }
+  return best;
+}
+
+function isStrongLogOrderMatch(best, log) {
+  if (!best)
+    return false;
+  if (log.orderId && best.reasons.includes("order_id"))
+    return true;
+  if (log.kind === "check") {
+    return best.reasons.includes("比赛") && best.score >= 60;
+  }
+  if (log.kind === "reject") {
+    return best.reasons.includes("order_id") || (best.reasons.includes("平台") && best.reasons.includes("时间"));
+  }
+  return best.score >= 80;
+}
+
+function sameLogActor(a, b) {
+  if (!a || !b)
+    return false;
+  if (a.accountLabel && b.accountLabel && a.accountLabel === b.accountLabel)
+    return true;
+  return Boolean(a.provider && b.provider && a.provider === b.provider);
+}
+
+export function filterRelevantLogs(orders, logs) {
+  const relevant = [];
+  const unrelated = [];
+  let lastRelevantCheck = null;
+
+  for (const log of logs || []) {
+    const best = findBestOrderMatch(orders, log);
+    let keep = isStrongLogOrderMatch(best, log);
+    const reasons = keep ? [...best.reasons] : [];
+    if (!keep && log.kind === "bet" && lastRelevantCheck && sameLogActor(log, lastRelevantCheck)) {
+      const delta = Number(log.createAt) - Number(lastRelevantCheck.createAt);
+      if (delta >= 0 && delta <= RELATED_BET_LOG_WINDOW_MS) {
+        keep = true;
+        reasons.push("同预检下注链路");
+      }
+    }
+    if (!keep && log.kind === "other") {
+      unrelated.push({ ...log, related: false, relationReason: "非下注诊断日志" });
+      continue;
+    }
+    const next = {
+      ...log,
+      related: keep,
+      relationScore: best?.score ?? 0,
+      relationReason: reasons.join("、") || (keep ? "相关" : "未匹配订单"),
+      matchedOrderId: keep && best?.order?.orderId ? best.order.orderId : null,
+    };
+    if (keep) {
+      relevant.push(next);
+      if (log.kind === "check")
+        lastRelevantCheck = next;
+    }
+    else {
+      unrelated.push(next);
+    }
+  }
+
+  return { relevant, unrelated };
 }
 
 export function classifyLogTitle(title) {
@@ -180,7 +323,7 @@ export function buildOrderSections(orders, logs) {
   };
 
   for (const log of logs || []) {
-    const orderId = log.orderId ? String(log.orderId) : null;
+    const orderId = log.orderId || log.matchedOrderId ? String(log.orderId || log.matchedOrderId) : null;
     if (orderId && byOrderId.has(orderId)) {
       byOrderId.get(orderId).logs.push(log);
       continue;
@@ -236,6 +379,22 @@ export function extractLogTarget(parsed, kind, summary) {
   }
   const m = String(summary || "").match(/\s(Home|Away)@/);
   return m?.[1] || null;
+}
+
+function parseObRequestLine(request) {
+  if (!request || typeof request !== "object")
+    return {};
+  const line = Object.keys(request)
+    .filter(k => /^b\[\d+\]$/.test(k))
+    .map(k => request[k])
+    .find(Boolean);
+  if (!line)
+    return {};
+  const params = new URLSearchParams(String(line));
+  const odds = Number(params.get("odd")) || undefined;
+  const betMoney = Number(params.get("a")) || undefined;
+  const itemId = params.get("oid") || undefined;
+  return { odds, betMoney, itemId };
 }
 
 export function sideDisplayLabel(side) {
@@ -428,7 +587,7 @@ export function buildLegSections(orders, logs, meta = {}) {
   const orphanLogs = [];
 
   for (const log of sortedLogs) {
-    const orderId = log.orderId ? String(log.orderId) : null;
+    const orderId = log.orderId || log.matchedOrderId ? String(log.orderId || log.matchedOrderId) : null;
     if (orderId && attemptByOrderId.has(orderId)) {
       attemptByOrderId.get(orderId).logs.push(log);
     }
@@ -521,6 +680,7 @@ export function summarizeUserLog(row) {
   const provider = extractLogProvider(title, parsed, kind);
   const orderId = extractLogOrderId(title, parsed, kind);
   const target = extractLogTarget(parsed, kind, title);
+  const acct = extractLogAccountLabel(title);
   const out = {
     id: row?.id,
     createAt: Number(row?.create_at) || 0,
@@ -531,10 +691,27 @@ export function summarizeUserLog(row) {
     target: target || null,
     accountLabel: null,
     loseOrder: false,
+    match: null,
+    bet: null,
+    item: null,
+    odds: null,
+    newOdds: null,
+    betMoney: null,
+    itemId: null,
+    matchId: null,
+    betId: null,
+    success: null,
+    message: null,
+    checkError: null,
+    requestAmount: null,
+    requestOdds: null,
+    related: true,
+    relationScore: 0,
+    relationReason: "",
+    matchedOrderId: null,
     summary: title,
   };
 
-  const acct = extractLogAccountLabel(title);
   if (acct)
     out.accountLabel = acct.label;
 
@@ -542,13 +719,45 @@ export function summarizeUserLog(row) {
     const o = parsed.options;
     out.target = out.target || (o.target === "Home" || o.target === "Away" ? o.target : null);
     out.loseOrder = Boolean(o.loseOrder);
+    out.match = o.match || null;
+    out.bet = o.bet || null;
+    out.odds = Number(o.odds) || null;
+    out.newOdds = Number(o.newOdds) || null;
+    out.betMoney = Number(o.betMoney) || null;
+    out.itemId = o.itemId || null;
+    out.matchId = o.matchId || null;
+    out.betId = o.betId || null;
+    out.checkError = parsed.checkError || null;
+    const req = parseObRequestLine(parsed.data);
+    out.requestAmount = req.betMoney ?? null;
+    out.requestOdds = req.odds ?? null;
+    if (req.itemId)
+      out.itemId = out.itemId || req.itemId;
     out.summary = `${o.type} 预检 ${o.match || ""} ${o.bet || ""} ${o.target}@${o.odds} 金额${o.betMoney}`;
     if (parsed.checkError)
       out.summary += ` · ${parsed.checkError}`;
+    else if (parsed.response?.data)
+      out.summary += ` · ${parsed.response.data}`;
   }
   else if (kind === "bet" && parsed?.result) {
     const r = parsed.result;
-    out.summary = `${r.provider} 下注 ${r.success ? "成功" : "失败"} · ${r.message || ""}`.trim();
+    const req = parseObRequestLine(r.request);
+    out.success = Boolean(r.success);
+    out.message = r.message || null;
+    out.requestAmount = req.betMoney ?? null;
+    out.requestOdds = req.odds ?? null;
+    out.betMoney = req.betMoney ?? null;
+    out.odds = req.odds ?? null;
+    out.itemId = req.itemId ?? null;
+    out.summary = [
+      `${r.provider} 下注 ${r.success ? "成功" : "失败"}`,
+      req.odds ? `赔率${req.odds}` : "",
+      req.betMoney ? `金额${req.betMoney}` : "",
+      r.message || "",
+    ].filter(Boolean).join(" · ");
+  }
+  else if (kind === "reject") {
+    out.message = title;
   }
 
   return out;
@@ -589,6 +798,7 @@ export function toAdminOrderLogPayload(result) {
     return result;
   const orders = result.orders || [];
   const logs = result.logs || [];
+  const unrelatedLogs = result.unrelatedLogs || [];
   return {
     ok: true,
     user: result.user,
@@ -599,6 +809,14 @@ export function toAdminOrderLogPayload(result) {
     logWindow: result.logWindow,
     orders,
     logs,
+    unrelatedLogs,
+    logStats: result.logStats || {
+      total: logs.length,
+      related: logs.length,
+      unrelated: unrelatedLogs.length,
+      truncated: false,
+      limit: 0,
+    },
     platforms: buildPlatformSections(orders, logs),
     orderSections: buildOrderSections(orders, logs),
     legSections: buildLegSections(orders, logs, {
@@ -674,6 +892,9 @@ export async function lookupOrderLogs(opts) {
     window.toMs,
     opts?.logLimit ?? 200,
   );
+  const summarizedLogs = logs.map(summarizeUserLog);
+  const { relevant, unrelated } = filterRelevantLogs(normalized, summarizedLogs);
+  const logLimit = opts?.logLimit ?? 200;
 
   return {
     ok: true,
@@ -684,7 +905,15 @@ export async function lookupOrderLogs(opts) {
     groupLabel: groupMetaLabel(link, normalized.length),
     logWindow: window,
     orders: normalized,
-    logs: logs.map(summarizeUserLog),
+    logs: relevant,
+    unrelatedLogs: unrelated,
+    logStats: {
+      total: summarizedLogs.length,
+      related: relevant.length,
+      unrelated: unrelated.length,
+      truncated: logs.length >= Math.min(Math.max(Number(logLimit) || 200, 1), 500),
+      limit: Math.min(Math.max(Number(logLimit) || 200, 1), 500),
+    },
     logsRaw: logs,
   };
 }

@@ -32,8 +32,8 @@ describe("mergeUserConfig arbDetectEngine", () => {
     expect(createDefaultUserConfig().arbDetectEngine).toBe("a8");
   });
 
-  it("reads legacy arbExecuteEngine when arbDetectEngine is absent", () => {
-    expect(mergeUserConfig({ arbExecuteEngine: "kakaxi" }).arbDetectEngine).toBe("kakaxi");
+  it("normalizes legacy arbExecuteEngine to a8", () => {
+    expect(mergeUserConfig({ arbExecuteEngine: "kakaxi" }).arbDetectEngine).toBe("a8");
     expect(mergeUserConfig({ arbExecuteEngine: "a8" }).arbDetectEngine).toBe("a8");
   });
 
@@ -43,10 +43,10 @@ describe("mergeUserConfig arbDetectEngine", () => {
     ).toBe("a8");
   });
 
-  it("maps legacy changmen alias to kakaxi", () => {
+  it("maps legacy changmen alias to a8", () => {
     expect(
       mergeUserConfig({ arbExecuteEngine: "changmen" } as unknown as Partial<UserConfig>).arbDetectEngine,
-    ).toBe("kakaxi");
+    ).toBe("a8");
   });
 
   it("does not persist arbExecuteEngine on merged config", () => {

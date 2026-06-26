@@ -1,19 +1,19 @@
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { PlatformId } from "@/types/esport";
 import type { CollectorFactory, PlatformAdapter, PlatformProvider } from "@platform/contract";
-import { obAdapter } from "@platform/ob";
-import { rayAdapter } from "@platform/ray";
-import { tfAdapter } from "@platform/tf";
-import { iaAdapter } from "@platform/ia";
-import { pbAdapter } from "@platform/pb";
-import { imtAdapter } from "@platform/imt";
-import { sabaAdapter } from "@platform/saba";
-import { imAdapter } from "@platform/im";
-import { xbetAdapter } from "@platform/xbet";
-import { stakeAdapter } from "@platform/stake";
+import type { PlatformId } from "@/types/esport";
 import { dexAdapter } from "@platform/dex";
 import { hgAdapter } from "@platform/hg";
+import { iaAdapter } from "@platform/ia";
+import { imAdapter } from "@platform/im";
+import { imtAdapter } from "@platform/imt";
+import { obAdapter } from "@platform/ob";
+import { pbAdapter } from "@platform/pb";
 import { polymarketAdapter } from "@platform/polymarket";
+import { rayAdapter } from "@platform/ray";
+import { sabaAdapter } from "@platform/saba";
+import { stakeAdapter } from "@platform/stake";
+import { tfAdapter } from "@platform/tf";
+import { xbetAdapter } from "@platform/xbet";
 import {
   betPlatformIds,
   collectPlatformIds,
@@ -39,16 +39,17 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
 ];
 
 const adapterById = new Map<PlatformId, PlatformAdapter>(
-  PLATFORM_ADAPTERS.map((a) => [a.id, a]),
+  PLATFORM_ADAPTERS.map(a => [a.id, a]),
 );
 
 export function getAdapter(id: PlatformId): PlatformAdapter | undefined {
   return adapterById.get(id);
 }
 
-/** 对齐 A8 `bf.GetProvider(account)` */
+/** 对齐 A8 `bf.GetProvider(account)`：只返回支持下注的 provider。 */
 export function getProvider(account: PlatformAccount): PlatformProvider | undefined {
-  if (!account.provider || !platformSupportsBet(account.provider)) return undefined;
+  if (!account.provider || !platformSupportsBet(account.provider))
+    return undefined;
   return adapterById.get(account.provider)?.provider;
 }
 
@@ -60,7 +61,8 @@ export function buildCollectorFactories(): Partial<Record<PlatformId, CollectorF
   const map: Partial<Record<PlatformId, CollectorFactory>> = {};
   for (const id of collectPlatformIds()) {
     const factory = getCollectorFactory(id);
-    if (factory) map[id] = factory;
+    if (factory)
+      map[id] = factory;
   }
   return map;
 }
@@ -82,9 +84,6 @@ if (import.meta.env.DEV) {
     }
   }
   for (const adapter of PLATFORM_ADAPTERS) {
-    if (adapter.provider && !platformSupportsBet(adapter.id)) {
-      console.warn(`[platform_adapter] 有 provider 但 manifest bet:false: ${adapter.id}`);
-    }
     if (platformSupportsBet(adapter.id) && !adapter.provider) {
       console.warn(`[platform_adapter] manifest bet:true 但缺少 provider: ${adapter.id}`);
     }

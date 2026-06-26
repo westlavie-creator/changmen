@@ -217,12 +217,11 @@ async function applyPaste() {
     return;
   let loading: ReturnType<typeof ElLoading.service> | undefined;
   try {
-    const parsed = JSON.parse(window.atob(pasteRaw.value.trim())) as {
-      provider?: PlatformId;
-      token?: string;
-      referer?: string;
-      gateway?: string | string[];
-    };
+    const parsed = parsePastedAccountCredential(pasteRaw.value.trim());
+    if (!parsed) {
+      ElMessage.error("解析失败");
+      return;
+    }
     if (!parsed?.provider) {
       ElMessage({ message: "未选择场馆", type: "error", plain: true });
       return;
@@ -268,6 +267,74 @@ async function applyPaste() {
   finally {
     loading?.close();
     pasteRaw.value = "";
+  }
+}
+
+function parsePastedAccountCredential(raw: string): {
+      provider?: PlatformId;
+      token?: string;
+      referer?: string;
+      gateway?: string | string[];
+} | undefined {
+  const parsed = tryParseJson(raw) ?? tryParseJson(decodeBase64Utf8(raw));
+  if (!parsed)
+    return undefined;
+  if (parsed.provider) {
+    const credential = parsed as ReturnType<typeof parsePastedAccountCredential>;
+    if (
+      credential?.provider === "Polymarket"
+      && !credential.token
+    ) {
+      credential.token = JSON.stringify({
+        walletAddress: parsed.walletAddress,
+        address: parsed.address,
+        funder: parsed.funder,
+        signatureType: parsed.signatureType,
+        apiCreds: parsed.apiCreds,
+        polyHeaders: parsed.polyHeaders,
+      });
+    }
+    return credential;
+  }
+  if (
+    parsed.walletAddress
+    || parsed.address
+    || parsed.apiCreds
+    || parsed.apiKey
+    || parsed.key
+    || parsed.secret
+    || parsed.passphrase
+  ) {
+    return {
+      provider: "Polymarket",
+      gateway: "https://clob.polymarket.com",
+      token: JSON.stringify(parsed),
+      referer: "",
+    };
+  }
+  return undefined;
+}
+
+function tryParseJson(raw: string | undefined): Record<string, unknown> | undefined {
+  if (!raw)
+    return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : undefined;
+  }
+  catch {
+    return undefined;
+  }
+}
+
+function decodeBase64Utf8(raw: string): string | undefined {
+  try {
+    const binary = window.atob(raw);
+    const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+  catch {
+    return undefined;
   }
 }
 

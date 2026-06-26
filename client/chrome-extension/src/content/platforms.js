@@ -12,6 +12,7 @@ export const PLATFORMS = Object.freeze({
   HG: "HG",
   Stake: "Stake",
   Dex: "Dex",
+  Polymarket: "Polymarket",
 });
 
 export const PLATFORM_LIST = Object.values(PLATFORMS);

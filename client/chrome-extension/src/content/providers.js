@@ -1,5 +1,6 @@
 import { PLATFORMS } from "./platforms.js";
 import { getCookie, sleep } from "./utils.js";
+import { getPolymarketCredentials } from "./polymarket/init.js";
 
 const IM_PATH =
   /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
@@ -400,6 +401,17 @@ export const PROVIDER_REGISTRY = {
         referer: location.href,
       };
       return { ...payload, data: btoa(JSON.stringify(payload)) };
+    }
+  },
+
+  [PLATFORMS.Polymarket]: class PolymarketProvider {
+    async Check() {
+      return location.hostname === "polymarket.com" || location.hostname.endsWith(".polymarket.com");
+    }
+
+    async GetConfig() {
+      const credentials = getPolymarketCredentials();
+      return credentials?.token ? credentials : undefined;
     }
   },
 };

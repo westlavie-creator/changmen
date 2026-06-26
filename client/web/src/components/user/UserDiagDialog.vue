@@ -7,7 +7,6 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import UserDiagChatTab from "@/components/user/tabs/UserDiagChatTab.vue";
 import UserDiagCollectTab from "@/components/user/tabs/UserDiagCollectTab.vue";
-import UserDiagExtensionTab from "@/components/user/tabs/UserDiagExtensionTab.vue";
 import UserDiagFollowTab from "@/components/user/tabs/UserDiagFollowTab.vue";
 import UserDiagMessageTab from "@/components/user/tabs/UserDiagMessageTab.vue";
 import UserDiagPasswordTab from "@/components/user/tabs/UserDiagPasswordTab.vue";
@@ -43,7 +42,6 @@ const tabDefs: TabDef[] = [
   { name: "rank", label: "排行榜", component: UserDiagRankTab },
   { name: "pass", label: "修改密码", component: UserDiagPasswordTab },
   { name: "message", label: "消息通知", component: UserDiagMessageTab },
-  { name: "extension", label: "扩展", component: UserDiagExtensionTab },
   { name: "proxy", label: "代理配置", component: UserDiagProxyTab },
   { name: "report", label: "报表查询", component: UserDiagReportTab },
   { name: "collect", label: "赛事采集", component: UserDiagCollectTab },

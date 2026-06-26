@@ -1,10 +1,8 @@
 import { accountsFundingReady } from "@/stores/account/accountPicker";
 import { useAccountStore } from "@/stores/accountStore";
 import { runA8ArbRound } from "@/stores/betting/a8/runA8ArbRound";
-import { runKakaxiArbRound } from "@/stores/betting/kakaxi/runKakaxiArbRound";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { usesKakaxiArbDetectEngine } from "@/types/arbDetectEngine";
 
 export interface ArbBetRoundContext {
   setMessage: (msg: string) => void;
@@ -23,12 +21,7 @@ export async function runArbBetRound(ctx: ArbBetRoundContext): Promise<void> {
     if (!accountsFundingReady(useAccountStore()))
       return;
 
-    if (usesKakaxiArbDetectEngine(config)) {
-      await runKakaxiArbRound({ setMessage });
-    }
-    else {
-      await runA8ArbRound({ setMessage });
-    }
+    await runA8ArbRound({ setMessage });
   }
 
   if (loseStore.orders.size && config.makeUp) {

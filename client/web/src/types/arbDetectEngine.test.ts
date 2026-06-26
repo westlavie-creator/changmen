@@ -12,8 +12,8 @@ describe("resolveArbDetectEngine", () => {
     expect(resolveArbDetectEngine({ arbDetectEngine: undefined })).toBe("a8");
   });
 
-  it("resolves kakaxi when set", () => {
-    expect(resolveArbDetectEngine({ arbDetectEngine: "kakaxi" })).toBe("kakaxi");
+  it("keeps resolving to a8 when kakaxi is set", () => {
+    expect(resolveArbDetectEngine({ arbDetectEngine: "kakaxi" })).toBe("a8");
   });
 });
 
@@ -23,16 +23,15 @@ describe("usesA8ArbDetectEngine", () => {
     expect(usesA8ArbDetectEngine({ arbDetectEngine: "a8" })).toBe(true);
   });
 
-  it("is false for kakaxi", () => {
-    expect(usesA8ArbDetectEngine({ arbDetectEngine: "kakaxi" })).toBe(false);
+  it("is true for legacy kakaxi config", () => {
+    expect(usesA8ArbDetectEngine({ arbDetectEngine: "kakaxi" })).toBe(true);
   });
 });
 
 describe("usesKakaxiArbDetectEngine", () => {
-  it("is true only for kakaxi when enabled", () => {
-    expect(usesKakaxiArbDetectEngine({ arbDetectEngine: "kakaxi" })).toBe(
-      KAKAXI_ARB_DETECT_ENABLED,
-    );
+  it("is disabled", () => {
+    expect(KAKAXI_ARB_DETECT_ENABLED).toBe(false);
+    expect(usesKakaxiArbDetectEngine({ arbDetectEngine: "kakaxi" })).toBe(false);
     expect(usesKakaxiArbDetectEngine({ arbDetectEngine: "a8" })).toBe(false);
   });
 });

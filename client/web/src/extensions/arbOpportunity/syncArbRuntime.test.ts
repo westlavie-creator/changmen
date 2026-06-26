@@ -12,13 +12,13 @@ describe("resolveArbRuntimeFlags", () => {
     ).toEqual({ needMarketWatchLoop: true, needKakaxiRuntime: false });
   });
 
-  it("starts kakaxi runtime when betting on and kakaxi mode", () => {
+  it("does not start kakaxi runtime when betting on and kakaxi mode", () => {
     expect(
       resolveArbRuntimeFlags({
         betting: true,
         arbDetectEngine: "kakaxi",
       }),
-    ).toEqual({ needMarketWatchLoop: false, needKakaxiRuntime: true });
+    ).toEqual({ needMarketWatchLoop: false, needKakaxiRuntime: false });
   });
 
   it("starts neither sidecar when betting on with a8 mode", () => {

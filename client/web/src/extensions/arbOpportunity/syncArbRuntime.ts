@@ -1,12 +1,10 @@
 import { watch } from "vue";
 import { startMarketWatchLoop, stopMarketWatchLoop } from "@/extensions/arbMarketWatch";
 import {
-  startKakaxiRuntime,
   stopKakaxiRuntime,
 } from "@/stores/betting/kakaxi/lifecycle";
 import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
-import { usesKakaxiArbDetectEngine } from "@/types/arbDetectEngine";
 
 export interface ArbRuntimeFlags {
   needMarketWatchLoop: boolean;
@@ -20,9 +18,7 @@ export function resolveArbRuntimeFlags(input: {
   notifyArbOpportunity?: boolean;
 }): ArbRuntimeFlags {
   const needMarketWatchLoop = !input.betting && input.notifyArbOpportunity === true;
-  const needKakaxiRuntime
-    = Boolean(input.betting)
-      && usesKakaxiArbDetectEngine({ arbDetectEngine: input.arbDetectEngine as "a8" | "kakaxi" });
+  const needKakaxiRuntime = false;
   return { needMarketWatchLoop, needKakaxiRuntime };
 }
 
@@ -31,9 +27,7 @@ export function applyArbRuntimeState(flags: ArbRuntimeFlags): void {
     startMarketWatchLoop();
   else stopMarketWatchLoop();
 
-  if (flags.needKakaxiRuntime)
-    startKakaxiRuntime();
-  else stopKakaxiRuntime();
+  stopKakaxiRuntime();
 }
 
 export function syncArbRuntime(): void {

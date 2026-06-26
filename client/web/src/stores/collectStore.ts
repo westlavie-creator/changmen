@@ -57,7 +57,10 @@ export const useCollectStore = defineStore("collect", {
       if (!matchs.length)
         return false;
       const ok = await saveMatchSource(platform, matchs);
-      await this.logCollect(`${platform}赛事采集${matchs.length}场 => ${ok}`, matchs);
+      void this.logCollect(
+        `${platform}赛事采集${matchs.length}场 => ${ok}`,
+        matchs.map(m => ({ matchId: m.SourceMatchID, game: m.SourceGameID, startTime: m.StartTime, title: `${m.Home} VS ${m.Away}` })),
+      );
       return ok;
     },
 
@@ -69,14 +72,17 @@ export const useCollectStore = defineStore("collect", {
       if (!this.collect.get(platform))
         return false;
       const ok = await saveBetSource(platform, matchId, bets);
-      await this.logCollect(`${platform}盘口采集${matchId}/${bets.length} => ${ok}`, bets);
+      void this.logCollect(
+        `${platform}盘口采集${matchId}/${bets.length} => ${ok}`,
+        bets.map(b => ({ matchId: b.SourceMatchID, betId: b.SourceBetID, betName: b.BetName, team: `${b.HomeName} vs ${b.AwayName}` })),
+      );
       return ok;
     },
 
     async logCollect(title: string, rows: unknown[]) {
       if (!this.log)
         return;
-      await saveUserLog(title, rows);
+      await saveUserLog(title, rows).catch(() => {});
     },
   },
 });

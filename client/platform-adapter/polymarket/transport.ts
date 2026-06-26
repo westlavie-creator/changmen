@@ -28,9 +28,12 @@ function requirePluginRuntime(): void {
 }
 
 /** 扩展 background axios GET（不经 tab，与 Dex `dexPluginGet` 同路） */
-export async function polymarketPluginGet<T>(url: string): Promise<T> {
+export async function polymarketPluginGet<T>(
+  url: string,
+  options?: { headers?: Record<string, string>; timeout?: number; withCredentials?: boolean },
+): Promise<T> {
   requirePluginRuntime();
-  const raw = await a8PluginGet(url, { timeout: PLUGIN_TIMEOUT_MS });
+  const raw = await a8PluginGet(url, { timeout: PLUGIN_TIMEOUT_MS, ...options });
   if (raw == null)
     throw new Error("Polymarket API 无响应");
   return unwrapPluginResponse<T>(raw);

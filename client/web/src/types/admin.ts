@@ -150,10 +150,36 @@ export interface AdminOrderLogEntry {
   kind: "check" | "bet" | "reject" | "other" | string;
   provider?: string | null;
   orderId?: string | null;
+  matchedOrderId?: string | null;
   target?: "Home" | "Away" | string | null;
   accountLabel?: string | null;
   loseOrder?: boolean;
+  match?: string | null;
+  bet?: string | null;
+  item?: string | null;
+  odds?: number | null;
+  newOdds?: number | null;
+  betMoney?: number | null;
+  itemId?: string | null;
+  matchId?: string | number | null;
+  betId?: string | number | null;
+  success?: boolean | null;
+  message?: string | null;
+  checkError?: string | null;
+  requestAmount?: number | null;
+  requestOdds?: number | null;
+  related?: boolean;
+  relationScore?: number;
+  relationReason?: string;
   summary: string;
+}
+
+export interface AdminOrderLogStats {
+  total: number;
+  related: number;
+  unrelated: number;
+  truncated: boolean;
+  limit: number;
 }
 
 export interface AdminOrderLogLogSegment {
@@ -218,6 +244,8 @@ export interface AdminOrderLogLookup {
   logWindow: { fromMs: number; toMs: number };
   orders: AdminOrderLogOrder[];
   logs: AdminOrderLogEntry[];
+  unrelatedLogs?: AdminOrderLogEntry[];
+  logStats?: AdminOrderLogStats;
   platforms?: AdminOrderLogPlatform[];
   orderSections?: AdminOrderLogOrderSection[];
   legSections?: AdminOrderLogLegSection[];

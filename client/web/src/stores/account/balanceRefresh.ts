@@ -1,7 +1,7 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { updateBalance } from "@/api/vt";
-import { getProvider } from "@/runtime/providers";
+import { getAdapter } from "@platform/registry/adapters";
 import { Currency } from "@/shared/currency";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 
@@ -29,7 +29,7 @@ export async function refreshAccountBalance(
 ): Promise<boolean> {
   account.loadingBalance = true;
   try {
-    const provider = getProvider(account);
+    const provider = getAdapter(account.provider)?.provider;
     const result = await provider?.getBalance?.(account);
     if (result) {
       account.balance = result.balance;

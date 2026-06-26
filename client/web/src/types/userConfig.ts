@@ -97,10 +97,7 @@ export function mergeProviderSortValue(values: PlatformId[]): PlatformId[] {
 function resolveArbDetectEngineFromRaw(
   raw: Partial<UserConfig> | null | undefined,
 ): ArbDetectEngine {
-  const engine = (raw?.arbDetectEngine ?? raw?.arbExecuteEngine) as string | undefined;
-  if (engine === "kakaxi" || engine === "changmen") {
-    return "kakaxi";
-  }
+  void raw;
   return "a8";
 }
 

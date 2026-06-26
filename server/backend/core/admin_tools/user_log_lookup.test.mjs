@@ -9,6 +9,7 @@ import {
   extractLogOrderId,
   extractLogProvider,
   extractLogTarget,
+  filterRelevantLogs,
   groupMetaLabel,
   linkTypeLabel,
   summarizeUserLog,
@@ -35,6 +36,16 @@ describe("user_log_lookup", () => {
     expect(w.toMs).toBe(linkTs + 1400 + 60_000);
   });
 
+  it("computeLogWindow also uses absolute single-leg link timestamp", () => {
+    const linkTs = 1_781_802_360_547;
+    const orders = [
+      { create_at: linkTs + 90_000, link: -linkTs },
+    ];
+    const w = computeLogWindow(orders, 30_000);
+    expect(w.fromMs).toBe(linkTs - 30_000);
+    expect(w.toMs).toBe(linkTs + 90_000 + 30_000);
+  });
+
   it("summarizeUserLog extracts bet failure message", () => {
     const row = {
       id: 1,
@@ -53,6 +64,94 @@ describe("user_log_lookup", () => {
     expect(s.provider).toBe("RAY");
     expect(s.summary).toContain("失败");
     expect(s.summary).toContain("赔率下降至1.87");
+  });
+
+  it("summarizeUserLog exposes request amount and odds", () => {
+    const s = summarizeUserLog({
+      id: 2,
+      create_at: 10,
+      title: "[OB](星空,4) 下注 => true / 耗时:134ms",
+      data: JSON.stringify({
+        result: {
+          provider: "OB",
+          success: true,
+          message: "投注成功",
+          request: {
+            "b[0]": "mch=m1&mkt=b1&oid=o1&odd=2.111&a=100&bt=1",
+          },
+        },
+      }),
+    });
+    expect(s.requestAmount).toBe(100);
+    expect(s.requestOdds).toBe(2.111);
+    expect(s.summary).toContain("金额100");
+  });
+
+  it("filterRelevantLogs removes other matches and keeps bet after related check", () => {
+    const orders = [
+      {
+        orderId: "ob-order",
+        provider: "OB",
+        match: "CGN Esports vs Barça eSports",
+        bet: "[地图3]单局 - 获胜",
+        item: "Barça eSports",
+        odds: 2.111,
+        betMoney: 100,
+        createAt: 10_000,
+      },
+    ];
+    const logs = [
+      summarizeUserLog({
+        id: 1,
+        create_at: 9_000,
+        title: "[OB](星空,4) 请求盘口数据 => false",
+        data: JSON.stringify({
+          options: {
+            type: "OB",
+            match: "Beşiktaş Esports vs AlQadsiah Esports",
+            bet: "[地图3] 获胜",
+            target: "Away",
+            odds: 1.65,
+            betMoney: 100,
+          },
+          checkError: "盘口已暂停",
+        }),
+      }),
+      summarizeUserLog({
+        id: 2,
+        create_at: 9_900,
+        title: "[OB](星空,4) 请求盘口数据 => true",
+        data: JSON.stringify({
+          options: {
+            type: "OB",
+            match: "CGN Esports vs Barça eSports",
+            bet: "[地图3] 获胜",
+            target: "Away",
+            odds: 2.111,
+            betMoney: 100,
+          },
+        }),
+      }),
+      summarizeUserLog({
+        id: 3,
+        create_at: 10_050,
+        title: "[OB](星空,4) 下注 => true / 耗时:134ms",
+        data: JSON.stringify({
+          result: {
+            provider: "OB",
+            success: true,
+            message: "投注成功",
+            request: {
+              "b[0]": "mch=m1&mkt=b1&oid=o1&odd=2.111&a=100&bt=1",
+            },
+          },
+        }),
+      }),
+    ];
+    const filtered = filterRelevantLogs(orders, logs);
+    expect(filtered.relevant.map(l => l.id)).toEqual([2, 3]);
+    expect(filtered.relevant[1].matchedOrderId).toBe("ob-order");
+    expect(filtered.unrelated.map(l => l.id)).toEqual([1]);
   });
 
   it("buildPlatformSections groups orders and logs by provider", () => {

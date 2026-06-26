@@ -10,7 +10,6 @@ const matchStoreState = {
 };
 
 const runA8ArbRound = vi.fn(async () => {});
-const runKakaxiArbRound = vi.fn(async () => {});
 
 vi.mock("@/stores/configStore", () => ({
   useConfigStore: () => ({ config }),
@@ -26,10 +25,6 @@ vi.mock("@/stores/loseOrderStore", () => ({
 
 vi.mock("@/stores/betting/a8/runA8ArbRound", () => ({
   runA8ArbRound: () => runA8ArbRound(),
-}));
-
-vi.mock("@/stores/betting/kakaxi/runKakaxiArbRound", () => ({
-  runKakaxiArbRound: () => runKakaxiArbRound(),
 }));
 
 vi.mock("@/stores/accountStore", () => ({
@@ -50,7 +45,6 @@ describe("runArbBetRound lose-order gate", () => {
     matchStoreState.matchs = [];
     processLoseOrders.mockClear();
     runA8ArbRound.mockClear();
-    runKakaxiArbRound.mockClear();
   });
 
   it("processes lose orders when makeUp on even if betting off (A8 jb)", async () => {
@@ -61,7 +55,6 @@ describe("runArbBetRound lose-order gate", () => {
 
     expect(processLoseOrders).toHaveBeenCalledOnce();
     expect(runA8ArbRound).not.toHaveBeenCalled();
-    expect(runKakaxiArbRound).not.toHaveBeenCalled();
   });
 
   it("skips lose orders when makeUp off", async () => {
@@ -80,17 +73,15 @@ describe("runArbBetRound lose-order gate", () => {
     await runArbBetRound({ setMessage: () => {}, processLoseOrders });
 
     expect(runA8ArbRound).toHaveBeenCalledOnce();
-    expect(runKakaxiArbRound).not.toHaveBeenCalled();
   });
 
-  it("uses runKakaxiArbRound when arbDetectEngine is kakaxi", async () => {
+  it("keeps using runA8ArbRound when arbDetectEngine is kakaxi", async () => {
     config.betting = true;
     config.arbDetectEngine = "kakaxi";
 
     await runArbBetRound({ setMessage: () => {}, processLoseOrders });
 
-    expect(runKakaxiArbRound).toHaveBeenCalledOnce();
-    expect(runA8ArbRound).not.toHaveBeenCalled();
+    expect(runA8ArbRound).toHaveBeenCalledOnce();
   });
 
   it("defaults to runA8ArbRound when arbDetectEngine unset", async () => {
@@ -100,7 +91,6 @@ describe("runArbBetRound lose-order gate", () => {
     await runArbBetRound({ setMessage: () => {}, processLoseOrders });
 
     expect(runA8ArbRound).toHaveBeenCalledOnce();
-    expect(runKakaxiArbRound).not.toHaveBeenCalled();
   });
 });
 
@@ -109,7 +99,6 @@ describe("runArbBetRound betMoney (A8 rolls per bet in prepareArbAttempt)", () =
     Object.assign(config, createDefaultUserConfig());
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     runA8ArbRound.mockClear();
-    runKakaxiArbRound.mockClear();
   });
 
   it("does not randomize when minMoney is 0 (A8 minMoney!==0 gate)", async () => {
