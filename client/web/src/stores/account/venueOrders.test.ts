@@ -1,4 +1,4 @@
-import type { VenueOrder } from "@platform/contract";
+import type { VenueOrder } from "@venue/contract";
 import { describe, expect, it } from "vitest";
 import { PlatformAccount } from "@/models/platformAccount";
 import { applyUnsettledStats } from "@/stores/account/venueOrders";

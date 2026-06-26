@@ -1,7 +1,7 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
-import { buildPbAuthHeaders } from "@platform/pb";
-import { buildTfAccountHeaders, tfGatewayUrl } from "@platform/tf";
+import { buildPbAuthHeaders } from "@venue/pb";
+import { buildTfAccountHeaders, tfGatewayUrl } from "@venue/tf";
 import { getApiBase } from "@/config/apiBase";
 import { a8Axios, responseBodyText } from "@/shared/a8Axios";
 import { useUserStore } from "@/stores/userStore";

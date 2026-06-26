@@ -1,5 +1,5 @@
 /**
- * 平台 adapter 加载 — 实现位于 @changmen/platform-adapter/loader。
+ * 平台 adapter 加载 — 实现位于 @changmen/venue-adapter/loader。
  */
 export {
   adapterRequire,
@@ -13,4 +13,4 @@ export {
   requirePlatform,
   resetAdapterRootForTests,
   resolvePlatformFile,
-} from "@changmen/platform-adapter/loader/adapter_paths.js";
+} from "@changmen/venue-adapter/loader/adapter_paths.js";

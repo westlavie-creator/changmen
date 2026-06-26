@@ -1,6 +1,6 @@
 import type { ArbDetectEngine } from "@/types/arbDetectEngine";
 import type { PlatformId } from "@/types/esport";
-import { ALL_PLATFORMS } from "@platform/registry";
+import { ALL_PLATFORMS } from "@venue/registry";
 import { normalizeWaitTime } from "@/shared/betTiming";
 
 export type BetSorting = "Low" | "High" | "Parallel" | "WinRate" | "Custom";

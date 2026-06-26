@@ -1,4 +1,4 @@
-import type { VenueOrder } from "@platform/contract";
+import type { VenueOrder } from "@venue/contract";
 import type { OrderBindRow } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";

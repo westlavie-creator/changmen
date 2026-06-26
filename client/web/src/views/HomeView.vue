@@ -58,7 +58,7 @@ onActivated(async () => {
 watch(extensionReady, (ext) => {
   if (!ext)
     return;
-  void import("@platform/stake").then(({ primeStakeTabId }) => primeStakeTabId());
+  void import("@venue/stake").then(({ primeStakeTabId }) => primeStakeTabId());
 });
 
 onUnmounted(() => {

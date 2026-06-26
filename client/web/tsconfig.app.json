@@ -20,7 +20,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@changmen/shared/*": ["../../packages/shared/*"],
-      "@platform/*": ["../platform-adapter/*"],
+      "@venue/*": ["../venue-adapter/*"],
       "mqtt": ["../../node_modules/mqtt"],
       "socket.io-client": ["../../node_modules/socket.io-client"],
       "socketcluster-client": ["../../node_modules/socketcluster-client"]
@@ -30,17 +30,17 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "../platform-adapter/**/index.ts",
-    "../platform-adapter/*/*.ts",
-    "../platform-adapter/*/shared/**/*.ts",
+    "../venue-adapter/**/index.ts",
+    "../venue-adapter/*/*.ts",
+    "../venue-adapter/*/shared/**/*.ts",
     "../../packages/shared/catalog/market_catalog.browser.ts",
     "../../packages/shared/catalog/game_catalog.browser.ts",
-    "../platform-adapter/shared/**/*.ts",
-    "../platform-adapter/registry/**/*.ts",
-    "../platform-adapter/contract/**/*.ts"
+    "../venue-adapter/shared/**/*.ts",
+    "../venue-adapter/registry/**/*.ts",
+    "../venue-adapter/contract/**/*.ts"
   ],
   "exclude": [
-    "../platform-adapter/**/*.test.ts",
-    "../platform-adapter/**/scripts/**"
+    "../venue-adapter/**/*.test.ts",
+    "../venue-adapter/**/scripts/**"
   ]
 }

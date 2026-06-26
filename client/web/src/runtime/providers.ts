@@ -1,1 +1,1 @@
-export { getProvider, supportedBetProviders } from "@platform/registry/adapters";
+export { getProvider, supportedBetProviders } from "@venue/registry/adapters";

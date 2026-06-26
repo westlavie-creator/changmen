@@ -1,10 +1,10 @@
 /**
  * PB ???? slug ??
  *
- * ?? euro/odds?live + prematch??????ù?slug(englishName) + ????
- * ?? team_platform_maps?canonical_id ????????????ù? *
- * ?????? gamebet_backend/data/esport/platforms.json ù?PB ?????? tokenù? * ù?npm run account:import-platform ??????? to.txt?PB_GATEWAY/PB_TOKEN ?????ù? *
- * ???? changmen/ ù?team-resolver/ ??ù? *   node team-resolver/scrapers/pb_scraper.mjs
+ * ?? euro/odds?live + prematch??????ÔøΩ?slug(englishName) + ????
+ * ?? team_platform_maps?canonical_id ????????????ÔøΩ? *
+ * ?????? gamebet_backend/data/esport/platforms.json ÔøΩ?PB ?????? tokenÔøΩ? * ÔøΩ?npm run account:import-platform ??????? to.txt?PB_GATEWAY/PB_TOKEN ?????ÔøΩ? *
+ * ???? changmen/ ÔøΩ?team-resolver/ ??ÔøΩ? *   node team-resolver/scrapers/pb_scraper.mjs
  *   node team-resolver/scrapers/pb_scraper.mjs --dry-run
  */
 
@@ -12,7 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { upsertTeamPlatformMapsBatched } from "@changmen/db";
-import { requirePlatform } from "@changmen/platform-adapter/loader/adapter_paths.js";
+import { requirePlatform } from "@changmen/venue-adapter/loader/adapter_paths.js";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 
@@ -32,7 +32,7 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** `${gameSlug}:${teamId}` ù?{ gameSlug, teamId, teamName } */
+/** `${gameSlug}:${teamId}` ÔøΩ?{ gameSlug, teamId, teamName } */
 function collectTeamsFromPayload(data) {
   const teams = new Map();
   const { matches } = parseEuroOddsPayload(data);
@@ -59,7 +59,7 @@ async function batchUpsert(rows) {
   for (let i = 0; i < rows.length; i += BATCH) {
     const end = Math.min(i + BATCH, rows.length);
     await upsertTeamPlatformMapsBatched(rows.slice(i, end), BATCH);
-    process.stdout.write(`\r  ??ù?${end} / ${rows.length} ?`);
+    process.stdout.write(`\r  ??ÔøΩ?${end} / ${rows.length} ?`);
     await sleep(100);
   }
   process.stdout.write("\n");
@@ -67,7 +67,7 @@ async function batchUpsert(rows) {
 
 async function main() {
   console.log(
-    DRY_RUN ? "[pb_scraper] ???dry-run????ù? : "[pb_scraper] ?????????GAMEBET_DB_SCRIPTù?,
+    DRY_RUN ? "[pb_scraper] ???dry-run????ÔøΩ? : "[pb_scraper] ?????????GAMEBET_DB_SCRIPTÔøΩ?,
   );
   console.log("[pb_scraper] ?????platforms.json PB????????????");
 
@@ -78,7 +78,7 @@ async function main() {
   console.log("[pb_scraper] ?? euro/odds (live + prematch)...");
   const data = await fetchEuroOdds(session);
   const teams = collectTeamsFromPayload(data);
-  console.log(`[pb_scraper] ù?${teams.size} ??????`);
+  console.log(`[pb_scraper] ÔøΩ?${teams.size} ??????`);
 
   console.log("\n[pb_scraper] ?? team_platform_maps ??...");
   const plugin = await loadAndCreatePlugin();
@@ -111,11 +111,11 @@ async function main() {
   }
 
   console.log(
-    `\n[pb_scraper] ??????ù?gb_team_id ${manualMapped.length} ù?/ ????ù?${platformOnly.length} ù?/ ??(????ù? ${skipped.length} ?`,
+    `\n[pb_scraper] ??????ÔøΩ?gb_team_id ${manualMapped.length} ÔøΩ?/ ????ÔøΩ?${platformOnly.length} ÔøΩ?/ ??(????ÔøΩ? ${skipped.length} ?`,
   );
 
   if (platformOnly.length > 0) {
-    console.log("\n[pb_scraper] ù?gb_team_id ???? 20 ??ù?);
+    console.log("\n[pb_scraper] ÔøΩ?gb_team_id ???? 20 ??ÔøΩ?);
     platformOnly
       .slice(0, 20)
       .forEach((r) => console.log(`  [${r.game}] platform_id=${r.platform_id}  name="${r.platform_name}"`));
@@ -123,11 +123,11 @@ async function main() {
 
   const toWrite = [...manualMapped, ...platformOnly];
   if (!DRY_RUN && toWrite.length > 0) {
-    console.log(`\n[pb_scraper] ?? team_platform_mapsù?{toWrite.length} ??...`);
+    console.log(`\n[pb_scraper] ?? team_platform_mapsÔøΩ?{toWrite.length} ??...`);
     await batchUpsert(toWrite);
     console.log("[pb_scraper] ????");
   } else if (DRY_RUN) {
-    console.log("\n[dry-run] ????????ù?5 ??ù?);
+    console.log("\n[dry-run] ????????ÔøΩ?5 ??ÔøΩ?);
     platformOnly
       .slice(0, 5)
       .forEach((r) =>
@@ -135,7 +135,7 @@ async function main() {
       );
   }
 
-  console.log("\nù???");
+  console.log("\nÔøΩ???");
 }
 
 main().catch((err) => {

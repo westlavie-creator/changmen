@@ -13,7 +13,7 @@ const DEFAULT_DEV_PORT = process.platform === "win32" ? 5274 : 5174;
 const DEV_PORT = Number(process.env.VITE_DEV_PORT) || DEFAULT_DEV_PORT;
 
 function platformChunkName(id: string): string | undefined {
-  const markers = ["client/platform-adapter/"];
+  const markers = ["client/venue-adapter/"];
   let idx = -1;
   let markerLen = 0;
   for (const marker of markers) {
@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => ({
     extensions: [".ts", ".tsx", ".mjs", ".js", ".jsx", ".json"],
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@platform": fileURLToPath(new URL("../platform-adapter", import.meta.url)),
+      "@venue": fileURLToPath(new URL("../venue-adapter", import.meta.url)),
       mqtt: fileURLToPath(new URL("../../node_modules/mqtt", import.meta.url)),
       "socket.io-client": fileURLToPath(
         new URL("../../node_modules/socket.io-client", import.meta.url),
@@ -107,8 +107,8 @@ export default defineConfig(({ mode }) => ({
   test: {
     include: [
       "src/**/*.{test,spec}.{js,mjs,ts}",
-      "../platform-adapter/**/*.{test,spec}.{js,mjs,ts}",
-      "../platform-adapter/**/shared/**/*.{test,spec}.{js,mjs,ts}",
+      "../venue-adapter/**/*.{test,spec}.{js,mjs,ts}",
+      "../venue-adapter/**/shared/**/*.{test,spec}.{js,mjs,ts}",
     ],
   },
 }));

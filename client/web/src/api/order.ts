@@ -1,4 +1,4 @@
-import type { VenueOrder } from "@platform/contract";
+import type { VenueOrder } from "@venue/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { OrderRow, PageResult } from "@/types/esport";
 import { post, unwrap } from "@/api/client";

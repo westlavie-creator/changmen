@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import type { DirectRealtimeStatus } from "@platform/shared/directRealtimeStatus";
+import type { DirectRealtimeStatus } from "@venue/shared/directRealtimeStatus";
 import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
-import { getDexSocketStatus, onDexSocketStatus } from "@platform/dex";
-import type { DexSocketStatus } from "@platform/dex";
-import { getPolymarketWsStatus, onPolymarketWsStatus } from "@platform/polymarket";
-import type { PolymarketWsStatus } from "@platform/polymarket";
+import { getDexSocketStatus, onDexSocketStatus } from "@venue/dex";
+import type { DexSocketStatus } from "@venue/dex";
+import { getPolymarketWsStatus, onPolymarketWsStatus } from "@venue/polymarket";
+import type { PolymarketWsStatus } from "@venue/polymarket";
 import {
   getObMqttSourceMode,
   toggleObMqttSourceModeAndReconnect,
   type ObMqttSourceMode,
-} from "@platform/ob";
+} from "@venue/ob";
 import { ElMessage } from "element-plus";
 
 const { statuses } = useDirectRealtimeStatus();

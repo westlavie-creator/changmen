@@ -16,8 +16,8 @@ export async function bootSessionRuntime(): Promise<void> {
   const { startCollectors } = await import("@/runtime/collectors");
   await startCollectors();
   const [{ primeStakeTabId }, { startHgFollowLoop }] = await Promise.all([
-    import("@platform/stake"),
-    import("@platform/hg"),
+    import("@venue/stake"),
+    import("@venue/hg"),
   ]);
   primeStakeTabId();
   startHgFollowLoop();
@@ -27,6 +27,6 @@ export function stopSessionRuntime(): void {
   if (!sessionBooted)
     return;
   sessionBooted = false;
-  void import("@platform/hg").then(({ stopHgFollowLoop }) => stopHgFollowLoop());
+  void import("@venue/hg").then(({ stopHgFollowLoop }) => stopHgFollowLoop());
   void import("@/runtime/collectors").then(({ stopCollectors }) => stopCollectors());
 }

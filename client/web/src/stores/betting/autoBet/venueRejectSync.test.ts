@@ -1,4 +1,4 @@
-import type { VenueOrder } from "@platform/contract";
+import type { VenueOrder } from "@venue/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetResult } from "@/models/betResult";

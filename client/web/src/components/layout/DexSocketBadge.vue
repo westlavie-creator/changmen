@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import { getDexSocketStatus, onDexSocketStatus } from "@platform/dex";
-import type { DexSocketStatus } from "@platform/dex";
+import { getDexSocketStatus, onDexSocketStatus } from "@venue/dex";
+import type { DexSocketStatus } from "@venue/dex";
 
 const status = ref<DexSocketStatus>(getDexSocketStatus());
 

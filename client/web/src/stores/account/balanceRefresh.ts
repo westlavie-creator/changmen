@@ -1,7 +1,7 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { updateBalance } from "@/api/vt";
-import { getAdapter } from "@platform/registry/adapters";
+import { getAdapter } from "@venue/registry/adapters";
 import { Currency } from "@/shared/currency";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 

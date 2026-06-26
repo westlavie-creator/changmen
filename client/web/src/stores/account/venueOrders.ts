@@ -1,6 +1,6 @@
-import type { VenueOrder } from "@platform/contract";
+import type { VenueOrder } from "@venue/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { sortVenueOrdersNewestFirst } from "@platform/contract";
+import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
 

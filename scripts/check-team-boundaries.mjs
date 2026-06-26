@@ -55,8 +55,8 @@ const RULES = [
     id: "server-backend",
     roots: ["server/backend"],
     forbid: [
-      /(?:^|[/\\])client[/\\]platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-      /platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
+      /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
+      /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /(?:^|[/\\])client[/\\]web[/\\]src(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
     ],
@@ -69,8 +69,8 @@ const RULES = [
     id: "platform-probes",
     roots: ["devtools/platform-probes"],
     forbid: [
-      /@changmen\/platform-adapter\b/,
-      /(?:^|[/\\])client[/\\]platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\]/,
+      /@changmen\/venue-adapter\b/,
+      /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\]/,
     ],
   },
   {
@@ -78,8 +78,8 @@ const RULES = [
     roots: ["server/matcher"],
     forbid: [
       /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
-      /(?:^|[/\\])client[/\\]platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-      /platform-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
+      /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
+      /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
     ],
   },
 ];
@@ -87,7 +87,7 @@ const RULES = [
 const FORBIDDEN_LEGACY_DIRS = [
   "server/platform-node",
   "server/platform-probes",
-  "client/platform-adapter/node",
+  "client/venue-adapter/node",
 ];
 
 const ADAPTER_INFRA_DIRS = new Set([
@@ -101,7 +101,7 @@ const ADAPTER_INFRA_DIRS = new Set([
 ]);
 
 function discoverPlatformBrowserRoots() {
-  const adapterRoot = path.join(CHANGMEN_ROOT, "client/platform-adapter");
+  const adapterRoot = path.join(CHANGMEN_ROOT, "client/venue-adapter");
   if (!fs.existsSync(adapterRoot)) return [];
   return fs
     .readdirSync(adapterRoot, { withFileTypes: true })
@@ -111,12 +111,12 @@ function discoverPlatformBrowserRoots() {
         !d.name.startsWith(".") &&
         !ADAPTER_INFRA_DIRS.has(d.name),
     )
-    .map((d) => path.join("client/platform-adapter", d.name));
+    .map((d) => path.join("client/venue-adapter", d.name));
 }
 
 function isPlatformBrowserFile(relPosixPath) {
   const parts = relPosixPath.split("/");
-  const idx = parts.indexOf("platform-adapter");
+  const idx = parts.indexOf("venue-adapter");
   if (idx < 0) return false;
   const platform = parts[idx + 1];
   if (!platform || ADAPTER_INFRA_DIRS.has(platform)) return false;

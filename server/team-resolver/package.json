@@ -23,7 +23,7 @@
     "@changmen/db": "*",
     "@changmen/storage": "*",
     "@changmen/match-engine": "*",
-    "@changmen/platform-adapter": "*",
+    "@changmen/venue-adapter": "*",
     "@changmen/shared": "*",
     "axios": "^1.7.2"
   }

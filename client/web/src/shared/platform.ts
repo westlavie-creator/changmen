@@ -1,1 +1,1 @@
-export { PLATFORMS } from "@platform/registry";
+export { PLATFORMS } from "@venue/registry";
