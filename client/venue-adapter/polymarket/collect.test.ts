@@ -9,14 +9,11 @@ describe("Polymarket collector websocket parsing", () => {
       best_ask: "0.51",
     }))).toEqual([{ assetId: "asset-home", bestAsk: "0.51" }]);
 
-    expect(extractPolymarketWsBestAsks(JSON.stringify({
-      event_type: "price_change",
-      price_changes: [
-        { asset_id: "asset-home", best_ask: "0.52" },
-        { asset_id: "asset-away", best_ask: "0.49" },
-        { asset_id: "ignored" },
-      ],
-    }))).toEqual([
+    expect(extractPolymarketWsBestAsks(JSON.stringify([
+      { event_type: "price_change", asset_id: "asset-home", best_ask: "0.52" },
+      { event_type: "price_change", asset_id: "asset-away", best_ask: "0.49" },
+      { event_type: "price_change", asset_id: "ignored" },
+    ]))).toEqual([
       { assetId: "asset-home", bestAsk: "0.52" },
       { assetId: "asset-away", bestAsk: "0.49" },
     ]);

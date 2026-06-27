@@ -141,7 +141,8 @@ export async function fetchPolymarketEsportsMarkets(limit = DEFAULT_MARKET_LIMIT
 }
 
 /**
- * 批量获取 token 的 BUY 侧最优价格（买入概率），替代逐个调用 /book。
+ * 批量获取 token 的买入成本价（best_ask），替代逐个调用 /book。
+ * CLOB /prices side=SELL 返回 best_ask（卖方最低报价 = 买方实际支付价）。
  * 每批最多 200 个 token，超出自动分块。
  * 返回 Record<assetId, probability>，缺失的 assetId 不在结果中（市场将显示 Locked）。
  */
@@ -152,14 +153,14 @@ export async function fetchBatchBuyPrices(assetIds: string[]): Promise<Record<st
   const result: Record<string, number> = {};
   for (let i = 0; i < assetIds.length; i += CHUNK) {
     const chunk = assetIds.slice(i, i + CHUNK);
-    const body = chunk.map(token_id => ({ token_id, side: "BUY" }));
+    const body = chunk.map(token_id => ({ token_id, side: "SELL" }));
     try {
       const data = await polymarketPluginPost<Record<string, Record<string, unknown>>>(
         `${POLYMARKET_CLOB_API}/prices`,
         body,
       );
       for (const [tokenId, sides] of Object.entries(data ?? {})) {
-        const price = Number(sides?.BUY ?? 0);
+        const price = Number(sides?.SELL ?? 0);
         if (price > 0 && price < 1)
           result[tokenId] = price;
       }
@@ -205,12 +206,10 @@ export interface PolymarketWsMessage {
   asset_id?: string;
   market?: string;
   best_ask?: string;
-  price_changes?: Array<{
-    asset_id?: string;
-    best_ask?: string;
-    price?: string;
-    size?: string;
-  }>;
+  best_bid?: string;
+  /** price_change 事件的成交价（last trade price） */
+  price?: string;
+  size?: string;
 }
 
 export function polymarketMarketSubscribeMessage(assetIds: string[]): string {

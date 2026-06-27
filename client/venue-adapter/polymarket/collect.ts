@@ -55,14 +55,12 @@ export function extractPolymarketWsBestAsks(raw: string): Array<{ assetId: strin
   const messages = Array.isArray(parsed) ? parsed : [parsed];
   const updates: Array<{ assetId: string; bestAsk: string | number }> = [];
   for (const msg of messages) {
-    if (msg.event_type === "best_bid_ask" && msg.asset_id && msg.best_ask !== undefined) {
+    if (
+      (msg.event_type === "best_bid_ask" || msg.event_type === "price_change")
+      && msg.asset_id
+      && msg.best_ask !== undefined
+    ) {
       updates.push({ assetId: String(msg.asset_id), bestAsk: msg.best_ask });
-    } else if (msg.event_type === "price_change" && Array.isArray(msg.price_changes)) {
-      for (const change of msg.price_changes) {
-        if (change.asset_id && change.best_ask !== undefined) {
-          updates.push({ assetId: String(change.asset_id), bestAsk: change.best_ask });
-        }
-      }
     }
   }
   return updates;
