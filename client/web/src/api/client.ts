@@ -1,8 +1,9 @@
 import type { ApiEnvelope } from "@changmen/api-contract";
 import { buildEsportUrl } from "@changmen/api-contract/urls";
 import { getApiBase } from "@/config/apiBase";
+import { a8Axios, responseBodyText } from "@/shared/a8Axios";
 
-const JSON_HEADERS = { "Content-Type": "application/json" };
+const FORM_HEADERS = { "Content-Type": "application/x-www-form-urlencoded;" };
 const TOKEN_COOKIE = "app_token";
 
 function readTokenCookie(): string | null {
@@ -74,40 +75,34 @@ export interface PostOptions {
   errorTip?: boolean;
 }
 
+let lastDelaySampleAt = 0;
+let delaySamplePending = false;
+
+function toA8PostBody(body: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) {
+    out[key] = value && typeof value === "object" ? JSON.stringify(value) : value;
+  }
+  return out;
+}
+
 async function executePost<T>(
   action: string,
-  init: RequestInit,
+  body: Record<string, unknown>,
   query = "",
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
+  if (!delaySamplePending && started - lastDelaySampleAt > 250) {
+    delaySamplePending = true;
+    lastDelaySampleAt = started;
+  }
   try {
-    const res = await fetch(buildEsportUrl(action, query, getApiBase()), init);
-    const text = await res.text();
-    if (!res.ok) {
-      let serverMsg = "";
-      try {
-        const parsed = JSON.parse(text) as { msg?: string };
-        if (parsed?.msg)
-          serverMsg = parsed.msg;
-      }
-      catch {
-        /* 非 JSON 响应 */
-      }
-      const hint = text && !serverMsg ? `: ${text.slice(0, 160)}` : "";
-      if (res.status === 502 || res.status === 503 || (res.status === 500 && !serverMsg)) {
-        throw new Error(
-          `后端未连接或未就绪，请先运行 backend.bat 或 dev.bat（VPS 请等 pm2 重启后再试）${hint}`,
-        );
-      }
-      throw new Error(serverMsg || `${action} HTTP ${res.status}${hint}`);
-    }
-    let json: ApiEnvelope<T>;
-    try {
-      json = JSON.parse(text) as ApiEnvelope<T>;
-    }
-    catch {
-      throw new Error(`${action} 响应无效: ${text.slice(0, 120)}`);
-    }
+    const res = await a8Axios.post<ApiEnvelope<T>>(
+      buildEsportUrl(action, query, getApiBase()),
+      toA8PostBody(body),
+      { headers: { ...FORM_HEADERS, ...authHeaders() } },
+    );
+    const json = res.data;
 
     if (json.success === 0 && SESSION_KICK_MSGS.has(String(json.msg || "")) && action !== "Client_Login") {
       clearAuthSession();
@@ -115,13 +110,26 @@ async function executePost<T>(
     }
     return json;
   }
+  catch (err) {
+    const data = (err as { response?: { data?: unknown } }).response?.data;
+    const hint = responseBodyText(data).slice(0, 160);
+    throw new Error(
+      hint
+        ? `后端未连接或未就绪，请先运行 backend.bat 或 dev.bat（VPS 请等 pm2 重启后再试）: ${hint}`
+        : err instanceof Error ? err.message : String(err),
+    );
+  }
   finally {
-    try {
-      const { useUserStore } = await import("@/stores/userStore");
-      useUserStore().setApiDelay(Date.now() - started, action);
-    }
-    catch {
-      /* 登录前或 pinia 尚未就绪时忽略 */
+    if (delaySamplePending) {
+      delaySamplePending = false;
+      const elapsed = Date.now() - started;
+      void import("@/stores/userStore")
+        .then(({ useUserStore }) => {
+          useUserStore().setApiDelay(elapsed, action);
+        })
+        .catch(() => {
+          /* 登录前或 pinia 尚未就绪时忽略 */
+        });
     }
   }
 }
@@ -134,11 +142,7 @@ export async function post<T>(
 ): Promise<ApiEnvelope<T>> {
   return executePost<T>(
     action,
-    {
-      method: "POST",
-      headers: { ...JSON_HEADERS, ...authHeaders() },
-      body: JSON.stringify(body),
-    },
+    body,
     query,
   );
 }
@@ -152,14 +156,7 @@ export async function postForm<T>(
 ): Promise<ApiEnvelope<T>> {
   return executePost<T>(
     action,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;",
-        ...authHeaders(),
-      },
-      body: new URLSearchParams(fields).toString(),
-    },
+    fields,
     query,
   );
 }
