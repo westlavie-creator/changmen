@@ -45,6 +45,8 @@ const pasteRaw = ref("");
 const gameShow = ref(false);
 /** A8：PB 默认锁定比例，legend「投」双击解锁 */
 const rateLocked = ref(false);
+/** Polymarket 专用：私钥单独录入，保存时写入 token JSON */
+const polyPrivateKey = ref("");
 
 interface PlatformSuggestion { value: string; link: string }
 
@@ -79,6 +81,17 @@ function resetForm(acc?: PlatformAccount) {
   pasteRaw.value = "";
   gameShow.value = false;
   rateLocked.value = form.provider === "PB";
+  polyPrivateKey.value = extractPolyPrivateKey(form.token);
+}
+
+function extractPolyPrivateKey(token: string): string {
+  try {
+    const parsed = JSON.parse(token);
+    return parsed?.privateKey || parsed?.private_key || "";
+  }
+  catch {
+    return "";
+  }
 }
 
 function syncForm() {
@@ -238,6 +251,7 @@ async function applyPaste() {
     form.token = parsed.token ?? "";
     form.referer = parsed.referer ?? "";
     form.gateway = gateways[0]!;
+    polyPrivateKey.value = extractPolyPrivateKey(form.token);
 
     if (gateways.length === 1) {
       ElMessage.success("粘贴成功");
@@ -290,6 +304,12 @@ function parsePastedAccountCredential(raw: string): {
         address: parsed.address,
         funder: parsed.funder,
         signatureType: parsed.signatureType,
+        privateKey: parsed.privateKey,
+        private_key: parsed.private_key,
+        apiKey: parsed.apiKey,
+        key: parsed.key,
+        secret: parsed.secret,
+        passphrase: parsed.passphrase,
         apiCreds: parsed.apiCreds,
         polyHeaders: parsed.polyHeaders,
       });
@@ -304,6 +324,8 @@ function parsePastedAccountCredential(raw: string): {
     || parsed.key
     || parsed.secret
     || parsed.passphrase
+    || parsed.privateKey
+    || parsed.private_key
   ) {
     return {
       provider: "Polymarket",
@@ -342,14 +364,30 @@ function normalizeRateConfig() {
   return normalizeAccountRateConfig(form.rateConfig);
 }
 
+function buildPolyToken(): string {
+  let parsed: Record<string, unknown> = {};
+  try { parsed = JSON.parse(form.token) ?? {}; }
+  catch { /* keep empty */ }
+  const key = polyPrivateKey.value.trim();
+  if (key)
+    parsed.privateKey = key;
+  else
+    delete parsed.privateKey;
+  delete parsed.private_key;
+  return JSON.stringify(parsed);
+}
+
 function buildPatch() {
+  const token = form.provider === "Polymarket"
+    ? buildPolyToken()
+    : form.token.trim() || undefined;
   return {
     platformName: form.platformName.trim(),
     playerName: form.playerName.trim(),
     provider: form.provider,
     proxyId: form.proxyId === 0 ? undefined : form.proxyId,
     gateway: form.gateway.trim() || undefined,
-    token: form.token.trim() || undefined,
+    token: token || undefined,
     referer: form.referer.trim() || undefined,
     userAgent: form.userAgent.trim() || undefined,
     credit: Number(form.credit) || 0,
@@ -446,6 +484,14 @@ function unlockRate() {
       @normalize-game-odds="normalizeGameOdds"
     >
       <template v-if="!readonly" #footer>
+        <el-form-item v-if="form.provider === 'Polymarket'" label="钱包私钥：">
+          <el-input
+            v-model="polyPrivateKey"
+            show-password
+            placeholder="0x... 或不带前缀的 hex 私钥"
+            style="font-family: monospace; font-size: 12px"
+          />
+        </el-form-item>
         <el-form-item label="快速填充：">
           <el-input
             v-model="pasteRaw"

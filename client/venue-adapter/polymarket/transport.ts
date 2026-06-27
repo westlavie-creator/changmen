@@ -39,10 +39,14 @@ export async function polymarketPluginGet<T>(
   return unwrapPluginResponse<T>(raw);
 }
 
-/** 扩展 background axios POST（CLOB /prices /midpoints 等批量接口） */
-export async function polymarketPluginPost<T>(url: string, data: unknown): Promise<T> {
+/** 扩展 background axios POST（CLOB /prices /order 等接口） */
+export async function polymarketPluginPost<T>(
+  url: string,
+  data: unknown,
+  options?: { headers?: Record<string, string> },
+): Promise<T> {
   requirePluginRuntime();
-  const raw = await a8PluginPost(url, data, { timeout: PLUGIN_TIMEOUT_MS });
+  const raw = await a8PluginPost(url, data, { timeout: PLUGIN_TIMEOUT_MS, ...options });
   if (raw == null)
     throw new Error("Polymarket API 无响应");
   return unwrapPluginResponse<T>(raw);
