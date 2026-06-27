@@ -14,6 +14,10 @@ import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAc
 import { getProvider } from "@/runtime/providers";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
+import {
+  createOrDerivePolymarketApiCreds,
+  type PolymarketApiCreds,
+} from "@venue/polymarket/credentials";
 
 const props = defineProps<{
   open: boolean;
@@ -45,8 +49,13 @@ const pasteRaw = ref("");
 const gameShow = ref(false);
 /** A8：PB 默认锁定比例，legend「投」双击解锁 */
 const rateLocked = ref(false);
-/** Polymarket 专用：私钥单独录入，保存时写入 token JSON */
+/** Polymarket 专用：新账号按 wallet/funder/privateKey 派生 API 凭证 */
+const polyWalletAddress = ref("");
+const polyFunder = ref("");
 const polyPrivateKey = ref("");
+const polyApiCreds = ref<PolymarketApiCreds>();
+const polyApiCredsFingerprint = ref("");
+const polyGenerating = ref(false);
 
 interface PlatformSuggestion { value: string; link: string }
 
@@ -81,13 +90,16 @@ function resetForm(acc?: PlatformAccount) {
   pasteRaw.value = "";
   gameShow.value = false;
   rateLocked.value = form.provider === "PB";
-  polyPrivateKey.value = extractPolyPrivateKey(form.token);
+  syncPolymarketFieldsFromToken(form.token);
 }
 
-function extractPolyPrivateKey(token: string): string {
-  const parsed = parsePolymarketTokenObject(token);
-  const value = parsed?.privateKey ?? parsed?.private_key;
-  return value == null ? "" : String(value);
+function syncPolymarketFieldsFromToken(token: string) {
+  const parsed = parsePolymarketTokenObject(token) ?? {};
+  polyWalletAddress.value = String(parsed.walletAddress ?? parsed.address ?? "");
+  polyFunder.value = String(parsed.funder ?? parsed.funderAddress ?? "");
+  polyPrivateKey.value = String(parsed.privateKey ?? parsed.private_key ?? "");
+  polyApiCreds.value = normalizePolymarketApiCreds(parsed);
+  polyApiCredsFingerprint.value = polyApiCreds.value ? polymarketCredentialFingerprint() : "";
 }
 
 function syncForm() {
@@ -96,6 +108,7 @@ function syncForm() {
     pasteRaw.value = "";
     gameShow.value = true;
     rateLocked.value = form.provider === "PB";
+    syncPolymarketFieldsFromToken(form.token);
     return;
   }
   resetForm(props.account);
@@ -121,6 +134,11 @@ watch(
   (p) => {
     rateLocked.value = p === "PB";
     form.multiply = resolveAccountMultiply(p, form.multiply);
+    if (p === "Polymarket") {
+      form.gateway ||= "https://clob.polymarket.com";
+      form.referer ||= "https://polymarket.com/zh";
+      syncPolymarketFieldsFromToken(form.token);
+    }
   },
 );
 
@@ -247,7 +265,7 @@ async function applyPaste() {
     form.token = parsed.token ?? "";
     form.referer = parsed.referer ?? "";
     form.gateway = gateways[0]!;
-    polyPrivateKey.value = extractPolyPrivateKey(form.token);
+    syncPolymarketFieldsFromToken(form.token);
 
     if (gateways.length === 1) {
       ElMessage.success("粘贴成功");
@@ -379,6 +397,8 @@ function normalizePolymarketTokenObject(token: Record<string, unknown>) {
   const funder = String(token.funder ?? token.funderAddress ?? "");
   if (walletAddress && funder && walletAddress.toLowerCase() !== funder.toLowerCase())
     token.signatureType = "3";
+  else if (token.signatureType === undefined || token.signatureType === "")
+    token.signatureType = "3";
   return token;
 }
 
@@ -386,25 +406,97 @@ function normalizeRateConfig() {
   return normalizeAccountRateConfig(form.rateConfig);
 }
 
-function buildPolyToken(): string {
-  const rawToken = form.token.trim();
-  const parsed = parsePolymarketTokenObject(rawToken);
-  if (!parsed)
-    return rawToken;
-
-  normalizePolymarketTokenObject(parsed);
-  const key = polyPrivateKey.value.trim();
-  if (key)
-    parsed.privateKey = key;
-  else
-    delete parsed.privateKey;
-  delete parsed.private_key;
-  return JSON.stringify(parsed);
+function normalizePolymarketApiCreds(token: Record<string, unknown>): PolymarketApiCreds | undefined {
+  const rawApi = token.apiCreds;
+  const api = rawApi && typeof rawApi === "object"
+    ? rawApi as Record<string, unknown>
+    : token;
+  const apiKey = String(api.apiKey ?? api.key ?? api.api_key ?? "");
+  const secret = String(api.secret ?? api.apiSecret ?? api.api_secret ?? "");
+  const passphrase = String(api.passphrase ?? "");
+  if (!apiKey || !secret || !passphrase)
+    return undefined;
+  return { apiKey, secret, passphrase };
 }
 
-function buildPatch() {
+function polymarketCredentialFingerprint(): string {
+  return [
+    form.gateway.trim(),
+    polyWalletAddress.value.trim().toLowerCase(),
+    polyFunder.value.trim().toLowerCase(),
+    polyPrivateKey.value.trim().toLowerCase(),
+  ].join("|");
+}
+
+function buildPolyToken(): string {
+  const token: Record<string, unknown> = {
+    walletAddress: polyWalletAddress.value.trim(),
+    funder: polyFunder.value.trim(),
+    signatureType: "3",
+    privateKey: polyPrivateKey.value.trim(),
+  };
+  if (polyApiCreds.value) {
+    token.apiCreds = {
+      apiKey: polyApiCreds.value.apiKey,
+      secret: polyApiCreds.value.secret,
+      passphrase: polyApiCreds.value.passphrase,
+    };
+  }
+  normalizePolymarketTokenObject(token);
+  return JSON.stringify(token);
+}
+
+async function ensurePolymarketToken(): Promise<string> {
+  if (!polyWalletAddress.value.trim()) {
+    throw new Error("Polymarket 钱包地址必填");
+  }
+  if (!polyFunder.value.trim()) {
+    throw new Error("Polymarket funder 必填");
+  }
+  if (!polyPrivateKey.value.trim()) {
+    throw new Error("Polymarket 私钥必填");
+  }
+  if (!polyApiCreds.value || polyApiCredsFingerprint.value !== polymarketCredentialFingerprint())
+    await generatePolymarketApiCreds(true);
+  const token = buildPolyToken();
+  form.token = token;
+  return token;
+}
+
+async function generatePolymarketApiCreds(silent = false) {
+  polyGenerating.value = true;
+  try {
+    const result = await createOrDerivePolymarketApiCreds({
+      gateway: form.gateway,
+      walletAddress: polyWalletAddress.value,
+      funder: polyFunder.value,
+      privateKey: polyPrivateKey.value,
+    });
+    polyWalletAddress.value ||= result.signerAddress;
+    polyApiCreds.value = result.apiCreds;
+    form.gateway ||= "https://clob.polymarket.com";
+    polyApiCredsFingerprint.value = polymarketCredentialFingerprint();
+    form.token = buildPolyToken();
+    if (!silent)
+      ElMessage.success("Polymarket API 凭证已生成/派生");
+  }
+  finally {
+    polyGenerating.value = false;
+  }
+}
+
+async function onGeneratePolymarketApiCreds() {
+  try {
+    await generatePolymarketApiCreds(false);
+  }
+  catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "Polymarket API 凭证生成失败");
+  }
+}
+
+async function buildPatch() {
   const token = form.provider === "Polymarket"
-    ? buildPolyToken()
+    ? await ensurePolymarketToken()
     : form.token.trim() || undefined;
   return {
     platformName: form.platformName.trim(),
@@ -456,7 +548,7 @@ async function save() {
   }
   saving.value = true;
   try {
-    const patch = buildPatch();
+    const patch = await buildPatch();
     if (props.account) {
       props.account.applyPatch(patch);
       await accountStore.saveAccounts();
@@ -509,15 +601,73 @@ function unlockRate() {
       @no-markup-change="onNoMarkupChange"
       @normalize-game-odds="normalizeGameOdds"
     >
+      <template v-if="form.provider === 'Polymarket' && !readonly" #token>
+        <fieldset class="poly-token-fieldset">
+          <legend>Token</legend>
+          <el-form-item label="钱包地址：">
+            <el-input
+              v-model="polyWalletAddress"
+              placeholder="0x...，私钥对应的钱包地址"
+              style="font-family: monospace; font-size: 12px"
+            />
+          </el-form-item>
+          <el-form-item label="Funder：">
+            <el-input
+              v-model="polyFunder"
+              placeholder="0x...，Polymarket Deposit/Funder 地址"
+              style="font-family: monospace; font-size: 12px"
+            />
+          </el-form-item>
+          <el-form-item label="钱包私钥：">
+            <el-input
+              v-model="polyPrivateKey"
+              show-password
+              placeholder="0x... 或不带前缀的 hex 私钥"
+              style="font-family: monospace; font-size: 12px"
+            />
+          </el-form-item>
+          <el-form-item label="API 凭证：">
+            <el-button
+              type="primary"
+              plain
+              :loading="polyGenerating"
+              @click="onGeneratePolymarketApiCreds"
+            >
+              生成/验证 apiCreds
+            </el-button>
+            <span class="poly-credential-hint">
+              {{ polyApiCreds ? "已生成，保存时会写入最小 token（signatureType=3）" : "保存时也会自动生成" }}
+            </span>
+          </el-form-item>
+          <template v-if="polyApiCreds">
+            <el-form-item label="apiKey：">
+              <el-input
+                :model-value="polyApiCreds.apiKey"
+                readonly
+                style="font-family: monospace; font-size: 12px"
+              />
+            </el-form-item>
+            <el-form-item label="secret：">
+              <el-input
+                :model-value="polyApiCreds.secret"
+                readonly
+                show-password
+                style="font-family: monospace; font-size: 12px"
+              />
+            </el-form-item>
+            <el-form-item label="passphrase：">
+              <el-input
+                :model-value="polyApiCreds.passphrase"
+                readonly
+                show-password
+                style="font-family: monospace; font-size: 12px"
+              />
+            </el-form-item>
+          </template>
+        </fieldset>
+      </template>
+
       <template v-if="!readonly" #footer>
-        <el-form-item v-if="form.provider === 'Polymarket'" label="钱包私钥：">
-          <el-input
-            v-model="polyPrivateKey"
-            show-password
-            placeholder="0x... 或不带前缀的 hex 私钥"
-            style="font-family: monospace; font-size: 12px"
-          />
-        </el-form-item>
         <el-form-item label="快速填充：">
           <el-input
             v-model="pasteRaw"
@@ -547,3 +697,24 @@ function unlockRate() {
     </AccountEditPanel>
   </el-dialog>
 </template>
+
+<style scoped>
+.poly-token-fieldset {
+  margin: 0 0 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  padding: 12px 14px 4px;
+}
+
+.poly-token-fieldset legend {
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.poly-credential-hint {
+  margin-left: 10px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+</style>

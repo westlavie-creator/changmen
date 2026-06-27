@@ -446,7 +446,8 @@ function unlockRate() {
       <el-form-item label="网关：">
         <el-input v-model="form.gateway" :disabled="fieldDisabled()" />
       </el-form-item>
-      <el-form-item label="Token：">
+      <slot name="token" />
+      <el-form-item v-if="form.provider !== 'Polymarket'" label="Token：">
         <el-input v-model="form.token" :disabled="fieldDisabled()" />
       </el-form-item>
       <el-form-item label="Referer：">

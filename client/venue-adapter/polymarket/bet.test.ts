@@ -164,7 +164,7 @@ describe("polymarketProvider.getBalance", () => {
     });
   });
 
-  test("signs the exact balance request path including query params", async () => {
+  test("signs the endpoint path without query params like the official client", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "1000000" });
     const account = accountWithToken(JSON.stringify({
@@ -182,10 +182,7 @@ describe("polymarketProvider.getBalance", () => {
     const [url, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
     expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
     expect(options?.headers?.POLY_SIGNATURE).toBe(
-      expectedL2Signature(
-        "c2VjcmV0",
-        "1700000000GET/balance-allowance?asset_type=COLLATERAL&signature_type=3",
-      ),
+      expectedL2Signature("c2VjcmV0", "1700000000GET/balance-allowance"),
     );
   });
 
@@ -211,7 +208,7 @@ describe("polymarketProvider.getBalance", () => {
     ]);
   });
 
-  test("normalizes captured explicit POLY_PROXY signature type to POLY_1271 for deposit wallet data", async () => {
+  test("overrides captured proxy signature type when funder differs from wallet", async () => {
     vi.mocked(polymarketPluginGet).mockResolvedValueOnce({ balance: "4868613" });
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xCa4c007bdc8087F13141046Dc38F2f79F87cf43e",

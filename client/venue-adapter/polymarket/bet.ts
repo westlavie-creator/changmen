@@ -334,7 +334,7 @@ export const polymarketProvider: PlatformProvider = {
       const config = parseTokenConfig(account.token);
       const gateway = account.gateway || POLYMARKET_CLOB_API;
       const requestPath = balanceQueryPathForSignature(resolveSignatureType(config));
-      const headers = await buildL2HeadersFromAccount(account, "GET", requestPath);
+      const headers = await buildL2HeadersFromAccount(account, "GET", BALANCE_PATH);
       if (!headers) return undefined;
       const data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(
         `${gateway}${requestPath}`,
