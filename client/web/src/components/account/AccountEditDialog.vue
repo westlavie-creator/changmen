@@ -601,13 +601,14 @@ function unlockRate() {
       @no-markup-change="onNoMarkupChange"
       @normalize-game-odds="normalizeGameOdds"
     >
-      <template v-if="form.provider === 'Polymarket' && !readonly" #token>
+      <template v-if="form.provider === 'Polymarket'" #token>
         <fieldset class="poly-token-fieldset">
           <legend>Token</legend>
           <el-form-item label="钱包地址：">
             <el-input
               v-model="polyWalletAddress"
               placeholder="0x...，私钥对应的钱包地址"
+              :disabled="readonly"
               style="font-family: monospace; font-size: 12px"
             />
           </el-form-item>
@@ -615,6 +616,7 @@ function unlockRate() {
             <el-input
               v-model="polyFunder"
               placeholder="0x...，Polymarket Deposit/Funder 地址"
+              :disabled="readonly"
               style="font-family: monospace; font-size: 12px"
             />
           </el-form-item>
@@ -623,10 +625,11 @@ function unlockRate() {
               v-model="polyPrivateKey"
               show-password
               placeholder="0x... 或不带前缀的 hex 私钥"
+              :disabled="readonly"
               style="font-family: monospace; font-size: 12px"
             />
           </el-form-item>
-          <el-form-item label="API 凭证：">
+          <el-form-item v-if="!readonly" label="API 凭证：">
             <el-button
               type="primary"
               plain
@@ -644,6 +647,7 @@ function unlockRate() {
               <el-input
                 :model-value="polyApiCreds.apiKey"
                 readonly
+                :disabled="readonly"
                 style="font-family: monospace; font-size: 12px"
               />
             </el-form-item>
@@ -652,6 +656,7 @@ function unlockRate() {
                 :model-value="polyApiCreds.secret"
                 readonly
                 show-password
+                :disabled="readonly"
                 style="font-family: monospace; font-size: 12px"
               />
             </el-form-item>
@@ -660,6 +665,7 @@ function unlockRate() {
                 :model-value="polyApiCreds.passphrase"
                 readonly
                 show-password
+                :disabled="readonly"
                 style="font-family: monospace; font-size: 12px"
               />
             </el-form-item>
