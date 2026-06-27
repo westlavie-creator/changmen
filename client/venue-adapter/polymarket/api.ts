@@ -201,21 +201,42 @@ export interface PolymarketSportResult {
   finished_timestamp?: string;
 }
 
+export interface PolymarketWsPriceChange {
+  asset_id?: string;
+  price?: string;
+  size?: string;
+  side?: string;
+  best_bid?: string;
+  best_ask?: string;
+  hash?: string;
+}
+
 export interface PolymarketWsMessage {
   event_type?: string;
   asset_id?: string;
   market?: string;
+  timestamp?: string | number;
+  hash?: string;
+  // best_bid_ask event
   best_ask?: string;
   best_bid?: string;
-  /** price_change 事件的成交价（last trade price） */
-  price?: string;
-  size?: string;
+  spread?: string;
+  // book event (initial_dump snapshot)
+  bids?: Array<{ price?: string | number; size?: string | number }>;
+  asks?: Array<{ price?: string | number; size?: string | number }>;
+  // price_change event
+  price_changes?: PolymarketWsPriceChange[];
 }
 
-export function polymarketMarketSubscribeMessage(assetIds: string[]): string {
+/**
+ * @param initialDump true = 订阅后立即收到 book 快照（连接/重连时用）；
+ *                    false = 仅接增量推送（60s 循环重订阅时用，避免快照洪流）。
+ */
+export function polymarketMarketSubscribeMessage(assetIds: string[], initialDump = true): string {
   return JSON.stringify({
     assets_ids: assetIds,
     type: "market",
     custom_feature_enabled: true,
+    initial_dump: initialDump,
   });
 }

@@ -15,6 +15,7 @@ import {
 } from "./api";
 import { startPolymarketMarketWs } from "./ws";
 import {
+  bestAskFromBook,
   buildPolymarketMappedMarket,
   decimalOddsFromProbability,
   parseJsonArray,
@@ -55,12 +56,17 @@ export function extractPolymarketWsBestAsks(raw: string): Array<{ assetId: strin
   const messages = Array.isArray(parsed) ? parsed : [parsed];
   const updates: Array<{ assetId: string; bestAsk: string | number }> = [];
   for (const msg of messages) {
-    if (
-      (msg.event_type === "best_bid_ask" || msg.event_type === "price_change")
-      && msg.asset_id
-      && msg.best_ask !== undefined
-    ) {
+    if (msg.event_type === "best_bid_ask" && msg.asset_id && msg.best_ask !== undefined) {
       updates.push({ assetId: String(msg.asset_id), bestAsk: msg.best_ask });
+    } else if (msg.event_type === "price_change" && Array.isArray(msg.price_changes)) {
+      for (const change of msg.price_changes) {
+        if (change.asset_id && change.best_ask !== undefined) {
+          updates.push({ assetId: String(change.asset_id), bestAsk: change.best_ask });
+        }
+      }
+    } else if (msg.event_type === "book" && msg.asset_id) {
+      const bestAsk = bestAskFromBook({ asks: msg.asks });
+      if (bestAsk > 0) updates.push({ assetId: String(msg.asset_id), bestAsk });
     }
   }
   return updates;
@@ -82,9 +88,9 @@ export function startPolymarketCollector(): () => void {
     return [...new Set(ids)];
   }
 
-  function subscribeTrackedAssets() {
+  function subscribeTrackedAssets(initialDump = false) {
     const assetIds = trackedAssetIds();
-    if (assetIds.length) wsHandle.send(polymarketMarketSubscribeMessage(assetIds));
+    if (assetIds.length) wsHandle.send(polymarketMarketSubscribeMessage(assetIds, initialDump));
   }
 
   function updateBetFromAsset(assetId: string, bestAsk: string | number | undefined) {
@@ -113,7 +119,7 @@ export function startPolymarketCollector(): () => void {
   }
 
   const wsHandle = startPolymarketMarketWs({
-    onOpen: subscribeTrackedAssets,
+    onOpen: () => subscribeTrackedAssets(true),  // 连接/重连：需要 book 快照同步当前状态
     onMessage: handleWsMessage,
   });
 
