@@ -21,7 +21,7 @@ export function getPolymarketCredentials() {
     account.proxyWallet ||
     account.proxyWalletAddress ||
     "";
-  const signatureType = account.signatureType || inferSignatureType(walletAddress, funder);
+  const signatureType = account.signatureType || inferSignatureType(walletAddress, funder, apiCreds, storage);
 
   const token = JSON.stringify({
     walletAddress,
@@ -59,10 +59,20 @@ function base64Utf8(text) {
   return btoa(binary);
 }
 
-function inferSignatureType(walletAddress, funder) {
+function inferSignatureType(walletAddress, funder, apiCreds, storage) {
+  if (hasClobApiKeyMap(storage) || apiCreds.baseAddress)
+    return "3";
   if (walletAddress && funder && walletAddress.toLowerCase() !== funder.toLowerCase())
-    return "1";
+    return "3";
   return "";
+}
+
+function hasClobApiKeyMap(storage) {
+  return Object.values(storage).some((bucket) =>
+    bucket
+    && typeof bucket === "object"
+    && Object.keys(bucket).some(key => key.toLowerCase().includes("poly_clob_api_key_map")),
+  );
 }
 
 const STORAGE_KEY_RE = /(poly|polymarket|privy|dynamic|wallet|clob|api.?key|passphrase|funder|address)/i;
@@ -103,9 +113,10 @@ function captureKeyValue(key, value, apiCreds, account, polyHeaders) {
   if (lower.includes("poly_address")) polyHeaders.POLY_ADDRESS = text;
   if (lower.includes("poly_api_key")) polyHeaders.POLY_API_KEY = text;
   if (lower.includes("poly_passphrase")) polyHeaders.POLY_PASSPHRASE = text;
-  if (lower.includes("apikey") || lower.includes("api_key")) apiCreds.apiKey ||= text;
+  if (lower.includes("apikey") || lower.includes("api_key") || lower.includes("api-key")) apiCreds.apiKey ||= text;
   if (lower.includes("secret")) apiCreds.secret ||= text;
   if (lower.includes("passphrase")) apiCreds.passphrase ||= text;
+  if (lower.includes("baseaddress") || lower.includes("base_address")) apiCreds.baseAddress ||= text;
   if (lower.includes("wallet") || lower.includes("address")) account.address ||= text;
   if (lower.includes("funder")) account.funder ||= text;
 }
@@ -120,9 +131,13 @@ function capturePayload(raw, apiCreds, account, polyHeaders) {
     if (lower === "poly_address") polyHeaders.POLY_ADDRESS = text;
     if (lower === "poly_api_key") polyHeaders.POLY_API_KEY = text;
     if (lower === "poly_passphrase") polyHeaders.POLY_PASSPHRASE = text;
-    if (lower === "apikey" || lower === "api_key" || lower === "key") apiCreds.apiKey ||= text;
-    if (lower === "secret" || lower === "api_secret") apiCreds.secret ||= text;
-    if (lower === "passphrase" || lower === "api_passphrase") apiCreds.passphrase ||= text;
+    if (lower === "apikey" || lower === "api_key" || lower === "api-key" || lower === "key") apiCreds.apiKey ||= text;
+    if (lower === "secret" || lower === "apisecret" || lower === "api_secret" || lower === "api-secret")
+      apiCreds.secret ||= text;
+    if (lower === "passphrase" || lower === "apipassphrase" || lower === "api_passphrase" || lower === "api-passphrase")
+      apiCreds.passphrase ||= text;
+    if (lower === "baseaddress" || lower === "base_address" || lower === "base-address")
+      apiCreds.baseAddress ||= text;
     if (lower === "address" || lower === "walletaddress" || lower === "maker") account.address ||= text;
     if (lower === "signaturetype" || lower === "signature_type") account.signatureType ||= text;
     if (lower === "funder" || lower === "funderaddress" || lower === "proxywallet" || lower === "proxywalletaddress")

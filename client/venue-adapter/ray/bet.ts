@@ -107,6 +107,7 @@ export const rayProvider: PlatformProvider = {
     const res = await accountGet<{ code?: number; result?: { balance?: number } }>(
       account,
       RAY_A8_V2.user,
+      { forceDirect: true },
     );
     if (!res || res.code !== 200) return undefined;
     return {
@@ -212,6 +213,7 @@ export const rayProvider: PlatformProvider = {
       account,
       RAY_A8_V2.order,
       { order: JSON.stringify(option.data) },
+      { forceDirect: true },
     );
     let message: string | null = null;
     let newOdds = 0;

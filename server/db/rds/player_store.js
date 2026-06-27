@@ -85,6 +85,32 @@ export async function insertPlayerRow({ platformId, platformName, playerName }) 
   }
 }
 
+export async function fetchPlayerByPlatformAndName(platformId, playerName) {
+  const pid = Number(platformId);
+  const name = String(playerName || "").trim();
+  if (!Number.isFinite(pid) || pid <= 0 || !name)
+    return null;
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, platform_id, platform_name, player_name, credit, total_balance,
+              created_at, updated_at, deleted_at, delete_description
+       FROM players
+       WHERE platform_id = $1 AND player_name = $2 AND deleted_at IS NULL
+       ORDER BY id ASC
+       LIMIT 1`,
+      [pid, name],
+    );
+    return _mapPlayerRow(rows?.[0]);
+  }
+  catch (err) {
+    console.warn("[rds] fetchPlayerByPlatformAndName:", err.message);
+    return null;
+  }
+}
+
 export async function fetchPlayerById(playerId) {
   const id = Number(playerId);
   if (!Number.isFinite(id) || id <= 0)

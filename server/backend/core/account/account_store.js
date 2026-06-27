@@ -23,6 +23,16 @@ async function createTagPlatform(platformName, playerName) {
     throw new Error("CreateTagPlatform 需要 DATABASE_URL（RDS tag_platforms / players）");
   }
 
+  const existing = await sb.fetchPlayerByPlatformAndName(platform.id, name);
+  if (existing) {
+    return {
+      playerId: existing.playerId,
+      playerName: existing.playerName,
+      platformId: existing.platformId,
+      platformName: platform.name,
+    };
+  }
+
   const player = await sb.insertPlayerRow({
     platformId: platform.id,
     platformName: platform.name,

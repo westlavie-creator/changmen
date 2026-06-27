@@ -115,6 +115,7 @@ export const {
   upsertMoneyLog,
   deleteMoneyLogById,
   deleteMoneyLogsByPlayer,
+  fetchPlayerByPlatformAndName,
   fetchTagPlatforms,
   upsertTagPlatformByName,
   insertPlayerRow,

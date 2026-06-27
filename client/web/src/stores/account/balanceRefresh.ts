@@ -26,7 +26,7 @@ function saveAccountRefreshLog(title: string, lines: string[]) {
 export async function refreshAccountBalance(
   _store: AccountStoreContext,
   account: PlatformAccount,
-): Promise<boolean> {
+): Promise<void> {
   account.loadingBalance = true;
   try {
     const provider = getAdapter(account.provider)?.provider;
@@ -53,14 +53,13 @@ export async function refreshAccountBalance(
       catch {
         /* 消息队列未启动时不阻断余额刷新 */
       }
-      return true;
     }
-    account.balance = undefined;
-    return false;
+    else {
+      account.balance = undefined;
+    }
   }
   catch {
     account.balance = undefined;
-    return false;
   }
   finally {
     account.loadingBalance = false;

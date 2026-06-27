@@ -1,4 +1,5 @@
 import type { PlatformAccount } from "@/models/platformAccount";
+import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { polymarketProvider } from "./bet";
 import { POLYMARKET_CLOB_API } from "./api";
@@ -23,8 +24,17 @@ function base64Utf8(text: string): string {
   return btoa(binary);
 }
 
+function expectedL2Signature(secret: string, message: string): string {
+  return createHmac("sha256", Buffer.from(secret, "base64"))
+    .update(message)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+}
+
 describe("polymarketProvider.getBalance", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.mocked(polymarketPluginGet).mockReset();
   });
 
@@ -96,7 +106,97 @@ describe("polymarketProvider.getBalance", () => {
     });
   });
 
-  test("infers POLY_PROXY signature type when funder differs from wallet", async () => {
+  test("accepts apiSecret naming from captured storage", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "3000000" });
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0x456",
+      apiCreds: {
+        apiKey: "key-camel",
+        apiSecret: "c2VjcmV0",
+        passphrase: "pass-camel",
+      },
+    }));
+
+    await expect(polymarketProvider.getBalance!(account)).resolves.toEqual({
+      balance: 3,
+      currency: "USDT",
+    });
+    const [, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
+    expect(options?.headers).toMatchObject({
+      POLY_ADDRESS: "0x456",
+      POLY_API_KEY: "key-camel",
+      POLY_PASSPHRASE: "pass-camel",
+    });
+  });
+
+  test("signs the endpoint path without query params like the official client", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "1000000" });
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xabc",
+      signatureType: 3,
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+
+    await polymarketProvider.getBalance!(account);
+
+    const [url, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
+    expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
+    expect(options?.headers?.POLY_SIGNATURE).toBe(
+      expectedL2Signature("c2VjcmV0", "1700000000GET/balance-allowance"),
+    );
+  });
+
+  test("uses POLY_1271 directly when wallet and funder differ without explicit signature type", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({ balance: "4868613" });
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xCa4c007bdc8087F13141046Dc38F2f79F87cf43e",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+
+    await expect(polymarketProvider.getBalance!(account)).resolves.toEqual({
+      balance: 4.868613,
+      currency: "USDT",
+    });
+
+    expect(vi.mocked(polymarketPluginGet).mock.calls.map(([url]) => url)).toEqual([
+      `${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`,
+    ]);
+  });
+
+  test("normalizes captured explicit POLY_PROXY signature type to POLY_1271 for deposit wallet data", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({ balance: "4868613" });
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xCa4c007bdc8087F13141046Dc38F2f79F87cf43e",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "1",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+
+    await expect(polymarketProvider.getBalance!(account)).resolves.toEqual({
+      balance: 4.868613,
+      currency: "USDT",
+    });
+
+    expect(vi.mocked(polymarketPluginGet)).toHaveBeenCalledOnce();
+    const [url] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
+    expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
+  });
+
+  test("infers POLY_1271 signature type when funder differs from wallet", async () => {
     vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "1000000" });
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xabc",
@@ -111,7 +211,7 @@ describe("polymarketProvider.getBalance", () => {
     await polymarketProvider.getBalance!(account);
 
     const [url] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
-    expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=1`);
+    expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
   });
 
   test("returns undefined when api secret is missing", async () => {

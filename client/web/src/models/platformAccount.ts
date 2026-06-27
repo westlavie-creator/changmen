@@ -230,7 +230,7 @@ export class PlatformAccount implements AccountRecord {
   }
 
   /** [A8 可证实] cv.updateBalance：Provider.getBalance → Vt.updateBalance */
-  async updateBalance(): Promise<boolean> {
+  async updateBalance(): Promise<void> {
     const { useAccountStore } = await import("@/stores/accountStore");
     const { refreshAccountBalance } = await import("@/stores/account/balanceRefresh");
     return refreshAccountBalance(useAccountStore(), this);

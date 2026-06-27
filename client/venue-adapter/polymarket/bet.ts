@@ -83,12 +83,16 @@ interface PolymarketTokenConfig {
   key?: string;
   api_key?: string;
   secret?: string;
+  apiSecret?: string;
+  api_secret?: string;
   passphrase?: string;
   apiCreds?: {
     apiKey?: string;
     key?: string;
     api_key?: string;
     secret?: string;
+    apiSecret?: string;
+    api_secret?: string;
     passphrase?: string;
   };
   polyHeaders?: Record<string, unknown>;
@@ -158,7 +162,8 @@ function resolveApiCreds(config: PolymarketTokenConfig) {
     apiKey: api.apiKey || api.key || api.api_key
       || config.apiKey || config.key || config.api_key
       || headerValue(headers, "POLY_API_KEY"),
-    secret: api.secret || config.secret,
+    secret: api.secret || api.apiSecret || api.api_secret
+      || config.secret || config.apiSecret || config.api_secret,
     passphrase: api.passphrase || config.passphrase || headerValue(headers, "POLY_PASSPHRASE"),
     signatureType: resolveSignatureType(config),
   };
@@ -173,10 +178,10 @@ function resolveAddress(config: PolymarketTokenConfig): string {
 }
 
 function resolveSignatureType(config: PolymarketTokenConfig): string | number | undefined {
-  if (config.signatureType !== undefined && config.signatureType !== "") return config.signatureType;
   const address = resolveAddress(config).toLowerCase();
   const funder = resolveFunder(config).toLowerCase();
-  if (address && funder && address !== funder) return 1;
+  if (address && funder && address !== funder) return 3;
+  if (config.signatureType !== undefined && config.signatureType !== "") return config.signatureType;
   return undefined;
 }
 
@@ -315,14 +320,13 @@ function signOrderWithKey(
 
 // ---- balance helpers ----
 
-function balancePathFor(account: PlatformAccount): string {
-  const config = parseTokenConfig(account.token);
-  const signatureType = resolveSignatureType(config);
+function balanceQueryPathForSignature(signatureType: string | number | undefined): string {
   const params = new URLSearchParams({ asset_type: "COLLATERAL" });
   if (signatureType !== undefined && signatureType !== "")
     params.set("signature_type", String(signatureType));
   return `${BALANCE_PATH}?${params.toString()}`;
 }
+
 
 function parseCollateralBalance(raw: string | number | undefined): number | undefined {
   if (raw === undefined || raw === null) return undefined;
@@ -335,10 +339,11 @@ function parseCollateralBalance(raw: string | number | undefined): number | unde
 export const polymarketProvider: PlatformProvider = {
   async getBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
     try {
-      const requestPath = balancePathFor(account);
-      const headers = await buildL2HeadersFromAccount(account, "GET", requestPath);
+      const config = parseTokenConfig(account.token);
+      const headers = await buildL2HeadersFromAccount(account, "GET", BALANCE_PATH);
       if (!headers) return undefined;
       const gateway = account.gateway || POLYMARKET_CLOB_API;
+      const requestPath = balanceQueryPathForSignature(resolveSignatureType(config));
       const data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(
         `${gateway}${requestPath}`,
         { headers },

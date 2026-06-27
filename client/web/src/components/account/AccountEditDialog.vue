@@ -85,13 +85,9 @@ function resetForm(acc?: PlatformAccount) {
 }
 
 function extractPolyPrivateKey(token: string): string {
-  try {
-    const parsed = JSON.parse(token);
-    return parsed?.privateKey || parsed?.private_key || "";
-  }
-  catch {
-    return "";
-  }
+  const parsed = parsePolymarketTokenObject(token);
+  const value = parsed?.privateKey ?? parsed?.private_key;
+  return value == null ? "" : String(value);
 }
 
 function syncForm() {
@@ -360,14 +356,43 @@ function decodeBase64Utf8(raw: string): string | undefined {
   }
 }
 
+function parsePolymarketTokenObject(raw: string | undefined): Record<string, unknown> | undefined {
+  const text = raw?.trim();
+  if (!text)
+    return {};
+  const parsed = tryParseJson(text) ?? tryParseJson(decodeBase64Utf8(text));
+  if (!parsed)
+    return undefined;
+
+  const nestedToken = typeof parsed.token === "string" ? parsed.token.trim() : "";
+  if (nestedToken) {
+    const nested = tryParseJson(nestedToken) ?? tryParseJson(decodeBase64Utf8(nestedToken));
+    if (nested)
+      return nested;
+  }
+
+  return parsed;
+}
+
+function normalizePolymarketTokenObject(token: Record<string, unknown>) {
+  const walletAddress = String(token.walletAddress ?? token.address ?? "");
+  const funder = String(token.funder ?? token.funderAddress ?? "");
+  if (walletAddress && funder && walletAddress.toLowerCase() !== funder.toLowerCase())
+    token.signatureType = "3";
+  return token;
+}
+
 function normalizeRateConfig() {
   return normalizeAccountRateConfig(form.rateConfig);
 }
 
 function buildPolyToken(): string {
-  let parsed: Record<string, unknown> = {};
-  try { parsed = JSON.parse(form.token) ?? {}; }
-  catch { /* keep empty */ }
+  const rawToken = form.token.trim();
+  const parsed = parsePolymarketTokenObject(rawToken);
+  if (!parsed)
+    return rawToken;
+
+  normalizePolymarketTokenObject(parsed);
   const key = polyPrivateKey.value.trim();
   if (key)
     parsed.privateKey = key;
@@ -435,11 +460,12 @@ async function save() {
     if (props.account) {
       props.account.applyPatch(patch);
       await accountStore.saveAccounts();
-      // [A8 可证实] 新建：CreateTagPlatform → createAccount → updateBalance + updateOrders
+      // [A8 可证实] Io.createAccount：update/push → save ACCOUNT → updateBalance → updateOrders
       await accountStore.refreshBalance(props.account);
       await accountStore.updateVenueOrders(props.account);
     }
     else {
+      // [A8 可证实] 新建账号先 CreateTagPlatform 取得 playerId，再进入 Io.createAccount 链路
       await accountStore.createFromTagPlatform(patch);
     }
     ElMessage.success("账号设置已保存");

@@ -73,6 +73,7 @@ export {
 } from "./rds/platform_collector_store.js";
 
 export {
+  fetchPlayerByPlatformAndName,
   fetchPlayerById,
   fetchTagPlatforms,
   fetchUserLogsInRange,
