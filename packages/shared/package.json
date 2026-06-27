@@ -7,6 +7,7 @@
   "exports": {
     "./catalog/game_catalog": "./catalog/game_catalog.ts",
     "./catalog/game_catalog.json": "./catalog/game_catalog.json",
+    "./catalog/venue_games.json": "./catalog/venue_games.json",
     "./catalog/game_catalog.browser": "./catalog/game_catalog.browser.ts",
     "./catalog/market_catalog": "./catalog/market_catalog.ts",
     "./catalog/market_catalog.json": "./catalog/market_catalog.json",

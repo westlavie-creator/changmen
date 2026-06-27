@@ -12,7 +12,7 @@ const API_TARGET = process.env.VITE_API_PROXY || `http://127.0.0.1:${DEV_API_POR
 const DEFAULT_DEV_PORT = process.platform === "win32" ? 5274 : 5174;
 const DEV_PORT = Number(process.env.VITE_DEV_PORT) || DEFAULT_DEV_PORT;
 
-function platformChunkName(id: string): string | undefined {
+function venueChunkName(id: string): string | undefined {
   const markers = ["client/venue-adapter/"];
   let idx = -1;
   let markerLen = 0;
@@ -28,8 +28,8 @@ function platformChunkName(id: string): string | undefined {
   const rest = id.slice(idx + markerLen);
   const dir = rest.split(/[/\\]/)[0];
   if (!dir || dir === "registry" || dir === "contract" || dir === "shared") return undefined;
-  // 各 platform-* 分包互相循环引用，拆成多 chunk 会在浏览器触发 TDZ 白屏
-  return "platform-all";
+  // 各 venue adapter 分包互相循环引用，拆成多 chunk 会在浏览器触发 TDZ 白屏
+  return "venue-all";
 }
 
 export default defineConfig(({ mode }) => ({
@@ -65,29 +65,11 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          const platformChunk = platformChunkName(id);
-          if (platformChunk) return platformChunk;
-
-          if (!id.includes("node_modules")) return undefined;
-
-          if (id.includes("element-plus")) return "vendor-element-plus";
-          if (id.includes("mqtt")) return "vendor-mqtt";
-          if (id.includes("socket.io-client")) return "vendor-socketio";
-          if (id.includes("socketcluster-client")) return "vendor-socketcluster";
-          if (id.includes("tronweb")) return "vendor-tronweb";
-          if (id.includes("goeasy")) return "vendor-goeasy";
-          if (
-            id.includes("/vue/") ||
-            id.includes("/vue-router/") ||
-            id.includes("/pinia/") ||
-            id.includes("\\vue\\") ||
-            id.includes("\\vue-router\\") ||
-            id.includes("\\pinia\\")
-          ) {
-            return "vendor-vue";
-          }
-          if (id.includes("@vueuse")) return "vendor-vueuse";
-          return "vendor";
+          const venueChunk = venueChunkName(id);
+          if (venueChunk) return venueChunk;
+          // 让 Rollup 自行处理 node_modules 分块；手动 vendor 拆包会和
+          // platform-all 形成循环 chunk，在浏览器里触发 TDZ 白屏。
+          return undefined;
         },
       },
     },

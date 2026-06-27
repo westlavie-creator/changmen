@@ -1,17 +1,3 @@
-import {
-  Chain,
-  ClobClient,
-  OrderType,
-  Side,
-  SignatureTypeV2,
-  isV2Order,
-  orderToJsonV2,
-  type ApiKeyCreds,
-  type TickSize,
-} from "@polymarket/clob-client-v2";
-import { createWalletClient, http, type Hex } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { polygon } from "viem/chains";
 import type { AccountBalanceResult, PlatformProvider } from "@venue/contract";
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
@@ -31,6 +17,8 @@ const DEV_CONFIG = {
   passphrase: "bb263f2bb685f113599ad40b1756b1f73976dcabc0b86849e48a6ed2fdbd9e77",
 } as const;
 const COLLATERAL_DECIMALS = 1_000_000;
+type Hex = `0x${string}`;
+type TickSize = "0.1" | "0.01" | "0.001" | "0.0001";
 
 // ---- interfaces ----
 
@@ -248,12 +236,9 @@ async function buildL2HeadersFromAccount(
 
 // ---- official CLOB v2 order helpers ----
 
-function resolveSdkSignatureType(value: string | number | undefined): SignatureTypeV2 {
+function resolveSdkSignatureType(value: string | number | undefined): number {
   const numeric = Number(value ?? 0);
-  if (numeric === SignatureTypeV2.POLY_PROXY) return SignatureTypeV2.POLY_PROXY;
-  if (numeric === SignatureTypeV2.POLY_GNOSIS_SAFE) return SignatureTypeV2.POLY_GNOSIS_SAFE;
-  if (numeric === SignatureTypeV2.POLY_1271) return SignatureTypeV2.POLY_1271;
-  return SignatureTypeV2.EOA;
+  return [1, 2, 3].includes(numeric) ? numeric : 0;
 }
 
 function normalizeTickSize(value: string | number | undefined): TickSize {
@@ -274,28 +259,57 @@ async function fetchOrderOptions(gateway: string, tokenId: string): Promise<{ ti
   };
 }
 
-function createPolymarketClient(
+async function createPolymarketOrderBody(
   gateway: string,
   privateKey: Hex,
   creds: ReturnType<typeof resolveApiCreds>,
   config: PolymarketTokenConfig,
-): ClobClient {
-  const account = privateKeyToAccount(privateKey);
-  const signer = createWalletClient({ account, chain: polygon, transport: http() });
-  const client = new ClobClient({
+  tokenId: string,
+  price: number,
+  size: number,
+  orderOptions: { tickSize: TickSize; negRisk: boolean },
+) {
+  const [
+    clob,
+    viem,
+    accounts,
+    chains,
+  ] = await Promise.all([
+    import("@polymarket/clob-client-v2"),
+    import("viem"),
+    import("viem/accounts"),
+    import("viem/chains"),
+  ]);
+  const account = accounts.privateKeyToAccount(privateKey);
+  const signer = viem.createWalletClient({
+    account,
+    chain: chains.polygon,
+    transport: viem.http(),
+  });
+  const client = new clob.ClobClient({
     host: gateway,
-    chain: Chain.POLYGON,
+    chain: clob.Chain.POLYGON,
     signer,
     creds: {
       key: creds.apiKey!,
       secret: creds.secret!,
       passphrase: creds.passphrase!,
-    } satisfies ApiKeyCreds,
-    signatureType: resolveSdkSignatureType(creds.signatureType),
+    },
+    signatureType: resolveSdkSignatureType(creds.signatureType) as any,
     funderAddress: resolveFunder(config) || undefined,
   });
   Reflect.set(client, "cachedVersion", 2);
-  return client;
+  client.tickSizes[tokenId] = orderOptions.tickSize;
+  client.negRisk[tokenId] = orderOptions.negRisk;
+  const signedOrder = await client.createOrder({
+    tokenID: tokenId,
+    price,
+    size,
+    side: clob.Side.BUY,
+  }, orderOptions);
+  if (!clob.isV2Order(signedOrder))
+    throw new Error("Polymarket SDK 未生成 CLOB v2 订单");
+  return clob.orderToJsonV2(signedOrder, creds.apiKey!, clob.OrderType.FOK, false, false);
 }
 
 // ---- balance helpers ----
@@ -374,18 +388,16 @@ export const polymarketProvider: PlatformProvider = {
 
     try {
       const orderOptions = await fetchOrderOptions(gateway, tokenId);
-      const clobClient = createPolymarketClient(gateway, privateKey, creds, config);
-      clobClient.tickSizes[tokenId] = orderOptions.tickSize;
-      clobClient.negRisk[tokenId] = orderOptions.negRisk;
-      const signedOrder = await clobClient.createOrder({
-        tokenID: tokenId,
+      const orderBody = await createPolymarketOrderBody(
+        gateway,
+        privateKey,
+        creds,
+        config,
+        tokenId,
         price,
-        size: option.betMoney / price,
-        side: Side.BUY,
-      }, orderOptions);
-      if (!isV2Order(signedOrder))
-        throw new Error("Polymarket SDK 未生成 CLOB v2 订单");
-      const orderBody = orderToJsonV2(signedOrder, creds.apiKey, OrderType.FOK, false, false);
+        option.betMoney / price,
+        orderOptions,
+      );
       const bodyStr = JSON.stringify(orderBody);
 
       const [l2Headers, builderHeaders] = await Promise.all([

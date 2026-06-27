@@ -1,5 +1,4 @@
 import ElementPlus from "element-plus";
-import "element-plus/theme-chalk/dark/css-vars.css";
 import zhCn from "element-plus/es/locale/lang/zh-cn";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
@@ -8,9 +7,12 @@ import { loadStylesForBootstrap } from "@/lib/copyShell";
 import { useUserStore } from "@/stores/userStore";
 import App from "./App.vue";
 import router from "./router";
+import "element-plus/theme-chalk/dark/css-vars.css";
 
 async function bootstrap() {
-  await loadStylesForBootstrap();
+  await loadStylesForBootstrap().catch((err) => {
+    console.error("[copyShell] bootstrap styles failed", err);
+  });
 
   const pinia = createPinia();
   const app = createApp(App).use(pinia).use(router).use(ElementPlus, { locale: zhCn });

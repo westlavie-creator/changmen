@@ -3,11 +3,9 @@ import { computed, defineAsyncComponent } from "vue";
 import { useRouter } from "vue-router";
 import { getToken } from "@/api/client";
 import LoginPanel from "@/components/auth/LoginPanel.vue";
-import CopyShellBanner from "@/components/layout/CopyShellBanner.vue";
 import KakashiRaikiriLoader from "@/components/layout/KakashiRaikiriLoader.vue";
 import PluginIntroShell from "@/components/layout/PluginIntroShell.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
-import { showSkinBanner } from "@/lib/copyShell";
 import { useUserStore } from "@/stores/userStore";
 
 const HomeView = defineAsyncComponent(() => import("@/views/HomeView.vue"));
@@ -33,7 +31,6 @@ async function onLoginSuccess() {
 </script>
 
 <template>
-  <CopyShellBanner v-if="showSkinBanner()" />
   <KeepAlive v-if="sessionReady">
     <HomeView />
   </KeepAlive>

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 
 const g = await import("./game_catalog.ts");
+const gameCatalog = await import("./game_catalog.json", { with: { type: "json" } });
+const venueGames = await import("./venue_games.json", { with: { type: "json" } });
 
 assert.equal(g.getGameCodeForPlatformId("IA", "3"), "cs2");
 assert.deepEqual(g.resolveClientGame("IA", "3"), { Game: "CS:GO", GameID: 3 });
@@ -15,6 +17,16 @@ assert.equal(g.getGameCodeForPlatformId("Polymarket", "league-of-legends"), "lol
 assert.equal(g.getGameCodeForPlatformId("Polymarket", "dota-2"), "dota2");
 assert.equal(g.getGameCodeForPlatformId("Polymarket", "honor-of-kings"), "kog");
 assert.ok(g.getActivePlatformGameIds("OB").length > 0);
+
+const derivedVenueGames: Record<string, string[]> = {};
+for (const game of gameCatalog.default.games) {
+  for (const [provider, gameId] of Object.entries(game.platforms || {})) {
+    derivedVenueGames[provider] ||= [];
+    if (!derivedVenueGames[provider].includes(String(gameId)))
+      derivedVenueGames[provider].push(String(gameId));
+  }
+}
+assert.deepEqual(venueGames.default.providers, derivedVenueGames);
 
 const pb = await import("./pb_team_platform_id.ts");
 assert.equal(pb.formatPbTeamPlatformId("cs2", "navi"), "navi@cs2");

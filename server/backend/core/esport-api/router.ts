@@ -12,6 +12,7 @@ import {
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as sb from "@changmen/db";
 import catalog from "@changmen/shared/catalog/game_catalog.json" with { type: "json" };
+import venueGames from "@changmen/shared/catalog/venue_games.json" with { type: "json" };
 import { getDefaultMarketCode, getPlatformRules } from "@changmen/shared/catalog/market_catalog";
 import { isWsForwardHttpPath } from "@changmen/ws-forward";
 import * as accountService from "../account/account_service.js";
@@ -153,6 +154,10 @@ function actionFromUrl(urlPath: string): string {
 }
 
 function gamesForProvider(provider: string): string[] {
+  const fromVenueGames = (venueGames as { providers?: Record<string, unknown> }).providers?.[provider];
+  if (Array.isArray(fromVenueGames))
+    return [...new Set(fromVenueGames.filter(Boolean).map(String))];
+
   const ids = new Set<string>();
   for (const game of catalog.games || []) {
     const id = game.platforms?.[provider];

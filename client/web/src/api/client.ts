@@ -1,5 +1,6 @@
 import type { ApiEnvelope } from "@changmen/api-contract";
 import { buildEsportUrl } from "@changmen/api-contract/urls";
+import { ElMessage } from "element-plus";
 import { getApiBase } from "@/config/apiBase";
 import { a8Axios, responseBodyText } from "@/shared/a8Axios";
 
@@ -73,6 +74,8 @@ export function clearAuthSession() {
 export interface PostOptions {
   /** 对齐 A8 `_r.post` 的 `errorTip:false`：失败时不抛错（由调用方读 success） */
   errorTip?: boolean;
+  /** 对齐 A8 `_r.post(..., { successTip })`：成功时提示服务端 msg */
+  successTip?: boolean;
 }
 
 const DELAY_SAMPLE_INTERVAL_MS = 250;
@@ -96,6 +99,7 @@ async function executePost<T>(
   action: string,
   body: Record<string, unknown>,
   query = "",
+  opts?: PostOptions,
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
   const sampleDelay
@@ -114,6 +118,9 @@ async function executePost<T>(
     if (json.success === 0 && SESSION_KICK_MSGS.has(String(json.msg || "")) && action !== "Client_Login") {
       clearAuthSession();
       window.location.href = "/";
+    }
+    if (opts?.successTip && json.success === 1) {
+      ElMessage.success(json.msg || "操作成功");
     }
     return json;
   }
@@ -144,12 +151,13 @@ export async function post<T>(
   action: string,
   body: Record<string, unknown> = {},
   query = "",
-  _opts?: PostOptions,
+  opts?: PostOptions,
 ): Promise<ApiEnvelope<T>> {
   return executePost<T>(
     action,
     body,
     query,
+    opts,
   );
 }
 
@@ -158,12 +166,13 @@ export async function postForm<T>(
   action: string,
   fields: Record<string, string>,
   query = "",
-  _opts?: PostOptions,
+  opts?: PostOptions,
 ): Promise<ApiEnvelope<T>> {
   return executePost<T>(
     action,
     fields,
     query,
+    opts,
   );
 }
 
