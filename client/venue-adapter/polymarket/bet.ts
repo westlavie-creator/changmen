@@ -242,6 +242,24 @@ async function buildL2Headers(
   };
 }
 
+async function buildBuilderHeaders(
+  method: "GET" | "POST",
+  requestPath: string,
+  body?: string,
+): Promise<Record<string, string>> {
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const signature = await hmacSha256Base64Url(
+    DEV_CONFIG.secret,
+    timestamp + method + requestPath + (body ?? ""),
+  );
+  return {
+    "POLY_BUILDER_API_KEY": DEV_CONFIG.apiKey,
+    "POLY_BUILDER_SIGNATURE": signature,
+    "POLY_BUILDER_TIMESTAMP": timestamp,
+    "POLY_BUILDER_PASSPHRASE": DEV_CONFIG.passphrase,
+  };
+}
+
 async function buildL2HeadersFromAccount(
   account: PlatformAccount,
   method: "GET" | "POST",
@@ -348,10 +366,10 @@ export const polymarketProvider: PlatformProvider = {
       return new BetResult("Polymarket", false, "凭证缺少 walletAddress");
     if (!privateKeyHex)
       return new BetResult("Polymarket", false, "缺少私钥（在 token 中加 privateKey 字段，从 Polymarket 设置导出）");
+    if (!creds.apiKey || !creds.secret || !creds.passphrase)
+      return new BetResult("Polymarket", false, "凭证缺少用户 API Key（apiKey/secret/passphrase），请重新通过插件采集");
 
     const gateway = account.gateway || POLYMARKET_CLOB_API;
-
-    const { address: l2Address, apiKey: l2ApiKey, secret: l2Secret, passphrase: l2Passphrase } = DEV_CONFIG;
 
     const sigType = Number(creds.signatureType ?? 0);
     const makerAddress = sigType === 1 ? (resolveFunder(config) || creds.address) : creds.address;
@@ -391,15 +409,17 @@ export const polymarketProvider: PlatformProvider = {
           signatureType: sigType,
           signature,
         },
-        owner: l2ApiKey,
+        owner: creds.apiKey,
         orderType: "FOK",
         deferExec: false,
       };
       const bodyStr = JSON.stringify(orderBody);
 
-      const headers = await buildL2Headers(
-        l2Address, l2ApiKey, l2Secret, l2Passphrase, "POST", ORDER_PATH, bodyStr,
-      );
+      const [l2Headers, builderHeaders] = await Promise.all([
+        buildL2Headers(creds.address, creds.apiKey, creds.secret, creds.passphrase, "POST", ORDER_PATH, bodyStr),
+        buildBuilderHeaders("POST", ORDER_PATH, bodyStr),
+      ]);
+      const headers = { ...l2Headers, ...builderHeaders };
 
       const result = await polymarketPluginPost<PolymarketOrderResponse>(
         `${gateway}${ORDER_PATH}`,
