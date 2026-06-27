@@ -75,8 +75,14 @@ export interface PostOptions {
   errorTip?: boolean;
 }
 
+const DELAY_SAMPLE_INTERVAL_MS = 250;
+
 let lastDelaySampleAt = 0;
-let delaySamplePending = false;
+
+function shouldSampleApiDelay(action: string): boolean {
+  // 后台采集上报 payload 大、频率高，不适合作为左上角页面 API 延迟指标。
+  return !action.startsWith("API_Save");
+}
 
 function toA8PostBody(body: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -92,8 +98,9 @@ async function executePost<T>(
   query = "",
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
-  if (!delaySamplePending && started - lastDelaySampleAt > 250) {
-    delaySamplePending = true;
+  const sampleDelay
+    = shouldSampleApiDelay(action) && started - lastDelaySampleAt > DELAY_SAMPLE_INTERVAL_MS;
+  if (sampleDelay) {
     lastDelaySampleAt = started;
   }
   try {
@@ -120,8 +127,7 @@ async function executePost<T>(
     );
   }
   finally {
-    if (delaySamplePending) {
-      delaySamplePending = false;
+    if (sampleDelay) {
       const elapsed = Date.now() - started;
       void import("@/stores/userStore")
         .then(({ useUserStore }) => {
