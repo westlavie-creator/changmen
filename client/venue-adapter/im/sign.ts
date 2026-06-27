@@ -1,3 +1,4 @@
+import { sha256 } from "@noble/hashes/sha256";
 import { IM_SPORT_BY_GAME_ID, imSportIdForGame } from "./parse";
 
 export { IM_SPORT_BY_GAME_ID, imSportIdForGame };
@@ -22,10 +23,9 @@ function bZe(timestamp: string): string {
   return btoa(o);
 }
 
-async function cZe(input: string): Promise<string> {
+function cZe(input: string): string {
   const r = new TextEncoder().encode(input);
-  const n = await crypto.subtle.digest("SHA-256", r);
-  const s = Array.from(new Uint8Array(n));
+  const s = Array.from(sha256(r));
   return btoa(String.fromCharCode(...s));
 }
 
@@ -43,6 +43,6 @@ export async function signImPayload<T extends Record<string, unknown>>(
     PHash?: string;
   };
   const hashInput = [JSON.stringify(signed), timestamp, stats, version, apiPath].join("");
-  signed.PHash = await cZe(hashInput);
+  signed.PHash = cZe(hashInput);
   return signed as T & { Timestamp: string; Stats: string; PHash: string };
 }

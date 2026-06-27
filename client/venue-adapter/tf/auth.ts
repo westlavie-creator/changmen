@@ -1,34 +1,29 @@
 /** 对齐 gamebet_backend/platforms/tf/tf_auth.js + A8 bundle MBe/N3 — 账号 HTTP / 采集共用 */
 
+import { hmac } from "@noble/hashes/hmac";
+import { sha1 } from "@noble/hashes/sha1";
+import { sha512 } from "@noble/hashes/sha512";
+
 const PUBLIC_TOKEN = "2633b50ad4f64cd28b3224e47c877057";
 
 function stripTokenPrefix(token: string): string {
   return token.replace(/^Token\s+/i, "");
 }
 
-function decodeTokenKey(token: string): ArrayBuffer {
+function decodeTokenKey(token: string): Uint8Array {
   const raw = stripTokenPrefix(token);
   const binary = atob(raw);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
+  return bytes;
 }
 
-async function hmacSha1(key: ArrayBuffer, data: ArrayBuffer): Promise<ArrayBuffer> {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    key,
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"],
-  );
-  return crypto.subtle.sign("HMAC", cryptoKey, data);
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function sha512Hex(text: string): Promise<string> {
-  const buf = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-512", buf);
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+function sha512Hex(text: string): string {
+  return bytesToHex(sha512(new TextEncoder().encode(text)));
 }
 
 export async function buildTfAuthorization(token: string, nowSec = Math.floor(Date.now() / 1000)): Promise<string> {
@@ -38,10 +33,10 @@ export async function buildTfAuthorization(token: string, nowSec = Math.floor(Da
   const view = new DataView(buf);
   view.setUint32(4, s >>> 0, false);
 
-  const hmac = new Uint8Array(await hmacSha1(key, buf));
-  const c = hmac[hmac.length - 1]! & 0x0f;
+  const signed = hmac(sha1, key, new Uint8Array(buf));
+  const c = signed[signed.length - 1]! & 0x0f;
   const d =
-    ((hmac[c]! & 0x7f) << 24) | (hmac[c + 1]! << 16) | (hmac[c + 2]! << 8) | hmac[c + 3]!;
+    ((signed[c]! & 0x7f) << 24) | (signed[c + 1]! << 16) | (signed[c + 2]! << 8) | signed[c + 3]!;
   const padded = String(d % 1e6).padStart(6, "0");
   return sha512Hex(padded);
 }

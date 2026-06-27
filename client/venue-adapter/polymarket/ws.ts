@@ -74,6 +74,7 @@ export function startPolymarketMarketWs(opts: {
     ws.onmessage = (event) => {
       const raw = String(event.data);
       if (raw === "PONG") return;
+      if (!raw.trim().startsWith("{") && !raw.trim().startsWith("[")) return;
       try {
         opts.onMessage(raw);
       } catch (err) {

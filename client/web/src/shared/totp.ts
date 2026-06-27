@@ -1,3 +1,6 @@
+import { hmac } from "@noble/hashes/hmac";
+import { sha1 } from "@noble/hashes/sha1";
+
 const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 function base32Decode(input: string): Uint8Array {
@@ -32,15 +35,7 @@ export async function generateTotp(
   const view = new DataView(buffer);
   view.setUint32(4, counter >>> 0, false);
 
-  const keyBuffer = key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) as ArrayBuffer;
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    keyBuffer,
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"],
-  );
-  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, buffer));
+  const sig = hmac(sha1, key, new Uint8Array(buffer));
   const offset = sig[sig.length - 1] & 0x0F;
   const bin
     = ((sig[offset] & 0x7F) << 24)

@@ -1,4 +1,6 @@
 import type { AccountBalanceResult, PlatformProvider } from "@venue/contract";
+import { hmac } from "@noble/hashes/hmac";
+import { sha256 } from "@noble/hashes/sha256";
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
@@ -173,22 +175,10 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-async function hmacSha256Base64Url(secret: string, message: string): Promise<string> {
+function hmacSha256Base64Url(secret: string, message: string): string {
   const secretBytes = base64UrlToBytes(secret);
-  const secretKeyData = secretBytes.buffer.slice(
-    secretBytes.byteOffset,
-    secretBytes.byteOffset + secretBytes.byteLength,
-  ) as ArrayBuffer;
   const messageBytes = new TextEncoder().encode(message);
-  const messageData = messageBytes.buffer.slice(
-    messageBytes.byteOffset,
-    messageBytes.byteOffset + messageBytes.byteLength,
-  ) as ArrayBuffer;
-  const key = await crypto.subtle.importKey(
-    "raw", secretKeyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, messageData);
-  return bytesToBase64Url(new Uint8Array(sig));
+  return bytesToBase64Url(hmac(sha256, secretBytes, messageBytes));
 }
 
 async function buildL2Headers(
