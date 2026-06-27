@@ -336,7 +336,7 @@ export const polymarketProvider: PlatformProvider = {
   async getBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
     try {
       const requestPath = balancePathFor(account);
-      const headers = await buildL2HeadersFromAccount(account, "GET", BALANCE_PATH);
+      const headers = await buildL2HeadersFromAccount(account, "GET", requestPath);
       if (!headers) return undefined;
       const gateway = account.gateway || POLYMARKET_CLOB_API;
       const data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(

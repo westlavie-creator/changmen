@@ -123,6 +123,7 @@ export function saveMatches(provider, matchs) {
   _matches[provider] = next;
   pruneBetsForProvider(provider, Object.keys(next));
   sb.writePlatformMatches(provider, Object.values(next));
+  invalidatePlatformEnrichCache();
 }
 
 /** [A8 可证实] 客户端每次 saveBets 上报该场完整盘口快照，服务端整包替换（非按 Map 增量合并） */
@@ -149,6 +150,7 @@ export function saveBets(provider, matchId, bets) {
   }
   _bets[key] = { provider, matchId: String(matchId), bets: incoming, savedAt: Date.now() };
   sb.replacePlatformBetsForMatch(provider, matchId, incoming);
+  invalidatePlatformEnrichCache();
 }
 
 export async function saveLiveTimer(provider, timer) {
@@ -213,6 +215,38 @@ async function fetchDbTimersCached() {
   return _dbTimersCache;
 }
 
+let _platformEnrichCache = null;
+let _platformEnrichCacheAt = 0;
+const PLATFORM_ENRICH_CACHE_MS = 5_000;
+
+async function fetchPlatformEnrichCached() {
+  const now = Date.now();
+  if (_platformEnrichCache && now - _platformEnrichCacheAt < PLATFORM_ENRICH_CACHE_MS) {
+    return _platformEnrichCache;
+  }
+  _platformEnrichCacheAt = now;
+  try {
+    const [platformBets, platformMatches] = await Promise.all([
+      sb.fetchPlatformBets(),
+      sb.fetchPlatformMatches(),
+    ]);
+    if (platformBets && platformMatches) {
+      _platformEnrichCache = {
+        bets: platformBets,
+        matches: normalizeMatchesShape(platformMatches),
+      };
+    }
+  }
+  catch {
+    /* 失败时保留旧缓存 */
+  }
+  return _platformEnrichCache;
+}
+
+export function invalidatePlatformEnrichCache() {
+  _platformEnrichCache = null;
+}
+
 /** 仅当 OB index 明确 is_live≠2，或本场已从 getTimer 批次移除时清零 Round */
 function applyObLiveGateOnMatches(matches, memoryMatches, timersByProvider) {
   return applyObLiveGate(matches, memoryMatches, timersByProvider);
@@ -241,21 +275,13 @@ export async function buildMatchList() {
   defaultOddsApi.recordFromMatchList(fromDb);
 
   let enrich = {};
-  try {
-    const [platformBets, platformMatches] = await Promise.all([
-      sb.fetchPlatformBets(),
-      sb.fetchPlatformMatches(),
-    ]);
-    if (platformBets && platformMatches) {
-      enrich = {
-        matches: normalizeMatchesShape(platformMatches),
-        bets: platformBets,
-        sourceFromBet: sourceFromBetForOverlay,
-      };
-    }
-  }
-  catch {
-    /* 补 Map=0 可选；失败时仍走原有 overlay */
+  const enrichData = await fetchPlatformEnrichCached();
+  if (enrichData?.bets && enrichData?.matches) {
+    enrich = {
+      matches: enrichData.matches,
+      bets: enrichData.bets,
+      sourceFromBet: sourceFromBetForOverlay,
+    };
   }
 
   let matches = overlayLiveTimersOnMatches(fromDb, timers, enrich);
