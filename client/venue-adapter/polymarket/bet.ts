@@ -23,6 +23,7 @@ type TickSize = "0.1" | "0.01" | "0.001" | "0.0001";
 // ---- interfaces ----
 
 interface PolymarketTokenConfig {
+  token?: string;
   walletAddress?: string;
   address?: string;
   funder?: string;
@@ -77,9 +78,9 @@ function parseTokenConfig(raw: string | undefined): PolymarketTokenConfig {
   const text = raw?.trim();
   if (!text) return {};
   const direct = parseJsonObject(text);
-  if (direct) return direct;
+  if (direct) return unwrapNestedTokenConfig(direct) ?? {};
   const decoded = decodeBase64Utf8(text);
-  return parseJsonObject(decoded) ?? {};
+  return unwrapNestedTokenConfig(parseJsonObject(decoded)) ?? {};
 }
 
 function parseJsonObject(text: string | undefined): PolymarketTokenConfig | undefined {
@@ -90,6 +91,13 @@ function parseJsonObject(text: string | undefined): PolymarketTokenConfig | unde
   } catch {
     return undefined;
   }
+}
+
+function unwrapNestedTokenConfig(config: PolymarketTokenConfig | undefined): PolymarketTokenConfig | undefined {
+  const nestedToken = typeof config?.token === "string" ? config.token.trim() : "";
+  if (!nestedToken) return config;
+  const nested = parseJsonObject(nestedToken) ?? parseJsonObject(decodeBase64Utf8(nestedToken));
+  return nested ?? config;
 }
 
 function decodeBase64Utf8(text: string): string | undefined {
@@ -334,10 +342,10 @@ export const polymarketProvider: PlatformProvider = {
   async getBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
     try {
       const config = parseTokenConfig(account.token);
-      const headers = await buildL2HeadersFromAccount(account, "GET", BALANCE_PATH);
-      if (!headers) return undefined;
       const gateway = account.gateway || POLYMARKET_CLOB_API;
       const requestPath = balanceQueryPathForSignature(resolveSignatureType(config));
+      const headers = await buildL2HeadersFromAccount(account, "GET", requestPath);
+      if (!headers) return undefined;
       const data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(
         `${gateway}${requestPath}`,
         { headers },
