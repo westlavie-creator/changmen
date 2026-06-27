@@ -192,7 +192,7 @@
     "dir": "polymarket",
     "sort": 12,
     "collect": true,
-    "bet": false,
+    "bet": true,
     "pluginOnly": true,
     "label": "Polymarket",
     "labelZh": "Polymarket",

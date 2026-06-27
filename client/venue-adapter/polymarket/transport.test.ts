@@ -27,12 +27,17 @@ describe("polymarket transport", () => {
     expect(rows).toEqual([{ id: "e1" }]);
     expect(a8PluginGet).toHaveBeenCalledWith(
       "https://gamma-api.polymarket.com/events",
-      { timeout: 60_000 },
+      { timeout: 60_000, withCredentials: false },
     );
   });
 
   test("HTTP 4xx 抛错", async () => {
     vi.mocked(a8PluginGet).mockResolvedValue({ status: 429, data: "rate limited" });
     await expect(polymarketPluginGet("https://gamma-api.polymarket.com/events")).rejects.toThrow("rate limited");
+  });
+
+  test("扩展返回 Error 对象时抛错", async () => {
+    vi.mocked(a8PluginGet).mockResolvedValue(new Error("network failed"));
+    await expect(polymarketPluginGet("https://clob.polymarket.com/balance-allowance")).rejects.toThrow("network failed");
   });
 });

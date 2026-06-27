@@ -8,6 +8,12 @@ export const POLYMARKET_PLUGIN_REQUIRED_MSG =
 const PLUGIN_TIMEOUT_MS = 60_000;
 
 function unwrapPluginResponse<T>(raw: unknown): T {
+  if (raw instanceof Error)
+    throw raw;
+  if (raw && typeof raw === "object" && "message" in raw && !("status" in raw) && !("data" in raw)) {
+    const message = String((raw as { message?: unknown }).message || "Polymarket API 请求失败");
+    throw new Error(message);
+  }
   if (raw && typeof raw === "object" && "status" in raw && "data" in raw) {
     const res = raw as { status: number; data: unknown };
     if (res.status >= 400) {
@@ -33,7 +39,7 @@ export async function polymarketPluginGet<T>(
   options?: { headers?: Record<string, string>; timeout?: number; withCredentials?: boolean },
 ): Promise<T> {
   requirePluginRuntime();
-  const raw = await a8PluginGet(url, { timeout: PLUGIN_TIMEOUT_MS, ...options });
+  const raw = await a8PluginGet(url, { timeout: PLUGIN_TIMEOUT_MS, withCredentials: false, ...options });
   if (raw == null)
     throw new Error("Polymarket API 无响应");
   return unwrapPluginResponse<T>(raw);
@@ -46,7 +52,7 @@ export async function polymarketPluginPost<T>(
   options?: { headers?: Record<string, string> },
 ): Promise<T> {
   requirePluginRuntime();
-  const raw = await a8PluginPost(url, data, { timeout: PLUGIN_TIMEOUT_MS, ...options });
+  const raw = await a8PluginPost(url, data, { timeout: PLUGIN_TIMEOUT_MS, withCredentials: false, ...options });
   if (raw == null)
     throw new Error("Polymarket API 无响应");
   return unwrapPluginResponse<T>(raw);

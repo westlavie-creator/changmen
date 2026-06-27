@@ -33,6 +33,7 @@
     "@changmen/api-contract": "*",
     "@changmen/shared": "*",
     "@noble/curves": "^1.4.2",
+    "@polymarket/clob-client-v2": "^1.0.6",
     "@vueuse/core": "^13.2.0",
     "axios": "^1.8.4",
     "dayjs": "^1.11.21",
@@ -43,6 +44,7 @@
     "socket.io-client": "^4.8.1",
     "socketcluster-client": "^19.2.0",
     "tronweb": "^6.3.0",
+    "viem": "^2.53.1",
     "vue": "^3.5.13",
     "vue-router": "^4.5.1"
   },

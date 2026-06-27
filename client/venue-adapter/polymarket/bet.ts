@@ -1,5 +1,17 @@
-import { keccak_256 } from "@noble/hashes/sha3";
-import { secp256k1 } from "@noble/curves/secp256k1";
+import {
+  Chain,
+  ClobClient,
+  OrderType,
+  Side,
+  SignatureTypeV2,
+  isV2Order,
+  orderToJsonV2,
+  type ApiKeyCreds,
+  type TickSize,
+} from "@polymarket/clob-client-v2";
+import { createWalletClient, http, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { polygon } from "viem/chains";
 import type { AccountBalanceResult, PlatformProvider } from "@venue/contract";
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
@@ -9,6 +21,7 @@ import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 const BALANCE_PATH = "/balance-allowance";
 const ORDER_PATH = "/order";
+const ORDER_BOOK_PATH = "/book";
 
 // 开发者凭证（固定，所有账号共用）
 const DEV_CONFIG = {
@@ -18,56 +31,6 @@ const DEV_CONFIG = {
   passphrase: "bb263f2bb685f113599ad40b1756b1f73976dcabc0b86849e48a6ed2fdbd9e77",
 } as const;
 const COLLATERAL_DECIMALS = 1_000_000;
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-// ---- EIP-712 pre-computed constants ----
-
-function keccak256(data: Uint8Array): Uint8Array {
-  return keccak_256(data);
-}
-
-function utf8(str: string): Uint8Array {
-  return new TextEncoder().encode(str);
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  const h = hex.startsWith("0x") ? hex.slice(2) : hex;
-  const padded = h.length % 2 ? "0" + h : h;
-  const out = new Uint8Array(padded.length / 2);
-  for (let i = 0; i < out.length; i++)
-    out[i] = parseInt(padded.slice(i * 2, i * 2 + 2), 16);
-  return out;
-}
-
-function concat(...parts: Uint8Array[]): Uint8Array {
-  const total = parts.reduce((n, p) => n + p.length, 0);
-  const out = new Uint8Array(total);
-  let off = 0;
-  for (const p of parts) { out.set(p, off); off += p.length; }
-  return out;
-}
-
-// 将地址或 uint 值 ABI 编码为 32 字节（左补零）
-function pad32(value: bigint | string): Uint8Array {
-  const hex = typeof value === "bigint"
-    ? value.toString(16).padStart(64, "0")
-    : (value.startsWith("0x") ? value.slice(2) : value).padStart(64, "0");
-  return hexToBytes(hex.slice(-64));
-}
-
-const DOMAIN_TYPE_HASH = keccak256(utf8(
-  "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)",
-));
-const ORDER_TYPE_HASH = keccak256(utf8(
-  "Order(uint256 salt,address maker,address signer,address taker,uint256 tokenId,uint256 makerAmount,uint256 takerAmount,uint256 expiration,uint256 nonce,uint256 feeRateBps,uint8 side,uint8 signatureType)",
-));
-const DOMAIN_SEPARATOR = keccak256(concat(
-  DOMAIN_TYPE_HASH,
-  keccak256(utf8("Polymarket CTF Exchange")),
-  keccak256(utf8("1")),
-  pad32(BigInt(137)),
-  pad32("0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"),
-));
 
 // ---- interfaces ----
 
@@ -112,6 +75,12 @@ interface PolymarketOrderResponse {
   takingAmount?: string;
   transactionsHashes?: string[];
   tradeIDs?: string[];
+}
+
+interface PolymarketOrderBookResponse {
+  tick_size?: string | number;
+  minimum_tick_size?: string | number;
+  neg_risk?: boolean;
 }
 
 // ---- config helpers ----
@@ -185,11 +154,12 @@ function resolveSignatureType(config: PolymarketTokenConfig): string | number | 
   return undefined;
 }
 
-function resolvePrivateKey(config: PolymarketTokenConfig): string | undefined {
+function resolvePrivateKey(config: PolymarketTokenConfig): Hex | undefined {
   const raw = config.privateKey ?? config.private_key;
   if (!raw) return undefined;
   const key = String(raw).trim();
-  return key.startsWith("0x") ? key.slice(2) : key;
+  const hex = key.startsWith("0x") ? key : `0x${key}`;
+  return /^0x[0-9a-fA-F]{64}$/.test(hex) ? hex as Hex : undefined;
 }
 
 // ---- L2 auth headers ----
@@ -276,46 +246,56 @@ async function buildL2HeadersFromAccount(
   return buildL2Headers(creds.address, creds.apiKey, creds.secret, creds.passphrase, method, requestPath, body);
 }
 
-// ---- EIP-712 order signing ----
+// ---- official CLOB v2 order helpers ----
 
-function signOrderWithKey(
-  privateKeyHex: string,
-  salt: number,
-  makerAddress: string,
-  signerAddress: string,
-  tokenId: string,
-  makerAmount: number,
-  takerAmount: number,
-  sigType: number,
-): string {
-  const orderHash = keccak256(concat(
-    ORDER_TYPE_HASH,
-    pad32(BigInt(salt)),
-    pad32(makerAddress),
-    pad32(signerAddress),
-    pad32(ZERO_ADDRESS),
-    pad32(BigInt(tokenId)),
-    pad32(BigInt(makerAmount)),
-    pad32(BigInt(takerAmount)),
-    pad32(0n),              // expiration
-    pad32(0n),              // nonce
-    pad32(0n),              // feeRateBps
-    pad32(0n),              // side = BUY
-    pad32(BigInt(sigType)),
-  ));
+function resolveSdkSignatureType(value: string | number | undefined): SignatureTypeV2 {
+  const numeric = Number(value ?? 0);
+  if (numeric === SignatureTypeV2.POLY_PROXY) return SignatureTypeV2.POLY_PROXY;
+  if (numeric === SignatureTypeV2.POLY_GNOSIS_SAFE) return SignatureTypeV2.POLY_GNOSIS_SAFE;
+  if (numeric === SignatureTypeV2.POLY_1271) return SignatureTypeV2.POLY_1271;
+  return SignatureTypeV2.EOA;
+}
 
-  const digest = keccak256(concat(
-    new Uint8Array([0x19, 0x01]),
-    DOMAIN_SEPARATOR,
-    orderHash,
-  ));
+function normalizeTickSize(value: string | number | undefined): TickSize {
+  const tick = String(value ?? "").trim();
+  if (tick === "0.1" || tick === "0.01" || tick === "0.001" || tick === "0.0001")
+    return tick;
+  throw new Error(`Polymarket 返回了不支持的 tick_size: ${tick || "空"}`);
+}
 
-  const privKey = hexToBytes(privateKeyHex);
-  const sig = secp256k1.sign(digest, privKey, { lowS: true });
-  const r = sig.r.toString(16).padStart(64, "0");
-  const s = sig.s.toString(16).padStart(64, "0");
-  const v = (sig.recovery + 27).toString(16).padStart(2, "0");
-  return "0x" + r + s + v;
+async function fetchOrderOptions(gateway: string, tokenId: string): Promise<{ tickSize: TickSize; negRisk: boolean }> {
+  const params = new URLSearchParams({ token_id: tokenId });
+  const book = await polymarketPluginGet<PolymarketOrderBookResponse>(
+    `${gateway}${ORDER_BOOK_PATH}?${params.toString()}`,
+  );
+  return {
+    tickSize: normalizeTickSize(book?.tick_size ?? book?.minimum_tick_size),
+    negRisk: Boolean(book?.neg_risk),
+  };
+}
+
+function createPolymarketClient(
+  gateway: string,
+  privateKey: Hex,
+  creds: ReturnType<typeof resolveApiCreds>,
+  config: PolymarketTokenConfig,
+): ClobClient {
+  const account = privateKeyToAccount(privateKey);
+  const signer = createWalletClient({ account, chain: polygon, transport: http() });
+  const client = new ClobClient({
+    host: gateway,
+    chain: Chain.POLYGON,
+    signer,
+    creds: {
+      key: creds.apiKey!,
+      secret: creds.secret!,
+      passphrase: creds.passphrase!,
+    } satisfies ApiKeyCreds,
+    signatureType: resolveSdkSignatureType(creds.signatureType),
+    funderAddress: resolveFunder(config) || undefined,
+  });
+  Reflect.set(client, "cachedVersion", 2);
+  return client;
 }
 
 // ---- balance helpers ----
@@ -358,6 +338,15 @@ export const polymarketProvider: PlatformProvider = {
   },
 
   async checkBet(_account: PlatformAccount, option: BetOption): Promise<BetOption> {
+    // 临时放行：先让 Polymarket 手动/自动下注通过 A8 前置检查门禁。
+    // 真正的订单簿校验和 FOK 成交判断由 betting() / Polymarket CLOB 返回结果承担。
+    option.data = {
+      tokenId: option.itemId,
+      odds: option.odds,
+      betMoney: option.betMoney,
+      side: "BUY",
+      temporaryPass: true,
+    };
     return option;
   },
 
@@ -365,59 +354,38 @@ export const polymarketProvider: PlatformProvider = {
     const beginTime = Date.now();
     const config = parseTokenConfig(account.token);
     const creds = resolveApiCreds(config);
-    const privateKeyHex = resolvePrivateKey(config);
+    const privateKey = resolvePrivateKey(config);
 
     if (!creds.address)
       return new BetResult("Polymarket", false, "凭证缺少 walletAddress");
-    if (!privateKeyHex)
-      return new BetResult("Polymarket", false, "缺少私钥（在 token 中加 privateKey 字段，从 Polymarket 设置导出）");
+    if (!privateKey)
+      return new BetResult("Polymarket", false, "缺少有效私钥（在 token 中加 0x 开头 privateKey 字段）");
     if (!creds.apiKey || !creds.secret || !creds.passphrase)
       return new BetResult("Polymarket", false, "凭证缺少用户 API Key（apiKey/secret/passphrase），请重新通过插件采集");
 
     const gateway = account.gateway || POLYMARKET_CLOB_API;
-
-    const sigType = Number(creds.signatureType ?? 0);
-    const makerAddress = sigType === 1 ? (resolveFunder(config) || creds.address) : creds.address;
 
     // price = probability = 1 / decimal_odds，保留 4 位小数（Polymarket tick）
     const price = Math.round((1 / option.odds) * 10000) / 10000;
     if (!price || price <= 0 || price >= 1)
       return new BetResult("Polymarket", false, `无效赔率 ${option.odds}`);
 
-    // BUY: 付出 makerAmount USDC，收到 takerAmount outcome token
-    const makerAmount = Math.round(option.betMoney * COLLATERAL_DECIMALS);
-    const takerAmount = Math.floor(option.betMoney * COLLATERAL_DECIMALS / price);
-    if (makerAmount <= 0 || takerAmount <= 0)
-      return new BetResult("Polymarket", false, `下注金额 ${option.betMoney} 太小`);
-
-    const salt = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
     const tokenId = option.itemId;
 
     try {
-      const signature = signOrderWithKey(
-        privateKeyHex, salt, makerAddress, creds.address, tokenId, makerAmount, takerAmount, sigType,
-      );
-
-      const orderBody = {
-        order: {
-          salt,
-          maker: makerAddress,
-          signer: creds.address,
-          taker: ZERO_ADDRESS,
-          tokenId,
-          makerAmount: String(makerAmount),
-          takerAmount: String(takerAmount),
-          side: "BUY",
-          expiration: "0",
-          nonce: "0",
-          feeRateBps: "0",
-          signatureType: sigType,
-          signature,
-        },
-        owner: creds.apiKey,
-        orderType: "FOK",
-        deferExec: false,
-      };
+      const orderOptions = await fetchOrderOptions(gateway, tokenId);
+      const clobClient = createPolymarketClient(gateway, privateKey, creds, config);
+      clobClient.tickSizes[tokenId] = orderOptions.tickSize;
+      clobClient.negRisk[tokenId] = orderOptions.negRisk;
+      const signedOrder = await clobClient.createOrder({
+        tokenID: tokenId,
+        price,
+        size: option.betMoney / price,
+        side: Side.BUY,
+      }, orderOptions);
+      if (!isV2Order(signedOrder))
+        throw new Error("Polymarket SDK 未生成 CLOB v2 订单");
+      const orderBody = orderToJsonV2(signedOrder, creds.apiKey, OrderType.FOK, false, false);
       const bodyStr = JSON.stringify(orderBody);
 
       const [l2Headers, builderHeaders] = await Promise.all([

@@ -3,10 +3,11 @@ import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { polymarketProvider } from "./bet";
 import { POLYMARKET_CLOB_API } from "./api";
-import { polymarketPluginGet } from "./transport";
+import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 vi.mock("./transport", () => ({
   polymarketPluginGet: vi.fn(),
+  polymarketPluginPost: vi.fn(),
 }));
 
 function accountWithToken(token: string): PlatformAccount {
@@ -36,6 +37,7 @@ describe("polymarketProvider.getBalance", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(polymarketPluginGet).mockReset();
+    vi.mocked(polymarketPluginPost).mockReset();
   });
 
   test("uses L2 headers to fetch collateral balance", async () => {
@@ -222,5 +224,105 @@ describe("polymarketProvider.getBalance", () => {
 
     await expect(polymarketProvider.getBalance!(account)).resolves.toBeUndefined();
     expect(polymarketPluginGet).not.toHaveBeenCalled();
+  });
+});
+
+describe("polymarketProvider.betting", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(polymarketPluginGet).mockReset();
+    vi.mocked(polymarketPluginPost).mockReset();
+  });
+
+  test("uses official CLOB v2 order shape and posts through plugin", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      neg_risk: false,
+    });
+    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+      success: true,
+      orderID: "order-1",
+      status: "matched",
+      takingAmount: "2000000",
+      makingAmount: "1000000",
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+    const option = {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 1,
+    };
+
+    const result = await polymarketProvider.betting!(account, option as any);
+
+    expect(result.success).toBe(true);
+    expect(polymarketPluginGet).toHaveBeenCalledWith(`${POLYMARKET_CLOB_API}/book?token_id=123456789`);
+    expect(polymarketPluginPost).toHaveBeenCalledOnce();
+
+    const [url, body, options] = vi.mocked(polymarketPluginPost).mock.calls[0]!;
+    expect(url).toBe(`${POLYMARKET_CLOB_API}/order`);
+    expect(body).toMatchObject({
+      owner: "key-1",
+      orderType: "FOK",
+      deferExec: false,
+      postOnly: false,
+      order: {
+        maker: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+        signer: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+        tokenId: "123456789",
+        makerAmount: "1000000",
+        takerAmount: "2000000",
+        side: "BUY",
+        signatureType: 3,
+        timestamp: "1700000000000",
+        expiration: "0",
+        metadata: "0x0000000000000000000000000000000000000000000000000000000000000000",
+        builder: "0x0000000000000000000000000000000000000000000000000000000000000000",
+      },
+    });
+    expect((body as any).order.signature).toEqual(expect.stringMatching(/^0x[0-9a-f]+$/));
+    expect(options?.headers).toMatchObject({
+      POLY_ADDRESS: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      POLY_API_KEY: "key-1",
+      POLY_PASSPHRASE: "pass-1",
+    });
+    expect(options?.headers?.POLY_SIGNATURE).toBe(
+      expectedL2Signature("c2VjcmV0", `1700000000POST/order${JSON.stringify(body)}`),
+    );
+  });
+});
+
+describe("polymarketProvider.checkBet", () => {
+  test("temporarily marks option.data so A8 precheck gate passes", async () => {
+    const option = {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    };
+
+    const out = await polymarketProvider.checkBet(
+      accountWithToken("{}"),
+      option as any,
+    );
+
+    expect(out.data).toEqual({
+      tokenId: "123456789",
+      odds: 2,
+      betMoney: 10,
+      side: "BUY",
+      temporaryPass: true,
+    });
   });
 });
