@@ -39,6 +39,8 @@ async function main() {
   });
   await client.connect();
   try {
+    // 避免 ALTER TABLE 等锁永久卡住 deploy（web/matcher 进程运行时持有表锁）
+    await client.query("SET lock_timeout = '30s'");
     console.log("[rds] 执行 001_baseline.sql …");
     await client.query(readSql("001_baseline.sql"));
 
