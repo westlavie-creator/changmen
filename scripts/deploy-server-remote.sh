@@ -73,6 +73,7 @@ enable_matcher_restart_if_standalone() {
   if [ "$MATCHER_STANDALONE" = "1" ]; then
     DO_PM2_MATCHER=1
   fi
+  return 0
 }
 
 classify() {
@@ -111,7 +112,7 @@ classify() {
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       ;;
-    client/chrome-extension/*|BAT/*|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
+    .github/workflows/*|client/chrome-extension/*|BAT/*|scripts/deploy-server-remote.sh|scripts/README.md|PRODUCTION_DEPLOYMENT.md)
       ;;
     ecosystem.config.cjs)
       DO_PM2_WEB=1
@@ -142,7 +143,9 @@ elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
   log "already up to date, skip install/build"
 else
   while IFS= read -r path; do
-    [ -n "$path" ] && classify "$path"
+    if [ -n "$path" ]; then
+      classify "$path"
+    fi
   done < <(git diff --name-only "$OLD_HEAD" "$NEW_HEAD")
 fi
 
