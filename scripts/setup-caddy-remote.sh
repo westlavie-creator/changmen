@@ -48,6 +48,11 @@ log "reload caddy"
 sudo systemctl reload caddy
 sudo systemctl is-active caddy
 
+# Caddy 以 caddy 用户读静态文件，需能 traverse /root（仅 x，不可列目录）
+if [ -d /root/gamebet ]; then
+  sudo chmod 711 /root 2>/dev/null || true
+fi
+
 log "local curl :80"
 curl -s -o /dev/null -w "caddy_http_code=%{http_code}\n" http://127.0.0.1/
 

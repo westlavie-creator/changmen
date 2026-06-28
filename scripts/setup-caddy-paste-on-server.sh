@@ -6,8 +6,13 @@ sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
 }
 
 :80 {
+	encode gzip
+
 	root * /root/gamebet/changmen/client/web/dist
 
+	handle /health {
+		reverse_proxy 127.0.0.1:3456
+	}
 	handle /esport/* {
 		reverse_proxy 127.0.0.1:3456
 	}
