@@ -156,8 +156,19 @@ function sourceMatchIdOf(market: PolymarketRawMarket, marketId: string): string 
   return String(event?.id ?? event?.slug ?? marketId);
 }
 
-function sourceTeamId(sourceMatchId: string, side: "home" | "away", name: string): string {
-  return `${sourceMatchId}:${side}:${name}`;
+export function normalizePolymarketTeamName(name: string): string {
+  const normalized = String(name || "")
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9\u4E00-\u9FFF]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized || "unknown";
+}
+
+export function sourceTeamId(gameId: string, name: string): string {
+  return `${gameId}:${normalizePolymarketTeamName(name)}`;
 }
 
 function startTimeOf(market: PolymarketRawMarket): number {
@@ -257,8 +268,8 @@ export function buildPolymarketMappedMarket(
   const [homeName, awayName] = outcomes as [string, string];
   const sourceMatchId = sourceMatchIdOf(market, marketId);
   const startTime = startTimeOf(market);
-  const matchHomeId = sourceTeamId(sourceMatchId, "home", homeName);
-  const matchAwayId = sourceTeamId(sourceMatchId, "away", awayName);
+  const matchHomeId = sourceTeamId(gameId, homeName);
+  const matchAwayId = sourceTeamId(gameId, awayName);
 
   const homeTeam: CollectTeamDto = {
     Type: PLATFORM,

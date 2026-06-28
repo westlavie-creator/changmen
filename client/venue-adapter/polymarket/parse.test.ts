@@ -4,7 +4,9 @@ import {
   buildPolymarketMappedMarket,
   decimalOddsFromProbability,
   mapPolymarketGameId,
+  normalizePolymarketTeamName,
   parseJsonArray,
+  sourceTeamId,
   type PolymarketRawMarket,
 } from "./parse";
 
@@ -62,6 +64,12 @@ describe("Polymarket parse", () => {
     expect(decimalOddsFromProbability(1)).toBe(0);
   });
 
+  test("builds stable team ids by game and normalized team name", () => {
+    expect(normalizePolymarketTeamName("Virtus.pro")).toBe("virtus-pro");
+    expect(sourceTeamId("dota2", "Virtus.pro")).toBe("dota2:virtus-pro");
+    expect(sourceTeamId("dota2", "  Virtus Pro  ")).toBe("dota2:virtus-pro");
+  });
+
   test("uses lowest non-empty ask as buy price", () => {
     expect(bestAskFromBook({
       asks: [
@@ -82,19 +90,53 @@ describe("Polymarket parse", () => {
       Type: "Polymarket",
       SourceMatchID: "event-1",
       SourceGameID: "lol",
+      HomeID: "lol:team-liquid",
       Home: "Team Liquid",
+      AwayID: "lol:fnatic",
       Away: "Fnatic",
     });
+    expect(mapped?.match.Teams).toEqual([
+      { Type: "Polymarket", TeamID: "lol:team-liquid", Name: "Team Liquid", GameID: "lol", Logo: "" },
+      { Type: "Polymarket", TeamID: "lol:fnatic", Name: "Fnatic", GameID: "lol", Logo: "" },
+    ]);
     expect(mapped?.bet).toMatchObject({
       Type: "Polymarket",
       SourceMatchID: "event-1",
       SourceBetID: "0xabc",
       Map: 0,
       BetName: "[全场] 获胜者",
+      SourceHomeID: "asset-home",
       HomeOdds: 2,
+      SourceAwayID: "asset-away",
       AwayOdds: 4,
       Status: "Normal",
     });
+  });
+
+  test("keeps team ids stable across different event ids while CLOB token ids vary", () => {
+    const first = buildPolymarketMappedMarket({
+      ...baseMarket,
+      condition_id: "0xfirst",
+      clob_token_ids: JSON.stringify(["asset-first-home", "asset-first-away"]),
+      events: [{ id: "event-first", title: "LoL: Team Liquid vs Fnatic" }],
+    });
+    const second = buildPolymarketMappedMarket({
+      ...baseMarket,
+      condition_id: "0xsecond",
+      clob_token_ids: JSON.stringify(["asset-second-home", "asset-second-away"]),
+      events: [{ id: "event-second", title: "LoL: Team Liquid vs Fnatic" }],
+    });
+
+    expect(first?.match.SourceMatchID).toBe("event-first");
+    expect(second?.match.SourceMatchID).toBe("event-second");
+    expect(first?.match.HomeID).toBe("lol:team-liquid");
+    expect(second?.match.HomeID).toBe("lol:team-liquid");
+    expect(first?.match.AwayID).toBe("lol:fnatic");
+    expect(second?.match.AwayID).toBe("lol:fnatic");
+    expect(first?.bet.SourceHomeID).toBe("asset-first-home");
+    expect(second?.bet.SourceHomeID).toBe("asset-second-home");
+    expect(first?.bet.SourceAwayID).toBe("asset-first-away");
+    expect(second?.bet.SourceAwayID).toBe("asset-second-away");
   });
 
   test("builds map winner market under the same event match", () => {
