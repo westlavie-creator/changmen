@@ -40,8 +40,13 @@ function recommendationGroupKey(m) {
 }
 
 function isPlatformMatchLinkedForRec(m, clientMatches) {
-  if (m?.match_id != null && m.match_id !== "")
+  if (
+    m?.match_id != null
+    && m.match_id !== ""
+    && (clientMatches || []).some(cm => Number(cm.id) === Number(m.match_id))
+  ) {
     return true;
+  }
   return (clientMatches || []).some(
     cm => String(cm.matchs?.[m.platform] ?? "") === String(m.source_match_id),
   );

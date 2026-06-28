@@ -546,7 +546,10 @@ let _hiddenClientMatchesLoading = false;
 let _reverseSubmitting = false;
 
 function resolvePlatformClientMatchId(m, platform, cms) {
-  if (m?.match_id != null && m.match_id !== '') return Number(m.match_id);
+  if (m?.match_id != null && m.match_id !== '') {
+    const directId = Number(m.match_id);
+    if ((cms || []).some(cm => Number(cm.id) === directId)) return directId;
+  }
   const cm = (cms || []).find(c => String(c.matchs?.[platform] ?? '') === String(m?.source_match_id));
   return cm ? Number(cm.id) : null;
 }
@@ -851,7 +854,7 @@ function pickReferenceMatch(matches) {
 
 function renderStats(d, displayCms) {
   const unmatched = countUnmatched(d.platforms, d.clientMatches);
-  const orphan = countOrphans(d.platforms, d.recommendations);
+  const orphan = countOrphans(d.platforms, d.recommendations, d.clientMatches);
   const idMatched = displayCms.filter(cm => (cm.merge_mode?.mode || 'name') === 'id').length;
   const nameMatched = displayCms.length - idMatched;
   document.getElementById('stats-bar').innerHTML = `
@@ -974,8 +977,7 @@ function filterDisplayClientMatches(cms, platforms) {
 }
 
 function isPlatformMatchLinked(m, plat, cms) {
-  if (m.match_id) return true;
-  return cms.some(cm => String(cm.matchs?.[plat] ?? '') === String(m.source_match_id));
+  return resolvePlatformClientMatchId(m, plat, cms || []) != null;
 }
 
 function countUnmatched(platforms, cms) {
@@ -994,12 +996,12 @@ function recMatchKeys(recs) {
   return keys;
 }
 
-function countOrphans(platforms, recs) {
+function countOrphans(platforms, recs, cms) {
   const inRec = recMatchKeys(recs);
   let n = 0;
   for (const [p, matches] of Object.entries(platforms || {})) {
     for (const m of matches || []) {
-      if (m.match_id) continue;
+      if (isPlatformMatchLinked(m, p, cms || [])) continue;
       if (!inRec.has(`${p}:${m.source_match_id}`)) n++;
     }
   }
@@ -1008,7 +1010,8 @@ function countOrphans(platforms, recs) {
 
 function resolveGroupClientMatch(rec, cms) {
   for (const m of rec.matches || []) {
-    if (m.match_id) return Number(m.match_id);
+    const directId = resolvePlatformClientMatchId(m, m.platform, cms || []);
+    if (directId != null) return directId;
     const cm = (cms || []).find(c => String(c.matchs?.[m.platform] ?? '') === String(m.source_match_id));
     if (cm) return Number(cm.id);
   }

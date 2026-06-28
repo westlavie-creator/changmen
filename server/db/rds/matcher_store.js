@@ -125,8 +125,13 @@ export async function fetchPlatformMatchesHomeAway() {
 
 export async function fetchPlatformMatchesDashboard() {
   const { rows } = await rdsQuery(
-    `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, match_id, synced_at, teams
-     FROM platform_matches ORDER BY start_time ASC NULLS LAST`,
+    `SELECT pm.platform, pm.source_match_id, pm.source_game_id, pm.start_time,
+            pm.home, pm.home_id, pm.away, pm.away_id, pm.bo,
+            CASE WHEN cm.id IS NULL THEN NULL ELSE pm.match_id END AS match_id,
+            pm.synced_at, pm.teams
+     FROM platform_matches pm
+     LEFT JOIN client_matches cm ON cm.id = pm.match_id
+     ORDER BY pm.start_time ASC NULLS LAST`,
   );
   return rows;
 }

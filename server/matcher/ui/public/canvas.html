@@ -664,7 +664,10 @@ function teamNodeId(platform, platformId) {
   return `team:${platform}:${platformId}`;
 }
 function resolveClientMatchId(m, platform, cms) {
-  if (m?.match_id != null && m.match_id !== '') return Number(m.match_id);
+  if (m?.match_id != null && m.match_id !== '') {
+    const directId = Number(m.match_id);
+    if ((cms || []).some(cm => Number(cm.id) === directId)) return directId;
+  }
   const cm = (cms || []).find(c => String(c.matchs?.[platform] ?? '') === String(m?.source_match_id));
   return cm ? Number(cm.id) : null;
 }
