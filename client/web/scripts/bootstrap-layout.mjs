@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.join(__dirname, "..");
-const a8Path = path.join(webRoot, "public/copy/styles/legacy/a8.css");
+const a8Path = path.join(webRoot, "src/styles/a8.css");
 const outPath = path.join(webRoot, "src/styles/layout.css");
 
 function parseTopLevelRules(css) {
@@ -91,7 +91,7 @@ const header = `/**
  * changmen 全局布局（仅 modules 加载；legacy 仍走 a8.css）
  * DOM 保持 A8 class：.flex / .common-layout / #app
  * @media el-col 栅格仍由 extract layout 分桶提供
- * 维护：改此文件后 node public/copy/sync-styles.mjs
+ * 维护：改此文件后 node scripts/sync-style-assets.mjs
  */
 
 `;

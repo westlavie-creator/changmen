@@ -1,16 +1,47 @@
 /**
- * 从 legacy/a8.css 抽取 element-misc 分桶 → src/styles/misc.css
+ * 从 src/styles/a8.css 抽取 changmen 业务杂项 → src/styles/misc.css
  * 用法：node scripts/bootstrap-misc.mjs
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { bucketFor, parseTopLevelRules, selectorOf } from "./extract-a8-to-modules.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.join(__dirname, "..");
-const a8Path = path.join(webRoot, "public/copy/styles/legacy/a8.css");
+const a8Path = path.join(webRoot, "src/styles/a8.css");
 const outPath = path.join(webRoot, "src/styles/misc.css");
+
+function parseTopLevelRules(css) {
+  const rules = [];
+  let i = 0;
+  while (i < css.length) {
+    while (i < css.length && /\s/.test(css[i])) i++;
+    if (i >= css.length) break;
+    const start = i;
+    let depth = 0;
+    while (i < css.length) {
+      const ch = css[i];
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          i++;
+          rules.push(css.slice(start, i));
+          break;
+        }
+      }
+      i++;
+    }
+    if (depth !== 0) break;
+  }
+  return rules;
+}
+
+function selectorOf(rule) {
+  const idx = rule.indexOf("{");
+  if (idx === -1) return rule.trim();
+  return rule.slice(0, idx).trim();
+}
 
 function declOf(rule) {
   const start = rule.indexOf("{") + 1;
@@ -37,16 +68,23 @@ function patchDecl(sel, decl) {
   return decl;
 }
 
+function isChangmenMiscSelector(sel) {
+  if (/^#app \.el-aside|^\.common-layout \.el-aside|\.providers|^\.userinfo|^\.report-number/.test(sel)) {
+    return false;
+  }
+  return /^fieldset|^p$|^p\{|^p |^p,|\.tip|\.container|\.currency|\.text-center|\.text-overflow|\.iconfont|\.login-|^\.loginbox|\.tags|\.report|\.pageSplit|\.parse|\.submit|\.moneyValue|\.hacked|\.Withdraw|\.rank|\.credit|\.top|\.message|\.wallets|\.date/.test(sel);
+}
+
 const header = `/**
- * changmen 业务杂项（仅 modules 加载；legacy 仍走 a8.css）
+ * changmen 业务杂项
  * fieldset / currency / rank / 登录容器 / 用户诊断 Tab 等 A8 非 EP class
- * 维护：改此文件后 node public/copy/sync-styles.mjs
+ * 维护：改此文件后 node scripts/sync-style-assets.mjs
  */
 
 `;
 
 const css = fs.readFileSync(a8Path, "utf8").replace(/^@charset[^;]+;/, "");
-const kept = parseTopLevelRules(css).filter((r) => bucketFor(r) === "element-misc.css");
+const kept = parseTopLevelRules(css).filter((r) => isChangmenMiscSelector(selectorOf(r)));
 const blocks = kept
   .map((r) => {
     const sel = selectorOf(r);

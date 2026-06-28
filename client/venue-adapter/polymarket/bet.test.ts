@@ -271,6 +271,7 @@ describe("polymarketProvider.betting", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
       tick_size: "0.01",
+      min_order_size: "1",
       neg_risk: false,
       asks: [{ price: "0.5", size: "10" }],
     });
@@ -341,6 +342,7 @@ describe("polymarketProvider.betting", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
       tick_size: "0.01",
+      min_order_size: "5",
       neg_risk: false,
       asks: [
         { price: "0.5", size: "5" },
@@ -381,11 +383,45 @@ describe("polymarketProvider.betting", () => {
     expect(body).toMatchObject({
       orderType: "FOK",
       order: {
-        makerAmount: "9999000",
-        takerAmount: "18180000",
+        makerAmount: "10000000",
+        takerAmount: "18181800",
         side: "BUY",
       },
     });
+  });
+
+  test("reports minimum order size before posting too-small FOK buy", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.78", size: "100" }],
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 1.2821,
+      betMoney: 3,
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("Polymarket 下单金额低于最小份数");
+    expect(result.message).toContain("【盘口】");
+    expect(result.message).toContain("最小下单份数：5");
+    expect(result.message).toContain("当前盘口至少约 3.9 USDC");
+    expect(polymarketPluginPost).not.toHaveBeenCalled();
   });
 });
 

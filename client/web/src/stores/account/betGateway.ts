@@ -23,7 +23,9 @@ export async function checkBetting(
     return option;
   }
   try {
-    option.betMoney = account.getBetMoney(option.betMoney, option.odds);
+    option.betMoney = account.provider === "Polymarket"
+      ? Number(option.betMoney) || 0
+      : account.getBetMoney(option.betMoney, option.odds);
     return await provider.checkBet(account, option);
   }
   catch (e) {

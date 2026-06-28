@@ -1,6 +1,3 @@
-# copy：legacy 为 sync 产出；modules/changmen 为自有源码 + bootstrap 产出
-public/copy/styles/legacy/
+# styles：assets/styles/changmen 为生产样式
 src/styles/ep-chalk.css
-public/copy/styles/modules/changmen/ep-chalk.css
-public/copy/styles/modules/a8-all.css
-public/copy/styles/modules/segments/
+public/assets/styles/changmen/ep-chalk.css

@@ -3,7 +3,7 @@ import zhCn from "element-plus/es/locale/lang/zh-cn";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
 import { initGamebetExtension } from "@/chrome-plugin/bridge";
-import { loadStylesForBootstrap } from "@/lib/copyShell";
+import { loadStylesForBootstrap } from "@/lib/styleShell";
 import { useUserStore } from "@/stores/userStore";
 import App from "./App.vue";
 import router from "./router";
@@ -11,7 +11,7 @@ import "element-plus/theme-chalk/dark/css-vars.css";
 
 async function bootstrap() {
   await loadStylesForBootstrap().catch((err) => {
-    console.error("[copyShell] bootstrap styles failed", err);
+    console.error("[styleShell] bootstrap styles failed", err);
   });
 
   const pinia = createPinia();

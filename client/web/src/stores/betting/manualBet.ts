@@ -35,6 +35,34 @@ export function buildManualBetPromptMessage(
   ].join("\n");
 }
 
+function escapeHtml(raw: string): string {
+  return raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function polymarketFailureHtml(message: string): string {
+  const lines = message.split(/\r?\n/);
+  const html = lines.map((line, index) => {
+    const text = escapeHtml(line);
+    if (!line.trim())
+      return `<div class="poly-bet-alert__gap"></div>`;
+    if (index === 0)
+      return `<div class="poly-bet-alert__reason">${text}</div>`;
+    if (/^【.+】$/.test(line))
+      return `<div class="poly-bet-alert__section">${text}</div>`;
+    if (/^\d+\.\s/.test(line))
+      return `<div class="poly-bet-alert__ask">${text}</div>`;
+    if (line.includes("tokenId"))
+      return `<div class="poly-bet-alert__row poly-bet-alert__mono">${text}</div>`;
+    return `<div class="poly-bet-alert__row">${text}</div>`;
+  }).join("");
+  return `<div class="poly-bet-alert">${html}</div>`;
+}
+
 /** [A8 可证实] 双击赔率手动下单 */
 export async function runManualBet(
   match: ViewMatch,
@@ -109,6 +137,16 @@ export async function runManualBet(
     void accountStore.refreshBalance(account);
   }
   else {
-    ElMessageBox.alert(result?.message || "下单失败", "下单失败");
+    const message = result?.message || "下单失败";
+    if (item.type === "Polymarket") {
+      ElMessageBox.alert(polymarketFailureHtml(message), "下单失败", {
+        dangerouslyUseHTMLString: true,
+        customClass: "manual-bet-result-box",
+        confirmButtonText: "知道了",
+      });
+    }
+    else {
+      ElMessageBox.alert(message, "下单失败");
+    }
   }
 }

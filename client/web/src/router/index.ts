@@ -11,10 +11,6 @@ const router = createRouter({
       redirect: () => "/",
     },
     {
-      path: "/copy",
-      redirect: () => "/",
-    },
-    {
       path: "/",
       name: "home",
       component: GateView,

@@ -71,6 +71,7 @@ interface PolymarketOrderResponse {
 interface PolymarketOrderBookResponse {
   tick_size?: string | number;
   minimum_tick_size?: string | number;
+  min_order_size?: string | number;
   neg_risk?: boolean;
   asks?: Array<{ price?: string | number; size?: string | number }>;
 }
@@ -249,8 +250,21 @@ function normalizeTickSize(value: string | number | undefined): TickSize {
 
 interface PolymarketOrderOptions {
   tickSize: TickSize;
+  minOrderSize: number;
   negRisk: boolean;
   asks: Array<{ price: number; size: number }>;
+}
+
+interface PolymarketOrderDiagnostic {
+  tokenId: string;
+  amountUsdc: number;
+  displayedOdds: number;
+  displayedPrice: number;
+  limitPrice?: number;
+  minOrderSize: number;
+  shares?: number;
+  availableUsdc: number;
+  asks: PolymarketOrderOptions["asks"];
 }
 
 async function fetchOrderOptions(gateway: string, tokenId: string): Promise<PolymarketOrderOptions> {
@@ -260,6 +274,7 @@ async function fetchOrderOptions(gateway: string, tokenId: string): Promise<Poly
   );
   return {
     tickSize: normalizeTickSize(book?.tick_size ?? book?.minimum_tick_size),
+    minOrderSize: Number(book?.min_order_size) || 0,
     negRisk: Boolean(book?.neg_risk),
     asks: (book?.asks ?? [])
       .map(level => ({
@@ -277,21 +292,87 @@ async function fetchOrderOptions(gateway: string, tokenId: string): Promise<Poly
   };
 }
 
+function fmt(value: number, decimals = 4): string {
+  return Number.isFinite(value) ? Number(value.toFixed(decimals)).toString() : "N/A";
+}
+
+function asksPreview(asks: PolymarketOrderOptions["asks"]): string {
+  if (!asks.length)
+    return "无 asks 卖单";
+  return asks.slice(0, 5)
+    .map((level, index) => `${index + 1}. ${fmt(level.price, 4)} x ${fmt(level.size, 2)} = ${fmt(level.price * level.size, 2)} USDC`)
+    .join("\n");
+}
+
+function availableUsdc(asks: PolymarketOrderOptions["asks"]): number {
+  return asks.reduce((sum, level) => sum + level.price * level.size, 0);
+}
+
+function diagnosticLines(diag: PolymarketOrderDiagnostic): string[] {
+  const bestAsk = diag.asks[0];
+  const lines = [
+    "【订单】",
+    `- 金额：${fmt(diag.amountUsdc, 2)} USDC`,
+    `- 页面赔率：${fmt(diag.displayedOdds, 4)}（价格 ${fmt(diag.displayedPrice, 4)}）`,
+    `- tokenId：${diag.tokenId}`,
+    "",
+    "【盘口】",
+    bestAsk
+      ? `- 最佳卖价：${fmt(bestAsk.price, 4)}（赔率 ${fmt(1 / bestAsk.price, 4)}），数量 ${fmt(bestAsk.size, 2)}`
+      : "- 最佳卖价：无",
+    `- 可立即成交：${fmt(diag.availableUsdc, 2)} USDC`,
+    `- 最小下单份数：${diag.minOrderSize || "未知"}`,
+    "- 前 5 档 asks：",
+    asksPreview(diag.asks),
+  ];
+  if (diag.limitPrice) {
+    lines.splice(4, 0, `- FOK 限价：${fmt(diag.limitPrice, 4)}（赔率 ${fmt(1 / diag.limitPrice, 4)}）`);
+  }
+  if (diag.shares !== undefined) {
+    lines.splice(diag.limitPrice ? 5 : 4, 0, `- 预计买入：${fmt(diag.shares, 4)} 份`);
+  }
+  return lines;
+}
+
 function calculateBuyMarketLimitPrice(
   asks: PolymarketOrderOptions["asks"],
   amountUsdc: number,
+  minOrderSize: number,
+  diagnostic: Omit<PolymarketOrderDiagnostic, "availableUsdc" | "asks">,
 ): number {
   if (!Number.isFinite(amountUsdc) || amountUsdc <= 0)
     throw new Error(`无效投注金额 ${amountUsdc}`);
+  const baseDiag = {
+    ...diagnostic,
+    availableUsdc: availableUsdc(asks),
+    asks,
+  };
   let remaining = amountUsdc;
   for (const level of asks) {
     const notional = level.price * level.size;
-    if (notional >= remaining)
+    if (notional >= remaining) {
+      const shares = amountUsdc / level.price;
+      if (minOrderSize > 0 && shares < minOrderSize) {
+        const minAmount = minOrderSize * level.price;
+        throw new Error([
+          "Polymarket 下单金额低于最小份数",
+          ...diagnosticLines({ ...baseDiag, limitPrice: level.price, shares }),
+          "",
+          "【建议】",
+          `- 当前盘口至少约 ${fmt(minAmount, 2)} USDC 才能买满 ${minOrderSize} 份。`,
+        ].join("\n"));
+      }
       return level.price;
+    }
     remaining -= notional;
   }
-  const available = asks.reduce((sum, level) => sum + level.price * level.size, 0);
-  throw new Error(`Polymarket 盘口流动性不足：可立即成交约 ${available.toFixed(2)} USDC，当前投注 ${amountUsdc}`);
+  throw new Error([
+    "Polymarket FOK 盘口深度不足",
+    ...diagnosticLines(baseDiag),
+    "",
+    "【说明】",
+    "- FOK 要求整笔金额立即成交，否则整单取消。",
+  ].join("\n"));
 }
 
 async function createPolymarketOrderBody(
@@ -336,10 +417,11 @@ async function createPolymarketOrderBody(
   Reflect.set(client, "cachedVersion", 2);
   client.tickSizes[tokenId] = orderOptions.tickSize;
   client.negRisk[tokenId] = orderOptions.negRisk;
-  const signedOrder = await client.createOrder({
+  client.feeInfos[tokenId] = { rate: 0, exponent: 0 };
+  const signedOrder = await client.createMarketOrder({
     tokenID: tokenId,
     price,
-    size: amount / price,
+    amount,
     side: clob.Side.BUY,
   }, orderOptions);
   if (!clob.isV2Order(signedOrder))
@@ -423,7 +505,18 @@ export const polymarketProvider: PlatformProvider = {
 
     try {
       const orderOptions = await fetchOrderOptions(gateway, tokenId);
-      const price = calculateBuyMarketLimitPrice(orderOptions.asks, option.betMoney);
+      const price = calculateBuyMarketLimitPrice(
+        orderOptions.asks,
+        option.betMoney,
+        orderOptions.minOrderSize,
+        {
+          tokenId,
+          amountUsdc: option.betMoney,
+          displayedOdds: option.odds,
+          displayedPrice,
+          minOrderSize: orderOptions.minOrderSize,
+        },
+      );
       option.newOdds = Math.round((1 / price) * 10000) / 10000;
       const orderBody = await createPolymarketOrderBody(
         gateway,
@@ -450,9 +543,20 @@ export const polymarketProvider: PlatformProvider = {
       );
 
       if (!result?.success) {
+        const diagnostic = diagnosticLines({
+          tokenId,
+          amountUsdc: option.betMoney,
+          displayedOdds: option.odds,
+          displayedPrice,
+          limitPrice: price,
+          shares: option.betMoney / price,
+          minOrderSize: orderOptions.minOrderSize,
+          availableUsdc: availableUsdc(orderOptions.asks),
+          asks: orderOptions.asks,
+        }).join("\n");
         return new BetResult(
           "Polymarket", false,
-          result?.errorMsg || "FOK 订单未成交（无足够流动性）",
+          `${result?.errorMsg || "FOK 订单未成交（无足够流动性）"}\n${diagnostic}`,
           orderBody, result,
         );
       }

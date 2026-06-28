@@ -6,12 +6,12 @@
   "scripts": {
     "typecheck": "vue-tsc -b",
     "typecheck:node": "vue-tsc --noEmit -p tsconfig.node.json",
-    "predev": "node scripts/extract-a8-css.mjs && node scripts/bootstrap-ep-chalk.mjs && node scripts/bootstrap-misc.mjs && node scripts/bootstrap-dialogs.mjs && node scripts/sync-copy-preview-styles.mjs && node scripts/verify-copy-module-stack.mjs && npm run typecheck:node",
+    "predev": "node scripts/extract-a8-css.mjs && node scripts/bootstrap-ep-chalk.mjs && node scripts/bootstrap-misc.mjs && node scripts/bootstrap-dialogs.mjs && node scripts/sync-style-assets.mjs && node scripts/verify-style-assets.mjs && npm run typecheck:node",
     "dev": "vite",
-    "prebuild": "node scripts/extract-a8-css.mjs && node scripts/bootstrap-ep-chalk.mjs && node scripts/bootstrap-misc.mjs && node scripts/bootstrap-dialogs.mjs && node scripts/sync-copy-preview-styles.mjs && node scripts/verify-copy-module-stack.mjs && node scripts/clean-dist-assets.mjs",
+    "prebuild": "node scripts/extract-a8-css.mjs && node scripts/bootstrap-ep-chalk.mjs && node scripts/bootstrap-misc.mjs && node scripts/bootstrap-dialogs.mjs && node scripts/sync-style-assets.mjs && node scripts/verify-style-assets.mjs && node scripts/clean-dist-assets.mjs",
     "build": "vue-tsc -b && vite build --base=/",
-    "postbuild": "node scripts/strip-dev-copy-from-dist.mjs",
-    "build:analyze": "vue-tsc -b && vite build --base=/ --mode analyze && node scripts/strip-dev-copy-from-dist.mjs",
+    "postbuild": "node scripts/strip-dev-style-assets.mjs",
+    "build:analyze": "vue-tsc -b && vite build --base=/ --mode analyze && node scripts/strip-dev-style-assets.mjs",
     "preview": "vite preview --base /",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,12 +22,9 @@
     "test:ob": "npm run test:ob-getmatchs && npm run test:ob-provider",
     "test:ob:all": "npm run test:ob && npm run test:ob-live",
     "audit:a8": "node scripts/audit-a8-parity.mjs",
-    "audit:element-buckets": "node scripts/audit-element-buckets.mjs",
-    "audit:p2-candidates": "node scripts/audit-p2-candidates.mjs",
-    "extract:a8-modules": "node scripts/extract-a8-to-modules.mjs",
     "analyze:deps": "node scripts/analyze-module-deps.mjs",
     "analyze:deps:check": "node scripts/analyze-module-deps.mjs --check",
-    "verify:copy-modules": "node scripts/verify-copy-module-stack.mjs"
+    "verify:style-assets": "node scripts/verify-style-assets.mjs"
   },
   "dependencies": {
     "@changmen/api-contract": "*",
