@@ -2,6 +2,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
 import { buildPbAuthHeaders } from "@venue/pb";
 import { buildTfAccountHeaders, tfGatewayUrl } from "@venue/tf";
+import { getToken } from "@/api/client";
 import { getApiBase } from "@/config/apiBase";
 import { a8Axios, responseBodyText } from "@/shared/a8Axios";
 import { useUserStore } from "@/stores/userStore";
@@ -89,6 +90,9 @@ async function accountHttpRequest(
 
   if (account.proxyId && !forceDirect) {
     headers["x-proxy-url"] = targetUrl;
+    const token = getToken();
+    if (token)
+      headers.token = token;
     if (account.referer) {
       headers["x-proxy-referer"] = account.referer;
       const origin = originFromReferer(account.referer);

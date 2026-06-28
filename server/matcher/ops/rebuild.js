@@ -3,7 +3,6 @@ import {
   applyManualMatchLinks,
   buildClientMatchList,
   filterMultiPlatformClientMatches,
-  isClientMatchEnded,
   normalizeMatchesShape,
   resolveClientMatchIds,
   setTeamPlugin,
@@ -68,7 +67,7 @@ async function ensureTeamPlugin() {
 async function rebuildOnceImpl() {
   await db.initLastWrittenIds();
 
-  const { matchesRaw, bets, timers, clientRows, alignClientRows } = await fetchMatcherRdsSnapshot();
+  const { matchesRaw, bets, timers, clientRows, alignClientRows, hotCollector } = await fetchMatcherRdsSnapshot();
 
   const teamReg = await autoRegisterTeams(matchesRaw);
   const nameSync = await db.syncCanonicalTeamNamesFromOb();
@@ -129,7 +128,7 @@ async function rebuildOnceImpl() {
   if (matchIdBackfill?.updated)
     invalidateMatcherRdsSnapshot(["platformMatches"]);
 
-  return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, nameSync, alignStats };
+  return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, nameSync, alignStats, hotCollector };
 }
 
 /** 进程内互斥：matcher 循环与 UI 人工 rebuild 共用同一 in-flight Promise */

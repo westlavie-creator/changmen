@@ -2,7 +2,12 @@
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { fetchPlatformMatches, initLastWrittenIds } from "@changmen/db";
+import {
+  fetchLiveTimers,
+  fetchPlatformBets,
+  fetchPlatformMatches,
+  initLastWrittenIds,
+} from "@changmen/db";
 import { attachWsForward } from "@changmen/ws-forward";
 import { ensureSeed as ensureAccountSeed } from "./core/account/account_store.js";
 import { setupAdminTools } from "./core/admin_tools/setup.js";
@@ -110,6 +115,40 @@ server.on("error", (err) => {
   }
 });
 
+function restoreCollectorHotSnapshot() {
+  // 从 platform_matches 恢复各平台数据（解决重启后 _matches 为空问题）
+  return Promise.all([fetchPlatformMatches(), fetchPlatformBets(), fetchLiveTimers()])
+    .then(([byPlatform, betsByKey, timersByPlatform]) => {
+      const platforms = Object.keys(byPlatform || {});
+      store.hydrateCollectorHotSnapshot({
+        matchesRaw: byPlatform,
+        bets: betsByKey,
+        timers: timersByPlatform,
+      });
+      console.log(
+        `[store] restored ${platforms.length} platforms, ${Object.keys(betsByKey || {}).length} bet snapshots, ${Object.keys(timersByPlatform || {}).length} timer snapshots from RDS`,
+      );
+    })
+    .catch((err) => {
+      console.warn("[store] restore collector snapshots from RDS failed:", err.message);
+    });
+}
+
+function startEmbeddedMatcherAfter(readyPromise) {
+  if (!MATCHER_EMBEDDED)
+    return;
+  void readyPromise
+    .finally(() => import("../matcher/loop.js")
+      .then(({ startMatcherLoop }) => startMatcherLoop({ mode: "embedded" }))
+      .then((r) => {
+        if (r?.ok)
+          console.log(`[matcher] embedded loop started pid=${r.pid} interval=${r.intervalMs}ms`);
+      })
+      .catch((err) => {
+        console.error("[matcher] embedded loop failed:", err.message);
+      }));
+}
+
 function onListen() {
   store.ensureSeed();
   void pullProfilesFromDb().catch((err) => {
@@ -119,38 +158,13 @@ function onListen() {
     console.warn("[account_store] startup migrate:", err.message);
   });
 
-  // 从 platform_matches 恢复各平台数据（解决重启后 _matches 为空问题）
-  fetchPlatformMatches()
-    .then((byPlatform) => {
-      const platforms = Object.keys(byPlatform);
-      if (!platforms.length)
-        return;
-      for (const [platform, matches] of Object.entries(byPlatform)) {
-        store.saveMatches(platform, matches);
-      }
-      console.log(
-        `[store] restored ${platforms.length} platforms from platform_matches: ${platforms.join(", ")}`,
-      );
-    })
-    .catch((err) => {
-      console.warn("[store] restore from platform_matches failed:", err.message);
-    });
+  const collectorReady = restoreCollectorHotSnapshot();
   const v4Base = (process.env.A8_V4_URL || "https://api.a8.to/v4.0").replace(/\/+$/, "");
   console.log(`[v4] proxy only → ${v4Base}/ (no mock)`);
   console.log(
     `App: http://localhost:${PORT}/  |  matcher: http://localhost:${PORT}/matcher/  |  collect: browser`,
   );
-  if (MATCHER_EMBEDDED) {
-    void import("../matcher/loop.js")
-      .then(({ startMatcherLoop }) => startMatcherLoop({ mode: "embedded" }))
-      .then((r) => {
-        if (r?.ok)
-          console.log(`[matcher] embedded loop started pid=${r.pid} interval=${r.intervalMs}ms`);
-      })
-      .catch((err) => {
-        console.error("[matcher] embedded loop failed:", err.message);
-      });
-  }
+  startEmbeddedMatcherAfter(collectorReady);
 }
 
 process.on("SIGINT", () => {

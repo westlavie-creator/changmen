@@ -48,10 +48,14 @@ export async function runMatcherOnce({ mode = loopMode } = {}) {
     : result.teamReg?.scanned > 0
       ? ` · 队伍扫描 ${result.teamReg.scanned}（无新增）`
       : "";
+  const hotParts = Object.entries(result.hotCollector || {})
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => key);
+  const hotNote = hotParts.length ? ` · hot=${hotParts.join(",")}` : "";
   console.log(
     `[matcher] ${new Date().toISOString()} rebuilt ${result.matchCount} matches${
       teamNote
-    }${result.matchIdBackfill?.updated
+    }${hotNote}${result.matchIdBackfill?.updated
       ? ` · backfill match_id ${result.matchIdBackfill.updated}`
       : ""}`,
   );

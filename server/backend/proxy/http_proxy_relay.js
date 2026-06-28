@@ -1,10 +1,77 @@
 import http from "node:http";
 import https from "node:https";
 import { createRequire } from "node:module";
+import net from "node:net";
 import { URL } from "node:url";
 import zlib from "node:zlib";
 
 const require = createRequire(import.meta.url);
+
+function envFlag(name, fallback = false) {
+  const raw = process.env[name];
+  if (raw == null || raw === "")
+    return fallback;
+  return ["1", "true", "yes", "on"].includes(String(raw).trim().toLowerCase());
+}
+
+function envList(name, fallback = []) {
+  const raw = String(process.env[name] || "").trim();
+  if (!raw)
+    return fallback;
+  return raw.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
+const RELAY_REQUIRE_TOKEN = envFlag("HTTP_RELAY_REQUIRE_TOKEN", false);
+const RELAY_ALLOW_PRIVATE = envFlag("HTTP_RELAY_ALLOW_PRIVATE", false);
+const RELAY_ALLOWED_HOSTS = envList("HTTP_RELAY_ALLOWED_HOSTS");
+const RELAY_ALLOWED_PATH_PREFIXES = envList("HTTP_RELAY_ALLOWED_PATH_PREFIXES", ["/"]);
+
+function sendRelayError(res, status, msg) {
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify({ success: 0, msg }));
+}
+
+function tokenPresent(req) {
+  return Boolean(String(req.headers.token || req.headers.authorization || "").trim());
+}
+
+function isPrivateHostname(hostname) {
+  const host = String(hostname || "").trim().toLowerCase();
+  if (!host)
+    return true;
+  if (host === "localhost" || host.endsWith(".localhost"))
+    return true;
+  const ipVersion = net.isIP(host);
+  if (!ipVersion)
+    return false;
+  if (ipVersion === 4) {
+    const parts = host.split(".").map(Number);
+    return parts[0] === 10
+      || parts[0] === 127
+      || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
+      || (parts[0] === 192 && parts[1] === 168)
+      || (parts[0] === 169 && parts[1] === 254)
+      || parts[0] === 0;
+  }
+  return host === "::1"
+    || host === "::"
+    || host.startsWith("fc")
+    || host.startsWith("fd")
+    || host.startsWith("fe80:");
+}
+
+function hostAllowed(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  if (!RELAY_ALLOWED_HOSTS.length)
+    return true;
+  return RELAY_ALLOWED_HOSTS.some(allowed => host === allowed || host.endsWith(`.${allowed}`));
+}
+
+function pathAllowed(pathname) {
+  if (!RELAY_ALLOWED_PATH_PREFIXES.length)
+    return true;
+  return RELAY_ALLOWED_PATH_PREFIXES.some(prefix => pathname.startsWith(prefix.startsWith("/") ? prefix : `/${prefix}`));
+}
 
 function readRequestBody(req) {
   return new Promise((resolve, reject) => {
@@ -72,6 +139,26 @@ function resolveTargetUrl(proxyUrlHeader, baseOrigin) {
   return `${baseOrigin}${path}`;
 }
 
+function validateTargetUrl(targetUrl, opts = {}) {
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  }
+  catch {
+    return { ok: false, status: 400, msg: "invalid proxy target url" };
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+    return { ok: false, status: 400, msg: "proxy target protocol not allowed" };
+  const allowedLocalPath = opts.relative && (parsed.pathname === "/IP" || parsed.pathname === "/IP/Address");
+  if (!RELAY_ALLOW_PRIVATE && !allowedLocalPath && isPrivateHostname(parsed.hostname))
+    return { ok: false, status: 403, msg: "proxy target private host not allowed" };
+  if (!hostAllowed(parsed.hostname))
+    return { ok: false, status: 403, msg: "proxy target host not allowed" };
+  if (!pathAllowed(parsed.pathname))
+    return { ok: false, status: 403, msg: "proxy target path not allowed" };
+  return { ok: true };
+}
+
 function forwardHeaders(req, targetUrl) {
   const out = {};
   for (const [key, value] of Object.entries(req.headers)) {
@@ -125,13 +212,25 @@ async function tryHttpProxyRelay(req, res, baseOrigin) {
   if (pathname !== RELAY_PATH)
     return false;
 
+  if (RELAY_REQUIRE_TOKEN && !tokenPresent(req)) {
+    sendRelayError(res, 401, "http-relay token required");
+    return true;
+  }
+
   const proxyTarget = req.headers["x-proxy-url"];
   if (!proxyTarget)
     return false;
 
-  const targetUrl = resolveTargetUrl(String(proxyTarget), baseOrigin);
+  const proxyTargetString = String(proxyTarget);
+  const relativeTarget = !/^https?:\/\//i.test(proxyTargetString);
+  const targetUrl = resolveTargetUrl(proxyTargetString, baseOrigin);
   if (!targetUrl)
     return false;
+  const targetCheck = validateTargetUrl(targetUrl, { relative: relativeTarget });
+  if (!targetCheck.ok) {
+    sendRelayError(res, targetCheck.status, targetCheck.msg);
+    return true;
+  }
 
   const dispatcher = createDispatcher(req.headers["x-proxy"]);
   const requestBody = req.method !== "GET" && req.method !== "HEAD" ? await readRequestBody(req) : undefined;
@@ -177,8 +276,7 @@ async function tryHttpProxyRelay(req, res, baseOrigin) {
     return true;
   }
   catch (err) {
-    res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ success: 0, msg: err.message || "proxy relay failed" }));
+    sendRelayError(res, 502, err.message || "proxy relay failed");
     return true;
   }
 }

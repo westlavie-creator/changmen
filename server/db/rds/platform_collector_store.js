@@ -366,7 +366,9 @@ export function writePlatformMatches(provider, matchs) {
   if (!Array.isArray(matchs) || !matchs.length)
     return;
   const rows = mapPlatformMatchRows(provider, matchs);
-  _writeRds(pool => _rdsUpsertPlatformMatches(pool, rows), "platform_matches");
+  _writeRds(pool => _rdsUpsertPlatformMatches(pool, rows), "platform_matches", {
+    key: `collector:${provider}`,
+  });
 }
 
 /** 启动时读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */
@@ -453,7 +455,9 @@ export function writePlatformBets(provider, matchId, bets) {
   const rows = mapSaveBetRows(provider, matchId, bets);
   if (!rows.length)
     return;
-  _writeRds(pool => _rdsUpsertPlatformBets(pool, rows), "platform_bets");
+  _writeRds(pool => _rdsUpsertPlatformBets(pool, rows), "platform_bets", {
+    key: `collector:${provider}`,
+  });
 }
 
 /** [A8 可证实] 每场 saveBets 为完整快照：先删该场旧行再 upsert */
@@ -463,7 +467,9 @@ export function replacePlatformBetsForMatch(provider, matchId, bets) {
     return;
   const plat = String(provider);
   const mid = String(matchId);
-  _writeRds(pool => _rdsReplacePlatformBets(pool, plat, mid, rows), "platform_bets");
+  _writeRds(pool => _rdsReplacePlatformBets(pool, plat, mid, rows), "platform_bets", {
+    key: `collector:${plat}`,
+  });
 }
 
 /** fire-and-forget：全量替换某平台 timer 快照（对齐 A8 getTimer 整包提交；空数组清空该平台） */
@@ -472,7 +478,9 @@ export function writeLiveTimers(provider, timer) {
   if (!mapped)
     return;
   const { plat, rows } = mapped;
-  _writeRds(pool => _rdsReplaceLiveTimersForPlatform(pool, plat, rows), "live_timers");
+  _writeRds(pool => _rdsReplaceLiveTimersForPlatform(pool, plat, rows), "live_timers", {
+    key: `collector:${plat}`,
+  });
 }
 
 /** await 写入完成（API_SaveLiveTimer 使用，避免紧随其后的 GetMatchs 读到旧 RDS） */

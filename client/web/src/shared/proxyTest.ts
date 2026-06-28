@@ -1,4 +1,5 @@
 import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
+import { getToken } from "@/api/client";
 import { getApiBase } from "@/config/apiBase";
 /** 对齐 console `mr.test`：Axios 经本地 PROXY 中继访问 `/IP` */
 import { a8Axios } from "@/shared/a8Axios";
@@ -22,6 +23,7 @@ export async function testProxyUrl(proxyUrl: string): Promise<ProxyTestResult | 
       proxyRelayEntry(),
       {
         headers: {
+          ...(getToken() ? { token: getToken() } : {}),
           "x-proxy": proxyUrl,
           "x-proxy-url": "/IP",
         },

@@ -30,21 +30,20 @@ const defaultOddsApi = createDefaultOddsApi(readJson, writeJson, {
   writeDebounced: (name, data) => writeJsonFileDebounced(name, data, 5000),
 });
 
-const DEFAULT_USER_KV = {
-  CollectConfig: JSON.stringify({ log: false, collect: [] }),
-  USERCONFIG: JSON.stringify({
-    betting: false,
-    betMoney: 100,
-    profit: 1.03,
-    maxProfit: 1.2,
-    minOdds: 1.3,
-    maxOdds: 10,
-    betSorting: "Custom",
-  }),
-  ACCOUNT: JSON.stringify([]),
-};
+function cloneJson(value) {
+  if (value == null)
+    return value;
+  if (typeof structuredClone === "function")
+    return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+}
 
-// 路由到 profiles 的 key 列表（与 DEFAULT_USER_KV 解耦）
+const COLLECTOR_HOT_CACHE_TTL_MS = Number(process.env.COLLECTOR_HOT_CACHE_TTL_MS || 180_000);
+let _dbTimersCache = null;
+let _dbTimersCacheAt = 0;
+const DB_TIMERS_CACHE_MS = 10_000;
+
+// 路由到 profiles 的 key 列表
 // CollectConfig → collect_config, USERCONFIG → betting_config, 其余 → preferences
 const USER_SETTING_KEYS = [
   "CollectConfig",
@@ -196,10 +195,6 @@ export function removeAccountForUser(userId, accountId) {
 
 // ── match list ────────────────────────────────────────────────────────────────
 
-let _dbTimersCache = null;
-let _dbTimersCacheAt = 0;
-const DB_TIMERS_CACHE_MS = 10_000;
-
 async function fetchDbTimersCached() {
   const now = Date.now();
   if (_dbTimersCache && now - _dbTimersCacheAt < DB_TIMERS_CACHE_MS) {
@@ -245,6 +240,60 @@ async function fetchPlatformEnrichCached() {
 
 export function invalidatePlatformEnrichCache() {
   _platformEnrichCache = null;
+}
+
+export function getCollectorHotSnapshot() {
+  const freshAfter = Date.now() - COLLECTOR_HOT_CACHE_TTL_MS;
+  const matchesRaw = {};
+  for (const [provider, rows] of Object.entries(_matches)) {
+    const list = Object.values(rows || {}).filter(row => Number(row?.savedAt || 0) >= freshAfter);
+    if (list.length)
+      matchesRaw[provider] = cloneJson(list);
+  }
+
+  const bets = {};
+  for (const [key, row] of Object.entries(_bets)) {
+    if (row && Array.isArray(row.bets) && Number(row.savedAt || 0) >= freshAfter)
+      bets[key] = cloneJson(row);
+  }
+
+  const timers = {};
+  for (const [provider, row] of Object.entries(_timers)) {
+    if (row && Array.isArray(row.timer) && Number(row.savedAt || 0) >= freshAfter)
+      timers[provider] = cloneJson(row);
+  }
+
+  return {
+    matchesRaw,
+    bets,
+    timers,
+    hasMatches: Object.keys(matchesRaw).length > 0,
+    hasBets: Object.keys(bets).length > 0,
+    hasTimers: Object.keys(timers).length > 0,
+  };
+}
+
+export function hydrateCollectorHotSnapshot({ matchesRaw = {}, bets = {}, timers = {} } = {}) {
+  for (const [provider, rows] of Object.entries(matchesRaw || {})) {
+    const next = {};
+    for (const m of rows || []) {
+      if (!m || m.SourceMatchID == null)
+        continue;
+      next[String(m.SourceMatchID)] = { ...m, provider, savedAt: Date.now() };
+    }
+    if (Object.keys(next).length)
+      _matches[provider] = next;
+  }
+  for (const [key, row] of Object.entries(bets || {})) {
+    if (row && Array.isArray(row.bets))
+      _bets[key] = { ...row, savedAt: Date.now() };
+  }
+  for (const [provider, row] of Object.entries(timers || {})) {
+    if (row && Array.isArray(row.timer))
+      _timers[provider] = { ...row, savedAt: Date.now() };
+  }
+  invalidatePlatformEnrichCache();
+  _dbTimersCache = null;
 }
 
 /** 仅当 OB index 明确 is_live≠2，或本场已从 getTimer 批次移除时清零 Round */
@@ -340,6 +389,8 @@ const store = {
   removeAccountForUser,
   parseKvContent,
   buildMatchList,
+  getCollectorHotSnapshot,
+  hydrateCollectorHotSnapshot,
   getMatchDefaultOdds,
   getDefaultOddsSingle,
   readJson,

@@ -9,6 +9,7 @@ import { getPgPool as getSharedPgPool } from "../pg_pool.js";
 const _mode = getDbMode();
 const _writeQueue = [];
 let _activeWrites = 0;
+const _activeWriteKeys = new Set();
 let _droppedWrites = 0;
 
 function envInt(name, fallback) {
@@ -33,7 +34,7 @@ export function jsonb(val, fallback) {
 export const _jsonb = jsonb;
 
 /** fire-and-forget 写入 RDS */
-export function _writeRds(fn, label = "") {
+export function _writeRds(fn, label = "", opts = {}) {
   const pool = getPgPool();
   if (!pool)
     return;
@@ -46,19 +47,30 @@ export function _writeRds(fn, label = "") {
     }
     return;
   }
-  _writeQueue.push({ fn, label, pool });
+  _writeQueue.push({ fn, label, pool, key: opts.key ? String(opts.key) : "" });
   _drainWriteQueue();
+}
+
+function _nextWriteIndex() {
+  return _writeQueue.findIndex(item => !item.key || !_activeWriteKeys.has(item.key));
 }
 
 function _drainWriteQueue() {
   while (_activeWrites < WRITE_CONCURRENCY && _writeQueue.length) {
-    const item = _writeQueue.shift();
+    const idx = _nextWriteIndex();
+    if (idx < 0)
+      return;
+    const [item] = _writeQueue.splice(idx, 1);
     _activeWrites += 1;
+    if (item.key)
+      _activeWriteKeys.add(item.key);
     Promise.resolve()
       .then(() => item.fn(item.pool))
       .catch(err => console.warn(`[rds${item.label ? `:${item.label}` : ""}]`, err.message))
       .finally(() => {
         _activeWrites -= 1;
+        if (item.key)
+          _activeWriteKeys.delete(item.key);
         _drainWriteQueue();
       });
   }

@@ -78,14 +78,10 @@ export interface PostOptions {
   successTip?: boolean;
 }
 
-const DELAY_SAMPLE_INTERVAL_MS = 250;
+const DELAY_ARM_INTERVAL_MS = 250;
 
-let lastDelaySampleAt = 0;
-
-function shouldSampleApiDelay(action: string): boolean {
-  // 后台采集上报 payload 大、频率高，不适合作为左上角页面 API 延迟指标。
-  return !action.startsWith("API_Save");
-}
+let lastDelayArmAt = 0;
+let apiDelayArmed = false;
 
 function toA8PostBody(body: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -102,10 +98,10 @@ async function executePost<T>(
   opts?: PostOptions,
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
-  const sampleDelay
-    = shouldSampleApiDelay(action) && started - lastDelaySampleAt > DELAY_SAMPLE_INTERVAL_MS;
-  if (sampleDelay) {
-    lastDelaySampleAt = started;
+  // [A8 可证实] Ar.post 开始时打开 _isDelay：!_isDelay && now - _lastTime > 250。
+  if (!apiDelayArmed && started - lastDelayArmAt > DELAY_ARM_INTERVAL_MS) {
+    apiDelayArmed = true;
+    lastDelayArmAt = started;
   }
   try {
     const res = await a8Axios.post<ApiEnvelope<T>>(
@@ -134,7 +130,9 @@ async function executePost<T>(
     );
   }
   finally {
-    if (sampleDelay) {
+    // [A8 可证实] finally 中消费 _isDelay：写入 delay 后立即关闭；消费者不一定是打开门控的请求。
+    if (apiDelayArmed) {
+      apiDelayArmed = false;
       const elapsed = Date.now() - started;
       void import("@/stores/userStore")
         .then(({ useUserStore }) => {
