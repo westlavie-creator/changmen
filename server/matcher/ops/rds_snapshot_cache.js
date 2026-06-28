@@ -1,4 +1,6 @@
 import * as db from "@changmen/db";
+import { getClientMatchRowsForSnapshot } from "../../backend/core/db/store.js";
+import { isEmbeddedMatcher } from "../../backend/core/shared/matcher_mode.js";
 import store from "../../backend/core/esport-api/store.js";
 
 const entries = new Map();
@@ -90,7 +92,38 @@ export function invalidateMatcherRdsSnapshot(keys = []) {
   for (const key of targetKeys) entries.delete(key);
 }
 
+async function fetchEmbeddedMemorySnapshot() {
+  const full = store.getCollectorFullSnapshot?.();
+  if (!full?.hasMatches && !full?.hasBets)
+    return null;
+
+  let clientRows = getClientMatchRowsForSnapshot();
+  if (!clientRows.length)
+    clientRows = await db.fetchClientMatches() || [];
+
+  return {
+    matchesRaw: cloneSnapshot(full.matchesRaw),
+    bets: cloneSnapshot(full.bets),
+    timers: cloneSnapshot(full.timers),
+    clientRows: cloneSnapshot(clientRows),
+    alignClientRows: cloneSnapshot(clientRows),
+    hotCollector: {
+      matches: true,
+      bets: true,
+      timers: !!full.hasTimers,
+    },
+  };
+}
+
 export async function fetchMatcherRdsSnapshot() {
+  if (isEmbeddedMatcher()) {
+    const mem = await fetchEmbeddedMemorySnapshot();
+    if (mem) {
+      logCacheStats();
+      return mem;
+    }
+  }
+
   const hot = store.getCollectorHotSnapshot?.();
   const [platformMeta, clientMeta] = await Promise.all([
     db.fetchPlatformCollectorMeta(),

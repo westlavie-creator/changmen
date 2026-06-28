@@ -4,6 +4,7 @@ import {
   normalizeAccountList,
 } from "@changmen/shared/account_multiply";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
+import { isEmbeddedMatcher } from "../shared/matcher_mode.js";
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
 const _cache = new Map();
@@ -314,6 +315,38 @@ export function getClientMatches() {
   );
 }
 
+/** embedded rebuild 完成后同步内存（RDS 已由 writeClientMatchesAsync 写入） */
+export function setClientMatchesFromRebuild(info, builtAt = Date.now()) {
+  const ts = Number(builtAt) || Date.now();
+  const list = Array.isArray(info) ? info : [];
+  _clientMatches.clear();
+  for (const m of list)
+    _clientMatches.set(Number(m.ID), { ...m, built_at: ts });
+  _matchesCacheKey = `${ts}:${list.length}`;
+  _matchesCacheLoadedAt = Date.now();
+}
+
+/** matcher align / 内存快照：RDS 行形状 */
+export function getClientMatchRowsForSnapshot() {
+  if (!_clientMatches.size)
+    return [];
+  return [..._clientMatches.values()].map(m => ({
+    id: Number(m.ID),
+    merge_key: m.MergeKey != null ? String(m.MergeKey) : null,
+    title: String(m.Title || ""),
+    game: String(m.Game || ""),
+    game_id: String(m.GameID || ""),
+    start_time: Number(m.StartTime) || 0,
+    bo: Number(m.BO) || 0,
+    round: Number(m.Round) || 0,
+    round_start: Number(m.RoundStart) || 0,
+    reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
+    matchs: m.Matchs || {},
+    bets: m.Bets || [],
+    built_at: Number(m.built_at) || 0,
+  }));
+}
+
 /**
  * 从 RDS 加载 client_matches。
  * built_at + 行数未变时复用内存快照，避免多用户轮询重复 SELECT *。
@@ -322,6 +355,9 @@ export async function loadClientMatchesFromDb() {
   const now = Date.now();
   const cacheStale
     = !_matchesCacheLoadedAt || now - _matchesCacheLoadedAt > MATCHES_CACHE_MAX_AGE_MS;
+
+  if (isEmbeddedMatcher() && _clientMatches.size && _matchesCacheKey && !cacheStale)
+    return getClientMatches();
 
   if (_clientMatches.size && _matchesCacheKey && !cacheStale) {
     const meta = await sb.fetchClientMatchesMeta();

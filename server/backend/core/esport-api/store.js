@@ -9,6 +9,7 @@ import {
   setPlatform as setPlatformRow,
 } from "@changmen/storage/platform_storage.js";
 import * as dbStore from "../db/store.js";
+import { isEmbeddedMatcher } from "../shared/matcher_mode.js";
 import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
 import { createDefaultOddsApi } from "./default_odds.js";
 import {
@@ -196,6 +197,14 @@ export function removeAccountForUser(userId, accountId) {
 // ── match list ────────────────────────────────────────────────────────────────
 
 async function fetchDbTimersCached() {
+  if (isEmbeddedMatcher()) {
+    const fromMem = buildLiveTimersSnapshot();
+    if (Object.keys(fromMem).length) {
+      _dbTimersCache = fromMem;
+      _dbTimersCacheAt = Date.now();
+      return fromMem;
+    }
+  }
   const now = Date.now();
   if (_dbTimersCache && now - _dbTimersCacheAt < DB_TIMERS_CACHE_MS) {
     return _dbTimersCache;
@@ -219,6 +228,18 @@ async function fetchPlatformEnrichCached() {
   if (_platformEnrichCache && now - _platformEnrichCacheAt < PLATFORM_ENRICH_CACHE_MS) {
     return _platformEnrichCache;
   }
+  if (isEmbeddedMatcher()) {
+    const matchesRaw = buildPlatformMatchesSnapshot();
+    const bets = buildPlatformBetsSnapshot();
+    if (Object.keys(matchesRaw).length || Object.keys(bets).length) {
+      _platformEnrichCache = {
+        bets,
+        matches: normalizeMatchesShape(matchesRaw),
+      };
+      _platformEnrichCacheAt = now;
+      return _platformEnrichCache;
+    }
+  }
   _platformEnrichCacheAt = now;
   try {
     const [platformBets, platformMatches] = await Promise.all([
@@ -240,6 +261,49 @@ async function fetchPlatformEnrichCached() {
 
 export function invalidatePlatformEnrichCache() {
   _platformEnrichCache = null;
+}
+
+function buildPlatformMatchesSnapshot() {
+  const matchesRaw = {};
+  for (const [provider, rows] of Object.entries(_matches)) {
+    const list = Object.values(rows || {});
+    if (list.length)
+      matchesRaw[provider] = cloneJson(list);
+  }
+  return matchesRaw;
+}
+
+function buildPlatformBetsSnapshot() {
+  const bets = {};
+  for (const [key, row] of Object.entries(_bets)) {
+    if (row && Array.isArray(row.bets))
+      bets[key] = cloneJson(row);
+  }
+  return bets;
+}
+
+function buildLiveTimersSnapshot() {
+  const timers = {};
+  for (const [provider, row] of Object.entries(_timers)) {
+    if (row && Array.isArray(row.timer))
+      timers[provider] = cloneJson(row);
+  }
+  return timers;
+}
+
+/** embedded matcher：rebuild / GetMatchs 读全量采集内存（不限 3 分钟 hot TTL） */
+export function getCollectorFullSnapshot() {
+  const matchesRaw = buildPlatformMatchesSnapshot();
+  const bets = buildPlatformBetsSnapshot();
+  const timers = buildLiveTimersSnapshot();
+  return {
+    matchesRaw,
+    bets,
+    timers,
+    hasMatches: Object.keys(matchesRaw).length > 0,
+    hasBets: Object.keys(bets).length > 0,
+    hasTimers: Object.keys(timers).length > 0,
+  };
 }
 
 export function getCollectorHotSnapshot() {
@@ -390,6 +454,7 @@ const store = {
   parseKvContent,
   buildMatchList,
   getCollectorHotSnapshot,
+  getCollectorFullSnapshot,
   hydrateCollectorHotSnapshot,
   getMatchDefaultOdds,
   getDefaultOddsSingle,

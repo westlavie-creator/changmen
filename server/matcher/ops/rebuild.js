@@ -14,6 +14,8 @@ import {
 } from "./align_unmatched_to_client.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
+import { setClientMatchesFromRebuild } from "../../backend/core/db/store.js";
+import { isEmbeddedMatcher } from "../../backend/core/shared/matcher_mode.js";
 import {
   fetchMatcherRdsSnapshot,
   invalidateMatcherRdsSnapshot,
@@ -122,6 +124,8 @@ async function rebuildOnceImpl() {
       built_at: now,
     })),
   );
+  if (isEmbeddedMatcher())
+    setClientMatchesFromRebuild(info, now);
   invalidateMatcherRdsSnapshot(["clientMatches"]);
 
   const matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(info);
