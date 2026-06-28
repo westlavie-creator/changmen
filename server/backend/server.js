@@ -41,6 +41,7 @@ const WEB_DIR
 const MATCHER_DIR
   = process.env.GAMEBET_MATCHER_DIR
     || path.join(__dirname, "../matcher/ui/public");
+const MATCHER_EMBEDDED = String(process.env.MATCHER_EMBEDDED || "").trim() === "1";
 
 const serveStatic = createStaticHandler({
   publicDir: PUBLIC_DIR,
@@ -139,6 +140,17 @@ function onListen() {
   console.log(
     `App: http://localhost:${PORT}/  |  matcher: http://localhost:${PORT}/matcher/  |  collect: browser`,
   );
+  if (MATCHER_EMBEDDED) {
+    void import("../matcher/loop.js")
+      .then(({ startMatcherLoop }) => startMatcherLoop({ mode: "embedded" }))
+      .then((r) => {
+        if (r?.ok)
+          console.log(`[matcher] embedded loop started pid=${r.pid} interval=${r.intervalMs}ms`);
+      })
+      .catch((err) => {
+        console.error("[matcher] embedded loop failed:", err.message);
+      });
+  }
 }
 
 process.on("SIGINT", () => {

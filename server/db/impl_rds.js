@@ -61,6 +61,7 @@ export {
 
 export {
   fetchLiveTimers,
+  fetchPlatformCollectorMeta,
   fetchPlatformBets,
   fetchPlatformMatches,
   purgePlatformLiveTimers,

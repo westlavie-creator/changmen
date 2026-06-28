@@ -45,8 +45,8 @@ describe("client_match_ids", () => {
     expect(findReuseIdByPlatformOverlap(existingRows, built)).toBe(308);
   });
 
-  it("reuses hidden client row id when platform overlap matches (rebuild revival)", () => {
-    const existingRows = [{ id: 42, matchs: { OB: "ob1", RAY: "ray1" }, list_status: -1 }];
+  it("reuses client row id when platform overlap matches across rebuilds", () => {
+    const existingRows = [{ id: 42, matchs: { OB: "ob1", RAY: "ray1" } }];
     const built = { OB: "ob1", RAY: "ray1" };
     expect(findReuseIdByPlatformOverlap(existingRows, built)).toBe(42);
   });

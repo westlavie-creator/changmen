@@ -22,6 +22,13 @@ describe("sanitizeMatcherHeartbeat", () => {
     assert.equal(fs.existsSync(HEARTBEAT_PATH), false);
   });
 
+  it("保留 web 内嵌 matcher 心跳", () => {
+    writeMatcherHeartbeat({ matchCount: 3, intervalMs: 30_000, pid: process.pid, mode: "embedded" });
+    assert.equal(isPanelProcessHeartbeat(readMatcherHeartbeat()), false);
+    assert.equal(sanitizeMatcherHeartbeat(readMatcherHeartbeat())?.mode, "embedded");
+    assert.equal(fs.existsSync(HEARTBEAT_PATH), true);
+  });
+
   it("丢弃已不存在进程的心跳", () => {
     writeMatcherHeartbeat({ matchCount: 5, intervalMs: 30_000, pid: process.pid + 10_000 });
     assert.equal(sanitizeMatcherHeartbeat(readMatcherHeartbeat()), null);

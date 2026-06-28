@@ -79,7 +79,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 | 脚本 | 作用 |
 |------|------|
-| **`ecosystem.config.cjs`** | PM2：`gamebet-web` + `gamebet-matcher`（`cd changmen && pm2 start ecosystem.config.cjs`） |
+| **`ecosystem.config.cjs`** | PM2：默认 `gamebet-web` 内嵌 matcher（回滚独立 matcher：`MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start ecosystem.config.cjs`） |
 | **`BAT\deploy-server.bat`** | 更新 VPS（增量部署；可本机构建前端后上传） |
 | **`BAT\push-git.bat`** | 本机 git commit + push |
 | `npm run chromeplug:pack` | 打包 Chrome 插件 zip → `dist/` |

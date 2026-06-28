@@ -1,61 +1,9 @@
--- 可选：RDS 已开通 pg_cron 扩展时执行（阿里云部分规格支持）
--- 默认不再注册：过期清理由 gamebet-matcher 每小时执行（见 packages/shared/db/prune_stale.js）
--- 若仍想用 pg_cron，可手动执行下方 schedule；或改用 scripts/prune-stale.mjs + 系统 cron
+-- DEPRECATED / no-op.
 --
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/002_prune_pg_cron.sql
-
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-
-DO $do$
-DECLARE r record;
-BEGIN
-  FOR r IN
-    SELECT jobid FROM cron.job
-    WHERE jobname IN (
-      'prune-stale-platform-matches',
-      'prune-stale-platform-bets',
-      'prune-stale-live-timers',
-      'prune-stale-client-matches'
-    )
-  LOOP
-    PERFORM cron.unschedule(r.jobid);
-  END LOOP;
-END
-$do$;
-
-SELECT cron.schedule(
-  'prune-stale-platform-matches',
-  '0 * * * *',
-  $$
-    DELETE FROM platform_matches
-    WHERE synced_at < (extract(epoch from now()) * 1000) - 3600000;
-  $$
-);
-
-SELECT cron.schedule(
-  'prune-stale-platform-bets',
-  '0 * * * *',
-  $$
-    DELETE FROM platform_bets
-    WHERE updated_at < (extract(epoch from now()) * 1000) - 3600000;
-  $$
-);
-
-SELECT cron.schedule(
-  'prune-stale-live-timers',
-  '0 * * * *',
-  $$
-    DELETE FROM live_timers
-    WHERE updated_at < (extract(epoch from now()) * 1000) - 3600000;
-  $$
-);
-
-SELECT cron.schedule(
-  'prune-stale-client-matches',
-  '0 * * * *',
-  $$
-    UPDATE client_matches SET list_status = -1
-    WHERE built_at < (extract(epoch from now()) * 1000) - 3600000
-      AND list_status IS DISTINCT FROM -1;
-  $$
-);
+-- 过期数据清理已统一由 gamebet-matcher 调用 server/db/prune_stale.js：
+--   - platform_bets / live_timers: 过期删除
+--   - platform_matches / client_matches: 过期移入 *_history 后删除
+--
+-- 不再使用 pg_cron，也不再使用 client_matches.list_status。
+-- 旧环境如曾手动注册过 cron.job，请人工 unschedule 后删除 pg_cron 任务。
+SELECT 1;

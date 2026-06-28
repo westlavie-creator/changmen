@@ -5,7 +5,6 @@
  *   cd changmen/server/backend
  *   # .env 中设置 DATABASE_URL=postgresql://gamebet_app:...@pgm-....:5432/gamebet
  *   node scripts/apply-rds-schema.mjs
- *   node scripts/apply-rds-schema.mjs --with-cron   # 可选 pg_cron（默认由 matcher  prune）
  */
 
 import { readFileSync } from "node:fs";
@@ -17,8 +16,6 @@ import pg from "@changmen/db/pg.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(__dirname, "..");
 const migrationsDir = join(backendRoot, "db", "migrations");
-
-const withCron = process.argv.includes("--with-cron");
 
 await initDatabaseUrl();
 const url = process.env.DATABASE_URL;
@@ -77,16 +74,11 @@ async function main() {
     console.log("[rds] 执行 013_widen_odds_numeric.sql …");
     await client.query(readSql("013_widen_odds_numeric.sql"));
 
-    if (withCron) {
-      console.log("[rds] 执行 002_prune_pg_cron.sql …");
-      try {
-        await client.query(readSql("002_prune_pg_cron.sql"));
-        console.log("[rds] pg_cron 任务已注册");
-      }
-      catch (err) {
-        console.warn("[rds] pg_cron 未启用（可改用 prune-stale.mjs）:", err.message);
-      }
-    }
+    console.log("[rds] 执行 014_history_tables.sql …");
+    await client.query(readSql("014_history_tables.sql"));
+
+    console.log("[rds] 执行 015_prune_indexes_and_drop_list_status.sql …");
+    await client.query(readSql("015_prune_indexes_and_drop_list_status.sql"));
 
     const tables = await client.query(`
       SELECT tablename FROM pg_tables

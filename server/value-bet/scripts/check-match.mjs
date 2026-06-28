@@ -7,7 +7,7 @@ const keyword = process.argv[2] || "DeathMark";
 const pool = await ensurePgPoolReady();
 
 const cm = await pool.query(
-  `SELECT id, title, game, round, round_start, start_time, matchs, bets, built_at, list_status
+  `SELECT id, title, game, round, round_start, start_time, matchs, bets, built_at
    FROM client_matches WHERE title ILIKE '%' || $1 || '%'`,
   [keyword],
 );
@@ -18,7 +18,6 @@ for (const r of cm.rows) {
   console.log(`  round: ${r.round}  round_start: ${r.round_start}`);
   console.log(`  start_time: ${new Date(Number(r.start_time)).toISOString()}`);
   console.log(`  built_at: ${new Date(Number(r.built_at)).toISOString()}`);
-  console.log(`  list_status: ${r.list_status}`);
   console.log(`  matchs: ${JSON.stringify(r.matchs)}`);
 
   const platforms = r.matchs || {};

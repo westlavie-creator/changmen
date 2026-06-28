@@ -31,9 +31,10 @@ export function isPidAlive(pid) {
   }
 }
 
-export function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt, pid = process.pid }) {
+export function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt, pid = process.pid, mode = "standalone" }) {
   const payload = {
     pid,
+    mode,
     lastRun: Date.now(),
     intervalMs: intervalMs || 30_000,
     matchCount: matchCount ?? null,
@@ -44,6 +45,8 @@ export function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt, pid = p
 
 /** 心跳 pid 指向当前面板/backend 进程（多为误写的 rebuild 心跳），不能当作匹配脚本 */
 export function isPanelProcessHeartbeat(hb, panelPid = process.pid) {
+  if (hb?.mode === "embedded")
+    return false;
   return !!(hb?.pid && Number(hb.pid) === Number(panelPid));
 }
 

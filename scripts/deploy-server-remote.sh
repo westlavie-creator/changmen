@@ -7,6 +7,9 @@ PM2_WEB="${PM2_WEB:-gamebet-web}"
 PM2_MATCHER="${PM2_MATCHER:-gamebet-matcher}"
 DEPLOY_FULL="${DEPLOY_FULL:-0}"
 DEPLOY_SKIP_APP_BUILD="${DEPLOY_SKIP_APP_BUILD:-0}"
+MATCHER_EMBEDDED="${MATCHER_EMBEDDED:-1}"
+MATCHER_STANDALONE="${MATCHER_STANDALONE:-0}"
+export MATCHER_EMBEDDED MATCHER_STANDALONE
 
 t0=$SECONDS
 log() { echo "==> $*"; }
@@ -74,18 +77,19 @@ classify() {
     package.json|package-lock.json)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      DO_PM2_MATCHER=1
+      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
       ;;
     packages/shared/*|packages/api-contract/*|client/platform-adapter/*)
       DO_INSTALL_ROOT=1
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
-      DO_PM2_MATCHER=1
+      DO_PM2_WEB=1
+      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
       ;;
     server/db/*|server/match-engine/*|devtools/platform-probes/*|server/team-resolver/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      DO_PM2_MATCHER=1
+      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
       ;;
     server/backend/*)
       DO_INSTALL_ROOT=1
@@ -94,7 +98,8 @@ classify() {
       ;;
     server/matcher/*)
       DO_INSTALL_ROOT=1
-      DO_PM2_MATCHER=1
+      DO_PM2_WEB=1
+      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
       ;;
     client/web/*)
       DO_INSTALL_FRONTEND=1
@@ -104,7 +109,7 @@ classify() {
       ;;
     ecosystem.config.cjs)
       DO_PM2_WEB=1
-      DO_PM2_MATCHER=1
+      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
       ;;
     *.md|.gitignore)
       ;;
@@ -114,7 +119,7 @@ classify() {
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       DO_PM2_WEB=1
-      DO_PM2_MATCHER=1
+      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
       ;;
   esac
 }
@@ -125,7 +130,7 @@ if [ "$DEPLOY_FULL" = "1" ]; then
   DO_APP_BUILD=1
   DO_COMPILE_ROUTER=1
   DO_PM2_WEB=1
-  DO_PM2_MATCHER=1
+  [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
 elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
   log "already up to date, skip install/build"
 else
@@ -171,10 +176,14 @@ else
 fi
 
 LIVE_TIMER_TOUCHED=0
+RDS_SCHEMA_TOUCHED=0
 PLAYERS_RDS_TOUCHED=0
 if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
   while IFS= read -r path; do
     case "$path" in
+      changmen/server/backend/db/migrations/*|server/backend/db/migrations/*)
+        RDS_SCHEMA_TOUCHED=1
+        ;;
       *live_timer*|changmen/server/db/impl_rds.js|server/db/impl_rds.js)
         LIVE_TIMER_TOUCHED=1
         ;;
@@ -188,19 +197,26 @@ if [ "$LIVE_TIMER_TOUCHED" = "1" ]; then
   log "live_timer code changed — purge stale OB live_timers rows"
   node server/backend/scripts/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
 fi
+if [ "$RDS_SCHEMA_TOUCHED" = "1" ] || [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
+  log "RDS schema: apply migrations"
+  (cd server/backend && node scripts/apply-rds-schema.mjs)
+fi
 if [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
-  log "players/tag_platforms → RDS: apply schema + migrate JSON from storage/"
-  (cd server/backend && node scripts/apply-rds-schema.mjs) || echo "WARN: apply-rds-schema failed"
+  log "players/tag_platforms → RDS: migrate JSON from storage/"
   (cd server/backend && node scripts/migrate-players-to-rds.mjs) || echo "WARN: migrate-players failed"
 fi
 
 if command -v pm2 >/dev/null 2>&1; then
+  if [ "$MATCHER_EMBEDDED" = "1" ] && [ "$MATCHER_STANDALONE" != "1" ]; then
+    log "embedded matcher enabled; stop standalone ${PM2_MATCHER} if present"
+    pm2 stop "$PM2_MATCHER" >/dev/null 2>&1 || true
+  fi
   PM2_TARGETS=()
   [ "$DO_PM2_WEB" = "1" ] && PM2_TARGETS+=("$PM2_WEB")
-  [ "$DO_PM2_MATCHER" = "1" ] && PM2_TARGETS+=("$PM2_MATCHER")
+  [ "$MATCHER_STANDALONE" = "1" ] && [ "$DO_PM2_MATCHER" = "1" ] && PM2_TARGETS+=("$PM2_MATCHER")
   if [ "${#PM2_TARGETS[@]}" -gt 0 ]; then
     log "pm2 restart ${PM2_TARGETS[*]}"
-    pm2 restart "${PM2_TARGETS[@]}"
+    pm2 restart "${PM2_TARGETS[@]}" --update-env
     pm2 status
   else
     log "skip pm2 restart"
@@ -211,10 +227,21 @@ fi
 
 if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "post-deploy check (orders upsert + admin telegram)"
-  if (cd server/backend && node scripts/post-deploy-check.mjs); then
-    log "post-deploy check passed"
-  else
-    echo "WARN: post-deploy-check failed — 见上方 FAIL 项；订单入库或 Telegram 可能异常"
+  (cd server/backend && node scripts/post-deploy-check.mjs)
+  log "post-deploy check passed"
+  if [ "$MATCHER_EMBEDDED" = "1" ]; then
+    log "wait embedded matcher heartbeat"
+    for i in $(seq 1 30); do
+      if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'embedded' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
+        log "embedded matcher heartbeat ok"
+        break
+      fi
+      if [ "$i" = "30" ]; then
+        echo "ERROR: embedded matcher heartbeat not ready"
+        exit 1
+      fi
+      sleep 3
+    done
   fi
 fi
 

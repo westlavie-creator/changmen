@@ -18,6 +18,7 @@ import {
   STALE_FACTOR,
 } from "../lib/heartbeat.js";
 import {
+  getEmbeddedMatcherState,
   getManagedMatcherPid,
   getPm2MatcherOnlinePid,
   isManagedByServer,
@@ -97,8 +98,16 @@ async function getMatcherStatus() {
   let processLastRun = null;
   let processAgeMs = null;
 
-  const managedPid = getManagedMatcherPid();
-  if (managedPid) {
+  const embeddedState = getEmbeddedMatcherState();
+  if (embeddedState.running) {
+    processRunning = true;
+    processSource = "embedded";
+    pid = embeddedState.pid;
+    processLastRun = heartbeat?.lastRun || now;
+    processAgeMs = heartbeat?.lastRun ? now - heartbeat.lastRun : 0;
+  }
+  else if (getManagedMatcherPid()) {
+    const managedPid = getManagedMatcherPid();
     processRunning = true;
     processSource = "managed";
     pid = managedPid;

@@ -38,7 +38,7 @@ for (const m of maps.rows) {
 }
 
 const cm = await pool.query(
-  `SELECT id, title, game_id, start_time, merge_key, matchs, list_status FROM client_matches WHERE id = 291`,
+  `SELECT id, title, game_id, start_time, merge_key, matchs FROM client_matches WHERE id = 291`,
 );
 console.log("\nclient_match #291:", cm.rows[0]);
 

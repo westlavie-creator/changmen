@@ -46,7 +46,6 @@
     "account:set-a8": "node scripts/account_cli.js set-a8",
     "user:create": "node scripts/create-user.js",
     "db:apply": "node scripts/apply-rds-schema.mjs",
-    "db:apply:cron": "node scripts/apply-rds-schema.mjs --with-cron",
     "db:migrate-players": "node scripts/migrate-players-to-rds.mjs",
     "db:check-players": "node scripts/check-players-rds-migrate.mjs",
     "check:rds-schema": "node scripts/check-rds-schema.mjs",

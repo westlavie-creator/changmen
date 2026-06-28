@@ -80,6 +80,7 @@ export const {
   fetchClientMatchesForAlign,
   fetchClientMatchesMeta,
   initLastWrittenIds,
+  fetchPlatformCollectorMeta,
   fetchPlatformMatches,
   fetchPlatformBets,
   fetchLiveTimers,
@@ -189,6 +190,7 @@ export {
 } from "./prune_stale.js";
 
 export {
+  archiveClientMatch,
   deleteClientMatchRow,
   deletePlatformMatchRow,
   fetchClientMatchesDashboard,
@@ -207,7 +209,6 @@ export {
   insertClientMatchStub,
   isMatcherStoreReady,
   reassignPlatformMatchIds,
-  archiveClientMatch,
   setClientMatchPlatformReverse,
 } from "./rds/matcher_store.js";
 

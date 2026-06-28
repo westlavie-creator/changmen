@@ -7,6 +7,8 @@ import { _jsonb, _writeRds, getPgPool } from "./common.js";
 
 /** 上次写入的 id 集合，用于 diff-based 删除，避免每次 rebuild 全表扫描 */
 let _lastWrittenIds = new Set();
+let _lastWrittenIdsInitPromise = null;
+let _lastWrittenIdsInitialized = false;
 
 async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
   const client = await pool.connect();
@@ -95,6 +97,7 @@ async function _rdsFetchClientMatchesMeta(pool) {
 async function _rdsInitLastWrittenIds(pool) {
   const { rows } = await pool.query("SELECT id FROM client_matches");
   _lastWrittenIds = new Set(rows.map(r => Number(r.id)));
+  _lastWrittenIdsInitialized = true;
   console.log(`[rds] 已从 client_matches 加载 ${_lastWrittenIds.size} 条 id`);
 }
 
@@ -135,15 +138,21 @@ export async function writeClientMatchesAsync(rows) {
 
 /** 启动时预填 _lastWrittenIds，使差量删除能覆盖上次遗留行 */
 export async function initLastWrittenIds() {
+  if (_lastWrittenIdsInitialized)
+    return;
+  if (_lastWrittenIdsInitPromise)
+    return _lastWrittenIdsInitPromise;
   const pool = getPgPool();
   if (!pool)
     return;
-  try {
-    await _rdsInitLastWrittenIds(pool);
-  }
-  catch (err) {
-    console.warn("[rds] initLastWrittenIds 失败:", err.message);
-  }
+  _lastWrittenIdsInitPromise = _rdsInitLastWrittenIds(pool)
+    .catch((err) => {
+      console.warn("[rds] initLastWrittenIds 失败:", err.message);
+    })
+    .finally(() => {
+      _lastWrittenIdsInitPromise = null;
+    });
+  return _lastWrittenIdsInitPromise;
 }
 
 /**

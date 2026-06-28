@@ -54,6 +54,52 @@ function jsonResponse(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+function isLoopbackAddress(value) {
+  const addr = String(value || "").trim().toLowerCase();
+  return addr === "127.0.0.1"
+    || addr === "::1"
+    || addr === "localhost"
+    || addr === "::ffff:127.0.0.1";
+}
+
+function isLocalHostHeader(value) {
+  const host = String(value || "").trim().toLowerCase().replace(/^\[/, "").replace(/\](:\d+)?$/, "");
+  const hostWithoutPort = host.includes(":") && !host.includes("::") ? host.split(":")[0] : host;
+  return !hostWithoutPort || isLoopbackAddress(hostWithoutPort);
+}
+
+function isLocalRequest(req) {
+  if (!isLocalHostHeader(req.headers.host))
+    return false;
+  const forwardedFor = String(req.headers["x-forwarded-for"] || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+  if (forwardedFor.length)
+    return forwardedFor.every(isLoopbackAddress);
+  const realIp = req.headers["x-real-ip"];
+  if (realIp)
+    return isLoopbackAddress(realIp);
+  return isLoopbackAddress(req.socket?.remoteAddress);
+}
+
+function publicHealthResponse(req, res) {
+  const accept = String(req.headers.accept || "");
+  if (accept.includes("application/json")) {
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(JSON.stringify({ status: "ok" }));
+    return;
+  }
+  res.writeHead(200, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  res.end("ok\n");
+}
+
 async function handleObDemoLogin(req, res) {
   if (req.method !== "GET") {
     jsonResponse(res, 405, { error: "method not allowed" });
@@ -140,6 +186,10 @@ export function createHttpHandler({ port, serveStatic }) {
         return;
       }
       if (url === "/health") {
+        if (!isLocalRequest(req)) {
+          publicHealthResponse(req, res);
+          return;
+        }
         const healthData = await buildHealthData();
         const accept = String(req.headers.accept || "");
         if (accept.includes("text/html")) {

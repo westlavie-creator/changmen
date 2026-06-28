@@ -2570,7 +2570,8 @@ function matcherStatusClass(s) {
 function matcherStatusLabel(s) {
   if (!s) return '脚本状态未知';
   if (s.processRunning) {
-    let t = '脚本运行中';
+    const source = s.processSource === 'embedded' ? 'web 内嵌' : s.processSource === 'pm2' ? 'PM2' : '脚本';
+    let t = `${source}运行中`;
     if (s.matchCount != null) t += ` · ${s.matchCount} 场`;
     if (s.processAgeMs != null) t += ` · ${fmtDiff(s.processAgeMs)}前刷新`;
     return t;
@@ -2633,7 +2634,7 @@ async function matcherAction(action) {
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
     await refreshMatcherStatus();
     if (action === 'stop') {
-      const via = data.source === 'pm2' ? '（PM2）' : data.pid ? `（PID ${data.pid}）` : '';
+      const via = data.source === 'embedded' ? '（web 内嵌）' : data.source === 'pm2' ? '（PM2）' : data.pid ? `（PID ${data.pid}）` : '';
       showActionToast(`匹配脚本已停止${via}`, 'ok', 3200);
     }
     if (action === 'start') {

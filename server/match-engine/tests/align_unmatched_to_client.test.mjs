@@ -232,7 +232,6 @@ describe("alignUnmatchedToClientMatches", () => {
         game_id: "8",
         start_time: START,
         matchs: { OB: "ob1" },
-        list_status: -1,
       },
     ];
 

@@ -15,6 +15,10 @@ import {
 } from "./align_unmatched_to_client.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
+import {
+  fetchMatcherRdsSnapshot,
+  invalidateMatcherRdsSnapshot,
+} from "./rds_snapshot_cache.js";
 import "../lib/env.js";
 
 /**
@@ -64,13 +68,7 @@ async function ensureTeamPlugin() {
 async function rebuildOnceImpl() {
   await db.initLastWrittenIds();
 
-  const [matchesRaw, bets, timers, clientRows, alignClientRows] = await Promise.all([
-    db.fetchPlatformMatches(),
-    db.fetchPlatformBets(),
-    db.fetchLiveTimers(),
-    db.fetchClientMatches(),
-    db.fetchClientMatchesForAlign(),
-  ]);
+  const { matchesRaw, bets, timers, clientRows, alignClientRows } = await fetchMatcherRdsSnapshot();
 
   const teamReg = await autoRegisterTeams(matchesRaw);
   const nameSync = await db.syncCanonicalTeamNamesFromOb();
@@ -125,8 +123,11 @@ async function rebuildOnceImpl() {
       built_at: now,
     })),
   );
+  invalidateMatcherRdsSnapshot(["clientMatches"]);
 
   const matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(info);
+  if (matchIdBackfill?.updated)
+    invalidateMatcherRdsSnapshot(["platformMatches"]);
 
   return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, nameSync, alignStats };
 }

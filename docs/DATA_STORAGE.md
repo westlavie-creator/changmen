@@ -6,10 +6,10 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 
 | 表 | 写入方 | 读取方 | 说明 |
 |----|--------|--------|------|
-| `platform_matches` | 客户端 `API_SaveMatch` → backend | matcher rebuild | 各平台原始比赛 |
-| `platform_bets` | `API_SaveBet` | matcher | 各平台赔率快照 |
-| `live_timers` | `API_SaveLiveTimer` | backend overlay | 局数/计时 |
-| `client_matches` | matcher rebuild | 浏览器 `Client_GetMatchs` | 合并后的比赛列表 |
+| `platform_matches` | 客户端 `API_SaveMatch` → backend | embedded matcher rebuild | 各平台原始比赛 |
+| `platform_bets` | `API_SaveBet` | embedded matcher | 各平台赔率快照 |
+| `live_timers` | `API_SaveLiveTimer` | embedded matcher / backend overlay | 局数/计时 |
+| `client_matches` | embedded matcher rebuild | 浏览器 `Client_GetMatchs` | 合并后的比赛列表 |
 | `users` / `profiles` / `orders` | 鉴权、下单 API | 前端 | 登录与订单 |
 | `canonical_teams` / `team_platform_maps` | team-resolver、matcher | matcher 队名插件 | 队伍 canonical 映射 |
 
@@ -29,13 +29,14 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | 用户活跃时间 | RDS `profiles.preferences.lastActiveAt`（`user_presence`，60s 防抖写库） |
 | `storage/legacy/esport/*.json` | 开发 legacy 镜像（若存在） | 否；与 RDS 并行 |
 
-内存缓存：`core/esport-api/store.js` 中的 `_matches` / `_bets` / `_timers` 对齐 legacy 文件形状，**比赛列表生产以 `client_matches` 为准**。
+内存缓存：`core/esport-api/store.js` 中的 `_matches` / `_bets` / `_timers` 对齐 legacy 文件形状，matcher 进程内还有 RDS snapshot cache；**比赛列表生产以 `client_matches` 为准**。
 
 ## 清理策略
 
 | 数据 | 机制 |
 |------|------|
-| 过期 `platform_*` / `client_matches` | matcher 每小时 prune（`server/db/prune_stale.js`，1h 阈值）；`client_matches` 过期设 `list_status=-1` 不删行 |
+| 过期 `platform_matches` / `client_matches` | matcher 每小时 prune（`server/db/prune_stale.js`，1h 阈值）；过期行移入 `*_history` 后从活跃表删除 |
+| 过期 `platform_bets` / `live_timers` | matcher 每小时 prune；直接删除 |
 | 手动兜底 | `node scripts/prune-stale.mjs` |
 
 详见 [ARCHITECTURE.md](./ARCHITECTURE.md) 数据流。

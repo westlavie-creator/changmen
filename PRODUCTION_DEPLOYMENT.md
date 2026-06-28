@@ -57,8 +57,8 @@ Nginx / Caddy 反代示例要点：
 | 组件 | 生产形态 | 发版 / 重启 |
 |------|----------|-------------|
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
-| API（`server/backend`） | PM2：`gamebet-web`（`:3456`） | `pm2 restart gamebet-web` |
-| 合并（`server/matcher`） | PM2：`gamebet-matcher` | 有改 matcher 时再 `pm2 restart gamebet-matcher` |
+| API + 合并（`server/backend` + embedded matcher） | PM2：`gamebet-web`（`:3456`，`MATCHER_EMBEDDED=1`） | `pm2 restart gamebet-web --update-env` |
+| 独立 matcher 回滚模式 | PM2：`gamebet-matcher`（默认不启用） | `MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start ecosystem.config.cjs` |
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
@@ -145,17 +145,23 @@ npm run app:build
 
 ### 3.4 进程
 
-至少两个长期进程（推荐 PM2）：
+默认一个长期进程（推荐 PM2）：`gamebet-web` 内嵌 matcher loop。
 
 ```bash
 cd changmen
-pm2 start ecosystem.config.cjs    # gamebet-web + gamebet-matcher
+pm2 start ecosystem.config.cjs    # gamebet-web（内嵌 matcher）
 # 或手动：
-npm run web
-npm run matcher:loop
+MATCHER_EMBEDDED=1 npm run web
 ```
 
-`ecosystem.config.cjs` 中入口为 `server/backend/scripts/start-db.mjs` 与 `server/matcher/scripts/start-db.mjs`（`GAMEBET_DB_SCRIPT=rds`）。
+`ecosystem.config.cjs` 默认只注册 `gamebet-web`，入口为 `server/backend/scripts/start-db.mjs`（`GAMEBET_DB_SCRIPT=rds`）。如需回滚到独立 matcher：
+
+```bash
+cd changmen
+pm2 stop gamebet-web
+MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start ecosystem.config.cjs
+pm2 restart gamebet-web gamebet-matcher --update-env
+```
 
 生产建议用 systemd / pm2 / Docker Compose 托管，并配置重启策略。
 

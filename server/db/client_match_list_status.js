@@ -1,6 +1,7 @@
 /**
- * client_matches.list_status — 是否进入浏览器 Client_GetMatchs 列表。
- * 未开始、进行中等均为默认 0；仅 -1 表示对浏览器隐藏。
+ * Legacy compatibility constants for old diagnostic/tests.
+ * Current RDS semantics: active client_matches rows are visible; hidden/expired rows
+ * live in client_matches_history.
  */
 
 export const CLIENT_MATCH_LIST_HIDDEN = -1;

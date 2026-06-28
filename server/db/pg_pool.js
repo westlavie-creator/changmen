@@ -23,6 +23,26 @@ function envInt(name, fallback) {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
+function defaultApplicationName() {
+  const cwd = process.cwd().replace(/\\/g, "/");
+  if (cwd.includes("/server/matcher"))
+    return "gamebet-matcher";
+  if (cwd.includes("/server/backend"))
+    return "gamebet-web";
+  if (cwd.includes("/server/value-bet"))
+    return "gamebet-value-bet";
+  return "gamebet";
+}
+
+function applicationName() {
+  return String(
+    process.env.DATABASE_APPLICATION_NAME
+    || process.env.PM2_NAME
+    || process.env.npm_package_name
+    || defaultApplicationName(),
+  ).replace(/[^\w.-]+/g, "_").slice(0, 63);
+}
+
 function requirePg() {
   const searchPaths = [
     path.join(__dirname, "..", "..", "apps", "backend", "node_modules"),
@@ -50,7 +70,24 @@ export function getPgPool(reason = "") {
     const { Pool } = requirePg();
     const max = envInt("DATABASE_POOL_MAX", 12);
     const connectionTimeoutMillis = envInt("DATABASE_POOL_CONNECT_TIMEOUT_MS", 10000);
-    _pgPool = new Pool({ ...buildPgClientConfig(url, connectionTimeoutMillis), max });
+    const statementTimeoutMs = envInt("DATABASE_STATEMENT_TIMEOUT_MS", 30000);
+    const idleInTransactionSessionTimeoutMs = envInt(
+      "DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS",
+      30000,
+    );
+    const queryTimeoutMs = envInt("DATABASE_QUERY_TIMEOUT_MS", statementTimeoutMs + 5000);
+    const idleTimeoutMillis = envInt("DATABASE_POOL_IDLE_TIMEOUT_MS", 30000);
+    const maxLifetimeSeconds = envInt("DATABASE_POOL_MAX_LIFETIME_SEC", 600);
+    _pgPool = new Pool({
+      ...buildPgClientConfig(url, connectionTimeoutMillis),
+      max,
+      idleTimeoutMillis,
+      maxLifetimeSeconds,
+      query_timeout: queryTimeoutMs,
+      statement_timeout: statementTimeoutMs,
+      idle_in_transaction_session_timeout: idleInTransactionSessionTimeoutMs,
+      application_name: applicationName(),
+    });
     _pgPool.on("connect", attachClientErrorHandler);
     _pgPool.on("error", (err) => {
       console.warn("[db] RDS idle client error:", err.message);
@@ -58,7 +95,9 @@ export function getPgPool(reason = "") {
     if (!_logged) {
       _logged = true;
       const tag = reason ? ` (${reason})` : "";
-      console.log(`[db] RDS 连接池已就绪${tag} max=${max} connectTimeout=${connectionTimeoutMillis}ms`);
+      console.log(
+        `[db] RDS 连接池已就绪${tag} max=${max} connectTimeout=${connectionTimeoutMillis}ms statementTimeout=${statementTimeoutMs}ms idleTxTimeout=${idleInTransactionSessionTimeoutMs}ms`,
+      );
     }
   }
   return _pgPool;

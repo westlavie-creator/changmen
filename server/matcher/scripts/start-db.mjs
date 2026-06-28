@@ -4,6 +4,7 @@
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 
 loadChangmenEnv({ prepend: ["server/matcher/.env"] });
+process.env.DATABASE_APPLICATION_NAME ||= "gamebet-matcher";
 
 const {
   DB_SCRIPT_MODES,

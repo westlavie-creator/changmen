@@ -9,6 +9,11 @@ import {
   readMatcherHeartbeat,
   sanitizeMatcherHeartbeat,
 } from "../lib/heartbeat.js";
+import {
+  getMatcherLoopState,
+  startMatcherLoop,
+  stopMatcherLoop,
+} from "../loop.js";
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,6 +22,10 @@ const MATCHER_SCRIPT = path.join(MATCHER_ROOT, "matcher.js");
 const PM2_MATCHER_NAME = process.env.PM2_MATCHER_NAME || "gamebet-matcher";
 
 let managedChild = null;
+
+function embeddedMatcherEnabled() {
+  return String(process.env.MATCHER_EMBEDDED || "").trim() === "1";
+}
 
 function isManagedChildAlive() {
   if (!managedChild)
@@ -153,6 +162,19 @@ async function stopPm2Matcher() {
 }
 
 export async function startMatcherProcess() {
+  if (embeddedMatcherEnabled()) {
+    const state = getMatcherLoopState();
+    if (state.running) {
+      return {
+        ok: true,
+        pid: state.pid,
+        source: "embedded",
+        embedded: true,
+        warning: "匹配循环已由 web 进程内嵌运行",
+      };
+    }
+    return { ...(await startMatcherLoop({ mode: "embedded" })), source: "embedded", embedded: true };
+  }
   if (isManagedChildAlive()) {
     return { ok: false, error: "匹配脚本已由本页面启动" };
   }
@@ -198,6 +220,14 @@ export async function startMatcherProcess() {
 }
 
 export async function stopMatcherProcess() {
+  const embeddedState = getMatcherLoopState();
+  if (embeddedState.running) {
+    const result = stopMatcherLoop();
+    clearMatcherHeartbeat();
+    console.log(`[matcher] embedded matcher stopped pid=${embeddedState.pid}`);
+    return { ...result, source: "embedded", embedded: true };
+  }
+
   if (isManagedChildAlive()) {
     const pid = managedChild.pid;
     const killed = await killPid(pid);
@@ -242,11 +272,18 @@ export async function stopMatcherProcess() {
 }
 
 export function isManagedByServer() {
-  return isManagedChildAlive();
+  return isManagedChildAlive() || getMatcherLoopState().running;
 }
 
 export function getManagedMatcherPid() {
+  const embeddedState = getMatcherLoopState();
+  if (embeddedState.running)
+    return embeddedState.pid;
   return isManagedChildAlive() ? managedChild.pid : null;
+}
+
+export function getEmbeddedMatcherState() {
+  return getMatcherLoopState();
 }
 
 export async function getPm2MatcherOnlinePid() {

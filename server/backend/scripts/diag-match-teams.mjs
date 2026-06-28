@@ -47,7 +47,7 @@ for (const r of pm.rows) {
 }
 
 const cm = await pool.query(
-  `SELECT id, title, game, game_id, start_time, list_status, matchs, built_at
+  `SELECT id, title, game, game_id, start_time, matchs, built_at
    FROM client_matches
    WHERE ${terms.map((_, i) => `title ILIKE $${i + 1}`).join(" OR ")}
    ORDER BY id DESC LIMIT 20`,
@@ -58,7 +58,7 @@ console.log(`\nclient_matches: ${cm.rows.length} 行\n`);
 for (const r of cm.rows) {
   const platforms = Object.keys(r.matchs || {});
   console.log(
-    `#${r.id} status=${r.list_status} platforms=[${platforms.join(",")}] | ${r.title} | matchs=${JSON.stringify(r.matchs)}`,
+    `#${r.id} platforms=[${platforms.join(",")}] | ${r.title} | matchs=${JSON.stringify(r.matchs)}`,
   );
 }
 

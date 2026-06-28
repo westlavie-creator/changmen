@@ -1,5 +1,6 @@
 import * as db from "@changmen/db";
 import { rebuildOnce } from "./rebuild.js";
+import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 
 /**
  * 合并两条 client_matches：source 并入 target，保留 target.id。
@@ -83,6 +84,7 @@ async function mergeClientMatches({ sourceClientMatchId, targetClientMatchId }) 
   await db.reassignPlatformMatchIds(sourceId, targetId);
   await db.deleteClientMatchRow(sourceId);
 
+  invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
   const rebuild = await rebuildOnce();
 
   return {

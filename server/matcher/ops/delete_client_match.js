@@ -1,4 +1,5 @@
 import * as db from "@changmen/db";
+import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 import { rebuildOnce } from "./rebuild.js";
 import "../lib/env.js";
 
@@ -51,6 +52,7 @@ async function clientMatchToHistory(clientMatchId) {
 
   await db.archiveClientMatch(cmId);
 
+  invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
   const rebuild = await rebuildOnce();
 
   return {

@@ -264,6 +264,41 @@ async function _rdsFetchLiveTimers(pool) {
   return byPlatform;
 }
 
+async function _rdsFetchPlatformCollectorMeta(pool) {
+  const { rows } = await pool.query(
+    `SELECT 'platformMatches' AS key,
+            COUNT(*)::int AS count,
+            COALESCE(MAX(synced_at), 0)::bigint AS marker,
+            COUNT(match_id)::int AS linked_count,
+            COALESCE(MAX(match_id), 0)::bigint AS linked_marker
+     FROM platform_matches
+     UNION ALL
+     SELECT 'platformBets' AS key,
+            COUNT(*)::int AS count,
+            COALESCE(MAX(updated_at), 0)::bigint AS marker,
+            0::int AS linked_count,
+            0::bigint AS linked_marker
+     FROM platform_bets
+     UNION ALL
+     SELECT 'liveTimers' AS key,
+            COUNT(*)::int AS count,
+            COALESCE(MAX(updated_at), 0)::bigint AS marker,
+            0::int AS linked_count,
+            0::bigint AS linked_marker
+     FROM live_timers`,
+  );
+  const meta = {};
+  for (const r of rows) {
+    meta[r.key] = {
+      count: Number(r.count) || 0,
+      marker: Number(r.marker) || 0,
+      linkedCount: Number(r.linked_count) || 0,
+      linkedMarker: Number(r.linked_marker) || 0,
+    };
+  }
+  return meta;
+}
+
 async function _rdsSetPlatformMatchId(pool, platform, sourceMatchId, matchId, onlyIfNull) {
   const sql = onlyIfNull
     ? `UPDATE platform_matches SET match_id = $3
@@ -345,6 +380,20 @@ export async function fetchPlatformMatches() {
   catch (err) {
     console.warn("[rds] fetchPlatformMatches 失败:", err.message);
     return {};
+  }
+}
+
+/** matcher 快照缓存使用：轻量判断采集表是否变化 */
+export async function fetchPlatformCollectorMeta() {
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  try {
+    return await _rdsFetchPlatformCollectorMeta(pool);
+  }
+  catch (err) {
+    console.warn("[rds] fetchPlatformCollectorMeta 失败:", err.message);
+    return null;
   }
 }
 

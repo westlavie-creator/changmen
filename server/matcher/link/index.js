@@ -10,6 +10,7 @@ import {
 import { getGameCodeForPlatformId, getPlatformGameId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 import { invalidateTeamPlugin, rebuildOnce } from "../ops/rebuild.js";
+import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { resetMatcherUiTeamPlugin } from "../ui/merge_mode.js";
 import "../lib/env.js";
 
@@ -436,6 +437,7 @@ async function linkPlatformToPlatform({
   }
 
   invalidateTeamMappings();
+  invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
   const rebuild = await rebuildOnce();
 
   return {
@@ -655,6 +657,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
 
   invalidateTeamMappings();
+  invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
   const rebuild = await rebuildOnce();
 
   resolveClientGame(plat, pm.source_game_id);
