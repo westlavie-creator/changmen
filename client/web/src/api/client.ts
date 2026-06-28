@@ -1,6 +1,7 @@
 import type { ApiEnvelope } from "@changmen/api-contract";
 import { buildEsportUrl } from "@changmen/api-contract/urls";
 import { ElMessage } from "element-plus";
+import { armEsportPostDelaySample, finalizeEsportPostDelaySample } from "@/api/apiDelay";
 import { getApiBase } from "@/config/apiBase";
 import { a8Axios, responseBodyText } from "@/shared/a8Axios";
 
@@ -78,11 +79,6 @@ export interface PostOptions {
   successTip?: boolean;
 }
 
-const DELAY_ARM_INTERVAL_MS = 250;
-
-let lastDelayArmAt = 0;
-let apiDelayArmed = false;
-
 function toA8PostBody(body: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(body)) {
@@ -98,11 +94,7 @@ async function executePost<T>(
   opts?: PostOptions,
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
-  // [A8 可证实] Ar.post 开始时打开 _isDelay：!_isDelay && now - _lastTime > 250。
-  if (!apiDelayArmed && started - lastDelayArmAt > DELAY_ARM_INTERVAL_MS) {
-    apiDelayArmed = true;
-    lastDelayArmAt = started;
-  }
+  armEsportPostDelaySample(started);
   try {
     const res = await a8Axios.post<ApiEnvelope<T>>(
       buildEsportUrl(action, query, getApiBase()),
@@ -130,18 +122,7 @@ async function executePost<T>(
     );
   }
   finally {
-    // [A8 可证实] finally 中消费 _isDelay：写入 delay 后立即关闭；消费者不一定是打开门控的请求。
-    if (apiDelayArmed) {
-      apiDelayArmed = false;
-      const elapsed = Date.now() - started;
-      void import("@/stores/userStore")
-        .then(({ useUserStore }) => {
-          useUserStore().setApiDelay(elapsed, action);
-        })
-        .catch(() => {
-          /* 登录前或 pinia 尚未就绪时忽略 */
-        });
-    }
+    finalizeEsportPostDelaySample(started);
   }
 }
 

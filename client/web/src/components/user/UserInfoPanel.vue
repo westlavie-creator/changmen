@@ -5,6 +5,7 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import UserConfigDialog from "@/components/user/UserConfigDialog.vue";
 import UserDiagDialog from "@/components/user/UserDiagDialog.vue";
+import { delay as esportDelay } from "@/api/apiDelay";
 import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useOrderStore } from "@/stores/orderStore";
@@ -26,7 +27,7 @@ const user = useUserStore();
 const accountStore = useAccountStore();
 const orderStore = useOrderStore();
 const configStore = useConfigStore();
-const { displayName, apiDelay, apiDelayAction } = storeToRefs(user);
+const { displayName } = storeToRefs(user);
 const { totalBalance } = storeToRefs(accountStore);
 const { config } = storeToRefs(configStore);
 const { dayProfit } = storeToRefs(orderStore);
@@ -45,16 +46,18 @@ const animOrders = useTransition(totalOrders, { duration: 1000 });
 const configOpen = ref(false);
 const userDiagOpen = ref(false);
 
-/** 对齐 bundle `UserInfoView` 延迟按钮 type（success / warning / danger） */
+/** [A8 可证实] UserInfoView：`Ut.delay.value??0` */
+const shownDelay = computed(() => esportDelay.value ?? 0);
+
+/** [A8 可证实] UserInfoView 延迟按钮 type（success / warning / danger） */
 const delayButtonType = computed(() => {
   if (props.embedded)
     return undefined;
-  const d = apiDelay.value;
-  if (!d)
+  if (!esportDelay.value)
     return undefined;
-  if (d < 100)
+  if (esportDelay.value < 100)
     return "success";
-  if (d < 500)
+  if (esportDelay.value < 500)
     return "warning";
   return "danger";
 });
@@ -62,13 +65,6 @@ const delayButtonType = computed(() => {
 const shownUserName = computed(() =>
   props.embedded ? props.embeddedUserName || displayName.value : displayName.value,
 );
-
-const delayTitle = computed(() => {
-  if (props.embedded)
-    return "";
-  const action = apiDelayAction.value || "未知接口";
-  return `最后一次 API：${action} · ${apiDelay.value}ms`;
-});
 </script>
 
 <template>
@@ -88,10 +84,9 @@ const delayTitle = computed(() => {
             size="small"
             :type="delayButtonType"
             :disabled="embedded"
-            :title="delayTitle"
             @click="user.toggleHiddenUserName()"
           >
-            {{ embedded ? "—" : apiDelay }}<span class="ms">ms</span>
+            {{ embedded ? "—" : shownDelay }}<span class="ms">ms</span>
           </el-button>
         </el-button-group>
       </div>

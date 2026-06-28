@@ -31,7 +31,6 @@ export const useUserStore = defineStore("user", {
     sessionChecked: !getToken(),
     ready: false,
     error: null as string | null,
-    apiDelay: 0,
     hiddenUserName: localStorage.getItem(HIDDEN_NAME_KEY) === "1",
     proxyList: [] as ProxyRow[],
     message: {} as MessageConfig,
@@ -40,7 +39,6 @@ export const useUserStore = defineStore("user", {
     isAdmin: false,
     role: "user" as "admin" | "leader" | "user",
     teamId: null as string | null,
-    apiDelayAction: "",
   }),
 
   getters: {
@@ -50,16 +48,6 @@ export const useUserStore = defineStore("user", {
 
     displayName(state): string {
       return state.hiddenUserName ? String(state.userId || "—") : state.userName;
-    },
-
-    delayLevel(state): "ok" | "warn" | "bad" | "none" {
-      if (!state.apiDelay)
-        return "none";
-      if (state.apiDelay < 100)
-        return "ok";
-      if (state.apiDelay < 500)
-        return "warn";
-      return "bad";
     },
 
     followEnabled(state): boolean {
@@ -192,11 +180,6 @@ export const useUserStore = defineStore("user", {
     toggleHiddenUserName() {
       this.hiddenUserName = !this.hiddenUserName;
       localStorage.setItem(HIDDEN_NAME_KEY, this.hiddenUserName ? "1" : "0");
-    },
-
-    setApiDelay(ms: number, action = "") {
-      this.apiDelay = ms > 0 ? ms : 0;
-      this.apiDelayAction = action;
     },
 
     async patchSetting(patch: Record<string, unknown>) {

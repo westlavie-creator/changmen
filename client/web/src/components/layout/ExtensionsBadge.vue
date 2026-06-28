@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
+import { counter as esportPostCounter } from "@/api/apiDelay";
 
 /** 对齐 bundle `ExtensionsView` / class `version` / `yS.version` */
 const WEB_BUNDLE_VERSION = "2.0.245";
@@ -12,7 +13,6 @@ const tooltip = ref("当前已是最新版本");
 const hasUpdate = ref(false);
 let titleBase = "";
 let titleTimer: ReturnType<typeof setInterval> | null = null;
-let tick = 0;
 
 async function fetchVersionJson(url: string): Promise<string | null> {
   try {
@@ -58,8 +58,7 @@ onMounted(async () => {
   await loadVersions();
   globalThis.addEventListener("gamebet-extension-version", loadVersions);
   titleTimer = setInterval(() => {
-    tick += 1;
-    document.title = `${titleBase}.${tick}`;
+    document.title = `${titleBase}.${esportPostCounter.value}`;
   }, 1000);
 });
 

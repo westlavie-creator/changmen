@@ -129,7 +129,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 - 对齐 A8：延迟值来自统一请求封装 `api/client.ts` 的 `post()` 耗时采样。
 - `/esport` 主请求通道对齐 A8 `Ar.post`：`a8Axios.post()` + `application/x-www-form-urlencoded;` + `response.data`。
-- `post()` 按 A8 `_isDelay` 逻辑做 250ms 门控：超过 250ms 才打开一次采样标记，随后第一个完成的请求更新 `userStore.apiDelay`（用于右上角 `xxms` 显示）。
+- `post()` 按 A8 `Ar.post` / `Ut.delay`：250ms 门控 + finally 同步写 `api/apiDelay.ts` 的 `delay`（UserInfoView `xxms`）；`counter` 供 ExtensionsView 刷 `document.title`。
 - 不再使用定时 `Client_GetUserInfo` 心跳探针，因此不会出现该接口高频轮询。
 
 ---
