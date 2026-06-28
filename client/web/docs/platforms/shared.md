@@ -28,4 +28,4 @@
 
 各平台 `SourceGameID` 含义不同，统一见 `packages/shared/catalog/game_catalog.json` 与 `getGameCodeForPlatformId` / `getPlatformGameId`。
 
-采集侧通过 `getGames(platform)` 只拉取配置中启用的游戏 ID 列表。
+采集侧通过前端静态 `venueGames` 列表过滤启用的游戏 ID，避免主采集链路反复请求 `Client_GetGames`。

@@ -100,7 +100,7 @@ startObCollector（约 3s 后 connectObMqtt）
   → getCollectPlatform(OB)
   → collectObGet → directGet 直连 gateway（ob/http.ts）
   → game/index 失败且 data==="token" → refreshObCollectToken()
-  → getGames(OB) 过滤 + buildMatchesFromList → saveMatch（CollectConfig 开时）
+  → 前端静态 venueGames 过滤 + buildMatchesFromList → saveMatch（CollectConfig 开时）
   → 顺序每场：unsub → loadMarketsForMatch → saveBets → sub
   → fo.save + MQTT：/esport/ws/OB（经本地 relay，凭据 admin）
   → syncObLiveTimer → fetchMatches

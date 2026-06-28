@@ -1,6 +1,7 @@
-import { getCollectPlatform, getGames } from "@/api/esport";
+import { getCollectPlatform } from "@/api/esport";
 import type { CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/shared/platform";
+import { getStaticVenueGames } from "@/shared/venueGames";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
@@ -38,10 +39,8 @@ export function startTfCollector(): () => void {
   const matchStore = useMatchStore();
 
   const start = async () => {
-    const [platform, games] = await Promise.all([
-      getCollectPlatform(PLATFORM),
-      getGames(PLATFORM),
-    ]);
+    const platform = await getCollectPlatform(PLATFORM);
+    const games = getStaticVenueGames(PLATFORM);
     if (!platform?.Gateway || !platform.Token) {
       console.warn("[TF] 采集跳过：无 Gateway/Token（A8 Client_GetCollectPlatform）");
       return;

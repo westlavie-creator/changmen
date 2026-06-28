@@ -1,8 +1,9 @@
 import { io, type Socket } from "socket.io-client";
-import { getCollectPlatform, getGames } from "@/api/esport";
+import { getCollectPlatform } from "@/api/esport";
 import { fetchSabaEsportsPage } from "./parse";
 import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
 import { PLATFORMS } from "@/shared/platform";
+import { getStaticVenueGames } from "@/shared/venueGames";
 import {
   buildSabaWsConfig,
   convertMalaysianToEU,
@@ -35,10 +36,8 @@ export function startSabaCollector(): () => void {
   const matchStore = useMatchStore();
 
   const runOnce = async () => {
-    const [platform, games] = await Promise.all([
-      getCollectPlatform(PLATFORM),
-      getGames(PLATFORM),
-    ]);
+    const platform = await getCollectPlatform(PLATFORM);
+    const games = getStaticVenueGames(PLATFORM);
     if (!platform?.Gateway || !platform.Token) {
       console.warn("[SABA] 采集跳过：无 Gateway/Token");
       odds.clean(PLATFORM);

@@ -1,4 +1,4 @@
-import { getCollectPlatform, getGames } from "@/api/esport";
+import { getCollectPlatform } from "@/api/esport";
 import { directPostJson } from "@/shared/http";
 import { resolveCollectSession } from "@venue/shared/collectSession";
 import type { CollectHttpSession } from "@venue/shared/collectSession";
@@ -10,6 +10,7 @@ import {
 } from "./parse";
 import { buildImtHeaders } from "./auth";
 import { PLATFORMS } from "@/shared/platform";
+import { getStaticVenueGames } from "@/shared/venueGames";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
@@ -54,10 +55,8 @@ export function startImtCollector(): () => void {
       const started = Date.now();
       let matchCount = 0;
       try {
-        const [platform, games] = await Promise.all([
-          getCollectPlatform(PLATFORM),
-          getGames(PLATFORM),
-        ]);
+        const platform = await getCollectPlatform(PLATFORM);
+        const games = getStaticVenueGames(PLATFORM);
         if (!platform) {
           await wait(POLL_MS);
           continue;

@@ -1,8 +1,9 @@
-import { getCollectPlatform, getGames, saveLiveTimer, updatePlatform } from "@/api/esport";
+import { getCollectPlatform, saveLiveTimer, updatePlatform } from "@/api/esport";
 import { OB_DEMO_LOGIN_URL } from "@/api/v4";
 import { getObBetNameRe } from "./parse";
 
 import { PLATFORMS } from "@/shared/platform";
+import { getStaticVenueGames } from "@/shared/venueGames";
 import { wait } from "@/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.browser";
@@ -188,10 +189,8 @@ export function startObCollector(): () => void {
       const started = Date.now();
       let matchCount = 0;
       try {
-        let [platform, games] = await Promise.all([
-          getCollectPlatform(PLATFORM),
-          getGames(PLATFORM),
-        ]);
+        let platform = await getCollectPlatform(PLATFORM);
+        const games = getStaticVenueGames(PLATFORM);
         if (!platform?.Gateway) {
           await wait(POLL_MS);
           continue;
