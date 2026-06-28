@@ -421,7 +421,7 @@
 </div>
 
 <div class="workflow-hint">
-  <strong>工作流：</strong>圆点关联队伍；<strong>黄色方点</strong>关联赛事（拖到左/中栏<strong>绿色方点</strong>或<strong>比赛 ID 绿底</strong>合并）。右栏上半<strong>推荐组</strong>处理跨平台待确认；下半<strong>孤立未匹配</strong>处理无推荐边角料。
+  <strong>工作流：</strong>圆点关联队伍；<strong>黄色方点</strong>关联赛事（拖到左/中栏<strong>绿色方点</strong>或<strong>比赛 ID 绿底</strong>合并）。右栏上半<strong>推荐组</strong>处理跨平台待确认；下半<strong>未匹配</strong>可查看全部或仅无推荐边角料。
 </div>
 
 <div class="stats" id="stats-bar"></div>
@@ -478,15 +478,15 @@
             </div>
             <div class="pending-section pending-section-unmatched">
               <div class="pending-section-title">
-                <span>孤立未匹配 <span class="badge" id="unmatched-col-count">0</span></span>
+                <span>未匹配 <span class="badge" id="unmatched-col-count">0</span></span>
                 <div class="pending-section-toolbar panel-toolbar">
                   <div class="filter-chips">
-                    <button type="button" class="filter-chip" data-unmatched-filter="all">全部</button>
-                    <button type="button" class="filter-chip active" data-unmatched-filter="orphan">仅无推荐</button>
+                    <button type="button" class="filter-chip active" data-unmatched-filter="all">全部</button>
+                    <button type="button" class="filter-chip" data-unmatched-filter="orphan">仅无推荐</button>
                   </div>
                 </div>
               </div>
-              <div class="pending-section-desc">未进 client_match · 默认隐藏已在推荐组中的场次</div>
+              <div class="pending-section-desc">未进 client_match · “仅无推荐”用于隐藏已在推荐组中的场次</div>
               <div id="unmatched-panels"><div class="empty">加载中…</div></div>
             </div>
           </div>
@@ -529,7 +529,7 @@ let _linkModalKind = null;
 let _linkSubmitting = false;
 let _matcherBusy = false;
 let _rebuildBusy = false;
-let _unmatchedFilter = 'orphan';
+let _unmatchedFilter = 'all';
 let _teamDrag = null;
 let _teamLinkBound = false;
 let _teamLinkScrollBound = false;
@@ -1493,7 +1493,8 @@ function collectUnmatchedRows(platforms, cms, recs) {
 function renderUnmatchedPlatforms(platforms, recs, cms, teamMaps, searchQuery) {
   const q = searchQuery != null ? searchQuery : _teamSearchQuery;
   const container = document.getElementById('unmatched-panels');
-  let rows = collectUnmatchedRows(platforms, cms, recs);
+  const allRows = collectUnmatchedRows(platforms, cms, recs);
+  let rows = allRows;
   if (_unmatchedFilter === 'orphan') {
     rows = rows.filter(r => !r.inRecommendation);
   }
@@ -1505,11 +1506,16 @@ function renderUnmatchedPlatforms(platforms, recs, cms, teamMaps, searchQuery) {
   if (countEl) countEl.textContent = rows.length;
 
   if (!rows.length) {
-    container.innerHTML = q
-      ? `<div class="empty" style="padding:24px">没有匹配「${esc(q)}」的未匹配比赛</div>`
-      : (_unmatchedFilter === 'orphan'
-        ? '<div class="empty" style="padding:24px">没有孤立未匹配项<br>左侧推荐组中的场次请直接在推荐组内确认</div>'
-        : '<div class="empty" style="padding:24px">各平台暂无未匹配比赛</div>');
+    const hiddenByFilter = _unmatchedFilter === 'orphan' && allRows.length > 0;
+    let emptyHtml = '<div class="empty" style="padding:24px">各平台暂无未匹配比赛</div>';
+    if (q) {
+      emptyHtml = `<div class="empty" style="padding:24px">没有匹配「${esc(q)}」的未匹配比赛</div>`;
+    } else if (hiddenByFilter) {
+      emptyHtml = '<div class="empty" style="padding:24px">没有孤立未匹配项<br>当前未匹配都在推荐组里；点“全部”可查看完整列表</div>';
+    } else if (_unmatchedFilter === 'orphan') {
+      emptyHtml = '<div class="empty" style="padding:24px">没有孤立未匹配项<br>左侧推荐组中的场次请直接在推荐组内确认</div>';
+    }
+    container.innerHTML = emptyHtml;
     return 0;
   }
 
