@@ -272,6 +272,7 @@ describe("polymarketProvider.betting", () => {
     vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
       tick_size: "0.01",
       neg_risk: false,
+      asks: [{ price: "0.5", size: "10" }],
     });
     vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
       success: true,
@@ -334,6 +335,57 @@ describe("polymarketProvider.betting", () => {
     expect(options?.headers?.POLY_SIGNATURE).toBe(
       expectedL2Signature("c2VjcmV0", `1700000000POST/order${JSON.stringify(body)}`),
     );
+  });
+
+  test("uses market order price from book depth for FOK buy amount", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      neg_risk: false,
+      asks: [
+        { price: "0.5", size: "5" },
+        { price: "0.55", size: "20" },
+      ],
+    });
+    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+      success: true,
+      orderID: "order-depth",
+      status: "matched",
+      takingAmount: "18181900",
+      makingAmount: "10000000",
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+    const option = {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    };
+
+    const result = await polymarketProvider.betting!(account, option as any);
+
+    expect(result.success).toBe(true);
+    expect((option as any).newOdds).toBeCloseTo(1.8182, 4);
+
+    const [, body] = vi.mocked(polymarketPluginPost).mock.calls[0]!;
+    expect(body).toMatchObject({
+      orderType: "FOK",
+      order: {
+        makerAmount: "9999000",
+        takerAmount: "18180000",
+        side: "BUY",
+      },
+    });
   });
 });
 

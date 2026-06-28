@@ -72,6 +72,7 @@ interface PolymarketOrderBookResponse {
   tick_size?: string | number;
   minimum_tick_size?: string | number;
   neg_risk?: boolean;
+  asks?: Array<{ price?: string | number; size?: string | number }>;
 }
 
 // ---- config helpers ----
@@ -246,7 +247,13 @@ function normalizeTickSize(value: string | number | undefined): TickSize {
   throw new Error(`Polymarket 返回了不支持的 tick_size: ${tick || "空"}`);
 }
 
-async function fetchOrderOptions(gateway: string, tokenId: string): Promise<{ tickSize: TickSize; negRisk: boolean }> {
+interface PolymarketOrderOptions {
+  tickSize: TickSize;
+  negRisk: boolean;
+  asks: Array<{ price: number; size: number }>;
+}
+
+async function fetchOrderOptions(gateway: string, tokenId: string): Promise<PolymarketOrderOptions> {
   const params = new URLSearchParams({ token_id: tokenId });
   const book = await polymarketPluginGet<PolymarketOrderBookResponse>(
     `${gateway}${ORDER_BOOK_PATH}?${params.toString()}`,
@@ -254,7 +261,37 @@ async function fetchOrderOptions(gateway: string, tokenId: string): Promise<{ ti
   return {
     tickSize: normalizeTickSize(book?.tick_size ?? book?.minimum_tick_size),
     negRisk: Boolean(book?.neg_risk),
+    asks: (book?.asks ?? [])
+      .map(level => ({
+        price: Number(level.price),
+        size: Number(level.size),
+      }))
+      .filter(level =>
+        Number.isFinite(level.price) &&
+        Number.isFinite(level.size) &&
+        level.price > 0 &&
+        level.price < 1 &&
+        level.size > 0,
+      )
+      .sort((a, b) => a.price - b.price),
   };
+}
+
+function calculateBuyMarketLimitPrice(
+  asks: PolymarketOrderOptions["asks"],
+  amountUsdc: number,
+): number {
+  if (!Number.isFinite(amountUsdc) || amountUsdc <= 0)
+    throw new Error(`无效投注金额 ${amountUsdc}`);
+  let remaining = amountUsdc;
+  for (const level of asks) {
+    const notional = level.price * level.size;
+    if (notional >= remaining)
+      return level.price;
+    remaining -= notional;
+  }
+  const available = asks.reduce((sum, level) => sum + level.price * level.size, 0);
+  throw new Error(`Polymarket 盘口流动性不足：可立即成交约 ${available.toFixed(2)} USDC，当前投注 ${amountUsdc}`);
 }
 
 async function createPolymarketOrderBody(
@@ -264,8 +301,8 @@ async function createPolymarketOrderBody(
   config: PolymarketTokenConfig,
   tokenId: string,
   price: number,
-  size: number,
-  orderOptions: { tickSize: TickSize; negRisk: boolean },
+  amount: number,
+  orderOptions: PolymarketOrderOptions,
 ) {
   const [
     clob,
@@ -302,7 +339,7 @@ async function createPolymarketOrderBody(
   const signedOrder = await client.createOrder({
     tokenID: tokenId,
     price,
-    size,
+    size: amount / price,
     side: clob.Side.BUY,
   }, orderOptions);
   if (!clob.isV2Order(signedOrder))
@@ -377,15 +414,17 @@ export const polymarketProvider: PlatformProvider = {
 
     const gateway = account.gateway || POLYMARKET_CLOB_API;
 
-    // price = probability = 1 / decimal_odds，保留 4 位小数（Polymarket tick）
-    const price = Math.round((1 / option.odds) * 10000) / 10000;
-    if (!price || price <= 0 || price >= 1)
+    // displayedPrice = probability = 1 / decimal_odds，真正 FOK 限价由订单簿深度决定。
+    const displayedPrice = Math.round((1 / option.odds) * 10000) / 10000;
+    if (!displayedPrice || displayedPrice <= 0 || displayedPrice >= 1)
       return new BetResult("Polymarket", false, `无效赔率 ${option.odds}`);
 
     const tokenId = option.itemId;
 
     try {
       const orderOptions = await fetchOrderOptions(gateway, tokenId);
+      const price = calculateBuyMarketLimitPrice(orderOptions.asks, option.betMoney);
+      option.newOdds = Math.round((1 / price) * 10000) / 10000;
       const orderBody = await createPolymarketOrderBody(
         gateway,
         privateKey,
@@ -393,7 +432,7 @@ export const polymarketProvider: PlatformProvider = {
         config,
         tokenId,
         price,
-        option.betMoney / price,
+        option.betMoney,
         orderOptions,
       );
       const bodyStr = JSON.stringify(orderBody);
