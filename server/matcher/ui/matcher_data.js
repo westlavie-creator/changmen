@@ -1,12 +1,10 @@
 import {
-  fetchClientMatchesDashboard,
   fetchClientMatchesHidden,
   fetchClientMatchesHiddenCount,
   fetchLatestClientMatchBuiltAt,
-  fetchPlatformMatchesDashboard,
   loadTeamMapsForMatcher,
 } from "@changmen/db";
-import { normalizeTeam } from "@changmen/match-engine";
+import { normalizeMatchesShape, normalizeTeam } from "@changmen/match-engine";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { MATCHER_INTERVAL_MS } from "../lib/config.js";
 import { resolveUiGame } from "../lib/game_ui.js";
@@ -25,6 +23,7 @@ import {
   isManagedByServer,
 } from "./matcher_process.js";
 import { enrichClientMatchesMergeMode } from "./merge_mode.js";
+import { fetchMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 
 function recommendationGroupKey(m) {
   const game = resolveUiGame(m.platform, m.source_game_id);
@@ -178,12 +177,55 @@ function normalizeDashboardStartTime(row) {
   return { ...row, start_time: normalizeEpochMs(row.start_time) };
 }
 
+function firstValue(...values) {
+  return values.find(v => v != null && v !== "");
+}
+
+function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
+  const activeClientIds = new Set(
+    (clientMatches || [])
+      .map(cm => Number(cm.id))
+      .filter(Number.isFinite),
+  );
+  const normalized = normalizeMatchesShape(matchesRaw);
+  const rows = [];
+
+  for (const [platform, byId] of Object.entries(normalized || {})) {
+    for (const m of Object.values(byId || {})) {
+      const sourceMatchId = firstValue(m.SourceMatchID, m.source_match_id);
+      if (sourceMatchId == null)
+        continue;
+      const rawMatchId = firstValue(m.ClientMatchId, m.client_match_id, m.match_id);
+      const matchId = rawMatchId != null && activeClientIds.has(Number(rawMatchId))
+        ? Number(rawMatchId)
+        : null;
+      rows.push({
+        platform,
+        source_match_id: String(sourceMatchId),
+        source_game_id: firstValue(m.SourceGameID, m.source_game_id, ""),
+        start_time: Number(firstValue(m.StartTime, m.start_time, 0)) || 0,
+        home: firstValue(m.Home, m.home, ""),
+        home_id: firstValue(m.HomeID, m.home_id, ""),
+        away: firstValue(m.Away, m.away, ""),
+        away_id: firstValue(m.AwayID, m.away_id, ""),
+        bo: Number(firstValue(m.BO, m.bo, 0)) || 0,
+        match_id: matchId,
+        synced_at: Number(firstValue(m.savedAt, m.synced_at, 0)) || 0,
+        teams: Array.isArray(m.Teams) ? m.Teams : (Array.isArray(m.teams) ? m.teams : []),
+      });
+    }
+  }
+
+  return rows.sort((a, b) => normalizeEpochMs(a.start_time) - normalizeEpochMs(b.start_time));
+}
+
 async function fetchMatcherDashboard() {
-  const [allMatchesRaw, clientMatchesRaw, hiddenClientMatchCount] = await Promise.all([
-    fetchPlatformMatchesDashboard(),
-    fetchClientMatchesDashboard(),
+  const [snapshot, hiddenClientMatchCount] = await Promise.all([
+    fetchMatcherRdsSnapshot(),
     fetchClientMatchesHiddenCount(),
   ]);
+  const clientMatchesRaw = snapshot.clientRows || [];
+  const allMatchesRaw = dashboardRowsFromSnapshot(snapshot.matchesRaw, clientMatchesRaw);
 
   const clientMatchesNorm = (clientMatchesRaw || []).map(normalizeDashboardStartTime);
 
