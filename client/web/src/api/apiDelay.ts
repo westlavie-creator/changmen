@@ -14,7 +14,7 @@ let isDelay = false;
 
 const ARM_INTERVAL_MS = 250;
 
-/** [A8 可证实] `Ar.post` 入口：`!_isDelay && o - _lastTime > 250` → 打开门控 */
+/** [A8 可证实] `Ar.post` 入口：`!_isDelay && o - _lastTime > 250` → `_isDelay=true, _lastTime=o` */
 export function armEsportPostDelaySample(now = Date.now()) {
   if (!isDelay && now - lastTime > ARM_INTERVAL_MS) {
     isDelay = true;

@@ -110,6 +110,7 @@ export const {
   fetchGameAnalytics,
   fetchHourlyAnalytics,
   fetchAccountAnalytics,
+  fetchObArbOddsAnalytics,
   fetchMoneyLogsByPlayer,
   fetchMoneyLogById,
   fetchAllMoneyLogs,

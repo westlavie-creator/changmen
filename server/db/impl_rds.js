@@ -37,6 +37,7 @@ export {
 export {
   deleteOrdersByIds,
   fetchAccountAnalytics,
+  fetchObArbOddsAnalytics,
   fetchArbPairAnalytics,
   fetchGameAnalytics,
   fetchHourlyAnalytics,

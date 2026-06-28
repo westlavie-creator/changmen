@@ -814,12 +814,13 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
     if (visibleIds)
       userIds = [...visibleIds];
   }
-  const [platforms, pairs, games, hourly, accounts] = await Promise.all([
+  const [platforms, pairs, games, hourly, accounts, obArbOdds] = await Promise.all([
     sb.fetchPlatformAnalytics(startMs, endMs, userIds),
     sb.fetchArbPairAnalytics(startMs, endMs, userIds),
     sb.fetchGameAnalytics(startMs, endMs, userIds),
     sb.fetchHourlyAnalytics(startMs, endMs, userIds),
     sb.fetchAccountAnalytics(startMs, endMs, userIds),
+    sb.fetchObArbOddsAnalytics(startMs, endMs, userIds),
   ]);
-  return { startMs, endMs, platforms, pairs, games, hourly, accounts };
+  return { startMs, endMs, platforms, pairs, games, hourly, accounts, obArbOdds };
 }

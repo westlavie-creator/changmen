@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AccountAnalyticsRow, ArbPairRow, GameAnalyticsRow, HourlyAnalyticsRow, PlatformAnalyticsRow } from "@/api/admin";
+import type { AccountAnalyticsRow, ArbPairRow, GameAnalyticsRow, HourlyAnalyticsRow, ObArbOddsAnalyticsPayload, PlatformAnalyticsRow } from "@/api/admin";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
@@ -8,6 +8,7 @@ import {
 
 } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
+import AdminObArbOddsSection from "@/components/admin/AdminObArbOddsSection.vue";
 import { todayKey } from "@/shared/dateKey";
 import { toFixed } from "@/shared/format";
 import { useUserStore } from "@/stores/userStore";
@@ -28,6 +29,7 @@ const pairs = ref<ArbPairRow[]>([]);
 const games = ref<GameAnalyticsRow[]>([]);
 const hourly = ref<HourlyAnalyticsRow[]>([]);
 const accounts = ref<AccountAnalyticsRow[]>([]);
+const obArbOdds = ref<ObArbOddsAnalyticsPayload | null>(null);
 
 const totalOrders = computed(() => platforms.value.reduce((s, p) => s + p.total_orders, 0));
 const totalProfit = computed(() => platforms.value.reduce((s, p) => s + p.total_profit, 0));
@@ -82,6 +84,7 @@ async function fetchData() {
     games.value = data.games ?? [];
     hourly.value = data.hourly ?? [];
     accounts.value = data.accounts ?? [];
+    obArbOdds.value = data.obArbOdds ?? { buckets: [], summary: [] };
   }
   catch {
     platforms.value = [];
@@ -89,6 +92,7 @@ async function fetchData() {
     games.value = [];
     hourly.value = [];
     accounts.value = [];
+    obArbOdds.value = { buckets: [], summary: [] };
   }
   finally {
     loading.value = false;
@@ -257,6 +261,8 @@ onMounted(async () => {
         暂无套利配对数据
       </div>
     </div>
+
+    <AdminObArbOddsSection :data="obArbOdds" />
 
     <!-- Game dimension -->
     <div v-if="games.length" class="analytics-section">

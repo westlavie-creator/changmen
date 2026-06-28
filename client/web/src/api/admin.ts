@@ -193,6 +193,30 @@ export interface AccountAnalyticsRow {
   total_profit: number;
 }
 
+export interface ObArbOddsBucketRow {
+  other_provider: string;
+  ob_status: "Win" | "Lose";
+  ob_odds_bucket: string;
+  count: number;
+  avg_ob_odds: number;
+  avg_other_odds: number;
+}
+
+export interface ObArbOddsSummaryRow {
+  other_provider: string;
+  ob_status: "Win" | "Lose";
+  count: number;
+  avg_ob_odds: number;
+  avg_other_odds: number;
+  min_ob_odds: number;
+  max_ob_odds: number;
+}
+
+export interface ObArbOddsAnalyticsPayload {
+  buckets: ObArbOddsBucketRow[];
+  summary: ObArbOddsSummaryRow[];
+}
+
 export interface PlatformAnalyticsPayload {
   startMs: number;
   endMs: number;
@@ -201,6 +225,7 @@ export interface PlatformAnalyticsPayload {
   games: GameAnalyticsRow[];
   hourly: HourlyAnalyticsRow[];
   accounts: AccountAnalyticsRow[];
+  obArbOdds?: ObArbOddsAnalyticsPayload;
 }
 
 export async function getAdminPlatformAnalytics(body: Record<string, unknown> = {}) {

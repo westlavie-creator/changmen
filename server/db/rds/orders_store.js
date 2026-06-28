@@ -631,6 +631,70 @@ export async function fetchHourlyAnalytics(startMs, endMs, userIds) {
   }
 }
 
+const OB_ARB_ODDS_BUCKET_SQL = `CASE
+  WHEN ob.odds < 1.5 THEN '1.00-1.49'
+  WHEN ob.odds < 2.0 THEN '1.50-1.99'
+  WHEN ob.odds < 2.5 THEN '2.00-2.49'
+  WHEN ob.odds < 3.0 THEN '2.50-2.99'
+  WHEN ob.odds < 4.0 THEN '3.00-3.99'
+  WHEN ob.odds < 6.0 THEN '4.00-5.99'
+  ELSE '6.00+'
+END`;
+
+/** 数据分析：OB 套利腿 vs 其他平台 — 按赢/输分组的 OB 赔率分布 */
+export async function fetchObArbOddsAnalytics(startMs, endMs, userIds) {
+  const pool = getPgPool();
+  if (!pool)
+    return { buckets: [], summary: [] };
+  try {
+    const params = [startMs, endMs];
+    const uf = appendUserIdsFilter(params, userIds);
+    const userFilter = uf ? uf.replace(/\buser_id\b/g, "ob.user_id") : "";
+    const baseJoin = `
+      FROM orders ob
+      JOIN orders other ON ABS(ob.link) = ABS(other.link)
+        AND ob.user_id = other.user_id
+        AND ob.id <> other.id
+        AND ob.provider = 'OB'
+        AND other.provider <> 'OB'
+      WHERE ABS(ob.link) >= 1000000000000
+        AND ob.create_at >= $1 AND ob.create_at < $2
+        AND ob.status IN ('Win', 'Lose')${userFilter}`;
+    const { rows: buckets } = await pool.query(
+      `SELECT
+        other.provider AS other_provider,
+        ob.status AS ob_status,
+        ${OB_ARB_ODDS_BUCKET_SQL} AS ob_odds_bucket,
+        COUNT(*)::int AS count,
+        AVG(ob.odds)::float AS avg_ob_odds,
+        AVG(other.odds)::float AS avg_other_odds
+      ${baseJoin}
+      GROUP BY other.provider, ob.status, ob_odds_bucket
+      ORDER BY other.provider, ob.status, ob_odds_bucket`,
+      params,
+    );
+    const { rows: summary } = await pool.query(
+      `SELECT
+        other.provider AS other_provider,
+        ob.status AS ob_status,
+        COUNT(*)::int AS count,
+        AVG(ob.odds)::float AS avg_ob_odds,
+        AVG(other.odds)::float AS avg_other_odds,
+        MIN(ob.odds)::float AS min_ob_odds,
+        MAX(ob.odds)::float AS max_ob_odds
+      ${baseJoin}
+      GROUP BY other.provider, ob.status
+      ORDER BY other.provider, ob.status`,
+      params,
+    );
+    return { buckets: buckets || [], summary: summary || [] };
+  }
+  catch (err) {
+    console.warn("[rds] fetchObArbOddsAnalytics:", err.message);
+    return { buckets: [], summary: [] };
+  }
+}
+
 /** 数据分析：按账号（player_id）聚合 */
 export async function fetchAccountAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
