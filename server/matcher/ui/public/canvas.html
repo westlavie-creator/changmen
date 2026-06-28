@@ -663,19 +663,24 @@ function cmGbAnchorId(cmId, side) {
 function teamNodeId(platform, platformId) {
   return `team:${platform}:${platformId}`;
 }
+function clientMatchPlatformCount(cm) {
+  return Object.keys(cm?.matchs || {}).length;
+}
+function isDisplayClientMatch(cm, platforms) {
+  return clientMatchPlatformCount(cm) >= 2 && clientMatchHasTeams(cm, platforms);
+}
 function resolveClientMatchId(m, platform, cms) {
+  const visibleCms = (cms || []).filter(cm => clientMatchPlatformCount(cm) >= 2);
   if (m?.match_id != null && m.match_id !== '') {
     const directId = Number(m.match_id);
-    if ((cms || []).some(cm => Number(cm.id) === directId)) return directId;
+    if (visibleCms.some(cm => Number(cm.id) === directId)) return directId;
   }
-  const cm = (cms || []).find(c => String(c.matchs?.[platform] ?? '') === String(m?.source_match_id));
+  const cm = visibleCms.find(c => String(c.matchs?.[platform] ?? '') === String(m?.source_match_id));
   return cm ? Number(cm.id) : null;
 }
 
 function filterDisplayClientMatches(cms, platforms) {
-  return (cms || []).filter(cm =>
-    Object.keys(cm.matchs || {}).length >= 2 && clientMatchHasTeams(cm, platforms),
-  );
+  return (cms || []).filter(cm => isDisplayClientMatch(cm, platforms));
 }
 
 function buildGraph(data, hideUnlinkedPm, search) {

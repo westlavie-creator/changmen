@@ -39,14 +39,15 @@ function recommendationGroupKey(m) {
 }
 
 function isPlatformMatchLinkedForRec(m, clientMatches) {
+  const visibleClientMatches = (clientMatches || []).filter(cm => Object.keys(cm.matchs || {}).length >= 2);
   if (
     m?.match_id != null
     && m.match_id !== ""
-    && (clientMatches || []).some(cm => Number(cm.id) === Number(m.match_id))
+    && visibleClientMatches.some(cm => Number(cm.id) === Number(m.match_id))
   ) {
     return true;
   }
-  return (clientMatches || []).some(
+  return visibleClientMatches.some(
     cm => String(cm.matchs?.[m.platform] ?? "") === String(m.source_match_id),
   );
 }
@@ -184,6 +185,7 @@ function firstValue(...values) {
 function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
   const activeClientIds = new Set(
     (clientMatches || [])
+      .filter(cm => Object.keys(cm.matchs || {}).length >= 2)
       .map(cm => Number(cm.id))
       .filter(Number.isFinite),
   );

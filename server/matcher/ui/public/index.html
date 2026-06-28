@@ -545,12 +545,21 @@ let _hiddenClientMatchesLoaded = false;
 let _hiddenClientMatchesLoading = false;
 let _reverseSubmitting = false;
 
+function clientMatchPlatformCount(cm) {
+  return Object.keys(cm?.matchs || {}).length;
+}
+
+function isDisplayClientMatch(cm) {
+  return clientMatchPlatformCount(cm) >= 2;
+}
+
 function resolvePlatformClientMatchId(m, platform, cms) {
+  const visibleCms = (cms || []).filter(isDisplayClientMatch);
   if (m?.match_id != null && m.match_id !== '') {
     const directId = Number(m.match_id);
-    if ((cms || []).some(cm => Number(cm.id) === directId)) return directId;
+    if (visibleCms.some(cm => Number(cm.id) === directId)) return directId;
   }
-  const cm = (cms || []).find(c => String(c.matchs?.[platform] ?? '') === String(m?.source_match_id));
+  const cm = visibleCms.find(c => String(c.matchs?.[platform] ?? '') === String(m?.source_match_id));
   return cm ? Number(cm.id) : null;
 }
 
@@ -970,10 +979,7 @@ async function fetchJson(url, options) {
 }
 
 function filterDisplayClientMatches(cms, platforms) {
-  return (cms || []).filter(cm => {
-    const plats = Object.keys(cm.matchs || {});
-    return plats.length >= 2;
-  });
+  return (cms || []).filter(isDisplayClientMatch);
 }
 
 function isPlatformMatchLinked(m, plat, cms) {
