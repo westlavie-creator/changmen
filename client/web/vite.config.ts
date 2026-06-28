@@ -11,6 +11,15 @@ const API_TARGET = process.env.VITE_API_PROXY || `http://127.0.0.1:${DEV_API_POR
 // Hyper-V/WSL 常保留 5123-5222（含 Vite 默认 5173/5174）
 const DEFAULT_DEV_PORT = process.platform === "win32" ? 5274 : 5174;
 const DEV_PORT = Number(process.env.VITE_DEV_PORT) || DEFAULT_DEV_PORT;
+const INTENTIONAL_MIXED_IMPORTS = [
+  "/src/api/chat.ts",
+  "/src/runtime/collectors.ts",
+  "/src/stores/account/balanceRefresh.ts",
+  "/src/stores/accountStore.ts",
+  "/src/stores/loseOrderStore.ts",
+  "/src/stores/messageStore.ts",
+  "/src/stores/userStore.ts",
+];
 
 function venueChunkName(id: string): string | undefined {
   const markers = ["client/venue-adapter/"];
@@ -62,7 +71,30 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    // venue adapters 目前必须合成一个 chunk，拆细会因循环依赖触发浏览器 TDZ 白屏。
+    // 阈值按当前最大 chunk（venue-all 约 2.0MB）留少量余量，后续超过该值仍会报警。
+    chunkSizeWarningLimit: 2200,
     rollupOptions: {
+      onwarn(warning, warn) {
+        const message = warning.message ?? "";
+        if (
+          message.includes("node_modules/element-plus/node_modules/@vueuse/core/dist/index.js")
+          && message.includes("contains an annotation that Rollup cannot interpret")
+        ) {
+          return;
+        }
+        const isIntentionalMixedImport = INTENTIONAL_MIXED_IMPORTS.some((file) =>
+          message.includes(file),
+        );
+        if (
+          isIntentionalMixedImport
+          && message.includes("is dynamically imported by")
+          && message.includes("but also statically imported by")
+        ) {
+          return;
+        }
+        warn(warning);
+      },
       output: {
         manualChunks(id) {
           const venueChunk = venueChunkName(id);

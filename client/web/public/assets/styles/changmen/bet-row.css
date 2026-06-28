@@ -1,5 +1,5 @@
 /**
- * changmen 赛事卡赔率行（仅 modules 加载；legacy 仍走 a8.css）
+ * changmen 赛事卡赔率行。
  * DOM 保持 A8 class：.bet / .bet-items / .item-odds
  * 侧栏 .orders .bet 泄漏由 sidebar-orders.css（栈末）覆盖
  * 维护：改此文件后 node scripts/sync-style-assets.mjs

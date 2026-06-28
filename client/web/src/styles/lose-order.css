@@ -1,7 +1,7 @@
 /**
  * 补单 UI 独立样式（对齐 A8 LoseOrderView / CreateLoseView）
  * [A8 可证实] 视觉 token 来自 bundle scoped data-v-6ad7135b + 全局 fieldset/legend
- * 由 LoseOrderView / CreateLoseDialog 直接 import，不依赖 a8.css。
+ * 由 LoseOrderView / CreateLoseDialog 直接 import。
  */
 
 /* ── 侧栏布局 ── */

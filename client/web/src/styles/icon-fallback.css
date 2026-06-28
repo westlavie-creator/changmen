@@ -1,5 +1,5 @@
 /**
- * 兜底：未映射的 am-icon / iconfont-base 仍显示占位符（正常应由 a8-am-icon.css 覆盖）
+ * 兜底：未映射的 am-icon / iconfont-base 仍显示占位符（正常应由 am-icon.css 覆盖）
  */
 .el-button[class*="am-icon-"]:not([class*="am-icon-plus"]):not([class*="am-icon-gear"]):not(
     [class*="am-icon-shield"]

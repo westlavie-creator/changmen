@@ -1,5 +1,5 @@
 /**
- * changmen 侧栏用户区（仅 modules 加载；legacy 仍走 a8.css）
+ * changmen 侧栏用户区。
  * DOM 保持 A8 class：.userinfo
  * 维护：改此文件后 node scripts/sync-style-assets.mjs
  */
@@ -38,7 +38,7 @@
   color: #fff;
 }
 
-/** A8 a8.css：侧栏统计数字白字（modules 无 legacy 整包时需单独补） */
+/** 侧栏统计数字白字。 */
 .userinfo .report-number .el-statistic__head {
   color: rgba(255, 255, 255, 0.85);
 }

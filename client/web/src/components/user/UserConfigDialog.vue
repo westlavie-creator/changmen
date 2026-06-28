@@ -3,8 +3,7 @@ import type { UserConfigFormState } from "@/components/user/userConfigFormState"
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 /**
- * 对齐 console bundle `UserConfigView`（EDe）+ 侧栏 `el-dialog` 参数配置。
- * 样式来自 `a8.css`（与 A8 bundle 同源），组件使用 Element Plus。
+ * 用户配置弹窗，组件使用 Element Plus。
  */
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import {

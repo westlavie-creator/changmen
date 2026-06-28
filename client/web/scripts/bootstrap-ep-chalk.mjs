@@ -1,6 +1,6 @@
 /**
  * 从 element-plus/dist/index.css 同步 EP 官方主题 → src/styles/ep-chalk.css
- * modules 皮肤用（替代 A8 extract / a8-all）；legacy 仍走 a8.css
+ * changmen 运行皮肤使用；不依赖历史 A8 CSS 提取链路。
  * 用法：node scripts/bootstrap-ep-chalk.mjs
  */
 import fs from "node:fs";
@@ -18,7 +18,7 @@ const outPath = path.join(webRoot, "src/styles/ep-chalk.css");
 
 const header = `/**
  * Element Plus 官方主题（element-plus/dist/index.css）
- * 仅 modules 加载；legacy 仍走 a8.css
+ * changmen 运行皮肤使用；由 style assets 同步到 public/assets/styles/changmen/
  * 维护：npm 升级 element-plus 后重跑 node scripts/bootstrap-ep-chalk.mjs
  */
 

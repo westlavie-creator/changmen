@@ -21,7 +21,7 @@
   flex-direction: column;
 }
 
-/* 对齐 A8：OB 平台角标（a8.css 亦有，此处保留 limit 样式邻近声明） */
+/* OB 平台角标：与 limit 样式邻近声明。 */
 .provider-icon.OB {
   background-image: url(/esport2/assets/D1aW4vdu.png);
 }
@@ -31,7 +31,7 @@
   outline-offset: -1px;
 }
 
-/* HomeView / 侧栏 / 登录（避免 scoped 覆盖 a8.css） */
+/* HomeView / 侧栏 / 登录：集中放置跨组件补丁。 */
 .home-view {
   height: 100%;
 }

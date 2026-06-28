@@ -127,7 +127,7 @@
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(8px);
   z-index: 1;
-  /* 覆盖 a8.css 内嵌的 Element Plus 浅色主题（输入框默认白底） */
+  /* 覆盖 Element Plus 输入框默认白底。 */
   --el-fill-color-blank: #0f172a;
   --el-input-bg-color: #0f172a;
   --el-input-text-color: #f1f5f9;

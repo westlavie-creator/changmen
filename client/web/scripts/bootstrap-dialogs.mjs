@@ -11,7 +11,7 @@ const webRoot = path.join(__dirname, "..");
 
 const REQUIRED = [
   ["src/styles/user-diag.css", [".user-diag-dialog", ".googlecode"]],
-  ["src/styles/a8-fallback.css", [".el-tabs.el-tabs--top", "column"]],
+  ["src/styles/ep-fallback.css", [".el-tabs.el-tabs--top", "column"]],
 ];
 
 let failed = 0;

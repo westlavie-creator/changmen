@@ -96,7 +96,7 @@
 }
 
 /*
- * 侧栏订单 class 与账户条/赛事卡冲突（a8.css 全局 .platform / .bet）。
+ * 侧栏订单 class 与账户条/赛事卡冲突（历史全局 .platform / .bet）。
  * 官方 bundle 用 scoped 限定账户与赛事；此处按 .orders .order 作用域还原。
  */
 .orders .orderlink {
