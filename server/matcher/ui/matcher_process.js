@@ -23,7 +23,7 @@ const PM2_MATCHER_NAME = process.env.PM2_MATCHER_NAME || "gamebet-matcher";
 
 let managedChild = null;
 
-function embeddedMatcherEnabled() {
+export function isEmbeddedMatcherEnabled() {
   return String(process.env.MATCHER_EMBEDDED || "").trim() === "1";
 }
 
@@ -162,7 +162,7 @@ async function stopPm2Matcher() {
 }
 
 export async function startMatcherProcess() {
-  if (embeddedMatcherEnabled()) {
+  if (isEmbeddedMatcherEnabled()) {
     const state = getMatcherLoopState();
     if (state.running) {
       return {

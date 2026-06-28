@@ -411,8 +411,8 @@
       <span class="matcher-dot"></span>
       <span class="matcher-label">检测中…</span>
     </span>
-    <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动脚本</button>
-    <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止脚本</button>
+    <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动匹配循环</button>
+    <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止匹配循环</button>
     <button class="btn btn-sm btn-ghost" id="btn-rebuild-now" type="button" title="立即执行一次赛事合并（rebuild client_matches）">立即执行赛事合并</button>
     <button class="btn btn-sm btn-ghost btn-hidden-toggle" id="btn-hidden-toggle" type="button" title="查看已归档的历史赛事">历史赛事 <span class="badge" id="hidden-count-badge">0</span></button>
     <span class="updated-at" id="updated-at">—</span>
@@ -2568,22 +2568,25 @@ function matcherStatusClass(s) {
 }
 
 function matcherStatusLabel(s) {
-  if (!s) return '脚本状态未知';
+  if (!s) return '匹配循环状态未知';
+  const embeddedMode = s.matcherMode === 'embedded';
   if (s.processRunning) {
-    const source = s.processSource === 'embedded' ? 'web 内嵌' : s.processSource === 'pm2' ? 'PM2' : '脚本';
+    const source = s.processSource === 'embedded' ? 'web 内嵌循环' : s.processSource === 'pm2' ? 'PM2 独立脚本' : '独立脚本';
     let t = `${source}运行中`;
     if (s.matchCount != null) t += ` · ${s.matchCount} 场`;
     if (s.processAgeMs != null) t += ` · ${fmtDiff(s.processAgeMs)}前刷新`;
     return t;
   }
   if (s.dataFresh) {
-    return `脚本未运行 · 列表 ${fmtDiff(s.dataAgeMs)}前仍较新`;
+    const label = embeddedMode ? '内嵌循环未运行' : '匹配脚本未运行';
+    return `${label} · 列表 ${fmtDiff(s.dataAgeMs)}前仍较新`;
   }
   if (s.lastBuiltAt || s.processLastRun) {
     const age = s.dataAgeMs ?? s.processAgeMs;
-    return `脚本未运行 · 末次 ${fmtDiff(age)}前`;
+    const label = embeddedMode ? '内嵌循环未运行' : '匹配脚本未运行';
+    return `${label} · 末次 ${fmtDiff(age)}前`;
   }
-  return '脚本未运行';
+  return embeddedMode ? '内嵌循环未运行' : '匹配脚本未运行';
 }
 
 function setMatcherButtons(s) {
@@ -2591,6 +2594,11 @@ function setMatcherButtons(s) {
   const btnStop = document.getElementById('btn-matcher-stop');
   const btnRebuild = document.getElementById('btn-rebuild-now');
   if (!btnStart || !btnStop) return;
+  const embeddedMode = s?.matcherMode === 'embedded';
+  btnStart.textContent = embeddedMode ? '启动内嵌循环' : '启动独立脚本';
+  btnStop.textContent = embeddedMode ? '暂停内嵌循环' : '停止独立脚本';
+  btnStart.title = embeddedMode ? '正常生产会随 gamebet-web 自动启动；仅在检测到未运行时手动启动。' : '启动独立 matcher 脚本。';
+  btnStop.title = embeddedMode ? '仅临时暂停当前 web 进程内的 matcher 循环；重启 gamebet-web 后会自动恢复。' : '停止独立 matcher 脚本或 PM2 进程。';
   btnStart.style.display = s?.canStart ? '' : 'none';
   btnStop.style.display = s?.canStop ? '' : 'none';
   btnStart.disabled = _matcherBusy || _rebuildBusy;
@@ -2634,11 +2642,11 @@ async function matcherAction(action) {
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
     await refreshMatcherStatus();
     if (action === 'stop') {
-      const via = data.source === 'embedded' ? '（web 内嵌）' : data.source === 'pm2' ? '（PM2）' : data.pid ? `（PID ${data.pid}）` : '';
-      showActionToast(`匹配脚本已停止${via}`, 'ok', 3200);
+      const via = data.source === 'embedded' ? '（web 内嵌循环，重启 web 后自动恢复）' : data.source === 'pm2' ? '（PM2）' : data.pid ? `（PID ${data.pid}）` : '';
+      showActionToast(`匹配循环已停止${via}`, 'ok', 4200);
     }
     if (action === 'start') {
-      showActionToast(data.warning || '匹配脚本已启动', 'ok', 3200);
+      showActionToast(data.warning || '匹配循环已启动', 'ok', 3200);
       setTimeout(refreshMatcherStatus, 2000);
     }
   } catch (err) {
@@ -2690,7 +2698,7 @@ async function refreshMatcherStatus() {
   } catch {
     setMatcherButtons(null);
     el.className = 'matcher-status off';
-    label.textContent = '脚本状态未知';
+    label.textContent = '匹配循环状态未知';
   }
 }
 

@@ -21,6 +21,7 @@ import {
   getEmbeddedMatcherState,
   getManagedMatcherPid,
   getPm2MatcherOnlinePid,
+  isEmbeddedMatcherEnabled,
   isManagedByServer,
 } from "./matcher_process.js";
 import { enrichClientMatchesMergeMode } from "./merge_mode.js";
@@ -149,6 +150,7 @@ async function getMatcherStatus() {
     intervalMs,
     matchCount,
     pid,
+    matcherMode: isEmbeddedMatcherEnabled() ? "embedded" : "standalone",
     managedByServer: isManagedByServer(),
     canStop: processRunning,
     canStart: !processRunning,
