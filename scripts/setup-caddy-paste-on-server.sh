@@ -32,6 +32,12 @@ sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
 		reverse_proxy 127.0.0.1:3456
 	}
 
+	@spa_html path / /index.html
+	header @spa_html Cache-Control "no-cache, no-store, must-revalidate"
+
+	@hashed_assets path /assets/*
+	header @hashed_assets Cache-Control "public, max-age=31536000, immutable"
+
 	handle {
 		try_files {path} /index.html
 		file_server

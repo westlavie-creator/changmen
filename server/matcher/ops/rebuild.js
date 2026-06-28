@@ -16,6 +16,7 @@ import { autoRegisterTeams } from "./auto_register_teams.js";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
 import { setClientMatchesFromRebuild } from "../../backend/core/db/store.js";
 import { isEmbeddedMatcher } from "../../backend/core/shared/matcher_mode.js";
+import store from "../../backend/core/esport-api/store.js";
 import {
   fetchMatcherRdsSnapshot,
   invalidateMatcherRdsSnapshot,
@@ -126,6 +127,7 @@ async function rebuildOnceImpl() {
   );
   if (isEmbeddedMatcher())
     setClientMatchesFromRebuild(info, now);
+  store.patchCollectorMatchClientIds(info);
   invalidateMatcherRdsSnapshot(["clientMatches"]);
 
   const matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(info);

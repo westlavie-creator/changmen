@@ -105,6 +105,16 @@ function pruneBetsForProvider(provider, activeMatchIds) {
   }
 }
 
+function linkedClientMatchId(row) {
+  if (!row || typeof row !== "object")
+    return null;
+  const raw = row.ClientMatchId ?? row.client_match_id ?? row.match_id;
+  if (raw == null || raw === "")
+    return null;
+  const id = Number(raw);
+  return Number.isFinite(id) ? id : null;
+}
+
 export function saveMatches(provider, matchs) {
   const now = Date.now();
   const next = {};
@@ -118,12 +128,42 @@ export function saveMatches(provider, matchs) {
     const start = Number(m.StartTime || 0);
     if (start > 0 && !a8StartTimeListAllowed(start))
       continue;
-    next[String(m.SourceMatchID)] = { ...m, provider, savedAt: now };
+    const sid = String(m.SourceMatchID);
+    const prevRow = prev?.[sid];
+    const linkedId = linkedClientMatchId(m) ?? linkedClientMatchId(prevRow);
+    next[sid] = {
+      ...m,
+      provider,
+      savedAt: now,
+      ...(linkedId != null
+        ? { ClientMatchId: linkedId, client_match_id: linkedId, match_id: linkedId }
+        : {}),
+    };
   }
   _matches[provider] = next;
   pruneBetsForProvider(provider, Object.keys(next));
   sb.writePlatformMatches(provider, Object.values(next));
   invalidatePlatformEnrichCache();
+}
+
+/** rebuild 完成后把 client_matches.matchs 回写到采集内存，避免下轮 align 重复 */
+export function patchCollectorMatchClientIds(clientRows) {
+  if (!Array.isArray(clientRows))
+    return;
+  for (const cm of clientRows) {
+    const cmId = Number(cm.ID ?? cm.id);
+    if (!Number.isFinite(cmId))
+      continue;
+    const links = cm.Matchs || cm.matchs || {};
+    for (const [plat, srcId] of Object.entries(links)) {
+      const row = _matches[plat]?.[String(srcId)];
+      if (!row)
+        continue;
+      row.ClientMatchId = cmId;
+      row.client_match_id = cmId;
+      row.match_id = cmId;
+    }
+  }
 }
 
 /** [A8 可证实] 客户端每次 saveBets 上报该场完整盘口快照，服务端整包替换（非按 Map 增量合并） */
@@ -456,6 +496,7 @@ const store = {
   getCollectorHotSnapshot,
   getCollectorFullSnapshot,
   hydrateCollectorHotSnapshot,
+  patchCollectorMatchClientIds,
   getMatchDefaultOdds,
   getDefaultOddsSingle,
   readJson,
