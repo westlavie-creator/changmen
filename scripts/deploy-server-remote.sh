@@ -69,6 +69,12 @@ DO_PM2_WEB=0
 DO_PM2_MATCHER=0
 NEED_DIST_UPLOAD=0
 
+enable_matcher_restart_if_standalone() {
+  if [ "$MATCHER_STANDALONE" = "1" ]; then
+    DO_PM2_MATCHER=1
+  fi
+}
+
 classify() {
   local raw="$1"
   local p="${raw#changmen/}"
@@ -77,19 +83,19 @@ classify() {
     package.json|package-lock.json)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
+      enable_matcher_restart_if_standalone
       ;;
     packages/shared/*|packages/api-contract/*|client/platform-adapter/*)
       DO_INSTALL_ROOT=1
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       DO_PM2_WEB=1
-      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
+      enable_matcher_restart_if_standalone
       ;;
     server/db/*|server/match-engine/*|devtools/platform-probes/*|server/team-resolver/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
+      enable_matcher_restart_if_standalone
       ;;
     server/backend/*)
       DO_INSTALL_ROOT=1
@@ -99,7 +105,7 @@ classify() {
     server/matcher/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
+      enable_matcher_restart_if_standalone
       ;;
     client/web/*)
       DO_INSTALL_FRONTEND=1
@@ -109,7 +115,7 @@ classify() {
       ;;
     ecosystem.config.cjs)
       DO_PM2_WEB=1
-      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
+      enable_matcher_restart_if_standalone
       ;;
     *.md|.gitignore)
       ;;
@@ -119,9 +125,10 @@ classify() {
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       DO_PM2_WEB=1
-      [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
+      enable_matcher_restart_if_standalone
       ;;
   esac
+  return 0
 }
 
 if [ "$DEPLOY_FULL" = "1" ]; then
@@ -130,7 +137,7 @@ if [ "$DEPLOY_FULL" = "1" ]; then
   DO_APP_BUILD=1
   DO_COMPILE_ROUTER=1
   DO_PM2_WEB=1
-  [ "$MATCHER_STANDALONE" = "1" ] && DO_PM2_MATCHER=1
+  enable_matcher_restart_if_standalone
 elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
   log "already up to date, skip install/build"
 else
@@ -212,8 +219,12 @@ if command -v pm2 >/dev/null 2>&1; then
     pm2 stop "$PM2_MATCHER" >/dev/null 2>&1 || true
   fi
   PM2_TARGETS=()
-  [ "$DO_PM2_WEB" = "1" ] && PM2_TARGETS+=("$PM2_WEB")
-  [ "$MATCHER_STANDALONE" = "1" ] && [ "$DO_PM2_MATCHER" = "1" ] && PM2_TARGETS+=("$PM2_MATCHER")
+  if [ "$DO_PM2_WEB" = "1" ]; then
+    PM2_TARGETS+=("$PM2_WEB")
+  fi
+  if [ "$MATCHER_STANDALONE" = "1" ] && [ "$DO_PM2_MATCHER" = "1" ]; then
+    PM2_TARGETS+=("$PM2_MATCHER")
+  fi
   if [ "${#PM2_TARGETS[@]}" -gt 0 ]; then
     log "pm2 restart ${PM2_TARGETS[*]}"
     pm2 restart "${PM2_TARGETS[@]}" --update-env
