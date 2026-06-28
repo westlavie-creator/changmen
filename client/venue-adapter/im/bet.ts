@@ -8,7 +8,7 @@ import { useMessageStore } from "@/stores/messageStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import type { LimitEntry } from "@/types/limit";
 import { imSportIdForGame, imSupportedGameIds, signImPayload } from "./sign";
-import { accountRelayPostJson } from "@/shared/platformHttp";
+import { accountImPost } from "./accountHttp";
 import { formatDateKey } from "@/shared/format";
 
 function compactTimestamp(d = new Date()): string {
@@ -130,7 +130,7 @@ async function extendImSession(account: PlatformAccount): Promise<void> {
     path,
   );
   const url = imAccountUrl(account, path);
-  await accountRelayPostJson(account, url, payload, buildImAccountHeaders(account));
+  await accountImPost(account, url, payload, buildImAccountHeaders(account));
 }
 
 function resolveImGameId(option: BetOption): number {
@@ -162,7 +162,7 @@ export const imProvider: PlatformProvider = {
         },
         path,
       );
-      const res = await accountRelayPostJson<ImBalanceResponse>(
+      const res = await accountImPost<ImBalanceResponse>(
         account,
         imAccountUrl(account, path),
         payload,
@@ -227,7 +227,7 @@ export const imProvider: PlatformProvider = {
     option.request = payload;
 
     try {
-      const res = await accountRelayPostJson<ImBetInfoResponse>(
+      const res = await accountImPost<ImBetInfoResponse>(
         account,
         imAccountUrl(account, path),
         payload,
@@ -339,13 +339,13 @@ export const imProvider: PlatformProvider = {
     ]);
 
     const [r0, r1] = await Promise.all([
-      accountRelayPostJson<ImBetStatementResponse>(
+      accountImPost<ImBetStatementResponse>(
         account,
         imAccountUrl(account, path),
         p0,
         buildImAccountHeaders(account),
       ),
-      accountRelayPostJson<ImBetStatementResponse>(
+      accountImPost<ImBetStatementResponse>(
         account,
         imAccountUrl(account, path),
         p1,
@@ -410,7 +410,7 @@ export const imProvider: PlatformProvider = {
     const path = "/api/PlaceBetV2";
     let res: { status: number; data: ImPlaceBetResponse };
     try {
-      res = await accountRelayPostJson<ImPlaceBetResponse>(
+      res = await accountImPost<ImPlaceBetResponse>(
         account,
         imAccountUrl(account, path),
         option.data,

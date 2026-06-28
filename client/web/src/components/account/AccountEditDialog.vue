@@ -1,17 +1,24 @@
 <script setup lang="ts">
 import type { AccountEditFormState } from "@/components/account/accountEditFormState";
-import type { PlatformId } from "@/types/esport";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import { ElLoading, ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { computed, reactive, ref, watch } from "vue";
 import {
-
   createAccountEditFormStateFromPlatformAccount,
 } from "@/components/account/accountEditFormState";
+import {
+  normalizePolymarketApiCreds,
+  normalizePolymarketTokenObject,
+  parsePastedAccountCredential,
+  parsePolymarketTokenObject,
+} from "@/components/account/accountCredentialParse";
+import {
+  createGatewayProbeAccount,
+  pickFastestGateway,
+} from "@/components/account/accountGatewayProbe";
 import AccountEditPanel from "@/components/account/AccountEditPanel.vue";
 import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAccount";
-import { getProvider } from "@/runtime/providers";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import {
@@ -192,53 +199,6 @@ async function pasteFromClipboard() {
   }
 }
 
-/** [A8 可证实] AccountInfoView：gateway.length>1 时对各 gateway 调 GetProvider().getBalance() 测速 */
-async function pickFastestGateway(
-  provider: PlatformId,
-  gateways: string[],
-  token: string,
-  referer: string,
-  proxyId?: number,
-): Promise<string> {
-  const ranked: { gate: string; time: number; success: boolean }[] = [];
-  for (const gate of gateways) {
-    const probe = new PlatformAccount({
-      accountId: 0,
-      provider,
-      playerName: "",
-      gateway: gate,
-      token,
-      referer,
-      proxyId,
-      currency: "CNY",
-      updateTime: Date.now(),
-    });
-    const platformProvider = getProvider(probe);
-    const probeBalance = platformProvider?.getBalance?.bind(platformProvider);
-    const started = Date.now();
-    let success = false;
-    try {
-      success = probeBalance ? Boolean(await probeBalance(probe)) : false;
-    }
-    catch {
-      success = false;
-    }
-    const ms = Date.now() - started;
-    ranked.push({ gate, time: ms, success });
-    ElMessage({
-      message: `${gate}，耗时：${ms}ms`,
-      type: success ? "success" : "error",
-      duration: 3000,
-    });
-  }
-  const fast = ranked.filter(r => r.success && r.time < 500);
-  const best
-    = fast.length > 0
-      ? fast[Math.floor(Math.random() * fast.length)]!
-      : ranked.filter(r => r.success).sort((a, b) => a.time - b.time)[0];
-  return best?.gate ?? "";
-}
-
 async function applyPaste() {
   if (!pasteRaw.value.trim())
     return;
@@ -274,11 +234,21 @@ async function applyPaste() {
 
     loading = ElLoading.service({ fullscreen: true, text: "正在检测最快网关" });
     const gate = await pickFastestGateway(
-      parsed.provider,
+      gateway => createGatewayProbeAccount({
+        provider: parsed.provider!,
+        gateway,
+        token: parsed.token ?? "",
+        referer: parsed.referer ?? "",
+        proxyId: form.proxyId === 0 ? undefined : form.proxyId,
+      }),
       gateways,
-      parsed.token ?? "",
-      parsed.referer ?? "",
-      form.proxyId === 0 ? undefined : form.proxyId,
+      ({ gate, time, success }) => {
+        ElMessage({
+          message: `${gate}，耗时：${time}ms`,
+          type: success ? "success" : "error",
+          duration: 3000,
+        });
+      },
     );
     if (!gate) {
       ElMessage.error("当前网关测试失败");
@@ -298,125 +268,8 @@ async function applyPaste() {
   }
 }
 
-function parsePastedAccountCredential(raw: string): {
-      provider?: PlatformId;
-      token?: string;
-      referer?: string;
-      gateway?: string | string[];
-} | undefined {
-  const parsed = tryParseJson(raw) ?? tryParseJson(decodeBase64Utf8(raw));
-  if (!parsed)
-    return undefined;
-  if (parsed.provider) {
-    const credential = parsed as ReturnType<typeof parsePastedAccountCredential>;
-    if (
-      credential?.provider === "Polymarket"
-      && !credential.token
-    ) {
-      credential.token = JSON.stringify({
-        walletAddress: parsed.walletAddress,
-        address: parsed.address,
-        funder: parsed.funder,
-        signatureType: parsed.signatureType,
-        privateKey: parsed.privateKey,
-        private_key: parsed.private_key,
-        apiKey: parsed.apiKey,
-        key: parsed.key,
-        secret: parsed.secret,
-        passphrase: parsed.passphrase,
-        apiCreds: parsed.apiCreds,
-        polyHeaders: parsed.polyHeaders,
-      });
-    }
-    return credential;
-  }
-  if (
-    parsed.walletAddress
-    || parsed.address
-    || parsed.apiCreds
-    || parsed.apiKey
-    || parsed.key
-    || parsed.secret
-    || parsed.passphrase
-    || parsed.privateKey
-    || parsed.private_key
-  ) {
-    return {
-      provider: "Polymarket",
-      gateway: "https://clob.polymarket.com",
-      token: JSON.stringify(parsed),
-      referer: "",
-    };
-  }
-  return undefined;
-}
-
-function tryParseJson(raw: string | undefined): Record<string, unknown> | undefined {
-  if (!raw)
-    return undefined;
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : undefined;
-  }
-  catch {
-    return undefined;
-  }
-}
-
-function decodeBase64Utf8(raw: string): string | undefined {
-  try {
-    const binary = window.atob(raw);
-    const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
-  }
-  catch {
-    return undefined;
-  }
-}
-
-function parsePolymarketTokenObject(raw: string | undefined): Record<string, unknown> | undefined {
-  const text = raw?.trim();
-  if (!text)
-    return {};
-  const parsed = tryParseJson(text) ?? tryParseJson(decodeBase64Utf8(text));
-  if (!parsed)
-    return undefined;
-
-  const nestedToken = typeof parsed.token === "string" ? parsed.token.trim() : "";
-  if (nestedToken) {
-    const nested = tryParseJson(nestedToken) ?? tryParseJson(decodeBase64Utf8(nestedToken));
-    if (nested)
-      return nested;
-  }
-
-  return parsed;
-}
-
-function normalizePolymarketTokenObject(token: Record<string, unknown>) {
-  const walletAddress = String(token.walletAddress ?? token.address ?? "");
-  const funder = String(token.funder ?? token.funderAddress ?? "");
-  if (walletAddress && funder && walletAddress.toLowerCase() !== funder.toLowerCase())
-    token.signatureType = "3";
-  else if (token.signatureType === undefined || token.signatureType === "")
-    token.signatureType = "3";
-  return token;
-}
-
 function normalizeRateConfig() {
   return normalizeAccountRateConfig(form.rateConfig);
-}
-
-function normalizePolymarketApiCreds(token: Record<string, unknown>): PolymarketApiCreds | undefined {
-  const rawApi = token.apiCreds;
-  const api = rawApi && typeof rawApi === "object"
-    ? rawApi as Record<string, unknown>
-    : token;
-  const apiKey = String(api.apiKey ?? api.key ?? api.api_key ?? "");
-  const secret = String(api.secret ?? api.apiSecret ?? api.api_secret ?? "");
-  const passphrase = String(api.passphrase ?? "");
-  if (!apiKey || !secret || !passphrase)
-    return undefined;
-  return { apiKey, secret, passphrase };
 }
 
 function polymarketCredentialFingerprint(): string {

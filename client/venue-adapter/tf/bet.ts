@@ -2,7 +2,7 @@ import type { BetOption } from "@/models/betOption";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@venue/contract";
-import { accountTfGet, accountTfPost } from "@/shared/platformHttp";
+import { accountTfGet, accountTfPost } from "./accountHttp";
 import { getCurrency } from "@/shared/currency";
 import { parseTfItemId, tfOddsPayload } from "./parse";
 import { PLATFORMS } from "@/shared/platform";

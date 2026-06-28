@@ -1,7 +1,7 @@
 /** [A8 可证实] `CYe` 经 `mr.post` + `Cr.http`；无 proxyId / forceDirect 时 `Zn.post`，否则 PROXY relay */
 
 import { a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
-import { accountIaPost } from "@/shared/platformHttp";
+import { accountIaPost } from "./accountHttp";
 import type { PlatformAccount } from "@/models/platformAccount";
 
 export const IA_BET_PLUGIN_REQUIRED_MSG =

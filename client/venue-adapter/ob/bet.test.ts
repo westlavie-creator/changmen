@@ -5,7 +5,7 @@ import { obProvider } from "./bet";
 
 const accountGet = vi.fn();
 const accountPostForm = vi.fn();
-vi.mock("@/shared/platformHttp", () => ({
+vi.mock("./accountHttp", () => ({
   accountGet: (...args: unknown[]) => accountGet(...args),
   accountPostForm: (...args: unknown[]) => accountPostForm(...args),
 }));

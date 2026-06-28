@@ -6,7 +6,7 @@ import {
   type VenueOrder,
   type VenueOrderStatus,
 } from "@venue/contract";
-import { accountGet, accountPostForm } from "@/shared/platformHttp";
+import { accountGet, accountPostForm } from "./accountHttp";
 import { getCurrency } from "@/shared/currency";
 import { PLATFORMS } from "@/shared/platform";
 import { useMessageStore } from "@/stores/messageStore";

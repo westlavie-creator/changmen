@@ -1,6 +1,6 @@
 import { BetResult } from "@/models/betResult";
 import type { PlatformProvider } from "@venue/contract";
-import { accountRelayPost } from "@/shared/platformHttp";
+import { accountHgPost } from "./accountHttp";
 import {
   hgTransformUrl,
   parseHgItemId,
@@ -25,7 +25,7 @@ async function hgPost(
   const token = parseHgToken(account.token);
   if (!account.gateway || !token) return "";
   const url = hgTransformUrl(account.gateway, token);
-  const res = await accountRelayPost<string>(account, url, formBody(params), HG_FORM_HEADERS);
+  const res = await accountHgPost<string>(account, url, formBody(params), HG_FORM_HEADERS);
   return typeof res.data === "string" ? res.data : String(res.data ?? "");
 }
 

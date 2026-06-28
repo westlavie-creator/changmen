@@ -2,7 +2,7 @@ import { BetResult } from "@/models/betResult";
 import type { PlatformProvider } from "@venue/contract";
 import { useMessageStore } from "@/stores/messageStore";
 import { useOddsStore } from "@/stores/oddsStore";
-import { accountRelayPost, accountRelayPostJson } from "@/shared/platformHttp";
+import { accountImtPost, accountImtPostJson } from "./accountHttp";
 import { buildImtAccountHeaders, imtAccountUrl } from "./auth";
 
 const IMT_STATUS: Record<number, string> = {
@@ -24,7 +24,7 @@ export const imtProvider: PlatformProvider = {
   async getBalance(account) {
     try {
       const url = imtAccountUrl(account, "/mobilesitev2/api/Member/GetMemberBalance");
-      const res = await accountRelayPost<{ StatusCode?: number; ab?: number }>(
+      const res = await accountImtPost<{ StatusCode?: number; ab?: number }>(
         account,
         url,
         "",
@@ -68,7 +68,7 @@ export const imtProvider: PlatformProvider = {
       wt: 1,
     };
 
-    const res = await accountRelayPostJson<ImtBetInfoResponse>(
+    const res = await accountImtPostJson<ImtBetInfoResponse>(
       account,
       url,
       payload,
@@ -150,7 +150,7 @@ export const imtProvider: PlatformProvider = {
 
   async betting(account, option) {
     const url = imtAccountUrl(account, "/mobilesitev2/api/PlaceBet/SinglePlaceBet");
-    const res = await accountRelayPostJson<{ StatusCode?: number; ao?: number; ab?: number }>(
+    const res = await accountImtPostJson<{ StatusCode?: number; ao?: number; ab?: number }>(
       account,
       url,
       option.data,

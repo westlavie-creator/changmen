@@ -134,7 +134,7 @@ startObCollector（约 3s 后 connectObMqtt）
 ### changmen
 
 - [`providers/obProvider.ts`](../../providers/obProvider.ts)：对齐 A8 的 `uid`、`secret_key`、`/game/bet` 表单结构。
-- 经 [`platformHttp.ts`](../../shared/platformHttp.ts) 的 `accountGet` / `accountPostForm`（可选 `proxyId`）。
+- 经 `client/venue-adapter/ob/accountHttp.ts` 的 `accountGet` / `accountPostForm`（底层仍复用通用 http-relay）。
 - 离线契约（无需账号）：`npm run test:ob-provider`（或 `npm run test:ob` 含 GetMatchs 形态校验）。
 
 | 项目 | A8 | changmen |

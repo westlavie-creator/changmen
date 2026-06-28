@@ -3,7 +3,7 @@ import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@venue/contract";
-import { accountGet, accountPostForm } from "@/shared/platformHttp";
+import { accountGet, accountPostForm } from "./accountHttp";
 import { formatDateKey, toFixed } from "@/shared/format";
 import { md5 } from "@/shared/md5";
 import { wait } from "@/shared/wait";

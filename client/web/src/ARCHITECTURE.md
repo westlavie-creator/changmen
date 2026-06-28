@@ -232,7 +232,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `mqtt.ts` | OB 专用：MQTT 订阅与增量处理 |
 | `auth.ts` / `ws.ts` 等 | 协议细节（按需，如 PB/TF/IMT） |
 
-`bet.ts` 使用 `@/shared/platformHttp`，**不**依赖 `collect.ts` 也不依赖 `platforms/shared/`。
+`bet.ts` 使用各 venue adapter 内的 `accountHttp.ts`，底层可复用 `@/shared/platformHttp` 的通用 http-relay；不要把平台特化 headers/paths 放回 shared。
 
 ### `platforms/shared/`
 

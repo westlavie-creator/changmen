@@ -5,7 +5,7 @@ import { iaGatewayPath, iaMrPost } from "./bet_transport";
 const accountIaPost = vi.fn();
 const a8PluginPost = vi.fn();
 
-vi.mock("@/shared/platformHttp", () => ({
+vi.mock("./accountHttp", () => ({
   accountIaPost: (...args: unknown[]) => accountIaPost(...args),
 }));
 

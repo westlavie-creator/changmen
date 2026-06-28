@@ -1,10 +1,10 @@
-import { BetResult } from "@/models/betResult";
-import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformProvider } from "@venue/contract";
-import { useOddsStore } from "@/stores/oddsStore";
-import { useMessageStore } from "@/stores/messageStore";
+import type { PlatformAccount } from "@/models/platformAccount";
+import { BetResult } from "@/models/betResult";
 import { toBracketForm } from "@/shared/bracketForm";
-import { accountRelayPost } from "@/shared/platformHttp";
+import { useMessageStore } from "@/stores/messageStore";
+import { useOddsStore } from "@/stores/oddsStore";
+import { accountSabaPost } from "./accountHttp";
 
 /** 对齐 A8 qf(t, e) */
 function sabaAccountUrl(account: PlatformAccount, path: string): string {
@@ -22,8 +22,9 @@ function sabaFormHeaders(): Record<string, string> {
 
 /** 采集为 oddsid:Home；A8 bundle 正则 es_123:Home，两者均支持 */
 function parseSabaItemId(itemId: string): { oddsId: number; side: "h" | "a" } | null {
-  const m = /^(?:es_)?([0-9]+):(Home|Away)$/i.exec(itemId);
-  if (!m) return null;
+  const m = /^(?:es_)?(\d+):(Home|Away)$/i.exec(itemId);
+  if (!m)
+    return null;
   return {
     oddsId: Number(m[1]),
     side: m[2]!.toLowerCase() === "home" ? "h" : "a",
@@ -66,8 +67,10 @@ interface SabaProcessBetResponse {
 }
 
 function toNum(v: unknown): number {
-  if (v == null) return 0;
-  if (typeof v === "number") return v;
+  if (v == null)
+    return 0;
+  if (typeof v === "number")
+    return v;
   if (typeof v === "object" && v !== null && typeof (v as { toNumber?: () => number }).toNumber === "function") {
     return (v as { toNumber: () => number }).toNumber();
   }
@@ -78,28 +81,31 @@ const oddsTypeInitByToken = new Set<string>();
 
 async function ensureSabaSession(account: PlatformAccount): Promise<void> {
   const token = account.token || "";
-  if (!token || !account.gateway) return;
+  if (!token || !account.gateway)
+    return;
 
   if (!oddsTypeInitByToken.has(token)) {
     try {
-      await accountRelayPost(
+      await accountSabaPost(
         account,
         sabaAccountUrl(account, "/Customer/OddsType?set=1"),
         "",
         sabaFormHeaders(),
       );
       oddsTypeInitByToken.add(token);
-    } catch (err) {
+    }
+    catch (err) {
       console.warn("[SABA] OddsType init failed", err);
     }
   }
 
   try {
-    await accountRelayPost(account, sabaAccountUrl(account, "/LoginCheckin/Index"), "", {
+    await accountSabaPost(account, sabaAccountUrl(account, "/LoginCheckin/Index"), "", {
       ...sabaFormHeaders(),
       username: "",
     });
-  } catch (err) {
+  }
+  catch (err) {
     console.warn("[SABA] LoginCheckin failed", err);
   }
 }
@@ -162,26 +168,30 @@ function buildTicketItem(
 
 export const sabaProvider: PlatformProvider = {
   async getBalance(account) {
-    if (!account.gateway || !account.token) return undefined;
+    if (!account.gateway || !account.token)
+      return undefined;
     try {
       try {
         const url = sabaAccountUrl(account, "/Customer/Balance");
-        const res = await accountRelayPost<SabaBalanceResponse>(
+        const res = await accountSabaPost<SabaBalanceResponse>(
           account,
           url,
           toBracketForm({ TimeZone: 8 }),
           sabaFormHeaders(),
         );
         const data = res.data?.Data;
-        if (!data) return undefined;
+        if (!data)
+          return undefined;
         return {
           currency: data.Curr || "CNY",
           balance: toNum(data.BCredit),
         };
-      } finally {
+      }
+      finally {
         await ensureSabaSession(account);
       }
-    } catch {
+    }
+    catch {
       return undefined;
     }
   },
@@ -201,8 +211,9 @@ export const sabaProvider: PlatformProvider = {
 
     let res: { status: number; data: SabaGetTicketsResponse };
     try {
-      res = await accountRelayPost<SabaGetTicketsResponse>(account, url, body, sabaFormHeaders());
-    } catch (err) {
+      res = await accountSabaPost<SabaGetTicketsResponse>(account, url, body, sabaFormHeaders());
+    }
+    catch (err) {
       option.response = err;
       option.checkError = err instanceof Error ? err.message : String(err);
       return option;
@@ -212,7 +223,8 @@ export const sabaProvider: PlatformProvider = {
     option.response = data;
     if (!data) {
       account.errorCount += 1;
-      if (account.errorCount >= 3) account.logout();
+      if (account.errorCount >= 3)
+        account.logout();
       return option;
     }
     account.errorCount = 0;
@@ -224,9 +236,9 @@ export const sabaProvider: PlatformProvider = {
     const ticket = data.Data[0]!;
     const common = ticket.Common;
     if (
-      (common && [46, 47].includes(common.ErrorCode ?? 0) &&
-        ["ClosePrice", "MarketClosed"].includes(common.ErrorMsg ?? "")) ||
-      ticket.OddsStatus !== "running"
+      (common && [46, 47].includes(common.ErrorCode ?? 0)
+        && ["ClosePrice", "MarketClosed"].includes(common.ErrorMsg ?? ""))
+      || ticket.OddsStatus !== "running"
     ) {
       option.checkError = ticket.Message || common?.ErrorMsg || "盘口已关闭";
       option.updateOdds(0);
@@ -250,7 +262,8 @@ export const sabaProvider: PlatformProvider = {
     if (option.odds < liveOdds || Math.abs(option.odds - liveOdds) <= 0.01) {
       option.odds = liveOdds;
       option.updateOdds(liveOdds);
-    } else {
+    }
+    else {
       option.checkError = ticket.Message || `赔率下降至 ${liveOdds}`;
       option.updateOdds(liveOdds);
       return option;
@@ -264,7 +277,7 @@ export const sabaProvider: PlatformProvider = {
 
   async betting(account, option) {
     const url = sabaAccountUrl(account, "/Betting/ProcessBet");
-    const res = await accountRelayPost<SabaProcessBetResponse>(
+    const res = await accountSabaPost<SabaProcessBetResponse>(
       account,
       url,
       toBracketForm(option.data ?? {}),
@@ -274,7 +287,8 @@ export const sabaProvider: PlatformProvider = {
     const item = body?.Data?.ItemList?.[0];
     const ok = body?.ErrorCode === 0 && item?.ErrorCode === 0;
     const message = item?.Message || (ok ? "下单成功" : "下单失败");
-    if (!ok) useOddsStore().updateOddsLock(account.provider, option.itemId, true);
+    if (!ok)
+      useOddsStore().updateOddsLock(account.provider, option.itemId, true);
     return new BetResult(account.provider, ok, message, option.data, body);
   },
 };

@@ -266,7 +266,7 @@ Ticket body（摘要）：
 | HTTP 采集 | `client/platform-adapter/tf/http.ts` |
 | 鉴权 | `shared/platforms/tfAuth.ts` |
 | 下注 | `providers/tfProvider.ts` |
-| 账号 HTTP | `shared/platformHttp.ts` `accountTfGet/Post` |
+| 账号 HTTP | `client/venue-adapter/tf/accountHttp.ts` `accountTfGet/Post` |
 | 游戏 ID | `packages/shared/catalog/game_catalog.json` → `platforms.TF` |
 
 ---

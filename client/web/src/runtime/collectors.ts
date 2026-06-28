@@ -1,6 +1,6 @@
 import type { CollectorFactory } from "@venue/contract";
 import type { PlatformId } from "@/types/esport";
-import { buildCollectorFactories } from "@venue/registry/adapters";
+import { buildCollectorFactories } from "@/runtime/venueAdapters";
 import { useCollectStore } from "@/stores/collectStore";
 
 type StopFn = () => void;

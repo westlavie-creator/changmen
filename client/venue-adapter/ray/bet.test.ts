@@ -4,7 +4,7 @@ import { PlatformAccount } from "@/models/platformAccount";
 import { rayProvider } from "./bet";
 
 const accountGet = vi.fn();
-vi.mock("@/shared/platformHttp", () => ({
+vi.mock("./accountHttp", () => ({
   accountGet: (...args: unknown[]) => accountGet(...args),
   accountPostForm: vi.fn(),
 }));

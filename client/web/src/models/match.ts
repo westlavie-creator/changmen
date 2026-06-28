@@ -5,7 +5,7 @@ import type { UserConfig } from "@/types/userConfig";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { buildOrderOptions } from "@/domain/betting";
 import { PLATFORMS } from "@/shared/platform";
-import { useOddsStore } from "@/stores/oddsStore";
+import { readVenueOdds } from "@/services/oddsAccess";
 
 export type BetSide = "Home" | "Away";
 
@@ -44,9 +44,8 @@ export class ViewBetItem {
 
   getOdds(side: BetSide) {
     // [A8 可证实] FQ 展示只经 updateOdds → fo.getOdds，不读 GetMatchs Sources.Status
-    const oddsStore = useOddsStore();
     const fallback = side === "Home" ? this.fallbackHomeOdds : this.fallbackAwayOdds;
-    return oddsStore.getOdds(this.type, this.getItemId(side), fallback) || 0;
+    return readVenueOdds(this.type, this.getItemId(side), fallback);
   }
 
   /** 对齐 A8 `FQ.updateOdds`：把 fo 当前值写回 fallback，供 maxOdds 等使用 */
