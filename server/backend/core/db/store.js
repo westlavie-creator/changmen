@@ -326,6 +326,14 @@ export function setClientMatchesFromRebuild(info, builtAt = Date.now()) {
   _matchesCacheLoadedAt = Date.now();
 }
 
+/** 人工归档后从内存移除，避免 embedded rebuild 仍读到已归档行 */
+export function removeClientMatchFromMemory(clientMatchId) {
+  const id = Number(clientMatchId);
+  if (!Number.isFinite(id))
+    return;
+  _clientMatches.delete(id);
+}
+
 /** matcher align / 内存快照：RDS 行形状 */
 export function getClientMatchRowsForSnapshot() {
   if (!_clientMatches.size)

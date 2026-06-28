@@ -166,6 +166,22 @@ export function patchCollectorMatchClientIds(clientRows) {
   }
 }
 
+/** 比赛已结束 / 人工归档：从采集内存移除平台行（与 RDS deletePlatformMatchRow 同步） */
+export function removeCollectorPlatformMatch(platform, sourceMatchId) {
+  const plat = String(platform || "").trim();
+  const sid = String(sourceMatchId ?? "").trim();
+  if (!plat || !sid)
+    return;
+  const bucket = _matches[plat];
+  if (bucket && sid in bucket)
+    delete bucket[sid];
+  if (bucket && !Object.keys(bucket).length)
+    delete _matches[plat];
+  delete _bets[`${plat}:${sid}`];
+  invalidatePlatformEnrichCache();
+  _dbTimersCache = null;
+}
+
 /** [A8 可证实] 客户端每次 saveBets 上报该场完整盘口快照，服务端整包替换（非按 Map 增量合并） */
 function normalizeSaveBetRows(bets) {
   return (bets || [])
@@ -497,6 +513,7 @@ const store = {
   getCollectorFullSnapshot,
   hydrateCollectorHotSnapshot,
   patchCollectorMatchClientIds,
+  removeCollectorPlatformMatch,
   getMatchDefaultOdds,
   getDefaultOddsSingle,
   readJson,

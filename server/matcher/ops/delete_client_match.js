@@ -1,4 +1,6 @@
 import * as db from "@changmen/db";
+import { removeClientMatchFromMemory } from "../../backend/core/db/store.js";
+import store from "../../backend/core/esport-api/store.js";
 import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 import { rebuildOnce } from "./rebuild.js";
 import "../lib/env.js";
@@ -47,10 +49,12 @@ async function clientMatchToHistory(clientMatchId) {
     catch (err) {
       throw new Error(`删除平台比赛失败 (${row.platform}:${row.source_match_id}): ${err.message}`);
     }
+    store.removeCollectorPlatformMatch(row.platform, row.source_match_id);
     deletedPlatforms.push(`${row.platform}:${row.source_match_id}`);
   }
 
   await db.archiveClientMatch(cmId);
+  removeClientMatchFromMemory(cmId);
 
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
   const rebuild = await rebuildOnce();
