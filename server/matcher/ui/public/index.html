@@ -866,12 +866,15 @@ function renderStats(d, displayCms) {
   const orphan = countOrphans(d.platforms, d.recommendations, d.clientMatches);
   const idMatched = displayCms.filter(cm => (cm.merge_mode?.mode || 'name') === 'id').length;
   const nameMatched = displayCms.length - idMatched;
+  const debug = d.debug || {};
   document.getElementById('stats-bar').innerHTML = `
+    <div class="stat"><div class="label">平台原始</div><div class="value c-slate">${debug.platformMatches ?? '—'}</div></div>
     <div class="stat"><div class="label">ID 已匹配</div><div class="value c-green">${idMatched}</div></div>
     <div class="stat"><div class="label">队名已匹配</div><div class="value c-amber">${nameMatched}</div></div>
     <div class="stat"><div class="label">推荐组</div><div class="value c-blue">${d.recommendations.length}</div></div>
     <div class="stat"><div class="label">未匹配场次</div><div class="value c-slate">${unmatched}</div></div>
     <div class="stat"><div class="label">无推荐</div><div class="value c-slate">${orphan}</div></div>
+    <div class="stat"><div class="label">诊断 linked/unmatched</div><div class="value c-slate">${debug.linkedPlatformMatches ?? '—'}/${debug.unmatchedPlatformMatches ?? '—'}</div></div>
   `;
   const recCountEl = document.getElementById('queue-rec-count');
   if (recCountEl) recCountEl.textContent = d.recommendations.length;

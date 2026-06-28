@@ -13,7 +13,12 @@ import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_clie
 import { rebuildOnce } from "../ops/rebuild.js";
 import { restoreClientMatch } from "../ops/restore_client_match.js";
 import { logMatcherApiErr, logMatcherApiOk, logMatcherApiWarn } from "./matcher_api_log.js";
-import { fetchMatcherDashboard, fetchMatcherHiddenClientMatches, getMatcherStatus } from "./matcher_data.js";
+import {
+  fetchMatcherDashboard,
+  fetchMatcherHiddenClientMatches,
+  getMatcherStatus,
+  summarizeMatcherDashboard,
+} from "./matcher_data.js";
 import { startMatcherProcess, stopMatcherProcess } from "./matcher_process.js";
 
 function registerMatcherApiRoutes(app) {
@@ -298,20 +303,30 @@ function registerMatcherApiRoutes(app) {
 
   app.get("/api/debug", async (req, res) => {
     try {
-      const data = await fetchPlatformMatchesDebugRows();
-      const summary = {};
-      for (const r of data || []) {
-        if (!summary[r.platform])
-          summary[r.platform] = { count: 0, sample: [] };
-        summary[r.platform].count++;
-        if (summary[r.platform].sample.length < 2) {
-          summary[r.platform].sample.push({ home: r.home, away: r.away, start_time: r.start_time });
+      const [dashboard, rdsRows] = await Promise.all([
+        fetchMatcherDashboard(),
+        fetchPlatformMatchesDebugRows(),
+      ]);
+      const rdsByPlatform = {};
+      for (const r of rdsRows || []) {
+        if (!rdsByPlatform[r.platform])
+          rdsByPlatform[r.platform] = { count: 0, sample: [] };
+        rdsByPlatform[r.platform].count++;
+        if (rdsByPlatform[r.platform].sample.length < 2) {
+          rdsByPlatform[r.platform].sample.push({ home: r.home, away: r.away, start_time: r.start_time });
         }
       }
-      res.json({ total: (data || []).length, byPlatform: summary });
+      res.json({
+        ok: true,
+        dashboard: summarizeMatcherDashboard(dashboard),
+        rds: {
+          total: (rdsRows || []).length,
+          byPlatform: rdsByPlatform,
+        },
+      });
     }
     catch (err) {
-      res.json({ error: err.message });
+      res.json({ ok: false, error: err.message });
     }
   });
 }

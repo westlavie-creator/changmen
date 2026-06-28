@@ -39,7 +39,7 @@ function recommendationGroupKey(m) {
 }
 
 function isPlatformMatchLinkedForRec(m, clientMatches) {
-  const visibleClientMatches = (clientMatches || []).filter(cm => Object.keys(cm.matchs || {}).length >= 2);
+  const visibleClientMatches = filterVisibleClientMatches(clientMatches);
   if (
     m?.match_id != null
     && m.match_id !== ""
@@ -50,6 +50,23 @@ function isPlatformMatchLinkedForRec(m, clientMatches) {
   return visibleClientMatches.some(
     cm => String(cm.matchs?.[m.platform] ?? "") === String(m.source_match_id),
   );
+}
+
+function filterVisibleClientMatches(clientMatches) {
+  return (clientMatches || []).filter(cm => Object.keys(cm.matchs || {}).length >= 2);
+}
+
+function resolveVisibleClientMatchId(m, clientMatches) {
+  const visibleClientMatches = filterVisibleClientMatches(clientMatches);
+  if (m?.match_id != null && m.match_id !== "") {
+    const directId = Number(m.match_id);
+    if (visibleClientMatches.some(cm => Number(cm.id) === directId))
+      return directId;
+  }
+  const cm = visibleClientMatches.find(
+    row => String(row.matchs?.[m.platform] ?? "") === String(m.source_match_id),
+  );
+  return cm ? Number(cm.id) : null;
 }
 
 function computeRecommendations(allMatches, clientMatches = []) {
@@ -184,8 +201,7 @@ function firstValue(...values) {
 
 function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
   const activeClientIds = new Set(
-    (clientMatches || [])
-      .filter(cm => Object.keys(cm.matchs || {}).length >= 2)
+    filterVisibleClientMatches(clientMatches)
       .map(cm => Number(cm.id))
       .filter(Number.isFinite),
   );
@@ -219,6 +235,79 @@ function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
   }
 
   return rows.sort((a, b) => normalizeEpochMs(a.start_time) - normalizeEpochMs(b.start_time));
+}
+
+function summarizeMatcherDashboard(data) {
+  const platformRows = Object.values(data?.platforms || {}).flat();
+  const clientMatches = data?.clientMatches || [];
+  const visibleClientMatches = filterVisibleClientMatches(clientMatches);
+  const recKeys = new Set();
+  for (const rec of data?.recommendations || []) {
+    for (const m of rec.matches || [])
+      recKeys.add(`${m.platform}:${m.source_match_id}`);
+  }
+
+  const byPlatform = {};
+  const unmatchedSamples = [];
+  const linkedSamples = [];
+  let linked = 0;
+  let unmatched = 0;
+  let inRecommendation = 0;
+
+  for (const m of platformRows) {
+    if (!byPlatform[m.platform])
+      byPlatform[m.platform] = { total: 0, linked: 0, unmatched: 0, inRecommendation: 0 };
+    const bucket = byPlatform[m.platform];
+    bucket.total++;
+    const cmId = resolveVisibleClientMatchId(m, clientMatches);
+    const recKey = `${m.platform}:${m.source_match_id}`;
+    const recHit = recKeys.has(recKey);
+    if (recHit) {
+      inRecommendation++;
+      bucket.inRecommendation++;
+    }
+    if (cmId != null) {
+      linked++;
+      bucket.linked++;
+      if (linkedSamples.length < 8) {
+        linkedSamples.push({
+          platform: m.platform,
+          source_match_id: m.source_match_id,
+          client_match_id: cmId,
+          home: m.home,
+          away: m.away,
+        });
+      }
+    }
+    else {
+      unmatched++;
+      bucket.unmatched++;
+      if (unmatchedSamples.length < 12) {
+        unmatchedSamples.push({
+          platform: m.platform,
+          source_match_id: m.source_match_id,
+          home: m.home,
+          away: m.away,
+          inRecommendation: recHit,
+        });
+      }
+    }
+  }
+
+  return {
+    platformMatches: platformRows.length,
+    clientMatches: clientMatches.length,
+    visibleClientMatches: visibleClientMatches.length,
+    recommendations: data?.recommendations?.length || 0,
+    linkedPlatformMatches: linked,
+    unmatchedPlatformMatches: unmatched,
+    inRecommendation,
+    byPlatform,
+    samples: {
+      unmatched: unmatchedSamples,
+      linked: linkedSamples,
+    },
+  };
 }
 
 async function fetchMatcherDashboard() {
@@ -276,7 +365,7 @@ async function fetchMatcherDashboard() {
   const teamMaps = await loadTeamMapsForMatcher(allMatches);
   const clientMatches = await enrichClientMatchesMergeMode(clientMatchesNorm, byPlatform, teamMaps);
 
-  return {
+  const dashboard = {
     platforms: byPlatform,
     clientMatches,
     hiddenClientMatches: [],
@@ -285,6 +374,8 @@ async function fetchMatcherDashboard() {
     teamMaps,
     updatedAt: Date.now(),
   };
+  dashboard.debug = summarizeMatcherDashboard(dashboard);
+  return dashboard;
 }
 
 async function fetchMatcherHiddenClientMatches() {
@@ -304,4 +395,5 @@ export {
   fetchMatcherDashboard,
   fetchMatcherHiddenClientMatches,
   getMatcherStatus,
+  summarizeMatcherDashboard,
 };
