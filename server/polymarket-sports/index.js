@@ -28,6 +28,9 @@ let gammaIndex = { byGameId: new Map(), bySlug: new Map() };
 let ws = null;
 let reconnectTimer = null;
 let stopped = false;
+/** @type {Map<number, number>} gameId -> last unresolved log ts */
+const unresolvedLogAt = new Map();
+const UNRESOLVED_LOG_MS = 60_000;
 
 async function refreshGamma() {
   try {
@@ -70,6 +73,14 @@ async function handleSportMessage(raw) {
 
   const clientMatchId = await resolveClientMatchIdFromSportMessage(msg, gammaIndex);
   if (!clientMatchId) {
+    const now = Date.now();
+    const last = unresolvedLogAt.get(gameId) || 0;
+    if (now - last >= UNRESOLVED_LOG_MS) {
+      unresolvedLogAt.set(gameId, now);
+      console.warn(
+        `[pm-sports] unresolved gameId=${gameId} slug=${msg.slug || ""} status=${msg.status || ""}`,
+      );
+    }
     return;
   }
 

@@ -33,7 +33,41 @@ export async function resolveClientMatchIdForPmSport({ slug, gameId, eventId }) 
     [PM_PLATFORM, [...keys]],
   );
   const matchId = rows[0]?.match_id;
-  return matchId != null ? Number(matchId) : null;
+  if (matchId != null)
+    return Number(matchId);
+
+  const { rows: cmRows } = await pool.query(
+    `SELECT id
+     FROM client_matches
+     WHERE matchs->>'Polymarket' = ANY($1::text[])
+     ORDER BY built_at DESC
+     LIMIT 1`,
+    [[...keys]],
+  );
+  const cmId = cmRows[0]?.id;
+  return cmId != null ? Number(cmId) : null;
+}
+
+/** @param {number[]} clientMatchIds @returns {Promise<Map<number, object>>} */
+export async function fetchPmSportByClientMatchIds(clientMatchIds) {
+  const pool = getPgPool();
+  const ids = [...new Set((clientMatchIds || []).map(Number).filter(Number.isFinite))];
+  if (!pool || !ids.length)
+    return new Map();
+
+  const { rows } = await pool.query(
+    `SELECT id, pm_sport
+     FROM client_matches
+     WHERE id = ANY($1::bigint[])
+       AND pm_sport IS NOT NULL`,
+    [ids],
+  );
+  const out = new Map();
+  for (const row of rows) {
+    if (row.pm_sport && typeof row.pm_sport === "object")
+      out.set(Number(row.id), row.pm_sport);
+  }
+  return out;
 }
 
 /** @param {number} clientMatchId @param {object} pmSport */

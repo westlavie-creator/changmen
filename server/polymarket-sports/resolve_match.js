@@ -1,4 +1,5 @@
 import { resolveClientMatchIdForPmSport } from "@changmen/db";
+import { fetchGammaEventBySlug } from "./gamma_map.js";
 
 /**
  * @param {object} msg Sports WS message
@@ -35,6 +36,19 @@ export async function resolveClientMatchIdFromSportMessage(msg, gammaIndex) {
     const row = gammaIndex.bySlug.get(slug);
     if (row?.id) {
       const hit = await resolveClientMatchIdForPmSport({ eventId: row.id, slug: row.slug, gameId });
+      if (hit)
+        return hit;
+    }
+  }
+
+  if (slug) {
+    const row = await fetchGammaEventBySlug(slug);
+    if (row?.id) {
+      const hit = await resolveClientMatchIdForPmSport({
+        eventId: row.id,
+        slug: row.slug || slug,
+        gameId: row.gameId ?? gameId,
+      });
       if (hit)
         return hit;
     }

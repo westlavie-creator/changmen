@@ -100,3 +100,31 @@ export async function refreshGammaEventIndex() {
 
   return { byGameId, bySlug };
 }
+
+/** Gamma 单条 slug 查询（keyset 索引未覆盖时的兜底） */
+export async function fetchGammaEventBySlug(slug) {
+  const s = String(slug || "").trim();
+  if (!s)
+    return null;
+  try {
+    const params = new URLSearchParams({ slug: s, limit: "1" });
+    const data = await fetchJson(`${POLYMARKET_GAMMA_API}/events?${params.toString()}`);
+    const events = unwrapEvents(data);
+    const event = events[0];
+    if (!event)
+      return null;
+    const id = event?.id != null ? String(event.id) : "";
+    const eventSlug = event?.slug != null ? String(event.slug) : s;
+    const gameIdRaw = event?.gameId;
+    const gameId = gameIdRaw != null ? Number(gameIdRaw) : null;
+    return {
+      id,
+      slug: eventSlug,
+      gameId: Number.isFinite(gameId) ? gameId : null,
+    };
+  }
+  catch (err) {
+    console.warn("[pm-sports] Gamma event by slug failed:", err.message);
+    return null;
+  }
+}

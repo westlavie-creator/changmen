@@ -462,8 +462,25 @@ export async function buildMatchList() {
 
   let matches = overlayLiveTimersOnMatches(fromDb, timers, enrich);
   matches = applyObLiveGateOnMatches(matches, _matches, timers);
+  matches = await overlayPmSportOnMatches(matches);
   defaultOddsApi.recordFromMatchList(matches);
   return matches;
+}
+
+/** 每次 GetMatchs 轻量补全 pm_sport（daemon 写入后不必等 matchMerge 全量重载） */
+async function overlayPmSportOnMatches(matches) {
+  if (!Array.isArray(matches) || !matches.length)
+    return matches || [];
+  const ids = matches.map(m => Number(m.ID)).filter(Number.isFinite);
+  const pmById = await sb.fetchPmSportByClientMatchIds(ids);
+  if (!pmById.size)
+    return matches;
+  return matches.map(m => {
+    const patch = pmById.get(Number(m.ID));
+    if (!patch)
+      return m;
+    return { ...m, PmSport: patch };
+  });
 }
 
 const fetchPlatformBetsForDefaultOdds = () => sb.fetchPlatformBets();

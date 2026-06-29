@@ -27,6 +27,7 @@ export {
 export {
   resolveClientMatchIdForPmSport,
   updateClientMatchPmSport,
+  fetchPmSportByClientMatchIds,
 } from "./rds/pm_sport_store.js";
 
 export {

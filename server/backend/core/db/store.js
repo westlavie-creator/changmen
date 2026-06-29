@@ -321,11 +321,21 @@ export function getClientMatches() {
 export function setClientMatchesFromMatchMerge(info, builtAt = Date.now()) {
   const ts = Number(builtAt) || Date.now();
   const list = Array.isArray(info) ? info : [];
+  const pmById = new Map();
+  for (const [id, m] of _clientMatches) {
+    if (m.PmSport)
+      pmById.set(id, m.PmSport);
+  }
   _clientMatches.clear();
-  for (const m of list)
-    _clientMatches.set(Number(m.ID), { ...m, built_at: ts });
-  _matchesCacheKey = `${ts}:${list.length}`;
-  _matchesCacheLoadedAt = Date.now();
+  for (const m of list) {
+    const id = Number(m.ID);
+    _clientMatches.set(id, {
+      ...m,
+      PmSport: m.PmSport ?? pmById.get(id),
+      built_at: ts,
+    });
+  }
+  _invalidateClientMatchesCache();
 }
 
 /** 人工归档后从内存移除，避免 embedded matchMerge 仍读到已归档行 */
@@ -375,9 +385,6 @@ export async function loadClientMatchesFromDb() {
   if (_clientMatches.size && _matchesCacheKey && !cacheStale) {
     const meta = await sb.fetchClientMatchesMeta();
     if (meta && _matchesCacheSignature(meta) === _matchesCacheKey) {
-      return getClientMatches();
-    }
-    if (meta === null) {
       return getClientMatches();
     }
   }
