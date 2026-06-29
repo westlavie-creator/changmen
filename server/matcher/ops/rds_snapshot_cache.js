@@ -151,8 +151,14 @@ async function fetchEmbeddedMemorySnapshot() {
   if (!clientRows.length)
     clientRows = await db.fetchClientMatches() || [];
 
+  let matchesRaw = cloneSnapshot(full.matchesRaw);
+  if (full?.hasMatches) {
+    const rdsMatchesRaw = await db.fetchPlatformMatches();
+    matchesRaw = mergePlatformMatchesSnapshot(rdsMatchesRaw, matchesRaw);
+  }
+
   return {
-    matchesRaw: cloneSnapshot(full.matchesRaw),
+    matchesRaw,
     bets: cloneSnapshot(full.bets),
     timers: cloneSnapshot(full.timers),
     clientRows: cloneSnapshot(clientRows),

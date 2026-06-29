@@ -1,5 +1,6 @@
 import * as db from "@changmen/db";
 import { rebuildOnce } from "./rebuild.js";
+import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 import "../lib/env.js";
 
 /**
@@ -23,6 +24,7 @@ async function restoreClientMatch(clientMatchId) {
   }
 
   // rebuild 会重新合并，不需要从 history 恢复行
+  invalidateMatcherRdsSnapshot(["clientMatches", "platformMatches"]);
   const rebuild = await rebuildOnce({ afterInFlight: true });
 
   return {

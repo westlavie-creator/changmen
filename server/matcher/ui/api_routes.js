@@ -10,6 +10,7 @@ import {
 } from "../link/index.js";
 import { clientMatchToHistory } from "../ops/delete_client_match.js";
 import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_client_matches.js";
+import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { rebuildOnce } from "../ops/rebuild.js";
 import { restoreClientMatch } from "../ops/restore_client_match.js";
 import { logMatcherApiErr, logMatcherApiOk, logMatcherApiWarn } from "./matcher_api_log.js";
@@ -177,6 +178,7 @@ function registerMatcherApiRoutes(app) {
     try {
       const { platform, reversed } = req.body || {};
       const update = await setClientMatchPlatformReverse(req.params.id, platform, !!reversed);
+      invalidateMatcherRdsSnapshot(["clientMatches"]);
       const body = {
         ok: true,
         ...update,
@@ -274,7 +276,7 @@ function registerMatcherApiRoutes(app) {
 
   app.post("/api/rebuild", async (req, res) => {
     try {
-      const result = await rebuildOnce();
+      const result = await rebuildOnce({ afterInFlight: true });
       const logLines = [`赛事合并完成 · client_matches ${result.matchCount} 场`];
       if (result.teamReg?.registered > 0) {
         logLines.push(`自动收录队伍 ${result.teamReg.registered} 条`);
