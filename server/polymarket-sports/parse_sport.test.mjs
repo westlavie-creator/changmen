@@ -9,6 +9,7 @@ import {
   formatInMapScore,
   formatMapsWinners,
   formatResolutionSource,
+  isPlaceholderInMapScore,
   parseEsportsScore,
   parsePeriodToCurrentMap,
 } from "./parse_sport.js";
@@ -62,6 +63,33 @@ test("buildPmSportLabel finished", () => {
 test("formatInMapScore trims leading zeros", () => {
   assert.equal(formatInMapScore("012-010"), "12-10");
   assert.equal(formatInMapScore("000-000"), "0-0");
+});
+
+test("isPlaceholderInMapScore detects PM Gamma CS2 placeholder", () => {
+  const liveMap2 = {
+    live: true,
+    currentMap: 2,
+    mapScore: { home: 1, away: 0 },
+  };
+  assert.equal(isPlaceholderInMapScore("0-0", liveMap2), true);
+  assert.equal(isPlaceholderInMapScore("000-000", liveMap2), true);
+  assert.equal(isPlaceholderInMapScore("8-5", liveMap2), false);
+  assert.equal(isPlaceholderInMapScore("0-0", { live: true, currentMap: 1, mapScore: { home: 0, away: 0 } }), false);
+});
+
+test("buildPmSportDisplayLine hides placeholder in-map on live map 2", () => {
+  const line = buildPmSportDisplayLine({
+    status: "running",
+    live: true,
+    ended: false,
+    period: "2/3",
+    currentMap: 2,
+    mapScore: { home: 1, away: 0 },
+    inMapScore: "0-0",
+    maps: [{ map: 1, winner: "home" }],
+  });
+  assert.match(line, /进行中 · 2\/3 · 1-0/);
+  assert.equal(line.includes("图内"), false);
 });
 
 test("formatMapsWinners compact line", () => {

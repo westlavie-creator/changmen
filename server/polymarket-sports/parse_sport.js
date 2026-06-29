@@ -33,6 +33,39 @@ export function parseEsportsScore(score) {
   };
 }
 
+/**
+ * PM Gamma 对 CS2 常返回占位 000-000 / 0-0（局内分不更新），非真实 0-0。
+ * 地图/局内比分仅来自 Polymarket，不从 XBet 等平台补数。
+ * @param {string | null | undefined} raw
+ * @param {object | null | undefined} [snapshot]
+ */
+export function isPlaceholderInMapScore(raw, snapshot = null) {
+  const s = String(raw ?? "").trim();
+  if (!s)
+    return true;
+  if (/^0{3}-0{3}$/.test(s))
+    return true;
+
+  const nums = s.split("-").map(v => Number.parseInt(v, 10));
+  if (nums.length < 2 || !nums.every(n => Number.isFinite(n)))
+    return false;
+  if (nums[0] !== 0 || nums[1] !== 0)
+    return false;
+
+  if (!snapshot?.live)
+    return false;
+
+  const ms = snapshot.mapScore || { home: 0, away: 0 };
+  if ((ms.home ?? 0) + (ms.away ?? 0) > 0)
+    return true;
+
+  const cm = Number(snapshot.currentMap);
+  if (Number.isFinite(cm) && cm > 1)
+    return true;
+
+  return false;
+}
+
 /** @param {string | null | undefined} raw */
 export function formatInMapScore(raw) {
   const s = String(raw || "").trim();
@@ -187,9 +220,11 @@ export function buildPmSportDisplayLine(snapshot) {
   if (statusPart)
     parts.push(statusPart);
 
-  const inMap = formatInMapScore(snapshot.inMapScore);
-  if (inMap)
-    parts.push(`图内${inMap}`);
+  if (!isPlaceholderInMapScore(snapshot.inMapScore, snapshot)) {
+    const inMap = formatInMapScore(snapshot.inMapScore);
+    if (inMap)
+      parts.push(`图内${inMap}`);
+  }
 
   const elapsed = formatElapsed(snapshot.elapsed);
   if (elapsed)
