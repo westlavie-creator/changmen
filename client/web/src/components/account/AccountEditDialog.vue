@@ -569,11 +569,14 @@ function unlockRate() {
             </span>
           </el-form-item>
           <template v-if="polyApiCreds">
+            <p class="poly-credential-readonly-hint">
+              以下凭证由「生成/验证 apiCreds」自动派生，只读不可手改；变更钱包/私钥后请重新生成。
+            </p>
             <el-form-item label="apiKey：">
               <el-input
                 :model-value="polyApiCreds.apiKey"
                 readonly
-                :disabled="readonly"
+                class="poly-credential-readonly"
                 style="font-family: monospace; font-size: 12px"
               />
             </el-form-item>
@@ -582,7 +585,7 @@ function unlockRate() {
                 :model-value="polyApiCreds.secret"
                 readonly
                 show-password
-                :disabled="readonly"
+                class="poly-credential-readonly"
                 style="font-family: monospace; font-size: 12px"
               />
             </el-form-item>
@@ -591,7 +594,7 @@ function unlockRate() {
                 :model-value="polyApiCreds.passphrase"
                 readonly
                 show-password
-                :disabled="readonly"
+                class="poly-credential-readonly"
                 style="font-family: monospace; font-size: 12px"
               />
             </el-form-item>
@@ -648,5 +651,23 @@ function unlockRate() {
   margin-left: 10px;
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+.poly-credential-readonly-hint {
+  margin: 0 0 10px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.poly-credential-readonly :deep(.el-input__wrapper) {
+  background-color: var(--el-fill-color-light);
+  box-shadow: 0 0 0 1px var(--el-border-color-lighter) inset;
+  cursor: default;
+}
+
+.poly-credential-readonly :deep(.el-input__inner) {
+  cursor: default;
+  color: var(--el-text-color-regular);
 }
 </style>
