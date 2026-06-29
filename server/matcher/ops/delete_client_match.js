@@ -57,7 +57,7 @@ async function clientMatchToHistory(clientMatchId) {
   removeClientMatchFromMemory(cmId);
 
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  const rebuild = await rebuildOnce();
+  const rebuild = await rebuildOnce({ afterInFlight: true });
 
   return {
     ok: true,

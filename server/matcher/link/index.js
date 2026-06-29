@@ -438,7 +438,7 @@ async function linkPlatformToPlatform({
 
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  const rebuild = await rebuildOnce();
+  const rebuild = await rebuildOnce({ afterInFlight: true });
 
   return {
     ok: true,
@@ -658,7 +658,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
 
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  const rebuild = await rebuildOnce();
+  const rebuild = await rebuildOnce({ afterInFlight: true });
 
   resolveClientGame(plat, pm.source_game_id);
 
@@ -819,7 +819,7 @@ async function linkPlatformTeams({ a, b }) {
   written.push(await upsertManualTeamPlatformMap(gbTeamId, platB, normB, nameB, gameCode));
 
   invalidateTeamMappings();
-  const rebuild = await rebuildOnce();
+  const rebuild = await rebuildOnce({ afterInFlight: true });
 
   const label = String(gbTeamId);
   const mapsWritten = written.filter(r => !r.skipped).length;

@@ -1,4 +1,5 @@
 import * as db from "@changmen/db";
+import store from "../../backend/core/esport-api/store.js";
 import { rebuildOnce } from "./rebuild.js";
 import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 
@@ -84,8 +85,13 @@ async function mergeClientMatches({ sourceClientMatchId, targetClientMatchId }) 
   await db.reassignPlatformMatchIds(sourceId, targetId);
   await db.deleteClientMatchRow(sourceId);
 
+  store.patchCollectorMatchClientIds([{
+    ID: targetId,
+    Matchs: { ...preview.target.matchs, ...preview.source.matchs },
+  }]);
+
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  const rebuild = await rebuildOnce();
+  const rebuild = await rebuildOnce({ afterInFlight: true });
 
   return {
     ok: true,

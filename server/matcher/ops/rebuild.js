@@ -138,9 +138,14 @@ async function rebuildOnceImpl() {
 }
 
 /** 进程内互斥：matcher 循环与 UI 人工 rebuild 共用同一 in-flight Promise */
-async function rebuildOnce() {
-  if (_rebuildInFlight)
+async function rebuildOnce(opts = {}) {
+  if (_rebuildInFlight) {
+    if (opts.afterInFlight) {
+      await _rebuildInFlight;
+      return rebuildOnce();
+    }
     return _rebuildInFlight;
+  }
   _rebuildInFlight = rebuildOnceImpl().finally(() => {
     _rebuildInFlight = null;
   });

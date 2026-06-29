@@ -23,7 +23,7 @@ async function restoreClientMatch(clientMatchId) {
   }
 
   // rebuild 会重新合并，不需要从 history 恢复行
-  const rebuild = await rebuildOnce();
+  const rebuild = await rebuildOnce({ afterInFlight: true });
 
   return {
     ok: true,
