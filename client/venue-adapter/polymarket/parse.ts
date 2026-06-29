@@ -215,6 +215,23 @@ function betNameOf(map: number): string {
   return map > 0 ? `[地图${map}] 获胜者` : "[全场] 获胜者";
 }
 
+/** 订单展示用文案（含已关闭 market，不做 open 过滤） */
+export function polymarketOrderContextFromMarket(market: PolymarketRawMarket): {
+  game: string;
+  match: string;
+  bet: string;
+} {
+  const map = mapNumberOf(market);
+  const game = mapPolymarketGameId(market) ?? "";
+  const match = String(market.question ?? market.title ?? market.slug ?? "").trim();
+  let bet = "";
+  if (map === 0)
+    bet = "全场";
+  else if (map !== null && map > 0)
+    bet = `地图${map}`;
+  return { game, match, bet };
+}
+
 /** Sports WS period "1/3" → 1；无效格式返回 null */
 export function parsePeriodToRound(period: string | undefined): number | null {
   if (!period)

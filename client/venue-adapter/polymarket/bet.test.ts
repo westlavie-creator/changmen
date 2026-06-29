@@ -450,3 +450,77 @@ describe("polymarketProvider.checkBet", () => {
     });
   });
 });
+
+describe("polymarketProvider.getOrders", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(polymarketPluginGet).mockReset();
+  });
+
+  test("fetches trades with L2 auth and maps to venue orders", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_100_000_000);
+    vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
+      if (url.includes("/data/trades")) {
+        return {
+          data: [{
+            taker_order_id: "0xtrade-order",
+            market: "0xcondition",
+            side: "BUY",
+            status: "TRADE_STATUS_CONFIRMED",
+            size: "2000000",
+            price: "0.5",
+            match_time: "1700000000",
+            outcome: "Team A",
+          }],
+          next_cursor: "LTE=",
+        };
+      }
+      if (url.includes("gamma-api.polymarket.com/markets")) {
+        return [{
+          condition_id: "0xcondition",
+          question: "Counter-Strike: Team A vs Team B",
+          sports_market_type: "child_moneyline",
+          group_item_title: "Map 1 Winner",
+          tags: [{ label: "cs2" }],
+        }];
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xabc",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+
+    const orders = await polymarketProvider.getOrders!(account);
+    expect(orders).toHaveLength(1);
+    expect(orders[0]).toMatchObject({
+      provider: "Polymarket",
+      orderId: "0xtrade-order",
+      status: "none",
+      betMoney: 1,
+      odds: 2,
+    });
+
+    const tradesCall = vi.mocked(polymarketPluginGet).mock.calls.find(([url]) => url.includes("/data/trades"));
+    expect(tradesCall?.[0]).toContain("/data/trades?after=");
+    expect(tradesCall?.[1]?.headers).toMatchObject({
+      POLY_ADDRESS: "0xabc",
+      POLY_API_KEY: "key-1",
+      POLY_PASSPHRASE: "pass-1",
+    });
+    expect(tradesCall?.[1]?.headers?.POLY_SIGNATURE).toBe(
+      expectedL2Signature("c2VjcmV0", "1700100000GET/data/trades"),
+    );
+  });
+
+  test("returns empty array when credentials are missing", async () => {
+    const orders = await polymarketProvider.getOrders!(accountWithToken("{}"));
+    expect(orders).toEqual([]);
+    expect(polymarketPluginGet).not.toHaveBeenCalled();
+  });
+});
