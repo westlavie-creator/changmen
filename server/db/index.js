@@ -83,6 +83,7 @@ export const {
   resolveClientMatchIdForPmSport,
   updateClientMatchPmSport,
   fetchPmSportByClientMatchIds,
+  fetchLinkedPolymarketPlatformMatches,
   fetchPlatformCollectorMeta,
   fetchPlatformMatches,
   fetchPlatformBets,

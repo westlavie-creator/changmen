@@ -6,7 +6,7 @@
   "description": "VPS daemon: Polymarket Sports WS → client_matches.pm_sport",
   "scripts": {
     "start": "node index.js",
-    "test": "node --test parse_sport.test.mjs"
+    "test": "node --test parse_sport.test.mjs gamma_map.test.mjs"
   },
   "dependencies": {
     "@changmen/db": "*",

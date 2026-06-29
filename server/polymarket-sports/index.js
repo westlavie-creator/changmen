@@ -7,20 +7,14 @@ import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { updateClientMatchPmSport } from "@changmen/db";
 import WebSocket from "ws";
 import { refreshGammaEventIndex } from "./gamma_map.js";
-import { buildPmSportSnapshot } from "./parse_sport.js";
+import { applyPmSportFromMessage, pollLinkedPmSportFromGamma } from "./gamma_poll.js";
 import { resolveClientMatchIdFromSportMessage } from "./resolve_match.js";
-import {
-  getLastWrittenSportState,
-  getPrevSportState,
-  setLastWrittenSportState,
-  setPrevSportState,
-  shouldWritePmSport,
-} from "./sport_state.js";
 
 loadChangmenEnv();
 
 const SPORTS_WS = "wss://sports-api.polymarket.com/ws";
 const GAMMA_REFRESH_MS = 60_000;
+const GAMMA_POLL_MS = 30_000;
 const RECONNECT_MS = 5_000;
 
 /** @type {{ byGameId: Map<number, object>, bySlug: Map<string, object> }} */
@@ -32,6 +26,10 @@ let stopped = false;
 const unresolvedLogAt = new Map();
 const UNRESOLVED_LOG_MS = 60_000;
 
+async function writePmSport(clientMatchId, snapshot) {
+  return updateClientMatchPmSport(clientMatchId, snapshot);
+}
+
 async function refreshGamma() {
   try {
     gammaIndex = await refreshGammaEventIndex();
@@ -41,6 +39,17 @@ async function refreshGamma() {
   }
   catch (err) {
     console.warn("[pm-sports] Gamma refresh failed:", err.message);
+  }
+}
+
+async function runGammaPoll() {
+  try {
+    const n = await pollLinkedPmSportFromGamma(writePmSport);
+    if (n)
+      console.log(`[pm-sports] Gamma poll wrote ${n} row(s)`);
+  }
+  catch (err) {
+    console.warn("[pm-sports] Gamma poll failed:", err.message);
   }
 }
 
@@ -63,14 +72,6 @@ async function handleSportMessage(raw) {
   if (!Number.isFinite(gameId))
     return;
 
-  const prev = getPrevSportState(gameId);
-  const snapshot = buildPmSportSnapshot(msg, prev);
-  setPrevSportState(gameId, snapshot);
-
-  const lastWritten = getLastWrittenSportState(gameId);
-  if (!shouldWritePmSport(snapshot, lastWritten))
-    return;
-
   const clientMatchId = await resolveClientMatchIdFromSportMessage(msg, gammaIndex);
   if (!clientMatchId) {
     const now = Date.now();
@@ -84,13 +85,17 @@ async function handleSportMessage(raw) {
     return;
   }
 
-  const ok = await updateClientMatchPmSport(clientMatchId, snapshot);
-  if (ok) {
-    setLastWrittenSportState(gameId, snapshot);
-    console.log(
-      `[pm-sports] cm=${clientMatchId} gameId=${gameId} ${snapshot.label || snapshot.status || ""}`,
-    );
-  }
+  const ok = await applyPmSportFromMessage(clientMatchId, msg, async (id, snapshot) => {
+    const written = await writePmSport(id, snapshot);
+    if (written) {
+      console.log(
+        `[pm-sports] ws cm=${id} gameId=${gameId} ${snapshot.label || snapshot.status || ""}`,
+      );
+    }
+    return written;
+  });
+  if (!ok)
+    return;
 }
 
 function connectWs() {
@@ -131,9 +136,13 @@ async function main() {
   }
 
   await refreshGamma();
+  await runGammaPoll();
   setInterval(() => {
     void refreshGamma();
   }, GAMMA_REFRESH_MS);
+  setInterval(() => {
+    void runGammaPoll();
+  }, GAMMA_POLL_MS);
 
   connectWs();
 

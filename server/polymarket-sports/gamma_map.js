@@ -134,12 +134,17 @@ export async function fetchGammaEventByGameId(gameId) {
     return null;
   try {
     const params = new URLSearchParams({
-      gameId: String(id),
+      game_id: String(id),
       limit: "1",
       closed: "false",
     });
     const data = await fetchJson(`${POLYMARKET_GAMMA_API}/events?${params.toString()}`);
     let event = unwrapEvents(data)[0];
+    if (event) {
+      const gid = event?.gameId != null ? Number(event.gameId) : null;
+      if (gid !== id)
+        event = null;
+    }
     if (!event) {
       const mParams = new URLSearchParams({ game_id: String(id), limit: "1" });
       const mData = await fetchJson(`${POLYMARKET_GAMMA_API}/markets?${mParams.toString()}`);
@@ -148,6 +153,11 @@ export async function fetchGammaEventByGameId(gameId) {
         event = market.events[0];
       else if (market?.event)
         event = market.event;
+      if (event) {
+        const gid = event?.gameId != null ? Number(event.gameId) : null;
+        if (gid !== id)
+          event = null;
+      }
     }
     return gammaEventRowFromApi(event);
   }
@@ -155,6 +165,60 @@ export async function fetchGammaEventByGameId(gameId) {
     console.warn("[pm-sports] Gamma event by gameId failed:", err.message);
     return null;
   }
+}
+
+/** GET /events/{id} — 轮询已关联 PM 场时用 */
+export async function fetchGammaEventById(eventId) {
+  const id = String(eventId || "").trim();
+  if (!id)
+    return null;
+  try {
+    const data = await fetchJson(`${POLYMARKET_GAMMA_API}/events/${encodeURIComponent(id)}`);
+    if (!data || typeof data !== "object")
+      return null;
+    return data;
+  }
+  catch (err) {
+    console.warn(`[pm-sports] Gamma event ${id} failed:`, err.message);
+    return null;
+  }
+}
+
+/** @param {string | undefined} title */
+export function parseTeamsFromGammaTitle(title) {
+  const raw = String(title || "").trim();
+  const m = /:\s*(.+?)\s+vs\s+(.+?)\s+\(/i.exec(raw);
+  if (!m)
+    return { home: "", away: "" };
+  return { home: m[1].trim(), away: m[2].trim() };
+}
+
+/** Gamma event → Sports WS 消息形状（供 parse_sport 复用） */
+export function gammaEventToSportMessage(event, teams = {}) {
+  if (!event || typeof event !== "object")
+    return null;
+  const home = String(teams.home || "").trim();
+  const away = String(teams.away || "").trim();
+  const parsed = parseTeamsFromGammaTitle(event.title);
+  const live = event.live === true;
+  const ended = event.ended === true;
+  const status = ended
+    ? "finished"
+    : live
+      ? "running"
+      : "not_started";
+  const gameId = event.gameId != null ? Number(event.gameId) : undefined;
+  return {
+    gameId: Number.isFinite(gameId) ? gameId : undefined,
+    slug: event.slug ? String(event.slug) : undefined,
+    homeTeam: home || parsed.home,
+    awayTeam: away || parsed.away,
+    status,
+    live,
+    ended,
+    score: event.score ? String(event.score) : undefined,
+    period: event.period ? String(event.period) : undefined,
+  };
 }
 
 /** Gamma 单条 slug 查询（keyset 索引未覆盖时的兜底） */

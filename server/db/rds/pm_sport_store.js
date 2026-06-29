@@ -87,3 +87,25 @@ export async function updateClientMatchPmSport(clientMatchId, pmSport) {
   );
   return rowCount > 0;
 }
+
+/** @returns {Promise<Array<{ source_match_id: string, match_id: number, home: string, away: string }>>} */
+export async function fetchLinkedPolymarketPlatformMatches() {
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+
+  const { rows } = await pool.query(
+    `SELECT source_match_id, match_id, home, away
+     FROM platform_matches
+     WHERE platform = $1
+       AND match_id IS NOT NULL
+     ORDER BY synced_at DESC`,
+    [PM_PLATFORM],
+  );
+  return rows.map(row => ({
+    source_match_id: String(row.source_match_id),
+    match_id: Number(row.match_id),
+    home: String(row.home || ""),
+    away: String(row.away || ""),
+  }));
+}

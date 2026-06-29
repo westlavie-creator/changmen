@@ -28,6 +28,7 @@ export {
   resolveClientMatchIdForPmSport,
   updateClientMatchPmSport,
   fetchPmSportByClientMatchIds,
+  fetchLinkedPolymarketPlatformMatches,
 } from "./rds/pm_sport_store.js";
 
 export {
