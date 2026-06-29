@@ -255,7 +255,8 @@ export function removeAccountForUser(userId, accountId) {
 async function fetchDbTimersCached() {
   if (isEmbeddedMatcher()) {
     const fromMem = buildLiveTimersSnapshot();
-    if (Object.keys(fromMem).length) {
+    // 勿因 OB: { timer: [] } 占位跳过 RDS（部署 purge 后空快照会永久挡住 DB）
+    if (hasNonEmptyLiveTimerSnapshot(fromMem)) {
       _dbTimersCache = fromMem;
       _dbTimersCacheAt = Date.now();
       return fromMem;
@@ -345,6 +346,13 @@ function buildLiveTimersSnapshot() {
       timers[provider] = cloneJson(row);
   }
   return timers;
+}
+
+/** 至少一个平台 timer 数组非空；空数组仍占位时须回退 RDS（embedded 热路径） */
+function hasNonEmptyLiveTimerSnapshot(timersByProvider) {
+  return Object.values(timersByProvider || {}).some(
+    block => Array.isArray(block?.timer) && block.timer.length > 0,
+  );
 }
 
 /** embedded matcher：rebuild / GetMatchs 读全量采集内存（不限 3 分钟 hot TTL） */

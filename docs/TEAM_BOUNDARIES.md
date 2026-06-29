@@ -37,6 +37,8 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 实现参考：`client/web/src/api/`、`@changmen/api-contract`。改响应形状须升契约包版本并通知对方团队。
 
+各 action 的**内存 vs RDS 读写策略**（M→A / M→S / R 等）见 [DATA_STORAGE.md § API 数据策略](./DATA_STORAGE.md#api-数据策略memory-first-与-rds)。改 Save* / GetMatchs / 订单 / 鉴权相关 API 时须对照该表，避免把强一致路径改成 fire-and-forget。
+
 ### `@changmen/api-contract`（阶段 1）
 
 | 导出 | 用途 |

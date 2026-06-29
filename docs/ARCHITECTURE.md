@@ -119,4 +119,5 @@ matcher rebuild → client_matches → Client_GetMatchs → web
 - [../CLAUDE.md](../CLAUDE.md) — 命令、表结构、采集间隔
 - [../server/backend/GAMES.md](../server/backend/GAMES.md) — 游戏 catalog
 - [../server/backend/MARKETS.md](../server/backend/MARKETS.md) — 玩法选盘
+- [DATA_STORAGE.md](./DATA_STORAGE.md) — RDS / JSON 边界与 **API 数据策略**（memory-first）
 - [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) — 生产部署
