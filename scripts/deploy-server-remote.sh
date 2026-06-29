@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="${DEPLOY_REPO:?DEPLOY_REPO is required}"
 PM2_WEB="${PM2_WEB:-gamebet-web}"
 PM2_MATCHER="${PM2_MATCHER:-gamebet-matcher}"
+PM2_PM_SPORTS="${PM2_PM_SPORTS:-gamebet-pm-sports}"
 DEPLOY_FULL="${DEPLOY_FULL:-0}"
 DEPLOY_SKIP_APP_BUILD="${DEPLOY_SKIP_APP_BUILD:-0}"
 MATCHER_EMBEDDED="${MATCHER_EMBEDDED:-1}"
@@ -67,6 +68,7 @@ DO_APP_BUILD=0
 DO_COMPILE_ROUTER=0
 DO_PM2_WEB=0
 DO_PM2_MATCHER=0
+DO_PM2_PM_SPORTS=0
 NEED_DIST_UPLOAD=0
 
 enable_matcher_restart_if_standalone() {
@@ -97,6 +99,11 @@ classify() {
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       enable_matcher_restart_if_standalone
+      ;;
+    server/polymarket-sports/*|server/realtime-hub/*)
+      DO_INSTALL_ROOT=1
+      DO_PM2_WEB=1
+      DO_PM2_PM_SPORTS=1
       ;;
     server/backend/*)
       DO_INSTALL_ROOT=1
@@ -139,6 +146,7 @@ if [ "$DEPLOY_FULL" = "1" ]; then
   DO_COMPILE_ROUTER=1
   DO_PM2_WEB=1
   enable_matcher_restart_if_standalone
+  DO_PM2_PM_SPORTS=1
 elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
   log "already up to date, skip install/build"
 else
@@ -227,6 +235,9 @@ if command -v pm2 >/dev/null 2>&1; then
   fi
   if [ "$MATCHER_STANDALONE" = "1" ] && [ "$DO_PM2_MATCHER" = "1" ]; then
     PM2_TARGETS+=("$PM2_MATCHER")
+  fi
+  if [ "$DO_PM2_PM_SPORTS" = "1" ]; then
+    PM2_TARGETS+=("$PM2_PM_SPORTS")
   fi
   if [ "${#PM2_TARGETS[@]}" -gt 0 ]; then
     log "pm2 restart ${PM2_TARGETS[*]}"
