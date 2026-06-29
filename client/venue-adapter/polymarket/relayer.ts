@@ -84,7 +84,35 @@ function joinSignUrl(signUrl: string): string {
   return url;
 }
 
+function formatRelayerError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  try {
+    const parsed = JSON.parse(raw) as { data?: { error?: string } };
+    const detail = parsed?.data?.error;
+    if (detail?.includes("does not match auth")) {
+      return "Relayer 鉴权地址与账号私钥不一致：Relayer API Key 仅适用于 key 绑定地址 = 私钥地址；changmen 多用户请用服务端 POLY_BUILDER_*（Builder HMAC）";
+    }
+    if (detail)
+      return detail;
+  }
+  catch {
+    /* not JSON */
+  }
+  return raw || "Polymarket Relayer 请求失败";
+}
+
 export async function preparePolymarketWallet(
+  input: PolymarketRelayerPrepareInput,
+): Promise<PolymarketRelayerPrepareResult> {
+  try {
+    return await preparePolymarketWalletInner(input);
+  }
+  catch (err) {
+    return { ok: false, message: formatRelayerError(err) };
+  }
+}
+
+async function preparePolymarketWalletInner(
   input: PolymarketRelayerPrepareInput,
 ): Promise<PolymarketRelayerPrepareResult> {
   const privateKey = normalizePrivateKey(input.privateKey);

@@ -26,10 +26,17 @@ export function loadPolymarketBuilderCreds() {
 }
 
 export function getPolymarketRelayerAuthMode() {
-  if (loadPolymarketRelayerApiKeyAuth())
+  const forced = String(process.env.POLYMARKET_RELAYER_AUTH || "").trim().toLowerCase();
+  if (forced === "relayer_api_key" && loadPolymarketRelayerApiKeyAuth())
     return "relayer_api_key";
+  if (forced === "builder_hmac" && loadPolymarketBuilderCreds())
+    return "builder_hmac";
+  // changmen 默认 Builder HMAC：Builder 代多用户付 gas。
+  // Relayer API Key 要求 key 地址 = 交易 from（用户私钥地址），仅适合单地址自用。
   if (loadPolymarketBuilderCreds())
     return "builder_hmac";
+  if (loadPolymarketRelayerApiKeyAuth())
+    return "relayer_api_key";
   return null;
 }
 

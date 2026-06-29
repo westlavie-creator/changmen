@@ -15,15 +15,18 @@ import {
  * @returns {{ ok: true, headers: Record<string, string> } | { ok: false, msg: string }}
  */
 export function signPolymarketRelayerRequest(payload) {
-  const relayerHeaders = loadPolymarketRelayerApiKeyAuth();
-  if (relayerHeaders)
-    return { ok: true, headers: { ...relayerHeaders } };
+  const mode = getPolymarketRelayerAuthMode();
+  if (mode === "relayer_api_key") {
+    const relayerHeaders = loadPolymarketRelayerApiKeyAuth();
+    if (relayerHeaders)
+      return { ok: true, headers: { ...relayerHeaders } };
+  }
 
   const creds = loadPolymarketBuilderCreds();
   if (!creds) {
     return {
       ok: false,
-      msg: "Polymarket Relayer 未配置（需 RELAYER_API_KEY + RELAYER_API_KEY_ADDRESS，或 POLY_BUILDER_* 三组）",
+      msg: "Polymarket Relayer 未配置（changmen 推荐 POLY_BUILDER_* 三组；或 RELAYER_API_KEY + 与用户私钥同地址的 ADDRESS）",
     };
   }
 

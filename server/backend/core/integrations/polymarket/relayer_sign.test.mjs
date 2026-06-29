@@ -65,3 +65,12 @@ it("getPolymarketRelayerPublicStatus reflects env", () => {
   assert.equal(s.configured, true);
   assert.equal(s.authMode, "relayer_api_key");
 });
+
+it("prefers builder_hmac when both relayer key and builder creds exist", () => {
+  process.env.RELAYER_API_KEY = "relayer-k";
+  process.env.RELAYER_API_KEY_ADDRESS = "0x0000000000000000000000000000000000000001";
+  process.env.POLY_BUILDER_API_KEY = "builder-k";
+  process.env.POLY_BUILDER_SECRET = "s";
+  process.env.POLY_BUILDER_PASSPHRASE = "p";
+  assert.equal(getPolymarketRelayerPublicStatus().authMode, "builder_hmac");
+});
