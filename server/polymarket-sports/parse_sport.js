@@ -33,73 +33,59 @@ export function parseEsportsScore(score) {
   };
 }
 
-/**
- * @param {object} msg Sports WS payload
- * @param {{ maps?: Array<{ map: number, winner: string, winnerName?: string }> } | null} prev
- */
-export function buildPmSportSnapshot(msg, prev = null) {
-  const parsed = parseEsportsScore(msg.score);
-  const currentMap = parsePeriodToCurrentMap(msg.period);
-  const homeTeam = String(msg.homeTeam || "").trim();
-  const awayTeam = String(msg.awayTeam || "").trim();
-  const status = String(msg.status || "").trim();
-  const ended = msg.ended === true || status.toLowerCase() === "finished" || status === "Final";
-  const live = msg.live === true;
-
-  const maps = Array.isArray(prev?.maps) ? [...prev.maps] : [];
-  const prevMapScore = prev?.mapScore || { home: 0, away: 0 };
-  const dh = parsed.mapScore.home - prevMapScore.home;
-  const da = parsed.mapScore.away - prevMapScore.away;
-
-  if (dh === 1 && da === 0)
-    appendMapWinner(maps, parsed.mapScore.home + parsed.mapScore.away, "home", homeTeam);
-  else if (da === 1 && dh === 0)
-    appendMapWinner(maps, parsed.mapScore.home + parsed.mapScore.away, "away", awayTeam);
-  else if (ended && maps.length < parsed.mapScore.home + parsed.mapScore.away) {
-    const total = parsed.mapScore.home + parsed.mapScore.away;
-    if (total > maps.length) {
-      const winner = parsed.mapScore.home > parsed.mapScore.away ? "home" : "away";
-      const winnerName = winner === "home" ? homeTeam : awayTeam;
-      appendMapWinner(maps, total, winner, winnerName);
-    }
-  }
-
-  const label = buildPmSportLabel({ status, ended, live, period: msg.period, mapScore: parsed.mapScore });
-
-  return {
-    gameId: msg.gameId != null ? Number(msg.gameId) : undefined,
-    slug: msg.slug ? String(msg.slug) : undefined,
-    leagueAbbreviation: msg.leagueAbbreviation ? String(msg.leagueAbbreviation) : undefined,
-    homeTeam,
-    awayTeam,
-    status,
-    live,
-    ended,
-    period: msg.period ? String(msg.period) : undefined,
-    currentMap,
-    bo: parsed.bo ?? undefined,
-    scoreRaw: msg.score ? String(msg.score) : undefined,
-    mapScore: parsed.mapScore,
-    maps,
-    elapsed: msg.elapsed ? String(msg.elapsed) : undefined,
-    finishedTimestamp: msg.finished_timestamp ? String(msg.finished_timestamp) : undefined,
-    label,
-    updatedAt: Date.now(),
-  };
+/** @param {string | null | undefined} raw */
+export function formatInMapScore(raw) {
+  const s = String(raw || "").trim();
+  if (!s)
+    return "";
+  const nums = s.split("-").map(v => Number.parseInt(v, 10));
+  if (nums.length >= 2 && nums.every(n => Number.isFinite(n)))
+    return `${nums[0]}-${nums[1]}`;
+  return s;
 }
 
-/** @param {Array<{ map: number, winner: string, winnerName?: string }>} maps */
-function appendMapWinner(maps, mapNo, winner, winnerName) {
-  if (!mapNo || mapNo <= 0)
-    return;
-  if (maps.some(row => row.map === mapNo))
-    return;
-  maps.push({
-    map: mapNo,
-    winner,
-    winnerName: winnerName || undefined,
-  });
-  maps.sort((a, b) => a.map - b.map);
+/** @param {string | null | undefined} raw */
+export function formatElapsed(raw) {
+  const s = String(raw || "").trim();
+  if (!s)
+    return "";
+  if (/^\d+$/.test(s)) {
+    const sec = Number(s);
+    if (!Number.isFinite(sec) || sec < 0)
+      return "";
+    const m = Math.floor(sec / 60);
+    const ss = sec % 60;
+    return `已进行${m}:${String(ss).padStart(2, "0")}`;
+  }
+  return `已进行${s}`;
+}
+
+/** @param {Array<{ map: number, winner: string }> | undefined} maps */
+export function formatMapsWinners(maps) {
+  if (!Array.isArray(maps) || !maps.length)
+    return "";
+  return maps.map((row) => {
+    const side = row.winner === "home" ? "主" : row.winner === "away" ? "客" : "?";
+    return `图${row.map}${side}`;
+  }).join("·");
+}
+
+/** @param {string | null | undefined} raw */
+export function formatResolutionSource(raw) {
+  const s = String(raw || "").trim();
+  if (!s)
+    return "";
+  try {
+    const u = new URL(s);
+    const host = u.hostname.replace(/^www\./i, "");
+    const path = u.pathname.replace(/\/$/, "");
+    if (path && path !== "/")
+      return `来源 ${host}${path}`;
+    return `来源 ${host}`;
+  }
+  catch {
+    return `来源 ${s.replace(/^https?:\/\//i, "").replace(/^www\./i, "")}`;
+  }
 }
 
 export function buildPmSportLabel({ status, ended, live, period, mapScore }) {
@@ -122,4 +108,112 @@ export function buildPmSportLabel({ status, ended, live, period, mapScore }) {
   if (status)
     return `${status} · ${scoreText}`;
   return scoreText;
+}
+
+/** 单行展示：状态 + 图内小分 + 已进行 + 每图胜者 + 来源 */
+export function buildPmSportDisplayLine(snapshot) {
+  if (!snapshot)
+    return "";
+  const parts = [];
+  const statusPart = buildPmSportLabel({
+    status: snapshot.status,
+    ended: snapshot.ended,
+    live: snapshot.live,
+    period: snapshot.period,
+    mapScore: snapshot.mapScore,
+  });
+  if (statusPart)
+    parts.push(statusPart);
+
+  const inMap = formatInMapScore(snapshot.inMapScore);
+  if (inMap)
+    parts.push(`图内${inMap}`);
+
+  const elapsed = formatElapsed(snapshot.elapsed);
+  if (elapsed)
+    parts.push(elapsed);
+
+  const maps = formatMapsWinners(snapshot.maps);
+  if (maps)
+    parts.push(maps);
+
+  const source = formatResolutionSource(snapshot.resolutionSource);
+  if (source)
+    parts.push(source);
+
+  return parts.join(" · ");
+}
+
+/**
+ * @param {object} msg Sports WS payload
+ * @param {{ maps?: Array<{ map: number, winner: string, winnerName?: string }>, resolutionSource?: string } | null} prev
+ */
+export function buildPmSportSnapshot(msg, prev = null) {
+  const parsed = parseEsportsScore(msg.score);
+  const currentMap = parsePeriodToCurrentMap(msg.period);
+  const homeTeam = String(msg.homeTeam || "").trim();
+  const awayTeam = String(msg.awayTeam || "").trim();
+  const status = String(msg.status || "").trim();
+  const ended = msg.ended === true || status.toLowerCase() === "finished" || status === "Final";
+  const live = msg.live === true;
+  const inMapScore = parsed.inMapScore ? String(parsed.inMapScore) : undefined;
+  const resolutionSource = msg.resolutionSource
+    ? String(msg.resolutionSource)
+    : (prev?.resolutionSource ? String(prev.resolutionSource) : undefined);
+
+  const maps = Array.isArray(prev?.maps) ? [...prev.maps] : [];
+  const prevMapScore = prev?.mapScore || { home: 0, away: 0 };
+  const dh = parsed.mapScore.home - prevMapScore.home;
+  const da = parsed.mapScore.away - prevMapScore.away;
+
+  if (dh === 1 && da === 0)
+    appendMapWinner(maps, parsed.mapScore.home + parsed.mapScore.away, "home", homeTeam);
+  else if (da === 1 && dh === 0)
+    appendMapWinner(maps, parsed.mapScore.home + parsed.mapScore.away, "away", awayTeam);
+  else if (ended && maps.length < parsed.mapScore.home + parsed.mapScore.away) {
+    const total = parsed.mapScore.home + parsed.mapScore.away;
+    if (total > maps.length) {
+      const winner = parsed.mapScore.home > parsed.mapScore.away ? "home" : "away";
+      const winnerName = winner === "home" ? homeTeam : awayTeam;
+      appendMapWinner(maps, total, winner, winnerName);
+    }
+  }
+
+  const snapshot = {
+    gameId: msg.gameId != null ? Number(msg.gameId) : undefined,
+    slug: msg.slug ? String(msg.slug) : undefined,
+    leagueAbbreviation: msg.leagueAbbreviation ? String(msg.leagueAbbreviation) : undefined,
+    homeTeam,
+    awayTeam,
+    status,
+    live,
+    ended,
+    period: msg.period ? String(msg.period) : undefined,
+    currentMap,
+    bo: parsed.bo ?? undefined,
+    scoreRaw: msg.score ? String(msg.score) : undefined,
+    inMapScore,
+    mapScore: parsed.mapScore,
+    maps,
+    elapsed: msg.elapsed ? String(msg.elapsed) : undefined,
+    finishedTimestamp: msg.finished_timestamp ? String(msg.finished_timestamp) : undefined,
+    resolutionSource,
+    updatedAt: Date.now(),
+  };
+  snapshot.label = buildPmSportDisplayLine(snapshot);
+  return snapshot;
+}
+
+/** @param {Array<{ map: number, winner: string, winnerName?: string }>} maps */
+function appendMapWinner(maps, mapNo, winner, winnerName) {
+  if (!mapNo || mapNo <= 0)
+    return;
+  if (maps.some(row => row.map === mapNo))
+    return;
+  maps.push({
+    map: mapNo,
+    winner,
+    winnerName: winnerName || undefined,
+  });
+  maps.sort((a, b) => a.map - b.map);
 }

@@ -218,6 +218,8 @@ export function gammaEventToSportMessage(event, teams = {}) {
     ended,
     score: event.score ? String(event.score) : undefined,
     period: event.period ? String(event.period) : undefined,
+    elapsed: event.elapsed != null ? String(event.elapsed) : undefined,
+    resolutionSource: event.resolutionSource ? String(event.resolutionSource) : undefined,
   };
 }
 

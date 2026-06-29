@@ -24,11 +24,13 @@ test("gammaEventToSportMessage maps live score", () => {
     period: "3/3",
     live: true,
     ended: false,
+    resolutionSource: "https://www.twitch.tv/valorant_tur",
   });
   assert.equal(msg?.status, "running");
   assert.equal(msg?.homeTeam, "Misa Esports");
+  assert.equal(msg?.resolutionSource, "https://www.twitch.tv/valorant_tur");
   const snap = buildPmSportSnapshot(msg);
-  assert.match(snap.label || "", /1-1/);
+  assert.match(snap.label || "", /来源 twitch\.tv/);
 });
 
 test("fetchGammaEventByGameId uses game_id filter", async () => {

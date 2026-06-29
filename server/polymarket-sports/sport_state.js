@@ -43,7 +43,7 @@ export function shouldWritePmSport(next, prevWritten) {
     return true;
   const keys = [
     "status", "live", "ended", "period", "scoreRaw", "label",
-    "finishedTimestamp", "currentMap",
+    "finishedTimestamp", "currentMap", "inMapScore", "elapsed", "resolutionSource",
   ];
   for (const key of keys) {
     if (next[key] !== prevWritten[key])
@@ -56,6 +56,8 @@ export function shouldWritePmSport(next, prevWritten) {
   if (nh !== ph || na !== pa)
     return true;
   if ((next.maps?.length || 0) !== (prevWritten.maps?.length || 0))
+    return true;
+  if (JSON.stringify(next.maps || []) !== JSON.stringify(prevWritten.maps || []))
     return true;
   return false;
 }

@@ -92,10 +92,13 @@ export interface PmSportSnapshot {
   currentMap?: number | null;
   bo?: number;
   scoreRaw?: string;
+  inMapScore?: string | null;
   mapScore?: { home: number; away: number };
   maps?: PmSportMapResult[];
   elapsed?: string;
   finishedTimestamp?: string;
+  /** 赛果/直播来源 URL（Gamma resolutionSource） */
+  resolutionSource?: string;
   label?: string;
   updatedAt?: number;
 }

@@ -12,13 +12,12 @@ const pmSportText = computed(() => {
   const s = props.match.pmSport;
   if (!s)
     return "";
-  if (s.label)
-    return s.label;
-  if (s.ended)
-    return "已结束";
-  if (s.status)
-    return s.status;
-  return "";
+  return s.label || s.status || (s.ended ? "已结束" : "");
+});
+
+const pmSportTitle = computed(() => {
+  const src = props.match.pmSport?.resolutionSource;
+  return src ? String(src) : undefined;
 });
 </script>
 
@@ -28,7 +27,7 @@ const pmSportText = computed(() => {
       <label v-if="match.game" class="game-tag">[{{ match.game }}]</label>
       <label v-html="match.title" />
       <label class="startTime">{{ formatDate(match.startAt) }}</label>
-      <label v-if="pmSportText" class="pm-sport">{{ pmSportText }}</label>
+      <label v-if="pmSportText" class="pm-sport" :title="pmSportTitle">{{ pmSportText }}</label>
     </div>
     <div class="bets flex flex-wrap">
       <BetRow v-for="bet in match.bets" :key="bet.id" :match="match" :bet="bet" />
