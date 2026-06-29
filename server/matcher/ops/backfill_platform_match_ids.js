@@ -1,5 +1,5 @@
 /**
- * rebuild 后将 client_matches.matchs 回写到 platform_matches.match_id。
+ * matchMerge 后将 client_matches.matchs 回写到 platform_matches.match_id。
  * 队名合并 / 人工确认 / ID 合并均覆盖；已有不同 match_id 的行跳过（保留人工锁定）。
  */
 
@@ -29,7 +29,7 @@ async function backfillPlatformMatchIdsForIdMerges(clientMatchRows) {
       if (conflict) {
         conflicts++;
         console.warn(
-          `[rebuild] platform_matches ${plat}:${srcId} 已有其他 match_id，跳过回写 ${cmId}`,
+          `[matchMerge] platform_matches ${plat}:${srcId} 已有其他 match_id，跳过回写 ${cmId}`,
         );
       }
       else if (did) {

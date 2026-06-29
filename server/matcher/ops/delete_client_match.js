@@ -2,7 +2,7 @@ import * as db from "@changmen/db";
 import { removeClientMatchFromMemory } from "../../backend/core/db/store.js";
 import store from "../../backend/core/esport-api/store.js";
 import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
-import { rebuildOnce } from "./rebuild.js";
+import { matchMergeOnce } from "./match_merge_once.js";
 import "../lib/env.js";
 
 /**
@@ -57,7 +57,7 @@ async function clientMatchToHistory(clientMatchId) {
   removeClientMatchFromMemory(cmId);
 
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  const rebuild = await rebuildOnce({ afterInFlight: true });
+  const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   return {
     ok: true,
@@ -66,7 +66,7 @@ async function clientMatchToHistory(clientMatchId) {
     archived: true,
     platformMatchesDeleted: deletedPlatforms.length,
     deletedPlatforms,
-    rebuild,
+    matchMerge,
   };
 }
 

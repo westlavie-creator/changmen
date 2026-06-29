@@ -145,7 +145,7 @@ export function saveMatches(provider, matchs) {
   invalidatePlatformEnrichCache();
 }
 
-/** rebuild 完成后把 client_matches.matchs 回写到采集内存，避免下轮 align 重复 */
+/** matchMerge 完成后把 client_matches.matchs 回写到采集内存，避免下轮 align 重复 */
 export function patchCollectorMatchClientIds(clientRows) {
   if (!Array.isArray(clientRows))
     return;
@@ -354,7 +354,7 @@ function hasNonEmptyLiveTimerSnapshot(timersByProvider) {
   );
 }
 
-/** embedded matcher：rebuild / GetMatchs 读全量采集内存（不限 3 分钟 hot TTL） */
+/** embedded matcher：matchMerge / GetMatchs 读全量采集内存（不限 3 分钟 hot TTL） */
 export function getCollectorFullSnapshot() {
   const matchesRaw = buildPlatformMatchesSnapshot();
   const bets = buildPlatformBetsSnapshot();
@@ -441,7 +441,7 @@ function sourceFromBetForOverlay(provider, b) {
 }
 
 export async function buildMatchList() {
-  // 只读 client_matches（gamebet_matcher rebuild 写入）；不在此做跨平台合并
+  // 只读 client_matches（gamebet_matcher matchMerge 写入）；不在此做跨平台合并
   const fromDb = await dbStore.loadClientMatchesFromDb();
   if (!fromDb?.length)
     return [];

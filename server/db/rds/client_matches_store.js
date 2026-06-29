@@ -1,11 +1,11 @@
 /**
- * client_matches 表 — matcher rebuild 写入与 backend 读取。
+ * client_matches 表 — matcher matchMerge 写入与 backend 读取。
  * 不再使用 list_status；过期行移入 client_matches_history。
  */
 
 import { _jsonb, _writeRds, getPgPool } from "./common.js";
 
-/** 上次写入的 id 集合，用于 diff-based 删除，避免每次 rebuild 全表扫描 */
+/** 上次写入的 id 集合，用于 diff-based 删除，避免每次 matchMerge 全表扫描 */
 let _lastWrittenIds = new Set();
 let _lastWrittenIdsInitPromise = null;
 let _lastWrittenIdsInitialized = false;
@@ -122,7 +122,7 @@ export function writeClientMatches(rows) {
   _writeRds(pool => _rdsUpsertClientMatches(pool, dedupedRows, toDelete), "client_matches");
 }
 
-/** await 写入完成（matcher / rebuild 使用，避免前端读到上一版） */
+/** await 写入完成（matcher / matchMerge 使用，避免前端读到上一版） */
 export async function writeClientMatchesAsync(rows) {
   const prepared = _prepareClientMatchWrite(rows);
   if (!prepared)

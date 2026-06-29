@@ -538,7 +538,7 @@ export async function writeLiveTimersAsync(provider, timer) {
   await _writeRdsAsync(pool => _rdsReplaceLiveTimersForPlatform(pool, plat, rows), "live_timers");
 }
 
-/** 运维/部署：清空某平台 live_timers（等待下次 saveLiveTimer 或 matcher rebuild 刷新 Round） */
+/** 运维/部署：清空某平台 live_timers（等待下次 saveLiveTimer 或 matcher matchMerge 刷新 Round） */
 export async function purgePlatformLiveTimers(platform) {
   const plat = String(platform || "").trim();
   if (!plat)

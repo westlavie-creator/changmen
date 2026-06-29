@@ -7,7 +7,7 @@
  *   rds/orders_store.js      — orders 读写与 SaveOrderBind
  *   rds/auth_store.js          — JWT 登录/刷新/会话
  *   rds/platform_collector_store.js — SaveMatch/SaveBet/LiveTimer 采集
- *   rds/client_matches_store.js — matcher rebuild 写入 client_matches
+ *   rds/client_matches_store.js — matcher matchMerge 写入 client_matches
  *   rds/profile_store.js 等  — profile / player / money_log
  *   rds/team_store.js        — canonical_teams / team_platform_maps
  *   rds/matcher_store.js     — matcher UI/ops 专用查询与运维 SQL

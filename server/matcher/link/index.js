@@ -10,7 +10,7 @@ import {
 import { getGameCodeForPlatformId, getPlatformGameId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 import store from "../../backend/core/esport-api/store.js";
-import { invalidateTeamPlugin, rebuildOnce } from "../ops/rebuild.js";
+import { invalidateTeamPlugin, matchMergeOnce } from "../ops/match_merge_once.js";
 import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { resetMatcherUiTeamPlugin } from "../ui/merge_mode.js";
 import "../lib/env.js";
@@ -449,7 +449,7 @@ async function linkPlatformToPlatform({
 
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  const rebuild = await rebuildOnce({ afterInFlight: true });
+  const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   return {
     ok: true,
@@ -465,7 +465,7 @@ async function linkPlatformToPlatform({
     teams: { home: refHome, away: refAway },
     title: refTeamsPick.title,
     teamMapsWritten: mapResults.filter(r => !r.skipped).length,
-    rebuild,
+    matchMerge,
     summary: `${preview.platform} #${preview.sourceMatchId} ↔ ${preview.targetPlatform} #${preview.targetMatchId} → 赛事 ${cmId}（${refHome} vs ${refAway}）`,
     logLines: [
       `平台赛事关联成功 · client_match #${cmId}`,
@@ -674,7 +674,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
 
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  const rebuild = await rebuildOnce({ afterInFlight: true });
+  const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   resolveClientGame(plat, pm.source_game_id);
 
@@ -690,7 +690,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
     platformTeams: { home: pmHomeName, away: pmAwayName },
     platformTeamIds: { home: String(pmHomeId || ""), away: String(pmAwayId || "") },
     teamMapsWritten: mapResults.filter(r => !r.skipped).length,
-    rebuild,
+    matchMerge,
     summary: `${plat} #${srcId} → 赛事 ${cmId}（${teams.home} vs ${teams.away}）`,
     logLines: [
       `赛事关联成功 · client_match #${cmId}`,
@@ -792,7 +792,7 @@ async function previewLinkPlatformTeams({ a, b }) {
   };
 }
 
-/** 关联两平台的队伍 ID 到同一 canonical，并 rebuild 使 ID 合并立即生效 */
+/** 关联两平台的队伍 ID 到同一 canonical，并 matchMerge 使 ID 合并立即生效 */
 async function linkPlatformTeams({ a, b }) {
   const { platA, platB, idA, idB, gameCode } = validateTeamLinkPair(a, b);
   const normA = normalizeStoredTeamPlatformId(platA, idA, { gameCode });
@@ -835,7 +835,7 @@ async function linkPlatformTeams({ a, b }) {
   written.push(await upsertManualTeamPlatformMap(gbTeamId, platB, normB, nameB, gameCode));
 
   invalidateTeamMappings();
-  const rebuild = await rebuildOnce({ afterInFlight: true });
+  const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   const label = String(gbTeamId);
   const mapsWritten = written.filter(r => !r.skipped).length;
@@ -866,14 +866,14 @@ async function linkPlatformTeams({ a, b }) {
     team_a: { platform: platA, platform_id: normA, platform_name: nameA },
     team_b: { platform: platB, platform_id: normB, platform_name: nameB },
     teamMapsWritten: mapsWritten,
-    rebuild,
+    matchMerge,
     summary: `${platA} · ${nameA} ↔ ${platB} · ${nameB} → gb_team_id ${label}`,
     logLines: [
       `队伍关联成功 · gb_team_id ${label}（${gbNote}）`,
       `A ${platA} · ${nameA} · 平台 id ${idA}`,
       `B ${platB} · ${nameB} · 平台 id ${idB}`,
       `游戏 ${gameCode} · 写入 team_platform_maps ${mapsWritten} 条 · updated_by 手动`,
-      `赛事合并完成 · client_matches ${rebuild.matchCount} 场`,
+      `赛事合并完成 · client_matches ${matchMerge.matchCount} 场`,
     ],
   };
 }

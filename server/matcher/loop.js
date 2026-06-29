@@ -4,7 +4,7 @@ import {
 } from "@changmen/db";
 import { MATCHER_CLIENT_MATCH_ARCHIVE_INTERVAL_MS, MATCHER_INTERVAL_MS } from "./lib/config.js";
 import { writeMatcherHeartbeat } from "./lib/heartbeat.js";
-import { ensureTeamPlugin, rebuildOnce } from "./ops/rebuild.js";
+import { ensureTeamPlugin, matchMergeOnce } from "./ops/match_merge_once.js";
 import "./lib/env.js";
 
 const INTERVAL_MS = MATCHER_INTERVAL_MS;
@@ -36,7 +36,7 @@ async function maybeArchiveStaleClientMatches() {
 
 export async function runMatcherOnce({ mode = loopMode } = {}) {
   await maybeArchiveStaleClientMatches();
-  const result = await rebuildOnce();
+  const result = await matchMergeOnce();
   writeMatcherHeartbeat({
     matchCount: result.matchCount,
     intervalMs: INTERVAL_MS,
@@ -53,7 +53,7 @@ export async function runMatcherOnce({ mode = loopMode } = {}) {
     .map(([key]) => key);
   const hotNote = hotParts.length ? ` · hot=${hotParts.join(",")}` : "";
   console.log(
-    `[matcher] ${new Date().toISOString()} rebuilt ${result.matchCount} matches${
+    `[matcher] ${new Date().toISOString()} matchMerge ${result.matchCount} matches${
       teamNote
     }${hotNote}${result.matchIdBackfill?.updated
       ? ` · backfill match_id ${result.matchIdBackfill.updated}`

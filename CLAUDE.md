@@ -106,7 +106,7 @@ changmen/
 │   └── platform-adapter/   @changmen/platform-adapter
 ├── server/
 │   ├── backend/            Node.js ESM，port 3560 (Win) / 3456
-│   ├── matcher/            rebuild 循环 + 人工关联 Web
+│   ├── matcher/            matchMerge 循环 + 人工关联 Web
 │   ├── db/                 @changmen/db
 │   ├── match-engine/       @changmen/match-engine
 │   └── team-resolver/      @changmen/team-resolver
@@ -126,7 +126,7 @@ changmen/
 | `server/backend` | `packages/shared/*`、`client/platform-adapter`（`adapter_paths` / `reqS`） |
 | `server/matcher` | `server/match-engine`、`packages/shared/*`、`@changmen/team-resolver` |
 
-`Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`（由 `server/matcher` rebuild 写入）。
+`Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`（由 `server/matcher` **matchMerge** 写入）。
 
 ### Backend (`server/backend/`)
 

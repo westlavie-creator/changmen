@@ -1,5 +1,5 @@
 /**
- * 独立比赛匹配进程（见 ops/rebuild.js 共用 rebuild 逻辑）。
+ * 独立比赛匹配进程（见 ops/match_merge_once.js）。
  */
 
 import { startMatcherLoop } from "./loop.js";

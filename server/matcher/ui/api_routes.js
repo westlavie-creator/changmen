@@ -11,7 +11,7 @@ import {
 import { clientMatchToHistory } from "../ops/delete_client_match.js";
 import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_client_matches.js";
 import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
-import { rebuildOnce } from "../ops/rebuild.js";
+import { matchMergeOnce } from "../ops/match_merge_once.js";
 import { restoreClientMatch } from "../ops/restore_client_match.js";
 import { logMatcherApiErr, logMatcherApiOk, logMatcherApiWarn } from "./matcher_api_log.js";
 import {
@@ -274,9 +274,9 @@ function registerMatcherApiRoutes(app) {
     }
   });
 
-  app.post("/api/rebuild", async (req, res) => {
+  async function handleMatchMergeRoute(req, res, routeLabel) {
     try {
-      const result = await rebuildOnce({ afterInFlight: true });
+      const result = await matchMergeOnce({ afterInFlight: true });
       const logLines = [`赛事合并完成 · client_matches ${result.matchCount} 场`];
       if (result.teamReg?.registered > 0) {
         logLines.push(`自动收录队伍 ${result.teamReg.registered} 条`);
@@ -290,18 +290,23 @@ function registerMatcherApiRoutes(app) {
       }
       const body = {
         ok: true,
-        rebuild: result,
+        matchMerge: result,
         summary: logLines[0],
         logLines,
       };
-      logMatcherApiOk("/api/rebuild", body);
+      logMatcherApiOk(routeLabel, body);
       res.json(body);
     }
     catch (err) {
-      logMatcherApiErr("/api/rebuild", err);
+      logMatcherApiErr(routeLabel, err);
       res.status(500).json({ ok: false, error: err.message });
     }
-  });
+  }
+
+  app.post("/api/match-merge", (req, res) => handleMatchMergeRoute(req, res, "/api/match-merge"));
+
+  /** @deprecated 使用 POST /api/match-merge */
+  app.post("/api/rebuild", (req, res) => handleMatchMergeRoute(req, res, "/api/rebuild"));
 
   app.get("/api/debug", async (req, res) => {
     try {

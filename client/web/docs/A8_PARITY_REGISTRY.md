@@ -184,7 +184,7 @@ HG / 跟单：⚠️ 见 [platforms/HG.md](./platforms/HG.md)、`hgFollowLoop`
 
 | 项 | 说明 | 标签 |
 |----|------|------|
-| RDS 表 platform_* / client_matches | 快照生命周期、rebuild、archive | 🔶 |
+| RDS 表 platform_* / client_matches | 快照生命周期、matchMerge、archive | 🔶 |
 | `*_history` 归档 | 过期/隐藏行移出活跃列表 | 🔶 |
 | legacy json 双写 | 开发用 | 🔶 |
 

@@ -152,14 +152,14 @@ async function readCached(key, meta, reader, opts = {}) {
       console.warn(`[matcher] ${key} RDS snapshot returned empty despite meta count=${meta.count}; using previous cache`);
       return cloneSnapshot(cur.value);
     }
-    throw new Error(`${key} RDS snapshot is empty but meta count=${meta.count}; abort rebuild`);
+    throw new Error(`${key} RDS snapshot is empty but meta count=${meta.count}; abort matchMerge`);
   }
   if (opts.critical && !meta && snapshotEmpty(value)) {
     if (cur?.value && !snapshotEmpty(cur.value)) {
       console.warn(`[matcher] ${key} RDS meta unavailable and snapshot empty; using previous cache`);
       return cloneSnapshot(cur.value);
     }
-    throw new Error(`${key} RDS snapshot is empty and meta unavailable; abort rebuild`);
+    throw new Error(`${key} RDS snapshot is empty and meta unavailable; abort matchMerge`);
   }
   entries.set(key, {
     sig,

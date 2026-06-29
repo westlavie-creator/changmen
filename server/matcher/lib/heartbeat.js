@@ -43,7 +43,7 @@ export function writeMatcherHeartbeat({ matchCount, intervalMs, builtAt, pid = p
   fs.writeFileSync(HEARTBEAT_PATH, JSON.stringify(payload));
 }
 
-/** 心跳 pid 指向当前面板/backend 进程（多为误写的 rebuild 心跳），不能当作匹配脚本 */
+/** 心跳 pid 指向当前面板/backend 进程（多为误写的 matchMerge 心跳），不能当作匹配脚本 */
 export function isPanelProcessHeartbeat(hb, panelPid = process.pid) {
   if (hb?.mode === "embedded")
     return false;

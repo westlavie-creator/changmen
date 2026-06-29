@@ -18,8 +18,9 @@ export function logMatcherApiOk(route, result) {
     lines.push(result.detail);
   }
 
-  if (result?.rebuild?.matchCount != null) {
-    lines.push(`rebuild 完成 · client_matches ${result.rebuild.matchCount} 场`);
+  const mm = result?.matchMerge ?? result?.rebuild;
+  if (mm?.matchCount != null) {
+    lines.push(`matchMerge 完成 · client_matches ${mm.matchCount} 场`);
   }
 
   console.log(`[matcher] ${route} ok`);

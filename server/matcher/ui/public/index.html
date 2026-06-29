@@ -413,7 +413,7 @@
     </span>
     <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动匹配循环</button>
     <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止匹配循环</button>
-    <button class="btn btn-sm btn-ghost" id="btn-rebuild-now" type="button" title="立即执行一次赛事合并（rebuild client_matches）">立即执行赛事合并</button>
+    <button class="btn btn-sm btn-ghost" id="btn-match-merge-now" type="button" title="立即执行一次赛事合并（matchMerge → client_matches）">立即执行赛事合并</button>
     <button class="btn btn-sm btn-ghost btn-hidden-toggle" id="btn-hidden-toggle" type="button" title="查看已归档的历史赛事">历史赛事 <span class="badge" id="hidden-count-badge">0</span></button>
     <span class="updated-at" id="updated-at">—</span>
     <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
@@ -528,7 +528,7 @@ let _pendingTeamLink = null;
 let _linkModalKind = null;
 let _linkSubmitting = false;
 let _matcherBusy = false;
-let _rebuildBusy = false;
+let _matchMergeBusy = false;
 let _unmatchedFilter = 'all';
 let _teamDrag = null;
 let _teamLinkBound = false;
@@ -1627,7 +1627,7 @@ function renderTeamLinkModalBody(preview) {
         </tr>
       </tbody>
     </table>
-    <p style="font-size:11px;color:#64748b;margin-top:8px">仅写入 team_platform_maps，不修改 client_matches；下次 matcher rebuild 后可能自动合并相关赛事。</p>
+    <p style="font-size:11px;color:#64748b;margin-top:8px">仅写入 team_platform_maps，不修改 client_matches；下次 matcher matchMerge 后可能自动合并相关赛事。</p>
   `;
 
   if (btn) {
@@ -1698,7 +1698,7 @@ function renderRecModalBody() {
         <span class="link-side-option-text"><strong>主客颠倒</strong> — 该平台主客与参考侧对调</span>
       </label>
     </div>
-    <p style="font-size:11px;color:#64748b;margin-top:8px">${dragLink ? '黄方点拖拽触发的赛事关联；纯队伍请用圆点。' : '写入本场赛事映射并 rebuild；纯队伍连线请用圆点拖拽。'}</p>
+    <p style="font-size:11px;color:#64748b;margin-top:8px">${dragLink ? '黄方点拖拽触发的赛事关联；纯队伍请用圆点。' : '写入本场赛事映射并 matchMerge；纯队伍连线请用圆点拖拽。'}</p>
   `;
 
   body.querySelectorAll('.link-side-option').forEach(label => {
@@ -2558,7 +2558,7 @@ async function restoreClientMatch(cmId) {
     `恢复展示？`,
     `#${cmId} ${cm?.title || ''}`,
     '',
-    '执行一次 rebuild 尝试恢复。',
+    '执行一次 matchMerge 尝试恢复。',
     '若无平台数据，赛事不会出现在列表中。',
   ].join('\n');
   if (!confirm(msg)) return;
@@ -2568,7 +2568,8 @@ async function restoreClientMatch(cmId) {
     if (data.alreadyVisible) {
       showActionToast(`赛事已在主列表\n#${cmId}`, 'warn', 4000);
     } else {
-      const rb = data.rebuild?.matchCount != null ? ` · rebuild ${data.rebuild.matchCount} 场` : '';
+      const mm = data.matchMerge ?? data.rebuild;
+      const rb = mm?.matchCount != null ? ` · matchMerge ${mm.matchCount} 场` : '';
       showActionToast([`已恢复展示`, `#${cmId} ${data.title || cm?.title || ''}${rb}`].join('\n'), 'ok', 5200);
     }
     _hiddenClientMatchesLoaded = false;
@@ -2610,7 +2611,7 @@ function matcherStatusLabel(s) {
 function setMatcherButtons(s) {
   const btnStart = document.getElementById('btn-matcher-start');
   const btnStop = document.getElementById('btn-matcher-stop');
-  const btnRebuild = document.getElementById('btn-rebuild-now');
+  const btnMatchMerge = document.getElementById('btn-match-merge-now');
   if (!btnStart || !btnStop) return;
   const embeddedMode = s?.matcherMode === 'embedded';
   btnStart.textContent = embeddedMode ? '启动内嵌循环' : '启动独立脚本';
@@ -2619,15 +2620,15 @@ function setMatcherButtons(s) {
   btnStop.title = embeddedMode ? '仅临时暂停当前 web 进程内的 matcher 循环；重启 gamebet-web 后会自动恢复。' : '停止独立 matcher 脚本或 PM2 进程。';
   btnStart.style.display = s?.canStart ? '' : 'none';
   btnStop.style.display = s?.canStop ? '' : 'none';
-  btnStart.disabled = _matcherBusy || _rebuildBusy;
-  btnStop.disabled = _matcherBusy || _rebuildBusy;
-  if (btnRebuild) btnRebuild.disabled = _rebuildBusy || _matcherBusy;
+  btnStart.disabled = _matcherBusy || _matchMergeBusy;
+  btnStop.disabled = _matcherBusy || _matchMergeBusy;
+  if (btnMatchMerge) btnMatchMerge.disabled = _matchMergeBusy || _matcherBusy;
 }
 
-async function runRebuildNow() {
-  if (_rebuildBusy || _matcherBusy) return;
-  const btn = document.getElementById('btn-rebuild-now');
-  _rebuildBusy = true;
+async function runMatchMergeNow() {
+  if (_matchMergeBusy || _matcherBusy) return;
+  const btn = document.getElementById('btn-match-merge-now');
+  _matchMergeBusy = true;
   const prevText = btn?.textContent;
   if (btn) {
     btn.disabled = true;
@@ -2635,7 +2636,7 @@ async function runRebuildNow() {
   }
   setMatcherButtons(null);
   try {
-    const { res, data } = await fetchJson('/api/rebuild', { method: 'POST' });
+    const { res, data } = await fetchJson('/api/match-merge', { method: 'POST' });
     if (!res.ok || data.error) throw new Error(data.error || '赛事合并失败');
     showActionToast(formatApiResultToast(data, '赛事合并完成'), 'ok', 5200);
     await load();
@@ -2644,7 +2645,7 @@ async function runRebuildNow() {
     showActionToast(`赛事合并失败\n${err.message}`, 'err', 6000);
     await refreshMatcherStatus();
   } finally {
-    _rebuildBusy = false;
+    _matchMergeBusy = false;
     if (btn) {
       btn.textContent = prevText || '立即执行赛事合并';
     }
@@ -2653,7 +2654,7 @@ async function runRebuildNow() {
 }
 
 async function matcherAction(action) {
-  if (_matcherBusy || _rebuildBusy) return;
+  if (_matcherBusy || _matchMergeBusy) return;
   _matcherBusy = true;
   try {
     const { res, data } = await fetchJson('/api/matcher/' + action, { method: 'POST' });
@@ -2676,7 +2677,7 @@ async function matcherAction(action) {
 }
 
 async function toggleClientMatchPlatformReverse(btn) {
-  if (_reverseSubmitting || _rebuildBusy || _matcherBusy) return;
+  if (_reverseSubmitting || _matchMergeBusy || _matcherBusy) return;
   const cmId = btn?.dataset?.cmId;
   const platform = btn?.dataset?.platform;
   const reversed = btn?.dataset?.reversed === '1';
@@ -2759,7 +2760,7 @@ async function load() {
 
 document.getElementById('btn-matcher-start')?.addEventListener('click', () => matcherAction('start'));
 document.getElementById('btn-matcher-stop')?.addEventListener('click', () => matcherAction('stop'));
-document.getElementById('btn-rebuild-now')?.addEventListener('click', runRebuildNow);
+document.getElementById('btn-match-merge-now')?.addEventListener('click', runMatchMergeNow);
 document.getElementById('btn-hidden-toggle')?.addEventListener('click', toggleHiddenPanel);
 document.getElementById('link-modal-cancel')?.addEventListener('click', hideLinkModal);
 document.getElementById('link-modal-confirm')?.addEventListener('click', confirmLinkModal);

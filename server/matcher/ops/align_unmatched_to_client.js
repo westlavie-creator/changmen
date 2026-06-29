@@ -13,7 +13,7 @@ import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 
 /**
- * rebuild 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。
+ * matchMerge 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。
  * 1) gb_team_id 键（match:id:…）— 两队均有映射时不再回落队名
  * 2) 队名归一 + 开赛时间 ±15 分钟（match:name:…）
  * 命中后在内存写入 ClientMatchId，后续走 applyManualMatchLinks。

@@ -93,7 +93,7 @@ setTimeout(() => {
   });
 }, 20000);
 
-// 预填 _lastWrittenIds，使首次 rebuild 的差量删除能覆盖上次遗留的 client_matches 行
+// 预填 _lastWrittenIds，使首次 matchMerge 的差量删除能覆盖上次遗留的 client_matches 行
 initLastWrittenIds().catch((err) => {
   console.warn("[store] initLastWrittenIds failed:", err.message);
 });

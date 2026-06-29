@@ -90,7 +90,7 @@ function waitForMatcherReady(child) {
           resolve({
             ok: true,
             pid: child.pid,
-            warning: "脚本已启动，首次 rebuild 较慢，心跳稍后写入",
+            warning: "脚本已启动，首次 matchMerge 较慢，心跳稍后写入",
           });
         }
         else {

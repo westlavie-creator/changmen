@@ -14,7 +14,7 @@ import {
 } from "./align_unmatched_to_client.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
-import { setClientMatchesFromRebuild } from "../../backend/core/db/store.js";
+import { setClientMatchesFromMatchMerge } from "../../backend/core/db/store.js";
 import { isEmbeddedMatcher } from "../../backend/core/shared/matcher_mode.js";
 import store from "../../backend/core/esport-api/store.js";
 import {
@@ -24,17 +24,17 @@ import {
 import "../lib/env.js";
 
 /**
- * 单次 rebuild：供 matcher 与人工关联 API 共用。
+ * 单次 matchMerge：读 platform 快照 → 跨平台合并 → 写 client_matches。
  */
 
 let _pluginReady = null;
-let _rebuildInFlight = null;
+let _matchMergeInFlight = null;
 
 function resetTeamPluginCache() {
   _pluginReady = null;
 }
 
-/** 队伍映射 / canonical 写入后调用，使下次 rebuild 重载 team-resolver */
+/** 队伍映射 / canonical 写入后调用，使下次 matchMerge 重载 team-resolver */
 function invalidateTeamPlugin() {
   resetTeamPluginCache();
 }
@@ -61,13 +61,13 @@ async function ensureTeamPlugin() {
       setTeamPlugin(plugin);
     }
     catch (err) {
-      console.warn("[rebuild] team-resolver 加载失败:", err.message);
+      console.warn("[matchMerge] team-resolver 加载失败:", err.message);
     }
   })();
   return _pluginReady;
 }
 
-async function rebuildOnceImpl() {
+async function matchMergeOnceImpl() {
   await db.initLastWrittenIds();
 
   const { matchesRaw, bets, timers, clientRows, alignClientRows, hotCollector } = await fetchMatcherRdsSnapshot();
@@ -89,7 +89,7 @@ async function rebuildOnceImpl() {
     : { alignedById: 0, alignedByName: 0 };
   if (alignStats.alignedById || alignStats.alignedByName) {
     console.log(
-      `[rebuild] 未匹配对齐 client_matches · ID ${alignStats.alignedById} · 队名+时间 ${alignStats.alignedByName}`,
+      `[matchMerge] 未匹配对齐 client_matches · ID ${alignStats.alignedById} · 队名+时间 ${alignStats.alignedByName}`,
     );
   }
 
@@ -98,7 +98,7 @@ async function rebuildOnceImpl() {
   if (!db.isMatcherStoreReady()) {
     const { script } = db.getDbMode();
     throw new Error(
-      `无法 rebuild：数据库未配置（GAMEBET_DB_SCRIPT=${script}）。`
+      `无法 matchMerge：数据库未配置（GAMEBET_DB_SCRIPT=${script}）。`
       + " 请配置 DATABASE_URL（或 DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL）。",
     );
   }
@@ -126,7 +126,7 @@ async function rebuildOnceImpl() {
     })),
   );
   if (isEmbeddedMatcher())
-    setClientMatchesFromRebuild(info, now);
+    setClientMatchesFromMatchMerge(info, now);
   store.patchCollectorMatchClientIds(info);
   invalidateMatcherRdsSnapshot(["clientMatches"]);
 
@@ -137,19 +137,19 @@ async function rebuildOnceImpl() {
   return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, nameSync, alignStats, hotCollector };
 }
 
-/** 进程内互斥：matcher 循环与 UI 人工 rebuild 共用同一 in-flight Promise */
-async function rebuildOnce(opts = {}) {
-  if (_rebuildInFlight) {
+/** 进程内互斥：matcher 循环与 UI 人工 matchMerge 共用同一 in-flight Promise */
+async function matchMergeOnce(opts = {}) {
+  if (_matchMergeInFlight) {
     if (opts.afterInFlight) {
-      await _rebuildInFlight;
-      return rebuildOnce();
+      await _matchMergeInFlight;
+      return matchMergeOnce();
     }
-    return _rebuildInFlight;
+    return _matchMergeInFlight;
   }
-  _rebuildInFlight = rebuildOnceImpl().finally(() => {
-    _rebuildInFlight = null;
+  _matchMergeInFlight = matchMergeOnceImpl().finally(() => {
+    _matchMergeInFlight = null;
   });
-  return _rebuildInFlight;
+  return _matchMergeInFlight;
 }
 
-export { ensureTeamPlugin, invalidateTeamPlugin, rebuildOnce, resetTeamPluginCache };
+export { ensureTeamPlugin, invalidateTeamPlugin, matchMergeOnce, resetTeamPluginCache };

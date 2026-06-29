@@ -63,7 +63,7 @@ else {
   console.log("  matchs:      ", JSON.stringify(row.matchs));
   console.log("\n✅ Web 应可见（存在于 client_matches 活跃表）");
   if (platforms.length < 2) {
-    console.log("⚠️  平台数 < 2：下次 rebuild 可能被 filterMultiPlatform 滤掉并删除");
+    console.log("⚠️  平台数 < 2：下次 matchMerge 可能被 filterMultiPlatform 滤掉并删除");
   }
 }
 

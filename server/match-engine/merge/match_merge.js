@@ -81,7 +81,7 @@ function timerSnapshotProviders(match, timersByProvider) {
     .sort((a, b) => b.pri - a.pri);
 }
 
-/** matcher rebuild + Client_GetMatchs overlay：用 live timer 快照刷新 Round/RoundStart */
+/** matcher matchMerge + Client_GetMatchs overlay：用 live timer 快照刷新 Round/RoundStart */
 function refreshClientMatchRoundsFromTimers(rows, timersByProvider) {
   if (!Array.isArray(rows))
     return;
@@ -118,7 +118,7 @@ function obTimerMatchIds(timersByProvider) {
   );
 }
 
-/** is_live≠2、已不在 OB index、或已不在 OB timer 批次时清零 Round（读路径 + matcher rebuild） */
+/** is_live≠2、已不在 OB index、或已不在 OB timer 批次时清零 Round（读路径 + matcher matchMerge） */
 function applyObLiveRoundGate(rows, platformMatches, timersByProvider) {
   if (!Array.isArray(rows))
     return rows;
@@ -759,7 +759,7 @@ function sortClientMatchBets(rows) {
   }
 }
 
-/** 从各平台原始盘口合并 Map=0（DB 未 rebuild 时 GetMatchs overlay 补全场行） */
+/** 从各平台原始盘口合并 Map=0（DB 未 matchMerge 时 GetMatchs overlay 补全场行） */
 function mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet) {
   const mergedSources = {};
   let canonBet = null;
@@ -1203,7 +1203,7 @@ function buildMatchListAccumulate(matches, bets, timers, sourceFromBet) {
   return collapseImClientRows(list);
 }
 
-/** rebuild 写入前：去掉 platform_matches 已不存在的 Matchs / Sources（防内存僵尸平台） */
+/** matchMerge 写入前：去掉 platform_matches 已不存在的 Matchs / Sources（防内存僵尸平台） */
 function stripOrphanClientMatchPlatforms(rows, platformMatches) {
   if (!Array.isArray(rows))
     return rows;
@@ -1230,7 +1230,7 @@ function stripOrphanClientMatchPlatforms(rows, platformMatches) {
   return rows;
 }
 
-/** 仅自动合并（一/二阶段）；人工关联在分配自增 id 后由 rebuild 调用 applyManualMatchLinks */
+/** 仅自动合并（一/二阶段）；人工关联在分配自增 id 后由 matchMerge 调用 applyManualMatchLinks */
 function buildClientMatchList({ matches, bets, timers, sourceFromBet, existingClientRows }) {
   const normalized = normalizeMatchesShape(matches);
   const list = buildMatchListMerged(normalized, bets, timers, sourceFromBet);

@@ -6,10 +6,10 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 
 | 表 | 写入方 | 读取方 | 说明 |
 |----|--------|--------|------|
-| `platform_matches` | 客户端 `API_SaveMatch` → backend | embedded matcher rebuild | 各平台原始比赛 |
+| `platform_matches` | 客户端 `API_SaveMatch` → backend | embedded matcher matchMerge | 各平台原始比赛 |
 | `platform_bets` | `API_SaveBet` | embedded matcher | 各平台赔率快照 |
 | `live_timers` | `API_SaveLiveTimer` | embedded matcher / backend overlay | 局数/计时 |
-| `client_matches` | embedded matcher rebuild | 浏览器 `Client_GetMatchs` | 合并后的比赛列表 |
+| `client_matches` | embedded matcher matchMerge | 浏览器 `Client_GetMatchs` | 合并后的比赛列表 |
 | `users` / `profiles` / `orders` | 鉴权、下单 API | 前端 | 登录与订单 |
 | `canonical_teams` / `team_platform_maps` | team-resolver、matcher | matcher 队名插件 | 队伍 canonical 映射 |
 
@@ -36,8 +36,8 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | 数据 | 机制 |
 |------|------|
 | `platform_matches` / `platform_bets` / `live_timers` | **SaveMatch / SaveLiveTimer 全量快照** + 孤儿删除（不在本批 = 平台认为已消失） |
-| `client_matches` 离开活跃列表 | rebuild 每轮 diff 删除 → 移入 `client_matches_history` |
-| `client_matches` 长期未 rebuild | matcher 每小时 **archive**（`server/db/archive_stale.js`，`built_at` 1h 阈值） |
+| `client_matches` 离开活跃列表 | matchMerge 每轮 diff 删除 → 移入 `client_matches_history` |
+| `client_matches` 长期未 matchMerge | matcher 每小时 **archive**（`server/db/archive_stale.js`，`built_at` 1h 阈值） |
 | 手动兜底 | `node scripts/archive-stale-client-matches.mjs` |
 
 详见 [ARCHITECTURE.md](./ARCHITECTURE.md) 数据流。
@@ -72,7 +72,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `API_SaveLiveTimer` | M→A* | — | 内存 `_timers` → `writeLiveTimersAsync` | *当前 await RDS，可改为与 SaveBet 一致 |
 | `API_SaveScore` | — | — | 空实现 | — |
 | `API_UpdatePlatform` | J | `platforms.json` | 同步写文件 | 多实例前勿假设共享 |
-| `Client_GetMatchs` | M+R | 内存 `client_matches`；built_at 未变跳过全量 SELECT | — | 内嵌 matcher rebuild 后直接灌内存 |
+| `Client_GetMatchs` | M+R | 内存 `client_matches`；built_at 未变跳过全量 SELECT | — | 内嵌 matcher matchMerge 后直接灌内存 |
 | `Client_GetDefaultOdds` / `GetMatchDefaultOdds` | M+J | 内存列表 + `default_odds.json` | debounce 写 JSON | — |
 
 ### 采集凭证 / 游戏
@@ -156,5 +156,5 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `core/esport-api/store.js` | 采集内存 `_matches` / `_bets` / `_timers` |
 | `core/db/store.js` | profile / client_matches 内存与 built_at 缓存 |
 | `server/db/rds/common.js` | `_writeRds` 写队列 |
-| `server/matcher/ops/rds_snapshot_cache.js` | rebuild 读路径（内嵌优先内存） |
+| `server/matcher/ops/rds_snapshot_cache.js` | matchMerge 读路径（内嵌优先内存） |
 | `server/storage/platform_storage.js` | `platforms.json` |

@@ -225,7 +225,7 @@ export function countUserSettings() {
 // ─── client_matches（内存 + built_at 快照缓存）────────────────────────
 
 const _clientMatches = new Map();
-/** matcher rebuild 写入的 built_at + 行数；未变则 Client_GetMatchs 跳过重载 */
+/** matcher matchMerge 写入的 built_at + 行数；未变则 Client_GetMatchs 跳过重载 */
 let _matchesCacheKey = "";
 let _matchesCacheLoadedAt = 0;
 /** archive 删行等 built_at 不变时的兜底全量刷新 */
@@ -315,8 +315,8 @@ export function getClientMatches() {
   );
 }
 
-/** embedded rebuild 完成后同步内存（RDS 已由 writeClientMatchesAsync 写入） */
-export function setClientMatchesFromRebuild(info, builtAt = Date.now()) {
+/** embedded matchMerge 完成后同步内存（RDS 已由 writeClientMatchesAsync 写入） */
+export function setClientMatchesFromMatchMerge(info, builtAt = Date.now()) {
   const ts = Number(builtAt) || Date.now();
   const list = Array.isArray(info) ? info : [];
   _clientMatches.clear();
@@ -326,7 +326,7 @@ export function setClientMatchesFromRebuild(info, builtAt = Date.now()) {
   _matchesCacheLoadedAt = Date.now();
 }
 
-/** 人工归档后从内存移除，避免 embedded rebuild 仍读到已归档行 */
+/** 人工归档后从内存移除，避免 embedded matchMerge 仍读到已归档行 */
 export function removeClientMatchFromMemory(clientMatchId) {
   const id = Number(clientMatchId);
   if (!Number.isFinite(id))

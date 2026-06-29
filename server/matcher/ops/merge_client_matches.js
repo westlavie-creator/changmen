@@ -1,6 +1,6 @@
 import * as db from "@changmen/db";
 import store from "../../backend/core/esport-api/store.js";
-import { rebuildOnce } from "./rebuild.js";
+import { matchMergeOnce } from "./match_merge_once.js";
 import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 
 /**
@@ -91,14 +91,14 @@ async function mergeClientMatches({ sourceClientMatchId, targetClientMatchId }) 
   }]);
 
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  const rebuild = await rebuildOnce({ afterInFlight: true });
+  const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   return {
     ok: true,
     sourceClientMatchId: sourceId,
     targetClientMatchId: targetId,
     mergedPlatforms: preview.mergedPlatforms,
-    rebuild,
+    matchMerge,
     summary: `赛事 #${sourceId} 已并入 #${targetId}（${preview.mergedPlatforms.length} 个平台）`,
   };
 }

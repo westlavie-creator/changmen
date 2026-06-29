@@ -531,7 +531,7 @@ export async function reassignGbTeamId(fromId, toId) {
   return processed;
 }
 
-/** rebuild：有 OB 映射时将 canonical_teams.name 同步为 OB platform_name */
+/** matchMerge：有 OB 映射时将 canonical_teams.name 同步为 OB platform_name */
 export async function syncCanonicalTeamNamesFromOb() {
   const pool = getPgPool();
   if (!pool)

@@ -1,10 +1,10 @@
 import * as db from "@changmen/db";
-import { rebuildOnce } from "./rebuild.js";
+import { matchMergeOnce } from "./match_merge_once.js";
 import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 import "../lib/env.js";
 
 /**
- * 恢复已归档的 client_matches：从 history 表移回主表，并 rebuild。
+ * 恢复已归档的 client_matches：从 history 表移回主表，并 matchMerge。
  */
 
 async function restoreClientMatch(clientMatchId) {
@@ -19,20 +19,20 @@ async function restoreClientMatch(clientMatchId) {
       id: cmId,
       title: cm.title || "",
       alreadyVisible: true,
-      rebuild: null,
+      matchMerge: null,
     };
   }
 
-  // rebuild 会重新合并，不需要从 history 恢复行
+  // matchMerge 会重新合并，不需要从 history 恢复行
   invalidateMatcherRdsSnapshot(["clientMatches", "platformMatches"]);
-  const rebuild = await rebuildOnce({ afterInFlight: true });
+  const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   return {
     ok: true,
     id: cmId,
     title: "",
     restored: true,
-    rebuild,
+    matchMerge,
   };
 }
 
