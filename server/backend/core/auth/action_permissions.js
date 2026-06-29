@@ -14,6 +14,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   "Client_AdminDeleteOrders",
   "Client_AdminUpsertTeam",
   "Client_AdminDeleteTeam",
+  "Client_AdminPolymarketBuilder",
 ]);
 
 const LEADER_ALLOWED_ACTIONS = new Set([
@@ -27,7 +28,6 @@ const LEADER_ALLOWED_ACTIONS = new Set([
   "Client_AdminMonthReport",
   "Client_AdminTeams",
   "Client_AdminPlatformAnalytics",
-  "Client_AdminPolymarketBuilder",
   "Client_AdminValueBet",
 ]);
 

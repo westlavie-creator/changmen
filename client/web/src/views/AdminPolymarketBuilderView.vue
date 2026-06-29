@@ -5,10 +5,15 @@ import type {
   PolymarketChangmenOrderRow,
 } from "@/api/admin";
 import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { getAdminPolymarketBuilder } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import { todayKey } from "@/shared/dateKey";
 import { toFixed } from "@/shared/format";
+import { useUserStore } from "@/stores/userStore";
+
+const router = useRouter();
+const user = useUserStore();
 
 const rangeMode = ref<"day" | "days7" | "month">("day");
 const dateKey = ref(todayKey());
@@ -80,7 +85,20 @@ watch([rangeMode, dateKey, monthKey], () => {
   void fetchData();
 });
 
-onMounted(() => {
+onMounted(async () => {
+  if (!user.ready) {
+    try {
+      await user.fetchUserInfo();
+    }
+    catch {
+      await router.replace({ name: "home" });
+      return;
+    }
+  }
+  if (!user.isAdmin) {
+    await router.replace({ name: "home" });
+    return;
+  }
   void fetchData();
 });
 </script>

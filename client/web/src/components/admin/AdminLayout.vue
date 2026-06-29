@@ -48,7 +48,7 @@ const navItems = [
   },
 ];
 
-const ADMIN_ONLY_NAV = new Set(["admin-health"]);
+const ADMIN_ONLY_NAV = new Set(["admin-health", "admin-polymarket-builder"]);
 
 const visibleNavItems = computed(() => {
   if (user.isAdmin)

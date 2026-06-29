@@ -826,6 +826,8 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
 }
 
 export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
+  if (caller && !isAdminUser(caller))
+    throw new Error("无管理员权限");
   const { getPolymarketBuilderDashboard: load } = await import(
     "../integrations/polymarket/builder_dashboard.js"
   );
