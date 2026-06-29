@@ -77,7 +77,7 @@ export function startPbCollector(): () => void {
           betsByMatch.set(row.matchId, bets);
         }
 
-        if (shouldSave && matchPayload.length) {
+        if (shouldSave) {
           const saved = await collect.saveMatch(PLATFORM, matchPayload);
           if (saved) {
             await Promise.all(

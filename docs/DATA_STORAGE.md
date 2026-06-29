@@ -35,9 +35,10 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 
 | 数据 | 机制 |
 |------|------|
-| 过期 `platform_matches` / `client_matches` | matcher 每小时 prune（`server/db/prune_stale.js`，1h 阈值）；过期行移入 `*_history` 后从活跃表删除 |
-| 过期 `platform_bets` / `live_timers` | matcher 每小时 prune；直接删除 |
-| 手动兜底 | `node scripts/prune-stale.mjs` |
+| `platform_matches` / `platform_bets` / `live_timers` | **SaveMatch / SaveLiveTimer 全量快照** + 孤儿删除（不在本批 = 平台认为已消失） |
+| `client_matches` 离开活跃列表 | rebuild 每轮 diff 删除 → 移入 `client_matches_history` |
+| `client_matches` 长期未 rebuild | matcher 每小时 **archive**（`server/db/archive_stale.js`，`built_at` 1h 阈值） |
+| 手动兜底 | `node scripts/archive-stale-client-matches.mjs` |
 
 详见 [ARCHITECTURE.md](./ARCHITECTURE.md) 数据流。
 

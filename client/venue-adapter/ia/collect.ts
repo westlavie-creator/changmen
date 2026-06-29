@@ -150,13 +150,11 @@ export function startIaCollector(): () => void {
           betsByMatch.set(matchId, bets);
         }
 
-        if (matchPayload.length) {
-          const saved = await collect.saveMatch(PLATFORM, matchPayload);
-          if (saved) {
-            for (const [mid, bets] of betsByMatch) {
-              if (!bets.length) continue;
-              await collect.saveBets(PLATFORM, mid, bets);
-            }
+        const saved = await collect.saveMatch(PLATFORM, matchPayload);
+        if (saved) {
+          for (const [mid, bets] of betsByMatch) {
+            if (!bets.length) continue;
+            await collect.saveBets(PLATFORM, mid, bets);
           }
         }
       } catch (err) {

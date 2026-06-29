@@ -14,6 +14,8 @@ export { rayApiPath } from "./markets";
 
 const PLATFORM = PLATFORMS.RAY;
 const POLL_MS = 30_000;
+/** [A8 可证实] vQe：saveMatch 60s 门控（poll 仍 30s） */
+const SAVE_MS = 60_000;
 
 /** dev HMR 时停止上一轮 poll + SocketCluster（对齐 OB `mqtt.ts` dispose） */
 let rayCollectorStop: (() => void) | null = null;
@@ -67,6 +69,7 @@ export function handleRayRealtimeMessage(
 export function startRayCollector(): () => void {
   rayCollectorStop?.();
   let stopped = false;
+  let lastSaveAt = 0;
   const realtime = createRayRealtimeClient();
   const betRe = new RegExp(RAY_A8_COLLECT.betName);
 
@@ -142,7 +145,11 @@ export function startRayCollector(): () => void {
           });
         }
 
-        await collect.saveMatch(PLATFORM, matchPayload);
+        if (Date.now() - lastSaveAt > SAVE_MS) {
+          const saved = await collect.saveMatch(PLATFORM, matchPayload);
+          if (saved)
+            lastSaveAt = Date.now();
+        }
 
         // [A8 可证实] vQe：saveMatch 后顺序 await 每场 odds → saveBets，不用 Promise.all
         matchCount = list.length;

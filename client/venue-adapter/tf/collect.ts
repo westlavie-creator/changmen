@@ -18,6 +18,8 @@ import { startTfOddsWs } from "./ws";
 
 const PLATFORM = PLATFORMS.TF;
 const TF_POLL_MS = 30_000;
+/** [A8 可证实] TF/PB 同类：saveMatch 60s 门控 */
+const SAVE_MS = 60_000;
 
 function parseTfStartTimeMs(raw: unknown): number {
   if (!raw) return 0;
@@ -33,6 +35,7 @@ function tfListEventCollectAllowed(row: Record<string, unknown>): boolean {
 export function startTfCollector(): () => void {
   let stopped = false;
   let stopWs: (() => void) | null = null;
+  let lastSaveAt = 0;
 
   const odds = useOddsStore();
   const collect = useCollectStore();
@@ -98,7 +101,11 @@ export function startTfCollector(): () => void {
           if (dto) matchPayload.push(dto);
         }
 
-        await collect.saveMatch(PLATFORM, matchPayload);
+        if (Date.now() - lastSaveAt > SAVE_MS) {
+          const saved = await collect.saveMatch(PLATFORM, matchPayload);
+          if (saved)
+            lastSaveAt = Date.now();
+        }
 
         for (const row of list) {
           if (stopped) break;

@@ -179,11 +179,10 @@ export function startDexCollector(): () => void {
       }
     }
 
-    if (matches.length) {
-      await collect.saveMatch(PLATFORMS.Dex, matches);
-      for (const { matchId, bets } of betsToSave) {
-        if (bets.length) await collect.saveBets(PLATFORMS.Dex, matchId, bets);
-      }
+    // [A8 可证实] Stake/Dex 同类 GraphQL 路径：空列表仍 saveMatch
+    await collect.saveMatch(PLATFORMS.Dex, matches);
+    for (const { matchId, bets } of betsToSave) {
+      if (bets.length) await collect.saveBets(PLATFORMS.Dex, matchId, bets);
     }
 
     for (const { bets } of betsToSave) {

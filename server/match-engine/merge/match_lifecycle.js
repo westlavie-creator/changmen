@@ -1,5 +1,5 @@
 /**
- * client_matches 生命周期：判断比赛是否已结束（供 prune 归档到 history）。
+ * client_matches 生命周期：判断比赛是否已结束（供 archive 移入 history）。
  */
 
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";

@@ -94,7 +94,7 @@ export function createDefaultOddsApi(readJson, writeJson, options = {}) {
     return store;
   }
 
-  async function pruneStaleKeys(buildMatchList) {
+  async function evictStaleOddsCacheKeys(buildMatchList) {
     const activeBetIds = new Set();
     for (const match of (await buildMatchList()) || []) {
       for (const bet of match.Bets || []) {
@@ -134,7 +134,7 @@ export function createDefaultOddsApi(readJson, writeJson, options = {}) {
     if (!wanted.size)
       return out;
 
-    await pruneStaleKeys(buildMatchList);
+    await evictStaleOddsCacheKeys(buildMatchList);
     const matches = (await buildMatchList()) || [];
     recordFromMatchList(matches);
     const platformBets = await loadPlatformBets(fetchPlatformBets);

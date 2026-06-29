@@ -1,41 +1,41 @@
 import {
-  formatPruneCounts,
-  pruneStaleRows,
+  formatArchiveCounts,
+  archiveStaleClientMatchRows,
 } from "@changmen/db";
-import { MATCHER_INTERVAL_MS, MATCHER_PRUNE_INTERVAL_MS } from "./lib/config.js";
+import { MATCHER_CLIENT_MATCH_ARCHIVE_INTERVAL_MS, MATCHER_INTERVAL_MS } from "./lib/config.js";
 import { writeMatcherHeartbeat } from "./lib/heartbeat.js";
 import { ensureTeamPlugin, rebuildOnce } from "./ops/rebuild.js";
 import "./lib/env.js";
 
 const INTERVAL_MS = MATCHER_INTERVAL_MS;
-const PRUNE_INTERVAL_MS = MATCHER_PRUNE_INTERVAL_MS;
+const ARCHIVE_INTERVAL_MS = MATCHER_CLIENT_MATCH_ARCHIVE_INTERVAL_MS;
 
-let lastPruneAt = 0;
-let pruneInFlight = null;
+let lastArchiveAt = 0;
+let archiveInFlight = null;
 let loopTimer = null;
 let loopRunning = false;
 let loopMode = "standalone";
 
-async function maybePruneStale() {
+async function maybeArchiveStaleClientMatches() {
   const now = Date.now();
-  if (lastPruneAt && now - lastPruneAt < PRUNE_INTERVAL_MS)
+  if (lastArchiveAt && now - lastArchiveAt < ARCHIVE_INTERVAL_MS)
     return;
-  if (pruneInFlight)
-    return pruneInFlight;
-  pruneInFlight = (async () => {
-    const pr = await pruneStaleRows();
-    lastPruneAt = Date.now();
-    if (pr.rds) {
-      console.log(`[matcher] prune rds: ${formatPruneCounts(pr.rds)}`);
+  if (archiveInFlight)
+    return archiveInFlight;
+  archiveInFlight = (async () => {
+    const ar = await archiveStaleClientMatchRows();
+    lastArchiveAt = Date.now();
+    if (ar.rds) {
+      console.log(`[matcher] archive client_matches (scope=${ar.scope}): ${formatArchiveCounts(ar.rds)}`);
     }
   })().finally(() => {
-    pruneInFlight = null;
+    archiveInFlight = null;
   });
-  return pruneInFlight;
+  return archiveInFlight;
 }
 
 export async function runMatcherOnce({ mode = loopMode } = {}) {
-  await maybePruneStale();
+  await maybeArchiveStaleClientMatches();
   const result = await rebuildOnce();
   writeMatcherHeartbeat({
     matchCount: result.matchCount,
@@ -71,7 +71,7 @@ export async function startMatcherLoop(opts = {}) {
   loopRunning = true;
   await ensureTeamPlugin();
   console.log(
-    `[matcher] starting (${mode}), interval=${INTERVAL_MS / 1000}s, prune every ${PRUNE_INTERVAL_MS / 1000}s`,
+    `[matcher] starting (${mode}), interval=${INTERVAL_MS / 1000}s, client_matches archive every ${ARCHIVE_INTERVAL_MS / 1000}s`,
   );
 
   const tick = async () => {

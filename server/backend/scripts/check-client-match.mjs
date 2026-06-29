@@ -94,7 +94,7 @@ else {
       = Number.isFinite(syncedMs) && syncedMs > 0
         ? Math.round((now - (syncedMs < 1e12 ? syncedMs * 1000 : syncedMs)) / 60000)
         : null;
-    const stale = ageMin != null && ageMin > 60 ? " ⚠️ >1h 未刷新，可能被 prune" : "";
+    const stale = ageMin != null && ageMin > 60 ? " ⚠️ >1h 未刷新，可能被 archive" : "";
     console.log(
       `  ${r.platform} #${r.source_match_id} → match_id=${r.match_id ?? "NULL"} | ${r.home} vs ${r.away} | synced ${synced}${stale}`,
     );

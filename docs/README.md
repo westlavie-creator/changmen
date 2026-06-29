@@ -7,7 +7,7 @@
 | 文档 | 内容 |
 |------|------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Monorepo 结构、`client/*` / `server/*` / `packages/*`、数据流、**本地开发端口** |
-| [DATA_STORAGE.md](./DATA_STORAGE.md) | 云库 vs 本机 JSON、迁移目录、prune |
+| [DATA_STORAGE.md](./DATA_STORAGE.md) | 云库 vs 本机 JSON、迁移目录、快照生命周期与 archive |
 | [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) | 客户端 / 服务端目录边界 |
 | [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) | 生产拓扑、环境变量、PM2 |
 | [../ecosystem.config.cjs](../ecosystem.config.cjs) | `gamebet-web` + `gamebet-matcher` 进程清单 |

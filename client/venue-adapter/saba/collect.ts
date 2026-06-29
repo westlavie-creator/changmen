@@ -284,15 +284,13 @@ export function startSabaCollector(): () => void {
           if (bets.length) betsByMatch.set(normalized.matchId, bets);
         }
 
-        if (matchPayload.length) {
-          const saved = await collect.saveMatch(PLATFORM, matchPayload);
-          if (saved) {
-            await Promise.all(
-              [...betsByMatch.entries()].map(([matchId, bets]) =>
-                collect.saveBets(PLATFORM, matchId, bets),
-              ),
-            );
-          }
+        const saved = await collect.saveMatch(PLATFORM, matchPayload);
+        if (saved) {
+          await Promise.all(
+            [...betsByMatch.entries()].map(([matchId, bets]) =>
+              collect.saveBets(PLATFORM, matchId, bets),
+            ),
+          );
         }
       };
     });

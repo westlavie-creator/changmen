@@ -50,14 +50,13 @@ export function startA8BetsCollector(opts: {
       try {
         if (reportToServer && Date.now() - lastSaveAt > SAVE_MS) {
           const { matches, betsByMatch } = acc.buildPayload();
-          if (matches.length) {
-            const saved = await collect.saveMatch(opts.platform, matches);
-            if (saved) {
-              for (const [matchId, bets] of betsByMatch) {
-                if (bets.length) await collect.saveBets(opts.platform, matchId, bets);
-              }
-              lastSaveAt = Date.now();
+          // [A8 可证实] 60s 组包 saveMatch，matches 可为 []
+          const saved = await collect.saveMatch(opts.platform, matches);
+          if (saved) {
+            for (const [matchId, bets] of betsByMatch) {
+              if (bets.length) await collect.saveBets(opts.platform, matchId, bets);
             }
+            lastSaveAt = Date.now();
           }
         }
       } catch (err) {

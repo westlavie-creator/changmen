@@ -184,11 +184,11 @@ HG / 跟单：⚠️ 见 [platforms/HG.md](./platforms/HG.md)、`hgFollowLoop`
 
 | 项 | 说明 | 标签 |
 |----|------|------|
-| RDS 表 platform_* / client_matches | 合并、prune | 🔶 |
+| RDS 表 platform_* / client_matches | 快照生命周期、rebuild、archive | 🔶 |
 | `*_history` 归档 | 过期/隐藏行移出活跃列表 | 🔶 |
 | legacy json 双写 | 开发用 | 🔶 |
 
-见仓库根 `CLAUDE.md` RDS 与 prune 章节。
+见仓库根 `CLAUDE.md` RDS 与数据生命周期章节。
 
 ---
 

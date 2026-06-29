@@ -81,11 +81,10 @@ export function startStakeCollector(): () => void {
       subscribe.push(...subRows);
     }
 
-    if (matches.length) {
-      await collect.saveMatch(PLATFORMS.Stake, matches);
-      for (const { matchId, bets } of betsToSave) {
-        if (bets.length) await collect.saveBets(PLATFORMS.Stake, matchId, bets);
-      }
+    // [A8 可证实] MQ/lZ：空 e 仍 saveMatch，再 wf.clean(e) 清本地 fo
+    await collect.saveMatch(PLATFORMS.Stake, matches);
+    for (const { matchId, bets } of betsToSave) {
+      if (bets.length) await collect.saveBets(PLATFORMS.Stake, matchId, bets);
     }
 
     if (subscribe.length) {

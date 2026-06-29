@@ -94,7 +94,7 @@ export function setPlatform(provider, data) {
   return setPlatformRow(provider, data);
 }
 
-function pruneBetsForProvider(provider, activeMatchIds) {
+function dropOrphanBetsForProvider(provider, activeMatchIds) {
   const active = new Set(activeMatchIds.map(String));
   const prefix = `${provider}:`;
   for (const key of Object.keys(_bets)) {
@@ -120,8 +120,7 @@ export function saveMatches(provider, matchs) {
   const next = {};
   const list = Array.isArray(matchs) ? matchs : [];
   const prev = _matches[provider];
-  if (!list.length && prev && typeof prev === "object" && Object.keys(prev).length > 0)
-    return;
+  // [A8 可证实] SaveMatch 为全量快照：空数组 = 该平台当前无可见赛（与 collectStore 对齐）
   for (const m of list) {
     if (!m || m.SourceMatchID == null)
       continue;
@@ -141,7 +140,7 @@ export function saveMatches(provider, matchs) {
     };
   }
   _matches[provider] = next;
-  pruneBetsForProvider(provider, Object.keys(next));
+  dropOrphanBetsForProvider(provider, Object.keys(next));
   sb.writePlatformMatches(provider, Object.values(next));
   invalidatePlatformEnrichCache();
 }

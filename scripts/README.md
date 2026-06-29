@@ -50,7 +50,8 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 | **`start-db.mjs`** | 按 `GAMEBET_DB_SCRIPT` 启动 `server.js`（`npm run web` 入口，默认 rds） |
 | **`start-rds.mjs`** | 强制 `GAMEBET_DB_SCRIPT=rds` 后启动 |
 | **`apply-rds-schema.mjs`** | 应用 RDS SQL 迁移 |
-| **`prune-stale.mjs`** | 本地手动 prune（生产由 matcher 每小时执行） |
+| **`archive-stale-client-matches.mjs`** | 本地手动 client_matches archive（生产由 matcher 每小时执行） |
+| **`prune-stale.mjs`** | 已废弃别名 → `archive-stale-client-matches.mjs` |
 | **`preweb.js`** | `npm run web` 前：构建检查 / legacy 准备 |
 | **`check-collect-platforms.js`** | `npm run check:collect` — 凭证与采集器对齐审计 |
 | **`account_cli.js`** | 场馆账号 CLI（`account:import-platform` 等） |

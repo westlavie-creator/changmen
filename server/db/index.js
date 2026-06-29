@@ -12,7 +12,7 @@
  *   rds/team_store.js        — canonical_teams / team_platform_maps
  *   rds/matcher_store.js     — matcher UI/ops 专用查询与运维 SQL
  *   order_link_filter — LinkID 分类（hash/套利/占位）
- *   prune_stale.js    — 过期 platform_* / client_matches 清理
+ *   archive_stale.js  — client_matches 时间归档兜底；platform_* 由 SaveMatch 快照生命周期负责
  *
  * 本地 JSON / 路径见 @changmen/storage（非本包职责）。
  */
@@ -184,12 +184,17 @@ export { ensurePgPoolReady, getPgPool } from "./pg_pool.js";
 export { migratePlayersJsonToRds } from "./players_json_migrate.js";
 
 export {
-  DEFAULT_PRUNE_INTERVAL_MS,
-  formatPruneCounts,
-  getStaleCutoffMs,
-  pruneStaleRows,
-  STALE_MS,
-} from "./prune_stale.js";
+  ARCHIVE_SCOPE_ALL,
+  ARCHIVE_SCOPE_CLIENT,
+  ARCHIVE_SCOPE_LEGACY_PLATFORM,
+  ARCHIVE_STALE_MS,
+  archiveStaleClientMatchRows,
+  archiveStaleRows,
+  DEFAULT_CLIENT_MATCH_ARCHIVE_INTERVAL_MS,
+  formatArchiveCounts,
+  getArchiveCutoffMs,
+  resolveArchiveSpecs,
+} from "./archive_stale.js";
 
 export {
   archiveClientMatch,

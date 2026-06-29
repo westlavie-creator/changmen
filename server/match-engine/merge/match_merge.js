@@ -1067,6 +1067,7 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
   ensureMapZeroForLiveRound(mergedList, matches, bets, timers, sourceFromBet);
   trimMapZeroToObOnDeciderRound(mergedList);
   applyObLiveRoundGate(mergedList, matches, timers);
+  stripOrphanClientMatchPlatforms(mergedList, matches);
 
   return filterMultiPlatformClientMatches(mergedList)
     .sort((a, b) => a.StartTime - b.StartTime);
@@ -1202,6 +1203,33 @@ function buildMatchListAccumulate(matches, bets, timers, sourceFromBet) {
   return collapseImClientRows(list);
 }
 
+/** rebuild 写入前：去掉 platform_matches 已不存在的 Matchs / Sources（防内存僵尸平台） */
+function stripOrphanClientMatchPlatforms(rows, platformMatches) {
+  if (!Array.isArray(rows))
+    return rows;
+  for (const row of rows) {
+    if (row?.Matchs && typeof row.Matchs === "object") {
+      for (const [plat, srcId] of Object.entries({ ...row.Matchs })) {
+        if (!findPlatformMatch(platformMatches, plat, srcId))
+          delete row.Matchs[plat];
+      }
+    }
+    if (!Array.isArray(row?.Bets))
+      continue;
+    for (const bet of row.Bets) {
+      if (!bet?.Sources)
+        continue;
+      for (const plat of Object.keys(bet.Sources)) {
+        const srcId = row.Matchs?.[plat];
+        if (!srcId || !findPlatformMatch(platformMatches, plat, srcId))
+          delete bet.Sources[plat];
+      }
+    }
+    row.Bets = row.Bets.filter(b => Object.keys(b.Sources || {}).length > 0);
+  }
+  return rows;
+}
+
 /** 仅自动合并（一/二阶段）；人工关联在分配自增 id 后由 rebuild 调用 applyManualMatchLinks */
 function buildClientMatchList({ matches, bets, timers, sourceFromBet, existingClientRows }) {
   const normalized = normalizeMatchesShape(matches);
@@ -1215,6 +1243,7 @@ function buildClientMatchList({ matches, bets, timers, sourceFromBet, existingCl
   ensureMapZeroForLiveRound(list, normalized, bets, timers, sourceFromBet);
   trimMapZeroToObOnDeciderRound(list);
   applyObLiveRoundGate(list, normalized, timers);
+  stripOrphanClientMatchPlatforms(list, normalized);
   return filterMultiPlatformClientMatches(list);
 }
 
@@ -1242,6 +1271,7 @@ export {
   pickCanonicalStartTime,
   promoteFullMatchSourcesToLiveRound,
   promoteFullMatchSourcesToLiveRoundInPlace,
+  stripOrphanClientMatchPlatforms,
   PROVIDER_PRIORITY,
   reconcileClientMatchReverse,
   refreshClientMatchBetNames,

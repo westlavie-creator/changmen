@@ -67,7 +67,7 @@ function withLinkedClientMatchId(row, linkedId) {
   };
 }
 
-/** hot 覆盖 RDS 时按 source_match_id 保留 RDS 上的 match_id（人工关联 / 合并） */
+/** RDS 为准：hot 仅刷新 RDS 仍存在的 source_match_id，禁止复活已快照删除的行 */
 function mergePlatformMatchesSnapshot(rdsRaw, hotRaw) {
   if (!hotRaw || !Object.keys(hotRaw).length)
     return rdsRaw || {};
@@ -77,19 +77,65 @@ function mergePlatformMatchesSnapshot(rdsRaw, hotRaw) {
       continue;
     const rdsRows = Array.isArray(out[platform]) ? out[platform] : [];
     const rdsById = new Map(rdsRows.map(m => [platformMatchSourceId(m), m]));
-    const hotIds = new Set();
-    const mergedHot = hotRows.map((hotRow) => {
+    const refreshed = [];
+    for (const hotRow of hotRows) {
       const sid = platformMatchSourceId(hotRow);
-      if (sid)
-        hotIds.add(sid);
+      if (!sid)
+        continue;
       const rdsRow = rdsById.get(sid);
+      if (!rdsRow)
+        continue;
       const linkedId = linkedClientMatchId(hotRow) ?? linkedClientMatchId(rdsRow);
-      return withLinkedClientMatchId(hotRow, linkedId);
-    });
-    const rdsOnly = rdsRows.filter(m => !hotIds.has(platformMatchSourceId(m)));
-    out[platform] = [...mergedHot, ...rdsOnly];
+      refreshed.push({
+        ...rdsRow,
+        ...hotRow,
+        ...withLinkedClientMatchId({}, linkedId),
+      });
+    }
+    const refreshedIds = new Set(refreshed.map(m => platformMatchSourceId(m)));
+    const untouched = rdsRows.filter(m => !refreshedIds.has(platformMatchSourceId(m)));
+    const merged = [...refreshed, ...untouched];
+    if (merged.length)
+      out[platform] = merged;
+    else
+      delete out[platform];
   }
   return out;
+}
+
+function activePlatformMatchIds(rdsMatchesRaw) {
+  const out = new Map();
+  for (const [platform, rows] of Object.entries(rdsMatchesRaw || {})) {
+    if (!Array.isArray(rows))
+      continue;
+    const ids = new Set();
+    for (const row of rows) {
+      const sid = platformMatchSourceId(row);
+      if (sid)
+        ids.add(sid);
+    }
+    if (ids.size)
+      out.set(platform, ids);
+  }
+  return out;
+}
+
+/** RDS 为准：hot bets 仅覆盖仍存在于 platform_matches 的 source_match_id */
+function mergeBetsSnapshotRdsTruth(rdsBets, hotBets, rdsMatchesRaw) {
+  if (!hotBets || typeof hotBets !== "object" || !Object.keys(hotBets).length)
+    return rdsBets || {};
+  const base = (rdsBets && typeof rdsBets === "object") ? { ...rdsBets } : {};
+  const active = activePlatformMatchIds(rdsMatchesRaw);
+  for (const [key, hotRow] of Object.entries(hotBets)) {
+    const colon = key.indexOf(":");
+    if (colon <= 0)
+      continue;
+    const platform = key.slice(0, colon);
+    const matchId = key.slice(colon + 1);
+    if (active.get(platform)?.has(String(matchId)))
+      base[key] = hotRow;
+  }
+  return base;
 }
 
 async function readCached(key, meta, reader, opts = {}) {
@@ -151,21 +197,24 @@ async function fetchEmbeddedMemorySnapshot() {
   if (!clientRows.length)
     clientRows = await db.fetchClientMatches() || [];
 
-  let matchesRaw = cloneSnapshot(full.matchesRaw);
-  if (full?.hasMatches) {
-    const rdsMatchesRaw = await db.fetchPlatformMatches();
-    matchesRaw = mergePlatformMatchesSnapshot(rdsMatchesRaw, matchesRaw);
-  }
+  const rdsMatchesRaw = await db.fetchPlatformMatches();
+  const rdsBets = await db.fetchPlatformBets();
+  let matchesRaw = rdsMatchesRaw || {};
+  if (full?.hasMatches)
+    matchesRaw = mergePlatformMatchesSnapshot(rdsMatchesRaw, cloneSnapshot(full.matchesRaw));
+  const bets = full?.hasBets
+    ? mergeBetsSnapshotRdsTruth(rdsBets, cloneSnapshot(full.bets), matchesRaw)
+    : (rdsBets || {});
 
   return {
     matchesRaw,
-    bets: cloneSnapshot(full.bets),
+    bets,
     timers: cloneSnapshot(full.timers),
     clientRows: cloneSnapshot(clientRows),
     alignClientRows: cloneSnapshot(clientRows),
     hotCollector: {
-      matches: true,
-      bets: true,
+      matches: !!full?.hasMatches,
+      bets: !!full?.hasBets,
       timers: !!full.hasTimers,
     },
   };
@@ -197,7 +246,7 @@ export async function fetchMatcherRdsSnapshot() {
     ? mergePlatformMatchesSnapshot(rdsMatchesRaw, hot.matchesRaw)
     : rdsMatchesRaw;
   const bets = hot?.hasBets
-    ? mergeObjectSnapshot(rdsBets, hot.bets)
+    ? mergeBetsSnapshotRdsTruth(rdsBets, hot.bets, matchesRaw)
     : rdsBets;
   const timers = hot?.hasTimers
     ? mergeObjectSnapshot(rdsTimers, hot.timers)
@@ -218,4 +267,4 @@ export async function fetchMatcherRdsSnapshot() {
   };
 }
 
-export { mergePlatformMatchesSnapshot };
+export { mergeBetsSnapshotRdsTruth, mergePlatformMatchesSnapshot };

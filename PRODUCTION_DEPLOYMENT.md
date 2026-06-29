@@ -132,7 +132,7 @@ cd changmen/server/backend
 node scripts/apply-rds-schema.mjs
 ```
 
-过期数据由 `server/matcher` 每小时执行 prune（`server/db/prune_stale.js`，1 小时阈值）。手动兜底：`node scripts/prune-stale.mjs`。
+过期 `client_matches` 由 `server/matcher` 每小时 archive（`server/db/archive_stale.js`，1 小时 `built_at` 阈值）。平台数据由 SaveMatch 快照生命周期负责，不再定时扫表。手动兜底：`node scripts/archive-stale-client-matches.mjs`。
 
 ### 3.3 构建并托管前端
 

@@ -54,8 +54,7 @@ export const useCollectStore = defineStore("collect", {
     async saveMatch(platform: PlatformId, matchs: CollectMatchDto[]): Promise<boolean> {
       if (!this.collect.get(platform))
         return false;
-      if (!matchs.length)
-        return false;
+      // [A8 可证实] Pinia Af.saveMatch：仅 collect 开关门控，空数组仍 POST API_SaveMatch
       const ok = await saveMatchSource(platform, matchs);
       void this.logCollect(
         `${platform}赛事采集${matchs.length}场 => ${ok}`,

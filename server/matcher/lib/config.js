@@ -3,7 +3,7 @@
  * 改间隔、端口等只改此处与 server/backend/.env.example 说明。
  */
 
-import { DEFAULT_PRUNE_INTERVAL_MS } from "@changmen/db";
+import { DEFAULT_CLIENT_MATCH_ARCHIVE_INTERVAL_MS } from "@changmen/db";
 
 const DEFAULT_MATCHER_INTERVAL_MS = 30_000;
 const DEFAULT_UI_PORT = 4567;
@@ -12,8 +12,10 @@ export const MATCHER_INTERVAL_MS = Number(
   process.env.MATCHER_INTERVAL_MS || DEFAULT_MATCHER_INTERVAL_MS,
 );
 
-export const MATCHER_PRUNE_INTERVAL_MS = Number(
-  process.env.MATCHER_PRUNE_INTERVAL_MS || DEFAULT_PRUNE_INTERVAL_MS,
+export const MATCHER_CLIENT_MATCH_ARCHIVE_INTERVAL_MS = Number(
+  process.env.MATCHER_CLIENT_MATCH_ARCHIVE_INTERVAL_MS
+  || process.env.MATCHER_PRUNE_INTERVAL_MS
+  || DEFAULT_CLIENT_MATCH_ARCHIVE_INTERVAL_MS,
 );
 
 export const MATCHER_UI_PORT = Number(

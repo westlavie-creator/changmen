@@ -180,16 +180,14 @@ export function startImtCollector(): () => void {
             betsByMatch.set(row.matchId, bets);
           }
 
-          if (matchPayload.length) {
-            const saved = await collect.saveMatch(PLATFORM, matchPayload);
-            if (saved) {
-              await Promise.all(
-                [...betsByMatch.entries()]
-                  .filter(([, bets]) => bets.length)
-                  .map(([matchId, bets]) => collect.saveBets(PLATFORM, matchId, bets)),
-              );
-              lastSaveAt = Date.now();
-            }
+          const saved = await collect.saveMatch(PLATFORM, matchPayload);
+          if (saved) {
+            await Promise.all(
+              [...betsByMatch.entries()]
+                .filter(([, bets]) => bets.length)
+                .map(([matchId, bets]) => collect.saveBets(PLATFORM, matchId, bets)),
+            );
+            lastSaveAt = Date.now();
           }
         } else if (delta != null && sportIds.length > 0) {
           const body = {

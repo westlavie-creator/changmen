@@ -228,7 +228,7 @@ const _clientMatches = new Map();
 /** matcher rebuild 写入的 built_at + 行数；未变则 Client_GetMatchs 跳过重载 */
 let _matchesCacheKey = "";
 let _matchesCacheLoadedAt = 0;
-/** prune 删行等 built_at 不变时的兜底全量刷新 */
+/** archive 删行等 built_at 不变时的兜底全量刷新 */
 const MATCHES_CACHE_MAX_AGE_MS = 90_000;
 
 function _matchesCacheSignature(meta) {
@@ -294,7 +294,7 @@ export function saveClientMatches(info) {
   );
 }
 
-export function pruneClientMatches(activeIds) {
+export function dropOrphanClientMatchesFromMemory(activeIds) {
   if (!activeIds?.length) {
     _clientMatches.clear();
     _invalidateClientMatchesCache();
@@ -378,7 +378,7 @@ export async function loadClientMatchesFromDb() {
   }
 
   const data = await sb.fetchClientMatches();
-  // null = 查询失败，暂用内存兜底；[] = 库确认为空，清掉遗留内存（避免 prune 后仍返回旧列表）
+  // null = 查询失败，暂用内存兜底；[] = 库确认为空，清掉遗留内存（避免 archive 后仍返回旧列表）
   if (data === null)
     return _clientMatches.size ? getClientMatches() : null;
   if (!data.length) {
