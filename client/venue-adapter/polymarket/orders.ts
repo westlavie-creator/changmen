@@ -4,14 +4,17 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { PLATFORMS } from "@/shared/platform";
 import { POLYMARKET_CLOB_API, POLYMARKET_GAMMA_API } from "./api";
 import { buildL2HeadersFromAccount } from "./l2Auth";
-import { polymarketOrderContextFromMarket, type PolymarketRawMarket } from "./parse";
+import { polymarketOrderContextFromMarket, parseJsonArray, type PolymarketRawMarket } from "./parse";
 import { polymarketPluginGet } from "./transport";
 
 const TRADES_PATH = "/data/trades";
 const TOKEN_MICRO = 1_000_000;
-const ORDER_LOOKBACK_MS = 3 * 24 * 60 * 60 * 1000;
-const MAX_TRADE_PAGES = 3;
+/** 订单 sync + 迟结算缓冲（Phase 2b） */
+const ORDER_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_TRADE_PAGES = 5;
 const NO_MORE_CURSOR = "LTE=";
+/** Gamma closed 后 outcomePrices 赢家判定阈值 */
+const WINNER_PRICE_MIN = 0.99;
 
 export interface PolymarketTradeRow {
   id?: string;
@@ -78,6 +81,83 @@ export function polymarketBuyStakeUsdc(sizeRaw: string | number | undefined, pri
   if (size >= 10_000)
     return (size / TOKEN_MICRO) * price;
   return size * price;
+}
+
+/** 成交份数（CLOB REST 小数份数 vs micro） */
+export function polymarketShareCount(sizeRaw: string | number | undefined): number {
+  const size = Number(sizeRaw);
+  if (!Number.isFinite(size) || size <= 0) return 0;
+  if (size >= 10_000) return size / TOKEN_MICRO;
+  return size;
+}
+
+function gammaOutcomePrices(market: PolymarketRawMarket): number[] {
+  return parseJsonArray(market.outcomePrices ?? market.outcome_prices).map(Number);
+}
+
+function gammaTokenIds(market: PolymarketRawMarket): string[] {
+  return parseJsonArray(market.clobTokenIds ?? market.clob_token_ids);
+}
+
+/** Gamma closed 且 outcomePrices 有明确赢家 */
+export function findPolymarketWinnerIndex(prices: number[]): number {
+  for (let i = 0; i < prices.length; i++) {
+    const price = prices[i];
+    if (Number.isFinite(price) && price >= WINNER_PRICE_MIN)
+      return i;
+  }
+  return -1;
+}
+
+export function isPolymarketMarketResolved(market: PolymarketRawMarket | undefined): boolean {
+  if (!market?.closed) return false;
+  return findPolymarketWinnerIndex(gammaOutcomePrices(market)) >= 0;
+}
+
+/** 已 resolve 市场的赢家 token id */
+export function resolvePolymarketWinningAssetId(market: PolymarketRawMarket | undefined): string | null {
+  if (!market?.closed) return null;
+  const prices = gammaOutcomePrices(market);
+  const idx = findPolymarketWinnerIndex(prices);
+  if (idx < 0) return null;
+  const tokens = gammaTokenIds(market);
+  return tokens[idx] ?? null;
+}
+
+function tradeHeldAssetId(trade: PolymarketTradeRow, market?: PolymarketRawMarket): string {
+  const assetId = String(trade.asset_id ?? "").trim();
+  if (assetId) return assetId;
+  const outcome = String(trade.outcome ?? "").trim();
+  if (!market || !outcome) return "";
+  const outcomes = parseJsonArray(market.outcomes);
+  const idx = outcomes.findIndex(name => name.trim() === outcome);
+  if (idx < 0) return "";
+  return gammaTokenIds(market)[idx] ?? "";
+}
+
+/** Gamma 结算：none → win/lose + money/reward */
+export function applyPolymarketSettlement(
+  order: VenueOrder,
+  trade: PolymarketTradeRow,
+  market?: PolymarketRawMarket,
+): VenueOrder {
+  const winningAssetId = resolvePolymarketWinningAssetId(market);
+  if (!winningAssetId) return order;
+
+  const heldAssetId = tradeHeldAssetId(trade, market);
+  if (!heldAssetId) return order;
+
+  const shares = polymarketShareCount(trade.size);
+  const stake = order.betMoney;
+  if (shares <= 0 || stake <= 0) return order;
+
+  if (heldAssetId === winningAssetId) {
+    const reward = Math.round(shares * 10000) / 10000;
+    const money = Math.round((reward - stake) * 10000) / 10000;
+    return { ...order, status: "win", reward, money };
+  }
+
+  return { ...order, status: "lose", reward: 0, money: -stake };
 }
 
 /** MAKER 成交在 maker_orders；TAKER 用 taker_order_id */
@@ -156,7 +236,7 @@ export function mapPolymarketTradeToVenueOrder(
   const marketId = String(trade.market ?? "").trim();
   const match = ctx.match || (marketId ? `${marketId.slice(0, 10)}…` : "");
 
-  return {
+  const unsettled: VenueOrder = {
     provider: PLATFORMS.Polymarket,
     orderId,
     odds,
@@ -170,6 +250,7 @@ export function mapPolymarketTradeToVenueOrder(
     bet: ctx.bet,
     item: String(trade.outcome ?? "").trim(),
   };
+  return applyPolymarketSettlement(unsettled, trade, market);
 }
 
 async function fetchMarketsByConditionIds(ids: string[]): Promise<Map<string, PolymarketRawMarket>> {
@@ -224,7 +305,7 @@ async function fetchTradesSince(
   return all;
 }
 
-/** CLOB /data/trades → VenueOrder（近 3 天，Phase 1 全部未结算） */
+/** CLOB /data/trades → VenueOrder（近 30 天；Gamma resolve → win/lose） */
 export async function fetchPolymarketVenueOrders(account: PlatformAccount): Promise<VenueOrder[]> {
   const headers = await buildL2HeadersFromAccount(account, "GET", TRADES_PATH);
   if (!headers) return [];

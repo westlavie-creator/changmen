@@ -1,14 +1,17 @@
 import { describe, expect, test } from "vitest";
 import {
   aggregatePolymarketTrades,
+  applyPolymarketSettlement,
   flattenPolymarketTrades,
+  isPolymarketMarketResolved,
   isPolymarketTradeConfirmed,
   mapPolymarketTradeToVenueOrder,
   mapPolymarketTradesToVenueOrders,
   polymarketBuyStakeUsdc,
+  resolvePolymarketWinningAssetId,
   type PolymarketTradeRow,
 } from "./orders";
-import { polymarketOrderContextFromMarket } from "./parse";
+import { polymarketOrderContextFromMarket, type PolymarketRawMarket } from "./parse";
 
 describe("isPolymarketTradeConfirmed", () => {
   test("accepts confirmed, matched, and mined statuses", () => {
@@ -185,18 +188,30 @@ describe("polymarketOrderContextFromMarket", () => {
 });
 
 describe("mapPolymarketTradesToVenueOrders", () => {
+  const ilbirsTrade: PolymarketTradeRow = {
+    taker_order_id: "0xf6ce662fe4d026b86430fc49e29bc3600db21d76ef69fcb7e0230689289d8a53",
+    market: "0xfaf8d69ad2f0677b6f987e7da1c94022f73073120e9ed28969fcf5153475116f",
+    asset_id: "12876938733604859423663202044051912631612545733461708116502231340403727260024",
+    side: "BUY",
+    size: "6.756753",
+    price: "0.74",
+    status: "CONFIRMED",
+    match_time: "1782736191",
+    outcome: "Ilbirs eSports",
+    trader_side: "TAKER",
+  };
+
+  const ilbirsMarket: PolymarketRawMarket = {
+    condition_id: "0xfaf8d69ad2f0677b6f987e7da1c94022f73073120e9ed28969fcf5153475116f",
+    question: "Ilbirs vs BALU Map 1",
+    closed: true,
+    outcomes: "[\"Ilbirs eSports\", \"BALU\"]",
+    outcomePrices: "[\"1\", \"0\"]",
+    clobTokenIds: "[\"12876938733604859423663202044051912631612545733461708116502231340403727260024\", \"64898223322413645971505217367611485629461864230905813190263318936513341854768\"]",
+  };
+
   test("maps production CLOB decimal share sizes (Ilbirs sample)", () => {
-    const order = mapPolymarketTradeToVenueOrder({
-      taker_order_id: "0xf6ce662fe4d026b86430fc49e29bc3600db21d76ef69fcb7e0230689289d8a53",
-      market: "0xfaf8d69ad2f0677b6f987e7da1c94022f73073120e9ed28969fcf5153475116f",
-      side: "BUY",
-      size: "6.756753",
-      price: "0.74",
-      status: "CONFIRMED",
-      match_time: "1782736191",
-      outcome: "Ilbirs eSports",
-      trader_side: "TAKER",
-    });
+    const order = mapPolymarketTradeToVenueOrder(ilbirsTrade);
 
     expect(order).toMatchObject({
       orderId: "0xf6ce662fe4d026b86430fc49e29bc3600db21d76ef69fcb7e0230689289d8a53",
@@ -204,7 +219,70 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       odds: 1.3514,
       item: "Ilbirs eSports",
       createAt: 1_782_736_191_000,
+      status: "none",
     });
+  });
+
+  test("settles Ilbirs BUY as win when Gamma market resolved", () => {
+    const [order] = mapPolymarketTradesToVenueOrders(
+      [ilbirsTrade],
+      new Map([[String(ilbirsMarket.condition_id), ilbirsMarket]]),
+    );
+
+    expect(order).toMatchObject({
+      status: "win",
+      betMoney: 5,
+      reward: 6.7568,
+      money: 1.7568,
+    });
+  });
+
+  test("settles Ilbirs BUY as lose when opponent token wins", () => {
+    const lostMarket: PolymarketRawMarket = {
+      ...ilbirsMarket,
+      outcomePrices: "[\"0\", \"1\"]",
+    };
+    const [order] = mapPolymarketTradesToVenueOrders(
+      [ilbirsTrade],
+      new Map([[String(lostMarket.condition_id), lostMarket]]),
+    );
+
+    expect(order).toMatchObject({
+      status: "lose",
+      betMoney: 5,
+      reward: 0,
+      money: -5,
+    });
+  });
+
+  test("keeps none when market closed but outcome not finalized", () => {
+    const pendingMarket: PolymarketRawMarket = {
+      ...ilbirsMarket,
+      closed: true,
+      outcomePrices: "[\"0.55\", \"0.45\"]",
+    };
+    expect(isPolymarketMarketResolved(pendingMarket)).toBe(false);
+    expect(resolvePolymarketWinningAssetId(pendingMarket)).toBeNull();
+
+    const [order] = mapPolymarketTradesToVenueOrders(
+      [ilbirsTrade],
+      new Map([[String(pendingMarket.condition_id), pendingMarket]]),
+    );
+    expect(order?.status).toBe("none");
+    expect(order?.money).toBe(0);
+  });
+
+  test("keeps none when market still open", () => {
+    const openMarket: PolymarketRawMarket = {
+      ...ilbirsMarket,
+      closed: false,
+      outcomePrices: "[\"0.74\", \"0.26\"]",
+    };
+    const [order] = mapPolymarketTradesToVenueOrders(
+      [ilbirsTrade],
+      new Map([[String(openMarket.condition_id), openMarket]]),
+    );
+    expect(order?.status).toBe("none");
   });
 
   test("keeps BUY bets and drops SELL redemptions from mixed trade feed", () => {
@@ -246,5 +324,40 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(orders.map(o => o.orderId)).toEqual(["0xbuy1", "0xbuy2"]);
     expect(orders[0]?.betMoney).toBe(5);
     expect(orders[1]?.betMoney).toBeCloseTo(8, 0);
+  });
+});
+
+describe("applyPolymarketSettlement", () => {
+  test("falls back to outcome name when asset_id missing", () => {
+    const market: PolymarketRawMarket = {
+      closed: true,
+      outcomes: "[\"Team A\", \"Team B\"]",
+      outcomePrices: "[\"0.999\", \"0.001\"]",
+      clobTokenIds: "[\"token-a\", \"token-b\"]",
+    };
+    const base = {
+      provider: "Polymarket" as const,
+      orderId: "0x1",
+      odds: 2,
+      createAt: 1,
+      betMoney: 10,
+      reward: 20,
+      money: 0,
+      status: "none" as const,
+      game: "",
+      match: "",
+      bet: "",
+      item: "Team A",
+    };
+    const settled = applyPolymarketSettlement(base, {
+      side: "BUY",
+      size: "20",
+      price: "0.5",
+      outcome: "Team A",
+    }, market);
+
+    expect(settled.status).toBe("win");
+    expect(settled.reward).toBe(20);
+    expect(settled.money).toBe(10);
   });
 });

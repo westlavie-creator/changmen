@@ -26,6 +26,8 @@ export interface PolymarketRawMarket {
   clob_token_ids?: unknown;
   clobTokenIds?: unknown;
   outcomes?: unknown;
+  outcomePrices?: unknown;
+  outcome_prices?: unknown;
   group_item_title?: string;
   groupItemTitle?: string;
   sports_market_type?: string;
