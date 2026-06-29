@@ -27,3 +27,9 @@
 .matchs .match .match-title .startTime {
   margin-left:12px;
 }
+
+.matchs .match .match-title .pm-sport {
+  margin-left:12px;
+  color:#7dd3fc;
+  font-size:12px;
+}

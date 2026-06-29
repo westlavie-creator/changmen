@@ -234,7 +234,8 @@ const MATCHES_CACHE_MAX_AGE_MS = 90_000;
 function _matchesCacheSignature(meta) {
   if (!meta)
     return "";
-  return `${meta.builtAt}:${meta.count}`;
+  const rev = Number(meta.pmSportRev) || 0;
+  return `${meta.builtAt}:${meta.count}:${rev}`;
 }
 
 function _invalidateClientMatchesCache() {
@@ -262,6 +263,7 @@ function _applyClientMatchRows(data) {
       Reverse: Array.isArray(row.reverse) ? row.reverse : [],
       Matchs: row.matchs || {},
       Bets: row.bets || [],
+      PmSport: row.pm_sport && typeof row.pm_sport === "object" ? row.pm_sport : undefined,
       built_at: row.built_at || now,
     });
   }
@@ -364,8 +366,11 @@ export async function loadClientMatchesFromDb() {
   const cacheStale
     = !_matchesCacheLoadedAt || now - _matchesCacheLoadedAt > MATCHES_CACHE_MAX_AGE_MS;
 
-  if (isEmbeddedMatcher() && _clientMatches.size && _matchesCacheKey && !cacheStale)
-    return getClientMatches();
+  if (isEmbeddedMatcher() && _clientMatches.size && _matchesCacheKey && !cacheStale) {
+    const meta = await sb.fetchClientMatchesMeta();
+    if (meta && _matchesCacheSignature(meta) === _matchesCacheKey)
+      return getClientMatches();
+  }
 
   if (_clientMatches.size && _matchesCacheKey && !cacheStale) {
     const meta = await sb.fetchClientMatchesMeta();
@@ -392,7 +397,10 @@ export async function loadClientMatchesFromDb() {
     (max, row) => Math.max(max, Number(row.built_at) || 0),
     0,
   );
-  _matchesCacheKey = `${builtAt}:${data.length}`;
+  const meta = await sb.fetchClientMatchesMeta();
+  _matchesCacheKey = meta
+    ? _matchesCacheSignature(meta)
+    : `${builtAt}:${data.length}:0`;
   _matchesCacheLoadedAt = now;
   return _applyClientMatchRows(data);
 }

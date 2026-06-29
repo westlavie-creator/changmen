@@ -72,6 +72,34 @@ export interface BetRowDto {
   Sources: Record<string, BetSourceDto>;
 }
 
+export interface PmSportMapResult {
+  map: number;
+  winner: "home" | "away" | string;
+  winnerName?: string;
+}
+
+/** Polymarket Sports WS 快照（client_matches.pm_sport） */
+export interface PmSportSnapshot {
+  gameId?: number;
+  slug?: string;
+  leagueAbbreviation?: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  status?: string;
+  live?: boolean;
+  ended?: boolean;
+  period?: string;
+  currentMap?: number | null;
+  bo?: number;
+  scoreRaw?: string;
+  mapScore?: { home: number; away: number };
+  maps?: PmSportMapResult[];
+  elapsed?: string;
+  finishedTimestamp?: string;
+  label?: string;
+  updatedAt?: number;
+}
+
 export interface ClientMatchDto {
   ID: number;
   Title: string;
@@ -84,6 +112,7 @@ export interface ClientMatchDto {
   Reverse?: PlatformId[];
   Matchs: Record<string, string | number>;
   Bets: BetRowDto[];
+  PmSport?: PmSportSnapshot;
 }
 
 export interface PageResult<T> {

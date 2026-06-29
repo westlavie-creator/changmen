@@ -25,6 +25,11 @@ export {
 } from "./rds/client_matches_store.js";
 
 export {
+  resolveClientMatchIdForPmSport,
+  updateClientMatchPmSport,
+} from "./rds/pm_sport_store.js";
+
+export {
   deleteMoneyLogById,
   deleteMoneyLogsByPlayer,
   fetchAllMoneyLogs,

@@ -21,6 +21,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 │ 服务端（一台或多实例）                                     │
 │  server/backend    — esport-api、HTTP 代理、静态 /          │
 │  server/matcher    — 循环写 client_matches                 │
+│  polymarket-sports — Sports WS → client_matches.pm_sport   │
 │  RDS (PostgreSQL)  — platform_* / client_matches / orders / users  │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -58,6 +59,7 @@ Nginx / Caddy 反代示例要点：
 |------|----------|-------------|
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
 | API + 合并（`server/backend` + embedded matcher） | PM2：`gamebet-web`（`:3456`，`MATCHER_EMBEDDED=1`） | `pm2 restart gamebet-web --update-env` |
+| Polymarket 赛程状态 | PM2：`gamebet-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart gamebet-pm-sports --update-env` |
 | 独立 matcher 回滚模式 | PM2：`gamebet-matcher`（默认不启用） | `MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start ecosystem.config.cjs` |
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
@@ -145,16 +147,19 @@ npm run app:build
 
 ### 3.4 进程
 
-默认一个长期进程（推荐 PM2）：`gamebet-web` 内嵌 matcher loop。
+默认两个长期进程（推荐 PM2）：`gamebet-web`（内嵌 matcher）+ `gamebet-pm-sports`（Polymarket Sports WS）。
 
 ```bash
 cd changmen
-pm2 start ecosystem.config.cjs    # gamebet-web（内嵌 matcher）
+pm2 start ecosystem.config.cjs    # gamebet-web + gamebet-pm-sports
 # 或手动：
 MATCHER_EMBEDDED=1 npm run web
+npm run pm-sports
 ```
 
-`ecosystem.config.cjs` 默认只注册 `gamebet-web`，入口为 `server/backend/scripts/start-db.mjs`（`GAMEBET_DB_SCRIPT=rds`）。如需回滚到独立 matcher：
+`gamebet-pm-sports` 连 `wss://sports-api.polymarket.com/ws`，按 `platform_matches` 已有 Polymarket 行关联 `client_matches`，写入 `pm_sport`。**不替代**浏览器 CLOB WS 赔率采集。
+
+`ecosystem.config.cjs` 默认注册 `gamebet-web` 与 `gamebet-pm-sports`，入口分别为 `server/backend/scripts/start-db.mjs` 与 `server/polymarket-sports/index.js`（`GAMEBET_DB_SCRIPT=rds`）。如需回滚到独立 matcher：
 
 ```bash
 cd changmen

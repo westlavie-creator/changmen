@@ -80,6 +80,8 @@ export const {
   fetchClientMatchesForAlign,
   fetchClientMatchesMeta,
   initLastWrittenIds,
+  resolveClientMatchIdForPmSport,
+  updateClientMatchPmSport,
   fetchPlatformCollectorMeta,
   fetchPlatformMatches,
   fetchPlatformBets,

@@ -209,8 +209,8 @@ export async function archiveClientMatch(id) {
        DELETE FROM client_matches WHERE id = $1
        RETURNING *
      )
-     INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at)
-     SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at FROM moved`,
+     INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport)
+     SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport FROM moved`,
     [cmId],
   );
   if (!rowCount)

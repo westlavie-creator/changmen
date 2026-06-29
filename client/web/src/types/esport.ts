@@ -13,6 +13,8 @@ export type {
   PageResult,
   PlatformId,
   PlayerOrderRow,
+  PmSportMapResult,
+  PmSportSnapshot,
   TagPlatformRow,
   UserInfo,
   UserListRow,

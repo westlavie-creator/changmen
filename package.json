@@ -17,7 +17,8 @@
     "server/ws_forward",
     "devtools/platform-probes",
     "server/team-resolver",
-    "server/value-bet"
+    "server/value-bet",
+    "server/polymarket-sports"
   ],
   "scripts": {
     "install:all": "npm install",
@@ -38,6 +39,7 @@
     "test:catalog-smoke": "node --experimental-strip-types packages/shared/catalog/market_catalog_smoke.test.ts && node --experimental-strip-types packages/shared/catalog/game_catalog_smoke.test.ts && node --experimental-strip-types packages/shared/im_parse_smoke.test.ts && node --experimental-strip-types packages/shared/time/match_time_smoke.test.ts && node server/storage/paths_smoke.test.mjs && vitest run server/db/order_link_filter.test.mjs server/db/order_changmen_bet.test.mjs",
     "matcher:ui": "npm run start --prefix server/matcher",
     "matcher:loop": "npm run matcher --prefix server/matcher",
+    "pm-sports": "npm run start --prefix server/polymarket-sports",
     "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension",
     "ob:lock-observe": "npm run ob:lock-observe --workspace=@changmen/venue-adapter",
     "value-bet": "npm run start --prefix server/value-bet",

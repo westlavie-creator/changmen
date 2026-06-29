@@ -15,12 +15,12 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
   const sql = `
     INSERT INTO client_matches (
       id, merge_key, title, game, game_id, start_time, bo, round, round_start,
-      matchs, bets, reverse, built_at
+      matchs, bets, reverse, built_at, pm_sport
     )
     SELECT * FROM unnest(
       $1::bigint[], $2::text[], $3::text[], $4::text[], $5::text[],
       $6::bigint[], $7::integer[], $8::integer[], $9::bigint[],
-      $10::jsonb[], $11::jsonb[], $12::jsonb[], $13::bigint[]
+      $10::jsonb[], $11::jsonb[], $12::jsonb[], $13::bigint[], $14::jsonb[]
     )
     ON CONFLICT (id) DO UPDATE SET
       merge_key = EXCLUDED.merge_key,
@@ -34,7 +34,8 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
       matchs = EXCLUDED.matchs,
       bets = EXCLUDED.bets,
       reverse = EXCLUDED.reverse,
-      built_at = EXCLUDED.built_at
+      built_at = EXCLUDED.built_at,
+      pm_sport = COALESCE(EXCLUDED.pm_sport, client_matches.pm_sport)
   `;
   try {
     await client.query("BEGIN");
@@ -53,6 +54,7 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
         dedupedRows.map(r => _jsonb(r.bets, [])),
         dedupedRows.map(r => _jsonb(r.reverse, [])),
         dedupedRows.map(r => Number(r.built_at)),
+        dedupedRows.map(r => (r.pm_sport != null ? _jsonb(r.pm_sport, null) : null)),
       ]);
     }
     if (toDelete.length) {
@@ -61,8 +63,8 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
            DELETE FROM client_matches WHERE id = ANY($1::bigint[])
            RETURNING *
          )
-         INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at)
-         SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at FROM moved`,
+         INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport)
+         SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport FROM moved`,
         [toDelete],
       );
     }
@@ -87,11 +89,17 @@ async function _rdsFetchClientMatches(pool) {
 
 async function _rdsFetchClientMatchesMeta(pool) {
   const { rows } = await pool.query(
-    `SELECT COUNT(*)::int AS count, COALESCE(MAX(built_at), 0)::bigint AS built_at
+    `SELECT COUNT(*)::int AS count,
+            COALESCE(MAX(built_at), 0)::bigint AS built_at,
+            COALESCE(MAX((pm_sport->>'updatedAt')::bigint), 0)::bigint AS pm_sport_rev
      FROM client_matches`,
   );
   const row = rows[0] || {};
-  return { builtAt: Number(row.built_at) || 0, count: Number(row.count) || 0 };
+  return {
+    builtAt: Number(row.built_at) || 0,
+    count: Number(row.count) || 0,
+    pmSportRev: Number(row.pm_sport_rev) || 0,
+  };
 }
 
 async function _rdsInitLastWrittenIds(pool) {

@@ -80,6 +80,9 @@ async function main() {
     console.log("[rds] 执行 015_prune_indexes_and_drop_list_status.sql …");
     await client.query(readSql("015_prune_indexes_and_drop_list_status.sql"));
 
+    console.log("[rds] 执行 016_client_matches_pm_sport.sql …");
+    await client.query(readSql("016_client_matches_pm_sport.sql"));
+
     const tables = await client.query(`
       SELECT tablename FROM pg_tables
       WHERE schemaname = 'public'

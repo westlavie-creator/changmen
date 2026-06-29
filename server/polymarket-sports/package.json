@@ -1,0 +1,16 @@
+{
+  "name": "@changmen/polymarket-sports",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VPS daemon: Polymarket Sports WS → client_matches.pm_sport",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test parse_sport.test.mjs"
+  },
+  "dependencies": {
+    "@changmen/db": "*",
+    "@changmen/storage": "*",
+    "ws": "^8.21.0"
+  }
+}

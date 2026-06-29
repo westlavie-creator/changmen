@@ -14,6 +14,7 @@ defineProps<{
       <label v-if="match.game" class="game-tag">[{{ match.game }}]</label>
       <label v-html="match.title" />
       <label class="startTime">{{ formatDate(match.startAt) }}</label>
+      <label v-if="match.pmSport?.label" class="pm-sport">{{ match.pmSport.label }}</label>
     </div>
     <div class="bets flex flex-wrap">
       <BetRow v-for="bet in match.bets" :key="bet.id" :match="match" :bet="bet" />

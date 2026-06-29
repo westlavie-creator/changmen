@@ -19,6 +19,16 @@ const apps = [
       MATCHER_EMBEDDED: process.env.MATCHER_EMBEDDED || "1",
     },
   },
+  {
+    name: "gamebet-pm-sports",
+    cwd: "./server/polymarket-sports",
+    script: "index.js",
+    interpreter: "node",
+    env: {
+      NODE_ENV: "production",
+      DATABASE_APPLICATION_NAME: "gamebet-pm-sports",
+    },
+  },
 ];
 
 if (process.env.MATCHER_STANDALONE === "1") {

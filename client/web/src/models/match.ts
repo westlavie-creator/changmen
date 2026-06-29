@@ -1,6 +1,6 @@
 import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { BetRowDto, ClientMatchDto, PlatformId } from "@/types/esport";
+import type { BetRowDto, ClientMatchDto, PlatformId, PmSportSnapshot } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { buildOrderOptions } from "@/domain/betting";
@@ -133,6 +133,8 @@ export class ViewMatch {
   reverse: PlatformId[];
   providers: Record<string, string | number>;
   bets: ViewBet[];
+  /** Polymarket Sports WS 赛程快照（VPS 写入） */
+  pmSport?: PmSportSnapshot;
 
   constructor(dto: ClientMatchDto) {
     this.id = dto.ID;
@@ -145,6 +147,7 @@ export class ViewMatch {
     this.providers = dto.Matchs ?? {};
     this.liveRound = dto.Round ?? 0;
     this.liveRoundStart = dto.RoundStart ?? 0;
+    this.pmSport = dto.PmSport;
     this.bets = (dto.Bets ?? [])
       .map(b => new ViewBet(b, this.providers, this.liveRound, this.liveRoundStart))
       .sort((a, b) => a.round - b.round);
