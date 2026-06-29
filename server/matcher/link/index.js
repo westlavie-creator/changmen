@@ -9,6 +9,7 @@ import {
 } from "@changmen/match-engine";
 import { getGameCodeForPlatformId, getPlatformGameId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
+import store from "../../backend/core/esport-api/store.js";
 import { invalidateTeamPlugin, rebuildOnce } from "../ops/rebuild.js";
 import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { resetMatcherUiTeamPlugin } from "../ui/merge_mode.js";
@@ -436,6 +437,16 @@ async function linkPlatformToPlatform({
     await db.setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
   }
 
+  const cmRow = await db.fetchClientMatchRow(cmId, "id,matchs");
+  store.patchCollectorMatchClientIds([{
+    ID: cmId,
+    Matchs: {
+      ...(cmRow?.matchs || {}),
+      [pmSource.platform]: String(pmSource.source_match_id),
+      [pmTarget.platform]: String(pmTarget.source_match_id),
+    },
+  }]);
+
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
   const rebuild = await rebuildOnce({ afterInFlight: true });
@@ -655,6 +666,11 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   mapResults.push(await upsertTeamMapForMatchLink(plat, pmAwayId, pmAwayName, gameCode, pm.source_game_id));
 
   await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
+
+  store.patchCollectorMatchClientIds([{
+    ID: cmId,
+    Matchs: { ...(cm.matchs || {}), [plat]: srcId },
+  }]);
 
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
