@@ -29,6 +29,12 @@ const navItems = [
     to: { name: "admin-analytics" as const },
   },
   {
+    name: "admin-polymarket-builder",
+    label: "Poly Builder",
+    icon: "am-icon-flash",
+    to: { name: "admin-polymarket-builder" as const },
+  },
+  {
     name: "admin-health",
     label: "系统健康",
     icon: "am-icon-heartbeat",

@@ -824,3 +824,10 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
   ]);
   return { startMs, endMs, platforms, pairs, games, hourly, accounts, obArbOdds };
 }
+
+export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
+  const { getPolymarketBuilderDashboard: load } = await import(
+    "../integrations/polymarket/builder_dashboard.js"
+  );
+  return load(body, caller);
+}

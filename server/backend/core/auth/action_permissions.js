@@ -27,6 +27,7 @@ const LEADER_ALLOWED_ACTIONS = new Set([
   "Client_AdminMonthReport",
   "Client_AdminTeams",
   "Client_AdminPlatformAnalytics",
+  "Client_AdminPolymarketBuilder",
   "Client_AdminValueBet",
 ]);
 

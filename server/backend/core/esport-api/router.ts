@@ -633,6 +633,9 @@ async function handle(
     case "Client_AdminPlatformAnalytics": {
       return ok(await adminService.getPlatformAnalytics(body, ctx.user));
     }
+    case "Client_AdminPolymarketBuilder": {
+      return ok(await adminService.getPolymarketBuilderDashboard(body, ctx.user));
+    }
     case "Client_AdminValueBet": {
       const { getValueBetDashboard } = await import("./value_bet_service.js");
       return ok(await getValueBetDashboard());

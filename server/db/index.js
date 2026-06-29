@@ -111,6 +111,7 @@ export const {
   fetchHourlyAnalytics,
   fetchAccountAnalytics,
   fetchObArbOddsAnalytics,
+  fetchPolymarketOrdersInRange,
   fetchMoneyLogsByPlayer,
   fetchMoneyLogById,
   fetchAllMoneyLogs,

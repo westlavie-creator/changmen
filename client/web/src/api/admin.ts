@@ -232,6 +232,80 @@ export async function getAdminPlatformAnalytics(body: Record<string, unknown> = 
   return unwrap(await post<PlatformAnalyticsPayload>("Client_AdminPlatformAnalytics", body));
 }
 
+export interface PolymarketBuilderTradeRow {
+  id: string;
+  tradeType: string;
+  side: string;
+  status: string;
+  outcome: string;
+  price: number;
+  sizeShares: number;
+  sizeUsdc: number;
+  feeUsdc: number;
+  maker: string;
+  owner: string;
+  market: string;
+  assetId: string;
+  transactionHash: string;
+  matchTime: number | null;
+  matchTimeIso: string | null;
+  builder: string;
+}
+
+export interface PolymarketChangmenOrderRow {
+  orderId: string;
+  userId: string;
+  userName: string;
+  playerId: number;
+  playerName: string;
+  status: string;
+  betMoney: number;
+  profit: number;
+  message: string;
+  matchTitle: string;
+  betTitle: string;
+  item: string;
+  createAt: number;
+  updateAt: number;
+}
+
+export interface PolymarketBuilderDashboardPayload {
+  startMs: number;
+  endMs: number;
+  builderCode: string;
+  relayerConfigured: boolean;
+  relayerAuthMode: string | null;
+  polymarket: {
+    trades: PolymarketBuilderTradeRow[];
+    summary: {
+      tradeCount: number;
+      volumeUsdc: number;
+      feeUsdc: number;
+      buyCount: number;
+      sellCount: number;
+    };
+    pagesFetched: number;
+    nextCursor: string | null;
+    hasMore: boolean;
+  };
+  changmen: {
+    orders: PolymarketChangmenOrderRow[];
+    summary: {
+      orderCount: number;
+      totalBet: number;
+      totalProfit: number;
+      wins: number;
+      losses: number;
+      rejects: number;
+      pending: number;
+    };
+  };
+}
+
+export async function getAdminPolymarketBuilder(body: Record<string, unknown> = {}) {
+  return unwrap(await post<PolymarketBuilderDashboardPayload>("Client_AdminPolymarketBuilder", body));
+}
+
 /** Link / order_id 关联 Client_SaveUserLog（管理端诊断） */
 export async function getAdminOrderLogs(body: {
   userId: string;

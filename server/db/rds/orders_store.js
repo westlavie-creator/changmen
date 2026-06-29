@@ -695,6 +695,38 @@ export async function fetchObArbOddsAnalytics(startMs, endMs, userIds) {
   }
 }
 
+/** Polymarket Builder 看板：时间范围内 changmen Polymarket 订单 */
+export async function fetchPolymarketOrdersInRange(startMs, endMs, userIds, limit = 100) {
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  try {
+    const params = [startMs, endMs];
+    let where = `o.create_at >= $1 AND o.create_at < $2 AND o.provider = 'Polymarket'`;
+    if (Array.isArray(userIds) && userIds.length) {
+      params.push(userIds);
+      where += ` AND o.user_id = ANY($${params.length}::uuid[])`;
+    }
+    params.push(Math.min(Math.max(Number(limit) || 100, 1), 500));
+    const { rows } = await pool.query(
+      `SELECT o.order_id, o.user_id, o.player_id, o.provider, o.match, o.bet, o.item,
+              o.status, o.message, o.bet_money, o.money, o.create_at, o.update_at,
+              p.user_name
+       FROM orders o
+       LEFT JOIN profiles p ON p.id = o.user_id
+       WHERE ${where}
+       ORDER BY o.create_at DESC
+       LIMIT $${params.length}`,
+      params,
+    );
+    return rows || [];
+  }
+  catch (err) {
+    console.warn("[rds] fetchPolymarketOrdersInRange:", err.message);
+    return [];
+  }
+}
+
 /** 数据分析：按账号（player_id）聚合 */
 export async function fetchAccountAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();

@@ -38,6 +38,7 @@ export {
   deleteOrdersByIds,
   fetchAccountAnalytics,
   fetchObArbOddsAnalytics,
+  fetchPolymarketOrdersInRange,
   fetchArbPairAnalytics,
   fetchGameAnalytics,
   fetchHourlyAnalytics,
