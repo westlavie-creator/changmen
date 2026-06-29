@@ -54,6 +54,34 @@ async function fetchEsportsSeriesIds() {
   return DEFAULT_ESPORTS_SERIES_IDS;
 }
 
+function gammaEventRowFromApi(event) {
+  if (!event || typeof event !== "object")
+    return null;
+  const id = event?.id != null ? String(event.id) : "";
+  const slug = event?.slug != null ? String(event.slug) : "";
+  const gameIdRaw = event?.gameId;
+  const gameId = gameIdRaw != null ? Number(gameIdRaw) : null;
+  if (!id && !slug)
+    return null;
+  return {
+    id,
+    slug,
+    gameId: Number.isFinite(gameId) ? gameId : null,
+  };
+}
+
+/** 写入进程内 Gamma 索引，避免重复 API 请求 */
+export function rememberGammaEvent(gammaIndex, row) {
+  if (!row || !gammaIndex)
+    return;
+  if (row.slug)
+    gammaIndex.bySlug.set(row.slug, row);
+  if (row.id)
+    gammaIndex.bySlug.set(row.id, row);
+  if (Number.isFinite(row.gameId))
+    gammaIndex.byGameId.set(row.gameId, { id: row.id, slug: row.slug });
+}
+
 /**
  * @returns {Promise<{ byGameId: Map<number, { id: string, slug: string }>, bySlug: Map<string, { id: string, slug: string, gameId: number | null }> }>}
  */
@@ -81,17 +109,15 @@ export async function refreshGammaEventIndex() {
     const data = await fetchJson(`${POLYMARKET_GAMMA_API}/events/keyset?${params.toString()}`);
     const events = unwrapEvents(data);
     for (const event of events) {
-      const id = event?.id != null ? String(event.id) : "";
-      const slug = event?.slug != null ? String(event.slug) : "";
-      const gameIdRaw = event?.gameId;
-      const gameId = gameIdRaw != null ? Number(gameIdRaw) : null;
-      const row = { id, slug, gameId: Number.isFinite(gameId) ? gameId : null };
-      if (slug)
-        bySlug.set(slug, row);
-      if (id)
-        bySlug.set(id, row);
-      if (Number.isFinite(gameId))
-        byGameId.set(gameId, { id, slug });
+      const row = gammaEventRowFromApi(event);
+      if (!row)
+        continue;
+      if (row.slug)
+        bySlug.set(row.slug, row);
+      if (row.id)
+        bySlug.set(row.id, row);
+      if (Number.isFinite(row.gameId))
+        byGameId.set(row.gameId, { id: row.id, slug: row.slug });
     }
     cursor = nextCursor(data);
     if (!cursor)
@@ -99,6 +125,36 @@ export async function refreshGammaEventIndex() {
   }
 
   return { byGameId, bySlug };
+}
+
+/** Gamma 单条 gameId 查询（WS 常无 slug，keyset 也可能未收录） */
+export async function fetchGammaEventByGameId(gameId) {
+  const id = Number(gameId);
+  if (!Number.isFinite(id) || id <= 0)
+    return null;
+  try {
+    const params = new URLSearchParams({
+      gameId: String(id),
+      limit: "1",
+      closed: "false",
+    });
+    const data = await fetchJson(`${POLYMARKET_GAMMA_API}/events?${params.toString()}`);
+    let event = unwrapEvents(data)[0];
+    if (!event) {
+      const mParams = new URLSearchParams({ game_id: String(id), limit: "1" });
+      const mData = await fetchJson(`${POLYMARKET_GAMMA_API}/markets?${mParams.toString()}`);
+      const market = unwrapEvents(mData)[0];
+      if (market?.events?.[0])
+        event = market.events[0];
+      else if (market?.event)
+        event = market.event;
+    }
+    return gammaEventRowFromApi(event);
+  }
+  catch (err) {
+    console.warn("[pm-sports] Gamma event by gameId failed:", err.message);
+    return null;
+  }
 }
 
 /** Gamma 单条 slug 查询（keyset 索引未覆盖时的兜底） */
@@ -113,15 +169,7 @@ export async function fetchGammaEventBySlug(slug) {
     const event = events[0];
     if (!event)
       return null;
-    const id = event?.id != null ? String(event.id) : "";
-    const eventSlug = event?.slug != null ? String(event.slug) : s;
-    const gameIdRaw = event?.gameId;
-    const gameId = gameIdRaw != null ? Number(gameIdRaw) : null;
-    return {
-      id,
-      slug: eventSlug,
-      gameId: Number.isFinite(gameId) ? gameId : null,
-    };
+    return gammaEventRowFromApi(event);
   }
   catch (err) {
     console.warn("[pm-sports] Gamma event by slug failed:", err.message);

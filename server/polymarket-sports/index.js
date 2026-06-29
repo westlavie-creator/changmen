@@ -78,7 +78,7 @@ async function handleSportMessage(raw) {
     if (now - last >= UNRESOLVED_LOG_MS) {
       unresolvedLogAt.set(gameId, now);
       console.warn(
-        `[pm-sports] unresolved gameId=${gameId} slug=${msg.slug || ""} status=${msg.status || ""}`,
+        `[pm-sports] unresolved gameId=${gameId} slug=${msg.slug || ""} status=${msg.status || ""} teams=${msg.homeTeam || ""} vs ${msg.awayTeam || ""}`,
       );
     }
     return;
