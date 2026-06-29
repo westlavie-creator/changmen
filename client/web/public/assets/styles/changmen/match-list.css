@@ -21,6 +21,10 @@
 }
 
 .matchs .match .match-title {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:baseline;
+  gap:0;
   color:#fff;font-size:14px;padding-bottom:12px;
 }
 
@@ -29,8 +33,20 @@
 }
 
 .matchs .match .match-title .pm-sport {
-  margin-left:12px;
+  margin-left:auto;
+  padding-left:12px;
   color:#fff;
   font-size:12px;
   white-space:nowrap;
+  text-align:right;
+}
+
+.matchs .match .match-title .pm-sport-link {
+  color:inherit;
+  text-decoration:underline;
+  text-underline-offset:2px;
+}
+
+.matchs .match .match-title .pm-sport-link:hover {
+  opacity:0.85;
 }

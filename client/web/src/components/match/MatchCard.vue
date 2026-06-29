@@ -2,23 +2,14 @@
 import type { ViewMatch } from "@/models/match";
 import BetRow from "@/components/match/BetRow.vue";
 import { formatDate } from "@/shared/format";
+import { buildPmSportDisplayParts } from "@/shared/pmSportDisplay";
 import { computed } from "vue";
 
 const props = defineProps<{
   match: ViewMatch;
 }>();
 
-const pmSportText = computed(() => {
-  const s = props.match.pmSport;
-  if (!s)
-    return "";
-  return s.label || s.status || (s.ended ? "已结束" : "");
-});
-
-const pmSportTitle = computed(() => {
-  const src = props.match.pmSport?.resolutionSource;
-  return src ? String(src) : undefined;
-});
+const pmSportParts = computed(() => buildPmSportDisplayParts(props.match.pmSport));
 </script>
 
 <template>
@@ -27,7 +18,19 @@ const pmSportTitle = computed(() => {
       <label v-if="match.game" class="game-tag">[{{ match.game }}]</label>
       <label v-html="match.title" />
       <label class="startTime">{{ formatDate(match.startAt) }}</label>
-      <label v-if="pmSportText" class="pm-sport" :title="pmSportTitle">{{ pmSportText }}</label>
+      <span v-if="pmSportParts.length" class="pm-sport">
+        <template v-for="(part, index) in pmSportParts" :key="index">
+          <span v-if="index > 0" class="pm-sport-sep"> · </span>
+          <a
+            v-if="part.kind === 'link'"
+            class="pm-sport-link"
+            :href="part.href"
+            target="_blank"
+            rel="noopener noreferrer"
+          >{{ part.text }}</a>
+          <span v-else>{{ part.text }}</span>
+        </template>
+      </span>
     </div>
     <div class="bets flex flex-wrap">
       <BetRow v-for="bet in match.bets" :key="bet.id" :match="match" :bet="bet" />

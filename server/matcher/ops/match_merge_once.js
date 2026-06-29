@@ -2,6 +2,8 @@ import * as db from "@changmen/db";
 import {
   applyManualMatchLinks,
   buildClientMatchList,
+  buildPmSportByClientId,
+  filterActiveClientMatches,
   filterMultiPlatformClientMatches,
   normalizeMatchesShape,
   resolveClientMatchIds,
@@ -106,6 +108,17 @@ async function matchMergeOnceImpl() {
   info = await resolveClientMatchIds(adapter, info, { matches, existingIdKeyIndex });
   info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows);
   info = filterMultiPlatformClientMatches(info);
+
+  const pmSportByClientId = buildPmSportByClientId(clientRows);
+  const endedFilter = filterActiveClientMatches(info, {
+    platformMatches: matches,
+    timersByProvider: timers,
+    pmSportByClientId,
+  });
+  info = endedFilter.list;
+  if (endedFilter.endedCount > 0) {
+    console.log(`[matchMerge] 已结束移出活跃列表 ${endedFilter.endedCount} 场`);
+  }
 
   const now = Date.now();
   await db.writeClientMatchesAsync(

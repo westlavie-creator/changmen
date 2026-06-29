@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { allMapBetsClosed, isClientMatchEnded } from "../merge/match_lifecycle.js";
+import {
+  allMapBetsClosed,
+  filterActiveClientMatches,
+  isClientMatchEnded,
+  isPmSportEnded,
+} from "../merge/match_lifecycle.js";
 
 const NOW = Date.parse("2026-06-16T10:00:00+08:00");
 
@@ -162,6 +167,66 @@ describe("isClientMatchEnded", () => {
     );
   });
 
+  it("returns true when PM ended, map bets locked, even if OB is_live=2", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 3600_000,
+          Matchs: { OB: "99", Polymarket: "pm1" },
+          Bets: [
+            { Map: 1, Sources: { OB: { Status: "Locked" } } },
+            { Map: 2, Sources: { OB: { Status: "Locked" } } },
+          ],
+        },
+        { OB: { 99: { SourceMatchID: "99", IsLive: 2 } } },
+        {},
+        NOW,
+        { ended: true, status: "finished" },
+      ),
+      true,
+    );
+  });
+
+  it("returns false when PM ended but map bets still Normal", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 3600_000,
+          Matchs: { OB: "99", Polymarket: "pm1" },
+          Bets: [{ Map: 1, Sources: { OB: { Status: "Normal" } } }],
+        },
+        { OB: { 99: { SourceMatchID: "99", IsLive: 1 } } },
+        {},
+        NOW,
+        { ended: true, status: "finished" },
+      ),
+      false,
+    );
+  });
+
+  it("returns false when PM ended without Polymarket link in Matchs", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 3600_000,
+          Matchs: { OB: "99" },
+          Bets: [
+            { Map: 1, Sources: { OB: { Status: "Locked" } } },
+            { Map: 2, Sources: { OB: { Status: "Locked" } } },
+          ],
+        },
+        { OB: { 99: { SourceMatchID: "99", IsLive: 2 } } },
+        {},
+        NOW,
+        { ended: true, status: "finished" },
+      ),
+      false,
+    );
+  });
+
   it("returns false without OB when Map 0 full match still Normal", () => {
     assert.equal(
       isClientMatchEnded(
@@ -184,5 +249,46 @@ describe("isClientMatchEnded", () => {
       ),
       false,
     );
+  });
+});
+
+describe("isPmSportEnded", () => {
+  it("detects ended flag and finished status", () => {
+    assert.equal(isPmSportEnded({ ended: true }), true);
+    assert.equal(isPmSportEnded({ status: "finished" }), true);
+    assert.equal(isPmSportEnded({ status: "Final" }), true);
+    assert.equal(isPmSportEnded({ status: "running", ended: false }), false);
+  });
+});
+
+describe("filterActiveClientMatches", () => {
+  const platformMatches = {
+    OB: { 99: { SourceMatchID: "99", IsLive: 2 } },
+  };
+  const pmSportByClientId = new Map([[696, { ended: true, status: "finished" }]]);
+
+  it("removes ended rows from write list", () => {
+    const { list, endedCount } = filterActiveClientMatches([
+      {
+        ID: 696,
+        Round: 0,
+        StartTime: NOW - 3600_000,
+        Matchs: { OB: "99", Polymarket: "pm1" },
+        Bets: [
+          { Map: 1, Sources: { OB: { Status: "Locked" } } },
+          { Map: 2, Sources: { OB: { Status: "Locked" } } },
+        ],
+      },
+      {
+        ID: 700,
+        Round: 0,
+        StartTime: NOW + 3600_000,
+        Matchs: { OB: "100" },
+        Bets: [],
+      },
+    ], { platformMatches, pmSportByClientId, now: NOW });
+    assert.equal(endedCount, 1);
+    assert.equal(list.length, 1);
+    assert.equal(list[0].ID, 700);
   });
 });

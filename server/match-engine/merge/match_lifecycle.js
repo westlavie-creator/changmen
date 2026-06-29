@@ -79,6 +79,21 @@ function matchHasObLink(matchs) {
   return obId != null && obId !== "";
 }
 
+function matchHasPolymarketLink(matchs) {
+  const pmId = matchs?.Polymarket;
+  return pmId != null && pmId !== "";
+}
+
+/** @param {object | null | undefined} pmSport client_matches.pm_sport 快照 */
+function isPmSportEnded(pmSport) {
+  if (!pmSport || typeof pmSport !== "object")
+    return false;
+  if (pmSport.ended === true)
+    return true;
+  const st = String(pmSport.status || "").toLowerCase();
+  return st === "finished" || st === "final";
+}
+
 /** 所有平台来源都已从 platform_matches 消失（saveMatch 不再上报） */
 function allPlatformSourcesGone(matchs, platformMatches) {
   const providers = Object.entries(matchs || {});
@@ -97,8 +112,9 @@ function allPlatformSourcesGone(matchs, platformMatches) {
  * @param {object} platformMatches normalizeMatchesShape 结果
  * @param {object} timersByProvider live_timers 快照
  * @param {number} [now]
+ * @param {object | null | undefined} [pmSport] Polymarket pm_sport（仅 Polymarket link 时参与判定）
  */
-function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.now()) {
+function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.now(), pmSport = null) {
   const startMs = normalizeEpochMs(row?.StartTime);
 
   // 所有平台都已停止 saveMatch 上报：即使 live_timers 残留（OB getTimer 不清已结束
@@ -117,9 +133,16 @@ function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.n
   if (startMs > now)
     return false;
 
+  const hasPm = matchHasPolymarketLink(row?.Matchs);
+  const pmEnded = hasPm && isPmSportEnded(pmSport);
+  const closed = allMapBetsClosed(row?.Bets);
+
+  // PM 已结束且地图盘全锁：即使 OB is_live=2 仍视为结束（PM 赛果更准）
+  if (pmEnded && startMs <= now && closed)
+    return true;
+
   const hasOb = matchHasObLink(row?.Matchs);
   const isLive = hasOb ? pickCanonicalIsLive(row?.Matchs, platformMatches) : null;
-  const closed = allMapBetsClosed(row?.Bets);
 
   if (hasOb && isLive === 2)
     return false;
@@ -133,11 +156,67 @@ function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.n
   return false;
 }
 
+/** @param {Array<object> | Map<number, object>} clientRowsOrMap RDS client_rows 或 id→pm_sport */
+function buildPmSportByClientId(clientRowsOrMap) {
+  /** @type {Map<number, object>} */
+  const out = new Map();
+  if (clientRowsOrMap instanceof Map) {
+    for (const [id, pm] of clientRowsOrMap) {
+      if (pm && typeof pm === "object")
+        out.set(Number(id), pm);
+    }
+    return out;
+  }
+  for (const row of clientRowsOrMap || []) {
+    const id = Number(row?.id ?? row?.ID);
+    if (!Number.isFinite(id))
+      continue;
+    const pm = row?.pm_sport ?? row?.PmSport;
+    if (pm && typeof pm === "object")
+      out.set(id, pm);
+  }
+  return out;
+}
+
+/**
+ * matchMerge 写库前剔除已结束场次（差量删除 → client_matches_history）。
+ * @param {object[]} list
+ * @param {{ platformMatches?: object, timersByProvider?: object, pmSportByClientId?: Map<number, object>, now?: number }} ctx
+ */
+function filterActiveClientMatches(list, ctx = {}) {
+  const {
+    platformMatches = {},
+    timersByProvider = {},
+    pmSportByClientId,
+    now = Date.now(),
+  } = ctx;
+  const input = list || [];
+  const kept = [];
+  let endedCount = 0;
+  for (const row of input) {
+    const id = Number(row?.ID ?? row?.id);
+    const pmSport = (Number.isFinite(id) && pmSportByClientId?.get(id))
+      || row?.PmSport
+      || row?.pm_sport
+      || null;
+    if (isClientMatchEnded(row, platformMatches, timersByProvider, now, pmSport)) {
+      endedCount++;
+      continue;
+    }
+    kept.push(row);
+  }
+  return { list: kept, endedCount };
+}
+
 export {
   ALL_SOURCES_GONE_MS,
   allMapBetsClosed,
   allPlatformSourcesGone,
+  buildPmSportByClientId,
+  filterActiveClientMatches,
   isClientMatchEnded,
   isInLiveTimer,
+  isPmSportEnded,
+  matchHasPolymarketLink,
   pickCanonicalIsLive,
 };
