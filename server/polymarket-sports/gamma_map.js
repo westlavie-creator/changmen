@@ -184,6 +184,110 @@ export async function fetchGammaEventById(eventId) {
   }
 }
 
+const MAP_WINNER_MIN_PRICE = 0.9;
+
+function parseJsonStringArray(value) {
+  if (Array.isArray(value))
+    return value.map(String).filter(Boolean);
+  if (typeof value !== "string" || !value.trim())
+    return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
+  }
+  catch {
+    return [];
+  }
+}
+
+function normalizeTeamToken(name) {
+  return String(name || "")
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4E00-\u9FFF]+/gi, "");
+}
+
+/** @param {string} winnerName @param {number} winIdx @param {string} homeTeam @param {string} awayTeam */
+function mapOutcomeToSide(winnerName, winIdx, homeTeam, awayTeam) {
+  const w = normalizeTeamToken(winnerName);
+  const h = normalizeTeamToken(homeTeam);
+  const a = normalizeTeamToken(awayTeam);
+  if (w && h && (w === h || w.includes(h) || h.includes(w)))
+    return "home";
+  if (w && a && (w === a || w.includes(a) || a.includes(w)))
+    return "away";
+  if (winIdx === 0)
+    return "home";
+  if (winIdx === 1)
+    return "away";
+  return null;
+}
+
+/**
+ * Gamma event.markets：Map N Winner 子盘 outcomePrices 直接读胜者（≥0.9）
+ * @returns {Array<{ map: number, winner: string, winnerName?: string }>}
+ */
+export function parseMapsFromGammaMarkets(event, homeTeam, awayTeam) {
+  const markets = Array.isArray(event?.markets) ? event.markets : [];
+  const maps = [];
+
+  for (const market of markets) {
+    const type = String(market?.sportsMarketType ?? market?.sports_market_type ?? "").toLowerCase();
+    if (type !== "child_moneyline")
+      continue;
+
+    const title = String(market?.groupItemTitle ?? market?.group_item_title ?? "").trim();
+    const mapMatch = /^(?:map|game)\s*(\d+)\s+winner$/i.exec(title);
+    if (!mapMatch)
+      continue;
+
+    const mapNo = Number(mapMatch[1]);
+    if (!Number.isFinite(mapNo) || mapNo <= 0)
+      continue;
+
+    const outcomes = parseJsonStringArray(market.outcomes);
+    const prices = parseJsonStringArray(market.outcomePrices ?? market.outcome_prices)
+      .map(v => Number(v));
+    if (outcomes.length < 2 || prices.length < 2)
+      continue;
+
+    let winIdx = -1;
+    let maxPrice = 0;
+    for (let i = 0; i < prices.length; i += 1) {
+      const p = prices[i];
+      if (!Number.isFinite(p))
+        continue;
+      if (p >= MAP_WINNER_MIN_PRICE) {
+        winIdx = i;
+        break;
+      }
+      if (p > maxPrice)
+        maxPrice = p;
+    }
+    if (winIdx < 0) {
+      if (maxPrice >= MAP_WINNER_MIN_PRICE)
+        winIdx = prices.indexOf(maxPrice);
+      else
+        continue;
+    }
+
+    const winnerName = String(outcomes[winIdx] || "").trim();
+    const winner = mapOutcomeToSide(winnerName, winIdx, homeTeam, awayTeam);
+    if (!winner)
+      continue;
+
+    maps.push({
+      map: mapNo,
+      winner,
+      winnerName: winnerName || undefined,
+    });
+  }
+
+  maps.sort((a, b) => a.map - b.map);
+  return maps;
+}
+
 /** @param {string | undefined} title */
 export function parseTeamsFromGammaTitle(title) {
   const raw = String(title || "").trim();
@@ -207,12 +311,15 @@ export function gammaEventToSportMessage(event, teams = {}) {
     : live
       ? "running"
       : "not_started";
+  const homeTeam = home || parsed.home;
+  const awayTeam = away || parsed.away;
+  const maps = parseMapsFromGammaMarkets(event, homeTeam, awayTeam);
   const gameId = event.gameId != null ? Number(event.gameId) : undefined;
   return {
     gameId: Number.isFinite(gameId) ? gameId : undefined,
     slug: event.slug ? String(event.slug) : undefined,
-    homeTeam: home || parsed.home,
-    awayTeam: away || parsed.away,
+    homeTeam,
+    awayTeam,
     status,
     live,
     ended,
@@ -220,6 +327,7 @@ export function gammaEventToSportMessage(event, teams = {}) {
     period: event.period ? String(event.period) : undefined,
     elapsed: event.elapsed != null ? String(event.elapsed) : undefined,
     resolutionSource: event.resolutionSource ? String(event.resolutionSource) : undefined,
+    maps: maps.length ? maps : undefined,
   };
 }
 

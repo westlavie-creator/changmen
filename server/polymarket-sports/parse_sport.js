@@ -161,21 +161,35 @@ export function buildPmSportSnapshot(msg, prev = null) {
     ? String(msg.resolutionSource)
     : (prev?.resolutionSource ? String(prev.resolutionSource) : undefined);
 
-  const maps = Array.isArray(prev?.maps) ? [...prev.maps] : [];
-  const prevMapScore = prev?.mapScore || { home: 0, away: 0 };
-  const dh = parsed.mapScore.home - prevMapScore.home;
-  const da = parsed.mapScore.away - prevMapScore.away;
+  let maps;
+  if (Array.isArray(msg.maps) && msg.maps.length) {
+    maps = msg.maps
+      .map(row => ({
+        map: Number(row.map),
+        winner: row.winner,
+        winnerName: row.winnerName ? String(row.winnerName) : undefined,
+      }))
+      .filter(row => Number.isFinite(row.map) && row.map > 0
+        && (row.winner === "home" || row.winner === "away"));
+    maps.sort((a, b) => a.map - b.map);
+  }
+  else {
+    maps = Array.isArray(prev?.maps) ? [...prev.maps] : [];
+    const prevMapScore = prev?.mapScore || { home: 0, away: 0 };
+    const dh = parsed.mapScore.home - prevMapScore.home;
+    const da = parsed.mapScore.away - prevMapScore.away;
 
-  if (dh === 1 && da === 0)
-    appendMapWinner(maps, parsed.mapScore.home + parsed.mapScore.away, "home", homeTeam);
-  else if (da === 1 && dh === 0)
-    appendMapWinner(maps, parsed.mapScore.home + parsed.mapScore.away, "away", awayTeam);
-  else if (ended && maps.length < parsed.mapScore.home + parsed.mapScore.away) {
-    const total = parsed.mapScore.home + parsed.mapScore.away;
-    if (total > maps.length) {
-      const winner = parsed.mapScore.home > parsed.mapScore.away ? "home" : "away";
-      const winnerName = winner === "home" ? homeTeam : awayTeam;
-      appendMapWinner(maps, total, winner, winnerName);
+    if (dh === 1 && da === 0)
+      appendMapWinner(maps, parsed.mapScore.home + parsed.mapScore.away, "home", homeTeam);
+    else if (da === 1 && dh === 0)
+      appendMapWinner(maps, parsed.mapScore.home + parsed.mapScore.away, "away", awayTeam);
+    else if (ended && maps.length < parsed.mapScore.home + parsed.mapScore.away) {
+      const total = parsed.mapScore.home + parsed.mapScore.away;
+      if (total > maps.length) {
+        const winner = parsed.mapScore.home > parsed.mapScore.away ? "home" : "away";
+        const winnerName = winner === "home" ? homeTeam : awayTeam;
+        appendMapWinner(maps, total, winner, winnerName);
+      }
     }
   }
 

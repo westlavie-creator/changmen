@@ -109,12 +109,35 @@ test("buildPmSportSnapshot sets full label", () => {
     resolutionSource: "https://vlr.gg",
     homeTeam: "A",
     awayTeam: "B",
-  }, {
-    maps: [{ map: 1, winner: "home" }, { map: 2, winner: "away" }],
-    mapScore: { home: 1, away: 1 },
+    maps: [{ map: 1, winner: "home", winnerName: "A" }, { map: 2, winner: "away", winnerName: "B" }],
   });
   assert.equal(snap.inMapScore, "12-10");
   assert.equal(snap.resolutionSource, "https://vlr.gg");
   assert.match(snap.label, /图内12-10/);
   assert.match(snap.label, /图1主·图2客/);
+});
+
+test("buildPmSportSnapshot derives maps when msg.maps absent", () => {
+  const first = buildPmSportSnapshot({
+    gameId: 1,
+    status: "running",
+    live: true,
+    ended: false,
+    score: "000-000|0-0|Bo3",
+    period: "1/3",
+    homeTeam: "A",
+    awayTeam: "B",
+  });
+  const second = buildPmSportSnapshot({
+    gameId: 1,
+    status: "running",
+    live: true,
+    ended: false,
+    score: "000-000|1-0|Bo3",
+    period: "2/3",
+    homeTeam: "A",
+    awayTeam: "B",
+  }, first);
+  assert.equal(second.maps.length, 1);
+  assert.equal(second.maps[0].winner, "home");
 });
