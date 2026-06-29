@@ -25,6 +25,18 @@ export interface PolymarketTradeRow {
   match_time?: string | number;
   outcome?: string;
   bucket_index?: number;
+  trader_side?: string;
+  type?: string;
+  maker_orders?: PolymarketMakerOrderRow[];
+}
+
+export interface PolymarketMakerOrderRow {
+  order_id?: string;
+  matched_amount?: string | number;
+  price?: string | number;
+  outcome?: string;
+  asset_id?: string;
+  side?: string;
 }
 
 interface PolymarketTradesResponse {
@@ -47,12 +59,53 @@ function marketConditionId(market: PolymarketRawMarket): string {
   return String(market.condition_id ?? market.conditionId ?? market.market ?? market.id ?? "");
 }
 
-/** 已成交 trade 是否计入订单列表 */
+/** 已成交 trade 是否计入订单列表（含 MINED，排除 FAILED/CANCEL） */
 export function isPolymarketTradeConfirmed(status: string | undefined): boolean {
   const normalized = String(status ?? "").trim().toUpperCase();
   if (!normalized) return false;
   if (normalized.includes("FAILED") || normalized.includes("CANCEL")) return false;
-  return normalized.includes("CONFIRMED") || normalized.includes("MATCHED");
+  return normalized.includes("CONFIRMED")
+    || normalized.includes("MATCHED")
+    || normalized.includes("MINED")
+    || normalized.includes("RETRYING");
+}
+
+/** CLOB REST 多为 6 位 micro；WS/部分响应为可读份数 */
+export function polymarketBuyStakeUsdc(sizeRaw: string | number | undefined, price: number): number {
+  const size = Number(sizeRaw);
+  if (!Number.isFinite(size) || size <= 0 || !Number.isFinite(price) || price <= 0)
+    return 0;
+  if (size >= 10_000)
+    return (size / TOKEN_MICRO) * price;
+  return size * price;
+}
+
+/** MAKER 成交在 maker_orders；TAKER 用 taker_order_id */
+export function flattenPolymarketTrades(trades: PolymarketTradeRow[]): PolymarketTradeRow[] {
+  const out: PolymarketTradeRow[] = [];
+  for (const trade of trades) {
+    const role = String(trade.trader_side ?? trade.type ?? "").trim().toUpperCase();
+    if (role.includes("MAKER") && Array.isArray(trade.maker_orders) && trade.maker_orders.length) {
+      for (const mo of trade.maker_orders) {
+        const orderId = String(mo.order_id ?? "").trim();
+        if (!orderId) continue;
+        out.push({
+          ...trade,
+          taker_order_id: orderId,
+          size: mo.matched_amount ?? trade.size,
+          price: mo.price ?? trade.price,
+          outcome: mo.outcome ?? trade.outcome,
+          asset_id: mo.asset_id ?? trade.asset_id,
+          side: mo.side ?? trade.side ?? "BUY",
+        });
+      }
+      continue;
+    }
+    const orderId = String(trade.taker_order_id ?? "").trim();
+    if (orderId)
+      out.push(trade);
+  }
+  return out;
 }
 
 /** 同一 taker_order_id 多 bucket 合并 */
@@ -90,11 +143,10 @@ export function mapPolymarketTradeToVenueOrder(
   if (!orderId) return null;
 
   const price = Number(trade.price);
-  const sizeMicro = Number(trade.size);
+  const sizeRaw = trade.size;
   if (!Number.isFinite(price) || price <= 0 || price >= 1) return null;
-  if (!Number.isFinite(sizeMicro) || sizeMicro <= 0) return null;
 
-  const betMoney = Math.round((sizeMicro / TOKEN_MICRO) * price * 10000) / 10000;
+  const betMoney = Math.round(polymarketBuyStakeUsdc(sizeRaw, price) * 10000) / 10000;
   if (betMoney <= 0) return null;
 
   const odds = Math.round((1 / price) * 10000) / 10000;
@@ -180,17 +232,28 @@ export async function fetchPolymarketVenueOrders(account: PlatformAccount): Prom
   const gateway = account.gateway || POLYMARKET_CLOB_API;
   const afterSec = Math.floor((Date.now() - ORDER_LOOKBACK_MS) / 1000);
   const rawTrades = await fetchTradesSince(gateway, headers, afterSec);
-  const aggregated = aggregatePolymarketTrades(rawTrades).filter(
+  const preview = aggregatePolymarketTrades(flattenPolymarketTrades(rawTrades)).filter(
     trade => (Number(trade.match_time) || 0) >= afterSec,
   );
+  const marketMap = await fetchMarketsByConditionIds(
+    preview.map(trade => String(trade.market ?? "")).filter(Boolean),
+  );
+  return mapPolymarketTradesToVenueOrders(rawTrades, marketMap, afterSec);
+}
 
-  const marketIds = aggregated.map(trade => String(trade.market ?? "")).filter(Boolean);
-  const marketMap = await fetchMarketsByConditionIds(marketIds);
-
+/** 纯映射（单测 / 调试）：CLOB trades → VenueOrder */
+export function mapPolymarketTradesToVenueOrders(
+  trades: PolymarketTradeRow[],
+  marketMap: Map<string, PolymarketRawMarket> = new Map(),
+  afterSec = 0,
+): VenueOrder[] {
+  const flattened = flattenPolymarketTrades(trades);
+  const aggregated = aggregatePolymarketTrades(flattened).filter(
+    trade => !afterSec || (Number(trade.match_time) || 0) >= afterSec,
+  );
   const orders: VenueOrder[] = [];
   for (const trade of aggregated) {
-    const market = marketMap.get(String(trade.market ?? ""));
-    const mapped = mapPolymarketTradeToVenueOrder(trade, market);
+    const mapped = mapPolymarketTradeToVenueOrder(trade, marketMap.get(String(trade.market ?? "")));
     if (mapped)
       orders.push(mapped);
   }
