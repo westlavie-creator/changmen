@@ -2,6 +2,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { polymarketProvider } from "./bet";
+import { POLYMARKET_BUILDER_CODE_DEFAULT } from "./builder";
 import { POLYMARKET_CLOB_API } from "./api";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
@@ -324,7 +325,7 @@ describe("polymarketProvider.betting", () => {
         timestamp: "1700000000000",
         expiration: "0",
         metadata: "0x0000000000000000000000000000000000000000000000000000000000000000",
-        builder: "0x0000000000000000000000000000000000000000000000000000000000000000",
+        builder: POLYMARKET_BUILDER_CODE_DEFAULT,
       },
     });
     expect((body as any).order.signature).toEqual(expect.stringMatching(/^0x[0-9a-f]+$/));
@@ -333,6 +334,8 @@ describe("polymarketProvider.betting", () => {
       POLY_API_KEY: "key-1",
       POLY_PASSPHRASE: "pass-1",
     });
+    expect(options?.headers?.POLY_BUILDER_API_KEY).toBeUndefined();
+    expect(options?.headers?.POLY_BUILDER_SIGNATURE).toBeUndefined();
     expect(options?.headers?.POLY_SIGNATURE).toBe(
       expectedL2Signature("c2VjcmV0", `1700000000POST/order${JSON.stringify(body)}`),
     );

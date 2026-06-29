@@ -21,10 +21,16 @@ import AccountEditPanel from "@/components/account/AccountEditPanel.vue";
 import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAccount";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
+import { getApiBase } from "@/config/apiBase";
+import { getToken } from "@/api/client";
 import {
   createOrDerivePolymarketApiCreds,
   type PolymarketApiCreds,
 } from "@venue/polymarket/credentials";
+import {
+  fetchPolymarketRelayerStatus,
+  preparePolymarketWallet,
+} from "@venue/polymarket/relayer";
 
 const props = defineProps<{
   open: boolean;
@@ -63,6 +69,8 @@ const polyPrivateKey = ref("");
 const polyApiCreds = ref<PolymarketApiCreds>();
 const polyApiCredsFingerprint = ref("");
 const polyGenerating = ref(false);
+const polyRelayerPreparing = ref(false);
+const polyRelayerConfigured = ref<boolean | null>(null);
 
 interface PlatformSuggestion { value: string; link: string }
 
@@ -145,6 +153,7 @@ watch(
       form.gateway ||= "https://clob.polymarket.com";
       form.referer ||= "https://polymarket.com/zh";
       syncPolymarketFieldsFromToken(form.token);
+      void refreshPolymarketRelayerStatus();
     }
   },
 );
@@ -347,6 +356,58 @@ async function onGeneratePolymarketApiCreds() {
   }
 }
 
+function polymarketRelayerSignUrl(): string {
+  const base = getApiBase();
+  const origin = base || (typeof window !== "undefined" ? window.location.origin : "");
+  return `${origin.replace(/\/+$/, "")}/api/polymarket/relayer/sign`;
+}
+
+async function refreshPolymarketRelayerStatus() {
+  const token = getToken();
+  if (!token) {
+    polyRelayerConfigured.value = null;
+    return;
+  }
+  try {
+    const status = await fetchPolymarketRelayerStatus(getApiBase(), token);
+    polyRelayerConfigured.value = status.configured;
+  }
+  catch {
+    polyRelayerConfigured.value = false;
+  }
+}
+
+async function onPreparePolymarketWallet() {
+  polyRelayerPreparing.value = true;
+  try {
+    if (!polyPrivateKey.value.trim())
+      throw new Error("请先填写钱包私钥");
+    const authToken = getToken();
+    if (!authToken)
+      throw new Error("请先登录");
+    await refreshPolymarketRelayerStatus();
+    if (polyRelayerConfigured.value === false)
+      throw new Error("服务端未配置 Polymarket Relayer（POLY_BUILDER_*）");
+    const result = await preparePolymarketWallet({
+      privateKey: polyPrivateKey.value.trim(),
+      signatureType: "3",
+      signUrl: polymarketRelayerSignUrl(),
+      authToken,
+    });
+    if (!result.ok)
+      throw new Error(result.message);
+    ElMessage.success(result.transactionHash
+      ? `${result.message} tx=${result.transactionHash.slice(0, 10)}…`
+      : result.message);
+  }
+  catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "Polymarket 钱包初始化失败");
+  }
+  finally {
+    polyRelayerPreparing.value = false;
+  }
+}
+
 async function buildPatch() {
   const token = form.provider === "Polymarket"
     ? await ensurePolymarketToken()
@@ -491,8 +552,20 @@ function unlockRate() {
             >
               生成/验证 apiCreds
             </el-button>
+            <el-button
+              type="success"
+              plain
+              :loading="polyRelayerPreparing"
+              :disabled="polyRelayerConfigured === false"
+              @click="onPreparePolymarketWallet"
+            >
+              Relayer 链上授权
+            </el-button>
             <span class="poly-credential-hint">
               {{ polyApiCreds ? "已生成，保存时会写入最小 token（signatureType=3）" : "保存时也会自动生成" }}
+              <template v-if="polyRelayerConfigured === false">
+                · 服务端 Relayer 未配置
+              </template>
             </span>
           </el-form-item>
           <template v-if="polyApiCreds">

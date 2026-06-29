@@ -5,19 +5,13 @@ import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { POLYMARKET_CLOB_API } from "./api";
+import { resolvePolymarketBuilderCode } from "./builder";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 const BALANCE_PATH = "/balance-allowance";
 const ORDER_PATH = "/order";
 const ORDER_BOOK_PATH = "/book";
 
-// 开发者凭证（固定，所有账号共用）
-const DEV_CONFIG = {
-  address: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
-  apiKey: "019f097a-fe02-73d1-b2c8-265dae5b7b08",
-  secret: "kYVlDPyvJUTjg5SUNrQKDIzOdXV3IEC_yk0VkMNRiYQ=",
-  passphrase: "bb263f2bb685f113599ad40b1756b1f73976dcabc0b86849e48a6ed2fdbd9e77",
-} as const;
 const COLLATERAL_DECIMALS = 1_000_000;
 type Hex = `0x${string}`;
 type TickSize = "0.1" | "0.01" | "0.001" | "0.0001";
@@ -205,24 +199,6 @@ async function buildL2Headers(
   };
 }
 
-async function buildBuilderHeaders(
-  method: "GET" | "POST",
-  requestPath: string,
-  body?: string,
-): Promise<Record<string, string>> {
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const signature = await hmacSha256Base64Url(
-    DEV_CONFIG.secret,
-    timestamp + method + requestPath + (body ?? ""),
-  );
-  return {
-    "POLY_BUILDER_API_KEY": DEV_CONFIG.apiKey,
-    "POLY_BUILDER_SIGNATURE": signature,
-    "POLY_BUILDER_TIMESTAMP": timestamp,
-    "POLY_BUILDER_PASSPHRASE": DEV_CONFIG.passphrase,
-  };
-}
-
 async function buildL2HeadersFromAccount(
   account: PlatformAccount,
   method: "GET" | "POST",
@@ -402,6 +378,7 @@ async function createPolymarketOrderBody(
     chain: chains.polygon,
     transport: viem.http(),
   });
+  const builderCode = resolvePolymarketBuilderCode();
   const client = new clob.ClobClient({
     host: gateway,
     chain: clob.Chain.POLYGON,
@@ -413,11 +390,14 @@ async function createPolymarketOrderBody(
     },
     signatureType: resolveSdkSignatureType(creds.signatureType) as any,
     funderAddress: resolveFunder(config) || undefined,
+    builderConfig: { builderCode },
   });
   Reflect.set(client, "cachedVersion", 2);
   client.tickSizes[tokenId] = orderOptions.tickSize;
   client.negRisk[tokenId] = orderOptions.negRisk;
   client.feeInfos[tokenId] = { rate: 0, exponent: 0 };
+  // SDK 会 GET /fees/builder-fees/{code}；浏览器走插件，此处预填避免 ClobClient 直连 axios 卡住/跨域
+  client.builderFeeRates[builderCode] = { maker: 0, taker: 0 };
   const signedOrder = await client.createMarketOrder({
     tokenID: tokenId,
     price,
@@ -530,11 +510,15 @@ export const polymarketProvider: PlatformProvider = {
       );
       const bodyStr = JSON.stringify(orderBody);
 
-      const [l2Headers, builderHeaders] = await Promise.all([
-        buildL2Headers(creds.address, creds.apiKey, creds.secret, creds.passphrase, "POST", ORDER_PATH, bodyStr),
-        buildBuilderHeaders("POST", ORDER_PATH, bodyStr),
-      ]);
-      const headers = { ...l2Headers, ...builderHeaders };
+      const headers = await buildL2Headers(
+        creds.address,
+        creds.apiKey,
+        creds.secret,
+        creds.passphrase,
+        "POST",
+        ORDER_PATH,
+        bodyStr,
+      );
 
       const result = await polymarketPluginPost<PolymarketOrderResponse>(
         `${gateway}${ORDER_PATH}`,

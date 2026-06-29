@@ -30,6 +30,8 @@
     "@changmen/shared": "*",
     "@noble/curves": "^1.4.2",
     "@polymarket/clob-client-v2": "^1.0.6",
+    "@polymarket/builder-relayer-client": "^0.0.10",
+    "@polymarket/builder-signing-sdk": "^0.0.8",
     "@vueuse/core": "^13.2.0",
     "axios": "^1.8.4",
     "dayjs": "^1.11.21",

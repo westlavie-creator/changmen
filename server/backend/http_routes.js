@@ -6,6 +6,10 @@ import { countAccounts, getClientMatches, listProfiles } from "./core/db/store.j
 import { resolveCreditPlateUserName, tryEsportApi } from "./core/esport-api/router.js";
 import store from "./core/esport-api/store.js";
 import { getHardcodedCredentials } from "./core/integrations/a8/config.js";
+import {
+  handlePolymarketRelayerSign,
+  handlePolymarketRelayerStatus,
+} from "./core/integrations/polymarket/relayer_http.js";
 import { adapterRequire, requirePlatform } from "./core/shared/adapter_paths.js";
 import { tryHttpProxyRelay } from "./proxy/http_proxy_relay.js";
 import { tryIaHttpProxy } from "./proxy/ia_http_proxy.js";
@@ -161,6 +165,14 @@ export function createHttpHandler({ port, serveStatic }) {
         const user = await store.getUserByToken(token);
         const userName = resolveCreditPlateUserName(user);
         jsonResponse(res, 200, { userName });
+        return;
+      }
+      if (url === "/api/polymarket/relayer/sign") {
+        await handlePolymarketRelayerSign(req, res, readJsonBody);
+        return;
+      }
+      if (url === "/api/polymarket/relayer/status") {
+        await handlePolymarketRelayerStatus(req, res);
         return;
       }
       if (url === "/api/markets") {
