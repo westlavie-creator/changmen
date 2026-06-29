@@ -60,6 +60,68 @@ export function formatElapsed(raw) {
   return `已进行${s}`;
 }
 
+/** @param {"home" | "away" | string | undefined} winner */
+function flipMapWinnerSide(winner) {
+  if (winner === "home")
+    return "away";
+  if (winner === "away")
+    return "home";
+  return winner;
+}
+
+/** @param {string | null | undefined} raw */
+function swapInMapScoreParts(raw) {
+  const s = String(raw || "").trim();
+  if (!s)
+    return raw ?? undefined;
+  const parts = s.split("-");
+  if (parts.length >= 2)
+    return `${parts[1]}-${parts[0]}`;
+  return s;
+}
+
+/**
+ * 按 Title canonical 主客对齐 pm_sport（与 matcher swapBetSource 同语义）。
+ * DB 仍存 PM 原生；GetMatchs overlay 在 Reverse 含 Polymarket 时调用。
+ * @param {object | null | undefined} snapshot
+ * @param {boolean} [reversed]
+ */
+export function alignPmSportSnapshot(snapshot, reversed = false) {
+  if (!snapshot || typeof snapshot !== "object" || !reversed)
+    return snapshot;
+
+  const prevHomeTeam = snapshot.homeTeam;
+  const prevAwayTeam = snapshot.awayTeam;
+  const mapScore = snapshot.mapScore
+    ? { home: snapshot.mapScore.away, away: snapshot.mapScore.home }
+    : snapshot.mapScore;
+  const inMapScore = snapshot.inMapScore != null
+    ? swapInMapScoreParts(snapshot.inMapScore)
+    : snapshot.inMapScore;
+  const maps = Array.isArray(snapshot.maps)
+    ? snapshot.maps.map((row) => {
+        const winner = flipMapWinnerSide(row.winner);
+        let winnerName = row.winnerName;
+        if (row.winner === "home")
+          winnerName = prevAwayTeam || row.winnerName;
+        else if (row.winner === "away")
+          winnerName = prevHomeTeam || row.winnerName;
+        return { ...row, winner, winnerName };
+      })
+    : snapshot.maps;
+
+  const aligned = {
+    ...snapshot,
+    homeTeam: prevAwayTeam,
+    awayTeam: prevHomeTeam,
+    mapScore,
+    inMapScore,
+    maps,
+  };
+  aligned.label = buildPmSportDisplayLine(aligned);
+  return aligned;
+}
+
 /** @param {Array<{ map: number, winner: string }> | undefined} maps */
 export function formatMapsWinners(maps) {
   if (!Array.isArray(maps) || !maps.length)

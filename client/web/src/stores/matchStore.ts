@@ -1,6 +1,6 @@
 import type { BetSide, ViewMatch } from "@/models/match";
 import type { MainBetLoopState } from "@/stores/match/mainBetLoop";
-import type { PlatformId } from "@/types/esport";
+import type { PlatformId, PmSportSnapshot } from "@/types/esport";
 import type { MatchScoreBoard, PlatformScoreUpdate, ScoreRound } from "@/types/matchScore";
 import { defineStore } from "pinia";
 import { getToken } from "@/api/client";
@@ -8,6 +8,10 @@ import { getMatchs } from "@/api/esport";
 import { getMatchDefaultOdds } from "@/api/report";
 import { ensureTokenRefresh } from "@/lib/sessionRefresh";
 import { toViewMatches } from "@/models/match";
+import {
+  startPmSportRealtimeFeed,
+  stopPmSportRealtimeFeed,
+} from "@/services/pmSportRealtime";
 import {
 
   runMainBetLoopFinally,
@@ -173,6 +177,18 @@ export const useMatchStore = defineStore("match", {
       return this.score.get(matchId)?.score.get(round);
     },
 
+    /** changmen WS 推送的 pm_sport（已 Title 对齐，直接展示） */
+    updatePmSport(clientMatchId: number, pmSport: PmSportSnapshot) {
+      const id = Number(clientMatchId);
+      if (!Number.isFinite(id))
+        return;
+      const match = this.matchs.find(m => m.id === id);
+      if (!match)
+        return;
+      match.pmSport = pmSport;
+      this.tick += 1;
+    },
+
     getDefaultOdds(betId: number, side: BetSide): number {
       return this.defaultOdds.get(`${betId}:${side}`) ?? 0;
     },
@@ -264,6 +280,9 @@ export const useMatchStore = defineStore("match", {
 
       if (getToken()) {
         void ensureTokenRefresh();
+        void startPmSportRealtimeFeed((id, snap) => {
+          this.updatePmSport(id, snap);
+        });
       }
 
       this.scheduleMainLoop(0);
@@ -271,6 +290,7 @@ export const useMatchStore = defineStore("match", {
 
     stopMainLoop() {
       this.mainLoopRunning = false;
+      stopPmSportRealtimeFeed();
       if (this.mainLoopTimer) {
         clearTimeout(this.mainLoopTimer);
         this.mainLoopTimer = null;

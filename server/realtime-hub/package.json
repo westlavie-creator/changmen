@@ -1,0 +1,18 @@
+{
+  "name": "@changmen/realtime-hub",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Changmen Socket.IO hub: server → browser realtime (pm_sport, etc.)",
+  "exports": {
+    ".": "./index.js"
+  },
+  "scripts": {
+    "test": "node --test hub.test.mjs"
+  },
+  "dependencies": {
+    "@changmen/db": "*",
+    "@changmen/polymarket-sports": "*",
+    "socket.io": "^4.8.3"
+  }
+}

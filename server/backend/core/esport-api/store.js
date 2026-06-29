@@ -1,5 +1,6 @@
 import * as sb from "@changmen/db";
 import { normalizeMatchesShape } from "@changmen/match-engine";
+import { alignPmSportSnapshot } from "@changmen/polymarket-sports/parse_sport.js";
 import { formatBetOdds } from "@changmen/shared/odds_format";
 import { a8StartTimeListAllowed } from "@changmen/shared/time/match_time";
 import { readJsonFile, writeJsonFile, writeJsonFileDebounced } from "@changmen/storage/json_file_store.js";
@@ -475,11 +476,15 @@ async function overlayPmSportOnMatches(matches) {
   const pmById = await sb.fetchPmSportByClientMatchIds(ids);
   if (!pmById.size)
     return matches;
-  return matches.map(m => {
+  return matches.map((m) => {
     const patch = pmById.get(Number(m.ID));
     if (!patch)
       return m;
-    return { ...m, PmSport: patch };
+    const reverse = Array.isArray(m.Reverse) ? m.Reverse : [];
+    const pmSport = reverse.includes("Polymarket")
+      ? alignPmSportSnapshot(patch, true)
+      : patch;
+    return { ...m, PmSport: pmSport };
   });
 }
 

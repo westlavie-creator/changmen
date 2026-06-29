@@ -2,6 +2,10 @@ import { getPgPool } from "@changmen/db";
 import { getCatalogSummary } from "@changmen/shared/catalog/game_catalog";
 import { getCatalogSummary as getMarketCatalogSummary } from "@changmen/shared/catalog/market_catalog";
 import { getWsForwardStatus, isWsForwardHttpPath } from "@changmen/ws-forward";
+import {
+  handleChangmenInternalBroadcast,
+  isChangmenRealtimeHttpPath,
+} from "@changmen/realtime-hub";
 import { countAccounts, getClientMatches, listProfiles } from "./core/db/store.js";
 import { resolveCreditPlateUserName, tryEsportApi } from "./core/esport-api/router.js";
 import store from "./core/esport-api/store.js";
@@ -128,9 +132,15 @@ export function createHttpHandler({ port, serveStatic }) {
   return async function handleHttp(req, res) {
     try {
       const url = req.url.split("?")[0];
-      // Socket.IO 握手由 ws_forward 处理，勿走 esport-api / 静态文件
+      // Socket.IO 握手由 ws_forward / realtime-hub 处理，勿走 esport-api / 静态文件
       if (isWsForwardHttpPath(url))
         return;
+      if (isChangmenRealtimeHttpPath(url))
+        return;
+      if (url === "/esport/internal/broadcast/pm-sport") {
+        await handleChangmenInternalBroadcast(req, res, () => readJsonBody(req));
+        return;
+      }
       if (isFastStaticRequest(url, req.method)) {
         serveStatic(req, res);
         return;

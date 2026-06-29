@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "VPS daemon: Polymarket Sports WS → client_matches.pm_sport",
+  "exports": {
+    ".": "./index.js",
+    "./parse_sport.js": "./parse_sport.js"
+  },
   "scripts": {
     "start": "node index.js",
     "test": "node --test parse_sport.test.mjs gamma_map.test.mjs"

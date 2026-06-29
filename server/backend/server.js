@@ -9,6 +9,7 @@ import {
   initLastWrittenIds,
 } from "@changmen/db";
 import { attachWsForward } from "@changmen/ws-forward";
+import { attachChangmenRealtimeHub } from "@changmen/realtime-hub";
 import { ensureSeed as ensureAccountSeed } from "./core/account/account_store.js";
 import { setupAdminTools } from "./core/admin_tools/setup.js";
 import { pullProfilesFromDb } from "./core/db/store.js";
@@ -62,6 +63,7 @@ const server = http.createServer(
 );
 
 attachWsForward(server, { platforms: ["IA", "OB", "RAY"] });
+attachChangmenRealtimeHub(server);
 
 ensurePlatformCredentials()
   .then((r) => {

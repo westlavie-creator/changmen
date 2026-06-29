@@ -6,6 +6,7 @@
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { updateClientMatchPmSport } from "@changmen/db";
 import WebSocket from "ws";
+import { notifyPmSportBroadcast } from "./broadcast_notify.js";
 import { refreshGammaEventIndex } from "./gamma_map.js";
 import { applyPmSportFromMessage, pollLinkedPmSportFromGamma } from "./gamma_poll.js";
 import { resolveClientMatchIdFromSportMessage } from "./resolve_match.js";
@@ -27,7 +28,10 @@ const unresolvedLogAt = new Map();
 const UNRESOLVED_LOG_MS = 60_000;
 
 async function writePmSport(clientMatchId, snapshot) {
-  return updateClientMatchPmSport(clientMatchId, snapshot);
+  const ok = await updateClientMatchPmSport(clientMatchId, snapshot);
+  if (ok)
+    void notifyPmSportBroadcast(clientMatchId, snapshot);
+  return ok;
 }
 
 async function refreshGamma() {

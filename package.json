@@ -15,6 +15,7 @@
     "server/storage",
     "server/match-engine",
     "server/ws_forward",
+    "server/realtime-hub",
     "devtools/platform-probes",
     "server/team-resolver",
     "server/value-bet",

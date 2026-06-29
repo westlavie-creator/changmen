@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  alignPmSportSnapshot,
   buildPmSportDisplayLine,
   buildPmSportLabel,
   buildPmSportSnapshot,
@@ -115,6 +116,47 @@ test("buildPmSportSnapshot sets full label", () => {
   assert.equal(snap.resolutionSource, "https://vlr.gg");
   assert.match(snap.label, /图内12-10/);
   assert.match(snap.label, /图1主·图2客/);
+});
+
+test("alignPmSportSnapshot flips map score, in-map score, and map winners", () => {
+  const raw = buildPmSportSnapshot({
+    gameId: 1,
+    status: "running",
+    live: true,
+    ended: false,
+    score: "12-10|2-1|Bo3",
+    period: "3/3",
+    elapsed: "120",
+    homeTeam: "PM-Home",
+    awayTeam: "PM-Away",
+    maps: [
+      { map: 1, winner: "home", winnerName: "PM-Home" },
+      { map: 2, winner: "away", winnerName: "PM-Away" },
+    ],
+  });
+  const aligned = alignPmSportSnapshot(raw, true);
+  assert.deepEqual(aligned.mapScore, { home: 1, away: 2 });
+  assert.equal(aligned.inMapScore, "10-12");
+  assert.equal(aligned.homeTeam, "PM-Away");
+  assert.equal(aligned.awayTeam, "PM-Home");
+  assert.equal(aligned.maps[0].winner, "away");
+  assert.equal(aligned.maps[0].winnerName, "PM-Away");
+  assert.equal(aligned.maps[1].winner, "home");
+  assert.equal(aligned.maps[1].winnerName, "PM-Home");
+  assert.match(aligned.label, /图1客·图2主/);
+  assert.match(aligned.label, /图内10-12/);
+});
+
+test("alignPmSportSnapshot no-op when not reversed", () => {
+  const raw = buildPmSportSnapshot({
+    gameId: 1,
+    status: "finished",
+    ended: true,
+    score: "000-000|2-0|Bo3",
+    homeTeam: "A",
+    awayTeam: "B",
+  });
+  assert.equal(alignPmSportSnapshot(raw, false), raw);
 });
 
 test("buildPmSportSnapshot derives maps when msg.maps absent", () => {
