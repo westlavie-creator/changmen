@@ -43,7 +43,6 @@ export function stopAppSession(): void {
 function clearSessionCaches(): void {
   const matchStore = useMatchStore();
   matchStore.matchs = [];
-  matchStore.score.clear();
   matchStore.defaultOdds.clear();
   matchStore.defaultOddsFetchedAt = 0;
   matchStore.lastFetchAt = 0;

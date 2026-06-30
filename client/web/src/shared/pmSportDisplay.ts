@@ -4,52 +4,6 @@ export type PmSportDisplayPart =
   | { kind: "text"; text: string }
   | { kind: "link"; text: string; href: string };
 
-/** PM Gamma CS2 局内分常为占位 000-000 / 0-0；地图比分仅来自 Polymarket，不用 XBet 补 */
-export function isPlaceholderInMapScore(
-  raw: string | null | undefined,
-  snapshot?: Pick<PmSportSnapshot, "live" | "mapScore" | "currentMap">,
-): boolean {
-  const s = String(raw ?? "").trim();
-  if (!s)
-    return true;
-  if (/^0{3}-0{3}$/.test(s))
-    return true;
-
-  const nums = s.split("-").map(v => Number.parseInt(v, 10));
-  if (nums.length < 2 || !nums.every(n => Number.isFinite(n)))
-    return false;
-  if (nums[0] !== 0 || nums[1] !== 0)
-    return false;
-
-  if (!snapshot?.live)
-    return false;
-
-  const ms = snapshot.mapScore ?? { home: 0, away: 0 };
-  if ((ms.home ?? 0) + (ms.away ?? 0) > 0)
-    return true;
-
-  const cm = Number(snapshot.currentMap);
-  if (Number.isFinite(cm) && cm > 1)
-    return true;
-
-  return false;
-}
-
-function formatInMapScore(
-  raw: string | null | undefined,
-  snapshot?: PmSportSnapshot,
-): string {
-  if (isPlaceholderInMapScore(raw, snapshot))
-    return "";
-  const s = String(raw ?? "").trim();
-  if (!s)
-    return "";
-  const nums = s.split("-").map(v => Number.parseInt(v, 10));
-  if (nums.length >= 2 && nums.every(n => Number.isFinite(n)))
-    return `图内${nums[0]}-${nums[1]}`;
-  return `图内${s}`;
-}
-
 function formatElapsed(raw: string | null | undefined): string {
   const s = String(raw ?? "").trim();
   if (!s)
@@ -63,15 +17,6 @@ function formatElapsed(raw: string | null | undefined): string {
     return `已进行${m}:${String(ss).padStart(2, "0")}`;
   }
   return `已进行${s}`;
-}
-
-function formatMapsWinners(maps: PmSportSnapshot["maps"]): string {
-  if (!Array.isArray(maps) || !maps.length)
-    return "";
-  return maps.map((row) => {
-    const side = row.winner === "home" ? "主" : row.winner === "away" ? "客" : "?";
-    return `图${row.map}${side}`;
-  }).join("·");
 }
 
 export function formatResolutionSourceLabel(raw: string | undefined): string {
@@ -140,8 +85,6 @@ function partsFromLabel(snapshot: PmSportSnapshot): PmSportDisplayPart[] {
     const text = segment.trim();
     if (!text)
       return null;
-    if (/^图内0-0$/.test(text))
-      return null;
     if (text === srcLabel || text.startsWith("来源 "))
       return { kind: "link" as const, text, href };
     return { kind: "text" as const, text };
@@ -154,17 +97,9 @@ function partsFromSnapshot(snapshot: PmSportSnapshot): PmSportDisplayPart[] {
   if (statusPart)
     parts.push({ kind: "text", text: statusPart });
 
-  const inMap = formatInMapScore(snapshot.inMapScore, snapshot);
-  if (inMap)
-    parts.push({ kind: "text", text: inMap });
-
   const elapsed = formatElapsed(snapshot.elapsed);
   if (elapsed)
     parts.push({ kind: "text", text: elapsed });
-
-  const maps = formatMapsWinners(snapshot.maps);
-  if (maps)
-    parts.push({ kind: "text", text: maps });
 
   const src = String(snapshot.resolutionSource ?? "").trim();
   if (src) {
@@ -177,7 +112,7 @@ function partsFromSnapshot(snapshot: PmSportSnapshot): PmSportDisplayPart[] {
   return parts;
 }
 
-/** 与 server parse_sport 单行 label 对齐；来源 URL 单独成 link 段 */
+/** 与 server parse_sport 对齐；仅 PM 直接字段（大比分 + period + 来源） */
 export function buildPmSportDisplayParts(snapshot: PmSportSnapshot | undefined): PmSportDisplayPart[] {
   if (!snapshot)
     return [];

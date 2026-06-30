@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildPmSportDisplayParts,
   formatResolutionSourceLabel,
-  isPlaceholderInMapScore,
   normalizeResolutionSourceHref,
 } from "./pmSportDisplay";
 
@@ -18,46 +17,15 @@ describe("pmSportDisplay", () => {
     ]);
   });
 
-  it("parses source segment from prebuilt label", () => {
-    const parts = buildPmSportDisplayParts({
-      label: "未开始 · 图内0-0 · 来源 kick.com/cct_cs",
-      resolutionSource: "https://kick.com/cct_cs",
-    });
-    expect(parts.some(p => p.kind === "text" && p.text.includes("图内0-0"))).toBe(false);
-    expect(parts.at(-1)).toEqual({
-      kind: "link",
-      text: "来源 kick.com/cct_cs",
-      href: "https://kick.com/cct_cs",
-    });
-  });
-
-  it("hides PM placeholder in-map during live map 2", () => {
-    expect(isPlaceholderInMapScore("0-0", {
-      live: true,
-      currentMap: 2,
-      mapScore: { home: 1, away: 0 },
-    })).toBe(true);
+  it("shows PM map score and period only", () => {
     const parts = buildPmSportDisplayParts({
       status: "running",
       live: true,
       period: "2/3",
-      currentMap: 2,
       mapScore: { home: 1, away: 0 },
-      inMapScore: "0-0",
     });
-    expect(parts.some(p => p.text.includes("图内"))).toBe(false);
-  });
-
-  it("shows PM in-map score when non-placeholder", () => {
-    const parts = buildPmSportDisplayParts({
-      status: "running",
-      live: true,
-      period: "2/3",
-      currentMap: 2,
-      mapScore: { home: 1, away: 0 },
-      inMapScore: "8-5",
-    });
-    expect(parts.some(p => p.text === "图内8-5")).toBe(true);
+    expect(parts[0]).toEqual({ kind: "text", text: "进行中 · 2/3 · 1-0" });
+    expect(parts.some(p => p.kind === "text" && String(p.text).includes("图"))).toBe(false);
   });
 
   it("normalizes bare host resolutionSource", () => {

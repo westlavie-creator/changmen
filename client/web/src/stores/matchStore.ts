@@ -1,7 +1,6 @@
 import type { BetSide, ViewMatch } from "@/models/match";
 import type { MainBetLoopState } from "@/stores/match/mainBetLoop";
 import type { PlatformId, PmSportSnapshot } from "@/types/esport";
-import type { MatchScoreBoard, PlatformScoreUpdate, ScoreRound } from "@/types/matchScore";
 import { defineStore } from "pinia";
 import { getToken } from "@/api/client";
 import { getMatchs } from "@/api/esport";
@@ -33,8 +32,6 @@ export const useMatchStore = defineStore("match", {
     /** platform → betRowId → Home|Away */
     betTargets: new Map<PlatformId, Map<number, BetSide>>(),
     tick: 0,
-    /** matchId → 局比分（对齐 A8 `Vg.score` / `eBe`） */
-    score: new Map<number, MatchScoreBoard>(),
     /** key `${betId}:Home|Away`（对齐 A8 `defaultOdds`） */
     defaultOdds: new Map<string, number>(),
     defaultOddsFetchedAt: 0,
@@ -125,31 +122,6 @@ export const useMatchStore = defineStore("match", {
       return true;
     },
 
-    /** [A8 可证实] P()：有比分时以最高局号覆盖 Round 驱动的 isLive（仅当服务端仍报 liveRound>0） */
-    applyScoreDrivenLive(match: ViewMatch) {
-      if (!match.liveRound)
-        return;
-      const board = this.score.get(match.id);
-      if (!board?.score.size)
-        return;
-      const maxRound = Math.max(...board.score.keys());
-      if (!maxRound)
-        return;
-      const liveBet = match.bets.find(b => b.round === maxRound);
-      if (liveBet) {
-        liveBet.isLive = true;
-        if (!liveBet.startTime || liveBet.startTime <= 0) {
-          liveBet.startTime = match.liveRoundStart > 0 ? match.liveRoundStart : Date.now();
-        }
-      }
-      for (const bet of match.bets) {
-        if (bet.round !== maxRound && bet.isLive) {
-          bet.isLive = undefined;
-          bet.startTime = undefined;
-        }
-      }
-    },
-
     refreshOddsOnBets() {
       for (const match of this.matchs) {
         const lr = match.liveRound;
@@ -168,13 +140,8 @@ export const useMatchStore = defineStore("match", {
             item.updateOdds();
           }
         }
-        this.applyScoreDrivenLive(match);
       }
       this.tick += 1;
-    },
-
-    getRoundScore(matchId: number, round: number): ScoreRound | undefined {
-      return this.score.get(matchId)?.score.get(round);
     },
 
     /** changmen WS 推送的 pm_sport（已 Title 对齐，直接展示） */
@@ -191,32 +158,6 @@ export const useMatchStore = defineStore("match", {
 
     getDefaultOdds(betId: number, side: BetSide): number {
       return this.defaultOdds.get(`${betId}:${side}`) ?? 0;
-    },
-
-    /** 对齐 A8 `Vg.updateScore` */
-    updateScore(platform: PlatformId, rows: PlatformScoreUpdate[]) {
-      for (const row of rows) {
-        const sourceId = row.SourceID != null ? String(row.SourceID) : "";
-        if (!sourceId)
-          continue;
-        const idx = this._providerIndex.get(`${platform}:${sourceId}`);
-        const match = idx != null ? this.matchs[idx] : undefined;
-        if (!match)
-          continue;
-        const reversed = match.reverse.includes(platform);
-        const board = new Map<number, ScoreRound>();
-        for (const [roundKey, raw] of Object.entries(row.Score ?? {})) {
-          const home = raw.Home ?? "";
-          const away = raw.Away ?? "";
-          board.set(
-            Number(roundKey),
-            reversed ? { Home: away, Away: home } : { Home: home, Away: away },
-          );
-        }
-        this.score.set(match.id, { score: board });
-        this.applyScoreDrivenLive(match);
-      }
-      this.tick += 1;
     },
 
     async fetchMatchDefaultOdds() {

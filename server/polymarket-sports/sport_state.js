@@ -1,5 +1,5 @@
 /**
- * 进程内：按 Sports WS gameId 保留上一帧，用于 maps[] 增量推导
+ * 进程内：按 Sports WS gameId 保留上一帧
  */
 
 /** @type {Map<number, object>} */
@@ -43,7 +43,7 @@ export function shouldWritePmSport(next, prevWritten) {
     return true;
   const keys = [
     "status", "live", "ended", "period", "scoreRaw", "label",
-    "finishedTimestamp", "currentMap", "inMapScore", "elapsed", "resolutionSource",
+    "finishedTimestamp", "currentMap", "elapsed", "resolutionSource",
   ];
   for (const key of keys) {
     if (next[key] !== prevWritten[key])
@@ -54,10 +54,6 @@ export function shouldWritePmSport(next, prevWritten) {
   const ph = prevWritten.mapScore?.home ?? 0;
   const pa = prevWritten.mapScore?.away ?? 0;
   if (nh !== ph || na !== pa)
-    return true;
-  if ((next.maps?.length || 0) !== (prevWritten.maps?.length || 0))
-    return true;
-  if (JSON.stringify(next.maps || []) !== JSON.stringify(prevWritten.maps || []))
     return true;
   return false;
 }

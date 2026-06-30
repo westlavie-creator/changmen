@@ -92,8 +92,10 @@ export interface PmSportSnapshot {
   currentMap?: number | null;
   bo?: number;
   scoreRaw?: string;
-  inMapScore?: string | null;
   mapScore?: { home: number; away: number };
+  /** @deprecated 旧快照可能仍有；新写入不再包含 */
+  inMapScore?: string | null;
+  /** @deprecated 旧快照可能仍有；新写入不再包含 */
   maps?: PmSportMapResult[];
   elapsed?: string;
   finishedTimestamp?: string;

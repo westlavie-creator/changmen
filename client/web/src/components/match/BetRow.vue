@@ -71,11 +71,6 @@ const liveSeconds = computed(() => {
   return (Date.now() - props.bet.startTime) / 1000;
 });
 
-const roundScore = computed(() => {
-  void matchTick.value;
-  return matchStore.getRoundScore(props.match.id, props.bet.round);
-});
-
 function defaultOddsValue(betId: number, side: BetSide): number {
   void matchTick.value;
   const fromStore = matchStore.getDefaultOdds(betId, side);
@@ -145,15 +140,6 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
       {{ bet.getBetName() }} - {{ arb }}
     </div>
     <div ref="itemsContainerRef" class="bet-items">
-      <div v-if="roundScore" class="score">
-        <div class="home">
-          {{ roundScore.Home }}
-        </div>
-        <div class="away">
-          {{ roundScore.Away }}
-        </div>
-      </div>
-
       <div v-if="showDefaultOdds" class="item flex defaultOdds">
         <div class="item-type default" />
         <div
