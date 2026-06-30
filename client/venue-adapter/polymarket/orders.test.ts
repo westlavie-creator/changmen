@@ -285,6 +285,36 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(order?.status).toBe("none");
   });
 
+  test("settles when closed=false but outcomePrices show clear winner", () => {
+    const liveResolvedMarket: PolymarketRawMarket = {
+      ...ilbirsMarket,
+      closed: false,
+      acceptingOrders: true,
+      outcomePrices: "[\"0.9995\", \"0.0005\"]",
+      umaResolutionStatus: "proposed",
+    };
+    expect(isPolymarketMarketResolved(liveResolvedMarket)).toBe(true);
+
+    const [order] = mapPolymarketTradesToVenueOrders(
+      [ilbirsTrade],
+      new Map([[String(liveResolvedMarket.condition_id), liveResolvedMarket]]),
+    );
+    expect(order?.status).toBe("win");
+  });
+
+  test("settles via umaResolutionStatus settled_normal without closed flag", () => {
+    const umaMarket: PolymarketRawMarket = {
+      ...ilbirsMarket,
+      closed: false,
+      umaResolutionStatus: "settled_normal",
+    };
+    const [order] = mapPolymarketTradesToVenueOrders(
+      [ilbirsTrade],
+      new Map([[String(umaMarket.condition_id), umaMarket]]),
+    );
+    expect(order?.status).toBe("win");
+  });
+
   test("keeps BUY bets and drops SELL redemptions from mixed trade feed", () => {
     const sample: PolymarketTradeRow[] = [
       {

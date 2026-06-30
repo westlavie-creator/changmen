@@ -58,8 +58,20 @@ function unwrapGammaMarkets(data: unknown): PolymarketRawMarket[] {
   return [];
 }
 
+function normalizeConditionId(id: string | undefined | null): string {
+  return String(id ?? "").trim().toLowerCase();
+}
+
 function marketConditionId(market: PolymarketRawMarket): string {
-  return String(market.condition_id ?? market.conditionId ?? market.market ?? market.id ?? "");
+  return normalizeConditionId(
+    String(market.condition_id ?? market.conditionId ?? market.market ?? market.id ?? ""),
+  );
+}
+
+function gammaUmaResolutionStatus(market: PolymarketRawMarket): string {
+  return String(market.umaResolutionStatus ?? market.uma_resolution_status ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 /** 已成交 trade 是否计入订单列表（含 MINED，排除 FAILED/CANCEL） */
@@ -109,18 +121,24 @@ export function findPolymarketWinnerIndex(prices: number[]): number {
   return -1;
 }
 
+/** UMA 已 finalize，或 outcomePrices 有明确赢家（≥0.99） */
 export function isPolymarketMarketResolved(market: PolymarketRawMarket | undefined): boolean {
-  if (!market?.closed) return false;
+  if (!market) return false;
+  const uma = gammaUmaResolutionStatus(market);
+  if (uma === "settled_normal" || uma === "resolved")
+    return findPolymarketWinnerIndex(gammaOutcomePrices(market)) >= 0;
+  // Polymarket 常保持 closed=false，但 outcomePrices 已接近 0/1
   return findPolymarketWinnerIndex(gammaOutcomePrices(market)) >= 0;
 }
 
 /** 已 resolve 市场的赢家 token id */
 export function resolvePolymarketWinningAssetId(market: PolymarketRawMarket | undefined): string | null {
-  if (!market?.closed) return null;
-  const prices = gammaOutcomePrices(market);
+  if (!isPolymarketMarketResolved(market))
+    return null;
+  const prices = gammaOutcomePrices(market!);
   const idx = findPolymarketWinnerIndex(prices);
   if (idx < 0) return null;
-  const tokens = gammaTokenIds(market);
+  const tokens = gammaTokenIds(market!);
   return tokens[idx] ?? null;
 }
 
@@ -255,18 +273,18 @@ export function mapPolymarketTradeToVenueOrder(
 
 async function fetchMarketsByConditionIds(ids: string[]): Promise<Map<string, PolymarketRawMarket>> {
   const out = new Map<string, PolymarketRawMarket>();
-  const unique = [...new Set(ids.map(id => id.trim()).filter(Boolean))];
+  const unique = [...new Set(ids.map(id => normalizeConditionId(id)).filter(Boolean))];
   if (!unique.length) return out;
 
   const chunkSize = 20;
   for (let i = 0; i < unique.length; i += chunkSize) {
     const chunk = unique.slice(i, i + chunkSize);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ limit: String(chunk.length) });
     for (const id of chunk)
       params.append("condition_ids", id);
     try {
       const data = await polymarketPluginGet<unknown>(
-        `${POLYMARKET_GAMMA_API}/markets?${params.toString()}`,
+        `${POLYMARKET_GAMMA_API}/markets/keyset?${params.toString()}`,
       );
       for (const market of unwrapGammaMarkets(data)) {
         const key = marketConditionId(market);
@@ -274,7 +292,22 @@ async function fetchMarketsByConditionIds(ids: string[]): Promise<Map<string, Po
       }
     }
     catch (err) {
-      console.warn("[Polymarket] Gamma market lookup failed", err);
+      console.warn("[Polymarket] Gamma keyset lookup failed, fallback /markets", err);
+      try {
+        const params = new URLSearchParams({ limit: String(chunk.length) });
+        for (const id of chunk)
+          params.append("condition_ids", id);
+        const data = await polymarketPluginGet<unknown>(
+          `${POLYMARKET_GAMMA_API}/markets?${params.toString()}`,
+        );
+        for (const market of unwrapGammaMarkets(data)) {
+          const key = marketConditionId(market);
+          if (key) out.set(key, market);
+        }
+      }
+      catch (fallbackErr) {
+        console.warn("[Polymarket] Gamma market lookup failed", fallbackErr);
+      }
     }
   }
   return out;
@@ -334,7 +367,10 @@ export function mapPolymarketTradesToVenueOrders(
   );
   const orders: VenueOrder[] = [];
   for (const trade of aggregated) {
-    const mapped = mapPolymarketTradeToVenueOrder(trade, marketMap.get(String(trade.market ?? "")));
+    const mapped = mapPolymarketTradeToVenueOrder(
+      trade,
+      marketMap.get(normalizeConditionId(String(trade.market ?? ""))),
+    );
     if (mapped)
       orders.push(mapped);
   }

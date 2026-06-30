@@ -28,6 +28,8 @@ export interface PolymarketRawMarket {
   outcomes?: unknown;
   outcomePrices?: unknown;
   outcome_prices?: unknown;
+  umaResolutionStatus?: string;
+  uma_resolution_status?: string;
   group_item_title?: string;
   groupItemTitle?: string;
   sports_market_type?: string;
