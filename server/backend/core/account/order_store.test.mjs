@@ -1,7 +1,14 @@
 import { placeholderLinkFromCreateAt } from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
-import { describe, expect, it } from "vitest";
-import { parseOrderBindRow, resolveStoredLink } from "./order_store.js";
+import { describe, expect, it, vi } from "vitest";
+import { listUserProfitRank, parseOrderBindRow, resolveStoredLink } from "./order_store.js";
+
+vi.mock("@changmen/db", () => ({
+  fetchOrdersForProfitAggregate: vi.fn(),
+  fetchProfiles: vi.fn(),
+  placeholderLinkFromCreateAt: (ca) => ca,
+  backendBindLinkFromCreateAt: vi.fn(),
+}));
 
 describe("parseVenueCreateAt in saveOrder path", () => {
   it("parses datetime strings that parseNum would drop", () => {
@@ -63,5 +70,25 @@ describe("parseOrderBindRow", () => {
     const row = parseOrderBindRow({ LinkID: 0, OrderID: "x", Provider: "PB" });
     expect(row.linkId).toBe(0);
     expect(row.orderId).toBe("x");
+  });
+});
+
+describe("listUserProfitRank", () => {
+  it("excludes admin users from rank rows", async () => {
+    const sb = await import("@changmen/db");
+    vi.mocked(sb.fetchProfiles).mockResolvedValue([
+      { id: "u1", user_name: "alice", is_admin: false, role: "user" },
+      { id: "u2", user_name: "admin", is_admin: true, role: "admin" },
+    ]);
+    vi.mocked(sb.fetchOrdersForProfitAggregate).mockResolvedValue([
+      { user_id: "u1", status: "Win", money: 100, bet_money: 500 },
+      { user_id: "u2", status: "Win", money: 999, bet_money: 9000 },
+    ]);
+
+    const rows = await listUserProfitRank("2026-06-30");
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].UserName).toBe("alice");
+    expect(rows[0].Money).toBe(100);
   });
 });

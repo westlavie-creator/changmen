@@ -4,6 +4,7 @@ import {
   placeholderLinkFromCreateAt,
 } from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
+import { isAdminUser } from "../auth/admin_auth.js";
 
 export function toDateKey(ts) {
   const d = new Date(Number(ts) || Date.now());
@@ -128,19 +129,22 @@ function stringToHashNumber(value) {
   return hash;
 }
 
-/** 排行榜：按登录用户聚合当日 orders（非按 player_id / 平台账号） */
+/** 排行榜：按登录用户聚合当日 orders（非按 player_id / 平台账号）；管理员不参与 */
 export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
   const [orders, profiles] = await Promise.all([
     sb.fetchOrdersForProfitAggregate(dateKey),
     sb.fetchProfiles(),
   ]);
+  const adminIds = new Set(
+    (profiles || []).filter(p => isAdminUser(p)).map(p => String(p.id)),
+  );
   const nameById = new Map(
     (profiles || []).map(p => [String(p.id), String(p.user_name || "").trim()]),
   );
   const agg = new Map();
   for (const o of orders || []) {
     const uid = String(o.user_id || "");
-    if (!uid)
+    if (!uid || adminIds.has(uid))
       continue;
     if (!agg.has(uid))
       agg.set(uid, { money: 0, count: 0, betMoney: 0 });
@@ -154,6 +158,8 @@ export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
   }
   const result = [];
   for (const [uid, stats] of agg) {
+    if (adminIds.has(uid))
+      continue;
     const userName = nameById.get(uid) || uid.slice(0, 8);
     result.push({
       UserID: stringToHashNumber(userName),
