@@ -40,13 +40,15 @@ export function scaleVenueMoney(raw: number, multiply: unknown): number {
 }
 
 /**
- * 解析账号乘网：PB / Polymarket 缺失 / 无效 / 旧默认 1 → 10；其它平台无效 → 1。
- * 已显式设置且 >1 的值原样保留。
+ * 解析账号乘网：PB / Polymarket 缺失 / 无效 → 10；显式 1 原样保留；>1 原样保留。
  */
 export function resolveAccountMultiply(provider: unknown, rawMultiply: unknown): number {
   if (isMultiplyProvider(provider)) {
+    const hasValue = rawMultiply !== undefined && rawMultiply !== null && rawMultiply !== "";
     const n = Number(rawMultiply);
-    if (!Number.isFinite(n) || n <= 1)
+    if (hasValue && Number.isFinite(n) && n === 1)
+      return 1;
+    if (!Number.isFinite(n) || n < 1)
       return PB_MULTIPLY_DEFAULT;
     return n;
   }
@@ -73,7 +75,7 @@ export function normalizeAccountMultiplyField<T>(row: T): T {
   const prev = hasStored ? Number(raw) : undefined;
 
   if (isMultiplyProvider(provider)) {
-    if (!hasStored || !Number.isFinite(prev) || (prev as number) <= 1) {
+    if (!hasStored || !Number.isFinite(prev) || (prev as number) < 1) {
       if (r.multiply === next && !r.Multiply)
         return row;
       return { ...r, multiply: next } as T;
