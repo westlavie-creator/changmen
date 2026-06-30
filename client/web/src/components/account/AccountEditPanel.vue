@@ -9,6 +9,7 @@ const props = withDefaults(
   defineProps<{
     readonly?: boolean;
     rateLocked?: boolean;
+    multiplyLocked?: boolean;
     gameExpanded?: boolean;
     proxyOptions?: { label: string; value: number }[];
     hideSensitive?: boolean;
@@ -16,11 +17,13 @@ const props = withDefaults(
   }>(),
   {
     proxyOptions: () => [{ label: "无代理", value: 0 }],
+    multiplyLocked: true,
   },
 );
 
 const emit = defineEmits<{
   unlockRate: [];
+  unlockMultiply: [];
   addRate: [];
   removeRate: [index: number];
   markupOnlyChange: [];
@@ -68,6 +71,12 @@ function unlockRate() {
     return;
   emit("unlockRate");
 }
+
+function unlockMultiply() {
+  if (props.readonly)
+    return;
+  emit("unlockMultiply");
+}
 </script>
 
 <template>
@@ -87,7 +96,7 @@ function unlockRate() {
         <el-col :span="7">
           <el-input v-model="form.playerName" placeholder="账号" :disabled="fieldDisabled()">
             <template #prepend>
-              账号
+              账<span @dblclick="unlockMultiply">号</span>
             </template>
           </el-input>
         </el-col>
@@ -330,7 +339,7 @@ function unlockRate() {
     <el-row>
       <el-col :span="24">
         <el-row :gutter="10">
-          <el-col :span="10">
+          <el-col :span="9">
             <el-form-item label="工作时间：">
               <el-input-tag
                 v-if="!readonly"
@@ -345,7 +354,7 @@ function unlockRate() {
               />
             </el-form-item>
           </el-col>
-          <el-col :span="7">
+          <el-col :span="6">
             <el-switch
               v-model="form.lastOdds"
               size="large"
@@ -355,8 +364,13 @@ function unlockRate() {
               :disabled="fieldDisabled()"
             />
           </el-col>
-          <el-col :span="3">
-            <el-input v-model.number="form.multiply" type="number" placeholder="乘网倍数" readonly>
+          <el-col :span="6">
+            <el-input
+              v-model.number="form.multiply"
+              type="number"
+              placeholder="乘网倍数"
+              :readonly="multiplyLocked || fieldDisabled()"
+            >
               <template #prepend>
                 乘网
               </template>

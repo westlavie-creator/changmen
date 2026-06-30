@@ -62,6 +62,8 @@ const pasteRaw = ref("");
 const gameShow = ref(false);
 /** A8：PB 默认锁定比例，legend「投」双击解锁 */
 const rateLocked = ref(false);
+/** A8：乘网默认只读，「账号」的「号」双击解锁 */
+const multiplyLocked = ref(true);
 /** Polymarket 专用：新账号按 wallet/funder/privateKey 派生 API 凭证 */
 const polyWalletAddress = ref("");
 const polyFunder = ref("");
@@ -105,6 +107,7 @@ function resetForm(acc?: PlatformAccount) {
   pasteRaw.value = "";
   gameShow.value = false;
   rateLocked.value = form.provider === "PB";
+  multiplyLocked.value = true;
   syncPolymarketFieldsFromToken(form.token);
 }
 
@@ -488,6 +491,10 @@ async function save() {
 function unlockRate() {
   rateLocked.value = false;
 }
+
+function unlockMultiply() {
+  multiplyLocked.value = false;
+}
 </script>
 
 <template>
@@ -505,10 +512,12 @@ function unlockRate() {
       :readonly="readonly"
       :hide-sensitive="Boolean(previewForm)"
       :rate-locked="rateLocked"
+      :multiply-locked="multiplyLocked"
       :game-expanded="gameShow"
       :proxy-options="proxyOptions"
       :fetch-platforms="previewForm ? undefined : queryPlatforms"
       @unlock-rate="unlockRate"
+      @unlock-multiply="unlockMultiply"
       @add-rate="addRate"
       @remove-rate="removeRate"
       @markup-only-change="onMarkupOnlyChange"
