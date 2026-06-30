@@ -65,6 +65,44 @@ export function resolvePolymarketApiCreds(config) {
   };
 }
 
+function normalizeEthAddress(raw) {
+  const s = String(raw ?? "").trim().toLowerCase();
+  return /^0x[0-9a-f]{40}$/.test(s) ? s : "";
+}
+
+/** token 内 wallet / funder 等，用于过滤 MAKER 撮合里的 maker_orders */
+export function collectPolymarketUserAddresses(config) {
+  const out = new Set();
+  for (const raw of [
+    config?.walletAddress,
+    config?.address,
+    config?.funder,
+    config?.funderAddress,
+    headerValue(config?.polyHeaders, "POLY_ADDRESS"),
+  ]) {
+    const n = normalizeEthAddress(raw);
+    if (n)
+      out.add(n);
+  }
+  return out;
+}
+
+export function isUserMakerOrderLeg(mo, trade, userAddresses) {
+  if (!userAddresses || userAddresses.size === 0)
+    return true;
+
+  const moMaker = normalizeEthAddress(mo?.maker_address);
+  if (moMaker)
+    return userAddresses.has(moMaker);
+
+  const moOwner = String(mo?.owner ?? "").trim();
+  const tradeOwner = String(trade?.owner ?? "").trim();
+  if (moOwner && tradeOwner)
+    return moOwner === tradeOwner;
+
+  return false;
+}
+
 function base64UrlToBuffer(value) {
   const normalized = String(value).replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
@@ -118,12 +156,14 @@ function isTradeConfirmed(status) {
     || normalized.includes("RETRYING");
 }
 
-export function flattenPolymarketTrades(trades) {
+export function flattenPolymarketTrades(trades, userAddresses) {
   const out = [];
   for (const trade of trades) {
     const role = String(trade?.trader_side ?? trade?.type ?? "").trim().toUpperCase();
     if (role.includes("MAKER") && Array.isArray(trade?.maker_orders) && trade.maker_orders.length) {
       for (const mo of trade.maker_orders) {
+        if (!isUserMakerOrderLeg(mo, trade, userAddresses))
+          continue;
         const orderId = String(mo?.order_id ?? "").trim();
         if (!orderId)
           continue;
@@ -147,9 +187,9 @@ export function flattenPolymarketTrades(trades) {
 }
 
 /** 按 taker_order_id 聚合 BUY 成交 */
-export function indexPolymarketBuyTrades(trades) {
+export function indexPolymarketBuyTrades(trades, userAddresses) {
   const byOrder = new Map();
-  for (const trade of flattenPolymarketTrades(trades)) {
+  for (const trade of flattenPolymarketTrades(trades, userAddresses)) {
     if (String(trade?.side ?? "").trim().toUpperCase() !== "BUY")
       continue;
     if (!isTradeConfirmed(trade?.status))

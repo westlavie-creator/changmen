@@ -3,7 +3,11 @@ import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { PLATFORMS } from "@/shared/platform";
 import { POLYMARKET_CLOB_API, POLYMARKET_GAMMA_API } from "./api";
-import { buildL2HeadersFromAccount } from "./l2Auth";
+import {
+  buildL2HeadersFromAccount,
+  collectPolymarketUserAddressesFromAccount,
+  normalizeEthAddress,
+} from "./l2Auth";
 import { polymarketOrderContextFromMarket, parseJsonArray, type PolymarketRawMarket } from "./parse";
 import { polymarketPluginGet } from "./transport";
 
@@ -30,11 +34,15 @@ export interface PolymarketTradeRow {
   bucket_index?: number;
   trader_side?: string;
   type?: string;
+  owner?: string;
+  maker_address?: string;
   maker_orders?: PolymarketMakerOrderRow[];
 }
 
 export interface PolymarketMakerOrderRow {
   order_id?: string;
+  owner?: string;
+  maker_address?: string;
   matched_amount?: string | number;
   price?: string | number;
   outcome?: string;
@@ -178,13 +186,42 @@ export function applyPolymarketSettlement(
   return { ...order, status: "lose", reward: 0, money: -stake };
 }
 
+/**
+ * MAKER 撮合里 maker_orders 含对手挂单；只保留 maker_address / owner 属于本账户的腿。
+ * userAddresses 为空时不做地址过滤（单测兼容旧 payload）。
+ */
+export function isUserMakerOrderLeg(
+  mo: PolymarketMakerOrderRow,
+  trade: PolymarketTradeRow,
+  userAddresses?: ReadonlySet<string>,
+): boolean {
+  if (!userAddresses || userAddresses.size === 0)
+    return true;
+
+  const moMaker = normalizeEthAddress(mo.maker_address);
+  if (moMaker)
+    return userAddresses.has(moMaker);
+
+  const moOwner = String(mo.owner ?? "").trim();
+  const tradeOwner = String(trade.owner ?? "").trim();
+  if (moOwner && tradeOwner)
+    return moOwner === tradeOwner;
+
+  return false;
+}
+
 /** MAKER 成交在 maker_orders；TAKER 用 taker_order_id */
-export function flattenPolymarketTrades(trades: PolymarketTradeRow[]): PolymarketTradeRow[] {
+export function flattenPolymarketTrades(
+  trades: PolymarketTradeRow[],
+  userAddresses?: ReadonlySet<string>,
+): PolymarketTradeRow[] {
   const out: PolymarketTradeRow[] = [];
   for (const trade of trades) {
     const role = String(trade.trader_side ?? trade.type ?? "").trim().toUpperCase();
     if (role.includes("MAKER") && Array.isArray(trade.maker_orders) && trade.maker_orders.length) {
       for (const mo of trade.maker_orders) {
+        if (!isUserMakerOrderLeg(mo, trade, userAddresses))
+          continue;
         const orderId = String(mo.order_id ?? "").trim();
         if (!orderId) continue;
         out.push({
@@ -409,15 +446,16 @@ export async function fetchPolymarketVenueOrders(account: PlatformAccount): Prom
 
   const gateway = account.gateway || POLYMARKET_CLOB_API;
   const afterSec = Math.floor((Date.now() - ORDER_LOOKBACK_MS) / 1000);
+  const userAddresses = collectPolymarketUserAddressesFromAccount(account);
   const rawTrades = await fetchTradesSince(gateway, headers, afterSec);
-  const preview = aggregatePolymarketTrades(flattenPolymarketTrades(rawTrades)).filter(
+  const preview = aggregatePolymarketTrades(flattenPolymarketTrades(rawTrades, userAddresses)).filter(
     trade => (Number(trade.match_time) || 0) >= afterSec,
   );
   const marketMap = await fetchMarketsByConditionIds(
     preview.map(trade => String(trade.market ?? "")).filter(Boolean),
     preview.map(trade => String(trade.asset_id ?? "")).filter(Boolean),
   );
-  return mapPolymarketTradesToVenueOrders(rawTrades, marketMap, afterSec);
+  return mapPolymarketTradesToVenueOrders(rawTrades, marketMap, afterSec, userAddresses);
 }
 
 /** 纯映射（单测 / 调试）：CLOB trades → VenueOrder */
@@ -425,8 +463,9 @@ export function mapPolymarketTradesToVenueOrders(
   trades: PolymarketTradeRow[],
   marketMap: Map<string, PolymarketRawMarket> = new Map(),
   afterSec = 0,
+  userAddresses?: ReadonlySet<string>,
 ): VenueOrder[] {
-  const flattened = flattenPolymarketTrades(trades);
+  const flattened = flattenPolymarketTrades(trades, userAddresses);
   const aggregated = aggregatePolymarketTrades(flattened).filter(
     trade => !afterSec || (Number(trade.match_time) || 0) >= afterSec,
   );

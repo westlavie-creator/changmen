@@ -98,6 +98,33 @@ export function resolveFunder(config: PolymarketTokenConfig): string {
   return config.funder || config.funderAddress || "";
 }
 
+/** 0x 地址小写规范化（非法则空串） */
+export function normalizeEthAddress(raw: string | undefined | null): string {
+  const s = String(raw ?? "").trim().toLowerCase();
+  return /^0x[0-9a-f]{40}$/.test(s) ? s : "";
+}
+
+/** token 内所有可能出现在 CLOB maker_address 的本账户地址 */
+export function collectPolymarketUserAddresses(config: PolymarketTokenConfig): Set<string> {
+  const out = new Set<string>();
+  for (const raw of [
+    config.walletAddress,
+    config.address,
+    config.funder,
+    config.funderAddress,
+    headerValue(config.polyHeaders, "POLY_ADDRESS"),
+  ]) {
+    const n = normalizeEthAddress(raw);
+    if (n)
+      out.add(n);
+  }
+  return out;
+}
+
+export function collectPolymarketUserAddressesFromAccount(account: PlatformAccount): Set<string> {
+  return collectPolymarketUserAddresses(parseTokenConfig(account.token));
+}
+
 function resolveAddress(config: PolymarketTokenConfig): string {
   return config.walletAddress || config.address || headerValue(config.polyHeaders, "POLY_ADDRESS");
 }

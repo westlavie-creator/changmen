@@ -22,6 +22,8 @@ import {
 import {
   fetchPolymarketTradesSince,
   indexPolymarketBuyTrades,
+  collectPolymarketUserAddresses,
+  parsePolymarketTokenConfig,
 } from "../core/integrations/polymarket/clob_l2.js";
 
 loadChangmenEnv();
@@ -176,7 +178,10 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
     return result;
   }
 
-  const tradeByOrderId = indexPolymarketBuyTrades(trades);
+  const tradeByOrderId = indexPolymarketBuyTrades(
+    trades,
+    collectPolymarketUserAddresses(parsePolymarketTokenConfig(account.token)),
+  );
   const conditionIds = [];
   const tokenIds = [];
   for (const row of orders) {

@@ -5,12 +5,14 @@ import {
   flattenPolymarketTrades,
   isPolymarketMarketResolved,
   isPolymarketTradeConfirmed,
+  isUserMakerOrderLeg,
   mapPolymarketTradeToVenueOrder,
   mapPolymarketTradesToVenueOrders,
   polymarketBuyStakeUsdc,
   resolvePolymarketWinningAssetId,
   type PolymarketTradeRow,
 } from "./orders";
+import { collectPolymarketUserAddresses } from "./l2Auth";
 import { polymarketOrderContextFromMarket, type PolymarketRawMarket } from "./parse";
 
 describe("isPolymarketTradeConfirmed", () => {
@@ -56,6 +58,58 @@ describe("flattenPolymarketTrades", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.taker_order_id).toBe("0xmaker-order");
+  });
+
+  test("drops counterparty maker_orders when user funder address is known (Ilbirs sell case)", () => {
+    const userFunder = "0x3eDBB2D5649B2c07eeFe12fBFe2c733F148C11b8";
+    const userAddresses = collectPolymarketUserAddresses({ funder: userFunder });
+    const trade: PolymarketTradeRow = {
+      trader_side: "MAKER",
+      side: "BUY",
+      status: "CONFIRMED",
+      match_time: "1782822352",
+      market: "0x222f98de2a15f629d45d61be7fc4809073b8e2b6a75820fa01651b6879087d0e",
+      outcome: "Ilbirs eSports",
+      asset_id: "43096664925939890021156714357110646049434267308263392569206421178711872585554",
+      maker_orders: [
+        {
+          order_id: "0x137f92c989118f5a7a470d87e55da48292b5641ca4f726e56e6e2a482c43e65a",
+          maker_address: userFunder,
+          matched_amount: "23.24",
+          price: "0.98",
+          outcome: "Ilbirs eSports",
+          side: "SELL",
+          asset_id: "43096664925939890021156714357110646049434267308263392569206421178711872585554",
+        },
+        {
+          order_id: "0x98ea21507110d22510ef8304af599767f0d31f854ee8c2fd05140e9187548d47",
+          maker_address: "0xA951006f1Ce68498C1aeF9b013880459E6E08A2F",
+          matched_amount: "15",
+          price: "0.02",
+          outcome: "Habibis",
+          side: "BUY",
+          asset_id: "39946498812908425907742353673510535035587445185779665944258669737953419673215",
+        },
+        {
+          order_id: "0x51b0dfee5f74e2b6ee58d0e7c65eeb7972218deaf7492b912121e429f156bbb2",
+          maker_address: "0x47dE133e5b7641d8F3aa36e0a750C6C9b1d9B677",
+          matched_amount: "604.0773",
+          price: "0.01",
+          outcome: "Habibis",
+          side: "BUY",
+          asset_id: "39946498812908425907742353673510535035587445185779665944258669737953419673215",
+        },
+      ],
+    };
+
+    const rows = flattenPolymarketTrades([trade], userAddresses);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.taker_order_id).toBe("0x137f92c989118f5a7a470d87e55da48292b5641ca4f726e56e6e2a482c43e65a");
+    expect(rows[0]?.side).toBe("SELL");
+    expect(isUserMakerOrderLeg(trade.maker_orders![1]!, trade, userAddresses)).toBe(false);
+
+    const orders = mapPolymarketTradesToVenueOrders([trade], new Map(), 0, userAddresses);
+    expect(orders).toHaveLength(0);
   });
 });
 

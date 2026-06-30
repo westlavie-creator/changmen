@@ -52,7 +52,7 @@ withDefaults(
           </div>
         </div>
         <div class="profit">
-          投注金额：{{ row.BetMoney }} 赔率：<span class="order__odds">{{
+          投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
             formatDisplayOdds(Number(row.Odds) || 0)
           }}</span>
           盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
