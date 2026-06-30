@@ -351,7 +351,7 @@ async function fetchMarketsByConditionIds(
     if (out.has(id))
       continue;
     try {
-      const clob = await polymarketPluginGet<PolymarketRawMarket & { tokens?: Array<{ token_id?: string; outcome?: string; price?: number; winner?: boolean }> }>(
+      const clob = await polymarketPluginGet<PolymarketRawMarket>(
         `${POLYMARKET_CLOB_API}/markets/${encodeURIComponent(id)}`,
       );
       const tokens = Array.isArray(clob?.tokens) ? clob.tokens : [];

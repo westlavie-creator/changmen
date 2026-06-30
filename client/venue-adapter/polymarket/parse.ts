@@ -13,6 +13,7 @@ export interface PolymarketRawMarket {
   question?: string;
   title?: string;
   slug?: string;
+  market_slug?: string;
   active?: boolean;
   closed?: boolean;
   archived?: boolean;
@@ -36,6 +37,7 @@ export interface PolymarketRawMarket {
   sportsMarketType?: string;
   tags?: unknown;
   events?: unknown;
+  tokens?: Array<{ token_id?: string; outcome?: string; price?: number; winner?: boolean }>;
 }
 
 export interface PolymarketRawEvent {
