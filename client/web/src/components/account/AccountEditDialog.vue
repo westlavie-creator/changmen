@@ -62,7 +62,7 @@ const pasteRaw = ref("");
 const gameShow = ref(false);
 /** A8：PB 默认锁定比例，legend「投」双击解锁 */
 const rateLocked = ref(false);
-/** A8：乘网默认只读，「账号」的「号」双击解锁 */
+/** 乘网默认只读，弹窗标题「平台账号设置」的「号」双击解锁 */
 const multiplyLocked = ref(true);
 /** Polymarket 专用：新账号按 wallet/funder/privateKey 派生 API 凭证 */
 const polyWalletAddress = ref("");
@@ -493,6 +493,8 @@ function unlockRate() {
 }
 
 function unlockMultiply() {
+  if (props.readonly)
+    return;
   multiplyLocked.value = false;
 }
 </script>
@@ -500,13 +502,15 @@ function unlockMultiply() {
 <template>
   <el-dialog
     v-model="visible"
-    title="平台账号设置"
     width="800"
     append-to-body
     :z-index="zIndex"
     :close-on-press-escape="false"
     :close-on-click-modal="false"
   >
+    <template #header>
+      平台账<span @dblclick.stop="unlockMultiply">号</span>设置
+    </template>
     <AccountEditPanel
       v-model:form="form"
       :readonly="readonly"
@@ -517,7 +521,6 @@ function unlockMultiply() {
       :proxy-options="proxyOptions"
       :fetch-platforms="previewForm ? undefined : queryPlatforms"
       @unlock-rate="unlockRate"
-      @unlock-multiply="unlockMultiply"
       @add-rate="addRate"
       @remove-rate="removeRate"
       @markup-only-change="onMarkupOnlyChange"

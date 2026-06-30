@@ -23,7 +23,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   unlockRate: [];
-  unlockMultiply: [];
   addRate: [];
   removeRate: [index: number];
   markupOnlyChange: [];
@@ -71,12 +70,6 @@ function unlockRate() {
     return;
   emit("unlockRate");
 }
-
-function unlockMultiply() {
-  if (props.readonly)
-    return;
-  emit("unlockMultiply");
-}
 </script>
 
 <template>
@@ -96,7 +89,7 @@ function unlockMultiply() {
         <el-col :span="7">
           <el-input v-model="form.playerName" placeholder="账号" :disabled="fieldDisabled()">
             <template #prepend>
-              账<span @dblclick="unlockMultiply">号</span>
+              账号
             </template>
           </el-input>
         </el-col>
@@ -366,10 +359,12 @@ function unlockMultiply() {
           </el-col>
           <el-col :span="6">
             <el-input
+              :key="multiplyLocked ? 'multiply-locked' : 'multiply-editable'"
               v-model.number="form.multiply"
               type="number"
               placeholder="乘网倍数"
-              :readonly="multiplyLocked || fieldDisabled()"
+              :readonly="multiplyLocked"
+              :disabled="fieldDisabled()"
             >
               <template #prepend>
                 乘网
