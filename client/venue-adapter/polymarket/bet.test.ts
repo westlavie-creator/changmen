@@ -11,11 +11,12 @@ vi.mock("./transport", () => ({
   polymarketPluginPost: vi.fn(),
 }));
 
-function accountWithToken(token: string): PlatformAccount {
+function accountWithToken(token: string, extra: Partial<PlatformAccount> = {}): PlatformAccount {
   return {
     provider: "Polymarket",
     gateway: POLYMARKET_CLOB_API,
     token,
+    ...extra,
   } as unknown as PlatformAccount;
 }
 
@@ -68,6 +69,24 @@ describe("polymarketProvider.getBalance", () => {
     });
     expect(options?.headers?.POLY_SIGNATURE).toEqual(expect.any(String));
     expect(options?.headers?.POLY_TIMESTAMP).toEqual(expect.any(String));
+  });
+
+  test("scales collateral balance by account multiply like PB", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "123450000" });
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xabc",
+      signatureType: 3,
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }), { multiply: 10 });
+
+    await expect(polymarketProvider.getBalance!(account)).resolves.toEqual({
+      balance: 1234.5,
+      currency: "USDT",
+    });
   });
 
   test("accepts full base64 data copied from plugin", async () => {
@@ -274,7 +293,7 @@ describe("polymarketProvider.betting", () => {
       tick_size: "0.01",
       min_order_size: "1",
       neg_risk: false,
-      asks: [{ price: "0.5", size: "10" }],
+      asks: [{ price: "0.5", size: "100" }],
     });
     vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
       success: true,
@@ -298,7 +317,7 @@ describe("polymarketProvider.betting", () => {
     const option = {
       itemId: "123456789",
       odds: 2,
-      betMoney: 1,
+      betMoney: 10,
     };
 
     const result = await polymarketProvider.betting!(account, option as any);
@@ -318,8 +337,8 @@ describe("polymarketProvider.betting", () => {
         maker: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
         signer: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
         tokenId: "123456789",
-        makerAmount: "1000000",
-        takerAmount: "2000000",
+        makerAmount: "10000000",
+        takerAmount: "20000000",
         side: "BUY",
         signatureType: 3,
         timestamp: "1700000000000",
@@ -396,7 +415,7 @@ describe("polymarketProvider.betting", () => {
   test("reports minimum order size before posting too-small FOK buy", async () => {
     vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
       tick_size: "0.01",
-      min_order_size: "5",
+      min_order_size: "12",
       neg_risk: false,
       asks: [{ price: "0.78", size: "100" }],
     });
@@ -422,8 +441,8 @@ describe("polymarketProvider.betting", () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain("Polymarket 下单金额低于最小份数");
     expect(result.message).toContain("【盘口】");
-    expect(result.message).toContain("最小下单份数：5");
-    expect(result.message).toContain("当前盘口至少约 3.9 USDC");
+    expect(result.message).toContain("最小下单份数：12");
+    expect(result.message).toContain("当前盘口至少约 9.36 USDC");
     expect(polymarketPluginPost).not.toHaveBeenCalled();
   });
 });
@@ -445,8 +464,27 @@ describe("polymarketProvider.checkBet", () => {
       tokenId: "123456789",
       odds: 2,
       betMoney: 10,
+      apiBetMoney: 10,
       side: "BUY",
       temporaryPass: true,
+    });
+  });
+
+  test("derives apiBetMoney from multiply like PB stake", async () => {
+    const option = {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 100,
+    };
+
+    const out = await polymarketProvider.checkBet(
+      accountWithToken("{}", { multiply: 10 }),
+      option as any,
+    );
+
+    expect(out.data).toMatchObject({
+      betMoney: 100,
+      apiBetMoney: 10,
     });
   });
 });
@@ -516,6 +554,49 @@ describe("polymarketProvider.getOrders", () => {
     expect(tradesCall?.[1]?.headers?.POLY_SIGNATURE).toBe(
       expectedL2Signature("c2VjcmV0", "1700100000GET/data/trades"),
     );
+  });
+
+  test("scales mapped order amounts by account multiply", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_100_000_000);
+    vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
+      if (url.includes("/data/trades")) {
+        return {
+          data: [{
+            taker_order_id: "0xtrade-order",
+            market: "0xcondition",
+            side: "BUY",
+            status: "TRADE_STATUS_CONFIRMED",
+            size: "2000000",
+            price: "0.5",
+            match_time: "1700000000",
+            outcome: "Team A",
+          }],
+          next_cursor: "LTE=",
+        };
+      }
+      if (url.includes("gamma-api.polymarket.com/markets")) {
+        return [{
+          condition_id: "0xcondition",
+          question: "Counter-Strike: Team A vs Team B",
+          sports_market_type: "child_moneyline",
+          group_item_title: "Map 1 Winner",
+          tags: [{ label: "cs2" }],
+        }];
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+
+    const orders = await polymarketProvider.getOrders!(accountWithToken(JSON.stringify({
+      walletAddress: "0xabc",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }), { multiply: 10 }));
+
+    expect(orders[0]?.betMoney).toBe(10);
+    expect(orders[0]?.reward).toBe(20);
   });
 
   test("returns empty array when credentials are missing", async () => {

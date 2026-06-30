@@ -163,7 +163,7 @@ function handleGetUsers() {
   return { ok: true, info };
 }
 
-/** A8 Io.loadAccounts：ACCOUNT 返回时归一化 PB 乘网默认 */
+/** A8 Io.loadAccounts：ACCOUNT 返回时归一化 PB / Polymarket 乘网默认 */
 function enrichAccountRowFromPlayer(row) {
   return normalizeAccountMultiplyField(row);
 }

@@ -1,22 +1,50 @@
-/** PB 平台乘网默认倍数（账号级配置，非 A8 bundle 硬编码） */
+/** PB / Polymarket 乘网默认倍数（账号级配置，非 A8 bundle 硬编码） */
 export const PB_MULTIPLY_DEFAULT = 10;
 
-/** 非 PB 平台默认乘网 */
+/** 非乘网平台默认乘网 */
 export const DEFAULT_MULTIPLY = 1;
 
-export function isPbProvider(provider: unknown): boolean {
+export function isMultiplyProvider(provider: unknown): boolean {
   const p = String(provider ?? "")
     .trim()
     .toUpperCase();
-  return p === "PB";
+  return p === "PB" || p === "POLYMARKET";
+}
+
+/** @deprecated 使用 isMultiplyProvider */
+export function isPbProvider(provider: unknown): boolean {
+  return isMultiplyProvider(provider);
+}
+
+export function accountMultiplyScale(multiply: unknown): number {
+  return Math.max(1, Number(multiply) || 1);
+}
+
+/** PB 乘网换算后提交场馆的最小 stake（对齐 A8 PZe.checkBet） */
+export const PB_MIN_VENUE_STAKE = 7;
+
+/** Polymarket 乘网换算后提交 CLOB 的最小 USDC */
+export const POLYMARKET_MIN_VENUE_STAKE = 5;
+
+/** 展示口径 betMoney → 场馆 API 实际金额（对齐 A8 PB PZe.checkBet） */
+export function venueStakeFromBetMoney(
+  betMoney: number,
+  multiply: unknown,
+  minStake = PB_MIN_VENUE_STAKE,
+): number {
+  return Math.max(minStake, Math.floor(Number(betMoney) / accountMultiplyScale(multiply)));
+}
+
+export function scaleVenueMoney(raw: number, multiply: unknown): number {
+  return raw * accountMultiplyScale(multiply);
 }
 
 /**
- * 解析账号乘网：PB 缺失 / 无效 / 旧默认 1 → 10；其它平台无效 → 1。
- * 已显式设置且 >1 的值（含 PB 自定义倍数）原样保留。
+ * 解析账号乘网：PB / Polymarket 缺失 / 无效 / 旧默认 1 → 10；其它平台无效 → 1。
+ * 已显式设置且 >1 的值原样保留。
  */
 export function resolveAccountMultiply(provider: unknown, rawMultiply: unknown): number {
-  if (isPbProvider(provider)) {
+  if (isMultiplyProvider(provider)) {
     const n = Number(rawMultiply);
     if (!Number.isFinite(n) || n <= 1)
       return PB_MULTIPLY_DEFAULT;
@@ -33,7 +61,7 @@ export function accountProviderKey(row: unknown): string {
   return (r.provider ?? r.Provider ?? r.platform ?? r.Platform ?? "") as string;
 }
 
-/** 单条账号行：仅在 PB 缺省/legacy 或非 PB 无效值时写入 multiply */
+/** 单条账号行：仅在乘网平台缺省/legacy 或非乘网平台无效值时写入 multiply */
 export function normalizeAccountMultiplyField<T>(row: T): T {
   if (!row || typeof row !== "object")
     return row;
@@ -44,7 +72,7 @@ export function normalizeAccountMultiplyField<T>(row: T): T {
   const next = resolveAccountMultiply(provider, raw);
   const prev = hasStored ? Number(raw) : undefined;
 
-  if (isPbProvider(provider)) {
+  if (isMultiplyProvider(provider)) {
     if (!hasStored || !Number.isFinite(prev) || (prev as number) <= 1) {
       if (r.multiply === next && !r.Multiply)
         return row;

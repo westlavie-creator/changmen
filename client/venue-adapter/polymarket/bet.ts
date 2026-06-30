@@ -1,7 +1,8 @@
-import type { AccountBalanceResult, PlatformProvider } from "@venue/contract";
+import type { AccountBalanceResult, PlatformProvider, VenueOrder } from "@venue/contract";
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { accountMultiplyScale, POLYMARKET_MIN_VENUE_STAKE, scaleVenueMoney, venueStakeFromBetMoney } from "@changmen/shared/account_multiply";
 import { POLYMARKET_CLOB_API } from "./api";
 import { resolvePolymarketBuilderCode } from "./builder";
 import {
@@ -264,6 +265,22 @@ function parseCollateralBalance(raw: string | number | undefined): number | unde
   return Number.isFinite(value) ? value / COLLATERAL_DECIMALS : undefined;
 }
 
+function scalePolymarketVenueOrders(orders: VenueOrder[], multiply: number): VenueOrder[] {
+  return orders.map(order => ({
+    ...order,
+    betMoney: scaleVenueMoney(order.betMoney, multiply),
+    reward: scaleVenueMoney(order.reward, multiply),
+    money: scaleVenueMoney(order.money, multiply),
+  }));
+}
+
+function resolvePolymarketApiBetMoney(account: PlatformAccount, option: BetOption): number {
+  const fromCheck = Number((option.data as { apiBetMoney?: number } | undefined)?.apiBetMoney);
+  if (Number.isFinite(fromCheck) && fromCheck > 0)
+    return fromCheck;
+  return venueStakeFromBetMoney(option.betMoney, account.multiply, POLYMARKET_MIN_VENUE_STAKE);
+}
+
 // ---- provider ----
 
 export const polymarketProvider: PlatformProvider = {
@@ -280,7 +297,10 @@ export const polymarketProvider: PlatformProvider = {
       );
       const balance = parseCollateralBalance(data?.balance);
       if (balance === undefined) return undefined;
-      return { balance, currency: "USDT" };
+      return {
+        balance: scaleVenueMoney(balance, account.multiply),
+        currency: "USDT",
+      };
     } catch (err) {
       console.warn("[Polymarket] getBalance failed", err);
       return undefined;
@@ -289,7 +309,9 @@ export const polymarketProvider: PlatformProvider = {
 
   async getOrders(account: PlatformAccount) {
     try {
-      return await fetchPolymarketVenueOrders(account);
+      const multiply = accountMultiplyScale(account.multiply);
+      const orders = await fetchPolymarketVenueOrders(account);
+      return scalePolymarketVenueOrders(orders, multiply);
     }
     catch (err) {
       console.warn("[Polymarket] getOrders failed", err);
@@ -297,13 +319,13 @@ export const polymarketProvider: PlatformProvider = {
     }
   },
 
-  async checkBet(_account: PlatformAccount, option: BetOption): Promise<BetOption> {
-    // 临时放行：先让 Polymarket 手动/自动下注通过 A8 前置检查门禁。
-    // 真正的订单簿校验和 FOK 成交判断由 betting() / Polymarket CLOB 返回结果承担。
+  async checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption> {
+    const apiBetMoney = venueStakeFromBetMoney(option.betMoney, account.multiply, POLYMARKET_MIN_VENUE_STAKE);
     option.data = {
       tokenId: option.itemId,
       odds: option.odds,
       betMoney: option.betMoney,
+      apiBetMoney,
       side: "BUY",
       temporaryPass: true,
     };
@@ -331,16 +353,17 @@ export const polymarketProvider: PlatformProvider = {
       return new BetResult("Polymarket", false, `无效赔率 ${option.odds}`);
 
     const tokenId = option.itemId;
+    const apiBetMoney = resolvePolymarketApiBetMoney(account, option);
 
     try {
       const orderOptions = await fetchOrderOptions(gateway, tokenId);
       const price = calculateBuyMarketLimitPrice(
         orderOptions.asks,
-        option.betMoney,
+        apiBetMoney,
         orderOptions.minOrderSize,
         {
           tokenId,
-          amountUsdc: option.betMoney,
+          amountUsdc: apiBetMoney,
           displayedOdds: option.odds,
           displayedPrice,
           minOrderSize: orderOptions.minOrderSize,
@@ -354,7 +377,7 @@ export const polymarketProvider: PlatformProvider = {
         config,
         tokenId,
         price,
-        option.betMoney,
+        apiBetMoney,
         orderOptions,
       );
       const bodyStr = JSON.stringify(orderBody);
@@ -378,11 +401,11 @@ export const polymarketProvider: PlatformProvider = {
       if (!result?.success) {
         const diagnostic = diagnosticLines({
           tokenId,
-          amountUsdc: option.betMoney,
+          amountUsdc: apiBetMoney,
           displayedOdds: option.odds,
           displayedPrice,
           limitPrice: price,
-          shares: option.betMoney / price,
+          shares: apiBetMoney / price,
           minOrderSize: orderOptions.minOrderSize,
           availableUsdc: availableUsdc(orderOptions.asks),
           asks: orderOptions.asks,

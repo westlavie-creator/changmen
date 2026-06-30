@@ -8,6 +8,7 @@ import { formatPbDateTime } from "@/shared/format";
 import { getCurrency } from "@/shared/currency";
 import { useMessageStore } from "@/stores/messageStore";
 import { PLATFORMS } from "@/shared/platform";
+import { accountMultiplyScale, scaleVenueMoney, venueStakeFromBetMoney } from "@changmen/shared/account_multiply";
 import { pbUuid } from "./uuid";
 
 interface PbOddsSelectionRow {
@@ -78,16 +79,16 @@ export const pbProvider: PlatformProvider = {
       currency?: string;
     }>(account, path, "");
     if (!data?.success) return undefined;
-    const multiply = Math.max(1, account.multiply ?? 1);
+    const multiply = accountMultiplyScale(account.multiply);
     return {
-      balance: Number(data.betCredit) * multiply || 0,
+      balance: scaleVenueMoney(Number(data.betCredit) || 0, multiply),
       currency: getCurrency(data.currency),
     };
   },
 
   async getOrders(account) {
     const path = `/member-service/v2/wager-filter?locale=zh_CN`;
-    const multiply = Math.max(1, account.multiply ?? 1);
+    const multiply = accountMultiplyScale(account.multiply);
     const now = new Date();
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -189,8 +190,7 @@ export const pbProvider: PlatformProvider = {
       return option;
     }
 
-    const multiply = Math.max(1, account.multiply ?? 1);
-    const stake = Math.max(7, Math.floor(option.betMoney / multiply));
+    const stake = venueStakeFromBetMoney(option.betMoney, account.multiply);
     const minStake = Number(row.minStake) || 0;
     const maxStake = Number(row.maxStake) || 0;
     if (stake < minStake || stake > maxStake) {
