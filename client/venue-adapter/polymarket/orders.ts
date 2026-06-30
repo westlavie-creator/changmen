@@ -271,10 +271,52 @@ export function mapPolymarketTradeToVenueOrder(
   return applyPolymarketSettlement(unsettled, trade, market);
 }
 
-async function fetchMarketsByConditionIds(ids: string[]): Promise<Map<string, PolymarketRawMarket>> {
+async function fetchGammaMarketsChunk(params: URLSearchParams): Promise<PolymarketRawMarket[]> {
+  try {
+    const data = await polymarketPluginGet<unknown>(
+      `${POLYMARKET_GAMMA_API}/markets/keyset?${params.toString()}`,
+    );
+    return unwrapGammaMarkets(data);
+  }
+  catch (err) {
+    console.warn("[Polymarket] Gamma keyset lookup failed, fallback /markets", err);
+    const data = await polymarketPluginGet<unknown>(
+      `${POLYMARKET_GAMMA_API}/markets?${params.toString()}`,
+    );
+    return unwrapGammaMarkets(data);
+  }
+}
+
+function rememberGammaMarket(out: Map<string, PolymarketRawMarket>, market: PolymarketRawMarket): void {
+  const key = marketConditionId(market);
+  if (key) out.set(key, market);
+  for (const tokenId of gammaTokenIds(market)) {
+    const tokenKey = normalizeConditionId(tokenId);
+    if (tokenKey) out.set(`token:${tokenKey}`, market);
+  }
+}
+
+function lookupGammaMarket(
+  marketMap: Map<string, PolymarketRawMarket>,
+  trade: PolymarketTradeRow,
+): PolymarketRawMarket | undefined {
+  const conditionKey = normalizeConditionId(String(trade.market ?? ""));
+  if (conditionKey && marketMap.has(conditionKey))
+    return marketMap.get(conditionKey);
+  const assetKey = normalizeConditionId(String(trade.asset_id ?? ""));
+  if (assetKey && marketMap.has(`token:${assetKey}`))
+    return marketMap.get(`token:${assetKey}`);
+  return undefined;
+}
+
+async function fetchMarketsByConditionIds(
+  ids: string[],
+  tokenIds: string[] = [],
+): Promise<Map<string, PolymarketRawMarket>> {
   const out = new Map<string, PolymarketRawMarket>();
   const unique = [...new Set(ids.map(id => normalizeConditionId(id)).filter(Boolean))];
-  if (!unique.length) return out;
+  const uniqueTokens = [...new Set(tokenIds.map(id => String(id ?? "").trim()).filter(Boolean))];
+  if (!unique.length && !uniqueTokens.length) return out;
 
   const chunkSize = 20;
   for (let i = 0; i < unique.length; i += chunkSize) {
@@ -283,31 +325,53 @@ async function fetchMarketsByConditionIds(ids: string[]): Promise<Map<string, Po
     for (const id of chunk)
       params.append("condition_ids", id);
     try {
-      const data = await polymarketPluginGet<unknown>(
-        `${POLYMARKET_GAMMA_API}/markets/keyset?${params.toString()}`,
-      );
-      for (const market of unwrapGammaMarkets(data)) {
-        const key = marketConditionId(market);
-        if (key) out.set(key, market);
-      }
+      for (const market of await fetchGammaMarketsChunk(params))
+        rememberGammaMarket(out, market);
     }
-    catch (err) {
-      console.warn("[Polymarket] Gamma keyset lookup failed, fallback /markets", err);
-      try {
-        const params = new URLSearchParams({ limit: String(chunk.length) });
-        for (const id of chunk)
-          params.append("condition_ids", id);
-        const data = await polymarketPluginGet<unknown>(
-          `${POLYMARKET_GAMMA_API}/markets?${params.toString()}`,
-        );
-        for (const market of unwrapGammaMarkets(data)) {
-          const key = marketConditionId(market);
-          if (key) out.set(key, market);
-        }
-      }
-      catch (fallbackErr) {
-        console.warn("[Polymarket] Gamma market lookup failed", fallbackErr);
-      }
+    catch (fallbackErr) {
+      console.warn("[Polymarket] Gamma market lookup failed", fallbackErr);
+    }
+  }
+
+  for (let i = 0; i < uniqueTokens.length; i += chunkSize) {
+    const chunk = uniqueTokens.slice(i, i + chunkSize);
+    const params = new URLSearchParams({ limit: String(chunk.length) });
+    for (const id of chunk)
+      params.append("clob_token_ids", id);
+    try {
+      for (const market of await fetchGammaMarketsChunk(params))
+        rememberGammaMarket(out, market);
+    }
+    catch (fallbackErr) {
+      console.warn("[Polymarket] Gamma token lookup failed", fallbackErr);
+    }
+  }
+
+  for (const id of unique) {
+    if (out.has(id))
+      continue;
+    try {
+      const clob = await polymarketPluginGet<PolymarketRawMarket & { tokens?: Array<{ token_id?: string; outcome?: string; price?: number; winner?: boolean }> }>(
+        `${POLYMARKET_CLOB_API}/markets/${encodeURIComponent(id)}`,
+      );
+      const tokens = Array.isArray(clob?.tokens) ? clob.tokens : [];
+      if (!tokens.length)
+        continue;
+      const hasWinner = tokens.some(t => t?.winner === true);
+      rememberGammaMarket(out, {
+        condition_id: id,
+        question: clob?.question,
+        title: clob?.question,
+        slug: clob?.market_slug,
+        closed: clob?.closed === true || hasWinner,
+        outcomes: JSON.stringify(tokens.map(t => String(t?.outcome ?? ""))),
+        outcomePrices: JSON.stringify(tokens.map(t => String(t?.price ?? 0))),
+        clobTokenIds: JSON.stringify(tokens.map(t => String(t?.token_id ?? ""))),
+        umaResolutionStatus: hasWinner ? "settled_normal" : undefined,
+      });
+    }
+    catch {
+      // Gamma + CLOB 均无时保持 none
     }
   }
   return out;
@@ -351,6 +415,7 @@ export async function fetchPolymarketVenueOrders(account: PlatformAccount): Prom
   );
   const marketMap = await fetchMarketsByConditionIds(
     preview.map(trade => String(trade.market ?? "")).filter(Boolean),
+    preview.map(trade => String(trade.asset_id ?? "")).filter(Boolean),
   );
   return mapPolymarketTradesToVenueOrders(rawTrades, marketMap, afterSec);
 }
@@ -369,7 +434,7 @@ export function mapPolymarketTradesToVenueOrders(
   for (const trade of aggregated) {
     const mapped = mapPolymarketTradeToVenueOrder(
       trade,
-      marketMap.get(normalizeConditionId(String(trade.market ?? ""))),
+      lookupGammaMarket(marketMap, trade),
     );
     if (mapped)
       orders.push(mapped);
