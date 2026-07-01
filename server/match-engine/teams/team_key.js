@@ -108,7 +108,7 @@ function canonicalMatchKey(gameId, home, away, gameCode, ctx) {
   return _packMatchKey(gameId, hk, ak, "legacy");
 }
 
-/** 第一阶段：仅 platform_id → canonical_id，主客两队都必须映射成功 */
+/** 第一阶段：仅 platform_id → gb_team_id，主客两队都必须映射成功 */
 function canonicalMatchKeyByIdOnly(gameId, home, away, gameCode, ctx) {
   const nh = normalizeTeam(home);
   const na = normalizeTeam(away);
@@ -156,7 +156,7 @@ function _packMatchKey(gameId, hk, ak, kind) {
   };
 }
 
-/** 判定跨平台合并键是否由平台队伍 ID（team_platform_maps）解析成功 */
+/** 判定跨平台合并键是否由平台队伍 ID（team_venue_maps）解析成功 */
 function classifyMergeBasis(home, away, gameCode, ctx) {
   const nh = normalizeTeam(home);
   const na = normalizeTeam(away);

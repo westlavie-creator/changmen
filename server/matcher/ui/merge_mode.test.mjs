@@ -30,10 +30,10 @@ describe("classifyClientMatchMergeMode", () => {
       }],
     };
     const teamMaps = {
-      "OB:174183679975289424": { canonical_id: "100325" },
-      "OB:85185116216365852": { canonical_id: "100086" },
-      "RAY:37655427": { canonical_id: "100325" },
-      "RAY:38218017": { canonical_id: "100086" },
+      "OB:174183679975289424": { gb_team_id: "100325" },
+      "OB:85185116216365852": { gb_team_id: "100086" },
+      "RAY:37655427": { gb_team_id: "100325" },
+      "RAY:38218017": { gb_team_id: "100086" },
     };
 
     const out = classifyClientMatchMergeMode(cm, byPlatform, teamMaps);
@@ -64,9 +64,9 @@ describe("classifyClientMatchMergeMode", () => {
       }],
     };
     const teamMaps = {
-      "OB:1": { canonical_id: "100" },
-      "OB:2": { canonical_id: "101" },
-      "RAY:3": { canonical_id: "100" },
+      "OB:1": { gb_team_id: "100" },
+      "OB:2": { gb_team_id: "101" },
+      "RAY:3": { gb_team_id: "100" },
     };
 
     const out = classifyClientMatchMergeMode(cm, byPlatform, teamMaps);

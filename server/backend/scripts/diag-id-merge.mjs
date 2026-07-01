@@ -23,16 +23,16 @@ for (const r of pm.rows) {
 
 const allIds = pm.rows.flatMap(r => [r.home_id, r.away_id]).filter(Boolean);
 const maps = await pool.query(
-  `SELECT tpm.platform, tpm.platform_id, tpm.platform_name, tpm.canonical_id, ct.name AS canonical_name, ct.game
-   FROM team_platform_maps tpm
-   LEFT JOIN canonical_teams ct ON ct.gb_team_id = tpm.canonical_id
-   WHERE tpm.platform_id = ANY($1::text[])
-      OR (tpm.platform_name ILIKE '%1w%' OR tpm.platform_name ILIKE '%inox%')
-   ORDER BY tpm.platform, tpm.canonical_id`,
+  `SELECT tvm.venue, tvm.venue_id, tvm.venue_name, tvm.gb_team_id, ct.name AS canonical_name, ct.game
+   FROM team_venue_maps tvm
+   LEFT JOIN canonical_teams ct ON ct.gb_team_id = tvm.gb_team_id
+   WHERE tvm.venue_id = ANY($1::text[])
+      OR (tvm.venue_name ILIKE '%1w%' OR tvm.venue_name ILIKE '%inox%')
+   ORDER BY tvm.venue, tvm.gb_team_id`,
   [allIds],
 );
 
-console.log("\nteam_platform_maps (by platform_id + name search):\n");
+console.log("\nteam_venue_maps (by venue_id + name search):\n");
 for (const m of maps.rows) {
   console.log(JSON.stringify(m));
 }

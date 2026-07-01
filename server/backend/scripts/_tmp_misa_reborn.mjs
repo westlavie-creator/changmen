@@ -41,12 +41,12 @@ for (const row of cm.rows) {
   }
 
   const maps = await pool.query(`
-    SELECT platform, platform_id, platform_name, canonical_id
-    FROM team_platform_maps
-    WHERE platform_name ILIKE '%Misa%' OR platform_name ILIKE '%REBORN%' OR platform_name ILIKE '%Reborn%'
-    ORDER BY platform, platform_name LIMIT 40
+    SELECT venue, venue_id, venue_name, gb_team_id
+    FROM team_venue_maps
+    WHERE venue_name ILIKE '%Misa%' OR venue_name ILIKE '%REBORN%' OR venue_name ILIKE '%Reborn%'
+    ORDER BY venue, venue_name LIMIT 40
   `);
-  console.log("team_platform_maps (Misa/Reborn):");
+  console.log("team_venue_maps (Misa/Reborn):");
   for (const m of maps.rows) console.log(JSON.stringify(m));
 }
 

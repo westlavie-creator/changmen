@@ -6,8 +6,8 @@ import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog"
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 
 /**
- * matchMerge 时自动收录指定平台尚未在 team_platform_maps 中的队伍。
- * 仅写入待识别记录（canonical_id = NULL），不分配 gb_team_id。
+ * matchMerge 时自动收录指定平台尚未在 team_venue_maps 中的队伍。
+ * 仅写入待识别记录（gb_team_id 为 NULL），不分配编号。
  */
 
 const AUTO_REGISTER_PLATFORMS = new Set(["TF", "OB", "RAY", "IA", "PB", "Stake", "Polymarket"]);
@@ -55,9 +55,9 @@ function addCandidate(candidates, platform, platformId, platformName, gameCode, 
     return;
   const name = String(platformName || "").trim() || pid;
   candidates.set(key, {
-    platform: String(platform),
-    platform_id: pid,
-    platform_name: name,
+    venue: String(platform),
+    venue_id: pid,
+    venue_name: name,
     game: gameCode,
     source: "auto",
     confidence: 1.0,
@@ -111,7 +111,7 @@ async function autoRegisterTeams(matchesRaw) {
 
   const existing = await fetchExistingTeamMapKeys(candidates);
   const toWrite = [...candidates.values()].filter(
-    row => !existing.has(`${row.platform}:${row.platform_id}`),
+    row => !existing.has(`${row.venue ?? row.platform}:${row.venue_id}`),
   );
   if (!toWrite.length)
     return { scanned: candidates.size, registered: 0 };

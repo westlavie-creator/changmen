@@ -3,7 +3,7 @@
 /**
  * RAY 平台队伍 ID 爬虫
  *
- * 遍历 RAY API 的多�?match_type 分页，提取所有队伍的 team_id + team_name�? * 通过 canonical_teams 名称匹配，将已识别的映射写入 team_platform_maps�? *
+ * 遍历 RAY API 的多�?match_type 分页，提取所有队伍的 team_id + team_name�? * 通过 canonical_teams 名称匹配，将已识别的映射写入 team_venue_maps�? *
  * 运行�? *   node ray_scraper.js                   # 抓全�?match_type
  *   node ray_scraper.js --types=1,2,3     # 只抓指定 match_type
  *   node ray_scraper.js --dry-run         # 只打印，不写�? */
@@ -156,16 +156,16 @@ async function main() {
 
     const gbTeamId = plugin.lookupById("RAY", teamId);
     const base = {
-      platform: "RAY",
-      platform_id: teamId,
-      platform_name: teamName,
+      venue: "RAY",
+      venue_id: teamId,
+      venue_name: teamName,
       game: gameCode,
       source: "scraper",
     };
     if (gbTeamId) {
-      manualMapped.push({ ...base, canonical_id: Number(gbTeamId), confidence: 1.0 });
+      manualMapped.push({ ...base, gb_team_id: Number(gbTeamId), confidence: 1.0 });
     } else {
-      platformOnly.push({ ...base, canonical_id: null, confidence: 0.0 });
+      platformOnly.push({ ...base, gb_team_id: null, confidence: 0.0 });
     }
   }
 
@@ -175,23 +175,23 @@ async function main() {
 
   if (platformOnly.length > 0) {
     console.log("\n[ray_scraper] �?gb_team_id 队伍（前 20 条）�?);
-    platformOnly.slice(0, 20).forEach((r) => console.log(`  platform_id=${r.platform_id}  name="${r.platform_name}"`));
+    platformOnly.slice(0, 20).forEach((r) => console.log(`  venue_id=${r.venue_id}  name="${r.venue_name}"`));
   }
 
   // 5. 写库
   const toWrite = [...manualMapped, ...platformOnly];
   if (!DRY_RUN && toWrite.length > 0) {
-    console.log(`\n[ray_scraper] 写入 team_platform_maps�?{toWrite.length} 行）...`);
+    console.log(`\n[ray_scraper] 写入 team_venue_maps�?{toWrite.length} 行）...`);
     await batchUpsert(toWrite);
     console.log("[ray_scraper] 写入完成");
   } else if (DRY_RUN) {
     console.log("\n[dry-run] 手动映射示例（前 5 条）�?);
     manualMapped.slice(0, 5).forEach((r) =>
-      console.log(`  gb_team_id=${r.canonical_id}  platform_id=${r.platform_id}  name="${r.platform_name}"`)
+      console.log(`  gb_team_id=${r.gb_team_id}  venue_id=${r.venue_id}  name="${r.venue_name}"`)
     );
     console.log("\n[dry-run] 仅平台记录示例（�?5 条）�?);
     platformOnly.slice(0, 5).forEach((r) =>
-      console.log(`  gb_team_id=NULL  platform_id=${r.platform_id}  name="${r.platform_name}"`)
+      console.log(`  gb_team_id=NULL  venue_id=${r.venue_id}  name="${r.venue_name}"`)
     );
   }
 

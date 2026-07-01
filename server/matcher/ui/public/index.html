@@ -736,8 +736,8 @@ function lookupTeamMapEntry(teamMaps, platform, platformId, gameCode) {
 function lookupCanonical(teamMaps, platform, platformId, gameCode) {
   const row = lookupTeamMapEntry(teamMaps, platform, platformId, gameCode);
   if (!row) return { canonical: null, pending: false, updatedBy: null };
-  if (row.canonical_id != null) {
-    return { canonical: String(row.canonical_id), pending: false, updatedBy: row.updated_by || null };
+  if (row.gb_team_id != null) {
+    return { canonical: String(row.gb_team_id), pending: false, updatedBy: row.updated_by || null };
   }
   return { canonical: null, pending: true, updatedBy: null };
 }
@@ -782,7 +782,7 @@ function renderTeamCell(m, side, gameCode, teamMaps, platformHint, linkCtx) {
   const registerBtn = missingFromMaps
     ? `<div class="team-cell-action"><button type="button" class="team-register-map-btn"
         ${pid ? '' : 'disabled'}
-        title="${pid ? '写入 team_platform_maps（尚无 gb_team_id）' : '缺少平台队伍 ID，无法收录'}"
+        title="${pid ? '写入 team_venue_maps（尚无 gb_team_id）' : '缺少平台队伍 ID，无法收录'}"
         data-team-platform="${esc(platform)}"
         data-team-id="${esc(pid || '')}"
         data-team-name="${esc(name || '')}"
@@ -1602,7 +1602,7 @@ function renderTeamLinkModalBody(preview) {
     detail = `<p>一侧尚无 gb_team_id 或仅为「待识别」，另一侧将写入编号 <strong>${preview.target_gb_team_id}</strong>。</p>`;
   } else {
     banner = `<div class="link-align-banner ok">将新建手动 gb_team_id（≥100000）</div>`;
-    detail = `<p>两侧均无 gb_team_id，确认后为两队分配新编号并写入 team_platform_maps。</p>`;
+    detail = `<p>两侧均无 gb_team_id，确认后为两队分配新编号并写入 team_venue_maps。</p>`;
   }
 
   body.innerHTML = `
@@ -1614,19 +1614,19 @@ function renderTeamLinkModalBody(preview) {
       <tbody>
         <tr>
           <td>${pbadge(ta.platform)}</td>
-          <td>${esc(ta.platform_name || '?')}</td>
-          <td><code>${esc(ta.platform_id)}</code></td>
+          <td>${esc(ta.venue_name || '?')}</td>
+          <td><code>${esc(ta.venue_id)}</code></td>
           <td>${formatGbTeamIdCell(ta.gb_team_id, ta.pending)}</td>
         </tr>
         <tr>
           <td>${pbadge(tb.platform)}</td>
-          <td>${esc(tb.platform_name || '?')}</td>
-          <td><code>${esc(tb.platform_id)}</code></td>
+          <td>${esc(tb.venue_name || '?')}</td>
+          <td><code>${esc(tb.venue_id)}</code></td>
           <td>${formatGbTeamIdCell(tb.gb_team_id, tb.pending)}</td>
         </tr>
       </tbody>
     </table>
-    <p style="font-size:11px;color:#64748b;margin-top:8px">仅写入 team_platform_maps，不修改 client_matches；下次 matcher matchMerge 后可能自动合并相关赛事。</p>
+    <p style="font-size:11px;color:#64748b;margin-top:8px">仅写入 team_venue_maps，不修改 client_matches；下次 matcher matchMerge 后可能自动合并相关赛事。</p>
   `;
 
   if (btn) {
@@ -1876,13 +1876,13 @@ function showActionToast(message, type = 'ok', ms = 4200) {
 function describeExistingTeamMap(platform, platformId, gameCode) {
   const row = lookupTeamMapEntry(_lastData?.teamMaps || {}, platform, platformId, gameCode);
   if (!row) return null;
-  const name = row.platform_name || platformId;
+  const name = row.venue_name || platformId;
   const game = row.game ? ` · 游戏 ${row.game}` : '';
-  if (row.canonical_id != null) {
+  if (row.gb_team_id != null) {
     const manual = row.updated_by === '手动' ? ' · 手动' : '';
-    return `无需重复收录\n${platform} · ${name}\n平台 id ${platformId}${game}\n已有 gb_team_id ${row.canonical_id}${manual}`;
+    return `无需重复收录\n${platform} · ${name}\n平台 id ${platformId}${game}\n已有 gb_team_id ${row.gb_team_id}${manual}`;
   }
-  return `无需重复收录\n${platform} · ${name}\n平台 id ${platformId}${game}\n已在 team_platform_maps，状态：待识别`;
+  return `无需重复收录\n${platform} · ${name}\n平台 id ${platformId}${game}\n已在 team_venue_maps，状态：待识别`;
 }
 
 function formatApiResultToast(data, head) {
@@ -1914,7 +1914,7 @@ async function submitTeamRegisterMap(btn) {
     return;
   }
 
-  const msg = `收录到 team_platform_maps？\n${platform} · ${platformName || platformId}\n平台 id ${platformId} · 游戏 ${gameCode || '?'}\n\n仅建立平台队伍档案，不分配 gb_team_id。`;
+  const msg = `收录到 team_venue_maps？\n${platform} · ${platformName || platformId}\n平台 id ${platformId} · 游戏 ${gameCode || '?'}\n\n仅建立平台队伍档案，不分配 gb_team_id。`;
   if (!confirm(msg)) return;
 
   _teamRegisterSubmitting = true;
@@ -1925,7 +1925,7 @@ async function submitTeamRegisterMap(btn) {
     const { res, data } = await fetchJson('/api/register-team-map', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform, platformId, platformName, gameCode }),
+      body: JSON.stringify({ platform, venueId: platformId, venueName: platformName, gameCode }),
     });
     if (!res.ok || data.error) {
       const err = new Error(data.error || '收录失败');

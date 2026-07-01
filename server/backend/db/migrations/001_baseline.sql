@@ -138,7 +138,7 @@ CREATE INDEX IF NOT EXISTS platform_matches_platform ON platform_matches(platfor
 CREATE INDEX IF NOT EXISTS platform_matches_start_time ON platform_matches(start_time);
 CREATE INDEX IF NOT EXISTS platform_bets_match ON platform_bets(platform, source_match_id);
 
--- ── canonical_teams / team_platform_maps ──────────────────────────────
+-- ── canonical_teams / team_venue_maps ──────────────────────────────
 
 CREATE SEQUENCE IF NOT EXISTS canonical_teams_id_seq;
 CREATE SEQUENCE IF NOT EXISTS canonical_teams_manual_id_seq START WITH 100000;
@@ -155,22 +155,22 @@ CREATE TABLE IF NOT EXISTS canonical_teams (
   UNIQUE (game, name)
 );
 
-CREATE TABLE IF NOT EXISTS team_platform_maps (
+CREATE TABLE IF NOT EXISTS team_venue_maps (
   id            bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  canonical_id  bigint REFERENCES canonical_teams(gb_team_id) ON DELETE CASCADE,
-  platform      text NOT NULL,
-  platform_id   text,
-  platform_name text NOT NULL,
+  gb_team_id    bigint REFERENCES canonical_teams(gb_team_id) ON DELETE CASCADE,
+  venue         text NOT NULL,
+  venue_id      text,
+  venue_name    text NOT NULL,
   game          text,
   source        text NOT NULL DEFAULT 'manual',
   confidence    numeric(3,2) NOT NULL DEFAULT 1.00,
   created_at    timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (platform, platform_id),
-  UNIQUE (canonical_id, platform, platform_name)
+  UNIQUE (venue, venue_id),
+  UNIQUE (gb_team_id, venue, venue_name)
 );
 
-CREATE INDEX IF NOT EXISTS team_platform_maps_name_idx
-  ON team_platform_maps(platform, platform_name);
+CREATE INDEX IF NOT EXISTS team_venue_maps_venue_name_idx
+  ON team_venue_maps(venue, venue_name);
 
 CREATE OR REPLACE FUNCTION canonical_teams_before_insert()
 RETURNS trigger

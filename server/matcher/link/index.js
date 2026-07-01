@@ -582,9 +582,9 @@ async function upsertTeamPlatformRecord(platform, platformId, platformName, game
 
   await db.upsertTeamPlatformMaps([
     {
-      platform: String(platform),
-      platform_id: pid,
-      platform_name: String(platformName || "").trim() || pid,
+      venue: String(platform),
+      venue_id: pid,
+      venue_name: String(platformName || "").trim() || pid,
       game: gameCode,
       source: "manual",
       confidence: 1.0,
@@ -604,10 +604,10 @@ async function upsertManualTeamPlatformMap(gbTeamId, platform, platformId, platf
 
   await db.upsertTeamPlatformMaps([
     {
-      canonical_id: id,
-      platform: String(platform),
-      platform_id: pid,
-      platform_name: String(platformName || "").trim() || pid,
+      gb_team_id: id,
+      venue: String(platform),
+      venue_id: pid,
+      venue_name: String(platformName || "").trim() || pid,
       game: gameCode,
       source: "manual",
       confidence: 1.0,
@@ -624,7 +624,7 @@ async function upsertTeamMapForMatchLink(platform, platformId, platformName, gam
 
   const name = String(platformName || "").trim() || pid;
   const existing = await fetchTeamPlatformMap(platform, pid);
-  let gbTeamId = parseGbTeamId(existing?.canonical_id);
+  let gbTeamId = parseGbTeamId(existing?.gb_team_id);
 
   if (gbTeamId == null && !isPlaceholderTeamName(name)) {
     try {
@@ -646,11 +646,11 @@ function formatTeamMapLogLine(mapResults) {
   const gbCount = written.filter(r => r.hasGbTeamId).length;
   const pendingCount = written.length - gbCount;
   if (gbCount && pendingCount) {
-    return `写入 team_platform_maps ${written.length} 条（${gbCount} 含 gb_team_id，${pendingCount} 待识别）`;
+    return `写入 team_venue_maps ${written.length} 条（${gbCount} 含 gb_team_id，${pendingCount} 待识别）`;
   }
   if (gbCount)
-    return `写入 team_platform_maps ${gbCount} 条（含 gb_team_id）`;
-  return `写入 team_platform_maps ${written.length} 条（待识别，无 gb_team_id）`;
+    return `写入 team_venue_maps ${gbCount} 条（含 gb_team_id）`;
+  return `写入 team_venue_maps ${written.length} 条（待识别，无 gb_team_id）`;
 }
 
 async function previewLinkAlignment({ platform, sourceMatchId, clientMatchId }) {
@@ -838,11 +838,11 @@ async function previewLinkPlatformTeams({ a, b }) {
   const normB = normalizeStoredTeamPlatformId(platB, idB, { gameCode });
   const mapA = await fetchTeamPlatformMap(platA, normA);
   const mapB = await fetchTeamPlatformMap(platB, normB);
-  const gbA = parseGbTeamId(mapA?.canonical_id);
-  const gbB = parseGbTeamId(mapB?.canonical_id);
+  const gbA = parseGbTeamId(mapA?.gb_team_id);
+  const gbB = parseGbTeamId(mapB?.gb_team_id);
   const plan = resolveTeamLinkGbPlan(gbA, gbB);
-  const nameA = String(a?.platformName || mapA?.platform_name || idA).trim();
-  const nameB = String(b?.platformName || mapB?.platform_name || idB).trim();
+  const nameA = String(a?.platformName || mapA?.venue_name || idA).trim();
+  const nameB = String(b?.platformName || mapB?.venue_name || idB).trim();
 
   let mapsReassigned = 0;
   if (plan.mode === "merge" && plan.loserGb != null) {
@@ -858,18 +858,18 @@ async function previewLinkPlatformTeams({ a, b }) {
     maps_reassigned: mapsReassigned,
     will_allocate_gb_team_id: plan.gbTeamIdAllocated,
     team_a: {
-      platform: platA,
-      platform_id: normA,
-      platform_name: nameA,
+      venue: platA,
+      venue_id: normA,
+      venue_name: nameA,
       gb_team_id: gbA,
-      pending: Boolean(mapA && mapA.canonical_id == null),
+      pending: Boolean(mapA && mapA.gb_team_id == null),
     },
     team_b: {
-      platform: platB,
-      platform_id: normB,
-      platform_name: nameB,
+      venue: platB,
+      venue_id: normB,
+      venue_name: nameB,
       gb_team_id: gbB,
-      pending: Boolean(mapB && mapB.canonical_id == null),
+      pending: Boolean(mapB && mapB.gb_team_id == null),
     },
   };
 }
@@ -881,8 +881,8 @@ async function linkPlatformTeams({ a, b }) {
   const normB = normalizeStoredTeamPlatformId(platB, idB, { gameCode });
   const mapA = await fetchTeamPlatformMap(platA, normA);
   const mapB = await fetchTeamPlatformMap(platB, normB);
-  const gbA = parseGbTeamId(mapA?.canonical_id);
-  const gbB = parseGbTeamId(mapB?.canonical_id);
+  const gbA = parseGbTeamId(mapA?.gb_team_id);
+  const gbB = parseGbTeamId(mapB?.gb_team_id);
   const plan = resolveTeamLinkGbPlan(gbA, gbB);
 
   let gbTeamId = plan.targetGb;
@@ -892,7 +892,7 @@ async function linkPlatformTeams({ a, b }) {
   }
 
   if (!gbTeamId) {
-    const pickName = String(a?.platformName || mapA?.platform_name || b?.platformName || mapB?.platform_name || "").trim();
+    const pickName = String(a?.platformName || mapA?.venue_name || b?.platformName || mapB?.venue_name || "").trim();
     if (!pickName || isPlaceholderTeamName(pickName))
       throw new Error("队名为空，无法创建 canonical");
     try {
@@ -901,16 +901,16 @@ async function linkPlatformTeams({ a, b }) {
     catch (err) {
       const head = [
         "队伍关联失败：需要为标准队伍分配 gb_team_id",
-        `A ${platA} · ${String(a?.platformName || mapA?.platform_name || idA).trim()}`,
-        `B ${platB} · ${String(b?.platformName || mapB?.platform_name || idB).trim()}`,
+        `A ${platA} · ${String(a?.platformName || mapA?.venue_name || idA).trim()}`,
+        `B ${platB} · ${String(b?.platformName || mapB?.venue_name || idB).trim()}`,
         `游戏 ${gameCode} · 选用队名「${pickName}」`,
       ].join("\n");
       throw new Error(`${head}\n${err.message}`);
     }
   }
 
-  const nameA = String(a?.platformName || mapA?.platform_name || idA).trim();
-  const nameB = String(b?.platformName || mapB?.platform_name || idB).trim();
+  const nameA = String(a?.platformName || mapA?.venue_name || idA).trim();
+  const nameB = String(b?.platformName || mapB?.venue_name || idB).trim();
 
   const written = [];
   written.push(await upsertManualTeamPlatformMap(gbTeamId, platA, normA, nameA, gameCode));
@@ -939,14 +939,14 @@ async function linkPlatformTeams({ a, b }) {
     ok: true,
     action: "link_team",
     gb_team_id: label,
-    canonical_id: label,
+    gb_team_id: label,
     gb_team_id_allocated: plan.gbTeamIdAllocated,
     gb_team_id_merged: plan.mode === "merge",
     gb_team_id_loser: plan.loserGb,
     maps_reassigned: mapsReassigned,
     game: gameCode,
-    team_a: { platform: platA, platform_id: normA, platform_name: nameA },
-    team_b: { platform: platB, platform_id: normB, platform_name: nameB },
+    team_a: { venue: platA, venue_id: normA, venue_name: nameA },
+    team_b: { venue: platB, venue_id: normB, venue_name: nameB },
     teamMapsWritten: mapsWritten,
     matchMerge,
     summary: `${platA} · ${nameA} ↔ ${platB} · ${nameB} → gb_team_id ${label}`,
@@ -954,7 +954,7 @@ async function linkPlatformTeams({ a, b }) {
       `队伍关联成功 · gb_team_id ${label}（${gbNote}）`,
       `A ${platA} · ${nameA} · 平台 id ${idA}`,
       `B ${platB} · ${nameB} · 平台 id ${idB}`,
-      `游戏 ${gameCode} · 写入 team_platform_maps ${mapsWritten} 条 · updated_by 手动`,
+      `游戏 ${gameCode} · 写入 team_venue_maps ${mapsWritten} 条 · updated_by 手动`,
       `赛事合并完成 · client_matches ${matchMerge.matchCount} 场`,
     ],
   };
@@ -974,17 +974,17 @@ async function registerTeamPlatformMap({ platform, platformId, platformName, gam
   const existing = await db.fetchTeamPlatformMap(plat, storedPid);
 
   if (existing) {
-    const displayName = String(existing.platform_name || name).trim() || storedPid;
+    const displayName = String(existing.venue_name || name).trim() || storedPid;
     const gameLabel = String(existing.game || game).trim() || game;
-    if (existing.canonical_id != null) {
+    if (existing.gb_team_id != null) {
       const err = new Error(
-        `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已有 gb_team_id ${existing.canonical_id}`,
+        `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已有 gb_team_id ${existing.gb_team_id}`,
       );
       err.code = "already_registered";
       throw err;
     }
     const err = new Error(
-      `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已在 team_platform_maps，状态：待识别`,
+      `无需重复收录\n${plat} · ${displayName}\n平台 id ${storedPid} · 游戏 ${gameLabel}\n已在 team_venue_maps，状态：待识别`,
     );
     err.code = "already_registered";
     throw err;
@@ -1000,17 +1000,17 @@ async function registerTeamPlatformMap({ platform, platformId, platformName, gam
     ok: true,
     action: "register_team_map",
     platform: plat,
-    platform_id: pid,
-    platform_name: name,
+    venue_id: pid,
+    venue_name: name,
     game,
     status: "pending",
-    summary: `${plat} · ${name} (id ${pid}) · ${game} → team_platform_maps（待识别）`,
+    summary: `${plat} · ${name} (id ${pid}) · ${game} → team_venue_maps（待识别）`,
     detail: `队伍「${name}」已收录，尚无 gb_team_id`,
     logLines: [
       `队伍收录成功 · 待识别（无 gb_team_id）`,
       `${plat} · ${name}`,
       `平台 id ${pid} · 游戏 ${game}`,
-      `已写入 team_platform_maps`,
+      `已写入 team_venue_maps`,
     ],
   };
 }

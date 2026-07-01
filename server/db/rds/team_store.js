@@ -1,5 +1,5 @@
 /**
- * 队伍表读写 — canonical_teams / team_platform_maps（RDS）。
+ * 队伍表读写 — canonical_teams / team_venue_maps（RDS）。
  */
 
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
@@ -39,38 +39,39 @@ export async function fetchAllCanonicalTeams() {
 
 export async function fetchAllTeamPlatformMaps() {
   return rdsLoadAll(
-    "SELECT canonical_id, platform, platform_id, platform_name FROM team_platform_maps ORDER BY id",
+    "SELECT gb_team_id, venue, venue_id, venue_name FROM team_venue_maps ORDER BY id",
     r => ({
-      canonical_id: r.canonical_id,
-      platform: r.platform,
-      platform_id: r.platform_id,
-      platform_name: r.platform_name,
+      gb_team_id: r.gb_team_id,
+      venue: r.venue,
+      venue_id: r.venue_id,
+      venue_name: r.venue_name,
     }),
   );
 }
 
-/** @returns {Set<string>} platform:platform_id */
+/** @returns {Set<string>} venue:venue_id */
 export async function fetchExistingTeamMapKeys(candidates) {
   const existing = new Set();
-  const byPlatform = new Map();
+  const byVenue = new Map();
   for (const row of candidates.values()) {
-    if (!byPlatform.has(row.platform))
-      byPlatform.set(row.platform, []);
-    byPlatform.get(row.platform).push(row.platform_id);
+    const venue = row.venue ?? row.platform;
+    if (!byVenue.has(venue))
+      byVenue.set(venue, []);
+    byVenue.get(venue).push(row.venue_id);
   }
 
   const pool = getPgPool();
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
   const BATCH = 200;
-  for (const [platform, ids] of byPlatform) {
+  for (const [venue, ids] of byVenue) {
     for (let i = 0; i < ids.length; i += BATCH) {
       const batch = ids.slice(i, i + BATCH);
       const { rows } = await pool.query(
-        "SELECT platform_id FROM team_platform_maps WHERE platform = $1 AND platform_id = ANY($2::text[])",
-        [platform, batch],
+        "SELECT venue_id FROM team_venue_maps WHERE venue = $1 AND venue_id = ANY($2::text[])",
+        [venue, batch],
       );
-      for (const row of rows) existing.add(`${platform}:${row.platform_id}`);
+      for (const row of rows) existing.add(`${venue}:${row.venue_id}`);
     }
   }
   return existing;
@@ -174,7 +175,7 @@ export function isPlatformMatchRowFullyIdMapped(row, teamMaps) {
     if (!pid)
       return false;
     const entry = lookupTeamMapEntry(teamMaps, platform, pid, gameCode);
-    if (entry?.canonical_id == null)
+    if (entry?.gb_team_id == null)
       return false;
   }
   return true;
@@ -216,19 +217,19 @@ function mergeTeamMapRow(teamMaps, row) {
   const updatedBy = row.canonical_updated_by ?? row.updated_by ?? null;
   const canonicalName = row.canonical_name ?? row.canonical_teams?.name ?? null;
   const entry = {
-    canonical_id: row.canonical_id != null ? String(row.canonical_id) : null,
+    gb_team_id: row.gb_team_id != null ? String(row.gb_team_id) : null,
     canonical_name: canonicalName,
     updated_by: updatedBy,
-    platform_name: row.platform_name,
+    venue_name: row.venue_name,
     game: row.game,
-    pending: row.canonical_id == null,
+    pending: row.gb_team_id == null,
   };
-  const pid = normalizePlatformIdStr(row.platform_id);
+  const pid = normalizePlatformIdStr(row.venue_id);
   if (!pid)
     return;
-  const idKey = `${row.platform}:${pid}`;
+  const idKey = `${row.venue}:${pid}`;
   const prev = teamMaps[idKey];
-  if (!prev || (entry.canonical_id != null && prev.canonical_id == null)) {
+  if (!prev || (entry.gb_team_id != null && prev.gb_team_id == null)) {
     teamMaps[idKey] = entry;
   }
 }
@@ -246,11 +247,11 @@ export async function loadTeamMapsForMatcher(allMatches) {
     for (let i = 0; i < ids.length; i += BATCH) {
       const batch = ids.slice(i, i + BATCH);
       const { rows } = await pool.query(
-        `SELECT tpm.platform, tpm.platform_id, tpm.platform_name, tpm.canonical_id, tpm.game,
+        `SELECT tvm.venue, tvm.venue_id, tvm.venue_name, tvm.gb_team_id, tvm.game,
                 ct.updated_by AS canonical_updated_by, ct.name AS canonical_name
-         FROM team_platform_maps tpm
-         LEFT JOIN canonical_teams ct ON ct.gb_team_id = tpm.canonical_id
-         WHERE tpm.platform = $1 AND tpm.platform_id = ANY($2::text[])`,
+         FROM team_venue_maps tvm
+         LEFT JOIN canonical_teams ct ON ct.gb_team_id = tvm.gb_team_id
+         WHERE tvm.venue = $1 AND tvm.venue_id = ANY($2::text[])`,
         [platform, batch],
       );
       for (const row of rows) mergeTeamMapRow(teamMaps, row);
@@ -259,9 +260,9 @@ export async function loadTeamMapsForMatcher(allMatches) {
   return teamMaps;
 }
 
-export async function fetchTeamPlatformMap(platform, platformId) {
+export async function fetchTeamPlatformMap(platform, venueId) {
   const plat = String(platform || "").trim();
-  const pid = String(platformId || "").trim();
+  const pid = String(venueId || "").trim();
   if (!plat || !pid)
     return null;
 
@@ -269,7 +270,7 @@ export async function fetchTeamPlatformMap(platform, platformId) {
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
   const { rows } = await pool.query(
-    "SELECT canonical_id, platform_name, game FROM team_platform_maps WHERE platform = $1 AND platform_id = $2 LIMIT 1",
+    "SELECT gb_team_id, venue_name, game FROM team_venue_maps WHERE venue = $1 AND venue_id = $2 LIMIT 1",
     [plat, pid],
   );
   return rows[0] || null;
@@ -284,7 +285,7 @@ export async function countTeamMapsForGbId(gbTeamId) {
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
   const { rows } = await pool.query(
-    "SELECT COUNT(*)::int AS c FROM team_platform_maps WHERE canonical_id = $1",
+    "SELECT COUNT(*)::int AS c FROM team_venue_maps WHERE gb_team_id = $1",
     [id],
   );
   return rows[0]?.c || 0;
@@ -293,26 +294,26 @@ export async function countTeamMapsForGbId(gbTeamId) {
 function isCanonicalNameMapConflict(err) {
   return (
     err?.code === "23505"
-    && String(err.message || "").includes("team_platform_maps_canonical_id_platform_platform_name_key")
+    && String(err.message || "").includes("team_venue_maps_gb_team_id_venue_venue_name_key")
   );
 }
 
 function formatTeamPlatformMapWriteError(row) {
   return [
     "队伍关联失败：同一 gb_team_id 在该平台已有同名队伍映射",
-    `${row.platform} · 「${row.platform_name}」· 平台 id ${row.platform_id}`,
+    `${row.venue} · 「${row.venue_name}」· 场馆 id ${row.venue_id}`,
     "请刷新 matcher 页面后重试；若两侧为同一平台且队名相同，同一标准队伍只能保留一个平台 id",
   ].join("\n");
 }
 
-/** 手动关联：同 canonical + 平台 + 队名下只保留当前 platform_id（旧 id 视为过时） */
+/** 手动关联：同 gb_team_id + 平台 + 队名下只保留当前 venue_id（旧 id 视为过时） */
 async function clearCanonicalPlatformNameConflict(pool, row) {
-  if (row.canonical_id == null)
+  if (row.gb_team_id == null)
     return;
   await pool.query(
-    `DELETE FROM team_platform_maps
-     WHERE canonical_id = $1 AND platform = $2 AND platform_name = $3 AND platform_id <> $4`,
-    [row.canonical_id, row.platform, row.platform_name, String(row.platform_id)],
+    `DELETE FROM team_venue_maps
+     WHERE gb_team_id = $1 AND venue = $2 AND venue_name = $3 AND venue_id <> $4`,
+    [row.gb_team_id, row.venue, row.venue_name, String(row.venue_id)],
   );
 }
 
@@ -321,27 +322,27 @@ async function rdsUpsertTeamPlatformMaps(chunk, { ignoreDuplicates = false } = {
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
   for (const row of chunk) {
-    if (row.canonical_id != null && !ignoreDuplicates) {
+    if (row.gb_team_id != null && !ignoreDuplicates) {
       await clearCanonicalPlatformNameConflict(pool, row);
     }
     const sql = ignoreDuplicates
-      ? `INSERT INTO team_platform_maps (canonical_id, platform, platform_id, platform_name, game, source, confidence)
+      ? `INSERT INTO team_venue_maps (gb_team_id, venue, venue_id, venue_name, game, source, confidence)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (platform, platform_id) DO NOTHING`
-      : `INSERT INTO team_platform_maps (canonical_id, platform, platform_id, platform_name, game, source, confidence)
+         ON CONFLICT (venue, venue_id) DO NOTHING`
+      : `INSERT INTO team_venue_maps (gb_team_id, venue, venue_id, venue_name, game, source, confidence)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (platform, platform_id) DO UPDATE SET
-           canonical_id = COALESCE(EXCLUDED.canonical_id, team_platform_maps.canonical_id),
-           platform_name = EXCLUDED.platform_name,
+         ON CONFLICT (venue, venue_id) DO UPDATE SET
+           gb_team_id = COALESCE(EXCLUDED.gb_team_id, team_venue_maps.gb_team_id),
+           venue_name = EXCLUDED.venue_name,
            game = EXCLUDED.game,
            source = EXCLUDED.source,
            confidence = EXCLUDED.confidence`;
     try {
       await pool.query(sql, [
-        row.canonical_id ?? null,
-        row.platform,
-        String(row.platform_id),
-        row.platform_name,
+        row.gb_team_id ?? null,
+        row.venue,
+        String(row.venue_id),
+        row.venue_name,
         row.game ?? null,
         row.source ?? "manual",
         row.confidence ?? 1.0,
@@ -360,10 +361,10 @@ export async function upsertTeamPlatformMaps(rows, opts = {}) {
   if (!rows?.length)
     return;
   const chunk = rows.map(r => ({
-    canonical_id: r.canonical_id ?? null,
-    platform: String(r.platform),
-    platform_id: String(r.platform_id),
-    platform_name: String(r.platform_name || r.platform_id),
+    gb_team_id: r.gb_team_id ?? null,
+    venue: String(r.venue ?? r.platform),
+    venue_id: String(r.venue_id),
+    venue_name: String(r.venue_name || r.venue_id),
     game: r.game ?? null,
     source: r.source ?? "manual",
     confidence: r.confidence ?? 1.0,
@@ -503,7 +504,7 @@ export async function reassignGbTeamId(fromId, toId) {
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
   const { rows: loserRows } = await pool.query(
-    `SELECT id, platform, platform_id, platform_name FROM team_platform_maps WHERE canonical_id = $1`,
+    `SELECT id, venue, venue_id, venue_name FROM team_venue_maps WHERE gb_team_id = $1`,
     [from],
   );
   if (!loserRows.length)
@@ -512,18 +513,18 @@ export async function reassignGbTeamId(fromId, toId) {
   let processed = 0;
   for (const row of loserRows) {
     const { rows: winnerDup } = await pool.query(
-      `SELECT id FROM team_platform_maps
-       WHERE canonical_id = $1 AND platform = $2 AND platform_name = $3 LIMIT 1`,
-      [to, row.platform, row.platform_name],
+      `SELECT id FROM team_venue_maps
+       WHERE gb_team_id = $1 AND venue = $2 AND venue_name = $3 LIMIT 1`,
+      [to, row.venue, row.venue_name],
     );
     if (winnerDup.length) {
       // 合并 gb_team_id 时，目标侧已有同平台同名映射 → 丢弃 loser 行，避免违反唯一约束
-      await pool.query(`DELETE FROM team_platform_maps WHERE id = $1`, [row.id]);
+      await pool.query(`DELETE FROM team_venue_maps WHERE id = $1`, [row.id]);
       processed++;
       continue;
     }
     await pool.query(
-      `UPDATE team_platform_maps SET canonical_id = $1, source = 'manual' WHERE id = $2`,
+      `UPDATE team_venue_maps SET gb_team_id = $1, source = 'manual' WHERE id = $2`,
       [to, row.id],
     );
     processed++;
@@ -531,7 +532,7 @@ export async function reassignGbTeamId(fromId, toId) {
   return processed;
 }
 
-/** matchMerge：有 OB 映射时将 canonical_teams.name 同步为 OB platform_name */
+/** matchMerge：有 OB 映射时将 canonical_teams.name 同步为 OB venue_name */
 export async function syncCanonicalTeamNamesFromOb() {
   const pool = getPgPool();
   if (!pool)
@@ -539,11 +540,11 @@ export async function syncCanonicalTeamNamesFromOb() {
 
   const { rows } = await pool.query(
     `SELECT DISTINCT ON (ct.gb_team_id)
-       ct.id, ct.gb_team_id, ct.game, ct.name AS stored_name, tpm.platform_name AS ob_name
-     FROM team_platform_maps tpm
-     INNER JOIN canonical_teams ct ON ct.gb_team_id = tpm.canonical_id
-     WHERE tpm.platform = 'OB' AND tpm.canonical_id IS NOT NULL
-     ORDER BY ct.gb_team_id, tpm.id ASC`,
+       ct.id, ct.gb_team_id, ct.game, ct.name AS stored_name, tpm.venue_name AS ob_name
+     FROM team_venue_maps tvm
+     INNER JOIN canonical_teams ct ON ct.gb_team_id = tvm.gb_team_id
+     WHERE tvm.venue = 'OB' AND tvm.gb_team_id IS NOT NULL
+     ORDER BY ct.gb_team_id, tvm.id ASC`,
   );
 
   let updated = 0;

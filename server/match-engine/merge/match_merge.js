@@ -685,7 +685,7 @@ function sideAlignmentMode(pmHome, pmAway, cmHome, cmAway) {
   return "ambiguous";
 }
 
-/** canonical ID 回退：队名 ambiguous 时用 team_platform_maps 判断 aligned / reversed */
+/** canonical ID 回退：队名 ambiguous 时用 team_venue_maps 判断 aligned / reversed */
 function sideAlignmentByCanonicalId(platform, pm, refCanonIds) {
   if (!refCanonIds)
     return "ambiguous";
@@ -1301,7 +1301,7 @@ function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
   const nameGroups = new Map();
   const idMatched = new Set();
 
-  // 第一阶段：各平台 home_id / away_id 均已映射 → 按 canonical_id 合并
+  // 第一阶段：各平台 home_id / away_id 均已映射 → 按 gb_team_id 合并
   for (const entry of entries) {
     const ck = canonicalMatchKeyByIdOnly(entry.gameId, entry.home, entry.away, entry.gameCode, entry.ctx);
     if (!ck)

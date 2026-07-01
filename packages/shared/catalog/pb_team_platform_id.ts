@@ -1,5 +1,5 @@
 /**
- * PB 在 team_platform_maps.platform_id 中的格式：{teamSlug}@{SourceGameID}
+ * PB 在 team_venue_maps.venue_id 中的格式：{teamSlug}@{SourceGameID}
  * SourceGameID 归一化为 game_catalog platforms.PB（如 dota2 → dota-2）。
  */
 import { getGameCodeForPlatformId, getPlatformGameId } from "./game_catalog.js";
@@ -40,7 +40,7 @@ function formatPbTeamPlatformId(sourceGameId: unknown, teamId: unknown, gameCode
   return `${pid}@${gameId}`;
 }
 
-/** team_platform_maps / canonicalMatchKeyByIdOnly 查找用的 platform_id（仅 PB 需 @gameSlug） */
+/** team_venue_maps / canonicalMatchKeyByIdOnly 查找用的 venue_id（仅 PB 需 @gameSlug） */
 function resolvePlatformTeamId(platform: string, teamId: unknown, sourceGameId: unknown, gameCode?: unknown): string {
   const pid = String(teamId ?? "").trim();
   if (!pid)

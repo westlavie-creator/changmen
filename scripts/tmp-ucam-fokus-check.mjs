@@ -136,12 +136,12 @@ console.log("\n=== merge_key ===");
 console.log(mk[0]?.merge_key);
 
 const tm = await q(`
-  SELECT platform, platform_id, platform_name, canonical_id
-  FROM team_platform_maps
-  WHERE platform_name ILIKE '%UCAM%' OR platform_name ILIKE '%FOKUS%'
+  SELECT venue, venue_id, venue_name, gb_team_id
+  FROM team_venue_maps
+  WHERE venue_name ILIKE '%UCAM%' OR venue_name ILIKE '%FOKUS%'
   LIMIT 20
 `);
-console.log("\n=== team_platform_maps ===");
+console.log("\n=== team_venue_maps ===");
 for (const r of tm) console.log(JSON.stringify(r));
 
 const cm697meta = await q(`SELECT id, built_at FROM client_matches WHERE id = 697`);

@@ -128,7 +128,11 @@ function registerMatcherApiRoutes(app) {
 
   app.post("/api/register-team-map", async (req, res) => {
     try {
-      const { platform, platformId, platformName, gameCode } = req.body || {};
+      const body = req.body || {};
+      const platformId = body.venueId ?? body.platformId;
+      const platformName = body.venueName ?? body.platformName;
+      const platform = body.venue ?? body.platform;
+      const { gameCode } = body;
       const result = await registerTeamPlatformMap({
         platform,
         platformId,

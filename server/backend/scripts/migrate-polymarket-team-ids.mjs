@@ -36,8 +36,8 @@ function stablePolymarketTeamId(game, name) {
   return `${code}:${normalizePolymarketTeamName(name)}`;
 }
 
-function parseLegacyPolymarketTeamId(platformId) {
-  const text = String(platformId || "");
+function parseLegacyPolymarketTeamId(venueId) {
+  const text = String(venueId || "");
   const m = /^([^:]+):(home|away):(.+)$/.exec(text);
   if (!m)
     return null;
@@ -53,33 +53,33 @@ if (!pool) {
 
 try {
   const { rows } = await pool.query(
-    `SELECT canonical_id, platform, platform_id, platform_name, game, source, confidence
-     FROM team_platform_maps
-     WHERE platform = 'Polymarket'
+    `SELECT gb_team_id, venue, venue_id, venue_name, game, source, confidence
+     FROM team_venue_maps
+     WHERE venue = 'Polymarket'
      ORDER BY id`,
   );
 
   const toWriteByKey = new Map();
   const skipped = [];
   for (const row of rows) {
-    const legacy = parseLegacyPolymarketTeamId(row.platform_id);
+    const legacy = parseLegacyPolymarketTeamId(row.venue_id);
     if (!legacy)
       continue;
-    const nextId = stablePolymarketTeamId(row.game, row.platform_name || legacy.name);
+    const nextId = stablePolymarketTeamId(row.game, row.venue_name || legacy.name);
     if (!nextId) {
-      skipped.push({ platform_id: row.platform_id, reason: "missing_game" });
+      skipped.push({ venue_id: row.venue_id, reason: "missing_game" });
       continue;
     }
-    if (nextId === row.platform_id)
+    if (nextId === row.venue_id)
       continue;
     const key = `Polymarket:${nextId}`;
-    if (!toWriteByKey.has(key) || row.canonical_id != null) {
+    if (!toWriteByKey.has(key) || row.gb_team_id != null) {
       toWriteByKey.set(key, {
-        canonical_id: row.canonical_id ?? null,
-        legacy_platform_id: row.platform_id,
-        platform: "Polymarket",
-        platform_id: nextId,
-        platform_name: row.platform_name || legacy.name,
+        gb_team_id: row.gb_team_id ?? null,
+        legacy_venue_id: row.venue_id,
+        venue: "Polymarket",
+        venue_id: nextId,
+        venue_name: row.venue_name || legacy.name,
         game: row.game,
         source: row.source || "migrate",
         confidence: row.confidence ?? 1.0,
@@ -88,7 +88,7 @@ try {
   }
 
   const toWrite = [...toWriteByKey.values()];
-  console.log("[polymarket-team-ids] legacy rows:", rows.filter(r => parseLegacyPolymarketTeamId(r.platform_id)).length);
+  console.log("[polymarket-team-ids] legacy rows:", rows.filter(r => parseLegacyPolymarketTeamId(r.venue_id)).length);
   console.log("[polymarket-team-ids] new rows:", toWrite.length);
   if (skipped.length)
     console.log("[polymarket-team-ids] skipped:", JSON.stringify(skipped, null, 2));
@@ -105,33 +105,31 @@ try {
   for (const row of toWrite) {
     await pool.query("BEGIN");
     try {
-      if (row.canonical_id != null) {
-        // team_platform_maps 有 (canonical_id, platform, platform_name) 唯一约束。
-        // 为了保留旧 key 行且让新稳定 key 继承 canonical_id，只把旧 key 的 canonical_id 释放为空。
+      if (row.gb_team_id != null) {
         await pool.query(
-          `UPDATE team_platform_maps
-           SET canonical_id = NULL, source = 'legacy-polymarket-team-id'
-           WHERE canonical_id = $1
-             AND platform = $2
-             AND platform_name = $3
-             AND platform_id <> $4`,
-          [row.canonical_id, row.platform, row.platform_name, row.platform_id],
+          `UPDATE team_venue_maps
+           SET gb_team_id = NULL, source = 'legacy-polymarket-team-id'
+           WHERE gb_team_id = $1
+             AND venue = $2
+             AND venue_name = $3
+             AND venue_id <> $4`,
+          [row.gb_team_id, row.venue, row.venue_name, row.venue_id],
         );
       }
       await pool.query(
-        `INSERT INTO team_platform_maps (canonical_id, platform, platform_id, platform_name, game, source, confidence)
+        `INSERT INTO team_venue_maps (gb_team_id, venue, venue_id, venue_name, game, source, confidence)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (platform, platform_id) DO UPDATE SET
-           canonical_id = COALESCE(team_platform_maps.canonical_id, EXCLUDED.canonical_id),
-           platform_name = EXCLUDED.platform_name,
+         ON CONFLICT (venue, venue_id) DO UPDATE SET
+           gb_team_id = COALESCE(team_venue_maps.gb_team_id, EXCLUDED.gb_team_id),
+           venue_name = EXCLUDED.venue_name,
            game = EXCLUDED.game,
            source = EXCLUDED.source,
            confidence = EXCLUDED.confidence`,
         [
-          row.canonical_id,
-          row.platform,
-          row.platform_id,
-          row.platform_name,
+          row.gb_team_id,
+          row.venue,
+          row.venue_id,
+          row.venue_name,
           row.game,
           row.source || "migrate",
           row.confidence ?? 1.0,

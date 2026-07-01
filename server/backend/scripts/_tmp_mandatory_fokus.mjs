@@ -34,11 +34,11 @@ if (r.rows[0]?.id) {
   `, [r.rows[0].home_gb_team_id, r.rows[0].away_gb_team_id]);
   console.log("canonical_teams:", JSON.stringify(gb.rows, null, 2));
   const maps = await pool.query(`
-    SELECT platform, platform_id, platform_name, canonical_id
-    FROM team_platform_maps
-    WHERE canonical_id IN ($1, $2) OR platform_name ILIKE '%Mandatory%' OR platform_name ILIKE '%FOKUS%'
-    ORDER BY platform, canonical_id LIMIT 30
+    SELECT venue, venue_id, venue_name, gb_team_id
+    FROM team_venue_maps
+    WHERE gb_team_id IN ($1, $2) OR venue_name ILIKE '%Mandatory%' OR venue_name ILIKE '%FOKUS%'
+    ORDER BY venue, gb_team_id LIMIT 30
   `, [r.rows[0].home_gb_team_id, r.rows[0].away_gb_team_id]);
-  console.log("team_platform_maps:", JSON.stringify(maps.rows, null, 2));
+  console.log("team_venue_maps:", JSON.stringify(maps.rows, null, 2));
 }
 await pool.end();

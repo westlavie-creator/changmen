@@ -89,6 +89,27 @@ async function main() {
     console.log("[rds] 执行 018_client_match_platform_overrides.sql …");
     await client.query(readSql("018_client_match_platform_overrides.sql"));
 
+    console.log("[rds] 执行 019_pairing_metadata.sql …");
+    await client.query(readSql("019_pairing_metadata.sql"));
+
+    console.log("[rds] 执行 020_match_events.sql …");
+    await client.query(readSql("020_match_events.sql"));
+
+    console.log("[rds] 执行 021_match_events_history.sql …");
+    await client.query(readSql("021_match_events_history.sql"));
+
+    console.log("[rds] 执行 022_match_events_tier_lock.sql …");
+    await client.query(readSql("022_match_events_tier_lock.sql"));
+
+    console.log("[rds] 执行 023_team_platform_maps_gb_team_id.sql …");
+    await client.query(readSql("023_team_platform_maps_gb_team_id.sql"));
+
+    console.log("[rds] 执行 024_team_platform_maps_venue_columns.sql …");
+    await client.query(readSql("024_team_platform_maps_venue_columns.sql"));
+
+    console.log("[rds] 执行 025_team_venue_maps.sql …");
+    await client.query(readSql("025_team_venue_maps.sql"));
+
     const tables = await client.query(`
       SELECT tablename FROM pg_tables
       WHERE schemaname = 'public'

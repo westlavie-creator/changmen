@@ -22,18 +22,18 @@ const cm804 = (await pool.query(`
 `)).rows[0];
 
 const maps = (await pool.query(`
-  SELECT platform, platform_id, platform_name, canonical_id, game
-  FROM team_platform_maps
-  WHERE (platform='IA' AND platform_name IN ('FOKUS', 'Mandatory'))
-     OR canonical_id IN ('100477', '100508')
-  ORDER BY platform, platform_name
+  SELECT venue, venue_id, venue_name, gb_team_id, game
+  FROM team_venue_maps
+  WHERE (venue='IA' AND venue_name IN ('FOKUS', 'Mandatory'))
+     OR gb_team_id IN ('100477', '100508')
+  ORDER BY venue, venue_name
 `)).rows;
 
 console.log("=== IA match ===");
 console.log(JSON.stringify(ia, null, 2));
 console.log("\n=== client_match 804 ===");
 console.log(JSON.stringify(cm804, null, 2));
-console.log("\n=== team_platform_maps ===");
+console.log("\n=== team_venue_maps ===");
 for (const r of maps) console.log(r);
 
 if (ia) {

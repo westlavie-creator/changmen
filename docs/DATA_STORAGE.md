@@ -11,7 +11,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `live_timers` | `API_SaveLiveTimer` | embedded matcher / backend overlay | 局数/计时 |
 | `client_matches` | embedded matcher matchMerge | 浏览器 `Client_GetMatchs` | 合并后的比赛列表 |
 | `users` / `profiles` / `orders` | 鉴权、下单 API | 前端 | 登录与订单 |
-| `canonical_teams` / `team_platform_maps` | team-resolver、matcher | matcher 队名插件 | 队伍 canonical 映射 |
+| `canonical_teams` / `team_venue_maps` | team-resolver、matcher | matcher 队名插件 | 队伍 canonical 映射 |
 
 - **RDS 迁移**：`server/backend/db/migrations/`（`node scripts/apply-rds-schema.mjs`）
 - **统一 DB 入口**：`@changmen/db`（`server/db/index.js`）

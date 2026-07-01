@@ -2,7 +2,7 @@
  * PB ???? slug ??
  *
  * ?? euro/odds?live + prematch??????�?slug(englishName) + ????
- * ?? team_platform_maps?canonical_id ????????????�? *
+ * ?? team_venue_maps?gb_team_id ????????????�? *
  * ?????? gamebet_backend/data/esport/platforms.json �?PB ?????? token�? * �?npm run account:import-platform ??????? to.txt?PB_GATEWAY/PB_TOKEN ?????�? *
  * ???? changmen/ �?team-resolver/ ??�? *   node team-resolver/scrapers/pb_scraper.mjs
  *   node team-resolver/scrapers/pb_scraper.mjs --dry-run
@@ -80,7 +80,7 @@ async function main() {
   const teams = collectTeamsFromPayload(data);
   console.log(`[pb_scraper] �?${teams.size} ??????`);
 
-  console.log("\n[pb_scraper] ?? team_platform_maps ??...");
+  console.log("\n[pb_scraper] ?? team_venue_maps ??...");
   const plugin = await loadAndCreatePlugin();
 
   const manualMapped = [];
@@ -97,16 +97,16 @@ async function main() {
     const gbTeamId = plugin.lookupById("PB", formatPbTeamPlatformId(gameSlug, teamId));
     const storedPlatformId = formatPbTeamPlatformId(gameSlug, teamId);
     const base = {
-      platform: "PB",
-      platform_id: storedPlatformId,
-      platform_name: teamName,
+      venue: "PB",
+      venue_id: storedPlatformId,
+      venue_name: teamName,
       game: gameCode,
       source: "scraper",
     };
     if (gbTeamId) {
-      manualMapped.push({ ...base, canonical_id: Number(gbTeamId), confidence: 1.0 });
+      manualMapped.push({ ...base, gb_team_id: Number(gbTeamId), confidence: 1.0 });
     } else {
-      platformOnly.push({ ...base, canonical_id: null, confidence: 0.0 });
+      platformOnly.push({ ...base, gb_team_id: null, confidence: 0.0 });
     }
   }
 
@@ -118,12 +118,12 @@ async function main() {
     console.log("\n[pb_scraper] �?gb_team_id ???? 20 ??�?);
     platformOnly
       .slice(0, 20)
-      .forEach((r) => console.log(`  [${r.game}] platform_id=${r.platform_id}  name="${r.platform_name}"`));
+      .forEach((r) => console.log(`  [${r.game}] venue_id=${r.venue_id}  name="${r.venue_name}"`));
   }
 
   const toWrite = [...manualMapped, ...platformOnly];
   if (!DRY_RUN && toWrite.length > 0) {
-    console.log(`\n[pb_scraper] ?? team_platform_maps�?{toWrite.length} ??...`);
+    console.log(`\n[pb_scraper] ?? team_venue_maps�?{toWrite.length} ??...`);
     await batchUpsert(toWrite);
     console.log("[pb_scraper] ????");
   } else if (DRY_RUN) {
@@ -131,7 +131,7 @@ async function main() {
     platformOnly
       .slice(0, 5)
       .forEach((r) =>
-        console.log(`  gb_team_id=NULL  [${r.game}] platform_id=${r.platform_id}  name="${r.platform_name}"`),
+        console.log(`  gb_team_id=NULL  [${r.game}] venue_id=${r.venue_id}  name="${r.venue_name}"`),
       );
   }
 

@@ -16,16 +16,16 @@ for (const q of ["FOKUS", "Misa", "MISA", "Mandatory"]) {
 }
 
 const dup = await pool.query(`
-  SELECT game, platform_name, COUNT(DISTINCT canonical_id) AS gb_count,
-         array_agg(DISTINCT canonical_id) AS gb_ids
-  FROM team_platform_maps
-  WHERE canonical_id IS NOT NULL
-  GROUP BY game, platform_name
-  HAVING COUNT(DISTINCT canonical_id) > 1
-  ORDER BY gb_count DESC, platform_name
+  SELECT game, venue_name, COUNT(DISTINCT gb_team_id) AS gb_count,
+         array_agg(DISTINCT gb_team_id) AS gb_ids
+  FROM team_venue_maps
+  WHERE gb_team_id IS NOT NULL
+  GROUP BY game, venue_name
+  HAVING COUNT(DISTINCT gb_team_id) > 1
+  ORDER BY gb_count DESC, venue_name
   LIMIT 15
 `);
-console.log("\n=== platform_name -> multiple canonical_id (same game) ===");
+console.log("\n=== venue_name -> multiple gb_team_id (same game) ===");
 for (const row of dup.rows) console.log(JSON.stringify(row));
 
 await pool.end();

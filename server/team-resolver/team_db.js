@@ -59,14 +59,14 @@ export async function loadAndCreatePlugin() {
   const _savedIds = new Set();
 
   for (const row of allMaps) {
-    if (!row.platform_id) continue;
-    const key = `${row.platform}:${row.platform_id}`;
+    if (!row.venue_id) continue;
+    const key = `${row.venue}:${row.venue_id}`;
     _savedIds.add(key);
-    if (!row.canonical_id) continue;
-    idMap.set(key, String(row.canonical_id));
-    if (row.platform === "OB" && !obNameByGbId.has(String(row.canonical_id))) {
-      const obName = String(row.platform_name || "").trim();
-      if (obName) obNameByGbId.set(String(row.canonical_id), obName);
+    if (!row.gb_team_id) continue;
+    idMap.set(key, String(row.gb_team_id));
+    if (row.venue === "OB" && !obNameByGbId.has(String(row.gb_team_id))) {
+      const obName = String(row.venue_name || "").trim();
+      if (obName) obNameByGbId.set(String(row.gb_team_id), obName);
     }
   }
 
@@ -118,10 +118,10 @@ export async function loadAndCreatePlugin() {
     idMap.set(key, String(manualId));
 
     teamDb.saveTeamMappingFireAndForget({
-      canonical_id: manualId,
+      gb_team_id: manualId,
       platform,
-      platform_id: String(platformId),
-      platform_name: String(platformName || ""),
+      venue_id: String(platformId),
+      venue_name: String(platformName || ""),
       game: gameCode || null,
       source: "auto",
       confidence: 1.0,

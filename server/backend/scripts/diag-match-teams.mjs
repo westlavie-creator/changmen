@@ -92,16 +92,16 @@ if (pm.rows.length >= 2) {
 const obOnly = pm.rows.find(r => r.platform === "OB");
 if (obOnly) {
   const maps = await pool.query(
-    `SELECT tpm.platform, tpm.platform_team_id, tpm.platform_name, tpm.canonical_id, ct.name
-     FROM team_platform_maps tpm
-     LEFT JOIN canonical_teams ct ON ct.id = tpm.canonical_id
-     WHERE tpm.platform = 'OB'
-       AND (tpm.platform_team_id = ANY($1::text[])
-            OR tpm.platform_name ILIKE '%1w%'
-            OR tpm.platform_name ILIKE '%inox%')`,
+    `SELECT tvm.venue, tvm.venue_id, tvm.venue_name, tvm.gb_team_id, ct.name
+     FROM team_venue_maps tvm
+     LEFT JOIN canonical_teams ct ON ct.gb_team_id = tvm.gb_team_id
+     WHERE tvm.venue = 'OB'
+       AND (tvm.venue_id = ANY($1::text[])
+            OR tvm.venue_name ILIKE '%1w%'
+            OR tvm.venue_name ILIKE '%inox%')`,
     [[obOnly.home_id, obOnly.away_id].filter(Boolean)],
   );
-  console.log("\n── OB 队伍 ID / team_platform_maps ──");
+  console.log("\n── OB 队伍 ID / team_venue_maps ──");
   console.log("home_id:", obOnly.home_id, "away_id:", obOnly.away_id);
   console.log(JSON.stringify(maps.rows, null, 2));
 }

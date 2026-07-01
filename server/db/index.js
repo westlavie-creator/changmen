@@ -9,7 +9,7 @@
  *   rds/platform_collector_store.js — SaveMatch/SaveBet/LiveTimer 采集
  *   rds/client_matches_store.js — matcher matchMerge 写入 client_matches
  *   rds/profile_store.js 等  — profile / player / money_log
- *   rds/team_store.js        — canonical_teams / team_platform_maps
+ *   rds/team_store.js        — canonical_teams / team_venue_maps
  *   rds/matcher_store.js     — matcher UI/ops 专用查询与运维 SQL
  *   order_link_filter — LinkID 分类（hash/套利/占位）
  *   archive_stale.js  — client_matches 时间归档兜底；platform_* 由 SaveMatch 快照生命周期负责
