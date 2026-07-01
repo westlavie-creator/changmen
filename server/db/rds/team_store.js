@@ -540,7 +540,7 @@ export async function syncCanonicalTeamNamesFromOb() {
 
   const { rows } = await pool.query(
     `SELECT DISTINCT ON (ct.gb_team_id)
-       ct.id, ct.gb_team_id, ct.game, ct.name AS stored_name, tpm.venue_name AS ob_name
+       ct.id, ct.gb_team_id, ct.game, ct.name AS stored_name, tvm.venue_name AS ob_name
      FROM team_venue_maps tvm
      INNER JOIN canonical_teams ct ON ct.gb_team_id = tvm.gb_team_id
      WHERE tvm.venue = 'OB' AND tvm.gb_team_id IS NOT NULL
