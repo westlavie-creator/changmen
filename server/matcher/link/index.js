@@ -479,9 +479,9 @@ async function writeTeamMapsIdentityForPlatform(pm, gameCode) {
   return results;
 }
 
-async function persistPlatformSideOverride(cmId, platform, reversed) {
+async function persistPlatformSideOverride(cmId, platform, reversed, opts = {}) {
   const mode = reversed ? "force_reversed" : "force_aligned";
-  return db.setClientMatchPlatformSideOverride(cmId, platform, mode);
+  return db.setClientMatchPlatformSideOverride(cmId, platform, mode, opts);
 }
 
 async function linkPlatformToPlatform({
@@ -581,9 +581,9 @@ async function linkPlatformToPlatform({
     },
   ], { eventStub });
 
-  await persistPlatformSideOverride(cmId, pmSource.platform, reversed);
+  await persistPlatformSideOverride(cmId, pmSource.platform, reversed, { allowPendingLink: true });
   if (targetAlign.mode === "aligned" || targetAlign.mode === "reversed") {
-    await persistPlatformSideOverride(cmId, pmTarget.platform, targetReversed);
+    await persistPlatformSideOverride(cmId, pmTarget.platform, targetReversed, { allowPendingLink: true });
   }
 
   const cmRow = await db.fetchClientMatchRow(cmId, "id,matchs");
@@ -807,7 +807,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
     match_id: cmId,
     reversed,
   }]);
-  await persistPlatformSideOverride(cmId, plat, reversed);
+  await persistPlatformSideOverride(cmId, plat, reversed, { allowPendingLink: true });
 
   store.patchCollectorMatchClientIds([{
     ID: cmId,

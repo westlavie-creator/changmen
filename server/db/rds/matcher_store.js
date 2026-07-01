@@ -196,8 +196,9 @@ export async function fetchClientMatchPlatformOverrides() {
 
 /**
  * @param {'force_aligned'|'force_reversed'|null} mode null 删除覆盖，走 reconcile 自动判定
+ * @param {{ allowPendingLink?: boolean }} [opts] 拖线关联中：binding 已写但 matchs 尚未物化
  */
-export async function setClientMatchPlatformSideOverride(clientMatchId, platform, mode) {
+export async function setClientMatchPlatformSideOverride(clientMatchId, platform, mode, opts = {}) {
   const cmId = Number(clientMatchId);
   const plat = String(platform || "").trim();
   if (!Number.isFinite(cmId) || cmId <= 0)
@@ -209,7 +210,7 @@ export async function setClientMatchPlatformSideOverride(clientMatchId, platform
   if (!cm)
     throw new Error("赛事不存在");
   const matchs = cm.matchs && typeof cm.matchs === "object" ? cm.matchs : {};
-  if (!Object.hasOwn(matchs, plat))
+  if (!opts.allowPendingLink && !Object.hasOwn(matchs, plat))
     throw new Error(`赛事 ${cmId} 未关联平台 ${plat}`);
 
   if (!mode) {
