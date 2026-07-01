@@ -411,12 +411,37 @@ export async function listAdminOrders(body = {}, caller = null) {
   return { date: dateKey, list, total, pageIndex, pageSize };
 }
 
+/** Client_AdminDeleteOrders：form body 里 orderIds 常为 JSON.stringify 后的数组字符串 */
+export function parseAdminOrderIdList(raw) {
+  if (raw == null || raw === "")
+    return [];
+  if (Array.isArray(raw))
+    return raw;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed)
+      return [];
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed))
+          return parsed;
+      }
+      catch {
+        // fall through
+      }
+    }
+    return [trimmed];
+  }
+  return [raw];
+}
+
 /** 管理端：按主键 id 删除订单（可批量，如同 Link 套利组） */
 export async function deleteAdminOrders(body = {}, caller = null) {
   if (caller && !isAdminUser(caller))
     throw new Error("仅管理员可删除订单");
   const raw = body.orderIds ?? body.ids ?? body.id;
-  const ids = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+  const ids = parseAdminOrderIdList(raw);
   const deleted = await sb.deleteOrdersByIds(ids);
   if (!deleted)
     throw new Error("删除失败或订单不存在");

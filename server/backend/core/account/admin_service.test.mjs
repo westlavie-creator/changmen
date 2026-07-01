@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   deleteAdminOrders,
   listAdminOrders,
+  parseAdminOrderIdList,
   profileSettingForAdmin,
   renameAdminUser,
   sanitizeAccountForAdmin,
@@ -126,6 +127,12 @@ describe("lastLoginFieldsFromProfile", () => {
 describe("deleteAdminOrders", () => {
   it("deletes by orderIds array", async () => {
     const result = await deleteAdminOrders({ orderIds: [1, 2] });
+    expect(result.deleted).toBe(2);
+  });
+
+  it("parses JSON-stringified orderIds from form body", async () => {
+    expect(parseAdminOrderIdList("[773279,773280]")).toEqual([773279, 773280]);
+    const result = await deleteAdminOrders({ orderIds: "[773279,773280]" });
     expect(result.deleted).toBe(2);
   });
 
