@@ -13,6 +13,7 @@ import {
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
   ensureClientMatchId,
+  lookupGbTeamIdByPlatform,
   MIN_CLIENT_MATCH_PLATFORMS,
   normalizeMatchesShape,
 } from "@changmen/match-engine";
@@ -68,6 +69,24 @@ function canonicalNameKeyForMatch(platform, match) {
   return ck?.mergeKey || null;
 }
 
+function parseGbTeamId(value) {
+  if (value == null || value === "")
+    return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? String(n) : null;
+}
+
+/** 主客 platform_id 均映射 gb_team_id 时的稳定合并键 */
+function gbPairKeyForMatch(platform, match) {
+  const { GameID, gameCode, homeId, awayId } = matchContext(platform, match);
+  const homeGb = parseGbTeamId(lookupGbTeamIdByPlatform(platform, homeId));
+  const awayGb = parseGbTeamId(lookupGbTeamIdByPlatform(platform, awayId));
+  if (!homeGb || !awayGb)
+    return null;
+  const [a, b] = homeGb < awayGb ? [homeGb, awayGb] : [awayGb, homeGb];
+  return `match:gb:${String(GameID || "")}:${a}:${b}`;
+}
+
 function eventHasPlatformSlot(bindingsByEvent, eventId, platform) {
   const list = bindingsByEvent.get(eventId) || [];
   return list.some(b => b.platform === platform);
@@ -77,6 +96,7 @@ function buildEventKeyIndexes(bindings, matches) {
   const bindingsByEvent = new Map();
   const idKeyToEvent = new Map();
   const nameKeyToEvent = new Map();
+  const gbKeyToEvent = new Map();
 
   for (const b of bindings || []) {
     const eid = Number(b.event_id);
@@ -97,9 +117,13 @@ function buildEventKeyIndexes(bindings, matches) {
     const nameKey = canonicalNameKeyForMatch(b.platform, m);
     if (nameKey && !nameKeyToEvent.has(nameKey))
       nameKeyToEvent.set(nameKey, eid);
+
+    const gbKey = gbPairKeyForMatch(b.platform, m);
+    if (gbKey && !gbKeyToEvent.has(gbKey))
+      gbKeyToEvent.set(gbKey, eid);
   }
 
-  return { bindingsByEvent, idKeyToEvent, nameKeyToEvent };
+  return { bindingsByEvent, idKeyToEvent, nameKeyToEvent, gbKeyToEvent };
 }
 
 function listUnboundPlatformMatches(matches, boundKeys) {
@@ -181,14 +205,14 @@ function planAutoBindings({ matches, existingBindings, phase = "all" }) {
     (existingBindings || []).filter(isManualBinding).map(b => bindingKey(b.platform, b.source_match_id)),
   );
 
-  const { bindingsByEvent, idKeyToEvent, nameKeyToEvent } = buildEventKeyIndexes(
+  const { bindingsByEvent, idKeyToEvent, nameKeyToEvent, gbKeyToEvent } = buildEventKeyIndexes(
     existingBindings,
     normalized,
   );
 
   const planned = [];
   const plannedKeys = new Set();
-  const stats = { obSeeded: 0, attachedById: 0, attachedByName: 0 };
+  const stats = { obSeeded: 0, attachedById: 0, attachedByGb: 0, attachedByName: 0 };
 
   function addBinding(draft) {
     const key = bindingKey(draft.platform, draft.source_match_id);
@@ -237,6 +261,30 @@ function planAutoBindings({ matches, existingBindings, phase = "all" }) {
             binding_side_mode: "aligned",
           }))
             stats.attachedById++;
+          continue;
+        }
+      }
+
+      const gbKey = gbPairKeyForMatch(platform, match);
+      if (gbKey) {
+        const eventId = gbKeyToEvent.get(gbKey);
+        if (eventId != null && !eventHasPlatformSlot(bindingsByEvent, eventId, platform)) {
+          const refBinding = (bindingsByEvent.get(eventId) || [])[0];
+          const refMatch = refBinding
+            ? findPlatformMatch(normalized, refBinding.platform, refBinding.source_match_id)
+            : null;
+          if (refMatch && !startTimesCompatible(match.StartTime, refMatch.StartTime))
+            continue;
+
+          if (addBinding({
+            platform,
+            source_match_id: String(match.SourceMatchID),
+            event_id: eventId,
+            binding_source: BINDING_SOURCE.AUTO_ID,
+            binding_confidence: 0.96,
+            binding_side_mode: "aligned",
+          }))
+            stats.attachedByGb++;
           continue;
         }
       }
@@ -439,6 +487,7 @@ async function prepareRegistryBeforeMaterialize({ matches, adapter, bets, timers
     autoBind: {
       obSeeded: ob.obSeeded ?? 0,
       attachedById: attach.attachedById ?? 0,
+      attachedByGb: attach.attachedByGb ?? 0,
       attachedByName: attach.attachedByName ?? 0,
       mergeHints: mergeHints.mergeHints ?? 0,
       bindingsWritten: (ob.bindingsWritten ?? 0) + (attach.bindingsWritten ?? 0) + (mergeHints.bindingsWritten ?? 0),

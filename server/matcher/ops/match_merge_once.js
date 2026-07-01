@@ -106,10 +106,10 @@ async function matchMergeOnceImpl() {
     invalidateMatcherRdsSnapshot(["platformMatches"]);
 
   const ab = registryPrep.autoBind;
-  if (ab.obSeeded || ab.attachedById || ab.attachedByName || ab.mergeHints) {
+  if (ab.obSeeded || ab.attachedById || ab.attachedByGb || ab.attachedByName || ab.mergeHints) {
     console.log(
-      `[matchMerge] auto-bind ob=${ab.obSeeded} id=${ab.attachedById} name=${ab.attachedByName}`
-      + ` mergeHints=${ab.mergeHints} · bindings+${ab.bindingsWritten ?? 0}`,
+      `[matchMerge] auto-bind ob=${ab.obSeeded} id=${ab.attachedById} gb=${ab.attachedByGb ?? 0}`
+      + ` name=${ab.attachedByName} mergeHints=${ab.mergeHints} · bindings+${ab.bindingsWritten ?? 0}`,
     );
   }
 
