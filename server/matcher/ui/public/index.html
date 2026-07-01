@@ -254,11 +254,23 @@
     .ts-pending { background: #fbbf2418; color: #fbbf24; }
     .ts-done { background: #4ade8018; color: #4ade80; }
 
+    .pairing-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+      border: 1px solid transparent; display: inline-block;
+    }
+    .pairing-tier-verified { background: #14532d55; color: #4ade80; border-color: #166534; }
+    .pairing-tier-provisional { background: #42200655; color: #fbbf24; border-color: #854d0e; }
+    .pairing-tier-staging { background: #33415588; color: #94a3b8; border-color: #475569; }
+    .binding-cell { font-size: 10px; color: #94a3b8; line-height: 1.35; }
+    .binding-cell.muted { color: #475569; }
+    .binding-side-ambiguous { color: #f87171; }
+
     .team-card-footer {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
       padding: 10px 16px; background: #0f172a;
     }
     .team-card-hint { font-size: 11px; color: #64748b; line-height: 1.45; }
+    .team-card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
     .gbadge { font-size: 13px; font-weight: 600; padding: 3px 9px; border-radius: 10px; text-transform: uppercase; }
     .g-cs2 { background: #ff6b3518; color: #fb923c; }
@@ -468,6 +480,13 @@
             <div class="split-col-desc">跨平台推荐待确认 · 以及尚未进入 client_match 的原始场次</div>
           </div>
           <div class="split-col-body">
+            <div class="pending-section pending-section-provisional">
+              <div class="pending-section-title">
+                <span>队名层待升级 <span class="badge" id="provisional-count">0</span></span>
+              </div>
+              <div class="pending-section-desc">pairing_tier=provisional · 拖线关联或点「确认配对」可升为 verified</div>
+              <div class="game-sections" id="provisional-panels"><div class="empty">加载中…</div></div>
+            </div>
             <div class="pending-section">
               <div class="pending-section-title">
                 <span>推荐组 <span class="badge" id="queue-rec-count">0</span></span>
@@ -658,6 +677,7 @@ function applyTeamSearchFromInput() {
   const teamMaps = _lastData.teamMaps || {};
   const recs = filterRecsByTeamSearch(_lastData.recommendations || [], _teamSearchQuery);
   renderTeamQueue(recs, _lastData.clientMatches || [], teamMaps);
+  renderProvisionalQueue(_lastData.clientMatches || [], _lastData.platforms, teamMaps, _teamSearchQuery);
   const { idCount, nameCount } = renderMatchedLists(
     _lastData.clientMatches || [],
     _lastData.platforms,
@@ -866,13 +886,17 @@ function renderStats(d, displayCms) {
   const idMatched = displayCms.filter(cm => (cm.merge_mode?.mode || 'name') === 'id').length;
   const nameMatched = displayCms.length - idMatched;
   const debug = d.debug || {};
+  const pairing = debug.pairing || {};
   document.getElementById('stats-bar').innerHTML = `
     <div class="stat"><div class="label">平台原始</div><div class="value c-slate">${debug.platformMatches ?? '—'}</div></div>
+    <div class="stat"><div class="label">配对·已确认</div><div class="value c-green">${pairing.verified ?? '—'}</div></div>
+    <div class="stat"><div class="label">配对·队名层</div><div class="value c-amber">${pairing.provisional ?? '—'}</div></div>
     <div class="stat"><div class="label">ID 已匹配</div><div class="value c-green">${idMatched}</div></div>
     <div class="stat"><div class="label">队名已匹配</div><div class="value c-amber">${nameMatched}</div></div>
     <div class="stat"><div class="label">推荐组</div><div class="value c-blue">${d.recommendations.length}</div></div>
     <div class="stat"><div class="label">未匹配场次</div><div class="value c-slate">${unmatched}</div></div>
     <div class="stat"><div class="label">无推荐</div><div class="value c-slate">${orphan}</div></div>
+    <div class="stat"><div class="label">均置信度</div><div class="value c-slate">${pairing.avg_confidence != null ? Math.round(pairing.avg_confidence * 100) + '%' : '—'}</div></div>
     <div class="stat"><div class="label">诊断 linked/unmatched</div><div class="value c-slate">${debug.linkedPlatformMatches ?? '—'}/${debug.unmatchedPlatformMatches ?? '—'}</div></div>
   `;
   const recCountEl = document.getElementById('queue-rec-count');
@@ -1071,7 +1095,7 @@ function renderTeamTable(rec, recIdx, cms, teamMaps) {
       <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform)}</td>
       <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform)}</td>
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
-      <td class="col-action">${action}</td>
+      <td class="col-action">${action}${m.ob_spine_target ? `<div class="binding-cell" title="建议挂 OB 轴赛事">→ #${m.ob_spine_target} ${esc(m.ob_spine_anchor || '')}</div>` : ''}</td>
     </tr>`;
   }).join('');
   return `<table class="team-table">
@@ -1105,6 +1129,12 @@ function renderTeamRecCard(rec, cms, idx, teamMaps) {
           <span>开赛 ${fmtTime(rec.startTime)}</span>
           ${rec.timeDiffMs > 0 ? `<span>平台时差 ${fmtDiff(rec.timeDiffMs)}</span>` : ''}
           <span>${rec.platforms.map(pbadge).join(' ')}</span>
+          ${rec.merge_basis === 'id'
+    ? '<span class="pairing-badge pairing-tier-verified">merge·ID</span>'
+    : '<span class="pairing-badge pairing-tier-provisional">merge·队名</span>'}
+          ${rec.matches.some(m => m.ob_spine_target)
+    ? '<span class="pairing-badge pairing-tier-verified" title="部分场次可挂已有 OB 轴">OB 轴</span>'
+    : ''}
         </div>
       </div>
       <div class="conf-wrap">
@@ -1122,6 +1152,43 @@ function renderTeamRecCard(rec, cms, idx, teamMaps) {
       </div>
     </div>
   </article>`;
+}
+
+function wireMatchedCardActions(container) {
+  if (!container) return;
+  container.querySelectorAll('[data-end-cm]').forEach(btn => {
+    btn.addEventListener('click', () => endClientMatch(Number(btn.dataset.endCm)));
+  });
+  container.querySelectorAll('[data-confirm-pairing]').forEach(btn => {
+    btn.addEventListener('click', () => confirmClientMatchPairing(Number(btn.dataset.confirmPairing)));
+  });
+}
+
+function renderProvisionalQueue(cms, platforms, teamMaps, searchQuery) {
+  const container = document.getElementById('provisional-panels');
+  const countEl = document.getElementById('provisional-count');
+  const q = searchQuery != null ? searchQuery : _teamSearchQuery;
+  const list = filterDisplayClientMatches(cms, platforms)
+    .filter(cm => (cm.pairing?.tier || '') === 'provisional')
+    .filter(cm => clientMatchMatchesTeamSearch(cm, platforms, q))
+    .sort((a, b) => clientMatchStartTime(a, platforms) - clientMatchStartTime(b, platforms));
+  if (countEl) countEl.textContent = list.length;
+  if (!container) return list.length;
+
+  if (!list.length) {
+    container.innerHTML = q
+      ? `<div class="empty">没有匹配「${esc(q)}」的队名层赛事</div>`
+      : '<div class="empty">暂无 provisional 场次<br>队名合并且已发布到 client_matches 的会出现在此</div>';
+    return 0;
+  }
+
+  const cards = list
+    .map(cm => renderMatchedCard(cm, platforms, teamMaps, q, 'name'))
+    .filter(Boolean)
+    .join('');
+  container.innerHTML = cards ? `<div class="team-queue">${cards}</div>` : '';
+  wireMatchedCardActions(container);
+  return list.length;
 }
 
 function renderTeamQueue(recs, cms, teamMaps) {
@@ -1179,7 +1246,8 @@ function renderMatchedListForMode(cms, platforms, teamMaps, searchQuery, mode, c
   const container = document.getElementById(containerId);
   const q = searchQuery != null ? searchQuery : _teamSearchQuery;
   const list = filterDisplayClientMatches(cms, platforms)
-    .filter(cm => clientMatchMergeMode(cm) === mode);
+    .filter(cm => clientMatchMergeMode(cm) === mode)
+    .filter(cm => mode !== 'name' || (cm.pairing?.tier || '') !== 'provisional');
   const filtered = list
     .filter(cm => clientMatchMatchesTeamSearch(cm, platforms, q))
     .sort((a, b) => clientMatchStartTime(a, platforms) - clientMatchStartTime(b, platforms));
@@ -1211,9 +1279,7 @@ function renderMatchedListForMode(cms, platforms, teamMaps, searchQuery, mode, c
     return 0;
   }
 
-  container.querySelectorAll('[data-end-cm]').forEach(btn => {
-    btn.addEventListener('click', () => endClientMatch(Number(btn.dataset.endCm)));
-  });
+  wireMatchedCardActions(container);
   return filtered.length;
 }
 
@@ -1424,6 +1490,28 @@ function renderReverseCell(cmId, platform, isReversed) {
     title="${title}">${btnText}</button></span>`;
 }
 
+function renderPairingBadge(cm) {
+  const p = cm?.pairing;
+  if (!p?.tier)
+    return '';
+  const conf = p.confidence_label && p.confidence_label !== '—' ? ` ${p.confidence_label}` : '';
+  const anchor = p.event_anchor ? ` · 轴 ${p.event_anchor}` : '';
+  return `<span class="pairing-badge pairing-tier-${esc(p.tier)}" title="配对分层（不进前端列表策略）">${esc(p.label)}${esc(conf)}${esc(anchor)}</span>`;
+}
+
+function renderBindingCell(m) {
+  const b = m?.binding;
+  if (!b?.source)
+    return '<span class="binding-cell muted">—</span>';
+  let sideHtml = '';
+  if (b.side_mode === 'ambiguous')
+    sideHtml = ' <span class="binding-side-ambiguous">主客未定</span>';
+  else if (b.side_mode === 'reversed')
+    sideHtml = ' · 反';
+  const conf = b.confidence_label && b.confidence_label !== '—' ? ` · ${b.confidence_label}` : '';
+  return `<span class="binding-cell" title="平台绑定元数据">${esc(b.source_label)}${esc(conf)}${sideHtml}</span>`;
+}
+
 function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
   const visible = searchQuery
     ? rows.filter(m => matchMatchesTeamSearch(m, searchQuery))
@@ -1441,11 +1529,12 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
       <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away' } : null)}</td>
       <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
+      <td>${renderBindingCell(m)}</td>
       <td>${renderReverseCell(cm.id, m.platform, isReversed)}</td>
     </tr>`;
   }).join('');
   return `<table class="team-table">
-    <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>开赛</th><th>客</th><th>场次 ID</th><th>方向</th></tr></thead>
+    <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>开赛</th><th>客</th><th>场次 ID</th><th>绑定</th><th>方向</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table>`;
 }
@@ -1466,6 +1555,9 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
     : teamsIdMapped
       ? `ID 映射已齐 · ${rows.length} 个平台 · 合并依据仍为队名阶段 · 可拖黄方点合并同场`
       : `队名已匹配 · ${rows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
+  const confirmBtn = (cm.pairing?.tier || '') === 'provisional'
+    ? `<button type="button" class="btn btn-sm btn-success" data-confirm-pairing="${cm.id}" title="人工确认配对，升为 verified（binding_source=manual）">确认配对</button>`
+    : '';
   const homeSlot = renderTitleTeamSlot('home', rows, teamMaps, gameCode, cm.id, cm);
   const awaySlot = renderTitleTeamSlot('away', rows, teamMaps, gameCode, cm.id, cm);
   return `<article class="team-card matched" data-cm-id="${cm.id}">
@@ -1484,6 +1576,7 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
           <div class="team-card-meta">
             <span>开赛 ${fmtTime(cm.start_time)}</span>
             <span>${Object.keys(cm.matchs || {}).map(pbadge).join(' ')}</span>
+            ${renderPairingBadge(cm)}
             ${cm.merge_mode?.label ? `<span>合并依据 ${esc(cm.merge_mode.label)}</span>` : ''}
           </div>
         </div>
@@ -1493,7 +1586,10 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
     ${tableHtml}
     <div class="team-card-footer">
       <div class="team-card-hint">${footerHint}</div>
-      <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="归档到历史表，浏览器不再返回；并归档各平台 platform_matches 行">比赛已结束</button>
+      <div class="team-card-actions">
+        ${confirmBtn}
+        <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="归档到历史表，浏览器不再返回；并归档各平台 platform_matches 行">比赛已结束</button>
+      </div>
     </div>
   </article>`;
 }
@@ -2506,6 +2602,26 @@ async function confirmRecTeamMapping() {
   }
 }
 
+async function confirmClientMatchPairing(cmId) {
+  const cm = (_lastData?.clientMatches || []).find(c => Number(c.id) === Number(cmId));
+  const title = cm?.title || `#${cmId}`;
+  const platCount = Object.keys(cm?.matchs || {}).length;
+  if (!window.confirm(`确认将「${title}」升为 verified？\n\n将把 ${platCount} 个平台绑定标为 manual，pairing_tier 变为已确认。`))
+    return;
+  try {
+    const { res, data } = await fetchJson(`/api/client-match/${cmId}/confirm-pairing`, { method: 'POST' });
+    if (!res.ok || data.error) throw new Error(data.error || '操作失败');
+    showActionToast(
+      formatApiResultToast(data, `配对已确认 · #${cmId}`),
+      'ok',
+      5200,
+    );
+    await refreshData();
+  } catch (err) {
+    showActionToast(`确认配对失败\n#${cmId}\n${err.message}`, 'err', 5600);
+  }
+}
+
 async function endClientMatch(cmId) {
   const cm = (_lastData?.clientMatches || []).find(c => Number(c.id) === Number(cmId));
   const matchs = cm?.matchs || {};
@@ -2756,6 +2872,7 @@ async function load() {
     }
     const recs = filterRecsByTeamSearch(d.recommendations || [], _teamSearchQuery);
     renderTeamQueue(recs, d.clientMatches || [], teamMaps);
+    renderProvisionalQueue(d.clientMatches || [], d.platforms, teamMaps, _teamSearchQuery);
     const { idCount, nameCount } = renderMatchedLists(d.clientMatches || [], d.platforms, teamMaps, _teamSearchQuery);
     const unmatchedCount = renderUnmatchedPlatforms(
       d.platforms, d.recommendations, d.clientMatches || [], teamMaps, _teamSearchQuery,

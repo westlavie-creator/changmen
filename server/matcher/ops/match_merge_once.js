@@ -23,6 +23,10 @@ import {
   fetchMatcherRdsSnapshot,
   invalidateMatcherRdsSnapshot,
 } from "./rds_snapshot_cache.js";
+import {
+  applyPairingMetadata,
+  syncPlatformBindingsForRows,
+} from "./pairing_metadata.js";
 import "../lib/env.js";
 
 /**
@@ -89,9 +93,11 @@ async function matchMergeOnceImpl() {
   const alignStats = alignRows?.length
     ? alignUnmatchedToClientMatches(matches, alignRows)
     : { alignedById: 0, alignedByName: 0 };
-  if (alignStats.alignedById || alignStats.alignedByName) {
+  if (alignStats.alignedById || alignStats.alignedByName || alignStats.alignedByObSlot) {
     console.log(
-      `[matchMerge] 未匹配对齐 client_matches · ID ${alignStats.alignedById} · 队名+时间 ${alignStats.alignedByName}`,
+      `[matchMerge] 未匹配对齐 client_matches · ID ${alignStats.alignedById}`
+      + ` · 队名+时间 ${alignStats.alignedByName}`
+      + ` · OB 槽位 ${alignStats.alignedByObSlot ?? 0}`,
     );
   }
 
@@ -124,6 +130,19 @@ async function matchMergeOnceImpl() {
     console.log(`[matchMerge] 已结束移出活跃列表 ${endedFilter.endedCount} 场`);
   }
 
+  const {
+    annotated: pairingAnnotated,
+    published: pairingPublished,
+  } = applyPairingMetadata(info, matches);
+  if (pairingPublished.length !== info.length) {
+    console.log(
+      `[matchMerge] pairing 发布过滤 ${info.length} → ${pairingPublished.length}`
+      + `（tier=${process.env.MATCHER_PUBLISH_TIER || "default"}`
+      + ` provisional=${process.env.MATCHER_PUBLISH_PROVISIONAL ?? "1"}）`,
+    );
+  }
+  info = pairingPublished;
+
   const now = Date.now();
   await db.writeClientMatchesAsync(
     info.map(m => ({
@@ -141,6 +160,9 @@ async function matchMergeOnceImpl() {
       bets: m.Bets || [],
       home_gb_team_id: m.HomeGbTeamId ?? null,
       away_gb_team_id: m.AwayGbTeamId ?? null,
+      pairing_tier: m.PairingTier ?? null,
+      pairing_confidence: m.PairingConfidence ?? null,
+      event_anchor: m.EventAnchor ?? null,
       built_at: now,
     })),
   );
@@ -153,7 +175,26 @@ async function matchMergeOnceImpl() {
   if (matchIdBackfill?.updated)
     invalidateMatcherRdsSnapshot(["platformMatches"]);
 
-  return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, nameSync, alignStats, hotCollector };
+  const bindingSync = await syncPlatformBindingsForRows(pairingAnnotated, matches);
+  if (bindingSync?.updated > 0) {
+    console.log(`[matchMerge] platform 绑定元数据 ${bindingSync.updated} 条`);
+    invalidateMatcherRdsSnapshot(["platformMatches"]);
+  }
+
+  return {
+    matchCount: info.length,
+    builtAt: now,
+    matchIdBackfill,
+    bindingSync,
+    teamReg,
+    nameSync,
+    alignStats,
+    hotCollector,
+    pairing: {
+      annotated: pairingAnnotated.length,
+      published: pairingPublished.length,
+    },
+  };
 }
 
 /** 进程内互斥：matcher 循环与 UI 人工 matchMerge 共用同一 in-flight Promise */

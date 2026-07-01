@@ -1,6 +1,8 @@
 import * as db from "@changmen/db";
 import store from "../../backend/core/esport-api/store.js";
 import { matchMergeOnce } from "./match_merge_once.js";
+import { persistManualPlatformBindings } from "./manual_binding.js";
+import { bindingSideModeForPlatform } from "./pairing_metadata.js";
 import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 
 /**
@@ -84,6 +86,22 @@ async function mergeClientMatches({ sourceClientMatchId, targetClientMatchId }) 
 
   await db.reassignPlatformMatchIds(sourceId, targetId);
   await db.deleteClientMatchRow(sourceId);
+
+  const targetCm = await db.fetchClientMatchRow(targetId, "id,matchs,reverse");
+  const mergedMatchs = { ...(targetCm?.matchs || preview.target.matchs), ...preview.source.matchs };
+  const bindingRow = {
+    Matchs: mergedMatchs,
+    Reverse: Array.isArray(targetCm?.reverse) ? targetCm.reverse : [],
+    SideAlignAmbiguous: [],
+  };
+  await persistManualPlatformBindings(
+    Object.entries(mergedMatchs).map(([platform, sourceId]) => ({
+      platform,
+      source_match_id: String(sourceId),
+      match_id: targetId,
+      binding_side_mode: bindingSideModeForPlatform(bindingRow, platform),
+    })),
+  );
 
   store.patchCollectorMatchClientIds([{
     ID: targetId,

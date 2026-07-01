@@ -13,6 +13,7 @@ import { getGameCodeForPlatformId, getPlatformGameId, resolveClientGame } from "
 import { formatPbTeamPlatformId, resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
 import store from "../../backend/core/esport-api/store.js";
 import { ensureTeamPlugin, invalidateTeamPlugin, matchMergeOnce } from "../ops/match_merge_once.js";
+import { persistManualPlatformBindings } from "../ops/manual_binding.js";
 import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { resetMatcherUiTeamPlugin } from "../ui/merge_mode.js";
 import "../lib/env.js";
@@ -551,6 +552,21 @@ async function linkPlatformToPlatform({
     await db.setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
   }
 
+  await persistManualPlatformBindings([
+    {
+      platform: pmSource.platform,
+      source_match_id: String(pmSource.source_match_id),
+      match_id: cmId,
+      reversed,
+    },
+    {
+      platform: pmTarget.platform,
+      source_match_id: String(pmTarget.source_match_id),
+      match_id: cmId,
+      reversed: targetReversed,
+    },
+  ]);
+
   await persistPlatformSideOverride(cmId, pmSource.platform, reversed);
   if (targetAlign.mode === "aligned" || targetAlign.mode === "reversed") {
     await persistPlatformSideOverride(cmId, pmTarget.platform, targetReversed);
@@ -771,6 +787,12 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   const mapResults = await writeTeamMapsIdentityForPlatform(pm, gameCode);
 
   await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
+  await persistManualPlatformBindings([{
+    platform: plat,
+    source_match_id: srcId,
+    match_id: cmId,
+    reversed,
+  }]);
   await persistPlatformSideOverride(cmId, plat, reversed);
 
   store.patchCollectorMatchClientIds([{

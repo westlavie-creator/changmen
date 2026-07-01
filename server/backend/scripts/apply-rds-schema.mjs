@@ -89,6 +89,9 @@ async function main() {
     console.log("[rds] 执行 018_client_match_platform_overrides.sql …");
     await client.query(readSql("018_client_match_platform_overrides.sql"));
 
+    console.log("[rds] 执行 019_pairing_metadata.sql …");
+    await client.query(readSql("019_pairing_metadata.sql"));
+
     const tables = await client.query(`
       SELECT tablename FROM pg_tables
       WHERE schemaname = 'public'

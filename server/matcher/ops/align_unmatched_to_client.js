@@ -11,6 +11,11 @@ import {
 import { getGameCodeForPlatformId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
 import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
+import {
+  alignObSpineSlotMatches,
+  isObSpineAlignEnabled,
+  pickBestClientMatch,
+} from "./ob_spine_align.js";
 
 /**
  * matchMerge 前：将 match_id 为空的 platform_matches 优先挂到已有 client_matches。
@@ -178,27 +183,6 @@ function canAlignPlatformToClient(platform, sourceMatchId, cm) {
   return true;
 }
 
-function pickBestClientMatch(candidates, platformStartMs) {
-  if (!candidates?.length)
-    return null;
-  if (candidates.length === 1)
-    return candidates[0];
-
-  let best = candidates[0];
-  let bestDelta = Number.POSITIVE_INFINITY;
-  for (const cm of candidates) {
-    const cmStart = normalizeEpochMs(cm.start_time ?? cm.StartTime);
-    const delta = cmStart && platformStartMs
-      ? Math.abs(cmStart - platformStartMs)
-      : Number.POSITIVE_INFINITY;
-    if (delta < bestDelta || (delta === bestDelta && Number(cm.id) < Number(best.id))) {
-      best = cm;
-      bestDelta = delta;
-    }
-  }
-  return best;
-}
-
 function assignClientMatchId(match, clientMatchId) {
   const id = Number(clientMatchId);
   match.ClientMatchId = id;
@@ -229,7 +213,9 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
       .filter(cm => String(cm.game_id ?? "") === gameId)
       .filter(cm => startTimesCompatible(startMs, cm.start_time ?? cm.StartTime))
       .filter(cm => canAlignPlatformToClient(platform, sourceMatchId, cm));
-    const hit = pickBestClientMatch(candidates, startMs);
+    const hit = pickBestClientMatch(candidates, startMs, {
+      preferObSpine: isObSpineAlignEnabled() && platform !== "OB",
+    });
     if (hit) {
       assignClientMatchId(match, hit.id);
       stats.alignedById++;
@@ -245,7 +231,9 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
     .filter(cm => String(cm.game_id ?? "") === gameId)
     .filter(cm => startTimesCompatibleStrict(startMs, cm.start_time ?? cm.StartTime))
     .filter(cm => canAlignPlatformToClient(platform, sourceMatchId, cm));
-  const hit = pickBestClientMatch(candidates, startMs);
+  const hit = pickBestClientMatch(candidates, startMs, {
+    preferObSpine: isObSpineAlignEnabled() && platform !== "OB",
+  });
   if (!hit)
     return;
 
@@ -256,12 +244,15 @@ function alignOnePlatformMatch(match, platform, indexes, stats) {
 /**
  * @param {Record<string, Record<string, object>>} matches normalizeMatchesShape 产物
  * @param {object[]} clientRows fetchClientMatchesForAlign 产物
- * @returns {{ alignedById: number, alignedByName: number }}
+ * @returns {{ alignedById: number, alignedByName: number, alignedByObSlot: number }}
  */
 function alignUnmatchedToClientMatches(matches, clientRows) {
-  const stats = { alignedById: 0, alignedByName: 0 };
+  const stats = { alignedById: 0, alignedByName: 0, alignedByObSlot: 0 };
   if (!clientRows?.length || !matches)
     return stats;
+
+  const obSlot = alignObSpineSlotMatches(matches, clientRows);
+  stats.alignedByObSlot = obSlot.alignedByObSlot;
 
   const indexes = buildClientMatchIndexes(clientRows, matches);
 

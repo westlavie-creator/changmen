@@ -1,0 +1,105 @@
+import assert from "node:assert/strict";
+import { afterEach, describe, it } from "vitest";
+import {
+  applyPairingMetadata,
+  classifyPairing,
+  PAIRING_TIER,
+  resolveEventAnchor,
+} from "./pairing_metadata.js";
+
+describe("pairing_metadata", () => {
+  afterEach(() => {
+    delete process.env.MATCHER_PUBLISH_PROVISIONAL;
+    delete process.env.MATCHER_PUBLISH_TIER;
+  });
+
+  it("classifies id merge as verified", () => {
+    const row = {
+      Matchs: { OB: "1", RAY: "2" },
+      MergeBasis: "id",
+      HomeGbTeamId: "100",
+      AwayGbTeamId: "200",
+    };
+    const r = classifyPairing(row, { matches: {} });
+    assert.equal(r.tier, PAIRING_TIER.VERIFIED);
+    assert.ok(r.confidence >= 0.9);
+  });
+
+  it("classifies name merge as provisional", () => {
+    const row = {
+      Matchs: { OB: "1", RAY: "2" },
+      MergeBasis: "name",
+    };
+    const r = classifyPairing(row, { matches: {} });
+    assert.equal(r.tier, PAIRING_TIER.PROVISIONAL);
+  });
+
+  it("classifies manual binding as verified", () => {
+    const row = {
+      Matchs: { OB: "1", RAY: "2" },
+      MergeBasis: "name",
+    };
+    const matches = {
+      OB: { "1": { SourceMatchID: "1", BindingSource: "manual" } },
+      RAY: { "2": { SourceMatchID: "2", BindingSource: "auto_name" } },
+    };
+    const r = classifyPairing(row, { matches });
+    assert.equal(r.tier, PAIRING_TIER.VERIFIED);
+    assert.equal(r.bindingSource, "manual");
+  });
+
+  it("auto match_id without manual binding stays provisional", () => {
+    const row = {
+      Matchs: { OB: "1", RAY: "2" },
+      MergeBasis: "name",
+    };
+    const matches = {
+      OB: { "1": { SourceMatchID: "1", ClientMatchId: 9, BindingSource: "auto_name" } },
+      RAY: { "2": { SourceMatchID: "2", ClientMatchId: 9, BindingSource: "auto_name" } },
+    };
+    const r = classifyPairing(row, { matches });
+    assert.equal(r.tier, PAIRING_TIER.PROVISIONAL);
+  });
+  it("staging when fewer than two platforms", () => {
+    const row = { Matchs: { OB: "1" }, MergeBasis: "id" };
+    const r = classifyPairing(row, { matches: {} });
+    assert.equal(r.tier, PAIRING_TIER.STAGING);
+  });
+
+  it("resolveEventAnchor prefers OB", () => {
+    assert.equal(
+      resolveEventAnchor({ OB: "99", RAY: "1" }),
+      "OB:99",
+    );
+  });
+
+  it("publishes provisional by default", () => {
+    const matches = {};
+    const rows = [{
+      ID: 1,
+      Matchs: { OB: "a", RAY: "b" },
+      MergeBasis: "name",
+    }];
+    const { published } = applyPairingMetadata(rows, matches);
+    assert.equal(published.length, 1);
+    assert.equal(published[0].PairingTier, PAIRING_TIER.PROVISIONAL);
+  });
+
+  it("MATCHER_PUBLISH_TIER=verified drops name-only rows", () => {
+    process.env.MATCHER_PUBLISH_TIER = "verified";
+    const { published } = applyPairingMetadata(
+      [{ ID: 1, Matchs: { OB: "a", RAY: "b" }, MergeBasis: "name" }],
+      {},
+    );
+    assert.equal(published.length, 0);
+  });
+
+  it("MATCHER_PUBLISH_PROVISIONAL=0 drops provisional rows", () => {
+    process.env.MATCHER_PUBLISH_PROVISIONAL = "0";
+    const { published } = applyPairingMetadata(
+      [{ ID: 1, Matchs: { OB: "a", RAY: "b" }, MergeBasis: "name" }],
+      {},
+    );
+    assert.equal(published.length, 0);
+  });
+});

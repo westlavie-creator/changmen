@@ -4,7 +4,7 @@ import {
   fetchLatestClientMatchBuiltAt,
   loadTeamMapsForMatcher,
 } from "@changmen/db";
-import { normalizeMatchesShape, normalizeTeam } from "@changmen/match-engine";
+import { normalizeMatchesShape } from "@changmen/match-engine";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { MATCHER_INTERVAL_MS } from "../lib/config.js";
 import { resolveUiGame } from "../lib/game_ui.js";
@@ -22,21 +22,14 @@ import {
   isEmbeddedMatcherEnabled,
   isManagedByServer,
 } from "./matcher_process.js";
-import { enrichClientMatchesMergeMode } from "./merge_mode.js";
+import { enrichClientMatchesMergeMode, getTeamPlugin } from "./merge_mode.js";
+import { enrichDashboardPairing } from "./pairing_ui.js";
+import {
+  attachObSpineHints,
+  buildPlatformRowKeyMap,
+  computeMergeKeyRecommendations,
+} from "./recommendations.js";
 import { fetchMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
-
-function recommendationGroupKey(m) {
-  const game = resolveUiGame(m.platform, m.source_game_id);
-  if (!game)
-    return null;
-  const h = normalizeTeam(m.home);
-  const a = normalizeTeam(m.away);
-  if (!h || !a)
-    return null;
-  const bucket = Math.round(normalizeEpochMs(m.start_time) / (30 * 60 * 1000));
-  const [t1, t2] = h <= a ? [h, a] : [a, h];
-  return { key: `${game.code}:${bucket}:${t1}:${t2}`, game, t1, t2 };
-}
 
 function isPlatformMatchLinkedForRec(m, clientMatches) {
   const visibleClientMatches = filterVisibleClientMatches(clientMatches);
@@ -69,43 +62,13 @@ function resolveVisibleClientMatchId(m, clientMatches) {
   return cm ? Number(cm.id) : null;
 }
 
-function computeRecommendations(allMatches, clientMatches = []) {
-  const groups = new Map();
-
-  for (const m of allMatches) {
-    const gk = recommendationGroupKey(m);
-    if (!gk)
-      continue;
-    if (!groups.has(gk.key))
-      groups.set(gk.key, { game: gk.game, t1: gk.t1, t2: gk.t2, matches: [] });
-    groups.get(gk.key).matches.push(m);
-  }
-
-  return [...groups.values()]
-    .filter(g => new Set(g.matches.map(m => m.platform)).size >= 2)
-    .filter(g => g.matches.some(m => !isPlatformMatchLinkedForRec(m, clientMatches)))
-    .map((g) => {
-      const platforms = [...new Set(g.matches.map(m => m.platform))];
-      const times = g.matches.map(m => normalizeEpochMs(m.start_time)).filter(t => t > 0);
-      const startTime = times.length ? Math.min(...times) : 0;
-      const timeDiffMs = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
-      let confidence = 0.6 + (platforms.length - 2) * 0.1;
-      if (timeDiffMs < 5 * 60 * 1000)
-        confidence += 0.2;
-      else if (timeDiffMs < 15 * 60 * 1000)
-        confidence += 0.1;
-      return {
-        game: g.game,
-        t1: g.t1,
-        t2: g.t2,
-        platforms,
-        startTime,
-        timeDiffMs,
-        confidence: Math.min(confidence, 1.0),
-        matches: g.matches,
-      };
-    })
-    .sort((a, b) => a.startTime - b.startTime);
+async function computeRecommendations(allMatches, clientMatches = []) {
+  await getTeamPlugin();
+  const platformKeyMap = buildPlatformRowKeyMap(allMatches);
+  const withHints = attachObSpineHints(allMatches, clientMatches, platformKeyMap);
+  return computeMergeKeyRecommendations(withHints, {
+    isLinked: m => isPlatformMatchLinkedForRec(m, clientMatches),
+  });
 }
 
 async function getMatcherStatus() {
@@ -230,6 +193,10 @@ function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
         match_id: matchId,
         synced_at: Number(firstValue(m.savedAt, m.synced_at, 0)) || 0,
         teams: Array.isArray(m.Teams) ? m.Teams : (Array.isArray(m.teams) ? m.teams : []),
+        binding_confidence: firstValue(m.BindingConfidence, m.binding_confidence),
+        binding_source: firstValue(m.BindingSource, m.binding_source),
+        binding_side_mode: firstValue(m.BindingSideMode, m.binding_side_mode),
+        bound_at: firstValue(m.BoundAt, m.bound_at),
       });
     }
   }
@@ -338,7 +305,7 @@ async function fetchMatcherDashboard() {
         || (gameFromCm ? { code: gameFromCm, name: gameFromCm } : null);
     return { ...normalized, game: uiGame };
   });
-  const recommendations = computeRecommendations(allMatches, clientMatchesNorm);
+  const recommendations = await computeRecommendations(allMatches, clientMatchesNorm);
 
   const recByKey = new Map();
   for (const rec of recommendations) {
@@ -375,7 +342,7 @@ async function fetchMatcherDashboard() {
     updatedAt: Date.now(),
   };
   dashboard.debug = summarizeMatcherDashboard(dashboard);
-  return dashboard;
+  return enrichDashboardPairing(dashboard);
 }
 
 async function fetchMatcherHiddenClientMatches() {

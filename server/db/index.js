@@ -143,6 +143,8 @@ export const {
   writeUserMetadata,
 } = impl;
 
+export { upsertPlatformBindings } from "./rds/pairing_store.js";
+
 export const {
   fetchAllCanonicalTeams,
   fetchAllTeamPlatformMaps,

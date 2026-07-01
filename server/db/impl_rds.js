@@ -82,6 +82,8 @@ export {
   writePlatformMatches,
 } from "./rds/platform_collector_store.js";
 
+export { upsertPlatformBindings } from "./rds/pairing_store.js";
+
 export {
   fetchPlayerByPlatformAndName,
   fetchPlayerById,

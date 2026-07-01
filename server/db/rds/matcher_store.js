@@ -128,7 +128,8 @@ export async function fetchPlatformMatchesDashboard() {
     `SELECT pm.platform, pm.source_match_id, pm.source_game_id, pm.start_time,
             pm.home, pm.home_id, pm.away, pm.away_id, pm.bo,
             CASE WHEN cm.id IS NULL THEN NULL ELSE pm.match_id END AS match_id,
-            pm.synced_at, pm.teams
+            pm.synced_at, pm.teams,
+            pm.binding_confidence, pm.binding_source, pm.binding_side_mode, pm.bound_at
      FROM platform_matches pm
      LEFT JOIN client_matches cm ON cm.id = pm.match_id
      ORDER BY pm.start_time ASC NULLS LAST`,
@@ -138,7 +139,8 @@ export async function fetchPlatformMatchesDashboard() {
 
 export async function fetchClientMatchesDashboard() {
   const { rows } = await rdsQuery(
-    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at
+    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at,
+            pairing_tier, pairing_confidence, event_anchor
      FROM client_matches
      ORDER BY start_time ASC NULLS LAST`,
   );
@@ -268,8 +270,8 @@ export async function archiveClientMatch(id) {
        DELETE FROM client_matches WHERE id = $1
        RETURNING *
      )
-     INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport)
-     SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport FROM moved`,
+     INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, pairing_tier, pairing_confidence, event_anchor)
+     SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, pairing_tier, pairing_confidence, event_anchor FROM moved`,
     [cmId],
   );
   if (!rowCount)

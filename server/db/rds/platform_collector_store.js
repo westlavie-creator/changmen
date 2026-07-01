@@ -236,7 +236,8 @@ async function _rdsReplaceLiveTimersForPlatform(pool, platform, rows) {
 
 async function _rdsFetchPlatformMatches(pool) {
   const { rows } = await pool.query(
-    `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, is_live, teams, match_id
+    `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, is_live, teams, match_id,
+            binding_confidence, binding_source, binding_side_mode, bound_at
      FROM platform_matches`,
   );
   const byPlatform = {};
@@ -256,6 +257,10 @@ async function _rdsFetchPlatformMatches(pool) {
       IsLive: r.is_live != null ? Number(r.is_live) : undefined,
       Teams: Array.isArray(r.teams) ? r.teams : [],
       ClientMatchId: r.match_id != null ? Number(r.match_id) : null,
+      BindingConfidence: r.binding_confidence != null ? Number(r.binding_confidence) : null,
+      BindingSource: r.binding_source ?? null,
+      BindingSideMode: r.binding_side_mode ?? null,
+      BoundAt: r.bound_at != null ? Number(r.bound_at) : null,
     });
   }
   return byPlatform;

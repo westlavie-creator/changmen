@@ -14,6 +14,7 @@ import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_clie
 import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { matchMergeOnce } from "../ops/match_merge_once.js";
 import { restoreClientMatch } from "../ops/restore_client_match.js";
+import { confirmClientMatchPairing } from "../ops/confirm_pairing.js";
 import { logMatcherApiErr, logMatcherApiOk, logMatcherApiWarn } from "./matcher_api_log.js";
 import {
   fetchMatcherDashboard,
@@ -171,6 +172,18 @@ function registerMatcherApiRoutes(app) {
     }
     catch (err) {
       logMatcherApiErr("/api/client-match/restore", err);
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post("/api/client-match/:id/confirm-pairing", async (req, res) => {
+    try {
+      const result = await confirmClientMatchPairing(req.params.id);
+      logMatcherApiOk("/api/client-match/confirm-pairing", result);
+      res.json(result);
+    }
+    catch (err) {
+      logMatcherApiErr("/api/client-match/confirm-pairing", err);
       res.status(400).json({ ok: false, error: err.message });
     }
   });

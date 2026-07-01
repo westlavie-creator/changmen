@@ -389,6 +389,9 @@ export function getClientMatchRowsForSnapshot() {
     bets: m.Bets || [],
     home_gb_team_id: m.HomeGbTeamId ?? null,
     away_gb_team_id: m.AwayGbTeamId ?? null,
+    pairing_tier: m.PairingTier ?? m.pairing_tier ?? null,
+    pairing_confidence: m.PairingConfidence ?? m.pairing_confidence ?? null,
+    event_anchor: m.EventAnchor ?? m.event_anchor ?? null,
     built_at: Number(m.built_at) || 0,
   }));
 }
