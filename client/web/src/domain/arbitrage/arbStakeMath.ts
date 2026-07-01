@@ -28,7 +28,7 @@ export function resolveArbTargetProfit(
   return targetProfit;
 }
 
-/** 预检后按最新赔率重算对冲金额（对齐 buildOrderOptions） */
+/** GetOrderOptions 对冲金额（与 buildOrderOptions 同式；A8 仅在选腿时算一次，预检后不再重算） */
 export function applyArbHedgeStakes(
   legA: BetOption,
   legB: BetOption,
