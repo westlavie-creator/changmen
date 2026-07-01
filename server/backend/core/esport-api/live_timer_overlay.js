@@ -7,6 +7,7 @@ import {
   applyObLiveRoundGate,
   ensureMapZeroForLiveRound,
   liveRound,
+  promoteFullMatchSourcesToLiveRound,
   promoteFullMatchSourcesToLiveRoundInPlace,
   refreshClientMatchRoundsFromTimers,
   trimMapZeroToObOnDeciderRound,
@@ -35,7 +36,8 @@ export function overlayLiveTimersOnMatches(matches, timersByProvider, enrich = {
     })),
   }));
   refreshClientMatchRoundsFromTimers(out, timersByProvider || {});
-  if (enrich.matches && enrich.bets && enrich.sourceFromBet) {
+  const hasEnrich = enrich.matches && enrich.bets && enrich.sourceFromBet;
+  if (hasEnrich) {
     ensureMapZeroForLiveRound(
       out,
       enrich.matches,
@@ -43,8 +45,17 @@ export function overlayLiveTimersOnMatches(matches, timersByProvider, enrich = {
       timersByProvider || {},
       enrich.sourceFromBet,
     );
+    promoteFullMatchSourcesToLiveRound(
+      out,
+      enrich.matches,
+      enrich.bets,
+      timersByProvider || {},
+      enrich.sourceFromBet,
+    );
   }
-  promoteFullMatchSourcesToLiveRoundInPlace(out, enrich.matches || {});
+  else {
+    promoteFullMatchSourcesToLiveRoundInPlace(out, enrich.matches || {});
+  }
   trimMapZeroToObOnDeciderRound(out);
   return out;
 }

@@ -290,6 +290,72 @@ describe("overlayLiveTimersOnMatches", () => {
     expect(out[0].Bets.map(b => b.Map)).toEqual([0, 2]);
   });
 
+  it("promotes RAY to decider Map when DB Map=0 was trimmed to OB only", () => {
+    const match = {
+      ID: 1,
+      BO: 3,
+      Round: 3,
+      RoundStart: 8000,
+      Matchs: { OB: "ob1", RAY: "ray1" },
+      Bets: [
+        {
+          Map: 0,
+          Sources: {
+            OB: { Type: "OB", BetID: "1", HomeOdds: 1.3, AwayOdds: 3.33, Status: "Normal" },
+          },
+        },
+        {
+          Map: 3,
+          Sources: {
+            OB: { Type: "OB", BetID: "2", HomeOdds: 1.84, AwayOdds: 1.9, Status: "Normal" },
+          },
+        },
+      ],
+    };
+    const enrich = {
+      matches: {
+        OB: { ob1: { SourceMatchID: "ob1", Home: "A", Away: "B", BO: 3, IsLive: 2 } },
+        RAY: { ray1: { SourceMatchID: "ray1", Home: "A", Away: "B", BO: 3 } },
+      },
+      bets: {
+        "RAY:ray1": {
+          provider: "RAY",
+          matchId: "ray1",
+          bets: [
+            {
+              SourceBetID: "ray-final",
+              Map: 0,
+              BetName: "[全场] 获胜者",
+              SourceHomeID: "h",
+              SourceAwayID: "a",
+              HomeOdds: 1.9,
+              AwayOdds: 1.84,
+              Status: "Normal",
+            },
+          ],
+        },
+      },
+      sourceFromBet: (p, b) => ({
+        Type: p,
+        BetID: String(b.SourceBetID),
+        HomeID: String(b.SourceHomeID),
+        AwayID: String(b.SourceAwayID),
+        HomeOdds: b.HomeOdds,
+        AwayOdds: b.AwayOdds,
+        Status: b.Status,
+      }),
+    };
+    const out = overlayLiveTimersOnMatches(
+      [match],
+      { OB: { provider: "OB", timer: [{ MatchID: "ob1", Round: 3, StartTime: 8000 }] } },
+      enrich,
+    );
+    const map3 = out[0].Bets.find(b => b.Map === 3);
+    expect(map3?.Sources?.RAY).toMatchObject({ BetID: "ray-final", HomeOdds: 1.9 });
+    const map0 = out[0].Bets.find(b => b.Map === 0);
+    expect(Object.keys(map0?.Sources || {})).toEqual(["OB"]);
+  });
+
   it("keeps Round when no timer snapshot exists (await matcher or next SaveLiveTimer)", () => {
     const out = overlayLiveTimersOnMatches([baseMatch], {});
     expect(out[0].Round).toBe(4);
