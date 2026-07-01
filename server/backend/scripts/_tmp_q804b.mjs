@@ -1,0 +1,12 @@
+﻿import { loadChangmenEnv } from "@changmen/storage/load_env.js";
+import { ensurePgPoolReady } from "@changmen/db";
+loadChangmenEnv();
+const pool = await ensurePgPoolReady();
+const cm = (await pool.query(`SELECT id, title, matchs, home_gb_team_id, away_gb_team_id FROM client_matches WHERE id=804`)).rows[0];
+const allPm = (await pool.query(`SELECT platform, source_match_id, home, away, home_id, away_id, source_game_id FROM platform_matches WHERE match_id=804 OR (platform='IA' AND home ILIKE '%FOKUS%')`)).rows;
+console.log('client_match:', cm);
+console.log('platform_matches:');
+for (const r of allPm) console.log(`  ${r.platform}: ${r.home} vs ${r.away}`);
+const ia = (await pool.query(`SELECT platform, source_match_id, home, away FROM platform_matches WHERE platform='IA' AND (home ILIKE '%FOKUS%' OR away ILIKE '%FOKUS%') AND (home ILIKE '%Mandatory%' OR away ILIKE '%Mandatory%')`)).rows;
+console.log('IA candidates:', ia);
+await pool.end();
