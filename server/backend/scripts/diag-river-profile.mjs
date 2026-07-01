@@ -13,7 +13,6 @@ console.log("betting_config:", JSON.stringify({
   betting: cfg.betting,
   makeUp: cfg.makeUp,
   betMoney: cfg.betMoney,
-  arbDetectEngine: cfg.arbDetectEngine,
   noSameBet: cfg.noSameBet,
   providerFixed: cfg.providerFixed,
   betSorting: cfg.betSorting,

@@ -66,27 +66,8 @@ describe("runArbBetRound lose-order gate", () => {
     expect(processLoseOrders).not.toHaveBeenCalled();
   });
 
-  it("uses runA8ArbRound when arbDetectEngine is a8", async () => {
+  it("runs runA8ArbRound when betting on", async () => {
     config.betting = true;
-    config.arbDetectEngine = "a8";
-
-    await runArbBetRound({ setMessage: () => {}, processLoseOrders });
-
-    expect(runA8ArbRound).toHaveBeenCalledOnce();
-  });
-
-  it("keeps using runA8ArbRound when arbDetectEngine is kakaxi", async () => {
-    config.betting = true;
-    config.arbDetectEngine = "kakaxi";
-
-    await runArbBetRound({ setMessage: () => {}, processLoseOrders });
-
-    expect(runA8ArbRound).toHaveBeenCalledOnce();
-  });
-
-  it("defaults to runA8ArbRound when arbDetectEngine unset", async () => {
-    config.betting = true;
-    config.arbDetectEngine = undefined;
 
     await runArbBetRound({ setMessage: () => {}, processLoseOrders });
 

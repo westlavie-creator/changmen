@@ -4,11 +4,10 @@ import { pickArbLegs } from "@/domain/arbitrage";
 import { providerKeysFromBetItems } from "@/domain/betting/providerKeys";
 import {
   detectOpportunities,
-  detectOpportunitiesForBets,
   findFundedOpportunityForBet,
   indexOpportunities,
 } from "@/extensions/arbOpportunity/detect";
-import { betAnchor, opportunityKey } from "@/extensions/arbOpportunity/types";
+import { opportunityKey } from "@/extensions/arbOpportunity/types";
 import { ViewBet, ViewMatch } from "@/models/match";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
@@ -168,27 +167,6 @@ describe("detectOpportunities", () => {
     expect(legs).toBeDefined();
     expect(opps[0]!.homePlatform).toBe(legs!.homeItem.type);
     expect(opps[0]!.awayPlatform).toBe(legs!.awayItem.type);
-  });
-
-  it("detectOpportunitiesForBets only scans anchored bets", () => {
-    foOdds = {
-      PB: { h1: 2.0, a1: 1.5 },
-      RAY: { h2: 1.6, a2: 2.2 },
-      OB: { h3: 1.5, a3: 2.5 },
-    };
-    const config = { ...createDefaultUserConfig(), profit: 1.03, maxProfit: 1.2, minOdds: 1.01 };
-    const bet1 = makeBet(1, arbSourcesWithOb);
-    const bet2 = makeBet(2, arbSourcesWithOb);
-    const params = {
-      matches: [makeMatch([bet1, bet2])],
-      config,
-      actionablePlatforms: ["PB", "RAY"] as PlatformId[],
-    };
-    const anchors = new Set([betAnchor({ matchId: 100, betId: 2 })]);
-    const opps = detectOpportunitiesForBets(params, "funded", anchors);
-
-    expect(opps).toHaveLength(1);
-    expect(opps[0]!.betId).toBe(2);
   });
 });
 

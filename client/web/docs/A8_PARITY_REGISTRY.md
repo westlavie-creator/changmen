@@ -118,7 +118,6 @@
 | 补单入队 | 一腿成功一腿失败 | `enqueueMakeUpOrder` | ✅ |
 | 手动双击下单 | check + betting | `manualBet.ts` | ✅ |
 | Telegram 套利机会提醒（关投注） | 无 | `arbMarketWatch` + `notifyArbOpportunity` | 🔶 |
-| 套利执行调度 kakaxi | 无 | `arbDetectEngine=kakaxi`：`stores/betting/kakaxi/` 与 `a8/` 并列调度；默认 `a8` 与 bundle 一致 | 🔶 |
 | 套利执行进度报告 | 无 | `stores/betting/autoBet/arbExecutionTrace` + `arbProgressTrace`；Telegram 正文 `extensions/notify/formatArbProgress`；跳过文案 `domain/betting/describeArbPrepareSkip` | 🔶 |
 | BetRow 套利红线 / flash | bundle 内联 / 无 | `extensions/arbBet/ui` | 🔶 |
 
@@ -260,7 +259,6 @@ cd changmen/client/web && npm run audit:a8
 | 比例 9999 单边 / 负 linkId | `domain/betting/singleLegRate.ts` |
 | 套利进度 Telegram | `arbExecutionTrace.ts`、`messageStore` |
 | 套利机会盯盘 | `extensions/arbMarketWatch/` |
-| kakaxi 调度 | `stores/betting/kakaxi/`（默认 `a8`） |
 | BetRow 红线 / flash | `extensions/arbBet/ui/` |
 | legend 负 Link 前缀、`orderlink--paired` | `orderLink.ts`、`OrderView.vue` |
 | matcher / RDS | 服务端 |

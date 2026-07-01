@@ -31,8 +31,15 @@ export const useConfigStore = defineStore("config", {
     },
 
     buildSavePayload(): UserConfig {
-      const raw = toRaw(this.config) as UserConfig;
-      const { arbExecuteEngine: _legacyExecuteEngine, ...configBody } = raw;
+      const raw = toRaw(this.config) as UserConfig & {
+        arbDetectEngine?: unknown;
+        arbExecuteEngine?: unknown;
+      };
+      const {
+        arbDetectEngine: _legacyDetectEngine,
+        arbExecuteEngine: _legacyExecuteEngine,
+        ...configBody
+      } = raw;
       return {
         ...configBody,
         betMoney: Number(this.config.betMoney) || 100,

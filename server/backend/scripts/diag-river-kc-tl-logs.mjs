@@ -12,7 +12,7 @@ const logs = await fetchUserLogsInRange(uid, from, to, 300);
 console.log("logs:", logs.length);
 for (const row of logs) {
   const t = String(row.title || "");
-  if (!/Polymarket|下注|补单|kakaxi|Karmine|Liquid|pm/i.test(t + row.data))
+  if (!/Polymarket|下注|补单|Karmine|Liquid|pm/i.test(t + row.data))
     continue;
   console.log(JSON.stringify({
     at: new Date(Number(row.create_at)).toISOString(),

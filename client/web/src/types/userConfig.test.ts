@@ -2,7 +2,6 @@ import type { UserConfig } from "@/types/userConfig";
 import { describe, expect, it } from "vitest";
 import {
   ALL_PLATFORMS,
-  createDefaultUserConfig,
   mergeProviderSortValue,
   mergeUserConfig,
 
@@ -25,32 +24,14 @@ describe("mergeProviderSortValue", () => {
   });
 });
 
-describe("mergeUserConfig arbDetectEngine", () => {
-  it("defaults to a8", () => {
-    expect(mergeUserConfig(null).arbDetectEngine).toBe("a8");
-    expect(mergeUserConfig(undefined).arbDetectEngine).toBe("a8");
-    expect(createDefaultUserConfig().arbDetectEngine).toBe("a8");
-  });
-
-  it("normalizes legacy arbExecuteEngine to a8", () => {
-    expect(mergeUserConfig({ arbExecuteEngine: "kakaxi" }).arbDetectEngine).toBe("a8");
-    expect(mergeUserConfig({ arbExecuteEngine: "a8" }).arbDetectEngine).toBe("a8");
-  });
-
-  it("prefers arbDetectEngine over legacy arbExecuteEngine", () => {
-    expect(
-      mergeUserConfig({ arbDetectEngine: "a8", arbExecuteEngine: "kakaxi" }).arbDetectEngine,
-    ).toBe("a8");
-  });
-
-  it("maps legacy changmen alias to a8", () => {
-    expect(
-      mergeUserConfig({ arbExecuteEngine: "changmen" } as unknown as Partial<UserConfig>).arbDetectEngine,
-    ).toBe("a8");
-  });
-
-  it("does not persist arbExecuteEngine on merged config", () => {
-    expect(mergeUserConfig({ arbExecuteEngine: "kakaxi" })).not.toHaveProperty("arbExecuteEngine");
-    expect(mergeUserConfig({ arbDetectEngine: "kakaxi" })).not.toHaveProperty("arbExecuteEngine");
+describe("mergeUserConfig legacy fields", () => {
+  it("strips deprecated arbDetectEngine and arbExecuteEngine", () => {
+    const cfg = mergeUserConfig({
+      arbDetectEngine: "kakaxi",
+      arbExecuteEngine: "a8",
+    } as unknown as Partial<UserConfig>);
+    expect(cfg).not.toHaveProperty("arbDetectEngine");
+    expect(cfg).not.toHaveProperty("arbExecuteEngine");
+    expect(cfg.betting).toBe(false);
   });
 });

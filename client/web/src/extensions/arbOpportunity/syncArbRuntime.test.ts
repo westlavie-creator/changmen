@@ -7,27 +7,25 @@ describe("resolveArbRuntimeFlags", () => {
       resolveArbRuntimeFlags({
         betting: false,
         notifyArbOpportunity: true,
-        arbDetectEngine: "a8",
       }),
-    ).toEqual({ needMarketWatchLoop: true, needKakaxiRuntime: false });
+    ).toEqual({ needMarketWatchLoop: true });
   });
 
-  it("does not start kakaxi runtime when betting on and kakaxi mode", () => {
+  it("does not start market watch when betting on", () => {
     expect(
       resolveArbRuntimeFlags({
         betting: true,
-        arbDetectEngine: "kakaxi",
-      }),
-    ).toEqual({ needMarketWatchLoop: false, needKakaxiRuntime: false });
-  });
-
-  it("starts neither sidecar when betting on with a8 mode", () => {
-    expect(
-      resolveArbRuntimeFlags({
-        betting: true,
-        arbDetectEngine: "a8",
         notifyArbOpportunity: true,
       }),
-    ).toEqual({ needMarketWatchLoop: false, needKakaxiRuntime: false });
+    ).toEqual({ needMarketWatchLoop: false });
+  });
+
+  it("does not start market watch when notify disabled", () => {
+    expect(
+      resolveArbRuntimeFlags({
+        betting: false,
+        notifyArbOpportunity: false,
+      }),
+    ).toEqual({ needMarketWatchLoop: false });
   });
 });

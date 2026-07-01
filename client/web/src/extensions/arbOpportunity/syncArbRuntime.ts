@@ -1,33 +1,25 @@
 import { watch } from "vue";
 import { startMarketWatchLoop, stopMarketWatchLoop } from "@/extensions/arbMarketWatch";
-import {
-  stopKakaxiRuntime,
-} from "@/stores/betting/kakaxi/lifecycle";
 import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
 
 export interface ArbRuntimeFlags {
   needMarketWatchLoop: boolean;
-  needKakaxiRuntime: boolean;
 }
 
 /** 纯函数：根据配置决定启停哪些旁路（便于单测） */
 export function resolveArbRuntimeFlags(input: {
   betting: boolean;
-  arbDetectEngine?: string;
   notifyArbOpportunity?: boolean;
 }): ArbRuntimeFlags {
   const needMarketWatchLoop = !input.betting && input.notifyArbOpportunity === true;
-  const needKakaxiRuntime = false;
-  return { needMarketWatchLoop, needKakaxiRuntime };
+  return { needMarketWatchLoop };
 }
 
 export function applyArbRuntimeState(flags: ArbRuntimeFlags): void {
   if (flags.needMarketWatchLoop)
     startMarketWatchLoop();
   else stopMarketWatchLoop();
-
-  stopKakaxiRuntime();
 }
 
 export function syncArbRuntime(): void {
@@ -36,7 +28,6 @@ export function syncArbRuntime(): void {
   applyArbRuntimeState(
     resolveArbRuntimeFlags({
       betting: configStore.config.betting,
-      arbDetectEngine: configStore.config.arbDetectEngine,
       notifyArbOpportunity: user.message?.notifyArbOpportunity,
     }),
   );
@@ -53,7 +44,6 @@ export function installArbRuntimeSync(): void {
   stopWatch = watch(
     () => ({
       betting: configStore.config.betting,
-      engine: configStore.config.arbDetectEngine,
       notify: user.message?.notifyArbOpportunity === true,
     }),
     () => syncArbRuntime(),
@@ -62,7 +52,6 @@ export function installArbRuntimeSync(): void {
 
 export function stopArbRuntime(): void {
   stopMarketWatchLoop();
-  stopKakaxiRuntime();
 }
 
 export function teardownArbRuntimeSync(): void {

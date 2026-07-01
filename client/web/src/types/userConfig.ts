@@ -1,11 +1,8 @@
-import type { ArbDetectEngine } from "@/types/arbDetectEngine";
 import type { PlatformId } from "@/types/esport";
 import { ALL_PLATFORMS } from "@venue/registry";
 import { normalizeWaitTime } from "@/shared/betTiming";
 
 export type BetSorting = "Low" | "High" | "Parallel" | "WinRate" | "Custom";
-
-export type { ArbDetectEngine };
 
 export { ALL_PLATFORMS };
 
@@ -42,10 +39,6 @@ export interface UserConfig {
   betChecked: boolean;
   singleBet: boolean;
   waitTime: Record<string, number>;
-  /** [changmen 扩展] 套利检测策略；缺省 a8（执行始终走主循环 executeArbBet） */
-  arbDetectEngine?: ArbDetectEngine;
-  /** @deprecated 仅兼容旧版 USERCONFIG JSON 读取；merge/save 不再写入 */
-  arbExecuteEngine?: ArbDetectEngine;
 }
 
 export function createDefaultUserConfig(): UserConfig {
@@ -80,7 +73,6 @@ export function createDefaultUserConfig(): UserConfig {
     betChecked: false,
     singleBet: false,
     waitTime: {},
-    arbDetectEngine: "a8",
   };
 }
 
@@ -94,18 +86,18 @@ export function mergeProviderSortValue(values: PlatformId[]): PlatformId[] {
   return merged;
 }
 
-function resolveArbDetectEngineFromRaw(
-  raw: Partial<UserConfig> | null | undefined,
-): ArbDetectEngine {
-  void raw;
-  return "a8";
-}
-
 export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): UserConfig {
   const base = createDefaultUserConfig();
   if (!raw || typeof raw !== "object")
     return base;
-  const { arbExecuteEngine: _legacyExecuteEngine, ...rest } = raw;
+  const {
+    arbDetectEngine: _legacyDetectEngine,
+    arbExecuteEngine: _legacyExecuteEngine,
+    ...rest
+  } = raw as Partial<UserConfig> & {
+    arbDetectEngine?: unknown;
+    arbExecuteEngine?: unknown;
+  };
   return {
     ...base,
     ...rest,
@@ -125,6 +117,5 @@ export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): Us
         ? (raw.waitTime as Record<string, unknown>)
         : undefined,
     ),
-    arbDetectEngine: resolveArbDetectEngineFromRaw(raw),
   };
 }

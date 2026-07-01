@@ -92,12 +92,9 @@ UI 点击 ──► accountStore.checkBetting / betting
 ```
 matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
   ──► 30s 门控 fetchMatches + oddsStore.clean，否则 refreshOddsOnBets
-  ──► runArbBetRound（config.betting 时按 arbDetectEngine 分发）
-        ├── a8（默认）：a8/runA8ArbRound — 全表串行 executeArbBet
-        └── kakaxi：kakaxi/runKakaxiArbRound — 消费队列（不全表遍历）
-              ├── kakaxi/detectFeed（odds 事件 → funded pickArbLegs → 入队）
-              └── kakaxi/scheduler → executeArbBet（与 a8 共用管线）
-        └── executeArbBet（单场单 bet，a8 / kakaxi 共用）
+  ──► runArbBetRound（config.betting 时走 a8 调度）
+        └── a8/runA8ArbRound — 全表串行 executeArbBet
+              └── executeArbBet（单场单 bet）
               ├── domain/betting.buildOrderOptions（经 ViewBet.getOrderOptions）
               ├── accountStore.getAccount / checkBetting / betting
               ├── autoBet/retryFailedLeg（一侧失败换平台）
@@ -108,18 +105,17 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
   ──► 10min 门控 fetchMatchDefaultOdds
 ```
 
-配置 `arbDetectEngine`：`a8`（默认，与 bundle 一致）| `kakaxi`（并列调度，扩展页「实验」解锁）。旧版 USERCONFIG 若仅有 `arbExecuteEngine`，加载时仍可读；保存只写 `arbDetectEngine`。
+套利调度与 A8 bundle 一致：`runArbBetRound` → `a8/runA8ArbRound` → `executeArbBet`。加载 USERCONFIG 时会剥离已废弃的 `arbDetectEngine` / `arbExecuteEngine` 字段。
 
-### 调度模式 vs `extensions/`（勿混淆）
+### 调度 vs `extensions/`（勿混淆）
 
 | 层级 | 目录 | 职责 |
 |------|------|------|
-| **调度** | `stores/betting/a8/`、`stores/betting/kakaxi/` | 并列的两种套利**调度系统**：决定跑哪些 bet、以何种顺序/队列调用 `executeArbBet` |
-| **执行** | `stores/betting/autoBet/` | A8 与 kakaxi **共用**的单场下注管线 |
-| **扩展能力** | `extensions/arbOpportunity`、`arbMarketWatch`、`arbBet`、`notify` | 检测输入、盯盘、UI、Telegram；可接入 kakaxi，**不是**调度模式本身 |
+| **调度** | `stores/betting/a8/` | 套利**调度**：决定跑哪些 bet、以何种顺序调用 `executeArbBet` |
+| **执行** | `stores/betting/autoBet/` | 单场下注管线 |
+| **扩展能力** | `extensions/arbOpportunity`、`arbMarketWatch`、`arbBet`、`notify` | 检测输入、盯盘、UI、Telegram；**不是**调度本身 |
 
-- `runArbBetRound` 按 `arbDetectEngine`（`types/arbDetectEngine.ts`）在 **a8 | kakaxi** 间分发；默认 `a8` 与 bundle 一致。
-- kakaxi 的 `detectFeed` 可消费 `extensions/arbOpportunity/detect`，属于调度层**使用**扩展能力，故 **kakaxi 留在 `stores/betting/kakaxi/`**，与 `a8/` 并列，不迁入 `extensions/`。
+- `extensions/arbOpportunity/detect` 供通知旁路与盯盘使用；自动下注仍走 A8 主循环全表遍历。
 
 手动双击：`bettingStore.manualBet` → `manualBet.ts`（同样走 `accountStore` + `successMarkers`）。
 
@@ -170,10 +166,8 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | 路径 | 用途 |
 |------|------|
 | `bettingStore.ts` | 手动下注、补单入口；主循环在 matchStore |
-| `runArbBetRound.ts` | 主循环单轮：按调度模式分发套利 + 补单 |
-| `types/arbDetectEngine.ts` | 解析 `arbDetectEngine` → `a8` \| `kakaxi` |
-| `a8/runA8ArbRound.ts` | [A8 可证实] **调度模式 a8**：全表串行 `executeArbBet` |
-| `kakaxi/` | [changmen 扩展] **调度模式 kakaxi**（与 `a8/` 并列）：detectFeed → queue → scheduler |
+| `runArbBetRound.ts` | 主循环单轮：a8 套利调度 + 补单 |
+| `a8/runA8ArbRound.ts` | [A8 可证实] **调度 a8**：全表串行 `executeArbBet` |
 | `autoBet/executeArbBet.ts` | 单场套利编排入口（两种调度共用） |
 | `autoBet/arbExecutionTrace.ts` | 套利进度 trace 类型与 `createArbExecutionTrace` |
 | `autoBet/arbProgressTrace.ts` | `beginArbExecutionTrace`（接 messageStore / notify） |
@@ -194,7 +188,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 | 路径 | 用途 |
 |------|------|
-| `extensions/arbOpportunity/` | 套利机会检测（`detect`）；kakaxi `detectFeed` 可消费 |
+| `extensions/arbOpportunity/` | 套利机会检测（`detect`）；通知旁路 / 盯盘 |
 | `extensions/arbMarketWatch/` | 非投注时全盘口 Telegram 盯盘 |
 | `extensions/arbBet/` | BetRow UI 增强 |
 | `extensions/notify/` | Telegram 格式化与配置；trace 正文见 `formatArbProgress.ts` |
@@ -304,8 +298,8 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | 来源 | 目标 | 原因 |
 |------|------|------|
 | `stores/message` | `extensions/notify`、`extensions/arbMarketWatch` | Telegram / 盯盘投递层 |
-| `stores/betting` | `extensions/arbOpportunity` | kakaxi `detectFeed` 检测输入；调度仍在 `kakaxi/` |
-| `extensions/arbOpportunity` | `stores/betting/kakaxi`、`stores/config` | `syncArbRuntime` 启停 kakaxi / 盯盘 |
+| `stores/betting` | `extensions/arbOpportunity` | 通知旁路检测输入 |
+| `extensions/arbOpportunity` | `stores/config` | `syncArbRuntime` 启停盯盘 |
 | `extensions/arbBet/ui` | `stores/match`、`stores/odds`、`stores/account` | BetRow Vue 组合式，读 store 状态 |
 | `extensions/notify` | `stores/betting/autoBet/*` | 仅 **类型/trace API** 与格式化，非调度 |
 
