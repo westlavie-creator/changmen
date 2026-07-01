@@ -581,11 +581,6 @@ async function linkPlatformToPlatform({
     },
   ], { eventStub });
 
-  await persistPlatformSideOverride(cmId, pmSource.platform, reversed, { allowPendingLink: true });
-  if (targetAlign.mode === "aligned" || targetAlign.mode === "reversed") {
-    await persistPlatformSideOverride(cmId, pmTarget.platform, targetReversed, { allowPendingLink: true });
-  }
-
   const cmRow = await db.fetchClientMatchRow(cmId, "id,matchs");
   store.patchCollectorMatchClientIds([{
     ID: cmId,
@@ -598,6 +593,12 @@ async function linkPlatformToPlatform({
 
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
+  await db.upsertClientMatchPlatformSlot(cmId, pmSource.platform, String(pmSource.source_match_id));
+  await db.upsertClientMatchPlatformSlot(cmId, pmTarget.platform, String(pmTarget.source_match_id));
+  await persistPlatformSideOverride(cmId, pmSource.platform, reversed, { allowPendingLink: true });
+  if (targetAlign.mode === "aligned" || targetAlign.mode === "reversed") {
+    await persistPlatformSideOverride(cmId, pmTarget.platform, targetReversed, { allowPendingLink: true });
+  }
   const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   return {
@@ -801,13 +802,23 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   const mapResults = await writeTeamMapsIdentityForPlatform(pm, gameCode);
 
   await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
+
+  const { Game, GameID } = resolveClientGame(plat, pm.source_game_id);
+  const eventStub = buildManualEventStub(cmId, {
+    title: cm.title || `${teams.home} vs ${teams.away}`,
+    game: Game || cm.game,
+    game_id: GameID || cm.game_id,
+    start_time: Number(cm.start_time) || Number(pm.start_time) || 0,
+    bo: Number(cm.bo) || Number(pm.bo) || 0,
+    matchs: { ...(cm.matchs || {}), [plat]: srcId },
+  });
+
   await persistManualPlatformBindings([{
     platform: plat,
     source_match_id: srcId,
     match_id: cmId,
     reversed,
-  }]);
-  await persistPlatformSideOverride(cmId, plat, reversed, { allowPendingLink: true });
+  }], { eventStub });
 
   store.patchCollectorMatchClientIds([{
     ID: cmId,
@@ -816,6 +827,8 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
 
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
+  await db.upsertClientMatchPlatformSlot(cmId, plat, srcId);
+  await persistPlatformSideOverride(cmId, plat, reversed, { allowPendingLink: true });
   const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   resolveClientGame(plat, pm.source_game_id);

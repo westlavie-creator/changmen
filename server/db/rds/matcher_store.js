@@ -176,6 +176,38 @@ export async function setClientMatchPlatformReverse(id, platform, reversed) {
   return { id: cmId, platform: plat, reversed: !!reversed, reverse: nextReverse };
 }
 
+/**
+ * 人工关联前立即写入 matchs 槽位（Event-first 下 binding 已写但物化滞后）。
+ */
+export async function upsertClientMatchPlatformSlot(clientMatchId, platform, sourceMatchId) {
+  const cmId = Number(clientMatchId);
+  const plat = String(platform || "").trim();
+  const sid = String(sourceMatchId || "").trim();
+  if (!Number.isFinite(cmId) || cmId <= 0)
+    throw new Error("无效的赛事 ID");
+  if (!plat || !sid)
+    throw new Error("参数不完整");
+
+  const cm = await fetchClientMatchRow(cmId, "id, matchs");
+  if (!cm)
+    throw new Error("赛事不存在");
+
+  const matchs = cm.matchs && typeof cm.matchs === "object" ? cm.matchs : {};
+  const existing = matchs[plat];
+  if (existing != null && existing !== "" && String(existing) !== sid) {
+    throw new Error(`赛事 ${cmId} 已有 ${plat} 槽位 ${existing}，与 ${sid} 冲突`);
+  }
+  if (String(existing) === sid)
+    return { id: cmId, platform: plat, source_match_id: sid, updated: false };
+
+  const next = { ...matchs, [plat]: sid };
+  await rdsQuery(
+    "UPDATE client_matches SET matchs = $2::jsonb WHERE id = $1",
+    [cmId, jsonb(next, {})],
+  );
+  return { id: cmId, platform: plat, source_match_id: sid, updated: true };
+}
+
 /** client_match_id → { platform → force_aligned | force_reversed } */
 export async function fetchClientMatchPlatformOverrides() {
   const { rows } = await rdsQuery(

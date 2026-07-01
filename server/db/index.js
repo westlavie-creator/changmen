@@ -243,6 +243,7 @@ export {
   setClientMatchPlatformReverse,
   fetchClientMatchPlatformOverrides,
   setClientMatchPlatformSideOverride,
+  upsertClientMatchPlatformSlot,
 } from "./rds/matcher_store.js";
 
 export {
