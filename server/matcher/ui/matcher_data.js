@@ -361,6 +361,7 @@ async function fetchMatcherDashboard() {
   });
   enriched.debug.registryDrift = summarizeRegistryDrift(registryDrift);
   enriched.registryDrift = registryDrift;
+  enriched.debug.registryMaterialize = String(process.env.MATCHER_REGISTRY_MATERIALIZE ?? "0").trim() === "1";
   return enriched;
 }
 

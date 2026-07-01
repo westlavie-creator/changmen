@@ -2,9 +2,11 @@ import * as db from "@changmen/db";
 import {
   applyManualMatchLinks,
   buildClientMatchList,
+  buildClientMatchListFromRegistry,
   buildPmSportByClientId,
   filterActiveClientMatches,
   filterMultiPlatformClientMatches,
+  isRegistryMaterializeEnabled,
   normalizeMatchesShape,
   resolveClientMatchIds,
   setTeamPlugin,
@@ -107,8 +109,31 @@ async function matchMergeOnceImpl() {
     ? await db.fetchClientMatchPlatformOverrides()
     : {};
 
-  let info = buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides });
-  if (String(process.env.MATCHER_OB_SPINE_MERGE ?? "0").trim() === "1") {
+  let info;
+  if (isRegistryMaterializeEnabled() && db.isMatcherStoreReady()) {
+    const bindings = await db.fetchAllEventBindings();
+    const eventIds = [...new Set(bindings.map(b => Number(b.event_id)).filter(Number.isFinite))];
+    const matchEventRows = await db.fetchMatchEventsByIds(eventIds);
+    const matchEventsById = new Map(matchEventRows.map(r => [Number(r.id), r]));
+    console.log(
+      `[matchMerge] 真相表物化 ${eventIds.length} 赛事 · ${bindings.length} 绑定`
+      + ` · fallback 平台场次 ${Object.values(matches).reduce((n, by) => n + Object.keys(by || {}).length, 0)}`,
+    );
+    info = buildClientMatchListFromRegistry({
+      bindings,
+      matchEventsById,
+      matches,
+      bets,
+      timers,
+      sourceFromBet,
+      platformSideOverrides,
+      existingClientRows: clientRows,
+    });
+  }
+  else {
+    info = buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides });
+  }
+  if (String(process.env.MATCHER_OB_SPINE_MERGE ?? "0").trim() === "1" && !isRegistryMaterializeEnabled()) {
     console.log("[matchMerge] OB 主轴合并已启用（MATCHER_OB_SPINE_MERGE=1）");
   }
 

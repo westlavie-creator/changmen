@@ -155,6 +155,7 @@ export {
   fetchEventRegistryStats,
   fetchLockedMatchEventTiers,
   fetchMatchEventRow,
+  fetchMatchEventsByIds,
   pruneOrphanEventBindings,
   reconcilePlatformMatchesFromRegistry,
   updateMatchEventPairingTier,

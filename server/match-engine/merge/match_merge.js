@@ -1432,6 +1432,122 @@ function isObSpineMergeEnabled() {
   return String(process.env.MATCHER_OB_SPINE_MERGE ?? "0").trim() === "1";
 }
 
+function isRegistryMaterializeEnabled() {
+  if (String(process.env.MATCHER_EVENT_REGISTRY ?? "1").trim() === "0")
+    return false;
+  return String(process.env.MATCHER_REGISTRY_MATERIALIZE ?? "0").trim() === "1";
+}
+
+function inferMergeBasisFromBindings(bindings) {
+  for (const b of bindings || []) {
+    const src = String(b.binding_source ?? b.BindingSource ?? "").toLowerCase();
+    if (src === "manual" || src === "auto_id" || src === "align")
+      return "id";
+  }
+  return "name";
+}
+
+/**
+ * 从 event_bindings 真相表组装 client 行；未绑定平台仍走启发式 merge（fallback）。
+ * MATCHER_REGISTRY_MATERIALIZE=1 时由 matchMerge 启用（默认关闭）。
+ */
+function buildClientMatchListFromRegistry({
+  bindings,
+  matchEventsById,
+  matches,
+  bets,
+  timers,
+  sourceFromBet,
+  platformSideOverrides,
+  existingClientRows,
+}) {
+  const normalized = normalizeMatchesShape(matches);
+  const boundKeys = new Set(
+    (bindings || []).map(b => `${String(b.platform)}:${String(b.source_match_id)}`),
+  );
+
+  const byEvent = new Map();
+  for (const b of bindings || []) {
+    const eid = Number(b.event_id);
+    if (!Number.isFinite(eid))
+      continue;
+    if (!byEvent.has(eid))
+      byEvent.set(eid, []);
+    byEvent.get(eid).push(b);
+  }
+
+  const allEntries = collectMergeEntries(normalized, bets, timers, sourceFromBet);
+  const entriesByKey = new Map(allEntries.map(e => [e.rowKey, e]));
+
+  const registryRows = [];
+  for (const [eventId, eventBindings] of byEvent) {
+    const group = [];
+    for (const binding of eventBindings) {
+      const plat = String(binding.platform);
+      const sid = String(binding.source_match_id);
+      const rowKey = `${plat}:${sid}`;
+      const entry = entriesByKey.get(rowKey);
+      if (!entry)
+        continue;
+      const sideMode = String(binding.binding_side_mode ?? binding.BindingSideMode ?? "aligned").toLowerCase();
+      group.push({
+        row: entry.row,
+        reversed: sideMode === "reversed",
+        rowKey,
+      });
+    }
+
+    if (group.length < MIN_CLIENT_MATCH_PLATFORMS)
+      continue;
+
+    const ev = matchEventsById instanceof Map
+      ? matchEventsById.get(eventId)
+      : matchEventsById?.[eventId];
+    const anchor = ev?.event_anchor;
+    const mergeKey = anchor
+      ? `registry:${String(anchor)}`
+      : `registry:event:${eventId}`;
+
+    const out = mergeGroupWithKey(group, mergeKey);
+    out.MergeBasis = inferMergeBasisFromBindings(eventBindings);
+    out.ID = eventId;
+    const homeGb = parseLockedGbTeamId(ev?.home_gb_team_id);
+    const awayGb = parseLockedGbTeamId(ev?.away_gb_team_id);
+    if (homeGb)
+      out.HomeGbTeamId = homeGb;
+    if (awayGb)
+      out.AwayGbTeamId = awayGb;
+    delete out._provider;
+    registryRows.push(out);
+  }
+
+  const leftoverKeys = new Set();
+  for (const entry of allEntries) {
+    if (!boundKeys.has(entry.rowKey))
+      leftoverKeys.add(entry.rowKey);
+  }
+
+  let fallbackRows = [];
+  if (leftoverKeys.size) {
+    const leftoverMatches = filterMatchesByRowKeys(normalized, leftoverKeys);
+    fallbackRows = isObSpineMergeEnabled()
+      ? buildMatchListObSpine(leftoverMatches, bets, timers, sourceFromBet)
+      : buildMatchListMerged(leftoverMatches, bets, timers, sourceFromBet);
+  }
+
+  const combined = [...registryRows, ...fallbackRows];
+  finalizeClientMatchListAfterLinks(
+    combined,
+    normalized,
+    bets,
+    timers,
+    sourceFromBet,
+    existingClientRows,
+    platformSideOverrides,
+  );
+  return filterMultiPlatformClientMatches(combined);
+}
+
 // ── 主入口 ────────────────────────────────────────────────────────────────────
 
 function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
@@ -1555,6 +1671,7 @@ export {
   betMapNumber,
   buildAccumulateRow,
   buildClientMatchList,
+  buildClientMatchListFromRegistry,
   buildMatchListAccumulate,
   buildMatchListMerged,
   buildMatchListObSpine,
@@ -1566,6 +1683,7 @@ export {
   collectManualLinks,
   ensureMapZeroForLiveRound,
   filterMultiPlatformClientMatches,
+  isRegistryMaterializeEnabled,
   liveRound,
   MERGE_MODE,
   MIN_CLIENT_MATCH_PLATFORMS,

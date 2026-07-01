@@ -299,6 +299,26 @@ export async function fetchEventBindingRow(platform, sourceMatchId) {
   return rows[0] || null;
 }
 
+export async function fetchMatchEventsByIds(eventIds) {
+  const ids = [...new Set((eventIds || []).map(id => Number(id)).filter(Number.isFinite))];
+  if (!ids.length)
+    return [];
+
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+
+  const { rows } = await pool.query(
+    `SELECT id, title, game, game_id, start_time, bo,
+            pairing_tier, pairing_confidence, event_anchor, pairing_tier_locked,
+            home_gb_team_id, away_gb_team_id, built_at, updated_at
+     FROM match_events
+     WHERE id = ANY($1::bigint[])`,
+    [ids],
+  );
+  return rows;
+}
+
 export async function fetchMatchEventRow(eventId) {
   const id = Number(eventId);
   if (!Number.isFinite(id))
