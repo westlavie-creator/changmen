@@ -8,13 +8,11 @@ import {
   fetchEventBindingRow,
   fetchMatchEventRow,
   upsertEventBindings,
-  upsertMatchEvents,
 } from "@changmen/db";
 import { BINDING_SOURCE } from "./pairing_metadata.js";
 import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 import { runManualRegistryReconcile } from "./run_registry_reconcile.js";
-import { isEventRegistryEnabled } from "./sync_event_registry.js";
-import { buildEventRowsFromMergeRows } from "./sync_event_registry.js";
+import { isEventRegistryEnabled, ensureMatchEventRecord } from "./sync_event_registry.js";
 
 function assertRegistryEnabled() {
   if (!isEventRegistryEnabled())
@@ -80,35 +78,6 @@ function assessEventBindingPreview({
     current_binding: currentBinding || null,
     platform_match_id: pmMatchId,
   };
-}
-
-async function ensureMatchEventRecord(eventId) {
-  const existing = await fetchMatchEventRow(eventId);
-  if (existing)
-    return existing;
-
-  const cm = await db.fetchClientMatchRow(eventId, "id,title,game,game_id,start_time,bo,pairing_tier,pairing_confidence,event_anchor,home_gb_team_id,away_gb_team_id,built_at");
-  if (!cm)
-    throw new Error(`赛事实体 #${eventId} 不存在`);
-
-  const stub = buildEventRowsFromMergeRows([{
-    ID: cm.id,
-    Title: cm.title,
-    Game: cm.game,
-    GameID: cm.game_id,
-    StartTime: cm.start_time,
-    BO: cm.bo,
-    PairingTier: cm.pairing_tier,
-    PairingConfidence: cm.pairing_confidence,
-    EventAnchor: cm.event_anchor,
-    HomeGbTeamId: cm.home_gb_team_id,
-    AwayGbTeamId: cm.away_gb_team_id,
-  }], cm.built_at || Date.now());
-
-  if (stub.length)
-    await upsertMatchEvents(stub);
-
-  return fetchMatchEventRow(eventId);
 }
 
 async function previewEventBinding({ platform, sourceMatchId, eventId }) {

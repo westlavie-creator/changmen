@@ -8,7 +8,7 @@ import {
   BINDING_SOURCE,
   bindingSideModeForPlatform,
 } from "./pairing_metadata.js";
-import { isEventRegistryEnabled } from "./sync_event_registry.js";
+import { isEventRegistryEnabled, ensureMatchEventRecord } from "./sync_event_registry.js";
 
 function bindingSideModeFromReversed(reversed) {
   if (reversed === true)
@@ -24,8 +24,9 @@ function bindingSideModeFromReversed(reversed) {
  *   reversed?: boolean,
  *   binding_side_mode?: string,
  * }>} entries
+ * @param {{ eventStub?: object }} [opts]
  */
-async function persistManualPlatformBindings(entries) {
+async function persistManualPlatformBindings(entries, opts = {}) {
   const now = Date.now();
   const bindings = (entries || [])
     .filter(e => e?.platform && e?.source_match_id && Number.isFinite(Number(e.match_id)))
@@ -45,6 +46,10 @@ async function persistManualPlatformBindings(entries) {
   const platformWrite = await upsertPlatformBindings(bindings);
 
   if (isEventRegistryEnabled()) {
+    const eventIds = [...new Set(bindings.map(b => b.match_id))];
+    for (const eventId of eventIds) {
+      await ensureMatchEventRecord(eventId, opts.eventStub);
+    }
     await upsertEventBindings(bindings.map(b => ({
       platform: b.platform,
       source_match_id: b.source_match_id,

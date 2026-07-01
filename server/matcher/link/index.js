@@ -14,6 +14,7 @@ import { formatPbTeamPlatformId, resolvePlatformTeamId } from "@changmen/shared/
 import store from "../../backend/core/esport-api/store.js";
 import { ensureTeamPlugin, invalidateTeamPlugin, matchMergeOnce } from "../ops/match_merge_once.js";
 import { persistManualPlatformBindings } from "../ops/manual_binding.js";
+import { buildManualEventStub } from "../ops/sync_event_registry.js";
 import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { resetMatcherUiTeamPlugin } from "../ui/merge_mode.js";
 import "../lib/env.js";
@@ -552,6 +553,19 @@ async function linkPlatformToPlatform({
     await db.setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
   }
 
+  const { Game, GameID } = resolveClientGame(pmSource.platform, pmSource.source_game_id);
+  const eventStub = buildManualEventStub(cmId, {
+    title: refTeamsPick.title,
+    game: Game,
+    game_id: GameID,
+    start_time: Number(pmSource.start_time) || Number(pmTarget.start_time) || 0,
+    bo: Number(pmSource.bo) || Number(pmTarget.bo) || 0,
+    matchs: {
+      [pmSource.platform]: String(pmSource.source_match_id),
+      [pmTarget.platform]: String(pmTarget.source_match_id),
+    },
+  });
+
   await persistManualPlatformBindings([
     {
       platform: pmSource.platform,
@@ -565,7 +579,7 @@ async function linkPlatformToPlatform({
       match_id: cmId,
       reversed: targetReversed,
     },
-  ]);
+  ], { eventStub });
 
   await persistPlatformSideOverride(cmId, pmSource.platform, reversed);
   if (targetAlign.mode === "aligned" || targetAlign.mode === "reversed") {

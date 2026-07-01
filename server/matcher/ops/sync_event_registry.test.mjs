@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { buildEventRowsFromMergeRows } from "./sync_event_registry.js";
+import { buildEventRowsFromMergeRows, buildManualEventStub } from "./sync_event_registry.js";
 
 describe("sync_event_registry", () => {
   it("buildEventRowsFromMergeRows maps pairing fields", () => {
@@ -24,5 +24,19 @@ describe("sync_event_registry", () => {
     assert.equal(rows[0].event_anchor, "OB:99");
     assert.equal(rows[0].built_at, 9_999);
     assert.equal(rows[0].home_gb_team_id, 100);
+  });
+
+  it("buildManualEventStub prefers OB anchor and verified tier", () => {
+    const stub = buildManualEventStub(99, {
+      title: "A vs B",
+      game: "LOL",
+      game_id: "1",
+      start_time: 1_700_000_000_000,
+      bo: 3,
+      matchs: { RAY: "r1", OB: "o1" },
+    });
+    assert.equal(stub.ID, 99);
+    assert.equal(stub.EventAnchor, "OB:o1");
+    assert.equal(stub.PairingTier, "verified");
   });
 });
