@@ -70,6 +70,12 @@ export async function startMatcherLoop(opts = {}) {
   loopMode = mode;
   loopRunning = true;
   await ensureTeamPlugin();
+  writeMatcherHeartbeat({
+    matchCount: null,
+    intervalMs: INTERVAL_MS,
+    builtAt: null,
+    mode,
+  });
   console.log(
     `[matcher] starting (${mode}), interval=${INTERVAL_MS / 1000}s, client_matches archive every ${ARCHIVE_INTERVAL_MS / 1000}s`,
   );

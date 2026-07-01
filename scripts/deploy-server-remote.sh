@@ -256,13 +256,15 @@ if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "post-deploy check passed"
   if [ "$MATCHER_EMBEDDED" = "1" ]; then
     log "wait embedded matcher heartbeat"
-    for i in $(seq 1 30); do
+    for i in $(seq 1 45); do
       if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'embedded' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
         log "embedded matcher heartbeat ok"
         break
       fi
-      if [ "$i" = "30" ]; then
+      if [ "$i" = "45" ]; then
         echo "ERROR: embedded matcher heartbeat not ready"
+        node --input-type=module -e "import { readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; console.error('heartbeat:', JSON.stringify(readMatcherHeartbeat()));" || true
+        pm2 logs "$PM2_WEB" --lines 40 --nostream 2>/dev/null || true
         exit 1
       fi
       sleep 3
