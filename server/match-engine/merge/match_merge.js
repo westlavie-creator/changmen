@@ -969,7 +969,7 @@ function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
     row.Bets = row.Bets || [];
     const existing = row.Bets.find(b => betMapNumber(b) === 0);
     if (existing) {
-      existing.Sources = fullBet.Sources || {};
+      existing.Sources = { ...(existing.Sources || {}), ...(fullBet.Sources || {}) };
     }
     else {
       row.Bets.push(fullBet);
