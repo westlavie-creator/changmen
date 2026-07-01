@@ -13,7 +13,7 @@ const DEFAULT_CLIENT_MATCH_ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
 /** @type {const} */
 const DEFAULT_BEHAVIOR = {
   /** 是否将 provisional（队名合并）场次写入 client_matches */
-  publishProvisional: true,
+  publishProvisional: false,
   /** true 时仅发布 verified 场次 */
   publishTierVerifiedOnly: false,
   /** 未匹配平台按 client_matches.matchs.OB 槽位对齐 */
@@ -24,8 +24,8 @@ const DEFAULT_BEHAVIOR = {
   eventRegistry: true,
   /** 每轮 event_bindings → platform_matches 回写 */
   registryReconcile: true,
-  /** client_matches 从真相表组装（灰度，默认关） */
-  registryMaterialize: false,
+  /** client_matches 从真相表组装（Event-first 主路径） */
+  registryMaterialize: true,
 };
 
 let behavior = { ...DEFAULT_BEHAVIOR };

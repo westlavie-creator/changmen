@@ -5,11 +5,13 @@
 
 import {
   deleteMatchEvents,
+  fetchAllEventBindings,
   upsertEventBindings,
   upsertMatchEvents,
 } from "@changmen/db";
-import { isEventRegistryEnabled } from "../lib/config.js";
+import { isEventRegistryEnabled, isRegistryMaterializeEnabled } from "../lib/config.js";
 import { collectBindingsForRows } from "./pairing_metadata.js";
+import { ingestNewBindingsFromPublishedRows } from "./auto_bind_events.js";
 
 function gbTeamIdFromRow(row) {
   const raw = row.HomeGbTeamId ?? row.home_gb_team_id;
@@ -56,16 +58,26 @@ async function syncEventRegistryForMatchMerge(opts = {}) {
   const eventRows = buildEventRowsFromMergeRows(rows, builtAt);
   const events = await upsertMatchEvents(eventRows);
 
-  const bindings = collectBindingsForRows(rows, matches).map(b => ({
-    platform: b.platform,
-    source_match_id: b.source_match_id,
-    event_id: Number(b.match_id),
-    binding_confidence: b.binding_confidence,
-    binding_source: b.binding_source,
-    binding_side_mode: b.binding_side_mode,
-    bound_at: b.bound_at,
-  }));
-  const bindingWrite = await upsertEventBindings(bindings);
+  let bindingWrite = { updated: 0 };
+  if (!isRegistryMaterializeEnabled()) {
+    const bindings = collectBindingsForRows(rows, matches).map(b => ({
+      platform: b.platform,
+      source_match_id: b.source_match_id,
+      event_id: Number(b.match_id),
+      binding_confidence: b.binding_confidence,
+      binding_source: b.binding_source,
+      binding_side_mode: b.binding_side_mode,
+      bound_at: b.bound_at,
+    }));
+    bindingWrite = await upsertEventBindings(bindings);
+  }
+  else {
+    bindingWrite = await ingestNewBindingsFromPublishedRows({
+      publishedRows: rows,
+      matches,
+      existingBindings: await fetchAllEventBindings(),
+    });
+  }
 
   let deleted = 0;
   if (deletedEventIds?.length) {

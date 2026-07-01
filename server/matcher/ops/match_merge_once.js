@@ -35,6 +35,7 @@ import {
 } from "./pairing_metadata.js";
 import { syncEventRegistryForMatchMerge } from "./sync_event_registry.js";
 import { reconcileEventRegistryAfterMerge } from "./registry_reconcile.js";
+import { prepareRegistryBeforeMaterialize } from "./auto_bind_events.js";
 import "../lib/env.js";
 
 /**
@@ -113,15 +114,37 @@ async function matchMergeOnceImpl() {
     ? await db.fetchClientMatchPlatformOverrides()
     : {};
 
+  if (!db.isMatcherStoreReady()) {
+    const { script } = db.getDbMode();
+    throw new Error(
+      `无法 matchMerge：数据库未配置（GAMEBET_DB_SCRIPT=${script}）。`
+      + " 请配置 DATABASE_URL（或 DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL）。",
+    );
+  }
+  const adapter = db.getClientMatchIdAdapter();
+
+  let registryPrep = null;
+  if (isRegistryMaterializeEnabled()) {
+    registryPrep = await prepareRegistryBeforeMaterialize({ matches, adapter });
+    if (registryPrep.autoBind.bindingsWritten > 0)
+      invalidateMatcherRdsSnapshot(["platformMatches"]);
+    const ab = registryPrep.autoBind;
+    if (ab.obSeeded || ab.attachedById || ab.attachedByName) {
+      console.log(
+        `[matchMerge] event auto-bind ob=${ab.obSeeded} id=${ab.attachedById} name=${ab.attachedByName}`
+        + ` · bindings+${ab.bindingsWritten ?? 0}`,
+      );
+    }
+  }
+
   let info;
-  if (isRegistryMaterializeEnabled() && db.isMatcherStoreReady()) {
+  if (isRegistryMaterializeEnabled()) {
     const bindings = await db.fetchAllEventBindings();
     const eventIds = [...new Set(bindings.map(b => Number(b.event_id)).filter(Number.isFinite))];
     const matchEventRows = await db.fetchMatchEventsByIds(eventIds);
     const matchEventsById = new Map(matchEventRows.map(r => [Number(r.id), r]));
     console.log(
-      `[matchMerge] 真相表物化 ${eventIds.length} 赛事 · ${bindings.length} 绑定`
-      + ` · fallback 平台场次 ${Object.values(matches).reduce((n, by) => n + Object.keys(by || {}).length, 0)}`,
+      `[matchMerge] Event-first 物化 ${eventIds.length} 赛事 · ${bindings.length} 绑定`,
     );
     info = buildClientMatchListFromRegistry({
       bindings,
@@ -141,14 +164,6 @@ async function matchMergeOnceImpl() {
     console.log("[matchMerge] OB 主轴合并已启用（config.obSpineMerge）");
   }
 
-  if (!db.isMatcherStoreReady()) {
-    const { script } = db.getDbMode();
-    throw new Error(
-      `无法 matchMerge：数据库未配置（GAMEBET_DB_SCRIPT=${script}）。`
-      + " 请配置 DATABASE_URL（或 DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL）。",
-    );
-  }
-  const adapter = db.getClientMatchIdAdapter();
   info = await resolveClientMatchIds(adapter, info, { matches, existingIdKeyIndex });
   info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows, platformSideOverrides);
   info = filterMultiPlatformClientMatches(info);
@@ -260,6 +275,7 @@ async function matchMergeOnceImpl() {
     bindingSync,
     eventRegistry,
     registryReconcile,
+    registryPrep,
     teamReg,
     nameSync,
     alignStats,

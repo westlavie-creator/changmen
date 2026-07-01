@@ -1443,7 +1443,7 @@ function inferMergeBasisFromBindings(bindings) {
 
 /**
  * 从 event_bindings 真相表组装 client 行；未绑定平台仍走启发式 merge（fallback）。
- * 由 matcher/lib/config.js registryMaterialize 控制（默认关闭）。
+ * 由 matcher/lib/config.js registryMaterialize 控制（Event-first 默认开启）。
  */
 function buildClientMatchListFromRegistry({
   bindings,

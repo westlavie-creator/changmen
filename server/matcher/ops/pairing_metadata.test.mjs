@@ -73,7 +73,7 @@ describe("pairing_metadata", () => {
     );
   });
 
-  it("publishes provisional by default", () => {
+  it("default publish filter excludes provisional name merge", () => {
     const matches = {};
     const rows = [{
       ID: 1,
@@ -81,6 +81,15 @@ describe("pairing_metadata", () => {
       MergeBasis: "name",
     }];
     const { published } = applyPairingMetadata(rows, matches);
+    assert.equal(published.length, 0);
+  });
+
+  it("publishProvisional=true includes provisional rows", () => {
+    setMatcherBehaviorForTest({ publishProvisional: true });
+    const { published } = applyPairingMetadata(
+      [{ ID: 1, Matchs: { OB: "a", RAY: "b" }, MergeBasis: "name" }],
+      {},
+    );
     assert.equal(published.length, 1);
     assert.equal(published[0].PairingTier, PAIRING_TIER.PROVISIONAL);
   });
