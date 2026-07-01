@@ -17,7 +17,9 @@ interface ArbRoundCtx {
 const runArbBetRound = vi.fn(async (_ctx: ArbRoundCtx) => {});
 const fetchMatchDefaultOdds = vi.fn(async () => {});
 const refreshOddsOnBets = vi.fn();
-const fetchMatches = vi.fn(async () => {});
+const fetchMatches = vi.fn(async () => true);
+const oddsStoreClean = vi.fn();
+const removeOrders = vi.fn();
 
 const matchStoreState = {
   lastFetchAt: Date.now(),
@@ -45,13 +47,13 @@ vi.mock("@/stores/matchStore", () => ({
 }));
 
 vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => ({ clean: vi.fn() }),
+  useOddsStore: () => ({ clean: oddsStoreClean }),
 }));
 
 vi.mock("@/stores/loseOrderStore", () => ({
   useLoseOrderStore: () => ({
     ensureOrdersMap: vi.fn(),
-    removeOrders: vi.fn(),
+    removeOrders,
   }),
 }));
 
@@ -127,5 +129,39 @@ describe("runMainBetLoopTick", () => {
     await runMainBetLoopTick({ lastLoseOrderPruneAt: 0 });
 
     expect(fetchMatchDefaultOdds).toHaveBeenCalledOnce();
+  });
+
+  it("aborts tick when 30s poll fetch fails (A8 if(!Z)return)", async () => {
+    matchStoreState.lastFetchAt = 0;
+    fetchMatches.mockResolvedValueOnce(false);
+
+    await runMainBetLoopTick({ lastLoseOrderPruneAt: 0 });
+
+    expect(oddsStoreClean).not.toHaveBeenCalled();
+    expect(removeOrders).not.toHaveBeenCalled();
+    expect(runArbBetRound).not.toHaveBeenCalled();
+    expect(fetchMatchDefaultOdds).not.toHaveBeenCalled();
+  });
+
+  it("prunes lose orders only after successful poll fetch (A8 D-b>6e4)", async () => {
+    matchStoreState.lastFetchAt = 0;
+    matchStoreState.matchs = [{ bets: [{ id: 11 }, { id: 12 }] }];
+    fetchMatches.mockResolvedValueOnce(true);
+
+    await runMainBetLoopTick({ lastLoseOrderPruneAt: 0 });
+
+    expect(oddsStoreClean).toHaveBeenCalledOnce();
+    expect(removeOrders).toHaveBeenCalledWith([11, 12]);
+    expect(runArbBetRound).toHaveBeenCalledOnce();
+  });
+
+  it("skips prune when 60s gate not elapsed", async () => {
+    matchStoreState.lastFetchAt = 0;
+    matchStoreState.matchs = [{ bets: [{ id: 11 }] }];
+    fetchMatches.mockResolvedValueOnce(true);
+
+    await runMainBetLoopTick({ lastLoseOrderPruneAt: Date.now() });
+
+    expect(removeOrders).not.toHaveBeenCalled();
   });
 });

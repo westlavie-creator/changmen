@@ -183,13 +183,14 @@ export const useMatchStore = defineStore("match", {
       }
     },
 
-    async fetchMatches(force = false) {
+    /** @returns 是否成功拉取并写入 matchs（A8 `GetMatchs` Truthy）；失败/跳过为 false */
+    async fetchMatches(force = false): Promise<boolean> {
       const user = useUserStore();
       if (!user.isLoggedIn)
-        return;
+        return false;
       const now = Date.now();
       if (!force && now - this.lastFetchAt < POLL_MS)
-        return;
+        return false;
 
       this.loading = true;
       this.error = null;
@@ -202,9 +203,11 @@ export const useMatchStore = defineStore("match", {
         if (Date.now() - this.defaultOddsFetchedAt > DEFAULT_ODDS_MS) {
           await this.fetchMatchDefaultOdds();
         }
+        return true;
       }
       catch (e) {
         this.error = e instanceof Error ? e.message : String(e);
+        return false;
       }
       finally {
         this.loading = false;

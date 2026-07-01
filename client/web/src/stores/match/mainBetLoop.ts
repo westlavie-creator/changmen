@@ -35,7 +35,11 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
   const now = Date.now();
 
   if (now - matchStore.lastFetchAt >= MATCH_POLL_MS) {
-    await matchStore.fetchMatches(true);
+    const fetched = await matchStore.fetchMatches(true);
+    // [A8 可证实] GetMatchs 失败：整轮 P() 早退（不 clean、不 prune、不套利/补单/初赔）
+    if (!fetched)
+      return;
+
     oddsStore.clean();
     if (now - state.lastLoseOrderPruneAt >= LOSE_ORDER_PRUNE_MS) {
       loseStore.ensureOrdersMap();
