@@ -71,9 +71,12 @@ export async function loadAndCreatePlugin() {
   }
 
   const nameOnlyMap = new Map();
+  const gbTeamIdByGameName = new Map();
+  const gbTeamGameMap = new Map();
   for (const team of allTeams) {
     if (team.gb_team_id == null) continue;
     const g = team.game;
+    gbTeamGameMap.set(String(team.gb_team_id), g);
     const displayName = resolveCanonicalTeamName(
       obNameByGbId.get(String(team.gb_team_id)),
       team.name,
@@ -82,6 +85,7 @@ export async function loadAndCreatePlugin() {
     const nameKey = _norm(displayName);
     if (nameKey) {
       nameMap.set(`${g}:${nameKey}`, String(team.id));
+      gbTeamIdByGameName.set(`${g}:${nameKey}`, String(team.gb_team_id));
       if (!nameOnlyMap.has(nameKey)) nameOnlyMap.set(nameKey, String(team.gb_team_id));
     }
   }
@@ -128,5 +132,25 @@ export async function loadAndCreatePlugin() {
     return nameOnlyMap.get(normalizedName) || null;
   }
 
-  return { lookupByName, lookupById, lookupCanonicalName, lookupGbTeamIdByNormalizedName, saveMapping };
+  function lookupGbTeamIdByNormalizedNameForGame(gameCode, normalizedName) {
+    if (!gameCode || !normalizedName)
+      return null;
+    return gbTeamIdByGameName.get(`${gameCode}:${normalizedName}`) || null;
+  }
+
+  function lookupGameForGbTeamId(gbTeamId) {
+    if (gbTeamId == null || gbTeamId === "")
+      return null;
+    return gbTeamGameMap.get(String(gbTeamId)) || null;
+  }
+
+  return {
+    lookupByName,
+    lookupById,
+    lookupCanonicalName,
+    lookupGbTeamIdByNormalizedName,
+    lookupGbTeamIdByNormalizedNameForGame,
+    lookupGameForGbTeamId,
+    saveMapping,
+  };
 }
