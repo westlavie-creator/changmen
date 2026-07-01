@@ -39,6 +39,38 @@ describe("useLoseOrderStore A8 publish parity", () => {
     );
   });
 
+  it("restores orders from sessionStorage on store create (A8 IIFE)", () => {
+    const stored = JSON.stringify([
+      {
+        accountId: 0,
+        matchId: 1,
+        betId: 99,
+        target: "Home",
+        betMoney: 50,
+        betOdds: 1.8,
+        match: "A vs B",
+        bet: "map1",
+        linkId: 0,
+        createAt: 1,
+        isCreateOrder: false,
+        betCount: 1,
+      },
+    ]);
+    vi.stubGlobal(
+      "sessionStorage",
+      {
+        getItem: vi.fn(() => stored),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+      },
+    );
+    setActivePinia(createPinia());
+    const store = useLoseOrderStore();
+    expect(store.orders.size).toBe(1);
+    expect(store.orders.get(99)?.betMoney).toBe(50);
+  });
+
   it("publishes only for manual isCreateOrder create", () => {
     const store = useLoseOrderStore();
     store.createOrder(

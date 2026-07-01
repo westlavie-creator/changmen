@@ -1,7 +1,7 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { polymarketProvider } from "./bet";
+import { isPolymarketFokBuyFilled, polymarketProvider } from "./bet";
 import { POLYMARKET_BUILDER_CODE_DEFAULT } from "./builder";
 import { POLYMARKET_CLOB_API } from "./api";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
@@ -475,6 +475,103 @@ describe("polymarketProvider.betting", () => {
     expect(result.message).toContain("最小下单份数：12");
     expect(result.message).toContain("当前盘口至少约 9.36 USDC");
     expect(polymarketPluginPost).not.toHaveBeenCalled();
+  });
+
+  test("fails when API success but status is not matched", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+      success: true,
+      orderID: "order-unmatched",
+      status: "unmatched",
+      takingAmount: "",
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: { apiKey: "key-1", secret: "c2VjcmV0", passphrase: "pass-1" },
+    }));
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("status: unmatched");
+    expect(result.message).toContain("未成交");
+  });
+
+  test("fails when matched but takingAmount is zero", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+      success: true,
+      orderID: "order-empty",
+      status: "matched",
+      takingAmount: "0",
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: { apiKey: "key-1", secret: "c2VjcmV0", passphrase: "pass-1" },
+    }));
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("takingAmount: 0");
+  });
+});
+
+describe("isPolymarketFokBuyFilled", () => {
+  test("requires success, matched status, and positive takingAmount", () => {
+    expect(isPolymarketFokBuyFilled({
+      success: true,
+      status: "matched",
+      takingAmount: "2000000",
+    })).toBe(true);
+    expect(isPolymarketFokBuyFilled({
+      success: true,
+      status: "MATCHED",
+      takingAmount: "1.5",
+    })).toBe(true);
+    expect(isPolymarketFokBuyFilled({
+      success: true,
+      status: "delayed",
+      takingAmount: "100",
+    })).toBe(false);
+    expect(isPolymarketFokBuyFilled({
+      success: false,
+      status: "matched",
+      takingAmount: "100",
+    })).toBe(false);
+    expect(isPolymarketFokBuyFilled({
+      success: true,
+      status: "matched",
+      takingAmount: "",
+    })).toBe(false);
   });
 });
 

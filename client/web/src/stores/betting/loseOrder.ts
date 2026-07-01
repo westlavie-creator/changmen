@@ -81,7 +81,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       // [A8 可证实] isCreateOrder：出队 + markSuccessfulBet；无拒单复检、无 LoseOrderMessage
       if (order.isCreateOrder) {
         removeIds.add(betId);
-        markSuccessfulBet(account, bet.id, order.target, checked.odds);
+        markSuccessfulBet(account, bet.id, order.target);
         continue;
       }
 
@@ -120,7 +120,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         removeIds.add(betId);
       }
 
-      markSuccessfulBet(account, bet.id, order.target, checked.odds);
+      markSuccessfulBet(account, bet.id, order.target);
     }
   }
 

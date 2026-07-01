@@ -1,5 +1,6 @@
 import * as db from "@changmen/db";
 import {
+  anchorGbValidForGame,
   ensureClientMatchId,
   isPlaceholderTeamName,
   lookupCanonicalTeamName,
@@ -100,9 +101,45 @@ function buildPlatformRowsForClientTeams(cm, pm, platformsById) {
   return rows;
 }
 
-/** 与 reconcile 用同一 Title 基准；DB title 仅作兜底 */
+function resolveGameCodeForClient(cm, pm) {
+  if (pm?.platform != null) {
+    const gc = gameCodeForPlatform(pm.platform, pm.source_game_id);
+    if (gc)
+      return gc;
+  }
+  const gid = String(cm?.game_id || "").trim();
+  const a8Map = { 1: "lol", 2: "dota2", 3: "cs2", 4: "kog", 8: "valorant" };
+  const fromId = a8Map[gid] || a8Map[Number(gid)];
+  if (fromId)
+    return fromId;
+  const parsed = String(cm?.game || "").match(/\(([^)]+)\)\s*$/);
+  return parsed ? parsed[1].toLowerCase() : null;
+}
+
+/** 与 reconcile 同源：锁定 gb → Title；不用高优先级平台的原始主客槽位 */
+function teamsFromLockedGbOrTitle(cm, gameCode) {
+  const homeGb = parseGbTeamId(cm.home_gb_team_id);
+  const awayGb = parseGbTeamId(cm.away_gb_team_id);
+  if (homeGb != null && awayGb != null
+    && anchorGbValidForGame(homeGb, gameCode)
+    && anchorGbValidForGame(awayGb, gameCode)) {
+    const home = String(lookupCanonicalTeamName(homeGb) || "").trim();
+    const away = String(lookupCanonicalTeamName(awayGb) || "").trim();
+    if (!isPlaceholderTeamName(home) && !isPlaceholderTeamName(away)) {
+      return { home, away };
+    }
+  }
+  return parseTitleTeams(cm.title);
+}
+
+/** 与 reconcile 用同一 canonical 基准；平台行仅作无锁/无 Title 时兜底 */
 async function resolveClientTeams(cm, pm, platformsById) {
   await ensureTeamPlugin();
+
+  const gameCode = resolveGameCodeForClient(cm, pm);
+  const fromLockedOrTitle = teamsFromLockedGbOrTitle(cm, gameCode);
+  if (fromLockedOrTitle)
+    return fromLockedOrTitle;
 
   const rows = buildPlatformRowsForClientTeams(cm, pm, platformsById);
   if (rows.length) {
@@ -114,10 +151,6 @@ async function resolveClientTeams(cm, pm, platformsById) {
       return { home: String(picked.home).trim(), away: String(picked.away).trim() };
     }
   }
-
-  const fromTitle = parseTitleTeams(cm.title);
-  if (fromTitle)
-    return fromTitle;
 
   const bets = Array.isArray(cm.bets) ? cm.bets : [];
   if (bets.length) {
@@ -663,7 +696,7 @@ async function previewLinkAlignment({ platform, sourceMatchId, clientMatchId }) 
 
   const pm = await fetchPlatformMatchRow(plat, srcId);
 
-  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
+  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets,home_gb_team_id,away_gb_team_id");
   if (!cm)
     throw new Error("目标已匹配赛事不存在");
 
@@ -704,7 +737,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
 
   const pm = await fetchPlatformMatchRow(plat, srcId);
 
-  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
+  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets,home_gb_team_id,away_gb_team_id");
   if (!cm)
     throw new Error("目标已匹配赛事不存在");
 
@@ -718,16 +751,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   if (!teams)
     throw new Error("无法解析目标赛事的主客队");
 
-  let gameCode = gameCodeForPlatform(plat, pm.source_game_id);
-  if (!gameCode) {
-    const gid = String(cm.game_id || "").trim();
-    const a8Map = { 1: "lol", 2: "dota2", 3: "cs2", 4: "kog", 8: "valorant" };
-    gameCode = a8Map[gid] || a8Map[Number(gid)] || null;
-  }
-  if (!gameCode) {
-    const parsed = String(cm.game || "").match(/\(([^)]+)\)\s*$/);
-    gameCode = parsed ? parsed[1].toLowerCase() : "unknown";
-  }
+  const gameCode = resolveGameCodeForClient(cm, pm) || "unknown";
 
   const alignment = analyzeSideAlignment(pm.home, pm.away, teams.home, teams.away);
   let reversed;
@@ -1064,4 +1088,5 @@ export {
   previewLinkPlatformTeams,
   registerTeamPlatformMap,
   setClientMatchPlatformSideOverride,
+  teamsFromLockedGbOrTitle,
 };

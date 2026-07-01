@@ -25,15 +25,17 @@ function markUsedAccount(accountId: number, betRowId: number, side: BetSide) {
 }
 
 /** [A8 可证实] BETACCOUNT + BETCOUNT + lastOdds（`B`） */
+/** odds 省略时对齐 A8 补单 `A(D,x,I)`：只记 BETACCOUNT + BETCOUNT */
 export function markSuccessfulBet(
   account: PlatformAccount,
   betId: number,
   side: BetSide,
-  odds: number,
+  odds?: number,
 ) {
   if (!account.accountId)
     return;
   markUsedAccount(account.accountId, betId, side);
   incrementBetCount(account.accountId, betId, side);
-  setLastBetOdds(account.accountId, betId, side, odds);
+  if (odds !== undefined)
+    setLastBetOdds(account.accountId, betId, side, odds);
 }

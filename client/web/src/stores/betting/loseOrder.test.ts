@@ -219,6 +219,6 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(removeOrder).toHaveBeenCalledWith(100, true);
     expect(loseOrderMessage).not.toHaveBeenCalled();
     expect(a8Tip).not.toHaveBeenCalled();
-    expect(markSuccessfulBet).toHaveBeenCalledOnce();
+    expect(markSuccessfulBet).toHaveBeenCalledWith(acc, 100, "Home");
   });
 });

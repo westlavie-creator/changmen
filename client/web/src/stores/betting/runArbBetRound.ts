@@ -17,10 +17,8 @@ export async function runArbBetRound(ctx: ArbBetRoundContext): Promise<void> {
 
   const config = configStore.config;
 
-  if (config.betting) {
-    if (!accountsFundingReady(useAccountStore()))
-      return;
-
+  // [A8 可证实] 资金未就绪只跳过套利轮；补单在 makeUp 开启时仍消费队列
+  if (config.betting && accountsFundingReady(useAccountStore())) {
     await runA8ArbRound({ setMessage });
   }
 

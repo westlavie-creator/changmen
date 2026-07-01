@@ -7,10 +7,24 @@ import { useMessageStore } from "@/stores/messageStore";
 
 const STORAGE_KEY = "LOSEORDER";
 
+/** [A8 可证实] store 定义处同步 IIFE 从 sessionStorage 恢复 */
+function restoreOrdersFromSession(): Map<number, LoseOrder> {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw)
+      return new Map();
+    const list = JSON.parse(raw) as LoseOrderRecord[];
+    return new Map(list.map(row => [row.betId, new LoseOrder(row)]));
+  }
+  catch {
+    return new Map();
+  }
+}
+
 /** 对齐 A8 Pinia `jb`：Map 键为 betId */
 export const useLoseOrderStore = defineStore("loseorder", {
   state: () => ({
-    orders: new Map<number, LoseOrder>(),
+    orders: restoreOrdersFromSession(),
   }),
 
   getters: {
@@ -19,16 +33,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
 
   actions: {
     restore() {
-      try {
-        const raw = sessionStorage.getItem(STORAGE_KEY);
-        if (!raw)
-          return;
-        const list = JSON.parse(raw) as LoseOrderRecord[];
-        this.orders = new Map(list.map(row => [row.betId, new LoseOrder(row)]));
-      }
-      catch {
-        this.orders = new Map();
-      }
+      this.orders = restoreOrdersFromSession();
     },
 
     ensureOrdersMap() {

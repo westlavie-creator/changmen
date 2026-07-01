@@ -42,6 +42,32 @@ interface PolymarketOrderResponse {
   tradeIDs?: string[];
 }
 
+/** FOK BUY 成交：对齐 Polymarket 文档与官网仓位（status=matched 且 takingAmount>0） */
+export function isPolymarketFokBuyFilled(result: PolymarketOrderResponse | null | undefined): boolean {
+  if (!result?.success)
+    return false;
+  const status = String(result.status ?? "").trim().toLowerCase();
+  if (status !== "matched")
+    return false;
+  const taking = Number(result.takingAmount);
+  return Number.isFinite(taking) && taking > 0;
+}
+
+function polymarketOrderFailureMessage(
+  result: PolymarketOrderResponse | null | undefined,
+  fallback: string,
+): string {
+  const status = String(result?.status ?? "").trim() || "未知";
+  const errorMsg = String(result?.errorMsg ?? "").trim();
+  const parts = [errorMsg || fallback, `status: ${status}`];
+  if (result?.orderID)
+    parts.push(`orderID: ${result.orderID}`);
+  const taking = result?.takingAmount;
+  if (taking !== undefined && taking !== "")
+    parts.push(`takingAmount: ${taking}`);
+  return parts.join(" / ");
+}
+
 interface PolymarketOrderBookResponse {
   tick_size?: string | number;
   minimum_tick_size?: string | number;
@@ -476,7 +502,7 @@ export const polymarketProvider: PlatformProvider = {
         { headers },
       );
 
-      if (!result?.success) {
+      if (!isPolymarketFokBuyFilled(result)) {
         const diagnostic = diagnosticLines({
           tokenId,
           amountUsdc: apiBetMoney,
@@ -488,14 +514,17 @@ export const polymarketProvider: PlatformProvider = {
           availableUsdc: availableUsdc(orderOptions.asks),
           asks: orderOptions.asks,
         }).join("\n");
+        const fallback = result?.success
+          ? "订单已受理但未成交（status 非 matched 或 takingAmount 为空）"
+          : "FOK 订单未成交（无足够流动性）";
         return new BetResult(
           "Polymarket", false,
-          `${result?.errorMsg || "FOK 订单未成交（无足够流动性）"}\n${diagnostic}`,
+          `${polymarketOrderFailureMessage(result, fallback)}\n${diagnostic}`,
           orderBody, result,
         );
       }
 
-      const msg = `${result.orderID} / ${result.status} / 成交 ${result.takingAmount ?? "?"} tokens`;
+      const msg = `${result.orderID} / ${result.status} / 成交 ${result.takingAmount} tokens`;
       const bet = new BetResult("Polymarket", true, msg, orderBody, result);
       bet.beginTime = beginTime;
       return bet;

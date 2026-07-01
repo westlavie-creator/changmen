@@ -15,6 +15,7 @@ import {
 } from "@/api/esport";
 import { ensureTokenRefresh, stopTokenRefresh } from "@/lib/sessionRefresh";
 import { subscribeUserChannel, unsubscribeUserChannel } from "@/realtime/userChannel";
+import { ensurePublishChannelSubscribed } from "@/realtime/publishChannel";
 
 const USER_KEY = "app:userName";
 const HIDDEN_NAME_KEY = "hiddenUserName";
@@ -86,6 +87,9 @@ export const useUserStore = defineStore("user", {
         await this.loadExtras();
         void subscribeUserChannel(this.userId).catch((err) => {
           console.warn("[goeasy] USER channel:", err);
+        });
+        void ensurePublishChannelSubscribed().catch((err) => {
+          console.warn("[goeasy] Publish channel:", err);
         });
         this.ready = true;
         this.error = null;

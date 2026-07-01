@@ -31,8 +31,10 @@ vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({}),
 }));
 
+const accountsFundingReady = vi.hoisted(() => vi.fn(() => true));
+
 vi.mock("@/stores/account/accountPicker", () => ({
-  accountsFundingReady: () => true,
+  accountsFundingReady: () => accountsFundingReady(),
 }));
 
 vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
@@ -43,6 +45,7 @@ describe("runArbBetRound lose-order gate", () => {
   beforeEach(() => {
     Object.assign(config, createDefaultUserConfig());
     matchStoreState.matchs = [];
+    accountsFundingReady.mockReturnValue(true);
     processLoseOrders.mockClear();
     runA8ArbRound.mockClear();
   });
@@ -72,6 +75,17 @@ describe("runArbBetRound lose-order gate", () => {
     await runArbBetRound({ setMessage: () => {}, processLoseOrders });
 
     expect(runA8ArbRound).toHaveBeenCalledOnce();
+  });
+
+  it("skips arb but still processes lose orders when funding not ready (A8)", async () => {
+    config.betting = true;
+    config.makeUp = true;
+    accountsFundingReady.mockReturnValue(false);
+
+    await runArbBetRound({ setMessage: () => {}, processLoseOrders });
+
+    expect(runA8ArbRound).not.toHaveBeenCalled();
+    expect(processLoseOrders).toHaveBeenCalledOnce();
   });
 });
 
