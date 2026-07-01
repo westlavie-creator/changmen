@@ -27,6 +27,8 @@ import {
   applyPairingMetadata,
   syncPlatformBindingsForRows,
 } from "./pairing_metadata.js";
+import { syncEventRegistryForMatchMerge } from "./sync_event_registry.js";
+import { reconcileEventRegistryAfterMerge } from "./registry_reconcile.js";
 import "../lib/env.js";
 
 /**
@@ -106,6 +108,9 @@ async function matchMergeOnceImpl() {
     : {};
 
   let info = buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides });
+  if (String(process.env.MATCHER_OB_SPINE_MERGE ?? "0").trim() === "1") {
+    console.log("[matchMerge] OB 主轴合并已启用（MATCHER_OB_SPINE_MERGE=1）");
+  }
 
   if (!db.isMatcherStoreReady()) {
     const { script } = db.getDbMode();
@@ -133,7 +138,9 @@ async function matchMergeOnceImpl() {
   const {
     annotated: pairingAnnotated,
     published: pairingPublished,
-  } = applyPairingMetadata(info, matches);
+  } = applyPairingMetadata(info, matches, {
+    lockedTiers: await db.fetchLockedMatchEventTiers(),
+  });
   if (pairingPublished.length !== info.length) {
     console.log(
       `[matchMerge] pairing 发布过滤 ${info.length} → ${pairingPublished.length}`
@@ -144,7 +151,7 @@ async function matchMergeOnceImpl() {
   info = pairingPublished;
 
   const now = Date.now();
-  await db.writeClientMatchesAsync(
+  const { toDelete: deletedClientMatchIds } = await db.writeClientMatchesAsync(
     info.map(m => ({
       id: Number(m.ID),
       merge_key: m.MergeKey ? String(m.MergeKey) : null,
@@ -181,11 +188,50 @@ async function matchMergeOnceImpl() {
     invalidateMatcherRdsSnapshot(["platformMatches"]);
   }
 
+  const eventRegistry = await syncEventRegistryForMatchMerge({
+    rows: pairingPublished,
+    matches,
+    builtAt: now,
+    deletedEventIds: deletedClientMatchIds,
+  });
+  if (!eventRegistry.skipped && (eventRegistry.events || eventRegistry.bindings || eventRegistry.deleted)) {
+    console.log(
+      `[matchMerge] event_registry events=${eventRegistry.events}`
+      + ` bindings=${eventRegistry.bindings} deleted=${eventRegistry.deleted ?? 0}`,
+    );
+  }
+
+  let registryReconcile = { skipped: true };
+  if (!eventRegistry.skipped) {
+    const registryBindings = await db.fetchEventBindingsForEvents(
+      pairingPublished.map(r => Number(r.ID)).filter(Number.isFinite),
+    );
+    registryReconcile = await reconcileEventRegistryAfterMerge({
+      publishedRows: pairingPublished,
+      registryBindings,
+    });
+    if (!registryReconcile.skipped) {
+      if (registryReconcile.reconcile?.updated > 0) {
+        console.log(`[matchMerge] registry→platform 回写 ${registryReconcile.reconcile.updated} 条`);
+        invalidateMatcherRdsSnapshot(["platformMatches"]);
+      }
+      if (registryReconcile.pruned?.deleted > 0) {
+        console.log(`[matchMerge] 孤儿 event_bindings 清理 ${registryReconcile.pruned.deleted} 条`);
+      }
+      if (!registryReconcile.validation?.ok) {
+        const n = registryReconcile.validation.mismatches.length;
+        console.warn(`[matchMerge] event_registry 一致性告警 ${n} 项（首条 event #${registryReconcile.validation.mismatches[0]?.event_id}）`);
+      }
+    }
+  }
+
   return {
     matchCount: info.length,
     builtAt: now,
     matchIdBackfill,
     bindingSync,
+    eventRegistry,
+    registryReconcile,
     teamReg,
     nameSync,
     alignStats,

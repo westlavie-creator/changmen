@@ -102,4 +102,15 @@ describe("pairing_metadata", () => {
     );
     assert.equal(published.length, 0);
   });
+
+  it("locked tier overrides provisional classification", () => {
+    const locked = new Map([[42, { tier: "verified", confidence: 1 }]]);
+    const { annotated } = applyPairingMetadata(
+      [{ ID: 42, Matchs: { OB: "a", RAY: "b" }, MergeBasis: "name" }],
+      {},
+      { lockedTiers: locked },
+    );
+    assert.equal(annotated[0].PairingTier, PAIRING_TIER.VERIFIED);
+    assert.equal(annotated[0].PairingTierLocked, true);
+  });
 });

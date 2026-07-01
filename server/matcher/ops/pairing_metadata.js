@@ -139,15 +139,20 @@ function isPublishTierVerifiedOnly() {
  * @param {object[]} rows matchMerge 产物
  * @param {object} matches normalizeMatchesShape 结果
  */
-function applyPairingMetadata(rows, matches) {
+function applyPairingMetadata(rows, matches, opts = {}) {
+  const lockedTiers = opts.lockedTiers || new Map();
   const annotated = (rows || []).map((row) => {
     const pairing = classifyPairing(row, { matches });
+    const lock = lockedTiers.get(Number(row.ID));
+    const tier = lock?.tier || pairing.tier;
+    const confidence = lock?.confidence ?? pairing.confidence;
     return {
       ...row,
-      PairingTier: pairing.tier,
-      PairingConfidence: pairing.confidence,
+      PairingTier: tier,
+      PairingConfidence: confidence,
       EventAnchor: resolveEventAnchor(row.Matchs),
       _pairingBindingSource: pairing.bindingSource,
+      PairingTierLocked: Boolean(lock?.tier),
     };
   });
 
@@ -170,9 +175,9 @@ function applyPairingMetadata(rows, matches) {
 }
 
 /**
- * 将绑定元数据写入 platform_matches（与 match_id 一并更新）。
+ * 从 merge 行收集 platform 绑定元数据（platform_matches / event_bindings 共用）。
  */
-async function syncPlatformBindingsForRows(rows, matches) {
+function collectBindingsForRows(rows, matches) {
   const bindings = [];
   const now = Date.now();
 
@@ -202,6 +207,14 @@ async function syncPlatformBindingsForRows(rows, matches) {
     }
   }
 
+  return bindings;
+}
+
+/**
+ * 将绑定元数据写入 platform_matches（与 match_id 一并更新）。
+ */
+async function syncPlatformBindingsForRows(rows, matches) {
+  const bindings = collectBindingsForRows(rows, matches);
   if (!bindings.length)
     return { updated: 0 };
 
@@ -213,6 +226,7 @@ export {
   BINDING_SOURCE,
   bindingSideModeForPlatform,
   classifyPairing,
+  collectBindingsForRows,
   findPlatformMatchInShape,
   isPublishProvisionalEnabled,
   isPublishTierVerifiedOnly,

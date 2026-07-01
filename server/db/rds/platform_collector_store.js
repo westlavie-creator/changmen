@@ -387,6 +387,27 @@ export async function setPlatformMatchId(platform, sourceMatchId, matchId, opts 
   return { updated: n > 0, skipped: n === 0, conflict: false };
 }
 
+/** 运维解绑：清空 platform_matches 上的赛事链接与 binding 元数据 */
+export async function clearPlatformMatchEventLink(platform, sourceMatchId) {
+  const plat = String(platform);
+  const srcId = String(sourceMatchId);
+  const pool = getPgPool();
+  if (!pool)
+    return { cleared: false, skipped: true };
+
+  const res = await pool.query(
+    `UPDATE platform_matches SET
+      match_id = NULL,
+      binding_confidence = NULL,
+      binding_source = NULL,
+      binding_side_mode = NULL,
+      bound_at = NULL
+     WHERE platform = $1 AND source_match_id = $2`,
+    [plat, srcId],
+  );
+  return { cleared: (res.rowCount ?? 0) > 0 };
+}
+
 function mapPlatformMatchRows(provider, matchs) {
   const now = Date.now();
   return matchs.map(m => ({

@@ -1293,6 +1293,145 @@ function collectMergeEntries(matches, bets, timers, sourceFromBet) {
   return entries;
 }
 
+function spineHasProvider(spine, provider) {
+  if (spine.obEntry.row._provider === provider)
+    return true;
+  return spine.attachments.some(a => a.row._provider === provider);
+}
+
+/**
+ * 非 OB 场次能否挂到 OB 主轴：先 ID 键，再队名+时间窗（与两阶段 merge 一致）。
+ * @returns {{ score: number, basis: string, reversed: boolean } | null}
+ */
+function scoreEntryAgainstObSpine(obEntry, otherEntry) {
+  const idCkOb = canonicalMatchKeyByIdOnly(
+    obEntry.gameId, obEntry.home, obEntry.away, obEntry.gameCode, obEntry.ctx,
+  );
+  const idCk = canonicalMatchKeyByIdOnly(
+    otherEntry.gameId, otherEntry.home, otherEntry.away, otherEntry.gameCode, otherEntry.ctx,
+  );
+
+  if (idCk && idCkOb) {
+    if (idCk.key !== idCkOb.key)
+      return null;
+    const a = normalizeEpochMs(otherEntry.row.StartTime);
+    const b = normalizeEpochMs(obEntry.row.StartTime);
+    const score = a && b ? Math.abs(a - b) : Number.POSITIVE_INFINITY;
+    return { score, basis: "id", reversed: !!idCk.reversed };
+  }
+
+  const nameCkOb = canonicalMatchKeyByName(obEntry.gameId, obEntry.home, obEntry.away);
+  const nameCk = canonicalMatchKeyByName(otherEntry.gameId, otherEntry.home, otherEntry.away);
+  if (!nameCk || !nameCkOb || nameCk.mergeKey !== nameCkOb.mergeKey)
+    return null;
+  if (!startTimesCompatible(otherEntry.row.StartTime, obEntry.row.StartTime))
+    return null;
+
+  const a = normalizeEpochMs(otherEntry.row.StartTime);
+  const b = normalizeEpochMs(obEntry.row.StartTime);
+  const score = a && b ? Math.abs(a - b) : Number.POSITIVE_INFINITY;
+  return { score, basis: "name", reversed: !!nameCk.reversed };
+}
+
+function filterMatchesByRowKeys(matches, rowKeys) {
+  const keep = rowKeys instanceof Set ? rowKeys : new Set(rowKeys);
+  const out = {};
+  for (const [provider, byId] of Object.entries(matches || {})) {
+    if (!byId || typeof byId !== "object")
+      continue;
+    for (const match of Object.values(byId)) {
+      if (!match?.SourceMatchID)
+        continue;
+      const rowKey = `${provider}:${String(match.SourceMatchID)}`;
+      if (!keep.has(rowKey))
+        continue;
+      if (!out[provider])
+        out[provider] = {};
+      out[provider][String(match.SourceMatchID)] = match;
+    }
+  }
+  return out;
+}
+
+/**
+ * OB 主轴合并：每个 OB 场次占一行，其它平台按 ID/队名+时间挂接；未挂上者走常规 merge。
+ * MATCHER_OB_SPINE_MERGE=1 时由 buildClientMatchList 启用（默认关闭）。
+ */
+function buildMatchListObSpine(matches, bets, timers, sourceFromBet) {
+  const entries = collectMergeEntries(matches, bets, timers, sourceFromBet);
+  const obEntries = entries.filter(e => e.row._provider === "OB");
+  const otherEntries = entries.filter(e => e.row._provider !== "OB");
+
+  const spines = obEntries.map(obEntry => ({ obEntry, attachments: [] }));
+  const attached = new Set();
+
+  for (const entry of otherEntries) {
+    let bestSpine = null;
+    let bestHit = null;
+
+    for (const spine of spines) {
+      if (spineHasProvider(spine, entry.row._provider))
+        continue;
+      const hit = scoreEntryAgainstObSpine(spine.obEntry, entry);
+      if (!hit)
+        continue;
+      if (!bestHit || hit.score < bestHit.score
+        || (hit.score === bestHit.score && String(spine.obEntry.row.Matchs?.OB || "") < String(bestSpine.obEntry.row.Matchs?.OB || ""))) {
+        bestSpine = spine;
+        bestHit = hit;
+      }
+    }
+
+    if (!bestSpine || !bestHit)
+      continue;
+
+    bestSpine.attachments.push({
+      row: entry.row,
+      reversed: bestHit.reversed,
+      rowKey: entry.rowKey,
+      basis: bestHit.basis,
+    });
+    attached.add(entry.rowKey);
+  }
+
+  const result = [];
+  for (const spine of spines) {
+    const group = [
+      { row: spine.obEntry.row, reversed: false, rowKey: spine.obEntry.rowKey },
+      ...spine.attachments.map(a => ({
+        row: a.row,
+        reversed: a.reversed,
+        rowKey: a.rowKey,
+      })),
+    ];
+    if (group.length < MIN_CLIENT_MATCH_PLATFORMS)
+      continue;
+
+    const obId = String(spine.obEntry.row.Matchs?.OB || spine.obEntry.rowKey.split(":")[1] || "unknown");
+    const mergeKey = `ob-spine:${obId}`;
+    const out = mergeGroupWithKey(group, mergeKey);
+    const hasId = spine.attachments.some(a => a.basis === "id");
+    out.MergeBasis = hasId ? "id" : "name";
+    delete out._provider;
+    result.push(out);
+  }
+
+  const leftoverKeys = new Set(
+    otherEntries.filter(e => !attached.has(e.rowKey)).map(e => e.rowKey),
+  );
+  if (leftoverKeys.size) {
+    const leftoverMatches = filterMatchesByRowKeys(matches, leftoverKeys);
+    result.push(...buildMatchListMerged(leftoverMatches, bets, timers, sourceFromBet));
+  }
+
+  result.sort((a, b) => a.StartTime - b.StartTime);
+  return collapseImClientRows(result);
+}
+
+function isObSpineMergeEnabled() {
+  return String(process.env.MATCHER_OB_SPINE_MERGE ?? "0").trim() === "1";
+}
+
 // ── 主入口 ────────────────────────────────────────────────────────────────────
 
 function buildMatchListMerged(matches, bets, timers, sourceFromBet) {
@@ -1403,7 +1542,9 @@ function stripOrphanClientMatchPlatforms(rows, platformMatches) {
 /** 自动合并 matchs；主客对齐在 finalize（写库前全量 reconcile） */
 function buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides }) {
   const normalized = normalizeMatchesShape(matches);
-  const list = buildMatchListMerged(normalized, bets, timers, sourceFromBet);
+  const list = isObSpineMergeEnabled()
+    ? buildMatchListObSpine(normalized, bets, timers, sourceFromBet)
+    : buildMatchListMerged(normalized, bets, timers, sourceFromBet);
   finalizeClientMatchListAfterLinks(list, normalized, bets, timers, sourceFromBet, null, platformSideOverrides);
   return filterMultiPlatformClientMatches(list);
 }
@@ -1416,6 +1557,7 @@ export {
   buildClientMatchList,
   buildMatchListAccumulate,
   buildMatchListMerged,
+  buildMatchListObSpine,
   canonicalMatchKey,
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,

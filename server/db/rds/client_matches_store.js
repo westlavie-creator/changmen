@@ -153,14 +153,15 @@ export function writeClientMatches(rows) {
 export async function writeClientMatchesAsync(rows) {
   const prepared = _prepareClientMatchWrite(rows);
   if (!prepared)
-    return;
+    return { toDelete: [] };
   const { dedupedRows, toDelete } = prepared;
   const pool = getPgPool();
   if (!pool) {
     writeClientMatches(rows);
-    return;
+    return { toDelete };
   }
   await _rdsUpsertClientMatches(pool, dedupedRows, toDelete);
+  return { toDelete };
 }
 
 /** 启动时预填 _lastWrittenIds，使差量删除能覆盖上次遗留行 */

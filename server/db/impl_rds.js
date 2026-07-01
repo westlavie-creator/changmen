@@ -75,6 +75,7 @@ export {
   fetchPlatformMatches,
   purgePlatformLiveTimers,
   replacePlatformBetsForMatch,
+  clearPlatformMatchEventLink,
   setPlatformMatchId,
   writeLiveTimers,
   writeLiveTimersAsync,
@@ -83,6 +84,23 @@ export {
 } from "./rds/platform_collector_store.js";
 
 export { upsertPlatformBindings } from "./rds/pairing_store.js";
+
+export {
+  archiveAndDeleteMatchEvents,
+  deleteMatchEvents,
+  deleteEventBinding,
+  fetchAllEventBindings,
+  fetchEventBindingRow,
+  fetchEventBindingsForEvents,
+  fetchEventRegistryStats,
+  fetchLockedMatchEventTiers,
+  fetchMatchEventRow,
+  pruneOrphanEventBindings,
+  reconcilePlatformMatchesFromRegistry,
+  updateMatchEventPairingTier,
+  upsertEventBindings,
+  upsertMatchEvents,
+} from "./rds/event_registry_store.js";
 
 export {
   fetchPlayerByPlatformAndName,

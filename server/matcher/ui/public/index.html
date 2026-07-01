@@ -264,6 +264,9 @@
     .binding-cell { font-size: 10px; color: #94a3b8; line-height: 1.35; }
     .binding-cell.muted { color: #475569; }
     .binding-side-ambiguous { color: #f87171; }
+    .registry-drift-row { font-size: 11px; color: #cbd5e1; line-height: 1.45; padding: 6px 0; border-bottom: 1px solid #1e293b; }
+    .registry-drift-row:last-child { border-bottom: none; }
+    .registry-drift-ok { font-size: 12px; color: #4ade80; padding: 8px 0; }
 
     .team-card-footer {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -480,6 +483,14 @@
             <div class="split-col-desc">跨平台推荐待确认 · 以及尚未进入 client_match 的原始场次</div>
           </div>
           <div class="split-col-body">
+            <div class="pending-section pending-section-registry" id="registry-drift-section">
+              <div class="pending-section-title">
+                <span>真相表差异 <span class="badge" id="registry-drift-count">0</span></span>
+                <button type="button" class="btn btn-sm btn-ghost" id="registry-reconcile-btn" title="event_bindings → platform_matches 回写并 matchMerge">回写 platform</button>
+              </div>
+              <div class="pending-section-desc">client_matches / platform_matches 与 event_bindings 不一致时列出 · 正常应为 0</div>
+              <div id="registry-drift-panels"><div class="empty">加载中…</div></div>
+            </div>
             <div class="pending-section pending-section-provisional">
               <div class="pending-section-title">
                 <span>队名层待升级 <span class="badge" id="provisional-count">0</span></span>
@@ -887,10 +898,15 @@ function renderStats(d, displayCms) {
   const nameMatched = displayCms.length - idMatched;
   const debug = d.debug || {};
   const pairing = debug.pairing || {};
+  const registry = pairing.registry || {};
+  const registryDrift = debug.registryDrift || d.registryDrift || {};
   document.getElementById('stats-bar').innerHTML = `
     <div class="stat"><div class="label">平台原始</div><div class="value c-slate">${debug.platformMatches ?? '—'}</div></div>
     <div class="stat"><div class="label">配对·已确认</div><div class="value c-green">${pairing.verified ?? '—'}</div></div>
     <div class="stat"><div class="label">配对·队名层</div><div class="value c-amber">${pairing.provisional ?? '—'}</div></div>
+    <div class="stat"><div class="label">赛事实体</div><div class="value c-slate" title="match_events 真相表">${registry.events ?? '—'}</div></div>
+    <div class="stat"><div class="label">平台绑定</div><div class="value c-slate" title="event_bindings 真相表">${registry.bindings ?? '—'}</div></div>
+    <div class="stat"><div class="label">真相差异</div><div class="value ${registryDrift.ok === false ? 'c-amber' : 'c-green'}">${registryDrift.issueCount ?? '—'}</div></div>
     <div class="stat"><div class="label">ID 已匹配</div><div class="value c-green">${idMatched}</div></div>
     <div class="stat"><div class="label">队名已匹配</div><div class="value c-amber">${nameMatched}</div></div>
     <div class="stat"><div class="label">推荐组</div><div class="value c-blue">${d.recommendations.length}</div></div>
@@ -1162,6 +1178,146 @@ function wireMatchedCardActions(container) {
   container.querySelectorAll('[data-confirm-pairing]').forEach(btn => {
     btn.addEventListener('click', () => confirmClientMatchPairing(Number(btn.dataset.confirmPairing)));
   });
+  container.querySelectorAll('[data-lock-tier]').forEach(btn => {
+    btn.addEventListener('click', () => lockMatchEventVerified(Number(btn.dataset.lockTier)));
+  });
+}
+
+function registryDriftIssueLabel(issue) {
+  const labels = {
+    missing_binding: '物化缺绑定',
+    source_mismatch: '场次 ID 不一致',
+    extra_binding: '真相表多余绑定',
+    no_registry_binding: 'platform 无真相绑定',
+    match_id_mismatch: 'match_id 不一致',
+    binding_source_mismatch: 'binding_source 不一致',
+  };
+  return labels[issue] || issue;
+}
+
+function renderRegistryDrift(drift) {
+  const container = document.getElementById('registry-drift-panels');
+  const countEl = document.getElementById('registry-drift-count');
+  const section = document.getElementById('registry-drift-section');
+  const n = drift?.issueCount ?? 0;
+  if (countEl) countEl.textContent = n;
+  if (!container) return;
+
+  if (!drift || drift.ok) {
+    container.innerHTML = '<div class="registry-drift-ok">真相表与物化层一致</div>';
+    if (section) section.classList.toggle('registry-drift-clean', true);
+    return;
+  }
+  if (section) section.classList.remove('registry-drift-clean');
+
+  const lines = [];
+  for (const m of drift.materialized || []) {
+    lines.push(`<div class="registry-drift-row">赛事 #${esc(m.event_id)} · ${esc(m.platform)} · ${esc(registryDriftIssueLabel(m.issue))}${m.expected ? ` · 期望 ${esc(m.expected)}` : ''}${m.actual ? ` · 实际 ${esc(m.actual)}` : ''}</div>`);
+  }
+  for (const m of drift.platformDrift || []) {
+    const suggestEvent = m.registry_event_id ?? m.pm_match_id ?? '';
+    lines.push(`<div class="registry-drift-row">${pbadge(m.platform)} ${esc(m.source_match_id)} · ${esc(registryDriftIssueLabel(m.issue))}${m.pm_match_id != null ? ` · pm #${m.pm_match_id}` : ''}${m.registry_event_id != null ? ` · registry #${m.registry_event_id}` : ''}
+      <button type="button" class="btn btn-sm btn-ghost" data-registry-bind="${esc(m.platform)}" data-registry-bind-id="${esc(m.source_match_id)}" data-registry-suggest="${suggestEvent}">改绑</button>
+      <button type="button" class="btn btn-sm btn-ghost" data-registry-unbind="${esc(m.platform)}" data-registry-unbind-id="${esc(m.source_match_id)}">解绑</button>
+    </div>`);
+  }
+  for (const m of drift.orphanBindings || []) {
+    lines.push(`<div class="registry-drift-row">${pbadge(m.platform)} ${esc(m.source_match_id)} · 孤儿绑定 → 赛事 #${m.event_id}</div>`);
+  }
+
+  container.innerHTML = lines.length
+    ? `<div class="team-queue" style="padding:8px 12px">${lines.join('')}</div>`
+    : '<div class="empty">无差异</div>';
+
+  container.querySelectorAll('[data-registry-bind]').forEach(btn => {
+    btn.addEventListener('click', () => promptRegistryBind(
+      btn.dataset.registryBind,
+      btn.dataset.registryBindId,
+      btn.dataset.registrySuggest,
+    ));
+  });
+  container.querySelectorAll('[data-registry-unbind]').forEach(btn => {
+    btn.addEventListener('click', () => unbindRegistryPlatform(
+      btn.dataset.registryUnbind,
+      btn.dataset.registryUnbindId,
+    ));
+  });
+}
+
+async function promptRegistryBind(platform, sourceMatchId, suggestEventId) {
+  const eventId = window.prompt(
+    `真相表绑定：${platform} #${sourceMatchId}\n输入目标赛事 ID（client_match / match_events）`,
+    suggestEventId ? String(suggestEventId) : '',
+  );
+  if (eventId == null || String(eventId).trim() === '')
+    return;
+  try {
+    const previewQs = new URLSearchParams({
+      platform,
+      sourceMatchId,
+      eventId: String(eventId).trim(),
+    });
+    const { res: pRes, data: preview } = await fetchJson(`/api/event-binding/preview?${previewQs}`);
+    if (!pRes.ok || preview.error)
+      throw new Error(preview.error || '预览失败');
+    if (!preview.ok)
+      throw new Error((preview.errors || []).join('；') || '无法绑定');
+    const warn = (preview.warnings || []).length
+      ? `\n\n注意：\n${preview.warnings.join('\n')}`
+      : '';
+    if (!window.confirm(`绑定到赛事 #${preview.event_id}？${warn}`))
+      return;
+
+    const { res, data } = await fetchJson('/api/event-binding/bind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        platform,
+        sourceMatchId,
+        eventId: preview.event_id,
+      }),
+    });
+    if (!res.ok || data.error) throw new Error(data.error || '绑定失败');
+    showActionToast(formatApiResultToast(data, `真相表已绑定 · #${preview.event_id}`), 'ok', 5600);
+    await refreshData();
+  } catch (err) {
+    showActionToast(`真相表绑定失败\n${err.message}`, 'err', 5600);
+  }
+}
+
+async function unbindRegistryPlatform(platform, sourceMatchId) {
+  if (!window.confirm(`解绑真相表绑定？\n${platform} #${sourceMatchId}`))
+    return;
+  try {
+    const { res, data } = await fetchJson(
+      `/api/event-binding/${encodeURIComponent(platform)}/${encodeURIComponent(sourceMatchId)}`,
+      { method: 'DELETE' },
+    );
+    if (!res.ok || data.error) throw new Error(data.error || '解绑失败');
+    showActionToast(formatApiResultToast(data, '真相表已解绑'), 'ok', 5200);
+    await refreshData();
+  } catch (err) {
+    showActionToast(`解绑失败\n${err.message}`, 'err', 5600);
+  }
+}
+
+async function runRegistryReconcile() {
+  const btn = document.getElementById('registry-reconcile-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const { res, data } = await fetchJson('/api/event-registry/reconcile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matchMerge: true }),
+    });
+    if (!res.ok || data.error) throw new Error(data.error || '操作失败');
+    showActionToast(formatApiResultToast(data, '真相表已回写 platform'), 'ok', 5200);
+    await refreshData();
+  } catch (err) {
+    showActionToast(`真相表回写失败\n${err.message}`, 'err', 5600);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function renderProvisionalQueue(cms, platforms, teamMaps, searchQuery) {
@@ -1577,6 +1733,9 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
             <span>开赛 ${fmtTime(cm.start_time)}</span>
             <span>${Object.keys(cm.matchs || {}).map(pbadge).join(' ')}</span>
             ${renderPairingBadge(cm)}
+            ${cm.pairing?.tier === 'provisional'
+    ? `<button type="button" class="btn btn-sm btn-ghost" data-lock-tier="${cm.id}" title="锁定为 verified（真相表 pairing_tier_locked）">升 verified</button>`
+    : ''}
             ${cm.merge_mode?.label ? `<span>合并依据 ${esc(cm.merge_mode.label)}</span>` : ''}
           </div>
         </div>
@@ -1610,6 +1769,17 @@ function collectUnmatchedRows(platforms, cms, recs) {
     }
   }
   return rows;
+}
+
+function suggestEventIdForUnmatched(platform, sourceMatchId, recs) {
+  for (const rec of recs || []) {
+    const hit = (rec.matches || []).find(
+      m => m.platform === platform && String(m.source_match_id) === String(sourceMatchId),
+    );
+    if (hit?.ob_spine_target)
+      return hit.ob_spine_target;
+  }
+  return "";
 }
 
 function renderUnmatchedPlatforms(platforms, recs, cms, teamMaps, searchQuery) {
@@ -1658,12 +1828,14 @@ function renderUnmatchedPlatforms(platforms, recs, cms, teamMaps, searchQuery) {
       const tag = _unmatchedFilter === 'all' && inRecommendation
         ? '<span class="rec-tag">推荐组</span>'
         : (_unmatchedFilter === 'all' ? '<span class="orphan-tag">无推荐</span>' : '');
+      const suggest = suggestEventIdForUnmatched(p, m.source_match_id, recs);
       return `<tr>
         <td class="col-match-id">${renderMatchLinkCell(m, p, cms)}</td>
         <td>${pbadge(p)}${tag}</td>
         <td>${renderTeamCell(m, 'home', gameCode, teamMaps, p)}</td>
         <td>${renderTeamCell(m, 'away', gameCode, teamMaps, p)}</td>
         <td style="color:#64748b;white-space:nowrap">${fmtTime(m.start_time)}</td>
+        <td class="col-action"><button type="button" class="btn btn-sm btn-success" data-unmatched-bind="${esc(p)}" data-unmatched-bind-id="${esc(m.source_match_id)}" data-unmatched-suggest="${esc(suggest)}">绑定赛事</button></td>
       </tr>`;
     }).join('');
 
@@ -1673,11 +1845,19 @@ function renderUnmatchedPlatforms(platforms, recs, cms, teamMaps, searchQuery) {
         <div class="platform-unmatched-count">${items.length} 场未匹配</div>
       </div>
       <table class="unmatched-table">
-        <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>客</th><th>开赛</th></tr></thead>
+        <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>客</th><th>开赛</th><th></th></tr></thead>
         <tbody>${tableRows}</tbody>
       </table>
     </section>`;
   }).join('');
+
+  container.querySelectorAll('[data-unmatched-bind]').forEach(btn => {
+    btn.addEventListener('click', () => promptRegistryBind(
+      btn.dataset.unmatchedBind,
+      btn.dataset.unmatchedBindId,
+      btn.dataset.unmatchedSuggest,
+    ));
+  });
   return rows.length;
 }
 
@@ -2602,6 +2782,23 @@ async function confirmRecTeamMapping() {
   }
 }
 
+async function lockMatchEventVerified(eventId) {
+  if (!window.confirm(`将赛事 #${eventId} 锁定为 verified？\n\n将写入 match_events.pairing_tier_locked，后续 merge 不会自动降级。`))
+    return;
+  try {
+    const { res, data } = await fetchJson(`/api/match-event/${eventId}/pairing-tier`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier: 'verified', confidence: 1, lock: true }),
+    });
+    if (!res.ok || data.error) throw new Error(data.error || '操作失败');
+    showActionToast(formatApiResultToast(data, `赛事 #${eventId} 已锁定 verified`), 'ok', 5200);
+    await refreshData();
+  } catch (err) {
+    showActionToast(`锁定失败\n#${eventId}\n${err.message}`, 'err', 5600);
+  }
+}
+
 async function confirmClientMatchPairing(cmId) {
   const cm = (_lastData?.clientMatches || []).find(c => Number(c.id) === Number(cmId));
   const title = cm?.title || `#${cmId}`;
@@ -2870,6 +3067,7 @@ async function load() {
     } else if (!_hiddenClientMatchesLoaded) {
       await loadHiddenClientMatches();
     }
+    renderRegistryDrift(d.registryDrift);
     const recs = filterRecsByTeamSearch(d.recommendations || [], _teamSearchQuery);
     renderTeamQueue(recs, d.clientMatches || [], teamMaps);
     renderProvisionalQueue(d.clientMatches || [], d.platforms, teamMaps, _teamSearchQuery);
@@ -2892,6 +3090,7 @@ async function load() {
   }
 }
 
+document.getElementById('registry-reconcile-btn')?.addEventListener('click', runRegistryReconcile);
 document.getElementById('btn-matcher-start')?.addEventListener('click', () => matcherAction('start'));
 document.getElementById('btn-matcher-stop')?.addEventListener('click', () => matcherAction('stop'));
 document.getElementById('btn-match-merge-now')?.addEventListener('click', runMatchMergeNow);
@@ -2916,6 +3115,8 @@ document.querySelectorAll('[data-unmatched-filter]').forEach(btn => {
 
 document.getElementById('team-search-input')?.addEventListener('input', applyTeamSearchFromInput);
 document.getElementById('team-search-input')?.addEventListener('search', applyTeamSearchFromInput);
+
+const refreshData = load;
 
 load();
 refreshMatcherStatus();

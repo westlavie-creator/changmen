@@ -1,6 +1,8 @@
 import {
   fetchClientMatchesHidden,
   fetchClientMatchesHiddenCount,
+  fetchAllEventBindings,
+  fetchEventRegistryStats,
   fetchLatestClientMatchBuiltAt,
   loadTeamMapsForMatcher,
 } from "@changmen/db";
@@ -24,6 +26,7 @@ import {
 } from "./matcher_process.js";
 import { enrichClientMatchesMergeMode, getTeamPlugin } from "./merge_mode.js";
 import { enrichDashboardPairing } from "./pairing_ui.js";
+import { buildRegistryDriftReport, summarizeRegistryDrift } from "./registry_drift.js";
 import {
   attachObSpineHints,
   buildPlatformRowKeyMap,
@@ -278,9 +281,11 @@ function summarizeMatcherDashboard(data) {
 }
 
 async function fetchMatcherDashboard() {
-  const [snapshot, hiddenClientMatchCount] = await Promise.all([
+  const [snapshot, hiddenClientMatchCount, eventRegistry, eventBindings] = await Promise.all([
     fetchMatcherRdsSnapshot(),
     fetchClientMatchesHiddenCount(),
+    fetchEventRegistryStats(),
+    fetchAllEventBindings(),
   ]);
   const clientMatchesRaw = snapshot.clientRows || [];
   const allMatchesRaw = dashboardRowsFromSnapshot(snapshot.matchesRaw, clientMatchesRaw);
@@ -342,7 +347,21 @@ async function fetchMatcherDashboard() {
     updatedAt: Date.now(),
   };
   dashboard.debug = summarizeMatcherDashboard(dashboard);
-  return enrichDashboardPairing(dashboard);
+  const enriched = enrichDashboardPairing(dashboard);
+  if (eventRegistry) {
+    enriched.debug.pairing = {
+      ...(enriched.debug.pairing || {}),
+      registry: eventRegistry,
+    };
+  }
+  const registryDrift = buildRegistryDriftReport({
+    clientMatches: enriched.clientMatches,
+    platforms: enriched.platforms,
+    eventBindings,
+  });
+  enriched.debug.registryDrift = summarizeRegistryDrift(registryDrift);
+  enriched.registryDrift = registryDrift;
+  return enriched;
 }
 
 async function fetchMatcherHiddenClientMatches() {

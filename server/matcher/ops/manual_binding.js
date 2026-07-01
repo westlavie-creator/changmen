@@ -3,11 +3,12 @@
  */
 
 import * as db from "@changmen/db";
-import { upsertPlatformBindings } from "@changmen/db";
+import { upsertEventBindings, upsertPlatformBindings } from "@changmen/db";
 import {
   BINDING_SOURCE,
   bindingSideModeForPlatform,
 } from "./pairing_metadata.js";
+import { isEventRegistryEnabled } from "./sync_event_registry.js";
 
 function bindingSideModeFromReversed(reversed) {
   if (reversed === true)
@@ -41,7 +42,21 @@ async function persistManualPlatformBindings(entries) {
   if (!bindings.length)
     return { updated: 0 };
 
-  return upsertPlatformBindings(bindings);
+  const platformWrite = await upsertPlatformBindings(bindings);
+
+  if (isEventRegistryEnabled()) {
+    await upsertEventBindings(bindings.map(b => ({
+      platform: b.platform,
+      source_match_id: b.source_match_id,
+      event_id: b.match_id,
+      binding_confidence: b.binding_confidence,
+      binding_source: b.binding_source,
+      binding_side_mode: b.binding_side_mode,
+      bound_at: b.bound_at,
+    })), { force: true });
+  }
+
+  return platformWrite;
 }
 
 function clientRowForBinding(cmRow) {

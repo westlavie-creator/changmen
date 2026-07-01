@@ -3,6 +3,7 @@ import { describe, it, vi, afterEach } from "vitest";
 
 vi.mock("@changmen/db", () => ({
   upsertPlatformBindings: vi.fn(async (bindings) => ({ updated: bindings.length })),
+  upsertEventBindings: vi.fn(async (bindings) => ({ updated: bindings.length })),
   fetchClientMatchRow: vi.fn(async () => ({
     id: 9,
     matchs: { OB: "1", RAY: "2" },
