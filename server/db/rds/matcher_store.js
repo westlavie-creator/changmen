@@ -110,7 +110,7 @@ export async function fetchClientMatchRow(id, columns = "*") {
     return null;
   const cols
     = columns === "*"
-      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at, home_gb_team_id, away_gb_team_id"
+      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at"
       : columns;
   const { rows } = await rdsQuery(`SELECT ${cols} FROM client_matches WHERE id = $1`, [cmId]);
   return rows[0] || null;
@@ -128,8 +128,7 @@ export async function fetchPlatformMatchesDashboard() {
     `SELECT pm.platform, pm.source_match_id, pm.source_game_id, pm.start_time,
             pm.home, pm.home_id, pm.away, pm.away_id, pm.bo,
             CASE WHEN cm.id IS NULL THEN NULL ELSE pm.match_id END AS match_id,
-            pm.synced_at, pm.teams,
-            pm.binding_confidence, pm.binding_source, pm.binding_side_mode, pm.bound_at
+            pm.synced_at, pm.teams
      FROM platform_matches pm
      LEFT JOIN client_matches cm ON cm.id = pm.match_id
      ORDER BY pm.start_time ASC NULLS LAST`,
@@ -139,8 +138,7 @@ export async function fetchPlatformMatchesDashboard() {
 
 export async function fetchClientMatchesDashboard() {
   const { rows } = await rdsQuery(
-    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at,
-            pairing_tier, pairing_confidence, event_anchor
+    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at
      FROM client_matches
      ORDER BY start_time ASC NULLS LAST`,
   );
@@ -174,98 +172,6 @@ export async function setClientMatchPlatformReverse(id, platform, reversed) {
     [cmId, jsonb(nextReverse, [])],
   );
   return { id: cmId, platform: plat, reversed: !!reversed, reverse: nextReverse };
-}
-
-/**
- * 人工关联前立即写入 matchs 槽位（Event-first 下 binding 已写但物化滞后）。
- */
-export async function upsertClientMatchPlatformSlot(clientMatchId, platform, sourceMatchId) {
-  const cmId = Number(clientMatchId);
-  const plat = String(platform || "").trim();
-  const sid = String(sourceMatchId || "").trim();
-  if (!Number.isFinite(cmId) || cmId <= 0)
-    throw new Error("无效的赛事 ID");
-  if (!plat || !sid)
-    throw new Error("参数不完整");
-
-  const cm = await fetchClientMatchRow(cmId, "id, matchs");
-  if (!cm)
-    throw new Error("赛事不存在");
-
-  const matchs = cm.matchs && typeof cm.matchs === "object" ? cm.matchs : {};
-  const existing = matchs[plat];
-  if (existing != null && existing !== "" && String(existing) !== sid) {
-    throw new Error(`赛事 ${cmId} 已有 ${plat} 槽位 ${existing}，与 ${sid} 冲突`);
-  }
-  if (String(existing) === sid)
-    return { id: cmId, platform: plat, source_match_id: sid, updated: false };
-
-  const next = { ...matchs, [plat]: sid };
-  await rdsQuery(
-    "UPDATE client_matches SET matchs = $2::jsonb WHERE id = $1",
-    [cmId, jsonb(next, {})],
-  );
-  return { id: cmId, platform: plat, source_match_id: sid, updated: true };
-}
-
-/** client_match_id → { platform → force_aligned | force_reversed } */
-export async function fetchClientMatchPlatformOverrides() {
-  const { rows } = await rdsQuery(
-    `SELECT client_match_id, platform, mode
-     FROM client_match_platform_overrides`,
-  );
-  const byClient = {};
-  for (const r of rows || []) {
-    const cmId = Number(r.client_match_id);
-    if (!Number.isFinite(cmId) || cmId <= 0)
-      continue;
-    if (!byClient[cmId])
-      byClient[cmId] = {};
-    byClient[cmId][String(r.platform)] = String(r.mode);
-  }
-  return byClient;
-}
-
-/**
- * @param {'force_aligned'|'force_reversed'|null} mode null 删除覆盖，走 reconcile 自动判定
- * @param {{ allowPendingLink?: boolean }} [opts] 拖线关联中：binding 已写但 matchs 尚未物化
- */
-export async function setClientMatchPlatformSideOverride(clientMatchId, platform, mode, opts = {}) {
-  const cmId = Number(clientMatchId);
-  const plat = String(platform || "").trim();
-  if (!Number.isFinite(cmId) || cmId <= 0)
-    throw new Error("无效的赛事 ID");
-  if (!plat)
-    throw new Error("平台不能为空");
-
-  const cm = await fetchClientMatchRow(cmId, "id, matchs");
-  if (!cm)
-    throw new Error("赛事不存在");
-  const matchs = cm.matchs && typeof cm.matchs === "object" ? cm.matchs : {};
-  if (!opts.allowPendingLink && !Object.hasOwn(matchs, plat))
-    throw new Error(`赛事 ${cmId} 未关联平台 ${plat}`);
-
-  if (!mode) {
-    await rdsQuery(
-      `DELETE FROM client_match_platform_overrides
-       WHERE client_match_id = $1 AND platform = $2`,
-      [cmId, plat],
-    );
-    return { id: cmId, platform: plat, mode: null };
-  }
-
-  const normalized = String(mode);
-  if (normalized !== "force_aligned" && normalized !== "force_reversed")
-    throw new Error("mode 须为 force_aligned 或 force_reversed");
-
-  await rdsQuery(
-    `INSERT INTO client_match_platform_overrides (client_match_id, platform, mode)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (client_match_id, platform)
-     DO UPDATE SET mode = EXCLUDED.mode, updated_at = now()`,
-    [cmId, plat, normalized],
-  );
-  return { id: cmId, platform: plat, mode: normalized };
 }
 
 export async function fetchClientMatchesHidden() {
@@ -303,8 +209,8 @@ export async function archiveClientMatch(id) {
        DELETE FROM client_matches WHERE id = $1
        RETURNING *
      )
-     INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, pairing_tier, pairing_confidence, event_anchor)
-     SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, pairing_tier, pairing_confidence, event_anchor FROM moved`,
+     INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport)
+     SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport FROM moved`,
     [cmId],
   );
   if (!rowCount)

@@ -61,7 +61,6 @@ export {
 
 export const {
   isAuthConfigured,
-  clearPlatformMatchEventLink,
   setPlatformMatchId,
   fetchProfiles,
   fetchProfileById,
@@ -144,25 +143,6 @@ export const {
   writeUserMetadata,
 } = impl;
 
-export { upsertPlatformBindings } from "./rds/pairing_store.js";
-export {
-  archiveAndDeleteMatchEvents,
-  deleteMatchEvents,
-  deleteEventBinding,
-  fetchAllEventBindings,
-  fetchEventBindingRow,
-  fetchEventBindingsForEvents,
-  fetchEventRegistryStats,
-  fetchLockedMatchEventTiers,
-  fetchMatchEventRow,
-  fetchMatchEventsByIds,
-  pruneOrphanEventBindings,
-  reconcilePlatformMatchesFromRegistry,
-  updateMatchEventPairingTier,
-  upsertEventBindings,
-  upsertMatchEvents,
-} from "./rds/event_registry_store.js";
-
 export const {
   fetchAllCanonicalTeams,
   fetchAllTeamPlatformMaps,
@@ -241,9 +221,6 @@ export {
   isMatcherStoreReady,
   reassignPlatformMatchIds,
   setClientMatchPlatformReverse,
-  fetchClientMatchPlatformOverrides,
-  setClientMatchPlatformSideOverride,
-  upsertClientMatchPlatformSlot,
 } from "./rds/matcher_store.js";
 
 export {

@@ -16,13 +16,6 @@ export {
 } from "./ids/client_match_ids.js";
 export * from "./merge/match_lifecycle.js";
 export * from "./merge/match_merge.js";
-export {
-  applyMatcherBehaviorConfig,
-  isEventRegistryEnabled as isMatchEngineEventRegistryEnabled,
-  isObSpineMergeEnabled as isMatchEngineObSpineMergeEnabled,
-  isRegistryMaterializeEnabled as isMatchEngineRegistryMaterializeEnabled,
-  resetMatcherBehaviorConfig,
-} from "./matcher_behavior.js";
 export { MERGE_START_TIME_TOLERANCE_MS, startTimesCompatible, startTimesCompatibleStrict } from "./merge/merge_constants.js";
 export { resolveCanonicalTeamName } from "./teams/canonical_ob_name.js";
 export * from "./teams/match_utils.js";

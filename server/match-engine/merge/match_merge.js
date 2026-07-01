@@ -22,7 +22,6 @@ import {
 } from "../teams/match_utils.js";
 import { PROVIDER_PRIORITY, teamsFromPlatformRows } from "../teams/provider_priority.js";
 import {
-  anchorGbValidForGame,
   canonicalMatchKey,
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
@@ -40,10 +39,6 @@ import {
   imMatchIsStale,
 } from "./im_enrich.js";
 import { startTimesCompatible, startTimesCompatibleStrict } from "./merge_constants.js";
-import {
-  isObSpineMergeEnabled,
-  isRegistryMaterializeEnabled,
-} from "../matcher_behavior.js";
 
 const MERGE_MODE = "merge";
 
@@ -197,14 +192,16 @@ function mergeGroupWithKey(group, mergeKey) {
   for (const { row } of group) Object.assign(mergedMatchs, row.Matchs);
 
   const byMap = new Map();
-  for (const { row } of group) {
+  for (const { row, reversed } of group) {
     for (const bet of row.Bets) {
       const map = bet.Map ?? 0;
       if (!byMap.has(map))
         byMap.set(map, { canonBet: bet, sources: {} });
       const entry = byMap.get(map);
       for (const [p, src] of Object.entries(bet.Sources)) {
-        entry.sources[p] = { ...src };
+        entry.sources[p] = reversed
+          ? { ...src, HomeID: src.AwayID, AwayID: src.HomeID, HomeOdds: src.AwayOdds, AwayOdds: src.HomeOdds }
+          : { ...src };
       }
     }
   }
@@ -229,7 +226,9 @@ function mergeGroupWithKey(group, mergeKey) {
     Bets: mergedBets,
     Round: canonical.Round,
     RoundStart: canonical.RoundStart,
-    Reverse: [],
+    Reverse: [...new Set(
+      group.filter(g => g.reversed).flatMap(g => Object.keys(g.row.Matchs)),
+    )],
   };
 }
 
@@ -461,168 +460,10 @@ function titleFromMatchs(matchs, matches) {
 }
 
 function refreshClientMatchTitles(rows, matches) {
-  refreshClientMatchCanonicalOrientation(rows, matches, null);
-}
-
-function parseLockedGbTeamId(value) {
-  if (value == null || value === "")
-    return null;
-  const s = String(value).trim();
-  return s || null;
-}
-
-function buildPlatformRowsForMatchs(matchs, matches) {
-  const rows = [];
-  for (const [platform, sourceMatchId] of Object.entries(matchs || {})) {
-    const m = findPlatformMatch(matches, platform, sourceMatchId);
-    if (!m)
-      continue;
-    const sourceGameId = m.SourceGameID ?? m.GameID;
-    const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
-    rows.push({
-      platform,
-      home: String(m.Home ?? m.home ?? ""),
-      away: String(m.Away ?? m.away ?? ""),
-      homeId: resolvePlatformTeamId(
-        platform,
-        m.HomeID ?? m.home_id ?? m.SourceHomeID,
-        sourceGameId,
-        gameCode,
-      ),
-      awayId: resolvePlatformTeamId(
-        platform,
-        m.AwayID ?? m.away_id ?? m.SourceAwayID,
-        sourceGameId,
-        gameCode,
-      ),
-    });
-  }
-  return rows;
-}
-
-/** 本场 gameCode：GameID / Game 括号 / 关联 platform_match */
-function resolveGameCodeForClientRow(row, matches) {
-  const gid = String(row?.GameID ?? "").trim();
-  const a8Map = { 1: "lol", 2: "dota2", 3: "cs2", 4: "kog", 8: "valorant" };
-  let gameCode = a8Map[gid] || a8Map[Number(gid)] || null;
-  if (!gameCode && row?.Game) {
-    const parsed = String(row.Game).match(/\(([^)]+)\)\s*$/);
-    if (parsed)
-      gameCode = parsed[1].toLowerCase();
-  }
-  if (!gameCode && row?.Matchs && matches) {
-    for (const [platform, sourceMatchId] of Object.entries(row.Matchs)) {
-      const pm = findPlatformMatch(matches, platform, sourceMatchId);
-      if (!pm)
-        continue;
-      const sourceGameId = pm.SourceGameID ?? pm.GameID;
-      gameCode = getGameCodeForPlatformId(platform, sourceGameId);
-      if (gameCode)
-        break;
-    }
-  }
-  return gameCode || null;
-}
-
-/** 新场次：按平台优先级 + team map 推断 canonical 主客 gb */
-function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
-  const picked = titleFromMatchs(matchs, matches);
-  if (!picked?.home || !picked?.away)
-    return null;
-
-  const homeGbByName = lookupGbTeamIdByName(picked.home, gameCode);
-  const awayGbByName = lookupGbTeamIdByName(picked.away, gameCode);
-  if (homeGbByName && awayGbByName) {
-    return {
-      homeGb: parseLockedGbTeamId(homeGbByName),
-      awayGb: parseLockedGbTeamId(awayGbByName),
-    };
-  }
-
-  const rows = buildPlatformRowsForMatchs(matchs, matches);
-  const refRow = rows.find(r => r.platform === picked.platform);
-  if (!refRow)
-    return null;
-
-  const slotHomeGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.homeId);
-  const slotAwayGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.awayId);
-  if (!slotHomeGb || !slotAwayGb)
-    return null;
-
-  const mode = sideAlignmentMode(refRow.home, refRow.away, picked.home, picked.away);
-  if (mode === "aligned") {
-    return {
-      homeGb: parseLockedGbTeamId(slotHomeGb),
-      awayGb: parseLockedGbTeamId(slotAwayGb),
-    };
-  }
-  if (mode === "reversed") {
-    return {
-      homeGb: parseLockedGbTeamId(slotAwayGb),
-      awayGb: parseLockedGbTeamId(slotHomeGb),
-    };
-  }
-  return null;
-}
-
-function titleFromLockedGb(homeGb, awayGb, fallbackTitle) {
-  const homeName = lookupCanonicalTeamName(homeGb) || parseTitleTeams(fallbackTitle)?.home;
-  const awayName = lookupCanonicalTeamName(awayGb) || parseTitleTeams(fallbackTitle)?.away;
-  if (!homeName || !awayName)
-    return fallbackTitle || "";
-  return formatTitle(homeName, awayName);
-}
-
-/**
- * 锁定 canonical 主客 gb；DB 已有锁则不随高优先级平台加入而翻转 Title。
- * Title 从锁定 gb 派生队名。
- */
-function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRows) {
-  const existingById = new Map(
-    (existingClientRows || []).map(cm => [Number(cm.id), cm]),
-  );
-
   for (const row of rows || []) {
-    const cmId = Number(row.ID);
-    const existing = Number.isFinite(cmId) && cmId > 0 ? existingById.get(cmId) : null;
-    const gameCode = resolveGameCodeForClientRow(row, matches);
-
-    let homeGb = parseLockedGbTeamId(row.HomeGbTeamId)
-      ?? parseLockedGbTeamId(existing?.home_gb_team_id);
-    let awayGb = parseLockedGbTeamId(row.AwayGbTeamId)
-      ?? parseLockedGbTeamId(existing?.away_gb_team_id);
-
-    if (homeGb && !anchorGbValidForGame(homeGb, gameCode))
-      homeGb = null;
-    if (awayGb && !anchorGbValidForGame(awayGb, gameCode))
-      awayGb = null;
-
-    if (!homeGb || !awayGb) {
-      const picked = pickCanonicalGbFromMatchs(row.Matchs, matches, gameCode);
-      if (picked) {
-        homeGb = picked.homeGb;
-        awayGb = picked.awayGb;
-      }
-    }
-
-    if (!homeGb || !awayGb) {
-      const teams = parseTitleTeams(row.Title);
-      if (teams) {
-        homeGb = homeGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.home, gameCode));
-        awayGb = awayGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.away, gameCode));
-      }
-    }
-
-    if (homeGb && awayGb) {
-      row.HomeGbTeamId = homeGb;
-      row.AwayGbTeamId = awayGb;
-      row.Title = titleFromLockedGb(homeGb, awayGb, row.Title);
-    }
-    else {
-      const picked = titleFromMatchs(row.Matchs, matches);
-      if (picked?.title)
-        row.Title = picked.title;
-    }
+    const picked = titleFromMatchs(row.Matchs, matches);
+    if (picked?.title)
+      row.Title = picked.title;
   }
 }
 
@@ -718,6 +559,27 @@ function sideAlignmentByCanonicalId(platform, pm, refCanonIds) {
   return "ambiguous";
 }
 
+/** 从 DB 已有 client_matches 构建锁定 Reverse 索引 */
+function buildLockedReverseIndex(existingClientRows) {
+  if (!existingClientRows?.length)
+    return null;
+  const idx = { _matchs: {} };
+  for (const row of existingClientRows) {
+    const id = Number(row.id ?? row.ID);
+    if (!id)
+      continue;
+    const rev = row.reverse ?? row.Reverse;
+    if (Array.isArray(rev)) {
+      idx[id] = rev;
+    }
+    const matchs = row.matchs ?? row.Matchs;
+    if (matchs && typeof matchs === "object") {
+      idx._matchs[id] = matchs;
+    }
+  }
+  return idx;
+}
+
 /** 从队名已确定的平台中取 canonical home/away ID 作为参考（支持 aligned 和 reversed） */
 function resolveRefCanonIds(resolvedPlatforms, matches) {
   for (const { platform, sourceMatchId, reversed } of resolvedPlatforms) {
@@ -748,33 +610,24 @@ function resolveRefCanonIds(resolvedPlatforms, matches) {
 }
 
 /**
- * 按 Title 主客重算 Reverse[]，并从平台原始盘口重建 Sources（含 swap）。
- * platformSideOverrides：force_aligned / force_reversed；无覆盖则 gb → 队名 → ambiguous。
- * ambiguous：不进 Reverse；Map=0 省略 Sources；Map>0 保留原生盘（不 swap）。
+ * 按 Title canonical 主客重算 Reverse[]，并从平台原始盘口重建 Sources（含 swap）。
+ * 自动合并与人工关联共用。
+ * 优先用 canonical ID 判断（准确），ID 不可用时降级队名比较。
+ *
+ * lockedReverse：上次 DB 中已确定的 Reverse（按 client match ID 索引）。
+ * 已有平台沿用已锁定的判定，只对新加入的平台计算。
  */
-function platformOverridesForRow(platformSideOverrides, rowId) {
-  const id = Number(rowId);
-  if (!platformSideOverrides || !Number.isFinite(id) || id <= 0)
-    return {};
-  return platformSideOverrides[id] || {};
-}
+function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet, lockedReverse) {
+  const locked = lockedReverse || {};
 
-function applyPlatformSideOverride(finalMode, overrideMode) {
-  if (overrideMode === "force_reversed")
-    return "reversed";
-  if (overrideMode === "force_aligned")
-    return "aligned";
-  return finalMode;
-}
-
-function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet, platformSideOverrides) {
   for (const row of rows || []) {
     const teams = parseTitleTeams(row.Title);
     if (!teams)
       continue;
 
-    const rowOverrides = platformOverridesForRow(platformSideOverrides, row.ID);
-    const gameCode = resolveGameCodeForClientRow(row, matches);
+    const rowId = Number(row.ID) || 0;
+    const prev = rowId ? locked[rowId] : null;
+    const prevSet = prev ? new Set(prev) : null;
 
     // 收集各平台的 platform_match 和队名匹配结果
     const platformEntries = {};
@@ -791,36 +644,39 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
       platformEntries[platform] = { nameMode, sourceMatchId, pm };
     }
 
-    // 构建 refCanonIds：锁定 gb 优先；否则 Title 队名 gb；再回落队名已确定的平台
-    let refIds = null;
-    const lockedHome = parseLockedGbTeamId(row.HomeGbTeamId);
-    const lockedAway = parseLockedGbTeamId(row.AwayGbTeamId);
-    if (lockedHome && lockedAway
-      && anchorGbValidForGame(lockedHome, gameCode)
-      && anchorGbValidForGame(lockedAway, gameCode)) {
-      refIds = { home: lockedHome, away: lockedAway };
-    }
+    // 构建 refCanonIds：
+    // 1. 优先从队名已确定的平台取（最可靠）
+    const nameResolved = Object.entries(platformEntries)
+      .filter(([, v]) => v.nameMode === "aligned" || v.nameMode === "reversed")
+      .map(([platform, v]) => ({ platform, sourceMatchId: v.sourceMatchId, reversed: v.nameMode === "reversed" }));
+    let refIds = resolveRefCanonIds(nameResolved, matches);
+    // 2. 队名全 ambiguous 时，从 Title 队名直接查 canonical_teams 获取 ID
     if (!refIds) {
-      const titleHomeGb = lookupGbTeamIdByName(teams.home, gameCode);
-      const titleAwayGb = lookupGbTeamIdByName(teams.away, gameCode);
-      if (titleHomeGb && titleAwayGb) {
-        refIds = { home: titleHomeGb, away: titleAwayGb };
-      }
-    }
-    if (!refIds) {
-      const nameResolved = Object.entries(platformEntries)
-        .filter(([, v]) => v.nameMode === "aligned" || v.nameMode === "reversed")
-        .map(([platform, v]) => ({ platform, sourceMatchId: v.sourceMatchId, reversed: v.nameMode === "reversed" }));
-      refIds = resolveRefCanonIds(nameResolved, matches);
+      const homeGb = lookupGbTeamIdByName(teams.home);
+      const awayGb = lookupGbTeamIdByName(teams.away);
+      if (homeGb && awayGb)
+        refIds = { home: homeGb, away: awayGb };
     }
 
+    // 每个平台判定：已锁定沿用，新平台先查 ID 再降级队名
     const reverse = [];
     const ambiguousPlatforms = [];
     for (const [platform, { nameMode, pm }] of Object.entries(platformEntries)) {
-      const idMode = refIds ? sideAlignmentByCanonicalId(platform, pm, refIds) : "ambiguous";
-      let finalMode = idMode !== "ambiguous" ? idMode : nameMode;
-      finalMode = applyPlatformSideOverride(finalMode, rowOverrides[platform]);
+      // 老平台：沿用上次锁定的判定
+      if (prevSet) {
+        if (prevSet.has(platform)) {
+          reverse.push(platform);
+          continue;
+        }
+        const prevMatchs = locked._matchs?.[rowId];
+        if (prevMatchs && prevMatchs[platform]) {
+          continue;
+        }
+      }
 
+      // 新平台：优先 gb_team_id，ID 不可用时降级队名
+      const idMode = refIds ? sideAlignmentByCanonicalId(platform, pm, refIds) : "ambiguous";
+      const finalMode = idMode !== "ambiguous" ? idMode : nameMode;
       if (finalMode === "reversed") {
         reverse.push(platform);
       }
@@ -842,39 +698,21 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
       delete row.SideAlignAmbiguous;
     }
 
-    const ambiguousSet = new Set(ambiguousPlatforms);
     for (const [platform] of Object.entries(row.Matchs || {})) {
       const pm = findPlatformMatch(matches, platform, row.Matchs[platform]);
       if (!pm)
         continue;
       const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
       const accByMap = new Map((accRow.Bets || []).map(b => [b.Map ?? 0, b]));
-
-      if (ambiguousSet.has(platform)) {
-        // 全场盘 Map=0 省略 Sources（主客未对齐，不可套利）；局分/决胜局 Map>0 仍展示原生盘
-        for (const bet of row.Bets || []) {
-          const mapNum = bet.Map ?? 0;
-          if (mapNum === 0) {
-            if (bet.Sources?.[platform])
-              delete bet.Sources[platform];
-          }
-          else {
-            const raw = accByMap.get(mapNum)?.Sources?.[platform];
-            if (raw)
-              bet.Sources[platform] = { ...raw };
-            else if (bet.Sources?.[platform])
-              delete bet.Sources[platform];
-          }
-        }
-        continue;
-      }
-
       const shouldSwap = row.Reverse.includes(platform);
+
       for (const bet of row.Bets || []) {
         const raw = accByMap.get(bet.Map ?? 0)?.Sources?.[platform];
         if (raw) {
           bet.Sources[platform] = shouldSwap ? swapBetSource(raw) : { ...raw };
         }
+        // 已锁定 Reverse 后不再对已有 Sources 做"纠正" swap——
+        // 方向在首次确定后不变，不存在需要纠正的场景。
       }
     }
   }
@@ -973,7 +811,7 @@ function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
     row.Bets = row.Bets || [];
     const existing = row.Bets.find(b => betMapNumber(b) === 0);
     if (existing) {
-      existing.Sources = { ...(existing.Sources || {}), ...(fullBet.Sources || {}) };
+      existing.Sources = fullBet.Sources || {};
     }
     else {
       row.Bets.push(fullBet);
@@ -1033,6 +871,10 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
     }
 
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
+      const fullSrc = fullBet.Sources?.[platform];
+      if (!fullSrc)
+        continue;
+
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
       if (!pm)
         continue;
@@ -1041,17 +883,8 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
       if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap))
         continue;
 
-      let srcToCopy = fullBet.Sources?.[platform];
-      if (!srcToCopy) {
-        const rawFull = accByMap.get(0)?.Sources?.[platform];
-        if (!rawFull)
-          continue;
-        // Map=0 因 ambiguous 省略时，决胜局仍从原始全场盘 promote（不 swap）
-        srcToCopy = row.Reverse.includes(platform) ? swapBetSource(rawFull) : rawFull;
-      }
-
       // fullBet.Sources 已由 reconcileClientMatchReverse 按 Title canonical 对齐，勿再 swap
-      liveBet.Sources[platform] = { ...srcToCopy };
+      liveBet.Sources[platform] = { ...fullSrc };
     }
   }
 }
@@ -1121,11 +954,11 @@ function trimMapZeroToObOnDeciderRound(rows) {
   sortClientMatchBets(rows);
 }
 
-function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides) {
-  refreshClientMatchCanonicalOrientation(rows, matches, existingClientRows);
+function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet, lockedReverse) {
+  refreshClientMatchTitles(rows, matches);
   refreshClientMatchBetNames(rows);
   if (bets && sourceFromBet) {
-    reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet, platformSideOverrides);
+    reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet, lockedReverse);
     refreshClientMatchBetMapNames(rows, matches, bets, timers, sourceFromBet);
   }
 }
@@ -1144,104 +977,97 @@ function clientMatchRowToBuilt(cm) {
     Matchs: { ...(cm.matchs || {}) },
     Bets: Array.isArray(cm.bets) ? cm.bets : [],
     Reverse: Array.isArray(cm.reverse) ? cm.reverse : [],
-    HomeGbTeamId: parseLockedGbTeamId(cm.home_gb_team_id) ?? undefined,
-    AwayGbTeamId: parseLockedGbTeamId(cm.away_gb_team_id) ?? undefined,
   };
 }
 
-/** 分配 client id / 人工链接后：锁定主客 + 全量 reconcile + 决胜局后处理 */
-function finalizeClientMatchListAfterLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides) {
+function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows) {
+  const links = collectManualLinks(matches);
+  if (!links.length)
+    return mergedList;
+
+  const targetById = new Map(mergedList.map(m => [Number(m.ID), m]));
+  const linkedIds = new Set(links.map(l => Number(l.match_id)));
+
+  // 仅预填本次链接目标 id：晚到平台挂到已有 client 行，保留原 id / merge_key
+  for (const cm of existingClientRows || []) {
+    const id = Number(cm.id);
+    if (!linkedIds.has(id) || !Number.isFinite(id) || targetById.has(id))
+      continue;
+    const seeded = clientMatchRowToBuilt(cm);
+    mergedList.push(seeded);
+    targetById.set(id, seeded);
+  }
+
+  for (const row of mergedList) {
+    for (const link of links) {
+      const sid = String(link.source_match_id);
+      if (row.Matchs?.[link.platform] === sid && Number(row.ID) !== Number(link.match_id)) {
+        delete row.Matchs[link.platform];
+        if (Array.isArray(row.Bets)) {
+          for (const bet of row.Bets) {
+            if (bet.Sources?.[link.platform])
+              delete bet.Sources[link.platform];
+          }
+          row.Bets = row.Bets.filter(b => Object.keys(b.Sources || {}).length > 0);
+        }
+      }
+    }
+  }
+
+  for (const link of links) {
+    const targetId = Number(link.match_id);
+    const match = findPlatformMatch(matches, link.platform, link.source_match_id);
+    if (!match)
+      continue;
+
+    const row = buildAccumulateRow(link.platform, match, bets, timers, sourceFromBet);
+    const target = targetById.get(targetId);
+
+    if (!target) {
+      row.ID = targetId;
+      row.Bets = (row.Bets || []).map(b => ({
+        ...b,
+        ID: stableBetId(targetId, b.Map ?? 0),
+        MatchID: targetId,
+      }));
+      mergedList.push(row);
+      targetById.set(targetId, row);
+      continue;
+    }
+
+    const alreadyLinked = target.Matchs?.[link.platform] === String(link.source_match_id);
+    if (!alreadyLinked) {
+      target.Matchs[link.platform] = String(link.source_match_id);
+    }
+    const betByMap = new Map((target.Bets || []).map(b => [b.Map ?? 0, b]));
+    for (const bet of row.Bets || []) {
+      const map = bet.Map ?? 0;
+      const existing = betByMap.get(map);
+      if (existing) {
+        Object.assign(existing.Sources, bet.Sources);
+      }
+      else {
+        const nb = {
+          ...bet,
+          ID: stableBetId(targetId, map),
+          MatchID: targetId,
+        };
+        target.Bets = target.Bets || [];
+        target.Bets.push(nb);
+        betByMap.set(map, nb);
+      }
+    }
+  }
+
   refreshClientMatchStartTimes(mergedList, matches);
   refreshClientMatchGames(mergedList, matches);
-  refreshClientMatchSides(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides);
+  refreshClientMatchSides(mergedList, matches, bets, timers, sourceFromBet, null);
   refreshClientMatchRoundsFromTimers(mergedList, timers);
   promoteFullMatchSourcesToLiveRound(mergedList, matches, bets, timers, sourceFromBet);
   ensureMapZeroForLiveRound(mergedList, matches, bets, timers, sourceFromBet);
   trimMapZeroToObOnDeciderRound(mergedList);
   applyObLiveRoundGate(mergedList, matches, timers);
   stripOrphanClientMatchPlatforms(mergedList, matches);
-}
-
-function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides) {
-  const links = collectManualLinks(matches);
-
-  if (links.length) {
-    const targetById = new Map(mergedList.map(m => [Number(m.ID), m]));
-    const linkedIds = new Set(links.map(l => Number(l.match_id)));
-
-    // 仅预填本次链接目标 id：晚到平台挂到已有 client 行，保留原 id / merge_key
-    for (const cm of existingClientRows || []) {
-      const id = Number(cm.id);
-      if (!linkedIds.has(id) || !Number.isFinite(id) || targetById.has(id))
-        continue;
-      const seeded = clientMatchRowToBuilt(cm);
-      mergedList.push(seeded);
-      targetById.set(id, seeded);
-    }
-
-    for (const row of mergedList) {
-      for (const link of links) {
-        const sid = String(link.source_match_id);
-        if (row.Matchs?.[link.platform] === sid && Number(row.ID) !== Number(link.match_id)) {
-          delete row.Matchs[link.platform];
-          if (Array.isArray(row.Bets)) {
-            for (const bet of row.Bets) {
-              if (bet.Sources?.[link.platform])
-                delete bet.Sources[link.platform];
-            }
-            row.Bets = row.Bets.filter(b => Object.keys(b.Sources || {}).length > 0);
-          }
-        }
-      }
-    }
-
-    for (const link of links) {
-      const targetId = Number(link.match_id);
-      const match = findPlatformMatch(matches, link.platform, link.source_match_id);
-      if (!match)
-        continue;
-
-      const row = buildAccumulateRow(link.platform, match, bets, timers, sourceFromBet);
-      const target = targetById.get(targetId);
-
-      if (!target) {
-        row.ID = targetId;
-        row.Bets = (row.Bets || []).map(b => ({
-          ...b,
-          ID: stableBetId(targetId, b.Map ?? 0),
-          MatchID: targetId,
-        }));
-        mergedList.push(row);
-        targetById.set(targetId, row);
-        continue;
-      }
-
-      const alreadyLinked = target.Matchs?.[link.platform] === String(link.source_match_id);
-      if (!alreadyLinked) {
-        target.Matchs[link.platform] = String(link.source_match_id);
-      }
-      const betByMap = new Map((target.Bets || []).map(b => [b.Map ?? 0, b]));
-      for (const bet of row.Bets || []) {
-        const map = bet.Map ?? 0;
-        const existing = betByMap.get(map);
-        if (existing) {
-          Object.assign(existing.Sources, bet.Sources);
-        }
-        else {
-          const nb = {
-            ...bet,
-            ID: stableBetId(targetId, map),
-            MatchID: targetId,
-          };
-          target.Bets = target.Bets || [];
-          target.Bets.push(nb);
-          betByMap.set(map, nb);
-        }
-      }
-    }
-  }
-
-  finalizeClientMatchListAfterLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides);
 
   return filterMultiPlatformClientMatches(mergedList)
     .sort((a, b) => a.StartTime - b.StartTime);
@@ -1295,236 +1121,6 @@ function collectMergeEntries(matches, bets, timers, sourceFromBet) {
     }
   }
   return entries;
-}
-
-function spineHasProvider(spine, provider) {
-  if (spine.obEntry.row._provider === provider)
-    return true;
-  return spine.attachments.some(a => a.row._provider === provider);
-}
-
-/**
- * 非 OB 场次能否挂到 OB 主轴：先 ID 键，再队名+时间窗（与两阶段 merge 一致）。
- * @returns {{ score: number, basis: string, reversed: boolean } | null}
- */
-function scoreEntryAgainstObSpine(obEntry, otherEntry) {
-  const idCkOb = canonicalMatchKeyByIdOnly(
-    obEntry.gameId, obEntry.home, obEntry.away, obEntry.gameCode, obEntry.ctx,
-  );
-  const idCk = canonicalMatchKeyByIdOnly(
-    otherEntry.gameId, otherEntry.home, otherEntry.away, otherEntry.gameCode, otherEntry.ctx,
-  );
-
-  if (idCk && idCkOb) {
-    if (idCk.key !== idCkOb.key)
-      return null;
-    const a = normalizeEpochMs(otherEntry.row.StartTime);
-    const b = normalizeEpochMs(obEntry.row.StartTime);
-    const score = a && b ? Math.abs(a - b) : Number.POSITIVE_INFINITY;
-    return { score, basis: "id", reversed: !!idCk.reversed };
-  }
-
-  const nameCkOb = canonicalMatchKeyByName(obEntry.gameId, obEntry.home, obEntry.away);
-  const nameCk = canonicalMatchKeyByName(otherEntry.gameId, otherEntry.home, otherEntry.away);
-  if (!nameCk || !nameCkOb || nameCk.mergeKey !== nameCkOb.mergeKey)
-    return null;
-  if (!startTimesCompatible(otherEntry.row.StartTime, obEntry.row.StartTime))
-    return null;
-
-  const a = normalizeEpochMs(otherEntry.row.StartTime);
-  const b = normalizeEpochMs(obEntry.row.StartTime);
-  const score = a && b ? Math.abs(a - b) : Number.POSITIVE_INFINITY;
-  return { score, basis: "name", reversed: !!nameCk.reversed };
-}
-
-function filterMatchesByRowKeys(matches, rowKeys) {
-  const keep = rowKeys instanceof Set ? rowKeys : new Set(rowKeys);
-  const out = {};
-  for (const [provider, byId] of Object.entries(matches || {})) {
-    if (!byId || typeof byId !== "object")
-      continue;
-    for (const match of Object.values(byId)) {
-      if (!match?.SourceMatchID)
-        continue;
-      const rowKey = `${provider}:${String(match.SourceMatchID)}`;
-      if (!keep.has(rowKey))
-        continue;
-      if (!out[provider])
-        out[provider] = {};
-      out[provider][String(match.SourceMatchID)] = match;
-    }
-  }
-  return out;
-}
-
-/**
- * OB 主轴合并：每个 OB 场次占一行，其它平台按 ID/队名+时间挂接；未挂上者走常规 merge。
- * OB 主轴合并：由 lib/config.js obSpineMerge 控制（默认关闭）。
- */
-function buildMatchListObSpine(matches, bets, timers, sourceFromBet) {
-  const entries = collectMergeEntries(matches, bets, timers, sourceFromBet);
-  const obEntries = entries.filter(e => e.row._provider === "OB");
-  const otherEntries = entries.filter(e => e.row._provider !== "OB");
-
-  const spines = obEntries.map(obEntry => ({ obEntry, attachments: [] }));
-  const attached = new Set();
-
-  for (const entry of otherEntries) {
-    let bestSpine = null;
-    let bestHit = null;
-
-    for (const spine of spines) {
-      if (spineHasProvider(spine, entry.row._provider))
-        continue;
-      const hit = scoreEntryAgainstObSpine(spine.obEntry, entry);
-      if (!hit)
-        continue;
-      if (!bestHit || hit.score < bestHit.score
-        || (hit.score === bestHit.score && String(spine.obEntry.row.Matchs?.OB || "") < String(bestSpine.obEntry.row.Matchs?.OB || ""))) {
-        bestSpine = spine;
-        bestHit = hit;
-      }
-    }
-
-    if (!bestSpine || !bestHit)
-      continue;
-
-    bestSpine.attachments.push({
-      row: entry.row,
-      reversed: bestHit.reversed,
-      rowKey: entry.rowKey,
-      basis: bestHit.basis,
-    });
-    attached.add(entry.rowKey);
-  }
-
-  const result = [];
-  for (const spine of spines) {
-    const group = [
-      { row: spine.obEntry.row, reversed: false, rowKey: spine.obEntry.rowKey },
-      ...spine.attachments.map(a => ({
-        row: a.row,
-        reversed: a.reversed,
-        rowKey: a.rowKey,
-      })),
-    ];
-    if (group.length < MIN_CLIENT_MATCH_PLATFORMS)
-      continue;
-
-    const obId = String(spine.obEntry.row.Matchs?.OB || spine.obEntry.rowKey.split(":")[1] || "unknown");
-    const mergeKey = `ob-spine:${obId}`;
-    const out = mergeGroupWithKey(group, mergeKey);
-    const hasId = spine.attachments.some(a => a.basis === "id");
-    out.MergeBasis = hasId ? "id" : "name";
-    delete out._provider;
-    result.push(out);
-  }
-
-  const leftoverKeys = new Set(
-    otherEntries.filter(e => !attached.has(e.rowKey)).map(e => e.rowKey),
-  );
-  if (leftoverKeys.size) {
-    const leftoverMatches = filterMatchesByRowKeys(matches, leftoverKeys);
-    result.push(...buildMatchListMerged(leftoverMatches, bets, timers, sourceFromBet));
-  }
-
-  result.sort((a, b) => a.StartTime - b.StartTime);
-  return collapseImClientRows(result);
-}
-
-function inferMergeBasisFromBindings(bindings) {
-  for (const b of bindings || []) {
-    const src = String(b.binding_source ?? b.BindingSource ?? "").toLowerCase();
-    if (src === "manual" || src === "auto_id" || src === "align")
-      return "id";
-  }
-  return "name";
-}
-
-/**
- * 从 event_bindings 真相表组装 client 行；未绑定平台仍走启发式 merge（fallback）。
- * 由 matcher/lib/config.js registryMaterialize 控制（Event-first 默认开启）。
- */
-function buildClientMatchListFromRegistry({
-  bindings,
-  matchEventsById,
-  matches,
-  bets,
-  timers,
-  sourceFromBet,
-  platformSideOverrides,
-  existingClientRows,
-}) {
-  const normalized = normalizeMatchesShape(matches);
-  const boundKeys = new Set(
-    (bindings || []).map(b => `${String(b.platform)}:${String(b.source_match_id)}`),
-  );
-
-  const byEvent = new Map();
-  for (const b of bindings || []) {
-    const eid = Number(b.event_id);
-    if (!Number.isFinite(eid))
-      continue;
-    if (!byEvent.has(eid))
-      byEvent.set(eid, []);
-    byEvent.get(eid).push(b);
-  }
-
-  const allEntries = collectMergeEntries(normalized, bets, timers, sourceFromBet);
-  const entriesByKey = new Map(allEntries.map(e => [e.rowKey, e]));
-
-  const registryRows = [];
-  for (const [eventId, eventBindings] of byEvent) {
-    const group = [];
-    for (const binding of eventBindings) {
-      const plat = String(binding.platform);
-      const sid = String(binding.source_match_id);
-      const rowKey = `${plat}:${sid}`;
-      const entry = entriesByKey.get(rowKey);
-      if (!entry)
-        continue;
-      const sideMode = String(binding.binding_side_mode ?? binding.BindingSideMode ?? "aligned").toLowerCase();
-      group.push({
-        row: entry.row,
-        reversed: sideMode === "reversed",
-        rowKey,
-      });
-    }
-
-    if (group.length < MIN_CLIENT_MATCH_PLATFORMS)
-      continue;
-
-    const ev = matchEventsById instanceof Map
-      ? matchEventsById.get(eventId)
-      : matchEventsById?.[eventId];
-    const anchor = ev?.event_anchor;
-    const mergeKey = anchor
-      ? `registry:${String(anchor)}`
-      : `registry:event:${eventId}`;
-
-    const out = mergeGroupWithKey(group, mergeKey);
-    out.MergeBasis = inferMergeBasisFromBindings(eventBindings);
-    out.ID = eventId;
-    const homeGb = parseLockedGbTeamId(ev?.home_gb_team_id);
-    const awayGb = parseLockedGbTeamId(ev?.away_gb_team_id);
-    if (homeGb)
-      out.HomeGbTeamId = homeGb;
-    if (awayGb)
-      out.AwayGbTeamId = awayGb;
-    delete out._provider;
-    registryRows.push(out);
-  }
-
-  finalizeClientMatchListAfterLinks(
-    registryRows,
-    normalized,
-    bets,
-    timers,
-    sourceFromBet,
-    existingClientRows,
-    platformSideOverrides,
-  );
-  return filterMultiPlatformClientMatches(registryRows);
 }
 
 // ── 主入口 ────────────────────────────────────────────────────────────────────
@@ -1634,13 +1230,20 @@ function stripOrphanClientMatchPlatforms(rows, platformMatches) {
   return rows;
 }
 
-/** 自动合并 matchs；主客对齐在 finalize（写库前全量 reconcile） */
-function buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides }) {
+/** 仅自动合并（一/二阶段）；人工关联在分配自增 id 后由 matchMerge 调用 applyManualMatchLinks */
+function buildClientMatchList({ matches, bets, timers, sourceFromBet, existingClientRows }) {
   const normalized = normalizeMatchesShape(matches);
-  const list = isObSpineMergeEnabled()
-    ? buildMatchListObSpine(normalized, bets, timers, sourceFromBet)
-    : buildMatchListMerged(normalized, bets, timers, sourceFromBet);
-  finalizeClientMatchListAfterLinks(list, normalized, bets, timers, sourceFromBet, null, platformSideOverrides);
+  const list = buildMatchListMerged(normalized, bets, timers, sourceFromBet);
+  refreshClientMatchStartTimes(list, normalized);
+  refreshClientMatchGames(list, normalized);
+  const lockedReverse = buildLockedReverseIndex(existingClientRows);
+  refreshClientMatchSides(list, normalized, bets, timers, sourceFromBet, lockedReverse);
+  refreshClientMatchRoundsFromTimers(list, timers);
+  promoteFullMatchSourcesToLiveRound(list, normalized, bets, timers, sourceFromBet);
+  ensureMapZeroForLiveRound(list, normalized, bets, timers, sourceFromBet);
+  trimMapZeroToObOnDeciderRound(list);
+  applyObLiveRoundGate(list, normalized, timers);
+  stripOrphanClientMatchPlatforms(list, normalized);
   return filterMultiPlatformClientMatches(list);
 }
 
@@ -1650,10 +1253,8 @@ export {
   betMapNumber,
   buildAccumulateRow,
   buildClientMatchList,
-  buildClientMatchListFromRegistry,
   buildMatchListAccumulate,
   buildMatchListMerged,
-  buildMatchListObSpine,
   canonicalMatchKey,
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
@@ -1662,13 +1263,11 @@ export {
   collectManualLinks,
   ensureMapZeroForLiveRound,
   filterMultiPlatformClientMatches,
-  isRegistryMaterializeEnabled,
   liveRound,
   MERGE_MODE,
   MIN_CLIENT_MATCH_PLATFORMS,
   normalizeMatchesShape,
   normalizeTeam,
-  pickCanonicalGbFromMatchs,
   pickCanonicalStartTime,
   promoteFullMatchSourcesToLiveRound,
   promoteFullMatchSourcesToLiveRoundInPlace,
@@ -1676,7 +1275,6 @@ export {
   PROVIDER_PRIORITY,
   reconcileClientMatchReverse,
   refreshClientMatchBetNames,
-  refreshClientMatchCanonicalOrientation,
   refreshClientMatchRoundsFromTimers,
   refreshClientMatchSides,
   refreshClientMatchTitles,

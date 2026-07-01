@@ -1,4 +1,4 @@
-import { fetchPlatformMatchesDebugRows } from "@changmen/db";
+import { fetchPlatformMatchesDebugRows, setClientMatchPlatformReverse } from "@changmen/db";
 import {
   linkPlatformTeams,
   linkPlatformToClientMatch,
@@ -7,20 +7,12 @@ import {
   previewLinkPlatformAlignment,
   previewLinkPlatformTeams,
   registerTeamPlatformMap,
-  setClientMatchPlatformSideOverride,
 } from "../link/index.js";
 import { clientMatchToHistory } from "../ops/delete_client_match.js";
 import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_client_matches.js";
 import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { matchMergeOnce } from "../ops/match_merge_once.js";
 import { restoreClientMatch } from "../ops/restore_client_match.js";
-import { runManualRegistryReconcile } from "../ops/run_registry_reconcile.js";
-import {
-  bindPlatformToEvent,
-  previewEventBinding,
-  unbindPlatformFromEvent,
-} from "../ops/event_binding_ops.js";
-import { setMatchEventPairingTier } from "../ops/set_event_pairing_tier.js";
 import { logMatcherApiErr, logMatcherApiOk, logMatcherApiWarn } from "./matcher_api_log.js";
 import {
   fetchMatcherDashboard,
@@ -182,32 +174,15 @@ function registerMatcherApiRoutes(app) {
     }
   });
 
-  app.post("/api/client-match/:id/confirm-pairing", async (req, res) => {
-    try {
-      const result = await confirmClientMatchPairing(req.params.id);
-      logMatcherApiOk("/api/client-match/confirm-pairing", result);
-      res.json(result);
-    }
-    catch (err) {
-      logMatcherApiErr("/api/client-match/confirm-pairing", err);
-      res.status(400).json({ ok: false, error: err.message });
-    }
-  });
-
   app.post("/api/client-match/:id/reverse", async (req, res) => {
     try {
       const { platform, reversed } = req.body || {};
-      const update = await setClientMatchPlatformSideOverride({
-        clientMatchId: req.params.id,
-        platform,
-        reversed: !!reversed,
-      });
-      invalidateMatcherRdsSnapshot(["clientMatches", "platformMatches"]);
-      const matchMerge = await matchMergeOnce({ afterInFlight: true });
+      const update = await setClientMatchPlatformReverse(req.params.id, platform, !!reversed);
+      invalidateMatcherRdsSnapshot(["clientMatches"]);
       const body = {
         ok: true,
         ...update,
-        matchMerge: { matchCount: matchMerge?.matchCount ?? null },
+        summary: `${update.platform} 主客方向已${update.reversed ? "标记反转" : "恢复正向"}`,
       };
       logMatcherApiOk("/api/client-match/reverse", body);
       res.json(body);
@@ -263,87 +238,6 @@ function registerMatcherApiRoutes(app) {
     catch (err) {
       console.error("[matcher] /api/hidden-client-matches error:", err.message);
       res.status(500).json({ error: err.message });
-    }
-  });
-
-  app.post("/api/event-registry/reconcile", async (req, res) => {
-    try {
-      const matchMerge = req.body?.matchMerge;
-      const result = await runManualRegistryReconcile({
-        matchMerge: matchMerge !== false,
-      });
-      logMatcherApiOk("/api/event-registry/reconcile", result);
-      res.json(result);
-    }
-    catch (err) {
-      logMatcherApiErr("/api/event-registry/reconcile", err);
-      res.status(400).json({ ok: false, error: err.message });
-    }
-  });
-
-  app.get("/api/event-binding/preview", async (req, res) => {
-    try {
-      const result = await previewEventBinding({
-        platform: req.query.platform,
-        sourceMatchId: req.query.sourceMatchId,
-        eventId: req.query.eventId,
-      });
-      res.json(result);
-    }
-    catch (err) {
-      res.status(400).json({ ok: false, error: err.message });
-    }
-  });
-
-  app.post("/api/event-binding/bind", async (req, res) => {
-    try {
-      const { platform, sourceMatchId, eventId, bindingSideMode, reversed } = req.body || {};
-      const result = await bindPlatformToEvent({
-        platform,
-        sourceMatchId,
-        eventId,
-        bindingSideMode,
-        reversed: typeof reversed === "boolean" ? reversed : undefined,
-      });
-      logMatcherApiOk("/api/event-binding/bind", result);
-      res.json(result);
-    }
-    catch (err) {
-      logMatcherApiErr("/api/event-binding/bind", err);
-      res.status(400).json({ ok: false, error: err.message });
-    }
-  });
-
-  app.delete("/api/event-binding/:platform/:sourceMatchId", async (req, res) => {
-    try {
-      const result = await unbindPlatformFromEvent({
-        platform: req.params.platform,
-        sourceMatchId: req.params.sourceMatchId,
-      });
-      logMatcherApiOk("/api/event-binding/unbind", result);
-      res.json(result);
-    }
-    catch (err) {
-      logMatcherApiErr("/api/event-binding/unbind", err);
-      res.status(400).json({ ok: false, error: err.message });
-    }
-  });
-
-  app.post("/api/match-event/:id/pairing-tier", async (req, res) => {
-    try {
-      const { tier, confidence, lock, matchMerge } = req.body || {};
-      const result = await setMatchEventPairingTier(req.params.id, {
-        tier,
-        confidence,
-        lock,
-        matchMerge,
-      });
-      logMatcherApiOk("/api/match-event/pairing-tier", result);
-      res.json(result);
-    }
-    catch (err) {
-      logMatcherApiErr("/api/match-event/pairing-tier", err);
-      res.status(400).json({ ok: false, error: err.message });
     }
   });
 

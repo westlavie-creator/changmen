@@ -1,20 +1,16 @@
 import * as db from "@changmen/db";
 import {
-  anchorGbValidForGame,
   ensureClientMatchId,
   isPlaceholderTeamName,
-  lookupCanonicalTeamName,
-  lookupGbTeamIdByPlatform,
   manualMergeKey,
   normalizeTeam,
+  providerPriority,
   teamsFromPlatformRows,
 } from "@changmen/match-engine";
 import { getGameCodeForPlatformId, getPlatformGameId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
-import { formatPbTeamPlatformId, resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
+import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 import store from "../../backend/core/esport-api/store.js";
-import { ensureTeamPlugin, invalidateTeamPlugin, matchMergeOnce } from "../ops/match_merge_once.js";
-import { persistManualPlatformBindings } from "../ops/manual_binding.js";
-import { buildManualEventStub } from "../ops/sync_event_registry.js";
+import { invalidateTeamPlugin, matchMergeOnce } from "../ops/match_merge_once.js";
 import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { resetMatcherUiTeamPlugin } from "../ui/merge_mode.js";
 import "../lib/env.js";
@@ -52,107 +48,10 @@ function parseTitleTeams(title) {
   return { home, away };
 }
 
-function platformMatchRowForClient(plat, srcId, platformsById, pm) {
-  const row = platformsById?.[`${plat}:${srcId}`];
-  if (row)
-    return row;
-  if (pm && String(pm.platform) === String(plat) && String(pm.source_match_id) === String(srcId))
-    return pm;
-  return null;
-}
-
-/** 与 match_merge titleFromMatchs 同源：关联平台行 → teamsFromPlatformRows */
-function buildPlatformRowsForClientTeams(cm, pm, platformsById) {
-  const matchs = { ...(cm.matchs || {}) };
-  if (pm?.platform != null && pm?.source_match_id != null) {
-    const plat = String(pm.platform);
-    const srcId = String(pm.source_match_id);
-    if (!matchs[plat])
-      matchs[plat] = srcId;
-  }
-
-  const rows = [];
-  for (const [platform, sourceMatchId] of Object.entries(matchs)) {
-    const row = platformMatchRowForClient(platform, sourceMatchId, platformsById, pm);
-    if (!row)
-      continue;
-    const sourceGameId = row.source_game_id ?? row.SourceGameID ?? row.GameID;
-    const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
-    const home = String(row.home ?? row.Home ?? "").trim();
-    const away = String(row.away ?? row.Away ?? "").trim();
-    if (isPlaceholderTeamName(home) && isPlaceholderTeamName(away))
-      continue;
-    rows.push({
-      platform,
-      home,
-      away,
-      homeId: resolvePlatformTeamId(
-        platform,
-        row.home_id ?? row.HomeID ?? row.SourceHomeID,
-        sourceGameId,
-        gameCode,
-      ),
-      awayId: resolvePlatformTeamId(
-        platform,
-        row.away_id ?? row.AwayID ?? row.SourceAwayID,
-        sourceGameId,
-        gameCode,
-      ),
-    });
-  }
-  return rows;
-}
-
-function resolveGameCodeForClient(cm, pm) {
-  if (pm?.platform != null) {
-    const gc = gameCodeForPlatform(pm.platform, pm.source_game_id);
-    if (gc)
-      return gc;
-  }
-  const gid = String(cm?.game_id || "").trim();
-  const a8Map = { 1: "lol", 2: "dota2", 3: "cs2", 4: "kog", 8: "valorant" };
-  const fromId = a8Map[gid] || a8Map[Number(gid)];
-  if (fromId)
-    return fromId;
-  const parsed = String(cm?.game || "").match(/\(([^)]+)\)\s*$/);
-  return parsed ? parsed[1].toLowerCase() : null;
-}
-
-/** 与 reconcile 同源：锁定 gb → Title；不用高优先级平台的原始主客槽位 */
-function teamsFromLockedGbOrTitle(cm, gameCode) {
-  const homeGb = parseGbTeamId(cm.home_gb_team_id);
-  const awayGb = parseGbTeamId(cm.away_gb_team_id);
-  if (homeGb != null && awayGb != null
-    && anchorGbValidForGame(homeGb, gameCode)
-    && anchorGbValidForGame(awayGb, gameCode)) {
-    const home = String(lookupCanonicalTeamName(homeGb) || "").trim();
-    const away = String(lookupCanonicalTeamName(awayGb) || "").trim();
-    if (!isPlaceholderTeamName(home) && !isPlaceholderTeamName(away)) {
-      return { home, away };
-    }
-  }
-  return parseTitleTeams(cm.title);
-}
-
-/** 与 reconcile 用同一 canonical 基准；平台行仅作无锁/无 Title 时兜底 */
-async function resolveClientTeams(cm, pm, platformsById) {
-  await ensureTeamPlugin();
-
-  const gameCode = resolveGameCodeForClient(cm, pm);
-  const fromLockedOrTitle = teamsFromLockedGbOrTitle(cm, gameCode);
-  if (fromLockedOrTitle)
-    return fromLockedOrTitle;
-
-  const rows = buildPlatformRowsForClientTeams(cm, pm, platformsById);
-  if (rows.length) {
-    const picked = teamsFromPlatformRows(rows, {
-      lookupGbTeamId: lookupGbTeamIdByPlatform,
-      lookupCanonicalName: lookupCanonicalTeamName,
-    });
-    if (picked?.home && picked?.away) {
-      return { home: String(picked.home).trim(), away: String(picked.away).trim() };
-    }
-  }
+function resolveClientTeams(cm, pm, platformsById) {
+  const fromTitle = parseTitleTeams(cm.title);
+  if (fromTitle)
+    return fromTitle;
 
   const bets = Array.isArray(cm.bets) ? cm.bets : [];
   if (bets.length) {
@@ -161,6 +60,15 @@ async function resolveClientTeams(cm, pm, platformsById) {
     const away = String(b.AwayName || b.awayName || "").trim();
     if (!isPlaceholderTeamName(home) && !isPlaceholderTeamName(away)) {
       return { home, away };
+    }
+  }
+
+  for (const [plat, srcId] of Object.entries(cm.matchs || {}).sort(
+    ([a], [b]) => providerPriority(b) - providerPriority(a),
+  )) {
+    const row = platformsById?.[`${plat}:${srcId}`];
+    if (row && !isPlaceholderTeamName(row.home) && !isPlaceholderTeamName(row.away)) {
+      return { home: String(row.home).trim(), away: String(row.away).trim() };
     }
   }
 
@@ -459,31 +367,6 @@ async function previewLinkPlatformAlignment({ platform, sourceMatchId, targetPla
   };
 }
 
-async function writeTeamMapsIdentityForPlatform(pm, gameCode) {
-  const plat = String(pm.platform || "").trim();
-  const results = [];
-  results.push(await upsertTeamMapForMatchLink(
-    plat,
-    pm.home_id,
-    pm.home,
-    gameCode,
-    pm.source_game_id,
-  ));
-  results.push(await upsertTeamMapForMatchLink(
-    plat,
-    pm.away_id,
-    pm.away,
-    gameCode,
-    pm.source_game_id,
-  ));
-  return results;
-}
-
-async function persistPlatformSideOverride(cmId, platform, reversed, opts = {}) {
-  const mode = reversed ? "force_reversed" : "force_aligned";
-  return db.setClientMatchPlatformSideOverride(cmId, platform, mode, opts);
-}
-
 async function linkPlatformToPlatform({
   platform,
   sourceMatchId,
@@ -539,47 +422,20 @@ async function linkPlatformToPlatform({
     throw new Error("无法自动判断主客是否一致，请在确认框中选择「主客一致」或「主客颠倒」");
   }
 
-  const mapResults = [];
-  for (const pm of [pmSource, pmTarget]) {
-    mapResults.push(...await writeTeamMapsIdentityForPlatform(pm, gameCode));
-  }
+  const srcHomeId = reversed ? pmSource.away_id : pmSource.home_id;
+  const srcAwayId = reversed ? pmSource.home_id : pmSource.away_id;
+  const srcHomeName = reversed ? pmSource.away : pmSource.home;
+  const srcAwayName = reversed ? pmSource.home : pmSource.away;
 
-  const targetAlign = analyzeSideAlignment(pmTarget.home, pmTarget.away, refHome, refAway);
-  let targetReversed = false;
-  if (targetAlign.mode === "reversed")
-    targetReversed = true;
+  const mapResults = [];
+  mapResults.push(await upsertTeamMapForMatchLink(pmTarget.platform, pmTarget.home_id, pmTarget.home, gameCode, pmTarget.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(pmTarget.platform, pmTarget.away_id, pmTarget.away, gameCode, pmTarget.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(pmSource.platform, srcHomeId, srcHomeName, gameCode, pmSource.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(pmSource.platform, srcAwayId, srcAwayName, gameCode, pmSource.source_game_id));
 
   for (const pm of [pmSource, pmTarget]) {
     await db.setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
   }
-
-  const { Game, GameID } = resolveClientGame(pmSource.platform, pmSource.source_game_id);
-  const eventStub = buildManualEventStub(cmId, {
-    title: refTeamsPick.title,
-    game: Game,
-    game_id: GameID,
-    start_time: Number(pmSource.start_time) || Number(pmTarget.start_time) || 0,
-    bo: Number(pmSource.bo) || Number(pmTarget.bo) || 0,
-    matchs: {
-      [pmSource.platform]: String(pmSource.source_match_id),
-      [pmTarget.platform]: String(pmTarget.source_match_id),
-    },
-  });
-
-  await persistManualPlatformBindings([
-    {
-      platform: pmSource.platform,
-      source_match_id: String(pmSource.source_match_id),
-      match_id: cmId,
-      reversed,
-    },
-    {
-      platform: pmTarget.platform,
-      source_match_id: String(pmTarget.source_match_id),
-      match_id: cmId,
-      reversed: targetReversed,
-    },
-  ], { eventStub });
 
   const cmRow = await db.fetchClientMatchRow(cmId, "id,matchs");
   store.patchCollectorMatchClientIds([{
@@ -593,12 +449,6 @@ async function linkPlatformToPlatform({
 
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  await db.upsertClientMatchPlatformSlot(cmId, pmSource.platform, String(pmSource.source_match_id));
-  await db.upsertClientMatchPlatformSlot(cmId, pmTarget.platform, String(pmTarget.source_match_id));
-  await persistPlatformSideOverride(cmId, pmSource.platform, reversed, { allowPendingLink: true });
-  if (targetAlign.mode === "aligned" || targetAlign.mode === "reversed") {
-    await persistPlatformSideOverride(cmId, pmTarget.platform, targetReversed, { allowPendingLink: true });
-  }
   const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   return {
@@ -610,9 +460,7 @@ async function linkPlatformToPlatform({
     target_match_id: preview.targetMatchId,
     client_match_id: cmId,
     reversed,
-    targetReversed,
     sideAlignment: alignment.mode,
-    targetSideAlignment: targetAlign.mode,
     gameCode,
     teams: { home: refHome, away: refAway },
     title: refTeamsPick.title,
@@ -727,7 +575,7 @@ async function previewLinkAlignment({ platform, sourceMatchId, clientMatchId }) 
 
   const pm = await fetchPlatformMatchRow(plat, srcId);
 
-  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets,home_gb_team_id,away_gb_team_id");
+  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
   if (!cm)
     throw new Error("目标已匹配赛事不存在");
 
@@ -737,7 +585,7 @@ async function previewLinkAlignment({ platform, sourceMatchId, clientMatchId }) 
     platformsById[`${row.platform}:${row.source_match_id}`] = row;
   }
 
-  const teams = await resolveClientTeams(cm, pm, platformsById);
+  const teams = resolveClientTeams(cm, pm, platformsById);
   if (!teams)
     throw new Error("无法解析目标赛事的主客队");
 
@@ -768,7 +616,7 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
 
   const pm = await fetchPlatformMatchRow(plat, srcId);
 
-  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets,home_gb_team_id,away_gb_team_id");
+  const cm = await db.fetchClientMatchRow(cmId, "id,title,game,game_id,matchs,bets");
   if (!cm)
     throw new Error("目标已匹配赛事不存在");
 
@@ -778,11 +626,20 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
     platformsById[`${row.platform}:${row.source_match_id}`] = row;
   }
 
-  const teams = await resolveClientTeams(cm, pm, platformsById);
+  const teams = resolveClientTeams(cm, pm, platformsById);
   if (!teams)
     throw new Error("无法解析目标赛事的主客队");
 
-  const gameCode = resolveGameCodeForClient(cm, pm) || "unknown";
+  let gameCode = gameCodeForPlatform(plat, pm.source_game_id);
+  if (!gameCode) {
+    const gid = String(cm.game_id || "").trim();
+    const a8Map = { 1: "lol", 2: "dota2", 3: "cs2", 4: "kog", 8: "valorant" };
+    gameCode = a8Map[gid] || a8Map[Number(gid)] || null;
+  }
+  if (!gameCode) {
+    const parsed = String(cm.game || "").match(/\(([^)]+)\)\s*$/);
+    gameCode = parsed ? parsed[1].toLowerCase() : "unknown";
+  }
 
   const alignment = analyzeSideAlignment(pm.home, pm.away, teams.home, teams.away);
   let reversed;
@@ -799,26 +656,16 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
     throw new Error("无法自动判断主客是否一致，请在确认框中选择「主客一致」或「主客颠倒」");
   }
 
-  const mapResults = await writeTeamMapsIdentityForPlatform(pm, gameCode);
+  const pmHomeId = reversed ? pm.away_id : pm.home_id;
+  const pmAwayId = reversed ? pm.home_id : pm.away_id;
+  const pmHomeName = reversed ? pm.away : pm.home;
+  const pmAwayName = reversed ? pm.home : pm.away;
+
+  const mapResults = [];
+  mapResults.push(await upsertTeamMapForMatchLink(plat, pmHomeId, pmHomeName, gameCode, pm.source_game_id));
+  mapResults.push(await upsertTeamMapForMatchLink(plat, pmAwayId, pmAwayName, gameCode, pm.source_game_id));
 
   await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
-
-  const { Game, GameID } = resolveClientGame(plat, pm.source_game_id);
-  const eventStub = buildManualEventStub(cmId, {
-    title: cm.title || `${teams.home} vs ${teams.away}`,
-    game: Game || cm.game,
-    game_id: GameID || cm.game_id,
-    start_time: Number(cm.start_time) || Number(pm.start_time) || 0,
-    bo: Number(cm.bo) || Number(pm.bo) || 0,
-    matchs: { ...(cm.matchs || {}), [plat]: srcId },
-  });
-
-  await persistManualPlatformBindings([{
-    platform: plat,
-    source_match_id: srcId,
-    match_id: cmId,
-    reversed,
-  }], { eventStub });
 
   store.patchCollectorMatchClientIds([{
     ID: cmId,
@@ -827,8 +674,6 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
 
   invalidateTeamMappings();
   invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
-  await db.upsertClientMatchPlatformSlot(cmId, plat, srcId);
-  await persistPlatformSideOverride(cmId, plat, reversed, { allowPendingLink: true });
   const matchMerge = await matchMergeOnce({ afterInFlight: true });
 
   resolveClientGame(plat, pm.source_game_id);
@@ -842,14 +687,14 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
     sideAlignment: alignment.mode,
     gameCode,
     teams: { home: teams.home, away: teams.away },
-    platformTeams: { home: pm.home, away: pm.away },
-    platformTeamIds: { home: String(pm.home_id || ""), away: String(pm.away_id || "") },
+    platformTeams: { home: pmHomeName, away: pmAwayName },
+    platformTeamIds: { home: String(pmHomeId || ""), away: String(pmAwayId || "") },
     teamMapsWritten: mapResults.filter(r => !r.skipped).length,
     matchMerge,
     summary: `${plat} #${srcId} → 赛事 ${cmId}（${teams.home} vs ${teams.away}）`,
     logLines: [
       `赛事关联成功 · client_match #${cmId}`,
-      `${plat} #${srcId} · ${pm.home} vs ${pm.away}`,
+      `${plat} #${srcId} · ${pmHomeName} vs ${pmAwayName}`,
       `对齐 ${teams.home} vs ${teams.away} · 主客${reversed ? "颠倒" : "一致"}（${alignment.mode}）`,
       `游戏 ${gameCode} · ${formatTeamMapLogLine(mapResults)}`,
     ],
@@ -1088,45 +933,6 @@ async function registerTeamPlatformMap({ platform, platformId, platformName, gam
   };
 }
 
-/**
- * 手动主客反转：写入 client_match_platform_overrides，下轮 reconcile 派生 Reverse/Sources。
- */
-async function setClientMatchPlatformSideOverride({ clientMatchId, platform, reversed }) {
-  const cmId = Number(clientMatchId);
-  const plat = String(platform || "").trim();
-  const wantReversed = !!reversed;
-  if (!Number.isFinite(cmId) || cmId <= 0)
-    throw new Error("无效的赛事 ID");
-  if (!plat)
-    throw new Error("平台不能为空");
-
-  const cm = await db.fetchClientMatchRow(cmId, "id,title,matchs");
-  if (!cm)
-    throw new Error("赛事不存在");
-
-  const matchs = cm.matchs && typeof cm.matchs === "object" ? cm.matchs : {};
-  const srcId = String(matchs[plat] || "").trim();
-  if (!srcId)
-    throw new Error(`赛事 ${cmId} 未关联平台 ${plat}`);
-
-  const pm = await fetchPlatformMatchRow(plat, srcId);
-  const { mode } = await persistPlatformSideOverride(cmId, plat, wantReversed);
-
-  return {
-    ok: true,
-    id: cmId,
-    platform: plat,
-    reversed: wantReversed,
-    mode,
-    summary: `${plat} 主客方向已${wantReversed ? "标记反转" : "恢复正向"}（platform override）`,
-    logLines: [
-      `手动主客反转 · client_match #${cmId} · ${plat} #${srcId}`,
-      `Title ${cm.title || ""} · 平台 ${pm.home} vs ${pm.away}`,
-      `override ${mode}`,
-    ],
-  };
-}
-
 export {
   analyzeSideAlignment,
   linkPlatformTeams,
@@ -1136,6 +942,4 @@ export {
   previewLinkPlatformAlignment,
   previewLinkPlatformTeams,
   registerTeamPlatformMap,
-  setClientMatchPlatformSideOverride,
-  teamsFromLockedGbOrTitle,
 };

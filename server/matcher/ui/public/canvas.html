@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameBet 匹配画布</title>
+  <script>
+    (function () {
+      var p = location.pathname;
+      if (p === "/matcher" || p.startsWith("/matcher/")) {
+        var b = document.createElement("base");
+        b.href = "/matcher/";
+        document.head.appendChild(b);
+      }
+    })();
+  </script>
+  <script src="matcher_config.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background: #0b1220; color: #e2e8f0; min-height: 100vh; overflow: hidden;
+    }
+
+    .header {
+      background: #1e293b; border-bottom: 1px solid #334155;
+      padding: 10px 20px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 20;
+    }
+    .header h1 { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+    .header-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .nav-link {
+      font-size: 12px; color: #93c5fd; text-decoration: none; padding: 4px 10px;
+      border: 1px solid #334155; border-radius: 6px;
+    }
+    .nav-link:hover { background: #334155; }
+    .nav-link.active { border-color: #3b82f6; background: #1e3a5f44; }
+    .updated-at { font-size: 12px; color: #64748b; }
+    .btn { background: #3b82f6; color: #fff; border: none; padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .btn:hover { background: #2563eb; }
+    .btn-sm { padding: 3px 10px; font-size: 12px; }
+    .btn-ghost { background: transparent; border: 1px solid #475569; color: #cbd5e1; }
+    .btn-ghost:hover { background: #334155; }
+
+    .stats {
+      display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 20px;
+      background: #1e293b; border-bottom: 1px solid #334155;
+    }
+    .stat { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 6px 12px; }
+    .stat .label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat .value { font-size: 18px; font-weight: 700; line-height: 1.2; }
+    .c-blue { color: #60a5fa; }
+    .c-green { color: #4ade80; }
+    .c-amber { color: #fbbf24; }
+    .c-purple { color: #a78bfa; }
+
+    .toolbar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 8px 20px; background: #0f172a; border-bottom: 1px solid #334155;
+    }
+    .toolbar input[type="search"] {
+      flex: 1; min-width: 180px; max-width: 360px; padding: 6px 10px;
+      border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #e2e8f0; font-size: 13px;
+    }
+    .toolbar label { font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: #94a3b8; margin-left: auto; }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-line { width: 22px; height: 2px; border-radius: 1px; }
+    .legend-line.l-pm-cm { background: #60a5fa; }
+    .legend-line.l-cm-team { background: #a78bfa; }
+
+    .canvas-wrap {
+      position: relative; height: calc(100vh - 132px); overflow: auto;
+      background: #0f172a;
+    }
+    .canvas-board {
+      position: relative; display: flex; flex-direction: row; align-items: stretch;
+      min-width: 100%; min-height: 100%;
+    }
+    .layer-svg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; overflow: visible; z-index: 1;
+    }
+    .layer-band {
+      position: relative; z-index: 2; flex: 1 1 0; min-width: 280px;
+      display: flex; flex-direction: column;
+      border-right: 1px dashed #33415588;
+      padding: 12px 14px 20px;
+    }
+    .layer-band:last-child { border-right: none; }
+    #layer-1 { flex: 1.15 1 320px; }
+    #layer-2 { flex: 0 0 auto; width: 268px; min-width: 268px; max-width: 268px; }
+    #layer-4 { flex: 1.35 1 360px; }
+    .layer-label {
+      display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+      font-size: 12px; font-weight: 700; color: #cbd5e1; letter-spacing: 0.02em;
+    }
+    .layer-label span { font-weight: 400; color: #64748b; font-size: 11px; }
+    .layer-nodes {
+      position: relative; min-height: 80px;
+    }
+
+    .node {
+      position: absolute; z-index: 3; border-radius: 8px; padding: 6px 8px;
+      font-size: 10px; line-height: 1.35; cursor: default; user-select: none;
+      border: 1px solid #334155; background: #1e293b; max-width: 140px;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .node:hover, .node.highlight {
+      border-color: #60a5fa; box-shadow: 0 0 0 2px #3b82f633;
+      z-index: 5;
+    }
+    .node.dim { opacity: 0.22; }
+    .node-title { font-weight: 700; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .node-sub { color: #64748b; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .node-tag { display: inline-block; margin-top: 4px; padding: 1px 5px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+
+    .node-pm { border-color: #3b82f655; padding-top: 14px; }
+    .node-pm .node-tag { background: #3b82f622; color: #60a5fa; }
+    .node-pm.unlinked { border-style: dashed; opacity: 0.85; }
+    .match-link-handle {
+      width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0;
+      border: 2px solid #fbbf24; background: #0f172a; cursor: crosshair;
+      padding: 0; position: relative; z-index: 10;
+    }
+    .match-link-handle:hover { background: #fbbf24; border-color: #fde68a; }
+    .match-link-handle.match-link-dragging { background: #fbbf24; box-shadow: 0 0 0 3px #fbbf2444; }
+    .match-link-handle.match-link-drop-target { background: #4ade80; border-color: #4ade80; }
+    .match-link-handle.match-merge-target {
+      width: 14px; height: 14px; border-color: #4ade80; border-radius: 3px;
+    }
+    .match-link-handle.match-merge-target:hover { background: #4ade80; border-color: #86efac; }
+    .node-pm .match-link-handle { position: absolute; top: 4px; right: 4px; }
+    .node-cm-id-row { display: flex; align-items: center; gap: 6px; }
+    .node-cm {
+      border-color: #4ade8055; background: #14532d33; min-width: 200px; max-width: none;
+      padding: 8px 10px; white-space: normal;
+    }
+    .node-cm .node-tag { background: #4ade8022; color: #4ade80; }
+    .node-cm-header { margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid #33415566; }
+    .node-cm-id { font-size: 12px; font-weight: 800; color: #4ade80; font-family: ui-monospace, monospace; }
+    .node-cm-meta { font-size: 9px; color: #64748b; margin-top: 2px; }
+    .node-cm-title-row {
+      display: flex; align-items: center; gap: 6px; width: 100%;
+      font-size: 11px; font-weight: 600; margin-top: 2px;
+    }
+    .node-cm-title-row .cm-title-home { flex: 1; text-align: left; min-width: 0; }
+    .node-cm-title-row .cm-title-away { flex: 1; text-align: right; min-width: 0; }
+    .node-cm-unified-ids {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      width: 100%; margin-top: 5px; font-size: 9px; font-family: ui-monospace, monospace;
+    }
+    .cm-gb-tag {
+      padding: 2px 6px; border-radius: 4px;
+      background: #60a5fa18; border: 1px solid #60a5fa44; color: #93c5fd;
+    }
+    .cm-gb-tag.pending { background: #fbbf2418; border-color: #fbbf2444; color: #fbbf24; }
+    .cm-gb-tag.missing { background: #1e293b; border-color: #475569; color: #64748b; }
+    .cm-gb-anchor { position: relative; z-index: 2; }
+    .cm-gb-anchor.highlight { color: #fff; box-shadow: 0 0 8px #60a5fa66; }
+    .cm-gb-anchor.dim { opacity: 0.28; }
+    .cm-plat-rows { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+    .cm-plat-row {
+      display: flex; align-items: center; gap: 6px; font-size: 9px; line-height: 1.35; min-width: 0;
+    }
+    .cm-plat-row .cm-plat-badge { flex-shrink: 0; }
+    .cm-team-anchor {
+      color: #e2e8f0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .cm-team-anchor.cm-team-home { flex: 1; text-align: left; }
+    .cm-team-anchor.cm-team-away { flex: 1; text-align: right; }
+    .cm-team-anchor.highlight { color: #fff; text-shadow: 0 0 6px #60a5fa; }
+    .cm-team-anchor.dim { opacity: 0.28; }
+    .cm-plat-row .cm-vs, .node-cm-title-row .cm-vs {
+      flex-shrink: 0; color: #64748b; font-weight: 400; font-size: 9px;
+    }
+    .layer-band .layer-nodes { flex: 1; }
+    .node-team { border-color: #a78bfa55; min-width: 100px; }
+    .node-team .node-tag { background: #a78bfa22; color: #c4b5fd; }
+    .node-team.linked .node-tag { background: #4ade8022; color: #86efac; }
+    .node-team.pending .node-tag { background: #fbbf2422; color: #fbbf24; }
+    .layer-l1-cols {
+      display: flex; flex-direction: column; gap: 0; align-items: stretch;
+      flex: 1; min-height: 80px;
+    }
+    .layer-l1-col {
+      flex: 1; min-width: 0; position: relative;
+      padding: 0 4px 8px;
+    }
+    .layer-l1-col + .layer-l1-col {
+      border-top: 1px dashed #334155;
+      padding-top: 10px;
+    }
+    .layer-l1-col-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; margin-bottom: 8px; padding: 4px 8px;
+      border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;
+      min-height: 28px; box-sizing: border-box;
+    }
+    .layer-l2-spacer {
+      visibility: hidden; pointer-events: none; margin-bottom: 8px;
+    }
+    .layer-l1-col.matched .layer-l1-col-label {
+      color: #4ade80; background: #14532d33; border: 1px solid #4ade8033;
+    }
+    .layer-l1-col.unmatched .layer-l1-col-label {
+      color: #94a3b8; background: #1e293b; border: 1px dashed #475569;
+    }
+    .layer-l1-col-count {
+      font-weight: 600; color: inherit; opacity: 0.85;
+    }
+    .layer-l1-empty {
+      font-size: 11px; color: #64748b; padding: 12px 8px;
+    }
+    .layer-l1-plat-rows {
+      display: flex; flex-direction: column; gap: 0; min-height: 60px;
+      overflow-y: auto; padding-bottom: 4px;
+    }
+    .layer-l1-plat-row {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 6px 0; min-width: 0;
+    }
+    .layer-l1-plat-row + .layer-l1-plat-row {
+      border-top: 1px dashed #33415544;
+    }
+    .layer-l1-plat-row-label {
+      flex: 0 0 48px; display: flex; flex-direction: column; align-items: flex-start;
+      gap: 4px; padding-top: 8px; font-size: 11px; font-weight: 700; color: #cbd5e1;
+    }
+    .layer-l1-plat-row-count {
+      font-size: 10px; font-weight: 600; color: #64748b;
+    }
+    .layer-l1-plat-row-nodes {
+      flex: 1; min-width: 0; overflow-x: auto;
+    }
+    .layer-l1-matched-rows {
+      display: flex; flex-direction: column; gap: var(--cm-row-gap, 16px); min-height: 60px;
+      overflow-y: auto; padding-bottom: 4px;
+    }
+    .layer-l1-matched-row {
+      display: flex; align-items: center; gap: 0; flex-shrink: 0;
+      padding: 0 0 0 4px; min-width: 0; box-sizing: border-box;
+      background: #0f172a55; border: 1px solid #33415544; border-radius: 8px;
+    }
+    .layer-l1-matched-row-head {
+      flex: 0 0 56px; width: 56px;
+      display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+      gap: 4px; padding: 4px 6px 4px 8px; margin-left: auto;
+      border-left: 1px dashed #33415566;
+      font-size: 10px; font-weight: 800; color: #4ade80;
+      font-family: ui-monospace, monospace; text-align: right;
+      position: relative; z-index: 2; align-self: stretch;
+    }
+    .layer-l1-cm-plat-stack {
+      flex: 1; min-width: 0; display: flex; flex-direction: row; gap: 8px;
+      overflow-x: auto; padding-bottom: 2px;
+    }
+    .layer-l1-cm-plat-line {
+      flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
+      gap: 4px; min-width: 0;
+    }
+    .layer-l1-cm-plat-label {
+      display: flex; align-items: center; justify-content: center;
+    }
+    .layer-l1-cm-plat-slot {
+      position: relative; min-width: 0;
+    }
+    .layer-l1-matched-row-head.node-anchor.highlight span:last-child {
+      color: #fff; text-shadow: 0 0 8px #4ade80;
+    }
+    .layer-l1-matched-row-head.node-anchor.dim { opacity: 0.28; }
+    .layer-l3-cm-rows {
+      display: flex; flex-direction: column; gap: var(--cm-row-gap, 16px);
+      min-height: 60px; padding-bottom: 4px;
+    }
+    .layer-l3-cm-row {
+      display: flex; align-items: stretch; flex-shrink: 0;
+      min-width: 0; box-sizing: border-box;
+      border-bottom: 1px dashed #33415533;
+    }
+    .layer-l3-cm-plat-stack {
+      display: flex; flex-direction: row; gap: 8px; flex: 1; min-width: 0;
+      overflow-x: auto; align-items: stretch;
+    }
+    .layer-l3-plat-cell {
+      flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
+      gap: 4px; min-width: 0;
+    }
+    .layer-l3-team-slot {
+      position: relative; min-width: 0;
+    }
+    .layer-l4-orphan-split {
+      display: flex; flex-direction: column; gap: 0; align-items: stretch;
+      margin-top: 12px; padding-top: 10px; border-top: 1px dashed #334155;
+    }
+    .layer-l4-orphan-split.hidden { display: none; }
+    .layer-l4-split {
+      display: flex; flex-direction: column; gap: 0; align-items: stretch;
+      flex: 1; min-height: 80px;
+    }
+    .layer-l4-half {
+      flex: 1; min-width: 0; padding: 0 4px 8px;
+    }
+    .layer-l4-half + .layer-l4-half {
+      border-top: 1px dashed #334155;
+      padding-top: 10px;
+    }
+    .layer-l4-half-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; margin-bottom: 8px; padding: 4px 8px;
+      border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .layer-l4-half.pending .layer-l4-half-label {
+      color: #fbbf24; background: #713f1222; border: 1px dashed #fbbf2455;
+    }
+    .layer-l4-half.identified .layer-l4-half-label {
+      color: #86efac; background: #14532d33; border: 1px solid #4ade8033;
+    }
+    .layer-l4-half-count {
+      font-weight: 600; color: inherit; opacity: 0.85;
+    }
+    .layer-l4-cols {
+      display: flex; gap: 0; align-items: stretch; min-height: 60px;
+      overflow-x: auto; padding-bottom: 4px;
+    }
+    .layer-l4-col {
+      flex: 0 0 auto; min-width: 148px; padding: 0 10px 4px;
+    }
+    .layer-l4-col + .layer-l4-col {
+      border-left: 1px dashed #334155;
+    }
+    .layer-l4-col-label {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 8px; padding: 4px 2px;
+      font-size: 11px; font-weight: 700; color: #cbd5e1;
+    }
+    .layer-l4-col-count {
+      font-size: 10px; font-weight: 600; color: #64748b;
+    }
+
+    .pbadge { font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 600; }
+    .p-OB { background: #3b82f618; color: #60a5fa; }
+    .p-RAY { background: #8b5cf618; color: #a78bfa; }
+    .p-TF { background: #ec489918; color: #f472b6; }
+    .p-IA { background: #14b8a618; color: #2dd4bf; }
+    .p-PB { background: #f9731618; color: #fb923c; }
+    .p-IM, .p-IMT { background: #64748b18; color: #94a3b8; }
+    .p-SABA { background: #84cc1618; color: #a3e635; }
+    .p-Stake { background: #06b6d418; color: #22d3ee; }
+    .p-HG { background: #e1107518; color: #fb7185; }
+    .p-default { background: #334155; color: #94a3b8; }
+
+    .platform-col-label {
+      position: absolute; top: -2px; font-size: 10px; font-weight: 700; color: #64748b;
+      writing-mode: horizontal-tb;
+    }
+
+    .empty-state {
+      padding: 48px 20px; text-align: center; color: #64748b; font-size: 13px;
+    }
+    .empty-state.err { color: #f87171; }
+
+    .match-drag-svg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; overflow: visible; z-index: 4;
+    }
+    .link-modal-backdrop {
+      position: fixed; inset: 0; background: #0f172acc; z-index: 100;
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .link-modal-backdrop.hidden { display: none; }
+    .link-modal {
+      background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+      width: min(560px, 100%); max-height: 90vh; overflow-y: auto;
+      padding: 18px 20px; box-shadow: 0 16px 48px #0008;
+    }
+    .link-modal h3 { font-size: 15px; margin-bottom: 12px; color: #f1f5f9; }
+    .link-modal-body { font-size: 13px; color: #cbd5e1; line-height: 1.6; margin-bottom: 16px; }
+    .link-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .btn-success { background: #16a34a; }
+    .btn-success:hover { background: #15803d; }
+    .link-side-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0; }
+    .link-side-table th, .link-side-table td { border: 1px solid #334155; padding: 8px 10px; text-align: left; }
+    .link-side-table th { background: #0f172a; color: #94a3b8; }
+    .link-side-tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: #334155; color: #cbd5e1; margin-right: 6px; }
+    .link-align-banner { padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; }
+    .link-align-banner.ok { background: #14532d55; border: 1px solid #166534; color: #4ade80; }
+    .link-align-banner.swap { background: #713f1255; border: 1px solid #92400e; color: #fbbf24; }
+    .link-align-banner.unknown { background: #450a0a55; border: 1px solid #7f1d1d; color: #f87171; }
+    .link-side-options { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+    .link-side-option { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid #334155; border-radius: 6px; cursor: pointer; }
+    .link-side-option:hover { background: #0f172a; }
+    .link-side-option.selected { border-color: #3b82f6; background: #1e3a5f44; }
+    .link-side-option input { margin-top: 3px; }
+    .link-side-option-text { font-size: 12px; color: #cbd5e1; line-height: 1.5; }
+    .action-toast-host {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+      z-index: 9999; display: flex; flex-direction: column; align-items: center; gap: 8px;
+      pointer-events: none; max-width: min(520px, calc(100vw - 24px));
+    }
+    .action-toast {
+      pointer-events: auto; padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.45;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35); white-space: pre-line;
+    }
+    .action-toast.ok { background: #14532d; border: 1px solid #166534; color: #bbf7d0; }
+    .action-toast.err { background: #450a0a; border: 1px solid #7f1d1d; color: #fecaca; }
+    .action-toast.warn { background: #713f1255; border: 1px solid #92400e; color: #fde68a; }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>GameBet 匹配画布</h1>
+    <div class="header-sub">三层横向：平台比赛 → 已匹配赛事 → 平台队伍</div>
+  </div>
+  <div class="header-right">
+    <a class="nav-link" href="index.html">列表视图</a>
+    <a class="nav-link active" href="canvas.html">画布视图</a>
+    <span class="updated-at" id="updated-at">—</span>
+    <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
+  </div>
+</div>
+
+<div class="stats" id="stats-bar"></div>
+
+<div class="toolbar">
+  <input type="search" id="search-input" placeholder="按队名 / 比赛 ID 筛选" autocomplete="off">
+  <label><input type="checkbox" id="hide-unlinked-pm"> 隐藏未匹配的平台比赛</label>
+  <div class="legend">
+    <span class="legend-item"><span class="legend-line l-pm-cm"></span>左→右：比赛→赛事</span>
+    <span class="legend-item"><span class="legend-line l-cm-team"></span>左→右：统一ID→队伍</span>
+    <span class="legend-item">黄方点拖至绿方点关联赛事</span>
+  </div>
+</div>
+
+<div class="action-toast-host" id="action-toast-host" aria-live="polite"></div>
+
+<div class="link-modal-backdrop hidden" id="link-modal">
+  <div class="link-modal" role="dialog" aria-modal="true">
+    <h3 id="link-modal-title">确认赛事关联</h3>
+    <div class="link-modal-body" id="link-modal-body"></div>
+    <div class="link-modal-actions">
+      <button type="button" class="btn btn-sm btn-ghost" id="link-modal-cancel">取消</button>
+      <button type="button" class="btn btn-sm btn-success" id="link-modal-confirm">确认赛事关联</button>
+    </div>
+  </div>
+</div>
+
+<div class="canvas-wrap" id="canvas-wrap">
+  <div class="canvas-board" id="canvas-board">
+    <svg class="layer-svg" id="layer-svg" aria-hidden="true"></svg>
+    <svg class="match-drag-svg" id="match-drag-svg" aria-hidden="true"></svg>
+    <section class="layer-band" id="layer-1">
+      <div class="layer-label">第一层 <span>已匹配：与第二层逐行对齐，比赛 ID 在右侧；未匹配在下方</span></div>
+      <div class="layer-l1-cols" id="layer-l1-cols">
+        <div class="layer-l1-col matched">
+          <div class="layer-l1-col-label">已匹配 <span class="layer-l1-col-count" id="l1-matched-count">0</span> 场</div>
+          <div id="nodes-l1-matched"></div>
+        </div>
+        <div class="layer-l1-col unmatched">
+          <div class="layer-l1-col-label">未匹配 <span class="layer-l1-col-count" id="l1-unmatched-count">0</span></div>
+          <div class="layer-l1-plat-rows" id="nodes-l1-unmatched"></div>
+        </div>
+      </div>
+    </section>
+    <section class="layer-band layer-2-band" id="layer-2">
+      <div class="layer-label">第二层 <span>已匹配赛事 (client_matches，≥2 平台)</span></div>
+      <div class="layer-l1-col-label layer-l2-spacer" aria-hidden="true">已匹配</div>
+      <div class="layer-nodes" id="nodes-l2"></div>
+    </section>
+    <section class="layer-band" id="layer-4">
+      <div class="layer-label">第三层 <span>与第二层逐行对齐；未归入赛事的队伍在下方</span></div>
+      <div class="layer-l1-col-label layer-l2-spacer" aria-hidden="true">已匹配</div>
+      <div class="layer-l3-cm-rows" id="layer-l3-matched-rows"></div>
+      <div class="layer-l4-orphan-split hidden" id="layer-l4-orphan-split">
+        <div class="layer-l4-split" id="layer-l4-split">
+          <div class="layer-l4-half identified">
+            <div class="layer-l4-half-label">其他 · 已识别 <span class="layer-l4-half-count" id="l4-identified-count">0</span></div>
+            <div class="layer-l4-cols" id="layer-l4-identified-cols"></div>
+          </div>
+          <div class="layer-l4-half pending">
+            <div class="layer-l4-half-label">其他 · 待识别 <span class="layer-l4-half-count" id="l4-pending-count">0</span></div>
+            <div class="layer-l4-cols" id="layer-l4-pending-cols"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const PLATFORM_ORDER = ['OB', 'RAY', 'PB', 'TF', 'IA', 'IMT', 'IM', 'Stake', 'SABA', 'HG'];
+const GAME_NAMES = { cs2: 'CS2', lol: 'LOL', dota2: 'DOTA2', valorant: 'Valorant', kog: 'KOG' };
+const LINK_COLORS = ['#4ade80', '#60a5fa', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf', '#fbbf24', '#38bdf8'];
+const NODE_W = 132;
+const NODE_H = 52;
+const CM_NODE_W = 220;
+const CM_HEADER_H = 64;
+const CM_PLAT_ROW_H = 18;
+const GAP_X = 10;
+const GAP_Y = 8;
+const CM_ROW_GAP = GAP_Y + 8;
+const PAD = 16;
+
+let _data = null;
+let _search = '';
+let _hideUnlinkedPm = false;
+let _nodeEls = new Map();
+let _highlightIds = new Set();
+let _matchDrag = null;
+let _matchLinkBound = false;
+let _matchLinkSubmitting = false;
+let _linkSubmitting = false;
+let _pendingRec = null;
+let _linkModalKind = null;
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+function epochMs(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n < 1e12 ? Math.floor(n * 1000) : Math.floor(n);
+}
+function fmtTime(ms) {
+  const n = epochMs(ms);
+  if (!n) return '—';
+  return new Date(n).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+function pbadge(p) {
+  const cls = PLATFORM_ORDER.includes(p) ? `p-${p}` : 'p-default';
+  return `<span class="pbadge ${cls}">${esc(p)}</span>`;
+}
+function platformRank(p) {
+  const i = PLATFORM_ORDER.indexOf(p);
+  return i < 0 ? 99 : i;
+}
+function normalizeTeamName(name) {
+  return String(name || '').toLowerCase()
+    .replace(/[·\-—_·•\s]+/g, ' ')
+    .replace(/[^\w\s一-鿿]/g, '')
+    .trim()
+    .replace(/\s+(esports?|gaming)$/i, '')
+    .trim();
+}
+function teamNameMatches(name, q) {
+  if (!q) return true;
+  const raw = String(name || '').toLowerCase();
+  const norm = normalizeTeamName(name);
+  const qn = normalizeTeamName(q);
+  return raw.includes(q.toLowerCase()) || (norm && qn && norm.includes(qn));
+}
+const PLACEHOLDER_TEAM_NAMES = new Set([
+  '主队', '客队', 'home', 'away', 'home team', 'away team', 'team1', 'team2', 'team 1', 'team 2',
+]);
+
+function isPlaceholderTeamName(name) {
+  const raw = String(name ?? '').trim();
+  const lower = raw.toLowerCase();
+  const norm = normalizeTeamName(name);
+  return PLACEHOLDER_TEAM_NAMES.has(raw)
+    || PLACEHOLDER_TEAM_NAMES.has(lower)
+    || PLACEHOLDER_TEAM_NAMES.has(norm);
+}
+
+function isBlankTeamName(name) {
+  const s = String(name ?? '').trim();
+  if (!s) return true;
+  if (isPlaceholderTeamName(name)) return true;
+  if (/^(—|–|-|—|\?|null|undefined|n\/a|na|tbd|待定|未知|暂无)$/i.test(s)) return true;
+  return !normalizeTeamName(s);
+}
+function hasValidTeamNames(home, away) {
+  return !isBlankTeamName(home) && !isBlankTeamName(away);
+}
+function matchHasTeams(m) {
+  return hasValidTeamNames(m?.home, m?.away);
+}
+function validCmRows(cm, platforms) {
+  return resolveCmRows(cm, platforms).filter(r => matchHasTeams(r));
+}
+function clientMatchHasTeams(cm, platforms) {
+  return validCmRows(cm, platforms).length >= 2;
+}
+function normalizePlatformId(id) {
+  if (id == null || id === '') return null;
+  return String(id).trim() || null;
+}
+function parseTeamsArray(m) {
+  let teams = m?.teams;
+  if (typeof teams === 'string') {
+    try { teams = JSON.parse(teams); } catch { teams = []; }
+  }
+  return Array.isArray(teams) ? teams : [];
+}
+function resolveMatchTeamId(m, side) {
+  const platform = String(m?.platform || '').trim();
+  const matchGameId = String(m?.source_game_id ?? m?.SourceGameID ?? m?.GameID ?? '');
+  function finalize(id, gameIdOverride) {
+    if (!id) return null;
+    if (platform === 'PB' && typeof window.formatPbTeamPlatformId === 'function') {
+      return window.formatPbTeamPlatformId(gameIdOverride ?? matchGameId, id);
+    }
+    return id;
+  }
+  const direct = normalizePlatformId(side === 'home' ? m.home_id : m.away_id);
+  if (direct) return finalize(direct);
+  const name = side === 'home' ? m.home : m.away;
+  const teams = parseTeamsArray(m);
+  const norm = normalizeTeamName(name);
+  if (norm) {
+    const hit = teams.find(t => normalizeTeamName(t.Name ?? t.name) === norm);
+    if (hit) {
+      const id = normalizePlatformId(hit.TeamID ?? hit.team_id ?? hit.teamId ?? hit.id);
+      const teamGameId = String(hit.GameID ?? hit.game_id ?? hit.gameId ?? matchGameId ?? '');
+      if (id) return finalize(id, teamGameId);
+    }
+  }
+  const idx = side === 'home' ? 0 : 1;
+  const t = teams[idx];
+  if (t) {
+    const id = normalizePlatformId(t.TeamID ?? t.team_id ?? t.teamId ?? t.id);
+    const teamGameId = String(t.GameID ?? t.game_id ?? t.gameId ?? matchGameId ?? '');
+    if (id) return finalize(id, teamGameId);
+  }
+  return null;
+}
+function teamMapKey(platform, platformId) {
+  const pid = normalizePlatformId(platformId);
+  return pid ? `${platform}:${pid}` : null;
+}
+function lookupCanonical(teamMaps, platform, platformId) {
+  const key = teamMapKey(platform, platformId);
+  if (!key) return { canonical: null, pending: false };
+  const row = teamMaps[key];
+  if (!row) return { canonical: null, pending: false };
+  if (row.canonical_id != null) return { canonical: String(row.canonical_id), pending: false };
+  return { canonical: null, pending: !!row.pending };
+}
+function colorForCanonical(id) {
+  let h = 0;
+  const s = String(id);
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return LINK_COLORS[Math.abs(h) % LINK_COLORS.length];
+}
+function pmId(platform, sourceMatchId) {
+  return `pm:${platform}:${sourceMatchId}`;
+}
+function cmId(id) {
+  return `cm:${id}`;
+}
+function l1CmRowId(id) {
+  return `l1-cm:${id}`;
+}
+function cmGbAnchorId(cmId, side) {
+  return `cm-gb:${cmId}:${side}`;
+}
+function teamNodeId(platform, platformId) {
+  return `team:${platform}:${platformId}`;
+}
+function clientMatchPlatformCount(cm) {
+  return Object.keys(cm?.matchs || {}).length;
+}
+function isDisplayClientMatch(cm, platforms) {
+  return clientMatchPlatformCount(cm) >= 2 && clientMatchHasTeams(cm, platforms);
+}
+function resolveClientMatchId(m, platform, cms) {
+  const visibleCms = (cms || []).filter(cm => clientMatchPlatformCount(cm) >= 2);
+  if (m?.match_id != null && m.match_id !== '') {
+    const directId = Number(m.match_id);
+    if (visibleCms.some(cm => Number(cm.id) === directId)) return directId;
+  }
+  const cm = visibleCms.find(c => String(c.matchs?.[platform] ?? '') === String(m?.source_match_id));
+  return cm ? Number(cm.id) : null;
+}
+
+function filterDisplayClientMatches(cms, platforms) {
+  return (cms || []).filter(cm => isDisplayClientMatch(cm, platforms));
+}
+
+function buildGraph(data, hideUnlinkedPm, search) {
+  const platforms = data.platforms || {};
+  const cms = data.clientMatches || [];
+  const teamMaps = data.teamMaps || {};
+  const displayCms = filterDisplayClientMatches(cms, platforms);
+
+  const platformMatches = [];
+  for (const [plat, list] of Object.entries(platforms)) {
+    for (const m of list || []) {
+      if (!matchHasTeams(m)) continue;
+      const linkedCmId = resolveClientMatchId(m, plat, cms);
+      const inDisplay = linkedCmId && displayCms.some(c => Number(c.id) === linkedCmId);
+      if (hideUnlinkedPm && !linkedCmId) continue;
+      if (search) {
+        const hit = teamNameMatches(m.home, search) || teamNameMatches(m.away, search)
+          || String(m.source_match_id).includes(search)
+          || (linkedCmId && String(linkedCmId).includes(search));
+        if (!hit) continue;
+      }
+      platformMatches.push({ ...m, platform: plat, linkedCmId, inDisplay });
+    }
+  }
+
+  const clientMatches = displayCms.filter(cm => {
+    if (validCmRows(cm, platforms).length < 2) return false;
+    if (!search) return true;
+    if (String(cm.id).includes(search)) return true;
+    const rows = validCmRows(cm, platforms);
+    return rows.some(r => teamNameMatches(r.home, search) || teamNameMatches(r.away, search));
+  });
+
+  const activeCmIds = new Set(clientMatches.map(c => Number(c.id)));
+  const filteredPm = platformMatches;
+
+  const teamNodes = new Map();
+  const addTeam = (platform, platformId, name, gameCode, sourceCmId) => {
+    const pid = normalizePlatformId(platformId);
+    if (!platform || !pid || isBlankTeamName(name)) return;
+    const id = teamNodeId(platform, pid);
+    if (!teamNodes.has(id)) {
+      const { canonical, pending } = lookupCanonical(teamMaps, platform, pid);
+      teamNodes.set(id, { id, platform, platformId: pid, name, gameCode, canonical, pending, cmIds: new Set() });
+    }
+    const node = teamNodes.get(id);
+    if (sourceCmId) node.cmIds.add(sourceCmId);
+  };
+
+  for (const cm of clientMatches) {
+    for (const row of validCmRows(cm, platforms)) {
+      addTeam(row.platform, resolveMatchTeamId(row, 'home'), row.home, row.game?.code, cm.id);
+      addTeam(row.platform, resolveMatchTeamId(row, 'away'), row.away, row.game?.code, cm.id);
+    }
+  }
+  for (const pm of filteredPm) {
+    if (pm.linkedCmId && activeCmIds.has(pm.linkedCmId)) continue;
+    if (!matchHasTeams(pm)) continue;
+    addTeam(pm.platform, resolveMatchTeamId(pm, 'home'), pm.home, pm.game?.code, null);
+    addTeam(pm.platform, resolveMatchTeamId(pm, 'away'), pm.away, pm.game?.code, null);
+  }
+  for (const key of Object.keys(teamMaps)) {
+    const row = teamMaps[key];
+    const colon = key.indexOf(':');
+    if (colon < 0) continue;
+    const platform = key.slice(0, colon);
+    const platformId = key.slice(colon + 1);
+    addTeam(platform, platformId, row.platform_name, row.game, null);
+  }
+
+  let teams = [...teamNodes.values()].filter(t => !isBlankTeamName(t.name));
+  if (search) {
+    teams = teams.filter(t => teamNameMatches(t.name, search)
+      || (t.canonical && String(t.canonical).includes(search)));
+  }
+
+  const teamIdSet = new Set(teams.map(t => t.id));
+  const pmIdSet = new Set(filteredPm.map(m => pmId(m.platform, m.source_match_id)));
+
+  const links = [];
+  const l1CmKeys = new Set();
+  for (const cm of clientMatches) {
+    const hasPm = validCmRows(cm, platforms).some(r =>
+      pmIdSet.has(pmId(r.platform, r.source_match_id)));
+    if (!hasPm) continue;
+    const from = l1CmRowId(cm.id);
+    const to = cmId(cm.id);
+    const key = `${from}|${to}`;
+    if (l1CmKeys.has(key)) continue;
+    l1CmKeys.add(key);
+    links.push({ from, to, kind: 'pm-cm' });
+  }
+
+  const cmGbKeys = new Set();
+  for (const cm of clientMatches) {
+    const rows = validCmRows(cm, platforms);
+    for (const side of ['home', 'away']) {
+      const from = cmGbAnchorId(cm.id, side);
+      for (const row of rows) {
+        const name = side === 'home' ? row.home : row.away;
+        const pid = resolveMatchTeamId(row, side);
+        if (!pid || isBlankTeamName(name)) continue;
+        const to = teamNodeId(row.platform, pid);
+        if (!teamIdSet.has(to)) continue;
+        const key = `${from}|${to}`;
+        if (cmGbKeys.has(key)) continue;
+        cmGbKeys.add(key);
+        const { canonical } = lookupCanonical(teamMaps, row.platform, pid);
+        links.push({ from, to, kind: 'cm-team', canonical: canonical || null });
+      }
+    }
+  }
+
+  return { platformMatches: filteredPm, clientMatches, teams, links };
+}
+
+function resolveCmRows(cm, platforms) {
+  const rows = [];
+  for (const [plat, srcId] of Object.entries(cm.matchs || {})) {
+    const list = platforms[plat] || [];
+    const m = list.find(x => String(x.source_match_id) === String(srcId));
+    if (m) rows.push({ ...m, platform: plat });
+    else {
+      rows.push({
+        platform: plat, source_match_id: srcId, home: '—', away: '—',
+        start_time: cm.start_time, game: typeof cm.game === 'string' ? { code: cm.game } : cm.game,
+      });
+    }
+  }
+  return rows.sort((a, b) => platformRank(a.platform) - platformRank(b.platform));
+}
+
+function nodeAnchor(el, board, side) {
+  const r = el.getBoundingClientRect();
+  const b = board.getBoundingClientRect();
+  const cx = r.left + r.width / 2 - b.left;
+  const cy = r.top + r.height / 2 - b.top;
+  if (side === 'bottom') return { x: cx, y: r.bottom - b.top };
+  if (side === 'top') return { x: cx, y: r.top - b.top };
+  if (side === 'left') return { x: r.left - b.left, y: cy };
+  if (side === 'right') return { x: r.right - b.left, y: cy };
+  return { x: cx, y: cy };
+}
+
+function nodeCenter(el, board) {
+  const r = el.getBoundingClientRect();
+  const b = board.getBoundingClientRect();
+  return { x: r.left + r.width / 2 - b.left, y: r.top + r.height / 2 - b.top };
+}
+
+function layoutLayer1PlatformRow(container, items, sortFn) {
+  const positions = new Map();
+  const rowH = NODE_H + PAD * 2;
+  if (!items.length) {
+    container.style.width = `${PAD}px`;
+    container.style.height = `${rowH}px`;
+    container.style.minHeight = `${rowH}px`;
+    return positions;
+  }
+  const list = [...items].sort(sortFn || ((a, b) => epochMs(a.start_time) - epochMs(b.start_time)));
+  let x = PAD;
+  for (const m of list) {
+    positions.set(pmId(m.platform, m.source_match_id), { x, y: PAD, w: NODE_W, h: NODE_H });
+    x += NODE_W + GAP_X;
+  }
+  container.style.width = `${x + PAD}px`;
+  container.style.height = `${rowH}px`;
+  container.style.minHeight = `${rowH}px`;
+  return positions;
+}
+
+function buildLayer1PlatformRows(parent, items, sortFn) {
+  parent.innerHTML = '';
+  const byPlatform = new Map();
+  for (const m of items) {
+    if (!byPlatform.has(m.platform)) byPlatform.set(m.platform, []);
+    byPlatform.get(m.platform).push(m);
+  }
+  const plats = [...byPlatform.keys()].sort((a, b) => platformRank(a) - platformRank(b));
+  const rows = [];
+  for (const plat of plats) {
+    const list = byPlatform.get(plat);
+    const row = document.createElement('div');
+    row.className = 'layer-l1-plat-row';
+    const label = document.createElement('div');
+    label.className = 'layer-l1-plat-row-label';
+    label.innerHTML = `${pbadge(plat)}<span class="layer-l1-plat-row-count">${list.length}</span>`;
+    const nodesEl = document.createElement('div');
+    nodesEl.className = 'layer-nodes layer-l1-plat-row-nodes';
+    row.appendChild(label);
+    row.appendChild(nodesEl);
+    parent.appendChild(row);
+    const positions = layoutLayer1PlatformRow(nodesEl, list, sortFn);
+    rows.push({ plat, nodesEl, positions });
+  }
+  return rows;
+}
+
+function syncLayer1PlatRowNodesHeight(rows) {
+  if (!rows.length) return;
+  const h = Math.max(...rows.map(r => r.nodesEl.offsetHeight || 0), NODE_H + PAD * 2);
+  for (const r of rows) r.nodesEl.style.minHeight = `${h}px`;
+}
+
+function cmNodeHeight(cm, platforms) {
+  const rows = validCmRows(cm, platforms);
+  return CM_HEADER_H + Math.max(1, rows.length) * CM_PLAT_ROW_H + 8;
+}
+
+function matchedCmLayoutEntries(clientMatches, platforms) {
+  const entries = [];
+  let y = PAD;
+  for (const cm of clientMatches) {
+    const h = cmNodeHeight(cm, platforms);
+    entries.push({ cm, y, h });
+    y += h + CM_ROW_GAP;
+  }
+  return { entries, totalHeight: entries.length ? y + PAD - CM_ROW_GAP : PAD * 2 };
+}
+
+function buildLayer1MatchedEvents(parent, clientMatches, pmMatched, platforms, layoutEntries) {
+  parent.innerHTML = '';
+  parent.style.setProperty('--cm-row-gap', `${CM_ROW_GAP}px`);
+  const pmSet = new Set(pmMatched.map(m => pmId(m.platform, m.source_match_id)));
+  const heightByCmId = new Map(layoutEntries.map(e => [Number(e.cm.id), e.h]));
+
+  const rowsWrap = document.createElement('div');
+  rowsWrap.className = 'layer-l1-matched-rows';
+  parent.appendChild(rowsWrap);
+
+  const rowResults = [];
+  for (const cm of clientMatches) {
+    const platRows = validCmRows(cm, platforms)
+      .filter(r => pmSet.has(pmId(r.platform, r.source_match_id)))
+      .sort((a, b) => platformRank(a.platform) - platformRank(b.platform));
+    const rowH = heightByCmId.get(Number(cm.id)) || cmNodeHeight(cm, platforms);
+
+    const rowEl = document.createElement('div');
+    rowEl.className = 'layer-l1-matched-row';
+    rowEl.style.height = `${rowH}px`;
+    rowEl.style.minHeight = `${rowH}px`;
+    const stack = document.createElement('div');
+    stack.className = 'layer-l1-cm-plat-stack';
+    const label = document.createElement('div');
+    label.className = 'layer-l1-matched-row-head node-anchor';
+    label.dataset.nodeId = l1CmRowId(cm.id);
+    label.innerHTML = `${renderMatchMergeTarget(cm.id)}<span>#${cm.id}</span>`;
+    rowEl.appendChild(stack);
+    rowEl.appendChild(label);
+    rowsWrap.appendChild(rowEl);
+
+    const subSlots = [];
+    for (const r of platRows) {
+      const line = document.createElement('div');
+      line.className = 'layer-l1-cm-plat-line';
+      const platLabel = document.createElement('div');
+      platLabel.className = 'layer-l1-cm-plat-label';
+      platLabel.innerHTML = pbadge(r.platform);
+      const slot = document.createElement('div');
+      slot.className = 'layer-l1-cm-plat-slot';
+      line.appendChild(platLabel);
+      line.appendChild(slot);
+      stack.appendChild(line);
+
+      const id = pmId(r.platform, r.source_match_id);
+      const positions = new Map();
+      positions.set(id, { x: PAD, y: PAD, w: NODE_W, h: NODE_H });
+      slot.style.height = `${NODE_H + PAD * 2}px`;
+      slot.style.minWidth = `${NODE_W + PAD * 2}px`;
+      subSlots.push({ nodesEl: slot, positions });
+    }
+    rowResults.push({ subSlots, cm, labelEl: label, stackEl: stack, rowEl });
+  }
+  return rowResults;
+}
+
+function layoutLayer2(container, layoutEntries) {
+  const positions = new Map();
+  const colW = CM_NODE_W + PAD * 2;
+  if (!layoutEntries.length) {
+    container.style.height = `${PAD * 2}px`;
+    container.style.width = `${colW}px`;
+    container.style.minWidth = `${colW}px`;
+    return positions;
+  }
+
+  for (const { cm, y, h } of layoutEntries) {
+    positions.set(cmId(cm.id), { x: PAD, y, w: CM_NODE_W, h });
+  }
+
+  const last = layoutEntries[layoutEntries.length - 1];
+  container.style.height = `${last.y + last.h + PAD}px`;
+  container.style.width = `${colW}px`;
+  container.style.minWidth = `${colW}px`;
+  return positions;
+}
+
+function layoutTeamsInCell(cellH, teamIds) {
+  const positions = new Map();
+  const ids = teamIds.filter(Boolean);
+  if (!ids.length) return positions;
+  const gap = GAP_Y;
+  const blockH = ids.length * NODE_H + (ids.length - 1) * gap;
+  let y = Math.max(PAD, (cellH - blockH) / 2);
+  for (const id of ids) {
+    positions.set(id, { x: PAD, y, w: NODE_W, h: NODE_H });
+    y += NODE_H + gap;
+  }
+  return positions;
+}
+
+function buildLayer3CmTeamRows(parent, layoutEntries, platforms, teams) {
+  parent.innerHTML = '';
+  parent.style.setProperty('--cm-row-gap', `${CM_ROW_GAP}px`);
+  const teamById = new Map(teams.map(t => [t.id, t]));
+  const rowResults = [];
+
+  for (const entry of layoutEntries) {
+    const cm = entry.cm;
+    const platRows = validCmRows(cm, platforms)
+      .sort((a, b) => platformRank(a.platform) - platformRank(b.platform));
+    const rowEl = document.createElement('div');
+    rowEl.className = 'layer-l3-cm-row';
+    rowEl.style.height = `${entry.h}px`;
+    rowEl.style.minHeight = `${entry.h}px`;
+    const stack = document.createElement('div');
+    stack.className = 'layer-l3-cm-plat-stack';
+    rowEl.appendChild(stack);
+
+    const subSlots = [];
+    for (const r of platRows) {
+      const homePid = resolveMatchTeamId(r, 'home');
+      const awayPid = resolveMatchTeamId(r, 'away');
+      const homeId = homePid && !isBlankTeamName(r.home) ? teamNodeId(r.platform, homePid) : null;
+      const awayId = awayPid && !isBlankTeamName(r.away) ? teamNodeId(r.platform, awayPid) : null;
+      const teamIds = [homeId, awayId].filter(id => id && teamById.has(id));
+
+      const cell = document.createElement('div');
+      cell.className = 'layer-l3-plat-cell';
+      const platLabel = document.createElement('div');
+      platLabel.className = 'layer-l1-cm-plat-label';
+      platLabel.innerHTML = pbadge(r.platform);
+      const slot = document.createElement('div');
+      slot.className = 'layer-nodes layer-l3-team-slot';
+      cell.appendChild(platLabel);
+      cell.appendChild(slot);
+      stack.appendChild(cell);
+
+      slot.style.width = `${NODE_W + PAD * 2}px`;
+      slot.style.height = `${entry.h}px`;
+      const positions = layoutTeamsInCell(entry.h, teamIds);
+      subSlots.push({ nodesEl: slot, positions, teamIds });
+    }
+    parent.appendChild(rowEl);
+    rowResults.push({ subSlots, cm, rowEl });
+  }
+  return rowResults;
+}
+
+function relayoutL3MatchedTeamSlots(l3MatchedRows, html4) {
+  for (const row of l3MatchedRows) {
+    const cellH = row.rowEl?.offsetHeight || 0;
+    if (!cellH) continue;
+    for (const slot of row.subSlots || []) {
+      slot.positions = layoutTeamsInCell(cellH, slot.teamIds);
+      slot.nodesEl.style.height = `${cellH}px`;
+      placeNodes(slot.nodesEl, slot.positions, html4);
+    }
+  }
+}
+
+function partitionOrphanTeams(teams, activeCmIds) {
+  const identified = [];
+  const pending = [];
+  for (const t of teams) {
+    const linked = t.cmIds && [...t.cmIds].some(id => activeCmIds.has(Number(id)));
+    if (linked) continue;
+    if (t.canonical) identified.push(t);
+    else pending.push(t);
+  }
+  return { identified, pending };
+}
+
+function syncMatchedCmRows(l1MatchedRows, l3MatchedRows, layoutEntries, l2Container) {
+  if (!layoutEntries.length) return;
+  const l1Wrap = l1MatchedRows[0]?.rowEl?.parentElement;
+  const l3Wrap = l3MatchedRows[0]?.rowEl?.parentElement;
+  if (l1Wrap) l1Wrap.style.paddingTop = '0';
+  if (l3Wrap) l3Wrap.style.paddingTop = '0';
+
+  let y = PAD;
+  for (let i = 0; i < layoutEntries.length; i++) {
+    const entry = layoutEntries[i];
+    const l1Row = l1MatchedRows[i]?.rowEl;
+    const l3Row = l3MatchedRows[i]?.rowEl;
+    const cmNode = _nodeEls.get(cmId(entry.cm.id));
+    const h = cmNode ? cmNode.offsetHeight : entry.h;
+    if (l1Row) {
+      l1Row.style.height = `${h}px`;
+      l1Row.style.minHeight = `${h}px`;
+      l1Row.style.marginTop = '0';
+    }
+    if (l3Row) {
+      l3Row.style.height = `${h}px`;
+      l3Row.style.minHeight = `${h}px`;
+      l3Row.style.marginTop = '0';
+    }
+    if (cmNode) {
+      cmNode.style.top = `${y}px`;
+      cmNode.style.height = `${h}px`;
+    }
+    y += h + CM_ROW_GAP;
+  }
+  if (l2Container) {
+    l2Container.style.height = `${Math.max(PAD * 2, y - CM_ROW_GAP + PAD)}px`;
+  }
+
+  const board = document.getElementById('canvas-board');
+  if (!board) return;
+  const boardTop = board.getBoundingClientRect().top;
+  const firstNode = _nodeEls.get(cmId(layoutEntries[0].cm.id));
+  if (!firstNode) return;
+  const anchorRow = l1MatchedRows[0]?.rowEl || l3MatchedRows[0]?.rowEl;
+  if (!anchorRow) return;
+  const delta = (firstNode.getBoundingClientRect().top - boardTop)
+    - (anchorRow.getBoundingClientRect().top - boardTop);
+  if (Math.abs(delta) > 0.5) {
+    const pad = `${delta}px`;
+    if (l1Wrap) l1Wrap.style.paddingTop = pad;
+    if (l3Wrap) l3Wrap.style.paddingTop = pad;
+  }
+}
+
+function layoutLayer4TeamColumn(container, teams) {
+  const positions = new Map();
+  if (!teams.length) {
+    container.style.height = `${PAD}px`;
+    container.style.minWidth = `${NODE_W + PAD * 2}px`;
+    return positions;
+  }
+  let y = PAD;
+  for (const t of teams) {
+    positions.set(t.id, { x: PAD, y, w: NODE_W, h: NODE_H });
+    y += NODE_H + GAP_Y;
+  }
+  container.style.height = `${y + PAD}px`;
+  container.style.minWidth = `${NODE_W + PAD * 2}px`;
+  return positions;
+}
+
+function syncLayer4ColsHeight(nodeEls) {
+  if (!nodeEls.length) return;
+  const h = Math.max(...nodeEls.map(el => el.offsetHeight || 0), 60);
+  for (const el of nodeEls) el.style.minHeight = `${h}px`;
+}
+
+function syncLayer4HalvesHeight(pendingColsEl, identifiedColsEl) {
+  const h = Math.max(pendingColsEl.offsetHeight, identifiedColsEl.offsetHeight, 60);
+  pendingColsEl.style.minHeight = `${h}px`;
+  identifiedColsEl.style.minHeight = `${h}px`;
+}
+
+function buildLayer4Columns(parent, teams) {
+  parent.innerHTML = '';
+  const byPlatform = new Map();
+  for (const t of teams) {
+    if (!byPlatform.has(t.platform)) byPlatform.set(t.platform, []);
+    byPlatform.get(t.platform).push(t);
+  }
+  const plats = [...byPlatform.keys()].sort((a, b) => platformRank(a) - platformRank(b));
+  const columns = [];
+  for (const plat of plats) {
+    const list = [...byPlatform.get(plat)].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh'));
+    const col = document.createElement('div');
+    col.className = 'layer-l4-col';
+    const label = document.createElement('div');
+    label.className = 'layer-l4-col-label';
+    label.innerHTML = `${pbadge(plat)}<span class="layer-l4-col-count">${list.length}</span>`;
+    const nodesEl = document.createElement('div');
+    nodesEl.className = 'layer-nodes';
+    col.appendChild(label);
+    col.appendChild(nodesEl);
+    parent.appendChild(col);
+    const positions = layoutLayer4TeamColumn(nodesEl, list);
+    columns.push({ plat, nodesEl, positions, list });
+  }
+  return columns;
+}
+
+function renderMatchLinkHandle(platform, sourceMatchId, clientMatchId, extraClass = '') {
+  return `<button type="button" class="match-link-handle${extraClass ? ` ${extraClass}` : ''}"
+    title="拖到已匹配赛事绿方点以关联"
+    data-match-platform="${esc(platform || '')}"
+    data-match-source-id="${esc(sourceMatchId || '')}"
+    data-client-match-id="${clientMatchId != null && clientMatchId !== '' ? esc(String(clientMatchId)) : ''}"></button>`;
+}
+
+function renderMatchMergeTarget(cmId) {
+  return renderMatchLinkHandle('', '', cmId, 'match-merge-target');
+}
+
+function renderPmNode(m) {
+  const game = m.game?.code || 'unknown';
+  const linked = m.linkedCmId ? `#${m.linkedCmId}` : '未匹配';
+  const cls = m.linkedCmId ? 'node-pm' : 'node-pm unlinked';
+  const dragHandle = m.linkedCmId
+    ? ''
+    : renderMatchLinkHandle(m.platform, m.source_match_id, '');
+  return `<div class="node ${cls}" data-node-id="${esc(pmId(m.platform, m.source_match_id))}">
+    ${dragHandle}
+    <div class="node-title">${esc(m.home)} vs ${esc(m.away)}</div>
+    <div class="node-sub">${fmtTime(m.start_time)} · ${esc(GAME_NAMES[game] || game)}</div>
+    <div class="node-tag">${pbadge(m.platform)} ${linked}</div>
+  </div>`;
+}
+
+/** 从各平台行解析主/客队的 gb_team_id（canonical_id） */
+function resolveCmSideGb(teamMaps, rows, side) {
+  let pending = false;
+  for (const row of rows) {
+    const pid = resolveMatchTeamId(row, side);
+    if (!pid) continue;
+    const { canonical, pending: isPending } = lookupCanonical(teamMaps, row.platform, pid);
+    if (canonical) return { canonical, pending: false };
+    if (isPending) pending = true;
+  }
+  return { canonical: null, pending };
+}
+
+function formatCmGbLabel(gb) {
+  if (gb.canonical != null) return String(gb.canonical);
+  if (gb.pending) return '待识别';
+  return '—';
+}
+
+function cmGbTagClass(gb) {
+  if (gb.canonical != null) return '';
+  if (gb.pending) return ' pending';
+  return ' missing';
+}
+
+function renderCmGbTag(sideLabel, gb, cmId, side) {
+  const anchorId = cmGbAnchorId(cmId, side);
+  return `<span class="cm-gb-tag cm-gb-anchor${cmGbTagClass(gb)}" data-node-id="${esc(anchorId)}">${sideLabel} gb ${esc(formatCmGbLabel(gb))}</span>`;
+}
+
+function renderCmNode(cm, platforms, teamMaps) {
+  const rows = validCmRows(cm, platforms);
+  if (rows.length < 2) return '';
+  const ref = rows[0];
+  const homeName = ref?.home && !isBlankTeamName(ref.home) ? ref.home : '主';
+  const awayName = ref?.away && !isBlankTeamName(ref.away) ? ref.away : '客';
+  const game = typeof cm.game === 'string' ? cm.game : (cm.game?.code || rows[0]?.game?.code || '?');
+  const homeGb = resolveCmSideGb(teamMaps, rows, 'home');
+  const awayGb = resolveCmSideGb(teamMaps, rows, 'away');
+  const platformRows = rows.map(r => `<div class="cm-plat-row">
+      <span class="cm-plat-badge">${pbadge(r.platform)}</span>
+      <span class="cm-team-anchor cm-team-home">${esc(r.home)}</span>
+      <span class="cm-vs">vs</span>
+      <span class="cm-team-anchor cm-team-away">${esc(r.away)}</span>
+    </div>`).join('');
+  return `<div class="node node-cm" data-node-id="${esc(cmId(cm.id))}">
+    <div class="node-cm-header">
+      <div class="node-cm-id-row">
+        ${renderMatchMergeTarget(cm.id)}
+        <div class="node-cm-id">#${cm.id}</div>
+      </div>
+      <div class="node-cm-title-row">
+        <span class="cm-title-home">${esc(homeName)}</span>
+        <span class="cm-vs">vs</span>
+        <span class="cm-title-away">${esc(awayName)}</span>
+      </div>
+      <div class="node-cm-unified-ids">
+        ${renderCmGbTag('主', homeGb, cm.id, 'home')}
+        ${renderCmGbTag('客', awayGb, cm.id, 'away')}
+      </div>
+      <div class="node-cm-meta">${fmtTime(cm.start_time)} · ${esc(GAME_NAMES[game] || game)} · ${rows.length} 平台</div>
+    </div>
+    <div class="cm-plat-rows">${platformRows}</div>
+  </div>`;
+}
+
+function renderTeamNode(t) {
+  const tag = t.canonical
+    ? `gb ${t.canonical}`
+    : (t.pending ? '待识别' : '未映射');
+  const cls = `node node-team${t.canonical ? ' linked' : ''}${t.pending ? ' pending' : ''}`;
+  return `<div class="node ${cls}" data-node-id="${esc(t.id)}">
+    <div class="node-title">${esc(t.name)}</div>
+    <div class="node-sub">id ${esc(t.platformId)}</div>
+    <div class="node-tag">${pbadge(t.platform)} ${tag}</div>
+  </div>`;
+}
+
+function placeNodes(container, positions, htmlById) {
+  container.innerHTML = '';
+  for (const [id, pos] of positions) {
+    const html = htmlById.get(id);
+    if (!html) continue;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    const el = wrap.firstElementChild;
+    el.style.left = `${pos.x}px`;
+    el.style.top = `${pos.y}px`;
+    el.style.width = `${pos.w}px`;
+    if (pos.h) el.style.height = `${pos.h}px`;
+    container.appendChild(el);
+    _nodeEls.set(id, el);
+    el.addEventListener('mouseenter', () => highlightConnected(id));
+    el.addEventListener('mouseleave', () => clearHighlight());
+  }
+}
+
+function registerL1RowAnchors(rows) {
+  for (const row of rows) {
+    const { labelEl, cm } = row;
+    if (!labelEl || !cm) continue;
+    const id = l1CmRowId(cm.id);
+    _nodeEls.set(id, labelEl);
+    labelEl.addEventListener('mouseenter', () => highlightConnected(id));
+    labelEl.addEventListener('mouseleave', () => clearHighlight());
+  }
+}
+
+function registerCmGbAnchors(board) {
+  board.querySelectorAll('.cm-gb-anchor[data-node-id]').forEach(el => {
+    const id = el.dataset.nodeId;
+    if (!id) return;
+    _nodeEls.set(id, el);
+    el.addEventListener('mouseenter', () => highlightConnected(id));
+    el.addEventListener('mouseleave', () => clearHighlight());
+  });
+}
+
+function drawLinks(svg, board, links, positions) {
+  svg.innerHTML = '';
+  const boardRect = board.getBoundingClientRect();
+  svg.setAttribute('width', String(board.scrollWidth));
+  svg.setAttribute('height', String(board.scrollHeight));
+  svg.style.width = `${board.scrollWidth}px`;
+  svg.style.height = `${board.scrollHeight}px`;
+
+  for (const link of links) {
+    const fromEl = _nodeEls.get(link.from);
+    const toEl = _nodeEls.get(link.to);
+    if (!fromEl || !toEl) continue;
+    let a;
+    let b;
+    if (link.kind === 'pm-cm' || link.kind === 'cm-team') {
+      a = nodeAnchor(fromEl, board, 'right');
+      b = nodeAnchor(toEl, board, 'left');
+    } else {
+      a = nodeCenter(fromEl, board);
+      b = nodeCenter(toEl, board);
+    }
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const midX = (a.x + b.x) / 2;
+    const d = `M ${a.x} ${a.y} C ${midX} ${a.y}, ${midX} ${b.y}, ${b.x} ${b.y}`;
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('data-link-from', link.from);
+    path.setAttribute('data-link-to', link.to);
+    if (link.kind === 'pm-cm') {
+      path.setAttribute('stroke', '#60a5fa');
+      path.setAttribute('stroke-opacity', '0.7');
+      path.setAttribute('stroke-width', '1.6');
+    } else if (link.kind === 'cm-team') {
+      if (link.canonical) {
+        path.setAttribute('stroke', colorForCanonical(link.canonical));
+        path.setAttribute('stroke-opacity', '0.72');
+        path.setAttribute('stroke-width', '1.3');
+      } else {
+        path.setAttribute('stroke', '#a78bfa');
+        path.setAttribute('stroke-opacity', '0.5');
+        path.setAttribute('stroke-width', '1');
+        path.setAttribute('stroke-dasharray', '4 3');
+      }
+    }
+    svg.appendChild(path);
+  }
+}
+
+let _allLinks = [];
+
+function highlightConnected(nodeId) {
+  _highlightIds = new Set([nodeId]);
+  const visit = new Set([nodeId]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const l of _allLinks) {
+      if (visit.has(l.from) && !visit.has(l.to)) { visit.add(l.to); changed = true; }
+      if (visit.has(l.to) && !visit.has(l.from)) { visit.add(l.from); changed = true; }
+    }
+  }
+  _highlightIds = visit;
+  for (const [id, el] of _nodeEls) {
+    el.classList.toggle('highlight', visit.has(id));
+    el.classList.toggle('dim', !visit.has(id));
+  }
+  document.querySelectorAll('#layer-svg path').forEach(p => {
+    const active = visit.has(p.getAttribute('data-link-from')) && visit.has(p.getAttribute('data-link-to'));
+    p.setAttribute('stroke-opacity', active ? '0.95' : '0.12');
+  });
+}
+
+function clearHighlight() {
+  _highlightIds.clear();
+  for (const el of _nodeEls.values()) {
+    el.classList.remove('highlight', 'dim');
+  }
+  drawLinks(document.getElementById('layer-svg'), document.getElementById('canvas-board'), _allLinks, null);
+}
+
+function renderStats(graph, data) {
+  const pmMatched = graph.platformMatches.filter(p => p.linkedCmId).length;
+  const pmUnmatched = graph.platformMatches.length - pmMatched;
+  document.getElementById('stats-bar').innerHTML = `
+    <div class="stat"><div class="label">平台比赛</div><div class="value c-blue">${graph.platformMatches.length}</div></div>
+    <div class="stat"><div class="label">已匹配 PM</div><div class="value c-green">${pmMatched}</div></div>
+    <div class="stat"><div class="label">未匹配 PM</div><div class="value" style="color:#94a3b8">${pmUnmatched}</div></div>
+    <div class="stat"><div class="label">已匹配赛事</div><div class="value c-green">${graph.clientMatches.length}</div></div>
+    <div class="stat"><div class="label">平台队伍</div><div class="value c-purple">${graph.teams.length}</div></div>
+    <div class="stat"><div class="label">已识别队伍</div><div class="value c-green">${graph.teams.filter(t => t.canonical).length}</div></div>
+    <div class="stat"><div class="label">待识别队伍</div><div class="value c-amber">${graph.teams.filter(t => !t.canonical).length}</div></div>
+    <div class="stat"><div class="label">关联线</div><div class="value c-amber">${graph.links.length}</div></div>
+  `;
+}
+
+function renderBoard(data) {
+  const graph = buildGraph(data, _hideUnlinkedPm, _search);
+  _allLinks = graph.links;
+  renderStats(graph, data);
+
+  const l1Matched = document.getElementById('nodes-l1-matched');
+  const l1Unmatched = document.getElementById('nodes-l1-unmatched');
+  const l2 = document.getElementById('nodes-l2');
+  const l4PendingCols = document.getElementById('layer-l4-pending-cols');
+  const l4IdentifiedCols = document.getElementById('layer-l4-identified-cols');
+  const board = document.getElementById('canvas-board');
+  const svg = document.getElementById('layer-svg');
+
+  if (!graph.platformMatches.length && !graph.clientMatches.length && !graph.teams.length) {
+    l1Matched.innerHTML = `<div class="layer-l1-empty">${_search ? `没有匹配「${esc(_search)}」的数据` : '暂无数据'}</div>`;
+    l1Unmatched.innerHTML = '';
+    document.getElementById('l1-matched-count').textContent = '0';
+    document.getElementById('l1-unmatched-count').textContent = '0';
+    l2.innerHTML = '';
+    l4PendingCols.innerHTML = '';
+    l4IdentifiedCols.innerHTML = '';
+    document.getElementById('layer-l3-matched-rows').innerHTML = '';
+    document.getElementById('layer-l4-orphan-split')?.classList.add('hidden');
+    document.getElementById('l4-pending-count').textContent = '0';
+    document.getElementById('l4-identified-count').textContent = '0';
+    svg.innerHTML = '';
+    return;
+  }
+
+  const activeCmIdSet = new Set(graph.clientMatches.map(c => Number(c.id)));
+  const pmMatched = graph.platformMatches.filter(m =>
+    m.linkedCmId && activeCmIdSet.has(Number(m.linkedCmId)));
+  const pmUnmatched = graph.platformMatches.filter(m => !m.linkedCmId);
+  document.getElementById('l1-matched-count').textContent = String(graph.clientMatches.length);
+  document.getElementById('l1-unmatched-count').textContent = String(pmUnmatched.length);
+
+  const cmLayout = matchedCmLayoutEntries(graph.clientMatches, data.platforms);
+  const l1MatchedRows = buildLayer1MatchedEvents(
+    l1Matched, graph.clientMatches, pmMatched, data.platforms, cmLayout.entries);
+  const l1UnmatchedRows = buildLayer1PlatformRows(l1Unmatched, pmUnmatched);
+  if (!l1MatchedRows.length) {
+    l1Matched.innerHTML = '<div class="layer-l1-empty">无</div>';
+  }
+  if (!l1UnmatchedRows.length) {
+    l1Unmatched.innerHTML = '<div class="layer-l1-empty">无</div>';
+  }
+
+  const pos2 = layoutLayer2(l2, cmLayout.entries);
+  const l3MatchedHost = document.getElementById('layer-l3-matched-rows');
+  const l3MatchedRows = buildLayer3CmTeamRows(
+    l3MatchedHost, cmLayout.entries, data.platforms, graph.teams);
+  if (!l3MatchedRows.length) {
+    l3MatchedHost.innerHTML = '<div class="layer-l1-empty">无</div>';
+  }
+
+  const orphanTeams = partitionOrphanTeams(graph.teams, activeCmIdSet);
+  document.getElementById('l4-pending-count').textContent = String(orphanTeams.pending.length);
+  document.getElementById('l4-identified-count').textContent = String(orphanTeams.identified.length);
+  const orphanSplit = document.getElementById('layer-l4-orphan-split');
+  const hasOrphans = orphanTeams.identified.length > 0 || orphanTeams.pending.length > 0;
+  if (orphanSplit) orphanSplit.classList.toggle('hidden', !hasOrphans);
+
+  const l4PendingColumns = buildLayer4Columns(l4PendingCols, orphanTeams.pending);
+  const l4IdentifiedColumns = buildLayer4Columns(l4IdentifiedCols, orphanTeams.identified);
+  if (!l4PendingColumns.length) {
+    l4PendingCols.innerHTML = '<div class="layer-l1-empty">无</div>';
+  }
+  if (!l4IdentifiedColumns.length) {
+    l4IdentifiedCols.innerHTML = '<div class="layer-l1-empty">无</div>';
+  }
+
+  const html1 = new Map(graph.platformMatches.map(m => [pmId(m.platform, m.source_match_id), renderPmNode(m)]));
+  const teamMaps = data.teamMaps || {};
+  const html2 = new Map(graph.clientMatches.map(cm => [cmId(cm.id), renderCmNode(cm, data.platforms, teamMaps)]));
+  const html4 = new Map(graph.teams.map(t => [t.id, renderTeamNode(t)]));
+
+  _nodeEls.clear();
+  for (const row of l1MatchedRows) {
+    for (const slot of row.subSlots || []) {
+      placeNodes(slot.nodesEl, slot.positions, html1);
+    }
+  }
+  registerL1RowAnchors(l1MatchedRows);
+  for (const row of l1UnmatchedRows) {
+    placeNodes(row.nodesEl, row.positions, html1);
+  }
+  if (l1UnmatchedRows.length) syncLayer1PlatRowNodesHeight(l1UnmatchedRows);
+  for (const row of l3MatchedRows) {
+    for (const slot of row.subSlots || []) {
+      placeNodes(slot.nodesEl, slot.positions, html4);
+    }
+  }
+  placeNodes(l2, pos2, html2);
+  registerCmGbAnchors(board);
+  syncMatchedCmRows(l1MatchedRows, l3MatchedRows, cmLayout.entries, l2);
+  relayoutL3MatchedTeamSlots(l3MatchedRows, html4);
+  for (const col of [...l4IdentifiedColumns, ...l4PendingColumns]) {
+    placeNodes(col.nodesEl, col.positions, html4);
+  }
+  if (l4PendingColumns.length) syncLayer4ColsHeight(l4PendingColumns.map(c => c.nodesEl));
+  if (l4IdentifiedColumns.length) syncLayer4ColsHeight(l4IdentifiedColumns.map(c => c.nodesEl));
+  syncLayer4HalvesHeight(l4IdentifiedCols, l4PendingCols);
+  syncLayerBandsHeight();
+
+  requestAnimationFrame(() => drawLinks(svg, board, graph.links, null));
+}
+
+function syncLayerBandsHeight() {
+  const bands = [
+    document.getElementById('layer-1'),
+    document.getElementById('layer-2'),
+    document.getElementById('layer-4'),
+  ].filter(Boolean);
+  if (!bands.length) return;
+  const wrap = document.getElementById('canvas-wrap');
+  const minH = Math.max(wrap?.clientHeight || 0, ...bands.map(b => b.scrollHeight));
+  for (const band of bands) band.style.minHeight = `${minH}px`;
+}
+
+function showActionToast(message, type = 'ok', ms = 4200) {
+  const host = document.getElementById('action-toast-host');
+  if (!host || !message) return;
+  const el = document.createElement('div');
+  el.className = 'action-toast ' + (type === 'err' ? 'err' : type === 'warn' ? 'warn' : 'ok');
+  el.textContent = message;
+  host.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity .25s ease';
+    setTimeout(() => el.remove(), 280);
+  }, ms);
+}
+
+function formatApiResultToast(data, head) {
+  const lines = Array.isArray(data?.logLines) && data.logLines.length
+    ? data.logLines
+    : [data?.summary, data?.detail].filter(Boolean);
+  return [head || '操作成功', ...lines].join('\n');
+}
+
+function hideLinkModal() {
+  _pendingRec = null;
+  _linkModalKind = null;
+  document.getElementById('link-modal')?.classList.add('hidden');
+}
+
+function matchPayloadFromHandle(el) {
+  const clientMatchId = el.dataset.clientMatchId ? Number(el.dataset.clientMatchId) : null;
+  return {
+    platform: el.dataset.matchPlatform || '',
+    sourceMatchId: el.dataset.matchSourceId || '',
+    clientMatchId: Number.isFinite(clientMatchId) ? clientMatchId : null,
+    isMergeTarget: el.classList.contains('match-merge-target'),
+  };
+}
+
+function resolveMatchLinkAction(s, t) {
+  const destCmId = t.clientMatchId;
+  const srcCmId = s.clientMatchId;
+  if (srcCmId && destCmId && srcCmId !== destCmId) {
+    return { type: 'merge', sourceClientMatchId: srcCmId, targetClientMatchId: destCmId };
+  }
+  if (s.platform && s.sourceMatchId && destCmId && srcCmId !== destCmId) {
+    return {
+      type: 'link-client',
+      platform: s.platform,
+      sourceMatchId: s.sourceMatchId,
+      clientMatchId: destCmId,
+    };
+  }
+  if (s.platform && s.sourceMatchId && t.platform && t.sourceMatchId && s.platform !== t.platform) {
+    return {
+      type: 'link-platform',
+      platform: s.platform,
+      sourceMatchId: s.sourceMatchId,
+      targetPlatform: t.platform,
+      targetMatchId: t.sourceMatchId,
+    };
+  }
+  return null;
+}
+
+function matchLinkAllowed(sourceHandle, targetHandle) {
+  if (!sourceHandle || !targetHandle || sourceHandle === targetHandle) return false;
+  const s = matchPayloadFromHandle(sourceHandle);
+  const t = matchPayloadFromHandle(targetHandle);
+  if (s.isMergeTarget && !s.platform && !s.sourceMatchId) return false;
+  return resolveMatchLinkAction(s, t) != null;
+}
+
+function boardPointerPos(board, clientX, clientY) {
+  const br = board.getBoundingClientRect();
+  const wrap = document.getElementById('canvas-wrap');
+  return {
+    x: clientX - br.left + (wrap?.scrollLeft || 0),
+    y: clientY - br.top + (wrap?.scrollTop || 0),
+  };
+}
+
+function matchHandleCenter(handle, board) {
+  const hr = handle.getBoundingClientRect();
+  return boardPointerPos(board, hr.left + hr.width / 2, hr.top + hr.height / 2);
+}
+
+function clearMatchDragLine() {
+  const svg = document.getElementById('match-drag-svg');
+  if (svg) svg.innerHTML = '';
+}
+
+function updateMatchDragLine(board, x1, y1, x2, y2) {
+  const svg = document.getElementById('match-drag-svg');
+  if (!svg) return;
+  svg.setAttribute('width', String(board.scrollWidth));
+  svg.setAttribute('height', String(board.scrollHeight));
+  svg.style.width = `${board.scrollWidth}px`;
+  svg.style.height = `${board.scrollHeight}px`;
+  let line = svg.querySelector('line.match-link-drag-line');
+  if (!line) {
+    line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('class', 'match-link-drag-line');
+    line.setAttribute('stroke', '#fbbf24');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '5 4');
+    svg.appendChild(line);
+  }
+  line.setAttribute('x1', x1);
+  line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2);
+  line.setAttribute('y2', y2);
+}
+
+function renderRecModalBody() {
+  const body = document.getElementById('link-modal-body');
+  const btn = document.getElementById('link-modal-confirm');
+  if (!body || !_pendingRec) return;
+
+  const { platform, preview, mode, ref, cmId, reversed } = _pendingRec;
+  const platTeams = preview?.platformTeams;
+  const align = preview?.alignment?.mode;
+
+  let banner = mode === 'client'
+    ? `<div class="link-align-banner ok">将 ${pbadge(platform)} 关联到已有赛事 #${cmId}</div>`
+    : `<div class="link-align-banner ok">将 ${pbadge(platform)} 与 ${pbadge(ref.platform)} 建立赛事映射</div>`;
+
+  if (align === 'aligned') banner += `<div class="link-align-banner ok">主客与参考侧一致</div>`;
+  else if (align === 'reversed') banner += `<div class="link-align-banner swap">主客与参考侧相反，默认已选颠倒</div>`;
+  else banner += `<div class="link-align-banner unknown">无法自动判断主客，请手动选择</div>`;
+
+  const refTeams = mode === 'client' ? preview?.systemTeams : preview?.targetTeams;
+  const alignedSel = reversed === false ? ' selected' : '';
+  const reversedSel = reversed === true ? ' selected' : '';
+
+  body.innerHTML = `
+    <p>拖拽关联：<strong>${esc(platTeams?.home || '?')} vs ${esc(platTeams?.away || '?')}</strong> · ${pbadge(platform)}</p>
+    ${banner}
+    <table class="link-side-table">
+      <thead><tr><th>侧</th><th>主</th><th>客</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="link-side-tag">${mode === 'client' ? `赛事 #${cmId}` : `参考 ${ref.platform}`}</span></td>
+          <td>${esc(refTeams?.home || '?')}</td>
+          <td>${esc(refTeams?.away || '?')}</td>
+        </tr>
+        <tr>
+          <td><span class="link-side-tag">${platform}</span></td>
+          <td>${esc(platTeams?.home || '?')}</td>
+          <td>${esc(platTeams?.away || '?')}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="link-side-options">
+      <label class="link-side-option${alignedSel}">
+        <input type="radio" name="rec-side-mode" value="aligned"${reversed === false ? ' checked' : ''}>
+        <span class="link-side-option-text"><strong>主客一致</strong> — ${esc(platTeams?.home || '?')} = ${esc(refTeams?.home || '?')}（主队对主队）</span>
+      </label>
+      <label class="link-side-option${reversedSel}">
+        <input type="radio" name="rec-side-mode" value="reversed"${reversed === true ? ' checked' : ''}>
+        <span class="link-side-option-text"><strong>主客颠倒</strong> — ${esc(platTeams?.home || '?')} = ${esc(refTeams?.away || '?')}（主队对客队）</span>
+      </label>
+    </div>
+  `;
+
+  body.querySelectorAll('.link-side-option').forEach(label => {
+    label.addEventListener('click', () => {
+      const input = label.querySelector('input');
+      if (!input || !_pendingRec) return;
+      _pendingRec.reversed = input.value === 'reversed';
+      renderRecModalBody();
+    });
+  });
+
+  if (btn) {
+    btn.disabled = typeof reversed !== 'boolean';
+    btn.textContent = typeof reversed !== 'boolean' ? '请选择主客对应' : '确认赛事关联';
+  }
+}
+
+async function openMatchLinkModal({ mode, platform, sourceMatchId, ref, cmId }) {
+  const backdrop = document.getElementById('link-modal');
+  const body = document.getElementById('link-modal-body');
+  const btn = document.getElementById('link-modal-confirm');
+  _linkModalKind = 'rec';
+  document.getElementById('link-modal-title').textContent = mode === 'client'
+    ? `确认关联赛事 #${cmId}`
+    : `确认 ${platform} ↔ ${ref.platform} 关联赛事`;
+  body.innerHTML = '<p style="color:#94a3b8">正在加载主客对照…</p>';
+  if (btn) { btn.disabled = true; btn.textContent = '加载中…'; }
+  backdrop.classList.remove('hidden');
+
+  try {
+    let preview;
+    if (mode === 'client') {
+      const q = new URLSearchParams({
+        platform,
+        sourceMatchId: String(sourceMatchId),
+        clientMatchId: String(cmId),
+      });
+      const { res, data } = await fetchJson('/api/link-preview?' + q);
+      if (!res.ok || data.error) throw new Error(data.error || '预览失败');
+      preview = data;
+    } else {
+      const q = new URLSearchParams({
+        platform,
+        sourceMatchId: String(sourceMatchId),
+        targetPlatform: ref.platform,
+        targetMatchId: String(ref.source_match_id),
+      });
+      const { res, data } = await fetchJson('/api/link-platform-preview?' + q);
+      if (!res.ok || data.error) throw new Error(data.error || '预览失败');
+      preview = data;
+    }
+
+    const align = preview?.alignment?.mode;
+    let reversed = null;
+    if (align === 'aligned') reversed = false;
+    else if (align === 'reversed') reversed = true;
+    else if (align === 'ambiguous') reversed = null;
+    else reversed = false;
+
+    _pendingRec = {
+      dragLink: true,
+      platform,
+      sourceMatchId,
+      mode,
+      ref,
+      cmId,
+      preview,
+      reversed,
+    };
+    renderRecModalBody();
+  } catch (err) {
+    body.innerHTML = `<p style="color:#f87171">${esc(err.message)}</p>`;
+    if (btn) { btn.disabled = true; btn.textContent = '无法确认'; }
+  }
+}
+
+async function confirmRecTeamMapping() {
+  if (_linkSubmitting || _linkModalKind !== 'rec' || !_pendingRec || typeof _pendingRec.reversed !== 'boolean') return;
+  _linkSubmitting = true;
+  const btn = document.getElementById('link-modal-confirm');
+  if (btn) { btn.disabled = true; btn.textContent = '写入中…'; }
+
+  const { platform, sourceMatchId, mode, cmId, ref, reversed } = _pendingRec;
+  try {
+    let data;
+    if (mode === 'client') {
+      const { res, data: body } = await fetchJson('/api/link-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, sourceMatchId, clientMatchId: cmId, reversed }),
+      });
+      if (!res.ok || body.error) throw new Error(body.error || '关联失败');
+      data = body;
+    } else {
+      const { res, data: body } = await fetchJson('/api/link-platform-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform,
+          sourceMatchId,
+          targetPlatform: ref.platform,
+          targetMatchId: ref.source_match_id,
+          reversed,
+        }),
+      });
+      if (!res.ok || body.error) throw new Error(body.error || '关联失败');
+      data = body;
+    }
+    hideLinkModal();
+    showActionToast(formatApiResultToast(data, '赛事关联成功'), 'ok', 5600);
+    await load();
+  } catch (err) {
+    showActionToast(`赛事关联失败\n${err.message}`, 'err', 6000);
+  } finally {
+    _linkSubmitting = false;
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function submitMergeClientMatches(sourceClientMatchId, targetClientMatchId) {
+  if (_matchLinkSubmitting) return;
+  _matchLinkSubmitting = true;
+  try {
+    const q = new URLSearchParams({
+      sourceClientMatchId: String(sourceClientMatchId),
+      targetClientMatchId: String(targetClientMatchId),
+    });
+    const { res, data } = await fetchJson('/api/merge-preview?' + q);
+    if (!res.ok || data.error) throw new Error(data.error || '合并预览失败');
+    if (!data.canMerge) {
+      const names = (data.conflicts || []).map(c => c.platform).join('、');
+      showActionToast(`无法合并赛事\n#${sourceClientMatchId} → #${targetClientMatchId}\n${names} 在两场中指向不同场次`, 'warn', 5600);
+      return;
+    }
+    const msg = [
+      '合并两条已匹配赛事？',
+      `#${sourceClientMatchId} ${data.source?.title || ''}`,
+      `→ #${targetClientMatchId} ${data.target?.title || ''}`,
+      '',
+      `保留目标 #${targetClientMatchId}，源赛事删除`,
+      `合并后平台：${(data.mergedPlatforms || []).join('、')}`,
+    ].join('\n');
+    if (!confirm(msg)) return;
+
+    const { res: postRes, data: body } = await fetchJson('/api/merge-client-matches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceClientMatchId, targetClientMatchId }),
+    });
+    if (!postRes.ok || body.error) throw new Error(body.error || '合并失败');
+    showActionToast(formatApiResultToast(body, `赛事合并成功 · 保留 #${targetClientMatchId}`), 'ok', 5600);
+    await load();
+  } catch (err) {
+    showActionToast(`赛事合并失败\n${err.message}`, 'err', 6000);
+  } finally {
+    _matchLinkSubmitting = false;
+  }
+}
+
+async function submitMatchLink(sourceHandle, targetHandle) {
+  if (_matchLinkSubmitting) return;
+  const s = matchPayloadFromHandle(sourceHandle);
+  const t = matchPayloadFromHandle(targetHandle);
+  const action = resolveMatchLinkAction(s, t);
+  if (!action) return;
+
+  if (action.type === 'merge') {
+    await submitMergeClientMatches(action.sourceClientMatchId, action.targetClientMatchId);
+    return;
+  }
+  if (action.type === 'link-client') {
+    await openMatchLinkModal({
+      mode: 'client',
+      platform: action.platform,
+      sourceMatchId: action.sourceMatchId,
+      cmId: action.clientMatchId,
+    });
+    return;
+  }
+  await openMatchLinkModal({
+    mode: 'platform',
+    platform: action.platform,
+    sourceMatchId: action.sourceMatchId,
+    ref: { platform: action.targetPlatform, source_match_id: action.targetMatchId },
+  });
+}
+
+function bindMatchLinkDrag() {
+  if (_matchLinkBound) return;
+  const board = document.getElementById('canvas-board');
+  if (!board) return;
+  _matchLinkBound = true;
+
+  board.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const handle = e.target.closest('.match-link-handle:not(.match-merge-target)');
+    if (!handle || !board.contains(handle)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const from = matchHandleCenter(handle, board);
+    _matchDrag = { board, source: handle, from };
+    handle.classList.add('match-link-dragging');
+    updateMatchDragLine(board, from.x, from.y, from.x, from.y);
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!_matchDrag) return;
+    const p = boardPointerPos(_matchDrag.board, e.clientX, e.clientY);
+    updateMatchDragLine(_matchDrag.board, _matchDrag.from.x, _matchDrag.from.y, p.x, p.y);
+
+    document.querySelectorAll('.match-link-handle.match-link-drop-target').forEach(el => {
+      el.classList.remove('match-link-drop-target');
+    });
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const target = el?.closest('.match-link-handle');
+    if (target && matchLinkAllowed(_matchDrag.source, target) && _matchDrag.board.contains(target)) {
+      target.classList.add('match-link-drop-target');
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (!_matchDrag) return;
+    const state = _matchDrag;
+    _matchDrag = null;
+    clearMatchDragLine();
+    state.source.classList.remove('match-link-dragging');
+    document.querySelectorAll('.match-link-handle.match-link-drop-target').forEach(el => {
+      el.classList.remove('match-link-drop-target');
+    });
+
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const target = el?.closest('.match-link-handle');
+    if (!target || !matchLinkAllowed(state.source, target) || !state.board.contains(target)) return;
+    submitMatchLink(state.source, target);
+  });
+}
+
+async function fetchJson(url, options) {
+  if (typeof url === 'string' && url.startsWith('/api')) {
+    url = (window.MATCHER_API || '/api') + url.slice(4);
+  }
+  const opts = options ? { ...options } : {};
+  opts.credentials = 'include';
+  opts.headers = {
+    ...(opts.headers || {}),
+    ...(window.matcherAuthHeaders ? window.matcherAuthHeaders() : {}),
+  };
+  const res = await fetch(url, opts);
+  if (res.status === 401) {
+    if (window.redirectToSiteLogin) window.redirectToSiteLogin();
+    throw new Error('需要登录（请先在主页登录，或刷新后重试）');
+  }
+  if (res.status === 403) {
+    throw new Error('需要管理员权限（当前账号无权访问赛事匹配面板）');
+  }
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) {
+    const text = await res.text();
+    throw new Error(text.trimStart().startsWith('<') ? 'API 返回 HTML，请确认 matcher 服务已启动' : text.slice(0, 120));
+  }
+  return { res, data: await res.json() };
+}
+
+async function load() {
+  try {
+    const { data } = await fetchJson('/api/data');
+    if (data.error) throw new Error(data.error);
+    _data = data;
+    renderBoard(data);
+    document.getElementById('updated-at').textContent = '更新 ' + fmtTime(data.updatedAt || Date.now());
+  } catch (err) {
+    const errEl = document.getElementById('nodes-l1-matched');
+    if (errEl) errEl.innerHTML = `<div class="empty-state err">加载失败: ${esc(err.message)}</div>`;
+    document.getElementById('updated-at').textContent = '加载失败';
+  }
+}
+
+document.getElementById('search-input')?.addEventListener('input', (e) => {
+  _search = (e.target.value || '').trim();
+  if (_data) renderBoard(_data);
+});
+document.getElementById('hide-unlinked-pm')?.addEventListener('change', (e) => {
+  _hideUnlinkedPm = e.target.checked;
+  if (_data) renderBoard(_data);
+});
+window.addEventListener('resize', () => {
+  if (_data) renderBoard(_data);
+});
+document.getElementById('canvas-wrap')?.addEventListener('scroll', () => {
+  if (!_data || !_allLinks.length) return;
+  const svg = document.getElementById('layer-svg');
+  const board = document.getElementById('canvas-board');
+  if (svg && board) drawLinks(svg, board, _allLinks, null);
+}, { passive: true });
+
+document.getElementById('link-modal-cancel')?.addEventListener('click', hideLinkModal);
+document.getElementById('link-modal-confirm')?.addEventListener('click', confirmRecTeamMapping);
+document.getElementById('link-modal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'link-modal') hideLinkModal();
+});
+
+bindMatchLinkDrag();
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

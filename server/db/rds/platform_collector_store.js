@@ -236,8 +236,7 @@ async function _rdsReplaceLiveTimersForPlatform(pool, platform, rows) {
 
 async function _rdsFetchPlatformMatches(pool) {
   const { rows } = await pool.query(
-    `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, is_live, teams, match_id,
-            binding_confidence, binding_source, binding_side_mode, bound_at
+    `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, is_live, teams, match_id
      FROM platform_matches`,
   );
   const byPlatform = {};
@@ -257,10 +256,6 @@ async function _rdsFetchPlatformMatches(pool) {
       IsLive: r.is_live != null ? Number(r.is_live) : undefined,
       Teams: Array.isArray(r.teams) ? r.teams : [],
       ClientMatchId: r.match_id != null ? Number(r.match_id) : null,
-      BindingConfidence: r.binding_confidence != null ? Number(r.binding_confidence) : null,
-      BindingSource: r.binding_source ?? null,
-      BindingSideMode: r.binding_side_mode ?? null,
-      BoundAt: r.bound_at != null ? Number(r.bound_at) : null,
     });
   }
   return byPlatform;
@@ -385,27 +380,6 @@ export async function setPlatformMatchId(platform, sourceMatchId, matchId, opts 
 
   const n = await _rdsSetPlatformMatchId(pool, plat, srcId, cmId, onlyIfNull);
   return { updated: n > 0, skipped: n === 0, conflict: false };
-}
-
-/** 运维解绑：清空 platform_matches 上的赛事链接与 binding 元数据 */
-export async function clearPlatformMatchEventLink(platform, sourceMatchId) {
-  const plat = String(platform);
-  const srcId = String(sourceMatchId);
-  const pool = getPgPool();
-  if (!pool)
-    return { cleared: false, skipped: true };
-
-  const res = await pool.query(
-    `UPDATE platform_matches SET
-      match_id = NULL,
-      binding_confidence = NULL,
-      binding_source = NULL,
-      binding_side_mode = NULL,
-      bound_at = NULL
-     WHERE platform = $1 AND source_match_id = $2`,
-    [plat, srcId],
-  );
-  return { cleared: (res.rowCount ?? 0) > 0 };
 }
 
 function mapPlatformMatchRows(provider, matchs) {
