@@ -367,8 +367,7 @@ describe("polymarketProvider.betting", () => {
       min_order_size: "5",
       neg_risk: false,
       asks: [
-        { price: "0.5", size: "5" },
-        { price: "0.55", size: "20" },
+        { price: "0.5", size: "50" },
       ],
     });
     vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
@@ -399,17 +398,49 @@ describe("polymarketProvider.betting", () => {
     const result = await polymarketProvider.betting!(account, option as any);
 
     expect(result.success).toBe(true);
-    expect((option as any).newOdds).toBeCloseTo(1.8182, 4);
+    expect((option as any).newOdds).toBeCloseTo(2, 4);
 
     const [, body] = vi.mocked(polymarketPluginPost).mock.calls[0]!;
     expect(body).toMatchObject({
       orderType: "FOK",
       order: {
         makerAmount: "10000000",
-        takerAmount: "18181800",
+        takerAmount: "20000000",
         side: "BUY",
       },
     });
+  });
+
+  test("rejects FOK when book price exceeds detection odds cap", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.32", size: "100" }],
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 3.125,
+      betMoney: 35,
+      data: { detectionOdds: 5, apiBetMoney: 5 },
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("盘口价高于检测价");
+    expect(polymarketPluginPost).not.toHaveBeenCalled();
   });
 
   test("reports minimum order size before posting too-small FOK buy", async () => {
@@ -448,29 +479,71 @@ describe("polymarketProvider.betting", () => {
 });
 
 describe("polymarketProvider.checkBet", () => {
-  test("temporarily marks option.data so A8 precheck gate passes", async () => {
+  beforeEach(() => {
+    vi.mocked(polymarketPluginGet).mockReset();
+  });
+
+  test("loads order book and sets executable odds within detection cap", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.18", size: "100" }],
+    });
+
     const option = {
       itemId: "123456789",
-      odds: 2,
-      betMoney: 10,
+      odds: 5,
+      betMoney: 35,
     };
 
     const out = await polymarketProvider.checkBet(
-      accountWithToken("{}"),
+      accountWithToken("{}", { multiply: 7 }),
       option as any,
     );
 
-    expect(out.data).toEqual({
+    expect(out.data).toMatchObject({
       tokenId: "123456789",
-      odds: 2,
-      betMoney: 10,
-      apiBetMoney: 10,
+      detectionOdds: 5,
+      detectionMaxPrice: 0.2,
+      bookPrice: 0.18,
       side: "BUY",
-      temporaryPass: true,
     });
+    expect(out.odds).toBeCloseTo(5.5556, 3);
+    expect(out.checkError).toBeUndefined();
+  });
+
+  test("rejects when book price is worse than detection odds", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.32", size: "100" }],
+    });
+
+    const option = {
+      itemId: "123456789",
+      odds: 5,
+      betMoney: 35,
+    };
+
+    const out = await polymarketProvider.checkBet(
+      accountWithToken("{}", { multiply: 7 }),
+      option as any,
+    );
+
+    expect(out.data).toBeNull();
+    expect(out.checkError).toContain("盘口价高于检测价");
   });
 
   test("derives apiBetMoney from multiply like PB stake", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+
     const option = {
       itemId: "123456789",
       odds: 2,
@@ -485,6 +558,7 @@ describe("polymarketProvider.checkBet", () => {
     expect(out.data).toMatchObject({
       betMoney: 100,
       apiBetMoney: 10,
+      detectionOdds: 2,
     });
   });
 });

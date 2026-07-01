@@ -1,10 +1,19 @@
 import type { BetOption } from "@/models/betOption";
 import type { ArbBetAttemptParams, ArbBetChecked, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
+import {
+  applyArbHedgeStakes,
+  arbBaseStake,
+  impliedFromLegOdds,
+  resolveArbTargetProfit,
+} from "@/domain/arbitrage/arbStakeMath";
+import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
 import { a8Tip } from "@/shared/a8Notify";
 import { formatBetResult } from "@/shared/arbBetTraceFormat";
 import { arbBetToastSeconds } from "@/shared/betTiming";
+import { arbProfitRate } from "@/shared/format";
 import { wait } from "@/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
+import { PLATFORMS } from "@/shared/platform";
 
 /** 预检双腿；失败时 trace.finish 并返回 null */
 export async function checkArbLegs(
@@ -60,6 +69,68 @@ export async function checkArbLegs(
     return null;
   }
 
+  let impliedLive = ready.implied;
+
+  if (betBothLegs) {
+    applyArbHedgeStakes(
+      legA,
+      legB,
+      arbBaseStake(legA, legB, config),
+      config,
+    );
+    impliedLive = impliedFromLegOdds(legA, legB);
+    const targetProfit = resolveArbTargetProfit(config, legA, legB, accountA, accountB);
+    if (impliedLive < targetProfit || impliedLive > config.maxProfit) {
+      const msg = `预检后利润 ${arbProfitRate(impliedLive)} 未达阈值（要求 ≥ ${arbProfitRate(targetProfit)}）`;
+      trace?.finish("fail", msg);
+      await wait(1000);
+      return null;
+    }
+
+    const pmRechecks: Promise<BetOption>[] = [];
+    if (accountA?.provider === PLATFORMS.Polymarket)
+      pmRechecks.push(accountStore.checkBetting(accountA, legA));
+    if (accountB?.provider === PLATFORMS.Polymarket)
+      pmRechecks.push(accountStore.checkBetting(accountB, legB));
+    if (pmRechecks.length) {
+      const rechecked = await Promise.all(pmRechecks);
+      let idx = 0;
+      if (accountA?.provider === PLATFORMS.Polymarket) {
+        legA = rechecked[idx++];
+        if (!legA.data) {
+          trace?.finish("fail", legA.checkError || "Polymarket 预检未通过");
+          await wait(1000);
+          return null;
+        }
+      }
+      if (accountB?.provider === PLATFORMS.Polymarket) {
+        legB = rechecked[idx++];
+        if (!legB.data) {
+          trace?.finish("fail", legB.checkError || "Polymarket 预检未通过");
+          await wait(1000);
+          return null;
+        }
+      }
+      impliedLive = impliedFromLegOdds(legA, legB);
+      if (impliedLive < targetProfit || impliedLive > config.maxProfit) {
+        const msg = `PM 重检后利润 ${arbProfitRate(impliedLive)} 未达阈值（要求 ≥ ${arbProfitRate(targetProfit)}）`;
+        trace?.finish("fail", msg);
+        await wait(1000);
+        return null;
+      }
+    }
+
+    setArbExecutionTraceMeta(trace, {
+      implied: impliedLive,
+      homeLine: `${legA.type}@${legA.odds}`,
+      awayLine: `${legB.type}@${legB.odds}`,
+    });
+    trace?.event(
+      "预检",
+      `重算对冲 · 利润 ${arbProfitRate(impliedLive)} · ${legA.type}@${legA.odds}/${legA.betMoney} + ${legB.type}@${legB.odds}/${legB.betMoney}`,
+    );
+  }
+
   // [A8 可证实] orderIndex 在 checkTimeout 之前赋值
   if (accountA)
     legA.orderIndex = 1;
@@ -85,6 +156,7 @@ export async function checkArbLegs(
     legB,
     accountA,
     accountB,
+    implied: impliedLive,
     waitSec,
   };
 }

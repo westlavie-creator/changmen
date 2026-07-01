@@ -346,6 +346,26 @@ export function removeClientMatchFromMemory(clientMatchId) {
   _clientMatches.delete(id);
 }
 
+/** 人工主客反转后同步内存，避免 embedded 快照 / matchMerge 仍用旧 Reverse */
+export function patchClientMatchPlatformReverseInMemory(clientMatchId, platform, reversed) {
+  const id = Number(clientMatchId);
+  const plat = String(platform || "").trim();
+  if (!Number.isFinite(id) || !plat)
+    return false;
+  const m = _clientMatches.get(id);
+  if (!m)
+    return false;
+  const reverseSet = new Set(Array.isArray(m.Reverse) ? m.Reverse.map(String) : []);
+  if (reversed)
+    reverseSet.add(plat);
+  else
+    reverseSet.delete(plat);
+  const matchPlatforms = new Set(Object.keys(m.Matchs || {}));
+  m.Reverse = [...reverseSet].filter(p => matchPlatforms.has(p));
+  _invalidateClientMatchesCache();
+  return true;
+}
+
 /** matcher align / 内存快照：RDS 行形状 */
 export function getClientMatchRowsForSnapshot() {
   if (!_clientMatches.size)

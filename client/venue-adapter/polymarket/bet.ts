@@ -150,21 +150,46 @@ function diagnosticLines(diag: PolymarketOrderDiagnostic): string[] {
   return lines;
 }
 
+function detectionMaxPrice(detectionOdds: number): number {
+  return Math.round((1 / detectionOdds) * 10000) / 10000;
+}
+
 function calculateBuyMarketLimitPrice(
   asks: PolymarketOrderOptions["asks"],
   amountUsdc: number,
   minOrderSize: number,
   diagnostic: Omit<PolymarketOrderDiagnostic, "availableUsdc" | "asks">,
+  maxPrice?: number,
 ): number {
   if (!Number.isFinite(amountUsdc) || amountUsdc <= 0)
     throw new Error(`无效投注金额 ${amountUsdc}`);
+  const bookAsks = maxPrice != null
+    ? asks.filter(level => level.price <= maxPrice + 1e-9)
+    : asks;
   const baseDiag = {
     ...diagnostic,
-    availableUsdc: availableUsdc(asks),
-    asks,
+    availableUsdc: availableUsdc(bookAsks),
+    asks: bookAsks,
   };
+  if (maxPrice != null && !bookAsks.length) {
+    const best = asks[0];
+    throw new Error([
+      "Polymarket 盘口价高于检测价，整单取消",
+      ...diagnosticLines({
+        ...baseDiag,
+        availableUsdc: availableUsdc(asks),
+        asks,
+      }),
+      "",
+      "【说明】",
+      best
+        ? `- 最佳卖价 ${fmt(best.price, 4)}（赔率 ${fmt(1 / best.price, 4)}）高于检测价 ${fmt(maxPrice, 4)}（赔率 ${fmt(diagnostic.displayedOdds, 4)}）`
+        : "- 盘口无卖单",
+      "- 不会在高于套利检测价的位置 FOK 成交。",
+    ].join("\n"));
+  }
   let remaining = amountUsdc;
-  for (const level of asks) {
+  for (const level of bookAsks) {
     const notional = level.price * level.size;
     if (notional >= remaining) {
       const shares = amountUsdc / level.price;
@@ -281,6 +306,44 @@ function resolvePolymarketApiBetMoney(account: PlatformAccount, option: BetOptio
   return venueStakeFromBetMoney(option.betMoney, account.multiply, POLYMARKET_MIN_VENUE_STAKE);
 }
 
+function resolvePolymarketDetectionOdds(option: BetOption): number {
+  const data = option.data as { detectionOdds?: number } | null | undefined;
+  const fromData = Number(data?.detectionOdds);
+  if (Number.isFinite(fromData) && fromData > 1)
+    return fromData;
+  return option.odds;
+}
+
+async function resolvePolymarketExecutableBuy(
+  gateway: string,
+  tokenId: string,
+  detectionOdds: number,
+  apiBetMoney: number,
+): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions }> {
+  const maxPrice = detectionMaxPrice(detectionOdds);
+  if (!maxPrice || maxPrice <= 0 || maxPrice >= 1)
+    throw new Error(`无效检测赔率 ${detectionOdds}`);
+  const orderOptions = await fetchOrderOptions(gateway, tokenId);
+  const price = calculateBuyMarketLimitPrice(
+    orderOptions.asks,
+    apiBetMoney,
+    orderOptions.minOrderSize,
+    {
+      tokenId,
+      amountUsdc: apiBetMoney,
+      displayedOdds: detectionOdds,
+      displayedPrice: maxPrice,
+      minOrderSize: orderOptions.minOrderSize,
+    },
+    maxPrice,
+  );
+  return {
+    price,
+    bookOdds: Math.round((1 / price) * 10000) / 10000,
+    orderOptions,
+  };
+}
+
 // ---- provider ----
 
 export const polymarketProvider: PlatformProvider = {
@@ -320,15 +383,37 @@ export const polymarketProvider: PlatformProvider = {
   },
 
   async checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption> {
+    const prior = option.data as { detectionOdds?: number } | null | undefined;
+    const detectionOdds = Number(prior?.detectionOdds) > 1
+      ? Number(prior!.detectionOdds)
+      : option.odds;
     const apiBetMoney = venueStakeFromBetMoney(option.betMoney, account.multiply, POLYMARKET_MIN_VENUE_STAKE);
-    option.data = {
-      tokenId: option.itemId,
-      odds: option.odds,
-      betMoney: option.betMoney,
-      apiBetMoney,
-      side: "BUY",
-      temporaryPass: true,
-    };
+    const gateway = account.gateway || POLYMARKET_CLOB_API;
+    const tokenId = option.itemId;
+    try {
+      const { price, bookOdds } = await resolvePolymarketExecutableBuy(
+        gateway,
+        tokenId,
+        detectionOdds,
+        apiBetMoney,
+      );
+      option.odds = bookOdds;
+      option.newOdds = bookOdds;
+      option.data = {
+        tokenId,
+        odds: bookOdds,
+        detectionOdds,
+        detectionMaxPrice: detectionMaxPrice(detectionOdds),
+        bookPrice: price,
+        betMoney: option.betMoney,
+        apiBetMoney,
+        side: "BUY",
+      };
+    }
+    catch (err) {
+      option.checkError = err instanceof Error ? err.message : String(err);
+      option.data = null;
+    }
     return option;
   },
 
@@ -347,29 +432,22 @@ export const polymarketProvider: PlatformProvider = {
 
     const gateway = account.gateway || POLYMARKET_CLOB_API;
 
-    // displayedPrice = probability = 1 / decimal_odds，真正 FOK 限价由订单簿深度决定。
-    const displayedPrice = Math.round((1 / option.odds) * 10000) / 10000;
-    if (!displayedPrice || displayedPrice <= 0 || displayedPrice >= 1)
-      return new BetResult("Polymarket", false, `无效赔率 ${option.odds}`);
+    const detectionOdds = resolvePolymarketDetectionOdds(option);
+    const maxPrice = detectionMaxPrice(detectionOdds);
+    if (!maxPrice || maxPrice <= 0 || maxPrice >= 1)
+      return new BetResult("Polymarket", false, `无效检测赔率 ${detectionOdds}`);
 
     const tokenId = option.itemId;
     const apiBetMoney = resolvePolymarketApiBetMoney(account, option);
 
     try {
-      const orderOptions = await fetchOrderOptions(gateway, tokenId);
-      const price = calculateBuyMarketLimitPrice(
-        orderOptions.asks,
+      const { price, bookOdds, orderOptions } = await resolvePolymarketExecutableBuy(
+        gateway,
+        tokenId,
+        detectionOdds,
         apiBetMoney,
-        orderOptions.minOrderSize,
-        {
-          tokenId,
-          amountUsdc: apiBetMoney,
-          displayedOdds: option.odds,
-          displayedPrice,
-          minOrderSize: orderOptions.minOrderSize,
-        },
       );
-      option.newOdds = Math.round((1 / price) * 10000) / 10000;
+      option.newOdds = bookOdds;
       const orderBody = await createPolymarketOrderBody(
         gateway,
         privateKey,
@@ -402,8 +480,8 @@ export const polymarketProvider: PlatformProvider = {
         const diagnostic = diagnosticLines({
           tokenId,
           amountUsdc: apiBetMoney,
-          displayedOdds: option.odds,
-          displayedPrice,
+          displayedOdds: detectionOdds,
+          displayedPrice: maxPrice,
           limitPrice: price,
           shares: apiBetMoney / price,
           minOrderSize: orderOptions.minOrderSize,

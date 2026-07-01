@@ -2677,7 +2677,7 @@ async function matcherAction(action) {
 }
 
 async function toggleClientMatchPlatformReverse(btn) {
-  if (_reverseSubmitting || _matchMergeBusy || _matcherBusy) return;
+  if (_reverseSubmitting) return;
   const cmId = btn?.dataset?.cmId;
   const platform = btn?.dataset?.platform;
   const reversed = btn?.dataset?.reversed === '1';

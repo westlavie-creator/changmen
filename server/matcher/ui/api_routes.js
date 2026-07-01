@@ -1,4 +1,5 @@
 import { fetchPlatformMatchesDebugRows, setClientMatchPlatformReverse } from "@changmen/db";
+import { patchClientMatchPlatformReverseInMemory } from "../../backend/core/db/store.js";
 import {
   linkPlatformTeams,
   linkPlatformToClientMatch,
@@ -178,10 +179,13 @@ function registerMatcherApiRoutes(app) {
     try {
       const { platform, reversed } = req.body || {};
       const update = await setClientMatchPlatformReverse(req.params.id, platform, !!reversed);
+      patchClientMatchPlatformReverseInMemory(update.id, update.platform, update.reversed);
       invalidateMatcherRdsSnapshot(["clientMatches"]);
+      const matchMerge = await matchMergeOnce({ afterInFlight: true });
       const body = {
         ok: true,
         ...update,
+        matchMerge: { matchCount: matchMerge?.matchCount ?? null },
         summary: `${update.platform} 主客方向已${update.reversed ? "标记反转" : "恢复正向"}`,
       };
       logMatcherApiOk("/api/client-match/reverse", body);
