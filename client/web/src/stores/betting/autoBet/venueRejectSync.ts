@@ -42,3 +42,14 @@ export async function syncVenueRejectFlags(
   }
   return { ordersA, ordersB, rejectA, rejectB };
 }
+
+export function resolveArbBindOrderId(
+  orders: VenueOrder[],
+  result: BetResult | undefined,
+): string | undefined {
+  const fromVenue = String(orders[0]?.orderId ?? "").trim();
+  if (fromVenue)
+    return fromVenue;
+  const fromResult = String(result?.orderId ?? "").trim();
+  return fromResult || undefined;
+}

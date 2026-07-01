@@ -1,7 +1,7 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { isPolymarketFokBuyFilled, polymarketProvider } from "./bet";
+import { isPolymarketFokBuyFilled, isPolymarketOrderAccepted, polymarketProvider } from "./bet";
 import { POLYMARKET_BUILDER_CODE_DEFAULT } from "./builder";
 import { POLYMARKET_CLOB_API } from "./api";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
@@ -511,6 +511,40 @@ describe("polymarketProvider.betting", () => {
     expect(result.message).toContain("未成交");
   });
 
+  test("succeeds when API returns delayed with orderID (chain pending)", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+      success: true,
+      orderID: "0xdelayed-order",
+      status: "delayed",
+      takingAmount: "",
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: { apiKey: "key-1", secret: "c2VjcmV0", passphrase: "pass-1" },
+    }));
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    } as any);
+
+    expect(result.success).toBe(true);
+    expect(result.orderId).toBe("0xdelayed-order");
+    expect(result.message).toContain("已受理待链上确认");
+  });
+
   test("fails when matched but takingAmount is zero", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
@@ -571,6 +605,32 @@ describe("isPolymarketFokBuyFilled", () => {
       success: true,
       status: "matched",
       takingAmount: "",
+    })).toBe(false);
+  });
+});
+
+describe("isPolymarketOrderAccepted", () => {
+  test("accepts matched fills and delayed submissions with orderID", () => {
+    expect(isPolymarketOrderAccepted({
+      success: true,
+      status: "matched",
+      takingAmount: "1",
+      orderID: "0x1",
+    })).toBe(true);
+    expect(isPolymarketOrderAccepted({
+      success: true,
+      status: "delayed",
+      orderID: "0xdelayed",
+    })).toBe(true);
+    expect(isPolymarketOrderAccepted({
+      success: true,
+      status: "delayed",
+      orderID: "",
+    })).toBe(false);
+    expect(isPolymarketOrderAccepted({
+      success: true,
+      status: "unmatched",
+      orderID: "0x2",
     })).toBe(false);
   });
 });

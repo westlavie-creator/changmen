@@ -9,7 +9,7 @@ import { opponentSide } from "@/models/betOption";
 import { useAccountStore } from "@/stores/accountStore";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
-import { syncVenueRejectFlags } from "@/stores/betting/autoBet/venueRejectSync";
+import { syncVenueRejectFlags, resolveArbBindOrderId } from "@/stores/betting/autoBet/venueRejectSync";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
 import {
@@ -147,18 +147,20 @@ export async function finalizeArbBet(
   }
 
   const binds: OrderBindRow[] = [];
-  if (resultA?.success && accountA && ordersA.length) {
+  const bindOrderA = resolveArbBindOrderId(ordersA, resultA);
+  if (resultA?.success && accountA && bindOrderA) {
     binds.push({
       LinkID: linkId,
       Provider: resultA.provider,
-      OrderID: ordersA[0].orderId,
+      OrderID: bindOrderA,
     });
   }
-  if (resultB?.success && accountB && ordersB.length) {
+  const bindOrderB = resolveArbBindOrderId(ordersB, resultB);
+  if (resultB?.success && accountB && bindOrderB) {
     binds.push({
       LinkID: linkId,
       Provider: resultB.provider,
-      OrderID: ordersB[0].orderId,
+      OrderID: bindOrderB,
     });
   }
 

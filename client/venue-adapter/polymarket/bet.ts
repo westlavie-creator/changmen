@@ -53,6 +53,17 @@ export function isPolymarketFokBuyFilled(result: PolymarketOrderResponse | null 
   return Number.isFinite(taking) && taking > 0;
 }
 
+/** CLOB 已受理：含 delayed（链上延迟成交，勿重复 submit） */
+export function isPolymarketOrderAccepted(result: PolymarketOrderResponse | null | undefined): boolean {
+  if (isPolymarketFokBuyFilled(result))
+    return true;
+  if (!result?.success)
+    return false;
+  const status = String(result.status ?? "").trim().toLowerCase();
+  const orderId = String(result.orderID ?? "").trim();
+  return status === "delayed" && orderId.length > 0;
+}
+
 function polymarketOrderFailureMessage(
   result: PolymarketOrderResponse | null | undefined,
   fallback: string,
@@ -502,7 +513,7 @@ export const polymarketProvider: PlatformProvider = {
         { headers },
       );
 
-      if (!isPolymarketFokBuyFilled(result)) {
+      if (!isPolymarketOrderAccepted(result)) {
         const diagnostic = diagnosticLines({
           tokenId,
           amountUsdc: apiBetMoney,
@@ -515,7 +526,7 @@ export const polymarketProvider: PlatformProvider = {
           asks: orderOptions.asks,
         }).join("\n");
         const fallback = result?.success
-          ? "订单已受理但未成交（status 非 matched 或 takingAmount 为空）"
+          ? "订单已受理但未成交（status 非 matched/delayed 或 takingAmount 为空）"
           : "FOK 订单未成交（无足够流动性）";
         return new BetResult(
           "Polymarket", false,
@@ -524,8 +535,12 @@ export const polymarketProvider: PlatformProvider = {
         );
       }
 
-      const msg = `${result.orderID} / ${result.status} / 成交 ${result.takingAmount} tokens`;
+      const filled = isPolymarketFokBuyFilled(result);
+      const msg = filled
+        ? `${result.orderID} / ${result.status} / 成交 ${result.takingAmount} tokens`
+        : `${result.orderID} / ${result.status} / 已受理待链上确认`;
       const bet = new BetResult("Polymarket", true, msg, orderBody, result);
+      bet.orderId = String(result.orderID ?? "").trim() || null;
       bet.beginTime = beginTime;
       return bet;
     } catch (err) {

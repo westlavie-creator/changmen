@@ -221,4 +221,37 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(a8Tip).not.toHaveBeenCalled();
     expect(markSuccessfulBet).toHaveBeenCalledWith(acc, 100, "Home");
   });
+
+  it("PM delayed：场馆 sync 为空时用 result.orderId 绑单并出队", async () => {
+    const bet = makeBet([makeItem("Polymarket", 4.167)]);
+    matchs.push(makeMatch(bet));
+    queueOrder();
+
+    const acc = new PlatformAccount({ accountId: 47, playerName: "D8F7", provider: "Polymarket" });
+    acc.updateOrders = vi.fn(async () => []) as PlatformAccount["updateOrders"];
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({
+      success: true,
+      provider: "Polymarket",
+      orderId: "0xdelayed-order",
+    });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(removeOrder).toHaveBeenCalledWith(100, true);
+    expect(saveOrderBind).toHaveBeenCalledWith({
+      orders: JSON.stringify([
+        {
+          LinkID: 1_000_000_000_001,
+          Provider: "Polymarket",
+          OrderID: "0xdelayed-order",
+        },
+      ]),
+    });
+    expect(markSuccessfulBet).toHaveBeenCalledWith(acc, 100, "Home");
+  });
 });

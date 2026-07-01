@@ -1,3 +1,5 @@
+import type { BetResult } from "@/models/betResult";
+import type { VenueOrder } from "@venue/contract";
 import { saveOrderBind } from "@/api/esport";
 import { isVenueReject } from "@/domain/betting";
 import { BetOption, opponentSide } from "@/models/betOption";
@@ -15,6 +17,14 @@ import { useMessageStore } from "@/stores/messageStore";
 
 export interface LoseOrderTickContext {
   setMessage: (msg: string) => void;
+}
+
+function resolveMakeUpBindOrderId(venueOrders: VenueOrder[], result: BetResult): string | undefined {
+  const fromVenue = String(venueOrders[0]?.orderId ?? "").trim();
+  if (fromVenue)
+    return fromVenue;
+  const fromResult = String(result.orderId ?? "").trim();
+  return fromResult || undefined;
 }
 
 /**
@@ -91,6 +101,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
 
         const venueOrders = (await account.updateOrders()) ?? [];
         let rejected = false;
+        const bindOrderId = resolveMakeUpBindOrderId(venueOrders, result);
         if (venueOrders.length > 0) {
           rejected = isVenueReject(venueOrders);
           if (rejected) {
@@ -101,18 +112,24 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
             removeIds.add(betId);
             setMessage(`补单成功 ${item.type}@${checked.odds}`);
           }
+        }
+        else if (bindOrderId) {
+          removeIds.add(betId);
+          setMessage(`补单成功 ${item.type}@${checked.odds}`);
+        }
+        else {
+          removeIds.add(betId);
+        }
+        if (bindOrderId) {
           await saveOrderBind({
             orders: JSON.stringify([
               {
                 LinkID: order.linkId,
                 Provider: result.provider,
-                OrderID: venueOrders[0]!.orderId,
+                OrderID: bindOrderId,
               },
             ]),
           });
-        }
-        else {
-          removeIds.add(betId);
         }
         useMessageStore().loseOrderMessage(account, order, checked, rejected);
       }

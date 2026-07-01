@@ -33,9 +33,13 @@ vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
   waitRejectDetection,
 }));
 
-vi.mock("@/stores/betting/autoBet/venueRejectSync", () => ({
-  syncVenueRejectFlags,
-}));
+vi.mock("@/stores/betting/autoBet/venueRejectSync", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/stores/betting/autoBet/venueRejectSync")>();
+  return {
+    ...actual,
+    syncVenueRejectFlags,
+  };
+});
 
 vi.mock("@/stores/betting/autoBet/arbMakeUpFromRejects", () => ({
   applyArbMakeUpFromRejects,
