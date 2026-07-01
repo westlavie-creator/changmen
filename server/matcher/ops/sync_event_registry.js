@@ -1,17 +1,12 @@
 /**
- * matchMerge 后双写 match_events / event_bindings（C 档真相表）。
- * 开关见 matcher/lib/config.js eventRegistry（默认开启）。
+ * matchMerge 后同步 match_events 元数据（bindings 仅由 auto-bind / 运维 API 写入）。
  */
 
 import {
   deleteMatchEvents,
-  fetchAllEventBindings,
-  upsertEventBindings,
   upsertMatchEvents,
 } from "@changmen/db";
-import { isEventRegistryEnabled, isRegistryMaterializeEnabled } from "../lib/config.js";
-import { collectBindingsForRows } from "./pairing_metadata.js";
-import { ingestNewBindingsFromPublishedRows } from "./auto_bind_events.js";
+import { isEventRegistryEnabled } from "../lib/config.js";
 
 function gbTeamIdFromRow(row) {
   const raw = row.HomeGbTeamId ?? row.home_gb_team_id;
@@ -48,36 +43,15 @@ function buildEventRowsFromMergeRows(rows, builtAt) {
 }
 
 /**
- * @param {{ rows: object[], matches: object, builtAt?: number, deletedEventIds?: number[] }} opts
+ * @param {{ rows: object[], builtAt?: number, deletedEventIds?: number[] }} opts
  */
 async function syncEventRegistryForMatchMerge(opts = {}) {
   if (!isEventRegistryEnabled())
     return { skipped: true };
 
-  const { rows, matches, builtAt, deletedEventIds } = opts;
+  const { rows, builtAt, deletedEventIds } = opts;
   const eventRows = buildEventRowsFromMergeRows(rows, builtAt);
   const events = await upsertMatchEvents(eventRows);
-
-  let bindingWrite = { updated: 0 };
-  if (!isRegistryMaterializeEnabled()) {
-    const bindings = collectBindingsForRows(rows, matches).map(b => ({
-      platform: b.platform,
-      source_match_id: b.source_match_id,
-      event_id: Number(b.match_id),
-      binding_confidence: b.binding_confidence,
-      binding_source: b.binding_source,
-      binding_side_mode: b.binding_side_mode,
-      bound_at: b.bound_at,
-    }));
-    bindingWrite = await upsertEventBindings(bindings);
-  }
-  else {
-    bindingWrite = await ingestNewBindingsFromPublishedRows({
-      publishedRows: rows,
-      matches,
-      existingBindings: await fetchAllEventBindings(),
-    });
-  }
 
   let deleted = 0;
   if (deletedEventIds?.length) {
@@ -87,7 +61,7 @@ async function syncEventRegistryForMatchMerge(opts = {}) {
 
   return {
     events: events.updated ?? 0,
-    bindings: bindingWrite.updated ?? 0,
+    bindings: 0,
     deleted,
   };
 }

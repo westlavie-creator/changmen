@@ -14,11 +14,11 @@ const DEFAULT_CLIENT_MATCH_ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
 const DEFAULT_BEHAVIOR = {
   /** 是否将 provisional（队名合并）场次写入 client_matches */
   publishProvisional: false,
-  /** true 时仅发布 verified 场次 */
-  publishTierVerifiedOnly: false,
-  /** 未匹配平台按 client_matches.matchs.OB 槽位对齐 */
+  /** true 时仅发布 verified 场次（更严，推荐） */
+  publishTierVerifiedOnly: true,
+  /** 未匹配平台按 client_matches.matchs.OB 槽位对齐（legacy，Event-first 下可忽略） */
   obSpineAlign: true,
-  /** matchMerge 以 OB 为主轴建赛事实体（灰度，默认关） */
+  /** 已废弃：合并在 auto-bind mergeHints 内 */
   obSpineMerge: false,
   /** 双写 match_events / event_bindings */
   eventRegistry: true,

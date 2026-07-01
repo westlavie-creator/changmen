@@ -1,25 +1,14 @@
 import * as db from "@changmen/db";
 import {
-  applyManualMatchLinks,
-  buildClientMatchList,
   buildClientMatchListFromRegistry,
   buildPmSportByClientId,
   filterActiveClientMatches,
   filterMultiPlatformClientMatches,
   normalizeMatchesShape,
-  resolveClientMatchIds,
   setTeamPlugin,
 } from "@changmen/match-engine";
-import {
-  isObSpineMergeEnabled,
-  isRegistryMaterializeEnabled,
-  publishFilterLabel,
-} from "../lib/config.js";
+import { publishFilterLabel } from "../lib/config.js";
 import { formatOdds } from "@changmen/shared/odds_format";
-import {
-  alignUnmatchedToClientMatches,
-  buildExistingClientIdKeyIndex,
-} from "./align_unmatched_to_client.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
 import { setClientMatchesFromMatchMerge } from "../../backend/core/db/store.js";
@@ -39,7 +28,7 @@ import { prepareRegistryBeforeMaterialize } from "./auto_bind_events.js";
 import "../lib/env.js";
 
 /**
- * 单次 matchMerge：读 platform 快照 → 跨平台合并 → 写 client_matches。
+ * 单次 matchMerge：event_bindings 真相表 → 物化 client_matches。
  */
 
 let _pluginReady = null;
@@ -49,7 +38,6 @@ function resetTeamPluginCache() {
   _pluginReady = null;
 }
 
-/** 队伍映射 / canonical 写入后调用，使下次 matchMerge 重载 team-resolver */
 function invalidateTeamPlugin() {
   resetTeamPluginCache();
 }
@@ -85,7 +73,7 @@ async function ensureTeamPlugin() {
 async function matchMergeOnceImpl() {
   await db.initLastWrittenIds();
 
-  const { matchesRaw, bets, timers, clientRows, alignClientRows, hotCollector } = await fetchMatcherRdsSnapshot();
+  const { matchesRaw, bets, timers, clientRows, hotCollector } = await fetchMatcherRdsSnapshot();
 
   const teamReg = await autoRegisterTeams(matchesRaw);
   const nameSync = await db.syncCanonicalTeamNamesFromOb();
@@ -96,24 +84,6 @@ async function matchMergeOnceImpl() {
 
   const matches = normalizeMatchesShape(matchesRaw);
 
-  const alignRows = alignClientRows?.length ? alignClientRows : clientRows;
-  const existingIdKeyIndex = buildExistingClientIdKeyIndex(alignRows, matches);
-
-  const alignStats = alignRows?.length
-    ? alignUnmatchedToClientMatches(matches, alignRows)
-    : { alignedById: 0, alignedByName: 0 };
-  if (alignStats.alignedById || alignStats.alignedByName || alignStats.alignedByObSlot) {
-    console.log(
-      `[matchMerge] 未匹配对齐 client_matches · ID ${alignStats.alignedById}`
-      + ` · 队名+时间 ${alignStats.alignedByName}`
-      + ` · OB 槽位 ${alignStats.alignedByObSlot ?? 0}`,
-    );
-  }
-
-  const platformSideOverrides = db.isMatcherStoreReady()
-    ? await db.fetchClientMatchPlatformOverrides()
-    : {};
-
   if (!db.isMatcherStoreReady()) {
     const { script } = db.getDbMode();
     throw new Error(
@@ -121,51 +91,46 @@ async function matchMergeOnceImpl() {
       + " 请配置 DATABASE_URL（或 DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL）。",
     );
   }
+
+  const platformSideOverrides = await db.fetchClientMatchPlatformOverrides();
   const adapter = db.getClientMatchIdAdapter();
 
-  let registryPrep = null;
-  if (isRegistryMaterializeEnabled()) {
-    registryPrep = await prepareRegistryBeforeMaterialize({ matches, adapter });
-    if (registryPrep.autoBind.bindingsWritten > 0)
-      invalidateMatcherRdsSnapshot(["platformMatches"]);
-    const ab = registryPrep.autoBind;
-    if (ab.obSeeded || ab.attachedById || ab.attachedByName) {
-      console.log(
-        `[matchMerge] event auto-bind ob=${ab.obSeeded} id=${ab.attachedById} name=${ab.attachedByName}`
-        + ` · bindings+${ab.bindingsWritten ?? 0}`,
-      );
-    }
-  }
+  const registryPrep = await prepareRegistryBeforeMaterialize({
+    matches,
+    adapter,
+    bets,
+    timers,
+    sourceFromBet,
+  });
+  if (registryPrep.autoBind.bindingsWritten > 0)
+    invalidateMatcherRdsSnapshot(["platformMatches"]);
 
-  let info;
-  if (isRegistryMaterializeEnabled()) {
-    const bindings = await db.fetchAllEventBindings();
-    const eventIds = [...new Set(bindings.map(b => Number(b.event_id)).filter(Number.isFinite))];
-    const matchEventRows = await db.fetchMatchEventsByIds(eventIds);
-    const matchEventsById = new Map(matchEventRows.map(r => [Number(r.id), r]));
+  const ab = registryPrep.autoBind;
+  if (ab.obSeeded || ab.attachedById || ab.attachedByName || ab.mergeHints) {
     console.log(
-      `[matchMerge] Event-first 物化 ${eventIds.length} 赛事 · ${bindings.length} 绑定`,
+      `[matchMerge] auto-bind ob=${ab.obSeeded} id=${ab.attachedById} name=${ab.attachedByName}`
+      + ` mergeHints=${ab.mergeHints} · bindings+${ab.bindingsWritten ?? 0}`,
     );
-    info = buildClientMatchListFromRegistry({
-      bindings,
-      matchEventsById,
-      matches,
-      bets,
-      timers,
-      sourceFromBet,
-      platformSideOverrides,
-      existingClientRows: clientRows,
-    });
-  }
-  else {
-    info = buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides });
-  }
-  if (isObSpineMergeEnabled() && !isRegistryMaterializeEnabled()) {
-    console.log("[matchMerge] OB 主轴合并已启用（config.obSpineMerge）");
   }
 
-  info = await resolveClientMatchIds(adapter, info, { matches, existingIdKeyIndex });
-  info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows, platformSideOverrides);
+  const bindings = await db.fetchAllEventBindings();
+  const eventIds = [...new Set(bindings.map(b => Number(b.event_id)).filter(Number.isFinite))];
+  const matchEventRows = await db.fetchMatchEventsByIds(eventIds);
+  const matchEventsById = new Map(matchEventRows.map(r => [Number(r.id), r]));
+
+  console.log(`[matchMerge] 物化 ${eventIds.length} 赛事 · ${bindings.length} 绑定`);
+
+  let info = buildClientMatchListFromRegistry({
+    bindings,
+    matchEventsById,
+    matches,
+    bets,
+    timers,
+    sourceFromBet,
+    platformSideOverrides,
+    existingClientRows: clientRows,
+  });
+
   info = filterMultiPlatformClientMatches(info);
 
   const pmSportByClientId = buildPmSportByClientId(clientRows);
@@ -187,7 +152,7 @@ async function matchMergeOnceImpl() {
   });
   if (pairingPublished.length !== info.length) {
     console.log(
-      `[matchMerge] pairing 发布过滤 ${info.length} → ${pairingPublished.length}`
+      `[matchMerge] 发布过滤 ${info.length} → ${pairingPublished.length}`
       + `（filter=${publishFilterLabel()}）`,
     );
   }
@@ -233,14 +198,12 @@ async function matchMergeOnceImpl() {
 
   const eventRegistry = await syncEventRegistryForMatchMerge({
     rows: pairingPublished,
-    matches,
     builtAt: now,
     deletedEventIds: deletedClientMatchIds,
   });
-  if (!eventRegistry.skipped && (eventRegistry.events || eventRegistry.bindings || eventRegistry.deleted)) {
+  if (!eventRegistry.skipped && (eventRegistry.events || eventRegistry.deleted)) {
     console.log(
-      `[matchMerge] event_registry events=${eventRegistry.events}`
-      + ` bindings=${eventRegistry.bindings} deleted=${eventRegistry.deleted ?? 0}`,
+      `[matchMerge] match_events sync events=${eventRegistry.events} deleted=${eventRegistry.deleted ?? 0}`,
     );
   }
 
@@ -263,7 +226,7 @@ async function matchMergeOnceImpl() {
       }
       if (!registryReconcile.validation?.ok) {
         const n = registryReconcile.validation.mismatches.length;
-        console.warn(`[matchMerge] event_registry 一致性告警 ${n} 项（首条 event #${registryReconcile.validation.mismatches[0]?.event_id}）`);
+        console.warn(`[matchMerge] 一致性告警 ${n} 项（首条 event #${registryReconcile.validation.mismatches[0]?.event_id}）`);
       }
     }
   }
@@ -278,7 +241,6 @@ async function matchMergeOnceImpl() {
     registryPrep,
     teamReg,
     nameSync,
-    alignStats,
     hotCollector,
     pairing: {
       annotated: pairingAnnotated.length,
@@ -287,7 +249,6 @@ async function matchMergeOnceImpl() {
   };
 }
 
-/** 进程内互斥：matcher 循环与 UI 人工 matchMerge 共用同一 in-flight Promise */
 async function matchMergeOnce(opts = {}) {
   if (_matchMergeInFlight) {
     if (opts.afterInFlight) {

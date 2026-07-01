@@ -85,7 +85,7 @@ describe("pairing_metadata", () => {
   });
 
   it("publishProvisional=true includes provisional rows", () => {
-    setMatcherBehaviorForTest({ publishProvisional: true });
+    setMatcherBehaviorForTest({ publishProvisional: true, publishTierVerifiedOnly: false });
     const { published } = applyPairingMetadata(
       [{ ID: 1, Matchs: { OB: "a", RAY: "b" }, MergeBasis: "name" }],
       {},

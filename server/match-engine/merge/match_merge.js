@@ -1515,23 +1515,8 @@ function buildClientMatchListFromRegistry({
     registryRows.push(out);
   }
 
-  const leftoverKeys = new Set();
-  for (const entry of allEntries) {
-    if (!boundKeys.has(entry.rowKey))
-      leftoverKeys.add(entry.rowKey);
-  }
-
-  let fallbackRows = [];
-  if (leftoverKeys.size) {
-    const leftoverMatches = filterMatchesByRowKeys(normalized, leftoverKeys);
-    fallbackRows = isObSpineMergeEnabled()
-      ? buildMatchListObSpine(leftoverMatches, bets, timers, sourceFromBet)
-      : buildMatchListMerged(leftoverMatches, bets, timers, sourceFromBet);
-  }
-
-  const combined = [...registryRows, ...fallbackRows];
   finalizeClientMatchListAfterLinks(
-    combined,
+    registryRows,
     normalized,
     bets,
     timers,
@@ -1539,7 +1524,7 @@ function buildClientMatchListFromRegistry({
     existingClientRows,
     platformSideOverrides,
   );
-  return filterMultiPlatformClientMatches(combined);
+  return filterMultiPlatformClientMatches(registryRows);
 }
 
 // ── 主入口 ────────────────────────────────────────────────────────────────────

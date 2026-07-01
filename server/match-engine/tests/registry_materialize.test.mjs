@@ -103,9 +103,9 @@ describe("buildClientMatchListFromRegistry", () => {
     expect(registryRow.HomeGbTeamId).toBe("10");
     expect(registryRow.AwayGbTeamId).toBe("20");
 
-    const fallbackRow = list.find(r => r.Matchs?.TF === "303" && r.Matchs?.PB === "404");
-    expect(fallbackRow).toBeTruthy();
-    expect(fallbackRow.ID).toBeUndefined();
+    // Event-first：未绑定平台不进入物化列表（由 auto-bind mergeHints 提议 binding）
+    const unboundRow = list.find(r => r.Matchs?.TF === "303" && r.Matchs?.PB === "404");
+    expect(unboundRow).toBeUndefined();
   });
 
   it("skips registry rows with fewer than two resolvable platforms", () => {
