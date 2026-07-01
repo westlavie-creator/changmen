@@ -746,7 +746,7 @@ function resolveRefCanonIds(resolvedPlatforms, matches) {
 /**
  * 按 Title 主客重算 Reverse[]，并从平台原始盘口重建 Sources（含 swap）。
  * platformSideOverrides：force_aligned / force_reversed；无覆盖则 gb → 队名 → ambiguous。
- * ambiguous 平台不进入 Reverse，且省略 Sources。
+ * ambiguous：不进 Reverse；Map=0 省略 Sources；Map>0 保留原生盘（不 swap）。
  */
 function platformOverridesForRow(platformSideOverrides, rowId) {
   const id = Number(rowId);
@@ -840,21 +840,32 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
 
     const ambiguousSet = new Set(ambiguousPlatforms);
     for (const [platform] of Object.entries(row.Matchs || {})) {
-      if (ambiguousSet.has(platform)) {
-        for (const bet of row.Bets || []) {
-          if (bet.Sources?.[platform])
-            delete bet.Sources[platform];
-        }
-        continue;
-      }
-
       const pm = findPlatformMatch(matches, platform, row.Matchs[platform]);
       if (!pm)
         continue;
       const accRow = buildAccumulateRow(platform, pm, bets, timers, sourceFromBet);
       const accByMap = new Map((accRow.Bets || []).map(b => [b.Map ?? 0, b]));
-      const shouldSwap = row.Reverse.includes(platform);
 
+      if (ambiguousSet.has(platform)) {
+        // 全场盘 Map=0 省略 Sources（主客未对齐，不可套利）；局分/决胜局 Map>0 仍展示原生盘
+        for (const bet of row.Bets || []) {
+          const mapNum = bet.Map ?? 0;
+          if (mapNum === 0) {
+            if (bet.Sources?.[platform])
+              delete bet.Sources[platform];
+          }
+          else {
+            const raw = accByMap.get(mapNum)?.Sources?.[platform];
+            if (raw)
+              bet.Sources[platform] = { ...raw };
+            else if (bet.Sources?.[platform])
+              delete bet.Sources[platform];
+          }
+        }
+        continue;
+      }
+
+      const shouldSwap = row.Reverse.includes(platform);
       for (const bet of row.Bets || []) {
         const raw = accByMap.get(bet.Map ?? 0)?.Sources?.[platform];
         if (raw) {
@@ -1018,10 +1029,6 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
     }
 
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
-      const fullSrc = fullBet.Sources?.[platform];
-      if (!fullSrc)
-        continue;
-
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
       if (!pm)
         continue;
@@ -1030,8 +1037,17 @@ function promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceF
       if (!platformShouldPromoteFullToLiveRound(accByMap, platform, liveMap))
         continue;
 
+      let srcToCopy = fullBet.Sources?.[platform];
+      if (!srcToCopy) {
+        const rawFull = accByMap.get(0)?.Sources?.[platform];
+        if (!rawFull)
+          continue;
+        // Map=0 因 ambiguous 省略时，决胜局仍从原始全场盘 promote（不 swap）
+        srcToCopy = row.Reverse.includes(platform) ? swapBetSource(rawFull) : rawFull;
+      }
+
       // fullBet.Sources 已由 reconcileClientMatchReverse 按 Title canonical 对齐，勿再 swap
-      liveBet.Sources[platform] = { ...fullSrc };
+      liveBet.Sources[platform] = { ...srcToCopy };
     }
   }
 }

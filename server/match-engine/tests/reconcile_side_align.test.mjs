@@ -30,6 +30,74 @@ it("reconcile flags ambiguous platform and does not reverse", () => {
   assert.equal(rows[0].Bets[0].Sources.RAY, undefined);
 });
 
+it("ambiguous platform keeps native Map>0 Sources for decider display", () => {
+  const rows = [
+    {
+      ID: 99,
+      Title: "NAVI vs Spirit",
+      Round: 3,
+      BO: 3,
+      Matchs: { RAY: "ray1" },
+      Bets: [
+        { Map: 0, Sources: { RAY: { BetID: "full", HomeOdds: 1.5, AwayOdds: 2.5 } } },
+        { Map: 3, Sources: { RAY: { BetID: "map3", HomeOdds: 1.8, AwayOdds: 2.0 } } },
+      ],
+    },
+  ];
+  const matches = {
+    RAY: {
+      ray1: {
+        SourceMatchID: "ray1",
+        Home: "NAVI",
+        Away: "Team Liquid",
+        HomeID: "1",
+        AwayID: "2",
+      },
+    },
+  };
+  const bets = {
+    "RAY:ray1": {
+      provider: "RAY",
+      matchId: "ray1",
+      bets: [
+        {
+          SourceBetID: "full",
+          Map: 0,
+          SourceHomeID: "1",
+          HomeOdds: 1.5,
+          SourceAwayID: "2",
+          AwayOdds: 2.5,
+          Status: "Normal",
+        },
+        {
+          SourceBetID: "map3",
+          Map: 3,
+          SourceHomeID: "1",
+          HomeOdds: 1.8,
+          SourceAwayID: "2",
+          AwayOdds: 2.0,
+          Status: "Normal",
+        },
+      ],
+    },
+  };
+  const src = (p, b) => ({
+    Type: p,
+    BetID: String(b.SourceBetID),
+    HomeID: String(b.SourceHomeID),
+    AwayID: String(b.SourceAwayID),
+    HomeOdds: b.HomeOdds,
+    AwayOdds: b.AwayOdds,
+    Status: b.Status,
+  });
+
+  reconcileClientMatchReverse(rows, matches, bets, {}, src);
+
+  assert.equal(rows[0].Bets[0].Sources.RAY, undefined);
+  assert.equal(rows[0].Bets[1].Sources.RAY?.BetID, "map3");
+  assert.equal(rows[0].Bets[1].Sources.RAY?.HomeOdds, 1.8);
+});
+
 it("ambiguous platform resolved to reversed via canonical ID fallback", () => {
   // Simulate: RAY aligned (1win vs VP), PB reversed with different team names
   const idMap = {
