@@ -176,24 +176,50 @@ function classifyMergeBasis(home, away, gameCode, ctx) {
   return "name";
 }
 
-function lookupGbTeamIdByName(teamName) {
+function lookupGbTeamIdByName(teamName, gameCode) {
   const normalized = normalizeTeam(teamName);
   if (!normalized)
     return null;
   if (!_teamPlugin)
     return null;
+  const game = String(gameCode || "").trim().toLowerCase() || null;
+  if (game && typeof _teamPlugin.lookupGbTeamIdByNormalizedNameForGame === "function") {
+    const scoped = _teamPlugin.lookupGbTeamIdByNormalizedNameForGame(game, normalized);
+    if (scoped)
+      return scoped;
+  }
   if (typeof _teamPlugin.lookupGbTeamIdByNormalizedName === "function") {
     return _teamPlugin.lookupGbTeamIdByNormalizedName(normalized) || null;
   }
   return null;
 }
 
+function lookupGameForGbTeamId(gbTeamId) {
+  if (!_teamPlugin || typeof _teamPlugin === "function")
+    return null;
+  return _teamPlugin.lookupGameForGbTeamId?.(String(gbTeamId)) || null;
+}
+
+/** 锚点 gb 须与本场 gameCode 一致，防止 cs2/valorant 等同名队串线 */
+function anchorGbValidForGame(gbTeamId, gameCode) {
+  const gb = gbTeamId == null || gbTeamId === "" ? null : String(gbTeamId).trim();
+  const game = String(gameCode || "").trim().toLowerCase();
+  if (!gb || !game)
+    return true;
+  const gbGame = lookupGameForGbTeamId(gb);
+  if (!gbGame)
+    return true;
+  return String(gbGame).toLowerCase() === game;
+}
+
 export {
+  anchorGbValidForGame,
   canonicalMatchKey,
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
   classifyMergeBasis,
   lookupCanonicalTeamName,
+  lookupGameForGbTeamId,
   lookupGbTeamIdByName,
   lookupGbTeamIdByPlatform,
   normalizeTeam,

@@ -22,6 +22,7 @@ import {
 } from "../teams/match_utils.js";
 import { PROVIDER_PRIORITY, teamsFromPlatformRows } from "../teams/provider_priority.js";
 import {
+  anchorGbValidForGame,
   canonicalMatchKey,
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
@@ -495,14 +496,38 @@ function buildPlatformRowsForMatchs(matchs, matches) {
   return rows;
 }
 
+/** 本场 gameCode：GameID / Game 括号 / 关联 platform_match */
+function resolveGameCodeForClientRow(row, matches) {
+  const gid = String(row?.GameID ?? "").trim();
+  const a8Map = { 1: "lol", 2: "dota2", 3: "cs2", 4: "kog", 8: "valorant" };
+  let gameCode = a8Map[gid] || a8Map[Number(gid)] || null;
+  if (!gameCode && row?.Game) {
+    const parsed = String(row.Game).match(/\(([^)]+)\)\s*$/);
+    if (parsed)
+      gameCode = parsed[1].toLowerCase();
+  }
+  if (!gameCode && row?.Matchs && matches) {
+    for (const [platform, sourceMatchId] of Object.entries(row.Matchs)) {
+      const pm = findPlatformMatch(matches, platform, sourceMatchId);
+      if (!pm)
+        continue;
+      const sourceGameId = pm.SourceGameID ?? pm.GameID;
+      gameCode = getGameCodeForPlatformId(platform, sourceGameId);
+      if (gameCode)
+        break;
+    }
+  }
+  return gameCode || null;
+}
+
 /** 新场次：按平台优先级 + team map 推断 canonical 主客 gb */
-function pickCanonicalGbFromMatchs(matchs, matches) {
+function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
   const picked = titleFromMatchs(matchs, matches);
   if (!picked?.home || !picked?.away)
     return null;
 
-  const homeGbByName = lookupGbTeamIdByName(picked.home);
-  const awayGbByName = lookupGbTeamIdByName(picked.away);
+  const homeGbByName = lookupGbTeamIdByName(picked.home, gameCode);
+  const awayGbByName = lookupGbTeamIdByName(picked.away, gameCode);
   if (homeGbByName && awayGbByName) {
     return {
       homeGb: parseLockedGbTeamId(homeGbByName),
@@ -556,14 +581,20 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
   for (const row of rows || []) {
     const cmId = Number(row.ID);
     const existing = Number.isFinite(cmId) && cmId > 0 ? existingById.get(cmId) : null;
+    const gameCode = resolveGameCodeForClientRow(row, matches);
 
     let homeGb = parseLockedGbTeamId(row.HomeGbTeamId)
       ?? parseLockedGbTeamId(existing?.home_gb_team_id);
     let awayGb = parseLockedGbTeamId(row.AwayGbTeamId)
       ?? parseLockedGbTeamId(existing?.away_gb_team_id);
 
+    if (homeGb && !anchorGbValidForGame(homeGb, gameCode))
+      homeGb = null;
+    if (awayGb && !anchorGbValidForGame(awayGb, gameCode))
+      awayGb = null;
+
     if (!homeGb || !awayGb) {
-      const picked = pickCanonicalGbFromMatchs(row.Matchs, matches);
+      const picked = pickCanonicalGbFromMatchs(row.Matchs, matches, gameCode);
       if (picked) {
         homeGb = picked.homeGb;
         awayGb = picked.awayGb;
@@ -573,8 +604,8 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
     if (!homeGb || !awayGb) {
       const teams = parseTitleTeams(row.Title);
       if (teams) {
-        homeGb = homeGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.home));
-        awayGb = awayGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.away));
+        homeGb = homeGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.home, gameCode));
+        awayGb = awayGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.away, gameCode));
       }
     }
 
@@ -739,6 +770,7 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
       continue;
 
     const rowOverrides = platformOverridesForRow(platformSideOverrides, row.ID);
+    const gameCode = resolveGameCodeForClientRow(row, matches);
 
     // 收集各平台的 platform_match 和队名匹配结果
     const platformEntries = {};
@@ -759,12 +791,14 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
     let refIds = null;
     const lockedHome = parseLockedGbTeamId(row.HomeGbTeamId);
     const lockedAway = parseLockedGbTeamId(row.AwayGbTeamId);
-    if (lockedHome && lockedAway) {
+    if (lockedHome && lockedAway
+      && anchorGbValidForGame(lockedHome, gameCode)
+      && anchorGbValidForGame(lockedAway, gameCode)) {
       refIds = { home: lockedHome, away: lockedAway };
     }
     if (!refIds) {
-      const titleHomeGb = lookupGbTeamIdByName(teams.home);
-      const titleAwayGb = lookupGbTeamIdByName(teams.away);
+      const titleHomeGb = lookupGbTeamIdByName(teams.home, gameCode);
+      const titleAwayGb = lookupGbTeamIdByName(teams.away, gameCode);
       if (titleHomeGb && titleAwayGb) {
         refIds = { home: titleHomeGb, away: titleAwayGb };
       }
