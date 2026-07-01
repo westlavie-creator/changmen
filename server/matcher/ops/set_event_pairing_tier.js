@@ -10,7 +10,7 @@ import { isEventRegistryEnabled } from "./sync_event_registry.js";
 
 async function setMatchEventPairingTier(eventId, { tier, confidence, lock, matchMerge = true }) {
   if (!isEventRegistryEnabled())
-    throw new Error("MATCHER_EVENT_REGISTRY=0，真相表未启用");
+    throw new Error("真相表未启用（lib/config.js eventRegistry=false）");
 
   const write = await updateMatchEventPairingTier(eventId, {
     tier,

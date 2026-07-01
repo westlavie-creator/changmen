@@ -6,11 +6,15 @@ import {
   buildPmSportByClientId,
   filterActiveClientMatches,
   filterMultiPlatformClientMatches,
-  isRegistryMaterializeEnabled,
   normalizeMatchesShape,
   resolveClientMatchIds,
   setTeamPlugin,
 } from "@changmen/match-engine";
+import {
+  isObSpineMergeEnabled,
+  isRegistryMaterializeEnabled,
+  publishFilterLabel,
+} from "../lib/config.js";
 import { formatOdds } from "@changmen/shared/odds_format";
 import {
   alignUnmatchedToClientMatches,
@@ -133,8 +137,8 @@ async function matchMergeOnceImpl() {
   else {
     info = buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides });
   }
-  if (String(process.env.MATCHER_OB_SPINE_MERGE ?? "0").trim() === "1" && !isRegistryMaterializeEnabled()) {
-    console.log("[matchMerge] OB 主轴合并已启用（MATCHER_OB_SPINE_MERGE=1）");
+  if (isObSpineMergeEnabled() && !isRegistryMaterializeEnabled()) {
+    console.log("[matchMerge] OB 主轴合并已启用（config.obSpineMerge）");
   }
 
   if (!db.isMatcherStoreReady()) {
@@ -169,8 +173,7 @@ async function matchMergeOnceImpl() {
   if (pairingPublished.length !== info.length) {
     console.log(
       `[matchMerge] pairing 发布过滤 ${info.length} → ${pairingPublished.length}`
-      + `（tier=${process.env.MATCHER_PUBLISH_TIER || "default"}`
-      + ` provisional=${process.env.MATCHER_PUBLISH_PROVISIONAL ?? "1"}）`,
+      + `（filter=${publishFilterLabel()}）`,
     );
   }
   info = pairingPublished;

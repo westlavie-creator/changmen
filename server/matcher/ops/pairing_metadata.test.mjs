@@ -6,11 +6,11 @@ import {
   PAIRING_TIER,
   resolveEventAnchor,
 } from "./pairing_metadata.js";
+import { resetMatcherBehaviorForTest, setMatcherBehaviorForTest } from "../lib/config.js";
 
 describe("pairing_metadata", () => {
   afterEach(() => {
-    delete process.env.MATCHER_PUBLISH_PROVISIONAL;
-    delete process.env.MATCHER_PUBLISH_TIER;
+    resetMatcherBehaviorForTest();
   });
 
   it("classifies id merge as verified", () => {
@@ -85,8 +85,8 @@ describe("pairing_metadata", () => {
     assert.equal(published[0].PairingTier, PAIRING_TIER.PROVISIONAL);
   });
 
-  it("MATCHER_PUBLISH_TIER=verified drops name-only rows", () => {
-    process.env.MATCHER_PUBLISH_TIER = "verified";
+  it("verified-only publish filter drops name-only rows", () => {
+    setMatcherBehaviorForTest({ publishTierVerifiedOnly: true });
     const { published } = applyPairingMetadata(
       [{ ID: 1, Matchs: { OB: "a", RAY: "b" }, MergeBasis: "name" }],
       {},
@@ -94,8 +94,8 @@ describe("pairing_metadata", () => {
     assert.equal(published.length, 0);
   });
 
-  it("MATCHER_PUBLISH_PROVISIONAL=0 drops provisional rows", () => {
-    process.env.MATCHER_PUBLISH_PROVISIONAL = "0";
+  it("publishProvisional=false drops provisional rows", () => {
+    setMatcherBehaviorForTest({ publishProvisional: false });
     const { published } = applyPairingMetadata(
       [{ ID: 1, Matchs: { OB: "a", RAY: "b" }, MergeBasis: "name" }],
       {},

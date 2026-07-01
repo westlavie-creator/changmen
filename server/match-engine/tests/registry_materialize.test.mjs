@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  applyMatcherBehaviorConfig,
+  resetMatcherBehaviorConfig,
+} from "../matcher_behavior.js";
+import {
   buildClientMatchListFromRegistry,
   isRegistryMaterializeEnabled,
   setTeamPlugin,
@@ -35,23 +39,18 @@ function src() {
 describe("buildClientMatchListFromRegistry", () => {
   beforeEach(() => {
     setTeamPlugin(null);
-    delete process.env.MATCHER_EVENT_REGISTRY;
-    delete process.env.MATCHER_REGISTRY_MATERIALIZE;
-    delete process.env.MATCHER_OB_SPINE_MERGE;
+    resetMatcherBehaviorConfig();
   });
 
   afterEach(() => {
-    delete process.env.MATCHER_EVENT_REGISTRY;
-    delete process.env.MATCHER_REGISTRY_MATERIALIZE;
-    delete process.env.MATCHER_OB_SPINE_MERGE;
+    resetMatcherBehaviorConfig();
   });
 
-  it("isRegistryMaterializeEnabled requires EVENT_REGISTRY", () => {
-    process.env.MATCHER_REGISTRY_MATERIALIZE = "1";
-    process.env.MATCHER_EVENT_REGISTRY = "0";
+  it("isRegistryMaterializeEnabled requires eventRegistry", () => {
+    applyMatcherBehaviorConfig({ registryMaterialize: true, eventRegistry: false });
     expect(isRegistryMaterializeEnabled()).toBe(false);
 
-    process.env.MATCHER_EVENT_REGISTRY = "1";
+    applyMatcherBehaviorConfig({ eventRegistry: true, registryMaterialize: true });
     expect(isRegistryMaterializeEnabled()).toBe(true);
   });
 

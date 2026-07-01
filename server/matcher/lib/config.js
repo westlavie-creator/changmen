@@ -1,12 +1,34 @@
 /**
- * Matcher 运行时参数（唯一读取 env 的位置）。
- * 改间隔、端口等只改此处与 server/backend/.env.example 说明。
+ * Matcher 配置唯一入口。
+ * - 部署参数：可从 env 覆盖（端口、间隔等）
+ * - 业务行为：代码常量，改此处并发版；勿用 env 开关
  */
 
-import { DEFAULT_CLIENT_MATCH_ARCHIVE_INTERVAL_MS } from "@changmen/db";
+import { applyMatcherBehaviorConfig } from "@changmen/match-engine";
 
 const DEFAULT_MATCHER_INTERVAL_MS = 30_000;
 const DEFAULT_UI_PORT = 4567;
+const DEFAULT_CLIENT_MATCH_ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
+
+/** @type {const} */
+const DEFAULT_BEHAVIOR = {
+  /** 是否将 provisional（队名合并）场次写入 client_matches */
+  publishProvisional: true,
+  /** true 时仅发布 verified 场次 */
+  publishTierVerifiedOnly: false,
+  /** 未匹配平台按 client_matches.matchs.OB 槽位对齐 */
+  obSpineAlign: true,
+  /** matchMerge 以 OB 为主轴建赛事实体（灰度，默认关） */
+  obSpineMerge: false,
+  /** 双写 match_events / event_bindings */
+  eventRegistry: true,
+  /** 每轮 event_bindings → platform_matches 回写 */
+  registryReconcile: true,
+  /** client_matches 从真相表组装（灰度，默认关） */
+  registryMaterialize: false,
+};
+
+let behavior = { ...DEFAULT_BEHAVIOR };
 
 export const MATCHER_INTERVAL_MS = Number(
   process.env.MATCHER_INTERVAL_MS || DEFAULT_MATCHER_INTERVAL_MS,
@@ -29,3 +51,45 @@ export function isMatcherSkipAuthEnabled() {
   const nodeEnv = String(process.env.NODE_ENV || "").trim().toLowerCase();
   return nodeEnv === "development" || nodeEnv === "test";
 }
+
+export function getMatcherBehavior() {
+  return { ...behavior };
+}
+
+/** 单测覆盖行为；生产勿调用 */
+export function setMatcherBehaviorForTest(overrides = {}) {
+  behavior = { ...behavior, ...overrides };
+  syncBehaviorToMatchEngine();
+}
+
+/** 单测恢复默认 */
+export function resetMatcherBehaviorForTest() {
+  behavior = { ...DEFAULT_BEHAVIOR };
+  syncBehaviorToMatchEngine();
+}
+
+export function syncBehaviorToMatchEngine() {
+  applyMatcherBehaviorConfig({
+    obSpineMerge: behavior.obSpineMerge,
+    eventRegistry: behavior.eventRegistry,
+    registryMaterialize: behavior.registryMaterialize,
+  });
+}
+
+export const isPublishProvisionalEnabled = () => behavior.publishProvisional;
+export const isPublishTierVerifiedOnly = () => behavior.publishTierVerifiedOnly;
+export const isObSpineAlignEnabled = () => behavior.obSpineAlign;
+export const isObSpineMergeEnabled = () => behavior.obSpineMerge;
+export const isEventRegistryEnabled = () => behavior.eventRegistry;
+export const isRegistryReconcileEnabled = () => behavior.eventRegistry && behavior.registryReconcile;
+export const isRegistryMaterializeEnabled = () => behavior.eventRegistry && behavior.registryMaterialize;
+
+export function publishFilterLabel() {
+  if (isPublishTierVerifiedOnly())
+    return "verified-only";
+  if (!isPublishProvisionalEnabled())
+    return "no-provisional";
+  return "default";
+}
+
+syncBehaviorToMatchEngine();

@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "vitest";
+import { describe, it } from "vitest";
 import { buildEventRowsFromMergeRows } from "./sync_event_registry.js";
 
 describe("sync_event_registry", () => {
-  afterEach(() => {
-    delete process.env.MATCHER_EVENT_REGISTRY;
-  });
-
   it("buildEventRowsFromMergeRows maps pairing fields", () => {
     const rows = buildEventRowsFromMergeRows([{
       ID: 42,

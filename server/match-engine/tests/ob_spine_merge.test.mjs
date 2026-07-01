@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { resetMatcherBehaviorConfig } from "../matcher_behavior.js";
 import { buildMatchListObSpine, setTeamPlugin } from "../merge/match_merge.js";
 
 const T0 = 1_700_000_000_000;
@@ -22,7 +23,7 @@ describe("buildMatchListObSpine", () => {
   });
 
   afterEach(() => {
-    delete process.env.MATCHER_OB_SPINE_MERGE;
+    resetMatcherBehaviorConfig();
   });
 
   it("merges non-OB platforms onto OB spine rows by team name", () => {

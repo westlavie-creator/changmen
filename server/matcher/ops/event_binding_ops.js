@@ -18,7 +18,7 @@ import { buildEventRowsFromMergeRows } from "./sync_event_registry.js";
 
 function assertRegistryEnabled() {
   if (!isEventRegistryEnabled())
-    throw new Error("MATCHER_EVENT_REGISTRY=0，真相表未启用");
+    throw new Error("真相表未启用（lib/config.js eventRegistry=false）");
 }
 
 function normalizeBindingSideMode(mode, reversed) {

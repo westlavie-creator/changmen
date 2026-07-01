@@ -1,13 +1,10 @@
 /**
  * OB 主轴对齐：优先按 client_matches.matchs.OB 槽位挂接，非 OB 平台优先挂到带 OB 轴的赛事。
- * MATCHER_OB_SPINE=0 可关闭（默认开启）。
+ * 开关见 matcher/lib/config.js obSpineAlign（默认开启）。
  */
 
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
-
-function isObSpineAlignEnabled() {
-  return String(process.env.MATCHER_OB_SPINE ?? "1").trim() !== "0";
-}
+import { isObSpineAlignEnabled } from "../lib/config.js";
 
 function platformMatchLinked(match) {
   const cid = match?.ClientMatchId ?? match?.client_match_id ?? match?.match_id;

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "vitest";
 import { normalizeMatchesShape } from "@changmen/match-engine";
+import { resetMatcherBehaviorForTest, setMatcherBehaviorForTest } from "../lib/config.js";
 import {
   alignObSpineSlotMatches,
   clientMatchHasObSpine,
@@ -9,7 +10,7 @@ import {
 
 describe("ob_spine_align", () => {
   afterEach(() => {
-    delete process.env.MATCHER_OB_SPINE;
+    resetMatcherBehaviorForTest();
   });
 
   it("alignObSpineSlotMatches links OB row to client with same matchs.OB", () => {
@@ -34,7 +35,6 @@ describe("ob_spine_align", () => {
   });
 
   it("pickBestClientMatch prefers OB spine when enabled", () => {
-    process.env.MATCHER_OB_SPINE = "1";
     const start = 1_700_000_000_000;
     const withOb = { id: 1, matchs: { OB: "x" }, start_time: start };
     const withoutOb = { id: 2, matchs: { RAY: "y" }, start_time: start };
@@ -43,8 +43,8 @@ describe("ob_spine_align", () => {
     assert.equal(clientMatchHasObSpine(withOb), true);
   });
 
-  it("MATCHER_OB_SPINE=0 skips slot align", () => {
-    process.env.MATCHER_OB_SPINE = "0";
+  it("obSpineAlign=false skips slot align", () => {
+    setMatcherBehaviorForTest({ obSpineAlign: false });
     const matches = normalizeMatchesShape({
       OB: [{ SourceMatchID: "ob-1", Home: "A", Away: "B", StartTime: 1 }],
     });

@@ -10,7 +10,7 @@
 | **人工 UI** | `npm run matcher:ui` → `ui/server.js` | `4567`（`MATCHER_UI_PORT`） | 拖线关联、画布；**非生产必需** |
 | **主站桥接** | 随 `npm run web` 启动 | 同源 `/matcher/`、`/matcher/api/*` | backend `http_bridge.js` 把 API 转给 matcher Express |
 
-Matcher 间隔/端口等环境变量由 `lib/config.js` 统一读取（勿在多处写 `process.env.MATCHER_*`）。
+Matcher **部署**参数（间隔、端口）由 `lib/config.js` 读 env；**业务行为**（配对分层、真相表、OB 主轴等）也在 `lib/config.js` 以代码常量配置，勿再增加 `MATCHER_*` 业务 env。
 
 PM2（`ecosystem.config.cjs`）仅注册 **合并循环**（`gamebet-matcher`）。人工 UI：`npm run matcher:ui`。
 

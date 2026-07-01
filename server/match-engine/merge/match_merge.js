@@ -40,6 +40,10 @@ import {
   imMatchIsStale,
 } from "./im_enrich.js";
 import { startTimesCompatible, startTimesCompatibleStrict } from "./merge_constants.js";
+import {
+  isObSpineMergeEnabled,
+  isRegistryMaterializeEnabled,
+} from "../matcher_behavior.js";
 
 const MERGE_MODE = "merge";
 
@@ -1355,7 +1359,7 @@ function filterMatchesByRowKeys(matches, rowKeys) {
 
 /**
  * OB 主轴合并：每个 OB 场次占一行，其它平台按 ID/队名+时间挂接；未挂上者走常规 merge。
- * MATCHER_OB_SPINE_MERGE=1 时由 buildClientMatchList 启用（默认关闭）。
+ * OB 主轴合并：由 lib/config.js obSpineMerge 控制（默认关闭）。
  */
 function buildMatchListObSpine(matches, bets, timers, sourceFromBet) {
   const entries = collectMergeEntries(matches, bets, timers, sourceFromBet);
@@ -1428,16 +1432,6 @@ function buildMatchListObSpine(matches, bets, timers, sourceFromBet) {
   return collapseImClientRows(result);
 }
 
-function isObSpineMergeEnabled() {
-  return String(process.env.MATCHER_OB_SPINE_MERGE ?? "0").trim() === "1";
-}
-
-function isRegistryMaterializeEnabled() {
-  if (String(process.env.MATCHER_EVENT_REGISTRY ?? "1").trim() === "0")
-    return false;
-  return String(process.env.MATCHER_REGISTRY_MATERIALIZE ?? "0").trim() === "1";
-}
-
 function inferMergeBasisFromBindings(bindings) {
   for (const b of bindings || []) {
     const src = String(b.binding_source ?? b.BindingSource ?? "").toLowerCase();
@@ -1449,7 +1443,7 @@ function inferMergeBasisFromBindings(bindings) {
 
 /**
  * 从 event_bindings 真相表组装 client 行；未绑定平台仍走启发式 merge（fallback）。
- * MATCHER_REGISTRY_MATERIALIZE=1 时由 matchMerge 启用（默认关闭）。
+ * 由 matcher/lib/config.js registryMaterialize 控制（默认关闭）。
  */
 function buildClientMatchListFromRegistry({
   bindings,

@@ -1,6 +1,6 @@
 /**
  * matchMerge 后双写 match_events / event_bindings（C 档真相表）。
- * MATCHER_EVENT_REGISTRY=0 可关闭；默认开启。
+ * 开关见 matcher/lib/config.js eventRegistry（默认开启）。
  */
 
 import {
@@ -8,11 +8,8 @@ import {
   upsertEventBindings,
   upsertMatchEvents,
 } from "@changmen/db";
+import { isEventRegistryEnabled } from "../lib/config.js";
 import { collectBindingsForRows } from "./pairing_metadata.js";
-
-function isEventRegistryEnabled() {
-  return String(process.env.MATCHER_EVENT_REGISTRY ?? "1").trim() !== "0";
-}
 
 function gbTeamIdFromRow(row) {
   const raw = row.HomeGbTeamId ?? row.home_gb_team_id;

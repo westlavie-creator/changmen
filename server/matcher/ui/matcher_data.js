@@ -8,7 +8,7 @@ import {
 } from "@changmen/db";
 import { normalizeMatchesShape } from "@changmen/match-engine";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
-import { MATCHER_INTERVAL_MS } from "../lib/config.js";
+import { isRegistryMaterializeEnabled, MATCHER_INTERVAL_MS } from "../lib/config.js";
 import { resolveUiGame } from "../lib/game_ui.js";
 import {
   isMatcherRunning,
@@ -361,7 +361,7 @@ async function fetchMatcherDashboard() {
   });
   enriched.debug.registryDrift = summarizeRegistryDrift(registryDrift);
   enriched.registryDrift = registryDrift;
-  enriched.debug.registryMaterialize = String(process.env.MATCHER_REGISTRY_MATERIALIZE ?? "0").trim() === "1";
+  enriched.debug.registryMaterialize = isRegistryMaterializeEnabled();
   return enriched;
 }
 

@@ -6,13 +6,7 @@ import {
   pruneOrphanEventBindings,
   reconcilePlatformMatchesFromRegistry,
 } from "@changmen/db";
-import { isEventRegistryEnabled } from "./sync_event_registry.js";
-
-function isRegistryReconcileEnabled() {
-  if (!isEventRegistryEnabled())
-    return false;
-  return String(process.env.MATCHER_REGISTRY_RECONCILE ?? "1").trim() !== "0";
-}
+import { isEventRegistryEnabled, isRegistryReconcileEnabled } from "../lib/config.js";
 
 /**
  * 比对 merge 产物 matchs 槽位与 event_bindings 是否一致（纯函数，供测试）。

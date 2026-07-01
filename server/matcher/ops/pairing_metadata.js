@@ -1,10 +1,14 @@
 /**
  * matchMerge 后：赛事实体分层 + platform_matches 绑定元数据。
- * Client_GetMatchs DTO 不变；默认仍发布 name 合并场次（MATCHER_PUBLISH_PROVISIONAL≠0）。
+ * Client_GetMatchs DTO 不变；默认仍发布 name 合并场次（见 lib/config.js publishProvisional）。
  */
 
 import { upsertPlatformBindings } from "@changmen/db";
 import { PROVIDER_PRIORITY } from "@changmen/match-engine";
+import {
+  isPublishProvisionalEnabled,
+  isPublishTierVerifiedOnly,
+} from "../lib/config.js";
 
 const PAIRING_TIER = {
   VERIFIED: "verified",
@@ -126,14 +130,6 @@ function classifyPairing(row, { matches }) {
   };
 }
 
-function isPublishProvisionalEnabled() {
-  return String(process.env.MATCHER_PUBLISH_PROVISIONAL ?? "1").trim() !== "0";
-}
-
-function isPublishTierVerifiedOnly() {
-  return String(process.env.MATCHER_PUBLISH_TIER ?? "").trim().toLowerCase() === "verified";
-}
-
 /**
  * 标注 pairing 字段，并按策略过滤待写入 client_matches 的行。
  * @param {object[]} rows matchMerge 产物
@@ -228,9 +224,8 @@ export {
   classifyPairing,
   collectBindingsForRows,
   findPlatformMatchInShape,
-  isPublishProvisionalEnabled,
-  isPublishTierVerifiedOnly,
   PAIRING_TIER,
   resolveEventAnchor,
   syncPlatformBindingsForRows,
 };
+export { isPublishProvisionalEnabled, isPublishTierVerifiedOnly } from "../lib/config.js";

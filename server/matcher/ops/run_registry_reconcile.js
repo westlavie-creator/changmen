@@ -14,10 +14,10 @@ import { isRegistryReconcileEnabled } from "./registry_reconcile.js";
 
 async function runManualRegistryReconcile(opts = {}) {
   if (!isEventRegistryEnabled())
-    throw new Error("MATCHER_EVENT_REGISTRY=0，真相表未启用");
+    throw new Error("真相表未启用（lib/config.js eventRegistry=false）");
 
   if (!isRegistryReconcileEnabled())
-    throw new Error("MATCHER_REGISTRY_RECONCILE=0，回写已关闭");
+    throw new Error("真相表回写已关闭（lib/config.js registryReconcile=false）");
 
   const reconcile = await reconcilePlatformMatchesFromRegistry();
   const pruned = await pruneOrphanEventBindings();
