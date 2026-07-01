@@ -95,7 +95,11 @@ async function matchMergeOnceImpl() {
     );
   }
 
-  let info = buildClientMatchList({ matches, bets, timers, sourceFromBet, existingClientRows: clientRows });
+  const platformSideOverrides = db.isMatcherStoreReady()
+    ? await db.fetchClientMatchPlatformOverrides()
+    : {};
+
+  let info = buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides });
 
   if (!db.isMatcherStoreReady()) {
     const { script } = db.getDbMode();
@@ -106,7 +110,7 @@ async function matchMergeOnceImpl() {
   }
   const adapter = db.getClientMatchIdAdapter();
   info = await resolveClientMatchIds(adapter, info, { matches, existingIdKeyIndex });
-  info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows);
+  info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows, platformSideOverrides);
   info = filterMultiPlatformClientMatches(info);
 
   const pmSportByClientId = buildPmSportByClientId(clientRows);
@@ -135,6 +139,8 @@ async function matchMergeOnceImpl() {
       reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
       matchs: m.Matchs || {},
       bets: m.Bets || [],
+      home_gb_team_id: m.HomeGbTeamId ?? null,
+      away_gb_team_id: m.AwayGbTeamId ?? null,
       built_at: now,
     })),
   );

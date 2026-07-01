@@ -83,6 +83,12 @@ async function main() {
     console.log("[rds] 执行 016_client_matches_pm_sport.sql …");
     await client.query(readSql("016_client_matches_pm_sport.sql"));
 
+    console.log("[rds] 执行 017_client_matches_canonical_teams.sql …");
+    await client.query(readSql("017_client_matches_canonical_teams.sql"));
+
+    console.log("[rds] 执行 018_client_match_platform_overrides.sql …");
+    await client.query(readSql("018_client_match_platform_overrides.sql"));
+
     const tables = await client.query(`
       SELECT tablename FROM pg_tables
       WHERE schemaname = 'public'

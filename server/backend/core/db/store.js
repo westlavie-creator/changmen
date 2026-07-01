@@ -263,6 +263,8 @@ function _applyClientMatchRows(data) {
       Reverse: Array.isArray(row.reverse) ? row.reverse : [],
       Matchs: row.matchs || {},
       Bets: row.bets || [],
+      HomeGbTeamId: row.home_gb_team_id != null ? row.home_gb_team_id : undefined,
+      AwayGbTeamId: row.away_gb_team_id != null ? row.away_gb_team_id : undefined,
       PmSport: row.pm_sport && typeof row.pm_sport === "object" ? row.pm_sport : undefined,
       built_at: row.built_at || now,
     });
@@ -291,6 +293,8 @@ export function saveClientMatches(info) {
       reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
       matchs: m.Matchs || {},
       bets: m.Bets || [],
+      home_gb_team_id: m.HomeGbTeamId ?? null,
+      away_gb_team_id: m.AwayGbTeamId ?? null,
       built_at: now,
     })),
   );
@@ -383,6 +387,8 @@ export function getClientMatchRowsForSnapshot() {
     reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
     matchs: m.Matchs || {},
     bets: m.Bets || [],
+    home_gb_team_id: m.HomeGbTeamId ?? null,
+    away_gb_team_id: m.AwayGbTeamId ?? null,
     built_at: Number(m.built_at) || 0,
   }));
 }
