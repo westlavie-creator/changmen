@@ -10,17 +10,25 @@ let _lastWrittenIds = new Set();
 let _lastWrittenIdsInitPromise = null;
 let _lastWrittenIdsInitialized = false;
 
+function _gbTeamIdForDb(value) {
+  if (value == null || value === "")
+    return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
   const client = await pool.connect();
   const sql = `
     INSERT INTO client_matches (
       id, merge_key, title, game, game_id, start_time, bo, round, round_start,
-      matchs, bets, reverse, built_at, pm_sport
+      matchs, bets, reverse, built_at, pm_sport, home_gb_team_id, away_gb_team_id
     )
     SELECT * FROM unnest(
       $1::bigint[], $2::text[], $3::text[], $4::text[], $5::text[],
       $6::bigint[], $7::integer[], $8::integer[], $9::bigint[],
-      $10::jsonb[], $11::jsonb[], $12::jsonb[], $13::bigint[], $14::jsonb[]
+      $10::jsonb[], $11::jsonb[], $12::jsonb[], $13::bigint[], $14::jsonb[],
+      $15::bigint[], $16::bigint[]
     )
     ON CONFLICT (id) DO UPDATE SET
       merge_key = EXCLUDED.merge_key,
@@ -35,7 +43,9 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
       bets = EXCLUDED.bets,
       reverse = EXCLUDED.reverse,
       built_at = EXCLUDED.built_at,
-      pm_sport = COALESCE(EXCLUDED.pm_sport, client_matches.pm_sport)
+      pm_sport = COALESCE(EXCLUDED.pm_sport, client_matches.pm_sport),
+      home_gb_team_id = COALESCE(EXCLUDED.home_gb_team_id, client_matches.home_gb_team_id),
+      away_gb_team_id = COALESCE(EXCLUDED.away_gb_team_id, client_matches.away_gb_team_id)
   `;
   try {
     await client.query("BEGIN");
@@ -55,6 +65,8 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
         dedupedRows.map(r => _jsonb(r.reverse, [])),
         dedupedRows.map(r => Number(r.built_at)),
         dedupedRows.map(r => (r.pm_sport != null ? _jsonb(r.pm_sport, null) : null)),
+        dedupedRows.map(r => _gbTeamIdForDb(r.home_gb_team_id)),
+        dedupedRows.map(r => _gbTeamIdForDb(r.away_gb_team_id)),
       ]);
     }
     if (toDelete.length) {
@@ -63,8 +75,8 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
            DELETE FROM client_matches WHERE id = ANY($1::bigint[])
            RETURNING *
          )
-         INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport)
-         SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport FROM moved`,
+         INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, home_gb_team_id, away_gb_team_id)
+         SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, home_gb_team_id, away_gb_team_id FROM moved`,
         [toDelete],
       );
     }

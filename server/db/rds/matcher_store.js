@@ -110,7 +110,7 @@ export async function fetchClientMatchRow(id, columns = "*") {
     return null;
   const cols
     = columns === "*"
-      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at"
+      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at, home_gb_team_id, away_gb_team_id"
       : columns;
   const { rows } = await rdsQuery(`SELECT ${cols} FROM client_matches WHERE id = $1`, [cmId]);
   return rows[0] || null;
@@ -172,6 +172,65 @@ export async function setClientMatchPlatformReverse(id, platform, reversed) {
     [cmId, jsonb(nextReverse, [])],
   );
   return { id: cmId, platform: plat, reversed: !!reversed, reverse: nextReverse };
+}
+
+/** client_match_id → { platform → force_aligned | force_reversed } */
+export async function fetchClientMatchPlatformOverrides() {
+  const { rows } = await rdsQuery(
+    `SELECT client_match_id, platform, mode
+     FROM client_match_platform_overrides`,
+  );
+  const byClient = {};
+  for (const r of rows || []) {
+    const cmId = Number(r.client_match_id);
+    if (!Number.isFinite(cmId) || cmId <= 0)
+      continue;
+    if (!byClient[cmId])
+      byClient[cmId] = {};
+    byClient[cmId][String(r.platform)] = String(r.mode);
+  }
+  return byClient;
+}
+
+/**
+ * @param {'force_aligned'|'force_reversed'|null} mode null 删除覆盖，走 reconcile 自动判定
+ */
+export async function setClientMatchPlatformSideOverride(clientMatchId, platform, mode) {
+  const cmId = Number(clientMatchId);
+  const plat = String(platform || "").trim();
+  if (!Number.isFinite(cmId) || cmId <= 0)
+    throw new Error("无效的赛事 ID");
+  if (!plat)
+    throw new Error("平台不能为空");
+
+  const cm = await fetchClientMatchRow(cmId, "id, matchs");
+  if (!cm)
+    throw new Error("赛事不存在");
+  const matchs = cm.matchs && typeof cm.matchs === "object" ? cm.matchs : {};
+  if (!Object.hasOwn(matchs, plat))
+    throw new Error(`赛事 ${cmId} 未关联平台 ${plat}`);
+
+  if (!mode) {
+    await rdsQuery(
+      `DELETE FROM client_match_platform_overrides
+       WHERE client_match_id = $1 AND platform = $2`,
+      [cmId, plat],
+    );
+    return { id: cmId, platform: plat, mode: null };
+  }
+
+  const normalized = String(mode);
+  if (normalized !== "force_aligned" && normalized !== "force_reversed")
+    throw new Error("mode 须为 force_aligned 或 force_reversed");
+
+  await rdsQuery(
+    `INSERT INTO client_match_platform_overrides (client_match_id, platform, mode)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (client_match_id, platform)
+     DO UPDATE SET mode = EXCLUDED.mode, updated_at = now()`,
+    [cmId, plat, normalized],
+  );
+  return { id: cmId, platform: plat, mode: normalized };
 }
 
 export async function fetchClientMatchesHidden() {

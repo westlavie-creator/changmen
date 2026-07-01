@@ -1,5 +1,4 @@
-import { fetchPlatformMatchesDebugRows, setClientMatchPlatformReverse } from "@changmen/db";
-import { patchClientMatchPlatformReverseInMemory } from "../../backend/core/db/store.js";
+import { fetchPlatformMatchesDebugRows } from "@changmen/db";
 import {
   linkPlatformTeams,
   linkPlatformToClientMatch,
@@ -8,6 +7,7 @@ import {
   previewLinkPlatformAlignment,
   previewLinkPlatformTeams,
   registerTeamPlatformMap,
+  setClientMatchPlatformSideOverride,
 } from "../link/index.js";
 import { clientMatchToHistory } from "../ops/delete_client_match.js";
 import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_client_matches.js";
@@ -178,15 +178,17 @@ function registerMatcherApiRoutes(app) {
   app.post("/api/client-match/:id/reverse", async (req, res) => {
     try {
       const { platform, reversed } = req.body || {};
-      const update = await setClientMatchPlatformReverse(req.params.id, platform, !!reversed);
-      patchClientMatchPlatformReverseInMemory(update.id, update.platform, update.reversed);
-      invalidateMatcherRdsSnapshot(["clientMatches"]);
+      const update = await setClientMatchPlatformSideOverride({
+        clientMatchId: req.params.id,
+        platform,
+        reversed: !!reversed,
+      });
+      invalidateMatcherRdsSnapshot(["clientMatches", "platformMatches"]);
       const matchMerge = await matchMergeOnce({ afterInFlight: true });
       const body = {
         ok: true,
         ...update,
         matchMerge: { matchCount: matchMerge?.matchCount ?? null },
-        summary: `${update.platform} 主客方向已${update.reversed ? "标记反转" : "恢复正向"}`,
       };
       logMatcherApiOk("/api/client-match/reverse", body);
       res.json(body);

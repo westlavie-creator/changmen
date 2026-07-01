@@ -221,6 +221,8 @@ export {
   isMatcherStoreReady,
   reassignPlatformMatchIds,
   setClientMatchPlatformReverse,
+  fetchClientMatchPlatformOverrides,
+  setClientMatchPlatformSideOverride,
 } from "./rds/matcher_store.js";
 
 export {

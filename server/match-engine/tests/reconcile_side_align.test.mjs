@@ -8,7 +8,7 @@ it("reconcile flags ambiguous platform and does not reverse", () => {
       ID: 99,
       Title: "NAVI vs Spirit",
       Matchs: { RAY: "ray1" },
-      Bets: [{ Map: 0, Sources: {} }],
+      Bets: [{ Map: 0, Sources: { RAY: { BetID: "x", HomeOdds: 1.5, AwayOdds: 2.5 } } }],
     },
   ];
   const matches = {
@@ -27,6 +27,7 @@ it("reconcile flags ambiguous platform and does not reverse", () => {
 
   assert.deepEqual(rows[0].Reverse, []);
   assert.deepEqual(rows[0].SideAlignAmbiguous, ["RAY"]);
+  assert.equal(rows[0].Bets[0].Sources.RAY, undefined);
 });
 
 it("ambiguous platform resolved to reversed via canonical ID fallback", () => {
