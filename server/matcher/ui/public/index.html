@@ -1343,6 +1343,22 @@ function pickClientMatchSideRow(rows, side, gameCode) {
   return { row: ref, platformId: null };
 }
 
+/** 按 Title 锚定队名找平台行/槽位（避免参考平台主客列与 Title 相反时 subtitle 颠倒） */
+function pickClientMatchSideRowByAnchor(rows, anchorName, gameCode) {
+  const anchor = String(anchorName || "").trim();
+  if (!anchor) return null;
+  for (const m of rows) {
+    const mgc = gameCode || m.game?.code;
+    for (const slot of ["home", "away"]) {
+      const slotName = String(slot === "home" ? m.home : m.away || "").trim();
+      if (!teamNamesLikelySame(slotName, anchor)) continue;
+      const { id: pid } = resolveMatchTeamId(m, slot, mgc);
+      if (pid) return { row: m, platformId: pid };
+    }
+  }
+  return null;
+}
+
 function clientMatchSideAnchorName(cm, rows, side) {
   if (cm?.title) {
     const parts = String(cm.title).split(/\s+vs\s+/i);
@@ -1357,9 +1373,11 @@ function clientMatchSideAnchorName(cm, rows, side) {
 function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId, cm) {
   const anchorName = clientMatchSideAnchorName(cm, rows, side);
   const canonical = resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName);
-  const { row, platformId } = pickClientMatchSideRow(rows, side, gameCode);
+  const picked = pickClientMatchSideRowByAnchor(rows, anchorName, gameCode)
+    || pickClientMatchSideRow(rows, side, gameCode);
+  const { row, platformId } = picked;
   const platform = row.platform;
-  const name = side === 'home' ? row.home : row.away;
+  const name = anchorName || String(side === "home" ? row.home : row.away || "").trim();
   const pending = canonical === '__pending__';
   const canonVal = pending || canonical == null ? '' : String(canonical);
   let gbLabel;
@@ -1369,7 +1387,7 @@ function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId, cm) {
   const sub = name ? `<span class="title-team-sub" title="${esc(name)}">${esc(name)}</span>` : '';
   const handle = platformId && canonVal
     ? `<button type="button" class="team-link-handle team-title-handle"
-        title="标题队伍 · gb_team_id ${esc(canonVal)} · 连线至下方同 gb_team_id 的平台队伍（主客列可能相反）"
+        title="标题队伍 · gb_team_id ${esc(canonVal)} · 连线至下方同 gb_team_id 的平台队伍"
         data-title-handle="1"
         data-team-side="${side}"
         data-cm-id="${esc(String(cmId))}"
