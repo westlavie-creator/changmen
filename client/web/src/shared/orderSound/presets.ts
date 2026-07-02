@@ -1,7 +1,7 @@
 import type { OrderSoundPresetId } from "./types";
 
 function playTone(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   {
     frequency,
     startAt,
@@ -29,13 +29,20 @@ function playTone(
   osc.stop(startAt + duration + 0.02);
 }
 
-/** 内置预设：Web Audio 合成，不依赖 mp3 资源 */
-export async function playBuiltinPreset(
-  ctx: AudioContext,
+const BUILTIN_DURATION_SEC: Record<Exclude<OrderSoundPresetId, "custom">, number> = {
+  chime: 0.35,
+  bell: 0.9,
+  ding: 0.15,
+};
+
+/** 在任意 AudioContext / OfflineAudioContext 上调度内置预设（音量在渲染阶段烘焙进 buffer） */
+export function scheduleBuiltinPreset(
+  ctx: BaseAudioContext,
   presetId: Exclude<OrderSoundPresetId, "custom">,
   volume: number,
+  startOffset = 0.02,
 ) {
-  const t0 = ctx.currentTime + 0.02;
+  const t0 = startOffset;
   const v = Math.min(1, Math.max(0, volume));
   if (presetId === "chime") {
     playTone(ctx, { frequency: 880, startAt: t0, duration: 0.12, volume: v * 0.35 });
@@ -48,4 +55,16 @@ export async function playBuiltinPreset(
     return;
   }
   playTone(ctx, { frequency: 1200, startAt: t0, duration: 0.09, volume: v * 0.5, type: "square" });
+}
+
+/** 离线渲染内置预设为 AudioBuffer，供统一播放引擎缓存 */
+export async function renderBuiltinPresetBuffer(
+  presetId: Exclude<OrderSoundPresetId, "custom">,
+  volume = 1,
+): Promise<AudioBuffer> {
+  const duration = BUILTIN_DURATION_SEC[presetId];
+  const sampleRate = 44100;
+  const offline = new OfflineAudioContext(1, Math.ceil(sampleRate * duration), sampleRate);
+  scheduleBuiltinPreset(offline, presetId, volume);
+  return offline.startRendering();
 }

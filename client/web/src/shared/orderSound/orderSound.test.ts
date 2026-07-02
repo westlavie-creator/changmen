@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { isAudioFile } from "./customStore";
 import { normalizeOrderSoundPrefs, orderSoundStorageKey, saveOrderSoundPrefs, loadOrderSoundPrefs } from "./prefs";
-import { resetOrderSoundStateForTests, shouldPlayDebounced } from "./player";
+import { resetOrderSoundStateForTests, shouldPlayDebounced, stopOrderSound, isOrderSoundPlaying } from "./player";
 import { DEFAULT_ORDER_SOUND_PREFS } from "./types";
 
 function mockLocalStorage() {
@@ -65,5 +65,16 @@ describe("shouldPlayDebounced", () => {
     expect(shouldPlayDebounced("bet-1", now + 500)).toBe(false);
     expect(shouldPlayDebounced("bet-1", now + 2000)).toBe(true);
     expect(shouldPlayDebounced("bet-2", now + 500)).toBe(true);
+  });
+});
+
+describe("stopOrderSound", () => {
+  beforeEach(() => {
+    resetOrderSoundStateForTests();
+  });
+
+  it("clears playing state", async () => {
+    await stopOrderSound();
+    expect(isOrderSoundPlaying()).toBe(false);
   });
 });

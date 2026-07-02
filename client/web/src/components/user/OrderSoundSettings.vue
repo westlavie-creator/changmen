@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import type { OrderSoundPlayMode, OrderSoundPrefs, OrderSoundPresetId } from "@/shared/orderSound";
+import { useOrderSoundPlayer } from "@/composables/useOrderSoundPlayer";
 import { ElMessage } from "element-plus";
 import { onMounted, reactive, ref, watch } from "vue";
 import {
   ORDER_SOUND_PLAY_MODE_LABELS,
   ORDER_SOUND_PRESET_LABELS,
+  clearOrderSoundCustomCache,
   currentOrderSoundUserName,
   deleteCustomOrderSound,
   isAudioFile,
   loadOrderSoundPrefs,
   pickCustomSoundViaFileSystemAccess,
-  previewOrderSound,
   saveCustomOrderSoundBlob,
   saveCustomOrderSoundHandle,
   saveOrderSoundPrefs,
+  stopOrderSound,
 } from "@/shared/orderSound";
 
 const props = defineProps<{
@@ -23,6 +25,7 @@ const props = defineProps<{
 const prefs = reactive<OrderSoundPrefs>(loadOrderSoundPrefs());
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const picking = ref(false);
+const { playing, preview } = useOrderSoundPlayer();
 
 const presetOptions: { value: OrderSoundPresetId; label: string }[] = [
   ...Object.entries(ORDER_SOUND_PRESET_LABELS).map(([value, label]) => ({
@@ -45,6 +48,11 @@ function persist() {
 
 watch(prefs, persist, { deep: true });
 
+watch(() => prefs.enabled, (enabled) => {
+  if (!enabled)
+    void stopOrderSound();
+});
+
 onMounted(() => {
   Object.assign(prefs, loadOrderSoundPrefs());
 });
@@ -52,6 +60,7 @@ onMounted(() => {
 async function applyCustomFile(file: File, source: "blob" | "handle", handle?: FileSystemFileHandle) {
   const userName = currentOrderSoundUserName();
   await deleteCustomOrderSound(userName);
+  clearOrderSoundCustomCache(userName);
   if (source === "handle" && handle)
     await saveCustomOrderSoundHandle(userName, handle);
   else
@@ -107,7 +116,9 @@ async function clearCustomFile() {
   if (props.readonly)
     return;
   try {
-    await deleteCustomOrderSound(currentOrderSoundUserName());
+    const userName = currentOrderSoundUserName();
+    await deleteCustomOrderSound(userName);
+    clearOrderSoundCustomCache(userName);
     prefs.customFileName = undefined;
     prefs.customSource = undefined;
     if (prefs.presetId === "custom")
@@ -125,10 +136,11 @@ async function onPreview() {
     return;
   persist();
   try {
-    await previewOrderSound();
+    await preview();
   }
   catch {
-    ElMessage.warning("无法播放，请先选择文件并点击试听，或检查浏览器是否静音");
+    if (!playing.value)
+      ElMessage.warning("无法播放，请先选择文件并点击试听，或检查浏览器是否静音");
   }
 }
 </script>
@@ -165,10 +177,11 @@ async function onPreview() {
       </el-select>
       <el-button
         class="order-sound-settings__preview"
+        :type="playing ? 'danger' : 'default'"
         :disabled="readonly"
         @click="onPreview"
       >
-        试听
+        {{ playing ? "停止" : "试听" }}
       </el-button>
     </el-form-item>
 

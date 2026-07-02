@@ -26,10 +26,16 @@ export {
   saveCustomOrderSoundBlob,
   saveCustomOrderSoundHandle,
 } from "./customStore";
+export type { OrderSoundPurpose, OrderSoundSession } from "./engine";
+export { getOrderSoundEngine } from "./engine";
 export {
+  clearOrderSoundCustomCache,
+  isOrderSoundPlaying,
   isOrderSoundUnlocked,
   playOrderSuccessSound,
   previewOrderSound,
   resetOrderSoundStateForTests,
   shouldPlayDebounced,
+  stopOrderSound,
+  subscribeOrderSoundState,
 } from "./player";
