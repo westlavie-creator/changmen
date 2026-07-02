@@ -6,6 +6,7 @@ import { BetResult } from "@/models/betResult";
 import { publishBettingEvent } from "@/realtime/publishBetting";
 import { getProvider } from "@/runtime/providers";
 import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify";
+import { playOrderSuccessSound } from "@/shared/orderSound";
 import { useMessageStore } from "@/stores/messageStore";
 
 export async function checkBetting(
@@ -102,6 +103,7 @@ export async function placeBet(
     useMessageStore().delayMessage(account, Date.now() - beginTime);
     result.saveLog(account, beginTime);
     if (result.success) {
+      void playOrderSuccessSound({ betRowId: option.betId });
       void publishBettingEvent(option);
     }
   }

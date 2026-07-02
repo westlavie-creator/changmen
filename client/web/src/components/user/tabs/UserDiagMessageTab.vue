@@ -3,6 +3,7 @@ import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { sendMessage } from "@/api/esport";
+import OrderSoundSettings from "@/components/user/OrderSoundSettings.vue";
 import { TELEGRAM_BOT_NAME, TELEGRAM_BOT_URL } from "@/config/gamebetExtension";
 import { useUserStore } from "@/stores/userStore";
 import { NOTIFY_TYPES } from "@/types/notifyTypes";
@@ -97,6 +98,9 @@ async function testTelegram() {
         {{ TELEGRAM_BOT_NAME }}
       </el-link>
     </el-form-item>
+
+    <OrderSoundSettings />
+
     <div class="flex flex-center">
       <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
         &nbsp;保存
