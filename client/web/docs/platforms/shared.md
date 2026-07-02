@@ -1,5 +1,7 @@
 ﻿# 共享采集工具
 
+源码在 **`client/venue-adapter/shared/`**（Vite `@venue/shared/...`），不在 `client/web/src/`。
+
 ## collectSession.ts
 
 `resolveCollectSession(provider, opts)` — 为 **PB / IMT / SABA** 等需要登录态 HTTP 的平台解析：
@@ -20,9 +22,16 @@
 | `A8_MATCH_MAX_FUTURE_MS` | 3600s，开赛不得超过「现在 +1h」 |
 | `IM_ODDS_ACTIVE_MS` | 3h，IM 无 Socket 推送则不再输出 |
 | `normalizeEpochMs` | 秒/毫秒时间戳归一 |
-| `a8StartTimeCollectAllowed` | 采集侧是否允许该开赛时间 |
+| `a8StartTimeCollectAllowed` | **[A8 可证实]** 采集侧是否允许该开赛时间（仅未来 1h 上限，**无过去下限**） |
 
-后端镜像：`packages/shared/time/match_time.mjs`。
+后端镜像：`packages/shared/time/match_time.ts`。
+
+### Polymarket 采集窗 [changmen 扩展]
+
+A8 无 Polymarket。PM 不用 `a8StartTimeCollectAllowed`，单独 **过去 6h、未来 1h**：
+
+- 客户端：`venue-adapter/polymarket/api.ts` → `polymarketCollectStartTimeAllowed`
+- 服务端 Gamma 拉盘：`server/polymarket-sports/gamma_map.js`
 
 ## 游戏目录
 

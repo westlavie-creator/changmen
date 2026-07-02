@@ -1,10 +1,10 @@
 # @changmen/platform-probes
 
-**可选**探针包：各平台直连场馆的 Node session/core、调试 CLI。**不是** changmen 主链路（生产采集在 `client/platform-adapter/{platform}/`）。
+**可选**探针包：各平台直连场馆的 Node session/core、调试 CLI。**不是** changmen 主链路（生产采集在 `client/venue-adapter/{platform}/`）。
 
 位于 `changmen/devtools/platform-probes/`（开发工具，非 `server/` 运行时）。
 
-各平台探针专用模块在 `devtools/platform-probes/{platform}/shared/`（与浏览器 `platform-adapter/{platform}/shared/` 分离）。OB 锁盘观察 fixture 工具：`client/platform-adapter/ob/shared/lock_decision.ts` + `npm run ob:lock-observe`。
+各平台探针专用模块在 `devtools/platform-probes/{platform}/shared/`（与浏览器 `venue-adapter/{platform}/shared/` 分离）。OB 锁盘观察 fixture 工具：`client/venue-adapter/ob/shared/lock_decision.ts` + `npm run ob:lock-observe`。
 
 `requirePlatform("OB", "node", "session.js")` → `devtools/platform-probes/ob/session.js`。
 
@@ -31,7 +31,7 @@ npm run sync:backend-bundle --workspace=@changmen/platform-probes
 # → server/backend/platform_node（部署目录名保持历史兼容）
 ```
 
-与 `platform-adapter` 的 sync 成对使用（`server/backend/platform_adapter`）。
+与 `venue-adapter` 的 sync 成对使用（`server/backend/platform_adapter`）。
 
 ## 环境变量
 

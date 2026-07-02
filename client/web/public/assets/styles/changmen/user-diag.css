@@ -69,3 +69,137 @@
   text-align: center;
   line-height: 32px;
 }
+
+/* 排行榜 Tab */
+.rank .item {
+  width: 80px;
+  margin: 10px;
+  text-align: center;
+  cursor: default;
+}
+
+.rank .item .face {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin: auto;
+  border: solid 1px rgba(0, 0, 0, 0.1);
+  background: url(/esport2/assets/AGBmDS2C.jpg) no-repeat;
+  background-size: 100% 100%;
+}
+
+.rank .item .face .name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 80%;
+  text-align: center;
+  transform: scale(0.8);
+  color: #fff;
+  text-shadow: -1px -1px 0 #909399, 1px -1px 0 #909399, -1px 1px 0 #909399, 1px 1px 0 #909399;
+  transition: all 0.25s;
+  white-space: nowrap;
+}
+
+.rank .item .face:hover .name {
+  opacity: 1;
+  top: 50%;
+  color: #f56c6c;
+  text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+  transform: scale(1.2);
+}
+
+.rank .item .profit {
+  padding: 5px 0;
+  font-size: 14px;
+}
+
+.rank .item .face:before {
+  position: absolute;
+  width: 100%;
+  height: 25px;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center bottom;
+  left: 50%;
+  transform: translate(-50%);
+  top: -15px;
+}
+
+.rank .item.boss .face {
+  background-image: url(/esport2/assets/Dm73QvT9.png);
+}
+
+.rank .item.boss .face:hover {
+  background-image: url(/esport2/assets/BPSxF6Ty.webp);
+}
+
+.rank .item.boss .face:before {
+  content: "";
+  background-image: url(/esport2/assets/CK2o8M83.png);
+}
+
+.rank .item.loser .face {
+  background-image: url(/esport2/assets/CGaKWqIb.png);
+}
+
+.rank .item.loser:last-child .face:hover {
+  background-image: url(/esport2/assets/BXonKt42.webp);
+}
+
+.rank .item.loser:last-child .face:before {
+  content: "";
+  background-image: url(/esport2/assets/BhIAosWr.png);
+}
+
+/* 钱包 Tab */
+.wallets {
+  padding-top: 12px;
+  gap: 10px;
+}
+
+.wallets .name {
+  width: 150px;
+}
+
+.wallets .balance {
+  width: 120px;
+}
+
+.wallets .action {
+  padding-left: 10px;
+}
+
+/* 聊天 Tab */
+.tags {
+  padding-bottom: 12px;
+}
+
+.tags .gap-10 {
+  gap: 10px;
+}
+
+.message {
+  padding-bottom: 12px;
+}
+
+.message .content {
+  padding-top: 4px;
+  padding-left: 12px;
+  vertical-align: bottom;
+}
+
+/* 采集配置：信用盘入口 */
+.credit {
+  gap: 32px;
+}
+
+.credit .provider-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.credit .name {
+  margin-left: 6px;
+}

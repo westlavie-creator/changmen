@@ -1,6 +1,6 @@
 # 新平台模板
 
-新平台落在 `client/platform-adapter/{dir}/`（dir 见 manifest）。
+新平台落在 `client/venue-adapter/{dir}/`（dir 见 manifest）。
 
 ## 步骤
 

@@ -4,7 +4,7 @@ A8 采集：**HTTP（Zn）+ Socket.IO WebSocket**（扩展 HTTP + `/esport/ws/IA
 
 浏览器主实现与文档见：
 
-- `client/platform-adapter/ia/`
+- `client/venue-adapter/ia/`
 - `client/web/docs/platforms/IA.md`
 
 ## 数据流（A8 对齐）

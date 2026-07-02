@@ -54,7 +54,7 @@
 | [`server/backend/`](./server/backend/) | **服务端**：esport-api、WS relay、静态托管 |
 | [`server/matcher/`](./server/matcher/) | **服务端**：跨平台赛事合并（写 `client_matches`） |
 | [`client/chrome-extension/`](./client/chrome-extension/) | Chrome 扩展（Gamebet 协议，代发 HTTP / v4 等） |
-| [`client/platform-adapter/`](./client/platform-adapter/) | 各平台采集/下注（`collect.ts` / `bet.ts` + 可选 `shared/`） |
+| [`client/venue-adapter/`](./client/venue-adapter/) | 各平台采集/下注（`collect.ts` / `bet.ts` + 可选 `shared/`） |
 | [`packages/shared/`](./packages/shared/) · [`packages/api-contract/`](./packages/api-contract/) | 跨端工具与 HTTP 契约 |
 | [`server/db/`](./server/db/) · [`server/match-engine/`](./server/match-engine/) 等 | 服务端库（RDS、合并算法、平台 node 等） |
 | [`../A8/`](../A8/) | A8 原版参考（bundle + 官方插件拷贝，与 `changmen` 并列） |
@@ -74,7 +74,7 @@ npm run app:dev      # 新控制台 dev → Vite 5274（Win）/ 5174（其它）
 
 **生产部署**：[PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 
-迁移阶段与模块对照见 [client/web/MIGRATION.md](./client/web/MIGRATION.md)。文档索引：[docs/README.md](./docs/README.md)。Monorepo 结构见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)。
+迁移阶段与模块对照见 [client/web/MIGRATION.md](./client/web/MIGRATION.md)。文档索引：[docs/README.md](./docs/README.md)。Monorepo 结构见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)；服务端包见 [server/README.md](./server/README.md)。
 
 **OB / RAY 与 A8 行为对照**（Token 获取、数据采集、下注）：[client/web/docs/platforms/A8_COMPARE_OB_RAY.md](./client/web/docs/platforms/A8_COMPARE_OB_RAY.md)。
 
@@ -82,7 +82,7 @@ npm run app:dev      # 新控制台 dev → Vite 5274（Win）/ 5174（其它）
 
 **TF 与 A8 行为对照**（`Client_GetCollectPlatform`、form-urlencoded、`$3`/`ly` 头、30s HTTP + WS、下注）：[client/web/docs/platforms/A8_TF_LOGIC_PARITY.md](./client/web/docs/platforms/A8_TF_LOGIC_PARITY.md)。
 
-平台采集 canonical 源码目录：`client/platform-adapter/{平台}/`（Vite 别名 `@platform`）。下文表格已按此路径更新；更深处历史章节若仍出现 `collectors/` 或旧名 `client/platform-adapter/` 请以本目录为准。
+平台采集 canonical 源码目录：`client/venue-adapter/{平台}/`（Vite 别名 `@venue`）。历史目录名 `platform-adapter` 已更名为 `venue-adapter`；更深处若仍出现 `collectors/` 等旧路径以本目录为准。
 
 ---
 
@@ -91,7 +91,7 @@ npm run app:dev      # 新控制台 dev → Vite 5274（Win）/ 5174（其它）
 各平台采集在**客户端**完成，经 HTTP 上报服务端。
 
 ```text
-client/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► RDS
+client/venue-adapter（浏览器 @venue） ──► API_SaveMatch / API_SaveBet ──► 服务端 ──► RDS
 服务端 matcher ──► client_matches ──► Client_GetMatchs ──► 客户端 matchStore
 客户端 oddsStore（实时赔，对齐 A8 fo）
 ```
@@ -100,26 +100,34 @@ client/platform-adapter（浏览器 @platform） ──► API_SaveMatch / API_S
 
 | 平台 | 源码 | 机制 | 凭证要求 |
 |------|------|------|----------|
-| OB | `client/platform-adapter/ob/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
-| RAY | `client/platform-adapter/ray/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `devtools/platform-probes/ray/collect_credentials.js`） |
-| TF | `client/platform-adapter/tf/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
-| IA | `client/platform-adapter/ia/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
-| PB | `client/platform-adapter/pb/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
-| IMT | `client/platform-adapter/imt/collect.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
-| SABA | `client/platform-adapter/saba/collect.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
-| IM | `client/platform-adapter/im/collect.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
-| XBet | `client/platform-adapter/xbet/collect.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
-| Stake | `client/platform-adapter/stake/collect.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
-| HG | `client/platform-adapter/hg/collect.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
+| OB | `client/venue-adapter/ob/collect.ts` | MQTT（`/esport/ws/OB`）+ HTTP `game/index` | `gateway` + `token` |
+| RAY | `client/venue-adapter/ray/collect.ts` | SocketCluster + HTTP `/v2/match`、`/v2/odds` | `gateway` + `token`（API **强制** A8 写死凭证，见 `devtools/platform-probes/ray/collect_credentials.js`） |
+| TF | `client/venue-adapter/tf/collect.ts` | WS `/esport/ws/TF` + HTTP `/api/v8/events` | `gateway` + `token` |
+| IA | `client/venue-adapter/ia/collect.ts` | Socket.IO `/esport/ws/IA` + HTTP | `gateway` + `token` |
+| PB | `client/venue-adapter/pb/collect.ts` | 5s 轮询 euro odds，60s 存盘 | `gateway` + 嵌套 JSON `token` |
+| IMT | `client/venue-adapter/imt/collect.ts` | 60s 全量 + 1s delta | `gateway` + `token`（及 referer / x-sc 等） |
+| SABA | `client/venue-adapter/saba/collect.ts` | 电竞页 HTML 解析 + SABA Socket.IO | `gateway` + 页面 path `token` |
+| IM | `client/venue-adapter/im/collect.ts` | A8 聚合 Socket 频道 `IM` | `gateway`（`47.115.75.57`）；token 可选 |
+| XBet | `client/venue-adapter/xbet/collect.ts` | A8 频道 `XBet` + `XBet:Score` | 同上 |
+| Stake | `client/venue-adapter/stake/collect.ts` | GraphQL 快照 + A8 频道 `Stake` | `accessToken`（GraphQL `x-access-token`） |
+| HG | `client/venue-adapter/hg/collect.ts` | **占位**（无标准电竞赔率流，对齐 A8 `SQ` 跟单） | 无采集凭证 |
+| Polymarket | `client/venue-adapter/polymarket/collect.ts` | Gamma API + CLOB WS | 账号 API 凭证；**[changmen 扩展]** A8 无此场馆 |
+
+### 采集开赛时间窗
+
+| 范围 | 规则 |
+|------|------|
+| **A8 平台** | 仅拒绝「现在 +1h」之后的开赛；**无过去下限**（`a8StartTimeCollectAllowed`，见 `packages/shared/time/match_time.ts`） |
+| **Polymarket** [changmen 扩展] | 过去 **6h**、未来 **1h**（`venue-adapter/polymarket/api.ts`；服务端 `server/polymarket-sports/gamma_map.js` 同步） |
 
 公共模块：
 
 | 模块 | 路径 | 说明 |
 |------|------|------|
-| 采集会话 | `client/platform-adapter/shared/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
+| 采集会话 | `client/venue-adapter/shared/collectSession.ts` | 优先平台账号（可要求有余额），回退 `Client_GetCollectPlatform` |
 | HTTP 采集 | `client/web/src/shared/http.ts` | OB/RAY/TF/IA/IMT/PB/SABA/Stake 直连；CORS 失败走 relay / proxy |
-| A8 Socket hub | `client/platform-adapter/shared/socket/hub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
-| A8 盘口聚合 | `client/platform-adapter/shared/socket/collector.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
+| A8 Socket hub | `client/venue-adapter/shared/socket/hub.ts` | 共享 Socket.IO（`https://47.115.75.57`，header `token` = 控制台登录 token） |
+| A8 盘口聚合 | `client/venue-adapter/shared/socket/collector.ts` | IM / XBet / Stake 的 `{ bets: [...] }` → oddsStore + saveMatch |
 
 ### 凭证存储：`server/backend/data/esport/platforms.json`
 

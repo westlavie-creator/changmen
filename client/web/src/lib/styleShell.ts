@@ -10,7 +10,6 @@ export const CHANGMEN_STYLE_HREFS = [
   "/assets/styles/changmen/login-carousel.css",
   "/assets/styles/changmen/tokens.css",
   "/assets/styles/changmen/layout.css",
-  "/assets/styles/changmen/misc.css",
   "/assets/styles/changmen/ep-fallback.css",
   "/assets/styles/changmen/am-icon.css",
   "/assets/styles/changmen/platform-icons.css",

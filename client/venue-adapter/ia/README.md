@@ -1,6 +1,6 @@
 # IA
 
-浏览器主链路：`client/platform-adapter/ia/`（采集 `wQe` + 下注 `CYe`）。
+浏览器主链路：`client/venue-adapter/ia/`（采集 `wQe` + 下注 `CYe`）。
 
 | 文件 | 用途 |
 |------|------|

@@ -10,8 +10,8 @@
 ┌──────────────────────────────────────────────────────────────────────┐
 │ ① 本系统 API     api/ + types/       →  server/backend /esport、/v4.0 │
 │ ② 比赛列表       matcher → client_matches（浏览器 saveMatch 上报）   │
-│ ③ 赔率上报       client/platform-adapter/{平台}/collect.ts → SaveBet（+ fo）        │
-│ ④ 平台下注       client/platform-adapter/{平台}/bet.ts  →  场馆 gateway + 账号 token │
+│ ③ 赔率上报       client/venue-adapter/{平台}/collect.ts → SaveBet（+ fo）        │
+│ ④ 平台下注       client/venue-adapter/{平台}/bet.ts  →  场馆 gateway + 账号 token │
 │ ⑤ UI 编排        stores/ + views/ + components/                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -23,28 +23,29 @@
 | `types/` | DTO、用户配置、纯类型 | `types/collect.ts`, `types/esport.ts` |
 | `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
 | `domain/` | **套利/下注纯逻辑**（无 Pinia、可单测） | `domain/arbitrage`, `domain/betting` |
-| `client/platform-adapter/` | **平台清单、能力与平台实现**（Vite `@platform`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
+| `client/venue-adapter/` | **平台清单、能力与平台实现**（Vite `@venue`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
 | `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp` |
 | `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts`, `runtime/appSession.ts` |
-| `client/platform-adapter/{id}/collect.ts` | **赔率上报链路** | `start*Collector` |
-| `client/platform-adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
-| `client/platform-adapter/{id}/bet.ts` | **下注** | `obProvider` 等 |
+| `client/venue-adapter/{id}/collect.ts` | **赔率上报链路** | `start*Collector` |
+| `client/venue-adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
+| `client/venue-adapter/{id}/bet.ts` | **下注** | `obProvider` 等 |
 | `stores/` | Pinia 状态与编排 | `matchStore`, `accountStore`, `bettingStore` |
-| `client/platform-adapter/hg/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
+| `client/venue-adapter/hg/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
 
-**原则**：`bet.ts` 不依赖 `collect.ts`；二者都可用 `shared/`，但 `bet.ts` 不应依赖 `platforms/shared/`（采集专用）。
+**原则**：`bet.ts` 不依赖 `collect.ts`；二者都可用 `src/shared/`，但 `bet.ts` 不应依赖 `venue-adapter/shared/`（采集专用）。
 
-### 平台能力矩阵（`client/platform-adapter/registry/adapters.ts`）
+### 平台能力矩阵（`client/venue-adapter/registry/adapters.ts`）
 
 | 平台 | 采集 | 下注 | 备注 |
 |------|------|------|------|
 | OB / IM / RAY / TF / IA / SABA / PB / IMT / HG | ✓ | ✓ | |
 | XBet | ✓ | — | A8 Socket 频道，无 provider |
 | Stake | ✓ | ✓* | *`pluginOnly`：需 Chrome 扩展 + stake.com tab；`stakeProvider` 已实现 GraphQL 下单 |
+| Polymarket | ✓ | ✓ | **[changmen 扩展]** A8 无此场馆；采集开赛窗过去 6h（见下） |
 
-`ALL_PLATFORMS`、`PLATFORMS` 均从 `@platform/registry` 导出；新增平台时改 `client/platform-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
+`ALL_PLATFORMS`、`PLATFORMS` 均从 `@venue/registry` 导出；新增平台时改 `client/venue-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
 
-账号鉴权（与采集解耦）：`client/platform-adapter/pb/auth.ts`、`client/platform-adapter/tf/auth.ts` ← `platformHttp` 与采集侧共同使用。
+账号鉴权（与采集解耦）：`client/venue-adapter/pb/auth.ts`、`client/venue-adapter/tf/auth.ts` ← `platformHttp` 与采集侧共同使用。
 
 ---
 
@@ -53,7 +54,7 @@
 ### 比赛列表（后端入库，Changmen 主路径）
 
 ```
-浏览器 saveMatch / saveBet（`client/platform-adapter` / `@platform` 采集）
+浏览器 saveMatch / saveBet（`client/venue-adapter` / `@venue` 采集）
          ──► API_SaveMatch / API_SaveBet
          ──► matcher → client_matches
          ──► Client_GetMatchs
@@ -65,7 +66,7 @@
 ### 赔率上报（前端）
 
 ```
-场馆 API / WS / MQTT ──► platforms/{平台}/collect.ts
+场馆 API / WS / MQTT ──► venue-adapter/{平台}/collect.ts
          ──► 解析为 CollectBetDto（+ 本地 oddsStore）
          ──► collectStore.saveBets（开关控制）
          ──► api/esport API_SaveBet
@@ -80,7 +81,7 @@
 
 ```
 UI 点击 ──► accountStore.checkBetting / betting
-        ──► platforms/{平台}/bet.ts (checkBet / betting / getBalance)
+        ──► venue-adapter/{平台}/bet.ts (checkBet / betting / getBalance)
         ──► shared/platformHttp (账号 gateway + token + 代理)
         ──► 场馆 API
 ```
@@ -207,12 +208,19 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `http.ts` | 采集直连 `directGet` / `directPostJson`（**Axios**，非 fetch） |
 | `platformHttp.ts` | **投注账号** HTTP（OB/RAY/TF…；Axios + 可选 relay） |
 | `betTiming.ts` | 下注通知时长、`lastOdds`、`BETCOUNT`（对齐 A8 `T()`） |
-| `a8MatchTime.ts` | 采集开赛时间窗（复用 `@changmen/shared` + 过去 12h 下限） |
+| `a8MatchTime.ts` | A8 采集开赛窗 re-export（仅未来 1h 上限，无过去下限）；见下「采集开赛时间窗」 |
 | `arbBetTraceFormat.ts` | trace 事件文案（`formatBetResult` / `formatLegAccount`） |
 | `winRate.ts` | WinRate 排序（`betSorting: WinRate`） |
 | `bracketForm.ts` | 嵌套 form-urlencoded（SABA 等） |
 
-### `platforms/{平台}/`（扁平结构）
+### 采集开赛时间窗
+
+| 范围 | 规则 | 实现 |
+|------|------|------|
+| **A8 平台**（OB/IM/TF/…） | 仅拒绝「现在 +1h」之后的开赛；**无过去下限**（已开赛只要平台仍返回就保留） | `shared/a8MatchTime.ts` → `@changmen/shared/time/match_time` 的 `a8StartTimeCollectAllowed` |
+| **Polymarket** [changmen 扩展] | 过去 **6h**、未来 **1h** | `venue-adapter/polymarket/api.ts` 的 `polymarketCollectStartTimeAllowed`；服务端 `server/polymarket-sports/gamma_map.js` 同步 |
+
+### `venue-adapter/{平台}/`（扁平结构）
 
 采集与下注文件与平台目录同级，无 `collector/` / `provider/` 子目录：
 
@@ -228,7 +236,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 `bet.ts` 使用各 venue adapter 内的 `accountHttp.ts`，底层可复用 `@/shared/platformHttp` 的通用 http-relay；不要把平台特化 headers/paths 放回 shared。
 
-### `platforms/shared/`
+### `venue-adapter/shared/`
 
 | 路径 | 用途 |
 |------|------|
@@ -254,10 +262,10 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 ## 新增平台 Checklist
 
 1. `types/esport.ts` — `PlatformId`（若尚未存在）
-2. `platforms/registry.ts` — `PLATFORM_REGISTRY` 一条
-3. `platforms/{平台}/collect.ts` — `startXxxCollector()`
-4. `platforms/{平台}/bet.ts` — `xxxProvider`（实现 `PlatformProvider`）
-5. `platforms/{平台}/index.ts` — 导出 `PlatformAdapter`
+2. `venue-adapter/registry/manifest.json` + `adapters.ts` — 注册一条 adapter
+3. `venue-adapter/{平台}/collect.ts` — `startXxxCollector()`
+4. `venue-adapter/{平台}/bet.ts` — `xxxProvider`（实现 `PlatformProvider`）
+5. `venue-adapter/{平台}/index.ts` — 导出 `PlatformAdapter`
 6. `runtime/collectors.ts` / `runtime/providers.ts` — 注册 adapter
 7. `server/backend` — `platform_sync.js` 加 `syncXxxFromEnv` 并在 `ensurePlatformCredentials` 中调用
 8. UI — 采集开关、账号卡片（通常随 `ALL_PLATFORMS` 自动出现）

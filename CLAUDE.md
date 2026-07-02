@@ -103,7 +103,7 @@ changmen/
 ├── client/
 │   ├── web/                Vue 3 + Vite (base /)
 │   ├── chrome-extension/   Chrome MV3
-│   └── platform-adapter/   @changmen/platform-adapter
+│   └── venue-adapter/   @changmen/venue-adapter
 ├── server/
 │   ├── backend/            Node.js ESM，port 3560 (Win) / 3456
 │   ├── matcher/            matchMerge 循环 + 人工关联 Web
@@ -123,7 +123,7 @@ changmen/
 
 | 目录 | 可 require |
 |------|------------|
-| `server/backend` | `packages/shared/*`、`client/platform-adapter`（`adapter_paths` / `reqS`） |
+| `server/backend` | `packages/shared/*`、`client/venue-adapter`（`adapter_paths` / `reqS`） |
 | `server/matcher` | `server/match-engine`、`packages/shared/*`、`@changmen/team-resolver` |
 
 `Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`（由 `server/matcher` **matchMerge** 写入）。
@@ -136,9 +136,9 @@ changmen/
 |---|---|---|
 | 入口 | `server.js`、`http_routes.js`、`proxy/` | HTTP server + HTTP 代理 |
 | Core | `core/` | 业务逻辑：路由/store/账号/DB/shared utils |
-| Platform | `client/platform-adapter/`（`@changmen/platform-adapter`） | 各场馆 collect/bet + registry（canonical） |
+| Platform | `client/venue-adapter/`（`@changmen/venue-adapter`） | 各场馆 collect/bet + registry（canonical） |
 
-后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` 加载平台模块。详见 `client/platform-adapter/README.md`。
+后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` 加载平台模块。详见 `client/venue-adapter/README.md`。
 
 **入口：** `node server.js` — HTTP server、HTTP 代理、esport-api
 
@@ -175,12 +175,12 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 |-----------|------|
 | `api/` | All `Client_*` HTTP calls to the backend (`client.ts` wraps token + `post()`) |
 | `runtime/` | `collectors.ts` + `providers.ts` — wired at app startup; registers all adapters |
-| `@platform/*` | Vite alias → `client/platform-adapter/`（canonical 采集/下注源码） |
-| `client/platform-adapter/registry/adapters.ts` | `PLATFORM_ADAPTERS` + `buildCollectorFactories()` |
+| `@venue/*` | Vite alias → `client/venue-adapter/`（canonical 采集/下注源码） |
+| `client/venue-adapter/registry/adapters.ts` | `PLATFORM_ADAPTERS` + `buildCollectorFactories()` |
 | `stores/` | 10 Pinia stores; `matchStore` owns the polling loop; `oddsStore` is the real-time odds cache (`fo`) |
 | `shared/http.ts` | `directGet` / `directPostJson` — Axios for collect HTTP (bypasses backend proxy) |
 | `shared/platformHttp.ts` | Axios for betting account HTTP (supports relay, optional SOCKS proxy) |
-| `client/platform-adapter/shared/` | 采集横切：`collectSession`、`collectNotify`、`socket/`（A8 频道 IM/XBet/Stake） |
+| `client/venue-adapter/shared/` | 采集横切：`collectSession`、`collectNotify`、`socket/`（A8 频道 IM/XBet/Stake） |
 
 `@` alias maps to `src/`.
 
@@ -245,9 +245,9 @@ All A8 parity tracking lives under `client/web/docs/`:
 ### Adding a new platform
 
 1. `types/esport.ts` — add to `PlatformId`
-2. `client/platform-adapter/registry/` — register in `adapters.ts` + platform meta
-3. `client/platform-adapter/{id}/` — `index.ts` + `collect.ts` + `bet.ts`；探针在 `devtools/platform-probes/{dir}/`
+2. `client/venue-adapter/registry/` — register in `adapters.ts` + platform meta
+3. `client/venue-adapter/{id}/` — `index.ts` + `collect.ts` + `bet.ts`；探针在 `devtools/platform-probes/{dir}/`
 4. `runtime/collectors.ts` + `runtime/providers.ts` — 经 `buildCollectorFactories()` 自动注册（新平台需加入 registry）
 5. Backend: add `syncXxxFromEnv` / `syncXxxFromSession` in `platform_sync.js` and call it in `ensurePlatformCredentials`
 
-详见 [client/platform-adapter/README.md](./client/platform-adapter/README.md)。
+详见 [client/venue-adapter/README.md](./client/venue-adapter/README.md)。

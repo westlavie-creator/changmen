@@ -1,6 +1,6 @@
 # client/web 文档索引
 
-最后更新：2026-06-16
+最后更新：2026-07-02
 
 ## 项目共识
 
@@ -60,7 +60,7 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 
 ---
 
-## 平台与采集（`client/platform-adapter/`）
+## 平台与采集（`client/venue-adapter/`）
 
 | 文档 | 用途 |
 |------|------|

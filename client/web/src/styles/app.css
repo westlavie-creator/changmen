@@ -87,9 +87,38 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+.date {
+  padding: 10px;
+}
+
 .login-error {
   margin: 0 0 8px;
   color: #f56c6c;
   font-size: 13px;
   text-align: center;
+}
+
+/* 月报 / 用户概览盈亏展示 */
+.moneyValue {
+  color: var(--cm-color-info, #909399);
+}
+
+.moneyValue.win {
+  color: var(--cm-color-success, #67c23a);
+}
+
+.moneyValue.lose {
+  color: var(--cm-color-danger, #f56c6c);
+}
+
+.hacked {
+  color: red;
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+.report {
+  text-align: center;
+  padding: 0 0 10px;
 }

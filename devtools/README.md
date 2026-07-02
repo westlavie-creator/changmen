@@ -6,4 +6,4 @@
 |------|--------|------|
 | `platform-probes/` | `@changmen/platform-probes` | 直连各平台 HTTP/MQTT 探针 CLI（可选） |
 
-主链路采集见 `client/platform-adapter/{platform}/`（`collect.ts` / `bet.ts`）。OB 锁盘观察见 `client/platform-adapter/ob/shared/lock_decision.ts`。
+主链路采集见 `client/venue-adapter/{platform}/`（`collect.ts` / `bet.ts`）。OB 锁盘观察见 `client/venue-adapter/ob/shared/lock_decision.ts`。

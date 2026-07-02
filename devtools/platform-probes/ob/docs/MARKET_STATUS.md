@@ -2,7 +2,7 @@
 
 本文档说明如何判断 OB 盘口是否可投注，以及 HTTP / MQTT 各字段与内部 `locked` 的对应关系。
 
-> **锁盘观察（日常）**：`client/platform-adapter/ob/shared/lock_decision.ts` + `npm run ob:lock-observe`（fixture）。  
+> **锁盘观察（日常）**：`client/venue-adapter/ob/shared/lock_decision.ts` + `npm run ob:lock-observe`（fixture）。  
 > **适用范围**：主要描述 `core.js`（CLI / `applyMqttPayload`）。**生产 UI** 使用 `mqtt.ts`…
 
 相关代码：`node/core.js`（`isMarketLocked`、`describeMarketStatus`、`applyMqttPayload`）  
@@ -170,7 +170,7 @@ node scripts/platforms/ob/probe_market_status.js --matches 10 --stages 0,1
 ## 8. 调试命令
 
 ```bat
-cd changmen/client/platform-adapter
+cd changmen/client/venue-adapter
 npm run ob:view -- --match <matchId> --stage 0
 node node/ob/scripts/probe_market_status.js
 npm run ob:mqtt -- --match <matchId> --stage 0 --duration 120

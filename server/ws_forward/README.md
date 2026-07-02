@@ -25,7 +25,7 @@ Vite dev：HTTP 走 `5274/esport` 代理；**实时 WS 直连** `http://127.0.0.
 1. 在 `platforms/` 增加定义（`socket.io` 或 `raw-ws`）
 2. `registerPlatformForward` 注册
 3. 在 `server/backend/server.js` 的 `attachWsForward` 增加平台 id
-4. 在 `platform-adapter` 增加 `changmen` 出口与 failover
+4. 在 `venue-adapter` 增加 `changmen` 出口与 failover
 
 ## 测试
 

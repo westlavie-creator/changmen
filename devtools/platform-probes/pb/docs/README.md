@@ -67,7 +67,7 @@ npm run web
 
 
 
-浏览器采集：`client/platform-adapter/pb/` �?`API_SaveMatch` / `API_SaveBet`；余�?下单通过 **Chrome 插件** 代发（需安装插件并在平博页保持登录）�?
+浏览器采集：`client/venue-adapter/pb/` �?`API_SaveMatch` / `API_SaveBet`；余�?下单通过 **Chrome 插件** 代发（需安装插件并在平博页保持登录）�?
 
 
 
@@ -203,7 +203,7 @@ npm run pb:balance
 
 | 凭证采集 | 插件 GetConfig �?data | 同上，手动粘�?�?import-platform |
 
-| 赔率采集 | `bQ` �?euro/odds | 浏览�?`client/platform-adapter/pb/` |
+| 赔率采集 | `bQ` �?euro/odds | 浏览�?`client/venue-adapter/pb/` |
 | 写入 store | `API_SaveMatch` / `API_SaveBet` | 同上（CollectConfig 开时） |
 | 余额/下单 | 插件代发 | 插件（`ENABLE_PB_NODE=1` 时改 proxy，仅 /console/�?|
 

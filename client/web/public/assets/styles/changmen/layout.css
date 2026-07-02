@@ -17,6 +17,10 @@ body {
   box-sizing:border-box;font-family:var(--cm-font-body, asus);
 }
 
+p {
+  margin: 0;
+}
+
 .checking #app {
   text-align:center;
 }

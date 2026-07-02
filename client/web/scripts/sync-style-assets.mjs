@@ -15,7 +15,6 @@ export const CHANGMEN_STYLE_MAP = [
   ["login-carousel.css", "login-carousel.css"],
   ["tokens.css", "tokens.css"],
   ["layout.css", "layout.css"],
-  ["misc.css", "misc.css"],
   ["ep-fallback.css", "ep-fallback.css"],
   ["am-icon.css", "am-icon.css"],
   ["platform-icons.css", "platform-icons.css"],

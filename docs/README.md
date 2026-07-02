@@ -7,6 +7,7 @@
 | 文档 | 内容 |
 |------|------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Monorepo 结构、`client/*` / `server/*` / `packages/*`、数据流、**本地开发端口** |
+| [../server/README.md](../server/README.md) | **服务端包索引**、进程图、常用命令 |
 | [DATA_STORAGE.md](./DATA_STORAGE.md) | 云库 vs 本机 JSON、迁移目录、快照生命周期与 archive |
 | [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) | 客户端 / 服务端目录边界 |
 | [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) | 生产拓扑、环境变量、PM2 |
@@ -16,11 +17,12 @@
 
 | 路径 | 文档 |
 |------|------|
+| `server/` | [README.md](../server/README.md) — 包索引与进程图 |
 | `server/backend` | [README.md](../server/backend/README.md) · [GAMES.md](../server/backend/GAMES.md) · [MARKETS.md](../server/backend/MARKETS.md) |
 | `client/web` | [README.md](../client/web/README.md) · [MIGRATION.md](../client/web/MIGRATION.md) |
 | `server/matcher` | [README.md](../server/matcher/README.md) |
 | `client/chrome-extension` | [README.md](../client/chrome-extension/README.md) · `npm run chromeplug:pack` |
-| `client/platform-adapter` | [README.md](../client/platform-adapter/README.md) |
+| `client/venue-adapter` | [README.md](../client/venue-adapter/README.md) |
 
 ## 运维脚本
 

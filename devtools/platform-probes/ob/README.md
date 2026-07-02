@@ -2,7 +2,7 @@
 
 本目录为 **直连 OB 场馆�?Node 代码**（登录、HTTP、MQTT 归一化、调试脚本）�?*不是** changmen 服务端（`server/backend`），�?*不是**已删除的历史 ObFeed / Dashboard 采集�?
 
-生产采集见 ../../client/platform-adapter/ob/（浏览器 → API_SaveMatch / API_SaveBet）。
+生产采集见 ../../client/venue-adapter/ob/（浏览器 → API_SaveMatch / API_SaveBet）。
 
 ## 配置
 
@@ -52,7 +52,7 @@ MQTT {mqtt}/...            �? 赔率/锁盘增量（源站网关）
 | `scripts/probe_market_status.js` | 扫描盘口 status 组合 |
 | `scripts/ob_collect_hybrid.js` | HTTP+MQTT 混合采集实验脚本 |
 
-HTTP 锁盘公式与 SaveBet 字段：../../client/platform-adapter/ob/shared/save_bets.ts（浏览器生产路径共用）。
+HTTP 锁盘公式与 SaveBet 字段：../../client/venue-adapter/ob/shared/save_bets.ts（浏览器生产路径共用）。
 
 ## 启动示例
 

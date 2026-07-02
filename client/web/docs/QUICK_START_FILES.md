@@ -2,7 +2,7 @@
 
 > 外行友好：不用背 180 个文件，按你的角色只打开下面几行即可。  
 > 总架构与**依赖基线**见 [`src/ARCHITECTURE.md`](../src/ARCHITECTURE.md)（校验：`npm run analyze:deps`，在 `changmen/` 根目录）。  
-> **平台采集/下注 canonical 源码**在 [`../../../client/platform-adapter/`](../../../client/platform-adapter/README.md)（Vite 别名 `@platform`）。
+> **平台采集/下注 canonical 源码**在 [`../../../client/venue-adapter/`](../../../client/venue-adapter/README.md)（Vite 别名 `@venue`）。
 
 ---
 
@@ -11,8 +11,8 @@
 | 你想… | 文件夹 |
 |--------|--------|
 | 调**你们后端** | `src/api/` + `src/types/` |
-| **抓**各平台赔率 | `../../../client/platform-adapter/{平台}/` |
-| **下单** | `../../../client/platform-adapter/{平台}/bet.ts` + `src/runtime/providers.ts` |
+| **抓**各平台赔率 | `../../../client/venue-adapter/{平台}/` |
+| **下单** | `../../../client/venue-adapter/{平台}/bet.ts` + `src/runtime/providers.ts` |
 | **看页面** | `src/views/` + `src/components/` + `src/stores/` |
 
 实时赔率在内存里：`src/stores/oddsStore.ts`（对齐 A8 的 `fo`）。  
@@ -29,19 +29,19 @@
 | 顺序 | 文件 | 看什么 |
 |------|------|--------|
 | 1 | [`docs/platforms/OB.md`](./platforms/OB.md) | 流程总览 |
-| 2 | [`client/platform-adapter/ob/collect.ts`](../../../client/platform-adapter/ob/collect.ts) | 30s 轮询、`runPool`、何时拉比赛 |
-| 3 | [`client/platform-adapter/ob/markets.ts`](../../../client/platform-adapter/ob/markets.ts) | `game/view` → `oddsStore.save` → `saveBets` |
-| 4 | [`client/platform-adapter/ob/mqtt.ts`](../../../client/platform-adapter/ob/mqtt.ts) | 浏览器直连 OB MQTT、3 个 `/market/*` topic |
+| 2 | [`client/venue-adapter/ob/collect.ts`](../../../client/venue-adapter/ob/collect.ts) | 30s 轮询、`runPool`、何时拉比赛 |
+| 3 | [`client/venue-adapter/ob/markets.ts`](../../../client/venue-adapter/ob/markets.ts) | `game/view` → `oddsStore.save` → `saveBets` |
+| 4 | [`client/venue-adapter/ob/mqtt.ts`](../../../client/venue-adapter/ob/mqtt.ts) | 浏览器直连 OB MQTT、3 个 `/market/*` topic |
 | 5 | [`src/stores/oddsStore.ts`](../src/stores/oddsStore.ts) | `OddsEntry` 结构、`save` / 锁盘 |
 | 6 | [`src/api/match.ts`](../src/api/match.ts) | `saveMatch` / `saveBets` 调后端 |
 
 **后端 / 探针（不在 app 里，但联调常用）**：
 
-- `client/platform-adapter/ob/shared/lock_decision.ts` — `npm run ob:lock-observe`（fixture）
+- `client/venue-adapter/ob/shared/lock_decision.ts` — `npm run ob:lock-observe`（fixture）
 - `devtools/platform-probes/ob/scripts/ob_collect_hybrid.js` — `npm run ob:hybrid`（可选探针）
 - [PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md) — 生产 relay / 双进程
 
-**暂时不用看**：`client/platform-adapter/ob/bet.ts`（那是下注账号，不是采集 token）。
+**暂时不用看**：`client/venue-adapter/ob/bet.ts`（那是下注账号，不是采集 token）。
 
 ---
 
@@ -60,7 +60,7 @@
 **数据从哪进界面**：
 
 ```text
-client/platform-adapter/ob → oddsStore.save
+client/venue-adapter/ob → oddsStore.save
        ↓
 matchStore.refreshOddsOnBets → ViewBetItem.updateOdds
        ↓
@@ -81,7 +81,7 @@ BetRow → item.getOdds()
 | 4 | [`src/types/esport.ts`](../src/types/esport.ts) | `ClientMatchDto`、`BetRowDto` 字段 |
 | 5 | [`src/api/esport.ts`](../src/api/esport.ts) | 统一 export（可选） |
 
-**不用看**：整个 `client/platform-adapter/`（那是浏览器里抓盘，不是后端 REST 定义）。
+**不用看**：整个 `client/venue-adapter/`（那是浏览器里抓盘，不是后端 REST 定义）。
 
 ---
 
@@ -89,9 +89,9 @@ BetRow → item.getOdds()
 
 | 顺序 | 文件 | 看什么 |
 |------|------|--------|
-| 1 | [`client/platform-adapter/registry/adapters.ts`](../../../client/platform-adapter/registry/adapters.ts) | 平台是否注册采集/下注 |
+| 1 | [`client/venue-adapter/registry/adapters.ts`](../../../client/venue-adapter/registry/adapters.ts) | 平台是否注册采集/下注 |
 | 2 | [`src/runtime/collectors.ts`](../src/runtime/collectors.ts) | `buildCollectorFactories()` 启停 |
-| 3 | [`client/platform-adapter/{平台}/collect.ts`](../../../client/platform-adapter/) | 该平台轮询/WS |
+| 3 | [`client/venue-adapter/{平台}/collect.ts`](../../../client/venue-adapter/) | 该平台轮询/WS |
 | 4 | [`docs/platforms/A8_COMPARE_*.md`](./platforms/) | 对齐审计（运维可选） |
 
 ---
@@ -106,10 +106,10 @@ BetRow → item.getOdds()
 | `extensions/notify/arbExecutionTrace.ts`（已删） | `stores/betting/autoBet/arbExecutionTrace.ts` |
 | `extensions/notify/describeArbPrepareSkip.ts`（已删） | `domain/betting/describeArbPrepareSkip.ts` |
 | `matchStore.startPolling()` | `matchStore.startMainLoop()`（HomeView 经 `runtime/appSession.startAppSession`） |
-| `src/collectors/ob/` | `client/platform-adapter/ob/` |
+| `src/collectors/ob/` | `client/venue-adapter/ob/` |
 | `src/collectors/docs/` | `docs/platforms/` |
-| `src/platforms/registry.ts` | `client/platform-adapter/registry/adapters.ts` |
-| `client/platform-adapter/ob/shared/lock_decision.ts` | OB 锁盘对照 + 观察脚本 |
+| `src/platforms/registry.ts` | `client/venue-adapter/registry/adapters.ts` |
+| `client/venue-adapter/ob/shared/lock_decision.ts` | OB 锁盘对照 + 观察脚本 |
 | `devtools/platform-probes/ob/` | OB 可选探针 CLI |
 
 ---
@@ -118,6 +118,6 @@ BetRow → item.getOdds()
 
 | 文件 | 何时读 |
 |------|--------|
-| `client/platform-adapter/ob/matches.ts`（若存在）或 collect 内 HTTP | 从 OB 网站拉 `game/index` |
+| `client/venue-adapter/ob/matches.ts`（若存在）或 collect 内 HTTP | 从 OB 网站拉 `game/index` |
 | `docs/platforms/A8_COMPARE_*.md` | 对齐审计，日常运维不必读 |
-| 其它平台 `client/platform-adapter/pb`、`tf`… | 除非你正在改该平台 |
+| 其它平台 `client/venue-adapter/pb`、`tf`… | 除非你正在改该平台 |
