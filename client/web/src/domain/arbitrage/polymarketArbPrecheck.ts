@@ -1,0 +1,113 @@
+import type { BetOption } from "@/models/betOption";
+import type { PlatformAccount } from "@/models/platformAccount";
+import type { UserConfig } from "@/types/userConfig";
+import {
+  applyArbHedgeStakes,
+  arbBaseStake,
+  impliedFromLegOdds,
+  resolveArbTargetProfit,
+} from "@/domain/arbitrage/arbStakeMath";
+import { PLATFORMS } from "@/shared/platform";
+
+export function arbLegsIncludePolymarket(legA: BetOption, legB: BetOption): boolean {
+  return legA.type === PLATFORMS.Polymarket || legB.type === PLATFORMS.Polymarket;
+}
+
+function betMoneyChanged(before: number, after: number): boolean {
+  return Math.round(before) !== Math.round(after);
+}
+
+export type PolymarketArbPrecheckResult =
+  | {
+    ok: true;
+    legA: BetOption;
+    legB: BetOption;
+    implied: number;
+  }
+  | {
+    ok: false;
+    message: string;
+  };
+
+/**
+ * Polymarket checkBet 会把 option.odds 刷新为 CLOB 盘口价（常高于 fo 检测价）。
+ * 对冲金额须按盘口价重算；仅重检 betMoney 变化的腿，避免 PB 等场馆 option.data 与 stake 脱节。
+ *
+ * 非 PM 双腿套利不进入此路径（对齐 A8：GetOrderOptions 后不再改 betMoney）。
+ */
+export async function reconcilePolymarketArbStakes(params: {
+  legA: BetOption;
+  legB: BetOption;
+  accountA?: PlatformAccount;
+  accountB?: PlatformAccount;
+  config: UserConfig;
+  checkBetting: (account: PlatformAccount, option: BetOption) => Promise<BetOption>;
+}): Promise<PolymarketArbPrecheckResult> {
+  let { legA, legB, accountA, accountB, config, checkBetting } = params;
+
+  const moneyBeforeA = legA.betMoney;
+  const moneyBeforeB = legB.betMoney;
+
+  applyArbHedgeStakes(
+    legA,
+    legB,
+    arbBaseStake(legA, legB, config),
+    config,
+  );
+
+  let implied = impliedFromLegOdds(legA, legB);
+  const targetProfit = resolveArbTargetProfit(config, legA, legB, accountA, accountB);
+  if (implied < targetProfit || implied > config.maxProfit) {
+    return {
+      ok: false,
+      message: `预检后利润 ${implied.toFixed(4)} 未达阈值（要求 ≥ ${targetProfit.toFixed(4)}）`,
+    };
+  }
+
+  const rechecks: Array<{
+    account: PlatformAccount;
+    leg: BetOption;
+    assign: (checked: BetOption) => void;
+  }> = [];
+
+  if (accountA && betMoneyChanged(moneyBeforeA, legA.betMoney)) {
+    rechecks.push({
+      account: accountA,
+      leg: legA,
+      assign: checked => { legA = checked; },
+    });
+  }
+  if (accountB && betMoneyChanged(moneyBeforeB, legB.betMoney)) {
+    rechecks.push({
+      account: accountB,
+      leg: legB,
+      assign: checked => { legB = checked; },
+    });
+  }
+
+  if (rechecks.length) {
+    const rechecked = await Promise.all(
+      rechecks.map(({ account, leg }) => checkBetting(account, leg)),
+    );
+    for (let i = 0; i < rechecks.length; i++) {
+      const checked = rechecked[i]!;
+      if (!checked.data) {
+        return {
+          ok: false,
+          message: checked.checkError || `${checked.type} 预检未通过`,
+        };
+      }
+      rechecks[i]!.assign(checked);
+    }
+
+    implied = impliedFromLegOdds(legA, legB);
+    if (implied < targetProfit || implied > config.maxProfit) {
+      return {
+        ok: false,
+        message: `PM 重检后利润 ${implied.toFixed(4)} 未达阈值（要求 ≥ ${targetProfit.toFixed(4)}）`,
+      };
+    }
+  }
+
+  return { ok: true, legA, legB, implied };
+}

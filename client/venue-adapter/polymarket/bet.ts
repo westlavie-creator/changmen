@@ -421,6 +421,7 @@ export const polymarketProvider: PlatformProvider = {
 
   async checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption> {
     const prior = option.data as { detectionOdds?: number } | null | undefined;
+    // 套利检测价：首次预检锁定 fo 赔率；PM 重检时沿用，FOK 限价不超过检测价
     const detectionOdds = Number(prior?.detectionOdds) > 1
       ? Number(prior!.detectionOdds)
       : option.odds;

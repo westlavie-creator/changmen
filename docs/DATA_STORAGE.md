@@ -23,7 +23,6 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | 路径 | 用途 | 是否上云 |
 |------|------|----------|
 | `storage/platforms.json` | 场馆采集凭证（gateway/token） | 否；`platform_sync` 启动时读写 |
-| `storage/player_orders.json` | 信用盘 player 订单缓存 | 否 |
 | `storage/tag_platforms.json`、`players.json` | 已废弃（仅 `migrate-players-to-rds` 导入 RDS） | — |
 | `storage/default_odds.json` | 初赔快照 | 否 |
 | 用户活跃时间 | RDS `profiles.preferences.lastActiveAt`（`user_presence`，60s 防抖写库） |

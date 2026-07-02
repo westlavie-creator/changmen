@@ -183,6 +183,10 @@ describe("finalizeArbBet makeup enqueue", () => {
       expect.anything(),
       false,
       true,
+      {
+        ordersA: [venueOrder("ob-1", "none", 2)],
+        ordersB: [venueOrder("ray-reject", "reject", 3)],
+      },
     );
   });
 
@@ -201,6 +205,10 @@ describe("finalizeArbBet makeup enqueue", () => {
       expect.anything(),
       false,
       false,
+      {
+        ordersA: [venueOrder("ob-1", "none", 2)],
+        ordersB: [venueOrder("ray-1", "none", 3)],
+      },
     );
   });
 
@@ -219,6 +227,10 @@ describe("finalizeArbBet makeup enqueue", () => {
       expect.anything(),
       true,
       true,
+      {
+        ordersA: [venueOrder("ob-reject", "reject", 3)],
+        ordersB: [venueOrder("ray-reject", "reject", 2)],
+      },
     );
   });
 
@@ -286,6 +298,35 @@ describe("finalizeArbBet makeup enqueue", () => {
     await finalizeArbBet(params, makePlaced());
 
     expect(saveOrderBind).not.toHaveBeenCalled();
+  });
+
+  it("PM delayed 且场馆 sync 为空时用 result.orderId 绑单", async () => {
+    const linkId = 1_700_000_000_000;
+    syncVenueRejectFlags.mockResolvedValue({
+      ordersA: [],
+      ordersB: [],
+      rejectA: false,
+      rejectB: false,
+    });
+
+    const placed = makePlaced({
+      linkId,
+      accountA: undefined,
+      accountB: makeAccount("Polymarket" as PlatformId),
+      legA: makeLeg("OB", "T1"),
+      legB: makeLeg("Polymarket" as PlatformId, "T2"),
+      resultA: undefined,
+      resultB: Object.assign(new BetResult("Polymarket", true), { orderId: "0xdelayed-order" }),
+      betBothLegs: false,
+    });
+
+    await finalizeArbBet(params, placed);
+
+    expect(saveOrderBind).toHaveBeenCalledWith({
+      orders: JSON.stringify([
+        { LinkID: linkId, Provider: "Polymarket", OrderID: "0xdelayed-order" },
+      ]),
+    });
   });
 
   it("refreshBalance 不阻塞拒单等待", async () => {

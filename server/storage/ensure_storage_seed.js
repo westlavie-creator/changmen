@@ -7,7 +7,6 @@ import { BACKEND_ROOT, ESPORT_DATA_DIR } from "./paths.js";
 import { readJsonFile, writeJsonFile } from "./json_file_store.js";
 
 const EMPTY_OBJECTS = [
-  "player_orders",
   "default_odds",
 ];
 

@@ -164,7 +164,10 @@ export async function finalizeArbBet(
     });
   }
 
-  await applyArbMakeUpFromRejects(params, placed, rejectA, rejectB);
+  await applyArbMakeUpFromRejects(params, placed, rejectA, rejectB, {
+    ordersA,
+    ordersB,
+  });
   if (
     betBothLegs
     && accountA

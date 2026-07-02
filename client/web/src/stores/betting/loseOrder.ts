@@ -9,6 +9,7 @@ import { wait } from "@/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
+import { resolveMakeUpHedgeStake } from "@/stores/betting/makeUpReference";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
@@ -51,7 +52,6 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
     }
     const { match, bet } = ref;
 
-    bet.items.forEach(item => item.updateOdds());
     const minOdds = order.getOdds(config.makeProfit);
     const candidates = bet.items
       .filter(item => item.getOdds(order.target) >= minOdds)
@@ -75,9 +75,21 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       const option = new BetOption(match, bet, item, order.target, stake);
       option.loseOrder = true;
 
-      const checked = await accountStore.checkBetting(account, option);
+      let checked = await accountStore.checkBetting(account, option);
       if (!checked.data)
         continue;
+
+      const liveOdds = Number(checked.newOdds ?? checked.odds) || 0;
+      const hedgeStake = resolveMakeUpHedgeStake(order, liveOdds);
+      if (hedgeStake <= 0)
+        continue;
+
+      if (!order.isCreateOrder && hedgeStake !== Math.round(checked.betMoney)) {
+        checked.betMoney = hedgeStake;
+        checked = await accountStore.checkBetting(account, checked);
+        if (!checked.data)
+          continue;
+      }
 
       const waitSec = makeUpBetToastSeconds(config, account.provider);
       const result = await accountStore.betting(account, checked, waitSec);
@@ -134,6 +146,18 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         useMessageStore().loseOrderMessage(account, order, checked, rejected);
       }
       else {
+        const bindOrderId = resolveMakeUpBindOrderId([], result);
+        if (bindOrderId) {
+          await saveOrderBind({
+            orders: JSON.stringify([
+              {
+                LinkID: order.linkId,
+                Provider: result.provider,
+                OrderID: bindOrderId,
+              },
+            ]),
+          });
+        }
         removeIds.add(betId);
       }
 

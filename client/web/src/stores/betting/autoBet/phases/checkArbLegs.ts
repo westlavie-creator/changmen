@@ -1,8 +1,14 @@
 import type { BetOption } from "@/models/betOption";
 import type { ArbBetAttemptParams, ArbBetChecked, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
+import {
+  arbLegsIncludePolymarket,
+  reconcilePolymarketArbStakes,
+} from "@/domain/arbitrage";
+import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
 import { a8Tip } from "@/shared/a8Notify";
 import { formatBetResult } from "@/shared/arbBetTraceFormat";
 import { arbBetToastSeconds } from "@/shared/betTiming";
+import { arbProfitRate } from "@/shared/format";
 import { wait } from "@/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
 
@@ -60,7 +66,37 @@ export async function checkArbLegs(
     return null;
   }
 
-  // [A8 可证实] 预检通过后不再改 betMoney；orderIndex 在 checkTimeout 之前赋值
+  let impliedLive = ready.implied;
+
+  if (betBothLegs && arbLegsIncludePolymarket(legA, legB)) {
+    const reconciled = await reconcilePolymarketArbStakes({
+      legA,
+      legB,
+      accountA,
+      accountB,
+      config,
+      checkBetting: (account, option) => accountStore.checkBetting(account, option),
+    });
+    if (!reconciled.ok) {
+      trace?.finish("fail", reconciled.message);
+      await wait(1000);
+      return null;
+    }
+    legA = reconciled.legA;
+    legB = reconciled.legB;
+    impliedLive = reconciled.implied;
+    setArbExecutionTraceMeta(trace, {
+      implied: impliedLive,
+      homeLine: `${legA.type}@${legA.odds}`,
+      awayLine: `${legB.type}@${legB.odds}`,
+    });
+    trace?.event(
+      "预检",
+      `PM 盘口重算对冲 · 利润 ${arbProfitRate(impliedLive)} · ${legA.type}@${legA.odds}/${legA.betMoney} + ${legB.type}@${legB.odds}/${legB.betMoney}`,
+    );
+  }
+
+  // [A8 可证实] 非 PM 双腿预检通过后不再改 betMoney；orderIndex 在 checkTimeout 之前赋值
   if (accountA)
     legA.orderIndex = 1;
   if (accountB)
@@ -85,7 +121,7 @@ export async function checkArbLegs(
     legB,
     accountA,
     accountB,
-    implied: ready.implied,
+    implied: impliedLive,
     waitSec,
   };
 }

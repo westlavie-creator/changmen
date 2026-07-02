@@ -12,7 +12,6 @@
 | 文件 | 用途 | 写入方 |
 |------|------|--------|
 | `platforms.json` | 各平台 gateway/token（采集凭证） | `platform_sync`、`setPlatform`、运维脚本 |
-| `player_orders.json` | 各 player 订单缓存 | `account_store` |
 | `default_odds.json` | 初赔快照（只增不改，5s 防抖写盘） | `default_odds` API |
 | `*.b64` | 平台会话缓存（如 PB） | platform-probes 脚本 |
 
@@ -22,6 +21,7 @@
 |------|----------|
 | 比赛/赔率/合并列表 | RDS `platform_*` / `client_matches` |
 | 信用盘 `tag_platforms` / `players` | RDS（原 `*.json` 仅迁移脚本读取，已废弃） |
+| 投注订单 | RDS `orders` 表 |
 | 充提流水 `money_logs` | RDS `money_logs` 表 |
 | 用户活跃时间 | RDS `profiles.preferences.lastActiveAt` |
 | 用户账号/CollectConfig | RDS `profiles`（`ACCOUNT` 等 jsonb） |

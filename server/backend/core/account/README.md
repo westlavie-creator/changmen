@@ -10,7 +10,7 @@
 core/esport-api/router.js
     ↕
 scripts/account/account_service.js
-    ├─ account_store.js     tag_platforms / players / money_logs / player_orders
+    ├─ account_store.js     tag_platforms / players / money_logs（RDS）
     ├─ balance_provider.js  PB、HG 等 getBalance
     └─ clipboard_credential.js  插件 Base64 凭证解析
 user_kv.json (key=ACCOUNT)  ← 前端 Pinia Io() 权威数据源
@@ -26,7 +26,7 @@ user_kv.json (key=ACCOUNT)  ← 前端 Pinia Io() 权威数据源
 | `Client_UpdateBalance` | 更新 player 余额，返回 `{ total, platformId, platformName }` |
 | `Client_DeletePlayer` | 删除 player 元数据并清理 ACCOUNT KV 中对应项 |
 | `Client_GetMoneyLogs` / `Save` / `Delete` | 充提流水 |
-| `Client_GetPlayerOrder` / `Client_SaveOrder` | 按 player 存订单 |
+| `Client_GetPlayerOrder` / `Client_SaveOrder` | 按 player 读写 RDS `orders` |
 
 ## 凭证导入（插件 → 控制台）
 
@@ -75,10 +75,8 @@ npm run account:refresh
 运行时目录 `server/backend/storage/`（见 [STORAGE.md](../../STORAGE.md)）：
 
 - `profiles`（RDS）— `ACCOUNT`、CollectConfig 等（前端 `Client_SaveData`）
-- `tag_platforms.json` — 标签平台目录
-- `players.json` — playerId / platformId / credit / totalBalance
-- `player_orders.json` — 各 player 订单缓存
-- `money_logs` — **RDS 表**，非 JSON 文件
+- `tag_platforms` / `players` — RDS 表（原 JSON 已废弃）
+- `orders` / `money_logs` — RDS 表
 
 ## 控制台使用
 

@@ -76,6 +76,8 @@ vi.mock("@/shared/betTiming", () => ({
   makeUpBetToastSeconds: vi.fn(() => 10),
 }));
 
+import { makeUpBetToastSeconds } from "@/shared/betTiming";
+
 function makeItem(type: PlatformId, homeOdds: number) {
   return {
     type,
@@ -156,6 +158,53 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(getAccount).toHaveBeenCalledTimes(2);
     expect(betting).toHaveBeenCalledTimes(2);
     expect(removeOrder).not.toHaveBeenCalled();
+  });
+
+  it("does not call updateOdds on bet items before consume (A8 jb)", async () => {
+    const item = makeItem("OB", 2.5);
+    const bet = makeBet([item]);
+    matchs.push(makeMatch(bet));
+    queueOrder();
+
+    const acc = new PlatformAccount({ accountId: 1, playerName: "ob1", provider: "OB" });
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({ success: false, provider: "OB" });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(item.updateOdds).not.toHaveBeenCalled();
+  });
+
+  it("recomputes hedge stake from live odds after checkBetting", async () => {
+    const item = makeItem("IA", 9.55);
+    const bet = makeBet([item]);
+    matchs.push(makeMatch(bet));
+    queueOrder({ betMoney: 70, betOdds: 4.095 });
+
+    const acc = new PlatformAccount({ accountId: 49, playerName: "1", provider: "IA" });
+    getAccount.mockReturnValue(acc);
+
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.newOdds = 1.35;
+      opt.odds = 1.35;
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({ success: false, provider: "IA" });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(checkBetting).toHaveBeenCalledTimes(2);
+    expect(checkBetting.mock.calls[1][1].betMoney).toBe(212);
+    expect(betting).toHaveBeenCalledWith(
+      acc,
+      expect.objectContaining({ betMoney: 212, odds: 1.35 }),
+      10,
+    );
   });
 
   it("aPI 成功 + 场馆拒单：不移出队列，仍绑单并发 LoseOrderMessage", async () => {
@@ -253,5 +302,39 @@ describe("processLoseOrders (A8 jb parity)", () => {
       ]),
     });
     expect(markSuccessfulBet).toHaveBeenCalledWith(acc, 100, "Home");
+  });
+
+  it("PM delayed 且 waitTime=-1 时仍用 result.orderId 绑单", async () => {
+    const bet = makeBet([makeItem("Polymarket", 4.167)]);
+    matchs.push(makeMatch(bet));
+    queueOrder();
+
+    vi.mocked(makeUpBetToastSeconds).mockReturnValueOnce(0);
+
+    const acc = new PlatformAccount({ accountId: 47, playerName: "D8F7", provider: "Polymarket" });
+    acc.updateOrders = vi.fn(async () => []) as PlatformAccount["updateOrders"];
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({
+      success: true,
+      provider: "Polymarket",
+      orderId: "0xdelayed-skip-wait",
+    });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(saveOrderBind).toHaveBeenCalledWith({
+      orders: JSON.stringify([
+        {
+          LinkID: 1_000_000_000_001,
+          Provider: "Polymarket",
+          OrderID: "0xdelayed-skip-wait",
+        },
+      ]),
+    });
+    expect(removeOrder).toHaveBeenCalledWith(100, true);
   });
 });

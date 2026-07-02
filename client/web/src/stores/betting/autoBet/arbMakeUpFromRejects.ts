@@ -1,6 +1,13 @@
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
+import type { VenueOrder } from "@venue/contract";
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
+import { resolveMakeUpSuccessReference } from "@/stores/betting/makeUpReference";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
+
+export interface ArbMakeUpVenueContext {
+  ordersA: VenueOrder[];
+  ordersB: VenueOrder[];
+}
 
 /** 对齐 A8 bundle：一腿成且非拒、另一腿失败或拒 → 补单入队 */
 export async function applyArbMakeUpFromRejects(
@@ -8,6 +15,7 @@ export async function applyArbMakeUpFromRejects(
   placed: ArbBetPlaced,
   rejectA: boolean,
   rejectB: boolean,
+  venue: ArbMakeUpVenueContext = { ordersA: [], ordersB: [] },
 ): Promise<void> {
   const { match, bet, config, setMessage } = params;
   const loseStore = useLoseOrderStore();
@@ -31,6 +39,7 @@ export async function applyArbMakeUpFromRejects(
     && !rejectA
     && (!resultB?.success || rejectB)
   ) {
+    const successRef = resolveMakeUpSuccessReference(legA, venue.ordersA, rejectA);
     await enqueueMakeUpOrder({
       loseStore,
       match,
@@ -40,8 +49,8 @@ export async function applyArbMakeUpFromRejects(
       linkId,
       accountId: accountA.accountId,
       target: legB.target,
-      betMoney: legA.betMoney,
-      betOdds: legA.odds,
+      betMoney: successRef.betMoney,
+      betOdds: successRef.betOdds,
       failedLegOdds: legB.odds,
       failedPlatformLabel: legB.type,
     });
@@ -52,6 +61,7 @@ export async function applyArbMakeUpFromRejects(
     && !rejectB
     && (!resultA?.success || rejectA)
   ) {
+    const successRef = resolveMakeUpSuccessReference(legB, venue.ordersB, rejectB);
     await enqueueMakeUpOrder({
       loseStore,
       match,
@@ -61,8 +71,8 @@ export async function applyArbMakeUpFromRejects(
       linkId,
       accountId: accountB.accountId,
       target: legA.target,
-      betMoney: legB.betMoney,
-      betOdds: legB.odds,
+      betMoney: successRef.betMoney,
+      betOdds: successRef.betOdds,
       failedLegOdds: legA.odds,
       failedPlatformLabel: legA.type,
     });

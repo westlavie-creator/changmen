@@ -38,6 +38,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 | 脚本 | 作用 |
 |------|------|
 | **`deploy-server-remote.sh`** | VPS 增量部署（由 `BAT\deploy-server.bat` 管道调用） |
+| **`migrate-server-remote.sh`** | 一键迁移/新机初始化（由 `BAT\migrate-server.bat` 调用） |
 | **`setup-caddy-remote.sh`** | VPS 配置 Caddy（见 `Caddyfile`；生产文档） |
 | **`sync-telegram-env.mjs`** | `node scripts/sync-telegram-env.mjs` — Telegram env 同步 |
 

@@ -9,3 +9,7 @@ export {
   impliedFromLegOdds,
   resolveArbTargetProfit,
 } from "@/domain/arbitrage/arbStakeMath";
+export {
+  arbLegsIncludePolymarket,
+  reconcilePolymarketArbStakes,
+} from "@/domain/arbitrage/polymarketArbPrecheck";

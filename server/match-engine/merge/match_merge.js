@@ -895,6 +895,8 @@ function preserveInitialOddsFromSources(bet) {
   let home = Number(bet.InitialHomeOdds) || 0;
   let away = Number(bet.InitialAwayOdds) || 0;
   for (const src of Object.values(bet.Sources || {})) {
+    if (!src)
+      continue;
     home = Math.max(home, Number(src.HomeOdds) || 0);
     away = Math.max(away, Number(src.AwayOdds) || 0);
   }
@@ -1158,6 +1160,64 @@ function finalizeClientMatchListAfterLinks(mergedList, matches, bets, timers, so
   stripOrphanClientMatchPlatforms(mergedList, matches);
 }
 
+function platformMatchClientId(match) {
+  const raw = match?.ClientMatchId ?? match?.client_match_id ?? match?.match_id;
+  if (raw == null || raw === "")
+    return null;
+  const id = Number(raw);
+  return Number.isFinite(id) ? id : null;
+}
+
+/** 将 platform_matches.match_id / 内存 ClientMatchId 同步进 client row.Matchs（防回写漂移） */
+function mergePlatformBetsIntoClientRow(target, targetId, platform, match, bets, timers, sourceFromBet) {
+  const accRow = buildAccumulateRow(platform, match, bets, timers, sourceFromBet);
+  const betByMap = new Map((target.Bets || []).map(b => [b.Map ?? 0, b]));
+  for (const bet of accRow.Bets || []) {
+    const map = bet.Map ?? 0;
+    const existing = betByMap.get(map);
+    if (existing) {
+      Object.assign(existing.Sources, bet.Sources);
+    }
+    else {
+      const nb = {
+        ...bet,
+        ID: stableBetId(targetId, map),
+        MatchID: targetId,
+      };
+      target.Bets = target.Bets || [];
+      target.Bets.push(nb);
+      betByMap.set(map, nb);
+    }
+  }
+}
+
+function syncClientMatchsFromPlatformLinks(rows, matches, bets, timers, sourceFromBet) {
+  if (!Array.isArray(rows) || !matches)
+    return;
+  for (const row of rows) {
+    const clientId = Number(row.ID);
+    if (!Number.isFinite(clientId))
+      continue;
+    for (const [platform, byId] of Object.entries(matches)) {
+      if (!byId || typeof byId !== "object")
+        continue;
+      for (const match of Object.values(byId)) {
+        if (!match?.SourceMatchID)
+          continue;
+        if (platformMatchClientId(match) !== clientId)
+          continue;
+        const sid = String(match.SourceMatchID);
+        if (!row.Matchs)
+          row.Matchs = {};
+        const hadPlatform = row.Matchs[platform] === sid;
+        row.Matchs[platform] = sid;
+        if (!hadPlatform)
+          mergePlatformBetsIntoClientRow(row, clientId, platform, match, bets, timers, sourceFromBet);
+      }
+    }
+  }
+}
+
 function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides) {
   const links = collectManualLinks(matches);
 
@@ -1197,10 +1257,10 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
       if (!match)
         continue;
 
-      const row = buildAccumulateRow(link.platform, match, bets, timers, sourceFromBet);
       const target = targetById.get(targetId);
 
       if (!target) {
+        const row = buildAccumulateRow(link.platform, match, bets, timers, sourceFromBet);
         row.ID = targetId;
         row.Bets = (row.Bets || []).map(b => ({
           ...b,
@@ -1213,31 +1273,14 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
       }
 
       const alreadyLinked = target.Matchs?.[link.platform] === String(link.source_match_id);
-      if (!alreadyLinked) {
+      if (!alreadyLinked)
         target.Matchs[link.platform] = String(link.source_match_id);
-      }
-      const betByMap = new Map((target.Bets || []).map(b => [b.Map ?? 0, b]));
-      for (const bet of row.Bets || []) {
-        const map = bet.Map ?? 0;
-        const existing = betByMap.get(map);
-        if (existing) {
-          Object.assign(existing.Sources, bet.Sources);
-        }
-        else {
-          const nb = {
-            ...bet,
-            ID: stableBetId(targetId, map),
-            MatchID: targetId,
-          };
-          target.Bets = target.Bets || [];
-          target.Bets.push(nb);
-          betByMap.set(map, nb);
-        }
-      }
+      mergePlatformBetsIntoClientRow(target, targetId, link.platform, match, bets, timers, sourceFromBet);
     }
   }
 
   finalizeClientMatchListAfterLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides);
+  syncClientMatchsFromPlatformLinks(mergedList, matches, bets, timers, sourceFromBet);
 
   return filterMultiPlatformClientMatches(mergedList)
     .sort((a, b) => a.StartTime - b.StartTime);
@@ -1434,6 +1477,7 @@ export {
   promoteFullMatchSourcesToLiveRound,
   promoteFullMatchSourcesToLiveRoundInPlace,
   stripOrphanClientMatchPlatforms,
+  syncClientMatchsFromPlatformLinks,
   PROVIDER_PRIORITY,
   reconcileClientMatchReverse,
   refreshClientMatchBetNames,

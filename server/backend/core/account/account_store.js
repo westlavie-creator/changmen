@@ -1,10 +1,6 @@
 import * as sb from "@changmen/db";
 import store from "../esport-api/store.js";
 
-const FILES = {
-  playerOrders: "player_orders",
-};
-
 async function listTagPlatforms() {
   const rows = await sb.fetchTagPlatforms();
   return rows
@@ -83,10 +79,6 @@ async function deletePlayer(playerId, description) {
   const ok = await sb.softDeletePlayerRow(playerId, description);
   if (!ok)
     return false;
-
-  const orders = store.readJson(FILES.playerOrders, {});
-  delete orders[String(playerId)];
-  store.writeJson(FILES.playerOrders, orders);
 
   removeAccountFromKv();
   return true;
@@ -213,31 +205,6 @@ async function deleteMoneyLog(logId, userId) {
   return sb.deleteMoneyLogById(logId, userId);
 }
 
-function getPlayerOrders(playerId) {
-  const all = store.readJson(FILES.playerOrders, {});
-  return all[String(playerId)]?.orders || [];
-}
-
-function savePlayerOrders(playerId, provider, orders) {
-  const all = store.readJson(FILES.playerOrders, {});
-  const key = String(playerId);
-  const prev = all[key]?.orders || [];
-  const merged = [...prev];
-
-  for (const order of orders || []) {
-    const idx = merged.findIndex(
-      row => row.orderId === order.orderId && row.provider === (order.provider || provider),
-    );
-    if (idx >= 0)
-      merged[idx] = { ...merged[idx], ...order };
-    else merged.push({ ...order, provider: order.provider || provider });
-  }
-
-  all[key] = { playerId: key, orders: merged, updatedAt: Date.now() };
-  store.writeJson(FILES.playerOrders, all);
-  return merged;
-}
-
 function getAccountsFromKv() { return []; }
 
 let _playersMigrateDone = false;
@@ -275,9 +242,6 @@ async function runPlayersJsonMigrateOnce() {
 
 async function ensureSeed() {
   store.ensureSeed();
-  if (store.readJson(FILES.playerOrders, null) == null) {
-    store.writeJson(FILES.playerOrders, {});
-  }
   await runPlayersJsonMigrateOnce();
   const { migrateLegacySessionsJsonToRds } = await import("./user_presence.js");
   await migrateLegacySessionsJsonToRds();
@@ -289,16 +253,13 @@ export {
   deletePlayer,
   deletePlayerData,
   ensureSeed,
-  FILES,
   getAccountsFromKv,
   getMoneyLog,
   getPlayer,
-  getPlayerOrders,
   listMoneyLogs,
   listTagPlatforms,
   removeAccountFromKv,
   saveMoneyLog,
-  savePlayerOrders,
   saveUserLog,
   syncPlayerDisplayName,
   updatePlayerBalance,
