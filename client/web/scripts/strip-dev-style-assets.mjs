@@ -1,7 +1,5 @@
 /**
- * 生产 dist 保留运行时所需静态资源：
- * - /assets/styles/changmen/（ep-chalk + 业务补丁）
- * - /assets/platform/（平台图标）
+ * 生产 dist 保留运行时所需静态资源：/assets/platform/（平台图标）等。
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -18,4 +16,4 @@ function rm(rel) {
 
 rm("copy");
 
-console.log("[postbuild] trimmed dist assets -> assets/styles/changmen/ + assets/platform/");
+console.log("[postbuild] trimmed dist assets -> assets/platform/");

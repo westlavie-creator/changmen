@@ -1,3 +1,2 @@
-# styles：assets/styles/changmen 为生产样式
+# 历史 ep-chalk 副本（已改为 main.ts 直接 import element-plus）
 src/styles/ep-chalk.css
-public/assets/styles/changmen/ep-chalk.css

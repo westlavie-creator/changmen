@@ -1,7 +1,6 @@
 /**
  * changmen 设计基座。
- * EP 主题见 ep-chalk.css（Element Plus 官方 index.css）；此处维护 --cm-* 与业务动画
- * 维护：改此文件后 node scripts/sync-style-assets.mjs
+ * EP 主题在 main.ts 通过 element-plus/dist/index.css 加载；此处维护 --cm-* 与业务动画
  */
 
 @font-face {
