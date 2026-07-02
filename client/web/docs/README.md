@@ -32,7 +32,7 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 |------|------|------|
 | **控制台 `/` 行为与 UI** | `A8/A8frontendscipts/2.0.1/index.js` + `index.css` | 官方 A8 前端 bundle |
 | **changmen 后端 API** | 由上述前端 **反推** | **不是** A8 服务端源码；见 [项目共识](#项目共识) |
-| **机器审计** | `npm run audit:a8` | 读 `A8/A8frontendscipts/2.0.1/index.js` 做 View/class 映射；CSS 对 `server/backend/public/esport2/assets/index.css` |
+| **机器审计** | [`A8_PARITY_AUDIT_MACHINE.json`](./A8_PARITY_AUDIT_MACHINE.json) | 历史快照（CSS/View 映射）；`audit:a8` 脚本已下线，走查见 WALKTHROUGH |
 
 代码级缺口（只读审计）：[`_A8_VS_CHANGMEN_AUDIT.json`](./_A8_VS_CHANGMEN_AUDIT.json)  
 机器审计输出：[`A8_PARITY_AUDIT_MACHINE.json`](./A8_PARITY_AUDIT_MACHINE.json)

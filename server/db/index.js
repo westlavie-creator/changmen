@@ -210,6 +210,7 @@ export {
   fetchClientMatchIdIndex,
   fetchClientMatchRow,
   fetchLatestClientMatchBuiltAt,
+  fetchAllPlatformMatchBindings,
   fetchPlatformMatchesByClientMatchId,
   fetchPlatformMatchesDashboard,
   fetchPlatformMatchesDebugRows,

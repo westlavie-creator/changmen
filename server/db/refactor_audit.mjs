@@ -115,6 +115,7 @@ const usedSymbols = [
   "getClientMatchIdAdapter",
   "fetchClientMatchRow",
   "setClientMatchListStatus",
+  "fetchAllPlatformMatchBindings",
   "fetchPlatformMatchesByClientMatchId",
   "deletePlatformMatchRow",
   "reassignPlatformMatchIds",

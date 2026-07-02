@@ -21,6 +21,7 @@ import { isEmbeddedMatcher } from "../../backend/core/shared/matcher_mode.js";
 import store from "../../backend/core/esport-api/store.js";
 import {
   fetchMatcherRdsSnapshot,
+  enrichMatchesRawWithDbBindings,
   invalidateMatcherRdsSnapshot,
 } from "./rds_snapshot_cache.js";
 import "../lib/env.js";
@@ -74,6 +75,12 @@ async function matchMergeOnceImpl() {
 
   const { matchesRaw, bets, timers, clientRows, alignClientRows, hotCollector } = await fetchMatcherRdsSnapshot();
 
+  const platformBindingsByClientId = db.isMatcherStoreReady()
+    ? await db.fetchAllPlatformMatchBindings()
+    : null;
+  if (platformBindingsByClientId?.size)
+    enrichMatchesRawWithDbBindings(matchesRaw, platformBindingsByClientId);
+
   const teamReg = await autoRegisterTeams(matchesRaw);
   const nameSync = await db.syncCanonicalTeamNamesFromOb();
   const teamDataChanged = (teamReg?.registered > 0) || (nameSync?.updated > 0);
@@ -110,7 +117,7 @@ async function matchMergeOnceImpl() {
   }
   const adapter = db.getClientMatchIdAdapter();
   info = await resolveClientMatchIds(adapter, info, { matches, existingIdKeyIndex });
-  info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows, platformSideOverrides);
+  info = applyManualMatchLinks(info, matches, bets, timers, sourceFromBet, clientRows, platformSideOverrides, platformBindingsByClientId);
   info = filterMultiPlatformClientMatches(info);
 
   const pmSportByClientId = buildPmSportByClientId(clientRows);

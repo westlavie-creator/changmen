@@ -10,7 +10,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
 
-defineProps<{ user: AdminUserRow }>();
+const props = defineProps<{ user: AdminUserRow }>();
 defineEmits<{ viewOrders: [] }>();
 
 const accountStore = useAccountStore();
@@ -20,6 +20,15 @@ const userStore = useUserStore();
 
 let form = reactive(createUserConfigFormState(configStore.config));
 watch(() => configStore.config, c => Object.assign(form, createUserConfigFormState(c)));
+
+function onAdminMultiplySaved(multiply: number) {
+  const acc = editDialogAccount.value;
+  if (!acc)
+    return;
+  const row = props.user.accounts?.find(a => a.accountId === acc.accountId);
+  if (row)
+    row.multiply = multiply;
+}
 </script>
 
 <template>
@@ -27,8 +36,11 @@ watch(() => configStore.config, c => Object.assign(form, createUserConfigFormSta
     <AccountEditDialog
       :open="editDialogOpen"
       :account="editDialogAccount"
+      :admin-target-user-id="user.id"
+      allow-multiply-edit
       readonly
       @close="accountStore.closeAccountDialog()"
+      @multiply-saved="onAdminMultiplySaved"
     />
 
     <section class="wp__sec">

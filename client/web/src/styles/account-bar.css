@@ -1,7 +1,6 @@
 /**
  * changmen 顶栏账号条。
  * DOM 保持 A8 class：.providers / .account / .platform
- * 维护：改此文件后 node scripts/sync-style-assets.mjs
  */
 
 .providers {

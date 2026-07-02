@@ -72,7 +72,6 @@ Frontend-only（在 `client/web/`）：
 npm run test:ob           # offline: GetMatchs shape + provider contract
 npm run test:ob:all       # includes live smoke (needs backend on 3560 / PORT)
 npm run test:v4           # PB v4 credit-plate login E2E
-npm run audit:a8          # CSS selector + View mapping diff → docs/A8_PARITY_AUDIT_MACHINE.json
 ```
 
 Live smoke requires backend:
@@ -234,7 +233,7 @@ All A8 parity tracking lives under `client/web/docs/`:
 | `A8_WALKTHROUGH_CHECKLIST.md` | Manual side-by-side walkthrough checklist |
 | `A8_SCRIPT_PLUGIN_PLAN.md` | Script + plugin architecture, Mode P startup, progress |
 | `A8_REPLICATE_8_PLATFORMS.md` | Per-platform collect + bet parity status |
-| `A8_PARITY_AUDIT_MACHINE.json` | Output of `npm run audit:a8` |
+| `A8_PARITY_AUDIT_MACHINE.json` | 历史机器审计快照（`audit:a8` 脚本已下线，2026-07） |
 
 **Label convention** (must be used in all new parity comments and docs):
 

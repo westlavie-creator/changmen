@@ -1,8 +1,8 @@
-/** PB / Polymarket 乘网默认倍数（账号级配置，非 A8 bundle 硬编码） */
-export const PB_MULTIPLY_DEFAULT = 10;
-
-/** 非乘网平台默认乘网 */
+/** 全平台乘网默认值（含 PB / Polymarket） */
 export const DEFAULT_MULTIPLY = 1;
+
+/** @deprecated 使用 DEFAULT_MULTIPLY */
+export const PB_MULTIPLY_DEFAULT = DEFAULT_MULTIPLY;
 
 export function isMultiplyProvider(provider: unknown): boolean {
   const p = String(provider ?? "")
@@ -40,20 +40,14 @@ export function scaleVenueMoney(raw: number, multiply: unknown): number {
 }
 
 /**
- * 解析账号乘网：PB / Polymarket 缺失 / 无效 → 10；显式 1 原样保留；>1 原样保留。
+ * 解析账号乘网：缺失或无效 → 1；有效值 ≥1 原样保留。
  */
 export function resolveAccountMultiply(provider: unknown, rawMultiply: unknown): number {
-  if (isMultiplyProvider(provider)) {
-    const hasValue = rawMultiply !== undefined && rawMultiply !== null && rawMultiply !== "";
-    const n = Number(rawMultiply);
-    if (hasValue && Number.isFinite(n) && n === 1)
-      return 1;
-    if (!Number.isFinite(n) || n < 1)
-      return PB_MULTIPLY_DEFAULT;
-    return n;
-  }
+  void provider;
   const n = Number(rawMultiply);
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_MULTIPLY;
+  if (Number.isFinite(n) && n >= 1)
+    return n;
+  return DEFAULT_MULTIPLY;
 }
 
 export function accountProviderKey(row: unknown): string {
@@ -94,6 +88,27 @@ export function normalizeAccountList(accounts: unknown): unknown[] {
   if (!Array.isArray(accounts))
     return [];
   return accounts.map(row => normalizeAccountMultiplyField(row));
+}
+
+/** 保存账号时保留已存乘网，禁止客户端/API 篡改（对齐 A8 multiply 字段 readonly） */
+export function preserveStoredAccountMultiply<T>(
+  incoming: T,
+  existing: Record<string, unknown> | null | undefined,
+): T {
+  if (!incoming || typeof incoming !== "object")
+    return incoming;
+  if (!existing || typeof existing !== "object")
+    return incoming;
+  const raw = existing.multiply ?? existing.Multiply;
+  if (raw === undefined || raw === null || raw === "")
+    return incoming;
+  const n = Number(raw);
+  if (!Number.isFinite(n))
+    return incoming;
+  const row = incoming as Record<string, unknown>;
+  if (row.multiply === n)
+    return incoming;
+  return { ...row, multiply: n } as T;
 }
 
 /** 乘网归一化后是否需要回写 profiles.accounts */

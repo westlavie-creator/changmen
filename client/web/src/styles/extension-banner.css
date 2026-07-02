@@ -1,7 +1,6 @@
 /**
  * changmen 扩展版本角标 + 未连通提示。
  * DOM 保持 A8 class：.version / .extension-banner
- * 维护：改此文件后 node scripts/sync-style-assets.mjs
  */
 
 .version {

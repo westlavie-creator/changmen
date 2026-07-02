@@ -640,6 +640,21 @@ async function handle(
       const { getValueBetDashboard } = await import("./value_bet_service.js");
       return ok(await getValueBetDashboard());
     }
+    case "Client_AdminUpdateAccountMultiply": {
+      try {
+        return ok(
+          await adminService.updateAdminAccountMultiply(
+            (body.userId ?? body.id) as string,
+            Number(body.accountId ?? body.playerId),
+            body.multiply,
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);
       const team = String(body.team || "");

@@ -85,7 +85,7 @@ function mergePlatformMatchesSnapshot(rdsRaw, hotRaw) {
       const rdsRow = rdsById.get(sid);
       if (!rdsRow)
         continue;
-      const linkedId = linkedClientMatchId(hotRow) ?? linkedClientMatchId(rdsRow);
+      const linkedId = linkedClientMatchId(rdsRow) ?? linkedClientMatchId(hotRow);
       refreshed.push({
         ...rdsRow,
         ...hotRow,
@@ -267,4 +267,34 @@ export async function fetchMatcherRdsSnapshot() {
   };
 }
 
-export { mergeBetsSnapshotRdsTruth, mergePlatformMatchesSnapshot };
+/** 将 RDS platform_matches.match_id 写入采集快照，供 collectManualLinks / align 使用 */
+function enrichMatchesRawWithDbBindings(matchesRaw, bindingsByClientId) {
+  if (!matchesRaw || !bindingsByClientId?.size)
+    return matchesRaw;
+  for (const [cmId, linkList] of bindingsByClientId) {
+    const id = Number(cmId);
+    if (!Number.isFinite(id))
+      continue;
+    for (const { platform, source_match_id } of linkList) {
+      const plat = String(platform);
+      const sid = String(source_match_id);
+      const rows = matchesRaw[plat];
+      if (!Array.isArray(rows))
+        continue;
+      const idx = rows.findIndex(m => platformMatchSourceId(m) === sid);
+      if (idx < 0)
+        continue;
+      rows[idx] = {
+        ...rows[idx],
+        ...withLinkedClientMatchId({}, id),
+      };
+    }
+  }
+  return matchesRaw;
+}
+
+export {
+  enrichMatchesRawWithDbBindings,
+  mergeBetsSnapshotRdsTruth,
+  mergePlatformMatchesSnapshot,
+};

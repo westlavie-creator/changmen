@@ -1,4 +1,4 @@
-import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply";
+import { normalizeAccountMultiplyField, preserveStoredAccountMultiply } from "@changmen/shared/account_multiply";
 import { listProfileRows } from "../db/store.js";
 import store from "../esport-api/store.js";
 import { emptyPage } from "../esport-api/stubs.js";
@@ -192,7 +192,14 @@ async function handleSaveAccounts(accounts, userId) {
   const checked = await validateAccountRows(accounts);
   if (!checked.ok)
     return checked;
-  const normalized = accounts.map(row => enrichAccountRowFromPlayer(row));
+  const existingById = new Map(
+    store.getAccountsForUser(userId).map(a => [Number(a.accountId ?? a.AccountId), a]),
+  );
+  const normalized = accounts.map((row) => {
+    const id = Number(row?.accountId ?? row?.AccountId);
+    const enriched = enrichAccountRowFromPlayer(row);
+    return preserveStoredAccountMultiply(enriched, existingById.get(id));
+  });
   for (const row of normalized) {
     const id = Number(row?.accountId ?? row?.AccountId);
     const label = String(row?.platformName ?? row?.PlatformName ?? "").trim();

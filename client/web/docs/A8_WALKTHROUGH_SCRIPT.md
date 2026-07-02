@@ -35,7 +35,7 @@ npm run app:dev
 
 ```bash
 cd changmen/client/web
-npm run audit:a8
+npm run test
 npm run test:v4    # 需 3456
 npm run build
 ```

@@ -18,6 +18,7 @@ import {
   pickFastestGateway,
 } from "@/components/account/accountGatewayProbe";
 import AccountEditPanel from "@/components/account/AccountEditPanel.vue";
+import { updateAdminAccountMultiply } from "@/api/admin";
 import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAccount";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
@@ -36,12 +37,15 @@ const props = defineProps<{
   open: boolean;
   account?: PlatformAccount;
   readonly?: boolean;
+  /** 管理端：目标用户 id，配合 allowMultiplyEdit 可改乘网 */
+  adminTargetUserId?: string;
+  allowMultiplyEdit?: boolean;
   previewForm?: AccountEditFormState;
   previewProxyOptions?: { label: string; value: number }[];
   zIndex?: number;
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; multiplySaved: [multiply: number] }>();
 
 const accountStore = useAccountStore();
 const userStore = useUserStore();
@@ -62,8 +66,6 @@ const pasteRaw = ref("");
 const gameShow = ref(false);
 /** A8：PB 默认锁定比例，legend「投」双击解锁 */
 const rateLocked = ref(false);
-/** 乘网默认只读，弹窗标题「平台账号设置」的「号」双击解锁 */
-const multiplyLocked = ref(true);
 /** Polymarket 专用：新账号按 wallet/funder/privateKey 派生 API 凭证 */
 const polyWalletAddress = ref("");
 const polyFunder = ref("");
@@ -107,7 +109,6 @@ function resetForm(acc?: PlatformAccount) {
   pasteRaw.value = "";
   gameShow.value = false;
   rateLocked.value = form.provider === "PB";
-  multiplyLocked.value = true;
   syncPolymarketFieldsFromToken(form.token);
 }
 
@@ -488,14 +489,32 @@ async function save() {
   }
 }
 
-function unlockRate() {
-  rateLocked.value = false;
+async function saveMultiplyAdmin() {
+  if (!props.adminTargetUserId || !props.account)
+    return;
+  const multiply = resolveAccountMultiply(form.provider, form.multiply);
+  saving.value = true;
+  try {
+    const updated = await updateAdminAccountMultiply({
+      userId: props.adminTargetUserId,
+      accountId: props.account.accountId,
+      multiply,
+    });
+    form.multiply = updated.multiply;
+    props.account.multiply = updated.multiply;
+    ElMessage.success("乘网已保存");
+    emit("multiplySaved", updated.multiply);
+  }
+  catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "保存乘网失败");
+  }
+  finally {
+    saving.value = false;
+  }
 }
 
-function unlockMultiply() {
-  if (props.readonly)
-    return;
-  multiplyLocked.value = false;
+function unlockRate() {
+  rateLocked.value = false;
 }
 </script>
 
@@ -507,16 +526,14 @@ function unlockMultiply() {
     :z-index="zIndex"
     :close-on-press-escape="false"
     :close-on-click-modal="false"
+    title="平台账号设置"
   >
-    <template #header>
-      平台账<span @dblclick.stop="unlockMultiply">号</span>设置
-    </template>
     <AccountEditPanel
       v-model:form="form"
       :readonly="readonly"
+      :multiply-editable="Boolean(allowMultiplyEdit && adminTargetUserId)"
       :hide-sensitive="Boolean(previewForm)"
       :rate-locked="rateLocked"
-      :multiply-locked="multiplyLocked"
       :game-expanded="gameShow"
       :proxy-options="proxyOptions"
       :fetch-platforms="previewForm ? undefined : queryPlatforms"
@@ -614,7 +631,21 @@ function unlockMultiply() {
         </fieldset>
       </template>
 
-      <template v-if="!readonly" #footer>
+      <template v-if="allowMultiplyEdit && adminTargetUserId && account" #footer>
+        <div class="el-form-submit flex flex-center">
+          <el-button
+            type="primary"
+            size="large"
+            style="width: 98%"
+            :loading="saving"
+            @click="saveMultiplyAdmin"
+          >
+            保存乘网
+          </el-button>
+        </div>
+      </template>
+
+      <template v-else-if="!readonly" #footer>
         <el-form-item label="快速填充：">
           <el-input
             v-model="pasteRaw"

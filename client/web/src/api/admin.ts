@@ -1,4 +1,5 @@
 import type {
+  AdminAccountDetail,
   AdminDashboard,
   AdminOrderLogLookup,
   AdminOrderMatrix,
@@ -117,6 +118,16 @@ export async function createAdminUser(userName: string, password: string) {
 export async function resetAdminUserPassword(userId: string, password: string) {
   return unwrap(
     await post<AdminUserMutationResult>("Client_AdminResetPassword", { userId, password }),
+  );
+}
+
+export async function updateAdminAccountMultiply(body: {
+  userId: string;
+  accountId: number;
+  multiply: number;
+}) {
+  return unwrap(
+    await post<AdminAccountDetail>("Client_AdminUpdateAccountMultiply", body),
   );
 }
 

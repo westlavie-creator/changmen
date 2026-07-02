@@ -9,7 +9,7 @@ const props = withDefaults(
   defineProps<{
     readonly?: boolean;
     rateLocked?: boolean;
-    multiplyLocked?: boolean;
+    multiplyEditable?: boolean;
     gameExpanded?: boolean;
     proxyOptions?: { label: string; value: number }[];
     hideSensitive?: boolean;
@@ -17,7 +17,6 @@ const props = withDefaults(
   }>(),
   {
     proxyOptions: () => [{ label: "无代理", value: 0 }],
-    multiplyLocked: true,
   },
 );
 
@@ -45,6 +44,12 @@ watch(
 
 function fieldDisabled(extra = false) {
   return props.readonly || extra;
+}
+
+function multiplyFieldDisabled() {
+  if (props.multiplyEditable)
+    return false;
+  return fieldDisabled();
 }
 
 function onMarkupOnlyChange() {
@@ -359,12 +364,11 @@ function unlockRate() {
           </el-col>
           <el-col :span="6">
             <el-input
-              :key="multiplyLocked ? 'multiply-locked' : 'multiply-editable'"
               v-model.number="form.multiply"
               type="number"
               placeholder="乘网倍数"
-              :readonly="multiplyLocked"
-              :disabled="fieldDisabled()"
+              :readonly="!multiplyEditable"
+              :disabled="multiplyFieldDisabled()"
             >
               <template #prepend>
                 乘网

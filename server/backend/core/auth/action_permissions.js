@@ -29,6 +29,7 @@ const LEADER_ALLOWED_ACTIONS = new Set([
   "Client_AdminTeams",
   "Client_AdminPlatformAnalytics",
   "Client_AdminValueBet",
+  "Client_AdminUpdateAccountMultiply",
 ]);
 
 /**

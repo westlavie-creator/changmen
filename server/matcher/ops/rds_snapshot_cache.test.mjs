@@ -28,6 +28,17 @@ describe("mergePlatformMatchesSnapshot", () => {
     expect(merged.IA).toHaveLength(1);
     expect(merged.IA[0].Home).toBe("A refreshed");
   });
+
+  it("prefers RDS ClientMatchId when hot collector carries a different link", () => {
+    const rds = {
+      RAY: [{ SourceMatchID: "38403932", Home: "BB Team", Away: "BIG", ClientMatchId: 51 }],
+    };
+    const hot = {
+      RAY: [{ SourceMatchID: "38403932", Home: "BB Team", Away: "BIG", ClientMatchId: 99, savedAt: Date.now() }],
+    };
+    const merged = mergePlatformMatchesSnapshot(rds, hot);
+    expect(merged.RAY[0].ClientMatchId).toBe(51);
+  });
 });
 
 describe("mergeBetsSnapshotRdsTruth", () => {

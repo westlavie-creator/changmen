@@ -2,7 +2,6 @@
  * changmen 侧栏订单。
  * DOM 保持 A8 class：.orders / .orderlink / .order
  * 补单 .loseorders 由 lose-order.css（组件 import）维护
- * 维护：改此文件后 node scripts/sync-style-assets.mjs
  */
 
 #app .el-aside .orders,

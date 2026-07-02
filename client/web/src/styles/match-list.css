@@ -1,7 +1,6 @@
 /**
  * changmen 赛事列表容器。
  * DOM 保持 A8 class：.matchs / .match / .match-title
- * 维护：改此文件后 node scripts/sync-style-assets.mjs
  */
 
 #app .el-main .matchs,.common-layout .el-main .matchs {

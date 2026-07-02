@@ -1,6 +1,5 @@
 /**
- * changmen 平台角标（从 A8 extract 独立；modules + legacy 均经 sync 加载）
- * 维护：改此文件后 node scripts/sync-style-assets.mjs
+ * changmen 平台角标（从 A8 extract 独立）
  * 推荐 class：cm-platform-icon；.provider-icon 为过渡别名
  */
 

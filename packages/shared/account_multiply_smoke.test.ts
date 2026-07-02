@@ -5,14 +5,16 @@ import {
   accountsMultiplyNeedsPersist,
   normalizeAccountList,
   PB_MULTIPLY_DEFAULT,
+  DEFAULT_MULTIPLY,
+  preserveStoredAccountMultiply,
   resolveAccountMultiply,
   scaleVenueMoney,
   venueStakeFromBetMoney,
 } from "./account_multiply.js";
 
-it("pB multiply defaults to 10 when missing or invalid", () => {
-  assert.equal(resolveAccountMultiply("PB", undefined), PB_MULTIPLY_DEFAULT);
-  assert.equal(resolveAccountMultiply("PB", 0), PB_MULTIPLY_DEFAULT);
+it("pB multiply defaults to 1 when missing or invalid", () => {
+  assert.equal(resolveAccountMultiply("PB", undefined), DEFAULT_MULTIPLY);
+  assert.equal(resolveAccountMultiply("PB", 0), DEFAULT_MULTIPLY);
   assert.equal(resolveAccountMultiply("PB", 5), 5);
 });
 
@@ -20,9 +22,9 @@ it("pB multiply keeps explicit 1", () => {
   assert.equal(resolveAccountMultiply("PB", 1), 1);
 });
 
-it("Polymarket multiply defaults to 10 when missing or invalid", () => {
-  assert.equal(resolveAccountMultiply("Polymarket", undefined), PB_MULTIPLY_DEFAULT);
-  assert.equal(resolveAccountMultiply("Polymarket", 0), PB_MULTIPLY_DEFAULT);
+it("Polymarket multiply defaults to 1 when missing or invalid", () => {
+  assert.equal(resolveAccountMultiply("Polymarket", undefined), DEFAULT_MULTIPLY);
+  assert.equal(resolveAccountMultiply("Polymarket", 0), DEFAULT_MULTIPLY);
   assert.equal(resolveAccountMultiply("Polymarket", 8), 8);
 });
 
@@ -51,7 +53,7 @@ it("normalizeAccountList migrates missing multiply only", () => {
     { accountId: 3, provider: "Polymarket", multiply: 1 },
     { accountId: 4, provider: "RAY" },
   ]);
-  assert.equal((out[0] as Record<string, unknown>).multiply, 10);
+  assert.equal((out[0] as Record<string, unknown>).multiply, 1);
   assert.equal((out[1] as Record<string, unknown>).multiply, 1);
   assert.equal((out[2] as Record<string, unknown>).multiply, 1);
   assert.equal((out[3] as Record<string, unknown>).multiply, undefined);
@@ -63,4 +65,17 @@ it("normalizeAccountList migrates missing multiply only", () => {
     accountsMultiplyNeedsPersist([{ provider: "PB", multiply: 1 }], [out[1]]),
     false,
   );
+});
+
+it("preserveStoredAccountMultiply keeps server multiply on save", () => {
+  const kept = preserveStoredAccountMultiply(
+    { accountId: 1, provider: "PB", multiply: 99 },
+    { accountId: 1, multiply: 10 },
+  );
+  assert.equal((kept as Record<string, unknown>).multiply, 10);
+  const fresh = preserveStoredAccountMultiply(
+    { accountId: 2, provider: "PB", multiply: 99 },
+    undefined,
+  );
+  assert.equal((fresh as Record<string, unknown>).multiply, 99);
 });

@@ -1218,12 +1218,45 @@ function syncClientMatchsFromPlatformLinks(rows, matches, bets, timers, sourceFr
   }
 }
 
-function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides) {
-  const links = collectManualLinks(matches);
+/** RDS platform_matches.match_id 为准，补齐 client row.Matchs（防内存快照丢 ClientMatchId） */
+function syncClientMatchsFromDbBindings(rows, bindingsByClientId, matches, bets, timers, sourceFromBet) {
+  if (!Array.isArray(rows) || !bindingsByClientId?.size || !matches)
+    return;
+  for (const row of rows) {
+    const clientId = Number(row.ID);
+    if (!Number.isFinite(clientId))
+      continue;
+    const bindings = bindingsByClientId.get(clientId);
+    if (!bindings?.length)
+      continue;
+    for (const { platform, source_match_id } of bindings) {
+      const sid = String(source_match_id);
+      const match = findPlatformMatch(matches, platform, sid);
+      if (!match)
+        continue;
+      if (!row.Matchs)
+        row.Matchs = {};
+      const hadPlatform = row.Matchs[platform] === sid;
+      row.Matchs[platform] = sid;
+      if (!hadPlatform)
+        mergePlatformBetsIntoClientRow(row, clientId, platform, match, bets, timers, sourceFromBet);
+    }
+  }
+}
 
-  if (links.length) {
+function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides, platformBindingsByClientId) {
+  const links = collectManualLinks(matches);
+  const linkedIds = new Set(links.map(l => Number(l.match_id)));
+  if (platformBindingsByClientId?.size) {
+    for (const cmId of platformBindingsByClientId.keys()) {
+      const id = Number(cmId);
+      if (Number.isFinite(id))
+        linkedIds.add(id);
+    }
+  }
+
+  if (links.length || linkedIds.size) {
     const targetById = new Map(mergedList.map(m => [Number(m.ID), m]));
-    const linkedIds = new Set(links.map(l => Number(l.match_id)));
 
     // 仅预填本次链接目标 id：晚到平台挂到已有 client 行，保留原 id / merge_key
     for (const cm of existingClientRows || []) {
@@ -1281,6 +1314,7 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
 
   finalizeClientMatchListAfterLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides);
   syncClientMatchsFromPlatformLinks(mergedList, matches, bets, timers, sourceFromBet);
+  syncClientMatchsFromDbBindings(mergedList, platformBindingsByClientId, matches, bets, timers, sourceFromBet);
 
   return filterMultiPlatformClientMatches(mergedList)
     .sort((a, b) => a.StartTime - b.StartTime);
@@ -1477,6 +1511,7 @@ export {
   promoteFullMatchSourcesToLiveRound,
   promoteFullMatchSourcesToLiveRoundInPlace,
   stripOrphanClientMatchPlatforms,
+  syncClientMatchsFromDbBindings,
   syncClientMatchsFromPlatformLinks,
   PROVIDER_PRIORITY,
   reconcileClientMatchReverse,

@@ -2,7 +2,6 @@
  * changmen 全局布局。
  * DOM 保持 A8 class：.flex / .common-layout / #app
  * @media el-col 栅格仍由 extract layout 分桶提供
- * 维护：改此文件后 node scripts/sync-style-assets.mjs
  */
 
 html {

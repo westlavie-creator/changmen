@@ -293,6 +293,26 @@ export async function fetchPlatformMatchesByClientMatchId(cmId) {
   return rows;
 }
 
+/** matchMerge 物化：platform_matches.match_id → client_matches.matchs（RDS 为准） */
+export async function fetchAllPlatformMatchBindings() {
+  const { rows } = await rdsQuery(
+    "SELECT match_id, platform, source_match_id FROM platform_matches WHERE match_id IS NOT NULL",
+  );
+  const byClientId = new Map();
+  for (const r of rows) {
+    const cmId = Number(r.match_id);
+    if (!Number.isFinite(cmId))
+      continue;
+    if (!byClientId.has(cmId))
+      byClientId.set(cmId, []);
+    byClientId.get(cmId).push({
+      platform: String(r.platform),
+      source_match_id: String(r.source_match_id),
+    });
+  }
+  return byClientId;
+}
+
 export async function reassignPlatformMatchIds(fromId, toId) {
   const from = Number(fromId);
   const to = Number(toId);

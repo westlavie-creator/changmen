@@ -1,7 +1,6 @@
 /**
  * changmen 侧栏用户区。
  * DOM 保持 A8 class：.userinfo
- * 维护：改此文件后 node scripts/sync-style-assets.mjs
  */
 
 #app .el-aside .userinfo,
