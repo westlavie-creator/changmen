@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   A8_MATCH_MAX_FUTURE_MS,
-  A8_MATCH_MAX_PAST_MS,
   a8StartTimeCollectAllowed,
 } from "@/shared/a8MatchTime";
 
-describe("a8StartTimeCollectAllowed", () => {
+describe("a8StartTimeCollectAllowed (A8 parity)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-18T12:00:00.000Z"));
@@ -19,9 +18,9 @@ describe("a8StartTimeCollectAllowed", () => {
     expect(a8StartTimeCollectAllowed(0)).toBe(true);
   });
 
-  it("rejects start time more than 12h in the past", () => {
+  it("allows start time far in the past (A8 has no past lower bound)", () => {
     const now = Date.now();
-    expect(a8StartTimeCollectAllowed(now - A8_MATCH_MAX_PAST_MS - 1)).toBe(false);
+    expect(a8StartTimeCollectAllowed(now - 24 * 3600 * 1000)).toBe(true);
   });
 
   it("rejects start time more than 1h in the future", () => {
@@ -29,7 +28,7 @@ describe("a8StartTimeCollectAllowed", () => {
     expect(a8StartTimeCollectAllowed(now + A8_MATCH_MAX_FUTURE_MS + 1)).toBe(false);
   });
 
-  it("allows start time within past 12h and future 1h window", () => {
+  it("allows start time within future 1h window", () => {
     const now = Date.now();
     expect(a8StartTimeCollectAllowed(now - 60_000)).toBe(true);
     expect(a8StartTimeCollectAllowed(now + 60_000)).toBe(true);

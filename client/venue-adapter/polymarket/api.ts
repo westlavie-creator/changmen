@@ -1,4 +1,5 @@
 import type { PolymarketBook, PolymarketRawEvent, PolymarketRawMarket } from "./parse";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 export const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
@@ -10,8 +11,21 @@ const DEFAULT_MARKET_LIMIT = 200;
 const KEYSET_PAGE_LIMIT = 500;
 const MAX_KEYSET_PAGES = 3;
 const SPORTS_METADATA_TTL_MS = 60 * 60_000;
-const COLLECT_PAST_MS = 12 * 3600 * 1000;
+const COLLECT_PAST_MS = 6 * 3600 * 1000;
 const COLLECT_FUTURE_MS = 3600 * 1000;
+
+/** [changmen 扩展] Polymarket 采集开赛窗：过去 6h、未来 1h（A8 无此场馆；其它平台仅未来 1h 上限） */
+export const POLYMARKET_COLLECT_PAST_MS = COLLECT_PAST_MS;
+export const POLYMARKET_COLLECT_FUTURE_MS = COLLECT_FUTURE_MS;
+
+export function polymarketCollectStartTimeAllowed(startMs: number): boolean {
+  const ms = normalizeEpochMs(startMs);
+  if (!ms)
+    return true;
+  const now = Date.now();
+  return ms >= now - COLLECT_PAST_MS && ms <= now + COLLECT_FUTURE_MS;
+}
+
 const ESPORTS_SPORT_KEYS = ["cs2", "lol", "dota2", "hok", "val"];
 const DEFAULT_ESPORTS_SERIES_IDS = ["10310", "10311", "10309", "10434", "10369"];
 

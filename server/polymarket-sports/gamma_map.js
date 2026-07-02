@@ -5,7 +5,7 @@
 const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
 const ESPORTS_SPORT_KEYS = ["cs2", "lol", "dota2", "hok", "val"];
 const DEFAULT_ESPORTS_SERIES_IDS = ["10310", "10311", "10309", "10434", "10369"];
-const COLLECT_PAST_MS = 12 * 3600 * 1000;
+const COLLECT_PAST_MS = 6 * 3600 * 1000;
 const COLLECT_FUTURE_MS = 3600 * 1000;
 const KEYSET_PAGE_LIMIT = 500;
 const MAX_KEYSET_PAGES = 3;

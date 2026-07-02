@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { fetchPolymarketEsportsMarkets, POLYMARKET_GAMMA_API } from "./api";
+import {
+  fetchPolymarketEsportsMarkets,
+  POLYMARKET_COLLECT_PAST_MS,
+  POLYMARKET_GAMMA_API,
+  polymarketCollectStartTimeAllowed,
+} from "./api";
 import { polymarketPluginGet } from "./transport";
 
 vi.mock("./transport", () => ({
@@ -33,7 +38,7 @@ describe("Polymarket API discovery", () => {
         expect(parsed.searchParams.get("ascending")).toBe("true");
         expect(parsed.searchParams.get("closed")).toBe("false");
         expect(parsed.searchParams.getAll("series_id")).toEqual(["10310", "10311"]);
-        expect(parsed.searchParams.get("start_time_min")).toBe("2026-06-24T19:50:00.000Z");
+        expect(parsed.searchParams.get("start_time_min")).toBe("2026-06-25T01:50:00.000Z");
         expect(parsed.searchParams.get("start_time_max")).toBe("2026-06-25T08:50:00.000Z");
         return {
           data: [{
@@ -108,5 +113,22 @@ describe("Polymarket API discovery", () => {
 
     expect(markets).toHaveLength(1);
     expect(vi.mocked(polymarketPluginGet).mock.calls.filter(call => call[0].includes("/events/keyset"))).toHaveLength(2);
+  });
+});
+
+describe("polymarketCollectStartTimeAllowed", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-25T07:50:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("uses 6h past window (not global 12h)", () => {
+    const now = Date.now();
+    expect(polymarketCollectStartTimeAllowed(now - POLYMARKET_COLLECT_PAST_MS + 1)).toBe(true);
+    expect(polymarketCollectStartTimeAllowed(now - POLYMARKET_COLLECT_PAST_MS - 1)).toBe(false);
   });
 });

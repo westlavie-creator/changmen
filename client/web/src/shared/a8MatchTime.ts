@@ -1,23 +1,12 @@
 /**
- * 客户端采集时间窗：复用 @changmen/shared，采集侧额外保留过去 12h 下限。
- * [changmen 扩展] 过去下限不在 A8 bundle 采集过滤中，见 shared/time/match_time.mjs 注释。
+ * 客户端采集/列表开赛时间窗 — 与 A8 bundle 一致（仅未来 1h 上限，无过去下限）。
+ * Polymarket 为 [changmen 扩展] 场馆，见 venue-adapter/polymarket/api.ts 单独 6h 窗。
  */
-import {
+export {
   A8_MATCH_MAX_FUTURE_MS,
+  A8_MATCH_LIST_MAX_FUTURE_MS,
+  a8StartTimeCollectAllowed,
   a8StartTimeListAllowed,
   IM_ODDS_ACTIVE_MS,
   normalizeEpochMs,
 } from "@changmen/shared/time/match_time";
-
-export { A8_MATCH_MAX_FUTURE_MS, a8StartTimeListAllowed, IM_ODDS_ACTIVE_MS, normalizeEpochMs };
-
-/** [changmen 扩展] 客户端采集：拒绝开赛超过 12h 的比赛 */
-export const A8_MATCH_MAX_PAST_MS = 12 * 3600 * 1000;
-
-export function a8StartTimeCollectAllowed(startMs: number): boolean {
-  const ms = normalizeEpochMs(startMs);
-  if (!ms)
-    return true;
-  const now = Date.now();
-  return ms >= now - A8_MATCH_MAX_PAST_MS && ms <= now + A8_MATCH_MAX_FUTURE_MS;
-}

@@ -2,7 +2,6 @@ import type { CollectBetDto } from "@/types/collect";
 import { hasA8PluginRuntime } from "@/chrome-plugin/bridge";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
-import { a8StartTimeCollectAllowed } from "@/shared/a8MatchTime";
 import { notifyCollectError } from "@venue/shared/collectNotify";
 import { useCollectStore } from "@/stores/collectStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -10,6 +9,7 @@ import { useOddsStore } from "@/stores/oddsStore";
 import {
   fetchBatchBuyPrices,
   fetchPolymarketEsportsMarkets,
+  polymarketCollectStartTimeAllowed,
   polymarketMarketSubscribeMessage,
   type PolymarketWsMessage,
 } from "./api";
@@ -139,7 +139,7 @@ export function startPolymarketCollector(): () => void {
       if (assetIds.length !== 2) continue;
       const initial = buildPolymarketMappedMarket(raw);
       if (!initial) continue;
-      if (!a8StartTimeCollectAllowed(initial.match.StartTime)) continue;
+      if (!polymarketCollectStartTimeAllowed(initial.match.StartTime)) continue;
       filtered.push(raw);
     }
 
