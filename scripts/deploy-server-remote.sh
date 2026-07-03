@@ -216,6 +216,10 @@ PLAYERS_OWNER_MIGRATION_TOUCHED=0
 if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
   while IFS= read -r path; do
     case "$path" in
+      *028_players_account*|*migrate-accounts-jsonb*|*player_account_record*)
+        RDS_SCHEMA_TOUCHED=1
+        PLAYERS_RDS_TOUCHED=1
+        ;;
       changmen/server/backend/db/migrations/*|server/backend/db/migrations/*)
         RDS_SCHEMA_TOUCHED=1
         ;;
@@ -224,9 +228,6 @@ if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
         ;;
       *live_timer*|changmen/server/db/impl_rds.js|server/db/impl_rds.js)
         LIVE_TIMER_TOUCHED=1
-        ;;
-      *028_players_account*|*migrate-accounts-jsonb*|*player_account_record*)
-        PLAYERS_RDS_TOUCHED=1
         ;;
       *006_tag_platforms_players*|*players_json_migrate*|changmen/server/backend/core/account/account_store.js|server/backend/core/account/account_store.js|changmen/server/db/rds/player_store.js|server/db/rds/player_store.js|changmen/server/backend/core/db/store.js|server/backend/core/db/store.js)
         PLAYERS_RDS_TOUCHED=1

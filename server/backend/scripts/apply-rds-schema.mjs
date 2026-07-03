@@ -125,6 +125,9 @@ async function main() {
     console.log("[rds] 执行 027_players_active_owner_required.sql …");
     await client.query(readSql("027_players_active_owner_required.sql"));
 
+    console.log("[rds] 执行 028_players_account_data.sql …");
+    await client.query(readSql("028_players_account_data.sql"));
+
     const tables = await client.query(`
       SELECT tablename FROM pg_tables
       WHERE schemaname = 'public'
