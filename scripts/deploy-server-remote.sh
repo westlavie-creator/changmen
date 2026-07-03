@@ -196,17 +196,22 @@ fi
 LIVE_TIMER_TOUCHED=0
 RDS_SCHEMA_TOUCHED=0
 PLAYERS_RDS_TOUCHED=0
+PLAYERS_OWNER_MIGRATION_TOUCHED=0
 if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
   while IFS= read -r path; do
     case "$path" in
       changmen/server/backend/db/migrations/*|server/backend/db/migrations/*)
         RDS_SCHEMA_TOUCHED=1
         ;;
+      *026_players_owner_user_id*|*migrate-players-owner-user-id*)
+        PLAYERS_OWNER_MIGRATION_TOUCHED=1
+        ;;
       *live_timer*|changmen/server/db/impl_rds.js|server/db/impl_rds.js)
         LIVE_TIMER_TOUCHED=1
         ;;
-      *006_tag_platforms_players*|*players_json_migrate*|changmen/server/backend/core/account/account_store.js|server/backend/core/account/account_store.js)
+      *006_tag_platforms_players*|*players_json_migrate*|changmen/server/backend/core/account/account_store.js|server/backend/core/account/account_store.js|changmen/server/db/rds/player_store.js|server/db/rds/player_store.js)
         PLAYERS_RDS_TOUCHED=1
+        PLAYERS_OWNER_MIGRATION_TOUCHED=1
         ;;
     esac
   done < <(git -C "$GIT_ROOT" diff --name-only "$OLD_HEAD" "$NEW_HEAD")
@@ -222,6 +227,10 @@ fi
 if [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "players/tag_platforms → RDS: migrate JSON from storage/"
   (cd server/backend && node scripts/migrate-players-to-rds.mjs) || echo "WARN: migrate-players failed"
+fi
+if [ "$PLAYERS_OWNER_MIGRATION_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
+  log "players owner_user_id: backfill existing rows"
+  (cd server/backend && node scripts/migrate-players-owner-user-id.mjs) || echo "WARN: migrate-players-owner failed"
 fi
 
 if command -v pm2 >/dev/null 2>&1; then

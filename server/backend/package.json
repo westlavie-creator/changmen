@@ -47,6 +47,7 @@
     "user:create": "node scripts/create-user.js",
     "db:apply": "node scripts/apply-rds-schema.mjs",
     "db:migrate-players": "node scripts/migrate-players-to-rds.mjs",
+    "db:migrate-players-owner": "node scripts/migrate-players-owner-user-id.mjs",
     "db:check-players": "node scripts/check-players-rds-migrate.mjs",
     "check:rds-schema": "node scripts/check-rds-schema.mjs",
     "post-deploy:check": "node scripts/post-deploy-check.mjs",

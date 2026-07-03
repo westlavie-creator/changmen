@@ -15,14 +15,17 @@ import {
 import * as orderStore from "./order_store.js";
 import { resolvePresenceState } from "./user_presence.js";
 
-async function handleCreateTagPlatform(body) {
+async function handleCreateTagPlatform(body, userId) {
   const platformName = body.platform || body.platformName || "";
   const playerName = body.playerName || "";
+  if (!userId) {
+    return { ok: false, msg: "请先登录" };
+  }
   if (!platformName || !playerName) {
     return { ok: false, msg: "platform 与 playerName 必填" };
   }
   try {
-    const created = await accountStore.createTagPlatform(platformName, playerName);
+    const created = await accountStore.createTagPlatform(platformName, playerName, userId);
     return { ok: true, info: created };
   }
   catch (err) {
@@ -41,10 +44,9 @@ async function handleUpdateBalance(body, userId) {
     return { ok: false, msg: "playerId 与 balance 必填" };
   }
   if (userId) {
-    const userAccountIds = new Set(store.getAccountsForUser(userId).map(a => Number(a.accountId)));
-    if (!userAccountIds.has(Number(playerId))) {
-      return { ok: false, msg: "账号不属于当前用户" };
-    }
+    const owned = await assertPlayerOwnedByUser(playerId, userId);
+    if (!owned.ok)
+      return owned;
   }
   const player = await accountStore.getPlayer(playerId);
   if (!player) {
@@ -61,6 +63,9 @@ async function handleDeletePlayer(body, userId) {
   const playerId = body.playerId;
   if (!playerId)
     return { ok: false, msg: "playerId 必填" };
+  const owned = await assertPlayerOwnedByUser(playerId, userId);
+  if (!owned.ok)
+    return owned;
   const ok = await accountStore.deletePlayer(playerId, body.description || "");
   if (ok)
     await accountStore.deletePlayerData(playerId);
@@ -168,8 +173,27 @@ function enrichAccountRowFromPlayer(row) {
   return normalizeAccountMultiplyField(row);
 }
 
+async function assertPlayerOwnedByUser(playerId, userId) {
+  if (!userId)
+    return { ok: true };
+  const player = await accountStore.getPlayer(playerId);
+  if (!player)
+    return { ok: false, msg: `playerId ${playerId} 不存在，请先调用 Client_CreateTagPlatform` };
+  if (player.ownerUserId) {
+    if (player.ownerUserId !== userId) {
+      return { ok: false, msg: `playerId ${playerId} 不属于当前用户` };
+    }
+    return { ok: true };
+  }
+  const userAccountIds = new Set(store.getAccountsForUser(userId).map(a => Number(a.accountId)));
+  if (!userAccountIds.has(Number(playerId))) {
+    return { ok: false, msg: `playerId ${playerId} 不属于当前用户` };
+  }
+  return { ok: true };
+}
+
 /** [A8 可证实] accountId = CreateTagPlatform 返回的 playerId，禁止客户端自增 */
-async function validateAccountRows(accounts) {
+async function validateAccountRows(accounts, userId) {
   if (!Array.isArray(accounts))
     return { ok: false, msg: "ACCOUNT 必须是数组" };
   const seen = new Set();
@@ -181,9 +205,9 @@ async function validateAccountRows(accounts) {
     if (seen.has(id))
       return { ok: false, msg: `accountId ${id} 重复` };
     seen.add(id);
-    if (!(await accountStore.getPlayer(id))) {
-      return { ok: false, msg: `playerId ${id} 不存在，请先调用 Client_CreateTagPlatform` };
-    }
+    const owned = await assertPlayerOwnedByUser(id, userId);
+    if (!owned.ok)
+      return owned;
   }
   return { ok: true };
 }
@@ -193,7 +217,7 @@ async function handleSaveAccounts(accounts, userId) {
   if (Array.isArray(accounts) && accounts.length === 0 && existing.length > 0) {
     return { ok: false, msg: "禁止用空列表覆盖已有账号，请刷新页面后重试" };
   }
-  const checked = await validateAccountRows(accounts);
+  const checked = await validateAccountRows(accounts, userId);
   if (!checked.ok)
     return checked;
   const existingById = new Map(

@@ -8,18 +8,21 @@ async function listTagPlatforms() {
     .sort((a, b) => a.ID - b.ID);
 }
 
-async function createTagPlatform(platformName, playerName) {
+async function createTagPlatform(platformName, playerName, ownerUserId) {
   const label = String(platformName || "").trim();
   const name = String(playerName || "").trim();
+  const uid = String(ownerUserId || "").trim();
   if (!label || !name)
     return null;
+  if (!uid)
+    throw new Error("CreateTagPlatform 需要登录用户 ownerUserId");
 
   const platform = await sb.upsertTagPlatformByName(label);
   if (!platform) {
     throw new Error("CreateTagPlatform 需要 DATABASE_URL（RDS tag_platforms / players）");
   }
 
-  const existing = await sb.fetchPlayerByPlatformAndName(platform.id, name);
+  const existing = await sb.fetchPlayerByPlatformAndName(platform.id, name, uid);
   if (existing) {
     return {
       playerId: existing.playerId,
@@ -33,6 +36,7 @@ async function createTagPlatform(platformName, playerName) {
     platformId: platform.id,
     platformName: platform.name,
     playerName: name,
+    ownerUserId: uid,
   });
   if (!player) {
     throw new Error("CreateTagPlatform 写入 players 失败");
@@ -52,6 +56,7 @@ async function getPlayer(playerId) {
     return null;
   return {
     id: row.id,
+    ownerUserId: row.ownerUserId ?? null,
     platformId: row.platformId,
     platformName: row.platformName,
     playerName: row.playerName,

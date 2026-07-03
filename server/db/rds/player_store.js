@@ -10,6 +10,7 @@ function _mapPlayerRow(row) {
   return {
     id: Number(row.id),
     playerId: Number(row.id),
+    ownerUserId: row.owner_user_id != null ? String(row.owner_user_id) : null,
     platformId: Number(row.platform_id),
     platformName: String(row.platform_name || ""),
     playerName: String(row.player_name || ""),
@@ -60,22 +61,24 @@ export async function upsertTagPlatformByName(name) {
   }
 }
 
-export async function insertPlayerRow({ platformId, platformName, playerName }) {
+export async function insertPlayerRow({ platformId, platformName, playerName, ownerUserId }) {
   const pool = getPgPool();
   if (!pool)
     return null;
   const now = Date.now();
   const pid = Number(platformId);
-  if (!Number.isFinite(pid) || pid <= 0)
+  const uid = String(ownerUserId || "").trim();
+  if (!Number.isFinite(pid) || pid <= 0 || !uid)
     return null;
   try {
     const { rows } = await pool.query(
       `INSERT INTO players (
-         platform_id, platform_name, player_name, credit, total_balance, created_at, updated_at
-       ) VALUES ($1, $2, $3, 0, 0, $4, $4)
-       RETURNING id, platform_id, platform_name, player_name, credit, total_balance,
+         owner_user_id, platform_id, platform_name, player_name,
+         credit, total_balance, created_at, updated_at
+       ) VALUES ($1, $2, $3, $4, 0, 0, $5, $5)
+       RETURNING id, owner_user_id, platform_id, platform_name, player_name, credit, total_balance,
                  created_at, updated_at, deleted_at, delete_description`,
-      [pid, String(platformName || ""), String(playerName || ""), now],
+      [uid, pid, String(platformName || ""), String(playerName || ""), now],
     );
     return _mapPlayerRow(rows?.[0]);
   }
@@ -85,23 +88,24 @@ export async function insertPlayerRow({ platformId, platformName, playerName }) 
   }
 }
 
-export async function fetchPlayerByPlatformAndName(platformId, playerName) {
+export async function fetchPlayerByPlatformAndName(platformId, playerName, ownerUserId) {
   const pid = Number(platformId);
   const name = String(playerName || "").trim();
-  if (!Number.isFinite(pid) || pid <= 0 || !name)
+  const uid = String(ownerUserId || "").trim();
+  if (!Number.isFinite(pid) || pid <= 0 || !name || !uid)
     return null;
   const pool = getPgPool();
   if (!pool)
     return null;
   try {
     const { rows } = await pool.query(
-      `SELECT id, platform_id, platform_name, player_name, credit, total_balance,
+      `SELECT id, owner_user_id, platform_id, platform_name, player_name, credit, total_balance,
               created_at, updated_at, deleted_at, delete_description
        FROM players
-       WHERE platform_id = $1 AND player_name = $2 AND deleted_at IS NULL
+       WHERE platform_id = $1 AND player_name = $2 AND owner_user_id = $3::uuid AND deleted_at IS NULL
        ORDER BY id ASC
        LIMIT 1`,
-      [pid, name],
+      [pid, name, uid],
     );
     return _mapPlayerRow(rows?.[0]);
   }
@@ -120,7 +124,7 @@ export async function fetchPlayerById(playerId) {
     return null;
   try {
     const { rows } = await pool.query(
-      `SELECT id, platform_id, platform_name, player_name, credit, total_balance,
+      `SELECT id, owner_user_id, platform_id, platform_name, player_name, credit, total_balance,
               created_at, updated_at, deleted_at, delete_description
        FROM players WHERE id = $1 AND deleted_at IS NULL`,
       [id],

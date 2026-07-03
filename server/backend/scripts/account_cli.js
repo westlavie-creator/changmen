@@ -70,11 +70,20 @@ async function main() {
     case "create": {
       let platform = "";
       let player = "";
+      let userName = "";
       for (let i = 0; i < rest.length; i++) {
         if (rest[i] === "--platform") platform = rest[++i];
         if (rest[i] === "--player") player = rest[++i];
+        if (rest[i] === "--user") userName = rest[++i];
       }
-      const r = await accountService.handleCreateTagPlatform({ platform, playerName: player });
+      let userId = "";
+      if (userName) {
+        store.ensureSeed();
+        const user = store.getUserByName(userName);
+        if (!user) throw new Error(`用户不存在: ${userName}`);
+        userId = user.id;
+      }
+      const r = await accountService.handleCreateTagPlatform({ platform, playerName: player }, userId);
       console.log(JSON.stringify(r, null, 2));
       break;
     }
@@ -83,7 +92,11 @@ async function main() {
       break;
     }
     case "save-sample": {
-      const created = await accountStore.createTagPlatform("????", "demo01");
+      store.ensureSeed();
+      const demoUser = store.listUsers?.()?.[0] || store.getUserByName?.("admin");
+      if (!demoUser?.id)
+        throw new Error("save-sample 需要至少一个用户，或改用 account:create --user <name>");
+      const created = await accountStore.createTagPlatform("????", "demo01", demoUser.id);
       const sample = {
         accountId: created.playerId,
         platformId: created.platformId,

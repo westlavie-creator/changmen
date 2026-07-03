@@ -674,7 +674,7 @@ async function handle(
     }
     case "Client_CreateTagPlatform": {
       await accountStore.ensureSeed();
-      const created = await accountService.handleCreateTagPlatform(body);
+      const created = await accountService.handleCreateTagPlatform(body, ctx.user?.id ?? "");
       return created.ok ? ok(created.info) : fail(created.msg);
     }
     case "Client_GetTagPlatforms": {
