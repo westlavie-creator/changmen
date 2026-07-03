@@ -7,6 +7,7 @@ import {
   linkIdGroupKey,
   orderLinkLegend,
   orderListDisplayRows,
+  pmBuyBoundSellFills,
   pmBuyDisplayProfitCny,
   pmBuyDisplayStatus,
   pmBuyProfitDisplay,
@@ -355,5 +356,35 @@ describe("orderLink A8 parity", () => {
       pending: false,
       earlySettled: false,
     });
+  });
+
+  it("pmBuyBoundSellFills maps linked sell rows to display lines", () => {
+    const buy = {
+      OrderID: "0xbuy70",
+      Type: "Polymarket",
+      PmSide: "buy" as const,
+      BetMoney: 70,
+    };
+    const group = [
+      buy,
+      {
+        OrderID: "0xsell70",
+        Type: "Polymarket",
+        PmSide: "sell" as const,
+        PmBuyOrderId: "0xbuy70",
+        PmShares: 15.15,
+        PmStakeUsdc: 10,
+        BetMoney: 85,
+        Money: 15,
+        Odds: 1.25,
+        CreateAt: 1_783_107_450_000,
+      },
+    ];
+    expect(pmBuyBoundSellFills(buy, group)).toEqual([{
+      shares: 15.15,
+      proceedsCny: 85,
+      odds: 1.25,
+      createAt: 1_783_107_450_000,
+    }]);
   });
 });

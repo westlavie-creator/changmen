@@ -127,6 +127,29 @@ export function pmBuyLinkedSells(buy: OrderRow, groupRows: OrderRow[]): OrderRow
   );
 }
 
+/** 绑定卖单成交摘要（嵌在买单最下方，仅卖单侧字段） */
+export interface PmBoundSellFillLine {
+  shares: number | null;
+  proceedsCny: number;
+  odds: number;
+  createAt: number;
+}
+
+export function pmBuyBoundSellFills(buy: OrderRow, groupRows: OrderRow[]): PmBoundSellFillLine[] {
+  return pmBuyLinkedSells(buy, groupRows)
+    .slice()
+    .sort((a, b) => (Number(a.CreateAt) || 0) - (Number(b.CreateAt) || 0))
+    .map((sell) => {
+      const shares = Number(sell.PmShares);
+      return {
+        shares: Number.isFinite(shares) && shares > 0.0001 ? shares : null,
+        proceedsCny: Number(sell.BetMoney) || 0,
+        odds: Number(sell.Odds) || 0,
+        createAt: Number(sell.CreateAt) || 0,
+      };
+    });
+}
+
 /** 仓位已平（含 changmen 归因或同组卖单已覆盖成本/份额） */
 export function pmBuySoldOutForDisplay(buy: OrderRow, groupRows: OrderRow[]): boolean {
   if (!isPolymarketOpenPosition(buy))
