@@ -1,6 +1,6 @@
 /** UI 通过 Client_GetData 读取的 KV 键：数组类需直接返回 []，对象类需 spread 为 { success, msg, ...fields } */
 export const ARRAY_KEYS = new Set(["ACCOUNT", "PROXY", "GoogleCode", "Wallet"]);
-export const OBJECT_KEYS = new Set(["USERCONFIG", "Follow", "Message", "CollectConfig"]);
+export const OBJECT_KEYS = new Set(["USERCONFIG", "Follow", "Message", "CollectConfig", "Extensions"]);
 
 export function isArrayKey(key) {
   return ARRAY_KEYS.has(key);

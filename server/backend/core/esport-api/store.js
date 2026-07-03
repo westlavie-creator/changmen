@@ -55,6 +55,7 @@ const USER_SETTING_KEYS = [
   "GoogleCode",
   "Wallet",
   "Message",
+  "Extensions",
 ];
 
 // ── 初始化 JSON 文件 ───────────────────────────────────────────────────────

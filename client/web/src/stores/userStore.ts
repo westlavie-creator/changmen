@@ -14,6 +14,7 @@ import {
   getToken,
   getUserInfo,
   saveClientData,
+  saveClientDataDetailed,
 } from "@/api/esport";
 import { ensureTokenRefresh, stopTokenRefresh } from "@/lib/sessionRefresh";
 import { subscribeUserChannel, unsubscribeUserChannel } from "@/realtime/userChannel";
@@ -177,7 +178,9 @@ export const useUserStore = defineStore("user", {
     },
 
     async saveExtensionPrefs() {
-      await saveClientData("Extensions", JSON.stringify(this.extensionPrefs));
+      const result = await saveClientDataDetailed("Extensions", JSON.stringify(this.extensionPrefs));
+      if (!result.ok)
+        throw new Error(result.msg || "保存扩展配置失败");
     },
 
     async deleteProxy(proxyId: number) {

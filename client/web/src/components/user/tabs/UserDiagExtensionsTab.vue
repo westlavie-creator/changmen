@@ -14,6 +14,9 @@ async function save() {
     await user.saveExtensionPrefs();
     ElMessage.success("保存成功");
   }
+  catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "保存失败");
+  }
   finally {
     saving.value = false;
   }
