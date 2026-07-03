@@ -243,9 +243,17 @@ export function flattenPolymarketTrades(
   return out;
 }
 
-/** 同一 taker_order_id 多 bucket 合并 */
+/** 合并后 price 保留精度（与 CLOB 小数价一致） */
+function formatPolymarketVwapPrice(notionalUsdc: number, shares: number): string {
+  if (!Number.isFinite(notionalUsdc) || !Number.isFinite(shares) || shares <= 0 || notionalUsdc <= 0)
+    return "";
+  const vwap = Math.round((notionalUsdc / shares) * 1_000_000) / 1_000_000;
+  return String(vwap);
+}
+
+/** 同一 taker_order_id 多 bucket 合并；price 为各腿 USDC 加权均价（VWAP） */
 export function aggregatePolymarketTrades(trades: PolymarketTradeRow[]): PolymarketTradeRow[] {
-  const byOrder = new Map<string, PolymarketTradeRow & { _sizeSum: number }>();
+  const byOrder = new Map<string, PolymarketTradeRow & { _sizeSum: number; _notionalSum: number }>();
   for (const trade of trades) {
     if (String(trade.side ?? "").trim().toUpperCase() !== "BUY") continue;
     if (!isPolymarketTradeConfirmed(String(trade.status ?? ""))) continue;
@@ -253,21 +261,36 @@ export function aggregatePolymarketTrades(trades: PolymarketTradeRow[]): Polymar
     if (!orderId) continue;
 
     const size = Number(trade.size) || 0;
+    const price = Number(trade.price);
+    const notional = Number.isFinite(price) && price > 0
+      ? polymarketBuyStakeUsdc(trade.size, price)
+      : 0;
     const matchSec = Number(trade.match_time) || 0;
     const existing = byOrder.get(orderId);
     if (!existing) {
-      byOrder.set(orderId, { ...trade, taker_order_id: orderId, _sizeSum: size });
+      byOrder.set(orderId, {
+        ...trade,
+        taker_order_id: orderId,
+        _sizeSum: size,
+        _notionalSum: notional,
+      });
       continue;
     }
     existing._sizeSum += size;
+    existing._notionalSum += notional;
     if (matchSec >= (Number(existing.match_time) || 0))
       existing.match_time = trade.match_time;
   }
 
-  return [...byOrder.values()].map(({ _sizeSum, ...rest }) => ({
-    ...rest,
-    size: String(_sizeSum),
-  }));
+  return [...byOrder.values()].map(({ _sizeSum, _notionalSum, ...rest }) => {
+    const shares = polymarketShareCount(_sizeSum);
+    const vwapPrice = formatPolymarketVwapPrice(_notionalSum, shares);
+    return {
+      ...rest,
+      size: String(_sizeSum),
+      ...(vwapPrice ? { price: vwapPrice } : {}),
+    };
+  });
 }
 
 export function mapPolymarketTradeToVenueOrder(

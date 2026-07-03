@@ -149,7 +149,40 @@ describe("aggregatePolymarketTrades", () => {
     expect(aggregated).toHaveLength(1);
     expect(aggregated[0]?.taker_order_id).toBe("0xabc");
     expect(aggregated[0]?.size).toBe("1000000");
+    expect(aggregated[0]?.price).toBe("0.5");
     expect(aggregated[0]?.match_time).toBe("1700000001");
+  });
+
+  test("merges buckets with VWAP price when fill prices differ", () => {
+    const trades: PolymarketTradeRow[] = [
+      {
+        taker_order_id: "0xabc",
+        side: "BUY",
+        status: "TRADE_STATUS_CONFIRMED",
+        size: "10",
+        price: "0.4",
+        match_time: "1700000000",
+        bucket_index: 0,
+      },
+      {
+        taker_order_id: "0xabc",
+        side: "BUY",
+        status: "TRADE_STATUS_CONFIRMED",
+        size: "10",
+        price: "0.5",
+        match_time: "1700000001",
+        bucket_index: 1,
+      },
+    ];
+
+    const aggregated = aggregatePolymarketTrades(trades);
+    expect(aggregated).toHaveLength(1);
+    expect(aggregated[0]?.size).toBe("20");
+    expect(aggregated[0]?.price).toBe("0.45");
+    expect(mapPolymarketTradeToVenueOrder(aggregated[0]!)).toMatchObject({
+      betMoney: 9,
+      odds: 2.2222,
+    });
   });
 });
 

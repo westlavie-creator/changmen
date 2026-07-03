@@ -24,7 +24,7 @@ export function accountMultiplyScale(multiply: unknown): number {
 export const PB_MIN_VENUE_STAKE = 7;
 
 /** Polymarket 乘网换算后提交 CLOB 的最小 USDC */
-export const POLYMARKET_MIN_VENUE_STAKE = 5;
+export const POLYMARKET_MIN_VENUE_STAKE = 1;
 
 /** 展示口径 betMoney → 场馆 API 实际金额（对齐 A8 PB PZe.checkBet） */
 export function venueStakeFromBetMoney(
