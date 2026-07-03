@@ -123,6 +123,15 @@ export function polymarketShareCount(sizeRaw: string | number | undefined): numb
   return size;
 }
 
+/** CLOB 响应/余额 micro 金额 → USDC（≥10000 视为 6 位 micro） */
+export function parsePolymarketMicroUsdc(raw: string | number | undefined): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0)
+    return 0;
+  const usdc = value >= 10_000 ? value / TOKEN_MICRO : value;
+  return Math.round(usdc * 10000) / 10000;
+}
+
 function gammaOutcomePrices(market: PolymarketRawMarket): number[] {
   return parseJsonArray(market.outcomePrices ?? market.outcome_prices).map(Number);
 }

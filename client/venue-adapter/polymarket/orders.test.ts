@@ -11,12 +11,25 @@ import {
   mapPolymarketTradesToVenueOrders,
   polymarketBuyStakeUsdc,
   polymarketTradeRefsOrderId,
+  parsePolymarketMicroUsdc,
   resolvePolymarketWinningAssetId,
   scalePolymarketVenueOrdersForDisplay,
   type PolymarketTradeRow,
 } from "./orders";
 import { collectPolymarketUserAddresses } from "./l2Auth";
 import { polymarketOrderContextFromMarket, type PolymarketRawMarket } from "./parse";
+
+describe("parsePolymarketMicroUsdc", () => {
+  test("parses micro collateral strings", () => {
+    expect(parsePolymarketMicroUsdc("85000000")).toBe(85);
+    expect(parsePolymarketMicroUsdc("10000000")).toBe(10);
+  });
+
+  test("passes through human-readable amounts", () => {
+    expect(parsePolymarketMicroUsdc("85.5")).toBe(85.5);
+    expect(parsePolymarketMicroUsdc(12)).toBe(12);
+  });
+});
 
 describe("isPolymarketTradeConfirmed", () => {
   test("accepts confirmed, matched, and mined statuses", () => {

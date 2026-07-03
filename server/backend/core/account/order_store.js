@@ -34,6 +34,21 @@ function parseNum(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** changmen 买单：BetMoney 为 CNY 展示，未部分平仓时对齐 pmStakeUsdc（USDC） */
+function syncOpenChangmenBuyPmStakeUsdc(merged, prevRaw, betMoneyCny, prevAttributed, prevState) {
+  const impliedUsdc = Math.round((betMoneyCny / 7) * 10000) / 10000;
+  const storedUsdc = parseNum(merged.pmStakeUsdc, parseNum(prevRaw.pmStakeUsdc, 0));
+  if (
+    prevAttributed <= 0
+    && prevState !== "partial"
+    && prevState !== "closed"
+    && impliedUsdc > 0
+    && (storedUsdc <= 0 || impliedUsdc > storedUsdc * 1.05)
+  ) {
+    merged.pmStakeUsdc = impliedUsdc;
+  }
+}
+
 function resolveStoredLink(link, _orderId, createAt) {
   const n = Number(link);
   if (Number.isFinite(n) && n !== 0)
@@ -167,9 +182,22 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       money = 0;
     }
   }
-  else if (betMoneyForMerge > 0 && bet_money <= 0) {
-    merged.betMoney = betMoneyForMerge;
-    bet_money = betMoneyForMerge;
+  else {
+    if (betMoneyForMerge > 0) {
+      merged.betMoney = betMoneyForMerge;
+      bet_money = betMoneyForMerge;
+    }
+    if (isChangmen) {
+      merged.pmOrigin = merged.pmOrigin || "changmen";
+      merged.pmSide = "buy";
+      syncOpenChangmenBuyPmStakeUsdc(
+        merged,
+        prevRaw,
+        betMoneyForMerge,
+        prevAttributed,
+        prevState,
+      );
+    }
   }
 
   return { raw: merged, money, bet_money };

@@ -37,17 +37,23 @@ function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
 
-/** 买单成本（USDC）：pmStakeUsdc 优先，否则 BetMoney 按 CNY 展示反推 */
+/** 买单成本（USDC）：pmStakeUsdc 优先；未部分平仓时 BetMoney(CNY) 与 pmStakeUsdc 严重偏离则以 BetMoney 反推 */
 export function resolveBuyStakeUsdc(buy: VenueOrder | OrderRowLike): number {
   const venue = buy as VenueOrder;
   const row = buy as OrderRowLike;
   const stakeUsdc = Number(venue.pmStakeUsdc ?? row.PmStakeUsdc);
-  if (Number.isFinite(stakeUsdc) && stakeUsdc > 0)
-    return round4(stakeUsdc);
   const betDisplay = Number(venue.betMoney ?? row.BetMoney) || 0;
-  if (betDisplay > 0)
-    return round4(betDisplay / USDT_CNY_EXCHANGE);
-  return 0;
+  const fromBet = betDisplay > 0 ? round4(betDisplay / USDT_CNY_EXCHANGE) : 0;
+  const attributed = Number(venue.pmAttributedSellShares ?? row.PmAttributedSellShares) || 0;
+  const sellState = venue.pmSellState ?? row.PmSellState;
+  const hadPartialSell = attributed > 0 || sellState === "partial" || sellState === "closed";
+
+  if (Number.isFinite(stakeUsdc) && stakeUsdc > 0) {
+    if (!hadPartialSell && fromBet > 0 && fromBet > stakeUsdc * 1.05)
+      return fromBet;
+    return round4(stakeUsdc);
+  }
+  return fromBet;
 }
 
 /** 卖单展示盈亏（CNY）= 回款 − 成本 */

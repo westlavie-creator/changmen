@@ -14,6 +14,7 @@ import {
   estimatePolymarketSellProceedsUsdc,
   type PolymarketBidLevel,
 } from "./parse";
+import { parsePolymarketMicroUsdc } from "./orders";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 import { isPolymarketOrderAccepted, polymarketOrderFailureMessage } from "./bet";
 import { isPolymarketDelayedPending, settlePolymarketDelayedOrder } from "./orderStatus";
@@ -335,10 +336,8 @@ export async function sellPolymarketPosition(
         );
       }
     }
-    const taking = Number(result?.takingAmount);
-    const proceedsUsdc = Number.isFinite(taking) && taking > 0
-      ? Math.round(taking * 10000) / 10000
-      : quote.proceedsUsdc;
+    const proceedsFromApi = parsePolymarketMicroUsdc(result?.takingAmount);
+    const proceedsUsdc = proceedsFromApi > 0 ? proceedsFromApi : quote.proceedsUsdc;
     const msg = pending
       ? `${orderId} / ${result.status} / 待确认（体育延迟撮合中）`
       : `${orderId} / ${result.status} / 卖出 ${shares} 份`;

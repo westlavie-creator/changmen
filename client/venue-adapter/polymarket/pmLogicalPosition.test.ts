@@ -62,6 +62,28 @@ describe("pmLogicalPosition", () => {
     expect(sell.betMoney).toBe(12);
   });
 
+  it("resolveBuyStakeUsdc prefers BetMoney when pmStakeUsdc stale vs CNY display", () => {
+    const buy = venueOrderFromOrderRow({
+      ...baseRow,
+      BetMoney: 490,
+      PmStakeUsdc: 10,
+      PmShares: 100,
+    });
+    expect(resolveBuyStakeUsdc(buy)).toBe(70);
+    const sell = buildChangmenSellVenueOrder(buy, {
+      sellOrderId: "0xsell3",
+      sharesSold: 100,
+      proceedsUsdc: 85,
+    });
+    expect(sell.pmStakeUsdc).toBe(70);
+    expect(sell.money).toBe(15);
+  });
+
+  it("resolveBuyStakeUsdc keeps reduced pmStakeUsdc after partial sell", () => {
+    const partial = applyBuySharesAfterSell(venueOrderFromOrderRow(baseRow), 4);
+    expect(resolveBuyStakeUsdc(partial)).toBe(6);
+  });
+
   it("partial sell keeps remaining shares on buy", () => {
     const order = venueOrderFromOrderRow(baseRow);
     const updated = applyBuySharesAfterSell(order, 4);
