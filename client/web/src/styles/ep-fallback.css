@@ -246,6 +246,18 @@
   text-align: left;
 }
 
+.manual-bet-alert__meta {
+  line-height: 1.55;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.manual-bet-alert__divider {
+  height: 1px;
+  margin: 10px 0;
+  background: var(--el-border-color-lighter);
+}
+
 .poly-bet-alert {
   max-height: 58vh;
   overflow: auto;

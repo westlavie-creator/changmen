@@ -4,8 +4,12 @@ import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
 import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import { BetOption } from "@/models/betOption";
 import { manualBetToastSeconds } from "@/shared/betTiming";
-import { toFixed } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
+import {
+  buildManualBetCheckFailureHtml,
+  buildManualBetContextLines,
+  buildManualBetOrderFailureHtml,
+} from "@/stores/betting/manualBetAlert";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -22,45 +26,11 @@ export function buildManualBetPromptMessage(
   side: BetSide,
   odds: number,
 ): string {
-  const team = side === "Home" ? bet.homeName : bet.awayName;
-  const market = bet.getBetName();
-  const oddsText = odds > 0 ? toFixed(odds, 3) : "—";
   return [
-    match.title,
-    `盘口：${market}`,
-    `平台：${item.type}`,
-    `选项：${team} @ ${oddsText}`,
+    ...buildManualBetContextLines(match, bet, item, side, odds),
     "",
     "请输入要投注的金额",
   ].join("\n");
-}
-
-function escapeHtml(raw: string): string {
-  return raw
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function polymarketFailureHtml(message: string): string {
-  const lines = message.split(/\r?\n/);
-  const html = lines.map((line, index) => {
-    const text = escapeHtml(line);
-    if (!line.trim())
-      return `<div class="poly-bet-alert__gap"></div>`;
-    if (index === 0)
-      return `<div class="poly-bet-alert__reason">${text}</div>`;
-    if (/^【.+】$/.test(line))
-      return `<div class="poly-bet-alert__section">${text}</div>`;
-    if (/^\d+\.\s/.test(line))
-      return `<div class="poly-bet-alert__ask">${text}</div>`;
-    if (line.includes("tokenId"))
-      return `<div class="poly-bet-alert__row poly-bet-alert__mono">${text}</div>`;
-    return `<div class="poly-bet-alert__row">${text}</div>`;
-  }).join("");
-  return `<div class="poly-bet-alert">${html}</div>`;
 }
 
 /** [A8 可证实] 双击赔率手动下单 */
@@ -127,7 +97,15 @@ export async function runManualBet(
   const toastSec = manualBetToastSeconds();
   option = await accountStore.checkBetting(account, option);
   if (!option.data) {
-    ElMessageBox.alert(option.checkError || "前置检查失败", "前置检查失败");
+    await ElMessageBox.alert(
+      buildManualBetCheckFailureHtml(match, bet, item, side, odds, amount, option.checkError),
+      `${item.type} 预检未通过`,
+      {
+        dangerouslyUseHTMLString: true,
+        customClass: "manual-bet-result-box",
+        confirmButtonText: "知道了",
+      },
+    );
     return;
   }
   const result = await accountStore.betting(account, option, toastSec);
@@ -139,7 +117,7 @@ export async function runManualBet(
   else {
     const message = result?.message || "下单失败";
     if (item.type === "Polymarket") {
-      ElMessageBox.alert(polymarketFailureHtml(message), "下单失败", {
+      ElMessageBox.alert(buildManualBetOrderFailureHtml(message), "下单失败", {
         dangerouslyUseHTMLString: true,
         customClass: "manual-bet-result-box",
         confirmButtonText: "知道了",
