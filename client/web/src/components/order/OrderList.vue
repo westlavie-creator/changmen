@@ -6,19 +6,15 @@ import {
   orderLegendModifier,
   orderLegendText,
 } from "@/shared/orderDisplay";
+import {
+  pmRowDisplayProfitCny,
+  pmRowDisplayStatus,
+} from "@/shared/orderLink";
 
 export type OrderListEntry = readonly [number, OrderRow[]];
 
 function isPmRow(row: OrderRow): boolean {
   return String(row.Type ?? "") === "Polymarket";
-}
-
-function isPmSellRow(row: OrderRow): boolean {
-  return isPmRow(row) && row.PmSide === "sell";
-}
-
-function isPmBuyRow(row: OrderRow): boolean {
-  return isPmRow(row) && !isPmSellRow(row);
 }
 
 /** PM 份额：仅展示 RDS 中的 PmShares（来自 Polymarket API），不推算 */
@@ -29,6 +25,16 @@ function pmSharesText(row: OrderRow): string | null {
   if (!Number.isFinite(shares) || shares <= 0.0001)
     return null;
   return toFixed(shares, 2);
+}
+
+function rowStatus(row: OrderRow, groupRows: OrderRow[]) {
+  return isPmRow(row) ? pmRowDisplayStatus(row, groupRows) : row.Status;
+}
+
+function rowProfit(row: OrderRow, groupRows: OrderRow[]) {
+  return isPmRow(row)
+    ? pmRowDisplayProfitCny(row, groupRows)
+    : (Number(row.Money) || 0);
 }
 
 withDefaults(
@@ -62,12 +68,8 @@ withDefaults(
         v-for="row in rows"
         :key="String(row.OrderID)"
         class="order"
-        :class="{
-          'order--pm-buy': isPmBuyRow(row),
-          'order--pm-sell': isPmSellRow(row),
-        }"
       >
-        <label class="status" :class="row.Status" />
+        <label class="status" :class="rowStatus(row, rows)" />
         <div class="platform flex" :class="platformClass(row)">
           <div class="provider-icon" :class="row.Type" />
           <div class="player">
@@ -77,11 +79,6 @@ withDefaults(
         <div class="match" v-html="row.Match" />
         <div class="bet">
           <div class="betname">
-            <span
-              v-if="isPmRow(row)"
-              class="pm-side-tag"
-              :class="isPmSellRow(row) ? 'pm-side-tag--sell' : 'pm-side-tag--buy'"
-            >{{ isPmSellRow(row) ? "卖单" : "买单" }}</span>
             <span v-html="row.Bet" />
           </div>
           <div class="item">
@@ -89,29 +86,14 @@ withDefaults(
           </div>
         </div>
         <div class="profit">
-          <template v-if="isPmSellRow(row)">
-            <span v-if="pmSharesText(row)">份额：{{ pmSharesText(row) }} </span>
-            赔率：<span class="order__odds">{{
-              formatDisplayOdds(Number(row.Odds) || 0)
-            }}</span>
-            回款金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }}
-          </template>
-          <template v-else-if="isPmBuyRow(row)">
-            <span v-if="pmSharesText(row)">份额：{{ pmSharesText(row) }} </span>
-            投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
-              formatDisplayOdds(Number(row.Odds) || 0)
-            }}</span>
-            盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
-          </template>
-          <template v-else>
-            投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
-              formatDisplayOdds(Number(row.Odds) || 0)
-            }}</span>
-            盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
-          </template>
+          <span v-if="pmSharesText(row)">份额：{{ pmSharesText(row) }} </span>
+          投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
+            formatDisplayOdds(Number(row.Odds) || 0)
+          }}</span>
+          盈亏：{{ toFixed(rowProfit(row, rows), 0) }}
         </div>
         <div class="time">
-          {{ isPmSellRow(row) ? "平仓时间" : "投注时间" }}：{{ formatOrderTime(row.CreateAt || 0) }}
+          投注时间：{{ formatOrderTime(row.CreateAt || 0) }}
         </div>
         <div v-if="$slots['row-actions']" class="order-list__row-actions">
           <slot name="row-actions" :row="row" />

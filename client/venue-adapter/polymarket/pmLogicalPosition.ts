@@ -249,5 +249,9 @@ export function hasOpenPolymarketPosition(order: OrderRowLike | VenueOrder): boo
   if (state === "closed" || state === "settled")
     return false;
 
+  const fill = resolvePmFillShares(order);
+  if (fill <= 0.0001)
+    return true;
+
   return resolvePmRemainingShares(order) > 0.0001;
 }

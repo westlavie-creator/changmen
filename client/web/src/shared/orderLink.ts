@@ -1,6 +1,6 @@
 import type { OrderRow } from "@/types/order";
 import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
-import { resolvePmRemainingShares } from "@venue/polymarket/pmLogicalPosition";
+import { hasOpenPolymarketPosition } from "@venue/polymarket/pmLogicalPosition";
 import { formatLinkId, isSingleLegLink, toFixed } from "@/shared/format";
 
 /** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
@@ -99,18 +99,9 @@ function isPolymarketOrderRow(row: OrderRow): boolean {
   return String(row.Type ?? "").trim() === "Polymarket";
 }
 
-/** PM 仍有持仓；卖单永远不算持仓 */
+/** PM 仍有持仓；卖单永远不算持仓（默认无 fill 数据时视为持有待结算） */
 export function isPolymarketOpenPosition(row: OrderRow): boolean {
-  if (!isPolymarketOrderRow(row) || row.PmSide === "sell")
-    return false;
-  if (String(row.Status ?? "") !== "None")
-    return false;
-
-  const state = row.PmSellState;
-  if (state === "closed" || state === "settled")
-    return false;
-
-  return resolvePmRemainingShares(row) > 0.0001;
+  return hasOpenPolymarketPosition(row);
 }
 
 function pmSellCostCny(sell: OrderRow, pmBuys: OrderRow[]): number {
@@ -122,6 +113,94 @@ function pmSellCostCny(sell: OrderRow, pmBuys: OrderRow[]): number {
     return 0;
   const buy = pmBuys.find(b => String(b.OrderID ?? "") === buyId);
   return buy ? (Number(buy.BetMoney) || 0) : 0;
+}
+
+/** 同组内绑定到该买单的 PM 卖单 */
+export function pmBuyLinkedSells(buy: OrderRow, groupRows: OrderRow[]): OrderRow[] {
+  const buyId = String(buy.OrderID ?? "").trim();
+  if (!buyId)
+    return [];
+  return groupRows.filter(
+    r => isPolymarketOrderRow(r)
+      && r.PmSide === "sell"
+      && String(r.PmBuyOrderId ?? "").trim() === buyId,
+  );
+}
+
+/** 仓位已平（含 changmen 归因或同组卖单已覆盖成本/份额） */
+export function pmBuySoldOutForDisplay(buy: OrderRow, groupRows: OrderRow[]): boolean {
+  if (!isPolymarketOpenPosition(buy))
+    return true;
+
+  const sells = pmBuyLinkedSells(buy, groupRows);
+  if (!sells.length)
+    return false;
+
+  const buyStake = Number(buy.BetMoney) || 0;
+  const soldCost = sells.reduce((sum, s) => sum + pmSellCostCny(s, [buy]), 0);
+  if (buyStake > 0 && soldCost >= buyStake - 1)
+    return true;
+
+  const fill = Number(buy.PmShares) || 0;
+  const soldShares = sells.reduce((sum, s) => sum + (Number(s.PmShares) || 0), 0);
+  return fill > 0 && soldShares + 0.05 >= fill;
+}
+
+/**
+ * PM 买单行盈亏展示：
+ * - 默认持有到赛果 → Win/Lose 的 Money
+ * - 有卖单且仓位已平 → 仅卖单已实现盈亏（提前结算，忽略误同步的赛果 Money）
+ * - 部分卖出仍持仓 → 卖单盈亏 + 剩余部分的赛果 Money
+ */
+export function pmBuyDisplayProfitCny(buy: OrderRow, groupRows: OrderRow[]): number {
+  const sells = pmBuyLinkedSells(buy, groupRows);
+  if (!sells.length)
+    return Number(buy.Money) || 0;
+
+  const sellProfit = sells.reduce((sum, s) => sum + (Number(s.Money) || 0), 0);
+  if (pmBuySoldOutForDisplay(buy, groupRows))
+    return sellProfit;
+
+  const marketPart = String(buy.Status ?? "") !== "None" ? (Number(buy.Money) || 0) : 0;
+  return sellProfit + marketPart;
+}
+
+/** 买单行状态点：已平仓用卖单盈亏着色，否则用赛果 Status */
+export function pmBuyDisplayStatus(buy: OrderRow, groupRows: OrderRow[]): OrderRow["Status"] {
+  const sells = pmBuyLinkedSells(buy, groupRows);
+  if (sells.length && pmBuySoldOutForDisplay(buy, groupRows)) {
+    const p = pmBuyDisplayProfitCny(buy, groupRows);
+    if (p > 0)
+      return "Win";
+    if (p < 0)
+      return "Lose";
+    return "None";
+  }
+  return buy.Status ?? "None";
+}
+
+/** PM 行盈亏（买卖同一套 UI 字段，内部仍区分逻辑） */
+export function pmRowDisplayProfitCny(row: OrderRow, groupRows: OrderRow[]): number {
+  if (!isPolymarketOrderRow(row))
+    return Number(row.Money) || 0;
+  if (row.PmSide === "sell")
+    return Number(row.Money) || 0;
+  return pmBuyDisplayProfitCny(row, groupRows);
+}
+
+/** PM 行状态点（与 trad 一致用 Win/Lose/None） */
+export function pmRowDisplayStatus(row: OrderRow, groupRows: OrderRow[]): OrderRow["Status"] {
+  if (!isPolymarketOrderRow(row))
+    return row.Status ?? "None";
+  if (row.PmSide === "sell") {
+    const m = Number(row.Money) || 0;
+    if (m > 0)
+      return "Win";
+    if (m < 0)
+      return "Lose";
+    return row.Status ?? "None";
+  }
+  return pmBuyDisplayStatus(row, groupRows);
 }
 
 /** 组内盈亏：PM 卖单 = 回款 − 对应买单成本；无卖单的 PM 买单 = 赛果 Money */

@@ -6,6 +6,8 @@ import {
   isLinkedArbOrderGroup,
   linkIdGroupKey,
   orderLinkLegend,
+  pmBuyDisplayProfitCny,
+  pmBuyDisplayStatus,
   sortOrdersByLinkDesc,
 } from "./orderLink";
 
@@ -238,5 +240,46 @@ describe("orderLink A8 parity", () => {
       ]),
     ).toBe(false);
     expect(isLinkedArbOrderGroup([{ Link: -123, OrderID: "a" }])).toBe(false);
+  });
+
+  it("pmBuyDisplayProfitCny uses market Money when holding to settle", () => {
+    const group = [{
+      OrderID: "0xbuy",
+      Type: "Polymarket",
+      PmSide: "buy" as const,
+      BetMoney: 70,
+      Money: 36,
+      Status: "Win" as const,
+      PmShares: 15.15,
+    }];
+    expect(pmBuyDisplayProfitCny(group[0], group)).toBe(36);
+    expect(pmBuyDisplayStatus(group[0], group)).toBe("Win");
+  });
+
+  it("pmBuyDisplayProfitCny uses sell profit when sold out, not stale Win Money", () => {
+    const group = [
+      {
+        OrderID: "0xbuy70",
+        Type: "Polymarket",
+        PmSide: "buy" as const,
+        BetMoney: 70,
+        Money: 36,
+        Status: "Win" as const,
+        PmShares: 15.15,
+      },
+      {
+        OrderID: "0xsell70",
+        Type: "Polymarket",
+        PmSide: "sell" as const,
+        PmBuyOrderId: "0xbuy70",
+        BetMoney: 85,
+        Money: 15,
+        PmShares: 15.15,
+        PmStakeUsdc: 10,
+        Status: "None" as const,
+      },
+    ];
+    expect(pmBuyDisplayProfitCny(group[0], group)).toBe(15);
+    expect(pmBuyDisplayStatus(group[0], group)).toBe("Win");
   });
 });

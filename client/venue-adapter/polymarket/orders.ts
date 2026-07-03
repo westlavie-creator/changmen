@@ -762,6 +762,9 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
       createAt: base.createAt || clob.createAt,
     };
   }
+  const remaining = resolvePmRemainingShares(base);
+  const soldOut = remaining <= 0.0001
+    && ((base.pmAttributedSellShares ?? 0) > 0 || base.pmSellState === "closed");
   return {
     ...base,
     pmSide: "buy",
@@ -775,9 +778,9 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     pmSellState: base.pmSellState ?? clob.pmSellState,
     pmAttributedSellShares: base.pmAttributedSellShares ?? clob.pmAttributedSellShares,
     odds: base.odds || clob.odds,
-    status: clob.status !== "none" ? clob.status : base.status,
-    money: clob.status !== "none" ? clob.money : base.money,
-    reward: clob.reward ?? base.reward,
+    status: soldOut ? base.status : (clob.status !== "none" ? clob.status : base.status),
+    money: soldOut ? base.money : (clob.status !== "none" ? clob.money : base.money),
+    reward: soldOut ? base.reward : (clob.reward ?? base.reward),
     match: base.match || clob.match,
     bet: base.bet || clob.bet,
     item: base.item || clob.item,

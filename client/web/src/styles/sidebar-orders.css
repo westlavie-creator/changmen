@@ -289,27 +289,3 @@
 .orders.loading .orderlink {
   visibility: hidden;
 }
-
-.orders .pm-side-tag {
-  display: inline-block;
-  margin-right: 4px;
-  padding: 0 4px;
-  border-radius: 2px;
-  font-size: 10px;
-  line-height: 1.4;
-  vertical-align: middle;
-}
-
-.orders .pm-side-tag--buy {
-  color: #1fa2ff;
-  border: 1px solid #1fa2ff66;
-}
-
-.orders .pm-side-tag--sell {
-  color: #e6a23c;
-  border: 1px solid #e6a23c66;
-}
-
-.orders .order--pm-sell .profit {
-  color: inherit;
-}
