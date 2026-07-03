@@ -71,7 +71,7 @@ describe("polymarketProvider.getBalance", () => {
     expect(options?.headers?.POLY_TIMESTAMP).toEqual(expect.any(String));
   });
 
-  test("scales collateral balance by account multiply like PB", async () => {
+  test("returns raw USDC balance (CNY via getExchange on account)", async () => {
     vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "123450000" });
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xabc",
@@ -84,7 +84,7 @@ describe("polymarketProvider.getBalance", () => {
     }), { multiply: 10 });
 
     await expect(polymarketProvider.getBalance!(account)).resolves.toEqual({
-      balance: 1234.5,
+      balance: 123.45,
       currency: "USDT",
     });
   });
@@ -651,7 +651,7 @@ describe("polymarketProvider.checkBet", () => {
     const option = {
       itemId: "123456789",
       odds: 5,
-      betMoney: 35,
+      betMoney: 5,
     };
 
     const out = await polymarketProvider.checkBet(
@@ -681,7 +681,7 @@ describe("polymarketProvider.checkBet", () => {
     const option = {
       itemId: "123456789",
       odds: 5,
-      betMoney: 35,
+      betMoney: 5,
     };
 
     const out = await polymarketProvider.checkBet(
@@ -693,7 +693,7 @@ describe("polymarketProvider.checkBet", () => {
     expect(out.checkError).toContain("盘口价高于检测价");
   });
 
-  test("derives apiBetMoney from multiply like PB stake", async () => {
+  test("derives apiBetMoney from USDT betMoney after exchange", async () => {
     vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
       tick_size: "0.01",
       min_order_size: "5",
@@ -704,7 +704,7 @@ describe("polymarketProvider.checkBet", () => {
     const option = {
       itemId: "123456789",
       odds: 2,
-      betMoney: 100,
+      betMoney: 14,
     };
 
     const out = await polymarketProvider.checkBet(
@@ -713,8 +713,8 @@ describe("polymarketProvider.checkBet", () => {
     );
 
     expect(out.data).toMatchObject({
-      betMoney: 100,
-      apiBetMoney: 10,
+      betMoney: 14,
+      apiBetMoney: 14,
       detectionOdds: 2,
     });
   });
@@ -771,7 +771,7 @@ describe("polymarketProvider.getOrders", () => {
       provider: "Polymarket",
       orderId: "0xtrade-order",
       status: "none",
-      betMoney: 1,
+      betMoney: 7,
       odds: 2,
     });
 
@@ -787,7 +787,7 @@ describe("polymarketProvider.getOrders", () => {
     );
   });
 
-  test("scales mapped order amounts by account multiply", async () => {
+  test("scales mapped order amounts to CNY display via USDT exchange", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_100_000_000);
     vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
       if (url.includes("/data/trades")) {
@@ -826,8 +826,8 @@ describe("polymarketProvider.getOrders", () => {
       },
     }), { multiply: 10 }));
 
-    expect(orders[0]?.betMoney).toBe(10);
-    expect(orders[0]?.reward).toBe(20);
+    expect(orders[0]?.betMoney).toBe(7);
+    expect(orders[0]?.reward).toBe(14);
   });
 
   test("returns empty array when credentials are missing", async () => {

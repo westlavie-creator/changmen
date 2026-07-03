@@ -1,14 +1,21 @@
-/** 全平台乘网默认值（含 PB / Polymarket） */
+/** 全平台乘网默认值（PB 等乘网场馆） */
 export const DEFAULT_MULTIPLY = 1;
 
 /** @deprecated 使用 DEFAULT_MULTIPLY */
 export const PB_MULTIPLY_DEFAULT = DEFAULT_MULTIPLY;
 
+/** 对齐 A8 `Pr.exchange`：USDT 余额/订单展示换算 CNY 口径 */
+export const USDT_CNY_EXCHANGE = 7;
+
+export function isPolymarketProvider(provider: unknown): boolean {
+  return String(provider ?? "").trim().toLowerCase() === "polymarket";
+}
+
 export function isMultiplyProvider(provider: unknown): boolean {
   const p = String(provider ?? "")
     .trim()
     .toUpperCase();
-  return p === "PB" || p === "POLYMARKET";
+  return p === "PB";
 }
 
 /** @deprecated 使用 isMultiplyProvider */
@@ -39,11 +46,19 @@ export function scaleVenueMoney(raw: number, multiply: unknown): number {
   return raw * accountMultiplyScale(multiply);
 }
 
+/** Polymarket：链上 USDC → 与 config.betMoney 一致的 CNY 展示口径 */
+export function scaleUsdtToCnyDisplay(usdt: number): number {
+  if (!Number.isFinite(usdt))
+    return 0;
+  return usdt * USDT_CNY_EXCHANGE;
+}
+
 /**
  * 解析账号乘网：缺失或无效 → 1；有效值 ≥1 原样保留。
  */
 export function resolveAccountMultiply(provider: unknown, rawMultiply: unknown): number {
-  void provider;
+  if (isPolymarketProvider(provider))
+    return DEFAULT_MULTIPLY;
   const n = Number(rawMultiply);
   if (Number.isFinite(n) && n >= 1)
     return n;
@@ -67,6 +82,15 @@ export function normalizeAccountMultiplyField<T>(row: T): T {
   const hasStored = raw !== undefined && raw !== null && raw !== "";
   const next = resolveAccountMultiply(provider, raw);
   const prev = hasStored ? Number(raw) : undefined;
+
+  if (isPolymarketProvider(provider)) {
+    if (!hasStored || prev !== DEFAULT_MULTIPLY) {
+      if (r.multiply === DEFAULT_MULTIPLY && !r.Multiply)
+        return row;
+      return { ...r, multiply: DEFAULT_MULTIPLY } as T;
+    }
+    return row;
+  }
 
   if (isMultiplyProvider(provider)) {
     if (!hasStored || !Number.isFinite(prev) || (prev as number) < 1) {

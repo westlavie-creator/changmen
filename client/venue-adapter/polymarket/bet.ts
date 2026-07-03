@@ -2,7 +2,10 @@ import type { AccountBalanceResult, PlatformProvider, VenueOrder } from "@venue/
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { accountMultiplyScale, POLYMARKET_MIN_VENUE_STAKE, scaleVenueMoney, venueStakeFromBetMoney } from "@changmen/shared/account_multiply";
+import {
+  POLYMARKET_MIN_VENUE_STAKE,
+  scaleUsdtToCnyDisplay,
+} from "@changmen/shared/account_multiply";
 import { POLYMARKET_CLOB_API } from "./api";
 import { resolvePolymarketBuilderCode } from "./builder";
 import {
@@ -327,20 +330,22 @@ function parseCollateralBalance(raw: string | number | undefined): number | unde
   return Number.isFinite(value) ? value / COLLATERAL_DECIMALS : undefined;
 }
 
-function scalePolymarketVenueOrders(orders: VenueOrder[], multiply: number): VenueOrder[] {
+function scalePolymarketVenueOrdersForDisplay(orders: VenueOrder[]): VenueOrder[] {
   return orders.map(order => ({
     ...order,
-    betMoney: scaleVenueMoney(order.betMoney, multiply),
-    reward: scaleVenueMoney(order.reward, multiply),
-    money: scaleVenueMoney(order.money, multiply),
+    betMoney: scaleUsdtToCnyDisplay(order.betMoney),
+    reward: scaleUsdtToCnyDisplay(order.reward),
+    money: scaleUsdtToCnyDisplay(order.money),
   }));
 }
 
-function resolvePolymarketApiBetMoney(account: PlatformAccount, option: BetOption): number {
+/** option.betMoney 已由 checkBetting → getBetMoney 换成 USDT 口径 */
+function resolvePolymarketApiBetMoney(_account: PlatformAccount, option: BetOption): number {
   const fromCheck = Number((option.data as { apiBetMoney?: number } | undefined)?.apiBetMoney);
   if (Number.isFinite(fromCheck) && fromCheck > 0)
     return fromCheck;
-  return venueStakeFromBetMoney(option.betMoney, account.multiply, POLYMARKET_MIN_VENUE_STAKE);
+  const stake = Math.floor(Number(option.betMoney) || 0);
+  return Math.max(POLYMARKET_MIN_VENUE_STAKE, stake);
 }
 
 function resolvePolymarketDetectionOdds(option: BetOption): number {
@@ -398,7 +403,7 @@ export const polymarketProvider: PlatformProvider = {
       const balance = parseCollateralBalance(data?.balance);
       if (balance === undefined) return undefined;
       return {
-        balance: scaleVenueMoney(balance, account.multiply),
+        balance,
         currency: "USDT",
       };
     } catch (err) {
@@ -409,9 +414,8 @@ export const polymarketProvider: PlatformProvider = {
 
   async getOrders(account: PlatformAccount) {
     try {
-      const multiply = accountMultiplyScale(account.multiply);
       const orders = await fetchPolymarketVenueOrders(account);
-      return scalePolymarketVenueOrders(orders, multiply);
+      return scalePolymarketVenueOrdersForDisplay(orders);
     }
     catch (err) {
       console.warn("[Polymarket] getOrders failed", err);
@@ -425,7 +429,7 @@ export const polymarketProvider: PlatformProvider = {
     const detectionOdds = Number(prior?.detectionOdds) > 1
       ? Number(prior!.detectionOdds)
       : option.odds;
-    const apiBetMoney = venueStakeFromBetMoney(option.betMoney, account.multiply, POLYMARKET_MIN_VENUE_STAKE);
+    const apiBetMoney = resolvePolymarketApiBetMoney(account, option);
     const gateway = account.gateway || POLYMARKET_CLOB_API;
     const tokenId = option.itemId;
     try {

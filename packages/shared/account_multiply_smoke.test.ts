@@ -22,13 +22,10 @@ it("pB multiply keeps explicit 1", () => {
   assert.equal(resolveAccountMultiply("PB", 1), 1);
 });
 
-it("Polymarket multiply defaults to 1 when missing or invalid", () => {
+it("Polymarket multiply is always 1 (uses USDT exchange instead)", () => {
   assert.equal(resolveAccountMultiply("Polymarket", undefined), DEFAULT_MULTIPLY);
   assert.equal(resolveAccountMultiply("Polymarket", 0), DEFAULT_MULTIPLY);
-  assert.equal(resolveAccountMultiply("Polymarket", 8), 8);
-});
-
-it("Polymarket multiply keeps explicit 1", () => {
+  assert.equal(resolveAccountMultiply("Polymarket", 8), DEFAULT_MULTIPLY);
   assert.equal(resolveAccountMultiply("Polymarket", 1), 1);
 });
 
@@ -44,6 +41,17 @@ it("venue stake and scale helpers mirror PB logic", () => {
   assert.equal(venueStakeFromBetMoney(30, 10, 5), 5);
   assert.equal(scaleVenueMoney(12.34, 10), 123.4);
   assert.equal(accountMultiplyScale(undefined), 1);
+});
+
+it("normalizeAccountList migrates Polymarket legacy multiply to 1", () => {
+  const out = normalizeAccountList([
+    { accountId: 9, provider: "Polymarket", multiply: 7 },
+  ]);
+  assert.equal((out[0] as Record<string, unknown>).multiply, 1);
+  assert.equal(
+    accountsMultiplyNeedsPersist([{ provider: "Polymarket", multiply: 7 }], [out[0]]),
+    true,
+  );
 });
 
 it("normalizeAccountList migrates missing multiply only", () => {
