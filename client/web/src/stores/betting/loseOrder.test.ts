@@ -22,7 +22,7 @@ const saveOrderBind = vi.hoisted(() => vi.fn());
 const a8Tip = vi.hoisted(() => vi.fn());
 const wait = vi.hoisted(() => vi.fn(async () => {}));
 const updateVenueOrders = vi.hoisted(() => vi.fn(async (_acc?: PlatformAccount) => [] as VenueOrder[]));
-const pollPolymarketDelayedOrder = vi.hoisted(() => vi.fn());
+const settlePolymarketDelayedOrder = vi.hoisted(() => vi.fn());
 
 vi.mock("@/stores/configStore", () => ({
   useConfigStore: () => ({
@@ -84,7 +84,7 @@ vi.mock("@venue/polymarket/orderStatus", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@venue/polymarket/orderStatus")>();
   return {
     ...actual,
-    pollPolymarketDelayedOrder: (...args: unknown[]) => pollPolymarketDelayedOrder(...args),
+    settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
   };
 });
 
@@ -333,7 +333,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
       pending: true,
       orderId: "0xdelayed-unfilled",
     });
-    pollPolymarketDelayedOrder.mockResolvedValue({ outcome: "unfilled", row: null });
+    settlePolymarketDelayedOrder.mockResolvedValue({ outcome: "unfilled", row: null });
 
     await processLoseOrders({ setMessage: vi.fn() });
 

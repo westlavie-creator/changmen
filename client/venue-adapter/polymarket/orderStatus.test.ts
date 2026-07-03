@@ -1,12 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   applyPolymarketSettlementToResult,
   buildPolymarketRejectVenueOrder,
   formatPolymarketSettlementMessage,
   interpretPolymarketOrderRow,
   isPolymarketDelayedPending,
+  settlePolymarketDelayedOrder,
 } from "./orderStatus";
 import { BetResult } from "@/models/betResult";
+
+const fetchPolymarketConfirmedTradeForOrder = vi.fn();
+
+vi.mock("./orders", () => ({
+  fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
+    fetchPolymarketConfirmedTradeForOrder(...args),
+}));
 
 describe("isPolymarketDelayedPending", () => {
   it("true for delayed without takingAmount", () => {
@@ -78,5 +86,28 @@ describe("buildPolymarketRejectVenueOrder", () => {
     const order = buildPolymarketRejectVenueOrder(acc, result, "unfilled");
     expect(order.status).toBe("reject");
     expect(order.orderId).toBe("0x1");
+  });
+});
+
+describe("settlePolymarketDelayedOrder", () => {
+  it("falls back to trades when order poll is unfilled", async () => {
+    const acc = { provider: "Polymarket" } as never;
+    fetchPolymarketConfirmedTradeForOrder.mockReset();
+    fetchPolymarketConfirmedTradeForOrder.mockResolvedValueOnce({
+      id: "trade-1",
+      size: "5.88",
+      status: "MINED",
+      side: "BUY",
+      taker_order_id: "0xlate",
+    });
+
+    const out = await settlePolymarketDelayedOrder(acc, "0xlate", {
+      poll: { initialDelayMs: 0, intervalMs: 0, maxAttempts: 1 },
+      tradeConfirm: { lookbackMs: 60_000, retryMs: 0, maxRetries: 1 },
+    });
+
+    expect(out.outcome).toBe("matched");
+    expect(out.row?.status).toBe("MATCHED");
+    expect(fetchPolymarketConfirmedTradeForOrder).toHaveBeenCalledWith(acc, "0xlate", 60_000);
   });
 });

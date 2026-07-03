@@ -27,6 +27,7 @@ export {
   fetchPolymarketOrderRow,
   formatPolymarketSettlementMessage,
   pollPolymarketDelayedOrder,
+  settlePolymarketDelayedOrder,
 } from "./orderStatus";
 
 const BALANCE_PATH = "/balance-allowance";

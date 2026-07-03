@@ -210,6 +210,48 @@ export function isUserMakerOrderLeg(
   return false;
 }
 
+/** trade 是否关联指定 CLOB orderId（taker 或 maker_orders） */
+export function polymarketTradeRefsOrderId(trade: PolymarketTradeRow, orderId: string): boolean {
+  const id = String(orderId ?? "").trim().toLowerCase();
+  if (!id)
+    return false;
+  if (String(trade.taker_order_id ?? "").trim().toLowerCase() === id)
+    return true;
+  const makers = trade.maker_orders;
+  if (!Array.isArray(makers))
+    return false;
+  return makers.some(mo => String(mo.order_id ?? "").trim().toLowerCase() === id);
+}
+
+/** 近窗内按 orderId 查已确认 BUY 成交（体育 delayed 订单状态滞后时的兜底） */
+export async function fetchPolymarketConfirmedTradeForOrder(
+  account: PlatformAccount,
+  orderId: string,
+  lookbackMs = 10 * 60 * 1000,
+): Promise<PolymarketTradeRow | null> {
+  const id = String(orderId ?? "").trim();
+  if (!id)
+    return null;
+  const headers = await buildL2HeadersFromAccount(account, "GET", TRADES_PATH);
+  if (!headers)
+    return null;
+  const gateway = account.gateway || POLYMARKET_CLOB_API;
+  const afterSec = Math.floor((Date.now() - lookbackMs) / 1000);
+  const userAddresses = collectPolymarketUserAddressesFromAccount(account);
+  const rawTrades = await fetchTradesSince(gateway, headers, afterSec);
+  const flattened = flattenPolymarketTrades(rawTrades, userAddresses);
+  for (const trade of flattened) {
+    if (!polymarketTradeRefsOrderId(trade, id))
+      continue;
+    if (String(trade.side ?? "").trim().toUpperCase() !== "BUY")
+      continue;
+    if (!isPolymarketTradeConfirmed(String(trade.status ?? "")))
+      continue;
+    return trade;
+  }
+  return null;
+}
+
 /** MAKER 成交在 maker_orders；TAKER 用 taker_order_id */
 export function flattenPolymarketTrades(
   trades: PolymarketTradeRow[],

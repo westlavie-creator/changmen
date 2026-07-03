@@ -9,6 +9,7 @@ import {
   mapPolymarketTradeToVenueOrder,
   mapPolymarketTradesToVenueOrders,
   polymarketBuyStakeUsdc,
+  polymarketTradeRefsOrderId,
   resolvePolymarketWinningAssetId,
   type PolymarketTradeRow,
 } from "./orders";
@@ -26,6 +27,18 @@ describe("isPolymarketTradeConfirmed", () => {
   test("rejects failed and cancelled statuses", () => {
     expect(isPolymarketTradeConfirmed("TRADE_STATUS_FAILED")).toBe(false);
     expect(isPolymarketTradeConfirmed("CANCELLED")).toBe(false);
+  });
+});
+
+describe("polymarketTradeRefsOrderId", () => {
+  test("matches taker_order_id and maker_orders.order_id", () => {
+    const trade: PolymarketTradeRow = {
+      taker_order_id: "0xTaker",
+      maker_orders: [{ order_id: "0xMaker" }],
+    };
+    expect(polymarketTradeRefsOrderId(trade, "0xTaker")).toBe(true);
+    expect(polymarketTradeRefsOrderId(trade, "0xMaker")).toBe(true);
+    expect(polymarketTradeRefsOrderId(trade, "0xOther")).toBe(false);
   });
 });
 

@@ -3,6 +3,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
 import { POLYMARKET_CLOB_API } from "./api";
 import { buildL2Headers, resolveApiCreds, parseTokenConfig } from "./l2Auth";
+import { fetchPolymarketConfirmedTradeForOrder } from "./orders";
 import { polymarketPluginGet } from "./transport";
 
 const ORDER_PATH_PREFIX = "/data/order/";
@@ -109,6 +110,28 @@ function wait(ms: number) {
 
 export type PolymarketPollOutcome = "matched" | "unfilled" | "timeout";
 
+/**
+ * 体育 delayed 轮询（对齐官网 [Order Lifecycle](https://docs.polymarket.com/concepts/order-lifecycle)）：
+ * - 体育盘 marketable 单进入「秒级 delay 窗」，常见约 1s，POST 先返回 `delayed`
+ * - 加密/金融 taker delay 仅 250ms，且 API 会同步等到最终结果（通常不返回 delayed）
+ * 故 order 轮询不必分钟级：1s 起步 + 12 次 × 1s ≈ 13s，覆盖 delay 窗与接口滞后。
+ */
+export const POLYMARKET_SPORTS_DELAYED_POLL_OPTS = {
+  initialDelayMs: 1_000,
+  intervalMs: 1_000,
+  maxAttempts: 12,
+} as const;
+
+/**
+ * order 仍 pending 时用 /data/trades 兜底（官网：成交后 MATCHED→MINED→CONFIRMED，链上需额外时间）。
+ * 最多约 30s，应对 order 端点滞后于 trades 的情况（你遇到的误拒单主因）。
+ */
+export const POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS = {
+  lookbackMs: 10 * 60 * 1000,
+  retryMs: 2_000,
+  maxRetries: 15,
+} as const;
+
 export async function pollPolymarketDelayedOrder(
   account: PlatformAccount,
   orderId: string,
@@ -130,6 +153,43 @@ export async function pollPolymarketDelayedOrder(
       await wait(intervalMs);
   }
   return { outcome: "timeout", row: last };
+}
+
+export async function settlePolymarketDelayedOrder(
+  account: PlatformAccount,
+  orderId: string,
+  opts?: {
+    poll?: { initialDelayMs?: number; intervalMs?: number; maxAttempts?: number };
+    tradeConfirm?: { lookbackMs?: number; retryMs?: number; maxRetries?: number };
+  },
+): Promise<{ outcome: PolymarketPollOutcome; row: PolymarketOrderRow | null }> {
+  const pollOpts = { ...POLYMARKET_SPORTS_DELAYED_POLL_OPTS, ...opts?.poll };
+  const tradeConfirm = { ...POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS, ...opts?.tradeConfirm };
+  const { outcome, row } = await pollPolymarketDelayedOrder(account, orderId, pollOpts);
+  if (outcome === "matched")
+    return { outcome, row };
+
+  for (let i = 0; i < tradeConfirm.maxRetries; i++) {
+    const trade = await fetchPolymarketConfirmedTradeForOrder(
+      account,
+      orderId,
+      tradeConfirm.lookbackMs,
+    );
+    if (trade) {
+      return {
+        outcome: "matched",
+        row: {
+          status: "MATCHED",
+          size_matched: String(trade.size ?? ""),
+          associate_trades: trade.id ? [String(trade.id)] : undefined,
+        },
+      };
+    }
+    if (i < tradeConfirm.maxRetries - 1)
+      await wait(tradeConfirm.retryMs);
+  }
+
+  return { outcome, row };
 }
 
 export function formatPolymarketSettlementMessage(

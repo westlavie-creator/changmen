@@ -10,7 +10,7 @@ import {
 } from "./venueRejectSync";
 
 const updateVenueOrders = vi.fn<() => Promise<VenueOrder[] | undefined>>();
-const pollPolymarketDelayedOrder = vi.fn();
+const settlePolymarketDelayedOrder = vi.fn();
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ updateVenueOrders }),
@@ -20,7 +20,7 @@ vi.mock("@venue/polymarket/orderStatus", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@venue/polymarket/orderStatus")>();
   return {
     ...actual,
-    pollPolymarketDelayedOrder: (...args: unknown[]) => pollPolymarketDelayedOrder(...args),
+    settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
   };
 });
 
@@ -47,7 +47,7 @@ function makeVenueOrder(
 describe("fetchVenueOrdersWithReject", () => {
   beforeEach(() => {
     updateVenueOrders.mockReset();
-    pollPolymarketDelayedOrder.mockReset();
+    settlePolymarketDelayedOrder.mockReset();
   });
 
   it("marks rejected when first order status is reject", async () => {
@@ -76,7 +76,7 @@ describe("fetchVenueOrdersWithReject", () => {
 describe("syncVenueRejectFlags", () => {
   beforeEach(() => {
     updateVenueOrders.mockReset();
-    pollPolymarketDelayedOrder.mockReset();
+    settlePolymarketDelayedOrder.mockReset();
   });
 
   it("syncs only successful legs", async () => {
@@ -132,7 +132,7 @@ describe("syncVenueRejectFlags", () => {
 describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
   beforeEach(() => {
     updateVenueOrders.mockReset();
-    pollPolymarketDelayedOrder.mockReset();
+    settlePolymarketDelayedOrder.mockReset();
   });
 
   it("delayed pending unfilled → synthetic reject", async () => {
@@ -141,11 +141,11 @@ describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
       pending: true,
       orderId: "0xdelayed",
     });
-    pollPolymarketDelayedOrder.mockResolvedValue({ outcome: "unfilled", row: null });
+    settlePolymarketDelayedOrder.mockResolvedValue({ outcome: "unfilled", row: null });
 
     const out = await syncVenueOrdersWithRejectForLeg(acc, result);
 
-    expect(pollPolymarketDelayedOrder).toHaveBeenCalledWith(acc, "0xdelayed", { initialDelayMs: 0 });
+    expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(acc, "0xdelayed");
     expect(out.rejected).toBe(true);
     expect(out.orders[0]?.status).toBe("reject");
     expect(out.orders[0]?.orderId).toBe("0xdelayed");
@@ -159,7 +159,7 @@ describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
       pending: true,
       orderId: "0xmatched",
     });
-    pollPolymarketDelayedOrder.mockResolvedValue({
+    settlePolymarketDelayedOrder.mockResolvedValue({
       outcome: "matched",
       row: { status: "MATCHED", size_matched: "10" },
     });

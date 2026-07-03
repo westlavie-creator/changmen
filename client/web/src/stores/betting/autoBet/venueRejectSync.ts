@@ -5,7 +5,7 @@ import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import {
   applyPolymarketSettlementToResult,
   buildPolymarketRejectVenueOrder,
-  pollPolymarketDelayedOrder,
+  settlePolymarketDelayedOrder,
 } from "@venue/polymarket/orderStatus";
 import { isVenueReject } from "@/domain/betting";
 import { useAccountStore } from "@/stores/accountStore";
@@ -35,9 +35,7 @@ export async function syncVenueOrdersWithRejectForLeg(
   result?: BetResult,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
   if (account.provider === "Polymarket" && result?.pending && result.orderId) {
-    const { outcome, row } = await pollPolymarketDelayedOrder(account, result.orderId, {
-      initialDelayMs: 0,
-    });
+    const { outcome, row } = await settlePolymarketDelayedOrder(account, result.orderId);
     applyPolymarketSettlementToResult(result, outcome, row);
     if (outcome === "matched") {
       const synced = await fetchVenueOrdersWithReject(account);
