@@ -136,7 +136,7 @@ export function buildChangmenSellVenueOrder(
     orderId: params.sellOrderId,
     odds: sellOdds,
     createAt: Date.now(),
-    betMoney: 0,
+    betMoney: Math.round(scaleUsdtToCnyDisplay(proceedsUsdc)),
     reward: 0,
     money: Math.round(scaleUsdtToCnyDisplay(profitUsdc)),
     status: "none",

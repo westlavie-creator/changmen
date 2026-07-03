@@ -462,7 +462,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(buy1?.pmSide).toBe("buy");
     expect(buy1?.betMoney).toBe(5);
     expect(sell1?.pmSide).toBe("sell");
-    expect(sell1?.betMoney).toBe(0);
+    expect(sell1?.betMoney).toBeGreaterThan(0);
     expect(sell1?.pmBuyOrderId).toBe("0xbuy1");
   });
 });

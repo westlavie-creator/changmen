@@ -102,10 +102,11 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   merged.pmSide = isSell ? "sell" : "buy";
 
   if (isSell) {
+    const proceedsBet = prevBet > 0 ? prevBet : incomingBet;
     merged = {
       ...merged,
       pmSide: "sell",
-      betMoney: 0,
+      betMoney: proceedsBet,
       pmBuyOrderId: prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId ?? o.pmBuyOrderId,
       pmRealizedPnlUsdc: prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc,
     };
@@ -114,9 +115,10 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       merged.money = prevRaw.money ?? merged.money;
       merged.pmRealizedPnlUsdc = prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc;
       merged.pmBuyOrderId = prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId;
+      merged.betMoney = prevBet > 0 ? prevBet : proceedsBet;
       money = parseNum(merged.money, parseNum(prevRow?.money, 0));
     }
-    bet_money = 0;
+    bet_money = parseNum(merged.betMoney, proceedsBet);
     return { raw: merged, money, bet_money };
   }
 

@@ -74,7 +74,7 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
   const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
   const stake = rows
-    .filter(r => !LOSE_REJECT.has(String(r.Status)))
+    .filter(r => !LOSE_REJECT.has(String(r.Status)) && r.PmSide !== "sell")
     .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
   const unsettled = rows.filter((r) => {
     if (String(r.Status ?? "") !== "None")

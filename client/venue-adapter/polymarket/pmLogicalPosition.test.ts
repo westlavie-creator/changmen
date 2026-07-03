@@ -42,7 +42,7 @@ describe("pmLogicalPosition", () => {
     expect(sell.orderId).toBe("0xsell");
     expect(sell.pmSide).toBe("sell");
     expect(sell.pmBuyOrderId).toBe("0xbuy");
-    expect(sell.betMoney).toBe(0);
+    expect(sell.betMoney).toBe(12 * USDT_CNY_EXCHANGE);
     expect(sell.pmRealizedPnlUsdc).toBe(2);
     expect(sell.money).toBe(2 * USDT_CNY_EXCHANGE);
     expect(sell.item).toContain("平仓");

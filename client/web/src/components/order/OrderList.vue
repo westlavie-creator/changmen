@@ -9,6 +9,10 @@ import {
 
 export type OrderListEntry = readonly [number, OrderRow[]];
 
+function isPmSellRow(row: OrderRow): boolean {
+  return String(row.Type ?? "") === "Polymarket" && row.PmSide === "sell";
+}
+
 withDefaults(
   defineProps<{
     orderEntries: ReadonlyArray<OrderListEntry>;
@@ -52,13 +56,13 @@ withDefaults(
           </div>
         </div>
         <div class="profit">
-          投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
+          {{ isPmSellRow(row) ? "回款金额" : "投注金额" }}：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
             formatDisplayOdds(Number(row.Odds) || 0)
           }}</span>
           盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
         </div>
         <div class="time">
-          投注时间：{{ formatOrderTime(row.CreateAt || 0) }}
+          {{ isPmSellRow(row) ? "平仓时间" : "投注时间" }}：{{ formatOrderTime(row.CreateAt || 0) }}
         </div>
         <div v-if="$slots['row-actions']" class="order-list__row-actions">
           <slot name="row-actions" :row="row" />

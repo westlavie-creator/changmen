@@ -525,6 +525,7 @@ export function reconcilePolymarketBuySellOrders(orders: VenueOrder[]): VenueOrd
 
     sell.pmRealizedPnlUsdc = profitUsdc;
     sell.money = Math.round(scaleUsdtToCnyDisplay(profitUsdc));
+    sell.betMoney = Math.round(scaleUsdtToCnyDisplay(proceedsUsdc));
     sell.pmStakeUsdc = costPortion;
 
     buy._remainingShares = round4(buy._remainingShares - deduct);
