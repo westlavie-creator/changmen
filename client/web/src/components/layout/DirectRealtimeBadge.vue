@@ -2,10 +2,12 @@
 import { ref, onMounted, onUnmounted } from "vue";
 import type { DirectRealtimeStatus } from "@venue/shared/directRealtimeStatus";
 import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
-import { getDexSocketStatus, onDexSocketStatus } from "@venue/dex";
-import type { DexSocketStatus } from "@venue/dex";
-import { getPolymarketWsStatus, onPolymarketWsStatus } from "@venue/polymarket";
-import type { PolymarketWsStatus } from "@venue/polymarket";
+import {
+  listVenueWsStatuses,
+  subscribeVenueWsStatus,
+  type VenueWsStatus,
+  type VenueWsStatusEntry,
+} from "@venue/shared/venueWsStatus";
 import {
   getObMqttSourceMode,
   toggleObMqttSourceModeAndReconnect,
@@ -15,14 +17,17 @@ import { ElMessage } from "element-plus";
 
 const { statuses } = useDirectRealtimeStatus();
 
-const dexStatus = ref<DexSocketStatus>(getDexSocketStatus());
-const polymarketStatus = ref<PolymarketWsStatus>(getPolymarketWsStatus());
+const venueWsStatuses = ref<VenueWsStatusEntry[]>(listVenueWsStatuses());
 const obSourceMode = ref<ObMqttSourceMode>(getObMqttSourceMode());
-let dexUnsub: (() => void) | undefined;
-let polymarketUnsub: (() => void) | undefined;
+let venueWsUnsub: (() => void) | undefined;
+
+onMounted(() => {
+  venueWsUnsub = subscribeVenueWsStatus(() => {
+    venueWsStatuses.value = listVenueWsStatuses();
+  });
+});
 onUnmounted(() => {
-  dexUnsub?.();
-  polymarketUnsub?.();
+  venueWsUnsub?.();
 });
 
 function dotClass(status: DirectRealtimeStatus): string {
@@ -38,6 +43,15 @@ function dotClass(status: DirectRealtimeStatus): string {
   return "idle";
 }
 
+function venueWsDotClass(status: VenueWsStatus): string {
+  switch (status) {
+    case "connected": return "ok-official";
+    case "connecting": return "connecting";
+    case "error": return "err";
+    default: return "idle";
+  }
+}
+
 function formatAgo(ms: number): string {
   const sec = Math.max(0, Math.floor((Date.now() - ms) / 1000));
   if (sec < 60)
@@ -48,43 +62,21 @@ function formatAgo(ms: number): string {
   return `${Math.floor(min / 60)}小时前`;
 }
 
-const dexDotClass = ref("idle");
-const dexTooltip = ref("DexSport WS 未连接");
-const polymarketDotClass = ref("idle");
-const polymarketTooltip = ref("Polymarket WS 未连接");
-
-function realtimeDotAndTooltip(
-  s: DexSocketStatus | PolymarketWsStatus,
-  label: string,
-): { dot: string; tooltip: string } {
-  switch (s) {
-    case "connected": return { dot: "ok-official", tooltip: `${label} WS 已连接\n实时赔率推送中` };
-    case "connecting": return { dot: "connecting", tooltip: `${label} WS 连接中...` };
-    case "error": return { dot: "err", tooltip: `${label} WS 断开\n正在重连...` };
-    default: return { dot: "idle", tooltip: `${label} WS 未连接` };
+function venueWsTooltip(entry: VenueWsStatusEntry): string {
+  const names: Record<string, string> = {
+    "pm-market": "Polymarket Market WS（赔率采集）",
+    "pm-user": "Polymarket User WS（订单/拒单检测；登录后预连）",
+    "dex": "DexSport WS",
+    "cm-hub": "Changmen 实时 Hub（Socket.IO / pm_sport）",
+  };
+  const label = names[entry.id] ?? entry.label;
+  switch (entry.status) {
+    case "connected": return `${label}\n已连接 · 实时推送中`;
+    case "connecting": return `${label}\n连接中...`;
+    case "error": return `${label}\n断开 · 正在重连...`;
+    default: return `${label}\n未连接`;
   }
 }
-
-function updateDexDot(s: DexSocketStatus) {
-  const next = realtimeDotAndTooltip(s, "DexSport");
-  dexDotClass.value = next.dot;
-  dexTooltip.value = next.tooltip;
-}
-
-function updatePolymarketDot(s: PolymarketWsStatus) {
-  const next = realtimeDotAndTooltip(s, "Polymarket");
-  polymarketDotClass.value = next.dot;
-  polymarketTooltip.value = next.tooltip;
-}
-updateDexDot(dexStatus.value);
-updatePolymarketDot(polymarketStatus.value);
-onMounted(() => {
-  dexUnsub = onDexSocketStatus(s => { dexStatus.value = s; updateDexDot(s); });
-  polymarketUnsub = onPolymarketWsStatus((s) => {
-    polymarketStatus.value = s;
-    updatePolymarketDot(s);
-  });
-});
 
 function tooltip(status: DirectRealtimeStatus): string {
   const lines = [status.platform];
@@ -131,7 +123,10 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 </script>
 
 <template>
-  <div class="direct-realtime-bar" aria-label="直连推送状态 IA OB RAY TF POLY DEX">
+  <div
+    class="direct-realtime-bar"
+    aria-label="直连推送状态 IA OB RAY TF PM-M PM-U DEX HUB"
+  >
     <span
       v-for="status in statuses"
       :key="status.platform"
@@ -147,13 +142,14 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
       <span class="direct-realtime-dot" :class="dotClass(status)" />
       {{ status.platform }}
     </span>
-    <span class="direct-realtime-item" :title="polymarketTooltip">
-      <span class="direct-realtime-dot" :class="polymarketDotClass" />
-      POLY
-    </span>
-    <span class="direct-realtime-item" :title="dexTooltip">
-      <span class="direct-realtime-dot" :class="dexDotClass" />
-      DEX
+    <span
+      v-for="entry in venueWsStatuses"
+      :key="entry.id"
+      class="direct-realtime-item"
+      :title="venueWsTooltip(entry)"
+    >
+      <span class="direct-realtime-dot" :class="venueWsDotClass(entry.status)" />
+      {{ entry.label }}
     </span>
   </div>
 </template>
@@ -162,7 +158,10 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 .direct-realtime-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 12px;
+  max-width: min(96vw, 720px);
   padding: 6px 10px;
   border-radius: 6px;
   background: #00000080;
@@ -229,10 +228,10 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 .direct-realtime-dot.connecting {
   background-color: #e6a23c;
   box-shadow: 0 0 8px #e6a23ccc;
-  animation: dex-pulse 1.5s infinite;
+  animation: ws-pulse 1.5s infinite;
 }
 
-@keyframes dex-pulse {
+@keyframes ws-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }

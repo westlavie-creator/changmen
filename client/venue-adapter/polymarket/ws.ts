@@ -1,3 +1,4 @@
+import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
 import { POLYMARKET_MARKET_WS } from "./api";
 
 const WS_RECONNECT_MS = 5_000;
@@ -11,6 +12,7 @@ const polymarketWsStatusListeners = new Set<PolymarketWsStatusListener>();
 
 function setPolymarketWsStatus(status: PolymarketWsStatus) {
   polymarketWsStatus = status;
+  reportVenueWsStatus("pm-market", status);
   for (const fn of polymarketWsStatusListeners) fn(status);
 }
 

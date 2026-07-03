@@ -10,10 +10,16 @@ import {
 import { BetResult } from "@/models/betResult";
 
 const fetchPolymarketConfirmedTradeForOrder = vi.fn();
+const awaitPolymarketOrderWatch = vi.fn();
 
 vi.mock("./orders", () => ({
   fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
     fetchPolymarketConfirmedTradeForOrder(...args),
+}));
+
+vi.mock("./userWs", () => ({
+  awaitPolymarketOrderWatch: (...args: unknown[]) => awaitPolymarketOrderWatch(...args),
+  clearPolymarketOrderWatch: vi.fn(),
 }));
 
 describe("isPolymarketDelayedPending", () => {
@@ -90,8 +96,24 @@ describe("buildPolymarketRejectVenueOrder", () => {
 });
 
 describe("settlePolymarketDelayedOrder", () => {
-  it("falls back to trades when order poll is unfilled", async () => {
+  it("uses ws outcome when watch already matched", async () => {
+    awaitPolymarketOrderWatch.mockReset();
+    awaitPolymarketOrderWatch.mockResolvedValueOnce({
+      source: "ws",
+      outcome: "matched",
+      row: { status: "MATCHED", size_matched: "10" },
+    });
+
+    const out = await settlePolymarketDelayedOrder({ provider: "Polymarket" } as never, "0xws");
+
+    expect(out.outcome).toBe("matched");
+    expect(fetchPolymarketConfirmedTradeForOrder).not.toHaveBeenCalled();
+  });
+
+  it("falls back to trades when ws returns null", async () => {
     const acc = { provider: "Polymarket" } as never;
+    awaitPolymarketOrderWatch.mockReset();
+    awaitPolymarketOrderWatch.mockResolvedValueOnce(null);
     fetchPolymarketConfirmedTradeForOrder.mockReset();
     fetchPolymarketConfirmedTradeForOrder.mockResolvedValueOnce({
       id: "trade-1",

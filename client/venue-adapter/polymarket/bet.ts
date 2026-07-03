@@ -20,6 +20,7 @@ import {
 } from "./l2Auth";
 import { fetchPolymarketVenueOrders } from "./orders";
 import { isPolymarketDelayedPending } from "./orderStatus";
+import { registerPolymarketOrderWatch } from "./userWs";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
@@ -572,6 +573,11 @@ export const polymarketProvider: PlatformProvider = {
       bet.orderId = String(result.orderID ?? "").trim() || null;
       bet.pending = pending;
       bet.beginTime = beginTime;
+      if (pending && bet.orderId) {
+        const conditionId = String(option.betId ?? "").trim();
+        if (conditionId)
+          registerPolymarketOrderWatch(account, bet.orderId, { conditionId });
+      }
       return bet;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

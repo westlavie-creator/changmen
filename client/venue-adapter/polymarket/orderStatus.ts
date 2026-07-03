@@ -5,6 +5,7 @@ import { POLYMARKET_CLOB_API } from "./api";
 import { buildL2Headers, resolveApiCreds, parseTokenConfig } from "./l2Auth";
 import { fetchPolymarketConfirmedTradeForOrder } from "./orders";
 import { polymarketPluginGet } from "./transport";
+import { awaitPolymarketOrderWatch, clearPolymarketOrderWatch } from "./userWs";
 
 const ORDER_PATH_PREFIX = "/data/order/";
 
@@ -155,7 +156,20 @@ export async function pollPolymarketDelayedOrder(
   return { outcome: "timeout", row: last };
 }
 
-export async function settlePolymarketDelayedOrder(
+/** WS 不可用或未出结果时的 REST 轮询参数（拒单等待结束后调用，不必再 sleep） */
+export const POLYMARKET_WS_FALLBACK_POLL_OPTS = {
+  initialDelayMs: 0,
+  intervalMs: 1_000,
+  maxAttempts: 6,
+} as const;
+
+export const POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS = {
+  lookbackMs: 10 * 60 * 1000,
+  retryMs: 2_000,
+  maxRetries: 8,
+} as const;
+
+async function settlePolymarketDelayedOrderViaRest(
   account: PlatformAccount,
   orderId: string,
   opts?: {
@@ -163,8 +177,8 @@ export async function settlePolymarketDelayedOrder(
     tradeConfirm?: { lookbackMs?: number; retryMs?: number; maxRetries?: number };
   },
 ): Promise<{ outcome: PolymarketPollOutcome; row: PolymarketOrderRow | null }> {
-  const pollOpts = { ...POLYMARKET_SPORTS_DELAYED_POLL_OPTS, ...opts?.poll };
-  const tradeConfirm = { ...POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS, ...opts?.tradeConfirm };
+  const pollOpts = { ...POLYMARKET_WS_FALLBACK_POLL_OPTS, ...opts?.poll };
+  const tradeConfirm = { ...POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS, ...opts?.tradeConfirm };
   const { outcome, row } = await pollPolymarketDelayedOrder(account, orderId, pollOpts);
   if (outcome === "matched")
     return { outcome, row };
@@ -190,6 +204,23 @@ export async function settlePolymarketDelayedOrder(
   }
 
   return { outcome, row };
+}
+
+export async function settlePolymarketDelayedOrder(
+  account: PlatformAccount,
+  orderId: string,
+  opts?: {
+    poll?: { initialDelayMs?: number; intervalMs?: number; maxAttempts?: number };
+    tradeConfirm?: { lookbackMs?: number; retryMs?: number; maxRetries?: number };
+  },
+): Promise<{ outcome: PolymarketPollOutcome; row: PolymarketOrderRow | null }> {
+  const wsResult = await awaitPolymarketOrderWatch(orderId);
+  clearPolymarketOrderWatch(orderId);
+  if (wsResult?.outcome === "matched" || wsResult?.outcome === "unfilled") {
+    return { outcome: wsResult.outcome, row: wsResult.row };
+  }
+
+  return settlePolymarketDelayedOrderViaRest(account, orderId, opts);
 }
 
 export function formatPolymarketSettlementMessage(

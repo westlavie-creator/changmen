@@ -13,6 +13,16 @@ import {
 import { PlatformAccount } from "@/models/platformAccount";
 import { refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
 
+async function warmPolymarketUserWsFromAccounts(accounts: PlatformAccount[]) {
+  try {
+    const { warmAllPolymarketUserWs } = await import("@venue/polymarket/userWs");
+    warmAllPolymarketUserWs(accounts);
+  }
+  catch {
+    /* 无扩展 / 无凭证时跳过 */
+  }
+}
+
 export function openCreateAccount(store: AccountStoreContext) {
   store.editDialogAccount = undefined;
   store.editDialogOpen = true;
@@ -52,6 +62,7 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
         return acc;
       });
     store.loaded = true;
+    void warmPolymarketUserWsFromAccounts(store.accounts);
   }
   finally {
     store.loading = false;
@@ -99,6 +110,7 @@ async function createAccountFromPlayerId(
   if (acc) {
     await acc.updateBalance();
     await acc.updateOrders();
+    void warmPolymarketUserWsFromAccounts(store.accounts);
   }
 }
 

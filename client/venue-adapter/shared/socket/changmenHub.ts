@@ -1,3 +1,4 @@
+import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
 import { io, type Socket } from "socket.io-client";
 
 /** 与 server/realtime-hub/channels.js PM_SPORT_CHANNEL 一致 */
@@ -31,15 +32,20 @@ function dispatchChannel(channel: string, message: unknown) {
 }
 
 async function connectSocket(): Promise<boolean> {
-  if (socket?.connected)
+  if (socket?.connected) {
+    reportVenueWsStatus("cm-hub", "connected");
     return true;
+  }
   if (connecting)
     return connecting;
 
   const token = socketToken();
-  if (!token)
+  if (!token) {
+    reportVenueWsStatus("cm-hub", "disconnected");
     return false;
+  }
 
+  reportVenueWsStatus("cm-hub", "connecting");
   connecting = new Promise<boolean>((resolve) => {
     let settled = false;
     const finish = (ok: boolean) => {
@@ -64,7 +70,10 @@ async function connectSocket(): Promise<boolean> {
       },
     });
 
-    socket.on("connect", () => finish(true));
+    socket.on("connect", () => {
+      reportVenueWsStatus("cm-hub", "connected");
+      finish(true);
+    });
 
     socket.on("chat message", (raw: unknown) => {
       try {
@@ -80,8 +89,19 @@ async function connectSocket(): Promise<boolean> {
       }
     });
 
-    socket.on("connect_error", () => finish(false));
-    setTimeout(() => finish(Boolean(socket?.connected)), 10_000);
+    socket.on("connect_error", () => {
+      reportVenueWsStatus("cm-hub", "error");
+      finish(false);
+    });
+    socket.on("disconnect", () => {
+      if (refCount <= 0)
+        reportVenueWsStatus("cm-hub", "disconnected");
+    });
+    setTimeout(() => {
+      if (!socket?.connected)
+        reportVenueWsStatus("cm-hub", "error");
+      finish(Boolean(socket?.connected));
+    }, 10_000);
   });
 
   return connecting;
@@ -112,6 +132,7 @@ export async function subscribeChangmenChannel(
       socket?.removeAllListeners();
       socket?.disconnect();
       socket = null;
+      reportVenueWsStatus("cm-hub", "disconnected");
     }
   };
 }

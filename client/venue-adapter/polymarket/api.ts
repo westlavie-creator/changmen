@@ -5,6 +5,7 @@ import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 export const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
 export const POLYMARKET_CLOB_API = "https://clob.polymarket.com";
 export const POLYMARKET_MARKET_WS = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
+export const POLYMARKET_USER_WS = "wss://ws-subscriptions-clob.polymarket.com/ws/user";
 export const POLYMARKET_SPORTS_WS = "wss://sports-api.polymarket.com/ws";
 
 const DEFAULT_MARKET_LIMIT = 200;
@@ -283,4 +284,28 @@ export function polymarketMarketSubscribeMessage(assetIds: string[], initialDump
     custom_feature_enabled: true,
     initial_dump: initialDump,
   });
+}
+
+/** User Channel 初次订阅（condition_id = SourceBetID） */
+export function polymarketUserSubscribeMessage(
+  auth: { apiKey: string; secret: string; passphrase: string },
+  conditionIds: string[],
+): unknown {
+  return {
+    auth: {
+      apiKey: auth.apiKey,
+      secret: auth.secret,
+      passphrase: auth.passphrase,
+    },
+    markets: conditionIds,
+    type: "user",
+  };
+}
+
+/** User Channel 动态追加 condition_id */
+export function polymarketUserSubscribeMoreMessage(conditionIds: string[]): unknown {
+  return {
+    markets: conditionIds,
+    operation: "subscribe",
+  };
 }

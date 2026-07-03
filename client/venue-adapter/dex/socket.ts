@@ -1,3 +1,4 @@
+import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
 import { directPostJson } from "@/shared/http";
 import { DEX_SPORTSBOOK_BASE, DEX_CID, dexSportSlugs } from "./parse";
 
@@ -35,6 +36,7 @@ const joined = {
 
 function setStatus(s: DexSocketStatus) {
   status = s;
+  reportVenueWsStatus("dex", s);
   for (const fn of statusListeners) fn(s);
 }
 
