@@ -1,6 +1,7 @@
 import type { VenueOrder } from "@venue/contract";
 import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { scaleUsdtToCnyDisplay } from "@changmen/shared/account_multiply";
 import { PLATFORMS } from "@/shared/platform";
 import { POLYMARKET_CLOB_API, POLYMARKET_GAMMA_API } from "./api";
 import {
@@ -335,6 +336,49 @@ export function aggregatePolymarketTrades(trades: PolymarketTradeRow[]): Polymar
   });
 }
 
+/** 同一 taker_order_id 多 bucket 合并 SELL */
+export function aggregatePolymarketSellTrades(trades: PolymarketTradeRow[]): PolymarketTradeRow[] {
+  const byOrder = new Map<string, PolymarketTradeRow & { _sizeSum: number; _notionalSum: number }>();
+  for (const trade of trades) {
+    if (String(trade.side ?? "").trim().toUpperCase() !== "SELL")
+      continue;
+    if (!isPolymarketTradeConfirmed(String(trade.status ?? "")))
+      continue;
+    const orderId = String(trade.taker_order_id ?? "").trim();
+    if (!orderId)
+      continue;
+
+    const size = Number(trade.size) || 0;
+    const price = Number(trade.price);
+    const notional = Number.isFinite(price) && price > 0 ? size * price : 0;
+    const matchSec = Number(trade.match_time) || 0;
+    const existing = byOrder.get(orderId);
+    if (!existing) {
+      byOrder.set(orderId, {
+        ...trade,
+        taker_order_id: orderId,
+        _sizeSum: size,
+        _notionalSum: notional,
+      });
+      continue;
+    }
+    existing._sizeSum += size;
+    existing._notionalSum += notional;
+    if (matchSec >= (Number(existing.match_time) || 0))
+      existing.match_time = trade.match_time;
+  }
+
+  return [...byOrder.values()].map(({ _sizeSum, _notionalSum, ...rest }) => {
+    const shares = polymarketShareCount(_sizeSum);
+    const vwapPrice = formatPolymarketVwapPrice(_notionalSum, shares);
+    return {
+      ...rest,
+      size: String(_sizeSum),
+      ...(vwapPrice ? { price: vwapPrice } : {}),
+    };
+  });
+}
+
 export function mapPolymarketTradeToVenueOrder(
   trade: PolymarketTradeRow,
   market?: PolymarketRawMarket,
@@ -375,8 +419,127 @@ export function mapPolymarketTradeToVenueOrder(
     pmShares: shares > 0 ? shares : undefined,
     pmStakeUsdc: betMoney,
     pmConditionId: marketId || undefined,
+    pmSide: "buy",
+    pmSellState: "open",
   };
   return applyPolymarketSettlement(unsettled, trade, market);
+}
+
+/** SELL 成交 → 独立卖单（盈亏由 reconcilePolymarketBuySellOrders 填） */
+export function mapPolymarketSellTradeToVenueOrder(
+  trade: PolymarketTradeRow,
+  market?: PolymarketRawMarket,
+): VenueOrder | null {
+  const orderId = String(trade.taker_order_id ?? trade.id ?? "").trim();
+  if (!orderId)
+    return null;
+
+  const price = Number(trade.price);
+  const sizeRaw = trade.size;
+  if (!Number.isFinite(price) || price <= 0 || price >= 1)
+    return null;
+
+  const shares = Math.round(polymarketShareCount(sizeRaw) * 10000) / 10000;
+  if (shares <= 0)
+    return null;
+
+  const odds = Math.round((1 / price) * 10000) / 10000;
+  const pmTokenId = tradeHeldAssetId(trade, market);
+  const ctx = market
+    ? polymarketOrderContextFromMarket(market)
+    : { game: "", match: "", bet: "" };
+  const marketId = String(trade.market ?? "").trim();
+  const match = ctx.match || (marketId ? `${marketId.slice(0, 10)}…` : "");
+  const item = String(trade.outcome ?? "").trim();
+
+  return {
+    provider: PLATFORMS.Polymarket,
+    orderId,
+    odds,
+    createAt: (Number(trade.match_time) || 0) * 1000,
+    betMoney: 0,
+    reward: 0,
+    money: 0,
+    status: "none",
+    game: ctx.game,
+    match,
+    bet: ctx.bet,
+    item: item ? `平仓 ${item}` : "平仓",
+    pmTokenId: pmTokenId || undefined,
+    pmShares: shares,
+    pmStakeUsdc: 0,
+    pmConditionId: marketId || undefined,
+    pmSide: "sell",
+    pmOrigin: "external",
+  };
+}
+
+function round4(n: number): number {
+  return Math.round(n * 10000) / 10000;
+}
+
+/** 卖单 FIFO 归因买单并扣减买单份额；填卖单 Money */
+export function reconcilePolymarketBuySellOrders(orders: VenueOrder[]): VenueOrder[] {
+  const buys = orders
+    .filter(o => o.pmSide !== "sell")
+    .map(o => ({
+      ...o,
+      pmSide: o.pmSide ?? "buy" as const,
+      _remainingShares: Number(o.pmShares) || 0,
+      _remainingStake: Number(o.pmStakeUsdc ?? o.betMoney) || 0,
+    }));
+  const sellCopies = orders
+    .filter(o => o.pmSide === "sell")
+    .map(o => ({ ...o }))
+    .sort((a, b) => a.createAt - b.createAt || a.orderId.localeCompare(b.orderId));
+
+  const buyById = new Map(buys.map(b => [b.orderId, b]));
+
+  for (const sell of sellCopies) {
+    let buy = sell.pmBuyOrderId ? buyById.get(sell.pmBuyOrderId) : undefined;
+    if (!buy) {
+      const token = String(sell.pmTokenId ?? "");
+      buy = buys
+        .filter(b => String(b.pmTokenId ?? "") === token && b._remainingShares > 0.0001)
+        .sort((a, b) => a.createAt - b.createAt || a.orderId.localeCompare(b.orderId))[0];
+      if (buy)
+        sell.pmBuyOrderId = buy.orderId;
+    }
+
+    const sharesSold = Number(sell.pmShares) || 0;
+    if (!buy || sharesSold <= 0)
+      continue;
+
+    const deduct = Math.min(sharesSold, buy._remainingShares);
+    if (deduct <= 0)
+      continue;
+
+    const ratio = buy._remainingShares > 0 ? deduct / buy._remainingShares : 0;
+    const costPortion = round4(buy._remainingStake * ratio);
+    const proceedsUsdc = round4(sharesSold * (Number(sell.odds) > 0 ? 1 / sell.odds : 0));
+    const profitUsdc = round4(
+      (sell.pmRealizedPnlUsdc != null && sell.pmRealizedPnlUsdc !== 0)
+        ? sell.pmRealizedPnlUsdc
+        : proceedsUsdc - costPortion,
+    );
+
+    sell.pmRealizedPnlUsdc = profitUsdc;
+    sell.money = Math.round(scaleUsdtToCnyDisplay(profitUsdc));
+    sell.pmStakeUsdc = costPortion;
+
+    buy._remainingShares = round4(buy._remainingShares - deduct);
+    buy._remainingStake = round4(buy._remainingStake - costPortion);
+    buy.pmAttributedSellShares = round4((buy.pmAttributedSellShares ?? 0) + deduct);
+    buy.pmSellState = buy._remainingShares <= 0.0001 ? "closed" : "partial";
+  }
+
+  const normalizedBuys = buys.map(({ _remainingShares, _remainingStake, ...b }) => ({
+    ...b,
+    pmShares: _remainingShares > 0 ? round4(_remainingShares) : 0,
+    pmStakeUsdc: _remainingStake > 0 ? round4(_remainingStake) : 0,
+  }));
+
+  return sortVenueOrdersNewestFirst([...normalizedBuys, ...sellCopies]);
 }
 
 /** 汇总已确认 SELL 成交的卖出份数（按 asset_id） */
@@ -625,7 +788,9 @@ export async function fetchPolymarketVenueOrdersBundle(
   const userAddresses = collectPolymarketUserAddressesFromAccount(account);
   const rawTrades = await fetchTradesSince(gateway, headers, afterSec);
   const flattened = flattenPolymarketTrades(rawTrades, userAddresses);
-  const preview = aggregatePolymarketTrades(flattened).filter(
+  const buyPreview = aggregatePolymarketTrades(flattened);
+  const sellPreview = aggregatePolymarketSellTrades(flattened);
+  const preview = [...buyPreview, ...sellPreview].filter(
     trade => (Number(trade.match_time) || 0) >= afterSec,
   );
   const marketMap = await fetchMarketsByConditionIds(
@@ -649,7 +814,7 @@ export async function fetchPolymarketVenueOrders(account: PlatformAccount): Prom
   return bundle.orders;
 }
 
-/** 纯映射（单测 / 调试）：CLOB trades → VenueOrder */
+/** 纯映射（单测 / 调试）：CLOB trades → VenueOrder（买 + 卖） */
 export function mapPolymarketTradesToVenueOrders(
   trades: PolymarketTradeRow[],
   marketMap: Map<string, PolymarketRawMarket> = new Map(),
@@ -657,11 +822,15 @@ export function mapPolymarketTradesToVenueOrders(
   userAddresses?: ReadonlySet<string>,
 ): VenueOrder[] {
   const flattened = flattenPolymarketTrades(trades, userAddresses);
-  const aggregated = aggregatePolymarketTrades(flattened).filter(
+  const buyTrades = aggregatePolymarketTrades(flattened).filter(
     trade => !afterSec || (Number(trade.match_time) || 0) >= afterSec,
   );
+  const sellTrades = aggregatePolymarketSellTrades(flattened).filter(
+    trade => !afterSec || (Number(trade.match_time) || 0) >= afterSec,
+  );
+
   const orders: VenueOrder[] = [];
-  for (const trade of aggregated) {
+  for (const trade of buyTrades) {
     const mapped = mapPolymarketTradeToVenueOrder(
       trade,
       lookupGammaMarket(marketMap, trade),
@@ -669,5 +838,13 @@ export function mapPolymarketTradesToVenueOrders(
     if (mapped)
       orders.push(mapped);
   }
-  return sortVenueOrdersNewestFirst(orders);
+  for (const trade of sellTrades) {
+    const mapped = mapPolymarketSellTradeToVenueOrder(
+      trade,
+      lookupGammaMarket(marketMap, trade),
+    );
+    if (mapped)
+      orders.push(mapped);
+  }
+  return reconcilePolymarketBuySellOrders(orders);
 }

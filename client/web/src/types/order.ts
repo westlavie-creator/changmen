@@ -40,6 +40,10 @@ export interface OrderRow {
   PmAttributedSellShares?: number;
   PmRealizedPnlUsdc?: number;
   PmSellState?: "open" | "partial" | "closed" | "settled";
+  /** buy=买入；sell=平仓 */
+  PmSide?: "buy" | "sell";
+  /** 卖单对应买单 orderId */
+  PmBuyOrderId?: string;
 }
 
 export interface LoseOrderRecord {

@@ -4,6 +4,7 @@ import { getOrderList } from "@/api/esport";
 import {
   groupOrdersByLink,
   isLinkedArbOrderGroup,
+  isPolymarketOpenPosition,
   orderLinkLegend,
   orderLinkMapEntries,
 } from "@/shared/orderLink";
@@ -124,7 +125,13 @@ export const useOrderStore = defineStore("order", {
         acc.orderCount = rows.length;
         if (today === todayKey()) {
           acc.todayOrder = rows.length;
-          const unsettled = rows.filter(r => r.Status === "None");
+          const unsettled = rows.filter((r) => {
+            if (String(r.Status ?? "") !== "None")
+              return false;
+            if (String(r.Type ?? "") === "Polymarket")
+              return isPolymarketOpenPosition(r);
+            return true;
+          });
           acc.unsettle = unsettled.length;
           acc.winBalance
             = (acc.balance ?? 0)

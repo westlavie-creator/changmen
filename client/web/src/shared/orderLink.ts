@@ -45,6 +45,30 @@ function isPolymarketOrderRow(row: OrderRow): boolean {
   return String(row.Type ?? "").trim() === "Polymarket";
 }
 
+/** PM 仍有持仓；卖单永远不算持仓 */
+export function isPolymarketOpenPosition(row: OrderRow): boolean {
+  if (!isPolymarketOrderRow(row) || row.PmSide === "sell")
+    return false;
+  if (String(row.Status ?? "") !== "None")
+    return false;
+
+  const state = row.PmSellState;
+  if (state === "closed" || state === "settled")
+    return false;
+
+  const shares = Number(row.PmShares);
+  const attributed = Number(row.PmAttributedSellShares) || 0;
+
+  if (attributed > 0 && (!Number.isFinite(shares) || shares <= 0.0001))
+    return false;
+
+  if (Number.isFinite(shares))
+    return shares > 0.0001;
+
+  // 无 pmShares 字段：非 changmen 卖出归因，仍视为持仓
+  return true;
+}
+
 /** [changmen 扩展] 9999 单边负 Link 前缀；A8 legend 无前缀 */
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
@@ -52,7 +76,13 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   const stake = rows
     .filter(r => !LOSE_REJECT.has(String(r.Status)))
     .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
-  const unsettled = rows.filter(r => r.Status === "None");
+  const unsettled = rows.filter((r) => {
+    if (String(r.Status ?? "") !== "None")
+      return false;
+    if (isPolymarketOrderRow(r))
+      return isPolymarketOpenPosition(r);
+    return true;
+  });
   if (unsettled.length) {
     const tradUnsettled = unsettled.filter(r => !isPolymarketOrderRow(r));
     const pmUnsettled = unsettled.filter(isPolymarketOrderRow);

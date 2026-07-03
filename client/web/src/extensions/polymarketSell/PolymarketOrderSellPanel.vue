@@ -12,7 +12,7 @@ import { useConfigStore } from "@/stores/configStore";
 import { usePolymarketOrderSellEnabled } from "@/composables/useExtensionPrefs";
 import type { PmSellQuoteView } from "./pmSellQuotes";
 import { pmStakeUsdcFromRow } from "./pmSellQuotes";
-import { persistChangmenSellAttribution } from "./persistSellAttribution";
+import { persistChangmenSellOrder } from "./persistSellAttribution";
 
 const props = defineProps<{
   row: OrderRow;
@@ -36,6 +36,7 @@ const conditionId = computed(() => String(props.row.PmConditionId ?? "").trim())
 const canShow = computed(() =>
   pmOrderSellEnabled.value
   && isOpenPm.value
+  && props.row.PmSide !== "sell"
   && tokenId.value
   && shares.value > 0
   && props.row.PmOrigin === "changmen",
@@ -78,6 +79,11 @@ async function onSell() {
       ElMessage.error(result.message || "卖出失败");
       return;
     }
+    const sellOrderId = String(result.orderId ?? "").trim();
+    if (!sellOrderId) {
+      ElMessage.error("卖出成功但未返回 orderId，无法创建卖单");
+      return;
+    }
     if (result.pending && result.orderId) {
       const rejectWait = rejectWaitSeconds(useConfigStore().config, [account]);
       await waitRejectDetection(rejectWait, rejectWait);
@@ -94,7 +100,8 @@ async function onSell() {
 
     const proceedsUsdc = result.proceedsUsdc
       ?? (q ? q.proceedsUsdc : 0);
-    await persistChangmenSellAttribution(account, props.row, {
+    await persistChangmenSellOrder(account, props.row, {
+      sellOrderId,
       sharesSold: shares.value,
       proceedsUsdc,
     });

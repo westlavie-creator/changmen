@@ -78,6 +78,8 @@ function rowToOrder(r) {
       || raw.pmSellState === "settled"
       ? raw.pmSellState
       : undefined,
+    PmSide: raw.pmSide === "buy" || raw.pmSide === "sell" ? raw.pmSide : undefined,
+    PmBuyOrderId: raw.pmBuyOrderId ? String(raw.pmBuyOrderId) : undefined,
   };
 }
 
@@ -90,35 +92,66 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   if (provider !== "Polymarket")
     return { raw: merged, money, bet_money };
 
-  const prevAttributed = parseNum(prevRaw.pmAttributedSellShares, 0);
-  const prevState = prevRaw.pmSellState;
+  const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "buy").toLowerCase();
+  const isSell = incomingSide === "sell";
   const isChangmen = pmOrigin === "changmen" || prevRaw.pmOrigin === "changmen";
   const incomingStatus = mapStatus(o.status || o.Status);
+  const prevBet = parseNum(prevRaw.betMoney, parseNum(prevRow?.bet_money, 0));
+  const incomingBet = parseNum(o.betMoney ?? o.BetMoney, 0);
+
+  merged.pmSide = isSell ? "sell" : "buy";
+
+  if (isSell) {
+    merged = {
+      ...merged,
+      pmSide: "sell",
+      betMoney: 0,
+      pmBuyOrderId: prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId ?? o.pmBuyOrderId,
+      pmRealizedPnlUsdc: prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc,
+    };
+    if (isChangmen || prevRaw.pmOrigin === "changmen") {
+      merged.pmOrigin = "changmen";
+      merged.money = prevRaw.money ?? merged.money;
+      merged.pmRealizedPnlUsdc = prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc;
+      merged.pmBuyOrderId = prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId;
+      money = parseNum(merged.money, parseNum(prevRow?.money, 0));
+    }
+    bet_money = 0;
+    return { raw: merged, money, bet_money };
+  }
+
+  const prevAttributed = parseNum(prevRaw.pmAttributedSellShares, 0);
+  const prevState = prevRaw.pmSellState;
+  const betMoneyForMerge = prevBet > 0 ? prevBet : incomingBet;
 
   if (isChangmen && (prevAttributed > 0 || prevState === "partial" || prevState === "closed")) {
     merged = {
       ...merged,
+      pmSide: "buy",
       pmOrigin: "changmen",
       pmShares: prevRaw.pmShares ?? merged.pmShares,
       pmStakeUsdc: prevRaw.pmStakeUsdc ?? merged.pmStakeUsdc,
-      betMoney: prevRaw.betMoney ?? merged.betMoney,
+      betMoney: betMoneyForMerge,
       pmSellState: prevRaw.pmSellState ?? merged.pmSellState,
       pmAttributedSellShares: prevRaw.pmAttributedSellShares ?? merged.pmAttributedSellShares,
-      pmRealizedPnlUsdc: prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc,
-      money: prevRaw.money ?? merged.money,
+      money: incomingStatus === "Win" || incomingStatus === "Lose"
+        ? (o.money ?? o.Money ?? prevRaw.money ?? merged.money)
+        : 0,
     };
-    bet_money = parseNum(merged.betMoney, parseNum(prevRow?.bet_money, 0));
+    bet_money = betMoneyForMerge;
     const prevMoney = parseNum(prevRow?.money, 0);
-    const sellMoney = parseNum(merged.money, 0);
     if (incomingStatus === "Win" || incomingStatus === "Lose") {
       merged.status = o.status || o.Status;
-      merged.money = o.money ?? o.Money;
       merged.pmSellState = "settled";
-      money = parseNum(o.money ?? o.Money, sellMoney || prevMoney);
+      money = parseNum(o.money ?? o.Money, prevMoney);
     }
     else {
-      money = sellMoney !== 0 ? sellMoney : prevMoney;
+      money = 0;
     }
+  }
+  else if (betMoneyForMerge > 0 && bet_money <= 0) {
+    merged.betMoney = betMoneyForMerge;
+    bet_money = betMoneyForMerge;
   }
 
   return { raw: merged, money, bet_money };

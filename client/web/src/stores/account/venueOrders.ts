@@ -1,14 +1,22 @@
 import type { VenueOrder } from "@venue/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { sortVenueOrdersNewestFirst } from "@venue/contract";
+import { hasOpenPolymarketPosition } from "@venue/polymarket/pmLogicalPosition";
 import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
 
+function isOpenUnsettledVenueOrder(o: VenueOrder): boolean {
+  if (o.status !== "none")
+    return false;
+  if (o.provider === "Polymarket")
+    return hasOpenPolymarketPosition(o);
+  return true;
+}
+
 export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder[]) {
-  account.unsettle = orders.filter(o => o.status === "none").length;
-  const unsettledExposure = orders
-    .filter(o => o.status === "none")
-    .reduce((sum, o) => sum + o.odds * o.betMoney, 0);
+  const open = orders.filter(isOpenUnsettledVenueOrder);
+  account.unsettle = open.length;
+  const unsettledExposure = open.reduce((sum, o) => sum + o.odds * o.betMoney, 0);
   account.winBalance = (account.balance ?? 0) + unsettledExposure;
 }
 

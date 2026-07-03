@@ -58,6 +58,72 @@ describe("orderLink A8 parity", () => {
     expect(text).toBe("待结算");
   });
 
+  it("PM sold before market settle shows realized P&L in legend", () => {
+    const text = orderLinkLegend([
+      {
+        Status: "None",
+        BetMoney: 100,
+        Odds: 1.72,
+        Money: 0,
+        Type: "Polymarket",
+        PmShares: 0,
+        PmSellState: "closed",
+        PmSide: "buy",
+      },
+      {
+        Status: "None",
+        BetMoney: 0,
+        Odds: 1.5,
+        Money: 43,
+        Type: "Polymarket",
+        PmSide: "sell",
+      },
+    ]);
+    expect(text).toBe("+43");
+  });
+
+  it("PM sold legs sum realized P&L in legend", () => {
+    const text = orderLinkLegend([
+      {
+        Status: "None",
+        BetMoney: 50,
+        Odds: 1.72,
+        Money: 0,
+        Type: "Polymarket",
+        PmShares: 0,
+        PmSellState: "closed",
+        PmSide: "buy",
+      },
+      {
+        Status: "None",
+        BetMoney: 0,
+        Odds: 1.51,
+        Money: 43,
+        Type: "Polymarket",
+        PmSide: "sell",
+      },
+      {
+        Status: "None",
+        BetMoney: 30,
+        Odds: 1.51,
+        Money: 0,
+        Type: "Polymarket",
+        PmShares: 0,
+        PmSellState: "closed",
+        PmSide: "buy",
+      },
+      {
+        Status: "None",
+        BetMoney: 0,
+        Odds: 1.4,
+        Money: 14,
+        Type: "Polymarket",
+        PmSide: "sell",
+      },
+    ]);
+    expect(text).toBe("+57");
+  });
+
   it("9999 单边 link 在 legend 前缀展示 🏆", () => {
     const link = -1_700_000_000_123;
     const text = orderLinkLegend([

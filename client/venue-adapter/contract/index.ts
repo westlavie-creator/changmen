@@ -17,6 +17,9 @@ export type PolymarketOrderOrigin = "changmen" | "external";
 /** 逻辑持仓：changmen 按行卖出归因 */
 export type PolymarketSellState = "open" | "partial" | "closed" | "settled";
 
+/** 买单 vs 平仓卖单（各一条 VenueOrder） */
+export type PolymarketOrderSide = "buy" | "sell";
+
 export interface PolymarketVenueOrderExtras {
   pmTokenId?: string;
   pmShares?: number;
@@ -29,6 +32,10 @@ export interface PolymarketVenueOrderExtras {
   pmAttributedSellShares?: number;
   pmRealizedPnlUsdc?: number;
   pmSellState?: PolymarketSellState;
+  /** buy=买入持仓；sell=平仓成交 */
+  pmSide?: PolymarketOrderSide;
+  /** 卖单对应买单 orderId */
+  pmBuyOrderId?: string;
 }
 
 export interface VenueOrder extends PolymarketVenueOrderExtras {

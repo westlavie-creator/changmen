@@ -1,30 +1,64 @@
 import type { OrderRow } from "@/types/order";
 import type { PlatformAccount } from "@/models/platformAccount";
 import {
-  applyChangmenSellToVenueOrder,
+  applyBuySharesAfterSell,
+  buildChangmenSellVenueOrder,
   venueOrderFromOrderRow,
 } from "@venue/polymarket/pmLogicalPosition";
-import { saveOrders } from "@/api/order";
+import { saveOrderBind, saveOrders } from "@/api/order";
 
 export interface PersistChangmenSellParams {
+  sellOrderId: string;
   sharesSold: number;
   proceedsUsdc: number;
 }
 
-/** changmen 卖出成交后：按行写回份额与 Money，再 saveOrder */
-export async function persistChangmenSellAttribution(
+/** changmen 卖出成交：新建卖单 + 更新买单份额 */
+export async function persistChangmenSellOrder(
   account: PlatformAccount,
-  row: OrderRow,
+  buyRow: OrderRow,
   params: PersistChangmenSellParams,
 ): Promise<void> {
-  const buyOrderId = String(row.OrderID ?? "").trim();
+  const sellOrderId = String(params.sellOrderId ?? "").trim();
+  if (!sellOrderId)
+    throw new Error("缺少卖出订单 orderId");
+
+  const buyOrderId = String(buyRow.OrderID ?? "").trim();
   if (!buyOrderId)
     throw new Error("缺少买入订单 OrderID");
 
-  const base = venueOrderFromOrderRow(row);
-  if (base.orderId !== buyOrderId)
-    base.orderId = buyOrderId;
+  const buy = venueOrderFromOrderRow(buyRow);
+  if (buy.pmSide === "sell")
+    throw new Error("不能对卖单再次卖出");
 
-  const updated = applyChangmenSellToVenueOrder(base, params);
-  await saveOrders(account, [updated]);
+  const updatedBuy = applyBuySharesAfterSell(buy, params.sharesSold);
+  const sellOrder = buildChangmenSellVenueOrder(buy, {
+    sellOrderId,
+    sharesSold: params.sharesSold,
+    proceedsUsdc: params.proceedsUsdc,
+  });
+
+  await saveOrders(account, [updatedBuy, sellOrder]);
+
+  const link = Number(buyRow.Link) || 0;
+  if (link !== 0) {
+    await saveOrderBind({
+      orders: JSON.stringify([{
+        LinkID: link,
+        Provider: "Polymarket",
+        OrderID: sellOrderId,
+        playerId: account.accountId,
+      }]),
+    });
+  }
+}
+
+/** @deprecated 使用 persistChangmenSellOrder */
+export async function persistChangmenSellAttribution(
+  account: PlatformAccount,
+  row: OrderRow,
+  params: Omit<PersistChangmenSellParams, "sellOrderId"> & { sellOrderId?: string },
+): Promise<void> {
+  const sellOrderId = String(params.sellOrderId ?? `legacy-sell-${row.OrderID}-${Date.now()}`).trim();
+  await persistChangmenSellOrder(account, row, { ...params, sellOrderId });
 }

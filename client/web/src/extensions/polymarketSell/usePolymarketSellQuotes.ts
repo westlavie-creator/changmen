@@ -11,6 +11,8 @@ function openPolymarketPositions(rows: OrderRow[]) {
   for (const row of rows) {
     if (String(row.Type ?? "") !== "Polymarket")
       continue;
+    if (row.PmSide === "sell")
+      continue;
     if (String(row.Status ?? "") !== "None")
       continue;
     if (row.PmOrigin !== "changmen")

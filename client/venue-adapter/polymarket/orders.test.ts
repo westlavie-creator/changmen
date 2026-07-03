@@ -419,7 +419,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(order?.status).toBe("win");
   });
 
-  test("keeps BUY bets and drops SELL redemptions from mixed trade feed", () => {
+  test("maps BUY and SELL trades to separate orders", () => {
     const sample: PolymarketTradeRow[] = [
       {
         taker_order_id: "0xbuy1",
@@ -430,6 +430,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
         match_time: "1782736191",
         outcome: "Ilbirs eSports",
         trader_side: "TAKER",
+        asset_id: "asset-a",
       },
       {
         taker_order_id: "0xsell1",
@@ -440,6 +441,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
         match_time: "1782690537",
         outcome: "MIBR Academy",
         trader_side: "TAKER",
+        asset_id: "asset-a",
       },
       {
         taker_order_id: "0xbuy2",
@@ -454,10 +456,14 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     ];
 
     const orders = mapPolymarketTradesToVenueOrders(sample);
-    expect(orders).toHaveLength(2);
-    expect(orders.map(o => o.orderId)).toEqual(["0xbuy1", "0xbuy2"]);
-    expect(orders[0]?.betMoney).toBe(5);
-    expect(orders[1]?.betMoney).toBeCloseTo(8, 0);
+    expect(orders).toHaveLength(3);
+    const buy1 = orders.find(o => o.orderId === "0xbuy1");
+    const sell1 = orders.find(o => o.orderId === "0xsell1");
+    expect(buy1?.pmSide).toBe("buy");
+    expect(buy1?.betMoney).toBe(5);
+    expect(sell1?.pmSide).toBe("sell");
+    expect(sell1?.betMoney).toBe(0);
+    expect(sell1?.pmBuyOrderId).toBe("0xbuy1");
   });
 });
 
