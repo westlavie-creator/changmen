@@ -106,7 +106,7 @@ describe("orderLink A8 parity", () => {
     expect(text).toBe("待结算");
   });
 
-  it("PM sold before market settle shows realized P&L in legend", () => {
+  it("PM sold before market settle shows proceeds minus buy cost in legend", () => {
     const text = orderLinkLegend([
       {
         Status: "None",
@@ -120,17 +120,18 @@ describe("orderLink A8 parity", () => {
       },
       {
         Status: "None",
-        BetMoney: 0,
+        BetMoney: 143,
         Odds: 1.5,
         Money: 43,
         Type: "Polymarket",
         PmSide: "sell",
+        PmStakeUsdc: 100 / 7,
       },
     ]);
     expect(text).toBe("+43");
   });
 
-  it("PM sold legs sum realized P&L in legend", () => {
+  it("PM sold legs sum proceeds minus buy cost in legend", () => {
     const text = orderLinkLegend([
       {
         Status: "None",
@@ -144,11 +145,12 @@ describe("orderLink A8 parity", () => {
       },
       {
         Status: "None",
-        BetMoney: 0,
+        BetMoney: 93,
         Odds: 1.51,
         Money: 43,
         Type: "Polymarket",
         PmSide: "sell",
+        PmStakeUsdc: 50 / 7,
       },
       {
         Status: "None",
@@ -162,11 +164,12 @@ describe("orderLink A8 parity", () => {
       },
       {
         Status: "None",
-        BetMoney: 0,
+        BetMoney: 44,
         Odds: 1.4,
         Money: 14,
         Type: "Polymarket",
         PmSide: "sell",
+        PmStakeUsdc: 30 / 7,
       },
     ]);
     expect(text).toBe("+57");

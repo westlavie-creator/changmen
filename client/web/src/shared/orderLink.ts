@@ -1,4 +1,5 @@
 import type { OrderRow } from "@/types/order";
+import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
 import { formatLinkId, isSingleLegLink, toFixed } from "@/shared/format";
 
 /** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
@@ -121,6 +122,33 @@ export function isPolymarketOpenPosition(row: OrderRow): boolean {
   return true;
 }
 
+/** 组内已实现盈亏：传统单 sum(Money)；PM 有卖单时 回款 − 对应买单成本 */
+export function computeOrderGroupProfit(rows: OrderRow[]): number {
+  const trad = rows.filter(r => !isPolymarketOrderRow(r));
+  const pmBuys = rows.filter(
+    r => isPolymarketOrderRow(r) && r.PmSide !== "sell" && !LOSE_REJECT.has(String(r.Status)),
+  );
+  const pmSells = rows.filter(r => isPolymarketOrderRow(r) && r.PmSide === "sell");
+
+  let total = trad.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
+
+  if (pmSells.length) {
+    const proceeds = pmSells.reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
+    let cost = pmSells.reduce((sum, r) => {
+      const stakeUsdc = Number(r.PmStakeUsdc) || 0;
+      return stakeUsdc > 0 ? sum + Math.round(stakeUsdc * USDT_CNY_EXCHANGE) : sum;
+    }, 0);
+    if (cost <= 0)
+      cost = pmBuys.reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
+    total += proceeds - cost;
+  }
+  else {
+    total += pmBuys.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
+  }
+
+  return total;
+}
+
 /** [changmen 扩展] 9999 单边负 Link 前缀；A8 legend 无前缀 */
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
@@ -150,7 +178,7 @@ export function orderLinkLegend(rows: OrderRow[]): string {
     if (pmUnsettled.length)
       return prefix + "待结算";
   }
-  const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
+  const total = computeOrderGroupProfit(rows);
   const sign = total > 0 ? "+" : "";
   return prefix + sign + toFixed(total, 0);
 }

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { OrderRow } from "@/types/order";
-import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
 import { formatDisplayOdds, formatOrderTime, toFixed } from "@/shared/format";
 import {
   isArbGroup,
@@ -20,16 +19,6 @@ function isPmSellRow(row: OrderRow): boolean {
 
 function isPmBuyRow(row: OrderRow): boolean {
   return isPmRow(row) && !isPmSellRow(row);
-}
-
-/** 卖单对应成本（CNY）；优先 pmStakeUsdc，否则由回款 − 盈亏反推 */
-function pmSellCostCny(row: OrderRow): number {
-  const costUsdc = Number(row.PmStakeUsdc) || 0;
-  if (costUsdc > 0)
-    return Math.round(costUsdc * USDT_CNY_EXCHANGE);
-  const proceeds = Number(row.BetMoney) || 0;
-  const profit = Number(row.Money) || 0;
-  return Math.round(proceeds - profit);
 }
 
 withDefaults(
@@ -91,12 +80,10 @@ withDefaults(
         </div>
         <div class="profit">
           <template v-if="isPmSellRow(row)">
-            回款：{{ toFixed(Number(row.BetMoney) || 0, 0) }}
-            成本：{{ toFixed(pmSellCostCny(row), 0) }}
             赔率：<span class="order__odds">{{
               formatDisplayOdds(Number(row.Odds) || 0)
             }}</span>
-            盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
+            回款金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }}
           </template>
           <template v-else>
             投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{

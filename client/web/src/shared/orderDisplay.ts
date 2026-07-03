@@ -1,5 +1,5 @@
 import type { OrderRow } from "@/types/order";
-import { isLinkedArbOrderGroup, orderLinkLegend } from "@/shared/orderLink";
+import { computeOrderGroupProfit, isLinkedArbOrderGroup, orderLinkLegend } from "@/shared/orderLink";
 
 export function normalizeOrderStatus(raw: string): OrderRow["Status"] {
   const s = String(raw || "None");
@@ -23,7 +23,7 @@ export function orderStatusClass(status: string | undefined): OrderRow["Status"]
 }
 
 export function orderLegendModifier(rows: OrderRow[]): "default" | "success" | "fail" {
-  const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
+  const total = computeOrderGroupProfit(rows);
   if (total === 0)
     return "default";
   return total > 0 ? "success" : "fail";
