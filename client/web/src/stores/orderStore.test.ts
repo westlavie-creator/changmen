@@ -22,13 +22,22 @@ describe("orderStore arb link grouping", () => {
 });
 
 describe("isLinkedArbGroup", () => {
-  it("detects positive link with multiple legs", () => {
+  it("detects cross-platform legs on same Link", () => {
     expect(
       isLinkedArbOrderGroup([
-        { Link: 123, OrderID: "a" },
-        { Link: 123, OrderID: "b" },
+        { Link: 123, OrderID: "a", Type: "OB" },
+        { Link: 123, OrderID: "b", Type: "RAY" },
       ]),
     ).toBe(true);
+  });
+
+  it("PM buy+sell same Link is grouped but not arb paired styling", () => {
+    expect(
+      isLinkedArbOrderGroup([
+        { Link: 123, OrderID: "buy", Type: "Polymarket", PmSide: "buy" },
+        { Link: 123, OrderID: "sell", Type: "Polymarket", PmSide: "sell" },
+      ]),
+    ).toBe(false);
   });
 
   it("rejects single-leg negative link", () => {

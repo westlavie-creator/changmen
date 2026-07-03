@@ -45,8 +45,8 @@ export async function persistChangmenSellOrder(
   const [scaledSell] = scalePolymarketVenueOrdersForDisplay([sellOrder]);
   await saveOrders(account, [updatedBuy, scaledSell]);
 
-  const link = Number(buyRow.Link) || 0;
-  if (link !== 0) {
+  const link = Number(buyRow.Link);
+  if (Number.isFinite(link) && link !== 0) {
     await saveOrderBind({
       orders: JSON.stringify([{
         LinkID: link,

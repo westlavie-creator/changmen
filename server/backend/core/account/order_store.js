@@ -34,6 +34,24 @@ function parseNum(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function resolveSaveOrderLink(o, prevRaw, orderId, createAt, linkByOrderId, existingByOrderId, assignedInBatch, provider) {
+  const boundLink = linkByOrderId.get(orderId);
+  if (boundLink != null && boundLink !== 0)
+    return boundLink;
+
+  // PM 卖单：继承买单 Link（PM 买卖绑定）；套利对腿已在买单上通过 saveOrderBind 写入 LinkID
+  const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "").toLowerCase();
+  const buyOrderId = String(o.pmBuyOrderId ?? prevRaw.pmBuyOrderId ?? "").trim();
+  if (provider === "Polymarket" && incomingSide === "sell" && buyOrderId) {
+    const buyLink = parseNum(existingByOrderId.get(buyOrderId)?.link, 0)
+      || parseNum(assignedInBatch.get(buyOrderId), 0);
+    if (buyLink !== 0)
+      return buyLink;
+  }
+
+  return backendBindLinkFromCreateAt(createAt);
+}
+
 function resolveStoredLink(link, _orderId, createAt) {
   const n = Number(link);
   if (Number.isFinite(n) && n !== 0)
@@ -207,22 +225,30 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
     existing.map(r => [String(r.order_id), r]),
   );
 
-  const rows = orders.map((o) => {
+  const assignedInBatch = new Map();
+  const rows = [];
+  for (const o of orders) {
     const rawCreate = o.createAt ?? o.CreateAt;
     const parsed = parseVenueCreateAt(rawCreate, 0);
     const orderId = String(o.orderId || `${playerId}-${parsed || Date.now()}`);
     const prevAt = Number(existingByOrderId.get(orderId)?.create_at) || 0;
     const createAt = parsed > 0 ? parsed : prevAt > 0 ? prevAt : Date.now();
-    const boundLink = linkByOrderId.get(orderId);
-    const link
-      = boundLink != null && boundLink !== 0
-        ? boundLink
-        : backendBindLinkFromCreateAt(createAt);
     const prevRow = existingByOrderId.get(orderId);
     const prevRaw = prevRow?.raw && typeof prevRow.raw === "object" && !Array.isArray(prevRow.raw)
       ? prevRow.raw
       : {};
     const provider = o.provider || o.Type || defaultProvider || "";
+    const link = resolveSaveOrderLink(
+      o,
+      prevRaw,
+      orderId,
+      createAt,
+      linkByOrderId,
+      existingByOrderId,
+      assignedInBatch,
+      provider,
+    );
+    assignedInBatch.set(orderId, link);
     const incomingOrigin = o.pmOrigin;
     const prevOrigin = prevRaw.pmOrigin;
     let pmOrigin = incomingOrigin;
@@ -231,7 +257,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
     else if (!pmOrigin)
       pmOrigin = prevOrigin || (provider === "Polymarket" ? "external" : undefined);
     const { raw, money, bet_money } = mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin);
-    return {
+    rows.push({
       user_id: String(userId),
       player_id: Number(playerId),
       order_id: orderId,
@@ -246,8 +272,8 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       status: mapStatus(o.status || o.Status),
       create_at: createAt,
       raw,
-    };
-  });
+    });
+  }
   return sb.upsertOrders(rows);
 }
 

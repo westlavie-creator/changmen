@@ -22,8 +22,13 @@ export function sortOrdersByLinkDesc<T extends { Link?: number }>(list: T[]): T[
   return [...list].sort(compareOrderLinkDesc);
 }
 
-/** [A8 可证实] `ft.groupBy(T, S=>S.Link)`（先 `T.sort` Link 降序） */
-export function groupOrdersByLink<T extends { Link?: number }>(list: T[]): Map<number, T[]> {
+/** [A8 可证实] `ft.groupBy(T, S=>S.Link)`（先 `T.sort` Link 降序）
+ *
+ * [changmen 扩展] 绑定分层：
+ * 1. PM 买卖：`PmBuyOrderId` 归组 + 入库继承买单 Link（见 order_store / persistChangmenSellOrder）
+ * 2. 套利双腿：`saveOrderBind` 写入共享 LinkID（finalizeArbBet）；PM 卖单继承 PM 买单 Link 后自然与对腿同组
+ */
+export function groupOrdersByLink<T extends { Link?: number; OrderID?: number | string; Type?: string; PmSide?: string; PmBuyOrderId?: string }>(list: T[]): Map<number, T[]> {
   const sorted = sortOrdersByLinkDesc(list);
   const map = new Map<number, T[]>();
   for (const row of sorted) {
@@ -32,6 +37,53 @@ export function groupOrdersByLink<T extends { Link?: number }>(list: T[]): Map<n
       map.set(key, []);
     map.get(key)!.push(row);
   }
+  return attachPolymarketSellsToBuyGroups(map);
+}
+
+/** PM 卖单 PmBuyOrderId → 归入对应买单 Link 组（CLOB 同步时卖单常有独立占位 link） */
+function attachPolymarketSellsToBuyGroups<T extends { Link?: number; OrderID?: number | string; Type?: string; PmSide?: string; PmBuyOrderId?: string; CreateAt?: number }>(
+  map: Map<number, T[]>,
+): Map<number, T[]> {
+  const buyLinkById = new Map<string, number>();
+  for (const [link, rows] of map.entries()) {
+    for (const row of rows) {
+      const id = String(row.OrderID ?? "").trim();
+      if (!id || String(row.Type ?? "") !== "Polymarket" || row.PmSide === "sell")
+        continue;
+      buyLinkById.set(id, link);
+    }
+  }
+
+  for (const [sellLink, rows] of [...map.entries()]) {
+    const keep: T[] = [];
+    for (const row of rows) {
+      const isPmSell = String(row.Type ?? "") === "Polymarket" && row.PmSide === "sell";
+      const buyId = String(row.PmBuyOrderId ?? "").trim();
+      const buyLink = buyId ? buyLinkById.get(buyId) : undefined;
+      if (isPmSell && buyLink != null && buyLink !== sellLink) {
+        const target = map.get(buyLink) ?? [];
+        target.push(row);
+        map.set(buyLink, target);
+        continue;
+      }
+      keep.push(row);
+    }
+    if (keep.length)
+      map.set(sellLink, keep);
+    else
+      map.delete(sellLink);
+  }
+
+  for (const rows of map.values()) {
+    rows.sort((a, b) => {
+      const aSell = a.PmSide === "sell" ? 1 : 0;
+      const bSell = b.PmSide === "sell" ? 1 : 0;
+      if (aSell !== bSell)
+        return aSell - bSell;
+      return (Number(a.CreateAt) || 0) - (Number(b.CreateAt) || 0);
+    });
+  }
+
   return map;
 }
 
@@ -103,8 +155,13 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   return prefix + sign + toFixed(total, 0);
 }
 
-/** [changmen 扩展] A8 fieldset 仅 `orderlink`，无 `--paired` */
+/** [changmen 扩展] 套利双腿 fieldset 高亮：跨平台且同 Link；纯 PM 买卖同组不算套利 */
 export function isLinkedArbOrderGroup(rows: OrderRow[]): boolean {
   const link = linkIdGroupKey(rows[0]?.Link);
-  return link !== 0 && !isSingleLegLink(link) && rows.length > 1;
+  if (link === 0 || isSingleLegLink(link) || rows.length < 2)
+    return false;
+  const providers = new Set(
+    rows.map(r => String(r.Type ?? "").trim()).filter(Boolean),
+  );
+  return providers.size >= 2;
 }
