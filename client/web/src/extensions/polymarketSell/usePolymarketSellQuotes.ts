@@ -13,6 +13,8 @@ function openPolymarketPositions(rows: OrderRow[]) {
       continue;
     if (String(row.Status ?? "") !== "None")
       continue;
+    if (row.PmOrigin !== "changmen")
+      continue;
     const tokenId = String(row.PmTokenId ?? "").trim();
     const shares = Number(row.PmShares) || 0;
     if (!tokenId || shares <= 0 || seen.has(tokenId))

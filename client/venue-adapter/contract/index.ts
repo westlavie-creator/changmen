@@ -12,12 +12,16 @@ export interface AccountBalanceResult {
 export type VenueOrderStatus = "none" | "pending" | "reject" | "return" | "win" | "lose";
 
 /** [changmen 扩展] Polymarket 持仓；其它场馆 getOrders 不填 */
+export type PolymarketOrderOrigin = "changmen" | "external";
+
 export interface PolymarketVenueOrderExtras {
   pmTokenId?: string;
   pmShares?: number;
   pmStakeUsdc?: number;
   /** CLOB condition_id，User WS 订阅与卖出 delayed 检测 */
   pmConditionId?: string;
+  /** changmen 站内下单 vs 官网同步 */
+  pmOrigin?: PolymarketOrderOrigin;
 }
 
 export interface VenueOrder extends PolymarketVenueOrderExtras {

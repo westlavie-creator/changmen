@@ -67,6 +67,9 @@ function rowToOrder(r) {
     PmShares: parseNum(raw.pmShares, 0) || undefined,
     PmStakeUsdc: parseNum(raw.pmStakeUsdc, 0) || undefined,
     PmConditionId: raw.pmConditionId ? String(raw.pmConditionId) : undefined,
+    PmOrigin: raw.pmOrigin === "changmen" || raw.pmOrigin === "external"
+      ? raw.pmOrigin
+      : undefined,
   };
 }
 
@@ -106,12 +109,25 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       = boundLink != null && boundLink !== 0
         ? boundLink
         : backendBindLinkFromCreateAt(createAt);
+    const prevRow = existingByOrderId.get(orderId);
+    const prevRaw = prevRow?.raw && typeof prevRow.raw === "object" && !Array.isArray(prevRow.raw)
+      ? prevRow.raw
+      : {};
+    const provider = o.provider || o.Type || defaultProvider || "";
+    const incomingOrigin = o.pmOrigin;
+    const prevOrigin = prevRaw.pmOrigin;
+    let pmOrigin = incomingOrigin;
+    if (prevOrigin === "changmen" && incomingOrigin === "external")
+      pmOrigin = "changmen";
+    else if (!pmOrigin)
+      pmOrigin = prevOrigin || (provider === "Polymarket" ? "external" : undefined);
+    const raw = pmOrigin ? { ...o, pmOrigin } : o;
     return {
       user_id: String(userId),
       player_id: Number(playerId),
       order_id: orderId,
       link,
-      provider: o.provider || o.Type || defaultProvider || "",
+      provider,
       match: o.match || o.Match || "",
       bet: o.bet || o.Bet || "",
       item: o.item || o.Item || "",
@@ -120,7 +136,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       money: parseNum(o.money || o.Money, 0),
       status: mapStatus(o.status || o.Status),
       create_at: createAt,
-      raw: o,
+      raw,
     };
   });
   return sb.upsertOrders(rows);

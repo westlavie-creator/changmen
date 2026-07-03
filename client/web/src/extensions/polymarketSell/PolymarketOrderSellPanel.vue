@@ -30,7 +30,12 @@ const isOpenPm = computed(() =>
 const shares = computed(() => Number(props.row.PmShares) || 0);
 const tokenId = computed(() => String(props.row.PmTokenId ?? "").trim());
 const conditionId = computed(() => String(props.row.PmConditionId ?? "").trim());
-const canShow = computed(() => isOpenPm.value && tokenId.value && shares.value > 0);
+const canShow = computed(() =>
+  isOpenPm.value
+  && tokenId.value
+  && shares.value > 0
+  && props.row.PmOrigin === "changmen",
+);
 
 const stakeUsdc = computed(() =>
   pmStakeUsdcFromRow(props.row.PmStakeUsdc, Number(props.row.BetMoney) || 0),

@@ -20,6 +20,7 @@ import {
 } from "./l2Auth";
 import { fetchPolymarketVenueOrders } from "./orders";
 import { isPolymarketDelayedPending } from "./orderStatus";
+import { applyPolymarketOrderOrigins, markPolymarketChangmenOrder } from "./pmOrigin";
 import { registerPolymarketOrderWatch } from "./userWs";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
@@ -426,7 +427,8 @@ export const polymarketProvider: PlatformProvider = {
   async getOrders(account: PlatformAccount) {
     try {
       const orders = await fetchPolymarketVenueOrders(account);
-      return scalePolymarketVenueOrdersForDisplay(orders);
+      const tagged = applyPolymarketOrderOrigins(account, orders);
+      return scalePolymarketVenueOrdersForDisplay(tagged);
     }
     catch (err) {
       console.warn("[Polymarket] getOrders failed", err);
@@ -573,6 +575,8 @@ export const polymarketProvider: PlatformProvider = {
       bet.orderId = String(result.orderID ?? "").trim() || null;
       bet.pending = pending;
       bet.beginTime = beginTime;
+      if (bet.orderId)
+        markPolymarketChangmenOrder(account.accountId, bet.orderId);
       if (pending && bet.orderId) {
         const conditionId = String(option.betId ?? "").trim();
         if (conditionId) {
