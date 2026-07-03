@@ -48,9 +48,14 @@ describe("interpretPolymarketOrderRow", () => {
       .toBe("matched");
   });
 
-  it("unfilled for empty body", () => {
-    expect(interpretPolymarketOrderRow(null)).toBe("unfilled");
-    expect(interpretPolymarketOrderRow({})).toBe("unfilled");
+  it("pending when order row not yet available", () => {
+    expect(interpretPolymarketOrderRow(null)).toBe("pending");
+    expect(interpretPolymarketOrderRow({})).toBe("pending");
+  });
+
+  it("unfilled for unmatched after sports delay", () => {
+    expect(interpretPolymarketOrderRow({ status: "unmatched", size_matched: "0" }))
+      .toBe("unfilled");
   });
 
   it("unfilled for matched with zero size", () => {

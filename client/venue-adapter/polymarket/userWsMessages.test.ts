@@ -45,6 +45,16 @@ describe("interpretPolymarketUserWsMessage", () => {
     }, ORDER_ID)).toBe("unfilled");
   });
 
+  it("unfilled on order UPDATE with unmatched status", () => {
+    expect(interpretPolymarketUserWsMessage({
+      event_type: "order",
+      type: "UPDATE",
+      id: ORDER_ID,
+      status: "unmatched",
+      size_matched: "0",
+    }, ORDER_ID)).toBe("unfilled");
+  });
+
   it("matched on order UPDATE with size_matched", () => {
     expect(interpretPolymarketUserWsMessage({
       event_type: "order",

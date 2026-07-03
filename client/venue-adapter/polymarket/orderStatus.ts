@@ -50,8 +50,11 @@ function parseMatchedSize(row: PolymarketOrderRow | null | undefined): number {
 export function interpretPolymarketOrderRow(
   row: PolymarketOrderRow | null | undefined,
 ): "matched" | "unfilled" | "pending" {
-  if (!row || Object.keys(row).length === 0)
-    return "unfilled";
+  // 端点暂未返回 / 404：体育 delay 窗内常见，勿误判为 FOK 拒单
+  if (!row)
+    return "pending";
+  if (Object.keys(row).length === 0)
+    return "pending";
   const status = String(row.status ?? "").trim().toLowerCase();
   if (parseMatchedSize(row) > 0)
     return "matched";
@@ -156,10 +159,10 @@ export async function pollPolymarketDelayedOrder(
   return { outcome: "timeout", row: last };
 }
 
-/** WS 不可用或未出结果时的 REST 轮询参数（拒单等待结束后调用，不必再 sleep） */
+/** WS 未命中后的 REST 轮询（保留 1s 起步，覆盖体育 delay 窗与 order 端点滞后） */
 export const POLYMARKET_WS_FALLBACK_POLL_OPTS = {
-  initialDelayMs: 0,
-  intervalMs: 1_000,
+  initialDelayMs: POLYMARKET_SPORTS_DELAYED_POLL_OPTS.initialDelayMs,
+  intervalMs: POLYMARKET_SPORTS_DELAYED_POLL_OPTS.intervalMs,
   maxAttempts: 6,
 } as const;
 

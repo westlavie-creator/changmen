@@ -575,8 +575,14 @@ export const polymarketProvider: PlatformProvider = {
       bet.beginTime = beginTime;
       if (pending && bet.orderId) {
         const conditionId = String(option.betId ?? "").trim();
-        if (conditionId)
+        if (conditionId) {
           registerPolymarketOrderWatch(account, bet.orderId, { conditionId });
+        }
+        else {
+          console.warn(
+            "[Polymarket] delayed 单缺少 betId(condition_id)，User WS 未订阅；拒单检测仅走 REST",
+          );
+        }
       }
       return bet;
     } catch (err) {

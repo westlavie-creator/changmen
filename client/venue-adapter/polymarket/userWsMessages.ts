@@ -45,7 +45,8 @@ export function interpretPolymarketUserWsMessage(
   const type = String(msg.type ?? "").trim().toUpperCase();
 
   if (eventType === "order" || type === "PLACEMENT" || type === "UPDATE" || type === "CANCELLATION") {
-    if (type === "CANCELLATION")
+    const orderStatus = String(msg.status ?? "").trim().toLowerCase();
+    if (type === "CANCELLATION" || orderStatus === "unmatched")
       return "unfilled";
     const sizeMatched = Number(msg.size_matched);
     if (type === "UPDATE" && Number.isFinite(sizeMatched) && sizeMatched > 0)
