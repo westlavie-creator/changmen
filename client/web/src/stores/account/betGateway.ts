@@ -112,10 +112,14 @@ export async function placeBet(
     }
   }
   catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    const message = raw.includes("Failed to fetch dynamically imported module")
+      ? "页面资源已过期（服务端刚发版），请刷新页面后重试"
+      : raw;
     result = new BetResult(
       account.provider,
       false,
-      e instanceof Error ? e.message : String(e),
+      message,
       option.data,
     );
   }

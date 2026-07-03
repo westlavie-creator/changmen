@@ -5,12 +5,15 @@ import "element-plus/theme-chalk/dark/css-vars.css";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
 import { initGamebetExtension } from "@/chrome-plugin/bridge";
+import { clearChunkReloadFlag, installChunkReloadOnDeploy } from "@/shared/chunkReload";
 import { useUserStore } from "@/stores/userStore";
 import "@/styles/index.css";
 import App from "./App.vue";
 import router from "./router";
 
 function bootstrap() {
+  installChunkReloadOnDeploy();
+  clearChunkReloadFlag();
   const pinia = createPinia();
   const app = createApp(App).use(pinia).use(router).use(ElementPlus, { locale: zhCn });
   app.mount("#app");
