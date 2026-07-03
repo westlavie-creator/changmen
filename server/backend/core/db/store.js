@@ -94,6 +94,7 @@ export async function loadProfileById(uid) {
   if (!data)
     return null;
   _set(data.id, data);
+  await loadAccountsForUser(data.id);
   return _toProfile(data);
 }
 
@@ -102,102 +103,95 @@ export async function pullProfilesFromDb() {
   if (profiles.length) {
     for (const p of profiles) _set(p.id, p);
     console.log("[db] 加载 profiles:", profiles.length, "条");
+    await refreshAllAccountsFromPlayers();
   }
 }
 
-// ─── accounts ────────────────────────────────────────────────────────
+// ─── accounts（唯一真相：players 表）────────────────────────────────────
+
+const _accountsCache = new Map();
 
 export function listAccountsForUser(uid) {
-  const row = _get(uid);
-  if (!row)
+  const id = String(uid);
+  const cached = _accountsCache.get(id);
+  if (!cached)
     return [];
-  const a = row.accounts;
-  let raw;
-  if (Array.isArray(a)) {
-    raw = a;
-  }
-  else {
-    try {
-      raw = JSON.parse(a || "[]");
-    }
-    catch {
-      raw = [];
-    }
-  }
-  const normalized = normalizeAccountList(raw);
-  if (accountsMultiplyNeedsPersist(raw, normalized)) {
-    _set(uid, { ...row, accounts: normalized, updated_at: Date.now() });
-    sb.writeAccounts(uid, normalized);
+  const normalized = normalizeAccountList(cached);
+  if (accountsMultiplyNeedsPersist(cached, normalized)) {
+    _accountsCache.set(id, normalized);
+    sb.saveAccountRecordsForOwner(id, normalized);
   }
   return normalized;
 }
 
-/** 内存 accounts 为空时从 RDS 回源（手动恢复 profile 后无需重启 backend） */
+export async function loadAccountsForUser(uid) {
+  const id = String(uid);
+  const records = await sb.fetchAccountRecordsByOwner(id);
+  const normalized = normalizeAccountList(records);
+  _accountsCache.set(id, normalized);
+  return normalized;
+}
+
+/** 内存 accounts 为空时从 players 回源 */
 export async function refreshAccountsFromRdsIfEmpty(uid) {
   const id = String(uid);
   const current = listAccountsForUser(id);
   if (current.length > 0)
     return current;
-  return _reloadAccountsFromRds(id);
+  return loadAccountsForUser(id);
 }
 
-/** ACCOUNT 保存前：内存为空时从 RDS 回源，空列表 guard 以 RDS 为准（A8 前端可发 []） */
+/** ACCOUNT 保存前：内存为空时从 players 回源，空列表 guard 以 RDS 为准 */
 export async function prepareAccountsForSave(uid) {
   const id = String(uid);
   await refreshAccountsFromRdsIfEmpty(id);
-  let existing = listAccountsForUser(id);
-  if (existing.length > 0)
-    return existing;
-  return _reloadAccountsFromRds(id);
-}
-
-async function _reloadAccountsFromRds(id) {
-  const data = await sb.fetchProfileById(id);
-  if (!data)
-    return [];
-  const raw = Array.isArray(data.accounts) ? data.accounts : [];
-  if (!raw.length)
-    return [];
-  const row = _get(id) || {};
-  _set(id, {
-    ...row,
-    ...data,
-    accounts: normalizeAccountList(raw),
-  });
   return listAccountsForUser(id);
 }
 
+async function refreshAllAccountsFromPlayers() {
+  const ids = [..._cache.keys()];
+  await Promise.all(ids.map(id => loadAccountsForUser(id)));
+}
+
 export function countAccounts() {
-  return [..._cache.values()].reduce(
-    (s, r) => s + (Array.isArray(r.accounts) ? r.accounts.length : 0),
-    0,
-  );
+  let total = 0;
+  for (const list of _accountsCache.values())
+    total += Array.isArray(list) ? list.length : 0;
+  return total;
 }
 
 export function replaceAccountsForUser(uid, accounts) {
-  const row = _get(uid) || {};
+  const id = String(uid);
   const normalized = normalizeAccountList(accounts);
-  _set(uid, { ...row, accounts: normalized, updated_at: Date.now() });
-  sb.writeAccounts(uid, normalized);
-  return listAccountsForUser(uid);
+  _accountsCache.set(id, normalized);
+  sb.saveAccountRecordsForOwner(id, normalized);
+  return normalized;
 }
 
-export function updateAccountForUser(uid, accountId, updates) {
-  const accounts = listAccountsForUser(uid);
-  const idx = accounts.findIndex(a => String(a.accountId) === String(accountId));
-  if (idx < 0)
+export async function updateAccountForUser(uid, accountId, updates) {
+  const patched = await sb.patchPlayerAccountRecord(uid, accountId, updates);
+  if (!patched)
     return null;
-  accounts[idx] = { ...accounts[idx], ...updates, updateTime: Date.now() };
-  replaceAccountsForUser(uid, accounts);
-  return accounts[idx];
+  const id = String(uid);
+  const list = listAccountsForUser(id);
+  const idx = list.findIndex(a => String(a.accountId) === String(accountId));
+  if (idx >= 0) {
+    list[idx] = patched;
+    _accountsCache.set(id, list);
+  }
+  else {
+    await loadAccountsForUser(id);
+  }
+  return patched;
 }
 
 export function removeAccountForUser(uid, accountId) {
-  const accounts = listAccountsForUser(uid);
-  const next = accounts.filter(a => String(a.accountId) !== String(accountId));
-  if (next.length === accounts.length)
+  const id = String(uid);
+  const before = listAccountsForUser(id);
+  const next = before.filter(a => String(a.accountId) !== String(accountId));
+  if (next.length === before.length)
     return false;
-  replaceAccountsForUser(uid, next);
+  _accountsCache.set(id, next);
   return true;
 }
 

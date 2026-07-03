@@ -1,12 +1,34 @@
 /**
  * tag_platforms、players、user_logs 表读写。
+ * 投注账号唯一真相：players（含 account_data jsonb）。
  */
 
-import { getPgPool } from "./common.js";
+import {
+  accountRecordToPlayerPatch,
+  playerRowToAccountRecord,
+} from "../player_account_record.js";
+import { getPgPool, _jsonb } from "./common.js";
+
+const PLAYER_SELECT
+  = `id, owner_user_id, platform_id, platform_name, player_name, provider, credit, total_balance,
+     account_data, created_at, updated_at, deleted_at, delete_description`;
 
 function _mapPlayerRow(row) {
   if (!row)
     return null;
+  let accountData = {};
+  if (row.account_data != null) {
+    if (typeof row.account_data === "object" && !Array.isArray(row.account_data))
+      accountData = row.account_data;
+    else {
+      try {
+        accountData = JSON.parse(String(row.account_data || "{}"));
+      }
+      catch {
+        accountData = {};
+      }
+    }
+  }
   return {
     id: Number(row.id),
     playerId: Number(row.id),
@@ -14,8 +36,10 @@ function _mapPlayerRow(row) {
     platformId: Number(row.platform_id),
     platformName: String(row.platform_name || ""),
     playerName: String(row.player_name || ""),
+    provider: String(row.provider || ""),
     credit: Number(row.credit) || 0,
     totalBalance: Number(row.total_balance) || 0,
+    accountData,
     createdAt: Number(row.created_at) || 0,
     updatedAt: Number(row.updated_at) || 0,
     deletedAt: row.deleted_at != null ? Number(row.deleted_at) : null,
@@ -73,11 +97,10 @@ export async function insertPlayerRow({ platformId, platformName, playerName, ow
   try {
     const { rows } = await pool.query(
       `INSERT INTO players (
-         owner_user_id, platform_id, platform_name, player_name,
-         credit, total_balance, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, 0, 0, $5, $5)
-       RETURNING id, owner_user_id, platform_id, platform_name, player_name, credit, total_balance,
-                 created_at, updated_at, deleted_at, delete_description`,
+         owner_user_id, platform_id, platform_name, player_name, provider,
+         credit, total_balance, account_data, created_at, updated_at
+       ) VALUES ($1, $2, $3, $4, '', 0, 0, '{}'::jsonb, $5, $5)
+       RETURNING ${PLAYER_SELECT}`,
       [uid, pid, String(platformName || ""), String(playerName || ""), now],
     );
     return _mapPlayerRow(rows?.[0]);
@@ -99,8 +122,7 @@ export async function fetchPlayerByPlatformAndName(platformId, playerName, owner
     return null;
   try {
     const { rows } = await pool.query(
-      `SELECT id, owner_user_id, platform_id, platform_name, player_name, credit, total_balance,
-              created_at, updated_at, deleted_at, delete_description
+      `SELECT ${PLAYER_SELECT}
        FROM players
        WHERE platform_id = $1 AND player_name = $2 AND owner_user_id = $3::uuid AND deleted_at IS NULL
        ORDER BY id ASC
@@ -124,8 +146,7 @@ export async function fetchPlayerById(playerId) {
     return null;
   try {
     const { rows } = await pool.query(
-      `SELECT id, owner_user_id, platform_id, platform_name, player_name, credit, total_balance,
-              created_at, updated_at, deleted_at, delete_description
+      `SELECT ${PLAYER_SELECT}
        FROM players WHERE id = $1 AND deleted_at IS NULL`,
       [id],
     );
@@ -230,8 +251,7 @@ export async function updatePlayerBalanceRow(playerId, balance, ownerUserId) {
     const { rows } = await pool.query(
       `UPDATE players SET total_balance = $2, updated_at = $3
        WHERE id = $1 AND deleted_at IS NULL${ownerClause}
-       RETURNING id, owner_user_id, platform_id, platform_name, player_name, credit, total_balance,
-                 created_at, updated_at, deleted_at, delete_description`,
+       RETURNING ${PLAYER_SELECT}`,
       params,
     );
     const row = _mapPlayerRow(rows?.[0]);
@@ -273,4 +293,133 @@ export async function softDeletePlayerRow(playerId, description, ownerUserId) {
     console.warn("[rds] softDeletePlayerRow:", err.message);
     return false;
   }
+}
+
+/** 用户全部活跃账号 → A8 AccountRecord[] */
+export async function fetchAccountRecordsByOwner(ownerUserId) {
+  const uid = String(ownerUserId || "").trim();
+  if (!uid)
+    return [];
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${PLAYER_SELECT}
+       FROM players
+       WHERE owner_user_id = $1::uuid AND deleted_at IS NULL
+       ORDER BY id ASC`,
+      [uid],
+    );
+    return (rows || []).map(r => playerRowToAccountRecord(_mapPlayerRow(r))).filter(Boolean);
+  }
+  catch (err) {
+    console.warn("[rds] fetchAccountRecordsByOwner:", err.message);
+    return [];
+  }
+}
+
+export async function countActivePlayersByOwner(ownerUserId) {
+  const uid = String(ownerUserId || "").trim();
+  if (!uid)
+    return 0;
+  const pool = getPgPool();
+  if (!pool)
+    return 0;
+  try {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*)::int AS c FROM players
+       WHERE owner_user_id = $1::uuid AND deleted_at IS NULL`,
+      [uid],
+    );
+    return Number(rows?.[0]?.c) || 0;
+  }
+  catch (err) {
+    console.warn("[rds] countActivePlayersByOwner:", err.message);
+    return 0;
+  }
+}
+
+/** 单条账号 upsert 到 players（SaveData ACCOUNT / 余额刷新） */
+export async function savePlayerAccountRecord(ownerUserId, record) {
+  const uid = String(ownerUserId || "").trim();
+  const patch = accountRecordToPlayerPatch(record);
+  const id = Number(patch.playerId);
+  if (!uid || !Number.isFinite(id) || id <= 0)
+    return false;
+  const pool = getPgPool();
+  if (!pool)
+    return false;
+  const now = Number(patch.updatedAt) || Date.now();
+  const platformId = patch.platformId;
+  try {
+    const params = [
+      id,
+      uid,
+      patch.platformName,
+      patch.playerName,
+      patch.provider,
+      patch.credit,
+      patch.totalBalance,
+      _jsonb(patch.accountData, {}),
+      now,
+    ];
+    let platformClause = "";
+    if (platformId != null && Number.isFinite(platformId) && platformId > 0) {
+      params.push(platformId);
+      platformClause = `, platform_id = $${params.length}`;
+    }
+    const { rowCount } = await pool.query(
+      `UPDATE players SET
+         platform_name = $3,
+         player_name = $4,
+         provider = $5,
+         credit = $6,
+         total_balance = $7,
+         account_data = $8::jsonb,
+         updated_at = $9${platformClause}
+       WHERE id = $1 AND owner_user_id = $2::uuid AND deleted_at IS NULL`,
+      params,
+    );
+    return (rowCount ?? 0) > 0;
+  }
+  catch (err) {
+    console.warn("[rds] savePlayerAccountRecord:", err.message);
+    return false;
+  }
+}
+
+/** fire-and-forget：整包 SaveData ACCOUNT */
+export function saveAccountRecordsForOwner(ownerUserId, records) {
+  const uid = String(ownerUserId || "").trim();
+  if (!uid || !Array.isArray(records))
+    return;
+  const pool = getPgPool();
+  if (!pool)
+    return;
+  Promise.resolve()
+    .then(async () => {
+      for (const row of records) {
+        await savePlayerAccountRecord(uid, row);
+      }
+    })
+    .catch(err => console.warn("[rds] saveAccountRecordsForOwner:", err.message));
+}
+
+/** 部分字段更新（余额刷新 syncAccountRowInKv） */
+export async function patchPlayerAccountRecord(ownerUserId, playerId, updates) {
+  const uid = String(ownerUserId || "").trim();
+  const id = Number(playerId);
+  if (!uid || !Number.isFinite(id) || id <= 0)
+    return null;
+  const existing = await fetchPlayerById(id);
+  if (!existing || String(existing.ownerUserId) !== uid)
+    return null;
+  const merged = playerRowToAccountRecord(existing);
+  Object.assign(merged, updates, { accountId: id, updateTime: Date.now() });
+  const ok = await savePlayerAccountRecord(uid, merged);
+  if (!ok)
+    return null;
+  const refreshed = await fetchPlayerById(id);
+  return playerRowToAccountRecord(refreshed);
 }

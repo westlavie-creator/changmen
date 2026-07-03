@@ -62,6 +62,22 @@ OLD_HEAD="$(git rev-parse HEAD)"
 pull_repo
 NEW_HEAD="$(git rev-parse HEAD)"
 
+# bash 启动时已读入旧脚本；pull 后 re-exec 一次，用新脚本跑迁移（保留 OLD/NEW 供 diff）
+if [ -z "${DEPLOY_REEXEC:-}" ]; then
+  export DEPLOY_REEXEC=1
+  export DEPLOY_OLD_HEAD="$OLD_HEAD"
+  export DEPLOY_NEW_HEAD="$NEW_HEAD"
+  exec env DEPLOY_REEXEC=1 DEPLOY_OLD_HEAD="$OLD_HEAD" DEPLOY_NEW_HEAD="$NEW_HEAD" \
+    DEPLOY_REPO="$ROOT" DEPLOY_FULL="$DEPLOY_FULL" DEPLOY_SKIP_APP_BUILD="$DEPLOY_SKIP_APP_BUILD" \
+    MATCHER_EMBEDDED="$MATCHER_EMBEDDED" MATCHER_STANDALONE="$MATCHER_STANDALONE" \
+    PM2_WEB="$PM2_WEB" PM2_MATCHER="$PM2_MATCHER" PM2_PM_SPORTS="$PM2_PM_SPORTS" \
+    bash "$GIT_ROOT/changmen/scripts/deploy-server-remote.sh"
+fi
+if [ -n "${DEPLOY_OLD_HEAD:-}" ] && [ -n "${DEPLOY_NEW_HEAD:-}" ]; then
+  OLD_HEAD="$DEPLOY_OLD_HEAD"
+  NEW_HEAD="$DEPLOY_NEW_HEAD"
+fi
+
 DO_INSTALL_ROOT=0
 DO_INSTALL_FRONTEND=0
 DO_APP_BUILD=0
@@ -209,7 +225,10 @@ if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
       *live_timer*|changmen/server/db/impl_rds.js|server/db/impl_rds.js)
         LIVE_TIMER_TOUCHED=1
         ;;
-      *006_tag_platforms_players*|*players_json_migrate*|changmen/server/backend/core/account/account_store.js|server/backend/core/account/account_store.js|changmen/server/db/rds/player_store.js|server/db/rds/player_store.js)
+      *028_players_account*|*migrate-accounts-jsonb*|*player_account_record*)
+        PLAYERS_RDS_TOUCHED=1
+        ;;
+      *006_tag_platforms_players*|*players_json_migrate*|changmen/server/backend/core/account/account_store.js|server/backend/core/account/account_store.js|changmen/server/db/rds/player_store.js|server/db/rds/player_store.js|changmen/server/backend/core/db/store.js|server/backend/core/db/store.js)
         PLAYERS_RDS_TOUCHED=1
         PLAYERS_OWNER_MIGRATION_TOUCHED=1
         ;;
@@ -237,6 +256,13 @@ fi
 if [ "$RDS_SCHEMA_TOUCHED" = "1" ] || [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "RDS schema: apply migrations"
   (cd server/backend && node scripts/apply-rds-schema.mjs)
+fi
+if [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
+  log "profiles.accounts → players.account_data backfill"
+  (cd server/backend && node scripts/migrate-accounts-jsonb-to-players.mjs) || {
+    echo "FAIL: migrate-accounts-jsonb-to-players"
+    exit 1
+  }
 fi
 if [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "players/tag_platforms → RDS: migrate JSON from storage/"

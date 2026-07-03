@@ -1,40 +1,59 @@
 #!/usr/bin/env node
-/** Full account system audit — profiles, players ownership, cross-user leaks, credentials. */
+/** Full account audit — players 为唯一真相 */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { ensurePgPoolReady, getPgPool } from "@changmen/db";
+import { playerRowToAccountRecord } from "../../db/player_account_record.js";
 
 loadChangmenEnv();
 const pool = await ensurePgPoolReady();
 
-function aid(a) {
-  return Number(a?.accountId ?? a?.AccountId) || 0;
-}
-
-const { rows: profiles } = await pool.query(
-  `SELECT u.user_name, u.is_admin, p.id, p.accounts, p.updated_at
-   FROM profiles p JOIN users u ON u.id = p.id
-   ORDER BY u.user_name`,
+const { rows: players } = await pool.query(
+  `SELECT pl.*, u.user_name, u.is_admin
+   FROM players pl
+   JOIN profiles p ON p.id = pl.owner_user_id
+   JOIN users u ON u.id = p.id
+   WHERE pl.deleted_at IS NULL
+   ORDER BY u.user_name, pl.id`,
 );
 
-console.log("=== PROFILES ===");
+console.log("=== PLAYERS (source of truth) ===");
 /** @type {Map<number, string[]>} */
 const playerToUsers = new Map();
-for (const row of profiles) {
-  const accs = row.accounts || [];
-  console.log(`\n${row.user_name}${row.is_admin ? " [admin]" : ""} accounts=${accs.length} updated=${row.updated_at}`);
-  for (const a of accs) {
-    const id = aid(a);
-    if (!playerToUsers.has(id))
-      playerToUsers.set(id, []);
-    playerToUsers.get(id).push(row.user_name);
-    const tok = !!(a.token || a.Token || a.cookie || a.Cookie);
+/** @type {Map<string, typeof players>} */
+const byUser = new Map();
+for (const row of players) {
+  const uid = String(row.owner_user_id);
+  if (!byUser.has(uid))
+    byUser.set(uid, []);
+  byUser.get(uid).push(row);
+  if (!playerToUsers.has(row.id))
+    playerToUsers.set(Number(row.id), []);
+  playerToUsers.get(Number(row.id)).push(row.user_name);
+}
+
+for (const [uid, rows] of byUser) {
+  const first = rows[0];
+  console.log(`\n${first.user_name}${first.is_admin ? " [admin]" : ""} accounts=${rows.length}`);
+  for (const row of rows) {
+    const wire = playerRowToAccountRecord({
+      id: row.id,
+      platformId: row.platform_id,
+      platformName: row.platform_name,
+      playerName: row.player_name,
+      provider: row.provider,
+      credit: row.credit,
+      totalBalance: row.total_balance,
+      accountData: row.account_data,
+      updatedAt: row.updated_at,
+    });
+    const tok = !!(wire.gateway || wire.token || wire.cookie);
     console.log(
-      `  ${id}\t${a.provider ?? a.Type ?? "?"}\t${a.platformName ?? a.PlatformName}\t${a.playerName ?? a.PlayerName}\tcred=${tok}`,
+      `  ${row.id}\t${wire.provider ?? "?"}\t${wire.platformName}\t${wire.playerName}\tcred=${tok}`,
     );
   }
 }
 
-console.log("\n=== CROSS-USER PLAYER IDS (same accountId in multiple profiles) ===");
+console.log("\n=== CROSS-USER PLAYER IDS ===");
 let cross = 0;
 for (const [pid, users] of playerToUsers) {
   const uniq = [...new Set(users)];
@@ -53,41 +72,17 @@ const { rows: ownerStats } = await pool.query(`
     COUNT(*) FILTER (WHERE deleted_at IS NULL AND owner_user_id IS NOT NULL) AS active_with_owner
   FROM players
 `);
-console.log("\n=== PLAYERS ===", ownerStats[0]);
-
-const { rows: noOwnerActive } = await pool.query(`
-  SELECT id, platform_name, player_name
-  FROM players WHERE deleted_at IS NULL AND owner_user_id IS NULL
-  ORDER BY id
-`);
-if (noOwnerActive.length) {
-  console.log("Active players without owner_user_id:");
-  for (const p of noOwnerActive)
-    console.log(`  ${p.id} ${p.platform_name}/${p.player_name}`);
-}
-
-const { rows: mismatches } = await pool.query(`
-  SELECT u.user_name, (a.elem->>'accountId')::bigint AS account_id, p.owner_user_id, prof.id AS profile_user_id
-  FROM profiles prof
-  JOIN users u ON u.id = prof.id
-  CROSS JOIN LATERAL jsonb_array_elements(prof.accounts) AS a(elem)
-  LEFT JOIN players p ON p.id = (a.elem->>'accountId')::bigint AND p.deleted_at IS NULL
-  WHERE p.owner_user_id IS NOT NULL AND p.owner_user_id <> prof.id
-`);
-console.log("\n=== OWNER_USER_ID MISMATCH (account in profile but player owned by another user) ===");
-if (!mismatches.length)
-  console.log("  (none)");
-else
-  for (const m of mismatches)
-    console.log(`  ${m.user_name} has accountId ${m.account_id} but player owned by ${m.owner_user_id}`);
+console.log("\n=== PLAYER STATS ===", ownerStats[0]);
 
 const { rows: dupPm } = await pool.query(`
   SELECT u.user_name, COUNT(*) AS pm_count
-  FROM profiles prof
-  JOIN users u ON u.id = prof.id
-  CROSS JOIN LATERAL jsonb_array_elements(prof.accounts) AS a(elem)
-  WHERE LOWER(COALESCE(a.elem->>'provider', a.elem->>'Type', '')) LIKE '%polymarket%'
-     OR LOWER(COALESCE(a.elem->>'platformName', a.elem->>'PlatformName', '')) IN ('pm', 'polymarket')
+  FROM players pl
+  JOIN users u ON u.id = pl.owner_user_id
+  WHERE pl.deleted_at IS NULL
+    AND (
+      LOWER(COALESCE(pl.provider, '')) LIKE '%polymarket%'
+      OR LOWER(COALESCE(pl.platform_name, '')) IN ('pm', 'polymarket')
+    )
   GROUP BY u.user_name
   HAVING COUNT(*) > 1
 `);
@@ -97,5 +92,19 @@ if (!dupPm.length)
 else
   for (const d of dupPm)
     console.log(`  ${d.user_name}: ${d.pm_count} PM accounts`);
+
+const { rows: staleJsonb } = await pool.query(`
+  SELECT u.user_name, jsonb_array_length(p.accounts) AS jsonb_count
+  FROM profiles p
+  JOIN users u ON u.id = p.id
+  WHERE jsonb_array_length(COALESCE(p.accounts, '[]'::jsonb)) > 0
+  ORDER BY u.user_name
+`);
+console.log("\n=== STALE profiles.accounts (未清空，只读对照) ===");
+if (!staleJsonb.length)
+  console.log("  (none)");
+else
+  for (const s of staleJsonb)
+    console.log(`  ${s.user_name}: ${s.jsonb_count} rows in jsonb (ignored at runtime)`);
 
 await pool.end();

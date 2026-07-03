@@ -197,17 +197,18 @@ async function checkTelegram(userName) {
 }
 
 async function checkAccountInvariants(pool) {
-  const { rows: cross } = await pool.query(`
-    SELECT (a.elem->>'accountId')::bigint AS account_id, COUNT(DISTINCT prof.id)::int AS users
-    FROM profiles prof
-    CROSS JOIN LATERAL jsonb_array_elements(prof.accounts) AS a(elem)
-    WHERE (a.elem->>'accountId') IS NOT NULL
-    GROUP BY 1
-    HAVING COUNT(DISTINCT prof.id) > 1
+  const { rows: orderOwnerMismatch } = await pool.query(`
+    SELECT o.player_id, o.user_id, p.owner_user_id
+    FROM orders o
+    JOIN players p ON p.id = o.player_id AND p.deleted_at IS NULL
+    WHERE p.owner_user_id IS NOT NULL AND o.user_id::uuid <> p.owner_user_id
     LIMIT 5
   `);
-  if (cross.length > 0) {
-    fail("accounts isolation", `跨用户共用 accountId: ${cross.map(r => r.account_id).join(", ")}`);
+  if (orderOwnerMismatch.length > 0) {
+    fail(
+      "accounts isolation",
+      `订单 player 归属不一致: ${orderOwnerMismatch.map(r => r.player_id).join(", ")}`,
+    );
     return false;
   }
 

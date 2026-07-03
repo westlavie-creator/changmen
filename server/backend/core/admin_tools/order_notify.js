@@ -66,19 +66,22 @@ export function shouldNotifyAdminOrder(link, createAt, provider, now = Date.now(
   return shouldNotifyOrderCreateAt(createAt, now);
 }
 
-function findPlayerLabel(profile, playerId, provider) {
-  const accounts = Array.isArray(profile?.accounts) ? profile.accounts : [];
-  const hit = accounts.find(a => Number(a?.accountId ?? a?.AccountId) === Number(playerId));
-  const playerName = String(hit?.playerName ?? hit?.PlayerName ?? "").trim();
-  const platform = String(
-    hit?.platformName ?? hit?.PlatformName ?? hit?.provider ?? hit?.Provider ?? provider ?? "",
-  ).trim();
-  if (playerName && platform)
-    return `${platform}/${playerName}`;
-  if (playerName)
-    return playerName;
-  if (platform)
-    return platform;
+function findPlayerLabel(_profile, playerId, provider) {
+  return `#${playerId}/${provider || ""}`;
+}
+
+async function resolvePlayerLabel(userId, playerId, provider) {
+  const player = await sb.fetchPlayerById(playerId);
+  if (player && String(player.ownerUserId || "") === String(userId || "")) {
+    const playerName = String(player.playerName || "").trim();
+    const platform = String(player.platformName || player.provider || provider || "").trim();
+    if (playerName && platform)
+      return `${platform}/${playerName}`;
+    if (playerName)
+      return playerName;
+    if (platform)
+      return platform;
+  }
   return `#${playerId}`;
 }
 
@@ -127,7 +130,7 @@ export async function notifyNewOrdersFromRows(dbRows) {
       profileCache.set(userId, profile);
     }
     const userName = String(profile?.user_name || userId).trim();
-    const playerLabel = findPlayerLabel(profile, order.player_id, order.provider);
+    const playerLabel = await resolvePlayerLabel(userId, order.player_id, order.provider);
     const text = formatAdminOrderTelegramBody({ userName, playerLabel, order });
     const res = await sendAdminNotify(text, "HTML", "新订单");
     if (!res.ok) {

@@ -83,12 +83,17 @@ export {
 } from "./rds/platform_collector_store.js";
 
 export {
+  countActivePlayersByOwner,
+  fetchAccountRecordsByOwner,
   fetchPlayerByPlatformAndName,
   fetchPlayerById,
   fetchTagPlatforms,
   fetchUserLogsInRange,
   insertPlayerRow,
   insertUserLogRow,
+  patchPlayerAccountRecord,
+  saveAccountRecordsForOwner,
+  savePlayerAccountRecord,
   softDeletePlayerRow,
   updatePlayerBalanceRow,
   updatePlayerDisplayName,

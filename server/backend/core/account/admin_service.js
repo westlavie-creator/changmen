@@ -190,11 +190,10 @@ function resolveBettingState(p) {
 function mapAdminUserRow(p, profitByUser = new Map()) {
   const name = String(p.user_name || "");
   const stats = profitByUser.get(name.toLowerCase());
-  const accountsRaw = Array.isArray(p.accounts) ? p.accounts : [];
-  const accounts = accountsRaw
+  const id = String(p.id);
+  const accounts = store.getAccountsForUser(id)
     .map(sanitizeAccountForAdmin)
     .filter(Boolean);
-  const id = String(p.id);
   const presence = resolvePresenceState(id, p);
   const bettingState = resolveBettingState(p);
   return {
