@@ -5,6 +5,7 @@ import {
   fetchGammaMarketByTokenId,
   gammaEventToPmSportLike,
   shouldRefreshPmSportForBet,
+  type GammaEventLike,
 } from "./pmSportGamma";
 import {
   getPolymarketPmSportBlockReason,
@@ -27,8 +28,12 @@ export async function resolvePolymarketBetBlockReason(option: BetOption): Promis
         const event = await fetchGammaEventById(eventId);
         gammaPm = gammaEventToPmSportLike(event);
       }
-      if (!gammaPm && market?.events?.[0])
-        gammaPm = gammaEventToPmSportLike(market.events[0] as never);
+      if (!gammaPm && market) {
+        const events = Array.isArray(market.events) ? market.events : [];
+        const embedded = events[0] as GammaEventLike | undefined;
+        if (embedded)
+          gammaPm = gammaEventToPmSportLike(embedded);
+      }
 
       const gammaReason = getPolymarketPmSportBlockReason(gammaPm, option.bet?.round);
       if (gammaReason)

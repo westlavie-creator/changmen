@@ -14,10 +14,11 @@ export function parseEsportsScore(score: string | undefined): {
   const home = Number.isFinite(mapNums[0]) ? mapNums[0] : 0;
   const away = Number.isFinite(mapNums[1]) ? mapNums[1] : 0;
   const boMatch = /bo\s*(\d+)/i.exec(boPart);
-  const bo = boMatch ? Number.parseInt(boMatch[1], 10) : null;
+  const boParsed = boMatch ? Number.parseInt(boMatch[1], 10) : NaN;
+  const bo = Number.isFinite(boParsed) && boParsed > 0 ? boParsed : null;
 
   return {
     mapScore: { home, away },
-    bo: Number.isFinite(bo) && bo > 0 ? bo : null,
+    bo,
   };
 }

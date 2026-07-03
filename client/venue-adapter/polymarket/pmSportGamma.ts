@@ -8,7 +8,7 @@ import { polymarketPluginGet } from "./transport";
 /** pm_sport 超过该时长则下单前拉 Gamma 兜底 */
 export const PM_SPORT_STALE_MS = 45_000;
 
-interface GammaEventLike {
+export interface GammaEventLike {
   id?: string | number;
   slug?: string;
   title?: string;
@@ -109,9 +109,12 @@ export async function fetchPmSportLikeForOption(option: BetOption): Promise<PmSp
   }
 
   const market = await fetchGammaMarketByTokenId(option.itemId);
-  const embedded = market?.events?.[0] as GammaEventLike | undefined;
-  if (embedded)
-    return gammaEventToPmSportLike(embedded);
+  if (market) {
+    const events = Array.isArray(market.events) ? market.events : [];
+    const embedded = events[0] as GammaEventLike | undefined;
+    if (embedded)
+      return gammaEventToPmSportLike(embedded);
+  }
 
   return null;
 }
