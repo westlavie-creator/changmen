@@ -37,6 +37,9 @@ export interface OrderRow {
   PmConditionId?: string;
   /** changmen 站内下单；官网同步为 external，不展示卖出 */
   PmOrigin?: "changmen" | "external";
+  PmAttributedSellShares?: number;
+  PmRealizedPnlUsdc?: number;
+  PmSellState?: "open" | "partial" | "closed" | "settled";
 }
 
 export interface LoseOrderRecord {

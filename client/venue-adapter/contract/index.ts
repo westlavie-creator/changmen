@@ -14,6 +14,9 @@ export type VenueOrderStatus = "none" | "pending" | "reject" | "return" | "win" 
 /** [changmen 扩展] Polymarket 持仓；其它场馆 getOrders 不填 */
 export type PolymarketOrderOrigin = "changmen" | "external";
 
+/** 逻辑持仓：changmen 按行卖出归因 */
+export type PolymarketSellState = "open" | "partial" | "closed" | "settled";
+
 export interface PolymarketVenueOrderExtras {
   pmTokenId?: string;
   pmShares?: number;
@@ -22,6 +25,10 @@ export interface PolymarketVenueOrderExtras {
   pmConditionId?: string;
   /** changmen 站内下单 vs 官网同步 */
   pmOrigin?: PolymarketOrderOrigin;
+  /** 本行 changmen 卖出累计份数 */
+  pmAttributedSellShares?: number;
+  pmRealizedPnlUsdc?: number;
+  pmSellState?: PolymarketSellState;
 }
 
 export interface VenueOrder extends PolymarketVenueOrderExtras {

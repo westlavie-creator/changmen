@@ -70,7 +70,58 @@ function rowToOrder(r) {
     PmOrigin: raw.pmOrigin === "changmen" || raw.pmOrigin === "external"
       ? raw.pmOrigin
       : undefined,
+    PmAttributedSellShares: parseNum(raw.pmAttributedSellShares, 0) || undefined,
+    PmRealizedPnlUsdc: parseNum(raw.pmRealizedPnlUsdc, 0) || undefined,
+    PmSellState: raw.pmSellState === "open"
+      || raw.pmSellState === "partial"
+      || raw.pmSellState === "closed"
+      || raw.pmSellState === "settled"
+      ? raw.pmSellState
+      : undefined,
   };
+}
+
+function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
+  const provider = String(o.provider || o.Type || "").trim();
+  let merged = pmOrigin ? { ...o, pmOrigin } : { ...o };
+  let money = parseNum(o.money ?? o.Money, 0);
+  let bet_money = parseNum(o.betMoney ?? o.BetMoney, 0);
+
+  if (provider !== "Polymarket")
+    return { raw: merged, money, bet_money };
+
+  const prevAttributed = parseNum(prevRaw.pmAttributedSellShares, 0);
+  const prevState = prevRaw.pmSellState;
+  const isChangmen = pmOrigin === "changmen" || prevRaw.pmOrigin === "changmen";
+  const incomingStatus = mapStatus(o.status || o.Status);
+
+  if (isChangmen && (prevAttributed > 0 || prevState === "partial" || prevState === "closed")) {
+    merged = {
+      ...merged,
+      pmOrigin: "changmen",
+      pmShares: prevRaw.pmShares ?? merged.pmShares,
+      pmStakeUsdc: prevRaw.pmStakeUsdc ?? merged.pmStakeUsdc,
+      betMoney: prevRaw.betMoney ?? merged.betMoney,
+      pmSellState: prevRaw.pmSellState ?? merged.pmSellState,
+      pmAttributedSellShares: prevRaw.pmAttributedSellShares ?? merged.pmAttributedSellShares,
+      pmRealizedPnlUsdc: prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc,
+      money: prevRaw.money ?? merged.money,
+    };
+    bet_money = parseNum(merged.betMoney, parseNum(prevRow?.bet_money, 0));
+    const prevMoney = parseNum(prevRow?.money, 0);
+    const sellMoney = parseNum(merged.money, 0);
+    if (incomingStatus === "Win" || incomingStatus === "Lose") {
+      merged.status = o.status || o.Status;
+      merged.money = o.money ?? o.Money;
+      merged.pmSellState = "settled";
+      money = parseNum(o.money ?? o.Money, sellMoney || prevMoney);
+    }
+    else {
+      money = sellMoney !== 0 ? sellMoney : prevMoney;
+    }
+  }
+
+  return { raw: merged, money, bet_money };
 }
 
 export async function listByDate(date, userId) {
@@ -121,7 +172,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       pmOrigin = "changmen";
     else if (!pmOrigin)
       pmOrigin = prevOrigin || (provider === "Polymarket" ? "external" : undefined);
-    const raw = pmOrigin ? { ...o, pmOrigin } : o;
+    const { raw, money, bet_money } = mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin);
     return {
       user_id: String(userId),
       player_id: Number(playerId),
@@ -132,8 +183,8 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       bet: o.bet || o.Bet || "",
       item: o.item || o.Item || "",
       odds: parseNum(o.odds, 0),
-      bet_money: parseNum(o.betMoney || o.BetMoney, 0),
-      money: parseNum(o.money || o.Money, 0),
+      bet_money,
+      money,
       status: mapStatus(o.status || o.Status),
       create_at: createAt,
       raw,

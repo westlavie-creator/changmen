@@ -18,7 +18,11 @@ import {
   resolveSignatureType,
   type PolymarketTokenConfig,
 } from "./l2Auth";
-import { fetchPolymarketVenueOrders } from "./orders";
+import {
+  applyPolymarketExternalSellDeduction,
+  fetchPolymarketVenueOrdersBundle,
+  warnPolymarketPositionDrift,
+} from "./orders";
 import { isPolymarketDelayedPending } from "./orderStatus";
 import { applyPolymarketOrderOrigins, markPolymarketChangmenOrder } from "./pmOrigin";
 import { registerPolymarketOrderWatch } from "./userWs";
@@ -426,9 +430,11 @@ export const polymarketProvider: PlatformProvider = {
 
   async getOrders(account: PlatformAccount) {
     try {
-      const orders = await fetchPolymarketVenueOrders(account);
+      const { orders, flattenedTrades } = await fetchPolymarketVenueOrdersBundle(account);
       const tagged = applyPolymarketOrderOrigins(account, orders);
-      return scalePolymarketVenueOrdersForDisplay(tagged);
+      const adjusted = applyPolymarketExternalSellDeduction(tagged, flattenedTrades);
+      warnPolymarketPositionDrift(adjusted, flattenedTrades);
+      return scalePolymarketVenueOrdersForDisplay(adjusted);
     }
     catch (err) {
       console.warn("[Polymarket] getOrders failed", err);

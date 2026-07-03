@@ -45,10 +45,17 @@ describe("orderLink A8 parity", () => {
 
   it("legend joins unsettled preview with dash", () => {
     const text = orderLinkLegend([
-      { Status: "None", BetMoney: 100, Odds: 2.0, Money: 0 },
-      { Status: "None", BetMoney: 100, Odds: 2.2, Money: 0 },
+      { Status: "None", BetMoney: 100, Odds: 2.0, Money: 0, Type: "OB" },
+      { Status: "None", BetMoney: 100, Odds: 2.2, Money: 0, Type: "RAY" },
     ]);
     expect(text).toContain(" - ");
+  });
+
+  it("PM unsettled shows 待结算 without bet×odds float", () => {
+    const text = orderLinkLegend([
+      { Status: "None", BetMoney: 100, Odds: 2.0, Money: 0, Type: "Polymarket" },
+    ]);
+    expect(text).toBe("待结算");
   });
 
   it("9999 单边 link 在 legend 前缀展示 🏆", () => {

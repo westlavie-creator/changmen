@@ -400,8 +400,8 @@ export function aggregatePolymarketSellSharesByAsset(
   return sold;
 }
 
-/** FIFO 扣减 SELL 成交，更新 pmShares / pmStakeUsdc（未结算 BUY 单） */
-export function applyPolymarketNetPositions(
+/** 仅对官网同步行 FIFO 扣减 SELL；changmen 行由卖出归因写回，不自动扣 */
+export function applyPolymarketExternalSellDeduction(
   orders: VenueOrder[],
   flattenedTrades: PolymarketTradeRow[],
 ): VenueOrder[] {
@@ -410,11 +410,16 @@ export function applyPolymarketNetPositions(
     return orders;
 
   const soldRemaining = new Map(soldByAsset);
-  const openBuys = orders
-    .filter(o => o.status === "none" && o.pmTokenId && (o.pmShares ?? 0) > 0)
+  const openExternal = orders
+    .filter(o =>
+      o.pmOrigin === "external"
+      && o.status === "none"
+      && o.pmTokenId
+      && (o.pmShares ?? 0) > 0,
+    )
     .sort((a, b) => a.createAt - b.createAt || a.orderId.localeCompare(b.orderId));
 
-  for (const order of openBuys) {
+  for (const order of openExternal) {
     const tokenId = String(order.pmTokenId);
     let soldLeft = soldRemaining.get(tokenId) ?? 0;
     if (soldLeft <= 0)
@@ -430,6 +435,50 @@ export function applyPolymarketNetPositions(
     soldRemaining.set(tokenId, Math.round((soldLeft - deduct) * 10000) / 10000);
   }
   return orders;
+}
+
+/** @deprecated 使用 applyPolymarketExternalSellDeduction；保留单测兼容 */
+export function applyPolymarketNetPositions(
+  orders: VenueOrder[],
+  flattenedTrades: PolymarketTradeRow[],
+): VenueOrder[] {
+  for (const order of orders) {
+    if (!order.pmOrigin)
+      order.pmOrigin = "external";
+  }
+  return applyPolymarketExternalSellDeduction(orders, flattenedTrades);
+}
+
+/** 存在未归因卖出时告警（不改行） */
+export function warnPolymarketPositionDrift(
+  orders: VenueOrder[],
+  flattenedTrades: PolymarketTradeRow[],
+): void {
+  const soldByAsset = aggregatePolymarketSellSharesByAsset(flattenedTrades);
+  if (!soldByAsset.size)
+    return;
+
+  for (const [tokenId, soldTotal] of soldByAsset) {
+    const attributed = orders
+      .filter(o => String(o.pmTokenId) === tokenId)
+      .reduce((sum, o) => sum + (o.pmAttributedSellShares ?? 0), 0);
+    const openChangmen = orders.filter(o =>
+      o.pmOrigin === "changmen"
+      && String(o.pmTokenId) === tokenId
+      && o.status === "none"
+      && (o.pmShares ?? 0) > 0.0001,
+    );
+    const unexplained = Math.round((soldTotal - attributed) * 10000) / 10000;
+    if (unexplained > 0.01 && openChangmen.length > 0) {
+      console.warn("[Polymarket] position drift alert: 链上卖出未归因到 changmen 行", {
+        tokenId,
+        soldTotal,
+        attributed,
+        unexplained,
+        changmenOrderIds: openChangmen.map(o => o.orderId),
+      });
+    }
+  }
 }
 
 async function fetchGammaMarketsChunk(params: URLSearchParams): Promise<PolymarketRawMarket[]> {
@@ -563,23 +612,41 @@ async function fetchTradesSince(
   return all;
 }
 
-/** CLOB /data/trades → VenueOrder（近 30 天；Gamma resolve → win/lose） */
-export async function fetchPolymarketVenueOrders(account: PlatformAccount): Promise<VenueOrder[]> {
+/** CLOB /data/trades → VenueOrder bundle（不在此做 FIFO；由 getOrders 按 pmOrigin 处理） */
+export async function fetchPolymarketVenueOrdersBundle(
+  account: PlatformAccount,
+): Promise<PolymarketVenueOrdersBundle> {
   const headers = await buildL2HeadersFromAccount(account, "GET", TRADES_PATH);
-  if (!headers) return [];
+  if (!headers)
+    return { orders: [], flattenedTrades: [] };
 
   const gateway = account.gateway || POLYMARKET_CLOB_API;
   const afterSec = Math.floor((Date.now() - ORDER_LOOKBACK_MS) / 1000);
   const userAddresses = collectPolymarketUserAddressesFromAccount(account);
   const rawTrades = await fetchTradesSince(gateway, headers, afterSec);
-  const preview = aggregatePolymarketTrades(flattenPolymarketTrades(rawTrades, userAddresses)).filter(
+  const flattened = flattenPolymarketTrades(rawTrades, userAddresses);
+  const preview = aggregatePolymarketTrades(flattened).filter(
     trade => (Number(trade.match_time) || 0) >= afterSec,
   );
   const marketMap = await fetchMarketsByConditionIds(
     preview.map(trade => String(trade.market ?? "")).filter(Boolean),
     preview.map(trade => String(trade.asset_id ?? "")).filter(Boolean),
   );
-  return mapPolymarketTradesToVenueOrders(rawTrades, marketMap, afterSec, userAddresses);
+  return {
+    orders: mapPolymarketTradesToVenueOrders(rawTrades, marketMap, afterSec, userAddresses),
+    flattenedTrades: flattened,
+  };
+}
+
+export interface PolymarketVenueOrdersBundle {
+  orders: VenueOrder[];
+  flattenedTrades: PolymarketTradeRow[];
+}
+
+/** CLOB /data/trades → VenueOrder（近 30 天；Gamma resolve → win/lose） */
+export async function fetchPolymarketVenueOrders(account: PlatformAccount): Promise<VenueOrder[]> {
+  const bundle = await fetchPolymarketVenueOrdersBundle(account);
+  return bundle.orders;
 }
 
 /** 纯映射（单测 / 调试）：CLOB trades → VenueOrder */
@@ -602,5 +669,5 @@ export function mapPolymarketTradesToVenueOrders(
     if (mapped)
       orders.push(mapped);
   }
-  return sortVenueOrdersNewestFirst(applyPolymarketNetPositions(orders, flattened));
+  return sortVenueOrdersNewestFirst(orders);
 }

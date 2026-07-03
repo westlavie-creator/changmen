@@ -41,6 +41,10 @@ export function orderLinkMapEntries<T>(map: Map<number, T[]>): [number, T[]][] {
 
 const LOSE_REJECT = new Set(["Reject", "Return"]);
 
+function isPolymarketOrderRow(row: OrderRow): boolean {
+  return String(row.Type ?? "").trim() === "Polymarket";
+}
+
 /** [changmen 扩展] 9999 单边负 Link 前缀；A8 legend 无前缀 */
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
@@ -48,15 +52,22 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   const stake = rows
     .filter(r => !LOSE_REJECT.has(String(r.Status)))
     .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
-  const unsettled = rows
-    .filter(r => r.Status === "None")
-    .map((r) => {
+  const unsettled = rows.filter(r => r.Status === "None");
+  if (unsettled.length) {
+    const tradUnsettled = unsettled.filter(r => !isPolymarketOrderRow(r));
+    const pmUnsettled = unsettled.filter(isPolymarketOrderRow);
+    const tradParts = tradUnsettled.map((r) => {
       const odds = Number(r.Odds) || 0;
       const bet = Number(r.BetMoney) || 0;
       return toFixed(bet * odds - stake, 0);
     });
-  if (unsettled.length)
-    return prefix + unsettled.join(" - ");
+    if (pmUnsettled.length && !tradUnsettled.length)
+      return prefix + "待结算";
+    if (tradParts.length)
+      return prefix + tradParts.join(" - ");
+    if (pmUnsettled.length)
+      return prefix + "待结算";
+  }
   const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
   const sign = total > 0 ? "+" : "";
   return prefix + sign + toFixed(total, 0);

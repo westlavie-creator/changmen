@@ -11,6 +11,7 @@ import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet
 import { useConfigStore } from "@/stores/configStore";
 import type { PmSellQuoteView } from "./pmSellQuotes";
 import { pmStakeUsdcFromRow } from "./pmSellQuotes";
+import { persistChangmenSellAttribution } from "./persistSellAttribution";
 
 const props = defineProps<{
   row: OrderRow;
@@ -87,6 +88,13 @@ async function onSell() {
     else {
       ElMessage.success(result.message || "卖出成功");
     }
+
+    const proceedsUsdc = result.proceedsUsdc
+      ?? (q ? q.proceedsUsdc : 0);
+    await persistChangmenSellAttribution(account, props.row, {
+      sharesSold: shares.value,
+      proceedsUsdc,
+    });
     await account.updateOrders();
     await orderStore.fetchOrders();
   }
