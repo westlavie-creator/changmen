@@ -25,10 +25,10 @@ describe("pmLogicalPosition", () => {
     PmSide: "buy" as const,
   };
 
-  it("applyBuySharesAfterSell reduces shares but keeps BetMoney", () => {
+  it("applyBuySharesAfterSell keeps fill shares but reduces stake", () => {
     const order = venueOrderFromOrderRow(baseRow);
     const updated = applyBuySharesAfterSell(order, 10);
-    expect(updated.pmShares).toBe(0);
+    expect(updated.pmShares).toBe(10);
     expect(updated.pmSellState).toBe("closed");
     expect(updated.pmAttributedSellShares).toBe(10);
     expect(updated.betMoney).toBe(70);
@@ -93,10 +93,11 @@ describe("pmLogicalPosition", () => {
     expect(resolveBuyStakeUsdc(partial)).toBe(6);
   });
 
-  it("partial sell keeps remaining shares on buy", () => {
+  it("partial sell keeps fill shares and tracks attributed", () => {
     const order = venueOrderFromOrderRow(baseRow);
     const updated = applyBuySharesAfterSell(order, 4);
-    expect(updated.pmShares).toBe(6);
+    expect(updated.pmShares).toBe(10);
+    expect(updated.pmAttributedSellShares).toBe(4);
     expect(updated.pmSellState).toBe("partial");
     expect(updated.betMoney).toBe(70);
   });

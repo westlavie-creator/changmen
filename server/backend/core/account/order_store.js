@@ -215,6 +215,14 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     }
   }
 
+  if (!isSell) {
+    const prevShares = parseNum(prevRaw.pmShares, 0);
+    const incomingShares = parseNum(merged.pmShares ?? o.pmShares, 0);
+    const fillShares = Math.max(prevShares, incomingShares);
+    if (fillShares > 0)
+      merged.pmShares = fillShares;
+  }
+
   return { raw: merged, money, bet_money };
 }
 

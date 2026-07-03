@@ -669,7 +669,7 @@ describe("applyPolymarketSettlement", () => {
     expect(settled.money).toBe(10);
   });
 
-  test("applyPolymarketNetPositions reduces pmShares after SELL trades (FIFO external only)", () => {
+  test("applyPolymarketNetPositions tracks attributed sell shares (FIFO external only)", () => {
     const token = "asset-a";
     const orders = [{
       provider: "Polymarket" as const,
@@ -697,7 +697,8 @@ describe("applyPolymarketSettlement", () => {
       price: "0.6",
     }];
     applyPolymarketNetPositions(orders, sells);
-    expect(orders[0]?.pmShares).toBe(6);
+    expect(orders[0]?.pmShares).toBe(10);
+    expect(orders[0]?.pmAttributedSellShares).toBe(4);
     expect(orders[0]?.pmStakeUsdc).toBe(6);
     expect(orders[0]?.betMoney).toBe(6);
   });

@@ -1,5 +1,6 @@
 import type { OrderRow } from "@/types/order";
 import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
+import { resolvePmRemainingShares } from "@venue/polymarket/pmLogicalPosition";
 import { formatLinkId, isSingleLegLink, toFixed } from "@/shared/format";
 
 /** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
@@ -109,17 +110,7 @@ export function isPolymarketOpenPosition(row: OrderRow): boolean {
   if (state === "closed" || state === "settled")
     return false;
 
-  const shares = Number(row.PmShares);
-  const attributed = Number(row.PmAttributedSellShares) || 0;
-
-  if (attributed > 0 && (!Number.isFinite(shares) || shares <= 0.0001))
-    return false;
-
-  if (Number.isFinite(shares))
-    return shares > 0.0001;
-
-  // 无 pmShares 字段：非 changmen 卖出归因，仍视为持仓
-  return true;
+  return resolvePmRemainingShares(row) > 0.0001;
 }
 
 function pmSellCostCny(sell: OrderRow, pmBuys: OrderRow[]): number {

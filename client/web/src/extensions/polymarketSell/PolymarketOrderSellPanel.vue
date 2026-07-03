@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { formatDisplayOdds, toFixed } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useOrderStore } from "@/stores/orderStore";
+import { resolvePmRemainingShares } from "@venue/polymarket/pmLogicalPosition";
 import { sellPolymarketPosition, settlePolymarketSellOrder } from "@venue/polymarket/sell";
 import { formatPolymarketSettlementMessage } from "@venue/polymarket/orderStatus";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
@@ -30,7 +31,7 @@ const isOpenPm = computed(() =>
   && String(props.row.Status ?? "") === "None",
 );
 
-const shares = computed(() => Number(props.row.PmShares) || 0);
+const shares = computed(() => resolvePmRemainingShares(props.row));
 const tokenId = computed(() => String(props.row.PmTokenId ?? "").trim());
 const conditionId = computed(() => String(props.row.PmConditionId ?? "").trim());
 const canShow = computed(() =>

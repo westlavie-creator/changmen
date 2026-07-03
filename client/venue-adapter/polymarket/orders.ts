@@ -10,7 +10,7 @@ import {
   normalizeEthAddress,
 } from "./l2Auth";
 import { polymarketOrderContextFromMarket, parseJsonArray, type PolymarketRawMarket } from "./parse";
-import { resolveBuyStakeUsdc } from "./pmLogicalPosition";
+import { resolveBuyStakeUsdc, resolvePmRemainingShares } from "./pmLogicalPosition";
 import { applyPolymarketOrderOrigins, isPolymarketChangmenOrder } from "./pmOrigin";
 import { polymarketPluginGet } from "./transport";
 
@@ -606,6 +606,7 @@ function round4(n: number): number {
 const PM_SELL_SHARE_MATCH_EPS = 0.05;
 
 type PmReconcileBuy = VenueOrder & {
+  _fillShares: number;
   _remainingShares: number;
   _remainingStake: number;
 };
@@ -660,7 +661,8 @@ function reconcileExternalPolymarketOrders(orders: VenueOrder[]): VenueOrder[] {
     .map(o => ({
       ...o,
       pmSide: o.pmSide ?? "buy" as const,
-      _remainingShares: Number(o.pmShares) || 0,
+      _fillShares: Number(o.pmShares) || 0,
+      _remainingShares: resolvePmRemainingShares(o),
       _remainingStake: resolveBuyStakeUsdc(o),
     }));
   const sellCopies = orders
@@ -706,9 +708,9 @@ function reconcileExternalPolymarketOrders(orders: VenueOrder[]): VenueOrder[] {
     buy.pmSellState = buy._remainingShares <= 0.0001 ? "closed" : "partial";
   }
 
-  const normalizedBuys = buys.map(({ _remainingShares, _remainingStake, ...b }) => ({
+  const normalizedBuys = buys.map(({ _remainingShares, _remainingStake, _fillShares, ...b }) => ({
     ...b,
-    pmShares: _remainingShares > 0 ? round4(_remainingShares) : 0,
+    pmShares: round4(_fillShares),
     pmStakeUsdc: _remainingStake > 0 ? round4(_remainingStake) : 0,
   }));
 
@@ -765,7 +767,10 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     pmSide: "buy",
     pmOrigin: "changmen",
     betMoney: base.betMoney > 0 ? base.betMoney : clob.betMoney,
-    pmShares: base.pmShares ?? clob.pmShares,
+    pmShares: (() => {
+      const fill = round4(Math.max(Number(base.pmShares) || 0, Number(clob.pmShares) || 0));
+      return fill > 0 ? fill : (base.pmShares ?? clob.pmShares);
+    })(),
     pmStakeUsdc: base.pmStakeUsdc ?? clob.pmStakeUsdc,
     pmSellState: base.pmSellState ?? clob.pmSellState,
     pmAttributedSellShares: base.pmAttributedSellShares ?? clob.pmAttributedSellShares,
@@ -887,7 +892,7 @@ export function applyPolymarketExternalSellDeduction(
       o.pmOrigin === "external"
       && o.status === "none"
       && o.pmTokenId
-      && (o.pmShares ?? 0) > 0,
+      && resolvePmRemainingShares(o) > 0.0001,
     )
     .sort((a, b) => a.createAt - b.createAt || a.orderId.localeCompare(b.orderId));
 
@@ -897,14 +902,14 @@ export function applyPolymarketExternalSellDeduction(
     if (soldLeft <= 0)
       continue;
 
-    const shares = order.pmShares ?? 0;
+    const remaining = resolvePmRemainingShares(order);
     const stake = order.pmStakeUsdc ?? order.betMoney;
-    const deduct = Math.min(shares, soldLeft);
-    const ratio = shares > 0 ? deduct / shares : 0;
-    order.pmShares = Math.round((shares - deduct) * 10000) / 10000;
-    order.pmStakeUsdc = Math.round(stake * (1 - ratio) * 10000) / 10000;
-    order.betMoney = Math.round(order.betMoney * (1 - ratio) * 10000) / 10000;
-    soldRemaining.set(tokenId, Math.round((soldLeft - deduct) * 10000) / 10000);
+    const deduct = Math.min(remaining, soldLeft);
+    const ratio = remaining > 0 ? deduct / remaining : 0;
+    order.pmAttributedSellShares = round4((order.pmAttributedSellShares ?? 0) + deduct);
+    order.pmStakeUsdc = round4(stake * (1 - ratio));
+    order.betMoney = round4(order.betMoney * (1 - ratio));
+    soldRemaining.set(tokenId, round4(soldLeft - deduct));
   }
   return orders;
 }

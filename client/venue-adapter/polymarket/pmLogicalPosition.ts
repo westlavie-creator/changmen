@@ -37,6 +37,23 @@ function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
 
+/** 买单/API 成交总份数（pmShares 只存官方 fill，不随平仓扣减） */
+export function resolvePmFillShares(order: OrderRowLike | VenueOrder): number {
+  const row = order as OrderRowLike;
+  const venue = order as VenueOrder;
+  return Number(row.PmShares ?? venue.pmShares) || 0;
+}
+
+/** 买单剩余可卖份数 = fill − 已归因卖出 */
+export function resolvePmRemainingShares(order: OrderRowLike | VenueOrder): number {
+  const fill = resolvePmFillShares(order);
+  const attributed = Number(
+    (order as OrderRowLike).PmAttributedSellShares
+    ?? (order as VenueOrder).pmAttributedSellShares,
+  ) || 0;
+  return round4(Math.max(0, fill - attributed));
+}
+
 /** 买单成本（USDC）：pmStakeUsdc 优先，否则 BetMoney(CNY) ÷ 7 */
 export function resolveBuyStakeUsdc(buy: VenueOrder | OrderRowLike): number {
   const venue = buy as VenueOrder;
@@ -109,29 +126,34 @@ export function venueOrderFromOrderRow(row: OrderRowLike): VenueOrder {
   };
 }
 
-/** 卖单成交后仅更新买单剩余份额（不改 BetMoney / Money） */
+/** 卖单成交后更新买单已卖份额（pmShares 保持 API 成交份数不变） */
 export function applyBuySharesAfterSell(
   buy: VenueOrder,
   sharesSold: number,
 ): VenueOrder {
-  const shares = Number(buy.pmShares) || 0;
-  const stake = resolveBuyStakeUsdc(buy);
-  const sold = Math.min(Math.max(0, sharesSold), shares);
+  const fillShares = resolvePmFillShares(buy);
+  const remaining = resolvePmRemainingShares(buy);
+  const sold = Math.min(Math.max(0, sharesSold), remaining > 0 ? remaining : fillShares);
   if (sold <= 0)
     return { ...buy, pmSide: buy.pmSide ?? "buy" };
 
-  const ratio = shares > 0 ? sold / shares : 0;
+  const stake = resolveBuyStakeUsdc(buy);
+  const ratio = fillShares > 0 ? sold / fillShares : 0;
   const costPortion = round4(stake * ratio);
-  const remainingShares = round4(shares - sold);
   const remainingStake = round4(stake - costPortion);
-  const pmSellState: PolymarketSellState = remainingShares <= 0 ? "closed" : "partial";
+  const attributed = round4((buy.pmAttributedSellShares ?? 0) + sold);
+  const pmSellState: PolymarketSellState = resolvePmRemainingShares({
+    ...buy,
+    pmShares: fillShares,
+    pmAttributedSellShares: attributed,
+  }) <= 0.0001 ? "closed" : "partial";
 
   return {
     ...buy,
     pmSide: "buy",
-    pmShares: remainingShares > 0 ? remainingShares : 0,
+    pmShares: fillShares > 0 ? fillShares : buy.pmShares,
     pmStakeUsdc: remainingStake > 0 ? remainingStake : 0,
-    pmAttributedSellShares: round4((buy.pmAttributedSellShares ?? 0) + sold),
+    pmAttributedSellShares: attributed,
     pmSellState,
   };
 }
@@ -141,12 +163,16 @@ export function buildChangmenSellVenueOrder(
   buy: VenueOrder,
   params: ChangmenSellAttributionParams,
 ): VenueOrder {
-  const shares = Number(buy.pmShares) || 0;
+  const fillShares = resolvePmFillShares(buy);
+  const remaining = resolvePmRemainingShares(buy);
   const stake = params.stakeUsdc != null && params.stakeUsdc > 0
     ? round4(params.stakeUsdc)
     : resolveBuyStakeUsdc(buy);
-  const sharesSold = Math.min(Math.max(0, params.sharesSold), shares);
-  const ratio = shares > 0 ? sharesSold / shares : 0;
+  const sharesSold = Math.min(
+    Math.max(0, params.sharesSold),
+    remaining > 0 ? remaining : fillShares,
+  );
+  const ratio = fillShares > 0 ? sharesSold / fillShares : 0;
   const costPortion = round4(stake * ratio);
   const proceedsUsdc = round4(Math.max(0, params.proceedsUsdc));
   const profitUsdc = round4(proceedsUsdc - costPortion);
@@ -223,15 +249,5 @@ export function hasOpenPolymarketPosition(order: OrderRowLike | VenueOrder): boo
   if (state === "closed" || state === "settled")
     return false;
 
-  const sharesRaw = rowLike.PmShares ?? venueLike.pmShares;
-  const shares = Number(sharesRaw);
-  const attributed = Number(rowLike.PmAttributedSellShares ?? venueLike.pmAttributedSellShares) || 0;
-
-  if (attributed > 0 && (!Number.isFinite(shares) || shares <= 0.0001))
-    return false;
-
-  if (Number.isFinite(shares))
-    return shares > 0.0001;
-
-  return true;
+  return resolvePmRemainingShares(order) > 0.0001;
 }

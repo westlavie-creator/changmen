@@ -1,6 +1,7 @@
 import type { OrderRow } from "@/types/order";
 import type { Ref } from "vue";
 import { onScopeDispose, ref, watch } from "vue";
+import { resolvePmRemainingShares } from "@venue/polymarket/pmLogicalPosition";
 import { fetchPmSellQuotes, pmStakeUsdcFromRow, type PmSellQuoteView } from "./pmSellQuotes";
 
 const POLL_MS = 4_000;
@@ -18,7 +19,7 @@ function openPolymarketPositions(rows: OrderRow[]) {
     if (row.PmOrigin !== "changmen")
       continue;
     const tokenId = String(row.PmTokenId ?? "").trim();
-    const shares = Number(row.PmShares) || 0;
+    const shares = resolvePmRemainingShares(row);
     if (!tokenId || shares <= 0 || seen.has(tokenId))
       continue;
     seen.add(tokenId);
