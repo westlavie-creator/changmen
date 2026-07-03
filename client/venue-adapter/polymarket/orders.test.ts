@@ -12,6 +12,7 @@ import {
   polymarketBuyStakeUsdc,
   polymarketTradeRefsOrderId,
   resolvePolymarketWinningAssetId,
+  scalePolymarketVenueOrdersForDisplay,
   type PolymarketTradeRow,
 } from "./orders";
 import { collectPolymarketUserAddresses } from "./l2Auth";
@@ -464,6 +465,27 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(sell1?.pmSide).toBe("sell");
     expect(sell1?.betMoney).toBeGreaterThan(0);
     expect(sell1?.pmBuyOrderId).toBe("0xbuy1");
+    expect((sell1?.money ?? 0)).toBeLessThan(sell1?.betMoney ?? 0);
+  });
+
+  test("scalePolymarketVenueOrdersForDisplay scales USDC once to CNY", () => {
+    const scaled = scalePolymarketVenueOrdersForDisplay([{
+      provider: "Polymarket" as const,
+      orderId: "s1",
+      odds: 2,
+      createAt: 1,
+      betMoney: 12,
+      reward: 0,
+      money: 2,
+      status: "none" as const,
+      game: "",
+      match: "",
+      bet: "",
+      item: "",
+      pmSide: "sell" as const,
+    }]);
+    expect(scaled[0]?.betMoney).toBe(12 * 7);
+    expect(scaled[0]?.money).toBe(2 * 7);
   });
 });
 

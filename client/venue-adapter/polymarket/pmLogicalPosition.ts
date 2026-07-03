@@ -1,11 +1,13 @@
 import type { VenueOrder, VenueOrderStatus } from "@venue/contract";
 import type { PolymarketSellState } from "@venue/contract";
-import { scaleUsdtToCnyDisplay } from "@changmen/shared/account_multiply";
+import { scaleUsdtToCnyDisplay, USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
 
 export interface ChangmenSellAttributionParams {
   sharesSold: number;
   proceedsUsdc: number;
   sellOrderId: string;
+  /** 卖出前买单总成本（USDC）；侧栏 pmStakeUsdcFromRow 传入 */
+  stakeUsdc?: number;
 }
 
 export interface OrderRowLike {
@@ -33,6 +35,26 @@ export interface OrderRowLike {
 
 function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
+}
+
+/** 买单成本（USDC）：pmStakeUsdc 优先，否则 BetMoney 按 CNY 展示反推 */
+export function resolveBuyStakeUsdc(buy: VenueOrder | OrderRowLike): number {
+  const venue = buy as VenueOrder;
+  const row = buy as OrderRowLike;
+  const stakeUsdc = Number(venue.pmStakeUsdc ?? row.PmStakeUsdc);
+  if (Number.isFinite(stakeUsdc) && stakeUsdc > 0)
+    return round4(stakeUsdc);
+  const betDisplay = Number(venue.betMoney ?? row.BetMoney) || 0;
+  if (betDisplay > 0)
+    return round4(betDisplay / USDT_CNY_EXCHANGE);
+  return 0;
+}
+
+/** 卖单展示盈亏（CNY）= 回款 − 成本 */
+export function computeSellProfitDisplayCny(proceedsCny: number, costUsdc: number): number {
+  const proceeds = Number(proceedsCny) || 0;
+  const costCny = scaleUsdtToCnyDisplay(Number(costUsdc) || 0);
+  return Math.round(proceeds - costCny);
 }
 
 function statusFromRow(status?: string): VenueOrderStatus {
@@ -93,7 +115,7 @@ export function applyBuySharesAfterSell(
   sharesSold: number,
 ): VenueOrder {
   const shares = Number(buy.pmShares) || 0;
-  const stake = Number(buy.pmStakeUsdc ?? buy.betMoney) || 0;
+  const stake = resolveBuyStakeUsdc(buy);
   const sold = Math.min(Math.max(0, sharesSold), shares);
   if (sold <= 0)
     return { ...buy, pmSide: buy.pmSide ?? "buy" };
@@ -120,7 +142,9 @@ export function buildChangmenSellVenueOrder(
   params: ChangmenSellAttributionParams,
 ): VenueOrder {
   const shares = Number(buy.pmShares) || 0;
-  const stake = Number(buy.pmStakeUsdc ?? buy.betMoney) || 0;
+  const stake = params.stakeUsdc != null && params.stakeUsdc > 0
+    ? round4(params.stakeUsdc)
+    : resolveBuyStakeUsdc(buy);
   const sharesSold = Math.min(Math.max(0, params.sharesSold), shares);
   const ratio = shares > 0 ? sharesSold / shares : 0;
   const costPortion = round4(stake * ratio);
@@ -136,9 +160,9 @@ export function buildChangmenSellVenueOrder(
     orderId: params.sellOrderId,
     odds: sellOdds,
     createAt: Date.now(),
-    betMoney: Math.round(scaleUsdtToCnyDisplay(proceedsUsdc)),
+    betMoney: proceedsUsdc,
     reward: 0,
-    money: Math.round(scaleUsdtToCnyDisplay(profitUsdc)),
+    money: profitUsdc,
     status: "none",
     game: buy.game,
     match: buy.match,

@@ -3,6 +3,7 @@ import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
 import {
   applyBuySharesAfterSell,
   buildChangmenSellVenueOrder,
+  resolveBuyStakeUsdc,
   venueOrderFromOrderRow,
 } from "./pmLogicalPosition";
 
@@ -42,10 +43,23 @@ describe("pmLogicalPosition", () => {
     expect(sell.orderId).toBe("0xsell");
     expect(sell.pmSide).toBe("sell");
     expect(sell.pmBuyOrderId).toBe("0xbuy");
-    expect(sell.betMoney).toBe(12 * USDT_CNY_EXCHANGE);
+    expect(sell.betMoney).toBe(12);
     expect(sell.pmRealizedPnlUsdc).toBe(2);
-    expect(sell.money).toBe(2 * USDT_CNY_EXCHANGE);
+    expect(sell.money).toBe(2);
+    expect(sell.pmStakeUsdc).toBe(10);
     expect(sell.item).toContain("平仓");
+  });
+
+  it("resolveBuyStakeUsdc falls back from CNY BetMoney when pmStakeUsdc missing", () => {
+    const buy = venueOrderFromOrderRow({ ...baseRow, PmStakeUsdc: undefined, BetMoney: 70 });
+    expect(resolveBuyStakeUsdc(buy)).toBe(10);
+    const sell = buildChangmenSellVenueOrder(buy, {
+      sellOrderId: "0xsell2",
+      sharesSold: 10,
+      proceedsUsdc: 12,
+    });
+    expect(sell.money).toBe(2);
+    expect(sell.betMoney).toBe(12);
   });
 
   it("partial sell keeps remaining shares on buy", () => {

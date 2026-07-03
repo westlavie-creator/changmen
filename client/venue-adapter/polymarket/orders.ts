@@ -10,6 +10,7 @@ import {
   normalizeEthAddress,
 } from "./l2Auth";
 import { polymarketOrderContextFromMarket, parseJsonArray, type PolymarketRawMarket } from "./parse";
+import { resolveBuyStakeUsdc } from "./pmLogicalPosition";
 import { polymarketPluginGet } from "./transport";
 
 const TRADES_PATH = "/data/trades";
@@ -20,6 +21,16 @@ const MAX_TRADE_PAGES = 5;
 const NO_MORE_CURSOR = "LTE=";
 /** Gamma closed 后 outcomePrices 赢家判定阈值 */
 const WINNER_PRICE_MIN = 0.99;
+
+/** CLOB 口径 USDC → 侧栏/DB CNY 展示（整条链路只 scale 一次） */
+export function scalePolymarketVenueOrdersForDisplay(orders: VenueOrder[]): VenueOrder[] {
+  return orders.map(order => ({
+    ...order,
+    betMoney: scaleUsdtToCnyDisplay(order.betMoney),
+    reward: scaleUsdtToCnyDisplay(order.reward),
+    money: scaleUsdtToCnyDisplay(order.money),
+  }));
+}
 
 export interface PolymarketTradeRow {
   id?: string;
@@ -486,7 +497,7 @@ export function reconcilePolymarketBuySellOrders(orders: VenueOrder[]): VenueOrd
       ...o,
       pmSide: o.pmSide ?? "buy" as const,
       _remainingShares: Number(o.pmShares) || 0,
-      _remainingStake: Number(o.pmStakeUsdc ?? o.betMoney) || 0,
+      _remainingStake: resolveBuyStakeUsdc(o),
     }));
   const sellCopies = orders
     .filter(o => o.pmSide === "sell")
@@ -516,16 +527,13 @@ export function reconcilePolymarketBuySellOrders(orders: VenueOrder[]): VenueOrd
 
     const ratio = buy._remainingShares > 0 ? deduct / buy._remainingShares : 0;
     const costPortion = round4(buy._remainingStake * ratio);
-    const proceedsUsdc = round4(sharesSold * (Number(sell.odds) > 0 ? 1 / sell.odds : 0));
-    const profitUsdc = round4(
-      (sell.pmRealizedPnlUsdc != null && sell.pmRealizedPnlUsdc !== 0)
-        ? sell.pmRealizedPnlUsdc
-        : proceedsUsdc - costPortion,
-    );
+    const sellPrice = Number(sell.odds) > 0 ? 1 / Number(sell.odds) : 0;
+    const proceedsUsdc = round4(sharesSold * sellPrice);
+    const profitUsdc = round4(proceedsUsdc - costPortion);
 
     sell.pmRealizedPnlUsdc = profitUsdc;
-    sell.money = Math.round(scaleUsdtToCnyDisplay(profitUsdc));
-    sell.betMoney = Math.round(scaleUsdtToCnyDisplay(proceedsUsdc));
+    sell.money = profitUsdc;
+    sell.betMoney = proceedsUsdc;
     sell.pmStakeUsdc = costPortion;
 
     buy._remainingShares = round4(buy._remainingShares - deduct);

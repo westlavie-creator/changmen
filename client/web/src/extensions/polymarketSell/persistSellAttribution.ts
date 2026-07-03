@@ -5,12 +5,14 @@ import {
   buildChangmenSellVenueOrder,
   venueOrderFromOrderRow,
 } from "@venue/polymarket/pmLogicalPosition";
+import { scalePolymarketVenueOrdersForDisplay } from "@venue/polymarket/orders";
 import { saveOrderBind, saveOrders } from "@/api/order";
 
 export interface PersistChangmenSellParams {
   sellOrderId: string;
   sharesSold: number;
   proceedsUsdc: number;
+  stakeUsdc?: number;
 }
 
 /** changmen 卖出成交：新建卖单 + 更新买单份额 */
@@ -36,9 +38,12 @@ export async function persistChangmenSellOrder(
     sellOrderId,
     sharesSold: params.sharesSold,
     proceedsUsdc: params.proceedsUsdc,
+    stakeUsdc: params.stakeUsdc,
   });
 
-  await saveOrders(account, [updatedBuy, sellOrder]);
+  // 买单行已是 DB CNY 口径；卖单新建为 USDC，仅 scale 卖单
+  const [scaledSell] = scalePolymarketVenueOrdersForDisplay([sellOrder]);
+  await saveOrders(account, [updatedBuy, scaledSell]);
 
   const link = Number(buyRow.Link) || 0;
   if (link !== 0) {

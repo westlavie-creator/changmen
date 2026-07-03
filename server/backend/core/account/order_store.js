@@ -45,6 +45,13 @@ export { resolveStoredLink };
 
 function rowToOrder(r) {
   const raw = r.raw && typeof r.raw === "object" && !Array.isArray(r.raw) ? r.raw : {};
+  let betMoney = r.bet_money || 0;
+  let money = r.money || 0;
+  if (raw.pmSide === "sell") {
+    const costUsdc = parseNum(raw.pmStakeUsdc, 0);
+    if (costUsdc > 0 && betMoney > 0)
+      money = Math.round(betMoney - costUsdc * 7);
+  }
   return {
     OrderID: r.order_id,
     Link: resolveStoredLink(r.link, r.order_id, r.create_at),
@@ -53,8 +60,8 @@ function rowToOrder(r) {
     Bet: r.bet || "",
     Item: r.item || "",
     Odds: r.odds || 0,
-    BetMoney: r.bet_money || 0,
-    Money: r.money || 0,
+    BetMoney: betMoney,
+    Money: money,
     Status: r.status || "None",
     CreateAt: r.create_at || 0,
     PlayerID: Number(r.player_id) || 0,
@@ -112,13 +119,22 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     };
     if (isChangmen || prevRaw.pmOrigin === "changmen") {
       merged.pmOrigin = "changmen";
-      merged.money = prevRaw.money ?? merged.money;
       merged.pmRealizedPnlUsdc = prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc;
       merged.pmBuyOrderId = prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId;
       merged.betMoney = prevBet > 0 ? prevBet : proceedsBet;
-      money = parseNum(merged.money, parseNum(prevRow?.money, 0));
     }
     bet_money = parseNum(merged.betMoney, proceedsBet);
+    const costUsdc = parseNum(merged.pmStakeUsdc ?? prevRaw.pmStakeUsdc, 0);
+    if (costUsdc > 0 && bet_money > 0) {
+      const profitCny = Math.round(bet_money - costUsdc * 7);
+      merged.money = profitCny;
+      merged.pmRealizedPnlUsdc = Math.round((profitCny / 7) * 10000) / 10000;
+      money = profitCny;
+    }
+    else if (isChangmen || prevRaw.pmOrigin === "changmen") {
+      money = parseNum(prevRaw.money ?? prevRow?.money, parseNum(o.money ?? o.Money, 0));
+      merged.money = money;
+    }
     return { raw: merged, money, bet_money };
   }
 

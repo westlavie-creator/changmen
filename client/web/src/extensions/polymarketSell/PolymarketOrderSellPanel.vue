@@ -104,6 +104,7 @@ async function onSell() {
       sellOrderId,
       sharesSold: shares.value,
       proceedsUsdc,
+      stakeUsdc: stakeUsdc.value,
     });
     await account.updateOrders();
     await orderStore.fetchOrders();

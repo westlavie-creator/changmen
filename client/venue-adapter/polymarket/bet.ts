@@ -1,10 +1,9 @@
-import type { AccountBalanceResult, PlatformProvider, VenueOrder } from "@venue/contract";
+import type { AccountBalanceResult, PlatformProvider } from "@venue/contract";
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import {
   POLYMARKET_MIN_VENUE_STAKE,
-  scaleUsdtToCnyDisplay,
 } from "@changmen/shared/account_multiply";
 import { POLYMARKET_CLOB_API } from "./api";
 import { resolvePolymarketBuilderCode } from "./builder";
@@ -20,6 +19,7 @@ import {
 } from "./l2Auth";
 import {
   fetchPolymarketVenueOrdersBundle,
+  scalePolymarketVenueOrdersForDisplay,
 } from "./orders";
 import { isPolymarketDelayedPending } from "./orderStatus";
 import { applyPolymarketOrderOrigins, markPolymarketChangmenOrder } from "./pmOrigin";
@@ -342,15 +342,6 @@ function parseCollateralBalance(raw: string | number | undefined): number | unde
   if (raw === undefined || raw === null) return undefined;
   const value = Number(raw);
   return Number.isFinite(value) ? value / COLLATERAL_DECIMALS : undefined;
-}
-
-function scalePolymarketVenueOrdersForDisplay(orders: VenueOrder[]): VenueOrder[] {
-  return orders.map(order => ({
-    ...order,
-    betMoney: scaleUsdtToCnyDisplay(order.betMoney),
-    reward: scaleUsdtToCnyDisplay(order.reward),
-    money: scaleUsdtToCnyDisplay(order.money),
-  }));
 }
 
 /** option.betMoney 已由 checkBetting → getBetMoney 换成 USDT 口径 */
