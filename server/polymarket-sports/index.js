@@ -15,7 +15,8 @@ loadChangmenEnv();
 
 const SPORTS_WS = "wss://sports-api.polymarket.com/ws";
 const GAMMA_REFRESH_MS = 60_000;
-const GAMMA_POLL_MS = 30_000;
+/** 电竞常不在 Sports WS；已关联场 Gamma 轮询间隔 */
+const GAMMA_POLL_MS = 10_000;
 const RECONNECT_MS = 5_000;
 
 /** @type {{ byGameId: Map<number, object>, bySlug: Map<string, object> }} */

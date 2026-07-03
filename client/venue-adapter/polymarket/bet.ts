@@ -20,6 +20,7 @@ import {
 } from "./l2Auth";
 import { fetchPolymarketVenueOrders } from "./orders";
 import { isPolymarketDelayedPending } from "./orderStatus";
+import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 export { isPolymarketDelayedPending } from "./orderStatus";
@@ -76,7 +77,7 @@ export function isPolymarketOrderAccepted(result: PolymarketOrderResponse | null
   return status === "delayed" && orderId.length > 0;
 }
 
-function polymarketOrderFailureMessage(
+export function polymarketOrderFailureMessage(
   result: PolymarketOrderResponse | null | undefined,
   fallback: string,
 ): string {
@@ -433,6 +434,13 @@ export const polymarketProvider: PlatformProvider = {
   },
 
   async checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption> {
+    const pmBlock = await resolvePolymarketBetBlockReason(option);
+    if (pmBlock) {
+      option.checkError = pmBlock;
+      option.data = null;
+      return option;
+    }
+
     const prior = option.data as { detectionOdds?: number } | null | undefined;
     // 套利检测价：首次预检锁定 fo 赔率；PM 重检时沿用，FOK 限价不超过检测价
     const detectionOdds = Number(prior?.detectionOdds) > 1
@@ -469,6 +477,10 @@ export const polymarketProvider: PlatformProvider = {
   },
 
   async betting(account: PlatformAccount, option: BetOption): Promise<BetResult> {
+    const pmBlock = await resolvePolymarketBetBlockReason(option);
+    if (pmBlock)
+      return new BetResult("Polymarket", false, pmBlock);
+
     const beginTime = Date.now();
     const config = parseTokenConfig(account.token);
     const creds = resolveApiCreds(config);

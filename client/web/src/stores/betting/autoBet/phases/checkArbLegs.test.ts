@@ -23,8 +23,9 @@ vi.mock("@/domain/arbitrage", async (importOriginal) => {
 
 vi.mock("@/shared/wait", () => ({ wait: vi.fn(async () => {}) }));
 
-function leg(type: string, betMoney: number, odds: number): BetOption {
-  return new BetOptionClass(type as never, "m1", "b1", "i1", betMoney, "Home", odds);
+function leg(type: string, betMoney: number, odds: number, extra: Partial<BetOption> = {}): BetOption {
+  const o = new BetOptionClass(type as never, "m1", "b1", "i1", betMoney, "Home", odds);
+  return Object.assign(o, extra);
 }
 
 function account(provider: string): PlatformAccount {
@@ -89,5 +90,24 @@ describe("checkArbLegs A8 regression", () => {
     expect(reconcilePolymarketArbStakes).toHaveBeenCalledOnce();
     expect(out!.legB.betMoney).toBe(22);
     expect(out!.implied).toBe(1.07);
+  });
+
+  it("pm_sport 系列赛已决出时跳过 PM 腿预检", async () => {
+    const legA = leg("RAY", 80, 1.36);
+    const legB = leg("Polymarket", 35, 3.125, {
+      match: {
+        pmSport: {
+          mapScore: { home: 1, away: 2 },
+          bo: 3,
+        },
+      } as never,
+      bet: { round: 0 } as never,
+    });
+
+    const out = await checkArbLegs(params, ready(legA, legB));
+
+    expect(out).toBeNull();
+    expect(checkBetting).not.toHaveBeenCalled();
+    expect(reconcilePolymarketArbStakes).not.toHaveBeenCalled();
   });
 });

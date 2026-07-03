@@ -44,6 +44,7 @@ function resolveStoredLink(link, _orderId, createAt) {
 export { resolveStoredLink };
 
 function rowToOrder(r) {
+  const raw = r.raw && typeof r.raw === "object" && !Array.isArray(r.raw) ? r.raw : {};
   return {
     OrderID: r.order_id,
     Link: resolveStoredLink(r.link, r.order_id, r.create_at),
@@ -62,6 +63,9 @@ function rowToOrder(r) {
       UserName: "",
       Status: r.status || "None",
     },
+    PmTokenId: raw.pmTokenId ? String(raw.pmTokenId) : undefined,
+    PmShares: parseNum(raw.pmShares, 0) || undefined,
+    PmStakeUsdc: parseNum(raw.pmStakeUsdc, 0) || undefined,
   };
 }
 

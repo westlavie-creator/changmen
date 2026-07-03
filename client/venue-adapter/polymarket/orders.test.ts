@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   aggregatePolymarketTrades,
+  applyPolymarketNetPositions,
   applyPolymarketSettlement,
   flattenPolymarketTrades,
   isPolymarketMarketResolved,
@@ -320,6 +321,9 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       item: "Ilbirs eSports",
       createAt: 1_782_736_191_000,
       status: "none",
+      pmTokenId: "12876938733604859423663202044051912631612545733461708116502231340403727260024",
+      pmShares: 6.7568,
+      pmStakeUsdc: 5,
     });
   });
 
@@ -489,5 +493,37 @@ describe("applyPolymarketSettlement", () => {
     expect(settled.status).toBe("win");
     expect(settled.reward).toBe(20);
     expect(settled.money).toBe(10);
+  });
+
+  test("applyPolymarketNetPositions reduces pmShares after SELL trades (FIFO)", () => {
+    const token = "asset-a";
+    const orders = [{
+      provider: "Polymarket" as const,
+      orderId: "buy-1",
+      odds: 2,
+      createAt: 1000,
+      betMoney: 10,
+      reward: 20,
+      money: 0,
+      status: "none" as const,
+      game: "",
+      match: "",
+      bet: "",
+      item: "A",
+      pmTokenId: token,
+      pmShares: 10,
+      pmStakeUsdc: 10,
+    }];
+    const sells: PolymarketTradeRow[] = [{
+      side: "SELL",
+      status: "CONFIRMED",
+      asset_id: token,
+      size: "4",
+      price: "0.6",
+    }];
+    applyPolymarketNetPositions(orders, sells);
+    expect(orders[0]?.pmShares).toBe(6);
+    expect(orders[0]?.pmStakeUsdc).toBe(6);
+    expect(orders[0]?.betMoney).toBe(6);
   });
 });

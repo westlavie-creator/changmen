@@ -10,6 +10,8 @@ import { formatBetResult } from "@/shared/arbBetTraceFormat";
 import { arbBetToastSeconds } from "@/shared/betTiming";
 import { arbProfitRate } from "@/shared/format";
 import { wait } from "@/shared/wait";
+import { getPolymarketPmSportBlockReasonFromOption } from "@venue/polymarket";
+import { PLATFORMS } from "@/shared/platform";
 import { useAccountStore } from "@/stores/accountStore";
 
 /** 预检双腿；失败时 trace.finish 并返回 null */
@@ -25,6 +27,21 @@ export async function checkArbLegs(
     accountA.active = true;
   if (accountB)
     accountB.active = true;
+
+  for (const [account, leg] of [
+    [accountA, legA] as const,
+    [accountB, legB] as const,
+  ]) {
+    if (!account || leg.type !== PLATFORMS.Polymarket)
+      continue;
+    const pmBlock = getPolymarketPmSportBlockReasonFromOption(leg);
+    if (pmBlock) {
+      trace?.finish("fail", `${leg.type} ${leg.target}: ${pmBlock}`);
+      await wait(1000);
+      return null;
+    }
+  }
+
   const checkStart = Date.now();
   const checkTasks: Promise<BetOption>[] = [];
   if (accountA)

@@ -265,6 +265,58 @@ export function bestAskFromBook(book: PolymarketBook | undefined): number {
   return Number.isFinite(best) ? best : 0;
 }
 
+/** 最高买价 = 市价卖出可成交侧 */
+export function bestBidFromBook(book: PolymarketBook | undefined): number {
+  const bids = book?.bids ?? [];
+  let best = 0;
+  for (const level of bids) {
+    const price = Number(level.price);
+    const size = Number(level.size);
+    if (Number.isFinite(price) && price > 0 && price > best && (!Number.isFinite(size) || size > 0)) {
+      best = price;
+    }
+  }
+  return best;
+}
+
+export interface PolymarketBidLevel {
+  price: number;
+  size: number;
+}
+
+/** 按 bid 深度估算卖出回款（USDC）；无流动性返回 0 */
+export function estimatePolymarketSellProceedsUsdc(
+  bids: PolymarketBidLevel[],
+  shares: number,
+): number {
+  if (!Number.isFinite(shares) || shares <= 0 || !bids.length)
+    return 0;
+  let remaining = shares;
+  let proceeds = 0;
+  for (const level of bids) {
+    if (remaining <= 0)
+      break;
+    const fill = Math.min(remaining, level.size);
+    proceeds += fill * level.price;
+    remaining -= fill;
+  }
+  if (remaining > 1e-6)
+    return 0;
+  return Math.round(proceeds * 10000) / 10000;
+}
+
+/** 浮动盈亏（USDC）= 按 bid 深度估算回款 − 成本 */
+export function polymarketUnrealizedProfitUsdc(
+  bids: PolymarketBidLevel[],
+  shares: number,
+  stakeUsdc: number,
+): number {
+  const proceeds = estimatePolymarketSellProceedsUsdc(bids, shares);
+  if (proceeds <= 0)
+    return 0;
+  return Math.round((proceeds - stakeUsdc) * 10000) / 10000;
+}
+
 /**
  * 将 Polymarket market 原始数据解析为内部结构。
  * `buyPrices`：从 CLOB /prices?sides=BUY 批量获取的概率价格 Record<assetId, probability>。

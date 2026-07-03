@@ -30,6 +30,10 @@ export interface OrderRow {
   CreateAt?: number;
   PlayerID?: number;
   Player?: OrderPlayerInfo;
+  /** [changmen 扩展] Polymarket 持仓，来自 orders.raw */
+  PmTokenId?: string;
+  PmShares?: number;
+  PmStakeUsdc?: number;
 }
 
 export interface LoseOrderRecord {

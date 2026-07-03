@@ -11,7 +11,14 @@ export interface AccountBalanceResult {
 /** 对齐 A8 场馆订单 `Yt.*` 状态 */
 export type VenueOrderStatus = "none" | "pending" | "reject" | "return" | "win" | "lose";
 
-export interface VenueOrder {
+/** [changmen 扩展] Polymarket 持仓；其它场馆 getOrders 不填 */
+export interface PolymarketVenueOrderExtras {
+  pmTokenId?: string;
+  pmShares?: number;
+  pmStakeUsdc?: number;
+}
+
+export interface VenueOrder extends PolymarketVenueOrderExtras {
   provider: PlatformId;
   orderId: string;
   odds: number;

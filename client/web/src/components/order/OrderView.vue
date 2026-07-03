@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
+import { PolymarketOrderSellPanel, usePolymarketSellQuotes } from "@/extensions/polymarketSell";
 import { wait } from "@/shared/wait";
 import { useOrderStore } from "@/stores/orderStore";
 
@@ -54,6 +55,15 @@ const showFilteredEmpty = computed(
     && orderEntries.value.length === 0
     && orders.value.size > 0,
 );
+
+const flatOrderRows = computed(() => {
+  const rows: import("@/types/order").OrderRow[] = [];
+  for (const [, group] of orderEntries.value)
+    rows.push(...group);
+  return rows;
+});
+
+const pmSellQuotes = usePolymarketSellQuotes(flatOrderRows);
 
 function onDateChange(value: string) {
   if (value)
@@ -110,7 +120,15 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
     :loading="loading || viewLoading"
     :player-label="playerLabel"
     :platform-class="platformClass"
-  />
+  >
+    <template v-if="!embedded" #row-actions="{ row }">
+      <PolymarketOrderSellPanel
+        :row="row"
+        :quote="pmSellQuotes.quoteForRow(row)"
+        :loading="pmSellQuotes.loading.value"
+      />
+    </template>
+  </OrderList>
 </template>
 
 <style scoped>

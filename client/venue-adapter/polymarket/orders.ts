@@ -350,6 +350,8 @@ export function mapPolymarketTradeToVenueOrder(
   if (betMoney <= 0) return null;
 
   const odds = Math.round((1 / price) * 10000) / 10000;
+  const shares = Math.round(polymarketShareCount(sizeRaw) * 10000) / 10000;
+  const pmTokenId = tradeHeldAssetId(trade, market);
   const ctx = market
     ? polymarketOrderContextFromMarket(market)
     : { game: "", match: "", bet: "" };
@@ -369,8 +371,64 @@ export function mapPolymarketTradeToVenueOrder(
     match,
     bet: ctx.bet,
     item: String(trade.outcome ?? "").trim(),
+    pmTokenId: pmTokenId || undefined,
+    pmShares: shares > 0 ? shares : undefined,
+    pmStakeUsdc: betMoney,
   };
   return applyPolymarketSettlement(unsettled, trade, market);
+}
+
+/** 汇总已确认 SELL 成交的卖出份数（按 asset_id） */
+export function aggregatePolymarketSellSharesByAsset(
+  trades: PolymarketTradeRow[],
+): Map<string, number> {
+  const sold = new Map<string, number>();
+  for (const trade of trades) {
+    if (String(trade.side ?? "").trim().toUpperCase() !== "SELL")
+      continue;
+    if (!isPolymarketTradeConfirmed(String(trade.status ?? "")))
+      continue;
+    const assetId = String(trade.asset_id ?? "").trim();
+    if (!assetId)
+      continue;
+    const shares = polymarketShareCount(trade.size);
+    if (shares <= 0)
+      continue;
+    sold.set(assetId, Math.round(((sold.get(assetId) ?? 0) + shares) * 10000) / 10000);
+  }
+  return sold;
+}
+
+/** FIFO 扣减 SELL 成交，更新 pmShares / pmStakeUsdc（未结算 BUY 单） */
+export function applyPolymarketNetPositions(
+  orders: VenueOrder[],
+  flattenedTrades: PolymarketTradeRow[],
+): VenueOrder[] {
+  const soldByAsset = aggregatePolymarketSellSharesByAsset(flattenedTrades);
+  if (!soldByAsset.size)
+    return orders;
+
+  const soldRemaining = new Map(soldByAsset);
+  const openBuys = orders
+    .filter(o => o.status === "none" && o.pmTokenId && (o.pmShares ?? 0) > 0)
+    .sort((a, b) => a.createAt - b.createAt || a.orderId.localeCompare(b.orderId));
+
+  for (const order of openBuys) {
+    const tokenId = String(order.pmTokenId);
+    let soldLeft = soldRemaining.get(tokenId) ?? 0;
+    if (soldLeft <= 0)
+      continue;
+
+    const shares = order.pmShares ?? 0;
+    const stake = order.pmStakeUsdc ?? order.betMoney;
+    const deduct = Math.min(shares, soldLeft);
+    const ratio = shares > 0 ? deduct / shares : 0;
+    order.pmShares = Math.round((shares - deduct) * 10000) / 10000;
+    order.pmStakeUsdc = Math.round(stake * (1 - ratio) * 10000) / 10000;
+    order.betMoney = Math.round(order.betMoney * (1 - ratio) * 10000) / 10000;
+    soldRemaining.set(tokenId, Math.round((soldLeft - deduct) * 10000) / 10000);
+  }
+  return orders;
 }
 
 async function fetchGammaMarketsChunk(params: URLSearchParams): Promise<PolymarketRawMarket[]> {
@@ -543,5 +601,5 @@ export function mapPolymarketTradesToVenueOrders(
     if (mapped)
       orders.push(mapped);
   }
-  return sortVenueOrdersNewestFirst(orders);
+  return sortVenueOrdersNewestFirst(applyPolymarketNetPositions(orders, flattened));
 }

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
   bestAskFromBook,
+  bestBidFromBook,
+  estimatePolymarketSellProceedsUsdc,
+  polymarketUnrealizedProfitUsdc,
   buildPolymarketMappedMarket,
   decimalOddsFromProbability,
   mapPolymarketGameId,
@@ -78,6 +81,25 @@ describe("Polymarket parse", () => {
         { price: "0.6", size: "3" },
       ],
     })).toBe(0.58);
+  });
+
+  test("uses highest non-empty bid as sell price", () => {
+    expect(bestBidFromBook({
+      bids: [
+        { price: "0.55", size: "5" },
+        { price: "0.61", size: "2" },
+        { price: "0.59", size: "0" },
+      ],
+    })).toBe(0.61);
+  });
+
+  test("estimates sell proceeds and unrealized profit", () => {
+    const bids = [
+      { price: 0.8, size: 2 },
+      { price: 0.7, size: 10 },
+    ];
+    expect(estimatePolymarketSellProceedsUsdc(bids, 5)).toBe(3.7);
+    expect(polymarketUnrealizedProfitUsdc(bids, 5, 5)).toBe(-1.3);
   });
 
   test("builds CollectMatchDto and CollectBetDto for team winner market", () => {
