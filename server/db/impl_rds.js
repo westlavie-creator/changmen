@@ -95,6 +95,7 @@ export {
   saveAccountRecordsForOwner,
   savePlayerAccountRecord,
   softDeletePlayerRow,
+  softDeletePlayersNotInList,
   updatePlayerBalanceRow,
   updatePlayerDisplayName,
   upsertTagPlatformByName,

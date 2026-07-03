@@ -137,6 +137,7 @@ export const {
   insertUserLogRow,
   fetchUserLogsInRange,
   softDeletePlayerRow,
+  softDeletePlayersNotInList,
   upsertOrders,
   setOrdersInsertedHook,
   setOrdersBoundHook,

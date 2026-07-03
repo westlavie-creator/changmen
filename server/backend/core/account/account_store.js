@@ -255,6 +255,10 @@ async function ensureSeed() {
   await migrateLegacySessionsJsonToRds();
 }
 
+async function prunePlayersNotInList(ownerUserId, keepPlayerIds) {
+  return sb.softDeletePlayersNotInList(ownerUserId, keepPlayerIds);
+}
+
 export {
   createTagPlatform,
   deleteMoneyLog,
@@ -266,6 +270,7 @@ export {
   getPlayer,
   listMoneyLogs,
   listTagPlatforms,
+  prunePlayersNotInList,
   removeAccountFromKv,
   saveMoneyLog,
   saveUserLog,

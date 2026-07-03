@@ -220,6 +220,10 @@ async function handleSaveAccounts(accounts, userId) {
     }
   }
   store.setAccountsForUser(userId, normalized);
+  const keepIds = normalized.map(r => Number(r?.accountId ?? r?.AccountId)).filter(Boolean);
+  if (keepIds.length > 0) {
+    await accountStore.prunePlayersNotInList(userId, keepIds);
+  }
   return { ok: true, info: true };
 }
 

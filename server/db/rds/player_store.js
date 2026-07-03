@@ -295,6 +295,32 @@ export async function softDeletePlayerRow(playerId, description, ownerUserId) {
   }
 }
 
+export async function softDeletePlayersNotInList(ownerUserId, keepPlayerIds, description = "pruned: not in ACCOUNT list") {
+  const uid = String(ownerUserId || "").trim();
+  const keep = [...new Set((keepPlayerIds || []).map(id => Number(id)).filter(id => id > 0))];
+  if (!uid || !keep.length)
+    return 0;
+  const pool = getPgPool();
+  if (!pool)
+    return 0;
+  const now = Date.now();
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE players
+       SET deleted_at = $1, delete_description = $2, updated_at = $1
+       WHERE owner_user_id = $3::uuid
+         AND deleted_at IS NULL
+         AND NOT (id = ANY($4::bigint[]))`,
+      [now, String(description || ""), uid, keep],
+    );
+    return rowCount ?? 0;
+  }
+  catch (err) {
+    console.warn("[rds] softDeletePlayersNotInList:", err.message);
+    return 0;
+  }
+}
+
 /** 用户全部活跃账号 → A8 AccountRecord[] */
 export async function fetchAccountRecordsByOwner(ownerUserId) {
   const uid = String(ownerUserId || "").trim();
