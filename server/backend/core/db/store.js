@@ -94,7 +94,6 @@ export async function loadProfileById(uid) {
   if (!data)
     return null;
   _set(data.id, data);
-  await loadAccountsForUser(data.id);
   return _toProfile(data);
 }
 

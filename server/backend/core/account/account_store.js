@@ -231,6 +231,9 @@ async function runPlayersJsonMigrateOnce() {
     }
     catch (err) {
       console.warn("[account_store] migratePlayersJsonToRds:", err.message);
+      if (String(err?.code) === "23514" || /owner_user_id|players_active_requires_owner/i.test(String(err.message))) {
+        _playersMigrateDone = true;
+      }
       throw err;
     }
     finally {

@@ -113,7 +113,7 @@ export const useUserStore = defineStore("user", {
       // 提前启动 JWT refresh，防止 token 在使用中到期
       const rft = getRefreshToken();
       if (rft) {
-        void ensureTokenRefresh();
+        await ensureTokenRefresh();
       }
       try {
         await this.fetchUserInfo();
