@@ -189,6 +189,10 @@ async function validateAccountRows(accounts) {
 }
 
 async function handleSaveAccounts(accounts, userId) {
+  const existing = store.getAccountsForUser(userId);
+  if (Array.isArray(accounts) && accounts.length === 0 && existing.length > 0) {
+    return { ok: false, msg: "禁止用空列表覆盖已有账号，请刷新页面后重试" };
+  }
   const checked = await validateAccountRows(accounts);
   if (!checked.ok)
     return checked;

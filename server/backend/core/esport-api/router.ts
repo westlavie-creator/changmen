@@ -412,7 +412,7 @@ async function handle(
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_GetAccounts":
-      return ok(store.getAccountsForUser(ctx.user.id));
+      return ok(await dbStore.refreshAccountsFromRdsIfEmpty(ctx.user.id));
     case "Client_SaveAccounts": {
       let accounts: unknown[] = [];
       try { accounts = JSON.parse((body.accounts as string) || "[]"); }
@@ -421,6 +421,9 @@ async function handle(
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_GetData": {
+      if (body.key === "ACCOUNT" && ctx.user?.id) {
+        await dbStore.refreshAccountsFromRdsIfEmpty(ctx.user.id);
+      }
       const data = accountService.handleGetData(body.key, ctx.user.id);
       // ACCOUNT/PROXY ? key ????? JSON??? ok() ??
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return

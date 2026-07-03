@@ -132,6 +132,22 @@ export function listAccountsForUser(uid) {
   return normalized;
 }
 
+/** 内存 accounts 为空时从 RDS 回源（手动恢复 profile 后无需重启 backend） */
+export async function refreshAccountsFromRdsIfEmpty(uid) {
+  const id = String(uid);
+  const current = listAccountsForUser(id);
+  if (current.length > 0)
+    return current;
+  const data = await sb.fetchProfileById(id);
+  if (!data)
+    return [];
+  const raw = Array.isArray(data.accounts) ? data.accounts : [];
+  if (!raw.length)
+    return [];
+  _set(id, { ...data, accounts: normalizeAccountList(raw) });
+  return listAccountsForUser(id);
+}
+
 export function countAccounts() {
   return [..._cache.values()].reduce(
     (s, r) => s + (Array.isArray(r.accounts) ? r.accounts.length : 0),

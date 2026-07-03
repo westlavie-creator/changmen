@@ -110,7 +110,7 @@ export async function refreshAllFromVenues(
     }
 
     step = Date.now();
-    if (!store.adminWorkspacePreview) {
+    if (!store.adminWorkspacePreview && store.accounts.length > 0) {
       try {
         await store.saveAccounts();
         lines.push(`保存账号：${Date.now() - step}ms`);
@@ -118,6 +118,9 @@ export async function refreshAllFromVenues(
       catch {
         lines.push(`保存账号：${Date.now() - step}ms（失败）`);
       }
+    }
+    else if (!store.adminWorkspacePreview && store.accounts.length === 0) {
+      lines.push("保存账号：跳过（本地列表为空）");
     }
     else {
       lines.push("保存账号：跳过（管理端预览）");

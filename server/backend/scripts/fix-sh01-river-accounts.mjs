@@ -87,6 +87,7 @@ async function buildRiverAccounts(current) {
   );
   const wantIds = [
     { id: 45, fallbackProvider: "Polymarket" },
+    { id: 47, fallbackProvider: "Polymarket" },
     { id: 48, fallbackProvider: "PB" },
     { id: 46, fallbackProvider: "RAY" },
   ];

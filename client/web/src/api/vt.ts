@@ -27,7 +27,9 @@ export async function saveData(
     "",
     { successTip },
   );
-  return data.success === 1;
+  if (data.success !== 1)
+    throw new Error(data.msg || "保存失败");
+  return true;
 }
 
 /** 对齐 A8 `Vt.updateBalance(playerId, balance)` + `{ errorTip: !1 }` */

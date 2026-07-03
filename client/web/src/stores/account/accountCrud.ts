@@ -88,10 +88,11 @@ export async function persistAccounts(store: AccountStoreContext) {
   const payload = store.accounts
     .filter(a => a.accountId)
     .map(a => normalizeAccountMultiplyField(a.toJSON()));
-  const ok = await saveAccounts(payload);
-  if (!ok)
-    throw new Error("账号保存失败，请检查登录状态或稍后重试");
-  return ok;
+  if (!payload.length && store.loaded) {
+    console.warn("[accounts] 本地账号列表为空，跳过 saveAccounts");
+    return true;
+  }
+  return saveAccounts(payload);
 }
 
 /** [A8 可证实] Io.createAccount：accountId 仅来自 CreateTagPlatform.playerId */

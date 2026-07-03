@@ -18,7 +18,8 @@ export async function saveAccounts(accounts: AccountRecord[]): Promise<boolean> 
   const payload = accounts
     .filter(a => a.accountId)
     .map(a => normalizeAccountMultiplyField(a));
-  return saveData(ACCOUNT_KEY, JSON.stringify(payload));
+  await saveData(ACCOUNT_KEY, JSON.stringify(payload));
+  return true;
 }
 
 /** [A8 可证实] Vt.updateBalance → Client_UpdateBalance */
