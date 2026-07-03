@@ -3,6 +3,7 @@ import {
   buildPolymarketSellQuote,
   calculateSellMarketLimitPrice,
 } from "./sell";
+import { parsePolymarketSellOrderFill } from "./orders";
 
 describe("calculateSellMarketLimitPrice", () => {
   test("returns worst bid level for full fill", () => {
@@ -21,6 +22,22 @@ describe("calculateSellMarketLimitPrice", () => {
     expect(() =>
       calculateSellMarketLimitPrice([{ price: 0.5, size: 1 }], 5, 0),
     ).toThrow(/深度不足/);
+  });
+});
+
+describe("parsePolymarketSellOrderFill", () => {
+  test("parses SELL making=份数 taking=USDC micro", () => {
+    expect(parsePolymarketSellOrderFill({
+      makingAmount: "12500000",
+      takingAmount: "10000000",
+    })).toEqual({ sharesSold: 12.5, proceedsUsdc: 10 });
+  });
+
+  test("human-readable amounts pass through", () => {
+    expect(parsePolymarketSellOrderFill({
+      makingAmount: "12.5",
+      takingAmount: "10",
+    })).toEqual({ sharesSold: 12.5, proceedsUsdc: 10 });
   });
 });
 

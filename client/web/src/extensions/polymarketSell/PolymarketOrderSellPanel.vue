@@ -98,11 +98,15 @@ async function onSell() {
       ElMessage.success(result.message || "卖出成功");
     }
 
-    const proceedsUsdc = result.proceedsUsdc
-      ?? (q ? q.proceedsUsdc : 0);
+    const proceedsUsdc = result.proceedsUsdc ?? 0;
+    const sharesSold = result.sharesSold ?? 0;
+    if (proceedsUsdc <= 0 || sharesSold <= 0) {
+      ElMessage.error("卖出成功但未从 API 解析到成交份数/回款，请刷新后核对");
+      return;
+    }
     await persistChangmenSellOrder(account, props.row, {
       sellOrderId,
-      sharesSold: shares.value,
+      sharesSold,
       proceedsUsdc,
       stakeUsdc: stakeUsdc.value,
     });

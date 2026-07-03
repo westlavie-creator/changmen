@@ -33,8 +33,10 @@ async function syncPolymarketVenueOrdersWithReject(
   account: PlatformAccount,
   result: BetResult,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
-  if (isPolymarketBetResultFillConfirmed(result))
-    return { orders: [], rejected: false };
+  if (isPolymarketBetResultFillConfirmed(result)) {
+    const synced = await fetchVenueOrdersWithReject(account);
+    return { orders: synced.orders, rejected: false };
+  }
 
   const trade = await fetchPolymarketConfirmedTradeForOrder(
     account,

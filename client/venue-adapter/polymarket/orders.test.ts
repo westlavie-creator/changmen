@@ -9,6 +9,8 @@ import {
   isUserMakerOrderLeg,
   mapPolymarketTradeToVenueOrder,
   mapPolymarketTradesToVenueOrders,
+  parsePolymarketBuyOrderFill,
+  parsePolymarketSellOrderFill,
   polymarketBuyStakeUsdc,
   polymarketTradeRefsOrderId,
   parsePolymarketMicroUsdc,
@@ -28,6 +30,24 @@ describe("parsePolymarketMicroUsdc", () => {
   test("passes through human-readable amounts", () => {
     expect(parsePolymarketMicroUsdc("85.5")).toBe(85.5);
     expect(parsePolymarketMicroUsdc(12)).toBe(12);
+  });
+});
+
+describe("parsePolymarketBuyOrderFill", () => {
+  test("parses BUY making=USDC taking=份数 micro (70 CNY @ 1.25)", () => {
+    expect(parsePolymarketBuyOrderFill({
+      makingAmount: "10000000",
+      takingAmount: "12500000",
+    })).toEqual({ stakeUsdc: 10, shares: 12.5 });
+  });
+});
+
+describe("parsePolymarketSellOrderFill", () => {
+  test("parses SELL making=份数 taking=USDC micro", () => {
+    expect(parsePolymarketSellOrderFill({
+      makingAmount: "12500000",
+      takingAmount: "10000000",
+    })).toEqual({ sharesSold: 12.5, proceedsUsdc: 10 });
   });
 });
 

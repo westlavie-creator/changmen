@@ -34,21 +34,6 @@ function parseNum(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** changmen 买单：BetMoney 为 CNY 展示，未部分平仓时对齐 pmStakeUsdc（USDC） */
-function syncOpenChangmenBuyPmStakeUsdc(merged, prevRaw, betMoneyCny, prevAttributed, prevState) {
-  const impliedUsdc = Math.round((betMoneyCny / 7) * 10000) / 10000;
-  const storedUsdc = parseNum(merged.pmStakeUsdc, parseNum(prevRaw.pmStakeUsdc, 0));
-  if (
-    prevAttributed <= 0
-    && prevState !== "partial"
-    && prevState !== "closed"
-    && impliedUsdc > 0
-    && (storedUsdc <= 0 || impliedUsdc > storedUsdc * 1.05)
-  ) {
-    merged.pmStakeUsdc = impliedUsdc;
-  }
-}
-
 function resolveStoredLink(link, _orderId, createAt) {
   const n = Number(link);
   if (Number.isFinite(n) && n !== 0)
@@ -124,7 +109,7 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   merged.pmSide = isSell ? "sell" : "buy";
 
   if (isSell) {
-    const proceedsBet = prevBet > 0 ? prevBet : incomingBet;
+    const proceedsBet = incomingBet > 0 ? incomingBet : (prevBet > 0 ? prevBet : 0);
     merged = {
       ...merged,
       pmSide: "sell",
@@ -136,7 +121,8 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       merged.pmOrigin = "changmen";
       merged.pmRealizedPnlUsdc = prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc;
       merged.pmBuyOrderId = prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId;
-      merged.betMoney = prevBet > 0 ? prevBet : proceedsBet;
+      // 刷新时优先 CLOB reconcile 口径，避免错误 prevBet 永久锁死
+      merged.betMoney = incomingBet > 0 ? incomingBet : (prevBet > 0 ? prevBet : proceedsBet);
     }
     bet_money = parseNum(merged.betMoney, proceedsBet);
     const costUsdc = parseNum(merged.pmStakeUsdc ?? prevRaw.pmStakeUsdc, 0);
@@ -190,13 +176,6 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     if (isChangmen) {
       merged.pmOrigin = merged.pmOrigin || "changmen";
       merged.pmSide = "buy";
-      syncOpenChangmenBuyPmStakeUsdc(
-        merged,
-        prevRaw,
-        betMoneyForMerge,
-        prevAttributed,
-        prevState,
-      );
     }
   }
 

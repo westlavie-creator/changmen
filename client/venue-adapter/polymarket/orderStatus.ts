@@ -214,10 +214,12 @@ async function settlePolymarketDelayedOrderViaRest(
   account: PlatformAccount,
   orderId: string,
   opts?: {
+    side?: "BUY" | "SELL";
     poll?: { initialDelayMs?: number; intervalMs?: number; maxAttempts?: number };
     tradeConfirm?: { lookbackMs?: number; retryMs?: number; maxRetries?: number };
   },
 ): Promise<{ outcome: PolymarketPollOutcome; row: PolymarketOrderRow | null }> {
+  const side = opts?.side ?? "BUY";
   const pollOpts = { ...POLYMARKET_WS_FALLBACK_POLL_OPTS, ...opts?.poll };
   const tradeConfirm = { ...POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS, ...opts?.tradeConfirm };
   const { outcome, row } = await pollPolymarketDelayedOrder(account, orderId, pollOpts);
@@ -229,6 +231,7 @@ async function settlePolymarketDelayedOrderViaRest(
       account,
       orderId,
       tradeConfirm.lookbackMs,
+      side,
     );
     if (trade) {
       return {
@@ -251,6 +254,7 @@ export async function settlePolymarketDelayedOrder(
   account: PlatformAccount,
   orderId: string,
   opts?: {
+    side?: "BUY" | "SELL";
     poll?: { initialDelayMs?: number; intervalMs?: number; maxAttempts?: number };
     tradeConfirm?: { lookbackMs?: number; retryMs?: number; maxRetries?: number };
   },

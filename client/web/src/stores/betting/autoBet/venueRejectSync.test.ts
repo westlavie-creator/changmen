@@ -202,9 +202,9 @@ describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
     const out = await syncVenueOrdersWithRejectForLeg(acc, result);
 
     expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
-    expect(updateVenueOrders).not.toHaveBeenCalled();
+    expect(updateVenueOrders).toHaveBeenCalledWith(acc);
     expect(out.rejected).toBe(false);
-    expect(out.orders).toEqual([]);
+    expect(out.orders.length).toBeGreaterThan(0);
   });
 
   it("uncertain fill polls trade before rejecting on stale list", async () => {

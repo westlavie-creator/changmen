@@ -3,9 +3,11 @@ import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
 import {
   applyBuySharesAfterSell,
   buildChangmenSellVenueOrder,
+  computeSellProfitDisplayCny,
   resolveBuyStakeUsdc,
   venueOrderFromOrderRow,
 } from "./pmLogicalPosition";
+import { scalePolymarketVenueOrdersForDisplay } from "./orders";
 
 describe("pmLogicalPosition", () => {
   const baseRow = {
@@ -62,21 +64,28 @@ describe("pmLogicalPosition", () => {
     expect(sell.betMoney).toBe(12);
   });
 
-  it("resolveBuyStakeUsdc prefers BetMoney when pmStakeUsdc stale vs CNY display", () => {
+  it("70 CNY buy @ 1.25 → sell proceeds 10 USDC shows ~70 CNY with zero P&L", () => {
     const buy = venueOrderFromOrderRow({
       ...baseRow,
-      BetMoney: 490,
+      BetMoney: 70,
       PmStakeUsdc: 10,
-      PmShares: 100,
+      PmShares: 12.5,
+      Odds: 1.25,
     });
-    expect(resolveBuyStakeUsdc(buy)).toBe(70);
     const sell = buildChangmenSellVenueOrder(buy, {
-      sellOrderId: "0xsell3",
-      sharesSold: 100,
-      proceedsUsdc: 85,
+      sellOrderId: "0xsell-regression",
+      sharesSold: 12.5,
+      proceedsUsdc: 10,
     });
-    expect(sell.pmStakeUsdc).toBe(70);
-    expect(sell.money).toBe(15);
+    expect(sell.betMoney).toBe(10);
+    expect(sell.pmRealizedPnlUsdc).toBe(0);
+    expect(sell.money).toBe(0);
+
+    const [scaledSell] = scalePolymarketVenueOrdersForDisplay([sell]);
+    expect(scaledSell.betMoney).toBe(70);
+    expect(scaledSell.money).toBe(0);
+    expect(computeSellProfitDisplayCny(scaledSell.betMoney, sell.pmStakeUsdc!)).toBe(0);
+    expect(USDT_CNY_EXCHANGE).toBe(7);
   });
 
   it("resolveBuyStakeUsdc keeps reduced pmStakeUsdc after partial sell", () => {

@@ -132,6 +132,95 @@ export function parsePolymarketMicroUsdc(raw: string | number | undefined): numb
   return Math.round(usdc * 10000) / 10000;
 }
 
+function round4Fill(n: number): number {
+  return Math.round(n * 10000) / 10000;
+}
+
+/** BUY POST：makingAmount=USDC micro，takingAmount=份数 micro（对齐 bet.test / Polymarket 文档） */
+export function parsePolymarketBuyOrderFill(
+  response: { makingAmount?: string | number; takingAmount?: string | number } | null | undefined,
+): { stakeUsdc: number; shares: number } {
+  const stakeUsdc = parsePolymarketMicroUsdc(response?.makingAmount);
+  const shares = polymarketShareCount(response?.takingAmount);
+  if (stakeUsdc > 0 && shares > 0) {
+    const impliedPrice = stakeUsdc / shares;
+    if (impliedPrice > 0 && impliedPrice < 1)
+      return { stakeUsdc: round4Fill(stakeUsdc), shares: round4Fill(shares) };
+  }
+  return {
+    stakeUsdc: stakeUsdc > 0 ? round4Fill(stakeUsdc) : 0,
+    shares: shares > 0 ? round4Fill(shares) : 0,
+  };
+}
+
+/** SELL POST：makingAmount=份数 micro，takingAmount=USDC micro */
+export function parsePolymarketSellOrderFill(
+  response: { makingAmount?: string | number; takingAmount?: string | number } | null | undefined,
+): { proceedsUsdc: number; sharesSold: number } {
+  const proceedsUsdc = parsePolymarketMicroUsdc(response?.takingAmount);
+  const sharesSold = polymarketShareCount(response?.makingAmount);
+  if (proceedsUsdc > 0 && sharesSold > 0) {
+    const impliedPrice = proceedsUsdc / sharesSold;
+    if (impliedPrice > 0 && impliedPrice < 1)
+      return { proceedsUsdc: round4Fill(proceedsUsdc), sharesSold: round4Fill(sharesSold) };
+  }
+  return {
+    proceedsUsdc: proceedsUsdc > 0 ? round4Fill(proceedsUsdc) : 0,
+    sharesSold: sharesSold > 0 ? round4Fill(sharesSold) : 0,
+  };
+}
+
+/** /data/trades 成交 leg → 份数 + USDC 名义 */
+export function polymarketTradeFillAmounts(
+  trade: PolymarketTradeRow,
+): { shares: number; usdc: number } {
+  const shares = round4Fill(polymarketShareCount(trade.size));
+  const usdc = polymarketTradeNotionalUsdc(trade);
+  return { shares, usdc };
+}
+
+/** POST 响应优先，/data/trades 兜底（拒单检测 / 卖出归因） */
+export async function resolvePolymarketBuyFill(
+  account: PlatformAccount,
+  orderId: string,
+  postResponse: { makingAmount?: string | number; takingAmount?: string | number } | null | undefined,
+  lookbackMs = 10 * 60 * 1000,
+): Promise<{ stakeUsdc: number; shares: number }> {
+  const fromPost = parsePolymarketBuyOrderFill(postResponse);
+  if (fromPost.stakeUsdc > 0 && fromPost.shares > 0)
+    return fromPost;
+
+  const trade = await fetchPolymarketConfirmedTradeForOrder(account, orderId, lookbackMs, "BUY");
+  if (trade) {
+    const { shares, usdc } = polymarketTradeFillAmounts(trade);
+    if (usdc > 0 && shares > 0)
+      return { stakeUsdc: usdc, shares };
+  }
+
+  return fromPost;
+}
+
+/** POST 响应优先，/data/trades 兜底 */
+export async function resolvePolymarketSellFill(
+  account: PlatformAccount,
+  orderId: string,
+  postResponse: { makingAmount?: string | number; takingAmount?: string | number } | null | undefined,
+  lookbackMs = 10 * 60 * 1000,
+): Promise<{ proceedsUsdc: number; sharesSold: number }> {
+  const fromPost = parsePolymarketSellOrderFill(postResponse);
+  if (fromPost.proceedsUsdc > 0 && fromPost.sharesSold > 0)
+    return fromPost;
+
+  const trade = await fetchPolymarketConfirmedTradeForOrder(account, orderId, lookbackMs, "SELL");
+  if (trade) {
+    const { shares, usdc } = polymarketTradeFillAmounts(trade);
+    if (usdc > 0 && shares > 0)
+      return { proceedsUsdc: usdc, sharesSold: shares };
+  }
+
+  return fromPost;
+}
+
 function gammaOutcomePrices(market: PolymarketRawMarket): number[] {
   return parseJsonArray(market.outcomePrices ?? market.outcome_prices).map(Number);
 }
@@ -244,11 +333,20 @@ export function polymarketTradeRefsOrderId(trade: PolymarketTradeRow, orderId: s
   return makers.some(mo => String(mo.order_id ?? "").trim().toLowerCase() === id);
 }
 
-/** 近窗内按 orderId 查已确认 BUY 成交（体育 delayed 订单状态滞后时的兜底） */
+/** 成交 USDC 名义（买=成本，卖=回款） */
+export function polymarketTradeNotionalUsdc(trade: PolymarketTradeRow): number {
+  const price = Number(trade.price);
+  if (!Number.isFinite(price) || price <= 0)
+    return 0;
+  return Math.round(polymarketBuyStakeUsdc(trade.size, price) * 10000) / 10000;
+}
+
+/** 近窗内按 orderId 查已确认成交（体育 delayed 订单状态滞后时的兜底） */
 export async function fetchPolymarketConfirmedTradeForOrder(
   account: PlatformAccount,
   orderId: string,
   lookbackMs = 10 * 60 * 1000,
+  side: "BUY" | "SELL" = "BUY",
 ): Promise<PolymarketTradeRow | null> {
   const id = String(orderId ?? "").trim();
   if (!id)
@@ -261,10 +359,11 @@ export async function fetchPolymarketConfirmedTradeForOrder(
   const userAddresses = collectPolymarketUserAddressesFromAccount(account);
   const rawTrades = await fetchTradesSince(gateway, headers, afterSec);
   const flattened = flattenPolymarketTrades(rawTrades, userAddresses);
+  const wantSide = side.toUpperCase();
   for (const trade of flattened) {
     if (!polymarketTradeRefsOrderId(trade, id))
       continue;
-    if (String(trade.side ?? "").trim().toUpperCase() !== "BUY")
+    if (String(trade.side ?? "").trim().toUpperCase() !== wantSide)
       continue;
     if (!isPolymarketTradeConfirmed(String(trade.status ?? "")))
       continue;
@@ -370,7 +469,10 @@ export function aggregatePolymarketSellTrades(trades: PolymarketTradeRow[]): Pol
 
     const size = Number(trade.size) || 0;
     const price = Number(trade.price);
-    const notional = Number.isFinite(price) && price > 0 ? size * price : 0;
+    const shareSize = polymarketShareCount(size);
+    const notional = Number.isFinite(price) && price > 0 && shareSize > 0
+      ? round4(shareSize * price)
+      : 0;
     const matchSec = Number(trade.match_time) || 0;
     const existing = byOrder.get(orderId);
     if (!existing) {
