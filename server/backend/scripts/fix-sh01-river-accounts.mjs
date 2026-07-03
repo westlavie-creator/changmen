@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * One-off: fix SH01 (empty) and River (PM45 + PB48 + RAY46) profiles.accounts
+ * One-off: fix SH01 (empty) and River (PM47 + PB48 + RAY46) profiles.accounts
  * Usage: node scripts/fix-sh01-river-accounts.mjs [--dry-run]
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
@@ -70,37 +70,31 @@ function providerForPlatform(platformName) {
   return "OB";
 }
 
-async function findAccountInAllProfiles(playerId) {
-  const { rows } = await pool.query(`SELECT accounts FROM profiles`);
-  for (const row of rows) {
-    for (const a of row.accounts || []) {
-      if (Number(a.accountId ?? a.AccountId) === playerId)
-        return a;
-    }
-  }
-  return null;
-}
-
-async function buildRiverAccounts(current) {
+async function buildRiverAccounts(current, riverUserId) {
   const byId = new Map(
     (current || []).map(a => [Number(a.accountId ?? a.AccountId), a]),
   );
   const wantIds = [
-    { id: 45, fallbackProvider: "Polymarket" },
     { id: 47, fallbackProvider: "Polymarket" },
     { id: 48, fallbackProvider: "PB" },
     { id: 46, fallbackProvider: "RAY" },
   ];
   const out = [];
   for (const { id, fallbackProvider } of wantIds) {
-    const existing = byId.get(id) ?? await findAccountInAllProfiles(id);
+    const existing = byId.get(id);
     if (existing) {
       out.push(pickAccountFields(existing));
       continue;
     }
     const player = await fetchPlayer(id);
-    if (!player) {
-      console.warn(`player ${id} not found, skip`);
+    if (!player)
+      continue;
+    const { rows: ownerRows } = await pool.query(
+      `SELECT owner_user_id FROM players WHERE id = $1`,
+      [id],
+    );
+    if (ownerRows[0]?.owner_user_id !== riverUserId) {
+      console.warn(`player ${id} not owned by River, skip`);
       continue;
     }
     out.push(minimalAccount({
@@ -134,8 +128,9 @@ async function apply(userName, accounts) {
   }
 }
 
+const riverUserId = await getUserId("River");
 const riverCurrent = await getProfileAccounts("River");
-const riverNext = await buildRiverAccounts(riverCurrent);
+const riverNext = await buildRiverAccounts(riverCurrent, riverUserId);
 await apply("River", riverNext);
 
 console.log("done");

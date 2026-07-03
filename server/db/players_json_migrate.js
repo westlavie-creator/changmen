@@ -79,6 +79,15 @@ export async function migratePlayersJsonToRds() {
       }
       const createdAt = Number(row?.createdAt) || Date.now();
       const updatedAt = Number(row?.updatedAt) || createdAt;
+      const { rows: exists } = await client.query(
+        "SELECT id FROM players WHERE id = $1",
+        [id],
+      );
+      if (!exists?.length) {
+        stats.players.skipped += 1;
+        console.warn(`[migrate-players] skip insert player id=${id}（changmen 要求 owner_user_id，legacy JSON 仅更新已有行）`);
+        continue;
+      }
       const { rows } = await client.query(
         `INSERT INTO players (
            id, platform_id, platform_name, player_name, credit, total_balance,

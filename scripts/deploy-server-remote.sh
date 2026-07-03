@@ -203,7 +203,7 @@ if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
       changmen/server/backend/db/migrations/*|server/backend/db/migrations/*)
         RDS_SCHEMA_TOUCHED=1
         ;;
-      *026_players_owner_user_id*|*migrate-players-owner-user-id*)
+      *026_players_owner_user_id*|*027_players_active_owner*|*migrate-players-owner*|*finalize-players-owner*)
         PLAYERS_OWNER_MIGRATION_TOUCHED=1
         ;;
       *live_timer*|changmen/server/db/impl_rds.js|server/db/impl_rds.js)
@@ -220,6 +220,20 @@ if [ "$LIVE_TIMER_TOUCHED" = "1" ]; then
   log "live_timer code changed — purge stale OB live_timers rows"
   node server/backend/scripts/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
 fi
+# owner 回填必须在 027 CHECK 之前（否则 apply-rds-schema 因 orphan player 失败）
+if [ "$PLAYERS_OWNER_MIGRATION_TOUCHED" = "1" ] || [ "$RDS_SCHEMA_TOUCHED" = "1" ] || [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
+  log "profiles.accounts backup (pre-migration)"
+  (cd server/backend && node scripts/backup-profiles-accounts.mjs) || {
+    echo "FAIL: backup-profiles-accounts — 中止 deploy 以免无回滚点"
+    exit 1
+  }
+  log "players owner_user_id: backfill + finalize (pre-027)"
+  (cd server/backend && node scripts/migrate-players-owner-user-id.mjs) || echo "WARN: migrate-players-owner failed"
+  (cd server/backend && node scripts/finalize-players-owner-user-id.mjs) || {
+    echo "FAIL: finalize-players-owner — 勿 apply 027，请人工处理 orphan players"
+    exit 1
+  }
+fi
 if [ "$RDS_SCHEMA_TOUCHED" = "1" ] || [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "RDS schema: apply migrations"
   (cd server/backend && node scripts/apply-rds-schema.mjs)
@@ -227,10 +241,6 @@ fi
 if [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "players/tag_platforms → RDS: migrate JSON from storage/"
   (cd server/backend && node scripts/migrate-players-to-rds.mjs) || echo "WARN: migrate-players failed"
-fi
-if [ "$PLAYERS_OWNER_MIGRATION_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
-  log "players owner_user_id: backfill existing rows"
-  (cd server/backend && node scripts/migrate-players-owner-user-id.mjs) || echo "WARN: migrate-players-owner failed"
 fi
 
 if command -v pm2 >/dev/null 2>&1; then

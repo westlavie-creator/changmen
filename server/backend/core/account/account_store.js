@@ -67,21 +67,21 @@ async function getPlayer(playerId) {
   };
 }
 
-async function updatePlayerBalance(playerId, balance) {
-  return sb.updatePlayerBalanceRow(playerId, balance);
+async function updatePlayerBalance(playerId, balance, ownerUserId) {
+  return sb.updatePlayerBalanceRow(playerId, balance, ownerUserId);
 }
 
 /** ACCOUNT 保存时同步显示用 platform_name（余额刷新会从 players 读回） */
-async function syncPlayerDisplayName(playerId, platformName) {
-  return sb.updatePlayerDisplayName(playerId, platformName);
+async function syncPlayerDisplayName(playerId, platformName, ownerUserId) {
+  return sb.updatePlayerDisplayName(playerId, platformName, ownerUserId);
 }
 
 async function saveUserLog(userId, title, data) {
   return sb.insertUserLogRow(userId, title, data);
 }
 
-async function deletePlayer(playerId, description) {
-  const ok = await sb.softDeletePlayerRow(playerId, description);
+async function deletePlayer(playerId, description, ownerUserId) {
+  const ok = await sb.softDeletePlayerRow(playerId, description, ownerUserId);
   if (!ok)
     return false;
 
@@ -89,8 +89,8 @@ async function deletePlayer(playerId, description) {
   return true;
 }
 
-async function deletePlayerData(playerId) {
-  await sb.deleteMoneyLogsByPlayer(playerId);
+async function deletePlayerData(playerId, userId) {
+  await sb.deleteMoneyLogsByPlayer(playerId, userId);
 }
 
 function removeAccountFromKv() {}

@@ -110,20 +110,12 @@ export async function refreshAllFromVenues(
     }
 
     step = Date.now();
-    if (!store.adminWorkspacePreview && store.accounts.length > 0) {
-      try {
-        await store.saveAccounts();
-        lines.push(`保存账号：${Date.now() - step}ms`);
-      }
-      catch {
-        lines.push(`保存账号：${Date.now() - step}ms（失败）`);
-      }
+    try {
+      await store.saveAccounts();
+      lines.push(`保存账号：${Date.now() - step}ms`);
     }
-    else if (!store.adminWorkspacePreview && store.accounts.length === 0) {
-      lines.push("保存账号：跳过（本地列表为空）");
-    }
-    else {
-      lines.push("保存账号：跳过（管理端预览）");
+    catch {
+      lines.push(`保存账号：${Date.now() - step}ms（失败）`);
     }
 
     saveAccountRefreshLog(`加载账号信息，总耗时:${Date.now() - startedAt}ms`, lines);

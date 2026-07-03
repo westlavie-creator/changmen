@@ -196,6 +196,34 @@ async function checkTelegram(userName) {
   return true;
 }
 
+async function checkAccountInvariants(pool) {
+  const { rows: cross } = await pool.query(`
+    SELECT (a.elem->>'accountId')::bigint AS account_id, COUNT(DISTINCT prof.id)::int AS users
+    FROM profiles prof
+    CROSS JOIN LATERAL jsonb_array_elements(prof.accounts) AS a(elem)
+    WHERE (a.elem->>'accountId') IS NOT NULL
+    GROUP BY 1
+    HAVING COUNT(DISTINCT prof.id) > 1
+    LIMIT 5
+  `);
+  if (cross.length > 0) {
+    fail("accounts isolation", `跨用户共用 accountId: ${cross.map(r => r.account_id).join(", ")}`);
+    return false;
+  }
+
+  const { rows: noOwner } = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM players WHERE deleted_at IS NULL AND owner_user_id IS NULL`,
+  );
+  if ((noOwner[0]?.n ?? 0) > 0) {
+    fail("accounts owner_user_id", `${noOwner[0].n} 个活跃 player 无 owner_user_id`);
+    return false;
+  }
+
+  pass("accounts isolation", "无跨用户 accountId");
+  pass("accounts owner_user_id", "活跃 player 均已归属");
+  return true;
+}
+
 async function main() {
   console.log(`== post-deploy-check ${probeTag} ==`);
 
@@ -225,6 +253,7 @@ async function main() {
   }
   pass("database", `探针用户 ${probeUser.user_name}`);
 
+  await checkAccountInvariants(pool);
   await checkUpsertAndBind(pool, probeUser.id, probeUser.user_name);
   await checkTelegram(probeUser.user_name);
 

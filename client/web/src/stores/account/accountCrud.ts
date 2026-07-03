@@ -80,18 +80,11 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
   }
 }
 
+/** [A8 可证实] Io.u：filter(accountId) 后整包 Client_SaveData(ACCOUNT)，无空列表/admin 门控 */
 export async function persistAccounts(store: AccountStoreContext) {
-  if (store.adminWorkspacePreview) {
-    console.warn("[accounts] 管理端预览中，跳过 saveAccounts");
-    return true;
-  }
   const payload = store.accounts
     .filter(a => a.accountId)
     .map(a => normalizeAccountMultiplyField(a.toJSON()));
-  if (!payload.length && store.loaded) {
-    console.warn("[accounts] 本地账号列表为空，跳过 saveAccounts");
-    return true;
-  }
   return saveAccounts(payload);
 }
 

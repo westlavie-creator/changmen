@@ -138,13 +138,32 @@ export async function refreshAccountsFromRdsIfEmpty(uid) {
   const current = listAccountsForUser(id);
   if (current.length > 0)
     return current;
+  return _reloadAccountsFromRds(id);
+}
+
+/** ACCOUNT 保存前：内存为空时从 RDS 回源，空列表 guard 以 RDS 为准（A8 前端可发 []） */
+export async function prepareAccountsForSave(uid) {
+  const id = String(uid);
+  await refreshAccountsFromRdsIfEmpty(id);
+  let existing = listAccountsForUser(id);
+  if (existing.length > 0)
+    return existing;
+  return _reloadAccountsFromRds(id);
+}
+
+async function _reloadAccountsFromRds(id) {
   const data = await sb.fetchProfileById(id);
   if (!data)
     return [];
   const raw = Array.isArray(data.accounts) ? data.accounts : [];
   if (!raw.length)
     return [];
-  _set(id, { ...data, accounts: normalizeAccountList(raw) });
+  const row = _get(id) || {};
+  _set(id, {
+    ...row,
+    ...data,
+    accounts: normalizeAccountList(raw),
+  });
   return listAccountsForUser(id);
 }
 

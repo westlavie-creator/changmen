@@ -188,9 +188,10 @@ export async function fetchUserLogsInRange(userId, fromMs, toMs, limit = 200) {
 }
 
 /** 仅更新 players.platform_name（账号显示名；不改 platform_id） */
-export async function updatePlayerDisplayName(playerId, platformName) {
+export async function updatePlayerDisplayName(playerId, platformName, ownerUserId) {
   const id = Number(playerId);
   const label = String(platformName || "").trim();
+  const uid = ownerUserId != null ? String(ownerUserId).trim() : "";
   if (!Number.isFinite(id) || id <= 0 || !label)
     return false;
   const pool = getPgPool();
@@ -198,10 +199,12 @@ export async function updatePlayerDisplayName(playerId, platformName) {
     return false;
   const now = Date.now();
   try {
+    const params = uid ? [id, label, now, uid] : [id, label, now];
+    const ownerClause = uid ? " AND owner_user_id = $4::uuid" : "";
     const { rowCount } = await pool.query(
       `UPDATE players SET platform_name = $2, updated_at = $3
-       WHERE id = $1 AND deleted_at IS NULL`,
-      [id, label, now],
+       WHERE id = $1 AND deleted_at IS NULL${ownerClause}`,
+      params,
     );
     return rowCount > 0;
   }
@@ -211,7 +214,7 @@ export async function updatePlayerDisplayName(playerId, platformName) {
   }
 }
 
-export async function updatePlayerBalanceRow(playerId, balance) {
+export async function updatePlayerBalanceRow(playerId, balance, ownerUserId) {
   const id = Number(playerId);
   if (!Number.isFinite(id) || id <= 0)
     return null;
@@ -220,13 +223,16 @@ export async function updatePlayerBalanceRow(playerId, balance) {
     return null;
   const now = Date.now();
   const total = Number(balance) || 0;
+  const uid = ownerUserId != null ? String(ownerUserId).trim() : "";
   try {
+    const params = uid ? [id, total, now, uid] : [id, total, now];
+    const ownerClause = uid ? " AND owner_user_id = $4::uuid" : "";
     const { rows } = await pool.query(
       `UPDATE players SET total_balance = $2, updated_at = $3
-       WHERE id = $1 AND deleted_at IS NULL
-       RETURNING id, platform_id, platform_name, player_name, credit, total_balance,
+       WHERE id = $1 AND deleted_at IS NULL${ownerClause}
+       RETURNING id, owner_user_id, platform_id, platform_name, player_name, credit, total_balance,
                  created_at, updated_at, deleted_at, delete_description`,
-      [id, total, now],
+      params,
     );
     const row = _mapPlayerRow(rows?.[0]);
     if (!row)
@@ -243,7 +249,7 @@ export async function updatePlayerBalanceRow(playerId, balance) {
   }
 }
 
-export async function softDeletePlayerRow(playerId, description) {
+export async function softDeletePlayerRow(playerId, description, ownerUserId) {
   const id = Number(playerId);
   if (!Number.isFinite(id) || id <= 0)
     return false;
@@ -251,12 +257,15 @@ export async function softDeletePlayerRow(playerId, description) {
   if (!pool)
     return false;
   const now = Date.now();
+  const uid = ownerUserId != null ? String(ownerUserId).trim() : "";
   try {
+    const params = uid ? [id, now, String(description || ""), uid] : [id, now, String(description || "")];
+    const ownerClause = uid ? " AND owner_user_id = $4::uuid" : "";
     const res = await pool.query(
       `UPDATE players
        SET deleted_at = $2, delete_description = $3, updated_at = $2
-       WHERE id = $1 AND deleted_at IS NULL`,
-      [id, now, String(description || "")],
+       WHERE id = $1 AND deleted_at IS NULL${ownerClause}`,
+      params,
     );
     return (res.rowCount ?? 0) > 0;
   }

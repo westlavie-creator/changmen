@@ -113,6 +113,18 @@ async function main() {
     console.log("[rds] 执行 026_players_owner_user_id.sql …");
     await client.query(readSql("026_players_owner_user_id.sql"));
 
+    const orphanCheck = await client.query(
+      `SELECT COUNT(*)::int AS n FROM players WHERE deleted_at IS NULL AND owner_user_id IS NULL`,
+    );
+    if ((orphanCheck.rows[0]?.n ?? 0) > 0) {
+      throw new Error(
+        `[rds] 仍有 ${orphanCheck.rows[0].n} 个活跃 player 无 owner_user_id，请先运行: npm run db:finalize-players-owner`,
+      );
+    }
+
+    console.log("[rds] 执行 027_players_active_owner_required.sql …");
+    await client.query(readSql("027_players_active_owner_required.sql"));
+
     const tables = await client.query(`
       SELECT tablename FROM pg_tables
       WHERE schemaname = 'public'

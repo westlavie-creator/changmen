@@ -158,7 +158,7 @@ Auth: 自签 JWT（`users` + `profiles`）。凭证在 `server/backend/.env`（`
 
 | Data | Store | Notes |
 |------|-------|-------|
-| 账号（ACCOUNT） | RDS `profiles.accounts` | `db/store.js` 内存缓存，登录时从 RDS 加载 |
+| 账号（ACCOUNT） | RDS `profiles.accounts` jsonb | `[changmen 实现]` 存 Client_SaveData 的 JSON 数组；非 A8 服务端结构。内存缓存见 `db/store.js` |
 | 订单 | RDS `orders` 表 | 无数据库时返回空，功能不可用 |
 | 用户设置（CollectConfig / USERCONFIG 等） | `db/store.js` 内存 + RDS `profiles` 异步写 | 重启后从 RDS 重载 |
 | esport 数据（赛事/赔率/平台凭证等） | 本地 JSON（`storage/legacy/esport/*.json`） | 不依赖云库 |
@@ -240,6 +240,30 @@ All A8 parity tracking lives under `client/web/docs/`:
 - `[A8 可证实]` — directly traceable to bundle code or Network capture
 - `[changmen 推测]` — inferred from API shape / response without A8 server source
 - `[changmen 扩展]` — capability that does not exist in A8 bundle at all
+
+### 投注账号（A8 前端 + 后端演进）
+
+**原则**：前端 `stores/account`（Io）严格对齐 A8 `index.js`——`loadAccounts` / `persistAccounts` / 余额刷新后 `saveAccounts` 的时序与 API 调用与 bundle 一致，**不得**添加 A8 没有的门控（如空列表 skip、admin 预览 skip save）。
+
+**后端**是唯一演进面，且必须 **兼容 → 迁移 → 内部重构**：
+
+| 阶段 | 目标 |
+|------|------|
+| 兼容层 | `Client_*` 形状不变；`handleSaveAccounts` 在 A8 发来 `[]` 时查 RDS 拒绝覆盖；`owner_user_id` + 归属校验 |
+| 迁移 | 存量 player 回填/拆分；脚本改库后 `loadProfileById` + pm2 restart |
+| 内部重构 | 可引入 `user_accounts` 等表，对外仍返回 bigint `accountId`，订单 `player_id` 不断 |
+
+管理端用户工作区预览为 **[changmen 扩展]**（A8 无 `adminWorkspacePreview`）；安全由后端拒绝非法 save（空覆盖、非本人 `playerId`）保证，而非前端 skip。
+
+运维脚本 `fix-sh01-river-accounts.mjs` 等不得跨 profile 复制凭证；优先 `scripts/audit-accounts-full.mjs` 巡检。
+
+完整后端模型与运维命令见 [docs/ACCOUNT_BACKEND.md](./docs/ACCOUNT_BACKEND.md)。
+
+**存储说明（勿与 A8 后端混淆）**：
+
+- `[A8 可证实]`：`index.js` 通过 `Client_GetData` / `Client_SaveData` key=`ACCOUNT` 读写 **JSON 数组**（含 `accountId`、gateway、token 等字段）。
+- **A8 服务端如何落库**：黑盒，不可见。
+- `[changmen 实现]`：用 RDS `profiles.accounts` **jsonb** 持久化上述 JSON 数组；`players` 表存 playerId 元数据与 `owner_user_id`。这是 changmen 自有设计，只为满足 **Client_* 线协议**，不是 A8 后端复刻。
 
 ### Adding a new platform
 

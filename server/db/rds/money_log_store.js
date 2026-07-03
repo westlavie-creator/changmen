@@ -214,15 +214,19 @@ export async function deleteMoneyLogById(logId, userId) {
   }
 }
 
-export async function deleteMoneyLogsByPlayer(playerId) {
+export async function deleteMoneyLogsByPlayer(playerId, userId) {
   const pid = Number(playerId);
-  if (!Number.isFinite(pid))
+  const uid = String(userId || "").trim();
+  if (!Number.isFinite(pid) || !uid)
     return false;
   const pool = getPgPool();
   if (!pool)
     return false;
   try {
-    const res = await pool.query("DELETE FROM money_logs WHERE player_id = $1", [pid]);
+    const res = await pool.query(
+      "DELETE FROM money_logs WHERE player_id = $1 AND user_id = $2::uuid",
+      [pid, uid],
+    );
     return (res.rowCount ?? 0) > 0;
   }
   catch (err) {

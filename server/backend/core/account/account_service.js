@@ -1,5 +1,5 @@
 import { normalizeAccountMultiplyField, preserveStoredAccountMultiply } from "@changmen/shared/account_multiply";
-import { listProfileRows } from "../db/store.js";
+import * as dbStore from "../db/store.js";
 import store from "../esport-api/store.js";
 import { emptyPage } from "../esport-api/stubs.js";
 import {
@@ -13,6 +13,7 @@ import {
   getAccountBalance,
 } from "./balance_provider.js";
 import * as orderStore from "./order_store.js";
+import { assertPlayerOwnedByUser } from "./player_ownership.js";
 import { resolvePresenceState } from "./user_presence.js";
 
 async function handleCreateTagPlatform(body, userId) {
@@ -52,7 +53,7 @@ async function handleUpdateBalance(body, userId) {
   if (!player) {
     return { ok: false, msg: "player 不存在" };
   }
-  const info = await accountStore.updatePlayerBalance(playerId, balance);
+  const info = await accountStore.updatePlayerBalance(playerId, balance, userId);
   if (!info) {
     return { ok: false, msg: "更新余额失败" };
   }
@@ -66,9 +67,9 @@ async function handleDeletePlayer(body, userId) {
   const owned = await assertPlayerOwnedByUser(playerId, userId);
   if (!owned.ok)
     return owned;
-  const ok = await accountStore.deletePlayer(playerId, body.description || "");
+  const ok = await accountStore.deletePlayer(playerId, body.description || "", userId);
   if (ok)
-    await accountStore.deletePlayerData(playerId);
+    await accountStore.deletePlayerData(playerId, userId);
   if (userId)
     store.removeAccountForUser(userId, playerId);
   return ok ? { ok: true, info: true } : { ok: false, msg: "player 不存在" };
@@ -78,6 +79,9 @@ async function handleGetMoneyLogs(body, userId) {
   const playerId = body.playerId;
   if (!playerId)
     return { ok: false, msg: "playerId 必填" };
+  const owned = await assertPlayerOwnedByUser(playerId, userId);
+  if (!owned.ok)
+    return owned;
   const pageIndex = Number(body.pageIndex) || 1;
   const pageSize = Number(body.pageSize) || 20;
   return { ok: true, info: await accountStore.listMoneyLogs(playerId, pageIndex, pageSize, userId) };
@@ -94,10 +98,9 @@ async function handleSaveMoneyLog(body, userId) {
   const playerId = body.playerId ?? body.PlayerID;
   if (!playerId)
     return { ok: false, msg: "playerId 必填" };
-  const userAccountIds = new Set(store.getAccountsForUser(userId).map(a => Number(a.accountId)));
-  if (!userAccountIds.has(Number(playerId))) {
-    return { ok: false, msg: "账号不属于当前用户" };
-  }
+  const owned = await assertPlayerOwnedByUser(playerId, userId);
+  if (!owned.ok)
+    return owned;
   const row = await accountStore.saveMoneyLog(body, userId);
   if (!row)
     return { ok: false, msg: "保存失败" };
@@ -113,6 +116,9 @@ async function handleGetPlayerOrder(body, userId) {
   const playerId = body.playerId;
   if (!playerId)
     return { ok: false, msg: "playerId 必填" };
+  const owned = await assertPlayerOwnedByUser(playerId, userId);
+  if (!owned.ok)
+    return owned;
   const page = await accountStore.listMoneyLogs(playerId, 1, 10000, userId);
   const logs = (page.data || []).map(row => ({
     ID: row.logId,
@@ -131,12 +137,9 @@ async function handleSaveOrder(body, userId) {
   const playerId = body.playerId;
   if (!playerId)
     return { ok: false, msg: "playerId 必填" };
-  if (userId) {
-    const userAccountIds = new Set(store.getAccountsForUser(userId).map(a => Number(a.accountId)));
-    if (!userAccountIds.has(Number(playerId))) {
-      return { ok: false, msg: "账号不属于当前用户" };
-    }
-  }
+  const owned = await assertPlayerOwnedByUser(playerId, userId);
+  if (!owned.ok)
+    return owned;
   let orders = [];
   try {
     orders = JSON.parse(body.orders || "[]");
@@ -156,7 +159,7 @@ async function handleSaveOrder(body, userId) {
 }
 
 function handleGetUsers() {
-  const info = listProfileRows().map((p) => {
+  const info = dbStore.listProfileRows().map((p) => {
     const id = String(p.id);
     const presence = resolvePresenceState(id, p);
     return {
@@ -171,25 +174,6 @@ function handleGetUsers() {
 /** A8 Io.loadAccounts：ACCOUNT 返回时归一化 PB / Polymarket 乘网默认 */
 function enrichAccountRowFromPlayer(row) {
   return normalizeAccountMultiplyField(row);
-}
-
-async function assertPlayerOwnedByUser(playerId, userId) {
-  if (!userId)
-    return { ok: true };
-  const player = await accountStore.getPlayer(playerId);
-  if (!player)
-    return { ok: false, msg: `playerId ${playerId} 不存在，请先调用 Client_CreateTagPlatform` };
-  if (player.ownerUserId) {
-    if (player.ownerUserId !== userId) {
-      return { ok: false, msg: `playerId ${playerId} 不属于当前用户` };
-    }
-    return { ok: true };
-  }
-  const userAccountIds = new Set(store.getAccountsForUser(userId).map(a => Number(a.accountId)));
-  if (!userAccountIds.has(Number(playerId))) {
-    return { ok: false, msg: `playerId ${playerId} 不属于当前用户` };
-  }
-  return { ok: true };
 }
 
 /** [A8 可证实] accountId = CreateTagPlatform 返回的 playerId，禁止客户端自增 */
@@ -213,7 +197,7 @@ async function validateAccountRows(accounts, userId) {
 }
 
 async function handleSaveAccounts(accounts, userId) {
-  const existing = store.getAccountsForUser(userId);
+  const existing = await dbStore.prepareAccountsForSave(userId);
   if (Array.isArray(accounts) && accounts.length === 0 && existing.length > 0) {
     return { ok: false, msg: "禁止用空列表覆盖已有账号，请刷新页面后重试" };
   }
@@ -232,7 +216,7 @@ async function handleSaveAccounts(accounts, userId) {
     const id = Number(row?.accountId ?? row?.AccountId);
     const label = String(row?.platformName ?? row?.PlatformName ?? "").trim();
     if (id && label) {
-      await accountStore.syncPlayerDisplayName(id, label);
+      await accountStore.syncPlayerDisplayName(id, label, userId);
     }
   }
   store.setAccountsForUser(userId, normalized);
@@ -296,7 +280,7 @@ function handleGetData(key, userId) {
   return { ok: true, info: parsed, direct: parsed };
 }
 
-async function refreshAccountBalance(accountRow) {
+async function refreshAccountBalance(accountRow, userId) {
   const enriched = enrichAccountFromPlatformDefaults(accountRow);
   if (!enriched.gateway || !enriched.token) {
     return { account: enriched, balance: null };
@@ -306,7 +290,7 @@ async function refreshAccountBalance(accountRow) {
     if (!bal)
       return { account: enriched, balance: null };
     if (enriched.accountId) {
-      await accountStore.updatePlayerBalance(enriched.accountId, bal.balance);
+      await accountStore.updatePlayerBalance(enriched.accountId, bal.balance, userId);
     }
     return { account: enriched, balance: bal };
   }
@@ -319,7 +303,7 @@ async function refreshAllAccountBalances(userId) {
   const accounts = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
   const results = [];
   for (const row of accounts) {
-    results.push(await refreshAccountBalance(row));
+    results.push(await refreshAccountBalance(row, userId));
   }
   return results;
 }
@@ -375,13 +359,16 @@ async function handleRefreshAccountBalance(body, userId) {
   const playerId = body.playerId;
   if (!playerId)
     return { ok: false, msg: "playerId 必填" };
+  const owned = await assertPlayerOwnedByUser(playerId, userId);
+  if (!owned.ok)
+    return owned;
   const accounts = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
   const row = enrichAccountRowFromPlayer(
     accounts.find(r => String(r.accountId) === String(playerId)),
   );
   if (!row)
     return { ok: false, msg: "account 不存在" };
-  const result = await refreshAccountBalance(row);
+  const result = await refreshAccountBalance(row, userId);
   if (result.balance != null) {
     const balance = Number(result.balance.balance) || 0;
     const credit = Number(row.credit) || 0;

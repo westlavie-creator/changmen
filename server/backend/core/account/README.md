@@ -1,26 +1,26 @@
-# 账号模块（对齐 A8 `Io()` / `uv`）
+# 账号模块（对齐 A8 前端 `Io()` / `uv`）
 
-对标 A8 控制台「平台账号」能力：标签平台、Player 元数据、ACCOUNT KV 持久化、充提流水、余额上报（服务端 API，非单机本地存储）。
+对标 A8 控制台「平台账号」**前端行为**（`index.js`）；A8 服务端不可见。changmen 用 RDS 实现 Client_* 线协议。
 
 ## 架构
 
 ```text
-控制台 Vue (AccountView / AccountInfoView)
-    ↕ Client_* API
+控制台 Vue (AccountView / AccountInfoView)   ← 行为对齐 index.js Io()
+    ↕ Client_* API（线协议 [A8 可证实]）
 core/esport-api/router.js
     ↕
-scripts/account/account_service.js
-    ├─ account_store.js     tag_platforms / players / money_logs（RDS）
-    ├─ balance_provider.js  PB、HG 等 getBalance
-    └─ clipboard_credential.js  插件 Base64 凭证解析
-user_kv.json (key=ACCOUNT)  ← 前端 Pinia Io() 权威数据源
+core/account/account_service.js
+    ├─ account_store.js     tag_platforms / players（owner_user_id）/ money_logs
+    ├─ player_ownership.js  每用户 playerId 归属校验
+    └─ balance_provider.js  PB、HG 等 getBalance
+profiles.accounts (jsonb)   ← [changmen 实现] 持久化 SaveData(ACCOUNT) 的 JSON 数组
 ```
 
 ## 与 A8 对齐的 API
 
 | API | 作用 |
 |-----|------|
-| `Client_GetData` / `Client_SaveData` | `ACCOUNT` 等 KV；**数组 KV 直接返回数组**（供 `loadAccounts().map`） |
+| `Client_GetData` / `Client_SaveData` | key=`ACCOUNT` 时读写 **JSON 数组**（bundle 直接 `.map`）；changmen 存于 `profiles.accounts` jsonb |
 | `Client_CreateTagPlatform` | 创建标签平台 + player，返回 `{ playerId, playerName, platformId, platformName }` |
 | `Client_GetTagPlatforms` | 返回 `[{ ID, Name }]` |
 | `Client_UpdateBalance` | 更新 player 余额，返回 `{ total, platformId, platformName }` |
