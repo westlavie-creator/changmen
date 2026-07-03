@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compareOrderLinkDesc,
+  computeOrderGroupProfit,
   groupOrdersByLink,
   isLinkedArbOrderGroup,
   linkIdGroupKey,
@@ -181,6 +182,46 @@ describe("orderLink A8 parity", () => {
       { Link: link, Status: "None", BetMoney: 100, Odds: 2.0, Money: 0 },
     ]);
     expect(text.startsWith("🏆")).toBe(true);
+  });
+
+  it("PM group profit uses PmBuyOrderId cost not sum of all buys", () => {
+    const profit = computeOrderGroupProfit([
+      {
+        OrderID: "0xbuy70",
+        Type: "Polymarket",
+        PmSide: "buy",
+        BetMoney: 70,
+        Money: 36,
+        Status: "Win",
+      },
+      {
+        OrderID: "0xbuy98",
+        Type: "Polymarket",
+        PmSide: "buy",
+        BetMoney: 98,
+        Money: 71,
+        Status: "Win",
+      },
+      {
+        OrderID: "0xsell70",
+        Type: "Polymarket",
+        PmSide: "sell",
+        PmBuyOrderId: "0xbuy70",
+        BetMoney: 85,
+        PmStakeUsdc: 10,
+        Status: "None",
+      },
+      {
+        OrderID: "0xsell98",
+        Type: "Polymarket",
+        PmSide: "sell",
+        PmBuyOrderId: "0xbuy98",
+        BetMoney: 144,
+        PmStakeUsdc: 14,
+        Status: "None",
+      },
+    ]);
+    expect(profit).toBe(15 + 46);
   });
 
   it("isLinkedArbOrderGroup detects cross-platform arb legs on same Link", () => {

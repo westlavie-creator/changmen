@@ -122,7 +122,18 @@ export function isPolymarketOpenPosition(row: OrderRow): boolean {
   return true;
 }
 
-/** 组内已实现盈亏：传统单 sum(Money)；PM 有卖单时 回款 − 对应买单成本 */
+function pmSellCostCny(sell: OrderRow, pmBuys: OrderRow[]): number {
+  const stakeUsdc = Number(sell.PmStakeUsdc) || 0;
+  if (stakeUsdc > 0.001)
+    return Math.round(stakeUsdc * USDT_CNY_EXCHANGE);
+  const buyId = String(sell.PmBuyOrderId ?? "").trim();
+  if (!buyId)
+    return 0;
+  const buy = pmBuys.find(b => String(b.OrderID ?? "") === buyId);
+  return buy ? (Number(buy.BetMoney) || 0) : 0;
+}
+
+/** 组内盈亏：PM 卖单 = 回款 − 对应买单成本；无卖单的 PM 买单 = 赛果 Money */
 export function computeOrderGroupProfit(rows: OrderRow[]): number {
   const trad = rows.filter(r => !isPolymarketOrderRow(r));
   const pmBuys = rows.filter(
@@ -133,14 +144,17 @@ export function computeOrderGroupProfit(rows: OrderRow[]): number {
   let total = trad.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
 
   if (pmSells.length) {
-    const proceeds = pmSells.reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
-    let cost = pmSells.reduce((sum, r) => {
-      const stakeUsdc = Number(r.PmStakeUsdc) || 0;
-      return stakeUsdc > 0 ? sum + Math.round(stakeUsdc * USDT_CNY_EXCHANGE) : sum;
-    }, 0);
-    if (cost <= 0)
-      cost = pmBuys.reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
-    total += proceeds - cost;
+    const linkedBuyIds = new Set<string>();
+    for (const sell of pmSells) {
+      total += (Number(sell.BetMoney) || 0) - pmSellCostCny(sell, pmBuys);
+      const buyId = String(sell.PmBuyOrderId ?? "").trim();
+      if (buyId)
+        linkedBuyIds.add(buyId);
+    }
+    for (const buy of pmBuys) {
+      if (!linkedBuyIds.has(String(buy.OrderID ?? "")))
+        total += Number(buy.Money) || 0;
+    }
   }
   else {
     total += pmBuys.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);

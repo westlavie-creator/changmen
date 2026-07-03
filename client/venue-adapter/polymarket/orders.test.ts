@@ -4,6 +4,7 @@ import {
   applyPolymarketNetPositions,
   applyPolymarketSettlement,
   flattenPolymarketTrades,
+  finalizePolymarketVenueOrders,
   isPolymarketMarketResolved,
   isPolymarketTradeConfirmed,
   isUserMakerOrderLeg,
@@ -499,6 +500,118 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(sell1?.betMoney).toBeGreaterThan(0);
     expect(sell1?.pmBuyOrderId).toBe("0xbuy1");
     expect((sell1?.money ?? 0)).toBeLessThan(sell1?.betMoney ?? 0);
+  });
+
+  test("same-token sells match buy by share count (BetBoom regression)", () => {
+    const token = "762766351957438558742694";
+    const sample: PolymarketTradeRow[] = [
+      {
+        taker_order_id: "0xbuy70",
+        side: "BUY",
+        status: "CONFIRMED",
+        size: "15.151514",
+        price: "0.66",
+        match_time: "1783104307",
+        asset_id: token,
+      },
+      {
+        taker_order_id: "0xbuy98",
+        side: "BUY",
+        status: "CONFIRMED",
+        size: "24.13793",
+        price: "0.58",
+        match_time: "1783104471",
+        asset_id: token,
+      },
+      {
+        taker_order_id: "0xsell70",
+        side: "SELL",
+        status: "CONFIRMED",
+        size: "15.15",
+        price: "0.8",
+        match_time: "1783107450",
+        asset_id: token,
+      },
+      {
+        taker_order_id: "0xsell98",
+        side: "SELL",
+        status: "CONFIRMED",
+        size: "24.13",
+        price: "0.85",
+        match_time: "1783108467",
+        asset_id: token,
+      },
+    ];
+
+    const orders = mapPolymarketTradesToVenueOrders(sample);
+    const sell70 = orders.find(o => o.orderId === "0xsell70");
+    const sell98 = orders.find(o => o.orderId === "0xsell98");
+    expect(sell70?.pmBuyOrderId).toBe("0xbuy70");
+    expect(sell98?.pmBuyOrderId).toBe("0xbuy98");
+    expect(sell98?.pmBuyOrderId).not.toBe("0xbuy70");
+  });
+
+  test("finalize merges changmen stored sell pmBuyOrderId over CLOB", () => {
+    const token = "asset-a";
+    const clob = mapPolymarketTradesToVenueOrders([
+      {
+        taker_order_id: "0xsell98",
+        side: "SELL",
+        status: "CONFIRMED",
+        size: "24.13",
+        price: "0.85",
+        match_time: "1783108467",
+        asset_id: token,
+      },
+    ]);
+    const stored = [{
+      provider: "Polymarket" as const,
+      orderId: "0xsell98",
+      odds: 1.1765,
+      createAt: 1783108467000,
+      betMoney: 144,
+      reward: 0,
+      money: 46,
+      status: "none" as const,
+      game: "",
+      match: "BetBoom vs Neme",
+      bet: "",
+      item: "平仓",
+      pmSide: "sell" as const,
+      pmOrigin: "changmen" as const,
+      pmBuyOrderId: "0xbuy98",
+      pmShares: 24.13,
+      pmStakeUsdc: 14,
+      pmTokenId: token,
+    }];
+    const out = finalizePolymarketVenueOrders(clob, 47, stored);
+    const sell = out.find(o => o.orderId === "0xsell98");
+    expect(sell?.pmOrigin).toBe("changmen");
+    expect(sell?.pmBuyOrderId).toBe("0xbuy98");
+    expect(sell?.pmStakeUsdc).toBe(14);
+  });
+
+  test("finalize skips changmen CLOB sell without RDS row (await persist)", () => {
+    const clob = [{
+      provider: "Polymarket" as const,
+      orderId: "0xpending-sell",
+      odds: 1.25,
+      createAt: 1783108467000,
+      betMoney: 8,
+      reward: 0,
+      money: 0,
+      status: "none" as const,
+      game: "",
+      match: "",
+      bet: "",
+      item: "平仓",
+      pmSide: "sell" as const,
+      pmOrigin: "changmen" as const,
+      pmShares: 10,
+      pmTokenId: "tok",
+    }];
+    const out = finalizePolymarketVenueOrders(clob, 99, []);
+    expect(out.find(o => o.orderId === "0xpending-sell")).toBeUndefined();
   });
 
   test("scalePolymarketVenueOrdersForDisplay scales USDC once to CNY", () => {

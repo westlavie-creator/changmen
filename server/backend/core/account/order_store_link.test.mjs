@@ -69,4 +69,59 @@ describe("saveOrder backend bind link", () => {
     const row = upsertOrders.mock.calls[0][0][0];
     expect(row.link).toBe(createAt - 1);
   });
+
+  it("PM external sell accepts incoming pmBuyOrderId over stale RDS", async () => {
+    const buy70Link = 1_781_304_306_999;
+    const buy98Link = 1_781_304_468_251;
+    fetchOrdersByPlayerAll.mockResolvedValue([
+      {
+        order_id: "0xbuy70",
+        link: buy70Link,
+        create_at: 1_781_304_307_000,
+        bet_money: 70,
+        raw: { pmSide: "buy", pmOrigin: "changmen" },
+      },
+      {
+        order_id: "0xbuy98",
+        link: buy98Link,
+        create_at: 1_781_304_471_000,
+        bet_money: 98,
+        raw: { pmSide: "buy", pmOrigin: "changmen" },
+      },
+      {
+        order_id: "0xsell98",
+        link: 1_781_308_466_999,
+        create_at: 1_781_308_467_000,
+        bet_money: 144,
+        raw: {
+          pmSide: "sell",
+          pmOrigin: "external",
+          pmBuyOrderId: "0xbuy70",
+          pmStakeUsdc: 0.001,
+        },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xsell98",
+        createAt: 1_781_308_467_000,
+        provider: "Polymarket",
+        pmSide: "sell",
+        pmOrigin: "external",
+        pmBuyOrderId: "0xbuy98",
+        pmStakeUsdc: 14,
+        betMoney: 144,
+        money: 46,
+        odds: 1.1765,
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.raw.pmBuyOrderId).toBe("0xbuy98");
+    expect(row.raw.pmStakeUsdc).toBe(14);
+    expect(row.link).toBe(buy98Link);
+  });
 });

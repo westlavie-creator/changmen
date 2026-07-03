@@ -4,6 +4,7 @@ import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import { hasOpenPolymarketPosition } from "@venue/polymarket/pmLogicalPosition";
 import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
+import { fetchPolymarketVenueOrdersForSync } from "@/stores/account/polymarketVenueSync";
 
 function isOpenUnsettledVenueOrder(o: VenueOrder): boolean {
   if (o.status !== "none")
@@ -22,10 +23,16 @@ export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder
 
 /** 对齐 A8 `uv.updateOrders` + `Vt.saveOrders` */
 export async function syncVenueOrders(account: PlatformAccount): Promise<VenueOrder[] | undefined> {
-  const provider = getProvider(account);
-  if (!provider?.getOrders)
-    return undefined;
-  const raw = await provider.getOrders(account);
+  let raw: VenueOrder[] | undefined;
+  if (account.provider === "Polymarket") {
+    raw = await fetchPolymarketVenueOrdersForSync(account);
+  }
+  else {
+    const provider = getProvider(account);
+    if (!provider?.getOrders)
+      return undefined;
+    raw = await provider.getOrders(account);
+  }
   if (raw == null)
     return undefined;
   const orders = sortVenueOrdersNewestFirst(raw);

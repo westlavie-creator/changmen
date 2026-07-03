@@ -1,7 +1,7 @@
 import type { VenueOrder } from "@venue/contract";
 import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { scaleUsdtToCnyDisplay } from "@changmen/shared/account_multiply";
+import { scaleUsdtToCnyDisplay, USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
 import { PLATFORMS } from "@/shared/platform";
 import { POLYMARKET_CLOB_API, POLYMARKET_GAMMA_API } from "./api";
 import {
@@ -11,6 +11,7 @@ import {
 } from "./l2Auth";
 import { polymarketOrderContextFromMarket, parseJsonArray, type PolymarketRawMarket } from "./parse";
 import { resolveBuyStakeUsdc } from "./pmLogicalPosition";
+import { applyPolymarketOrderOrigins, isPolymarketChangmenOrder } from "./pmOrigin";
 import { polymarketPluginGet } from "./transport";
 
 const TRADES_PATH = "/data/trades";
@@ -566,6 +567,7 @@ export function mapPolymarketSellTradeToVenueOrder(
     return null;
 
   const odds = Math.round((1 / price) * 10000) / 10000;
+  const proceedsUsdc = round4(polymarketBuyStakeUsdc(sizeRaw, price));
   const pmTokenId = tradeHeldAssetId(trade, market);
   const ctx = market
     ? polymarketOrderContextFromMarket(market)
@@ -579,7 +581,7 @@ export function mapPolymarketSellTradeToVenueOrder(
     orderId,
     odds,
     createAt: (Number(trade.match_time) || 0) * 1000,
-    betMoney: 0,
+    betMoney: proceedsUsdc,
     reward: 0,
     money: 0,
     status: "none",
@@ -600,9 +602,60 @@ function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
 
-/** 卖单 FIFO 归因买单并扣减买单份额；填卖单 Money */
+/** 同 token 卖单份额与买单剩余份额匹配容差 */
+const PM_SELL_SHARE_MATCH_EPS = 0.05;
+
+type PmReconcileBuy = VenueOrder & {
+  _remainingShares: number;
+  _remainingStake: number;
+};
+
+/** 卖单 → 对应买单：changmen 用 persist 写入的 pmBuyOrderId；官网卖单按份额匹配 */
+function findBuyForPolymarketSell(
+  sell: VenueOrder,
+  buys: PmReconcileBuy[],
+  buyById: Map<string, PmReconcileBuy>,
+): PmReconcileBuy | undefined {
+  const sharesSold = Number(sell.pmShares) || 0;
+  if (sharesSold <= 0)
+    return undefined;
+
+  if (sell.pmOrigin === "changmen" && sell.pmBuyOrderId) {
+    const linked = buyById.get(sell.pmBuyOrderId);
+    if (linked)
+      return linked;
+  }
+
+  const token = String(sell.pmTokenId ?? "");
+  const candidates = buys
+    .filter(b => String(b.pmTokenId ?? "") === token && b._remainingShares > 0.0001)
+    .sort((a, b) => a.createAt - b.createAt || a.orderId.localeCompare(b.orderId));
+
+  if (!candidates.length)
+    return undefined;
+
+  const exact = candidates.find(b =>
+    Math.abs(b._remainingShares - sharesSold) <= PM_SELL_SHARE_MATCH_EPS,
+  );
+  if (exact)
+    return exact;
+
+  return candidates.find(b => b._remainingShares + PM_SELL_SHARE_MATCH_EPS >= sharesSold)
+    ?? candidates[0];
+}
+
+/** 卖单绑定买单并扣减买单份额；changmen 行不参与匹配（persist 已写 pmBuyOrderId） */
 export function reconcilePolymarketBuySellOrders(orders: VenueOrder[]): VenueOrder[] {
-  const buys = orders
+  const changmen = orders.filter(o => o.pmOrigin === "changmen");
+  const external = orders.filter(o => o.pmOrigin !== "changmen");
+  if (!external.length)
+    return sortVenueOrdersNewestFirst(changmen);
+  const reconciled = reconcileExternalPolymarketOrders(external);
+  return sortVenueOrdersNewestFirst([...changmen, ...reconciled]);
+}
+
+function reconcileExternalPolymarketOrders(orders: VenueOrder[]): VenueOrder[] {
+  const buys: PmReconcileBuy[] = orders
     .filter(o => o.pmSide !== "sell")
     .map(o => ({
       ...o,
@@ -618,19 +671,16 @@ export function reconcilePolymarketBuySellOrders(orders: VenueOrder[]): VenueOrd
   const buyById = new Map(buys.map(b => [b.orderId, b]));
 
   for (const sell of sellCopies) {
-    let buy = sell.pmBuyOrderId ? buyById.get(sell.pmBuyOrderId) : undefined;
-    if (!buy) {
-      const token = String(sell.pmTokenId ?? "");
-      buy = buys
-        .filter(b => String(b.pmTokenId ?? "") === token && b._remainingShares > 0.0001)
-        .sort((a, b) => a.createAt - b.createAt || a.orderId.localeCompare(b.orderId))[0];
-      if (buy)
-        sell.pmBuyOrderId = buy.orderId;
-    }
+    if (sell.pmOrigin !== "changmen")
+      sell.pmBuyOrderId = undefined;
 
     const sharesSold = Number(sell.pmShares) || 0;
+    const buy = findBuyForPolymarketSell(sell, buys, buyById);
     if (!buy || sharesSold <= 0)
       continue;
+
+    if (sell.pmOrigin !== "changmen")
+      sell.pmBuyOrderId = buy.orderId;
 
     const deduct = Math.min(sharesSold, buy._remainingShares);
     if (deduct <= 0)
@@ -639,7 +689,10 @@ export function reconcilePolymarketBuySellOrders(orders: VenueOrder[]): VenueOrd
     const ratio = buy._remainingShares > 0 ? deduct / buy._remainingShares : 0;
     const costPortion = round4(buy._remainingStake * ratio);
     const sellPrice = Number(sell.odds) > 0 ? 1 / Number(sell.odds) : 0;
-    const proceedsUsdc = round4(sharesSold * sellPrice);
+    const fromTradeUsdc = Number(sell.betMoney) > 0 ? Number(sell.betMoney) : 0;
+    const proceedsUsdc = fromTradeUsdc > 0
+      ? round4(fromTradeUsdc * (deduct / sharesSold))
+      : round4(deduct * sellPrice);
     const profitUsdc = round4(proceedsUsdc - costPortion);
 
     sell.pmRealizedPnlUsdc = profitUsdc;
@@ -660,6 +713,142 @@ export function reconcilePolymarketBuySellOrders(orders: VenueOrder[]): VenueOrd
   }));
 
   return sortVenueOrdersNewestFirst([...normalizedBuys, ...sellCopies]);
+}
+
+/** RDS 侧栏行（CNY）→ 与 CLOB 合并用的 USDC VenueOrder */
+function storedVenueOrderToUsdc(stored: VenueOrder): VenueOrder {
+  const stakeUsdc = Number(stored.pmStakeUsdc) || 0;
+  const betUsdc = stored.pmSide === "sell"
+    ? round4((Number(stored.betMoney) || 0) / USDT_CNY_EXCHANGE)
+    : (stakeUsdc > 0 ? stakeUsdc : round4((Number(stored.betMoney) || 0) / USDT_CNY_EXCHANGE));
+  return {
+    ...stored,
+    pmOrigin: "changmen",
+    betMoney: betUsdc,
+    money: round4((Number(stored.money) || 0) / USDT_CNY_EXCHANGE),
+    pmStakeUsdc: stakeUsdc > 0 ? stakeUsdc : (stored.pmSide === "buy" ? betUsdc : stakeUsdc),
+  };
+}
+
+/** changmen 落库行 + CLOB 刷新：绑定/成本以 RDS 为准，成交/赛果以 API 为准 */
+function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): VenueOrder {
+  const base = storedVenueOrderToUsdc(stored);
+  const isSell = base.pmSide === "sell" || clob.pmSide === "sell";
+  if (isSell) {
+    const betUsdc = clob.betMoney > 0 ? clob.betMoney : base.betMoney;
+    const costUsdc = base.pmStakeUsdc ?? 0;
+    const profitUsdc = costUsdc > 0 && betUsdc > 0
+      ? round4(betUsdc - costUsdc)
+      : base.money;
+    return {
+      ...base,
+      pmSide: "sell",
+      pmOrigin: "changmen",
+      pmBuyOrderId: base.pmBuyOrderId ?? clob.pmBuyOrderId,
+      pmTokenId: base.pmTokenId ?? clob.pmTokenId,
+      pmShares: clob.pmShares ?? base.pmShares,
+      betMoney: betUsdc,
+      odds: clob.odds || base.odds,
+      pmStakeUsdc: costUsdc,
+      pmRealizedPnlUsdc: profitUsdc,
+      money: profitUsdc,
+      status: base.status !== "none" ? base.status : clob.status,
+      match: base.match || clob.match,
+      bet: base.bet || clob.bet,
+      item: base.item || clob.item,
+      game: base.game || clob.game,
+      createAt: base.createAt || clob.createAt,
+    };
+  }
+  return {
+    ...base,
+    pmSide: "buy",
+    pmOrigin: "changmen",
+    betMoney: base.betMoney > 0 ? base.betMoney : clob.betMoney,
+    pmShares: base.pmShares ?? clob.pmShares,
+    pmStakeUsdc: base.pmStakeUsdc ?? clob.pmStakeUsdc,
+    pmSellState: base.pmSellState ?? clob.pmSellState,
+    pmAttributedSellShares: base.pmAttributedSellShares ?? clob.pmAttributedSellShares,
+    odds: base.odds || clob.odds,
+    status: clob.status !== "none" ? clob.status : base.status,
+    money: clob.status !== "none" ? clob.money : base.money,
+    reward: clob.reward ?? base.reward,
+    match: base.match || clob.match,
+    bet: base.bet || clob.bet,
+    item: base.item || clob.item,
+    game: base.game || clob.game,
+    pmConditionId: base.pmConditionId ?? clob.pmConditionId,
+    createAt: base.createAt || clob.createAt,
+  };
+}
+
+function isChangmenPolymarketOrder(
+  order: VenueOrder,
+  stored: VenueOrder | undefined,
+  playerId: number,
+): boolean {
+  return order.pmOrigin === "changmen"
+    || stored?.pmOrigin === "changmen"
+    || (playerId > 0 && isPolymarketChangmenOrder(playerId, order.orderId));
+}
+
+/**
+ * CLOB 同步与 RDS changmen 行合并：
+ * - changmen 买卖：以 RDS 绑定为准，CLOB 只刷新 fill/赛果
+ * - changmen 卖单未 persist 前：跳过 CLOB 新建（等 persistChangmenSellOrder）
+ * - 其余：external + 份额匹配
+ */
+export function mergePolymarketClobWithStoredOrders(
+  clobOrders: VenueOrder[],
+  storedOrders: VenueOrder[],
+  playerId: number,
+): VenueOrder[] {
+  const storedById = new Map(storedOrders.map(o => [o.orderId, o]));
+  const merged: VenueOrder[] = [];
+  const usedStored = new Set<string>();
+
+  for (const clob of clobOrders) {
+    const stored = storedById.get(clob.orderId);
+    const isCm = isChangmenPolymarketOrder(clob, stored, playerId);
+
+    if (stored && isCm) {
+      merged.push(mergeChangmenStoredWithClob(stored, clob));
+      usedStored.add(clob.orderId);
+      continue;
+    }
+    if (isCm && clob.pmSide === "sell") {
+      // persistChangmenSellOrder 尚未落库 — 勿从 CLOB 猜绑定
+      continue;
+    }
+    if (isCm) {
+      merged.push({ ...clob, pmOrigin: "changmen" });
+      continue;
+    }
+    merged.push(clob);
+  }
+
+  for (const stored of storedOrders) {
+    if (usedStored.has(stored.orderId))
+      continue;
+    if (stored.pmOrigin === "changmen" || (playerId > 0 && isPolymarketChangmenOrder(playerId, stored.orderId)))
+      merged.push(storedVenueOrderToUsdc(stored));
+  }
+
+  return merged;
+}
+
+/** 标记 origin → 合并 RDS → 仅 external 卖单做份额匹配 */
+export function finalizePolymarketVenueOrders(
+  clobOrders: VenueOrder[],
+  playerId: number,
+  storedOrders: VenueOrder[] = [],
+): VenueOrder[] {
+  const account = { accountId: playerId } as PlatformAccount;
+  const tagged = playerId > 0
+    ? applyPolymarketOrderOrigins(account, clobOrders)
+    : clobOrders;
+  const merged = mergePolymarketClobWithStoredOrders(tagged, storedOrders, playerId);
+  return reconcilePolymarketBuySellOrders(merged);
 }
 
 /** 汇总已确认 SELL 成交的卖出份数（按 asset_id） */
@@ -966,5 +1155,5 @@ export function mapPolymarketTradesToVenueOrders(
     if (mapped)
       orders.push(mapped);
   }
-  return reconcilePolymarketBuySellOrders(orders);
+  return finalizePolymarketVenueOrders(orders, 0);
 }

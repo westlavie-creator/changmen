@@ -6,6 +6,7 @@ import {
   venueOrderFromOrderRow,
 } from "@venue/polymarket/pmLogicalPosition";
 import { scalePolymarketVenueOrdersForDisplay } from "@venue/polymarket/orders";
+import { markPolymarketChangmenOrder } from "@venue/polymarket/pmOrigin";
 import { saveOrderBind, saveOrders } from "@/api/order";
 
 export interface PersistChangmenSellParams {
@@ -44,6 +45,7 @@ export async function persistChangmenSellOrder(
   // 买单行已是 DB CNY 口径；卖单新建为 USDC，仅 scale 卖单
   const [scaledSell] = scalePolymarketVenueOrdersForDisplay([sellOrder]);
   await saveOrders(account, [updatedBuy, scaledSell]);
+  markPolymarketChangmenOrder(account.accountId, sellOrderId);
 
   const link = Number(buyRow.Link);
   if (Number.isFinite(link) && link !== 0) {

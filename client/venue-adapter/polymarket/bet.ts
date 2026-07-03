@@ -19,10 +19,11 @@ import {
 } from "./l2Auth";
 import {
   fetchPolymarketVenueOrdersBundle,
+  finalizePolymarketVenueOrders,
   scalePolymarketVenueOrdersForDisplay,
 } from "./orders";
 import { isPolymarketDelayedPending } from "./orderStatus";
-import { applyPolymarketOrderOrigins, markPolymarketChangmenOrder } from "./pmOrigin";
+import { markPolymarketChangmenOrder } from "./pmOrigin";
 import { registerPolymarketOrderWatch } from "./userWs";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
@@ -420,8 +421,8 @@ export const polymarketProvider: PlatformProvider = {
   async getOrders(account: PlatformAccount) {
     try {
       const { orders } = await fetchPolymarketVenueOrdersBundle(account);
-      const tagged = applyPolymarketOrderOrigins(account, orders);
-      return scalePolymarketVenueOrdersForDisplay(tagged);
+      const finalized = finalizePolymarketVenueOrders(orders, account.accountId);
+      return scalePolymarketVenueOrdersForDisplay(finalized);
     }
     catch (err) {
       console.warn("[Polymarket] getOrders failed", err);

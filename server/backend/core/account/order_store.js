@@ -35,19 +35,19 @@ function parseNum(v, fallback = 0) {
 }
 
 function resolveSaveOrderLink(o, prevRaw, orderId, createAt, linkByOrderId, existingByOrderId, assignedInBatch, provider) {
-  const boundLink = linkByOrderId.get(orderId);
-  if (boundLink != null && boundLink !== 0)
-    return boundLink;
-
-  // PM 卖单：继承买单 Link（PM 买卖绑定）；套利对腿已在买单上通过 saveOrderBind 写入 LinkID
   const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "").toLowerCase();
   const buyOrderId = String(o.pmBuyOrderId ?? prevRaw.pmBuyOrderId ?? "").trim();
+  // PM 卖单：始终跟对应买单 Link（绑定修正时覆盖旧占位 link）
   if (provider === "Polymarket" && incomingSide === "sell" && buyOrderId) {
     const buyLink = parseNum(existingByOrderId.get(buyOrderId)?.link, 0)
       || parseNum(assignedInBatch.get(buyOrderId), 0);
     if (buyLink !== 0)
       return buyLink;
   }
+
+  const boundLink = linkByOrderId.get(orderId);
+  if (boundLink != null && boundLink !== 0)
+    return boundLink;
 
   return backendBindLinkFromCreateAt(createAt);
 }
@@ -128,30 +128,48 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
 
   if (isSell) {
     const proceedsBet = incomingBet > 0 ? incomingBet : (prevBet > 0 ? prevBet : 0);
+    if (isChangmen || prevRaw.pmOrigin === "changmen") {
+      merged = {
+        ...merged,
+        pmSide: "sell",
+        pmOrigin: "changmen",
+        betMoney: prevBet > 0 ? prevBet : (incomingBet > 0 ? incomingBet : proceedsBet),
+        pmBuyOrderId: prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId ?? o.pmBuyOrderId,
+        pmRealizedPnlUsdc: prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc,
+      };
+      bet_money = parseNum(merged.betMoney, proceedsBet);
+      money = parseNum(prevRaw.money ?? prevRow?.money, parseNum(o.money ?? o.Money, 0));
+      merged.money = money;
+      const costUsdc = parseNum(merged.pmStakeUsdc ?? prevRaw.pmStakeUsdc, 0);
+      if (costUsdc > 0 && bet_money > 0) {
+        const profitCny = Math.round(bet_money - costUsdc * 7);
+        merged.money = profitCny;
+        merged.pmRealizedPnlUsdc = Math.round((profitCny / 7) * 10000) / 10000;
+        money = profitCny;
+      }
+      return { raw: merged, money, bet_money };
+    }
+
+    // 官网/CLOB 卖单：reconcile 结果为准，允许修正错误 pmBuyOrderId
     merged = {
       ...merged,
       pmSide: "sell",
-      betMoney: proceedsBet,
-      pmBuyOrderId: prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId ?? o.pmBuyOrderId,
-      pmRealizedPnlUsdc: prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc,
+      pmOrigin: "external",
+      pmBuyOrderId: merged.pmBuyOrderId ?? o.pmBuyOrderId ?? prevRaw.pmBuyOrderId,
+      betMoney: incomingBet > 0 ? incomingBet : prevBet,
+      pmStakeUsdc: parseNum(merged.pmStakeUsdc ?? o.pmStakeUsdc, parseNum(prevRaw.pmStakeUsdc, 0)),
+      pmRealizedPnlUsdc: merged.pmRealizedPnlUsdc ?? o.pmRealizedPnlUsdc ?? prevRaw.pmRealizedPnlUsdc,
     };
-    if (isChangmen || prevRaw.pmOrigin === "changmen") {
-      merged.pmOrigin = "changmen";
-      merged.pmRealizedPnlUsdc = prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc;
-      merged.pmBuyOrderId = prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId;
-      // 刷新时优先 CLOB reconcile 口径，避免错误 prevBet 永久锁死
-      merged.betMoney = incomingBet > 0 ? incomingBet : (prevBet > 0 ? prevBet : proceedsBet);
-    }
     bet_money = parseNum(merged.betMoney, proceedsBet);
-    const costUsdc = parseNum(merged.pmStakeUsdc ?? prevRaw.pmStakeUsdc, 0);
+    const costUsdc = parseNum(merged.pmStakeUsdc, 0);
     if (costUsdc > 0 && bet_money > 0) {
       const profitCny = Math.round(bet_money - costUsdc * 7);
       merged.money = profitCny;
       merged.pmRealizedPnlUsdc = Math.round((profitCny / 7) * 10000) / 10000;
       money = profitCny;
     }
-    else if (isChangmen || prevRaw.pmOrigin === "changmen") {
-      money = parseNum(prevRaw.money ?? prevRow?.money, parseNum(o.money ?? o.Money, 0));
+    else {
+      money = parseNum(merged.money ?? o.money ?? o.Money, parseNum(prevRaw.money, 0));
       merged.money = money;
     }
     return { raw: merged, money, bet_money };
