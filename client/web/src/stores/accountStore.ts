@@ -17,6 +17,8 @@ export const useAccountStore = defineStore("account", {
     loading: false,
     /** A8 Io.f 连续轮询开关（loadAccounts(true) 置位） */
     balanceRefreshRunning: false,
+    /** 管理端预览他人工作区时注入的账号快照，禁止 saveAccounts 写回当前登录用户 */
+    adminWorkspacePreview: false,
     providerPickIndex: new Map<PlatformId, number>(),
     editDialogOpen: false,
     editDialogAccount: undefined as PlatformAccount | undefined,
@@ -110,6 +112,17 @@ export const useAccountStore = defineStore("account", {
 
     stopBalanceRefreshLoop() {
       balanceRefresh.stopBalanceRefreshLoop(this);
+    },
+
+    /** logout / 切换用户：清空内存账号，避免上一用户列表被误保存 */
+    resetSession() {
+      this.stopBalanceRefreshLoop();
+      this.adminWorkspacePreview = false;
+      this.accounts = [];
+      this.loaded = false;
+      this.loading = false;
+      this.editDialogOpen = false;
+      this.editDialogAccount = undefined;
     },
 
     saveMoneyLogForAccount(

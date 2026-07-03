@@ -110,12 +110,17 @@ export async function refreshAllFromVenues(
     }
 
     step = Date.now();
-    try {
-      await store.saveAccounts();
-      lines.push(`保存账号：${Date.now() - step}ms`);
+    if (!store.adminWorkspacePreview) {
+      try {
+        await store.saveAccounts();
+        lines.push(`保存账号：${Date.now() - step}ms`);
+      }
+      catch {
+        lines.push(`保存账号：${Date.now() - step}ms（失败）`);
+      }
     }
-    catch {
-      lines.push(`保存账号：${Date.now() - step}ms（失败）`);
+    else {
+      lines.push("保存账号：跳过（管理端预览）");
     }
 
     saveAccountRefreshLog(`加载账号信息，总耗时:${Date.now() - startedAt}ms`, lines);

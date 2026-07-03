@@ -81,6 +81,10 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
 }
 
 export async function persistAccounts(store: AccountStoreContext) {
+  if (store.adminWorkspacePreview) {
+    console.warn("[accounts] 管理端预览中，跳过 saveAccounts");
+    return true;
+  }
   const payload = store.accounts
     .filter(a => a.accountId)
     .map(a => normalizeAccountMultiplyField(a.toJSON()));

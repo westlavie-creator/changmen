@@ -50,4 +50,5 @@ function clearSessionCaches(): void {
 
   useOddsStore().$reset();
   useOrderStore().$reset();
+  useAccountStore().resetSession();
 }

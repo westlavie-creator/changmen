@@ -100,6 +100,8 @@ export function mountAdminUserWorkspace(user: AdminUserRow): void {
   const configStore = useConfigStore();
   const orderStore = useOrderStore();
 
+  accountStore.stopBalanceRefreshLoop();
+
   const snap: WorkspaceSnapshot = {
     accounts: cloneAccounts(accountStore.accounts),
     accountLoaded: accountStore.loaded,
@@ -117,6 +119,7 @@ export function mountAdminUserWorkspace(user: AdminUserRow): void {
     loaded: true,
     editDialogOpen: false,
     editDialogAccount: undefined,
+    adminWorkspacePreview: true,
   });
 
   configStore.$patch({
@@ -133,6 +136,7 @@ export function mountAdminUserWorkspace(user: AdminUserRow): void {
       loaded: snap.accountLoaded,
       editDialogOpen: snap.editDialogOpen,
       editDialogAccount: snap.editDialogAccount,
+      adminWorkspacePreview: false,
     });
     configStore.$patch({
       config: snap.config,

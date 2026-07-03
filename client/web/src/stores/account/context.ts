@@ -7,6 +7,7 @@ export interface AccountStoreContext {
   tagPlatforms: TagPlatformRow[];
   providerPickIndex: Map<PlatformId, number>;
   balanceRefreshRunning: boolean;
+  adminWorkspacePreview: boolean;
   loading: boolean;
   loaded: boolean;
   editDialogOpen: boolean;

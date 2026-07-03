@@ -28,6 +28,7 @@ function makeStore(accounts: PlatformAccount[]): AccountStoreContext {
     tagPlatforms: [],
     providerPickIndex: new Map(),
     balanceRefreshRunning: false,
+    adminWorkspacePreview: false,
     loading: false,
     loaded: true,
     editDialogOpen: false,
