@@ -5,6 +5,7 @@ import { startPolymarketCollector } from "./collect";
 export { startPolymarketCollector };
 export * from "./api";
 export * from "./bet";
+export * from "./orderStatus";
 export * from "./collect";
 export * from "./parse";
 export * from "./ws";

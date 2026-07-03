@@ -10,6 +10,8 @@ export class BetResult {
   tip: unknown = null;
   reject: unknown = null;
   orderId: string | null = null;
+  /** Polymarket delayed 等：CLOB 已受理但尚未最终成交 */
+  pending = false;
   link = 0;
   beginTime: number;
   request?: unknown;

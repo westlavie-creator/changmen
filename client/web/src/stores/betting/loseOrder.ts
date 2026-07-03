@@ -1,12 +1,12 @@
 import type { BetResult } from "@/models/betResult";
 import type { VenueOrder } from "@venue/contract";
 import { saveOrderBind } from "@/api/esport";
-import { isVenueReject } from "@/domain/betting";
 import { BetOption, opponentSide } from "@/models/betOption";
 import { a8Tip } from "@/shared/a8Notify";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 import { wait } from "@/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
+import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
 import { resolveMakeUpHedgeStake } from "@/stores/betting/makeUpReference";
@@ -111,11 +111,12 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
         await wait(waitSec * 1000);
 
-        const venueOrders = (await account.updateOrders()) ?? [];
-        let rejected = false;
+        const { orders: venueOrders, rejected } = await syncVenueOrdersWithRejectForLeg(
+          account,
+          result,
+        );
         const bindOrderId = resolveMakeUpBindOrderId(venueOrders, result);
         if (venueOrders.length > 0) {
-          rejected = isVenueReject(venueOrders);
           if (rejected) {
             setMessage(`${order.target} 再次被拒单`);
             a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);

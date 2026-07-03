@@ -1,5 +1,6 @@
 import type { ViewMatch } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
+import type { VenueOrder } from "@venue/contract";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { LoseOrder } from "@/models/loseOrder";
@@ -20,6 +21,8 @@ const markSuccessfulBet = vi.hoisted(() => vi.fn());
 const saveOrderBind = vi.hoisted(() => vi.fn());
 const a8Tip = vi.hoisted(() => vi.fn());
 const wait = vi.hoisted(() => vi.fn(async () => {}));
+const updateVenueOrders = vi.hoisted(() => vi.fn(async (_acc?: PlatformAccount) => [] as VenueOrder[]));
+const pollPolymarketDelayedOrder = vi.hoisted(() => vi.fn());
 
 vi.mock("@/stores/configStore", () => ({
   useConfigStore: () => ({
@@ -54,6 +57,7 @@ vi.mock("@/stores/accountStore", () => ({
     getAccount,
     checkBetting,
     betting,
+    updateVenueOrders,
   }),
 }));
 
@@ -75,6 +79,14 @@ vi.mock("@/shared/wait", () => ({ wait }));
 vi.mock("@/shared/betTiming", () => ({
   makeUpBetToastSeconds: vi.fn(() => 10),
 }));
+
+vi.mock("@venue/polymarket/orderStatus", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@venue/polymarket/orderStatus")>();
+  return {
+    ...actual,
+    pollPolymarketDelayedOrder: (...args: unknown[]) => pollPolymarketDelayedOrder(...args),
+  };
+});
 
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 
@@ -213,7 +225,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     queueOrder();
 
     const acc = new PlatformAccount({ accountId: 1, playerName: "ob1", provider: "OB" });
-    acc.updateOrders = vi.fn(async () => [
+    updateVenueOrders.mockResolvedValueOnce([
       {
         orderId: "oid1",
         provider: "OB",
@@ -228,7 +240,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
         item: "",
         game: "",
       },
-    ]) as PlatformAccount["updateOrders"];
+    ]);
 
     getAccount.mockReturnValue(acc);
     checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
@@ -277,7 +289,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     queueOrder();
 
     const acc = new PlatformAccount({ accountId: 47, playerName: "D8F7", provider: "Polymarket" });
-    acc.updateOrders = vi.fn(async () => []) as PlatformAccount["updateOrders"];
+    updateVenueOrders.mockResolvedValueOnce([]);
     getAccount.mockReturnValue(acc);
     checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
       opt.data = { ok: true };
@@ -304,6 +316,36 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(markSuccessfulBet).toHaveBeenCalledWith(acc, 100, "Home");
   });
 
+  it("PM delayed pending unfilled：拒单检测判拒，不出队", async () => {
+    const bet = makeBet([makeItem("Polymarket", 4.167)]);
+    matchs.push(makeMatch(bet));
+    queueOrder();
+
+    const acc = new PlatformAccount({ accountId: 47, playerName: "D8F7", provider: "Polymarket" });
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({
+      success: true,
+      provider: "Polymarket",
+      pending: true,
+      orderId: "0xdelayed-unfilled",
+    });
+    pollPolymarketDelayedOrder.mockResolvedValue({ outcome: "unfilled", row: null });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(removeOrder).not.toHaveBeenCalled();
+    expect(loseOrderMessage).toHaveBeenCalledWith(
+      acc,
+      expect.any(LoseOrder),
+      expect.any(BetOption),
+      true,
+    );
+  });
+
   it("PM delayed 且 waitTime=-1 时仍用 result.orderId 绑单", async () => {
     const bet = makeBet([makeItem("Polymarket", 4.167)]);
     matchs.push(makeMatch(bet));
@@ -312,7 +354,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     vi.mocked(makeUpBetToastSeconds).mockReturnValueOnce(0);
 
     const acc = new PlatformAccount({ accountId: 47, playerName: "D8F7", provider: "Polymarket" });
-    acc.updateOrders = vi.fn(async () => []) as PlatformAccount["updateOrders"];
+    updateVenueOrders.mockResolvedValueOnce([]);
     getAccount.mockReturnValue(acc);
     checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
       opt.data = { ok: true };

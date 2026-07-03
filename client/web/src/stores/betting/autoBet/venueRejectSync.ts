@@ -1,6 +1,12 @@
 import type { VenueOrder } from "@venue/contract";
 import type { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { sortVenueOrdersNewestFirst } from "@venue/contract";
+import {
+  applyPolymarketSettlementToResult,
+  buildPolymarketRejectVenueOrder,
+  pollPolymarketDelayedOrder,
+} from "@venue/polymarket/orderStatus";
 import { isVenueReject } from "@/domain/betting";
 import { useAccountStore } from "@/stores/accountStore";
 
@@ -16,7 +22,36 @@ export async function fetchVenueOrdersWithReject(
   account: PlatformAccount,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
   const orders = (await useAccountStore().updateVenueOrders(account)) ?? [];
-  return { orders, rejected: isVenueReject(orders) };
+  const sorted = sortVenueOrdersNewestFirst(orders);
+  return { orders: sorted, rejected: isVenueReject(sorted) };
+}
+
+/**
+ * 单腿拒单检测：PM delayed 在拒单等待后轮询 CLOB order，未成交合成 reject；
+ * 其他场馆走 getOrders + isVenueReject。
+ */
+export async function syncVenueOrdersWithRejectForLeg(
+  account: PlatformAccount,
+  result?: BetResult,
+): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
+  if (account.provider === "Polymarket" && result?.pending && result.orderId) {
+    const { outcome, row } = await pollPolymarketDelayedOrder(account, result.orderId, {
+      initialDelayMs: 0,
+    });
+    applyPolymarketSettlementToResult(result, outcome, row);
+    if (outcome === "matched") {
+      const synced = await fetchVenueOrdersWithReject(account);
+      return synced;
+    }
+    const rejectOrder = buildPolymarketRejectVenueOrder(
+      account,
+      result,
+      outcome === "timeout" ? "timeout" : "unfilled",
+    );
+    return { orders: [rejectOrder], rejected: true };
+  }
+
+  return fetchVenueOrdersWithReject(account);
 }
 
 /** 自动套利双腿：分别 sync 场馆订单与拒单标记 */
@@ -31,12 +66,12 @@ export async function syncVenueRejectFlags(
   let rejectA = false;
   let rejectB = false;
   if (resultA?.success && accountA) {
-    const synced = await fetchVenueOrdersWithReject(accountA);
+    const synced = await syncVenueOrdersWithRejectForLeg(accountA, resultA);
     ordersA = synced.orders;
     rejectA = synced.rejected;
   }
   if (resultB?.success && accountB) {
-    const synced = await fetchVenueOrdersWithReject(accountB);
+    const synced = await syncVenueOrdersWithRejectForLeg(accountB, resultB);
     ordersB = synced.orders;
     rejectB = synced.rejected;
   }

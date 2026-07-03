@@ -541,8 +541,9 @@ describe("polymarketProvider.betting", () => {
     } as any);
 
     expect(result.success).toBe(true);
+    expect(result.pending).toBe(true);
     expect(result.orderId).toBe("0xdelayed-order");
-    expect(result.message).toContain("已受理待链上确认");
+    expect(result.message).toContain("待确认");
   });
 
   test("fails when matched but takingAmount is zero", async () => {

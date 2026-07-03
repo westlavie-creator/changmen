@@ -7,7 +7,33 @@ import { publishBettingEvent } from "@/realtime/publishBetting";
 import { getProvider } from "@/runtime/providers";
 import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify";
 import { playOrderSuccessSound } from "@/shared/orderSound";
+import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
 import { useMessageStore } from "@/stores/messageStore";
+
+function notifyPolymarketAfterRejectDetection(
+  account: PlatformAccount,
+  accountTitle: string,
+  detailHtml: string,
+  result: BetResult,
+  option: BetOption,
+  toastSeconds: number,
+) {
+  void (async () => {
+    const { rejected } = await syncVenueOrdersWithRejectForLeg(account, result);
+    const titleSuffix = rejected ? "未成交" : "已成交";
+    ElNotification({
+      title: `${accountTitle} ${titleSuffix}`,
+      message: `${detailHtml}<p>${result.message || ""}</p>`,
+      type: rejected ? "error" : "success",
+      dangerouslyUseHTMLString: true,
+      duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
+    });
+    if (!rejected) {
+      void playOrderSuccessSound({ betRowId: option.betId });
+      void publishBettingEvent(option);
+    }
+  })();
+}
 
 export async function checkBetting(
   _store: AccountStoreContext,
@@ -91,18 +117,30 @@ export async function placeBet(
   }
   finally {
     loading.close();
+    const notifyType = result.pending ? "warning" : result.success ? "success" : "error";
+    const notifyTitle = result.pending ? `${accountTitle} 待确认` : accountTitle;
     ElNotification({
-      title: accountTitle,
+      title: notifyTitle,
       message: `${detailHtml}<p>${result.message || ""}</p>`,
-      type: result.success ? "success" : "error",
+      type: notifyType,
       dangerouslyUseHTMLString: true,
       duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
     });
     useMessageStore().delayMessage(account, Date.now() - beginTime);
     result.saveLog(account, beginTime);
-    if (result.success) {
+    if (result.success && !result.pending) {
       void playOrderSuccessSound({ betRowId: option.betId });
       void publishBettingEvent(option);
+    }
+    if (result.pending && account.provider === "Polymarket") {
+      notifyPolymarketAfterRejectDetection(
+        account,
+        accountTitle,
+        detailHtml,
+        result,
+        option,
+        toastSeconds,
+      );
     }
   }
   return result;

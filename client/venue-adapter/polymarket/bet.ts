@@ -19,7 +19,15 @@ import {
   type PolymarketTokenConfig,
 } from "./l2Auth";
 import { fetchPolymarketVenueOrders } from "./orders";
+import { isPolymarketDelayedPending } from "./orderStatus";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
+
+export { isPolymarketDelayedPending } from "./orderStatus";
+export {
+  fetchPolymarketOrderRow,
+  formatPolymarketSettlementMessage,
+  pollPolymarketDelayedOrder,
+} from "./orderStatus";
 
 const BALANCE_PATH = "/balance-allowance";
 const ORDER_PATH = "/order";
@@ -541,11 +549,15 @@ export const polymarketProvider: PlatformProvider = {
       }
 
       const filled = isPolymarketFokBuyFilled(result);
+      const pending = isPolymarketDelayedPending(result);
       const msg = filled
         ? `${result.orderID} / ${result.status} / 成交 ${result.takingAmount} tokens`
-        : `${result.orderID} / ${result.status} / 已受理待链上确认`;
+        : pending
+          ? `${result.orderID} / ${result.status} / 待确认（体育延迟撮合中）`
+          : `${result.orderID} / ${result.status} / 已受理待链上确认`;
       const bet = new BetResult("Polymarket", true, msg, orderBody, result);
       bet.orderId = String(result.orderID ?? "").trim() || null;
+      bet.pending = pending;
       bet.beginTime = beginTime;
       return bet;
     } catch (err) {

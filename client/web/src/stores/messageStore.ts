@@ -317,9 +317,9 @@ export const useMessageStore = defineStore("message", {
           "<blockquote>",
           `投注队伍：${leg.options.target}`,
           `投注金额：${leg.options.betMoney}@${leg.options.odds}`,
-          `投注结果：${leg.result.success ? "✅ 成功" : "❌ 失败"}`,
+          `投注结果：${leg.result.pending ? "⏳ 待确认" : leg.result.success ? "✅ 成功" : "❌ 失败"}`,
         ];
-        if (leg.result.success) {
+        if (leg.result.success && !leg.result.pending) {
           lines.push(`是否拒单：${leg.reject ? "🔴是" : "否"}`);
         }
         lines.push(`备注信息：${leg.result.message ?? "N/A"}</blockquote>`);
