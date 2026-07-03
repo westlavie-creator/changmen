@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OrderRow } from "@/types/order";
+import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
 import { formatDisplayOdds, formatOrderTime, toFixed } from "@/shared/format";
 import {
   isArbGroup,
@@ -19,6 +20,26 @@ function isPmSellRow(row: OrderRow): boolean {
 
 function isPmBuyRow(row: OrderRow): boolean {
   return isPmRow(row) && !isPmSellRow(row);
+}
+
+/** PM 份额：优先 pmShares，已平仓用 attributed，否则由成本/赔率推算 */
+function pmSharesText(row: OrderRow): string | null {
+  if (!isPmRow(row))
+    return null;
+  const shares = Number(row.PmShares);
+  if (Number.isFinite(shares) && shares > 0.0001)
+    return toFixed(shares, 2);
+  const attributed = Number(row.PmAttributedSellShares);
+  if (Number.isFinite(attributed) && attributed > 0.0001)
+    return toFixed(attributed, 2);
+  const stakeUsdc = Number(row.PmStakeUsdc);
+  const odds = Number(row.Odds);
+  if (stakeUsdc > 0 && odds > 1)
+    return toFixed(stakeUsdc * odds, 2);
+  const betCny = Number(row.BetMoney);
+  if (betCny > 0 && odds > 1)
+    return toFixed((betCny / USDT_CNY_EXCHANGE) * odds, 2);
+  return null;
 }
 
 withDefaults(
@@ -80,10 +101,18 @@ withDefaults(
         </div>
         <div class="profit">
           <template v-if="isPmSellRow(row)">
+            <span v-if="pmSharesText(row)">份额：{{ pmSharesText(row) }} </span>
             赔率：<span class="order__odds">{{
               formatDisplayOdds(Number(row.Odds) || 0)
             }}</span>
             回款金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }}
+          </template>
+          <template v-else-if="isPmBuyRow(row)">
+            <span v-if="pmSharesText(row)">份额：{{ pmSharesText(row) }} </span>
+            投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
+              formatDisplayOdds(Number(row.Odds) || 0)
+            }}</span>
+            盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
           </template>
           <template v-else>
             投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
