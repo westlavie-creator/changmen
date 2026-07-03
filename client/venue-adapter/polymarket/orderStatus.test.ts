@@ -4,7 +4,10 @@ import {
   buildPolymarketRejectVenueOrder,
   formatPolymarketSettlementMessage,
   interpretPolymarketOrderRow,
+  isPolymarketBetResultFillConfirmed,
   isPolymarketDelayedPending,
+  isPolymarketOrderIdRejected,
+  isPolymarketPostFillConfirmed,
   settlePolymarketDelayedOrder,
 } from "./orderStatus";
 import { BetResult } from "@/models/betResult";
@@ -39,6 +42,52 @@ describe("isPolymarketDelayedPending", () => {
       orderID: "0xabc",
       takingAmount: "10",
     })).toBe(false);
+  });
+});
+
+describe("isPolymarketPostFillConfirmed", () => {
+  it("true when POST matched with takingAmount", () => {
+    expect(isPolymarketPostFillConfirmed({
+      success: true,
+      status: "matched",
+      orderID: "0x1",
+      takingAmount: "8",
+    })).toBe(true);
+  });
+});
+
+describe("isPolymarketBetResultFillConfirmed", () => {
+  it("reads matched from BetResult.response", () => {
+    const result = Object.assign(
+      new BetResult("Polymarket", true, "ok", null, {
+        success: true,
+        status: "matched",
+        orderID: "0xnew",
+        takingAmount: "5",
+      }),
+      { orderId: "0xnew" },
+    );
+    expect(isPolymarketBetResultFillConfirmed(result)).toBe(true);
+  });
+});
+
+describe("isPolymarketOrderIdRejected", () => {
+  it("does not inherit stale reject when our order is absent", () => {
+    const orders = [{
+      provider: "Polymarket" as const,
+      orderId: "0xold",
+      status: "reject" as const,
+      odds: 2,
+      createAt: 1,
+      betMoney: 10,
+      reward: 0,
+      money: 0,
+      game: "",
+      match: "",
+      bet: "",
+      item: "",
+    }];
+    expect(isPolymarketOrderIdRejected(orders, "0xnew")).toBe(false);
   });
 });
 

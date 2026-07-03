@@ -66,6 +66,7 @@ function rowToOrder(r) {
     PmTokenId: raw.pmTokenId ? String(raw.pmTokenId) : undefined,
     PmShares: parseNum(raw.pmShares, 0) || undefined,
     PmStakeUsdc: parseNum(raw.pmStakeUsdc, 0) || undefined,
+    PmConditionId: raw.pmConditionId ? String(raw.pmConditionId) : undefined,
   };
 }
 

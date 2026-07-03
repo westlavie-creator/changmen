@@ -41,6 +41,44 @@ export function isPolymarketDelayedPending(
   return !(Number.isFinite(taking) && taking > 0);
 }
 
+/** POST 已 matched 且 takingAmount>0：勿因 getOrders 滞后误判拒单 */
+export function isPolymarketPostFillConfirmed(
+  response: PolymarketOrderResponseLike | null | undefined,
+): boolean {
+  if (!response?.success)
+    return false;
+  const status = String(response.status ?? "").trim().toLowerCase();
+  if (status !== "matched")
+    return false;
+  const taking = Number(response.takingAmount);
+  return Number.isFinite(taking) && taking > 0;
+}
+
+export function isPolymarketBetResultFillConfirmed(result: BetResult): boolean {
+  if (!result.success || result.pending)
+    return false;
+  const orderId = String(result.orderId ?? "").trim();
+  if (!orderId)
+    return false;
+  return isPolymarketPostFillConfirmed(
+    result.response as PolymarketOrderResponseLike | undefined,
+  );
+}
+
+/** 仅当本单 orderId 在列表中为 reject 时判拒；列表滞后时不继承其它旧拒单 */
+export function isPolymarketOrderIdRejected(
+  orders: VenueOrder[],
+  orderId: string | null | undefined,
+): boolean {
+  const id = String(orderId ?? "").trim();
+  if (!id)
+    return orders.length > 0 && orders[0].status === "reject";
+  const ours = orders.find(o => o.orderId === id);
+  if (ours)
+    return ours.status === "reject";
+  return false;
+}
+
 function parseMatchedSize(row: PolymarketOrderRow | null | undefined): number {
   const matched = Number(row?.size_matched);
   return Number.isFinite(matched) && matched > 0 ? matched : 0;

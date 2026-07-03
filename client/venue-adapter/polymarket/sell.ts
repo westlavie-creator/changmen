@@ -16,6 +16,8 @@ import {
 } from "./parse";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 import { isPolymarketOrderAccepted, polymarketOrderFailureMessage } from "./bet";
+import { isPolymarketDelayedPending, settlePolymarketDelayedOrder } from "./orderStatus";
+import { registerPolymarketOrderWatch } from "./userWs";
 
 const ORDER_PATH = "/order";
 const ORDER_BOOK_PATH = "/book";
@@ -53,6 +55,8 @@ export interface PolymarketSellParams {
   tokenId: string;
   shares: number;
   stakeUsdc?: number;
+  /** condition_id，体育 delayed 卖单 User WS 订阅 */
+  conditionId?: string;
 }
 
 interface PolymarketOrderResponse {
@@ -220,6 +224,8 @@ export interface PolymarketSellResult {
   orderId?: string;
   proceedsUsdc?: number;
   quote?: PolymarketSellQuote;
+  /** 体育 delayed：CLOB 已受理，待最终成交确认 */
+  pending?: boolean;
 }
 
 export async function quotePolymarketSell(
@@ -316,16 +322,33 @@ export async function sellPolymarketPosition(
         quote,
       };
     }
+    const orderId = String(result.orderID ?? "").trim() || undefined;
+    const pending = isPolymarketDelayedPending(result);
+    if (pending && orderId) {
+      const conditionId = String(params.conditionId ?? "").trim();
+      if (conditionId) {
+        registerPolymarketOrderWatch(account, orderId, { conditionId });
+      }
+      else {
+        console.warn(
+          "[Polymarket] delayed 卖单缺少 conditionId，User WS 未订阅；确认仅走 REST",
+        );
+      }
+    }
     const taking = Number(result?.takingAmount);
     const proceedsUsdc = Number.isFinite(taking) && taking > 0
       ? Math.round(taking * 10000) / 10000
       : quote.proceedsUsdc;
+    const msg = pending
+      ? `${orderId} / ${result.status} / 待确认（体育延迟撮合中）`
+      : `${orderId} / ${result.status} / 卖出 ${shares} 份`;
     return {
       success: true,
-      message: `${result.orderID} / ${result.status} / 卖出 ${shares} 份`,
-      orderId: String(result.orderID ?? "").trim() || undefined,
+      message: msg,
+      orderId,
       proceedsUsdc,
       quote,
+      pending,
     };
   }
   catch (err) {
@@ -334,4 +357,12 @@ export async function sellPolymarketPosition(
       message: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+/** delayed 卖单：复用买单 settle（order 行 + trades + User WS） */
+export async function settlePolymarketSellOrder(
+  account: PlatformAccount,
+  orderId: string,
+) {
+  return settlePolymarketDelayedOrder(account, orderId);
 }

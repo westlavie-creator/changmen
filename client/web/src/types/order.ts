@@ -34,6 +34,7 @@ export interface OrderRow {
   PmTokenId?: string;
   PmShares?: number;
   PmStakeUsdc?: number;
+  PmConditionId?: string;
 }
 
 export interface LoseOrderRecord {

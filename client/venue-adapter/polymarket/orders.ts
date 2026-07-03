@@ -374,6 +374,7 @@ export function mapPolymarketTradeToVenueOrder(
     pmTokenId: pmTokenId || undefined,
     pmShares: shares > 0 ? shares : undefined,
     pmStakeUsdc: betMoney,
+    pmConditionId: marketId || undefined,
   };
   return applyPolymarketSettlement(unsettled, trade, market);
 }

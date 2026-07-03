@@ -5,7 +5,10 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { formatDisplayOdds, toFixed } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useOrderStore } from "@/stores/orderStore";
-import { sellPolymarketPosition } from "@venue/polymarket/sell";
+import { sellPolymarketPosition, settlePolymarketSellOrder } from "@venue/polymarket/sell";
+import { formatPolymarketSettlementMessage } from "@venue/polymarket/orderStatus";
+import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
+import { useConfigStore } from "@/stores/configStore";
 import type { PmSellQuoteView } from "./pmSellQuotes";
 import { pmStakeUsdcFromRow } from "./pmSellQuotes";
 
@@ -26,6 +29,7 @@ const isOpenPm = computed(() =>
 
 const shares = computed(() => Number(props.row.PmShares) || 0);
 const tokenId = computed(() => String(props.row.PmTokenId ?? "").trim());
+const conditionId = computed(() => String(props.row.PmConditionId ?? "").trim());
 const canShow = computed(() => isOpenPm.value && tokenId.value && shares.value > 0);
 
 const stakeUsdc = computed(() =>
@@ -59,12 +63,25 @@ async function onSell() {
       tokenId: tokenId.value,
       shares: shares.value,
       stakeUsdc: stakeUsdc.value,
+      conditionId: conditionId.value || undefined,
     });
     if (!result.success) {
       ElMessage.error(result.message || "卖出失败");
       return;
     }
-    ElMessage.success(result.message || "卖出成功");
+    if (result.pending && result.orderId) {
+      const rejectWait = rejectWaitSeconds(useConfigStore().config, [account]);
+      await waitRejectDetection(rejectWait, rejectWait);
+      const { outcome, row } = await settlePolymarketSellOrder(account, result.orderId);
+      if (outcome === "unfilled" || outcome === "timeout") {
+        ElMessage.error(formatPolymarketSettlementMessage(result.orderId, outcome, row));
+        return;
+      }
+      ElMessage.success(formatPolymarketSettlementMessage(result.orderId, outcome, row));
+    }
+    else {
+      ElMessage.success(result.message || "卖出成功");
+    }
     await account.updateOrders();
     await orderStore.fetchOrders();
   }

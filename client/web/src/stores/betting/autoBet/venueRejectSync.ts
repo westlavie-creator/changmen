@@ -5,8 +5,11 @@ import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import {
   applyPolymarketSettlementToResult,
   buildPolymarketRejectVenueOrder,
+  isPolymarketBetResultFillConfirmed,
+  isPolymarketOrderIdRejected,
   settlePolymarketDelayedOrder,
 } from "@venue/polymarket/orderStatus";
+import { fetchPolymarketConfirmedTradeForOrder } from "@venue/polymarket/orders";
 import { isVenueReject } from "@/domain/betting";
 import { useAccountStore } from "@/stores/accountStore";
 
@@ -26,9 +29,33 @@ export async function fetchVenueOrdersWithReject(
   return { orders: sorted, rejected: isVenueReject(sorted) };
 }
 
+async function syncPolymarketVenueOrdersWithReject(
+  account: PlatformAccount,
+  result: BetResult,
+): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
+  if (isPolymarketBetResultFillConfirmed(result))
+    return { orders: [], rejected: false };
+
+  const trade = await fetchPolymarketConfirmedTradeForOrder(
+    account,
+    result.orderId!,
+    10 * 60 * 1000,
+  );
+  if (trade) {
+    const synced = await fetchVenueOrdersWithReject(account);
+    return { orders: synced.orders, rejected: false };
+  }
+
+  const synced = await fetchVenueOrdersWithReject(account);
+  return {
+    orders: synced.orders,
+    rejected: isPolymarketOrderIdRejected(synced.orders, result.orderId),
+  };
+}
+
 /**
  * 单腿拒单检测：PM delayed 在拒单等待后轮询 CLOB order，未成交合成 reject；
- * 其他场馆走 getOrders + isVenueReject。
+ * POST 已 matched 时信任成交；其它场馆走 getOrders + isVenueReject。
  */
 export async function syncVenueOrdersWithRejectForLeg(
   account: PlatformAccount,
@@ -48,6 +75,9 @@ export async function syncVenueOrdersWithRejectForLeg(
     );
     return { orders: [rejectOrder], rejected: true };
   }
+
+  if (account.provider === "Polymarket" && result?.success && result.orderId)
+    return syncPolymarketVenueOrdersWithReject(account, result);
 
   return fetchVenueOrdersWithReject(account);
 }

@@ -16,6 +16,8 @@ export interface PolymarketVenueOrderExtras {
   pmTokenId?: string;
   pmShares?: number;
   pmStakeUsdc?: number;
+  /** CLOB condition_id，User WS 订阅与卖出 delayed 检测 */
+  pmConditionId?: string;
 }
 
 export interface VenueOrder extends PolymarketVenueOrderExtras {

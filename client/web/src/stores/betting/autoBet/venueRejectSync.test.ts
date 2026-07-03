@@ -11,6 +11,7 @@ import {
 
 const updateVenueOrders = vi.fn<() => Promise<VenueOrder[] | undefined>>();
 const settlePolymarketDelayedOrder = vi.fn();
+const fetchPolymarketConfirmedTradeForOrder = vi.fn();
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ updateVenueOrders }),
@@ -23,6 +24,11 @@ vi.mock("@venue/polymarket/orderStatus", async (importOriginal) => {
     settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
   };
 });
+
+vi.mock("@venue/polymarket/orders", () => ({
+  fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
+    fetchPolymarketConfirmedTradeForOrder(...args),
+}));
 
 function account(provider: string): PlatformAccount {
   return { provider } as PlatformAccount;
@@ -48,6 +54,7 @@ describe("fetchVenueOrdersWithReject", () => {
   beforeEach(() => {
     updateVenueOrders.mockReset();
     settlePolymarketDelayedOrder.mockReset();
+    fetchPolymarketConfirmedTradeForOrder.mockReset();
   });
 
   it("marks rejected when first order status is reject", async () => {
@@ -77,6 +84,7 @@ describe("syncVenueRejectFlags", () => {
   beforeEach(() => {
     updateVenueOrders.mockReset();
     settlePolymarketDelayedOrder.mockReset();
+    fetchPolymarketConfirmedTradeForOrder.mockReset();
   });
 
   it("syncs only successful legs", async () => {
@@ -133,6 +141,7 @@ describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
   beforeEach(() => {
     updateVenueOrders.mockReset();
     settlePolymarketDelayedOrder.mockReset();
+    fetchPolymarketConfirmedTradeForOrder.mockReset();
   });
 
   it("delayed pending unfilled → synthetic reject", async () => {
@@ -173,5 +182,49 @@ describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
     expect(out.rejected).toBe(false);
     expect(result.pending).toBe(false);
     expect(result.message).toContain("已成交");
+  });
+
+  it("POST matched trusts fill when venue list still shows old reject", async () => {
+    const acc = account("Polymarket");
+    const result = Object.assign(
+      new BetResult("Polymarket", true, "matched", null, {
+        success: true,
+        status: "matched",
+        orderID: "0xnew",
+        takingAmount: "10",
+      }),
+      { orderId: "0xnew" },
+    );
+    updateVenueOrders.mockResolvedValue([
+      makeVenueOrder({ orderId: "0xold", status: "reject", odds: 2, betMoney: 10 }),
+    ]);
+
+    const out = await syncVenueOrdersWithRejectForLeg(acc, result);
+
+    expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
+    expect(updateVenueOrders).not.toHaveBeenCalled();
+    expect(out.rejected).toBe(false);
+    expect(out.orders).toEqual([]);
+  });
+
+  it("uncertain fill polls trade before rejecting on stale list", async () => {
+    const acc = account("Polymarket");
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xuncertain",
+      response: { success: true, status: "live", orderID: "0xuncertain" },
+    });
+    fetchPolymarketConfirmedTradeForOrder.mockResolvedValueOnce({
+      id: "trade-1",
+      taker_order_id: "0xuncertain",
+      status: "CONFIRMED",
+    });
+    updateVenueOrders.mockResolvedValue([
+      makeVenueOrder({ orderId: "0xold", status: "reject", odds: 2, betMoney: 10 }),
+    ]);
+
+    const out = await syncVenueOrdersWithRejectForLeg(acc, result);
+
+    expect(fetchPolymarketConfirmedTradeForOrder).toHaveBeenCalled();
+    expect(out.rejected).toBe(false);
   });
 });
