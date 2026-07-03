@@ -9,6 +9,7 @@ import { sellPolymarketPosition, settlePolymarketSellOrder } from "@venue/polyma
 import { formatPolymarketSettlementMessage } from "@venue/polymarket/orderStatus";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
 import { useConfigStore } from "@/stores/configStore";
+import { usePolymarketOrderSellEnabled } from "@/composables/useExtensionPrefs";
 import type { PmSellQuoteView } from "./pmSellQuotes";
 import { pmStakeUsdcFromRow } from "./pmSellQuotes";
 import { persistChangmenSellAttribution } from "./persistSellAttribution";
@@ -22,6 +23,7 @@ const props = defineProps<{
 const selling = ref(false);
 const accountStore = useAccountStore();
 const orderStore = useOrderStore();
+const pmOrderSellEnabled = usePolymarketOrderSellEnabled();
 
 const isOpenPm = computed(() =>
   String(props.row.Type ?? "") === "Polymarket"
@@ -32,7 +34,8 @@ const shares = computed(() => Number(props.row.PmShares) || 0);
 const tokenId = computed(() => String(props.row.PmTokenId ?? "").trim());
 const conditionId = computed(() => String(props.row.PmConditionId ?? "").trim());
 const canShow = computed(() =>
-  isOpenPm.value
+  pmOrderSellEnabled.value
+  && isOpenPm.value
   && tokenId.value
   && shares.value > 0
   && props.row.PmOrigin === "changmen",

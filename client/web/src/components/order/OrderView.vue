@@ -5,6 +5,7 @@ import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
 import { PolymarketOrderSellPanel, usePolymarketSellQuotes } from "@/extensions/polymarketSell";
+import { usePolymarketOrderSellEnabled } from "@/composables/useExtensionPrefs";
 import { wait } from "@/shared/wait";
 import { useOrderStore } from "@/stores/orderStore";
 
@@ -56,6 +57,8 @@ const showFilteredEmpty = computed(
     && orders.value.size > 0,
 );
 
+const pmOrderSellEnabled = usePolymarketOrderSellEnabled();
+
 const flatOrderRows = computed(() => {
   const rows: import("@/types/order").OrderRow[] = [];
   for (const [, group] of orderEntries.value)
@@ -63,7 +66,7 @@ const flatOrderRows = computed(() => {
   return rows;
 });
 
-const pmSellQuotes = usePolymarketSellQuotes(flatOrderRows);
+const pmSellQuotes = usePolymarketSellQuotes(flatOrderRows, pmOrderSellEnabled);
 
 function onDateChange(value: string) {
   if (value)

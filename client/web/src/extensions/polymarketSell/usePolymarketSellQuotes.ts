@@ -29,13 +29,20 @@ function openPolymarketPositions(rows: OrderRow[]) {
   return entries;
 }
 
-export function usePolymarketSellQuotes(orderRows: Ref<readonly OrderRow[]>) {
+export function usePolymarketSellQuotes(
+  orderRows: Ref<readonly OrderRow[]>,
+  enabled: Ref<boolean>,
+) {
   const quotes = ref<Map<string, PmSellQuoteView>>(new Map());
   const loading = ref(false);
   let timer: ReturnType<typeof setInterval> | null = null;
   let tick = 0;
 
   async function refresh() {
+    if (!enabled.value) {
+      quotes.value = new Map();
+      return;
+    }
     const entries = openPolymarketPositions([...orderRows.value]);
     if (!entries.length) {
       quotes.value = new Map();
@@ -59,6 +66,8 @@ export function usePolymarketSellQuotes(orderRows: Ref<readonly OrderRow[]>) {
 
   function start() {
     stop();
+    if (!enabled.value)
+      return;
     void refresh();
     timer = setInterval(() => void refresh(), POLL_MS);
   }
@@ -70,8 +79,20 @@ export function usePolymarketSellQuotes(orderRows: Ref<readonly OrderRow[]>) {
     }
   }
 
-  watch(orderRows, () => void refresh(), { deep: true });
-  start();
+  watch(enabled, () => {
+    if (enabled.value)
+      start();
+    else {
+      stop();
+      quotes.value = new Map();
+    }
+  }, { immediate: true });
+
+  watch(orderRows, () => {
+    if (enabled.value)
+      void refresh();
+  }, { deep: true });
+
   onScopeDispose(stop);
 
   function quoteForRow(row: OrderRow): PmSellQuoteView | undefined {

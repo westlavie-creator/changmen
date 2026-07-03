@@ -7,3 +7,9 @@ export function useBetRowExtensionUiEnabled() {
   const { extensionPrefs } = storeToRefs(useUserStore());
   return computed(() => extensionPrefs.value.betRowUi === true);
 }
+
+/** 订单侧栏 Polymarket「卖出」是否启用（默认关） */
+export function usePolymarketOrderSellEnabled() {
+  const { extensionPrefs } = storeToRefs(useUserStore());
+  return computed(() => extensionPrefs.value.polymarketOrderSell === true);
+}

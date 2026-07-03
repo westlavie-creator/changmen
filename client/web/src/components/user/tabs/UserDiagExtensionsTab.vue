@@ -42,6 +42,21 @@ async function save() {
         <li>正 EV / 近 EV 金色标记</li>
       </ul>
     </el-form-item>
+    <el-form-item label="Polymarket 卖出:">
+      <el-switch
+        v-model="extensionPrefs.polymarketOrderSell"
+        inline-prompt
+        active-text="开启"
+        inactive-text="关闭"
+        size="large"
+      />
+    </el-form-item>
+    <el-form-item>
+      <ul class="extensions-tab__list">
+        <li>订单侧栏 changmen 站内 Polymarket 持仓显示「可卖 / 浮盈 / 卖出」</li>
+        <li>默认关闭，避免误触市价平仓</li>
+      </ul>
+    </el-form-item>
     <div class="flex flex-center">
       <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
         &nbsp;保存
