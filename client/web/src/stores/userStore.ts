@@ -1,6 +1,8 @@
 import type { UserInfo } from "@/types/esport";
 import type { FollowConfig } from "@/types/order";
+import type { ExtensionPrefs } from "@/types/extensionPrefs";
 import type { MessageConfig, ProxyRow } from "@/types/userExtras";
+import { createDefaultExtensionPrefs, normalizeExtensionPrefs } from "@/types/extensionPrefs";
 import { defineStore } from "pinia";
 import { clearAuthSession, getRefreshToken } from "@/api/client";
 import {
@@ -35,6 +37,7 @@ export const useUserStore = defineStore("user", {
     hiddenUserName: localStorage.getItem(HIDDEN_NAME_KEY) === "1",
     proxyList: [] as ProxyRow[],
     message: {} as MessageConfig,
+    extensionPrefs: createDefaultExtensionPrefs(),
     follow: null as FollowConfig | null,
     extrasLoaded: false,
     isAdmin: false,
@@ -136,6 +139,7 @@ export const useUserStore = defineStore("user", {
       this.creditPlateUserName = "";
       this.proxyList = [];
       this.message = {};
+      this.extensionPrefs = createDefaultExtensionPrefs();
       this.follow = null;
       this.extrasLoaded = false;
       this.isAdmin = false;
@@ -152,6 +156,8 @@ export const useUserStore = defineStore("user", {
       this.proxyList = proxies.filter(p => p?.proxyId != null);
       const msg = await getClientData<MessageConfig>("Message");
       this.message = msg ?? {};
+      const ext = await getClientData<ExtensionPrefs>("Extensions");
+      this.extensionPrefs = normalizeExtensionPrefs(ext);
       const follow = await getClientData<FollowConfig & Record<string, unknown>>("Follow");
       this.follow = follow ?? null;
       this.extrasLoaded = true;
@@ -168,6 +174,10 @@ export const useUserStore = defineStore("user", {
 
     async saveMessageConfig() {
       await saveClientData("Message", JSON.stringify(this.message));
+    },
+
+    async saveExtensionPrefs() {
+      await saveClientData("Extensions", JSON.stringify(this.extensionPrefs));
     },
 
     async deleteProxy(proxyId: number) {

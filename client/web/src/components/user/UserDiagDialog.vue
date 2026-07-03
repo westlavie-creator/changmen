@@ -7,6 +7,7 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import UserDiagChatTab from "@/components/user/tabs/UserDiagChatTab.vue";
 import UserDiagCollectTab from "@/components/user/tabs/UserDiagCollectTab.vue";
+import UserDiagExtensionsTab from "@/components/user/tabs/UserDiagExtensionsTab.vue";
 import UserDiagFollowTab from "@/components/user/tabs/UserDiagFollowTab.vue";
 import UserDiagMessageTab from "@/components/user/tabs/UserDiagMessageTab.vue";
 import UserDiagPasswordTab from "@/components/user/tabs/UserDiagPasswordTab.vue";
@@ -59,6 +60,7 @@ const tabDefs: TabDef[] = [
   },
   { name: "chat", label: "聊天室", component: UserDiagChatTab },
   { name: "wallet", label: "钱包", component: UserDiagWalletTab },
+  { name: "extensions", label: "扩展", component: UserDiagExtensionsTab },
 ];
 
 const visibleTabs = computed(() => tabDefs.filter(t => !t.show || t.show()));

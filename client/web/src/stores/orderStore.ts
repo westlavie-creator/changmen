@@ -7,6 +7,7 @@ import {
   orderLinkLegend,
   orderLinkMapEntries,
 } from "@/shared/orderLink";
+import { flattenOrderMap, sameOrderList } from "@/shared/orderSnapshot";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
 import { useUserStore } from "@/stores/userStore";
@@ -71,11 +72,19 @@ export const useOrderStore = defineStore("order", {
       }
       this.loading = true;
       try {
-        this.orderDate = date ?? todayKey();
+        const nextDate = date ?? todayKey();
+        const previousDate = this.orderDate;
+        this.orderDate = nextDate;
         const page = await getOrderList({ date: this.orderDate, pageSize: 1024 });
         if (!page)
           return false;
         const list = page.list ?? [];
+        if (
+          nextDate === previousDate
+          && sameOrderList(list, flattenOrderMap(this.orders))
+        ) {
+          return true;
+        }
         this.orders = groupOrdersByLink(list);
         this.updateTodayProfit(list);
         useMessageStore().orderReportMessage(accountStore.accounts, list);

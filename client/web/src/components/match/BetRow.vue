@@ -5,6 +5,7 @@ import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
+import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
 import { useEvMarker } from "@/extensions/valueBet";
 import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
@@ -29,7 +30,9 @@ const limitOpen = ref(false);
 const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
 
-const arbUi = useBetRowArbUi(() => props.match, () => props.bet);
+const betRowUiEnabled = useBetRowExtensionUiEnabled();
+
+const arbUi = useBetRowArbUi(() => props.match, () => props.bet, betRowUiEnabled);
 const {
   itemsContainerRef,
   line: arbLine,
@@ -41,7 +44,7 @@ const {
   sourceLabel,
 } = arbUi;
 
-const evMarker = useEvMarker(() => props.bet);
+const evMarker = useEvMarker(() => props.bet, betRowUiEnabled);
 
 function itemOdds(item: ViewBet["items"][0], side: BetSide) {
   void matchTick.value;
@@ -207,6 +210,7 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
         </div>
       </div>
       <ArbLineOverlay
+        v-if="betRowUiEnabled"
         :line="arbLine"
         :badge="arbBadge"
         :label="overlayLabel"

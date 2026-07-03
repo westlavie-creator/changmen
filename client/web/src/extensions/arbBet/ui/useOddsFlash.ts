@@ -1,15 +1,20 @@
 import type { BetSide, ViewBetItem } from "@/models/match";
+import type { MaybeRefOrGetter } from "vue";
+import { computed, toValue } from "vue";
 import { storeToRefs } from "pinia";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 
 /** [changmen 扩展] 赔率涨跌高亮与 HTTP/MQTT 来源角标（样式见 arbBetUi.css） */
-export function useOddsFlashCell() {
+export function useOddsFlashCell(enabled: MaybeRefOrGetter<boolean> = true) {
+  const active = computed(() => toValue(enabled) !== false);
   const oddsStore = useOddsStore();
   const matchStore = useMatchStore();
   const { tick: matchTick } = storeToRefs(matchStore);
 
   function flashState(item: ViewBetItem, side: BetSide) {
+    if (!active.value)
+      return undefined;
     void matchTick.value;
     const id = side === "Home" ? item.homeId : item.awayId;
     return oddsStore.getFlash(item.type, id);
@@ -24,6 +29,8 @@ export function useOddsFlashCell() {
   }
 
   function sourceLabel(item: ViewBetItem, side: BetSide): string | undefined {
+    if (!active.value)
+      return undefined;
     const flash = flashState(item, side);
     if (!flash)
       return undefined;

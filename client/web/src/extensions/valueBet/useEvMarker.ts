@@ -11,10 +11,16 @@ interface EvEntry {
   fairOdds: number;
 }
 
-export function useEvMarker(bet: MaybeRefOrGetter<ViewBet>) {
+export function useEvMarker(
+  bet: MaybeRefOrGetter<ViewBet>,
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
+  const active = computed(() => toValue(enabled) !== false);
   const { tick } = storeToRefs(useMatchStore());
 
   const evMap = computed(() => {
+    if (!active.value)
+      return new Map<string, EvEntry>();
     void tick.value;
     const b = toValue(bet);
     const map = new Map<string, EvEntry>();
@@ -75,6 +81,8 @@ export function useEvMarker(bet: MaybeRefOrGetter<ViewBet>) {
   }
 
   const hasPbBaseline = computed(() => {
+    if (!active.value)
+      return false;
     void tick.value;
     const b = toValue(bet);
     const sharpItem = b.items.find(it => it.type === SHARP_PLATFORM);

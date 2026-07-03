@@ -1,8 +1,8 @@
-import type { Ref, WatchSource } from "vue";
+import type { MaybeRefOrGetter, Ref, WatchSource } from "vue";
 import type { ArbLineBadge, ArbLineSegment } from "@/extensions/arbBet/ui/arb_line";
 import type { BetSide } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
-import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, toValue, watch } from "vue";
 import {
 
   computeArbLineOverlay,
@@ -41,27 +41,35 @@ export function useArbLineOverlay(
     away: HTMLElement | undefined | null;
   } | null,
   watchSources: WatchSource[],
+  enabled: MaybeRefOrGetter<boolean> = true,
 ) {
+  const active = computed(() => toValue(enabled) !== false);
   const line = ref<ArbLineSegment | null>(null);
   const badge = ref<ArbLineBadge | null>(null);
 
+  function clearOverlay() {
+    line.value = null;
+    badge.value = null;
+  }
+
   function refresh() {
+    if (!active.value) {
+      clearOverlay();
+      return;
+    }
     const root = containerRef.value;
     if (!root) {
-      line.value = null;
-      badge.value = null;
+      clearOverlay();
       return;
     }
     const anchors = resolveAnchors();
     if (!anchors) {
-      line.value = null;
-      badge.value = null;
+      clearOverlay();
       return;
     }
     const geom = computeArbLineOverlay(root, anchors.home, anchors.away);
     if (!geom) {
-      line.value = null;
-      badge.value = null;
+      clearOverlay();
       return;
     }
     line.value = geom.line;
@@ -74,16 +82,31 @@ export function useArbLineOverlay(
     resizeObserver = new ResizeObserver(() => refresh());
   });
 
+  function syncObserver(el: HTMLElement | null) {
+    resizeObserver?.disconnect();
+    if (!active.value || !el || !resizeObserver)
+      return;
+    resizeObserver.observe(el);
+  }
+
   watch(
     containerRef,
     (el) => {
-      resizeObserver?.disconnect();
-      if (el && resizeObserver)
-        resizeObserver.observe(el);
+      syncObserver(el);
       nextTick(refresh);
     },
     { immediate: true },
   );
+
+  watch(active, (on) => {
+    if (!on) {
+      resizeObserver?.disconnect();
+      clearOverlay();
+      return;
+    }
+    syncObserver(containerRef.value);
+    nextTick(refresh);
+  });
 
   onUnmounted(() => {
     resizeObserver?.disconnect();

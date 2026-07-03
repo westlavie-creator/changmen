@@ -16,14 +16,18 @@ import { useConfigStore } from "@/stores/configStore";
 export function useBetRowArbUi(
   match: MaybeRefOrGetter<ViewMatch>,
   bet: MaybeRefOrGetter<ViewBet>,
+  enabled: MaybeRefOrGetter<boolean> = true,
 ) {
+  const active = computed(() => toValue(enabled) !== false);
   const configStore = useConfigStore();
   const accountStore = useAccountStore();
   const itemsContainerRef = ref<HTMLElement | null>(null);
   const anchorMap = useOddsAnchorMap();
-  const flash = useOddsFlashCell();
+  const flash = useOddsFlashCell(enabled);
 
   const legs = computed(() => {
+    if (!active.value)
+      return null;
     const b = toValue(bet);
     const m = toValue(match);
     const providerKeys = providerKeysFromBetItems(b);
@@ -42,16 +46,22 @@ export function useBetRowArbUi(
   });
 
   function isArbLeg(item: ViewBetItem, side: BetSide): boolean {
-    return arbLegSide(legs.value, item, side);
+    if (!active.value)
+      return false;
+    return arbLegSide(legs.value ?? undefined, item, side);
   }
 
   function bindOddsAnchor(type: ViewBetItem["type"], side: BetSide) {
+    if (!active.value)
+      return undefined;
     return anchorMap.bind(type, side);
   }
 
   const { line, badge } = useArbLineOverlay(
     itemsContainerRef,
     () => {
+      if (!active.value)
+        return null;
       const L = legs.value;
       if (!L)
         return null;
@@ -60,7 +70,8 @@ export function useBetRowArbUi(
         away: anchorMap.get(L.awayItem.type, "Away"),
       };
     },
-    [legs],
+    [legs, active],
+    enabled,
   );
 
   return {
