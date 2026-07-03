@@ -179,28 +179,25 @@ export function pmBuyDisplayStatus(buy: OrderRow, groupRows: OrderRow[]): OrderR
   return buy.Status ?? "None";
 }
 
-/** PM 行盈亏（买卖同一套 UI 字段，内部仍区分逻辑） */
-export function pmRowDisplayProfitCny(row: OrderRow, groupRows: OrderRow[]): number {
-  if (!isPolymarketOrderRow(row))
-    return Number(row.Money) || 0;
-  if (row.PmSide === "sell")
-    return Number(row.Money) || 0;
-  return pmBuyDisplayProfitCny(row, groupRows);
+/** 买单行盈亏展示（卖单绑定在买单上，不单独成行） */
+export function pmBuyProfitDisplay(
+  buy: OrderRow,
+  groupRows: OrderRow[],
+): { profitCny: number; pending: boolean; earlySettled: boolean } {
+  const sells = pmBuyLinkedSells(buy, groupRows);
+  const earlySettled = sells.length > 0 && pmBuySoldOutForDisplay(buy, groupRows);
+  if (!sells.length && String(buy.Status ?? "") === "None")
+    return { profitCny: 0, pending: true, earlySettled: false };
+  return {
+    profitCny: pmBuyDisplayProfitCny(buy, groupRows),
+    pending: false,
+    earlySettled,
+  };
 }
 
-/** PM 行状态点（与 trad 一致用 Win/Lose/None） */
-export function pmRowDisplayStatus(row: OrderRow, groupRows: OrderRow[]): OrderRow["Status"] {
-  if (!isPolymarketOrderRow(row))
-    return row.Status ?? "None";
-  if (row.PmSide === "sell") {
-    const m = Number(row.Money) || 0;
-    if (m > 0)
-      return "Win";
-    if (m < 0)
-      return "Lose";
-    return row.Status ?? "None";
-  }
-  return pmBuyDisplayStatus(row, groupRows);
+/** 侧栏列表展示行：PM 卖单仅用于盈亏归因，不单独占一行 */
+export function orderListDisplayRows(rows: OrderRow[]): OrderRow[] {
+  return rows.filter(r => !(isPolymarketOrderRow(r) && r.PmSide === "sell"));
 }
 
 /** 组内盈亏：PM 卖单 = 回款 − 对应买单成本；无卖单的 PM 买单 = 赛果 Money */

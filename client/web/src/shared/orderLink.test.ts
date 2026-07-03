@@ -6,8 +6,10 @@ import {
   isLinkedArbOrderGroup,
   linkIdGroupKey,
   orderLinkLegend,
+  orderListDisplayRows,
   pmBuyDisplayProfitCny,
   pmBuyDisplayStatus,
+  pmBuyProfitDisplay,
   sortOrdersByLinkDesc,
 } from "./orderLink";
 
@@ -281,5 +283,77 @@ describe("orderLink A8 parity", () => {
     ];
     expect(pmBuyDisplayProfitCny(group[0], group)).toBe(15);
     expect(pmBuyDisplayStatus(group[0], group)).toBe("Win");
+  });
+
+  it("orderListDisplayRows hides PM sell rows but keeps buys and trad legs", () => {
+    const rows = [
+      { OrderID: "ob", Type: "OB", PmSide: undefined },
+      { OrderID: "0xbuy", Type: "Polymarket", PmSide: "buy" as const },
+      { OrderID: "0xsell", Type: "Polymarket", PmSide: "sell" as const, PmBuyOrderId: "0xbuy" },
+    ];
+    expect(orderListDisplayRows(rows).map(r => r.OrderID)).toEqual(["ob", "0xbuy"]);
+  });
+
+  it("pmBuyProfitDisplay pending when no sell and market open", () => {
+    const group = [{
+      OrderID: "0xbuy",
+      Type: "Polymarket",
+      PmSide: "buy" as const,
+      BetMoney: 70,
+      Money: 0,
+      Status: "None" as const,
+    }];
+    expect(pmBuyProfitDisplay(group[0], group)).toEqual({
+      profitCny: 0,
+      pending: true,
+      earlySettled: false,
+    });
+  });
+
+  it("pmBuyProfitDisplay early settled when bound sell closed out buy", () => {
+    const group = [
+      {
+        OrderID: "0xbuy70",
+        Type: "Polymarket",
+        PmSide: "buy" as const,
+        BetMoney: 70,
+        Money: 36,
+        Status: "Win" as const,
+        PmShares: 15.15,
+      },
+      {
+        OrderID: "0xsell70",
+        Type: "Polymarket",
+        PmSide: "sell" as const,
+        PmBuyOrderId: "0xbuy70",
+        BetMoney: 85,
+        Money: 15,
+        PmShares: 15.15,
+        PmStakeUsdc: 10,
+        Status: "None" as const,
+      },
+    ];
+    expect(pmBuyProfitDisplay(group[0], group)).toEqual({
+      profitCny: 15,
+      pending: false,
+      earlySettled: true,
+    });
+  });
+
+  it("pmBuyProfitDisplay uses market Money when held to settle", () => {
+    const group = [{
+      OrderID: "0xbuy",
+      Type: "Polymarket",
+      PmSide: "buy" as const,
+      BetMoney: 27,
+      Money: -27,
+      Status: "Lose" as const,
+      PmShares: 19.52,
+    }];
+    expect(pmBuyProfitDisplay(group[0], group)).toEqual({
+      profitCny: -27,
+      pending: false,
+      earlySettled: false,
+    });
   });
 });
