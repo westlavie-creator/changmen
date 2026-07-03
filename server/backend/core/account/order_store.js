@@ -34,6 +34,15 @@ function parseNum(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** pmShares = 官方 fill，取 RDS/CLOB/入参 最大值，避免 0 覆盖有效值 */
+function preservePmBuyFillShares(prevRaw, o, merged) {
+  const prev = parseNum(prevRaw.pmShares, 0);
+  const fromOrder = parseNum(o.pmShares ?? o.PmShares, 0);
+  const fromMerged = parseNum(merged.pmShares, 0);
+  const fill = Math.max(prev, fromOrder, fromMerged);
+  return fill > 0 ? fill : undefined;
+}
+
 function resolveSaveOrderLink(o, prevRaw, orderId, createAt, linkByOrderId, existingByOrderId, assignedInBatch, provider) {
   const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "").toLowerCase();
   const buyOrderId = String(o.pmBuyOrderId ?? prevRaw.pmBuyOrderId ?? "").trim();
@@ -184,7 +193,6 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       ...merged,
       pmSide: "buy",
       pmOrigin: "changmen",
-      pmShares: prevRaw.pmShares ?? merged.pmShares,
       pmStakeUsdc: prevRaw.pmStakeUsdc ?? merged.pmStakeUsdc,
       betMoney: betMoneyForMerge,
       pmSellState: prevRaw.pmSellState ?? merged.pmSellState,
@@ -216,10 +224,8 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   }
 
   if (!isSell) {
-    const prevShares = parseNum(prevRaw.pmShares, 0);
-    const incomingShares = parseNum(merged.pmShares ?? o.pmShares, 0);
-    const fillShares = Math.max(prevShares, incomingShares);
-    if (fillShares > 0)
+    const fillShares = preservePmBuyFillShares(prevRaw, o, merged);
+    if (fillShares != null)
       merged.pmShares = fillShares;
   }
 

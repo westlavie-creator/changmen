@@ -591,6 +591,43 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(sell?.pmStakeUsdc).toBe(14);
   });
 
+  test("finalize restores pmShares from CLOB when stored changmen buy has zero fill", () => {
+    const token = "762766351957438558742694";
+    const clob = mapPolymarketTradesToVenueOrders([{
+      taker_order_id: "0xbuy70",
+      side: "BUY",
+      status: "CONFIRMED",
+      size: "15.151514",
+      price: "0.66",
+      match_time: "1783104307",
+      asset_id: token,
+    }]);
+    const stored = [{
+      provider: "Polymarket" as const,
+      orderId: "0xbuy70",
+      odds: 1.5152,
+      createAt: 1783104307000,
+      betMoney: 10,
+      reward: 15.1515,
+      money: 5.1515,
+      status: "win" as const,
+      game: "",
+      match: "BetBoom vs Neme",
+      bet: "",
+      item: "BetBoom Team",
+      pmTokenId: token,
+      pmShares: 0,
+      pmStakeUsdc: 0,
+      pmOrigin: "changmen" as const,
+      pmSide: "buy" as const,
+      pmSellState: "settled" as const,
+    }];
+    const out = finalizePolymarketVenueOrders(clob, 47, stored);
+    const buy = out.find(o => o.orderId === "0xbuy70");
+    expect(buy?.pmOrigin).toBe("changmen");
+    expect(buy?.pmShares).toBeCloseTo(15.1515, 3);
+  });
+
   test("finalize skips changmen CLOB sell without RDS row (await persist)", () => {
     const clob = [{
       provider: "Polymarket" as const,

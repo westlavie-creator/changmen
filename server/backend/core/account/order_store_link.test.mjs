@@ -124,4 +124,47 @@ describe("saveOrder backend bind link", () => {
     expect(row.raw.pmStakeUsdc).toBe(14);
     expect(row.link).toBe(buy98Link);
   });
+
+  it("PM changmen buy restores pmShares from CLOB when RDS stored zero", async () => {
+    fetchOrdersByPlayerAll.mockResolvedValue([
+      {
+        order_id: "0xbuy70",
+        link: 1_781_304_306_999,
+        create_at: 1_781_304_307_000,
+        bet_money: 70,
+        money: 36,
+        status: "Win",
+        raw: {
+          pmSide: "buy",
+          pmOrigin: "changmen",
+          pmShares: 0,
+          pmStakeUsdc: 0,
+          pmSellState: "closed",
+          pmAttributedSellShares: 15.15,
+        },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xbuy70",
+        createAt: 1_781_304_307_000,
+        provider: "Polymarket",
+        pmSide: "buy",
+        pmOrigin: "changmen",
+        pmShares: 15.1515,
+        pmStakeUsdc: 0,
+        pmSellState: "settled",
+        betMoney: 70,
+        money: 36,
+        odds: 1.5152,
+        status: "win",
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.raw.pmShares).toBe(15.1515);
+  });
 });
