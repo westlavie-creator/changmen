@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { BetOption } from "@/models/betOption";
+import { PlatformAccount } from "@/models/platformAccount";
 import {
   applyArbHedgeStakes,
+  applyArbHedgeStakesCny,
+  arbBaseStakeCny,
   impliedFromLegOdds,
+  legStakeCny,
   resolveArbTargetProfit,
 } from "@/domain/arbitrage/arbStakeMath";
 import { createDefaultUserConfig } from "@/types/userConfig";
@@ -34,5 +38,38 @@ describe("arbStakeMath", () => {
     const legB = leg("PB", 2, 50);
     const accountA = { provider: "RAY", profit: 1.05 } as never;
     expect(resolveArbTargetProfit(config, legA, legB, accountA, undefined)).toBe(1.05);
+  });
+
+  it("converts PM USDT stake to CNY for arb base", () => {
+    const pmAccount = new PlatformAccount({
+      accountId: 1,
+      provider: "Polymarket",
+      playerName: "pm",
+      currency: "USDT",
+    });
+    expect(legStakeCny(14, "Polymarket", pmAccount)).toBe(98);
+  });
+
+  it("applyArbHedgeStakesCny hedges RAY from PM CNY base", () => {
+    const config = { ...createDefaultUserConfig(), tenNumber: true };
+    const legA = leg("RAY", 2.63, 10);
+    const legB = leg("Polymarket", 1.695, 14);
+    const accountA = new PlatformAccount({ accountId: 1, provider: "RAY", playerName: "ray" });
+    const accountB = new PlatformAccount({
+      accountId: 2,
+      provider: "Polymarket",
+      playerName: "pm",
+      currency: "USDT",
+    });
+    applyArbHedgeStakesCny(
+      legA,
+      legB,
+      arbBaseStakeCny(legA, legB, config, accountA, accountB),
+      config,
+      accountA,
+      accountB,
+    );
+    expect(legB.betMoney).toBe(14);
+    expect(legA.betMoney).toBe(60);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
-import type { PlatformAccount } from "@/models/platformAccount";
+import { PlatformAccount } from "@/models/platformAccount";
 import {
   arbLegsIncludePolymarket,
   reconcilePolymarketArbStakes,
@@ -23,7 +23,8 @@ describe("reconcilePolymarketArbStakes", () => {
     const config = { ...createDefaultUserConfig(), profit: 1.03, maxProfit: 1.2 };
     const legA = leg("RAY", 1.36, 80);
     const legB = leg("Polymarket", 5, 20);
-    const accountB = { provider: "Polymarket" } as PlatformAccount;
+    const accountA = new PlatformAccount({ accountId: 1, provider: "RAY", playerName: "ray" });
+    const accountB = new PlatformAccount({ accountId: 2, provider: "Polymarket", playerName: "pm" });
 
     const checkBetting = vi.fn(async (_acc, option: BetOption) => {
       option.data = { apiBetMoney: 5, detectionOdds: 5 };
@@ -33,7 +34,7 @@ describe("reconcilePolymarketArbStakes", () => {
     const result = await reconcilePolymarketArbStakes({
       legA,
       legB,
-      accountA: { provider: "RAY" } as PlatformAccount,
+      accountA,
       accountB,
       config,
       checkBetting,
@@ -52,6 +53,7 @@ describe("reconcilePolymarketArbStakes", () => {
     const config = createDefaultUserConfig();
     const legA = leg("RAY", 1.36, 80);
     const legB = leg("Polymarket", 5, 20);
+    const accountB = new PlatformAccount({ accountId: 2, provider: "Polymarket", playerName: "pm" });
 
     const checkBetting = vi.fn(async (_acc, option: BetOption) => {
       option.data = null;
@@ -62,7 +64,7 @@ describe("reconcilePolymarketArbStakes", () => {
     const result = await reconcilePolymarketArbStakes({
       legA,
       legB,
-      accountB: { provider: "Polymarket" } as PlatformAccount,
+      accountB,
       config,
       checkBetting,
     });
@@ -71,5 +73,45 @@ describe("reconcilePolymarketArbStakes", () => {
     if (result.ok)
       return;
     expect(result.message).toContain("盘口价高于检测价");
+  });
+
+  it("hedges RAY in CNY when PM betMoney is USDT after checkBet", async () => {
+    const config = {
+      ...createDefaultUserConfig(),
+      profit: 1.0,
+      maxProfit: 1.2,
+      tenNumber: true,
+    };
+    const legA = leg("RAY", 2.63, 10);
+    const legB = leg("Polymarket", 1.695, 14);
+    const accountA = new PlatformAccount({ accountId: 1, provider: "RAY", playerName: "nip" });
+    const accountB = new PlatformAccount({
+      accountId: 2,
+      provider: "Polymarket",
+      playerName: "pm",
+      currency: "USDT",
+    });
+
+    const checkBetting = vi.fn(async (_acc, option: BetOption) => {
+      option.data = { apiBetMoney: option.betMoney, detectionOdds: option.odds };
+      return option;
+    });
+
+    const result = await reconcilePolymarketArbStakes({
+      legA,
+      legB,
+      accountA,
+      accountB,
+      config,
+      checkBetting,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    expect(result.legB.betMoney).toBe(14);
+    expect(result.legA.betMoney).toBe(60);
+    expect(checkBetting).toHaveBeenCalledOnce();
+    expect(checkBetting.mock.calls[0]?.[1]).toBe(legA);
   });
 });

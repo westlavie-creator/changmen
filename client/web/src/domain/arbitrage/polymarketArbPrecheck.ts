@@ -2,8 +2,8 @@ import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
 import {
-  applyArbHedgeStakes,
-  arbBaseStake,
+  applyArbHedgeStakesCny,
+  arbBaseStakeCny,
   impliedFromLegOdds,
   resolveArbTargetProfit,
 } from "@/domain/arbitrage/arbStakeMath";
@@ -48,11 +48,13 @@ export async function reconcilePolymarketArbStakes(params: {
   const moneyBeforeA = legA.betMoney;
   const moneyBeforeB = legB.betMoney;
 
-  applyArbHedgeStakes(
+  applyArbHedgeStakesCny(
     legA,
     legB,
-    arbBaseStake(legA, legB, config),
+    arbBaseStakeCny(legA, legB, config, accountA, accountB),
     config,
+    accountA,
+    accountB,
   );
 
   let implied = impliedFromLegOdds(legA, legB);
