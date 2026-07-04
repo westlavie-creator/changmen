@@ -8,6 +8,14 @@ export function formatOdds(value: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
+/** Polymarket：1/price 赔率截断到 3 位小数（不四舍五入） */
+export function truncateOddsTo3(value: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0)
+    return 0;
+  return Math.trunc(n * 1000) / 1000;
+}
+
 export function formatBetOdds(bet: Record<string, unknown>): Record<string, unknown> {
   if (!bet || typeof bet !== "object")
     return bet;

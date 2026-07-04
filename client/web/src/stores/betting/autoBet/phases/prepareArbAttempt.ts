@@ -10,7 +10,7 @@ import {
 } from "@/domain/betting/singleLegRate";
 import { opponentSide } from "@/models/betOption";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
-import { arbProfitRate } from "@/shared/format";
+import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { accountsFundingReady } from "@/stores/account/accountPicker";
 import { useAccountStore } from "@/stores/accountStore";
 import { ensureArbExecutionTrace, setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
@@ -62,11 +62,9 @@ export async function prepareArbAttempt(
     implied,
     homeLine: `${legA.type}@${legA.odds}`,
     awayLine: `${legB.type}@${legB.odds}`,
+    legs: buildArbProgressLegPair(legA, legB),
   });
-  trace?.event(
-    "检测",
-    `平台 ${providerKeys.join(", ")} · ${legA.type}@${legA.odds} / ${legB.type}@${legB.odds} · 利润 ${arbProfitRate(implied)}`,
-  );
+  trace?.event("检测", `平台 ${providerKeys.join("、")}`);
 
   // [A8 可证实] `lBe`：GetOrderOptions 后立即 `linkId=Date.now()`（9999 扩展再取负）
   const linkTs = Date.now();
@@ -96,6 +94,9 @@ export async function prepareArbAttempt(
   if (accountB) {
     trace?.event("选号", `${legB.target} ${formatLegAccount(legB.type, accountB.playerName)}`);
   }
+  setArbExecutionTraceMeta(trace, {
+    legs: buildArbProgressLegPair(legA, legB, accountA, accountB),
+  });
 
   const betBothLegs = Boolean(accountA) && Boolean(accountB);
   const excludeA = config.noSameBet ? readUsedAccounts(bet.id, opponentSide(legA.target)) : [];

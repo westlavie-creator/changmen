@@ -1,5 +1,6 @@
 import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@/types/collect";
 import type { PlatformId } from "@/types/esport";
+import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { PLATFORMS } from "@/shared/platform";
 
 const PLATFORM: PlatformId = PLATFORMS.Polymarket;
@@ -249,7 +250,7 @@ export function parsePeriodToRound(period: string | undefined): number | null {
 export function decimalOddsFromProbability(price: string | number | undefined): number {
   const value = Number(price);
   if (!Number.isFinite(value) || value <= 0 || value >= 1) return 0;
-  return Number((1 / value).toFixed(4));
+  return truncateOddsTo3(1 / value);
 }
 
 export function bestAskFromBook(book: PolymarketBook | undefined): number {

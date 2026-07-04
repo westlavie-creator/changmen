@@ -18,7 +18,7 @@ describe("arbExecutionTrace", () => {
       deliver,
     );
 
-    trace.event("检测", "RAY@2.25 / OB@1.905");
+    trace.event("检测", "平台 RAY、OB");
     trace.event("选号", "RAY/acc1");
     trace.finish("success", "双腿成单");
 
@@ -29,34 +29,98 @@ describe("arbExecutionTrace", () => {
     expect(payload.events[0].stage).toBe("发现");
   });
 
-  it("formats telegram body with timeline", () => {
+  it("formats structured PM leg blocks and timeline", () => {
     const body = formatArbProgressTelegramBody({
       id: "1:2:3",
       matchId: 1,
       betId: 2,
-      matchTitle: "A vs B",
-      betName: "[地图2] 获胜",
+      matchTitle: "LYON vs FURIA",
+      betName: "[地图1] 获胜",
       startedAt: 0,
-      events: [{ at: 1500, stage: "预检", detail: "RAY ✅" }],
+      events: [
+        { at: 500, stage: "发现", detail: "利润 3.0%" },
+        { at: 1000, stage: "检测", detail: "平台 Polymarket、RAY" },
+        { at: 1500, stage: "预检", detail: "见下方对冲腿详情" },
+      ],
       outcome: "fail",
-      summary: "预检未通过",
-      meta: { implied: 1.03, homeLine: "RAY@2.25", awayLine: "OB@1.905" },
+      summary: "Polymarket Home: 盘口价高于检测价",
+      meta: {
+        implied: 1.03,
+        homeLine: "Polymarket@1.471",
+        awayLine: "RAY@2.25",
+        legs: [
+          {
+            side: "A",
+            platform: "Polymarket",
+            target: "Home",
+            odds: 1.471,
+            betMoney: 35,
+            account: "Polymarket/wallet1",
+            precheck: {
+              ok: false,
+              error: "盘口价高于检测价",
+              polymarket: {
+                tokenId: "74711611114983512613640395677280477708501472242194933077402249873861095364481",
+                tokenShort: "747116…44981",
+                detectionOdds: 1.471,
+                detectionMaxPrice: 0.68,
+                foClobPrice: 0.68,
+                bookPrice: 0.681,
+                apiBetMoney: 35,
+                capSource: "clob",
+              },
+            },
+          },
+          {
+            side: "B",
+            platform: "RAY",
+            target: "Away",
+            odds: 2.25,
+            betMoney: 80,
+            account: "RAY/acc1",
+            precheck: { ok: true },
+          },
+        ],
+      },
     });
 
-    expect(body).toContain("套利执行失败");
-    expect(body).toContain("预检未通过");
-    expect(body).toContain("00:01 预检");
+    expect(body).toContain("🔴 套利执行失败");
+    expect(body).toContain("【对冲腿】");
+    expect(body).toContain("主腿 · Polymarket · Home");
+    expect(body).toContain("token：747116…44981");
+    expect(body).toContain("检测上限：0.6800（fo clob）");
+    expect(body).toContain("盘口 ask：0.6810");
+    expect(body).toContain("预检：❌ 盘口价高于检测价");
+    expect(body).toContain("客腿 · RAY · Away");
+    expect(body).toContain("【执行过程】");
+    expect(body).not.toContain("见下方对冲腿详情");
+    expect(body).toContain("00:01 🔍 检测");
+    expect(body).toContain("耗时 1.5s");
   });
 
-  it("setMeta adds discovery event once", () => {
+  it("setMeta merges prior meta fields", () => {
     const deliver = vi.fn();
-    const trace = createArbExecutionTrace(match, bet, undefined, deliver);
+    const trace = createArbExecutionTrace(
+      match,
+      bet,
+      { implied: 1.05, homeLine: "A@2", awayLine: "B@2" },
+      deliver,
+    );
 
-    trace.setMeta({ implied: 1.05, homeLine: "A@2", awayLine: "B@2" });
+    trace.setMeta({
+      legs: [{
+        side: "A",
+        platform: "A",
+        target: "Home",
+        odds: 2,
+        betMoney: 10,
+      }],
+    });
     trace.finish("skip", "test");
 
-    const events = deliver.mock.calls[0][0].events;
-    expect(events.filter((e: { stage: string }) => e.stage === "发现")).toHaveLength(1);
+    const payload = deliver.mock.calls[0][0];
+    expect(payload.meta?.implied).toBe(1.05);
+    expect(payload.meta?.legs).toHaveLength(1);
   });
 
   it("ignores events after finish", () => {

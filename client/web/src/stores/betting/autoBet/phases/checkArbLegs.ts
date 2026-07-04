@@ -6,7 +6,7 @@ import {
 } from "@/domain/arbitrage";
 import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
 import { a8Tip } from "@/shared/a8Notify";
-import { formatBetResult } from "@/shared/arbBetTraceFormat";
+import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { arbBetToastSeconds } from "@/shared/betTiming";
 import { arbProfitRate } from "@/shared/format";
 import { wait } from "@/shared/wait";
@@ -55,19 +55,16 @@ export async function checkArbLegs(
   if (accountB)
     legB = checked[checkIdx++];
 
-  const legALine = accountA
-    ? formatBetResult(legA.type, legA.target, legA.betMoney, legA.odds, {
-        success: Boolean(legA.data),
-      })
-    : null;
-  const legBLine = accountB
-    ? formatBetResult(legB.type, legB.target, legB.betMoney, legB.odds, {
-        success: Boolean(legB.data),
-      })
-    : null;
-  if (legALine || legBLine) {
-    trace?.event("预检", [legALine, legBLine].filter(Boolean).join(" · "));
-  }
+  const precheckLegs = buildArbProgressLegPair(legA, legB, accountA, accountB, {
+    legA: accountA
+      ? { ok: Boolean(legA.data), error: legA.checkError }
+      : undefined,
+    legB: accountB
+      ? { ok: Boolean(legB.data), error: legB.checkError }
+      : undefined,
+  });
+  setArbExecutionTraceMeta(trace, { legs: precheckLegs });
+  trace?.event("预检", "见下方对冲腿详情");
 
   if ((accountA && !legA.data) || (accountB && !legB.data)) {
     const parts = [
@@ -106,10 +103,14 @@ export async function checkArbLegs(
       implied: impliedLive,
       homeLine: `${legA.type}@${legA.odds}`,
       awayLine: `${legB.type}@${legB.odds}`,
+      legs: buildArbProgressLegPair(legA, legB, accountA, accountB, {
+        legA: { ok: true },
+        legB: { ok: true },
+      }),
     });
     trace?.event(
       "预检",
-      `PM 盘口重算对冲 · 利润 ${arbProfitRate(impliedLive)} · ${legA.type}@${legA.odds}/${legA.betMoney} + ${legB.type}@${legB.odds}/${legB.betMoney}`,
+      `PM 重算对冲 · 利润 ${arbProfitRate(impliedLive)} · ${legA.betMoney}/${legB.betMoney}`,
     );
   }
 

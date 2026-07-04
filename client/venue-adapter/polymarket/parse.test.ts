@@ -67,6 +67,11 @@ describe("Polymarket parse", () => {
     expect(decimalOddsFromProbability(1)).toBe(0);
   });
 
+  test("truncates decimal odds to 3 digits without rounding", () => {
+    expect(decimalOddsFromProbability(0.37)).toBe(2.702);
+    expect(decimalOddsFromProbability(0.333)).toBe(3.003);
+  });
+
   test("builds stable team ids by game and normalized team name", () => {
     expect(normalizePolymarketTeamName("Virtus.pro")).toBe("virtus-pro");
     expect(sourceTeamId("dota2", "Virtus.pro")).toBe("dota2:virtus-pro");

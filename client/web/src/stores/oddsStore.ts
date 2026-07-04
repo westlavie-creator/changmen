@@ -11,7 +11,9 @@ import type { LimitEntry } from "@/types/limit";
  * fo 里可能出现 ViewMatch 未引用的 oddId（多盘口、列表已下架残留、采集先于合并等）。
  */
 import { defineStore } from "pinia";
+import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { formatDisplayOdds } from "@/shared/format";
+import { PLATFORMS } from "@/shared/platform";
 
 /** 写入 fo 的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
 export type OddsSaveSource = "mqtt" | "http";
@@ -158,10 +160,14 @@ export const useOddsStore = defineStore("odds", {
     getOdds(platform: PlatformId, oddsId: string, fallback = 0): number {
       const row = this.data.get(platform)?.get(String(oddsId));
       if (row === undefined)
-        return formatDisplayOdds(fallback);
+        return platform === PLATFORMS.Polymarket
+          ? truncateOddsTo3(fallback)
+          : formatDisplayOdds(fallback);
       if (row.isLock)
         return 0;
-      return formatDisplayOdds(row.odds);
+      return platform === PLATFORMS.Polymarket
+        ? truncateOddsTo3(row.odds)
+        : formatDisplayOdds(row.odds);
     },
 
     /** 更新单条 odd 锁盘（对齐 A8 `updateOddsLock`：仅改 fo 已有行） */

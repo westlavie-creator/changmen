@@ -4,6 +4,33 @@ import { arbProfitRate } from "@/shared/format";
 /** [changmen 扩展] 套利执行进度追踪结果 */
 export type ArbProgressOutcome = "success" | "partial" | "fail" | "skip";
 
+export interface ArbProgressPolymarketMeta {
+  tokenId: string;
+  tokenShort: string;
+  detectionOdds: number;
+  detectionMaxPrice: number;
+  foClobPrice?: number;
+  bookPrice?: number;
+  apiBetMoney?: number;
+  capSource: "clob" | "odds" | "locked";
+}
+
+export interface ArbProgressLegPrecheck {
+  ok: boolean;
+  error?: string;
+  polymarket?: ArbProgressPolymarketMeta;
+}
+
+export interface ArbProgressLegMeta {
+  side: "A" | "B";
+  platform: string;
+  target: string;
+  odds: number;
+  betMoney: number;
+  account?: string;
+  precheck?: ArbProgressLegPrecheck;
+}
+
 export interface ArbProgressEvent {
   at: number;
   stage: string;
@@ -24,6 +51,7 @@ export interface ArbProgressPayload {
     implied?: number;
     homeLine?: string;
     awayLine?: string;
+    legs?: ArbProgressLegMeta[];
   };
 }
 
@@ -56,7 +84,7 @@ export function createArbExecutionTrace(
     setMeta(next) {
       if (finished)
         return;
-      metaRef = next;
+      metaRef = { ...metaRef, ...next };
       if (next?.implied != null && !events.some(e => e.stage === "发现")) {
         events.push({
           at: Date.now(),
