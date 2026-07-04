@@ -21,6 +21,7 @@ import {
   parseJsonArray,
   type PolymarketMappedMarket,
 } from "./parse";
+import { isValidClobPrice } from "./pmDetection";
 import { POLYMARKET_PLUGIN_REQUIRED_MSG } from "./transport";
 
 const PLATFORM = PLATFORMS.Polymarket;
@@ -29,24 +30,83 @@ const SAVE_BETS_INTERVAL_MS = 5 * 60_000;
 const MAX_TRACKED_MARKETS = 400;
 const COLLECT_MARKET_TYPES = new Set(["moneyline", "child_moneyline"]);
 
-function saveOddsEntry(odds: ReturnType<typeof useOddsStore>, bet: CollectBetDto, source: "http" | "mqtt") {
+/** PM 写 fo 的唯一入口：decimal odds 供展示/套利，clobPrice 供预检限价 */
+export function saveTokenQuote(
+  odds: ReturnType<typeof useOddsStore>,
+  params: {
+    tokenId: string;
+    clobPrice: number;
+    betId: string;
+    side: "home" | "away";
+    locked: boolean;
+  },
+  source: "http" | "mqtt",
+) {
+  odds.save(PLATFORM, {
+    id: params.tokenId,
+    odds: decimalOddsFromProbability(params.clobPrice),
+    clobPrice: params.clobPrice,
+    isLock: params.locked,
+    betId: params.betId,
+    side: params.side,
+    time: Date.now(),
+  }, source);
+}
+
+function saveBetOddsToFo(
+  odds: ReturnType<typeof useOddsStore>,
+  bet: CollectBetDto,
+  source: "http" | "mqtt",
+  clobPrices?: { home?: number; away?: number },
+) {
   const locked = bet.Status === "Locked";
-  odds.save(PLATFORM, {
-    id: String(bet.SourceHomeID),
-    odds: bet.HomeOdds,
-    isLock: locked || !bet.HomeOdds,
-    betId: String(bet.SourceBetID),
-    side: "home",
-    time: Date.now(),
-  }, source);
-  odds.save(PLATFORM, {
-    id: String(bet.SourceAwayID),
-    odds: bet.AwayOdds,
-    isLock: locked || !bet.AwayOdds,
-    betId: String(bet.SourceBetID),
-    side: "away",
-    time: Date.now(),
-  }, source);
+  const betId = String(bet.SourceBetID);
+  const homeId = String(bet.SourceHomeID);
+  const awayId = String(bet.SourceAwayID);
+  const homePrice = clobPrices?.home;
+  if (Number.isFinite(homePrice) && homePrice! > 0) {
+    saveTokenQuote(odds, {
+      tokenId: homeId,
+      clobPrice: homePrice!,
+      betId,
+      side: "home",
+      locked: locked || !bet.HomeOdds,
+    }, source);
+  }
+  else {
+    const prev = odds.getEntry(PLATFORM, homeId);
+    odds.save(PLATFORM, {
+      id: homeId,
+      odds: bet.HomeOdds,
+      ...(prev?.clobPrice != null && isValidClobPrice(prev.clobPrice) ? { clobPrice: prev.clobPrice } : {}),
+      isLock: locked || !bet.HomeOdds,
+      betId,
+      side: "home",
+      time: Date.now(),
+    }, source);
+  }
+  const awayPrice = clobPrices?.away;
+  if (Number.isFinite(awayPrice) && awayPrice! > 0) {
+    saveTokenQuote(odds, {
+      tokenId: awayId,
+      clobPrice: awayPrice!,
+      betId,
+      side: "away",
+      locked: locked || !bet.AwayOdds,
+    }, source);
+  }
+  else {
+    const prev = odds.getEntry(PLATFORM, awayId);
+    odds.save(PLATFORM, {
+      id: awayId,
+      odds: bet.AwayOdds,
+      ...(prev?.clobPrice != null && isValidClobPrice(prev.clobPrice) ? { clobPrice: prev.clobPrice } : {}),
+      isLock: locked || !bet.AwayOdds,
+      betId,
+      side: "away",
+      time: Date.now(),
+    }, source);
+  }
 }
 
 
@@ -108,7 +168,15 @@ export function startPolymarketCollector(): () => void {
     if (assetId === String(next.SourceAwayID)) next.AwayOdds = decimalOdds;
     next.Status = next.HomeOdds > 0 && next.AwayOdds > 0 ? "Normal" : "Locked";
     mapped.bet = next;
-    saveOddsEntry(odds, next, "mqtt");
+    const betId = String(next.SourceBetID);
+    const side = assetId === String(next.SourceHomeID) ? "home" as const : "away" as const;
+    saveTokenQuote(odds, {
+      tokenId: assetId,
+      clobPrice: price,
+      betId,
+      side,
+      locked: next.Status === "Locked" || (side === "home" ? !next.HomeOdds : !next.AwayOdds),
+    }, "mqtt");
     matchStore.refreshOddsOnBets();
   }
 
@@ -168,7 +236,10 @@ export function startPolymarketCollector(): () => void {
       marketsById.set(mapped.marketId, mapped);
       assetToMarket.set(mapped.assetIds[0], mapped.marketId);
       assetToMarket.set(mapped.assetIds[1], mapped.marketId);
-      saveOddsEntry(odds, mapped.bet, "http");
+      saveBetOddsToFo(odds, mapped.bet, "http", {
+        home: Number(buyPrices[mapped.assetIds[0]!]),
+        away: Number(buyPrices[mapped.assetIds[1]!]),
+      });
       if (shouldSaveBets) {
         const sid = String(mapped.match.SourceMatchID);
         if (!betsByMatch.has(sid)) betsByMatch.set(sid, []);

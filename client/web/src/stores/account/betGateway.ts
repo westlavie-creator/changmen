@@ -9,6 +9,7 @@ import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify"
 import { playOrderSuccessSound } from "@/shared/orderSound";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
 import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
+import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
 import { useConfigStore } from "@/stores/configStore";
 import { useMessageStore } from "@/stores/messageStore";
 
@@ -54,6 +55,7 @@ export async function checkBetting(
     return option;
   }
   try {
+    attachPolymarketDetectionQuote(option);
     option.betMoney = account.getBetMoney(option.betMoney, option.odds);
     return await provider.checkBet(account, option);
   }

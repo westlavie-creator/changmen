@@ -12,6 +12,7 @@ export * from "./pmSportGuard";
 export * from "./pmSportGamma";
 export * from "./pmMarketGuard";
 export * from "./pmBetGuard";
+export * from "./pmDetection";
 export * from "./ws";
 export * from "./userWs";
 

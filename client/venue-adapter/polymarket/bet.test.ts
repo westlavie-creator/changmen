@@ -460,6 +460,49 @@ describe("polymarketProvider.betting", () => {
     expect(polymarketPluginPost).not.toHaveBeenCalled();
   });
 
+  test("accepts FOK when fo clobPrice matches book despite display odds rounding", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    mockPluginGetWithBook({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.68", size: "5000" }],
+    });
+    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+      success: true,
+      orderID: "order-rounding",
+      status: "matched",
+      takingAmount: "7350000",
+      makingAmount: "5000000",
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 1.471,
+      betMoney: 35,
+      data: {
+        detectionOdds: 1.471,
+        detectionClobPrice: 0.68,
+        apiBetMoney: 5,
+      },
+    } as any);
+
+    expect(result.success).toBe(true);
+    expect(polymarketPluginPost).toHaveBeenCalledOnce();
+  });
+
   test("reports minimum order size before posting too-small FOK buy", async () => {
     mockPluginGetWithBook({
       tick_size: "0.01",

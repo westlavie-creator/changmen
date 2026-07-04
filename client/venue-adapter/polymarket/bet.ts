@@ -26,6 +26,10 @@ import { isPolymarketDelayedPending } from "./orderStatus";
 import { markPolymarketChangmenOrder } from "./pmOrigin";
 import { registerPolymarketOrderWatch } from "./userWs";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
+import {
+  resolvePolymarketDetectionMaxPrice,
+  type PolymarketOptionQuoteData,
+} from "./pmDetection";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 export { isPolymarketDelayedPending } from "./orderStatus";
@@ -135,6 +139,8 @@ export interface PolymarketBuyCheckData {
   odds: number;
   detectionOdds: number;
   detectionMaxPrice: number;
+  /** 与 detectionMaxPrice 相同；fo clobPrice 锁定值 */
+  detectionClobPrice?: number;
   bookPrice: number;
   betMoney: number;
   apiBetMoney: number;
@@ -222,8 +228,35 @@ function diagnosticLines(diag: PolymarketOrderDiagnostic): string[] {
   return lines;
 }
 
-function detectionMaxPrice(detectionOdds: number): number {
-  return Math.round((1 / detectionOdds) * 10000) / 10000;
+async function resolvePolymarketExecutableBuy(
+  gateway: string,
+  tokenId: string,
+  detectionOdds: number,
+  apiBetMoney: number,
+  maxPrice: number,
+): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions; bookFetchedAt: number }> {
+  if (!maxPrice || maxPrice <= 0 || maxPrice >= 1)
+    throw new Error(`无效检测价 ${maxPrice}（赔率 ${detectionOdds}）`);
+  const orderOptions = await fetchOrderOptions(gateway, tokenId);
+  const price = calculateBuyMarketLimitPrice(
+    orderOptions.asks,
+    apiBetMoney,
+    orderOptions.minOrderSize,
+    {
+      tokenId,
+      amountUsdc: apiBetMoney,
+      displayedOdds: detectionOdds,
+      displayedPrice: maxPrice,
+      minOrderSize: orderOptions.minOrderSize,
+    },
+    maxPrice,
+  );
+  return {
+    price,
+    bookOdds: Math.round((1 / price) * 10000) / 10000,
+    orderOptions,
+    bookFetchedAt: Date.now(),
+  };
 }
 
 function calculateBuyMarketLimitPrice(
@@ -400,46 +433,17 @@ function canReusePrecheckBook(
   data: PolymarketBuyCheckData,
   tokenId: string,
   detectionOdds: number,
+  detectionMaxPriceCap: number,
   apiBetMoney: number,
   now: number,
 ): boolean {
   return (
     data.tokenId === tokenId
     && data.detectionOdds === detectionOdds
+    && data.detectionMaxPrice === detectionMaxPriceCap
     && data.apiBetMoney === apiBetMoney
     && now - data.bookFetchedAt <= PRECHECK_BOOK_REUSE_MS
   );
-}
-
-async function resolvePolymarketExecutableBuy(
-  gateway: string,
-  tokenId: string,
-  detectionOdds: number,
-  apiBetMoney: number,
-): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions; bookFetchedAt: number }> {
-  const maxPrice = detectionMaxPrice(detectionOdds);
-  if (!maxPrice || maxPrice <= 0 || maxPrice >= 1)
-    throw new Error(`无效检测赔率 ${detectionOdds}`);
-  const orderOptions = await fetchOrderOptions(gateway, tokenId);
-  const price = calculateBuyMarketLimitPrice(
-    orderOptions.asks,
-    apiBetMoney,
-    orderOptions.minOrderSize,
-    {
-      tokenId,
-      amountUsdc: apiBetMoney,
-      displayedOdds: detectionOdds,
-      displayedPrice: maxPrice,
-      minOrderSize: orderOptions.minOrderSize,
-    },
-    maxPrice,
-  );
-  return {
-    price,
-    bookOdds: Math.round((1 / price) * 10000) / 10000,
-    orderOptions,
-    bookFetchedAt: Date.now(),
-  };
 }
 
 async function resolvePolymarketExecutableBuyForBet(
@@ -451,14 +455,15 @@ async function resolvePolymarketExecutableBuyForBet(
 ): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions }> {
   const prior = option.data;
   const now = Date.now();
-  if (isPolymarketBuyCheckData(prior) && canReusePrecheckBook(prior, tokenId, detectionOdds, apiBetMoney, now)) {
+  const maxPrice = resolvePolymarketDetectionMaxPrice(option, detectionOdds);
+  if (isPolymarketBuyCheckData(prior) && canReusePrecheckBook(prior, tokenId, detectionOdds, maxPrice, apiBetMoney, now)) {
     return {
       price: prior.bookPrice,
       bookOdds: prior.odds,
       orderOptions: prior.orderOptions,
     };
   }
-  const resolved = await resolvePolymarketExecutableBuy(gateway, tokenId, detectionOdds, apiBetMoney);
+  const resolved = await resolvePolymarketExecutableBuy(gateway, tokenId, detectionOdds, apiBetMoney, maxPrice);
   return {
     price: resolved.price,
     bookOdds: resolved.bookOdds,
@@ -512,11 +517,12 @@ export const polymarketProvider: PlatformProvider = {
       return option;
     }
 
-    const prior = option.data as { detectionOdds?: number } | null | undefined;
-    // 套利检测价：首次预检锁定 fo 赔率；PM 重检时沿用，FOK 限价不超过检测价
+    const prior = option.data as PolymarketOptionQuoteData | PolymarketBuyCheckData | null | undefined;
+    // 套利检测价：首次预检锁定 fo 赔率；PM 重检时沿用，FOK 限价不超过 fo clobPrice
     const detectionOdds = Number(prior?.detectionOdds) > 1
       ? Number(prior!.detectionOdds)
       : option.odds;
+    const maxPrice = resolvePolymarketDetectionMaxPrice(option, detectionOdds);
     const apiBetMoney = resolvePolymarketApiBetMoney(account, option);
     const gateway = account.gateway || POLYMARKET_CLOB_API;
     const tokenId = option.itemId;
@@ -526,6 +532,7 @@ export const polymarketProvider: PlatformProvider = {
         tokenId,
         detectionOdds,
         apiBetMoney,
+        maxPrice,
       );
       option.odds = bookOdds;
       option.newOdds = bookOdds;
@@ -533,7 +540,8 @@ export const polymarketProvider: PlatformProvider = {
         tokenId,
         odds: bookOdds,
         detectionOdds,
-        detectionMaxPrice: detectionMaxPrice(detectionOdds),
+        detectionMaxPrice: maxPrice,
+        detectionClobPrice: maxPrice,
         bookPrice: price,
         betMoney: option.betMoney,
         apiBetMoney,
@@ -569,9 +577,9 @@ export const polymarketProvider: PlatformProvider = {
     const gateway = account.gateway || POLYMARKET_CLOB_API;
 
     const detectionOdds = resolvePolymarketDetectionOdds(option);
-    const maxPrice = detectionMaxPrice(detectionOdds);
+    const maxPrice = resolvePolymarketDetectionMaxPrice(option, detectionOdds);
     if (!maxPrice || maxPrice <= 0 || maxPrice >= 1)
-      return new BetResult("Polymarket", false, `无效检测赔率 ${detectionOdds}`);
+      return new BetResult("Polymarket", false, `无效检测价 ${maxPrice}（赔率 ${detectionOdds}）`);
 
     const tokenId = option.itemId;
     const apiBetMoney = resolvePolymarketApiBetMoney(account, option);
