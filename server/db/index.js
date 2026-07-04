@@ -186,6 +186,7 @@ export {
   orderVisibleSqlAnd,
   placeholderLinkFromCreateAt,
   placeholderLinkFromInsertAt,
+  shouldAllowOrderBind,
   shouldFireOrderBoundHook,
 } from "./order_link_filter.js";
 

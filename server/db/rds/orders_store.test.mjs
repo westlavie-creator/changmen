@@ -220,4 +220,25 @@ describe("updateOrderBind bound hook", () => {
     expect(ok).toBe(false);
     expect(hook).not.toHaveBeenCalled();
   });
+
+  it("refuses rebinding order to far arb linkId", async () => {
+    const ca = 1_783_195_621_000;
+    const prev = {
+      user_id: "u1",
+      order_id: "0xfe933",
+      player_id: 47,
+      link: 1_783_195_619_962,
+      create_at: ca,
+      provider: "Polymarket",
+    };
+    queryMock.mockResolvedValueOnce({ rows: [prev] });
+    const hook = vi.fn();
+    setOrdersBoundHook(hook);
+
+    const ok = await updateOrderBind("0xfe933", "u1", 1_783_199_338_220, { provider: "Polymarket" });
+
+    expect(ok).toBe(false);
+    expect(hook).not.toHaveBeenCalled();
+    expect(queryMock).toHaveBeenCalledOnce();
+  });
 });

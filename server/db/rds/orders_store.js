@@ -2,7 +2,7 @@
  * orders 表读写 — upsert、查询、管理端、SaveOrderBind。
  */
 
-import { shouldFireOrderBoundHook } from "../order_link_filter.js";
+import { shouldAllowOrderBind, shouldFireOrderBoundHook } from "../order_link_filter.js";
 import { _jsonb, getPgPool } from "./common.js";
 import { localDayBounds, localMonthBounds } from "./time_bounds.js";
 
@@ -456,6 +456,13 @@ export async function updateOrderBind(orderId, userId, link, opts = {}) {
     const prev = sel.rows?.[0];
     if (!prev)
       return false;
+    if (!shouldAllowOrderBind(prev, linkVal)) {
+      console.warn(
+        "[rds] updateOrderBind: refused cross-arb rebind",
+        `| orderId=${orderId} prevLink=${prev.link} nextLink=${linkVal} create_at=${prev.create_at}`,
+      );
+      return false;
+    }
     const updateWhere = offsetSqlPlaceholders(where, 1);
     const res = await pool.query(
       `UPDATE orders SET link = $1 WHERE ${updateWhere}`,

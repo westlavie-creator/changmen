@@ -329,6 +329,39 @@ describe("finalizeArbBet makeup enqueue", () => {
     });
   });
 
+  it("PM delayed 且 sync 仍返回历史首条时用 result.orderId 绑单", async () => {
+    const linkId = 1_783_199_338_220;
+    syncVenueRejectFlags.mockResolvedValue({
+      ordersA: [venueOrder("ob-1", "none", 2.4)],
+      ordersB: [
+        venueOrder("0xfe933cac68e49da172f4ab8e59e6c1", "none", 2.6),
+      ],
+      rejectA: false,
+      rejectB: false,
+    });
+
+    const placed = makePlaced({
+      linkId,
+      accountA: makeAccount("OB" as PlatformId),
+      accountB: makeAccount("Polymarket" as PlatformId),
+      legA: makeLeg("OB", "T1"),
+      legB: makeLeg("Polymarket" as PlatformId, "T2"),
+      resultA: new BetResult("OB", true),
+      resultB: Object.assign(new BetResult("Polymarket", true), {
+        orderId: "0xd695a0c4cdd10b558fc829ecda52f20eeca76407",
+      }),
+    });
+
+    await finalizeArbBet(params, placed);
+
+    expect(saveOrderBind).toHaveBeenCalledWith({
+      orders: JSON.stringify([
+        { LinkID: linkId, Provider: "OB", OrderID: "ob-1" },
+        { LinkID: linkId, Provider: "Polymarket", OrderID: "0xd695a0c4cdd10b558fc829ecda52f20eeca76407" },
+      ]),
+    });
+  });
+
   it("refreshBalance 不阻塞拒单等待", async () => {
     let rejectWaitStarted = false;
     refreshBalance.mockImplementation(

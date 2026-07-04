@@ -69,6 +69,36 @@ export function isArbBindLink(link) {
   return Number.isFinite(n) && n >= ARB_LINK_MIN;
 }
 
+/** 套利 linkId 与场馆 create_at 允许偏差（SaveOrderBind 用 Date.now()，通常 ≤ 数秒） */
+export const ARB_LINK_CREATE_AT_TOLERANCE_MS = 90_000;
+
+/**
+ * SaveOrderBind 是否允许把已有套利 link 改成另一套利 link。
+ * 防止拒单复检时 orders[0] 误绑历史订单（如 PM delayed 列表尚未含新单）。
+ */
+export function shouldAllowOrderBind(prevRow, linkVal) {
+  const prevLink = Number(prevRow?.link);
+  const next = Number(linkVal);
+  if (!isArbBindLink(next))
+    return true;
+  if (!isArbBindLink(prevLink))
+    return true;
+  if (prevLink === next)
+    return true;
+  if (isCreateAtPlaceholderLink(prevLink, prevRow?.create_at))
+    return true;
+  if (isHashLink(prevLink))
+    return true;
+  const ca = Number(prevRow?.create_at);
+  if (!Number.isFinite(ca) || ca <= 0)
+    return false;
+  const prevDist = Math.abs(prevLink - ca);
+  const nextDist = Math.abs(next - ca);
+  if (prevDist < nextDist && nextDist > ARB_LINK_CREATE_AT_TOLERANCE_MS)
+    return false;
+  return true;
+}
+
 /** SaveOrderBind：从占位 link 改为共享 LinkID 时触发 bound 通知 */
 export function shouldFireOrderBoundHook(prevRow, linkVal) {
   const prevLink = Number(prevRow?.link);

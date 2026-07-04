@@ -5,6 +5,7 @@ import { BetResult } from "@/models/betResult";
 
 import {
   fetchVenueOrdersWithReject,
+  resolveArbBindOrderId,
   syncVenueOrdersWithRejectForLeg,
   syncVenueRejectFlags,
 } from "./venueRejectSync";
@@ -49,6 +50,25 @@ function makeVenueOrder(
     ...partial,
   };
 }
+
+describe("resolveArbBindOrderId", () => {
+  it("prefers result.orderId over stale orders[0]", () => {
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xd695a0c4cdd10b558fc829ecda52f20eeca76407",
+    });
+    const orders = [
+      makeVenueOrder({ orderId: "0xfe933cac68e49da172f4ab8e59e6c1", status: "none", odds: 2.6, betMoney: 98 }),
+    ];
+    expect(resolveArbBindOrderId(orders, result)).toBe("0xd695a0c4cdd10b558fc829ecda52f20eeca76407");
+  });
+
+  it("falls back to orders[0] when result has no orderId", () => {
+    const orders = [
+      makeVenueOrder({ orderId: "ob-1", status: "none", odds: 2, betMoney: 100 }),
+    ];
+    expect(resolveArbBindOrderId(orders, new BetResult("OB", true))).toBe("ob-1");
+  });
+});
 
 describe("fetchVenueOrdersWithReject", () => {
   beforeEach(() => {

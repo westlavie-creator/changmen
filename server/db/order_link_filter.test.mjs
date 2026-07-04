@@ -14,6 +14,7 @@ import {
   orderVisibleSqlAnd,
   placeholderLinkFromCreateAt,
   placeholderLinkFromInsertAt,
+  shouldAllowOrderBind,
   shouldFireOrderBoundHook,
 } from "./order_link_filter.js";
 
@@ -106,5 +107,26 @@ describe("order_link_filter", () => {
   it("isArbBindLink requires ms-scale link", () => {
     assert.equal(isArbBindLink(1_000_000_000_001), true);
     assert.equal(isArbBindLink(12345), false);
+  });
+
+  it("shouldAllowOrderBind refuses far link overwriting near arb link", () => {
+    const ca = 1_783_195_621_000;
+    const prevLink = 1_783_195_619_962;
+    assert.equal(
+      shouldAllowOrderBind({ link: prevLink, create_at: ca }, 1_783_199_338_220),
+      false,
+    );
+    assert.equal(
+      shouldAllowOrderBind({ link: ca, create_at: ca }, 1_700_000_000_123),
+      true,
+    );
+    assert.equal(
+      shouldAllowOrderBind({ link: 12345, create_at: ca }, 1_700_000_000_123),
+      true,
+    );
+    assert.equal(
+      shouldAllowOrderBind({ link: prevLink, create_at: ca }, prevLink),
+      true,
+    );
   });
 });

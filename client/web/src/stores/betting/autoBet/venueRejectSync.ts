@@ -108,13 +108,14 @@ export async function syncVenueRejectFlags(
   return { ordersA, ordersB, rejectA, rejectB };
 }
 
+/** 绑单 orderId：优先本次下注 result（PM delayed 等），避免 orders[0] 仍是历史单 */
 export function resolveArbBindOrderId(
   orders: VenueOrder[],
   result: BetResult | undefined,
 ): string | undefined {
-  const fromVenue = String(orders[0]?.orderId ?? "").trim();
-  if (fromVenue)
-    return fromVenue;
   const fromResult = String(result?.orderId ?? "").trim();
-  return fromResult || undefined;
+  if (fromResult)
+    return fromResult;
+  const fromVenue = String(orders[0]?.orderId ?? "").trim();
+  return fromVenue || undefined;
 }
