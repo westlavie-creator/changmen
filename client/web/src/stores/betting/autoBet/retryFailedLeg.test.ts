@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { PlatformAccount } from "@/models/platformAccount";
-import { hedgeStakeCnyFromLeg } from "@/domain/arbitrage/arbStakeMath";
+import { hedgeStakeCnyFromLeg } from "@/domain/polymarket/pmArbStake";
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({

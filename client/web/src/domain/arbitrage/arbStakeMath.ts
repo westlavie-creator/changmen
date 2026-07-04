@@ -1,8 +1,6 @@
 import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
-import { getExchange } from "@/shared/currency";
-import { PLATFORMS } from "@/shared/platform";
 
 /** 两腿对冲 implied 乘数（≥1 为盈利） */
 export function impliedFromLegOdds(legA: BetOption, legB: BetOption): number {
@@ -60,87 +58,4 @@ export function arbBaseStake(legA: BetOption, legB: BetOption, config: UserConfi
   if (legA.odds <= legB.odds)
     return legA.betMoney || config.betMoney;
   return legB.betMoney || config.betMoney;
-}
-
-/** 成功腿 stake（CNY）→ 对侧 hedge stake（CNY）；对齐 A8 anyOdds `ge.odds*ge.betMoney/odds` */
-export function hedgeStakeCnyFromLeg(
-  successOdds: number,
-  successBetMoney: number,
-  successLegType: BetOption["type"],
-  targetOdds: number,
-  successAccount?: PlatformAccount,
-): number {
-  if (!successOdds || !targetOdds)
-    return 0;
-  const successCny = legStakeCny(successBetMoney, successLegType, successAccount);
-  return Math.floor((successOdds * successCny) / targetOdds);
-}
-
-/** 预检后 leg.betMoney → CNY（PM 经 getBetMoney 后为 USDT，须还原） */
-export function legStakeCny(
-  betMoney: number,
-  legType: BetOption["type"],
-  account?: PlatformAccount,
-): number {
-  if (account && legType === PLATFORMS.Polymarket) {
-    return Math.round(betMoney * getExchange(account.currency));
-  }
-  return betMoney;
-}
-
-/** CNY 计划金额 → 场馆下单口径（经 getBetMoney / 汇率） */
-export function applyLegStakeFromCny(
-  cnyStake: number,
-  leg: BetOption,
-  account?: PlatformAccount,
-): number {
-  if (account) {
-    return account.getBetMoney(cnyStake, leg.odds);
-  }
-  return cnyStake;
-}
-
-/** PM 预检后对冲：先在 CNY 口径算 stake，再写回各腿场馆金额 */
-export function arbBaseStakeCny(
-  legA: BetOption,
-  legB: BetOption,
-  config: UserConfig,
-  accountA?: PlatformAccount,
-  accountB?: PlatformAccount,
-): number {
-  const cnyA = legStakeCny(legA.betMoney, legA.type, accountA);
-  const cnyB = legStakeCny(legB.betMoney, legB.type, accountB);
-  if (legA.odds <= legB.odds)
-    return cnyA || config.betMoney;
-  return cnyB || config.betMoney;
-}
-
-export function applyArbHedgeStakesCny(
-  legA: BetOption,
-  legB: BetOption,
-  baseStakeCny: number,
-  config: UserConfig,
-  accountA?: PlatformAccount,
-  accountB?: PlatformAccount,
-): void {
-  let cnyA: number;
-  let cnyB: number;
-  const oddsA = legA.odds;
-  const oddsB = legB.odds;
-  if (oddsA <= oddsB) {
-    cnyA = baseStakeCny;
-    let hedge = (oddsA * baseStakeCny) / oddsB;
-    if (config.tenNumber)
-      hedge = Math.round(hedge / 10) * 10;
-    cnyB = hedge;
-  }
-  else {
-    cnyB = baseStakeCny;
-    let hedge = (oddsB * baseStakeCny) / oddsA;
-    if (config.tenNumber)
-      hedge = Math.round(hedge / 10) * 10;
-    cnyA = hedge;
-  }
-  legA.betMoney = applyLegStakeFromCny(cnyA, legA, accountA);
-  legB.betMoney = applyLegStakeFromCny(cnyB, legB, accountB);
 }

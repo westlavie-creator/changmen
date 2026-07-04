@@ -1,20 +1,14 @@
 import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
+import { impliedFromLegOdds, resolveArbTargetProfit } from "@/domain/arbitrage/arbStakeMath";
 import {
-  applyArbHedgeStakesCny,
-  arbBaseStakeCny,
-  impliedFromLegOdds,
-  resolveArbTargetProfit,
-} from "@/domain/arbitrage/arbStakeMath";
-import { PLATFORMS } from "@/shared/platform";
+  applyPmArbHedgeAfterPrecheck,
+  restoreLegStakeCnyBeforeRecheck,
+} from "@/domain/polymarket/pmArbStake";
 
 export function arbLegsIncludePolymarket(legA: BetOption, legB: BetOption): boolean {
-  return legA.type === PLATFORMS.Polymarket || legB.type === PLATFORMS.Polymarket;
-}
-
-function betMoneyChanged(before: number, after: number): boolean {
-  return Math.round(before) !== Math.round(after);
+  return legA.type === "Polymarket" || legB.type === "Polymarket";
 }
 
 export type PolymarketArbPrecheckResult =
@@ -30,9 +24,7 @@ export type PolymarketArbPrecheckResult =
   };
 
 /**
- * Polymarket checkBet 会把 option.odds 刷新为 CLOB 盘口价（常高于 fo 检测价）。
- * 对冲金额须按盘口价重算；仅重检 betMoney 变化的腿，避免 PB 等场馆 option.data 与 stake 脱节。
- *
+ * [changmen 扩展] PM 预检后 reconcile：只调整对冲侧一条腿，A8 腿保持第一次预检 stake。
  * 非 PM 双腿套利不进入此路径（对齐 A8：GetOrderOptions 后不再改 betMoney）。
  */
 export async function reconcilePolymarketArbStakes(params: {
@@ -45,17 +37,7 @@ export async function reconcilePolymarketArbStakes(params: {
 }): Promise<PolymarketArbPrecheckResult> {
   let { legA, legB, accountA, accountB, config, checkBetting } = params;
 
-  const moneyBeforeA = legA.betMoney;
-  const moneyBeforeB = legB.betMoney;
-
-  applyArbHedgeStakesCny(
-    legA,
-    legB,
-    arbBaseStakeCny(legA, legB, config, accountA, accountB),
-    config,
-    accountA,
-    accountB,
-  );
+  const adjustment = applyPmArbHedgeAfterPrecheck(legA, legB, config, accountA, accountB);
 
   let implied = impliedFromLegOdds(legA, legB);
   const targetProfit = resolveArbTargetProfit(config, legA, legB, accountA, accountB);
@@ -66,40 +48,14 @@ export async function reconcilePolymarketArbStakes(params: {
     };
   }
 
-  const rechecks: Array<{
-    account: PlatformAccount;
-    leg: BetOption;
-    assign: (checked: BetOption) => void;
-  }> = [];
-
-  if (accountA && betMoneyChanged(moneyBeforeA, legA.betMoney)) {
-    rechecks.push({
-      account: accountA,
-      leg: legA,
-      assign: checked => { legA = checked; },
-    });
-  }
-  if (accountB && betMoneyChanged(moneyBeforeB, legB.betMoney)) {
-    rechecks.push({
-      account: accountB,
-      leg: legB,
-      assign: checked => { legB = checked; },
-    });
-  }
-
-  if (rechecks.length) {
-    const rechecked = await Promise.all(
-      rechecks.map(({ account, leg }) => checkBetting(account, leg)),
-    );
-    for (let i = 0; i < rechecks.length; i++) {
-      const checked = rechecked[i]!;
-      if (!checked.data) {
-        return {
-          ok: false,
-          message: checked.checkError || `${checked.type} 预检未通过`,
-        };
-      }
-      rechecks[i]!.assign(checked);
+  if (adjustment?.account) {
+    restoreLegStakeCnyBeforeRecheck(adjustment.leg, adjustment.account);
+    const checked = await checkBetting(adjustment.account, adjustment.leg);
+    if (!checked.data) {
+      return {
+        ok: false,
+        message: checked.checkError || `${checked.type} 预检未通过`,
+      };
     }
 
     implied = impliedFromLegOdds(legA, legB);

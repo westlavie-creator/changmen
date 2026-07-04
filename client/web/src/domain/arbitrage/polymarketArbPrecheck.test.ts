@@ -20,7 +20,7 @@ describe("arbLegsIncludePolymarket", () => {
 
 describe("reconcilePolymarketArbStakes", () => {
   it("recalculates hedge stake after PM book odds and re-checks PM leg", async () => {
-    const config = { ...createDefaultUserConfig(), profit: 1.03, maxProfit: 1.2 };
+    const config = { ...createDefaultUserConfig(), profit: 1.03, maxProfit: 1.2, betMoney: 80 };
     const legA = leg("RAY", 1.36, 80);
     const legB = leg("Polymarket", 5, 20);
     const accountA = new PlatformAccount({ accountId: 1, provider: "RAY", playerName: "ray" });
@@ -113,5 +113,97 @@ describe("reconcilePolymarketArbStakes", () => {
     expect(result.legA.betMoney).toBe(60);
     expect(checkBetting).toHaveBeenCalledOnce();
     expect(checkBetting.mock.calls[0]?.[1]).toBe(legA);
+  });
+
+  it("re-hedges PM from config.betMoney when RAY is low-odds primary", async () => {
+    const config = {
+      ...createDefaultUserConfig(),
+      betMoney: 36,
+      profit: 1.0,
+      maxProfit: 1.2,
+    };
+    const legA = leg("RAY", 1.72, 18);
+    const legB = leg("Polymarket", 2.632, 14);
+    const accountA = new PlatformAccount({
+      accountId: 1,
+      provider: "RAY",
+      playerName: "nip",
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 0.5 }],
+    });
+    const accountB = new PlatformAccount({
+      accountId: 2,
+      provider: "Polymarket",
+      playerName: "pm",
+      currency: "USDT",
+    });
+    legB.data = { apiBetMoney: 14, detectionOdds: 2.631 };
+
+    const checkBetting = vi.fn(async (acc: PlatformAccount, option: BetOption) => {
+      option.betMoney = acc.getBetMoney(option.betMoney, option.odds);
+      option.data = { apiBetMoney: option.betMoney, detectionOdds: option.odds };
+      return option;
+    });
+
+    const result = await reconcilePolymarketArbStakes({
+      legA,
+      legB,
+      accountA,
+      accountB,
+      config,
+      checkBetting,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    expect(result.legA.betMoney).toBe(18);
+    expect(result.legB.betMoney).toBe(3);
+    expect(checkBetting).toHaveBeenCalledOnce();
+    expect(checkBetting.mock.calls[0]?.[1]).toBe(legB);
+    expect((result.legB.data as { apiBetMoney?: number })?.apiBetMoney).toBe(3);
+  });
+
+  it("restores CNY plan before RAY recheck when account has rate", async () => {
+    const config = {
+      ...createDefaultUserConfig(),
+      profit: 1.0,
+      maxProfit: 1.2,
+      tenNumber: true,
+    };
+    const legA = leg("RAY", 2.63, 10);
+    const legB = leg("Polymarket", 1.695, 14);
+    const accountA = new PlatformAccount({
+      accountId: 1,
+      provider: "RAY",
+      playerName: "nip",
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 0.5 }],
+    });
+    const accountB = new PlatformAccount({
+      accountId: 2,
+      provider: "Polymarket",
+      playerName: "pm",
+      currency: "USDT",
+    });
+
+    const checkBetting = vi.fn(async (acc: PlatformAccount, option: BetOption) => {
+      option.betMoney = acc.getBetMoney(option.betMoney, option.odds);
+      option.data = { apiBetMoney: option.betMoney, detectionOdds: option.odds };
+      return option;
+    });
+
+    const result = await reconcilePolymarketArbStakes({
+      legA,
+      legB,
+      accountA,
+      accountB,
+      config,
+      checkBetting,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok)
+      return;
+    expect(result.legA.betMoney).toBe(30);
+    expect(result.legB.betMoney).toBe(14);
   });
 });

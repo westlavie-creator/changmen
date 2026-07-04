@@ -2,7 +2,7 @@ import type { BetOption } from "@/models/betOption";
 import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
-import { legStakeCny } from "@/domain/arbitrage/arbStakeMath";
+import { legStakeCny } from "@/domain/polymarket/pmArbStake";
 
 /** 补单入队：优先锚定成功腿场馆实单，避免 leg 对象被重试污染 */
 export function resolveMakeUpSuccessReference(

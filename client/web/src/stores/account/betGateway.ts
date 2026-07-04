@@ -56,6 +56,7 @@ export async function checkBetting(
   }
   try {
     attachPolymarketDetectionQuote(option);
+    // [A8] 入参 betMoney = CNY 计划额；PM reconcile 重检前须 restoreLegStakeCnyBeforeRecheck
     option.betMoney = account.getBetMoney(option.betMoney, option.odds);
     return await provider.checkBet(account, option);
   }

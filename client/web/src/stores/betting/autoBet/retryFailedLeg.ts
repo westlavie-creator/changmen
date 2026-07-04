@@ -4,7 +4,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
-import { hedgeStakeCnyFromLeg } from "@/domain/arbitrage/arbStakeMath";
+import { hedgeStakeCnyFromLeg } from "@/domain/polymarket/pmArbStake";
 import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import { BetOption, opponentSide } from "@/models/betOption";
 import { useAccountStore } from "@/stores/accountStore";
