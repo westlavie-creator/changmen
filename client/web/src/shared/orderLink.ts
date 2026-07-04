@@ -253,35 +253,22 @@ export function computeOrderGroupProfit(rows: OrderRow[]): number {
   return total;
 }
 
-/** [changmen 扩展] 9999 单边负 Link 前缀；A8 legend 无前缀 */
+/** [A8 可证实] OrderView legend：未结 Status=None 各腿 bet×odds−stake 用 ` - ` 拼接；已结为组盈亏 */
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
   const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
   const stake = rows
     .filter(r => !LOSE_REJECT.has(String(r.Status)) && r.PmSide !== "sell")
     .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
-  const unsettled = rows.filter((r) => {
-    if (String(r.Status ?? "") !== "None")
-      return false;
-    if (isPolymarketOrderRow(r))
-      return isPolymarketOpenPosition(r);
-    return true;
-  });
-  if (unsettled.length) {
-    const tradUnsettled = unsettled.filter(r => !isPolymarketOrderRow(r));
-    const pmUnsettled = unsettled.filter(isPolymarketOrderRow);
-    const tradParts = tradUnsettled.map((r) => {
+  const unsettledPreview = rows
+    .filter(r => String(r.Status ?? "") === "None" && r.PmSide !== "sell")
+    .map((r) => {
       const odds = Number(r.Odds) || 0;
       const bet = Number(r.BetMoney) || 0;
       return toFixed(bet * odds - stake, 0);
     });
-    if (pmUnsettled.length && !tradUnsettled.length)
-      return prefix + "待结算";
-    if (tradParts.length)
-      return prefix + tradParts.join(" - ");
-    if (pmUnsettled.length)
-      return prefix + "待结算";
-  }
+  if (unsettledPreview.length)
+    return prefix + unsettledPreview.join(" - ");
   const total = computeOrderGroupProfit(rows);
   const sign = total > 0 ? "+" : "";
   return prefix + sign + toFixed(total, 0);

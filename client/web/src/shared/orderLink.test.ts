@@ -105,14 +105,22 @@ describe("orderLink A8 parity", () => {
     expect(text).toContain(" - ");
   });
 
-  it("PM unsettled shows 待结算 without bet×odds float", () => {
+  it("legend joins unsettled OB + PM preview with dash", () => {
+    const text = orderLinkLegend([
+      { Status: "None", BetMoney: 100, Odds: 3.0, Money: 0, Type: "OB" },
+      { Status: "None", BetMoney: 100, Odds: 1.8, Money: 0, Type: "Polymarket", PmSide: "buy" },
+    ]);
+    expect(text).toBe("100 - -20");
+  });
+
+  it("PM unsettled uses bet×odds−stake preview like A8", () => {
     const text = orderLinkLegend([
       { Status: "None", BetMoney: 100, Odds: 2.0, Money: 0, Type: "Polymarket" },
     ]);
-    expect(text).toBe("待结算");
+    expect(text).toBe("100");
   });
 
-  it("PM sold before market settle shows proceeds minus buy cost in legend", () => {
+  it("PM sold before market settle shows preview while buy Status=None", () => {
     const text = orderLinkLegend([
       {
         Status: "None",
@@ -134,13 +142,13 @@ describe("orderLink A8 parity", () => {
         PmStakeUsdc: 100 / 7,
       },
     ]);
-    expect(text).toBe("+43");
+    expect(text).toBe("72");
   });
 
-  it("PM sold legs sum proceeds minus buy cost in legend", () => {
+  it("PM sold legs show settled profit when no Status=None legs", () => {
     const text = orderLinkLegend([
       {
-        Status: "None",
+        Status: "Win",
         BetMoney: 50,
         Odds: 1.72,
         Money: 0,
@@ -159,7 +167,7 @@ describe("orderLink A8 parity", () => {
         PmStakeUsdc: 50 / 7,
       },
       {
-        Status: "None",
+        Status: "Win",
         BetMoney: 30,
         Odds: 1.51,
         Money: 0,
