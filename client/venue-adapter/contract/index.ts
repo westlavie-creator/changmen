@@ -23,6 +23,8 @@ export type PolymarketOrderSide = "buy" | "sell";
 export interface PolymarketVenueOrderExtras {
   pmTokenId?: string;
   pmShares?: number;
+  /** CLOB trade.price / POST 成交概率价（0–1） */
+  pmFillPrice?: number;
   pmStakeUsdc?: number;
   /** CLOB condition_id，User WS 订阅与卖出 delayed 检测 */
   pmConditionId?: string;

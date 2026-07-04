@@ -2,6 +2,12 @@
 import type { OrderRow } from "@/types/order";
 import { formatDisplayOdds, formatOrderTime, toFixed } from "@/shared/format";
 import {
+  isPmOrderListRow,
+  pmOrderFillPriceText,
+  pmOrderOddsText,
+  pmOrderSharesText,
+} from "@/shared/pmOrderDisplay";
+import {
   isArbGroup,
   orderLegendModifier,
   orderLegendText,
@@ -9,20 +15,6 @@ import {
 import { orderListDisplayRows } from "@/shared/orderLink";
 
 export type OrderListEntry = readonly [number, OrderRow[]];
-
-function isPmBuyRow(row: OrderRow): boolean {
-  return String(row.Type ?? "") === "Polymarket" && row.PmSide !== "sell";
-}
-
-/** PM 份额：仅展示 RDS 中的 PmShares（来自 Polymarket API），不推算 */
-function pmSharesText(row: OrderRow): string | null {
-  if (!isPmBuyRow(row))
-    return null;
-  const shares = Number(row.PmShares);
-  if (!Number.isFinite(shares) || shares <= 0.0001)
-    return null;
-  return toFixed(shares, 2);
-}
 
 function isPendingRow(row: OrderRow): boolean {
   return String(row.Status ?? "") === "None";
@@ -77,15 +69,32 @@ withDefaults(
             </div>
           </div>
           <div class="profit">
-            <span v-if="pmSharesText(row)">份额：{{ pmSharesText(row) }} </span>
-            投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
-              formatDisplayOdds(Number(row.Odds) || 0)
-            }}</span>
-            <template v-if="isPendingRow(row)">
-              盈亏：待结算
+            <template v-if="isPmOrderListRow(row)">
+              <div class="order__profit-line">
+                <span v-if="pmOrderSharesText(row)">份额：{{ pmOrderSharesText(row) }} </span>
+                <span v-if="pmOrderFillPriceText(row)">价格：{{ pmOrderFillPriceText(row) }} </span>
+                赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span>
+              </div>
+              <div class="order__profit-line">
+                投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }}
+                <template v-if="isPendingRow(row)">
+                  盈亏：待结算
+                </template>
+                <template v-else>
+                  盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
+                </template>
+              </div>
             </template>
             <template v-else>
-              盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
+              投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
+                formatDisplayOdds(Number(row.Odds) || 0)
+              }}</span>
+              <template v-if="isPendingRow(row)">
+                盈亏：待结算
+              </template>
+              <template v-else>
+                盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
+              </template>
             </template>
           </div>
           <div class="time">

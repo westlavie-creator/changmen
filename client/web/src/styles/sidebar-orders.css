@@ -165,6 +165,12 @@
   color: #1fa2ff;
 }
 
+#app .el-aside .orders .order .profit .order__profit-line,
+.common-layout .el-aside .orders .order .profit .order__profit-line,
+.admin-orders-user-col .orders .order .profit .order__profit-line {
+  display: block;
+}
+
 #app .el-aside .orders .order .betname,
 .common-layout .el-aside .orders .order .betname,
 .admin-orders-user-col .orders .order .betname {

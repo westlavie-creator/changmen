@@ -200,6 +200,10 @@
   color: #1fa2ff;
 }
 
+.orders .order .profit .order__profit-line {
+  display: block;
+}
+
 .orders .order .betname {
   float: left;
   max-width: 45%;

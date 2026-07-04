@@ -573,7 +573,9 @@ export function mapPolymarketTradeToVenueOrder(
   if (betMoney <= 0) return null;
 
   const odds = Math.round((1 / price) * 10000) / 10000;
-  const shares = Math.round(polymarketShareCount(sizeRaw) * 10000) / 10000;
+  const shares = polymarketShareCount(sizeRaw);
+  if (shares <= 0)
+    return null;
   const pmTokenId = tradeHeldAssetId(trade, market);
   const ctx = market
     ? polymarketOrderContextFromMarket(market)
@@ -595,7 +597,8 @@ export function mapPolymarketTradeToVenueOrder(
     bet: ctx.bet,
     item: String(trade.outcome ?? "").trim(),
     pmTokenId: pmTokenId || undefined,
-    pmShares: shares > 0 ? shares : undefined,
+    pmShares: shares,
+    pmFillPrice: price,
     pmStakeUsdc: betMoney,
     pmConditionId: marketId || undefined,
     pmSide: "buy",
@@ -618,7 +621,7 @@ export function mapPolymarketSellTradeToVenueOrder(
   if (!Number.isFinite(price) || price <= 0 || price >= 1)
     return null;
 
-  const shares = Math.round(polymarketShareCount(sizeRaw) * 10000) / 10000;
+  const shares = polymarketShareCount(sizeRaw);
   if (shares <= 0)
     return null;
 
@@ -647,6 +650,7 @@ export function mapPolymarketSellTradeToVenueOrder(
     item: item ? `平仓 ${item}` : "平仓",
     pmTokenId: pmTokenId || undefined,
     pmShares: shares,
+    pmFillPrice: price,
     pmStakeUsdc: 0,
     pmConditionId: marketId || undefined,
     pmSide: "sell",
@@ -805,6 +809,7 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
       pmBuyOrderId: base.pmBuyOrderId ?? clob.pmBuyOrderId,
       pmTokenId: base.pmTokenId ?? clob.pmTokenId,
       pmShares: clob.pmShares ?? base.pmShares,
+      pmFillPrice: clob.pmFillPrice ?? base.pmFillPrice,
       betMoney: betUsdc,
       odds: clob.odds || base.odds,
       pmStakeUsdc: costUsdc,
@@ -827,9 +832,10 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     pmOrigin: "changmen",
     betMoney: base.betMoney > 0 ? base.betMoney : clob.betMoney,
     pmShares: (() => {
-      const fill = round4(Math.max(Number(base.pmShares) || 0, Number(clob.pmShares) || 0));
+      const fill = Math.max(Number(base.pmShares) || 0, Number(clob.pmShares) || 0);
       return fill > 0 ? fill : (base.pmShares ?? clob.pmShares);
     })(),
+    pmFillPrice: clob.pmFillPrice ?? base.pmFillPrice,
     pmStakeUsdc: base.pmStakeUsdc ?? clob.pmStakeUsdc,
     pmSellState: base.pmSellState ?? clob.pmSellState,
     pmAttributedSellShares: base.pmAttributedSellShares ?? clob.pmAttributedSellShares,

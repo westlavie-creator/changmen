@@ -357,7 +357,8 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       createAt: 1_782_736_191_000,
       status: "none",
       pmTokenId: "12876938733604859423663202044051912631612545733461708116502231340403727260024",
-      pmShares: 6.7568,
+      pmShares: 6.756753,
+      pmFillPrice: 0.74,
       pmStakeUsdc: 5,
     });
   });
@@ -371,8 +372,8 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(order).toMatchObject({
       status: "win",
       betMoney: 5,
-      reward: 6.7568,
-      money: 1.7568,
+      reward: 6.756753,
+      money: 1.756753,
     });
   });
 

@@ -33,6 +33,8 @@ export interface OrderRow {
   /** [changmen 扩展] Polymarket 持仓，来自 orders.raw */
   PmTokenId?: string;
   PmShares?: number;
+  /** CLOB trade.price / 成交概率价（0–1） */
+  PmFillPrice?: number;
   PmStakeUsdc?: number;
   PmConditionId?: string;
   /** changmen 站内下单；官网同步为 external */

@@ -43,6 +43,20 @@ function preservePmBuyFillShares(prevRaw, o, merged) {
   return fill > 0 ? fill : undefined;
 }
 
+/** pmFillPrice = CLOB trade.price；同步时优先用 API 刷新值 */
+function preservePmFillPrice(prevRaw, o, merged) {
+  const incoming = parseNum(o.pmFillPrice ?? o.PmFillPrice, 0);
+  const fromMerged = parseNum(merged.pmFillPrice, 0);
+  const prev = parseNum(prevRaw.pmFillPrice, 0);
+  if (incoming > 0 && incoming < 1)
+    return incoming;
+  if (fromMerged > 0 && fromMerged < 1)
+    return fromMerged;
+  if (prev > 0 && prev < 1)
+    return prev;
+  return undefined;
+}
+
 function resolveSaveOrderLink(o, prevRaw, orderId, createAt, linkByOrderId, existingByOrderId, assignedInBatch, provider) {
   const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "").toLowerCase();
   const buyOrderId = String(o.pmBuyOrderId ?? prevRaw.pmBuyOrderId ?? "").trim();
@@ -99,6 +113,10 @@ function rowToOrder(r) {
     },
     PmTokenId: raw.pmTokenId ? String(raw.pmTokenId) : undefined,
     PmShares: parseNum(raw.pmShares, 0) || undefined,
+    PmFillPrice: (() => {
+      const price = parseNum(raw.pmFillPrice, 0);
+      return price > 0 && price < 1 ? price : undefined;
+    })(),
     PmStakeUsdc: parseNum(raw.pmStakeUsdc, 0) || undefined,
     PmConditionId: raw.pmConditionId ? String(raw.pmConditionId) : undefined,
     PmOrigin: raw.pmOrigin === "changmen" || raw.pmOrigin === "external"
@@ -227,6 +245,9 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     const fillShares = preservePmBuyFillShares(prevRaw, o, merged);
     if (fillShares != null)
       merged.pmShares = fillShares;
+    const fillPrice = preservePmFillPrice(prevRaw, o, merged);
+    if (fillPrice != null)
+      merged.pmFillPrice = fillPrice;
   }
 
   return { raw: merged, money, bet_money };
