@@ -201,6 +201,12 @@ export async function resolvePolymarketBuyFill(
   return fromPost;
 }
 
+function waitMs(ms: number) {
+  return new Promise<void>(resolve => {
+    setTimeout(resolve, ms);
+  });
+}
+
 /** POST 响应优先，/data/trades 兜底 */
 export async function resolvePolymarketSellFill(
   account: PlatformAccount,
@@ -220,6 +226,56 @@ export async function resolvePolymarketSellFill(
   }
 
   return fromPost;
+}
+
+export const POLYMARKET_SELL_FILL_RETRY_OPTS = {
+  lookbackMs: 10 * 60 * 1000,
+  retryMs: 2_000,
+  maxRetries: 15,
+} as const;
+
+/**
+ * 体育 delayed 卖单：POST 无 making/taking，trades 也可能滞后于 order 端点。
+ * settle 后再轮询 trades；仍缺时用 orderRow.size_matched 补份数。
+ */
+export async function resolvePolymarketSellFillWithRetry(
+  account: PlatformAccount,
+  orderId: string,
+  postResponse: { makingAmount?: string | number; takingAmount?: string | number } | null | undefined,
+  opts?: {
+    lookbackMs?: number;
+    retryMs?: number;
+    maxRetries?: number;
+    orderRow?: { size_matched?: string | number } | null;
+  },
+): Promise<{ proceedsUsdc: number; sharesSold: number }> {
+  const fromPost = parsePolymarketSellOrderFill(postResponse);
+  if (fromPost.proceedsUsdc > 0 && fromPost.sharesSold > 0)
+    return fromPost;
+
+  const lookbackMs = opts?.lookbackMs ?? POLYMARKET_SELL_FILL_RETRY_OPTS.lookbackMs;
+  const retryMs = opts?.retryMs ?? POLYMARKET_SELL_FILL_RETRY_OPTS.retryMs;
+  const maxRetries = opts?.maxRetries ?? POLYMARKET_SELL_FILL_RETRY_OPTS.maxRetries;
+
+  for (let i = 0; i < maxRetries; i++) {
+    const trade = await fetchPolymarketConfirmedTradeForOrder(account, orderId, lookbackMs, "SELL");
+    if (trade) {
+      const { shares, usdc } = polymarketTradeFillAmounts(trade);
+      if (usdc > 0 && shares > 0)
+        return { proceedsUsdc: usdc, sharesSold: shares };
+    }
+    if (i < maxRetries - 1)
+      await waitMs(retryMs);
+  }
+
+  const rowShares = round4Fill(polymarketShareCount(opts?.orderRow?.size_matched));
+  if (rowShares > 0 && fromPost.proceedsUsdc > 0)
+    return { proceedsUsdc: fromPost.proceedsUsdc, sharesSold: rowShares };
+
+  return {
+    proceedsUsdc: fromPost.proceedsUsdc > 0 ? fromPost.proceedsUsdc : 0,
+    sharesSold: rowShares > 0 ? rowShares : fromPost.sharesSold,
+  };
 }
 
 function gammaOutcomePrices(market: PolymarketRawMarket): number[] {

@@ -6,6 +6,7 @@ import { formatDisplayOdds, toFixed } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { resolvePmRemainingShares } from "@venue/polymarket/pmLogicalPosition";
+import { resolvePolymarketSellFillWithRetry } from "@venue/polymarket/orders";
 import { sellPolymarketPosition, settlePolymarketSellOrder } from "@venue/polymarket/sell";
 import { formatPolymarketSettlementMessage } from "@venue/polymarket/orderStatus";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
@@ -85,6 +86,9 @@ async function onSell() {
       ElMessage.error("卖出成功但未返回 orderId，无法创建卖单");
       return;
     }
+    let proceedsUsdc = result.proceedsUsdc ?? 0;
+    let sharesSold = result.sharesSold ?? 0;
+
     if (result.pending && result.orderId) {
       const rejectWait = rejectWaitSeconds(useConfigStore().config, [account]);
       await waitRejectDetection(rejectWait, rejectWait);
@@ -94,13 +98,25 @@ async function onSell() {
         return;
       }
       ElMessage.success(formatPolymarketSettlementMessage(result.orderId, outcome, row));
+      const fill = await resolvePolymarketSellFillWithRetry(account, sellOrderId, null, { orderRow: row });
+      proceedsUsdc = fill.proceedsUsdc;
+      sharesSold = fill.sharesSold;
     }
     else {
       ElMessage.success(result.message || "卖出成功");
+      if (proceedsUsdc <= 0 || sharesSold <= 0) {
+        const fill = await resolvePolymarketSellFillWithRetry(account, sellOrderId, null, {
+          maxRetries: 8,
+          retryMs: 1_000,
+        });
+        proceedsUsdc = fill.proceedsUsdc;
+        sharesSold = fill.sharesSold;
+      }
     }
 
-    const proceedsUsdc = result.proceedsUsdc ?? 0;
-    const sharesSold = result.sharesSold ?? 0;
+    if (sharesSold > 0 && proceedsUsdc <= 0 && q && q.proceedsUsdc > 0 && shares.value > 0) {
+      proceedsUsdc = Math.round(q.proceedsUsdc * (sharesSold / shares.value) * 10000) / 10000;
+    }
     if (proceedsUsdc <= 0 || sharesSold <= 0) {
       ElMessage.error("卖出成功但未从 API 解析到成交份数/回款，请刷新后核对");
       return;

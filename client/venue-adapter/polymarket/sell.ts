@@ -15,7 +15,7 @@ import {
   type PolymarketBidLevel,
 } from "./parse";
 import {
-  resolvePolymarketSellFill,
+  resolvePolymarketSellFillWithRetry,
 } from "./orders";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 import { isPolymarketOrderAccepted, polymarketOrderFailureMessage } from "./bet";
@@ -344,8 +344,12 @@ export async function sellPolymarketPosition(
 
     let proceedsUsdc = 0;
     let sharesSold = 0;
-    if (orderId) {
-      const fill = await resolvePolymarketSellFill(account, orderId, result);
+    // delayed 单 POST 无 fill；等 settle 后再 resolve（见 PolymarketOrderSellPanel）
+    if (orderId && !pending) {
+      const fill = await resolvePolymarketSellFillWithRetry(account, orderId, result, {
+        maxRetries: 5,
+        retryMs: 1_000,
+      });
       proceedsUsdc = fill.proceedsUsdc;
       sharesSold = fill.sharesSold;
     }
