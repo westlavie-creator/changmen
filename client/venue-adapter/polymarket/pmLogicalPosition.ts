@@ -1,14 +1,6 @@
 import type { VenueOrder, VenueOrderStatus } from "@venue/contract";
 import type { PolymarketSellState } from "@venue/contract";
-import { scaleUsdtToCnyDisplay, USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
-
-export interface ChangmenSellAttributionParams {
-  sharesSold: number;
-  proceedsUsdc: number;
-  sellOrderId: string;
-  /** 卖出前买单总成本（USDC）；侧栏 pmStakeUsdcFromRow 传入 */
-  stakeUsdc?: number;
-}
+import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
 
 export interface OrderRowLike {
   OrderID?: number | string;
@@ -67,13 +59,6 @@ export function resolveBuyStakeUsdc(buy: VenueOrder | OrderRowLike): number {
   return 0;
 }
 
-/** 卖单展示盈亏（CNY）= 回款 − 成本 */
-export function computeSellProfitDisplayCny(proceedsCny: number, costUsdc: number): number {
-  const proceeds = Number(proceedsCny) || 0;
-  const costCny = scaleUsdtToCnyDisplay(Number(costUsdc) || 0);
-  return Math.round(proceeds - costCny);
-}
-
 function statusFromRow(status?: string): VenueOrderStatus {
   const s = String(status ?? "").toLowerCase();
   if (s === "win")
@@ -123,100 +108,6 @@ export function venueOrderFromOrderRow(row: OrderRowLike): VenueOrder {
     pmSellState: row.PmSellState ?? (pmSide === "buy" ? "open" : undefined),
     pmSide,
     pmBuyOrderId: row.PmBuyOrderId,
-  };
-}
-
-/** 卖单成交后更新买单已卖份额（pmShares 保持 API 成交份数不变） */
-export function applyBuySharesAfterSell(
-  buy: VenueOrder,
-  sharesSold: number,
-): VenueOrder {
-  const fillShares = resolvePmFillShares(buy);
-  const remaining = resolvePmRemainingShares(buy);
-  const sold = Math.min(Math.max(0, sharesSold), remaining > 0 ? remaining : fillShares);
-  if (sold <= 0)
-    return { ...buy, pmSide: buy.pmSide ?? "buy" };
-
-  const stake = resolveBuyStakeUsdc(buy);
-  const ratio = fillShares > 0 ? sold / fillShares : 0;
-  const costPortion = round4(stake * ratio);
-  const remainingStake = round4(stake - costPortion);
-  const attributed = round4((buy.pmAttributedSellShares ?? 0) + sold);
-  const pmSellState: PolymarketSellState = resolvePmRemainingShares({
-    ...buy,
-    pmShares: fillShares,
-    pmAttributedSellShares: attributed,
-  }) <= 0.0001 ? "closed" : "partial";
-
-  return {
-    ...buy,
-    pmSide: "buy",
-    pmShares: fillShares > 0 ? fillShares : buy.pmShares,
-    pmStakeUsdc: remainingStake > 0 ? remainingStake : 0,
-    pmAttributedSellShares: attributed,
-    pmSellState,
-  };
-}
-
-/** changmen 卖出：新建卖单行（盈亏在卖单 Money 上） */
-export function buildChangmenSellVenueOrder(
-  buy: VenueOrder,
-  params: ChangmenSellAttributionParams,
-): VenueOrder {
-  const fillShares = resolvePmFillShares(buy);
-  const remaining = resolvePmRemainingShares(buy);
-  const stake = params.stakeUsdc != null && params.stakeUsdc > 0
-    ? round4(params.stakeUsdc)
-    : resolveBuyStakeUsdc(buy);
-  const sharesSold = Math.min(
-    Math.max(0, params.sharesSold),
-    remaining > 0 ? remaining : fillShares,
-  );
-  const ratio = fillShares > 0 ? sharesSold / fillShares : 0;
-  const costPortion = round4(stake * ratio);
-  const proceedsUsdc = round4(Math.max(0, params.proceedsUsdc));
-  const profitUsdc = round4(proceedsUsdc - costPortion);
-  const sellPrice = sharesSold > 0 ? proceedsUsdc / sharesSold : 0;
-  const sellOdds = sellPrice > 0 && sellPrice < 1
-    ? round4(1 / sellPrice)
-    : buy.odds;
-
-  return {
-    provider: "Polymarket",
-    orderId: params.sellOrderId,
-    odds: sellOdds,
-    createAt: Date.now(),
-    betMoney: proceedsUsdc,
-    reward: 0,
-    money: profitUsdc,
-    status: "none",
-    game: buy.game,
-    match: buy.match,
-    bet: buy.bet,
-    item: buy.item ? `平仓 ${buy.item}` : "平仓",
-    pmTokenId: buy.pmTokenId,
-    pmShares: sharesSold,
-    pmStakeUsdc: costPortion,
-    pmConditionId: buy.pmConditionId,
-    pmOrigin: "changmen",
-    pmSide: "sell",
-    pmBuyOrderId: buy.orderId,
-    pmRealizedPnlUsdc: profitUsdc,
-  };
-}
-
-/** @deprecated 方案1：卖回写买单；保留单测兼容 */
-export function applyChangmenSellToVenueOrder(
-  order: VenueOrder,
-  params: Omit<ChangmenSellAttributionParams, "sellOrderId">,
-): VenueOrder {
-  const updatedBuy = applyBuySharesAfterSell(order, params.sharesSold);
-  const sellId = `legacy-sell-${order.orderId}-${Date.now()}`;
-  const sell = buildChangmenSellVenueOrder(order, { ...params, sellOrderId: sellId });
-  return {
-    ...updatedBuy,
-    money: sell.money,
-    pmRealizedPnlUsdc: sell.pmRealizedPnlUsdc,
   };
 }
 

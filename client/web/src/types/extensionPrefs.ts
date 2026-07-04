@@ -2,12 +2,10 @@
 export interface ExtensionPrefs extends Record<string, unknown> {
   /** BetRow 套利划线、利润角标、赔率 flash、EV 标记 */
   betRowUi: boolean;
-  /** 订单侧栏 Polymarket 持仓「卖出」按钮与可卖报价 */
-  polymarketOrderSell: boolean;
 }
 
 export function createDefaultExtensionPrefs(): ExtensionPrefs {
-  return { betRowUi: false, polymarketOrderSell: false };
+  return { betRowUi: false };
 }
 
 export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
@@ -17,6 +15,5 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
   const row = raw as Record<string, unknown>;
   return {
     betRowUi: row.betRowUi === true,
-    polymarketOrderSell: row.polymarketOrderSell === true,
   };
 }

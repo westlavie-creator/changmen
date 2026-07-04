@@ -7,10 +7,6 @@ import {
   linkIdGroupKey,
   orderLinkLegend,
   orderListDisplayRows,
-  pmBuyBoundSellFills,
-  pmBuyDisplayProfitCny,
-  pmBuyDisplayStatus,
-  pmBuyProfitDisplay,
   sortOrdersByLinkDesc,
 } from "./orderLink";
 
@@ -36,65 +32,14 @@ describe("orderLink A8 parity", () => {
     expect(compareOrderLinkDesc({ Link: 100 }, { Link: 100 })).toBe(1);
   });
 
-  it("groups two legs with the same Link (groupBy insertion order)", () => {
+  it("groups two legs with the same Link", () => {
     const link = 1_700_000_000_999;
     const grouped = groupOrdersByLink([
       { OrderID: "a", Link: link, CreateAt: 2000 },
       { OrderID: "b", Link: link, CreateAt: 1000 },
     ]);
     expect(grouped.size).toBe(1);
-    const ids = grouped.get(link)?.map(r => r.OrderID) ?? [];
-    expect(ids).toContain("a");
-    expect(ids).toContain("b");
-    expect(ids).toHaveLength(2);
-  });
-
-  it("PM sell with PmBuyOrderId joins buy link group when links differ", () => {
-    const buyLink = 1_700_000_000_100;
-    const sellLink = 1_700_000_000_200;
-    const grouped = groupOrdersByLink([
-      {
-        OrderID: "0xbuy",
-        Link: buyLink,
-        Type: "Polymarket",
-        PmSide: "buy",
-        CreateAt: 1000,
-        Money: 0,
-      },
-      {
-        OrderID: "0xsell",
-        Link: sellLink,
-        Type: "Polymarket",
-        PmSide: "sell",
-        PmBuyOrderId: "0xbuy",
-        CreateAt: 2000,
-        Money: 10,
-      },
-    ]);
-    expect(grouped.size).toBe(1);
-    const rows = grouped.get(buyLink) ?? [];
-    expect(rows.map(r => r.OrderID)).toEqual(["0xbuy", "0xsell"]);
-  });
-
-  it("arb Link keeps OB + PM buy + PM sell in one fieldset", () => {
-    const arbLink = 1_700_000_000_999;
-    const grouped = groupOrdersByLink([
-      { OrderID: "ob-1", Link: arbLink, Type: "OB", CreateAt: 1000 },
-      { OrderID: "0xbuy", Link: arbLink, Type: "Polymarket", PmSide: "buy" as const, CreateAt: 1001 },
-      {
-        OrderID: "0xsell",
-        Link: 1_700_000_000_001,
-        Type: "Polymarket",
-        PmSide: "sell" as const,
-        PmBuyOrderId: "0xbuy",
-        CreateAt: 2000,
-      },
-    ]);
-    expect(grouped.size).toBe(1);
-    expect(grouped.get(arbLink)?.map(r => r.OrderID)).toEqual(["ob-1", "0xbuy", "0xsell"]);
-    expect(
-      isLinkedArbOrderGroup(grouped.get(arbLink) ?? []),
-    ).toBe(true);
+    expect(grouped.get(link)?.map(r => r.OrderID)).toEqual(["a", "b"]);
   });
 
   it("legend joins unsettled preview with dash", () => {
@@ -120,75 +65,6 @@ describe("orderLink A8 parity", () => {
     expect(text).toBe("100");
   });
 
-  it("PM sold before market settle shows preview while buy Status=None", () => {
-    const text = orderLinkLegend([
-      {
-        Status: "None",
-        BetMoney: 100,
-        Odds: 1.72,
-        Money: 0,
-        Type: "Polymarket",
-        PmShares: 0,
-        PmSellState: "closed",
-        PmSide: "buy",
-      },
-      {
-        Status: "None",
-        BetMoney: 143,
-        Odds: 1.5,
-        Money: 43,
-        Type: "Polymarket",
-        PmSide: "sell",
-        PmStakeUsdc: 100 / 7,
-      },
-    ]);
-    expect(text).toBe("72");
-  });
-
-  it("PM sold legs show settled profit when no Status=None legs", () => {
-    const text = orderLinkLegend([
-      {
-        Status: "Win",
-        BetMoney: 50,
-        Odds: 1.72,
-        Money: 0,
-        Type: "Polymarket",
-        PmShares: 0,
-        PmSellState: "closed",
-        PmSide: "buy",
-      },
-      {
-        Status: "None",
-        BetMoney: 93,
-        Odds: 1.51,
-        Money: 43,
-        Type: "Polymarket",
-        PmSide: "sell",
-        PmStakeUsdc: 50 / 7,
-      },
-      {
-        Status: "Win",
-        BetMoney: 30,
-        Odds: 1.51,
-        Money: 0,
-        Type: "Polymarket",
-        PmShares: 0,
-        PmSellState: "closed",
-        PmSide: "buy",
-      },
-      {
-        Status: "None",
-        BetMoney: 44,
-        Odds: 1.4,
-        Money: 14,
-        Type: "Polymarket",
-        PmSide: "sell",
-        PmStakeUsdc: 30 / 7,
-      },
-    ]);
-    expect(text).toBe("+57");
-  });
-
   it("9999 单边 link 在 legend 前缀展示 🏆", () => {
     const link = -1_700_000_000_123;
     const text = orderLinkLegend([
@@ -197,44 +73,13 @@ describe("orderLink A8 parity", () => {
     expect(text.startsWith("🏆")).toBe(true);
   });
 
-  it("PM group profit uses PmBuyOrderId cost not sum of all buys", () => {
+  it("computeOrderGroupProfit sums buy Money and skips PM sells", () => {
     const profit = computeOrderGroupProfit([
-      {
-        OrderID: "0xbuy70",
-        Type: "Polymarket",
-        PmSide: "buy",
-        BetMoney: 70,
-        Money: 36,
-        Status: "Win",
-      },
-      {
-        OrderID: "0xbuy98",
-        Type: "Polymarket",
-        PmSide: "buy",
-        BetMoney: 98,
-        Money: 71,
-        Status: "Win",
-      },
-      {
-        OrderID: "0xsell70",
-        Type: "Polymarket",
-        PmSide: "sell",
-        PmBuyOrderId: "0xbuy70",
-        BetMoney: 85,
-        PmStakeUsdc: 10,
-        Status: "None",
-      },
-      {
-        OrderID: "0xsell98",
-        Type: "Polymarket",
-        PmSide: "sell",
-        PmBuyOrderId: "0xbuy98",
-        BetMoney: 144,
-        PmStakeUsdc: 14,
-        Status: "None",
-      },
+      { Type: "OB", Money: 10 },
+      { Type: "Polymarket", PmSide: "buy", Money: 36, Status: "Win" },
+      { Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85 },
     ]);
-    expect(profit).toBe(15 + 46);
+    expect(profit).toBe(46);
   });
 
   it("isLinkedArbOrderGroup detects cross-platform arb legs on same Link", () => {
@@ -253,47 +98,6 @@ describe("orderLink A8 parity", () => {
     expect(isLinkedArbOrderGroup([{ Link: -123, OrderID: "a" }])).toBe(false);
   });
 
-  it("pmBuyDisplayProfitCny uses market Money when holding to settle", () => {
-    const group = [{
-      OrderID: "0xbuy",
-      Type: "Polymarket",
-      PmSide: "buy" as const,
-      BetMoney: 70,
-      Money: 36,
-      Status: "Win" as const,
-      PmShares: 15.15,
-    }];
-    expect(pmBuyDisplayProfitCny(group[0], group)).toBe(36);
-    expect(pmBuyDisplayStatus(group[0], group)).toBe("Win");
-  });
-
-  it("pmBuyDisplayProfitCny uses sell profit when sold out, not stale Win Money", () => {
-    const group = [
-      {
-        OrderID: "0xbuy70",
-        Type: "Polymarket",
-        PmSide: "buy" as const,
-        BetMoney: 70,
-        Money: 36,
-        Status: "Win" as const,
-        PmShares: 15.15,
-      },
-      {
-        OrderID: "0xsell70",
-        Type: "Polymarket",
-        PmSide: "sell" as const,
-        PmBuyOrderId: "0xbuy70",
-        BetMoney: 85,
-        Money: 15,
-        PmShares: 15.15,
-        PmStakeUsdc: 10,
-        Status: "None" as const,
-      },
-    ];
-    expect(pmBuyDisplayProfitCny(group[0], group)).toBe(15);
-    expect(pmBuyDisplayStatus(group[0], group)).toBe("Win");
-  });
-
   it("orderListDisplayRows hides PM sell rows but keeps buys and trad legs", () => {
     const rows = [
       { OrderID: "ob", Type: "OB", PmSide: undefined },
@@ -301,98 +105,5 @@ describe("orderLink A8 parity", () => {
       { OrderID: "0xsell", Type: "Polymarket", PmSide: "sell" as const, PmBuyOrderId: "0xbuy" },
     ];
     expect(orderListDisplayRows(rows).map(r => r.OrderID)).toEqual(["ob", "0xbuy"]);
-  });
-
-  it("pmBuyProfitDisplay pending when no sell and market open", () => {
-    const group = [{
-      OrderID: "0xbuy",
-      Type: "Polymarket",
-      PmSide: "buy" as const,
-      BetMoney: 70,
-      Money: 0,
-      Status: "None" as const,
-    }];
-    expect(pmBuyProfitDisplay(group[0], group)).toEqual({
-      profitCny: 0,
-      pending: true,
-      earlySettled: false,
-    });
-  });
-
-  it("pmBuyProfitDisplay early settled when bound sell closed out buy", () => {
-    const group = [
-      {
-        OrderID: "0xbuy70",
-        Type: "Polymarket",
-        PmSide: "buy" as const,
-        BetMoney: 70,
-        Money: 36,
-        Status: "Win" as const,
-        PmShares: 15.15,
-      },
-      {
-        OrderID: "0xsell70",
-        Type: "Polymarket",
-        PmSide: "sell" as const,
-        PmBuyOrderId: "0xbuy70",
-        BetMoney: 85,
-        Money: 15,
-        PmShares: 15.15,
-        PmStakeUsdc: 10,
-        Status: "None" as const,
-      },
-    ];
-    expect(pmBuyProfitDisplay(group[0], group)).toEqual({
-      profitCny: 15,
-      pending: false,
-      earlySettled: true,
-    });
-  });
-
-  it("pmBuyProfitDisplay uses market Money when held to settle", () => {
-    const group = [{
-      OrderID: "0xbuy",
-      Type: "Polymarket",
-      PmSide: "buy" as const,
-      BetMoney: 27,
-      Money: -27,
-      Status: "Lose" as const,
-      PmShares: 19.52,
-    }];
-    expect(pmBuyProfitDisplay(group[0], group)).toEqual({
-      profitCny: -27,
-      pending: false,
-      earlySettled: false,
-    });
-  });
-
-  it("pmBuyBoundSellFills maps linked sell rows to display lines", () => {
-    const buy = {
-      OrderID: "0xbuy70",
-      Type: "Polymarket",
-      PmSide: "buy" as const,
-      BetMoney: 70,
-    };
-    const group = [
-      buy,
-      {
-        OrderID: "0xsell70",
-        Type: "Polymarket",
-        PmSide: "sell" as const,
-        PmBuyOrderId: "0xbuy70",
-        PmShares: 15.15,
-        PmStakeUsdc: 10,
-        BetMoney: 85,
-        Money: 15,
-        Odds: 1.25,
-        CreateAt: 1_783_107_450_000,
-      },
-    ];
-    expect(pmBuyBoundSellFills(buy, group)).toEqual([{
-      shares: 15.15,
-      proceedsCny: 85,
-      odds: 1.25,
-      createAt: 1_783_107_450_000,
-    }]);
   });
 });

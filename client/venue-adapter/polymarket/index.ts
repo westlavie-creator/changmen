@@ -14,7 +14,6 @@ export * from "./pmMarketGuard";
 export * from "./pmBetGuard";
 export * from "./ws";
 export * from "./userWs";
-export * from "./sell";
 
 export const polymarketAdapter: PlatformAdapter = {
   id: "Polymarket",

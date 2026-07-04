@@ -161,36 +161,6 @@ export async function fetchPolymarketEsportsMarkets(limit = DEFAULT_MARKET_LIMIT
  * 每批最多 200 个 token，超出自动分块。
  * 返回 Record<assetId, probability>，缺失的 assetId 不在结果中（市场将显示 Locked）。
  */
-/**
- * 批量获取 token 的卖出价（best_bid），市价卖单吃 bids。
- * CLOB /prices side=BUY 返回 best_bid（买方最高报价 = 卖方实际收到价）。
- */
-export async function fetchBatchSellPrices(assetIds: string[]): Promise<Record<string, number>> {
-  if (!assetIds.length)
-    return {};
-  const CHUNK = 200;
-  const result: Record<string, number> = {};
-  for (let i = 0; i < assetIds.length; i += CHUNK) {
-    const chunk = assetIds.slice(i, i + CHUNK);
-    const body = chunk.map(token_id => ({ token_id, side: "BUY" }));
-    try {
-      const data = await polymarketPluginPost<Record<string, Record<string, unknown>>>(
-        `${POLYMARKET_CLOB_API}/prices`,
-        body,
-      );
-      for (const [tokenId, sides] of Object.entries(data ?? {})) {
-        const price = Number(sides?.BUY ?? 0);
-        if (price > 0 && price < 1)
-          result[tokenId] = price;
-      }
-    }
-    catch {
-      // 分块失败不阻断其余分块
-    }
-  }
-  return result;
-}
-
 export async function fetchBatchBuyPrices(assetIds: string[]): Promise<Record<string, number>> {
   if (!assetIds.length)
     return {};

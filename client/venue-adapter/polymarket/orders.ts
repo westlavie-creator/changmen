@@ -859,7 +859,7 @@ function isChangmenPolymarketOrder(
 /**
  * CLOB 同步与 RDS changmen 行合并：
  * - changmen 买卖：以 RDS 绑定为准，CLOB 只刷新 fill/赛果
- * - changmen 卖单未 persist 前：跳过 CLOB 新建（等 persistChangmenSellOrder）
+ * - changmen 卖单未 persist 前：跳过 CLOB 新建
  * - 其余：external + 份额匹配
  */
 export function mergePolymarketClobWithStoredOrders(
@@ -881,7 +881,7 @@ export function mergePolymarketClobWithStoredOrders(
       continue;
     }
     if (isCm && clob.pmSide === "sell") {
-      // persistChangmenSellOrder 尚未落库 — 勿从 CLOB 猜绑定
+      // changmen 卖单尚未落库 — 勿从 CLOB 猜绑定
       continue;
     }
     if (isCm) {
