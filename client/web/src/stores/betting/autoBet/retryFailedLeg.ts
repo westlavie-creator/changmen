@@ -4,6 +4,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
+import { hedgeStakeCnyFromLeg } from "@/domain/arbitrage/arbStakeMath";
 import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import { BetOption, opponentSide } from "@/models/betOption";
 import { useAccountStore } from "@/stores/accountStore";
@@ -20,6 +21,7 @@ export async function retryFailedLeg(
   bet: ViewBet,
   successLeg: BetOption,
   failedLeg: BetOption,
+  successAccount: PlatformAccount | undefined,
   config: UserConfig,
   waitSec: number,
   trace?: ArbExecutionTrace,
@@ -53,7 +55,13 @@ export async function retryFailedLeg(
 
     for (const item of candidates) {
       const odds = item.getOdds(failedLeg.target);
-      stake = Math.floor((successLeg.odds * successLeg.betMoney) / odds);
+      stake = hedgeStakeCnyFromLeg(
+        successLeg.odds,
+        successLeg.betMoney,
+        successLeg.type,
+        odds,
+        successAccount,
+      );
       const acc = accountStore.getAccount(
         item.type,
         stake,

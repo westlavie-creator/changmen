@@ -41,6 +41,20 @@ describe("resolveMakeUpSuccessReference", () => {
     );
     expect(ref).toEqual({ betMoney: 70, betOdds: 4.095 });
   });
+
+  it("converts PM leg betMoney from USDT to CNY on fallback", () => {
+    const pmAccount = {
+      provider: "Polymarket",
+      currency: "USDT",
+    } as never;
+    const ref = resolveMakeUpSuccessReference(
+      { betMoney: 14, odds: 1.695, type: "Polymarket" } as BetOption,
+      [],
+      false,
+      pmAccount,
+    );
+    expect(ref).toEqual({ betMoney: 98, betOdds: 1.695 });
+  });
 });
 
 describe("resolveMakeUpHedgeStake", () => {

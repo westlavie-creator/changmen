@@ -5,6 +5,7 @@ import {
   applyArbHedgeStakes,
   applyArbHedgeStakesCny,
   arbBaseStakeCny,
+  hedgeStakeCnyFromLeg,
   impliedFromLegOdds,
   legStakeCny,
   resolveArbTargetProfit,
@@ -71,5 +72,15 @@ describe("arbStakeMath", () => {
     );
     expect(legB.betMoney).toBe(14);
     expect(legA.betMoney).toBe(60);
+  });
+
+  it("hedgeStakeCnyFromLeg uses PM success stake in CNY", () => {
+    const pmAccount = new PlatformAccount({
+      accountId: 1,
+      provider: "Polymarket",
+      playerName: "pm",
+      currency: "USDT",
+    });
+    expect(hedgeStakeCnyFromLeg(1.695, 14, "Polymarket", 2.63, pmAccount)).toBe(63);
   });
 });

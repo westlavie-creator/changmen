@@ -92,7 +92,16 @@ export async function placeArbLegs(
 
   if (betBothLegs && resultA?.success && !resultB?.success) {
     trace?.event("重试", `anyOdds 换腿补 ${legB.type} ${legB.target}`);
-    const retry = await retryFailedLeg(match, bet, legA, legB, config, waitSec, trace);
+    const retry = await retryFailedLeg(
+      match,
+      bet,
+      legA,
+      legB,
+      accountA,
+      config,
+      waitSec,
+      trace,
+    );
     if (retry) {
       resultB = retry.result;
       legB = retry.leg;

@@ -62,6 +62,20 @@ export function arbBaseStake(legA: BetOption, legB: BetOption, config: UserConfi
   return legB.betMoney || config.betMoney;
 }
 
+/** 成功腿 stake（CNY）→ 对侧 hedge stake（CNY）；对齐 A8 anyOdds `ge.odds*ge.betMoney/odds` */
+export function hedgeStakeCnyFromLeg(
+  successOdds: number,
+  successBetMoney: number,
+  successLegType: BetOption["type"],
+  targetOdds: number,
+  successAccount?: PlatformAccount,
+): number {
+  if (!successOdds || !targetOdds)
+    return 0;
+  const successCny = legStakeCny(successBetMoney, successLegType, successAccount);
+  return Math.floor((successOdds * successCny) / targetOdds);
+}
+
 /** 预检后 leg.betMoney → CNY（PM 经 getBetMoney 后为 USDT，须还原） */
 export function legStakeCny(
   betMoney: number,

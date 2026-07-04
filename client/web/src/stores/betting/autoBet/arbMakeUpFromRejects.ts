@@ -39,7 +39,12 @@ export async function applyArbMakeUpFromRejects(
     && !rejectA
     && (!resultB?.success || rejectB)
   ) {
-    const successRef = resolveMakeUpSuccessReference(legA, venue.ordersA, rejectA);
+    const successRef = resolveMakeUpSuccessReference(
+      legA,
+      venue.ordersA,
+      rejectA,
+      accountA,
+    );
     await enqueueMakeUpOrder({
       loseStore,
       match,
@@ -61,7 +66,12 @@ export async function applyArbMakeUpFromRejects(
     && !rejectB
     && (!resultA?.success || rejectA)
   ) {
-    const successRef = resolveMakeUpSuccessReference(legB, venue.ordersB, rejectB);
+    const successRef = resolveMakeUpSuccessReference(
+      legB,
+      venue.ordersB,
+      rejectB,
+      accountB,
+    );
     await enqueueMakeUpOrder({
       loseStore,
       match,
