@@ -703,6 +703,13 @@ describe("polymarketProvider.checkBet", () => {
       detectionMaxPrice: 0.2,
       bookPrice: 0.18,
       side: "BUY",
+      bookFetchedAt: expect.any(Number),
+      orderOptions: {
+        tickSize: "0.01",
+        minOrderSize: 5,
+        negRisk: false,
+        asks: [{ price: 0.18, size: 100 }],
+      },
     });
     expect(out.odds).toBeCloseTo(5.5556, 3);
     expect(out.checkError).toBeUndefined();
@@ -948,5 +955,103 @@ describe("polymarketProvider.getOrders", () => {
     const orders = await polymarketProvider.getOrders!(accountWithToken("{}"));
     expect(orders).toEqual([]);
     expect(polymarketPluginGet).not.toHaveBeenCalled();
+  });
+});
+
+function pmBettingAccount() {
+  return accountWithToken(JSON.stringify({
+    walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+    funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+    signatureType: "3",
+    privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    apiCreds: {
+      apiKey: "key-1",
+      secret: "c2VjcmV0",
+      passphrase: "pass-1",
+    },
+  }));
+}
+
+function bookGetCalls() {
+  return vi.mocked(polymarketPluginGet).mock.calls.filter(
+    call => String(call[0]).includes("/book"),
+  );
+}
+
+describe("PM precheck /book reuse", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(polymarketPluginGet).mockReset();
+    vi.mocked(polymarketPluginPost).mockReset();
+  });
+
+  test("betting reuses checkBet /book within TTL", async () => {
+    const now = 1_700_000_000_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    mockPluginGetWithBook({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    vi.mocked(polymarketPluginPost).mockResolvedValue({
+      success: true,
+      orderID: "order-reuse",
+      status: "matched",
+      takingAmount: "2000000",
+      makingAmount: "1000000",
+    });
+
+    const account = pmBettingAccount();
+    const option = {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    };
+
+    const checked = await polymarketProvider.checkBet!(account, option as any);
+    expect(checked.data).toBeTruthy();
+    expect(bookGetCalls().length).toBeGreaterThan(0);
+
+    vi.mocked(polymarketPluginGet).mockClear();
+    const result = await polymarketProvider.betting!(account, checked as any);
+
+    expect(result.success).toBe(true);
+    expect(bookGetCalls()).toHaveLength(0);
+  });
+
+  test("betting refetches /book when precheck cache expired", async () => {
+    let now = 1_700_000_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    mockPluginGetWithBook({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    vi.mocked(polymarketPluginPost).mockResolvedValue({
+      success: true,
+      orderID: "order-refetch",
+      status: "matched",
+      takingAmount: "2000000",
+      makingAmount: "1000000",
+    });
+
+    const account = pmBettingAccount();
+    const option = {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    };
+
+    const checked = await polymarketProvider.checkBet!(account, option as any);
+    expect(checked.data).toBeTruthy();
+
+    now += 801;
+    vi.mocked(polymarketPluginGet).mockClear();
+    const result = await polymarketProvider.betting!(account, checked as any);
+
+    expect(result.success).toBe(true);
+    expect(bookGetCalls().length).toBeGreaterThan(0);
   });
 });

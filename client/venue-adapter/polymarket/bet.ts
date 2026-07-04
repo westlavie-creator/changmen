@@ -126,6 +126,23 @@ interface PolymarketOrderOptions {
   asks: Array<{ price: number; size: number }>;
 }
 
+/** 预检 /book 结果在下单前复用的最长时间（与其它场馆「预检写好 payload」对齐） */
+export const PRECHECK_BOOK_REUSE_MS = 800;
+
+/** checkBet 写入、betting 可复用的 PM 买单预检缓存 */
+export interface PolymarketBuyCheckData {
+  tokenId: string;
+  odds: number;
+  detectionOdds: number;
+  detectionMaxPrice: number;
+  bookPrice: number;
+  betMoney: number;
+  apiBetMoney: number;
+  side: "BUY";
+  bookFetchedAt: number;
+  orderOptions: PolymarketOrderOptions;
+}
+
 interface PolymarketOrderDiagnostic {
   tokenId: string;
   amountUsdc: number;
@@ -362,12 +379,44 @@ function resolvePolymarketDetectionOdds(option: BetOption): number {
   return option.odds;
 }
 
+function isPolymarketBuyCheckData(data: unknown): data is PolymarketBuyCheckData {
+  if (!data || typeof data !== "object")
+    return false;
+  const row = data as PolymarketBuyCheckData;
+  const opts = row.orderOptions;
+  return Boolean(
+    row.side === "BUY"
+    && row.tokenId
+    && Number.isFinite(row.bookPrice) && row.bookPrice > 0
+    && Number.isFinite(row.bookFetchedAt) && row.bookFetchedAt > 0
+    && opts
+    && Array.isArray(opts.asks)
+    && opts.asks.length > 0
+    && (opts.tickSize === "0.1" || opts.tickSize === "0.01" || opts.tickSize === "0.001" || opts.tickSize === "0.0001"),
+  );
+}
+
+function canReusePrecheckBook(
+  data: PolymarketBuyCheckData,
+  tokenId: string,
+  detectionOdds: number,
+  apiBetMoney: number,
+  now: number,
+): boolean {
+  return (
+    data.tokenId === tokenId
+    && data.detectionOdds === detectionOdds
+    && data.apiBetMoney === apiBetMoney
+    && now - data.bookFetchedAt <= PRECHECK_BOOK_REUSE_MS
+  );
+}
+
 async function resolvePolymarketExecutableBuy(
   gateway: string,
   tokenId: string,
   detectionOdds: number,
   apiBetMoney: number,
-): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions }> {
+): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions; bookFetchedAt: number }> {
   const maxPrice = detectionMaxPrice(detectionOdds);
   if (!maxPrice || maxPrice <= 0 || maxPrice >= 1)
     throw new Error(`无效检测赔率 ${detectionOdds}`);
@@ -389,6 +438,31 @@ async function resolvePolymarketExecutableBuy(
     price,
     bookOdds: Math.round((1 / price) * 10000) / 10000,
     orderOptions,
+    bookFetchedAt: Date.now(),
+  };
+}
+
+async function resolvePolymarketExecutableBuyForBet(
+  gateway: string,
+  tokenId: string,
+  detectionOdds: number,
+  apiBetMoney: number,
+  option: BetOption,
+): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions }> {
+  const prior = option.data;
+  const now = Date.now();
+  if (isPolymarketBuyCheckData(prior) && canReusePrecheckBook(prior, tokenId, detectionOdds, apiBetMoney, now)) {
+    return {
+      price: prior.bookPrice,
+      bookOdds: prior.odds,
+      orderOptions: prior.orderOptions,
+    };
+  }
+  const resolved = await resolvePolymarketExecutableBuy(gateway, tokenId, detectionOdds, apiBetMoney);
+  return {
+    price: resolved.price,
+    bookOdds: resolved.bookOdds,
+    orderOptions: resolved.orderOptions,
   };
 }
 
@@ -447,7 +521,7 @@ export const polymarketProvider: PlatformProvider = {
     const gateway = account.gateway || POLYMARKET_CLOB_API;
     const tokenId = option.itemId;
     try {
-      const { price, bookOdds } = await resolvePolymarketExecutableBuy(
+      const { price, bookOdds, orderOptions, bookFetchedAt } = await resolvePolymarketExecutableBuy(
         gateway,
         tokenId,
         detectionOdds,
@@ -464,7 +538,9 @@ export const polymarketProvider: PlatformProvider = {
         betMoney: option.betMoney,
         apiBetMoney,
         side: "BUY",
-      };
+        bookFetchedAt,
+        orderOptions,
+      } satisfies PolymarketBuyCheckData;
     }
     catch (err) {
       option.checkError = err instanceof Error ? err.message : String(err);
@@ -501,11 +577,12 @@ export const polymarketProvider: PlatformProvider = {
     const apiBetMoney = resolvePolymarketApiBetMoney(account, option);
 
     try {
-      const { price, bookOdds, orderOptions } = await resolvePolymarketExecutableBuy(
+      const { price, bookOdds, orderOptions } = await resolvePolymarketExecutableBuyForBet(
         gateway,
         tokenId,
         detectionOdds,
         apiBetMoney,
+        option,
       );
       option.newOdds = bookOdds;
       const orderBody = await createPolymarketOrderBody(
