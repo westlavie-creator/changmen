@@ -7,10 +7,15 @@ import {
 import { useMessageStore } from "@/stores/messageStore";
 import { useUserStore } from "@/stores/userStore";
 
-/** [changmen 扩展] 是否发送套利执行进度 Telegram */
+/** 已配置 Telegram 时可采集套利执行进度 */
+export function shouldCollectArbProgress(): boolean {
+  return Boolean(useUserStore().message?.telegramId?.trim());
+}
+
+/** [changmen 扩展] 是否发送套利执行进度 Telegram（需勾选「套利进度报告」） */
 export function shouldSendArbProgress(): boolean {
   const user = useUserStore();
-  if (!user.message?.telegramId?.trim())
+  if (!shouldCollectArbProgress())
     return false;
   return user.message.notifyArbProgress === true;
 }
@@ -19,11 +24,12 @@ export function shouldSendArbProgress(): boolean {
 export function ensureArbExecutionTrace(params: ArbBetAttemptParams): ArbExecutionTrace | undefined {
   if (params.trace)
     return params.trace;
-  if (!shouldSendArbProgress())
+  if (!shouldCollectArbProgress())
     return undefined;
 
   const trace = createArbExecutionTrace(params.match, params.bet, undefined, (payload) => {
-    useMessageStore().arbProgressMessage(payload);
+    if (shouldSendArbProgress())
+      useMessageStore().arbProgressMessage(payload);
   });
   params.trace = trace;
   return trace;

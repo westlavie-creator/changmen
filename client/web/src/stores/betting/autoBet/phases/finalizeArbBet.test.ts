@@ -8,7 +8,14 @@ import { BetResult } from "@/models/betResult";
 import { PlatformAccount } from "@/models/platformAccount";
 
 import { createDefaultUserConfig } from "@/types/userConfig";
+import { createArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import { finalizeArbBet } from "./finalizeArbBet";
+
+const shouldSendArbProgress = vi.hoisted(() => vi.fn(() => false));
+
+vi.mock("@/stores/betting/autoBet/arbProgressTrace", () => ({
+  shouldSendArbProgress,
+}));
 
 const {
   waitRejectDetection,
@@ -378,5 +385,35 @@ describe("finalizeArbBet makeup enqueue", () => {
 
     expect(refreshBalance).toHaveBeenCalled();
     expect(rejectWaitStarted).toBe(true);
+  });
+
+  it("开启套利进度报告时不发旧版 bettingMessage", async () => {
+    shouldSendArbProgress.mockReturnValue(true);
+    syncVenueRejectFlags.mockResolvedValue({
+      ordersA: [venueOrder("ob-1", "none", 2)],
+      ordersB: [venueOrder("ray-1", "none", 3)],
+      rejectA: false,
+      rejectB: false,
+    });
+    const trace = createArbExecutionTrace(params.match, params.bet);
+    const tracedParams = { ...params, trace };
+
+    await finalizeArbBet(tracedParams, makePlaced());
+
+    expect(bettingMessage).not.toHaveBeenCalled();
+  });
+
+  it("未开套利进度报告时仍发 bettingMessage", async () => {
+    shouldSendArbProgress.mockReturnValue(false);
+    syncVenueRejectFlags.mockResolvedValue({
+      ordersA: [venueOrder("ob-1", "none", 2)],
+      ordersB: [venueOrder("ray-1", "none", 3)],
+      rejectA: false,
+      rejectB: false,
+    });
+
+    await finalizeArbBet(params, makePlaced());
+
+    expect(bettingMessage).toHaveBeenCalledOnce();
   });
 });

@@ -10,6 +10,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
 import { syncVenueRejectFlags, resolveArbBindOrderId } from "@/stores/betting/autoBet/venueRejectSync";
+import { shouldSendArbProgress } from "@/stores/betting/autoBet/arbProgressTrace";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
 import {
@@ -198,11 +199,6 @@ export async function finalizeArbBet(
     trace?.event("绑单", `linkId ${linkId} · ${binds.length} 笔`);
   }
 
-  const messagePeers = buildBettingMessagePeers(params, placed, rejectA, rejectB);
-  if (messagePeers) {
-    useMessageStore().bettingMessage(messagePeers[0], messagePeers[1]);
-  }
-
   const okA = Boolean(resultA?.success && accountA && !rejectA);
   const okB = Boolean(resultB?.success && accountB && !rejectB);
   const makeupQueued
@@ -231,5 +227,11 @@ export async function finalizeArbBet(
   }
   else {
     trace?.finish("fail", "收尾无成功腿");
+  }
+
+  const messagePeers = buildBettingMessagePeers(params, placed, rejectA, rejectB);
+  // 已开「套利进度报告」时由 trace.finish → formatArbProgressTelegramBody 推送，避免旧版 📣下单提醒 覆盖新格式
+  if (messagePeers && !(trace && shouldSendArbProgress())) {
+    useMessageStore().bettingMessage(messagePeers[0], messagePeers[1]);
   }
 }

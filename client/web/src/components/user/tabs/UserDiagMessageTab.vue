@@ -75,7 +75,7 @@ async function testTelegram() {
     </el-form-item>
     <el-form-item label="套利进度报告:">
       <el-checkbox v-model="notifyArbProgress">
-        开启投注时推送执行时间线（含检测失败、预检、下单；与 📣下单提醒 并存）
+        开启后推送【套利检测 / 预检 / 下注】分段报告（替代 📣下单提醒，避免旧格式重复）
       </el-checkbox>
     </el-form-item>
     <el-form-item label="套利机会提醒:">

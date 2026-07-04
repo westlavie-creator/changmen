@@ -25,5 +25,6 @@ export {
 export {
   beginArbExecutionTrace,
   setArbExecutionTraceMeta,
+  shouldCollectArbProgress,
   shouldSendArbProgress,
 } from "@/stores/betting/autoBet/arbProgressTrace";
