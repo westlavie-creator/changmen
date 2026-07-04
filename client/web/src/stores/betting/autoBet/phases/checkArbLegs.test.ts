@@ -8,9 +8,14 @@ import { createDefaultUserConfig } from "@/types/userConfig";
 
 const checkBetting = vi.hoisted(() => vi.fn());
 const reconcilePolymarketArbStakes = vi.hoisted(() => vi.fn());
+const getEntry = vi.hoisted(() => vi.fn());
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ checkBetting }),
+}));
+
+vi.mock("@/stores/oddsStore", () => ({
+  useOddsStore: () => ({ getEntry }),
 }));
 
 vi.mock("@/domain/arbitrage", async (importOriginal) => {
@@ -55,6 +60,7 @@ const params: ArbBetAttemptParams = {
 describe("checkArbLegs A8 regression", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getEntry.mockReturnValue(undefined);
     checkBetting.mockImplementation(async (_acc, option: BetOption) => {
       option.data = { ok: true };
       return option;

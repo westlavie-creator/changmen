@@ -206,4 +206,44 @@ describe("reconcilePolymarketArbStakes", () => {
     expect(result.legA.betMoney).toBe(30);
     expect(result.legB.betMoney).toBe(14);
   });
+
+  it("fails when hedge changes but leg account is missing", async () => {
+    const config = createDefaultUserConfig();
+    const legA = leg("RAY", 1.36, 80);
+    const legB = leg("Polymarket", 5, 20);
+
+    const result = await reconcilePolymarketArbStakes({
+      legA,
+      legB,
+      config,
+      checkBetting: vi.fn(),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok)
+      return;
+    expect(result.message).toContain("缺少账号");
+  });
+
+  it("fails when implied drops below profit without needing stake change", async () => {
+    const config = { ...createDefaultUserConfig(), profit: 1.5, maxProfit: 2 };
+    const legA = leg("RAY", 1.36, 80);
+    const legB = leg("Polymarket", 5, 22);
+    const accountA = new PlatformAccount({ accountId: 1, provider: "RAY", playerName: "ray" });
+    const accountB = new PlatformAccount({ accountId: 2, provider: "Polymarket", playerName: "pm" });
+
+    const result = await reconcilePolymarketArbStakes({
+      legA,
+      legB,
+      accountA,
+      accountB,
+      config,
+      checkBetting: vi.fn(),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok)
+      return;
+    expect(result.message).toContain("未达阈值");
+  });
 });

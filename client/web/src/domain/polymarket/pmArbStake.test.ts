@@ -100,4 +100,20 @@ describe("pmArbStake", () => {
     expect(pair.pmLeg).toBe(legB);
     expect(pair.a8Leg).toBe(legA);
   });
+
+  it("returns null when PM hedge already matches reconcile target", () => {
+    const config = { ...createDefaultUserConfig(), betMoney: 80 };
+    const legA = leg("RAY", 1.36, 80);
+    const legB = leg("Polymarket", 5, 3);
+    const accountB = new PlatformAccount({
+      accountId: 2,
+      provider: "Polymarket",
+      playerName: "pm",
+      currency: "USDT",
+    });
+
+    expect(applyPmArbHedgeAfterPrecheck(legA, legB, config, undefined, accountB)).toBeNull();
+    expect(legA.betMoney).toBe(80);
+    expect(legB.betMoney).toBe(3);
+  });
 });

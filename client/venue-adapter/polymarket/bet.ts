@@ -395,15 +395,12 @@ function parseCollateralBalance(raw: string | number | undefined): number | unde
   return Number.isFinite(value) ? value / COLLATERAL_DECIMALS : undefined;
 }
 
-/** 下单 USDC：以当前 option.betMoney（场馆口径）为准；data.apiBetMoney 仅同步展示用 */
+/** 下单 USDC：仅以 option.betMoney（场馆口径）为准；禁止回退 data.apiBetMoney */
 function resolvePolymarketApiBetMoney(_account: PlatformAccount, option: BetOption): number {
   const stake = Math.floor(Number(option.betMoney) || 0);
-  if (stake > 0)
-    return Math.max(POLYMARKET_MIN_VENUE_STAKE, stake);
-  const fromCheck = Number((option.data as { apiBetMoney?: number } | undefined)?.apiBetMoney);
-  if (Number.isFinite(fromCheck) && fromCheck > 0)
-    return fromCheck;
-  return POLYMARKET_MIN_VENUE_STAKE;
+  if (stake <= 0)
+    return 0;
+  return Math.max(POLYMARKET_MIN_VENUE_STAKE, stake);
 }
 
 function resolvePolymarketDetectionOdds(option: BetOption): number {

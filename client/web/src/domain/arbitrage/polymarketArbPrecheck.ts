@@ -48,6 +48,13 @@ export async function reconcilePolymarketArbStakes(params: {
     };
   }
 
+  if (adjustment && !adjustment.account) {
+    return {
+      ok: false,
+      message: `${adjustment.leg.type} 重算对冲后缺少账号，无法重检`,
+    };
+  }
+
   if (adjustment?.account) {
     restoreLegStakeCnyBeforeRecheck(adjustment.leg, adjustment.account);
     const checked = await checkBetting(adjustment.account, adjustment.leg);

@@ -548,6 +548,42 @@ describe("polymarketProvider.betting", () => {
       .toBeCloseTo(3, 2);
   });
 
+  test("ignores stale apiBetMoney when betMoney is zero", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    mockPluginGetWithBook({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.38", size: "5000" }],
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }));
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 2.632,
+      betMoney: 0,
+      data: {
+        detectionOdds: 2.631,
+        detectionClobPrice: 0.38,
+        apiBetMoney: 14,
+      },
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect(polymarketPluginPost).not.toHaveBeenCalled();
+  });
+
   test("reports minimum order size before posting too-small FOK buy", async () => {
     mockPluginGetWithBook({
       tick_size: "0.01",
