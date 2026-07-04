@@ -2,6 +2,7 @@ import type { BetOption } from "@/models/betOption";
 import { describe, expect, it } from "vitest";
 import { LoseOrder } from "@/models/loseOrder";
 import {
+  needsMakeUpStakeRecheck,
   resolveMakeUpHedgeStake,
   resolveMakeUpSuccessReference,
 } from "@/stores/betting/makeUpReference";
@@ -76,5 +77,27 @@ describe("resolveMakeUpHedgeStake", () => {
       isCreateOrder: true,
     });
     expect(resolveMakeUpHedgeStake(order, 1.35)).toBe(88);
+  });
+});
+
+describe("needsMakeUpStakeRecheck", () => {
+  it("does not recheck when PM USDT stake matches CNY hedge", () => {
+    const pmAccount = {
+      provider: "Polymarket",
+      currency: "USDT",
+    } as never;
+    expect(needsMakeUpStakeRecheck(98, 14, "Polymarket", pmAccount)).toBe(false);
+  });
+
+  it("rechecks when PM USDT stake differs from CNY hedge", () => {
+    const pmAccount = {
+      provider: "Polymarket",
+      currency: "USDT",
+    } as never;
+    expect(needsMakeUpStakeRecheck(63, 14, "Polymarket", pmAccount)).toBe(true);
+  });
+
+  it("does not recheck when CNY leg stake already matches", () => {
+    expect(needsMakeUpStakeRecheck(63, 63, "RAY")).toBe(false);
   });
 });

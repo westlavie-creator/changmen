@@ -35,3 +35,14 @@ export function resolveMakeUpHedgeStake(order: LoseOrder, liveOdds: number): num
     return Math.round(order.betMoney);
   return order.getBetMoney(liveOdds);
 }
+
+/** hedge（CNY）与 checkBet 后 option.betMoney（PM 为 USDT）是否一致 */
+export function needsMakeUpStakeRecheck(
+  hedgeStakeCny: number,
+  checkedBetMoney: number,
+  checkedLegType: BetOption["type"],
+  account?: PlatformAccount,
+): boolean {
+  const checkedCny = legStakeCny(Math.round(checkedBetMoney), checkedLegType, account);
+  return hedgeStakeCny !== checkedCny;
+}

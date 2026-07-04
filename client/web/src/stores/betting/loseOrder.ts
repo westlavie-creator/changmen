@@ -9,7 +9,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
-import { resolveMakeUpHedgeStake } from "@/stores/betting/makeUpReference";
+import { needsMakeUpStakeRecheck, resolveMakeUpHedgeStake } from "@/stores/betting/makeUpReference";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
@@ -84,7 +84,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       if (hedgeStake <= 0)
         continue;
 
-      if (!order.isCreateOrder && hedgeStake !== Math.round(checked.betMoney)) {
+      if (!order.isCreateOrder && needsMakeUpStakeRecheck(hedgeStake, checked.betMoney, checked.type, account)) {
         checked.betMoney = hedgeStake;
         checked = await accountStore.checkBetting(account, checked);
         if (!checked.data)
