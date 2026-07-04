@@ -29,7 +29,7 @@ describe("arbExecutionTrace", () => {
     expect(payload.events[0].stage).toBe("发现");
   });
 
-  it("formats structured PM leg blocks and timeline", () => {
+  it("formats detection, precheck and bet sections by execution phase", () => {
     const body = formatArbProgressTelegramBody({
       id: "1:2:3",
       matchId: 1,
@@ -41,6 +41,8 @@ describe("arbExecutionTrace", () => {
         { at: 500, stage: "发现", detail: "利润 3.0%" },
         { at: 1000, stage: "检测", detail: "平台 Polymarket、RAY" },
         { at: 1500, stage: "预检", detail: "见下方对冲腿详情" },
+        { at: 3000, stage: "下单", detail: "Polymarket Home ✅ 35@1.471 (matched) · RAY Away ✅ 80@2.250" },
+        { at: 4000, stage: "绑单", detail: "linkId 1700000000000 · 2 笔" },
       ],
       outcome: "fail",
       summary: "Polymarket Home: 盘口价高于检测价",
@@ -85,17 +87,25 @@ describe("arbExecutionTrace", () => {
     });
 
     expect(body).toContain("🔴 套利执行失败");
-    expect(body).toContain("【对冲腿】");
-    expect(body).toContain("主腿 · Polymarket · Home");
+    expect(body).toContain("【套利检测】");
+    expect(body).toContain("利润 3.0%");
+    expect(body).toContain("主腿 · Polymarket · Home：35 @ 1.471");
+    expect(body).toContain("客腿 · RAY · Away：80 @ 2.250");
+    expect(body).toContain("【预检】");
+    expect(body).toContain("主腿 · Polymarket · Home：❌ 盘口价高于检测价");
     expect(body).toContain("token：747116…44981");
     expect(body).toContain("检测上限：0.6800（fo clob）");
     expect(body).toContain("盘口 ask：0.6810");
-    expect(body).toContain("预检：❌ 盘口价高于检测价");
-    expect(body).toContain("客腿 · RAY · Away");
-    expect(body).toContain("【执行过程】");
+    expect(body).toContain("客腿 · RAY · Away：✅ 通过");
+    expect(body).toContain("【下注】");
+    expect(body).toContain("Polymarket Home ✅ 35@1.471");
+    expect(body).toContain("RAY Away ✅ 80@2.250");
+    expect(body).not.toContain("【对冲腿】");
     expect(body).not.toContain("见下方对冲腿详情");
-    expect(body).toContain("00:01 🔍 检测");
-    expect(body).toContain("耗时 1.5s");
+    expect(body).toContain("【执行过程】");
+    expect(body).toContain("00:04 🔗 绑单");
+    expect(body).not.toContain("00:01 🔍 检测");
+    expect(body).toContain("耗时 4.0s");
   });
 
   it("setMeta merges prior meta fields", () => {
