@@ -168,7 +168,10 @@ describe("finalizeArbBet makeup enqueue", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     saveOrderBind.mockResolvedValue(undefined);
-    applyArbMakeUpFromRejects.mockResolvedValue(undefined);
+    applyArbMakeUpFromRejects.mockResolvedValue({
+      enqueuedForLegA: false,
+      enqueuedForLegB: false,
+    });
     waitRejectDetection.mockResolvedValue(undefined);
     refreshBalance.mockResolvedValue(undefined);
     syncVenueRejectFlags.mockResolvedValue({

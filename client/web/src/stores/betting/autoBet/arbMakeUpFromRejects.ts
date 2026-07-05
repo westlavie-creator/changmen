@@ -9,6 +9,11 @@ export interface ArbMakeUpVenueContext {
   ordersB: VenueOrder[];
 }
 
+export interface ArbMakeUpEnqueueResult {
+  enqueuedForLegA: boolean;
+  enqueuedForLegB: boolean;
+}
+
 /** 对齐 A8 bundle：一腿成且非拒、另一腿失败或拒 → 补单入队 */
 export async function applyArbMakeUpFromRejects(
   params: ArbBetAttemptParams,
@@ -16,7 +21,7 @@ export async function applyArbMakeUpFromRejects(
   rejectA: boolean,
   rejectB: boolean,
   venue: ArbMakeUpVenueContext = { ordersA: [], ordersB: [] },
-): Promise<void> {
+): Promise<ArbMakeUpEnqueueResult> {
   const { match, bet, config, setMessage } = params;
   const loseStore = useLoseOrderStore();
   const {
@@ -30,8 +35,13 @@ export async function applyArbMakeUpFromRejects(
     resultB,
   } = placed;
 
+  const result: ArbMakeUpEnqueueResult = {
+    enqueuedForLegA: false,
+    enqueuedForLegB: false,
+  };
+
   if (!betBothLegs)
-    return;
+    return result;
 
   if (
     accountA
@@ -44,8 +54,9 @@ export async function applyArbMakeUpFromRejects(
       venue.ordersA,
       rejectA,
       accountA,
+      resultA?.orderId,
     );
-    await enqueueMakeUpOrder({
+    result.enqueuedForLegB = await enqueueMakeUpOrder({
       loseStore,
       match,
       bet,
@@ -71,8 +82,9 @@ export async function applyArbMakeUpFromRejects(
       venue.ordersB,
       rejectB,
       accountB,
+      resultB?.orderId,
     );
-    await enqueueMakeUpOrder({
+    result.enqueuedForLegA = await enqueueMakeUpOrder({
       loseStore,
       match,
       bet,
@@ -87,4 +99,6 @@ export async function applyArbMakeUpFromRejects(
       failedPlatformLabel: legA.type,
     });
   }
+
+  return result;
 }

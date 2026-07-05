@@ -20,6 +20,31 @@ describe("resolveMakeUpSuccessReference", () => {
     expect(ref).toEqual({ betMoney: 70, betOdds: 4.095 });
   });
 
+  it("anchors venue reference to successOrderId when list has stale rows", () => {
+    const ref = resolveMakeUpSuccessReference(
+      leg(30, 1.35),
+      [
+        { orderId: "0xold", betMoney: 10, odds: 2.6, status: "reject" } as never,
+        { orderId: "0xnew", betMoney: 70, odds: 4.095, status: "none" } as never,
+      ],
+      false,
+      undefined,
+      "0xnew",
+    );
+    expect(ref).toEqual({ betMoney: 70, betOdds: 4.095 });
+  });
+
+  it("falls back to leg when successOrderId is absent from venue list", () => {
+    const ref = resolveMakeUpSuccessReference(
+      leg(70, 4, 4.095),
+      [{ orderId: "0xold", betMoney: 10, odds: 2.6, status: "reject" } as never],
+      false,
+      undefined,
+      "0xnew",
+    );
+    expect(ref).toEqual({ betMoney: 70, betOdds: 4.095 });
+  });
+
   it("falls back to leg newOdds when venue sync is empty", () => {
     const ref = resolveMakeUpSuccessReference(
       leg(70, 4, 4.095),

@@ -50,7 +50,7 @@ export async function enqueueMakeUpOrder(params: {
   betOdds: number;
   failedLegOdds: number;
   failedPlatformLabel: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const {
     loseStore,
     match,
@@ -75,7 +75,7 @@ export async function enqueueMakeUpOrder(params: {
     setMessage,
   );
   if (!okMakeUp)
-    return;
+    return false;
 
   loseStore.createOrder(
     new LoseOrder({
@@ -96,4 +96,5 @@ export async function enqueueMakeUpOrder(params: {
   await wait(500);
   setMessage(`${failedPlatformLabel} 下单失败，已加入补单队列`);
   a8Tip("补单提醒", `${failedPlatformLabel} 下单失败，创建补单队列`, 3000);
+  return true;
 }

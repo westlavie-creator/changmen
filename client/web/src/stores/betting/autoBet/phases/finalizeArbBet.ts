@@ -104,7 +104,6 @@ export async function finalizeArbBet(
     legB,
     accountA,
     accountB,
-    betBothLegs,
     linkId,
     waitSec,
     resultA,
@@ -165,26 +164,14 @@ export async function finalizeArbBet(
     });
   }
 
-  await applyArbMakeUpFromRejects(params, placed, rejectA, rejectB, {
+  const makeup = await applyArbMakeUpFromRejects(params, placed, rejectA, rejectB, {
     ordersA,
     ordersB,
   });
-  if (
-    betBothLegs
-    && accountA
-    && resultA?.success
-    && !rejectA
-    && (!resultB?.success || rejectB)
-  ) {
+  if (makeup.enqueuedForLegB) {
     trace?.event("补单", `已入队 ${legB.type} ${legB.target}`);
   }
-  if (
-    betBothLegs
-    && accountB
-    && resultB?.success
-    && !rejectB
-    && (!resultA?.success || rejectA)
-  ) {
+  if (makeup.enqueuedForLegA) {
     trace?.event("补单", `已入队 ${legA.type} ${legA.target}`);
   }
   if (resultA?.success && !rejectA && accountA) {
@@ -201,17 +188,7 @@ export async function finalizeArbBet(
 
   const okA = Boolean(resultA?.success && accountA && !rejectA);
   const okB = Boolean(resultB?.success && accountB && !rejectB);
-  const makeupQueued
-    = (betBothLegs
-      && accountA
-      && resultA?.success
-      && !rejectA
-      && (!resultB?.success || rejectB))
-    || (betBothLegs
-      && accountB
-      && resultB?.success
-      && !rejectB
-      && (!resultA?.success || rejectA));
+  const makeupQueued = makeup.enqueuedForLegA || makeup.enqueuedForLegB;
 
   if (okA && okB) {
     trace?.finish("success", "双腿成单");

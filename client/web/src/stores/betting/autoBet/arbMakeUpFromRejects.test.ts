@@ -44,11 +44,11 @@ function basePlaced(): ArbBetPlaced {
 describe("applyArbMakeUpFromRejects", () => {
   beforeEach(() => {
     enqueueMakeUpOrder.mockReset();
-    enqueueMakeUpOrder.mockResolvedValue(undefined);
+    enqueueMakeUpOrder.mockResolvedValue(true);
   });
 
   it("enqueues venue-confirmed success leg reference when B wins and A fails", async () => {
-    await applyArbMakeUpFromRejects(
+    const out = await applyArbMakeUpFromRejects(
       params(),
       basePlaced(),
       false,
@@ -59,6 +59,7 @@ describe("applyArbMakeUpFromRejects", () => {
       },
     );
 
+    expect(out).toEqual({ enqueuedForLegA: true, enqueuedForLegB: false });
     expect(enqueueMakeUpOrder).toHaveBeenCalledWith(
       expect.objectContaining({
         target: "Home",
@@ -67,6 +68,49 @@ describe("applyArbMakeUpFromRejects", () => {
         accountId: 23,
       }),
     );
+  });
+
+  it("passes success leg orderId when resolving venue reference", async () => {
+    const placed = basePlaced();
+    placed.resultB = Object.assign(new BetResult("OB", true), { orderId: "0xsuccess" });
+
+    await applyArbMakeUpFromRejects(
+      params(),
+      placed,
+      false,
+      false,
+      {
+        ordersA: [],
+        ordersB: [
+          { orderId: "0xold", betMoney: 10, odds: 2.6, status: "reject" } as never,
+          { orderId: "0xsuccess", betMoney: 70, odds: 4.095, status: "none" } as never,
+        ],
+      },
+    );
+
+    expect(enqueueMakeUpOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        betMoney: 70,
+        betOdds: 4.095,
+      }),
+    );
+  });
+
+  it("returns false when makeup threshold rejects enqueue", async () => {
+    enqueueMakeUpOrder.mockResolvedValueOnce(false);
+
+    const out = await applyArbMakeUpFromRejects(
+      params(),
+      basePlaced(),
+      false,
+      false,
+      {
+        ordersA: [],
+        ordersB: [{ betMoney: 70, odds: 4.095, status: "none" } as never],
+      },
+    );
+
+    expect(out).toEqual({ enqueuedForLegA: false, enqueuedForLegB: false });
   });
 
   it("ignores polluted leg betMoney when venue order is available", async () => {
