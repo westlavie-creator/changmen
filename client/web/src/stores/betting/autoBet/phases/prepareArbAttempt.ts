@@ -58,11 +58,12 @@ export async function prepareArbAttempt(
   const legA = options[0];
   const legB = options[1];
   const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
+  const detectionLegs = buildArbProgressLegPair(legA, legB);
   setArbExecutionTraceMeta(trace, {
     implied,
     homeLine: `${legA.type}@${legA.odds}`,
     awayLine: `${legB.type}@${legB.odds}`,
-    legs: buildArbProgressLegPair(legA, legB),
+    legs: detectionLegs,
   });
   trace?.event("检测", `平台 ${providerKeys.join("、")}`);
 
@@ -95,7 +96,7 @@ export async function prepareArbAttempt(
     trace?.event("选号", `${legB.target} ${formatLegAccount(legB.type, accountB.playerName)}`);
   }
   setArbExecutionTraceMeta(trace, {
-    legs: buildArbProgressLegPair(legA, legB, accountA, accountB),
+    legs: buildArbProgressLegPair(legA, legB, accountA, accountB, undefined, detectionLegs),
   });
 
   const betBothLegs = Boolean(accountA) && Boolean(accountB);

@@ -10,6 +10,7 @@ export function buildArbProgressLegMeta(
   leg: BetOption,
   account?: PlatformAccount | null,
   precheck?: { ok: boolean; error?: string },
+  prior?: ArbProgressLegMeta,
 ): ArbProgressLegMeta {
   const meta: ArbProgressLegMeta = {
     side,
@@ -17,6 +18,8 @@ export function buildArbProgressLegMeta(
     target: leg.target,
     odds: leg.odds,
     betMoney: leg.betMoney,
+    planBetMoney: prior?.planBetMoney ?? leg.betMoney,
+    planOdds: prior?.planOdds ?? leg.odds,
     account: account ? formatLegAccount(leg.type, account.playerName) : undefined,
   };
   if (!precheck)
@@ -41,9 +44,12 @@ export function buildArbProgressLegPair(
     legA?: { ok: boolean; error?: string };
     legB?: { ok: boolean; error?: string };
   },
+  priorLegs?: ArbProgressLegMeta[],
 ): ArbProgressLegMeta[] {
+  const priorA = priorLegs?.find(l => l.side === "A");
+  const priorB = priorLegs?.find(l => l.side === "B");
   return [
-    buildArbProgressLegMeta("A", legA, accountA, precheck?.legA),
-    buildArbProgressLegMeta("B", legB, accountB, precheck?.legB),
+    buildArbProgressLegMeta("A", legA, accountA, precheck?.legA, priorA),
+    buildArbProgressLegMeta("B", legB, accountB, precheck?.legB, priorB),
   ];
 }

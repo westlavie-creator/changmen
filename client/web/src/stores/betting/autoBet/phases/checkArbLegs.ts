@@ -58,7 +58,7 @@ export async function checkArbLegs(
     legB: accountB
       ? { ok: Boolean(legB.data), error: legB.checkError }
       : undefined,
-  });
+  }, trace?.getMeta()?.legs);
   setArbExecutionTraceMeta(trace, { legs: precheckLegs });
   trace?.event("预检", "见下方对冲腿详情");
 

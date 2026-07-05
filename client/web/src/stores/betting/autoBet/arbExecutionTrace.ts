@@ -27,6 +27,9 @@ export interface ArbProgressLegMeta {
   target: string;
   odds: number;
   betMoney: number;
+  /** GetOrderOptions 计划额（CNY）；预检后 betMoney 可能为 PM USDC */
+  planBetMoney?: number;
+  planOdds?: number;
   account?: string;
   precheck?: ArbProgressLegPrecheck;
 }
@@ -58,6 +61,7 @@ export interface ArbProgressPayload {
 export interface ArbExecutionTrace {
   readonly id: string;
   event: (stage: string, detail: string) => void;
+  getMeta: () => ArbProgressPayload["meta"] | undefined;
   setMeta: (meta: ArbProgressPayload["meta"]) => void;
   finish: (outcome: ArbProgressOutcome, summary?: string) => void;
 }
@@ -80,6 +84,9 @@ export function createArbExecutionTrace(
       if (finished)
         return;
       events.push({ at: Date.now(), stage, detail });
+    },
+    getMeta() {
+      return metaRef;
     },
     setMeta(next) {
       if (finished)

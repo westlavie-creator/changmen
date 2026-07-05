@@ -379,4 +379,48 @@ describe("processLoseOrders (A8 jb parity)", () => {
     });
     expect(removeOrder).toHaveBeenCalledWith(100, true);
   });
+
+  it("PM success ref in queue: jb consumes RAY with CNY stake from getBetMoney", async () => {
+    const bet = makeBet([makeItem("RAY", 2.5)]);
+    matchs.push(makeMatch(bet));
+    queueOrder({ betMoney: 98, betOdds: 1.695 });
+
+    const acc = new PlatformAccount({ accountId: 2, playerName: "ray1", provider: "RAY" });
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({ success: false, provider: "RAY" });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect(checkBetting.mock.calls[0][1].betMoney).toBe(66);
+    expect(betting).toHaveBeenCalledWith(
+      acc,
+      expect.objectContaining({ betMoney: 66 }),
+      10,
+    );
+  });
+
+  it("RAY success ref in queue: jb consumes PM with list-odds CNY stake (1× precheck)", async () => {
+    const bet = makeBet([makeItem("Polymarket", 4.0)]);
+    matchs.push(makeMatch(bet));
+    queueOrder({ betMoney: 70, betOdds: 4.095 });
+
+    const acc = new PlatformAccount({ accountId: 47, playerName: "pm1", provider: "Polymarket" });
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({ success: false, provider: "Polymarket" });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect(checkBetting.mock.calls[0][1].betMoney).toBe(72);
+    expect(betting).toHaveBeenCalledTimes(1);
+  });
 });

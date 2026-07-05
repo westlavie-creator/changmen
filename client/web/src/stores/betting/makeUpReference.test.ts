@@ -51,5 +51,33 @@ describe("resolveMakeUpSuccessReference", () => {
     );
     expect(ref).toEqual({ betMoney: 98, betOdds: 1.695 });
   });
+
+  it("converts unscaled PM venue order USDC to CNY", () => {
+    const pmAccount = {
+      provider: "Polymarket",
+      currency: "USDT",
+    } as never;
+    const ref = resolveMakeUpSuccessReference(
+      { betMoney: 14, odds: 1.695, type: "Polymarket" } as BetOption,
+      [{ betMoney: 14, odds: 1.695, status: "none", pmStakeUsdc: 14 } as never],
+      false,
+      pmAccount,
+    );
+    expect(ref).toEqual({ betMoney: 98, betOdds: 1.695 });
+  });
+
+  it("keeps scaled PM venue order CNY betMoney", () => {
+    const pmAccount = {
+      provider: "Polymarket",
+      currency: "USDT",
+    } as never;
+    const ref = resolveMakeUpSuccessReference(
+      { betMoney: 14, odds: 1.695, type: "Polymarket" } as BetOption,
+      [{ betMoney: 98, odds: 1.695, status: "none", pmStakeUsdc: 14 } as never],
+      false,
+      pmAccount,
+    );
+    expect(ref).toEqual({ betMoney: 98, betOdds: 1.695 });
+  });
 });
 

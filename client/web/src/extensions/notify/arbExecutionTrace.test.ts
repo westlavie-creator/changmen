@@ -108,6 +108,50 @@ describe("arbExecutionTrace", () => {
     expect(body).toContain("耗时 4.0s");
   });
 
+  it("detection section uses planBetMoney CNY when precheck betMoney is PM USDC", () => {
+    const body = formatArbProgressTelegramBody({
+      id: "1:2:3",
+      matchId: 1,
+      betId: 2,
+      matchTitle: "A vs B",
+      betName: "[地图1] 获胜",
+      startedAt: 0,
+      events: [
+        { at: 1000, stage: "预检", detail: "见下方对冲腿详情" },
+      ],
+      outcome: "fail",
+      summary: "预检失败",
+      meta: {
+        implied: 1.03,
+        legs: [
+          {
+            side: "A",
+            platform: "Polymarket",
+            target: "Home",
+            odds: 1.471,
+            betMoney: 14,
+            planBetMoney: 98,
+            planOdds: 1.471,
+            precheck: { ok: false, error: "盘口价高于检测价" },
+          },
+          {
+            side: "B",
+            platform: "RAY",
+            target: "Away",
+            odds: 2.25,
+            betMoney: 80,
+            planBetMoney: 80,
+            planOdds: 2.25,
+            precheck: { ok: true },
+          },
+        ],
+      },
+    });
+
+    expect(body).toContain("主腿 · Polymarket · Home：98 @ 1.471");
+    expect(body).not.toContain("主腿 · Polymarket · Home：14 @");
+  });
+
   it("setMeta merges prior meta fields", () => {
     const deliver = vi.fn();
     const trace = createArbExecutionTrace(

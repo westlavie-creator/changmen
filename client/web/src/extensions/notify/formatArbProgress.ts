@@ -102,7 +102,9 @@ function formatDetectionSection(payload: ArbProgressPayload): string[] {
 
   if (legs?.length) {
     for (const leg of legs) {
-      lines.push(`${formatLegSideLabel(leg)}：${leg.betMoney} @ ${toFixed(leg.odds, 3)}`);
+      const planMoney = leg.planBetMoney ?? leg.betMoney;
+      const planOdds = leg.planOdds ?? leg.odds;
+      lines.push(`${formatLegSideLabel(leg)}：${planMoney} @ ${toFixed(planOdds, 3)}`);
     }
   }
   else {
