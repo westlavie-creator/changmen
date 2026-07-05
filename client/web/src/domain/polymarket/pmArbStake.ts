@@ -1,11 +1,11 @@
 /**
- * [changmen 扩展] Polymarket stake 换算（anyOdds 补单 / 进度展示）。
+ * [changmen 扩展] 编排层 Plan CNY 换算辅助（anyOdds / 补单）。
  * 套利预检与 A8 相同：GetOrderOptions 计划额 + 并行 checkBetting，预检后不改 betMoney。
  */
 import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { PLATFORMS } from "@/shared/platform";
-import { polymarketCnyFromUsdt } from "@venue/polymarket/pmStake";
+import { resolvePlanCnyFromVenueStake } from "@venue/adaptation/a8VenueMoney";
 
 export type PmA8LegPair = {
   pmLeg: BetOption;
@@ -26,15 +26,14 @@ export function splitPmA8Legs(
   return { pmLeg: legB, a8Leg: legA, pmAccount: accountB, a8Account: accountA };
 }
 
-/** 预检后 PM 腿 USDT betMoney → CNY */
+/** 场馆 stake → Plan CNY（编排层统一入口，PM 走 U 策略） */
 export function legStakeCny(
   betMoney: number,
   legType: BetOption["type"],
   account?: PlatformAccount,
 ): number {
-  if (account && legType === PLATFORMS.Polymarket) {
-    return polymarketCnyFromUsdt(betMoney);
-  }
+  if (account && legType === PLATFORMS.Polymarket)
+    return resolvePlanCnyFromVenueStake(account, betMoney);
   return betMoney;
 }
 

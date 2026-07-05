@@ -10,8 +10,7 @@ import { playOrderSuccessSound } from "@/shared/orderSound";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
 import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
-import { isPolymarketProvider } from "@changmen/shared/account_multiply";
-import { polymarketUsdtFromCny } from "@venue/polymarket/pmStake";
+import { resolveVenueStakeFromPlanCny } from "@venue/adaptation/a8VenueMoney";
 import { useConfigStore } from "@/stores/configStore";
 import { useMessageStore } from "@/stores/messageStore";
 
@@ -58,10 +57,8 @@ export async function checkBetting(
   }
   try {
     attachPolymarketDetectionQuote(option);
-    // [A8] 入参 betMoney = CNY 计划额（GetOrderOptions）；预检后不改，跌价由各场馆 checkBet 拒单
-    option.betMoney = isPolymarketProvider(account.provider)
-      ? polymarketUsdtFromCny(account, option.betMoney, option.odds)
-      : account.getBetMoney(option.betMoney, option.odds);
+    // [A8 适配] 编排 Plan CNY → 场馆原币（CNY / U / PM）；预检后不改，跌价由各场馆 checkBet 拒单
+    option.betMoney = resolveVenueStakeFromPlanCny(account, option.betMoney, option.odds);
     return await provider.checkBet(account, option);
   }
   catch (e) {

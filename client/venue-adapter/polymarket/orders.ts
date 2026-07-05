@@ -1,7 +1,8 @@
 import type { VenueOrder } from "@venue/contract";
 import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { scaleUsdtToCnyDisplay, USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
+import { resolveDisplayCnyFromVenueUsdc } from "@venue/adaptation/a8VenueMoney";
+import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
 import { PLATFORMS } from "@/shared/platform";
 import { POLYMARKET_CLOB_API, POLYMARKET_GAMMA_API } from "./api";
 import {
@@ -27,9 +28,9 @@ const WINNER_PRICE_MIN = 0.99;
 export function scalePolymarketVenueOrdersForDisplay(orders: VenueOrder[]): VenueOrder[] {
   return orders.map(order => ({
     ...order,
-    betMoney: scaleUsdtToCnyDisplay(order.betMoney),
-    reward: scaleUsdtToCnyDisplay(order.reward),
-    money: scaleUsdtToCnyDisplay(order.money),
+    betMoney: resolveDisplayCnyFromVenueUsdc(order.betMoney),
+    reward: resolveDisplayCnyFromVenueUsdc(order.reward),
+    money: resolveDisplayCnyFromVenueUsdc(order.money),
   }));
 }
 
