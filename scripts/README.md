@@ -84,11 +84,12 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 | 脚本 | 作用 |
 |------|------|
 | **[`vps/ecosystem.config.cjs`](../../vps/ecosystem.config.cjs)** | PM2：默认 `gamebet-web` 内嵌 matcher |
-| **`BAT\deploy-server.bat`** | 更新 VPS（增量部署；可本机构建前端后上传） |
+| **`BAT\deploy-shanghai.bat`** | 更新上海 VPS（本机 tarball + 增量部署） |
+| **`BAT\deploy-hongkong.bat`** | 手动更新香港 VPS（日常 GHA 自动） |
 | **`BAT\push-git.bat`** | 本机 git commit + push |
 | `npm run chromeplug:pack` | 打包 Chrome 插件 zip → `dist/` |
 
-日常顺序：`BAT\push-git.bat` → `BAT\deploy-server.bat`
+日常顺序：`BAT\push-git.bat` → `BAT\deploy-shanghai.bat`（香港随 push 由 GHA 更新）
 
 `BAT\deploy-server.local.bat`（从 `vps\deploy-server.local.bat.example` 复制）可选加速：
 
