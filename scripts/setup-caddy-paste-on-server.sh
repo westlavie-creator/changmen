@@ -25,7 +25,8 @@ sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
 	handle /esport2/* {
 		reverse_proxy 127.0.0.1:3456
 	}
-	handle /matcher/* {
+	@matcher path /matcher /matcher/*
+	handle @matcher {
 		reverse_proxy 127.0.0.1:3456
 	}
 	handle /v4.0/* {
