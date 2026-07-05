@@ -117,6 +117,11 @@ export function isPolymarketSellOrder(order: OrderRowLike | VenueOrder): boolean
   return rowLike.PmSide === "sell" || venueLike.pmSide === "sell";
 }
 
+/** changmen 不做卖出：同步/展示/落库均排除卖单 */
+export function stripPolymarketSellOrders<T extends OrderRowLike | VenueOrder>(orders: T[]): T[] {
+  return orders.filter(o => !isPolymarketSellOrder(o));
+}
+
 export function hasChangmenLogicalSell(order: VenueOrder): boolean {
   return order.pmSide === "sell"
     || (order.pmOrigin === "changmen"

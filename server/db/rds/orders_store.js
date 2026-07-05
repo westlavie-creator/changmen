@@ -342,6 +342,43 @@ export async function deleteOrdersByIds(ids) {
   }
 }
 
+/**
+ * 删除 Polymarket 卖单（仅 raw.pmSide = 'sell'，避免误删买单）。
+ * @param {{ userId?: string, playerId?: number }} scope 可选范围
+ */
+export async function deletePolymarketSellOrders(scope = {}) {
+  const pool = getPgPool();
+  if (!pool)
+    return { deleted: 0, ids: [] };
+  try {
+    const params = [];
+    let where = `provider = 'Polymarket' AND raw->>'pmSide' = 'sell'`;
+    const userId = scope.userId != null ? String(scope.userId).trim() : "";
+    const playerId = Number(scope.playerId);
+    if (userId) {
+      params.push(userId);
+      where += ` AND user_id = $${params.length}::uuid`;
+    }
+    if (Number.isFinite(playerId) && playerId > 0) {
+      params.push(playerId);
+      where += ` AND player_id = $${params.length}`;
+    }
+    const preview = await pool.query(
+      `SELECT id, order_id, player_id, item FROM orders WHERE ${where} ORDER BY create_at DESC`,
+      params,
+    );
+    const ids = (preview.rows || []).map(r => Number(r.id)).filter(n => Number.isFinite(n) && n > 0);
+    if (!ids.length)
+      return { deleted: 0, ids: [] };
+    const res = await pool.query("DELETE FROM orders WHERE id = ANY($1::bigint[])", [ids]);
+    return { deleted: res.rowCount ?? 0, ids };
+  }
+  catch (err) {
+    console.warn("[rds] deletePolymarketSellOrders:", err.message);
+    return { deleted: 0, ids: [] };
+  }
+}
+
 /** 管理端：当日全量订单（对阵矩阵，上限 5000 条） */
 export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000, userIds }) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);

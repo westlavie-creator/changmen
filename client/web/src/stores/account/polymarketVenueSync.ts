@@ -5,13 +5,15 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import { getPlayerOrder } from "@/api/chat";
 import { registerPolymarketStoredVenueOrdersLoader } from "@venue/polymarket/pmStoredOrders";
-import { venueOrderFromOrderRow } from "@venue/polymarket/pmLogicalPosition";
+import { venueOrderFromOrderRow, stripPolymarketSellOrders } from "@venue/polymarket/pmLogicalPosition";
 
 async function loadStoredPmVenueOrders(account: PlatformAccount) {
   const info = await getPlayerOrder({ playerId: account.accountId });
-  return (info.orders ?? [])
-    .filter(o => String(o.Type ?? "") === "Polymarket")
-    .map(o => venueOrderFromOrderRow(o));
+  return stripPolymarketSellOrders(
+    (info.orders ?? [])
+      .filter(o => String(o.Type ?? "") === "Polymarket")
+      .map(o => venueOrderFromOrderRow(o)),
+  );
 }
 
 registerPolymarketStoredVenueOrdersLoader(loadStoredPmVenueOrders);

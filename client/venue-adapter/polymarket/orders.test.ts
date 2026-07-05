@@ -455,7 +455,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(order?.status).toBe("win");
   });
 
-  test("maps BUY and SELL trades to separate orders", () => {
+  test("maps BUY trades only (SELL excluded — changmen 不做卖出)", () => {
     const sample: PolymarketTradeRow[] = [
       {
         taker_order_id: "0xbuy1",
@@ -492,18 +492,14 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     ];
 
     const orders = mapPolymarketTradesToVenueOrders(sample);
-    expect(orders).toHaveLength(3);
+    expect(orders).toHaveLength(2);
     const buy1 = orders.find(o => o.orderId === "0xbuy1");
-    const sell1 = orders.find(o => o.orderId === "0xsell1");
     expect(buy1?.pmSide).toBe("buy");
     expect(buy1?.betMoney).toBe(5);
-    expect(sell1?.pmSide).toBe("sell");
-    expect(sell1?.betMoney).toBeGreaterThan(0);
-    expect(sell1?.pmBuyOrderId).toBe("0xbuy1");
-    expect((sell1?.money ?? 0)).toBeLessThan(sell1?.betMoney ?? 0);
+    expect(orders.find(o => o.orderId === "0xsell1")).toBeUndefined();
   });
 
-  test("same-token sells match buy by share count (BetBoom regression)", () => {
+  test("SELL trades are not mapped to venue orders", () => {
     const token = "762766351957438558742694";
     const sample: PolymarketTradeRow[] = [
       {
@@ -545,26 +541,14 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     ];
 
     const orders = mapPolymarketTradesToVenueOrders(sample);
-    const sell70 = orders.find(o => o.orderId === "0xsell70");
-    const sell98 = orders.find(o => o.orderId === "0xsell98");
-    expect(sell70?.pmBuyOrderId).toBe("0xbuy70");
-    expect(sell98?.pmBuyOrderId).toBe("0xbuy98");
-    expect(sell98?.pmBuyOrderId).not.toBe("0xbuy70");
+    expect(orders.find(o => o.orderId === "0xsell70")).toBeUndefined();
+    expect(orders.find(o => o.orderId === "0xsell98")).toBeUndefined();
+    expect(orders.filter(o => o.pmSide === "buy")).toHaveLength(2);
   });
 
-  test("finalize merges changmen stored sell pmBuyOrderId over CLOB", () => {
+  test("finalize strips stored changmen sell rows", () => {
     const token = "asset-a";
-    const clob = mapPolymarketTradesToVenueOrders([
-      {
-        taker_order_id: "0xsell98",
-        side: "SELL",
-        status: "CONFIRMED",
-        size: "24.13",
-        price: "0.85",
-        match_time: "1783108467",
-        asset_id: token,
-      },
-    ]);
+    const clob = mapPolymarketTradesToVenueOrders([]);
     const stored = [{
       provider: "Polymarket" as const,
       orderId: "0xsell98",
@@ -586,10 +570,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       pmTokenId: token,
     }];
     const out = finalizePolymarketVenueOrders(clob, 47, stored);
-    const sell = out.find(o => o.orderId === "0xsell98");
-    expect(sell?.pmOrigin).toBe("changmen");
-    expect(sell?.pmBuyOrderId).toBe("0xbuy98");
-    expect(sell?.pmStakeUsdc).toBe(14);
+    expect(out.find(o => o.orderId === "0xsell98")).toBeUndefined();
   });
 
   test("finalize restores pmShares from CLOB when stored changmen buy has zero fill", () => {

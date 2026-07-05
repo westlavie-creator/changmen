@@ -43,6 +43,7 @@ export {
 
 export {
   deleteOrdersByIds,
+  deletePolymarketSellOrders,
   fetchAccountAnalytics,
   fetchObArbOddsAnalytics,
   fetchPolymarketOrdersInRange,

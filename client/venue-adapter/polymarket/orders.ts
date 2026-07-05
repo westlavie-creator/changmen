@@ -11,7 +11,7 @@ import {
   normalizeEthAddress,
 } from "./l2Auth";
 import { polymarketOrderContextFromMarket, parseJsonArray, type PolymarketRawMarket } from "./parse";
-import { resolveBuyStakeUsdc, resolvePmRemainingShares } from "./pmLogicalPosition";
+import { resolveBuyStakeUsdc, resolvePmRemainingShares, stripPolymarketSellOrders } from "./pmLogicalPosition";
 import { applyPolymarketOrderOrigins, isPolymarketChangmenOrder } from "./pmOrigin";
 import { polymarketPluginGet } from "./transport";
 
@@ -931,10 +931,14 @@ export function finalizePolymarketVenueOrders(
 ): VenueOrder[] {
   const account = { accountId: playerId } as PlatformAccount;
   const tagged = playerId > 0
-    ? applyPolymarketOrderOrigins(account, clobOrders)
-    : clobOrders;
-  const merged = mergePolymarketClobWithStoredOrders(tagged, storedOrders, playerId);
-  return reconcilePolymarketBuySellOrders(merged);
+    ? applyPolymarketOrderOrigins(account, stripPolymarketSellOrders(clobOrders))
+    : stripPolymarketSellOrders(clobOrders);
+  const merged = mergePolymarketClobWithStoredOrders(
+    tagged,
+    stripPolymarketSellOrders(storedOrders),
+    playerId,
+  );
+  return stripPolymarketSellOrders(reconcilePolymarketBuySellOrders(merged));
 }
 
 /** 汇总已确认 SELL 成交的卖出份数（按 asset_id） */
@@ -1236,9 +1240,6 @@ export function mapPolymarketTradesToVenueOrders(
   const buyTrades = aggregatePolymarketTrades(flattened).filter(
     trade => !afterSec || (Number(trade.match_time) || 0) >= afterSec,
   );
-  const sellTrades = aggregatePolymarketSellTrades(flattened).filter(
-    trade => !afterSec || (Number(trade.match_time) || 0) >= afterSec,
-  );
 
   const orders: VenueOrder[] = [];
   for (const trade of buyTrades) {
@@ -1249,13 +1250,6 @@ export function mapPolymarketTradesToVenueOrders(
     if (mapped)
       orders.push(mapped);
   }
-  for (const trade of sellTrades) {
-    const mapped = mapPolymarketSellTradeToVenueOrder(
-      trade,
-      lookupGammaMarket(marketMap, trade),
-    );
-    if (mapped)
-      orders.push(mapped);
-  }
+  // changmen 不做卖出：CLOB SELL 成交不映射为 VenueOrder
   return finalizePolymarketVenueOrders(orders, 0);
 }

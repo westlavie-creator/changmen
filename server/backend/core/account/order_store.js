@@ -270,6 +270,13 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
   if (!orders.length)
     return true;
   const defaultProvider = String(typeFallback || "").trim();
+  const isPolymarketBatch = defaultProvider === "Polymarket"
+    || orders.some(o => String(o.provider || o.Type || "").trim() === "Polymarket");
+  const incoming = isPolymarketBatch
+    ? orders.filter(o => String(o.pmSide ?? "").toLowerCase() !== "sell")
+    : orders;
+  if (!incoming.length && !isPolymarketBatch)
+    return true;
   const existing = await sb.fetchOrdersByPlayerAll(playerId, userId);
   const linkByOrderId = new Map(
     existing.map(r => [String(r.order_id), Number(r.link) || 0]),
@@ -280,7 +287,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
 
   const assignedInBatch = new Map();
   const rows = [];
-  for (const o of orders) {
+  for (const o of incoming) {
     const rawCreate = o.createAt ?? o.CreateAt;
     const parsed = parseVenueCreateAt(rawCreate, 0);
     const orderId = String(o.orderId || `${playerId}-${parsed || Date.now()}`);
@@ -327,7 +334,14 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       raw,
     });
   }
-  return sb.upsertOrders(rows);
+  const saved = rows.length ? await sb.upsertOrders(rows) : true;
+  if (isPolymarketBatch && isUuidUserId(userId))
+    await sb.deletePolymarketSellOrders({ userId: String(userId), playerId: Number(playerId) });
+  return saved;
+}
+
+function isUuidUserId(userId) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(userId ?? ""));
 }
 
 function stringToHashNumber(value) {

@@ -105,6 +105,7 @@ export const {
   fetchOrdersAdminStats,
   fetchOrdersAdminPage,
   deleteOrdersByIds,
+  deletePolymarketSellOrders,
   fetchOrdersAdminAll,
   fetchOrdersForMonthAggregate,
   fetchMoneyLogsForMonthAggregate,
