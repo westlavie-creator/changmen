@@ -2,6 +2,7 @@ import { saveOrderBind } from "@/api/esport";
 import { BetOption, opponentSide } from "@/models/betOption";
 import { a8Tip } from "@/shared/a8Notify";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
+import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
 import {
@@ -10,6 +11,10 @@ import {
 } from "@/stores/betting/autoBet/venueRejectSync";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
+import {
+  applyPmJbSettlementOutcome,
+  tryResumePmPendingMakeUp,
+} from "@/stores/betting/loseOrderPmPending";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
@@ -25,6 +30,8 @@ export interface LoseOrderTickContext {
  *
  * 多 OB 子账号：每轮主循环对每个 item 只调一次 getAccount（round-robin），
  * 失败则试下一 platform item；同平台下一子账号靠下一轮 ~100ms 主循环。
+ *
+ * [changmen 扩展] PM：`pendingPmOrderId` 时续轮 settle，timeout 不重复 POST。
  */
 export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void> {
   const configStore = useConfigStore();
@@ -44,6 +51,20 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
     }
     const { match, bet } = ref;
 
+    const resumed = await tryResumePmPendingMakeUp({
+      betId,
+      order,
+      match,
+      bet,
+      accountStore,
+      loseStore,
+      removeIds,
+      setMessage,
+      markSuccess: account => markSuccessfulBet(account, bet.id, order.target),
+    });
+    if (resumed === "handled")
+      continue;
+
     const minOdds = order.getOdds(config.makeProfit);
     const candidates = bet.items
       .filter(item => item.getOdds(order.target) >= minOdds)
@@ -51,6 +72,9 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
 
     for (const item of candidates) {
       if (removeIds.has(betId))
+        break;
+
+      if (order.pendingPmOrderId && item.type === PLATFORMS.Polymarket)
         break;
 
       const sideOdds = item.getOdds(order.target);
@@ -87,7 +111,26 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         continue;
       }
 
-      if (waitSec > 0) {
+      if (account.provider === PLATFORMS.Polymarket) {
+        if (waitSec > 0) {
+          a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
+          await wait(waitSec * 1000);
+        }
+        await applyPmJbSettlementOutcome({
+          betId,
+          order,
+          match,
+          bet,
+          account,
+          result,
+          checked,
+          platformLabel: item.type,
+          loseStore,
+          removeIds,
+          setMessage,
+        });
+      }
+      else if (waitSec > 0) {
         a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
         await wait(waitSec * 1000);
 
@@ -125,33 +168,6 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
           });
         }
         useMessageStore().loseOrderMessage(account, order, checked, rejected);
-      }
-      else if (account.provider === "Polymarket") {
-        const { orders: venueOrders, rejected } = await syncVenueOrdersWithRejectForLeg(
-          account,
-          result,
-        );
-        const bindOrderId = resolveArbBindOrderId(venueOrders, result);
-        if (rejected) {
-          setMessage(`${order.target} 再次被拒单`);
-          a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
-          useMessageStore().loseOrderMessage(account, order, checked, rejected);
-        }
-        else {
-          if (bindOrderId) {
-            await saveOrderBind({
-              orders: JSON.stringify([
-                {
-                  LinkID: order.linkId,
-                  Provider: result.provider,
-                  OrderID: bindOrderId,
-                },
-              ]),
-            });
-          }
-          removeIds.add(betId);
-          setMessage(`补单成功 ${item.type}@${checked.odds}`);
-        }
       }
       else {
         const bindOrderId = resolveArbBindOrderId([], result);

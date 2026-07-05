@@ -10,7 +10,7 @@ import {
   settlePolymarketDelayedOrder,
 } from "@venue/polymarket/orderStatus";
 import { fetchPolymarketConfirmedTradeForOrder } from "@venue/polymarket/orders";
-import { isVenueReject } from "@/domain/betting";
+import { resolveVenueRejectForLeg } from "@/domain/betting";
 import { useAccountStore } from "@/stores/accountStore";
 
 export interface VenueRejectFlags {
@@ -20,13 +20,14 @@ export interface VenueRejectFlags {
   rejectB: boolean;
 }
 
-/** 拉场馆订单并判定首条是否拒单（对齐 A8 `isVenueReject`） */
+/** 拉场馆订单；有 result.orderId 时按本单判拒，否则对齐 A8 `isVenueReject(orders[0])` */
 export async function fetchVenueOrdersWithReject(
   account: PlatformAccount,
+  result?: BetResult,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
   const orders = (await useAccountStore().updateVenueOrders(account)) ?? [];
   const sorted = sortVenueOrdersNewestFirst(orders);
-  return { orders: sorted, rejected: isVenueReject(sorted) };
+  return { orders: sorted, rejected: resolveVenueRejectForLeg(sorted, result) };
 }
 
 async function syncPolymarketVenueOrdersWithReject(
@@ -57,7 +58,7 @@ async function syncPolymarketVenueOrdersWithReject(
 
 /**
  * 单腿拒单检测：PM delayed 在拒单等待后轮询 CLOB order，未成交合成 reject；
- * POST 已 matched 时信任成交；其它场馆走 getOrders + isVenueReject。
+ * POST 已 matched 时信任成交；其它场馆走 getOrders + resolveVenueRejectForLeg。
  */
 export async function syncVenueOrdersWithRejectForLeg(
   account: PlatformAccount,
@@ -67,8 +68,7 @@ export async function syncVenueOrdersWithRejectForLeg(
     const { outcome, row } = await settlePolymarketDelayedOrder(account, result.orderId);
     applyPolymarketSettlementToResult(result, outcome, row);
     if (outcome === "matched") {
-      const synced = await fetchVenueOrdersWithReject(account);
-      return synced;
+      return fetchVenueOrdersWithReject(account, result);
     }
     const rejectOrder = buildPolymarketRejectVenueOrder(
       account,
@@ -81,7 +81,7 @@ export async function syncVenueOrdersWithRejectForLeg(
   if (account.provider === "Polymarket" && result?.success && result.orderId)
     return syncPolymarketVenueOrdersWithReject(account, result);
 
-  return fetchVenueOrdersWithReject(account);
+  return fetchVenueOrdersWithReject(account, result);
 }
 
 /** 自动套利双腿：分别 sync 场馆订单与拒单标记 */

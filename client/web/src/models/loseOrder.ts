@@ -16,6 +16,8 @@ export class LoseOrder implements LoseOrderRecord {
   createAt: number;
   isCreateOrder: boolean;
   betCount: number;
+  pendingPmOrderId?: string;
+  pendingPmAccountId?: number;
 
   constructor(raw: Partial<LoseOrderRecord>) {
     this.accountId = Number(raw.accountId) || 0;
@@ -30,6 +32,12 @@ export class LoseOrder implements LoseOrderRecord {
     this.createAt = Number(raw.createAt) || Date.now();
     this.isCreateOrder = Boolean(raw.isCreateOrder);
     this.betCount = Number(raw.betCount) || 1;
+    const pendingId = String(raw.pendingPmOrderId ?? "").trim();
+    this.pendingPmOrderId = pendingId || undefined;
+    const pendingAcc = Number(raw.pendingPmAccountId);
+    this.pendingPmAccountId = pendingId && Number.isFinite(pendingAcc) && pendingAcc > 0
+      ? pendingAcc
+      : undefined;
   }
 
   getBetMoney(odds: number) {
@@ -60,6 +68,12 @@ export class LoseOrder implements LoseOrderRecord {
       createAt: this.createAt,
       isCreateOrder: this.isCreateOrder,
       betCount: this.betCount,
+      ...(this.pendingPmOrderId
+        ? {
+            pendingPmOrderId: this.pendingPmOrderId,
+            pendingPmAccountId: this.pendingPmAccountId,
+          }
+        : {}),
     };
   }
 }

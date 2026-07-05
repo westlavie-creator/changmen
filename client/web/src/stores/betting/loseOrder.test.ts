@@ -13,7 +13,10 @@ const loseOrders = vi.hoisted(() => new Map<number, LoseOrder>());
 const matchs = vi.hoisted(() => [] as ViewMatch[]);
 
 const removeOrder = vi.hoisted(() => vi.fn());
+const setPendingPmOrder = vi.hoisted(() => vi.fn());
+const clearPendingPmOrder = vi.hoisted(() => vi.fn());
 const getAccount = vi.hoisted(() => vi.fn());
+const findAccount = vi.hoisted(() => vi.fn());
 const checkBetting = vi.hoisted(() => vi.fn());
 const betting = vi.hoisted(() => vi.fn());
 const loseOrderMessage = vi.hoisted(() => vi.fn());
@@ -48,6 +51,8 @@ vi.mock("@/stores/loseOrderStore", () => ({
   useLoseOrderStore: () => ({
     orders: loseOrders,
     removeOrder,
+    setPendingPmOrder,
+    clearPendingPmOrder,
     has: (id: number) => loseOrders.has(id),
   }),
 }));
@@ -55,6 +60,7 @@ vi.mock("@/stores/loseOrderStore", () => ({
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({
     getAccount,
+    findAccount,
     checkBetting,
     betting,
     updateVenueOrders,
@@ -143,8 +149,25 @@ describe("processLoseOrders (A8 jb parity)", () => {
     matchs.length = 0;
     vi.clearAllMocks();
     getAccount.mockReset();
+    findAccount.mockReset();
     checkBetting.mockReset();
     betting.mockReset();
+    setPendingPmOrder.mockImplementation((betId: number, orderId: string, accountId: number) => {
+      const order = loseOrders.get(betId);
+      if (order) {
+        order.pendingPmOrderId = orderId;
+        order.pendingPmAccountId = accountId;
+      }
+    });
+    clearPendingPmOrder.mockImplementation((betId: number) => {
+      const order = loseOrders.get(betId);
+      if (order) {
+        order.pendingPmOrderId = undefined;
+        order.pendingPmAccountId = undefined;
+      }
+    });
+    vi.mocked(makeUpBetToastSeconds).mockReset();
+    vi.mocked(makeUpBetToastSeconds).mockReturnValue(10);
   });
 
   it("每 tick 每个 item 只 getAccount 一次；下注失败继续下一 item", async () => {
@@ -247,7 +270,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
       opt.data = { ok: true };
       return opt;
     });
-    betting.mockResolvedValue({ success: true, provider: "OB" });
+    betting.mockResolvedValue({ success: true, provider: "OB", orderId: "oid1" });
 
     await processLoseOrders({ setMessage: vi.fn() });
 
@@ -260,6 +283,61 @@ describe("processLoseOrders (A8 jb parity)", () => {
       true,
     );
     expect(markSuccessfulBet).toHaveBeenCalled();
+  });
+
+  it("OB jb: stale orders[0] reject does not block dequeue when result.orderId succeeded", async () => {
+    const bet = makeBet([makeItem("OB", 2.5)]);
+    matchs.push(makeMatch(bet));
+    queueOrder();
+
+    const acc = new PlatformAccount({ accountId: 1, playerName: "ob1", provider: "OB" });
+    updateVenueOrders.mockResolvedValueOnce([
+      {
+        orderId: "old-reject",
+        provider: "OB",
+        status: "reject",
+        createAt: 2000,
+        odds: 2,
+        betMoney: 16,
+        reward: 0,
+        money: 0,
+        match: "",
+        bet: "",
+        item: "",
+        game: "",
+      },
+      {
+        orderId: "new-ok",
+        provider: "OB",
+        status: "none",
+        createAt: 1000,
+        odds: 2,
+        betMoney: 16,
+        reward: 0,
+        money: 0,
+        match: "",
+        bet: "",
+        item: "",
+        game: "",
+      },
+    ]);
+
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({ success: true, provider: "OB", orderId: "new-ok" });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(removeOrder).toHaveBeenCalledWith(100, true);
+    expect(loseOrderMessage).toHaveBeenCalledWith(
+      acc,
+      expect.any(LoseOrder),
+      expect.any(BetOption),
+      false,
+    );
   });
 
   it("isCreateOrder 成功：出队、markSuccessfulBet，不发 LoseOrderMessage", async () => {
@@ -344,6 +422,70 @@ describe("processLoseOrders (A8 jb parity)", () => {
       expect.any(BetOption),
       true,
     );
+  });
+
+  it("PM timeout：写入 pendingPmOrderId，续轮 settle 不再 POST", async () => {
+    const bet = makeBet([makeItem("Polymarket", 4.167)]);
+    matchs.push(makeMatch(bet));
+    queueOrder();
+
+    vi.mocked(makeUpBetToastSeconds).mockReturnValueOnce(0);
+
+    const acc = new PlatformAccount({ accountId: 47, playerName: "D8F7", provider: "Polymarket" });
+    getAccount.mockReturnValue(acc);
+    findAccount.mockImplementation(id => (Number(id) === 47 ? acc : undefined));
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValueOnce({
+      success: true,
+      provider: "Polymarket",
+      pending: true,
+      orderId: "0xtimeout-order",
+    });
+    settlePolymarketDelayedOrder.mockResolvedValueOnce({ outcome: "timeout", row: null });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(betting).toHaveBeenCalledTimes(1);
+    expect(setPendingPmOrder).toHaveBeenCalledWith(100, "0xtimeout-order", 47);
+    expect(removeOrder).not.toHaveBeenCalled();
+
+    const queued = loseOrders.get(100);
+    expect(queued?.pendingPmOrderId).toBe("0xtimeout-order");
+
+    betting.mockClear();
+    checkBetting.mockClear();
+    settlePolymarketDelayedOrder.mockReset();
+    settlePolymarketDelayedOrder.mockResolvedValueOnce({
+      outcome: "matched",
+      row: { status: "MATCHED", size_matched: "10" },
+    });
+    updateVenueOrders.mockResolvedValueOnce([
+      {
+        orderId: "0xtimeout-order",
+        provider: "Polymarket",
+        status: "none",
+        createAt: 1,
+        odds: 4,
+        betMoney: 70,
+        reward: 0,
+        money: 0,
+        match: "",
+        bet: "",
+        item: "",
+        game: "",
+      },
+    ]);
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(betting).not.toHaveBeenCalled();
+    expect(checkBetting).not.toHaveBeenCalled();
+    expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(acc, "0xtimeout-order");
+    expect(removeOrder).toHaveBeenCalledWith(100, true);
+    expect(clearPendingPmOrder).toHaveBeenCalledWith(100);
   });
 
   it("PM waitTime=-1 + pending unfilled：拒单检测后不出队", async () => {

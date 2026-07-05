@@ -23,4 +23,8 @@ export {
   resolveSingleLegByRate,
   SINGLE_LEG_RATE,
 } from "@/domain/betting/singleLegRate";
-export { isVenueReject } from "@/domain/betting/venueReject";
+export {
+  isVenueOrderIdRejected,
+  isVenueReject,
+  resolveVenueRejectForLeg,
+} from "@/domain/betting/venueReject";

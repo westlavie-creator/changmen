@@ -61,6 +61,9 @@ export interface LoseOrderRecord {
   createAt: number;
   isCreateOrder: boolean;
   betCount: number;
+  /** [changmen 扩展] PM jb：timeout 后续轮 settle，避免重复 POST */
+  pendingPmOrderId?: string;
+  pendingPmAccountId?: number;
 }
 
 export interface FollowOrderInput {

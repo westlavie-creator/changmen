@@ -57,6 +57,27 @@ export const useLoseOrderStore = defineStore("loseorder", {
       }
     },
 
+    setPendingPmOrder(betId: number, orderId: string, accountId: number) {
+      const existing = this.orders.get(betId);
+      if (!existing)
+        return;
+      const id = String(orderId ?? "").trim();
+      if (!id)
+        return;
+      existing.pendingPmOrderId = id;
+      existing.pendingPmAccountId = Number(accountId) || undefined;
+      this.persist();
+    },
+
+    clearPendingPmOrder(betId: number) {
+      const existing = this.orders.get(betId);
+      if (!existing?.pendingPmOrderId)
+        return;
+      existing.pendingPmOrderId = undefined;
+      existing.pendingPmAccountId = undefined;
+      this.persist();
+    },
+
     createFollowOrder(
       seed: { matchId: number; betId: number; target: BetSide; odds: number },
       follow: FollowOrderInput,

@@ -77,7 +77,7 @@ describe("fetchVenueOrdersWithReject", () => {
     fetchPolymarketConfirmedTradeForOrder.mockReset();
   });
 
-  it("marks rejected when first order status is reject", async () => {
+  it("marks rejected when first order status is reject (no result orderId)", async () => {
     updateVenueOrders.mockResolvedValue([
       makeVenueOrder({ orderId: "1", status: "reject", odds: 1.5, betMoney: 100 }),
       makeVenueOrder({ orderId: "2", status: "none", odds: 1.5, betMoney: 100 }),
@@ -87,6 +87,18 @@ describe("fetchVenueOrdersWithReject", () => {
 
     expect(out.orders).toHaveLength(2);
     expect(out.rejected).toBe(true);
+  });
+
+  it("does not inherit orders[0] reject when result.orderId is our success order", async () => {
+    updateVenueOrders.mockResolvedValue([
+      makeVenueOrder({ orderId: "old-reject", status: "reject", odds: 1.5, betMoney: 100 }),
+      makeVenueOrder({ orderId: "new-ok", status: "none", odds: 1.5, betMoney: 100 }),
+    ].map((o, i) => ({ ...o, createAt: i === 0 ? 2000 : 1000 })));
+
+    const result = Object.assign(new BetResult("OB", true), { orderId: "new-ok" });
+    const out = await fetchVenueOrdersWithReject(account("OB"), result);
+
+    expect(out.rejected).toBe(false);
   });
 
   it("not rejected when list empty or first order not reject", async () => {
@@ -119,7 +131,7 @@ describe("syncVenueRejectFlags", () => {
       ]);
 
     const out = await syncVenueRejectFlags(
-      new BetResult("OB", true),
+      Object.assign(new BetResult("OB", true), { orderId: "1" }),
       accA,
       new BetResult("RAY", false),
       accB,
@@ -131,6 +143,23 @@ describe("syncVenueRejectFlags", () => {
     expect(out.rejectA).toBe(true);
     expect(out.ordersB).toEqual([]);
     expect(out.rejectB).toBe(false);
+  });
+
+  it("leg reject uses result.orderId not stale orders[0]", async () => {
+    const accA = account("OB");
+    updateVenueOrders.mockResolvedValueOnce([
+      makeVenueOrder({ orderId: "stale-reject", status: "reject", odds: 1.5, betMoney: 100 }),
+      makeVenueOrder({ orderId: "new-ok", status: "none", odds: 1.5, betMoney: 100 }),
+    ].map((o, i) => ({ ...o, createAt: i === 0 ? 2000 : 1000 })));
+
+    const out = await syncVenueRejectFlags(
+      Object.assign(new BetResult("OB", true), { orderId: "new-ok" }),
+      accA,
+      undefined,
+      undefined,
+    );
+
+    expect(out.rejectA).toBe(false);
   });
 
   it("syncs both legs when both succeeded", async () => {
