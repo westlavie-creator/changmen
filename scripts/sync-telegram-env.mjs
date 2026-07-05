@@ -73,7 +73,7 @@ function shellSingleQuote(value) {
 
 const deploy = loadDeployConfig();
 const { token, adminChatId } = readTelegramEnv();
-const remoteSh = path.join(changmen, "scripts/sync-telegram-env-remote.sh");
+const remoteSh = path.join(changmen, "..", "vps/scripts/sync-telegram-env-remote.sh");
 if (!fs.existsSync(remoteSh)) {
   console.error("missing", remoteSh);
   process.exit(1);

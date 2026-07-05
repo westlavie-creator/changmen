@@ -60,11 +60,11 @@ Nginx / Caddy 反代示例要点：
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
 | API + 合并（`server/backend` + embedded matcher） | PM2：`gamebet-web`（`:3456`，`MATCHER_EMBEDDED=1`） | `pm2 restart gamebet-web --update-env` |
 | Polymarket 赛程状态 | PM2：`gamebet-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart gamebet-pm-sports --update-env` |
-| 独立 matcher 回滚模式 | PM2：`gamebet-matcher`（默认不启用） | `MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start ecosystem.config.cjs` |
+| 独立 matcher 回滚模式 | PM2：`gamebet-matcher`（默认不启用） | `MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start vps/ecosystem.config.cjs` |
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
-### 推荐拓扑（`scripts/Caddyfile`）
+### 推荐拓扑（`vps/Caddyfile`）
 
 ```text
 浏览器 → http://IP:80 (Caddy)
@@ -153,7 +153,7 @@ npm run app:build
 
 ```bash
 cd changmen
-pm2 start ecosystem.config.cjs    # gamebet-web + gamebet-pm-sports
+pm2 start vps/ecosystem.config.cjs    # gamebet-web + gamebet-pm-sports
 # 或手动：
 MATCHER_EMBEDDED=1 npm run web
 npm run pm-sports
@@ -166,7 +166,7 @@ npm run pm-sports
 ```bash
 cd changmen
 pm2 stop gamebet-web
-MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start ecosystem.config.cjs
+MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start vps/ecosystem.config.cjs
 pm2 restart gamebet-web gamebet-matcher --update-env
 ```
 
@@ -176,7 +176,7 @@ pm2 restart gamebet-web gamebet-matcher --update-env
 
 Node 探针在 **`@changmen/platform-probes`**（`devtools/platform-probes/`，瘦包同步为 `server/backend/platform_node`），与 `platform_adapter` 并列。**日常开发可不使用。**
 
-**标准部署（整仓 `git pull` + `npm install`）**：后端经 workspace 直接使用 `client/venue-adapter`，**不需要**拷贝到 `server/backend/platform_adapter`。`scripts/deploy-server-remote.sh` 亦无需额外步骤。
+**标准部署**（整仓 `git pull` + `npm install`）：`vps/scripts/deploy-server-remote.sh` 负责增量步骤。
 
 **瘦包部署**（仅发布 `server/backend`、无 `packages/` 目录时）：
 

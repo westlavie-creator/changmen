@@ -33,14 +33,16 @@ Windows 批处理在 [`../../BAT/`](../../BAT/README.md)。在仓库根目录 `g
 
 Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://localhost:4567（`matcher:ui` 独立）
 
-## `changmen/scripts/`（仓库级）
+## VPS 部署配置
+
+生产 VPS 的 Caddy、PM2、部署/迁移脚本已集中到 **[`../../vps/`](../../vps/README.md)**。  
+`changmen/scripts/*.sh` 与 `changmen/ecosystem.config.cjs` 仅为兼容转发。
+
+## `changmen/scripts/`（开发 / 运维辅助）
 
 | 脚本 | 作用 |
 |------|------|
-| **`deploy-server-remote.sh`** | VPS 增量部署（由 `BAT\deploy-server.bat` 管道调用） |
-| **`migrate-server-remote.sh`** | 一键迁移/新机初始化（由 `BAT\migrate-server.bat` 调用） |
-| **`setup-caddy-remote.sh`** | VPS 配置 Caddy（见 `Caddyfile`；生产文档） |
-| **`sync-telegram-env.mjs`** | `node scripts/sync-telegram-env.mjs` — Telegram env 同步 |
+| **`sync-telegram-env.mjs`** | `node scripts/sync-telegram-env.mjs` — Telegram env 同步到 VPS |
 
 ## `server/backend/scripts/`（后端运维）
 
@@ -81,14 +83,14 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 | 脚本 | 作用 |
 |------|------|
-| **`ecosystem.config.cjs`** | PM2：默认 `gamebet-web` 内嵌 matcher（回滚独立 matcher：`MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start ecosystem.config.cjs`） |
+| **[`vps/ecosystem.config.cjs`](../../vps/ecosystem.config.cjs)** | PM2：默认 `gamebet-web` 内嵌 matcher |
 | **`BAT\deploy-server.bat`** | 更新 VPS（增量部署；可本机构建前端后上传） |
 | **`BAT\push-git.bat`** | 本机 git commit + push |
 | `npm run chromeplug:pack` | 打包 Chrome 插件 zip → `dist/` |
 
 日常顺序：`BAT\push-git.bat` → `BAT\deploy-server.bat`
 
-`BAT\deploy-server.local.bat`（从 `BAT\deploy-server.local.bat.example` 复制）可选加速：
+`BAT\deploy-server.local.bat`（从 `vps\deploy-server.local.bat.example` 复制）可选加速：
 
 | 变量 | 作用 |
 |------|------|
