@@ -7,6 +7,7 @@ import type { UserConfig } from "@/types/userConfig";
 import { hedgeStakeCnyFromLeg } from "@/domain/polymarket/pmArbStake";
 import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import { BetOption, opponentSide } from "@/models/betOption";
+import { PLATFORMS } from "@/shared/platform";
 import { useAccountStore } from "@/stores/accountStore";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
@@ -94,6 +95,8 @@ export async function retryFailedLeg(
     tried.push(pickedAccount.provider);
     let retryLeg = new BetOption(match, bet, pickedItem, failedLeg.target, stake);
     retryLeg.odds = pickedItem.getOdds(failedLeg.target);
+    if (pickedAccount.provider === PLATFORMS.Polymarket)
+      retryLeg.deferPmSettlement = true;
     trace?.event("重试", `第 ${round + 1} 轮 ${pickedAccount.provider}@${retryLeg.odds}`);
     retryLeg = await accountStore.checkBetting(pickedAccount, retryLeg);
     if (!retryLeg.data)
