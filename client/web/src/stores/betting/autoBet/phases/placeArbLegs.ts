@@ -2,6 +2,7 @@ import type { BetResult } from "@/models/betResult";
 import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import type { ArbBetAttemptParams, ArbBetChecked, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 import { formatBetResult } from "@/shared/arbBetTraceFormat";
+import { PLATFORMS } from "@/shared/platform";
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
 
@@ -31,6 +32,11 @@ export async function placeArbLegs(
   const { match, bet, config, trace } = params;
   const accountStore = useAccountStore();
   let { legA, legB, accountA, accountB, betBothLegs, waitSec } = checked;
+
+  if (legA.type === PLATFORMS.Polymarket)
+    legA.deferPmSettlement = true;
+  if (legB.type === PLATFORMS.Polymarket)
+    legB.deferPmSettlement = true;
 
   let resultA: BetResult | undefined;
   let resultB: BetResult | undefined;

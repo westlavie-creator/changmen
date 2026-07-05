@@ -1,12 +1,13 @@
-import type { BetResult } from "@/models/betResult";
-import type { VenueOrder } from "@venue/contract";
 import { saveOrderBind } from "@/api/esport";
 import { BetOption, opponentSide } from "@/models/betOption";
 import { a8Tip } from "@/shared/a8Notify";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 import { wait } from "@/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
-import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
+import {
+  resolveArbBindOrderId,
+  syncVenueOrdersWithRejectForLeg,
+} from "@/stores/betting/autoBet/venueRejectSync";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
@@ -17,14 +18,6 @@ import { useMessageStore } from "@/stores/messageStore";
 
 export interface LoseOrderTickContext {
   setMessage: (msg: string) => void;
-}
-
-function resolveMakeUpBindOrderId(venueOrders: VenueOrder[], result: BetResult): string | undefined {
-  const fromVenue = String(venueOrders[0]?.orderId ?? "").trim();
-  if (fromVenue)
-    return fromVenue;
-  const fromResult = String(result.orderId ?? "").trim();
-  return fromResult || undefined;
 }
 
 /**
@@ -102,7 +95,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
           account,
           result,
         );
-        const bindOrderId = resolveMakeUpBindOrderId(venueOrders, result);
+        const bindOrderId = resolveArbBindOrderId(venueOrders, result);
         if (venueOrders.length > 0) {
           if (rejected) {
             setMessage(`${order.target} 再次被拒单`);
@@ -133,8 +126,35 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         }
         useMessageStore().loseOrderMessage(account, order, checked, rejected);
       }
+      else if (account.provider === "Polymarket") {
+        const { orders: venueOrders, rejected } = await syncVenueOrdersWithRejectForLeg(
+          account,
+          result,
+        );
+        const bindOrderId = resolveArbBindOrderId(venueOrders, result);
+        if (rejected) {
+          setMessage(`${order.target} 再次被拒单`);
+          a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
+          useMessageStore().loseOrderMessage(account, order, checked, rejected);
+        }
+        else {
+          if (bindOrderId) {
+            await saveOrderBind({
+              orders: JSON.stringify([
+                {
+                  LinkID: order.linkId,
+                  Provider: result.provider,
+                  OrderID: bindOrderId,
+                },
+              ]),
+            });
+          }
+          removeIds.add(betId);
+          setMessage(`补单成功 ${item.type}@${checked.odds}`);
+        }
+      }
       else {
-        const bindOrderId = resolveMakeUpBindOrderId([], result);
+        const bindOrderId = resolveArbBindOrderId([], result);
         if (bindOrderId) {
           await saveOrderBind({
             orders: JSON.stringify([

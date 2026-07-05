@@ -30,6 +30,8 @@ export class BetOption {
   betCount = 0;
   config?: UserConfig;
   loseOrder = false;
+  /** 套利/jb 由 finalize/processLoseOrders 做 PM 拒单检测；跳过 placeBet 内后台轮询 */
+  deferPmSettlement = false;
   data: Record<string, unknown> | null = null;
   checkError?: string;
   orderIndex = 0;

@@ -144,7 +144,12 @@ export async function placeBet(
       void playOrderSuccessSound({ betRowId: option.betId });
       void publishBettingEvent(option);
     }
-    if (result.pending && account.provider === "Polymarket") {
+    if (
+      result.pending
+      && account.provider === "Polymarket"
+      && !option.loseOrder
+      && !option.deferPmSettlement
+    ) {
       notifyPolymarketAfterRejectDetection(
         account,
         accountTitle,

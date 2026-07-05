@@ -346,6 +346,38 @@ describe("processLoseOrders (A8 jb parity)", () => {
     );
   });
 
+  it("PM waitTime=-1 + pending unfilled：拒单检测后不出队", async () => {
+    const bet = makeBet([makeItem("Polymarket", 4.167)]);
+    matchs.push(makeMatch(bet));
+    queueOrder();
+
+    vi.mocked(makeUpBetToastSeconds).mockReturnValueOnce(0);
+
+    const acc = new PlatformAccount({ accountId: 47, playerName: "D8F7", provider: "Polymarket" });
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({
+      success: true,
+      provider: "Polymarket",
+      pending: true,
+      orderId: "0xdelayed-unfilled-wait0",
+    });
+    settlePolymarketDelayedOrder.mockResolvedValue({ outcome: "unfilled", row: null });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(removeOrder).not.toHaveBeenCalled();
+    expect(loseOrderMessage).toHaveBeenCalledWith(
+      acc,
+      expect.any(LoseOrder),
+      expect.any(BetOption),
+      true,
+    );
+  });
+
   it("PM delayed 且 waitTime=-1 时仍用 result.orderId 绑单", async () => {
     const bet = makeBet([makeItem("Polymarket", 4.167)]);
     matchs.push(makeMatch(bet));
