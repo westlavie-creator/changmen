@@ -1,3 +1,4 @@
+import "@/stores/account/polymarketVenueSync";
 import { useCollectStore } from "@/stores/collectStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";

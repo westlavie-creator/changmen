@@ -1209,6 +1209,22 @@ export async function fetchPolymarketVenueOrders(account: PlatformAccount): Prom
   return bundle.orders;
 }
 
+/**
+ * [A8 对齐] provider.getOrders 唯一实现：CLOB + RDS changmen 合并 → 展示 CNY。
+ * RDS 由 web 层 registerPolymarketStoredVenueOrdersLoader 注入。
+ */
+export async function fetchPolymarketVenueOrdersMerged(
+  account: PlatformAccount,
+): Promise<VenueOrder[]> {
+  const { loadPolymarketStoredVenueOrders } = await import("./pmStoredOrders");
+  const [{ orders }, stored] = await Promise.all([
+    fetchPolymarketVenueOrdersBundle(account),
+    loadPolymarketStoredVenueOrders(account),
+  ]);
+  const finalized = finalizePolymarketVenueOrders(orders, account.accountId, stored);
+  return scalePolymarketVenueOrdersForDisplay(finalized);
+}
+
 /** 纯映射（单测 / 调试）：CLOB trades → VenueOrder（买 + 卖） */
 export function mapPolymarketTradesToVenueOrders(
   trades: PolymarketTradeRow[],

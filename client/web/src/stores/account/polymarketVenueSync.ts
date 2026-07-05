@@ -1,34 +1,17 @@
-import type { VenueOrder } from "@venue/contract";
+/**
+ * Polymarket RDS 订单加载器注册（须在 sessionBoot 前 import）。
+ * 对齐 A8：updateOrders → provider.getOrders → saveOrders；PM 在 getOrders 内合并 RDS。
+ */
 import type { PlatformAccount } from "@/models/platformAccount";
 import { getPlayerOrder } from "@/api/chat";
-import {
-  fetchPolymarketVenueOrdersBundle,
-  finalizePolymarketVenueOrders,
-  scalePolymarketVenueOrdersForDisplay,
-} from "@venue/polymarket/orders";
+import { registerPolymarketStoredVenueOrdersLoader } from "@venue/polymarket/pmStoredOrders";
 import { venueOrderFromOrderRow } from "@venue/polymarket/pmLogicalPosition";
 
-async function loadStoredPmVenueOrders(account: PlatformAccount): Promise<VenueOrder[]> {
-  try {
-    const info = await getPlayerOrder({ playerId: account.accountId });
-    return (info.orders ?? [])
-      .filter(o => String(o.Type ?? "") === "Polymarket")
-      .map(o => venueOrderFromOrderRow(o));
-  }
-  catch (err) {
-    console.warn("[Polymarket] loadStoredPmVenueOrders failed", err);
-    return [];
-  }
+async function loadStoredPmVenueOrders(account: PlatformAccount) {
+  const info = await getPlayerOrder({ playerId: account.accountId });
+  return (info.orders ?? [])
+    .filter(o => String(o.Type ?? "") === "Polymarket")
+    .map(o => venueOrderFromOrderRow(o));
 }
 
-/** CLOB + RDS changmen 合并后 scale；updateVenueOrders 专用 */
-export async function fetchPolymarketVenueOrdersForSync(
-  account: PlatformAccount,
-): Promise<VenueOrder[]> {
-  const [{ orders }, stored] = await Promise.all([
-    fetchPolymarketVenueOrdersBundle(account),
-    loadStoredPmVenueOrders(account),
-  ]);
-  const finalized = finalizePolymarketVenueOrders(orders, account.accountId, stored);
-  return scalePolymarketVenueOrdersForDisplay(finalized);
-}
+registerPolymarketStoredVenueOrdersLoader(loadStoredPmVenueOrders);

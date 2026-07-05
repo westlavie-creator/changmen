@@ -16,9 +16,7 @@ import {
   type PolymarketTokenConfig,
 } from "./l2Auth";
 import {
-  fetchPolymarketVenueOrdersBundle,
-  finalizePolymarketVenueOrders,
-  scalePolymarketVenueOrdersForDisplay,
+  fetchPolymarketVenueOrdersMerged,
 } from "./orders";
 import { isPolymarketDelayedPending } from "./orderStatus";
 import { markPolymarketChangmenOrder } from "./pmOrigin";
@@ -493,9 +491,7 @@ export const polymarketProvider: PlatformProvider = {
 
   async getOrders(account: PlatformAccount) {
     try {
-      const { orders } = await fetchPolymarketVenueOrdersBundle(account);
-      const finalized = finalizePolymarketVenueOrders(orders, account.accountId);
-      return scalePolymarketVenueOrdersForDisplay(finalized);
+      return await fetchPolymarketVenueOrdersMerged(account);
     }
     catch (err) {
       console.warn("[Polymarket] getOrders failed", err);
