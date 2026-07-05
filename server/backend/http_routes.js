@@ -6,6 +6,7 @@ import {
   handleChangmenInternalBroadcast,
   isChangmenRealtimeHttpPath,
 } from "@changmen/realtime-hub";
+import { isAdminUser } from "./core/auth/admin_auth.js";
 import { countAccounts, getClientMatches, listProfiles } from "./core/db/store.js";
 import { resolveCreditPlateUserName, tryEsportApi } from "./core/esport-api/router.js";
 import store from "./core/esport-api/store.js";
@@ -208,19 +209,30 @@ export function createHttpHandler({ port, serveStatic }) {
         return;
       }
       if (url === "/health") {
-        if (!isLocalRequest(req)) {
-          publicHealthResponse(req, res);
+        const sendFullHealth = async () => {
+          const healthData = await buildHealthData();
+          const accept = String(req.headers.accept || "");
+          if (accept.includes("text/html")) {
+            res.writeHead(healthData.db.connected ? 200 : 503, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(renderHealthPage(healthData));
+          }
+          else {
+            jsonResponse(res, healthData.db.connected ? 200 : 503, healthData);
+          }
+        };
+        if (isLocalRequest(req)) {
+          await sendFullHealth();
           return;
         }
-        const healthData = await buildHealthData();
-        const accept = String(req.headers.accept || "");
-        if (accept.includes("text/html")) {
-          res.writeHead(healthData.db.connected ? 200 : 503, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(renderHealthPage(healthData));
+        const token = String(req.headers.token || req.headers.Token || "");
+        if (token) {
+          const user = await store.getUserByToken(token);
+          if (user && isAdminUser(user)) {
+            await sendFullHealth();
+            return;
+          }
         }
-        else {
-          jsonResponse(res, healthData.db.connected ? 200 : 503, healthData);
-        }
+        publicHealthResponse(req, res);
         return;
       }
       if (await (await getTryHandleMatcherApi())(req, res))

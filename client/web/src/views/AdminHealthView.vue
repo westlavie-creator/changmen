@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
+import { authHeaders } from "@/api/client";
 import { getApiBase } from "@/config/apiBase";
 import { useUserStore } from "@/stores/userStore";
 
@@ -35,19 +36,37 @@ const error = ref("");
 const loading = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 
+function isFullHealthData(v: unknown): v is HealthData {
+  if (!v || typeof v !== "object")
+    return false;
+  const o = v as Partial<HealthData>;
+  return typeof o.uptime === "number"
+    && o.db != null
+    && o.memory != null
+    && o.data != null
+    && o.wsForward != null;
+}
+
 async function fetchHealth() {
   loading.value = true;
   try {
     const base = getApiBase();
-    const res = await fetch(`${base}/health`, { headers: { Accept: "application/json" } });
+    const res = await fetch(`${base}/health`, {
+      headers: { Accept: "application/json", ...authHeaders() },
+    });
     const ct = res.headers.get("content-type") || "";
     if (!ct.includes("application/json")) {
       throw new Error(`后端返回非 JSON（${res.status}），请确认 /health 代理已配置`);
     }
-    health.value = await res.json();
+    const payload: unknown = await res.json();
+    if (!isFullHealthData(payload)) {
+      throw new Error("健康检查数据不完整：请确认已用管理员账号登录，且后端已部署 /health 管理员鉴权");
+    }
+    health.value = payload;
     error.value = "";
   }
   catch (e) {
+    health.value = null;
     error.value = e instanceof Error ? e.message : String(e);
   }
   finally {
