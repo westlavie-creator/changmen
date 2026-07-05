@@ -4,14 +4,18 @@
  *
  * 不变量：
  * - checkBetting 入参 betMoney = CNY 计划额（GetOrderOptions / reconcile 重检前 restore）
- * - checkBetting 出参 betMoney = 场馆口径（PM 为 USDT，A8 场馆为 CNY×rate）
+ * - checkBetting 出参 betMoney = 场馆口径（PM 为 USDC 两位小数，A8 场馆为 CNY×rate）
  * - apiBetMoney 仅作进度展示，下单以 betMoney 为准
  */
 import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
-import { getExchange } from "@/shared/currency";
 import { PLATFORMS } from "@/shared/platform";
+import {
+  polymarketCnyFromUsdt,
+  polymarketUsdtFromCny,
+  round2Usdc,
+} from "@venue/polymarket/pmStake";
 
 export type PmA8LegPair = {
   pmLeg: BetOption;
@@ -39,7 +43,7 @@ export function legStakeCny(
   account?: PlatformAccount,
 ): number {
   if (account && legType === PLATFORMS.Polymarket) {
-    return Math.round(betMoney * getExchange(account.currency));
+    return polymarketCnyFromUsdt(betMoney);
   }
   return betMoney;
 }
@@ -50,6 +54,9 @@ export function applyLegStakeFromCny(
   leg: BetOption,
   account?: PlatformAccount,
 ): number {
+  if (account && leg.type === PLATFORMS.Polymarket) {
+    return polymarketUsdtFromCny(account, cnyStake, leg.odds);
+  }
   if (account) {
     return account.getBetMoney(cnyStake, leg.odds);
   }
@@ -101,7 +108,9 @@ export type PmArbHedgeAdjustment = {
   moneyBefore: number;
 };
 
-function betMoneyChanged(before: number, after: number): boolean {
+function betMoneyChanged(before: number, after: number, usdt = false): boolean {
+  if (usdt)
+    return round2Usdc(before) !== round2Usdc(after);
   return Math.round(before) !== Math.round(after);
 }
 
@@ -126,7 +135,7 @@ export function applyPmArbHedgeAfterPrecheck(
       (a8Leg.odds * config.betMoney) / pmLeg.odds,
     );
     const moneyAfter = applyLegStakeFromCny(pmHedgeCny, pmLeg, pmAccount);
-    if (!betMoneyChanged(moneyBefore, moneyAfter))
+    if (!betMoneyChanged(moneyBefore, moneyAfter, true))
       return null;
     pmLeg.betMoney = moneyAfter;
     return { changedLeg: "pm", leg: pmLeg, account: pmAccount, moneyBefore };

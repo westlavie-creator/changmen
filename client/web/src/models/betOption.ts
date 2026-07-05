@@ -5,6 +5,15 @@ import type { UserConfig } from "@/types/userConfig";
 import { saveBetOptionLog } from "@/services/bettingLog";
 import { writeVenueOdds } from "@/services/oddsAccess";
 
+/** 整数 CNY 保持整数；带小数的 PM USDC 等保留 2 位 */
+function normalizeOptionStake(value: unknown): number {
+  const n = Number(value) || 0;
+  const rounded = Math.round(n);
+  if (Math.abs(n - rounded) < 1e-6)
+    return rounded;
+  return Math.round(n * 100) / 100;
+}
+
 /** 对齐 A8 bundle `Tp` */
 export class BetOption {
   type: PlatformId;
@@ -43,7 +52,7 @@ export class BetOption {
       this.matchId = String(betOrMatchId);
       this.betId = String(itemOrBetId);
       this.itemId = String(targetOrItemId);
-      this.betMoney = Math.round(Number(betMoneyOrTarget) || 0);
+      this.betMoney = normalizeOptionStake(betMoneyOrTarget);
       this.target = (targetOrOdds as BetSide) || "Home";
       this.odds = Number(oddsArg) || 0;
     }
@@ -61,7 +70,7 @@ export class BetOption {
       this.betId = item.betId;
       this.itemId = item.getItemId(target);
       this.odds = item.getOdds(target);
-      this.betMoney = Math.round(Number(betMoneyOrTarget) || 0);
+      this.betMoney = normalizeOptionStake(betMoneyOrTarget);
     }
   }
 

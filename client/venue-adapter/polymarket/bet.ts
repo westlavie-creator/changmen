@@ -2,9 +2,7 @@ import type { AccountBalanceResult, PlatformProvider } from "@venue/contract";
 import type { BetOption } from "@/models/betOption";
 import { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import {
-  POLYMARKET_MIN_VENUE_STAKE,
-} from "@changmen/shared/account_multiply";
+import { resolvePolymarketVenueStakeUsdc } from "./pmStake";
 import { POLYMARKET_CLOB_API } from "./api";
 import { resolvePolymarketBuilderCode } from "./builder";
 import {
@@ -397,10 +395,7 @@ function parseCollateralBalance(raw: string | number | undefined): number | unde
 
 /** 下单 USDC：仅以 option.betMoney（场馆口径）为准；禁止回退 data.apiBetMoney */
 function resolvePolymarketApiBetMoney(_account: PlatformAccount, option: BetOption): number {
-  const stake = Math.floor(Number(option.betMoney) || 0);
-  if (stake <= 0)
-    return 0;
-  return Math.max(POLYMARKET_MIN_VENUE_STAKE, stake);
+  return resolvePolymarketVenueStakeUsdc(option.betMoney);
 }
 
 function resolvePolymarketDetectionOdds(option: BetOption): number {
