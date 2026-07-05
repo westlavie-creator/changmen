@@ -17,6 +17,27 @@ interface PlatformStat {
   lastError: string;
   lastErrorAt: number;
 }
+interface EsportActionStat {
+  action: string;
+  count: number;
+  avgMs: number;
+  maxMs: number;
+  lastMs: number;
+  lastAt: number;
+}
+interface EsportSlowRow {
+  action: string;
+  durationMs: number;
+  at: number;
+}
+interface EsportApiHealth {
+  counter: number;
+  lastDelayMs: number;
+  lastAction: string;
+  lastAt: number;
+  slowRecent: EsportSlowRow[];
+  byAction: EsportActionStat[];
+}
 interface HealthData {
   status: string;
   uptime: number;
@@ -29,6 +50,7 @@ interface HealthData {
     platforms: string[];
     platformStats?: Record<string, PlatformStat>;
   };
+  esportApi?: EsportApiHealth;
 }
 
 const health = ref<HealthData | null>(null);
@@ -100,6 +122,14 @@ function heapPct(d: HealthData): number {
 function poolActivePct(d: HealthData): number {
   const active = d.db.pool.total - d.db.pool.idle;
   return d.db.pool.total ? Math.round((active / d.db.pool.total) * 100) : 0;
+}
+
+function delayColor(ms: number): string {
+  if (ms < 100)
+    return "health-val--ok";
+  if (ms < 500)
+    return "health-val--warn";
+  return "health-val--bad";
 }
 
 onMounted(async () => {
@@ -208,6 +238,67 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <!-- Esport API timing -->
+      <div v-if="health.esportApi" class="health-card health-card--wide">
+        <div class="health-card__title">
+          Esport API 延迟（服务端）
+        </div>
+        <div class="health-row">
+          <span>最近请求</span>
+          <span class="health-val" :class="delayColor(health.esportApi.lastDelayMs)">
+            {{ health.esportApi.lastDelayMs }}ms
+            <span class="health-sub"> · {{ health.esportApi.lastAction || "—" }}</span>
+          </span>
+        </div>
+        <div class="health-row">
+          <span>累计 POST</span>
+          <span class="health-val">{{ health.esportApi.counter }}</span>
+        </div>
+        <div v-if="health.esportApi.lastAt" class="health-row health-row--sub">
+          <span />
+          <span class="health-sub">最近完成: {{ agoStr(health.esportApi.lastAt) }}</span>
+        </div>
+        <div v-if="health.esportApi.byAction.length" class="health-api-table-wrap">
+          <table class="health-api-table">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>次数</th>
+                <th>均耗</th>
+                <th>最大</th>
+                <th>最近</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in health.esportApi.byAction" :key="row.action">
+                <td>{{ row.action }}</td>
+                <td>{{ row.count }}</td>
+                <td>{{ row.avgMs }}ms</td>
+                <td :class="delayColor(row.maxMs)">
+                  {{ row.maxMs }}ms
+                </td>
+                <td>{{ row.lastMs }}ms</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="health.esportApi.slowRecent.length" class="health-slow-list">
+          <div class="health-sub">
+            慢请求（≥500ms）
+          </div>
+          <div
+            v-for="(row, idx) in health.esportApi.slowRecent"
+            :key="`${row.action}-${row.at}-${idx}`"
+            class="health-row health-row--sub"
+          >
+            <span class="health-sub">{{ row.action }}</span>
+            <span class="health-val" :class="delayColor(row.durationMs)">
+              {{ row.durationMs }}ms · {{ agoStr(row.at) }}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- WebSocket Forward -->
       <div class="health-card health-card--wide">
         <div class="health-card__title">
@@ -311,8 +402,26 @@ onUnmounted(() => {
 }
 .health-row--sub { padding: 0 0 4px; }
 .health-val { font-weight: 500; font-variant-numeric: tabular-nums; }
+.health-val--ok { color: #67c23a; }
 .health-val--warn { color: #e6a23c; }
-.health-val--bad { color: #f56c6c; font-size: 12px; }
+.health-val--bad { color: #f56c6c; }
+.health-api-table-wrap { margin-top: 10px; overflow-x: auto; }
+.health-api-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.health-api-table th,
+.health-api-table td {
+  padding: 4px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+.health-api-table th {
+  color: var(--el-text-color-secondary);
+  font-weight: 600;
+}
+.health-slow-list { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--el-border-color-extra-light); }
 .health-sub { font-size: 12px; color: var(--el-text-color-secondary); }
 .health-platform { border-top: 1px solid var(--el-border-color-extra-light); padding-top: 6px; margin-top: 6px; }
 .health-platform:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }

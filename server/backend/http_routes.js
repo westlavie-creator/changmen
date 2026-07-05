@@ -22,6 +22,7 @@ import { tryObHttpProxy } from "./proxy/ob_http_proxy.js";
 import { tryPbHttpProxy } from "./proxy/pb_http_proxy.js";
 import { tryRayHttpProxy } from "./proxy/ray_http_proxy.js";
 import { isFastStaticRequest } from "./static_files.js";
+import { getEsportRequestTimingSnapshot } from "./core/shared/esport_request_timing.js";
 
 const { listPlatforms } = adapterRequire("registry", "feeds.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "node", "session.js");
@@ -281,6 +282,7 @@ async function buildHealthData() {
       clientMatches: matches?.length ?? 0,
     },
     wsForward: { enabled: ws.enabled, platforms: ws.platforms, platformStats: ws.platformStats },
+    esportApi: getEsportRequestTimingSnapshot(),
   };
 }
 
@@ -292,6 +294,15 @@ function renderHealthPage(d) {
   const poolActive = d.db.pool.total - d.db.pool.idle;
   const poolPct = d.db.pool.total ? Math.round(poolActive / d.db.pool.total * 100) : 0;
   const heapPct = d.memory.heapTotal ? Math.round(d.memory.heapUsed / d.memory.heapTotal * 100) : 0;
+  const apiDelayColor = d.esportApi?.lastDelayMs < 100 ? "#22c55e" : d.esportApi?.lastDelayMs < 500 ? "#eab308" : "#ef4444";
+  const esportApiCard = d.esportApi ? `
+  <div class="card">
+    <div class="card-title">Esport API</div>
+    <div class="row"><span class="label">Last</span><span class="value" style="color:${apiDelayColor}">${d.esportApi.lastDelayMs}ms</span></div>
+    <div class="row"><span class="label">Action</span><span class="value">${esc(d.esportApi.lastAction || "—")}</span></div>
+    <div class="row"><span class="label">Counter</span><span class="value">${d.esportApi.counter}</span></div>
+${(d.esportApi.byAction || []).slice(0, 8).map(row => `    <div class="row"><span class="label">${esc(row.action)}</span><span class="value">max ${row.maxMs}ms / avg ${row.avgMs}ms (${row.count})</span></div>`).join("\n")}
+  </div>` : "";
   const uptimeStr = d.uptime >= 86400
     ? `${Math.floor(d.uptime / 86400)}d ${Math.floor(d.uptime % 86400 / 3600)}h`
     : d.uptime >= 3600
@@ -374,6 +385,7 @@ ${(d.wsForward.platforms || []).map((pid) => {
   ].filter(Boolean).join("\n");
 }).join("\n")}
   </div>
+${esportApiCard}
 </div>
 <div class="refresh-note">Auto-refresh 5s</div>
 <script>setTimeout(()=>location.reload(),5000)</script>

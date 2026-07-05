@@ -32,6 +32,7 @@ import { handleCommonApi } from "./hg_follow.js";
 import store from "./store.js";
 import { handleSendMessage as sendTelegramMessage } from "./telegram_send.js";
 import { handleV4Request } from "./v4_router.js";
+import { recordEsportRequest } from "../shared/esport_request_timing.js";
 
 export type { EsportAction } from "@changmen/api-contract/actions";
 
@@ -717,6 +718,7 @@ export async function handleEsportRequest(
   res: ServerResponse,
   urlPath: string,
 ): Promise<true> {
+  const startedAt = Date.now();
   const action = actionFromUrl(urlPath);
   try {
     store.ensureSeed();
@@ -752,6 +754,9 @@ export async function handleEsportRequest(
     if (!res.headersSent)
       sendJson(res, 200, fail(err.message || "服务器错误"));
     return true;
+  }
+  finally {
+    recordEsportRequest(action || urlPath, Date.now() - startedAt);
   }
 }
 
