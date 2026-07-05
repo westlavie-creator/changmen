@@ -707,6 +707,56 @@ describe("applyPolymarketSettlement", () => {
     expect(settled.money).toBe(10);
   });
 
+  test("finalize applies Gamma win when changmen buy has full attr but pmSellState open", () => {
+    const token = "75386013875837505917721651231431326866442042124939984378893288552777858059924";
+    const conditionId = "0xa2888816798b8e064a8f40036b90f828d16db55a3f02aa71dc22490fc74f4af2";
+    const market: PolymarketRawMarket = {
+      condition_id: conditionId,
+      closed: false,
+      outcomes: "[\"NRG Academy\", \"Evil Geniuses Academy\"]",
+      outcomePrices: "[\"0.9995\", \"0.0005\"]",
+      clobTokenIds: `["${token}", "35527541898867321320561509748762864775931334607172134674404825610301564272314"]`,
+    };
+    const clob = mapPolymarketTradesToVenueOrders([{
+      taker_order_id: "0xbuy-nrg",
+      side: "BUY",
+      status: "CONFIRMED",
+      size: "36",
+      price: "0.5",
+      match_time: "1783200397",
+      asset_id: token,
+      market: conditionId,
+      outcome: "NRG Academy",
+    }], new Map([[conditionId, market], [`token:${token}`, market]]));
+    const stored = [{
+      provider: "Polymarket" as const,
+      orderId: "0xbuy-nrg",
+      odds: 2,
+      createAt: 1783200397000,
+      betMoney: 18,
+      reward: 36,
+      money: 0,
+      status: "none" as const,
+      game: "",
+      match: "NRG vs EG",
+      bet: "全场",
+      item: "NRG Academy",
+      pmTokenId: token,
+      pmShares: 36,
+      pmStakeUsdc: 18,
+      pmConditionId: conditionId,
+      pmOrigin: "changmen" as const,
+      pmSide: "buy" as const,
+      pmSellState: "open" as const,
+      pmAttributedSellShares: 36,
+    }];
+    const out = finalizePolymarketVenueOrders(clob, 47, stored);
+    const buy = out.find(o => o.orderId === "0xbuy-nrg");
+    expect(buy?.status).toBe("win");
+    expect(buy?.money).toBe(18);
+    expect(buy?.pmSellState).toBe("settled");
+  });
+
   test("applyPolymarketNetPositions tracks attributed sell shares (FIFO external only)", () => {
     const token = "asset-a";
     const orders = [{

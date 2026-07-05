@@ -1,5 +1,4 @@
 import type { BetOption } from "@/models/betOption";
-import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
 import { legStakeCny } from "@/domain/polymarket/pmArbStake";
@@ -27,22 +26,3 @@ export function resolveMakeUpSuccessReference(
   return { betMoney, betOdds };
 }
 
-/** 预检后按实盘赔率重算补单金额（手动 isCreateOrder 保持预检额） */
-export function resolveMakeUpHedgeStake(order: LoseOrder, liveOdds: number): number {
-  if (!liveOdds)
-    return 0;
-  if (order.isCreateOrder)
-    return Math.round(order.betMoney);
-  return order.getBetMoney(liveOdds);
-}
-
-/** hedge（CNY）与 checkBet 后 option.betMoney（PM 为 USDT）是否一致 */
-export function needsMakeUpStakeRecheck(
-  hedgeStakeCny: number,
-  checkedBetMoney: number,
-  checkedLegType: BetOption["type"],
-  account?: PlatformAccount,
-): boolean {
-  const checkedCny = legStakeCny(Math.round(checkedBetMoney), checkedLegType, account);
-  return hedgeStakeCny !== checkedCny;
-}

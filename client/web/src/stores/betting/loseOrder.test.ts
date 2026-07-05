@@ -191,7 +191,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(item.updateOdds).not.toHaveBeenCalled();
   });
 
-  it("recomputes hedge stake from live odds after checkBetting", async () => {
+  it("keeps list-odds stake after checkBetting (A8 jb: no liveOdds recalc)", async () => {
     const item = makeItem("IA", 9.55);
     const bet = makeBet([item]);
     matchs.push(makeMatch(bet));
@@ -210,11 +210,11 @@ describe("processLoseOrders (A8 jb parity)", () => {
 
     await processLoseOrders({ setMessage: vi.fn() });
 
-    expect(checkBetting).toHaveBeenCalledTimes(2);
-    expect(checkBetting.mock.calls[1][1].betMoney).toBe(212);
+    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect(checkBetting.mock.calls[0][1].betMoney).toBe(30);
     expect(betting).toHaveBeenCalledWith(
       acc,
-      expect.objectContaining({ betMoney: 212, odds: 1.35 }),
+      expect.objectContaining({ betMoney: 30, odds: 1.35 }),
       10,
     );
   });

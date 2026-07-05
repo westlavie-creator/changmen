@@ -1,14 +1,9 @@
 import type { BetOption } from "@/models/betOption";
 import type { ArbBetAttemptParams, ArbBetChecked, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
-import {
-  arbLegsIncludePolymarket,
-  reconcilePolymarketArbStakes,
-} from "@/domain/arbitrage";
 import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
 import { a8Tip } from "@/shared/a8Notify";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { arbBetToastSeconds } from "@/shared/betTiming";
-import { arbProfitRate } from "@/shared/format";
 import { wait } from "@/shared/wait";
 import { getPolymarketPmSportBlockReasonFromOption } from "@venue/polymarket";
 import { PLATFORMS } from "@/shared/platform";
@@ -43,6 +38,7 @@ export async function checkArbLegs(
   }
 
   const checkStart = Date.now();
+
   const checkTasks: Promise<BetOption>[] = [];
   if (accountA)
     checkTasks.push(accountStore.checkBetting(accountA, legA));
@@ -80,41 +76,7 @@ export async function checkArbLegs(
     return null;
   }
 
-  let impliedLive = ready.implied;
-
-  if (betBothLegs && arbLegsIncludePolymarket(legA, legB)) {
-    const reconciled = await reconcilePolymarketArbStakes({
-      legA,
-      legB,
-      accountA,
-      accountB,
-      config,
-      checkBetting: (account, option) => accountStore.checkBetting(account, option),
-    });
-    if (!reconciled.ok) {
-      trace?.finish("fail", reconciled.message);
-      await wait(1000);
-      return null;
-    }
-    legA = reconciled.legA;
-    legB = reconciled.legB;
-    impliedLive = reconciled.implied;
-    setArbExecutionTraceMeta(trace, {
-      implied: impliedLive,
-      homeLine: `${legA.type}@${legA.odds}`,
-      awayLine: `${legB.type}@${legB.odds}`,
-      legs: buildArbProgressLegPair(legA, legB, accountA, accountB, {
-        legA: { ok: true },
-        legB: { ok: true },
-      }),
-    });
-    trace?.event(
-      "预检",
-      `PM 重算对冲 · 利润 ${arbProfitRate(impliedLive)} · ${legA.betMoney}/${legB.betMoney}`,
-    );
-  }
-
-  // [A8 可证实] 非 PM 双腿预检通过后不再改 betMoney；orderIndex 在 checkTimeout 之前赋值
+  // [A8 可证实] 预检通过后不再改 betMoney（PM 同：计划额 + 场馆跌价拒单）；orderIndex 在 checkTimeout 之前赋值
   if (accountA)
     legA.orderIndex = 1;
   if (accountB)
@@ -139,7 +101,7 @@ export async function checkArbLegs(
     legB,
     accountA,
     accountB,
-    implied: impliedLive,
+    implied: ready.implied,
     waitSec,
   };
 }

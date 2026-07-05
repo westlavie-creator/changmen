@@ -58,7 +58,7 @@ export async function checkBetting(
   }
   try {
     attachPolymarketDetectionQuote(option);
-    // [A8] 入参 betMoney = CNY 计划额；PM reconcile 重检前须 restoreLegStakeCnyBeforeRecheck
+    // [A8] 入参 betMoney = CNY 计划额（GetOrderOptions）；预检后不改，跌价由各场馆 checkBet 拒单
     option.betMoney = isPolymarketProvider(account.provider)
       ? polymarketUsdtFromCny(account, option.betMoney, option.odds)
       : account.getBetMoney(option.betMoney, option.odds);

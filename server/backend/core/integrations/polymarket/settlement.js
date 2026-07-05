@@ -126,6 +126,29 @@ export function computePolymarketSettlement(trade, market, stakeRaw) {
   return { status: "lose", reward: 0, money: -stake };
 }
 
+/** RDS raw 字段 + Gamma：无 CLOB trade 时的补结算（对齐 computePolymarketSettlement） */
+export function computePolymarketSettlementFromOrderRaw(raw, market, stakeUsdc) {
+  const winningAssetId = resolvePolymarketWinningAssetId(market);
+  if (!winningAssetId)
+    return { status: "none", money: 0, reward: 0 };
+
+  const heldAssetId = String(raw?.pmTokenId ?? "").trim();
+  if (!heldAssetId)
+    return null;
+
+  const shares = Number(raw?.pmShares) || 0;
+  const stake = Number(stakeUsdc);
+  if (shares <= 0 || !Number.isFinite(stake) || stake <= 0)
+    return null;
+
+  if (heldAssetId === winningAssetId) {
+    const reward = Math.round(shares * 10000) / 10000;
+    const money = Math.round((reward - stake) * 10000) / 10000;
+    return { status: "win", reward, money };
+  }
+  return { status: "lose", reward: 0, money: -stake };
+}
+
 function unwrapGammaMarkets(data) {
   if (Array.isArray(data))
     return data;

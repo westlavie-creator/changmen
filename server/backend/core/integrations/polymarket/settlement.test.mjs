@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computePolymarketSettlement,
+  computePolymarketSettlementFromOrderRaw,
   findPolymarketWinnerIndex,
   isPolymarketMarketResolved,
   clobMarketToGammaShape,
@@ -47,5 +48,15 @@ describe("polymarket settlement (server)", () => {
     });
     const out = computePolymarketSettlement(ilbirsTrade, shaped, 5);
     expect(out.status).toBe("win");
+  });
+
+  it("settles from RDS raw when trade row missing", () => {
+    const raw = {
+      pmTokenId: ilbirsTrade.asset_id,
+      pmShares: 6.756753,
+      pmStakeUsdc: 5,
+    };
+    const out = computePolymarketSettlementFromOrderRaw(raw, ilbirsMarket, 5);
+    expect(out).toMatchObject({ status: "win", money: 1.7568 });
   });
 });

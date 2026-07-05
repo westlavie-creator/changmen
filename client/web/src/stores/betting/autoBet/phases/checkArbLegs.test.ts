@@ -7,7 +7,6 @@ import { checkArbLegs } from "@/stores/betting/autoBet/phases/checkArbLegs";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 const checkBetting = vi.hoisted(() => vi.fn());
-const reconcilePolymarketArbStakes = vi.hoisted(() => vi.fn());
 const getEntry = vi.hoisted(() => vi.fn());
 
 vi.mock("@/stores/accountStore", () => ({
@@ -17,14 +16,6 @@ vi.mock("@/stores/accountStore", () => ({
 vi.mock("@/stores/oddsStore", () => ({
   useOddsStore: () => ({ getEntry }),
 }));
-
-vi.mock("@/domain/arbitrage", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/domain/arbitrage")>();
-  return {
-    ...actual,
-    reconcilePolymarketArbStakes,
-  };
-});
 
 vi.mock("@/shared/wait", () => ({ wait: vi.fn(async () => {}) }));
 
@@ -57,7 +48,7 @@ const params: ArbBetAttemptParams = {
   setMessage: vi.fn(),
 };
 
-describe("checkArbLegs A8 regression", () => {
+describe("checkArbLegs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getEntry.mockReturnValue(undefined);
@@ -65,37 +56,32 @@ describe("checkArbLegs A8 regression", () => {
       option.data = { ok: true };
       return option;
     });
-    reconcilePolymarketArbStakes.mockReset();
   });
 
-  it("非 PM 双腿不调用 reconcilePolymarketArbStakes，betMoney 保持 GetOrderOptions 值", async () => {
+  it("非 PM 双腿并行预检，betMoney 保持 GetOrderOptions 值", async () => {
     const legA = leg("RAY", 80, 1.36);
     const legB = leg("PB", 35, 3.125);
 
     const out = await checkArbLegs(params, ready(legA, legB));
 
     expect(out).not.toBeNull();
-    expect(reconcilePolymarketArbStakes).not.toHaveBeenCalled();
+    expect(checkBetting).toHaveBeenCalledTimes(2);
     expect(out!.legA.betMoney).toBe(80);
     expect(out!.legB.betMoney).toBe(35);
     expect(out!.implied).toBe(1.05);
   });
 
-  it("含 Polymarket 时调用 reconcilePolymarketArbStakes", async () => {
+  it("含 Polymarket 时与 A8 相同并行预检，不改计划 betMoney", async () => {
     const legA = leg("RAY", 80, 1.36);
-    const legB = leg("Polymarket", 35, 3.125);
-    reconcilePolymarketArbStakes.mockResolvedValue({
-      ok: true,
-      legA,
-      legB: { ...legB, betMoney: 22, odds: 5 },
-      implied: 1.07,
-    });
+    const legB = leg("Polymarket", 22, 3.125);
 
     const out = await checkArbLegs(params, ready(legA, legB));
 
-    expect(reconcilePolymarketArbStakes).toHaveBeenCalledOnce();
+    expect(out).not.toBeNull();
+    expect(checkBetting).toHaveBeenCalledTimes(2);
+    expect(out!.legA.betMoney).toBe(80);
     expect(out!.legB.betMoney).toBe(22);
-    expect(out!.implied).toBe(1.07);
+    expect(out!.implied).toBe(1.05);
   });
 
   it("pm_sport 系列赛已决出时跳过 PM 腿预检", async () => {
@@ -114,6 +100,5 @@ describe("checkArbLegs A8 regression", () => {
 
     expect(out).toBeNull();
     expect(checkBetting).not.toHaveBeenCalled();
-    expect(reconcilePolymarketArbStakes).not.toHaveBeenCalled();
   });
 });

@@ -202,11 +202,11 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     return { raw: merged, money, bet_money };
   }
 
-  const prevAttributed = parseNum(prevRaw.pmAttributedSellShares, 0);
   const prevState = prevRaw.pmSellState;
   const betMoneyForMerge = prevBet > 0 ? prevBet : incomingBet;
 
-  if (isChangmen && (prevAttributed > 0 || prevState === "partial" || prevState === "closed")) {
+  const hasClosedSellProgress = prevState === "partial" || prevState === "closed";
+  if (isChangmen && hasClosedSellProgress) {
     merged = {
       ...merged,
       pmSide: "buy",

@@ -792,6 +792,20 @@ function storedVenueOrderToUsdc(stored: VenueOrder): VenueOrder {
   };
 }
 
+/**
+ * 份额已全部归因卖出时，通常不再写 Gamma 赛果（盈亏在卖单行）。
+ * 例外：pmSellState 仍为 open 但 attr 已满 — 数据不一致，允许 Gamma 结算。
+ */
+export function changmenSoldOutBlocksGammaSettlement(order: VenueOrder): boolean {
+  const remaining = resolvePmRemainingShares(order);
+  if (remaining > 0.0001)
+    return false;
+  const attributed = order.pmAttributedSellShares ?? 0;
+  if (order.pmSellState === "open" && attributed > 0)
+    return false;
+  return attributed > 0 || order.pmSellState === "closed";
+}
+
 /** changmen 落库行 + CLOB 刷新：绑定/成本以 RDS 为准，成交/赛果以 API 为准 */
 function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): VenueOrder {
   const base = storedVenueOrderToUsdc(stored);
@@ -823,9 +837,8 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
       createAt: base.createAt || clob.createAt,
     };
   }
-  const remaining = resolvePmRemainingShares(base);
-  const soldOut = remaining <= 0.0001
-    && ((base.pmAttributedSellShares ?? 0) > 0 || base.pmSellState === "closed");
+  const blockGammaSettlement = changmenSoldOutBlocksGammaSettlement(base);
+  const gammaSettled = clob.status !== "none";
   return {
     ...base,
     pmSide: "buy",
@@ -837,12 +850,14 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     })(),
     pmFillPrice: clob.pmFillPrice ?? base.pmFillPrice,
     pmStakeUsdc: base.pmStakeUsdc ?? clob.pmStakeUsdc,
-    pmSellState: base.pmSellState ?? clob.pmSellState,
+    pmSellState: gammaSettled && !blockGammaSettlement
+      ? "settled"
+      : (base.pmSellState ?? clob.pmSellState),
     pmAttributedSellShares: base.pmAttributedSellShares ?? clob.pmAttributedSellShares,
     odds: base.odds || clob.odds,
-    status: soldOut ? base.status : (clob.status !== "none" ? clob.status : base.status),
-    money: soldOut ? base.money : (clob.status !== "none" ? clob.money : base.money),
-    reward: soldOut ? base.reward : (clob.reward ?? base.reward),
+    status: blockGammaSettlement ? base.status : (gammaSettled ? clob.status : base.status),
+    money: blockGammaSettlement ? base.money : (gammaSettled ? clob.money : base.money),
+    reward: blockGammaSettlement ? base.reward : (clob.reward ?? base.reward),
     match: base.match || clob.match,
     bet: base.bet || clob.bet,
     item: base.item || clob.item,

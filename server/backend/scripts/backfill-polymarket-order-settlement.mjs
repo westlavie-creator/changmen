@@ -7,10 +7,11 @@
  *   node scripts/backfill-polymarket-order-settlement.mjs --player-id 42 --execute
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
-import { accountMultiplyScale } from "@changmen/shared/account_multiply";
+import { accountMultiplyScale, scaleUsdtToCnyDisplay } from "@changmen/shared/account_multiply";
 import {
   fetchGammaMarketsByConditionIds,
   computePolymarketSettlement,
+  computePolymarketSettlementFromOrderRaw,
   mapDbStatus,
   normalizeConditionId,
   lookupGammaMarket,
@@ -66,11 +67,8 @@ function isPolymarketProvider(provider) {
   return String(provider ?? "").trim().toLowerCase() === "polymarket";
 }
 
-function scaleMoney(value, multiply) {
-  const n = Number(value);
-  if (!Number.isFinite(n))
-    return 0;
-  return Math.round(n * multiply * 10000) / 10000;
+function scalePmMoneyUsdc(usdc) {
+  return scaleUsdtToCnyDisplay(Number(usdc) || 0);
 }
 
 /** player_id -> { userId, userName, token, gateway, multiply, playerName } */
@@ -143,6 +141,33 @@ function rawStakeFromTrade(trade) {
   return polymarketBuyStakeUsdc(trade.size, Number(trade.price));
 }
 
+function rawFromRow(row) {
+  return typeof row.raw === "object" && row.raw && !Array.isArray(row.raw) ? row.raw : {};
+}
+
+function stakeUsdcFromRow(row) {
+  const raw = rawFromRow(row);
+  const fromRaw = Number(raw.pmStakeUsdc);
+  if (Number.isFinite(fromRaw) && fromRaw > 0)
+    return fromRaw;
+  const betCny = Number(row.bet_money) || 0;
+  if (betCny > 0)
+    return Math.round((betCny / 7) * 10000) / 10000;
+  return 0;
+}
+
+function computeSettlementForRow(row, trade, market) {
+  if (trade) {
+    const stakeRaw = rawStakeFromTrade(trade);
+    return computePolymarketSettlement(trade, market, stakeRaw);
+  }
+  const raw = rawFromRow(row);
+  if (!raw.pmTokenId)
+    return null;
+  const stakeUsdc = stakeUsdcFromRow(row);
+  return computePolymarketSettlementFromOrderRaw(raw, market, stakeUsdc);
+}
+
 async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun }) {
   const result = {
     playerId,
@@ -157,41 +182,49 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
   };
 
   if (!account.token) {
-    result.error = "账号无 token，跳过";
-    return result;
+    console.warn(`[player ${playerId}] 无 token，仅尝试 raw+Gamma 补结算`);
   }
 
   const minCreateAt = Math.min(...orders.map(o => Number(o.create_at) || Date.now()));
   const afterSec = Math.floor(minCreateAt / 1000) - 86_400;
 
-  let trades;
-  try {
-    trades = await fetchPolymarketTradesSince({
-      token: account.token,
-      gateway: account.gateway || undefined,
-      afterSec,
-      maxPages,
-    });
-  }
-  catch (err) {
-    result.error = err.message;
-    return result;
+  let trades = [];
+  if (account.token) {
+    try {
+      trades = await fetchPolymarketTradesSince({
+        token: account.token,
+        gateway: account.gateway || undefined,
+        afterSec,
+        maxPages,
+      });
+    }
+    catch (err) {
+      result.error = err.message;
+      return result;
+    }
   }
 
   const tradeByOrderId = indexPolymarketBuyTrades(
     trades,
-    collectPolymarketUserAddresses(parsePolymarketTokenConfig(account.token)),
+    account.token
+      ? collectPolymarketUserAddresses(parsePolymarketTokenConfig(account.token))
+      : new Set(),
   );
   const conditionIds = [];
   const tokenIds = [];
   for (const row of orders) {
+    const raw = rawFromRow(row);
     const trade = tradeByOrderId.get(String(row.order_id));
-    if (!trade)
-      continue;
-    if (trade.market)
-      conditionIds.push(String(trade.market));
-    if (trade.asset_id ?? trade.assetId)
-      tokenIds.push(String(trade.asset_id ?? trade.assetId));
+    if (trade) {
+      if (trade.market)
+        conditionIds.push(String(trade.market));
+      if (trade.asset_id ?? trade.assetId)
+        tokenIds.push(String(trade.asset_id ?? trade.assetId));
+    }
+    if (raw.pmConditionId)
+      conditionIds.push(String(raw.pmConditionId));
+    if (raw.pmTokenId)
+      tokenIds.push(String(raw.pmTokenId));
   }
 
   let marketMap = new Map();
@@ -206,21 +239,26 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
 
   for (const row of orders) {
     const orderId = String(row.order_id);
+    const raw = rawFromRow(row);
     const trade = tradeByOrderId.get(orderId);
-    if (!trade) {
+    const marketKey = trade
+      ? trade
+      : (raw.pmConditionId
+        ? { market: raw.pmConditionId, asset_id: raw.pmTokenId }
+        : null);
+
+    if (!marketKey) {
       result.skippedNoTrade += 1;
       continue;
     }
 
-    const market = lookupGammaMarket(marketMap, trade);
+    const market = lookupGammaMarket(marketMap, marketKey);
     if (!market) {
       result.skippedNoMarket += 1;
       continue;
     }
 
-    const stakeRaw = rawStakeFromTrade(trade);
-    const computed = computePolymarketSettlement(trade, market, stakeRaw);
-    const multiply = account.multiply;
+    const computed = computeSettlementForRow(row, trade, market);
     const labels = orderLabelsFromMarket(market);
     const needsTitleFix = isHexMatchFallback(row.match) && !!labels.match;
     const isUnsettled = String(row.status) === "None";
@@ -246,15 +284,18 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
       item: row.item || "",
       odds: Number(row.odds) || 0,
       bet_money: Number(row.bet_money) || 0,
-      money: isUnsettled ? scaleMoney(computed.money, multiply) : (Number(row.money) || 0),
+      money: isUnsettled ? scalePmMoneyUsdc(computed.money) : (Number(row.money) || 0),
       status: isUnsettled ? mapDbStatus(computed.status) : String(row.status || "None"),
       create_at: Number(row.create_at) || Date.now(),
       raw: {
-        ...(typeof row.raw === "object" && row.raw ? row.raw : {}),
+        ...raw,
+        ...(isUnsettled && computed.status !== "none"
+          ? { pmSellState: "settled", status: computed.status }
+          : {}),
         backfillSettlement: {
           at: Date.now(),
           ...(isUnsettled
-            ? { status: computed.status, stakeRaw, multiply }
+            ? { status: computed.status, via: trade ? "clob" : "raw" }
             : { titleFix: true }),
         },
       },

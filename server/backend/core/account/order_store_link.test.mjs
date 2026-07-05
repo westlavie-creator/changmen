@@ -167,4 +167,49 @@ describe("saveOrder backend bind link", () => {
     const row = upsertOrders.mock.calls[0][0][0];
     expect(row.raw.pmShares).toBe(15.1515);
   });
+
+  it("PM changmen buy with open attr allows incoming Win settlement", async () => {
+    fetchOrdersByPlayerAll.mockResolvedValue([
+      {
+        order_id: "0xbuy-nrg",
+        link: 1_783_200_396_999,
+        create_at: 1_783_200_397_000,
+        bet_money: 126,
+        money: 0,
+        status: "None",
+        raw: {
+          pmSide: "buy",
+          pmOrigin: "changmen",
+          pmShares: 36,
+          pmStakeUsdc: 18,
+          pmSellState: "open",
+          pmAttributedSellShares: 36,
+        },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xbuy-nrg",
+        createAt: 1_783_200_397_000,
+        provider: "Polymarket",
+        pmSide: "buy",
+        pmOrigin: "changmen",
+        pmShares: 36,
+        pmStakeUsdc: 18,
+        pmSellState: "settled",
+        betMoney: 126,
+        money: 126,
+        odds: 2,
+        status: "win",
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.status).toBe("Win");
+    expect(row.money).toBe(126);
+    expect(row.raw.pmSellState).toBe("settled");
+  });
 });
