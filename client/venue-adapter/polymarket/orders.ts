@@ -18,7 +18,7 @@ import { polymarketPluginGet } from "./transport";
 const TRADES_PATH = "/data/trades";
 const TOKEN_MICRO = 1_000_000;
 /** 订单 sync + 迟结算缓冲（Phase 2b） */
-const ORDER_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
+const ORDER_LOOKBACK_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_TRADE_PAGES = 5;
 const NO_MORE_CURSOR = "LTE=";
 /** Gamma closed 后 outcomePrices 赢家判定阈值 */
@@ -1207,7 +1207,7 @@ export interface PolymarketVenueOrdersBundle {
   flattenedTrades: PolymarketTradeRow[];
 }
 
-/** CLOB /data/trades → VenueOrder（近 30 天；Gamma resolve → win/lose） */
+/** CLOB /data/trades → VenueOrder（近 3 天；Gamma resolve → win/lose） */
 export async function fetchPolymarketVenueOrders(account: PlatformAccount): Promise<VenueOrder[]> {
   const bundle = await fetchPolymarketVenueOrdersBundle(account);
   return bundle.orders;
