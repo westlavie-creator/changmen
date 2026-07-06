@@ -124,6 +124,7 @@ cleanup_flat_deploy_root() {
     restore_backend_secrets
   fi
   rm -rf "$ROOT/.git" "$ROOT/A8" "$ROOT/BAT" "$ROOT/pingtai_offical" 2>/dev/null || true
+  # .deploy-secrets 保留，勿删
 }
 
 if [ "${FLATTEN_ONLY:-0}" != "1" ]; then
@@ -153,12 +154,13 @@ tar --warning=no-unknown-keyword -xzf "$ARCHIVE" -C "$ROOT" \
   --exclude='./server/backend/.env' \
   --exclude='./server/backend/storage'
 
-if [ ! -f "$ROOT/server/backend/.env" ] && [ ! -f "$PERSIST_SECRETS/backend.env" ]; then
-  echo "ERROR: missing server/backend/.env on VPS (configure once, then kept in $PERSIST_SECRETS)"
+restore_backend_secrets
+
+if [ ! -f "$ROOT/server/backend/.env" ]; then
+  echo "ERROR: missing server/backend/.env on VPS (seed once into $PERSIST_SECRETS/backend.env)"
   exit 1
 fi
 
-restore_backend_secrets
 cleanup_flat_deploy_root
 
 NEW_HEAD=""
