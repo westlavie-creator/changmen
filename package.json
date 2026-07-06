@@ -1,5 +1,5 @@
 {
-  "name": "gamebet",
+  "name": "changmen",
   "private": true,
   "description": "A8 esports aggregator — frontend replica + local backend",
   "packageManager": "npm@11.16.0",

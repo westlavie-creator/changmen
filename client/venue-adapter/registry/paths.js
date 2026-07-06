@@ -51,7 +51,7 @@ function probesRootLooksValid(abs) {
 
 /**
  * @changmen/platform-probes 包根（与 platform-adapter 并列）。
- * - `GAMEBET_PLATFORM_PROBES_ROOT` / `GAMEBET_NODE_ROOT`（瘦包 / 测试）
+ * - `CHANGMEN_PLATFORM_PROBES_ROOT` / `CHANGMEN_NODE_ROOT`（瘦包 / 测试；兼容 `GAMEBET_*`）
  * - 开发：`changmen/devtools/platform-probes`
  * - 瘦包：`server/backend/platform_node`（历史目录名，同步产物）
  */
@@ -59,11 +59,14 @@ export function getPlatformNodeRoot() {
   if (_platformNodeRootOverride) return _platformNodeRootOverride;
 
   const forced =
-    process.env.GAMEBET_PLATFORM_PROBES_ROOT?.trim() || process.env.GAMEBET_NODE_ROOT?.trim();
+    process.env.CHANGMEN_PLATFORM_PROBES_ROOT?.trim()
+    || process.env.GAMEBET_PLATFORM_PROBES_ROOT?.trim()
+    || process.env.CHANGMEN_NODE_ROOT?.trim()
+    || process.env.GAMEBET_NODE_ROOT?.trim();
   if (forced) {
     const abs = path.resolve(forced);
     if (probesRootLooksValid(abs)) return abs;
-    throw new Error(`GAMEBET_PLATFORM_PROBES_ROOT invalid (no ob/session.js): ${abs}`);
+    throw new Error(`CHANGMEN_PLATFORM_PROBES_ROOT invalid (no ob/session.js): ${abs}`);
   }
 
   if (probesRootLooksValid(DEFAULT_PROBES_ROOT)) return DEFAULT_PROBES_ROOT;
@@ -75,7 +78,7 @@ export function getPlatformNodeRoot() {
 
   throw new Error(
     `platform-probes not found: expected devtools/platform-probes (dev) or server/backend/platform_node (packaged); ` +
-      `set GAMEBET_PLATFORM_PROBES_ROOT if using a custom path`,
+      `set CHANGMEN_PLATFORM_PROBES_ROOT if using a custom path`,
   );
 }
 

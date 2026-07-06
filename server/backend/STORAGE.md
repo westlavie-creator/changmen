@@ -2,7 +2,7 @@
 
 路径默认 `server/backend/storage/`，由 `@changmen/storage/paths` 解析：
 
-- `GAMEBET_STORAGE_DIR` — 覆盖整个 storage 根
+- `CHANGMEN_STORAGE_DIR` — 覆盖整个 storage 根（兼容 `GAMEBET_STORAGE_DIR`）
 - `ESPORT_DATA_DIR` — 覆盖 JSON 数据目录（默认同 storage）
 
 **本目录已 gitignore**，勿提交凭证。首次启动由 `ensureStorageSeed()` 从 `platforms.example.json` 生成缺失文件。

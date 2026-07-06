@@ -164,7 +164,7 @@ Auth: 自签 JWT（`users` + `profiles`）。凭证在 `server/backend/.env`（`
 | esport 数据（赛事/赔率/平台凭证等） | 本地 JSON（`storage/legacy/esport/*.json`） | 不依赖云库 |
 | 平台采集凭证 | `platforms.json`（esport 数据目录） | 不依赖云库 |
 
-Storage path resolved in `core/shared/storage_paths.js`. Override via `ESPORT_DATA_DIR` or `GAMEBET_STORAGE_DIR`. Example configs: `server/backend/a8_config.example.json`, `server/backend/platforms.example.json`.
+Storage path resolved in `core/shared/storage_paths.js`. Override via `ESPORT_DATA_DIR` or `CHANGMEN_STORAGE_DIR`（兼容 `GAMEBET_STORAGE_DIR`）.
 
 ### Frontend (`client/web/src/`)
 

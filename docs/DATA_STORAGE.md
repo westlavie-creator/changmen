@@ -1,6 +1,6 @@
 # 数据存储边界
 
-changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为 `@changmen/db`（`GAMEBET_DB_SCRIPT=rds`）。
+changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为 `@changmen/db`（`CHANGMEN_DB_SCRIPT=rds`）。
 
 ## 云数据库（生产主路径）
 
@@ -18,7 +18,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 
 ## 本机 JSON（开发 / 凭证 / legacy）
 
-根目录默认 `server/backend/storage/`（可用 `GAMEBET_STORAGE_DIR` / `ESPORT_DATA_DIR` 覆盖）。
+根目录默认 `server/backend/storage/`（可用 `CHANGMEN_STORAGE_DIR` / `ESPORT_DATA_DIR` 覆盖；兼容 `GAMEBET_STORAGE_DIR`）。
 
 | 路径 | 用途 | 是否上云 |
 |------|------|----------|

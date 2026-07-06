@@ -6,7 +6,7 @@
   "description": "Server: esport-api, HTTP proxy, static hosting for clients",
   "repository": {
     "type": "git",
-    "url": "https://github.com/westlavie-creator/gamebet.git"
+    "url": "https://github.com/westlavie-creator/changmen.git"
   },
   "scripts": {
     "dev": "npm run web",

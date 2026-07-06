@@ -41,11 +41,14 @@ const PORT = Number(
 );
 const PUBLIC_DIR = path.join(__dirname, "public");
 const WEB_DIR
-  = process.env.GAMEBET_WEB_DIR
+  = process.env.CHANGMEN_WEB_DIR
+    || process.env.CHANGMEN_APP_DIR
+    || process.env.GAMEBET_WEB_DIR
     || process.env.GAMEBET_APP_DIR
     || path.join(__dirname, "../../client/web/dist");
 const MATCHER_DIR
-  = process.env.GAMEBET_MATCHER_DIR
+  = process.env.CHANGMEN_MATCHER_DIR
+    || process.env.GAMEBET_MATCHER_DIR
     || path.join(__dirname, "../matcher/ui/public");
 const MATCHER_EMBEDDED = String(process.env.MATCHER_EMBEDDED || "").trim() === "1";
 

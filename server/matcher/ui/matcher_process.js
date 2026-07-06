@@ -19,7 +19,7 @@ const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MATCHER_ROOT = path.join(__dirname, "..");
 const MATCHER_SCRIPT = path.join(MATCHER_ROOT, "matcher.js");
-const PM2_MATCHER_NAME = process.env.PM2_MATCHER_NAME || "gamebet-matcher";
+const PM2_MATCHER_NAME = process.env.PM2_MATCHER_NAME || "changmen-matcher";
 
 let managedChild = null;
 

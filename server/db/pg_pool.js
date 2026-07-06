@@ -26,12 +26,12 @@ function envInt(name, fallback) {
 function defaultApplicationName() {
   const cwd = process.cwd().replace(/\\/g, "/");
   if (cwd.includes("/server/matcher"))
-    return "gamebet-matcher";
+    return "changmen-matcher";
   if (cwd.includes("/server/backend"))
-    return "gamebet-web";
+    return "changmen-web";
   if (cwd.includes("/server/value-bet"))
-    return "gamebet-value-bet";
-  return "gamebet";
+    return "changmen-value-bet";
+  return "changmen";
 }
 
 function applicationName() {

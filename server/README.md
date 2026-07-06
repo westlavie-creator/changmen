@@ -74,7 +74,7 @@ polymarket-sports ──WS──► 写 client_matches.pm_sport
 | `npm run db:apply` | 应用 RDS 迁移（backend workspace） |
 | `npm run check:boundaries` | 客户端 / 服务端 import 边界检查 |
 
-Windows 一键：`BAT\dev.bat`（backend + Vite + 可选 matcher）。生产 PM2：`ecosystem.config.cjs`（`gamebet-web`、`gamebet-pm-sports`；独立 matcher 见文件注释）。
+Windows 一键：`BAT\dev.bat`（backend + Vite + 可选 matcher）。生产 PM2：`ecosystem.config.cjs`（`changmen-web`、`changmen-pm-sports`；独立 matcher 见文件注释）。
 
 ## 脚本在哪
 

@@ -12,7 +12,7 @@
 
 Matcher 间隔/端口等环境变量由 `lib/config.js` 统一读取（勿在多处写 `process.env.MATCHER_*`）。
 
-PM2（`ecosystem.config.cjs`）仅注册 **合并循环**（`gamebet-matcher`）。人工 UI：`npm run matcher:ui`。
+PM2（`ecosystem.config.cjs`）仅注册 **合并循环**（`changmen-matcher`）。人工 UI：`npm run matcher:ui`。
 
 ## 依赖
 
@@ -20,7 +20,7 @@ PM2（`ecosystem.config.cjs`）仅注册 **合并循环**（`gamebet-matcher`）
 - `server/db` — 读写 `platform_matches` / `client_matches` 等（`@changmen/db`）
 - `server/team-resolver` — 可选队名 canonical 插件
 
-环境变量：与 backend 共用 `server/backend/.env`（或本目录 `matcher/.env`）。`GAMEBET_DB_SCRIPT` 与 backend 保持一致。
+环境变量：与 backend 共用 `server/backend/.env`（或本目录 `matcher/.env`）。`CHANGMEN_DB_SCRIPT` 与 backend 保持一致（兼容 `GAMEBET_DB_SCRIPT`）。
 
 ## 常用命令
 

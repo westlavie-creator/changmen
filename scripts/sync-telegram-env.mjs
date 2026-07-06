@@ -14,7 +14,7 @@ function loadDeployConfig() {
   const cfg = {
     user: "root",
     host: "47.82.100.166",
-    repo: "/root/gamebet",
+    repo: "/root/changmen",
     sshIdentity: "",
   };
   const home = process.env.USERPROFILE || process.env.HOME || "";

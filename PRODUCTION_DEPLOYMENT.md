@@ -58,9 +58,9 @@ Nginx / Caddy 反代示例要点：
 | 组件 | 生产形态 | 发版 / 重启 |
 |------|----------|-------------|
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
-| API + 合并（`server/backend` + embedded matcher） | PM2：`gamebet-web`（`:3456`，`MATCHER_EMBEDDED=1`） | `pm2 restart gamebet-web --update-env` |
-| Polymarket 赛程状态 | PM2：`gamebet-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart gamebet-pm-sports --update-env` |
-| 独立 matcher 回滚模式 | PM2：`gamebet-matcher`（默认不启用） | `MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start vps/ecosystem.config.cjs` |
+| API + 合并（`server/backend` + embedded matcher） | PM2：`changmen-web`（`:3456`，`MATCHER_EMBEDDED=1`） | `pm2 restart changmen-web --update-env` |
+| Polymarket 赛程状态 | PM2：`changmen-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart changmen-pm-sports --update-env` |
+| 独立 matcher 回滚模式 | PM2：`changmen-matcher`（默认不启用） | `MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start vps/ecosystem.config.cjs` |
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
@@ -69,11 +69,11 @@ Nginx / Caddy 反代示例要点：
 ```text
 浏览器 → http://IP:80 (Caddy)
            ├─ /、/assets/     → client/web/dist（前端团队 build）
-           └─ /esport/* 等    → 127.0.0.1:3456 (PM2 gamebet-web)
+           └─ /esport/* 等    → 127.0.0.1:3456 (PM2 changmen-web)
 ```
 
 - **前端发版**：`git pull` → `npm run app:build` → 更新 `dist/`（Caddy 直接读磁盘，无需 reload，更不必动 PM2）
-- **后端发版**：`git pull` → `npm install`（若依赖变）→ `pm2 restart gamebet-web`（**不必**重新 `app:build`）
+- **后端发版**：`git pull` → `npm install`（若依赖变）→ `pm2 restart changmen-web`（**不必**重新 `app:build`）
 
 部署前把 Caddyfile 里 `root` 改成 VPS 上真实的 `.../changmen/client/web/dist` 路径。
 
@@ -82,7 +82,7 @@ Nginx / Caddy 反代示例要点：
 若 Caddy 仅 `reverse_proxy 127.0.0.1:3456`，由 `server.js` 托管 `dist`，**独立发版仍然成立**：
 
 - 前端只更新 `dist` → 通常可不 restart PM2（静态按请求读盘）
-- 后端只 `pm2 restart gamebet-web` → 不必动 `dist`
+- 后端只 `pm2 restart changmen-web` → 不必动 `dist`
 
 Caddy 分流只是把「谁托管静态」从 Node 挪到 Caddy，职责更清晰；不是换一套产品架构。
 
@@ -115,7 +115,7 @@ npm install  # 首次：安装全部 workspaces（含 client/web）
 | `JWT_SECRET` | **必填** | 自签 JWT（至少 16 字符） |
 | `JWT_ACCESS_TTL` | `7d` | access token 有效期 |
 | `JWT_REFRESH_TTL` | `30d` | refresh token 有效期 |
-| `GAMEBET_DB_SCRIPT` | `rds` | 数据层固定 RDS |
+| `CHANGMEN_DB_SCRIPT` | `rds` | 数据层固定 RDS（兼容旧名 `GAMEBET_DB_SCRIPT`） |
 | `PORT` | `3456` 或反代端口 | HTTP 监听 |
 | `A8_AUTH` | **`1`（默认）** | JWT 登录；勿用 `users.json` |
 | `A8_V4_URL` | `https://api.a8.to/v4.0` | v4 上游 |
@@ -149,25 +149,25 @@ npm run app:build
 
 ### 3.4 进程
 
-默认两个长期进程（推荐 PM2）：`gamebet-web`（内嵌 matcher）+ `gamebet-pm-sports`（Polymarket Sports WS）。
+默认两个长期进程（推荐 PM2）：`changmen-web`（内嵌 matcher）+ `changmen-pm-sports`（Polymarket Sports WS）。
 
 ```bash
 cd changmen
-pm2 start vps/ecosystem.config.cjs    # gamebet-web + gamebet-pm-sports
+pm2 start vps/ecosystem.config.cjs    # changmen-web + changmen-pm-sports
 # 或手动：
 MATCHER_EMBEDDED=1 npm run web
 npm run pm-sports
 ```
 
-`gamebet-pm-sports` 连 `wss://sports-api.polymarket.com/ws`，按 `platform_matches` 已有 Polymarket 行关联 `client_matches`，写入 `pm_sport`。**不替代**浏览器 CLOB WS 赔率采集。
+`changmen-pm-sports` 连 `wss://sports-api.polymarket.com/ws`，按 `platform_matches` 已有 Polymarket 行关联 `client_matches`，写入 `pm_sport`。**不替代**浏览器 CLOB WS 赔率采集。
 
-`ecosystem.config.cjs` 默认注册 `gamebet-web` 与 `gamebet-pm-sports`，入口分别为 `server/backend/scripts/start-db.mjs` 与 `server/polymarket-sports/index.js`（`GAMEBET_DB_SCRIPT=rds`）。如需回滚到独立 matcher：
+`ecosystem.config.cjs` 默认注册 `changmen-web` 与 `changmen-pm-sports`，入口分别为 `server/backend/scripts/start-db.mjs` 与 `server/polymarket-sports/index.js`（`CHANGMEN_DB_SCRIPT=rds`）。如需回滚到独立 matcher：
 
 ```bash
 cd changmen
-pm2 stop gamebet-web
+pm2 stop changmen-web
 MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start vps/ecosystem.config.cjs
-pm2 restart gamebet-web gamebet-matcher --update-env
+pm2 restart changmen-web changmen-matcher --update-env
 ```
 
 生产建议用 systemd / pm2 / Docker Compose 托管，并配置重启策略。

@@ -50,8 +50,8 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 | 脚本 | 作用 |
 |------|------|
-| **`start-db.mjs`** | 按 `GAMEBET_DB_SCRIPT` 启动 `server.js`（`npm run web` 入口，默认 rds） |
-| **`start-rds.mjs`** | 强制 `GAMEBET_DB_SCRIPT=rds` 后启动 |
+| **`start-db.mjs`** | 按 `CHANGMEN_DB_SCRIPT` 启动 `server.js`（`npm run web` 入口，默认 rds） |
+| **`start-rds.mjs`** | 强制 `CHANGMEN_DB_SCRIPT=rds` 后启动 |
 | **`apply-rds-schema.mjs`** | 应用 RDS SQL 迁移 |
 | **`archive-stale-client-matches.mjs`** | 本地手动 client_matches archive（生产由 matcher 每小时执行） |
 | **`prune-stale.mjs`** | 已废弃别名 → `archive-stale-client-matches.mjs` |
@@ -75,7 +75,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 |------|------|------|
 | `A8_AUTH` | `0`（`BAT\backend.bat`） | 影响 A8 v4 等集成 |
 | `SKIP_APP_BUILD` | 未设 | `1` 跳过 `/` 构建 |
-| `GAMEBET_DB_SCRIPT` | `rds` | 固定 RDS；旧值 `supabase`/`dual` 启动时 warn 并仍走 rds |
+| `CHANGMEN_DB_SCRIPT` | `rds` | 固定 RDS；旧值 `supabase`/`dual` 启动时 warn 并仍走 rds |
 | `JWT_SECRET` | — | 登录必填（至少 16 字符） |
 | `DATABASE_URL` | — | RDS 连接（或 `DATABASE_URL_PUBLIC` / `_INTERNAL`） |
 
@@ -83,7 +83,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 | 脚本 | 作用 |
 |------|------|
-| **[`vps/ecosystem.config.cjs`](../../vps/ecosystem.config.cjs)** | PM2：默认 `gamebet-web` 内嵌 matcher |
+| **[`vps/ecosystem.config.cjs`](../../vps/ecosystem.config.cjs)** | PM2：默认 `changmen-web` 内嵌 matcher |
 | **`BAT\deploy-shanghai.bat`** | 更新上海 VPS（本机 tarball + 增量部署） |
 | **`BAT\deploy-hongkong.bat`** | 手动更新香港 VPS（日常 GHA 自动） |
 | **`BAT\push-git.bat`** | 本机 git commit + push |

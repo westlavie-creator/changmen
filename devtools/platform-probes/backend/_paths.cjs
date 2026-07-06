@@ -28,9 +28,13 @@ function findChangmenRoot(fromDir) {
 
 const CHANGMEN_ROOT = findChangmenRoot(__dirname);
 const BACKEND_ROOT =
-  process.env.GAMEBET_BACKEND_ROOT || path.join(CHANGMEN_ROOT, "server", "backend");
+  process.env.CHANGMEN_BACKEND_ROOT
+  || process.env.GAMEBET_BACKEND_ROOT
+  || path.join(CHANGMEN_ROOT, "server", "backend");
 const STORAGE_DIR =
-  process.env.GAMEBET_STORAGE_DIR || path.join(BACKEND_ROOT, "storage");
+  process.env.CHANGMEN_STORAGE_DIR
+  || process.env.GAMEBET_STORAGE_DIR
+  || path.join(BACKEND_ROOT, "storage");
 const ESPORT_DATA_DIR = process.env.ESPORT_DATA_DIR || STORAGE_DIR;
 
 const RESOLVE_PATHS = [
