@@ -24,7 +24,7 @@ function loadDeployConfig() {
   if (defaultKey && fs.existsSync(defaultKey)) {
     cfg.sshIdentity = defaultKey;
   }
-  const localBat = path.join(changmen, "..", "BAT/deploy-server.local.bat");
+  const localBat = path.join(changmen, "BAT/deploy-server.local.bat");
   if (!fs.existsSync(localBat)) return cfg;
   for (const line of fs.readFileSync(localBat, "utf8").split(/\r?\n/)) {
     const u = line.match(/^\s*set\s+"DEPLOY_USER=(.+)"\s*$/i);

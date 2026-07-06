@@ -1,1 +1,1 @@
-module.exports = require("../vps/ecosystem.config.cjs");
+module.exports = require("./deploy/ecosystem.config.cjs");
