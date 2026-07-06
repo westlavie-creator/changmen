@@ -73,7 +73,7 @@ flatten_legacy_nested_repo() {
     return 0
   fi
 
-  local staging="/tmp/changmen-flatten.$$"
+  local staging="/var/tmp/changmen-flatten.$$"
   rm -rf "$staging"
   mkdir -p "$staging"
   cp -a "$nested/." "$staging/"
@@ -98,6 +98,10 @@ cleanup_flat_deploy_root() {
   rm -rf "$ROOT/.git" "$ROOT/A8" "$ROOT/BAT" "$ROOT/pingtai_offical" 2>/dev/null || true
 }
 
+if [ "${FLATTEN_ONLY:-0}" != "1" ]; then
+  tar -tzf "$ARCHIVE" >/dev/null
+fi
+
 flatten_legacy_nested_repo
 preserve_backend_secrets
 
@@ -108,15 +112,14 @@ if [ "${FLATTEN_ONLY:-0}" = "1" ]; then
   exit 0
 fi
 
-tar -tzf "$ARCHIVE" >/dev/null
+echo "==> extract app archive -> $ROOT (keep .env + storage)"
+mkdir -p "$ROOT"
 
 OLD_HEAD=""
 if [ -d "$ROOT/.git" ]; then
   OLD_HEAD="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
 fi
 
-echo "==> extract app archive -> $ROOT (keep .env + storage)"
-mkdir -p "$ROOT"
 tar --warning=no-unknown-keyword -xzf "$ARCHIVE" -C "$ROOT" \
   --exclude='./server/backend/.env' \
   --exclude='./server/backend/storage'

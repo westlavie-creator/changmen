@@ -20,7 +20,7 @@
 | 区域 | IP | 方式 |
 |------|-----|------|
 | 上海 | `106.14.82.50` | 本机 `BAT\deploy-shanghai.bat`（不进 GitHub） |
-| 香港 | `47.82.100.166` | push `master` → GHA；或 `BAT\deploy-hongkong.bat` |
+| 香港 | `47.82.100.166` | **push `master` → GHA**（推荐）；`BAT\deploy-hongkong.bat` 仅紧急备用 |
 
 VPS 运行目录：`/root/changmen`（扁平，无 git）。
 

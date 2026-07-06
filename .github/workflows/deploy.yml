@@ -100,12 +100,14 @@ jobs:
       - name: Pack app archive
         run: |
           test -f package.json
-          tar --format=ustar -czf "${REPO_ARCHIVE}" \
+          tar -czf "${REPO_ARCHIVE}" \
             --exclude=node_modules \
             --exclude=client/web/dist \
             --exclude=client/web/node_modules \
+            --exclude=.git \
             .
           ls -lh "${REPO_ARCHIVE}"
+          tar -tzf "${REPO_ARCHIVE}" >/dev/null
 
       - name: Configure SSH
         run: |
@@ -127,6 +129,10 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes \
             deploy/scripts/apply-repo-archive.sh deploy/scripts/deploy-server-remote.sh \
             "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_DEPLOY_SCRIPTS}/"
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "gzip -t /tmp/changmen-repo.tgz && tar -tzf /tmp/changmen-repo.tgz >/dev/null"
 
       - name: Apply archive and service deploy (hongkong)
         run: |
