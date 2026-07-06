@@ -9,7 +9,10 @@
   flex-shrink:0;
   width:22px;
   height:22px;
-  background:no-repeat center center;
+  border-radius:50%;
+  background-color:#000c;
+  background-repeat:no-repeat;
+  background-position:center center;
   background-size:contain;
 }
 

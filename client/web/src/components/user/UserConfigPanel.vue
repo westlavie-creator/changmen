@@ -356,10 +356,13 @@ function setWaitTime(platform: string, v: string | number) {
                   <el-input
                     :model-value="form.waitTime[p] ?? ''"
                     :disabled="fieldDisabled()"
+                    class="wait-time-input"
                     @update:model-value="(v: string | number) => setWaitTime(p, v)"
                   >
                     <template #prepend>
-                      {{ p }}
+                      <span class="wait-time-platform-badge" :title="p">
+                        <span class="provider-icon" :class="p" />
+                      </span>
                     </template>
                   </el-input>
                 </el-form-item>
@@ -471,5 +474,22 @@ function setWaitTime(platform: string, v: string | number) {
 .user-config-panel--readonly :deep(.el-input.is-disabled .el-input__inner),
 .user-config-panel--readonly :deep(.el-input.is-disabled .el-input__wrapper) {
   cursor: default;
+}
+
+.wait-time-input :deep(.el-input-group__prepend) {
+  padding: 0 8px;
+}
+
+.wait-time-platform-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  min-width: 28px;
+}
+
+.wait-time-platform-badge .provider-icon {
+  width: 24px;
+  height: 24px;
 }
 </style>
