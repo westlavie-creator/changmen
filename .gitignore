@@ -1,3 +1,10 @@
+# Local-only reference / tooling (not in git)
+A8/
+BAT/
+pingtai_offical/
+obpro/
+vps/
+
 # Dependencies
 node_modules/
 **/node_modules/

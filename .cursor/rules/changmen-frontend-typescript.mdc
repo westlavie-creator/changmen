@@ -1,0 +1,52 @@
+---
+description: changmen 前端改 TS/测试时必须对齐严格类型并在收尾跑 vue-tsc
+globs: changmen/client/web/**/*.{ts,vue}
+alwaysApply: false
+---
+
+# changmen 前端 TypeScript（防 deploy 才炸）
+
+## 写之前：先读现有类型
+
+动到 `BetResult`、`BetOption`、`PlatformAccount`、`ArbBetPlaced` 等时，**先 Read 对应 model/types**，再写函数签名。禁止凭习惯手写更窄的对象类型。
+
+```typescript
+// ❌ 猜的类型
+result?: { success: boolean; message?: string }
+
+// ✅ 对齐 BetResult（message 可为 null）
+result?: Pick<BetResult, "success" | "message">
+// 或直接 result?: BetResult
+```
+
+A8 对齐 model 常见：`message: string | null | undefined`、`provider: PlatformId`。
+
+## 测试文件同等严格
+
+`*.test.ts` 也参与 `vue-tsc -b`，与生产代码同一标准。
+
+```typescript
+// ❌
+} as BetOption;
+provider: string
+singleLegByRate: null  // 类型是 boolean
+
+// ✅
+} as unknown as BetOption;
+provider: PlatformId
+singleLegByRate: false
+```
+
+优先复用仓库已有 test factory；没有则用 `as unknown as T`，不用 `as T` 硬转缺字段对象。
+
+## 收尾：vitest 通过 ≠ 完成
+
+改完 `changmen/client/web` 后**必须**在 `changmen/` 执行：
+
+```bat
+npm run typecheck:frontend
+```
+
+或与 deploy 相同：`npm run app:build`。`npm test` 已含 typecheck，但单独改前端时至少跑 typecheck。
+
+**禁止**在未跑 `vue-tsc -b` 的情况下声称前端改动已完成或可部署。

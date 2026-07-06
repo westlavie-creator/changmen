@@ -1,0 +1,187 @@
+name: deploy changmen
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "client/**"
+      - "server/**"
+      - "packages/**"
+      - "deploy/**"
+      - ".github/workflows/deploy.yml"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+    inputs:
+      full_deploy:
+        description: "Force remote npm install/build/restart path"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: deploy-changmen-hongkong
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DIST_ARCHIVE: /tmp/changmen-dist.tgz
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend dist
+        run: npm run app:build
+
+      - name: Pack frontend dist
+        run: |
+          test -f client/web/dist/index.html
+          test -d client/web/dist/assets
+          ls client/web/dist/assets/index*.js >/dev/null
+          ls client/web/dist/assets/venue-all*.js >/dev/null
+          tar -C client/web/dist -czf "${DIST_ARCHIVE}" .
+          ls -lh "${DIST_ARCHIVE}"
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: /tmp/changmen-dist.tgz
+          retention-days: 3
+          if-no-files-found: error
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_REPO: ${{ secrets.DEPLOY_REPO }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST_HONGKONG }}
+      DEPLOY_FULL: ${{ github.event.inputs.full_deploy == 'true' && '1' || '0' }}
+      DIST_ARCHIVE: /tmp/changmen-dist.tgz
+      REPO_ARCHIVE: /tmp/changmen-repo.tgz
+      REMOTE_DEPLOY_SCRIPTS: /tmp/changmen-deploy
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve deploy host (hongkong)
+        run: |
+          if [ -z "${DEPLOY_HOST}" ]; then
+            echo "Missing secret DEPLOY_HOST_HONGKONG." >&2
+            exit 1
+          fi
+          test -n "${DEPLOY_SSH_KEY}" || (echo "Missing secret DEPLOY_SSH_KEY" && exit 1)
+          echo "DEPLOY_USER=${DEPLOY_USER:-root}" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+          echo "DEPLOY_REPO=${DEPLOY_REPO:-/root/changmen}" >> "$GITHUB_ENV"
+          echo "Deploying to 香港 (${DEPLOY_HOST})"
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: /tmp
+
+      - name: Pack app archive
+        run: |
+          test -f package.json
+          tar --format=ustar -czf "${REPO_ARCHIVE}" \
+            --exclude=node_modules \
+            --exclude=client/web/dist \
+            --exclude=client/web/node_modules \
+            .
+          ls -lh "${REPO_ARCHIVE}"
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${DEPLOY_PORT}" -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Upload app archive and deploy scripts (hongkong)
+        run: |
+          scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o Compression=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${REPO_ARCHIVE}" "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/changmen-repo.tgz"
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p ${REMOTE_DEPLOY_SCRIPTS}"
+          scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            deploy/scripts/apply-repo-archive.sh deploy/scripts/deploy-server-remote.sh \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_DEPLOY_SCRIPTS}/"
+
+      - name: Apply archive and service deploy (hongkong)
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -euo pipefail
+            export DEPLOY_REPO='${DEPLOY_REPO:-/root/changmen}' CHANGMEN_DEPLOY_SCRIPTS='${REMOTE_DEPLOY_SCRIPTS}' DEPLOY_SKIP_APP_BUILD=1 DEPLOY_FULL='${DEPLOY_FULL}'
+            if [ ! -d \"\${DEPLOY_REPO}/server/backend\" ] && [ -d /root/gamebet ]; then
+              echo '==> migrate /root/gamebet -> '\${DEPLOY_REPO}
+              mv /root/gamebet \"\${DEPLOY_REPO}\"
+            fi
+            bash ${REMOTE_DEPLOY_SCRIPTS}/apply-repo-archive.sh /tmp/changmen-repo.tgz"
+
+      - name: Upload frontend dist archive (hongkong)
+        run: |
+          scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o Compression=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DIST_ARCHIVE}" "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/changmen-dist-${GITHUB_SHA}.tgz"
+
+      - name: Atomically replace remote frontend dist (hongkong)
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -euo pipefail
+            archive='/tmp/changmen-dist-${GITHUB_SHA}.tgz'
+            app='${DEPLOY_REPO:-/root/changmen}/client/web'
+            tmp=\"\$app/dist.upload.${GITHUB_RUN_ID}\"
+            tar -tzf \"\$archive\" >/dev/null
+            rm -rf \"\$tmp\"
+            mkdir -p \"\$tmp\"
+            tar -xzf \"\$archive\" -C \"\$tmp\"
+            test -f \"\$tmp/index.html\"
+            test -d \"\$tmp/assets\"
+            ls \"\$tmp\"/assets/index*.js >/dev/null
+            ls \"\$tmp\"/assets/venue-all*.js >/dev/null
+            rm -rf \"\$app/dist.prev\"
+            if [ -d \"\$app/dist\" ]; then mv \"\$app/dist\" \"\$app/dist.prev\"; fi
+            mv \"\$tmp\" \"\$app/dist\"
+            rm -rf \"\$app/dist.prev\"
+            rm -f \"\$archive\" \"\$app/.deploy-needs-dist-upload\"
+            chmod 711 /root 2>/dev/null || true
+            chmod -R a+rX \"\$app/dist\""
+
+      - name: Run post-deploy check (hongkong)
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_REPO:-/root/changmen}/server/backend' && node scripts/post-deploy-check.mjs"
+
+      - name: Verify production homepage (hongkong)
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "curl -sf -o /dev/null http://127.0.0.1:3456/ || curl -sf -o /dev/null http://127.0.0.1/"
