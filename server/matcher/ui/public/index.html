@@ -203,6 +203,14 @@
     }
     .team-card.pending { border-color: #fbbf2440; }
     .team-card.matched { border-color: #4ade8040; }
+    .team-card.matched.linked-flash {
+      box-shadow: 0 0 0 2px #4ade80, 0 0 24px #4ade8055;
+      animation: linked-flash-pulse 0.9s ease-in-out 3;
+    }
+    @keyframes linked-flash-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px #4ade80, 0 0 16px #4ade8044; }
+      50% { box-shadow: 0 0 0 3px #86efac, 0 0 28px #4ade8099; }
+    }
     .team-card-header {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
       padding: 14px 16px 10px; border-bottom: 1px solid #334155;
@@ -2477,8 +2485,13 @@ async function confirmRecTeamMapping() {
       data = body;
     }
     hideLinkModal();
-    showActionToast(formatApiResultToast(data, '赛事关联成功'), 'ok', 5600);
-    await load();
+    const linkedCmId = data.client_match_id ?? cmId;
+    await load({ bustCache: true, focusCmId: linkedCmId });
+    showActionToast(
+      formatApiResultToast(data, '赛事关联成功') + `\n已从推荐组移除 · 见${linkedClientMatchColumnHint(linkedCmId)} #${linkedCmId}`,
+      'ok',
+      6200,
+    );
     await refreshMatcherStatus();
   } catch (err) {
     showActionToast(`赛事关联失败\n${err.message}`, 'err', 6000);
@@ -2720,9 +2733,27 @@ async function refreshMatcherStatus() {
   }
 }
 
-async function load() {
+function focusLinkedClientMatch(cmId) {
+  const id = Number(cmId);
+  if (!Number.isFinite(id)) return false;
+  const el = document.querySelector(`.team-card.matched[data-cm-id="${id}"]`);
+  if (!el) return false;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('linked-flash');
+  setTimeout(() => el.classList.remove('linked-flash'), 2800);
+  return true;
+}
+
+function linkedClientMatchColumnHint(cmId) {
+  const cm = (_lastData?.clientMatches || []).find(c => Number(c.id) === Number(cmId));
+  if (!cm) return '左/中栏已匹配列表';
+  return cm.merge_mode?.mode === 'id' ? '中栏「ID 已匹配」' : '左栏「队名已匹配」';
+}
+
+async function load(opts = {}) {
   try {
-    const { data: d } = await fetchJson('/api/data');
+    const url = opts.bustCache ? `/api/data?_=${Date.now()}` : '/api/data';
+    const { data: d } = await fetchJson(url);
     if (d.error) throw new Error(d.error);
     _lastData = d;
     const displayCms = filterDisplayClientMatches(d.clientMatches, d.platforms);
@@ -2747,6 +2778,7 @@ async function load() {
     bindMatchLinkDrag();
     scheduleRedrawCanonicalTeamLinks();
     document.getElementById('updated-at').textContent = '更新 ' + fmtTime(d.updatedAt || Date.now());
+    if (opts.focusCmId != null) focusLinkedClientMatch(opts.focusCmId);
   } catch (err) {
     const errHtml = `<div class="empty" style="color:#f87171">加载失败: ${esc(err.message)}</div>`;
     document.getElementById('matched-id-panels') && (document.getElementById('matched-id-panels').innerHTML = errHtml);

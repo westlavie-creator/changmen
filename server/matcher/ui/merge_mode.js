@@ -1,4 +1,4 @@
-import { isPlatformMatchRowFullyIdMapped } from "@changmen/db";
+import { isPlatformMatchRowFullyIdMapped, resolvePlatformMatchTeamId } from "@changmen/db";
 import { classifyMergeBasis, PROVIDER_PRIORITY, setTeamPlugin } from "@changmen/match-engine";
 import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
 
@@ -57,22 +57,38 @@ function classifyViaPlugin(rows) {
   );
 }
 
+function clientMatchHasLockedGbTeams(cm) {
+  const h = Number(cm?.home_gb_team_id);
+  const a = Number(cm?.away_gb_team_id);
+  return Number.isFinite(h) && h > 0 && Number.isFinite(a) && a > 0;
+}
+
+function rowsHavePlatformTeamIds(rows) {
+  return rows.every((row) => {
+    const gc = row.game?.code;
+    return !!resolvePlatformMatchTeamId(row, "home", gc)
+      && !!resolvePlatformMatchTeamId(row, "away", gc);
+  });
+}
+
 export function classifyClientMatchMergeMode(cm, byPlatform, teamMaps = null) {
   const rows = linkedPlatformRows(cm, byPlatform);
   if (!rows.length)
     return { mode: "unknown", label: "未知" };
 
-  const mode = teamMaps
-    ? rows.every(row => isPlatformMatchRowFullyIdMapped(row, teamMaps))
-      ? "id"
-      : "name"
-    : classifyViaPlugin(rows).every(m => m === "id")
-      ? "id"
-      : "name";
-
   const refPlat = [...rows].sort(
     (a, b) => (PROVIDER_PRIORITY[b.platform] || 0) - (PROVIDER_PRIORITY[a.platform] || 0),
   )[0].platform;
+
+  const idByTeamMaps = teamMaps
+    ? rows.every(row => isPlatformMatchRowFullyIdMapped(row, teamMaps))
+    : classifyViaPlugin(rows).every(m => m === "id");
+
+  const idByLockedGb = clientMatchHasLockedGbTeams(cm)
+    && rows.length >= 2
+    && rowsHavePlatformTeamIds(rows);
+
+  const mode = (idByTeamMaps || idByLockedGb) ? "id" : "name";
 
   return {
     mode,

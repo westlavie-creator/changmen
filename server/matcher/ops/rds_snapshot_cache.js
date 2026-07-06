@@ -188,14 +188,29 @@ export function invalidateMatcherRdsSnapshot(keys = []) {
   for (const key of targetKeys) entries.delete(key);
 }
 
+async function resolveClientRowsForSnapshot() {
+  const memRows = getClientMatchRowsForSnapshot();
+  const [meta, rdsRows] = await Promise.all([
+    db.fetchClientMatchesMeta(),
+    db.fetchClientMatches(),
+  ]);
+  const rows = rdsRows || [];
+  if (!memRows.length)
+    return rows;
+  const memBuiltAt = Math.max(...memRows.map(r => Number(r.built_at) || 0), 0);
+  const rdsBuiltAt = Number(meta?.builtAt) || 0;
+  const rdsCount = Number(meta?.count) || 0;
+  if (rdsBuiltAt > memBuiltAt || rdsCount !== memRows.length)
+    return rows;
+  return memRows;
+}
+
 async function fetchEmbeddedMemorySnapshot() {
   const full = store.getCollectorFullSnapshot?.();
   if (!full?.hasMatches && !full?.hasBets)
     return null;
 
-  let clientRows = getClientMatchRowsForSnapshot();
-  if (!clientRows.length)
-    clientRows = await db.fetchClientMatches() || [];
+  const clientRows = await resolveClientRowsForSnapshot();
 
   const rdsMatchesRaw = await db.fetchPlatformMatches();
   const rdsBets = await db.fetchPlatformBets();
