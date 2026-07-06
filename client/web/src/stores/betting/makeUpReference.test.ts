@@ -74,7 +74,7 @@ describe("resolveMakeUpSuccessReference", () => {
       false,
       pmAccount,
     );
-    expect(ref).toEqual({ betMoney: 98, betOdds: 1.695 });
+    expect(ref).toEqual({ betMoney: 95.2, betOdds: 1.695 });
   });
 
   it("converts unscaled PM venue order USDC to CNY", () => {
@@ -88,7 +88,7 @@ describe("resolveMakeUpSuccessReference", () => {
       false,
       pmAccount,
     );
-    expect(ref).toEqual({ betMoney: 98, betOdds: 1.695 });
+    expect(ref).toEqual({ betMoney: 95.2, betOdds: 1.695 });
   });
 
   it("keeps scaled PM venue order CNY betMoney", () => {

@@ -4,6 +4,7 @@ import {
   placeholderLinkFromCreateAt,
 } from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
+import { Currency, getExchange } from "@changmen/shared/currency";
 import { isAdminUser } from "../auth/admin_auth.js";
 
 export function toDateKey(ts) {
@@ -91,7 +92,7 @@ function rowToOrder(r) {
   if (raw.pmSide === "sell") {
     const costUsdc = parseNum(raw.pmStakeUsdc, 0);
     if (costUsdc > 0 && betMoney > 0)
-      money = Math.round(betMoney - costUsdc * 7);
+      money = Math.round(betMoney - costUsdc * getExchange(Currency.USDT));
   }
   return {
     OrderID: r.order_id,
@@ -169,9 +170,9 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       merged.money = money;
       const costUsdc = parseNum(merged.pmStakeUsdc ?? prevRaw.pmStakeUsdc, 0);
       if (costUsdc > 0 && bet_money > 0) {
-        const profitCny = Math.round(bet_money - costUsdc * 7);
+        const profitCny = Math.round(bet_money - costUsdc * getExchange(Currency.USDT));
         merged.money = profitCny;
-        merged.pmRealizedPnlUsdc = Math.round((profitCny / 7) * 10000) / 10000;
+        merged.pmRealizedPnlUsdc = Math.round((profitCny / getExchange(Currency.USDT)) * 10000) / 10000;
         money = profitCny;
       }
       return { raw: merged, money, bet_money };
@@ -190,9 +191,9 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     bet_money = parseNum(merged.betMoney, proceedsBet);
     const costUsdc = parseNum(merged.pmStakeUsdc, 0);
     if (costUsdc > 0 && bet_money > 0) {
-      const profitCny = Math.round(bet_money - costUsdc * 7);
+      const profitCny = Math.round(bet_money - costUsdc * getExchange(Currency.USDT));
       merged.money = profitCny;
-      merged.pmRealizedPnlUsdc = Math.round((profitCny / 7) * 10000) / 10000;
+      merged.pmRealizedPnlUsdc = Math.round((profitCny / getExchange(Currency.USDT)) * 10000) / 10000;
       money = profitCny;
     }
     else {

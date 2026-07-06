@@ -62,7 +62,7 @@ describe("retryFailedLeg stake (A8 anyOdds + PM CNY)", () => {
       2.63,
       pmAccount,
     );
-    expect(stake).toBe(63);
+    expect(stake).toBe(61);
   });
 
   it("matches raw betMoney for CNY success leg", () => {

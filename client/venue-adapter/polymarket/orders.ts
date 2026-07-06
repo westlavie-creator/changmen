@@ -2,7 +2,7 @@ import type { VenueOrder } from "@venue/contract";
 import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { resolveDisplayCnyFromVenueUsdc } from "@venue/adaptation/a8VenueMoney";
-import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
+import { getExchange, Currency } from "@changmen/shared/currency";
 import { PLATFORMS } from "@/shared/platform";
 import { POLYMARKET_CLOB_API, POLYMARKET_GAMMA_API } from "./api";
 import {
@@ -782,13 +782,13 @@ function reconcileExternalPolymarketOrders(orders: VenueOrder[]): VenueOrder[] {
 function storedVenueOrderToUsdc(stored: VenueOrder): VenueOrder {
   const stakeUsdc = Number(stored.pmStakeUsdc) || 0;
   const betUsdc = stored.pmSide === "sell"
-    ? round4((Number(stored.betMoney) || 0) / USDT_CNY_EXCHANGE)
-    : (stakeUsdc > 0 ? stakeUsdc : round4((Number(stored.betMoney) || 0) / USDT_CNY_EXCHANGE));
+    ? round4((Number(stored.betMoney) || 0) / getExchange(Currency.USDT))
+    : (stakeUsdc > 0 ? stakeUsdc : round4((Number(stored.betMoney) || 0) / getExchange(Currency.USDT)));
   return {
     ...stored,
     pmOrigin: "changmen",
     betMoney: betUsdc,
-    money: round4((Number(stored.money) || 0) / USDT_CNY_EXCHANGE),
+    money: round4((Number(stored.money) || 0) / getExchange(Currency.USDT)),
     pmStakeUsdc: stakeUsdc > 0 ? stakeUsdc : (stored.pmSide === "buy" ? betUsdc : stakeUsdc),
   };
 }

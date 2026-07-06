@@ -20,7 +20,7 @@ describe("pmArbStake", () => {
       playerName: "pm",
       currency: "USDT",
     });
-    expect(legStakeCny(14, "Polymarket", pmAccount)).toBe(98);
+    expect(legStakeCny(14, "Polymarket", pmAccount)).toBe(95.2);
   });
 
   it("hedgeStakeCnyFromLeg uses PM success stake in CNY", () => {
@@ -30,7 +30,7 @@ describe("pmArbStake", () => {
       playerName: "pm",
       currency: "USDT",
     });
-    expect(hedgeStakeCnyFromLeg(1.695, 14, "Polymarket", 2.63, pmAccount)).toBe(63);
+    expect(hedgeStakeCnyFromLeg(1.695, 14, "Polymarket", 2.63, pmAccount)).toBe(61);
   });
 
   it("splitPmA8Legs identifies PM leg on either side", () => {

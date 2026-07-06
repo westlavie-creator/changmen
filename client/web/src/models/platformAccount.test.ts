@@ -44,7 +44,7 @@ describe("platformAccount currency exchange", () => {
   it("getBalance 按汇率换算为 CNY 口径", () => {
     const acc = makeAccount({ currency: "USDT" });
     acc.balance = 10;
-    expect(acc.getBalance()).toBe(70);
+    expect(acc.getBalance()).toBe(68);
   });
 
   it("getBetMoney 先将 CNY 金额按账号汇率折算", () => {

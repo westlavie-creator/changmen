@@ -4,9 +4,6 @@ export const DEFAULT_MULTIPLY = 1;
 /** @deprecated 使用 DEFAULT_MULTIPLY */
 export const PB_MULTIPLY_DEFAULT = DEFAULT_MULTIPLY;
 
-/** 对齐 A8 `Pr.exchange`：USDT 余额/订单展示换算 CNY 口径 */
-export const USDT_CNY_EXCHANGE = 7;
-
 export function isPolymarketProvider(provider: unknown): boolean {
   return String(provider ?? "").trim().toLowerCase() === "polymarket";
 }
@@ -44,13 +41,6 @@ export function venueStakeFromBetMoney(
 
 export function scaleVenueMoney(raw: number, multiply: unknown): number {
   return raw * accountMultiplyScale(multiply);
-}
-
-/** Polymarket：链上 USDC → 与 config.betMoney 一致的 CNY 展示口径 */
-export function scaleUsdtToCnyDisplay(usdt: number): number {
-  if (!Number.isFinite(usdt))
-    return 0;
-  return usdt * USDT_CNY_EXCHANGE;
 }
 
 /**

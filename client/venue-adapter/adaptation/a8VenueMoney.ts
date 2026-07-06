@@ -7,17 +7,14 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
 import {
-  isPolymarketProvider,
+  getExchange,
   scaleUsdtToCnyDisplay,
-  USDT_CNY_EXCHANGE,
-} from "@changmen/shared/account_multiply";
+} from "@changmen/shared/currency";
+import { isPolymarketProvider } from "@changmen/shared/account_multiply";
 import { polymarketCnyFromUsdt, polymarketUsdtFromCny } from "@venue/polymarket/pmStake";
 
 function venueToPlanExchange(account: PlatformAccount): number {
-  const c = String(account.currency ?? "CNY").toUpperCase();
-  if (c === "USDT" || c === "USD")
-    return USDT_CNY_EXCHANGE;
-  return 1;
+  return getExchange(account.currency);
 }
 
 /** Plan CNY → 场馆下注 stake（`betGateway.checkBetting` 唯一换算入口） */

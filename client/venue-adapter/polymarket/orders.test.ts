@@ -649,8 +649,8 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       item: "",
       pmSide: "sell" as const,
     }]);
-    expect(scaled[0]?.betMoney).toBe(12 * 7);
-    expect(scaled[0]?.money).toBe(2 * 7);
+    expect(scaled[0]?.betMoney).toBeCloseTo(12 * 6.8, 5);
+    expect(scaled[0]?.money).toBeCloseTo(2 * 6.8, 5);
   });
 });
 

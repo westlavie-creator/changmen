@@ -19,15 +19,15 @@ describe("a8VenueMoney (A8 adaptation)", () => {
     expect(resolvePlanCnyFromVenueStake(acc, 80)).toBe(80);
   });
 
-  it("USDT account on A8 venue: plan ÷7 for venue, ×7 back to plan", () => {
+  it("USDT account on A8 venue: plan ÷exchange for venue, ×exchange back to plan", () => {
     const acc = new PlatformAccount({
       accountId: 2,
       provider: "RAY",
       playerName: "u",
       currency: "USDT",
     });
-    expect(resolveVenueStakeFromPlanCny(acc, 70, 2)).toBe(10);
-    expect(resolvePlanCnyFromVenueStake(acc, 10)).toBe(70);
+    expect(resolveVenueStakeFromPlanCny(acc, 68, 2)).toBe(10);
+    expect(resolvePlanCnyFromVenueStake(acc, 10)).toBe(68);
   });
 
   it("Polymarket: plan CNY ↔ USDC via pmStake", () => {
@@ -37,8 +37,8 @@ describe("a8VenueMoney (A8 adaptation)", () => {
       playerName: "pm",
       currency: "USDT",
     });
-    expect(resolveVenueStakeFromPlanCny(acc, 98, 1.695)).toBe(14);
-    expect(resolvePlanCnyFromVenueStake(acc, 14)).toBe(98);
+    expect(resolveVenueStakeFromPlanCny(acc, 98, 1.695)).toBe(14.41);
+    expect(resolvePlanCnyFromVenueStake(acc, 14)).toBe(95.2);
   });
 
   it("resolvePlanCnyFromVenueOrder handles scaled and unscaled PM orders", () => {
@@ -53,7 +53,7 @@ describe("a8VenueMoney (A8 adaptation)", () => {
         betMoney: 14,
         pmStakeUsdc: 14,
       } as never),
-    ).toBe(98);
+    ).toBe(95.2);
     expect(
       resolvePlanCnyFromVenueOrder(acc, {
         betMoney: 98,
@@ -63,6 +63,6 @@ describe("a8VenueMoney (A8 adaptation)", () => {
   });
 
   it("resolveDisplayCnyFromVenueUsdc uses shared exchange", () => {
-    expect(resolveDisplayCnyFromVenueUsdc(14)).toBe(98);
+    expect(resolveDisplayCnyFromVenueUsdc(14)).toBe(95.2);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
+import { Currency, getExchange } from "@changmen/shared/currency";
 import {
   hasOpenPolymarketPosition,
   resolveBuyStakeUsdc,
@@ -25,8 +25,8 @@ describe("pmLogicalPosition", () => {
 
   it("resolveBuyStakeUsdc falls back from CNY BetMoney when pmStakeUsdc missing", () => {
     const buy = venueOrderFromOrderRow({ ...baseRow, PmStakeUsdc: undefined, BetMoney: 70 });
-    expect(resolveBuyStakeUsdc(buy)).toBe(10);
-    expect(USDT_CNY_EXCHANGE).toBe(7);
+    expect(resolveBuyStakeUsdc(buy)).toBeCloseTo(10.2941, 4);
+    expect(getExchange(Currency.USDT)).toBe(6.8);
   });
 
   it("resolvePmRemainingShares subtracts attributed sells", () => {

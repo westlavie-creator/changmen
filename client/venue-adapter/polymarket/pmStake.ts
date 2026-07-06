@@ -1,9 +1,6 @@
 import type { PlatformAccount } from "@/models/platformAccount";
-import {
-  POLYMARKET_MIN_VENUE_STAKE,
-  USDT_CNY_EXCHANGE,
-} from "@changmen/shared/account_multiply";
-import { getExchange } from "@/shared/currency";
+import { POLYMARKET_MIN_VENUE_STAKE } from "@changmen/shared/account_multiply";
+import { Currency, getExchange } from "@changmen/shared/currency";
 
 /** PM 下注 USDC 精度：小数点后 2 位 */
 export function round2Usdc(n: number): number {
@@ -25,16 +22,13 @@ function resolvePolymarketEffectiveRate(account: PlatformAccount, odds: number):
   return rate;
 }
 
-/** CNY 计划额 → PM 场馆 USDC（保留 2 位小数） */
+/** CNY 计划额 → PM 场馆 USDC（保留 2 位小数；汇率走 A8 getExchange） */
 export function polymarketUsdtFromCny(
   account: PlatformAccount,
   cnyAmount: number,
   odds: number,
 ): number {
-  const exchange = getExchange(account.currency) > 1
-    ? getExchange(account.currency)
-    : USDT_CNY_EXCHANGE;
-  let usdt = round2Usdc(cnyAmount / exchange);
+  let usdt = round2Usdc(cnyAmount / getExchange(account.currency));
   if (!account.rateConfig?.length)
     return usdt;
   const rate = resolvePolymarketEffectiveRate(account, odds);
@@ -45,7 +39,7 @@ export function polymarketUsdtFromCny(
 
 /** PM 场馆 USDC → CNY 计划额（与 round2Usdc 对齐，避免 round-trip 漂移） */
 export function polymarketCnyFromUsdt(usdtAmount: number): number {
-  return round2Usdc(round2Usdc(usdtAmount) * USDT_CNY_EXCHANGE);
+  return round2Usdc(round2Usdc(usdtAmount) * getExchange(Currency.USDT));
 }
 
 /** checkBet / betting 最终下单 USDC */

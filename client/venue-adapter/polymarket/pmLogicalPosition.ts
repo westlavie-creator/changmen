@@ -1,6 +1,6 @@
 import type { VenueOrder, VenueOrderStatus } from "@venue/contract";
 import type { PolymarketSellState } from "@venue/contract";
-import { USDT_CNY_EXCHANGE } from "@changmen/shared/account_multiply";
+import { getExchange, Currency } from "@changmen/shared/currency";
 
 export interface OrderRowLike {
   OrderID?: number | string;
@@ -46,7 +46,7 @@ export function resolvePmRemainingShares(order: OrderRowLike | VenueOrder): numb
   return round4(Math.max(0, fill - attributed));
 }
 
-/** 买单成本（USDC）：pmStakeUsdc 优先，否则 BetMoney(CNY) ÷ 7 */
+/** 买单成本（USDC）：pmStakeUsdc 优先，否则 BetMoney(CNY) ÷ exchange */
 export function resolveBuyStakeUsdc(buy: VenueOrder | OrderRowLike): number {
   const venue = buy as VenueOrder;
   const row = buy as OrderRowLike;
@@ -55,7 +55,7 @@ export function resolveBuyStakeUsdc(buy: VenueOrder | OrderRowLike): number {
     return round4(stakeUsdc);
   const betDisplay = Number(venue.betMoney ?? row.BetMoney) || 0;
   if (betDisplay > 0)
-    return round4(betDisplay / USDT_CNY_EXCHANGE);
+    return round4(betDisplay / getExchange(Currency.USDT));
   return 0;
 }
 
