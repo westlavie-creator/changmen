@@ -16,23 +16,46 @@ if [ "$ROOT" = /root/changmen ] && [ ! -d "$ROOT" ] && [ -d /root/gamebet ]; the
   mv /root/gamebet /root/changmen
 fi
 
+# Legacy GitHub secret DEPLOY_REPO=/root/gamebet while app already lives at /root/changmen.
+if [ "$ROOT" = /root/gamebet ] && [ -d /root/changmen/server/backend ]; then
+  echo "==> normalize DEPLOY_REPO /root/gamebet -> /root/changmen"
+  ROOT=/root/changmen
+  export DEPLOY_REPO="$ROOT"
+fi
+
 PERSIST_SECRETS="$ROOT/.deploy-secrets"
 
 merge_secrets_to_persist() {
   mkdir -p "$PERSIST_SECRETS"
-  local base
+  local base persist
   for base in \
     "$ROOT/server/backend" \
     "$ROOT/changmen/server/backend" \
     "$ROOT/changmen/changmen/server/backend" \
-    /root/gamebet/changmen/server/backend \
-    /root/gamebet/server/backend; do
+    /root/changmen/server/backend \
+    /root/gamebet/server/backend \
+    /root/gamebet/changmen/server/backend; do
     if [ -f "$base/.env" ]; then
       cp -a "$base/.env" "$PERSIST_SECRETS/backend.env"
     fi
     if [ -d "$base/storage" ]; then
       rm -rf "$PERSIST_SECRETS/storage"
       cp -a "$base/storage" "$PERSIST_SECRETS/storage"
+    fi
+  done
+  for persist in \
+    /root/changmen/.deploy-secrets/backend.env \
+    /root/gamebet/.deploy-secrets/backend.env; do
+    if [ -f "$persist" ]; then
+      cp -a "$persist" "$PERSIST_SECRETS/backend.env"
+    fi
+  done
+  for persist in \
+    /root/changmen/.deploy-secrets/storage \
+    /root/gamebet/.deploy-secrets/storage; do
+    if [ -d "$persist" ]; then
+      rm -rf "$PERSIST_SECRETS/storage"
+      cp -a "$persist" "$PERSIST_SECRETS/storage"
     fi
   done
 }
@@ -52,6 +75,7 @@ preserve_backend_secrets() {
 }
 
 restore_backend_secrets() {
+  merge_secrets_to_persist
   local backup="${PRESERVE_BACKUP:-}"
   mkdir -p "$ROOT/server/backend" "$PERSIST_SECRETS"
   if [ -n "$backup" ] && [ -f "$backup/.env" ]; then
