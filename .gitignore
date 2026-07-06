@@ -4,6 +4,8 @@ BAT/
 pingtai_offical/
 obpro/
 vps/
+.claude/
+.gstack/
 
 # Dependencies
 node_modules/
