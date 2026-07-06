@@ -68,12 +68,20 @@ pull_repo() {
   git reset --hard "origin/${branch}"
 }
 
-cd "$GIT_ROOT"
+cd "$CHANGMEN"
 if [ "${DEPLOY_SKIP_GIT_PULL:-0}" = "1" ]; then
-  OLD_HEAD="${DEPLOY_OLD_HEAD:-$(git rev-parse HEAD 2>/dev/null || echo "")}"
-  NEW_HEAD="${DEPLOY_NEW_HEAD:-$(git rev-parse HEAD)}"
+  OLD_HEAD="${DEPLOY_OLD_HEAD:-}"
+  NEW_HEAD="${DEPLOY_NEW_HEAD:-}"
+  if [ -d "$GIT_ROOT/.git" ]; then
+    [ -n "$OLD_HEAD" ] || OLD_HEAD="$(git -C "$GIT_ROOT" rev-parse HEAD 2>/dev/null || true)"
+    [ -n "$NEW_HEAD" ] || NEW_HEAD="$(git -C "$GIT_ROOT" rev-parse HEAD 2>/dev/null || true)"
+  fi
+  if [ -z "$OLD_HEAD" ] && [ -z "$NEW_HEAD" ]; then
+    OLD_HEAD="archive"
+    NEW_HEAD="archive"
+  fi
   log "skip git pull (archive sync) ${OLD_HEAD:0:8}..${NEW_HEAD:0:8}"
-elif [ ! -d .git ]; then
+elif [ ! -d "$GIT_ROOT/.git" ]; then
   echo "ERROR: $GIT_ROOT is not a git repo."
   exit 1
 else
