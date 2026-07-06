@@ -348,6 +348,35 @@ if command -v pm2 >/dev/null 2>&1; then
   if [ "${#PM2_TARGETS[@]}" -gt 0 ]; then
     log "pm2 restart ${PM2_TARGETS[*]}"
     for target in "${PM2_TARGETS[@]}"; do
+      recreate=0
+      if [ "${DEPLOY_SKIP_GIT_PULL:-0}" = "1" ]; then
+        recreate=1
+      elif pm2 describe "$target" >/dev/null 2>&1; then
+        case "$target" in
+          "$PM2_WEB")
+            expected_cwd="$CHANGMEN/server/backend"
+            ;;
+          "$PM2_PM_SPORTS")
+            expected_cwd="$CHANGMEN/server/polymarket-sports"
+            ;;
+          "$PM2_MATCHER")
+            expected_cwd="$CHANGMEN/server/matcher"
+            ;;
+          *)
+            expected_cwd=""
+            ;;
+        esac
+        if [ -n "$expected_cwd" ]; then
+          actual_cwd="$(pm2 show "$target" 2>/dev/null | sed -n 's/.*exec cwd[[:space:]]*│[[:space:]]*//p' | head -1 | xargs || true)"
+          if [ -n "$actual_cwd" ] && [ "$actual_cwd" != "$expected_cwd" ]; then
+            log "pm2 $target cwd drift ($actual_cwd != $expected_cwd); recreate from ecosystem"
+            recreate=1
+          fi
+        fi
+      fi
+      if [ "$recreate" = "1" ] && pm2 describe "$target" >/dev/null 2>&1; then
+        pm2 delete "$target" >/dev/null 2>&1 || true
+      fi
       if pm2 describe "$target" >/dev/null 2>&1; then
         pm2 restart "$target" --update-env
       else
