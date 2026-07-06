@@ -364,24 +364,31 @@ else
 fi
 
 if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
-  log "post-deploy check (orders upsert + admin telegram)"
-  (cd server/backend && node scripts/post-deploy-check.mjs)
-  log "post-deploy check passed"
-  if [ "$MATCHER_EMBEDDED" = "1" ]; then
-    log "wait embedded matcher heartbeat"
-    for i in $(seq 1 45); do
-      if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'embedded' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
-        log "embedded matcher heartbeat ok"
-        break
-      fi
-      if [ "$i" = "45" ]; then
-        echo "ERROR: embedded matcher heartbeat not ready"
-        node --input-type=module -e "import { readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; console.error('heartbeat:', JSON.stringify(readMatcherHeartbeat()));" || true
-        pm2 logs "$PM2_WEB" --lines 40 --nostream 2>/dev/null || true
-        exit 1
-      fi
-      sleep 3
-    done
+  if [ "${DEPLOY_SKIP_POSTCHECK:-0}" = "1" ]; then
+    log "skip post-deploy check (GHA runs after dist upload)"
+  elif [ ! -f "$CHANGMEN/server/backend/.env" ]; then
+    echo "ERROR: missing $CHANGMEN/server/backend/.env before post-deploy check"
+    exit 1
+  else
+    log "post-deploy check (orders upsert + admin telegram)"
+    (cd server/backend && node scripts/post-deploy-check.mjs)
+    log "post-deploy check passed"
+    if [ "$MATCHER_EMBEDDED" = "1" ]; then
+      log "wait embedded matcher heartbeat"
+      for i in $(seq 1 45); do
+        if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'embedded' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
+          log "embedded matcher heartbeat ok"
+          break
+        fi
+        if [ "$i" = "45" ]; then
+          echo "ERROR: embedded matcher heartbeat not ready"
+          node --input-type=module -e "import { readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; console.error('heartbeat:', JSON.stringify(readMatcherHeartbeat()));" || true
+          pm2 logs "$PM2_WEB" --lines 40 --nostream 2>/dev/null || true
+          exit 1
+        fi
+        sleep 3
+      done
+    fi
   fi
 fi
 

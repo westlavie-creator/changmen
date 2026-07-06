@@ -137,7 +137,7 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "set -euo pipefail
-            export DEPLOY_REPO='${DEPLOY_REPO:-/root/changmen}' CHANGMEN_DEPLOY_SCRIPTS='${REMOTE_DEPLOY_SCRIPTS}' DEPLOY_SKIP_APP_BUILD=1 DEPLOY_FULL='${DEPLOY_FULL}'
+            export DEPLOY_REPO='${DEPLOY_REPO:-/root/changmen}' CHANGMEN_DEPLOY_SCRIPTS='${REMOTE_DEPLOY_SCRIPTS}' DEPLOY_SKIP_APP_BUILD=1 DEPLOY_SKIP_POSTCHECK=1 DEPLOY_FULL='${DEPLOY_FULL}'
             if [ ! -d \"\${DEPLOY_REPO}/server/backend\" ] && [ -d /root/gamebet ]; then
               echo '==> migrate /root/gamebet -> '\${DEPLOY_REPO}
               mv /root/gamebet \"\${DEPLOY_REPO}\"

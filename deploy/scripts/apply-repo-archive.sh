@@ -16,35 +16,63 @@ if [ "$ROOT" = /root/changmen ] && [ ! -d "$ROOT" ] && [ -d /root/gamebet ]; the
   mv /root/gamebet /root/changmen
 fi
 
+PERSIST_SECRETS="$ROOT/.deploy-secrets"
+
+merge_secrets_to_persist() {
+  mkdir -p "$PERSIST_SECRETS"
+  local base
+  for base in \
+    "$ROOT/server/backend" \
+    "$ROOT/changmen/server/backend" \
+    "$ROOT/changmen/changmen/server/backend" \
+    /root/gamebet/changmen/server/backend \
+    /root/gamebet/server/backend; do
+    if [ -f "$base/.env" ]; then
+      cp -a "$base/.env" "$PERSIST_SECRETS/backend.env"
+    fi
+    if [ -d "$base/storage" ]; then
+      rm -rf "$PERSIST_SECRETS/storage"
+      cp -a "$base/storage" "$PERSIST_SECRETS/storage"
+    fi
+  done
+}
+
 preserve_backend_secrets() {
+  merge_secrets_to_persist
   local backup="/tmp/changmen-preserve.$$"
   rm -rf "$backup"
   mkdir -p "$backup"
-  for base in "$ROOT/server/backend" "$ROOT/changmen/server/backend" "$ROOT/changmen/changmen/server/backend"; do
-    if [ -f "$base/.env" ]; then
-      cp -a "$base/.env" "$backup/.env"
-    fi
-    if [ -d "$base/storage" ]; then
-      rm -rf "$backup/storage"
-      cp -a "$base/storage" "$backup/storage"
-    fi
-  done
+  if [ -f "$PERSIST_SECRETS/backend.env" ]; then
+    cp -a "$PERSIST_SECRETS/backend.env" "$backup/.env"
+  fi
+  if [ -d "$PERSIST_SECRETS/storage" ]; then
+    cp -a "$PERSIST_SECRETS/storage" "$backup/storage"
+  fi
   PRESERVE_BACKUP="$backup"
 }
 
 restore_backend_secrets() {
   local backup="${PRESERVE_BACKUP:-}"
-  [ -n "$backup" ] || return 0
-  mkdir -p "$ROOT/server/backend"
-  if [ -f "$backup/.env" ]; then
+  mkdir -p "$ROOT/server/backend" "$PERSIST_SECRETS"
+  if [ -n "$backup" ] && [ -f "$backup/.env" ]; then
     cp -a "$backup/.env" "$ROOT/server/backend/.env"
+    cp -a "$backup/.env" "$PERSIST_SECRETS/backend.env"
+  elif [ -f "$PERSIST_SECRETS/backend.env" ]; then
+    cp -a "$PERSIST_SECRETS/backend.env" "$ROOT/server/backend/.env"
   fi
-  if [ -d "$backup/storage" ]; then
+  if [ -n "$backup" ] && [ -d "$backup/storage" ]; then
     rm -rf "$ROOT/server/backend/storage"
     cp -a "$backup/storage" "$ROOT/server/backend/storage"
+    rm -rf "$PERSIST_SECRETS/storage"
+    cp -a "$backup/storage" "$PERSIST_SECRETS/storage"
+  elif [ -d "$PERSIST_SECRETS/storage" ]; then
+    rm -rf "$ROOT/server/backend/storage"
+    cp -a "$PERSIST_SECRETS/storage" "$ROOT/server/backend/storage"
   fi
-  rm -rf "$backup"
-  PRESERVE_BACKUP=""
+  if [ -n "$backup" ]; then
+    rm -rf "$backup"
+    PRESERVE_BACKUP=""
+  fi
 }
 
 flatten_legacy_nested_repo() {
@@ -77,7 +105,7 @@ flatten_legacy_nested_repo() {
   rm -rf "$staging"
   mkdir -p "$staging"
   cp -a "$nested/." "$staging/"
-  find "$ROOT" -mindepth 1 -maxdepth 1 ! -name '.env' -exec rm -rf {} +
+  find "$ROOT" -mindepth 1 -maxdepth 1 ! -name '.env' ! -name '.deploy-secrets' -exec rm -rf {} +
   shopt -s dotglob nullglob
   mv "$staging"/* "$ROOT/"
   shopt -u dotglob nullglob
@@ -102,6 +130,7 @@ if [ "${FLATTEN_ONLY:-0}" != "1" ]; then
   tar -tzf "$ARCHIVE" >/dev/null
 fi
 
+merge_secrets_to_persist
 flatten_legacy_nested_repo
 preserve_backend_secrets
 
@@ -123,6 +152,11 @@ fi
 tar --warning=no-unknown-keyword -xzf "$ARCHIVE" -C "$ROOT" \
   --exclude='./server/backend/.env' \
   --exclude='./server/backend/storage'
+
+if [ ! -f "$ROOT/server/backend/.env" ] && [ ! -f "$PERSIST_SECRETS/backend.env" ]; then
+  echo "ERROR: missing server/backend/.env on VPS (configure once, then kept in $PERSIST_SECRETS)"
+  exit 1
+fi
 
 restore_backend_secrets
 cleanup_flat_deploy_root
