@@ -1,6 +1,6 @@
 # 启动与运维脚本
 
-Windows 批处理在 [`../../BAT/`](../../BAT/README.md)。在仓库根目录 `gamebet/` 下执行，例如 `BAT\dev.bat`（`npm run` 仍在 `changmen/`）。
+Windows 批处理在本地 `BAT\`（不进 GitHub，见 [LOCAL_DEV.md](../LOCAL_DEV.md)）。`npm run` 在**本仓库根**执行。
 
 文档总索引：[docs/README.md](../docs/README.md)。
 
@@ -35,10 +35,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 ## VPS 部署配置
 
-生产 VPS 的 Caddy、PM2、部署/迁移脚本已集中到 **[`../../vps/`](../../vps/README.md)**。  
-`changmen/scripts/*.sh` 与 `changmen/ecosystem.config.cjs` 仅为兼容转发。
-
-## `changmen/scripts/`（开发 / 运维辅助）
+见 **[`deploy/`](../deploy/README.md)**（Caddy、PM2、tarball 部署脚本）。
 
 | 脚本 | 作用 |
 |------|------|
@@ -46,7 +43,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 ## `server/backend/scripts/`（后端运维）
 
-在 `changmen/server/backend` 下执行，或 `node scripts/<name>`。
+在 `server/backend` 下执行，或 `node scripts/<name>`。
 
 | 脚本 | 作用 |
 |------|------|
@@ -65,9 +62,8 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 | 旧名 | 现用 |
 |------|------|
-| `changmen/BAT/`（已迁至仓库根） | → `BAT\dev.bat`（在 `gamebet/` 下执行） |
-| `gamebet_backend/start-web.bat`（已移除） | → `BAT\backend.bat` |
-| `gamebet_backend/` 目录（已移除） | → `server/backend/` |
+| `gamebet/changmen/` 嵌套 | 本仓库根即应用 |
+| `vps/` | `deploy/` |
 
 ## 环境变量
 
@@ -83,7 +79,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 | 脚本 | 作用 |
 |------|------|
-| **[`vps/ecosystem.config.cjs`](../../vps/ecosystem.config.cjs)** | PM2：默认 `changmen-web` 内嵌 matcher |
+| **[`deploy/ecosystem.config.cjs`](../deploy/ecosystem.config.cjs)** | PM2：默认 `changmen-web` 内嵌 matcher |
 | **`BAT\deploy-shanghai.bat`** | 更新上海 VPS（本机 tarball + 增量部署） |
 | **`BAT\deploy-hongkong.bat`** | 手动更新香港 VPS（日常 GHA 自动） |
 | **`BAT\push-git.bat`** | 本机 git commit + push |

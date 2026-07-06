@@ -1,6 +1,6 @@
-# gamebet — 多平台电竞赔率聚合（客户端 + 服务端）
+# changmen — 多平台电竞赔率聚合
 
-> **与 A8 的关系**：A8（`api.a8.to`）是第三方聚合平台。上级目录 [`../A8/A8frontendscipts/`](../A8/A8frontendscipts/) 为参考 bundle，**仅供阅读逆向，禁止引用**。
+> A8 参考材料在本地 `A8/`（不进 GitHub）。bundle：`A8/A8frontendscipts/2.0.1/index.js`。
 
 ## 项目共识
 
@@ -28,9 +28,7 @@
 
 ## 工作目录
 
-**`npm run` 在 `changmen/` 下执行**；**`.bat` 在仓库根目录 `gamebet/` 下执行**（如 `BAT\dev.bat`，脚本会自动进入 `changmen/`）。首次配置：运行 `BAT\setup-dev-env.bat` 从 `.env.example` 生成 `server/backend/.env`，编辑 `JWT_SECRET` 与 `DATABASE_URL`。
-
-若 Git 仓库根是 `gamebet/`，可在该目录执行 `npm run web`（根 `package.json` 转发到 changmen）。说明见 [scripts/README.md](./scripts/README.md)。
+**本仓库即应用根**：在仓库根执行 `npm run web`、`npm run app:dev`。Windows 批处理在本地 `BAT\`（见 [LOCAL_DEV.md](./LOCAL_DEV.md)）。
 
 ## 数据职责
 
