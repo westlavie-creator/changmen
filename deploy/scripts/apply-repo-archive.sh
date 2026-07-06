@@ -46,14 +46,14 @@ merge_secrets_to_persist() {
   for persist in \
     /root/changmen/.deploy-secrets/backend.env \
     /root/gamebet/.deploy-secrets/backend.env; do
-    if [ -f "$persist" ]; then
+    if [ -f "$persist" ] && [ "$persist" != "$PERSIST_SECRETS/backend.env" ]; then
       cp -a "$persist" "$PERSIST_SECRETS/backend.env"
     fi
   done
   for persist in \
     /root/changmen/.deploy-secrets/storage \
     /root/gamebet/.deploy-secrets/storage; do
-    if [ -d "$persist" ]; then
+    if [ -d "$persist" ] && [ "$persist" != "$PERSIST_SECRETS/storage" ]; then
       rm -rf "$PERSIST_SECRETS/storage"
       cp -a "$persist" "$PERSIST_SECRETS/storage"
     fi
