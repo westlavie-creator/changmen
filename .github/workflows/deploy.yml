@@ -120,19 +120,16 @@ jobs:
       - name: Upload app archive and deploy scripts (hongkong)
         run: |
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o Compression=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
-            "${REPO_ARCHIVE}" "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/changmen-repo.tgz"
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${REPO_ARCHIVE}" "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/changmen-repo.upload.tgz"
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
-            "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p ${REMOTE_DEPLOY_SCRIPTS}"
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "mv /tmp/changmen-repo.upload.tgz /tmp/changmen-repo.tgz && gzip -t /tmp/changmen-repo.tgz && tar -tzf /tmp/changmen-repo.tgz >/dev/null && mkdir -p ${REMOTE_DEPLOY_SCRIPTS}"
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
             -o BatchMode=yes -o IdentitiesOnly=yes \
             deploy/scripts/apply-repo-archive.sh deploy/scripts/deploy-server-remote.sh \
             "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_DEPLOY_SCRIPTS}/"
-          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
-            "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "gzip -t /tmp/changmen-repo.tgz && tar -tzf /tmp/changmen-repo.tgz >/dev/null"
 
       - name: Apply archive and service deploy (hongkong)
         run: |
@@ -150,7 +147,7 @@ jobs:
       - name: Upload frontend dist archive (hongkong)
         run: |
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o Compression=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
             "${DIST_ARCHIVE}" "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/changmen-dist-${GITHUB_SHA}.tgz"
 
       - name: Atomically replace remote frontend dist (hongkong)
