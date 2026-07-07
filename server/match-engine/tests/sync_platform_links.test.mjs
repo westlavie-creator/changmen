@@ -5,6 +5,18 @@ import {
   syncClientMatchsFromPlatformLinks,
 } from "../merge/match_merge.js";
 
+function src(p, b) {
+  return {
+    Type: p,
+    BetID: String(b.SourceBetID),
+    HomeID: String(b.SourceHomeID),
+    AwayID: String(b.SourceAwayID),
+    HomeOdds: b.HomeOdds,
+    AwayOdds: b.AwayOdds,
+    Status: b.Status,
+  };
+}
+
 describe("syncClientMatchsFromPlatformLinks", () => {
   it("adds platform to client Matchs when platform row has match_id but client row is stale", () => {
     const rows = [{
@@ -32,6 +44,71 @@ describe("syncClientMatchsFromPlatformLinks", () => {
       OB: "5512662302086001",
     });
   });
+
+  it("refills Bets when platform already linked but client row has empty bets", () => {
+    const rows = [{
+      ID: 310,
+      Title: "Rune Eaters vs Xtreme Gaming",
+      Matchs: { IA: "375236", OB: "4444812000126363" },
+      Bets: [],
+    }];
+    const matches = {
+      IA: {
+        ia1: {
+          SourceMatchID: "375236",
+          Home: "Rune Eaters",
+          Away: "Xtreme Gaming",
+          ClientMatchId: 310,
+          StartTime: 1,
+          SourceGameID: "2",
+        },
+      },
+      OB: {
+        ob1: {
+          SourceMatchID: "4444812000126363",
+          Home: "Rune Eaters",
+          Away: "Xtreme Gaming",
+          ClientMatchId: 310,
+          StartTime: 1,
+          SourceGameID: "257289795134339",
+        },
+      },
+    };
+    const bets = {
+      "IA:375236": {
+        provider: "IA",
+        matchId: "375236",
+        bets: [{
+          SourceBetID: "15468550",
+          Map: 1,
+          BetName: "[地图1] 获胜者",
+          SourceHomeID: "h1",
+          HomeOdds: 3.7,
+          SourceAwayID: "a1",
+          AwayOdds: 1.28,
+          Status: "Normal",
+        }],
+      },
+      "OB:4444812000126363": {
+        provider: "OB",
+        matchId: "4444812000126363",
+        bets: [{
+          SourceBetID: "4445118282310497",
+          Map: 1,
+          BetName: "[地图1]-单局-获胜",
+          SourceHomeID: "h2",
+          HomeOdds: 3.224,
+          SourceAwayID: "a2",
+          AwayOdds: 1.336,
+          Status: "Normal",
+        }],
+      },
+    };
+    syncClientMatchsFromPlatformLinks(rows, matches, bets, {}, src);
+    expect(rows[0].Bets).toHaveLength(1);
+    expect(rows[0].Bets[0].Sources.IA?.HomeOdds).toBe(3.7);
+    expect(rows[0].Bets[0].Sources.OB?.HomeOdds).toBe(3.224);
+  });
 });
 
 describe("syncClientMatchsFromDbBindings", () => {
@@ -58,6 +135,73 @@ describe("syncClientMatchsFromDbBindings", () => {
     };
     syncClientMatchsFromDbBindings(rows, bindings, matches, {}, {}, () => null);
     expect(rows[0].Matchs.RAY).toBe("38403932");
+  });
+
+  it("refills Bets when binding platform already in Matchs but Bets empty", () => {
+    const rows = [{
+      ID: 312,
+      Title: "Poor Rangers vs GamerLegion",
+      Matchs: { IA: "375398", OB: "4481908415497259" },
+      Bets: [],
+    }];
+    const bindings = new Map([[312, [
+      { platform: "IA", source_match_id: "375398" },
+      { platform: "OB", source_match_id: "4481908415497259" },
+    ]]]);
+    const matches = {
+      IA: {
+        "375398": {
+          SourceMatchID: "375398",
+          Home: "Poor Rangers",
+          Away: "GamerLegion",
+          StartTime: 1,
+          SourceGameID: "2",
+        },
+      },
+      OB: {
+        "4481908415497259": {
+          SourceMatchID: "4481908415497259",
+          Home: "Poor Rangers",
+          Away: "GamerLegion",
+          StartTime: 1,
+          SourceGameID: "257289795134339",
+        },
+      },
+    };
+    const bets = {
+      "IA:375398": {
+        provider: "IA",
+        matchId: "375398",
+        bets: [{
+          SourceBetID: "15479074",
+          Map: 1,
+          BetName: "[地图1] 获胜者",
+          SourceHomeID: "h1",
+          HomeOdds: 2.461,
+          SourceAwayID: "a1",
+          AwayOdds: 1.55,
+          Status: "Normal",
+        }],
+      },
+      "OB:4481908415497259": {
+        provider: "OB",
+        matchId: "4481908415497259",
+        bets: [{
+          SourceBetID: "5768347449472187",
+          Map: 1,
+          BetName: "[地图1]-单局-获胜",
+          SourceHomeID: "h2",
+          HomeOdds: 2.158,
+          SourceAwayID: "a2",
+          AwayOdds: 1.68,
+          Status: "Normal",
+        }],
+      },
+    };
+    syncClientMatchsFromDbBindings(rows, bindings, matches, bets, {}, src);
+    expect(rows[0].Bets).toHaveLength(1);
+    expect(rows[0].Bets[0].Sources.IA?.BetID).toBe("15479074");
+    expect(rows[0].Bets[0].Sources.OB?.BetID).toBe("5768347449472187");
   });
 });
 

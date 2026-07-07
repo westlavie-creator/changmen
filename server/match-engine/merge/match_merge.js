@@ -1168,6 +1168,14 @@ function platformMatchClientId(match) {
   return Number.isFinite(id) ? id : null;
 }
 
+/** 平台已挂在 Matchs 但 Bets 仍空 / 无该平台 Sources 时需重合并（防采集晚到后永久空盘） */
+function clientRowNeedsPlatformBets(row, platform) {
+  const betRows = row.Bets;
+  if (!Array.isArray(betRows) || !betRows.length)
+    return true;
+  return !betRows.some(b => b.Sources?.[platform]);
+}
+
 /** 将 platform_matches.match_id / 内存 ClientMatchId 同步进 client row.Matchs（防回写漂移） */
 function mergePlatformBetsIntoClientRow(target, targetId, platform, match, bets, timers, sourceFromBet) {
   const accRow = buildAccumulateRow(platform, match, bets, timers, sourceFromBet);
@@ -1211,7 +1219,7 @@ function syncClientMatchsFromPlatformLinks(rows, matches, bets, timers, sourceFr
           row.Matchs = {};
         const hadPlatform = row.Matchs[platform] === sid;
         row.Matchs[platform] = sid;
-        if (!hadPlatform)
+        if (!hadPlatform || clientRowNeedsPlatformBets(row, platform))
           mergePlatformBetsIntoClientRow(row, clientId, platform, match, bets, timers, sourceFromBet);
       }
     }
@@ -1238,7 +1246,7 @@ function syncClientMatchsFromDbBindings(rows, bindingsByClientId, matches, bets,
         row.Matchs = {};
       const hadPlatform = row.Matchs[platform] === sid;
       row.Matchs[platform] = sid;
-      if (!hadPlatform)
+      if (!hadPlatform || clientRowNeedsPlatformBets(row, platform))
         mergePlatformBetsIntoClientRow(row, clientId, platform, match, bets, timers, sourceFromBet);
     }
   }
