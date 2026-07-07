@@ -7,12 +7,6 @@ const path = require("node:path");
 
 const APP_ROOT = path.join(__dirname, "..");
 
-/** 默认独立 matcher 进程，避免 matchMerge 与 HTTP 抢同进程 CPU */
-const MATCHER_STANDALONE = process.env.MATCHER_STANDALONE !== "0";
-const MATCHER_EMBEDDED = MATCHER_STANDALONE
-  ? "0"
-  : (process.env.MATCHER_EMBEDDED || "1");
-
 const apps = [
   {
     name: "changmen-web",
@@ -22,8 +16,7 @@ const apps = [
     env: {
       NODE_ENV: "production",
       DATABASE_APPLICATION_NAME: "changmen-web",
-      MATCHER_EMBEDDED,
-      MATCHER_STANDALONE: MATCHER_STANDALONE ? "1" : "0",
+      MATCHER_EMBEDDED: process.env.MATCHER_EMBEDDED || "1",
     },
   },
   {
@@ -38,7 +31,7 @@ const apps = [
   },
 ];
 
-if (MATCHER_STANDALONE) {
+if (process.env.MATCHER_STANDALONE === "1") {
   apps.push({
     name: "changmen-matcher",
     cwd: path.join(APP_ROOT, "server/matcher"),
@@ -48,7 +41,6 @@ if (MATCHER_STANDALONE) {
       NODE_ENV: "production",
       DATABASE_APPLICATION_NAME: "changmen-matcher",
       MATCHER_EMBEDDED: "0",
-      MATCHER_STANDALONE: "1",
     },
   });
 }
