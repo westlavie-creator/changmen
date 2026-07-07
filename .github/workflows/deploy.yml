@@ -49,7 +49,9 @@ jobs:
           test -f client/web/dist/index.html
           test -d client/web/dist/assets
           ls client/web/dist/assets/index*.js >/dev/null
-          ls client/web/dist/assets/venue-all*.js >/dev/null
+          # venue adapters split per platform (venue-ob-*, venue-shared-*, …); no venue-all chunk
+          ls client/web/dist/assets/venue-shared*.js >/dev/null
+          ls client/web/dist/assets/venue-ob*.js >/dev/null
           tar -C client/web/dist -czf "${DIST_ARCHIVE}" .
           ls -lh "${DIST_ARCHIVE}"
 
@@ -166,7 +168,8 @@ jobs:
             test -f \"\$tmp/index.html\"
             test -d \"\$tmp/assets\"
             ls \"\$tmp\"/assets/index*.js >/dev/null
-            ls \"\$tmp\"/assets/venue-all*.js >/dev/null
+            ls \"\$tmp\"/assets/venue-shared*.js >/dev/null
+            ls \"\$tmp\"/assets/venue-ob*.js >/dev/null
             rm -rf \"\$app/dist.prev\"
             if [ -d \"\$app/dist\" ]; then mv \"\$app/dist\" \"\$app/dist.prev\"; fi
             mv \"\$tmp\" \"\$app/dist\"
