@@ -83,3 +83,34 @@ it("refreshClientMatchCanonicalOrientation: DB 锁覆盖 OB 优先级", () => {
 
   setTeamPlugin(null);
 });
+
+it("refreshClientMatchCanonicalOrientation: DB 锁覆盖 merge 行上错误的 HomeGbTeamId", () => {
+  setTeamPlugin({
+    lookupById: (platform, pid) => ({
+      "OB:ob-h": GB_JULIE,
+      "OB:ob-a": GB_SUBTOP,
+      "RAY:ray-h": GB_SUBTOP,
+      "RAY:ray-a": GB_JULIE,
+    })[`${platform}:${pid}`] || null,
+    lookupCanonicalName: (gb) => (gb === GB_JULIE ? JULIE : gb === GB_SUBTOP ? SUBTOP : null),
+  });
+
+  const rows = [{
+    ID: 720,
+    Title: `${JULIE} vs ${SUBTOP}`,
+    HomeGbTeamId: GB_JULIE,
+    AwayGbTeamId: GB_SUBTOP,
+    Matchs: { RAY: "1", OB: "2" },
+  }];
+  refreshClientMatchCanonicalOrientation(rows, matches, [{
+    id: 720,
+    home_gb_team_id: GB_SUBTOP,
+    away_gb_team_id: GB_JULIE,
+  }]);
+
+  assert.equal(rows[0].Title, `${SUBTOP} vs ${JULIE}`);
+  assert.equal(rows[0].HomeGbTeamId, GB_SUBTOP);
+  assert.equal(rows[0].AwayGbTeamId, GB_JULIE);
+
+  setTeamPlugin(null);
+});

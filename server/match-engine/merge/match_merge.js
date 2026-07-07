@@ -583,10 +583,11 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
     const existing = Number.isFinite(cmId) && cmId > 0 ? existingById.get(cmId) : null;
     const gameCode = resolveGameCodeForClientRow(row, matches);
 
-    let homeGb = parseLockedGbTeamId(row.HomeGbTeamId)
-      ?? parseLockedGbTeamId(existing?.home_gb_team_id);
-    let awayGb = parseLockedGbTeamId(row.AwayGbTeamId)
-      ?? parseLockedGbTeamId(existing?.away_gb_team_id);
+    // DB 锁优先：首轮 merge 写入的 HomeGbTeamId 不得覆盖已有 client_matches 锚点
+    let homeGb = parseLockedGbTeamId(existing?.home_gb_team_id)
+      ?? parseLockedGbTeamId(row.HomeGbTeamId);
+    let awayGb = parseLockedGbTeamId(existing?.away_gb_team_id)
+      ?? parseLockedGbTeamId(row.AwayGbTeamId);
 
     if (homeGb && !anchorGbValidForGame(homeGb, gameCode))
       homeGb = null;
