@@ -1128,12 +1128,17 @@ function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet, exi
   }
 }
 
-/** sync* 在 finalize 之后写入原生 Sources；补一次 reconcile，不再重复 promote/trim */
+/** sync* 在 finalize 之后写入原生 Sources；reconcile 后重跑决胜局 tail（promote/trim/gate/strip） */
 function refreshClientMatchSourcesAfterSync(rows, matches, bets, timers, sourceFromBet, platformSideOverrides) {
   if (!bets || !sourceFromBet || !rows?.length)
     return;
   reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet, platformSideOverrides);
   refreshClientMatchBetMapNames(rows, matches, bets, timers, sourceFromBet);
+  promoteFullMatchSourcesToLiveRound(rows, matches, bets, timers, sourceFromBet);
+  ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet);
+  trimMapZeroToObOnDeciderRound(rows);
+  applyObLiveRoundGate(rows, matches, timers);
+  stripOrphanClientMatchPlatforms(rows, matches);
 }
 
 function clientMatchRowToBuilt(cm) {
@@ -1297,7 +1302,17 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
               if (bet.Sources?.[link.platform])
                 delete bet.Sources[link.platform];
             }
-            row.Bets = row.Bets.filter(b => Object.keys(b.Sources || {}).length > 0);
+            row.Bets = row.Bets.filter((b) => {
+              if (Object.keys(b.Sources || {}).length > 0)
+                return true;
+              const map = betMapNumber(b);
+              if (map !== 0)
+                return false;
+              const liveMap = Number(row.Round) || 0;
+              if (liveMap <= 0)
+                return false;
+              return (Number(b.InitialHomeOdds) || 0) > 0 || (Number(b.InitialAwayOdds) || 0) > 0;
+            });
           }
         }
       }

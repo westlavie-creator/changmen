@@ -385,4 +385,81 @@ describe("applyManualMatchLinks sync after finalize (memory ClientMatchId)", () 
     expect(map1?.Sources?.IA?.HomeOdds).toBe(3.79);
     expect(map1?.Sources?.IA?.AwayOdds).toBe(1.25);
   });
+
+  it("re-trims Map=0 after sync+reconcile on live Round (OB has no full-match)", () => {
+    const src = (p, b) => ({
+      Type: p,
+      BetID: String(b.SourceBetID),
+      HomeID: String(b.SourceHomeID),
+      AwayID: String(b.SourceAwayID),
+      HomeOdds: b.HomeOdds,
+      AwayOdds: b.AwayOdds,
+      Status: b.Status,
+    });
+    const existingClientRows = [{
+      id: 1,
+      title: "A vs B",
+      game_id: "8",
+      start_time: 1,
+      bo: 3,
+      round: 2,
+      matchs: { OB: "ob1", IA: "ia1", RAY: "ray1" },
+      bets: [],
+      reverse: [],
+    }];
+    const matches = {
+      OB: { ob1: { SourceMatchID: "ob1", Home: "A", Away: "B", ClientMatchId: 1, StartTime: 1, SourceGameID: "8", BO: 3, IsLive: 2 } },
+      IA: { ia1: { SourceMatchID: "ia1", Home: "A", Away: "B", ClientMatchId: 1, StartTime: 1, SourceGameID: "8" } },
+      RAY: { ray1: { SourceMatchID: "ray1", Home: "A", Away: "B", ClientMatchId: 1, StartTime: 1, SourceGameID: "8" } },
+    };
+    const bets = {
+      "OB:ob1": {
+        provider: "OB",
+        matchId: "ob1",
+        bets: [{
+          SourceBetID: "ob-m2",
+          Map: 2,
+          BetName: "[地图2]-单局-获胜",
+          SourceHomeID: "1",
+          HomeOdds: 1.1,
+          SourceAwayID: "2",
+          AwayOdds: 6,
+          Status: "Normal",
+        }],
+      },
+      "IA:ia1": {
+        provider: "IA",
+        matchId: "ia1",
+        bets: [
+          { SourceBetID: "ia-full", Map: 0, BetName: "[全场] 获胜", SourceHomeID: "3", HomeOdds: 1.02, SourceAwayID: "4", AwayOdds: 11, Status: "Normal" },
+          { SourceBetID: "ia-m2", Map: 2, BetName: "[地图2] 获胜者", SourceHomeID: "5", HomeOdds: 1.13, SourceAwayID: "6", AwayOdds: 5.4, Status: "Normal" },
+        ],
+      },
+      "RAY:ray1": {
+        provider: "RAY",
+        matchId: "ray1",
+        bets: [
+          { SourceBetID: "ray-full", Map: 0, BetName: "[全场] 获胜者", SourceHomeID: "7", HomeOdds: 1.01, SourceAwayID: "8", AwayOdds: 12, Status: "Normal" },
+          { SourceBetID: "ray-m2", Map: 2, BetName: "[地图2] 获胜者", SourceHomeID: "9", HomeOdds: 1.18, SourceAwayID: "10", AwayOdds: 4.5, Status: "Normal" },
+        ],
+      },
+    };
+    const timers = {
+      OB: { provider: "OB", timer: [{ MatchID: "ob1", Round: 2, StartTime: Date.now() }] },
+    };
+    const bindings = new Map([
+      [1, [
+        { platform: "OB", source_match_id: "ob1" },
+        { platform: "IA", source_match_id: "ia1" },
+        { platform: "RAY", source_match_id: "ray1" },
+      ]],
+    ]);
+    const out = applyManualMatchLinks([], matches, bets, timers, src, existingClientRows, {}, bindings);
+    expect(out).toHaveLength(1);
+    expect(out[0].Round).toBe(2);
+    const map0 = out[0].Bets.find(b => b.Map === 0);
+    expect(map0).toBeTruthy();
+    expect(map0.Sources).toEqual({});
+    expect(map0.InitialHomeOdds).toBe(1.02);
+  });
 });
