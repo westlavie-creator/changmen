@@ -518,6 +518,11 @@ async function linkPlatformToPlatform({
     await db.setPlatformMatchId(pm.platform, pm.source_match_id, cmId, { force: true });
   }
 
+  await db.patchClientMatchMatchs(cmId, {
+    [pmSource.platform]: String(pmSource.source_match_id),
+    [pmTarget.platform]: String(pmTarget.source_match_id),
+  });
+
   await persistPlatformSideOverride(cmId, pmSource.platform, reversed);
   if (targetAlign.mode === "aligned" || targetAlign.mode === "reversed") {
     await persistPlatformSideOverride(cmId, pmTarget.platform, targetReversed);
@@ -526,11 +531,7 @@ async function linkPlatformToPlatform({
   const cmRow = await db.fetchClientMatchRow(cmId, "id,matchs");
   store.patchCollectorMatchClientIds([{
     ID: cmId,
-    Matchs: {
-      ...(cmRow?.matchs || {}),
-      [pmSource.platform]: String(pmSource.source_match_id),
-      [pmTarget.platform]: String(pmTarget.source_match_id),
-    },
+    Matchs: cmRow?.matchs || {},
   }]);
 
   invalidateTeamMappings();
@@ -747,11 +748,12 @@ async function linkPlatformToClientMatch({ platform, sourceMatchId, clientMatchI
   const mapResults = await writeTeamMapsIdentityForPlatform(pm, gameCode);
 
   await db.setPlatformMatchId(plat, srcId, cmId, { force: true });
+  const patched = await db.patchClientMatchMatchs(cmId, { [plat]: srcId });
   await persistPlatformSideOverride(cmId, plat, reversed);
 
   store.patchCollectorMatchClientIds([{
     ID: cmId,
-    Matchs: { ...(cm.matchs || {}), [plat]: srcId },
+    Matchs: patched.matchs,
   }]);
 
   invalidateTeamMappings();

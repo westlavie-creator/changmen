@@ -145,6 +145,44 @@ export async function fetchClientMatchesDashboard() {
   return rows;
 }
 
+/**
+ * 人工连线：合并写入 client_matches.matchs（须在 platform override 之前，否则 persist 校验失败）。
+ * @param {number} clientMatchId
+ * @param {Record<string, string>} additions platform → source_match_id
+ */
+export async function patchClientMatchMatchs(clientMatchId, additions) {
+  const cmId = Number(clientMatchId);
+  if (!Number.isFinite(cmId) || cmId <= 0)
+    throw new Error("无效的赛事 ID");
+  if (!additions || typeof additions !== "object")
+    throw new Error("matchs 补丁不能为空");
+
+  const cm = await fetchClientMatchRow(cmId, "id, matchs");
+  if (!cm)
+    throw new Error("赛事不存在");
+
+  const merged = { ...(cm.matchs || {}) };
+  let changed = false;
+  for (const [plat, srcId] of Object.entries(additions)) {
+    const platform = String(plat || "").trim();
+    const sid = String(srcId ?? "").trim();
+    if (!platform || !sid)
+      continue;
+    if (merged[platform] !== sid) {
+      merged[platform] = sid;
+      changed = true;
+    }
+  }
+  if (!changed)
+    return { id: cmId, matchs: merged, updated: false };
+
+  await rdsQuery(
+    "UPDATE client_matches SET matchs = $2::jsonb WHERE id = $1",
+    [cmId, jsonb(merged, {})],
+  );
+  return { id: cmId, matchs: merged, updated: true };
+}
+
 export async function setClientMatchPlatformReverse(id, platform, reversed) {
   const cmId = Number(id);
   const plat = String(platform || "").trim();

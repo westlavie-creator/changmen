@@ -228,6 +228,7 @@ export {
   getClientMatchIdAdapter,
   insertClientMatchStub,
   isMatcherStoreReady,
+  patchClientMatchMatchs,
   reassignPlatformMatchIds,
   setClientMatchPlatformReverse,
   fetchClientMatchPlatformOverrides,
