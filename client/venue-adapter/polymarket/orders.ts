@@ -10,14 +10,19 @@ import {
   normalizeEthAddress,
 } from "./l2Auth";
 import { polymarketOrderContextFromMarket, parseJsonArray, type PolymarketRawMarket } from "./parse";
-import { resolveBuyStakeUsdc, resolvePmRemainingShares, stripPolymarketSellOrders } from "./pmLogicalPosition";
+import { hasOpenPolymarketPosition, resolveBuyStakeUsdc, resolvePmRemainingShares, stripPolymarketSellOrders } from "./pmLogicalPosition";
+import {
+  markPolymarketOrdersSynced,
+  PM_ORDER_FULL_LOOKBACK_MS,
+  resolvePolymarketTradeLookbackMs,
+} from "./pmOrderSync";
 import { applyPolymarketOrderOrigins, isPolymarketChangmenOrder } from "./pmOrigin";
 import { polymarketPluginGet } from "./transport";
 
 const TRADES_PATH = "/data/trades";
 const TOKEN_MICRO = 1_000_000;
 /** 订单 sync + 迟结算缓冲（Phase 2b） */
-const ORDER_LOOKBACK_MS = 3 * 24 * 60 * 60 * 1000;
+const ORDER_LOOKBACK_MS = PM_ORDER_FULL_LOOKBACK_MS;
 const MAX_TRADE_PAGES = 5;
 const NO_MORE_CURSOR = "LTE=";
 /** Gamma closed 后 outcomePrices 赢家判定阈值 */
@@ -1173,16 +1178,18 @@ async function fetchTradesSince(
   return all;
 }
 
-/** CLOB /data/trades → VenueOrder bundle（不在此做 FIFO；由 getOrders 按 pmOrigin 处理） */
+/** CLOB /data/trades → VenueOrder bundle（lookback 可增量，合并靠 RDS stored） */
 export async function fetchPolymarketVenueOrdersBundle(
   account: PlatformAccount,
+  lookbackMs = ORDER_LOOKBACK_MS,
 ): Promise<PolymarketVenueOrdersBundle> {
   const headers = await buildL2HeadersFromAccount(account, "GET", TRADES_PATH);
   if (!headers)
     return { orders: [], flattenedTrades: [] };
 
   const gateway = account.gateway || POLYMARKET_CLOB_API;
-  const afterSec = Math.floor((Date.now() - ORDER_LOOKBACK_MS) / 1000);
+  const windowMs = Math.min(Math.max(Number(lookbackMs) || ORDER_LOOKBACK_MS, 60_000), ORDER_LOOKBACK_MS);
+  const afterSec = Math.floor((Date.now() - windowMs) / 1000);
   const userAddresses = collectPolymarketUserAddressesFromAccount(account);
   const rawTrades = await fetchTradesSince(gateway, headers, afterSec);
   const flattened = flattenPolymarketTrades(rawTrades, userAddresses);
@@ -1220,10 +1227,11 @@ export async function fetchPolymarketVenueOrdersMerged(
   account: PlatformAccount,
 ): Promise<VenueOrder[]> {
   const { loadPolymarketStoredVenueOrders } = await import("./pmStoredOrders");
-  const [{ orders }, stored] = await Promise.all([
-    fetchPolymarketVenueOrdersBundle(account),
-    loadPolymarketStoredVenueOrders(account),
-  ]);
+  const stored = await loadPolymarketStoredVenueOrders(account);
+  const hasOpenStored = stored.some(o => hasOpenPolymarketPosition(o));
+  const lookbackMs = resolvePolymarketTradeLookbackMs(account.accountId, hasOpenStored);
+  const { orders } = await fetchPolymarketVenueOrdersBundle(account, lookbackMs);
+  markPolymarketOrdersSynced(account.accountId, lookbackMs);
   const finalized = finalizePolymarketVenueOrders(orders, account.accountId, stored);
   return scalePolymarketVenueOrdersForDisplay(finalized);
 }

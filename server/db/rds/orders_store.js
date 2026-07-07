@@ -6,56 +6,119 @@ import { shouldAllowOrderBind, shouldFireOrderBoundHook } from "../order_link_fi
 import { _jsonb, getPgPool } from "./common.js";
 import { localDayBounds, localMonthBounds } from "./time_bounds.js";
 
+const UPSERT_ORDERS_BATCH_SQL = `
+  INSERT INTO orders (
+    user_id, player_id, order_id, link, provider, match, bet, item,
+    odds, bet_money, money, status, create_at, raw
+  )
+  SELECT * FROM unnest(
+    $1::uuid[],
+    $2::bigint[],
+    $3::text[],
+    $4::bigint[],
+    $5::text[],
+    $6::text[],
+    $7::text[],
+    $8::text[],
+    $9::float8[],
+    $10::float8[],
+    $11::float8[],
+    $12::text[],
+    $13::bigint[],
+    $14::jsonb[]
+  ) AS t(
+    user_id, player_id, order_id, link, provider, match, bet, item,
+    odds, bet_money, money, status, create_at, raw
+  )
+  ON CONFLICT (user_id, order_id, player_id) DO UPDATE SET
+    link = EXCLUDED.link,
+    provider = EXCLUDED.provider,
+    match = EXCLUDED.match,
+    bet = EXCLUDED.bet,
+    item = EXCLUDED.item,
+    odds = EXCLUDED.odds,
+    bet_money = EXCLUDED.bet_money,
+    money = EXCLUDED.money,
+    status = EXCLUDED.status,
+    create_at = EXCLUDED.create_at,
+    raw = EXCLUDED.raw
+  RETURNING *, (xmax = 0) AS was_inserted
+`;
+
+function _orderRowToUpsertArrays(rows) {
+  const userIds = [];
+  const playerIds = [];
+  const orderIds = [];
+  const links = [];
+  const providers = [];
+  const matches = [];
+  const bets = [];
+  const items = [];
+  const oddsList = [];
+  const betMoneys = [];
+  const moneys = [];
+  const statuses = [];
+  const createAts = [];
+  const raws = [];
+  for (const o of rows) {
+    userIds.push(String(o.user_id));
+    playerIds.push(Number(o.player_id));
+    orderIds.push(String(o.order_id));
+    links.push(o.link != null ? Number(o.link) : null);
+    providers.push(o.provider != null ? String(o.provider) : null);
+    matches.push(o.match != null ? String(o.match) : null);
+    bets.push(o.bet != null ? String(o.bet) : null);
+    items.push(o.item != null ? String(o.item) : null);
+    oddsList.push(Number(o.odds) || 0);
+    betMoneys.push(Number(o.bet_money) || 0);
+    moneys.push(Number(o.money) || 0);
+    statuses.push(String(o.status || "None"));
+    createAts.push(Number(o.create_at));
+    raws.push(JSON.parse(_jsonb(o.raw, {})));
+  }
+  return [
+    userIds,
+    playerIds,
+    orderIds,
+    links,
+    providers,
+    matches,
+    bets,
+    items,
+    oddsList,
+    betMoneys,
+    moneys,
+    statuses,
+    createAts,
+    raws,
+  ];
+}
+
+function _dedupeUpsertRows(rows) {
+  const byKey = new Map();
+  for (const row of rows) {
+    const key = `${row.user_id}\0${row.player_id}\0${row.order_id}`;
+    byKey.set(key, row);
+  }
+  return [...byKey.values()];
+}
+
 async function _rdsUpsertOrders(pool, rows) {
   if (!rows?.length)
     return [];
-  const sql = `
-    INSERT INTO orders (
-      user_id, player_id, order_id, link, provider, match, bet, item,
-      odds, bet_money, money, status, create_at, raw
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
-    ON CONFLICT (user_id, order_id, player_id) DO UPDATE SET
-      link = EXCLUDED.link,
-      provider = EXCLUDED.provider,
-      match = EXCLUDED.match,
-      bet = EXCLUDED.bet,
-      item = EXCLUDED.item,
-      odds = EXCLUDED.odds,
-      bet_money = EXCLUDED.bet_money,
-      money = EXCLUDED.money,
-      status = EXCLUDED.status,
-      create_at = EXCLUDED.create_at,
-      raw = EXCLUDED.raw
-    RETURNING *, (xmax = 0) AS was_inserted
-  `;
-  const inserted = [];
+  const deduped = _dedupeUpsertRows(rows);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    for (const o of rows) {
-      const res = await client.query(sql, [
-        String(o.user_id),
-        Number(o.player_id),
-        String(o.order_id),
-        o.link != null ? Number(o.link) : null,
-        o.provider != null ? String(o.provider) : null,
-        o.match != null ? String(o.match) : null,
-        o.bet != null ? String(o.bet) : null,
-        o.item != null ? String(o.item) : null,
-        Number(o.odds) || 0,
-        Number(o.bet_money) || 0,
-        Number(o.money) || 0,
-        String(o.status || "None"),
-        Number(o.create_at),
-        _jsonb(o.raw, {}),
-      ]);
-      const row = res.rows?.[0];
+    const res = await client.query(UPSERT_ORDERS_BATCH_SQL, _orderRowToUpsertArrays(deduped));
+    await client.query("COMMIT");
+    const inserted = [];
+    for (const row of res.rows || []) {
       if (row?.was_inserted) {
         const { was_inserted: _wi, ...clean } = row;
         inserted.push(clean);
       }
     }
-    await client.query("COMMIT");
     return inserted;
   }
   catch (err) {
@@ -127,6 +190,39 @@ export async function fetchOrdersByDate(date, userId) {
   }
 }
 
+/** Client_GetOrderList：SQL 分页，避免拉取当日全量再在内存 slice */
+export async function fetchOrdersByDatePage(date, userId, pageIndex = 1, pageSize = 1024) {
+  const { dayStart, dayEnd } = localDayBounds(date);
+  const pool = getPgPool();
+  if (!pool || !userId)
+    return { rows: [], total: 0 };
+  const page = Math.max(1, Number(pageIndex) || 1);
+  const size = Math.max(1, Math.min(Number(pageSize) || 1024, 5000));
+  const offset = (page - 1) * size;
+  try {
+    const params = [String(userId), dayStart, dayEnd];
+    const countRes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM orders
+       WHERE user_id = $1 AND create_at >= $2 AND create_at < $3`,
+      params,
+    );
+    const total = countRes.rows[0]?.n ?? 0;
+    params.push(size, offset);
+    const { rows } = await pool.query(
+      `SELECT * FROM orders
+       WHERE user_id = $1 AND create_at >= $2 AND create_at < $3
+       ORDER BY create_at DESC
+       LIMIT $4 OFFSET $5`,
+      params,
+    );
+    return { rows: rows || [], total };
+  }
+  catch (err) {
+    console.warn("[rds] fetchOrdersByDatePage:", err.message);
+    return { rows: [], total: 0 };
+  }
+}
+
 /** 按 playerId 读取订单（全量） */
 export async function fetchOrdersByPlayer(playerId, userId) {
   const pool = getPgPool();
@@ -161,6 +257,28 @@ export async function fetchOrdersByPlayerAll(playerId, userId) {
   }
   catch (err) {
     console.warn("[rds] fetchOrdersByPlayerAll:", err.message);
+    return [];
+  }
+}
+
+/** saveOrder 合并：只读本次 upsert 涉及的 order_id（及 PM 关联买单） */
+export async function fetchOrdersByPlayerOrderIds(playerId, userId, orderIds) {
+  const pool = getPgPool();
+  if (!pool || !userId || !Array.isArray(orderIds) || !orderIds.length)
+    return [];
+  const ids = [...new Set(orderIds.map(id => String(id).trim()).filter(Boolean))];
+  if (!ids.length)
+    return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders
+       WHERE user_id = $1 AND player_id = $2 AND order_id = ANY($3::text[])`,
+      [String(userId), Number(playerId), ids],
+    );
+    return rows || [];
+  }
+  catch (err) {
+    console.warn("[rds] fetchOrdersByPlayerOrderIds:", err.message);
     return [];
   }
 }
@@ -363,14 +481,11 @@ export async function deletePolymarketSellOrders(scope = {}) {
       params.push(playerId);
       where += ` AND player_id = $${params.length}`;
     }
-    const preview = await pool.query(
-      `SELECT id, order_id, player_id, item FROM orders WHERE ${where} ORDER BY create_at DESC`,
+    const res = await pool.query(
+      `DELETE FROM orders WHERE ${where} RETURNING id`,
       params,
     );
-    const ids = (preview.rows || []).map(r => Number(r.id)).filter(n => Number.isFinite(n) && n > 0);
-    if (!ids.length)
-      return { deleted: 0, ids: [] };
-    const res = await pool.query("DELETE FROM orders WHERE id = ANY($1::bigint[])", [ids]);
+    const ids = (res.rows || []).map(r => Number(r.id)).filter(n => Number.isFinite(n) && n > 0);
     return { deleted: res.rowCount ?? 0, ids };
   }
   catch (err) {

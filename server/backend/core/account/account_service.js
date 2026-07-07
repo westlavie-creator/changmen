@@ -13,7 +13,7 @@ import {
   getAccountBalance,
 } from "./balance_provider.js";
 import * as orderStore from "./order_store.js";
-import { assertPlayerOwnedByUser } from "./player_ownership.js";
+import { assertPlayerOwnedByUser, assertPlayersOwnedByUser } from "./player_ownership.js";
 import { resolvePresenceState } from "./user_presence.js";
 
 async function handleCreateTagPlatform(body, userId) {
@@ -48,6 +48,11 @@ async function handleUpdateBalance(body, userId) {
     const owned = await assertPlayerOwnedByUser(playerId, userId);
     if (!owned.ok)
       return owned;
+    const info = await accountStore.updatePlayerBalance(playerId, balance, userId);
+    if (!info) {
+      return { ok: false, msg: "更新余额失败" };
+    }
+    return { ok: true, info };
   }
   const player = await accountStore.getPlayer(playerId);
   if (!player) {
@@ -181,6 +186,7 @@ async function validateAccountRows(accounts, userId) {
   if (!Array.isArray(accounts))
     return { ok: false, msg: "ACCOUNT 必须是数组" };
   const seen = new Set();
+  const ids = [];
   for (const row of accounts) {
     const id = Number(row?.accountId ?? row?.AccountId);
     if (!id) {
@@ -189,11 +195,11 @@ async function validateAccountRows(accounts, userId) {
     if (seen.has(id))
       return { ok: false, msg: `accountId ${id} 重复` };
     seen.add(id);
-    const owned = await assertPlayerOwnedByUser(id, userId);
-    if (!owned.ok)
-      return owned;
+    ids.push(id);
   }
-  return { ok: true };
+  if (!ids.length)
+    return { ok: true };
+  return assertPlayersOwnedByUser(ids, userId);
 }
 
 async function handleSaveAccounts(accounts, userId) {
@@ -212,13 +218,6 @@ async function handleSaveAccounts(accounts, userId) {
     const enriched = enrichAccountRowFromPlayer(row);
     return preserveStoredAccountMultiply(enriched, existingById.get(id));
   });
-  for (const row of normalized) {
-    const id = Number(row?.accountId ?? row?.AccountId);
-    const label = String(row?.platformName ?? row?.PlatformName ?? "").trim();
-    if (id && label) {
-      await accountStore.syncPlayerDisplayName(id, label, userId);
-    }
-  }
   store.setAccountsForUser(userId, normalized);
   const keepIds = normalized.map(r => Number(r?.accountId ?? r?.AccountId)).filter(Boolean);
   if (keepIds.length > 0) {
@@ -321,12 +320,10 @@ async function handleGetOrderList(body, userId) {
   const date = body.date || orderStore.toDateKey(Date.now());
   const pageSize = Number(body.pageSize) || 1024;
   const pageIndex = Number(body.pageIndex) || 1;
-  const all = await orderStore.listByDate(date, userId);
-  const start = (pageIndex - 1) * pageSize;
-  const list = all.slice(start, start + pageSize);
+  const { list, total } = await orderStore.listByDatePage(date, userId, pageIndex, pageSize);
   return {
     ok: true,
-    info: { list, total: all.length, pageIndex, pageSize },
+    info: { list, total, pageIndex, pageSize },
   };
 }
 

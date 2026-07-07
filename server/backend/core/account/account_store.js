@@ -76,6 +76,11 @@ async function syncPlayerDisplayName(playerId, platformName, ownerUserId) {
   return sb.updatePlayerDisplayName(playerId, platformName, ownerUserId);
 }
 
+async function batchSyncPlayerDisplayNames(updates, ownerUserId) {
+  const count = await sb.batchUpdatePlayerDisplayNames(ownerUserId, updates);
+  return count > 0;
+}
+
 async function saveUserLog(userId, title, data) {
   return sb.insertUserLogRow(userId, title, data);
 }
@@ -270,6 +275,7 @@ export {
   getPlayer,
   listMoneyLogs,
   listTagPlatforms,
+  batchSyncPlayerDisplayNames,
   prunePlayersNotInList,
   removeAccountFromKv,
   saveMoneyLog,

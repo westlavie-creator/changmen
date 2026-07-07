@@ -260,6 +260,14 @@ export async function listByDate(date, userId) {
   return rows.map(rowToOrder);
 }
 
+export async function listByDatePage(date, userId, pageIndex = 1, pageSize = 1024) {
+  const target = date || toDateKey(Date.now());
+  const page = Math.max(1, Number(pageIndex) || 1);
+  const size = Math.max(1, Number(pageSize) || 1024);
+  const { rows, total } = await sb.fetchOrdersByDatePage(target, userId, page, size);
+  return { list: rows.map(rowToOrder), total };
+}
+
 export async function listByPlayer(playerId, userId) {
   const rows = await sb.fetchOrdersByPlayer(playerId, userId);
   return rows.map(rowToOrder);
@@ -278,7 +286,21 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
     : orders;
   if (!incoming.length && !isPolymarketBatch)
     return true;
-  const existing = await sb.fetchOrdersByPlayerAll(playerId, userId);
+  const incomingResolved = incoming.map((o) => {
+    const rawCreate = o.createAt ?? o.CreateAt;
+    const parsed = parseVenueCreateAt(rawCreate, 0);
+    const fallbackAt = parsed > 0 ? parsed : Date.now();
+    const orderId = String(o.orderId || `${playerId}-${fallbackAt}`);
+    return { o, orderId, parsed, fallbackAt };
+  });
+  const prefetchOrderIds = [];
+  for (const { o, orderId } of incomingResolved) {
+    prefetchOrderIds.push(orderId);
+    const buyOrderId = String(o.pmBuyOrderId ?? o.PmBuyOrderId ?? "").trim();
+    if (buyOrderId)
+      prefetchOrderIds.push(buyOrderId);
+  }
+  const existing = await sb.fetchOrdersByPlayerOrderIds(playerId, userId, prefetchOrderIds);
   const linkByOrderId = new Map(
     existing.map(r => [String(r.order_id), Number(r.link) || 0]),
   );
@@ -288,12 +310,9 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
 
   const assignedInBatch = new Map();
   const rows = [];
-  for (const o of incoming) {
-    const rawCreate = o.createAt ?? o.CreateAt;
-    const parsed = parseVenueCreateAt(rawCreate, 0);
-    const orderId = String(o.orderId || `${playerId}-${parsed || Date.now()}`);
+  for (const { o, orderId, parsed, fallbackAt } of incomingResolved) {
     const prevAt = Number(existingByOrderId.get(orderId)?.create_at) || 0;
-    const createAt = parsed > 0 ? parsed : prevAt > 0 ? prevAt : Date.now();
+    const createAt = parsed > 0 ? parsed : prevAt > 0 ? prevAt : fallbackAt;
     const prevRow = existingByOrderId.get(orderId);
     const prevRaw = prevRow?.raw && typeof prevRow.raw === "object" && !Array.isArray(prevRow.raw)
       ? prevRow.raw

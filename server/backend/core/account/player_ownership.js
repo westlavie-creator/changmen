@@ -2,20 +2,43 @@
  * changmen 投注账号归属：每个 players 行必须 owner_user_id === 当前登录用户。
  * A8 前端只传 playerId；隔离由后端保证（非 A8 黑盒后端复刻）。
  */
-import * as accountStore from "./account_store.js";
+import * as sb from "@changmen/db";
 
-export async function assertPlayerOwnedByUser(playerId, userId) {
+export async function assertPlayerOwnedByUser(playerId, userId) {  const batch = await assertPlayersOwnedByUser([playerId], userId);
+  if (!batch.ok)
+    return batch;
+  return { ok: true, player: batch.players?.[0] };
+}
+
+/** SaveData ACCOUNT：一次 RDS 查询校验全部 accountId */
+export async function assertPlayersOwnedByUser(playerIds, userId) {
   if (!userId)
     return { ok: false, msg: "请先登录" };
-  const id = Number(playerId);
-  if (!Number.isFinite(id) || id <= 0)
-    return { ok: false, msg: "playerId 无效" };
-  const player = await accountStore.getPlayer(id);
-  if (!player)
-    return { ok: false, msg: `playerId ${id} 不存在，请先调用 Client_CreateTagPlatform` };
-  if (!player.ownerUserId)
-    return { ok: false, msg: `playerId ${id} 未完成归属迁移，拒绝操作` };
-  if (player.ownerUserId !== String(userId))
-    return { ok: false, msg: `playerId ${id} 不属于当前用户` };
-  return { ok: true, player };
+  const ids = [...new Set((playerIds || []).map(id => Number(id)).filter(id => id > 0))];
+  if (!ids.length)
+    return { ok: false, msg: "accountId 无效，请先调用 Client_CreateTagPlatform" };
+  const rows = await sb.fetchPlayersByIds(ids);
+  const byId = new Map(rows.map(r => [Number(r.id ?? r.playerId), r]));
+  const players = [];
+  for (const id of ids) {
+    const player = byId.get(id);
+    if (!player)
+      return { ok: false, msg: `playerId ${id} 不存在，请先调用 Client_CreateTagPlatform` };
+    if (!player.ownerUserId)
+      return { ok: false, msg: `playerId ${id} 未完成归属迁移，拒绝操作` };
+    if (player.ownerUserId !== String(userId))
+      return { ok: false, msg: `playerId ${id} 不属于当前用户` };
+    players.push({
+      id: Number(player.id ?? player.playerId),
+      ownerUserId: player.ownerUserId,
+      platformId: player.platformId,
+      platformName: player.platformName,
+      playerName: player.playerName,
+      credit: player.credit,
+      totalBalance: player.totalBalance,
+      createdAt: player.createdAt,
+      updatedAt: player.updatedAt,
+    });
+  }
+  return { ok: true, players };
 }

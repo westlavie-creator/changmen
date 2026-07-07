@@ -158,6 +158,28 @@ export async function fetchPlayerById(playerId) {
   }
 }
 
+/** 批量读 players（归属校验、SaveData ACCOUNT） */
+export async function fetchPlayersByIds(playerIds) {
+  const ids = [...new Set((playerIds || []).map(id => Number(id)).filter(id => id > 0))];
+  if (!ids.length)
+    return [];
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${PLAYER_SELECT}
+       FROM players WHERE id = ANY($1::bigint[]) AND deleted_at IS NULL`,
+      [ids],
+    );
+    return (rows || []).map(r => _mapPlayerRow(r)).filter(Boolean);
+  }
+  catch (err) {
+    console.warn("[rds] fetchPlayersByIds:", err.message);
+    return [];
+  }
+}
+
 export async function insertUserLogRow(userId, title, data) {
   const uid = String(userId || "").trim();
   if (!uid)
@@ -210,28 +232,41 @@ export async function fetchUserLogsInRange(userId, fromMs, toMs, limit = 200) {
 
 /** 仅更新 players.platform_name（账号显示名；不改 platform_id） */
 export async function updatePlayerDisplayName(playerId, platformName, ownerUserId) {
-  const id = Number(playerId);
-  const label = String(platformName || "").trim();
-  const uid = ownerUserId != null ? String(ownerUserId).trim() : "";
-  if (!Number.isFinite(id) || id <= 0 || !label)
-    return false;
+  const count = await batchUpdatePlayerDisplayNames(ownerUserId, [{ playerId, platformName }]);
+  return count > 0;
+}
+
+/** SaveData ACCOUNT：批量更新 platform_name（跳过未变化项由调用方负责） */
+export async function batchUpdatePlayerDisplayNames(ownerUserId, updates) {
+  const uid = String(ownerUserId || "").trim();
+  const rows = (updates || [])
+    .map(u => ({
+      playerId: Number(u?.playerId),
+      platformName: String(u?.platformName || "").trim(),
+    }))
+    .filter(u => Number.isFinite(u.playerId) && u.playerId > 0 && u.platformName);
+  if (!uid || !rows.length)
+    return 0;
   const pool = getPgPool();
   if (!pool)
-    return false;
+    return 0;
   const now = Date.now();
   try {
-    const params = uid ? [id, label, now, uid] : [id, label, now];
-    const ownerClause = uid ? " AND owner_user_id = $4::uuid" : "";
     const { rowCount } = await pool.query(
-      `UPDATE players SET platform_name = $2, updated_at = $3
-       WHERE id = $1 AND deleted_at IS NULL${ownerClause}`,
-      params,
+      `UPDATE players AS p SET
+         platform_name = v.label,
+         updated_at = $3
+       FROM unnest($1::bigint[], $2::text[]) AS v(id, label)
+       WHERE p.id = v.id
+         AND p.owner_user_id = $4::uuid
+         AND p.deleted_at IS NULL`,
+      [rows.map(r => r.playerId), rows.map(r => r.platformName), now, uid],
     );
-    return rowCount > 0;
+    return rowCount ?? 0;
   }
   catch (err) {
-    console.warn("[rds] updatePlayerDisplayName:", err.message);
-    return false;
+    console.warn("[rds] batchUpdatePlayerDisplayNames:", err.message);
+    return 0;
   }
 }
 
@@ -418,18 +453,101 @@ export async function savePlayerAccountRecord(ownerUserId, record) {
 /** fire-and-forget：整包 SaveData ACCOUNT */
 export function saveAccountRecordsForOwner(ownerUserId, records) {
   const uid = String(ownerUserId || "").trim();
-  if (!uid || !Array.isArray(records))
+  if (!uid || !Array.isArray(records) || !records.length)
     return;
   const pool = getPgPool();
   if (!pool)
     return;
   Promise.resolve()
-    .then(async () => {
-      for (const row of records) {
-        await savePlayerAccountRecord(uid, row);
-      }
-    })
+    .then(() => batchSavePlayerAccountRecords(uid, records))
     .catch(err => console.warn("[rds] saveAccountRecordsForOwner:", err.message));
+}
+
+/** 批量 UPDATE players（SaveData ACCOUNT 落库） */
+export async function batchSavePlayerAccountRecords(ownerUserId, records) {
+  const uid = String(ownerUserId || "").trim();
+  if (!uid || !Array.isArray(records) || !records.length)
+    return 0;
+  const patches = records
+    .map(r => accountRecordToPlayerPatch(r))
+    .filter(p => Number.isFinite(p.playerId) && p.playerId > 0);
+  if (!patches.length)
+    return 0;
+  const pool = getPgPool();
+  if (!pool)
+    return 0;
+  const now = Date.now();
+  const ids = [];
+  const platformNames = [];
+  const playerNames = [];
+  const providers = [];
+  const credits = [];
+  const totalBalances = [];
+  const accountDatas = [];
+  const updatedAts = [];
+  const platformIds = [];
+  for (const patch of patches) {
+    ids.push(Number(patch.playerId));
+    platformNames.push(String(patch.platformName || ""));
+    playerNames.push(String(patch.playerName || ""));
+    providers.push(String(patch.provider || ""));
+    credits.push(Number(patch.credit) || 0);
+    totalBalances.push(Number(patch.totalBalance) || 0);
+    accountDatas.push(JSON.parse(_jsonb(patch.accountData, {})));
+    updatedAts.push(Number(patch.updatedAt) || now);
+    platformIds.push(
+      patch.platformId != null && Number.isFinite(Number(patch.platformId)) && Number(patch.platformId) > 0
+        ? Number(patch.platformId)
+        : null,
+    );
+  }
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE players AS p SET
+         platform_name = u.platform_name,
+         player_name = u.player_name,
+         provider = u.provider,
+         credit = u.credit,
+         total_balance = u.total_balance,
+         account_data = u.account_data,
+         updated_at = u.updated_at,
+         platform_id = COALESCE(u.platform_id, p.platform_id)
+       FROM unnest(
+         $1::bigint[],
+         $2::text[],
+         $3::text[],
+         $4::text[],
+         $5::float8[],
+         $6::float8[],
+         $7::jsonb[],
+         $8::bigint[],
+         $9::bigint[]
+       ) AS u(
+         id, platform_name, player_name, provider, credit, total_balance,
+         account_data, updated_at, platform_id
+       )
+       WHERE p.id = u.id
+         AND p.owner_user_id = $10::uuid
+         AND p.deleted_at IS NULL`,
+      [
+        ids,
+        platformNames,
+        playerNames,
+        providers,
+        credits,
+        totalBalances,
+        accountDatas,
+        updatedAts,
+        platformIds,
+        uid,
+      ],
+    );
+    return rowCount ?? 0;
+  }
+  catch (err) {
+    console.warn("[rds] batchSavePlayerAccountRecords:", err.message);
+    return 0;
+  }
 }
 
 /** 部分字段更新（余额刷新 syncAccountRowInKv） */

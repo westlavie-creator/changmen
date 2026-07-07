@@ -2,23 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { saveOrder } from "./order_store.js";
 
-const fetchOrdersByPlayerAll = vi.hoisted(() => vi.fn(async () => []));
+const fetchOrdersByPlayerOrderIds = vi.hoisted(() => vi.fn(async () => []));
 const upsertOrders = vi.hoisted(() => vi.fn(async () => true));
 
 vi.mock("@changmen/db", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    fetchOrdersByPlayerAll,
+    fetchOrdersByPlayerOrderIds,
     upsertOrders,
   };
 });
 
 describe("saveOrder backend bind link", () => {
   beforeEach(() => {
-    fetchOrdersByPlayerAll.mockReset();
+    fetchOrdersByPlayerOrderIds.mockReset();
     upsertOrders.mockReset();
-    fetchOrdersByPlayerAll.mockResolvedValue([]);
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([]);
     upsertOrders.mockResolvedValue(true);
   });
 
@@ -40,7 +40,7 @@ describe("saveOrder backend bind link", () => {
   it("keeps existing bound link on re-save", async () => {
     const createAt = 1_781_882_462_790;
     const arbLink = 1_781_882_500_000;
-    fetchOrdersByPlayerAll.mockResolvedValue([
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
       { order_id: "venue-1", link: arbLink, create_at: createAt },
     ]);
 
@@ -56,7 +56,7 @@ describe("saveOrder backend bind link", () => {
 
   it("backend-binds when existing link is 0", async () => {
     const createAt = 1_781_882_462_790;
-    fetchOrdersByPlayerAll.mockResolvedValue([
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
       { order_id: "venue-2", link: 0, create_at: createAt },
     ]);
 
@@ -71,7 +71,7 @@ describe("saveOrder backend bind link", () => {
   });
 
   it("PM sell orders are not saved (changmen 不做卖出)", async () => {
-    fetchOrdersByPlayerAll.mockResolvedValue([
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
       {
         order_id: "0xsell98",
         link: 1_781_308_466_999,
@@ -107,7 +107,7 @@ describe("saveOrder backend bind link", () => {
   });
 
   it("PM changmen buy restores pmShares from CLOB when RDS stored zero", async () => {
-    fetchOrdersByPlayerAll.mockResolvedValue([
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
       {
         order_id: "0xbuy70",
         link: 1_781_304_306_999,
@@ -150,7 +150,7 @@ describe("saveOrder backend bind link", () => {
   });
 
   it("PM changmen buy with open attr allows incoming Win settlement", async () => {
-    fetchOrdersByPlayerAll.mockResolvedValue([
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
       {
         order_id: "0xbuy-nrg",
         link: 1_783_200_396_999,

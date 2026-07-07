@@ -20,6 +20,7 @@ import {
 } from "./orders";
 import { isPolymarketDelayedPending } from "./orderStatus";
 import { markPolymarketChangmenOrder } from "./pmOrigin";
+import { bumpPolymarketOrderSyncAfterBet } from "./pmOrderSync";
 import { registerPolymarketOrderWatch } from "./userWs";
 import { startPolymarketSettlementJob } from "./settlementJob";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
@@ -652,6 +653,7 @@ export const polymarketProvider: PlatformProvider = {
       bet.beginTime = beginTime;
       if (bet.orderId)
         markPolymarketChangmenOrder(account.accountId, bet.orderId);
+      bumpPolymarketOrderSyncAfterBet(account.accountId);
       if (pending && bet.orderId) {
         const conditionId = String(option.betId ?? "").trim();
         if (conditionId) {

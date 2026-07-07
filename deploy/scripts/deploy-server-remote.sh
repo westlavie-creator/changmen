@@ -12,8 +12,12 @@ PM2_MATCHER="${PM2_MATCHER:-changmen-matcher}"
 PM2_PM_SPORTS="${PM2_PM_SPORTS:-changmen-pm-sports}"
 DEPLOY_FULL="${DEPLOY_FULL:-0}"
 DEPLOY_SKIP_APP_BUILD="${DEPLOY_SKIP_APP_BUILD:-0}"
-MATCHER_EMBEDDED="${MATCHER_EMBEDDED:-1}"
-MATCHER_STANDALONE="${MATCHER_STANDALONE:-0}"
+MATCHER_STANDALONE="${MATCHER_STANDALONE:-1}"
+if [ "$MATCHER_STANDALONE" = "1" ]; then
+  MATCHER_EMBEDDED="${MATCHER_EMBEDDED:-0}"
+else
+  MATCHER_EMBEDDED="${MATCHER_EMBEDDED:-1}"
+fi
 export MATCHER_EMBEDDED MATCHER_STANDALONE
 
 t0=$SECONDS
@@ -413,6 +417,21 @@ if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
           echo "ERROR: embedded matcher heartbeat not ready"
           node --input-type=module -e "import { readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; console.error('heartbeat:', JSON.stringify(readMatcherHeartbeat()));" || true
           pm2 logs "$PM2_WEB" --lines 40 --nostream 2>/dev/null || true
+          exit 1
+        fi
+        sleep 3
+      done
+    elif [ "$MATCHER_STANDALONE" = "1" ]; then
+      log "wait standalone matcher heartbeat"
+      for i in $(seq 1 45); do
+        if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'standalone' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
+          log "standalone matcher heartbeat ok"
+          break
+        fi
+        if [ "$i" = "45" ]; then
+          echo "ERROR: standalone matcher heartbeat not ready"
+          node --input-type=module -e "import { readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; console.error('heartbeat:', JSON.stringify(readMatcherHeartbeat()));" || true
+          pm2 logs "$PM2_MATCHER" --lines 40 --nostream 2>/dev/null || true
           exit 1
         fi
         sleep 3

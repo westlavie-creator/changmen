@@ -4,6 +4,7 @@ import {
   fetchOrdersByDate,
   fetchOrdersByPlayer,
   fetchOrdersByPlayerAll,
+  fetchOrdersByPlayerOrderIds,
   setOrdersBoundHook,
   updateOrderBind,
   upsertOrders,
@@ -65,6 +66,28 @@ describe("orders_store read SQL", () => {
     expect(sql).not.toMatch(/link\s*<\s*create_at/i);
     expect(sql).not.toMatch(/changmen_bet/i);
   });
+
+  it("fetchOrdersByDatePage uses LIMIT/OFFSET", async () => {
+    queryMock
+      .mockResolvedValueOnce({ rows: [{ n: 3 }] })
+      .mockResolvedValueOnce({ rows: [{ order_id: "o1" }] });
+    const page = await import("./orders_store.js").then(m =>
+      m.fetchOrdersByDatePage("2026-06-18", "550e8400-e29b-41d4-a716-446655440000", 1, 20),
+    );
+    expect(page.total).toBe(3);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    const [listSql] = queryMock.mock.calls[1];
+    expect(listSql).toMatch(/LIMIT \$4 OFFSET \$5/);
+  });
+
+  it("fetchOrdersByPlayerOrderIds filters by order_id list", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    await fetchOrdersByPlayerOrderIds(7, "user-1", ["o1", "o2"]);
+    expect(queryMock).toHaveBeenCalledOnce();
+    const [sql, params] = queryMock.mock.calls[0];
+    expect(sql).toMatch(/order_id = ANY\(\$3::text\[\]\)/);
+    expect(params).toEqual(["user-1", 7, ["o1", "o2"]]);
+  });
 });
 
 describe("upsertOrders SQL", () => {
@@ -74,7 +97,7 @@ describe("upsertOrders SQL", () => {
     clientQueryMock.mockResolvedValue({ rows: [{ was_inserted: false }] });
   });
 
-  it("iNSERT binds 14 columns including create_at and raw", async () => {
+  it("batch INSERT uses unnest with 14 column arrays", async () => {
     const ok = await upsertOrders([
       {
         user_id: "u1",
@@ -98,11 +121,102 @@ describe("upsertOrders SQL", () => {
     const insertCall = clientQueryMock.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO orders"));
     expect(insertCall).toBeDefined();
     const [sql, params] = insertCall;
-    expect(sql).toMatch(/\$13,\$14::jsonb/);
+    expect(sql).toMatch(/unnest\(/);
+    expect(sql).toMatch(/\$14::jsonb\[\]/);
     expect(params).toHaveLength(14);
-    expect(params[11]).toBe("Lose");
-    expect(params[12]).toBe(1_781_890_412_099);
-    expect(params[13]).toContain("lose");
+    expect(params[0]).toEqual(["u1"]);
+    expect(params[2]).toEqual(["o1"]);
+    expect(params[11]).toEqual(["Lose"]);
+    expect(params[12]).toEqual([1_781_890_412_099]);
+    expect(params[13][0]).toMatchObject({ status: "lose" });
+  });
+
+  it("upserts multiple rows in one INSERT", async () => {
+    clientQueryMock.mockResolvedValue({
+      rows: [
+        { order_id: "o1", was_inserted: true },
+        { order_id: "o2", was_inserted: false },
+      ],
+    });
+    await upsertOrders([
+      {
+        user_id: "u1",
+        player_id: 12,
+        order_id: "o1",
+        link: null,
+        provider: "OB",
+        match: "",
+        bet: "",
+        item: "",
+        odds: 1,
+        bet_money: 10,
+        money: 0,
+        status: "None",
+        create_at: 1,
+        raw: {},
+      },
+      {
+        user_id: "u1",
+        player_id: 12,
+        order_id: "o2",
+        link: null,
+        provider: "OB",
+        match: "",
+        bet: "",
+        item: "",
+        odds: 2,
+        bet_money: 20,
+        money: 0,
+        status: "None",
+        create_at: 2,
+        raw: {},
+      },
+    ]);
+    const insertCalls = clientQueryMock.mock.calls.filter(([sql]) => String(sql).includes("INSERT INTO orders"));
+    expect(insertCalls).toHaveLength(1);
+    expect(insertCalls[0][1][2]).toEqual(["o1", "o2"]);
+  });
+
+  it("dedupes duplicate order_id rows (last wins)", async () => {
+    clientQueryMock.mockResolvedValue({ rows: [{ was_inserted: true }] });
+    await upsertOrders([
+      {
+        user_id: "u1",
+        player_id: 12,
+        order_id: "dup",
+        link: 1,
+        provider: "OB",
+        match: "",
+        bet: "",
+        item: "",
+        odds: 1,
+        bet_money: 10,
+        money: 0,
+        status: "None",
+        create_at: 1,
+        raw: { n: 1 },
+      },
+      {
+        user_id: "u1",
+        player_id: 12,
+        order_id: "dup",
+        link: 2,
+        provider: "OB",
+        match: "",
+        bet: "",
+        item: "",
+        odds: 2,
+        bet_money: 20,
+        money: 0,
+        status: "Win",
+        create_at: 2,
+        raw: { n: 2 },
+      },
+    ]);
+    const insertCalls = clientQueryMock.mock.calls.filter(([sql]) => String(sql).includes("INSERT INTO orders"));
+    expect(insertCalls).toHaveLength(1);
+    expect(insertCalls[0][1][2]).toEqual(["dup"]);
+    expect(insertCalls[0][1][11]).toEqual(["Win"]);
   });
 });
 

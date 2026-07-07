@@ -3,6 +3,7 @@ import {
   accountsMultiplyNeedsPersist,
   normalizeAccountList,
 } from "@changmen/shared/account_multiply";
+import { accountsPersistUnchanged } from "@changmen/shared/account_persist";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { isEmbeddedMatcher } from "../shared/matcher_mode.js";
 
@@ -162,7 +163,10 @@ export function countAccounts() {
 export function replaceAccountsForUser(uid, accounts) {
   const id = String(uid);
   const normalized = normalizeAccountList(accounts);
+  const prev = _accountsCache.get(id);
   _accountsCache.set(id, normalized);
+  if (prev && accountsPersistUnchanged(prev, normalized))
+    return normalized;
   sb.saveAccountRecordsForOwner(id, normalized);
   return normalized;
 }

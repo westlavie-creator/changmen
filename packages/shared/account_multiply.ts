@@ -125,7 +125,6 @@ export function preserveStoredAccountMultiply<T>(
   return { ...row, multiply: n } as T;
 }
 
-/** 乘网归一化后是否需要回写 profiles.accounts */
 export function accountsMultiplyNeedsPersist(
   before: unknown[],
   after: unknown[],
