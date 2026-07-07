@@ -1,10 +1,14 @@
 import { afterAll, describe, it } from "vitest";
 import assert from "node:assert/strict";
 import http from "node:http";
+import { createRequire } from "node:module";
 import { attachWsForward, closeForwardEngine, isWsForwardHttpPath } from "../index.js";
 import { createHttpHandler } from "../../backend/http_routes.js";
 import { io } from "socket.io-client";
 import WebSocket, { WebSocketServer } from "ws";
+
+const require = createRequire(import.meta.url);
+const socketClusterClient = require("socketcluster-client");
 
 function listenHttp(server) {
   return new Promise((resolve, reject) => {
@@ -170,5 +174,51 @@ describe("ws_forward with backend http handler", () => {
 
     await onceOpen(client);
     client.close();
+  });
+
+  it("RAY: socketcluster handshake succeeds through forward", async () => {
+    const token =
+      "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhcHBfa2V5IjoiY2QyNzZmZTQ5YmEyZTQ1YiIsImRhdGEiOnsidXNlcl9uYW1lIjoiaHVhMTk5NDMxIiwibG9iYnlfdXJsIjoiLyMvbG9naW4vIiwiaWF0IjoiNjM4NTQwNjkyOTkifX0.Y1k61j-43efe0UonN4mfpVMLvaSlFZihGeLCxYV4tKM";
+    const result = await new Promise((resolve) => {
+      const socket = socketClusterClient.create({
+        hostname: "127.0.0.1",
+        port: ctx.forwardPort,
+        secure: false,
+        path: "/esport/ws-forward/RAY",
+        protocolVersion: 1,
+        autoConnect: true,
+        connectTimeout: 15_000,
+        ackTimeout: 10_000,
+        wsOptions: {
+          headers: {
+            Origin: "https://ray164.com",
+            Referer: "https://ray164.com/",
+            Authorization: token,
+          },
+        },
+      });
+      const t = setTimeout(() => {
+        socket.disconnect();
+        resolve("timeout");
+      }, 15_000);
+      void (async () => {
+        for await (const _ of socket.listener("connect")) {
+          clearTimeout(t);
+          socket.disconnect();
+          resolve("ok");
+          break;
+        }
+      })();
+      void (async () => {
+        for await (const event of socket.listener("error")) {
+          clearTimeout(t);
+          socket.disconnect();
+          resolve(`err:${event?.error?.message || event}`);
+          break;
+        }
+      })();
+    });
+
+    assert.equal(result, "ok");
   });
 });

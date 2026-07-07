@@ -12,7 +12,7 @@ function matchDefinition(pathname) {
   );
 }
 
-function pipeSockets(clientWs, upstreamWs, id) {
+function pipeSockets(clientWs, upstreamWs, id, pendingClientMessages = []) {
   const closeBoth = (reason) => {
     try {
       clientWs.close();
@@ -27,11 +27,17 @@ function pipeSockets(clientWs, upstreamWs, id) {
     if (reason) console.warn(`[ws_forward/${id}] relay closed:`, reason);
   };
 
-  clientWs.on("message", (data, isBinary) => {
+  const forwardClientToUpstream = (data, isBinary) => {
     if (upstreamWs.readyState === WebSocket.OPEN) {
       upstreamWs.send(data, { binary: isBinary });
     }
-  });
+  };
+
+  for (const { data, isBinary } of pendingClientMessages) {
+    forwardClientToUpstream(data, isBinary);
+  }
+
+  clientWs.on("message", (data, isBinary) => forwardClientToUpstream(data, isBinary));
   upstreamWs.on("message", (data, isBinary) => {
     if (clientWs.readyState === WebSocket.OPEN) {
       clientWs.send(data, { binary: isBinary });
@@ -68,6 +74,13 @@ export function attachRawWsForwards(httpServer, defs) {
     }
 
     wss.handleUpgrade(request, socket, head, (clientWs) => {
+      /** @type {{ data: import("ws").RawData; isBinary: boolean }[]} */
+      const pendingClientMessages = [];
+      const onEarlyClientMessage = (data, isBinary) => {
+        pendingClientMessages.push({ data, isBinary });
+      };
+      clientWs.on("message", onEarlyClientMessage);
+
       let upstreamWs;
       try {
         upstreamWs = new WebSocket(upstreamSpec.url, {
@@ -75,15 +88,17 @@ export function attachRawWsForwards(httpServer, defs) {
           rejectUnauthorized: true,
         });
       } catch (err) {
+        clientWs.off("message", onEarlyClientMessage);
         console.warn(`[ws_forward/${definition.id}] upstream open failed:`, err.message);
         clientWs.close();
         return;
       }
 
       upstreamWs.on("open", () => {
+        clientWs.off("message", onEarlyClientMessage);
         recordConnect(definition.id);
         console.info(`[ws_forward/${definition.id}] upstream connected`, upstreamSpec.url);
-        pipeSockets(clientWs, upstreamWs, definition.id);
+        pipeSockets(clientWs, upstreamWs, definition.id, pendingClientMessages);
       });
       upstreamWs.on("error", (err) => {
         recordError(definition.id, err.message);
