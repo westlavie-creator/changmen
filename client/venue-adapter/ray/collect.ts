@@ -1,5 +1,13 @@
 import { saveVenueOdds, isVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
-import { createRayRealtimeClient, type RayRealtimeMessage } from "./realtime";
+import {
+  createRayRealtimeClient,
+  cycleRayWsSourceMode,
+  getRayWsSourceMode,
+  rayWsSourceModeLabel,
+  type RayRealtimeClient,
+  type RayRealtimeMessage,
+  type RayWsSourceMode,
+} from "./realtime";
 import { RAY_A8_COLLECT } from "./a8Collect";
 import type { CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { CollectPlatformInfo } from "@changmen/api-contract";
@@ -19,6 +27,36 @@ const SAVE_MS = 60_000;
 
 /** dev HMR 时停止上一轮 poll + SocketCluster（对齐 OB `mqtt.ts` dispose） */
 let rayCollectorStop: (() => void) | null = null;
+let rayRealtime: RayRealtimeClient | null = null;
+let rayOnMessage: ((msg: RayRealtimeMessage) => void) | null = null;
+
+function connectRayRealtime(onMessage: (msg: RayRealtimeMessage) => void): void {
+  rayOnMessage = onMessage;
+  const realtime = createRayRealtimeClient();
+  rayRealtime = realtime;
+  void (async () => {
+    try {
+      await realtime.start(onMessage);
+    } catch (err) {
+      console.warn("[RAY] ws loop", err);
+    }
+  })();
+}
+
+export { getRayWsSourceMode, rayWsSourceModeLabel };
+export type { RayWsSourceMode };
+
+export function cycleRayWsSourceModeAndReconnect(): RayWsSourceMode {
+  const next = cycleRayWsSourceMode();
+  if (!rayRealtime || !rayOnMessage) return next;
+
+  const oldRealtime = rayRealtime;
+  rayRealtime = null;
+  void oldRealtime.stop().finally(() => {
+    if (rayOnMessage) connectRayRealtime(rayOnMessage);
+  });
+  return next;
+}
 
 /** A8 `vQe` / `r$`：Decimal 或原始值 → number */
 function rayNum(raw: unknown): number {
@@ -67,20 +105,13 @@ export function startRayCollector(): () => void {
   rayCollectorStop?.();
   let stopped = false;
   let lastSaveAt = 0;
-  const realtime = createRayRealtimeClient();
   const betRe = new RegExp(RAY_A8_COLLECT.betName);
   const collect = useCollectStore();
 
-  void (async () => {
-    try {
-      await realtime.start((msg) => {
-        if (stopped) return;
-        handleRayRealtimeMessage(msg);
-      });
-    } catch (err) {
-      if (!stopped) console.warn("[RAY] ws loop", err);
-    }
-  })();
+  connectRayRealtime((msg) => {
+    if (stopped) return;
+    handleRayRealtimeMessage(msg);
+  });
 
   const poll = async () => {
     while (!stopped) {
@@ -172,7 +203,9 @@ export function startRayCollector(): () => void {
 
   const stop = () => {
     stopped = true;
-    void realtime.stop();
+    rayOnMessage = null;
+    void rayRealtime?.stop();
+    rayRealtime = null;
     if (rayCollectorStop === stop) rayCollectorStop = null;
   };
   rayCollectorStop = stop;

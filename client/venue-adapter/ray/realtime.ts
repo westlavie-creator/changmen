@@ -19,7 +19,70 @@ import {
 
 const PLATFORM = PLATFORMS.RAY;
 
+const RAY_WS_SOURCE_MODE_KEY = "changmen:ray:ws-source-mode";
 const FAILOVER_ORDER: RayWsEndpointSource[] = ["official", "changmen", "a8"];
+const SOURCE_MODE_ORDER = FAILOVER_ORDER;
+
+export type RayWsSourceMode = RayWsEndpointSource;
+
+function readStoredSourceMode(): RayWsSourceMode {
+  try {
+    const value = globalThis.localStorage?.getItem(RAY_WS_SOURCE_MODE_KEY);
+    if (value === "changmen" || value === "a8") return value;
+    return "official";
+  } catch {
+    return "official";
+  }
+}
+
+let rayWsSourceMode: RayWsSourceMode = readStoredSourceMode();
+
+export function getRayWsSourceMode(): RayWsSourceMode {
+  return rayWsSourceMode;
+}
+
+export function rayWsSourceModeLabel(mode: RayWsSourceMode = rayWsSourceMode): string {
+  switch (mode) {
+    case "changmen":
+      return "CHANGMEN 转发";
+    case "a8":
+      return "A8 聚合";
+    default:
+      return "官方源";
+  }
+}
+
+export function setRayWsSourceMode(mode: RayWsSourceMode): RayWsSourceMode {
+  rayWsSourceMode = mode;
+  try {
+    globalThis.localStorage?.setItem(RAY_WS_SOURCE_MODE_KEY, mode);
+  } catch {
+    /* ignore storage errors */
+  }
+  patchDirectRealtimeStatus(PLATFORM, {
+    upstreamConnected: false,
+    upstreamRoute: mode,
+    lastError: `RAY WS 切换到${rayWsSourceModeLabel(mode)}，等待重连`,
+  });
+  return rayWsSourceMode;
+}
+
+export function cycleRayWsSourceMode(): RayWsSourceMode {
+  const idx = SOURCE_MODE_ORDER.indexOf(rayWsSourceMode);
+  const next = SOURCE_MODE_ORDER[(idx + 1) % SOURCE_MODE_ORDER.length]!;
+  return setRayWsSourceMode(next);
+}
+
+function configForSourceMode(mode: RayWsSourceMode): RayScConnectConfig {
+  switch (mode) {
+    case "changmen":
+      return getRayChangmenScConfig();
+    case "a8":
+      return getRayA8ScConfig();
+    default:
+      return getRayOfficialScConfig();
+  }
+}
 
 export type RayRealtimeMessage = {
   source?: "odds" | "match" | string;
@@ -84,6 +147,14 @@ function createDirectRayRealtimeClient(): RayRealtimeClient {
 
   const requestFailover = (reason: string) => {
     if (stopped || failoverBusy) return;
+    const selectedMode = getRayWsSourceMode();
+    if (selectedMode !== "official") {
+      console.warn(
+        `[RAY WS] ${selectedMode} source failed, staying on selected ${rayWsSourceModeLabel(selectedMode)}:`,
+        reason,
+      );
+      return;
+    }
     const failedSource = activeConfig?.source;
     if (!failedSource) return;
     void failoverFrom(failedSource, reason);
@@ -200,7 +271,7 @@ function createDirectRayRealtimeClient(): RayRealtimeClient {
     async start(onMessage) {
       onMessageHandler = onMessage;
       stopped = false;
-      await connectWithConfig(getRayOfficialScConfig());
+      await connectWithConfig(configForSourceMode(getRayWsSourceMode()));
     },
     async stop() {
       stopped = true;

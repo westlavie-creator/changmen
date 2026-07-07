@@ -13,12 +13,19 @@ import {
   toggleObMqttSourceModeAndReconnect,
   type ObMqttSourceMode,
 } from "@venue/ob";
+import {
+  cycleRayWsSourceModeAndReconnect,
+  getRayWsSourceMode,
+  rayWsSourceModeLabel,
+  type RayWsSourceMode,
+} from "@venue/ray";
 import { ElMessage } from "element-plus";
 
 const { statuses } = useDirectRealtimeStatus();
 
 const venueWsStatuses = ref<VenueWsStatusEntry[]>(listVenueWsStatuses());
 const obSourceMode = ref<ObMqttSourceMode>(getObMqttSourceMode());
+const raySourceMode = ref<RayWsSourceMode>(getRayWsSourceMode());
 let venueWsUnsub: (() => void) | undefined;
 
 onMounted(() => {
@@ -102,23 +109,41 @@ function tooltip(status: DirectRealtimeStatus): string {
     lines.push(`当前选择：${obSourceMode.value === "a8" ? "A8 源" : "官方源"}`);
     lines.push("点击切换 A8 / 官方源");
   }
+  if (status.platform === "RAY") {
+    lines.push(`当前选择：${rayWsSourceModeLabel(raySourceMode.value)}`);
+    lines.push("点击切换 官方 / CHANGMEN / A8");
+  }
   return lines.join("\n");
+}
+
+function isClickablePlatform(platform: string): boolean {
+  return platform === "OB" || platform === "RAY";
 }
 
 function itemClass(status: DirectRealtimeStatus): Record<string, boolean> {
   return {
-    "direct-realtime-item--clickable": status.platform === "OB",
+    "direct-realtime-item--clickable": isClickablePlatform(status.platform),
   };
 }
 
 function handleStatusClick(status: DirectRealtimeStatus): void {
-  if (status.platform !== "OB") return;
-  obSourceMode.value = toggleObMqttSourceModeAndReconnect();
-  ElMessage({
-    message: `OB MQTT 已切换到${obSourceMode.value === "a8" ? "A8 源" : "官方源"}，正在重连`,
-    type: "success",
-    plain: true,
-  });
+  if (status.platform === "OB") {
+    obSourceMode.value = toggleObMqttSourceModeAndReconnect();
+    ElMessage({
+      message: `OB MQTT 已切换到${obSourceMode.value === "a8" ? "A8 源" : "官方源"}，正在重连`,
+      type: "success",
+      plain: true,
+    });
+    return;
+  }
+  if (status.platform === "RAY") {
+    raySourceMode.value = cycleRayWsSourceModeAndReconnect();
+    ElMessage({
+      message: `RAY WS 已切换到${rayWsSourceModeLabel(raySourceMode.value)}，正在重连`,
+      type: "success",
+      plain: true,
+    });
+  }
 }
 </script>
 
@@ -133,8 +158,8 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
       class="direct-realtime-item"
       :class="itemClass(status)"
       :title="tooltip(status)"
-      :role="status.platform === 'OB' ? 'button' : undefined"
-      :tabindex="status.platform === 'OB' ? 0 : undefined"
+      :role="isClickablePlatform(status.platform) ? 'button' : undefined"
+      :tabindex="isClickablePlatform(status.platform) ? 0 : undefined"
       @click="handleStatusClick(status)"
       @keydown.enter.prevent="handleStatusClick(status)"
       @keydown.space.prevent="handleStatusClick(status)"

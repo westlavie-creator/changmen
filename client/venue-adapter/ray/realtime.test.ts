@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { createRayRealtimeClient, type RayRealtimeMessage } from "./realtime";
+import {
+  createRayRealtimeClient,
+  setRayWsSourceMode,
+  type RayRealtimeMessage,
+} from "./realtime";
 import { RAY_WS_FORWARD_PATH } from "./wsConfig";
 
 const createMock = vi.fn();
@@ -39,6 +43,7 @@ beforeEach(() => {
   createMock.mockReset();
   subscribeMock.mockReset();
   disconnectMock.mockReset();
+  setRayWsSourceMode("official");
 });
 
 afterEach(() => {
@@ -112,6 +117,67 @@ describe("createRayRealtimeClient", () => {
         }),
       }),
     );
+
+    await client.stop();
+  });
+
+  test("connects selected CHANGMEN source directly", async () => {
+    setRayWsSourceMode("changmen");
+    createMock.mockReturnValue(mockSocketCluster([]));
+
+    const client = createRayRealtimeClient();
+    await client.start(() => {});
+
+    expect(createMock).toHaveBeenCalledOnce();
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: "127.0.0.1",
+        port: 3560,
+        path: RAY_WS_FORWARD_PATH,
+      }),
+    );
+
+    await client.stop();
+  });
+
+  test("connects selected A8 source directly", async () => {
+    setRayWsSourceMode("a8");
+    createMock.mockReturnValue(mockSocketCluster([]));
+
+    const client = createRayRealtimeClient();
+    await client.start(() => {});
+
+    expect(createMock).toHaveBeenCalledOnce();
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: "47.115.75.57",
+        port: 443,
+        secure: true,
+        path: "/esport/ws/RAY",
+      }),
+    );
+
+    await client.stop();
+  });
+
+  test("stays on selected CHANGMEN source when connection fails", async () => {
+    setRayWsSourceMode("changmen");
+    const changmenSocket = {
+      subscribe: subscribeMock,
+      disconnect: disconnectMock,
+      state: "closed",
+      listener: (event: string) => ({
+        [Symbol.asyncIterator]: async function* () {
+          if (event === "error") yield { error: "upstream refused" };
+        },
+      }),
+    };
+    createMock.mockReturnValueOnce(changmenSocket);
+
+    const client = createRayRealtimeClient();
+    await client.start(() => {});
+
+    await vi.waitFor(() => expect(createMock).toHaveBeenCalledTimes(1));
 
     await client.stop();
   });
