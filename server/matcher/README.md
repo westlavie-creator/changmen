@@ -44,4 +44,13 @@ BAT\dev.bat parity        # 或一次起 backend + Vite + matcher
 
 `Client_GetMatchs`（`store.buildMatchList`）已改为只读 `client_matches`（含 `pm_sport` 列）。embedded 模式下 `SaveLiveTimer` debounce 触发 matchMerge（`MATCHER_TIMER_DEBOUNCE_MS`，默认 3s），常规循环仍由 `MATCHER_INTERVAL_MS` 驱动。
 
+```bash
+# 巡检 client_matches vs platform_bets / matchMerge 预览
+node server/matcher/scripts/audit-client-sources.mjs
+node server/matcher/scripts/audit-client-sources.mjs --quick   # 仅静态
+node server/matcher/scripts/audit-client-sources.mjs --strict  # CI：有问题 exit 1
+```
+
+matchMerge 诊断日志：`MATCHER_MERGE_DIAG=1`。
+
 更多：[../../docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)、[../../scripts/README.md](../../scripts/README.md)。

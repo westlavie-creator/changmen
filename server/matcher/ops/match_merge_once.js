@@ -72,7 +72,7 @@ async function ensureTeamPlugin() {
   return _pluginReady;
 }
 
-async function matchMergeOnceImpl() {
+async function computeMatchMergeList({ registerTeams = true } = {}) {
   await db.initLastWrittenIds();
 
   const { matchesRaw, bets, timers, clientRows, alignClientRows, hotCollector } = await fetchMatcherRdsSnapshot();
@@ -83,11 +83,14 @@ async function matchMergeOnceImpl() {
   if (platformBindingsByClientId?.size)
     enrichMatchesRawWithDbBindings(matchesRaw, platformBindingsByClientId);
 
-  const teamReg = await autoRegisterTeams(matchesRaw);
-  const nameSync = await db.syncCanonicalTeamNamesFromOb();
-  const teamDataChanged = (teamReg?.registered > 0) || (nameSync?.updated > 0);
-  if (teamDataChanged)
-    resetTeamPluginCache();
+  let teamReg = null;
+  let nameSync = null;
+  if (registerTeams) {
+    teamReg = await autoRegisterTeams(matchesRaw);
+    nameSync = await db.syncCanonicalTeamNamesFromOb();
+    if ((teamReg?.registered > 0) || (nameSync?.updated > 0))
+      resetTeamPluginCache();
+  }
   await ensureTeamPlugin();
 
   const matches = normalizeMatchesShape(matchesRaw);
@@ -98,7 +101,7 @@ async function matchMergeOnceImpl() {
   const alignStats = alignRows?.length
     ? alignUnmatchedToClientMatches(matches, alignRows)
     : { alignedById: 0, alignedByName: 0 };
-  if (alignStats.alignedById || alignStats.alignedByName) {
+  if (registerTeams && (alignStats.alignedById || alignStats.alignedByName)) {
     console.log(
       `[matchMerge] 未匹配对齐 client_matches · ID ${alignStats.alignedById} · 队名+时间 ${alignStats.alignedByName}`,
     );
@@ -136,8 +139,46 @@ async function matchMergeOnceImpl() {
     pmSportByClientId,
   });
   info = endedFilter.list;
-  if (endedFilter.endedCount > 0) {
-    console.log(`[matchMerge] 已结束移出活跃列表 ${endedFilter.endedCount} 场`);
+
+  if (process.env.MATCHER_MERGE_DIAG === "1") {
+    console.log(
+      `[matchMerge:diag] matches=${info.length} ended=${endedFilter.endedCount}`
+      + ` alignId=${alignStats.alignedById} alignName=${alignStats.alignedByName}`
+      + ` hot=${JSON.stringify(hotCollector || {})}`,
+    );
+  }
+
+  return {
+    info,
+    alignStats,
+    endedCount: endedFilter.endedCount,
+    hotCollector,
+    teamReg,
+    nameSync,
+    clientRows,
+    matches,
+    bets,
+    timers,
+  };
+}
+
+/** 只读：跑完整 merge 流水线，不写 RDS / 不改采集内存 */
+async function previewMatchMergeOnce() {
+  return computeMatchMergeList({ registerTeams: false });
+}
+
+async function matchMergeOnceImpl() {
+  const {
+    info,
+    alignStats,
+    endedCount,
+    hotCollector,
+    teamReg,
+    nameSync,
+  } = await computeMatchMergeList({ registerTeams: true });
+
+  if (endedCount > 0) {
+    console.log(`[matchMerge] 已结束移出活跃列表 ${endedCount} 场`);
   }
 
   const now = Date.now();
@@ -187,4 +228,4 @@ async function matchMergeOnce(opts = {}) {
   return _matchMergeInFlight;
 }
 
-export { ensureTeamPlugin, invalidateTeamPlugin, matchMergeOnce, resetTeamPluginCache };
+export { ensureTeamPlugin, invalidateTeamPlugin, matchMergeOnce, previewMatchMergeOnce, resetTeamPluginCache };
