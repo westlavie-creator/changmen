@@ -42,6 +42,6 @@ BAT\dev.bat parity        # 或一次起 backend + Vite + matcher
 
 写库前统一走 `finalizeClientMatchListAfterLinks`（`match-engine` 导出）。Phase A 已把 sync-after-finalize reconcile、gb 锁首轮传入等逻辑固定在此流水线。
 
-`Client_GetMatchs`（`store.buildMatchList`）已改为只读 `client_matches`（含 `pm_sport` 列）；Round 时效性由 `MATCHER_INTERVAL_MS` 或 timer 触发 matchMerge 保证。
+`Client_GetMatchs`（`store.buildMatchList`）已改为只读 `client_matches`（含 `pm_sport` 列）。embedded 模式下 `SaveLiveTimer` debounce 触发 matchMerge（`MATCHER_TIMER_DEBOUNCE_MS`，默认 3s），常规循环仍由 `MATCHER_INTERVAL_MS` 驱动。
 
 更多：[../../docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)、[../../scripts/README.md](../../scripts/README.md)。

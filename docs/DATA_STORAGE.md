@@ -8,8 +8,8 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 |----|--------|--------|------|
 | `platform_matches` | 客户端 `API_SaveMatch` → backend | embedded matcher matchMerge | 各平台原始比赛 |
 | `platform_bets` | `API_SaveBet` | embedded matcher | 各平台赔率快照 |
-| `live_timers` | `API_SaveLiveTimer` | embedded matcher / backend overlay | 局数/计时 |
-| `client_matches` | embedded matcher matchMerge | 浏览器 `Client_GetMatchs` | 合并后的比赛列表 |
+| `live_timers` | `API_SaveLiveTimer` → backend | embedded matcher matchMerge | 局数/计时；GetMatchs 不再 overlay |
+| `client_matches` | embedded matcher matchMerge | 浏览器 `Client_GetMatchs`（只读，不改写） | 合并后的比赛列表 |
 | `users` / `profiles` / `orders` | 鉴权、下单 API | 前端 | 登录与订单 |
 | `canonical_teams` / `team_venue_maps` | team-resolver、matcher | matcher 队名插件 | 队伍 canonical 映射 |
 
@@ -71,7 +71,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `API_SaveLiveTimer` | M→A* | — | 内存 `_timers` → `writeLiveTimersAsync` | *当前 await RDS，可改为与 SaveBet 一致 |
 | `API_SaveScore` | — | — | 空实现 | — |
 | `API_UpdatePlatform` | J | `platforms.json` | 同步写文件 | 多实例前勿假设共享 |
-| `Client_GetMatchs` | M+R | 内存 `client_matches`；built_at 未变跳过全量 SELECT | — | 内嵌 matcher matchMerge 后直接灌内存 |
+| `Client_GetMatchs` | M+R | 内存 `client_matches`；built_at/pm_sport_rev 未变跳过全量 SELECT | — | 只读 matchMerge 结果，不做 Round/promote overlay |
 | `Client_GetDefaultOdds` / `GetMatchDefaultOdds` | M+J | 内存列表 + `default_odds.json` | debounce 写 JSON | — |
 
 ### 采集凭证 / 游戏

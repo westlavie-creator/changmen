@@ -8,6 +8,7 @@ import {
   setPlatform as setPlatformRow,
 } from "@changmen/storage/platform_storage.js";
 import * as dbStore from "../db/store.js";
+import { isEmbeddedMatcher } from "../shared/matcher_mode.js";
 import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
 import { createDefaultOddsApi } from "./default_odds.js";
 
@@ -33,6 +34,22 @@ function cloneJson(value) {
 }
 
 const COLLECTOR_HOT_CACHE_TTL_MS = Number(process.env.COLLECTOR_HOT_CACHE_TTL_MS || 180_000);
+/** embedded：SaveLiveTimer 后 debounce 触发 matchMerge，弥补 GetMatchs 纯读下的 Round 延迟 */
+const EMBEDDED_MERGE_DEBOUNCE_MS = Number(process.env.MATCHER_TIMER_DEBOUNCE_MS || 3_000);
+let _embeddedMergeTimer = null;
+
+function scheduleEmbeddedMatchMerge() {
+  if (!isEmbeddedMatcher())
+    return;
+  if (_embeddedMergeTimer != null)
+    return;
+  _embeddedMergeTimer = setTimeout(() => {
+    _embeddedMergeTimer = null;
+    import("../../../matcher/ops/match_merge_once.js")
+      .then(({ matchMergeOnce }) => matchMergeOnce())
+      .catch(err => console.warn("[matchMerge] embedded saveLiveTimer trigger:", err.message));
+  }, EMBEDDED_MERGE_DEBOUNCE_MS);
+}
 
 // 路由到 profiles 的 key 列表
 // CollectConfig → collect_config, USERCONFIG → betting_config, 其余 → preferences
@@ -226,6 +243,7 @@ export async function saveLiveTimer(provider, timer) {
     savedAt: Date.now(),
   };
   await sb.writeLiveTimersAsync(plat, incoming);
+  scheduleEmbeddedMatchMerge();
 }
 
 // ── user kv / settings ────────────────────────────────────────────────────────
