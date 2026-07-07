@@ -33,4 +33,15 @@ BAT\dev.bat parity        # 或一次起 backend + Vite + matcher
 
 心跳文件：`server/matcher/.matcher-heartbeat.json`（gitignore）。
 
+## 数据边界（Client_GetMatchs vs matchMerge）
+
+| 路径 | 职责 | 允许的操作 |
+|------|------|------------|
+| **matchMerge**（本目录 + `match-engine`） | 读 `platform_matches` / `platform_bets` / `live_timers` → 写 `client_matches` | 合并、Reverse/reconcile、决胜局 promote、Map=0 trim、Round、gb 锁 |
+| **Client_GetMatchs**（`server/backend`） | 读 `client_matches` 返回前端 | **只消费**，不做 Bets/Sources/Reverse/Round 二次变换 |
+
+写库前统一走 `finalizeClientMatchListAfterLinks`（`match-engine` 导出）。Phase A 已把 sync-after-finalize reconcile、gb 锁首轮传入等逻辑固定在此流水线。
+
+`Client_GetMatchs`（`store.buildMatchList`）已改为只读 `client_matches`（含 `pm_sport` 列）；Round 时效性由 `MATCHER_INTERVAL_MS` 或 timer 触发 matchMerge 保证。
+
 更多：[../../docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)、[../../scripts/README.md](../../scripts/README.md)。

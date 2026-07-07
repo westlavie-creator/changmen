@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
  * promote 主客对齐 + 套利选腿回归（gb12 OB×RAY Map3 同向 bug）
  */
 import { it } from "vitest";
-import { overlayLiveTimersOnMatches } from "../../backend/core/esport-api/live_timer_overlay.js";
 import {
   buildClientMatchList,
+  finalizeClientMatchListAfterLinks,
   promoteFullMatchSourcesToLiveRoundInPlace,
   swapBetSource,
 } from "../merge/match_merge.js";
@@ -169,8 +169,7 @@ it("gb12: 旧 bug 形态（RAY Map3 二次 swap）会被检出", () => {
   assert.ok(homeOdds >= 2.065 && awayOdds >= 2.08, "bug 形态：Home/ Away 最高赔都在 9z");
 });
 
-it("gb12: GetMatchs overlay 在 Round 切到 3 后 promote 仍对齐", () => {
-  // 模拟 DB 尚未 rebuild：Round=0，Map=0 仍含 reconcile 后的 RAY（trim 在 overlay 最后执行）
+it("gb12: finalize 在 Round 切到 3 后 promote 仍对齐", () => {
   const staleDbRow = {
     ID: 1,
     BO: 3,
@@ -217,17 +216,18 @@ it("gb12: GetMatchs overlay 在 Round 切到 3 后 promote 仍对齐", () => {
       },
     ],
   };
-  const out = overlayLiveTimersOnMatches([staleDbRow], gb12Timers);
-  assert.equal(out[0].Round, 3);
-  const map3 = out[0].Bets.find(b => b.Map === 3);
-  assert.ok(map3?.Sources?.RAY, "overlay promote RAY");
+  const rows = [structuredClone(staleDbRow)];
+  finalizeClientMatchListAfterLinks(rows, gb12Matches, gb12Bets, gb12Timers, src, null, {});
+  assert.equal(rows[0].Round, 3);
+  const map3 = rows[0].Bets.find(b => b.Map === 3);
+  assert.ok(map3?.Sources?.RAY, "finalize promote RAY");
   assert.equal(map3.Sources.RAY.HomeOdds, 2.08);
   assertMapBetArbSidesOpposite(map3);
-  const map0 = out[0].Bets.find(b => b.Map === 0);
+  const map0 = rows[0].Bets.find(b => b.Map === 0);
   assert.deepEqual(Object.keys(map0.Sources || {}), ["OB"], "trim Map=0 to OB only");
 });
 
-it("Polymarket reverse: overlay 用最新 Map0 覆盖旧的决胜局 promoted source", () => {
+it("Polymarket reverse: finalize 用最新 Map0 覆盖旧的决胜局 promoted source", () => {
   const polyFull = {
     SourceBetID: "poly-full",
     Map: 0,
@@ -286,37 +286,34 @@ it("Polymarket reverse: overlay 用最新 Map0 覆盖旧的决胜局 promoted so
       },
     ],
   };
-  const enrich = {
-    matches: {
-      OB: { "ob-rune-novaq": baseMatch("OB", "ob-rune-novaq", "Rune Eaters", "Novaq") },
-      Polymarket: {
-        "poly-rune-novaq": baseMatch("Polymarket", "poly-rune-novaq", "Team Novaq", "Rune Eaters"),
-      },
+  const polyMatches = {
+    OB: { "ob-rune-novaq": baseMatch("OB", "ob-rune-novaq", "Rune Eaters", "Novaq") },
+    Polymarket: {
+      "poly-rune-novaq": baseMatch("Polymarket", "poly-rune-novaq", "Team Novaq", "Rune Eaters"),
     },
-    bets: {
-      "OB:ob-rune-novaq": {
-        provider: "OB",
-        matchId: "ob-rune-novaq",
-        bets: [
-          {
-            SourceBetID: "ob-full",
-            Map: 0,
-            BetName: "[全场]-全局-获胜",
-            SourceHomeID: "ob-home-rune",
-            HomeOdds: 1.65,
-            SourceAwayID: "ob-away-novaq",
-            AwayOdds: 2.13,
-            Status: "Normal",
-          },
-        ],
-      },
-      "Polymarket:poly-rune-novaq": {
-        provider: "Polymarket",
-        matchId: "poly-rune-novaq",
-        bets: [polyFull],
-      },
+  };
+  const polyBets = {
+    "OB:ob-rune-novaq": {
+      provider: "OB",
+      matchId: "ob-rune-novaq",
+      bets: [
+        {
+          SourceBetID: "ob-full",
+          Map: 0,
+          BetName: "[全场]-全局-获胜",
+          SourceHomeID: "ob-home-rune",
+          HomeOdds: 1.65,
+          SourceAwayID: "ob-away-novaq",
+          AwayOdds: 2.13,
+          Status: "Normal",
+        },
+      ],
     },
-    sourceFromBet: src,
+    "Polymarket:poly-rune-novaq": {
+      provider: "Polymarket",
+      matchId: "poly-rune-novaq",
+      bets: [polyFull],
+    },
   };
   const timers = {
     OB: {
@@ -325,15 +322,24 @@ it("Polymarket reverse: overlay 用最新 Map0 覆盖旧的决胜局 promoted so
     },
   };
 
-  const out = overlayLiveTimersOnMatches([staleDbRow], timers, enrich);
-  const map3 = out[0].Bets.find(b => b.Map === 3);
-  assert.equal(out[0].Round, 3);
+  const rows = [structuredClone(staleDbRow)];
+  finalizeClientMatchListAfterLinks(
+    rows,
+    polyMatches,
+    polyBets,
+    timers,
+    src,
+    null,
+    { 501: { Polymarket: "force_reversed" } },
+  );
+  const map3 = rows[0].Bets.find(b => b.Map === 3);
+  assert.equal(rows[0].Round, 3);
   assert.equal(map3.Sources.Polymarket.HomeID, "poly-away-rune");
   assert.equal(map3.Sources.Polymarket.AwayID, "poly-home-novaq");
   assert.equal(map3.Sources.Polymarket.HomeOdds, 4.762);
   assert.equal(map3.Sources.Polymarket.AwayOdds, 1.191);
-  const map0 = out[0].Bets.find(b => b.Map === 0);
-  assert.deepEqual(Object.keys(map0.Sources || {}), ["OB"], "trim Map=0 to OB only");
+  const map0 = rows[0].Bets.find(b => b.Map === 0);
+  assert.deepEqual(Object.keys(map0.Sources || {}).sort(), ["OB", "Polymarket"], "trim Map=0 keeps OB + Polymarket");
 });
 
 it("gb12: inPlace promote 在 Reverse 含 RAY 时不二次 swap", () => {

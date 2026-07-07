@@ -82,7 +82,7 @@ function timerSnapshotProviders(match, timersByProvider) {
     .sort((a, b) => b.pri - a.pri);
 }
 
-/** matcher matchMerge + Client_GetMatchs overlay：用 live timer 快照刷新 Round/RoundStart */
+/** matchMerge 写库前：用 live_timers 刷新 Round/RoundStart（Client_GetMatchs 只读 client_matches，不在读路径重复） */
 function refreshClientMatchRoundsFromTimers(rows, timersByProvider) {
   if (!Array.isArray(rows))
     return;
@@ -119,7 +119,7 @@ function obTimerMatchIds(timersByProvider) {
   );
 }
 
-/** is_live≠2、已不在 OB index、或已不在 OB timer 批次时清零 Round（读路径 + matcher matchMerge） */
+/** is_live≠2、已不在 OB index、或已不在 OB timer 批次时清零 Round（matchMerge 写库前） */
 function applyObLiveRoundGate(rows, platformMatches, timersByProvider) {
   if (!Array.isArray(rows))
     return rows;
@@ -859,8 +859,7 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
             const raw = accByMap.get(mapNum)?.Sources?.[platform];
             if (raw)
               bet.Sources[platform] = { ...raw };
-            else if (bet.Sources?.[platform])
-              delete bet.Sources[platform];
+            // Map>0 无 platform_bets 回填时保留 row 内原生 Sources（decider 展示）
           }
         }
         continue;
@@ -920,7 +919,7 @@ function sortClientMatchBets(rows) {
   }
 }
 
-/** 从各平台原始盘口合并 Map=0（DB 未 matchMerge 时 GetMatchs overlay 补全场行） */
+/** 从各平台原始盘口合并 Map=0（matchMerge 写 client_matches 前补全场行） */
 function mergeMapZeroFromPlatformBets(row, matches, bets, timers, sourceFromBet) {
   const mergedSources = {};
   let canonBet = null;
@@ -1129,6 +1128,14 @@ function refreshClientMatchSides(rows, matches, bets, timers, sourceFromBet, exi
   }
 }
 
+/** sync* 在 finalize 之后写入原生 Sources；补一次 reconcile，不再重复 promote/trim */
+function refreshClientMatchSourcesAfterSync(rows, matches, bets, timers, sourceFromBet, platformSideOverrides) {
+  if (!bets || !sourceFromBet || !rows?.length)
+    return;
+  reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet, platformSideOverrides);
+  refreshClientMatchBetMapNames(rows, matches, bets, timers, sourceFromBet);
+}
+
 function clientMatchRowToBuilt(cm) {
   return {
     ID: Number(cm.id),
@@ -1148,7 +1155,10 @@ function clientMatchRowToBuilt(cm) {
   };
 }
 
-/** 分配 client id / 人工链接后：锁定主客 + 全量 reconcile + 决胜局后处理 */
+/**
+ * 写 client_matches 前的唯一 finalize 流水线（Reverse / promote / trim / Round 均在此完成）。
+ * Client_GetMatchs 应只读 RDS 结果，不在读路径再跑本函数。
+ */
 function finalizeClientMatchListAfterLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides) {
   refreshClientMatchStartTimes(mergedList, matches);
   refreshClientMatchGames(mergedList, matches);
@@ -1324,6 +1334,14 @@ function applyManualMatchLinks(mergedList, matches, bets, timers, sourceFromBet,
   finalizeClientMatchListAfterLinks(mergedList, matches, bets, timers, sourceFromBet, existingClientRows, platformSideOverrides);
   syncClientMatchsFromPlatformLinks(mergedList, matches, bets, timers, sourceFromBet);
   syncClientMatchsFromDbBindings(mergedList, platformBindingsByClientId, matches, bets, timers, sourceFromBet);
+  refreshClientMatchSourcesAfterSync(
+    mergedList,
+    matches,
+    bets,
+    timers,
+    sourceFromBet,
+    platformSideOverrides,
+  );
 
   return filterMultiPlatformClientMatches(mergedList)
     .sort((a, b) => a.StartTime - b.StartTime);
@@ -1481,16 +1499,41 @@ function stripOrphanClientMatchPlatforms(rows, platformMatches) {
           delete bet.Sources[plat];
       }
     }
-    row.Bets = row.Bets.filter(b => Object.keys(b.Sources || {}).length > 0);
+    row.Bets = row.Bets.filter((b) => {
+      if (Object.keys(b.Sources || {}).length > 0)
+        return true;
+      const map = betMapNumber(b);
+      if (map !== 0)
+        return false;
+      const liveMap = Number(row.Round) || 0;
+      if (liveMap <= 0)
+        return false;
+      return (Number(b.InitialHomeOdds) || 0) > 0 || (Number(b.InitialAwayOdds) || 0) > 0;
+    });
   }
   return rows;
 }
 
 /** 自动合并 matchs；主客对齐在 finalize（写库前全量 reconcile） */
-function buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides }) {
+function buildClientMatchList({
+  matches,
+  bets,
+  timers,
+  sourceFromBet,
+  platformSideOverrides,
+  existingClientRows,
+}) {
   const normalized = normalizeMatchesShape(matches);
   const list = buildMatchListMerged(normalized, bets, timers, sourceFromBet);
-  finalizeClientMatchListAfterLinks(list, normalized, bets, timers, sourceFromBet, null, platformSideOverrides);
+  finalizeClientMatchListAfterLinks(
+    list,
+    normalized,
+    bets,
+    timers,
+    sourceFromBet,
+    existingClientRows ?? null,
+    platformSideOverrides,
+  );
   return filterMultiPlatformClientMatches(list);
 }
 
@@ -1510,6 +1553,7 @@ export {
   collectManualLinks,
   ensureMapZeroForLiveRound,
   filterMultiPlatformClientMatches,
+  finalizeClientMatchListAfterLinks,
   liveRound,
   MERGE_MODE,
   MIN_CLIENT_MATCH_PLATFORMS,

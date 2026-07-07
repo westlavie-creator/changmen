@@ -260,4 +260,129 @@ describe("applyManualMatchLinks sync after finalize (memory ClientMatchId)", () 
     expect(out).toHaveLength(1);
     expect(out[0].Matchs.OB).toBe("5512662302086001");
   });
+
+  it("swaps Sources when sync adds a reversed platform after finalize", () => {
+    const mergedList = [];
+    const existingClientRows = [{
+      id: 315,
+      title: "AG.AL vs MIBR.LOS",
+      game_id: "140",
+      start_time: 1,
+      home_gb_team_id: "100693",
+      away_gb_team_id: "100692",
+      matchs: { OB: "ob1", IA: "ia1" },
+      bets: [{
+        Map: 1,
+        HomeName: "AG.AL",
+        AwayName: "MIBR.LOS",
+        Sources: {
+          OB: {
+            Type: "OB",
+            BetID: "ob-map1",
+            HomeID: "oh",
+            AwayID: "oa",
+            HomeOdds: 1.882,
+            AwayOdds: 1.857,
+            Status: "Locked",
+          },
+        },
+      }],
+      round: 2,
+      bo: 3,
+      reverse: [],
+    }];
+    const matches = {
+      OB: {
+        ob1: {
+          SourceMatchID: "ob1",
+          Home: "AG.AL",
+          Away: "MIBR.LOS",
+          ClientMatchId: 315,
+          StartTime: 1,
+          SourceGameID: "140",
+        },
+      },
+      IA: {
+        ia1: {
+          SourceMatchID: "ia1",
+          Home: "MIBR.LOS",
+          Away: "AG.AL",
+          ClientMatchId: 315,
+          StartTime: 1,
+          SourceGameID: "140",
+        },
+      },
+      RAY: {
+        ray1: {
+          SourceMatchID: "ray1",
+          Home: "MIBR.LOS",
+          Away: "AG.AL",
+          ClientMatchId: 315,
+          StartTime: 1,
+          SourceGameID: "140",
+        },
+      },
+    };
+    const bets = {
+      "OB:ob1": {
+        provider: "OB",
+        matchId: "ob1",
+        bets: [{
+          SourceBetID: "ob-map1",
+          Map: 1,
+          BetName: "[地图1]-单局-获胜",
+          SourceHomeID: "oh",
+          HomeOdds: 1.882,
+          SourceAwayID: "oa",
+          AwayOdds: 1.857,
+          Status: "Locked",
+        }],
+      },
+      "IA:ia1": {
+        provider: "IA",
+        matchId: "ia1",
+        bets: [{
+          SourceBetID: "ia-map1",
+          Map: 1,
+          BetName: "[地图1] 获胜者",
+          SourceHomeID: "ih",
+          HomeOdds: 1.25,
+          SourceAwayID: "ia",
+          AwayOdds: 3.79,
+          Status: "Locked",
+        }],
+      },
+      "RAY:ray1": {
+        provider: "RAY",
+        matchId: "ray1",
+        bets: [{
+          SourceBetID: "ray-map1",
+          Map: 1,
+          BetName: "[地图1] 获胜者",
+          SourceHomeID: "rh",
+          HomeOdds: 3.26,
+          SourceAwayID: "ra",
+          AwayOdds: 1.31,
+          Status: "Locked",
+        }],
+      },
+    };
+    const out = applyManualMatchLinks(
+      mergedList,
+      matches,
+      bets,
+      {},
+      src,
+      existingClientRows,
+      {},
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].Reverse).toContain("RAY");
+    expect(out[0].Reverse).toContain("IA");
+    const map1 = out[0].Bets.find(b => b.Map === 1);
+    expect(map1?.Sources?.RAY?.HomeOdds).toBe(1.31);
+    expect(map1?.Sources?.RAY?.AwayOdds).toBe(3.26);
+    expect(map1?.Sources?.IA?.HomeOdds).toBe(3.79);
+    expect(map1?.Sources?.IA?.AwayOdds).toBe(1.25);
+  });
 });

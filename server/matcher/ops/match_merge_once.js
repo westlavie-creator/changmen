@@ -27,7 +27,9 @@ import {
 import "../lib/env.js";
 
 /**
- * 单次 matchMerge：读 platform 快照 → 跨平台合并 → 写 client_matches。
+ * 单次 matchMerge：读 platform 快照 → 跨平台合并 → finalize → 写 client_matches。
+ *
+ * 数据边界：本函数产出是 Client_GetMatchs 的唯一权威来源；读路径不应再 reconcile/promote/trim。
  */
 
 let _pluginReady = null;
@@ -106,7 +108,14 @@ async function matchMergeOnceImpl() {
     ? await db.fetchClientMatchPlatformOverrides()
     : {};
 
-  let info = buildClientMatchList({ matches, bets, timers, sourceFromBet, platformSideOverrides });
+  let info = buildClientMatchList({
+    matches,
+    bets,
+    timers,
+    sourceFromBet,
+    platformSideOverrides,
+    existingClientRows: clientRows,
+  });
 
   if (!db.isMatcherStoreReady()) {
     const { script } = db.getDbMode();

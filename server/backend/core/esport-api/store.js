@@ -1,6 +1,4 @@
 import * as sb from "@changmen/db";
-import { normalizeMatchesShape } from "@changmen/match-engine";
-import { alignPmSportSnapshot } from "@changmen/polymarket-sports/parse_sport.js";
 import { formatBetOdds } from "@changmen/shared/odds_format";
 import { a8StartTimeListAllowed } from "@changmen/shared/time/match_time";
 import { readJsonFile, writeJsonFile, writeJsonFileDebounced } from "@changmen/storage/json_file_store.js";
@@ -10,14 +8,8 @@ import {
   setPlatform as setPlatformRow,
 } from "@changmen/storage/platform_storage.js";
 import * as dbStore from "../db/store.js";
-import { isEmbeddedMatcher } from "../shared/matcher_mode.js";
 import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
 import { createDefaultOddsApi } from "./default_odds.js";
-import {
-  applyObLiveGate,
-  mergeTimerBlocks,
-  overlayLiveTimersOnMatches,
-} from "./live_timer_overlay.js";
 
 const DATA_DIR = ESPORT_DATA_DIR;
 // 内存缓存（替代 matches.json / bets.json / live_timers.json）
@@ -41,9 +33,6 @@ function cloneJson(value) {
 }
 
 const COLLECTOR_HOT_CACHE_TTL_MS = Number(process.env.COLLECTOR_HOT_CACHE_TTL_MS || 180_000);
-let _dbTimersCache = null;
-let _dbTimersCacheAt = 0;
-const DB_TIMERS_CACHE_MS = 10_000;
 
 // 路由到 profiles 的 key 列表
 // CollectConfig → collect_config, USERCONFIG → betting_config, 其余 → preferences
@@ -144,7 +133,6 @@ export function saveMatches(provider, matchs) {
   _matches[provider] = next;
   dropOrphanBetsForProvider(provider, Object.keys(next));
   sb.writePlatformMatches(provider, Object.values(next));
-  invalidatePlatformEnrichCache();
 }
 
 /** matchMerge 完成后把 client_matches.matchs 回写到采集内存，避免下轮 align 重复 */
@@ -179,8 +167,6 @@ export function removeCollectorPlatformMatch(platform, sourceMatchId) {
   if (bucket && !Object.keys(bucket).length)
     delete _matches[plat];
   delete _bets[`${plat}:${sid}`];
-  invalidatePlatformEnrichCache();
-  _dbTimersCache = null;
 }
 
 /** [A8 可证实] 客户端每次 saveBets 上报该场完整盘口快照，服务端整包替换（非按 Map 增量合并） */
@@ -207,7 +193,6 @@ export function saveBets(provider, matchId, bets) {
   }
   _bets[key] = { provider, matchId: String(matchId), bets: incoming, savedAt: Date.now() };
   sb.replacePlatformBetsForMatch(provider, matchId, incoming);
-  invalidatePlatformEnrichCache();
 }
 
 export async function saveLiveTimer(provider, timer) {
@@ -240,7 +225,6 @@ export async function saveLiveTimer(provider, timer) {
     timer: incoming,
     savedAt: Date.now(),
   };
-  _dbTimersCache = null;
   await sb.writeLiveTimersAsync(plat, incoming);
 }
 
@@ -277,74 +261,6 @@ export function removeAccountForUser(userId, accountId) {
 
 // ── match list ────────────────────────────────────────────────────────────────
 
-async function fetchDbTimersCached() {
-  if (isEmbeddedMatcher()) {
-    const fromMem = buildLiveTimersSnapshot();
-    // 勿因 OB: { timer: [] } 占位跳过 RDS（部署 purge 后空快照会永久挡住 DB）
-    if (hasNonEmptyLiveTimerSnapshot(fromMem)) {
-      _dbTimersCache = fromMem;
-      _dbTimersCacheAt = Date.now();
-      return fromMem;
-    }
-  }
-  const now = Date.now();
-  if (_dbTimersCache && now - _dbTimersCacheAt < DB_TIMERS_CACHE_MS) {
-    return _dbTimersCache;
-  }
-  try {
-    _dbTimersCache = (await sb.fetchLiveTimers()) || {};
-  }
-  catch {
-    _dbTimersCache = {};
-  }
-  _dbTimersCacheAt = now;
-  return _dbTimersCache;
-}
-
-let _platformEnrichCache = null;
-let _platformEnrichCacheAt = 0;
-const PLATFORM_ENRICH_CACHE_MS = 5_000;
-
-async function fetchPlatformEnrichCached() {
-  const now = Date.now();
-  if (_platformEnrichCache && now - _platformEnrichCacheAt < PLATFORM_ENRICH_CACHE_MS) {
-    return _platformEnrichCache;
-  }
-  if (isEmbeddedMatcher()) {
-    const matchesRaw = buildPlatformMatchesSnapshot();
-    const bets = buildPlatformBetsSnapshot();
-    if (Object.keys(matchesRaw).length || Object.keys(bets).length) {
-      _platformEnrichCache = {
-        bets,
-        matches: normalizeMatchesShape(matchesRaw),
-      };
-      _platformEnrichCacheAt = now;
-      return _platformEnrichCache;
-    }
-  }
-  _platformEnrichCacheAt = now;
-  try {
-    const [platformBets, platformMatches] = await Promise.all([
-      sb.fetchPlatformBets(),
-      sb.fetchPlatformMatches(),
-    ]);
-    if (platformBets && platformMatches) {
-      _platformEnrichCache = {
-        bets: platformBets,
-        matches: normalizeMatchesShape(platformMatches),
-      };
-    }
-  }
-  catch {
-    /* 失败时保留旧缓存 */
-  }
-  return _platformEnrichCache;
-}
-
-export function invalidatePlatformEnrichCache() {
-  _platformEnrichCache = null;
-}
-
 function buildPlatformMatchesSnapshot() {
   const matchesRaw = {};
   for (const [provider, rows] of Object.entries(_matches)) {
@@ -373,14 +289,7 @@ function buildLiveTimersSnapshot() {
   return timers;
 }
 
-/** 至少一个平台 timer 数组非空；空数组仍占位时须回退 RDS（embedded 热路径） */
-function hasNonEmptyLiveTimerSnapshot(timersByProvider) {
-  return Object.values(timersByProvider || {}).some(
-    block => Array.isArray(block?.timer) && block.timer.length > 0,
-  );
-}
-
-/** embedded matcher：matchMerge / GetMatchs 读全量采集内存（不限 3 分钟 hot TTL） */
+/** embedded matcher：matchMerge 读全量采集内存（不限 3 分钟 hot TTL） */
 export function getCollectorFullSnapshot() {
   const matchesRaw = buildPlatformMatchesSnapshot();
   const bets = buildPlatformBetsSnapshot();
@@ -445,72 +354,15 @@ export function hydrateCollectorHotSnapshot({ matchesRaw = {}, bets = {}, timers
     if (row && Array.isArray(row.timer))
       _timers[provider] = { ...row, savedAt: Date.now() };
   }
-  invalidatePlatformEnrichCache();
-  _dbTimersCache = null;
-}
-
-/** 仅当 OB index 明确 is_live≠2，或本场已从 getTimer 批次移除时清零 Round */
-function applyObLiveGateOnMatches(matches, memoryMatches, timersByProvider) {
-  return applyObLiveGate(matches, memoryMatches, timersByProvider);
-}
-
-function sourceFromBetForOverlay(provider, b) {
-  return {
-    Type: provider,
-    BetID: String(b.SourceBetID),
-    HomeID: String(b.SourceHomeID || ""),
-    AwayID: String(b.SourceAwayID || ""),
-    HomeOdds: formatBetOdds(b.HomeOdds),
-    AwayOdds: formatBetOdds(b.AwayOdds),
-    Status: b.Status || "Normal",
-  };
 }
 
 export async function buildMatchList() {
-  // 只读 client_matches（gamebet_matcher matchMerge 写入）；不在此做跨平台合并
+  // 只读 client_matches（matchMerge 写入）；Round/Bets/Reverse 均由 matcher finalize，读路径不改写
   const fromDb = await dbStore.loadClientMatchesFromDb();
   if (!fromDb?.length)
     return [];
-
-  const dbTimers = await fetchDbTimersCached();
-  const timers = mergeTimerBlocks(_timers, dbTimers);
   defaultOddsApi.recordFromMatchList(fromDb);
-
-  let enrich = {};
-  const enrichData = await fetchPlatformEnrichCached();
-  if (enrichData?.bets && enrichData?.matches) {
-    enrich = {
-      matches: enrichData.matches,
-      bets: enrichData.bets,
-      sourceFromBet: sourceFromBetForOverlay,
-    };
-  }
-
-  let matches = overlayLiveTimersOnMatches(fromDb, timers, enrich);
-  matches = applyObLiveGateOnMatches(matches, _matches, timers);
-  matches = await overlayPmSportOnMatches(matches);
-  defaultOddsApi.recordFromMatchList(matches);
-  return matches;
-}
-
-/** 每次 GetMatchs 轻量补全 pm_sport（daemon 写入后不必等 matchMerge 全量重载） */
-async function overlayPmSportOnMatches(matches) {
-  if (!Array.isArray(matches) || !matches.length)
-    return matches || [];
-  const ids = matches.map(m => Number(m.ID)).filter(Number.isFinite);
-  const pmById = await sb.fetchPmSportByClientMatchIds(ids);
-  if (!pmById.size)
-    return matches;
-  return matches.map((m) => {
-    const patch = pmById.get(Number(m.ID));
-    if (!patch)
-      return m;
-    const reverse = Array.isArray(m.Reverse) ? m.Reverse : [];
-    const pmSport = reverse.includes("Polymarket")
-      ? alignPmSportSnapshot(patch, true)
-      : patch;
-    return { ...m, PmSport: pmSport };
-  });
+  return fromDb;
 }
 
 const fetchPlatformBetsForDefaultOdds = () => sb.fetchPlatformBets();

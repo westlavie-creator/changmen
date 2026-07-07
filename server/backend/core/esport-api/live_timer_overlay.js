@@ -1,6 +1,6 @@
 /**
- * Client_GetMatchs 读取路径：用 live_timers（内存 + RDS）覆盖 client_matches 的 Round/RoundStart。
- * OB 浏览器 saveLiveTimer 写入后端 memory _timers；overlay 在 matcher matchMerge（约 30s）前即时修正 Round。
+ * @deprecated Client_GetMatchs 不再调用 overlay；Round/promote/trim 由 matchMerge finalize 写入 client_matches。
+ * 本模块保留 mergeTimerBlocks 供单元测试与历史对照；新逻辑请用 match-engine finalizeClientMatchListAfterLinks。
  */
 
 import {
@@ -28,6 +28,7 @@ export function mergeTimerBlocks(memoryTimers, dbTimers) {
   return out;
 }
 
+/** @deprecated 读路径已停用；行为由 match-engine 测试覆盖 */
 export function overlayLiveTimersOnMatches(matches, timersByProvider, enrich = {}) {
   if (!Array.isArray(matches) || !matches.length)
     return matches || [];
@@ -63,7 +64,7 @@ export function overlayLiveTimersOnMatches(matches, timersByProvider, enrich = {
   return out;
 }
 
-/** is_live≠2、已不在 OB index、或已不在 OB timer 批次时清零（配合 overlay 清已结束场） */
+/** @deprecated 读路径已停用 */
 export function applyObLiveGate(matches, memoryMatches, timersByProvider) {
   return applyObLiveRoundGate(matches, memoryMatches, timersByProvider);
 }
