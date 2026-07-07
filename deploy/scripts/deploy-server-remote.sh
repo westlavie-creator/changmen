@@ -200,7 +200,10 @@ elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
     NEED_DIST_UPLOAD=1
     DO_INSTALL_ROOT=1
     DO_PM2_WEB=1
+    enable_matcher_restart_if_standalone
     DO_PM2_PM_SPORTS=1
+    DO_COMPILE_ROUTER=1
+    RDS_SCHEMA_TOUCHED=1
   else
     log "already up to date, skip install/build"
   fi
