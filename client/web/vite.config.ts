@@ -21,6 +21,30 @@ const INTENTIONAL_MIXED_IMPORTS = [
   "/src/stores/userStore.ts",
 ];
 
+function sharedVenueChunk(id: string): string | undefined {
+  // client-core / monorepo shared 被各 venue 共用
+  if (
+    id.includes("packages/client-core")
+    || id.includes("@changmen/client-core")
+    || id.includes("packages/shared")
+    || id.includes("@changmen/shared")
+    || id.includes("packages/api-contract")
+    || id.includes("@changmen/api-contract")
+  ) {
+    return "venue-shared";
+  }
+  // socket.io 同时被 venue-shared/socket 与各平台 WS 使用；落到单一平台 chunk 会与
+  // venue-shared 形成循环依赖（Cannot access 'O' before initialization 白屏）。
+  if (
+    id.includes("node_modules/socket.io-client")
+    || id.includes("node_modules/engine.io-client")
+    || id.includes("node_modules/socket.io-parser")
+  ) {
+    return "venue-shared";
+  }
+  return undefined;
+}
+
 function venueChunkName(id: string): string | undefined {
   const markers = ["client/venue-adapter/"];
   let idx = -1;
@@ -97,6 +121,8 @@ export default defineConfig(({ mode }) => ({
       },
       output: {
         manualChunks(id) {
+          const shared = sharedVenueChunk(id);
+          if (shared) return shared;
           const venueChunk = venueChunkName(id);
           if (venueChunk) return venueChunk;
           // 让 Rollup 自行处理 node_modules 分块；手动 vendor 拆包会和
