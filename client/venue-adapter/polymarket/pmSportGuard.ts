@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 
 /** 与 client_matches.pm_sport / PmSportSnapshot 对齐的最小字段 */
 export interface PmSportLike {

@@ -1,4 +1,4 @@
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { hmac } from "@noble/hashes/hmac";
 import { sha256 } from "@noble/hashes/sha256";
 

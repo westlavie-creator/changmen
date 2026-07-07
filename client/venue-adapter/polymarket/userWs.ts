@@ -1,6 +1,6 @@
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
-import type { PolymarketOrderRow } from "./orderStatus";
+import type { PolymarketOrderRow } from "./orderTypes";
 import { POLYMARKET_USER_WS, polymarketUserSubscribeMessage, polymarketUserSubscribeMoreMessage } from "./api";
 import { parseTokenConfig, resolveApiCreds } from "./l2Auth";
 import {
@@ -294,6 +294,9 @@ export function clearPolymarketOrderWatch(orderId: string): void {
 /** 单测 / 调试：断开所有 User WS */
 export function stopAllPolymarketUserWs(): void {
   orderWatches.clear();
+  void import("./settlementJob.js")
+    .then(m => m.clearPolymarketSettlementJobs())
+    .catch(() => {});
   for (const session of sessions.values()) {
     session.stopped = true;
     if (session.reconnectTimer)

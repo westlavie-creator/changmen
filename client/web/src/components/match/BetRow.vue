@@ -9,7 +9,6 @@ import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
 import { useEvMarker } from "@/extensions/valueBet";
 import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
-import { useBettingStore } from "@/stores/bettingStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 
@@ -22,7 +21,6 @@ const BET_SIDES: BetSide[] = ["Home", "Away"];
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
-const bettingStore = useBettingStore();
 const { tick: matchTick } = storeToRefs(matchStore);
 
 const loseOpen = ref(false);
@@ -67,11 +65,19 @@ const arb = computed(() => {
   return arbPercent(bestHome, bestAway);
 });
 
+const showLiveTimer = computed(() => {
+  void matchTick.value;
+  const lr = props.match.liveRound;
+  return lr !== 0 && lr === props.bet.round;
+});
+
 const liveSeconds = computed(() => {
   void matchTick.value;
-  if (!props.bet.isLive || !props.bet.startTime)
+  if (!showLiveTimer.value)
     return 0;
-  return (Date.now() - props.bet.startTime) / 1000;
+  const rs = props.match.liveRoundStart;
+  const start = rs > 0 ? rs : props.bet.startTime ?? Date.now();
+  return (Date.now() - start) / 1000;
 });
 
 function defaultOddsValue(betId: number, side: BetSide): number {
@@ -122,14 +128,14 @@ function openLimit(item: ViewBet["items"][0]) {
 }
 
 function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
-  void bettingStore.manualBet(props.match, props.bet, item, side);
+  void matchStore.manualBet(props.match, props.bet, item, side);
 }
 </script>
 
 <template>
   <div class="bet">
     <el-tag
-      v-if="bet.isLive && bet.startTime"
+      v-if="showLiveTimer"
       class="live"
       type="warning"
       size="small"

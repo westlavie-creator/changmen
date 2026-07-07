@@ -43,6 +43,9 @@ vi.mock("@/stores/matchStore", () => ({
     fetchMatches,
     refreshOddsOnBets,
     fetchMatchDefaultOdds,
+    tickBettingAutoOpen: vi.fn(),
+    setBettingMessage: vi.fn(),
+    processLoseOrders: vi.fn(async () => {}),
   }),
 }));
 
@@ -56,15 +59,6 @@ vi.mock("@/stores/loseOrderStore", () => ({
     removeOrders,
   }),
 }));
-
-vi.mock("@/stores/bettingStore", () => ({
-  useBettingStore: () => ({
-    tickAutoOpen: vi.fn(),
-    setMessage: vi.fn(),
-    processLoseOrders: vi.fn(async () => {}),
-  }),
-}));
-
 describe("mainBetLoop constants", () => {
   it("matches A8 bundle P() timing", () => {
     expect(MAIN_LOOP_DELAY_MS).toBe(100);

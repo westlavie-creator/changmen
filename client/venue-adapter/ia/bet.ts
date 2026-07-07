@@ -1,10 +1,10 @@
-import { BetResult } from "@/models/betResult";
-import type { PlatformAccount } from "@/models/platformAccount";
+import { BetResult } from "@changmen/client-core/models/betResult";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@venue/contract";
-import { useMessageStore } from "@/stores/messageStore";
-import { getCurrency } from "@/shared/currency";
-import { PLATFORMS } from "@/shared/platform";
-import { wait } from "@/shared/wait";
+import { useMessageStore } from "@venue/shared/webBridge";
+import { getCurrency } from "@changmen/shared/currency";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { wait } from "@changmen/client-core/shared/wait";
 import { iaBetHeaders, iaGatewayPath, iaMrPost } from "./bet_transport";
 
 interface IaLimitResponse {

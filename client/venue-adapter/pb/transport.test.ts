@@ -1,9 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { pbCollectEuroOdds, pbGatewayUrl, pbGet } from "./transport";
 
 const a8PluginGet = vi.fn();
-vi.mock("@/chrome-plugin/bridge", () => ({
+vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
   a8PluginGet: (...args: unknown[]) => a8PluginGet(...args),
   a8PluginPost: vi.fn(),
 }));

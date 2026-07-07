@@ -1,4 +1,4 @@
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { POLYMARKET_MIN_VENUE_STAKE } from "@changmen/shared/account_multiply";
 import { Currency, getExchange } from "@changmen/shared/currency";
 

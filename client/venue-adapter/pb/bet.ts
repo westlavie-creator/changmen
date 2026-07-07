@@ -1,13 +1,13 @@
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { getPbLineId } from "./lineCache";
 import { pbPost } from "./transport";
 import { toNumber } from "./parse";
 import { startPbRejectPoll, pbRejectStorageKey } from "./rejectPoll";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@venue/contract";
-import { formatPbDateTime } from "@/shared/format";
-import { getCurrency } from "@/shared/currency";
-import { useMessageStore } from "@/stores/messageStore";
-import { PLATFORMS } from "@/shared/platform";
+import { formatPbDateTime } from "@changmen/client-core/shared/format";
+import { getCurrency } from "@changmen/shared/currency";
+import { useMessageStore } from "@venue/shared/webBridge";
+import { PLATFORMS } from "@venue/shared/platforms";
 import { accountMultiplyScale, scaleVenueMoney, venueStakeFromBetMoney } from "@changmen/shared/account_multiply";
 import { pbUuid } from "./uuid";
 

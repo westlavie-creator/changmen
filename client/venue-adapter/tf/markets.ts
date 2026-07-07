@@ -1,11 +1,12 @@
-import { directGet } from "@/shared/http";
+import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+import { directGet } from "@changmen/client-core/shared/http";
 import { tfRequestHeaders } from "./auth";
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
-import type { CollectPlatformInfo } from "@/types/esport";
-import { PLATFORMS } from "@/shared/platform";
-import { wait } from "@/shared/wait";
-import { useCollectStore } from "@/stores/collectStore";
-import { useOddsStore } from "@/stores/oddsStore";
+import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
+import type { CollectPlatformInfo } from "@changmen/api-contract";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { wait } from "@changmen/client-core/shared/wait";
+import { useCollectStore } from "@venue/shared/webBridge";
+
 import {
   buildTfSaveBetRowsFromResults,
   extractMapTabsFromResults,
@@ -90,12 +91,11 @@ function ingestTfResultsToFo(
   betRe: RegExp,
   now = Date.now(),
 ): void {
-  const odds = useOddsStore();
   for (const block of results) {
     for (const market of (block.markets ?? []) as Array<Record<string, unknown>>) {
       if (!isTfMarketCollectable(market, betRe)) continue;
       for (const entry of listTfMarketFoEntries(market)) {
-        odds.save(PLATFORM, { ...entry, time: now });
+        saveVenueOdds(PLATFORM, { ...entry, time: now });
       }
     }
   }

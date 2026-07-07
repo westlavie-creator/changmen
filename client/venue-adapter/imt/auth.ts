@@ -1,4 +1,4 @@
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { CollectHttpSession } from "@venue/shared/collectSession";
 import { IMT_DEFAULT_X_SC } from "./parse";
 

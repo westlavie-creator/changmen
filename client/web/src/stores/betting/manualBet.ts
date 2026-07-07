@@ -11,7 +11,7 @@ import {
   buildManualBetOrderFailureHtml,
 } from "@/stores/betting/manualBetAlert";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
-import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
 
 export interface ManualBetContext {
@@ -42,7 +42,7 @@ export async function runManualBet(
   ctx: ManualBetContext,
 ): Promise<void> {
   const accountStore = useAccountStore();
-  const configStore = useConfigStore();
+  const user = useUserStore();
   const matchStore = useMatchStore();
   const { setMessage } = ctx;
 
@@ -62,7 +62,7 @@ export async function runManualBet(
       {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
-        inputValue: String(configStore.config.betMoney || 10),
+        inputValue: String(user.config.betMoney || 10),
         inputType: "number",
         inputValidator: val => (Number(val) > 0 ? true : "请输入有效金额"),
         customClass: "manual-bet-prompt-box",

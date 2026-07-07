@@ -50,6 +50,38 @@ const POLYMARKET_ALIASES: Record<string, string> = {
   "valorant": "valorant",
 };
 
+/** Limitless metadata.esportTitle → catalog code */
+const LIMITLESS_ALIASES: Record<string, string> = {
+  "cs2": "cs2",
+  "counter-strike-2": "cs2",
+  "lol": "lol",
+  "league-of-legends": "lol",
+  "dota-2": "dota2",
+  "dota2": "dota2",
+  "valorant": "valorant",
+};
+
+/** SXBet SourceGameID / league alias → catalog code */
+const SXBET_ALIASES: Record<string, string> = {
+  "cs2": "cs2",
+  "lol": "lol",
+  "dota2": "dota2",
+  "dota-2": "dota2",
+  "valorant": "valorant",
+  "kog": "kog",
+};
+
+/** Azuro sportId / slug → catalog code */
+const AZURO_ALIASES: Record<string, string> = {
+  "1061": "cs2",
+  "1002": "lol",
+  "1000": "dota2",
+  "cs2": "cs2",
+  "lol": "lol",
+  "dota-2": "dota2",
+  "dota2": "dota2",
+};
+
 /** TF 王者荣耀：A8 采集用 14；旧 probe 曾记 43 */
 const TF_GAME_ALIASES: Record<number, string> = {
   43: "kog",
@@ -115,6 +147,21 @@ function getGameCodeForPlatformId(platform: string, gameId: string | number): st
   }
   if (platform === "Polymarket") {
     const alias = POLYMARKET_ALIASES[id.toLowerCase()];
+    if (alias)
+      return alias;
+  }
+  if (platform === "Limitless") {
+    const alias = LIMITLESS_ALIASES[id.toLowerCase()];
+    if (alias)
+      return alias;
+  }
+  if (platform === "SXBet") {
+    const alias = SXBET_ALIASES[id.toLowerCase()];
+    if (alias)
+      return alias;
+  }
+  if (platform === "Azuro") {
+    const alias = AZURO_ALIASES[id.toLowerCase()];
     if (alias)
       return alias;
   }

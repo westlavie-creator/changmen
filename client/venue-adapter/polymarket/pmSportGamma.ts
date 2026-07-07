@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import { POLYMARKET_GAMMA_API } from "./api";
 import { parsePeriodHead, type PmSportLike } from "./pmSportGuard";
 import { parseEsportsScore } from "./parseEsportsScore";

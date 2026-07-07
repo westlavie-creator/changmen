@@ -16,6 +16,13 @@ assert.equal(g.getGameCodeForPlatformId("Polymarket", "counter-strike"), "cs2");
 assert.equal(g.getGameCodeForPlatformId("Polymarket", "league-of-legends"), "lol");
 assert.equal(g.getGameCodeForPlatformId("Polymarket", "dota-2"), "dota2");
 assert.equal(g.getGameCodeForPlatformId("Polymarket", "honor-of-kings"), "kog");
+assert.equal(g.getGameCodeForPlatformId("Limitless", "dota-2"), "dota2");
+assert.equal(g.getGameCodeForPlatformId("Limitless", "league-of-legends"), "lol");
+assert.equal(g.getGameCodeForPlatformId("SXBet", "lol"), "lol");
+assert.equal(g.getGameCodeForPlatformId("SXBet", "dota2"), "dota2");
+assert.equal(g.getGameCodeForPlatformId("Azuro", "1061"), "cs2");
+assert.equal(g.getGameCodeForPlatformId("Azuro", "lol"), "lol");
+assert.equal(g.getGameCodeForPlatformId("Azuro", "1000"), "dota2");
 assert.ok(g.getActivePlatformGameIds("OB").length > 0);
 
 const derivedVenueGames: Record<string, string[]> = {};

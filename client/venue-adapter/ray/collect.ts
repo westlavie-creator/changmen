@@ -1,12 +1,12 @@
+import { saveVenueOdds, isVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
 import { createRayRealtimeClient, type RayRealtimeMessage } from "./realtime";
 import { RAY_A8_COLLECT } from "./a8Collect";
-import type { CollectMatchDto } from "@/types/collect";
-import type { CollectPlatformInfo } from "@/types/esport";
-import { PLATFORMS } from "@/shared/platform";
-import { wait } from "@/shared/wait";
+import type { CollectMatchDto } from "@changmen/client-core/types/collect";
+import type { CollectPlatformInfo } from "@changmen/api-contract";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@/stores/collectStore";
-import { useOddsStore } from "@/stores/oddsStore";
+import { useCollectStore } from "@venue/shared/webBridge";
 import { rayMatchStage } from "./shared/match_stage";
 import { collectRayGet, loadRayBets } from "./markets";
 
@@ -46,18 +46,15 @@ function rayCollectPlatform(): CollectPlatformInfo {
   };
 }
 
-type RayOddsStore = Pick<ReturnType<typeof useOddsStore>, "isOdds" | "save">;
-
 export function handleRayRealtimeMessage(
   msg: RayRealtimeMessage,
-  odds: RayOddsStore,
   now = Date.now(),
 ): void {
   if (msg.source !== "odds" || !Array.isArray(msg.odds)) return;
   for (const row of msg.odds) {
     const id = String(row.id ?? "");
-    if (!id || !odds.isOdds(PLATFORM, id)) continue;
-    odds.save(PLATFORM, {
+    if (!id || !isVenueOdds(PLATFORM, id)) continue;
+    saveVenueOdds(PLATFORM, {
       id,
       odds: Number(row.odds) || 0,
       isLock: row.status !== 1,
@@ -72,15 +69,13 @@ export function startRayCollector(): () => void {
   let lastSaveAt = 0;
   const realtime = createRayRealtimeClient();
   const betRe = new RegExp(RAY_A8_COLLECT.betName);
-
-  const odds = useOddsStore();
   const collect = useCollectStore();
 
   void (async () => {
     try {
       await realtime.start((msg) => {
         if (stopped) return;
-        handleRayRealtimeMessage(msg, odds);
+        handleRayRealtimeMessage(msg);
       });
     } catch (err) {
       if (!stopped) console.warn("[RAY] ws loop", err);

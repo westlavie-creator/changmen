@@ -12,6 +12,8 @@
     "./loader/adapter_paths.mjs": "./loader/adapter_paths.mjs"
   },
   "dependencies": {
+    "@changmen/api-contract": "*",
+    "@changmen/client-core": "*",
     "@changmen/db": "*",
     "@changmen/storage": "*",
     "@changmen/shared": "*"

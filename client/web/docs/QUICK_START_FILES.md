@@ -15,7 +15,7 @@
 | **下单** | `../../../client/venue-adapter/{平台}/bet.ts` + `src/runtime/providers.ts` |
 | **看页面** | `src/views/` + `src/components/` + `src/stores/` |
 
-实时赔率在内存里：`src/stores/oddsStore.ts`（对齐 A8 的 `fo`）。  
+实时赔率在内存里：`src/stores/oddsStore.ts`（对齐 A8 `Qn()` / Pinia `"counter"`；符号表见 [`../../README.md`](../../README.md)）。  
 界面上的比赛行：`src/models/match.ts`（从 fo 读赔率显示）。
 
 ---

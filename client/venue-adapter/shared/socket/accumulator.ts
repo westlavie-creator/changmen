@@ -1,18 +1,19 @@
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
-import type { PlatformId } from "@/types/esport";
+import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
+import type { PlatformId } from "@changmen/api-contract";
 import {
   formatImBetLabel,
   imBetNameIsCollectible,
   pickA8Field,
   pickImSportId,
   resolveImMapFromBet,
-} from "@venue/im/parse";
+} from "./imBetParse";
 import {
   a8StartTimeCollectAllowed,
   IM_ODDS_ACTIVE_MS,
   normalizeEpochMs,
-} from "@/shared/a8MatchTime";
-import { useOddsStore } from "@/stores/oddsStore";
+} from "@changmen/shared/time/match_time";
+
 
 export interface A8BetRow {
   betId?: string | number;
@@ -80,7 +81,6 @@ export class A8BetsCollector {
 
   ingest(message: A8BetsMessage) {
     if (!message?.bets?.length) return;
-    const odds = useOddsStore();
     const defaultMatchId = message.matchId != null ? String(message.matchId) : null;
 
     for (const bet of message.bets) {
@@ -97,7 +97,7 @@ export class A8BetsCollector {
 
       const locked = Boolean(bet.locked);
       if (bet.home != null) {
-        odds.save(this.platform, {
+        saveVenueOdds(this.platform, {
           id: ids.homeId,
           odds: Number(bet.home) || 0,
           isLock: locked,
@@ -106,7 +106,7 @@ export class A8BetsCollector {
         });
       }
       if (bet.away != null) {
-        odds.save(this.platform, {
+        saveVenueOdds(this.platform, {
           id: ids.awayId,
           odds: Number(bet.away) || 0,
           isLock: locked,
@@ -294,11 +294,9 @@ export class A8BetsCollector {
       acc.startTime = row.startTime;
       acc.lastSeenAt = Date.now();
     }
-
-    const odds = useOddsStore();
     for (const stage of row.stages) {
       if (stage.winHome != null) {
-        odds.save(this.platform, {
+        saveVenueOdds(this.platform, {
           id: stage.winHomeId,
           odds: stage.winHome,
           isLock: stage.winLocked,
@@ -307,7 +305,7 @@ export class A8BetsCollector {
         });
       }
       if (stage.winAway != null) {
-        odds.save(this.platform, {
+        saveVenueOdds(this.platform, {
           id: stage.winAwayId,
           odds: stage.winAway,
           isLock: stage.winLocked,

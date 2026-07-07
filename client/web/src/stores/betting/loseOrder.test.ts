@@ -27,8 +27,8 @@ const wait = vi.hoisted(() => vi.fn(async () => {}));
 const updateVenueOrders = vi.hoisted(() => vi.fn(async (_acc?: PlatformAccount) => [] as VenueOrder[]));
 const settlePolymarketDelayedOrder = vi.hoisted(() => vi.fn());
 
-vi.mock("@/stores/configStore", () => ({
-  useConfigStore: () => ({
+vi.mock("@/stores/userStore", () => ({
+  useUserStore: () => ({
     config: {
       ...createDefaultUserConfig(),
       makeUp: true,
@@ -86,13 +86,9 @@ vi.mock("@/shared/betTiming", () => ({
   makeUpBetToastSeconds: vi.fn(() => 10),
 }));
 
-vi.mock("@venue/polymarket/orderStatus", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@venue/polymarket/orderStatus")>();
-  return {
-    ...actual,
-    settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
-  };
-});
+vi.mock("@venue/polymarket/orderSettlement", () => ({
+  settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
+}));
 
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 

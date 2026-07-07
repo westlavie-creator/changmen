@@ -1,4 +1,4 @@
-import type { PolymarketOrderRow } from "./orderStatus";
+import type { PolymarketOrderRow } from "./orderTypes";
 
 /** User WS 帧里与本订单相关的 order id（taker / maker / order 自身） */
 export function polymarketUserOrderIdsFromMessage(msg: Record<string, unknown>): string[] {

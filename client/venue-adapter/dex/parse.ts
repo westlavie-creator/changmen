@@ -1,6 +1,6 @@
-import type { CollectMatchDto, CollectBetDto, CollectTeamDto } from "@/types/collect";
-import type { PlatformId } from "@/types/esport";
-import { PLATFORMS } from "@/shared/platform";
+import type { CollectMatchDto, CollectBetDto, CollectTeamDto } from "@changmen/client-core/types/collect";
+import type { PlatformId } from "@changmen/api-contract";
+import { PLATFORMS } from "@venue/shared/platforms";
 
 const PLATFORM: PlatformId = PLATFORMS.Dex;
 

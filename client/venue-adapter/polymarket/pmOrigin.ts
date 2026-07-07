@@ -1,4 +1,4 @@
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
 
 /** changmen 站内下单 vs 官网/其它客户端同步 */

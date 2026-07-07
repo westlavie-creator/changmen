@@ -12,19 +12,20 @@ import {
 
 const updateVenueOrders = vi.fn<() => Promise<VenueOrder[] | undefined>>();
 const settlePolymarketDelayedOrder = vi.fn();
+const awaitPolymarketSettlementJob = vi.fn();
 const fetchPolymarketConfirmedTradeForOrder = vi.fn();
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ updateVenueOrders }),
 }));
 
-vi.mock("@venue/polymarket/orderStatus", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@venue/polymarket/orderStatus")>();
-  return {
-    ...actual,
-    settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
-  };
-});
+vi.mock("@venue/polymarket/orderSettlement", () => ({
+  settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
+}));
+
+vi.mock("@venue/polymarket/settlementJob", () => ({
+  awaitPolymarketSettlementJob: (...args: unknown[]) => awaitPolymarketSettlementJob(...args),
+}));
 
 vi.mock("@venue/polymarket/orders", () => ({
   fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
@@ -74,6 +75,8 @@ describe("fetchVenueOrdersWithReject", () => {
   beforeEach(() => {
     updateVenueOrders.mockReset();
     settlePolymarketDelayedOrder.mockReset();
+    awaitPolymarketSettlementJob.mockReset();
+    awaitPolymarketSettlementJob.mockResolvedValue(null);
     fetchPolymarketConfirmedTradeForOrder.mockReset();
   });
 
@@ -116,6 +119,8 @@ describe("syncVenueRejectFlags", () => {
   beforeEach(() => {
     updateVenueOrders.mockReset();
     settlePolymarketDelayedOrder.mockReset();
+    awaitPolymarketSettlementJob.mockReset();
+    awaitPolymarketSettlementJob.mockResolvedValue(null);
     fetchPolymarketConfirmedTradeForOrder.mockReset();
   });
 
@@ -190,7 +195,30 @@ describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
   beforeEach(() => {
     updateVenueOrders.mockReset();
     settlePolymarketDelayedOrder.mockReset();
+    awaitPolymarketSettlementJob.mockReset();
+    awaitPolymarketSettlementJob.mockResolvedValue(null);
     fetchPolymarketConfirmedTradeForOrder.mockReset();
+  });
+
+  it("prefers POST SettlementJob over settle when job exists", async () => {
+    const acc = { provider: "Polymarket", accountId: 9 } as PlatformAccount;
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      pending: true,
+      orderId: "0xjob",
+    });
+    awaitPolymarketSettlementJob.mockResolvedValue({
+      outcome: "matched",
+      row: { status: "MATCHED", size_matched: "10" },
+    });
+    updateVenueOrders.mockResolvedValue([
+      makeVenueOrder({ orderId: "0xjob", status: "none", odds: 2, betMoney: 14 }),
+    ]);
+
+    const out = await syncVenueOrdersWithRejectForLeg(acc, result);
+
+    expect(awaitPolymarketSettlementJob).toHaveBeenCalledWith(acc, "0xjob");
+    expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
+    expect(out.rejected).toBe(false);
   });
 
   it("delayed pending unfilled → synthetic reject", async () => {

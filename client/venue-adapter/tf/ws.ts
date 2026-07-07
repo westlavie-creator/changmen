@@ -4,7 +4,7 @@ import {
   resetDirectRealtimeStatus,
   upstreamRouteFromUrl,
 } from "@venue/shared/directRealtimeStatus";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@venue/shared/platforms";
 import { tfWsAuthToken } from "./auth";
 import {
   buildTfWsUrl,

@@ -1,10 +1,11 @@
-import type { ViewMatch } from "@/models/match";
-import { PLATFORMS } from "@/shared/platform";
+import { saveVenueOdds, isVenueOdds, getVenueOddsEntry, updateVenueBetLock, updateVenueOddsMessage } from "@changmen/client-core/bridge/oddsAccess";
+import type { ViewMatch } from "@changmen/client-core/models/match";
+import { PLATFORMS } from "@venue/shared/platforms";
 import { getObBetNameRe } from "./parse";
 import { refreshObMatchMarkets } from "./markets";
 import { parseObOddField } from "./parse";
-import { useOddsStore } from "@/stores/oddsStore";
-import type { CollectPlatformInfo } from "@/types/esport";
+
+import type { CollectPlatformInfo } from "@changmen/api-contract";
 import {
   createObRealtimeClient,
   getObMqttSourceMode,
@@ -87,9 +88,8 @@ export function handleObMqttMessage(
   refresh: () => void = scheduleMqttRefresh,
   now = Date.now(),
 ) {
-  const odds = useOddsStore();
 
-  odds.updateMessage(PLATFORM, payload);
+  updateVenueOddsMessage(PLATFORM, payload);
   const parsed = parseTopic(topic);
   if (!parsed) return;
   let rows: Array<Record<string, unknown>>;
@@ -104,11 +104,11 @@ export function handleObMqttMessage(
     case "/market/oddsUpdate/":
       for (const row of rows) {
         const oddsId = String(row.id ?? "");
-        if (!oddsId || !odds.isOdds(PLATFORM, oddsId)) continue;
+        if (!oddsId || !isVenueOdds(PLATFORM, oddsId)) continue;
         const nextOdd = parseObOddField(row.odd);
         if (nextOdd <= 0) continue;
-        const prev = odds.getEntry(PLATFORM, oddsId);
-        odds.save(
+        const prev = getVenueOddsEntry(PLATFORM, oddsId);
+        saveVenueOdds(
           PLATFORM,
           {
             id: oddsId,
@@ -125,13 +125,13 @@ export function handleObMqttMessage(
       break;
     case "/market/statusUpdate/":
       for (const row of rows) {
-        odds.updateBetLock(PLATFORM, String(row.market_id ?? ""), true);
+        updateVenueBetLock(PLATFORM, String(row.market_id ?? ""), true);
       }
       refresh();
       break;
     case "/market/suspended/":
       for (const row of rows) {
-        odds.updateBetLock(PLATFORM, String(row.market_id ?? ""), row.suspended === 1);
+        updateVenueBetLock(PLATFORM, String(row.market_id ?? ""), row.suspended === 1);
       }
       refresh();
       break;

@@ -1,13 +1,14 @@
+import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
 
-import { directGet } from "@/shared/http";
+import { directGet } from "@changmen/client-core/shared/http";
 import { num } from "./parse";
-import type { CollectBetDto } from "@/types/collect";
-import type { ViewMatch } from "@/models/match";
-import type { CollectPlatformInfo } from "@/types/esport";
-import { PLATFORMS } from "@/shared/platform";
-import { wait } from "@/shared/wait";
-import { useCollectStore } from "@/stores/collectStore";
-import { useOddsStore } from "@/stores/oddsStore";
+import type { CollectBetDto } from "@changmen/client-core/types/collect";
+import type { ViewMatch } from "@changmen/client-core/models/match";
+import type { CollectPlatformInfo } from "@changmen/api-contract";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { wait } from "@changmen/client-core/shared/wait";
+import { useCollectStore } from "@venue/shared/webBridge";
+
 import {
   buildObSaveBetRowsFromViewBlocks,
   isObBlockCollectable,
@@ -51,14 +52,13 @@ function ingestObViewBlocksToFo(
   betRe: RegExp,
   gameCode?: string | null,
 ): void {
-  const odds = useOddsStore();
   const now = Date.now();
   for (const block of blocks) {
     const label = obBlockLabel(block);
     if (!isObBlockCollectable(block, label, betRe, gameCode)) continue;
     const locked = obBlockLocked(block);
     for (const entry of listObBlockFoOddEntries(block, locked)) {
-      odds.save(
+      saveVenueOdds(
         PLATFORM,
         {
           id: entry.id,

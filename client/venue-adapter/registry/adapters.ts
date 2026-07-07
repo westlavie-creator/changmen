@@ -1,16 +1,19 @@
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { CollectorFactory, PlatformAdapter, PlatformProvider } from "@venue/contract";
-import type { PlatformId } from "@/types/esport";
+import type { PlatformId } from "@changmen/api-contract";
+import { azuroAdapter } from "@venue/azuro";
 import { dexAdapter } from "@venue/dex";
 import { hgAdapter } from "@venue/hg";
 import { iaAdapter } from "@venue/ia";
 import { imAdapter } from "@venue/im";
 import { imtAdapter } from "@venue/imt";
+import { limitlessAdapter } from "@venue/limitless";
 import { obAdapter } from "@venue/ob";
 import { pbAdapter } from "@venue/pb";
 import { polymarketAdapter } from "@venue/polymarket";
 import { rayAdapter } from "@venue/ray";
 import { sabaAdapter } from "@venue/saba";
+import { sxbetAdapter } from "@venue/sxbet";
 import { stakeAdapter } from "@venue/stake";
 import { tfAdapter } from "@venue/tf";
 import { xbetAdapter } from "@venue/xbet";
@@ -36,6 +39,9 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
   stakeAdapter,
   dexAdapter,
   polymarketAdapter,
+  limitlessAdapter,
+  sxbetAdapter,
+  azuroAdapter,
 ];
 
 const adapterById = new Map<PlatformId, PlatformAdapter>(

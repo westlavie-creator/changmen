@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { PlatformAccount } from "@/models/platformAccount";
+import { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { pbRejectStorageKey, startPbRejectPoll } from "./rejectPoll";
 
 const pbGet = vi.fn();
@@ -7,11 +7,11 @@ vi.mock("./transport", () => ({
   pbGet: (...args: unknown[]) => pbGet(...args),
 }));
 
-vi.mock("@/shared/wait", () => ({
+vi.mock("@changmen/client-core/shared/wait", () => ({
   wait: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/api/chat", () => ({
+vi.mock("@changmen/client-core/bridge/clientApi", () => ({
   saveUserLog: vi.fn().mockResolvedValue(undefined),
 }));
 

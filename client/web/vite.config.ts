@@ -36,9 +36,9 @@ function venueChunkName(id: string): string | undefined {
   if (idx === -1) return undefined;
   const rest = id.slice(idx + markerLen);
   const dir = rest.split(/[/\\]/)[0];
-  if (!dir || dir === "registry" || dir === "contract" || dir === "shared") return undefined;
-  // 各 venue adapter 分包互相循环引用，拆成多 chunk 会在浏览器触发 TDZ 白屏
-  return "venue-all";
+  if (!dir || dir === "registry" || dir === "adaptation") return undefined;
+  if (dir === "shared" || dir === "contract") return "venue-shared";
+  return `venue-${dir}`;
 }
 
 export default defineConfig(({ mode }) => ({
@@ -71,9 +71,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // venue adapters 目前必须合成一个 chunk，拆细会因循环依赖触发浏览器 TDZ 白屏。
-    // 阈值按当前最大 chunk（venue-all 约 2.0MB）留少量余量，后续超过该值仍会报警。
-    chunkSizeWarningLimit: 2200,
+    // venue adapters 按平台目录分包；shared/registry/contract 留在主包。
+    // 阈值按当前最大单平台 chunk 留余量。
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       onwarn(warning, warn) {
         const message = warning.message ?? "";
@@ -119,6 +119,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   test: {
+    setupFiles: ["src/test/vitestSetupCore.ts"],
     include: [
       "src/**/*.{test,spec}.{js,mjs,ts}",
       "../venue-adapter/**/*.{test,spec}.{js,mjs,ts}",

@@ -5,7 +5,6 @@ import { wait } from "@/shared/wait";
  */
 import { useAccountStore } from "@/stores/accountStore";
 import { runArbBetRound } from "@/stores/betting/runArbBetRound";
-import { useBettingStore } from "@/stores/bettingStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
@@ -26,9 +25,8 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
   const matchStore = useMatchStore();
   const loseStore = useLoseOrderStore();
   const oddsStore = useOddsStore();
-  const bettingStore = useBettingStore();
 
-  bettingStore.tickAutoOpen();
+  matchStore.tickBettingAutoOpen();
   if (!user.userId)
     return;
 
@@ -53,8 +51,8 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
 
   // [A8 可证实] `if(!t.value)return` 仅对 null/undefined；空数组 [] 仍跑补单与初赔门控
   await runArbBetRound({
-    setMessage: m => bettingStore.setMessage(m),
-    processLoseOrders: () => bettingStore.processLoseOrders(),
+    setMessage: m => matchStore.setBettingMessage(m),
+    processLoseOrders: () => matchStore.processLoseOrders(),
   });
 
   if (now - matchStore.defaultOddsFetchedAt >= DEFAULT_ODDS_MS) {

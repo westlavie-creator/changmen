@@ -2,8 +2,10 @@ import type { UserInfo } from "@/types/esport";
 import type { FollowConfig } from "@/types/order";
 import type { ExtensionPrefs } from "@/types/extensionPrefs";
 import type { MessageConfig, ProxyRow } from "@/types/userExtras";
+import type { UserConfig } from "@/types/userConfig";
 import { createDefaultExtensionPrefs, normalizeExtensionPrefs } from "@/types/extensionPrefs";
 import { defineStore } from "pinia";
+import { toRaw } from "vue";
 import { clearAuthSession, getRefreshToken } from "@/api/client";
 import {
   login as apiLogin,
@@ -19,16 +21,30 @@ import {
 import { ensureTokenRefresh, stopTokenRefresh } from "@/lib/sessionRefresh";
 import { subscribeUserChannel, unsubscribeUserChannel } from "@/realtime/userChannel";
 import { ensurePublishChannelSubscribed } from "@/realtime/publishChannel";
+import {
+  createDefaultUserConfig,
+  mergeUserConfig,
+} from "@/types/userConfig";
 
 const USER_KEY = "app:userName";
 const HIDDEN_NAME_KEY = "hiddenUserName";
+const CONFIG_KEY = "USERCONFIG";
 
-/** 对齐 A8 Pinia `Xn`（用户 / 登录态） */
+export interface ConfigSaveResult {
+  ok: boolean;
+  msg?: string;
+}
+
+/** 对齐 A8 Pinia `Pn`（`g=Pn()`）：用户 / 登录态 + `config`（A8 `g.config`） */
 export const useUserStore = defineStore("user", {
   state: () => ({
     userName: localStorage.getItem(USER_KEY) || "",
     userId: 0,
     setting: {} as Record<string, unknown>,
+    /** 对齐 A8 `g.config`（USERCONFIG） */
+    config: createDefaultUserConfig(),
+    configLoaded: false,
+    configSaving: false,
     /** 平博 v4 用 A8 账号，来自 GetUserInfo 或 /api/a8/credit-plate-user */
     creditPlateUserName: "",
     /** restoreSession / 无 token 判定完成后为 true，避免已登录刷新闪登录框 */
@@ -143,6 +159,9 @@ export const useUserStore = defineStore("user", {
       this.extensionPrefs = createDefaultExtensionPrefs();
       this.follow = null;
       this.extrasLoaded = false;
+      this.config = createDefaultUserConfig();
+      this.configLoaded = false;
+      this.configSaving = false;
       this.isAdmin = false;
       this.role = "user";
       this.teamId = null;
@@ -207,6 +226,61 @@ export const useUserStore = defineStore("user", {
 
     betTargetEnabled(): boolean {
       return Boolean(this.setting?.BetTarget);
+    },
+
+    async loadConfig() {
+      const raw = await getClientData<Partial<UserConfig>>(CONFIG_KEY);
+      this.config = mergeUserConfig(raw ?? undefined);
+      this.configLoaded = true;
+    },
+
+    buildConfigSavePayload(): UserConfig {
+      const raw = toRaw(this.config) as UserConfig & {
+        arbDetectEngine?: unknown;
+        arbExecuteEngine?: unknown;
+      };
+      const {
+        arbDetectEngine: _legacyDetectEngine,
+        arbExecuteEngine: _legacyExecuteEngine,
+        ...configBody
+      } = raw;
+      return {
+        ...configBody,
+        betMoney: Number(this.config.betMoney) || 100,
+        minMoney: Number(this.config.minMoney) || 0,
+        maxMoney: Number(this.config.maxMoney) || 0,
+        profit: Number(this.config.profit) || 1.03,
+        maxProfit: Number(this.config.maxProfit) || 1.2,
+        minOdds: Number(this.config.minOdds) || 1.3,
+        maxOdds: Number(this.config.maxOdds) || 10,
+        makeProfit: Number(this.config.makeProfit) || 1.01,
+        makeUp_odds: Number(this.config.makeUp_odds) || 0,
+        makeUp_defaultOdds: Number(this.config.makeUp_defaultOdds) || 0,
+        anyOddsProfit: Number(this.config.anyOddsProfit) || 0.95,
+        checkTimeout: Number(this.config.checkTimeout) || 3000,
+      };
+    },
+
+    async saveConfig(): Promise<ConfigSaveResult> {
+      this.configSaving = true;
+      try {
+        const payload = this.buildConfigSavePayload();
+        let content: string;
+        try {
+          content = JSON.stringify(payload);
+        }
+        catch {
+          return { ok: false, msg: "配置无法序列化，请刷新页面后重试" };
+        }
+        const result = await saveClientDataDetailed(CONFIG_KEY, content);
+        if (result.ok) {
+          this.config = payload;
+        }
+        return result;
+      }
+      finally {
+        this.configSaving = false;
+      }
     },
   },
 });

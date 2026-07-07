@@ -15,7 +15,10 @@ export type PlatformId
     | "Stake"
     | "XBet"
     | "Dex"
-    | "Polymarket";
+    | "Polymarket"
+    | "Limitless"
+    | "SXBet"
+    | "Azuro";
 
 export interface LoginInfo {
   token: string;

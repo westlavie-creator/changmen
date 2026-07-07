@@ -5,21 +5,23 @@ import {
   setObMqttCollectPlatform,
   syncObMqttSubscriptionsForGetMatchs,
 } from "./mqtt";
-import type { ViewMatch } from "@/models/match";
-import type { CollectPlatformInfo } from "@/types/esport";
+import type { ViewMatch } from "@changmen/client-core/models/match";
+import type { CollectPlatformInfo } from "@changmen/api-contract";
 
 const refreshObMatchMarkets = vi.hoisted(() => vi.fn());
 
-const oddsStore = {
-  updateMessage: vi.fn(),
-  isOdds: vi.fn(),
-  getEntry: vi.fn(),
-  save: vi.fn(),
-  updateBetLock: vi.fn(),
-};
+const isVenueOdds = vi.hoisted(() => vi.fn());
+const getVenueOddsEntry = vi.hoisted(() => vi.fn());
+const saveVenueOdds = vi.hoisted(() => vi.fn());
+const updateVenueBetLock = vi.hoisted(() => vi.fn());
+const updateVenueOddsMessage = vi.hoisted(() => vi.fn());
 
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => oddsStore,
+vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
+  isVenueOdds,
+  getVenueOddsEntry,
+  saveVenueOdds,
+  updateVenueBetLock,
+  updateVenueOddsMessage,
 }));
 
 vi.mock("./markets", () => ({
@@ -30,13 +32,13 @@ describe("handleObMqttMessage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setObMqttCollectPlatform(null);
-    oddsStore.isOdds.mockReturnValue(false);
-    oddsStore.getEntry.mockReturnValue(undefined);
+    isVenueOdds.mockReturnValue(false);
+    getVenueOddsEntry.mockReturnValue(undefined);
   });
 
   test("saves known odds updates from market oddsUpdate messages", () => {
-    oddsStore.isOdds.mockImplementation((_platform: string, id: string) => id === "odd-1");
-    oddsStore.getEntry.mockReturnValue({ betId: "market-old", side: "home" });
+    isVenueOdds.mockImplementation((_platform: string, id: string) => id === "odd-1");
+    getVenueOddsEntry.mockReturnValue({ betId: "market-old", side: "home" });
 
     handleObMqttMessage(
       "/market/oddsUpdate/123",
@@ -48,9 +50,9 @@ describe("handleObMqttMessage", () => {
       12345,
     );
 
-    expect(oddsStore.updateMessage).toHaveBeenCalledWith("OB", expect.any(String));
-    expect(oddsStore.save).toHaveBeenCalledOnce();
-    expect(oddsStore.save).toHaveBeenCalledWith(
+    expect(updateVenueOddsMessage).toHaveBeenCalledWith("OB", expect.any(String));
+    expect(saveVenueOdds).toHaveBeenCalledOnce();
+    expect(saveVenueOdds).toHaveBeenCalledWith(
       "OB",
       {
         id: "odd-1",
@@ -72,16 +74,16 @@ describe("handleObMqttMessage", () => {
       () => {},
     );
 
-    expect(oddsStore.updateBetLock).toHaveBeenNthCalledWith(1, "OB", "m1", true);
-    expect(oddsStore.updateBetLock).toHaveBeenNthCalledWith(2, "OB", "m2", false);
+    expect(updateVenueBetLock).toHaveBeenNthCalledWith(1, "OB", "m1", true);
+    expect(updateVenueBetLock).toHaveBeenNthCalledWith(2, "OB", "m2", false);
   });
 
   test("ignores invalid payloads after recording the raw message", () => {
     handleObMqttMessage("/market/oddsUpdate/123", "not-json", () => {});
 
-    expect(oddsStore.updateMessage).toHaveBeenCalledWith("OB", "not-json");
-    expect(oddsStore.save).not.toHaveBeenCalled();
-    expect(oddsStore.updateBetLock).not.toHaveBeenCalled();
+    expect(updateVenueOddsMessage).toHaveBeenCalledWith("OB", "not-json");
+    expect(saveVenueOdds).not.toHaveBeenCalled();
+    expect(updateVenueBetLock).not.toHaveBeenCalled();
   });
 });
 

@@ -1,11 +1,11 @@
 /** [A8 可证实] bundle `Zn.get/post` + `Ly` + `k0`；`unwrap` 等价 PZe 的 `r.data` */
 
-import { a8PluginGet, a8PluginPost } from "@/chrome-plugin/bridge";
+import { a8PluginGet, a8PluginPost } from "@changmen/client-core/chrome-plugin/bridge";
 import { buildPbAuthHeaders } from "./auth";
 import { pbOddsUrl } from "./parse";
-import { useAccountStore } from "@/stores/accountStore";
-import { PLATFORMS } from "@/shared/platform";
-import type { PlatformAccount } from "@/models/platformAccount";
+import { useAccountStore } from "@venue/shared/webBridge";
+import { PLATFORMS } from "@venue/shared/platforms";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 
 /** 采集层提示文案（A8 无等价常量；仅 collect 侧 UX） */
 export const PB_PLUGIN_REQUIRED_MSG =

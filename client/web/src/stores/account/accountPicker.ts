@@ -2,7 +2,7 @@ import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { AccountStoreContext } from "@/stores/account/context";
 import type { PlatformId } from "@/types/esport";
-import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 
 /** [A8 可证实] Io.getAccount：多账号时按 account.profit 与 implied 优选 */
 function pickByAccountProfitA8(
@@ -48,7 +48,7 @@ export function formatAccountFundingHint(
 }
 
 export function getProviders(store: AccountStoreContext, minBetMoney?: number) {
-  const config = useConfigStore().config;
+  const config = useUserStore().config;
   const threshold = minBetMoney ?? config.betMoney;
   const map = new Map<PlatformId, PlatformAccount[]>();
   for (const acc of store.accounts) {
@@ -89,7 +89,7 @@ export function pickAccount(
   if (candidates.length === 1)
     return candidates[0];
 
-  const configProfit = useConfigStore().config.profit;
+  const configProfit = useUserStore().config.profit;
   if (options?.length === 2 && candidates.some(a => a.profit !== 0)) {
     const picked = pickByAccountProfitA8(candidates, options, configProfit);
     if (picked)

@@ -1,5 +1,5 @@
 import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
-import { directPostJson } from "@/shared/http";
+import { directPostJson } from "@changmen/client-core/shared/http";
 import { DEX_SPORTSBOOK_BASE, DEX_CID, dexSportSlugs } from "./parse";
 
 const WS_HOST = "wss://prod.dexsport.work/ws";

@@ -12,7 +12,6 @@ import {
 } from "@/components/user/userConfigFormState";
 import UserConfigPanel from "@/components/user/UserConfigPanel.vue";
 import { normalizeWaitTime } from "@/shared/betTiming";
-import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
 
 const props = defineProps<{
@@ -23,11 +22,10 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: [] }>();
 
-const configStore = useConfigStore();
 const userStore = useUserStore();
-const { saving } = storeToRefs(configStore);
+const { configSaving: saving } = storeToRefs(userStore);
 
-let form = reactive(createUserConfigFormState(configStore.config));
+let form = reactive(createUserConfigFormState(userStore.config));
 const autoOpenDate = ref<Date | null>(null);
 
 const visible = computed({
@@ -39,7 +37,7 @@ const visible = computed({
 });
 
 function syncFormFromStore() {
-  Object.assign(form, createUserConfigFormState(configStore.config));
+  Object.assign(form, createUserConfigFormState(userStore.config));
   autoOpenDate.value = form.bettingAutoOpenTime ? new Date(form.bettingAutoOpenTime) : null;
 }
 
@@ -78,15 +76,15 @@ onMounted(async () => {
     syncForm();
     return;
   }
-  if (!configStore.loaded)
-    await configStore.load();
+  if (!userStore.configLoaded)
+    await userStore.loadConfig();
   syncFormFromStore();
 });
 
 async function save() {
   if (props.readonly)
     return;
-  Object.assign(configStore.config, {
+  Object.assign(userStore.config, {
     ...form,
     profit: Number(form.profit),
     maxProfit: Number(form.maxProfit) || 1.1,
@@ -95,7 +93,7 @@ async function save() {
     minMoney: Number(form.minMoney) || 0,
     maxMoney: Number(form.maxMoney) || 0,
     minOdds: Number(form.minOdds) || 0,
-    maxOdds: Number(configStore.config.maxOdds) || 10,
+    maxOdds: Number(userStore.config.maxOdds) || 10,
     checkTimeout: Number(form.checkTimeout) || 3000,
     betCount: Number(form.betCount) || 0,
     betInterval: Number(form.betInterval) || 30,
@@ -106,7 +104,7 @@ async function save() {
     waitTime: normalizeWaitTime(form.waitTime),
   });
   try {
-    const result = await configStore.save();
+    const result = await userStore.saveConfig();
     if (result.ok)
       ElMessage.success("保存成功");
     else ElMessage.error(result.msg || "保存失败");

@@ -1,8 +1,9 @@
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { saveUserLog } from "@changmen/client-core/bridge/clientApi";
 import type { VenueOrder, VenueOrderStatus } from "@venue/contract";
 import { pbGet } from "./transport";
-import { wait } from "@/shared/wait";
-import { PLATFORMS } from "@/shared/platform";
+import { wait } from "@changmen/client-core/shared/wait";
+import { PLATFORMS } from "@venue/shared/platforms";
 
 const POLL_MS = 1_000;
 const MAX_MS = 30_000;
@@ -73,11 +74,7 @@ export async function startPbRejectPoll(account: PlatformAccount, startedAt: num
   } finally {
     if (row) {
       const orderId = String(row[0] ?? "");
-      void import("@/api/chat")
-        .then(({ saveUserLog }) =>
-          saveUserLog(`[PB] - ${orderId} 拒单检测 => ${statusRaw}`, row),
-        )
-        .catch(() => {});
+      void saveUserLog(`[PB] - ${orderId} 拒单检测 => ${statusRaw}`, row).catch(() => {});
     }
     if (statusRaw === "PENDING") {
       await wait(POLL_MS);

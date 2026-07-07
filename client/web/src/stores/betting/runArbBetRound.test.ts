@@ -11,8 +11,8 @@ const matchStoreState = {
 
 const runA8ArbRound = vi.fn(async () => {});
 
-vi.mock("@/stores/configStore", () => ({
-  useConfigStore: () => ({ config }),
+vi.mock("@/stores/userStore", () => ({
+  useUserStore: () => ({ config }),
 }));
 
 vi.mock("@/stores/matchStore", () => ({

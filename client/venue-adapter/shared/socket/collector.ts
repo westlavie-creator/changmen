@@ -1,10 +1,10 @@
 import { A8BetsCollector, type A8BetsMessage } from "./accumulator";
 import { subscribeA8Channel } from "./hub";
-import type { PlatformId } from "@/types/esport";
-import { wait } from "@/shared/wait";
+import type { PlatformId } from "@changmen/api-contract";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@/stores/collectStore";
-import { useMatchStore } from "@/stores/matchStore";
+import { useCollectStore } from "@venue/shared/webBridge";
+import { useMatchStore } from "@venue/shared/webBridge";
 
 const SAVE_MS = 60_000;
 const POLL_MS = 5_000;

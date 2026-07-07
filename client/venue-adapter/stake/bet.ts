@@ -1,14 +1,15 @@
+import { getVenueOddsLimit, setVenueOddsLimit } from "@changmen/client-core/bridge/oddsAccess";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
-import { BetResult } from "@/models/betResult";
-import type { PlatformAccount } from "@/models/platformAccount";
+import { BetResult } from "@changmen/client-core/models/betResult";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 export const STAKE_USDT_TO_CNY = 6.977023058793687;
 import { stakeAccountHeaders, stakePluginGraphql } from "./pluginApi";
 import { getStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@venue/contract";
-import type { LimitEntry } from "@/types/limit";
-import { PLATFORMS } from "@/shared/platform";
-import { toFixed } from "@/shared/format";
-import { useOddsStore } from "@/stores/oddsStore";
+import type { LimitEntry } from "@changmen/client-core/types/limit";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { toFixed } from "@changmen/client-core/shared/format";
+import { useAccountStore } from "@venue/shared/webBridge";
 
 const BET_THROTTLE_MS = 30_000;
 const lastBetAtByMarket = new Map<string, number>();
@@ -349,9 +350,7 @@ export const stakeProvider: PlatformProvider = {
       option.checkError = `请稍等 30 秒后再重下同样的赌注，当前时间：${sec}秒`;
       return option;
     }
-
-    const oddsStore = useOddsStore();
-    const localLimit = oddsStore.getLimit(account.provider, option.itemId);
+    const localLimit = getVenueOddsLimit(account.provider, option.itemId);
     if (localLimit && stakeLimitExceeded(localLimit, option.betMoney)) {
       option.checkError = `本地限红：${stakeLimitGetValue(localLimit).toFixed(2)}`;
       option.updateOdds(0);
@@ -411,19 +410,17 @@ export const stakeProvider: PlatformProvider = {
         const match = /[\d.]+$/.exec(message);
         if (match) {
           const maxUsdt = Number(match[0]);
-          useOddsStore().setLimit(
+          setVenueOddsLimit(
             account.provider,
             option.itemId,
             Math.floor(maxUsdt * STAKE_USDT_TO_CNY),
-            option.newOdds,
+            option.newOdds ?? option.odds,
             60,
           );
         }
       } else if (err0.errorType === "insufficientBalance") {
         account.balance = undefined;
-        void import("@/stores/accountStore").then(({ useAccountStore }) =>
-          useAccountStore().refreshBalance(account),
-        );
+        useAccountStore().refreshBalance(account);
       }
       return new BetResult(account.provider, false, message, option.data, root);
     }

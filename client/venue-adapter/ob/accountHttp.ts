@@ -1,5 +1,5 @@
-import type { PlatformAccount } from "@/models/platformAccount";
-import { accountHttpRequest, type AccountHttpOptions } from "@/shared/platformHttp";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { accountHttpRequest, type AccountHttpOptions } from "@changmen/client-core/shared/platformHttp";
 
 /** 对齐 A8 `b0(account)`：GET 也带 form Content-Type */
 function obHeaders(account: PlatformAccount): Record<string, string> {

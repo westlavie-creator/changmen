@@ -7,11 +7,11 @@ import {
 } from "./mqttConfig";
 import { fetchObDemoMqttConfig, getObA8MqttConfig, getObChangmenMqttConfig } from "./mqttSession";
 
-vi.mock("@/shared/http", () => ({
+vi.mock("@changmen/client-core/shared/http", () => ({
   directGet: vi.fn(),
 }));
 
-import { directGet } from "@/shared/http";
+import { directGet } from "@changmen/client-core/shared/http";
 
 describe("getObA8MqttConfig", () => {
   test("returns A8 relay credentials from bundle", () => {

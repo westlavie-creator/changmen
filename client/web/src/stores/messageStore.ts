@@ -12,7 +12,6 @@ import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarket
 import { formatArbProgressTelegramBody } from "@/extensions/notify/formatArbProgress";
 import { formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
 import { wait } from "@/shared/wait";
-import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
 import { NOTIFY_TYPES } from "@/types/notifyTypes";
 
@@ -383,7 +382,7 @@ export const useMessageStore = defineStore("message", {
         `${matchTitle} / ${betName} / ${option.target}`,
         "<blockquote>",
         `原订单时间：${formatDate(order.createAt)}`,
-        `原补单金额：${order.getBetMoney(order.betOdds)}@${order.getOdds(useConfigStore().config.makeProfit)}`,
+        `原补单金额：${order.getBetMoney(order.betOdds)}@${order.getOdds(useUserStore().config.makeProfit)}`,
         `补单金额：${option.betMoney}@${option.odds}`,
         `是否拒单：${rejected ? "🔴是" : "否"}`,
         "</blockquote>",

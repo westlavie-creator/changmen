@@ -7,7 +7,6 @@ import UserConfigDialog from "@/components/user/UserConfigDialog.vue";
 import UserDiagDialog from "@/components/user/UserDiagDialog.vue";
 import { delay as esportDelay } from "@/api/apiDelay";
 import { useAccountStore } from "@/stores/accountStore";
-import { useConfigStore } from "@/stores/configStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 
@@ -26,10 +25,8 @@ const router = useRouter();
 const user = useUserStore();
 const accountStore = useAccountStore();
 const orderStore = useOrderStore();
-const configStore = useConfigStore();
-const { displayName } = storeToRefs(user);
+const { displayName, config } = storeToRefs(user);
 const { totalBalance } = storeToRefs(accountStore);
-const { config } = storeToRefs(configStore);
 const { dayProfit } = storeToRefs(orderStore);
 
 const totalOrders = computed(() => {

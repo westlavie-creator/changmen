@@ -20,6 +20,9 @@
         "Stake": "counter-strike",
         "Dex": "csgo",
         "Polymarket": "cs2",
+        "Limitless": "cs2",
+        "SXBet": "cs2",
+        "Azuro": "1061",
         "IM": "47",
         "XBet": "43"
       }
@@ -60,6 +63,8 @@
         "Stake": "valorant",
         "Dex": "valorant",
         "Polymarket": "valorant",
+        "Limitless": "valorant",
+        "SXBet": "valorant",
         "IM": "65",
         "XBet": "43"
       }
@@ -80,6 +85,9 @@
         "Stake": "league-of-legends",
         "Dex": "lol",
         "Polymarket": "lol",
+        "Limitless": "lol",
+        "SXBet": "lol",
+        "Azuro": "1002",
         "IM": "45",
         "XBet": "43"
       }
@@ -100,6 +108,9 @@
         "Stake": "dota-2",
         "Dex": "dota2",
         "Polymarket": "dota2",
+        "Limitless": "dota-2",
+        "SXBet": "dota2",
+        "Azuro": "1000",
         "IM": "46",
         "XBet": "43"
       }

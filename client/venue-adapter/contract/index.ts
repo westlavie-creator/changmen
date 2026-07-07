@@ -1,7 +1,7 @@
-import type { PlatformId } from "@/types/esport";
-import type { BetOption } from "@/models/betOption";
-import type { BetResult } from "@/models/betResult";
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformId } from "@changmen/api-contract";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import type { BetResult } from "@changmen/client-core/models/betResult";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 
 export interface AccountBalanceResult {
   balance: number;

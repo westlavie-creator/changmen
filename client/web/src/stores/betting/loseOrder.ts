@@ -16,7 +16,7 @@ import {
   tryResumePmPendingMakeUp,
 } from "@/stores/betting/loseOrderPmPending";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
-import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useMessageStore } from "@/stores/messageStore";
@@ -34,11 +34,11 @@ export interface LoseOrderTickContext {
  * [changmen 扩展] PM：`pendingPmOrderId` 时续轮 settle，timeout 不重复 POST。
  */
 export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void> {
-  const configStore = useConfigStore();
+  const user = useUserStore();
   const matchStore = useMatchStore();
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
-  const config = configStore.config;
+  const config = user.config;
   const { setMessage } = ctx;
   const removeIds = new Set<number>();
   const betLookup = buildLoseOrderBetLookup(matchStore.matchs);

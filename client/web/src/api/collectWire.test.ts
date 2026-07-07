@@ -30,6 +30,20 @@ describe("collectWire A8 parity", () => {
       "Teams",
       "Type",
     ]);
+
+    expect(toA8SaveMatchRow({
+      Type: "OB",
+      SourceMatchID: 1,
+      SourceGameID: 70,
+      StartTime: 1000,
+      HomeID: "h",
+      Home: "A",
+      AwayID: "a",
+      Away: "B",
+      BO: 3,
+      IsLive: 2,
+      Teams: [{ Type: "OB", TeamID: "h", Name: "A", GameID: 70, Logo: "" }],
+    }).IsLive).toBe(2);
     expect(row.Teams[0]).toEqual({
       Type: "RAY",
       TeamID: "h",

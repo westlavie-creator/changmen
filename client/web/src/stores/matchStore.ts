@@ -1,4 +1,4 @@
-import type { BetSide, ViewMatch } from "@/models/match";
+import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import type { MainBetLoopState } from "@/stores/match/mainBetLoop";
 import type { PlatformId, PmSportSnapshot } from "@/types/esport";
 import { defineStore } from "pinia";
@@ -11,6 +11,8 @@ import {
   startPmSportRealtimeFeed,
   stopPmSportRealtimeFeed,
 } from "@/services/pmSportRealtime";
+import { processLoseOrders as runProcessLoseOrders } from "@/stores/betting/loseOrder";
+import { runManualBet } from "@/stores/betting/manualBet";
 import {
 
   runMainBetLoopFinally,
@@ -39,6 +41,9 @@ export const useMatchStore = defineStore("match", {
     mainLoopRunning: false,
     mainLoopTimer: null as ReturnType<typeof setTimeout> | null,
     lastLoseOrderPruneAt: 0,
+    /** 对齐 A8 `O()` 内下注状态（原 bettingStore） */
+    bettingLastMessage: "",
+    bettingLastAt: 0,
     /** "platform:sourceMatchId" → matchs 数组下标；fetchMatches 后重建 */
     _providerIndex: new Map<string, number>(),
   }),
@@ -275,6 +280,36 @@ export const useMatchStore = defineStore("match", {
         }
       }
       this._providerIndex = idx;
+    },
+
+    setBettingMessage(msg: string) {
+      this.bettingLastMessage = msg;
+      this.bettingLastAt = Date.now();
+    },
+
+    tickBettingAutoOpen() {
+      const user = useUserStore();
+      const cfg = user.config;
+      if (cfg.bettingAutoOpen && !cfg.betting && cfg.bettingAutoOpenTime) {
+        if (Date.now() >= cfg.bettingAutoOpenTime) {
+          cfg.betting = true;
+          cfg.bettingAutoOpen = false;
+          cfg.bettingAutoOpenTime = 0;
+          void user.saveConfig();
+        }
+      }
+    },
+
+    async manualBet(match: ViewMatch, bet: ViewBet, item: ViewBetItem, side: BetSide) {
+      await runManualBet(match, bet, item, side, {
+        setMessage: m => this.setBettingMessage(m),
+      });
+    },
+
+    async processLoseOrders() {
+      await runProcessLoseOrders({
+        setMessage: m => this.setBettingMessage(m),
+      });
     },
   },
 });

@@ -9,8 +9,8 @@ const matchStoreState = {
   matchs: [] as { id: number; bets: { id: number }[] }[],
 };
 
-vi.mock("@/stores/configStore", () => ({
-  useConfigStore: () => ({ config }),
+vi.mock("@/stores/userStore", () => ({
+  useUserStore: () => ({ config }),
 }));
 
 vi.mock("@/stores/matchStore", () => ({

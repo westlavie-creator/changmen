@@ -1,6 +1,5 @@
 import { watch } from "vue";
 import { startMarketWatchLoop, stopMarketWatchLoop } from "@/extensions/arbMarketWatch";
-import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
 
 export interface ArbRuntimeFlags {
@@ -23,11 +22,10 @@ export function applyArbRuntimeState(flags: ArbRuntimeFlags): void {
 }
 
 export function syncArbRuntime(): void {
-  const configStore = useConfigStore();
   const user = useUserStore();
   applyArbRuntimeState(
     resolveArbRuntimeFlags({
-      betting: configStore.config.betting,
+      betting: user.config.betting,
       notifyArbOpportunity: user.message?.notifyArbOpportunity,
     }),
   );
@@ -39,11 +37,10 @@ let stopWatch: (() => void) | null = null;
 export function installArbRuntimeSync(): void {
   if (stopWatch)
     return;
-  const configStore = useConfigStore();
   const user = useUserStore();
   stopWatch = watch(
     () => ({
-      betting: configStore.config.betting,
+      betting: user.config.betting,
       notify: user.message?.notifyArbOpportunity === true,
     }),
     () => syncArbRuntime(),

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { BetOption } from "@/models/betOption";
-import { PlatformAccount } from "@/models/platformAccount";
+import { BetOption } from "@changmen/client-core/models/betOption";
+import { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { obProvider } from "./bet";
 
 const accountGet = vi.fn();
@@ -10,11 +10,11 @@ vi.mock("./accountHttp", () => ({
   accountPostForm: (...args: unknown[]) => accountPostForm(...args),
 }));
 
-vi.mock("@/shared/md5", () => ({
+vi.mock("@changmen/client-core/shared/md5", () => ({
   md5: (s: string) => `md5:${s}`,
 }));
 
-vi.mock("@/shared/wait", () => ({
+vi.mock("@changmen/client-core/shared/wait", () => ({
   wait: vi.fn().mockResolvedValue(undefined),
 }));
 

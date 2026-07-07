@@ -3,13 +3,12 @@ import { describe, expect, test, vi } from "vitest";
 const hasA8PluginRuntime = vi.hoisted(() => vi.fn());
 const getCollectPlatform = vi.hoisted(() => vi.fn());
 const resolvePbAccount = vi.hoisted(() => vi.fn());
-const oddsStore = vi.hoisted(() => ({ clean: vi.fn() }));
 
-vi.mock("@/chrome-plugin/bridge", () => ({
+vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
   hasA8PluginRuntime,
 }));
 
-vi.mock("@/api/esport", () => ({
+vi.mock("@changmen/client-core/bridge/clientApi", () => ({
   getCollectPlatform,
 }));
 
@@ -19,7 +18,7 @@ vi.mock("./transport", () => ({
   resolvePbAccount,
 }));
 
-vi.mock("@/shared/wait", () => ({
+vi.mock("@changmen/client-core/shared/wait", () => ({
   wait: vi.fn(() => new Promise(() => {})),
 }));
 
@@ -27,15 +26,8 @@ vi.mock("@venue/shared/collectNotify", () => ({
   notifyCollectError: vi.fn(),
 }));
 
-vi.mock("@/stores/collectStore", () => ({
+vi.mock("@venue/shared/webBridge", () => ({
   useCollectStore: () => ({ saveMatch: vi.fn(), saveBets: vi.fn() }),
-}));
-
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => oddsStore,
-}));
-
-vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({ refreshOddsOnBets: vi.fn() }),
 }));
 

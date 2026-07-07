@@ -1,5 +1,8 @@
-import type { PlatformId } from "@/types/esport";
+import type { PlatformId } from "@changmen/api-contract";
 import manifest from "./manifest.json";
+import { PLATFORMS } from "@venue/shared/platforms";
+
+export { PLATFORMS };
 
 /** 单平台能力 — manifest.json 的类型化视图 */
 export interface PlatformMeta {
@@ -20,23 +23,6 @@ export const PLATFORM_REGISTRY: PlatformMeta[] = entries.slice().sort((a, b) => 
 
 /** 所有平台 ID（UI、账号、采集默认开关） */
 export const ALL_PLATFORMS: PlatformId[] = PLATFORM_REGISTRY.map((p) => p.id);
-
-/** 采集器内 `PLATFORMS.OB` 等常量 */
-export const PLATFORMS = {
-  OB: "OB",
-  IM: "IM",
-  RAY: "RAY",
-  TF: "TF",
-  IA: "IA",
-  SABA: "SABA",
-  XBet: "XBet",
-  PB: "PB",
-  IMT: "IMT",
-  HG: "HG",
-  Stake: "Stake",
-  Dex: "Dex",
-  Polymarket: "Polymarket",
-} as const satisfies Record<string, PlatformId>;
 
 const metaById = new Map(PLATFORM_REGISTRY.map((p) => [p.id, p]));
 

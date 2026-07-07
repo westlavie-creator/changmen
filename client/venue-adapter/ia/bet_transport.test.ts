@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { PlatformAccount } from "@/models/platformAccount";
+import { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { iaGatewayPath, iaMrPost } from "./bet_transport";
 
 const accountIaPost = vi.fn();
@@ -9,7 +9,7 @@ vi.mock("./accountHttp", () => ({
   accountIaPost: (...args: unknown[]) => accountIaPost(...args),
 }));
 
-vi.mock("@/chrome-plugin/bridge", () => ({
+vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
   hasA8PluginRuntime: () => true,
   a8PluginPost: (...args: unknown[]) => a8PluginPost(...args),
 }));

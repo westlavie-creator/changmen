@@ -1,7 +1,8 @@
-import type { CollectBetDto } from "@/types/collect";
-import type { CollectPlatformInfo } from "@/types/esport";
-import { PLATFORMS } from "@/shared/platform";
-import { useOddsStore } from "@/stores/oddsStore";
+import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+import type { CollectBetDto } from "@changmen/client-core/types/collect";
+import type { CollectPlatformInfo } from "@changmen/api-contract";
+import { PLATFORMS } from "@venue/shared/platforms";
+
 import {
   buildIaSaveBetRowsFromPlays,
   isIaChildCollectable,
@@ -17,7 +18,6 @@ function ingestIaPlaysToFo(
   plays: Array<Record<string, unknown>>,
   betRe: RegExp,
 ): void {
-  const odds = useOddsStore();
   const now = Date.now();
   for (const play of plays) {
     const children = (play.child_plays ?? []) as Array<Record<string, unknown>>;
@@ -25,7 +25,7 @@ function ingestIaPlaysToFo(
       const betKey = betKeyFromChild(child);
       if (!isIaChildCollectable(child, betKey, betRe)) continue;
       for (const entry of listIaChildFoOddEntries(child)) {
-        odds.save(
+        saveVenueOdds(
           PLATFORM,
           {
             id: entry.id,

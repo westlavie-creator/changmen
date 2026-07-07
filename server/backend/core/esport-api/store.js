@@ -211,13 +211,37 @@ export function saveBets(provider, matchId, bets) {
 }
 
 export async function saveLiveTimer(provider, timer) {
-  _timers[provider] = {
-    provider,
-    timer: Array.isArray(timer) ? timer : [],
+  let incoming = Array.isArray(timer) ? timer : [];
+  const plat = String(provider || "").trim();
+  if (plat === "OB") {
+    const prev = _timers.OB?.timer || [];
+    const liveOnIndex = Object.values(_matches.OB || {}).some(
+      m => Number(m?.IsLive ?? m?.is_live) === 2,
+    );
+    const indexHasMatches = Object.keys(_matches.OB || {}).length > 0;
+    // getTimer 空响应但 index 仍有赛：视为异常，不 wipe 内存/RDS（本地 dev 偶发；生产 index 常驻）
+    if (incoming.length === 0 && (liveOnIndex || prev.length > 0 || indexHasMatches))
+      return;
+    if (incoming.length > 0) {
+      const incomingIds = new Set(incoming.map(t => String(t.MatchID)));
+      for (const [sid, m] of Object.entries(_matches.OB || {})) {
+        if (Number(m?.IsLive ?? m?.is_live) !== 2)
+          continue;
+        if (incomingIds.has(String(sid)))
+          continue;
+        const hit = prev.find(t => String(t.MatchID) === String(sid));
+        if (hit)
+          incoming.push(hit);
+      }
+    }
+  }
+  _timers[plat] = {
+    provider: plat,
+    timer: incoming,
     savedAt: Date.now(),
   };
   _dbTimersCache = null;
-  await sb.writeLiveTimersAsync(provider, timer);
+  await sb.writeLiveTimersAsync(plat, incoming);
 }
 
 // ── user kv / settings ────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
-import { BetOption as BetOptionClass } from "@/models/betOption";
+import { BetOption as BetOptionClass } from "@changmen/client-core/models/betOption";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import { polymarketPluginGet } from "./transport";
 

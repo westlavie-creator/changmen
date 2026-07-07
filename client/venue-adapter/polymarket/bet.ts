@@ -1,7 +1,7 @@
 import type { AccountBalanceResult, PlatformProvider } from "@venue/contract";
-import type { BetOption } from "@/models/betOption";
-import { BetResult } from "@/models/betResult";
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import { BetResult } from "@changmen/client-core/models/betResult";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { resolvePolymarketVenueStakeUsdc } from "./pmStake";
 import { POLYMARKET_CLOB_API } from "./api";
 import { resolvePolymarketBuilderCode } from "./builder";
@@ -21,6 +21,7 @@ import {
 import { isPolymarketDelayedPending } from "./orderStatus";
 import { markPolymarketChangmenOrder } from "./pmOrigin";
 import { registerPolymarketOrderWatch } from "./userWs";
+import { startPolymarketSettlementJob } from "./settlementJob";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import {
   resolvePolymarketDetectionMaxPrice,
@@ -33,8 +34,13 @@ export {
   fetchPolymarketOrderRow,
   formatPolymarketSettlementMessage,
   pollPolymarketDelayedOrder,
-  settlePolymarketDelayedOrder,
 } from "./orderStatus";
+export { settlePolymarketDelayedOrder } from "./orderSettlement";
+export {
+  awaitPolymarketSettlementJob,
+  clearPolymarketSettlementJobs,
+  startPolymarketSettlementJob,
+} from "./settlementJob";
 
 const BALANCE_PATH = "/balance-allowance";
 const ORDER_PATH = "/order";
@@ -656,6 +662,8 @@ export const polymarketProvider: PlatformProvider = {
             "[Polymarket] delayed 单缺少 betId(condition_id)，User WS 未订阅；拒单检测仅走 REST",
           );
         }
+        // [changmen 扩展] wait(q) 期间后台 settle；finalize 仍 A8 wait→sync
+        startPolymarketSettlementJob(account, bet.orderId);
       }
       return bet;
     } catch (err) {

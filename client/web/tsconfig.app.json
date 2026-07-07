@@ -19,6 +19,7 @@
     "resolveJsonModule": true,
     "paths": {
       "@/*": ["./src/*"],
+      "@changmen/client-core/*": ["../../packages/client-core/src/*"],
       "@changmen/shared/*": ["../../packages/shared/*"],
       "@venue/*": ["../venue-adapter/*"],
       "mqtt": ["../../node_modules/mqtt"],

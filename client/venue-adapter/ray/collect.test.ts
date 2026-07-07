@@ -1,12 +1,23 @@
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { handleRayRealtimeMessage } from "./collect";
 
+const isVenueOdds = vi.hoisted(() => vi.fn());
+const saveVenueOdds = vi.hoisted(() => vi.fn());
+
+vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
+  isVenueOdds,
+  saveVenueOdds,
+}));
+
 describe("handleRayRealtimeMessage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   test("saves known RAY odds updates and ignores unknown rows", () => {
-    const odds = {
-      isOdds: vi.fn((platform: string, id: string) => platform === "RAY" && id === "known"),
-      save: vi.fn(),
-    };
+    isVenueOdds.mockImplementation((platform: string, id: string) =>
+      platform === "RAY" && id === "known",
+    );
 
     handleRayRealtimeMessage(
       {
@@ -17,12 +28,11 @@ describe("handleRayRealtimeMessage", () => {
           { id: "", odds: 3.2, status: 2 },
         ],
       },
-      odds,
       12345,
     );
 
-    expect(odds.save).toHaveBeenCalledOnce();
-    expect(odds.save).toHaveBeenCalledWith("RAY", {
+    expect(saveVenueOdds).toHaveBeenCalledOnce();
+    expect(saveVenueOdds).toHaveBeenCalledWith("RAY", {
       id: "known",
       odds: 1.92,
       isLock: false,
@@ -31,14 +41,9 @@ describe("handleRayRealtimeMessage", () => {
   });
 
   test("ignores non-odds messages", () => {
-    const odds = {
-      isOdds: vi.fn(),
-      save: vi.fn(),
-    };
+    handleRayRealtimeMessage({ source: "match", match: { id: "m1" } }, 12345);
 
-    handleRayRealtimeMessage({ source: "match", match: { id: "m1" } }, odds, 12345);
-
-    expect(odds.isOdds).not.toHaveBeenCalled();
-    expect(odds.save).not.toHaveBeenCalled();
+    expect(isVenueOdds).not.toHaveBeenCalled();
+    expect(saveVenueOdds).not.toHaveBeenCalled();
   });
 });

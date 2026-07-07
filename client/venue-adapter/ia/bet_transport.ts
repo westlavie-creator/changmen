@@ -1,8 +1,8 @@
 /** [A8 可证实] `CYe` 经 `mr.post` + `Cr.http`；无 proxyId / forceDirect 时 `Zn.post`，否则 PROXY relay */
 
-import { a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { a8PluginPost, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { accountIaPost } from "./accountHttp";
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 
 export const IA_BET_PLUGIN_REQUIRED_MSG =
   "IA 下注需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）";

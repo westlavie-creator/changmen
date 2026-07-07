@@ -1,5 +1,5 @@
 import { startA8BetsCollector } from "@venue/shared/socket/collector";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@venue/shared/platforms";
 
 /** 对齐 A8 EZe — A8 聚合 Socket.IO 频道 IM */
 export function startImCollector(): () => void {

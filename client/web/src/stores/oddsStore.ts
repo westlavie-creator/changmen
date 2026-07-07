@@ -1,21 +1,22 @@
 import type { PlatformId } from "@/types/esport";
 import type { LimitEntry } from "@/types/limit";
 /**
- * 实时赔率缓存（对齐 A8 Pinia 模块 `fo`）。
+ * 实时赔率缓存（对齐 A8 `Qn()` / match store 内 `p=Qn()`；Pinia id `"counter"`）。
+ * changmen Pinia id 为 `"odds"`。勿与 A8 `fo()`（账号 store）混淆。
  *
  * 与 ViewMatch 的分工：
  * - `Client_GetMatchs` → matchStore → ViewMatch / ViewBetItem：赛事结构、盘口 ID（betId）、选项 ID（homeId/awayId）
  * - 各平台采集器（HTTP 灌盘 + MQTT/WS 增量）→ 本 store `save()`：按 **oddId** 存最新赔率与锁盘
  *
- * 本 store **不存 matchId**；UI 只通过 ViewBetItem 持有的 id 来查 fo。
- * fo 里可能出现 ViewMatch 未引用的 oddId（多盘口、列表已下架残留、采集先于合并等）。
+ * 本 store **不存 matchId**；UI 只通过 ViewBetItem 持有的 id 来查赔率缓存。
+ * 缓存里可能出现 ViewMatch 未引用的 oddId（多盘口、列表已下架残留、采集先于合并等）。
  */
 import { defineStore } from "pinia";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { formatDisplayOdds } from "@/shared/format";
 import { PLATFORMS } from "@/shared/platform";
 
-/** 写入 fo 的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
+/** 写入赔率缓存的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
 export type OddsSaveSource = "mqtt" | "http";
 
 /**
@@ -26,7 +27,7 @@ export type OddsSaveSource = "mqtt" | "http";
  * - `betId`  ↔ `BetID`（盘口/market id）
  */
 export interface OddsEntry {
-  /** 平台选项 ID（odd id / selection id），fo 主键，全局唯一于该平台 bucket 内 */
+  /** 平台选项 ID（odd id / selection id），本 store 主键，全局唯一于该平台 bucket 内 */
   id: string;
   /** 原始赔率数值；锁盘时 UI 显示 0，不读 fallback */
   odds: number;
@@ -52,7 +53,7 @@ const ODDS_FLASH_MS = 4_000;
 /** OB MQTT `/odd/statusUpdate/`：status === 6 表示盘口开放，否则视为锁盘 */
 const OB_MARKET_OPEN = 6;
 
-/** 对齐 A8 Pinia `fo` — 实时赔率缓存 */
+/** 对齐 A8 `Qn()`（Pinia `"counter"`）— 实时赔率缓存 */
 export const useOddsStore = defineStore("odds", {
   state: () => ({
     /**
@@ -88,7 +89,7 @@ export const useOddsStore = defineStore("odds", {
 
   actions: {
     /**
-     * 写入或覆盖一条赔率（对齐 A8 `fo.save`）。
+     * 写入或覆盖一条赔率（对齐 A8 `Qn().save` / `p.save`）。
      * HTTP 灌盘与 MQTT 增量均直接覆盖，**不做**“旧 time 拒绝新数据”挡板。
      */
     save(platform: PlatformId, entry: OddsEntry, source: OddsSaveSource = "http") {
@@ -141,7 +142,7 @@ export const useOddsStore = defineStore("odds", {
       return { dir: row.dir, source: row.source };
     },
 
-    /** fo 中是否已有该 oddId（MQTT 增量门闩：未灌盘过的 id 通常不处理推送） */
+    /** 赔率缓存中是否已有该 oddId（MQTT 增量门闩：未灌盘过的 id 通常不处理推送） */
     isOdds(platform: PlatformId, oddsId: string): boolean {
       return Boolean(this.data.get(platform)?.has(String(oddsId)));
     },
@@ -152,7 +153,7 @@ export const useOddsStore = defineStore("odds", {
     },
 
     /**
-     * 按 oddId 取展示赔率（对齐 A8 `fo.getOdds`）。
+     * 按 oddId 取展示赔率（对齐 A8 `Qn().getOdds` / `p.getOdds`）。
      * - 无缓存：返回 formatDisplayOdds(fallback)
      * - 有缓存且 isLock：返回 0（**不用** fallback 顶替锁盘）
      * - 有缓存且未锁：返回 formatDisplayOdds(row.odds)
@@ -170,7 +171,7 @@ export const useOddsStore = defineStore("odds", {
         : formatDisplayOdds(row.odds);
     },
 
-    /** 更新单条 odd 锁盘（对齐 A8 `updateOddsLock`：仅改 fo 已有行） */
+    /** 更新单条 odd 锁盘（对齐 A8 `updateOddsLock`：仅改已有行） */
     updateOddsLock(platform: PlatformId, oddsId: string, locked: boolean) {
       const key = String(oddsId);
       const row = this.data.get(platform)?.get(key);
@@ -229,7 +230,7 @@ export const useOddsStore = defineStore("odds", {
     },
 
     /**
-     * 清理 fo 条目。
+     * 清理赔率缓存条目（对齐 A8 `p.clean()`，主循环拉列表成功时调用）。
      * - 传入 platform：清空该平台 data / betIndex（采集轮次切换时用）
      * - 不传：全局扫描，删除 time 超过 1 小时的 stale odd（不碰 betIndex 孤儿索引，靠 save 重建）
      */

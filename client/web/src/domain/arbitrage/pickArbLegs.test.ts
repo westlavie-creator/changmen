@@ -1,21 +1,13 @@
+import "@/test/mockFoOdds";
+import { foOddsState } from "@/test/mockFoOdds";
 import type { BetRowDto } from "@/types/esport";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { pickArbLegs } from "@/domain/arbitrage/pickArbLegs";
 import { ViewBet } from "@/models/match";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
-/** 模拟 fo 缓存；非 HG 平台不再用 Sources 快照作 fallback */
-let foOdds: Record<string, Record<string, number>> = {};
-
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => ({
-    getOdds: (type: string, id: string, fallback: number) =>
-      foOdds[type]?.[id] ?? fallback,
-  }),
-}));
-
 beforeEach(() => {
-  foOdds = {};
+  foOddsState.current = {};
 });
 
 function makeBet(sources: BetRowDto["Sources"]) {
@@ -35,7 +27,7 @@ function makeBet(sources: BetRowDto["Sources"]) {
 
 describe("pickArbLegs", () => {
   it("returns legs when implied profit meets threshold", () => {
-    foOdds = {
+    foOddsState.current = {
       PB: { h1: 2.1, a1: 1.5 },
       RAY: { h2: 1.6, a2: 2.2 },
     };
@@ -66,7 +58,7 @@ describe("pickArbLegs", () => {
   });
 
   it("excludes away leg on same platform as home leg (A8 GetOrderOptions)", () => {
-    foOdds = {
+    foOddsState.current = {
       PB: { h1: 2.1, a1: 2.0 },
     };
     const bet = makeBet({
@@ -84,7 +76,7 @@ describe("pickArbLegs", () => {
   });
 
   it("returns undefined when implied below profit", () => {
-    foOdds = {
+    foOddsState.current = {
       PB: { h1: 1.5, a1: 1.5 },
       RAY: { h2: 1.5, a2: 1.5 },
     };

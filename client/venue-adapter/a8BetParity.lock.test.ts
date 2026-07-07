@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { buildPbAuthHeaders } from "./pb/auth";
 import { pbGatewayUrl } from "./pb/transport";
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 
 describe("A8 bet parity lock", () => {
   it("PB Ly: gateway+path 直接拼接", () => {

@@ -1,13 +1,13 @@
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
-import type { BetOption } from "@/models/betOption";
-import { BetResult } from "@/models/betResult";
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import { BetResult } from "@changmen/client-core/models/betResult";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@venue/contract";
 import { accountGet, accountPostForm } from "./accountHttp";
-import { formatDateKey, toFixed } from "@/shared/format";
-import { md5 } from "@/shared/md5";
-import { wait } from "@/shared/wait";
-import { PLATFORMS } from "@/shared/platform";
+import { formatDateKey, toFixed } from "@changmen/client-core/shared/format";
+import { md5 } from "@changmen/client-core/shared/md5";
+import { wait } from "@changmen/client-core/shared/wait";
+import { PLATFORMS } from "@venue/shared/platforms";
 
 function noteObCheckFailure(account: PlatformAccount, msg: string) {
   if (/redis: nil/.test(msg)) {

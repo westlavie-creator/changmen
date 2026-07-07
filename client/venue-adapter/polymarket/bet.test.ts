@@ -1,4 +1,4 @@
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { isPolymarketFokBuyFilled, isPolymarketOrderAccepted, polymarketProvider } from "./bet";
@@ -1060,7 +1060,7 @@ describe("polymarketProvider.getOrders", () => {
       provider: "Polymarket",
       orderId: "0xtrade-order",
       status: "none",
-      betMoney: 7,
+      betMoney: 6.8,
       odds: 2,
     });
 
@@ -1115,8 +1115,8 @@ describe("polymarketProvider.getOrders", () => {
       },
     }), { multiply: 10 }));
 
-    expect(orders[0]?.betMoney).toBe(7);
-    expect(orders[0]?.reward).toBe(14);
+    expect(orders[0]?.betMoney).toBe(6.8);
+    expect(orders[0]?.reward).toBe(13.6);
   });
 
   test("returns empty array when credentials are missing", async () => {

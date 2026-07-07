@@ -2,7 +2,7 @@
  * Polymarket RDS 订单加载器注册（须在 sessionBoot 前 import）。
  * 对齐 A8：updateOrders → provider.getOrders → saveOrders；PM 在 getOrders 内合并 RDS。
  */
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { getPlayerOrder } from "@/api/chat";
 import { registerPolymarketStoredVenueOrdersLoader } from "@venue/polymarket/pmStoredOrders";
 import { venueOrderFromOrderRow, stripPolymarketSellOrders } from "@venue/polymarket/pmLogicalPosition";

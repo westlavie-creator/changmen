@@ -1,4 +1,4 @@
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformProvider } from "@venue/contract";
 import { accountHgPost } from "./accountHttp";
 import {

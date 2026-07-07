@@ -2,14 +2,14 @@
 import { ElMessageBox } from "element-plus";
 import { storeToRefs } from "pinia";
 import { formatDate } from "@/shared/format";
-import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/lose-order.css";
 
 const loseStore = useLoseOrderStore();
-const configStore = useConfigStore();
+const user = useUserStore();
 const { orders } = storeToRefs(loseStore);
-const { config } = storeToRefs(configStore);
+const { config } = storeToRefs(user);
 
 function remove(betId: number) {
   ElMessageBox.confirm("确认要删除补单吗？", "补单删除", {

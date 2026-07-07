@@ -1,7 +1,7 @@
-import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@/types/collect";
-import type { PlatformId } from "@/types/esport";
+import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@changmen/client-core/types/collect";
+import type { PlatformId } from "@changmen/api-contract";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@venue/shared/platforms";
 
 const PLATFORM: PlatformId = PLATFORMS.Polymarket;
 const YES_NO = /^(yes|no|是|否)$/i;

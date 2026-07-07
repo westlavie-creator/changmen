@@ -7,7 +7,6 @@ import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import { createUserConfigFormState } from "@/components/user/userConfigFormState";
 import UserConfigPanel from "@/components/user/UserConfigPanel.vue";
 import { useAccountStore } from "@/stores/accountStore";
-import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
 
 const props = defineProps<{ user: AdminUserRow }>();
@@ -15,11 +14,10 @@ defineEmits<{ viewOrders: [] }>();
 
 const accountStore = useAccountStore();
 const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
-const configStore = useConfigStore();
 const userStore = useUserStore();
 
-let form = reactive(createUserConfigFormState(configStore.config));
-watch(() => configStore.config, c => Object.assign(form, createUserConfigFormState(c)));
+let form = reactive(createUserConfigFormState(userStore.config));
+watch(() => userStore.config, c => Object.assign(form, createUserConfigFormState(c)));
 
 function onAdminMultiplySaved(multiply: number) {
   const acc = editDialogAccount.value;

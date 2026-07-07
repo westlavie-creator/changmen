@@ -6,12 +6,20 @@ import {
 } from "./live_timer_overlay.js";
 
 describe("mergeTimerBlocks", () => {
-  it("empty memory snapshot overrides stale RDS rows for that platform", () => {
+  it("empty memory snapshot does not override stale RDS rows for that platform", () => {
     const merged = mergeTimerBlocks(
       { OB: { provider: "OB", timer: [] } },
       { OB: { provider: "OB", timer: [{ MatchID: "1", Round: 4, StartTime: 1000 }] } },
     );
-    expect(merged.OB.timer).toEqual([]);
+    expect(merged.OB.timer).toEqual([{ MatchID: "1", Round: 4, StartTime: 1000 }]);
+  });
+
+  it("non-empty memory snapshot overrides RDS for that platform", () => {
+    const merged = mergeTimerBlocks(
+      { OB: { provider: "OB", timer: [{ MatchID: "2", Round: 2, StartTime: 2000 }] } },
+      { OB: { provider: "OB", timer: [{ MatchID: "1", Round: 4, StartTime: 1000 }] } },
+    );
+    expect(merged.OB.timer).toEqual([{ MatchID: "2", Round: 2, StartTime: 2000 }]);
   });
 });
 

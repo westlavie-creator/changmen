@@ -1,10 +1,11 @@
-import { PLATFORMS } from "@/shared/platform";
-import { directGet } from "@/shared/http";
-import { wait } from "@/shared/wait";
+import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { directGet } from "@changmen/client-core/shared/http";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@/stores/collectStore";
-import { useMatchStore } from "@/stores/matchStore";
-import { useOddsStore } from "@/stores/oddsStore";
+import { useCollectStore } from "@venue/shared/webBridge";
+import { useMatchStore } from "@venue/shared/webBridge";
+
 import {
   DEX_LINE_API,
   DEX_CID,
@@ -15,7 +16,7 @@ import {
 } from "./parse";
 import { startDexSocket, stopDexSocket, onDexBatch } from "./socket";
 import type { DexBatchItem } from "./socket";
-import type { CollectBetDto } from "@/types/collect";
+import type { CollectBetDto } from "@changmen/client-core/types/collect";
 
 const LOOP_MS = 30_000;
 const WS_SAVE_INTERVAL_MS = 30_000;
@@ -34,7 +35,6 @@ export function startDexCollector(): () => void {
 
   const collect = useCollectStore();
   const matchStore = useMatchStore();
-  const odds = useOddsStore();
 
   interface MarketCache {
     eventId: string;
@@ -92,7 +92,7 @@ export function startDexCollector(): () => void {
         const price = !frozen ? Number(o.price ?? 0) : 0;
         const oid = String(o.id);
 
-        odds.save(PLATFORMS.Dex, {
+        saveVenueOdds(PLATFORMS.Dex, {
           id: oid,
           odds: price,
           isLock: frozen,
@@ -189,7 +189,7 @@ export function startDexCollector(): () => void {
       for (const b of bets) {
         const locked = b.Status === "Locked";
         if (b.SourceHomeID) {
-          odds.save(PLATFORMS.Dex, {
+          saveVenueOdds(PLATFORMS.Dex, {
             id: String(b.SourceHomeID),
             odds: b.HomeOdds,
             isLock: locked,
@@ -198,7 +198,7 @@ export function startDexCollector(): () => void {
           });
         }
         if (b.SourceAwayID) {
-          odds.save(PLATFORMS.Dex, {
+          saveVenueOdds(PLATFORMS.Dex, {
             id: String(b.SourceAwayID),
             odds: b.AwayOdds,
             isLock: locked,

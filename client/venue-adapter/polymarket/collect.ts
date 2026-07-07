@@ -1,11 +1,12 @@
-import type { CollectBetDto } from "@/types/collect";
-import { hasA8PluginRuntime } from "@/chrome-plugin/bridge";
-import { PLATFORMS } from "@/shared/platform";
-import { wait } from "@/shared/wait";
+import { saveVenueOdds, getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
+import type { CollectBetDto } from "@changmen/client-core/types/collect";
+import { hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@/stores/collectStore";
-import { useMatchStore } from "@/stores/matchStore";
-import { useOddsStore } from "@/stores/oddsStore";
+import { useCollectStore } from "@venue/shared/webBridge";
+import { useMatchStore } from "@venue/shared/webBridge";
+
 import {
   fetchBatchBuyPrices,
   fetchPolymarketEsportsMarkets,
@@ -32,7 +33,6 @@ const COLLECT_MARKET_TYPES = new Set(["moneyline", "child_moneyline"]);
 
 /** PM 写 fo 的唯一入口：decimal odds 供展示/套利，clobPrice 供预检限价 */
 export function saveTokenQuote(
-  odds: ReturnType<typeof useOddsStore>,
   params: {
     tokenId: string;
     clobPrice: number;
@@ -42,7 +42,7 @@ export function saveTokenQuote(
   },
   source: "http" | "mqtt",
 ) {
-  odds.save(PLATFORM, {
+  saveVenueOdds(PLATFORM, {
     id: params.tokenId,
     odds: decimalOddsFromProbability(params.clobPrice),
     clobPrice: params.clobPrice,
@@ -54,7 +54,6 @@ export function saveTokenQuote(
 }
 
 function saveBetOddsToFo(
-  odds: ReturnType<typeof useOddsStore>,
   bet: CollectBetDto,
   source: "http" | "mqtt",
   clobPrices?: { home?: number; away?: number },
@@ -65,7 +64,7 @@ function saveBetOddsToFo(
   const awayId = String(bet.SourceAwayID);
   const homePrice = clobPrices?.home;
   if (Number.isFinite(homePrice) && homePrice! > 0) {
-    saveTokenQuote(odds, {
+    saveTokenQuote({
       tokenId: homeId,
       clobPrice: homePrice!,
       betId,
@@ -74,8 +73,8 @@ function saveBetOddsToFo(
     }, source);
   }
   else {
-    const prev = odds.getEntry(PLATFORM, homeId);
-    odds.save(PLATFORM, {
+    const prev = getVenueOddsEntry(PLATFORM, homeId);
+    saveVenueOdds(PLATFORM, {
       id: homeId,
       odds: bet.HomeOdds,
       ...(prev?.clobPrice != null && isValidClobPrice(prev.clobPrice) ? { clobPrice: prev.clobPrice } : {}),
@@ -87,7 +86,7 @@ function saveBetOddsToFo(
   }
   const awayPrice = clobPrices?.away;
   if (Number.isFinite(awayPrice) && awayPrice! > 0) {
-    saveTokenQuote(odds, {
+    saveTokenQuote({
       tokenId: awayId,
       clobPrice: awayPrice!,
       betId,
@@ -96,8 +95,8 @@ function saveBetOddsToFo(
     }, source);
   }
   else {
-    const prev = odds.getEntry(PLATFORM, awayId);
-    odds.save(PLATFORM, {
+    const prev = getVenueOddsEntry(PLATFORM, awayId);
+    saveVenueOdds(PLATFORM, {
       id: awayId,
       odds: bet.AwayOdds,
       ...(prev?.clobPrice != null && isValidClobPrice(prev.clobPrice) ? { clobPrice: prev.clobPrice } : {}),
@@ -137,7 +136,6 @@ export function startPolymarketCollector(): () => void {
 
   const collect = useCollectStore();
   const matchStore = useMatchStore();
-  const odds = useOddsStore();
   const marketsById = new Map<string, PolymarketMappedMarket>();
   const assetToMarket = new Map<string, string>();
   let pluginMissingNotified = false;
@@ -170,7 +168,7 @@ export function startPolymarketCollector(): () => void {
     mapped.bet = next;
     const betId = String(next.SourceBetID);
     const side = assetId === String(next.SourceHomeID) ? "home" as const : "away" as const;
-    saveTokenQuote(odds, {
+    saveTokenQuote({
       tokenId: assetId,
       clobPrice: price,
       betId,
@@ -236,7 +234,7 @@ export function startPolymarketCollector(): () => void {
       marketsById.set(mapped.marketId, mapped);
       assetToMarket.set(mapped.assetIds[0], mapped.marketId);
       assetToMarket.set(mapped.assetIds[1], mapped.marketId);
-      saveBetOddsToFo(odds, mapped.bet, "http", {
+      saveBetOddsToFo(mapped.bet, "http", {
         home: Number(buyPrices[mapped.assetIds[0]!]),
         away: Number(buyPrices[mapped.assetIds[1]!]),
       });

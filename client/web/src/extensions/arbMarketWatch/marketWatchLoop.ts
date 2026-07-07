@@ -13,7 +13,6 @@ import {
   snapshotOpportunities,
 } from "@/extensions/arbOpportunity/state";
 import { useAccountStore } from "@/stores/accountStore";
-import { useConfigStore } from "@/stores/configStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useUserStore } from "@/stores/userStore";
@@ -63,9 +62,10 @@ export function startMarketWatchLoop(): void {
     if (stopped)
       return;
 
-    const configStore = useConfigStore();
+    const user = useUserStore();
     const accountStore = useAccountStore();
-    const config = configStore.config;
+    const matchStore = useMatchStore();
+    const config = user.config;
     const detectParams: DetectOpportunitiesParams = {
       matches: [],
       config,
@@ -73,8 +73,6 @@ export function startMarketWatchLoop(): void {
       actionablePlatforms: accountStore.getProviders().keys(),
     };
 
-    const user = useUserStore();
-    const matchStore = useMatchStore();
     const matches = user.userId && matchStore.matchs.length ? matchStore.matchs : [];
     detectParams.matches = matches;
 

@@ -1,5 +1,7 @@
+import "@/test/mockFoOdds";
+import { foOddsState } from "@/test/mockFoOdds";
 import type { BetRowDto, ClientMatchDto, PlatformId } from "@/types/esport";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { pickArbLegs } from "@/domain/arbitrage";
 import { providerKeysFromBetItems } from "@/domain/betting/providerKeys";
 import {
@@ -11,17 +13,8 @@ import { opportunityKey } from "@/extensions/arbOpportunity/types";
 import { ViewBet, ViewMatch } from "@/models/match";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
-let foOdds: Record<string, Record<string, number>> = {};
-
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => ({
-    getOdds: (type: string, id: string, fallback: number) =>
-      foOdds[type]?.[id] ?? fallback,
-  }),
-}));
-
 beforeEach(() => {
-  foOdds = {};
+  foOddsState.current = {};
 });
 
 function makeBet(id: number, sources: BetRowDto["Sources"]) {
@@ -91,7 +84,7 @@ const arbSourcesWithOb: BetRowDto["Sources"] = {
 
 describe("detectOpportunities", () => {
   it("fullMarket scope scans all bet platforms", () => {
-    foOdds = {
+    foOddsState.current = {
       PB: { h1: 2.0, a1: 1.5 },
       RAY: { h2: 1.6, a2: 2.0 },
       OB: { h3: 1.5, a3: 2.5 },
@@ -114,7 +107,7 @@ describe("detectOpportunities", () => {
   });
 
   it("funded scope uses getProviders only (aligned with A8)", () => {
-    foOdds = {
+    foOddsState.current = {
       PB: { h1: 2.0, a1: 1.5 },
       RAY: { h2: 1.6, a2: 2.2 },
       OB: { h3: 1.5, a3: 2.5 },
@@ -137,7 +130,7 @@ describe("detectOpportunities", () => {
   });
 
   it("findFundedOpportunityForBet lazy lookup by bet", () => {
-    foOdds = {
+    foOddsState.current = {
       PB: { h1: 2.0, a1: 1.5 },
       RAY: { h2: 1.6, a2: 2.2 },
       OB: { h3: 1.5, a3: 2.5 },
@@ -154,7 +147,7 @@ describe("detectOpportunities", () => {
   });
 
   it("fullMarket matches useBetRowArbUi / pickArbLegs", () => {
-    foOdds = {
+    foOddsState.current = {
       PB: { h1: 2.1, a1: 1.5 },
       RAY: { h2: 1.6, a2: 2.2 },
     };

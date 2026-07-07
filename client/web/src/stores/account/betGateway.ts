@@ -11,7 +11,7 @@ import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet
 import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
 import { resolveVenueStakeFromPlanCny } from "@venue/adaptation/a8VenueMoney";
-import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 import { useMessageStore } from "@/stores/messageStore";
 
 function notifyPolymarketAfterRejectDetection(
@@ -23,7 +23,7 @@ function notifyPolymarketAfterRejectDetection(
   toastSeconds: number,
 ) {
   void (async () => {
-    const rejectWait = rejectWaitSeconds(useConfigStore().config, [account]);
+    const rejectWait = rejectWaitSeconds(useUserStore().config, [account]);
     await waitRejectDetection(rejectWait, rejectWait);
     const { rejected } = await syncVenueOrdersWithRejectForLeg(account, result);
     const titleSuffix = rejected ? "未成交" : "已成交";

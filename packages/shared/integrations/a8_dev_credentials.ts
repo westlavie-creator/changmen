@@ -9,7 +9,7 @@
  */
 export const A8_USER = "TJ01";
 /** RDS / 控制台 Client_Login */
-export const A8_PASSWORD = "185108";
+export const A8_PASSWORD = "a123456";
 /** v4 user/account/login（bundle RMe） */
 export const A8_V4_PASSWORD = "a123456";
 export const A8_FORWARD_SITE = "api.a8.to";

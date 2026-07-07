@@ -1,7 +1,7 @@
-import type { PlatformAccount } from "@/models/platformAccount";
-import type { AccountHttpOptions } from "@/shared/platformHttp";
-import { buildTfAccountHeaders, tfGatewayUrl } from "@venue/tf";
-import { accountHttpRequest, parseJsonLoose } from "@/shared/platformHttp";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import type { AccountHttpOptions } from "@changmen/client-core/shared/platformHttp";
+import { buildTfAccountHeaders, tfGatewayUrl } from "./auth";
+import { accountHttpRequest, parseJsonLoose } from "@changmen/client-core/shared/platformHttp";
 
 export type TfAccountHttpOptions = AccountHttpOptions & {
   /** 对齐 A8 ly(account, !0)：合并 tf-authorization / public-token */

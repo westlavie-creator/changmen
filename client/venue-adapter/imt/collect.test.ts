@@ -2,13 +2,12 @@ import { describe, expect, test, vi } from "vitest";
 
 const getCollectPlatform = vi.hoisted(() => vi.fn());
 const resolveCollectSession = vi.hoisted(() => vi.fn());
-const oddsStore = vi.hoisted(() => ({ clean: vi.fn(), save: vi.fn() }));
 
-vi.mock("@/api/esport", () => ({
+vi.mock("@changmen/client-core/bridge/clientApi", () => ({
   getCollectPlatform,
 }));
 
-vi.mock("@/shared/http", () => ({
+vi.mock("@changmen/client-core/shared/http", () => ({
   directPostJson: vi.fn(),
 }));
 
@@ -16,7 +15,7 @@ vi.mock("@venue/shared/collectSession", () => ({
   resolveCollectSession,
 }));
 
-vi.mock("@/shared/wait", () => ({
+vi.mock("@changmen/client-core/shared/wait", () => ({
   wait: vi.fn(() => new Promise(() => {})),
 }));
 
@@ -24,15 +23,8 @@ vi.mock("@venue/shared/collectNotify", () => ({
   notifyCollectError: vi.fn(),
 }));
 
-vi.mock("@/stores/collectStore", () => ({
+vi.mock("@venue/shared/webBridge", () => ({
   useCollectStore: () => ({ saveMatch: vi.fn(), saveBets: vi.fn() }),
-}));
-
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => oddsStore,
-}));
-
-vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({ refreshOddsOnBets: vi.fn() }),
 }));
 

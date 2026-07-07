@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { PlatformAccount } from "@/models/platformAccount";
-import { BetOption } from "@/models/betOption";
+import { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { BetOption } from "@changmen/client-core/models/betOption";
 import { pbProvider } from "./bet";
 import { setPbLineId } from "./lineCache";
 import { pbRejectStorageKey } from "./rejectPoll";

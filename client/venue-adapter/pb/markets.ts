@@ -1,6 +1,7 @@
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
-import { PLATFORMS } from "@/shared/platform";
-import { useOddsStore } from "@/stores/oddsStore";
+import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
+import { PLATFORMS } from "@venue/shared/platforms";
+
 import { setPbLineId } from "./lineCache";
 import { pbTeamLogo, type PbParsedMatch } from "./parse";
 import {
@@ -12,11 +13,10 @@ const PLATFORM = PLATFORMS.PB;
 
 /** Ingest：parse 后的单场 → fo + lineId 缓存 */
 export function ingestPbParsedMatchToFo(row: PbParsedMatch, now = Date.now()): void {
-  const odds = useOddsStore();
   for (const stage of row.stages) {
     if (stage.winLineId) setPbLineId(stage.winMarketId, stage.winLineId);
     for (const entry of listPbStageFoEntries(stage)) {
-      odds.save(PLATFORM, { ...entry, time: now });
+      saveVenueOdds(PLATFORM, { ...entry, time: now });
     }
   }
 }

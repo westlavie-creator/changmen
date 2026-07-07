@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { BetOption } from "@/models/betOption";
-import { PlatformAccount } from "@/models/platformAccount";
+import { BetOption } from "@changmen/client-core/models/betOption";
+import { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { iaProvider, mapIaHistoryRow } from "./bet";
 
 const iaMrPost = vi.fn();
@@ -14,19 +14,18 @@ vi.mock("./bet_transport", () => ({
     `${String(account.gateway ?? "").replace(/\/$/, "")}${path}`,
 }));
 
-vi.mock("@/shared/wait", () => ({
+vi.mock("@changmen/client-core/shared/wait", () => ({
   wait: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/stores/messageStore", () => ({
-  useMessageStore: () => ({
-    limitMessage: () => "超出限红",
-  }),
+vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
+  readVenueOdds: vi.fn(() => 0),
+  writeVenueOdds: vi.fn(),
 }));
 
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => ({
-    save: vi.fn(),
+vi.mock("@venue/shared/webBridge", () => ({
+  useMessageStore: () => ({
+    limitMessage: () => "超出限红",
   }),
 }));
 

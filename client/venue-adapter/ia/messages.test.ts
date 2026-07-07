@@ -1,29 +1,28 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { handleIaRealtimeMessage } from "./messages";
 
-const oddsStore = {
-  isOdds: vi.fn(),
-  save: vi.fn(),
-  updateBetLock: vi.fn(),
-  getEntry: vi.fn(),
-};
+const isVenueOdds = vi.hoisted(() => vi.fn());
+const saveVenueOdds = vi.hoisted(() => vi.fn());
+const updateVenueBetLock = vi.hoisted(() => vi.fn());
 
 const matchStore = {
   refreshOddsOnBets: vi.fn(),
 };
 
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => oddsStore,
+vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
+  isVenueOdds,
+  saveVenueOdds,
+  updateVenueBetLock,
 }));
 
-vi.mock("@/stores/matchStore", () => ({
+vi.mock("@venue/shared/webBridge", () => ({
   useMatchStore: () => matchStore,
 }));
 
 describe("handleIaRealtimeMessage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    oddsStore.isOdds.mockReturnValue(false);
+    isVenueOdds.mockReturnValue(false);
   });
 
   test("locks IA bet items from single lock messages (status !== 1)", () => {
@@ -32,7 +31,7 @@ describe("handleIaRealtimeMessage", () => {
       content: { play_id: 123, status: 0 },
     });
 
-    expect(oddsStore.updateBetLock).toHaveBeenCalledWith("IA", "123", true);
+    expect(updateVenueBetLock).toHaveBeenCalledWith("IA", "123", true);
     expect(matchStore.refreshOddsOnBets).toHaveBeenCalledOnce();
   });
 
@@ -42,11 +41,11 @@ describe("handleIaRealtimeMessage", () => {
       content: { play_id: 123, status: 2 },
     });
 
-    expect(oddsStore.updateBetLock).toHaveBeenCalledWith("IA", "123", true);
+    expect(updateVenueBetLock).toHaveBeenCalledWith("IA", "123", true);
   });
 
   test("saves known IA point changes via mqtt and clears lock (A8 Xn rule)", () => {
-    oddsStore.isOdds.mockImplementation((_platform: string, id: string) => id === "point-1");
+    isVenueOdds.mockImplementation((_platform: string, id: string) => id === "point-1");
 
     handleIaRealtimeMessage(
       {
@@ -56,7 +55,7 @@ describe("handleIaRealtimeMessage", () => {
       12345,
     );
 
-    expect(oddsStore.save).toHaveBeenCalledWith(
+    expect(saveVenueOdds).toHaveBeenCalledWith(
       "IA",
       {
         id: "point-1",
@@ -70,7 +69,7 @@ describe("handleIaRealtimeMessage", () => {
   });
 
   test("push point change always unlocks fo like A8", () => {
-    oddsStore.isOdds.mockImplementation((_platform: string, id: string) => id === "point-1");
+    isVenueOdds.mockImplementation((_platform: string, id: string) => id === "point-1");
 
     handleIaRealtimeMessage(
       {
@@ -80,7 +79,7 @@ describe("handleIaRealtimeMessage", () => {
       12345,
     );
 
-    expect(oddsStore.save).toHaveBeenCalledWith(
+    expect(saveVenueOdds).toHaveBeenCalledWith(
       "IA",
       {
         id: "point-1",
@@ -98,7 +97,7 @@ describe("handleIaRealtimeMessage", () => {
       content: { point_id: "unknown", point: "2.10", play_id: "play-1" },
     });
 
-    expect(oddsStore.save).not.toHaveBeenCalled();
+    expect(saveVenueOdds).not.toHaveBeenCalled();
     expect(matchStore.refreshOddsOnBets).not.toHaveBeenCalled();
   });
 });

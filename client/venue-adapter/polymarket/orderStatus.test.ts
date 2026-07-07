@@ -8,9 +8,9 @@ import {
   isPolymarketDelayedPending,
   isPolymarketOrderIdRejected,
   isPolymarketPostFillConfirmed,
-  settlePolymarketDelayedOrder,
 } from "./orderStatus";
-import { BetResult } from "@/models/betResult";
+import { settlePolymarketDelayedOrder } from "./orderSettlement";
+import { BetResult } from "@changmen/client-core/models/betResult";
 
 const fetchPolymarketConfirmedTradeForOrder = vi.fn();
 const awaitPolymarketOrderWatch = vi.fn();
@@ -184,6 +184,6 @@ describe("settlePolymarketDelayedOrder", () => {
 
     expect(out.outcome).toBe("matched");
     expect(out.row?.status).toBe("MATCHED");
-    expect(fetchPolymarketConfirmedTradeForOrder).toHaveBeenCalledWith(acc, "0xlate", 60_000);
+    expect(fetchPolymarketConfirmedTradeForOrder).toHaveBeenCalledWith(acc, "0xlate", 60_000, "BUY");
   });
 });

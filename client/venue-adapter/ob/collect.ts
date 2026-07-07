@@ -1,10 +1,10 @@
-import { getCollectPlatform, saveLiveTimer, updatePlatform } from "@/api/esport";
-import { OB_DEMO_LOGIN_URL } from "@/api/v4";
+import { getCollectPlatform, saveLiveTimer, updatePlatform } from "@changmen/client-core/bridge/clientApi";
+import { OB_DEMO_LOGIN_URL } from "@venue/ob/constants";
 import { getObBetNameRe } from "./parse";
 
-import { PLATFORMS } from "@/shared/platform";
-import { getStaticVenueGames } from "@/shared/venueGames";
-import { wait } from "@/shared/wait";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { getStaticVenueGames } from "@changmen/client-core/shared/venueGames";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.browser";
 import { collectObGet, loadMarketsForMatch, maxStageFromBo } from "./markets";
@@ -16,11 +16,11 @@ import {
   unsubscribeObMatchBeforeView,
 } from "./mqtt";
 import { num } from "./parse";
-import { directGet } from "@/shared/http";
-import { useCollectStore } from "@/stores/collectStore";
-import { useMatchStore } from "@/stores/matchStore";
-import type { CollectMatchDto } from "@/types/collect";
-import type { CollectPlatformInfo } from "@/types/esport";
+import { directGet } from "@changmen/client-core/shared/http";
+import { useCollectStore } from "@venue/shared/webBridge";
+import { useMatchStore } from "@venue/shared/webBridge";
+import type { CollectMatchDto } from "@changmen/client-core/types/collect";
+import type { CollectPlatformInfo } from "@changmen/api-contract";
 
 const PLATFORM = PLATFORMS.OB;
 const POLL_MS = 30_000;
@@ -107,7 +107,10 @@ export async function refreshObCollectToken(): Promise<string | null> {
 }
 
 /** [A8 可证实] bundle `mIe`：`game/getTimer` → `Ut.saveLiveTimer(OB, rows)`，无 is_live 过滤、无 index 推断、不上报后拉 GetMatchs */
-export async function syncObLiveTimer(platform: CollectPlatformInfo): Promise<void> {
+export async function syncObLiveTimer(
+  platform: CollectPlatformInfo,
+  indexRows: Array<Record<string, unknown>> = [],
+): Promise<void> {
   const res = await collectObGet<{
     status: string;
     data?: Record<string, Record<string, unknown>>;
@@ -121,6 +124,10 @@ export async function syncObLiveTimer(platform: CollectPlatformInfo): Promise<vo
       Round: num(row.round),
       StartTime: num(row.start_time) * 1000,
     });
+  }
+  if (timer.length === 0 && indexRows.some(row => num(row.is_live) === 2)) {
+    console.warn("[OB] getTimer empty while index has is_live=2; skip saveLiveTimer");
+    return;
   }
   await saveLiveTimer(PLATFORMS.OB, timer);
 }
@@ -246,7 +253,7 @@ export function startObCollector(): () => void {
           void subscribeObMatchAfterView(matchId);
         }
 
-        await syncObLiveTimer(platform);
+        await syncObLiveTimer(platform, list);
       } catch (err) {
         console.warn("[OB] collect error", err);
         notifyCollectError("OB", err);

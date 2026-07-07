@@ -1,15 +1,16 @@
-import type { BetOption } from "@/models/betOption";
-import type { PlatformAccount } from "@/models/platformAccount";
-import { BetResult } from "@/models/betResult";
+import { getVenueOddsLimit, setVenueOddsLimit } from "@changmen/client-core/bridge/oddsAccess";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import type { PlatformProvider, VenueOrder } from "@venue/contract";
-import { useMatchStore } from "@/stores/matchStore";
-import { useMessageStore } from "@/stores/messageStore";
-import { useOddsStore } from "@/stores/oddsStore";
-import type { LimitEntry } from "@/types/limit";
+import { useMatchStore } from "@venue/shared/webBridge";
+import { useMessageStore } from "@venue/shared/webBridge";
+
+import type { LimitEntry } from "@changmen/client-core/types/limit";
 import { imSportIdForGame, imSupportedGameIds, signImPayload } from "./sign";
 import { accountImPost } from "./accountHttp";
-import { formatDateKey } from "@/shared/format";
+import { formatDateKey } from "@changmen/client-core/shared/format";
 
 function compactTimestamp(d = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -107,7 +108,7 @@ function imLocalLimitIsLimit(limit: LimitEntry, betMoney: number, odds: number):
   const value = Number(limit.value) || 0;
   const payoutOdds = Number(limit.payout ?? 0) || 0;
 
-  // 过期判定已由 oddsStore.getLimit() 处理；这里按 A8 逻辑容错
+  // 过期判定已由 getVenueOddsLimit() 处理；这里按 A8 逻辑容错
   if (limit.expireTime && limit.expireTime < Date.now()) return false;
 
   // A8：if (!betMoney || !payout) return betMoney > value
@@ -182,7 +183,6 @@ export const imProvider: PlatformProvider = {
   },
 
   async checkBet(account, option) {
-    const oddsStore = useOddsStore();
     const gameId = resolveImGameId(option);
     const sportId = imSportIdForGame(gameId);
     if (!sportId) {
@@ -190,7 +190,7 @@ export const imProvider: PlatformProvider = {
       return option;
     }
 
-    const localLimit = oddsStore.getLimit(account.provider, option.itemId);
+    const localLimit = getVenueOddsLimit(account.provider, option.itemId);
     if (localLimit && imLocalLimitIsLimit(localLimit, option.betMoney, option.odds)) {
       const limitValue = imLocalLimitGetValue(localLimit, option.odds);
       option.checkError = `本地限红金额：${limitValue.toFixed(2)}`;
@@ -253,7 +253,7 @@ export const imProvider: PlatformProvider = {
       if (option.betMoney < (info.MinStake ?? 0) || option.betMoney > (info.MaxStake ?? 0)) {
         // A8：c.setLimit(fy, e.itemId, h.MaxStake, h.Odds)
         // 其中 payoutOdds = h.Odds
-        oddsStore.setLimit(
+        setVenueOddsLimit(
           account.provider,
           option.itemId,
           Number(info.MaxStake ?? 0) || 0,

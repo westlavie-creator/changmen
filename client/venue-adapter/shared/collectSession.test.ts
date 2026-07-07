@@ -6,11 +6,11 @@ const accountState = vi.hoisted(() => ({
   accounts: [] as Array<Record<string, unknown>>,
 }));
 
-vi.mock("@/api/esport", () => ({
+vi.mock("@changmen/client-core/bridge/clientApi", () => ({
   getCollectPlatform,
 }));
 
-vi.mock("@/stores/accountStore", () => ({
+vi.mock("@venue/shared/webBridge", () => ({
   useAccountStore: () => accountState,
 }));
 

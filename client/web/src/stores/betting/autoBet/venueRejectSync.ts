@@ -7,8 +7,9 @@ import {
   buildPolymarketRejectVenueOrder,
   isPolymarketBetResultFillConfirmed,
   isPolymarketOrderIdRejected,
-  settlePolymarketDelayedOrder,
 } from "@venue/polymarket/orderStatus";
+import { settlePolymarketDelayedOrder } from "@venue/polymarket/orderSettlement";
+import { awaitPolymarketSettlementJob } from "@venue/polymarket/settlementJob";
 import { fetchPolymarketConfirmedTradeForOrder } from "@venue/polymarket/orders";
 import { resolveVenueRejectForLeg } from "@/domain/betting";
 import { useAccountStore } from "@/stores/accountStore";
@@ -59,13 +60,16 @@ async function syncPolymarketVenueOrdersWithReject(
 /**
  * 单腿拒单检测：PM delayed 在拒单等待后轮询 CLOB order，未成交合成 reject；
  * POST 已 matched 时信任成交；其它场馆走 getOrders + resolveVenueRejectForLeg。
+ * PM pending：优先 await POST 预启动的 SettlementJob（wait 期间已在跑）。
  */
 export async function syncVenueOrdersWithRejectForLeg(
   account: PlatformAccount,
   result?: BetResult,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
   if (account.provider === "Polymarket" && result?.pending && result.orderId) {
-    const { outcome, row } = await settlePolymarketDelayedOrder(account, result.orderId);
+    const jobResult = await awaitPolymarketSettlementJob(account, result.orderId);
+    const { outcome, row } = jobResult
+      ?? await settlePolymarketDelayedOrder(account, result.orderId);
     applyPolymarketSettlementToResult(result, outcome, row);
     if (outcome === "matched") {
       return fetchVenueOrdersWithReject(account, result);

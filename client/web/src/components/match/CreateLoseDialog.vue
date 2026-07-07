@@ -4,7 +4,7 @@ import { storeToRefs } from "pinia";
 import { computed, reactive, ref, watch } from "vue";
 import { LoseOrder } from "@/models/loseOrder";
 import { createLoseTargetOdds } from "@/stores/betting/createLoseOdds";
-import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/lose-order.css";
 
@@ -16,9 +16,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [] }>();
 
-const configStore = useConfigStore();
+const user = useUserStore();
 const loseStore = useLoseOrderStore();
-const { config } = storeToRefs(configStore);
+const { config } = storeToRefs(user);
 
 const visible = ref(false);
 

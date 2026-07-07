@@ -1,9 +1,10 @@
+import { saveVenueOdds, cleanVenueOdds, updateVenueBetLock } from "@changmen/client-core/bridge/oddsAccess";
 import { io, type Socket } from "socket.io-client";
-import { getCollectPlatform } from "@/api/esport";
+import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
 import { fetchSabaEsportsPage } from "./parse";
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
-import { PLATFORMS } from "@/shared/platform";
-import { getStaticVenueGames } from "@/shared/venueGames";
+import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { getStaticVenueGames } from "@changmen/client-core/shared/venueGames";
 import {
   buildSabaWsConfig,
   convertMalaysianToEU,
@@ -15,11 +16,11 @@ import {
   type SabaMatchRow,
   type SabaOddsRow,
 } from "./parse";
-import { wait } from "@/shared/wait";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@/stores/collectStore";
-import { useOddsStore } from "@/stores/oddsStore";
-import { useMatchStore } from "@/stores/matchStore";
+import { useCollectStore } from "@venue/shared/webBridge";
+
+import { useMatchStore } from "@venue/shared/webBridge";
 
 const PLATFORM = PLATFORMS.SABA;
 const CHECKIN_MS = 3_000;
@@ -30,8 +31,6 @@ const SABA_CACHE_KEY = "SABA:CONTENT";
 export function startSabaCollector(): () => void {
   let stopped = false;
   let loopPromise: Promise<void> | null = null;
-
-  const odds = useOddsStore();
   const collect = useCollectStore();
   const matchStore = useMatchStore();
 
@@ -40,7 +39,7 @@ export function startSabaCollector(): () => void {
     const games = getStaticVenueGames(PLATFORM);
     if (!platform?.Gateway || !platform.Token) {
       console.warn("[SABA] 采集跳过：无 Gateway/Token");
-      odds.clean(PLATFORM);
+      cleanVenueOdds(PLATFORM);
       await wait(60_000);
       return;
     }
@@ -129,7 +128,7 @@ export function startSabaCollector(): () => void {
       });
 
       socket.on("disconnect", () => {
-        odds.clean(PLATFORM);
+        cleanVenueOdds(PLATFORM);
         cleanup();
       });
 
@@ -196,7 +195,7 @@ export function startSabaCollector(): () => void {
               const locked = row.oddsstatus !== "running";
               const now = Date.now();
               if (row.odds1a != null) {
-                odds.save(PLATFORM, {
+                saveVenueOdds(PLATFORM, {
                   id: `${row.oddsid}:Home`,
                   odds: convertMalaysianToEU(row.odds1a),
                   isLock: locked,
@@ -205,7 +204,7 @@ export function startSabaCollector(): () => void {
                 });
               }
               if (row.odds2a != null) {
-                odds.save(PLATFORM, {
+                saveVenueOdds(PLATFORM, {
                   id: `${row.oddsid}:Away`,
                   odds: convertMalaysianToEU(row.odds2a),
                   isLock: locked,
@@ -219,7 +218,7 @@ export function startSabaCollector(): () => void {
           }
           case "-o": {
             const row = decodePairMessage(payload, fieldMap) as SabaOddsRow;
-            if (row.oddsid) odds.updateBetLock(PLATFORM, String(row.oddsid), true);
+            if (row.oddsid) updateVenueBetLock(PLATFORM, String(row.oddsid), true);
             break;
           }
           default:

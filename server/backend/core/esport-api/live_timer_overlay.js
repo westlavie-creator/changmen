@@ -15,12 +15,15 @@ import {
 
 export { liveRound };
 
-/** 内存 _timers 覆盖 RDS 同平台快照（含空数组 = 该平台当前无 live 场） */
+/** 内存 _timers 覆盖 RDS 同平台快照；空数组不覆盖 RDS 非空 timer（避免误 wipe） */
 export function mergeTimerBlocks(memoryTimers, dbTimers) {
   const out = { ...(dbTimers || {}) };
   for (const [platform, block] of Object.entries(memoryTimers || {})) {
-    if (block && Array.isArray(block.timer))
+    if (block && Array.isArray(block.timer)) {
+      if (block.timer.length === 0 && (out[platform]?.timer?.length ?? 0) > 0)
+        continue;
       out[platform] = block;
+    }
   }
   return out;
 }

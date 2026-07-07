@@ -1,7 +1,7 @@
 /** 对齐 A8 `wQe` 内 `Zn.get` / `Zn.post`（Chrome 扩展代发，绕过 IA 源站 CORS） */
 
-import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
-import type { CollectPlatformInfo } from "@/types/esport";
+import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
+import type { CollectPlatformInfo } from "@changmen/api-contract";
 
 export const IA_PLUGIN_REQUIRED_MSG =
   "IA 采集需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）";

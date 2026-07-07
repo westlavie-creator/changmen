@@ -1,5 +1,5 @@
-import type { PlatformAccount } from "@/models/platformAccount";
-import { accountHttpRequest, parseJsonLoose, type AccountHttpOptions } from "@/shared/platformHttp";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { accountHttpRequest, parseJsonLoose, type AccountHttpOptions } from "@changmen/client-core/shared/platformHttp";
 
 export async function accountImPost<T = unknown>(
   account: PlatformAccount,

@@ -1,8 +1,9 @@
-import { directGet } from "@/shared/http";
-import type { CollectBetDto } from "@/types/collect";
-import type { CollectPlatformInfo } from "@/types/esport";
-import { PLATFORMS } from "@/shared/platform";
-import { useOddsStore } from "@/stores/oddsStore";
+import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+import { directGet } from "@changmen/client-core/shared/http";
+import type { CollectBetDto } from "@changmen/client-core/types/collect";
+import type { CollectPlatformInfo } from "@changmen/api-contract";
+import { PLATFORMS } from "@venue/shared/platforms";
+
 import {
   groupRayOddsToSaveBets,
   listRayFoOddEntries,
@@ -49,10 +50,9 @@ export async function collectRayGet<T>(
 
 /** Ingest：v2/odds 快照写入 fo */
 function ingestRayOddsPayloadToFo(result: RayOddsPayload, betRe: RegExp): void {
-  const odds = useOddsStore();
   const now = Date.now();
   for (const entry of listRayFoOddEntries(result, betRe)) {
-    odds.save(PLATFORM, { ...entry, time: now });
+    saveVenueOdds(PLATFORM, { ...entry, time: now });
   }
 }
 

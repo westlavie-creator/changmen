@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PlatformAccount } from "@/models/platformAccount";
+import { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import {
   polymarketCnyFromUsdt,
   polymarketUsdtFromCny,
@@ -21,8 +21,8 @@ describe("pmStake", () => {
   });
 
   it("polymarketCnyFromUsdt round-trips CNY plan at 2-decimal USDC", () => {
-    expect(polymarketUsdtFromCny(pmAccount, 80, 2)).toBe(11.43);
-    expect(polymarketCnyFromUsdt(11.43)).toBe(80.01);
+    expect(polymarketUsdtFromCny(pmAccount, 80, 2)).toBe(11.76);
+    expect(polymarketCnyFromUsdt(11.76)).toBe(79.97);
     expect(polymarketUsdtFromCny(pmAccount, polymarketCnyFromUsdt(3.36), 2)).toBe(3.36);
   });
 
@@ -34,7 +34,7 @@ describe("pmStake", () => {
       currency: "USDT",
       rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 0.5 }],
     });
-    expect(polymarketUsdtFromCny(rated, 100, 2)).toBe(7.15);
+    expect(polymarketUsdtFromCny(rated, 100, 2)).toBe(7.36);
   });
 
   it("resolvePolymarketVenueStakeUsdc enforces min stake without extra rounding", () => {

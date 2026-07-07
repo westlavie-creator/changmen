@@ -1,5 +1,5 @@
-import type { PlatformAccount } from "@/models/platformAccount";
-import { accountHttpRequest, type AccountHttpOptions } from "@/shared/platformHttp";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { accountHttpRequest, type AccountHttpOptions } from "@changmen/client-core/shared/platformHttp";
 
 /** [A8 可证实] RAY `kw`：仅 authorization + Content-Type */
 function rayHeaders(account: PlatformAccount): Record<string, string> {

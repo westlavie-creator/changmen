@@ -6,7 +6,7 @@ import {
   resetDirectRealtimeStatus,
   upstreamRouteFromUrl,
 } from "@venue/shared/directRealtimeStatus";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@venue/shared/platforms";
 import { IA_A8_COLLECT } from "./a8Collect";
 import {
   getIaA8WsConfig,

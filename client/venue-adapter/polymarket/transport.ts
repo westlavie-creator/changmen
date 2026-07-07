@@ -1,6 +1,6 @@
 /** Polymarket Gamma/CLOB REST — 扩展 background 代发（绕过页面 CORS，对齐 A8 Zn） */
 
-import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 
 export const POLYMARKET_PLUGIN_REQUIRED_MSG =
   "Polymarket 采集需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）";

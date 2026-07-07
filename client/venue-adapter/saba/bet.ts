@@ -1,9 +1,10 @@
+import { updateVenueOddsLock } from "@changmen/client-core/bridge/oddsAccess";
 import type { PlatformProvider } from "@venue/contract";
-import type { PlatformAccount } from "@/models/platformAccount";
-import { BetResult } from "@/models/betResult";
-import { toBracketForm } from "@/shared/bracketForm";
-import { useMessageStore } from "@/stores/messageStore";
-import { useOddsStore } from "@/stores/oddsStore";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { BetResult } from "@changmen/client-core/models/betResult";
+import { toBracketForm } from "@changmen/client-core/shared/bracketForm";
+import { useMessageStore } from "@venue/shared/webBridge";
+
 import { accountSabaPost } from "./accountHttp";
 
 /** 对齐 A8 qf(t, e) */
@@ -288,7 +289,7 @@ export const sabaProvider: PlatformProvider = {
     const ok = body?.ErrorCode === 0 && item?.ErrorCode === 0;
     const message = item?.Message || (ok ? "下单成功" : "下单失败");
     if (!ok)
-      useOddsStore().updateOddsLock(account.provider, option.itemId, true);
+      updateVenueOddsLock(account.provider, option.itemId, true);
     return new BetResult(account.provider, ok, message, option.data, body);
   },
 };

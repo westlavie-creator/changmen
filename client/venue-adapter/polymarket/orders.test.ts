@@ -372,8 +372,8 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(order).toMatchObject({
       status: "win",
       betMoney: 5,
-      reward: 6.756753,
-      money: 1.756753,
+      reward: 6.7568,
+      money: 1.7568,
     });
   });
 

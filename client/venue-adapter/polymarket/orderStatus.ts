@@ -1,29 +1,18 @@
-import type { BetResult } from "@/models/betResult";
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { BetResult } from "@changmen/client-core/models/betResult";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
 import { POLYMARKET_CLOB_API } from "./api";
 import { buildL2Headers, resolveApiCreds, parseTokenConfig } from "./l2Auth";
-import { fetchPolymarketConfirmedTradeForOrder } from "./orders";
 import { polymarketPluginGet } from "./transport";
-import { awaitPolymarketOrderWatch, clearPolymarketOrderWatch } from "./userWs";
+import type {
+  PolymarketOrderResponseLike,
+  PolymarketOrderRow,
+  PolymarketPollOutcome,
+} from "./orderTypes";
+
+export type { PolymarketOrderResponseLike, PolymarketOrderRow, PolymarketPollOutcome } from "./orderTypes";
 
 const ORDER_PATH_PREFIX = "/data/order/";
-
-export interface PolymarketOrderResponseLike {
-  success?: boolean;
-  status?: string;
-  orderID?: string;
-  takingAmount?: string | number;
-}
-
-export interface PolymarketOrderRow {
-  id?: string;
-  status?: string;
-  size_matched?: string | number;
-  original_size?: string | number;
-  associate_trades?: string[];
-  order_type?: string;
-}
 
 /** POST /order 返回 delayed 且尚无 takingAmount：延迟窗内，未最终成交 */
 export function isPolymarketDelayedPending(
@@ -150,8 +139,6 @@ function wait(ms: number) {
   });
 }
 
-export type PolymarketPollOutcome = "matched" | "unfilled" | "timeout";
-
 /**
  * 体育 delayed 轮询（对齐官网 [Order Lifecycle](https://docs.polymarket.com/concepts/order-lifecycle)）：
  * - 体育盘 marketable 单进入「秒级 delay 窗」，常见约 1s，POST 先返回 `delayed`
@@ -172,6 +159,19 @@ export const POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS = {
   lookbackMs: 10 * 60 * 1000,
   retryMs: 2_000,
   maxRetries: 15,
+} as const;
+
+/** WS 未命中后的 REST 轮询（保留 1s 起步，覆盖体育 delay 窗与 order 端点滞后） */
+export const POLYMARKET_WS_FALLBACK_POLL_OPTS = {
+  initialDelayMs: POLYMARKET_SPORTS_DELAYED_POLL_OPTS.initialDelayMs,
+  intervalMs: POLYMARKET_SPORTS_DELAYED_POLL_OPTS.intervalMs,
+  maxAttempts: 6,
+} as const;
+
+export const POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS = {
+  lookbackMs: 10 * 60 * 1000,
+  retryMs: 2_000,
+  maxRetries: 8,
 } as const;
 
 export async function pollPolymarketDelayedOrder(
@@ -195,77 +195,6 @@ export async function pollPolymarketDelayedOrder(
       await wait(intervalMs);
   }
   return { outcome: "timeout", row: last };
-}
-
-/** WS 未命中后的 REST 轮询（保留 1s 起步，覆盖体育 delay 窗与 order 端点滞后） */
-export const POLYMARKET_WS_FALLBACK_POLL_OPTS = {
-  initialDelayMs: POLYMARKET_SPORTS_DELAYED_POLL_OPTS.initialDelayMs,
-  intervalMs: POLYMARKET_SPORTS_DELAYED_POLL_OPTS.intervalMs,
-  maxAttempts: 6,
-} as const;
-
-export const POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS = {
-  lookbackMs: 10 * 60 * 1000,
-  retryMs: 2_000,
-  maxRetries: 8,
-} as const;
-
-async function settlePolymarketDelayedOrderViaRest(
-  account: PlatformAccount,
-  orderId: string,
-  opts?: {
-    side?: "BUY" | "SELL";
-    poll?: { initialDelayMs?: number; intervalMs?: number; maxAttempts?: number };
-    tradeConfirm?: { lookbackMs?: number; retryMs?: number; maxRetries?: number };
-  },
-): Promise<{ outcome: PolymarketPollOutcome; row: PolymarketOrderRow | null }> {
-  const side = opts?.side ?? "BUY";
-  const pollOpts = { ...POLYMARKET_WS_FALLBACK_POLL_OPTS, ...opts?.poll };
-  const tradeConfirm = { ...POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS, ...opts?.tradeConfirm };
-  const { outcome, row } = await pollPolymarketDelayedOrder(account, orderId, pollOpts);
-  if (outcome === "matched")
-    return { outcome, row };
-
-  for (let i = 0; i < tradeConfirm.maxRetries; i++) {
-    const trade = await fetchPolymarketConfirmedTradeForOrder(
-      account,
-      orderId,
-      tradeConfirm.lookbackMs,
-      side,
-    );
-    if (trade) {
-      return {
-        outcome: "matched",
-        row: {
-          status: "MATCHED",
-          size_matched: String(trade.size ?? ""),
-          associate_trades: trade.id ? [String(trade.id)] : undefined,
-        },
-      };
-    }
-    if (i < tradeConfirm.maxRetries - 1)
-      await wait(tradeConfirm.retryMs);
-  }
-
-  return { outcome, row };
-}
-
-export async function settlePolymarketDelayedOrder(
-  account: PlatformAccount,
-  orderId: string,
-  opts?: {
-    side?: "BUY" | "SELL";
-    poll?: { initialDelayMs?: number; intervalMs?: number; maxAttempts?: number };
-    tradeConfirm?: { lookbackMs?: number; retryMs?: number; maxRetries?: number };
-  },
-): Promise<{ outcome: PolymarketPollOutcome; row: PolymarketOrderRow | null }> {
-  const wsResult = await awaitPolymarketOrderWatch(orderId);
-  clearPolymarketOrderWatch(orderId);
-  if (wsResult?.outcome === "matched" || wsResult?.outcome === "unfilled") {
-    return { outcome: wsResult.outcome, row: wsResult.row };
-  }
-
-  return settlePolymarketDelayedOrderViaRest(account, orderId, opts);
 }
 
 export function formatPolymarketSettlementMessage(

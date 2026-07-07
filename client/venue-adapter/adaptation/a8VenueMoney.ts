@@ -4,7 +4,7 @@
  * 编排层（GetOrderOptions、LoseOrder、jb、anyOdds）只使用 Plan CNY；
  * 仅在 checkBetting 边界与读场馆单时调用本模块，不改动 A8 公式。
  */
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
 import {
   getExchange,

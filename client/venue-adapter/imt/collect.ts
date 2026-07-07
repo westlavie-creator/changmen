@@ -1,21 +1,22 @@
-import { getCollectPlatform } from "@/api/esport";
-import { directPostJson } from "@/shared/http";
+import { saveVenueOdds, cleanVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
+import { directPostJson } from "@changmen/client-core/shared/http";
 import { resolveCollectSession } from "@venue/shared/collectSession";
 import type { CollectHttpSession } from "@venue/shared/collectSession";
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
+import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
 import {
   IMT_DEFAULT_SPORT_IDS,
   imtTeamLogo,
   normalizeImtFullPayload,
 } from "./parse";
 import { buildImtHeaders } from "./auth";
-import { PLATFORMS } from "@/shared/platform";
-import { getStaticVenueGames } from "@/shared/venueGames";
-import { wait } from "@/shared/wait";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { getStaticVenueGames } from "@changmen/client-core/shared/venueGames";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@/stores/collectStore";
-import { useOddsStore } from "@/stores/oddsStore";
-import { useMatchStore } from "@/stores/matchStore";
+import { useCollectStore } from "@venue/shared/webBridge";
+
+import { useMatchStore } from "@venue/shared/webBridge";
 
 const PLATFORM = PLATFORMS.IMT;
 const POLL_MS = 1_000;
@@ -45,8 +46,6 @@ export function startImtCollector(): () => void {
   let lastSaveAt = 0;
   let delta: unknown = null;
   let sportIds: number[] = [];
-
-  const odds = useOddsStore();
   const collect = useCollectStore();
   const matchStore = useMatchStore();
 
@@ -68,7 +67,7 @@ export function startImtCollector(): () => void {
         });
         if (!session) {
           console.log(PLATFORM, "当前未检测到账号");
-          odds.clean(PLATFORM);
+          cleanVenueOdds(PLATFORM);
           await wait(3_000);
           continue;
         }
@@ -102,7 +101,7 @@ export function startImtCollector(): () => void {
           );
 
           if (res.StatusCode !== 100) {
-            odds.clean(PLATFORM);
+            cleanVenueOdds(PLATFORM);
             await wait(POLL_MS);
             continue;
           }
@@ -121,14 +120,14 @@ export function startImtCollector(): () => void {
           const now = Date.now();
           for (const row of filtered) {
             const bets: CollectBetDto[] = row.bets.map((bet) => {
-              odds.save(PLATFORM, {
+              saveVenueOdds(PLATFORM, {
                 id: bet.homeId,
                 odds: bet.homeOdds,
                 isLock: bet.locked,
                 betId: bet.marketId,
                 time: now,
               });
-              odds.save(PLATFORM, {
+              saveVenueOdds(PLATFORM, {
                 id: bet.awayId,
                 odds: bet.awayOdds,
                 isLock: bet.locked,
@@ -215,7 +214,7 @@ export function startImtCollector(): () => void {
           );
 
           if (res.StatusCode !== 100) {
-            odds.clean(PLATFORM);
+            cleanVenueOdds(PLATFORM);
           } else {
             if (res.Delta != null) delta = res.Delta;
             const now = Date.now();
@@ -223,7 +222,7 @@ export function startImtCollector(): () => void {
               for (const row of block.v ?? []) {
                 for (const ws of row.ws ?? []) {
                   const id = `${ws.si}:${ws.wsi}`;
-                  odds.save(PLATFORM, {
+                  saveVenueOdds(PLATFORM, {
                     id,
                     odds: Number(ws.o) || 0,
                     isLock: Boolean(row.il),

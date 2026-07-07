@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { POLYMARKET_PLUGIN_REQUIRED_MSG, polymarketPluginGet } from "./transport";
 
-vi.mock("@/chrome-plugin/bridge", () => ({
+vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
   hasA8PluginRuntime: vi.fn(() => true),
   a8PluginGet: vi.fn(),
 }));
 
-import { a8PluginGet, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { a8PluginGet, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 
 describe("polymarket transport", () => {
   beforeEach(() => {

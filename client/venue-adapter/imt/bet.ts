@@ -1,7 +1,8 @@
-import { BetResult } from "@/models/betResult";
+import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformProvider } from "@venue/contract";
-import { useMessageStore } from "@/stores/messageStore";
-import { useOddsStore } from "@/stores/oddsStore";
+import { useMessageStore } from "@venue/shared/webBridge";
+
 import { accountImtPost, accountImtPostJson } from "./accountHttp";
 import { buildImtAccountHeaders, imtAccountUrl } from "./auth";
 
@@ -76,7 +77,6 @@ export const imtProvider: PlatformProvider = {
     );
     const body = res.data;
     option.response = body;
-    const oddsStore = useOddsStore();
     const foEntry = {
       id: option.itemId,
       odds: 0,
@@ -88,14 +88,14 @@ export const imtProvider: PlatformProvider = {
     if (body?.StatusCode !== 100) {
       const code = body?.StatusCode ?? 0;
       option.checkError = IMT_STATUS[code] || `StatusCode:${code}`;
-      oddsStore.save(account.provider, foEntry);
+      saveVenueOdds(account.provider, foEntry);
       return option;
     }
 
     const live = body.wss?.[0];
     const liveOdds = Number(live?.o) || 0;
     option.newOdds = liveOdds;
-    oddsStore.save(account.provider, {
+    saveVenueOdds(account.provider, {
       ...foEntry,
       odds: liveOdds,
       isLock: false,

@@ -1,45 +1,10 @@
-import type { PlatformId } from "@/types/esport";
+import type { PlatformId } from "@changmen/api-contract";
+import type { UserConfig } from "@changmen/client-core/types/userConfig";
 import { ALL_PLATFORMS } from "@venue/registry";
 import { normalizeWaitTime } from "@/shared/betTiming";
 
-export type BetSorting = "Low" | "High" | "Parallel" | "WinRate" | "Custom";
-
+export type { UserConfig, BetSorting } from "@changmen/client-core/types/userConfig";
 export { ALL_PLATFORMS };
-
-/** 对齐 A8 bundle `D8` 用户参数（阶段 2 常用字段） */
-export interface UserConfig {
-  betting: boolean;
-  bettingAutoOpen: boolean;
-  bettingAutoOpenTime: number;
-  betMoney: number;
-  minMoney: number;
-  maxMoney: number;
-  tenNumber: boolean;
-  makeUp: boolean;
-  makeUp_odds: number;
-  makeUp_defaultOdds: number;
-  makeProfit: number;
-  noSameProvider: boolean;
-  noSameBet: boolean;
-  /** 对齐 A8 `D8.allowSameBet`：`noSameBet` 时仍允许这些平台参与选腿 */
-  allowSameBet: PlatformId[];
-  anyOdds: boolean;
-  anyOddsProfit: number;
-  betSorting: BetSorting;
-  winRateValue: number;
-  providerSortValue: PlatformId[];
-  providerFixed: PlatformId[];
-  profit: number;
-  maxProfit: number;
-  minOdds: number;
-  maxOdds: number;
-  betCount: number;
-  betInterval: number;
-  checkTimeout: number;
-  betChecked: boolean;
-  singleBet: boolean;
-  waitTime: Record<string, number>;
-}
 
 export function createDefaultUserConfig(): UserConfig {
   return {

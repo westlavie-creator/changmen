@@ -1,5 +1,5 @@
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import {
   sortVenueOrdersNewestFirst,
   type PlatformProvider,
@@ -7,9 +7,9 @@ import {
   type VenueOrderStatus,
 } from "@venue/contract";
 import { accountGet, accountPostForm } from "./accountHttp";
-import { getCurrency } from "@/shared/currency";
-import { PLATFORMS } from "@/shared/platform";
-import { useMessageStore } from "@/stores/messageStore";
+import { getCurrency } from "@changmen/shared/currency";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { useMessageStore } from "@venue/shared/webBridge";
 
 interface RayOddsRow {
   odds_id: string | number;

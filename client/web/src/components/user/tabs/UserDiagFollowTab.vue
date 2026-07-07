@@ -4,11 +4,9 @@ import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { onMounted, reactive, ref } from "vue";
 import { getUsers } from "@/api/esport";
-import { useConfigStore } from "@/stores/configStore";
 import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
-const configStore = useConfigStore();
 const { follow } = storeToRefs(user);
 
 let form = reactive<FollowConfig>({
@@ -30,7 +28,7 @@ onMounted(async () => {
     form.users = [...(follow.value.users ?? follow.value.publishers ?? [])];
   }
   else {
-    form.betMoney = configStore.config.betMoney;
+    form.betMoney = user.config.betMoney;
   }
   try {
     const users = await getUsers();

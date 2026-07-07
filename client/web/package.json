@@ -24,6 +24,7 @@
     "analyze:deps:check": "node scripts/analyze-module-deps.mjs --check"
   },
   "dependencies": {
+    "@changmen/client-core": "*",
     "@changmen/api-contract": "*",
     "@changmen/shared": "*",
     "@noble/curves": "^1.4.2",

@@ -1,7 +1,7 @@
-import { getHgFollowOrders } from "@/api/hg";
-import { BetOption } from "@/models/betOption";
-import { useAccountStore } from "@/stores/accountStore";
-import { useConfigStore } from "@/stores/configStore";
+import { getHgFollowOrders } from "@changmen/client-core/bridge/clientApi";
+import { BetOption } from "@changmen/client-core/models/betOption";
+import { useAccountStore } from "@venue/shared/webBridge";
+import { useUserStore } from "@venue/shared/webBridge";
 import type { HgFollowOrder } from "./parse";
 import {
   hgBetIdFromOrder,
@@ -59,7 +59,7 @@ async function collectFollowOrders(
 }
 
 async function tick(): Promise<number> {
-  const config = useConfigStore().config;
+  const config = useUserStore().config;
   if (!config.betting) return BETTING_IDLE_MS;
 
   const accountStore = useAccountStore();

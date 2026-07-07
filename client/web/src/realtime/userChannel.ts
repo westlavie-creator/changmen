@@ -11,7 +11,7 @@ import {
   newMsgId,
 } from "@/realtime/goeasyClient";
 import { useAccountStore } from "@/stores/accountStore";
-import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 
 let subscribedUserId: number | null = null;
 
@@ -47,7 +47,7 @@ async function handleUserChannelMessage(raw: string) {
     info?: Record<string, unknown>;
   };
   const accountStore = useAccountStore();
-  const configStore = useConfigStore();
+  const user = useUserStore();
 
   switch (envelope.action) {
     case "account": {
@@ -77,7 +77,7 @@ async function handleUserChannelMessage(raw: string) {
       if (type === "account")
         await accountStore.saveAccounts();
       if (type === "config")
-        await configStore.save();
+        await user.saveConfig();
       break;
     }
     case "query": {

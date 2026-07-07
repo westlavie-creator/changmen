@@ -1,6 +1,6 @@
-import { getCollectPlatform } from "@/api/esport";
-import type { PlatformId } from "@/types/esport";
-import { useAccountStore } from "@/stores/accountStore";
+import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
+import type { PlatformId } from "@changmen/api-contract";
+import { useAccountStore } from "@venue/shared/webBridge";
 
 /** PB / IMT 等需 gateway+token 的采集会话（优先已登录账号，回退 platforms.json） */
 export interface CollectHttpSession {

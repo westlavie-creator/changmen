@@ -13,6 +13,7 @@ export function toA8SaveMatchRow(m: CollectMatchDto) {
     Away: m.Away,
     Teams: m.Teams.map(toA8SaveTeamRow),
     BO: m.BO,
+    ...(m.IsLive != null ? { IsLive: m.IsLive } : {}),
   };
 }
 

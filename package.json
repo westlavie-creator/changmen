@@ -4,7 +4,7 @@
   "description": "A8 esports aggregator — frontend replica + local backend",
   "packageManager": "npm@11.16.0",
   "workspaces": [
-    "packages/shared",
+    "packages/client-core",
     "packages/api-contract",
     "client/web",
     "client/chrome-extension",

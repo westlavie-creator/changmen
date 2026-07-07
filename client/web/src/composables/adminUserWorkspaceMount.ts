@@ -8,7 +8,7 @@ import { adminOrderToOrderRow } from "@/shared/adminOrderDisplay";
 import { todayKey } from "@/shared/dateKey";
 import { groupOrdersByLink } from "@/shared/orderLink";
 import { useAccountStore } from "@/stores/accountStore";
-import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { mergeUserConfig } from "@/types/userConfig";
 
@@ -97,7 +97,7 @@ export function mountAdminUserWorkspace(user: AdminUserRow): void {
   unmountAdminUserWorkspace();
 
   const accountStore = useAccountStore();
-  const configStore = useConfigStore();
+  const userStore = useUserStore();
   const orderStore = useOrderStore();
 
   accountStore.stopBalanceRefreshLoop();
@@ -107,8 +107,8 @@ export function mountAdminUserWorkspace(user: AdminUserRow): void {
     accountLoaded: accountStore.loaded,
     editDialogOpen: accountStore.editDialogOpen,
     editDialogAccount: accountStore.editDialogAccount,
-    config: toRawConfig(configStore.config),
-    configLoaded: configStore.loaded,
+    config: toRawConfig(userStore.config),
+    configLoaded: userStore.configLoaded,
     orders: new Map(orderStore.orders),
     orderDate: orderStore.orderDate,
     filterAccountId: orderStore.filterAccountId,
@@ -122,9 +122,9 @@ export function mountAdminUserWorkspace(user: AdminUserRow): void {
     adminWorkspacePreview: true,
   });
 
-  configStore.$patch({
+  userStore.$patch({
     config: mergeUserConfig(user.setting as Partial<UserConfig>),
-    loaded: true,
+    configLoaded: true,
   });
 
   orderStore.orders = new Map();
@@ -138,9 +138,9 @@ export function mountAdminUserWorkspace(user: AdminUserRow): void {
       editDialogAccount: snap.editDialogAccount,
       adminWorkspacePreview: false,
     });
-    configStore.$patch({
+    userStore.$patch({
       config: snap.config,
-      loaded: snap.configLoaded,
+      configLoaded: snap.configLoaded,
     });
     orderStore.orders = snap.orders;
     orderStore.orderDate = snap.orderDate;

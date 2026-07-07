@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PlatformAccount } from "@/models/platformAccount";
 import { accountsFundingReady, getProviders, pickAccount } from "@/stores/account/accountPicker";
 
-vi.mock("@/stores/configStore", () => ({
-  useConfigStore: () => ({
+vi.mock("@/stores/userStore", () => ({
+  useUserStore: () => ({
     config: { profit: 1.03, betMoney: 100 },
   }),
 }));

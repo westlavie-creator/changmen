@@ -1,11 +1,11 @@
-import { hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { iaCollectPlatform } from "./a8Collect";
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
-import { PLATFORMS } from "@/shared/platform";
-import { wait } from "@/shared/wait";
+import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@/stores/collectStore";
-import { useUserStore } from "@/stores/userStore";
+import { useCollectStore } from "@venue/shared/webBridge";
+import { useUserStore } from "@venue/shared/webBridge";
 import { handleIaRealtimeMessage } from "./messages";
 import { createIaRealtimeClient, type IaRealtimeClient } from "./realtime";
 import { loadIaBets } from "./markets";

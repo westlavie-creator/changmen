@@ -1,20 +1,13 @@
+import "@/test/mockFoOdds";
+import { foOddsState } from "@/test/mockFoOdds";
 import type { BetRowDto, ClientMatchDto } from "@/types/esport";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { runMarketWatchLoopTick } from "@/extensions/arbMarketWatch/marketWatchLoop";
 import { ViewBet, ViewMatch } from "@/models/match";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
-let foOdds: Record<string, Record<string, number>> = {};
-
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => ({
-    getOdds: (type: string, id: string, fallback: number) =>
-      foOdds[type]?.[id] ?? fallback,
-  }),
-}));
-
 beforeEach(() => {
-  foOdds = {};
+  foOddsState.current = {};
 });
 
 const arbSources: BetRowDto["Sources"] = {
@@ -73,7 +66,7 @@ function makeMatch(): ViewMatch {
 
 describe("runMarketWatchLoopTick", () => {
   it("returns appeared on first tick when fullMarket arb exists", () => {
-    foOdds = {
+    foOddsState.current = {
       PB: { h1: 2.1, a1: 1.5 },
       RAY: { h2: 1.6, a2: 2.2 },
     };
@@ -93,7 +86,7 @@ describe("runMarketWatchLoopTick", () => {
   });
 
   it("pure tick still emits gone on empty matches (loop layer skips delivery)", () => {
-    foOdds = {
+    foOddsState.current = {
       PB: { h1: 2.1, a1: 1.5 },
       RAY: { h2: 1.6, a2: 2.2 },
     };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PlatformAccount } from "@/models/platformAccount";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { buildPbAuthHeaders } from "./auth";
 
 function makeAccount(token: string): PlatformAccount {

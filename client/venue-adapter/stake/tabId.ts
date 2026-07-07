@@ -1,6 +1,6 @@
-import { a8PluginGetStore, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
-import { PLATFORMS } from "@/shared/platform";
-import { wait } from "@/shared/wait";
+import { a8PluginGetStore, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { wait } from "@changmen/client-core/shared/wait";
 
 /** 对齐 A8 全局 `qs.tabId` */
 let cachedTabId: number | undefined;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { BetOption } from "@/models/betOption";
-import { PlatformAccount } from "@/models/platformAccount";
+import { BetOption } from "@changmen/client-core/models/betOption";
+import { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { rayProvider } from "./bet";
 
 const accountGet = vi.fn();
@@ -9,15 +9,14 @@ vi.mock("./accountHttp", () => ({
   accountPostForm: vi.fn(),
 }));
 
-vi.mock("@/stores/messageStore", () => ({
-  useMessageStore: () => ({
-    limitMessage: () => "限红",
-  }),
+vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
+  readVenueOdds: vi.fn(() => 0),
+  writeVenueOdds: vi.fn(),
 }));
 
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => ({
-    save: vi.fn(),
+vi.mock("@venue/shared/webBridge", () => ({
+  useMessageStore: () => ({
+    limitMessage: () => "限红",
   }),
 }));
 

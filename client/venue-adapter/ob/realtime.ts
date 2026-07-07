@@ -6,7 +6,7 @@ import {
   resetDirectRealtimeStatus,
   upstreamRouteFromUrl,
 } from "@venue/shared/directRealtimeStatus";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@venue/shared/platforms";
 import { OB_MQTT_CLIENT_ID, OB_MQTT_CONNECT_TIMEOUT_MS } from "./mqttConfig";
 import {
   fetchObDemoMqttConfig,

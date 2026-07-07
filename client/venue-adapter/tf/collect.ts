@@ -1,13 +1,14 @@
-import { getCollectPlatform } from "@/api/esport";
-import type { CollectMatchDto } from "@/types/collect";
-import { PLATFORMS } from "@/shared/platform";
-import { getStaticVenueGames } from "@/shared/venueGames";
-import { wait } from "@/shared/wait";
+import { saveVenueOdds, isVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
+import type { CollectMatchDto } from "@changmen/client-core/types/collect";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { getStaticVenueGames } from "@changmen/client-core/shared/venueGames";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@/stores/collectStore";
-import { useOddsStore } from "@/stores/oddsStore";
-import { useMatchStore } from "@/stores/matchStore";
-import { a8StartTimeCollectAllowed } from "@/shared/a8MatchTime";
+import { useCollectStore } from "@venue/shared/webBridge";
+
+import { useMatchStore } from "@venue/shared/webBridge";
+import { a8StartTimeCollectAllowed } from "@changmen/shared/time/match_time";
 import {
   buildTfCollectMatchDto,
   collectTfGet,
@@ -36,8 +37,6 @@ export function startTfCollector(): () => void {
   let stopped = false;
   let stopWs: (() => void) | null = null;
   let lastSaveAt = 0;
-
-  const odds = useOddsStore();
   const collect = useCollectStore();
   const matchStore = useMatchStore();
 
@@ -64,8 +63,8 @@ export function startTfCollector(): () => void {
         const now = Date.now();
         for (const sel of data.selection) {
           const id = selectionOddsId(marketId, String(sel.name ?? ""));
-          if (!odds.isOdds(PLATFORM, id)) continue;
-          odds.save(PLATFORM, {
+          if (!isVenueOdds(PLATFORM, id)) continue;
+          saveVenueOdds(PLATFORM, {
             id,
             odds: Number(sel.euro_odds) || 0,
             isLock: sel.status !== "open",

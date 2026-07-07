@@ -1,16 +1,16 @@
 import { createA8BetsCollector } from "@venue/shared/socket/collector";
-import { a8PluginSend, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { a8PluginSend, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { subscribeA8Channel } from "@venue/shared/socket/hub";
 import type { A8BetsMessage } from "@venue/shared/socket/accumulator";
-import type { CollectBetDto } from "@/types/collect";
+import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import { cleanStakeBets } from "./graphql";
 import { collectStakeSportViaPlugin, stakeSportSlugs } from "./graphql";
 import { getStakeTabIdCached, setStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId";
-import { PLATFORMS } from "@/shared/platform";
-import { wait } from "@/shared/wait";
+import { PLATFORMS } from "@venue/shared/platforms";
+import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@/stores/collectStore";
-import { useMatchStore } from "@/stores/matchStore";
+import { useCollectStore } from "@venue/shared/webBridge";
+import { useMatchStore } from "@venue/shared/webBridge";
 
 const LOOP_MS = 30_000;
 

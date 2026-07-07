@@ -7,7 +7,7 @@ import { useArbLineOverlay, useOddsAnchorMap } from "@/extensions/arbBet/ui/useA
 import { useOddsFlashCell } from "@/extensions/arbBet/ui/useOddsFlash";
 import { percent } from "@/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
-import { useConfigStore } from "@/stores/configStore";
+import { useUserStore } from "@/stores/userStore";
 
 /**
  * [changmen 扩展] BetRow 套利 UI：全盘口 pickArbLegs 红线、利润角标、赔率涨跌 flash。
@@ -19,7 +19,7 @@ export function useBetRowArbUi(
   enabled: MaybeRefOrGetter<boolean> = true,
 ) {
   const active = computed(() => toValue(enabled) !== false);
-  const configStore = useConfigStore();
+  const user = useUserStore();
   const accountStore = useAccountStore();
   const itemsContainerRef = ref<HTMLElement | null>(null);
   const anchorMap = useOddsAnchorMap();
@@ -33,7 +33,7 @@ export function useBetRowArbUi(
     const providerKeys = providerKeysFromBetItems(b);
     return pickArbLegs(
       b,
-      configStore.config,
+      user.config,
       providerKeys,
       accountStore.accounts,
       m.game,

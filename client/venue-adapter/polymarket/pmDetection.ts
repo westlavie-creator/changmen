@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 
 /** checkBet / betting 在 option.data 上携带的 PM 检测价（web attachDetectionQuote 写入 clobPrice） */
 export interface PolymarketOptionQuoteData {

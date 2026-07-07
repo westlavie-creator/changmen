@@ -1,20 +1,13 @@
+import "@/test/mockFoOdds";
+import { foOddsState } from "@/test/mockFoOdds";
 import type { BetRowDto } from "@/types/esport";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { pickArbLegs } from "@/domain/arbitrage/pickArbLegs";
 import { ViewBet } from "@/models/match";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
-let foOdds: Record<string, Record<string, number>> = {};
-
-vi.mock("@/stores/oddsStore", () => ({
-  useOddsStore: () => ({
-    getOdds: (type: string, id: string, fallback: number) =>
-      foOdds[type]?.[id] ?? fallback,
-  }),
-}));
-
 beforeEach(() => {
-  foOdds = {};
+  foOddsState.current = {};
 });
 
 function makeMap3Bet(sources: BetRowDto["Sources"], homeName: string, awayName: string) {
@@ -81,7 +74,7 @@ describe("pickArbLegs promote side alignment (gb12)", () => {
   };
 
   it("aligned Map3: Home 腿与 Away 腿不会都选 9z 高赔", () => {
-    foOdds = {
+    foOddsState.current = {
       OB: { "ob-m3-h-9z": 2.065, "ob-m3-a-furia": 1.75 },
       RAY: { "ray-h-9z": 2.08, "ray-a-furia": 1.85 },
     };
@@ -96,7 +89,7 @@ describe("pickArbLegs promote side alignment (gb12)", () => {
   });
 
   it("buggy Map3: 误报套利（implied>1）且两腿都落在 9z", () => {
-    foOdds = {
+    foOddsState.current = {
       OB: { "ob-m3-h-9z": 2.065, "ob-m3-a-furia": 1.75 },
       RAY: { "ray-h-furia": 1.85, "ray-a-9z": 2.08 },
     };
