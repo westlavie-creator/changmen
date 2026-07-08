@@ -5,8 +5,15 @@ import { formatBetResult } from "@/shared/arbBetTraceFormat";
 import { PLATFORMS } from "@/shared/platform";
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
+import {
+  syncActiveBetFail,
+  syncActiveBetLeg,
+  syncActiveBetPhase,
+  syncActiveBetPlaceResults,
+} from "@/stores/betting/activeBetRunSync";
 
 function finishPlaceFailure(
+  betId: number,
   trace: ArbExecutionTrace | undefined,
   legA: { type: string; target: string; betMoney: number; odds: number },
   legB: { type: string; target: string; betMoney: number; odds: number },
@@ -21,6 +28,7 @@ function finishPlaceFailure(
     ].join(" · "),
   );
   trace?.finish("fail", "下单未成功");
+  syncActiveBetFail(betId, "下单未成功");
   return null;
 }
 
@@ -38,6 +46,12 @@ export async function placeArbLegs(
   if (legB.type === PLATFORMS.Polymarket)
     legB.deferPmSettlement = true;
 
+  syncActiveBetPhase(bet.id, "placing", "提交场馆订单");
+  if (accountA)
+    syncActiveBetLeg(bet.id, "A", "placing");
+  if (accountB)
+    syncActiveBetLeg(bet.id, "B", "placing");
+
   let resultA: BetResult | undefined;
   let resultB: BetResult | undefined;
   if (!betBothLegs) {
@@ -45,14 +59,14 @@ export async function placeArbLegs(
       trace?.event("下单", `开始 ${legA.type} ${legA.target}`);
       resultA = await accountStore.betting(accountA, legA, waitSec);
       if (!resultA?.success) {
-        return finishPlaceFailure(trace, legA, legB, resultA, resultB);
+        return finishPlaceFailure(bet.id, trace, legA, legB, resultA, resultB);
       }
     }
     else {
       trace?.event("下单", `开始 ${legB.type} ${legB.target}`);
       resultB = await accountStore.betting(accountB!, legB, waitSec);
       if (!resultB?.success) {
-        return finishPlaceFailure(trace, legA, legB, resultA, resultB);
+        return finishPlaceFailure(bet.id, trace, legA, legB, resultA, resultB);
       }
     }
   }
@@ -74,14 +88,14 @@ export async function placeArbLegs(
       resultB = pair[0];
     }
     if (!resultA?.success) {
-      return finishPlaceFailure(trace, legA, legB, resultA, resultB);
+      return finishPlaceFailure(bet.id, trace, legA, legB, resultA, resultB);
     }
   }
   else {
     trace?.event("下单", `顺序 ${legA.type} → ${legB.type}`);
     resultA = await accountStore.betting(accountA!, legA, waitSec);
     if (!resultA.success) {
-      return finishPlaceFailure(trace, legA, legB, resultA, resultB);
+      return finishPlaceFailure(bet.id, trace, legA, legB, resultA, resultB);
     }
     resultB = await accountStore.betting(accountB!, legB, waitSec);
   }
@@ -121,6 +135,14 @@ export async function placeArbLegs(
       trace?.event("重试", "换腿未成功");
     }
   }
+
+  syncActiveBetPlaceResults(
+    bet.id,
+    resultA,
+    resultB,
+    Boolean(accountA),
+    Boolean(accountB),
+  );
 
   return {
     ...checked,

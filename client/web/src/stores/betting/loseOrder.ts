@@ -1,14 +1,12 @@
 import { saveOrderBind } from "@/api/esport";
+import { resolveA8VenueBindOrderId, resolveA8VenueReject } from "@/domain/betting";
 import { BetOption, opponentSide } from "@/models/betOption";
 import { a8Tip } from "@/shared/a8Notify";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
+import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import { useAccountStore } from "@/stores/accountStore";
-import {
-  resolveArbBindOrderId,
-  syncVenueOrdersWithRejectForLeg,
-} from "@/stores/betting/autoBet/venueRejectSync";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
 import {
@@ -16,6 +14,12 @@ import {
   tryResumePmPendingMakeUp,
 } from "@/stores/betting/loseOrderPmPending";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
+import {
+  syncActiveBetMakeupAttempt,
+  syncActiveBetMakeupDone,
+  syncActiveBetMakeupRejected,
+  syncActiveBetMakeupSettling,
+} from "@/stores/betting/activeBetRunSync";
 import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -96,6 +100,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         continue;
 
       const waitSec = makeUpBetToastSeconds(config, account.provider);
+      syncActiveBetMakeupAttempt(betId, item.type, `尝试补单 @${sideOdds}`);
       const result = await accountStore.betting(account, checked, waitSec);
 
       if (!result?.success) {
@@ -114,6 +119,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       if (account.provider === PLATFORMS.Polymarket) {
         if (waitSec > 0) {
           a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
+          syncActiveBetMakeupSettling(betId, waitSec);
           await wait(waitSec * 1000);
         }
         await applyPmJbSettlementOutcome({
@@ -130,59 +136,52 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
           setMessage,
         });
       }
-      else if (waitSec > 0) {
-        a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
-        await wait(waitSec * 1000);
+      else {
+        // [A8 可证实] jb：isCreateOrder 已在上方出队；be>0 先 wait，be!==0 再 updateOrders + orders[0] 判拒
+        if (waitSec > 0) {
+          a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
+          syncActiveBetMakeupSettling(betId, waitSec);
+          await wait(waitSec * 1000);
+        }
 
-        const { orders: venueOrders, rejected } = await syncVenueOrdersWithRejectForLeg(
-          account,
-          result,
-        );
-        const bindOrderId = resolveArbBindOrderId(venueOrders, result);
-        if (venueOrders.length > 0) {
-          if (rejected) {
-            setMessage(`${order.target} 再次被拒单`);
-            a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
+        let rejected = false;
+        if (waitSec !== 0) {
+          const rawOrders = (await accountStore.updateVenueOrders(account)) ?? [];
+          const venueOrders = sortVenueOrdersNewestFirst(rawOrders);
+          rejected = resolveA8VenueReject(venueOrders);
+
+          if (venueOrders.length > 0) {
+            if (rejected) {
+              setMessage(`${order.target} 再次被拒单`);
+              a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
+              syncActiveBetMakeupRejected(betId, order.target);
+            }
+            else {
+              removeIds.add(betId);
+              syncActiveBetMakeupDone(betId, item.type, checked.odds);
+            }
+            const bindOrderId = resolveA8VenueBindOrderId(venueOrders);
+            if (bindOrderId) {
+              await saveOrderBind({
+                orders: JSON.stringify([
+                  {
+                    LinkID: order.linkId,
+                    Provider: result.provider,
+                    OrderID: bindOrderId,
+                  },
+                ]),
+              });
+            }
           }
           else {
             removeIds.add(betId);
-            setMessage(`补单成功 ${item.type}@${checked.odds}`);
+            syncActiveBetMakeupDone(betId, item.type, checked.odds);
           }
-        }
-        else if (bindOrderId) {
-          removeIds.add(betId);
-          setMessage(`补单成功 ${item.type}@${checked.odds}`);
+          useMessageStore().loseOrderMessage(account, order, checked, rejected);
         }
         else {
           removeIds.add(betId);
         }
-        if (bindOrderId) {
-          await saveOrderBind({
-            orders: JSON.stringify([
-              {
-                LinkID: order.linkId,
-                Provider: result.provider,
-                OrderID: bindOrderId,
-              },
-            ]),
-          });
-        }
-        useMessageStore().loseOrderMessage(account, order, checked, rejected);
-      }
-      else {
-        const bindOrderId = resolveArbBindOrderId([], result);
-        if (bindOrderId) {
-          await saveOrderBind({
-            orders: JSON.stringify([
-              {
-                LinkID: order.linkId,
-                Provider: result.provider,
-                OrderID: bindOrderId,
-              },
-            ]),
-          });
-        }
-        removeIds.add(betId);
       }
 
       markSuccessfulBet(account, bet.id, order.target);

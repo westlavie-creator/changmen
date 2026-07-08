@@ -11,7 +11,11 @@ import {
 import { settlePolymarketDelayedOrder } from "@venue/polymarket/orderSettlement";
 import { awaitPolymarketSettlementJob } from "@venue/polymarket/settlementJob";
 import { fetchPolymarketConfirmedTradeForOrder } from "@venue/polymarket/orders";
-import { resolveVenueRejectForLeg } from "@/domain/betting";
+import {
+  resolveA8VenueBindOrderId,
+  resolveA8VenueReject,
+  resolveVenueRejectForLeg,
+} from "@/domain/betting";
 import { useAccountStore } from "@/stores/accountStore";
 
 export interface VenueRejectFlags {
@@ -21,14 +25,17 @@ export interface VenueRejectFlags {
   rejectB: boolean;
 }
 
-/** 拉场馆订单；有 result.orderId 时按本单判拒，否则对齐 A8 `isVenueReject(orders[0])` */
+/** 拉场馆订单；A8 场馆仅 `orders[0]` 判拒，PM 走 orderId / settlement */
 export async function fetchVenueOrdersWithReject(
   account: PlatformAccount,
   result?: BetResult,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
   const orders = (await useAccountStore().updateVenueOrders(account)) ?? [];
   const sorted = sortVenueOrdersNewestFirst(orders);
-  return { orders: sorted, rejected: resolveVenueRejectForLeg(sorted, result) };
+  const rejected = account.provider === "Polymarket"
+    ? resolveVenueRejectForLeg(sorted, result)
+    : resolveA8VenueReject(sorted);
+  return { orders: sorted, rejected };
 }
 
 async function syncPolymarketVenueOrdersWithReject(
@@ -112,14 +119,15 @@ export async function syncVenueRejectFlags(
   return { ordersA, ordersB, rejectA, rejectB };
 }
 
-/** 绑单 orderId：优先本次下注 result（PM delayed 等），避免 orders[0] 仍是历史单 */
+/** 绑单 orderId：PM 优先 result.orderId；A8 场馆仅列表非空时 `orders[0]` */
 export function resolveArbBindOrderId(
   orders: VenueOrder[],
   result: BetResult | undefined,
 ): string | undefined {
-  const fromResult = String(result?.orderId ?? "").trim();
-  if (fromResult)
-    return fromResult;
-  const fromVenue = String(orders[0]?.orderId ?? "").trim();
-  return fromVenue || undefined;
+  if (result?.provider === "Polymarket") {
+    const fromResult = String(result.orderId ?? "").trim();
+    if (fromResult)
+      return fromResult;
+  }
+  return resolveA8VenueBindOrderId(orders);
 }

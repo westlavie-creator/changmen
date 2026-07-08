@@ -11,6 +11,11 @@ import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFro
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
 import { syncVenueRejectFlags, resolveArbBindOrderId } from "@/stores/betting/autoBet/venueRejectSync";
 import { shouldSendArbProgress } from "@/stores/betting/autoBet/arbProgressTrace";
+import {
+  syncActiveBetAfterRejectSync,
+  syncActiveBetFail,
+  syncActiveBetPhase,
+} from "@/stores/betting/activeBetRunSync";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
 import {
@@ -129,6 +134,7 @@ export async function finalizeArbBet(
   if (successAccounts.length) {
     const rejectWait = rejectWaitSeconds(config, successAccounts);
     trace?.event("拒单", `等待 ${waitSec}s 展示 / 检测 ${rejectWait}s`);
+    syncActiveBetPhase(bet.id, "settling", `拒单检测 ${waitSec}s`);
     await waitRejectDetection(waitSec, rejectWait);
     const synced = await syncVenueRejectFlags(resultA, accountA, resultB, accountB);
     ordersA = synced.ordersA;
@@ -190,6 +196,29 @@ export async function finalizeArbBet(
   const okB = Boolean(resultB?.success && accountB && !rejectB);
   const makeupQueued = makeup.enqueuedForLegA || makeup.enqueuedForLegB;
 
+  let makeupTarget: "A" | "B" | undefined;
+  let makeupPlatform: string | undefined;
+  if (makeup.enqueuedForLegB) {
+    makeupTarget = "B";
+    makeupPlatform = legB.type;
+  }
+  else if (makeup.enqueuedForLegA) {
+    makeupTarget = "A";
+    makeupPlatform = legA.type;
+  }
+
+  syncActiveBetAfterRejectSync(bet.id, {
+    hasA: Boolean(accountA),
+    hasB: Boolean(accountB),
+    rejectA,
+    rejectB,
+    okA,
+    okB,
+    makeupQueued,
+    makeupTarget,
+    makeupPlatform,
+  });
+
   if (okA && okB) {
     trace?.finish("success", "双腿成单");
   }
@@ -204,6 +233,7 @@ export async function finalizeArbBet(
   }
   else {
     trace?.finish("fail", "收尾无成功腿");
+    syncActiveBetFail(bet.id, "收尾无成功腿");
   }
 
   const messagePeers = buildBettingMessagePeers(params, placed, rejectA, rejectB);

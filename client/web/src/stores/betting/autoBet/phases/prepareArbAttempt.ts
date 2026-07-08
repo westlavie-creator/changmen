@@ -14,6 +14,7 @@ import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { accountsFundingReady } from "@/stores/account/accountPicker";
 import { useAccountStore } from "@/stores/accountStore";
 import { ensureArbExecutionTrace, setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
+import { syncActiveBetBegin } from "@/stores/betting/activeBetRunSync";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -160,6 +161,18 @@ export async function prepareArbAttempt(
     trace?.event("模式", "比例 9999 单边（对侧不下单）");
   }
 
+  const linkId = createArbLinkId(singleLegByRate, linkTs);
+  syncActiveBetBegin({
+    match,
+    bet,
+    legA,
+    legB,
+    accountA,
+    accountB,
+    linkId,
+    betBothLegs,
+  });
+
   return {
     legA,
     legB,
@@ -168,6 +181,6 @@ export async function prepareArbAttempt(
     implied,
     betBothLegs,
     singleLegByRate,
-    linkId: createArbLinkId(singleLegByRate, linkTs),
+    linkId,
   };
 }

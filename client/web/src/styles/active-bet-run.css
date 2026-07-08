@@ -1,0 +1,110 @@
+/** [changmen 扩展] 侧栏「进行中套利」进度（OrderView 订单列表上方） */
+
+.active-bet-run {
+  border: 1px solid #2a6ebb;
+  border-radius: 6px;
+  margin: 5px;
+  padding: 5px;
+  min-inline-size: 0;
+  background: linear-gradient(to bottom, #1a2a3a, #0d1520);
+}
+
+.active-bet-run legend {
+  font-size: 12px;
+  padding: 0 6px;
+  color: #e8f4ff;
+  background: linear-gradient(to bottom, #3a7bd5, #1e4f8a);
+  border: 1px solid #5a9de0;
+  border-radius: 4px;
+}
+
+.active-bet-run__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.active-bet-run__card {
+  font-size: 12px;
+  color: #e8f4ffcc;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.active-bet-run__head {
+  margin-bottom: 6px;
+}
+
+.active-bet-run__title {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.active-bet-run__bet {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.active-bet-run__phase {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #7ec8ff;
+}
+
+.active-bet-run__legs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.active-bet-run__leg {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 4px 6px;
+  align-items: center;
+  padding: 3px 4px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.active-bet-run__leg-platform {
+  font-weight: 600;
+  min-width: 2.5em;
+}
+
+.active-bet-run__leg-status {
+  font-size: 11px;
+}
+
+.active-bet-run__leg--confirmed .active-bet-run__leg-status {
+  color: #6fdc8c;
+}
+
+.active-bet-run__leg--rejected .active-bet-run__leg-status,
+.active-bet-run__leg--failed .active-bet-run__leg-status {
+  color: #ff8a80;
+}
+
+.active-bet-run__leg--placing .active-bet-run__leg-status,
+.active-bet-run__leg--submitted .active-bet-run__leg-status,
+.active-bet-run__leg--makeup .active-bet-run__leg-status {
+  color: #ffd54f;
+}
+
+.active-bet-run__leg-detail {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.active-bet-run__foot {
+  margin-top: 6px;
+  font-size: 10px;
+  opacity: 0.7;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 4px;
+}

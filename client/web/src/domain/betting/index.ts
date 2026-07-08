@@ -26,5 +26,7 @@ export {
 export {
   isVenueOrderIdRejected,
   isVenueReject,
+  resolveA8VenueBindOrderId,
+  resolveA8VenueReject,
   resolveVenueRejectForLeg,
 } from "@/domain/betting/venueReject";

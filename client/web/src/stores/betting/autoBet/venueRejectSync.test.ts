@@ -53,7 +53,7 @@ function makeVenueOrder(
 }
 
 describe("resolveArbBindOrderId", () => {
-  it("prefers result.orderId over stale orders[0]", () => {
+  it("prefers result.orderId for Polymarket only", () => {
     const result = Object.assign(new BetResult("Polymarket", true), {
       orderId: "0xd695a0c4cdd10b558fc829ecda52f20eeca76407",
     });
@@ -63,11 +63,14 @@ describe("resolveArbBindOrderId", () => {
     expect(resolveArbBindOrderId(orders, result)).toBe("0xd695a0c4cdd10b558fc829ecda52f20eeca76407");
   });
 
-  it("falls back to orders[0] when result has no orderId", () => {
+  it("A8 venue bind uses orders[0] only", () => {
+    const result = Object.assign(new BetResult("OB", true), {
+      orderId: "from-result",
+    });
     const orders = [
       makeVenueOrder({ orderId: "ob-1", status: "none", odds: 2, betMoney: 100 }),
     ];
-    expect(resolveArbBindOrderId(orders, new BetResult("OB", true))).toBe("ob-1");
+    expect(resolveArbBindOrderId(orders, result)).toBe("ob-1");
   });
 });
 
@@ -92,7 +95,19 @@ describe("fetchVenueOrdersWithReject", () => {
     expect(out.rejected).toBe(true);
   });
 
-  it("does not inherit orders[0] reject when result.orderId is our success order", async () => {
+  it("does not inherit orders[0] reject when result.orderId is our success order (PM only)", async () => {
+    updateVenueOrders.mockResolvedValue([
+      makeVenueOrder({ orderId: "old-reject", status: "reject", odds: 1.5, betMoney: 100 }),
+      makeVenueOrder({ orderId: "new-ok", status: "none", odds: 1.5, betMoney: 100 }),
+    ].map((o, i) => ({ ...o, createAt: i === 0 ? 2000 : 1000 })));
+
+    const result = Object.assign(new BetResult("Polymarket", true), { orderId: "new-ok" });
+    const out = await fetchVenueOrdersWithReject(account("Polymarket"), result);
+
+    expect(out.rejected).toBe(false);
+  });
+
+  it("A8 venue: orders[0] reject even when result.orderId points to newer none", async () => {
     updateVenueOrders.mockResolvedValue([
       makeVenueOrder({ orderId: "old-reject", status: "reject", odds: 1.5, betMoney: 100 }),
       makeVenueOrder({ orderId: "new-ok", status: "none", odds: 1.5, betMoney: 100 }),
@@ -101,7 +116,7 @@ describe("fetchVenueOrdersWithReject", () => {
     const result = Object.assign(new BetResult("OB", true), { orderId: "new-ok" });
     const out = await fetchVenueOrdersWithReject(account("OB"), result);
 
-    expect(out.rejected).toBe(false);
+    expect(out.rejected).toBe(true);
   });
 
   it("not rejected when list empty or first order not reject", async () => {
@@ -150,7 +165,7 @@ describe("syncVenueRejectFlags", () => {
     expect(out.rejectB).toBe(false);
   });
 
-  it("leg reject uses result.orderId not stale orders[0]", async () => {
+  it("A8 venue leg reject uses orders[0] not result.orderId", async () => {
     const accA = account("OB");
     updateVenueOrders.mockResolvedValueOnce([
       makeVenueOrder({ orderId: "stale-reject", status: "reject", odds: 1.5, betMoney: 100 }),
@@ -164,7 +179,7 @@ describe("syncVenueRejectFlags", () => {
       undefined,
     );
 
-    expect(out.rejectA).toBe(false);
+    expect(out.rejectA).toBe(true);
   });
 
   it("syncs both legs when both succeeded", async () => {

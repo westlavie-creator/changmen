@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   isVenueOrderIdRejected,
   isVenueReject,
+  resolveA8VenueBindOrderId,
+  resolveA8VenueReject,
   resolveVenueRejectForLeg,
 } from "@/domain/betting/venueReject";
 
@@ -50,6 +52,22 @@ describe("isVenueOrderIdRejected", () => {
   it("not rejected when our orderId not in list yet", () => {
     const orders = [order({ orderId: "old-reject", status: "reject", createAt: 2 })];
     expect(isVenueOrderIdRejected(orders, "pending-sync")).toBe(false);
+  });
+});
+
+describe("resolveA8VenueReject", () => {
+  it("matches isVenueReject on orders[0]", () => {
+    const orders = [order({ orderId: "1", status: "reject" })];
+    expect(resolveA8VenueReject(orders)).toBe(true);
+    expect(resolveA8VenueReject([])).toBe(false);
+  });
+});
+
+describe("resolveA8VenueBindOrderId", () => {
+  it("returns orders[0].orderId when list non-empty", () => {
+    const orders = [order({ orderId: "bind-1", status: "none" })];
+    expect(resolveA8VenueBindOrderId(orders)).toBe("bind-1");
+    expect(resolveA8VenueBindOrderId([])).toBeUndefined();
   });
 });
 

@@ -15,6 +15,11 @@ import {
 } from "@/stores/betting/autoBet/venueRejectSync";
 import type { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMessageStore } from "@/stores/messageStore";
+import {
+  syncActiveBetMakeupDone,
+  syncActiveBetMakeupRejected,
+  syncActiveBetPhase,
+} from "@/stores/betting/activeBetRunSync";
 
 export type PmJbSettlementOutcome = "dequeued" | "pending" | "rejected";
 
@@ -73,6 +78,7 @@ export async function applyPmJbSettlementOutcome(
     }
     removeIds.add(betId);
     setMessage(`补单成功 ${platformLabel}@${checked.odds}`);
+    syncActiveBetMakeupDone(betId, platformLabel, checked.odds);
     useMessageStore().loseOrderMessage(account, order, checked, false);
     return "dequeued";
   }
@@ -80,6 +86,7 @@ export async function applyPmJbSettlementOutcome(
   if (isPmTimeoutReject(result)) {
     loseStore.setPendingPmOrder(betId, String(result.orderId ?? ""), account.accountId);
     setMessage(`PM 订单待确认，下轮续查 ${String(result.orderId ?? "").slice(0, 10)}…`);
+    syncActiveBetPhase(betId, "makeup", "PM 订单待确认");
     useMessageStore().loseOrderMessage(account, order, checked, true);
     return "pending";
   }
@@ -87,6 +94,7 @@ export async function applyPmJbSettlementOutcome(
   loseStore.clearPendingPmOrder(betId);
   setMessage(`${order.target} 再次被拒单`);
   a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
+  syncActiveBetMakeupRejected(betId, order.target);
   useMessageStore().loseOrderMessage(account, order, checked, true);
   return "rejected";
 }

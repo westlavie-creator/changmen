@@ -281,7 +281,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(markSuccessfulBet).toHaveBeenCalled();
   });
 
-  it("OB jb: stale orders[0] reject does not block dequeue when result.orderId succeeded", async () => {
+  it("A8 jb: orders[0] reject keeps queue even when result.orderId is newer none", async () => {
     const bet = makeBet([makeItem("OB", 2.5)]);
     matchs.push(makeMatch(bet));
     queueOrder();
@@ -327,12 +327,13 @@ describe("processLoseOrders (A8 jb parity)", () => {
 
     await processLoseOrders({ setMessage: vi.fn() });
 
-    expect(removeOrder).toHaveBeenCalledWith(100, true);
+    expect(removeOrder).not.toHaveBeenCalled();
+    expect(saveOrderBind).toHaveBeenCalled();
     expect(loseOrderMessage).toHaveBeenCalledWith(
       acc,
       expect.any(LoseOrder),
       expect.any(BetOption),
-      false,
+      true,
     );
   });
 

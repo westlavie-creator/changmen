@@ -8,15 +8,21 @@ import { wait } from "@/shared/wait";
 import { getPolymarketPmSportBlockReasonFromOption } from "@venue/polymarket";
 import { PLATFORMS } from "@/shared/platform";
 import { useAccountStore } from "@/stores/accountStore";
+import {
+  syncActiveBetFail,
+  syncActiveBetPhase,
+} from "@/stores/betting/activeBetRunSync";
 
 /** 预检双腿；失败时 trace.finish 并返回 null */
 export async function checkArbLegs(
   params: ArbBetAttemptParams,
   ready: ArbBetReady,
 ): Promise<ArbBetChecked | null> {
-  const { config, setMessage, trace } = params;
+  const { bet, config, setMessage, trace } = params;
   const accountStore = useAccountStore();
   let { legA, legB, accountA, accountB, betBothLegs } = ready;
+
+  syncActiveBetPhase(bet.id, "checking", "账号预检");
 
   if (accountA)
     accountA.active = true;
@@ -32,6 +38,7 @@ export async function checkArbLegs(
     const pmBlock = getPolymarketPmSportBlockReasonFromOption(leg);
     if (pmBlock) {
       trace?.finish("fail", `${leg.type} ${leg.target}: ${pmBlock}`);
+      syncActiveBetFail(bet.id, pmBlock);
       await wait(1000);
       return null;
     }
@@ -72,6 +79,7 @@ export async function checkArbLegs(
         : null,
     ].filter(Boolean);
     trace?.finish("fail", parts.join(" · ") || "预检未通过");
+    syncActiveBetFail(bet.id, parts.join(" · ") || "预检未通过");
     await wait(1000);
     return null;
   }
@@ -87,6 +95,7 @@ export async function checkArbLegs(
     setMessage(`前置检查超时 ${elapsed}ms`);
     a8Tip("前置检查超时", msg, 3000);
     trace?.finish("fail", msg);
+    syncActiveBetFail(bet.id, msg);
     return null;
   }
 

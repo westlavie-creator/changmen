@@ -39,3 +39,16 @@ export function resolveVenueRejectForLeg(
   }
   return isVenueReject(orders);
 }
+
+/** [A8 可证实] jb / 套利 A8 场馆：仅 `orders[0].status === reject` */
+export function resolveA8VenueReject(orders: VenueOrder[]): boolean {
+  return isVenueReject(orders);
+}
+
+/** [A8 可证实] jb / 套利 A8 场馆：列表非空时绑 `orders[0].orderId` */
+export function resolveA8VenueBindOrderId(orders: VenueOrder[]): string | undefined {
+  if (orders.length === 0)
+    return undefined;
+  const id = String(orders[0].orderId ?? "").trim();
+  return id || undefined;
+}

@@ -2,6 +2,7 @@
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
+import ActiveBetRunView from "@/components/order/ActiveBetRunView.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
 import { wait } from "@/shared/wait";
@@ -100,6 +101,8 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
       @click="reload()"
     />
   </div>
+
+  <ActiveBetRunView v-if="!embedded" />
 
   <p v-if="showFilteredEmpty" class="order-filter-empty">
     当前账号筛选下无订单，请选「全部」或点刷新
