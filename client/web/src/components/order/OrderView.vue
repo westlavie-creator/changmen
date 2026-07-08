@@ -2,7 +2,6 @@
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
-import ActiveBetRunView from "@/components/order/ActiveBetRunView.vue";
 import LoseOrderView from "@/components/order/LoseOrderView.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import OrderMakeupStatusBar from "@/components/order/OrderMakeupStatusBar.vue";
@@ -131,8 +130,6 @@ function onCancelMakeup(betId: number) {
   </p>
 
   <LoseOrderView v-if="!embedded" />
-
-  <ActiveBetRunView v-if="!embedded" />
 
   <OrderMakeupStatusBar />
 

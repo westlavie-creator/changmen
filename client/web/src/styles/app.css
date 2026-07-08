@@ -35,6 +35,29 @@
 .home-view {
   height: 100%;
 }
+
+.home-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-main .match-search {
+  flex: 0 0 auto;
+  margin: 0 10px 8px;
+}
+
+.home-main .matchs,
+.home-main .match-empty {
+  flex: 1;
+  min-height: 0;
+}
+
+.home-main .match-empty {
+  overflow: auto;
+}
+
 .match-search {
   margin-bottom: 8px;
   max-width: 280px;

@@ -3,7 +3,7 @@
  * DOM 保持 A8 class：.matchs / .match / .match-title
  */
 
-#app .el-main .matchs,.common-layout .el-main .matchs {
+#app .el-main .matchs,.common-layout .el-main .matchs,.home-main .matchs {
   overflow:auto;
 }
 

@@ -1,12 +1,22 @@
-/** [changmen 扩展] 侧栏「进行中套利」进度（OrderView 订单列表上方） */
+/** [changmen 扩展] 主区赛事列表上方「进行中套利」进度面板 */
 
 .active-bet-run {
   border: 1px solid #2a6ebb;
   border-radius: 6px;
-  margin: 5px;
+  margin: 0;
   padding: 5px;
   min-inline-size: 0;
   background: linear-gradient(to bottom, #1a2a3a, #0d1520);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.home-main .active-bet-run {
+  flex: 0 0 140px;
+  height: 140px;
+  margin: 8px 10px;
 }
 
 .active-bet-run legend {
@@ -22,6 +32,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .active-bet-run__card {

@@ -7,6 +7,7 @@ import AppSidebar from "@/components/layout/AppSidebar.vue";
 import DirectRealtimeBadge from "@/components/layout/DirectRealtimeBadge.vue";
 import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
+import ActiveBetRunView from "@/components/order/ActiveBetRunView.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
 import {
   mountAppSession,
@@ -95,7 +96,8 @@ async function logout() {
           </el-button>
         </p>
       </el-header>
-      <el-main>
+      <el-main class="home-main">
+        <ActiveBetRunView />
         <el-input
           v-model="searchQuery"
           placeholder="搜索队名 / 比赛ID / 游戏..."
