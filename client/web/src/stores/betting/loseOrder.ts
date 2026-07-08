@@ -54,7 +54,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
     const ref = betLookup.get(order.betId);
     if (!ref) {
       // [changmen 扩展] Link 补单：刷新后赛事列表未就绪时保留队列与侧栏展示
-      if (order.isArbLinkedMakeup())
+      if (order.isLinkBoundMakeup())
         continue;
       removeIds.add(betId);
       continue;

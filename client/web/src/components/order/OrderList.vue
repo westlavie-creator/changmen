@@ -25,6 +25,7 @@ export type OrderListEntry = readonly [number, OrderRow[]];
 
 const emit = defineEmits<{
   cancelMakeup: [betId: number];
+  createMakeup: [link: number, rows: OrderRow[]];
 }>();
 
 function isPendingRow(row: OrderRow): boolean {
@@ -48,17 +49,26 @@ function onCancelMakeup(row: OrderRow) {
     .catch(() => {});
 }
 
+function onLegendDblClick(link: number, rows: OrderRow[]) {
+  if (!link)
+    return;
+  emit("createMakeup", link, rows);
+}
+
 withDefaults(
   defineProps<{
     orderEntries: ReadonlyArray<OrderListEntry>;
     loading?: boolean;
     playerLabel?: (row: OrderRow) => string;
     platformClass?: (row: OrderRow) => string | undefined;
+    /** 双击 Link 表头创建手动补单（仅主侧栏） */
+    createMakeupOnLegendDblclick?: boolean;
   }>(),
   {
     loading: false,
     playerLabel: () => "",
     platformClass: () => undefined,
+    createMakeupOnLegendDblclick: false,
   },
 );
 </script>
@@ -72,7 +82,14 @@ withDefaults(
         :class="{ 'orderlink--paired': isArbGroup(rows) }"
         :data-link-id="link"
       >
-        <legend :class="orderLegendModifier(rows)">
+        <legend
+          :class="[
+            orderLegendModifier(rows),
+            { 'orderlink__legend--makeup': createMakeupOnLegendDblclick && link !== 0 },
+          ]"
+          :title="createMakeupOnLegendDblclick && link !== 0 ? '双击创建补单' : undefined"
+          @dblclick="createMakeupOnLegendDblclick && link ? onLegendDblClick(link, rows) : undefined"
+        >
           {{ orderLegendText(rows) }}
         </legend>
         <div

@@ -3,7 +3,6 @@ import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
-import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
 import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
@@ -23,7 +22,6 @@ const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
 const { tick: matchTick } = storeToRefs(matchStore);
 
-const loseOpen = ref(false);
 const limitOpen = ref(false);
 const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
@@ -145,7 +143,7 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
     >
       {{ formatSecond(liveSeconds) }}
     </el-tag>
-    <div class="bet-title" @dblclick="loseOpen = true">
+    <div class="bet-title">
       {{ bet.getBetName() }} - {{ arb }}
     </div>
     <div ref="itemsContainerRef" class="bet-items">
@@ -223,12 +221,6 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
       />
     </div>
 
-    <CreateLoseDialog
-      :open="loseOpen"
-      :match="match"
-      :bet="bet"
-      @close="loseOpen = false"
-    />
     <LimitDiagDialog
       :open="limitOpen"
       :provider="limitProvider"

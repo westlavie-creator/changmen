@@ -12,6 +12,8 @@ const props = defineProps<{
   open: boolean;
   match?: ViewMatch;
   bet?: ViewBet;
+  /** [changmen 扩展] 订单 Link 组双击创建时写入，侧栏合并展示 */
+  linkId?: number;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -78,7 +80,7 @@ function confirm() {
     betOdds: form.odds,
     match: props.match.title,
     bet: props.bet.getBetName(),
-    linkId: 0,
+    linkId: Number(props.linkId) || 0,
     createAt: Date.now(),
     isCreateOrder: true,
     betCount: form.betCount,

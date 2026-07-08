@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
+import { ElMessage } from "element-plus";
+import type { ViewBet, ViewMatch } from "@/models/match";
+import type { OrderRow } from "@/types/order";
+import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import OrderMakeupStatusBar from "@/components/order/OrderMakeupStatusBar.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
 import { mergePendingMakeupIntoOrderGroups, orderLinkMapEntries } from "@/shared/orderLink";
+import { resolveMatchBetForOrderRows } from "@/stores/betting/createLoseFromLink";
 import { wait } from "@/shared/wait";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
+import { useMatchStore } from "@/stores/matchStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 
@@ -21,6 +27,7 @@ const props = withDefaults(
 
 const orderStore = useOrderStore();
 const loseStore = useLoseOrderStore();
+const matchStore = useMatchStore();
 const userStore = useUserStore();
 const { orderDate, loading, filterAccountId, accountOptions, orders, filteredOrders }
   = storeToRefs(orderStore);
@@ -38,6 +45,10 @@ const mergedOrderEntries = computed(() => {
 });
 
 const viewLoading = ref(false);
+const createLoseOpen = ref(false);
+const createLoseLinkId = ref(0);
+const createLoseMatch = ref<ViewMatch>();
+const createLoseBet = ref<ViewBet>();
 
 onMounted(() => {
   if (props.embedded && props.embeddedUserId && !orderStore.orders.size) {
@@ -89,6 +100,20 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
 function onCancelMakeup(betId: number) {
   loseStore.cancelMakeupManually(betId);
 }
+
+function onCreateMakeup(link: number, rows: readonly OrderRow[]) {
+  if (!link)
+    return;
+  const resolved = resolveMatchBetForOrderRows(matchStore.matchs, [...rows]);
+  if (!resolved) {
+    ElMessage.warning("未找到对应盘口，请确认赛事仍在列表中");
+    return;
+  }
+  createLoseLinkId.value = link;
+  createLoseMatch.value = resolved.match;
+  createLoseBet.value = resolved.bet;
+  createLoseOpen.value = true;
+}
 </script>
 
 <template>
@@ -134,7 +159,18 @@ function onCancelMakeup(betId: number) {
     :loading="loading || viewLoading"
     :player-label="playerLabel"
     :platform-class="platformClass"
+    :create-makeup-on-legend-dblclick="!embedded"
     @cancel-makeup="onCancelMakeup"
+    @create-makeup="onCreateMakeup"
+  />
+
+  <CreateLoseDialog
+    v-if="!embedded"
+    :open="createLoseOpen"
+    :link-id="createLoseLinkId"
+    :match="createLoseMatch"
+    :bet="createLoseBet"
+    @close="createLoseOpen = false"
   />
 </template>
 

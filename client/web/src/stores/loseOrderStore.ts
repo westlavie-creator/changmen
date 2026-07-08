@@ -190,7 +190,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
         const existing = this.orders.get(betId);
         if (!existing)
           continue;
-        if (existing.isArbLinkedMakeup())
+        if (existing.isLinkBoundMakeup())
           continue;
         if (!active.has(betId))
           this.removeOrder(betId, true);

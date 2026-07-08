@@ -64,6 +64,14 @@
   overflow: visible;
 }
 
+.orders .orderlink__legend--makeup {
+  cursor: pointer;
+}
+
+.orders .orderlink__legend--makeup:hover {
+  filter: brightness(1.08);
+}
+
 #app .el-aside .orders .orderlink--paired,
 .common-layout .el-aside .orders .orderlink--paired,
 .admin-orders-user-col .orders .orderlink--paired {
