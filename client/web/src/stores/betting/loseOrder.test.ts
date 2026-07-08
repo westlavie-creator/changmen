@@ -577,6 +577,12 @@ describe("processLoseOrders (A8 jb parity)", () => {
     );
   });
 
+  it("keeps arb-linked makeup in queue when bet not on match list yet", async () => {
+    queueOrder();
+    await processLoseOrders({ setMessage: vi.fn() });
+    expect(removeOrder).not.toHaveBeenCalled();
+  });
+
   it("RAY success ref in queue: jb consumes PM with list-odds CNY stake (1× precheck)", async () => {
     const bet = makeBet([makeItem("Polymarket", 4.0)]);
     matchs.push(makeMatch(bet));

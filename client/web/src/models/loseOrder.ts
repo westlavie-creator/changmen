@@ -56,6 +56,11 @@ export class LoseOrder implements LoseOrderRecord {
     return Number(toFixed(implied));
   }
 
+  /** [changmen 扩展] 套利拒单入队的补单（有 Link，侧栏合并展示） */
+  isArbLinkedMakeup(): boolean {
+    return Number(this.linkId) !== 0 && !this.isCreateOrder;
+  }
+
   toJSON(): LoseOrderRecord {
     return {
       accountId: this.accountId,

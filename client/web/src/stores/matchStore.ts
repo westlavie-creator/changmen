@@ -40,7 +40,7 @@ export const useMatchStore = defineStore("match", {
     /** [A8 可证实] 单主循环 `P()` 是否在跑 */
     mainLoopRunning: false,
     mainLoopTimer: null as ReturnType<typeof setTimeout> | null,
-    lastLoseOrderPruneAt: 0,
+    lastLoseOrderPruneAt: Date.now(),
     /** 对齐 A8 `O()` 内下注状态（原 bettingStore） */
     bettingLastMessage: "",
     bettingLastAt: 0,

@@ -46,7 +46,7 @@ function clearSessionCaches(): void {
   matchStore.defaultOdds.clear();
   matchStore.defaultOddsFetchedAt = 0;
   matchStore.lastFetchAt = 0;
-  matchStore.lastLoseOrderPruneAt = 0;
+  matchStore.lastLoseOrderPruneAt = Date.now();
 
   useOddsStore().$reset();
   useOrderStore().$reset();

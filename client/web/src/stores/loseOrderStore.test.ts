@@ -157,4 +157,48 @@ describe("useLoseOrderStore A8 publish parity", () => {
     expect(store.cancelledOrders.get(42)?.linkId).toBe(999);
     expect(store.cancelledOrders.get(42)?.cancelledAt).toBeGreaterThan(0);
   });
+
+  it("removeOrders keeps arb-linked makeup when bet left match list", () => {
+    const store = useLoseOrderStore();
+    store.createOrder(
+      new LoseOrder({
+        accountId: 1,
+        matchId: 1,
+        betId: 42,
+        target: "Away",
+        betMoney: 100,
+        betOdds: 2.1,
+        match: "A vs B",
+        bet: "map1",
+        linkId: 999,
+        createAt: Date.now(),
+        isCreateOrder: false,
+        betCount: 1,
+      }),
+    );
+    store.removeOrders([11, 12]);
+    expect(store.orders.has(42)).toBe(true);
+  });
+
+  it("removeOrders still prunes manual create orders off match list", () => {
+    const store = useLoseOrderStore();
+    store.createOrder(
+      new LoseOrder({
+        accountId: 0,
+        matchId: 1,
+        betId: 7,
+        target: "Home",
+        betMoney: 100,
+        betOdds: 1.9,
+        match: "A vs B",
+        bet: "map1",
+        linkId: 0,
+        createAt: Date.now(),
+        isCreateOrder: true,
+        betCount: 1,
+      }),
+    );
+    store.removeOrders([11]);
+    expect(store.orders.has(7)).toBe(false);
+  });
 });

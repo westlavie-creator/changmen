@@ -187,6 +187,11 @@ export const useLoseOrderStore = defineStore("loseorder", {
     removeOrders(activeBetIds: number[]) {
       const active = new Set(activeBetIds);
       for (const betId of [...this.orders.keys()]) {
+        const existing = this.orders.get(betId);
+        if (!existing)
+          continue;
+        if (existing.isArbLinkedMakeup())
+          continue;
         if (!active.has(betId))
           this.removeOrder(betId, true);
       }
