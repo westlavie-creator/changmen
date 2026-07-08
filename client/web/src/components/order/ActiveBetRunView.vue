@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ActiveBetLeg, ActiveBetRun } from "@/types/activeBetRun";
 import { storeToRefs } from "pinia";
-import { onMounted, onUnmounted, ref } from "vue";
+import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/active-bet-run.css";
@@ -11,6 +11,7 @@ const loseStore = useLoseOrderStore();
 const { visibleRuns } = storeToRefs(activeStore);
 
 const now = ref(Date.now());
+const eventFeedEls = new Map<number, HTMLElement>();
 let tickTimer: ReturnType<typeof setInterval> | undefined;
 
 onMounted(() => {
@@ -24,6 +25,29 @@ onUnmounted(() => {
   if (tickTimer)
     clearInterval(tickTimer);
 });
+
+watch(
+  visibleRuns,
+  () => {
+    void nextTick(scrollEventFeedsToBottom);
+  },
+  { deep: true },
+);
+
+function setEventFeedEl(betId: number, el: Element | null) {
+  if (el)
+    eventFeedEls.set(betId, el as HTMLElement);
+  else
+    eventFeedEls.delete(betId);
+}
+
+function scrollEventFeedsToBottom() {
+  for (const run of visibleRuns.value) {
+    const el = eventFeedEls.get(run.betId);
+    if (el)
+      el.scrollTop = el.scrollHeight;
+  }
+}
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -50,10 +74,13 @@ function colToneClass(run: ActiveBetRun): string {
 }
 
 function phaseLabel(run: ActiveBetRun): string {
-  if (run.phase === "settling" && run.countdownUntil) {
+  if (run.countdownUntil && (run.phase === "settling" || run.phase === "syncing")) {
     const left = Math.max(0, Math.ceil((run.countdownUntil - now.value) / 1000));
-    if (left > 0)
+    if (left > 0) {
+      if (run.phase === "syncing")
+        return `双腿已成交 ${left}s`;
       return `等待确认 ${left}s`;
+    }
   }
   return run.overallLabel;
 }
@@ -64,11 +91,8 @@ function formatLegMoney(betMoney?: number): string | undefined {
   return `¥${Math.round(betMoney)}`;
 }
 
-function lastEvent(run: ActiveBetRun): string | undefined {
-  const ev = run.events[run.events.length - 1];
-  if (!ev)
-    return undefined;
-  return `${ev.stage}：${ev.detail}`;
+function legSideLabel(side: ActiveBetLeg["side"]): string {
+  return side === "A" ? "A腿" : "B腿";
 }
 
 function orderLabel(run: ActiveBetRun, index: number): string {
@@ -109,27 +133,43 @@ function orderLabel(run: ActiveBetRun, index: number): string {
           />
         </div>
 
-        <ul class="active-bet-run__legs">
-          <li
+        <div class="active-bet-run__legs">
+          <div
             v-for="leg in run.legs"
             :key="leg.side"
             class="active-bet-run__leg"
             :class="legClass(leg)"
             :title="leg.detail || undefined"
           >
-            <span class="active-bet-run__leg-platform">{{ leg.platform }}</span>
-            <span class="active-bet-run__leg-target">{{ leg.target }}</span>
-            <span class="active-bet-run__leg-status">{{ activeStore.legStatusLabel(leg.status) }}</span>
-            <span v-if="leg.odds" class="active-bet-run__leg-odds">@{{ leg.odds }}</span>
-            <span v-if="formatLegMoney(leg.betMoney)" class="active-bet-run__leg-money">
-              {{ formatLegMoney(leg.betMoney) }}
-            </span>
+            <div class="active-bet-run__leg-head">
+              <span class="active-bet-run__leg-side">{{ legSideLabel(leg.side) }}</span>
+              <span class="active-bet-run__leg-platform">{{ leg.platform }}</span>
+            </div>
+            <div class="active-bet-run__leg-target">{{ leg.target }}</div>
+            <div class="active-bet-run__leg-status">{{ activeStore.legStatusLabel(leg.status) }}</div>
+            <div v-if="leg.odds || formatLegMoney(leg.betMoney)" class="active-bet-run__leg-quote">
+              <span v-if="leg.odds" class="active-bet-run__leg-odds">@{{ leg.odds }}</span>
+              <span v-if="formatLegMoney(leg.betMoney)" class="active-bet-run__leg-money">
+                {{ formatLegMoney(leg.betMoney) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <ul
+          v-if="run.events.length"
+          :ref="el => setEventFeedEl(run.betId, el as Element | null)"
+          class="active-bet-run__events"
+        >
+          <li
+            v-for="(ev, evIndex) in run.events"
+            :key="`${run.betId}-${evIndex}`"
+            class="active-bet-run__event"
+          >
+            <span class="active-bet-run__event-stage">{{ ev.stage }}</span>
+            <span class="active-bet-run__event-detail">{{ ev.detail }}</span>
           </li>
         </ul>
-
-        <footer v-if="lastEvent(run)" class="active-bet-run__foot">
-          {{ lastEvent(run) }}
-        </footer>
       </article>
     </div>
   </fieldset>

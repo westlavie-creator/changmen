@@ -47,7 +47,9 @@ describe("activeBetRunStore", () => {
     });
 
     expect(store.visibleRuns[0]?.phase).toBe("syncing");
-    vi.advanceTimersByTime(5000);
+    vi.advanceTimersByTime(2999);
+    expect(store.visibleRuns).toHaveLength(1);
+    vi.advanceTimersByTime(1);
     expect(store.visibleRuns).toHaveLength(0);
   });
 
@@ -102,6 +104,24 @@ describe("activeBetRunStore", () => {
     expect(run?.overallLabel).toBe("PM 延迟确认");
     expect(run?.legs.find(l => l.side === "B")?.status).toBe("pending_confirm");
     expect(run?.legs.find(l => l.side === "B")?.detail).toContain("PM delayed");
+  });
+
+  it("patchLeg appends event when leg status changes", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "RAY", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "ray1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    store.patchLeg(100, "A", { status: "placing" });
+    const events = store.visibleRuns[0]?.events ?? [];
+    expect(events.some(e => e.stage === "A腿" && e.detail.includes("下单中"))).toBe(true);
   });
 
   it("removes run when both legs fail without makeup", () => {

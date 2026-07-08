@@ -5,7 +5,9 @@ import {
   createArbLinkId,
   explainAllowArbRejection,
   explainMissingLegAccount,
+  isSingleLegPrecheckOnly,
   legHasSingleLegRateAccount,
+  resolveSingleLegCheckAccounts,
 } from "@/domain/betting/singleLegRate";
 import { PlatformAccount } from "@/models/platformAccount";
 
@@ -79,6 +81,101 @@ describe("legHasSingleLegRateAccount", () => {
     expect(
       legHasSingleLegRateAccount(leg, { id: 1 } as never, { game: "英雄联盟", gameId: 1 } as never, [acc], [], matchStore),
     ).toBe(false);
+  });
+});
+
+describe("resolveSingleLegCheckAccounts", () => {
+  const matchStore = {
+    getBetTarget: () => undefined,
+    getDefaultOdds: () => undefined,
+  } as never;
+  const bet = { id: 1 } as never;
+  const match = { game: "英雄联盟", gameId: 1 } as never;
+  const legA = makeLeg("PB");
+  const legB = makeLeg("RAY");
+
+  it("9999 单边为无下单账号侧补上预检账号", () => {
+    const pb9999 = makeAccount({
+      accountId: 2,
+      provider: "PB",
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
+    });
+    pb9999.balance = 1000;
+    const ray = makeAccount({ accountId: 3, provider: "RAY" });
+    ray.balance = 1000;
+
+    const { checkAccountA, checkAccountB } = resolveSingleLegCheckAccounts({
+      singleLegByRate: true,
+      accountA: undefined,
+      accountB: ray,
+      legA,
+      legB,
+      bet,
+      match,
+      accounts: [pb9999, ray],
+      excludeA: [],
+      excludeB: [],
+      matchStore,
+      implied: 1.05,
+    });
+
+    expect(checkAccountA?.accountId).toBe(2);
+    expect(checkAccountB?.accountId).toBe(3);
+    expect(isSingleLegPrecheckOnly("A", undefined, ray, checkAccountA, checkAccountB)).toBe(true);
+    expect(isSingleLegPrecheckOnly("B", undefined, ray, checkAccountA, checkAccountB)).toBe(false);
+  });
+
+  it("关闭 9999 预检时不补 checkAccount", () => {
+    const pb9999 = makeAccount({
+      accountId: 2,
+      provider: "PB",
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
+    });
+    pb9999.balance = 1000;
+    const ray = makeAccount({ accountId: 3, provider: "RAY" });
+    ray.balance = 1000;
+
+    const { checkAccountA, checkAccountB } = resolveSingleLegCheckAccounts({
+      singleLegByRate: true,
+      precheck9999Leg: false,
+      accountA: undefined,
+      accountB: ray,
+      legA,
+      legB,
+      bet,
+      match,
+      accounts: [pb9999, ray],
+      excludeA: [],
+      excludeB: [],
+      matchStore,
+      implied: 1.05,
+    });
+
+    expect(checkAccountA).toBeUndefined();
+    expect(checkAccountB?.accountId).toBe(3);
+  });
+
+  it("非 9999 单边时预检账号等于下单账号", () => {
+    const pb = makeAccount({ accountId: 2, provider: "PB" });
+    const ray = makeAccount({ accountId: 3, provider: "RAY" });
+
+    const { checkAccountA, checkAccountB } = resolveSingleLegCheckAccounts({
+      singleLegByRate: false,
+      accountA: pb,
+      accountB: ray,
+      legA,
+      legB,
+      bet,
+      match,
+      accounts: [pb, ray],
+      excludeA: [],
+      excludeB: [],
+      matchStore,
+      implied: 1.05,
+    });
+
+    expect(checkAccountA).toBe(pb);
+    expect(checkAccountB).toBe(ray);
   });
 });
 

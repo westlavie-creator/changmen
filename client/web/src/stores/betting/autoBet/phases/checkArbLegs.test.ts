@@ -101,4 +101,54 @@ describe("checkArbLegs", () => {
     expect(out).toBeNull();
     expect(checkBetting).not.toHaveBeenCalled();
   });
+
+  it("9999 单边：预检双腿，下单账号仍仅对侧", async () => {
+    const legA = leg("PB", 100, 1.8);
+    const legB = leg("RAY", 55, 3.2);
+    const pb9999 = account("PB");
+    const rayBet = account("RAY");
+
+    const out = await checkArbLegs(params, {
+      ...ready(legA, legB),
+      accountA: undefined,
+      accountB: rayBet,
+      checkAccountA: pb9999,
+      checkAccountB: rayBet,
+      betBothLegs: false,
+      singleLegByRate: true,
+    });
+
+    expect(out).not.toBeNull();
+    expect(checkBetting).toHaveBeenCalledTimes(2);
+    expect(checkBetting).toHaveBeenCalledWith(pb9999, expect.objectContaining({ type: "PB" }));
+    expect(checkBetting).toHaveBeenCalledWith(rayBet, expect.objectContaining({ type: "RAY" }));
+    expect(out!.accountA).toBeUndefined();
+    expect(out!.accountB).toBe(rayBet);
+  });
+
+  it("9999 腿预检失败时整笔阻断", async () => {
+    checkBetting.mockImplementation(async (acc, option: BetOption) => {
+      if (acc.provider === "PB") {
+        option.checkError = "盘口不可用";
+        return option;
+      }
+      option.data = { ok: true };
+      return option;
+    });
+    const legA = leg("PB", 100, 1.8);
+    const legB = leg("RAY", 55, 3.2);
+
+    const out = await checkArbLegs(params, {
+      ...ready(legA, legB),
+      accountA: undefined,
+      accountB: account("RAY"),
+      checkAccountA: account("PB"),
+      checkAccountB: account("RAY"),
+      betBothLegs: false,
+      singleLegByRate: true,
+    });
+
+    expect(out).toBeNull();
+    expect(checkBetting).toHaveBeenCalledTimes(2);
+  });
 });

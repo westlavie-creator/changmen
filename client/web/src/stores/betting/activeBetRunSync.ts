@@ -52,24 +52,46 @@ export function syncActiveBetBegin(params: {
   legB: BetOption;
   accountA?: PlatformAccount;
   accountB?: PlatformAccount;
+  checkAccountA?: PlatformAccount;
+  checkAccountB?: PlatformAccount;
   linkId: number;
   betBothLegs: boolean;
 }) {
   const store = activeStore();
   if (!store)
     return;
-  const { match, bet, legA, legB, accountA, accountB, linkId, betBothLegs } = params;
+  const {
+    match,
+    bet,
+    legA,
+    legB,
+    accountA,
+    accountB,
+    checkAccountA: checkAIn,
+    checkAccountB: checkBIn,
+    linkId,
+  } = params;
+  const checkAccountA = checkAIn ?? accountA;
+  const checkAccountB = checkBIn ?? accountB;
+
+  function beginLeg(
+    side: "A" | "B",
+    leg: BetOption,
+    betAccount?: PlatformAccount,
+    checkAccount?: PlatformAccount,
+  ): ReturnType<typeof legFromOption> {
+    if (!checkAccount)
+      return legFromOption(side, leg, undefined, "skipped");
+    const row = legFromOption(side, leg, checkAccount, "pending");
+    if (checkAccount && !betAccount)
+      row.detail = [checkAccount.playerName, "9999仅预检"].filter(Boolean).join(" · ");
+    return row;
+  }
 
   const legs = [
-    legFromOption("A", legA, accountA, accountA ? "pending" : "skipped"),
-    legFromOption("B", legB, accountB, accountB ? "pending" : "skipped"),
+    beginLeg("A", legA, accountA, checkAccountA),
+    beginLeg("B", legB, accountB, checkAccountB),
   ];
-  if (!betBothLegs) {
-    if (accountA)
-      legs[1].status = "skipped";
-    else if (accountB)
-      legs[0].status = "skipped";
-  }
 
   store.upsertRun(bet.id, {
     matchId: match.id,
@@ -222,9 +244,8 @@ export function syncActiveBetAfterRejectSync(
   }
 
   if (flags.okA && flags.okB) {
-    store.setPhase(betId, "syncing", "双腿已确认，同步订单列表…");
     store.appendEvent(betId, "完成", "双腿成单");
-    setTimeout(() => store.removeRun(betId), 4000);
+    store.scheduleDismiss(betId);
     return;
   }
 
@@ -332,7 +353,6 @@ export function syncActiveBetMakeupDone(betId: number, platform: string, odds: n
   const store = activeStore();
   if (!store)
     return;
-  store.setPhase(betId, "syncing", `补单成功 ${platform}@${odds}`);
   store.appendEvent(betId, "完成", "补单成功");
-  setTimeout(() => store.removeRun(betId), 4000);
+  store.scheduleDismiss(betId);
 }

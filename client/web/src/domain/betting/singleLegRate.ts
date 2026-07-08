@@ -8,7 +8,7 @@ import {
   explainMainBetAccountRejection,
 } from "@/domain/betting/betFilters";
 
-/** [changmen 扩展] 投注比例 9999 = 单边模式：本侧不参与自动下单，对侧可单边真下注 */
+/** [changmen 扩展] 投注比例 9999 = 单边模式：本侧仅预检、不参与自动下单，对侧可单边真下注 */
 export const SINGLE_LEG_RATE = 9999;
 
 export function isSingleLegRateAtOdds(
@@ -58,7 +58,7 @@ export function explainArbAccountRejection(
   if (base)
     return base;
   if (isSingleLegRateAtOdds(account, leg.odds)) {
-    return "比例 9999 单边模式（本侧不下，对侧可自动下单）";
+    return "比例 9999 单边模式（本侧仅预检不下，对侧可自动下单）";
   }
   return null;
 }
@@ -218,4 +218,76 @@ export function explainAllowArbRejection(params: {
 /** 比例 9999 单边用负数 link；双腿套利为正时间戳 */
 export function createArbLinkId(singleLegByRate = false, linkTs = Date.now()): number {
   return singleLegByRate ? -linkTs : linkTs;
+}
+
+/** 9999 单边：无下单账号的一侧用 9999 账号参与预检（可关） */
+export function resolveSingleLegCheckAccounts(params: {
+  singleLegByRate: boolean;
+  precheck9999Leg?: boolean;
+  accountA?: PlatformAccount;
+  accountB?: PlatformAccount;
+  legA: BetOption;
+  legB: BetOption;
+  bet: ViewBet;
+  match: ViewMatch;
+  accounts: PlatformAccount[];
+  excludeA: number[];
+  excludeB: number[];
+  matchStore: BetFilterMatchContext;
+  implied: number;
+}): { checkAccountA?: PlatformAccount; checkAccountB?: PlatformAccount } {
+  const {
+    singleLegByRate,
+    precheck9999Leg = true,
+    accountA,
+    accountB,
+    legA,
+    legB,
+    bet,
+    match,
+    accounts,
+    excludeA,
+    excludeB,
+    matchStore,
+    implied,
+  } = params;
+  let checkAccountA = accountA;
+  let checkAccountB = accountB;
+  if (!singleLegByRate || !precheck9999Leg)
+    return { checkAccountA, checkAccountB };
+  if (!accountA) {
+    checkAccountA = findSingleLegRateAccount(
+      legA,
+      bet,
+      match,
+      accounts,
+      excludeA,
+      matchStore,
+      implied,
+    );
+  }
+  if (!accountB) {
+    checkAccountB = findSingleLegRateAccount(
+      legB,
+      bet,
+      match,
+      accounts,
+      excludeB,
+      matchStore,
+      implied,
+    );
+  }
+  return { checkAccountA, checkAccountB };
+}
+
+export function isSingleLegPrecheckOnly(
+  side: "A" | "B",
+  accountA?: PlatformAccount,
+  accountB?: PlatformAccount,
+  checkAccountA?: PlatformAccount,
+  checkAccountB?: PlatformAccount,
+): boolean {
+  if (side === "A")
+    return Boolean(checkAccountA && !accountA);
+  return Boolean(checkAccountB && !accountB);
 }

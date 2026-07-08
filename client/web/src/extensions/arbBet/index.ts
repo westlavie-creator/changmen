@@ -8,7 +8,7 @@
  * 本模块职责：
  * | 能力 | A8 | changmen |
  * |------|-----|----------|
- * | 比例 9999 单边下注 | 缺任一侧账号则 `continue` | 对侧真下单 + 负 `linkId` |
+ * | 比例 9999 单边下注 | 缺任一侧账号则 `continue` | 本侧可选预检（扩展页开关）、不自动下单；对侧真下单 + 负 `linkId` |
  * | Telegram | 仅成功推单等（见 messageStore） | 同左 + 可选套利进度报告（`extensions/notify`） |
  * | BetRow 红线 / flash | 无 / bundle 内联 | `extensions/arbBet/ui` |
  *

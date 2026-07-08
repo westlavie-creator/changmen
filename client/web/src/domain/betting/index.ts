@@ -21,6 +21,8 @@ export {
   isSingleLegRateAtOdds,
   legHasSingleLegRateAccount,
   resolveSingleLegByRate,
+  resolveSingleLegCheckAccounts,
+  isSingleLegPrecheckOnly,
   SINGLE_LEG_RATE,
 } from "@/domain/betting/singleLegRate";
 export {

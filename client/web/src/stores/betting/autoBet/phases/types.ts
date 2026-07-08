@@ -8,11 +8,15 @@ import type { UserConfig } from "@/types/userConfig";
 export interface ArbBetReady {
   legA: BetOption;
   legB: BetOption;
+  /** 本腿自动下单账号（9999 侧无） */
   accountA?: PlatformAccount;
   accountB?: PlatformAccount;
+  /** 预检账号（9999 单边时本侧用 9999 账号仅预检） */
+  checkAccountA?: PlatformAccount;
+  checkAccountB?: PlatformAccount;
   implied: number;
   betBothLegs: boolean;
-  /** 比例 9999 触发：仅对侧 live 腿真下单 */
+  /** 比例 9999 触发：本侧仅预检，对侧 live 腿真下单 */
   singleLegByRate: boolean;
   linkId: number;
 }

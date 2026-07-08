@@ -1,5 +1,6 @@
 import type { BetOption } from "@/models/betOption";
 import type { ArbBetAttemptParams, ArbBetChecked, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
+import { isSingleLegPrecheckOnly } from "@/domain/betting/singleLegRate";
 import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
 import { a8Tip } from "@/shared/a8Notify";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
@@ -20,18 +21,28 @@ export async function checkArbLegs(
 ): Promise<ArbBetChecked | null> {
   const { bet, config, setMessage, trace } = params;
   const accountStore = useAccountStore();
-  let { legA, legB, accountA, accountB, betBothLegs } = ready;
+  let {
+    legA,
+    legB,
+    accountA,
+    accountB,
+    checkAccountA,
+    checkAccountB,
+    betBothLegs,
+  } = ready;
+  checkAccountA = checkAccountA ?? accountA;
+  checkAccountB = checkAccountB ?? accountB;
 
   syncActiveBetPhase(bet.id, "checking", "账号预检");
 
-  if (accountA)
-    accountA.active = true;
-  if (accountB)
-    accountB.active = true;
+  if (checkAccountA)
+    checkAccountA.active = true;
+  if (checkAccountB)
+    checkAccountB.active = true;
 
   for (const [account, leg] of [
-    [accountA, legA] as const,
-    [accountB, legB] as const,
+    [checkAccountA, legA] as const,
+    [checkAccountB, legB] as const,
   ]) {
     if (!account || leg.type !== PLATFORMS.Polymarket)
       continue;
@@ -47,36 +58,50 @@ export async function checkArbLegs(
   const checkStart = Date.now();
 
   const checkTasks: Promise<BetOption>[] = [];
-  if (accountA)
-    checkTasks.push(accountStore.checkBetting(accountA, legA));
-  if (accountB)
-    checkTasks.push(accountStore.checkBetting(accountB, legB));
+  if (checkAccountA)
+    checkTasks.push(accountStore.checkBetting(checkAccountA, legA));
+  if (checkAccountB)
+    checkTasks.push(accountStore.checkBetting(checkAccountB, legB));
   const checked = await Promise.all(checkTasks);
   let checkIdx = 0;
-  if (accountA)
+  if (checkAccountA)
     legA = checked[checkIdx++];
-  if (accountB)
+  if (checkAccountB)
     legB = checked[checkIdx++];
 
-  const precheckLegs = buildArbProgressLegPair(legA, legB, accountA, accountB, {
-    legA: accountA
-      ? { ok: Boolean(legA.data), error: legA.checkError }
-      : undefined,
-    legB: accountB
-      ? { ok: Boolean(legB.data), error: legB.checkError }
-      : undefined,
-  }, trace?.getMeta()?.legs);
+  const precheckLegs = buildArbProgressLegPair(
+    legA,
+    legB,
+    checkAccountA,
+    checkAccountB,
+    {
+      legA: checkAccountA
+        ? { ok: Boolean(legA.data), error: legA.checkError }
+        : undefined,
+      legB: checkAccountB
+        ? { ok: Boolean(legB.data), error: legB.checkError }
+        : undefined,
+    },
+    trace?.getMeta()?.legs,
+  );
   setArbExecutionTraceMeta(trace, { legs: precheckLegs });
   trace?.event("预检", "见下方对冲腿详情");
 
-  if ((accountA && !legA.data) || (accountB && !legB.data)) {
+  function legPrecheckFailLabel(side: "A" | "B"): string | null {
+    const leg = side === "A" ? legA : legB;
+    const checkAccount = side === "A" ? checkAccountA : checkAccountB;
+    if (!checkAccount || leg.data)
+      return null;
+    const base = `${leg.type} ${leg.target}: ${leg.checkError || "无盘口数据"}`;
+    if (isSingleLegPrecheckOnly(side, accountA, accountB, checkAccountA, checkAccountB))
+      return `${base}（9999仅预检）`;
+    return base;
+  }
+
+  if ((checkAccountA && !legA.data) || (checkAccountB && !legB.data)) {
     const parts = [
-      accountA && !legA.data
-        ? `${legA.type} ${legA.target}: ${legA.checkError || "无盘口数据"}`
-        : null,
-      accountB && !legB.data
-        ? `${legB.type} ${legB.target}: ${legB.checkError || "无盘口数据"}`
-        : null,
+      legPrecheckFailLabel("A"),
+      legPrecheckFailLabel("B"),
     ].filter(Boolean);
     trace?.finish("fail", parts.join(" · ") || "预检未通过");
     syncActiveBetFail(bet.id, parts.join(" · ") || "预检未通过");

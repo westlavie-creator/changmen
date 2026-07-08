@@ -64,6 +64,11 @@ function legsFromLoseOrder(order: LoseOrder): ActiveBetLeg[] {
   ];
 }
 
+/** 双腿均成交后，面板保留时长（秒） */
+export const ACTIVE_BET_RUN_DISMISS_SEC = 3;
+
+const dismissTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
 /** [changmen 扩展] 进行中套利/补单进度（订单列表上方展示） */
 export const useActiveBetRunStore = defineStore("activeBetRun", {
   state: () => ({
@@ -106,8 +111,8 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       if (!run)
         return;
       run.events.push({ at: Date.now(), stage, detail });
-      if (run.events.length > 12)
-        run.events.splice(0, run.events.length - 12);
+      if (run.events.length > 20)
+        run.events.splice(0, run.events.length - 20);
       run.updatedAt = Date.now();
     },
 
@@ -122,10 +127,10 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
         return;
       run.phase = phase;
       run.overallLabel = overallLabel ?? PHASE_LABEL[phase];
-      if (countdownSec != null && countdownSec > 0 && phase === "settling") {
+      if (countdownSec != null && countdownSec > 0 && (phase === "settling" || phase === "syncing")) {
         run.countdownUntil = Date.now() + countdownSec * 1000;
       }
-      else if (phase !== "settling") {
+      else if (phase !== "settling" && phase !== "syncing") {
         run.countdownUntil = undefined;
       }
       run.updatedAt = Date.now();
@@ -138,11 +143,45 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       const leg = run.legs.find(l => l.side === side);
       if (!leg)
         return;
+      const prevStatus = leg.status;
       Object.assign(leg, patch);
+      if (patch.status && patch.status !== prevStatus) {
+        const label = LEG_STATUS_LABEL[patch.status] ?? patch.status;
+        const detail = patch.detail
+          ? `${leg.platform} · ${label} · ${patch.detail}`
+          : `${leg.platform} · ${label}`;
+        run.events.push({
+          at: Date.now(),
+          stage: side === "A" ? "A腿" : "B腿",
+          detail,
+        });
+        if (run.events.length > 20)
+          run.events.splice(0, run.events.length - 20);
+      }
       run.updatedAt = Date.now();
     },
 
+    /** 双腿已成交：保留 N 秒再收起（可重复调用会重置计时） */
+    scheduleDismiss(betId: number, delaySec = ACTIVE_BET_RUN_DISMISS_SEC) {
+      const existing = dismissTimers.get(betId);
+      if (existing)
+        clearTimeout(existing);
+      const run = this.runs.get(betId);
+      if (!run)
+        return;
+      this.setPhase(betId, "syncing", `双腿已成交，${delaySec}秒后收起`, delaySec);
+      dismissTimers.set(betId, setTimeout(() => {
+        dismissTimers.delete(betId);
+        this.removeRun(betId);
+      }, delaySec * 1000));
+    },
+
     removeRun(betId: number) {
+      const pending = dismissTimers.get(betId);
+      if (pending) {
+        clearTimeout(pending);
+        dismissTimers.delete(betId);
+      }
       this.runs.delete(betId);
     },
 

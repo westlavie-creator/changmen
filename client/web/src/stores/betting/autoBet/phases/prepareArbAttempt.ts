@@ -7,6 +7,7 @@ import {
   explainAllowArbRejection,
   explainMissingLegAccount,
   resolveSingleLegByRate,
+  resolveSingleLegCheckAccounts,
 } from "@/domain/betting/singleLegRate";
 import { opponentSide } from "@/models/betOption";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
@@ -18,6 +19,7 @@ import { syncActiveBetBegin } from "@/stores/betting/activeBetRunSync";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
+import { useUserStore } from "@/stores/userStore";
 
 /** 选腿、选号、比例 9999 单边 / linkId；失败时 return null（A8 静默 continue） */
 export async function prepareArbAttempt(
@@ -158,8 +160,24 @@ export async function prepareArbAttempt(
   }
 
   if (singleLegByRate) {
-    trace?.event("模式", "比例 9999 单边（对侧不下单）");
+    trace?.event("模式", "比例 9999 单边（本侧仅预检不下单）");
   }
+
+  const { checkAccountA, checkAccountB } = resolveSingleLegCheckAccounts({
+    singleLegByRate,
+    precheck9999Leg: useUserStore().extensionPrefs.singleLeg9999Precheck,
+    accountA,
+    accountB,
+    legA,
+    legB,
+    bet,
+    match,
+    accounts: accountStore.accounts,
+    excludeA,
+    excludeB,
+    matchStore,
+    implied,
+  });
 
   const linkId = createArbLinkId(singleLegByRate, linkTs);
   syncActiveBetBegin({
@@ -169,6 +187,8 @@ export async function prepareArbAttempt(
     legB,
     accountA,
     accountB,
+    checkAccountA,
+    checkAccountB,
     linkId,
     betBothLegs,
   });
@@ -178,6 +198,8 @@ export async function prepareArbAttempt(
     legB,
     accountA,
     accountB,
+    checkAccountA,
+    checkAccountB,
     implied,
     betBothLegs,
     singleLegByRate,
