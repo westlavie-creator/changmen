@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ElMessageBox } from "element-plus";
 import type { OrderRow } from "@/types/order";
 import { formatDisplayOdds, formatOrderTime, toFixed } from "@/shared/format";
 import {
@@ -12,14 +13,39 @@ import {
   orderLegendModifier,
   orderLegendText,
 } from "@/shared/orderDisplay";
-import { isMakeupPendingOrderRow, orderListDisplayRows } from "@/shared/orderLink";
+import {
+  isMakeupCancelledOrderRow,
+  isMakeupPendingOrderRow,
+  makeupBetIdFromPendingRow,
+  makeupPendingProfitLabel,
+  orderListDisplayRows,
+} from "@/shared/orderLink";
 
 export type OrderListEntry = readonly [number, OrderRow[]];
 
+const emit = defineEmits<{
+  cancelMakeup: [betId: number];
+}>();
+
 function isPendingRow(row: OrderRow): boolean {
-  if (isMakeupPendingOrderRow(row))
+  if (isMakeupPendingOrderRow(row) || isMakeupCancelledOrderRow(row))
     return false;
   return String(row.Status ?? "") === "None";
+}
+
+function onCancelMakeup(row: OrderRow) {
+  const betId = makeupBetIdFromPendingRow(row);
+  if (!betId)
+    return;
+  ElMessageBox.confirm("确认要取消补单吗？", "补单取消", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+  })
+    .then(() => {
+      emit("cancelMakeup", betId);
+    })
+    .catch(() => {});
 }
 
 withDefaults(
@@ -55,6 +81,13 @@ withDefaults(
           class="order"
         >
           <label class="status" :class="row.Status" />
+          <i
+            v-if="isMakeupPendingOrderRow(row)"
+            class="order__makeup-close"
+            title="取消补单"
+            role="button"
+            @click="onCancelMakeup(row)"
+          />
           <div class="platform flex" :class="platformClass(row)">
             <div class="provider-icon" :class="row.Type" />
             <div class="player">
@@ -92,7 +125,10 @@ withDefaults(
                 formatDisplayOdds(Number(row.Odds) || 0)
               }}</span>
               <template v-if="isMakeupPendingOrderRow(row)">
-                盈亏：补单中
+                盈亏：{{ makeupPendingProfitLabel(row) }}
+              </template>
+              <template v-else-if="isMakeupCancelledOrderRow(row)">
+                盈亏：补单已手动取消
               </template>
               <template v-else-if="isPendingRow(row)">
                 盈亏：待结算

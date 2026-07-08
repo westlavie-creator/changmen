@@ -6,6 +6,8 @@ import {
   groupOrdersByLink,
   isLinkedArbOrderGroup,
   linkIdGroupKey,
+  loseOrderToPendingRow,
+  makeupPendingProfitLabel,
   mergePendingMakeupIntoOrderGroups,
   orderLinkLegend,
   orderListDisplayRows,
@@ -133,5 +135,49 @@ describe("orderLink A8 parity", () => {
     const merged = mergePendingMakeupIntoOrderGroups(groups, loseOrders, 1.01);
     expect(merged.get(link)?.map(r => r.OrderID)).toEqual(["pm-1", "makeup-42"]);
     expect(orderLinkLegend(merged.get(link)!)).toContain("补单中");
+  });
+
+  it("loseOrderToPendingRow reflects runtime placing phase", () => {
+    const row = loseOrderToPendingRow(
+      new LoseOrder({
+        betId: 42,
+        linkId: 1,
+        target: "Away",
+        betMoney: 90,
+        betOdds: 2.9,
+        match: "G2 vs T1",
+        bet: "map",
+        accountId: 1,
+        matchId: 1,
+        runtimePhase: "placing",
+      }),
+      1.01,
+    );
+    expect(row.Status).toBe("MakeupPlacing");
+    expect(makeupPendingProfitLabel(row)).toBe("下单中");
+  });
+
+  it("mergePendingMakeupIntoOrderGroups folds cancelled makeup into arb link", () => {
+    const link = 1_700_000_000_999;
+    const groups = groupOrdersByLink([
+      { OrderID: "pm-1", Link: link, Type: "Polymarket", Status: "None", BetMoney: 100, Odds: 2.6 },
+    ]);
+    const cancelled = new Map([
+      [
+        42,
+        {
+          betId: 42,
+          linkId: link,
+          target: "Away" as const,
+          match: "G2 vs T1",
+          bet: "[地图4] 获胜",
+          createAt: 1,
+          cancelledAt: 2,
+        },
+      ],
+    ]);
+    const merged = mergePendingMakeupIntoOrderGroups(groups, new Map(), 1.01, cancelled);
+    expect(merged.get(link)?.map(r => r.OrderID)).toEqual(["pm-1", "makeup-cancelled-42"]);
+    expect(merged.get(link)?.[1]?.Player?.UserName).toBe("补单已手动取消");
   });
 });

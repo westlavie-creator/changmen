@@ -1,11 +1,12 @@
 import type { BetSide } from "@/models/match";
-import type { FollowOrderInput, LoseOrderRecord } from "@/types/order";
+import type { FollowOrderInput, LoseOrderCancelledRecord, LoseOrderRecord, MakeupRuntimePhase } from "@/types/order";
 import { defineStore } from "pinia";
 import { LoseOrder } from "@/models/loseOrder";
 import { useMatchStore } from "@/stores/matchStore";
 import { useMessageStore } from "@/stores/messageStore";
 
 const STORAGE_KEY = "LOSEORDER";
+const CANCELLED_STORAGE_KEY = "LOSEORDER_CANCELLED";
 
 /** [A8 可证实] store 定义处同步 IIFE 从 sessionStorage 恢复 */
 function restoreOrdersFromSession(): Map<number, LoseOrder> {
@@ -14,7 +15,25 @@ function restoreOrdersFromSession(): Map<number, LoseOrder> {
     if (!raw)
       return new Map();
     const list = JSON.parse(raw) as LoseOrderRecord[];
-    return new Map(list.map(row => [row.betId, new LoseOrder(row)]));
+    const map = new Map(list.map(row => [row.betId, new LoseOrder(row)]));
+    for (const order of map.values()) {
+      if (order.runtimePhase === "placing" || order.runtimePhase === "settling")
+        order.runtimePhase = undefined;
+    }
+    return map;
+  }
+  catch {
+    return new Map();
+  }
+}
+
+function restoreCancelledFromSession(): Map<number, LoseOrderCancelledRecord> {
+  try {
+    const raw = sessionStorage.getItem(CANCELLED_STORAGE_KEY);
+    if (!raw)
+      return new Map();
+    const list = JSON.parse(raw) as LoseOrderCancelledRecord[];
+    return new Map(list.map(row => [row.betId, row]));
   }
   catch {
     return new Map();
@@ -25,6 +44,7 @@ function restoreOrdersFromSession(): Map<number, LoseOrder> {
 export const useLoseOrderStore = defineStore("loseorder", {
   state: () => ({
     orders: restoreOrdersFromSession(),
+    cancelledOrders: restoreCancelledFromSession(),
   }),
 
   getters: {
@@ -34,17 +54,27 @@ export const useLoseOrderStore = defineStore("loseorder", {
   actions: {
     restore() {
       this.orders = restoreOrdersFromSession();
+      this.cancelledOrders = restoreCancelledFromSession();
     },
 
     ensureOrdersMap() {
       if (!(this.orders instanceof Map))
         this.orders = new Map();
+      if (!(this.cancelledOrders instanceof Map))
+        this.cancelledOrders = new Map();
     },
 
     persist() {
       sessionStorage.setItem(
         STORAGE_KEY,
         JSON.stringify([...this.orders.values()].map(o => o.toJSON())),
+      );
+    },
+
+    persistCancelled() {
+      sessionStorage.setItem(
+        CANCELLED_STORAGE_KEY,
+        JSON.stringify([...this.cancelledOrders.values()]),
       );
     },
 
@@ -66,6 +96,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
         return;
       existing.pendingPmOrderId = id;
       existing.pendingPmAccountId = Number(accountId) || undefined;
+      existing.runtimePhase = "pm_pending";
       this.persist();
     },
 
@@ -75,6 +106,16 @@ export const useLoseOrderStore = defineStore("loseorder", {
         return;
       existing.pendingPmOrderId = undefined;
       existing.pendingPmAccountId = undefined;
+      if (existing.runtimePhase === "pm_pending")
+        existing.runtimePhase = undefined;
+      this.persist();
+    },
+
+    setMakeupRuntimePhase(betId: number, phase: MakeupRuntimePhase | undefined) {
+      const existing = this.orders.get(betId);
+      if (!existing)
+        return;
+      existing.runtimePhase = phase;
       this.persist();
     },
 
@@ -120,6 +161,27 @@ export const useLoseOrderStore = defineStore("loseorder", {
         this.orders.delete(betId);
       }
       this.persist();
+    },
+
+    /** [changmen 扩展] 侧栏补单行手动取消：出队但保留 Link 组展示 */
+    cancelMakeupManually(betId: number) {
+      const existing = this.orders.get(betId);
+      if (!existing)
+        return;
+      this.cancelledOrders.set(betId, {
+        betId,
+        linkId: existing.linkId,
+        match: existing.match,
+        bet: existing.bet,
+        target: existing.target,
+        createAt: existing.createAt,
+        cancelledAt: Date.now(),
+      });
+      this.removeOrder(betId, true);
+      this.persistCancelled();
+      void import("@/stores/activeBetRunStore")
+        .then(({ useActiveBetRunStore }) => useActiveBetRunStore().removeRun(betId))
+        .catch(() => {});
     },
 
     removeOrders(activeBetIds: number[]) {

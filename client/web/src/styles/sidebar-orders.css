@@ -311,6 +311,63 @@
   content: "补";
 }
 
+.orders .status.MakeupPlacing {
+  color: #79bbff;
+  background: rgba(121, 187, 255, 0.12);
+  border: 1px solid #79bbff;
+}
+
+.orders .status.MakeupPlacing::after {
+  content: "下单中";
+}
+
+.orders .status.MakeupSettling {
+  color: #b882ff;
+  background: rgba(184, 130, 255, 0.12);
+  border: 1px solid #b882ff;
+}
+
+.orders .status.MakeupSettling::after {
+  content: "检测中";
+}
+
+.orders .status.MakeupCancelled {
+  color: #a8a8a8;
+  background: rgba(168, 168, 168, 0.12);
+  border: 1px solid #a8a8a8;
+}
+
+.orders .status.MakeupCancelled::after {
+  content: "消";
+}
+
+.orders .order__makeup-close {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.25s;
+}
+
+.orders .order__makeup-close::before {
+  content: "\00d7";
+  display: block;
+  line-height: 16px;
+}
+
+.orders .order__makeup-close:hover {
+  transform: scale(1.2);
+}
+
 .orders.loading::before {
   content: "订单数据加载中";
   color: #ffffff80;

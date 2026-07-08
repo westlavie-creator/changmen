@@ -24,7 +24,7 @@ const loseStore = useLoseOrderStore();
 const userStore = useUserStore();
 const { orderDate, loading, filterAccountId, accountOptions, orders, filteredOrders }
   = storeToRefs(orderStore);
-const { orders: loseOrders } = storeToRefs(loseStore);
+const { orders: loseOrders, cancelledOrders } = storeToRefs(loseStore);
 const { config } = storeToRefs(userStore);
 
 const mergedOrderEntries = computed(() => {
@@ -32,6 +32,7 @@ const mergedOrderEntries = computed(() => {
     filteredOrders.value,
     loseOrders.value,
     config.value.makeProfit,
+    cancelledOrders.value,
   );
   return orderLinkMapEntries(merged);
 });
@@ -84,6 +85,10 @@ function playerLabel(row: Parameters<typeof orderStore.playerLabel>[0]) {
 function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
   return orderStore.platformClass(row);
 }
+
+function onCancelMakeup(betId: number) {
+  loseStore.cancelMakeupManually(betId);
+}
 </script>
 
 <template>
@@ -129,6 +134,7 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
     :loading="loading || viewLoading"
     :player-label="playerLabel"
     :platform-class="platformClass"
+    @cancel-makeup="onCancelMakeup"
   />
 </template>
 

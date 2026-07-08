@@ -1,4 +1,4 @@
-import type { OrderRow } from "@/types/order";
+import type { LoseOrderCancelledRecord, OrderRow } from "@/types/order";
 import type { LoseOrder } from "@/models/loseOrder";
 import { hasOpenPolymarketPosition } from "@venue/polymarket/pmLogicalPosition";
 import { formatLinkId, isSingleLegLink, toFixed } from "@/shared/format";
@@ -58,15 +58,75 @@ export function orderListDisplayRows(rows: OrderRow[]): OrderRow[] {
 }
 
 export function isMakeupPendingOrderRow(row: OrderRow): boolean {
-  return String(row.Status ?? "") === "Makeup"
-    || String(row.OrderID ?? "").startsWith("makeup-");
+  const id = String(row.OrderID ?? "");
+  if (id.startsWith("makeup-cancelled-"))
+    return false;
+  const status = String(row.Status ?? "");
+  return status === "Makeup"
+    || status === "MakeupPlacing"
+    || status === "MakeupSettling"
+    || id.startsWith("makeup-");
+}
+
+export function isMakeupCancelledOrderRow(row: OrderRow): boolean {
+  return String(row.Status ?? "") === "MakeupCancelled"
+    || String(row.OrderID ?? "").startsWith("makeup-cancelled-");
+}
+
+export function isMakeupSyntheticOrderRow(row: OrderRow): boolean {
+  return isMakeupPendingOrderRow(row) || isMakeupCancelledOrderRow(row);
+}
+
+export function makeupBetIdFromPendingRow(row: OrderRow): number | null {
+  if (!isMakeupPendingOrderRow(row))
+    return null;
+  const id = String(row.OrderID ?? "");
+  const n = Number(id.slice("makeup-".length));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** [changmen 扩展] 补单占位行盈亏文案 */
+export function makeupPendingProfitLabel(row: OrderRow): string {
+  switch (String(row.Status ?? "")) {
+    case "MakeupPlacing":
+      return "下单中";
+    case "MakeupSettling":
+      return "检测拒单中";
+    default:
+      if (String(row.Player?.UserName ?? "").includes("PM待确认"))
+        return "PM待确认";
+      if (String(row.Player?.UserName ?? "").includes("再次被拒"))
+        return "再次被拒，补单中";
+      return "补单中";
+  }
+}
+
+function resolveMakeupPendingPresentation(order: LoseOrder): {
+  status: string;
+  playerUserName: string;
+} {
+  const pendingPm = String(order.pendingPmOrderId ?? "").trim();
+  const phase = pendingPm ? "pm_pending" : order.runtimePhase;
+  if (phase === "placing") {
+    return { status: "MakeupPlacing", playerUserName: "下单中" };
+  }
+  if (phase === "settling") {
+    return { status: "MakeupSettling", playerUserName: "检测拒单中" };
+  }
+  if (phase === "pm_pending" || pendingPm) {
+    return { status: "Makeup", playerUserName: "补单中 · PM待确认" };
+  }
+  if (phase === "rejected_retry") {
+    return { status: "Makeup", playerUserName: "补单中 · 再次被拒" };
+  }
+  return { status: "Makeup", playerUserName: "补单中" };
 }
 
 /** [changmen 扩展] 补单队列项 → 订单组内「补单中」占位行（同 Link 合并展示） */
 export function loseOrderToPendingRow(order: LoseOrder, makeProfit: number): OrderRow {
   const odds = order.getOdds(makeProfit);
   const betMoney = order.getBetMoney(odds);
-  const pendingPm = String(order.pendingPmOrderId ?? "").trim();
+  const presentation = resolveMakeupPendingPresentation(order);
   return {
     OrderID: `makeup-${order.betId}`,
     Link: order.linkId,
@@ -77,10 +137,30 @@ export function loseOrderToPendingRow(order: LoseOrder, makeProfit: number): Ord
     Odds: odds,
     BetMoney: betMoney,
     Money: 0,
-    Status: "Makeup",
+    Status: presentation.status,
     CreateAt: order.createAt,
     Player: {
-      UserName: pendingPm ? "补单中 · PM待确认" : "补单中",
+      UserName: presentation.playerUserName,
+    },
+  };
+}
+
+/** [changmen 扩展] 手动取消的补单 → Link 组内展示行 */
+export function loseOrderToCancelledRow(record: LoseOrderCancelledRecord): OrderRow {
+  return {
+    OrderID: `makeup-cancelled-${record.betId}`,
+    Link: record.linkId,
+    Type: "—",
+    Match: record.match,
+    Bet: record.bet,
+    Item: record.target,
+    Odds: 0,
+    BetMoney: 0,
+    Money: 0,
+    Status: "MakeupCancelled",
+    CreateAt: record.cancelledAt,
+    Player: {
+      UserName: "补单已手动取消",
     },
   };
 }
@@ -90,6 +170,7 @@ export function mergePendingMakeupIntoOrderGroups(
   groups: Map<number, OrderRow[]>,
   loseOrders: Map<number, LoseOrder>,
   makeProfit: number,
+  cancelledMakeup: Map<number, LoseOrderCancelledRecord> = new Map(),
 ): Map<number, OrderRow[]> {
   const allRows: OrderRow[] = [];
   for (const rows of groups.values())
@@ -102,6 +183,14 @@ export function mergePendingMakeupIntoOrderGroups(
       continue;
     allRows.push(loseOrderToPendingRow(order, makeProfit));
   }
+  for (const record of cancelledMakeup.values()) {
+    if (!record.linkId)
+      continue;
+    const syntheticId = `makeup-cancelled-${record.betId}`;
+    if (allRows.some(r => String(r.OrderID) === syntheticId))
+      continue;
+    allRows.push(loseOrderToCancelledRow(record));
+  }
   return groupOrdersByLink(allRows);
 }
 
@@ -109,7 +198,7 @@ export function mergePendingMakeupIntoOrderGroups(
 export function computeOrderGroupProfit(rows: OrderRow[]): number {
   return rows
     .filter(r => !(isPolymarketOrderRow(r) && r.PmSide === "sell"))
-    .filter(r => !isMakeupPendingOrderRow(r))
+    .filter(r => !isMakeupSyntheticOrderRow(r))
     .reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
 }
 
@@ -118,7 +207,7 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
   const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
   const stake = rows
-    .filter(r => !LOSE_REJECT.has(String(r.Status)) && r.PmSide !== "sell" && !isMakeupPendingOrderRow(r))
+    .filter(r => !LOSE_REJECT.has(String(r.Status)) && r.PmSide !== "sell" && !isMakeupSyntheticOrderRow(r))
     .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
   const hasMakeup = rows.some(isMakeupPendingOrderRow);
   const makeupPrefix = hasMakeup ? "补单中 · " : "";
@@ -144,7 +233,7 @@ export function isLinkedArbOrderGroup(rows: OrderRow[]): boolean {
   const providers = new Set(
     rows.map(r => String(r.Type ?? "").trim()).filter(Boolean),
   );
-  const hasMakeup = rows.some(isMakeupPendingOrderRow);
+  const hasMakeup = rows.some(isMakeupSyntheticOrderRow);
   if (hasMakeup && rows.length >= 2 && link !== 0 && !isSingleLegLink(link))
     return true;
   return providers.size >= 2;

@@ -2,13 +2,21 @@ import type { BetOption } from "@/models/betOption";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ActiveBetLegStatus, ActiveBetRunPhase } from "@/types/activeBetRun";
+import type { MakeupRuntimePhase } from "@/types/order";
 import { getActivePinia } from "pinia";
 import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 function activeStore() {
   if (!getActivePinia())
     return undefined;
   return useActiveBetRunStore();
+}
+
+function syncMakeupListPhase(betId: number, phase: MakeupRuntimePhase | undefined) {
+  if (!getActivePinia())
+    return;
+  useLoseOrderStore().setMakeupRuntimePhase(betId, phase);
 }
 
 function legFromOption(
@@ -257,6 +265,7 @@ export function syncActiveBetMakeupAttempt(
   platform: string,
   detail: string,
 ) {
+  syncMakeupListPhase(betId, "placing");
   const store = activeStore();
   if (!store)
     return;
@@ -267,10 +276,12 @@ export function syncActiveBetMakeupAttempt(
 }
 
 export function syncActiveBetMakeupSettling(betId: number, waitSec: number) {
+  syncMakeupListPhase(betId, "settling");
   syncActiveBetPhase(betId, "settling", `补单已提交，等待 ${waitSec}s`);
 }
 
 export function syncActiveBetMakeupRejected(betId: number, target: string) {
+  syncMakeupListPhase(betId, "rejected_retry");
   const store = activeStore();
   if (!store)
     return;
@@ -279,6 +290,7 @@ export function syncActiveBetMakeupRejected(betId: number, target: string) {
 }
 
 export function syncActiveBetMakeupDone(betId: number, platform: string, odds: number) {
+  syncMakeupListPhase(betId, undefined);
   const store = activeStore();
   if (!store)
     return;

@@ -1,5 +1,5 @@
 import type { BetSide } from "@/models/match";
-import type { LoseOrderRecord } from "@/types/order";
+import type { LoseOrderRecord, MakeupRuntimePhase } from "@/types/order";
 import { toFixed } from "@/shared/format";
 
 /** 对齐 A8 bundle `eb`（补单队列项） */
@@ -18,6 +18,7 @@ export class LoseOrder implements LoseOrderRecord {
   betCount: number;
   pendingPmOrderId?: string;
   pendingPmAccountId?: number;
+  runtimePhase?: MakeupRuntimePhase;
 
   constructor(raw: Partial<LoseOrderRecord>) {
     this.accountId = Number(raw.accountId) || 0;
@@ -38,6 +39,7 @@ export class LoseOrder implements LoseOrderRecord {
     this.pendingPmAccountId = pendingId && Number.isFinite(pendingAcc) && pendingAcc > 0
       ? pendingAcc
       : undefined;
+    this.runtimePhase = raw.runtimePhase;
   }
 
   getBetMoney(odds: number) {
@@ -74,6 +76,7 @@ export class LoseOrder implements LoseOrderRecord {
             pendingPmAccountId: this.pendingPmAccountId,
           }
         : {}),
+      ...(this.runtimePhase ? { runtimePhase: this.runtimePhase } : {}),
     };
   }
 }
