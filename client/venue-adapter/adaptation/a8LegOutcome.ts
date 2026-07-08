@@ -7,6 +7,7 @@ import type {
   VenueOrder,
 } from "@venue/contract";
 import { sortVenueOrdersNewestFirst } from "@venue/contract";
+import { venueRejectWaitBeforePoll } from "@venue/shared/rejectWait";
 
 /** [A8 可证实] 场馆订单列表首条 status 为 reject 视为拒单 */
 export function isA8VenueReject(orders: VenueOrder[]): boolean {
@@ -32,6 +33,7 @@ export async function resolveA8VenueLegOutcome(
   _result?: BetResult,
   opts?: ResolveLegOutcomeOpts,
 ): Promise<VenueLegOutcome> {
+  await venueRejectWaitBeforePoll(opts?.rejectWaitSec);
   const orders = await pullVenueOrders(provider, account, opts);
   return {
     orders,

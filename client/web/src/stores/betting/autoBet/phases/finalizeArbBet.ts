@@ -6,7 +6,11 @@ import { findSingleLegRateAccount } from "@/domain/betting/singleLegRate";
 import { opponentSide } from "@/models/betOption";
 import { useAccountStore } from "@/stores/accountStore";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
-import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
+import {
+  legRejectWaitSec,
+  maxLegRejectWaitSec,
+  showRejectDetectionTip,
+} from "@/stores/betting/autoBet/rejectWait";
 import {
   syncVenueOrdersWithRejectForLeg,
 } from "@/stores/betting/autoBet/venueRejectSync";
@@ -138,28 +142,45 @@ export async function finalizeArbBet(
   const boundLegLabels: string[] = [];
 
   if (successAccounts.length) {
-    const rejectWait = rejectWaitSeconds(config, successAccounts);
-    trace?.event("拒单", `等待 ${waitSec}s 展示 / 检测 ${rejectWait}s`);
-    syncActiveBetPhase(bet.id, "settling", "拒单检测", rejectWait);
-    await waitRejectDetection(waitSec, rejectWait);
+    const maxWait = maxLegRejectWaitSec(config, successAccounts);
+    trace?.event("拒单", `各腿并行检测 / 最长 ${maxWait}s（场馆层）`);
+    syncActiveBetPhase(bet.id, "settling", "拒单检测", maxWait > 0 ? maxWait : undefined);
+    void showRejectDetectionTip(waitSec);
+
+    const legTasks: Promise<void>[] = [];
+
     if (resultA?.success && accountA) {
-      const synced = await syncVenueOrdersWithRejectForLeg(accountA, resultA);
-      ordersA = synced.orders;
-      rejectA = synced.rejected;
-      syncActiveBetLegSettleResult(bet.id, "A", true, rejectA);
-      if (await bindArbLegOrder(linkId, accountA, resultA, ordersA, rejectA))
-        boundLegLabels.push(legA.type);
-      if (resultB?.success && accountB)
-        syncActiveBetPhase(bet.id, "settling", `等待 ${legB.type} 确认`);
+      legTasks.push((async () => {
+        const synced = await syncVenueOrdersWithRejectForLeg(
+          accountA,
+          resultA,
+          legRejectWaitSec(config, accountA.provider),
+        );
+        ordersA = synced.orders;
+        rejectA = synced.rejected;
+        syncActiveBetLegSettleResult(bet.id, "A", true, rejectA);
+        if (await bindArbLegOrder(linkId, accountA, resultA, ordersA, rejectA))
+          boundLegLabels.push(legA.type);
+      })());
     }
+
     if (resultB?.success && accountB) {
-      const synced = await syncVenueOrdersWithRejectForLeg(accountB, resultB);
-      ordersB = synced.orders;
-      rejectB = synced.rejected;
-      syncActiveBetLegSettleResult(bet.id, "B", true, rejectB);
-      if (await bindArbLegOrder(linkId, accountB, resultB, ordersB, rejectB))
-        boundLegLabels.push(legB.type);
+      legTasks.push((async () => {
+        const synced = await syncVenueOrdersWithRejectForLeg(
+          accountB,
+          resultB,
+          legRejectWaitSec(config, accountB.provider),
+        );
+        ordersB = synced.orders;
+        rejectB = synced.rejected;
+        syncActiveBetLegSettleResult(bet.id, "B", true, rejectB);
+        if (await bindArbLegOrder(linkId, accountB, resultB, ordersB, rejectB))
+          boundLegLabels.push(legB.type);
+      })());
     }
+
+    await Promise.all(legTasks);
+
     trace?.event(
       "拒单",
       [

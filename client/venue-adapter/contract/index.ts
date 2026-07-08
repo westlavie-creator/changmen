@@ -88,6 +88,11 @@ export interface ResolveLegOutcomeOpts {
   orders?: VenueOrder[];
   /** 编排层拉单回调（含 saveOrders）；PM settle 后刷新用 */
   fetchVenueOrders?: () => Promise<VenueOrder[]>;
+  /**
+   * 拒单检测前等待秒数（A8 类场馆：sleep 后拉单一次）。
+   * PM delayed 忽略此项，走 adapter 内 settlement 时序。
+   */
+  rejectWaitSec?: number;
 }
 
 export interface PlatformProvider {

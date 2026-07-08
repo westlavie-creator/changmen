@@ -7,11 +7,9 @@ import { publishBettingEvent } from "@/realtime/publishBetting";
 import { getProvider } from "@/runtime/providers";
 import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify";
 import { playOrderSuccessSound } from "@/shared/orderSound";
-import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
 import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
 import { resolveVenueStakeFromPlanCny } from "@venue/adaptation/a8VenueMoney";
-import { useUserStore } from "@/stores/userStore";
 import { useMessageStore } from "@/stores/messageStore";
 
 function notifyPolymarketAfterRejectDetection(
@@ -23,9 +21,7 @@ function notifyPolymarketAfterRejectDetection(
   toastSeconds: number,
 ) {
   void (async () => {
-    const rejectWait = rejectWaitSeconds(useUserStore().config, [account]);
-    await waitRejectDetection(rejectWait, rejectWait);
-    const { rejected } = await syncVenueOrdersWithRejectForLeg(account, result);
+    const { rejected } = await syncVenueOrdersWithRejectForLeg(account, result, 0);
     const titleSuffix = rejected ? "未成交" : "已成交";
     ElNotification({
       title: `${accountTitle} ${titleSuffix}`,

@@ -3,10 +3,9 @@ import type { BetResult } from "@/models/betResult";
 import type { ViewBet } from "@/models/match";
 import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { resolveA8VenueReject } from "@/domain/betting";
+import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome";
 import { a8Tip } from "@/shared/a8Notify";
-import { wait } from "@/shared/wait";
-import { sortVenueOrdersNewestFirst } from "@venue/contract";
+import { isVenueLegRejected } from "@venue/contract";
 import type { useAccountStore } from "@/stores/accountStore";
 import {
   bindArbLegOrder,
@@ -59,42 +58,46 @@ export async function processA8RegularVenueMakeUpLeg(params: {
     return;
   }
 
+  if (waitSec === 0) {
+    removeIds.add(betId);
+    markSuccessfulBet(account, bet.id, order.target);
+    return;
+  }
+
   if (waitSec > 0) {
     a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
     syncActiveBetMakeupSettling(betId, waitSec);
-    await wait(waitSec * 1000);
   }
 
-  let rejected = false;
-  if (waitSec !== 0) {
-    const rawOrders = (await accountStore.updateVenueOrders(account)) ?? [];
-    const venueOrders = sortVenueOrdersNewestFirst(rawOrders);
-    rejected = resolveA8VenueReject(venueOrders);
+  const legOutcome = await resolveVenueLegOutcome(
+    account,
+    result,
+    () => accountStore.updateVenueOrders(account),
+    { rejectWaitSec: waitSec },
+  );
+  const venueOrders = legOutcome.orders;
+  const rejected = isVenueLegRejected(legOutcome);
 
-    if (venueOrders.length > 0) {
-      if (rejected) {
-        setMessage(`${order.target} 再次被拒单`);
-        a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
-        syncActiveBetMakeupRejected(betId, order.target);
-      }
-      else {
-        removeIds.add(betId);
-        syncActiveBetMakeupDone(betId, account.provider, checked.odds);
-      }
-      await bindArbLegOrder(order.linkId, account, result, venueOrders, rejected);
-      refreshOrderListAfterBind();
+  if (venueOrders.length > 0) {
+    if (rejected) {
+      setMessage(`${order.target} 再次被拒单`);
+      a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
+      syncActiveBetMakeupRejected(betId, order.target);
     }
     else {
       removeIds.add(betId);
       syncActiveBetMakeupDone(betId, account.provider, checked.odds);
-      await bindArbLegOrder(order.linkId, account, result, [], false);
-      refreshOrderListAfterBind();
     }
-    useMessageStore().loseOrderMessage(account, order, checked, rejected);
+    await bindArbLegOrder(order.linkId, account, result, venueOrders, rejected);
+    refreshOrderListAfterBind();
   }
   else {
     removeIds.add(betId);
+    syncActiveBetMakeupDone(betId, account.provider, checked.odds);
+    await bindArbLegOrder(order.linkId, account, result, [], false);
+    refreshOrderListAfterBind();
   }
+  useMessageStore().loseOrderMessage(account, order, checked, rejected);
 
   markSuccessfulBet(account, bet.id, order.target);
 }

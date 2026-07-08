@@ -110,7 +110,6 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
           order,
           match,
           bet,
-          config,
           account,
           checked,
           result,

@@ -27,4 +27,23 @@ describe("a8LegOutcome", () => {
 
     expect(out.settlement).toBe("unfilled");
   });
+
+  it("waits rejectWaitSec before pulling orders", async () => {
+    vi.useFakeTimers();
+    const getOrders = vi.fn().mockResolvedValue([{ status: "none", createAt: 1 } as never]);
+    const provider = { getOrders };
+
+    const pending = resolveA8VenueLegOutcome(
+      provider,
+      { provider: "OB" } as never,
+      undefined,
+      { rejectWaitSec: 3 },
+    );
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(getOrders).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+    expect(getOrders).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
 });

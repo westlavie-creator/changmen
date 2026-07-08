@@ -86,6 +86,10 @@ vi.mock("@/shared/betTiming", () => ({
   makeUpBetToastSeconds: vi.fn(() => 10),
 }));
 
+vi.mock("@venue/shared/rejectWait", () => ({
+  venueRejectWaitBeforePoll: vi.fn(async () => {}),
+}));
+
 vi.mock("@venue/polymarket/orderSettlement", () => ({
   settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
 }));

@@ -36,12 +36,16 @@ export async function fetchVenueOrdersWithReject(
 export async function syncVenueOrdersWithRejectForLeg(
   account: PlatformAccount,
   result?: BetResult,
+  rejectWaitSec?: number,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
   const outcome = await resolveVenueLegOutcome(
     account,
     result,
     () => useAccountStore().updateVenueOrders(account),
-    { confirmPmPost: account.provider === "Polymarket" && Boolean(result) },
+    {
+      confirmPmPost: account.provider === "Polymarket" && Boolean(result),
+      rejectWaitSec,
+    },
   );
   return {
     orders: outcome.orders,

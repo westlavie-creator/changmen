@@ -3,16 +3,9 @@ import type { BetResult } from "@/models/betResult";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { a8Tip } from "@/shared/a8Notify";
-import { makeUpBetToastSeconds } from "@/shared/betTiming";
-import { wait } from "@/shared/wait";
-import type { UserConfig } from "@/types/userConfig";
+import { syncActiveBetMakeupPmDelayed } from "@/stores/betting/activeBetRunSync";
 import { applyPmJbSettlementOutcome } from "@/stores/betting/loseOrderPmPending";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
-import {
-  syncActiveBetMakeupPmDelayed,
-  syncActiveBetMakeupSettling,
-} from "@/stores/betting/activeBetRunSync";
 import type { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 export interface PmMakeUpLegContext {
@@ -20,7 +13,6 @@ export interface PmMakeUpLegContext {
   order: LoseOrder;
   match: ViewMatch;
   bet: ViewBet;
-  config: UserConfig;
   account: PlatformAccount;
   checked: BetOption;
   result: BetResult;
@@ -37,7 +29,6 @@ export async function processPmMakeUpLeg(ctx: PmMakeUpLegContext): Promise<void>
     order,
     match,
     bet,
-    config,
     account,
     checked,
     result,
@@ -49,13 +40,6 @@ export async function processPmMakeUpLeg(ctx: PmMakeUpLegContext): Promise<void>
 
   if (result.pending)
     syncActiveBetMakeupPmDelayed(betId, result.orderId);
-
-  const waitSec = makeUpBetToastSeconds(config, account.provider);
-  if (waitSec > 0) {
-    a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
-    syncActiveBetMakeupSettling(betId, waitSec);
-    await wait(waitSec * 1000);
-  }
 
   await applyPmJbSettlementOutcome({
     betId,

@@ -20,7 +20,7 @@
 }
 
 .active-bet-run legend {
-  font-size: 11px;
+  font-size: 12px;
   padding: 0 5px;
   color: #e8f4ff;
   background: linear-gradient(to bottom, #3a7bd5, #1e4f8a);
@@ -45,7 +45,7 @@
   align-items: center;
   justify-content: center;
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   color: #94a3b8;
   opacity: 0.9;
 }
@@ -58,7 +58,7 @@
   flex-direction: column;
   gap: 4px;
   padding: 5px 8px 5px 10px;
-  font-size: 11px;
+  font-size: 12px;
   color: #e8f4ffcc;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   border-left: 3px solid transparent;
@@ -98,14 +98,14 @@
 }
 
 .active-bet-run__col-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: #b8dcff;
   white-space: nowrap;
 }
 
 .active-bet-run__phase {
-  font-size: 10px;
+  font-size: 11px;
   color: #7ec8ff;
   white-space: nowrap;
   overflow: hidden;
@@ -132,7 +132,7 @@
 }
 
 .active-bet-run__match {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -147,7 +147,7 @@
 }
 
 .active-bet-run__bet {
-  font-size: 10px;
+  font-size: 11px;
   opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
@@ -176,8 +176,8 @@
   padding: 3px 5px;
   border-radius: 2px;
   background: rgba(0, 0, 0, 0.25);
-  font-size: 10px;
-  line-height: 1.25;
+  font-size: 11px;
+  line-height: 1.3;
   white-space: nowrap;
 }
 
@@ -190,19 +190,19 @@
 }
 
 .active-bet-run__leg-status {
-  font-size: 10px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .active-bet-run__leg-odds {
-  font-size: 10px;
+  font-size: 11px;
   opacity: 0.9;
   font-variant-numeric: tabular-nums;
 }
 
 .active-bet-run__leg-money {
-  font-size: 10px;
+  font-size: 11px;
   color: #b8dcff;
   font-variant-numeric: tabular-nums;
 }
@@ -226,7 +226,7 @@
 .active-bet-run__foot {
   flex: 0 0 auto;
   margin: 0;
-  font-size: 9px;
+  font-size: 10px;
   opacity: 0.7;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 2px;

@@ -18,7 +18,7 @@ vi.mock("@/stores/betting/autoBet/arbProgressTrace", () => ({
 }));
 
 const {
-  waitRejectDetection,
+  showRejectDetectionTip,
   syncVenueOrdersWithRejectForLeg,
   applyArbMakeUpFromRejects,
   markSuccessfulBet,
@@ -26,7 +26,7 @@ const {
   refreshBalance,
   bettingMessage,
 } = vi.hoisted(() => ({
-  waitRejectDetection: vi.fn(),
+  showRejectDetectionTip: vi.fn(),
   syncVenueOrdersWithRejectForLeg: vi.fn(),
   applyArbMakeUpFromRejects: vi.fn(),
   markSuccessfulBet: vi.fn(),
@@ -36,8 +36,9 @@ const {
 }));
 
 vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
-  rejectWaitSeconds: vi.fn(() => 3),
-  waitRejectDetection,
+  legRejectWaitSec: vi.fn(() => 3),
+  maxLegRejectWaitSec: vi.fn(() => 3),
+  showRejectDetectionTip,
 }));
 
 vi.mock("@/stores/betting/autoBet/venueRejectSync", async (importOriginal) => {
@@ -189,7 +190,7 @@ describe("finalizeArbBet makeup enqueue", () => {
       enqueuedForLegA: false,
       enqueuedForLegB: false,
     });
-    waitRejectDetection.mockResolvedValue(undefined);
+    showRejectDetectionTip.mockResolvedValue(undefined);
     refreshBalance.mockResolvedValue(undefined);
     syncVenueOrdersWithRejectForLeg.mockReset();
   });
@@ -202,8 +203,13 @@ describe("finalizeArbBet makeup enqueue", () => {
     await finalizeArbBet(params, makePlaced());
 
     expect(refreshBalance).toHaveBeenCalledTimes(2);
-    expect(waitRejectDetection).toHaveBeenCalledWith(10, 3);
+    expect(showRejectDetectionTip).toHaveBeenCalledWith(10);
     expect(syncVenueOrdersWithRejectForLeg).toHaveBeenCalledTimes(2);
+    expect(syncVenueOrdersWithRejectForLeg).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "OB" }),
+      expect.anything(),
+      3,
+    );
     expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
       params,
       expect.anything(),
@@ -269,7 +275,7 @@ describe("finalizeArbBet makeup enqueue", () => {
 
     await finalizeArbBet(params, placed);
 
-    expect(waitRejectDetection).toHaveBeenCalled();
+    expect(showRejectDetectionTip).toHaveBeenCalled();
     expect(syncVenueOrdersWithRejectForLeg).toHaveBeenCalledTimes(1);
   });
 
@@ -389,26 +395,22 @@ describe("finalizeArbBet makeup enqueue", () => {
     });
   });
 
-  it("refreshBalance 不阻塞拒单等待", async () => {
+  it("refreshBalance 不阻塞并行拒单检测", async () => {
     mockDualLegVenueSync(
       { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
       { orders: [venueOrder("ray-1", "none", 3)], rejected: false },
     );
-    let rejectWaitStarted = false;
     refreshBalance.mockImplementation(
       () =>
         new Promise<void>((resolve) => {
           setTimeout(resolve, 50);
         }),
     );
-    waitRejectDetection.mockImplementation(async () => {
-      rejectWaitStarted = true;
-    });
 
     await finalizeArbBet(params, makePlaced());
 
     expect(refreshBalance).toHaveBeenCalled();
-    expect(rejectWaitStarted).toBe(true);
+    expect(syncVenueOrdersWithRejectForLeg).toHaveBeenCalledTimes(2);
   });
 
   it("开启套利进度报告时不发旧版 bettingMessage", async () => {
