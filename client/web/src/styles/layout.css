@@ -52,7 +52,7 @@ a,.green {
   position:relative;display:flex;flex-direction:column;
 }
 
-#app .el-aside .userinfo,#app .el-aside .loseorder-container,#app .el-aside .date,.common-layout .el-aside .userinfo,.common-layout .el-aside .loseorder-container,.common-layout .el-aside .date {
+#app .el-aside .userinfo,#app .el-aside .loseorder-container,#app .el-aside .date,#app .el-aside .order-makeup-status,.common-layout .el-aside .userinfo,.common-layout .el-aside .loseorder-container,.common-layout .el-aside .date,.common-layout .el-aside .order-makeup-status {
   flex:0 0 auto;
 }
 

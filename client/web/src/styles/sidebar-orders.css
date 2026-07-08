@@ -4,6 +4,23 @@
  * 补单 .loseorders 由 lose-order.css（组件 import）维护
  */
 
+/* [changmen 扩展] 订单列表上方补单摘要条（无补单时不渲染） */
+.order-makeup-status {
+  flex: 0 0 auto;
+  margin: 0 8px 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  text-shadow: 1px 1px 0 #000;
+  background: linear-gradient(to bottom, #e6a23c, #b88230);
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
 #app .el-aside .orders,
 .common-layout .el-aside .orders,
 .admin-orders-user-col .orders {

@@ -3,6 +3,7 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import OrderList from "@/components/order/OrderList.vue";
+import OrderMakeupStatusBar from "@/components/order/OrderMakeupStatusBar.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
 import { mergePendingMakeupIntoOrderGroups, orderLinkMapEntries } from "@/shared/orderLink";
 import { wait } from "@/shared/wait";
@@ -120,6 +121,8 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
   <p v-if="showFilteredEmpty" class="order-filter-empty">
     当前账号筛选下无订单，请选「全部」或点刷新
   </p>
+
+  <OrderMakeupStatusBar />
 
   <OrderList
     :order-entries="mergedOrderEntries"

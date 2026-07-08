@@ -77,7 +77,8 @@
 }
 
 .app-sidebar > .userinfo,
-.app-sidebar > .date {
+.app-sidebar > .date,
+.app-sidebar > .order-makeup-status {
   flex: 0 0 auto;
 }
 
