@@ -106,7 +106,7 @@
 |------|------|
 | 全卖 changmen 买单 | attr=fill, state=closed, 买单不再 Gamma settle |
 | 部分卖 | state=partial, 剩余份额 Gamma 仍可结算 |
-| 卖单 delayed → 确认 | `venueRejectSync` / `settlePolymarketDelayedOrder` |
+| 卖单 delayed → 确认 | `arbLegSettle` / `settlePolymarketDelayedOrder` |
 | 卖单 POST matched | `parsePolymarketSellOrderFill` |
 | persist 后 sync  round-trip | RDS attr/state 不被 CLOB merge 覆盖错 |
 | `open+full attr` 历史行 | `orders.test.ts` L710 NRG 回归 |

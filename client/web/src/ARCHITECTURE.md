@@ -147,7 +147,8 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `extensions/arbBet/ui/` | 赔率涨跌动画、套利腿连线与利润角标 | [changmen 扩展] |
 | `domain/betting/buildOrderOptions.ts` | 对冲金额、`betSorting`、WinRate | `IQ.GetOrderOptions` / `oJe` |
 | `domain/betting/providerKeys.ts` | `auto` = `getProviders()` | A8 下单平台范围 |
-| `domain/betting/venueReject.ts` | 场馆拒单判定 | bundle 拒单检测 |
+
+场馆拒单判定在 `@venue/adaptation/a8LegOutcome` / 各场馆 `resolveLegOutcome`；编排层不再维护 `domain/betting/venueReject.ts`。
 
 `models/match.ts` 的 `ViewBet.getOrderOptions` 委托 `buildOrderOptions`，保持模型 API 不变。
 
@@ -175,10 +176,17 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `autoBet/phases/prepareArbAttempt.ts` | 选腿、选号、linkId |
 | `autoBet/phases/checkArbLegs.ts` | 预检 + checkTimeout |
 | `autoBet/phases/placeArbLegs.ts` | 下单（并行/串行/单边）+ retryFailedLeg |
-| `autoBet/phases/finalizeArbBet.ts` | 拒单 wait、绑单、补单入队、成功标记 |
+| `autoBet/phases/settleBothArbLegs.ts` | 并行 `settleArbLeg` + `bindArbLegOrder` |
+| `autoBet/phases/finalizeArbBet.ts` | 瘦编排：settle → makeup → mark → notify |
+| `autoBet/phases/finalizeArbMarkers.ts` | 成功腿 `markSuccessfulBet` |
+| `autoBet/phases/syncArbFinalizeUi.ts` | `activeBetRun` 收尾 |
+| `autoBet/phases/finalizeArbMessaging.ts` | trace / `bettingMessage` |
+| `autoBet/arbLegSettle.ts` | 单腿 `resolveLegOutcome` → `{ orders, rejected, pendingConfirm }` |
+| `autoBet/arbMakeUpPair.ts` | 套利补单配对 `arbMakeUpSides` |
+| `autoBet/arbMakeUpFromRejects.ts` | 拒单/失败腿补单入队 |
 | `autoBet/makeUp.ts` | 补单阈值 + 入队 |
-| `autoBet/rejectWait.ts` | 成功后拒单等待 |
-| `autoBet/venueRejectSync.ts` | `updateVenueOrders` + `isVenueReject`（套利/补单共用） |
+| `autoBet/rejectWait.ts` | `legRejectWaitSec` + Oe tip（实际 wait 在场馆层） |
+| `arbOrderBind.ts` | `resolveArbBindOrderId` + `bindArbLegOrder` |
 | `autoBet/retryFailedLeg.ts` | `anyOdds` 失败腿换平台重试 |
 | `loseOrder.ts` | 补单队列处理 |
 | `manualBet.ts` | 双击手动下单 |

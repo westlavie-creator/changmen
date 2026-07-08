@@ -26,13 +26,6 @@ export {
   SINGLE_LEG_RATE,
 } from "@/domain/betting/singleLegRate";
 export {
-  isVenueOrderIdRejected,
-  isVenueReject,
-  resolveA8VenueBindOrderId,
-  resolveA8VenueReject,
-  resolveVenueRejectForLeg,
-} from "@/domain/betting/venueReject";
-export {
   resolveVenueLegOutcome,
 } from "@/domain/betting/resolveVenueLegOutcome";
 export type { ResolveLegOutcomeOpts } from "@venue/contract";

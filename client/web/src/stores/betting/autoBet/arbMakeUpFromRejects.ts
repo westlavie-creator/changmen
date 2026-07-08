@@ -1,11 +1,8 @@
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 import type { VenueOrder } from "@venue/contract";
+import { arbMakeUpSides } from "@/stores/betting/autoBet/arbMakeUpPair";
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
 import { resolveMakeUpSuccessReference } from "@/stores/betting/makeUpReference";
-import {
-  legFailedForMakeUpTarget,
-  legSucceededForMakeUpAnchor,
-} from "@/stores/betting/makeUpLegOutcome";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 export interface ArbMakeUpVenueContext {
@@ -54,11 +51,16 @@ export async function applyArbMakeUpFromRejects(
   if (!betBothLegs)
     return result;
 
-  if (
-    accountA
-    && legSucceededForMakeUpAnchor(resultA, rejectA, pendingA)
-    && legFailedForMakeUpTarget(resultB, rejectB, pendingB)
-  ) {
+  const side = arbMakeUpSides(
+    resultA,
+    rejectA,
+    pendingA,
+    resultB,
+    rejectB,
+    pendingB,
+  );
+
+  if (side === "enqueueB" && accountA) {
     const successRef = resolveMakeUpSuccessReference(
       legA,
       venue.ordersA,
@@ -81,11 +83,7 @@ export async function applyArbMakeUpFromRejects(
       failedPlatformLabel: legB.type,
     });
   }
-  if (
-    accountB
-    && legSucceededForMakeUpAnchor(resultB, rejectB, pendingB)
-    && legFailedForMakeUpTarget(resultA, rejectA, pendingA)
-  ) {
+  else if (side === "enqueueA" && accountB) {
     const successRef = resolveMakeUpSuccessReference(
       legB,
       venue.ordersB,

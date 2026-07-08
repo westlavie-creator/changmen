@@ -26,6 +26,11 @@ const a8Tip = vi.hoisted(() => vi.fn());
 const wait = vi.hoisted(() => vi.fn(async () => {}));
 const updateVenueOrders = vi.hoisted(() => vi.fn(async (_acc?: PlatformAccount) => [] as VenueOrder[]));
 const settlePolymarketDelayedOrder = vi.hoisted(() => vi.fn());
+const activeBetRuns = vi.hoisted(() => new Map<number, { legs: { side: "A" | "B"; target: string; status: string }[] }>());
+
+vi.mock("@/stores/activeBetRunStore", () => ({
+  useActiveBetRunStore: () => ({ runs: activeBetRuns }),
+}));
 
 vi.mock("@/stores/userStore", () => ({
   useUserStore: () => ({
@@ -53,6 +58,7 @@ vi.mock("@/stores/loseOrderStore", () => ({
     removeOrder,
     setPendingPmOrder,
     clearPendingPmOrder,
+    setMakeupRuntimePhase: vi.fn(),
     has: (id: number) => loseOrders.has(id),
   }),
 }));
@@ -146,6 +152,7 @@ function queueOrder(patch: Partial<ConstructorParameters<typeof LoseOrder>[0]> =
 describe("processLoseOrders (A8 jb parity)", () => {
   beforeEach(() => {
     loseOrders.clear();
+    activeBetRuns.clear();
     matchs.length = 0;
     vi.clearAllMocks();
     getAccount.mockReset();

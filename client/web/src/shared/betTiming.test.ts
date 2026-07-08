@@ -1,7 +1,5 @@
-import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
 import { describe, expect, it } from "vitest";
-import { rejectWaitSeconds } from "@/stores/betting/autoBet/rejectWait";
 import { createDefaultUserConfig } from "@/types/userConfig";
 import {
   arbBetToastSeconds,
@@ -13,10 +11,6 @@ import {
 
 function cfg(waitTime: Record<string, number>): UserConfig {
   return { ...createDefaultUserConfig(), waitTime };
-}
-
-function account(provider: string): PlatformAccount {
-  return { provider } as PlatformAccount;
 }
 
 describe("normalizeWaitTime", () => {
@@ -64,19 +58,5 @@ describe("manualBetToastSeconds", () => {
   it("is fixed 10 like A8 v=async(_,A,T=10)", () => {
     expect(manualBetToastSeconds()).toBe(10);
     expect(MANUAL_BET_TOAST_SECONDS).toBe(10);
-  });
-});
-
-describe("rejectWaitSeconds (A8 q)", () => {
-  it("uses waitTime ?? 5 per success leg", () => {
-    expect(rejectWaitSeconds(cfg({ OB: 15, PB: 8 }), [account("OB"), account("PB")])).toBe(
-      15,
-    );
-    expect(rejectWaitSeconds(cfg({ OB: 3 }), [account("OB")])).toBe(3);
-    expect(rejectWaitSeconds(cfg({}), [account("OB")])).toBe(5);
-  });
-
-  it("skips wait when max is non-positive (-1)", () => {
-    expect(rejectWaitSeconds(cfg({ OB: -1 }), [account("OB")])).toBe(-1);
   });
 });
