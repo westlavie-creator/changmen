@@ -53,7 +53,7 @@ function legsFromLoseOrder(order: LoseOrder): ActiveBetLeg[] {
     defaultLeg("A", successPlatform, successTarget, {
       status: "confirmed",
       betMoney: order.betMoney,
-      betOdds: order.betOdds,
+      odds: order.betOdds,
       detail: account?.playerName ?? "已成单",
     }),
     defaultLeg("B", "—", makeupTarget, {
