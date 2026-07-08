@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { AccountRecord } from "@/types/account";
 import type { AccountEditFormState } from "@/components/account/accountEditFormState";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import { ElLoading, ElMessage } from "element-plus";
@@ -465,26 +466,37 @@ async function save() {
     return;
   }
   saving.value = true;
+  let loading: ReturnType<typeof ElLoading.service> | undefined;
   try {
     const patch = await buildPatch();
-    if (props.account) {
-      props.account.applyPatch(patch);
-      await accountStore.saveAccounts();
-      // [A8 可证实] Io.createAccount：update/push → save ACCOUNT → updateBalance → updateOrders
-      await accountStore.refreshBalance(props.account);
-      await accountStore.updateVenueOrders(props.account);
-    }
-    else {
-      // [A8 可证实] 新建账号先 CreateTagPlatform 取得 playerId，再进入 Io.createAccount 链路
-      await accountStore.createFromTagPlatform(patch);
-    }
+    // [A8 可证实] AccountInfoView.w：createTagPlatform({ loading }) → 关弹窗 → createAccount
+    loading = ElLoading.service({ fullscreen: true, text: "保存中..." });
+    const created = await accountStore.createTagPlatform(
+      patch.platformName,
+      patch.playerName,
+    );
     ElMessage.success("账号设置已保存");
     emit("close");
+    const record: AccountRecord = {
+      ...patch,
+      accountId: created.playerId,
+      playerName: created.playerName,
+      platformId: created.platformId,
+      platformName: patch.platformName || created.platformName,
+      pause: patch.pause ?? false,
+      balance: undefined,
+      updateTime: Date.now(),
+    };
+    void accountStore.createAccount(record).catch((err: unknown) => {
+      console.error("[account] createAccount after save", err);
+      ElMessage.error(err instanceof Error ? err.message : "账号刷新失败");
+    });
   }
   catch (err) {
     ElMessage.error(err instanceof Error ? err.message : "保存失败");
   }
   finally {
+    loading?.close();
     saving.value = false;
   }
 }

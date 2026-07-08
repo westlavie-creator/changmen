@@ -1,5 +1,5 @@
 import type { AccountStoreContext } from "@/stores/account/context";
-import type { AccountRecord, CreateTagPlatformResult } from "@/types/account";
+import type { AccountRecord } from "@/types/account";
 import type { TagPlatformRow } from "@/types/esport";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply";
 import {
@@ -88,8 +88,20 @@ export async function persistAccounts(store: AccountStoreContext) {
   return saveAccounts(payload);
 }
 
+/** [A8 可证实] AccountInfoView.save → Ut.createTagPlatform */
+export async function createTagPlatformForAccount(
+  platformName: string,
+  playerName: string,
+) {
+  const created = await createTagPlatform(platformName, playerName);
+  if (!created?.playerId) {
+    throw new Error("CreateTagPlatform 未返回 playerId");
+  }
+  return created;
+}
+
 /** [A8 可证实] Io.createAccount：accountId 仅来自 CreateTagPlatform.playerId */
-async function createAccountFromPlayerId(
+export async function createAccount(
   store: AccountStoreContext,
   record: AccountRecord,
 ) {
@@ -120,14 +132,8 @@ export async function createFromTagPlatform(
     provider: AccountRecord["provider"];
   },
 ) {
-  const created: CreateTagPlatformResult = await createTagPlatform(
-    form.platformName,
-    form.playerName,
-  );
-  if (!created?.playerId) {
-    throw new Error("CreateTagPlatform 未返回 playerId");
-  }
-  await createAccountFromPlayerId(store, {
+  const created = await createTagPlatformForAccount(form.platformName, form.playerName);
+  await createAccount(store, {
     ...form,
     accountId: created.playerId,
     playerName: created.playerName,

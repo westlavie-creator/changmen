@@ -76,6 +76,14 @@ export const useAccountStore = defineStore("account", {
       return accountCrud.persistAccounts(this);
     },
 
+    createTagPlatform(platformName: string, playerName: string) {
+      return accountCrud.createTagPlatformForAccount(platformName, playerName);
+    },
+
+    createAccount(record: AccountRecord) {
+      return accountCrud.createAccount(this, record);
+    },
+
     createFromTagPlatform(
       form: Partial<AccountRecord> & {
         platformName: string;
