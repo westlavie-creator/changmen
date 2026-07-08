@@ -353,6 +353,6 @@ export function syncActiveBetMakeupDone(betId: number, platform: string, odds: n
   const store = activeStore();
   if (!store)
     return;
-  store.appendEvent(betId, "完成", "补单成功");
+  store.appendEvent(betId, "完成", `补单成功 ${platform}@${odds}`);
   store.scheduleDismiss(betId);
 }
