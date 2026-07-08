@@ -46,4 +46,6 @@ export interface ActiveBetRun {
   events: ActiveBetRunEvent[];
   startedAt: number;
   updatedAt: number;
+  /** settling 阶段拒单等待倒计时截止（ms） */
+  countdownUntil?: number;
 }

@@ -93,6 +93,9 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
         events: patch.events ?? existing?.events ?? [],
         startedAt: existing?.startedAt ?? now,
         updatedAt: now,
+        countdownUntil: patch.countdownUntil !== undefined
+          ? patch.countdownUntil
+          : existing?.countdownUntil,
       };
       this.runs.set(betId, next);
     },
@@ -107,12 +110,23 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       run.updatedAt = Date.now();
     },
 
-    setPhase(betId: number, phase: ActiveBetRunPhase, overallLabel?: string) {
+    setPhase(
+      betId: number,
+      phase: ActiveBetRunPhase,
+      overallLabel?: string,
+      countdownSec?: number,
+    ) {
       const run = this.runs.get(betId);
       if (!run)
         return;
       run.phase = phase;
       run.overallLabel = overallLabel ?? PHASE_LABEL[phase];
+      if (countdownSec != null && countdownSec > 0 && phase === "settling") {
+        run.countdownUntil = Date.now() + countdownSec * 1000;
+      }
+      else if (phase !== "settling") {
+        run.countdownUntil = undefined;
+      }
       run.updatedAt = Date.now();
     },
 

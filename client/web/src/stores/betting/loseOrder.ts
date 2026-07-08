@@ -13,7 +13,8 @@ import {
 } from "@/stores/betting/loseOrderPm";
 import { processA8RegularVenueMakeUpLeg } from "@/stores/betting/loseOrderRegular";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
-import { syncActiveBetMakeupAttempt } from "@/stores/betting/activeBetRunSync";import { useUserStore } from "@/stores/userStore";
+import { syncActiveBetMakeupAttempt } from "@/stores/betting/activeBetRunSync";
+import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 

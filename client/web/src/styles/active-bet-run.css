@@ -4,7 +4,7 @@
   border: 1px solid #2a6ebb;
   border-radius: 5px;
   margin: 0;
-  padding: 3px 6px 5px;
+  padding: 4px 6px 6px;
   min-inline-size: 0;
   background: linear-gradient(to bottom, #1a2a3a, #0d1520);
   box-sizing: border-box;
@@ -52,15 +52,16 @@
 
 /* 横向一栏 = 一笔进行中的订单 */
 .active-bet-run__col {
-  flex: 0 0 172px;
-  width: 172px;
+  flex: 0 0 180px;
+  width: 180px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 4px 7px;
-  font-size: 10px;
+  gap: 4px;
+  padding: 5px 8px 5px 10px;
+  font-size: 11px;
   color: #e8f4ffcc;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 3px solid transparent;
   box-sizing: border-box;
   min-height: 0;
   overflow: hidden;
@@ -70,6 +71,22 @@
   border-right: none;
 }
 
+.active-bet-run__col--pending {
+  border-left-color: #ffd54f;
+}
+
+.active-bet-run__col--makeup {
+  border-left-color: #ffb74d;
+}
+
+.active-bet-run__col--success {
+  border-left-color: #6fdc8c;
+}
+
+.active-bet-run__col--danger {
+  border-left-color: #ff8a80;
+}
+
 .active-bet-run__col-head {
   display: flex;
   flex-direction: row;
@@ -77,7 +94,7 @@
   justify-content: space-between;
   gap: 4px;
   flex: 0 0 auto;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .active-bet-run__col-label {
@@ -88,7 +105,7 @@
 }
 
 .active-bet-run__phase {
-  font-size: 9px;
+  font-size: 10px;
   color: #7ec8ff;
   white-space: nowrap;
   overflow: hidden;
@@ -96,6 +113,11 @@
   text-align: right;
   flex: 1;
   min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.active-bet-run__col--pending .active-bet-run__phase {
+  color: #ffe082;
 }
 
 .active-bet-run__meta-line {
@@ -105,10 +127,12 @@
   gap: 3px;
   flex: 0 0 auto;
   min-width: 0;
-  line-height: 1.2;
+  line-height: 1.25;
+  cursor: default;
 }
 
 .active-bet-run__match {
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -123,7 +147,7 @@
 }
 
 .active-bet-run__bet {
-  font-size: 9px;
+  font-size: 10px;
   opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
@@ -138,7 +162,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -146,14 +170,14 @@
 
 .active-bet-run__leg {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 3px;
-  padding: 2px 4px;
+  gap: 4px;
+  padding: 3px 5px;
   border-radius: 2px;
   background: rgba(0, 0, 0, 0.25);
-  font-size: 9px;
-  line-height: 1.2;
+  font-size: 10px;
+  line-height: 1.25;
   white-space: nowrap;
 }
 
@@ -166,14 +190,21 @@
 }
 
 .active-bet-run__leg-status {
-  font-size: 9px;
+  font-size: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .active-bet-run__leg-odds {
-  font-size: 9px;
+  font-size: 10px;
   opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.active-bet-run__leg-money {
+  font-size: 10px;
+  color: #b8dcff;
+  font-variant-numeric: tabular-nums;
 }
 
 .active-bet-run__leg--confirmed .active-bet-run__leg-status {

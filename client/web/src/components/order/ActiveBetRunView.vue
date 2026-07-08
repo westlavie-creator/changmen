@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ActiveBetLeg, ActiveBetRun } from "@/types/activeBetRun";
 import { storeToRefs } from "pinia";
-import { onMounted } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/active-bet-run.css";
@@ -10,12 +10,57 @@ const activeStore = useActiveBetRunStore();
 const loseStore = useLoseOrderStore();
 const { visibleRuns } = storeToRefs(activeStore);
 
+const now = ref(Date.now());
+let tickTimer: ReturnType<typeof setInterval> | undefined;
+
 onMounted(() => {
   activeStore.bootstrapFromLoseOrders(loseStore.orders);
+  tickTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 1000);
 });
+
+onUnmounted(() => {
+  if (tickTimer)
+    clearInterval(tickTimer);
+});
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
 
 function legClass(leg: ActiveBetLeg): string {
   return `active-bet-run__leg--${leg.status}`;
+}
+
+function colToneClass(run: ActiveBetRun): string {
+  const active = run.legs.filter(l => l.status !== "skipped");
+  const hasRejected = active.some(l => l.status === "rejected" || l.status === "failed");
+  if (hasRejected)
+    return "active-bet-run__col--danger";
+  const allConfirmed = active.length > 0 && active.every(l => l.status === "confirmed");
+  if (allConfirmed && (run.phase === "syncing" || run.phase === "settling"))
+    return "active-bet-run__col--success";
+  if (run.phase === "makeup")
+    return "active-bet-run__col--makeup";
+  if (run.phase === "placing" || run.phase === "settling" || run.phase === "checking")
+    return "active-bet-run__col--pending";
+  return "";
+}
+
+function phaseLabel(run: ActiveBetRun): string {
+  if (run.phase === "settling" && run.countdownUntil) {
+    const left = Math.max(0, Math.ceil((run.countdownUntil - now.value) / 1000));
+    if (left > 0)
+      return `等待确认 ${left}s`;
+  }
+  return run.overallLabel;
+}
+
+function formatLegMoney(betMoney?: number): string | undefined {
+  if (betMoney == null || !Number.isFinite(betMoney) || betMoney <= 0)
+    return undefined;
+  return `¥${Math.round(betMoney)}`;
 }
 
 function lastEvent(run: ActiveBetRun): string | undefined {
@@ -43,16 +88,24 @@ function orderLabel(run: ActiveBetRun, index: number): string {
         v-for="(run, index) in visibleRuns"
         :key="run.betId"
         class="active-bet-run__col"
+        :class="colToneClass(run)"
       >
         <header class="active-bet-run__col-head">
           <span class="active-bet-run__col-label">{{ orderLabel(run, index) }}</span>
-          <span class="active-bet-run__phase">{{ run.overallLabel }}</span>
+          <span class="active-bet-run__phase">{{ phaseLabel(run) }}</span>
         </header>
 
-        <div class="active-bet-run__meta-line">
+        <div
+          class="active-bet-run__meta-line"
+          :title="stripHtml(run.matchTitle)"
+        >
           <span class="active-bet-run__match" v-html="run.matchTitle" />
           <span class="active-bet-run__sep">·</span>
-          <span class="active-bet-run__bet" v-html="run.betName" />
+          <span
+            class="active-bet-run__bet"
+            :title="stripHtml(run.betName)"
+            v-html="run.betName"
+          />
         </div>
 
         <ul class="active-bet-run__legs">
@@ -67,6 +120,9 @@ function orderLabel(run: ActiveBetRun, index: number): string {
             <span class="active-bet-run__leg-target">{{ leg.target }}</span>
             <span class="active-bet-run__leg-status">{{ activeStore.legStatusLabel(leg.status) }}</span>
             <span v-if="leg.odds" class="active-bet-run__leg-odds">@{{ leg.odds }}</span>
+            <span v-if="formatLegMoney(leg.betMoney)" class="active-bet-run__leg-money">
+              {{ formatLegMoney(leg.betMoney) }}
+            </span>
           </li>
         </ul>
 

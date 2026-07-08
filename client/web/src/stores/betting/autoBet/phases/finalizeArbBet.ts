@@ -140,7 +140,7 @@ export async function finalizeArbBet(
   if (successAccounts.length) {
     const rejectWait = rejectWaitSeconds(config, successAccounts);
     trace?.event("拒单", `等待 ${waitSec}s 展示 / 检测 ${rejectWait}s`);
-    syncActiveBetPhase(bet.id, "settling", `拒单检测 ${waitSec}s`);
+    syncActiveBetPhase(bet.id, "settling", "拒单检测", rejectWait);
     await waitRejectDetection(waitSec, rejectWait);
     if (resultA?.success && accountA) {
       const synced = await syncVenueOrdersWithRejectForLeg(accountA, resultA);

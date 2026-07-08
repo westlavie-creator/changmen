@@ -87,11 +87,12 @@ export function syncActiveBetPhase(
   betId: number,
   phase: ActiveBetRunPhase,
   detail?: string,
+  countdownSec?: number,
 ) {
   const store = activeStore();
   if (!store)
     return;
-  store.setPhase(betId, phase);
+  store.setPhase(betId, phase, detail, countdownSec);
   if (detail)
     store.appendEvent(betId, phase, detail);
 }
@@ -277,7 +278,7 @@ export function syncActiveBetMakeupAttempt(
 
 export function syncActiveBetMakeupSettling(betId: number, waitSec: number) {
   syncMakeupListPhase(betId, "settling");
-  syncActiveBetPhase(betId, "settling", `补单已提交，等待 ${waitSec}s`);
+  syncActiveBetPhase(betId, "settling", "补单已提交，等待场馆确认", waitSec);
 }
 
 export function syncActiveBetMakeupRejected(betId: number, target: string) {
