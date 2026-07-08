@@ -77,6 +77,9 @@ export async function enqueueMakeUpOrder(params: {
   if (!okMakeUp)
     return false;
 
+  if (loseStore.orders.has(bet.id))
+    return true;
+
   loseStore.createOrder(
     new LoseOrder({
       accountId,

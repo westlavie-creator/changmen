@@ -204,7 +204,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
     expect(store.orders.has(42)).toBe(true);
   });
 
-  it("removeOrders keeps unlinked manual create orders when bet left match list", () => {
+  it("removeOrders prunes unlinked manual create orders when bet left match list (A8)", () => {
     const store = useLoseOrderStore();
     store.createOrder(
       new LoseOrder({
@@ -223,7 +223,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
       }),
     );
     store.removeOrders([11]);
-    expect(store.orders.has(7)).toBe(true);
+    expect(store.orders.has(7)).toBe(false);
   });
 
   it("removeOrders keeps manual makeup when bound to link", () => {

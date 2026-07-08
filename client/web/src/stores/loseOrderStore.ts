@@ -214,9 +214,18 @@ export const useLoseOrderStore = defineStore("loseorder", {
         .catch(() => {});
     },
 
-    /** [changmen 扩展] 不因赛事列表漂移 prune；仅手动取消或成功出队 */
-    removeOrders(_activeBetIds: number[]) {
-      // no-op: keep all queued makeup until explicit cancel or successful dequeue
+    /** [A8 可证实] 60s prune：不在赛事列表的 bet 出队；[changmen 扩展] link 绑定补单保留 */
+    removeOrders(activeBetIds: number[]) {
+      const active = new Set(activeBetIds);
+      for (const betId of [...this.orders.keys()]) {
+        const existing = this.orders.get(betId);
+        if (!existing)
+          continue;
+        if (existing.isLinkBoundMakeup())
+          continue;
+        if (!active.has(betId))
+          this.removeOrder(betId, true);
+      }
     },
 
     init() {

@@ -28,4 +28,11 @@ describe("resolveLoseOrderBetRef", () => {
     const ref = resolveLoseOrderBetRef({ betId: 1, matchId: 20 }, [matchA as never, matchB as never], lookup);
     expect(ref?.match.id).toBe(20);
   });
+
+  it("returns undefined when stored matchId missing from list (no stale lookup)", () => {
+    const matchA = { id: 10, bets: [{ id: 1 }] } as const;
+    const lookup = buildLoseOrderBetLookup([matchA as never]);
+    const ref = resolveLoseOrderBetRef({ betId: 1, matchId: 20 }, [matchA as never], lookup);
+    expect(ref).toBeUndefined();
+  });
 });

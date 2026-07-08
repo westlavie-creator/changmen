@@ -1,10 +1,8 @@
-import { resolveA8VenueReject } from "@/domain/betting";
 import { BetOption, opponentSide } from "@/models/betOption";
 import { a8Tip } from "@/shared/a8Notify";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 import { PLATFORMS } from "@/shared/platform";
 import { wait } from "@/shared/wait";
-import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import { useAccountStore } from "@/stores/accountStore";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import {
@@ -12,36 +10,28 @@ import {
   resolveLoseOrderBetRef,
 } from "@/stores/betting/loseOrderLookup";
 import {
-  bindArbLegOrder,
-  refreshOrderListAfterBind,
-} from "@/stores/betting/arbOrderBind";
-import {
   applyPmJbSettlementOutcome,
   tryResumePmPendingMakeUp,
 } from "@/stores/betting/loseOrderPmPending";
+import { processA8RegularVenueMakeUpLeg } from "@/stores/betting/loseOrderRegular";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import {
   syncActiveBetMakeupAttempt,
-  syncActiveBetMakeupDone,
-  syncActiveBetMakeupRejected,
   syncActiveBetMakeupSettling,
 } from "@/stores/betting/activeBetRunSync";
 import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
-import { useMessageStore } from "@/stores/messageStore";
 
 export interface LoseOrderTickContext {
   setMessage: (msg: string) => void;
 }
 
 /**
- * [A8 可证实] 补单队列消费（bundle `jb` 后半）
+ * [A8 可证实] 补单队列消费（bundle `jb`）
  *
- * 多 OB 子账号：每轮主循环对每个 item 只调一次 getAccount（round-robin），
- * 失败则试下一 platform item；同平台下一子账号靠下一轮 ~100ms 主循环。
- *
- * [changmen 扩展] PM：`pendingPmOrderId` 时续轮 settle，timeout 不重复 POST。
+ * 普通场馆：见 `loseOrderRegular.ts`（严格对齐 index0706）。
+ * [changmen 扩展] PM：`pendingPmOrderId` / delayed settle，待独立演进。
  */
 export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void> {
   const user = useUserStore();
@@ -56,7 +46,11 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
   for (const [betId, order] of loseStore.orders) {
     const ref = resolveLoseOrderBetRef(order, matchStore.matchs, betLookup);
     if (!ref) {
-      // [changmen 扩展] 赛事列表未就绪 / betId 暂不在列表：保留队列与侧栏展示
+      // [A8 可证实] `!ce||!ge` → Z.push(z) 出队
+      // [changmen 扩展] link 绑定补单：刷新后列表未就绪时暂保留展示
+      if (order.isLinkBoundMakeup())
+        continue;
+      removeIds.add(betId);
       continue;
     }
     const { match, bet } = ref;
@@ -110,18 +104,14 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       const result = await accountStore.betting(account, checked, waitSec);
 
       if (!result?.success) {
-        // null/undefined = 瞬时失败，下轮主循环重试，不出队
-        continue;
-      }
-
-      // [A8 可证实] isCreateOrder：出队 + markSuccessfulBet；无拒单复检、无 LoseOrderMessage
-      if (order.isCreateOrder) {
-        removeIds.add(betId);
-        markSuccessfulBet(account, bet.id, order.target);
+        // [A8 可证实] `else le||Z.push(z)`：null/undefined 出队；`{success:false}` 保留
+        if (!result)
+          removeIds.add(betId);
         continue;
       }
 
       if (account.provider === PLATFORMS.Polymarket) {
+        // [changmen 扩展] A8 jb 无 PM 腿；单独路径，每 tick 最多 POST 一次
         if (waitSec > 0) {
           a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
           syncActiveBetMakeupSettling(betId, waitSec);
@@ -140,48 +130,23 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
           removeIds,
           setMessage,
         });
-      }
-      else {
-        // [A8 可证实] jb：isCreateOrder 已在上方出队；be>0 先 wait，be!==0 再 updateOrders + orders[0] 判拒
-        if (waitSec > 0) {
-          a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
-          syncActiveBetMakeupSettling(betId, waitSec);
-          await wait(waitSec * 1000);
-        }
-
-        let rejected = false;
-        if (waitSec !== 0) {
-          const rawOrders = (await accountStore.updateVenueOrders(account)) ?? [];
-          const venueOrders = sortVenueOrdersNewestFirst(rawOrders);
-          rejected = resolveA8VenueReject(venueOrders);
-
-          if (venueOrders.length > 0) {
-            if (rejected) {
-              setMessage(`${order.target} 再次被拒单`);
-              a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
-              syncActiveBetMakeupRejected(betId, order.target);
-            }
-            else {
-              removeIds.add(betId);
-              syncActiveBetMakeupDone(betId, item.type, checked.odds);
-            }
-            await bindArbLegOrder(order.linkId, account, result, venueOrders, rejected);
-            refreshOrderListAfterBind();
-          }
-          else {
-            removeIds.add(betId);
-            syncActiveBetMakeupDone(betId, item.type, checked.odds);
-            await bindArbLegOrder(order.linkId, account, result, [], false);
-            refreshOrderListAfterBind();
-          }
-          useMessageStore().loseOrderMessage(account, order, checked, rejected);
-        }
-        else {
-          removeIds.add(betId);
-        }
+        markSuccessfulBet(account, bet.id, order.target);
+        break;
       }
 
-      markSuccessfulBet(account, bet.id, order.target);
+      await processA8RegularVenueMakeUpLeg({
+        betId,
+        order,
+        bet,
+        account,
+        checked,
+        result,
+        waitSec,
+        accountStore,
+        removeIds,
+        setMessage,
+      });
+      // [A8 可证实] 拒单不出队时内层 for 继续下一 platform；出队后下轮 removeIds.has 打断
     }
   }
 

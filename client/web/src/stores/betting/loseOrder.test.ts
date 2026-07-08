@@ -281,7 +281,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(markSuccessfulBet).toHaveBeenCalled();
   });
 
-  it("A8 jb: orders[0] reject keeps queue even when result.orderId is newer none", async () => {
+  it("jb keeps queue when orders[0] is reject (A8: only checks newest venue row)", async () => {
     const bet = makeBet([makeItem("OB", 2.5)]);
     matchs.push(makeMatch(bet));
     queueOrder();
@@ -328,13 +328,54 @@ describe("processLoseOrders (A8 jb parity)", () => {
     await processLoseOrders({ setMessage: vi.fn() });
 
     expect(removeOrder).not.toHaveBeenCalled();
-    expect(saveOrderBind).toHaveBeenCalled();
     expect(loseOrderMessage).toHaveBeenCalledWith(
       acc,
       expect.any(LoseOrder),
       expect.any(BetOption),
       true,
     );
+  });
+
+  it("jb continues to next platform on reject in same tick (A8)", async () => {
+    const bet = makeBet([makeItem("OB", 2.5), makeItem("RAY", 2.4)]);
+    matchs.push(makeMatch(bet));
+    queueOrder();
+
+    const obAcc = new PlatformAccount({ accountId: 1, playerName: "ob1", provider: "OB" });
+    const rayAcc = new PlatformAccount({ accountId: 2, playerName: "ray1", provider: "RAY" });
+    getAccount.mockImplementation((provider: PlatformId) =>
+      provider === "OB" ? obAcc : rayAcc,
+    );
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockImplementation(async (acc: PlatformAccount) => {
+      if (acc.provider === "OB")
+        return { success: true, provider: "OB", orderId: "oid1" };
+      return { success: false, provider: "RAY" };
+    });
+    updateVenueOrders.mockResolvedValueOnce([
+      {
+        orderId: "oid1",
+        provider: "OB",
+        status: "reject",
+        createAt: 1,
+        odds: 2,
+        betMoney: 16,
+        reward: 0,
+        money: 0,
+        match: "",
+        bet: "",
+        item: "",
+        game: "",
+      },
+    ]);
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(betting).toHaveBeenCalledTimes(2);
+    expect(removeOrder).not.toHaveBeenCalled();
   });
 
   it("isCreateOrder 成功：出队、markSuccessfulBet，不发 LoseOrderMessage", async () => {
@@ -583,13 +624,13 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(removeOrder).not.toHaveBeenCalled();
   });
 
-  it("keeps manual isCreateOrder in queue when bet not on match list yet", async () => {
+  it("dequeues manual isCreateOrder when bet not on match list (A8)", async () => {
     queueOrder({ linkId: 0, isCreateOrder: true });
     await processLoseOrders({ setMessage: vi.fn() });
-    expect(removeOrder).not.toHaveBeenCalled();
+    expect(removeOrder).toHaveBeenCalledWith(100, true);
   });
 
-  it("keeps queue when betting returns null (transient failure)", async () => {
+  it("dequeues when betting returns null (A8: le||Z.push)", async () => {
     const bet = makeBet([makeItem("OB", 2.5)]);
     matchs.push(makeMatch(bet));
     queueOrder();
@@ -604,7 +645,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
 
     await processLoseOrders({ setMessage: vi.fn() });
 
-    expect(removeOrder).not.toHaveBeenCalled();
+    expect(removeOrder).toHaveBeenCalledWith(100, true);
   });
 
   it("RAY success ref in queue: jb consumes PM with list-odds CNY stake (1× precheck)", async () => {

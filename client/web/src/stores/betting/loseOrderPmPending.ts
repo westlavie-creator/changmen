@@ -126,8 +126,10 @@ export async function tryResumePmPendingMakeUp(params: {
     return "not-applicable";
 
   const ref = bet.items.find(item => item.type === PLATFORMS.Polymarket);
-  if (!ref)
-    return "handled";
+  if (!ref) {
+    loseStore.clearPendingPmOrder(betId);
+    return "not-applicable";
+  }
 
   const sideOdds = ref.getOdds(order.target);
   const checked = new BetOptionCtor(match, bet, ref, order.target, order.getBetMoney(sideOdds));

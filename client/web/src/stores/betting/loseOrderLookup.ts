@@ -31,5 +31,5 @@ export function resolveLoseOrderBetRef(
   const bet = match?.bets.find(b => b.id === order.betId);
   if (match && bet)
     return { match, bet };
-  return hit;
+  return undefined;
 }
