@@ -218,6 +218,7 @@
 
 .active-bet-run__leg--placing .active-bet-run__leg-status,
 .active-bet-run__leg--submitted .active-bet-run__leg-status,
+.active-bet-run__leg--pending_confirm .active-bet-run__leg-status,
 .active-bet-run__leg--makeup .active-bet-run__leg-status {
   color: #ffd54f;
 }

@@ -41,7 +41,8 @@ function colToneClass(run: ActiveBetRun): string {
   const allConfirmed = active.length > 0 && active.every(l => l.status === "confirmed");
   if (allConfirmed && (run.phase === "syncing" || run.phase === "settling"))
     return "active-bet-run__col--success";
-  if (run.phase === "makeup")
+  const hasPmPending = active.some(l => l.status === "pending_confirm");
+  if (run.phase === "makeup" || hasPmPending)
     return "active-bet-run__col--makeup";
   if (run.phase === "placing" || run.phase === "settling" || run.phase === "checking")
     return "active-bet-run__col--pending";

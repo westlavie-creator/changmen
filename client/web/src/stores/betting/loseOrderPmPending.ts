@@ -17,8 +17,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
 import {
   syncActiveBetMakeupDone,
+  syncActiveBetMakeupPmDelayed,
   syncActiveBetMakeupRejected,
-  syncActiveBetPhase,
 } from "@/stores/betting/activeBetRunSync";
 import { a8Tip } from "@/shared/a8Notify";
 
@@ -80,7 +80,7 @@ export async function applyPmJbSettlementOutcome(
   if (isVenueLegPendingConfirm(legOutcome) || isPmTimeoutReject(result)) {
     loseStore.setPendingPmOrder(betId, String(result.orderId ?? ""), account.accountId);
     setMessage(`PM 订单待确认，下轮续查 ${String(result.orderId ?? "").slice(0, 10)}…`);
-    syncActiveBetPhase(betId, "makeup", "PM 订单待确认");
+    syncActiveBetMakeupPmDelayed(betId, result.orderId);
     useMessageStore().loseOrderMessage(account, order, checked, true);
     return "pending";
   }

@@ -9,7 +9,10 @@ import { wait } from "@/shared/wait";
 import type { UserConfig } from "@/types/userConfig";
 import { applyPmJbSettlementOutcome } from "@/stores/betting/loseOrderPmPending";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
-import { syncActiveBetMakeupSettling } from "@/stores/betting/activeBetRunSync";
+import {
+  syncActiveBetMakeupPmDelayed,
+  syncActiveBetMakeupSettling,
+} from "@/stores/betting/activeBetRunSync";
 import type { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 export interface PmMakeUpLegContext {
@@ -43,6 +46,9 @@ export async function processPmMakeUpLeg(ctx: PmMakeUpLegContext): Promise<void>
     removeIds,
     setMessage,
   } = ctx;
+
+  if (result.pending)
+    syncActiveBetMakeupPmDelayed(betId, result.orderId);
 
   const waitSec = makeUpBetToastSeconds(config, account.provider);
   if (waitSec > 0) {

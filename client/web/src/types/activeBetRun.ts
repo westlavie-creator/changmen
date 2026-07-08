@@ -12,6 +12,7 @@ export type ActiveBetLegStatus =
   | "pending"
   | "placing"
   | "submitted"
+  | "pending_confirm"
   | "confirmed"
   | "rejected"
   | "failed"

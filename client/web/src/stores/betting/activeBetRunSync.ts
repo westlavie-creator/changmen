@@ -127,10 +127,29 @@ export function syncActiveBetLegSettleResult(
   syncActiveBetLeg(betId, side, "confirmed", "已确认");
 }
 
+type PostLegResult = { success?: boolean; pending?: boolean; message?: string | null };
+
+function legStatusAfterPost(result?: PostLegResult): ActiveBetLegStatus {
+  if (!result?.success)
+    return "failed";
+  if (result.pending)
+    return "pending_confirm";
+  return "submitted";
+}
+
+function legDetailAfterPost(result?: PostLegResult): string {
+  if (!result?.success)
+    return "API 失败";
+  if (result.pending)
+    return "PM delayed 待确认";
+  const msg = String(result.message ?? "").trim();
+  return msg || "API 成功";
+}
+
 export function syncActiveBetPlaceResults(
   betId: number,
-  resultA?: { success?: boolean },
-  resultB?: { success?: boolean },
+  resultA?: PostLegResult,
+  resultB?: PostLegResult,
   hasA?: boolean,
   hasB?: boolean,
 ) {
@@ -138,19 +157,37 @@ export function syncActiveBetPlaceResults(
     syncActiveBetLeg(
       betId,
       "A",
-      resultA?.success ? "submitted" : "failed",
-      resultA?.success ? "API 成功" : "API 失败",
+      legStatusAfterPost(resultA),
+      legDetailAfterPost(resultA),
     );
   }
   if (hasB) {
     syncActiveBetLeg(
       betId,
       "B",
-      resultB?.success ? "submitted" : "failed",
-      resultB?.success ? "API 成功" : "API 失败",
+      legStatusAfterPost(resultB),
+      legDetailAfterPost(resultB),
     );
   }
-  syncActiveBetPhase(betId, "settling", "等待拒单检测");
+  const pmPending = Boolean((hasA && resultA?.pending) || (hasB && resultB?.pending));
+  syncActiveBetPhase(betId, "settling", pmPending ? "PM 延迟确认" : "等待拒单检测");
+}
+
+/** PM 补单 POST 返回 delayed：腿行与阶段立即反映待确认 */
+export function syncActiveBetMakeupPmDelayed(betId: number, orderId?: string | null) {
+  const store = activeStore();
+  if (!store)
+    return;
+  const run = store.runs.get(betId);
+  const makeupLeg = run?.legs.find(l => l.status === "makeup" || l.status === "pending_confirm");
+  const idHint = String(orderId ?? "").trim();
+  const detail = idHint
+    ? `PM delayed 待确认 · ${idHint.slice(0, 10)}…`
+    : "PM delayed 待确认";
+  if (makeupLeg)
+    store.patchLeg(betId, makeupLeg.side, { status: "makeup", detail });
+  store.setPhase(betId, "makeup", "PM 延迟确认");
+  store.appendEvent(betId, "补单", detail);
 }
 
 export function syncActiveBetAfterRejectSync(

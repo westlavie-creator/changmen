@@ -22,6 +22,7 @@ const LEG_STATUS_LABEL: Record<ActiveBetLegStatus, string> = {
   pending: "待下单",
   placing: "下单中",
   submitted: "已提交",
+  pending_confirm: "PM delayed",
   confirmed: "已确认",
   rejected: "被拒单",
   failed: "下单失败",
