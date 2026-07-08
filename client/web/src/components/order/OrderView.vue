@@ -93,7 +93,8 @@ function onCancelMakeup(betId: number) {
 </script>
 
 <template>
-  <div class="date flex flex-middle order-date-bar">
+  <div class="order-view-stack">
+    <div class="date flex flex-middle order-date-bar">
     <OrderDateNav
       v-model="orderDate"
       class="date-nav--sidebar"
@@ -139,9 +140,23 @@ function onCancelMakeup(betId: number) {
     :platform-class="platformClass"
     @cancel-makeup="onCancelMakeup"
   />
+  </div>
 </template>
 
 <style scoped>
+.order-view-stack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+
+.order-view-stack > :deep(.orders) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .order-date-bar {
   justify-content: flex-start;
   gap: 8px;

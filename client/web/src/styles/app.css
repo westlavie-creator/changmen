@@ -76,13 +76,18 @@
   min-height: 0;
 }
 
-.app-sidebar > .userinfo,
-.app-sidebar > .date,
-.app-sidebar > .order-makeup-status {
+.app-sidebar > .userinfo {
   flex: 0 0 auto;
 }
 
-.app-sidebar > .orders {
+.app-sidebar > .order-view-stack {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.order-view-stack > .orders {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;

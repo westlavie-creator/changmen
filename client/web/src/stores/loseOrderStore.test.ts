@@ -223,4 +223,43 @@ describe("useLoseOrderStore A8 publish parity", () => {
     store.removeOrders([11]);
     expect(store.orders.has(8)).toBe(true);
   });
+
+  it("manualOrders getter returns only linkId=0 items", () => {
+    const store = useLoseOrderStore();
+    store.createOrder(
+      new LoseOrder({
+        accountId: 0,
+        matchId: 1,
+        betId: 21,
+        target: "Home",
+        betMoney: 100,
+        betOdds: 1.9,
+        match: "A vs B",
+        bet: "map1",
+        linkId: 0,
+        createAt: Date.now(),
+        isCreateOrder: true,
+        betCount: 1,
+      }),
+    );
+    store.createOrder(
+      new LoseOrder({
+        accountId: 0,
+        matchId: 1,
+        betId: 22,
+        target: "Away",
+        betMoney: 100,
+        betOdds: 1.9,
+        match: "A vs B",
+        bet: "map1",
+        linkId: 888,
+        createAt: Date.now(),
+        isCreateOrder: false,
+        betCount: 1,
+      }),
+    );
+    expect(store.manualOrders).toHaveLength(1);
+    expect(store.manualOrders[0]?.betId).toBe(21);
+    expect(store.linkBoundCount).toBe(1);
+  });
 });

@@ -4,8 +4,13 @@
  * 由 LoseOrderView / CreateLoseDialog 直接 import。
  */
 
-/* ── 侧栏布局 ── */
 .app-sidebar > .loseorder-container {
+  flex: 0 0 auto;
+}
+
+.order-view-stack > .loseorder-container,
+.order-view-stack > .order-makeup-status,
+.order-view-stack > .order-date-bar {
   flex: 0 0 auto;
 }
 
@@ -68,30 +73,33 @@
 
 .loseorders .order .close {
   position: absolute;
-  right: 5px;
-  top: 5px;
+  right: 4px;
+  top: 4px;
   z-index: 2;
-  width: 16px;
-  height: 16px;
-  line-height: 16px;
+  width: 24px;
+  height: 24px;
+  line-height: 22px;
   text-align: center;
-  font-size: 14px;
+  font-size: 20px;
   font-style: normal;
+  font-weight: 700;
   color: #fff;
   cursor: pointer;
-  transition: all 0.25s;
+  background: linear-gradient(180deg, #f56c6c, #c45656);
+  border: 1px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s;
 }
 
 .loseorders .order .close::before {
   content: "\00d7";
   display: block;
-  font-weight: 700;
-  line-height: 16px;
+  line-height: 22px;
 }
 
 .loseorders .order .close:hover {
-  transform: scale(1.2);
-  color: #fff;
+  transform: scale(1.12);
 }
 
 /* ── 创建补单弹窗（对齐 A8 CreateLoseView + Element Plus 浅色表单） ── */

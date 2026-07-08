@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ElMessageBox } from "element-plus";
 import { storeToRefs } from "pinia";
-import { computed } from "vue";
 import { formatDate } from "@/shared/format";
 import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
@@ -9,18 +8,10 @@ import "@/styles/lose-order.css";
 
 const loseStore = useLoseOrderStore();
 const user = useUserStore();
-const { orders } = storeToRefs(loseStore);
+const { manualOrders } = storeToRefs(loseStore);
 const { config } = storeToRefs(user);
 
-/** 无 Link 的手动补单：无法并入订单组，单独展示在订单列表上方 */
-const manualOrders = computed(() =>
-  [...orders.value.entries()].filter(([, order]) => !order.isLinkBoundMakeup()),
-);
-
-function runtimeLabel(betId: number) {
-  const order = orders.value.get(betId);
-  if (!order)
-    return "";
+function runtimeLabel(order: (typeof manualOrders.value)[number]) {
   if (String(order.pendingPmOrderId ?? "").trim())
     return " · PM待确认";
   switch (order.runtimePhase) {
@@ -55,21 +46,26 @@ function remove(betId: number) {
   <fieldset v-if="manualOrders.length" class="loseorder-container">
     <legend>手动补单 ({{ manualOrders.length }}笔)</legend>
     <div class="loseorders">
-      <div v-for="[betId, item] in manualOrders" :key="betId" class="order">
+      <div v-for="item in manualOrders" :key="item.betId" class="order">
+        <i
+          class="close"
+          title="删除补单"
+          role="button"
+          @click="remove(item.betId)"
+        />
         <div class="match" v-html="item.match" />
         <div class="bet">
           <label v-html="item.bet" />
           <label class="team"> => {{ item.target }}</label>
         </div>
         <div class="time">
-          时间: {{ formatDate(item.createAt) }}{{ runtimeLabel(betId) }}
+          时间: {{ formatDate(item.createAt) }}{{ runtimeLabel(item) }}
         </div>
         <div class="info">
           补单金额：{{ item.getBetMoney(item.getOdds(config.makeProfit)) }}@{{
             item.getOdds(config.makeProfit)
-          }}<span v-if="item.betCount"> x {{ item.betCount }}</span>
+          }}<span v-if="item.betCount > 1"> x {{ item.betCount }}</span>
         </div>
-        <i class="close" title="删除" role="button" @click="remove(betId)" />
       </div>
     </div>
   </fieldset>

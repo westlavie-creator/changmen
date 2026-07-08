@@ -49,6 +49,18 @@ export const useLoseOrderStore = defineStore("loseorder", {
 
   getters: {
     count: s => s.orders.size,
+    /** linkId=0 的手动补单（订单列表上方单独展示） */
+    manualOrders(state): LoseOrder[] {
+      return [...state.orders.values()].filter(order => !order.isLinkBoundMakeup());
+    },
+    linkBoundCount(state): number {
+      let n = 0;
+      for (const order of state.orders.values()) {
+        if (order.isLinkBoundMakeup())
+          n += 1;
+      }
+      return n;
+    },
   },
 
   actions: {
@@ -78,8 +90,14 @@ export const useLoseOrderStore = defineStore("loseorder", {
       );
     },
 
+    touchOrdersMap() {
+      this.orders = new Map(this.orders);
+    },
+
     createOrder(order: LoseOrder) {
-      this.orders.set(order.betId, order);
+      const next = new Map(this.orders);
+      next.set(order.betId, order);
+      this.orders = next;
       this.persist();
       // [A8 可证实] jb.createOrder：仅手动 isCreateOrder 时 PublishLoseOrderMessage
       if (order.isCreateOrder) {
@@ -97,6 +115,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
       existing.pendingPmOrderId = id;
       existing.pendingPmAccountId = Number(accountId) || undefined;
       existing.runtimePhase = "pm_pending";
+      this.touchOrdersMap();
       this.persist();
     },
 
@@ -108,6 +127,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
       existing.pendingPmAccountId = undefined;
       if (existing.runtimePhase === "pm_pending")
         existing.runtimePhase = undefined;
+      this.touchOrdersMap();
       this.persist();
     },
 
@@ -116,6 +136,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
       if (!existing)
         return;
       existing.runtimePhase = phase;
+      this.touchOrdersMap();
       this.persist();
     },
 
@@ -154,12 +175,15 @@ export const useLoseOrderStore = defineStore("loseorder", {
       const existing = this.orders.get(betId);
       if (!existing)
         return;
+      const next = new Map(this.orders);
       if (!force && existing.betCount > 1) {
         existing.betCount -= 1;
+        next.set(betId, existing);
       }
       else {
-        this.orders.delete(betId);
+        next.delete(betId);
       }
+      this.orders = next;
       this.persist();
     },
 
