@@ -52,8 +52,8 @@
 
 /* 横向一栏 = 一笔进行中的订单 */
 .active-bet-run__col {
-  flex: 0 0 195px;
-  width: 195px;
+  flex: 0 0 248px;
+  width: 248px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -170,41 +170,57 @@
 
 .active-bet-run__leg {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "platform target odds money"
+    "status status status status";
   align-items: center;
-  gap: 4px;
+  gap: 2px 4px;
   padding: 3px 5px;
   border-radius: 2px;
   background: rgba(0, 0, 0, 0.25);
   font-size: 12px;
   line-height: 1.3;
-  white-space: nowrap;
 }
 
 .active-bet-run__leg-platform {
+  grid-area: platform;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .active-bet-run__leg-target {
+  grid-area: target;
   opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .active-bet-run__leg-status {
+  grid-area: status;
   font-size: 12px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .active-bet-run__leg-odds {
+  grid-area: odds;
   font-size: 12px;
   opacity: 0.9;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .active-bet-run__leg-money {
+  grid-area: money;
   font-size: 12px;
   color: #b8dcff;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .active-bet-run__leg--confirmed .active-bet-run__leg-status {
