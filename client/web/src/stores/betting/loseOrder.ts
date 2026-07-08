@@ -7,7 +7,10 @@ import { wait } from "@/shared/wait";
 import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import { useAccountStore } from "@/stores/accountStore";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
-import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
+import {
+  buildLoseOrderBetLookup,
+  resolveLoseOrderBetRef,
+} from "@/stores/betting/loseOrderLookup";
 import {
   bindArbLegOrder,
   refreshOrderListAfterBind,
@@ -51,12 +54,9 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
   const betLookup = buildLoseOrderBetLookup(matchStore.matchs);
 
   for (const [betId, order] of loseStore.orders) {
-    const ref = betLookup.get(order.betId);
+    const ref = resolveLoseOrderBetRef(order, matchStore.matchs, betLookup);
     if (!ref) {
-      // [changmen 扩展] Link 补单：刷新后赛事列表未就绪时保留队列与侧栏展示
-      if (order.isLinkBoundMakeup())
-        continue;
-      removeIds.add(betId);
+      // [changmen 扩展] 赛事列表未就绪 / betId 暂不在列表：保留队列与侧栏展示
       continue;
     }
     const { match, bet } = ref;
@@ -110,8 +110,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       const result = await accountStore.betting(account, checked, waitSec);
 
       if (!result?.success) {
-        if (!result)
-          removeIds.add(betId);
+        // null/undefined = 瞬时失败，下轮主循环重试，不出队
         continue;
       }
 

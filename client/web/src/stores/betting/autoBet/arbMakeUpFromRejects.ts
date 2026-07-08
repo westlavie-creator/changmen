@@ -23,6 +23,9 @@ export async function applyArbMakeUpFromRejects(
   venue: ArbMakeUpVenueContext = { ordersA: [], ordersB: [] },
 ): Promise<ArbMakeUpEnqueueResult> {
   const { match, bet, config, setMessage } = params;
+  const empty: ArbMakeUpEnqueueResult = { enqueuedForLegA: false, enqueuedForLegB: false };
+  if (!config.makeUp)
+    return empty;
   const loseStore = useLoseOrderStore();
   const {
     legA,

@@ -94,6 +94,10 @@ export const useLoseOrderStore = defineStore("loseorder", {
       this.orders = new Map(this.orders);
     },
 
+    touchCancelledMap() {
+      this.cancelledOrders = new Map(this.cancelledOrders);
+    },
+
     createOrder(order: LoseOrder) {
       const next = new Map(this.orders);
       next.set(order.betId, order);
@@ -192,7 +196,8 @@ export const useLoseOrderStore = defineStore("loseorder", {
       const existing = this.orders.get(betId);
       if (!existing)
         return;
-      this.cancelledOrders.set(betId, {
+      const nextCancelled = new Map(this.cancelledOrders);
+      nextCancelled.set(betId, {
         betId,
         linkId: existing.linkId,
         match: existing.match,
@@ -201,6 +206,7 @@ export const useLoseOrderStore = defineStore("loseorder", {
         createAt: existing.createAt,
         cancelledAt: Date.now(),
       });
+      this.cancelledOrders = nextCancelled;
       this.removeOrder(betId, true);
       this.persistCancelled();
       void import("@/stores/activeBetRunStore")
@@ -208,17 +214,9 @@ export const useLoseOrderStore = defineStore("loseorder", {
         .catch(() => {});
     },
 
-    removeOrders(activeBetIds: number[]) {
-      const active = new Set(activeBetIds);
-      for (const betId of [...this.orders.keys()]) {
-        const existing = this.orders.get(betId);
-        if (!existing)
-          continue;
-        if (existing.isLinkBoundMakeup())
-          continue;
-        if (!active.has(betId))
-          this.removeOrder(betId, true);
-      }
+    /** [changmen 扩展] 不因赛事列表漂移 prune；仅手动取消或成功出队 */
+    removeOrders(_activeBetIds: number[]) {
+      // no-op: keep all queued makeup until explicit cancel or successful dequeue
     },
 
     init() {

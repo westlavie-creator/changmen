@@ -14,11 +14,13 @@ vi.mock("@/stores/loseOrderStore", () => ({
   useLoseOrderStore: () => ({ orders: new Map() }),
 }));
 
+import { createDefaultUserConfig } from "@/types/userConfig";
+
 function params(): ArbBetAttemptParams {
   return {
     match: { id: 1, title: "A vs B" } as never,
     bet: { id: 100, getBetName: () => "地图1" } as never,
-    config: {} as never,
+    config: { ...createDefaultUserConfig(), makeUp: true } as never,
     setMessage: vi.fn(),
   };
 }
@@ -111,6 +113,25 @@ describe("applyArbMakeUpFromRejects", () => {
     );
 
     expect(out).toEqual({ enqueuedForLegA: false, enqueuedForLegB: false });
+  });
+
+  it("skips enqueue when makeUp is disabled", async () => {
+    const p = params();
+    p.config = { ...createDefaultUserConfig(), makeUp: false } as never;
+
+    const out = await applyArbMakeUpFromRejects(
+      p,
+      basePlaced(),
+      false,
+      false,
+      {
+        ordersA: [],
+        ordersB: [{ betMoney: 70, odds: 4.095, status: "none" } as never],
+      },
+    );
+
+    expect(out).toEqual({ enqueuedForLegA: false, enqueuedForLegB: false });
+    expect(enqueueMakeUpOrder).not.toHaveBeenCalled();
   });
 
   it("ignores polluted leg betMoney when venue order is available", async () => {

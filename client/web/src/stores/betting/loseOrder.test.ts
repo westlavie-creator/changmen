@@ -583,6 +583,30 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(removeOrder).not.toHaveBeenCalled();
   });
 
+  it("keeps manual isCreateOrder in queue when bet not on match list yet", async () => {
+    queueOrder({ linkId: 0, isCreateOrder: true });
+    await processLoseOrders({ setMessage: vi.fn() });
+    expect(removeOrder).not.toHaveBeenCalled();
+  });
+
+  it("keeps queue when betting returns null (transient failure)", async () => {
+    const bet = makeBet([makeItem("OB", 2.5)]);
+    matchs.push(makeMatch(bet));
+    queueOrder();
+
+    const acc = new PlatformAccount({ accountId: 1, playerName: "ob1", provider: "OB" });
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue(null);
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(removeOrder).not.toHaveBeenCalled();
+  });
+
   it("RAY success ref in queue: jb consumes PM with list-odds CNY stake (1× precheck)", async () => {
     const bet = makeBet([makeItem("Polymarket", 4.0)]);
     matchs.push(makeMatch(bet));

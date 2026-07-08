@@ -158,6 +158,30 @@ describe("useLoseOrderStore A8 publish parity", () => {
     expect(store.cancelledOrders.get(42)?.cancelledAt).toBeGreaterThan(0);
   });
 
+  it("cancelMakeupManually replaces cancelledOrders Map for reactivity", () => {
+    const store = useLoseOrderStore();
+    store.createOrder(
+      new LoseOrder({
+        accountId: 1,
+        matchId: 1,
+        betId: 42,
+        target: "Away",
+        betMoney: 100,
+        betOdds: 2.1,
+        match: "A vs B",
+        bet: "map1",
+        linkId: 999,
+        createAt: Date.now(),
+        isCreateOrder: false,
+        betCount: 1,
+      }),
+    );
+    const before = store.cancelledOrders;
+    store.cancelMakeupManually(42);
+    expect(store.cancelledOrders).not.toBe(before);
+    expect(store.cancelledOrders.size).toBe(1);
+  });
+
   it("removeOrders keeps arb-linked makeup when bet left match list", () => {
     const store = useLoseOrderStore();
     store.createOrder(
@@ -180,7 +204,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
     expect(store.orders.has(42)).toBe(true);
   });
 
-  it("removeOrders still prunes unlinked manual create orders off match list", () => {
+  it("removeOrders keeps unlinked manual create orders when bet left match list", () => {
     const store = useLoseOrderStore();
     store.createOrder(
       new LoseOrder({
@@ -199,7 +223,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
       }),
     );
     store.removeOrders([11]);
-    expect(store.orders.has(7)).toBe(false);
+    expect(store.orders.has(7)).toBe(true);
   });
 
   it("removeOrders keeps manual makeup when bound to link", () => {

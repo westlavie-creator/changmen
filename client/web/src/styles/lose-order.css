@@ -9,6 +9,7 @@
 }
 
 .order-view-stack > .loseorder-container,
+.order-view-stack > .active-bet-run,
 .order-view-stack > .order-makeup-status,
 .order-view-stack > .order-date-bar {
   flex: 0 0 auto;
