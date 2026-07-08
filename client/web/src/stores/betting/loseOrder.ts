@@ -1,8 +1,6 @@
 import { BetOption, opponentSide } from "@/models/betOption";
-import { a8Tip } from "@/shared/a8Notify";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 import { PLATFORMS } from "@/shared/platform";
-import { wait } from "@/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import {
@@ -10,16 +8,12 @@ import {
   resolveLoseOrderBetRef,
 } from "@/stores/betting/loseOrderLookup";
 import {
-  applyPmJbSettlementOutcome,
+  processPmMakeUpLeg,
   tryResumePmPendingMakeUp,
-} from "@/stores/betting/loseOrderPmPending";
+} from "@/stores/betting/loseOrderPm";
 import { processA8RegularVenueMakeUpLeg } from "@/stores/betting/loseOrderRegular";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
-import {
-  syncActiveBetMakeupAttempt,
-  syncActiveBetMakeupSettling,
-} from "@/stores/betting/activeBetRunSync";
-import { useUserStore } from "@/stores/userStore";
+import { syncActiveBetMakeupAttempt } from "@/stores/betting/activeBetRunSync";import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 
@@ -31,8 +25,7 @@ export interface LoseOrderTickContext {
  * [A8 可证实] 补单队列消费（bundle `jb`）
  *
  * 普通场馆：见 `loseOrderRegular.ts`（严格对齐 index0706）。
- * [changmen 扩展] PM：`pendingPmOrderId` / delayed settle，待独立演进。
- */
+ * [changmen 扩展] PM：见 `loseOrderPm.ts`（状态层走 adapter `resolvePolymarketLegOutcome`）。 */
 export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void> {
   const user = useUserStore();
   const matchStore = useMatchStore();
@@ -111,26 +104,20 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       }
 
       if (account.provider === PLATFORMS.Polymarket) {
-        // [changmen 扩展] A8 jb 无 PM 腿；单独路径，每 tick 最多 POST 一次
-        if (waitSec > 0) {
-          a8Tip("拒单检测", `等待<countdown>${waitSec}</countdown>秒`, waitSec * 1000);
-          syncActiveBetMakeupSettling(betId, waitSec);
-          await wait(waitSec * 1000);
-        }
-        await applyPmJbSettlementOutcome({
+        await processPmMakeUpLeg({
           betId,
           order,
           match,
           bet,
+          config,
           account,
-          result,
           checked,
+          result,
           platformLabel: item.type,
           loseStore,
           removeIds,
           setMessage,
         });
-        markSuccessfulBet(account, bet.id, order.target);
         break;
       }
 

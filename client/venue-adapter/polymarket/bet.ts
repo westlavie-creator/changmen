@@ -1,4 +1,4 @@
-import type { AccountBalanceResult, PlatformProvider } from "@venue/contract";
+import type { AccountBalanceResult, PlatformProvider, ResolveLegOutcomeOpts } from "@venue/contract";
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
@@ -23,6 +23,7 @@ import { markPolymarketChangmenOrder } from "./pmOrigin";
 import { bumpPolymarketOrderSyncAfterBet } from "./pmOrderSync";
 import { registerPolymarketOrderWatch } from "./userWs";
 import { startPolymarketSettlementJob } from "./settlementJob";
+import { resolvePolymarketProviderLegOutcome } from "./legOutcome";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import {
   resolvePolymarketDetectionMaxPrice,
@@ -504,6 +505,15 @@ export const polymarketProvider: PlatformProvider = {
       console.warn("[Polymarket] getOrders failed", err);
       return [];
     }
+  },
+
+  resolveLegOutcome(account, result, opts?: ResolveLegOutcomeOpts) {
+    return resolvePolymarketProviderLegOutcome(
+      acc => fetchPolymarketVenueOrdersMerged(acc),
+      account,
+      result,
+      opts,
+    );
   },
 
   async checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption> {

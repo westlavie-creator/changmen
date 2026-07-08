@@ -60,11 +60,47 @@ export function sortVenueOrdersNewestFirst(orders: VenueOrder[]): VenueOrder[] {
   return [...orders].sort((a, b) => b.createAt - a.createAt || b.orderId.localeCompare(a.orderId));
 }
 
+/**
+ * 订单状态层结论（POST/API 受理之后）。
+ * - filled：最终成交
+ * - unfilled：拒单 / FOK 未成交
+ * - timeout：待确认超时（jb 可续查；套利侧按拒单处理）
+ */
+export type VenueLegSettlement = "filled" | "unfilled" | "timeout";
+
+export interface VenueLegOutcome {
+  orders: VenueOrder[];
+  settlement: VenueLegSettlement;
+}
+
+export function isVenueLegRejected(outcome: VenueLegOutcome): boolean {
+  return outcome.settlement !== "filled";
+}
+
+export function isVenueLegPendingConfirm(outcome: VenueLegOutcome): boolean {
+  return outcome.settlement === "timeout";
+}
+
+export interface ResolveLegOutcomeOpts {
+  /** PM：轮询 settle / trades；false 时仅按 getOrders + orderId 判拒 */
+  confirmPmPost?: boolean;
+  /** 编排层已拉取的订单列表，避免重复 getOrders */
+  orders?: VenueOrder[];
+  /** 编排层拉单回调（含 saveOrders）；PM settle 后刷新用 */
+  fetchVenueOrders?: () => Promise<VenueOrder[]>;
+}
+
 export interface PlatformProvider {
   getBalance?(account: PlatformAccount): Promise<AccountBalanceResult | undefined>;
   getOrders?(account: PlatformAccount): Promise<VenueOrder[]>;
   checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption>;
   betting(account: PlatformAccount, option: BetOption): Promise<BetResult>;
+  /** 订单状态层：POST 之后判定 filled / unfilled / timeout（拒单检测） */
+  resolveLegOutcome?(
+    account: PlatformAccount,
+    result?: BetResult,
+    opts?: ResolveLegOutcomeOpts,
+  ): Promise<VenueLegOutcome>;
 }
 
 type StopFn = () => void;

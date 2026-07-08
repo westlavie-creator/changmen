@@ -261,7 +261,7 @@ describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
     expect(out.orders[0]?.status).toBe("reject");
     expect(out.orders[0]?.orderId).toBe("0xdelayed");
     expect(result.pending).toBe(false);
-    expect(updateVenueOrders).not.toHaveBeenCalled();
+    expect(updateVenueOrders).toHaveBeenCalledTimes(1);
   });
 
   it("delayed pending matched → refresh venue orders", async () => {
@@ -341,7 +341,7 @@ describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
 
     expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
     expect(fetchPolymarketConfirmedTradeForOrder).not.toHaveBeenCalled();
-    expect(updateVenueOrders).not.toHaveBeenCalled();
+    expect(updateVenueOrders).toHaveBeenCalledTimes(1);
     expect(out.rejected).toBe(true);
     expect(out.orders[0]?.orderId).toBe("0xsettled-unfilled");
   });

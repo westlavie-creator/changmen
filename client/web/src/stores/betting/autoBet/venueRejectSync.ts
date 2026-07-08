@@ -1,21 +1,11 @@
 import type { VenueOrder } from "@venue/contract";
 import type { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { sortVenueOrdersNewestFirst } from "@venue/contract";
-import {
-  applyPolymarketSettlementToResult,
-  buildPolymarketRejectVenueOrder,
-  isPolymarketBetResultFillConfirmed,
-  isPolymarketOrderIdRejected,
-} from "@venue/polymarket/orderStatus";
-import { settlePolymarketDelayedOrder } from "@venue/polymarket/orderSettlement";
-import { awaitPolymarketSettlementJob } from "@venue/polymarket/settlementJob";
-import { fetchPolymarketConfirmedTradeForOrder } from "@venue/polymarket/orders";
+import { isVenueLegRejected } from "@venue/contract";
 import {
   resolveA8VenueBindOrderId,
-  resolveA8VenueReject,
-  resolveVenueRejectForLeg,
 } from "@/domain/betting";
+import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome";
 import { useAccountStore } from "@/stores/accountStore";
 
 export interface VenueRejectFlags {
@@ -25,100 +15,38 @@ export interface VenueRejectFlags {
   rejectB: boolean;
 }
 
-/** 拉场馆订单；A8 场馆仅 `orders[0]` 判拒，PM 走 orderId / settlement */
+/** 拉场馆订单；A8 场馆仅 `orders[0]` 判拒，PM 列表模式按 orderId 判拒 */
 export async function fetchVenueOrdersWithReject(
   account: PlatformAccount,
   result?: BetResult,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
-  const orders = (await useAccountStore().updateVenueOrders(account)) ?? [];
-  const sorted = sortVenueOrdersNewestFirst(orders);
-  const rejected = account.provider === "Polymarket"
-    ? resolveVenueRejectForLeg(sorted, result)
-    : resolveA8VenueReject(sorted);
-  return { orders: sorted, rejected };
-}
-
-async function syncPolymarketVenueOrdersWithReject(
-  account: PlatformAccount,
-  result: BetResult,
-): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
-  if (result.reject) {
-    const kind = result.reject === "timeout" ? "timeout" : "unfilled";
-    return {
-      orders: [buildPolymarketRejectVenueOrder(account, result, kind)],
-      rejected: true,
-    };
-  }
-
-  if (isPolymarketBetResultFillConfirmed(result)) {
-    const synced = await fetchVenueOrdersWithReject(account);
-    return { orders: synced.orders, rejected: false };
-  }
-
-  const trade = await fetchPolymarketConfirmedTradeForOrder(
+  const outcome = await resolveVenueLegOutcome(
     account,
-    result.orderId!,
-    10 * 60 * 1000,
+    result,
+    () => useAccountStore().updateVenueOrders(account),
+    { confirmPmPost: false },
   );
-  if (trade) {
-    const synced = await fetchVenueOrdersWithReject(account);
-    return { orders: synced.orders, rejected: false };
-  }
-
-  const orderId = String(result.orderId ?? "").trim();
-  if (orderId) {
-    const settled = await settlePolymarketDelayedOrder(account, orderId);
-    applyPolymarketSettlementToResult(result, settled.outcome, settled.row);
-    if (settled.outcome === "matched") {
-      const synced = await fetchVenueOrdersWithReject(account, result);
-      return { orders: synced.orders, rejected: false };
-    }
-    if (settled.outcome === "unfilled" || settled.outcome === "timeout") {
-      const kind = settled.outcome === "timeout" ? "timeout" : "unfilled";
-      return {
-        orders: [buildPolymarketRejectVenueOrder(account, result, kind)],
-        rejected: true,
-      };
-    }
-  }
-
-  const synced = await fetchVenueOrdersWithReject(account, result);
   return {
-    orders: synced.orders,
-    rejected: isPolymarketOrderIdRejected(synced.orders, result.orderId)
-      || Boolean(result.reject),
+    orders: outcome.orders,
+    rejected: isVenueLegRejected(outcome),
   };
 }
 
-/**
- * 单腿拒单检测：PM delayed 在拒单等待后轮询 CLOB order，未成交合成 reject；
- * POST 已 matched 时信任成交；其它场馆走 getOrders + resolveVenueRejectForLeg。
- * PM pending：优先 await POST 预启动的 SettlementJob（wait 期间已在跑）。
- */
+/** 单腿拒单检测：PM 走 adapter 状态层确认；其它场馆走 getOrders */
 export async function syncVenueOrdersWithRejectForLeg(
   account: PlatformAccount,
   result?: BetResult,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
-  if (account.provider === "Polymarket" && result?.pending && result.orderId) {
-    const jobResult = await awaitPolymarketSettlementJob(account, result.orderId);
-    const { outcome, row } = jobResult
-      ?? await settlePolymarketDelayedOrder(account, result.orderId);
-    applyPolymarketSettlementToResult(result, outcome, row);
-    if (outcome === "matched") {
-      return fetchVenueOrdersWithReject(account, result);
-    }
-    const rejectOrder = buildPolymarketRejectVenueOrder(
-      account,
-      result,
-      outcome === "timeout" ? "timeout" : "unfilled",
-    );
-    return { orders: [rejectOrder], rejected: true };
-  }
-
-  if (account.provider === "Polymarket" && result?.success && result.orderId)
-    return syncPolymarketVenueOrdersWithReject(account, result);
-
-  return fetchVenueOrdersWithReject(account, result);
+  const outcome = await resolveVenueLegOutcome(
+    account,
+    result,
+    () => useAccountStore().updateVenueOrders(account),
+    { confirmPmPost: account.provider === "Polymarket" && Boolean(result) },
+  );
+  return {
+    orders: outcome.orders,
+    rejected: isVenueLegRejected(outcome),
+  };
 }
 
 /** 自动套利双腿：分别 sync 场馆订单与拒单标记 */

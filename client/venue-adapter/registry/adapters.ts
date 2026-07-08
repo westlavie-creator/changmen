@@ -1,6 +1,7 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { CollectorFactory, PlatformAdapter, PlatformProvider } from "@venue/contract";
 import type { PlatformId } from "@changmen/api-contract";
+import { withA8ResolveLegOutcome } from "@venue/adaptation/a8LegOutcome";
 import { azuroAdapter } from "@venue/azuro";
 import { dexAdapter } from "@venue/dex";
 import { hgAdapter } from "@venue/hg";
@@ -56,7 +57,10 @@ export function getAdapter(id: PlatformId): PlatformAdapter | undefined {
 export function getProvider(account: PlatformAccount): PlatformProvider | undefined {
   if (!account.provider || !platformSupportsBet(account.provider))
     return undefined;
-  return adapterById.get(account.provider)?.provider;
+  const provider = adapterById.get(account.provider)?.provider;
+  if (!provider)
+    return undefined;
+  return withA8ResolveLegOutcome(provider);
 }
 
 export function getCollectorFactory(id: PlatformId): CollectorFactory | undefined {

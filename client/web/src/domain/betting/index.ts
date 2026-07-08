@@ -30,3 +30,7 @@ export {
   resolveA8VenueReject,
   resolveVenueRejectForLeg,
 } from "@/domain/betting/venueReject";
+export {
+  resolveVenueLegOutcome,
+} from "@/domain/betting/resolveVenueLegOutcome";
+export type { ResolveLegOutcomeOpts } from "@venue/contract";

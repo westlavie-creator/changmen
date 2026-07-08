@@ -5,21 +5,22 @@ import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetOption as BetOptionCtor } from "@/models/betOption";
 import { BetResult as BetResultCtor } from "@/models/betResult";
-import { a8Tip } from "@/shared/a8Notify";
+import { isVenueLegPendingConfirm, isVenueLegRejected } from "@venue/contract";
 import { PLATFORMS } from "@/shared/platform";
-import type { useAccountStore } from "@/stores/accountStore";
 import {
   bindArbLegOrder,
   refreshOrderListAfterBind,
 } from "@/stores/betting/arbOrderBind";
-import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
+import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome";
 import type { useLoseOrderStore } from "@/stores/loseOrderStore";
+import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
 import {
   syncActiveBetMakeupDone,
   syncActiveBetMakeupRejected,
   syncActiveBetPhase,
 } from "@/stores/betting/activeBetRunSync";
+import { a8Tip } from "@/shared/a8Notify";
 
 export type PmJbSettlementOutcome = "dequeued" | "pending" | "rejected";
 
@@ -41,7 +42,7 @@ function isPmTimeoutReject(result: BetResult): boolean {
   return result.reject === "timeout";
 }
 
-/** PM jb：sync 后按 matched / timeout / unfilled 收尾 */
+/** PM jb：订单状态层确认后按 filled / timeout / unfilled 收尾 */
 export async function applyPmJbSettlementOutcome(
   ctx: PmJbSettlementContext,
 ): Promise<PmJbSettlementOutcome> {
@@ -57,12 +58,15 @@ export async function applyPmJbSettlementOutcome(
     setMessage,
   } = ctx;
 
-  const { orders: venueOrders, rejected } = await syncVenueOrdersWithRejectForLeg(
+  const legOutcome = await resolveVenueLegOutcome(
     account,
     result,
+    () => useAccountStore().updateVenueOrders(account),
+    { confirmPmPost: true },
   );
+  const venueOrders = legOutcome.orders;
 
-  if (!rejected) {
+  if (!isVenueLegRejected(legOutcome)) {
     loseStore.clearPendingPmOrder(betId);
     await bindArbLegOrder(order.linkId, account, result, venueOrders, false);
     refreshOrderListAfterBind();
@@ -73,7 +77,7 @@ export async function applyPmJbSettlementOutcome(
     return "dequeued";
   }
 
-  if (isPmTimeoutReject(result)) {
+  if (isVenueLegPendingConfirm(legOutcome) || isPmTimeoutReject(result)) {
     loseStore.setPendingPmOrder(betId, String(result.orderId ?? ""), account.accountId);
     setMessage(`PM 订单待确认，下轮续查 ${String(result.orderId ?? "").slice(0, 10)}…`);
     syncActiveBetPhase(betId, "makeup", "PM 订单待确认");

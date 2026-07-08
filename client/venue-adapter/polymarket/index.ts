@@ -8,6 +8,7 @@ export * from "./bet";
 export * from "./orderStatus";
 export * from "./orderSettlement";
 export * from "./settlementJob";
+export * from "./legOutcome";
 export * from "./orderTypes";
 export * from "./collect";
 export * from "./parse";
