@@ -45,16 +45,15 @@ function orderLabel(run: ActiveBetRun, index: number): string {
         class="active-bet-run__col"
       >
         <header class="active-bet-run__col-head">
-          <div class="active-bet-run__col-label">
-            {{ orderLabel(run, index) }}
-          </div>
-          <div class="active-bet-run__phase">
-            {{ run.overallLabel }}
-          </div>
+          <span class="active-bet-run__col-label">{{ orderLabel(run, index) }}</span>
+          <span class="active-bet-run__phase">{{ run.overallLabel }}</span>
         </header>
 
-        <div class="active-bet-run__match" v-html="run.matchTitle" />
-        <div class="active-bet-run__bet" v-html="run.betName" />
+        <div class="active-bet-run__meta-line">
+          <span class="active-bet-run__match" v-html="run.matchTitle" />
+          <span class="active-bet-run__sep">·</span>
+          <span class="active-bet-run__bet" v-html="run.betName" />
+        </div>
 
         <ul class="active-bet-run__legs">
           <li
@@ -62,12 +61,12 @@ function orderLabel(run: ActiveBetRun, index: number): string {
             :key="leg.side"
             class="active-bet-run__leg"
             :class="legClass(leg)"
+            :title="leg.detail || undefined"
           >
             <span class="active-bet-run__leg-platform">{{ leg.platform }}</span>
             <span class="active-bet-run__leg-target">{{ leg.target }}</span>
             <span class="active-bet-run__leg-status">{{ activeStore.legStatusLabel(leg.status) }}</span>
             <span v-if="leg.odds" class="active-bet-run__leg-odds">@{{ leg.odds }}</span>
-            <span v-if="leg.detail" class="active-bet-run__leg-detail">{{ leg.detail }}</span>
           </li>
         </ul>
 

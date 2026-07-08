@@ -329,4 +329,36 @@ describe("syncVenueOrdersWithRejectForLeg (Polymarket)", () => {
     expect(fetchPolymarketConfirmedTradeForOrder).toHaveBeenCalled();
     expect(out.rejected).toBe(false);
   });
+
+  it("honors result.reject without polling venue list", async () => {
+    const acc = account("Polymarket");
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xsettled-unfilled",
+      reject: "unfilled",
+    });
+
+    const out = await syncVenueOrdersWithRejectForLeg(acc, result);
+
+    expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
+    expect(fetchPolymarketConfirmedTradeForOrder).not.toHaveBeenCalled();
+    expect(updateVenueOrders).not.toHaveBeenCalled();
+    expect(out.rejected).toBe(true);
+    expect(out.orders[0]?.orderId).toBe("0xsettled-unfilled");
+  });
+
+  it("polls settlement when trade missing and order not in venue list", async () => {
+    const acc = account("Polymarket");
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xmissing",
+      response: { success: true, status: "live", orderID: "0xmissing" },
+    });
+    fetchPolymarketConfirmedTradeForOrder.mockResolvedValueOnce(null);
+    settlePolymarketDelayedOrder.mockResolvedValue({ outcome: "unfilled", row: null });
+
+    const out = await syncVenueOrdersWithRejectForLeg(acc, result);
+
+    expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(acc, "0xmissing");
+    expect(out.rejected).toBe(true);
+    expect(result.reject).toBe("unfilled");
+  });
 });

@@ -42,6 +42,14 @@ async function syncPolymarketVenueOrdersWithReject(
   account: PlatformAccount,
   result: BetResult,
 ): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
+  if (result.reject) {
+    const kind = result.reject === "timeout" ? "timeout" : "unfilled";
+    return {
+      orders: [buildPolymarketRejectVenueOrder(account, result, kind)],
+      rejected: true,
+    };
+  }
+
   if (isPolymarketBetResultFillConfirmed(result)) {
     const synced = await fetchVenueOrdersWithReject(account);
     return { orders: synced.orders, rejected: false };
@@ -57,10 +65,28 @@ async function syncPolymarketVenueOrdersWithReject(
     return { orders: synced.orders, rejected: false };
   }
 
-  const synced = await fetchVenueOrdersWithReject(account);
+  const orderId = String(result.orderId ?? "").trim();
+  if (orderId) {
+    const settled = await settlePolymarketDelayedOrder(account, orderId);
+    applyPolymarketSettlementToResult(result, settled.outcome, settled.row);
+    if (settled.outcome === "matched") {
+      const synced = await fetchVenueOrdersWithReject(account, result);
+      return { orders: synced.orders, rejected: false };
+    }
+    if (settled.outcome === "unfilled" || settled.outcome === "timeout") {
+      const kind = settled.outcome === "timeout" ? "timeout" : "unfilled";
+      return {
+        orders: [buildPolymarketRejectVenueOrder(account, result, kind)],
+        rejected: true,
+      };
+    }
+  }
+
+  const synced = await fetchVenueOrdersWithReject(account, result);
   return {
     orders: synced.orders,
-    rejected: isPolymarketOrderIdRejected(synced.orders, result.orderId),
+    rejected: isPolymarketOrderIdRejected(synced.orders, result.orderId)
+      || Boolean(result.reject),
   };
 }
 

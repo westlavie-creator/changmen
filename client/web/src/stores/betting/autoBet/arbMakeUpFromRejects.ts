@@ -2,6 +2,10 @@ import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet
 import type { VenueOrder } from "@venue/contract";
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
 import { resolveMakeUpSuccessReference } from "@/stores/betting/makeUpReference";
+import {
+  legFailedForMakeUpTarget,
+  legSucceededForMakeUpAnchor,
+} from "@/stores/betting/makeUpLegOutcome";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 export interface ArbMakeUpVenueContext {
@@ -48,9 +52,8 @@ export async function applyArbMakeUpFromRejects(
 
   if (
     accountA
-    && resultA?.success
-    && !rejectA
-    && (!resultB?.success || rejectB)
+    && legSucceededForMakeUpAnchor(resultA, rejectA)
+    && legFailedForMakeUpTarget(resultB, rejectB)
   ) {
     const successRef = resolveMakeUpSuccessReference(
       legA,
@@ -76,9 +79,8 @@ export async function applyArbMakeUpFromRejects(
   }
   if (
     accountB
-    && resultB?.success
-    && !rejectB
-    && (!resultA?.success || rejectA)
+    && legSucceededForMakeUpAnchor(resultB, rejectB)
+    && legFailedForMakeUpTarget(resultA, rejectA)
   ) {
     const successRef = resolveMakeUpSuccessReference(
       legB,

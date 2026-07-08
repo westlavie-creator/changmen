@@ -157,4 +157,36 @@ describe("applyArbMakeUpFromRejects", () => {
       }),
     );
   });
+
+  it("enqueues when PM leg has settlement reject but venue reject flag is false", async () => {
+    const placed = basePlaced();
+    placed.legA = new BetOption("Polymarket" as never, "m1", "b1", "h1", 40, "Home", 1.36);
+    placed.legB = new BetOption("OB" as never, "m2", "b2", "a1", 70, "Away", 4.095);
+    placed.accountA = { accountId: 14 } as never;
+    placed.accountB = { accountId: 23 } as never;
+    placed.resultA = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xpm-unfilled",
+      reject: "unfilled",
+    });
+    placed.resultB = new BetResult("OB", true);
+
+    const out = await applyArbMakeUpFromRejects(
+      params(),
+      placed,
+      false,
+      false,
+      {
+        ordersA: [],
+        ordersB: [{ betMoney: 70, odds: 4.095, status: "none" } as never],
+      },
+    );
+
+    expect(out).toEqual({ enqueuedForLegA: true, enqueuedForLegB: false });
+    expect(enqueueMakeUpOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 23,
+        betMoney: 70,
+      }),
+    );
+  });
 });
