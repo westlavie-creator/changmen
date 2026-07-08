@@ -25,7 +25,7 @@ export type OrderListEntry = readonly [number, OrderRow[]];
 
 const emit = defineEmits<{
   cancelMakeup: [betId: number];
-  createMakeup: [link: number, rows: OrderRow[]];
+  createMakeup: [link: number];
 }>();
 
 function isPendingRow(row: OrderRow): boolean {
@@ -49,10 +49,10 @@ function onCancelMakeup(row: OrderRow) {
     .catch(() => {});
 }
 
-function onLegendDblClick(link: number, rows: OrderRow[]) {
+function onLegendDblClick(link: number) {
   if (!link)
     return;
-  emit("createMakeup", link, rows);
+  emit("createMakeup", link);
 }
 
 withDefaults(
@@ -88,7 +88,7 @@ withDefaults(
             { 'orderlink__legend--makeup': createMakeupOnLegendDblclick && link !== 0 },
           ]"
           :title="createMakeupOnLegendDblclick && link !== 0 ? '双击创建补单' : undefined"
-          @dblclick="createMakeupOnLegendDblclick && link ? onLegendDblClick(link, rows) : undefined"
+          @dblclick="createMakeupOnLegendDblclick && link ? onLegendDblClick(link) : undefined"
         >
           {{ orderLegendText(rows) }}
         </legend>

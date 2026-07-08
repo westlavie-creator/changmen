@@ -5,6 +5,7 @@ import type { ActiveBetLegStatus, ActiveBetRunPhase } from "@/types/activeBetRun
 import type { MakeupRuntimePhase } from "@/types/order";
 import { getActivePinia } from "pinia";
 import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
+import { saveLinkBetContext } from "@/stores/betting/linkBetContext";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 function activeStore() {
@@ -80,6 +81,7 @@ export function syncActiveBetBegin(params: {
     overallLabel: "准备套利",
     legs,
   });
+  saveLinkBetContext(linkId, match.id, bet.id);
   store.appendEvent(bet.id, "检测", `${legA.type} vs ${legB.type}`);
 }
 

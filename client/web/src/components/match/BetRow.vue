@@ -4,12 +4,14 @@ import type { PlatformId } from "@/types/esport";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
+import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
 import { useEvMarker } from "@/extensions/valueBet";
 import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 const props = defineProps<{
   match: ViewMatch;
@@ -20,7 +22,11 @@ const BET_SIDES: BetSide[] = ["Home", "Away"];
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
+const loseStore = useLoseOrderStore();
 const { tick: matchTick } = storeToRefs(matchStore);
+
+const loseOpen = ref(false);
+const makeupLinkId = ref(0);
 
 const limitOpen = ref(false);
 const limitProvider = ref<PlatformId>();
@@ -128,6 +134,16 @@ function openLimit(item: ViewBet["items"][0]) {
 function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
   void matchStore.manualBet(props.match, props.bet, item, side);
 }
+
+function onBetTitleDblClick() {
+  makeupLinkId.value = loseStore.consumePendingMakeupLinkId();
+  loseOpen.value = true;
+}
+
+function onCreateLoseClose() {
+  loseOpen.value = false;
+  makeupLinkId.value = 0;
+}
 </script>
 
 <template>
@@ -143,7 +159,7 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
     >
       {{ formatSecond(liveSeconds) }}
     </el-tag>
-    <div class="bet-title">
+    <div class="bet-title" @dblclick="onBetTitleDblClick">
       {{ bet.getBetName() }} - {{ arb }}
     </div>
     <div ref="itemsContainerRef" class="bet-items">
@@ -221,6 +237,13 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
       />
     </div>
 
+    <CreateLoseDialog
+      :open="loseOpen"
+      :match="match"
+      :bet="bet"
+      :link-id="makeupLinkId"
+      @close="onCreateLoseClose"
+    />
     <LimitDiagDialog
       :open="limitOpen"
       :provider="limitProvider"

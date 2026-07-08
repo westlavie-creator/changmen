@@ -3,15 +3,15 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { ElMessage } from "element-plus";
 import type { ViewBet, ViewMatch } from "@/models/match";
-import type { OrderRow } from "@/types/order";
 import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import OrderMakeupStatusBar from "@/components/order/OrderMakeupStatusBar.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
 import { mergePendingMakeupIntoOrderGroups, orderLinkMapEntries } from "@/shared/orderLink";
-import { resolveMatchBetForOrderRows } from "@/stores/betting/createLoseFromLink";
+import { resolveMatchBetForLink } from "@/stores/betting/createLoseFromLink";
 import { wait } from "@/shared/wait";
+import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOrderStore } from "@/stores/orderStore";
@@ -27,6 +27,7 @@ const props = withDefaults(
 
 const orderStore = useOrderStore();
 const loseStore = useLoseOrderStore();
+const activeBetRunStore = useActiveBetRunStore();
 const matchStore = useMatchStore();
 const userStore = useUserStore();
 const { orderDate, loading, filterAccountId, accountOptions, orders, filteredOrders }
@@ -101,12 +102,16 @@ function onCancelMakeup(betId: number) {
   loseStore.cancelMakeupManually(betId);
 }
 
-function onCreateMakeup(link: number, rows: readonly OrderRow[]) {
+function onCreateMakeup(link: number) {
   if (!link)
     return;
-  const resolved = resolveMatchBetForOrderRows(matchStore.matchs, [...rows]);
+  const resolved = resolveMatchBetForLink(matchStore.matchs, link, {
+    loseOrders: loseOrders.value.values(),
+    activeRuns: activeBetRunStore.visibleRuns,
+  });
   if (!resolved) {
-    ElMessage.warning("未找到对应盘口，请确认赛事仍在列表中");
+    loseStore.setPendingMakeupLinkId(link);
+    ElMessage.info("请在中间对应盘口标题上双击创建补单");
     return;
   }
   createLoseLinkId.value = link;
