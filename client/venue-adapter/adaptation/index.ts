@@ -3,6 +3,7 @@ export {
   resolvePlanCnyFromVenueOrder,
   resolvePlanCnyFromVenueStake,
   resolveVenueStakeFromPlanCny,
+  type ResolveVenueStakeOpts,
 } from "./a8VenueMoney";
 export {
   isA8VenueReject,

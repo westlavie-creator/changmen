@@ -27,9 +27,10 @@ export function polymarketUsdtFromCny(
   account: PlatformAccount,
   cnyAmount: number,
   odds: number,
+  skipAccountRate = false,
 ): number {
   let usdt = round2Usdc(cnyAmount / getExchange(account.currency));
-  if (!account.rateConfig?.length)
+  if (skipAccountRate || !account.rateConfig?.length)
     return usdt;
   const rate = resolvePolymarketEffectiveRate(account, odds);
   if (usdt < 1)

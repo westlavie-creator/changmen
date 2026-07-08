@@ -17,14 +17,22 @@ function venueToPlanExchange(account: PlatformAccount): number {
   return getExchange(account.currency);
 }
 
+export type ResolveVenueStakeOpts = {
+  /** 9999 单边预检：不按账号比例放大，仅用 Plan CNY 换算场馆原币 */
+  skipAccountRate?: boolean;
+};
+
 /** Plan CNY → 场馆下注 stake（`betGateway.checkBetting` 唯一换算入口） */
 export function resolveVenueStakeFromPlanCny(
   account: PlatformAccount,
   planCny: number,
   odds: number,
+  opts?: ResolveVenueStakeOpts,
 ): number {
   if (isPolymarketProvider(account.provider))
-    return polymarketUsdtFromCny(account, planCny, odds);
+    return polymarketUsdtFromCny(account, planCny, odds, opts?.skipAccountRate);
+  if (opts?.skipAccountRate)
+    return Math.round(planCny / venueToPlanExchange(account));
   return account.getBetMoney(planCny, odds);
 }
 

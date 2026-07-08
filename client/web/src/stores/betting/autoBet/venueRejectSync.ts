@@ -1,7 +1,7 @@
 import type { VenueOrder } from "@venue/contract";
 import type { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { isVenueLegRejected } from "@venue/contract";
+import { isVenueLegPendingConfirm, isVenueLegRejected } from "@venue/contract";
 import {
   resolveA8VenueBindOrderId,
 } from "@/domain/betting";
@@ -37,7 +37,7 @@ export async function syncVenueOrdersWithRejectForLeg(
   account: PlatformAccount,
   result?: BetResult,
   rejectWaitSec?: number,
-): Promise<{ orders: VenueOrder[]; rejected: boolean }> {
+): Promise<{ orders: VenueOrder[]; rejected: boolean; pendingConfirm: boolean }> {
   const outcome = await resolveVenueLegOutcome(
     account,
     result,
@@ -50,6 +50,7 @@ export async function syncVenueOrdersWithRejectForLeg(
   return {
     orders: outcome.orders,
     rejected: isVenueLegRejected(outcome),
+    pendingConfirm: isVenueLegPendingConfirm(outcome),
   };
 }
 

@@ -166,13 +166,33 @@ function venueOrder(orderId: string, status: VenueOrder["status"], createAt: num
   };
 }
 
+function packLegSync(
+  leg: { orders: VenueOrder[]; rejected: boolean; pendingConfirm?: boolean },
+) {
+  return { pendingConfirm: false, ...leg };
+}
+
 function mockDualLegVenueSync(
-  legA: { orders: VenueOrder[]; rejected: boolean },
-  legB: { orders: VenueOrder[]; rejected: boolean },
+  legA: { orders: VenueOrder[]; rejected: boolean; pendingConfirm?: boolean },
+  legB: { orders: VenueOrder[]; rejected: boolean; pendingConfirm?: boolean },
 ) {
   syncVenueOrdersWithRejectForLeg
-    .mockResolvedValueOnce(legA)
-    .mockResolvedValueOnce(legB);
+    .mockResolvedValueOnce(packLegSync(legA))
+    .mockResolvedValueOnce(packLegSync(legB));
+}
+
+function expectMakeUpVenue(
+  ordersA: VenueOrder[],
+  ordersB: VenueOrder[],
+  pendingConfirmA = false,
+  pendingConfirmB = false,
+) {
+  return {
+    ordersA,
+    ordersB,
+    pendingConfirmA,
+    pendingConfirmB,
+  };
 }
 
 describe("finalizeArbBet makeup enqueue", () => {
@@ -215,10 +235,10 @@ describe("finalizeArbBet makeup enqueue", () => {
       expect.anything(),
       false,
       true,
-      {
-        ordersA: [venueOrder("ob-1", "none", 2)],
-        ordersB: [venueOrder("ray-reject", "reject", 3)],
-      },
+      expectMakeUpVenue(
+        [venueOrder("ob-1", "none", 2)],
+        [venueOrder("ray-reject", "reject", 3)],
+      ),
     );
   });
 
@@ -235,10 +255,10 @@ describe("finalizeArbBet makeup enqueue", () => {
       expect.anything(),
       false,
       false,
-      {
-        ordersA: [venueOrder("ob-1", "none", 2)],
-        ordersB: [venueOrder("ray-1", "none", 3)],
-      },
+      expectMakeUpVenue(
+        [venueOrder("ob-1", "none", 2)],
+        [venueOrder("ray-1", "none", 3)],
+      ),
     );
   });
 
@@ -255,10 +275,10 @@ describe("finalizeArbBet makeup enqueue", () => {
       expect.anything(),
       true,
       true,
-      {
-        ordersA: [venueOrder("ob-reject", "reject", 3)],
-        ordersB: [venueOrder("ray-reject", "reject", 2)],
-      },
+      expectMakeUpVenue(
+        [venueOrder("ob-reject", "reject", 3)],
+        [venueOrder("ray-reject", "reject", 2)],
+      ),
     );
   });
 
@@ -268,10 +288,10 @@ describe("finalizeArbBet makeup enqueue", () => {
       accountB: undefined,
       resultB: undefined,
     });
-    syncVenueOrdersWithRejectForLeg.mockResolvedValueOnce({
+    syncVenueOrdersWithRejectForLeg.mockResolvedValueOnce(packLegSync({
       orders: [venueOrder("ob-1", "none", 2)],
       rejected: false,
-    });
+    }));
 
     await finalizeArbBet(params, placed);
 
@@ -334,10 +354,10 @@ describe("finalizeArbBet makeup enqueue", () => {
 
   it("PM delayed 且场馆 sync 为空时用 result.orderId 绑单", async () => {
     const linkId = 1_700_000_000_000;
-    syncVenueOrdersWithRejectForLeg.mockResolvedValueOnce({
+    syncVenueOrdersWithRejectForLeg.mockResolvedValueOnce(packLegSync({
       orders: [],
       rejected: false,
-    });
+    }));
 
     const placed = makePlaced({
       linkId,

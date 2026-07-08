@@ -139,6 +139,8 @@ export async function finalizeArbBet(
   let ordersB: VenueOrder[] = [];
   let rejectA = false;
   let rejectB = false;
+  let pendingConfirmA = false;
+  let pendingConfirmB = false;
   const boundLegLabels: string[] = [];
 
   if (successAccounts.length) {
@@ -158,6 +160,7 @@ export async function finalizeArbBet(
         );
         ordersA = synced.orders;
         rejectA = synced.rejected;
+        pendingConfirmA = synced.pendingConfirm;
         syncActiveBetLegSettleResult(bet.id, "A", true, rejectA);
         if (await bindArbLegOrder(linkId, accountA, resultA, ordersA, rejectA))
           boundLegLabels.push(legA.type);
@@ -173,6 +176,7 @@ export async function finalizeArbBet(
         );
         ordersB = synced.orders;
         rejectB = synced.rejected;
+        pendingConfirmB = synced.pendingConfirm;
         syncActiveBetLegSettleResult(bet.id, "B", true, rejectB);
         if (await bindArbLegOrder(linkId, accountB, resultB, ordersB, rejectB))
           boundLegLabels.push(legB.type);
@@ -195,6 +199,8 @@ export async function finalizeArbBet(
   const makeup = await applyArbMakeUpFromRejects(params, placed, rejectA, rejectB, {
     ordersA,
     ordersB,
+    pendingConfirmA,
+    pendingConfirmB,
   });
   if (boundLegLabels.length)
     trace?.event("绑单", `linkId ${linkId} · ${boundLegLabels.join(" + ")}`);
@@ -213,8 +219,8 @@ export async function finalizeArbBet(
 
   refreshOrderListAfterBind();
 
-  const okA = Boolean(resultA?.success && accountA && !rejectA);
-  const okB = Boolean(resultB?.success && accountB && !rejectB);
+  const okA = Boolean(resultA?.success && accountA && !rejectA && !pendingConfirmA);
+  const okB = Boolean(resultB?.success && accountB && !rejectB && !pendingConfirmB);
   const makeupQueued = makeup.enqueuedForLegA || makeup.enqueuedForLegB;
 
   let makeupTarget: "A" | "B" | undefined;

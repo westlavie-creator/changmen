@@ -37,6 +37,19 @@ describe("pmStake", () => {
     expect(polymarketUsdtFromCny(rated, 100, 2)).toBe(7.36);
   });
 
+  it("polymarketUsdtFromCny can skip account rate for 9999 precheck", () => {
+    const rated = new PlatformAccount({
+      accountId: 3,
+      provider: "Polymarket",
+      playerName: "pm-9999",
+      currency: "USDT",
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
+    });
+    const nominal = polymarketUsdtFromCny(rated, 100, 2, true);
+    expect(polymarketUsdtFromCny(rated, 100, 2)).toBeGreaterThan(nominal * 100);
+    expect(nominal).toBe(14.71);
+  });
+
   it("resolvePolymarketVenueStakeUsdc enforces min stake without extra rounding", () => {
     expect(resolvePolymarketVenueStakeUsdc(3.36)).toBe(3.36);
     expect(resolvePolymarketVenueStakeUsdc(0.5)).toBe(1);

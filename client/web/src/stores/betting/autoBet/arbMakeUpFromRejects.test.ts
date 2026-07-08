@@ -189,4 +189,36 @@ describe("applyArbMakeUpFromRejects", () => {
       }),
     );
   });
+
+  it("enqueues RAY makeup when RAY rejected and PM still pending confirm", async () => {
+    const placed = basePlaced();
+    placed.legA = new BetOption("RAY" as never, "m1", "b1", "h1", 55, "Home", 2.81);
+    placed.legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Away", 1.72);
+    placed.resultA = new BetResult("RAY", true);
+    placed.resultB = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xpm-delayed",
+      pending: true,
+    });
+
+    const out = await applyArbMakeUpFromRejects(
+      params(),
+      placed,
+      true,
+      false,
+      {
+        ordersA: [{ betMoney: 55, odds: 2.81, status: "reject" } as never],
+        ordersB: [],
+        pendingConfirmB: true,
+      },
+    );
+
+    expect(out).toEqual({ enqueuedForLegA: true, enqueuedForLegB: false });
+    expect(enqueueMakeUpOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: "Home",
+        accountId: 23,
+        failedPlatformLabel: "RAY",
+      }),
+    );
+  });
 });

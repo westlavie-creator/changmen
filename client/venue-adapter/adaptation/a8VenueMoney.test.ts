@@ -41,6 +41,18 @@ describe("a8VenueMoney (A8 adaptation)", () => {
     expect(resolvePlanCnyFromVenueStake(acc, 14)).toBe(95.2);
   });
 
+  it("skipAccountRate: 9999 预检不按比例放大", () => {
+    const acc = new PlatformAccount({
+      accountId: 4,
+      provider: "PB",
+      playerName: "peter",
+      currency: "CNY",
+      rateConfig: [{ minOdds: 0, maxOdds: 0, rate: 9999 }],
+    });
+    expect(resolveVenueStakeFromPlanCny(acc, 180, 1.9)).toBe(1_799_820);
+    expect(resolveVenueStakeFromPlanCny(acc, 180, 1.9, { skipAccountRate: true })).toBe(180);
+  });
+
   it("resolvePlanCnyFromVenueOrder handles scaled and unscaled PM orders", () => {
     const acc = new PlatformAccount({
       accountId: 3,

@@ -36,13 +36,23 @@ function defaultLeg(
   target: string,
   patch: Partial<ActiveBetLeg> = {},
 ): ActiveBetLeg {
+  const { events, ...rest } = patch;
   return {
     side,
     platform,
     target,
     status: "pending",
-    ...patch,
+    events: events ?? [],
+    ...rest,
   };
+}
+
+const MAX_LEG_EVENTS = 12;
+const MAX_RUN_EVENTS = 8;
+
+function trimEvents<T>(list: T[], cap: number) {
+  if (list.length > cap)
+    list.splice(0, list.length - cap);
 }
 
 function legsFromLoseOrder(order: LoseOrder): ActiveBetLeg[] {
@@ -111,8 +121,21 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       if (!run)
         return;
       run.events.push({ at: Date.now(), stage, detail });
-      if (run.events.length > 20)
-        run.events.splice(0, run.events.length - 20);
+      trimEvents(run.events, MAX_RUN_EVENTS);
+      run.updatedAt = Date.now();
+    },
+
+    appendLegEvent(betId: number, side: "A" | "B", stage: string, detail: string) {
+      const run = this.runs.get(betId);
+      if (!run)
+        return;
+      const leg = run.legs.find(l => l.side === side);
+      if (!leg)
+        return;
+      if (!leg.events)
+        leg.events = [];
+      leg.events.push({ at: Date.now(), stage, detail });
+      trimEvents(leg.events, MAX_LEG_EVENTS);
       run.updatedAt = Date.now();
     },
 
@@ -143,20 +166,16 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       const leg = run.legs.find(l => l.side === side);
       if (!leg)
         return;
+      if (!leg.events)
+        leg.events = [];
       const prevStatus = leg.status;
       Object.assign(leg, patch);
       if (patch.status && patch.status !== prevStatus) {
         const label = LEG_STATUS_LABEL[patch.status] ?? patch.status;
-        const detail = patch.detail
-          ? `${leg.platform} · ${label} · ${patch.detail}`
-          : `${leg.platform} · ${label}`;
-        run.events.push({
-          at: Date.now(),
-          stage: side === "A" ? "A腿" : "B腿",
-          detail,
-        });
-        if (run.events.length > 20)
-          run.events.splice(0, run.events.length - 20);
+        const eventDetail = patch.detail?.trim()
+          ? patch.detail
+          : leg.platform;
+        this.appendLegEvent(betId, side, label, eventDetail);
       }
       run.updatedAt = Date.now();
     },
@@ -201,6 +220,9 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
           legs: legsFromLoseOrder(order),
         });
         this.appendEvent(betId, "补单", pendingPm ? "续查 PM 订单" : "队列已恢复");
+        const makeupLeg = this.runs.get(betId)?.legs.find(l => l.status === "makeup");
+        if (makeupLeg)
+          this.appendLegEvent(betId, makeupLeg.side, "补单", pendingPm ? "续查 PM 订单" : "队列已恢复");
       }
     },
   },

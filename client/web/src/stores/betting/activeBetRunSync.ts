@@ -32,6 +32,7 @@ function legFromOption(
   betMoney: number;
   status: ActiveBetLegStatus;
   detail?: string;
+  events: { at: number; stage: string; detail: string }[];
 } {
   return {
     side,
@@ -41,6 +42,7 @@ function legFromOption(
     betMoney: leg.betMoney,
     status,
     detail: account?.playerName,
+    events: [],
   };
 }
 
@@ -102,7 +104,23 @@ export function syncActiveBetBegin(params: {
     overallLabel: "准备套利",
     legs,
   });
-  store.appendEvent(bet.id, "检测", `${legA.type} vs ${legB.type}`);
+  if (checkAccountA)
+    store.appendLegEvent(bet.id, "A", "检测", `${legA.type} ${legA.target}`);
+  if (checkAccountB)
+    store.appendLegEvent(bet.id, "B", "检测", `${legB.type} ${legB.target}`);
+}
+
+function appendPhaseToActiveLegs(betId: number, stage: string, detail: string) {
+  const store = activeStore();
+  if (!store)
+    return;
+  const run = store.runs.get(betId);
+  if (!run)
+    return;
+  for (const leg of run.legs) {
+    if (leg.status !== "skipped")
+      store.appendLegEvent(betId, leg.side, stage, detail);
+  }
 }
 
 export function syncActiveBetPhase(
@@ -116,8 +134,16 @@ export function syncActiveBetPhase(
     return;
   store.setPhase(betId, phase, detail, countdownSec);
   if (detail)
-    store.appendEvent(betId, phase, detail);
+    appendPhaseToActiveLegs(betId, PHASE_STAGE_LABEL[phase] ?? phase, detail);
 }
+
+const PHASE_STAGE_LABEL: Partial<Record<ActiveBetRunPhase, string>> = {
+  checking: "预检",
+  placing: "下单",
+  settling: "确认",
+  makeup: "补单",
+  syncing: "完成",
+};
 
 export function syncActiveBetLeg(
   betId: number,
@@ -209,7 +235,8 @@ export function syncActiveBetMakeupPmDelayed(betId: number, orderId?: string | n
   if (makeupLeg)
     store.patchLeg(betId, makeupLeg.side, { status: "makeup", detail });
   store.setPhase(betId, "makeup", "PM 延迟确认");
-  store.appendEvent(betId, "补单", detail);
+  if (makeupLeg)
+    store.appendLegEvent(betId, makeupLeg.side, "补单", detail);
 }
 
 export function syncActiveBetAfterRejectSync(
@@ -244,7 +271,10 @@ export function syncActiveBetAfterRejectSync(
   }
 
   if (flags.okA && flags.okB) {
-    store.appendEvent(betId, "完成", "双腿成单");
+    if (flags.hasA)
+      store.appendLegEvent(betId, "A", "完成", "双腿成单");
+    if (flags.hasB)
+      store.appendLegEvent(betId, "B", "完成", "双腿成单");
     store.scheduleDismiss(betId);
     return;
   }
@@ -257,13 +287,21 @@ export function syncActiveBetAfterRejectSync(
         platform: flags.makeupPlatform,
         detail: "已入补单队列",
       });
+      store.appendLegEvent(
+        betId,
+        flags.makeupTarget,
+        "补单",
+        flags.makeupPlatform ? `补 ${flags.makeupPlatform}` : "已入队",
+      );
     }
-    store.appendEvent(betId, "补单", flags.makeupPlatform ? `补 ${flags.makeupPlatform}` : "已入队");
     return;
   }
 
   if (!flags.okA && !flags.okB) {
-    store.appendEvent(betId, "结束", "双腿均未成单");
+    if (flags.hasA)
+      store.appendLegEvent(betId, "A", "结束", "未成单");
+    if (flags.hasB)
+      store.appendLegEvent(betId, "B", "结束", "未成单");
     store.removeRun(betId);
     return;
   }
@@ -275,8 +313,38 @@ export function syncActiveBetFail(betId: number, reason: string) {
   const store = activeStore();
   if (!store)
     return;
-  store.appendEvent(betId, "失败", reason);
-  setTimeout(() => store.removeRun(betId), 6000);
+  const run = store.runs.get(betId);
+  const parts = reason.split(" · ").map(s => s.trim()).filter(Boolean);
+  if (run && parts.length > 1) {
+    for (const part of parts) {
+      const leg = run.legs.find((row) => {
+        const prefix = `${row.platform} ${row.target}:`;
+        return part.startsWith(prefix) || part.startsWith(`${row.platform} `);
+      });
+      if (!leg)
+        continue;
+      const detail = part.includes(":") ? part.slice(part.indexOf(":") + 1).trim() : part;
+      if (leg.status !== "failed")
+        store.patchLeg(betId, leg.side, { status: "failed", detail: detail || part });
+      else
+        store.appendLegEvent(betId, leg.side, "失败", detail || part);
+    }
+  }
+  else {
+    store.appendEvent(betId, "失败", reason);
+    for (const leg of run?.legs ?? []) {
+      if (leg.status !== "skipped" && leg.status !== "failed")
+        store.appendLegEvent(betId, leg.side, "失败", reason);
+    }
+  }
+  scheduleActiveBetRunRemoval(betId);
+}
+
+export function scheduleActiveBetRunRemoval(betId: number, delayMs = 6000) {
+  const store = activeStore();
+  if (!store)
+    return;
+  setTimeout(() => store.removeRun(betId), delayMs);
 }
 
 export function syncActiveBetMakeupEnqueue(
@@ -302,12 +370,14 @@ export function syncActiveBetMakeupEnqueue(
           platform,
           target,
           status: "makeup",
+          events: [],
         },
         {
           side: targetSide === "A" ? "B" : "A",
           platform: "—",
           target: target === "Home" ? "Away" : "Home",
           status: "skipped",
+          events: [],
         },
       ],
     });
@@ -316,13 +386,14 @@ export function syncActiveBetMakeupEnqueue(
     store.setPhase(betId, "makeup", "补单中");
     store.patchLeg(betId, targetSide, { status: "makeup", platform, detail: "已入补单队列" });
   }
-  store.appendEvent(betId, "补单", `${platform} 入队`);
+  store.appendLegEvent(betId, targetSide, "补单", `${platform} 入队`);
 }
 
 export function syncActiveBetMakeupAttempt(
   betId: number,
   platform: string,
   detail: string,
+  targetSide?: "A" | "B",
 ) {
   syncMakeupListPhase(betId, "placing");
   const store = activeStore();
@@ -330,8 +401,12 @@ export function syncActiveBetMakeupAttempt(
     return;
   if (!store.runs.has(betId))
     return;
+  const side = targetSide ?? store.runs.get(betId)?.legs.find(l => l.status === "makeup")?.side;
   store.setPhase(betId, "makeup", `补单中 · ${platform}`);
-  store.appendEvent(betId, "补单", detail);
+  if (side)
+    store.appendLegEvent(betId, side, "补单", detail);
+  else
+    store.appendEvent(betId, "补单", detail);
 }
 
 export function syncActiveBetMakeupSettling(betId: number, waitSec: number) {
@@ -344,8 +419,13 @@ export function syncActiveBetMakeupRejected(betId: number, target: string) {
   const store = activeStore();
   if (!store)
     return;
+  const run = store.runs.get(betId);
+  const makeupLeg = run?.legs.find(l => l.status === "makeup" || l.target === target);
   store.setPhase(betId, "makeup", `${target} 再次被拒单`);
-  store.appendEvent(betId, "拒单", `${target} 再次被拒单`);
+  if (makeupLeg)
+    store.appendLegEvent(betId, makeupLeg.side, "拒单", `${target} 再次被拒单`);
+  else
+    store.appendEvent(betId, "拒单", `${target} 再次被拒单`);
 }
 
 export function syncActiveBetMakeupDone(betId: number, platform: string, odds: number) {
@@ -353,6 +433,12 @@ export function syncActiveBetMakeupDone(betId: number, platform: string, odds: n
   const store = activeStore();
   if (!store)
     return;
-  store.appendEvent(betId, "完成", `补单成功 ${platform}@${odds}`);
+  const run = store.runs.get(betId);
+  const makeupLeg = run?.legs.find(l => l.status === "makeup" || l.platform === platform);
+  const detail = `补单成功 @${odds}`;
+  if (makeupLeg)
+    store.appendLegEvent(betId, makeupLeg.side, "完成", detail);
+  else
+    store.appendEvent(betId, "完成", `${platform} ${detail}`);
   store.scheduleDismiss(betId);
 }

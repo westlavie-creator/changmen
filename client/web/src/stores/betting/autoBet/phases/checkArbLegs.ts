@@ -10,9 +10,17 @@ import { getPolymarketPmSportBlockReasonFromOption } from "@venue/polymarket";
 import { PLATFORMS } from "@/shared/platform";
 import { useAccountStore } from "@/stores/accountStore";
 import {
+  scheduleActiveBetRunRemoval,
   syncActiveBetFail,
+  syncActiveBetLeg,
   syncActiveBetPhase,
 } from "@/stores/betting/activeBetRunSync";
+
+function stripPrecheckError(raw?: string): string {
+  if (!raw)
+    return "";
+  return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
 
 /** 预检双腿；失败时 trace.finish 并返回 null */
 export async function checkArbLegs(
@@ -40,16 +48,17 @@ export async function checkArbLegs(
   if (checkAccountB)
     checkAccountB.active = true;
 
-  for (const [account, leg] of [
-    [checkAccountA, legA] as const,
-    [checkAccountB, legB] as const,
+  for (const [account, leg, side] of [
+    [checkAccountA, legA, "A"] as const,
+    [checkAccountB, legB, "B"] as const,
   ]) {
     if (!account || leg.type !== PLATFORMS.Polymarket)
       continue;
     const pmBlock = getPolymarketPmSportBlockReasonFromOption(leg);
     if (pmBlock) {
       trace?.finish("fail", `${leg.type} ${leg.target}: ${pmBlock}`);
-      syncActiveBetFail(bet.id, pmBlock);
+      syncActiveBetLeg(bet.id, side, "failed", pmBlock);
+      scheduleActiveBetRunRemoval(bet.id);
       await wait(1000);
       return null;
     }
@@ -58,10 +67,28 @@ export async function checkArbLegs(
   const checkStart = Date.now();
 
   const checkTasks: Promise<BetOption>[] = [];
-  if (checkAccountA)
-    checkTasks.push(accountStore.checkBetting(checkAccountA, legA));
-  if (checkAccountB)
-    checkTasks.push(accountStore.checkBetting(checkAccountB, legB));
+  if (checkAccountA) {
+    checkTasks.push(accountStore.checkBetting(checkAccountA, legA, {
+      skipAccountRate: isSingleLegPrecheckOnly(
+        "A",
+        accountA,
+        accountB,
+        checkAccountA,
+        checkAccountB,
+      ),
+    }));
+  }
+  if (checkAccountB) {
+    checkTasks.push(accountStore.checkBetting(checkAccountB, legB, {
+      skipAccountRate: isSingleLegPrecheckOnly(
+        "B",
+        accountA,
+        accountB,
+        checkAccountA,
+        checkAccountB,
+      ),
+    }));
+  }
   const checked = await Promise.all(checkTasks);
   let checkIdx = 0;
   if (checkAccountA)
@@ -103,8 +130,16 @@ export async function checkArbLegs(
       legPrecheckFailLabel("A"),
       legPrecheckFailLabel("B"),
     ].filter(Boolean);
+    if (checkAccountA && !legA.data) {
+      const detail = stripPrecheckError(legA.checkError) || "无盘口数据";
+      syncActiveBetLeg(bet.id, "A", "failed", detail);
+    }
+    if (checkAccountB && !legB.data) {
+      const detail = stripPrecheckError(legB.checkError) || "无盘口数据";
+      syncActiveBetLeg(bet.id, "B", "failed", detail);
+    }
     trace?.finish("fail", parts.join(" · ") || "预检未通过");
-    syncActiveBetFail(bet.id, parts.join(" · ") || "预检未通过");
+    scheduleActiveBetRunRemoval(bet.id);
     await wait(1000);
     return null;
   }

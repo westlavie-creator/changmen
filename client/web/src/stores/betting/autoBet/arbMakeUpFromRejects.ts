@@ -11,6 +11,8 @@ import { useLoseOrderStore } from "@/stores/loseOrderStore";
 export interface ArbMakeUpVenueContext {
   ordersA: VenueOrder[];
   ordersB: VenueOrder[];
+  pendingConfirmA?: boolean;
+  pendingConfirmB?: boolean;
 }
 
 export interface ArbMakeUpEnqueueResult {
@@ -41,6 +43,8 @@ export async function applyArbMakeUpFromRejects(
     resultA,
     resultB,
   } = placed;
+  const pendingA = venue.pendingConfirmA ?? false;
+  const pendingB = venue.pendingConfirmB ?? false;
 
   const result: ArbMakeUpEnqueueResult = {
     enqueuedForLegA: false,
@@ -52,8 +56,8 @@ export async function applyArbMakeUpFromRejects(
 
   if (
     accountA
-    && legSucceededForMakeUpAnchor(resultA, rejectA)
-    && legFailedForMakeUpTarget(resultB, rejectB)
+    && legSucceededForMakeUpAnchor(resultA, rejectA, pendingA)
+    && legFailedForMakeUpTarget(resultB, rejectB, pendingB)
   ) {
     const successRef = resolveMakeUpSuccessReference(
       legA,
@@ -79,8 +83,8 @@ export async function applyArbMakeUpFromRejects(
   }
   if (
     accountB
-    && legSucceededForMakeUpAnchor(resultB, rejectB)
-    && legFailedForMakeUpTarget(resultA, rejectA)
+    && legSucceededForMakeUpAnchor(resultB, rejectB, pendingB)
+    && legFailedForMakeUpTarget(resultA, rejectA, pendingA)
   ) {
     const successRef = resolveMakeUpSuccessReference(
       legB,

@@ -27,6 +27,8 @@ export interface ActiveBetLeg {
   betMoney?: number;
   status: ActiveBetLegStatus;
   detail?: string;
+  /** 本腿进度消息（预检/下单/确认等） */
+  events: ActiveBetRunEvent[];
 }
 
 export interface ActiveBetRunEvent {

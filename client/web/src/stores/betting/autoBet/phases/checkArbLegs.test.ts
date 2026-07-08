@@ -120,8 +120,16 @@ describe("checkArbLegs", () => {
 
     expect(out).not.toBeNull();
     expect(checkBetting).toHaveBeenCalledTimes(2);
-    expect(checkBetting).toHaveBeenCalledWith(pb9999, expect.objectContaining({ type: "PB" }));
-    expect(checkBetting).toHaveBeenCalledWith(rayBet, expect.objectContaining({ type: "RAY" }));
+    expect(checkBetting).toHaveBeenCalledWith(
+      pb9999,
+      expect.objectContaining({ type: "PB" }),
+      { skipAccountRate: true },
+    );
+    expect(checkBetting).toHaveBeenCalledWith(
+      rayBet,
+      expect.objectContaining({ type: "RAY" }),
+      { skipAccountRate: false },
+    );
     expect(out!.accountA).toBeUndefined();
     expect(out!.accountB).toBe(rayBet);
   });

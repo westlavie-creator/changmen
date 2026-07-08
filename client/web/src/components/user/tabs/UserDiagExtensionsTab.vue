@@ -56,7 +56,7 @@ async function save() {
     </el-form-item>
     <el-form-item label="9999 预检说明:">
       <ul class="extensions-tab__list">
-        <li>开启：比例 9999 本侧参与预检，失败则整笔不下；本侧仍不自动下单</li>
+        <li>开启：比例 9999 本侧参与预检（按计划金额验盘口/赔率，不按 9999 倍率碰限红），失败则整笔不下；本侧仍不自动下单</li>
         <li>关闭：9999 本侧跳过预检，仅对侧自动下单（与旧行为一致）</li>
       </ul>
     </el-form-item>

@@ -11,7 +11,7 @@ const loseStore = useLoseOrderStore();
 const { visibleRuns } = storeToRefs(activeStore);
 
 const now = ref(Date.now());
-const eventFeedEls = new Map<number, HTMLElement>();
+const legEventFeedEls = new Map<string, HTMLElement>();
 let tickTimer: ReturnType<typeof setInterval> | undefined;
 
 onMounted(() => {
@@ -29,23 +29,30 @@ onUnmounted(() => {
 watch(
   visibleRuns,
   () => {
-    void nextTick(scrollEventFeedsToBottom);
+    void nextTick(scrollLegEventFeedsToBottom);
   },
   { deep: true },
 );
 
-function setEventFeedEl(betId: number, el: Element | null) {
-  if (el)
-    eventFeedEls.set(betId, el as HTMLElement);
-  else
-    eventFeedEls.delete(betId);
+function legEventKey(betId: number, side: ActiveBetLeg["side"]): string {
+  return `${betId}:${side}`;
 }
 
-function scrollEventFeedsToBottom() {
+function setLegEventFeedEl(betId: number, side: ActiveBetLeg["side"], el: Element | null) {
+  const key = legEventKey(betId, side);
+  if (el)
+    legEventFeedEls.set(key, el as HTMLElement);
+  else
+    legEventFeedEls.delete(key);
+}
+
+function scrollLegEventFeedsToBottom() {
   for (const run of visibleRuns.value) {
-    const el = eventFeedEls.get(run.betId);
-    if (el)
-      el.scrollTop = el.scrollHeight;
+    for (const leg of run.legs) {
+      const el = legEventFeedEls.get(legEventKey(run.betId, leg.side));
+      if (el)
+        el.scrollTop = el.scrollHeight;
+    }
   }
 }
 
@@ -153,17 +160,31 @@ function orderLabel(run: ActiveBetRun, index: number): string {
                 {{ formatLegMoney(leg.betMoney) }}
               </span>
             </div>
+            <ul
+              v-if="leg.events?.length"
+              :ref="el => setLegEventFeedEl(run.betId, leg.side, el as Element | null)"
+              class="active-bet-run__leg-events"
+            >
+              <li
+                v-for="(ev, evIndex) in leg.events"
+                :key="`${run.betId}-${leg.side}-${evIndex}`"
+                class="active-bet-run__leg-event"
+                :title="ev.detail"
+              >
+                <span class="active-bet-run__leg-event-stage">{{ ev.stage }}</span>
+                <span class="active-bet-run__leg-event-detail">{{ ev.detail }}</span>
+              </li>
+            </ul>
           </div>
         </div>
 
         <ul
           v-if="run.events.length"
-          :ref="el => setEventFeedEl(run.betId, el as Element | null)"
-          class="active-bet-run__events"
+          class="active-bet-run__events active-bet-run__events--run"
         >
           <li
             v-for="(ev, evIndex) in run.events"
-            :key="`${run.betId}-${evIndex}`"
+            :key="`${run.betId}-run-${evIndex}`"
             class="active-bet-run__event"
           >
             <span class="active-bet-run__event-stage">{{ ev.stage }}</span>

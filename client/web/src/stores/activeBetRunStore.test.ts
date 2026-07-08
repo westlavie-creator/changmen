@@ -120,8 +120,8 @@ describe("activeBetRunStore", () => {
     });
 
     store.patchLeg(100, "A", { status: "placing" });
-    const events = store.visibleRuns[0]?.events ?? [];
-    expect(events.some(e => e.stage === "A腿" && e.detail.includes("下单中"))).toBe(true);
+    const legA = store.visibleRuns[0]?.legs.find(l => l.side === "A");
+    expect(legA?.events.some(e => e.stage === "下单中")).toBe(true);
   });
 
   it("removes run when both legs fail without makeup", () => {

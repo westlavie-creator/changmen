@@ -9,8 +9,10 @@ import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify"
 import { playOrderSuccessSound } from "@/shared/orderSound";
 import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
-import { resolveVenueStakeFromPlanCny } from "@venue/adaptation/a8VenueMoney";
+import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@venue/adaptation/a8VenueMoney";
 import { useMessageStore } from "@/stores/messageStore";
+
+export type CheckBettingOpts = ResolveVenueStakeOpts;
 
 function notifyPolymarketAfterRejectDetection(
   account: PlatformAccount,
@@ -41,6 +43,7 @@ export async function checkBetting(
   _store: AccountStoreContext,
   account: PlatformAccount | undefined,
   option: BetOption,
+  opts?: CheckBettingOpts,
 ) {
   if (!account) {
     option.checkError = `场馆${option.type}没有可用账号`;
@@ -54,7 +57,7 @@ export async function checkBetting(
   try {
     attachPolymarketDetectionQuote(option);
     // [A8 适配] 编排 Plan CNY → 场馆原币（CNY / U / PM）；预检后不改，跌价由各场馆 checkBet 拒单
-    option.betMoney = resolveVenueStakeFromPlanCny(account, option.betMoney, option.odds);
+    option.betMoney = resolveVenueStakeFromPlanCny(account, option.betMoney, option.odds, opts);
     return await provider.checkBet(account, option);
   }
   catch (e) {

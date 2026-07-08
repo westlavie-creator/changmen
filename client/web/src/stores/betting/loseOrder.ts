@@ -14,6 +14,7 @@ import {
 import { processA8RegularVenueMakeUpLeg } from "@/stores/betting/loseOrderRegular";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { syncActiveBetMakeupAttempt } from "@/stores/betting/activeBetRunSync";
+import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -94,7 +95,9 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         continue;
 
       const waitSec = makeUpBetToastSeconds(config, account.provider);
-      syncActiveBetMakeupAttempt(betId, item.type, `尝试补单 @${sideOdds}`);
+      const makeupSide = useActiveBetRunStore().runs.get(betId)?.legs
+        .find(l => l.target === order.target && l.status !== "skipped")?.side;
+      syncActiveBetMakeupAttempt(betId, item.type, `尝试补单 @${sideOdds}`, makeupSide);
       const result = await accountStore.betting(account, checked, waitSec);
 
       if (!result?.success) {
