@@ -80,14 +80,19 @@ withDefaults(
           :key="String(row.OrderID)"
           class="order"
         >
-          <label class="status" :class="row.Status" />
-          <i
+          <div
             v-if="isMakeupPendingOrderRow(row)"
-            class="order__makeup-close"
-            title="取消补单"
-            role="button"
-            @click="onCancelMakeup(row)"
-          />
+            class="order__status-anchor"
+          >
+            <i
+              class="order__makeup-close"
+              title="取消补单"
+              role="button"
+              @click="onCancelMakeup(row)"
+            />
+            <label class="status" :class="row.Status" />
+          </div>
+          <label v-else class="status" :class="row.Status" />
           <div class="platform flex" :class="platformClass(row)">
             <div class="provider-icon" :class="row.Type" />
             <div class="player">
