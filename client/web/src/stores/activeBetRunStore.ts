@@ -1,4 +1,5 @@
 import type { LoseOrder } from "@/models/loseOrder";
+import { opponentSide } from "@/models/betOption";
 import type {
   ActiveBetLeg,
   ActiveBetLegStatus,
@@ -6,6 +7,7 @@ import type {
   ActiveBetRunPhase,
 } from "@/types/activeBetRun";
 import { defineStore } from "pinia";
+import { useAccountStore } from "@/stores/accountStore";
 
 const PHASE_LABEL: Record<ActiveBetRunPhase, string> = {
   preparing: "准备中",
@@ -40,6 +42,25 @@ function defaultLeg(
     status: "pending",
     ...patch,
   };
+}
+
+function legsFromLoseOrder(order: LoseOrder): ActiveBetLeg[] {
+  const makeupTarget = order.target;
+  const successTarget = opponentSide(makeupTarget);
+  const account = useAccountStore().findAccount(order.accountId);
+  const successPlatform = account?.provider ?? "—";
+  return [
+    defaultLeg("A", successPlatform, successTarget, {
+      status: "confirmed",
+      betMoney: order.betMoney,
+      betOdds: order.betOdds,
+      detail: account?.playerName ?? "已成单",
+    }),
+    defaultLeg("B", "—", makeupTarget, {
+      status: "makeup",
+      detail: `补 ${makeupTarget}`,
+    }),
+  ];
 }
 
 /** [changmen 扩展] 进行中套利/补单进度（订单列表上方展示） */
@@ -123,15 +144,7 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
           linkId: order.linkId,
           phase: "makeup",
           overallLabel: pendingPm ? "补单中 · 等待 PM 确认" : PHASE_LABEL.makeup,
-          legs: [
-            defaultLeg("A", "—", order.target, {
-              status: "makeup",
-              detail: `补 ${order.target}`,
-            }),
-            defaultLeg("B", "—", order.target === "Home" ? "Away" : "Home", {
-              status: "skipped",
-            }),
-          ],
+          legs: legsFromLoseOrder(order),
         });
         this.appendEvent(betId, "补单", pendingPm ? "续查 PM 订单" : "队列已恢复");
       }

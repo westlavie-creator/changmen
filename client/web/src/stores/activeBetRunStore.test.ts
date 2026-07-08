@@ -1,7 +1,15 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { LoseOrder } from "@/models/loseOrder";
 import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { syncActiveBetBegin, syncActiveBetAfterRejectSync } from "@/stores/betting/activeBetRunSync";
+
+vi.mock("@/stores/accountStore", () => ({
+  useAccountStore: () => ({
+    findAccount: (id?: number) =>
+      id === 42 ? { provider: "OB", playerName: "ob1" } : undefined,
+  }),
+}));
 
 describe("activeBetRunStore", () => {
   beforeEach(() => {
@@ -41,5 +49,30 @@ describe("activeBetRunStore", () => {
     expect(store.visibleRuns[0]?.phase).toBe("syncing");
     vi.advanceTimersByTime(5000);
     expect(store.visibleRuns).toHaveLength(0);
+  });
+
+  it("bootstrapFromLoseOrders marks success leg confirmed opposite makeup target", () => {
+    const store = useActiveBetRunStore();
+    const orders = new Map([
+      [
+        100,
+        new LoseOrder({
+          accountId: 42,
+          matchId: 1,
+          betId: 100,
+          target: "Away",
+          betMoney: 90,
+          betOdds: 2.956,
+          match: "G2 vs T1",
+          bet: "地图4",
+          linkId: 176,
+        }),
+      ],
+    ]);
+    store.bootstrapFromLoseOrders(orders);
+    const run = store.visibleRuns[0];
+    expect(run?.legs.find(l => l.target === "Home")?.status).toBe("confirmed");
+    expect(run?.legs.find(l => l.target === "Away")?.status).toBe("makeup");
+    expect(run?.legs.find(l => l.target === "Home")?.platform).toBe("OB");
   });
 });
