@@ -4,7 +4,6 @@ import { storeToRefs } from "pinia";
 import { computed, reactive, ref, watch } from "vue";
 import { LoseOrder } from "@/models/loseOrder";
 import { createLoseTargetOdds } from "@/stores/betting/createLoseOdds";
-import { saveLinkBetContext } from "@/stores/betting/linkBetContext";
 import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/lose-order.css";
@@ -13,8 +12,6 @@ const props = defineProps<{
   open: boolean;
   match?: ViewMatch;
   bet?: ViewBet;
-  /** [changmen 扩展] 订单 Link 组双击创建时写入，侧栏合并展示 */
-  linkId?: number;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -81,15 +78,12 @@ function confirm() {
     betOdds: form.odds,
     match: props.match.title,
     bet: props.bet.getBetName(),
-    linkId: Number(props.linkId) || 0,
+    linkId: 0,
     createAt: Date.now(),
     isCreateOrder: true,
     betCount: form.betCount,
   });
   loseStore.createOrder(order);
-  const linkId = Number(props.linkId) || 0;
-  if (linkId)
-    saveLinkBetContext(linkId, props.match.id, props.bet.id);
   visible.value = false;
   emit("close");
 }

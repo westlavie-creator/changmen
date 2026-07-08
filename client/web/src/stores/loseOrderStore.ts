@@ -45,8 +45,6 @@ export const useLoseOrderStore = defineStore("loseorder", {
   state: () => ({
     orders: restoreOrdersFromSession(),
     cancelledOrders: restoreCancelledFromSession(),
-    /** [changmen 扩展] 侧栏表头双击未命中盘口时，由中间盘口标题双击承接 */
-    pendingMakeupLinkId: 0,
   }),
 
   getters: {
@@ -202,16 +200,6 @@ export const useLoseOrderStore = defineStore("loseorder", {
     init() {
       this.restore();
       this.ensureOrdersMap();
-    },
-
-    setPendingMakeupLinkId(linkId: number) {
-      this.pendingMakeupLinkId = Number(linkId) || 0;
-    },
-
-    consumePendingMakeupLinkId(): number {
-      const linkId = Number(this.pendingMakeupLinkId) || 0;
-      this.pendingMakeupLinkId = 0;
-      return linkId;
     },
   },
 });

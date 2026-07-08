@@ -4,7 +4,6 @@ import type { UserConfig } from "@/types/userConfig";
 import { getDefaultOdds } from "@/api/report";
 import { LoseOrder } from "@/models/loseOrder";
 import { a8Tip } from "@/shared/a8Notify";
-import { saveLinkBetContext } from "@/stores/betting/linkBetContext";
 import { wait } from "@/shared/wait";
 
 /** 对齐 bundle `S()`：补单前初赔 / 当前赔阈值 */
@@ -94,7 +93,6 @@ export async function enqueueMakeUpOrder(params: {
       betCount: 1,
     }),
   );
-  saveLinkBetContext(linkId, match.id, bet.id);
   await wait(500);
   setMessage(`${failedPlatformLabel} 下单失败，已加入补单队列`);
   a8Tip("补单提醒", `${failedPlatformLabel} 下单失败，创建补单队列`, 3000);

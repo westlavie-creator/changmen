@@ -1,19 +1,14 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
-import { ElMessage } from "element-plus";
-import type { ViewBet, ViewMatch } from "@/models/match";
-import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
+import LoseOrderView from "@/components/order/LoseOrderView.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import OrderMakeupStatusBar from "@/components/order/OrderMakeupStatusBar.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
 import { mergePendingMakeupIntoOrderGroups, orderLinkMapEntries } from "@/shared/orderLink";
-import { resolveMatchBetForLink } from "@/stores/betting/createLoseFromLink";
 import { wait } from "@/shared/wait";
-import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
-import { useMatchStore } from "@/stores/matchStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 
@@ -27,8 +22,6 @@ const props = withDefaults(
 
 const orderStore = useOrderStore();
 const loseStore = useLoseOrderStore();
-const activeBetRunStore = useActiveBetRunStore();
-const matchStore = useMatchStore();
 const userStore = useUserStore();
 const { orderDate, loading, filterAccountId, accountOptions, orders, filteredOrders }
   = storeToRefs(orderStore);
@@ -46,10 +39,6 @@ const mergedOrderEntries = computed(() => {
 });
 
 const viewLoading = ref(false);
-const createLoseOpen = ref(false);
-const createLoseLinkId = ref(0);
-const createLoseMatch = ref<ViewMatch>();
-const createLoseBet = ref<ViewBet>();
 
 onMounted(() => {
   if (props.embedded && props.embeddedUserId && !orderStore.orders.size) {
@@ -101,24 +90,6 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
 function onCancelMakeup(betId: number) {
   loseStore.cancelMakeupManually(betId);
 }
-
-function onCreateMakeup(link: number) {
-  if (!link)
-    return;
-  const resolved = resolveMatchBetForLink(matchStore.matchs, link, {
-    loseOrders: loseOrders.value.values(),
-    activeRuns: activeBetRunStore.visibleRuns,
-  });
-  if (!resolved) {
-    loseStore.setPendingMakeupLinkId(link);
-    ElMessage.info("请在中间对应盘口标题上双击创建补单");
-    return;
-  }
-  createLoseLinkId.value = link;
-  createLoseMatch.value = resolved.match;
-  createLoseBet.value = resolved.bet;
-  createLoseOpen.value = true;
-}
 </script>
 
 <template>
@@ -157,6 +128,8 @@ function onCreateMakeup(link: number) {
     当前账号筛选下无订单，请选「全部」或点刷新
   </p>
 
+  <LoseOrderView v-if="!embedded" />
+
   <OrderMakeupStatusBar />
 
   <OrderList
@@ -164,18 +137,7 @@ function onCreateMakeup(link: number) {
     :loading="loading || viewLoading"
     :player-label="playerLabel"
     :platform-class="platformClass"
-    :create-makeup-on-legend-dblclick="!embedded"
     @cancel-makeup="onCancelMakeup"
-    @create-makeup="onCreateMakeup"
-  />
-
-  <CreateLoseDialog
-    v-if="!embedded"
-    :open="createLoseOpen"
-    :link-id="createLoseLinkId"
-    :match="createLoseMatch"
-    :bet="createLoseBet"
-    @close="createLoseOpen = false"
   />
 </template>
 

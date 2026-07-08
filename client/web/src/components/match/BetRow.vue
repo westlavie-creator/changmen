@@ -11,7 +11,6 @@ import { useEvMarker } from "@/extensions/valueBet";
 import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
 const props = defineProps<{
   match: ViewMatch;
@@ -22,11 +21,9 @@ const BET_SIDES: BetSide[] = ["Home", "Away"];
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
-const loseStore = useLoseOrderStore();
 const { tick: matchTick } = storeToRefs(matchStore);
 
 const loseOpen = ref(false);
-const makeupLinkId = ref(0);
 
 const limitOpen = ref(false);
 const limitProvider = ref<PlatformId>();
@@ -136,13 +133,11 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
 }
 
 function onBetTitleDblClick() {
-  makeupLinkId.value = loseStore.consumePendingMakeupLinkId();
   loseOpen.value = true;
 }
 
 function onCreateLoseClose() {
   loseOpen.value = false;
-  makeupLinkId.value = 0;
 }
 </script>
 
@@ -241,7 +236,6 @@ function onCreateLoseClose() {
       :open="loseOpen"
       :match="match"
       :bet="bet"
-      :link-id="makeupLinkId"
       @close="onCreateLoseClose"
     />
     <LimitDiagDialog
