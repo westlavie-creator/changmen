@@ -1,19 +1,24 @@
 import type { VenueOrder } from "@venue/contract";
-import type { OrderBindRow } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 import type { BettingMessageLeg, BettingMessageSingleLegRatePeer } from "@/stores/messageStore";
-import { saveOrderBind } from "@/api/esport";
 import { findSingleLegRateAccount } from "@/domain/betting/singleLegRate";
 import { opponentSide } from "@/models/betOption";
 import { useAccountStore } from "@/stores/accountStore";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
 import { rejectWaitSeconds, waitRejectDetection } from "@/stores/betting/autoBet/rejectWait";
-import { syncVenueRejectFlags, resolveArbBindOrderId } from "@/stores/betting/autoBet/venueRejectSync";
+import {
+  syncVenueOrdersWithRejectForLeg,
+} from "@/stores/betting/autoBet/venueRejectSync";
 import { shouldSendArbProgress } from "@/stores/betting/autoBet/arbProgressTrace";
+import {
+  bindArbLegOrder,
+  refreshOrderListAfterBind,
+} from "@/stores/betting/arbOrderBind";
 import {
   syncActiveBetAfterRejectSync,
   syncActiveBetFail,
+  syncActiveBetLegSettleResult,
   syncActiveBetPhase,
 } from "@/stores/betting/activeBetRunSync";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
@@ -130,17 +135,31 @@ export async function finalizeArbBet(
   let ordersB: VenueOrder[] = [];
   let rejectA = false;
   let rejectB = false;
+  const boundLegLabels: string[] = [];
 
   if (successAccounts.length) {
     const rejectWait = rejectWaitSeconds(config, successAccounts);
     trace?.event("拒单", `等待 ${waitSec}s 展示 / 检测 ${rejectWait}s`);
     syncActiveBetPhase(bet.id, "settling", `拒单检测 ${waitSec}s`);
     await waitRejectDetection(waitSec, rejectWait);
-    const synced = await syncVenueRejectFlags(resultA, accountA, resultB, accountB);
-    ordersA = synced.ordersA;
-    ordersB = synced.ordersB;
-    rejectA = synced.rejectA;
-    rejectB = synced.rejectB;
+    if (resultA?.success && accountA) {
+      const synced = await syncVenueOrdersWithRejectForLeg(accountA, resultA);
+      ordersA = synced.orders;
+      rejectA = synced.rejected;
+      syncActiveBetLegSettleResult(bet.id, "A", true, rejectA);
+      if (await bindArbLegOrder(linkId, accountA, resultA, ordersA, rejectA))
+        boundLegLabels.push(legA.type);
+      if (resultB?.success && accountB)
+        syncActiveBetPhase(bet.id, "settling", `等待 ${legB.type} 确认`);
+    }
+    if (resultB?.success && accountB) {
+      const synced = await syncVenueOrdersWithRejectForLeg(accountB, resultB);
+      ordersB = synced.orders;
+      rejectB = synced.rejected;
+      syncActiveBetLegSettleResult(bet.id, "B", true, rejectB);
+      if (await bindArbLegOrder(linkId, accountB, resultB, ordersB, rejectB))
+        boundLegLabels.push(legB.type);
+    }
     trace?.event(
       "拒单",
       [
@@ -152,28 +171,12 @@ export async function finalizeArbBet(
     );
   }
 
-  const binds: OrderBindRow[] = [];
-  const bindOrderA = resolveArbBindOrderId(ordersA, resultA);
-  if (resultA?.success && accountA && bindOrderA) {
-    binds.push({
-      LinkID: linkId,
-      Provider: resultA.provider,
-      OrderID: bindOrderA,
-    });
-  }
-  const bindOrderB = resolveArbBindOrderId(ordersB, resultB);
-  if (resultB?.success && accountB && bindOrderB) {
-    binds.push({
-      LinkID: linkId,
-      Provider: resultB.provider,
-      OrderID: bindOrderB,
-    });
-  }
-
   const makeup = await applyArbMakeUpFromRejects(params, placed, rejectA, rejectB, {
     ordersA,
     ordersB,
   });
+  if (boundLegLabels.length)
+    trace?.event("绑单", `linkId ${linkId} · ${boundLegLabels.join(" + ")}`);
   if (makeup.enqueuedForLegB) {
     trace?.event("补单", `已入队 ${legB.type} ${legB.target}`);
   }
@@ -187,10 +190,7 @@ export async function finalizeArbBet(
     markSuccessfulBet(accountB, bet.id, legB.target, legB.odds);
   }
 
-  if (binds.length) {
-    await saveOrderBind({ orders: JSON.stringify(binds) });
-    trace?.event("绑单", `linkId ${linkId} · ${binds.length} 笔`);
-  }
+  refreshOrderListAfterBind();
 
   const okA = Boolean(resultA?.success && accountA && !rejectA);
   const okB = Boolean(resultB?.success && accountB && !rejectB);

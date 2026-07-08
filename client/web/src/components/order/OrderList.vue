@@ -12,11 +12,13 @@ import {
   orderLegendModifier,
   orderLegendText,
 } from "@/shared/orderDisplay";
-import { orderListDisplayRows } from "@/shared/orderLink";
+import { isMakeupPendingOrderRow, orderListDisplayRows } from "@/shared/orderLink";
 
 export type OrderListEntry = readonly [number, OrderRow[]];
 
 function isPendingRow(row: OrderRow): boolean {
+  if (isMakeupPendingOrderRow(row))
+    return false;
   return String(row.Status ?? "") === "None";
 }
 
@@ -89,7 +91,10 @@ withDefaults(
               投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
                 formatDisplayOdds(Number(row.Odds) || 0)
               }}</span>
-              <template v-if="isPendingRow(row)">
+              <template v-if="isMakeupPendingOrderRow(row)">
+                盈亏：补单中
+              </template>
+              <template v-else-if="isPendingRow(row)">
                 盈亏：待结算
               </template>
               <template v-else>

@@ -1,3 +1,4 @@
+import { LoseOrder } from "@/models/loseOrder";
 import { describe, expect, it } from "vitest";
 import {
   compareOrderLinkDesc,
@@ -5,6 +6,7 @@ import {
   groupOrdersByLink,
   isLinkedArbOrderGroup,
   linkIdGroupKey,
+  mergePendingMakeupIntoOrderGroups,
   orderLinkLegend,
   orderListDisplayRows,
   sortOrdersByLinkDesc,
@@ -105,5 +107,31 @@ describe("orderLink A8 parity", () => {
       { OrderID: "0xsell", Type: "Polymarket", PmSide: "sell" as const, PmBuyOrderId: "0xbuy" },
     ];
     expect(orderListDisplayRows(rows).map(r => r.OrderID)).toEqual(["ob", "0xbuy"]);
+  });
+
+  it("mergePendingMakeupIntoOrderGroups folds lose queue into arb link", () => {
+    const link = 1_700_000_000_999;
+    const groups = groupOrdersByLink([
+      { OrderID: "pm-1", Link: link, Type: "Polymarket", Status: "None", BetMoney: 100, Odds: 2.6 },
+    ]);
+    const loseOrders = new Map([
+      [
+        42,
+        new LoseOrder({
+          betId: 42,
+          linkId: link,
+          target: "Away",
+          betMoney: 90,
+          betOdds: 2.956,
+          match: "G2 vs T1",
+          bet: "[地图4] 获胜",
+          accountId: 1,
+          matchId: 1,
+        }),
+      ],
+    ]);
+    const merged = mergePendingMakeupIntoOrderGroups(groups, loseOrders, 1.01);
+    expect(merged.get(link)?.map(r => r.OrderID)).toEqual(["pm-1", "makeup-42"]);
+    expect(orderLinkLegend(merged.get(link)!)).toContain("补单中");
   });
 });

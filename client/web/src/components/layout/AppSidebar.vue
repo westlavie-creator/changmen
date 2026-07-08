@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import LoseOrderView from "@/components/order/LoseOrderView.vue";
-import OrderView from "@/components/order/OrderView.vue";
 import UserInfoPanel from "@/components/user/UserInfoPanel.vue";
+import OrderView from "@/components/order/OrderView.vue";
 
 withDefaults(
   defineProps<{
@@ -23,7 +22,6 @@ defineEmits<{ logout: []; viewOrders: [] }>();
       @logout="$emit('logout')"
       @view-orders="$emit('viewOrders')"
     />
-    <LoseOrderView v-if="!embedded" />
     <OrderView :embedded="embedded" :embedded-user-id="embeddedUserId" />
   </div>
 </template>

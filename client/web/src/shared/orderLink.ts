@@ -1,4 +1,5 @@
 import type { OrderRow } from "@/types/order";
+import type { LoseOrder } from "@/models/loseOrder";
 import { hasOpenPolymarketPosition } from "@venue/polymarket/pmLogicalPosition";
 import { formatLinkId, isSingleLegLink, toFixed } from "@/shared/format";
 
@@ -56,10 +57,59 @@ export function orderListDisplayRows(rows: OrderRow[]): OrderRow[] {
   return rows.filter(r => !(isPolymarketOrderRow(r) && r.PmSide === "sell"));
 }
 
+export function isMakeupPendingOrderRow(row: OrderRow): boolean {
+  return String(row.Status ?? "") === "Makeup"
+    || String(row.OrderID ?? "").startsWith("makeup-");
+}
+
+/** [changmen 扩展] 补单队列项 → 订单组内「补单中」占位行（同 Link 合并展示） */
+export function loseOrderToPendingRow(order: LoseOrder, makeProfit: number): OrderRow {
+  const odds = order.getOdds(makeProfit);
+  const betMoney = order.getBetMoney(odds);
+  const pendingPm = String(order.pendingPmOrderId ?? "").trim();
+  return {
+    OrderID: `makeup-${order.betId}`,
+    Link: order.linkId,
+    Type: "—",
+    Match: order.match,
+    Bet: order.bet,
+    Item: order.target,
+    Odds: odds,
+    BetMoney: betMoney,
+    Money: 0,
+    Status: "Makeup",
+    CreateAt: order.createAt,
+    Player: {
+      UserName: pendingPm ? "补单中 · PM待确认" : "补单中",
+    },
+  };
+}
+
+/** 将 session 补单队列并入已有 Link 分组（不单独展示补单列表） */
+export function mergePendingMakeupIntoOrderGroups(
+  groups: Map<number, OrderRow[]>,
+  loseOrders: Map<number, LoseOrder>,
+  makeProfit: number,
+): Map<number, OrderRow[]> {
+  const allRows: OrderRow[] = [];
+  for (const rows of groups.values())
+    allRows.push(...rows);
+  for (const order of loseOrders.values()) {
+    if (!order.linkId)
+      continue;
+    const syntheticId = `makeup-${order.betId}`;
+    if (allRows.some(r => String(r.OrderID) === syntheticId))
+      continue;
+    allRows.push(loseOrderToPendingRow(order, makeProfit));
+  }
+  return groupOrdersByLink(allRows);
+}
+
 /** 组内盈亏：各腿 Money 合计（PM 卖单跳过，避免与买单重复） */
 export function computeOrderGroupProfit(rows: OrderRow[]): number {
   return rows
     .filter(r => !(isPolymarketOrderRow(r) && r.PmSide === "sell"))
+    .filter(r => !isMakeupPendingOrderRow(r))
     .reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
 }
 
@@ -68,8 +118,10 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
   const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
   const stake = rows
-    .filter(r => !LOSE_REJECT.has(String(r.Status)) && r.PmSide !== "sell")
+    .filter(r => !LOSE_REJECT.has(String(r.Status)) && r.PmSide !== "sell" && !isMakeupPendingOrderRow(r))
     .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
+  const hasMakeup = rows.some(isMakeupPendingOrderRow);
+  const makeupPrefix = hasMakeup ? "补单中 · " : "";
   const unsettledPreview = rows
     .filter(r => String(r.Status ?? "") === "None" && r.PmSide !== "sell")
     .map((r) => {
@@ -78,10 +130,10 @@ export function orderLinkLegend(rows: OrderRow[]): string {
       return toFixed(bet * odds - stake, 0);
     });
   if (unsettledPreview.length)
-    return prefix + unsettledPreview.join(" - ");
+    return makeupPrefix + prefix + unsettledPreview.join(" - ");
   const total = computeOrderGroupProfit(rows);
   const sign = total > 0 ? "+" : "";
-  return prefix + sign + toFixed(total, 0);
+  return makeupPrefix + prefix + sign + toFixed(total, 0);
 }
 
 /** [changmen 扩展] 套利双腿 fieldset 高亮：跨平台且同 Link；纯 PM 买卖同组不算套利 */
@@ -92,5 +144,8 @@ export function isLinkedArbOrderGroup(rows: OrderRow[]): boolean {
   const providers = new Set(
     rows.map(r => String(r.Type ?? "").trim()).filter(Boolean),
   );
+  const hasMakeup = rows.some(isMakeupPendingOrderRow);
+  if (hasMakeup && rows.length >= 2 && link !== 0 && !isSingleLegLink(link))
+    return true;
   return providers.size >= 2;
 }

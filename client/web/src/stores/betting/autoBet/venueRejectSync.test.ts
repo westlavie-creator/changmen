@@ -53,7 +53,7 @@ function makeVenueOrder(
 }
 
 describe("resolveArbBindOrderId", () => {
-  it("prefers result.orderId for Polymarket only", () => {
+  it("prefers result.orderId for success legs", () => {
     const result = Object.assign(new BetResult("Polymarket", true), {
       orderId: "0xd695a0c4cdd10b558fc829ecda52f20eeca76407",
     });
@@ -63,14 +63,24 @@ describe("resolveArbBindOrderId", () => {
     expect(resolveArbBindOrderId(orders, result)).toBe("0xd695a0c4cdd10b558fc829ecda52f20eeca76407");
   });
 
-  it("A8 venue bind uses orders[0] only", () => {
+  it("success A8 leg prefers result.orderId over orders[0]", () => {
     const result = Object.assign(new BetResult("OB", true), {
       orderId: "from-result",
     });
     const orders = [
       makeVenueOrder({ orderId: "ob-1", status: "none", odds: 2, betMoney: 100 }),
     ];
-    expect(resolveArbBindOrderId(orders, result)).toBe("ob-1");
+    expect(resolveArbBindOrderId(orders, result)).toBe("from-result");
+  });
+
+  it("rejected leg binds orders[0] when result orderId missing from list", () => {
+    const result = Object.assign(new BetResult("RAY", true), {
+      orderId: "missing",
+    });
+    const orders = [
+      makeVenueOrder({ orderId: "ray-reject", status: "reject", odds: 1.76, betMoney: 170 }),
+    ];
+    expect(resolveArbBindOrderId(orders, result, true)).toBe("ray-reject");
   });
 });
 

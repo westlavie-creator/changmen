@@ -100,6 +100,24 @@ export function syncActiveBetLeg(
   store.patchLeg(betId, side, { status, detail });
 }
 
+/** 单腿拒单检测结束后立即刷新 UI（不必等另一腿） */
+export function syncActiveBetLegSettleResult(
+  betId: number,
+  side: "A" | "B",
+  apiSuccess: boolean,
+  venueRejected: boolean,
+) {
+  if (!apiSuccess) {
+    syncActiveBetLeg(betId, side, "failed");
+    return;
+  }
+  if (venueRejected) {
+    syncActiveBetLeg(betId, side, "rejected", "场馆拒单");
+    return;
+  }
+  syncActiveBetLeg(betId, side, "confirmed", "已确认");
+}
+
 export function syncActiveBetPlaceResults(
   betId: number,
   resultA?: { success?: boolean },
@@ -174,6 +192,12 @@ export function syncActiveBetAfterRejectSync(
       });
     }
     store.appendEvent(betId, "补单", flags.makeupPlatform ? `补 ${flags.makeupPlatform}` : "已入队");
+    return;
+  }
+
+  if (!flags.okA && !flags.okB) {
+    store.appendEvent(betId, "结束", "双腿均未成单");
+    store.removeRun(betId);
     return;
   }
 

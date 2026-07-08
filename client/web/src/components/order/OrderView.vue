@@ -2,11 +2,13 @@
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
-import ActiveBetRunView from "@/components/order/ActiveBetRunView.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
+import { mergePendingMakeupIntoOrderGroups, orderLinkMapEntries } from "@/shared/orderLink";
 import { wait } from "@/shared/wait";
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useOrderStore } from "@/stores/orderStore";
+import { useUserStore } from "@/stores/userStore";
 
 const props = withDefaults(
   defineProps<{
@@ -17,8 +19,21 @@ const props = withDefaults(
 );
 
 const orderStore = useOrderStore();
-const { orderEntries, orderDate, loading, filterAccountId, accountOptions, orders }
+const loseStore = useLoseOrderStore();
+const userStore = useUserStore();
+const { orderDate, loading, filterAccountId, accountOptions, orders, filteredOrders }
   = storeToRefs(orderStore);
+const { orders: loseOrders } = storeToRefs(loseStore);
+const { config } = storeToRefs(userStore);
+
+const mergedOrderEntries = computed(() => {
+  const merged = mergePendingMakeupIntoOrderGroups(
+    filteredOrders.value,
+    loseOrders.value,
+    config.value.makeProfit,
+  );
+  return orderLinkMapEntries(merged);
+});
 
 const viewLoading = ref(false);
 
@@ -52,7 +67,7 @@ async function reload(date?: string) {
 const showFilteredEmpty = computed(
   () =>
     filterAccountId.value !== 0
-    && orderEntries.value.length === 0
+    && mergedOrderEntries.value.length === 0
     && orders.value.size > 0,
 );
 
@@ -102,14 +117,12 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
     />
   </div>
 
-  <ActiveBetRunView v-if="!embedded" />
-
   <p v-if="showFilteredEmpty" class="order-filter-empty">
     当前账号筛选下无订单，请选「全部」或点刷新
   </p>
 
   <OrderList
-    :order-entries="orderEntries"
+    :order-entries="mergedOrderEntries"
     :loading="loading || viewLoading"
     :player-label="playerLabel"
     :platform-class="platformClass"

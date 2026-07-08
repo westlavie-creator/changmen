@@ -384,6 +384,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
         {
           LinkID: 1_000_000_000_001,
           Provider: "Polymarket",
+          PlayerID: 47,
           OrderID: "0xdelayed-order",
         },
       ]),
@@ -544,6 +545,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
         {
           LinkID: 1_000_000_000_001,
           Provider: "Polymarket",
+          PlayerID: 47,
           OrderID: "0xdelayed-skip-wait",
         },
       ]),

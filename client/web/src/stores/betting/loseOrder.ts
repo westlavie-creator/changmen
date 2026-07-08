@@ -1,5 +1,4 @@
-import { saveOrderBind } from "@/api/esport";
-import { resolveA8VenueBindOrderId, resolveA8VenueReject } from "@/domain/betting";
+import { resolveA8VenueReject } from "@/domain/betting";
 import { BetOption, opponentSide } from "@/models/betOption";
 import { a8Tip } from "@/shared/a8Notify";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
@@ -9,6 +8,10 @@ import { sortVenueOrdersNewestFirst } from "@venue/contract";
 import { useAccountStore } from "@/stores/accountStore";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import { buildLoseOrderBetLookup } from "@/stores/betting/loseOrderLookup";
+import {
+  bindArbLegOrder,
+  refreshOrderListAfterBind,
+} from "@/stores/betting/arbOrderBind";
 import {
   applyPmJbSettlementOutcome,
   tryResumePmPendingMakeUp,
@@ -160,22 +163,14 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
               removeIds.add(betId);
               syncActiveBetMakeupDone(betId, item.type, checked.odds);
             }
-            const bindOrderId = resolveA8VenueBindOrderId(venueOrders);
-            if (bindOrderId) {
-              await saveOrderBind({
-                orders: JSON.stringify([
-                  {
-                    LinkID: order.linkId,
-                    Provider: result.provider,
-                    OrderID: bindOrderId,
-                  },
-                ]),
-              });
-            }
+            await bindArbLegOrder(order.linkId, account, result, venueOrders, rejected);
+            refreshOrderListAfterBind();
           }
           else {
             removeIds.add(betId);
             syncActiveBetMakeupDone(betId, item.type, checked.odds);
+            await bindArbLegOrder(order.linkId, account, result, [], false);
+            refreshOrderListAfterBind();
           }
           useMessageStore().loseOrderMessage(account, order, checked, rejected);
         }

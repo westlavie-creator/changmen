@@ -3,16 +3,16 @@ import type { BetResult } from "@/models/betResult";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { saveOrderBind } from "@/api/esport";
 import { BetOption as BetOptionCtor } from "@/models/betOption";
 import { BetResult as BetResultCtor } from "@/models/betResult";
 import { a8Tip } from "@/shared/a8Notify";
 import { PLATFORMS } from "@/shared/platform";
 import type { useAccountStore } from "@/stores/accountStore";
 import {
-  resolveArbBindOrderId,
-  syncVenueOrdersWithRejectForLeg,
-} from "@/stores/betting/autoBet/venueRejectSync";
+  bindArbLegOrder,
+  refreshOrderListAfterBind,
+} from "@/stores/betting/arbOrderBind";
+import { syncVenueOrdersWithRejectForLeg } from "@/stores/betting/autoBet/venueRejectSync";
 import type { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMessageStore } from "@/stores/messageStore";
 import {
@@ -61,21 +61,11 @@ export async function applyPmJbSettlementOutcome(
     account,
     result,
   );
-  const bindOrderId = resolveArbBindOrderId(venueOrders, result);
 
   if (!rejected) {
     loseStore.clearPendingPmOrder(betId);
-    if (bindOrderId) {
-      await saveOrderBind({
-        orders: JSON.stringify([
-          {
-            LinkID: order.linkId,
-            Provider: result.provider,
-            OrderID: bindOrderId,
-          },
-        ]),
-      });
-    }
+    await bindArbLegOrder(order.linkId, account, result, venueOrders, false);
+    refreshOrderListAfterBind();
     removeIds.add(betId);
     setMessage(`补单成功 ${platformLabel}@${checked.odds}`);
     syncActiveBetMakeupDone(betId, platformLabel, checked.odds);
@@ -92,6 +82,8 @@ export async function applyPmJbSettlementOutcome(
   }
 
   loseStore.clearPendingPmOrder(betId);
+  await bindArbLegOrder(order.linkId, account, result, venueOrders, true);
+  refreshOrderListAfterBind();
   setMessage(`${order.target} 再次被拒单`);
   a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
   syncActiveBetMakeupRejected(betId, order.target);

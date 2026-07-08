@@ -19,7 +19,7 @@ vi.mock("@/stores/betting/autoBet/arbProgressTrace", () => ({
 
 const {
   waitRejectDetection,
-  syncVenueRejectFlags,
+  syncVenueOrdersWithRejectForLeg,
   applyArbMakeUpFromRejects,
   markSuccessfulBet,
   saveOrderBind,
@@ -27,7 +27,7 @@ const {
   bettingMessage,
 } = vi.hoisted(() => ({
   waitRejectDetection: vi.fn(),
-  syncVenueRejectFlags: vi.fn(),
+  syncVenueOrdersWithRejectForLeg: vi.fn(),
   applyArbMakeUpFromRejects: vi.fn(),
   markSuccessfulBet: vi.fn(),
   saveOrderBind: vi.fn(),
@@ -44,7 +44,7 @@ vi.mock("@/stores/betting/autoBet/venueRejectSync", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/stores/betting/autoBet/venueRejectSync")>();
   return {
     ...actual,
-    syncVenueRejectFlags,
+    syncVenueOrdersWithRejectForLeg,
   };
 });
 
@@ -72,6 +72,14 @@ vi.mock("@/stores/loseOrderStore", () => ({
 vi.mock("@/stores/messageStore", () => ({
   useMessageStore: () => ({ bettingMessage }),
 }));
+
+vi.mock("@/stores/betting/arbOrderBind", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/stores/betting/arbOrderBind")>();
+  return {
+    ...actual,
+    refreshOrderListAfterBind: vi.fn(),
+  };
+});
 
 vi.mock("@/stores/matchStore", () => ({
   useMatchStore: () => ({ getBetTarget: () => undefined }),
@@ -157,6 +165,15 @@ function venueOrder(orderId: string, status: VenueOrder["status"], createAt: num
   };
 }
 
+function mockDualLegVenueSync(
+  legA: { orders: VenueOrder[]; rejected: boolean },
+  legB: { orders: VenueOrder[]; rejected: boolean },
+) {
+  syncVenueOrdersWithRejectForLeg
+    .mockResolvedValueOnce(legA)
+    .mockResolvedValueOnce(legB);
+}
+
 describe("finalizeArbBet makeup enqueue", () => {
   const params: ArbBetAttemptParams = {
     match: makeMatch(),
@@ -174,20 +191,19 @@ describe("finalizeArbBet makeup enqueue", () => {
     });
     waitRejectDetection.mockResolvedValue(undefined);
     refreshBalance.mockResolvedValue(undefined);
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [venueOrder("ob-1", "none", 2)],
-      ordersB: [venueOrder("ray-reject", "reject", 3)],
-      rejectA: false,
-      rejectB: true,
-    });
+    syncVenueOrdersWithRejectForLeg.mockReset();
   });
 
   it("双腿 API 成功且 B 腿拒单时入队补单", async () => {
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [venueOrder("ray-reject", "reject", 3)], rejected: true },
+    );
     await finalizeArbBet(params, makePlaced());
 
     expect(refreshBalance).toHaveBeenCalledTimes(2);
     expect(waitRejectDetection).toHaveBeenCalledWith(10, 3);
-    expect(syncVenueRejectFlags).toHaveBeenCalledTimes(1);
+    expect(syncVenueOrdersWithRejectForLeg).toHaveBeenCalledTimes(2);
     expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
       params,
       expect.anything(),
@@ -201,12 +217,10 @@ describe("finalizeArbBet makeup enqueue", () => {
   });
 
   it("初检无拒单时不入队", async () => {
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [venueOrder("ob-1", "none", 2)],
-      ordersB: [venueOrder("ray-1", "none", 3)],
-      rejectA: false,
-      rejectB: false,
-    });
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [venueOrder("ray-1", "none", 3)], rejected: false },
+    );
 
     await finalizeArbBet(params, makePlaced());
 
@@ -223,12 +237,10 @@ describe("finalizeArbBet makeup enqueue", () => {
   });
 
   it("双腿均被拒单时不入队补单", async () => {
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [venueOrder("ob-reject", "reject", 3)],
-      ordersB: [venueOrder("ray-reject", "reject", 2)],
-      rejectA: true,
-      rejectB: true,
-    });
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-reject", "reject", 3)], rejected: true },
+      { orders: [venueOrder("ray-reject", "reject", 2)], rejected: true },
+    );
 
     await finalizeArbBet(params, makePlaced());
 
@@ -250,60 +262,64 @@ describe("finalizeArbBet makeup enqueue", () => {
       accountB: undefined,
       resultB: undefined,
     });
+    syncVenueOrdersWithRejectForLeg.mockResolvedValueOnce({
+      orders: [venueOrder("ob-1", "none", 2)],
+      rejected: false,
+    });
 
     await finalizeArbBet(params, placed);
 
     expect(waitRejectDetection).toHaveBeenCalled();
-    expect(syncVenueRejectFlags).toHaveBeenCalled();
+    expect(syncVenueOrdersWithRejectForLeg).toHaveBeenCalledTimes(1);
   });
 
   it("双腿成功且拉单有首条时按 linkId 绑单", async () => {
     const linkId = 1_700_000_000_000;
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [venueOrder("ob-1", "none", 2)],
-      ordersB: [venueOrder("ray-1", "none", 3)],
-      rejectA: false,
-      rejectB: false,
-    });
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [venueOrder("ray-1", "none", 3)], rejected: false },
+    );
 
     await finalizeArbBet(params, makePlaced({ linkId }));
 
+    expect(saveOrderBind).toHaveBeenCalledTimes(2);
     expect(saveOrderBind).toHaveBeenCalledWith({
-      orders: JSON.stringify([
-        { LinkID: linkId, Provider: "OB", OrderID: "ob-1" },
-        { LinkID: linkId, Provider: "RAY", OrderID: "ray-1" },
-      ]),
+      orders: JSON.stringify([{ LinkID: linkId, Provider: "OB", PlayerID: 1, OrderID: "ob-1" }]),
+    });
+    expect(saveOrderBind).toHaveBeenCalledWith({
+      orders: JSON.stringify([{ LinkID: linkId, Provider: "RAY", PlayerID: 2, OrderID: "ray-1" }]),
     });
   });
 
   it("套利收尾不刷新侧栏（A8 套利块不调用 E）", async () => {
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [venueOrder("ray-reject", "reject", 3)], rejected: true },
+    );
     await finalizeArbBet(params, makePlaced());
     // 侧栏仅 Io.f / 手动刷新 / loadAccounts(true) 时 E()
   });
 
   it("仅一腿拉单有首条时只绑该腿（对齐 A8 R.length>0 / X.length>0）", async () => {
     const linkId = 1_700_000_000_000;
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [],
-      ordersB: [venueOrder("ray-1", "none", 3)],
-      rejectA: false,
-      rejectB: false,
-    });
+    mockDualLegVenueSync(
+      { orders: [], rejected: false },
+      { orders: [venueOrder("ray-1", "none", 3)], rejected: false },
+    );
 
     await finalizeArbBet(params, makePlaced({ linkId }));
 
+    expect(saveOrderBind).toHaveBeenCalledTimes(1);
     expect(saveOrderBind).toHaveBeenCalledWith({
-      orders: JSON.stringify([{ LinkID: linkId, Provider: "RAY", OrderID: "ray-1" }]),
+      orders: JSON.stringify([{ LinkID: linkId, Provider: "RAY", PlayerID: 2, OrderID: "ray-1" }]),
     });
   });
 
   it("双腿拉单均为空时不绑单", async () => {
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [],
-      ordersB: [],
-      rejectA: false,
-      rejectB: false,
-    });
+    mockDualLegVenueSync(
+      { orders: [], rejected: false },
+      { orders: [], rejected: false },
+    );
 
     await finalizeArbBet(params, makePlaced());
 
@@ -312,11 +328,9 @@ describe("finalizeArbBet makeup enqueue", () => {
 
   it("PM delayed 且场馆 sync 为空时用 result.orderId 绑单", async () => {
     const linkId = 1_700_000_000_000;
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [],
-      ordersB: [],
-      rejectA: false,
-      rejectB: false,
+    syncVenueOrdersWithRejectForLeg.mockResolvedValueOnce({
+      orders: [],
+      rejected: false,
     });
 
     const placed = makePlaced({
@@ -332,23 +346,23 @@ describe("finalizeArbBet makeup enqueue", () => {
 
     await finalizeArbBet(params, placed);
 
+    expect(saveOrderBind).toHaveBeenCalledTimes(1);
     expect(saveOrderBind).toHaveBeenCalledWith({
       orders: JSON.stringify([
-        { LinkID: linkId, Provider: "Polymarket", OrderID: "0xdelayed-order" },
+        { LinkID: linkId, Provider: "Polymarket", PlayerID: 2, OrderID: "0xdelayed-order" },
       ]),
     });
   });
 
   it("PM delayed 且 sync 仍返回历史首条时用 result.orderId 绑单", async () => {
     const linkId = 1_783_199_338_220;
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [venueOrder("ob-1", "none", 2.4)],
-      ordersB: [
-        venueOrder("0xfe933cac68e49da172f4ab8e59e6c1", "none", 2.6),
-      ],
-      rejectA: false,
-      rejectB: false,
-    });
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2.4)], rejected: false },
+      {
+        orders: [venueOrder("0xfe933cac68e49da172f4ab8e59e6c1", "none", 2.6)],
+        rejected: false,
+      },
+    );
 
     const placed = makePlaced({
       linkId,
@@ -364,15 +378,22 @@ describe("finalizeArbBet makeup enqueue", () => {
 
     await finalizeArbBet(params, placed);
 
+    expect(saveOrderBind).toHaveBeenCalledTimes(2);
+    expect(saveOrderBind).toHaveBeenCalledWith({
+      orders: JSON.stringify([{ LinkID: linkId, Provider: "OB", PlayerID: 1, OrderID: "ob-1" }]),
+    });
     expect(saveOrderBind).toHaveBeenCalledWith({
       orders: JSON.stringify([
-        { LinkID: linkId, Provider: "OB", OrderID: "ob-1" },
-        { LinkID: linkId, Provider: "Polymarket", OrderID: "0xd695a0c4cdd10b558fc829ecda52f20eeca76407" },
+        { LinkID: linkId, Provider: "Polymarket", PlayerID: 2, OrderID: "0xd695a0c4cdd10b558fc829ecda52f20eeca76407" },
       ]),
     });
   });
 
   it("refreshBalance 不阻塞拒单等待", async () => {
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [venueOrder("ray-1", "none", 3)], rejected: false },
+    );
     let rejectWaitStarted = false;
     refreshBalance.mockImplementation(
       () =>
@@ -392,12 +413,10 @@ describe("finalizeArbBet makeup enqueue", () => {
 
   it("开启套利进度报告时不发旧版 bettingMessage", async () => {
     shouldSendArbProgress.mockReturnValue(true);
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [venueOrder("ob-1", "none", 2)],
-      ordersB: [venueOrder("ray-1", "none", 3)],
-      rejectA: false,
-      rejectB: false,
-    });
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [venueOrder("ray-1", "none", 3)], rejected: false },
+    );
     const trace = createArbExecutionTrace(params.match, params.bet);
     const tracedParams = { ...params, trace };
 
@@ -408,12 +427,10 @@ describe("finalizeArbBet makeup enqueue", () => {
 
   it("未开套利进度报告时仍发 bettingMessage", async () => {
     shouldSendArbProgress.mockReturnValue(false);
-    syncVenueRejectFlags.mockResolvedValue({
-      ordersA: [venueOrder("ob-1", "none", 2)],
-      ordersB: [venueOrder("ray-1", "none", 3)],
-      rejectA: false,
-      rejectB: false,
-    });
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [venueOrder("ray-1", "none", 3)], rejected: false },
+    );
 
     await finalizeArbBet(params, makePlaced());
 

@@ -75,4 +75,30 @@ describe("activeBetRunStore", () => {
     expect(run?.legs.find(l => l.target === "Away")?.status).toBe("makeup");
     expect(run?.legs.find(l => l.target === "Home")?.platform).toBe("OB");
   });
+
+  it("removes run when both legs fail without makeup", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "RAY", target: "Away", odds: 1.76, betMoney: 170 } as never,
+      legB: { type: "Polymarket", target: "Home", odds: 2.631, betMoney: 100 } as never,
+      accountA: { playerName: "ray1" } as never,
+      accountB: { playerName: "pm1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    syncActiveBetAfterRejectSync(100, {
+      hasA: true,
+      hasB: true,
+      rejectA: true,
+      rejectB: true,
+      okA: false,
+      okB: false,
+      makeupQueued: false,
+    });
+
+    expect(store.visibleRuns).toHaveLength(0);
+  });
 });

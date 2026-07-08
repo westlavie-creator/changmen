@@ -284,6 +284,16 @@
   content: "拒";
 }
 
+.orders .status.Makeup {
+  color: #e6c200;
+  background: rgba(230, 194, 0, 0.12);
+  border: 1px solid #e6c200;
+}
+
+.orders .status.Makeup::after {
+  content: "补";
+}
+
 .orders.loading::before {
   content: "订单数据加载中";
   color: #ffffff80;

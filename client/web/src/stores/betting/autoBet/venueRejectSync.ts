@@ -119,15 +119,22 @@ export async function syncVenueRejectFlags(
   return { ordersA, ordersB, rejectA, rejectB };
 }
 
-/** 绑单 orderId：PM 优先 result.orderId；A8 场馆仅列表非空时 `orders[0]` */
+/** 绑单 orderId：拒单腿优先绑本次检测到的拒单；成单腿优先 result.orderId，否则 `orders[0]` */
 export function resolveArbBindOrderId(
   orders: VenueOrder[],
   result: BetResult | undefined,
+  rejected = false,
 ): string | undefined {
-  if (result?.provider === "Polymarket") {
-    const fromResult = String(result.orderId ?? "").trim();
-    if (fromResult)
-      return fromResult;
+  const fromResult = String(result?.orderId ?? "").trim();
+  if (rejected) {
+    if (fromResult) {
+      const ours = orders.find(o => String(o.orderId ?? "") === fromResult);
+      if (ours)
+        return fromResult;
+    }
+    return resolveA8VenueBindOrderId(orders);
   }
+  if (fromResult)
+    return fromResult;
   return resolveA8VenueBindOrderId(orders);
 }
