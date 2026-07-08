@@ -153,7 +153,10 @@ function orderLabel(run: ActiveBetRun, index: number): string {
               <span class="active-bet-run__leg-platform">{{ leg.platform }}</span>
             </div>
             <div class="active-bet-run__leg-target">{{ leg.target }}</div>
-            <div class="active-bet-run__leg-status">{{ activeStore.legStatusLabel(leg.status) }}</div>
+            <div class="active-bet-run__leg-status">
+              <span class="active-bet-run__leg-status-label">下单状态</span>
+              <span class="active-bet-run__leg-status-value">{{ activeStore.legPlacementLabel(leg, run) }}</span>
+            </div>
             <div v-if="leg.odds || formatLegMoney(leg.betMoney)" class="active-bet-run__leg-quote">
               <span v-if="leg.odds" class="active-bet-run__leg-odds">@{{ leg.odds }}</span>
               <span v-if="formatLegMoney(leg.betMoney)" class="active-bet-run__leg-money">

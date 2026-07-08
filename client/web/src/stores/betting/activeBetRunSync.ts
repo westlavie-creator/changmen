@@ -218,7 +218,7 @@ export function syncActiveBetPlaceResults(
     );
   }
   const pmPending = Boolean((hasA && resultA?.pending) || (hasB && resultB?.pending));
-  syncActiveBetPhase(betId, "settling", pmPending ? "PM 延迟确认" : "等待拒单检测");
+  syncActiveBetPhase(betId, "settling", pmPending ? "PM 延迟确认" : "等待场馆确认");
 }
 
 /** PM 补单 POST 返回 delayed：腿行与阶段立即反映待确认 */

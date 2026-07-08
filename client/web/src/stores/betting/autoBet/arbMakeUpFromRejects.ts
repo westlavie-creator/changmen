@@ -8,8 +8,6 @@ import { useLoseOrderStore } from "@/stores/loseOrderStore";
 export interface ArbMakeUpVenueContext {
   ordersA: VenueOrder[];
   ordersB: VenueOrder[];
-  pendingConfirmA?: boolean;
-  pendingConfirmB?: boolean;
 }
 
 export interface ArbMakeUpEnqueueResult {
@@ -17,7 +15,7 @@ export interface ArbMakeUpEnqueueResult {
   enqueuedForLegB: boolean;
 }
 
-/** 对齐 A8 bundle：一腿成且非拒、另一腿失败或拒 → 补单入队 */
+/** 编排层判定需补单后入队；赔率/初赔阈值在 jb 消费时按盘口检查 */
 export async function applyArbMakeUpFromRejects(
   params: ArbBetAttemptParams,
   placed: ArbBetPlaced,
@@ -40,9 +38,6 @@ export async function applyArbMakeUpFromRejects(
     resultA,
     resultB,
   } = placed;
-  const pendingA = venue.pendingConfirmA ?? false;
-  const pendingB = venue.pendingConfirmB ?? false;
-
   const result: ArbMakeUpEnqueueResult = {
     enqueuedForLegA: false,
     enqueuedForLegB: false,
@@ -51,14 +46,7 @@ export async function applyArbMakeUpFromRejects(
   if (!betBothLegs)
     return result;
 
-  const side = arbMakeUpSides(
-    resultA,
-    rejectA,
-    pendingA,
-    resultB,
-    rejectB,
-    pendingB,
-  );
+  const side = arbMakeUpSides(resultA, rejectA, resultB, rejectB);
 
   if (side === "enqueueB" && accountA) {
     const successRef = resolveMakeUpSuccessReference(

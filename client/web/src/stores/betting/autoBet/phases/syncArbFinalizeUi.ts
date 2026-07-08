@@ -16,8 +16,8 @@ export function syncArbFinalizeActiveBet(
   makeup: ArbMakeUpEnqueueResult,
 ): ArbFinalizeOutcome {
   const { legA, legB, accountA, accountB, resultA, resultB } = placed;
-  const okA = Boolean(resultA?.success && accountA && !settle.rejectA && !settle.pendingConfirmA);
-  const okB = Boolean(resultB?.success && accountB && !settle.rejectB && !settle.pendingConfirmB);
+  const okA = Boolean(resultA?.success && accountA && !settle.rejectA);
+  const okB = Boolean(resultB?.success && accountB && !settle.rejectB);
   const makeupQueued = makeup.enqueuedForLegA || makeup.enqueuedForLegB;
 
   let makeupTarget: "A" | "B" | undefined;

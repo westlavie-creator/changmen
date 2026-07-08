@@ -2,50 +2,44 @@ import type { BetResult } from "@/models/betResult";
 
 export type ArbMakeUpEnqueueSide = "enqueueA" | "enqueueB";
 
-function legSucceededForMakeUpAnchor(
+/** 锚腿：API 成功且场馆 settlement 为 filled（reject=false） */
+function legFilledForMakeUpAnchor(
   result?: BetResult,
-  venueRejected = false,
-  pendingConfirm = false,
+  venueNotFilled = false,
 ): boolean {
-  if (pendingConfirm && result?.success)
-    return true;
-  return Boolean(result?.success && !venueRejected && !result.reject);
+  return Boolean(result?.success && !venueNotFilled && !result.reject);
 }
 
+/** 败腿：API 失败，或场馆 settlement 非 filled */
 function legFailedForMakeUpTarget(
   result?: BetResult,
-  venueRejected = false,
-  pendingConfirm = false,
+  venueNotFilled = false,
 ): boolean {
-  if (pendingConfirm)
-    return false;
   if (!result)
     return true;
   if (!result.success)
     return true;
-  if (venueRejected || result.reject)
+  if (venueNotFilled || result.reject)
     return true;
   return false;
 }
 
-/** 套利补单配对：锚腿成单（含 PM pending）且对腿失败 → 补对腿；否则不入队 */
+/** 套利补单配对：一腿 filled + 一腿败 → 补败腿；否则不入队 */
 export function arbMakeUpSides(
   resultA?: BetResult,
-  rejectA = false,
-  pendingA = false,
+  venueNotFilledA = false,
   resultB?: BetResult,
-  rejectB = false,
-  pendingB = false,
+  venueNotFilledB = false,
 ): ArbMakeUpEnqueueSide | null {
   if (
-    legSucceededForMakeUpAnchor(resultA, rejectA, pendingA)
-    && legFailedForMakeUpTarget(resultB, rejectB, pendingB)
+    legFilledForMakeUpAnchor(resultA, venueNotFilledA)
+    && legFailedForMakeUpTarget(resultB, venueNotFilledB)
   )
     return "enqueueB";
 
   if (
-    legSucceededForMakeUpAnchor(resultB, rejectB, pendingB)
-    && legFailedForMakeUpTarget(resultA, rejectA, pendingA)
+    legFilledForMakeUpAnchor(resultB, venueNotFilledB)
+    && legFailedForMakeUpTarget(resultA, venueNotFilledA)
   )
     return "enqueueA";
 

@@ -22,13 +22,33 @@ const LEG_STATUS_LABEL: Record<ActiveBetLegStatus, string> = {
   pending: "待下单",
   placing: "下单中",
   submitted: "已提交",
-  pending_confirm: "PM delayed",
+  pending_confirm: "delayed 待确认",
   confirmed: "已确认",
   rejected: "被拒单",
   failed: "下单失败",
   makeup: "补单中",
-  skipped: "未下单",
+  skipped: "不参与",
 };
+
+function isPmLeg(leg: ActiveBetLeg): boolean {
+  return leg.platform === "Polymarket";
+}
+
+/** 侧栏「下单状态」取值（含 A8/PM 待确认拆分、9999 仅预检等） */
+export function legPlacementStatusLabel(
+  leg: ActiveBetLeg,
+  run?: Pick<ActiveBetRun, "phase">,
+): string {
+  if (leg.status === "skipped")
+    return "不参与";
+  if (leg.status === "pending" && leg.detail?.includes("仅预检"))
+    return "仅预检";
+  if (leg.status === "pending_confirm")
+    return "delayed 待确认";
+  if (leg.status === "submitted" && run?.phase === "settling" && !isPmLeg(leg))
+    return "等待场馆确认";
+  return LEG_STATUS_LABEL[leg.status] ?? leg.status;
+}
 
 function defaultLeg(
   side: "A" | "B",
@@ -91,6 +111,8 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
     },
     phaseLabel: () => (phase: ActiveBetRunPhase) => PHASE_LABEL[phase] ?? phase,
     legStatusLabel: () => (status: ActiveBetLegStatus) => LEG_STATUS_LABEL[status] ?? status,
+    legPlacementLabel: () => (leg: ActiveBetLeg, run?: ActiveBetRun) =>
+      legPlacementStatusLabel(leg, run),
   },
 
   actions: {

@@ -98,9 +98,7 @@ describe("applyArbMakeUpFromRejects", () => {
     );
   });
 
-  it("returns false when makeup threshold rejects enqueue", async () => {
-    enqueueMakeUpOrder.mockResolvedValueOnce(false);
-
+  it("always enqueues when pairing requests makeup (threshold checked in jb)", async () => {
     const out = await applyArbMakeUpFromRejects(
       params(),
       basePlaced(),
@@ -112,7 +110,8 @@ describe("applyArbMakeUpFromRejects", () => {
       },
     );
 
-    expect(out).toEqual({ enqueuedForLegA: false, enqueuedForLegB: false });
+    expect(out).toEqual({ enqueuedForLegA: true, enqueuedForLegB: false });
+    expect(enqueueMakeUpOrder).toHaveBeenCalled();
   });
 
   it("skips enqueue when makeUp is disabled", async () => {
@@ -190,14 +189,13 @@ describe("applyArbMakeUpFromRejects", () => {
     );
   });
 
-  it("enqueues RAY makeup when RAY rejected and PM still pending confirm", async () => {
+  it("enqueues RAY makeup when RAY venue reject and PM filled", async () => {
     const placed = basePlaced();
     placed.legA = new BetOption("RAY" as never, "m1", "b1", "h1", 55, "Home", 2.81);
     placed.legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Away", 1.72);
     placed.resultA = new BetResult("RAY", true);
     placed.resultB = Object.assign(new BetResult("Polymarket", true), {
-      orderId: "0xpm-delayed",
-      pending: true,
+      orderId: "0xpm-filled",
     });
 
     const out = await applyArbMakeUpFromRejects(
@@ -207,8 +205,7 @@ describe("applyArbMakeUpFromRejects", () => {
       false,
       {
         ordersA: [{ betMoney: 55, odds: 2.81, status: "reject" } as never],
-        ordersB: [],
-        pendingConfirmB: true,
+        ordersB: [{ betMoney: 26, odds: 1.72, status: "none" } as never],
       },
     );
 
@@ -218,6 +215,36 @@ describe("applyArbMakeUpFromRejects", () => {
         target: "Home",
         accountId: 23,
         failedPlatformLabel: "RAY",
+      }),
+    );
+  });
+
+  it("enqueues PM makeup when OB filled and PM venue not-filled", async () => {
+    const placed = basePlaced();
+    placed.legA = new BetOption("OB" as never, "m1", "b1", "h1", 70, "Home", 2);
+    placed.legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Away", 1.72);
+    placed.resultA = new BetResult("OB", true);
+    placed.resultB = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xpm-timeout",
+    });
+
+    const out = await applyArbMakeUpFromRejects(
+      params(),
+      placed,
+      false,
+      true,
+      {
+        ordersA: [{ betMoney: 70, odds: 2, status: "none" } as never],
+        ordersB: [],
+      },
+    );
+
+    expect(out).toEqual({ enqueuedForLegA: false, enqueuedForLegB: true });
+    expect(enqueueMakeUpOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: "Away",
+        accountId: 14,
+        failedPlatformLabel: "Polymarket",
       }),
     );
   });

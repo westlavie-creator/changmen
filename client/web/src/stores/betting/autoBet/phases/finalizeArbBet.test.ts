@@ -177,18 +177,8 @@ function mockDualLegVenueSync(
     .mockResolvedValueOnce(packLegSync(legB));
 }
 
-function expectMakeUpVenue(
-  ordersA: VenueOrder[],
-  ordersB: VenueOrder[],
-  pendingConfirmA = false,
-  pendingConfirmB = false,
-) {
-  return {
-    ordersA,
-    ordersB,
-    pendingConfirmA,
-    pendingConfirmB,
-  };
+function expectMakeUpVenue(ordersA: VenueOrder[], ordersB: VenueOrder[]) {
+  return { ordersA, ordersB };
 }
 
 describe("finalizeArbBet makeup enqueue", () => {

@@ -209,10 +209,26 @@
 }
 
 .active-bet-run__leg-status {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
   font-size: 12px;
+  min-width: 0;
+}
+
+.active-bet-run__leg-status-label {
+  flex: 0 0 auto;
+  opacity: 0.72;
+  white-space: nowrap;
+}
+
+.active-bet-run__leg-status-value {
+  flex: 1 1 auto;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .active-bet-run__leg-quote {
@@ -319,22 +335,23 @@
   white-space: nowrap;
 }
 
-.active-bet-run__leg--confirmed .active-bet-run__leg-status {
+.active-bet-run__leg--confirmed .active-bet-run__leg-status-value {
   color: #6fdc8c;
 }
 
-.active-bet-run__leg--rejected .active-bet-run__leg-status,
-.active-bet-run__leg--failed .active-bet-run__leg-status {
+.active-bet-run__leg--rejected .active-bet-run__leg-status-value,
+.active-bet-run__leg--failed .active-bet-run__leg-status-value {
   color: #ff8a80;
 }
 
-.active-bet-run__leg--placing .active-bet-run__leg-status,
-.active-bet-run__leg--submitted .active-bet-run__leg-status,
-.active-bet-run__leg--pending_confirm .active-bet-run__leg-status,
-.active-bet-run__leg--makeup .active-bet-run__leg-status {
+.active-bet-run__leg--placing .active-bet-run__leg-status-value,
+.active-bet-run__leg--submitted .active-bet-run__leg-status-value,
+.active-bet-run__leg--pending_confirm .active-bet-run__leg-status-value,
+.active-bet-run__leg--makeup .active-bet-run__leg-status-value {
   color: #ffd54f;
 }
 
-.active-bet-run__leg--skipped .active-bet-run__leg-status {
+.active-bet-run__leg--skipped .active-bet-run__leg-status-value {
   color: inherit;
+  opacity: 0.75;
 }

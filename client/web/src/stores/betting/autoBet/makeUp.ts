@@ -6,7 +6,7 @@ import { LoseOrder } from "@/models/loseOrder";
 import { a8Tip } from "@/shared/a8Notify";
 import { wait } from "@/shared/wait";
 
-/** 对齐 bundle `S()`：补单前初赔 / 当前赔阈值 */
+/** 对齐 bundle `S()`：补单前初赔 / 当前赔阈值（jb 消费时检查；入队不挡） */
 export async function allowMakeUpForLeg(
   match: ViewMatch,
   bet: ViewBet,
@@ -14,7 +14,9 @@ export async function allowMakeUpForLeg(
   currentOdds: number,
   config: UserConfig,
   setMessage: (msg: string) => void,
+  opts: { notify?: boolean } = {},
 ): Promise<boolean> {
+  const notify = opts.notify !== false;
   let denyReason: string | undefined;
   if (config.makeUp_defaultOdds !== 0) {
     const def = await getDefaultOdds({
@@ -30,8 +32,10 @@ export async function allowMakeUpForLeg(
     denyReason = `当前赔率:${currentOdds}，大于当前设定值：${config.makeUp_odds}`;
   }
   if (denyReason) {
-    setMessage(`不予补单：${denyReason}`);
-    a8Tip("不予补单提醒", denyReason, 3000);
+    if (notify) {
+      setMessage(`不予补单：${denyReason}`);
+      a8Tip("不予补单提醒", denyReason, 3000);
+    }
     return false;
   }
   return true;
@@ -55,27 +59,14 @@ export async function enqueueMakeUpOrder(params: {
     loseStore,
     match,
     bet,
-    config,
-    setMessage,
     linkId,
     accountId,
     target,
     betMoney,
     betOdds,
-    failedLegOdds,
     failedPlatformLabel,
-  } = params;
-
-  const okMakeUp = await allowMakeUpForLeg(
-    match,
-    bet,
-    target,
-    failedLegOdds,
-    config,
     setMessage,
-  );
-  if (!okMakeUp)
-    return false;
+  } = params;
 
   if (loseStore.orders.has(bet.id))
     return true;
