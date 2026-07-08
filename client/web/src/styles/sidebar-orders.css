@@ -341,7 +341,9 @@
   content: "消";
 }
 
-.orders .order__status-anchor {
+#app .el-aside .orders .order .order__status-anchor,
+.common-layout .el-aside .orders .order .order__status-anchor,
+.admin-orders-user-col .orders .order .order__status-anchor {
   position: absolute;
   right: -5px;
   top: -12px;
@@ -349,16 +351,22 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  max-width: calc(100% + 10px);
 }
 
-.orders .order__status-anchor .status {
+#app .el-aside .orders .order .order__status-anchor .status,
+.common-layout .el-aside .orders .order .order__status-anchor .status,
+.admin-orders-user-col .orders .order .order__status-anchor .status {
   position: static;
   right: auto;
   top: auto;
+  flex: 0 0 auto;
 }
 
-.orders .order__makeup-close {
+#app .el-aside .orders .order .order__status-anchor .order__makeup-close,
+.common-layout .el-aside .orders .order .order__status-anchor .order__makeup-close,
+.admin-orders-user-col .orders .order .order__status-anchor .order__makeup-close {
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
@@ -376,13 +384,17 @@
   transition: transform 0.2s;
 }
 
-.orders .order__makeup-close::before {
+#app .el-aside .orders .order .order__status-anchor .order__makeup-close::before,
+.common-layout .el-aside .orders .order .order__status-anchor .order__makeup-close::before,
+.admin-orders-user-col .orders .order .order__status-anchor .order__makeup-close::before {
   content: "\00d7";
   display: block;
   line-height: 22px;
 }
 
-.orders .order__makeup-close:hover {
+#app .el-aside .orders .order .order__status-anchor .order__makeup-close:hover,
+.common-layout .el-aside .orders .order .order__status-anchor .order__makeup-close:hover,
+.admin-orders-user-col .orders .order .order__status-anchor .order__makeup-close:hover {
   transform: scale(1.12);
 }
 
