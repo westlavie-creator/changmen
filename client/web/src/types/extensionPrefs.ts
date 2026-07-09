@@ -17,6 +17,11 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   betRowUi: boolean;
   /** 比例 9999 单边模式：本侧是否参与自动套利预检（仍不自动下单） */
   singleLeg9999Precheck: boolean;
+  /**
+   * 9999 单边时，真下单腿改用参数配置的正 EV 金额（valueBetMoney）。
+   * 预检腿保持原套利计划额。默认关闭。
+   */
+  singleLeg9999UseValueBetMoney: boolean;
   /** 利润达阈值时放大下注金额 */
   stakeScaleByProfit: StakeScaleByProfitPrefs;
 }
@@ -33,6 +38,7 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
   return {
     betRowUi: false,
     singleLeg9999Precheck: true,
+    singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
   };
 }
@@ -58,6 +64,7 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
   return {
     betRowUi: row.betRowUi === true,
     singleLeg9999Precheck: row.singleLeg9999Precheck !== false,
+    singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
   };
 }

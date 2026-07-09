@@ -34,6 +34,7 @@ vi.mock("@/stores/loseOrderStore", () => ({
 const extensionPrefs = vi.hoisted(() => ({
   betRowUi: false,
   singleLeg9999Precheck: true,
+  singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: {
     enabled: false,
     minImplied: 1.05,

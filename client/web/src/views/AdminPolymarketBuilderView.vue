@@ -198,6 +198,11 @@ onMounted(async () => {
               {{ fmtUsdc(row.sizeUsdc) }}
             </template>
           </el-table-column>
+          <el-table-column label="Builder 费" width="100">
+            <template #default="{ row }: { row: PolymarketBuilderTradeRow }">
+              {{ fmtUsdc(row.displayFeeUsdc ?? row.feeUsdc) }}
+            </template>
+          </el-table-column>
           <el-table-column label="价格" width="80">
             <template #default="{ row }: { row: PolymarketBuilderTradeRow }">
               {{ toFixed(row.price, 4) }}

@@ -253,6 +253,9 @@ export interface PolymarketBuilderTradeRow {
   sizeShares: number;
   sizeUsdc: number;
   feeUsdc: number;
+  builderFeeUsdc: number;
+  /** 优先 builderFee，否则 feeUsdc */
+  displayFeeUsdc: number;
   maker: string;
   owner: string;
   market: string;

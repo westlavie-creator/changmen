@@ -13,13 +13,28 @@ function requireBuilderSigner() {
   return new BuilderSigner(creds);
 }
 
-function microToNumber(raw) {
-  const n = Number(raw);
-  return Number.isFinite(n) ? n / MICRO : 0;
+/**
+ * CLOB `/builder/trades` 金额：线上返回人类可读小数（如 `"5.88"`）；
+ * OpenAPI 示例仍是 6 位微单位整数（如 `"50000000"`）。两者都兼容。
+ */
+export function amountToNumber(raw) {
+  if (raw == null || raw === "")
+    return 0;
+  const s = String(raw).trim();
+  const n = Number(s);
+  if (!Number.isFinite(n))
+    return 0;
+  if (s.includes("."))
+    return n;
+  if (Number.isInteger(n) && Math.abs(n) >= 1000)
+    return n / MICRO;
+  return n;
 }
 
 export function normalizeBuilderTrade(raw) {
   const matchSec = Number(raw?.matchTime);
+  const feeUsdc = amountToNumber(raw?.feeUsdc);
+  const builderFeeUsdc = amountToNumber(raw?.builderFee);
   return {
     id: String(raw?.id ?? ""),
     tradeType: String(raw?.tradeType ?? ""),
@@ -27,9 +42,13 @@ export function normalizeBuilderTrade(raw) {
     status: String(raw?.status ?? ""),
     outcome: String(raw?.outcome ?? ""),
     price: Number(raw?.price) || 0,
-    sizeShares: microToNumber(raw?.size),
-    sizeUsdc: microToNumber(raw?.sizeUsdc),
-    feeUsdc: microToNumber(raw?.feeUsdc),
+    sizeShares: amountToNumber(raw?.size),
+    sizeUsdc: amountToNumber(raw?.sizeUsdc),
+    feeUsdc,
+    /** 协议字段 builderFee；线上常为 0，有值时优先作 Builder 费展示 */
+    builderFeeUsdc,
+    /** 看板展示用：优先 builderFee，否则 feeUsdc（归因成交上的费用） */
+    displayFeeUsdc: builderFeeUsdc > 0 ? builderFeeUsdc : feeUsdc,
     maker: String(raw?.maker ?? ""),
     owner: String(raw?.owner ?? ""),
     market: String(raw?.market ?? ""),
@@ -37,7 +56,7 @@ export function normalizeBuilderTrade(raw) {
     transactionHash: String(raw?.transactionHash ?? ""),
     matchTime: Number.isFinite(matchSec) ? matchSec * 1000 : null,
     matchTimeIso: Number.isFinite(matchSec) ? new Date(matchSec * 1000).toISOString() : null,
-    builder: String(raw?.builder ?? ""),
+    builder: String(raw?.builder ?? raw?.builderCode ?? ""),
   };
 }
 
@@ -48,7 +67,7 @@ export function summarizeBuilderTrades(trades) {
   let sellCount = 0;
   for (const t of trades) {
     volumeUsdc += t.sizeUsdc;
-    feeUsdc += t.feeUsdc;
+    feeUsdc += Number(t.displayFeeUsdc ?? t.feeUsdc) || 0;
     if (t.side === "BUY")
       buyCount += 1;
     else if (t.side === "SELL")

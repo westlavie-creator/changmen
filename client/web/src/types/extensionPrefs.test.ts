@@ -7,36 +7,40 @@ const defaultStakeScale = {
   multiplier: 2,
 };
 
+const defaultPrefs = {
+  betRowUi: false,
+  singleLeg9999Precheck: true,
+  singleLeg9999UseValueBetMoney: false,
+  stakeScaleByProfit: defaultStakeScale,
+};
+
 describe("extensionPrefs", () => {
   it("defaults betRowUi to false and singleLeg9999Precheck to true", () => {
-    expect(createDefaultExtensionPrefs()).toEqual({
-      betRowUi: false,
-      singleLeg9999Precheck: true,
-      stakeScaleByProfit: defaultStakeScale,
-    });
+    expect(createDefaultExtensionPrefs()).toEqual(defaultPrefs);
   });
 
   it("normalizes missing payload", () => {
-    expect(normalizeExtensionPrefs(null)).toEqual({
-      betRowUi: false,
-      singleLeg9999Precheck: true,
-      stakeScaleByProfit: defaultStakeScale,
-    });
+    expect(normalizeExtensionPrefs(null)).toEqual(defaultPrefs);
   });
 
   it("respects explicit true", () => {
     expect(normalizeExtensionPrefs({ betRowUi: true })).toEqual({
+      ...defaultPrefs,
       betRowUi: true,
-      singleLeg9999Precheck: true,
-      stakeScaleByProfit: defaultStakeScale,
     });
   });
 
   it("can disable singleLeg9999Precheck", () => {
     expect(normalizeExtensionPrefs({ singleLeg9999Precheck: false })).toEqual({
-      betRowUi: false,
+      ...defaultPrefs,
       singleLeg9999Precheck: false,
-      stakeScaleByProfit: defaultStakeScale,
+    });
+  });
+
+  it("can enable singleLeg9999UseValueBetMoney", () => {
+    expect(normalizeExtensionPrefs({ singleLeg9999UseValueBetMoney: true })).toEqual({
+      ...defaultPrefs,
+      singleLeg9999UseValueBetMoney: true,
     });
   });
 
@@ -44,8 +48,7 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({
       stakeScaleByProfit: { enabled: true, minImplied: 1.08, multiplier: 1.5 },
     })).toEqual({
-      betRowUi: false,
-      singleLeg9999Precheck: true,
+      ...defaultPrefs,
       stakeScaleByProfit: { enabled: true, minImplied: 1.08, multiplier: 1.5 },
     });
   });

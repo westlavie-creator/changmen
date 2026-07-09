@@ -11,6 +11,10 @@ import {
 } from "@/domain/betting/singleLegRate";
 import { opponentSide } from "@/models/betOption";
 import { applyStakeScaleByProfit } from "@/extensions/arbBet/stakeScaleByProfit";
+import {
+  applyValueBetMoneyTo9999LiveLeg,
+  resolve9999LiveSide,
+} from "@/extensions/arbBet/singleLeg9999Stake";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { accountsFundingReady } from "@/stores/account/accountPicker";
@@ -172,6 +176,29 @@ export async function prepareArbAttempt(
 
   if (singleLegByRate) {
     trace?.event("模式", "比例 9999 单边（本侧仅预检不下单）");
+    const prefs = useUserStore().extensionPrefs;
+    const liveSide = resolve9999LiveSide(accountA, accountB);
+    const stake = applyValueBetMoneyTo9999LiveLeg({
+      singleLegByRate,
+      enabled: prefs.singleLeg9999UseValueBetMoney === true,
+      config,
+      legA,
+      legB,
+      liveSide,
+    });
+    if (stake != null) {
+      trace?.event("注码", `9999 真下单腿改用正EV金额 ¥${stake}`);
+      const liveAcc = liveSide === "A" ? accountA : accountB;
+      const liveLeg = liveSide === "A" ? legA : legB;
+      const bal = liveAcc?.getBalance();
+      if (bal !== undefined && liveLeg && bal < liveLeg.betMoney) {
+        trace?.finish(
+          "fail",
+          `正EV金额余额不足（${Math.floor(bal)} < ${Math.ceil(liveLeg.betMoney)}）`,
+        );
+        return null;
+      }
+    }
   }
 
   const { checkAccountA, checkAccountB } = resolveSingleLegCheckAccounts({
