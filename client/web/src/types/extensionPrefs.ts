@@ -24,6 +24,11 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   singleLeg9999UseValueBetMoney: boolean;
   /** 利润达阈值时放大下注金额 */
   stakeScaleByProfit: StakeScaleByProfitPrefs;
+  /**
+   * Polymarket 买单确认成交后自动挂 GTC 止盈卖单。
+   * 默认开启（`!== false`）。
+   */
+  pmAutoExitSell: boolean;
 }
 
 export function createDefaultStakeScaleByProfit(): StakeScaleByProfitPrefs {
@@ -40,6 +45,7 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     singleLeg9999Precheck: true,
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
+    pmAutoExitSell: true,
   };
 }
 
@@ -66,5 +72,6 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     singleLeg9999Precheck: row.singleLeg9999Precheck !== false,
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
+    pmAutoExitSell: row.pmAutoExitSell !== false,
   };
 }

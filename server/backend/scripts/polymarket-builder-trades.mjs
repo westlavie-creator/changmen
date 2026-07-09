@@ -63,7 +63,8 @@ console.log("");
 console.log("[Polymarket 归因成交]");
 console.log(`  成交笔数: ${poly.tradeCount}${data.polymarket.hasMore ? " (可能还有更多，增大 --max-pages)" : ""}`);
 console.log(`  成交量 USDC: ${poly.volumeUsdc.toFixed(2)}`);
-console.log(`  Builder 费 USDC: ${poly.feeUsdc.toFixed(4)}`);
+console.log(`  feeUsdc: ${poly.feeUsdc.toFixed(4)}`);
+console.log(`  builderFee: ${Number(poly.builderFeeUsdc || 0).toFixed(4)}`);
 console.log(`  BUY/SELL: ${poly.buyCount}/${poly.sellCount}`);
 console.log("");
 console.log("[changmen Polymarket 订单]");
@@ -75,7 +76,7 @@ if (data.polymarket.trades.length) {
   console.log("最近 Polymarket 成交:");
   for (const t of data.polymarket.trades.slice(0, 10)) {
     console.log(
-      `  ${t.matchTimeIso || "-"} ${t.side} ${t.sizeUsdc.toFixed(2)} USDC fee=${Number(t.displayFeeUsdc ?? t.feeUsdc).toFixed(4)} @ ${t.price} maker=${t.maker.slice(0, 10)}… tx=${t.transactionHash.slice(0, 12)}…`,
+      `  ${t.matchTimeIso || "-"} ${t.side} ${t.sizeUsdc.toFixed(2)} USDC feeUsdc=${Number(t.feeUsdc).toFixed(4)} builderFee=${Number(t.builderFeeUsdc || 0).toFixed(4)} @ ${t.price} maker=${t.maker.slice(0, 10)}… tx=${t.transactionHash.slice(0, 12)}…`,
     );
   }
 }

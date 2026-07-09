@@ -1,7 +1,18 @@
 # Polymarket 卖出功能 — 后期加回 Checklist
 
-> **现状（2026-07）**：changmen **不做卖出**；只 BUY FOK → 持有至 Gamma 结算。  
-> **本文**：后期重新启用 changmen 平仓时的设计备忘，避免再现 NRG 类 `open + full attr` 挡 Gamma 问题。
+> **现状（2026-07）**：changmen **买入后自动挂 GTC 止盈卖单**（tick 对齐 [0.99, 0.995] 随机）；手动平仓 UI 仍未做。  
+> **本文**：后期完善卖出归因 / 手动平仓时的设计备忘，避免再现 NRG 类 `open + full attr` 挡 Gamma 问题。
+
+### 已落地（自动止盈挂单）
+
+- [x] `pmTickPrice.ts`：官网 tick 对齐 + `[0.99,0.995]` 合法价随机（`0.01` → 仅 0.99）
+- [x] `pmAutoExitSell.ts`：仅在买单**确认成交**后挂 GTC SELL
+  - 即时：`status=matched` 且 `takingAmount>0`
+  - delayed：settlement 后还须 `/data/trades`（或等价）解析到确认份数；仅有 delayed/受理不挂
+- [x] `pmHeartbeat.ts`：挂 GTC 前启动 `/v1/heartbeats`（约 5s），避免 ~10s 被官方清单
+- [x] 防重复挂：内存幂等 + 挂前查 `/data/orders?asset_id=` 是否已有 open SELL
+- [x] 扩展页「PM卖单」开关（`extensionPrefs.pmAutoExitSell`，默认开）
+- [ ] 卖单成交后原子写 `pmSellState` / 挡 Gamma（产品暂不需要：挂着或到期兑换）
 
 ---
 

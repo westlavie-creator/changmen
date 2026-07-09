@@ -295,6 +295,7 @@ export interface PolymarketBuilderDashboardPayload {
       tradeCount: number;
       volumeUsdc: number;
       feeUsdc: number;
+      builderFeeUsdc: number;
       buyCount: number;
       sellCount: number;
     };

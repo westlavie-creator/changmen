@@ -297,6 +297,9 @@ export function stopAllPolymarketUserWs(): void {
   void import("./settlementJob.js")
     .then(m => m.clearPolymarketSettlementJobs())
     .catch(() => {});
+  void import("./pmHeartbeat.js")
+    .then(m => m.stopAllPolymarketHeartbeats())
+    .catch(() => {});
   for (const session of sessions.values()) {
     session.stopped = true;
     if (session.reconnectTimer)

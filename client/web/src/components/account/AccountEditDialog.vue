@@ -600,7 +600,7 @@ function unlockRate() {
               :disabled="polyRelayerConfigured === false"
               @click="onPreparePolymarketWallet"
             >
-              Relayer 链上授权
+              Relayer 授权
             </el-button>
             <span class="poly-credential-hint">
               {{ polyApiCreds ? "已生成，保存时会写入最小 token（signatureType=3）" : "保存时也会自动生成" }}

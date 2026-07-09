@@ -21,13 +21,27 @@ export interface PolymarketRelayerPrepareResult {
   skipped?: boolean;
 }
 
-/** [Polymarket 可证实] Polygon 主网合约 — docs.polymarket.com / builder-relayer-client README */
-const POLYGON = {
+/**
+ * [Polymarket 可证实] Polygon 主网合约。
+ * V1 Exchange 仍保留（存量授权/兼容）；V2 为当前 CLOB 交易 spender。
+ * @see https://docs.polymarket.com/resources/contracts
+ * @see https://docs.polymarket.com/market-makers/getting-started
+ */
+export const POLYGON_POLYMARKET = {
+  /** 旧 collateral（USDC.e）；部分钱包/路径仍用 */
   USDC: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+  /** CLOB V2 collateral（pUSD） */
+  PUSD: "0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB",
   CTF: "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045",
-  CTF_EXCHANGE: "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E",
-  NEG_RISK_EXCHANGE: "0xC5d563A36AE78145C45a50134d48A1215220f80a",
+  CTF_EXCHANGE_V1: "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E",
+  NEG_RISK_EXCHANGE_V1: "0xC5d563A36AE78145C45a50134d48A1215220f80a",
+  CTF_EXCHANGE: "0xE111180000d2663C0091e4f400237545B87B996B",
+  NEG_RISK_EXCHANGE: "0xe2222d279d744050d28e00520010520000310F59",
+  NEG_RISK_ADAPTER: "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296",
 } as const;
+
+/** @deprecated 用 POLYGON_POLYMARKET；保留别名避免外部 import 断裂 */
+const POLYGON = POLYGON_POLYMARKET;
 
 const ERC20_APPROVE_ABI = [
   {
@@ -38,6 +52,18 @@ const ERC20_APPROVE_ABI = [
       { name: "amount", type: "uint256" },
     ],
     outputs: [{ type: "bool" }],
+  },
+] as const;
+
+const ERC1155_SET_APPROVAL_FOR_ALL_ABI = [
+  {
+    name: "setApprovalForAll",
+    type: "function",
+    inputs: [
+      { name: "operator", type: "address" },
+      { name: "approved", type: "bool" },
+    ],
+    outputs: [],
   },
 ] as const;
 
@@ -69,12 +95,49 @@ function createApproveTransaction(tokenAddress: string, spenderAddress: string):
   };
 }
 
-function buildStandardApprovalTransactions(): Transaction[] {
+/** 卖单：一次授权全部 outcome token（不必按 tokenId） */
+function createSetApprovalForAllTransaction(operatorAddress: string): Transaction {
+  return {
+    to: POLYGON.CTF,
+    data: encodeFunctionData({
+      abi: ERC1155_SET_APPROVAL_FOR_ALL_ABI,
+      functionName: "setApprovalForAll",
+      args: [operatorAddress as Hex, true],
+    }),
+    value: "0",
+  };
+}
+
+/** 买卖共用的 Exchange / Adapter spender（V1+V2） */
+export function polymarketTradeSpenders(): readonly string[] {
   return [
-    createApproveTransaction(POLYGON.USDC, POLYGON.CTF),
-    createApproveTransaction(POLYGON.USDC, POLYGON.CTF_EXCHANGE),
-    createApproveTransaction(POLYGON.USDC, POLYGON.NEG_RISK_EXCHANGE),
+    POLYGON.CTF_EXCHANGE_V1,
+    POLYGON.NEG_RISK_EXCHANGE_V1,
+    POLYGON.CTF_EXCHANGE,
+    POLYGON.NEG_RISK_EXCHANGE,
+    POLYGON.NEG_RISK_ADAPTER,
   ];
+}
+
+/**
+ * 钱包准备：买（collateral approve）+ 卖（CTF setApprovalForAll）。
+ * 每个 spender 一次即可，覆盖全部市场 token。
+ */
+export function buildStandardApprovalTransactions(): Transaction[] {
+  const spenders = polymarketTradeSpenders();
+  const txs: Transaction[] = [
+    // 买：USDC.e → CTF（split）+ 各 Exchange
+    createApproveTransaction(POLYGON.USDC, POLYGON.CTF),
+    // 买：pUSD → CTF + 各 Exchange（CLOB V2）
+    createApproveTransaction(POLYGON.PUSD, POLYGON.CTF),
+  ];
+  for (const spender of spenders) {
+    txs.push(createApproveTransaction(POLYGON.USDC, spender));
+    txs.push(createApproveTransaction(POLYGON.PUSD, spender));
+    // 卖：CTF 授权 Exchange 动用全部 outcome token
+    txs.push(createSetApprovalForAllTransaction(spender));
+  }
+  return txs;
 }
 
 function joinSignUrl(signUrl: string): string {
@@ -157,7 +220,7 @@ async function preparePolymarketWalletInner(
   );
 
   const transactions = buildStandardApprovalTransactions();
-  const response = await client.execute(transactions, "changmen polymarket wallet prep");
+  const response = await client.execute(transactions, "changmen polymarket wallet prep buy+sell");
   const result = await response.wait();
   if (!result?.transactionHash) {
     return {

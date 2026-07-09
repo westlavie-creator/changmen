@@ -63,12 +63,13 @@ it("normalizeBuilderTrade prefers builderFee when present", () => {
 
 it("summarizeBuilderTrades aggregates volume", () => {
   const s = summarizeBuilderTrades([
-    { side: "BUY", sizeUsdc: 10, feeUsdc: 0.1, displayFeeUsdc: 0.1 },
-    { side: "SELL", sizeUsdc: 5, feeUsdc: 0.05, displayFeeUsdc: 0.05 },
+    { side: "BUY", sizeUsdc: 10, feeUsdc: 0.1, builderFeeUsdc: 0.05 },
+    { side: "SELL", sizeUsdc: 5, feeUsdc: 0.05, builderFeeUsdc: 0 },
   ]);
   assert.equal(s.tradeCount, 2);
   assert.equal(s.volumeUsdc, 15);
   assert.ok(Math.abs(s.feeUsdc - 0.15) < 1e-9);
+  assert.ok(Math.abs(s.builderFeeUsdc - 0.05) < 1e-9);
   assert.equal(s.buyCount, 1);
   assert.equal(s.sellCount, 1);
 });

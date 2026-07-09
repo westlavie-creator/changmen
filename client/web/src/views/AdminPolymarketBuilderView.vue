@@ -167,7 +167,8 @@ onMounted(async () => {
           <p>成交笔数</p>
           <ul>
             <li>成交量 {{ fmtUsdc(polySummary.volumeUsdc) }} USDC</li>
-            <li>Builder 费 {{ fmtUsdc(polySummary.feeUsdc) }} USDC</li>
+            <li>feeUsdc {{ fmtUsdc(polySummary.feeUsdc) }} USDC</li>
+            <li>builderFee {{ fmtUsdc(polySummary.builderFeeUsdc) }} USDC</li>
             <li>BUY / SELL：{{ polySummary.buyCount }} / {{ polySummary.sellCount }}</li>
           </ul>
         </article>
@@ -198,9 +199,14 @@ onMounted(async () => {
               {{ fmtUsdc(row.sizeUsdc) }}
             </template>
           </el-table-column>
-          <el-table-column label="Builder 费" width="100">
+          <el-table-column label="feeUsdc" width="100">
             <template #default="{ row }: { row: PolymarketBuilderTradeRow }">
-              {{ fmtUsdc(row.displayFeeUsdc ?? row.feeUsdc) }}
+              {{ fmtUsdc(row.feeUsdc) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="builderFee" width="110">
+            <template #default="{ row }: { row: PolymarketBuilderTradeRow }">
+              {{ fmtUsdc(row.builderFeeUsdc) }}
             </template>
           </el-table-column>
           <el-table-column label="价格" width="80">

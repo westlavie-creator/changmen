@@ -63,11 +63,13 @@ export function normalizeBuilderTrade(raw) {
 export function summarizeBuilderTrades(trades) {
   let volumeUsdc = 0;
   let feeUsdc = 0;
+  let builderFeeUsdc = 0;
   let buyCount = 0;
   let sellCount = 0;
   for (const t of trades) {
     volumeUsdc += t.sizeUsdc;
-    feeUsdc += Number(t.displayFeeUsdc ?? t.feeUsdc) || 0;
+    feeUsdc += Number(t.feeUsdc) || 0;
+    builderFeeUsdc += Number(t.builderFeeUsdc) || 0;
     if (t.side === "BUY")
       buyCount += 1;
     else if (t.side === "SELL")
@@ -77,6 +79,7 @@ export function summarizeBuilderTrades(trades) {
     tradeCount: trades.length,
     volumeUsdc,
     feeUsdc,
+    builderFeeUsdc,
     buyCount,
     sellCount,
   };

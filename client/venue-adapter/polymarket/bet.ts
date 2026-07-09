@@ -29,6 +29,8 @@ import {
   resolvePolymarketDetectionMaxPrice,
   type PolymarketOptionQuoteData,
 } from "./pmDetection";
+import { schedulePolymarketAutoExitSellAfterBuy } from "./pmAutoExitSell";
+import { normalizePolymarketTickSize, type PolymarketTickSize } from "./pmTickPrice";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 export { isPolymarketDelayedPending } from "./orderStatus";
@@ -50,7 +52,7 @@ const ORDER_BOOK_PATH = "/book";
 
 const COLLATERAL_DECIMALS = 1_000_000;
 type Hex = `0x${string}`;
-type TickSize = "0.1" | "0.01" | "0.001" | "0.0001";
+type TickSize = PolymarketTickSize;
 
 interface PolymarketBalanceAllowanceResponse {
   balance?: string | number;
@@ -120,13 +122,6 @@ function resolveSdkSignatureType(value: string | number | undefined): number {
   return [1, 2, 3].includes(numeric) ? numeric : 0;
 }
 
-function normalizeTickSize(value: string | number | undefined): TickSize {
-  const tick = String(value ?? "").trim();
-  if (tick === "0.1" || tick === "0.01" || tick === "0.001" || tick === "0.0001")
-    return tick;
-  throw new Error(`Polymarket 返回了不支持的 tick_size: ${tick || "空"}`);
-}
-
 interface PolymarketOrderOptions {
   tickSize: TickSize;
   minOrderSize: number;
@@ -171,7 +166,7 @@ async function fetchOrderOptions(gateway: string, tokenId: string): Promise<Poly
     `${gateway}${ORDER_BOOK_PATH}?${params.toString()}`,
   );
   return {
-    tickSize: normalizeTickSize(book?.tick_size ?? book?.minimum_tick_size),
+    tickSize: normalizePolymarketTickSize(book?.tick_size ?? book?.minimum_tick_size),
     minOrderSize: Number(book?.min_order_size) || 0,
     negRisk: Boolean(book?.neg_risk),
     asks: (book?.asks ?? [])
@@ -425,7 +420,11 @@ function isPolymarketBuyCheckData(data: unknown): data is PolymarketBuyCheckData
     && opts
     && Array.isArray(opts.asks)
     && opts.asks.length > 0
-    && (opts.tickSize === "0.1" || opts.tickSize === "0.01" || opts.tickSize === "0.001" || opts.tickSize === "0.0001"),
+    && (opts.tickSize === "0.1"
+      || opts.tickSize === "0.01"
+      || opts.tickSize === "0.001"
+      || opts.tickSize === "0.0001"
+      || opts.tickSize === "0.0025"),
   );
 }
 
@@ -664,6 +663,16 @@ export const polymarketProvider: PlatformProvider = {
       if (bet.orderId)
         markPolymarketChangmenOrder(account.accountId, bet.orderId);
       bumpPolymarketOrderSyncAfterBet(account.accountId);
+      if (filled && bet.orderId) {
+        // 仅 FOK matched + takingAmount>0（确认成交）后挂单；delayed 走 settlement 确认后再挂
+        schedulePolymarketAutoExitSellAfterBuy({
+          account,
+          buyOrderId: bet.orderId,
+          tokenId,
+          buyResponse: result,
+          enabled: option.pmAutoExitSell,
+        });
+      }
       if (pending && bet.orderId) {
         const conditionId = String(option.betId ?? "").trim();
         if (conditionId) {
@@ -674,8 +683,12 @@ export const polymarketProvider: PlatformProvider = {
             "[Polymarket] delayed 单缺少 betId(condition_id)，User WS 未订阅；拒单检测仅走 REST",
           );
         }
-        // [changmen 扩展] wait(q) 期间后台 settle；finalize 仍 A8 wait→sync
-        startPolymarketSettlementJob(account, bet.orderId);
+        // delayed 仅启动确认任务；auto-exit 在 trades/份数确认后才挂卖单
+        startPolymarketSettlementJob(account, bet.orderId, {
+          autoExitSell: option.pmAutoExitSell === false
+            ? undefined
+            : { tokenId },
+        });
       }
       return bet;
     } catch (err) {
