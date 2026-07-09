@@ -142,9 +142,9 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
   }),
 
   getters: {
-    /** 左旧右新：从左往右排列 */
+    /** 左新右旧：从右往左读时间线；整组靠左 */
     visibleRuns(state): ActiveBetRun[] {
-      return [...state.runs.values()].sort((a, b) => a.startedAt - b.startedAt || a.betId - b.betId);
+      return [...state.runs.values()].sort((a, b) => b.startedAt - a.startedAt || b.betId - a.betId);
     },
     phaseLabel: () => (phase: ActiveBetRunPhase) => PHASE_LABEL[phase] ?? phase,
     legStatusLabel: () => (status: ActiveBetLegStatus) => LEG_STATUS_LABEL[status] ?? status,
@@ -285,7 +285,6 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
           overallLabel: pendingPm ? "补单中 · 等待 PM 确认" : PHASE_LABEL.makeup,
           legs: legsFromLoseOrder(order),
         });
-        this.appendEvent(betId, "补单", pendingPm ? "续查 PM 订单" : "队列已恢复");
         const makeupLeg = this.runs.get(betId)?.legs.find(l => l.status === "makeup");
         if (makeupLeg)
           this.appendLegEvent(betId, makeupLeg.side, "补单", pendingPm ? "续查 PM 订单" : "队列已恢复");

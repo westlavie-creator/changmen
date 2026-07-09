@@ -53,7 +53,7 @@
   opacity: 0.9;
 }
 
-/* 横向一栏 = 一笔进行中的订单；最多 5 列，从左往右 FIFO */
+/* 横向一栏 = 一笔进行中的订单；最多 5 列，左新右旧，整组靠左 */
 .active-bet-run__col {
   flex: 0 0 460px;
   width: 460px;
@@ -288,67 +288,6 @@
 }
 
 .active-bet-run__leg-event-detail {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.active-bet-run__events {
-  list-style: none;
-  margin: 0;
-  padding: 4px 0 0;
-  flex: 0 0 auto;
-  min-height: 0;
-  overflow-y: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.active-bet-run__events--run {
-  max-height: 64px;
-}
-
-.active-bet-run__event {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-  font-size: 12px;
-  line-height: 1.35;
-  opacity: 0.72;
-  min-width: 0;
-}
-
-.active-bet-run__event--latest {
-  opacity: 1;
-}
-
-.active-bet-run__event-stage {
-  flex: 0 0 auto;
-  color: #7ec8ff;
-  font-weight: 700;
-}
-
-.active-bet-run__event-stage[data-layer="预检"] {
-  color: #90caf9;
-}
-
-.active-bet-run__event-stage[data-layer="下单"] {
-  color: #ffd54f;
-}
-
-.active-bet-run__event-stage[data-layer="拒单"] {
-  color: #ce93d8;
-}
-
-.active-bet-run__event-stage[data-layer="补单"] {
-  color: #ffb74d;
-}
-
-.active-bet-run__event-detail {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;

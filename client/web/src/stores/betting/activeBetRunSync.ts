@@ -157,14 +157,12 @@ export function syncActiveBetPrecheckResults(
     return;
 
   if (checked.some(ok => !ok)) {
-    // 腿详情已在各腿时间线；整单只标「预检失败」，避免顶部仍停在「正在预检」
+    // 腿详情已在各腿时间线；整单只更新顶部标题，避免仍停在「正在预检」
     store.setPhase(betId, "syncing", "预检失败");
-    store.appendEvent(betId, "预检", "预检失败");
     return;
   }
 
   store.setPhase(betId, "checking", "预检通过");
-  store.appendEvent(betId, "预检", "预检通过");
 }
 
 export function syncActiveBetPhase(
@@ -176,19 +174,9 @@ export function syncActiveBetPhase(
   const store = activeStore();
   if (!store)
     return;
+  // 整单状态只更新顶部 overallLabel；细节走各腿时间线
   store.setPhase(betId, phase, detail, countdownSec);
-  // 整单阶段只追加到订单时间线，不广播到双腿（避免 PM 腿出现「账号预检/等待确认」等共享文案）
-  if (detail)
-    store.appendEvent(betId, PHASE_STAGE_LABEL[phase] ?? phase, detail);
 }
-
-const PHASE_STAGE_LABEL: Partial<Record<ActiveBetRunPhase, string>> = {
-  checking: "预检",
-  placing: "下单",
-  settling: "拒单",
-  makeup: "补单",
-  syncing: "完成",
-};
 
 export function syncActiveBetLeg(
   betId: number,
@@ -387,7 +375,6 @@ export function syncActiveBetFail(betId: number, reason: string) {
     }
   }
   else {
-    store.appendEvent(betId, failLayer, reason);
     for (const leg of run?.legs ?? []) {
       if (leg.status !== "skipped" && leg.status !== "failed")
         store.appendLegEvent(betId, leg.side, failLayer, reason);
@@ -459,8 +446,6 @@ export function syncActiveBetMakeupAttempt(
   store.setPhase(betId, "makeup", `补单中 · ${platform}`);
   if (side)
     store.appendLegEvent(betId, side, "补单", detail);
-  else
-    store.appendEvent(betId, "补单", detail);
 }
 
 export function syncActiveBetMakeupSettling(betId: number, waitSec: number) {
@@ -482,8 +467,6 @@ export function syncActiveBetMakeupRejected(betId: number, target: string) {
   store.setPhase(betId, "makeup", `${target} 再次被拒单`);
   if (makeupLeg)
     store.appendLegEvent(betId, makeupLeg.side, "补单", `${target} 再次被拒单`);
-  else
-    store.appendEvent(betId, "补单", `${target} 再次被拒单`);
 }
 
 export function syncActiveBetMakeupDone(betId: number, platform: string, odds: number) {
@@ -496,7 +479,5 @@ export function syncActiveBetMakeupDone(betId: number, platform: string, odds: n
   const detail = `补单成功 @${odds}`;
   if (makeupLeg)
     store.appendLegEvent(betId, makeupLeg.side, "补单", detail);
-  else
-    store.appendEvent(betId, "补单", `${platform} ${detail}`);
   store.scheduleDismiss(betId);
 }

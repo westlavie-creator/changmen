@@ -178,25 +178,6 @@ function orderLabel(run: ActiveBetRun, index: number): string {
             </ul>
           </div>
         </div>
-
-        <ul
-          v-if="run.events.length"
-          class="active-bet-run__events active-bet-run__events--run"
-        >
-          <li
-            v-for="(ev, evIndex) in run.events"
-            :key="`${run.betId}-run-${evIndex}`"
-            class="active-bet-run__event"
-            :class="{ 'active-bet-run__event--latest': evIndex === run.events.length - 1 }"
-            :title="ev.detail"
-          >
-            <span
-              class="active-bet-run__event-stage"
-              :data-layer="ev.stage"
-            >{{ ev.stage }}</span>
-            <span class="active-bet-run__event-detail">{{ ev.detail }}</span>
-          </li>
-        </ul>
       </article>
     </div>
   </fieldset>

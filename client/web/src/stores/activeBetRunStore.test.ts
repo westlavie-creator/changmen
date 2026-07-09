@@ -67,9 +67,9 @@ describe("activeBetRunStore", () => {
       });
     }
     expect(store.visibleRuns).toHaveLength(5);
-    expect(store.visibleRuns.map(r => r.betId)).toEqual([1002, 1003, 1004, 1005, 1006]);
-    expect(store.visibleRuns[0]?.matchTitle).toBe("M2");
-    expect(store.visibleRuns[4]?.matchTitle).toBe("M6");
+    expect(store.visibleRuns.map(r => r.betId)).toEqual([1006, 1005, 1004, 1003, 1002]);
+    expect(store.visibleRuns[0]?.matchTitle).toBe("M6");
+    expect(store.visibleRuns[4]?.matchTitle).toBe("M2");
   });
 
   it("bootstrapFromLoseOrders marks success leg confirmed opposite makeup target", () => {
@@ -204,7 +204,8 @@ describe("activeBetRunStore", () => {
     syncActiveBetPhase(100, "checking", "正在预检");
 
     const run = store.visibleRuns[0]!;
-    expect(run.events.some(e => e.stage === "预检" && e.detail === "正在预检")).toBe(true);
+    expect(run.overallLabel).toBe("正在预检");
+    expect(run.phase).toBe("checking");
     expect(run.legs.every(l => l.events.some(e => e.stage === "预检" && e.detail === "正在预检"))).toBe(true);
   });
 
@@ -243,7 +244,6 @@ describe("activeBetRunStore", () => {
     expect(beginA.events.some(e => e.stage === "预检" && e.detail === "正在预检")).toBe(true);
 
     store.setPhase(100, "checking", "正在预检");
-    store.appendEvent(100, "预检", "正在预检");
     syncActiveBetPrecheckResults(100, {
       hasA: true,
       okA: true,
@@ -260,7 +260,6 @@ describe("activeBetRunStore", () => {
     expect(legB.events.some(e => e.stage === "预检" && e.detail.includes("预检失败"))).toBe(true);
     expect(run.overallLabel).toBe("预检失败");
     expect(run.phase).toBe("syncing");
-    expect(run.events.some(e => e.stage === "预检" && e.detail === "预检失败")).toBe(true);
   });
 
   it("precheck both fail updates overall away from 正在预检", () => {
@@ -277,7 +276,6 @@ describe("activeBetRunStore", () => {
     });
 
     store.setPhase(100, "checking", "正在预检");
-    store.appendEvent(100, "预检", "正在预检");
     syncActiveBetPrecheckResults(100, {
       hasA: true,
       okA: false,
@@ -289,7 +287,6 @@ describe("activeBetRunStore", () => {
 
     const run = store.visibleRuns[0]!;
     expect(run.overallLabel).toBe("预检失败");
-    expect(run.events.at(-1)?.detail).toBe("预检失败");
     expect(run.legs.every(l => l.status === "failed")).toBe(true);
   });
 
@@ -325,7 +322,7 @@ describe("activeBetRunStore", () => {
     expect(legA.events.some(e => e.stage === "拒单" && e.detail === "等待场馆确认")).toBe(true);
     expect(legB.events.some(e => e.stage === "下单" && e.detail === "API 失败")).toBe(true);
     expect(legB.events.some(e => e.stage === "拒单")).toBe(false);
-    expect(run.events.some(e => e.stage === "拒单" && e.detail === "等待场馆确认")).toBe(true);
+    expect(run.overallLabel).toBe("等待场馆确认");
   });
 
   it("keeps run when both legs fail without makeup", () => {
