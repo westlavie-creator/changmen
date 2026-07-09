@@ -31,7 +31,7 @@ export async function finalizeArbBet(
     },
   );
 
-  logArbFinalizeTraceEvents(params.trace, linkId, placed, settle, makeup);
+  logArbFinalizeTraceEvents(params.trace, linkId, placed, settle, makeup, bet.id);
   markArbSuccessLegs(bet, placed, settle);
   refreshOrderListAfterBind();
 

@@ -12,9 +12,12 @@ loadChangmenEnv();
 const {
   getPgPool,
   updateOrderBind,
+  isArbBindLink,
   isCreateAtPlaceholderLink,
   isHashLink,
+  isInsertTimePlaceholderLink,
   ARB_LINK_MIN,
+  ARB_LINK_CREATE_AT_TOLERANCE_MS,
 } = await import("@changmen/db");
 
 function parseArgs(argv) {
@@ -63,21 +66,32 @@ function providerFromTitle(title) {
   return m?.[1] || "";
 }
 
-/** 未成功 SaveOrderBind 的占位 Link */
+/**
+ * 未成功成组的订单（需补绑）。
+ * 直写 attempt linkId 后：单腿已是 arb link、对侧仍占位时，两侧都可能需要进组；
+ * 已是 arb link 且与 create_at 偏差在容差内 → 视为已绑，跳过（避免误改直写 Link）。
+ */
 function isUnboundOrder(row) {
   const link = Number(row.link);
   const ca = Number(row.create_at);
-  if (!Number.isFinite(link) || !Number.isFinite(ca) || ca <= 0)
-    return false;
+  if (!Number.isFinite(link) || link === 0)
+    return true;
+  if (!Number.isFinite(ca) || ca <= 0)
+    return isHashLink(link) || !isArbBindLink(link);
   if (link === ca - 1)
     return true;
   if (isCreateAtPlaceholderLink(link, ca))
     return true;
   if (isHashLink(link))
     return true;
-  if (link >= ARB_LINK_MIN && link > ca)
+  if (isInsertTimePlaceholderLink(link, ca))
     return true;
-  return false;
+  // 已是套利 Link：与场馆时间接近 → 直写/Bind 成功，勿再改
+  if (isArbBindLink(link) && Math.abs(link - ca) <= ARB_LINK_CREATE_AT_TOLERANCE_MS)
+    return false;
+  if (isArbBindLink(link))
+    return false;
+  return link >= ARB_LINK_MIN && link > ca;
 }
 
 function buildAttemptsFromLogs(logs) {

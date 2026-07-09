@@ -40,6 +40,8 @@ function basePlaced(): ArbBetPlaced {
     waitSec: 10,
     resultA: new BetResult("RAY", false),
     resultB: new BetResult("OB", true),
+    placeOutcomeA: "api_failed",
+    placeOutcomeB: "filled_pending_settle",
   };
 }
 
@@ -168,6 +170,8 @@ describe("applyArbMakeUpFromRejects", () => {
       reject: "unfilled",
     });
     placed.resultB = new BetResult("OB", true);
+    placed.placeOutcomeA = "filled_pending_settle";
+    placed.placeOutcomeB = "filled_pending_settle";
 
     const out = await applyArbMakeUpFromRejects(
       params(),
@@ -197,6 +201,8 @@ describe("applyArbMakeUpFromRejects", () => {
     placed.resultB = Object.assign(new BetResult("Polymarket", true), {
       orderId: "0xpm-filled",
     });
+    placed.placeOutcomeA = "filled_pending_settle";
+    placed.placeOutcomeB = "filled_pending_settle";
 
     const out = await applyArbMakeUpFromRejects(
       params(),
@@ -227,6 +233,8 @@ describe("applyArbMakeUpFromRejects", () => {
     placed.resultB = Object.assign(new BetResult("Polymarket", true), {
       orderId: "0xpm-timeout",
     });
+    placed.placeOutcomeA = "filled_pending_settle";
+    placed.placeOutcomeB = "filled_pending_settle";
 
     const out = await applyArbMakeUpFromRejects(
       params(),

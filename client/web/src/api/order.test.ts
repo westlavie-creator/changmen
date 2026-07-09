@@ -16,16 +16,29 @@ describe("saveOrderBind", () => {
   });
 
   it("skips POST when binds array is empty (A8 Vt.saveOrderBind)", async () => {
-    await saveOrderBind({ orders: "[]" });
+    const ok = await saveOrderBind({ orders: "[]" });
+    expect(ok).toBe(true);
     expect(post).not.toHaveBeenCalled();
   });
 
-  it("pOSTs when binds array has rows", async () => {
-    await saveOrderBind({
+  it("pOSTs when binds array has rows and returns true on success", async () => {
+    const ok = await saveOrderBind({
       orders: JSON.stringify([{ LinkID: 1, Provider: "PB", OrderID: "x" }]),
     });
-    expect(post).toHaveBeenCalledWith("Client_SaveOrderBind", {
+    expect(ok).toBe(true);
+    expect(post).toHaveBeenCalledWith(
+      "Client_SaveOrderBind",
+      { orders: JSON.stringify([{ LinkID: 1, Provider: "PB", OrderID: "x" }]) },
+      "",
+      { errorTip: false },
+    );
+  });
+
+  it("returns false when server rejects bind", async () => {
+    post.mockResolvedValue({ success: 0, msg: "绑单失败" });
+    const ok = await saveOrderBind({
       orders: JSON.stringify([{ LinkID: 1, Provider: "PB", OrderID: "x" }]),
     });
+    expect(ok).toBe(false);
   });
 });

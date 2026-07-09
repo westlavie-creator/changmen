@@ -15,8 +15,8 @@ export class PlatformAccount extends CorePlatformAccount {
     return refreshAccountBalance(useAccountStore(), this);
   }
 
-  async updateOrders() {
+  async updateOrders(opts?: import("@/stores/account/venueOrders").SyncVenueOrdersOpts) {
     const { updateVenueOrders } = await import("@/stores/account/venueOrders");
-    return updateVenueOrders(this);
+    return updateVenueOrders(this, opts);
   }
 }

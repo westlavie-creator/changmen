@@ -102,8 +102,11 @@ export const useAccountStore = defineStore("account", {
       return account.updateBalance();
     },
 
-    updateVenueOrders(account: PlatformAccount) {
-      return account.updateOrders();
+    updateVenueOrders(
+      account: PlatformAccount,
+      opts?: import("@/stores/account/venueOrders").SyncVenueOrdersOpts,
+    ) {
+      return account.updateOrders(opts);
     },
 
     refreshAllFromVenues() {

@@ -2,7 +2,14 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoseOrder } from "@/models/loseOrder";
 import { useActiveBetRunStore, legPlacementStatusLabel } from "@/stores/activeBetRunStore";
-import { syncActiveBetBegin, syncActiveBetAfterRejectSync, syncActiveBetPlaceResults, syncActiveBetPhase, syncActiveBetPrecheckResults } from "@/stores/betting/activeBetRunSync";
+import {
+  syncActiveBetBegin,
+  syncActiveBetAfterRejectSync,
+  syncActiveBetBindSuccess,
+  syncActiveBetPlaceResults,
+  syncActiveBetPhase,
+  syncActiveBetPrecheckResults,
+} from "@/stores/betting/activeBetRunSync";
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({
@@ -312,6 +319,8 @@ describe("activeBetRunStore", () => {
       { success: false },
       true,
       true,
+      "filled_pending_settle",
+      "api_failed",
     );
 
     const run = store.visibleRuns[0]!;
@@ -323,6 +332,40 @@ describe("activeBetRunStore", () => {
     expect(legB.events.some(e => e.stage === "下单" && e.detail === "API 失败")).toBe(true);
     expect(legB.events.some(e => e.stage === "拒单")).toBe(false);
     expect(run.overallLabel).toBe("等待场馆确认");
+  });
+
+  it("api_failed / not_attempted finalize details are not 未拒单", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "RAY", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "ray1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    syncActiveBetAfterRejectSync(100, {
+      hasA: true,
+      hasB: true,
+      rejectA: false,
+      rejectB: false,
+      okA: false,
+      okB: false,
+      makeupQueued: false,
+      placeOutcomeA: "api_failed",
+      placeOutcomeB: "not_attempted",
+    });
+
+    const run = store.visibleRuns[0]!;
+    const legA = run.legs.find(l => l.side === "A")!;
+    const legB = run.legs.find(l => l.side === "B")!;
+    expect(legA.detail).toBe("下单失败");
+    expect(legB.detail).toBe("未下单");
+    expect(legA.detail).not.toBe("未拒单");
+    expect(legB.detail).not.toBe("未拒单");
   });
 
   it("keeps run when both legs fail without makeup", () => {
@@ -350,5 +393,68 @@ describe("activeBetRunStore", () => {
 
     expect(store.visibleRuns).toHaveLength(1);
     expect(store.visibleRuns[0]?.overallLabel).toBe("未成单");
+    expect(store.visibleRuns[0]?.legs.every(l =>
+      l.events.some(e => e.stage === "拒单" && e.detail === "拒单"),
+    )).toBe(true);
+  });
+
+  it("bind success appends 已绑单 on reject layer", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "RAY", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "ray1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+    syncActiveBetBindSuccess(100, ["A", "B"], "已绑单");
+    const run = store.visibleRuns[0]!;
+    expect(run.legs.every(l =>
+      l.events.some(e => e.stage === "拒单" && e.detail === "已绑单"),
+    )).toBe(true);
+  });
+
+  it("reject layer shows 未拒单 then 已成交; one-leg reject stays 补单中", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "Polymarket", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "pm1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    store.setPhase(100, "settling", "等待场馆确认");
+    store.patchLeg(100, "A", { status: "confirmed", detail: "未拒单" });
+    store.patchLeg(100, "B", { status: "rejected", detail: "拒单" });
+
+    syncActiveBetAfterRejectSync(100, {
+      hasA: true,
+      hasB: true,
+      rejectA: false,
+      rejectB: true,
+      okA: true,
+      okB: false,
+      makeupQueued: true,
+      makeupTarget: "B",
+      makeupPlatform: "Polymarket",
+    });
+
+    const run = store.visibleRuns[0]!;
+    const legA = run.legs.find(l => l.side === "A")!;
+    const legB = run.legs.find(l => l.side === "B")!;
+    expect(legA.events.some(e => e.stage === "拒单" && e.detail === "未拒单")).toBe(true);
+    expect(legA.events.some(e => e.stage === "拒单" && e.detail === "已成交")).toBe(true);
+    expect(legA.events.some(e => e.detail === "已确认")).toBe(false);
+    expect(legB.events.some(e => e.stage === "拒单" && e.detail === "拒单")).toBe(true);
+    expect(legB.status).toBe("makeup");
+    expect(run.phase).toBe("makeup");
+    expect(run.overallLabel).toBe("补单中");
   });
 });

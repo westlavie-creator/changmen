@@ -10,7 +10,7 @@ import { sendMessage } from "@/api/esport";
 import { isArbScanSkipSummary } from "@/domain/betting/describeArbPrepareSkip";
 import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
 import { formatArbProgressTelegramBody } from "@/extensions/notify/formatArbProgress";
-import { formatDate, formatDateKey, percent, toFixed } from "@/shared/format";
+import { classifyLinkId, formatDate, formatDateKey, formatLinkId, linkIdSourceLabel, percent, toFixed } from "@/shared/format";
 import { wait } from "@/shared/wait";
 import { useUserStore } from "@/stores/userStore";
 import { NOTIFY_TYPES } from "@/types/notifyTypes";
@@ -299,7 +299,10 @@ export const useMessageStore = defineStore("message", {
       this.enqueueTelegram(formatMarketWatchGroup(group));
     },
 
-    bettingMessage(legA: BettingMessagePeer, legB: BettingMessagePeer) {
+    /**
+     * @param linkId [changmen 扩展] 套利 Attempt linkId；有值时写入 Telegram（对齐 admin LinkID）
+     */
+    bettingMessage(legA: BettingMessagePeer, legB: BettingMessagePeer, linkId?: number) {
       const formatPeer = (leg: BettingMessagePeer) => {
         if (isSingleLegRatePeer(leg)) {
           return [
@@ -335,11 +338,24 @@ export const useMessageStore = defineStore("message", {
       const matchTitle = legA.options.match?.title ?? legB.options.match?.title ?? "";
       const betName
         = legA.options.bet?.getBetName?.() ?? legB.options.bet?.getBetName?.() ?? "";
+      // 完整数字便于排障；徽标与 admin 类型标签对齐
+      const linkLine = (() => {
+        const n = Number(linkId);
+        if (!Number.isFinite(n) || n === 0)
+          return "";
+        const kind = linkIdSourceLabel(classifyLinkId(n));
+        const badge = formatLinkId(n);
+        const full = String(n);
+        return kind
+          ? `LinkID：${full}${badge !== full ? `（${badge} · ${kind}）` : `（${kind}）`}`
+          : `LinkID：${full}`;
+      })();
 
       this.enqueueTelegram(
         [
           orderHtmlTitle("下单提醒", legStatus),
           `${matchTitle} / ${betName}`,
+          ...(linkLine ? [linkLine] : []),
           "",
           formatPeer(legA),
           formatPeer(legB),

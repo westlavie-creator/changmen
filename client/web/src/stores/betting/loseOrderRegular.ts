@@ -10,7 +10,9 @@ import type { useAccountStore } from "@/stores/accountStore";
 import {
   bindArbLegOrder,
   refreshOrderListAfterBind,
+  resolveArbBindOrderId,
 } from "@/stores/betting/arbOrderBind";
+import { enqueuePendingOrderBind } from "@/stores/betting/pendingOrderBind";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import {
   syncActiveBetMakeupDone,
@@ -72,7 +74,10 @@ export async function processA8RegularVenueMakeUpLeg(params: {
   const legOutcome = await resolveVenueLegOutcome(
     account,
     result,
-    () => accountStore.updateVenueOrders(account),
+    () => accountStore.updateVenueOrders(account, {
+      pendingBindLinkId: order.linkId || undefined,
+      pendingBindOrderId: String(result.orderId ?? "").trim() || undefined,
+    }),
     { rejectWaitSec: waitSec },
   );
   const venueOrders = legOutcome.orders;
@@ -88,13 +93,31 @@ export async function processA8RegularVenueMakeUpLeg(params: {
       removeIds.add(betId);
       syncActiveBetMakeupDone(betId, account.provider, checked.odds);
     }
-    await bindArbLegOrder(order.linkId, account, result, venueOrders, rejected);
+    const orderId = resolveArbBindOrderId(venueOrders, result, rejected);
+    if (!(await bindArbLegOrder(order.linkId, account, result, venueOrders, rejected)) && orderId) {
+      enqueuePendingOrderBind({
+        linkId: order.linkId,
+        provider: result.provider,
+        accountId: account.accountId,
+        orderId,
+        betId,
+      });
+    }
     refreshOrderListAfterBind();
   }
   else {
     removeIds.add(betId);
     syncActiveBetMakeupDone(betId, account.provider, checked.odds);
-    await bindArbLegOrder(order.linkId, account, result, [], false);
+    const orderId = resolveArbBindOrderId([], result, false);
+    if (!(await bindArbLegOrder(order.linkId, account, result, [], false)) && orderId) {
+      enqueuePendingOrderBind({
+        linkId: order.linkId,
+        provider: result.provider,
+        accountId: account.accountId,
+        orderId,
+        betId,
+      });
+    }
     refreshOrderListAfterBind();
   }
   useMessageStore().loseOrderMessage(account, order, checked, rejected);

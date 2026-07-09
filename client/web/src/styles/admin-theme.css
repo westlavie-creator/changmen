@@ -2057,6 +2057,19 @@ html.admin-route #app > * {
   color: var(--adm-text-muted);
   background: rgba(90, 111, 138, 0.2);
 }
+.admin-link-source--valueBet {
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.16);
+}
+.admin-order-link-cell__full {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--adm-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+}
 .admin-order-link__meta {
   padding: 2px 8px;
   border-radius: 6px;

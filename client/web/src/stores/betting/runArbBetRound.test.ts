@@ -41,6 +41,12 @@ vi.mock("@/stores/betting/autoBet/executeArbBet", () => ({
   executeArbBet: vi.fn(async () => {}),
 }));
 
+const processPendingOrderBinds = vi.hoisted(() => vi.fn(async () => ({ ok: 0, fail: 0, left: 0 })));
+
+vi.mock("@/stores/betting/pendingOrderBind", () => ({
+  processPendingOrderBinds: () => processPendingOrderBinds(),
+}));
+
 describe("runArbBetRound lose-order gate", () => {
   beforeEach(() => {
     Object.assign(config, createDefaultUserConfig());
@@ -48,6 +54,14 @@ describe("runArbBetRound lose-order gate", () => {
     accountsFundingReady.mockReturnValue(true);
     processLoseOrders.mockClear();
     runA8ArbRound.mockClear();
+    processPendingOrderBinds.mockClear();
+  });
+
+  it("always drains deferred bind queue", async () => {
+    config.betting = false;
+    config.makeUp = false;
+    await runArbBetRound({ setMessage: () => {}, processLoseOrders });
+    expect(processPendingOrderBinds).toHaveBeenCalledOnce();
   });
 
   it("processes lose orders when makeUp on even if betting off (A8 jb)", async () => {

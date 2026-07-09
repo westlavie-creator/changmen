@@ -3,7 +3,6 @@ import type { ArbAttemptPhase } from "@/stores/betting/autoBet/arbAttemptMetrics
 import type { ArbBetAttemptParams } from "@/stores/betting/autoBet/phases/types";
 import type { UserConfig } from "@/types/userConfig";
 import {
-
   recordArbAttemptMetric,
 } from "@/stores/betting/autoBet/arbAttemptMetrics";
 import { checkArbLegs } from "@/stores/betting/autoBet/phases/checkArbLegs";
@@ -45,15 +44,11 @@ export async function executeArbBet(params: {
     return;
   }
 
+  // 预检通过后：place 必回传两腿结果，编排层 finalize 必跑（场馆 settle 仍只处理 API 成功腿）
   const placed = await timed(() => placeArbLegs(attempt, checkedValue));
   phaseMsMap.place = placed.ms;
-  const placedValue = placed.value;
-  if (!placedValue) {
-    recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "skip_place" });
-    return;
-  }
 
-  const finalized = await timed(() => finalizeArbBet(attempt, placedValue));
+  const finalized = await timed(() => finalizeArbBet(attempt, placed.value));
   phaseMsMap.finalize = finalized.ms;
   recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "complete" });
 }

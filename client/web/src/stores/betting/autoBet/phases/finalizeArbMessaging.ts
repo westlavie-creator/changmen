@@ -7,7 +7,10 @@ import type { BettingMessageLeg, BettingMessageSingleLegRatePeer } from "@/store
 import { findSingleLegRateAccount } from "@/domain/betting/singleLegRate";
 import { opponentSide } from "@/models/betOption";
 import { shouldSendArbProgress } from "@/stores/betting/autoBet/arbProgressTrace";
-import { syncActiveBetFail } from "@/stores/betting/activeBetRunSync";
+import {
+  syncActiveBetBindFailed,
+  syncActiveBetBindSuccess,
+} from "@/stores/betting/activeBetRunSync";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -93,10 +96,28 @@ export function logArbFinalizeTraceEvents(
   placed: ArbBetPlaced,
   settle: ArbLegSettleSnapshot,
   makeup: ArbMakeUpEnqueueResult,
+  betId?: number,
 ): void {
   const { legA, legB } = placed;
-  if (settle.boundLegLabels.length)
+  if (settle.boundLegLabels.length) {
     trace?.event("绑单", `linkId ${linkId} · ${settle.boundLegLabels.join(" + ")}`);
+    if (betId != null) {
+      const okSides: Array<"A" | "B"> = [];
+      if (settle.boundLegLabels.includes(legA.type))
+        okSides.push("A");
+      if (settle.boundLegLabels.includes(legB.type))
+        okSides.push("B");
+      if (okSides.length)
+        syncActiveBetBindSuccess(betId, okSides, "已绑单");
+    }
+  }
+  if (settle.bindFailedLegLabels.length) {
+    // 已入补绑队列；耗尽后由 processPendingOrderBinds 再标「补绑耗尽」
+    const failDetail = `绑单失败，将补绑 · ${settle.bindFailedLegLabels.join(" + ")}`;
+    trace?.event("绑单", failDetail);
+    if (betId != null && settle.bindFailedSides.length)
+      syncActiveBetBindFailed(betId, settle.bindFailedSides, failDetail);
+  }
   if (makeup.enqueuedForLegB)
     trace?.event("补单", `已入队 ${legB.type} ${legB.target}`);
   if (makeup.enqueuedForLegA)
@@ -109,7 +130,7 @@ export function finishArbExecutionTrace(
   settle: ArbLegSettleSnapshot,
   outcome: ArbFinalizeOutcome,
 ): void {
-  const { bet, trace } = params;
+  const { trace } = params;
   const { legA, legB, resultA, resultB } = placed;
   const { okA, okB, makeupQueued } = outcome;
 
@@ -127,8 +148,11 @@ export function finishArbExecutionTrace(
     trace?.finish("partial", parts.join(" · ") || "部分成功");
     return;
   }
-  trace?.finish("fail", "收尾无成功腿");
-  syncActiveBetFail(bet.id, "收尾无成功腿");
+  // UI 已由 syncArbFinalizeActiveBet 标「未成单」；此处只收尾 trace，避免覆盖
+  const anyAttempted
+    = placed.placeOutcomeA !== "not_attempted"
+      || placed.placeOutcomeB !== "not_attempted";
+  trace?.finish("fail", anyAttempted ? "下单未成功" : "收尾无成功腿");
 }
 
 export function sendArbBettingMessageIfNeeded(
@@ -144,5 +168,5 @@ export function sendArbBettingMessageIfNeeded(
     settle.rejectB,
   );
   if (messagePeers && !(trace && shouldSendArbProgress()))
-    useMessageStore().bettingMessage(messagePeers[0], messagePeers[1]);
+    useMessageStore().bettingMessage(messagePeers[0], messagePeers[1], placed.linkId);
 }

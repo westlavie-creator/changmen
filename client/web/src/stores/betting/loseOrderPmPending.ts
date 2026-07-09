@@ -10,7 +10,9 @@ import { PLATFORMS } from "@/shared/platform";
 import {
   bindArbLegOrder,
   refreshOrderListAfterBind,
+  resolveArbBindOrderId,
 } from "@/stores/betting/arbOrderBind";
+import { enqueuePendingOrderBind } from "@/stores/betting/pendingOrderBind";
 import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome";
 import type { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useAccountStore } from "@/stores/accountStore";
@@ -61,14 +63,26 @@ export async function applyPmJbSettlementOutcome(
   const legOutcome = await resolveVenueLegOutcome(
     account,
     result,
-    () => useAccountStore().updateVenueOrders(account),
+    () => useAccountStore().updateVenueOrders(account, {
+      pendingBindLinkId: order.linkId || undefined,
+      pendingBindOrderId: String(result.orderId ?? "").trim() || undefined,
+    }),
     { confirmPmPost: true },
   );
   const venueOrders = legOutcome.orders;
 
   if (!isVenueLegRejected(legOutcome)) {
     loseStore.clearPendingPmOrder(betId);
-    await bindArbLegOrder(order.linkId, account, result, venueOrders, false);
+    const orderId = resolveArbBindOrderId(venueOrders, result, false);
+    if (!(await bindArbLegOrder(order.linkId, account, result, venueOrders, false)) && orderId) {
+      enqueuePendingOrderBind({
+        linkId: order.linkId,
+        provider: result.provider,
+        accountId: account.accountId,
+        orderId,
+        betId,
+      });
+    }
     refreshOrderListAfterBind();
     removeIds.add(betId);
     setMessage(`补单成功 ${platformLabel}@${checked.odds}`);
@@ -86,7 +100,16 @@ export async function applyPmJbSettlementOutcome(
   }
 
   loseStore.clearPendingPmOrder(betId);
-  await bindArbLegOrder(order.linkId, account, result, venueOrders, true);
+  const orderId = resolveArbBindOrderId(venueOrders, result, true);
+  if (!(await bindArbLegOrder(order.linkId, account, result, venueOrders, true)) && orderId) {
+    enqueuePendingOrderBind({
+      linkId: order.linkId,
+      provider: result.provider,
+      accountId: account.accountId,
+      orderId,
+      betId,
+    });
+  }
   refreshOrderListAfterBind();
   setMessage(`${order.target} 再次被拒单`);
   a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);

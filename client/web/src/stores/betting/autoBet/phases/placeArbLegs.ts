@@ -1,42 +1,56 @@
 import type { BetResult } from "@/models/betResult";
-import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
-import type { ArbBetAttemptParams, ArbBetChecked, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
+import type { PlatformAccount } from "@/models/platformAccount";
+import type { BetOption } from "@/models/betOption";
+import type {
+  ArbBetAttemptParams,
+  ArbBetChecked,
+  ArbBetPlaced,
+  ArbLegPlaceOutcome,
+} from "@/stores/betting/autoBet/phases/types";
+import { resolveArbLegPlaceOutcome } from "@/stores/betting/autoBet/phases/types";
 import { formatBetResult } from "@/shared/arbBetTraceFormat";
 import { PLATFORMS } from "@/shared/platform";
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
 import {
-  syncActiveBetFail,
   syncActiveBetLeg,
   syncActiveBetPhase,
   syncActiveBetPlaceResults,
 } from "@/stores/betting/activeBetRunSync";
 
-function finishPlaceFailure(
-  betId: number,
-  trace: ArbExecutionTrace | undefined,
-  legA: { type: string; target: string; betMoney: number; odds: number },
-  legB: { type: string; target: string; betMoney: number; odds: number },
-  resultA?: BetResult,
-  resultB?: BetResult,
-): null {
-  trace?.event(
-    "下单",
-    [
-      formatBetResult(legA.type, legA.target, legA.betMoney, legA.odds, resultA),
-      formatBetResult(legB.type, legB.target, legB.betMoney, legB.odds, resultB),
-    ].join(" · "),
-  );
-  trace?.finish("fail", "下单未成功");
-  syncActiveBetFail(betId, "下单未成功");
-  return null;
+function buildPlaced(
+  checked: ArbBetChecked,
+  legA: BetOption,
+  legB: BetOption,
+  accountA: PlatformAccount | undefined,
+  accountB: PlatformAccount | undefined,
+  resultA: BetResult | undefined,
+  resultB: BetResult | undefined,
+  placeOutcomeA: ArbLegPlaceOutcome,
+  placeOutcomeB: ArbLegPlaceOutcome,
+): ArbBetPlaced {
+  return {
+    ...checked,
+    legA,
+    legB,
+    accountA,
+    accountB,
+    resultA,
+    resultB,
+    placeOutcomeA,
+    placeOutcomeB,
+  };
 }
 
-/** 下单 + anyOdds 换腿重试；失败时 trace.finish 并返回 null */
+/**
+ * 下单 + anyOdds 换腿重试。
+ * 预检通过后始终回传双侧 place 结果给编排层（finalize）；不在此 trace.finish / abort。
+ * 场馆拒单判定不在本层。
+ */
 export async function placeArbLegs(
   params: ArbBetAttemptParams,
   checked: ArbBetChecked,
-): Promise<ArbBetPlaced | null> {
+): Promise<ArbBetPlaced> {
   const { match, bet, config, trace } = params;
   const accountStore = useAccountStore();
   let { legA, legB, accountA, accountB, betBothLegs, waitSec } = checked;
@@ -54,24 +68,25 @@ export async function placeArbLegs(
 
   let resultA: BetResult | undefined;
   let resultB: BetResult | undefined;
+  let attemptedA = false;
+  let attemptedB = false;
+
   if (!betBothLegs) {
     if (accountA) {
       trace?.event("下单", `开始 ${legA.type} ${legA.target}`);
+      attemptedA = true;
       resultA = await accountStore.betting(accountA, legA, waitSec);
-      if (!resultA?.success) {
-        return finishPlaceFailure(bet.id, trace, legA, legB, resultA, resultB);
-      }
     }
     else {
       trace?.event("下单", `开始 ${legB.type} ${legB.target}`);
+      attemptedB = true;
       resultB = await accountStore.betting(accountB!, legB, waitSec);
-      if (!resultB?.success) {
-        return finishPlaceFailure(bet.id, trace, legA, legB, resultA, resultB);
-      }
     }
   }
   else if (config.betSorting === "Parallel") {
     trace?.event("下单", `并行 ${legA.type} + ${legB.type}`);
+    attemptedA = true;
+    attemptedB = true;
     const pair = await Promise.all([
       accountStore.betting(accountA!, legA, waitSec),
       accountStore.betting(accountB!, legB, waitSec),
@@ -87,30 +102,33 @@ export async function placeArbLegs(
       resultA = pair[1];
       resultB = pair[0];
     }
-    if (!resultA?.success) {
-      return finishPlaceFailure(bet.id, trace, legA, legB, resultA, resultB);
-    }
   }
   else {
     trace?.event("下单", `顺序 ${legA.type} → ${legB.type}`);
+    attemptedA = true;
     resultA = await accountStore.betting(accountA!, legA, waitSec);
-    if (!resultA.success) {
-      return finishPlaceFailure(bet.id, trace, legA, legB, resultA, resultB);
+    if (resultA.success) {
+      attemptedB = true;
+      resultB = await accountStore.betting(accountB!, legB, waitSec);
     }
-    resultB = await accountStore.betting(accountB!, legB, waitSec);
+    // A 失败：B 保持 not_attempted，仍回传编排层
   }
 
   trace?.event(
     "下单",
     [
-      accountA ? formatBetResult(legA.type, legA.target, legA.betMoney, legA.odds, resultA) : null,
-      accountB ? formatBetResult(legB.type, legB.target, legB.betMoney, legB.odds, resultB) : null,
+      accountA || attemptedA
+        ? formatBetResult(legA.type, legA.target, legA.betMoney, legA.odds, resultA)
+        : `${legA.type} ${legA.target} 未下单`,
+      accountB || attemptedB
+        ? formatBetResult(legB.type, legB.target, legB.betMoney, legB.odds, resultB)
+        : `${legB.type} ${legB.target} 未下单`,
     ]
       .filter(Boolean)
       .join(" · "),
   );
 
-  if (betBothLegs && resultA?.success && !resultB?.success) {
+  if (betBothLegs && resultA?.success && !resultB?.success && attemptedB) {
     trace?.event("重试", `anyOdds 换腿补 ${legB.type} ${legB.target}`);
     const retry = await retryFailedLeg(
       match,
@@ -126,6 +144,7 @@ export async function placeArbLegs(
       resultB = retry.result;
       legB = retry.leg;
       accountB = retry.account;
+      attemptedB = true;
       trace?.event(
         "重试",
         formatBetResult(legB.type, legB.target, legB.betMoney, legB.odds, resultB),
@@ -136,21 +155,28 @@ export async function placeArbLegs(
     }
   }
 
+  const placeOutcomeA = resolveArbLegPlaceOutcome(attemptedA, resultA);
+  const placeOutcomeB = resolveArbLegPlaceOutcome(attemptedB, resultB);
+
   syncActiveBetPlaceResults(
     bet.id,
     resultA,
     resultB,
     Boolean(accountA),
     Boolean(accountB),
+    placeOutcomeA,
+    placeOutcomeB,
   );
 
-  return {
-    ...checked,
+  return buildPlaced(
+    checked,
     legA,
     legB,
     accountA,
     accountB,
     resultA,
     resultB,
-  };
+    placeOutcomeA,
+    placeOutcomeB,
+  );
 }

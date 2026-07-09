@@ -202,15 +202,49 @@ export function syncActiveBetLegSettleResult(
     return;
   }
   if (venueRejected) {
-    syncActiveBetLeg(betId, side, "rejected", "场馆拒单");
+    syncActiveBetLeg(betId, side, "rejected", "拒单");
     return;
   }
-  syncActiveBetLeg(betId, side, "confirmed", "已确认");
+  // 拒单层：未拒单（检测通过）；整单收尾再标「已成交」
+  syncActiveBetLeg(betId, side, "confirmed", "未拒单");
+}
+
+/** [changmen 扩展] SaveOrderBind 重试仍失败时上屏 */
+export function syncActiveBetBindFailed(
+  betId: number,
+  sides: Array<"A" | "B">,
+  detail = "绑单失败",
+) {
+  const store = activeStore();
+  if (!store || !sides.length)
+    return;
+  for (const side of sides)
+    store.appendLegEvent(betId, side, "拒单", detail);
+  store.setPhase(betId, "syncing", detail);
+}
+
+/** [changmen 扩展] 绑单成功：腿时间线追加「已绑单」（不覆盖拒单层结果） */
+export function syncActiveBetBindSuccess(
+  betId: number,
+  sides: Array<"A" | "B">,
+  detail = "已绑单",
+) {
+  const store = activeStore();
+  if (!store || !sides.length)
+    return;
+  for (const side of sides)
+    store.appendLegEvent(betId, side, "拒单", detail);
 }
 
 type PostLegResult = { success?: boolean; pending?: boolean; message?: string | null };
+type PlaceOutcome = "filled_pending_settle" | "api_failed" | "not_attempted";
 
-function legStatusAfterPost(result?: PostLegResult): ActiveBetLegStatus {
+function legStatusAfterPost(
+  result?: PostLegResult,
+  placeOutcome?: PlaceOutcome,
+): ActiveBetLegStatus {
+  if (placeOutcome === "not_attempted")
+    return "failed";
   if (!result?.success)
     return "failed";
   if (result.pending)
@@ -218,7 +252,12 @@ function legStatusAfterPost(result?: PostLegResult): ActiveBetLegStatus {
   return "submitted";
 }
 
-function legDetailAfterPost(result?: PostLegResult): string {
+function legDetailAfterPost(
+  result?: PostLegResult,
+  placeOutcome?: PlaceOutcome,
+): string {
+  if (placeOutcome === "not_attempted")
+    return "未下单";
   if (!result?.success)
     return "API 失败";
   if (result.pending)
@@ -233,16 +272,18 @@ export function syncActiveBetPlaceResults(
   resultB?: PostLegResult,
   hasA?: boolean,
   hasB?: boolean,
+  placeOutcomeA?: PlaceOutcome,
+  placeOutcomeB?: PlaceOutcome,
 ) {
   const store = activeStore();
   if (hasA) {
     syncActiveBetLeg(
       betId,
       "A",
-      legStatusAfterPost(resultA),
-      legDetailAfterPost(resultA),
+      legStatusAfterPost(resultA, placeOutcomeA),
+      legDetailAfterPost(resultA, placeOutcomeA),
     );
-    // 非 PM delayed：进入拒单检测层（追加，不覆盖）
+    // 非 PM delayed：进入拒单检测层（追加，不覆盖）；仅 API 成功腿
     if (store && resultA?.success && !resultA.pending)
       store.appendLegEvent(betId, "A", "拒单", "等待场馆确认");
   }
@@ -250,11 +291,18 @@ export function syncActiveBetPlaceResults(
     syncActiveBetLeg(
       betId,
       "B",
-      legStatusAfterPost(resultB),
-      legDetailAfterPost(resultB),
+      legStatusAfterPost(resultB, placeOutcomeB),
+      legDetailAfterPost(resultB, placeOutcomeB),
     );
     if (store && resultB?.success && !resultB.pending)
       store.appendLegEvent(betId, "B", "拒单", "等待场馆确认");
+  }
+  const anyApiOk = Boolean(
+    (hasA && resultA?.success) || (hasB && resultB?.success),
+  );
+  if (!anyApiOk) {
+    syncActiveBetPhase(betId, "syncing", "下单未成功");
+    return;
   }
   const pmPending = Boolean((hasA && resultA?.pending) || (hasB && resultB?.pending));
   syncActiveBetPhase(betId, "settling", pmPending ? "PM 延迟确认" : "等待场馆确认");
@@ -278,6 +326,22 @@ export function syncActiveBetMakeupPmDelayed(betId: number, orderId?: string | n
     store.appendLegEvent(betId, makeupLeg.side, "补单", detail);
 }
 
+function finalizeLegDetail(flags: {
+  ok: boolean;
+  reject: boolean;
+  placeOutcome?: PlaceOutcome;
+}): string | undefined {
+  if (flags.ok)
+    return "已成交";
+  if (flags.reject)
+    return "拒单";
+  if (flags.placeOutcome === "not_attempted")
+    return "未下单";
+  if (flags.placeOutcome === "api_failed")
+    return "下单失败";
+  return undefined;
+}
+
 export function syncActiveBetAfterRejectSync(
   betId: number,
   flags: {
@@ -290,6 +354,8 @@ export function syncActiveBetAfterRejectSync(
     makeupQueued: boolean;
     makeupTarget?: "A" | "B";
     makeupPlatform?: string;
+    placeOutcomeA?: PlaceOutcome;
+    placeOutcomeB?: PlaceOutcome;
   },
 ) {
   const store = activeStore();
@@ -299,28 +365,46 @@ export function syncActiveBetAfterRejectSync(
   if (flags.hasA) {
     store.patchLeg(betId, "A", {
       status: flags.okA ? "confirmed" : flags.rejectA ? "rejected" : "failed",
-      detail: flags.okA ? "已确认" : flags.rejectA ? "场馆拒单" : undefined,
+      detail: finalizeLegDetail({
+        ok: flags.okA,
+        reject: flags.rejectA,
+        placeOutcome: flags.placeOutcomeA,
+      }),
     });
   }
   if (flags.hasB) {
     store.patchLeg(betId, "B", {
       status: flags.okB ? "confirmed" : flags.rejectB ? "rejected" : "failed",
-      detail: flags.okB ? "已确认" : flags.rejectB ? "场馆拒单" : undefined,
+      detail: finalizeLegDetail({
+        ok: flags.okB,
+        reject: flags.rejectB,
+        placeOutcome: flags.placeOutcomeB,
+      }),
     });
   }
 
   if (flags.okA && flags.okB) {
     if (flags.hasA)
-      store.appendLegEvent(betId, "A", "拒单", "双腿成单");
+      store.appendLegEvent(betId, "A", "拒单", "已成交");
     if (flags.hasB)
-      store.appendLegEvent(betId, "B", "拒单", "双腿成单");
+      store.appendLegEvent(betId, "B", "拒单", "已成交");
     store.scheduleDismiss(betId);
     return;
   }
 
-  if (flags.makeupQueued) {
+  // 一腿成、一腿拒：成功腿标已成交，拒单腿进补单（或保持补单中）
+  if (flags.okA && flags.hasA)
+    store.appendLegEvent(betId, "A", "拒单", "已成交");
+  if (flags.okB && flags.hasB)
+    store.appendLegEvent(betId, "B", "拒单", "已成交");
+  if (flags.rejectA && flags.hasA)
+    store.appendLegEvent(betId, "A", "拒单", "拒单");
+  if (flags.rejectB && flags.hasB)
+    store.appendLegEvent(betId, "B", "拒单", "拒单");
+
+  if (flags.makeupQueued || ((flags.okA || flags.okB) && (flags.rejectA || flags.rejectB))) {
     store.setPhase(betId, "makeup", "补单中");
-    if (flags.makeupTarget && flags.makeupPlatform) {
+    if (flags.makeupQueued && flags.makeupTarget && flags.makeupPlatform) {
       store.patchLeg(betId, flags.makeupTarget, {
         status: "makeup",
         platform: flags.makeupPlatform,

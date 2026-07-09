@@ -70,7 +70,7 @@ describe("format shared helpers", () => {
 
   it("classifies link id source for admin tags", () => {
     expect(classifyLinkId(1781532641651)).toBe("arb");
-    expect(linkIdSourceLabel("arb")).toBe("系统");
+    expect(linkIdSourceLabel("arb")).toBe("套利");
     expect(classifyLinkId(-1781532641651)).toBe("single");
     expect(linkIdSourceLabel("single")).toBe("单边");
     expect(classifyLinkId(3864266867)).toBe("hash");

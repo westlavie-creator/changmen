@@ -141,6 +141,8 @@ function makePlaced(overrides: Partial<ArbBetPlaced> = {}): ArbBetPlaced {
     waitSec: 10,
     resultA: new BetResult("OB", true),
     resultB: new BetResult("RAY", true),
+    placeOutcomeA: "filled_pending_settle",
+    placeOutcomeB: "filled_pending_settle",
     ...overrides,
   };
 }
@@ -191,7 +193,7 @@ describe("finalizeArbBet makeup enqueue", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    saveOrderBind.mockResolvedValue(undefined);
+    saveOrderBind.mockResolvedValue(true);
     applyArbMakeUpFromRejects.mockResolvedValue({
       enqueuedForLegA: false,
       enqueuedForLegB: false,
@@ -214,7 +216,7 @@ describe("finalizeArbBet makeup enqueue", () => {
     expect(settleArbLeg).toHaveBeenCalledWith(
       expect.objectContaining({ provider: "OB" }),
       expect.anything(),
-      3,
+      expect.objectContaining({ rejectWaitSec: 3, pendingBindLinkId: expect.any(Number) }),
     );
     expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
       params,
@@ -273,6 +275,7 @@ describe("finalizeArbBet makeup enqueue", () => {
       betBothLegs: false,
       accountB: undefined,
       resultB: undefined,
+      placeOutcomeB: "not_attempted",
     });
     settleArbLeg.mockResolvedValueOnce(packLegSync({
       orders: [venueOrder("ob-1", "none", 2)],
@@ -354,6 +357,8 @@ describe("finalizeArbBet makeup enqueue", () => {
       resultA: undefined,
       resultB: Object.assign(new BetResult("Polymarket", true), { orderId: "0xdelayed-order" }),
       betBothLegs: false,
+      placeOutcomeA: "not_attempted",
+      placeOutcomeB: "filled_pending_settle",
     });
 
     await finalizeArbBet(params, placed);
@@ -443,5 +448,46 @@ describe("finalizeArbBet makeup enqueue", () => {
     await finalizeArbBet(params, makePlaced());
 
     expect(bettingMessage).toHaveBeenCalledOnce();
+  });
+
+  it("双腿 API 失败仍进编排层且不入队补单、不拉场馆", async () => {
+    const placed = makePlaced({
+      resultA: new BetResult("OB", false),
+      resultB: new BetResult("RAY", false),
+      placeOutcomeA: "api_failed",
+      placeOutcomeB: "api_failed",
+    });
+
+    await finalizeArbBet(params, placed);
+
+    expect(settleArbLeg).not.toHaveBeenCalled();
+    expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
+      params,
+      expect.anything(),
+      false,
+      false,
+      expectMakeUpVenue([], []),
+    );
+    expect(saveOrderBind).not.toHaveBeenCalled();
+  });
+
+  it("顺序 A 失败 B 未下单：编排收尾且不补单", async () => {
+    const placed = makePlaced({
+      resultA: new BetResult("OB", false),
+      resultB: undefined,
+      placeOutcomeA: "api_failed",
+      placeOutcomeB: "not_attempted",
+    });
+
+    await finalizeArbBet(params, placed);
+
+    expect(settleArbLeg).not.toHaveBeenCalled();
+    expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
+      params,
+      expect.anything(),
+      false,
+      false,
+      expectMakeUpVenue([], []),
+    );
   });
 });

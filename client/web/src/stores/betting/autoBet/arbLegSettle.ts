@@ -11,19 +11,33 @@ export interface ArbLegSettleResult {
   pendingConfirm: boolean;
 }
 
+export interface SettleArbLegOpts {
+  rejectWaitSec?: number;
+  /** [changmen 扩展] SaveOrder 直写最终 Link，缩短占位窗口 */
+  pendingBindLinkId?: number;
+}
+
 /** 套利单腿：场馆 resolveLegOutcome（wait → 拉单 / PM settle） */
 export async function settleArbLeg(
   account: PlatformAccount,
   result?: BetResult,
-  rejectWaitSec?: number,
+  rejectWaitSecOrOpts?: number | SettleArbLegOpts,
 ): Promise<ArbLegSettleResult> {
+  const opts: SettleArbLegOpts = typeof rejectWaitSecOrOpts === "number"
+    || rejectWaitSecOrOpts == null
+    ? { rejectWaitSec: rejectWaitSecOrOpts }
+    : rejectWaitSecOrOpts;
+  const pendingBindOrderId = String(result?.orderId ?? "").trim() || undefined;
   const outcome = await resolveVenueLegOutcome(
     account,
     result,
-    () => useAccountStore().updateVenueOrders(account),
+    () => useAccountStore().updateVenueOrders(account, {
+      pendingBindLinkId: opts.pendingBindLinkId,
+      pendingBindOrderId,
+    }),
     {
       confirmPmPost: account.provider === "Polymarket" && Boolean(result),
-      rejectWaitSec,
+      rejectWaitSec: opts.rejectWaitSec,
     },
   );
   return {

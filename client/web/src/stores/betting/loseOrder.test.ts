@@ -155,6 +155,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     activeBetRuns.clear();
     matchs.length = 0;
     vi.clearAllMocks();
+    saveOrderBind.mockResolvedValue(true);
     getAccount.mockReset();
     findAccount.mockReset();
     checkBetting.mockReset();

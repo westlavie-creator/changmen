@@ -54,6 +54,36 @@ describe("saveOrder backend bind link", () => {
     expect(row.link).toBe(arbLink);
   });
 
+  it("writes incoming client link on first save (shorten placeholder)", async () => {
+    const createAt = 1_781_882_462_790;
+    const arbLink = 1_781_882_500_123;
+    await saveOrder(
+      7,
+      [{ orderId: "venue-1", createAt, provider: "OB", link: arbLink }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.link).toBe(arbLink);
+  });
+
+  it("does not let incoming link overwrite existing arb bind", async () => {
+    const createAt = 1_781_882_462_790;
+    const arbLink = 1_781_882_500_000;
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      { order_id: "venue-1", link: arbLink, create_at: createAt },
+    ]);
+
+    await saveOrder(
+      7,
+      [{ orderId: "venue-1", createAt, provider: "OB", link: 1_781_882_999_999 }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.link).toBe(arbLink);
+  });
+
   it("backend-binds when existing link is 0", async () => {
     const createAt = 1_781_882_462_790;
     fetchOrdersByPlayerOrderIds.mockResolvedValue([

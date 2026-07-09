@@ -1,7 +1,13 @@
 import type { VenueOrder } from "@venue/contract";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetResult } from "@/models/betResult";
-import { resolveArbBindOrderId } from "./arbOrderBind";
+import { bindArbLegOrder, resolveArbBindOrderId } from "./arbOrderBind";
+
+const saveOrderBind = vi.hoisted(() => vi.fn());
+const wait = vi.hoisted(() => vi.fn(async () => {}));
+
+vi.mock("@/api/esport", () => ({ saveOrderBind }));
+vi.mock("@/shared/wait", () => ({ wait }));
 
 function makeVenueOrder(
   partial: Pick<VenueOrder, "orderId" | "status" | "odds" | "betMoney">,
@@ -56,5 +62,43 @@ describe("resolveArbBindOrderId", () => {
     ];
     expect(resolveArbBindOrderId(orders, undefined)).toBe("bind-1");
     expect(resolveArbBindOrderId([], undefined)).toBeUndefined();
+  });
+});
+
+describe("bindArbLegOrder", () => {
+  beforeEach(() => {
+    saveOrderBind.mockReset();
+    wait.mockClear();
+  });
+
+  it("retries then succeeds", async () => {
+    saveOrderBind
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const result = Object.assign(new BetResult("OB", true), { orderId: "ob-1" });
+    const ok = await bindArbLegOrder(
+      1_700_000_000_000,
+      { accountId: 1 } as never,
+      result,
+      [makeVenueOrder({ orderId: "ob-1", status: "none", odds: 2, betMoney: 100 })],
+      false,
+    );
+    expect(ok).toBe(true);
+    expect(saveOrderBind).toHaveBeenCalledTimes(2);
+    expect(wait).toHaveBeenCalledOnce();
+  });
+
+  it("returns false after retries exhausted", async () => {
+    saveOrderBind.mockResolvedValue(false);
+    const result = Object.assign(new BetResult("OB", true), { orderId: "ob-1" });
+    const ok = await bindArbLegOrder(
+      1_700_000_000_000,
+      { accountId: 1 } as never,
+      result,
+      [makeVenueOrder({ orderId: "ob-1", status: "none", odds: 2, betMoney: 100 })],
+      false,
+    );
+    expect(ok).toBe(false);
+    expect(saveOrderBind).toHaveBeenCalledTimes(3);
   });
 });

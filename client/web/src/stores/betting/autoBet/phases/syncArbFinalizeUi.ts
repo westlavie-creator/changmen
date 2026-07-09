@@ -41,6 +41,8 @@ export function syncArbFinalizeActiveBet(
     makeupQueued,
     makeupTarget,
     makeupPlatform,
+    placeOutcomeA: placed.placeOutcomeA,
+    placeOutcomeB: placed.placeOutcomeB,
   });
 
   return { okA, okB, makeupQueued };

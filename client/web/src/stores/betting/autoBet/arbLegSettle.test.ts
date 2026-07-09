@@ -111,7 +111,10 @@ describe("settleArbLeg (Polymarket)", () => {
 
     const out = await settleArbLeg(acc, result);
 
-    expect(updateVenueOrders).toHaveBeenCalledWith(acc);
+    expect(updateVenueOrders).toHaveBeenCalledWith(
+      acc,
+      expect.objectContaining({ pendingBindOrderId: expect.any(String) }),
+    );
     expect(out.rejected).toBe(false);
     expect(result.pending).toBe(false);
     expect(result.message).toContain("已成交");
@@ -135,7 +138,10 @@ describe("settleArbLeg (Polymarket)", () => {
     const out = await settleArbLeg(acc, result);
 
     expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
-    expect(updateVenueOrders).toHaveBeenCalledWith(acc);
+    expect(updateVenueOrders).toHaveBeenCalledWith(
+      acc,
+      expect.objectContaining({ pendingBindOrderId: expect.any(String) }),
+    );
     expect(out.rejected).toBe(false);
     expect(out.orders.length).toBeGreaterThan(0);
   });

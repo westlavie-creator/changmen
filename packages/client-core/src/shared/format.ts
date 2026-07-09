@@ -158,7 +158,7 @@ export function classifyLinkId(link: number | null | undefined): LinkIdSource | 
 export function linkIdSourceLabel(source: LinkIdSource | null): string {
   switch (source) {
     case "arb":
-      return "系统";
+      return "套利";
     case "single":
       return "单边";
     case "valueBet":

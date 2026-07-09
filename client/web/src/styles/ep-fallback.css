@@ -119,6 +119,31 @@
   vertical-align: middle;
 }
 
+.orders .orderlink__tag--arb {
+  color: #67c23a;
+  background: rgba(103, 194, 58, 0.18);
+}
+
+.orders .orderlink__tag--single {
+  color: #e6a23c;
+  background: rgba(230, 162, 60, 0.18);
+}
+
+.orders .orderlink__tag--valueBet {
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.18);
+}
+
+.orders .orderlink__tag--hash {
+  color: #a0aec0;
+  background: rgba(160, 174, 192, 0.2);
+}
+
+.orders .orderlink--unbound {
+  border-style: dashed;
+  opacity: 0.92;
+}
+
 .orders .order {
   overflow: visible;
 }

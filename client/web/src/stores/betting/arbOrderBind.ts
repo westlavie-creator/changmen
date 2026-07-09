@@ -2,6 +2,10 @@ import type { VenueOrder } from "@venue/contract";
 import type { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { saveOrderBind } from "@/api/esport";
+import { wait } from "@/shared/wait";
+
+const BIND_RETRY_TIMES = 3;
+const BIND_RETRY_GAP_MS = 400;
 
 /** [A8 可证实] 列表非空时绑 orders[0].orderId */
 function resolveA8VenueBindOrderId(orders: VenueOrder[]): string | undefined {
@@ -31,7 +35,10 @@ export function resolveArbBindOrderId(
   return resolveA8VenueBindOrderId(orders);
 }
 
-/** 套利/补单：把场馆订单绑到同一 LinkID，侧栏按 link 合并展示 */
+/**
+ * 套利/补单：把场馆订单绑到同一 LinkID。
+ * [changmen 扩展] 失败重试；不抛错，返回是否成功。
+ */
 export async function bindArbLegOrder(
   linkId: number,
   account: PlatformAccount,
@@ -44,7 +51,8 @@ export async function bindArbLegOrder(
   const orderId = resolveArbBindOrderId(orders, result, rejected);
   if (!orderId)
     return false;
-  await saveOrderBind({
+
+  const payload = {
     orders: JSON.stringify([
       {
         LinkID: linkId,
@@ -53,8 +61,28 @@ export async function bindArbLegOrder(
         OrderID: orderId,
       },
     ]),
-  });
-  return true;
+  };
+
+  for (let attempt = 1; attempt <= BIND_RETRY_TIMES; attempt++) {
+    try {
+      const ok = await saveOrderBind(payload);
+      if (ok)
+        return true;
+      console.warn(
+        `[arbOrderBind] SaveOrderBind failed attempt ${attempt}/${BIND_RETRY_TIMES}`,
+        { linkId, provider: result.provider, orderId },
+      );
+    }
+    catch (e) {
+      console.warn(
+        `[arbOrderBind] SaveOrderBind error attempt ${attempt}/${BIND_RETRY_TIMES}`,
+        e,
+      );
+    }
+    if (attempt < BIND_RETRY_TIMES)
+      await wait(BIND_RETRY_GAP_MS);
+  }
+  return false;
 }
 
 /** 绑单后刷新侧栏订单列表（合并组可见） */

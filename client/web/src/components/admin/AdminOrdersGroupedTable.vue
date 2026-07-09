@@ -2,7 +2,9 @@
 import type { AdminOrderRow } from "@/types/admin";
 import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
-import { classifyLinkId, formatLinkId, isSingleLegLink, isValueBetLink, linkIdSourceLabel } from "@/shared/format";
+import { formatLinkId, isSingleLegLink, isValueBetLink } from "@/shared/format";
+import { formatLinkIdFull, resolveLinkKindBadge, resolveOrderGroupKindBadge } from "@/shared/linkDisplay";
+import type { OrderRow } from "@/types/order";
 
 const props = defineProps<{
   groups: [number, AdminOrderRow[]][];
@@ -53,18 +55,14 @@ const flatRows = computed<FlatOrderRow[]>(() => {
   return result;
 });
 
-function linkSourceTag(linkId: number | undefined) {
-  const source = classifyLinkId(linkId);
-  const label = linkIdSourceLabel(source);
-  if (!source || !label)
-    return null;
-  const title
-    = source === "hash"
-      ? "SaveOrder 占位 link（orderId hash），未 SaveOrderBind"
-      : source === "arb"
-        ? "系统内套利 SaveOrderBind"
-        : "系统内单边下单";
-  return { source, label, title };
+function linkSourceTag(linkId: number | undefined, groupRows: AdminOrderRow[]) {
+  const asOrderRows = groupRows.map(r => ({
+    Link: r.linkId,
+    Type: r.provider,
+    OrderID: r.orderId,
+    Status: r.status,
+  })) as OrderRow[];
+  return resolveOrderGroupKindBadge(asOrderRows) ?? resolveLinkKindBadge(linkId);
 }
 
 function fmtTime(ts: number) {
@@ -160,13 +158,21 @@ function spanMethod({
     <el-table-column label="LinkID" width="168" fixed="left" class-name="admin-order-cell--link">
       <template #default="{ row }">
         <div class="admin-order-link-cell">
-          <div class="admin-order-link-cell__id">
+          <div
+            class="admin-order-link-cell__id"
+            :title="formatLinkIdFull(row.linkId)"
+          >
             {{ formatLinkId(row.linkId) }}
+            <span
+              v-if="formatLinkId(row.linkId) !== formatLinkIdFull(row.linkId)
+                && formatLinkIdFull(row.linkId) !== '—'"
+              class="admin-order-link-cell__full"
+            >{{ formatLinkIdFull(row.linkId) }}</span>
           </div>
           <div class="admin-order-link-cell__meta">
             <span
-              v-for="src in [linkSourceTag(row.linkId)].filter(Boolean)"
-              :key="src!.source"
+              v-for="src in [linkSourceTag(row.linkId, row.groupRows)].filter(Boolean)"
+              :key="src!.source + src!.label"
               class="admin-link-source"
               :class="`admin-link-source--${src!.source}`"
               :title="src!.title"

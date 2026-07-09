@@ -5,8 +5,7 @@ export type ArbAttemptPhase = "prepare" | "check" | "place" | "finalize";
 export type ArbAttemptStopReason
   = | "complete"
     | "skip_prepare"
-    | "skip_check"
-    | "skip_place";
+    | "skip_check";
 
 export interface ArbAttemptMetricEntry {
   at: number;
@@ -45,7 +44,6 @@ export function summarizeArbAttemptMetrics(): ArbAttemptMetricsSummary {
     complete: 0,
     skip_prepare: 0,
     skip_check: 0,
-    skip_place: 0,
   };
   const phaseTotals: Partial<Record<ArbAttemptPhase, number>> = {};
   const phaseCounts: Partial<Record<ArbAttemptPhase, number>> = {};

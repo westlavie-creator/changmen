@@ -25,9 +25,33 @@ export interface ArbBetChecked extends ArbBetReady {
   waitSec: number;
 }
 
+/**
+ * place 阶段回传编排层的腿态（与场馆 settle 解耦）。
+ * 场馆 filled/rejected/pending_confirm 仍由 settleArbLeg 判定。
+ */
+export type ArbLegPlaceOutcome =
+  | "filled_pending_settle"
+  | "api_failed"
+  | "not_attempted";
+
 export interface ArbBetPlaced extends ArbBetChecked {
   resultA?: BetResult;
   resultB?: BetResult;
+  /** 有下单账号的腿必填；9999 无账号侧为 not_attempted */
+  placeOutcomeA: ArbLegPlaceOutcome;
+  placeOutcomeB: ArbLegPlaceOutcome;
+}
+
+/** 由 result + 是否发起下单推导 place 腿态 */
+export function resolveArbLegPlaceOutcome(
+  attempted: boolean,
+  result?: BetResult,
+): ArbLegPlaceOutcome {
+  if (!attempted)
+    return "not_attempted";
+  if (result?.success)
+    return "filled_pending_settle";
+  return "api_failed";
 }
 
 export interface ArbBetAttemptParams {

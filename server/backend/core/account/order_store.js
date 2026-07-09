@@ -1,6 +1,7 @@
 import * as sb from "@changmen/db";
 import {
   backendBindLinkFromCreateAt,
+  isArbBindLink,
   placeholderLinkFromCreateAt,
 } from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
@@ -69,8 +70,17 @@ function resolveSaveOrderLink(o, prevRaw, orderId, createAt, linkByOrderId, exis
       return buyLink;
   }
 
-  const boundLink = linkByOrderId.get(orderId);
-  if (boundLink != null && boundLink !== 0)
+  const boundLink = Number(linkByOrderId.get(orderId)) || 0;
+  // 已绑套利 Link：SaveOrder 同步不覆盖（Bind 确认后保持稳定）
+  if (isArbBindLink(boundLink))
+    return boundLink;
+
+  // [changmen 扩展] 客户端拉单时附带最终 linkId，缩短 create_at-1 占位窗口
+  const incomingLink = parseNum(o.link ?? o.Link ?? o.LinkID, 0);
+  if (incomingLink !== 0)
+    return incomingLink;
+
+  if (boundLink !== 0)
     return boundLink;
 
   return backendBindLinkFromCreateAt(createAt);

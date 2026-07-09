@@ -57,7 +57,8 @@ placeArbLegs → finalizeArbBet
 | `autoBet/arbLegSettle.ts` | 套利单腿 `resolveLegOutcome` |
 | `autoBet/arbMakeUpPair.ts` | 套利补单配对 `arbMakeUpSides` |
 | `autoBet/arbMakeUpFromRejects.ts` | 补单入队 |
-| `arbOrderBind.ts` | 绑单 `bindArbLegOrder` |
+| `arbOrderBind.ts` | 绑单 `bindArbLegOrder`（当场重试；见 `docs/ARB_LINK_ID.md`） |
+| `pendingOrderBind.ts` | Bind 失败补绑队列（主循环每轮消费） |
 | `loseOrder.ts` | `O()` 末尾 `y.orders` 补单循环 |
 | `manualBet.ts` | UI 双击（A8 同路径经 `h.betting`） |
 

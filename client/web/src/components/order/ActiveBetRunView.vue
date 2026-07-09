@@ -2,6 +2,7 @@
 import type { ActiveBetLeg, ActiveBetRun } from "@/types/activeBetRun";
 import { storeToRefs } from "pinia";
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { formatActiveBetLinkLabel } from "@/shared/linkDisplay";
 import { ACTIVE_BET_RUN_QUEUE_CAP, useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/active-bet-run.css";
@@ -103,9 +104,7 @@ function legSideLabel(side: ActiveBetLeg["side"]): string {
 }
 
 function orderLabel(run: ActiveBetRun, index: number): string {
-  if (run.linkId && run.linkId !== 0)
-    return `Link ${String(run.linkId).slice(-6)}`;
-  return `订单 ${index + 1}`;
+  return formatActiveBetLinkLabel(run.linkId) ?? `订单 ${index + 1}`;
 }
 </script>
 

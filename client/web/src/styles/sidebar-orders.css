@@ -71,6 +71,44 @@
   box-shadow: 0 0 0 1px rgba(103, 194, 58, 0.35);
 }
 
+#app .el-aside .orders .orderlink--unbound,
+.common-layout .el-aside .orders .orderlink--unbound,
+.admin-orders-user-col .orders .orderlink--unbound {
+  border-style: dashed;
+  border-color: rgba(160, 174, 192, 0.55);
+}
+
+.orders .orderlink__tag {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.orders .orderlink__tag--arb {
+  color: #67c23a;
+  background: rgba(103, 194, 58, 0.18);
+}
+
+.orders .orderlink__tag--single {
+  color: #e6a23c;
+  background: rgba(230, 162, 60, 0.18);
+}
+
+.orders .orderlink__tag--valueBet {
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.18);
+}
+
+.orders .orderlink__tag--hash {
+  color: #a0aec0;
+  background: rgba(160, 174, 192, 0.22);
+}
+
 .orders .order {
   position: relative;
   background: rgba(255, 255, 255, 0.06);
