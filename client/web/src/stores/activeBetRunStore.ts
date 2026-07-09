@@ -67,12 +67,20 @@ function defaultLeg(
   };
 }
 
-const MAX_LEG_EVENTS = 12;
-const MAX_RUN_EVENTS = 8;
+const MAX_LEG_EVENTS = 20;
+const MAX_RUN_EVENTS = 12;
 
 function trimEvents<T>(list: T[], cap: number) {
   if (list.length > cap)
     list.splice(0, list.length - cap);
+}
+
+function isSameEvent(
+  prev: { stage: string; detail: string } | undefined,
+  stage: string,
+  detail: string,
+): boolean {
+  return Boolean(prev && prev.stage === stage && prev.detail === detail);
 }
 
 function legsFromLoseOrder(order: LoseOrder): ActiveBetLeg[] {
@@ -142,6 +150,8 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       const run = this.runs.get(betId);
       if (!run)
         return;
+      if (isSameEvent(run.events[run.events.length - 1], stage, detail))
+        return;
       run.events.push({ at: Date.now(), stage, detail });
       trimEvents(run.events, MAX_RUN_EVENTS);
       run.updatedAt = Date.now();
@@ -156,6 +166,8 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
         return;
       if (!leg.events)
         leg.events = [];
+      if (isSameEvent(leg.events[leg.events.length - 1], stage, detail))
+        return;
       leg.events.push({ at: Date.now(), stage, detail });
       trimEvents(leg.events, MAX_LEG_EVENTS);
       run.updatedAt = Date.now();

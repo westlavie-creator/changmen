@@ -110,19 +110,6 @@ export function syncActiveBetBegin(params: {
     store.appendLegEvent(bet.id, "B", "检测", `${legB.type} ${legB.target}`);
 }
 
-function appendPhaseToActiveLegs(betId: number, stage: string, detail: string) {
-  const store = activeStore();
-  if (!store)
-    return;
-  const run = store.runs.get(betId);
-  if (!run)
-    return;
-  for (const leg of run.legs) {
-    if (leg.status !== "skipped")
-      store.appendLegEvent(betId, leg.side, stage, detail);
-  }
-}
-
 export function syncActiveBetPhase(
   betId: number,
   phase: ActiveBetRunPhase,
@@ -133,8 +120,9 @@ export function syncActiveBetPhase(
   if (!store)
     return;
   store.setPhase(betId, phase, detail, countdownSec);
+  // 整单阶段只追加到订单时间线，不广播到双腿（避免 PM 腿出现「账号预检/等待确认」等共享文案）
   if (detail)
-    appendPhaseToActiveLegs(betId, PHASE_STAGE_LABEL[phase] ?? phase, detail);
+    store.appendEvent(betId, PHASE_STAGE_LABEL[phase] ?? phase, detail);
 }
 
 const PHASE_STAGE_LABEL: Partial<Record<ActiveBetRunPhase, string>> = {
@@ -201,6 +189,7 @@ export function syncActiveBetPlaceResults(
   hasA?: boolean,
   hasB?: boolean,
 ) {
+  const store = activeStore();
   if (hasA) {
     syncActiveBetLeg(
       betId,
@@ -208,6 +197,9 @@ export function syncActiveBetPlaceResults(
       legStatusAfterPost(resultA),
       legDetailAfterPost(resultA),
     );
+    // 非 PM delayed：本腿进入场馆确认，追加到该腿时间线（不覆盖）
+    if (store && resultA?.success && !resultA.pending)
+      store.appendLegEvent(betId, "A", "确认", "等待场馆确认");
   }
   if (hasB) {
     syncActiveBetLeg(
@@ -216,6 +208,8 @@ export function syncActiveBetPlaceResults(
       legStatusAfterPost(resultB),
       legDetailAfterPost(resultB),
     );
+    if (store && resultB?.success && !resultB.pending)
+      store.appendLegEvent(betId, "B", "确认", "等待场馆确认");
   }
   const pmPending = Boolean((hasA && resultA?.pending) || (hasB && resultB?.pending));
   syncActiveBetPhase(betId, "settling", pmPending ? "PM 延迟确认" : "等待场馆确认");
@@ -411,7 +405,11 @@ export function syncActiveBetMakeupAttempt(
 
 export function syncActiveBetMakeupSettling(betId: number, waitSec: number) {
   syncMakeupListPhase(betId, "settling");
+  const store = activeStore();
+  const makeupLeg = store?.runs.get(betId)?.legs.find(l => l.status === "makeup" || l.status === "pending_confirm");
   syncActiveBetPhase(betId, "settling", "补单已提交，等待场馆确认", waitSec);
+  if (store && makeupLeg)
+    store.appendLegEvent(betId, makeupLeg.side, "确认", "等待场馆确认");
 }
 
 export function syncActiveBetMakeupRejected(betId: number, target: string) {

@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoseOrder } from "@/models/loseOrder";
 import { useActiveBetRunStore, legPlacementStatusLabel } from "@/stores/activeBetRunStore";
-import { syncActiveBetBegin, syncActiveBetAfterRejectSync, syncActiveBetPlaceResults } from "@/stores/betting/activeBetRunSync";
+import { syncActiveBetBegin, syncActiveBetAfterRejectSync, syncActiveBetPlaceResults, syncActiveBetPhase } from "@/stores/betting/activeBetRunSync";
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({
@@ -166,6 +166,75 @@ describe("activeBetRunStore", () => {
     store.patchLeg(100, "A", { status: "placing" });
     const legA = store.visibleRuns[0]?.legs.find(l => l.side === "A");
     expect(legA?.events.some(e => e.stage === "下单中")).toBe(true);
+  });
+
+  it("phase updates append to run timeline only, not both legs", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "Polymarket", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "pm1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    syncActiveBetPhase(100, "checking", "账号预检");
+
+    const run = store.visibleRuns[0]!;
+    expect(run.events.some(e => e.stage === "预检" && e.detail === "账号预检")).toBe(true);
+    expect(run.legs.every(l => !l.events.some(e => e.detail === "账号预检"))).toBe(true);
+  });
+
+  it("appendEvent skips consecutive duplicate stage+detail", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "RAY", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "ray1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    store.appendEvent(100, "预检", "账号预检");
+    store.appendEvent(100, "预检", "账号预检");
+    expect(store.visibleRuns[0]!.events.filter(e => e.detail === "账号预检")).toHaveLength(1);
+  });
+
+  it("place results append confirm line under successful non-PM leg", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "Polymarket", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "pm1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    syncActiveBetPlaceResults(
+      100,
+      { success: true, message: "投注成功" },
+      { success: false },
+      true,
+      true,
+    );
+
+    const run = store.visibleRuns[0]!;
+    const legA = run.legs.find(l => l.side === "A")!;
+    const legB = run.legs.find(l => l.side === "B")!;
+    expect(legA.events.some(e => e.stage === "已提交")).toBe(true);
+    expect(legA.events.some(e => e.stage === "确认" && e.detail === "等待场馆确认")).toBe(true);
+    expect(legB.events.some(e => e.stage === "下单失败" && e.detail === "API 失败")).toBe(true);
+    expect(legB.events.some(e => e.detail === "等待场馆确认")).toBe(false);
+    expect(run.events.some(e => e.detail === "等待场馆确认")).toBe(true);
   });
 
   it("removes run when both legs fail without makeup", () => {

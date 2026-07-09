@@ -153,10 +153,6 @@ function orderLabel(run: ActiveBetRun, index: number): string {
               <span class="active-bet-run__leg-platform">{{ leg.platform }}</span>
             </div>
             <div class="active-bet-run__leg-target">{{ leg.target }}</div>
-            <div class="active-bet-run__leg-status">
-              <span class="active-bet-run__leg-status-label">下单状态</span>
-              <span class="active-bet-run__leg-status-value">{{ activeStore.legPlacementLabel(leg, run) }}</span>
-            </div>
             <div v-if="leg.odds || formatLegMoney(leg.betMoney)" class="active-bet-run__leg-quote">
               <span v-if="leg.odds" class="active-bet-run__leg-odds">@{{ leg.odds }}</span>
               <span v-if="formatLegMoney(leg.betMoney)" class="active-bet-run__leg-money">
@@ -172,6 +168,7 @@ function orderLabel(run: ActiveBetRun, index: number): string {
                 v-for="(ev, evIndex) in leg.events"
                 :key="`${run.betId}-${leg.side}-${evIndex}`"
                 class="active-bet-run__leg-event"
+                :class="{ 'active-bet-run__leg-event--latest': evIndex === leg.events.length - 1 }"
                 :title="ev.detail"
               >
                 <span class="active-bet-run__leg-event-stage">{{ ev.stage }}</span>
@@ -189,6 +186,8 @@ function orderLabel(run: ActiveBetRun, index: number): string {
             v-for="(ev, evIndex) in run.events"
             :key="`${run.betId}-run-${evIndex}`"
             class="active-bet-run__event"
+            :class="{ 'active-bet-run__event--latest': evIndex === run.events.length - 1 }"
+            :title="ev.detail"
           >
             <span class="active-bet-run__event-stage">{{ ev.stage }}</span>
             <span class="active-bet-run__event-detail">{{ ev.detail }}</span>
