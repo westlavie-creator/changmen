@@ -61,6 +61,8 @@ GetOrderOptions → mint linkId
 
 预检失败：可不进 place/finalize。场馆 settle 后的终态（filled / rejected / pending_confirm）仍由场馆层产出，编排层据此补单/绑单/UI。
 
+场馆指令→结果表、PM fill confirmed 快路径、A8 拒单等待不变：见 [ARB_VENUE_ORCH_CONTRACT.md](./ARB_VENUE_ORCH_CONTRACT.md)。
+
 ## 实现状态
 
 | 项 | 状态 |
@@ -76,6 +78,7 @@ GetOrderOptions → mint linkId
 | 进行中订单绑单成功追加「已绑单」 | ✅ |
 | 未绑单占位短暂态（虚线框 + 标签） | ✅ |
 | 预检通过后两腿结果必达编排层（place 不 abort） | ✅ |
+| 场馆 settle 回传契约 + PM fill confirmed 快路径 | ✅ |
 | 手动补单挂靠已有 Link | ❌ 暂不做 |
 | RDS `arb_sessions` 表 | ❌ 暂不做 |
 
@@ -90,4 +93,4 @@ GetOrderOptions → mint linkId
 - 运维补绑：`server/backend/scripts/auto-rebind-arb-orders.mjs`
 - 展示：`shared/linkDisplay.ts`（侧栏 `OrderList` / 管理端 / 进行中订单）
 - 编排两腿契约：`phases/types.ts`（`ArbLegPlaceOutcome`）→ `placeArbLegs` → `finalizeArbBet`
-- 场馆 settle（不变）：`arbLegSettle` / `@venue` A8·PM outcome
+- 场馆 settle：`arbLegSettle` / `@venue` A8·PM outcome（契约见 `ARB_VENUE_ORCH_CONTRACT.md`）

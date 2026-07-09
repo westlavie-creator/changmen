@@ -13,7 +13,7 @@ describe("resolveVenueLegOutcome", () => {
     getProvider.mockReset();
   });
 
-  it("delegates to provider.resolveLegOutcome with pre-fetched orders", async () => {
+  it("confirmPmPost skips entry pre-fetch; provider gets fetchVenueOrders callback", async () => {
     const resolveLegOutcome = vi.fn().mockResolvedValue({
       orders: [],
       settlement: "filled",
@@ -30,12 +30,37 @@ describe("resolveVenueLegOutcome", () => {
       { confirmPmPost: true },
     );
 
+    expect(fetchVenueOrders).not.toHaveBeenCalled();
     expect(resolveLegOutcome).toHaveBeenCalledWith(
       { provider: "Polymarket" },
       expect.any(BetResult),
       expect.objectContaining({ confirmPmPost: true, fetchVenueOrders: expect.any(Function) }),
     );
     expect(out.settlement).toBe("filled");
+  });
+
+  it("confirmPmPost fill-confirmed path: provider pull runs once when callback used", async () => {
+    const fetchVenueOrders = vi.fn().mockResolvedValue([
+      { orderId: "0xnew", status: "none", createAt: 2 } as never,
+    ]);
+    const resolveLegOutcome = vi.fn().mockImplementation(
+      async (_acc, _result, opts: { fetchVenueOrders?: () => Promise<unknown[]> }) => {
+        const orders = await opts.fetchVenueOrders?.() ?? [];
+        return { orders, settlement: "filled" as const };
+      },
+    );
+    getProvider.mockReturnValue({ resolveLegOutcome });
+
+    const out = await resolveVenueLegOutcome(
+      { provider: "Polymarket" } as never,
+      Object.assign(new BetResult("Polymarket", true), { orderId: "0xnew" }),
+      fetchVenueOrders,
+      { confirmPmPost: true },
+    );
+
+    expect(fetchVenueOrders).toHaveBeenCalledTimes(1);
+    expect(out.settlement).toBe("filled");
+    expect(out.orders[0]?.orderId).toBe("0xnew");
   });
 
   it("falls back to orders[0] when provider has no resolveLegOutcome", async () => {

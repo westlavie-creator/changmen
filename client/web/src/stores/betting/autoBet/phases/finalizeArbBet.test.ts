@@ -19,6 +19,7 @@ vi.mock("@/stores/betting/autoBet/arbProgressTrace", () => ({
 
 const {
   showRejectDetectionTip,
+  maxLegRejectWaitSec,
   settleArbLeg,
   applyArbMakeUpFromRejects,
   markSuccessfulBet,
@@ -27,6 +28,7 @@ const {
   bettingMessage,
 } = vi.hoisted(() => ({
   showRejectDetectionTip: vi.fn(),
+  maxLegRejectWaitSec: vi.fn(() => 3),
   settleArbLeg: vi.fn(),
   applyArbMakeUpFromRejects: vi.fn(),
   markSuccessfulBet: vi.fn(),
@@ -37,7 +39,7 @@ const {
 
 vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
   legRejectWaitSec: vi.fn(() => 3),
-  maxLegRejectWaitSec: vi.fn(() => 3),
+  maxLegRejectWaitSec,
   showRejectDetectionTip,
 }));
 
@@ -193,6 +195,7 @@ describe("finalizeArbBet makeup enqueue", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    maxLegRejectWaitSec.mockReturnValue(3);
     saveOrderBind.mockResolvedValue(true);
     applyArbMakeUpFromRejects.mockResolvedValue({
       enqueuedForLegA: false,
@@ -286,6 +289,27 @@ describe("finalizeArbBet makeup enqueue", () => {
 
     expect(showRejectDetectionTip).toHaveBeenCalled();
     expect(settleArbLeg).toHaveBeenCalledTimes(1);
+  });
+
+  it("maxWait=0 时不弹拒单检测 tip（纯 PM / 无 A8 等待）", async () => {
+    maxLegRejectWaitSec.mockReturnValue(0);
+    const placed = makePlaced({
+      accountA: makeAccount("Polymarket" as PlatformId),
+      accountB: makeAccount("Polymarket" as PlatformId),
+      legA: makeLeg("Polymarket" as PlatformId, "T1"),
+      legB: makeLeg("Polymarket" as PlatformId, "T2"),
+      resultA: new BetResult("Polymarket", true),
+      resultB: new BetResult("Polymarket", true),
+    });
+    mockDualLegVenueSync(
+      { orders: [venueOrder("pm-a", "none", 2)], rejected: false },
+      { orders: [venueOrder("pm-b", "none", 3)], rejected: false },
+    );
+
+    await finalizeArbBet(params, placed);
+
+    expect(showRejectDetectionTip).not.toHaveBeenCalled();
+    expect(settleArbLeg).toHaveBeenCalledTimes(2);
   });
 
   it("双腿成功且拉单有首条时按 linkId 绑单", async () => {

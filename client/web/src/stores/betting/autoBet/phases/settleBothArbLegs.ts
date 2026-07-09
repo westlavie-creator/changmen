@@ -92,9 +92,16 @@ export async function settleBothArbLegs(
 
   const snapshot = emptySettleSnapshot(placeOutcomeA, placeOutcomeB);
   const maxWait = maxLegRejectWaitSec(config, successAccounts);
-  trace?.event("拒单", `各腿并行检测 / 最长 ${maxWait}s（场馆层）`);
-  syncActiveBetPhase(bet.id, "settling", "拒单检测", maxWait > 0 ? maxWait : undefined);
-  void showRejectDetectionTip(waitSec);
+  // wait=0（含纯 PM）：无 A8 拒单倒计时，相位用「确认场馆结果」避免误导
+  if (maxWait > 0) {
+    trace?.event("拒单", `各腿并行检测 / 最长 ${maxWait}s（场馆层）`);
+    syncActiveBetPhase(bet.id, "settling", "拒单检测", maxWait);
+    void showRejectDetectionTip(waitSec);
+  }
+  else {
+    trace?.event("拒单", "确认场馆结果（无拒单等待）");
+    syncActiveBetPhase(bet.id, "settling", "确认场馆结果");
+  }
 
   const legTasks: Promise<void>[] = [];
 

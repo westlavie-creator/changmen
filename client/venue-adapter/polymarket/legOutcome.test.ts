@@ -121,6 +121,8 @@ describe("resolvePolymarketLegOutcome", () => {
 
     expect(out.settlement).toBe("filled");
     expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
+    expect(fetchPolymarketConfirmedTradeForOrder).not.toHaveBeenCalled();
+    expect(fetchVenueOrders).toHaveBeenCalledTimes(1);
   });
 
   it("polls settlement when trade missing and order not in venue list", async () => {

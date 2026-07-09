@@ -3,8 +3,7 @@ import type { AdminOrderRow } from "@/types/admin";
 import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import { formatLinkId, isSingleLegLink, isValueBetLink } from "@/shared/format";
-import { formatLinkIdFull, resolveLinkKindBadge, resolveOrderGroupKindBadge } from "@/shared/linkDisplay";
-import type { OrderRow } from "@/types/order";
+import { formatLinkIdFull } from "@/shared/linkDisplay";
 
 const props = defineProps<{
   groups: [number, AdminOrderRow[]][];
@@ -54,16 +53,6 @@ const flatRows = computed<FlatOrderRow[]>(() => {
   });
   return result;
 });
-
-function linkSourceTag(linkId: number | undefined, groupRows: AdminOrderRow[]) {
-  const asOrderRows = groupRows.map(r => ({
-    Link: r.linkId,
-    Type: r.provider,
-    OrderID: r.orderId,
-    Status: r.status,
-  })) as OrderRow[];
-  return resolveOrderGroupKindBadge(asOrderRows) ?? resolveLinkKindBadge(linkId);
-}
 
 function fmtTime(ts: number) {
   if (!ts)
@@ -170,13 +159,6 @@ function spanMethod({
             >{{ formatLinkIdFull(row.linkId) }}</span>
           </div>
           <div class="admin-order-link-cell__meta">
-            <span
-              v-for="src in [linkSourceTag(row.linkId, row.groupRows)].filter(Boolean)"
-              :key="src!.source + src!.label"
-              class="admin-link-source"
-              :class="`admin-link-source--${src!.source}`"
-              :title="src!.title"
-            >{{ src!.label }}</span>
             <span
               class="admin-order-group-bar__type"
               :class="{ 'admin-order-group-bar__type--arb': groupIsLinked(row.groupRows) }"

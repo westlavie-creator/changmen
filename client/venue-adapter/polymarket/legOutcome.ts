@@ -113,6 +113,9 @@ async function resolvePolymarketPostAcceptedOutcome(
 /**
  * PM 订单状态层：POST 受理后确认最终 filled / unfilled / timeout。
  * 编排层（套利收尾、补单 jb、手动下注）统一调用此函数。
+ *
+ * [changmen 扩展] fill confirmed（matched+takingAmount）→ 直接 filled，不进 delayed poll；
+ * 仅拉单一次供绑单。契约见 docs/ARB_VENUE_ORCH_CONTRACT.md。
  */
 export async function resolvePolymarketLegOutcome(
   account: PlatformAccount,

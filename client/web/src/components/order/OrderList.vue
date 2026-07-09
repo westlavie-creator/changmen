@@ -13,11 +13,7 @@ import {
   orderLegendModifier,
   orderLegendText,
 } from "@/shared/orderDisplay";
-import {
-  formatLinkIdFull,
-  groupHasUnboundPlaceholder,
-  resolveOrderGroupKindBadge,
-} from "@/shared/linkDisplay";
+import { groupHasUnboundPlaceholder } from "@/shared/linkDisplay";
 import {
   isMakeupCancelledOrderRow,
   isMakeupPendingOrderRow,
@@ -53,14 +49,6 @@ function onCancelMakeup(row: OrderRow) {
     .catch(() => {});
 }
 
-function linkKind(rows: OrderRow[]) {
-  return resolveOrderGroupKindBadge(rows);
-}
-
-function showExtraUnboundTag(rows: OrderRow[]): boolean {
-  return groupHasUnboundPlaceholder(rows) && linkKind(rows)?.source !== "hash";
-}
-
 withDefaults(
   defineProps<{
     orderEntries: ReadonlyArray<OrderListEntry>;
@@ -90,13 +78,7 @@ withDefaults(
       >
         <legend :class="orderLegendModifier(rows)">
           <span
-            v-if="linkKind(rows)"
-            class="orderlink__tag"
-            :class="`orderlink__tag--${linkKind(rows)!.source}`"
-            :title="`${linkKind(rows)!.title} · ${formatLinkIdFull(link)}`"
-          >{{ linkKind(rows)!.label }}</span>
-          <span
-            v-if="showExtraUnboundTag(rows)"
+            v-if="groupHasUnboundPlaceholder(rows)"
             class="orderlink__tag orderlink__tag--hash"
             title="本组仍有占位 Link，绑单确认前短暂态"
           >未绑单</span>
