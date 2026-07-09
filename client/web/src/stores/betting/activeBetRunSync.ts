@@ -110,7 +110,7 @@ export function syncActiveBetBegin(params: {
     store.appendLegEvent(bet.id, "B", "预检", "正在预检");
 }
 
-/** 预检结束：每腿追加「预检通过」或「预检失败」 */
+/** 预检结束：每腿追加「预检通过」或「预检失败」，并刷新整单标题/时间线 */
 export function syncActiveBetPrecheckResults(
   betId: number,
   results: {
@@ -147,6 +147,24 @@ export function syncActiveBetPrecheckResults(
       store.patchLeg(betId, "B", { status: "failed", detail });
     }
   }
+
+  const checked: boolean[] = [];
+  if (results.hasA)
+    checked.push(Boolean(results.okA));
+  if (results.hasB)
+    checked.push(Boolean(results.okB));
+  if (!checked.length)
+    return;
+
+  if (checked.some(ok => !ok)) {
+    // 腿详情已在各腿时间线；整单只标「预检失败」，避免顶部仍停在「正在预检」
+    store.setPhase(betId, "syncing", "预检失败");
+    store.appendEvent(betId, "预检", "预检失败");
+    return;
+  }
+
+  store.setPhase(betId, "checking", "预检通过");
+  store.appendEvent(betId, "预检", "预检通过");
 }
 
 export function syncActiveBetPhase(
@@ -380,7 +398,7 @@ export function syncActiveBetFail(betId: number, reason: string) {
 
 /** @deprecated 完成后不再定时移除；保留空实现以免旧调用报错 */
 export function scheduleActiveBetRunRemoval(_betId: number, _delayMs = 6000) {
-  // FIFO 队列：失败/完成均留在面板，超出 6 列时由 upsertRun.trimQueueFifo 挤出
+  // FIFO 队列：失败/完成均留在面板，超出 5 列时由 upsertRun.trimQueueFifo 挤出
 }
 
 export function syncActiveBetMakeupEnqueue(

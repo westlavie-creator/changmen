@@ -130,7 +130,7 @@ function legsFromLoseOrder(order: LoseOrder): ActiveBetLeg[] {
 }
 
 /** 进行中订单队列上限（FIFO：超出时挤掉最旧一笔） */
-export const ACTIVE_BET_RUN_QUEUE_CAP = 6;
+export const ACTIVE_BET_RUN_QUEUE_CAP = 5;
 
 /** @deprecated 保留兼容；完成后不再定时消失，改由 FIFO 队列挤出 */
 export const ACTIVE_BET_RUN_DISMISS_SEC = 0;
@@ -142,7 +142,7 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
   }),
 
   getters: {
-    /** 左旧右新：配合 CSS flex-end 靠右显示 */
+    /** 左旧右新：从左往右排列 */
     visibleRuns(state): ActiveBetRun[] {
       return [...state.runs.values()].sort((a, b) => a.startedAt - b.startedAt || a.betId - b.betId);
     },
@@ -257,7 +257,7 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       run.updatedAt = Date.now();
     },
 
-    /** 双腿已成交：标记完成并留在队列（不自动消失；满 6 列时 FIFO 挤出） */
+    /** 双腿已成交：标记完成并留在队列（不自动消失；满 5 列时 FIFO 挤出） */
     scheduleDismiss(betId: number, _delaySec = ACTIVE_BET_RUN_DISMISS_SEC) {
       const run = this.runs.get(betId);
       if (!run)

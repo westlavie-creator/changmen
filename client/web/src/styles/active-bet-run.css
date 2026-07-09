@@ -32,6 +32,7 @@
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
+  justify-content: flex-start;
   align-items: stretch;
   gap: 0;
   flex: 1;
@@ -40,26 +41,19 @@
   overflow-y: hidden;
 }
 
-/* 把列顶到右侧；溢出时可向左滚动看更早的单 */
-.active-bet-run__list::before {
-  content: "";
-  flex: 1 0 0;
-  min-width: 0;
-}
-
 .active-bet-run__empty {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   margin: 0;
-  padding-right: 12px;
+  padding-left: 12px;
   font-size: 14px;
   color: #94a3b8;
   opacity: 0.9;
 }
 
-/* 横向一栏 = 一笔进行中的订单；最多 6 列靠右 FIFO */
+/* 横向一栏 = 一笔进行中的订单；最多 5 列，从左往右 FIFO */
 .active-bet-run__col {
   flex: 0 0 460px;
   width: 460px;

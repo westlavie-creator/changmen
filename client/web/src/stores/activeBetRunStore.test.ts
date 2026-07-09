@@ -52,9 +52,9 @@ describe("activeBetRunStore", () => {
     expect(store.visibleRuns).toHaveLength(1);
   });
 
-  it("FIFO queue keeps at most 6 columns and drops oldest", () => {
+  it("FIFO queue keeps at most 5 columns and drops oldest", () => {
     const store = useActiveBetRunStore();
-    for (let i = 1; i <= 7; i += 1) {
+    for (let i = 1; i <= 6; i += 1) {
       syncActiveBetBegin({
         match: { id: i, title: `M${i}` } as never,
         bet: { id: 1000 + i, getBetName: () => `盘${i}` } as never,
@@ -66,10 +66,10 @@ describe("activeBetRunStore", () => {
         betBothLegs: true,
       });
     }
-    expect(store.visibleRuns).toHaveLength(6);
-    expect(store.visibleRuns.map(r => r.betId)).toEqual([1002, 1003, 1004, 1005, 1006, 1007]);
+    expect(store.visibleRuns).toHaveLength(5);
+    expect(store.visibleRuns.map(r => r.betId)).toEqual([1002, 1003, 1004, 1005, 1006]);
     expect(store.visibleRuns[0]?.matchTitle).toBe("M2");
-    expect(store.visibleRuns[5]?.matchTitle).toBe("M7");
+    expect(store.visibleRuns[4]?.matchTitle).toBe("M6");
   });
 
   it("bootstrapFromLoseOrders marks success leg confirmed opposite makeup target", () => {
@@ -243,6 +243,7 @@ describe("activeBetRunStore", () => {
     expect(beginA.events.some(e => e.stage === "预检" && e.detail === "正在预检")).toBe(true);
 
     store.setPhase(100, "checking", "正在预检");
+    store.appendEvent(100, "预检", "正在预检");
     syncActiveBetPrecheckResults(100, {
       hasA: true,
       okA: true,
@@ -257,6 +258,39 @@ describe("activeBetRunStore", () => {
     expect(legA.events.some(e => e.stage === "预检" && e.detail === "预检通过")).toBe(true);
     expect(legB.status).toBe("failed");
     expect(legB.events.some(e => e.stage === "预检" && e.detail.includes("预检失败"))).toBe(true);
+    expect(run.overallLabel).toBe("预检失败");
+    expect(run.phase).toBe("syncing");
+    expect(run.events.some(e => e.stage === "预检" && e.detail === "预检失败")).toBe(true);
+  });
+
+  it("precheck both fail updates overall away from 正在预检", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "Polymarket", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "pm1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    store.setPhase(100, "checking", "正在预检");
+    store.appendEvent(100, "预检", "正在预检");
+    syncActiveBetPrecheckResults(100, {
+      hasA: true,
+      okA: false,
+      detailA: "盘口已暂停",
+      hasB: true,
+      okB: false,
+      detailB: "Polymarket 盘口价高于检测价",
+    });
+
+    const run = store.visibleRuns[0]!;
+    expect(run.overallLabel).toBe("预检失败");
+    expect(run.events.at(-1)?.detail).toBe("预检失败");
+    expect(run.legs.every(l => l.status === "failed")).toBe(true);
   });
 
   it("place results append 预检/下单/拒单 layered timeline", () => {

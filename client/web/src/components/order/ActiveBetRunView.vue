@@ -2,7 +2,7 @@
 import type { ActiveBetLeg, ActiveBetRun } from "@/types/activeBetRun";
 import { storeToRefs } from "pinia";
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
+import { ACTIVE_BET_RUN_QUEUE_CAP, useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/active-bet-run.css";
 
@@ -111,7 +111,7 @@ function orderLabel(run: ActiveBetRun, index: number): string {
 
 <template>
   <fieldset class="active-bet-run">
-        <legend>进行中的订单 ({{ visibleRuns.length }}/6)</legend>
+        <legend>进行中的订单 ({{ visibleRuns.length }}/{{ ACTIVE_BET_RUN_QUEUE_CAP }})</legend>
     <div class="active-bet-run__list">
       <p v-if="!visibleRuns.length" class="active-bet-run__empty">
         暂无进行中的订单
