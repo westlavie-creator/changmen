@@ -2,7 +2,7 @@
 import type { AdminOrderRow } from "@/types/admin";
 import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
-import { classifyLinkId, formatLinkId, isSingleLegLink, linkIdSourceLabel } from "@/shared/format";
+import { classifyLinkId, formatLinkId, isSingleLegLink, isValueBetLink, linkIdSourceLabel } from "@/shared/format";
 
 const props = defineProps<{
   groups: [number, AdminOrderRow[]][];
@@ -97,6 +97,8 @@ function groupIsLinked(rows: AdminOrderRow[]) {
 
 function groupMetaLabel(rows: AdminOrderRow[]) {
   const link = Number(rows[0]?.linkId) || 0;
+  if (isValueBetLink(link))
+    return "正EV";
   if (isSingleLegLink(link))
     return "单边";
   if (groupIsLinked(rows))

@@ -10,6 +10,7 @@ import {
   resolveSingleLegCheckAccounts,
 } from "@/domain/betting/singleLegRate";
 import { opponentSide } from "@/models/betOption";
+import { applyStakeScaleByProfit } from "@/extensions/arbBet/stakeScaleByProfit";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { accountsFundingReady } from "@/stores/account/accountPicker";
@@ -61,6 +62,13 @@ export async function prepareArbAttempt(
   const legA = options[0];
   const legB = options[1];
   const implied = 1 / options.reduce((sum, o) => sum + 1 / o.odds, 0);
+  // [changmen 扩展] 高利润加仓：仅放大两腿注码，不改 config.betMoney / 对冲比例
+  const stakeScale = applyStakeScaleByProfit(
+    legA,
+    legB,
+    implied,
+    useUserStore().extensionPrefs.stakeScaleByProfit,
+  );
   const detectionLegs = buildArbProgressLegPair(legA, legB);
   setArbExecutionTraceMeta(trace, {
     implied,
@@ -69,6 +77,9 @@ export async function prepareArbAttempt(
     legs: detectionLegs,
   });
   trace?.event("检测", `平台 ${providerKeys.join("、")}`);
+  if (stakeScale !== 1) {
+    trace?.event("加仓", `利润达阈值，注码 ×${stakeScale}`);
+  }
 
   // [A8 可证实] `lBe`：GetOrderOptions 后立即 `linkId=Date.now()`（9999 扩展再取负）
   const linkTs = Date.now();

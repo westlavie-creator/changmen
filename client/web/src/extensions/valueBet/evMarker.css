@@ -16,6 +16,20 @@
   font-weight: 700;
   margin-left: 2px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ev-badge--action {
+  cursor: pointer;
+  padding: 0 2px;
+  border-radius: 2px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ev-badge--action:hover {
+  background: rgba(212, 162, 74, 0.18);
+  color: #f0c86a;
 }
 
 .item-odds.ev-positive .ev-badge {

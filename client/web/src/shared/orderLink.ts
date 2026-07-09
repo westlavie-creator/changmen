@@ -1,7 +1,7 @@
 import type { LoseOrderCancelledRecord, OrderRow } from "@/types/order";
 import type { LoseOrder } from "@/models/loseOrder";
 import { hasOpenPolymarketPosition } from "@venue/polymarket/pmLogicalPosition";
-import { formatLinkId, isSingleLegLink, toFixed } from "@/shared/format";
+import { formatLinkId, isSingleLegLink, orderLinkSortKey, toFixed } from "@/shared/format";
 
 /** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
 export function linkIdGroupKey(link: number | null | undefined): number {
@@ -9,13 +9,16 @@ export function linkIdGroupKey(link: number | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** [changmen 扩展] A8 原版按 Link 原值降序；changmen 取绝对值排序，使 9999 单边负 Link 按时间归位 */
+/**
+ * [changmen 扩展] 按「时间序」降序：套利/9999 用 |Link|；
+ * 正 EV 用 orderLinkSortKey 还原真实时间戳，避免 7e15 编码打乱排序。
+ */
 export function compareOrderLinkDesc(
   a: { Link?: number },
   b: { Link?: number },
 ): number {
-  const aLink = Math.abs(Number(a.Link));
-  const bLink = Math.abs(Number(b.Link));
+  const aLink = orderLinkSortKey(a.Link);
+  const bLink = orderLinkSortKey(b.Link);
   return aLink > bLink ? -1 : 1;
 }
 

@@ -110,6 +110,30 @@ function setWaitTime(platform: string, v: string | number) {
             :disabled="fieldDisabled()"
           />
         </div>
+        <div class="bet-money-row__value-bet">
+          <el-switch
+            v-model="form.valueBetConfirm"
+            inline-prompt
+            active-text="正EV下单"
+            inactive-text="正EV下单"
+            size="large"
+            :disabled="fieldDisabled()"
+            title="开启后可点击金色 +x% 角标确认单边下单"
+          />
+          <el-form-item
+            label="正EV金额:"
+            :label-width="LABEL_W"
+            class="bet-money-row__input"
+            title="点击金色角标确认下单时的默认金额；不影响套利投注金额"
+          >
+            <el-input
+              v-model="form.valueBetMoney"
+              autocomplete="off"
+              :disabled="fieldDisabled(!form.valueBetConfirm)"
+              style="width: 120px"
+            />
+          </el-form-item>
+        </div>
       </div>
     </el-form-item>
 
@@ -395,6 +419,13 @@ function setWaitTime(platform: string, v: string | number) {
   margin-left: 40px;
 }
 
+.bet-money-row__value-bet {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
 .any-odds-row {
   display: flex;
   align-items: center;
@@ -433,6 +464,13 @@ function setWaitTime(platform: string, v: string | number) {
   font-size: 13px;
   font-weight: 600;
   border-bottom: 1px solid var(--el-border-color);
+}
+
+.config-section__hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--el-text-color-secondary);
 }
 
 .config-section :deep(.el-form-item) {

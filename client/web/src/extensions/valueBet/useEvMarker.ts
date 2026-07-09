@@ -77,6 +77,7 @@ export function useEvMarker(
     const e = _get(item, side);
     if (!e || e.edge < NEAR_EDGE)
       return undefined;
+    // 第一期金额固定且仅配置用，角标只展示 edge%
     return `+${(e.edge * 100).toFixed(1)}%`;
   }
 

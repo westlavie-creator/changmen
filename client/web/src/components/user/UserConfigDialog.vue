@@ -90,6 +90,8 @@ async function save() {
     maxProfit: Number(form.maxProfit) || 1.1,
     makeProfit: Number(form.makeProfit) || 1.01,
     betMoney: Number(form.betMoney) || 100,
+    valueBetMoney: Number(form.valueBetMoney) >= 0 ? Math.round(Number(form.valueBetMoney)) : 100,
+    valueBetConfirm: form.valueBetConfirm !== false,
     minMoney: Number(form.minMoney) || 0,
     maxMoney: Number(form.maxMoney) || 0,
     minOdds: Number(form.minOdds) || 0,

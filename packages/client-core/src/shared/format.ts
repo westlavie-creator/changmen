@@ -89,24 +89,56 @@ export function arbProfitRate(implied: number, digits = 1): string {
   return percent(implied - 1, digits);
 }
 
-/** 单边下单 link 存为负时间戳（双腿套利为正时间戳） */
+/**
+ * 正 EV 单边 Link 编码：`-(VALUE_BET_LINK_BASE + Date.now())`。
+ * 与 9999 单边的 `-Date.now()` 区分；排序时用 `orderLinkSortKey` 还原时间戳。
+ * 7e15 远大于当前 ms 时间戳（~1.7e12），且在 Number 安全整数内。
+ */
+export const VALUE_BET_LINK_BASE = 7_000_000_000_000_000;
+
+/** 任意负 Link（9999 单边或正 EV）；双腿套利为正时间戳 */
 export function isSingleLegLink(link: number | null | undefined): boolean {
   const n = Number(link);
   return Number.isFinite(n) && n < 0;
 }
 
-/** 展示 LinkID：正数原样，负数（9999 单边）显示 🏆 */
+/** 正 EV 确认下单（方案 B） */
+export function isValueBetLink(link: number | null | undefined): boolean {
+  const n = Number(link);
+  return Number.isFinite(n) && n < 0 && Math.abs(n) >= VALUE_BET_LINK_BASE;
+}
+
+/** 比例 9999 单边（负时间戳，且非正 EV 编码） */
+export function isSingleLegRateLink(link: number | null | undefined): boolean {
+  return isSingleLegLink(link) && !isValueBetLink(link);
+}
+
+export function createValueBetLinkId(linkTs = Date.now()): number {
+  return -(VALUE_BET_LINK_BASE + linkTs);
+}
+
+/** 侧栏/分组排序键：正 EV 还原为真实时间戳，其余取绝对值 */
+export function orderLinkSortKey(link: number | null | undefined): number {
+  const n = Math.abs(Number(link)) || 0;
+  if (n >= VALUE_BET_LINK_BASE)
+    return n - VALUE_BET_LINK_BASE;
+  return n;
+}
+
+/** 展示 LinkID：套利正数原样；9999→🏆；正 EV→💎 */
 export function formatLinkId(link: number | null | undefined): string {
   const n = Number(link);
   if (!Number.isFinite(n) || n === 0)
     return "—";
+  if (isValueBetLink(n))
+    return "💎";
   if (n < 0)
     return "🏆";
   return String(n);
 }
 
 /** SaveOrderBind 时间戳 link vs SaveOrder linkFromOrder hash（u32） */
-export type LinkIdSource = "arb" | "single" | "hash";
+export type LinkIdSource = "arb" | "single" | "valueBet" | "hash";
 
 const ARB_LINK_MIN = 1_000_000_000_000;
 
@@ -114,6 +146,8 @@ export function classifyLinkId(link: number | null | undefined): LinkIdSource | 
   const n = Number(link);
   if (!Number.isFinite(n) || n === 0)
     return null;
+  if (isValueBetLink(n))
+    return "valueBet";
   if (n < 0)
     return "single";
   if (n >= ARB_LINK_MIN)
@@ -127,6 +161,8 @@ export function linkIdSourceLabel(source: LinkIdSource | null): string {
       return "系统";
     case "single":
       return "单边";
+    case "valueBet":
+      return "正EV";
     case "hash":
       return "hash";
     default:

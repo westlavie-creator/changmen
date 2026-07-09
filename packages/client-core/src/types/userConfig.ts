@@ -34,4 +34,14 @@ export interface UserConfig {
   betChecked: boolean;
   singleBet: boolean;
   waitTime: Record<string, number>;
+  /**
+   * [changmen 扩展] 正 EV（相对 PB）固定下注金额。
+   * 点击金色角标确认下单时默认使用；不影响套利 betMoney。
+   */
+  valueBetMoney: number;
+  /**
+   * [changmen 扩展] 是否允许点击金色角标做正 EV 确认下单。
+   * 默认 true；关闭后角标仅展示 edge%。
+   */
+  valueBetConfirm: boolean;
 }

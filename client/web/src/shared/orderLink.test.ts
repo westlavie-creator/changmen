@@ -36,6 +36,17 @@ describe("orderLink A8 parity", () => {
     expect(compareOrderLinkDesc({ Link: 100 }, { Link: 100 })).toBe(1);
   });
 
+  it("sorts valueBet link by decoded timestamp alongside arb/9999", () => {
+    const ts = 1_780_000_000_500;
+    const vb = -(7_000_000_000_000_000 + ts);
+    const sorted = sortOrdersByLinkDesc([
+      { Link: ts - 100 },
+      { Link: vb },
+      { Link: -(ts - 50) },
+    ]);
+    expect(sorted.map(r => r.Link)).toEqual([vb, -(ts - 50), ts - 100]);
+  });
+
   it("groups two legs with the same Link", () => {
     const link = 1_700_000_000_999;
     const grouped = groupOrdersByLink([
@@ -75,6 +86,14 @@ describe("orderLink A8 parity", () => {
       { Link: link, Status: "None", BetMoney: 100, Odds: 2.0, Money: 0 },
     ]);
     expect(text.startsWith("🏆")).toBe(true);
+  });
+
+  it("正 EV link 在 legend 前缀展示 💎", () => {
+    const link = -(7_000_000_000_000_000 + 1_700_000_000_123);
+    const text = orderLinkLegend([
+      { Link: link, Status: "None", BetMoney: 100, Odds: 2.0, Money: 0 },
+    ]);
+    expect(text.startsWith("💎")).toBe(true);
   });
 
   it("computeOrderGroupProfit sums buy Money and skips PM sells", () => {

@@ -34,4 +34,16 @@ describe("mergeUserConfig legacy fields", () => {
     expect(cfg).not.toHaveProperty("arbExecuteEngine");
     expect(cfg.betting).toBe(false);
   });
+
+  it("defaults and normalizes valueBetMoney", () => {
+    expect(mergeUserConfig(null).valueBetMoney).toBe(100);
+    expect(mergeUserConfig({ valueBetMoney: 80 }).valueBetMoney).toBe(80);
+    expect(mergeUserConfig({ valueBetMoney: -1 } as Partial<UserConfig>).valueBetMoney).toBe(100);
+    expect(mergeUserConfig({ valueBetMoney: 0 }).valueBetMoney).toBe(0);
+  });
+
+  it("defaults valueBetConfirm to true", () => {
+    expect(mergeUserConfig(null).valueBetConfirm).toBe(true);
+    expect(mergeUserConfig({ valueBetConfirm: false }).valueBetConfirm).toBe(false);
+  });
 });

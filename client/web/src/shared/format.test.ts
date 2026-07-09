@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { arbPercent, arbProfitRate, classifyLinkId, formatDisplayOdds, formatLinkId, formatSecond, isSingleLegLink, linkIdSourceLabel, percent, toFixed } from "./format";
+import {
+  arbPercent,
+  arbProfitRate,
+  classifyLinkId,
+  createValueBetLinkId,
+  formatDisplayOdds,
+  formatLinkId,
+  formatSecond,
+  isSingleLegLink,
+  isSingleLegRateLink,
+  isValueBetLink,
+  linkIdSourceLabel,
+  orderLinkSortKey,
+  percent,
+  toFixed,
+  VALUE_BET_LINK_BASE,
+} from "./format";
 
 describe("format shared helpers", () => {
   it("rounds display odds to three decimals and drops invalid values", () => {
@@ -36,6 +52,20 @@ describe("format shared helpers", () => {
     expect(formatLinkId(-1710000000123)).toBe("🏆");
     expect(formatLinkId(42)).toBe("42");
     expect(formatLinkId(0)).toBe("—");
+  });
+
+  it("distinguishes valueBet 💎 from 9999 🏆", () => {
+    const ts = 1_780_000_000_000;
+    const vb = createValueBetLinkId(ts);
+    expect(vb).toBe(-(VALUE_BET_LINK_BASE + ts));
+    expect(isValueBetLink(vb)).toBe(true);
+    expect(isSingleLegRateLink(vb)).toBe(false);
+    expect(isSingleLegLink(vb)).toBe(true);
+    expect(formatLinkId(vb)).toBe("💎");
+    expect(orderLinkSortKey(vb)).toBe(ts);
+    expect(orderLinkSortKey(-ts)).toBe(ts);
+    expect(classifyLinkId(vb)).toBe("valueBet");
+    expect(linkIdSourceLabel("valueBet")).toBe("正EV");
   });
 
   it("classifies link id source for admin tags", () => {

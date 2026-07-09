@@ -132,6 +132,13 @@ function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
   void matchStore.manualBet(props.match, props.bet, item, side);
 }
 
+function onEvBadgeClick(item: ViewBet["items"][0], side: BetSide, e: MouseEvent) {
+  e.stopPropagation();
+  if (!evMarker.isPositiveEv(item, side))
+    return;
+  void matchStore.valueBetConfirm(props.match, props.bet, item, side);
+}
+
 function onBetTitleDblClick() {
   loseOpen.value = true;
 }
@@ -196,7 +203,14 @@ function onCreateLoseClose() {
           @dblclick.stop="onOddsDblClick(item, 'Home')"
         >
           {{ itemOdds(item, "Home") || ""
-          }}<span v-if="evMarker.evLabel(item, 'Home')" class="ev-badge">{{
+          }}<span
+            v-if="evMarker.evLabel(item, 'Home')"
+            class="ev-badge"
+            :class="{ 'ev-badge--action': evMarker.isPositiveEv(item, 'Home') }"
+            :title="evMarker.isPositiveEv(item, 'Home') ? '点击确认正 EV 下单' : undefined"
+            @click="onEvBadgeClick(item, 'Home', $event)"
+            @dblclick.stop
+          >{{
             evMarker.evLabel(item, "Home")
           }}</span><span v-if="sourceLabel(item, 'Home')" class="odds-src">{{
             sourceLabel(item, "Home")
@@ -217,7 +231,14 @@ function onCreateLoseClose() {
           @dblclick.stop="onOddsDblClick(item, 'Away')"
         >
           {{ itemOdds(item, "Away") || ""
-          }}<span v-if="evMarker.evLabel(item, 'Away')" class="ev-badge">{{
+          }}<span
+            v-if="evMarker.evLabel(item, 'Away')"
+            class="ev-badge"
+            :class="{ 'ev-badge--action': evMarker.isPositiveEv(item, 'Away') }"
+            :title="evMarker.isPositiveEv(item, 'Away') ? '点击确认正 EV 下单' : undefined"
+            @click="onEvBadgeClick(item, 'Away', $event)"
+            @dblclick.stop
+          >{{
             evMarker.evLabel(item, "Away")
           }}</span><span v-if="sourceLabel(item, 'Away')" class="odds-src">{{
             sourceLabel(item, "Away")

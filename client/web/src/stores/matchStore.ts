@@ -13,6 +13,7 @@ import {
 } from "@/services/pmSportRealtime";
 import { processLoseOrders as runProcessLoseOrders } from "@/stores/betting/loseOrder";
 import { runManualBet } from "@/stores/betting/manualBet";
+import { runValueBetConfirm } from "@/stores/betting/valueBetConfirm";
 import {
 
   runMainBetLoopFinally,
@@ -302,6 +303,13 @@ export const useMatchStore = defineStore("match", {
 
     async manualBet(match: ViewMatch, bet: ViewBet, item: ViewBetItem, side: BetSide) {
       await runManualBet(match, bet, item, side, {
+        setMessage: m => this.setBettingMessage(m),
+      });
+    },
+
+    /** [changmen 扩展] 点击金色 EV 角标 → 正 EV 确认下单 */
+    async valueBetConfirm(match: ViewMatch, bet: ViewBet, item: ViewBetItem, side: BetSide) {
+      await runValueBetConfirm(match, bet, item, side, {
         setMessage: m => this.setBettingMessage(m),
       });
     },

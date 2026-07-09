@@ -60,6 +60,49 @@ async function save() {
         <li>关闭：9999 本侧跳过预检，仅对侧自动下单（与旧行为一致）</li>
       </ul>
     </el-form-item>
+
+    <el-divider content-position="left">
+      高利润加仓
+    </el-divider>
+    <p class="extensions-tab__hint">
+      当双边套利利润（implied）达到阈值时，两腿下注金额同乘倍数；对冲比例不变。默认关闭。
+    </p>
+    <el-form-item label="启用加仓:">
+      <el-switch
+        v-model="extensionPrefs.stakeScaleByProfit.enabled"
+        inline-prompt
+        active-text="开启"
+        inactive-text="关闭"
+        size="large"
+      />
+    </el-form-item>
+    <el-form-item label="利润阈值:">
+      <el-input-number
+        v-model="extensionPrefs.stakeScaleByProfit.minImplied"
+        :min="1.01"
+        :max="2"
+        :step="0.01"
+        :precision="2"
+        controls-position="right"
+      />
+      <span class="extensions-tab__unit">
+        （1.05 = 利润 ≥ 5%）
+      </span>
+    </el-form-item>
+    <el-form-item label="金额倍数:">
+      <el-input-number
+        v-model="extensionPrefs.stakeScaleByProfit.multiplier"
+        :min="1.1"
+        :max="10"
+        :step="0.1"
+        :precision="1"
+        controls-position="right"
+      />
+      <span class="extensions-tab__unit">
+        （例如 2 = 注码 ×2）
+      </span>
+    </el-form-item>
+
     <div class="flex flex-center">
       <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
         &nbsp;保存
@@ -82,5 +125,11 @@ async function save() {
   font-size: 13px;
   color: var(--el-text-color-regular);
   line-height: 1.6;
+}
+
+.extensions-tab__unit {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>

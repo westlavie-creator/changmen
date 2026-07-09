@@ -38,6 +38,8 @@ export function createDefaultUserConfig(): UserConfig {
     betChecked: false,
     singleBet: false,
     waitTime: {},
+    valueBetMoney: 100,
+    valueBetConfirm: true,
   };
 }
 
@@ -82,5 +84,15 @@ export function mergeUserConfig(raw: Partial<UserConfig> | null | undefined): Us
         ? (raw.waitTime as Record<string, unknown>)
         : undefined,
     ),
+    valueBetMoney: normalizeValueBetMoney(raw.valueBetMoney, base.valueBetMoney),
+    valueBetConfirm: raw.valueBetConfirm !== false,
   };
+}
+
+/** 正 EV 建议注码：非法/缺省回退默认；允许 0（不展示金额） */
+export function normalizeValueBetMoney(raw: unknown, fallback = 100): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0)
+    return fallback;
+  return Math.round(n);
 }

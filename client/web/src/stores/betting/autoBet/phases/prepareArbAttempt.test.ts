@@ -31,6 +31,22 @@ vi.mock("@/stores/loseOrderStore", () => ({
   }),
 }));
 
+const extensionPrefs = vi.hoisted(() => ({
+  betRowUi: false,
+  singleLeg9999Precheck: true,
+  stakeScaleByProfit: {
+    enabled: false,
+    minImplied: 1.05,
+    multiplier: 2,
+  },
+}));
+
+vi.mock("@/stores/userStore", () => ({
+  useUserStore: () => ({
+    extensionPrefs,
+  }),
+}));
+
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({
     loaded: true,
@@ -51,7 +67,22 @@ vi.mock("@/stores/accountStore", () => ({
       },
     ],
     getProviders: () => new Map([["PB", []], ["RAY", []]]),
+    getAccount: (provider: string) => ({
+      balance: 1000,
+      loadingBalance: false,
+      getBalance: () => 1000,
+      provider,
+      playerName: provider === "PB" ? "a" : "b",
+    }),
   }),
+}));
+
+vi.mock("@/stores/betting/activeBetRunSync", () => ({
+  syncActiveBetBegin: vi.fn(),
+}));
+
+vi.mock("@/stores/betting/successMarkers", () => ({
+  readUsedAccounts: () => [],
 }));
 
 function makeBet(sources: BetRowDto["Sources"]) {
@@ -97,6 +128,9 @@ const arbSources: BetRowDto["Sources"] = {
 describe("prepareArbAttempt early return (A8 静默 continue)", () => {
   beforeEach(() => {
     loseOrderIds.clear();
+    extensionPrefs.stakeScaleByProfit.enabled = false;
+    extensionPrefs.stakeScaleByProfit.minImplied = 1.05;
+    extensionPrefs.stakeScaleByProfit.multiplier = 2;
     foOdds = {
       PB: { h1: 2.1, a1: 1.5 },
       RAY: { h2: 1.6, a2: 2.2 },
@@ -154,5 +188,38 @@ describe("prepareArbAttempt early return (A8 静默 continue)", () => {
     });
 
     expect(config.betMoney).toBe(60);
+  });
+});
+
+describe("prepareArbAttempt stakeScaleByProfit [changmen 扩展]", () => {
+  beforeEach(() => {
+    loseOrderIds.clear();
+    extensionPrefs.stakeScaleByProfit.enabled = true;
+    extensionPrefs.stakeScaleByProfit.minImplied = 1.05;
+    extensionPrefs.stakeScaleByProfit.multiplier = 2;
+    foOdds = {
+      PB: { h1: 2.1, a1: 1.5 },
+      RAY: { h2: 1.6, a2: 2.2 },
+    };
+  });
+
+  it("scales both leg stakes when implied >= threshold", async () => {
+    const bet = makeBet(arbSources);
+    const config = { ...createDefaultUserConfig(), profit: 1.01, minOdds: 1.01, betMoney: 100 };
+    const legA = { type: "PB", odds: 2.1, betMoney: 100, target: "Home" };
+    const legB = { type: "RAY", odds: 2.2, betMoney: 95, target: "Away" };
+    // implied ≈ 1/(1/2.1+1/2.2) ≈ 1.074 > 1.05
+    vi.spyOn(bet, "getOrderOptions").mockReturnValue([legA, legB] as never);
+
+    await prepareArbAttempt({
+      match,
+      bet,
+      config,
+      setMessage: () => {},
+    });
+
+    expect(legA.betMoney).toBe(200);
+    expect(legB.betMoney).toBe(190);
+    expect(config.betMoney).toBe(100);
   });
 });
