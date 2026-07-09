@@ -335,7 +335,7 @@ export function syncActiveBetAfterRejectSync(
       store.appendLegEvent(betId, "A", "拒单", "未成单");
     if (flags.hasB)
       store.appendLegEvent(betId, "B", "拒单", "未成单");
-    store.removeRun(betId);
+    store.setPhase(betId, "syncing", "未成单");
     return;
   }
 
@@ -375,14 +375,12 @@ export function syncActiveBetFail(betId: number, reason: string) {
         store.appendLegEvent(betId, leg.side, failLayer, reason);
     }
   }
-  scheduleActiveBetRunRemoval(betId);
+  store.setPhase(betId, "syncing", reason || "失败");
 }
 
-export function scheduleActiveBetRunRemoval(betId: number, delayMs = 6000) {
-  const store = activeStore();
-  if (!store)
-    return;
-  setTimeout(() => store.removeRun(betId), delayMs);
+/** @deprecated 完成后不再定时移除；保留空实现以免旧调用报错 */
+export function scheduleActiveBetRunRemoval(_betId: number, _delayMs = 6000) {
+  // FIFO 队列：失败/完成均留在面板，超出 6 列时由 upsertRun.trimQueueFifo 挤出
 }
 
 export function syncActiveBetMakeupEnqueue(

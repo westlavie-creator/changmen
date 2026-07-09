@@ -129,10 +129,11 @@ function legsFromLoseOrder(order: LoseOrder): ActiveBetLeg[] {
   ];
 }
 
-/** 双腿均成交后，面板保留时长（秒） */
-export const ACTIVE_BET_RUN_DISMISS_SEC = 3;
+/** 进行中订单队列上限（FIFO：超出时挤掉最旧一笔） */
+export const ACTIVE_BET_RUN_QUEUE_CAP = 6;
 
-const dismissTimers = new Map<number, ReturnType<typeof setTimeout>>();
+/** @deprecated 保留兼容；完成后不再定时消失，改由 FIFO 队列挤出 */
+export const ACTIVE_BET_RUN_DISMISS_SEC = 0;
 
 /** [changmen 扩展] 进行中套利/补单进度（订单列表上方展示） */
 export const useActiveBetRunStore = defineStore("activeBetRun", {
@@ -141,8 +142,9 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
   }),
 
   getters: {
+    /** 左旧右新：配合 CSS flex-end 靠右显示 */
     visibleRuns(state): ActiveBetRun[] {
-      return [...state.runs.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+      return [...state.runs.values()].sort((a, b) => a.startedAt - b.startedAt || a.betId - b.betId);
     },
     phaseLabel: () => (phase: ActiveBetRunPhase) => PHASE_LABEL[phase] ?? phase,
     legStatusLabel: () => (status: ActiveBetLegStatus) => LEG_STATUS_LABEL[status] ?? status,
@@ -151,6 +153,18 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
   },
 
   actions: {
+    /** 超出上限时移除最旧一笔（先进先出） */
+    trimQueueFifo(keepBetId?: number) {
+      while (this.runs.size > ACTIVE_BET_RUN_QUEUE_CAP) {
+        const oldest = [...this.runs.values()]
+          .filter(r => r.betId !== keepBetId)
+          .sort((a, b) => a.startedAt - b.startedAt || a.betId - b.betId)[0];
+        if (!oldest)
+          break;
+        this.runs.delete(oldest.betId);
+      }
+    },
+
     upsertRun(betId: number, patch: Partial<ActiveBetRun> & Pick<ActiveBetRun, "matchId" | "matchTitle" | "betName">) {
       const now = Date.now();
       const existing = this.runs.get(betId);
@@ -171,6 +185,8 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
           : existing?.countdownUntil,
       };
       this.runs.set(betId, next);
+      if (!existing)
+        this.trimQueueFifo(betId);
     },
 
     appendEvent(betId: number, stage: string, detail: string) {
@@ -241,27 +257,16 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       run.updatedAt = Date.now();
     },
 
-    /** 双腿已成交：保留 N 秒再收起（可重复调用会重置计时） */
-    scheduleDismiss(betId: number, delaySec = ACTIVE_BET_RUN_DISMISS_SEC) {
-      const existing = dismissTimers.get(betId);
-      if (existing)
-        clearTimeout(existing);
+    /** 双腿已成交：标记完成并留在队列（不自动消失；满 6 列时 FIFO 挤出） */
+    scheduleDismiss(betId: number, _delaySec = ACTIVE_BET_RUN_DISMISS_SEC) {
       const run = this.runs.get(betId);
       if (!run)
         return;
-      this.setPhase(betId, "syncing", `双腿已成交，${delaySec}秒后收起`, delaySec);
-      dismissTimers.set(betId, setTimeout(() => {
-        dismissTimers.delete(betId);
-        this.removeRun(betId);
-      }, delaySec * 1000));
+      this.setPhase(betId, "syncing", "双腿已成交");
+      run.countdownUntil = undefined;
     },
 
     removeRun(betId: number) {
-      const pending = dismissTimers.get(betId);
-      if (pending) {
-        clearTimeout(pending);
-        dismissTimers.delete(betId);
-      }
       this.runs.delete(betId);
     },
 

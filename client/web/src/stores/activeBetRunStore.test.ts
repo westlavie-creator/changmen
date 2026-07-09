@@ -20,7 +20,7 @@ describe("activeBetRunStore", () => {
     store.runs.clear();
   });
 
-  it("tracks arb begin through dual-leg success", () => {
+  it("tracks arb begin through dual-leg success and keeps finished run in queue", () => {
     const store = useActiveBetRunStore();
     syncActiveBetBegin({
       match: { id: 1, title: "A vs B" } as never,
@@ -47,10 +47,29 @@ describe("activeBetRunStore", () => {
     });
 
     expect(store.visibleRuns[0]?.phase).toBe("syncing");
-    vi.advanceTimersByTime(2999);
+    expect(store.visibleRuns[0]?.overallLabel).toBe("双腿已成交");
+    vi.advanceTimersByTime(10_000);
     expect(store.visibleRuns).toHaveLength(1);
-    vi.advanceTimersByTime(1);
-    expect(store.visibleRuns).toHaveLength(0);
+  });
+
+  it("FIFO queue keeps at most 6 columns and drops oldest", () => {
+    const store = useActiveBetRunStore();
+    for (let i = 1; i <= 7; i += 1) {
+      syncActiveBetBegin({
+        match: { id: i, title: `M${i}` } as never,
+        bet: { id: 1000 + i, getBetName: () => `盘${i}` } as never,
+        legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+        legB: { type: "RAY", target: "Away", odds: 2.1, betMoney: 95 } as never,
+        accountA: { playerName: "ob1" } as never,
+        accountB: { playerName: "ray1" } as never,
+        linkId: 1_000 + i,
+        betBothLegs: true,
+      });
+    }
+    expect(store.visibleRuns).toHaveLength(6);
+    expect(store.visibleRuns.map(r => r.betId)).toEqual([1002, 1003, 1004, 1005, 1006, 1007]);
+    expect(store.visibleRuns[0]?.matchTitle).toBe("M2");
+    expect(store.visibleRuns[5]?.matchTitle).toBe("M7");
   });
 
   it("bootstrapFromLoseOrders marks success leg confirmed opposite makeup target", () => {
@@ -275,7 +294,7 @@ describe("activeBetRunStore", () => {
     expect(run.events.some(e => e.stage === "拒单" && e.detail === "等待场馆确认")).toBe(true);
   });
 
-  it("removes run when both legs fail without makeup", () => {
+  it("keeps run when both legs fail without makeup", () => {
     const store = useActiveBetRunStore();
     syncActiveBetBegin({
       match: { id: 1, title: "A vs B" } as never,
@@ -298,6 +317,7 @@ describe("activeBetRunStore", () => {
       makeupQueued: false,
     });
 
-    expect(store.visibleRuns).toHaveLength(0);
+    expect(store.visibleRuns).toHaveLength(1);
+    expect(store.visibleRuns[0]?.overallLabel).toBe("未成单");
   });
 });

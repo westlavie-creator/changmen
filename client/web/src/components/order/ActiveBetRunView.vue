@@ -111,7 +111,7 @@ function orderLabel(run: ActiveBetRun, index: number): string {
 
 <template>
   <fieldset class="active-bet-run">
-    <legend>进行中的订单 ({{ visibleRuns.length }})</legend>
+        <legend>进行中的订单 ({{ visibleRuns.length }}/6)</legend>
     <div class="active-bet-run__list">
       <p v-if="!visibleRuns.length" class="active-bet-run__empty">
         暂无进行中的订单
