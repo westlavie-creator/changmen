@@ -72,4 +72,28 @@ describe("classifyClientMatchMergeMode", () => {
     const out = classifyClientMatchMergeMode(cm, byPlatform, teamMaps);
     assert.equal(out.mode, "name");
   });
+
+  it("returns unknown (not name) when platform rows are gone and locks missing", () => {
+    const cm = {
+      id: 450,
+      title: "Team Sanzi vs Mau Esports",
+      matchs: { IA: "376113", RAY: "38406586" },
+    };
+    const out = classifyClientMatchMergeMode(cm, {}, {});
+    assert.equal(out.mode, "unknown");
+    assert.equal(out.label, "未知");
+  });
+
+  it("returns id when platform rows are gone but client_matches locks exist", () => {
+    const cm = {
+      id: 450,
+      title: "Team Sanzi vs Mau Esports",
+      matchs: { IA: "376113", RAY: "38406586" },
+      home_gb_team_id: "100754",
+      away_gb_team_id: "100755",
+    };
+    const out = classifyClientMatchMergeMode(cm, {}, {});
+    assert.equal(out.mode, "id");
+    assert.equal(out.label, "平台 ID");
+  });
 });

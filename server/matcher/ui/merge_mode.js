@@ -73,8 +73,14 @@ function rowsHavePlatformTeamIds(rows) {
 
 export function classifyClientMatchMergeMode(cm, byPlatform, teamMaps = null) {
   const rows = linkedPlatformRows(cm, byPlatform);
-  if (!rows.length)
-    return { mode: "unknown", label: "未知" };
+  const locked = clientMatchHasLockedGbTeams(cm);
+
+  // 无 live 平台行：以 client_matches 自有锁/标题为准，勿把僵尸行标成「队名已匹配」
+  if (!rows.length) {
+    if (locked)
+      return { mode: "id", label: "平台 ID", platforms: 0, refPlat: null };
+    return { mode: "unknown", label: "未知", platforms: 0, refPlat: null };
+  }
 
   const refPlat = [...rows].sort(
     (a, b) => (PROVIDER_PRIORITY[b.platform] || 0) - (PROVIDER_PRIORITY[a.platform] || 0),
@@ -84,7 +90,7 @@ export function classifyClientMatchMergeMode(cm, byPlatform, teamMaps = null) {
     ? rows.every(row => isPlatformMatchRowFullyIdMapped(row, teamMaps))
     : classifyViaPlugin(rows).every(m => m === "id");
 
-  const idByLockedGb = clientMatchHasLockedGbTeams(cm)
+  const idByLockedGb = locked
     && rows.length >= 2
     && rowsHavePlatformTeamIds(rows);
 

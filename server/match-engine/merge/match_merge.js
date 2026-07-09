@@ -506,6 +506,26 @@ function resolveGameCodeForClientRow(row, matches) {
     if (parsed)
       gameCode = parsed[1].toLowerCase();
   }
+  // client_matches.game 存的是 a8Name（如 CS:GO），无括号时按显示名回落
+  if (!gameCode && row?.Game) {
+    const display = String(row.Game).trim().toLowerCase();
+    const byDisplay = {
+      "cs:go": "cs2",
+      csgo: "cs2",
+      cs2: "cs2",
+      "league of legends": "lol",
+      lol: "lol",
+      "英雄联盟": "lol",
+      "dota 2": "dota2",
+      dota2: "dota2",
+      "刀塔": "dota2",
+      valorant: "valorant",
+      "无畏契约": "valorant",
+      kog: "kog",
+      "王者荣耀": "kog",
+    };
+    gameCode = byDisplay[display] || null;
+  }
   if (!gameCode && row?.Matchs && matches) {
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs)) {
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
@@ -536,27 +556,29 @@ function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
   }
 
   const rows = buildPlatformRowsForMatchs(matchs, matches);
-  const refRow = rows.find(r => r.platform === picked.platform);
-  if (!refRow)
-    return null;
+  // 不限标题参考平台：任一平台两侧 ID 均能映射且与 title 主客可对齐即可锁
+  const ordered = [...rows].sort(
+    (a, b) => (PROVIDER_PRIORITY[b.platform] || 0) - (PROVIDER_PRIORITY[a.platform] || 0),
+  );
+  for (const refRow of ordered) {
+    const slotHomeGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.homeId);
+    const slotAwayGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.awayId);
+    if (!slotHomeGb || !slotAwayGb)
+      continue;
 
-  const slotHomeGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.homeId);
-  const slotAwayGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.awayId);
-  if (!slotHomeGb || !slotAwayGb)
-    return null;
-
-  const mode = sideAlignmentMode(refRow.home, refRow.away, picked.home, picked.away);
-  if (mode === "aligned") {
-    return {
-      homeGb: parseLockedGbTeamId(slotHomeGb),
-      awayGb: parseLockedGbTeamId(slotAwayGb),
-    };
-  }
-  if (mode === "reversed") {
-    return {
-      homeGb: parseLockedGbTeamId(slotAwayGb),
-      awayGb: parseLockedGbTeamId(slotHomeGb),
-    };
+    const mode = sideAlignmentMode(refRow.home, refRow.away, picked.home, picked.away);
+    if (mode === "aligned") {
+      return {
+        homeGb: parseLockedGbTeamId(slotHomeGb),
+        awayGb: parseLockedGbTeamId(slotAwayGb),
+      };
+    }
+    if (mode === "reversed") {
+      return {
+        homeGb: parseLockedGbTeamId(slotAwayGb),
+        awayGb: parseLockedGbTeamId(slotHomeGb),
+      };
+    }
   }
   return null;
 }
@@ -603,22 +625,35 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
     }
 
     if (!homeGb || !awayGb) {
-      const teams = parseTitleTeams(row.Title);
-      if (teams) {
-        homeGb = homeGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.home, gameCode));
-        awayGb = awayGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.away, gameCode));
+      // DB title 优先：merge 行 Title 可能被平台优先级写反，existing 才是 changmen 实体标题
+      const titleCandidates = [existing?.title, row.Title].filter(t => String(t || "").trim());
+      for (const title of titleCandidates) {
+        const teams = parseTitleTeams(title);
+        if (!teams)
+          continue;
+        const h = homeGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.home, gameCode));
+        const a = awayGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.away, gameCode));
+        if (h && a) {
+          homeGb = h;
+          awayGb = a;
+          break;
+        }
+        homeGb = homeGb || h;
+        awayGb = awayGb || a;
       }
     }
 
     if (homeGb && awayGb) {
       row.HomeGbTeamId = homeGb;
       row.AwayGbTeamId = awayGb;
-      row.Title = titleFromLockedGb(homeGb, awayGb, row.Title);
+      row.Title = titleFromLockedGb(homeGb, awayGb, row.Title || existing?.title);
     }
     else {
       const picked = titleFromMatchs(row.Matchs, matches);
       if (picked?.title)
         row.Title = picked.title;
+      else if (!row.Title && existing?.title)
+        row.Title = String(existing.title);
     }
   }
 }

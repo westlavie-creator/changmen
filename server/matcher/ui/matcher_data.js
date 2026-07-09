@@ -38,8 +38,8 @@ function recommendationGroupKey(m) {
   return { key: `${game.code}:${bucket}:${t1}:${t2}`, game, t1, t2 };
 }
 
-function isPlatformMatchLinkedForRec(m, clientMatches) {
-  const visibleClientMatches = filterVisibleClientMatches(clientMatches);
+function isPlatformMatchLinkedForRec(m, clientMatches, platforms = null) {
+  const visibleClientMatches = filterVisibleClientMatches(clientMatches, platforms);
   if (
     m?.match_id != null
     && m.match_id !== ""
@@ -52,12 +52,24 @@ function isPlatformMatchLinkedForRec(m, clientMatches) {
   );
 }
 
-function filterVisibleClientMatches(clientMatches) {
-  return (clientMatches || []).filter(cm => Object.keys(cm.matchs || {}).length >= 2);
+function filterVisibleClientMatches(clientMatches, platforms = null) {
+  return (clientMatches || []).filter((cm) => {
+    if (Object.keys(cm.matchs || {}).length < 2)
+      return false;
+    if (!platforms)
+      return true;
+    let live = 0;
+    for (const [plat, srcId] of Object.entries(cm.matchs || {})) {
+      const list = platforms[plat] || [];
+      if (list.some(m => String(m.source_match_id) === String(srcId)))
+        live++;
+    }
+    return live >= 1;
+  });
 }
 
-function resolveVisibleClientMatchId(m, clientMatches) {
-  const visibleClientMatches = filterVisibleClientMatches(clientMatches);
+function resolveVisibleClientMatchId(m, clientMatches, platforms = null) {
+  const visibleClientMatches = filterVisibleClientMatches(clientMatches, platforms);
   if (m?.match_id != null && m.match_id !== "") {
     const directId = Number(m.match_id);
     if (visibleClientMatches.some(cm => Number(cm.id) === directId))
@@ -69,7 +81,18 @@ function resolveVisibleClientMatchId(m, clientMatches) {
   return cm ? Number(cm.id) : null;
 }
 
+function platformsIndexFromMatchRows(allMatches) {
+  const byPlatform = {};
+  for (const m of allMatches || []) {
+    if (!byPlatform[m.platform])
+      byPlatform[m.platform] = [];
+    byPlatform[m.platform].push(m);
+  }
+  return byPlatform;
+}
+
 function computeRecommendations(allMatches, clientMatches = []) {
+  const platforms = platformsIndexFromMatchRows(allMatches);
   const groups = new Map();
 
   for (const m of allMatches) {
@@ -83,13 +106,13 @@ function computeRecommendations(allMatches, clientMatches = []) {
 
   return [...groups.values()]
     .filter(g => new Set(g.matches.map(m => m.platform)).size >= 2)
-    .filter(g => g.matches.some(m => !isPlatformMatchLinkedForRec(m, clientMatches)))
+    .filter(g => g.matches.some(m => !isPlatformMatchLinkedForRec(m, clientMatches, platforms)))
     .map((g) => {
-      const platforms = [...new Set(g.matches.map(m => m.platform))];
+      const platformsList = [...new Set(g.matches.map(m => m.platform))];
       const times = g.matches.map(m => normalizeEpochMs(m.start_time)).filter(t => t > 0);
       const startTime = times.length ? Math.min(...times) : 0;
       const timeDiffMs = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
-      let confidence = 0.6 + (platforms.length - 2) * 0.1;
+      let confidence = 0.6 + (platformsList.length - 2) * 0.1;
       if (timeDiffMs < 5 * 60 * 1000)
         confidence += 0.2;
       else if (timeDiffMs < 15 * 60 * 1000)
@@ -98,7 +121,7 @@ function computeRecommendations(allMatches, clientMatches = []) {
         game: g.game,
         t1: g.t1,
         t2: g.t2,
-        platforms,
+        platforms: platformsList,
         startTime,
         timeDiffMs,
         confidence: Math.min(confidence, 1.0),
@@ -200,12 +223,19 @@ function firstValue(...values) {
 }
 
 function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
+  const normalized = normalizeMatchesShape(matchesRaw);
+  // 用当前快照建平台索引，过滤掉挂载已全部失效的僵尸 client_matches
+  const livePlatformIndex = {};
+  for (const [platform, byId] of Object.entries(normalized || {})) {
+    livePlatformIndex[platform] = Object.values(byId || {}).map(m => ({
+      source_match_id: String(firstValue(m.SourceMatchID, m.source_match_id) ?? ""),
+    })).filter(r => r.source_match_id);
+  }
   const activeClientIds = new Set(
-    filterVisibleClientMatches(clientMatches)
+    filterVisibleClientMatches(clientMatches, livePlatformIndex)
       .map(cm => Number(cm.id))
       .filter(Number.isFinite),
   );
-  const normalized = normalizeMatchesShape(matchesRaw);
   const rows = [];
 
   for (const [platform, byId] of Object.entries(normalized || {})) {
@@ -240,7 +270,7 @@ function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
 function summarizeMatcherDashboard(data) {
   const platformRows = Object.values(data?.platforms || {}).flat();
   const clientMatches = data?.clientMatches || [];
-  const visibleClientMatches = filterVisibleClientMatches(clientMatches);
+  const visibleClientMatches = filterVisibleClientMatches(clientMatches, data?.platforms);
   const recKeys = new Set();
   for (const rec of data?.recommendations || []) {
     for (const m of rec.matches || [])
@@ -259,7 +289,7 @@ function summarizeMatcherDashboard(data) {
       byPlatform[m.platform] = { total: 0, linked: 0, unmatched: 0, inRecommendation: 0 };
     const bucket = byPlatform[m.platform];
     bucket.total++;
-    const cmId = resolveVisibleClientMatchId(m, clientMatches);
+    const cmId = resolveVisibleClientMatchId(m, clientMatches, data?.platforms);
     const recKey = `${m.platform}:${m.source_match_id}`;
     const recHit = recKeys.has(recKey);
     if (recHit) {

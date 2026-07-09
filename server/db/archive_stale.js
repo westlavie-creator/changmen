@@ -41,7 +41,7 @@ const CLIENT_ARCHIVE_SPECS = [
     history: "client_matches_history",
     column: "built_at",
     key: "client_matches",
-    cols: "id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport",
+    cols: "id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, home_gb_team_id, away_gb_team_id",
   },
 ];
 

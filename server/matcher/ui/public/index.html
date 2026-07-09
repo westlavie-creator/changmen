@@ -261,6 +261,7 @@
     .team-status { font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; }
     .ts-pending { background: #fbbf2418; color: #fbbf24; }
     .ts-done { background: #4ade8018; color: #4ade80; }
+    .ts-warn { background: #f8717118; color: #f87171; }
 
     .team-card-footer {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -556,12 +557,27 @@ function clientMatchPlatformCount(cm) {
   return Object.keys(cm?.matchs || {}).length;
 }
 
-function isDisplayClientMatch(cm) {
-  return clientMatchPlatformCount(cm) >= 2;
+function liveLinkedPlatformCount(cm, platforms) {
+  const byPlatform = platforms || _lastData?.platforms || {};
+  let n = 0;
+  for (const [plat, srcId] of Object.entries(cm?.matchs || {})) {
+    const list = byPlatform[plat] || [];
+    if (list.some(x => String(x.source_match_id) === String(srcId))) n++;
+  }
+  return n;
 }
 
-function resolvePlatformClientMatchId(m, platform, cms) {
-  const visibleCms = (cms || []).filter(isDisplayClientMatch);
+/** 至少 2 个挂载，且至少 1 个平台行仍在活跃快照（避免僵尸 client_matches 占栏） */
+function isDisplayClientMatch(cm, platforms) {
+  if (clientMatchPlatformCount(cm) < 2) return false;
+  const byPlatform = platforms || _lastData?.platforms;
+  if (!byPlatform) return true;
+  return liveLinkedPlatformCount(cm, byPlatform) >= 1;
+}
+
+function resolvePlatformClientMatchId(m, platform, cms, platforms) {
+  const byPlatform = platforms || _lastData?.platforms;
+  const visibleCms = (cms || []).filter(cm => isDisplayClientMatch(cm, byPlatform));
   if (m?.match_id != null && m.match_id !== '') {
     const directId = Number(m.match_id);
     if (visibleCms.some(cm => Number(cm.id) === directId)) return directId;
@@ -871,8 +887,8 @@ function pickReferenceMatch(matches) {
 function renderStats(d, displayCms) {
   const unmatched = countUnmatched(d.platforms, d.clientMatches);
   const orphan = countOrphans(d.platforms, d.recommendations, d.clientMatches);
-  const idMatched = displayCms.filter(cm => (cm.merge_mode?.mode || 'name') === 'id').length;
-  const nameMatched = displayCms.length - idMatched;
+  const idMatched = displayCms.filter(cm => clientMatchMergeMode(cm) === 'id').length;
+  const nameMatched = displayCms.filter(cm => clientMatchMergeMode(cm) === 'name').length;
   const debug = d.debug || {};
   document.getElementById('stats-bar').innerHTML = `
     <div class="stat"><div class="label">平台原始</div><div class="value c-slate">${debug.platformMatches ?? '—'}</div></div>
@@ -989,11 +1005,12 @@ async function fetchJson(url, options) {
 }
 
 function filterDisplayClientMatches(cms, platforms) {
-  return (cms || []).filter(isDisplayClientMatch);
+  const byPlatform = platforms || _lastData?.platforms;
+  return (cms || []).filter(cm => isDisplayClientMatch(cm, byPlatform));
 }
 
-function isPlatformMatchLinked(m, plat, cms) {
-  return resolvePlatformClientMatchId(m, plat, cms || []) != null;
+function isPlatformMatchLinked(m, plat, cms, platforms) {
+  return resolvePlatformClientMatchId(m, plat, cms || [], platforms || _lastData?.platforms) != null;
 }
 
 function countUnmatched(platforms, cms) {
@@ -1028,7 +1045,10 @@ function resolveGroupClientMatch(rec, cms) {
   for (const m of rec.matches || []) {
     const directId = resolvePlatformClientMatchId(m, m.platform, cms || []);
     if (directId != null) return directId;
-    const cm = (cms || []).find(c => String(c.matchs?.[m.platform] ?? '') === String(m.source_match_id));
+    const cm = (cms || []).find(c =>
+      isDisplayClientMatch(c)
+      && String(c.matchs?.[m.platform] ?? '') === String(m.source_match_id),
+    );
     if (cm) return Number(cm.id);
   }
   return null;
@@ -1180,7 +1200,10 @@ function renderTeamQueue(recs, cms, teamMaps) {
 }
 
 function clientMatchMergeMode(cm) {
-  return cm.merge_mode?.mode === 'id' ? 'id' : 'name';
+  const mode = cm.merge_mode?.mode;
+  if (mode === 'id') return 'id';
+  if (mode === 'name') return 'name';
+  return 'unknown';
 }
 
 function renderMatchedListForMode(cms, platforms, teamMaps, searchQuery, mode, containerId, countId, emptyDefault) {
@@ -1248,20 +1271,24 @@ function clientMatchStartTime(cm, platforms) {
 }
 
 function resolveClientMatchRows(cm, platforms) {
+  const titleParts = String(cm?.title || '').split(/\s+vs\s+/i);
+  const titleHome = titleParts.length === 2 ? titleParts[0].trim() : '';
+  const titleAway = titleParts.length === 2 ? titleParts[1].trim() : '';
   const rows = [];
   for (const [plat, srcId] of Object.entries(cm.matchs || {})) {
     const list = platforms[plat] || [];
     const m = list.find(x => String(x.source_match_id) === String(srcId));
     if (m) {
-      rows.push({ ...m, platform: plat });
+      rows.push({ ...m, platform: plat, _platformMissing: false });
     } else {
       rows.push({
         platform: plat,
         source_match_id: srcId,
-        home: '—',
-        away: '—',
+        home: titleHome || '—',
+        away: titleAway || '—',
         start_time: cm.start_time,
         game: { code: typeof cm.game === 'string' ? cm.game : cm.game?.code },
+        _platformMissing: true,
       });
     }
   }
@@ -1269,10 +1296,23 @@ function resolveClientMatchRows(cm, platforms) {
 }
 
 function clientMatchGameCode(cm, rows) {
-  const fromRow = rows[0]?.game?.code;
+  const fromRow = rows.find(r => r?.game?.code && !r._platformMissing)?.game?.code
+    || rows[0]?.game?.code;
+  if (fromRow && GAME_NAMES[fromRow]) return fromRow;
+  const a8Map = { 1: 'lol', 2: 'dota2', 3: 'cs2', 4: 'kog', 8: 'valorant' };
+  const gid = String(cm?.game_id ?? '').trim();
+  if (a8Map[gid] || a8Map[Number(gid)]) return a8Map[gid] || a8Map[Number(gid)];
+  const display = String(typeof cm.game === 'string' ? cm.game : cm.game?.code || '').trim().toLowerCase();
+  const byDisplay = {
+    'cs:go': 'cs2', csgo: 'cs2', cs2: 'cs2',
+    'league of legends': 'lol', lol: 'lol', '英雄联盟': 'lol',
+    'dota 2': 'dota2', dota2: 'dota2',
+    valorant: 'valorant', '无畏契约': 'valorant',
+    kog: 'kog', '王者荣耀': 'kog',
+  };
+  if (byDisplay[display]) return byDisplay[display];
   if (fromRow) return fromRow;
-  if (typeof cm.game === 'string') return cm.game;
-  return cm.game?.code || 'unknown';
+  return display || 'unknown';
 }
 
 function clientMatchMatchesTeamSearch(cm, platforms, query) {
@@ -1307,7 +1347,19 @@ function teamNamesLikelySame(a, b) {
   return false;
 }
 
-function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName) {
+function lockedGbForSide(cm, side) {
+  const raw = side === 'home' ? cm?.home_gb_team_id : cm?.away_gb_team_id;
+  if (raw == null || raw === '') return null;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return String(n);
+  const s = String(raw).trim();
+  return s || null;
+}
+
+function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName, cm) {
+  const locked = lockedGbForSide(cm, side);
+  if (locked) return locked;
+
   const ref = pickClientMatchSideRow(rows, side, gameCode);
   const name = String(anchorName || (side === 'home' ? ref.row.home : ref.row.away) || '').trim();
   const gc = gameCode || ref.row.game?.code;
@@ -1315,6 +1367,7 @@ function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorN
   let pending = false;
 
   for (const m of rows) {
+    if (m._platformMissing) continue;
     const mgc = gc || m.game?.code;
     for (const slot of ['home', 'away']) {
       const slotName = (slot === 'home' ? m.home : m.away || '').trim();
@@ -1364,10 +1417,11 @@ function clientMatchSideAnchorName(cm, rows, side) {
 
 function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId, cm) {
   const anchorName = clientMatchSideAnchorName(cm, rows, side);
-  const canonical = resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName);
+  const canonical = resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName, cm);
   const { row, platformId } = pickClientMatchSideRow(rows, side, gameCode);
   const platform = row.platform;
-  const name = side === 'home' ? row.home : row.away;
+  // client_matches.title 是 changmen 自有队名；平台行仅作挂载明细
+  const name = anchorName || (side === 'home' ? row.home : row.away) || '';
   const pending = canonical === '__pending__';
   const canonVal = pending || canonical == null ? '' : String(canonical);
   let gbLabel;
@@ -1424,9 +1478,12 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
   const reverseSet = new Set(Array.isArray(cm?.reverse) ? cm.reverse : []);
   const rowsHtml = visible.map(m => {
     const isReversed = reverseSet.has(m.platform);
+    const status = m._platformMissing
+      ? '<span class="team-status ts-warn" title="平台场次已不在活跃快照">已失效</span>'
+      : '<span class="team-status ts-done">已映射</span>';
     return `<tr>
       <td class="col-match-id">${renderMatchLinkCell(m, m.platform, cms)}</td>
-      <td class="col-platform">${pbadge(m.platform)} <span class="team-status ts-done">已映射</span></td>
+      <td class="col-platform">${pbadge(m.platform)} ${status}</td>
       <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'home' } : null)}</td>
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
       <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away' } : null)}</td>
@@ -1443,21 +1500,24 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
 function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
   const rows = resolveClientMatchRows(cm, platforms);
   if (!rows.length) return '';
-  const gameCode = clientMatchGameCode(cm, rows);
+  const liveRows = rows.filter(r => !r._platformMissing);
+  if (!liveRows.length) return '';
+  const gameCode = clientMatchGameCode(cm, liveRows.length ? liveRows : rows);
   const tableHtml = renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm);
   if (!tableHtml) return '';
-  const teamsIdMapped = clientMatchTeamsFullyIdMapped(rows, teamMaps, gameCode);
+  const teamsIdMapped = clientMatchTeamsFullyIdMapped(liveRows, teamMaps, gameCode);
   const idBannerClass = teamsIdMapped ? 'client-match-id-banner teams-id-mapped' : 'client-match-id-banner';
   const idBannerTitle = teamsIdMapped
     ? '主客队平台 ID 均已映射 gb_team_id · 可接收未匹配场次拖入合并'
     : '接收未匹配场次拖入合并';
+  const missingCount = rows.length - liveRows.length;
   const footerHint = columnMode === 'id'
-    ? `ID 已匹配 · ${rows.length} 个平台 · 可拖黄方点合并其它赛事`
+    ? `ID 已匹配 · ${liveRows.length} 个平台${missingCount ? ` · ${missingCount} 个已失效` : ''} · 可拖黄方点合并其它赛事`
     : teamsIdMapped
-      ? `ID 映射已齐 · ${rows.length} 个平台 · 合并依据仍为队名阶段 · 可拖黄方点合并同场`
-      : `队名已匹配 · ${rows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
-  const homeSlot = renderTitleTeamSlot('home', rows, teamMaps, gameCode, cm.id, cm);
-  const awaySlot = renderTitleTeamSlot('away', rows, teamMaps, gameCode, cm.id, cm);
+      ? `ID 映射已齐 · ${liveRows.length} 个平台 · 合并依据仍为队名阶段 · 可拖黄方点合并同场`
+      : `队名已匹配 · ${liveRows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
+  const homeSlot = renderTitleTeamSlot('home', liveRows.length ? liveRows : rows, teamMaps, gameCode, cm.id, cm);
+  const awaySlot = renderTitleTeamSlot('away', liveRows.length ? liveRows : rows, teamMaps, gameCode, cm.id, cm);
   return `<article class="team-card matched" data-cm-id="${cm.id}">
     <div class="team-card-header">
       <div class="matched-header-layout">
