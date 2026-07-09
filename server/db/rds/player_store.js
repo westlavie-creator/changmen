@@ -137,6 +137,33 @@ export async function fetchPlayerByPlatformAndName(platformId, playerName, owner
   }
 }
 
+/** CreateTagPlatform 回退：历史数据 platform_id 可能与 tag_platforms 不一致 */
+export async function fetchPlayerByPlatformNameAndPlayerName(platformName, playerName, ownerUserId) {
+  const label = String(platformName || "").trim();
+  const name = String(playerName || "").trim();
+  const uid = String(ownerUserId || "").trim();
+  if (!label || !name || !uid)
+    return null;
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${PLAYER_SELECT}
+       FROM players
+       WHERE platform_name = $1 AND player_name = $2 AND owner_user_id = $3::uuid AND deleted_at IS NULL
+       ORDER BY id ASC
+       LIMIT 1`,
+      [label, name, uid],
+    );
+    return _mapPlayerRow(rows?.[0]);
+  }
+  catch (err) {
+    console.warn("[rds] fetchPlayerByPlatformNameAndPlayerName:", err.message);
+    return null;
+  }
+}
+
 export async function fetchPlayerById(playerId) {
   const id = Number(playerId);
   if (!Number.isFinite(id) || id <= 0)

@@ -100,7 +100,7 @@ export async function createTagPlatformForAccount(
   return created;
 }
 
-/** [A8 可证实] Io.createAccount：accountId 仅来自 CreateTagPlatform.playerId */
+/** [A8 可证实] Io.createAccount：find(accountId) → update，否则 push；再 SaveData + 刷新 */
 export async function createAccount(
   store: AccountStoreContext,
   record: AccountRecord,
@@ -108,15 +108,36 @@ export async function createAccount(
   if (!record.accountId) {
     throw new Error("accountId 必须来自 CreateTagPlatform 返回的 playerId");
   }
-  const existing = store.findAccount(record.accountId);
-  if (existing) {
-    existing.applyPatch(record);
+  const byId = store.findAccount(record.accountId);
+  if (byId) {
+    byId.applyPatch(record);
   }
   else {
-    store.accounts.push(new PlatformAccount(record));
+    // [changmen 扩展] CreateTagPlatform 复用失败时可能返回新 playerId；
+    // 同平台名+账号名已存在则原地更新并保留原 accountId，避免列表出现重复卡。
+    const platformName = String(record.platformName || "").trim();
+    const playerName = String(record.playerName || "").trim();
+    const byName = store.accounts.find(
+      a =>
+        String(a.platformName || "").trim() === platformName
+        && String(a.playerName || "").trim() === playerName,
+    );
+    if (byName) {
+      const { accountId: _discardNewId, ...patch } = record;
+      byName.applyPatch(patch);
+    }
+    else {
+      store.accounts.push(new PlatformAccount(record));
+    }
   }
   await persistAccounts(store);
-  const acc = store.findAccount(record.accountId);
+  const acc
+    = store.findAccount(record.accountId)
+      ?? store.accounts.find(
+        a =>
+          String(a.platformName || "").trim() === String(record.platformName || "").trim()
+          && String(a.playerName || "").trim() === String(record.playerName || "").trim(),
+      );
   if (acc) {
     await acc.updateBalance();
     await acc.updateOrders();

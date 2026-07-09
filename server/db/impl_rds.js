@@ -89,6 +89,7 @@ export {
   countActivePlayersByOwner,
   fetchAccountRecordsByOwner,
   fetchPlayerByPlatformAndName,
+  fetchPlayerByPlatformNameAndPlayerName,
   fetchPlayerById,
   fetchPlayersByIds,
   fetchTagPlatforms,

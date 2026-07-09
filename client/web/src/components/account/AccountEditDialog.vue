@@ -469,8 +469,38 @@ async function save() {
   let loading: ReturnType<typeof ElLoading.service> | undefined;
   try {
     const patch = await buildPatch();
-    // [A8 可证实] AccountInfoView.w：createTagPlatform({ loading }) → 关弹窗 → createAccount
     loading = ElLoading.service({ fullscreen: true, text: "保存中..." });
+
+    // 编辑已有账号：必须保留原 accountId。
+    // [A8 可证实] AccountInfoView.w 每次都 CreateTagPlatform，靠官方服务端按
+    // platform+playerName 幂等返回同一 playerId；Io.createAccount 再 find→update。
+    // changmen 若复用失败会 insert 新 player → createAccount push → 列表多出一张卡。
+    // 因此编辑走原地 patch + SaveData；仅新建走 CreateTagPlatform。
+    if (props.account?.accountId) {
+      const acc = props.account;
+      acc.applyPatch({
+        ...patch,
+        platformName: patch.platformName,
+        playerName: patch.playerName,
+        updateTime: Date.now(),
+      });
+      await accountStore.saveAccounts();
+      ElMessage.success("账号设置已保存");
+      emit("close");
+      void (async () => {
+        try {
+          await accountStore.refreshBalance(acc);
+          await accountStore.updateVenueOrders(acc);
+        }
+        catch (err) {
+          console.error("[account] refresh after edit save", err);
+          ElMessage.error(err instanceof Error ? err.message : "账号刷新失败");
+        }
+      })();
+      return;
+    }
+
+    // [A8 可证实] 新建：createTagPlatform({ loading }) → 关弹窗 → createAccount
     const created = await accountStore.createTagPlatform(
       patch.platformName,
       patch.playerName,

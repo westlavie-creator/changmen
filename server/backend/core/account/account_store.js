@@ -22,7 +22,11 @@ async function createTagPlatform(platformName, playerName, ownerUserId) {
     throw new Error("CreateTagPlatform 需要 DATABASE_URL（RDS tag_platforms / players）");
   }
 
-  const existing = await sb.fetchPlayerByPlatformAndName(platform.id, name, uid);
+  // 优先按 tag_platforms.id + player_name 复用；历史数据 platform_id 漂移时
+  // 再按 platform_name + player_name 回退，避免编辑保存 insert 出重复 player。
+  let existing = await sb.fetchPlayerByPlatformAndName(platform.id, name, uid);
+  if (!existing)
+    existing = await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid);
   if (existing) {
     return {
       playerId: existing.playerId,
@@ -39,6 +43,17 @@ async function createTagPlatform(platformName, playerName, ownerUserId) {
     ownerUserId: uid,
   });
   if (!player) {
+    // 并发/唯一约束冲突时再查一次，避免前端拿到失败后重试又插一条
+    const raced = await sb.fetchPlayerByPlatformAndName(platform.id, name, uid)
+      || await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid);
+    if (raced) {
+      return {
+        playerId: raced.playerId,
+        playerName: raced.playerName,
+        platformId: raced.platformId,
+        platformName: platform.name,
+      };
+    }
     throw new Error("CreateTagPlatform 写入 players 失败");
   }
 
