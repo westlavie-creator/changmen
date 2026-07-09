@@ -1,6 +1,6 @@
 /** [Polymarket 可证实] CLOB V2 订单归因：Builder Profile 的 bytes32 builder code */
 export const POLYMARKET_BUILDER_CODE_DEFAULT
-  = "0x59a473c923fab47f442e9a230daf6654fccd173afac195e8990ff5e5006e74d0";
+  = "0x58ec38dac8719b354dfd2a47d6ac27ab01babea9102a993c1abe4af30ec2883f";
 
 const BUILDER_CODE_RE = /^0x[0-9a-fA-F]{64}$/;
 
