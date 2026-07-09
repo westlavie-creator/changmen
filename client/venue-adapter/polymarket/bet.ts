@@ -362,7 +362,8 @@ async function createPolymarketOrderBody(
     builderConfig: { builderCode },
   });
   Reflect.set(client, "cachedVersion", 2);
-  client.tickSizes[tokenId] = orderOptions.tickSize;
+  // SDK TickSize 尚未含官方 0.0025；运行时仍按 book tick 写入
+  client.tickSizes[tokenId] = orderOptions.tickSize as any;
   client.negRisk[tokenId] = orderOptions.negRisk;
   client.feeInfos[tokenId] = { rate: 0, exponent: 0 };
   // SDK 会 GET /fees/builder-fees/{code}；浏览器走插件，此处预填避免 ClobClient 直连 axios 卡住/跨域
@@ -372,7 +373,7 @@ async function createPolymarketOrderBody(
     price,
     amount,
     side: clob.Side.BUY,
-  }, orderOptions);
+  }, orderOptions as any);
   if (!clob.isV2Order(signedOrder))
     throw new Error("Polymarket SDK 未生成 CLOB v2 订单");
   return clob.orderToJsonV2(signedOrder, creds.apiKey!, clob.OrderType.FOK, false, false);

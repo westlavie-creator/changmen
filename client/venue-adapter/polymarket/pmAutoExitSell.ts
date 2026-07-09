@@ -232,7 +232,7 @@ async function createPolymarketGtcSellOrderBody(
     size: shares,
     side: clob.Side.SELL,
   }, {
-    tickSize: orderOptions.tickSize,
+    tickSize: orderOptions.tickSize as any,
     negRisk: orderOptions.negRisk,
   });
   if (!clob.isV2Order(signedOrder))
