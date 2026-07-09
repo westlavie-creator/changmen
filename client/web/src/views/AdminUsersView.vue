@@ -80,6 +80,12 @@ interface TeamGroup {
   users: AdminUserRow[];
 }
 
+function sortUsersByName(list: AdminUserRow[]): AdminUserRow[] {
+  return [...list].sort((a, b) =>
+    a.userName.localeCompare(b.userName, "zh-CN", { sensitivity: "base" }),
+  );
+}
+
 const groupedUsers = computed<TeamGroup[]>(() => {
   const map = new Map<string, AdminUserRow[]>();
   for (const u of filteredUsers.value) {
@@ -92,17 +98,17 @@ const groupedUsers = computed<TeamGroup[]>(() => {
   for (const t of teams.value) {
     const list = map.get(t.id);
     if (list?.length) {
-      groups.push({ teamId: t.id, label: t.name, users: list });
+      groups.push({ teamId: t.id, label: t.name, users: sortUsersByName(list) });
       map.delete(t.id);
     }
   }
   const none = map.get("__none__");
   if (none?.length) {
-    groups.push({ teamId: null, label: "未分组", users: none });
+    groups.push({ teamId: null, label: "未分组", users: sortUsersByName(none) });
   }
   for (const [key, list] of map) {
     if (key !== "__none__" && list.length) {
-      groups.push({ teamId: key, label: key, users: list });
+      groups.push({ teamId: key, label: key, users: sortUsersByName(list) });
     }
   }
   return groups;
