@@ -4,7 +4,7 @@
   border: 1px solid #2a6ebb;
   border-radius: 5px;
   margin: 0;
-  padding: 4px 6px 6px;
+  padding: 6px 8px 8px;
   min-inline-size: 0;
   background: linear-gradient(to bottom, #1a2a3a, #0d1520);
   box-sizing: border-box;
@@ -14,14 +14,14 @@
 }
 
 .home-main .active-bet-run {
-  flex: 0 0 260px;
-  height: 260px;
+  flex: 0 0 300px;
+  height: 300px;
   margin: 6px 10px;
 }
 
 .active-bet-run legend {
-  font-size: 13px;
-  padding: 0 5px;
+  font-size: 14px;
+  padding: 0 6px;
   color: #e8f4ff;
   background: linear-gradient(to bottom, #3a7bd5, #1e4f8a);
   border: 1px solid #5a9de0;
@@ -45,20 +45,20 @@
   align-items: center;
   justify-content: center;
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: #94a3b8;
   opacity: 0.9;
 }
 
-/* 横向一栏 = 一笔进行中的订单（加宽以完整显示状态文案） */
+/* 横向一栏 = 一笔进行中的订单 */
 .active-bet-run__col {
-  flex: 0 0 380px;
-  width: 380px;
+  flex: 0 0 460px;
+  width: 460px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 5px 8px 5px 10px;
-  font-size: 13px;
+  gap: 6px;
+  padding: 6px 10px 6px 12px;
+  font-size: 14px;
   color: #e8f4ffcc;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   border-left: 3px solid transparent;
@@ -92,20 +92,20 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
+  gap: 6px;
   flex: 0 0 auto;
-  line-height: 1.25;
+  line-height: 1.3;
 }
 
 .active-bet-run__col-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #b8dcff;
   white-space: nowrap;
 }
 
 .active-bet-run__phase {
-  font-size: 12px;
+  font-size: 13px;
   color: #7ec8ff;
   white-space: nowrap;
   text-align: right;
@@ -122,15 +122,15 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   flex: 0 0 auto;
   min-width: 0;
-  line-height: 1.25;
+  line-height: 1.3;
   cursor: default;
 }
 
 .active-bet-run__match {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -145,7 +145,7 @@
 }
 
 .active-bet-run__bet {
-  font-size: 12px;
+  font-size: 13px;
   opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
@@ -157,7 +157,7 @@
 .active-bet-run__legs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -165,66 +165,58 @@
 .active-bet-run__leg {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 4px 5px;
-  border-radius: 2px;
+  gap: 4px;
+  padding: 6px 7px;
+  border-radius: 3px;
   background: rgba(0, 0, 0, 0.25);
-  font-size: 12px;
-  line-height: 1.3;
+  font-size: 13px;
+  line-height: 1.35;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
 
-.active-bet-run__leg-head {
+.active-bet-run__leg-meta {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  gap: 5px;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .active-bet-run__leg-side {
   flex: 0 0 auto;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   opacity: 0.55;
   letter-spacing: 0.02em;
 }
 
 .active-bet-run__leg-platform {
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: #e8f4ff;
 }
 
 .active-bet-run__leg-target {
-  opacity: 0.9;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.active-bet-run__leg-quote {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  opacity: 0.92;
 }
 
 .active-bet-run__leg-odds {
-  font-size: 12px;
+  flex: 0 0 auto;
   opacity: 0.9;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 .active-bet-run__leg-money {
-  font-size: 12px;
+  flex: 0 0 auto;
   color: #b8dcff;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  font-weight: 600;
 }
 
 .active-bet-run__leg--skipped {
@@ -233,24 +225,24 @@
 
 .active-bet-run__leg-events {
   list-style: none;
-  margin: 2px 0 0;
-  padding: 2px 0 0;
+  margin: 0;
+  padding: 4px 0 0;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 88px;
+  max-height: 120px;
   overflow-y: auto;
 }
 
 .active-bet-run__leg-event {
   display: flex;
   align-items: baseline;
-  gap: 3px;
-  font-size: 10px;
-  line-height: 1.25;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 1.35;
   opacity: 0.72;
   min-width: 0;
 }
@@ -262,8 +254,33 @@
 .active-bet-run__leg-event-stage {
   flex: 0 0 auto;
   color: #7ec8ff;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
+}
+
+.active-bet-run__leg-event-stage[data-layer="预检"] {
+  color: #90caf9;
+}
+
+.active-bet-run__leg-event-stage[data-layer="下单"] {
+  color: #ffd54f;
+}
+
+.active-bet-run__leg-event-stage[data-layer="拒单"] {
+  color: #ce93d8;
+}
+
+.active-bet-run__leg-event-stage[data-layer="补单"] {
+  color: #ffb74d;
+}
+
+.active-bet-run__leg--confirmed .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage[data-layer="拒单"] {
+  color: #6fdc8c;
+}
+
+.active-bet-run__leg--rejected .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage[data-layer="拒单"],
+.active-bet-run__leg--failed .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage {
+  color: #ff8a80;
 }
 
 .active-bet-run__leg-event-detail {
@@ -277,8 +294,8 @@
 .active-bet-run__events {
   list-style: none;
   margin: 0;
-  padding: 3px 0 0;
-  flex: 1 1 auto;
+  padding: 4px 0 0;
+  flex: 0 0 auto;
   min-height: 0;
   overflow-y: auto;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -288,15 +305,15 @@
 }
 
 .active-bet-run__events--run {
-  max-height: 56px;
+  max-height: 64px;
 }
 
 .active-bet-run__event {
   display: flex;
   align-items: baseline;
-  gap: 4px;
-  font-size: 11px;
-  line-height: 1.3;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 1.35;
   opacity: 0.72;
   min-width: 0;
 }
@@ -308,7 +325,23 @@
 .active-bet-run__event-stage {
   flex: 0 0 auto;
   color: #7ec8ff;
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.active-bet-run__event-stage[data-layer="预检"] {
+  color: #90caf9;
+}
+
+.active-bet-run__event-stage[data-layer="下单"] {
+  color: #ffd54f;
+}
+
+.active-bet-run__event-stage[data-layer="拒单"] {
+  color: #ce93d8;
+}
+
+.active-bet-run__event-stage[data-layer="补单"] {
+  color: #ffb74d;
 }
 
 .active-bet-run__event-detail {
@@ -317,20 +350,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.active-bet-run__leg--confirmed .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage {
-  color: #6fdc8c;
-}
-
-.active-bet-run__leg--rejected .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage,
-.active-bet-run__leg--failed .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage {
-  color: #ff8a80;
-}
-
-.active-bet-run__leg--placing .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage,
-.active-bet-run__leg--submitted .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage,
-.active-bet-run__leg--pending_confirm .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage,
-.active-bet-run__leg--makeup .active-bet-run__leg-event--latest .active-bet-run__leg-event-stage {
-  color: #ffd54f;
 }

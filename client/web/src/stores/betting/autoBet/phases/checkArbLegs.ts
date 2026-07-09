@@ -12,8 +12,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import {
   scheduleActiveBetRunRemoval,
   syncActiveBetFail,
-  syncActiveBetLeg,
   syncActiveBetPhase,
+  syncActiveBetPrecheckResults,
 } from "@/stores/betting/activeBetRunSync";
 
 function stripPrecheckError(raw?: string): string {
@@ -41,7 +41,7 @@ export async function checkArbLegs(
   checkAccountA = checkAccountA ?? accountA;
   checkAccountB = checkAccountB ?? accountB;
 
-  syncActiveBetPhase(bet.id, "checking", "账号预检");
+  syncActiveBetPhase(bet.id, "checking", "正在预检");
 
   if (checkAccountA)
     checkAccountA.active = true;
@@ -57,7 +57,14 @@ export async function checkArbLegs(
     const pmBlock = getPolymarketPmSportBlockReasonFromOption(leg);
     if (pmBlock) {
       trace?.finish("fail", `${leg.type} ${leg.target}: ${pmBlock}`);
-      syncActiveBetLeg(bet.id, side, "failed", pmBlock);
+      syncActiveBetPrecheckResults(bet.id, {
+        hasA: side === "A",
+        okA: false,
+        detailA: side === "A" ? pmBlock : undefined,
+        hasB: side === "B",
+        okB: false,
+        detailB: side === "B" ? pmBlock : undefined,
+      });
       scheduleActiveBetRunRemoval(bet.id);
       await wait(1000);
       return null;
@@ -130,19 +137,30 @@ export async function checkArbLegs(
       legPrecheckFailLabel("A"),
       legPrecheckFailLabel("B"),
     ].filter(Boolean);
-    if (checkAccountA && !legA.data) {
-      const detail = stripPrecheckError(legA.checkError) || "无盘口数据";
-      syncActiveBetLeg(bet.id, "A", "failed", detail);
-    }
-    if (checkAccountB && !legB.data) {
-      const detail = stripPrecheckError(legB.checkError) || "无盘口数据";
-      syncActiveBetLeg(bet.id, "B", "failed", detail);
-    }
+    syncActiveBetPrecheckResults(bet.id, {
+      hasA: Boolean(checkAccountA),
+      okA: Boolean(checkAccountA && legA.data),
+      detailA: checkAccountA && !legA.data
+        ? (stripPrecheckError(legA.checkError) || "无盘口数据")
+        : undefined,
+      hasB: Boolean(checkAccountB),
+      okB: Boolean(checkAccountB && legB.data),
+      detailB: checkAccountB && !legB.data
+        ? (stripPrecheckError(legB.checkError) || "无盘口数据")
+        : undefined,
+    });
     trace?.finish("fail", parts.join(" · ") || "预检未通过");
     scheduleActiveBetRunRemoval(bet.id);
     await wait(1000);
     return null;
   }
+
+  syncActiveBetPrecheckResults(bet.id, {
+    hasA: Boolean(checkAccountA),
+    okA: true,
+    hasB: Boolean(checkAccountB),
+    okB: true,
+  });
 
   // [A8 可证实] 预检通过后不再改 betMoney（PM 同：计划额 + 场馆跌价拒单）；orderIndex 在 checkTimeout 之前赋值
   if (accountA)

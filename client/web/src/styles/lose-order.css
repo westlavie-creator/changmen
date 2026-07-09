@@ -105,9 +105,11 @@
 /* ── 创建补单弹窗（对齐 A8 CreateLoseView + Element Plus 浅色表单） ── */
 .create-lose-dialog.el-dialog {
   --el-dialog-width: 400px;
+  --el-dialog-margin-top: 5vh;
   width: 400px;
   max-width: calc(100vw - 32px);
-  margin: 15vh auto 0;
+  /* [changmen 扩展] 比 A8 默认 15vh 更高；其余 CreateLose 行为严格对齐 A8 */
+  margin: 5vh auto 0;
   background: #fff;
   border-radius: 4px;
   box-shadow: 0 12px 32px 4px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(0, 0, 0, 0.08);

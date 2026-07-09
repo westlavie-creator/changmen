@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoseOrder } from "@/models/loseOrder";
 import { useActiveBetRunStore, legPlacementStatusLabel } from "@/stores/activeBetRunStore";
-import { syncActiveBetBegin, syncActiveBetAfterRejectSync, syncActiveBetPlaceResults, syncActiveBetPhase } from "@/stores/betting/activeBetRunSync";
+import { syncActiveBetBegin, syncActiveBetAfterRejectSync, syncActiveBetPlaceResults, syncActiveBetPhase, syncActiveBetPrecheckResults } from "@/stores/betting/activeBetRunSync";
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({
@@ -150,7 +150,7 @@ describe("activeBetRunStore", () => {
     })).toBe("仅预检");
   });
 
-  it("patchLeg appends event when leg status changes", () => {
+  it("patchLeg appends layered event when leg status changes", () => {
     const store = useActiveBetRunStore();
     syncActiveBetBegin({
       match: { id: 1, title: "A vs B" } as never,
@@ -163,9 +163,10 @@ describe("activeBetRunStore", () => {
       betBothLegs: true,
     });
 
-    store.patchLeg(100, "A", { status: "placing" });
+    store.setPhase(100, "placing", "提交场馆订单");
+    store.patchLeg(100, "A", { status: "placing", detail: "下单中" });
     const legA = store.visibleRuns[0]?.legs.find(l => l.side === "A");
-    expect(legA?.events.some(e => e.stage === "下单中")).toBe(true);
+    expect(legA?.events.some(e => e.stage === "下单" && e.detail === "下单中")).toBe(true);
   });
 
   it("phase updates append to run timeline only, not both legs", () => {
@@ -181,11 +182,11 @@ describe("activeBetRunStore", () => {
       betBothLegs: true,
     });
 
-    syncActiveBetPhase(100, "checking", "账号预检");
+    syncActiveBetPhase(100, "checking", "正在预检");
 
     const run = store.visibleRuns[0]!;
-    expect(run.events.some(e => e.stage === "预检" && e.detail === "账号预检")).toBe(true);
-    expect(run.legs.every(l => !l.events.some(e => e.detail === "账号预检"))).toBe(true);
+    expect(run.events.some(e => e.stage === "预检" && e.detail === "正在预检")).toBe(true);
+    expect(run.legs.every(l => l.events.some(e => e.stage === "预检" && e.detail === "正在预检"))).toBe(true);
   });
 
   it("appendEvent skips consecutive duplicate stage+detail", () => {
@@ -201,12 +202,12 @@ describe("activeBetRunStore", () => {
       betBothLegs: true,
     });
 
-    store.appendEvent(100, "预检", "账号预检");
-    store.appendEvent(100, "预检", "账号预检");
-    expect(store.visibleRuns[0]!.events.filter(e => e.detail === "账号预检")).toHaveLength(1);
+    store.appendEvent(100, "预检", "正在预检");
+    store.appendEvent(100, "预检", "正在预检");
+    expect(store.visibleRuns[0]!.events.filter(e => e.detail === "正在预检")).toHaveLength(1);
   });
 
-  it("place results append confirm line under successful non-PM leg", () => {
+  it("precheck results append 正在预检 / 预检通过 / 预检失败", () => {
     const store = useActiveBetRunStore();
     syncActiveBetBegin({
       match: { id: 1, title: "A vs B" } as never,
@@ -219,6 +220,42 @@ describe("activeBetRunStore", () => {
       betBothLegs: true,
     });
 
+    const beginA = store.visibleRuns[0]!.legs.find(l => l.side === "A")!;
+    expect(beginA.events.some(e => e.stage === "预检" && e.detail === "正在预检")).toBe(true);
+
+    store.setPhase(100, "checking", "正在预检");
+    syncActiveBetPrecheckResults(100, {
+      hasA: true,
+      okA: true,
+      hasB: true,
+      okB: false,
+      detailB: "盘口价高于检测价",
+    });
+
+    const run = store.visibleRuns[0]!;
+    const legA = run.legs.find(l => l.side === "A")!;
+    const legB = run.legs.find(l => l.side === "B")!;
+    expect(legA.events.some(e => e.stage === "预检" && e.detail === "预检通过")).toBe(true);
+    expect(legB.status).toBe("failed");
+    expect(legB.events.some(e => e.stage === "预检" && e.detail.includes("预检失败"))).toBe(true);
+  });
+
+  it("place results append 预检/下单/拒单 layered timeline", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "Polymarket", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "pm1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    store.setPhase(100, "checking", "正在预检");
+    syncActiveBetPrecheckResults(100, { hasA: true, okA: true, hasB: true, okB: true });
+    store.setPhase(100, "placing", "提交场馆订单");
     syncActiveBetPlaceResults(
       100,
       { success: true, message: "投注成功" },
@@ -230,11 +267,12 @@ describe("activeBetRunStore", () => {
     const run = store.visibleRuns[0]!;
     const legA = run.legs.find(l => l.side === "A")!;
     const legB = run.legs.find(l => l.side === "B")!;
-    expect(legA.events.some(e => e.stage === "已提交")).toBe(true);
-    expect(legA.events.some(e => e.stage === "确认" && e.detail === "等待场馆确认")).toBe(true);
-    expect(legB.events.some(e => e.stage === "下单失败" && e.detail === "API 失败")).toBe(true);
-    expect(legB.events.some(e => e.detail === "等待场馆确认")).toBe(false);
-    expect(run.events.some(e => e.detail === "等待场馆确认")).toBe(true);
+    expect(legA.events.some(e => e.stage === "预检" && e.detail === "预检通过")).toBe(true);
+    expect(legA.events.some(e => e.stage === "下单" && e.detail === "投注成功")).toBe(true);
+    expect(legA.events.some(e => e.stage === "拒单" && e.detail === "等待场馆确认")).toBe(true);
+    expect(legB.events.some(e => e.stage === "下单" && e.detail === "API 失败")).toBe(true);
+    expect(legB.events.some(e => e.stage === "拒单")).toBe(false);
+    expect(run.events.some(e => e.stage === "拒单" && e.detail === "等待场馆确认")).toBe(true);
   });
 
   it("removes run when both legs fail without makeup", () => {

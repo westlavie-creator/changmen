@@ -6,6 +6,7 @@ import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import DirectRealtimeBadge from "@/components/layout/DirectRealtimeBadge.vue";
 import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
+import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
 import ActiveBetRunView from "@/components/order/ActiveBetRunView.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
@@ -15,14 +16,21 @@ import {
   stopAppSession,
 } from "@/runtime/appSession";
 import { useAccountStore } from "@/stores/accountStore";
+import { useCreateLoseDialogStore } from "@/stores/createLoseDialogStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
 const matchStore = useMatchStore();
 const accountStore = useAccountStore();
+const createLoseDialog = useCreateLoseDialogStore();
 const { matchs } = storeToRefs(matchStore);
 const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
+const {
+  open: createLoseOpen,
+  match: createLoseMatch,
+  bet: createLoseBet,
+} = storeToRefs(createLoseDialog);
 
 startAppSession();
 
@@ -77,6 +85,13 @@ async function logout() {
     :open="editDialogOpen"
     :account="editDialogAccount"
     @close="accountStore.closeAccountDialog()"
+  />
+  <!-- [A8 可证实] HomeView 单例 CreateLoseView：v-if + match/bet/close -->
+  <CreateLoseDialog
+    v-if="createLoseOpen && createLoseMatch && createLoseBet"
+    :match="createLoseMatch"
+    :bet="createLoseBet"
+    @close="createLoseDialog.close()"
   />
   <el-container class="common-layout home-view">
     <el-aside width="260px">

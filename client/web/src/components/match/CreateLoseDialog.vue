@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
 import { storeToRefs } from "pinia";
-import { computed, reactive, ref, watch } from "vue";
+import { reactive, ref } from "vue";
 import { LoseOrder } from "@/models/loseOrder";
 import { createLoseTargetOdds } from "@/stores/betting/createLoseOdds";
 import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/lose-order.css";
 
+/** [A8 可证实] CreateLoseView：HomeView v-if 挂载，modelValue 初始 true；setup 时一次性取赔 */
 const props = defineProps<{
-  open: boolean;
-  match?: ViewMatch;
-  bet?: ViewBet;
+  match: ViewMatch;
+  bet: ViewBet;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -20,43 +20,22 @@ const user = useUserStore();
 const loseStore = useLoseOrderStore();
 const { config } = storeToRefs(user);
 
-const visible = ref(false);
+const visible = ref(true);
 
-let form = reactive({
+function maxOdds(side: BetSide) {
+  return Math.max(...props.bet.items.map(item => item.getOdds(side)));
+}
+
+// [A8 可证实] form 含 profit 字段（未展示）；odds 初始 = maxOdds(Home)，切边才 +0.5
+const form = reactive({
   target: "Home" as BetSide,
-  betMoney: 100,
-  odds: 0,
+  betMoney: config.value.betMoney,
+  profit: config.value.profit,
+  odds: maxOdds("Home"),
   betCount: 1,
 });
 
 const sides: BetSide[] = ["Home", "Away"];
-
-function maxOdds(side: BetSide) {
-  if (!props.bet)
-    return 0;
-  return Math.max(...props.bet.items.map(item => item.getOdds(side)));
-}
-
-watch(
-  () => props.open,
-  (open) => {
-    visible.value = open;
-  },
-  { immediate: true },
-);
-
-watch(
-  () => [props.open, props.bet] as const,
-  ([open, bet]) => {
-    if (!open || !bet)
-      return;
-    form.target = "Home";
-    form.betMoney = config.value.betMoney;
-    form.odds = maxOdds("Home");
-    form.betCount = 1;
-  },
-  { immediate: true },
-);
 
 function onTargetChange() {
   form.odds = createLoseTargetOdds(maxOdds(form.target));
@@ -67,28 +46,23 @@ function onClosed() {
 }
 
 function confirm() {
-  if (!props.match || !props.bet)
-    return;
+  // [A8 可证实] new Ly(..., linkId=0, createAt=void 0, isCreateOrder=true, betCount)
   const order = new LoseOrder({
     accountId: 0,
     matchId: props.match.id,
     betId: props.bet.id,
     target: form.target,
-    betMoney: form.betMoney,
-    betOdds: form.odds,
+    betMoney: Number(form.betMoney),
+    betOdds: Number(form.odds),
     match: props.match.title,
     bet: props.bet.getBetName(),
     linkId: 0,
-    createAt: Date.now(),
     isCreateOrder: true,
-    betCount: form.betCount,
+    betCount: Number(form.betCount) || 1,
   });
   loseStore.createOrder(order);
-  visible.value = false;
   emit("close");
 }
-
-const canSubmit = computed(() => Boolean(props.match && props.bet));
 </script>
 
 <template>
@@ -96,15 +70,16 @@ const canSubmit = computed(() => Boolean(props.match && props.bet));
     v-model="visible"
     class="create-lose-dialog"
     width="400"
+    top="5vh"
     title="创建补单队列"
     @closed="onClosed"
   >
-    <el-form v-if="canSubmit" label-width="60">
+    <el-form label-width="60">
       <el-form-item label="比赛:">
-        <div v-html="match!.title" />
+        <div v-html="match.title" />
       </el-form-item>
       <el-form-item label="盘口:">
-        <div v-html="bet!.getBetName()" />
+        <div v-html="bet.getBetName()" />
       </el-form-item>
       <el-form-item label="投注:">
         <el-radio-group v-model="form.target" @change="onTargetChange">
@@ -116,27 +91,27 @@ const canSubmit = computed(() => Boolean(props.match && props.bet));
       <el-form-item label="金额:">
         <el-row>
           <el-col :span="4">
-            <el-input v-model.number="form.betMoney" />
+            <el-input v-model="form.betMoney" />
           </el-col>
           <el-col :span="1" />
           <el-col :span="4">
             赔率:
           </el-col>
           <el-col :span="5">
-            <el-input v-model.number="form.odds" />
+            <el-input v-model="form.odds" />
           </el-col>
           <el-col :span="1" />
           <el-col :span="4">
             次数:
           </el-col>
           <el-col :span="4">
-            <el-input v-model.number="form.betCount" />
+            <el-input v-model="form.betCount" />
           </el-col>
         </el-row>
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button type="primary" :disabled="!canSubmit" @click="confirm">
+      <el-button type="primary" @click="confirm">
         确定
       </el-button>
     </template>

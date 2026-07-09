@@ -30,6 +30,33 @@ const LEG_STATUS_LABEL: Record<ActiveBetLegStatus, string> = {
   skipped: "不参与",
 };
 
+/** 腿时间线分层：预检 → 下单 → 拒单（补单单独一层） */
+export type ActiveBetLegEventLayer = "预检" | "下单" | "拒单" | "补单";
+
+export function legEventLayerForStatus(
+  status: ActiveBetLegStatus,
+  phase?: ActiveBetRunPhase,
+): ActiveBetLegEventLayer {
+  if (status === "makeup" || phase === "makeup")
+    return "补单";
+  if (status === "confirmed" || status === "rejected")
+    return "拒单";
+  if (status === "placing" || status === "submitted" || status === "pending_confirm")
+    return "下单";
+  if (status === "failed") {
+    if (phase === "checking" || phase === "preparing")
+      return "预检";
+    if (phase === "settling" || phase === "syncing")
+      return "拒单";
+    return "下单";
+  }
+  if (phase === "settling" || phase === "syncing")
+    return "拒单";
+  if (phase === "placing")
+    return "下单";
+  return "预检";
+}
+
 function isPmLeg(leg: ActiveBetLeg): boolean {
   return leg.platform === "Polymarket";
 }
@@ -204,12 +231,12 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
         leg.events = [];
       const prevStatus = leg.status;
       Object.assign(leg, patch);
-      if (patch.status && patch.status !== prevStatus) {
-        const label = LEG_STATUS_LABEL[patch.status] ?? patch.status;
+      if (patch.status && patch.status !== prevStatus && patch.status !== "skipped" && patch.status !== "pending") {
+        const layer = legEventLayerForStatus(patch.status, run.phase);
         const eventDetail = patch.detail?.trim()
           ? patch.detail
-          : leg.platform;
-        this.appendLegEvent(betId, side, label, eventDetail);
+          : (LEG_STATUS_LABEL[patch.status] ?? patch.status);
+        this.appendLegEvent(betId, side, layer, eventDetail);
       }
       run.updatedAt = Date.now();
     },

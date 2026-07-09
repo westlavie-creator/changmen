@@ -4,11 +4,11 @@ import type { PlatformId } from "@/types/esport";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
-import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
 import { useEvMarker } from "@/extensions/valueBet";
 import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
+import { useCreateLoseDialogStore } from "@/stores/createLoseDialogStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 
@@ -23,7 +23,7 @@ const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
 const { tick: matchTick } = storeToRefs(matchStore);
 
-const loseOpen = ref(false);
+const createLoseDialog = useCreateLoseDialogStore();
 
 const limitOpen = ref(false);
 const limitProvider = ref<PlatformId>();
@@ -139,12 +139,9 @@ function onEvBadgeClick(item: ViewBet["items"][0], side: BetSide, e: MouseEvent)
   void matchStore.valueBetConfirm(props.match, props.bet, item, side);
 }
 
+/** [A8 可证实] HomeView `v(match,bet)`：双击 bet-title 打开单例 CreateLoseView */
 function onBetTitleDblClick() {
-  loseOpen.value = true;
-}
-
-function onCreateLoseClose() {
-  loseOpen.value = false;
+  createLoseDialog.show(props.match, props.bet);
 }
 </script>
 
@@ -253,12 +250,6 @@ function onCreateLoseClose() {
       />
     </div>
 
-    <CreateLoseDialog
-      :open="loseOpen"
-      :match="match"
-      :bet="bet"
-      @close="onCreateLoseClose"
-    />
     <LimitDiagDialog
       :open="limitOpen"
       :provider="limitProvider"
