@@ -22,11 +22,17 @@
 }
 
 #app .el-aside .orders,
-.common-layout .el-aside .orders,
-.admin-orders-user-col .orders {
+.common-layout .el-aside .orders {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+.admin-orders-user-col .orders,
+.admin-orders-account-col .orders {
+  flex: none;
+  overflow: visible;
+  white-space: normal;
 }
 
 .orders {

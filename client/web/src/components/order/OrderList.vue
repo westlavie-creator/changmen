@@ -155,6 +155,9 @@ withDefaults(
           <div class="time">
             投注时间：{{ formatOrderTime(row.CreateAt || 0) }}
           </div>
+          <div v-if="$slots['row-actions']" class="order-list__row-actions">
+            <slot name="row-actions" :row="row" :link="link" :rows="rows" />
+          </div>
         </div>
         <div v-if="$slots['group-actions']" class="order-list__group-actions">
           <slot name="group-actions" :link="link" :rows="rows" />

@@ -32,7 +32,7 @@ interface FlatOrderRow {
   groupRows: AdminOrderRow[];
 }
 
-const SPAN_COLUMN_LABELS = new Set(["LinkID", "Link利润", "操作"]);
+const SPAN_COLUMN_LABELS = new Set(["LinkID", "Link利润"]);
 
 const flatRows = computed<FlatOrderRow[]>(() => {
   const result: FlatOrderRow[] = [];
@@ -236,7 +236,7 @@ function spanMethod({
         <span class="admin-order-time">{{ fmtTime(row.order.createAt) }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="操作" width="132" align="center" fixed="right" class-name="admin-order-cell--center admin-order-cell--action">
+    <el-table-column label="操作" min-width="168" width="200" align="center" fixed="right" class-name="admin-order-cell--center admin-order-cell--action">
       <template #default="{ row }">
         <div class="admin-order-actions">
           <el-button link type="primary" size="small" @click="openLogs(row.groupRows)">
@@ -246,9 +246,18 @@ function spanMethod({
             link
             type="danger"
             size="small"
-            @click="emit('delete', row.groupRows)"
+            @click="emit('delete', [row.order])"
           >
             删除
+          </el-button>
+          <el-button
+            v-if="row.groupSize > 1 && row.groupRowIndex === 0"
+            link
+            type="danger"
+            size="small"
+            @click="emit('delete', row.groupRows)"
+          >
+            删除组
           </el-button>
         </div>
       </template>
@@ -261,10 +270,10 @@ function spanMethod({
 .admin-order-actions {
   display: inline-flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px 6px;
   white-space: nowrap;
   width: 100%;
 }

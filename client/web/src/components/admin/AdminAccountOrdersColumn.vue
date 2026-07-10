@@ -4,16 +4,19 @@ import type { OrderRow } from "@/types/order";
 import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import OrderList from "@/components/order/OrderList.vue";
-import { adminPlayerLabel, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
+import { adminPlayerLabel, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   provider: string;
   playerId: number;
   playerName: string;
+  userName?: string;
   orders: AdminOrderRow[];
   accounts: AdminAccountDetail[];
-}>();
+}>(), {
+  userName: "",
+});
 
 const emit = defineEmits<{
   delete: [rows: AdminOrderRow[]];
@@ -23,9 +26,12 @@ const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null
 
 const grouped = computed(() => groupAdminOrderEntries(props.orders, props.accounts));
 
-const accountTitle = computed(() => {
+const titleText = computed(() => {
   const acc = props.accounts.find(a => a.accountId === props.playerId);
-  return accountOrderDisplayName(acc ?? { playerName: props.playerName, accountId: props.playerId });
+  const account = accountOrderDisplayName(acc ?? { playerName: props.playerName, accountId: props.playerId });
+  if (props.userName)
+    return `${props.userName} · ${account}`;
+  return `${props.provider} / ${account}`;
 });
 
 const orderEntries = computed(() =>
@@ -55,8 +61,25 @@ function adminRowsForLink(link: number) {
   return grouped.value.find(entry => entry.link === link)?.adminRows ?? [];
 }
 
+function adminRowForOrder(row: OrderRow) {
+  const oid = String(row.OrderID ?? "");
+  return props.orders.find(o => o.orderId === oid);
+}
+
 function openLogs(rows: AdminOrderRow[]) {
   logsDialogRef.value?.open(rows);
+}
+
+function onDeleteOne(row: OrderRow) {
+  const admin = adminRowForOrder(row);
+  if (admin)
+    emit("delete", [admin]);
+}
+
+function onDeleteGroup(link: number) {
+  const rows = adminRowsForLink(link);
+  if (rows.length)
+    emit("delete", rows);
 }
 </script>
 
@@ -65,8 +88,8 @@ function openLogs(rows: AdminOrderRow[]) {
     <header class="admin-orders-account-col__head">
       <div class="admin-orders-account-col__title">
         <div class="provider-icon" :class="provider" />
-        <h3 class="admin-orders-account-col__name">
-          {{ provider }} / {{ accountTitle }}
+        <h3 class="admin-orders-account-col__name" :title="titleText">
+          {{ titleText }}
         </h3>
       </div>
       <div class="admin-orders-account-col__stats">
@@ -90,18 +113,29 @@ function openLogs(rows: AdminOrderRow[]) {
         :player-label="playerLabel"
         :platform-class="platformClass"
       >
-        <template #group-actions="{ link }">
+        <template #row-actions="{ row }">
+          <el-button
+            link
+            type="danger"
+            size="small"
+            @click="onDeleteOne(row)"
+          >
+            删除
+          </el-button>
+        </template>
+        <template #group-actions="{ link, rows }">
           <div class="admin-orders-account-col__group-actions">
             <el-button link type="primary" size="small" @click="openLogs(adminRowsForLink(link))">
               诊断
             </el-button>
             <el-button
+              v-if="rows.length > 1"
               link
               type="danger"
               size="small"
-              @click="emit('delete', adminRowsForLink(link))"
+              @click="onDeleteGroup(link)"
             >
-              删除
+              删除组
             </el-button>
           </div>
         </template>
