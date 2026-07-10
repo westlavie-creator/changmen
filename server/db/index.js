@@ -241,6 +241,7 @@ export {
   setClientMatchPlatformReverse,
   fetchClientMatchPlatformOverrides,
   setClientMatchPlatformSideOverride,
+  swapClientMatchGbOrientation,
 } from "./rds/matcher_store.js";
 
 export {

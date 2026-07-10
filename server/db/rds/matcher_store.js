@@ -271,6 +271,50 @@ export async function setClientMatchPlatformSideOverride(clientMatchId, platform
   return { id: cmId, platform: plat, mode: normalized };
 }
 
+/**
+ * 对调场次 canonical 主客 gb 锁（Title 主客对调）；下轮 merge 按新锁重算 Reverse。
+ * 同时清除该场次全部 platform_overrides，避免与新锁冲突。
+ */
+export async function swapClientMatchGbOrientation(clientMatchId) {
+  const cmId = Number(clientMatchId);
+  if (!Number.isFinite(cmId) || cmId <= 0)
+    throw new Error("无效的赛事 ID");
+
+  const cm = await fetchClientMatchRow(cmId, "id, title, home_gb_team_id, away_gb_team_id");
+  if (!cm)
+    throw new Error("赛事不存在");
+
+  const homeGb = cm.home_gb_team_id != null ? String(cm.home_gb_team_id).trim() : "";
+  const awayGb = cm.away_gb_team_id != null ? String(cm.away_gb_team_id).trim() : "";
+  if (!homeGb || !awayGb)
+    throw new Error("赛事尚未锁定主客 gb，无法对调");
+  if (homeGb === awayGb)
+    throw new Error("主客 gb 相同，无法对调");
+
+  let title = String(cm.title || "").trim();
+  const m = title.match(/^(.+?)\s+vs\s+(.+)$/i);
+  if (m)
+    title = `${m[2].trim()} vs ${m[1].trim()}`;
+
+  await rdsQuery(
+    `UPDATE client_matches
+     SET home_gb_team_id = $2, away_gb_team_id = $3, title = $4
+     WHERE id = $1`,
+    [cmId, awayGb, homeGb, title],
+  );
+  await rdsQuery(
+    `DELETE FROM client_match_platform_overrides WHERE client_match_id = $1`,
+    [cmId],
+  );
+
+  return {
+    id: cmId,
+    home_gb_team_id: awayGb,
+    away_gb_team_id: homeGb,
+    title,
+  };
+}
+
 export async function fetchClientMatchesHidden() {
   const { rows } = await rdsQuery(
     `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at

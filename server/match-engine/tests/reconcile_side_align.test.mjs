@@ -30,7 +30,7 @@ it("reconcile flags ambiguous platform and does not reverse", () => {
   assert.equal(rows[0].Bets[0].Sources.RAY, undefined);
 });
 
-it("ambiguous platform keeps native Map>0 Sources for decider display", () => {
+it("ambiguous platform omits all Map Sources (no native-disk arb)", () => {
   const rows = [
     {
       ID: 99,
@@ -94,12 +94,11 @@ it("ambiguous platform keeps native Map>0 Sources for decider display", () => {
   reconcileClientMatchReverse(rows, matches, bets, {}, src);
 
   assert.equal(rows[0].Bets[0].Sources.RAY, undefined);
-  assert.equal(rows[0].Bets[1].Sources.RAY?.BetID, "map3");
-  assert.equal(rows[0].Bets[1].Sources.RAY?.HomeOdds, 1.8);
+  assert.equal(rows[0].Bets[1].Sources.RAY, undefined);
+  assert.deepEqual(rows[0].SideAlignAmbiguous, ["RAY"]);
 });
 
-it("ambiguous platform resolved to reversed via canonical ID fallback", () => {
-  // Simulate: RAY aligned (1win vs VP), PB reversed with different team names
+it("ambiguous platform resolved to reversed via locked gb IDs", () => {
   const idMap = {
     "RAY:h1": "C1",
     "RAY:a1": "C2",
@@ -109,12 +108,16 @@ it("ambiguous platform resolved to reversed via canonical ID fallback", () => {
   setTeamPlugin({
     lookupById: (platform, pid) => idMap[`${platform}:${pid}`] || null,
     lookupCanonicalName: () => null,
+    lookupGameForGbTeamId: () => "cs2",
   });
 
   const rows = [
     {
       ID: 100,
       Title: "TeamAlpha vs TeamBeta",
+      HomeGbTeamId: "C1",
+      AwayGbTeamId: "C2",
+      GameID: "3",
       Matchs: { RAY: "ray1", PB: "pb1" },
       Bets: [{ Map: 0, Sources: {} }],
     },
@@ -144,6 +147,59 @@ it("ambiguous platform resolved to reversed via canonical ID fallback", () => {
 
   assert.deepEqual(rows[0].Reverse, ["PB"]);
   assert.equal(rows[0].SideAlignAmbiguous, undefined);
+
+  setTeamPlugin(null);
+});
+
+it("without gb lock: no title-name refIds; name-ambiguous stays ambiguous on all Maps", () => {
+  const idMap = {
+    "RAY:h1": "C1",
+    "RAY:a1": "C2",
+    "PB:ph": "C2",
+    "PB:pa": "C1",
+  };
+  setTeamPlugin({
+    lookupById: (platform, pid) => idMap[`${platform}:${pid}`] || null,
+    lookupCanonicalName: () => null,
+  });
+
+  const rows = [
+    {
+      ID: 101,
+      Title: "TeamAlpha vs TeamBeta",
+      Matchs: { RAY: "ray1", PB: "pb1" },
+      Bets: [
+        { Map: 0, Sources: { PB: { BetID: "x", HomeOdds: 1.5, AwayOdds: 2.5 } } },
+        { Map: 2, Sources: { PB: { BetID: "y", HomeOdds: 1.8, AwayOdds: 2.0 } } },
+      ],
+    },
+  ];
+  const matches = {
+    RAY: {
+      ray1: {
+        SourceMatchID: "ray1",
+        Home: "TeamAlpha",
+        Away: "TeamBeta",
+        HomeID: "h1",
+        AwayID: "a1",
+      },
+    },
+    PB: {
+      pb1: {
+        SourceMatchID: "pb1",
+        Home: "BetaX",
+        Away: "AlphaY",
+        HomeID: "ph",
+        AwayID: "pa",
+      },
+    },
+  };
+
+  reconcileClientMatchReverse(rows, matches, {}, {}, () => null);
+
+  assert.ok(rows[0].SideAlignAmbiguous?.includes("PB"));
+  assert.equal(rows[0].Bets[0].Sources.PB, undefined);
+  assert.equal(rows[0].Bets[1].Sources.PB, undefined);
 
   setTeamPlugin(null);
 });

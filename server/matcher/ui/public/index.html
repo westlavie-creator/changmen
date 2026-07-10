@@ -1551,6 +1551,8 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
     ${tableHtml}
     <div class="team-card-footer">
       <div class="team-card-hint">${footerHint}</div>
+      <button type="button" class="btn btn-sm btn-ghost" data-swap-gb-cm="${cm.id}"
+        title="交换 home/away gb 锁与 Title 主客；下轮 merge 重算各平台 Reverse">主客对调（翻锁）</button>
       <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="归档到历史表，浏览器不再返回；并归档各平台 platform_matches 行">比赛已结束</button>
     </div>
   </article>`;
@@ -2785,6 +2787,34 @@ async function toggleClientMatchPlatformReverse(btn) {
   }
 }
 
+async function swapClientMatchGbLock(btn) {
+  if (_reverseSubmitting) return;
+  const cmId = btn?.dataset?.swapGbCm;
+  if (!cmId) return;
+  if (!confirm(`确认对调场次 #${cmId} 的主客 gb 锁与 Title？\n（会重算各平台 Reverse，并清除该场 platform overrides）`)) return;
+  _reverseSubmitting = true;
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '处理中…';
+  try {
+    const { res, data } = await fetchJson(`/api/client-match/${encodeURIComponent(cmId)}/swap-gb`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok || data.error) throw new Error(data.error || '对调失败');
+    showActionToast(data.summary || `场次 #${cmId} 主客锁已对调`, 'ok', 3600);
+    await load();
+    await refreshMatcherStatus();
+  } catch (err) {
+    showActionToast(`主客对调失败\n${err.message}`, 'err', 6000);
+    btn.disabled = false;
+    btn.textContent = oldText;
+  } finally {
+    _reverseSubmitting = false;
+  }
+}
+
 async function refreshMatcherStatus() {
   const el = document.getElementById('matcher-status');
   const label = el?.querySelector('.matcher-label');
@@ -2869,6 +2899,8 @@ document.getElementById('link-modal')?.addEventListener('click', e => {
 document.addEventListener('click', e => {
   const btn = e.target?.closest?.('[data-reverse-toggle]');
   if (btn) toggleClientMatchPlatformReverse(btn);
+  const swapBtn = e.target?.closest?.('[data-swap-gb-cm]');
+  if (swapBtn) swapClientMatchGbLock(swapBtn);
 });
 
 document.querySelectorAll('[data-unmatched-filter]').forEach(btn => {

@@ -540,43 +540,116 @@ function resolveGameCodeForClientRow(row, matches) {
   return gameCode || null;
 }
 
-/** 新场次：按平台优先级 + team map 推断 canonical 主客 gb */
-function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
-  const picked = titleFromMatchs(matchs, matches);
-  if (!picked?.home || !picked?.away)
+/**
+ * 平台双侧 gb 投票定朝向。
+ * - 仅在同一无序队对内计票；取票数最多的队对
+ * - 该队对上某朝向 ≥2 → 锁该朝向；同票平局 → 不锁（交给 PM 回退）
+ * - 否则若有 Polymarket 且其队对与多数队对一致（或仅有 PM）→ 用 PM 槽位
+ * @param {Array<{ platform: string, homeGb: string, awayGb: string }>} entries
+ * @returns {{ homeGb: string, awayGb: string } | null}
+ */
+function voteCanonicalGbOrientation(entries) {
+  const list = (entries || []).filter(e => e?.homeGb && e?.awayGb && String(e.homeGb) !== String(e.awayGb));
+  if (!list.length)
     return null;
 
+  /** @type {Map<string, { pairVotes: number, orients: Map<string, { homeGb: string, awayGb: string, votes: number }> }>} */
+  const byPair = new Map();
+  for (const e of list) {
+    const homeGb = String(e.homeGb);
+    const awayGb = String(e.awayGb);
+    const pairKey = [homeGb, awayGb].sort().join(":");
+    const orientKey = `${homeGb}>${awayGb}`;
+    if (!byPair.has(pairKey))
+      byPair.set(pairKey, { pairVotes: 0, orients: new Map() });
+    const bucket = byPair.get(pairKey);
+    bucket.pairVotes += 1;
+    const cur = bucket.orients.get(orientKey);
+    if (cur)
+      cur.votes += 1;
+    else
+      bucket.orients.set(orientKey, { homeGb, awayGb, votes: 1 });
+  }
+
+  let bestPairKey = null;
+  let bestPairVotes = -1;
+  for (const [pairKey, bucket] of byPair) {
+    if (bucket.pairVotes > bestPairVotes) {
+      bestPairVotes = bucket.pairVotes;
+      bestPairKey = pairKey;
+    }
+  }
+  if (!bestPairKey)
+    return null;
+
+  const bestBucket = byPair.get(bestPairKey);
+  let topOrient = null;
+  let secondVotes = 0;
+  for (const cand of bestBucket.orients.values()) {
+    if (!topOrient || cand.votes > topOrient.votes) {
+      secondVotes = topOrient ? topOrient.votes : 0;
+      topOrient = cand;
+    }
+    else if (cand.votes > secondVotes) {
+      secondVotes = cand.votes;
+    }
+  }
+
+  if (topOrient && topOrient.votes >= 2 && topOrient.votes > secondVotes)
+    return { homeGb: topOrient.homeGb, awayGb: topOrient.awayGb };
+
+  const pm = list.find(e => String(e.platform) === "Polymarket");
+  if (!pm)
+    return null;
+  const pmHome = String(pm.homeGb);
+  const pmAway = String(pm.awayGb);
+  const pmPairKey = [pmHome, pmAway].sort().join(":");
+  // PM 队对须与多数队对一致（仅 PM 自己投票时 bestPairKey 就是 PM）
+  if (pmPairKey !== bestPairKey)
+    return null;
+  return { homeGb: pmHome, awayGb: pmAway };
+}
+
+/** 收集 Matchs 上双侧 venue→gb 且同游戏的平台行 */
+function collectPlatformGbEntries(matchs, matches, gameCode) {
   const rows = buildPlatformRowsForMatchs(matchs, matches);
-  // 平台 ID 映射优先于队名：避免同名跨游戏（#670 EDG val→kog）抢先锁锚点
-  const ordered = [...rows].sort(
-    (a, b) => (PROVIDER_PRIORITY[b.platform] || 0) - (PROVIDER_PRIORITY[a.platform] || 0),
-  );
-  for (const refRow of ordered) {
+  const entries = [];
+  for (const refRow of rows) {
     const slotHomeGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.homeId);
     const slotAwayGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.awayId);
     if (!slotHomeGb || !slotAwayGb)
       continue;
     if (!anchorGbValidForGame(slotHomeGb, gameCode) || !anchorGbValidForGame(slotAwayGb, gameCode))
       continue;
+    const homeGb = parseLockedGbTeamId(slotHomeGb);
+    const awayGb = parseLockedGbTeamId(slotAwayGb);
+    if (!homeGb || !awayGb || homeGb === awayGb)
+      continue;
+    entries.push({ platform: refRow.platform, homeGb, awayGb });
+  }
+  return entries;
+}
 
-    const mode = sideAlignmentMode(refRow.home, refRow.away, picked.home, picked.away);
-    if (mode === "aligned") {
-      return {
-        homeGb: parseLockedGbTeamId(slotHomeGb),
-        awayGb: parseLockedGbTeamId(slotAwayGb),
-      };
-    }
-    if (mode === "reversed") {
-      return {
-        homeGb: parseLockedGbTeamId(slotAwayGb),
-        awayGb: parseLockedGbTeamId(slotHomeGb),
-      };
-    }
+/**
+ * 新场次：≥2 平台 gb 投票定朝向；凑不齐回退 Polymarket（同队对）；
+ * 无任何平台 ID 映射时才用队名查 gb。
+ */
+function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
+  const entries = collectPlatformGbEntries(matchs, matches, gameCode);
+  if (entries.length) {
+    const voted = voteCanonicalGbOrientation(entries);
+    if (voted)
+      return voted;
+    return null;
   }
 
+  const picked = titleFromMatchs(matchs, matches);
+  if (!picked?.home || !picked?.away)
+    return null;
   const homeGbByName = parseLockedGbTeamId(lookupGbTeamIdByName(picked.home, gameCode));
   const awayGbByName = parseLockedGbTeamId(lookupGbTeamIdByName(picked.away, gameCode));
   if (homeGbByName && awayGbByName
+    && homeGbByName !== awayGbByName
     && anchorGbValidForGame(homeGbByName, gameCode)
     && anchorGbValidForGame(awayGbByName, gameCode)) {
     return { homeGb: homeGbByName, awayGb: awayGbByName };
@@ -619,11 +692,26 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
 
     if (!homeGb || !awayGb) {
       const picked = pickCanonicalGbFromMatchs(row.Matchs, matches, gameCode);
-      if (picked) {
-        if (!homeGb && anchorGbValidForGame(picked.homeGb, gameCode))
+      if (picked
+        && anchorGbValidForGame(picked.homeGb, gameCode)
+        && anchorGbValidForGame(picked.awayGb, gameCode)) {
+        // 成对写入：半边锁仅当与投票结果同队对时才补另一侧，避免拼凑错对
+        if (!homeGb && !awayGb) {
           homeGb = picked.homeGb;
-        if (!awayGb && anchorGbValidForGame(picked.awayGb, gameCode))
           awayGb = picked.awayGb;
+        }
+        else if (homeGb && !awayGb) {
+          if (homeGb === picked.homeGb)
+            awayGb = picked.awayGb;
+          else if (homeGb === picked.awayGb)
+            awayGb = picked.homeGb;
+        }
+        else if (!homeGb && awayGb) {
+          if (awayGb === picked.awayGb)
+            homeGb = picked.homeGb;
+          else if (awayGb === picked.homeGb)
+            homeGb = picked.awayGb;
+        }
       }
     }
 
@@ -760,39 +848,10 @@ function sideAlignmentByCanonicalId(platform, pm, refCanonIds) {
   return "ambiguous";
 }
 
-/** 从队名已确定的平台中取 canonical home/away ID 作为参考（支持 aligned 和 reversed） */
-function resolveRefCanonIds(resolvedPlatforms, matches) {
-  for (const { platform, sourceMatchId, reversed } of resolvedPlatforms) {
-    const pm = findPlatformMatch(matches, platform, sourceMatchId);
-    if (!pm)
-      continue;
-    const sourceGameId = pm.SourceGameID ?? pm.GameID;
-    const gameCode = getGameCodeForPlatformId(platform, sourceGameId);
-    const homeId = resolvePlatformTeamId(
-      platform,
-      pm.HomeID ?? pm.home_id ?? pm.SourceHomeID,
-      sourceGameId,
-      gameCode,
-    );
-    const awayId = resolvePlatformTeamId(
-      platform,
-      pm.AwayID ?? pm.away_id ?? pm.SourceAwayID,
-      sourceGameId,
-      gameCode,
-    );
-    const hcid = lookupGbTeamIdByPlatform(platform, homeId);
-    const acid = lookupGbTeamIdByPlatform(platform, awayId);
-    if (!hcid || !acid)
-      continue;
-    return reversed ? { home: acid, away: hcid } : { home: hcid, away: acid };
-  }
-  return null;
-}
-
 /**
  * 按 Title 主客重算 Reverse[]，并从平台原始盘口重建 Sources（含 swap）。
- * platformSideOverrides：force_aligned / force_reversed；无覆盖则 gb → 队名 → ambiguous。
- * ambiguous：不进 Reverse；Map=0 省略 Sources；Map>0 保留原生盘（不 swap）。
+ * platformSideOverrides：force_aligned / force_reversed；无覆盖则锁 gb → 队名 → ambiguous。
+ * ambiguous：不进 Reverse；所有 Map（含 Map>0）省略 Sources，避免原生盘与已对齐平台交叉选腿同边双开。
  */
 function platformOverridesForRow(platformSideOverrides, rowId) {
   const id = Number(rowId);
@@ -833,27 +892,15 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
       platformEntries[platform] = { nameMode, sourceMatchId, pm };
     }
 
-    // 构建 refCanonIds：锁定 gb 优先；否则 Title 队名 gb；再回落队名已确定的平台
+    // refCanonIds 只认场次锁；无锁不造 Title/队名假 ref
     let refIds = null;
     const lockedHome = parseLockedGbTeamId(row.HomeGbTeamId);
     const lockedAway = parseLockedGbTeamId(row.AwayGbTeamId);
     if (lockedHome && lockedAway
+      && lockedHome !== lockedAway
       && anchorGbValidForGame(lockedHome, gameCode)
       && anchorGbValidForGame(lockedAway, gameCode)) {
       refIds = { home: lockedHome, away: lockedAway };
-    }
-    if (!refIds) {
-      const titleHomeGb = lookupGbTeamIdByName(teams.home, gameCode);
-      const titleAwayGb = lookupGbTeamIdByName(teams.away, gameCode);
-      if (titleHomeGb && titleAwayGb) {
-        refIds = { home: titleHomeGb, away: titleAwayGb };
-      }
-    }
-    if (!refIds) {
-      const nameResolved = Object.entries(platformEntries)
-        .filter(([, v]) => v.nameMode === "aligned" || v.nameMode === "reversed")
-        .map(([platform, v]) => ({ platform, sourceMatchId: v.sourceMatchId, reversed: v.nameMode === "reversed" }));
-      refIds = resolveRefCanonIds(nameResolved, matches);
     }
 
     const reverse = [];
@@ -893,19 +940,11 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
       const accByMap = new Map((accRow.Bets || []).map(b => [b.Map ?? 0, b]));
 
       if (ambiguousSet.has(platform)) {
-        // 全场盘 Map=0 省略 Sources（主客未对齐，不可套利）；局分/决胜局 Map>0 仍展示原生盘
+        // 主客未对齐：所有 Map 省略 Sources（不可套利）。
+        // 旧逻辑 Map>0 保留原生盘，会与 Reverse 平台交叉选腿导致同边双开。
         for (const bet of row.Bets || []) {
-          const mapNum = bet.Map ?? 0;
-          if (mapNum === 0) {
-            if (bet.Sources?.[platform])
-              delete bet.Sources[platform];
-          }
-          else {
-            const raw = accByMap.get(mapNum)?.Sources?.[platform];
-            if (raw)
-              bet.Sources[platform] = { ...raw };
-            // Map>0 无 platform_bets 回填时保留 row 内原生 Sources（decider 展示）
-          }
+          if (bet.Sources?.[platform])
+            delete bet.Sources[platform];
         }
         continue;
       }
@@ -915,6 +954,9 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
         const raw = accByMap.get(bet.Map ?? 0)?.Sources?.[platform];
         if (raw) {
           bet.Sources[platform] = shouldSwap ? swapBetSource(raw) : { ...raw };
+        }
+        else if (shouldSwap && bet.Sources?.[platform]) {
+          bet.Sources[platform] = swapBetSource(bet.Sources[platform]);
         }
       }
     }
@@ -1620,6 +1662,8 @@ export {
   normalizeMatchesShape,
   normalizeTeam,
   pickCanonicalGbFromMatchs,
+  voteCanonicalGbOrientation,
+  collectPlatformGbEntries,
   pickCanonicalStartTime,
   promoteFullMatchSourcesToLiveRound,
   promoteFullMatchSourcesToLiveRoundInPlace,
