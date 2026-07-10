@@ -116,6 +116,15 @@ describe("runMainBetLoopTick", () => {
     expect(fetchMatchDefaultOdds).not.toHaveBeenCalled();
   });
 
+  it("skips refreshOddsOnBets when match list is empty", async () => {
+    matchStoreState.matchs = [];
+    matchStoreState.defaultOddsFetchedAt = Date.now();
+
+    await runMainBetLoopTick({ lastLoseOrderPruneAt: 0 });
+
+    expect(refreshOddsOnBets).not.toHaveBeenCalled();
+  });
+
   it("fetches default odds when gate elapsed", async () => {
     matchStoreState.matchs = [{}];
     matchStoreState.defaultOddsFetchedAt = Date.now() - DEFAULT_ODDS_MS - 1;

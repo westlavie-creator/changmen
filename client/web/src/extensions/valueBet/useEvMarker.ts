@@ -1,8 +1,7 @@
 import type { MaybeRefOrGetter } from "vue";
 import type { BetSide, ViewBet, ViewBetItem } from "@/models/match";
-import { storeToRefs } from "pinia";
 import { computed, toValue } from "vue";
-import { useMatchStore } from "@/stores/matchStore";
+import { useOddsStore } from "@/stores/oddsStore";
 import { calcEdge, removVig } from "./evCalc";
 import { MIN_EDGE, NEAR_EDGE, SHARP_PLATFORM, SOFT_PLATFORMS } from "./evConfig";
 
@@ -16,12 +15,17 @@ export function useEvMarker(
   enabled: MaybeRefOrGetter<boolean> = true,
 ) {
   const active = computed(() => toValue(enabled) !== false);
-  const { tick } = storeToRefs(useMatchStore());
+  const oddsStore = useOddsStore();
+
+  function readOdds(item: ViewBetItem, side: BetSide): number {
+    const id = item.getItemId(side);
+    const fallback = side === "Home" ? item.fallbackHomeOdds : item.fallbackAwayOdds;
+    return oddsStore.getOdds(item.type, id, fallback);
+  }
 
   const evMap = computed(() => {
     if (!active.value)
       return new Map<string, EvEntry>();
-    void tick.value;
     const b = toValue(bet);
     const map = new Map<string, EvEntry>();
 
@@ -29,8 +33,8 @@ export function useEvMarker(
     if (!sharpItem)
       return map;
 
-    const sharpHome = sharpItem.getOdds("Home");
-    const sharpAway = sharpItem.getOdds("Away");
+    const sharpHome = readOdds(sharpItem, "Home");
+    const sharpAway = readOdds(sharpItem, "Away");
     if (!sharpHome || !sharpAway)
       return map;
 
@@ -45,7 +49,7 @@ export function useEvMarker(
         continue;
 
       for (const side of ["Home", "Away"] as BetSide[]) {
-        const softOdds = item.getOdds(side);
+        const softOdds = readOdds(item, side);
         if (!softOdds)
           continue;
         const fairOdds = side === "Home" ? fair.fairHome : fair.fairAway;
@@ -84,12 +88,11 @@ export function useEvMarker(
   const hasPbBaseline = computed(() => {
     if (!active.value)
       return false;
-    void tick.value;
     const b = toValue(bet);
     const sharpItem = b.items.find(it => it.type === SHARP_PLATFORM);
     if (!sharpItem)
       return false;
-    return !!sharpItem.getOdds("Home") && !!sharpItem.getOdds("Away");
+    return !!readOdds(sharpItem, "Home") && !!readOdds(sharpItem, "Away");
   });
 
   return { isPositiveEv, isNearEv, evLabel, hasPbBaseline };

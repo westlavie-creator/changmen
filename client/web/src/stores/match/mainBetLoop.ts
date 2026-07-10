@@ -45,7 +45,7 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
       state.lastLoseOrderPruneAt = now;
     }
   }
-  else {
+  else if (matchStore.matchs.length) {
     matchStore.refreshOddsOnBets();
   }
 

@@ -85,9 +85,16 @@ export const useOddsStore = defineStore("odds", {
      */
     flash: new Map<string, { dir: OddsFlashDir; until: number; source: OddsSaveSource }>(),
 
+    /** [changmen 扩展] fo 数据变更代际（供旁路订阅，flash 单独维护不触发） */
+    foRevision: 0,
+    _limitsCleanedAt: 0,
   }),
 
   actions: {
+    bumpFoRevision() {
+      this.foRevision += 1;
+    },
+
     /**
      * 写入或覆盖一条赔率（对齐 A8 `Qn().save` / `p.save`）。
      * HTTP 灌盘与 MQTT 增量均直接覆盖，**不做**“旧 time 拒绝新数据”挡板。
@@ -115,6 +122,7 @@ export const useOddsStore = defineStore("odds", {
         });
       }
       bucket.set(id, { ...entry, id, source });
+      this.bumpFoRevision();
 
       if (entry.betId) {
         const betId = String(entry.betId);
@@ -175,8 +183,9 @@ export const useOddsStore = defineStore("odds", {
     updateOddsLock(platform: PlatformId, oddsId: string, locked: boolean) {
       const key = String(oddsId);
       const row = this.data.get(platform)?.get(key);
-      if (row) {
+      if (row && row.isLock !== locked) {
         row.isLock = locked;
+        this.bumpFoRevision();
       }
     },
 
@@ -238,20 +247,34 @@ export const useOddsStore = defineStore("odds", {
       if (platform) {
         this.data.set(platform, new Map());
         this.betIndex.set(platform, new Map());
+        this.bumpFoRevision();
         return;
       }
+      let removed = false;
       const cutoff = Date.now() - 3_600_000;
       for (const bucket of this.data.values()) {
         for (const [id, row] of [...bucket.entries()]) {
-          if (row.time < cutoff)
+          if (row.time < cutoff) {
             bucket.delete(id);
+            removed = true;
+          }
         }
       }
+      if (removed)
+        this.bumpFoRevision();
+    },
+
+    maybeCleanExpiredLimits(platform?: PlatformId) {
+      const now = Date.now();
+      if (now - this._limitsCleanedAt < 1000)
+        return;
+      this._limitsCleanedAt = now;
+      this.cleanExpiredLimits(platform);
     },
 
     /** 给定 oddId 列表中是否任一条存在未过期的限红 */
     hasLimit(platform: PlatformId, ids: string[]): boolean {
-      this.cleanExpiredLimits();
+      this.maybeCleanExpiredLimits(platform);
       const bucket = this.limits.get(platform);
       if (!bucket)
         return false;
@@ -264,7 +287,6 @@ export const useOddsStore = defineStore("odds", {
 
     /** 取单条限红；过期返回 undefined */
     getLimit(platform: PlatformId, oddsId: string): LimitEntry | undefined {
-      this.cleanExpiredLimits();
       const row = this.limits.get(platform)?.get(oddsId);
       if (!row)
         return undefined;

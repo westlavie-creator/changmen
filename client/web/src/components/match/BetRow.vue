@@ -21,7 +21,7 @@ const BET_SIDES: BetSide[] = ["Home", "Away"];
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
-const { tick: matchTick } = storeToRefs(matchStore);
+const { liveTick } = storeToRefs(matchStore);
 
 const createLoseDialog = useCreateLoseDialogStore();
 
@@ -45,14 +45,41 @@ const {
 
 const evMarker = useEvMarker(() => props.bet, betRowUiEnabled);
 
+const oddsByItemKey = computed(() => {
+  const out = new Map<string, { home: number; away: number }>();
+  for (const item of props.bet.items) {
+    out.set(`${item.type}:${item.betId}`, {
+      home: oddsStore.getOdds(item.type, item.homeId, item.fallbackHomeOdds),
+      away: oddsStore.getOdds(item.type, item.awayId, item.fallbackAwayOdds),
+    });
+  }
+  return out;
+});
+
+const limitByItemKey = computed(() => {
+  const out = new Map<string, boolean>();
+  for (const item of props.bet.items) {
+    out.set(
+      `${item.type}:${item.betId}`,
+      oddsStore.hasLimit(item.type, [item.homeId, item.awayId]),
+    );
+  }
+  return out;
+});
+
+function itemHasLimit(item: ViewBet["items"][0]): boolean {
+  return limitByItemKey.value.get(`${item.type}:${item.betId}`) ?? false;
+}
+
 function itemOdds(item: ViewBet["items"][0], side: BetSide) {
-  void matchTick.value;
-  return item.getOdds(side);
+  const row = oddsByItemKey.value.get(`${item.type}:${item.betId}`);
+  if (!row)
+    return 0;
+  return side === "Home" ? row.home : row.away;
 }
 
 /** [A8 可证实] HomeView 内联 `c(bet)`：各行最高主/客赔 implied，无红线/可下单标签 */
 const arb = computed(() => {
-  void matchTick.value;
   let bestHome = 0;
   let bestAway = 0;
   for (const item of props.bet.items) {
@@ -67,13 +94,12 @@ const arb = computed(() => {
 });
 
 const showLiveTimer = computed(() => {
-  void matchTick.value;
   const lr = props.match.liveRound;
   return lr !== 0 && lr === props.bet.round;
 });
 
 const liveSeconds = computed(() => {
-  void matchTick.value;
+  void liveTick.value;
   if (!showLiveTimer.value)
     return 0;
   const rs = props.match.liveRoundStart;
@@ -82,7 +108,7 @@ const liveSeconds = computed(() => {
 });
 
 function defaultOddsValue(betId: number, side: BetSide): number {
-  void matchTick.value;
+  void matchStore.defaultOdds;
   const fromStore = matchStore.getDefaultOdds(betId, side);
   if (fromStore > 0)
     return fromStore;
@@ -180,7 +206,7 @@ function onBetTitleDblClick() {
           :class="[
             item.type,
             {
-              limit: oddsStore.hasLimit(item.type, [item.homeId, item.awayId]),
+              limit: itemHasLimit(item),
             },
           ]"
           @click="openLimit(item)"

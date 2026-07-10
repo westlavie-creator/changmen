@@ -1,7 +1,7 @@
 import { accountsFundingReady } from "@/stores/account/accountPicker";
 import { useAccountStore } from "@/stores/accountStore";
 import { runA8ArbRound } from "@/stores/betting/a8/runA8ArbRound";
-import { processPendingOrderBinds } from "@/stores/betting/pendingOrderBind";
+import { peekPendingOrderBinds, processPendingOrderBinds } from "@/stores/betting/pendingOrderBind";
 import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
@@ -17,16 +17,21 @@ export async function runArbBetRound(ctx: ArbBetRoundContext): Promise<void> {
   const { setMessage, processLoseOrders } = ctx;
 
   const config = user.config;
+  const hasPending = peekPendingOrderBinds().length > 0;
+  const needMakeUp = Boolean(config.makeUp && loseStore.orders.size);
+  const needBetting = Boolean(config.betting && accountsFundingReady(useAccountStore()));
+
+  if (!hasPending && !needMakeUp && !needBetting)
+    return;
 
   // [changmen 扩展] 上一轮 Bind 失败的补绑（不依赖 betting 开关）
-  await processPendingOrderBinds();
+  if (hasPending)
+    await processPendingOrderBinds();
 
   // [A8 可证实] 资金未就绪只跳过套利轮；补单在 makeUp 开启时仍消费队列
-  if (config.betting && accountsFundingReady(useAccountStore())) {
+  if (needBetting)
     await runA8ArbRound({ setMessage });
-  }
 
-  if (loseStore.orders.size && config.makeUp) {
+  if (needMakeUp)
     await processLoseOrders();
-  }
 }

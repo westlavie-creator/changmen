@@ -1,3 +1,4 @@
+import { watch } from "vue";
 import type { DetectOpportunitiesParams } from "@/extensions/arbOpportunity/detect";
 import type { OpportunityTransition } from "@/extensions/arbOpportunity/state";
 import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
@@ -106,9 +107,10 @@ export function startMarketWatchLoop(): void {
   };
 
   const oddsStore = useOddsStore();
-  const unsubscribeOdds = oddsStore.$subscribe(() => {
-    scheduleDebounced();
-  });
+  const stopWatch = watch(
+    () => oddsStore.foRevision,
+    () => scheduleDebounced(),
+  );
 
   const fallbackInterval = setInterval(runTick, MARKET_WATCH_LOOP_FALLBACK_MS);
   scheduleDebounced();
@@ -119,7 +121,7 @@ export function startMarketWatchLoop(): void {
       if (debounceTimer)
         clearTimeout(debounceTimer);
       clearInterval(fallbackInterval);
-      unsubscribeOdds();
+      stopWatch();
       activeLoop = null;
     },
   };

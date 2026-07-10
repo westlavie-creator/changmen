@@ -34,13 +34,19 @@ export const useMatchStore = defineStore("match", {
     lastFetchAt: 0,
     /** platform → betRowId → Home|Away */
     betTargets: new Map<PlatformId, Map<number, BetSide>>(),
+    /** [changmen 扩展] 远程 BetTarget 推送后强制刷新（低频） */
     tick: 0,
+    /** [changmen 扩展] 进行中地图计时器 UI，1s 粒度（A8 无 Vue 全表 tick） */
+    liveTick: 0,
+    /** [changmen 扩展] pm_sport WS 推送后 MatchCard 刷新 */
+    pmSportTick: 0,
     /** key `${betId}:Home|Away`（对齐 A8 `defaultOdds`） */
     defaultOdds: new Map<string, number>(),
     defaultOddsFetchedAt: 0,
     /** [A8 可证实] 单主循环 `P()` 是否在跑 */
     mainLoopRunning: false,
     mainLoopTimer: null as ReturnType<typeof setTimeout> | null,
+    liveClockTimer: null as ReturnType<typeof setInterval> | null,
     lastLoseOrderPruneAt: Date.now(),
     /** 对齐 A8 `O()` 内下注状态（原 bettingStore） */
     bettingLastMessage: "",
@@ -129,16 +135,18 @@ export const useMatchStore = defineStore("match", {
     },
 
     refreshOddsOnBets() {
+      const now = Date.now();
       for (const match of this.matchs) {
         const lr = match.liveRound;
         const rs = match.liveRoundStart;
+        const isLiveMatch = lr !== 0;
         for (const bet of match.bets) {
-          if (lr !== 0 && lr === bet.round) {
+          if (isLiveMatch && lr === bet.round) {
             bet.isLive = true;
             bet.startTime
-              = rs > 0 ? rs : bet.startTime && bet.startTime > 0 ? bet.startTime : Date.now();
+              = rs > 0 ? rs : bet.startTime && bet.startTime > 0 ? bet.startTime : now;
           }
-          else {
+          else if (bet.isLive !== undefined) {
             bet.isLive = undefined;
             bet.startTime = undefined;
           }
@@ -147,7 +155,23 @@ export const useMatchStore = defineStore("match", {
           }
         }
       }
-      this.tick += 1;
+    },
+
+    startLiveClock() {
+      this.stopLiveClock();
+      this.liveClockTimer = setInterval(() => {
+        if (!this.mainLoopRunning)
+          return;
+        if (this.matchs.some(m => m.liveRound !== 0))
+          this.liveTick += 1;
+      }, 1000);
+    },
+
+    stopLiveClock() {
+      if (this.liveClockTimer) {
+        clearInterval(this.liveClockTimer);
+        this.liveClockTimer = null;
+      }
     },
 
     /** changmen WS 推送的 pm_sport（已 Title 对齐，直接展示） */
@@ -159,7 +183,7 @@ export const useMatchStore = defineStore("match", {
       if (!match)
         return;
       match.pmSport = pmSport;
-      this.tick += 1;
+      this.pmSportTick += 1;
     },
 
     getDefaultOdds(betId: number, side: BetSide): number {
@@ -182,7 +206,6 @@ export const useMatchStore = defineStore("match", {
         }
         // [A8 可证实] 门控到期即 `b=Date.now()`，空列表也推进计时
         this.defaultOddsFetchedAt = Date.now();
-        this.tick += 1;
       }
       catch {
         /* 后端未实现时保持空 Map */
@@ -236,10 +259,12 @@ export const useMatchStore = defineStore("match", {
       }
 
       this.scheduleMainLoop(0);
+      this.startLiveClock();
     },
 
     stopMainLoop() {
       this.mainLoopRunning = false;
+      this.stopLiveClock();
       stopPmSportRealtimeFeed();
       if (this.mainLoopTimer) {
         clearTimeout(this.mainLoopTimer);

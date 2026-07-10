@@ -46,8 +46,12 @@ export class ViewBetItem {
 
   /** 对齐 A8 `FQ.updateOdds`：把 fo 当前值写回 fallback，供 maxOdds 等使用 */
   updateOdds() {
-    this.fallbackHomeOdds = this.getOdds("Home");
-    this.fallbackAwayOdds = this.getOdds("Away");
+    const home = this.getOdds("Home");
+    const away = this.getOdds("Away");
+    if (home === this.fallbackHomeOdds && away === this.fallbackAwayOdds)
+      return;
+    this.fallbackHomeOdds = home;
+    this.fallbackAwayOdds = away;
   }
 }
 

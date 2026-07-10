@@ -71,6 +71,9 @@ async function tryBindOne(item: PendingOrderBindItem): Promise<boolean> {
  * 成功：刷新订单列表；耗尽：进行中订单标「绑单失败（补绑）」。
  */
 export async function processPendingOrderBinds(): Promise<{ ok: number; fail: number; left: number }> {
+  if (queue.length === 0)
+    return { ok: 0, fail: 0, left: 0 };
+
   const now = Date.now();
   let ok = 0;
   let fail = 0;
