@@ -68,8 +68,8 @@ export function sortVenueOrdersNewestFirst(orders: VenueOrder[]): VenueOrder[] {
 /**
  * 订单状态层结论（POST/API 受理之后）。
  * - filled：最终成交
- * - unfilled：拒单 / FOK 未成交
- * - timeout：待确认超时（jb 可续查；套利侧按拒单处理）
+ * - unfilled：确认未成交（拒单 / FOK / unmatched）
+ * - timeout：仍待确认（官方 delay 窗或接口滞后未决；jb / 套利侧续查，**不入补单**）
  */
 export type VenueLegSettlement = "filled" | "unfilled" | "timeout";
 
@@ -78,8 +78,14 @@ export interface VenueLegOutcome {
   settlement: VenueLegSettlement;
 }
 
+/** 非 filled（含 timeout）。jb 须先查 `isVenueLegPendingConfirm` 再当拒单。 */
 export function isVenueLegRejected(outcome: VenueLegOutcome): boolean {
   return outcome.settlement !== "filled";
+}
+
+/** 确认未成交，可补单；timeout 不算。 */
+export function isVenueLegConfirmedUnfilled(outcome: VenueLegOutcome): boolean {
+  return outcome.settlement === "unfilled";
 }
 
 export function isVenueLegPendingConfirm(outcome: VenueLegOutcome): boolean {

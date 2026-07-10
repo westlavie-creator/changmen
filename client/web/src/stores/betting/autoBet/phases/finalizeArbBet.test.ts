@@ -230,6 +230,7 @@ describe("finalizeArbBet makeup enqueue", () => {
         [venueOrder("ob-1", "none", 2)],
         [venueOrder("ray-reject", "reject", 3)],
       ),
+      { pendingConfirmA: false, pendingConfirmB: false },
     );
   });
 
@@ -250,6 +251,7 @@ describe("finalizeArbBet makeup enqueue", () => {
         [venueOrder("ob-1", "none", 2)],
         [venueOrder("ray-1", "none", 3)],
       ),
+      { pendingConfirmA: false, pendingConfirmB: false },
     );
   });
 
@@ -270,6 +272,7 @@ describe("finalizeArbBet makeup enqueue", () => {
         [venueOrder("ob-reject", "reject", 3)],
         [venueOrder("ray-reject", "reject", 2)],
       ),
+      { pendingConfirmA: false, pendingConfirmB: false },
     );
   });
 
@@ -491,6 +494,7 @@ describe("finalizeArbBet makeup enqueue", () => {
       false,
       false,
       expectMakeUpVenue([], []),
+      { pendingConfirmA: false, pendingConfirmB: false },
     );
     expect(saveOrderBind).not.toHaveBeenCalled();
   });
@@ -512,6 +516,7 @@ describe("finalizeArbBet makeup enqueue", () => {
       false,
       false,
       expectMakeUpVenue([], []),
+      { pendingConfirmA: false, pendingConfirmB: false },
     );
   });
 });

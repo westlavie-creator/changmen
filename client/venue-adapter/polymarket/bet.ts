@@ -23,6 +23,11 @@ import { markPolymarketChangmenOrder } from "./pmOrigin";
 import { bumpPolymarketOrderSyncAfterBet } from "./pmOrderSync";
 import { registerPolymarketOrderWatch } from "./userWs";
 import { startPolymarketSettlementJob } from "./settlementJob";
+import {
+  buildPolymarketDelayedPollOpts,
+  buildPolymarketWatchTimeoutMs,
+  fetchPolymarketMarketSecondsDelay,
+} from "./marketDelay";
 import { resolvePolymarketProviderLegOutcome } from "./legOutcome";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import {
@@ -676,8 +681,17 @@ export const polymarketProvider: PlatformProvider = {
       }
       if (pending && bet.orderId) {
         const conditionId = String(option.betId ?? "").trim();
+        // 官方 delay 窗：CLOB market.sd（秒）；未知时回落 1s
+        const delayInfo = conditionId
+          ? await fetchPolymarketMarketSecondsDelay(conditionId)
+          : { secondsDelay: 1, takerOrderDelayEnabled: false };
+        const poll = buildPolymarketDelayedPollOpts(delayInfo.secondsDelay);
+        const watchTimeoutMs = buildPolymarketWatchTimeoutMs(delayInfo.secondsDelay);
         if (conditionId) {
-          registerPolymarketOrderWatch(account, bet.orderId, { conditionId });
+          registerPolymarketOrderWatch(account, bet.orderId, {
+            conditionId,
+            timeoutMs: watchTimeoutMs,
+          });
         }
         else {
           console.warn(
@@ -686,6 +700,7 @@ export const polymarketProvider: PlatformProvider = {
         }
         // delayed 仅启动确认任务；auto-exit 在 trades/份数确认后才挂卖单
         startPolymarketSettlementJob(account, bet.orderId, {
+          poll,
           autoExitSell: option.pmAutoExitSell === false
             ? undefined
             : { tokenId },

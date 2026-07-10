@@ -1,13 +1,18 @@
 import type { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
-import { isVenueLegPendingConfirm, isVenueLegRejected } from "@venue/contract";
+import {
+  isVenueLegConfirmedUnfilled,
+  isVenueLegPendingConfirm,
+} from "@venue/contract";
 import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome";
 import { useAccountStore } from "@/stores/accountStore";
 
 export interface ArbLegSettleResult {
   orders: VenueOrder[];
+  /** 确认未成交（可补单）；timeout 为 false */
   rejected: boolean;
+  /** 仍待确认（官方 delay / 接口滞后）；不入补单、不绑拒单 */
   pendingConfirm: boolean;
 }
 
@@ -42,7 +47,7 @@ export async function settleArbLeg(
   );
   return {
     orders: outcome.orders,
-    rejected: isVenueLegRejected(outcome),
+    rejected: isVenueLegConfirmedUnfilled(outcome),
     pendingConfirm: isVenueLegPendingConfirm(outcome),
   };
 }

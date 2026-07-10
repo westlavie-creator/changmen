@@ -29,6 +29,10 @@ export async function finalizeArbBet(
       ordersA: settle.ordersA,
       ordersB: settle.ordersB,
     },
+    {
+      pendingConfirmA: settle.pendingConfirmA,
+      pendingConfirmB: settle.pendingConfirmB,
+    },
   );
 
   logArbFinalizeTraceEvents(params.trace, linkId, placed, settle, makeup, bet.id);

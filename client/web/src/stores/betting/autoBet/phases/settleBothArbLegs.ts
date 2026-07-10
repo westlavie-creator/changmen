@@ -176,10 +176,14 @@ export async function settleBothArbLegs(
     const leg = side === "A" ? legA : legB;
     const outcome = side === "A" ? placed.placeOutcomeA : placed.placeOutcomeB;
     const rejected = side === "A" ? snapshot.rejectA : snapshot.rejectB;
+    const pending = side === "A" ? snapshot.pendingConfirmA : snapshot.pendingConfirmB;
     if (!account)
       return null;
-    if (result?.success)
+    if (result?.success) {
+      if (pending)
+        return `${leg.type} 待确认`;
       return `${leg.type} ${rejected ? "🔴拒单" : "否"}`;
+    }
     if (outcome === "not_attempted")
       return `${leg.type} 未下单`;
     return `${leg.type} API失败`;

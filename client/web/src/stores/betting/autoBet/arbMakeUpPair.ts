@@ -2,44 +2,63 @@ import type { BetResult } from "@/models/betResult";
 
 export type ArbMakeUpEnqueueSide = "enqueueA" | "enqueueB";
 
-/** 锚腿：API 成功且场馆 settlement 为 filled（reject=false） */
+/**
+ * 锚腿：API 成功且场馆已确认 filled。
+ * pendingConfirm（timeout / 仍 delayed）既非锚也非败 → 不入补单。
+ */
 function legFilledForMakeUpAnchor(
   result?: BetResult,
-  venueNotFilled = false,
+  venueConfirmedUnfilled = false,
+  pendingConfirm = false,
 ): boolean {
-  return Boolean(result?.success && !venueNotFilled && !result.reject);
+  if (pendingConfirm)
+    return false;
+  return Boolean(result?.success && !venueConfirmedUnfilled && !result.reject);
 }
 
-/** 败腿：API 失败，或场馆 settlement 非 filled */
+/**
+ * 败腿：API 失败，或场馆确认 unfilled。
+ * timeout / result.reject==="timeout" 不算败（仍待确认）。
+ */
 function legFailedForMakeUpTarget(
   result?: BetResult,
-  venueNotFilled = false,
+  venueConfirmedUnfilled = false,
+  pendingConfirm = false,
 ): boolean {
+  if (pendingConfirm)
+    return false;
   if (!result)
     return true;
   if (!result.success)
     return true;
-  if (venueNotFilled || result.reject)
+  // 场馆已确认 unfilled 优先；仅 result.reject=timeout 且未确认时不算败
+  if (venueConfirmedUnfilled)
+    return true;
+  if (result.reject === "timeout")
+    return false;
+  if (result.reject)
     return true;
   return false;
 }
 
-/** 套利补单配对：一腿 filled + 一腿败 → 补败腿；否则不入队 */
+/** 套利补单配对：一腿 filled + 一腿确认未成交 → 补败腿；timeout 不入队 */
 export function arbMakeUpSides(
   resultA?: BetResult,
-  venueNotFilledA = false,
+  venueConfirmedUnfilledA = false,
   resultB?: BetResult,
-  venueNotFilledB = false,
+  venueConfirmedUnfilledB = false,
+  pendingConfirmA = false,
+  pendingConfirmB = false,
 ): ArbMakeUpEnqueueSide | null {
   if (
-    legFilledForMakeUpAnchor(resultA, venueNotFilledA)
-    && legFailedForMakeUpTarget(resultB, venueNotFilledB)
+    legFilledForMakeUpAnchor(resultA, venueConfirmedUnfilledA, pendingConfirmA)
+    && legFailedForMakeUpTarget(resultB, venueConfirmedUnfilledB, pendingConfirmB)
   )
     return "enqueueB";
 
   if (
-    legFilledForMakeUpAnchor(resultB, venueNotFilledB)
-    && legFailedForMakeUpTarget(resultA, venueNotFilledA)
+    legFilledForMakeUpAnchor(resultB, venueConfirmedUnfilledB, pendingConfirmB)
+    && legFailedForMakeUpTarget(resultA, venueConfirmedUnfilledA, pendingConfirmA)
   )
     return "enqueueA";
 

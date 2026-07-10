@@ -22,9 +22,18 @@
 |------------------|-------------|---------|
 | API 失败 / FOK 未受理 | 不进 settle | `api_failed` |
 | **fill confirmed**（`matched` + takingAmount>0） | **快路径**：直接 `filled`，不进 delayed poll；拉单 **一次** 供绑单 | 绑单 / 不成补单 |
-| `pending` / delayed | settlement job → filled / unfilled / timeout | 未成交可补单 |
+| `pending` / delayed | settlement job → filled / unfilled / timeout | 见下表 |
+
+官方 delay（[Order Lifecycle](https://docs.polymarket.com/concepts/order-lifecycle)）：体育盘 `delayed` = 异步 seconds-delay 窗；时长取 CLOB `GET /clob-markets/{condition_id}` 的 **`sd`**（秒）。轮询见 `buildPolymarketDelayedPollOpts(sd)`。
+
+| settle | 含义 | 套利补单 |
+|--------|------|----------|
+| `filled` | 成交 | 不补 |
+| `unfilled` | 确认未成交（FOK/unmatched/cancel） | **可补** |
+| `timeout` | 仍待确认（delay/接口滞后） | **不补新单**；挂 `pendingPmOrderId` 由 jb 续查原单 |
 
 `[changmen 扩展]` fill confirmed 时编排入口可跳过无意义预拉（见 `resolveVenueLegOutcome`）。
+`isVenueLegConfirmedUnfilled` = 仅 `unfilled`；`isVenueLegRejected` 仍含 timeout（jb 须先查 pending）。
 
 ## A8 场馆（OB / RAY / …）
 

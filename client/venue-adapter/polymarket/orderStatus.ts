@@ -140,10 +140,11 @@ function wait(ms: number) {
 }
 
 /**
- * 体育 delayed 轮询（对齐官网 [Order Lifecycle](https://docs.polymarket.com/concepts/order-lifecycle)）：
- * - 体育盘 marketable 单进入「秒级 delay 窗」，常见约 1s，POST 先返回 `delayed`
- * - 加密/金融 taker delay 仅 250ms，且 API 会同步等到最终结果（通常不返回 delayed）
- * 故 order 轮询不必分钟级：1s 起步 + 12 次 × 1s ≈ 13s，覆盖 delay 窗与接口滞后。
+ * 体育 delayed 轮询默认值（市场 `sd` 未知时）。
+ * 官方 [Order Lifecycle](https://docs.polymarket.com/concepts/order-lifecycle)：
+ * - 体育/比赛盘 marketable → 异步 delay 窗，时长见 CLOB `GET /clob-markets/{id}` 的 `sd`（秒）
+ * - 加密/金融 taker delay 250ms（`itode`），API 同步等到结果，通常不返回 `delayed`
+ * 有 conditionId 时用 `buildPolymarketDelayedPollOpts(sd)`（见 marketDelay.ts）。
  */
 export const POLYMARKET_SPORTS_DELAYED_POLL_OPTS = {
   initialDelayMs: 1_000,
@@ -153,7 +154,7 @@ export const POLYMARKET_SPORTS_DELAYED_POLL_OPTS = {
 
 /**
  * order 仍 pending 时用 /data/trades 兜底（官网：成交后 MATCHED→MINED→CONFIRMED，链上需额外时间）。
- * 最多约 30s，应对 order 端点滞后于 trades 的情况（你遇到的误拒单主因）。
+ * 最多约 30s，应对 order 端点滞后于 trades 的情况。
  */
 export const POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS = {
   lookbackMs: 10 * 60 * 1000,
@@ -161,11 +162,14 @@ export const POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS = {
   maxRetries: 15,
 } as const;
 
-/** WS 未命中后的 REST 轮询（保留 1s 起步，覆盖体育 delay 窗与 order 端点滞后） */
+/**
+ * WS 未命中后的 REST 轮询默认（`sd` 未知）。
+ * 有 `sd` 时 settlement job / settle 应传入 `buildPolymarketDelayedPollOpts(sd)`。
+ */
 export const POLYMARKET_WS_FALLBACK_POLL_OPTS = {
   initialDelayMs: POLYMARKET_SPORTS_DELAYED_POLL_OPTS.initialDelayMs,
   intervalMs: POLYMARKET_SPORTS_DELAYED_POLL_OPTS.intervalMs,
-  maxAttempts: 6,
+  maxAttempts: 10,
 } as const;
 
 export const POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS = {

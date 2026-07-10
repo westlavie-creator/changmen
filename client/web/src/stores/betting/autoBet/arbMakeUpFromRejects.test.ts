@@ -5,13 +5,20 @@ import { BetResult } from "@/models/betResult";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
 
 const enqueueMakeUpOrder = vi.hoisted(() => vi.fn());
+const setPendingPmOrder = vi.hoisted(() => vi.fn());
+const useLoseOrderStore = vi.hoisted(() =>
+  vi.fn(() => ({
+    orders: new Map(),
+    setPendingPmOrder,
+  })),
+);
 
 vi.mock("@/stores/betting/autoBet/makeUp", () => ({
   enqueueMakeUpOrder,
 }));
 
 vi.mock("@/stores/loseOrderStore", () => ({
-  useLoseOrderStore: () => ({ orders: new Map() }),
+  useLoseOrderStore,
 }));
 
 import { createDefaultUserConfig } from "@/types/userConfig";
@@ -49,6 +56,12 @@ describe("applyArbMakeUpFromRejects", () => {
   beforeEach(() => {
     enqueueMakeUpOrder.mockReset();
     enqueueMakeUpOrder.mockResolvedValue(true);
+    setPendingPmOrder.mockReset();
+    useLoseOrderStore.mockReset();
+    useLoseOrderStore.mockReturnValue({
+      orders: new Map(),
+      setPendingPmOrder,
+    });
   });
 
   it("enqueues venue-confirmed success leg reference when B wins and A fails", async () => {
@@ -225,13 +238,13 @@ describe("applyArbMakeUpFromRejects", () => {
     );
   });
 
-  it("enqueues PM makeup when OB filled and PM venue not-filled", async () => {
+  it("enqueues PM makeup when OB filled and PM confirmed unfilled", async () => {
     const placed = basePlaced();
     placed.legA = new BetOption("OB" as never, "m1", "b1", "h1", 70, "Home", 2);
     placed.legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Away", 1.72);
     placed.resultA = new BetResult("OB", true);
     placed.resultB = Object.assign(new BetResult("Polymarket", true), {
-      orderId: "0xpm-timeout",
+      orderId: "0xpm-unfilled",
     });
     placed.placeOutcomeA = "filled_pending_settle";
     placed.placeOutcomeB = "filled_pending_settle";
@@ -255,5 +268,42 @@ describe("applyArbMakeUpFromRejects", () => {
         failedPlatformLabel: "Polymarket",
       }),
     );
+  });
+
+  it("hangs pendingPm resume when OB filled and PM still timeout/pendingConfirm", async () => {
+    const placed = basePlaced();
+    placed.accountA = { accountId: 14, provider: "OB" } as never;
+    placed.accountB = { accountId: 99, provider: "Polymarket" } as never;
+    placed.legA = new BetOption("OB" as never, "m1", "b1", "h1", 70, "Home", 2);
+    placed.legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Away", 1.72);
+    placed.resultA = new BetResult("OB", true);
+    placed.resultB = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xpm-timeout",
+      reject: "timeout",
+    });
+    placed.placeOutcomeA = "filled_pending_settle";
+    placed.placeOutcomeB = "filled_pending_settle";
+
+    const out = await applyArbMakeUpFromRejects(
+      params(),
+      placed,
+      false,
+      false,
+      {
+        ordersA: [{ betMoney: 70, odds: 2, status: "none" } as never],
+        ordersB: [],
+      },
+      { pendingConfirmA: false, pendingConfirmB: true },
+    );
+
+    expect(out).toEqual({ enqueuedForLegA: false, enqueuedForLegB: true });
+    expect(enqueueMakeUpOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: "Away",
+        accountId: 14,
+        failedPlatformLabel: "Polymarket(待确认续查)",
+      }),
+    );
+    expect(setPendingPmOrder).toHaveBeenCalledWith(100, "0xpm-timeout", 99);
   });
 });

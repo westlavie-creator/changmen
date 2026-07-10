@@ -16,8 +16,12 @@ export function syncArbFinalizeActiveBet(
   makeup: ArbMakeUpEnqueueResult,
 ): ArbFinalizeOutcome {
   const { legA, legB, accountA, accountB, resultA, resultB } = placed;
-  const okA = Boolean(resultA?.success && accountA && !settle.rejectA);
-  const okB = Boolean(resultB?.success && accountB && !settle.rejectB);
+  const okA = Boolean(
+    resultA?.success && accountA && !settle.rejectA && !settle.pendingConfirmA,
+  );
+  const okB = Boolean(
+    resultB?.success && accountB && !settle.rejectB && !settle.pendingConfirmB,
+  );
   const makeupQueued = makeup.enqueuedForLegA || makeup.enqueuedForLegB;
 
   let makeupTarget: "A" | "B" | undefined;
@@ -36,6 +40,8 @@ export function syncArbFinalizeActiveBet(
     hasB: Boolean(accountB),
     rejectA: settle.rejectA,
     rejectB: settle.rejectB,
+    pendingConfirmA: settle.pendingConfirmA,
+    pendingConfirmB: settle.pendingConfirmB,
     okA,
     okB,
     makeupQueued,

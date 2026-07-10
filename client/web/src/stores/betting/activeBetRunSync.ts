@@ -349,6 +349,8 @@ export function syncActiveBetAfterRejectSync(
     hasB: boolean;
     rejectA: boolean;
     rejectB: boolean;
+    pendingConfirmA?: boolean;
+    pendingConfirmB?: boolean;
     okA: boolean;
     okB: boolean;
     makeupQueued: boolean;
@@ -362,24 +364,43 @@ export function syncActiveBetAfterRejectSync(
   if (!store)
     return;
 
+  const pendingA = Boolean(flags.pendingConfirmA);
+  const pendingB = Boolean(flags.pendingConfirmB);
+
   if (flags.hasA) {
     store.patchLeg(betId, "A", {
-      status: flags.okA ? "confirmed" : flags.rejectA ? "rejected" : "failed",
-      detail: finalizeLegDetail({
-        ok: flags.okA,
-        reject: flags.rejectA,
-        placeOutcome: flags.placeOutcomeA,
-      }),
+      status: flags.okA
+        ? "confirmed"
+        : pendingA
+          ? "pending_confirm"
+          : flags.rejectA
+            ? "rejected"
+            : "failed",
+      detail: pendingA
+        ? "delayed 待确认"
+        : finalizeLegDetail({
+          ok: flags.okA,
+          reject: flags.rejectA,
+          placeOutcome: flags.placeOutcomeA,
+        }),
     });
   }
   if (flags.hasB) {
     store.patchLeg(betId, "B", {
-      status: flags.okB ? "confirmed" : flags.rejectB ? "rejected" : "failed",
-      detail: finalizeLegDetail({
-        ok: flags.okB,
-        reject: flags.rejectB,
-        placeOutcome: flags.placeOutcomeB,
-      }),
+      status: flags.okB
+        ? "confirmed"
+        : pendingB
+          ? "pending_confirm"
+          : flags.rejectB
+            ? "rejected"
+            : "failed",
+      detail: pendingB
+        ? "delayed 待确认"
+        : finalizeLegDetail({
+          ok: flags.okB,
+          reject: flags.rejectB,
+          placeOutcome: flags.placeOutcomeB,
+        }),
     });
   }
 
@@ -401,6 +422,24 @@ export function syncActiveBetAfterRejectSync(
     store.appendLegEvent(betId, "A", "拒单", "拒单");
   if (flags.rejectB && flags.hasB)
     store.appendLegEvent(betId, "B", "拒单", "拒单");
+  if (pendingA && flags.hasA)
+    store.appendLegEvent(betId, "A", "拒单", "delayed 待确认");
+  if (pendingB && flags.hasB)
+    store.appendLegEvent(betId, "B", "拒单", "delayed 待确认");
+
+  // 待确认续查：挂补单队列但腿态保持 pending_confirm（jb 续查原单，非立刻重下）
+  if (flags.makeupQueued && (pendingA || pendingB)) {
+    store.setPhase(betId, "makeup", "PM 延迟确认");
+    if (flags.makeupTarget && flags.makeupPlatform) {
+      store.patchLeg(betId, flags.makeupTarget, {
+        status: "pending_confirm",
+        platform: flags.makeupPlatform,
+        detail: "待确认 · 下轮续查",
+      });
+      store.appendLegEvent(betId, flags.makeupTarget, "补单", "续查原单（未确认不补新单）");
+    }
+    return;
+  }
 
   if (flags.makeupQueued || ((flags.okA || flags.okB) && (flags.rejectA || flags.rejectB))) {
     store.setPhase(betId, "makeup", "补单中");
@@ -417,6 +456,11 @@ export function syncActiveBetAfterRejectSync(
         flags.makeupPlatform ? `补 ${flags.makeupPlatform}` : "已入队",
       );
     }
+    return;
+  }
+
+  if (pendingA || pendingB) {
+    store.setPhase(betId, "settling", "PM 延迟确认");
     return;
   }
 

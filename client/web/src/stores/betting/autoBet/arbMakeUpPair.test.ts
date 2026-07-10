@@ -19,7 +19,7 @@ describe("arbMakeUpSides", () => {
     expect(arbMakeUpSides(ob, false, pm, false)).toBe("enqueueB");
   });
 
-  it("treats venue not-filled (reject/timeout) as failed leg", () => {
+  it("treats venue confirmed unfilled as failed leg", () => {
     const ray = new BetResult("RAY", true);
     const ob = new BetResult("OB", true);
     expect(arbMakeUpSides(ray, true, ob, false)).toBe("enqueueA");
@@ -38,7 +38,17 @@ describe("arbMakeUpSides", () => {
     expect(arbMakeUpSides(ray, true, pm, true)).toBeNull();
   });
 
-  it("enqueues B when OB filled and PM venue timeout/not-filled", () => {
+  it("does not enqueue when OB filled and PM still pendingConfirm (timeout)", () => {
+    const ob = new BetResult("OB", true);
+    const pm = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xpm",
+      reject: "timeout",
+    });
+    expect(arbMakeUpSides(ob, false, pm, false, false, true)).toBeNull();
+    expect(arbMakeUpSides(ob, false, pm, true, false, false)).toBe("enqueueB");
+  });
+
+  it("enqueues B when OB filled and PM confirmed unfilled", () => {
     const ob = new BetResult("OB", true);
     const pm = Object.assign(new BetResult("Polymarket", true), { orderId: "0xpm" });
     expect(arbMakeUpSides(ob, false, pm, true)).toBe("enqueueB");
