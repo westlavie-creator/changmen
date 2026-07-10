@@ -5,6 +5,7 @@ import {
   backendBindLinkFromCreateAt,
   CLIENT_ORDER_LIST_SQL,
   isArbBindLink,
+  isBackendBindPlaceholderLink,
   isClientOrderListVisible,
   isCreateAtPlaceholderLink,
   isHashLink,
@@ -70,6 +71,13 @@ describe("order_link_filter", () => {
     assert.ok(backendBindLinkFromCreateAt(ca) < ca);
   });
 
+  it("isBackendBindPlaceholderLink matches create_at - 1", () => {
+    const ca = 1_781_882_462_790;
+    assert.equal(isBackendBindPlaceholderLink(ca - 1, ca), true);
+    assert.equal(isBackendBindPlaceholderLink(ca, ca), false);
+    assert.equal(isBackendBindPlaceholderLink(ca - 2, ca), false);
+  });
+
   it("placeholderLinkFromInsertAt uses insert ms", () => {
     assert.equal(placeholderLinkFromInsertAt(1_781_900_000_000), 1_781_900_000_000);
     assert.ok(placeholderLinkFromInsertAt(0) >= ARB_LINK_MIN);
@@ -91,6 +99,10 @@ describe("order_link_filter", () => {
     const ca = 1_781_882_462_790;
     assert.equal(
       shouldFireOrderBoundHook({ link: ca, create_at: ca }, arb),
+      true,
+    );
+    assert.equal(
+      shouldFireOrderBoundHook({ link: ca - 1, create_at: ca }, arb),
       true,
     );
     assert.equal(
@@ -126,6 +138,26 @@ describe("order_link_filter", () => {
     );
     assert.equal(
       shouldAllowOrderBind({ link: prevLink, create_at: ca }, prevLink),
+      true,
+    );
+  });
+
+  it("shouldAllowOrderBind allows makeup rebind from create_at-1 to inherited arb link", () => {
+    // Shopify map2 makeup: PM create_at minutes after RAY attempt linkId
+    const createAt = 1_783_645_770_000;
+    const placeholder = createAt - 1;
+    const inheritedArbLink = 1_783_645_508_532;
+    assert.equal(
+      shouldAllowOrderBind({ link: placeholder, create_at: createAt }, inheritedArbLink),
+      true,
+    );
+    // final makeup: ~11 min later
+    const createAt2 = 1_783_647_570_000;
+    assert.equal(
+      shouldAllowOrderBind(
+        { link: createAt2 - 1, create_at: createAt2 },
+        1_783_646_881_736,
+      ),
       true,
     );
   });

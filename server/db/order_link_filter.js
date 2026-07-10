@@ -50,6 +50,21 @@ export function isCreateAtPlaceholderLink(link, createAt) {
   return l === ca;
 }
 
+/**
+ * SaveOrder 未绑占位：link = create_at - 1（backendBindLinkFromCreateAt）。
+ * 与前端 isUnboundPlaceholderLink / auto-rebind 对齐；须允许改绑到继承的 arb linkId
+ *（补单成交常晚于 attempt 数分钟，不能走「近 create_at 优先」距离门控）。
+ */
+export function isBackendBindPlaceholderLink(link, createAt) {
+  const l = Number(link);
+  const ca = Number(createAt);
+  if (!Number.isFinite(l) || l < ARB_LINK_MIN)
+    return false;
+  if (!Number.isFinite(ca) || ca <= 1)
+    return false;
+  return l === ca - 1;
+}
+
 /** 未绑单 RDS 入库占位：≥ 1e12 且晚于场馆 create_at（与 legacy create_at 占位区分） */
 export function isInsertTimePlaceholderLink(link, createAt) {
   const l = Number(link);
@@ -57,6 +72,8 @@ export function isInsertTimePlaceholderLink(link, createAt) {
   if (!Number.isFinite(l) || l < ARB_LINK_MIN)
     return false;
   if (isCreateAtPlaceholderLink(l, ca))
+    return false;
+  if (isBackendBindPlaceholderLink(l, ca))
     return false;
   if (!Number.isFinite(ca) || ca <= 0)
     return true;
@@ -87,6 +104,8 @@ export function shouldAllowOrderBind(prevRow, linkVal) {
     return true;
   if (isCreateAtPlaceholderLink(prevLink, prevRow?.create_at))
     return true;
+  if (isBackendBindPlaceholderLink(prevLink, prevRow?.create_at))
+    return true;
   if (isHashLink(prevLink))
     return true;
   const ca = Number(prevRow?.create_at);
@@ -110,6 +129,8 @@ export function shouldFireOrderBoundHook(prevRow, linkVal) {
   if (isHashLink(prevLink))
     return true;
   if (isCreateAtPlaceholderLink(prevLink, prevRow?.create_at))
+    return true;
+  if (isBackendBindPlaceholderLink(prevLink, prevRow?.create_at))
     return true;
   return isInsertTimePlaceholderLink(prevLink, prevRow?.create_at);
 }

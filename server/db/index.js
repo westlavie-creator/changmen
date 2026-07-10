@@ -185,6 +185,7 @@ export {
   backendBindLinkFromCreateAt,
   CLIENT_ORDER_LIST_SQL,
   isArbBindLink,
+  isBackendBindPlaceholderLink,
   isClientOrderListVisible,
   isCreateAtPlaceholderLink,
   isHashLink,
