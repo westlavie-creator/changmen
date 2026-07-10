@@ -1,15 +1,9 @@
 import type { ApiEnvelope } from "@changmen/api-contract";
 import { buildEsportUrl } from "@changmen/api-contract/urls";
 import { ElMessage } from "element-plus";
-import {
-  armEsportPostDelaySample,
-  finalizeEsportPostDelaySample,
-  installEsportDelayResponseInterceptor,
-} from "@/api/apiDelay";
+import { armEsportPostDelaySample, finalizeEsportPostDelaySample } from "@/api/apiDelay";
 import { getApiBase } from "@/config/apiBase";
 import { a8Axios, responseBodyText } from "@/shared/a8Axios";
-
-installEsportDelayResponseInterceptor();
 
 const FORM_HEADERS = { "Content-Type": "application/x-www-form-urlencoded;" };
 const TOKEN_COOKIE = "app_token";
@@ -100,17 +94,12 @@ async function executePost<T>(
   opts?: PostOptions,
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
-  const startedPerf = typeof performance !== "undefined" ? performance.now() : 0;
-  const url = buildEsportUrl(action, query, getApiBase());
   armEsportPostDelaySample(started);
   try {
     const res = await a8Axios.post<ApiEnvelope<T>>(
-      url,
+      buildEsportUrl(action, query, getApiBase()),
       toA8PostBody(body),
-      {
-        headers: { ...FORM_HEADERS, ...authHeaders() },
-        esportDelaySample: { startedAt: started, startedPerf, action, url },
-      },
+      { headers: { ...FORM_HEADERS, ...authHeaders() } },
     );
     const json = res.data;
 
@@ -133,7 +122,7 @@ async function executePost<T>(
     );
   }
   finally {
-    finalizeEsportPostDelaySample();
+    finalizeEsportPostDelaySample(started);
   }
 }
 
