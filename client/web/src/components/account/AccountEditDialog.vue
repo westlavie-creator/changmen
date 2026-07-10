@@ -490,6 +490,22 @@ async function buildPatch(): Promise<Partial<AccountRecord> & {
   };
 }
 
+/** [changmen 扩展] 选填 playerName → 平台账号名 / 账号ID / 编辑原值 */
+function resolvePlayerNameForSave(
+  patch: Partial<AccountRecord> & { playerName: string },
+): string {
+  const filled = String(patch.playerName || "").trim();
+  if (filled)
+    return filled;
+  const venueName = String(patch.venueAccountName || form.venueAccountName || "").trim();
+  if (venueName)
+    return venueName;
+  const venueId = String(patch.venueMemberId || form.venueMemberId || "").trim();
+  if (venueId)
+    return venueId;
+  return String(props.account?.playerName || "").trim();
+}
+
 /**
  * [changmen 扩展] 仅对已接线场馆：保存前拉余额并绑定 venueMemberId。
  * - 新建：回写 venueMemberId；同场馆占用 → 拒绝
@@ -593,15 +609,17 @@ async function save() {
       loading = ElLoading.service({ fullscreen: true, text: "校验余额与平台账号..." });
       venue = await probeVenueIdentityForSave(patch);
       patch.venueAccountName = venue.venueAccountName;
-      if (!patch.playerName.trim())
-        patch.playerName = venue.venueAccountName!;
+      if (venue.venueMemberId)
+        patch.venueMemberId = venue.venueMemberId;
       loading.close();
       loading = undefined;
     }
 
-    // [A8 可证实] AccountInfoView：平台名 + 账号名必填；未接线场馆保持此路径
-    if (!patch.playerName.trim()) {
-      ElMessage.error("账号名必填");
+    // [changmen 扩展] playerName 选填：空则回退平台账号名 / 账号ID / 编辑原值
+    // CreateTagPlatform 仍需要非空 playerName（内部兼容字段，非用户必填项）
+    patch.playerName = resolvePlayerNameForSave(patch);
+    if (!patch.playerName) {
+      ElMessage.error("无法确定账号标识：请填写账号，或使用支持自动识别的场馆");
       return;
     }
 

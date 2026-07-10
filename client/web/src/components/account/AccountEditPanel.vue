@@ -94,7 +94,7 @@ function unlockRate() {
         <el-col :span="5">
           <el-input
             v-model="form.playerName"
-            placeholder="可空，保存时用平台账号"
+            placeholder="选填，空则用平台账号"
             :disabled="fieldDisabled()"
           >
             <template #prepend>
