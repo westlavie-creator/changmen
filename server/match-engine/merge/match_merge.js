@@ -546,17 +546,8 @@ function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
   if (!picked?.home || !picked?.away)
     return null;
 
-  const homeGbByName = lookupGbTeamIdByName(picked.home, gameCode);
-  const awayGbByName = lookupGbTeamIdByName(picked.away, gameCode);
-  if (homeGbByName && awayGbByName) {
-    return {
-      homeGb: parseLockedGbTeamId(homeGbByName),
-      awayGb: parseLockedGbTeamId(awayGbByName),
-    };
-  }
-
   const rows = buildPlatformRowsForMatchs(matchs, matches);
-  // 不限标题参考平台：任一平台两侧 ID 均能映射且与 title 主客可对齐即可锁
+  // 平台 ID 映射优先于队名：避免同名跨游戏（#670 EDG val→kog）抢先锁锚点
   const ordered = [...rows].sort(
     (a, b) => (PROVIDER_PRIORITY[b.platform] || 0) - (PROVIDER_PRIORITY[a.platform] || 0),
   );
@@ -564,6 +555,8 @@ function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
     const slotHomeGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.homeId);
     const slotAwayGb = lookupGbTeamIdByPlatform(refRow.platform, refRow.awayId);
     if (!slotHomeGb || !slotAwayGb)
+      continue;
+    if (!anchorGbValidForGame(slotHomeGb, gameCode) || !anchorGbValidForGame(slotAwayGb, gameCode))
       continue;
 
     const mode = sideAlignmentMode(refRow.home, refRow.away, picked.home, picked.away);
@@ -579,6 +572,14 @@ function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
         awayGb: parseLockedGbTeamId(slotHomeGb),
       };
     }
+  }
+
+  const homeGbByName = parseLockedGbTeamId(lookupGbTeamIdByName(picked.home, gameCode));
+  const awayGbByName = parseLockedGbTeamId(lookupGbTeamIdByName(picked.away, gameCode));
+  if (homeGbByName && awayGbByName
+    && anchorGbValidForGame(homeGbByName, gameCode)
+    && anchorGbValidForGame(awayGbByName, gameCode)) {
+    return { homeGb: homeGbByName, awayGb: awayGbByName };
   }
   return null;
 }
@@ -619,8 +620,10 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
     if (!homeGb || !awayGb) {
       const picked = pickCanonicalGbFromMatchs(row.Matchs, matches, gameCode);
       if (picked) {
-        homeGb = picked.homeGb;
-        awayGb = picked.awayGb;
+        if (!homeGb && anchorGbValidForGame(picked.homeGb, gameCode))
+          homeGb = picked.homeGb;
+        if (!awayGb && anchorGbValidForGame(picked.awayGb, gameCode))
+          awayGb = picked.awayGb;
       }
     }
 
@@ -631,8 +634,10 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
         const teams = parseTitleTeams(title);
         if (!teams)
           continue;
-        const h = homeGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.home, gameCode));
-        const a = awayGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.away, gameCode));
+        const hRaw = homeGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.home, gameCode));
+        const aRaw = awayGb || parseLockedGbTeamId(lookupGbTeamIdByName(teams.away, gameCode));
+        const h = hRaw && anchorGbValidForGame(hRaw, gameCode) ? hRaw : homeGb;
+        const a = aRaw && anchorGbValidForGame(aRaw, gameCode) ? aRaw : awayGb;
         if (h && a) {
           homeGb = h;
           awayGb = a;
@@ -642,6 +647,11 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
         awayGb = awayGb || a;
       }
     }
+
+    if (homeGb && !anchorGbValidForGame(homeGb, gameCode))
+      homeGb = null;
+    if (awayGb && !anchorGbValidForGame(awayGb, gameCode))
+      awayGb = null;
 
     if (homeGb && awayGb) {
       row.HomeGbTeamId = homeGb;

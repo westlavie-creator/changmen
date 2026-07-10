@@ -51,12 +51,23 @@ function getAliases() {
   return _aliases;
 }
 
+/** OB 等场馆偶发把 `'` 存成 `&apos;`；先解码再归一，避免 `lifeaposs a game` */
+function decodeHtmlEntities(s) {
+  return String(s || "")
+    .replace(/&apos;/gi, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
 /**
  * 小写 → 去标点 → 去末尾通用后缀（esports/gaming）→ 别名替换。
  * 保留 CJK 字符，支持 team_aliases.json 扩展。
  */
 function normalizeTeam(name) {
-  const base = String(name || "")
+  const base = decodeHtmlEntities(name)
     .toLowerCase()
     .replace(/[·\-—_•\s]+/g, " ")
     .replace(/[^\w\s一-鿿]/g, "")
@@ -176,6 +187,14 @@ function classifyMergeBasis(home, away, gameCode, ctx) {
   return "name";
 }
 
+/** canonical / map 上的「未知(N)」占位，不能当真实 game 做串线校验 */
+function isUnresolvedGameLabel(game) {
+  const g = String(game || "").trim().toLowerCase();
+  if (!g)
+    return true;
+  return g === "unknown" || g.startsWith("未知");
+}
+
 function lookupGbTeamIdByName(teamName, gameCode) {
   const normalized = normalizeTeam(teamName);
   if (!normalized)
@@ -188,10 +207,18 @@ function lookupGbTeamIdByName(teamName, gameCode) {
     if (scoped)
       return scoped;
   }
-  if (typeof _teamPlugin.lookupGbTeamIdByNormalizedName === "function") {
-    return _teamPlugin.lookupGbTeamIdByNormalizedName(normalized) || null;
+  if (typeof _teamPlugin.lookupGbTeamIdByNormalizedName !== "function")
+    return null;
+  const unscoped = _teamPlugin.lookupGbTeamIdByNormalizedName(normalized) || null;
+  if (!unscoped)
+    return null;
+  // 有本场 game 时：禁止把其它已知游戏的同名队当回落（#670 EDG val→kog）
+  if (game) {
+    const gbGame = lookupGameForGbTeamId(unscoped);
+    if (gbGame && !isUnresolvedGameLabel(gbGame) && String(gbGame).toLowerCase() !== game)
+      return null;
   }
-  return null;
+  return unscoped;
 }
 
 function lookupGameForGbTeamId(gbTeamId) {
@@ -207,7 +234,7 @@ function anchorGbValidForGame(gbTeamId, gameCode) {
   if (!gb || !game)
     return true;
   const gbGame = lookupGameForGbTeamId(gb);
-  if (!gbGame)
+  if (!gbGame || isUnresolvedGameLabel(gbGame))
     return true;
   return String(gbGame).toLowerCase() === game;
 }
@@ -218,6 +245,7 @@ export {
   canonicalMatchKeyByIdOnly,
   canonicalMatchKeyByName,
   classifyMergeBasis,
+  isUnresolvedGameLabel,
   lookupCanonicalTeamName,
   lookupGameForGbTeamId,
   lookupGbTeamIdByName,

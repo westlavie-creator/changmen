@@ -18,8 +18,18 @@ function _getAliases() {
   return _aliases;
 }
 
+function _decodeHtmlEntities(s) {
+  return String(s || "")
+    .replace(/&apos;/gi, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
 function _norm(name) {
-  const base = String(name || "")
+  const base = _decodeHtmlEntities(name)
     .toLowerCase()
     .replace(/[·\-—_·•\s]+/g, " ")
     .replace(/[^\w\s一-鿿]/g, "")
@@ -27,6 +37,14 @@ function _norm(name) {
     .replace(/\s+(?:esports?|gaming)$/i, "")
     .trim();
   return _getAliases()[base] || base;
+}
+
+/** catalog 未识别时 scrapers 会写成「未知(N)」，不能当真实 game */
+function _isUnresolvedGame(game) {
+  const g = String(game || "").trim().toLowerCase();
+  if (!g)
+    return true;
+  return g === "unknown" || g.startsWith("未知");
 }
 
 export async function loadAndCreatePlugin() {
@@ -57,16 +75,25 @@ export async function loadAndCreatePlugin() {
   const idMap = new Map();
   const obNameByGbId = new Map();
   const _savedIds = new Set();
+  /** gb → 场馆侧已识别 game（优先 OB），用于纠正 canonical「未知(N)」 */
+  const gameFromMaps = new Map();
 
   for (const row of allMaps) {
     if (!row.venue_id) continue;
     const key = `${row.venue}:${row.venue_id}`;
     _savedIds.add(key);
     if (!row.gb_team_id) continue;
-    idMap.set(key, String(row.gb_team_id));
-    if (row.venue === "OB" && !obNameByGbId.has(String(row.gb_team_id))) {
+    const gbKey = String(row.gb_team_id);
+    idMap.set(key, gbKey);
+    if (row.venue === "OB" && !obNameByGbId.has(gbKey)) {
       const obName = String(row.venue_name || "").trim();
-      if (obName) obNameByGbId.set(String(row.gb_team_id), obName);
+      if (obName) obNameByGbId.set(gbKey, obName);
+    }
+    const mapGame = String(row.game || "").trim();
+    if (mapGame && !_isUnresolvedGame(mapGame)) {
+      const prev = gameFromMaps.get(gbKey);
+      if (!prev || row.venue === "OB")
+        gameFromMaps.set(gbKey, mapGame);
     }
   }
 
@@ -75,18 +102,21 @@ export async function loadAndCreatePlugin() {
   const gbTeamGameMap = new Map();
   for (const team of allTeams) {
     if (team.gb_team_id == null) continue;
-    const g = team.game;
-    gbTeamGameMap.set(String(team.gb_team_id), g);
+    const gbKey = String(team.gb_team_id);
+    let g = team.game;
+    if (_isUnresolvedGame(g) && gameFromMaps.has(gbKey))
+      g = gameFromMaps.get(gbKey);
+    gbTeamGameMap.set(gbKey, g);
     const displayName = resolveCanonicalTeamName(
-      obNameByGbId.get(String(team.gb_team_id)),
+      obNameByGbId.get(gbKey),
       team.name,
     );
     if (!displayName) continue;
     const nameKey = _norm(displayName);
     if (nameKey) {
       nameMap.set(`${g}:${nameKey}`, String(team.id));
-      gbTeamIdByGameName.set(`${g}:${nameKey}`, String(team.gb_team_id));
-      if (!nameOnlyMap.has(nameKey)) nameOnlyMap.set(nameKey, String(team.gb_team_id));
+      gbTeamIdByGameName.set(`${g}:${nameKey}`, gbKey);
+      if (!nameOnlyMap.has(nameKey)) nameOnlyMap.set(nameKey, gbKey);
     }
   }
 

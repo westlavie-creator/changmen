@@ -1358,7 +1358,6 @@ function lockedGbForSide(cm, side) {
 
 function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName, cm) {
   const locked = lockedGbForSide(cm, side);
-  if (locked) return locked;
 
   const ref = pickClientMatchSideRow(rows, side, gameCode);
   const name = String(anchorName || (side === 'home' ? ref.row.home : ref.row.away) || '').trim();
@@ -1382,6 +1381,15 @@ function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorN
       }
     }
   }
+
+  // DB 锁与本场场馆映射冲突时（跨游戏同名串线），以场馆多数为准
+  if (locked) {
+    if (counts.size && !counts.has(locked)) {
+      return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    }
+    return locked;
+  }
+
   if (counts.size) {
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
   }
