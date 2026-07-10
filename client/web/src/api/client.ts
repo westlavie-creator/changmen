@@ -94,6 +94,7 @@ async function executePost<T>(
   opts?: PostOptions,
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
+  const startedPerf = typeof performance !== "undefined" ? performance.now() : 0;
   armEsportPostDelaySample(started);
   try {
     const res = await a8Axios.post<ApiEnvelope<T>>(
@@ -122,7 +123,7 @@ async function executePost<T>(
     );
   }
   finally {
-    finalizeEsportPostDelaySample(started);
+    finalizeEsportPostDelaySample(started, startedPerf, action);
   }
 }
 

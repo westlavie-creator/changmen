@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { readEsportNetworkMs } from "@/api/esportNetworkMs";
 
 /** [A8 可证实] bundle `Ut.delay = se()` */
 export const delay = ref(0);
@@ -25,12 +26,22 @@ export function armEsportPostDelaySample(now = Date.now()) {
 /**
  * [A8 可证实] `Ar.post` finally：
  * `Ut.counter.value++`；`_isDelay && (_isDelay=false, Ut.delay=Date.now()-o)`
+ *
+ * [changmen 扩展] 若 Resource Timing 显示网络段明显短于 wall（主线程阻塞 finally），
+ * 用网络耗时对齐 DevTools Network，避免误显示 2000+ms。
  */
-export function finalizeEsportPostDelaySample(startedAt: number, now = Date.now()) {
+export function finalizeEsportPostDelaySample(
+  startedAt: number,
+  startedPerf: number,
+  action: string,
+  now = Date.now(),
+) {
   counter.value += 1;
   if (isDelay) {
     isDelay = false;
-    delay.value = now - startedAt;
+    const wall = now - startedAt;
+    const networkMs = readEsportNetworkMs(action, startedPerf);
+    delay.value = networkMs !== undefined && networkMs < wall ? networkMs : wall;
   }
 }
 
