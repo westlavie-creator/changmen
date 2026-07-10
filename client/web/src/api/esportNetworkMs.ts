@@ -1,23 +1,30 @@
-import { buildEsportPath } from "@changmen/api-contract/urls";
-
 /**
- * [changmen 扩展] 从 PerformanceResourceTiming 读取刚完成的 esport POST 网络耗时。
- * 对齐 DevTools Network 列（requestStart → responseEnd），不含主线程 finally 排队。
+ * [changmen 扩展] 从 PerformanceResourceTiming 读取 esport POST 的网络段耗时。
+ * 对齐 DevTools Network（不含主线程排队到 finally 的时间）。
  */
-export function readEsportNetworkMs(action: string, startedPerf: number): number | undefined {
+export function readEsportNetworkMs(
+  action: string,
+  requestUrl: string,
+  startedPerf: number,
+): number | undefined {
   if (typeof performance === "undefined" || !action)
     return undefined;
 
-  const pathNeedle = buildEsportPath(action);
+  const needles = [
+    requestUrl,
+    `/esport/${action}`,
+    action,
+  ].filter(Boolean);
+
   const entries = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
   let picked: PerformanceResourceTiming | undefined;
 
   for (const entry of entries) {
-    if (!entry.name.includes(pathNeedle))
+    if (!needles.some(n => entry.name.includes(n)))
       continue;
-    if (entry.startTime < startedPerf - 50)
+    if (entry.startTime < startedPerf - 500)
       continue;
-    if (entry.responseEnd <= 0 || entry.requestStart <= 0)
+    if (entry.responseEnd <= 0)
       continue;
     if (!picked || entry.responseEnd > picked.responseEnd)
       picked = entry;
@@ -25,5 +32,10 @@ export function readEsportNetworkMs(action: string, startedPerf: number): number
 
   if (!picked)
     return undefined;
-  return Math.max(0, Math.round(picked.responseEnd - picked.requestStart));
+
+  const fromRequest = picked.requestStart > 0
+    ? picked.responseEnd - picked.requestStart
+    : 0;
+  const raw = picked.duration > 0 ? picked.duration : fromRequest;
+  return Math.max(0, Math.round(raw));
 }

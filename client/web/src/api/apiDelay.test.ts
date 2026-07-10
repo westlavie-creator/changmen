@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   armEsportPostDelaySample,
+  commitEsportPostDelaySample,
   counter,
   delay,
   finalizeEsportPostDelaySample,
@@ -8,51 +9,61 @@ import {
 } from "@/api/apiDelay";
 import { readEsportNetworkMs } from "@/api/esportNetworkMs";
 
+const sampleMeta = {
+  startedAt: 3000,
+  startedPerf: 1000,
+  action: "Client_GetMatchs",
+  url: "https://example.com/esport/Client_GetMatchs?user=u1",
+};
+
 describe("apiDelay A8 Ar.post parity", () => {
   it("opens gate only when idle >250ms since last arm", () => {
     resetEsportPostDelayStateForTest();
     armEsportPostDelaySample(1000);
-    finalizeEsportPostDelaySample(900, 900, "Client_GetMatchs", 1000);
+    commitEsportPostDelaySample({ ...sampleMeta, startedAt: 900, startedPerf: 900 }, 1000);
     expect(delay.value).toBe(100);
+    expect(counter.value).toBe(0);
+
+    finalizeEsportPostDelaySample();
     expect(counter.value).toBe(1);
 
     armEsportPostDelaySample(1100);
-    finalizeEsportPostDelaySample(1100, 1100, "Client_GetMatchs", 1150);
+    commitEsportPostDelaySample({ ...sampleMeta, startedAt: 1100, startedPerf: 1100 }, 1150);
     expect(delay.value).toBe(100);
 
     armEsportPostDelaySample(1301);
-    finalizeEsportPostDelaySample(1301, 1301, "Client_GetMatchs", 1400);
+    commitEsportPostDelaySample({ ...sampleMeta, startedAt: 1301, startedPerf: 1301 }, 1400);
     expect(delay.value).toBe(99);
-    expect(counter.value).toBe(3);
   });
 
-  it("increments counter on every post even when gate closed", () => {
+  it("increments counter in finally even when gate closed", () => {
     resetEsportPostDelayStateForTest();
-    finalizeEsportPostDelaySample(0, 0, "Client_GetMatchs", 50);
+    finalizeEsportPostDelaySample();
     expect(delay.value).toBe(0);
     expect(counter.value).toBe(1);
   });
 
-  it("armed request records Date.now()-startedAt in finally when no Resource Timing", () => {
+  it("armed request uses wall clock when no Resource Timing", () => {
     resetEsportPostDelayStateForTest();
     armEsportPostDelaySample(300);
-    finalizeEsportPostDelaySample(300, 300, "Client_GetMatchs", 600);
+    commitEsportPostDelaySample({ ...sampleMeta, startedAt: 300, startedPerf: 300 }, 600);
     expect(delay.value).toBe(300);
   });
 
-  it("prefers network timing when wall clock inflated by main-thread gap", () => {
+  it("uses Resource Timing for delay when available (Network parity)", () => {
     resetEsportPostDelayStateForTest();
     vi.spyOn(performance, "getEntriesByType").mockReturnValue([
       {
-        name: "https://example.com/esport/Client_GetMatchs?user=u1",
+        name: sampleMeta.url,
         startTime: 1000,
         requestStart: 1005,
         responseEnd: 1020,
+        duration: 15,
       } as PerformanceResourceTiming,
     ]);
 
     armEsportPostDelaySample(3000);
-    finalizeEsportPostDelaySample(3000, 1000, "Client_GetMatchs", 5200);
+    commitEsportPostDelaySample(sampleMeta, 5200);
     expect(delay.value).toBe(15);
 
     vi.restoreAllMocks();
@@ -62,7 +73,7 @@ describe("apiDelay A8 Ar.post parity", () => {
 describe("readEsportNetworkMs", () => {
   it("returns undefined without matching resource entry", () => {
     vi.spyOn(performance, "getEntriesByType").mockReturnValue([]);
-    expect(readEsportNetworkMs("Client_GetMatchs", 1000)).toBeUndefined();
+    expect(readEsportNetworkMs("Client_GetMatchs", sampleMeta.url, 1000)).toBeUndefined();
     vi.restoreAllMocks();
   });
 });
