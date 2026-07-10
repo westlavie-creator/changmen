@@ -90,6 +90,7 @@ export {
   fetchAccountRecordsByOwner,
   fetchPlayerByPlatformAndName,
   fetchPlayerByPlatformNameAndPlayerName,
+  fetchPlayerByProviderAndVenueMemberId,
   fetchPlayerById,
   fetchPlayersByIds,
   fetchTagPlatforms,

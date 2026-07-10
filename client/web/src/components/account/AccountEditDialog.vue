@@ -675,10 +675,13 @@ async function save() {
     // [A8 可证实] 新建：createTagPlatform({ loading }) → 关弹窗 → createAccount
     if (bindVenueMember && venue?.venueMemberId)
       patch.venueMemberId = venue.venueMemberId;
-    const created = await accountStore.createTagPlatform(
-      patch.platformName,
-      patch.playerName,
-    );
+    const created = bindVenueMember && patch.venueMemberId
+      ? await accountStore.createTagPlatform(patch.platformName, {
+          playerName: patch.playerName,
+          venueMemberId: patch.venueMemberId,
+          provider: patch.provider,
+        })
+      : await accountStore.createTagPlatform(patch.platformName, patch.playerName);
     ElMessage.success("账号设置已保存");
     emit("close");
     const record: AccountRecord = {

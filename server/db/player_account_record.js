@@ -24,6 +24,12 @@ const STRUCTURED_KEYS = new Set([
   "UpdateTime",
 ]);
 
+export function readVenueMemberIdFromRecord(record) {
+  const r = record && typeof record === "object" ? record : {};
+  const v = r.venueMemberId ?? r.venueId ?? r.VenueMemberId ?? r.VenueId;
+  return v != null ? String(v).trim() : "";
+}
+
 function pickStructured(record) {
   const r = record && typeof record === "object" ? record : {};
   const accountId = Number(r.accountId ?? r.AccountId) || 0;
@@ -57,6 +63,8 @@ export function playerRowToAccountRecord(row) {
       : {};
   for (const k of STRUCTURED_KEYS)
     delete data[k];
+  const venueMemberId = String(row.venueMemberId || data.venueMemberId || data.venueId || "").trim();
+  const venueAccountName = String(data.venueAccountName || "").trim();
   return {
     ...data,
     accountId: Number(row.id ?? row.playerId),
@@ -64,6 +72,8 @@ export function playerRowToAccountRecord(row) {
     platformName: String(row.platformName || ""),
     playerName: String(row.playerName || ""),
     provider: String(row.provider || data.provider || ""),
+    ...(venueMemberId ? { venueMemberId } : {}),
+    ...(venueAccountName ? { venueAccountName } : {}),
     credit: Number(row.credit) || 0,
     balance: Number(row.totalBalance) || 0,
     updateTime: Number(row.updatedAt) || Date.now(),
@@ -81,6 +91,7 @@ export function accountRecordToPlayerPatch(record) {
     platformName: s.platformName,
     playerName: s.playerName,
     provider: s.provider,
+    venueMemberId: readVenueMemberIdFromRecord(record),
     credit: s.credit,
     totalBalance: s.totalBalance,
     accountData: extras,

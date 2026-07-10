@@ -8,12 +8,18 @@ async function listTagPlatforms() {
     .sort((a, b) => a.ID - b.ID);
 }
 
-async function createTagPlatform(platformName, playerName, ownerUserId) {
+async function createTagPlatform(platformName, playerName, ownerUserId, opts = {}) {
   const label = String(platformName || "").trim();
   const name = String(playerName || "").trim();
   const uid = String(ownerUserId || "").trim();
-  if (!label || !name)
+  const venueMemberId = String(opts.venueMemberId || "").trim();
+  const provider = String(opts.provider || "").trim();
+  if (!label || !uid)
     return null;
+  if (!venueMemberId && !name)
+    return null;
+  if (venueMemberId && !provider)
+    throw new Error("CreateTagPlatform 需要 provider 与 venueMemberId 配套");
   if (!uid)
     throw new Error("CreateTagPlatform 需要登录用户 ownerUserId");
 
@@ -22,36 +28,52 @@ async function createTagPlatform(platformName, playerName, ownerUserId) {
     throw new Error("CreateTagPlatform 需要 DATABASE_URL（RDS tag_platforms / players）");
   }
 
-  // 优先按 tag_platforms.id + player_name 复用；历史数据 platform_id 漂移时
-  // 再按 platform_name + player_name 回退，避免编辑保存 insert 出重复 player。
-  let existing = await sb.fetchPlayerByPlatformAndName(platform.id, name, uid);
-  if (!existing)
-    existing = await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid);
+  const displayName = name || venueMemberId;
+
+  // [changmen 扩展] 接线场馆优先按 provider + venueMemberId 复用
+  let existing = null;
+  if (venueMemberId && provider)
+    existing = await sb.fetchPlayerByProviderAndVenueMemberId(provider, venueMemberId, uid);
+  if (!existing && name) {
+    existing = await sb.fetchPlayerByPlatformAndName(platform.id, name, uid);
+    if (!existing)
+      existing = await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid);
+  }
   if (existing) {
     return {
       playerId: existing.playerId,
       playerName: existing.playerName,
       platformId: existing.platformId,
       platformName: platform.name,
+      venueMemberId: existing.venueMemberId || venueMemberId || undefined,
+      provider: existing.provider || provider || undefined,
     };
   }
 
   const player = await sb.insertPlayerRow({
     platformId: platform.id,
     platformName: platform.name,
-    playerName: name,
+    playerName: displayName,
     ownerUserId: uid,
+    provider,
+    venueMemberId,
   });
   if (!player) {
-    // 并发/唯一约束冲突时再查一次，避免前端拿到失败后重试又插一条
-    const raced = await sb.fetchPlayerByPlatformAndName(platform.id, name, uid)
-      || await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid);
+    const raced = (venueMemberId && provider
+      ? await sb.fetchPlayerByProviderAndVenueMemberId(provider, venueMemberId, uid)
+      : null)
+      || (name
+        ? await sb.fetchPlayerByPlatformAndName(platform.id, name, uid)
+          || await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid)
+        : null);
     if (raced) {
       return {
         playerId: raced.playerId,
         playerName: raced.playerName,
         platformId: raced.platformId,
         platformName: platform.name,
+        venueMemberId: raced.venueMemberId || venueMemberId || undefined,
+        provider: raced.provider || provider || undefined,
       };
     }
     throw new Error("CreateTagPlatform 写入 players 失败");
@@ -62,6 +84,8 @@ async function createTagPlatform(platformName, playerName, ownerUserId) {
     playerName: player.playerName,
     platformId: player.platformId,
     platformName: player.platformName,
+    venueMemberId: player.venueMemberId || venueMemberId || undefined,
+    provider: player.provider || provider || undefined,
   };
 }
 

@@ -18,6 +18,7 @@ players
   owner_user_id         ← profiles.id，每用户隔离
   platform_id / platform_name / player_name
   provider              ← 场馆 adapter 键
+  venue_member_id       ← [changmen 扩展] 场馆会员 ID（与 account_data.venueMemberId 同步）
   credit / total_balance
   account_data jsonb    ← 凭证 gateway/token、限额 rateConfig、game 等其余线协议字段
 
@@ -36,6 +37,7 @@ players (每用户隔离，唯一真相)
   owner_user_id   uuid NOT NULL（活跃行）→ profiles.id
   account_data    凭证 + 投注配置
   UNIQUE (owner_user_id, platform_id, player_name) WHERE deleted_at IS NULL
+  UNIQUE (owner_user_id, provider, venue_member_id) WHERE deleted_at IS NULL AND venue_member_id <> '' AND provider <> ''
 
 orders / money_logs
   user_id + player_id

@@ -1,5 +1,5 @@
 import type { BetOption } from "@/models/betOption";
-import type { AccountRecord } from "@/types/account";
+import type { AccountRecord, CreateTagPlatformIdentity } from "@/types/account";
 import type { PlatformId } from "@/types/esport";
 import { defineStore } from "pinia";
 import { PlatformAccount } from "@/models/platformAccount";
@@ -76,8 +76,8 @@ export const useAccountStore = defineStore("account", {
       return accountCrud.persistAccounts(this);
     },
 
-    createTagPlatform(platformName: string, playerName: string) {
-      return accountCrud.createTagPlatformForAccount(platformName, playerName);
+    createTagPlatform(platformName: string, identity: CreateTagPlatformIdentity) {
+      return accountCrud.createTagPlatformForAccount(platformName, identity);
     },
 
     createAccount(record: AccountRecord) {

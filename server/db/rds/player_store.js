@@ -10,7 +10,7 @@ import {
 import { getPgPool, _jsonb } from "./common.js";
 
 const PLAYER_SELECT
-  = `id, owner_user_id, platform_id, platform_name, player_name, provider, credit, total_balance,
+  = `id, owner_user_id, platform_id, platform_name, player_name, provider, venue_member_id, credit, total_balance,
      account_data, created_at, updated_at, deleted_at, delete_description`;
 
 function _mapPlayerRow(row) {
@@ -37,6 +37,7 @@ function _mapPlayerRow(row) {
     platformName: String(row.platform_name || ""),
     playerName: String(row.player_name || ""),
     provider: String(row.provider || ""),
+    venueMemberId: String(row.venue_member_id || ""),
     credit: Number(row.credit) || 0,
     totalBalance: Number(row.total_balance) || 0,
     accountData,
@@ -85,7 +86,14 @@ export async function upsertTagPlatformByName(name) {
   }
 }
 
-export async function insertPlayerRow({ platformId, platformName, playerName, ownerUserId }) {
+export async function insertPlayerRow({
+  platformId,
+  platformName,
+  playerName,
+  ownerUserId,
+  provider = "",
+  venueMemberId = "",
+}) {
   const pool = getPgPool();
   if (!pool)
     return null;
@@ -97,16 +105,50 @@ export async function insertPlayerRow({ platformId, platformName, playerName, ow
   try {
     const { rows } = await pool.query(
       `INSERT INTO players (
-         owner_user_id, platform_id, platform_name, player_name, provider,
+         owner_user_id, platform_id, platform_name, player_name, provider, venue_member_id,
          credit, total_balance, account_data, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, '', 0, 0, '{}'::jsonb, $5, $5)
+       ) VALUES ($1, $2, $3, $4, $5, $6, 0, 0, '{}'::jsonb, $7, $7)
        RETURNING ${PLAYER_SELECT}`,
-      [uid, pid, String(platformName || ""), String(playerName || ""), now],
+      [
+        uid,
+        pid,
+        String(platformName || ""),
+        String(playerName || ""),
+        String(provider || ""),
+        String(venueMemberId || ""),
+        now,
+      ],
     );
     return _mapPlayerRow(rows?.[0]);
   }
   catch (err) {
     console.warn("[rds] insertPlayerRow:", err.message);
+    return null;
+  }
+}
+
+export async function fetchPlayerByProviderAndVenueMemberId(provider, venueMemberId, ownerUserId) {
+  const prov = String(provider || "").trim();
+  const memberId = String(venueMemberId || "").trim();
+  const uid = String(ownerUserId || "").trim();
+  if (!prov || !memberId || !uid)
+    return null;
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${PLAYER_SELECT}
+       FROM players
+       WHERE provider = $1 AND venue_member_id = $2 AND owner_user_id = $3::uuid AND deleted_at IS NULL
+       ORDER BY id ASC
+       LIMIT 1`,
+      [prov, memberId, uid],
+    );
+    return _mapPlayerRow(rows?.[0]);
+  }
+  catch (err) {
+    console.warn("[rds] fetchPlayerByProviderAndVenueMemberId:", err.message);
     return null;
   }
 }
@@ -447,6 +489,7 @@ export async function savePlayerAccountRecord(ownerUserId, record) {
       patch.platformName,
       patch.playerName,
       patch.provider,
+      String(patch.venueMemberId || ""),
       patch.credit,
       patch.totalBalance,
       _jsonb(patch.accountData, {}),
@@ -462,10 +505,11 @@ export async function savePlayerAccountRecord(ownerUserId, record) {
          platform_name = $3,
          player_name = $4,
          provider = $5,
-         credit = $6,
-         total_balance = $7,
-         account_data = $8::jsonb,
-         updated_at = $9${platformClause}
+         venue_member_id = $6,
+         credit = $7,
+         total_balance = $8,
+         account_data = $9::jsonb,
+         updated_at = $10${platformClause}
        WHERE id = $1 AND owner_user_id = $2::uuid AND deleted_at IS NULL`,
       params,
     );
@@ -508,6 +552,7 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
   const platformNames = [];
   const playerNames = [];
   const providers = [];
+  const venueMemberIds = [];
   const credits = [];
   const totalBalances = [];
   const accountDatas = [];
@@ -518,6 +563,7 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
     platformNames.push(String(patch.platformName || ""));
     playerNames.push(String(patch.playerName || ""));
     providers.push(String(patch.provider || ""));
+    venueMemberIds.push(String(patch.venueMemberId || ""));
     credits.push(Number(patch.credit) || 0);
     totalBalances.push(Number(patch.totalBalance) || 0);
     accountDatas.push(JSON.parse(_jsonb(patch.accountData, {})));
@@ -534,6 +580,7 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
          platform_name = u.platform_name,
          player_name = u.player_name,
          provider = u.provider,
+         venue_member_id = u.venue_member_id,
          credit = u.credit,
          total_balance = u.total_balance,
          account_data = u.account_data,
@@ -544,23 +591,25 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
          $2::text[],
          $3::text[],
          $4::text[],
-         $5::float8[],
+         $5::text[],
          $6::float8[],
-         $7::jsonb[],
-         $8::bigint[],
-         $9::bigint[]
+         $7::float8[],
+         $8::jsonb[],
+         $9::bigint[],
+         $10::bigint[]
        ) AS u(
-         id, platform_name, player_name, provider, credit, total_balance,
+         id, platform_name, player_name, provider, venue_member_id, credit, total_balance,
          account_data, updated_at, platform_id
        )
        WHERE p.id = u.id
-         AND p.owner_user_id = $10::uuid
+         AND p.owner_user_id = $11::uuid
          AND p.deleted_at IS NULL`,
       [
         ids,
         platformNames,
         playerNames,
         providers,
+        venueMemberIds,
         credits,
         totalBalances,
         accountDatas,

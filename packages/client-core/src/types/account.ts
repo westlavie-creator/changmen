@@ -61,7 +61,17 @@ export interface CreateTagPlatformResult {
   playerName: string;
   platformId: number;
   platformName: string;
+  venueMemberId?: string;
+  provider?: string;
 }
+
+export type CreateTagPlatformIdentity =
+  | string
+  | {
+    playerName?: string;
+    venueMemberId?: string;
+    provider?: string;
+  };
 
 export interface UpdateBalanceResult {
   total: number;

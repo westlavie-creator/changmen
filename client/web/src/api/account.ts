@@ -1,4 +1,4 @@
-import type { AccountRecord, CreateTagPlatformResult, UpdateBalanceResult } from "@/types/account";
+import type { AccountRecord, CreateTagPlatformIdentity, CreateTagPlatformResult, UpdateBalanceResult } from "@/types/account";
 import type { MoneyLogRow, PageResult, TagPlatformRow } from "@/types/esport";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply";
 import { post, unwrap } from "@/api/client";
@@ -60,12 +60,20 @@ export async function getMoneyLog(logId: number) {
   return unwrap(await post<MoneyLogRow>("Client_GetMoneyLog", { logId }));
 }
 
-export async function createTagPlatform(platformName: string, playerName: string) {
+export async function createTagPlatform(
+  platformName: string,
+  identity: CreateTagPlatformIdentity,
+) {
+  const body = typeof identity === "string"
+    ? { platform: platformName, playerName: identity }
+    : {
+        platform: platformName,
+        playerName: identity.playerName,
+        venueMemberId: identity.venueMemberId,
+        provider: identity.provider,
+      };
   return unwrap(
-    await post<CreateTagPlatformResult>("Client_CreateTagPlatform", {
-      platform: platformName,
-      playerName,
-    }),
+    await post<CreateTagPlatformResult>("Client_CreateTagPlatform", body),
   );
 }
 

@@ -5,6 +5,7 @@ import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { adminPlayerLabel, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
+import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 
 const props = defineProps<{
   provider: string;
@@ -21,6 +22,11 @@ const emit = defineEmits<{
 const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null);
 
 const grouped = computed(() => groupAdminOrderEntries(props.orders, props.accounts));
+
+const accountTitle = computed(() => {
+  const acc = props.accounts.find(a => a.accountId === props.playerId);
+  return accountOrderDisplayName(acc ?? { playerName: props.playerName, accountId: props.playerId });
+});
 
 const orderEntries = computed(() =>
   grouped.value.map(({ link, orderRows }) => [link, orderRows] as const),
@@ -60,7 +66,7 @@ function openLogs(rows: AdminOrderRow[]) {
       <div class="admin-orders-account-col__title">
         <div class="provider-icon" :class="provider" />
         <h3 class="admin-orders-account-col__name">
-          {{ provider }} / {{ playerName || `#${playerId}` }}
+          {{ provider }} / {{ accountTitle }}
         </h3>
       </div>
       <div class="admin-orders-account-col__stats">

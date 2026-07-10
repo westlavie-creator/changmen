@@ -19,14 +19,28 @@ import { resolvePresenceState } from "./user_presence.js";
 async function handleCreateTagPlatform(body, userId) {
   const platformName = body.platform || body.platformName || "";
   const playerName = body.playerName || "";
+  const venueMemberId = String(body.venueMemberId || body.venueId || "").trim();
+  const provider = String(body.provider || "").trim();
   if (!userId) {
     return { ok: false, msg: "请先登录" };
   }
-  if (!platformName || !playerName) {
+  if (!platformName) {
+    return { ok: false, msg: "platform 必填" };
+  }
+  if (venueMemberId) {
+    if (!provider)
+      return { ok: false, msg: "provider 与 venueMemberId 必填" };
+  }
+  else if (!playerName) {
     return { ok: false, msg: "platform 与 playerName 必填" };
   }
   try {
-    const created = await accountStore.createTagPlatform(platformName, playerName, userId);
+    const created = await accountStore.createTagPlatform(
+      platformName,
+      playerName,
+      userId,
+      { venueMemberId, provider },
+    );
     return { ok: true, info: created };
   }
   catch (err) {

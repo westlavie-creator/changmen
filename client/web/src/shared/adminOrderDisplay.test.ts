@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AdminAccountDetail, AdminOrderRow } from "@/types/admin";
 import {
   adminOrderToOrderRow,
+  adminPlayerLabel,
   groupAdminOrderEntries,
 } from "./adminOrderDisplay";
 
@@ -88,5 +89,12 @@ describe("adminOrderDisplay", () => {
 
   it("falls back to the stored order provider when the account is unavailable", () => {
     expect(adminOrderToOrderRow(order({ provider: "OB" }), []).Type).toBe("OB");
+  });
+
+  it("uses venueAccountName in player label", () => {
+    expect(adminPlayerLabel(
+      adminOrderToOrderRow(order({ playerId: 101 }), [account({ accountId: 101 })]),
+      [account({ accountId: 101, venueAccountName: "ray_live", playerName: "old" })],
+    )).toBe("平博 / ray_live");
   });
 });

@@ -1,5 +1,5 @@
 import type { AccountStoreContext } from "@/stores/account/context";
-import type { AccountRecord } from "@/types/account";
+import type { AccountRecord, CreateTagPlatformIdentity } from "@/types/account";
 import type { TagPlatformRow } from "@/types/esport";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply";
 import {
@@ -88,12 +88,17 @@ export async function persistAccounts(store: AccountStoreContext) {
   return saveAccounts(payload);
 }
 
+function readVenueMemberId(row: { venueMemberId?: string; venueId?: string } | null | undefined): string {
+  const v = row?.venueMemberId ?? (row as { venueId?: string } | undefined)?.venueId;
+  return v != null ? String(v).trim() : "";
+}
+
 /** [A8 可证实] AccountInfoView.save → Ut.createTagPlatform */
 export async function createTagPlatformForAccount(
   platformName: string,
-  playerName: string,
+  identity: CreateTagPlatformIdentity,
 ) {
-  const created = await createTagPlatform(platformName, playerName);
+  const created = await createTagPlatform(platformName, identity);
   if (!created?.playerId) {
     throw new Error("CreateTagPlatform 未返回 playerId");
   }
@@ -114,17 +119,29 @@ export async function createAccount(
   }
   else {
     // [changmen 扩展] CreateTagPlatform 复用失败时可能返回新 playerId；
-    // 同平台名+账号名已存在则原地更新并保留原 accountId，避免列表出现重复卡。
+    // 同 provider+venueMemberId 或 platform+playerName 已存在则原地更新。
     const platformName = String(record.platformName || "").trim();
     const playerName = String(record.playerName || "").trim();
-    const byName = store.accounts.find(
-      a =>
-        String(a.platformName || "").trim() === platformName
-        && String(a.playerName || "").trim() === playerName,
-    );
-    if (byName) {
+    const provider = String(record.provider || "").trim();
+    const venueMemberId = readVenueMemberId(record);
+    const byVenue = venueMemberId && provider
+      ? store.accounts.find(
+          a =>
+            String(a.provider || "").trim() === provider
+            && readVenueMemberId(a) === venueMemberId,
+        )
+      : undefined;
+    const byName = !byVenue && platformName && playerName
+      ? store.accounts.find(
+          a =>
+            String(a.platformName || "").trim() === platformName
+            && String(a.playerName || "").trim() === playerName,
+        )
+      : undefined;
+    const existing = byVenue || byName;
+    if (existing) {
       const { accountId: _discardNewId, ...patch } = record;
-      byName.applyPatch(patch);
+      existing.applyPatch(patch);
     }
     else {
       store.accounts.push(new PlatformAccount(record));
@@ -133,6 +150,13 @@ export async function createAccount(
   await persistAccounts(store);
   const acc
     = store.findAccount(record.accountId)
+      ?? (record.venueMemberId && record.provider
+        ? store.accounts.find(
+            a =>
+              String(a.provider || "").trim() === String(record.provider || "").trim()
+              && readVenueMemberId(a) === readVenueMemberId(record),
+          )
+        : undefined)
       ?? store.accounts.find(
         a =>
           String(a.platformName || "").trim() === String(record.platformName || "").trim()
@@ -151,9 +175,17 @@ export async function createFromTagPlatform(
     platformName: string;
     playerName: string;
     provider: AccountRecord["provider"];
+    venueMemberId?: string;
   },
 ) {
-  const created = await createTagPlatformForAccount(form.platformName, form.playerName);
+  const identity: CreateTagPlatformIdentity = form.venueMemberId
+    ? {
+        playerName: form.playerName,
+        venueMemberId: form.venueMemberId,
+        provider: form.provider,
+      }
+    : form.playerName;
+  const created = await createTagPlatformForAccount(form.platformName, identity);
   await createAccount(store, {
     ...form,
     accountId: created.playerId,

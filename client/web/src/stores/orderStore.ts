@@ -8,6 +8,7 @@ import {
   orderLinkLegend,
   orderLinkMapEntries,
 } from "@/shared/orderLink";
+import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
 import { useUserStore } from "@/stores/userStore";
@@ -54,7 +55,7 @@ export const useOrderStore = defineStore("order", {
       const accounts = useAccountStore().accounts;
       const opts = accounts.map(a => ({
         value: a.accountId,
-        label: `${a.platformName || a.provider}/${a.playerName}`,
+        label: `${a.platformName || a.provider}/${accountOrderDisplayName(a)}`,
       }));
       return [{ value: 0, label: "全部" }, ...opts];
     },
@@ -149,7 +150,8 @@ export const useOrderStore = defineStore("order", {
       const accountStore = useAccountStore();
       const acc = accountStore.findAccount(row.PlayerID);
       if (acc) {
-        return `${accountStore.getPlatformName(acc.platformId, acc.platformName)} / ${acc.playerName}`;
+        const platform = accountStore.getPlatformName(acc.platformId, acc.platformName);
+        return `${platform} / ${accountOrderDisplayName(acc)}`;
       }
       if (row.Player?.Platform || row.Player?.UserName) {
         return `${row.Player.Platform || ""} / ${row.Player.UserName || ""}`.trim();

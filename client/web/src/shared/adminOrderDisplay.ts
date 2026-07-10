@@ -11,6 +11,7 @@ import {
   groupOrdersByLink,
   orderLinkMapEntries,
 } from "@/shared/orderLink";
+import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 
 export { isArbGroup, orderLegendText, orderStatusClass };
 
@@ -57,7 +58,7 @@ export function adminPlayerLabel(row: OrderRow, accounts: AdminAccountDetail[]):
   const acc = accounts.find(a => a.accountId === pid);
   if (acc) {
     const platform = acc.platformName || acc.platform || row.Type || "";
-    return `${platform} / ${acc.playerName}`;
+    return `${platform} / ${accountOrderDisplayName(acc)}`;
   }
   if (row.Type)
     return String(row.Type);
