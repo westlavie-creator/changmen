@@ -157,7 +157,7 @@ async function main() {
     const gbTeamId = plugin.lookupById("RAY", teamId);
     const base = {
       venue: "RAY",
-      venue_id: teamId,
+      venue_team_id: teamId,
       venue_name: teamName,
       game: gameCode,
       source: "scraper",
@@ -175,7 +175,7 @@ async function main() {
 
   if (platformOnly.length > 0) {
     console.log("\n[ray_scraper] �?gb_team_id 队伍（前 20 条）�?);
-    platformOnly.slice(0, 20).forEach((r) => console.log(`  venue_id=${r.venue_id}  name="${r.venue_name}"`));
+    platformOnly.slice(0, 20).forEach((r) => console.log(`  venue_team_id=${r.venue_team_id}  name="${r.venue_name}"`));
   }
 
   // 5. 写库
@@ -187,11 +187,11 @@ async function main() {
   } else if (DRY_RUN) {
     console.log("\n[dry-run] 手动映射示例（前 5 条）�?);
     manualMapped.slice(0, 5).forEach((r) =>
-      console.log(`  gb_team_id=${r.gb_team_id}  venue_id=${r.venue_id}  name="${r.venue_name}"`)
+      console.log(`  gb_team_id=${r.gb_team_id}  venue_team_id=${r.venue_team_id}  name="${r.venue_name}"`)
     );
     console.log("\n[dry-run] 仅平台记录示例（�?5 条）�?);
     platformOnly.slice(0, 5).forEach((r) =>
-      console.log(`  gb_team_id=NULL  venue_id=${r.venue_id}  name="${r.venue_name}"`)
+      console.log(`  gb_team_id=NULL  venue_team_id=${r.venue_team_id}  name="${r.venue_name}"`)
     );
   }
 

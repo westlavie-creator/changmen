@@ -6,20 +6,16 @@ import {
 } from "@changmen/db";
 import { normalizeMatchesShape, normalizeTeam } from "@changmen/match-engine";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
-import { MATCHER_INTERVAL_MS } from "../lib/config.js";
+import { MATCHER_INTERVAL_MS, isMatcherProduction } from "../lib/config.js";
 import { resolveUiGame } from "../lib/game_ui.js";
 import {
   isMatcherRunning,
-  isPidAlive,
   readMatcherHeartbeat,
   sanitizeMatcherHeartbeat,
   STALE_FACTOR,
 } from "../lib/heartbeat.js";
 import {
   getEmbeddedMatcherState,
-  getManagedMatcherPid,
-  getPm2MatcherOnlinePid,
-  isEmbeddedMatcherEnabled,
   isManagedByServer,
 } from "./matcher_process.js";
 import { enrichClientMatchesMergeMode } from "./merge_mode.js";
@@ -152,14 +148,6 @@ async function getMatcherStatus() {
     processLastRun = heartbeat?.lastRun || now;
     processAgeMs = heartbeat?.lastRun ? now - heartbeat.lastRun : 0;
   }
-  else if (getManagedMatcherPid()) {
-    const managedPid = getManagedMatcherPid();
-    processRunning = true;
-    processSource = "managed";
-    pid = managedPid;
-    processLastRun = heartbeat?.lastRun || now;
-    processAgeMs = heartbeat?.lastRun ? now - heartbeat.lastRun : 0;
-  }
   else if (isMatcherRunning(heartbeat, now)) {
     processRunning = true;
     processSource = "heartbeat";
@@ -167,17 +155,6 @@ async function getMatcherStatus() {
     matchCount = heartbeat.matchCount;
     processLastRun = heartbeat.lastRun;
     processAgeMs = now - heartbeat.lastRun;
-  }
-  else {
-    const pm2Pid = await getPm2MatcherOnlinePid();
-    if (pm2Pid && isPidAlive(pm2Pid)) {
-      processRunning = true;
-      processSource = "pm2";
-      pid = pm2Pid;
-      processLastRun = heartbeat?.lastRun || null;
-      processAgeMs = processLastRun ? now - processLastRun : null;
-      matchCount = heartbeat?.matchCount ?? null;
-    }
   }
 
   const lastBuilt = await fetchLatestClientMatchBuiltAt();
@@ -195,9 +172,9 @@ async function getMatcherStatus() {
     intervalMs,
     matchCount,
     pid,
-    matcherMode: isEmbeddedMatcherEnabled() ? "embedded" : "standalone",
+    matcherMode: "embedded",
     managedByServer: isManagedByServer(),
-    canStop: processRunning,
+    canStop: embeddedState.running && !isMatcherProduction(),
     canStart: !processRunning,
     running: processRunning,
     source: processRunning

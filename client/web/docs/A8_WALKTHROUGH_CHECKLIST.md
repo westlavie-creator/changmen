@@ -13,7 +13,7 @@
 
 ## 0. 启动
 
-- [ ] `BAT\dev.bat`（Win: 3560+5274 / 其它: 3456+5174�? 可�?`npm run matcher:loop`
+- [ ] `BAT\dev.bat`（Win: 3560+5274 / 其它: 3456+5174�? 可�?matchMerge 内嵌在 web）
 
 自动化（无需浏览器）�?
 
@@ -113,7 +113,7 @@ npm run build
 
 ## 7. OB 模式 P（A8 Parity，可选）
 
-启动：`BAT\dev.bat parity` �?`BAT\dev.bat` + `npm run matcher:loop` + 插件 build�?
+启动：`BAT\dev.bat parity` �?`BAT\dev.bat` + matchMerge 内嵌在 web） + 插件 build�?
 
 | �?| 通过 |
 |----|------|

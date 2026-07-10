@@ -14,7 +14,6 @@ let lastArchiveAt = 0;
 let archiveInFlight = null;
 let loopTimer = null;
 let loopRunning = false;
-let loopMode = "standalone";
 
 async function maybeArchiveStaleClientMatches() {
   const now = Date.now();
@@ -34,14 +33,13 @@ async function maybeArchiveStaleClientMatches() {
   return archiveInFlight;
 }
 
-export async function runMatcherOnce({ mode = loopMode } = {}) {
+export async function runMatcherOnce() {
   await maybeArchiveStaleClientMatches();
   const result = await matchMergeOnce();
   writeMatcherHeartbeat({
     matchCount: result.matchCount,
     intervalMs: INTERVAL_MS,
     builtAt: result.builtAt,
-    mode,
   });
   const teamNote = result.teamReg?.registered > 0
     ? ` · 自动收录队伍 ${result.teamReg.registered} 条`
@@ -63,26 +61,23 @@ export async function runMatcherOnce({ mode = loopMode } = {}) {
 }
 
 export async function startMatcherLoop(opts = {}) {
-  const mode = opts.mode || "standalone";
   if (loopRunning) {
-    return { ok: false, alreadyRunning: true, mode: loopMode, pid: process.pid };
+    return { ok: false, alreadyRunning: true, pid: process.pid };
   }
-  loopMode = mode;
   loopRunning = true;
   await ensureTeamPlugin();
   writeMatcherHeartbeat({
     matchCount: null,
     intervalMs: INTERVAL_MS,
     builtAt: null,
-    mode,
   });
   console.log(
-    `[matcher] starting (${mode}), interval=${INTERVAL_MS / 1000}s, client_matches archive every ${ARCHIVE_INTERVAL_MS / 1000}s`,
+    `[matcher] starting embedded loop, interval=${INTERVAL_MS / 1000}s, client_matches archive every ${ARCHIVE_INTERVAL_MS / 1000}s`,
   );
 
   const tick = async () => {
     try {
-      await runMatcherOnce({ mode });
+      await runMatcherOnce();
     }
     catch (err) {
       console.error("[matcher] error:", err.message);
@@ -107,7 +102,7 @@ export async function startMatcherLoop(opts = {}) {
     });
   }, INTERVAL_MS);
 
-  return { ok: true, mode, pid: process.pid, intervalMs: INTERVAL_MS };
+  return { ok: true, pid: process.pid, intervalMs: INTERVAL_MS };
 }
 
 export function stopMatcherLoop() {
@@ -117,13 +112,12 @@ export function stopMatcherLoop() {
   }
   const wasRunning = loopRunning;
   loopRunning = false;
-  return { ok: true, stopped: wasRunning, mode: loopMode, pid: process.pid };
+  return { ok: true, stopped: wasRunning, pid: process.pid };
 }
 
 export function getMatcherLoopState() {
   return {
     running: loopRunning,
-    mode: loopMode,
     pid: loopRunning ? process.pid : null,
     intervalMs: INTERVAL_MS,
   };

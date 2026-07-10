@@ -15,6 +15,7 @@ import { mergeClientMatches, previewMergeClientMatches } from "../ops/merge_clie
 import { invalidateMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import { matchMergeOnce } from "../ops/match_merge_once.js";
 import { restoreClientMatch } from "../ops/restore_client_match.js";
+import { isMatcherProduction } from "../lib/config.js";
 import { logMatcherApiErr, logMatcherApiOk, logMatcherApiWarn } from "./matcher_api_log.js";
 import {
   fetchMatcherDashboard,
@@ -295,6 +296,12 @@ function registerMatcherApiRoutes(app) {
   });
 
   app.post("/api/matcher/stop", async (req, res) => {
+    if (isMatcherProduction()) {
+      return res.status(403).json({
+        ok: false,
+        error: "生产环境禁止停止内嵌合并循环，请重启 changmen-web",
+      });
+    }
     try {
       const result = await stopMatcherProcess();
       if (!result.ok)

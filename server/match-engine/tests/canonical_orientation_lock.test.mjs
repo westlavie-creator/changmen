@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
 import {
+  pickAnchorPlatformOrientation,
   pickCanonicalGbFromMatchs,
+  pickDeterministicGbOrientation,
   refreshClientMatchCanonicalOrientation,
   setTeamPlugin,
-  voteCanonicalGbOrientation,
 } from "../merge/match_merge.js";
 
 const SUBTOP = "Subtop De France";
@@ -75,69 +76,45 @@ function setIdPlugin(extra = {}) {
   });
 }
 
-it("voteCanonicalGbOrientation: ≥2 同朝向取多数", () => {
-  const voted = voteCanonicalGbOrientation([
+it("pickAnchorPlatformOrientation: PM → OB → RAY 链", () => {
+  const all = pickAnchorPlatformOrientation([
+    { platform: "RAY", homeGb: GB_SUBTOP, awayGb: GB_JULIE },
+    { platform: "OB", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
+    { platform: "Polymarket", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
+  ], "valorant");
+  assert.equal(all?.anchorPlatform, "Polymarket");
+  assert.equal(all?.homeGb, GB_JULIE);
+  assert.equal(all?.awayGb, GB_SUBTOP);
+
+  const obOnly = pickAnchorPlatformOrientation([
+    { platform: "RAY", homeGb: GB_SUBTOP, awayGb: GB_JULIE },
+    { platform: "OB", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
+  ], "valorant");
+  assert.equal(obOnly?.anchorPlatform, "OB");
+  assert.equal(obOnly?.homeGb, GB_JULIE);
+
+  const rayOnly = pickAnchorPlatformOrientation([
     { platform: "RAY", homeGb: GB_SUBTOP, awayGb: GB_JULIE },
     { platform: "IA", homeGb: GB_SUBTOP, awayGb: GB_JULIE },
-    { platform: "OB", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
-  ]);
-  assert.equal(voted?.homeGb, GB_SUBTOP);
-  assert.equal(voted?.awayGb, GB_JULIE);
+  ], "valorant");
+  assert.equal(rayOnly?.anchorPlatform, "RAY");
+  assert.equal(rayOnly?.homeGb, GB_SUBTOP);
+  assert.equal(rayOnly?.awayGb, GB_JULIE);
 });
 
-it("voteCanonicalGbOrientation: 2-2 平票不锁，回退 PM", () => {
-  const voted = voteCanonicalGbOrientation([
-    { platform: "RAY", homeGb: GB_SUBTOP, awayGb: GB_JULIE },
+it("pickDeterministicGbOrientation: 无锚点时的回落仍 min/max", () => {
+  const voted = pickDeterministicGbOrientation([
     { platform: "IA", homeGb: GB_SUBTOP, awayGb: GB_JULIE },
-    { platform: "OB", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
-    { platform: "PB", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
-    { platform: "Polymarket", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
+    { platform: "IA", homeGb: "C-other", awayGb: GB_SUBTOP },
   ]);
   assert.equal(voted?.homeGb, GB_JULIE);
   assert.equal(voted?.awayGb, GB_SUBTOP);
 });
 
-it("voteCanonicalGbOrientation: 票不足回退 Polymarket", () => {
-  const voted = voteCanonicalGbOrientation([
-    { platform: "OB", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
-    { platform: "Polymarket", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
-  ]);
-  assert.equal(voted?.homeGb, GB_JULIE);
-  assert.equal(voted?.awayGb, GB_SUBTOP);
-});
-
-it("voteCanonicalGbOrientation: 票不足且无 PM → null", () => {
-  const voted = voteCanonicalGbOrientation([
-    { platform: "OB", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
-    { platform: "RAY", homeGb: GB_SUBTOP, awayGb: GB_JULIE },
-  ]);
-  assert.equal(voted, null);
-});
-
-it("voteCanonicalGbOrientation: PM 队对与多数不一致 → null", () => {
-  const voted = voteCanonicalGbOrientation([
-    { platform: "OB", homeGb: GB_JULIE, awayGb: GB_SUBTOP },
-    { platform: "Polymarket", homeGb: "C-other", awayGb: GB_SUBTOP },
-  ]);
-  assert.equal(voted, null);
-});
-
-it("pickCanonicalGbFromMatchs: RAY+IA 同朝压过 OB", () => {
+it("pickCanonicalGbFromMatchs: 有 PM 时用 PM native 槽位", () => {
   setIdPlugin();
   const picked = pickCanonicalGbFromMatchs(
-    { RAY: "1", OB: "2", IA: "3" },
-    matches,
-    "valorant",
-  );
-  assert.equal(picked?.homeGb, GB_SUBTOP);
-  assert.equal(picked?.awayGb, GB_JULIE);
-  setTeamPlugin(null);
-});
-
-it("pickCanonicalGbFromMatchs: 单源无投票有 PM → 锁 PM", () => {
-  setIdPlugin();
-  const picked = pickCanonicalGbFromMatchs(
-    { OB: "2", Polymarket: "4" },
+    { RAY: "1", OB: "2", Polymarket: "4" },
     matches,
     "valorant",
   );
@@ -146,18 +123,31 @@ it("pickCanonicalGbFromMatchs: 单源无投票有 PM → 锁 PM", () => {
   setTeamPlugin(null);
 });
 
-it("pickCanonicalGbFromMatchs: 单源无 PM → 不锁", () => {
+it("pickCanonicalGbFromMatchs: 无 PM 时用 OB native 槽位", () => {
   setIdPlugin();
   const picked = pickCanonicalGbFromMatchs(
-    { RAY: "1", OB: "2" },
+    { RAY: "1", OB: "2", IA: "3" },
     matches,
     "valorant",
   );
-  assert.equal(picked, null);
+  assert.equal(picked?.homeGb, GB_JULIE);
+  assert.equal(picked?.awayGb, GB_SUBTOP);
   setTeamPlugin(null);
 });
 
-it("pickCanonicalGbFromMatchs: 无平台 ID 映射时队名 fallback", () => {
+it("pickCanonicalGbFromMatchs: 仅 RAY 时用 RAY native 槽位", () => {
+  setIdPlugin();
+  const picked = pickCanonicalGbFromMatchs(
+    { RAY: "1" },
+    matches,
+    "valorant",
+  );
+  assert.equal(picked?.homeGb, GB_SUBTOP);
+  assert.equal(picked?.awayGb, GB_JULIE);
+  setTeamPlugin(null);
+});
+
+it("pickCanonicalGbFromMatchs: 无平台 ID 映射时锚点队名 OB", () => {
   setTeamPlugin({
     lookupById: () => null,
     lookupGbTeamIdByNormalizedNameForGame: (game, name) => {
@@ -180,7 +170,7 @@ it("pickCanonicalGbFromMatchs: 无平台 ID 映射时队名 fallback", () => {
   setTeamPlugin(null);
 });
 
-it("refreshClientMatchCanonicalOrientation: DB 锁覆盖投票结果", () => {
+it("refreshClientMatchCanonicalOrientation: DB 锁覆盖锚点结果", () => {
   setIdPlugin();
 
   const rows = [{
@@ -190,13 +180,13 @@ it("refreshClientMatchCanonicalOrientation: DB 锁覆盖投票结果", () => {
   }];
   refreshClientMatchCanonicalOrientation(rows, matches, [{
     id: 720,
-    home_gb_team_id: GB_JULIE,
-    away_gb_team_id: GB_SUBTOP,
+    home_gb_team_id: GB_SUBTOP,
+    away_gb_team_id: GB_JULIE,
   }]);
 
-  assert.equal(rows[0].Title, `${JULIE} vs ${SUBTOP}`);
-  assert.equal(rows[0].HomeGbTeamId, GB_JULIE);
-  assert.equal(rows[0].AwayGbTeamId, GB_SUBTOP);
+  assert.equal(rows[0].Title, `${SUBTOP} vs ${JULIE}`);
+  assert.equal(rows[0].HomeGbTeamId, GB_SUBTOP);
+  assert.equal(rows[0].AwayGbTeamId, GB_JULIE);
 
   setTeamPlugin(null);
 });
@@ -224,7 +214,7 @@ it("refreshClientMatchCanonicalOrientation: DB 锁覆盖 merge 行上错误的 H
   setTeamPlugin(null);
 });
 
-it("refreshClientMatchCanonicalOrientation: 无平台行时用 existing.title 锁 gb", () => {
+it("refreshClientMatchCanonicalOrientation: 无平台行时用 existing.title 查 gb 后仍 min/max", () => {
   setTeamPlugin({
     lookupGbTeamIdByNormalizedNameForGame: (game, name) => {
       if (game !== "valorant") return null;
@@ -247,14 +237,14 @@ it("refreshClientMatchCanonicalOrientation: 无平台行时用 existing.title �
     title: `${SUBTOP} vs ${JULIE}`,
   }]);
 
-  assert.equal(rows[0].HomeGbTeamId, GB_SUBTOP);
-  assert.equal(rows[0].AwayGbTeamId, GB_JULIE);
-  assert.equal(rows[0].Title, `${SUBTOP} vs ${JULIE}`);
+  assert.equal(rows[0].HomeGbTeamId, GB_JULIE);
+  assert.equal(rows[0].AwayGbTeamId, GB_SUBTOP);
+  assert.equal(rows[0].Title, `${JULIE} vs ${SUBTOP}`);
 
   setTeamPlugin(null);
 });
 
-it("refreshClientMatchCanonicalOrientation: existing.title 优先于 merge 行反转 Title", () => {
+it("refreshClientMatchCanonicalOrientation: title 查 gb 后按 min/max，不跟 Title 左右", () => {
   setTeamPlugin({
     lookupGbTeamIdByNormalizedNameForGame: (game, name) => {
       if (game !== "valorant") return null;
@@ -277,9 +267,9 @@ it("refreshClientMatchCanonicalOrientation: existing.title 优先于 merge 行�
     title: `${SUBTOP} vs ${JULIE}`,
   }]);
 
-  assert.equal(rows[0].HomeGbTeamId, GB_SUBTOP);
-  assert.equal(rows[0].AwayGbTeamId, GB_JULIE);
-  assert.equal(rows[0].Title, `${SUBTOP} vs ${JULIE}`);
+  assert.equal(rows[0].HomeGbTeamId, GB_JULIE);
+  assert.equal(rows[0].AwayGbTeamId, GB_SUBTOP);
+  assert.equal(rows[0].Title, `${JULIE} vs ${SUBTOP}`);
 
   setTeamPlugin(null);
 });

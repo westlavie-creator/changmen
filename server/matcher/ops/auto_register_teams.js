@@ -56,7 +56,7 @@ function addCandidate(candidates, platform, platformId, platformName, gameCode, 
   const name = String(platformName || "").trim() || pid;
   candidates.set(key, {
     venue: String(platform),
-    venue_id: pid,
+    venue_team_id: pid,
     venue_name: name,
     game: gameCode,
     source: "auto",
@@ -111,7 +111,7 @@ async function autoRegisterTeams(matchesRaw) {
 
   const existing = await fetchExistingTeamMapKeys(candidates);
   const toWrite = [...candidates.values()].filter(
-    row => !existing.has(`${row.venue ?? row.platform}:${row.venue_id}`),
+    row => !existing.has(`${row.venue ?? row.platform}:${row.venue_team_id}`),
   );
   if (!toWrite.length)
     return { scanned: candidates.size, registered: 0 };

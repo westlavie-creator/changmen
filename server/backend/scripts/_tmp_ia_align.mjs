@@ -22,7 +22,7 @@ const cm804 = (await pool.query(`
 `)).rows[0];
 
 const maps = (await pool.query(`
-  SELECT venue, venue_id, venue_name, gb_team_id, game
+  SELECT venue, venue_team_id, venue_name, gb_team_id, game
   FROM team_venue_maps
   WHERE (venue='IA' AND venue_name IN ('FOKUS', 'Mandatory'))
      OR gb_team_id IN ('100477', '100508')

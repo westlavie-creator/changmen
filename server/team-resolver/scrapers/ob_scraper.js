@@ -171,7 +171,7 @@ async function main() {
     const gbTeamId = plugin.lookupById("OB", teamId);
     const base = {
       venue: "OB",
-      venue_id: teamId,
+      venue_team_id: teamId,
       venue_name: teamName,
       game: gameCode,
       source: "scraper",
@@ -190,7 +190,7 @@ async function main() {
   if (platformOnly.length > 0) {
     console.log("\n[ob_scraper] �?gb_team_id 队伝（剝 20 条）�?);
     platformOnly.slice(0, 20).forEach((r) =>
-      console.log(`  venue_id=${r.venue_id}  name="${r.venue_name}"`)
+      console.log(`  venue_team_id=${r.venue_team_id}  name="${r.venue_name}"`)
     );
   }
 
@@ -203,12 +203,12 @@ async function main() {
   } else if (DRY_RUN) {
     console.log("\n[dry-run] 手动映射示例（剝 5 条）�?);
     manualMapped.slice(0, 5).forEach((r) =>
-      console.log(`  gb_team_id=${r.gb_team_id}  venue_id=${r.venue_id}  name="${r.venue_name}"`)
+      console.log(`  gb_team_id=${r.gb_team_id}  venue_team_id=${r.venue_team_id}  name="${r.venue_name}"`)
     );
     if (platformOnly.length) {
       console.log("[dry-run] 仅平坰记录示例（�?5 条）�?);
       platformOnly.slice(0, 5).forEach((r) =>
-        console.log(`  gb_team_id=NULL  venue_id=${r.venue_id}  name="${r.venue_name}"`)
+        console.log(`  gb_team_id=NULL  venue_team_id=${r.venue_team_id}  name="${r.venue_name}"`)
       );
     }
   }

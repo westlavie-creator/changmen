@@ -92,11 +92,11 @@ if (pm.rows.length >= 2) {
 const obOnly = pm.rows.find(r => r.platform === "OB");
 if (obOnly) {
   const maps = await pool.query(
-    `SELECT tvm.venue, tvm.venue_id, tvm.venue_name, tvm.gb_team_id, ct.name
+    `SELECT tvm.venue, tvm.venue_team_id, tvm.venue_name, tvm.gb_team_id, ct.name
      FROM team_venue_maps tvm
      LEFT JOIN canonical_teams ct ON ct.gb_team_id = tvm.gb_team_id
      WHERE tvm.venue = 'OB'
-       AND (tvm.venue_id = ANY($1::text[])
+       AND (tvm.venue_team_id = ANY($1::text[])
             OR tvm.venue_name ILIKE '%1w%'
             OR tvm.venue_name ILIKE '%inox%')`,
     [[obOnly.home_id, obOnly.away_id].filter(Boolean)],

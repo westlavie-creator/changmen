@@ -29,3 +29,7 @@ export function isMatcherSkipAuthEnabled() {
   const nodeEnv = String(process.env.NODE_ENV || "").trim().toLowerCase();
   return nodeEnv === "development" || nodeEnv === "test";
 }
+
+export function isMatcherProduction() {
+  return String(process.env.NODE_ENV || "").trim().toLowerCase() === "production";
+}

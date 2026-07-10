@@ -98,7 +98,7 @@ async function main() {
     const storedPlatformId = formatPbTeamPlatformId(gameSlug, teamId);
     const base = {
       venue: "PB",
-      venue_id: storedPlatformId,
+      venue_team_id: storedPlatformId,
       venue_name: teamName,
       game: gameCode,
       source: "scraper",
@@ -118,7 +118,7 @@ async function main() {
     console.log("\n[pb_scraper] �?gb_team_id ???? 20 ??�?);
     platformOnly
       .slice(0, 20)
-      .forEach((r) => console.log(`  [${r.game}] venue_id=${r.venue_id}  name="${r.venue_name}"`));
+      .forEach((r) => console.log(`  [${r.game}] venue_team_id=${r.venue_team_id}  name="${r.venue_name}"`));
   }
 
   const toWrite = [...manualMapped, ...platformOnly];
@@ -131,7 +131,7 @@ async function main() {
     platformOnly
       .slice(0, 5)
       .forEach((r) =>
-        console.log(`  gb_team_id=NULL  [${r.game}] venue_id=${r.venue_id}  name="${r.venue_name}"`),
+        console.log(`  gb_team_id=NULL  [${r.game}] venue_team_id=${r.venue_team_id}  name="${r.venue_name}"`),
       );
   }
 

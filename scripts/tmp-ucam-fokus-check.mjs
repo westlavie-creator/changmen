@@ -136,7 +136,7 @@ console.log("\n=== merge_key ===");
 console.log(mk[0]?.merge_key);
 
 const tm = await q(`
-  SELECT venue, venue_id, venue_name, gb_team_id
+  SELECT venue, venue_team_id, venue_name, gb_team_id
   FROM team_venue_maps
   WHERE venue_name ILIKE '%UCAM%' OR venue_name ILIKE '%FOKUS%'
   LIMIT 20

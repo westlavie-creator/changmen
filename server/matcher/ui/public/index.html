@@ -1693,13 +1693,13 @@ function renderTeamLinkModalBody(preview) {
         <tr>
           <td>${pbadge(ta.platform)}</td>
           <td>${esc(ta.venue_name || '?')}</td>
-          <td><code>${esc(ta.venue_id)}</code></td>
+          <td><code>${esc(ta.venue_team_id)}</code></td>
           <td>${formatGbTeamIdCell(ta.gb_team_id, ta.pending)}</td>
         </tr>
         <tr>
           <td>${pbadge(tb.platform)}</td>
           <td>${esc(tb.venue_name || '?')}</td>
-          <td><code>${esc(tb.venue_id)}</code></td>
+          <td><code>${esc(tb.venue_team_id)}</code></td>
           <td>${formatGbTeamIdCell(tb.gb_team_id, tb.pending)}</td>
         </tr>
       </tbody>
@@ -2695,11 +2695,10 @@ function setMatcherButtons(s) {
   const btnStop = document.getElementById('btn-matcher-stop');
   const btnMatchMerge = document.getElementById('btn-match-merge-now');
   if (!btnStart || !btnStop) return;
-  const embeddedMode = s?.matcherMode === 'embedded';
-  btnStart.textContent = embeddedMode ? '启动内嵌循环' : '启动独立脚本';
-  btnStop.textContent = embeddedMode ? '暂停内嵌循环' : '停止独立脚本';
-  btnStart.title = embeddedMode ? '正常生产会随 gamebet-web 自动启动；仅在检测到未运行时手动启动。' : '启动独立 matcher 脚本。';
-  btnStop.title = embeddedMode ? '仅临时暂停当前 web 进程内的 matcher 循环；重启 gamebet-web 后会自动恢复。' : '停止独立 matcher 脚本或 PM2 进程。';
+  btnStart.textContent = '启动内嵌循环';
+  btnStop.textContent = '暂停内嵌循环';
+  btnStart.title = '正常会随 changmen-web 自动启动；仅在检测到未运行时手动启动。';
+  btnStop.title = '仅开发环境可用：临时暂停当前 web 进程内的合并循环。';
   btnStart.style.display = s?.canStart ? '' : 'none';
   btnStop.style.display = s?.canStop ? '' : 'none';
   btnStart.disabled = _matcherBusy || _matchMergeBusy;

@@ -159,13 +159,13 @@ CREATE TABLE IF NOT EXISTS team_venue_maps (
   id            bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   gb_team_id    bigint REFERENCES canonical_teams(gb_team_id) ON DELETE CASCADE,
   venue         text NOT NULL,
-  venue_id      text,
+  venue_team_id text,
   venue_name    text NOT NULL,
   game          text,
   source        text NOT NULL DEFAULT 'manual',
   confidence    numeric(3,2) NOT NULL DEFAULT 1.00,
   created_at    timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (venue, venue_id),
+  UNIQUE (venue, venue_team_id),
   UNIQUE (gb_team_id, venue, venue_name)
 );
 

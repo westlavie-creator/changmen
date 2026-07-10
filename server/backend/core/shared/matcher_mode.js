@@ -1,4 +1,11 @@
-/** 与 server.js / matcher_process 一致：embedded matcher 与 backend 同进程。 */
+/** matchMerge 与 backend 同进程内嵌；由 server.js 启动循环时 setEmbeddedMatcher(true)。 */
+
+let _embedded = false;
+
+export function setEmbeddedMatcher(enabled = true) {
+  _embedded = !!enabled;
+}
+
 export function isEmbeddedMatcher() {
-  return String(process.env.MATCHER_EMBEDDED || "").trim() === "1";
+  return _embedded;
 }

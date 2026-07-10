@@ -41,7 +41,7 @@ for (const row of cm.rows) {
   }
 
   const maps = await pool.query(`
-    SELECT venue, venue_id, venue_name, gb_team_id
+    SELECT venue, venue_team_id, venue_name, gb_team_id
     FROM team_venue_maps
     WHERE venue_name ILIKE '%Misa%' OR venue_name ILIKE '%REBORN%' OR venue_name ILIKE '%Reborn%'
     ORDER BY venue, venue_name LIMIT 40

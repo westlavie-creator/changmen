@@ -8,17 +8,10 @@ if [ "$ROOT" = /root/changmen ] && [ ! -d "$ROOT" ] && [ -d /root/gamebet ]; the
   mv /root/gamebet /root/changmen
 fi
 PM2_WEB="${PM2_WEB:-changmen-web}"
-PM2_MATCHER="${PM2_MATCHER:-changmen-matcher}"
 PM2_PM_SPORTS="${PM2_PM_SPORTS:-changmen-pm-sports}"
+PM2_MATCHER="${PM2_MATCHER:-changmen-matcher}"
 DEPLOY_FULL="${DEPLOY_FULL:-0}"
 DEPLOY_SKIP_APP_BUILD="${DEPLOY_SKIP_APP_BUILD:-0}"
-MATCHER_STANDALONE="${MATCHER_STANDALONE:-0}"
-if [ "$MATCHER_STANDALONE" = "1" ]; then
-  MATCHER_EMBEDDED="${MATCHER_EMBEDDED:-0}"
-else
-  MATCHER_EMBEDDED="${MATCHER_EMBEDDED:-1}"
-fi
-export MATCHER_EMBEDDED MATCHER_STANDALONE
 
 t0=$SECONDS
 log() { echo "==> $*"; }
@@ -99,8 +92,7 @@ else
     export DEPLOY_NEW_HEAD="$NEW_HEAD"
     exec env DEPLOY_REEXEC=1 DEPLOY_OLD_HEAD="$OLD_HEAD" DEPLOY_NEW_HEAD="$NEW_HEAD" \
       DEPLOY_REPO="$ROOT" DEPLOY_FULL="$DEPLOY_FULL" DEPLOY_SKIP_APP_BUILD="$DEPLOY_SKIP_APP_BUILD" \
-      MATCHER_EMBEDDED="$MATCHER_EMBEDDED" MATCHER_STANDALONE="$MATCHER_STANDALONE" \
-      PM2_WEB="$PM2_WEB" PM2_MATCHER="$PM2_MATCHER" PM2_PM_SPORTS="$PM2_PM_SPORTS" \
+      PM2_WEB="$PM2_WEB" PM2_PM_SPORTS="$PM2_PM_SPORTS" \
       bash "$GIT_ROOT/deploy/scripts/deploy-server-remote.sh"
   fi
   if [ -n "${DEPLOY_OLD_HEAD:-}" ] && [ -n "${DEPLOY_NEW_HEAD:-}" ]; then
@@ -114,16 +106,8 @@ DO_INSTALL_FRONTEND=0
 DO_APP_BUILD=0
 DO_COMPILE_ROUTER=0
 DO_PM2_WEB=0
-DO_PM2_MATCHER=0
 DO_PM2_PM_SPORTS=0
 NEED_DIST_UPLOAD=0
-
-enable_matcher_restart_if_standalone() {
-  if [ "$MATCHER_STANDALONE" = "1" ]; then
-    DO_PM2_MATCHER=1
-  fi
-  return 0
-}
 
 classify() {
   local raw="$1"
@@ -133,19 +117,16 @@ classify() {
     package.json|package-lock.json)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      enable_matcher_restart_if_standalone
       ;;
     packages/shared/*|packages/api-contract/*|client/platform-adapter/*|client/venue-adapter/*)
       DO_INSTALL_ROOT=1
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       DO_PM2_WEB=1
-      enable_matcher_restart_if_standalone
       ;;
     server/db/*|server/match-engine/*|devtools/platform-probes/*|server/team-resolver/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      enable_matcher_restart_if_standalone
       ;;
     server/polymarket-sports/*|server/realtime-hub/*)
       DO_INSTALL_ROOT=1
@@ -160,7 +141,6 @@ classify() {
     server/matcher/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      enable_matcher_restart_if_standalone
       ;;
     client/web/*)
       DO_INSTALL_FRONTEND=1
@@ -170,7 +150,6 @@ classify() {
       ;;
     deploy/ecosystem.config.cjs|ecosystem.config.cjs)
       DO_PM2_WEB=1
-      enable_matcher_restart_if_standalone
       ;;
     *.md|.gitignore)
       ;;
@@ -180,7 +159,6 @@ classify() {
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1
       DO_PM2_WEB=1
-      enable_matcher_restart_if_standalone
       ;;
   esac
   return 0
@@ -192,7 +170,6 @@ if [ "$DEPLOY_FULL" = "1" ]; then
   DO_APP_BUILD=1
   DO_COMPILE_ROUTER=1
   DO_PM2_WEB=1
-  enable_matcher_restart_if_standalone
   DO_PM2_PM_SPORTS=1
 elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
   if [ "${DEPLOY_SKIP_GIT_PULL:-0}" = "1" ]; then
@@ -200,7 +177,6 @@ elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
     NEED_DIST_UPLOAD=1
     DO_INSTALL_ROOT=1
     DO_PM2_WEB=1
-    enable_matcher_restart_if_standalone
     DO_PM2_PM_SPORTS=1
     DO_COMPILE_ROUTER=1
     RDS_SCHEMA_TOUCHED=1
@@ -218,7 +194,6 @@ else
   DO_INSTALL_ROOT=1
   DO_PM2_WEB=1
   DO_PM2_PM_SPORTS=1
-  enable_matcher_restart_if_standalone
 fi
 
 if [ "$DEPLOY_SKIP_APP_BUILD" = "1" ] && [ "$DO_APP_BUILD" = "1" ]; then
@@ -338,16 +313,11 @@ if command -v pm2 >/dev/null 2>&1; then
     DO_PM2_WEB=1
     DO_PM2_PM_SPORTS=1
   fi
-  if [ "$MATCHER_EMBEDDED" = "1" ] && [ "$MATCHER_STANDALONE" != "1" ]; then
-    log "embedded matcher enabled; stop standalone ${PM2_MATCHER} if present"
-    pm2 stop "$PM2_MATCHER" >/dev/null 2>&1 || true
-  fi
+  log "stop legacy standalone ${PM2_MATCHER} if present"
+  pm2 delete "$PM2_MATCHER" >/dev/null 2>&1 || pm2 stop "$PM2_MATCHER" >/dev/null 2>&1 || true
   PM2_TARGETS=()
   if [ "$DO_PM2_WEB" = "1" ]; then
     PM2_TARGETS+=("$PM2_WEB")
-  fi
-  if [ "$MATCHER_STANDALONE" = "1" ] && [ "$DO_PM2_MATCHER" = "1" ]; then
-    PM2_TARGETS+=("$PM2_MATCHER")
   fi
   if [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_PM_SPORTS")
@@ -365,9 +335,6 @@ if command -v pm2 >/dev/null 2>&1; then
             ;;
           "$PM2_PM_SPORTS")
             expected_cwd="$CHANGMEN/server/polymarket-sports"
-            ;;
-          "$PM2_MATCHER")
-            expected_cwd="$CHANGMEN/server/matcher"
             ;;
           *)
             expected_cwd=""
@@ -409,37 +376,20 @@ if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
     log "post-deploy check (orders upsert + admin telegram)"
     (cd server/backend && node scripts/post-deploy-check.mjs)
     log "post-deploy check passed"
-    if [ "$MATCHER_EMBEDDED" = "1" ]; then
-      log "wait embedded matcher heartbeat"
-      for i in $(seq 1 45); do
-        if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'embedded' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
-          log "embedded matcher heartbeat ok"
-          break
-        fi
-        if [ "$i" = "45" ]; then
-          echo "ERROR: embedded matcher heartbeat not ready"
-          node --input-type=module -e "import { readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; console.error('heartbeat:', JSON.stringify(readMatcherHeartbeat()));" || true
-          pm2 logs "$PM2_WEB" --lines 40 --nostream 2>/dev/null || true
-          exit 1
-        fi
-        sleep 3
-      done
-    elif [ "$MATCHER_STANDALONE" = "1" ]; then
-      log "wait standalone matcher heartbeat"
-      for i in $(seq 1 45); do
-        if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'standalone' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
-          log "standalone matcher heartbeat ok"
-          break
-        fi
-        if [ "$i" = "45" ]; then
-          echo "ERROR: standalone matcher heartbeat not ready"
-          node --input-type=module -e "import { readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; console.error('heartbeat:', JSON.stringify(readMatcherHeartbeat()));" || true
-          pm2 logs "$PM2_MATCHER" --lines 40 --nostream 2>/dev/null || true
-          exit 1
-        fi
-        sleep 3
-      done
-    fi
+    log "wait embedded matcher heartbeat"
+    for i in $(seq 1 45); do
+      if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'embedded' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
+        log "embedded matcher heartbeat ok"
+        break
+      fi
+      if [ "$i" = "45" ]; then
+        echo "ERROR: embedded matcher heartbeat not ready"
+        node --input-type=module -e "import { readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; console.error('heartbeat:', JSON.stringify(readMatcherHeartbeat()));" || true
+        pm2 logs "$PM2_WEB" --lines 40 --nostream 2>/dev/null || true
+        exit 1
+      fi
+      sleep 3
+    done
   fi
 fi
 

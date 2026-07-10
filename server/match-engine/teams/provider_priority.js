@@ -16,6 +16,9 @@ const PROVIDER_PRIORITY = {
   HG: 2,
 };
 
+/** canonical 主客 gb 锁初值：按序取第一个双侧 gb 已映射平台的 native 槽位 */
+const CANONICAL_ANCHOR_PLATFORMS = ["Polymarket", "OB", "RAY"];
+
 function providerPriority(platform) {
   return PROVIDER_PRIORITY[String(platform || "").trim()] || 0;
 }
@@ -134,6 +137,7 @@ function teamsFromPlatformRows(rows, resolvers) {
 }
 
 export {
+  CANONICAL_ANCHOR_PLATFORMS,
   pickCanonicalPlatformRow,
   PROVIDER_PRIORITY,
   providerPriority,

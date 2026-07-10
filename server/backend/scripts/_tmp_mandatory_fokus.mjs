@@ -34,7 +34,7 @@ if (r.rows[0]?.id) {
   `, [r.rows[0].home_gb_team_id, r.rows[0].away_gb_team_id]);
   console.log("canonical_teams:", JSON.stringify(gb.rows, null, 2));
   const maps = await pool.query(`
-    SELECT venue, venue_id, venue_name, gb_team_id
+    SELECT venue, venue_team_id, venue_name, gb_team_id
     FROM team_venue_maps
     WHERE gb_team_id IN ($1, $2) OR venue_name ILIKE '%Mandatory%' OR venue_name ILIKE '%FOKUS%'
     ORDER BY venue, gb_team_id LIMIT 30

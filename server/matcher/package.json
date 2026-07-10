@@ -2,11 +2,9 @@
   "name": "@changmen/matcher",
   "type": "module",
   "version": "1.0.0",
-  "description": "赛事匹配管理 — 独立 Web 面板 + 后台匹配调度",
+  "description": "赛事匹配管理 — 人工 Web 面板 + match-engine 库",
   "scripts": {
     "start": "node ui/server.js",
-    "matcher": "node scripts/start-db.mjs",
-    "matcher:rds": "node scripts/start-rds.mjs",
     "test": "npm run test --prefix ../match-engine && vitest run"
   },
   "dependencies": {

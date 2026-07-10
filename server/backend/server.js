@@ -18,6 +18,7 @@ import store from "./core/esport-api/store.js";
 import { ensureWinConsoleUtf8 } from "./core/shared/win_console_utf8.js";
 import { createHttpHandler } from "./http_routes.js";
 import { createStaticHandler } from "./static_files.js";
+import { setEmbeddedMatcher } from "./core/shared/matcher_mode.js";
 
 ensureWinConsoleUtf8();
 
@@ -50,7 +51,6 @@ const MATCHER_DIR
   = process.env.CHANGMEN_MATCHER_DIR
     || process.env.GAMEBET_MATCHER_DIR
     || path.join(__dirname, "../matcher/ui/public");
-const MATCHER_EMBEDDED = String(process.env.MATCHER_EMBEDDED || "").trim() === "1";
 
 const serveStatic = createStaticHandler({
   publicDir: PUBLIC_DIR,
@@ -140,11 +140,10 @@ function restoreCollectorHotSnapshot() {
 }
 
 function startEmbeddedMatcherAfter(readyPromise) {
-  if (!MATCHER_EMBEDDED)
-    return;
+  setEmbeddedMatcher(true);
   void readyPromise
     .finally(() => import("../matcher/loop.js")
-      .then(({ startMatcherLoop }) => startMatcherLoop({ mode: "embedded" }))
+      .then(({ startMatcherLoop }) => startMatcherLoop())
       .then((r) => {
         if (r?.ok)
           console.log(`[matcher] embedded loop started pid=${r.pid} interval=${r.intervalMs}ms`);

@@ -40,7 +40,7 @@ HTTP 由 `server/backend/server.js` 提供。**开发**：`BAT\dev.bat`（backen
 
 ```bat
 BAT\dev.bat               # backend + Vite（Win: 3560+5274 / 其它: 3456+5174，推荐）
-BAT\dev.bat parity        # 同上 + matcher:loop（A8 parity 验收）
+BAT\dev.bat parity        # 同上（matchMerge 内嵌在 web）
 BAT\setup-dev-env.bat     # 首次：复制 server/backend/.env
 BAT\backend.bat           # 仅 Web 后端
 npm run matcher:ui        # 可选：独立 matcher UI http://localhost:4567

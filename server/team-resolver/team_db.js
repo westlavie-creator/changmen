@@ -79,8 +79,8 @@ export async function loadAndCreatePlugin() {
   const gameFromMaps = new Map();
 
   for (const row of allMaps) {
-    if (!row.venue_id) continue;
-    const key = `${row.venue}:${row.venue_id}`;
+    if (!row.venue_team_id) continue;
+    const key = `${row.venue}:${row.venue_team_id}`;
     _savedIds.add(key);
     if (!row.gb_team_id) continue;
     const gbKey = String(row.gb_team_id);
@@ -150,7 +150,7 @@ export async function loadAndCreatePlugin() {
     teamDb.saveTeamMappingFireAndForget({
       gb_team_id: manualId,
       platform,
-      venue_id: String(platformId),
+      venue_team_id: String(platformId),
       venue_name: String(platformName || ""),
       game: gameCode || null,
       source: "auto",

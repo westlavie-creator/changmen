@@ -20,7 +20,7 @@ import {
   stableId,
   stablePendingBetId,
 } from "../teams/match_utils.js";
-import { PROVIDER_PRIORITY, teamsFromPlatformRows } from "../teams/provider_priority.js";
+import { CANONICAL_ANCHOR_PLATFORMS, PROVIDER_PRIORITY, teamsFromPlatformRows } from "../teams/provider_priority.js";
 import {
   anchorGbValidForGame,
   canonicalMatchKey,
@@ -541,73 +541,114 @@ function resolveGameCodeForClientRow(row, matches) {
 }
 
 /**
- * 平台双侧 gb 投票定朝向。
- * - 仅在同一无序队对内计票；取票数最多的队对
- * - 该队对上某朝向 ≥2 → 锁该朝向；同票平局 → 不锁（交给 PM 回退）
- * - 否则若有 Polymarket 且其队对与多数队对一致（或仅有 PM）→ 用 PM 槽位
- * @param {Array<{ platform: string, homeGb: string, awayGb: string }>} entries
- * @returns {{ homeGb: string, awayGb: string } | null}
+ * gb 比较：两侧均为有限数字时按数值比（生产 bigint）；否则字符串字典序。
+ * 避免 "100" < "99" 的字符串陷阱。
  */
-function voteCanonicalGbOrientation(entries) {
+function compareGbTeamIds(a, b) {
+  const sa = String(a ?? "").trim();
+  const sb = String(b ?? "").trim();
+  if (!sa || !sb)
+    return sa < sb ? -1 : sa > sb ? 1 : 0;
+  const na = Number(sa);
+  const nb = Number(sb);
+  if (Number.isFinite(na) && Number.isFinite(nb)) {
+    if (na !== nb)
+      return na < nb ? -1 : 1;
+  }
+  return sa < sb ? -1 : sa > sb ? 1 : 0;
+}
+
+/** 无序队对 → home=min / away=max */
+function orientGbPair(homeGb, awayGb) {
+  const a = String(homeGb ?? "").trim();
+  const b = String(awayGb ?? "").trim();
+  if (!a || !b || a === b)
+    return null;
+  return compareGbTeamIds(a, b) <= 0
+    ? { homeGb: a, awayGb: b }
+    : { homeGb: b, awayGb: a };
+}
+
+/**
+ * 锚点平台 native 槽位定 canonical 主客：Polymarket → OB → RAY。
+ * @returns {{ homeGb: string, awayGb: string, anchorPlatform: string } | null}
+ */
+function pickAnchorPlatformOrientation(entries, gameCode) {
+  const byPlatform = new Map();
+  for (const e of entries || []) {
+    const platform = String(e?.platform || "").trim();
+    const homeGb = parseLockedGbTeamId(e?.homeGb);
+    const awayGb = parseLockedGbTeamId(e?.awayGb);
+    if (!platform || !homeGb || !awayGb || homeGb === awayGb)
+      continue;
+    byPlatform.set(platform, { homeGb, awayGb });
+  }
+  for (const platform of CANONICAL_ANCHOR_PLATFORMS) {
+    const hit = byPlatform.get(platform);
+    if (!hit)
+      continue;
+    if (!anchorGbValidForGame(hit.homeGb, gameCode) || !anchorGbValidForGame(hit.awayGb, gameCode))
+      continue;
+    return { homeGb: hit.homeGb, awayGb: hit.awayGb, anchorPlatform: platform };
+  }
+  return null;
+}
+
+/** 无 platform_id 映射时：锚点平台队名 → gb，保留 native 主客 */
+function pickAnchorGbFromPlatformNames(matchs, matches, gameCode) {
+  const rows = buildPlatformRowsForMatchs(matchs, matches);
+  const byPlatform = new Map(rows.map(r => [r.platform, r]));
+  for (const platform of CANONICAL_ANCHOR_PLATFORMS) {
+    const row = byPlatform.get(platform);
+    if (!row)
+      continue;
+    const homeGb = parseLockedGbTeamId(lookupGbTeamIdByName(row.home, gameCode));
+    const awayGb = parseLockedGbTeamId(lookupGbTeamIdByName(row.away, gameCode));
+    if (!homeGb || !awayGb || homeGb === awayGb)
+      continue;
+    if (!anchorGbValidForGame(homeGb, gameCode) || !anchorGbValidForGame(awayGb, gameCode))
+      continue;
+    return { homeGb, awayGb, anchorPlatform: platform };
+  }
+  return null;
+}
+
+/**
+ * @deprecated 无锚点平台可用时的回落：多数无序队对 + min/max
+ */
+function pickDeterministicGbOrientation(entries) {
   const list = (entries || []).filter(e => e?.homeGb && e?.awayGb && String(e.homeGb) !== String(e.awayGb));
   if (!list.length)
     return null;
 
-  /** @type {Map<string, { pairVotes: number, orients: Map<string, { homeGb: string, awayGb: string, votes: number }> }>} */
-  const byPair = new Map();
+  /** @type {Map<string, { votes: number, homeGb: string, awayGb: string }>} */
+  const pairVotes = new Map();
   for (const e of list) {
-    const homeGb = String(e.homeGb);
-    const awayGb = String(e.awayGb);
-    const pairKey = [homeGb, awayGb].sort().join(":");
-    const orientKey = `${homeGb}>${awayGb}`;
-    if (!byPair.has(pairKey))
-      byPair.set(pairKey, { pairVotes: 0, orients: new Map() });
-    const bucket = byPair.get(pairKey);
-    bucket.pairVotes += 1;
-    const cur = bucket.orients.get(orientKey);
+    const oriented = orientGbPair(e.homeGb, e.awayGb);
+    if (!oriented)
+      continue;
+    // 用已排序的 home/away 作 key，避免 split(":") 截断含冒号的 id
+    const pairKey = `${oriented.homeGb}\0${oriented.awayGb}`;
+    const cur = pairVotes.get(pairKey);
     if (cur)
       cur.votes += 1;
     else
-      bucket.orients.set(orientKey, { homeGb, awayGb, votes: 1 });
+      pairVotes.set(pairKey, { votes: 1, homeGb: oriented.homeGb, awayGb: oriented.awayGb });
   }
 
-  let bestPairKey = null;
-  let bestPairVotes = -1;
-  for (const [pairKey, bucket] of byPair) {
-    if (bucket.pairVotes > bestPairVotes) {
-      bestPairVotes = bucket.pairVotes;
-      bestPairKey = pairKey;
-    }
+  let best = null;
+  for (const cand of pairVotes.values()) {
+    if (!best || cand.votes > best.votes)
+      best = cand;
   }
-  if (!bestPairKey)
+  if (!best)
     return null;
+  return { homeGb: best.homeGb, awayGb: best.awayGb };
+}
 
-  const bestBucket = byPair.get(bestPairKey);
-  let topOrient = null;
-  let secondVotes = 0;
-  for (const cand of bestBucket.orients.values()) {
-    if (!topOrient || cand.votes > topOrient.votes) {
-      secondVotes = topOrient ? topOrient.votes : 0;
-      topOrient = cand;
-    }
-    else if (cand.votes > secondVotes) {
-      secondVotes = cand.votes;
-    }
-  }
-
-  if (topOrient && topOrient.votes >= 2 && topOrient.votes > secondVotes)
-    return { homeGb: topOrient.homeGb, awayGb: topOrient.awayGb };
-
-  const pm = list.find(e => String(e.platform) === "Polymarket");
-  if (!pm)
-    return null;
-  const pmHome = String(pm.homeGb);
-  const pmAway = String(pm.awayGb);
-  const pmPairKey = [pmHome, pmAway].sort().join(":");
-  // PM 队对须与多数队对一致（仅 PM 自己投票时 bestPairKey 就是 PM）
-  if (pmPairKey !== bestPairKey)
-    return null;
-  return { homeGb: pmHome, awayGb: pmAway };
+/** @deprecated 兼容旧导出名；行为同 pickDeterministicGbOrientation */
+function voteCanonicalGbOrientation(entries) {
+  return pickDeterministicGbOrientation(entries);
 }
 
 /** 收集 Matchs 上双侧 venue→gb 且同游戏的平台行 */
@@ -631,17 +672,20 @@ function collectPlatformGbEntries(matchs, matches, gameCode) {
 }
 
 /**
- * 新场次：≥2 平台 gb 投票定朝向；凑不齐回退 Polymarket（同队对）；
- * 无任何平台 ID 映射时才用队名查 gb。
+ * 新场次：锚点平台（PM → OB → RAY）native 槽位定 gb 锁；否则回落 min/max 投票。
  */
 function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
   const entries = collectPlatformGbEntries(matchs, matches, gameCode);
   if (entries.length) {
-    const voted = voteCanonicalGbOrientation(entries);
-    if (voted)
-      return voted;
-    return null;
+    const anchored = pickAnchorPlatformOrientation(entries, gameCode);
+    if (anchored)
+      return { homeGb: anchored.homeGb, awayGb: anchored.awayGb };
+    return pickDeterministicGbOrientation(entries);
   }
+
+  const anchoredByName = pickAnchorGbFromPlatformNames(matchs, matches, gameCode);
+  if (anchoredByName)
+    return { homeGb: anchoredByName.homeGb, awayGb: anchoredByName.awayGb };
 
   const picked = titleFromMatchs(matchs, matches);
   if (!picked?.home || !picked?.away)
@@ -649,10 +693,9 @@ function pickCanonicalGbFromMatchs(matchs, matches, gameCode) {
   const homeGbByName = parseLockedGbTeamId(lookupGbTeamIdByName(picked.home, gameCode));
   const awayGbByName = parseLockedGbTeamId(lookupGbTeamIdByName(picked.away, gameCode));
   if (homeGbByName && awayGbByName
-    && homeGbByName !== awayGbByName
     && anchorGbValidForGame(homeGbByName, gameCode)
     && anchorGbValidForGame(awayGbByName, gameCode)) {
-    return { homeGb: homeGbByName, awayGb: awayGbByName };
+    return orientGbPair(homeGbByName, awayGbByName);
   }
   return null;
 }
@@ -727,8 +770,11 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
         const h = hRaw && anchorGbValidForGame(hRaw, gameCode) ? hRaw : homeGb;
         const a = aRaw && anchorGbValidForGame(aRaw, gameCode) ? aRaw : awayGb;
         if (h && a) {
-          homeGb = h;
-          awayGb = a;
+          const oriented = orientGbPair(h, a);
+          if (!oriented)
+            continue;
+          homeGb = oriented.homeGb;
+          awayGb = oriented.awayGb;
           break;
         }
         homeGb = homeGb || h;
@@ -1661,7 +1707,9 @@ export {
   MIN_CLIENT_MATCH_PLATFORMS,
   normalizeMatchesShape,
   normalizeTeam,
+  pickAnchorPlatformOrientation,
   pickCanonicalGbFromMatchs,
+  pickDeterministicGbOrientation,
   voteCanonicalGbOrientation,
   collectPlatformGbEntries,
   pickCanonicalStartTime,
@@ -1670,6 +1718,7 @@ export {
   stripOrphanClientMatchPlatforms,
   syncClientMatchsFromDbBindings,
   syncClientMatchsFromPlatformLinks,
+  CANONICAL_ANCHOR_PLATFORMS,
   PROVIDER_PRIORITY,
   reconcileClientMatchReverse,
   refreshClientMatchBetNames,

@@ -58,9 +58,8 @@ Nginx / Caddy 反代示例要点：
 | 组件 | 生产形态 | 发版 / 重启 |
 |------|----------|-------------|
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
-| API + 合并（`server/backend` + embedded matcher） | PM2：`changmen-web`（`:3456`，`MATCHER_EMBEDDED=1`） | `pm2 restart changmen-web --update-env` |
+| API + 合并（`server/backend` 内嵌 matcher） | PM2：`changmen-web`（`:3456`） | `pm2 restart changmen-web --update-env` |
 | Polymarket 赛程状态 | PM2：`changmen-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart changmen-pm-sports --update-env` |
-| 独立 matcher 回滚模式 | PM2：`changmen-matcher`（默认不启用） | `MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start vps/ecosystem.config.cjs` |
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
@@ -155,20 +154,13 @@ npm run app:build
 cd changmen
 pm2 start vps/ecosystem.config.cjs    # changmen-web + changmen-pm-sports
 # 或手动：
-MATCHER_EMBEDDED=1 npm run web
+npm run web
 npm run pm-sports
 ```
 
 `changmen-pm-sports` 连 `wss://sports-api.polymarket.com/ws`，按 `platform_matches` 已有 Polymarket 行关联 `client_matches`，写入 `pm_sport`。**不替代**浏览器 CLOB WS 赔率采集。
 
-`ecosystem.config.cjs` 默认注册 `changmen-web` 与 `changmen-pm-sports`，入口分别为 `server/backend/scripts/start-db.mjs` 与 `server/polymarket-sports/index.js`（`CHANGMEN_DB_SCRIPT=rds`）。如需回滚到独立 matcher：
-
-```bash
-cd changmen
-pm2 stop changmen-web
-MATCHER_STANDALONE=1 MATCHER_EMBEDDED=0 pm2 start vps/ecosystem.config.cjs
-pm2 restart changmen-web changmen-matcher --update-env
-```
+`ecosystem.config.cjs` 注册 `changmen-web` 与 `changmen-pm-sports`；matchMerge 随 `changmen-web` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。
 
 生产建议用 systemd / pm2 / Docker Compose 托管，并配置重启策略。
 
@@ -256,7 +248,7 @@ npm run build
 | 项 | 开发 | 生产 |
 |----|------|------|
 | API 地址 | 本机 backend 或 Vite dev + proxy（端口见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)） | `https://your-domain.com` |
-| 启动 | `BAT\dev.bat parity` / `BAT\dev.bat` + matcher | `web` + `matcher:loop` |
+| 启动 | `BAT\dev.bat` / `BAT\dev.bat parity` | `npm run web`（内嵌 matchMerge） |
 | 认证 | 可 `A8_AUTH=0` + TJ01 | JWT 真实用户（`users` + `profiles`） |
 | 采集 | 本机浏览器 + 插件 | 各操作员客户端上报同一 RDS |
 | Node Feed | **不存在** | **不存在** |
