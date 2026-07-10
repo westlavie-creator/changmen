@@ -36,6 +36,7 @@ import {
 } from "./pmDetection";
 import { schedulePolymarketAutoExitSellAfterBuy } from "./pmAutoExitSell";
 import { normalizePolymarketTickSize, type PolymarketTickSize } from "./pmTickPrice";
+import { resolvePolymarketVenueIdentityFromToken } from "./profile";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 export { isPolymarketDelayedPending } from "./orderStatus";
@@ -492,10 +493,21 @@ export const polymarketProvider: PlatformProvider = {
       );
       const balance = parseCollateralBalance(data?.balance);
       if (balance === undefined) return undefined;
-      return {
+      const out: AccountBalanceResult = {
         balance,
         currency: "USDT",
       };
+      try {
+        const identity = await resolvePolymarketVenueIdentityFromToken(account.token);
+        if (identity?.venueMemberId)
+          out.venueMemberId = identity.venueMemberId;
+        if (identity?.venueAccountName)
+          out.venueAccountName = identity.venueAccountName;
+      }
+      catch {
+        /* 资料失败不阻断余额 */
+      }
+      return out;
     } catch (err) {
       console.warn("[Polymarket] getBalance failed", err);
       return undefined;

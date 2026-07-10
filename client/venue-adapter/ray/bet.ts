@@ -104,15 +104,31 @@ const RAY_A8_V2 = {
 
 export const rayProvider: PlatformProvider = {
   async getBalance(account) {
-    const res = await accountGet<{ code?: number; result?: { balance?: number } }>(
+    const res = await accountGet<{
+      code?: number;
+      result?: {
+        balance?: number | string;
+        id?: number | string;
+        nickname?: string;
+        username?: string;
+      };
+    }>(
       account,
       RAY_A8_V2.user,
       { forceDirect: true },
     );
     if (!res || res.code !== 200) return undefined;
+    const result = res.result;
+    const venueMemberId = result?.id != null && result.id !== ""
+      ? String(result.id).trim()
+      : undefined;
+    const venueAccountName = String(result?.nickname || result?.username || result?.id || "").trim()
+      || undefined;
     return {
-      balance: Number(res.result?.balance) || 0,
+      balance: Number(result?.balance) || 0,
       currency: getCurrency(),
+      venueMemberId,
+      venueAccountName,
     };
   },
 

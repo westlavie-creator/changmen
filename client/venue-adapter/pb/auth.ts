@@ -19,6 +19,136 @@ function detectPbSessionSuffix(
   return "515";
 }
 
+function decodePbCustidRaw(raw: string): string {
+  try {
+    return decodeURIComponent(String(raw).replace(/\+/g, "%20"));
+  }
+  catch {
+    return String(raw || "");
+  }
+}
+
+function custidMemberId(custidDecoded: string): string {
+  const id = new URLSearchParams(custidDecoded).get("id");
+  return id != null ? String(id).trim() : "";
+}
+
+function tryParseJsonObject(raw: string): Record<string, unknown> | undefined {
+  try {
+    const v = JSON.parse(raw);
+    return v && typeof v === "object" && !Array.isArray(v)
+      ? v as Record<string, unknown>
+      : undefined;
+  }
+  catch {
+    return undefined;
+  }
+}
+
+function decodeBase64Utf8(raw: string): string {
+  const cleaned = String(raw).replace(/\s+/g, "");
+  if (typeof Buffer !== "undefined")
+    return Buffer.from(cleaned, "base64").toString("utf8");
+  const bin = atob(cleaned);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function parseBase64Json(raw: string | undefined): Record<string, unknown> | undefined {
+  if (!raw)
+    return undefined;
+  try {
+    return tryParseJsonObject(decodeBase64Utf8(raw));
+  }
+  catch {
+    return undefined;
+  }
+}
+
+/** 粘贴可能是 base64 外层 / {provider,token} / 内层 cookie JSON */
+function normalizePbTokenCookie(token: string): Record<string, string> | undefined {
+  const text = String(token).trim();
+  if (!text)
+    return undefined;
+  let parsed = tryParseJsonObject(text);
+  if (!parsed) {
+    try {
+      parsed = tryParseJsonObject(decodeBase64Utf8(text));
+    }
+    catch {
+      return undefined;
+    }
+  }
+  if (!parsed)
+    return undefined;
+  // 剪贴板外层：{ provider, gateway, token, referer }
+  if (typeof parsed.token === "string" && (parsed.provider || parsed.gateway || parsed.referer)) {
+    const inner = tryParseJsonObject(parsed.token);
+    if (inner)
+      return inner as Record<string, string>;
+  }
+  return parsed as Record<string, string>;
+}
+
+export interface PbVenueIdentity {
+  venueMemberId: string;
+  venueAccountName: string;
+}
+
+/**
+ * [changmen 扩展] 从 PB 粘贴 token 解析场馆会员身份。
+ * - venueMemberId：`__udata.userCode` 或 `custid_{suffix}` 的 `id=`（如 JJJ010016S）
+ * - venueAccountName：`__udata.loginId` / `a.loginId`（如 bttes2_47104）
+ */
+export function parsePbVenueIdentity(
+  token: string | undefined | null,
+): PbVenueIdentity | undefined {
+  if (token == null || !String(token).trim())
+    return undefined;
+  try {
+    const outer = normalizePbTokenCookie(String(token));
+    if (!outer)
+      return undefined;
+    const appDataRaw = outer["x-app-data"] || "{}";
+    const appData = (tryParseJsonObject(appDataRaw) || {}) as Record<string, string>;
+    const suffix = detectPbSessionSuffix(appData, outer);
+    const custidRaw =
+      appData[`custid_${suffix}`]
+      || outer[`custid_${suffix}`]
+      || outer.custid_515
+      || "";
+    const custidDecoded = decodePbCustidRaw(custidRaw);
+    const fromCustid = custidMemberId(custidDecoded);
+
+    let fromInnerCustid = "";
+    try {
+      const inner = tryParseJsonObject(outer.token || "{}") as Record<string, string> | undefined;
+      const innerCustid = inner?.[`X-Custid-${suffix}`] || inner?.[`x-custid-${suffix}`] || "";
+      fromInnerCustid = custidMemberId(decodePbCustidRaw(innerCustid));
+    }
+    catch {
+      /* optional */
+    }
+
+    const udata = parseBase64Json(outer.__udata);
+    const a = parseBase64Json(outer.a);
+    const userCode = String(udata?.userCode ?? "").trim();
+    const loginId = String(udata?.loginId ?? a?.loginId ?? "").trim();
+
+    const venueMemberId = userCode || fromCustid || fromInnerCustid;
+    const venueAccountName = loginId || venueMemberId;
+    if (!venueMemberId && !venueAccountName)
+      return undefined;
+    return {
+      venueMemberId: venueMemberId || venueAccountName,
+      venueAccountName: venueAccountName || venueMemberId,
+    };
+  }
+  catch {
+    return undefined;
+  }
+}
+
 function mergeInnerTokenHeaders(
   headers: Record<string, string>,
   outer: Record<string, string>,
@@ -59,7 +189,7 @@ export function buildPbAuthHeaders(
         .join(";")};`,
       [`x-browser-session-id-${suffix}`]: appData[browserSessionKey] || "",
       [`x-custid-${suffix}`]:
-        decodeURIComponent(String(custidRaw).replace(/\+/g, "%20")) || "",
+        decodePbCustidRaw(String(custidRaw)) || "",
       "v-hucode": outer["v-hucode"] || "",
       "x-requested-with": "XMLHttpRequest",
     };

@@ -33,6 +33,25 @@ import {
   fetchPolymarketRelayerStatus,
   preparePolymarketWallet,
 } from "@venue/polymarket/relayer";
+import { getAccounts } from "@/api/account";
+import { getAdapter } from "@/runtime/venueAdapters";
+import type { AccountBalanceResult } from "@venue/contract";
+import { parsePbVenueIdentity } from "@venue/pb/auth";
+
+function readStoredVenueMemberId(row: { venueMemberId?: string; venueId?: string } | null | undefined): string {
+  const v = row?.venueMemberId ?? row?.venueId;
+  return v != null ? String(v).trim() : "";
+}
+
+/**
+ * [changmen 扩展] 已实现 venueMemberId 回写的场馆。
+ * 其它场馆保持 A8：粘贴凭证即可保存，不强制余额/会员 ID。
+ */
+const VENUE_MEMBER_ID_PROVIDERS = new Set(["OB", "RAY", "PB", "Polymarket"]);
+
+function requiresVenueMemberId(provider: unknown): boolean {
+  return VENUE_MEMBER_ID_PROVIDERS.has(String(provider ?? "").trim());
+}
 
 const props = defineProps<{
   open: boolean;
@@ -85,6 +104,16 @@ let form = reactive<AccountEditFormState>(
   ),
 );
 
+function applyPbIdentityFromToken(token: string | undefined) {
+  const identity = parsePbVenueIdentity(token);
+  if (!identity)
+    return;
+  form.venueMemberId = identity.venueMemberId;
+  form.venueAccountName = identity.venueAccountName;
+  if (!form.playerName.trim())
+    form.playerName = identity.venueAccountName;
+}
+
 const platformSuggestions = computed<PlatformSuggestion[]>(() =>
   tagPlatforms.value.map(p => ({
     value: p.Name || "",
@@ -111,6 +140,8 @@ function resetForm(acc?: PlatformAccount) {
   gameShow.value = false;
   rateLocked.value = form.provider === "PB";
   syncPolymarketFieldsFromToken(form.token);
+  if (form.provider === "PB" && !form.venueMemberId)
+    applyPbIdentityFromToken(form.token);
 }
 
 function syncPolymarketFieldsFromToken(token: string) {
@@ -240,6 +271,8 @@ async function applyPaste() {
     form.referer = parsed.referer ?? "";
     form.gateway = gateways[0]!;
     syncPolymarketFieldsFromToken(form.token);
+    if (parsed.provider === "PB")
+      applyPbIdentityFromToken(form.token);
 
     if (gateways.length === 1) {
       ElMessage.success("粘贴成功");
@@ -413,7 +446,11 @@ async function onPreparePolymarketWallet() {
   }
 }
 
-async function buildPatch() {
+async function buildPatch(): Promise<Partial<AccountRecord> & {
+  platformName: string;
+  playerName: string;
+  provider: AccountRecord["provider"];
+}> {
   const token = form.provider === "Polymarket"
     ? await ensurePolymarketToken()
     : form.token.trim() || undefined;
@@ -453,11 +490,91 @@ async function buildPatch() {
   };
 }
 
+/**
+ * [changmen 扩展] 仅对已接线场馆：保存前拉余额并绑定 venueMemberId。
+ * - 新建：回写 venueMemberId；同场馆占用 → 拒绝
+ * - 编辑：RDS 已有且不一致 → 拒绝；RDS 为空 → 允许首次写入
+ * A8 AccountInfoView 无此门控；未接线场馆走 save() 内 A8 路径。
+ */
+async function probeVenueIdentityForSave(
+  patch: Awaited<ReturnType<typeof buildPatch>>,
+): Promise<AccountBalanceResult> {
+  const probe = new PlatformAccount({
+    accountId: props.account?.accountId || 0,
+    playerName: patch.playerName || form.playerName || "probe",
+    provider: patch.provider,
+    platformName: patch.platformName,
+    gateway: patch.gateway,
+    token: patch.token,
+    referer: patch.referer,
+    userAgent: patch.userAgent,
+    proxyId: patch.proxyId,
+  });
+  const provider = getAdapter(probe.provider)?.provider;
+  if (!provider?.getBalance)
+    throw new Error(`${probe.provider} 不支持余额查询，无法保存`);
+  const result = await provider.getBalance(probe);
+  if (!result)
+    throw new Error("获取余额失败，请检查网关/Token 后重试");
+
+  const venueMemberId = String(result.venueMemberId || "").trim();
+  const venueAccountName = String(result.venueAccountName || "").trim() || venueMemberId;
+  if (!venueMemberId)
+    throw new Error("未获取到平台账号 ID，无法保存");
+
+  const selfId = Number(props.account?.accountId) || 0;
+  const isEdit = Boolean(selfId);
+
+  if (isEdit) {
+    const rows = await getAccounts();
+    const rdsRow = rows.find(a => Number(a.accountId) === selfId);
+    if (!rdsRow)
+      throw new Error("RDS 中未找到该账号，拒绝保存");
+    const rdsVenueMemberId = readStoredVenueMemberId(
+      rdsRow as { venueMemberId?: string; venueId?: string },
+    );
+    if (rdsVenueMemberId && rdsVenueMemberId !== venueMemberId) {
+      throw new Error(
+        `平台账号 ID 不一致：RDS 为 ${rdsVenueMemberId}，当前凭证为 ${venueMemberId}，拒绝保存`,
+      );
+    }
+    form.venueMemberId = rdsVenueMemberId || venueMemberId;
+  }
+  else {
+    const dup = accountStore.accounts.find((a) => {
+      if (!a.accountId)
+        return false;
+      if (String(a.provider) !== String(probe.provider))
+        return false;
+      return readStoredVenueMemberId(a) === venueMemberId;
+    });
+    if (dup) {
+      const label = [dup.platformName, dup.playerName || dup.venueAccountName]
+        .filter(Boolean)
+        .join(" / ") || `#${dup.accountId}`;
+      throw new Error(
+        `平台账号 ID ${venueMemberId} 已绑定到「${label}」，不能重复保存`,
+      );
+    }
+    form.venueMemberId = venueMemberId;
+  }
+
+  form.venueAccountName = venueAccountName;
+  if (!form.playerName.trim())
+    form.playerName = venueAccountName;
+
+  return {
+    ...result,
+    venueMemberId: form.venueMemberId || venueMemberId,
+    venueAccountName,
+  };
+}
+
 async function save() {
   if (props.readonly)
     return;
-  if (!form.platformName.trim() || !form.playerName.trim()) {
-    ElMessage.error("平台名与账号名必填");
+  if (!form.platformName.trim()) {
+    ElMessage.error("平台名必填");
     return;
   }
   const invalidRate = form.rateConfig.some(r => Number.isNaN(Number(r.rate)));
@@ -469,6 +586,25 @@ async function save() {
   let loading: ReturnType<typeof ElLoading.service> | undefined;
   try {
     const patch = await buildPatch();
+    const bindVenueMember = requiresVenueMemberId(patch.provider);
+
+    let venue: AccountBalanceResult | undefined;
+    if (bindVenueMember) {
+      loading = ElLoading.service({ fullscreen: true, text: "校验余额与平台账号..." });
+      venue = await probeVenueIdentityForSave(patch);
+      patch.venueAccountName = venue.venueAccountName;
+      if (!patch.playerName.trim())
+        patch.playerName = venue.venueAccountName!;
+      loading.close();
+      loading = undefined;
+    }
+
+    // [A8 可证实] AccountInfoView：平台名 + 账号名必填；未接线场馆保持此路径
+    if (!patch.playerName.trim()) {
+      ElMessage.error("账号名必填");
+      return;
+    }
+
     loading = ElLoading.service({ fullscreen: true, text: "保存中..." });
 
     // 编辑已有账号：必须保留原 accountId。
@@ -478,10 +614,26 @@ async function save() {
     // 因此编辑走原地 patch + SaveData；仅新建走 CreateTagPlatform。
     if (props.account?.accountId) {
       const acc = props.account;
+      const existingId = readStoredVenueMemberId(acc);
+      const nextMemberId = bindVenueMember
+        ? (existingId || venue?.venueMemberId)
+        : (existingId || undefined);
       acc.applyPatch({
         ...patch,
         platformName: patch.platformName,
         playerName: patch.playerName,
+        ...(bindVenueMember
+          ? {
+              venueMemberId: nextMemberId,
+              venueAccountName: patch.venueAccountName,
+            }
+          : {}),
+        ...(venue
+          ? {
+              balance: venue.balance,
+              currency: venue.currency,
+            }
+          : {}),
         updateTime: Date.now(),
       });
       await accountStore.saveAccounts();
@@ -489,7 +641,9 @@ async function save() {
       emit("close");
       void (async () => {
         try {
-          await accountStore.refreshBalance(acc);
+          // [A8 可证实] 保存后刷新场馆订单；余额：已接线场馆在保存时已探测，其它走 refresh
+          if (!venue)
+            await accountStore.refreshBalance(acc);
           await accountStore.updateVenueOrders(acc);
         }
         catch (err) {
@@ -501,6 +655,8 @@ async function save() {
     }
 
     // [A8 可证实] 新建：createTagPlatform({ loading }) → 关弹窗 → createAccount
+    if (bindVenueMember && venue?.venueMemberId)
+      patch.venueMemberId = venue.venueMemberId;
     const created = await accountStore.createTagPlatform(
       patch.platformName,
       patch.playerName,
@@ -513,8 +669,15 @@ async function save() {
       playerName: created.playerName,
       platformId: created.platformId,
       platformName: patch.platformName || created.platformName,
+      ...(bindVenueMember
+        ? {
+            venueMemberId: patch.venueMemberId,
+            venueAccountName: patch.venueAccountName,
+          }
+        : {}),
       pause: patch.pause ?? false,
-      balance: undefined,
+      balance: venue?.balance,
+      currency: venue?.currency,
       updateTime: Date.now(),
     };
     void accountStore.createAccount(record).catch((err: unknown) => {

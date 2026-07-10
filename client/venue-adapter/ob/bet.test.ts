@@ -44,7 +44,7 @@ describe("obProvider.getBalance", () => {
     accountGet.mockReset();
     accountGet.mockImplementation(async (_acc, path) => {
       if (path === "/game/balance") {
-        return { status: "true", data: { balance: 88, currency_en: "CNY", uid: "u1" } };
+        return { status: "true", data: { balance: 88, currency_en: "CNY", uid: "u1", account: "quan10um" } };
       }
       if (String(path).includes("/game/odd/updateType")) {
         return { status: "true", data: "2" };
@@ -59,7 +59,12 @@ describe("obProvider.getBalance", () => {
   it("无 gateway/token 前置守卫，status=true 时返回余额（对齐 A8 yYe）", async () => {
     const bare = { ...account, gateway: "", token: "" } as PlatformAccount;
     const bal = await obProvider.getBalance!(bare);
-    expect(bal).toEqual({ balance: 88, currency: "CNY" });
+    expect(bal).toEqual({
+      balance: 88,
+      currency: "CNY",
+      venueMemberId: "u1",
+      venueAccountName: "quan10um",
+    });
     expect(accountGet).toHaveBeenCalledWith(bare, "/game/balance");
   });
 });

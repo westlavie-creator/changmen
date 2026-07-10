@@ -10,6 +10,7 @@ import { useMessageStore } from "@venue/shared/webBridge";
 import { PLATFORMS } from "@venue/shared/platforms";
 import { accountMultiplyScale, scaleVenueMoney, venueStakeFromBetMoney } from "@changmen/shared/account_multiply";
 import { pbUuid } from "./uuid";
+import { parsePbVenueIdentity } from "./auth";
 
 interface PbOddsSelectionRow {
   status?: string;
@@ -80,9 +81,12 @@ export const pbProvider: PlatformProvider = {
     }>(account, path, "");
     if (!data?.success) return undefined;
     const multiply = accountMultiplyScale(account.multiply);
+    const identity = parsePbVenueIdentity(account.token);
     return {
       balance: scaleVenueMoney(Number(data.betCredit) || 0, multiply),
       currency: getCurrency(data.currency),
+      venueMemberId: identity?.venueMemberId,
+      venueAccountName: identity?.venueAccountName,
     };
   },
 

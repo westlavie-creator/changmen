@@ -80,8 +80,8 @@ function unlockRate() {
 <template>
   <el-form label-width="100" class="account-edit-panel" :class="{ 'account-edit-panel--readonly': readonly }">
     <el-form-item label="平台：">
-      <el-row :gutter="10">
-        <el-col :span="6">
+      <el-row :gutter="10" align="middle">
+        <el-col :span="5">
           <el-autocomplete
             v-if="fetchPlatforms && !readonly"
             v-model="form.platformName"
@@ -91,12 +91,28 @@ function unlockRate() {
           />
           <el-input v-else v-model="form.platformName" :disabled="fieldDisabled()" />
         </el-col>
-        <el-col :span="7">
-          <el-input v-model="form.playerName" placeholder="账号" :disabled="fieldDisabled()">
+        <el-col :span="5">
+          <el-input
+            v-model="form.playerName"
+            placeholder="可空，保存时用平台账号"
+            :disabled="fieldDisabled()"
+          >
             <template #prepend>
               账号
             </template>
           </el-input>
+        </el-col>
+        <el-col :span="8">
+          <div class="account-edit-panel__venue" title="场馆返回的真实账号信息（查余额后更新）">
+            <span class="account-edit-panel__venue-item">
+              <span class="account-edit-panel__venue-label">平台账号</span>
+              <span class="account-edit-panel__venue-value">{{ form.venueAccountName || "—" }}</span>
+            </span>
+            <span class="account-edit-panel__venue-item">
+              <span class="account-edit-panel__venue-label">账号ID</span>
+              <span class="account-edit-panel__venue-value account-edit-panel__venue-value--mono">{{ form.venueMemberId || "—" }}</span>
+            </span>
+          </div>
         </el-col>
         <el-col :span="6">
           <el-switch
@@ -511,6 +527,48 @@ function unlockRate() {
   margin: 0 0 10px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.account-edit-panel__venue {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 32px;
+  padding: 2px 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--el-text-color-regular);
+}
+
+.account-edit-panel__venue-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.account-edit-panel__venue-label {
+  flex: 0 0 auto;
+  color: var(--el-text-color-secondary);
+}
+
+.account-edit-panel__venue-label::after {
+  content: "：";
+}
+
+.account-edit-panel__venue-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.account-edit-panel__venue-value--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
 }
 
 .account-edit-panel--readonly :deep(.el-input.is-disabled .el-input__inner),

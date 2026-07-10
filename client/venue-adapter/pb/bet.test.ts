@@ -67,6 +67,38 @@ describe("pbProvider.getOrders", () => {
   });
 });
 
+describe("pbProvider.getBalance", () => {
+  beforeEach(() => {
+    pbPost.mockReset();
+  });
+
+  it("余额成功时附带 token 解析的 venueMemberId / venueAccountName", async () => {
+    const udata = Buffer.from(JSON.stringify({
+      userCode: "JJJ010016S",
+      loginId: "bttes2_47104",
+    })).toString("base64");
+    const account = new PlatformAccount({
+      accountId: 9,
+      playerName: "pb-bal",
+      provider: "PB",
+      gateway: "https://pb.example",
+      token: JSON.stringify({
+        "x-app-data": JSON.stringify({
+          BrowserSessionId_1228: "sess",
+          custid_1228: "id%3DJJJ010016S%26login%3D1",
+        }),
+        __udata: udata,
+      }),
+      multiply: 1,
+    });
+    pbPost.mockResolvedValue({ success: true, betCredit: 10, currency: "CNY" });
+    const bal = await pbProvider.getBalance!(account);
+    expect(bal?.balance).toBe(10);
+    expect(bal?.venueMemberId).toBe("JJJ010016S");
+    expect(bal?.venueAccountName).toBe("bttes2_47104");
+  });
+});
+
 describe("pbProvider.checkBet", () => {
   const account = new PlatformAccount({
     accountId: 8,

@@ -100,6 +100,13 @@ export function sanitizeAccountForAdmin(raw) {
     gatewayHost,
     hasCredentials: Boolean(a.token ?? a.Token ?? a.cookie ?? a.Cookie),
     updateTime: Number(a.updateTime ?? a.UpdateTime) || 0,
+    venueMemberId: (() => {
+      const v = a.venueMemberId ?? a.venueId;
+      return v != null && String(v).trim() ? String(v).trim() : undefined;
+    })(),
+    venueAccountName: a.venueAccountName != null && String(a.venueAccountName).trim()
+      ? String(a.venueAccountName).trim()
+      : undefined,
   };
 }
 

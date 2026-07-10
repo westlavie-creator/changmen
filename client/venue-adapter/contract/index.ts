@@ -6,6 +6,10 @@ import type { PlatformAccount } from "@changmen/client-core/models/platformAccou
 export interface AccountBalanceResult {
   balance: number;
   currency?: string;
+  /** [changmen 扩展] 场馆会员 ID（如 OB balance.uid） */
+  venueMemberId?: string;
+  /** [changmen 扩展] 场馆登录名（如 OB balance.account） */
+  venueAccountName?: string;
 }
 
 /** 对齐 A8 场馆订单 `Yt.*` 状态 */

@@ -77,6 +77,10 @@ export interface AdminAccountDetail {
   gatewayHost: string;
   hasCredentials: boolean;
   updateTime: number;
+  /** [changmen 扩展] 场馆会员 ID */
+  venueMemberId?: string;
+  /** [changmen 扩展] 场馆登录名 */
+  venueAccountName?: string;
 }
 
 export type AdminUserSetting = Record<string, unknown>;

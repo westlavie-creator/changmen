@@ -230,7 +230,9 @@ describe("polymarketProvider.getBalance", () => {
   });
 
   test("uses POLY_1271 directly when wallet and funder differ without explicit signature type", async () => {
-    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({ balance: "4868613" });
+    vi.mocked(polymarketPluginGet)
+      .mockResolvedValueOnce({ balance: "4868613" })
+      .mockResolvedValueOnce({ name: "pm-user", users: [{ id: "99" }], proxyWallet: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5" });
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xCa4c007bdc8087F13141046Dc38F2f79F87cf43e",
       funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
@@ -244,15 +246,20 @@ describe("polymarketProvider.getBalance", () => {
     await expect(polymarketProvider.getBalance!(account)).resolves.toEqual({
       balance: 4.868613,
       currency: "USDT",
+      venueMemberId: "99",
+      venueAccountName: "pm-user",
     });
 
     expect(vi.mocked(polymarketPluginGet).mock.calls.map(([url]) => url)).toEqual([
       `${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`,
+      "https://gamma-api.polymarket.com/public-profile?address=0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
     ]);
   });
 
   test("overrides captured proxy signature type when funder differs from wallet", async () => {
-    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({ balance: "4868613" });
+    vi.mocked(polymarketPluginGet)
+      .mockResolvedValueOnce({ balance: "4868613" })
+      .mockResolvedValueOnce({ name: "pm-user", users: [{ id: "99" }] });
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xCa4c007bdc8087F13141046Dc38F2f79F87cf43e",
       funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
@@ -267,11 +274,13 @@ describe("polymarketProvider.getBalance", () => {
     await expect(polymarketProvider.getBalance!(account)).resolves.toEqual({
       balance: 4.868613,
       currency: "USDT",
+      venueMemberId: "99",
+      venueAccountName: "pm-user",
     });
 
-    expect(vi.mocked(polymarketPluginGet)).toHaveBeenCalledOnce();
-    const [url] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
-    expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
+    expect(vi.mocked(polymarketPluginGet).mock.calls[0]![0]).toBe(
+      `${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`,
+    );
   });
 
   test("infers POLY_1271 signature type when funder differs from wallet", async () => {

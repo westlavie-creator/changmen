@@ -57,7 +57,12 @@ function obVenueCurrency(currencyEn?: string): string {
 
 type ObBalanceResponse = {
   status?: string;
-  data?: { balance?: number; currency_en?: string; uid?: string };
+  data?: {
+    balance?: number | string;
+    currency_en?: string;
+    uid?: string | number;
+    account?: string;
+  };
 };
 
 async function obMemberHeartbeat(account: PlatformAccount) {
@@ -211,8 +216,14 @@ export const obProvider: PlatformProvider = {
     const bal = await accountGet<ObBalanceResponse>(account, "/game/balance");
     if (bal.status !== "true") return undefined;
     try {
-      if (account.accountId) {
-        uidByAccount.set(account.accountId, bal.data?.uid as string);
+      const venueMemberId = bal.data?.uid != null && bal.data.uid !== ""
+        ? String(bal.data.uid).trim()
+        : undefined;
+      const venueAccountName = bal.data?.account != null && String(bal.data.account).trim()
+        ? String(bal.data.account).trim()
+        : undefined;
+      if (account.accountId && venueMemberId) {
+        uidByAccount.set(account.accountId, venueMemberId);
       }
       if (!oddUpdateDone.has(account.accountId ?? 0)) {
         await obEnsureOddUpdateType(account);
@@ -220,6 +231,8 @@ export const obProvider: PlatformProvider = {
       return {
         balance: Number(bal.data?.balance) || 0,
         currency: obVenueCurrency(bal.data?.currency_en),
+        venueMemberId,
+        venueAccountName,
       };
     } finally {
       await obMemberHeartbeat(account);

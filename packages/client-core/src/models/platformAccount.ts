@@ -71,6 +71,10 @@ export class PlatformAccount implements AccountRecord {
   multiply = 1;
   /** 对齐 A8 uv：连续接口异常计数（如 redis:nil） */
   errorCount = 0;
+  /** [changmen 扩展] 场馆会员 ID（如 OB uid） */
+  venueMemberId?: string;
+  /** [changmen 扩展] 场馆登录名（如 OB account） */
+  venueAccountName?: string;
 
   constructor(raw: Partial<AccountRecord>) {
     this.accountId = Number(raw.accountId) || 0;
@@ -78,8 +82,11 @@ export class PlatformAccount implements AccountRecord {
     this.platformName = raw.platformName;
     this.playerName = raw.playerName || "";
     this.provider = (raw.provider as PlatformId) || "OB";
-    const { balance: _storedBalance, active: _storedActive, ...rest } = raw;
+    const legacy = raw as Partial<AccountRecord> & { venueId?: string };
+    const { balance: _storedBalance, active: _storedActive, venueId: legacyVenueId, ...rest } = legacy;
     Object.assign(this, rest);
+    if (!this.venueMemberId && legacyVenueId != null && String(legacyVenueId).trim())
+      this.venueMemberId = String(legacyVenueId).trim();
     this.rateConfig = normalizeAccountRateConfig(raw.rateConfig);
     this.balance = undefined;
     this.active = false;

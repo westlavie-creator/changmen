@@ -6,6 +6,10 @@ import { PlatformAccount } from "@/models/platformAccount";
 export interface AccountEditFormState {
   platformName: string;
   playerName: string;
+  /** [changmen 扩展] 场馆登录名，只读展示 */
+  venueAccountName: string;
+  /** [changmen 扩展] 场馆会员 ID，只读展示 */
+  venueMemberId: string;
   provider: PlatformId;
   proxyId: number;
   gateway: string;
@@ -51,6 +55,8 @@ export function createAccountEditFormStateFromPlatformAccount(
   return {
     platformName: acc.platformName || "",
     playerName: acc.playerName ?? "",
+    venueAccountName: acc.venueAccountName || "",
+    venueMemberId: acc.venueMemberId || "",
     provider: acc.provider,
     proxyId: acc.proxyId ?? 0,
     gateway: acc.gateway || "",
@@ -98,6 +104,8 @@ export function createAccountEditFormStateFromAdmin(acc: AdminAccountDetail): Ac
   return {
     platformName: acc.platformName || "",
     playerName: acc.playerName || "",
+    venueAccountName: acc.venueAccountName || "",
+    venueMemberId: acc.venueMemberId || "",
     provider,
     proxyId: acc.proxyId ?? 0,
     gateway: acc.gateway || acc.gatewayHost || "",

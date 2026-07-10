@@ -50,6 +50,10 @@ export interface AccountRecord {
   workTimes?: string[];
   lastOdds?: boolean;
   multiply?: number;
+  /** [changmen 扩展] 场馆会员 ID（如 OB balance.uid），text 避免超大整数精度丢失 */
+  venueMemberId?: string;
+  /** [changmen 扩展] 场馆登录名（如 OB balance.account） */
+  venueAccountName?: string;
 }
 
 export interface CreateTagPlatformResult {
