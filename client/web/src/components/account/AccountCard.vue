@@ -68,7 +68,7 @@ async function confirmRemove() {
   >
     <div class="provider-icon" :class="account.provider" />
     <div class="platform" :class="{ active: account.active }">
-      {{ account.platformName || account.provider }} / {{ account.playerName }}
+      {{ account.platformName || account.provider }} / {{ account.venueAccountName || account.playerName || "—" }}
     </div>
 
     <div
