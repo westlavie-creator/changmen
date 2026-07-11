@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PlatformAccount } from "@/models/platformAccount";
 import { ElMessageBox } from "element-plus";
+import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 
 defineProps<{
   account: PlatformAccount;
@@ -66,7 +67,7 @@ async function confirmRemove() {
       },
     ]"
   >
-    <div class="provider-icon" :class="account.provider" />
+    <PlatformIcon :platform="account.provider" />
     <div class="platform" :class="{ active: account.active }">
       {{ account.platformName || account.provider }} / {{ account.venueAccountName || account.playerName || "—" }}
     </div>

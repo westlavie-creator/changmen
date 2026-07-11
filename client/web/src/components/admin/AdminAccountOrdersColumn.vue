@@ -4,6 +4,7 @@ import type { OrderRow } from "@/types/order";
 import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import OrderList from "@/components/order/OrderList.vue";
+import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 import { adminPlayerLabel, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
 
@@ -87,7 +88,7 @@ function onDeleteGroup(link: number) {
   <div class="admin-orders-account-col">
     <header class="admin-orders-account-col__head">
       <div class="admin-orders-account-col__title">
-        <div class="provider-icon" :class="provider" />
+        <PlatformIcon :platform="provider" />
         <h3 class="admin-orders-account-col__name" :title="titleText">
           {{ titleText }}
         </h3>

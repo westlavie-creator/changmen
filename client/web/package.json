@@ -6,9 +6,9 @@
   "scripts": {
     "typecheck": "vue-tsc -b",
     "typecheck:node": "vue-tsc --noEmit -p tsconfig.node.json",
-    "predev": "node scripts/bootstrap-dialogs.mjs && npm run typecheck:node",
+    "predev": "node scripts/bootstrap-dialogs.mjs && node scripts/gen-platform-icons-css.mjs && npm run typecheck:node",
     "dev": "vite",
-    "prebuild": "node scripts/bootstrap-dialogs.mjs && node scripts/clean-dist-assets.mjs",
+    "prebuild": "node scripts/bootstrap-dialogs.mjs && node scripts/gen-platform-icons-css.mjs && node scripts/clean-dist-assets.mjs",
     "build": "node scripts/run-production-build.mjs",
     "build:analyze": "node scripts/run-production-build.mjs build --base=/ --mode analyze",
     "preview": "vite preview --base /",

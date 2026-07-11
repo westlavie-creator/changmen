@@ -4,6 +4,7 @@ import type { PlatformId } from "@/types/esport";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
+import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
 import { useEvMarker } from "@/extensions/valueBet";
@@ -201,14 +202,10 @@ function onBetTitleDblClick() {
       </div>
 
       <div v-for="item in bet.items" :key="item.type + item.betId" class="item flex">
-        <div
-          class="item-type provider-icon"
-          :class="[
-            item.type,
-            {
-              limit: itemHasLimit(item),
-            },
-          ]"
+        <PlatformIcon
+          class="item-type"
+          :platform="item.type"
+          :limit="itemHasLimit(item)"
           @click="openLimit(item)"
         />
         <div

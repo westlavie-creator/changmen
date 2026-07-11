@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AccountEditFormState } from "@/components/account/accountEditFormState";
 import { ref, watch } from "vue";
+import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const POLYMARKET_OFFICIAL_REFERRAL_URL = "https://polymarket.com/?r=f43e";
@@ -477,7 +478,7 @@ function unlockRate() {
         :disabled="fieldDisabled()"
       >
         <el-radio-button v-for="p in ALL_PLATFORMS" :key="p" :value="p" :title="p">
-          <span class="provider-icon" :class="p" />
+          <PlatformIcon :platform="p" />
         </el-radio-button>
       </el-radio-group>
     </el-form-item>

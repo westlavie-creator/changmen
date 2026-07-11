@@ -21,16 +21,6 @@
   flex-direction: column;
 }
 
-/* OB 平台角标：与 limit 样式邻近声明。 */
-.provider-icon.OB {
-  background-image: url(/esport2/assets/D1aW4vdu.png);
-}
-
-.provider-icon.OB.limit {
-  outline: 2px solid #f59e0b;
-  outline-offset: -1px;
-}
-
 /* HomeView / 侧栏 / 登录：集中放置跨组件补丁。 */
 .home-view {
   height: 100%;

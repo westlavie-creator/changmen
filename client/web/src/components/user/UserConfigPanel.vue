@@ -8,6 +8,7 @@ import {
 
   waitTimePlatformPairs,
 } from "@/components/user/userConfigFormState";
+import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const props = defineProps<{
@@ -385,7 +386,7 @@ function setWaitTime(platform: string, v: string | number) {
                   >
                     <template #prepend>
                       <span class="wait-time-platform-badge" :title="p">
-                        <span class="provider-icon" :class="p" />
+                        <PlatformIcon :platform="p" />
                       </span>
                     </template>
                   </el-input>

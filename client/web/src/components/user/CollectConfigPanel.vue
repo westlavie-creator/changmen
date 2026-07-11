@@ -3,6 +3,7 @@ import type { PlatformId } from "@/types/esport";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { CREDIT_PLATE_ENTRIES, enterCreditPlate } from "@/api/v4";
+import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { syncCollectorsFromConfig } from "@/runtime/collectors";
 import { useCollectStore } from "@/stores/collectStore";
 import { ALL_PLATFORMS } from "@/types/userConfig";
@@ -75,7 +76,7 @@ async function openCredit(platform: PlatformId) {
     <div v-for="entry in CREDIT_PLATE_ENTRIES" :key="entry.id" class="credit-game">
       <el-button type="primary" @click="openCredit(entry.id)">
         <div class="flex flex-middle">
-          <div class="provider-icon" :class="entry.id" />
+          <PlatformIcon :platform="entry.id" />
           <div class="name">
             {{ entry.label }}
           </div>

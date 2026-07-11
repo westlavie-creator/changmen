@@ -2,6 +2,7 @@
   {
     "id": "OB",
     "dir": "ob",
+    "icon": "ob.png",
     "sort": 0,
     "collect": true,
     "bet": true,
@@ -19,6 +20,7 @@
   {
     "id": "IM",
     "dir": "im",
+    "icon": "im.png",
     "sort": 1,
     "collect": false,
     "bet": true,
@@ -36,6 +38,7 @@
   {
     "id": "RAY",
     "dir": "ray",
+    "icon": "ray.png",
     "sort": 2,
     "collect": true,
     "bet": true,
@@ -53,6 +56,7 @@
   {
     "id": "TF",
     "dir": "tf",
+    "icon": "tf.png",
     "sort": 3,
     "collect": false,
     "bet": true,
@@ -70,6 +74,7 @@
   {
     "id": "IA",
     "dir": "ia",
+    "icon": "ia.png",
     "sort": 4,
     "collect": true,
     "bet": true,
@@ -86,6 +91,7 @@
   {
     "id": "SABA",
     "dir": "saba",
+    "icon": "saba.png",
     "sort": 5,
     "collect": false,
     "bet": true,
@@ -102,6 +108,7 @@
   {
     "id": "XBet",
     "dir": "xbet",
+    "icon": "xbet.png",
     "sort": 6,
     "collect": false,
     "bet": false,
@@ -119,6 +126,7 @@
   {
     "id": "PB",
     "dir": "pb",
+    "icon": "pb.webp",
     "sort": 7,
     "collect": true,
     "bet": true,
@@ -132,6 +140,7 @@
   {
     "id": "IMT",
     "dir": "imt",
+    "icon": "imt.png",
     "sort": 8,
     "collect": false,
     "bet": true,
@@ -145,6 +154,7 @@
   {
     "id": "HG",
     "dir": "hg",
+    "icon": "hg.png",
     "sort": 9,
     "collect": false,
     "bet": true,
@@ -158,6 +168,7 @@
   {
     "id": "Stake",
     "dir": "stake",
+    "icon": "stake.png",
     "sort": 10,
     "collect": true,
     "bet": true,
@@ -176,6 +187,7 @@
   {
     "id": "Dex",
     "dir": "dex",
+    "icon": "dex.webp",
     "sort": 11,
     "collect": false,
     "bet": false,
@@ -190,6 +202,7 @@
   {
     "id": "Polymarket",
     "dir": "polymarket",
+    "icon": "polymarket.ico",
     "sort": 12,
     "collect": true,
     "bet": true,
@@ -208,6 +221,7 @@
   {
     "id": "Limitless",
     "dir": "limitless",
+    "icon": "limitless.svg",
     "sort": 13,
     "collect": false,
     "bet": false,
@@ -226,6 +240,7 @@
   {
     "id": "SXBet",
     "dir": "sxbet",
+    "icon": "sxbet.webp",
     "sort": 14,
     "collect": false,
     "bet": false,
@@ -257,6 +272,7 @@
   {
     "id": "PredictFun",
     "dir": "predictfun",
+    "icon": "predict.ico",
     "sort": 16,
     "collect": true,
     "bet": false,

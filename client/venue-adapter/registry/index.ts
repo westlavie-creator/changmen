@@ -15,7 +15,16 @@ export interface PlatformMeta {
   a8Channel?: boolean;
   collectionMode: string;
   saveMatchIntervalMs?: number;
+  /** 角标文件名，位于 client/web/public/assets/venue/ */
+  icon?: string;
 }
+
+export {
+  getPlatformIconFile,
+  getPlatformIconUrl,
+  platformIdsWithIcons,
+  VENUE_ICON_PUBLIC_DIR,
+} from "./icons";
 
 const entries = manifest as PlatformMeta[];
 

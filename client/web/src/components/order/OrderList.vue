@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ElMessageBox } from "element-plus";
 import type { OrderRow } from "@/types/order";
+import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { formatDisplayOdds, formatOrderTime, toFixed } from "@/shared/format";
 import {
   isPmOrderListRow,
@@ -103,7 +104,7 @@ withDefaults(
           </div>
           <label v-else class="status" :class="row.Status" />
           <div class="platform flex" :class="platformClass(row)">
-            <div class="provider-icon" :class="row.Type" />
+            <PlatformIcon :platform="row.Type ?? ''" />
             <div class="player">
               {{ playerLabel(row) }}
             </div>

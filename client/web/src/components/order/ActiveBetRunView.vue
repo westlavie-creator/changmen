@@ -2,6 +2,7 @@
 import type { ActiveBetLeg, ActiveBetRun } from "@/types/activeBetRun";
 import { storeToRefs } from "pinia";
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { formatActiveBetLinkLabel } from "@/shared/linkDisplay";
 import { ACTIVE_BET_RUN_QUEUE_CAP, useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
@@ -150,7 +151,7 @@ function orderLabel(run: ActiveBetRun, index: number): string {
             <div class="active-bet-run__leg-meta">
               <span class="active-bet-run__leg-side">{{ legSideLabel(leg.side) }}</span>
               <span class="active-bet-run__leg-platform" :title="leg.platform" :aria-label="leg.platform">
-                <span class="provider-icon" :class="leg.platform" />
+                <PlatformIcon :platform="leg.platform" />
               </span>
               <span class="active-bet-run__leg-target">{{ leg.target }}</span>
               <span v-if="leg.odds" class="active-bet-run__leg-odds">@{{ leg.odds }}</span>
