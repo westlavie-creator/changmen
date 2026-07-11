@@ -10,7 +10,7 @@ describe("venueWsStatus", () => {
   it("lists registered connections with default disconnected", () => {
     resetVenueWsStatusesForTests();
     const rows = listVenueWsStatuses();
-    expect(rows.map(r => r.label)).toEqual(["PM-M", "PM-U", "DEX", "HUB"]);
+    expect(rows.map(r => r.label)).toEqual(["PM-M", "PM-U", "LM", "PF", "DEX", "HUB"]);
     expect(rows.every(r => r.status === "disconnected")).toBe(true);
   });
 

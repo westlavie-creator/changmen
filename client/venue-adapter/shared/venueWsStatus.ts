@@ -11,6 +11,7 @@ const REGISTRY: ReadonlyArray<{ id: string; label: string }> = [
   { id: "pm-market", label: "PM-M" },
   { id: "pm-user", label: "PM-U" },
   { id: "lm-market", label: "LM" },
+  { id: "predictfun-market", label: "PF" },
   { id: "dex", label: "DEX" },
   { id: "cm-hub", label: "HUB" },
 ];

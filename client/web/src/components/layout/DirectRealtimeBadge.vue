@@ -73,6 +73,8 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
   const names: Record<string, string> = {
     "pm-market": "Polymarket Market WS（赔率采集）",
     "pm-user": "Polymarket User WS（订单/拒单检测；登录后预连）",
+    "lm-market": "Limitless Market WS（orderbook 推送）",
+    "predictfun-market": "Predict.fun Market WS（orderbook 推送）",
     "dex": "DexSport WS",
     "cm-hub": "Changmen 实时 Hub（Socket.IO / pm_sport）",
   };
@@ -150,7 +152,7 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 <template>
   <div
     class="direct-realtime-bar"
-    aria-label="直连推送状态 IA OB RAY TF PM-M PM-U DEX HUB"
+    aria-label="直连推送状态 IA OB RAY TF PM-M PM-U LM PF DEX HUB"
   >
     <span
       v-for="status in statuses"
