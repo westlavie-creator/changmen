@@ -10,7 +10,8 @@ import {
 } from "@venue/shared/venueWsStatus";
 import {
   getObMqttSourceMode,
-  toggleObMqttSourceModeAndReconnect,
+  cycleObMqttSourceModeAndReconnect,
+  obMqttSourceModeLabel,
   type ObMqttSourceMode,
 } from "@venue/ob";
 import {
@@ -124,8 +125,8 @@ function tooltip(status: DirectRealtimeStatus): string {
   if (status.forwardedTopics)
     lines.push(`MQTT 订阅 ${status.forwardedTopics} 个 topic`);
   if (status.platform === "OB") {
-    lines.push(`当前选择：${obSourceMode.value === "a8" ? "A8 源" : "官方源"}`);
-    lines.push("点击切换 A8 / 官方源");
+    lines.push(`当前选择：${obMqttSourceModeLabel(obSourceMode.value)}`);
+    lines.push("点击切换 官方 / CHANGMEN / A8");
   }
   if (status.platform === "RAY") {
     lines.push(`当前选择：${rayWsSourceModeLabel(raySourceMode.value)}`);
@@ -146,9 +147,9 @@ function itemClass(status: DirectRealtimeStatus): Record<string, boolean> {
 
 function handleStatusClick(status: DirectRealtimeStatus): void {
   if (status.platform === "OB") {
-    obSourceMode.value = toggleObMqttSourceModeAndReconnect();
+    obSourceMode.value = cycleObMqttSourceModeAndReconnect();
     ElMessage({
-      message: `OB MQTT 已切换到${obSourceMode.value === "a8" ? "A8 源" : "官方源"}，正在重连`,
+      message: `OB MQTT 已切换到${obMqttSourceModeLabel(obSourceMode.value)}，正在重连`,
       type: "success",
       plain: true,
     });

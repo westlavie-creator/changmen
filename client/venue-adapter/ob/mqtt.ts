@@ -8,10 +8,9 @@ import { parseObOddField } from "./parse";
 import type { CollectPlatformInfo } from "@changmen/api-contract";
 import {
   createObRealtimeClient,
+  cycleObMqttSourceMode,
   getObMqttSourceMode,
-  toggleObMqttSourceMode,
   type ObMqttSourceMode,
-  type ObRealtimeClient,
 } from "./realtime";
 
 const PLATFORM = PLATFORMS.OB;
@@ -158,11 +157,11 @@ export function connectObMqtt(refresh: () => void): void {
   });
 }
 
-export { getObMqttSourceMode };
+export { getObMqttSourceMode, obMqttSourceModeLabel };
 export type { ObMqttSourceMode };
 
-export function toggleObMqttSourceModeAndReconnect(): ObMqttSourceMode {
-  const next = toggleObMqttSourceMode();
+export function cycleObMqttSourceModeAndReconnect(): ObMqttSourceMode {
+  const next = cycleObMqttSourceMode();
   if (!realtime || !onRefresh) return next;
 
   const oldRealtime = realtime;

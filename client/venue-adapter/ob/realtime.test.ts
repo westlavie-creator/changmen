@@ -71,7 +71,7 @@ beforeEach(() => {
   getObChangmenMqttConfig.mockReset();
   getObA8MqttConfig.mockReturnValue(a8Config);
   getObChangmenMqttConfig.mockReturnValue(changmenConfig);
-  setObMqttSourceMode("official");
+  setObMqttSourceMode("demo");
 });
 
 afterEach(() => {
@@ -136,15 +136,15 @@ describe("createObRealtimeClient", () => {
     await client.stop();
   });
 
-  test("stays on selected official source when CHANGMEN forward errors", async () => {
+  test("falls back to A8 when CHANGMEN forward errors in demo mode", async () => {
     fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
     const demoClient = fakeMqttClient();
     const changmenClient = fakeMqttClient();
-    const refreshedDemoClient = fakeMqttClient();
+    const a8Client = fakeMqttClient();
     connectMock
       .mockReturnValueOnce(demoClient)
       .mockReturnValueOnce(changmenClient)
-      .mockReturnValueOnce(refreshedDemoClient);
+      .mockReturnValueOnce(a8Client);
 
     const client = createObRealtimeClient();
     await client.start(() => {});
@@ -156,9 +156,9 @@ describe("createObRealtimeClient", () => {
     await vi.waitFor(() => expect(connectMock).toHaveBeenCalledTimes(3));
     expect(connectMock).toHaveBeenNthCalledWith(
       3,
-      demoConfig.url,
+      OB_A8_MQTT_URL,
       expect.objectContaining({
-        clientId: "mqttjs_dj53795844534217162",
+        clientId: OB_MQTT_CLIENT_ID,
       }),
     );
 
@@ -184,6 +184,42 @@ describe("createObRealtimeClient", () => {
       }),
     );
     expect(fetchObDemoMqttConfig).not.toHaveBeenCalled();
+
+    await client.stop();
+  });
+
+  test("connects selected CHANGMEN source directly", async () => {
+    setObMqttSourceMode("changmen");
+    fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
+    const changmenClient = fakeMqttClient();
+    connectMock.mockReturnValueOnce(changmenClient);
+
+    const client = createObRealtimeClient();
+    await client.start(() => {});
+
+    expect(connectMock).toHaveBeenCalledOnce();
+    expect(getObChangmenMqttConfig).toHaveBeenCalledWith(demoConfig.url, demoConfig);
+    expect(connectMock).toHaveBeenCalledWith(
+      changmenConfig.url,
+      expect.objectContaining({
+        clientId: "mqttjs_dj53795844534217162",
+      }),
+    );
+
+    await client.stop();
+  });
+
+  test("stays on selected CHANGMEN source when connection fails", async () => {
+    setObMqttSourceMode("changmen");
+    fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
+    const changmenClient = fakeMqttClient();
+    connectMock.mockReturnValueOnce(changmenClient);
+
+    const client = createObRealtimeClient();
+    await client.start(() => {});
+    changmenClient.emit("error", new Error("refused"));
+
+    await vi.waitFor(() => expect(connectMock).toHaveBeenCalledTimes(1));
 
     await client.stop();
   });

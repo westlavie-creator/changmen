@@ -183,7 +183,7 @@
 .active-bet-run__leg-meta {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: nowrap;
   gap: 5px;
   min-width: 0;
@@ -201,8 +201,14 @@
 
 .active-bet-run__leg-platform {
   flex: 0 0 auto;
-  font-weight: 700;
-  color: #e8f4ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-bet-run__leg-platform .provider-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .active-bet-run__leg-target {
