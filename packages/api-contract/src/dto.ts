@@ -18,7 +18,8 @@ export type PlatformId
     | "Polymarket"
     | "Limitless"
     | "SXBet"
-    | "Azuro";
+    | "Azuro"
+    | "PredictFun";
 
 export interface LoginInfo {
   token: string;

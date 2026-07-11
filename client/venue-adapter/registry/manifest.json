@@ -253,5 +253,22 @@
       "key": "ws",
       "protocol": "WS"
     }
+  },
+  {
+    "id": "PredictFun",
+    "dir": "predictfun",
+    "sort": 16,
+    "collect": false,
+    "bet": false,
+    "label": "Predict.fun",
+    "labelZh": "Predict.fun",
+    "collectionMode": "http_ws",
+    "collectionDesc": "官方 REST（/v1/categories SPORTS_TEAM_MATCH）+ WS predictOrderbook，电竞 moneyline 只读",
+    "implementation": "paused",
+    "saveMatchIntervalMs": 60000,
+    "streamMeta": {
+      "key": "ws",
+      "protocol": "WS"
+    }
   }
 ]

@@ -1,5 +1,6 @@
 import type { ApiKeyRaw, L1PolyHeader } from "@polymarket/clob-client-v2";
 import { POLYMARKET_CLOB_API } from "./api";
+import { normalizePolymarketPrivateKey } from "./depositWallet";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 type Hex = `0x${string}`;
@@ -28,11 +29,7 @@ function normalizeGateway(gateway: string | undefined): string {
 }
 
 function normalizePrivateKey(raw: string): Hex {
-  const key = raw.trim();
-  const hex = key.startsWith("0x") ? key : `0x${key}`;
-  if (!/^0x[0-9a-fA-F]{64}$/.test(hex))
-    throw new Error("Polymarket 私钥格式不正确，应为 64 位 hex");
-  return hex as Hex;
+  return normalizePolymarketPrivateKey(raw);
 }
 
 function normalizeAddress(raw: string | undefined): string {

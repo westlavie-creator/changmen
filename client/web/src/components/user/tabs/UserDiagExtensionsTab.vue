@@ -85,6 +85,21 @@ async function save() {
       </p>
     </div>
 
+    <div class="extensions-tab__row">
+      <el-form-item label="PM HK出口:" class="extensions-tab__control">
+        <el-switch
+          v-model="extensionPrefs.pmHkEgress"
+          inline-prompt
+          active-text="开启"
+          inactive-text="关闭"
+          size="large"
+        />
+      </el-form-item>
+      <p class="extensions-tab__desc">
+        Polymarket HTTP 与 WS 经 changmen 服务端（HK VPS）代连，本机无需翻墙。默认关闭；关闭时仍走 Chrome 扩展代发 HTTP。
+      </p>
+    </div>
+
     <el-divider content-position="left">
       高利润加仓
     </el-divider>

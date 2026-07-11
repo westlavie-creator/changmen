@@ -6,6 +6,7 @@ import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog"
 import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platform_id";
 import { normalizeTeam, resolveCanonicalTeamName } from "../../match-engine/index.js";
 import { getPgPool } from "./common.js";
+import { readVenueTeamId, resolveVenueTeamIdColumn } from "./team_venue_maps_cols.js";
 
 async function rdsLoadAll(sql, mapRow) {
   const pool = getPgPool();
@@ -38,12 +39,14 @@ export async function fetchAllCanonicalTeams() {
 }
 
 export async function fetchAllTeamPlatformMaps() {
+  const pool = getPgPool();
+  const pidCol = await resolveVenueTeamIdColumn(pool);
   return rdsLoadAll(
-    "SELECT gb_team_id, venue, venue_team_id, venue_name FROM team_venue_maps ORDER BY id",
+    `SELECT gb_team_id, venue, ${pidCol} AS venue_team_id, venue_name FROM team_venue_maps ORDER BY id`,
     r => ({
       gb_team_id: r.gb_team_id,
       venue: r.venue,
-      venue_team_id: r.venue_team_id,
+      venue_team_id: readVenueTeamId(r),
       venue_name: r.venue_name,
     }),
   );
@@ -63,15 +66,16 @@ export async function fetchExistingTeamMapKeys(candidates) {
   const pool = getPgPool();
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
+  const pidCol = await resolveVenueTeamIdColumn(pool);
   const BATCH = 200;
   for (const [venue, ids] of byVenue) {
     for (let i = 0; i < ids.length; i += BATCH) {
       const batch = ids.slice(i, i + BATCH);
       const { rows } = await pool.query(
-        "SELECT venue_team_id FROM team_venue_maps WHERE venue = $1 AND venue_team_id = ANY($2::text[])",
+        `SELECT ${pidCol} AS venue_team_id FROM team_venue_maps WHERE venue = $1 AND ${pidCol} = ANY($2::text[])`,
         [venue, batch],
       );
-      for (const row of rows) existing.add(`${venue}:${row.venue_team_id}`);
+      for (const row of rows) existing.add(`${venue}:${readVenueTeamId(row)}`);
     }
   }
   return existing;
@@ -224,7 +228,7 @@ function mergeTeamMapRow(teamMaps, row) {
     game: row.game,
     pending: row.gb_team_id == null,
   };
-  const pid = normalizePlatformIdStr(row.venue_team_id ?? row.venue_id);
+  const pid = normalizePlatformIdStr(readVenueTeamId(row));
   if (!pid)
     return;
   const idKey = `${row.venue}:${pid}`;
@@ -240,6 +244,7 @@ export async function loadTeamMapsForMatcher(allMatches) {
   const pool = getPgPool();
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
+  const pidCol = await resolveVenueTeamIdColumn(pool);
   const BATCH = 200;
 
   for (const [platform, idSet] of neededByPlatform) {
@@ -247,11 +252,11 @@ export async function loadTeamMapsForMatcher(allMatches) {
     for (let i = 0; i < ids.length; i += BATCH) {
       const batch = ids.slice(i, i + BATCH);
       const { rows } = await pool.query(
-        `SELECT tvm.venue, tvm.venue_team_id, tvm.venue_name, tvm.gb_team_id, tvm.game,
+        `SELECT tvm.venue, tvm.${pidCol} AS venue_team_id, tvm.venue_name, tvm.gb_team_id, tvm.game,
                 ct.updated_by AS canonical_updated_by, ct.name AS canonical_name
          FROM team_venue_maps tvm
          LEFT JOIN canonical_teams ct ON ct.gb_team_id = tvm.gb_team_id
-         WHERE tvm.venue = $1 AND tvm.venue_team_id = ANY($2::text[])`,
+         WHERE tvm.venue = $1 AND tvm.${pidCol} = ANY($2::text[])`,
         [platform, batch],
       );
       for (const row of rows) mergeTeamMapRow(teamMaps, row);
@@ -269,8 +274,9 @@ export async function fetchTeamPlatformMap(platform, venueTeamId) {
   const pool = getPgPool();
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
+  const pidCol = await resolveVenueTeamIdColumn(pool);
   const { rows } = await pool.query(
-    "SELECT gb_team_id, venue_name, game FROM team_venue_maps WHERE venue = $1 AND venue_team_id = $2 LIMIT 1",
+    `SELECT gb_team_id, venue_name, game FROM team_venue_maps WHERE venue = $1 AND ${pidCol} = $2 LIMIT 1`,
     [plat, pid],
   );
   return rows[0] || null;
@@ -307,12 +313,12 @@ function formatTeamPlatformMapWriteError(row) {
 }
 
 /** 手动关联：同 gb_team_id + 平台 + 队名下只保留当前 venue_team_id（旧 id 视为过时） */
-async function clearCanonicalPlatformNameConflict(pool, row) {
+async function clearCanonicalPlatformNameConflict(pool, row, pidCol) {
   if (row.gb_team_id == null)
     return;
   await pool.query(
     `DELETE FROM team_venue_maps
-     WHERE gb_team_id = $1 AND venue = $2 AND venue_name = $3 AND venue_team_id <> $4`,
+     WHERE gb_team_id = $1 AND venue = $2 AND venue_name = $3 AND ${pidCol} <> $4`,
     [row.gb_team_id, row.venue, row.venue_name, String(row.venue_team_id)],
   );
 }
@@ -321,17 +327,18 @@ async function rdsUpsertTeamPlatformMaps(chunk, { ignoreDuplicates = false } = {
   const pool = getPgPool();
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
+  const pidCol = await resolveVenueTeamIdColumn(pool);
   for (const row of chunk) {
     if (row.gb_team_id != null && !ignoreDuplicates) {
-      await clearCanonicalPlatformNameConflict(pool, row);
+      await clearCanonicalPlatformNameConflict(pool, row, pidCol);
     }
     const sql = ignoreDuplicates
-      ? `INSERT INTO team_venue_maps (gb_team_id, venue, venue_team_id, venue_name, game, source, confidence)
+      ? `INSERT INTO team_venue_maps (gb_team_id, venue, ${pidCol}, venue_name, game, source, confidence)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (venue, venue_team_id) DO NOTHING`
-      : `INSERT INTO team_venue_maps (gb_team_id, venue, venue_team_id, venue_name, game, source, confidence)
+         ON CONFLICT (venue, ${pidCol}) DO NOTHING`
+      : `INSERT INTO team_venue_maps (gb_team_id, venue, ${pidCol}, venue_name, game, source, confidence)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (venue, venue_team_id) DO UPDATE SET
+         ON CONFLICT (venue, ${pidCol}) DO UPDATE SET
            gb_team_id = COALESCE(EXCLUDED.gb_team_id, team_venue_maps.gb_team_id),
            venue_name = EXCLUDED.venue_name,
            game = EXCLUDED.game,
@@ -506,8 +513,9 @@ export async function reassignGbTeamId(fromId, toId) {
   const pool = getPgPool();
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
+  const pidCol = await resolveVenueTeamIdColumn(pool);
   const { rows: loserRows } = await pool.query(
-    `SELECT id, venue, venue_team_id, venue_name FROM team_venue_maps WHERE gb_team_id = $1`,
+    `SELECT id, venue, ${pidCol} AS venue_team_id, venue_name FROM team_venue_maps WHERE gb_team_id = $1`,
     [from],
   );
   if (!loserRows.length)

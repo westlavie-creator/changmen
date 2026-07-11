@@ -376,6 +376,12 @@ if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
     log "post-deploy check (orders upsert + admin telegram)"
     (cd server/backend && node scripts/post-deploy-check.mjs)
     log "post-deploy check passed"
+    log "PM HK egress probe"
+    if (cd server/backend && node scripts/probe-pm-hk-relay.mjs); then
+      log "PM HK relay probe passed"
+    else
+      echo "WARN: PM HK relay probe failed — run sync-pm-hk-relay-env-remote.sh or check VPS outbound to polymarket.com"
+    fi
     log "wait embedded matcher heartbeat"
     for i in $(seq 1 45); do
       if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'embedded' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then

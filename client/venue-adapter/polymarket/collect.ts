@@ -1,6 +1,5 @@
 import { saveVenueOdds, getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
-import { hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { PLATFORMS } from "@venue/shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
@@ -23,7 +22,7 @@ import {
   type PolymarketMappedMarket,
 } from "./parse";
 import { isValidClobPrice } from "./pmDetection";
-import { POLYMARKET_PLUGIN_REQUIRED_MSG } from "./transport";
+import { isPolymarketHttpTransportReady, POLYMARKET_PLUGIN_REQUIRED_MSG } from "./transport";
 
 const PLATFORM = PLATFORMS.Polymarket;
 const DISCOVERY_MS = 60_000;
@@ -257,7 +256,7 @@ export function startPolymarketCollector(): () => void {
   const loop = async () => {
     while (!stopped) {
       try {
-        if (!hasA8PluginRuntime()) {
+        if (!isPolymarketHttpTransportReady()) {
           if (!pluginMissingNotified) {
             notifyCollectError("Polymarket", POLYMARKET_PLUGIN_REQUIRED_MSG);
             pluginMissingNotified = true;

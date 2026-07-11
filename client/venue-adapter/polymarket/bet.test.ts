@@ -17,6 +17,11 @@ vi.mock("./pmAutoExitSell", () => ({
   clearPolymarketAutoExitSellScheduleForTests: vi.fn(),
 }));
 
+const hkEnabled = vi.hoisted(() => vi.fn(() => false));
+vi.mock("./pmHkEgress", () => ({
+  isPolymarketHkEgressEnabled: () => hkEnabled(),
+}));
+
 function accountWithToken(token: string, extra: Partial<PlatformAccount> = {}): PlatformAccount {
   return {
     provider: "Polymarket",
@@ -63,6 +68,26 @@ describe("polymarketProvider.getBalance", () => {
     vi.restoreAllMocks();
     vi.mocked(polymarketPluginGet).mockReset();
     vi.mocked(polymarketPluginPost).mockReset();
+    hkEnabled.mockReturnValue(false);
+  });
+
+  test("HK 出口走 relay 服务端 L2 签名（不传 POLY 头）", async () => {
+    hkEnabled.mockReturnValue(true);
+    vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "54877978" });
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xabc",
+      apiCreds: { apiKey: "key-1", secret: "c2VjcmV0", passphrase: "pass-1" },
+    }), { accountId: 47 as unknown as PlatformAccount["accountId"] });
+
+    await expect(polymarketProvider.getBalance!(account)).resolves.toEqual({
+      balance: 54.877978,
+      currency: "USDT",
+    });
+
+    expect(polymarketPluginGet).toHaveBeenCalledWith(
+      expect.stringContaining("/balance-allowance?asset_type=COLLATERAL"),
+      { account, l2Path: "/balance-allowance" },
+    );
   });
 
   test("uses L2 headers to fetch collateral balance", async () => {
@@ -317,6 +342,48 @@ describe("polymarketProvider.betting", () => {
     vi.restoreAllMocks();
     vi.mocked(polymarketPluginGet).mockReset();
     vi.mocked(polymarketPluginPost).mockReset();
+    hkEnabled.mockReturnValue(false);
+  });
+
+  test("HK 出口下单走 relay 服务端 L2 签名（不传 POLY 头）", async () => {
+    hkEnabled.mockReturnValue(true);
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    mockPluginGetWithBook({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+      success: true,
+      orderID: "order-hk-1",
+      status: "matched",
+      takingAmount: "2000000",
+      makingAmount: "1000000",
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }), { accountId: 47 as unknown as PlatformAccount["accountId"] });
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    } as any);
+
+    expect(result.success).toBe(true);
+    expect(polymarketPluginPost).toHaveBeenCalledWith(
+      `${POLYMARKET_CLOB_API}/order`,
+      expect.objectContaining({ orderType: "FOK" }),
+      { account, l2Path: "/order" },
+    );
   });
 
   test("uses official CLOB v2 order shape and posts through plugin", async () => {

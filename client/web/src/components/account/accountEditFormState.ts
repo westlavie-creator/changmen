@@ -45,7 +45,7 @@ export interface AccountEditFormState {
 
 function defaultGameMap() {
   return JSON.parse(
-    JSON.stringify(new PlatformAccount({ accountId: 0, playerName: "", provider: "RAY" }).game),
+    JSON.stringify(new PlatformAccount({ accountId: 0, playerName: "", provider: "Polymarket" }).game),
   ) as AccountEditFormState["game"];
 }
 

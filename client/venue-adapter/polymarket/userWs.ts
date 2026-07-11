@@ -1,7 +1,8 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
 import type { PolymarketOrderRow } from "./orderTypes";
-import { POLYMARKET_USER_WS, polymarketUserSubscribeMessage, polymarketUserSubscribeMoreMessage } from "./api";
+import { polymarketUserSubscribeMessage, polymarketUserSubscribeMoreMessage } from "./api";
+import { resolvePolymarketUserWsUrl } from "./wsConfig";
 import { parseTokenConfig, resolveApiCreds } from "./l2Auth";
 import {
   interpretPolymarketUserWsMessage,
@@ -175,7 +176,7 @@ function ensureUserWsConnected(session: UserWsSession) {
     return;
 
   refreshPolymarketUserWsStatus();
-  const ws = new WebSocket(POLYMARKET_USER_WS);
+  const ws = new WebSocket(resolvePolymarketUserWsUrl());
   session.ws = ws;
 
   ws.onopen = () => {

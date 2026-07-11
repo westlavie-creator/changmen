@@ -13,6 +13,7 @@ const defaultPrefs = {
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
   pmAutoExitSell: true,
+  pmHkEgress: false,
 };
 
 describe("extensionPrefs", () => {
@@ -48,6 +49,11 @@ describe("extensionPrefs", () => {
   it("defaults pmAutoExitSell to true and can disable", () => {
     expect(normalizeExtensionPrefs({}).pmAutoExitSell).toBe(true);
     expect(normalizeExtensionPrefs({ pmAutoExitSell: false }).pmAutoExitSell).toBe(false);
+  });
+
+  it("defaults pmHkEgress to false and can enable", () => {
+    expect(normalizeExtensionPrefs({}).pmHkEgress).toBe(false);
+    expect(normalizeExtensionPrefs({ pmHkEgress: true }).pmHkEgress).toBe(true);
   });
 
   it("normalizes stakeScaleByProfit", () => {

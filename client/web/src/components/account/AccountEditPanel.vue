@@ -3,6 +3,8 @@ import type { AccountEditFormState } from "@/components/account/accountEditFormS
 import { ref, watch } from "vue";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
+const POLYMARKET_OFFICIAL_REFERRAL_URL = "https://polymarket.com/?r=f43e";
+
 interface PlatformSuggestion { value: string; link: string }
 
 const props = withDefaults(
@@ -79,6 +81,8 @@ function unlockRate() {
 
 <template>
   <el-form label-width="100" class="account-edit-panel" :class="{ 'account-edit-panel--readonly': readonly }">
+    <div class="account-edit-panel__columns">
+      <div class="account-edit-panel__col account-edit-panel__col--left">
     <el-form-item label="平台：">
       <el-row :gutter="10" align="middle">
         <el-col :span="5">
@@ -462,16 +466,32 @@ function unlockRate() {
     <el-form-item label="账号备注：">
       <el-input v-model="form.description" :disabled="fieldDisabled()" />
     </el-form-item>
+      </div>
 
+      <div class="account-edit-panel__col account-edit-panel__col--right">
     <el-form-item label="场馆：">
-      <el-radio-group v-model="form.provider" size="large" :disabled="fieldDisabled()">
-        <el-radio v-for="p in ALL_PLATFORMS" :key="p" :value="p">
-          {{ p }}
-        </el-radio>
+      <el-radio-group
+        v-model="form.provider"
+        size="large"
+        class="account-edit-panel__providers"
+        :disabled="fieldDisabled()"
+      >
+        <el-radio-button v-for="p in ALL_PLATFORMS" :key="p" :value="p" :title="p">
+          <span class="provider-icon" :class="p" />
+        </el-radio-button>
       </el-radio-group>
     </el-form-item>
-
     <template v-if="!hideSensitive">
+      <el-form-item v-if="form.provider === 'Polymarket'" label="官网链接：">
+        <a
+          class="poly-official-referral-link"
+          :href="POLYMARKET_OFFICIAL_REFERRAL_URL"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          https://polymarket.com
+        </a>
+      </el-form-item>
       <el-form-item label="网关：">
         <el-input v-model="form.gateway" :disabled="fieldDisabled()" />
       </el-form-item>
@@ -479,21 +499,34 @@ function unlockRate() {
       <el-form-item v-if="form.provider !== 'Polymarket'" label="Token：">
         <el-input v-model="form.token" :disabled="fieldDisabled()" />
       </el-form-item>
-      <el-form-item label="Referer：">
+      <el-form-item v-if="form.provider !== 'Polymarket'" label="Referer：">
         <el-input v-model="form.referer" :disabled="fieldDisabled()" />
       </el-form-item>
-      <el-form-item label="UserAgent:">
+      <el-form-item v-if="form.provider !== 'Polymarket'" label="UserAgent:">
         <el-input
           v-model="form.userAgent"
           placeholder="请求访问的浏览器标识，不知道可留空"
           :disabled="fieldDisabled()"
         />
       </el-form-item>
-      <el-form-item label="Cookie：">
+      <el-form-item v-if="form.provider !== 'Polymarket'" label="Cookie：">
         <el-input v-model="form.cookie" :disabled="fieldDisabled()" />
       </el-form-item>
     </template>
-    <el-form-item v-else-if="form.gateway" label="网关：">
+    <el-form-item
+      v-if="hideSensitive && form.provider === 'Polymarket'"
+      label="官网链接："
+    >
+      <a
+        class="poly-official-referral-link"
+        :href="POLYMARKET_OFFICIAL_REFERRAL_URL"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        https://polymarket.com
+      </a>
+    </el-form-item>
+    <el-form-item v-if="hideSensitive && form.gateway" label="网关：">
       <el-input v-model="form.gateway" :disabled="fieldDisabled()" />
     </el-form-item>
 
@@ -506,10 +539,55 @@ function unlockRate() {
     </el-form-item>
 
     <slot name="footer" />
+      </div>
+    </div>
   </el-form>
 </template>
 
 <style scoped>
+.account-edit-panel__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 32px;
+}
+
+.account-edit-panel__col {
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.account-edit-panel__col--right {
+  padding-left: 28px;
+  border-left: 1px solid var(--el-border-color-lighter);
+}
+
+.account-edit-panel__providers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.account-edit-panel__providers :deep(.el-radio-button) {
+  margin: 0;
+}
+
+.account-edit-panel__providers :deep(.el-radio-button__inner) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.account-edit-panel__providers :deep(.provider-icon) {
+  width: 28px;
+  height: 28px;
+}
+
 .account-edit-panel__fieldset {
   margin: 0 0 12px;
   border: 1px solid var(--el-border-color);
@@ -574,5 +652,10 @@ function unlockRate() {
 .account-edit-panel--readonly :deep(.el-input.is-disabled .el-input__inner),
 .account-edit-panel--readonly :deep(.el-input.is-disabled .el-input__wrapper) {
   cursor: default;
+}
+
+.poly-official-referral-link {
+  color: var(--el-color-primary);
+  word-break: break-all;
 }
 </style>

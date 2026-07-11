@@ -29,6 +29,11 @@ export interface ExtensionPrefs extends Record<string, unknown> {
    * 默认开启（`!== false`）。
    */
   pmAutoExitSell: boolean;
+  /**
+   * Polymarket HK 出口：HTTP/WS 经 changmen VPS（http-relay + ws-forward）代连 PM。
+   * 默认关闭；开启后本机无需翻墙，也不依赖 Chrome 扩展代发 PM HTTP。
+   */
+  pmHkEgress: boolean;
 }
 
 export function createDefaultStakeScaleByProfit(): StakeScaleByProfitPrefs {
@@ -46,6 +51,7 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
     pmAutoExitSell: true,
+    pmHkEgress: false,
   };
 }
 
@@ -73,5 +79,6 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
     pmAutoExitSell: row.pmAutoExitSell !== false,
+    pmHkEgress: row.pmHkEgress === true,
   };
 }

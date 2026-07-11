@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import net from "node:net";
 import { URL } from "node:url";
 import zlib from "node:zlib";
+import { resolvePmRelayL2Headers } from "./pm_relay_l2.js";
 
 const require = createRequire(import.meta.url);
 
@@ -101,6 +102,34 @@ function createDispatcher(proxyUrl) {
 }
 
 function nodeFetch(url, options = {}) {
+  if (isPolymarketUpstream(url) && typeof globalThis.fetch === "function") {
+    return nodeFetchViaFetch(url, options);
+  }
+  return nodeFetchViaHttp(url, options);
+}
+
+function nodeFetchViaFetch(url, options = {}) {
+  return (async () => {
+    const rawHeaders = options.headers || {};
+    const headerObj = Array.isArray(rawHeaders)
+      ? Object.fromEntries(rawHeaders.map(([k, v]) => [k, String(v)]))
+      : rawHeaders;
+    const res = await fetch(url, {
+      method: options.method || "GET",
+      headers: headerObj,
+      body: options.body ?? undefined,
+      signal: AbortSignal.timeout(60_000),
+    });
+    const body = Buffer.from(await res.arrayBuffer());
+    const headers = {};
+    res.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+    return { status: res.status, headers, body };
+  })();
+}
+
+function nodeFetchViaHttp(url, options = {}) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const lib = parsed.protocol === "https:" ? https : http;
@@ -108,7 +137,7 @@ function nodeFetch(url, options = {}) {
       parsed,
       {
         method: options.method || "GET",
-        headers: options.headers || {},
+        headers: upstreamHeadersForNodeHttp(url, options.headers || {}),
         agent: options.dispatcher || undefined,
       },
       (res) => {
@@ -159,18 +188,124 @@ function validateTargetUrl(targetUrl, opts = {}) {
   return { ok: true };
 }
 
+const RELAY_STRIP_HEADERS = new Set([
+  "host",
+  "connection",
+  "content-length",
+  "x-proxy",
+  "x-proxy-url",
+  "x-proxy-referer",
+  "x-proxy-useragent",
+  "x-proxy-origin",
+  "x-pm-account-id",
+  "x-pm-l2-path",
+  // 浏览器 fetch 会带 gzip；relay 只回写 Content-Type 时会导致压缩体无法解压
+  "accept-encoding",
+  // changmen JWT（仅用于 relay 鉴权，不可转发到上游）
+  "token",
+  "cookie",
+  // 浏览器同源请求会带 changmen 的 referer/origin，与扩展直连 PM 不一致
+  "referer",
+  "origin",
+  "sec-ch-ua",
+  "sec-ch-ua-mobile",
+  "sec-ch-ua-platform",
+  "sec-fetch-dest",
+  "sec-fetch-mode",
+  "sec-fetch-site",
+  "sec-fetch-user",
+  "priority",
+  "x-requested-with",
+]);
+
+/** Node 会把入站 header 小写化；Polymarket L2 期望 POLY_* 大写 */
+const POLY_HEADER_CANONICAL = {
+  "poly_address": "POLY_ADDRESS",
+  "poly_signature": "POLY_SIGNATURE",
+  "poly_timestamp": "POLY_TIMESTAMP",
+  "poly_api_key": "POLY_API_KEY",
+  "poly_passphrase": "POLY_PASSPHRASE",
+};
+
+const POLY_UPSTREAM_HEADERS = [
+  "POLY_ADDRESS",
+  "POLY_SIGNATURE",
+  "POLY_TIMESTAMP",
+  "POLY_API_KEY",
+  "POLY_PASSPHRASE",
+];
+
+function headerValue(value) {
+  if (value == null)
+    return undefined;
+  if (Array.isArray(value))
+    return String(value[0] ?? "").trim() || undefined;
+  const text = String(value).trim();
+  return text || undefined;
+}
+
+function isPolymarketUpstream(targetUrl) {
+  try {
+    const host = new URL(targetUrl).hostname.toLowerCase();
+    return host === "polymarket.com" || host.endsWith(".polymarket.com");
+  }
+  catch {
+    return false;
+  }
+}
+
+/** 对齐扩展 background axios 直连 PM：仅 L2 五头 + Host（与官方 clob-client createL2Headers 一致） */
+function forwardPolymarketHeaders(req, targetUrl) {
+  const raw = {};
+  for (const [key, value] of Object.entries(req.headers)) {
+    const lower = key.toLowerCase();
+    if (RELAY_STRIP_HEADERS.has(lower))
+      continue;
+    const outKey = POLY_HEADER_CANONICAL[lower] || key;
+    const text = headerValue(value);
+    if (text)
+      raw[outKey] = text;
+  }
+  const out = {};
+  for (const name of POLY_UPSTREAM_HEADERS) {
+    const text = raw[name];
+    if (text)
+      out[name] = text;
+  }
+  try {
+    out.Host = new URL(targetUrl).host;
+  }
+  catch {
+    /* ignore */
+  }
+  return out;
+}
+
+/**
+ * Node http.request 用对象传 headers 会把键名小写化；Polymarket L2 期望 POLY_* 大写。
+ * 对 PM 上游改用 [name, value] 数组格式保留大小写（见 Node _http_client.js）。
+ */
+function upstreamHeadersForNodeHttp(targetUrl, headersObj) {
+  const entries = Object.entries(headersObj || {})
+    .filter(([, value]) => value != null && String(value).length);
+  if (!isPolymarketUpstream(targetUrl))
+    return Object.fromEntries(entries.map(([key, value]) => [key, String(value)]));
+  return entries.map(([key, value]) => [key, String(value)]);
+}
+
 function forwardHeaders(req, targetUrl) {
+  if (isPolymarketUpstream(targetUrl))
+    return forwardPolymarketHeaders(req, targetUrl);
+
   const out = {};
   for (const [key, value] of Object.entries(req.headers)) {
     const lower = key.toLowerCase();
-    if (
-      ["host", "connection", "content-length", "x-proxy", "x-proxy-url", "x-proxy-referer", "x-proxy-useragent", "x-proxy-origin",
-        // 浏览器 fetch 会带 gzip；relay 只回写 Content-Type 时会导致压缩体无法解压
-        "accept-encoding"].includes(lower)
-    ) {
+    if (RELAY_STRIP_HEADERS.has(lower))
       continue;
-    }
-    out[key] = value;
+    const outKey = POLY_HEADER_CANONICAL[lower] || key;
+    const text = headerValue(value);
+    if (text)
+      out[outKey] = text;
   }
   const referer = req.headers["x-proxy-referer"];
   if (referer)
@@ -190,6 +325,8 @@ function forwardHeaders(req, targetUrl) {
   const ua = req.headers["x-proxy-useragent"];
   if (ua)
     out["User-Agent"] = ua;
+  else if (req.headers["user-agent"])
+    out["User-Agent"] = String(req.headers["user-agent"]);
   const auth = req.headers.authorization || req.headers.Authorization;
   if (auth)
     out.Authorization = String(auth);
@@ -234,7 +371,17 @@ async function tryHttpProxyRelay(req, res, baseOrigin) {
 
   const dispatcher = createDispatcher(req.headers["x-proxy"]);
   const requestBody = req.method !== "GET" && req.method !== "HEAD" ? await readRequestBody(req) : undefined;
-  const headers = forwardHeaders(req, targetUrl);
+  const bodyText = requestBody ? requestBody.toString("utf8") : "";
+  const pmL2 = await resolvePmRelayL2Headers(req, {
+    method: req.method,
+    targetUrl,
+    body: bodyText,
+  });
+  if (pmL2?.error) {
+    sendRelayError(res, pmL2.error.status, pmL2.error.msg);
+    return true;
+  }
+  const headers = pmL2?.headers ?? forwardHeaders(req, targetUrl);
 
   try {
     const upstream = await nodeFetch(targetUrl, {

@@ -1,6 +1,7 @@
 import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { obForwardDefinition } from "../platforms/ob.js";
+import { pmMarketForwardDefinition, pmUserForwardDefinition, PM_MARKET_WS_URL, PM_USER_WS_URL } from "../platforms/pm.js";
 import { rayForwardDefinition, RAY_OFFICIAL_WS_URL } from "../platforms/ray.js";
 
 describe("obForwardDefinition", () => {
@@ -37,5 +38,17 @@ describe("rayForwardDefinition", () => {
     assert.equal(upstream.url, RAY_OFFICIAL_WS_URL);
     assert.equal(upstream.headers.Origin, "https://ray164.com");
     assert.equal(upstream.headers.Authorization, "Bearer test-token");
+  });
+});
+
+describe("pmForwardDefinitions", () => {
+  it("PM-MARKET browser path and upstream", () => {
+    assert.equal(pmMarketForwardDefinition.browserPath, "/esport/ws-forward/PM-MARKET");
+    assert.equal(pmMarketForwardDefinition.resolveUpstream().url, PM_MARKET_WS_URL);
+  });
+
+  it("PM-USER browser path and upstream", () => {
+    assert.equal(pmUserForwardDefinition.browserPath, "/esport/ws-forward/PM-USER");
+    assert.equal(pmUserForwardDefinition.resolveUpstream().url, PM_USER_WS_URL);
   });
 });

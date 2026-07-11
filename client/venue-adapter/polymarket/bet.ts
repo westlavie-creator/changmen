@@ -38,6 +38,7 @@ import { schedulePolymarketAutoExitSellAfterBuy } from "./pmAutoExitSell";
 import { normalizePolymarketTickSize, type PolymarketTickSize } from "./pmTickPrice";
 import { resolvePolymarketVenueIdentityFromToken } from "./profile";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
+import { isPolymarketHkEgressEnabled } from "./pmHkEgress";
 
 export { isPolymarketDelayedPending } from "./orderStatus";
 export {
@@ -394,7 +395,6 @@ function balanceQueryPathForSignature(signatureType: string | number | undefined
   return `${BALANCE_PATH}?${params.toString()}`;
 }
 
-
 function parseCollateralBalance(raw: string | number | undefined): number | undefined {
   if (raw === undefined || raw === null) return undefined;
   const value = Number(raw);
@@ -485,12 +485,20 @@ export const polymarketProvider: PlatformProvider = {
       const config = parseTokenConfig(account.token);
       const gateway = account.gateway || POLYMARKET_CLOB_API;
       const requestPath = balanceQueryPathForSignature(resolveSignatureType(config));
-      const headers = await buildL2HeadersFromAccount(account, "GET", BALANCE_PATH);
-      if (!headers) return undefined;
-      const data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(
-        `${gateway}${requestPath}`,
-        { headers },
-      );
+      const url = `${gateway}${requestPath}`;
+      let data: PolymarketBalanceAllowanceResponse | undefined;
+      if (isPolymarketHkEgressEnabled()) {
+        data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(url, {
+          account,
+          l2Path: BALANCE_PATH,
+        });
+      }
+      else {
+        const headers = await buildL2HeadersFromAccount(account, "GET", BALANCE_PATH);
+        if (!headers)
+          return undefined;
+        data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(url, { headers });
+      }
       const balance = parseCollateralBalance(data?.balance);
       if (balance === undefined) return undefined;
       const out: AccountBalanceResult = {
@@ -629,21 +637,27 @@ export const polymarketProvider: PlatformProvider = {
       );
       const bodyStr = JSON.stringify(orderBody);
 
-      const headers = await buildL2Headers(
-        creds.address,
-        creds.apiKey,
-        creds.secret,
-        creds.passphrase,
-        "POST",
-        ORDER_PATH,
-        bodyStr,
-      );
-
-      const result = await polymarketPluginPost<PolymarketOrderResponse>(
-        `${gateway}${ORDER_PATH}`,
-        orderBody,
-        { headers },
-      );
+      const result = isPolymarketHkEgressEnabled()
+        ? await polymarketPluginPost<PolymarketOrderResponse>(
+          `${gateway}${ORDER_PATH}`,
+          orderBody,
+          { account, l2Path: ORDER_PATH },
+        )
+        : await polymarketPluginPost<PolymarketOrderResponse>(
+          `${gateway}${ORDER_PATH}`,
+          orderBody,
+          {
+            headers: await buildL2Headers(
+              creds.address,
+              creds.apiKey,
+              creds.secret,
+              creds.passphrase,
+              "POST",
+              ORDER_PATH,
+              bodyStr,
+            ),
+          },
+        );
 
       if (!isPolymarketOrderAccepted(result)) {
         const diagnostic = diagnosticLines({

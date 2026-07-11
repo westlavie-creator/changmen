@@ -1,5 +1,5 @@
 import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
-import { POLYMARKET_MARKET_WS } from "./api";
+import { resolvePolymarketMarketWsUrl } from "./wsConfig";
 
 const WS_RECONNECT_MS = 5_000;
 const WS_PING_MS = 10_000;
@@ -63,7 +63,7 @@ export function startPolymarketMarketWs(opts: {
   function connect() {
     if (stopped || ws) return;
     setPolymarketWsStatus("connecting");
-    ws = new WebSocket(POLYMARKET_MARKET_WS);
+    ws = new WebSocket(resolvePolymarketMarketWsUrl());
 
     ws.onopen = () => {
       setPolymarketWsStatus("connected");

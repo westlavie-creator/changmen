@@ -18,4 +18,5 @@ export const PLATFORMS = {
   Limitless: "Limitless",
   SXBet: "SXBet",
   Azuro: "Azuro",
+  PredictFun: "PredictFun",
 } as const satisfies Record<string, PlatformId>;

@@ -9,6 +9,8 @@
 | IA | Socket.IO | `/esport/ws-forward/IA` | `wss://socket.ajj123.net`（`/socket.io`，`Origin: ilustre`） |
 | OB | raw WebSocket (MQTT) | `/esport/ws-forward/OB?u=<官方 wss>` | query `u` 指定的 OB demo MQTT wss |
 | RAY | raw WebSocket (SocketCluster) | `/esport/ws-forward/RAY` | `wss://cfsocket.365raylinks.com/socketcluster/`（服务端注入 `Origin` + `Authorization`） |
+| PM-MARKET | raw WebSocket | `/esport/ws-forward/PM-MARKET` | `wss://ws-subscriptions-clob.polymarket.com/ws/market` |
+| PM-USER | raw WebSocket | `/esport/ws-forward/PM-USER` | `wss://ws-subscriptions-clob.polymarket.com/ws/user` |
 
 Vite dev：HTTP 走 `5274/esport` 代理；**实时 WS 直连** `http://127.0.0.1:3560`（Vite 不代理 upgrade）。
 

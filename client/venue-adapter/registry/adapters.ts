@@ -3,6 +3,7 @@ import type { CollectorFactory, PlatformAdapter, PlatformProvider } from "@venue
 import type { PlatformId } from "@changmen/api-contract";
 import { withA8ResolveLegOutcome } from "@venue/adaptation/a8LegOutcome";
 import { azuroAdapter } from "@venue/azuro";
+import { predictFunAdapter } from "@venue/predictfun";
 import { dexAdapter } from "@venue/dex";
 import { hgAdapter } from "@venue/hg";
 import { iaAdapter } from "@venue/ia";
@@ -43,6 +44,7 @@ export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
   limitlessAdapter,
   sxbetAdapter,
   azuroAdapter,
+  predictFunAdapter,
 ];
 
 const adapterById = new Map<PlatformId, PlatformAdapter>(

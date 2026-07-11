@@ -134,3 +134,52 @@ export function parseJsonLoose(text: string): unknown {
     return text;
   }
 }
+
+const PM_RELAY_REFERER = "https://polymarket.com/";
+
+/**
+ * changmen http-relay 直连上游（不传 x-proxy），供 Polymarket HK 出口等场景。
+ * 服务端需能访问目标 host（如 HK VPS）。
+ */
+export async function changmenRelayHttpRequest(
+  targetUrl: string,
+  init: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  } = {},
+): Promise<AccountHttpResult> {
+  const method = (init.method || "GET").toUpperCase();
+  const headers: Record<string, string> = {
+    ...(init.headers || {}),
+    "x-proxy-url": targetUrl,
+    "x-proxy-referer": PM_RELAY_REFERER,
+    "x-proxy-origin": "https://polymarket.com",
+  };
+  const token = requireHttpCtx().getToken();
+  if (token)
+    headers.token = token;
+
+  const relayUrl = getA8ProxyRelayEntry();
+  try {
+    const res = await a8Axios.request({
+      method,
+      url: relayUrl,
+      headers,
+      data: init.body,
+      responseType: "text",
+      transformResponse: [d => d],
+      timeout: 60_000,
+    });
+    const text = responseBodyText(res.data);
+    if (res.status >= 400) {
+      const snippet = text.slice(0, 160) || `HTTP ${res.status}`;
+      throw new Error(snippet);
+    }
+    return { status: res.status, text };
+  }
+  catch (e) {
+    const hint = e instanceof Error ? e.message : String(e);
+    throw new Error(`http-relay 不可用（${relayUrl}）：${hint}`);
+  }
+}

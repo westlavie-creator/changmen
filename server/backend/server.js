@@ -65,7 +65,7 @@ const server = http.createServer(
   }),
 );
 
-attachWsForward(server, { platforms: ["IA", "OB", "RAY"] });
+attachWsForward(server, { platforms: ["IA", "OB", "RAY", "PM-MARKET", "PM-USER"] });
 attachChangmenRealtimeHub(server);
 
 ensurePlatformCredentials()

@@ -5,7 +5,6 @@ import { getExchange, Currency, scaleUsdtToCnyDisplay } from "@changmen/shared/c
 import { PLATFORMS } from "@venue/shared/platforms";
 import { POLYMARKET_CLOB_API, POLYMARKET_GAMMA_API } from "./api";
 import {
-  buildL2HeadersFromAccount,
   collectPolymarketUserAddressesFromAccount,
   normalizeEthAddress,
 } from "./l2Auth";
@@ -17,7 +16,7 @@ import {
   resolvePolymarketTradeLookbackMs,
 } from "./pmOrderSync";
 import { applyPolymarketOrderOrigins, isPolymarketChangmenOrder } from "./pmOrigin";
-import { polymarketPluginGet } from "./transport";
+import { polymarketL2Get, polymarketPluginGet } from "./transport";
 
 const TRADES_PATH = "/data/trades";
 const TOKEN_MICRO = 1_000_000;
@@ -413,13 +412,16 @@ export async function fetchPolymarketConfirmedTradeForOrder(
   const id = String(orderId ?? "").trim();
   if (!id)
     return null;
-  const headers = await buildL2HeadersFromAccount(account, "GET", TRADES_PATH);
-  if (!headers)
-    return null;
   const gateway = account.gateway || POLYMARKET_CLOB_API;
   const afterSec = Math.floor((Date.now() - lookbackMs) / 1000);
   const userAddresses = collectPolymarketUserAddressesFromAccount(account);
-  const rawTrades = await fetchTradesSince(gateway, headers, afterSec);
+  let rawTrades: PolymarketTradeRow[];
+  try {
+    rawTrades = await fetchTradesSince(account, gateway, afterSec);
+  }
+  catch {
+    return null;
+  }
   const flattened = flattenPolymarketTrades(rawTrades, userAddresses);
   const wantSide = side.toUpperCase();
   for (const trade of flattened) {
@@ -1154,8 +1156,8 @@ async function fetchMarketsByConditionIds(
 }
 
 async function fetchTradesSince(
+  account: PlatformAccount,
   gateway: string,
-  headers: Record<string, string>,
   afterSec: number,
 ): Promise<PolymarketTradeRow[]> {
   const all: PolymarketTradeRow[] = [];
@@ -1165,9 +1167,10 @@ async function fetchTradesSince(
     const params = new URLSearchParams({ after: String(afterSec) });
     if (nextCursor)
       params.set("next_cursor", nextCursor);
-    const data = await polymarketPluginGet<PolymarketTradesResponse>(
+    const data = await polymarketL2Get<PolymarketTradesResponse>(
+      account,
       `${gateway}${TRADES_PATH}?${params.toString()}`,
-      { headers },
+      TRADES_PATH,
     );
     const batch = Array.isArray(data?.data) ? data.data : [];
     all.push(...batch);
@@ -1183,15 +1186,17 @@ export async function fetchPolymarketVenueOrdersBundle(
   account: PlatformAccount,
   lookbackMs = ORDER_LOOKBACK_MS,
 ): Promise<PolymarketVenueOrdersBundle> {
-  const headers = await buildL2HeadersFromAccount(account, "GET", TRADES_PATH);
-  if (!headers)
-    return { orders: [], flattenedTrades: [] };
-
   const gateway = account.gateway || POLYMARKET_CLOB_API;
   const windowMs = Math.min(Math.max(Number(lookbackMs) || ORDER_LOOKBACK_MS, 60_000), ORDER_LOOKBACK_MS);
   const afterSec = Math.floor((Date.now() - windowMs) / 1000);
   const userAddresses = collectPolymarketUserAddressesFromAccount(account);
-  const rawTrades = await fetchTradesSince(gateway, headers, afterSec);
+  let rawTrades: PolymarketTradeRow[];
+  try {
+    rawTrades = await fetchTradesSince(account, gateway, afterSec);
+  }
+  catch {
+    return { orders: [], flattenedTrades: [] };
+  }
   const flattened = flattenPolymarketTrades(rawTrades, userAddresses);
   const buyPreview = aggregatePolymarketTrades(flattened);
   const sellPreview = aggregatePolymarketSellTrades(flattened);

@@ -82,14 +82,15 @@ function headerValue(headers: Record<string, unknown> | undefined, name: string)
 export function resolveApiCreds(config: PolymarketTokenConfig) {
   const headers = config.polyHeaders;
   const api = config.apiCreds ?? {};
+  const pick = (value: unknown) => String(value ?? "").trim();
   return {
-    address: config.walletAddress || config.address || headerValue(headers, "POLY_ADDRESS"),
-    apiKey: api.apiKey || api.key || api.api_key
+    address: pick(config.walletAddress || config.address || headerValue(headers, "POLY_ADDRESS")),
+    apiKey: pick(api.apiKey || api.key || api.api_key
       || config.apiKey || config.key || config.api_key
-      || headerValue(headers, "POLY_API_KEY"),
-    secret: api.secret || api.apiSecret || api.api_secret
-      || config.secret || config.apiSecret || config.api_secret,
-    passphrase: api.passphrase || config.passphrase || headerValue(headers, "POLY_PASSPHRASE"),
+      || headerValue(headers, "POLY_API_KEY")),
+    secret: pick(api.secret || api.apiSecret || api.api_secret
+      || config.secret || config.apiSecret || config.api_secret),
+    passphrase: pick(api.passphrase || config.passphrase || headerValue(headers, "POLY_PASSPHRASE")),
     signatureType: resolveSignatureType(config),
   };
 }
@@ -146,7 +147,10 @@ export function resolvePrivateKey(config: PolymarketTokenConfig): Hex | undefine
 }
 
 function base64UrlToBytes(value: string): Uint8Array {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const normalized = value
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .replace(/[^A-Za-z0-9+/=]/g, "");
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
   const binary = atob(padded);
   return Uint8Array.from(binary, ch => ch.charCodeAt(0));
@@ -172,18 +176,20 @@ export async function buildL2Headers(
   method: "GET" | "POST",
   requestPath: string,
   body?: string,
+  timestampOverride?: number,
 ): Promise<Record<string, string>> {
-  const timestamp = String(Math.floor(Date.now() / 1000));
+  const timestamp = String(timestampOverride ?? Math.floor(Date.now() / 1000));
   const signature = hmacSha256Base64Url(secret, timestamp + method + requestPath + (body ?? ""));
-  return {
+  const headers: Record<string, string> = {
     "POLY_ADDRESS": address,
     "POLY_SIGNATURE": signature,
     "POLY_TIMESTAMP": timestamp,
     "POLY_API_KEY": apiKey,
     "POLY_PASSPHRASE": passphrase,
-    "Content-Type": "application/json",
-    "Accept": "application/json",
   };
+  if (method === "POST")
+    headers["Content-Type"] = "application/json";
+  return headers;
 }
 
 export async function buildL2HeadersFromAccount(
@@ -191,8 +197,18 @@ export async function buildL2HeadersFromAccount(
   method: "GET" | "POST",
   requestPath: string,
   body?: string,
+  timestampOverride?: number,
 ): Promise<Record<string, string> | undefined> {
   const creds = resolveApiCreds(parseTokenConfig(account.token));
   if (!creds.address || !creds.apiKey || !creds.secret || !creds.passphrase) return undefined;
-  return buildL2Headers(creds.address, creds.apiKey, creds.secret, creds.passphrase, method, requestPath, body);
+  return buildL2Headers(
+    creds.address,
+    creds.apiKey,
+    creds.secret,
+    creds.passphrase,
+    method,
+    requestPath,
+    body,
+    timestampOverride,
+  );
 }

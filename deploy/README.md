@@ -33,3 +33,18 @@ pm2 save
 ```
 
 详见 [`PRODUCTION_DEPLOYMENT.md`](../PRODUCTION_DEPLOYMENT.md)。
+
+## PM HK 出口（Polymarket 服务端代连）
+
+用户在前端 **扩展 → PM HK出口** 开启后，PM HTTP/WS 经 changmen VPS 出海。部署 HK 机时需：
+
+```bash
+# 1. 写入 http-relay 白名单并重启 backend
+bash deploy/scripts/sync-pm-hk-relay-env-remote.sh
+
+# 2. 探针（VPS 上，backend 已运行）
+cd server/backend && node scripts/probe-pm-hk-relay.mjs
+# 或 npm run probe:pm-hk-relay
+```
+
+`HTTP_RELAY_ALLOWED_HOSTS` 默认仅 `gamma-api.polymarket.com,clob.polymarket.com`。探针失败时检查 VPS 能否 `curl -I https://clob.polymarket.com/time`。

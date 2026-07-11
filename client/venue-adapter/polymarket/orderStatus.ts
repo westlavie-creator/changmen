@@ -2,8 +2,8 @@ import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
 import { POLYMARKET_CLOB_API } from "./api";
-import { buildL2Headers, resolveApiCreds, parseTokenConfig } from "./l2Auth";
-import { polymarketPluginGet } from "./transport";
+import { parseTokenConfig, resolveApiCreds } from "./l2Auth";
+import { polymarketL2Get } from "./transport";
 import type {
   PolymarketOrderResponseLike,
   PolymarketOrderRow,
@@ -116,16 +116,8 @@ export async function fetchPolymarketOrderRow(
     return null;
   const gateway = account.gateway || POLYMARKET_CLOB_API;
   const path = `${ORDER_PATH_PREFIX}${id}`;
-  const headers = await buildL2Headers(
-    creds.address,
-    creds.apiKey,
-    creds.secret,
-    creds.passphrase,
-    "GET",
-    path,
-  );
   try {
-    const data = await polymarketPluginGet<PolymarketOrderRow | null>(`${gateway}${path}`, { headers });
+    const data = await polymarketL2Get<PolymarketOrderRow | null>(account, `${gateway}${path}`, path);
     return data ?? null;
   }
   catch {

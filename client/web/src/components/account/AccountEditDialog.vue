@@ -33,6 +33,11 @@ import {
   fetchPolymarketRelayerStatus,
   preparePolymarketWallet,
 } from "@venue/polymarket/relayer";
+import {
+  normalizePolymarketPrivateKey,
+  resolvePolymarketDepositWalletFromPrivateKey,
+  resolvePolymarketSignerAddress,
+} from "@venue/polymarket/depositWallet";
 import { getAccounts } from "@/api/account";
 import { getAdapter } from "@/runtime/venueAdapters";
 import type { AccountBalanceResult } from "@venue/contract";
@@ -95,12 +100,14 @@ const polyApiCredsFingerprint = ref("");
 const polyGenerating = ref(false);
 const polyRelayerPreparing = ref(false);
 const polyRelayerConfigured = ref<boolean | null>(null);
+const polyAdvancedMode = ref(false);
+const polyDerivingAddresses = ref(false);
 
 interface PlatformSuggestion { value: string; link: string }
 
 let form = reactive<AccountEditFormState>(
   createAccountEditFormStateFromPlatformAccount(
-    new PlatformAccount({ accountId: 0, playerName: "", provider: "RAY" }),
+    new PlatformAccount({ accountId: 0, playerName: "", provider: "Polymarket" }),
   ),
 );
 
@@ -134,11 +141,15 @@ const proxyOptions = computed(() => {
 });
 
 function resetForm(acc?: PlatformAccount) {
-  const src = acc ?? new PlatformAccount({ accountId: 0, playerName: "", provider: "RAY" });
+  const src = acc ?? new PlatformAccount({ accountId: 0, playerName: "", provider: "Polymarket" });
   Object.assign(form, createAccountEditFormStateFromPlatformAccount(src));
   pasteRaw.value = "";
   gameShow.value = false;
   rateLocked.value = form.provider === "PB";
+  if (form.provider === "Polymarket") {
+    form.gateway ||= "https://clob.polymarket.com";
+    form.referer ||= "https://polymarket.com/zh";
+  }
   syncPolymarketFieldsFromToken(form.token);
   if (form.provider === "PB" && !form.venueMemberId)
     applyPbIdentityFromToken(form.token);
@@ -151,6 +162,44 @@ function syncPolymarketFieldsFromToken(token: string) {
   polyPrivateKey.value = String(parsed.privateKey ?? parsed.private_key ?? "");
   polyApiCreds.value = normalizePolymarketApiCreds(parsed);
   polyApiCredsFingerprint.value = polyApiCreds.value ? polymarketCredentialFingerprint() : "";
+  const sig = String(parsed.signatureType ?? "3");
+  polyAdvancedMode.value = sig !== "3" && sig !== "";
+}
+
+function syncPolymarketWalletAddressFromPrivateKey() {
+  const raw = polyPrivateKey.value.trim();
+  if (!raw)
+    return;
+  try {
+    const privateKey = normalizePolymarketPrivateKey(raw);
+    void resolvePolymarketSignerAddress(privateKey).then((address) => {
+      if (polyPrivateKey.value.trim() !== raw)
+        return;
+      polyWalletAddress.value = address;
+    });
+  }
+  catch {
+    /* invalid key while typing */
+  }
+}
+
+async function syncPolymarketDerivedAddresses(forceFunder = false) {
+  const raw = polyPrivateKey.value.trim();
+  if (!raw)
+    throw new Error("Polymarket 私钥必填");
+  polyDerivingAddresses.value = true;
+  try {
+    const privateKey = normalizePolymarketPrivateKey(raw);
+    polyWalletAddress.value = await resolvePolymarketSignerAddress(privateKey);
+    if (forceFunder || !polyAdvancedMode.value || !polyFunder.value.trim()) {
+      const resolved = await resolvePolymarketDepositWalletFromPrivateKey({ privateKey });
+      polyWalletAddress.value = resolved.walletAddress;
+      polyFunder.value = resolved.funder;
+    }
+  }
+  finally {
+    polyDerivingAddresses.value = false;
+  }
 }
 
 function syncForm() {
@@ -191,6 +240,15 @@ watch(
       syncPolymarketFieldsFromToken(form.token);
       void refreshPolymarketRelayerStatus();
     }
+  },
+);
+
+watch(
+  () => polyPrivateKey.value,
+  () => {
+    if (form.provider !== "Polymarket" || polyAdvancedMode.value)
+      return;
+    syncPolymarketWalletAddressFromPrivateKey();
   },
 );
 
@@ -347,15 +405,9 @@ function buildPolyToken(): string {
 }
 
 async function ensurePolymarketToken(): Promise<string> {
-  if (!polyWalletAddress.value.trim()) {
-    throw new Error("Polymarket 钱包地址必填");
-  }
-  if (!polyFunder.value.trim()) {
-    throw new Error("Polymarket funder 必填");
-  }
-  if (!polyPrivateKey.value.trim()) {
+  if (!polyPrivateKey.value.trim())
     throw new Error("Polymarket 私钥必填");
-  }
+  await syncPolymarketDerivedAddresses(false);
   if (!polyApiCreds.value || polyApiCredsFingerprint.value !== polymarketCredentialFingerprint())
     await generatePolymarketApiCreds(true);
   const token = buildPolyToken();
@@ -366,6 +418,9 @@ async function ensurePolymarketToken(): Promise<string> {
 async function generatePolymarketApiCreds(silent = false) {
   polyGenerating.value = true;
   try {
+    if (!polyPrivateKey.value.trim())
+      throw new Error("Polymarket 私钥必填");
+    await syncPolymarketDerivedAddresses(false);
     const result = await createOrDerivePolymarketApiCreds({
       gateway: form.gateway,
       walletAddress: polyWalletAddress.value,
@@ -415,6 +470,14 @@ async function refreshPolymarketRelayerStatus() {
   }
 }
 
+function resolvePolymarketRelayerSignatureType(): string {
+  if (!polyAdvancedMode.value)
+    return "3";
+  const parsed = parsePolymarketTokenObject(form.token);
+  const sig = String(parsed?.signatureType ?? "3").trim();
+  return sig || "3";
+}
+
 async function onPreparePolymarketWallet() {
   polyRelayerPreparing.value = true;
   try {
@@ -426,14 +489,17 @@ async function onPreparePolymarketWallet() {
     await refreshPolymarketRelayerStatus();
     if (polyRelayerConfigured.value === false)
       throw new Error("服务端未配置 Polymarket Relayer（POLY_BUILDER_*）");
+    await syncPolymarketDerivedAddresses(!polyAdvancedMode.value);
     const result = await preparePolymarketWallet({
       privateKey: polyPrivateKey.value.trim(),
-      signatureType: "3",
+      signatureType: resolvePolymarketRelayerSignatureType(),
       signUrl: polymarketRelayerSignUrl(),
       authToken,
     });
     if (!result.ok)
       throw new Error(result.message);
+    if (result.funder)
+      polyFunder.value = result.funder;
     ElMessage.success(result.transactionHash
       ? `${result.message} tx=${result.transactionHash.slice(0, 10)}…`
       : result.message);
@@ -443,6 +509,16 @@ async function onPreparePolymarketWallet() {
   }
   finally {
     polyRelayerPreparing.value = false;
+  }
+}
+
+async function onDerivePolymarketAddresses() {
+  try {
+    await syncPolymarketDerivedAddresses(true);
+    ElMessage.success("已从私钥推导 EOA 与 Deposit Wallet（funder）");
+  }
+  catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "地址推导失败");
   }
 }
 
@@ -747,7 +823,7 @@ function unlockRate() {
 <template>
   <el-dialog
     v-model="visible"
-    width="800"
+    width="1500"
     append-to-body
     :z-index="zIndex"
     :close-on-press-escape="false"
@@ -773,30 +849,51 @@ function unlockRate() {
       <template v-if="form.provider === 'Polymarket'" #token>
         <fieldset class="poly-token-fieldset">
           <legend>Token</legend>
-          <el-form-item label="钱包地址：">
+          <el-form-item label="钱包私钥：">
+            <el-input
+              v-model="polyPrivateKey"
+              show-password
+              placeholder="0x... 或不带前缀的 hex 私钥（必填，EOA 与 funder 将自动推导）"
+              :disabled="readonly"
+              style="font-family: monospace; font-size: 12px"
+            />
+          </el-form-item>
+          <el-form-item v-if="!readonly" label="地址：">
+            <el-button
+              type="primary"
+              plain
+              :loading="polyDerivingAddresses"
+              :disabled="!polyPrivateKey.trim()"
+              @click="onDerivePolymarketAddresses"
+            >
+              从私钥推导 EOA / funder
+            </el-button>
+            <span class="poly-credential-hint">
+              保存账号时会自动推导；funder 为 Deposit Wallet 充值地址
+            </span>
+          </el-form-item>
+          <el-form-item label="EOA 地址：">
             <el-input
               v-model="polyWalletAddress"
-              placeholder="0x...，私钥对应的钱包地址"
-              :disabled="readonly"
+              placeholder="由私钥自动推导"
+              :readonly="!polyAdvancedMode"
+              :disabled="readonly && !polyWalletAddress"
               style="font-family: monospace; font-size: 12px"
             />
           </el-form-item>
           <el-form-item label="Funder：">
             <el-input
               v-model="polyFunder"
-              placeholder="0x...，Polymarket Deposit/Funder 地址"
-              :disabled="readonly"
+              placeholder="由私钥自动推导的 Deposit Wallet"
+              :readonly="!polyAdvancedMode"
+              :disabled="readonly && !polyFunder"
               style="font-family: monospace; font-size: 12px"
             />
           </el-form-item>
-          <el-form-item label="钱包私钥：">
-            <el-input
-              v-model="polyPrivateKey"
-              show-password
-              placeholder="0x... 或不带前缀的 hex 私钥"
-              :disabled="readonly"
-              style="font-family: monospace; font-size: 12px"
-            />
+          <el-form-item v-if="!readonly" label="高级：">
+            <el-checkbox v-model="polyAdvancedMode">
+              手动指定 EOA / funder（官网 Proxy/Safe 导入）
+            </el-checkbox>
           </el-form-item>
           <el-form-item v-if="!readonly" label="API 凭证：">
             <el-button
@@ -814,10 +911,10 @@ function unlockRate() {
               :disabled="polyRelayerConfigured === false"
               @click="onPreparePolymarketWallet"
             >
-              Relayer 授权
+              Deposit Wallet 初始化
             </el-button>
             <span class="poly-credential-hint">
-              {{ polyApiCreds ? "已生成，保存时会写入最小 token（signatureType=3）" : "保存时也会自动生成" }}
+              {{ polyApiCreds ? "已生成，保存时会写入 token（signatureType=3）" : "保存时也会自动生成 apiCreds" }}
               <template v-if="polyRelayerConfigured === false">
                 · 服务端 Relayer 未配置
               </template>

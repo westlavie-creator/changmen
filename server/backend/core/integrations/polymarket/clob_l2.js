@@ -116,10 +116,10 @@ function hmacSha256Base64Url(secret, message) {
   return sig.replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-export function buildPolymarketL2Headers(address, apiKey, secret, passphrase, method, requestPath, body = "") {
-  const timestamp = String(Math.floor(Date.now() / 1000));
+export function buildPolymarketL2Headers(address, apiKey, secret, passphrase, method, requestPath, body = "", timestampOverride) {
+  const timestamp = String(timestampOverride ?? Math.floor(Date.now() / 1000));
   const signature = hmacSha256Base64Url(secret, timestamp + method + requestPath + body);
-  return {
+  const headers = {
     POLY_ADDRESS: address,
     POLY_SIGNATURE: signature,
     POLY_TIMESTAMP: timestamp,
@@ -127,9 +127,12 @@ export function buildPolymarketL2Headers(address, apiKey, secret, passphrase, me
     POLY_PASSPHRASE: passphrase,
     Accept: "application/json",
   };
+  if (String(method || "GET").toUpperCase() === "POST")
+    headers["Content-Type"] = "application/json";
+  return headers;
 }
 
-export function buildPolymarketL2HeadersFromToken(token, method, requestPath, body = "") {
+export function buildPolymarketL2HeadersFromToken(token, method, requestPath, body = "", timestampOverride) {
   const creds = resolvePolymarketApiCreds(parsePolymarketTokenConfig(token));
   if (!creds.address || !creds.apiKey || !creds.secret || !creds.passphrase)
     return null;
@@ -141,6 +144,7 @@ export function buildPolymarketL2HeadersFromToken(token, method, requestPath, bo
     method,
     requestPath,
     body,
+    timestampOverride,
   );
 }
 

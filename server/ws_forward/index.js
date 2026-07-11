@@ -3,6 +3,7 @@ import { registerPlatformForward, listPlatformForwards } from "./platforms/regis
 import { getForwardStats } from "./core/forward_stats.js";
 import { iaForwardDefinition } from "./platforms/ia.js";
 import { obForwardDefinition } from "./platforms/ob.js";
+import { pmMarketForwardDefinition, pmUserForwardDefinition } from "./platforms/pm.js";
 import { rayForwardDefinition } from "./platforms/ray.js";
 
 /** 浏览器实时转发入口 URL 前缀（勿被 esport-api HTTP 路由拦截） */
@@ -17,6 +18,8 @@ const PLATFORM_DEFS = {
   IA: iaForwardDefinition,
   OB: obForwardDefinition,
   RAY: rayForwardDefinition,
+  "PM-MARKET": pmMarketForwardDefinition,
+  "PM-USER": pmUserForwardDefinition,
 };
 
 let enabled = false;

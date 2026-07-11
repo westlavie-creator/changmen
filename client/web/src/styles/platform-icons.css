@@ -81,6 +81,21 @@
   background-image:url(/assets/venue/polymarket.ico);
 }
 
+.cm-platform-icon.PredictFun,
+.provider-icon.PredictFun {
+  background-image:url(/assets/venue/predict.ico);
+}
+
+.cm-platform-icon.Limitless,
+.provider-icon.Limitless {
+  background-image:url(/assets/venue/limitless.svg);
+}
+
+.cm-platform-icon.SXBet,
+.provider-icon.SXBet {
+  background-image:url(/assets/venue/sxbet.webp);
+}
+
 .credit .cm-platform-icon,
 .credit .provider-icon {
   width:22px;height:22px;
