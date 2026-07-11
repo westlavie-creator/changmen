@@ -105,7 +105,7 @@ chmod -R a+rX "$app/dist"`);
     ssh(h.host, `cd ${deployRepo}/server/backend; node scripts/post-deploy-check.mjs --skip-telegram`);
 
     console.log("==> sync PM HK relay env (predict.fun whitelist + pm2 restart)");
-    ssh(h.host, `cd ${deployRepo} && bash deploy/scripts/sync-pm-hk-relay-env-remote.sh`);
+    ssh(h.host, `cd ${deployRepo} && sed -i 's/\\r$//' deploy/scripts/sync-pm-hk-relay-env-remote.sh && bash deploy/scripts/sync-pm-hk-relay-env-remote.sh`);
 
     ssh(h.host, `set -e
 status="$(curl -sf http://127.0.0.1/api/proxy/status 2>/dev/null || curl -sf http://127.0.0.1:3456/api/proxy/status)"
