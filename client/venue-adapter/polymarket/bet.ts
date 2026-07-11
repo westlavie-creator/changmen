@@ -6,8 +6,6 @@ import { resolvePolymarketVenueStakeUsdc } from "./pmStake";
 import { POLYMARKET_CLOB_API } from "./api";
 import { resolvePolymarketBuilderCode } from "./builder";
 import {
-  buildL2Headers,
-  buildL2HeadersFromAccount,
   parseTokenConfig,
   resolveApiCreds,
   resolveFunder,
@@ -38,7 +36,6 @@ import { schedulePolymarketAutoExitSellAfterBuy } from "./pmAutoExitSell";
 import { normalizePolymarketTickSize, type PolymarketTickSize } from "./pmTickPrice";
 import { resolvePolymarketVenueIdentityFromToken } from "./profile";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
-import { isVenueHkEgressEnabled } from "@venue/shared/venueHkEgress";
 
 export { isPolymarketDelayedPending } from "./orderStatus";
 export {
@@ -486,19 +483,10 @@ export const polymarketProvider: PlatformProvider = {
       const gateway = account.gateway || POLYMARKET_CLOB_API;
       const requestPath = balanceQueryPathForSignature(resolveSignatureType(config));
       const url = `${gateway}${requestPath}`;
-      let data: PolymarketBalanceAllowanceResponse | undefined;
-      if (isVenueHkEgressEnabled()) {
-        data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(url, {
-          account,
-          l2Path: BALANCE_PATH,
-        });
-      }
-      else {
-        const headers = await buildL2HeadersFromAccount(account, "GET", BALANCE_PATH);
-        if (!headers)
-          return undefined;
-        data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(url, { headers });
-      }
+      const data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(url, {
+        account,
+        l2Path: BALANCE_PATH,
+      });
       const balance = parseCollateralBalance(data?.balance);
       if (balance === undefined) return undefined;
       const out: AccountBalanceResult = {
@@ -635,29 +623,11 @@ export const polymarketProvider: PlatformProvider = {
         apiBetMoney,
         orderOptions,
       );
-      const bodyStr = JSON.stringify(orderBody);
-
-      const result = isVenueHkEgressEnabled()
-        ? await polymarketPluginPost<PolymarketOrderResponse>(
-          `${gateway}${ORDER_PATH}`,
-          orderBody,
-          { account, l2Path: ORDER_PATH },
-        )
-        : await polymarketPluginPost<PolymarketOrderResponse>(
-          `${gateway}${ORDER_PATH}`,
-          orderBody,
-          {
-            headers: await buildL2Headers(
-              creds.address,
-              creds.apiKey,
-              creds.secret,
-              creds.passphrase,
-              "POST",
-              ORDER_PATH,
-              bodyStr,
-            ),
-          },
-        );
+      const result = await polymarketPluginPost<PolymarketOrderResponse>(
+        `${gateway}${ORDER_PATH}`,
+        orderBody,
+        { account, l2Path: ORDER_PATH },
+      );
 
       if (!isPolymarketOrderAccepted(result)) {
         const diagnostic = diagnosticLines({

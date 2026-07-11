@@ -22,7 +22,6 @@ import {
   type PolymarketMappedMarket,
 } from "./parse";
 import { isValidClobPrice } from "./pmDetection";
-import { isPolymarketHttpTransportReady, POLYMARKET_PLUGIN_REQUIRED_MSG } from "./transport";
 
 const PLATFORM = PLATFORMS.Polymarket;
 const DISCOVERY_MS = 60_000;
@@ -137,7 +136,6 @@ export function startPolymarketCollector(): () => void {
   const matchStore = useMatchStore();
   const marketsById = new Map<string, PolymarketMappedMarket>();
   const assetToMarket = new Map<string, string>();
-  let pluginMissingNotified = false;
 
   function trackedAssetIds(): string[] {
     const ids: string[] = [];
@@ -256,15 +254,6 @@ export function startPolymarketCollector(): () => void {
   const loop = async () => {
     while (!stopped) {
       try {
-        if (!isPolymarketHttpTransportReady()) {
-          if (!pluginMissingNotified) {
-            notifyCollectError("Polymarket", POLYMARKET_PLUGIN_REQUIRED_MSG);
-            pluginMissingNotified = true;
-          }
-          await wait(DISCOVERY_MS);
-          continue;
-        }
-        pluginMissingNotified = false;
         await runDiscovery();
       } catch (err) {
         console.warn("[Polymarket] collect error", err);

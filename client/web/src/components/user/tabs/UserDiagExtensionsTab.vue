@@ -85,21 +85,6 @@ async function save() {
       </p>
     </div>
 
-    <div class="extensions-tab__row">
-      <el-form-item label="HK 出海 relay:" class="extensions-tab__control">
-        <el-switch
-          v-model="extensionPrefs.venueHkEgress"
-          inline-prompt
-          active-text="开启"
-          inactive-text="关闭"
-          size="large"
-        />
-      </el-form-item>
-      <p class="extensions-tab__desc">
-        需出海场馆（Polymarket、Predict.fun 等）HTTP 与 WS 经当前 changmen 服务端（HK VPS）同源 relay 代连，与投注账号 PROXY 无关。生产页默认开启；本地 dev 需在 `.env.local` 设 `VITE_HK_RELAY_ORIGIN` 并手动打开开关。关闭时走 Chrome 扩展代发 HTTP。
-      </p>
-    </div>
-
     <el-divider content-position="left">
       高利润加仓
     </el-divider>

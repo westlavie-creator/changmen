@@ -14,7 +14,6 @@ const defaultPrefs = {
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
   pmAutoExitSell: true,
-  venueHkEgress: false,
 };
 
 describe("extensionPrefs", () => {
@@ -56,20 +55,8 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({ pmAutoExitSell: false }).pmAutoExitSell).toBe(false);
   });
 
-  it("defaults venueHkEgress to false in dev and can enable", () => {
-    expect(normalizeExtensionPrefs({}).venueHkEgress).toBe(false);
-    expect(normalizeExtensionPrefs({ venueHkEgress: true }).venueHkEgress).toBe(true);
-  });
-
-  it("production build defaults venueHkEgress to true when env set", () => {
-    vi.stubEnv("VITE_VENUE_HK_EGRESS_DEFAULT", "1");
-    expect(createDefaultExtensionPrefs().venueHkEgress).toBe(true);
-    expect(normalizeExtensionPrefs({}).venueHkEgress).toBe(true);
-    expect(normalizeExtensionPrefs({ venueHkEgress: false }).venueHkEgress).toBe(false);
-  });
-
-  it("migrates legacy pmHkEgress to venueHkEgress", () => {
-    expect(normalizeExtensionPrefs({ pmHkEgress: true }).venueHkEgress).toBe(true);
+  it("ignores legacy venueHkEgress / pmHkEgress keys", () => {
+    expect(normalizeExtensionPrefs({ venueHkEgress: true, pmHkEgress: true })).toEqual(defaultPrefs);
   });
 
   it("normalizes stakeScaleByProfit", () => {

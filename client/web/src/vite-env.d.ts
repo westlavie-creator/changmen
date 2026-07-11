@@ -5,8 +5,6 @@ interface ImportMetaEnv {
   readonly VITE_API_PROXY?: string;
   readonly VITE_V4_BASE_URL?: string;
   readonly VITE_HK_RELAY_ORIGIN?: string;
-  /** 生产构建为 1 时，新用户默认开启 venueHkEgress */
-  readonly VITE_VENUE_HK_EGRESS_DEFAULT?: string;
   /** @deprecated 使用 VITE_HK_RELAY_ORIGIN */
   readonly VITE_PM_HK_RELAY_ORIGIN?: string;
   readonly VITE_V4_PROXY?: string;

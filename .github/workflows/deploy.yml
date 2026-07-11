@@ -42,8 +42,6 @@ jobs:
         run: npm ci
 
       - name: Build frontend dist
-        env:
-          VITE_VENUE_HK_EGRESS_DEFAULT: "1"
         run: npm run app:build
 
       - name: Pack frontend dist

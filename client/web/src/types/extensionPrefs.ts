@@ -34,11 +34,6 @@ export interface ExtensionPrefs extends Record<string, unknown> {
    * 默认开启（`!== false`）。
    */
   pmAutoExitSell: boolean;
-  /**
-   * 场馆 HK 出海 relay：HTTP/WS 经 changmen VPS（http-relay + ws-forward）代连需出海场馆（PM、Predict.fun 等）。
-   * 生产构建（HK）默认开启；本地 dev 默认关闭。关闭时走 Chrome 扩展代发 HTTP。
-   */
-  venueHkEgress: boolean;
 }
 
 export function createDefaultStakeScaleByProfit(): StakeScaleByProfitPrefs {
@@ -50,20 +45,6 @@ export function createDefaultStakeScaleByProfit(): StakeScaleByProfitPrefs {
   };
 }
 
-function productionVenueHkEgressDefault(): boolean {
-  return import.meta.env.VITE_VENUE_HK_EGRESS_DEFAULT === "1";
-}
-
-function resolveVenueHkEgress(row: Record<string, unknown>): boolean {
-  if (row.venueHkEgress === true || row.pmHkEgress === true)
-    return true;
-  if (row.venueHkEgress === false)
-    return false;
-  if (row.pmHkEgress === false && row.venueHkEgress === undefined)
-    return false;
-  return productionVenueHkEgressDefault();
-}
-
 export function createDefaultExtensionPrefs(): ExtensionPrefs {
   return {
     betRowUi: false,
@@ -71,7 +52,6 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
     pmAutoExitSell: true,
-    venueHkEgress: productionVenueHkEgressDefault(),
   };
 }
 
@@ -100,6 +80,5 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
     pmAutoExitSell: row.pmAutoExitSell !== false,
-    venueHkEgress: resolveVenueHkEgress(row),
   };
 }

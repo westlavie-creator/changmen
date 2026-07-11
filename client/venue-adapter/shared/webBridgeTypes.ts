@@ -58,11 +58,7 @@ export interface AccountStoreBridge {
 }
 
 /** [changmen 扩展] venue-adapter 可读的用户扩展偏好子集 */
-export interface ExtensionPrefsBridge {
-  venueHkEgress?: boolean;
-  /** @deprecated 旧键，读取时兼容 */
-  pmHkEgress?: boolean;
-}
+export type ExtensionPrefsBridge = Record<string, unknown>;
 
 export interface UserStoreBridge {
   userId: number;

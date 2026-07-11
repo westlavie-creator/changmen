@@ -1,25 +1,23 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { isPolymarketFokBuyFilled, isPolymarketOrderAccepted, polymarketProvider } from "./bet";
 import { POLYMARKET_BUILDER_CODE_DEFAULT } from "./builder";
 import { POLYMARKET_CLOB_API } from "./api";
-import { polymarketPluginGet, polymarketPluginPost } from "./transport";
+
+const polymarketPluginGet = vi.hoisted(() => vi.fn());
+const polymarketPluginPost = vi.hoisted(() => vi.fn());
 
 vi.mock("./transport", () => ({
-  polymarketPluginGet: vi.fn(),
-  polymarketPluginPost: vi.fn(),
+  polymarketPluginGet,
+  polymarketPluginPost,
+  polymarketL2Get: (account: PlatformAccount, url: string, l2Path: string) =>
+    polymarketPluginGet(url, { account, l2Path }),
 }));
 
 vi.mock("./pmAutoExitSell", () => ({
   schedulePolymarketAutoExitSellAfterBuy: vi.fn(),
   placePolymarketAutoExitSell: vi.fn(async () => ({ ok: true })),
   clearPolymarketAutoExitSellScheduleForTests: vi.fn(),
-}));
-
-const hkEnabled = vi.hoisted(() => vi.fn(() => false));
-vi.mock("@venue/shared/venueHkEgress", () => ({
-  isVenueHkEgressEnabled: () => hkEnabled(),
 }));
 
 function accountWithToken(token: string, extra: Partial<PlatformAccount> = {}): PlatformAccount {
@@ -36,14 +34,6 @@ function base64Utf8(text: string): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary);
-}
-
-function expectedL2Signature(secret: string, message: string): string {
-  return createHmac("sha256", Buffer.from(secret, "base64"))
-    .update(message)
-    .digest("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
 }
 
 function mockPluginGetWithBook(
@@ -68,11 +58,9 @@ describe("polymarketProvider.getBalance", () => {
     vi.restoreAllMocks();
     vi.mocked(polymarketPluginGet).mockReset();
     vi.mocked(polymarketPluginPost).mockReset();
-    hkEnabled.mockReturnValue(false);
   });
 
-  test("HK 出口走 relay 服务端 L2 签名（不传 POLY 头）", async () => {
-    hkEnabled.mockReturnValue(true);
+  test("走 relay 服务端 L2 签名（account + l2Path）", async () => {
     vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "54877978" });
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xabc",
@@ -90,7 +78,7 @@ describe("polymarketProvider.getBalance", () => {
     );
   });
 
-  test("uses L2 headers to fetch collateral balance", async () => {
+  test("uses relay L2 path to fetch collateral balance", async () => {
     vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "123450000", allowance: "999999999" });
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xabc",
@@ -110,13 +98,10 @@ describe("polymarketProvider.getBalance", () => {
     expect(polymarketPluginGet).toHaveBeenCalledOnce();
     const [url, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
     expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
-    expect(options?.headers).toMatchObject({
-      POLY_ADDRESS: "0xabc",
-      POLY_API_KEY: "key-1",
-      POLY_PASSPHRASE: "pass-1",
-    });
-    expect(options?.headers?.POLY_SIGNATURE).toEqual(expect.any(String));
-    expect(options?.headers?.POLY_TIMESTAMP).toEqual(expect.any(String));
+    expect(options).toEqual(expect.objectContaining({
+      account,
+      l2Path: "/balance-allowance",
+    }));
   });
 
   test("returns raw USDC balance (CNY via getExchange on account)", async () => {
@@ -181,11 +166,10 @@ describe("polymarketProvider.getBalance", () => {
 
     const [url, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
     expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
-    expect(options?.headers).toMatchObject({
-      POLY_ADDRESS: nested.walletAddress,
-      POLY_API_KEY: "key-nested",
-      POLY_PASSPHRASE: "pass-nested",
-    });
+    expect(options).toEqual(expect.objectContaining({
+      account,
+      l2Path: "/balance-allowance",
+    }));
   });
 
   test("accepts flat official api credential json", async () => {
@@ -202,11 +186,10 @@ describe("polymarketProvider.getBalance", () => {
       currency: "USDT",
     });
     const [, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
-    expect(options?.headers).toMatchObject({
-      POLY_ADDRESS: "0x123",
-      POLY_API_KEY: "key-flat",
-      POLY_PASSPHRASE: "pass-flat",
-    });
+    expect(options).toEqual(expect.objectContaining({
+      account,
+      l2Path: "/balance-allowance",
+    }));
   });
 
   test("accepts apiSecret naming from captured storage", async () => {
@@ -225,14 +208,13 @@ describe("polymarketProvider.getBalance", () => {
       currency: "USDT",
     });
     const [, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
-    expect(options?.headers).toMatchObject({
-      POLY_ADDRESS: "0x456",
-      POLY_API_KEY: "key-camel",
-      POLY_PASSPHRASE: "pass-camel",
-    });
+    expect(options).toEqual(expect.objectContaining({
+      account,
+      l2Path: "/balance-allowance",
+    }));
   });
 
-  test("signs the endpoint path without query params like the official client", async () => {
+  test("uses balance path without query in relay l2Path", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "1000000" });
     const account = accountWithToken(JSON.stringify({
@@ -249,9 +231,10 @@ describe("polymarketProvider.getBalance", () => {
 
     const [url, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
     expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
-    expect(options?.headers?.POLY_SIGNATURE).toBe(
-      expectedL2Signature("c2VjcmV0", "1700000000GET/balance-allowance"),
-    );
+    expect(options).toEqual(expect.objectContaining({
+      account,
+      l2Path: "/balance-allowance",
+    }));
   });
 
   test("uses POLY_1271 directly when wallet and funder differ without explicit signature type", async () => {
@@ -326,14 +309,15 @@ describe("polymarketProvider.getBalance", () => {
     expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
   });
 
-  test("returns undefined when api secret is missing", async () => {
+  test("returns undefined when balance relay fails", async () => {
+    vi.mocked(polymarketPluginGet).mockRejectedValue(new Error("missing api secret"));
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xabc",
       apiCreds: { apiKey: "key-1", passphrase: "pass-1" },
     }));
 
     await expect(polymarketProvider.getBalance!(account)).resolves.toBeUndefined();
-    expect(polymarketPluginGet).not.toHaveBeenCalled();
+    expect(polymarketPluginGet).toHaveBeenCalled();
   });
 });
 
@@ -342,11 +326,9 @@ describe("polymarketProvider.betting", () => {
     vi.restoreAllMocks();
     vi.mocked(polymarketPluginGet).mockReset();
     vi.mocked(polymarketPluginPost).mockReset();
-    hkEnabled.mockReturnValue(false);
   });
 
-  test("HK 出口下单走 relay 服务端 L2 签名（不传 POLY 头）", async () => {
-    hkEnabled.mockReturnValue(true);
+  test("下单走 relay 服务端 L2 签名（account + l2Path）", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     mockPluginGetWithBook({
       tick_size: "0.01",
@@ -447,16 +429,10 @@ describe("polymarketProvider.betting", () => {
       },
     });
     expect((body as any).order.signature).toEqual(expect.stringMatching(/^0x[0-9a-f]+$/));
-    expect(options?.headers).toMatchObject({
-      POLY_ADDRESS: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-      POLY_API_KEY: "key-1",
-      POLY_PASSPHRASE: "pass-1",
-    });
-    expect(options?.headers?.POLY_BUILDER_API_KEY).toBeUndefined();
-    expect(options?.headers?.POLY_BUILDER_SIGNATURE).toBeUndefined();
-    expect(options?.headers?.POLY_SIGNATURE).toBe(
-      expectedL2Signature("c2VjcmV0", `1700000000POST/order${JSON.stringify(body)}`),
-    );
+    expect(options).toEqual(expect.objectContaining({
+      account,
+      l2Path: "/order",
+    }));
   });
 
   test("uses market order price from book depth for FOK buy amount", async () => {
@@ -1148,14 +1124,10 @@ describe("polymarketProvider.getOrders", () => {
 
     const tradesCall = vi.mocked(polymarketPluginGet).mock.calls.find(([url]) => url.includes("/data/trades"));
     expect(tradesCall?.[0]).toContain("/data/trades?after=");
-    expect(tradesCall?.[1]?.headers).toMatchObject({
-      POLY_ADDRESS: "0xabc",
-      POLY_API_KEY: "key-1",
-      POLY_PASSPHRASE: "pass-1",
-    });
-    expect(tradesCall?.[1]?.headers?.POLY_SIGNATURE).toBe(
-      expectedL2Signature("c2VjcmV0", "1700100000GET/data/trades"),
-    );
+    expect(tradesCall?.[1]).toEqual(expect.objectContaining({
+      account,
+      l2Path: "/data/trades",
+    }));
   });
 
   test("scales mapped order amounts to CNY display via USDT exchange", async () => {
@@ -1202,9 +1174,10 @@ describe("polymarketProvider.getOrders", () => {
   });
 
   test("returns empty array when credentials are missing", async () => {
+    vi.mocked(polymarketPluginGet).mockRejectedValue(new Error("missing credentials"));
     const orders = await polymarketProvider.getOrders!(accountWithToken("{}"));
     expect(orders).toEqual([]);
-    expect(polymarketPluginGet).not.toHaveBeenCalled();
+    expect(polymarketPluginGet).toHaveBeenCalled();
   });
 });
 

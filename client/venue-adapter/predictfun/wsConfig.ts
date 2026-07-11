@@ -1,7 +1,5 @@
 import { changmenHttpBaseToWs } from "@venue/shared/changmenWsBase";
 import { resolveHkRelayHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
-import { isVenueHkEgressEnabled } from "@venue/shared/venueHkEgress";
-import { PREDICT_FUN_WS } from "./api";
 
 export const PREDICT_FUN_WS_FORWARD_PATH = "/esport/ws-forward/PREDICTFUN-MARKET";
 
@@ -10,9 +8,7 @@ function changmenPredictWsUrl(path: string): string {
   return `${base}${path}`;
 }
 
-/** HK 出口走 ws-forward；否则浏览器直连（需可访问 predict.fun） */
+/** Predict.fun WS 经 changmen ws-forward（API Key 由 VPS .env 注入） */
 export function resolvePredictFunMarketWsUrl(): string {
-  if (isVenueHkEgressEnabled())
-    return changmenPredictWsUrl(PREDICT_FUN_WS_FORWARD_PATH);
-  return PREDICT_FUN_WS;
+  return changmenPredictWsUrl(PREDICT_FUN_WS_FORWARD_PATH);
 }

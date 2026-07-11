@@ -1,13 +1,7 @@
-/** Predict.fun REST — 扩展 background 或 changmen HK http-relay（与 Polymarket 同需出海） */
+/** Predict.fun REST — changmen HK http-relay（固定 VPS 出海） */
 
-import { a8PluginGet, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { changmenRelayHttpRequest, parseJsonLoose } from "@changmen/client-core/shared/platformHttp";
-import { isVenueHkEgressEnabled } from "@venue/shared/venueHkEgress";
 
-export const PREDICT_FUN_PLUGIN_REQUIRED_MSG =
-  "Predict.fun 采集需要 Gamebet 扩展，或在扩展页开启「HK 出海 relay」（经 changmen VPS 代连 predict.fun）";
-
-const PLUGIN_TIMEOUT_MS = 60_000;
 const PREDICT_FUN_RELAY_ORIGIN = "https://predict.fun/";
 
 export function resolvePredictFunApiKey(): string {
@@ -17,27 +11,6 @@ export function resolvePredictFunApiKey(): string {
   return fromEnv;
 }
 
-function unwrapPluginResponse<T>(raw: unknown): T {
-  if (raw instanceof Error)
-    throw raw;
-  if (raw && typeof raw === "object" && "message" in raw && !("status" in raw) && !("data" in raw)) {
-    const message = String((raw as { message?: unknown }).message || "Predict.fun API 请求失败");
-    throw new Error(message);
-  }
-  if (raw && typeof raw === "object" && "status" in raw && "data" in raw) {
-    const res = raw as { status: number; data: unknown };
-    if (res.status >= 400) {
-      const text = typeof res.data === "string" ? res.data : JSON.stringify(res.data ?? "");
-      throw new Error(text.slice(0, 160) || `HTTP ${res.status}`);
-    }
-    return res.data as T;
-  }
-  if (raw && typeof raw === "object" && "data" in raw) {
-    return (raw as { data?: unknown }).data as T;
-  }
-  return raw as T;
-}
-
 function unwrapRelayResponse<T>(text: string): T {
   const trimmed = text.trim();
   if (!trimmed)
@@ -45,11 +18,6 @@ function unwrapRelayResponse<T>(text: string): T {
   if (trimmed.startsWith("{") || trimmed.startsWith("["))
     return parseJsonLoose(trimmed) as T;
   return trimmed as T;
-}
-
-function requirePluginRuntime(): void {
-  if (!hasA8PluginRuntime())
-    throw new Error(PREDICT_FUN_PLUGIN_REQUIRED_MSG);
 }
 
 async function predictFunRelayGet<T>(
@@ -65,28 +33,19 @@ async function predictFunRelayGet<T>(
       ...(headers || {}),
     },
   });
+  if (res.status >= 400)
+    throw new Error(res.text?.trim() || `HTTP ${res.status}`);
   return unwrapRelayResponse<T>(res.text);
 }
 
-/** 扩展 background 或 HK http-relay GET */
+/** Predict.fun REST GET（经 changmen http-relay） */
 export async function predictFunHttpGet<T>(
   url: string,
   headers?: Record<string, string>,
 ): Promise<T> {
-  if (isVenueHkEgressEnabled())
-    return predictFunRelayGet<T>(url, headers);
-  requirePluginRuntime();
-  const raw = await a8PluginGet(url, {
-    timeout: PLUGIN_TIMEOUT_MS,
-    withCredentials: false,
-    headers,
-  });
-  if (raw == null)
-    throw new Error("Predict.fun API 无响应");
-  return unwrapPluginResponse<T>(raw);
+  return predictFunRelayGet<T>(url, headers);
 }
 
-/** 采集 HTTP 是否可用（扩展 或 HK 出海 relay） */
 export function isPredictFunHttpTransportReady(): boolean {
-  return isVenueHkEgressEnabled() || hasA8PluginRuntime();
+  return true;
 }
