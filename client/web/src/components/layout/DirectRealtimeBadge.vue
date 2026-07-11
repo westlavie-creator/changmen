@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import type { DirectRealtimeStatus } from "@venue/shared/directRealtimeStatus";
 import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
 import {
@@ -27,6 +27,22 @@ const venueWsStatuses = ref<VenueWsStatusEntry[]>(listVenueWsStatuses());
 const obSourceMode = ref<ObMqttSourceMode>(getObMqttSourceMode());
 const raySourceMode = ref<RayWsSourceMode>(getRayWsSourceMode());
 let venueWsUnsub: (() => void) | undefined;
+
+/** 第二行：Polymarket / Predict.fun / DEX / Limitless WS */
+const VENUE_WS_SECOND_ROW_IDS = new Set([
+  "pm-market",
+  "pm-user",
+  "predictfun-market",
+  "dex",
+  "lm-market",
+]);
+
+const venueWsFirstRow = computed(() =>
+  venueWsStatuses.value.filter(entry => !VENUE_WS_SECOND_ROW_IDS.has(entry.id)),
+);
+const venueWsSecondRow = computed(() =>
+  venueWsStatuses.value.filter(entry => VENUE_WS_SECOND_ROW_IDS.has(entry.id)),
+);
 
 onMounted(() => {
   venueWsUnsub = subscribeVenueWsStatus(() => {
@@ -152,42 +168,54 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 <template>
   <div
     class="direct-realtime-bar"
-    aria-label="直连推送状态 IA OB RAY TF PM-M PM-U LM PF DEX HUB"
+    aria-label="直连推送状态 IA OB RAY TF HUB；第二行 PM PF DEX LM"
   >
-    <span
-      v-for="status in statuses"
-      :key="status.platform"
-      class="direct-realtime-item"
-      :class="itemClass(status)"
-      :title="tooltip(status)"
-      :role="isClickablePlatform(status.platform) ? 'button' : undefined"
-      :tabindex="isClickablePlatform(status.platform) ? 0 : undefined"
-      @click="handleStatusClick(status)"
-      @keydown.enter.prevent="handleStatusClick(status)"
-      @keydown.space.prevent="handleStatusClick(status)"
-    >
-      <span class="direct-realtime-dot" :class="dotClass(status)" />
-      {{ status.platform }}
-    </span>
-    <span
-      v-for="entry in venueWsStatuses"
-      :key="entry.id"
-      class="direct-realtime-item"
-      :title="venueWsTooltip(entry)"
-    >
-      <span class="direct-realtime-dot" :class="venueWsDotClass(entry.status)" />
-      {{ entry.label }}
-    </span>
+    <div class="direct-realtime-row direct-realtime-row--primary">
+      <span
+        v-for="status in statuses"
+        :key="status.platform"
+        class="direct-realtime-item"
+        :class="itemClass(status)"
+        :title="tooltip(status)"
+        :role="isClickablePlatform(status.platform) ? 'button' : undefined"
+        :tabindex="isClickablePlatform(status.platform) ? 0 : undefined"
+        @click="handleStatusClick(status)"
+        @keydown.enter.prevent="handleStatusClick(status)"
+        @keydown.space.prevent="handleStatusClick(status)"
+      >
+        <span class="direct-realtime-dot" :class="dotClass(status)" />
+        {{ status.platform }}
+      </span>
+      <span
+        v-for="entry in venueWsFirstRow"
+        :key="entry.id"
+        class="direct-realtime-item"
+        :title="venueWsTooltip(entry)"
+      >
+        <span class="direct-realtime-dot" :class="venueWsDotClass(entry.status)" />
+        {{ entry.label }}
+      </span>
+    </div>
+    <div class="direct-realtime-row direct-realtime-row--venue-ws">
+      <span
+        v-for="entry in venueWsSecondRow"
+        :key="entry.id"
+        class="direct-realtime-item"
+        :title="venueWsTooltip(entry)"
+      >
+        <span class="direct-realtime-dot" :class="venueWsDotClass(entry.status)" />
+        {{ entry.label }}
+      </span>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .direct-realtime-bar {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
   max-width: min(96vw, 720px);
   padding: 6px 10px;
   border-radius: 6px;
@@ -198,6 +226,20 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
   line-height: 1.2;
   color: #ffffffd9;
   user-select: none;
+}
+
+.direct-realtime-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.direct-realtime-row--venue-ws {
+  padding-top: 2px;
+  border-top: 1px solid #ffffff14;
 }
 
 .direct-realtime-item {
