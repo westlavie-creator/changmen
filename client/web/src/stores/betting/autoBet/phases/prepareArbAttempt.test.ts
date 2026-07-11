@@ -39,6 +39,7 @@ const extensionPrefs = vi.hoisted(() => ({
     enabled: false,
     minImplied: 1.05,
     multiplier: 2,
+    skipAccountRateOnScale: false,
   },
 }));
 
@@ -212,13 +213,14 @@ describe("prepareArbAttempt stakeScaleByProfit [changmen 扩展]", () => {
     // implied ≈ 1/(1/2.1+1/2.2) ≈ 1.074 > 1.05
     vi.spyOn(bet, "getOrderOptions").mockReturnValue([legA, legB] as never);
 
-    await prepareArbAttempt({
+    const result = await prepareArbAttempt({
       match,
       bet,
       config,
       setMessage: () => {},
     });
 
+    expect(result?.stakeScale).toBe(2);
     expect(legA.betMoney).toBe(200);
     expect(legB.betMoney).toBe(190);
     expect(config.betMoney).toBe(100);

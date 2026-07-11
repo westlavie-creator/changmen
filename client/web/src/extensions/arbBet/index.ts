@@ -10,7 +10,7 @@
  * |------|-----|----------|
  * | 比例 9999 单边下注 | 缺任一侧账号则 `continue` | 本侧可选预检（扩展页开关）、不自动下单；对侧真下单 + 负 `linkId` |
  * | 9999 用正EV金额 | 无 | `singleLeg9999UseValueBetMoney`：真下单腿改用 `valueBetMoney`（预检腿不动） |
- * | 高利润加仓 | 无 | `stakeScaleByProfit`：implied 达阈值时两腿注码同乘（扩展页可配） |
+ * | 高利润加仓 | 无 | `stakeScaleByProfit`：implied 达阈值时两腿注码同乘；可选忽略账号比例 |
  * | Telegram | 仅成功推单等（见 messageStore） | 同左 + 可选套利进度报告（`extensions/notify`） |
  * | BetRow 红线 / flash | 无 / bundle 内联 | `extensions/arbBet/ui` |
  *
@@ -44,6 +44,7 @@ export {
 export {
   applyStakeScaleByProfit,
   shouldScaleStakeByProfit,
+  shouldSkipAccountRateOnStakeScale,
 } from "@/extensions/arbBet/stakeScaleByProfit";
 
 export {

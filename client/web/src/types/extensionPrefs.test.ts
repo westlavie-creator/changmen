@@ -5,6 +5,7 @@ const defaultStakeScale = {
   enabled: false,
   minImplied: 1.05,
   multiplier: 2,
+  skipAccountRateOnScale: false,
 };
 
 const defaultPrefs = {
@@ -58,10 +59,20 @@ describe("extensionPrefs", () => {
 
   it("normalizes stakeScaleByProfit", () => {
     expect(normalizeExtensionPrefs({
-      stakeScaleByProfit: { enabled: true, minImplied: 1.08, multiplier: 1.5 },
+      stakeScaleByProfit: {
+        enabled: true,
+        minImplied: 1.08,
+        multiplier: 1.5,
+        skipAccountRateOnScale: true,
+      },
     })).toEqual({
       ...defaultPrefs,
-      stakeScaleByProfit: { enabled: true, minImplied: 1.08, multiplier: 1.5 },
+      stakeScaleByProfit: {
+        enabled: true,
+        minImplied: 1.08,
+        multiplier: 1.5,
+        skipAccountRateOnScale: true,
+      },
     });
   });
 
@@ -72,6 +83,7 @@ describe("extensionPrefs", () => {
       enabled: true,
       minImplied: 1.05,
       multiplier: 2,
+      skipAccountRateOnScale: false,
     });
   });
 });

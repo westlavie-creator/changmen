@@ -19,6 +19,8 @@ export interface ArbBetReady {
   /** 比例 9999 触发：本侧仅预检，对侧 live 腿真下单 */
   singleLegByRate: boolean;
   linkId: number;
+  /** [changmen 扩展] 高利润加仓倍数；1 表示未触发 */
+  stakeScale: number;
 }
 
 export interface ArbBetChecked extends ArbBetReady {

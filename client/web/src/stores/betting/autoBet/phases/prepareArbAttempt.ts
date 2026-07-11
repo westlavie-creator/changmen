@@ -82,7 +82,11 @@ export async function prepareArbAttempt(
   });
   trace?.event("检测", `平台 ${providerKeys.join("、")}`);
   if (stakeScale !== 1) {
-    trace?.event("加仓", `利润达阈值，注码 ×${stakeScale}`);
+    const scalePrefs = useUserStore().extensionPrefs.stakeScaleByProfit;
+    const scaleDetail = scalePrefs.skipAccountRateOnScale
+      ? `利润达阈值，注码 ×${stakeScale}（忽略账号比例）`
+      : `利润达阈值，注码 ×${stakeScale}`;
+    trace?.event("加仓", scaleDetail);
   }
 
   // [A8 可证实] `lBe`：GetOrderOptions 后立即 `linkId=Date.now()`（9999 扩展再取负）
@@ -242,5 +246,6 @@ export async function prepareArbAttempt(
     betBothLegs,
     singleLegByRate,
     linkId,
+    stakeScale,
   };
 }

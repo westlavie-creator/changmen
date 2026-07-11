@@ -1,6 +1,7 @@
 import type { BetOption } from "@/models/betOption";
 import type { ArbBetAttemptParams, ArbBetChecked, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
 import { isSingleLegPrecheckOnly } from "@/domain/betting/singleLegRate";
+import { shouldSkipAccountRateOnStakeScale } from "@/extensions/arbBet/stakeScaleByProfit";
 import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
 import { a8Tip } from "@/shared/a8Notify";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
@@ -9,6 +10,7 @@ import { wait } from "@/shared/wait";
 import { getPolymarketPmSportBlockReasonFromOption } from "@venue/polymarket";
 import { PLATFORMS } from "@/shared/platform";
 import { useAccountStore } from "@/stores/accountStore";
+import { useUserStore } from "@/stores/userStore";
 import {
   scheduleActiveBetRunRemoval,
   syncActiveBetFail,
@@ -20,6 +22,25 @@ function stripPrecheckError(raw?: string): string {
   if (!raw)
     return "";
   return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function resolveSkipAccountRate(
+  side: "A" | "B",
+  ready: ArbBetReady,
+): boolean {
+  if (isSingleLegPrecheckOnly(
+    side,
+    ready.accountA,
+    ready.accountB,
+    ready.checkAccountA,
+    ready.checkAccountB,
+  )) {
+    return true;
+  }
+  return shouldSkipAccountRateOnStakeScale(
+    ready.stakeScale,
+    useUserStore().extensionPrefs.stakeScaleByProfit,
+  );
 }
 
 /** 预检双腿；失败时 trace.finish 并返回 null */
@@ -76,24 +97,12 @@ export async function checkArbLegs(
   const checkTasks: Promise<BetOption>[] = [];
   if (checkAccountA) {
     checkTasks.push(accountStore.checkBetting(checkAccountA, legA, {
-      skipAccountRate: isSingleLegPrecheckOnly(
-        "A",
-        accountA,
-        accountB,
-        checkAccountA,
-        checkAccountB,
-      ),
+      skipAccountRate: resolveSkipAccountRate("A", ready),
     }));
   }
   if (checkAccountB) {
     checkTasks.push(accountStore.checkBetting(checkAccountB, legB, {
-      skipAccountRate: isSingleLegPrecheckOnly(
-        "B",
-        accountA,
-        accountB,
-        checkAccountA,
-        checkAccountB,
-      ),
+      skipAccountRate: resolveSkipAccountRate("B", ready),
     }));
   }
   const checked = await Promise.all(checkTasks);

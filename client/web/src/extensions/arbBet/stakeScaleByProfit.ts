@@ -36,3 +36,11 @@ export function applyStakeScaleByProfit(
   legB.betMoney *= multiplier;
   return multiplier;
 }
+
+/** 加仓触发且扩展开启时，预检/下注不按账号比例系数缩放 Plan 金额 */
+export function shouldSkipAccountRateOnStakeScale(
+  stakeScale: number,
+  prefs: StakeScaleByProfitPrefs | undefined | null,
+): boolean {
+  return stakeScale > 1 && prefs?.skipAccountRateOnScale === true;
+}

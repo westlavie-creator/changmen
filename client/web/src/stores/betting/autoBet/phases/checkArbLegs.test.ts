@@ -13,6 +13,19 @@ vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ checkBetting }),
 }));
 
+const extensionPrefs = vi.hoisted(() => ({
+  stakeScaleByProfit: {
+    enabled: false,
+    minImplied: 1.05,
+    multiplier: 2,
+    skipAccountRateOnScale: false,
+  },
+}));
+
+vi.mock("@/stores/userStore", () => ({
+  useUserStore: () => ({ extensionPrefs }),
+}));
+
 vi.mock("@/stores/oddsStore", () => ({
   useOddsStore: () => ({ getEntry }),
 }));
@@ -28,7 +41,7 @@ function account(provider: string): PlatformAccount {
   return { provider } as PlatformAccount;
 }
 
-function ready(legA: BetOption, legB: BetOption): ArbBetReady {
+function ready(legA: BetOption, legB: BetOption, stakeScale = 1): ArbBetReady {
   return {
     legA,
     legB,
@@ -38,6 +51,7 @@ function ready(legA: BetOption, legB: BetOption): ArbBetReady {
     betBothLegs: true,
     singleLegByRate: false,
     linkId: 1_700_000_000_000,
+    stakeScale,
   };
 }
 
@@ -51,6 +65,7 @@ const params: ArbBetAttemptParams = {
 describe("checkArbLegs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    extensionPrefs.stakeScaleByProfit.skipAccountRateOnScale = false;
     getEntry.mockReturnValue(undefined);
     checkBetting.mockImplementation(async (_acc, option: BetOption) => {
       option.data = { ok: true };
@@ -132,6 +147,27 @@ describe("checkArbLegs", () => {
     );
     expect(out!.accountA).toBeUndefined();
     expect(out!.accountB).toBe(rayBet);
+  });
+
+  it("加仓触发且开启忽略比例时，双腿预检 skipAccountRate", async () => {
+    extensionPrefs.stakeScaleByProfit.skipAccountRateOnScale = true;
+    const legA = leg("PB", 200, 1.8);
+    const legB = leg("RAY", 110, 3.2);
+
+    const out = await checkArbLegs(params, ready(legA, legB, 2));
+
+    expect(out).not.toBeNull();
+    expect(checkBetting).toHaveBeenCalledTimes(2);
+    expect(checkBetting).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: "PB" }),
+      { skipAccountRate: true },
+    );
+    expect(checkBetting).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: "RAY" }),
+      { skipAccountRate: true },
+    );
   });
 
   it("9999 腿预检失败时整笔阻断", async () => {

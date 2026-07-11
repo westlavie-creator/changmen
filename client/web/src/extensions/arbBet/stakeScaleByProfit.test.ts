@@ -3,6 +3,7 @@ import { BetOption } from "@/models/betOption";
 import {
   applyStakeScaleByProfit,
   shouldScaleStakeByProfit,
+  shouldSkipAccountRateOnStakeScale,
 } from "@/extensions/arbBet/stakeScaleByProfit";
 import { createDefaultStakeScaleByProfit } from "@/types/extensionPrefs";
 
@@ -34,7 +35,14 @@ describe("stakeScaleByProfit", () => {
   });
 
   it("ignores multiplier 1", () => {
-    expect(shouldScaleStakeByProfit(1.1, { enabled: true, minImplied: 1.05, multiplier: 1 }))
+    expect(shouldScaleStakeByProfit(1.1, { enabled: true, minImplied: 1.05, multiplier: 1, skipAccountRateOnScale: false }))
       .toBe(false);
+  });
+
+  it("skipAccountRateOnScale only when stake scaled", () => {
+    const prefs = { enabled: true, minImplied: 1.05, multiplier: 2, skipAccountRateOnScale: true };
+    expect(shouldSkipAccountRateOnStakeScale(2, prefs)).toBe(true);
+    expect(shouldSkipAccountRateOnStakeScale(1, prefs)).toBe(false);
+    expect(shouldSkipAccountRateOnStakeScale(2, { ...prefs, skipAccountRateOnScale: false })).toBe(false);
   });
 });

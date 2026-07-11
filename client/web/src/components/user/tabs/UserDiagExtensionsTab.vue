@@ -151,6 +151,21 @@ async function save() {
       </p>
     </div>
 
+    <div class="extensions-tab__row">
+      <el-form-item label="加仓忽略账号比例:" class="extensions-tab__control">
+        <el-switch
+          v-model="extensionPrefs.stakeScaleByProfit.skipAccountRateOnScale"
+          inline-prompt
+          active-text="开启"
+          inactive-text="关闭"
+          size="large"
+        />
+      </el-form-item>
+      <p class="extensions-tab__desc">
+        开：触发加仓时，预检/下注按 Plan 金额换算，不乘账号比例系数。关：仍按账号比例配置缩放（默认）。
+      </p>
+    </div>
+
     <div class="flex flex-center">
       <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
         &nbsp;保存

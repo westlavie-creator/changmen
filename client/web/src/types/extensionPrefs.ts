@@ -9,6 +9,11 @@ export interface StakeScaleByProfitPrefs {
   minImplied: number;
   /** 触发后对两腿 betMoney 同乘的倍数（默认 2） */
   multiplier: number;
+  /**
+   * 触发加仓时，预检/下注换算是否忽略账号比例系数（rateConfig）。
+   * 默认关闭：仍按账号比例缩放。
+   */
+  skipAccountRateOnScale: boolean;
 }
 
 /** [changmen 扩展] 用户中心「扩展」选项卡配置（Client_SaveData key=Extensions） */
@@ -41,6 +46,7 @@ export function createDefaultStakeScaleByProfit(): StakeScaleByProfitPrefs {
     enabled: false,
     minImplied: 1.05,
     multiplier: 2,
+    skipAccountRateOnScale: false,
   };
 }
 
@@ -66,6 +72,7 @@ function normalizeStakeScaleByProfit(raw: unknown): StakeScaleByProfitPrefs {
     enabled: row.enabled === true,
     minImplied: Number.isFinite(minImplied) && minImplied > 1 ? minImplied : defaults.minImplied,
     multiplier: Number.isFinite(multiplier) && multiplier > 0 ? multiplier : defaults.multiplier,
+    skipAccountRateOnScale: row.skipAccountRateOnScale === true,
   };
 }
 
