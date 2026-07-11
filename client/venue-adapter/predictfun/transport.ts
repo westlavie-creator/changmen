@@ -2,10 +2,10 @@
 
 import { a8PluginGet, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { changmenRelayHttpRequest, parseJsonLoose } from "@changmen/client-core/shared/platformHttp";
-import { isPolymarketHkEgressEnabled } from "@venue/polymarket/pmHkEgress";
+import { isVenueHkEgressEnabled } from "@venue/shared/venueHkEgress";
 
 export const PREDICT_FUN_PLUGIN_REQUIRED_MSG =
-  "Predict.fun 采集需要 Gamebet 扩展，或在扩展页开启「PM HK出口」（经 changmen VPS 代连 predict.fun）";
+  "Predict.fun 采集需要 Gamebet 扩展，或在扩展页开启「HK 出海 relay」（经 changmen VPS 代连 predict.fun）";
 
 const PLUGIN_TIMEOUT_MS = 60_000;
 const PREDICT_FUN_RELAY_ORIGIN = "https://predict.fun/";
@@ -73,7 +73,7 @@ export async function predictFunHttpGet<T>(
   url: string,
   headers?: Record<string, string>,
 ): Promise<T> {
-  if (isPolymarketHkEgressEnabled())
+  if (isVenueHkEgressEnabled())
     return predictFunRelayGet<T>(url, headers);
   requirePluginRuntime();
   const raw = await a8PluginGet(url, {
@@ -86,7 +86,7 @@ export async function predictFunHttpGet<T>(
   return unwrapPluginResponse<T>(raw);
 }
 
-/** 采集 HTTP 是否可用（扩展 或 PM HK 出口 relay） */
+/** 采集 HTTP 是否可用（扩展 或 HK 出海 relay） */
 export function isPredictFunHttpTransportReady(): boolean {
-  return isPolymarketHkEgressEnabled() || hasA8PluginRuntime();
+  return isVenueHkEgressEnabled() || hasA8PluginRuntime();
 }

@@ -73,7 +73,7 @@ polymarket-sports ──WS──► 写 client_matches.pm_sport
 | `npm run db:apply` | 应用 RDS 迁移（backend workspace） |
 | `npm run check:boundaries` | 客户端 / 服务端 import 边界检查 |
 
-Windows 一键：`BAT\dev.bat`（backend + Vite，内嵌 matchMerge）。生产 PM2：`ecosystem.config.cjs`（`changmen-web`、`changmen-pm-sports`）。
+Windows 一键：`BAT\dev.bat`（backend + Vite，内嵌 matchMerge）。生产 PM2：`ecosystem.config.cjs`（`changmen-esport`、`changmen-pm-sports`）。
 
 ## 脚本在哪
 

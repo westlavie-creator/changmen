@@ -10,8 +10,8 @@ vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
   a8PluginPost: vi.fn(),
 }));
 
-vi.mock("./pmHkEgress", () => ({
-  isPolymarketHkEgressEnabled: () => hkEnabled(),
+vi.mock("@venue/shared/venueHkEgress", () => ({
+  isVenueHkEgressEnabled: () => hkEnabled(),
 }));
 
 vi.mock("@changmen/client-core/shared/platformHttp", () => ({

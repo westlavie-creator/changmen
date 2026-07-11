@@ -68,11 +68,11 @@ function venueChunkName(id: string): string | undefined {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "");
-  const hkRelayTarget = String(env.VITE_PM_HK_RELAY_ORIGIN || "").trim().replace(/\/+$/, "");
+  const hkRelayTarget = String(env.VITE_HK_RELAY_ORIGIN || env.VITE_PM_HK_RELAY_ORIGIN || "").trim().replace(/\/+$/, "");
 
   const proxy: Record<string, { target: string; changeOrigin: boolean; ws?: boolean }> = {};
   if (hkRelayTarget) {
-    // PM HK 出口：dev 同源走 Vite 代理到香港 VPS，避免浏览器跨域 OPTIONS 到 3560 / 外网 IP
+    // 场馆 HK 出海 relay：dev 同源走 Vite 代理到香港 VPS，避免浏览器跨域 OPTIONS 到 3560 / 外网 IP
     proxy["/esport/http-relay"] = { target: hkRelayTarget, changeOrigin: true };
     proxy["/esport/ws-forward/PM-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
     proxy["/esport/ws-forward/PM-USER"] = { target: hkRelayTarget, changeOrigin: true, ws: true };

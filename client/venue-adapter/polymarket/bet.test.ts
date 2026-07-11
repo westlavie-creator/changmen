@@ -18,8 +18,8 @@ vi.mock("./pmAutoExitSell", () => ({
 }));
 
 const hkEnabled = vi.hoisted(() => vi.fn(() => false));
-vi.mock("./pmHkEgress", () => ({
-  isPolymarketHkEgressEnabled: () => hkEnabled(),
+vi.mock("@venue/shared/venueHkEgress", () => ({
+  isVenueHkEgressEnabled: () => hkEnabled(),
 }));
 
 function accountWithToken(token: string, extra: Partial<PlatformAccount> = {}): PlatformAccount {

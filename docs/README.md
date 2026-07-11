@@ -11,7 +11,7 @@
 | [DATA_STORAGE.md](./DATA_STORAGE.md) | 云库 vs 本机 JSON、迁移目录、快照生命周期与 archive |
 | [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) | 客户端 / 服务端目录边界 |
 | [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) | 生产拓扑、环境变量、PM2 |
-| [../ecosystem.config.cjs](../ecosystem.config.cjs) | `changmen-web` + `changmen-pm-sports` 进程清单 |
+| [../ecosystem.config.cjs](../ecosystem.config.cjs) | `changmen-esport` + `changmen-pm-sports` 进程清单 |
 
 ## 应用
 

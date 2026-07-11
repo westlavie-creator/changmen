@@ -131,6 +131,7 @@ jobs:
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
             -o BatchMode=yes -o IdentitiesOnly=yes \
             deploy/scripts/apply-repo-archive.sh deploy/scripts/deploy-server-remote.sh \
+            deploy/scripts/sync-hk-relay-env-remote.sh \
             "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_DEPLOY_SCRIPTS}/"
 
       - name: Apply archive and service deploy (hongkong)
@@ -139,12 +140,14 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "set -euo pipefail
+            sed -i 's/\\r$//' ${REMOTE_DEPLOY_SCRIPTS}/*.sh
             export DEPLOY_REPO='${DEPLOY_REPO:-/root/changmen}' CHANGMEN_DEPLOY_SCRIPTS='${REMOTE_DEPLOY_SCRIPTS}' DEPLOY_SKIP_APP_BUILD=1 DEPLOY_SKIP_POSTCHECK=1 DEPLOY_FULL='${DEPLOY_FULL}'
             if [ ! -d \"\${DEPLOY_REPO}/server/backend\" ] && [ -d /root/gamebet ]; then
               echo '==> migrate /root/gamebet -> '\${DEPLOY_REPO}
               mv /root/gamebet \"\${DEPLOY_REPO}\"
             fi
-            bash ${REMOTE_DEPLOY_SCRIPTS}/apply-repo-archive.sh /tmp/changmen-repo.tgz"
+            bash ${REMOTE_DEPLOY_SCRIPTS}/apply-repo-archive.sh /tmp/changmen-repo.tgz
+            find \"\${DEPLOY_REPO}/deploy/scripts\" -name '*.sh' -exec sed -i 's/\\r$//' {} +"
 
       - name: Upload frontend dist archive (hongkong)
         run: |
@@ -184,6 +187,20 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cd '${DEPLOY_REPO:-/root/changmen}/server/backend' && node scripts/post-deploy-check.mjs"
+
+      - name: Sync HK relay env (hongkong)
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -e
+            repo='${DEPLOY_REPO:-/root/changmen}'
+            for i in 1 2 3 4 5; do
+              if [ -f \"\$repo/server/backend/.env\" ]; then break; fi
+              sleep 1
+            done
+            test -f \"\$repo/server/backend/.env\"
+            cd \"\$repo\" && bash deploy/scripts/sync-hk-relay-env-remote.sh"
 
       - name: Verify production homepage (hongkong)
         run: |

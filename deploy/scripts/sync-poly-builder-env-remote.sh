@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Upsert Polymarket Builder env on VPS .env, then restart changmen-web.
+# Upsert Polymarket Builder env on VPS .env, then restart changmen-esport.
 set -euo pipefail
 
 ENV_FILE="${DEPLOY_REPO:-/root/changmen}/server/backend/.env"
@@ -34,8 +34,8 @@ echo "POLY_BUILDER_API_KEY=${api_key:0:8}********"
 echo "POLY_BUILDER_CODE=${code:0:10}********"
 
 if command -v pm2 >/dev/null 2>&1; then
-  pm2 restart changmen-web --update-env
-  pm2 status changmen-web || true
+  pm2 restart changmen-esport --update-env
+  pm2 status changmen-esport || true
 else
   echo "WARN: pm2 not found, restart backend manually"
 fi

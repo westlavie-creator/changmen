@@ -3,7 +3,7 @@ import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
 import type { PredictOrderbookData } from "./parse";
 import { resolvePredictFunApiKey } from "./transport";
 import { resolvePredictFunMarketWsUrl } from "./wsConfig";
-import { isPolymarketHkEgressEnabled } from "@venue/polymarket/pmHkEgress";
+import { isVenueHkEgressEnabled } from "@venue/shared/venueHkEgress";
 
 const WS_RECONNECT_MS = 5_000;
 const HEARTBEAT_TOPIC = "heartbeat";
@@ -51,7 +51,7 @@ interface PredictWsMessage {
 function buildDirectWsUrl(): string {
   const base = resolvePredictFunMarketWsUrl();
   // HK ws-forward：上游 API Key 由 VPS .env 注入，浏览器 URL 不带 query
-  if (isPolymarketHkEgressEnabled())
+  if (isVenueHkEgressEnabled())
     return base;
   const apiKey = resolvePredictFunApiKey();
   if (!apiKey)

@@ -299,7 +299,7 @@ function registerMatcherApiRoutes(app) {
     if (isMatcherProduction()) {
       return res.status(403).json({
         ok: false,
-        error: "生产环境禁止停止内嵌合并循环，请重启 changmen-web",
+        error: "生产环境禁止停止内嵌合并循环，请重启 changmen-esport",
       });
     }
     try {

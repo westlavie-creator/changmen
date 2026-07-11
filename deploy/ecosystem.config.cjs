@@ -12,13 +12,13 @@ const APP_ROOT = path.join(__dirname, "..");
 module.exports = {
   apps: [
     {
-      name: "changmen-web",
+      name: "changmen-esport",
       cwd: path.join(APP_ROOT, "server/backend"),
       script: "scripts/start-db.mjs",
       interpreter: "node",
       env: {
         NODE_ENV: "production",
-        DATABASE_APPLICATION_NAME: "changmen-web",
+        DATABASE_APPLICATION_NAME: "changmen-esport",
       },
     },
     {

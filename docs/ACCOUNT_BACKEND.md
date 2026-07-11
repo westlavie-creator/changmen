@@ -66,4 +66,4 @@ node scripts\audit-accounts-full.mjs
 
 部署脚本顺序：backup（players 快照）→ owner 回填 → apply 028 → jsonb→players backfill → pm2 restart。
 
-手动改 RDS 后 `loadProfileById(uid)` 或 pm2 restart `changmen-web` 刷新内存账号缓存。
+手动改 RDS 后 `loadProfileById(uid)` 或 pm2 restart `changmen-esport` 刷新内存账号缓存。

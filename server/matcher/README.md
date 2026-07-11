@@ -1,6 +1,6 @@
 # server/matcher — 赛事合并
 
-matchMerge 循环**内嵌在 `changmen-web`**（`npm run web` / PM2 `changmen-web`），本目录提供合并库、运维 API 与可选人工 UI。
+matchMerge 循环**内嵌在 `changmen-esport`**（`npm run web` / PM2 `changmen-esport`），本目录提供合并库、运维 API 与可选人工 UI。
 
 ## 入口
 
@@ -12,7 +12,7 @@ matchMerge 循环**内嵌在 `changmen-web`**（`npm run web` / PM2 `changmen-we
 
 Matcher 间隔/端口等环境变量由 `lib/config.js` 统一读取（勿在多处写 `process.env.MATCHER_*`）。
 
-PM2（`deploy/ecosystem.config.cjs`）仅注册 `changmen-web` 与 `changmen-pm-sports`；合并循环随 web 进程启动。
+PM2（`deploy/ecosystem.config.cjs`）仅注册 `changmen-esport` 与 `changmen-pm-sports`；合并循环随 web 进程启动。
 
 ## 依赖
 

@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 /**
- * PM HK 出口部署探针（Phase 1）
+ * 场馆 HK 出海 relay 部署探针
  *
- * 1. VPS 直连 Polymarket 上游（gamma / clob）
+ * 1. VPS 直连 Polymarket / Predict.fun 上游
  * 2. 本机 http-relay 代发
- * 3. ws-forward 已注册 PM-MARKET / PM-USER
- * 4. PM-MARKET WebSocket 中继握手
+ * 3. ws-forward 已注册 PM-MARKET / PM-USER / PREDICTFUN-MARKET
  *
  * 用法（VPS / 本机 backend 目录）：
- *   node scripts/probe-pm-hk-relay.mjs
- *   node scripts/probe-pm-hk-relay.mjs --upstream-only
- *   ESPORT_TEST_BASE=http://127.0.0.1:3456 PROBE_TOKEN=xxx node scripts/probe-pm-hk-relay.mjs
+ *   node scripts/probe-hk-relay.mjs
+ *   node scripts/probe-hk-relay.mjs --upstream-only
+ *   ESPORT_TEST_BASE=http://127.0.0.1:3456 PROBE_TOKEN=xxx node scripts/probe-hk-relay.mjs
  */
 import http from "node:http";
 import https from "node:https";
@@ -250,7 +249,7 @@ function checkPredictFunWsRelay(apiBase) {
 
 async function main() {
   const apiBase = resolveApiBase();
-  console.log(`== probe-pm-hk-relay apiBase=${apiBase} ==`);
+  console.log(`== probe-hk-relay apiBase=${apiBase} ==`);
 
   if (!relayOnly)
     await checkUpstreamDirect();
@@ -272,7 +271,7 @@ async function main() {
     console.error("");
     console.error("修复提示:");
     console.error("  1. upstream 失败 → VPS 需能直连 polymarket.com（HK 出口）");
-    console.error("  2. http-relay 失败 → 检查 HTTP_RELAY_ALLOWED_HOSTS、HTTP_RELAY_REQUIRE_TOKEN、pm2 restart changmen-web");
+    console.error("  2. http-relay 失败 → 检查 HTTP_RELAY_ALLOWED_HOSTS、HTTP_RELAY_REQUIRE_TOKEN、pm2 restart changmen-esport");
     console.error("  3. ws-forward 失败 → 确认已部署含 PM-MARKET/PM-USER/PREDICTFUN-MARKET 的代码并 restart");
     console.error("  4. predict.fun 失败 → curl -I https://api-testnet.predict.fun/v1/tags；检查 HTTP_RELAY_ALLOWED_HOSTS");
     process.exit(1);
@@ -281,6 +280,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("probe-pm-hk-relay:", err instanceof Error ? err.message : err);
+  console.error("probe-hk-relay:", err instanceof Error ? err.message : err);
   process.exit(1);
 });

@@ -7,7 +7,7 @@ if [ "$ROOT" = /root/changmen ] && [ ! -d "$ROOT" ] && [ -d /root/gamebet ]; the
   echo "==> migrate DEPLOY_REPO /root/gamebet -> /root/changmen"
   mv /root/gamebet /root/changmen
 fi
-PM2_WEB="${PM2_WEB:-changmen-web}"
+PM2_WEB="${PM2_WEB:-changmen-esport}"
 PM2_PM_SPORTS="${PM2_PM_SPORTS:-changmen-pm-sports}"
 PM2_MATCHER="${PM2_MATCHER:-changmen-matcher}"
 DEPLOY_FULL="${DEPLOY_FULL:-0}"
@@ -298,7 +298,7 @@ if command -v pm2 >/dev/null 2>&1; then
   LEGACY_PM2_DELETED=0
   migrate_legacy_pm2_names() {
     local pair old new
-    for pair in "gamebet-web:changmen-web" "gamebet-pm-sports:changmen-pm-sports" "gamebet-matcher:changmen-matcher"; do
+    for pair in "gamebet-web:changmen-esport" "gamebet-pm-sports:changmen-pm-sports" "gamebet-matcher:changmen-matcher" "changmen-web:changmen-esport"; do
       old="${pair%%:*}"
       new="${pair##*:}"
       if pm2 describe "$old" >/dev/null 2>&1 && ! pm2 describe "$new" >/dev/null 2>&1; then
@@ -377,11 +377,11 @@ if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
     log "post-deploy check (orders upsert + admin telegram)"
     (cd server/backend && node scripts/post-deploy-check.mjs)
     log "post-deploy check passed"
-    log "PM HK egress probe"
-    if (cd server/backend && node scripts/probe-pm-hk-relay.mjs); then
-      log "PM HK relay probe passed"
+    log "HK relay egress probe"
+    if (cd server/backend && node scripts/probe-hk-relay.mjs); then
+      log "HK relay probe passed"
     else
-      echo "WARN: PM HK relay probe failed — run sync-pm-hk-relay-env-remote.sh or check VPS outbound to polymarket.com"
+      echo "WARN: HK relay probe failed — run sync-hk-relay-env-remote.sh or check VPS outbound"
     fi
     log "wait embedded matcher heartbeat"
     for i in $(seq 1 45); do

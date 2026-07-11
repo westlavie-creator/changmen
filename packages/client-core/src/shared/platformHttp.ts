@@ -1,7 +1,7 @@
 import type { PlatformAccount } from "../models/platformAccount";
 import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
 import { a8Axios, responseBodyText } from "./a8Axios";
-import { resolvePmHkRelayHttpOrigin } from "./pmHkRelayOrigin";
+import { resolveHkRelayHttpOrigin } from "./hkRelayOrigin";
 
 export interface AccountHttpOptions {
   /** 对齐 A8 mr 最后一参 `!0`：有 proxyId 也强制浏览器直连 gateway */
@@ -163,7 +163,7 @@ export async function changmenRelayHttpRequest(
   if (token)
     headers.token = token;
 
-  const relayUrl = buildHttpRelayUrl({ proxyOrigin: resolvePmHkRelayHttpOrigin() });
+  const relayUrl = buildHttpRelayUrl({ proxyOrigin: resolveHkRelayHttpOrigin() });
   try {
     const res = await a8Axios.request({
       method,

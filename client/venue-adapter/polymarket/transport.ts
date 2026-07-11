@@ -4,10 +4,10 @@ import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@changmen/client-
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { changmenRelayHttpRequest, parseJsonLoose } from "@changmen/client-core/shared/platformHttp";
 import { buildL2HeadersFromAccount } from "./l2Auth";
-import { isPolymarketHkEgressEnabled } from "./pmHkEgress";
+import { isVenueHkEgressEnabled } from "@venue/shared/venueHkEgress";
 
 export const POLYMARKET_PLUGIN_REQUIRED_MSG =
-  "Polymarket 采集需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）；或在扩展页开启「PM HK出口」";
+  "Polymarket 采集需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）；或在扩展页开启「HK 出海 relay」";
 
 const PLUGIN_TIMEOUT_MS = 60_000;
 
@@ -114,7 +114,7 @@ export async function polymarketPluginGet<T>(
     l2Path?: string;
   },
 ): Promise<T> {
-  if (isPolymarketHkEgressEnabled())
+  if (isVenueHkEgressEnabled())
     return polymarketRelayGet<T>(url, options);
   requirePluginRuntime();
   const raw = await a8PluginGet(url, { timeout: PLUGIN_TIMEOUT_MS, withCredentials: false, ...options });
@@ -133,7 +133,7 @@ export async function polymarketPluginPost<T>(
     l2Path?: string;
   },
 ): Promise<T> {
-  if (isPolymarketHkEgressEnabled())
+  if (isVenueHkEgressEnabled())
     return polymarketRelayPost<T>(url, data, options);
   requirePluginRuntime();
   const raw = await a8PluginPost(url, data, { timeout: PLUGIN_TIMEOUT_MS, withCredentials: false, ...options });
@@ -144,7 +144,7 @@ export async function polymarketPluginPost<T>(
 
 /** 采集/下注 HTTP 是否可用（扩展 或 HK relay） */
 export function isPolymarketHttpTransportReady(): boolean {
-  return isPolymarketHkEgressEnabled() || hasA8PluginRuntime();
+  return isVenueHkEgressEnabled() || hasA8PluginRuntime();
 }
 
 /** L2 GET：HK 出口走 relay 服务端签名；否则扩展 + 客户端 POLY 头 */
@@ -153,7 +153,7 @@ export async function polymarketL2Get<T>(
   url: string,
   l2Path: string,
 ): Promise<T> {
-  if (isPolymarketHkEgressEnabled())
+  if (isVenueHkEgressEnabled())
     return polymarketPluginGet<T>(url, { account, l2Path });
   const headers = await buildL2HeadersFromAccount(account, "GET", l2Path);
   if (!headers)
@@ -169,7 +169,7 @@ export async function polymarketL2Post<T>(
   data: unknown,
   bodyForSignature?: string,
 ): Promise<T> {
-  if (isPolymarketHkEgressEnabled())
+  if (isVenueHkEgressEnabled())
     return polymarketPluginPost<T>(url, data, { account, l2Path });
   const body = bodyForSignature ?? (data === undefined ? "" : JSON.stringify(data));
   const headers = await buildL2HeadersFromAccount(account, "POST", l2Path, body);

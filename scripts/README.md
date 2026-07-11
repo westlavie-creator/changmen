@@ -78,7 +78,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 | 脚本 | 作用 |
 |------|------|
-| **[`deploy/ecosystem.config.cjs`](../deploy/ecosystem.config.cjs)** | PM2：默认 `changmen-web` 内嵌 matcher |
+| **[`deploy/ecosystem.config.cjs`](../deploy/ecosystem.config.cjs)** | PM2：默认 `changmen-esport` 内嵌 matcher |
 | **`BAT\deploy-shanghai.bat`** | 更新上海 VPS（本机 tarball + 增量部署） |
 | **`BAT\deploy-hongkong.bat`** | 手动更新香港 VPS（日常 GHA 自动） |
 | **`BAT\push-git.bat`** | 本机 git commit + push |

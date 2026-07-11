@@ -31,8 +31,8 @@ chmod 600 "$ENV_FILE"
 echo "Updated TELEGRAM_BOT_TOKEN + TELEGRAM_ADMIN_CHAT_ID in $ENV_FILE"
 
 if command -v pm2 >/dev/null 2>&1; then
-  pm2 restart changmen-web --update-env
-  pm2 status changmen-web || true
+  pm2 restart changmen-esport --update-env
+  pm2 status changmen-esport || true
 else
   echo "WARN: pm2 not found, restart backend manually"
 fi

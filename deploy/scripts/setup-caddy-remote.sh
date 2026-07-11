@@ -35,7 +35,7 @@ log "node health http://127.0.0.1:3456/"
 code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3456/ || echo 000)"
 echo "node_http_code=$code"
 if [ "$code" != "200" ]; then
-  echo "WARN: Node did not return 200 on :3456 — fix PM2 first: pm2 restart changmen-web"
+  echo "WARN: Node did not return 200 on :3456 — fix PM2 first: pm2 restart changmen-esport"
 fi
 
 if [ -f "$CADDY_DEST" ]; then

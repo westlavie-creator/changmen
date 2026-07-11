@@ -86,9 +86,9 @@ async function save() {
     </div>
 
     <div class="extensions-tab__row">
-      <el-form-item label="PM HK出口:" class="extensions-tab__control">
+      <el-form-item label="HK 出海 relay:" class="extensions-tab__control">
         <el-switch
-          v-model="extensionPrefs.pmHkEgress"
+          v-model="extensionPrefs.venueHkEgress"
           inline-prompt
           active-text="开启"
           inactive-text="关闭"
@@ -96,7 +96,7 @@ async function save() {
         />
       </el-form-item>
       <p class="extensions-tab__desc">
-        Polymarket / Predict.fun HTTP 与 WS 经 changmen 服务端（HK VPS）代连。本地 dev 还需在 `.env.local` 设 `VITE_PM_HK_RELAY_ORIGIN`（或 localStorage `PROXY`）。默认关闭；关闭时走 Chrome 扩展代发 HTTP。
+        需出海场馆（Polymarket、Predict.fun 等）HTTP 与 WS 经 changmen 服务端（HK VPS）代连。本地 dev 还需在 `.env.local` 设 `VITE_HK_RELAY_ORIGIN`（或 localStorage `PROXY`）。默认关闭；关闭时走 Chrome 扩展代发 HTTP。
       </p>
     </div>
 

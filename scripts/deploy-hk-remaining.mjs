@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Deploy repo + existing GHA dist to remaining HK hosts (skip local build).
+ * Deploy repo + local dist to HK hosts.
+ * Default: pack dist from client/web/dist (must exist — run with --build to build first).
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -13,10 +14,13 @@ const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_gamebet");
 const deployRepo = "/root/changmen";
 const remoteScripts = "/tmp/changmen-deploy";
 const repoArchive = path.join(os.tmpdir(), `changmen-repo-${process.pid}.tgz`);
+const distDir = path.join(changmen, "client/web/dist");
 const distArchive = path.join(os.tmpdir(), "changmen-gha-dist", "changmen-dist.tgz");
 
-const HOSTS = process.argv.slice(2).length
-  ? process.argv.slice(2).map(host => ({ label: host, host }))
+const args = new Set(process.argv.slice(2));
+const hostArgs = process.argv.slice(2).filter(a => !a.startsWith("-"));
+const HOSTS = hostArgs.length
+  ? hostArgs.map(host => ({ label: host, host }))
   : [
       { label: "HK-214", host: "47.242.248.214" },
       { label: "HK-57", host: "47.57.10.202" },
@@ -29,6 +33,13 @@ const sshBase = [
   "-o", "ServerAliveCountMax=8",
   "-o", "ConnectTimeout=60",
   "-o", "BatchMode=yes",
+];
+
+const deployScripts = [
+  "apply-repo-archive.sh",
+  "deploy-server-remote.sh",
+  "sync-hk-relay-env-remote.sh",
+  "sync-pm-hk-relay-env-remote.sh",
 ];
 
 function run(cmd, args, opts = {}) {
@@ -46,10 +57,24 @@ function scp(host, local, remotePath) {
   run("scp", [...sshBase, local, `root@${host}:${remotePath}`]);
 }
 
-if (!fs.existsSync(distArchive)) {
-  console.error("missing dist:", distArchive);
-  process.exit(1);
+function packLocalDist() {
+  const indexHtml = path.join(distDir, "index.html");
+  if (!fs.existsSync(indexHtml))
+    throw new Error(`missing ${indexHtml} — run: npm run app:build  (or pass --build)`);
+  fs.mkdirSync(path.dirname(distArchive), { recursive: true });
+  if (fs.existsSync(distArchive))
+    fs.unlinkSync(distArchive);
+  run("tar", ["-czf", distArchive, "-C", distDir, "."]);
+  console.log(`==> packed dist -> ${distArchive}`);
 }
+
+if (args.has("--build")) {
+  console.log("=== Build frontend ===");
+  run("npm", ["run", "app:build"], { cwd: changmen });
+}
+
+console.log("=== Pack dist ===");
+packLocalDist();
 
 console.log("=== Pack repo ===");
 try {
@@ -67,8 +92,7 @@ run("tar", [
   ".",
 ], { cwd: changmen });
 
-const applyScript = path.join(changmen, "deploy/scripts/apply-repo-archive.sh");
-const deployRemote = path.join(changmen, "deploy/scripts/deploy-server-remote.sh");
+const scriptPaths = deployScripts.map(name => path.join(changmen, "deploy/scripts", name));
 
 const results = [];
 for (const h of HOSTS) {
@@ -76,13 +100,14 @@ for (const h of HOSTS) {
   try {
     scp(h.host, repoArchive, "/tmp/changmen-repo.upload.tgz");
     ssh(h.host, `mkdir -p ${remoteScripts}`);
-    run("scp", [...sshBase, applyScript, deployRemote, `root@${h.host}:${remoteScripts}/`]);
-    ssh(h.host, `sed -i 's/\\r$//' ${remoteScripts}/apply-repo-archive.sh ${remoteScripts}/deploy-server-remote.sh`);
+    run("scp", [...sshBase, ...scriptPaths, `root@${h.host}:${remoteScripts}/`]);
+    ssh(h.host, `sed -i 's/\\r$//' ${remoteScripts}/*.sh`);
     ssh(h.host, [
       "set -e",
       "mv /tmp/changmen-repo.upload.tgz /tmp/changmen-repo.tgz",
       "gzip -t /tmp/changmen-repo.tgz",
       `DEPLOY_REPO=${deployRepo} CHANGMEN_DEPLOY_SCRIPTS=${remoteScripts} DEPLOY_SKIP_APP_BUILD=1 DEPLOY_SKIP_POSTCHECK=1 DEPLOY_FULL=0 bash ${remoteScripts}/apply-repo-archive.sh /tmp/changmen-repo.tgz`,
+      `find ${deployRepo}/deploy/scripts -name '*.sh' -exec sed -i 's/\\r$//' {} +`,
     ].join("; "));
 
     scp(h.host, distArchive, "/tmp/changmen-dist.tgz");
@@ -100,12 +125,19 @@ rm -rf "$app/dist.prev"
 if [ -d "$app/dist" ]; then mv "$app/dist" "$app/dist.prev"; fi
 mv "$tmp" "$app/dist"
 rm -rf "$app/dist.prev" "$archive"
-chmod -R a+rX "$app/dist"`);
+chmod -R a+rX "$app/dist"
+grep -o 'venue-shared-[^"]*' "$app/dist/index.html" | head -1`);
 
     ssh(h.host, `cd ${deployRepo}/server/backend; node scripts/post-deploy-check.mjs --skip-telegram`);
 
-    console.log("==> sync PM HK relay env (predict.fun whitelist + pm2 restart)");
-    ssh(h.host, `cd ${deployRepo} && sed -i 's/\\r$//' deploy/scripts/sync-pm-hk-relay-env-remote.sh && bash deploy/scripts/sync-pm-hk-relay-env-remote.sh`);
+    console.log("==> sync HK relay env (whitelist + pm2 restart)");
+    ssh(h.host, `set -e
+for i in 1 2 3 4 5; do
+  if [ -f ${deployRepo}/server/backend/.env ]; then break; fi
+  sleep 1
+done
+test -f ${deployRepo}/server/backend/.env
+cd ${deployRepo} && bash deploy/scripts/sync-hk-relay-env-remote.sh`);
 
     ssh(h.host, `set -e
 status="$(curl -sf http://127.0.0.1/api/proxy/status 2>/dev/null || curl -sf http://127.0.0.1:3456/api/proxy/status)"

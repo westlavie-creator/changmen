@@ -7,7 +7,7 @@
 | 路径 | 说明 |
 |------|------|
 | [`Caddyfile`](Caddyfile) | Caddy :80 反代 + 静态 dist |
-| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2：`changmen-web`、`changmen-pm-sports` |
+| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2：`changmen-esport`、`changmen-pm-sports` |
 | [`env/`](env/) | 后端 `.env` 模板（运行时：`server/backend/.env`） |
 | [`scripts/apply-repo-archive.sh`](scripts/apply-repo-archive.sh) | tarball 解压 + 扁平化 + 部署 |
 | [`scripts/deploy-server-remote.sh`](scripts/deploy-server-remote.sh) | 增量 npm install / PM2 |
@@ -34,17 +34,17 @@ pm2 save
 
 详见 [`PRODUCTION_DEPLOYMENT.md`](../PRODUCTION_DEPLOYMENT.md)。
 
-## PM HK 出口（Polymarket 服务端代连）
+## 场馆 HK 出海 relay（http-relay / ws-forward）
 
-用户在前端 **扩展 → PM HK出口** 开启后，PM HTTP/WS 经 changmen VPS 出海。部署 HK 机时需：
+用户在前端 **扩展 → HK 出海 relay** 开启后，需出海场馆（Polymarket、Predict.fun 等）HTTP/WS 经 changmen VPS 代连。部署 HK 机时需：
 
 ```bash
 # 1. 写入 http-relay 白名单并重启 backend
-bash deploy/scripts/sync-pm-hk-relay-env-remote.sh
+bash deploy/scripts/sync-hk-relay-env-remote.sh
 
 # 2. 探针（VPS 上，backend 已运行）
-cd server/backend && node scripts/probe-pm-hk-relay.mjs
-# 或 npm run probe:pm-hk-relay
+cd server/backend && node scripts/probe-hk-relay.mjs
+# 或 npm run probe:hk-relay
 ```
 
 `HTTP_RELAY_ALLOWED_HOSTS` 默认含 `gamma-api.polymarket.com,clob.polymarket.com,api.predict.fun,api-testnet.predict.fun`。探针失败时检查 VPS 能否 `curl -I https://clob.polymarket.com/time` 与 `curl -I https://api-testnet.predict.fun/v1/tags`。

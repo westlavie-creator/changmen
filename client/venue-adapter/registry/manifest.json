@@ -280,7 +280,7 @@
     "label": "Predict.fun",
     "labelZh": "Predict.fun",
     "collectionMode": "plugin_http_ws",
-    "collectionDesc": "扩展或 PM HK出口 代发 REST + ws-forward predictOrderbook，电竞 moneyline 只读",
+    "collectionDesc": "扩展或 HK 出海 relay 代发 REST + ws-forward predictOrderbook，电竞 moneyline 只读",
     "implementation": "done",
     "saveMatchIntervalMs": 60000,
     "streamMeta": {

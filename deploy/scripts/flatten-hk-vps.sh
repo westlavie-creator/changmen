@@ -43,7 +43,7 @@ if [ -f /etc/caddy/Caddyfile ]; then
 fi
 
 if command -v pm2 >/dev/null 2>&1 && [ -f "$APP_ROOT/deploy/ecosystem.config.cjs" ]; then
-  pm2 delete gamebet-web gamebet-pm-sports gamebet-matcher changmen-web changmen-pm-sports changmen-matcher 2>/dev/null || true
+  pm2 delete gamebet-web gamebet-pm-sports gamebet-matcher changmen-web changmen-esport changmen-pm-sports changmen-matcher 2>/dev/null || true
   cd "$APP_ROOT"
   pm2 start deploy/ecosystem.config.cjs
   pm2 save

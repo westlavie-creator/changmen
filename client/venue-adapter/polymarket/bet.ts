@@ -38,7 +38,7 @@ import { schedulePolymarketAutoExitSellAfterBuy } from "./pmAutoExitSell";
 import { normalizePolymarketTickSize, type PolymarketTickSize } from "./pmTickPrice";
 import { resolvePolymarketVenueIdentityFromToken } from "./profile";
 import { polymarketPluginGet, polymarketPluginPost } from "./transport";
-import { isPolymarketHkEgressEnabled } from "./pmHkEgress";
+import { isVenueHkEgressEnabled } from "@venue/shared/venueHkEgress";
 
 export { isPolymarketDelayedPending } from "./orderStatus";
 export {
@@ -487,7 +487,7 @@ export const polymarketProvider: PlatformProvider = {
       const requestPath = balanceQueryPathForSignature(resolveSignatureType(config));
       const url = `${gateway}${requestPath}`;
       let data: PolymarketBalanceAllowanceResponse | undefined;
-      if (isPolymarketHkEgressEnabled()) {
+      if (isVenueHkEgressEnabled()) {
         data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(url, {
           account,
           l2Path: BALANCE_PATH,
@@ -637,7 +637,7 @@ export const polymarketProvider: PlatformProvider = {
       );
       const bodyStr = JSON.stringify(orderBody);
 
-      const result = isPolymarketHkEgressEnabled()
+      const result = isVenueHkEgressEnabled()
         ? await polymarketPluginPost<PolymarketOrderResponse>(
           `${gateway}${ORDER_PATH}`,
           orderBody,

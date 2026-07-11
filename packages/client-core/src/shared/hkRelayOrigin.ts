@@ -25,12 +25,19 @@ function devBrowserSameOrigin(): string {
   return window.location.origin;
 }
 
+function hkRelayOriginFromEnv(): string {
+  if (typeof import.meta === "undefined")
+    return "";
+  const env = import.meta.env as Record<string, string | undefined>;
+  return String(env.VITE_HK_RELAY_ORIGIN || env.VITE_PM_HK_RELAY_ORIGIN || "").trim().replace(/\/+$/, "");
+}
+
 /**
- * PM HK 出口 http-relay / ws-forward 的服务端根地址（https://host，无尾斜杠）。
+ * 场馆 HK 出海 relay 根地址（https://host，无尾斜杠）：http-relay / ws-forward。
  * 生产同源 → window.location.origin；
- * 本地 dev 浏览器 → 始终 window.location.origin（Vite 代理 /esport/http-relay 到 VITE_PM_HK_RELAY_ORIGIN）。
+ * 本地 dev 浏览器 → window.location.origin（Vite 代理 /esport/http-relay 到 VITE_HK_RELAY_ORIGIN）。
  */
-export function resolvePmHkRelayHttpOrigin(): string {
+export function resolveHkRelayHttpOrigin(): string {
   if (typeof window !== "undefined" && typeof import.meta !== "undefined" && import.meta.env?.DEV) {
     const same = devBrowserSameOrigin();
     if (same)
@@ -41,14 +48,17 @@ export function resolvePmHkRelayHttpOrigin(): string {
   if (fromStorage)
     return fromStorage;
 
-  const fromEnv = typeof import.meta !== "undefined"
-    ? String(import.meta.env.VITE_PM_HK_RELAY_ORIGIN || "").trim().replace(/\/+$/, "")
-    : "";
-  if (fromEnv)
-    return fromEnv;
-
   if (typeof window !== "undefined")
     return window.location.origin;
 
+  const fromEnv = hkRelayOriginFromEnv();
+  if (fromEnv)
+    return fromEnv;
+
   return devBackendHttpOrigin();
+}
+
+/** @deprecated 使用 resolveHkRelayHttpOrigin */
+export function resolvePmHkRelayHttpOrigin(): string {
+  return resolveHkRelayHttpOrigin();
 }

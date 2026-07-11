@@ -14,7 +14,7 @@ const defaultPrefs = {
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
   pmAutoExitSell: true,
-  pmHkEgress: false,
+  venueHkEgress: false,
 };
 
 describe("extensionPrefs", () => {
@@ -52,9 +52,13 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({ pmAutoExitSell: false }).pmAutoExitSell).toBe(false);
   });
 
-  it("defaults pmHkEgress to false and can enable", () => {
-    expect(normalizeExtensionPrefs({}).pmHkEgress).toBe(false);
-    expect(normalizeExtensionPrefs({ pmHkEgress: true }).pmHkEgress).toBe(true);
+  it("defaults venueHkEgress to false and can enable", () => {
+    expect(normalizeExtensionPrefs({}).venueHkEgress).toBe(false);
+    expect(normalizeExtensionPrefs({ venueHkEgress: true }).venueHkEgress).toBe(true);
+  });
+
+  it("migrates legacy pmHkEgress to venueHkEgress", () => {
+    expect(normalizeExtensionPrefs({ pmHkEgress: true }).venueHkEgress).toBe(true);
   });
 
   it("normalizes stakeScaleByProfit", () => {
