@@ -4,8 +4,8 @@ import { startPredictFunCollector } from "./collect";
 export { startPredictFunCollector };
 export * from "./api";
 export * from "./collect";
-export * from "./parse";
-export * from "./ws";
+export * from "./transport";
+export * from "./wsConfig";
 
 export const predictFunAdapter: PlatformAdapter = {
   id: "PredictFun",

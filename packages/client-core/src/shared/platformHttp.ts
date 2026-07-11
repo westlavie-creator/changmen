@@ -1,6 +1,7 @@
 import type { PlatformAccount } from "../models/platformAccount";
 import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
 import { a8Axios, responseBodyText } from "./a8Axios";
+import { resolvePmHkRelayHttpOrigin } from "./pmHkRelayOrigin";
 
 export interface AccountHttpOptions {
   /** 对齐 A8 mr 最后一参 `!0`：有 proxyId 也强制浏览器直连 gateway */
@@ -153,14 +154,16 @@ export async function changmenRelayHttpRequest(
   const headers: Record<string, string> = {
     ...(init.headers || {}),
     "x-proxy-url": targetUrl,
-    "x-proxy-referer": PM_RELAY_REFERER,
-    "x-proxy-origin": "https://polymarket.com",
   };
+  if (!headers["x-proxy-referer"])
+    headers["x-proxy-referer"] = PM_RELAY_REFERER;
+  if (!headers["x-proxy-origin"])
+    headers["x-proxy-origin"] = "https://polymarket.com";
   const token = requireHttpCtx().getToken();
   if (token)
     headers.token = token;
 
-  const relayUrl = getA8ProxyRelayEntry();
+  const relayUrl = buildHttpRelayUrl({ proxyOrigin: resolvePmHkRelayHttpOrigin() });
   try {
     const res = await a8Axios.request({
       method,

@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE?: string;
   readonly VITE_API_PROXY?: string;
   readonly VITE_V4_BASE_URL?: string;
+  readonly VITE_PM_HK_RELAY_ORIGIN?: string;
   readonly VITE_V4_PROXY?: string;
   readonly VITE_V4_DIRECT?: string;
   readonly VITE_GAMEBET_EXTENSION_ID?: string;

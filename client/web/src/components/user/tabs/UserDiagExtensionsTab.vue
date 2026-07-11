@@ -96,7 +96,7 @@ async function save() {
         />
       </el-form-item>
       <p class="extensions-tab__desc">
-        Polymarket HTTP 与 WS 经 changmen 服务端（HK VPS）代连，本机无需翻墙。默认关闭；关闭时仍走 Chrome 扩展代发 HTTP。
+        Polymarket / Predict.fun HTTP 与 WS 经 changmen 服务端（HK VPS）代连。本地 dev 还需在 `.env.local` 设 `VITE_PM_HK_RELAY_ORIGIN`（或 localStorage `PROXY`）。默认关闭；关闭时走 Chrome 扩展代发 HTTP。
       </p>
     </div>
 

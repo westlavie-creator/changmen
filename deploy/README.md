@@ -47,4 +47,4 @@ cd server/backend && node scripts/probe-pm-hk-relay.mjs
 # 或 npm run probe:pm-hk-relay
 ```
 
-`HTTP_RELAY_ALLOWED_HOSTS` 默认仅 `gamma-api.polymarket.com,clob.polymarket.com`。探针失败时检查 VPS 能否 `curl -I https://clob.polymarket.com/time`。
+`HTTP_RELAY_ALLOWED_HOSTS` 默认含 `gamma-api.polymarket.com,clob.polymarket.com,api.predict.fun,api-testnet.predict.fun`。探针失败时检查 VPS 能否 `curl -I https://clob.polymarket.com/time` 与 `curl -I https://api-testnet.predict.fun/v1/tags`。

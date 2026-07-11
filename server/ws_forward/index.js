@@ -4,6 +4,7 @@ import { getForwardStats } from "./core/forward_stats.js";
 import { iaForwardDefinition } from "./platforms/ia.js";
 import { obForwardDefinition } from "./platforms/ob.js";
 import { pmMarketForwardDefinition, pmUserForwardDefinition } from "./platforms/pm.js";
+import { predictFunMarketForwardDefinition } from "./platforms/predictfun.js";
 import { rayForwardDefinition } from "./platforms/ray.js";
 
 /** 浏览器实时转发入口 URL 前缀（勿被 esport-api HTTP 路由拦截） */
@@ -20,6 +21,7 @@ const PLATFORM_DEFS = {
   RAY: rayForwardDefinition,
   "PM-MARKET": pmMarketForwardDefinition,
   "PM-USER": pmUserForwardDefinition,
+  "PREDICTFUN-MARKET": predictFunMarketForwardDefinition,
 };
 
 let enabled = false;

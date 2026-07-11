@@ -28,9 +28,12 @@ const skipWs = args.has("--skip-ws") || upstreamOnly || relayOnly;
 const UPSTREAM = {
   gamma: "https://gamma-api.polymarket.com/sports",
   clob: "https://clob.polymarket.com/time",
+  predictTestnet: "https://api-testnet.predict.fun/v1/tags",
+  predictMainnet: "https://api.predict.fun/v1/tags",
 };
 
 const PM_WS_FORWARD_PATH = "/esport/ws-forward/PM-MARKET";
+const PREDICT_WS_FORWARD_PATH = "/esport/ws-forward/PREDICTFUN-MARKET";
 
 const results = [];
 
@@ -127,6 +130,28 @@ async function checkHttpRelay(apiBase) {
     fail("http-relay:clob-time", err instanceof Error ? err.message : String(err));
   }
 
+  try {
+    const res = await nodeFetch(relayUrl, {
+      headers: {
+        ...headers,
+        "x-proxy-url": UPSTREAM.predictTestnet,
+        "x-proxy-referer": "https://predict.fun/",
+        "x-proxy-origin": "https://predict.fun",
+      },
+      timeoutMs: 25_000,
+    });
+    if (res.status >= 200 && res.status < 400) {
+      pass("http-relay:predict-tags", `HTTP ${res.status} via ${relayUrl}`);
+    }
+    else {
+      const snippet = res.body.toString("utf8").slice(0, 120);
+      fail("http-relay:predict-tags", `HTTP ${res.status} ${snippet}`);
+    }
+  }
+  catch (err) {
+    fail("http-relay:predict-tags", err instanceof Error ? err.message : String(err));
+  }
+
   const relayRequireToken = ["1", "true", "yes", "on"].includes(
     String(process.env.HTTP_RELAY_REQUIRE_TOKEN || "").trim().toLowerCase(),
   );
@@ -147,7 +172,7 @@ async function checkProxyStatus(apiBase) {
     }
     const data = JSON.parse(res.body.toString("utf8"));
     const platforms = Array.isArray(data.platforms) ? data.platforms : [];
-    const need = ["PM-MARKET", "PM-USER"];
+    const need = ["PM-MARKET", "PM-USER", "PREDICTFUN-MARKET"];
     const missing = need.filter(id => !platforms.includes(id));
     if (!data.enabled) {
       fail("ws-forward:enabled", "ws_forward 未启用（检查 server.js attachWsForward）");
@@ -164,13 +189,13 @@ async function checkProxyStatus(apiBase) {
   }
 }
 
-function checkPmMarketWsRelay(apiBase) {
+function checkWsForwardRelay(apiBase, path, label) {
   return new Promise((resolve) => {
     const base = new URL(apiBase);
     const wsOrigin = `${base.protocol === "https:" ? "wss:" : "ws:"}//${base.host}`;
-    const wsUrl = `${wsOrigin}${PM_WS_FORWARD_PATH}`;
+    const wsUrl = `${wsOrigin}${path}`;
     const timer = setTimeout(() => {
-      fail("ws-forward:PM-MARKET", "连接超时（15s）");
+      fail(`ws-forward:${label}`, "连接超时（15s）");
       resolve();
     }, 15_000);
 
@@ -180,7 +205,7 @@ function checkPmMarketWsRelay(apiBase) {
     }
     catch (err) {
       clearTimeout(timer);
-      fail("ws-forward:PM-MARKET", err instanceof Error ? err.message : String(err));
+      fail(`ws-forward:${label}`, err instanceof Error ? err.message : String(err));
       resolve();
       return;
     }
@@ -194,17 +219,17 @@ function checkPmMarketWsRelay(apiBase) {
       clearTimeout(timer);
       ws.close();
       if (text === "PONG" || text.trim().startsWith("{") || text.trim().startsWith("[")) {
-        pass("ws-forward:PM-MARKET", `connected ${wsUrl}`);
+        pass(`ws-forward:${label}`, `connected ${wsUrl}`);
       }
       else {
-        pass("ws-forward:PM-MARKET", `connected (frame: ${text.slice(0, 40)})`);
+        pass(`ws-forward:${label}`, `connected (frame: ${text.slice(0, 40)})`);
       }
       resolve();
     });
 
     ws.on("error", (err) => {
       clearTimeout(timer);
-      fail("ws-forward:PM-MARKET", `${wsUrl} — ${err.message}`);
+      fail(`ws-forward:${label}`, `${wsUrl} — ${err.message}`);
       resolve();
     });
 
@@ -213,6 +238,14 @@ function checkPmMarketWsRelay(apiBase) {
       resolve();
     });
   });
+}
+
+function checkPmMarketWsRelay(apiBase) {
+  return checkWsForwardRelay(apiBase, PM_WS_FORWARD_PATH, "PM-MARKET");
+}
+
+function checkPredictFunWsRelay(apiBase) {
+  return checkWsForwardRelay(apiBase, PREDICT_WS_FORWARD_PATH, "PREDICTFUN-MARKET");
 }
 
 async function main() {
@@ -227,6 +260,7 @@ async function main() {
     await checkProxyStatus(apiBase);
     if (!skipWs) {
       await checkPmMarketWsRelay(apiBase);
+      await checkPredictFunWsRelay(apiBase);
     }
   }
 
@@ -239,8 +273,8 @@ async function main() {
     console.error("修复提示:");
     console.error("  1. upstream 失败 → VPS 需能直连 polymarket.com（HK 出口）");
     console.error("  2. http-relay 失败 → 检查 HTTP_RELAY_ALLOWED_HOSTS、HTTP_RELAY_REQUIRE_TOKEN、pm2 restart changmen-web");
-    console.error("  3. ws-forward 失败 → 确认已部署含 PM-MARKET/PM-USER 的代码并重启 backend");
-    console.error("  4. 配置 env: deploy/scripts/sync-pm-hk-relay-env-remote.sh");
+    console.error("  3. ws-forward 失败 → 确认已部署含 PM-MARKET/PM-USER/PREDICTFUN-MARKET 的代码并 restart");
+    console.error("  4. predict.fun 失败 → curl -I https://api-testnet.predict.fun/v1/tags；检查 HTTP_RELAY_ALLOWED_HOSTS");
     process.exit(1);
   }
   console.log(`== PASS (${results.length}/${results.length}) ==`);

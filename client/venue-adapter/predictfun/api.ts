@@ -1,7 +1,12 @@
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
-import { directGet } from "@changmen/client-core/shared/http";
 
 import type { PredictCategory, PredictOrderbookData } from "./parse";
+import {
+  predictFunHttpGet,
+  resolvePredictFunApiKey,
+} from "./transport";
+
+export { resolvePredictFunApiKey } from "./transport";
 
 /** [Predict 官方] 主网需 API Key；测试网无需 Key */
 export const PREDICT_FUN_API = (
@@ -22,13 +27,6 @@ interface PredictListResponse<T> {
   success?: boolean;
   cursor?: string;
   data?: T[];
-}
-
-export function resolvePredictFunApiKey(): string {
-  const fromEnv = typeof import.meta !== "undefined"
-    ? String(import.meta.env?.VITE_PREDICT_FUN_API_KEY ?? "").trim()
-    : "";
-  return fromEnv;
 }
 
 function predictHeaders(): Record<string, string> {
@@ -61,7 +59,7 @@ export async function fetchPredictCategories(params: {
     });
     if (after)
       qs.set("after", after);
-    const res = await directGet<PredictListResponse<PredictCategory>>(
+    const res = await predictFunHttpGet<PredictListResponse<PredictCategory>>(
       `${PREDICT_FUN_API}/v1/categories?${qs.toString()}`,
       predictHeaders(),
     );
@@ -79,7 +77,7 @@ export async function fetchPredictOrderbook(marketId: string | number): Promise<
   if (!id)
     return null;
   try {
-    const res = await directGet<{ success?: boolean; data?: PredictOrderbookData }>(
+    const res = await predictFunHttpGet<{ success?: boolean; data?: PredictOrderbookData }>(
       `${PREDICT_FUN_API}/v1/markets/${encodeURIComponent(id)}/orderbook`,
       predictHeaders(),
     );

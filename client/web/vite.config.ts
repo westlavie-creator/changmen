@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vitest/config";
+import { loadEnv } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { visualizer } from "rollup-plugin-visualizer";
 import { fileURLToPath, URL } from "node:url";
@@ -65,7 +66,27 @@ function venueChunkName(id: string): string | undefined {
   return `venue-${dir}`;
 }
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "");
+  const hkRelayTarget = String(env.VITE_PM_HK_RELAY_ORIGIN || "").trim().replace(/\/+$/, "");
+
+  const proxy: Record<string, { target: string; changeOrigin: boolean; ws?: boolean }> = {};
+  if (hkRelayTarget) {
+    // PM HK 出口：dev 同源走 Vite 代理到香港 VPS，避免浏览器跨域 OPTIONS 到 3560 / 外网 IP
+    proxy["/esport/http-relay"] = { target: hkRelayTarget, changeOrigin: true };
+    proxy["/esport/ws-forward/PM-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
+    proxy["/esport/ws-forward/PM-USER"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
+    proxy["/esport/ws-forward/PREDICTFUN-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
+  }
+  proxy["/esport2"] = { target: API_TARGET, changeOrigin: true, ws: true };
+  proxy["/esport"] = { target: API_TARGET, changeOrigin: true, ws: true };
+  proxy["/common"] = { target: API_TARGET, changeOrigin: true, ws: true };
+  proxy["/api"] = { target: API_TARGET, changeOrigin: true, ws: true };
+  proxy["/matcher"] = { target: API_TARGET, changeOrigin: true, ws: true };
+  proxy["/health"] = { target: API_TARGET, changeOrigin: true };
+  proxy["/v4.0"] = { target: API_TARGET, changeOrigin: true, ws: true };
+
+  return {
   base: "/",
   plugins: [
     vue(),
@@ -134,15 +155,7 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: DEV_PORT,
-    proxy: {
-      "/esport2": { target: API_TARGET, changeOrigin: true, ws: true },
-      "/esport": { target: API_TARGET, changeOrigin: true, ws: true },
-      "/common": { target: API_TARGET, changeOrigin: true, ws: true },
-      "/api": { target: API_TARGET, changeOrigin: true, ws: true },
-      "/matcher": { target: API_TARGET, changeOrigin: true, ws: true },
-      "/health": { target: API_TARGET, changeOrigin: true },
-      "/v4.0": { target: API_TARGET, changeOrigin: true, ws: true },
-    },
+    proxy,
   },
   test: {
     setupFiles: ["src/test/vitestSetupCore.ts"],
@@ -152,4 +165,5 @@ export default defineConfig(({ mode }) => ({
       "../venue-adapter/**/shared/**/*.{test,spec}.{js,mjs,ts}",
     ],
   },
-}));
+  };
+});

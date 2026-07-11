@@ -1,6 +1,8 @@
 import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
-import { PREDICT_FUN_WS, resolvePredictFunApiKey } from "./api";
+
 import type { PredictOrderbookData } from "./parse";
+import { resolvePredictFunApiKey } from "./transport";
+import { resolvePredictFunMarketWsUrl } from "./wsConfig";
 
 const WS_RECONNECT_MS = 5_000;
 const HEARTBEAT_TOPIC = "heartbeat";
@@ -45,6 +47,16 @@ interface PredictWsMessage {
   success?: boolean;
 }
 
+function buildDirectWsUrl(): string {
+  const base = resolvePredictFunMarketWsUrl();
+  const apiKey = resolvePredictFunApiKey();
+  if (!apiKey)
+    return base;
+  const url = new URL(base);
+  url.searchParams.set("apiKey", apiKey);
+  return url.toString();
+}
+
 /** [Predict 官方] wss://ws.predict.fun/ws，topic: predictOrderbook/{marketId} */
 export function startPredictMarketWs(opts: {
   onOrderbook: (update: PredictOrderbookUpdate) => void;
@@ -54,15 +66,6 @@ export function startPredictMarketWs(opts: {
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let pendingIds: string[] = [];
   let requestId = 1;
-
-  function wsUrl(): string {
-    const apiKey = resolvePredictFunApiKey();
-    if (!apiKey)
-      return PREDICT_FUN_WS;
-    const url = new URL(PREDICT_FUN_WS);
-    url.searchParams.set("apiKey", apiKey);
-    return url.toString();
-  }
 
   function sendSubscribe(ids: string[]) {
     if (!socket || socket.readyState !== WebSocket.OPEN || !ids.length)
@@ -104,10 +107,7 @@ export function startPredictMarketWs(opts: {
     if (stopped)
       return;
     setPredictWsStatus("connecting");
-    const apiKey = resolvePredictFunApiKey();
-    socket = apiKey
-      ? new WebSocket(wsUrl())
-      : new WebSocket(PREDICT_FUN_WS);
+    socket = new WebSocket(buildDirectWsUrl());
 
     socket.onopen = () => {
       setPredictWsStatus("connected");

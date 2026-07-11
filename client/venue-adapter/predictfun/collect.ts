@@ -18,6 +18,10 @@ import {
   isPredictEsportsMoneylineCategory,
   type PredictMappedMarket,
 } from "./parse";
+import {
+  isPredictFunHttpTransportReady,
+  PREDICT_FUN_PLUGIN_REQUIRED_MSG,
+} from "./transport";
 import { startPredictMarketWs } from "./ws";
 
 const PLATFORM = PLATFORMS.PredictFun;
@@ -107,6 +111,7 @@ export function startPredictFunCollector(): () => void {
   const matchStore = useMatchStore();
   const marketsByCategory = new Map<string, PredictMappedMarket>();
   const marketIdToCategory = new Map<string, string>();
+  let transportMissingNotified = false;
 
   function trackedMarketIds(): string[] {
     const ids: string[] = [];
@@ -240,6 +245,15 @@ export function startPredictFunCollector(): () => void {
   const loop = async () => {
     while (!stopped) {
       try {
+        if (!isPredictFunHttpTransportReady()) {
+          if (!transportMissingNotified) {
+            notifyCollectError("PredictFun", PREDICT_FUN_PLUGIN_REQUIRED_MSG);
+            transportMissingNotified = true;
+          }
+          await wait(DISCOVERY_MS);
+          continue;
+        }
+        transportMissingNotified = false;
         await runDiscovery();
       }
       catch (err) {
