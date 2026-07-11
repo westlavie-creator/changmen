@@ -19,12 +19,15 @@
     "devtools/platform-probes",
     "server/team-resolver",
     "server/value-bet",
-    "server/polymarket-sports"
+    "server/polymarket-sports",
+    "server/football"
   ],
   "scripts": {
     "install:all": "npm install",
     "dev": "turbo run dev",
     "dev:backend": "turbo run dev --filter=@changmen/backend",
+    "esport:dev": "npm run web --prefix server/backend",
+    "football:dev": "npm run start --prefix server/football",
     "dev:frontend": "turbo run dev --filter=@changmen/web",
     "web": "npm run web --prefix server/backend",
     "web:restart": "npm run web:restart --prefix server/backend",
@@ -34,6 +37,8 @@
     "test:api-contract": "node packages/api-contract/urls.test.mjs",
     "test": "npm run check:boundaries && npm run test:api-contract && npm run test:catalog-smoke && turbo run test",
     "test:backend": "turbo run test --filter=@changmen/backend",
+    "football": "npm run football:dev",
+    "test:football": "npm run test --prefix server/football",
     "typecheck:frontend": "turbo run typecheck --filter=@changmen/web",
     "analyze:deps": "npm run analyze:deps:check --prefix client/web",
     "test:frontend": "turbo run typecheck test --filter=@changmen/web",

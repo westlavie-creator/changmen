@@ -7,7 +7,7 @@
 | 路径 | 说明 |
 |------|------|
 | [`Caddyfile`](Caddyfile) | Caddy :80 反代 + 静态 dist |
-| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2：`changmen-web`、`changmen-pm-sports` |
+| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2：`changmen-esport`（电竞）、`changmen-pm-sports`、`changmen-football`（足球） |
 | [`env/`](env/) | 后端 `.env` 模板（运行时：`server/backend/.env`） |
 | [`scripts/apply-repo-archive.sh`](scripts/apply-repo-archive.sh) | tarball 解压 + 扁平化 + 部署 |
 | [`scripts/deploy-server-remote.sh`](scripts/deploy-server-remote.sh) | 增量 npm install / PM2 |

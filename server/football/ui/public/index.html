@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>足球聚合控制台</title>
+  <script>
+    (function () {
+      var p = location.pathname;
+      if (/^\/football(\/|$)/i.test(p)) {
+        var b = document.createElement("base");
+        b.href = "/football/";
+        document.head.appendChild(b);
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <div>
+      <h1>足球聚合控制台</h1>
+      <p class="sub">只读 · Polymarket</p>
+    </div>
+    <div class="header-actions">
+      <span id="statusBadge" class="badge">加载中…</span>
+      <a class="link-btn" id="esportLink" href="/">电竞控制台</a>
+    </div>
+  </header>
+
+  <section class="filters">
+    <label>
+      联赛
+      <select id="leagueSelect">
+        <option value="">全部联赛</option>
+      </select>
+    </label>
+    <label>
+      状态
+      <select id="statusSelect">
+        <option value="all">全部</option>
+        <option value="live">进行中</option>
+        <option value="scheduled">未开始</option>
+        <option value="finished">已结束</option>
+      </select>
+    </label>
+    <label class="search">
+      搜索
+      <input id="searchInput" type="search" placeholder="队名 / 联赛">
+    </label>
+  </section>
+
+  <main id="main">
+    <p id="message" class="message">正在加载…</p>
+    <div id="matchList" class="match-list"></div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

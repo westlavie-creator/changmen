@@ -38,8 +38,9 @@ Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `
 
 | 路径 | 服务 |
 |------|------|
-| `https://your-domain.com/` | 静态前端（`app:build` 产物） |
-| `https://your-domain.com/esport/*` | server/backend |
+| `https://your-domain.com/` | 静态前端（`app:build` 产物）· **电竞控制台** |
+| `https://your-domain.com/esport/*` | server/backend（`changmen-esport`） |
+| `https://your-domain.com/football/*` | server/football（`changmen-football`，**足球控制台**） |
 | `https://your-domain.com/v4.0/*` | 平博 v4 透明代理（可选） |
 
 Nginx / Caddy 反代示例要点：
@@ -58,8 +59,9 @@ Nginx / Caddy 反代示例要点：
 | 组件 | 生产形态 | 发版 / 重启 |
 |------|----------|-------------|
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
-| API + 合并（`server/backend` 内嵌 matcher） | PM2：`changmen-web`（`:3456`） | `pm2 restart changmen-web --update-env` |
+| API + 合并（`server/backend` 内嵌 matcher） | PM2：`changmen-esport`（`:3456`，电竞） | `pm2 restart changmen-esport --update-env` |
 | Polymarket 赛程状态 | PM2：`changmen-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart changmen-pm-sports --update-env` |
+| 足球只读（Polymarket） | PM2：`changmen-football`（`:3457`，`/football/*`） | `pm2 restart changmen-football --update-env` |
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
@@ -68,11 +70,13 @@ Nginx / Caddy 反代示例要点：
 ```text
 浏览器 → http://IP:80 (Caddy)
            ├─ /、/assets/     → client/web/dist（前端团队 build）
-           └─ /esport/* 等    → 127.0.0.1:3456 (PM2 changmen-web)
+           └─ /esport/* 等    → 127.0.0.1:3456 (PM2 changmen-esport)
+           └─ /football/*     → 127.0.0.1:3457 (PM2 changmen-football)
 ```
 
 - **前端发版**：`git pull` → `npm run app:build` → 更新 `dist/`（Caddy 直接读磁盘，无需 reload，更不必动 PM2）
-- **后端发版**：`git pull` → `npm install`（若依赖变）→ `pm2 restart changmen-web`（**不必**重新 `app:build`）
+- **后端发版**：`git pull` → `npm install`（若依赖变）→ `pm2 restart changmen-esport`（**不必**重新 `app:build`）
+- **足球发版**：`git pull` → `pm2 restart changmen-football`（独立进程，不动电竞）
 
 部署前把 Caddyfile 里 `root` 改成 VPS 上真实的 `.../changmen/client/web/dist` 路径。
 
@@ -81,7 +85,7 @@ Nginx / Caddy 反代示例要点：
 若 Caddy 仅 `reverse_proxy 127.0.0.1:3456`，由 `server.js` 托管 `dist`，**独立发版仍然成立**：
 
 - 前端只更新 `dist` → 通常可不 restart PM2（静态按请求读盘）
-- 后端只 `pm2 restart changmen-web` → 不必动 `dist`
+- 后端只 `pm2 restart changmen-esport` → 不必动 `dist`
 
 Caddy 分流只是把「谁托管静态」从 Node 挪到 Caddy，职责更清晰；不是换一套产品架构。
 
@@ -148,19 +152,20 @@ npm run app:build
 
 ### 3.4 进程
 
-默认两个长期进程（推荐 PM2）：`changmen-web`（内嵌 matcher）+ `changmen-pm-sports`（Polymarket Sports WS）。
+默认长期进程（推荐 PM2）：`changmen-esport`（电竞）+ `changmen-pm-sports` + `changmen-football`（足球只读）。
 
 ```bash
 cd changmen
-pm2 start vps/ecosystem.config.cjs    # changmen-web + changmen-pm-sports
+pm2 start deploy/ecosystem.config.cjs
 # 或手动：
-npm run web
-npm run pm-sports
+npm run esport:dev
+npm run pm-sports   # server/polymarket-sports
+npm run football:dev
 ```
 
 `changmen-pm-sports` 连 `wss://sports-api.polymarket.com/ws`，按 `platform_matches` 已有 Polymarket 行关联 `client_matches`，写入 `pm_sport`。**不替代**浏览器 CLOB WS 赔率采集。
 
-`ecosystem.config.cjs` 注册 `changmen-web` 与 `changmen-pm-sports`；matchMerge 随 `changmen-web` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。
+`ecosystem.config.cjs` 注册上述三进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。旧 PM2 名 `changmen-web` 已更名为 `changmen-esport`。
 
 生产建议用 systemd / pm2 / Docker Compose 托管，并配置重启策略。
 

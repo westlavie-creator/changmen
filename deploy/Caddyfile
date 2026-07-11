@@ -13,6 +13,10 @@
 	handle /health {
 		reverse_proxy 127.0.0.1:3456
 	}
+	@football path /football /football/*
+	handle @football {
+		reverse_proxy 127.0.0.1:3457
+	}
 	handle /esport/* {
 		reverse_proxy 127.0.0.1:3456
 	}
