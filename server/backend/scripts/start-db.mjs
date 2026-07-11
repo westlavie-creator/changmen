@@ -8,7 +8,7 @@ ensureRouterCompiled({ label: "start-db" });
 
 const { loadChangmenEnv } = await import("@changmen/storage/load_env.js");
 loadChangmenEnv();
-process.env.DATABASE_APPLICATION_NAME ||= "changmen-esport";
+process.env.DATABASE_APPLICATION_NAME ||= "changmen-web";
 const {
   DB_SCRIPT_MODES,
   resolveDbScript,

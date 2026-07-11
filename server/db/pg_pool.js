@@ -28,7 +28,7 @@ function defaultApplicationName() {
   if (cwd.includes("/server/matcher"))
     return "changmen-matcher";
   if (cwd.includes("/server/backend"))
-    return "changmen-esport";
+    return "changmen-web";
   if (cwd.includes("/server/value-bet"))
     return "changmen-value-bet";
   return "changmen";

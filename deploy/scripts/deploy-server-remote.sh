@@ -7,9 +7,8 @@ if [ "$ROOT" = /root/changmen ] && [ ! -d "$ROOT" ] && [ -d /root/gamebet ]; the
   echo "==> migrate DEPLOY_REPO /root/gamebet -> /root/changmen"
   mv /root/gamebet /root/changmen
 fi
-PM2_WEB="${PM2_WEB:-changmen-esport}"
+PM2_WEB="${PM2_WEB:-changmen-web}"
 PM2_PM_SPORTS="${PM2_PM_SPORTS:-changmen-pm-sports}"
-PM2_FOOTBALL="${PM2_FOOTBALL:-changmen-football}"
 PM2_MATCHER="${PM2_MATCHER:-changmen-matcher}"
 DEPLOY_FULL="${DEPLOY_FULL:-0}"
 DEPLOY_SKIP_APP_BUILD="${DEPLOY_SKIP_APP_BUILD:-0}"
@@ -108,7 +107,6 @@ DO_APP_BUILD=0
 DO_COMPILE_ROUTER=0
 DO_PM2_WEB=0
 DO_PM2_PM_SPORTS=0
-DO_PM2_FOOTBALL=0
 NEED_DIST_UPLOAD=0
 
 classify() {
@@ -129,10 +127,6 @@ classify() {
     server/db/*|server/match-engine/*|devtools/platform-probes/*|server/team-resolver/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
-      ;;
-    server/football/*)
-      DO_INSTALL_ROOT=1
-      DO_PM2_FOOTBALL=1
       ;;
     server/polymarket-sports/*|server/realtime-hub/*)
       DO_INSTALL_ROOT=1
@@ -157,7 +151,6 @@ classify() {
     deploy/ecosystem.config.cjs|ecosystem.config.cjs)
       DO_PM2_WEB=1
       DO_PM2_PM_SPORTS=1
-      DO_PM2_FOOTBALL=1
       ;;
     *.md|.gitignore)
       ;;
@@ -179,7 +172,6 @@ if [ "$DEPLOY_FULL" = "1" ]; then
   DO_COMPILE_ROUTER=1
   DO_PM2_WEB=1
   DO_PM2_PM_SPORTS=1
-  DO_PM2_FOOTBALL=1
 elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
   if [ "${DEPLOY_SKIP_GIT_PULL:-0}" = "1" ]; then
     log "archive sync (same HEAD ${NEW_HEAD:0:8}); refresh dist from PC"
@@ -306,7 +298,7 @@ if command -v pm2 >/dev/null 2>&1; then
   LEGACY_PM2_DELETED=0
   migrate_legacy_pm2_names() {
     local pair old new
-    for pair in "gamebet-web:changmen-esport" "changmen-web:changmen-esport" "gamebet-pm-sports:changmen-pm-sports" "gamebet-matcher:changmen-matcher"; do
+    for pair in "gamebet-web:changmen-web" "gamebet-pm-sports:changmen-pm-sports" "gamebet-matcher:changmen-matcher"; do
       old="${pair%%:*}"
       new="${pair##*:}"
       if pm2 describe "$old" >/dev/null 2>&1 && ! pm2 describe "$new" >/dev/null 2>&1; then
@@ -315,11 +307,6 @@ if command -v pm2 >/dev/null 2>&1; then
         LEGACY_PM2_DELETED=1
       fi
     done
-    if pm2 describe changmen-web >/dev/null 2>&1; then
-      log "pm2 delete legacy changmen-web (renamed changmen-esport)"
-      pm2 delete changmen-web >/dev/null 2>&1 || true
-      LEGACY_PM2_DELETED=1
-    fi
   }
   migrate_legacy_pm2_names
   if [ "$LEGACY_PM2_DELETED" = "1" ]; then
@@ -336,9 +323,6 @@ if command -v pm2 >/dev/null 2>&1; then
   if [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_PM_SPORTS")
   fi
-  if [ "$DO_PM2_FOOTBALL" = "1" ]; then
-    PM2_TARGETS+=("$PM2_FOOTBALL")
-  fi
   if [ "${#PM2_TARGETS[@]}" -gt 0 ]; then
     log "pm2 restart ${PM2_TARGETS[*]}"
     for target in "${PM2_TARGETS[@]}"; do
@@ -352,9 +336,6 @@ if command -v pm2 >/dev/null 2>&1; then
             ;;
           "$PM2_PM_SPORTS")
             expected_cwd="$CHANGMEN/server/polymarket-sports"
-            ;;
-          "$PM2_FOOTBALL")
-            expected_cwd="$CHANGMEN/server/football"
             ;;
           *)
             expected_cwd=""

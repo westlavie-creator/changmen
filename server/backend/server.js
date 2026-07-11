@@ -166,7 +166,7 @@ function onListen() {
   const v4Base = (process.env.A8_V4_URL || "https://api.a8.to/v4.0").replace(/\/+$/, "");
   console.log(`[v4] proxy only → ${v4Base}/ (no mock)`);
   console.log(
-    `[changmen-esport] http://localhost:${PORT}/  |  matcher: http://localhost:${PORT}/matcher/`,
+    `App: http://localhost:${PORT}/  |  matcher: http://localhost:${PORT}/matcher/  |  collect: browser`,
   );
   // matchMerge 读 RDS 快照，不依赖 hot 恢复；避免 deploy 心跳被全量 hydrate 拖过等待窗口
   startEmbeddedMatcherAfter(Promise.resolve());
