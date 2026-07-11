@@ -105,8 +105,20 @@ async function checkUpstreamDirect() {
 }
 
 async function checkHttpRelay(apiBase) {
-  const relayUrl = buildHttpRelayUrl({ apiBase });
+  const relayRequireToken = ["1", "true", "yes", "on"].includes(
+    String(process.env.HTTP_RELAY_REQUIRE_TOKEN || "").trim().toLowerCase(),
+  );
   const token = String(process.env.PROBE_TOKEN || process.env.ESPORT_TEST_TOKEN || "").trim();
+  if (relayRequireToken && !token) {
+    fail("http-relay:token", "HTTP_RELAY_REQUIRE_TOKEN=1 但未设置 PROBE_TOKEN / ESPORT_TEST_TOKEN");
+    fail("http-relay:clob-time", "跳过（无 PROBE_TOKEN）");
+    fail("http-relay:predict-tags", "跳过（无 PROBE_TOKEN）");
+    return;
+  }
+  if (relayRequireToken)
+    pass("http-relay:token", "已提供 PROBE_TOKEN");
+
+  const relayUrl = buildHttpRelayUrl({ apiBase });
   const headers = {
     "x-proxy-url": UPSTREAM.clob,
     "x-proxy-referer": "https://polymarket.com/",
@@ -149,16 +161,6 @@ async function checkHttpRelay(apiBase) {
   }
   catch (err) {
     fail("http-relay:predict-tags", err instanceof Error ? err.message : String(err));
-  }
-
-  const relayRequireToken = ["1", "true", "yes", "on"].includes(
-    String(process.env.HTTP_RELAY_REQUIRE_TOKEN || "").trim().toLowerCase(),
-  );
-  if (relayRequireToken && !token) {
-    fail("http-relay:token", "HTTP_RELAY_REQUIRE_TOKEN=1 但未设置 PROBE_TOKEN / ESPORT_TEST_TOKEN");
-  }
-  else if (relayRequireToken) {
-    pass("http-relay:token", "已提供 PROBE_TOKEN");
   }
 }
 

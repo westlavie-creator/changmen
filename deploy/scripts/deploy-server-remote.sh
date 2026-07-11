@@ -381,7 +381,7 @@ if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
     if (cd server/backend && node scripts/probe-hk-relay.mjs); then
       log "HK relay probe passed"
     else
-      echo "WARN: HK relay probe failed — run sync-hk-relay-env-remote.sh or check VPS outbound"
+      echo "WARN: HK relay probe failed — set PROBE_TOKEN in server/backend/.env if HTTP_RELAY_REQUIRE_TOKEN=1; or run sync-hk-relay-env-remote.sh"
     fi
     log "wait embedded matcher heartbeat"
     for i in $(seq 1 45); do

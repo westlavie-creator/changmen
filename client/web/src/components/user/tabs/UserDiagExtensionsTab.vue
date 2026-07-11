@@ -96,7 +96,7 @@ async function save() {
         />
       </el-form-item>
       <p class="extensions-tab__desc">
-        需出海场馆（Polymarket、Predict.fun 等）HTTP 与 WS 经 changmen 服务端（HK VPS）代连。本地 dev 还需在 `.env.local` 设 `VITE_HK_RELAY_ORIGIN`（或 localStorage `PROXY`）。默认关闭；关闭时走 Chrome 扩展代发 HTTP。
+        需出海场馆（Polymarket、Predict.fun 等）HTTP 与 WS 经当前 changmen 服务端（HK VPS）同源 relay 代连，与投注账号 PROXY 无关。生产页默认开启；本地 dev 需在 `.env.local` 设 `VITE_HK_RELAY_ORIGIN` 并手动打开开关。关闭时走 Chrome 扩展代发 HTTP。
       </p>
     </div>
 

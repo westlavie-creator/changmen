@@ -48,3 +48,5 @@ cd server/backend && node scripts/probe-hk-relay.mjs
 ```
 
 `HTTP_RELAY_ALLOWED_HOSTS` 默认含 `gamma-api.polymarket.com,clob.polymarket.com,api.predict.fun,api-testnet.predict.fun`。探针失败时检查 VPS 能否 `curl -I https://clob.polymarket.com/time` 与 `curl -I https://api-testnet.predict.fun/v1/tags`。
+
+**PROXY 与 relay 分离：** `localStorage.PROXY` / 账号 `proxyId` 仅用于电竞**投注账号**经 http-relay 访问平台 gateway；**HK 出海 relay**（PM / Predict.fun）始终走当前页面同源（`window.location.origin`），不受 PROXY 影响。

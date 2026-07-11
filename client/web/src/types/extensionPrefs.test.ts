@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDefaultExtensionPrefs, normalizeExtensionPrefs } from "@/types/extensionPrefs";
 
 const defaultStakeScale = {
@@ -18,6 +18,10 @@ const defaultPrefs = {
 };
 
 describe("extensionPrefs", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("defaults betRowUi to false and singleLeg9999Precheck to true", () => {
     expect(createDefaultExtensionPrefs()).toEqual(defaultPrefs);
   });
@@ -52,9 +56,16 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({ pmAutoExitSell: false }).pmAutoExitSell).toBe(false);
   });
 
-  it("defaults venueHkEgress to false and can enable", () => {
+  it("defaults venueHkEgress to false in dev and can enable", () => {
     expect(normalizeExtensionPrefs({}).venueHkEgress).toBe(false);
     expect(normalizeExtensionPrefs({ venueHkEgress: true }).venueHkEgress).toBe(true);
+  });
+
+  it("production build defaults venueHkEgress to true when env set", () => {
+    vi.stubEnv("VITE_VENUE_HK_EGRESS_DEFAULT", "1");
+    expect(createDefaultExtensionPrefs().venueHkEgress).toBe(true);
+    expect(normalizeExtensionPrefs({}).venueHkEgress).toBe(true);
+    expect(normalizeExtensionPrefs({ venueHkEgress: false }).venueHkEgress).toBe(false);
   });
 
   it("migrates legacy pmHkEgress to venueHkEgress", () => {
