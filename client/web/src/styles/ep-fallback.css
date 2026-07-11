@@ -338,17 +338,19 @@
   min-width: 320px;
 }
 
-.el-notification.notification.loading .el-notification__icon {
+.el-notification.notification .el-notification__icon {
   display: none;
 }
 
-.el-notification.notification.loading .notify-loading-head {
+.el-notification .notify-provider-head,
+.el-notification .notify-loading-head {
   display: flex;
   align-items: center;
   margin-bottom: 8px;
 }
 
-.el-notification.notification.loading .notify-loading-head .provider-icon {
+.el-notification .notify-provider-head .provider-icon,
+.el-notification .notify-loading-head .provider-icon {
   position: relative;
   flex-shrink: 0;
   width: 28px;
@@ -358,6 +360,7 @@
   background-position: center;
 }
 
+.el-notification.notification.loading .notify-provider-head .provider-icon::after,
 .el-notification.notification.loading .notify-loading-head .provider-icon::after {
   content: "";
   position: absolute;

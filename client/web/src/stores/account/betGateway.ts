@@ -5,7 +5,11 @@ import { ElNotification } from "element-plus";
 import { BetResult } from "@/models/betResult";
 import { publishBettingEvent } from "@/realtime/publishBetting";
 import { getProvider } from "@/runtime/providers";
-import { bettingDetailHtml, bettingLoadingMessageHtml } from "@/shared/a8Notify";
+import {
+  bettingDetailHtml,
+  bettingLoadingMessageHtml,
+  bettingResultMessageHtml,
+} from "@/shared/a8Notify";
 import { playOrderSuccessSound } from "@/shared/orderSound";
 import { settleArbLeg } from "@/stores/betting/autoBet/arbLegSettle";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
@@ -35,7 +39,11 @@ function notifyPolymarketAfterRejectDetection(
     const titleSuffix = rejected ? "未成交" : "已成交";
     ElNotification({
       title: `${accountTitle} ${titleSuffix}`,
-      message: `${detailHtml}<p>${result.message || ""}</p>`,
+      message: bettingResultMessageHtml(
+        account.provider,
+        detailHtml,
+        `<p>${result.message || ""}</p>`,
+      ),
       type: rejected ? "error" : "success",
       dangerouslyUseHTMLString: true,
       duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
@@ -91,7 +99,7 @@ export async function placeBet(
     return new BetResult(option.type, false, "平台不支持");
 
   const platformLabel = store.getPlatformName(account.platformId, account.platformName);
-  const accountTitle = `${account.provider} / ${platformLabel} / ${account.playerName}`;
+  const accountTitle = `${platformLabel} / ${account.playerName}`;
   const detailHtml = bettingDetailHtml({
     matchTitle: option.match?.title,
     betName: option.bet?.getBetName(),
@@ -142,9 +150,14 @@ export async function placeBet(
     const notifyTitle = result.pending ? `${accountTitle} 待确认` : accountTitle;
     ElNotification({
       title: notifyTitle,
-      message: `${detailHtml}<p>${result.message || ""}</p>`,
+      message: bettingResultMessageHtml(
+        account.provider,
+        detailHtml,
+        `<p>${result.message || ""}</p>`,
+      ),
       type: notifyType,
       dangerouslyUseHTMLString: true,
+      customClass: `notification ${account.provider}`,
       duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
     });
     useMessageStore().delayMessage(account, Date.now() - beginTime);

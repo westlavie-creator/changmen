@@ -36,9 +36,22 @@ export function a8Tip(title: string, message: string, durationMs = 3000): Notifi
   return handle;
 }
 
+/** 下单通知顶栏：场馆徽章（替代标题/正文中的 OB、RAY 等文字） */
+export function bettingProviderHeadHtml(provider: string): string {
+  return `<div class="notify-provider-head"><span class="provider-icon ${provider}" aria-hidden="true"></span></div>`;
+}
+
 /** 对齐 A8 Io.betting loading 通知：平台角标 + 详情 HTML */
 export function bettingLoadingMessageHtml(provider: string, detailHtml: string): string {
-  return `<div class="notify-loading-head"><div class="provider-icon ${provider}" aria-hidden="true"></div></div>${detailHtml}`;
+  return `${bettingProviderHeadHtml(provider)}${detailHtml}`;
+}
+
+export function bettingResultMessageHtml(
+  provider: string,
+  detailHtml: string,
+  trailingHtml = "",
+): string {
+  return `${bettingProviderHeadHtml(provider)}${detailHtml}${trailingHtml}`;
 }
 
 export function bettingDetailHtml(option: {
