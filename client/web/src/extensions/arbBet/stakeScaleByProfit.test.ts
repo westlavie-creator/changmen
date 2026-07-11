@@ -18,7 +18,7 @@ describe("stakeScaleByProfit", () => {
   });
 
   it("scales both legs when implied >= minImplied", () => {
-    const prefs = { enabled: true, minImplied: 1.05, multiplier: 2 };
+    const prefs = { enabled: true, minImplied: 1.05, multiplier: 2, skipAccountRateOnScale: false };
     const a = leg(2, 100);
     const b = leg(2.2, 91);
     expect(applyStakeScaleByProfit(a, b, 1.05, prefs)).toBe(2);
@@ -27,7 +27,7 @@ describe("stakeScaleByProfit", () => {
   });
 
   it("does not scale below threshold", () => {
-    const prefs = { enabled: true, minImplied: 1.05, multiplier: 2 };
+    const prefs = { enabled: true, minImplied: 1.05, multiplier: 2, skipAccountRateOnScale: false };
     const a = leg(2, 100);
     const b = leg(2.1, 95);
     expect(applyStakeScaleByProfit(a, b, 1.049, prefs)).toBe(1);

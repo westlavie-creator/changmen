@@ -140,6 +140,7 @@ function makePlaced(overrides: Partial<ArbBetPlaced> = {}): ArbBetPlaced {
     betBothLegs: true,
     singleLegByRate: false,
     linkId: 1_700_000_000_000,
+    stakeScale: 1,
     waitSec: 10,
     resultA: new BetResult("OB", true),
     resultB: new BetResult("RAY", true),

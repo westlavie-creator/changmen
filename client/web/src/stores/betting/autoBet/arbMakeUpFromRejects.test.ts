@@ -44,6 +44,7 @@ function basePlaced(): ArbBetPlaced {
     linkId: 1782972494104,
     implied: 1.05,
     singleLegByRate: false,
+    stakeScale: 1,
     waitSec: 10,
     resultA: new BetResult("RAY", false),
     resultB: new BetResult("OB", true),

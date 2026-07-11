@@ -48,6 +48,7 @@ function checked(overrides: Partial<ArbBetChecked> = {}): ArbBetChecked {
     betBothLegs: true,
     singleLegByRate: false,
     linkId: 1_700_000_000_000,
+    stakeScale: 1,
     waitSec: 10,
     ...overrides,
   };
