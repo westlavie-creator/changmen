@@ -103,8 +103,15 @@ rm -rf "$app/dist.prev" "$archive"
 chmod -R a+rX "$app/dist"`);
 
     ssh(h.host, `cd ${deployRepo}/server/backend; node scripts/post-deploy-check.mjs --skip-telegram`);
-    ssh(h.host, `curl -sf -o /dev/null http://127.0.0.1:3456/ || curl -sf -o /dev/null http://127.0.0.1/`);
-    ssh(h.host, `grep -n venueAccountName ${deployRepo}/client/web/src/components/account/AccountCard.vue | head -1`);
+
+    console.log("==> sync PM HK relay env (predict.fun whitelist + pm2 restart)");
+    ssh(h.host, `cd ${deployRepo} && bash deploy/scripts/sync-pm-hk-relay-env-remote.sh`);
+
+    ssh(h.host, `set -e
+status="$(curl -sf http://127.0.0.1/api/proxy/status 2>/dev/null || curl -sf http://127.0.0.1:3456/api/proxy/status)"
+echo "$status"
+echo "$status" | grep -q '"PREDICTFUN-MARKET"'`);
+    ssh(h.host, `curl -sf -o /dev/null http://127.0.0.1/ || curl -sf -o /dev/null http://127.0.0.1:3456/`);
     console.log(`OK ${h.label} http://${h.host}/`);
     results.push({ ...h, ok: true });
   }

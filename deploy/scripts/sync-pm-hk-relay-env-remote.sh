@@ -7,8 +7,15 @@ if [ ! -f "$ENV_FILE" ] && [ -f "${DEPLOY_REPO:-/root/changmen}/changmen/server/
   ENV_FILE="${DEPLOY_REPO:-/root/changmen}/changmen/server/backend/.env"
 fi
 
+PM_HK_RELAY_HOSTS_DEFAULT="gamma-api.polymarket.com,clob.polymarket.com,api.predict.fun,api-testnet.predict.fun"
+
 HTTP_RELAY_REQUIRE_TOKEN="${HTTP_RELAY_REQUIRE_TOKEN:-1}"
-HTTP_RELAY_ALLOWED_HOSTS="${HTTP_RELAY_ALLOWED_HOSTS:-gamma-api.polymarket.com,clob.polymarket.com,api.predict.fun,api-testnet.predict.fun}"
+# 勿用 VPS shell 里旧的 HTTP_RELAY_ALLOWED_HOSTS；仅 SYNC_PM_HK_RELAY_HOSTS 可显式覆盖默认白名单
+if [ -n "${SYNC_PM_HK_RELAY_HOSTS:-}" ]; then
+  HTTP_RELAY_ALLOWED_HOSTS="$SYNC_PM_HK_RELAY_HOSTS"
+else
+  HTTP_RELAY_ALLOWED_HOSTS="$PM_HK_RELAY_HOSTS_DEFAULT"
+fi
 HTTP_RELAY_ALLOWED_PATH_PREFIXES="${HTTP_RELAY_ALLOWED_PATH_PREFIXES:-/}"
 HTTP_RELAY_ALLOW_PRIVATE="${HTTP_RELAY_ALLOW_PRIVATE:-0}"
 PREDICT_FUN_API_KEY="${PREDICT_FUN_API_KEY:-}"
