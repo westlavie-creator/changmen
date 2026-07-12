@@ -7,6 +7,7 @@
   "exports": {
     ".": "./index.js",
     "./order_link_filter.js": "./order_link_filter.js",
+    "./venue_account_key.js": "./venue_account_key.js",
     "./pg.js": "./pg.js"
   },
   "main": "./index.js",

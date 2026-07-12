@@ -7,11 +7,17 @@ import {
   accountRecordToPlayerPatch,
   playerRowToAccountRecord,
 } from "../player_account_record.js";
+import {
+  VenueAccountKeyConflictError,
+  buildVenueAccountKey,
+  isVenueAccountKeyUniqueViolation,
+  venueAccountKeyConflictMessage,
+} from "../venue_account_key.js";
 import { getPgPool, _jsonb } from "./common.js";
 
 const PLAYER_SELECT
-  = `id, owner_user_id, platform_id, platform_name, player_name, provider, venue_member_id, credit, total_balance,
-     account_data, created_at, updated_at, deleted_at, delete_description`;
+  = `id, owner_user_id, platform_id, platform_name, player_name, provider, venue_member_id, venue_account_key,
+     credit, total_balance, account_data, created_at, updated_at, deleted_at, delete_description`;
 
 function _mapPlayerRow(row) {
   if (!row)
@@ -38,6 +44,7 @@ function _mapPlayerRow(row) {
     playerName: String(row.player_name || ""),
     provider: String(row.provider || ""),
     venueMemberId: String(row.venue_member_id || ""),
+    venueAccountKey: String(row.venue_account_key || ""),
     credit: Number(row.credit) || 0,
     totalBalance: Number(row.total_balance) || 0,
     accountData,
@@ -100,14 +107,15 @@ export async function insertPlayerRow({
   const now = Date.now();
   const pid = Number(platformId);
   const uid = String(ownerUserId || "").trim();
+  const venueKey = buildVenueAccountKey({ provider, venueMemberId });
   if (!Number.isFinite(pid) || pid <= 0 || !uid)
     return null;
   try {
     const { rows } = await pool.query(
       `INSERT INTO players (
          owner_user_id, platform_id, platform_name, player_name, provider, venue_member_id,
-         credit, total_balance, account_data, created_at, updated_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, 0, 0, '{}'::jsonb, $7, $7)
+         venue_account_key, credit, total_balance, account_data, created_at, updated_at
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, '{}'::jsonb, $8, $8)
        RETURNING ${PLAYER_SELECT}`,
       [
         uid,
@@ -116,12 +124,15 @@ export async function insertPlayerRow({
         String(playerName || ""),
         String(provider || ""),
         String(venueMemberId || ""),
+        String(venueKey || ""),
         now,
       ],
     );
     return _mapPlayerRow(rows?.[0]);
   }
   catch (err) {
+    if (isVenueAccountKeyUniqueViolation(err))
+      throw new VenueAccountKeyConflictError("该场馆投注账号已被其他用户使用");
     console.warn("[rds] insertPlayerRow:", err.message);
     return null;
   }
@@ -149,6 +160,41 @@ export async function fetchPlayerByProviderAndVenueMemberId(provider, venueMembe
   }
   catch (err) {
     console.warn("[rds] fetchPlayerByProviderAndVenueMemberId:", err.message);
+    return null;
+  }
+}
+
+/** 全库场馆账号互斥：查找占用同一 venue_account_key 的其他 player */
+export async function findVenueAccountKeyConflict(venueAccountKey, { playerId, ownerUserId } = {}) {
+  const key = String(venueAccountKey || "").trim();
+  if (!key)
+    return null;
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  const id = Number(playerId) || 0;
+  try {
+    const { rows } = await pool.query(
+      `SELECT p.id, p.owner_user_id, u.user_name
+       FROM players p
+       LEFT JOIN users u ON u.id = p.owner_user_id
+       WHERE p.deleted_at IS NULL
+         AND p.venue_account_key = $1
+         AND ($2::bigint = 0 OR p.id <> $2)
+       LIMIT 1`,
+      [key, id],
+    );
+    const row = rows?.[0];
+    if (!row)
+      return null;
+    return {
+      id: Number(row.id),
+      ownerUserId: row.owner_user_id != null ? String(row.owner_user_id) : null,
+      userName: String(row.user_name || ""),
+    };
+  }
+  catch (err) {
+    console.warn("[rds] findVenueAccountKeyConflict:", err.message);
     return null;
   }
 }
@@ -490,6 +536,7 @@ export async function savePlayerAccountRecord(ownerUserId, record) {
       patch.playerName,
       patch.provider,
       String(patch.venueMemberId || ""),
+      String(patch.venueAccountKey || ""),
       patch.credit,
       patch.totalBalance,
       _jsonb(patch.accountData, {}),
@@ -506,32 +553,30 @@ export async function savePlayerAccountRecord(ownerUserId, record) {
          player_name = $4,
          provider = $5,
          venue_member_id = $6,
-         credit = $7,
-         total_balance = $8,
-         account_data = $9::jsonb,
-         updated_at = $10${platformClause}
+         venue_account_key = $7,
+         credit = $8,
+         total_balance = $9,
+         account_data = $10::jsonb,
+         updated_at = $11${platformClause}
        WHERE id = $1 AND owner_user_id = $2::uuid AND deleted_at IS NULL`,
       params,
     );
     return (rowCount ?? 0) > 0;
   }
   catch (err) {
+    if (isVenueAccountKeyUniqueViolation(err))
+      throw new VenueAccountKeyConflictError("该场馆投注账号已被其他用户使用");
     console.warn("[rds] savePlayerAccountRecord:", err.message);
     return false;
   }
 }
 
-/** fire-and-forget：整包 SaveData ACCOUNT */
-export function saveAccountRecordsForOwner(ownerUserId, records) {
+/** SaveData ACCOUNT：落库并抛出场馆账号冲突 */
+export async function saveAccountRecordsForOwner(ownerUserId, records) {
   const uid = String(ownerUserId || "").trim();
   if (!uid || !Array.isArray(records) || !records.length)
-    return;
-  const pool = getPgPool();
-  if (!pool)
-    return;
-  Promise.resolve()
-    .then(() => batchSavePlayerAccountRecords(uid, records))
-    .catch(err => console.warn("[rds] saveAccountRecordsForOwner:", err.message));
+    return 0;
+  return batchSavePlayerAccountRecords(uid, records);
 }
 
 /** 批量 UPDATE players（SaveData ACCOUNT 落库） */
@@ -553,6 +598,7 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
   const playerNames = [];
   const providers = [];
   const venueMemberIds = [];
+  const venueAccountKeys = [];
   const credits = [];
   const totalBalances = [];
   const accountDatas = [];
@@ -564,6 +610,7 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
     playerNames.push(String(patch.playerName || ""));
     providers.push(String(patch.provider || ""));
     venueMemberIds.push(String(patch.venueMemberId || ""));
+    venueAccountKeys.push(String(patch.venueAccountKey || ""));
     credits.push(Number(patch.credit) || 0);
     totalBalances.push(Number(patch.totalBalance) || 0);
     accountDatas.push(JSON.parse(_jsonb(patch.accountData, {})));
@@ -574,6 +621,14 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
         : null,
     );
   }
+  for (const patch of patches) {
+    const key = String(patch.venueAccountKey || "").trim();
+    if (!key)
+      continue;
+    const conflict = await findVenueAccountKeyConflict(key, { playerId: patch.playerId, ownerUserId: uid });
+    if (conflict)
+      throw new VenueAccountKeyConflictError(venueAccountKeyConflictMessage(conflict), conflict);
+  }
   try {
     const { rowCount } = await pool.query(
       `UPDATE players AS p SET
@@ -581,6 +636,7 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
          player_name = u.player_name,
          provider = u.provider,
          venue_member_id = u.venue_member_id,
+         venue_account_key = u.venue_account_key,
          credit = u.credit,
          total_balance = u.total_balance,
          account_data = u.account_data,
@@ -592,17 +648,18 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
          $3::text[],
          $4::text[],
          $5::text[],
-         $6::float8[],
+         $6::text[],
          $7::float8[],
-         $8::jsonb[],
-         $9::bigint[],
-         $10::bigint[]
+         $8::float8[],
+         $9::jsonb[],
+         $10::bigint[],
+         $11::bigint[]
        ) AS u(
-         id, platform_name, player_name, provider, venue_member_id, credit, total_balance,
+         id, platform_name, player_name, provider, venue_member_id, venue_account_key, credit, total_balance,
          account_data, updated_at, platform_id
        )
        WHERE p.id = u.id
-         AND p.owner_user_id = $11::uuid
+         AND p.owner_user_id = $12::uuid
          AND p.deleted_at IS NULL`,
       [
         ids,
@@ -610,6 +667,7 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
         playerNames,
         providers,
         venueMemberIds,
+        venueAccountKeys,
         credits,
         totalBalances,
         accountDatas,
@@ -621,6 +679,8 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
     return rowCount ?? 0;
   }
   catch (err) {
+    if (isVenueAccountKeyUniqueViolation(err))
+      throw new VenueAccountKeyConflictError("该场馆投注账号已被其他用户使用");
     console.warn("[rds] batchSavePlayerAccountRecords:", err.message);
     return 0;
   }

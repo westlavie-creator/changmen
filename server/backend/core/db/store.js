@@ -160,14 +160,14 @@ export function countAccounts() {
   return total;
 }
 
-export function replaceAccountsForUser(uid, accounts) {
+export async function replaceAccountsForUser(uid, accounts) {
   const id = String(uid);
   const normalized = normalizeAccountList(accounts);
   const prev = _accountsCache.get(id);
-  _accountsCache.set(id, normalized);
   if (prev && accountsPersistUnchanged(prev, normalized))
     return normalized;
-  sb.saveAccountRecordsForOwner(id, normalized);
+  await sb.saveAccountRecordsForOwner(id, normalized);
+  _accountsCache.set(id, normalized);
   return normalized;
 }
 

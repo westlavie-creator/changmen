@@ -1,5 +1,6 @@
 import { normalizeAccountMultiplyField, preserveStoredAccountMultiply } from "@changmen/shared/account_multiply";
 import * as dbStore from "../db/store.js";
+import { VenueAccountKeyConflictError, isVenueAccountKeyUniqueViolation } from "@changmen/db/venue_account_key.js";
 import store from "../esport-api/store.js";
 import { emptyPage } from "../esport-api/stubs.js";
 import {
@@ -232,7 +233,14 @@ async function handleSaveAccounts(accounts, userId) {
     const enriched = enrichAccountRowFromPlayer(row);
     return preserveStoredAccountMultiply(enriched, existingById.get(id));
   });
-  store.setAccountsForUser(userId, normalized);
+  try {
+    await store.setAccountsForUser(userId, normalized);
+  }
+  catch (err) {
+    if (err instanceof VenueAccountKeyConflictError || isVenueAccountKeyUniqueViolation(err))
+      return { ok: false, msg: err.message || "该场馆投注账号已被其他用户使用" };
+    throw err;
+  }
   const keepIds = normalized.map(r => Number(r?.accountId ?? r?.AccountId)).filter(Boolean);
   if (keepIds.length > 0) {
     await accountStore.prunePlayersNotInList(userId, keepIds);

@@ -141,6 +141,7 @@ export const {
   patchPlayerAccountRecord,
   updatePlayerDisplayName,
   batchUpdatePlayerDisplayNames,
+  findVenueAccountKeyConflict,
   updatePlayerBalanceRow,
   insertUserLogRow,
   fetchUserLogsInRange,

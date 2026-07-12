@@ -48,23 +48,23 @@ describe("player_store batch SQL", () => {
         platformName: "OB-1",
         playerName: "u1",
         provider: "OB",
+        venueMemberId: "610738",
         credit: 0,
         balance: 100,
         token: "x",
       },
     ]);
-    expect(queryMock).toHaveBeenCalledOnce();
-    const [sql, params] = queryMock.mock.calls[0];
-    expect(sql).toMatch(/\$7::jsonb\[\]/);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    const [sql, params] = queryMock.mock.calls[1];
+    expect(sql).toMatch(/\$9::jsonb\[\]/);
+    expect(sql).toMatch(/venue_account_key/);
     expect(params[0]).toEqual([7]);
-    expect(params[9]).toBe("user-1");
-    expect(params[6][0]).toMatchObject({ token: "x" });
+    expect(params[11]).toBe("user-1");
+    expect(params[8][0]).toMatchObject({ token: "x" });
   });
 
   it("saveAccountRecordsForOwner delegates to batch save", async () => {
-    saveAccountRecordsForOwner("user-1", [{ accountId: 7, provider: "OB", balance: 1 }]);
-    await vi.waitFor(() => expect(queryMock).toHaveBeenCalled());
-    const [sql] = queryMock.mock.calls[0];
-    expect(sql).toMatch(/unnest\(/);
+    await saveAccountRecordsForOwner("user-1", [{ accountId: 7, provider: "OB", balance: 1 }]);
+    expect(queryMock.mock.calls.some(([sql]) => /unnest\(/.test(sql))).toBe(true);
   });
 });

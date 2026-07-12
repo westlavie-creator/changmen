@@ -4,6 +4,8 @@
  * account_data jsonb：凭证、限额、rateConfig 等其余字段
  */
 
+import { buildVenueAccountKeyFromRecord } from "./venue_account_key.js";
+
 const STRUCTURED_KEYS = new Set([
   "accountId",
   "AccountId",
@@ -92,6 +94,7 @@ export function accountRecordToPlayerPatch(record) {
     playerName: s.playerName,
     provider: s.provider,
     venueMemberId: readVenueMemberIdFromRecord(record),
+    venueAccountKey: buildVenueAccountKeyFromRecord(record),
     credit: s.credit,
     totalBalance: s.totalBalance,
     accountData: extras,
