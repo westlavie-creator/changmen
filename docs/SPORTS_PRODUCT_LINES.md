@@ -28,7 +28,7 @@ changmen（平台 monorepo）
 │
 ├── 电竞产品线（默认；代码仍在根 — 锚点 lines/esport/）
 │   ├── client/web/
-│   ├── server/polymarket-sports/ · predictfun-collector/
+│   ├── server/collectors/         polymarket-sports · predictfun-collector
 │   └── lines/esport/line.json     → 指向上列路径
 │
 └── 其他产品线（增量，对称锚点 lines/{code}/）
@@ -52,7 +52,7 @@ changmen（平台 monorepo）
 | 现状 | 问题 | 整合目标 |
 |------|------|----------|
 | 无产品线锚点 | 业务线边界不清 | ✅ `lines/{code}/` + `line.json`；电竞映射根目录 |
-| `server/*-collector` 平铺 | 难发现、难复用 | 渐进归入 `server/collectors/`（见 §5） |
+| `server/*-collector` 平铺 | 难发现、难复用 | ✅ 已归入 `server/collectors/`（§5） |
 | `GAMES.md` + `game_catalog.json` | 双份维护 | ✅ 合并为 [CATALOG.md](./CATALOG.md)；GAMES/MARKETS 已删 |
 | `server/backend/scripts/` 167 文件 | 69 个 `_tmp`/`_diag` | ✅ 根 24 + `archive/` + `ops/` 子目录 |
 | `vps/scripts/` 1 文件 | 与 `deploy/` 重复 | ✅ 已迁入 `deploy/scripts/`，删除 `vps/` |
@@ -75,7 +75,7 @@ changmen（平台 monorepo）
 | 场馆 adapter | `client/venue-adapter/` |
 | API + 代理 | `server/backend/` |
 | 合并 | `server/matcher/`、`server/match-engine/` |
-| PM Sports WS | `server/polymarket-sports/` |
+| PM Sports WS | `server/collectors/polymarket-sports/` |
 | 生产 PM2 | `changmen-esport`、`changmen-pm-sports`、`changmen-predictfun-collector` |
 
 ---
@@ -114,12 +114,12 @@ changmen（平台 monorepo）
 
 ## 5. server 扩展进程分组（渐进）
 
-**目标结构**（非一次性搬迁）：
+**目标结构**（电竞 collector 已迁入）：
 
 ```
-server/collectors/          # 新目录（规划）
+server/collectors/
 ├── README.md
-├── polymarket-sports/      # 自 server/ 移入
+├── polymarket-sports/
 ├── predictfun-collector/
 └── mlb-gamma-collector/    # 棒球 PM REST（规划）
 ```
@@ -211,7 +211,7 @@ server/collectors/          # 新目录（规划）
    ↓
 阶段 B3 套利 UI + ARB_BASEBALL.md
    ↓
-（可选）server/collectors/ 物理分组、电竞迁 lines/esport/
+（可选）电竞迁 lines/esport/
 ```
 
 ---
@@ -220,7 +220,7 @@ server/collectors/          # 新目录（规划）
 
 | 日期 | 说明 |
 |------|------|
-| 2026-07-13 | P0.5：`lines/{code}/` 对称锚点 + `line.json`；`sport_catalog.linePath` |
+| 2026-07-13 | `server/collectors/` 物理迁入：`polymarket-sports`、`predictfun-collector` |
 | 2026-07-13 | P0 文档瘦身：删 `sports/` 空壳、`GAMES/MARKETS`；`docs/archive/`；`docs/README` 文档地图 |
 | 2026-07-13 | 阶段 1 taxonomy：`game_catalog.sport`、`sport_catalog.ts` + smoke |
 | 2026-07-13 | 阶段 0：脚本/目录整理（backend scripts 分层、vps 删除、collectors README） |

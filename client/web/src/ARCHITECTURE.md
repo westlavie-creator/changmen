@@ -226,7 +226,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | 范围 | 规则 | 实现 |
 |------|------|------|
 | **A8 平台**（OB/IM/TF/…） | 仅拒绝「现在 +1h」之后的开赛；**无过去下限**（已开赛只要平台仍返回就保留） | `shared/a8MatchTime.ts` → `@changmen/shared/time/match_time` 的 `a8StartTimeCollectAllowed` |
-| **Polymarket** [changmen 扩展] | 过去 **6h**、未来 **1h** | `venue-adapter/polymarket/api.ts` 的 `polymarketCollectStartTimeAllowed`；服务端 `server/polymarket-sports/gamma_map.js` 同步 |
+| **Polymarket** [changmen 扩展] | 过去 **6h**、未来 **1h** | `venue-adapter/polymarket/api.ts` 的 `polymarketCollectStartTimeAllowed`；服务端 `server/collectors/polymarket-sports/gamma_map.js` 同步 |
 
 ### `venue-adapter/{平台}/`（扁平结构）
 

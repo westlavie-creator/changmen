@@ -6,6 +6,7 @@
   "description": "VPS daemon: Polymarket Sports WS → client_matches.pm_sport",
   "exports": {
     ".": "./index.js",
+    "./gamma_map.js": "./gamma_map.js",
     "./parse_sport.js": "./parse_sport.js"
   },
   "scripts": {

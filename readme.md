@@ -54,7 +54,7 @@ BAT\dev.bat              REM backend + Vite（见 LOCAL_DEV.md）
 
 ```
 client/web · chrome-extension · venue-adapter
-server/backend · matcher · match-engine · db · collectors（规划）
+server/backend · matcher · match-engine · db · collectors（polymarket-sports、predictfun-collector）
 packages/shared · api-contract · client-core
 deploy/ · docs/ · lines/
 ```

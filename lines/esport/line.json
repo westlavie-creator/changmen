@@ -15,8 +15,8 @@
     "realtimeHub": "server/realtime-hub",
     "wsForward": "server/ws_forward",
     "collectors": [
-      "server/polymarket-sports",
-      "server/predictfun-collector"
+      "server/collectors/polymarket-sports",
+      "server/collectors/predictfun-collector"
     ]
   },
   "capabilities": [

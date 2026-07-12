@@ -31,7 +31,7 @@
 A8 无 Polymarket。PM 不用 `a8StartTimeCollectAllowed`，单独 **过去 6h、未来 1h**：
 
 - 客户端：`venue-adapter/polymarket/api.ts` → `polymarketCollectStartTimeAllowed`
-- 服务端 Gamma 拉盘：`server/polymarket-sports/gamma_map.js`
+- 服务端 Gamma 拉盘：`server/collectors/polymarket-sports/gamma_map.js`
 
 ## 游戏目录
 

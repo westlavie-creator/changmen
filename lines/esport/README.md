@@ -15,8 +15,8 @@
 | 正 EV 扫描 | `valueBet` | `server/value-bet/` |
 | Socket.IO 推送 | `realtimeHub` | `server/realtime-hub/` |
 | WebSocket 转发库 | `wsForward` | `server/ws_forward/` |
-| PM Sports WS | `collectors[0]` | `server/polymarket-sports/` |
-| Predict.fun daemon | `collectors[1]` | `server/predictfun-collector/` |
+| PM Sports WS | `collectors[0]` | `server/collectors/polymarket-sports/` |
+| Predict.fun daemon | `collectors[1]` | `server/collectors/predictfun-collector/` |
 
 **能力**（`capabilities`）：`arbitrage`、`value-scan`、`match-merge`
 

@@ -25,7 +25,7 @@ module.exports = {
     },
     {
       name: "changmen-pm-sports",
-      cwd: path.join(APP_ROOT, "server/polymarket-sports"),
+      cwd: path.join(APP_ROOT, "server/collectors/polymarket-sports"),
       script: "index.js",
       interpreter: "node",
       env: {
@@ -35,7 +35,7 @@ module.exports = {
     },
     {
       name: "changmen-predictfun-collector",
-      cwd: path.join(APP_ROOT, "server/predictfun-collector"),
+      cwd: path.join(APP_ROOT, "server/collectors/predictfun-collector"),
       script: "index.js",
       interpreter: "node",
       env: {

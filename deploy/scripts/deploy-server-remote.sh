@@ -129,12 +129,12 @@ classify() {
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       ;;
-    server/polymarket-sports/*|server/realtime-hub/*)
+    server/collectors/polymarket-sports/*|server/realtime-hub/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       DO_PM2_PM_SPORTS=1
       ;;
-    server/predictfun-collector/*|server/ws_forward/*|server/storage/*)
+    server/collectors/predictfun-collector/*|server/ws_forward/*|server/storage/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       ;;
@@ -342,7 +342,7 @@ if command -v pm2 >/dev/null 2>&1; then
             expected_cwd="$CHANGMEN/server/backend"
             ;;
           "$PM2_PM_SPORTS")
-            expected_cwd="$CHANGMEN/server/polymarket-sports"
+            expected_cwd="$CHANGMEN/server/collectors/polymarket-sports"
             ;;
           *)
             expected_cwd=""

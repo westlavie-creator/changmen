@@ -13,7 +13,7 @@ changmen/
 ├── server/
 │   ├── backend/                 # HTTP API、代理、静态托管
 │   │   └── scripts/             # 常驻运维；ops/；archive/
-│   ├── collectors/              # VPS daemon 规划归集（README；包尚未迁入）
+│   ├── collectors/              # VPS daemon：polymarket-sports、predictfun-collector
 │   ├── matcher/                 # 调度循环 + 人工关联 UI
 │   ├── db/                      # @changmen/db
 │   ├── match-engine/            # @changmen/match-engine
@@ -21,8 +21,6 @@ changmen/
 │   ├── storage/                 # @changmen/storage（本机 JSON 路径）
 │   ├── ws_forward/              # @changmen/ws-forward（backend 挂载）
 │   ├── realtime-hub/            # @changmen/realtime-hub（Socket.IO 推送）
-│   ├── polymarket-sports/       # PM Sports WS daemon
-│   ├── predictfun-collector/    # Predict.fun REST daemon
 │   └── value-bet/               # @changmen/value-bet（正 EV 扫描 daemon）
 ├── scripts/
 │   ├── deploy/                  # 本机 → HK VPS（deploy202.bat 等）
