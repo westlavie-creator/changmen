@@ -1,100 +1,88 @@
-import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { polymarketL2Get, polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 vi.mock("@changmen/client-core/shared/platformHttp", () => ({
-  changmenRelayHttpRequest: vi.fn(),
+  changmenPmHttpRequest: vi.fn(),
+  changmenPmEsportCall: vi.fn(),
   parseJsonLoose: (text: string) => JSON.parse(text),
 }));
 
-import { changmenRelayHttpRequest } from "@changmen/client-core/shared/platformHttp";
+vi.mock("./pmTransportMode", () => ({
+  resolvePmHttpMode: vi.fn(() => "vps"),
+}));
+
+import { changmenPmHttpRequest } from "@changmen/client-core/shared/platformHttp";
+import { polymarketL2Get, polymarketPluginGet, polymarketPluginPost } from "./transport";
 
 describe("polymarket transport", () => {
   beforeEach(() => {
-    vi.mocked(changmenRelayHttpRequest).mockReset();
+    vi.mocked(changmenPmHttpRequest).mockReset();
   });
 
-  test("GET 走 http-relay", async () => {
-    vi.mocked(changmenRelayHttpRequest).mockResolvedValue({
+  test("GET 走 Pm_HttpRequest", async () => {
+    vi.mocked(changmenPmHttpRequest).mockResolvedValue({
       status: 200,
-      text: JSON.stringify([{ id: "hk1" }]),
+      text: JSON.stringify([{ id: "1" }]),
     });
     const rows = await polymarketPluginGet<Array<{ id: string }>>("https://gamma-api.polymarket.com/events");
-    expect(rows).toEqual([{ id: "hk1" }]);
-    expect(changmenRelayHttpRequest).toHaveBeenCalledWith(
-      "https://gamma-api.polymarket.com/events",
-      { method: "GET", headers: undefined },
-    );
+    expect(rows).toEqual([{ id: "1" }]);
+    expect(changmenPmHttpRequest).toHaveBeenCalledWith({
+      method: "GET",
+      url: "https://gamma-api.polymarket.com/events",
+    });
   });
 
-  test("HTTP 4xx 抛错", async () => {
-    vi.mocked(changmenRelayHttpRequest).mockResolvedValue({
-      status: 429,
-      text: "rate limited",
-    });
+  test("GET 上游 4xx 抛错", async () => {
+    vi.mocked(changmenPmHttpRequest).mockRejectedValue(new Error("rate limited"));
     await expect(polymarketPluginGet("https://gamma-api.polymarket.com/events")).rejects.toThrow("rate limited");
   });
 
-  test("L2 GET 走 relay 服务端签名", async () => {
-    vi.mocked(changmenRelayHttpRequest).mockResolvedValue({
+  test("L2 GET 传 playerId + l2Path", async () => {
+    vi.mocked(changmenPmHttpRequest).mockResolvedValue({
       status: 200,
-      text: JSON.stringify({ data: [], next_cursor: "LTE=" }),
+      text: JSON.stringify({ data: [] }),
     });
     const account = {
       accountId: 47,
-      provider: "Polymarket",
-      token: JSON.stringify({
-        walletAddress: "0xabc",
-        apiCreds: { apiKey: "k", secret: "c2VjcmV0", passphrase: "p" },
-      }),
-    } as unknown as PlatformAccount;
-
+      provider: "polymarket",
+      token: "{}",
+      gateway: "https://clob.polymarket.com",
+    } as const;
     await polymarketL2Get(account, "https://clob.polymarket.com/data/trades?after=1", "/data/trades");
-
-    expect(changmenRelayHttpRequest).toHaveBeenCalledWith(
-      "https://clob.polymarket.com/data/trades?after=1",
-      expect.objectContaining({
-        method: "GET",
-        headers: expect.objectContaining({
-          "x-pm-account-id": "47",
-          "x-pm-l2-path": "/data/trades",
-        }),
-      }),
-    );
+    expect(changmenPmHttpRequest).toHaveBeenCalledWith({
+      method: "GET",
+      url: "https://clob.polymarket.com/data/trades?after=1",
+      playerId: 47,
+      l2Path: "/data/trades",
+    });
   });
 
-  test("L2 POST 剥离 POLY 头并走 relay", async () => {
-    vi.mocked(changmenRelayHttpRequest).mockResolvedValue({
+  test("L2 POST 传 polyHeaders（未存账号）", async () => {
+    vi.mocked(changmenPmHttpRequest).mockResolvedValue({
       status: 200,
-      text: JSON.stringify({ success: true }),
+      text: JSON.stringify({ ok: true }),
     });
-    const account = {
-      accountId: 47,
-      provider: "Polymarket",
-      token: "{}",
-    } as unknown as PlatformAccount;
-
     await polymarketPluginPost("https://clob.polymarket.com/order", { foo: 1 }, {
-      account,
-      l2Path: "/order",
       headers: {
         POLY_ADDRESS: "0xabc",
-        "Content-Type": "application/json",
+        POLY_SIGNATURE: "sig",
+        POLY_TIMESTAMP: "1",
+        POLY_API_KEY: "key",
+        POLY_PASSPHRASE: "pass",
+      },
+      l2Path: "/order",
+    });
+    expect(changmenPmHttpRequest).toHaveBeenCalledWith({
+      method: "POST",
+      url: "https://clob.polymarket.com/order",
+      body: { foo: 1 },
+      l2Path: "/order",
+      polyHeaders: {
+        POLY_ADDRESS: "0xabc",
+        POLY_SIGNATURE: "sig",
+        POLY_TIMESTAMP: "1",
+        POLY_API_KEY: "key",
+        POLY_PASSPHRASE: "pass",
       },
     });
-
-    expect(changmenRelayHttpRequest).toHaveBeenCalledWith(
-      "https://clob.polymarket.com/order",
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({
-          "x-pm-account-id": "47",
-          "x-pm-l2-path": "/order",
-          "Content-Type": "application/json",
-        }),
-      }),
-    );
-    const headers = vi.mocked(changmenRelayHttpRequest).mock.calls[0]![1]!.headers as Record<string, string>;
-    expect(headers.POLY_ADDRESS).toBeUndefined();
   });
 });

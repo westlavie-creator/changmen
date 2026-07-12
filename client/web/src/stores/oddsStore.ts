@@ -33,6 +33,8 @@ export interface OddsEntry {
   odds: number;
   /** [changmen 扩展] Polymarket CLOB best_ask（0~1）；预检限价用，其它平台不填 */
   clobPrice?: number;
+  /** [changmen 扩展] Predict.fun market id */
+  marketId?: string;
   /** 是否锁盘/不可下注（HTTP 灌盘公式或 MQTT 增量） */
   isLock: boolean;
   /** 所属盘口 ID（market / bet group id），用于 betIndex 按盘锁盘 */

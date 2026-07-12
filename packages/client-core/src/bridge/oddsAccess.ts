@@ -12,6 +12,8 @@ export interface VenueOddsEntry {
   time: number;
   source?: OddsSaveSource;
   clobPrice?: number;
+  /** [changmen 扩展] Predict.fun market id（下注拉 orderbook 用） */
+  marketId?: string;
 }
 
 export interface VenueLimitEntry {

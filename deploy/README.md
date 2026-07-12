@@ -36,7 +36,13 @@ pm2 save
 
 ## 场馆 HK 出海 relay（http-relay / ws-forward）
 
-用户在前端 **扩展 → HK 出海 relay** 开启后，需出海场馆（Polymarket、Predict.fun 等）HTTP/WS 经 changmen VPS 代连。部署 HK 机时需：
+用户在前端 **扩展 → HK 出海 relay** 开启后，需出海场馆 HTTP/WS 经 changmen VPS 代连：
+
+- **Polymarket HTTP**：`Pm_HttpRequest`（VPS 直连 Gamma/CLOB，不经 `http-relay`）
+- **Predict.fun HTTP**：`http-relay`
+- **PM / PF WebSocket**：`ws-forward`（`PM-MARKET` / `PM-USER` / `PREDICTFUN-MARKET`）
+
+部署 HK 机时需：
 
 ```bash
 # 1. 写入 http-relay 白名单并重启 backend
@@ -47,6 +53,10 @@ cd server/backend && node scripts/probe-hk-relay.mjs
 # 或 npm run probe:hk-relay
 ```
 
-`HTTP_RELAY_ALLOWED_HOSTS` 默认含 `gamma-api.polymarket.com,clob.polymarket.com,api.predict.fun,api-testnet.predict.fun`。探针失败时检查 VPS 能否 `curl -I https://clob.polymarket.com/time` 与 `curl -I https://api-testnet.predict.fun/v1/tags`。
+`HTTP_RELAY_ALLOWED_HOSTS` 默认含 `gamma-api.polymarket.com,clob.polymarket.com,api.predict.fun,api-testnet.predict.fun`。探针失败时检查 VPS 能否 `curl -I https://clob.polymarket.com/time` 与 `curl -I https://api.predict.fun/v1/tags -H 'x-api-key: …'`。
 
-**PROXY 与 relay 分离：** `localStorage.PROXY` / 账号 `proxyId` 仅用于电竞**投注账号**经 http-relay 访问平台 gateway；**HK 出海 relay**（PM / Predict.fun）始终走当前页面同源（`window.location.origin`），不受 PROXY 影响。
+**Predict.fun 主网**：VPS `server/backend/.env` 需 `PREDICT_FUN_API_KEY`（ws-forward 握手）；前端构建需 `VITE_PREDICT_FUN_API_KEY`（http-relay REST）。GHA 部署在 GitHub Secrets 设 `PREDICT_FUN_API_KEY`，`deploy.yml` 会注入构建与 `sync-hk-relay-env-remote.sh`。
+
+**Predict.fun 模式 A（运营主号）**：下注私钥通过构建时 `VITE_PREDICT_FUN_PRIVY_PRIVATE_KEY` + `VITE_PREDICT_FUN_PREDICT_ACCOUNT`（或 `VITE_PREDICT_FUN_MASTER_PRIVATE_KEY`）注入；用户 changmen 账号 token 仅占位 `{ "mode": "house" }`。可选 GitHub Secrets：`PREDICT_FUN_PRIVY_PRIVATE_KEY`、`PREDICT_FUN_PREDICT_ACCOUNT`（见 `deploy.yml`）。
+
+**PROXY 与 relay 分离：** `localStorage.PROXY` / 账号 `proxyId` 仅用于电竞**投注账号**经 http-relay 访问平台 gateway；**Predict.fun HK relay** 走当前页面同源；**Polymarket HTTP** 走 `Pm_HttpRequest`，不受 PROXY 影响。

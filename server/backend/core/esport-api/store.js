@@ -353,6 +353,29 @@ export function getCollectorHotSnapshot() {
   };
 }
 
+/** /health/diag：采集热缓存体积（排查 _matches/_bets 无界增长） */
+export function getCollectorMemoryStats() {
+  let matchRows = 0;
+  const matchPlatforms = Object.keys(_matches).length;
+  for (const rows of Object.values(_matches)) {
+    if (rows && typeof rows === "object")
+      matchRows += Object.keys(rows).length;
+  }
+  const betKeys = Object.keys(_bets).length;
+  const timerPlatforms = Object.keys(_timers).length;
+  return {
+    matchPlatforms,
+    matchRows,
+    betKeys,
+    timerPlatforms,
+    approxJsonBytes: {
+      matches: JSON.stringify(_matches).length,
+      bets: JSON.stringify(_bets).length,
+      timers: JSON.stringify(_timers).length,
+    },
+  };
+}
+
 export function hydrateCollectorHotSnapshot({ matchesRaw = {}, bets = {}, timers = {} } = {}) {
   for (const [provider, rows] of Object.entries(matchesRaw || {})) {
     const next = {};
@@ -435,6 +458,7 @@ const store = {
   buildMatchList,
   getCollectorHotSnapshot,
   getCollectorFullSnapshot,
+  getCollectorMemoryStats,
   hydrateCollectorHotSnapshot,
   patchCollectorMatchClientIds,
   removeCollectorPlatformMatch,

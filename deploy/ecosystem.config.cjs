@@ -3,7 +3,7 @@
  *   pm2 start deploy/ecosystem.config.cjs
  * 整仓 git pull 已废弃；上海/香港均为 tarball 扁平部署。
  *
- * 足球控制台见同级仓库 changmen-football（独立 PM2 / 独立发版）。
+ * 足球控制台见 sports/football（独立 PM2 / 独立发版）。
  */
 const path = require("node:path");
 
@@ -16,9 +16,11 @@ module.exports = {
       cwd: path.join(APP_ROOT, "server/backend"),
       script: "scripts/start-db.mjs",
       interpreter: "node",
+      max_memory_restart: "2048M",
       env: {
         NODE_ENV: "production",
         DATABASE_APPLICATION_NAME: "changmen-esport",
+        WS_FORWARD_MAX_BUFFERED_BYTES: "524288",
       },
     },
     {

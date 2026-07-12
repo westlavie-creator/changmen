@@ -5,6 +5,7 @@ import {
 
   createAccountEditFormStateFromAdmin,
 } from "@/components/account/accountEditFormState";
+import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 import { PlatformAccount, resolveAccountPauseReason } from "@/models/platformAccount";
 
 export function adminAccountToPlatformAccount(acc: AdminAccountDetail): PlatformAccount {
@@ -54,6 +55,8 @@ export function adminAccountToPlatformAccount(acc: AdminAccountDetail): Platform
     city: acc.city,
     lastOdds: acc.lastOdds,
     updateTime: acc.updateTime,
+    venueMemberId: acc.venueMemberId,
+    venueAccountName: acc.venueAccountName,
   });
   account.balance = acc.balance;
   return account;
@@ -73,7 +76,7 @@ export function buildAdminAccountDisplayRows(accounts: AdminAccountDetail[]): Ad
     const pauseReason = resolveAccountPauseReason(acc);
     return {
       accountId: acc.accountId,
-      title: `${provider} / ${acc.playerName || acc.platformName || acc.accountId}`,
+      title: `${provider} / ${accountOrderDisplayName(acc) || acc.platformName || acc.accountId}`,
       pauseReason,
       form: createAccountEditFormStateFromAdmin(acc),
       proxyOptions: [

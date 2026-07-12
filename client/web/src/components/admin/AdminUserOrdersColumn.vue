@@ -5,6 +5,7 @@ import { computed, ref, watch } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { adminPlayerLabel, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
+import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 
 const props = defineProps<{
   userName: string;
@@ -23,7 +24,7 @@ const accountOptions = computed(() =>
   [...props.accounts]
     .map(acc => {
       const platform = acc.platformName || acc.platform || "—";
-      const name = acc.playerName || `#${acc.accountId}`;
+      const name = accountOrderDisplayName(acc) || `#${acc.accountId}`;
       return {
         value: Number(acc.accountId),
         label: `${platform} / ${name}`,

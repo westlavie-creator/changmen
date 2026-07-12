@@ -41,9 +41,14 @@ export interface PredictMarketWsHandle {
 interface PredictWsMessage {
   type?: string;
   topic?: string;
-  data?: PredictOrderbookData;
+  data?: PredictOrderbookData | number;
   requestId?: number;
   success?: boolean;
+}
+
+/** [Predict 官方] heartbeat 回包：{ method: "heartbeat", data: timestamp }，无 requestId/params */
+export function formatPredictFunHeartbeatReply(data: unknown): string {
+  return JSON.stringify({ method: "heartbeat", data });
 }
 
 function buildDirectWsUrl(): string {
@@ -81,19 +86,16 @@ export function startPredictMarketWs(opts: {
       return;
     }
     if (payload.type === "M" && payload.topic === HEARTBEAT_TOPIC) {
-      socket?.send(JSON.stringify({
-        method: "heartbeat",
-        requestId: requestId++,
-        params: [payload.data ?? {}],
-      }));
+      socket?.send(formatPredictFunHeartbeatReply(payload.data));
       return;
     }
     if (payload.type !== "M" || !payload.topic?.startsWith("predictOrderbook/"))
       return;
     const marketId = payload.topic.slice("predictOrderbook/".length);
-    if (!marketId || !payload.data)
+    const orderbook = payload.data;
+    if (!marketId || !orderbook || typeof orderbook !== "object")
       return;
-    opts.onOrderbook({ marketId, orderbook: payload.data });
+    opts.onOrderbook({ marketId, orderbook });
   }
 
   function connect() {

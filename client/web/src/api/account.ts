@@ -30,6 +30,19 @@ export async function updateBalance(
   return vtUpdateBalance(playerId, balance);
 }
 
+/** [changmen 扩展] PM 余额：VPS 直连 CLOB，不经 http-relay */
+export async function refreshPmBalance(
+  playerId: number,
+): Promise<AccountRecord | undefined> {
+  const res = await post<AccountRecord>(
+    "Pm_RefreshBalance",
+    { playerId },
+    "",
+    { errorTip: false },
+  );
+  return res.success === 1 && res.info ? res.info : undefined;
+}
+
 export async function deletePlayer(playerId: number, description = "") {
   await post<unknown>("Client_DeletePlayer", { playerId, description });
 }

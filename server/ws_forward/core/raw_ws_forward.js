@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { recordConnect, recordDisconnect, recordError } from "./forward_stats.js";
+import { createWsRelayGuard } from "./ws_backpressure.js";
 
 /** @type {import("ws").WebSocketServer | null} */
 let wss = null;
@@ -27,10 +28,12 @@ function pipeSockets(clientWs, upstreamWs, id, pendingClientMessages = []) {
     if (reason) console.warn(`[ws_forward/${id}] relay closed:`, reason);
   };
 
+  const toUpstream = createWsRelayGuard(id, "to-upstream");
+  const toClient = createWsRelayGuard(id, "to-client");
+
   const forwardClientToUpstream = (data, isBinary) => {
-    if (upstreamWs.readyState === WebSocket.OPEN) {
+    if (toUpstream.canSend(upstreamWs))
       upstreamWs.send(data, { binary: isBinary });
-    }
   };
 
   for (const { data, isBinary } of pendingClientMessages) {
@@ -39,9 +42,8 @@ function pipeSockets(clientWs, upstreamWs, id, pendingClientMessages = []) {
 
   clientWs.on("message", (data, isBinary) => forwardClientToUpstream(data, isBinary));
   upstreamWs.on("message", (data, isBinary) => {
-    if (clientWs.readyState === WebSocket.OPEN) {
+    if (toClient.canSend(clientWs))
       clientWs.send(data, { binary: isBinary });
-    }
   });
   clientWs.on("close", () => closeBoth());
   clientWs.on("error", () => closeBoth());

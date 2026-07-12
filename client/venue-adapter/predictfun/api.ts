@@ -8,10 +8,10 @@ import {
 
 export { resolvePredictFunApiKey } from "./transport";
 
-/** [Predict 官方] 主网需 API Key；测试网无需 Key */
+/** [Predict 官方] 主网需 API Key；测试网用 VITE_PREDICT_FUN_API_BASE=https://api-testnet.predict.fun */
 export const PREDICT_FUN_API = (
   typeof import.meta !== "undefined" && import.meta.env?.VITE_PREDICT_FUN_API_BASE
-) || "https://api-testnet.predict.fun";
+) || "https://api.predict.fun";
 
 export const PREDICT_FUN_WS = "wss://ws.predict.fun/ws";
 
@@ -106,4 +106,29 @@ export async function fetchPredictOrderbooks(
     }
   }
   return out;
+}
+
+export interface PredictMarketDetail {
+  id?: number;
+  feeRateBps?: number;
+  isNegRisk?: boolean;
+  isYieldBearing?: boolean;
+  tradingStatus?: string;
+  status?: string;
+}
+
+export async function fetchPredictMarket(marketId: string | number): Promise<PredictMarketDetail | null> {
+  const id = String(marketId ?? "").trim();
+  if (!id)
+    return null;
+  try {
+    const res = await predictFunHttpGet<{ success?: boolean; data?: PredictMarketDetail }>(
+      `${PREDICT_FUN_API}/v1/markets/${encodeURIComponent(id)}`,
+      predictHeaders(),
+    );
+    return res?.data ?? null;
+  }
+  catch {
+    return null;
+  }
 }

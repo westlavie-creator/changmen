@@ -125,7 +125,9 @@ export function buildPolymarketL2Headers(address, apiKey, secret, passphrase, me
     POLY_TIMESTAMP: timestamp,
     POLY_API_KEY: apiKey,
     POLY_PASSPHRASE: passphrase,
-    Accept: "application/json",
+    Accept: "*/*",
+    "User-Agent": "@polymarket/clob-client",
+    Connection: "keep-alive",
   };
   if (String(method || "GET").toUpperCase() === "POST")
     headers["Content-Type"] = "application/json";

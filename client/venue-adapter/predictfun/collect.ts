@@ -28,6 +28,7 @@ const MAX_TRACKED_MARKETS = 200;
 export function saveTokenQuote(
   params: {
     tokenId: string;
+    marketId: string;
     clobPrice: number;
     betId: string;
     side: "home" | "away";
@@ -39,6 +40,7 @@ export function saveTokenQuote(
     id: params.tokenId,
     odds: decimalOddsFromProbability(params.clobPrice),
     clobPrice: params.clobPrice,
+    marketId: params.marketId,
     isLock: params.locked,
     betId: params.betId,
     side: params.side,
@@ -50,6 +52,7 @@ function saveBetOddsToFo(
   bet: CollectBetDto,
   source: "http" | "mqtt",
   clobPrices?: { home?: number; away?: number },
+  marketIds?: { home?: string; away?: string },
 ) {
   const locked = bet.Status === "Locked";
   const betId = String(bet.SourceBetID);
@@ -59,6 +62,7 @@ function saveBetOddsToFo(
   if (Number.isFinite(homePrice) && homePrice! > 0) {
     saveTokenQuote({
       tokenId: homeId,
+      marketId: String(marketIds?.home ?? ""),
       clobPrice: homePrice!,
       betId,
       side: "home",
@@ -81,6 +85,7 @@ function saveBetOddsToFo(
   if (Number.isFinite(awayPrice) && awayPrice! > 0) {
     saveTokenQuote({
       tokenId: awayId,
+      marketId: String(marketIds?.away ?? ""),
       clobPrice: awayPrice!,
       betId,
       side: "away",
@@ -145,6 +150,7 @@ export function startPredictFunCollector(): () => void {
     const side = tokenId === String(next.SourceHomeID) ? "home" as const : "away" as const;
     saveTokenQuote({
       tokenId,
+      marketId,
       clobPrice: bestAsk,
       betId: String(next.SourceBetID),
       side,
@@ -218,6 +224,9 @@ export function startPredictFunCollector(): () => void {
       saveBetOddsToFo(mapped.bet, "http", {
         home: buyPrices[mapped.homeMarketId],
         away: buyPrices[mapped.awayMarketId],
+      }, {
+        home: mapped.homeMarketId,
+        away: mapped.awayMarketId,
       });
       if (shouldSaveBets) {
         const sid = String(mapped.match.SourceMatchID);

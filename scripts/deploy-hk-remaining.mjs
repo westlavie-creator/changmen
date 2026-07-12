@@ -131,13 +131,14 @@ grep -o 'venue-shared-[^"]*' "$app/dist/index.html" | head -1`);
     ssh(h.host, `cd ${deployRepo}/server/backend; node scripts/post-deploy-check.mjs --skip-telegram`);
 
     console.log("==> sync HK relay env (whitelist + pm2 restart)");
+    const predictKey = process.env.PREDICT_FUN_API_KEY || "";
     ssh(h.host, `set -e
 for i in 1 2 3 4 5; do
   if [ -f ${deployRepo}/server/backend/.env ]; then break; fi
   sleep 1
 done
 test -f ${deployRepo}/server/backend/.env
-cd ${deployRepo} && bash deploy/scripts/sync-hk-relay-env-remote.sh`);
+cd ${deployRepo} && PREDICT_FUN_API_KEY='${predictKey.replace(/'/g, "'\\''")}' bash deploy/scripts/sync-hk-relay-env-remote.sh`);
 
     ssh(h.host, `set -e
 status="$(curl -sf http://127.0.0.1/api/proxy/status 2>/dev/null || curl -sf http://127.0.0.1:3456/api/proxy/status)"

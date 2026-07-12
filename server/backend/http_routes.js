@@ -15,6 +15,7 @@ import {
   handlePolymarketRelayerSign,
   handlePolymarketRelayerStatus,
 } from "./core/integrations/polymarket/relayer_http.js";
+import { handlePolymarketClobL1ApiCreds } from "./core/integrations/polymarket/clob_l1_http.js";
 import { adapterRequire, requirePlatform } from "./core/shared/adapter_paths.js";
 import { tryHttpProxyRelay } from "./proxy/http_proxy_relay.js";
 import { tryIaHttpProxy } from "./proxy/ia_http_proxy.js";
@@ -23,6 +24,11 @@ import { tryPbHttpProxy } from "./proxy/pb_http_proxy.js";
 import { tryRayHttpProxy } from "./proxy/ray_http_proxy.js";
 import { isFastStaticRequest } from "./static_files.js";
 import { getEsportRequestTimingSnapshot } from "./core/shared/esport_request_timing.js";
+import {
+  buildMemoryDiagSnapshot,
+  getProcessMemorySnapshot,
+  writeHeapSnapshotFile,
+} from "./core/shared/memory_diag.js";
 
 const { listPlatforms } = adapterRequire("registry", "feeds.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "node", "session.js");
@@ -187,6 +193,10 @@ export function createHttpHandler({ port, serveStatic }) {
         await handlePolymarketRelayerStatus(req, res);
         return;
       }
+      if (url === "/api/polymarket/clob/create-or-derive-api-creds") {
+        await handlePolymarketClobL1ApiCreds(req, res, readJsonBody);
+        return;
+      }
       if (url === "/api/markets") {
         jsonResponse(res, 200, getMarketCatalogSummary());
         return;
@@ -207,6 +217,33 @@ export function createHttpHandler({ port, serveStatic }) {
           wsForward: ws.wsForward,
           platforms: ws.platforms,
         });
+        return;
+      }
+      if (url === "/health/diag" || url === "/health/diag/heapdump") {
+        if (!isLocalRequest(req)) {
+          jsonResponse(res, 403, { success: 0, msg: "localhost only", info: null });
+          return;
+        }
+        if (url === "/health/diag/heapdump") {
+          if (req.method !== "POST") {
+            jsonResponse(res, 405, { success: 0, msg: "POST only", info: null });
+            return;
+          }
+          try {
+            const file = writeHeapSnapshotFile();
+            jsonResponse(res, 200, { ok: true, file, memory: getProcessMemorySnapshot() });
+          }
+          catch (err) {
+            jsonResponse(res, 500, { ok: false, msg: err.message || String(err) });
+          }
+          return;
+        }
+        if (req.method !== "GET") {
+          jsonResponse(res, 405, { success: 0, msg: "GET only", info: null });
+          return;
+        }
+        const diag = await buildMemoryDiagSnapshot();
+        jsonResponse(res, 200, diag);
         return;
       }
       if (url === "/health") {
@@ -262,7 +299,7 @@ async function buildHealthData() {
     poolStats.idle = pool.idleCount ?? 0;
     poolStats.waiting = pool.waitingCount ?? 0;
   }
-  const mem = process.memoryUsage();
+  const mem = getProcessMemorySnapshot();
   const profiles = listProfiles();
   const matches = getClientMatches();
   const ws = getWsForwardStatus();
@@ -271,11 +308,7 @@ async function buildHealthData() {
     uptime: Math.floor(process.uptime()),
     version: "1.0.2",
     db: { connected: db, latencyMs: dbLatencyMs, pool: poolStats },
-    memory: {
-      rss: Math.round(mem.rss / 1048576),
-      heapUsed: Math.round(mem.heapUsed / 1048576),
-      heapTotal: Math.round(mem.heapTotal / 1048576),
-    },
+    memory: mem,
     data: {
       users: profiles.length,
       accounts: countAccounts(),
@@ -293,7 +326,7 @@ function renderHealthPage(d) {
   const latencyColor = d.db.latencyMs < 10 ? "#22c55e" : d.db.latencyMs < 50 ? "#eab308" : "#ef4444";
   const poolActive = d.db.pool.total - d.db.pool.idle;
   const poolPct = d.db.pool.total ? Math.round(poolActive / d.db.pool.total * 100) : 0;
-  const heapPct = d.memory.heapTotal ? Math.round(d.memory.heapUsed / d.memory.heapTotal * 100) : 0;
+  const heapPct = d.memory.heapTotalMb ? Math.round(d.memory.heapUsedMb / d.memory.heapTotalMb * 100) : 0;
   const apiDelayColor = d.esportApi?.lastDelayMs < 100 ? "#22c55e" : d.esportApi?.lastDelayMs < 500 ? "#eab308" : "#ef4444";
   const esportApiCard = d.esportApi ? `
   <div class="card">
@@ -354,8 +387,9 @@ body{font-family:-apple-system,system-ui,sans-serif;background:#0f172a;color:#e2
   </div>
   <div class="card">
     <div class="card-title">Memory</div>
-    <div class="row"><span class="label">RSS</span><span class="value">${d.memory.rss} MB</span></div>
-    <div class="row"><span class="label">Heap</span><span class="value">${d.memory.heapUsed} / ${d.memory.heapTotal} MB</span></div>
+    <div class="row"><span class="label">RSS</span><span class="value">${d.memory.rssMb} MB</span></div>
+    <div class="row"><span class="label">Heap</span><span class="value">${d.memory.heapUsedMb} / ${d.memory.heapTotalMb} MB</span></div>
+    <div class="row"><span class="label">Non-heap</span><span class="value">${d.memory.nonHeapMb} MB (ext ${d.memory.externalMb}, ab ${d.memory.arrayBuffersMb})</span></div>
     <div class="bar-bg"><div class="bar-fill" style="width:${heapPct}%;background:${heapPct > 85 ? "#ef4444" : heapPct > 60 ? "#eab308" : "#22c55e"}"></div></div>
   </div>
   <div class="card">

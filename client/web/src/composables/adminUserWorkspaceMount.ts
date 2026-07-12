@@ -70,6 +70,8 @@ function cloneAccounts(accounts: PlatformAccount[]): PlatformAccount[] {
         description: acc.description,
         realName: acc.realName,
         mobile: acc.mobile,
+        venueMemberId: acc.venueMemberId,
+        venueAccountName: acc.venueAccountName,
       }),
   );
 }

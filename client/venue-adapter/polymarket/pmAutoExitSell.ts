@@ -7,7 +7,6 @@ import type { PlatformAccount } from "@changmen/client-core/models/platformAccou
 import { POLYMARKET_CLOB_API } from "./api";
 import { resolvePolymarketBuilderCode } from "./builder";
 import {
-  buildL2Headers,
   parseTokenConfig,
   resolveApiCreds,
   resolveFunder,
@@ -21,12 +20,7 @@ import {
   type PolymarketTickSize,
 } from "./pmTickPrice";
 import { ensurePolymarketHeartbeat } from "./pmHeartbeat";
-import { polymarketPluginGet, polymarketPluginPost } from "./transport";
-
-const ORDER_PATH = "/order";
-const ORDER_BOOK_PATH = "/book";
-/** [Polymarket 可证实] 用户 open orders */
-const OPEN_ORDERS_PATH = "/data/orders";
+import { pmGetBook, pmGetOpenOrders, pmSubmitOrder } from "./pmClientApi";
 
 type Hex = `0x${string}`;
 
@@ -88,10 +82,7 @@ async function fetchSellOrderOptions(gateway: string, tokenId: string): Promise<
   minOrderSize: number;
   negRisk: boolean;
 }> {
-  const params = new URLSearchParams({ token_id: tokenId });
-  const book = await polymarketPluginGet<PolymarketOrderBookResponse>(
-    `${gateway}${ORDER_BOOK_PATH}?${params.toString()}`,
-  );
+  const book = await pmGetBook<PolymarketOrderBookResponse>(tokenId, gateway);
   return {
     tickSize: normalizePolymarketTickSize(book?.tick_size ?? book?.minimum_tick_size),
     minOrderSize: Number(book?.min_order_size) || 0,
@@ -135,28 +126,12 @@ function isLiveSellOrder(row: PolymarketOpenOrderRow, tokenId: string): boolean 
 export async function findExistingPolymarketOpenSell(params: {
   account: PlatformAccount;
   tokenId: string;
-  gateway?: string;
-  address: string;
-  apiKey: string;
-  secret: string;
-  passphrase: string;
 }): Promise<{ orderId: string; price?: number } | null> {
   const tokenId = String(params.tokenId ?? "").trim();
   if (!tokenId)
     return null;
-  const gateway = params.gateway || POLYMARKET_CLOB_API;
-  const qs = new URLSearchParams({ asset_id: tokenId });
-  const path = `${OPEN_ORDERS_PATH}?${qs.toString()}`;
-  const headers = await buildL2Headers(
-    params.address,
-    params.apiKey,
-    params.secret,
-    params.passphrase,
-    "GET",
-    path,
-  );
   try {
-    const raw = await polymarketPluginGet<unknown>(`${gateway}${path}`, { headers });
+    const raw = await pmGetOpenOrders<unknown>(params.account, tokenId);
     const rows = normalizeOpenOrdersPayload(raw);
     const hit = rows.find(r => isLiveSellOrder(r, tokenId));
     if (!hit)
@@ -281,11 +256,6 @@ export async function placePolymarketAutoExitSell(params: {
     const existing = await findExistingPolymarketOpenSell({
       account: params.account,
       tokenId,
-      gateway,
-      address: creds.address,
-      apiKey: creds.apiKey,
-      secret: creds.secret,
-      passphrase: creds.passphrase,
     });
     if (existing) {
       return {
@@ -320,21 +290,7 @@ export async function placePolymarketAutoExitSell(params: {
       shares,
       orderOptions,
     );
-    const bodyStr = JSON.stringify(orderBody);
-    const headers = await buildL2Headers(
-      creds.address,
-      creds.apiKey,
-      creds.secret,
-      creds.passphrase,
-      "POST",
-      ORDER_PATH,
-      bodyStr,
-    );
-    const result = await polymarketPluginPost<PolymarketOrderResponse>(
-      `${gateway}${ORDER_PATH}`,
-      orderBody,
-      { headers },
-    );
+    const result = await pmSubmitOrder<PolymarketOrderResponse>(params.account, orderBody);
 
     if (!result?.success) {
       const msg = String(result?.errorMsg ?? "GTC 卖单未受理").trim();

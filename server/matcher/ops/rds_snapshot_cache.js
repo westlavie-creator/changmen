@@ -210,23 +210,35 @@ async function fetchEmbeddedMemorySnapshot() {
   if (!full?.hasMatches && !full?.hasBets)
     return null;
 
-  const clientRows = await resolveClientRowsForSnapshot();
+  const [platformMeta, clientMeta] = await Promise.all([
+    db.fetchPlatformCollectorMeta(),
+    db.fetchClientMatchesMeta(),
+  ]);
 
-  const rdsMatchesRaw = await db.fetchPlatformMatches();
-  const rdsBets = await db.fetchPlatformBets();
+  const [rdsMatchesRaw, rdsBets, rdsTimers, clientRows] = await Promise.all([
+    readCached("platformMatches", platformMeta?.platformMatches, db.fetchPlatformMatches, { critical: true }),
+    readCached("platformBets", platformMeta?.platformBets, db.fetchPlatformBets),
+    readCached("liveTimers", platformMeta?.liveTimers, db.fetchLiveTimers),
+    resolveClientRowsForSnapshot(),
+  ]);
+
   let matchesRaw = rdsMatchesRaw || {};
   if (full?.hasMatches)
-    matchesRaw = mergePlatformMatchesSnapshot(rdsMatchesRaw, cloneSnapshot(full.matchesRaw));
+    matchesRaw = mergePlatformMatchesSnapshot(rdsMatchesRaw, full.matchesRaw);
   const bets = full?.hasBets
-    ? mergeBetsSnapshotRdsTruth(rdsBets, cloneSnapshot(full.bets), matchesRaw)
+    ? mergeBetsSnapshotRdsTruth(rdsBets, full.bets, matchesRaw)
     : (rdsBets || {});
+  const timers = full?.hasTimers
+    ? mergeObjectSnapshot(rdsTimers, full.timers)
+    : (rdsTimers || {});
+  const clientRowsSnap = cloneSnapshot(clientRows);
 
   return {
     matchesRaw,
     bets,
-    timers: cloneSnapshot(full.timers),
-    clientRows: cloneSnapshot(clientRows),
-    alignClientRows: cloneSnapshot(clientRows),
+    timers,
+    clientRows: clientRowsSnap,
+    alignClientRows: clientRowsSnap,
     hotCollector: {
       matches: !!full?.hasMatches,
       bets: !!full?.hasBets,
@@ -242,6 +254,7 @@ export async function fetchMatcherRdsSnapshot() {
       logCacheStats();
       return mem;
     }
+    invalidateMatcherRdsSnapshot();
   }
 
   const hot = store.getCollectorHotSnapshot?.();
@@ -306,6 +319,17 @@ function enrichMatchesRawWithDbBindings(matchesRaw, bindingsByClientId) {
     }
   }
   return matchesRaw;
+}
+
+/** /health/diag：matcher RDS 快照 cache 条目（standalone 模式用 readCached） */
+export function getMatcherRdsSnapshotCacheStats() {
+  const now = Date.now();
+  return [...entries.entries()].map(([key, entry]) => ({
+    key,
+    hits: entry.hits,
+    ageSec: Math.round((now - entry.loadedAt) / 1000),
+    approxJsonBytes: JSON.stringify(entry.value ?? null).length,
+  }));
 }
 
 export {

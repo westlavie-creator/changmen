@@ -16,6 +16,8 @@
     "@changmen/client-core": "*",
     "@changmen/db": "*",
     "@changmen/storage": "*",
-    "@changmen/shared": "*"
+    "@changmen/shared": "*",
+    "@predictdotfun/sdk": "^1.3.6",
+    "ethers": "^6.15.0"
   }
 }

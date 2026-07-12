@@ -19,7 +19,8 @@
     "devtools/platform-probes",
     "server/team-resolver",
     "server/value-bet",
-    "server/polymarket-sports"
+    "server/polymarket-sports",
+    "sports/football"
   ],
   "scripts": {
     "install:all": "npm install",
@@ -46,6 +47,9 @@
     "ob:lock-observe": "npm run ob:lock-observe --workspace=@changmen/venue-adapter",
     "value-bet": "npm run start --prefix server/value-bet",
     "value-bet:scan": "npm run scan:once --prefix server/value-bet",
+    "football:dev": "npm run dev --workspace=changmen-football",
+    "football:start": "npm run start --workspace=changmen-football",
+    "football:test": "npm run test --workspace=changmen-football",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

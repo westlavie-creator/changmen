@@ -42,7 +42,7 @@ Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `
 | `https://your-domain.com/esport/*` | server/backend（`changmen-esport`） |
 | `https://your-domain.com/v4.0/*` | 平博 v4 透明代理（可选） |
 
-**足球控制台**（独立仓库 `changmen-football`，非本 monorepo）：同域 `/football/*` → `:3457`，见 [../changmen-football/README.md](../changmen-football/README.md)。
+**足球控制台**（本 monorepo `sports/football/`）：同域 `/football/*` → `:3457`，见 [sports/football/README.md](./sports/football/README.md)。
 
 Nginx / Caddy 反代示例要点：
 - 静态 `/` 指向 `client/web/dist/`（推荐由 Caddy `file_server` 托管），或由 `server/backend` 读 `dist` 托管
@@ -63,7 +63,7 @@ Nginx / Caddy 反代示例要点：
 | API + 合并（`server/backend` 内嵌 matcher） | PM2：`changmen-esport`（`:3456`） | `pm2 restart changmen-esport --update-env` |
 | Polymarket 赛程状态 | PM2：`changmen-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart changmen-pm-sports --update-env` |
 
-足球只读控制台在**独立仓库** `changmen-football`（PM2 `changmen-football`、`:3457`），发版与重启**不包含**在本仓 deploy 脚本内。
+足球控制台在 **`sports/football/`**（PM2 `changmen-football`、`:3457`），发版与重启**不包含**在电竞 GHA deploy 内；见 `sports/football/deploy/scripts/deploy-remote.sh`。
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
@@ -75,7 +75,7 @@ Nginx / Caddy 反代示例要点：
            └─ /esport/* 等    → 127.0.0.1:3456 (PM2 changmen-esport)
 ```
 
-（可选）同 VPS 合并 `changmen-football/deploy/caddy-football-route.txt` 以启用 `/football/*`。
+（可选）同 VPS 合并 `sports/football/deploy/caddy-football-route.txt` 以启用 `/football/*`。
 
 - **前端发版**：`git pull` → `npm run app:build` → 更新 `dist/`（Caddy 直接读磁盘，无需 reload，更不必动 PM2）
 - **后端发版**：`git pull` → `npm install`（若依赖变）→ `pm2 restart changmen-esport`（**不必**重新 `app:build`）

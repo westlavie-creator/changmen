@@ -3,15 +3,25 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { isPolymarketFokBuyFilled, isPolymarketOrderAccepted, polymarketProvider } from "./bet";
 import { POLYMARKET_BUILDER_CODE_DEFAULT } from "./builder";
 import { POLYMARKET_CLOB_API } from "./api";
+import { resetPolymarketOrderSyncForTest } from "./pmOrderSync";
 
 const polymarketPluginGet = vi.hoisted(() => vi.fn());
 const polymarketPluginPost = vi.hoisted(() => vi.fn());
+const pmGetBook = vi.hoisted(() => vi.fn());
+const pmGetTrades = vi.hoisted(() => vi.fn());
+const pmSubmitOrder = vi.hoisted(() => vi.fn());
 
 vi.mock("./transport", () => ({
   polymarketPluginGet,
   polymarketPluginPost,
   polymarketL2Get: (account: PlatformAccount, url: string, l2Path: string) =>
     polymarketPluginGet(url, { account, l2Path }),
+}));
+
+vi.mock("./pmClientApi", () => ({
+  pmGetBook,
+  pmSubmitOrder,
+  pmGetTrades,
 }));
 
 vi.mock("./pmAutoExitSell", () => ({
@@ -40,6 +50,7 @@ function mockPluginGetWithBook(
   book: Record<string, unknown>,
   tokenId = "123456789",
 ) {
+  vi.mocked(pmGetBook).mockResolvedValue(book);
   vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
     if (url.includes("gamma-api.polymarket.com/markets")) {
       return [{
@@ -47,8 +58,6 @@ function mockPluginGetWithBook(
         outcomePrices: JSON.stringify(["0.5", "0.5"]),
       }];
     }
-    if (url.includes("/book"))
-      return book;
     throw new Error(`unexpected url ${url}`);
   });
 }
@@ -57,7 +66,7 @@ describe("polymarketProvider.getBalance", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(polymarketPluginGet).mockReset();
-    vi.mocked(polymarketPluginPost).mockReset();
+    vi.mocked(pmSubmitOrder).mockReset();
   });
 
   test("走 relay 服务端 L2 签名（account + l2Path）", async () => {
@@ -99,8 +108,9 @@ describe("polymarketProvider.getBalance", () => {
     const [url, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
     expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
     expect(options).toEqual(expect.objectContaining({
-      account,
-      l2Path: "/balance-allowance",
+      headers: expect.objectContaining({
+        POLY_API_KEY: "key-1",
+      }),
     }));
   });
 
@@ -167,8 +177,7 @@ describe("polymarketProvider.getBalance", () => {
     const [url, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
     expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
     expect(options).toEqual(expect.objectContaining({
-      account,
-      l2Path: "/balance-allowance",
+      headers: expect.objectContaining({ POLY_API_KEY: "key-nested" }),
     }));
   });
 
@@ -187,8 +196,7 @@ describe("polymarketProvider.getBalance", () => {
     });
     const [, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
     expect(options).toEqual(expect.objectContaining({
-      account,
-      l2Path: "/balance-allowance",
+      headers: expect.objectContaining({ POLY_API_KEY: "key-flat" }),
     }));
   });
 
@@ -209,8 +217,7 @@ describe("polymarketProvider.getBalance", () => {
     });
     const [, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
     expect(options).toEqual(expect.objectContaining({
-      account,
-      l2Path: "/balance-allowance",
+      headers: expect.objectContaining({ POLY_API_KEY: "key-camel" }),
     }));
   });
 
@@ -232,8 +239,7 @@ describe("polymarketProvider.getBalance", () => {
     const [url, options] = vi.mocked(polymarketPluginGet).mock.calls[0]!;
     expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
     expect(options).toEqual(expect.objectContaining({
-      account,
-      l2Path: "/balance-allowance",
+      headers: expect.objectContaining({ POLY_API_KEY: "key-1" }),
     }));
   });
 
@@ -309,12 +315,38 @@ describe("polymarketProvider.getBalance", () => {
     expect(url).toBe(`${POLYMARKET_CLOB_API}/balance-allowance?asset_type=COLLATERAL&signature_type=3`);
   });
 
+  test("accountId=0 保存前探测走客户端 L2 头，不经 relay 查 RDS", async () => {
+    vi.mocked(polymarketPluginGet).mockResolvedValue({ balance: "1000000" });
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xabc",
+      apiCreds: {
+        apiKey: "key-1",
+        secret: "c2VjcmV0",
+        passphrase: "pass-1",
+      },
+    }), { accountId: 0 as unknown as PlatformAccount["accountId"] });
+
+    await polymarketProvider.getBalance!(account);
+
+    expect(polymarketPluginGet).toHaveBeenCalledWith(
+      expect.stringContaining("/balance-allowance"),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          POLY_API_KEY: "key-1",
+          POLY_PASSPHRASE: "pass-1",
+        }),
+      }),
+    );
+    const opts = vi.mocked(polymarketPluginGet).mock.calls[0]?.[1];
+    expect(opts).not.toHaveProperty("l2Path");
+  });
+
   test("returns undefined when balance relay fails", async () => {
     vi.mocked(polymarketPluginGet).mockRejectedValue(new Error("missing api secret"));
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xabc",
-      apiCreds: { apiKey: "key-1", passphrase: "pass-1" },
-    }));
+      apiCreds: { apiKey: "key-1", secret: "c2VjcmV0", passphrase: "pass-1" },
+    }), { accountId: 47 as unknown as PlatformAccount["accountId"] });
 
     await expect(polymarketProvider.getBalance!(account)).resolves.toBeUndefined();
     expect(polymarketPluginGet).toHaveBeenCalled();
@@ -325,10 +357,12 @@ describe("polymarketProvider.betting", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(polymarketPluginGet).mockReset();
-    vi.mocked(polymarketPluginPost).mockReset();
+    vi.mocked(pmSubmitOrder).mockReset();
+    vi.mocked(pmGetBook).mockReset();
+    vi.mocked(pmSubmitOrder).mockReset();
   });
 
-  test("下单走 relay 服务端 L2 签名（account + l2Path）", async () => {
+  test("下单走 Pm_SubmitOrder", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     mockPluginGetWithBook({
       tick_size: "0.01",
@@ -336,7 +370,7 @@ describe("polymarketProvider.betting", () => {
       neg_risk: false,
       asks: [{ price: "0.5", size: "100" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "order-hk-1",
       status: "matched",
@@ -361,14 +395,13 @@ describe("polymarketProvider.betting", () => {
     } as any);
 
     expect(result.success).toBe(true);
-    expect(polymarketPluginPost).toHaveBeenCalledWith(
-      `${POLYMARKET_CLOB_API}/order`,
+    expect(pmSubmitOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 47 }),
       expect.objectContaining({ orderType: "FOK" }),
-      { account, l2Path: "/order" },
     );
   });
 
-  test("uses official CLOB v2 order shape and posts through plugin", async () => {
+  test("uses official CLOB v2 order shape and posts through pmClientApi", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     mockPluginGetWithBook({
       tick_size: "0.01",
@@ -376,7 +409,7 @@ describe("polymarketProvider.betting", () => {
       neg_risk: false,
       asks: [{ price: "0.5", size: "100" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "order-1",
       status: "matched",
@@ -404,11 +437,10 @@ describe("polymarketProvider.betting", () => {
     const result = await polymarketProvider.betting!(account, option as any);
 
     expect(result.success).toBe(true);
-    expect(polymarketPluginGet).toHaveBeenCalledWith(`${POLYMARKET_CLOB_API}/book?token_id=123456789`);
-    expect(polymarketPluginPost).toHaveBeenCalledOnce();
+    expect(pmGetBook).toHaveBeenCalledWith("123456789", POLYMARKET_CLOB_API);
+    expect(pmSubmitOrder).toHaveBeenCalledOnce();
 
-    const [url, body, options] = vi.mocked(polymarketPluginPost).mock.calls[0]!;
-    expect(url).toBe(`${POLYMARKET_CLOB_API}/order`);
+    const [, body] = vi.mocked(pmSubmitOrder).mock.calls[0]!;
     expect(body).toMatchObject({
       owner: "key-1",
       orderType: "FOK",
@@ -429,10 +461,6 @@ describe("polymarketProvider.betting", () => {
       },
     });
     expect((body as any).order.signature).toEqual(expect.stringMatching(/^0x[0-9a-f]+$/));
-    expect(options).toEqual(expect.objectContaining({
-      account,
-      l2Path: "/order",
-    }));
   });
 
   test("uses market order price from book depth for FOK buy amount", async () => {
@@ -445,7 +473,7 @@ describe("polymarketProvider.betting", () => {
         { price: "0.5", size: "50" },
       ],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "order-depth",
       status: "matched",
@@ -475,7 +503,7 @@ describe("polymarketProvider.betting", () => {
     expect(result.success).toBe(true);
     expect((option as any).newOdds).toBeCloseTo(2, 4);
 
-    const [, body] = vi.mocked(polymarketPluginPost).mock.calls[0]!;
+    const [, body] = vi.mocked(pmSubmitOrder).mock.calls[0]!;
     expect(body).toMatchObject({
       orderType: "FOK",
       order: {
@@ -515,7 +543,7 @@ describe("polymarketProvider.betting", () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain("盘口价高于检测价");
-    expect(polymarketPluginPost).not.toHaveBeenCalled();
+    expect(pmSubmitOrder).not.toHaveBeenCalled();
   });
 
   test("accepts FOK when fo clobPrice matches book despite display odds rounding", async () => {
@@ -526,7 +554,7 @@ describe("polymarketProvider.betting", () => {
       neg_risk: false,
       asks: [{ price: "0.68", size: "5000" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "order-rounding",
       status: "matched",
@@ -558,7 +586,7 @@ describe("polymarketProvider.betting", () => {
     } as any);
 
     expect(result.success).toBe(true);
-    expect(polymarketPluginPost).toHaveBeenCalledOnce();
+    expect(pmSubmitOrder).toHaveBeenCalledOnce();
   });
 
   test("uses current betMoney instead of stale apiBetMoney after reconcile", async () => {
@@ -569,7 +597,7 @@ describe("polymarketProvider.betting", () => {
       neg_risk: false,
       asks: [{ price: "0.38", size: "5000" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "order-reconcile-stake",
       status: "matched",
@@ -601,7 +629,7 @@ describe("polymarketProvider.betting", () => {
     } as any);
 
     expect(result.success).toBe(true);
-    const [, body] = vi.mocked(polymarketPluginPost).mock.calls[0]!;
+    const [, body] = vi.mocked(pmSubmitOrder).mock.calls[0]!;
     expect(Number((body as { order: { makerAmount: string } }).order.makerAmount) / 1_000_000)
       .toBeCloseTo(3, 2);
   });
@@ -614,7 +642,7 @@ describe("polymarketProvider.betting", () => {
       neg_risk: false,
       asks: [{ price: "0.38", size: "5000" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "order-decimal-stake",
       status: "matched",
@@ -645,7 +673,7 @@ describe("polymarketProvider.betting", () => {
     } as any);
 
     expect(result.success).toBe(true);
-    const [, body] = vi.mocked(polymarketPluginPost).mock.calls[0]!;
+    const [, body] = vi.mocked(pmSubmitOrder).mock.calls[0]!;
     expect(Number((body as { order: { makerAmount: string } }).order.makerAmount) / 1_000_000)
       .toBe(11.43);
   });
@@ -683,7 +711,7 @@ describe("polymarketProvider.betting", () => {
     } as any);
 
     expect(result.success).toBe(false);
-    expect(polymarketPluginPost).not.toHaveBeenCalled();
+    expect(pmSubmitOrder).not.toHaveBeenCalled();
   });
 
   test("reports minimum order size before posting too-small FOK buy", async () => {
@@ -717,7 +745,7 @@ describe("polymarketProvider.betting", () => {
     expect(result.message).toContain("【盘口】");
     expect(result.message).toContain("最小下单份数：12");
     expect(result.message).toContain("当前盘口至少约 9.36 USDC");
-    expect(polymarketPluginPost).not.toHaveBeenCalled();
+    expect(pmSubmitOrder).not.toHaveBeenCalled();
   });
 
   test("fails when API success but status is not matched", async () => {
@@ -728,7 +756,7 @@ describe("polymarketProvider.betting", () => {
       neg_risk: false,
       asks: [{ price: "0.5", size: "100" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "order-unmatched",
       status: "unmatched",
@@ -762,7 +790,7 @@ describe("polymarketProvider.betting", () => {
       neg_risk: false,
       asks: [{ price: "0.5", size: "100" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "0xdelayed-order",
       status: "delayed",
@@ -797,7 +825,7 @@ describe("polymarketProvider.betting", () => {
       neg_risk: false,
       asks: [{ price: "0.5", size: "100" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "order-empty",
       status: "matched",
@@ -882,6 +910,7 @@ describe("isPolymarketOrderAccepted", () => {
 describe("polymarketProvider.checkBet", () => {
   beforeEach(() => {
     vi.mocked(polymarketPluginGet).mockReset();
+    vi.mocked(pmGetBook).mockReset();
     vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
       if (url.includes("gamma-api.polymarket.com/markets")) {
         return [{
@@ -901,15 +930,13 @@ describe("polymarketProvider.checkBet", () => {
           outcomePrices: JSON.stringify(["0.5", "0.5"]),
         }];
       }
-      if (url.includes("/book")) {
-        return {
-          tick_size: "0.01",
-          min_order_size: "5",
-          neg_risk: false,
-          asks: [{ price: "0.18", size: "100" }],
-        };
-      }
       throw new Error(`unexpected url ${url}`);
+    });
+    vi.mocked(pmGetBook).mockResolvedValue({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.18", size: "100" }],
     });
 
     const option = {
@@ -1003,15 +1030,13 @@ describe("polymarketProvider.checkBet", () => {
           outcomePrices: JSON.stringify(["0.5", "0.5"]),
         }];
       }
-      if (url.includes("/book")) {
-        return {
-          tick_size: "0.01",
-          min_order_size: "5",
-          neg_risk: false,
-          asks: [{ price: "0.32", size: "100" }],
-        };
-      }
       throw new Error(`unexpected url ${url}`);
+    });
+    vi.mocked(pmGetBook).mockResolvedValue({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.32", size: "100" }],
     });
 
     const option = {
@@ -1037,15 +1062,13 @@ describe("polymarketProvider.checkBet", () => {
           outcomePrices: JSON.stringify(["0.5", "0.5"]),
         }];
       }
-      if (url.includes("/book")) {
-        return {
-          tick_size: "0.01",
-          min_order_size: "5",
-          neg_risk: false,
-          asks: [{ price: "0.5", size: "100" }],
-        };
-      }
       throw new Error(`unexpected url ${url}`);
+    });
+    vi.mocked(pmGetBook).mockResolvedValue({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
     });
 
     const option = {
@@ -1070,27 +1093,24 @@ describe("polymarketProvider.checkBet", () => {
 describe("polymarketProvider.getOrders", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    resetPolymarketOrderSyncForTest();
     vi.mocked(polymarketPluginGet).mockReset();
+    vi.mocked(pmGetTrades).mockReset();
   });
 
   test("fetches trades with L2 auth and maps to venue orders", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_100_000_000);
+    vi.mocked(pmGetTrades).mockResolvedValue([{
+      taker_order_id: "0xtrade-order",
+      market: "0xcondition",
+      side: "BUY",
+      status: "TRADE_STATUS_CONFIRMED",
+      size: "2000000",
+      price: "0.5",
+      match_time: "1700000000",
+      outcome: "Team A",
+    }]);
     vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
-      if (url.includes("/data/trades")) {
-        return {
-          data: [{
-            taker_order_id: "0xtrade-order",
-            market: "0xcondition",
-            side: "BUY",
-            status: "TRADE_STATUS_CONFIRMED",
-            size: "2000000",
-            price: "0.5",
-            match_time: "1700000000",
-            outcome: "Team A",
-          }],
-          next_cursor: "LTE=",
-        };
-      }
       if (url.includes("gamma-api.polymarket.com/markets")) {
         return [{
           condition_id: "0xcondition",
@@ -1110,7 +1130,7 @@ describe("polymarketProvider.getOrders", () => {
         secret: "c2VjcmV0",
         passphrase: "pass-1",
       },
-    }));
+    }), { accountId: 47 as unknown as PlatformAccount["accountId"] });
 
     const orders = await polymarketProvider.getOrders!(account);
     expect(orders).toHaveLength(1);
@@ -1122,32 +1142,26 @@ describe("polymarketProvider.getOrders", () => {
       odds: 2,
     });
 
-    const tradesCall = vi.mocked(polymarketPluginGet).mock.calls.find(([url]) => url.includes("/data/trades"));
-    expect(tradesCall?.[0]).toContain("/data/trades?after=");
-    expect(tradesCall?.[1]).toEqual(expect.objectContaining({
-      account,
-      l2Path: "/data/trades",
-    }));
+    expect(pmGetTrades).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 47 }),
+      expect.any(Number),
+      expect.any(Number),
+    );
   });
 
   test("scales mapped order amounts to CNY display via USDT exchange", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_100_000_000);
+    vi.mocked(pmGetTrades).mockResolvedValue([{
+      taker_order_id: "0xtrade-order",
+      market: "0xcondition",
+      side: "BUY",
+      status: "TRADE_STATUS_CONFIRMED",
+      size: "2000000",
+      price: "0.5",
+      match_time: "1700000000",
+      outcome: "Team A",
+    }]);
     vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
-      if (url.includes("/data/trades")) {
-        return {
-          data: [{
-            taker_order_id: "0xtrade-order",
-            market: "0xcondition",
-            side: "BUY",
-            status: "TRADE_STATUS_CONFIRMED",
-            size: "2000000",
-            price: "0.5",
-            match_time: "1700000000",
-            outcome: "Team A",
-          }],
-          next_cursor: "LTE=",
-        };
-      }
       if (url.includes("gamma-api.polymarket.com/markets")) {
         return [{
           condition_id: "0xcondition",
@@ -1167,17 +1181,17 @@ describe("polymarketProvider.getOrders", () => {
         secret: "c2VjcmV0",
         passphrase: "pass-1",
       },
-    }), { multiply: 10 }));
+    }), { accountId: 47 as unknown as PlatformAccount["accountId"], multiply: 10 }));
 
     expect(orders[0]?.betMoney).toBe(6.8);
     expect(orders[0]?.reward).toBe(13.6);
   });
 
   test("returns empty array when credentials are missing", async () => {
-    vi.mocked(polymarketPluginGet).mockRejectedValue(new Error("missing credentials"));
-    const orders = await polymarketProvider.getOrders!(accountWithToken("{}"));
+    vi.mocked(pmGetTrades).mockRejectedValue(new Error("missing credentials"));
+    const orders = await polymarketProvider.getOrders!(accountWithToken("{}", { accountId: 47 as unknown as PlatformAccount["accountId"] }));
     expect(orders).toEqual([]);
-    expect(polymarketPluginGet).toHaveBeenCalled();
+    expect(pmGetTrades).toHaveBeenCalled();
   });
 });
 
@@ -1196,16 +1210,14 @@ function pmBettingAccount() {
 }
 
 function bookGetCalls() {
-  return vi.mocked(polymarketPluginGet).mock.calls.filter(
-    call => String(call[0]).includes("/book"),
-  );
+  return vi.mocked(pmGetBook).mock.calls;
 }
 
 describe("PM precheck /book reuse", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.mocked(polymarketPluginGet).mockReset();
-    vi.mocked(polymarketPluginPost).mockReset();
+    vi.mocked(pmSubmitOrder).mockReset();
   });
 
   test("betting reuses checkBet /book within TTL", async () => {
@@ -1217,7 +1229,7 @@ describe("PM precheck /book reuse", () => {
       neg_risk: false,
       asks: [{ price: "0.5", size: "100" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValue({
+    vi.mocked(pmSubmitOrder).mockResolvedValue({
       success: true,
       orderID: "order-reuse",
       status: "matched",
@@ -1236,7 +1248,7 @@ describe("PM precheck /book reuse", () => {
     expect(checked.data).toBeTruthy();
     expect(bookGetCalls().length).toBeGreaterThan(0);
 
-    vi.mocked(polymarketPluginGet).mockClear();
+    vi.mocked(pmGetBook).mockClear();
     const result = await polymarketProvider.betting!(account, checked as any);
 
     expect(result.success).toBe(true);
@@ -1252,7 +1264,7 @@ describe("PM precheck /book reuse", () => {
       neg_risk: false,
       asks: [{ price: "0.5", size: "100" }],
     });
-    vi.mocked(polymarketPluginPost).mockResolvedValue({
+    vi.mocked(pmSubmitOrder).mockResolvedValue({
       success: true,
       orderID: "order-refetch",
       status: "matched",
@@ -1271,7 +1283,7 @@ describe("PM precheck /book reuse", () => {
     expect(checked.data).toBeTruthy();
 
     now += 801;
-    vi.mocked(polymarketPluginGet).mockClear();
+    vi.mocked(pmGetBook).mockClear();
     const result = await polymarketProvider.betting!(account, checked as any);
 
     expect(result.success).toBe(true);

@@ -102,9 +102,8 @@ function createDispatcher(proxyUrl) {
 }
 
 function nodeFetch(url, options = {}) {
-  if (isPolymarketUpstream(url) && typeof globalThis.fetch === "function") {
+  if (isPolymarketUpstream(url) && typeof globalThis.fetch === "function")
     return nodeFetchViaFetch(url, options);
-  }
   return nodeFetchViaHttp(url, options);
 }
 
@@ -178,6 +177,8 @@ function validateTargetUrl(targetUrl, opts = {}) {
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
     return { ok: false, status: 400, msg: "proxy target protocol not allowed" };
+  if (isPolymarketUpstream(targetUrl))
+    return { ok: false, status: 403, msg: "Polymarket 已迁出 http-relay，请用 Pm_HttpRequest" };
   const allowedLocalPath = opts.relative && (parsed.pathname === "/IP" || parsed.pathname === "/IP/Address");
   if (!RELAY_ALLOW_PRIVATE && !allowedLocalPath && isPrivateHostname(parsed.hostname))
     return { ok: false, status: 403, msg: "proxy target private host not allowed" };
@@ -223,6 +224,7 @@ const POLY_HEADER_CANONICAL = {
   "poly_address": "POLY_ADDRESS",
   "poly_signature": "POLY_SIGNATURE",
   "poly_timestamp": "POLY_TIMESTAMP",
+  "poly_nonce": "POLY_NONCE",
   "poly_api_key": "POLY_API_KEY",
   "poly_passphrase": "POLY_PASSPHRASE",
 };
@@ -231,6 +233,7 @@ const POLY_UPSTREAM_HEADERS = [
   "POLY_ADDRESS",
   "POLY_SIGNATURE",
   "POLY_TIMESTAMP",
+  "POLY_NONCE",
   "POLY_API_KEY",
   "POLY_PASSPHRASE",
 ];
@@ -254,7 +257,30 @@ function isPolymarketUpstream(targetUrl) {
   }
 }
 
-/** 对齐扩展 background axios 直连 PM：仅 L2 五头 + Host（与官方 clob-client createL2Headers 一致） */
+/** 对齐 @polymarket/clob-client-v2 http-helpers overloadHeaders（Node 非浏览器） */
+const PM_CLOB_USER_AGENT = "@polymarket/clob-client";
+
+function polymarketSdkTransportHeaders(req, method) {
+  const out = {
+    "User-Agent": headerValue(req.headers["x-proxy-useragent"]) || PM_CLOB_USER_AGENT,
+    Accept: "*/*",
+    Connection: "keep-alive",
+    "Content-Type": "application/json",
+  };
+  if (String(method || "GET").toUpperCase() === "GET")
+    out["Accept-Encoding"] = "gzip";
+  return out;
+}
+
+/** relay L2 签名路径原先只带 POLY_*；缺 SDK transport 头时 Cloudflare 会 400 */
+function mergePolymarketUpstreamHeaders(req, authHeaders, method) {
+  return {
+    ...polymarketSdkTransportHeaders(req, method),
+    ...authHeaders,
+  };
+}
+
+/** 对齐扩展 background axios 直连 PM：L1 四头 + L2 五头 + Host */
 function forwardPolymarketHeaders(req, targetUrl) {
   const raw = {};
   for (const [key, value] of Object.entries(req.headers)) {
@@ -381,7 +407,10 @@ async function tryHttpProxyRelay(req, res, baseOrigin) {
     sendRelayError(res, pmL2.error.status, pmL2.error.msg);
     return true;
   }
-  const headers = pmL2?.headers ?? forwardHeaders(req, targetUrl);
+  const authHeaders = pmL2?.headers ?? forwardHeaders(req, targetUrl);
+  const headers = isPolymarketUpstream(targetUrl)
+    ? mergePolymarketUpstreamHeaders(req, authHeaders, req.method)
+    : authHeaders;
 
   try {
     const upstream = await nodeFetch(targetUrl, {

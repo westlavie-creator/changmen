@@ -18,6 +18,13 @@ export interface PolymarketCredentialInput {
   privateKey: string;
 }
 
+export interface PolymarketCredentialRequestOptions {
+  /** changmen API 根（空 = 浏览器同源） */
+  apiBase?: string;
+  /** 登录 JWT；有则走服务端直连 CLOB L1（推荐生产） */
+  authToken?: string;
+}
+
 export interface PolymarketDerivedCredentials {
   signerAddress: string;
   apiCreds: PolymarketApiCreds;
@@ -56,7 +63,39 @@ function normalizeApiCreds(raw: ApiKeyRaw | unknown): PolymarketApiCreds | undef
 
 export async function createOrDerivePolymarketApiCreds(
   input: PolymarketCredentialInput,
+  options?: PolymarketCredentialRequestOptions,
 ): Promise<PolymarketDerivedCredentials> {
+  const authToken = options?.authToken?.trim();
+  if (authToken) {
+    const base = (options?.apiBase?.trim() || (typeof window !== "undefined" ? window.location.origin : ""))
+      .replace(/\/+$/, "");
+    const res = await fetch(`${base}/api/polymarket/clob/create-or-derive-api-creds`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        token: authToken,
+      },
+      body: JSON.stringify({
+        privateKey: input.privateKey,
+        gateway: input.gateway,
+        walletAddress: input.walletAddress,
+      }),
+    });
+    const text = await res.text();
+    let parsed: { error?: string; signerAddress?: string; apiCreds?: PolymarketApiCreds } = {};
+    try {
+      parsed = text ? JSON.parse(text) as typeof parsed : {};
+    }
+    catch {
+      /* ignore */
+    }
+    if (!res.ok)
+      throw new Error(parsed.error || text.trim() || `HTTP ${res.status}`);
+    if (!parsed.signerAddress || !parsed.apiCreds)
+      throw new Error("服务端未返回有效 Polymarket API 凭证");
+    return { signerAddress: parsed.signerAddress, apiCreds: parsed.apiCreds };
+  }
+
   const gateway = normalizeGateway(input.gateway);
   const privateKey = normalizePrivateKey(input.privateKey);
   const [

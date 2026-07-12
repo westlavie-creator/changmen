@@ -1,5 +1,5 @@
 import type { PlatformAccount } from "../models/platformAccount";
-import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
+import { buildEsportUrl, buildHttpRelayUrl } from "@changmen/api-contract/urls";
 import { a8Axios, responseBodyText } from "./a8Axios";
 import { resolveHkRelayHttpOrigin } from "./hkRelayOrigin";
 
@@ -184,5 +184,98 @@ export async function changmenRelayHttpRequest(
   catch (e) {
     const hint = e instanceof Error ? e.message : String(e);
     throw new Error(`http-relay 不可用（${relayUrl}）：${hint}`);
+  }
+}
+
+const FORM_HEADERS = { "Content-Type": "application/x-www-form-urlencoded;" };
+
+function toEsportPostBody(body: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(body)) {
+    out[key] = value && typeof value === "object" ? JSON.stringify(value) : value;
+  }
+  return out;
+}
+
+export interface ChangmenPmHttpRequestInput {
+  method?: string;
+  url: string;
+  playerId?: number;
+  l2Path?: string;
+  polyHeaders?: Record<string, string>;
+  body?: unknown;
+}
+
+export async function changmenPmEsportCall<T>(
+  action: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const token = requireHttpCtx().getToken();
+  if (!token)
+    throw new Error("请先登录");
+
+  try {
+    const res = await a8Axios.post<{ success?: number; msg?: string; info?: T }>(
+      buildEsportUrl(action, "", requireHttpCtx().getApiBase()),
+      toEsportPostBody(body),
+      { headers: { ...FORM_HEADERS, token } },
+    );
+    const json = res.data;
+    if (json?.success !== 1) {
+      const hint = String(json?.msg || `${action} failed`).slice(0, 160);
+      throw new Error(hint);
+    }
+    return json.info as T;
+  }
+  catch (e) {
+    const hint = e instanceof Error ? e.message : String(e);
+    throw new Error(`PM API 不可用（${action}）：${hint}`);
+  }
+}
+
+/**
+ * Polymarket HTTP：经 Pm_HttpRequest 由 VPS 直连上游（不经 http-relay）。
+ */
+export async function changmenPmHttpRequest(
+  input: ChangmenPmHttpRequestInput,
+): Promise<AccountHttpResult> {
+  const token = requireHttpCtx().getToken();
+  if (!token)
+    throw new Error("请先登录");
+
+  const payload: Record<string, unknown> = {
+    method: (input.method || "GET").toUpperCase(),
+    url: input.url,
+  };
+  if (input.playerId)
+    payload.playerId = input.playerId;
+  if (input.l2Path)
+    payload.l2Path = input.l2Path;
+  if (input.polyHeaders)
+    payload.polyHeaders = input.polyHeaders;
+  if (input.body !== undefined)
+    payload.body = input.body;
+
+  try {
+    const res = await a8Axios.post<{ success?: number; msg?: string; info?: AccountHttpResult }>(
+      buildEsportUrl("Pm_HttpRequest", "", requireHttpCtx().getApiBase()),
+      toEsportPostBody(payload),
+      { headers: { ...FORM_HEADERS, token } },
+    );
+    const json = res.data;
+    if (json?.success !== 1 || !json.info) {
+      const hint = String(json?.msg || "Pm_HttpRequest failed").slice(0, 160);
+      throw new Error(hint);
+    }
+    const upstream = json.info;
+    if (upstream.status >= 400) {
+      const snippet = upstream.text?.slice(0, 160) || `HTTP ${upstream.status}`;
+      throw new Error(snippet);
+    }
+    return upstream;
+  }
+  catch (e) {
+    const hint = e instanceof Error ? e.message : String(e);
+    throw new Error(`PM 代理不可用：${hint}`);
   }
 }

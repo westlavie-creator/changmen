@@ -7,7 +7,7 @@ if [ ! -f "$ENV_FILE" ] && [ -f "${DEPLOY_REPO:-/root/changmen}/changmen/server/
   ENV_FILE="${DEPLOY_REPO:-/root/changmen}/changmen/server/backend/.env"
 fi
 
-HK_RELAY_HOSTS_DEFAULT="gamma-api.polymarket.com,clob.polymarket.com,api.predict.fun,api-testnet.predict.fun"
+HK_RELAY_HOSTS_DEFAULT="api.predict.fun,api-testnet.predict.fun"
 
 HTTP_RELAY_REQUIRE_TOKEN="${HTTP_RELAY_REQUIRE_TOKEN:-1}"
 # 勿用 VPS shell 里旧的 HTTP_RELAY_ALLOWED_HOSTS；SYNC_HK_RELAY_HOSTS（或旧 SYNC_PM_HK_RELAY_HOSTS）可显式覆盖

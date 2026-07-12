@@ -16,6 +16,14 @@ import venueGames from "@changmen/shared/catalog/venue_games.json" with { type: 
 import { getDefaultMarketCode, getPlatformRules } from "@changmen/shared/catalog/market_catalog";
 import { isWsForwardHttpPath } from "@changmen/ws-forward";
 import * as accountService from "../account/account_service.js";
+import {
+  handlePmGetBook,
+  handlePmGetOpenOrders,
+  handlePmGetOrder,
+  handlePmGetTrades,
+  handlePmHeartbeat,
+  handlePmSubmitOrder,
+} from "../integrations/polymarket/pm_client_handlers.js";
 import * as accountStore from "../account/account_store.js";
 import { assertProfileActive } from "../account/admin_service.js";
 import * as adminService from "../account/admin_service.js";
@@ -467,7 +475,46 @@ async function handle(
       return updated.ok ? ok(updated.info) : fail(updated.msg);
     }
     case "Client_RefreshAccountBalance":
-      return fail("已废弃：余额请由浏览器 Provider.getBalance + Client_UpdateBalance");
+      return fail("已废弃：PM 余额请用 Pm_RefreshBalance");
+    case "Pm_RefreshBalance": {
+      const refreshed = await accountService.handleRefreshPmBalance(body, ctx.user.id);
+      return refreshed.ok ? ok(refreshed.info) : fail(refreshed.msg);
+    }
+    case "Pm_HttpRequest": {
+      const proxied = await accountService.handlePmHttpRequest(body, ctx.user.id);
+      if (!proxied.ok)
+        return fail(proxied.msg);
+      const upstream = proxied.info;
+      if (upstream?.status >= 400) {
+        const snippet = String(upstream.text || "").slice(0, 160) || `HTTP ${upstream.status}`;
+        return fail(snippet);
+      }
+      return ok(upstream);
+    }
+    case "Pm_SubmitOrder": {
+      const submitted = await handlePmSubmitOrder(body, ctx.user.id);
+      return submitted.ok ? ok(submitted.info) : fail(submitted.msg);
+    }
+    case "Pm_GetTrades": {
+      const trades = await handlePmGetTrades(body, ctx.user.id);
+      return trades.ok ? ok(trades.info) : fail(trades.msg);
+    }
+    case "Pm_GetOrder": {
+      const order = await handlePmGetOrder(body, ctx.user.id);
+      return order.ok ? ok(order.info) : fail(order.msg);
+    }
+    case "Pm_GetBook": {
+      const book = await handlePmGetBook(body, ctx.user.id);
+      return book.ok ? ok(book.info) : fail(book.msg);
+    }
+    case "Pm_Heartbeat": {
+      const heartbeat = await handlePmHeartbeat(body, ctx.user.id);
+      return heartbeat.ok ? ok(heartbeat.info) : fail(heartbeat.msg);
+    }
+    case "Pm_GetOpenOrders": {
+      const openOrders = await handlePmGetOpenOrders(body, ctx.user.id);
+      return openOrders.ok ? ok(openOrders.info) : fail(openOrders.msg);
+    }
     case "Client_GetMoneyLogs": {
       const page = await accountService.handleGetMoneyLogs(body, ctx.user.id);
       return page.ok ? ok(page.info) : fail(page.msg);

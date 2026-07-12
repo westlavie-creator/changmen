@@ -5,6 +5,12 @@ vi.mock("./transport", () => ({
   polymarketPluginPost: vi.fn(),
 }));
 
+vi.mock("./pmClientApi", () => ({
+  pmGetBook: vi.fn(),
+  pmGetOpenOrders: vi.fn(),
+  pmSubmitOrder: vi.fn(),
+}));
+
 vi.mock("./l2Auth", () => ({
   parseTokenConfig: vi.fn(() => ({})),
   resolveApiCreds: vi.fn(() => ({
@@ -28,7 +34,7 @@ vi.mock("./builder", () => ({
     "0x58ec38dac8719b354dfd2a47d6ac27ab01babea9102a993c1abe4af30ec2883f",
 }));
 
-import { polymarketPluginGet, polymarketPluginPost } from "./transport";
+import { pmGetBook, pmGetOpenOrders, pmSubmitOrder } from "./pmClientApi";
 import { ensurePolymarketHeartbeat } from "./pmHeartbeat";
 import {
   clearPolymarketAutoExitSellScheduleForTests,
@@ -38,19 +44,19 @@ import {
 describe("placePolymarketAutoExitSell", () => {
   beforeEach(() => {
     clearPolymarketAutoExitSellScheduleForTests();
-    vi.mocked(polymarketPluginGet).mockReset();
-    vi.mocked(polymarketPluginPost).mockReset();
+    vi.mocked(pmGetBook).mockReset();
+    vi.mocked(pmGetOpenOrders).mockReset();
+    vi.mocked(pmSubmitOrder).mockReset();
   });
 
   it("posts GTC SELL at tick-aligned price from book tick_size", async () => {
-    vi.mocked(polymarketPluginGet)
-      .mockResolvedValueOnce([]) // open orders: none
-      .mockResolvedValueOnce({
-        tick_size: "0.01",
-        min_order_size: "1",
-        neg_risk: false,
-      });
-    vi.mocked(polymarketPluginPost).mockResolvedValueOnce({
+    vi.mocked(pmGetOpenOrders).mockResolvedValueOnce([]);
+    vi.mocked(pmGetBook).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+    });
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
       success: true,
       orderID: "sell-1",
       status: "live",
@@ -75,12 +81,10 @@ describe("placePolymarketAutoExitSell", () => {
     expect(out.tickSize).toBe("0.01");
     expect(ensurePolymarketHeartbeat).toHaveBeenCalled();
 
-    const openOrdersUrl = String(vi.mocked(polymarketPluginGet).mock.calls[0]![0]);
-    expect(openOrdersUrl).toContain("/data/orders");
-    expect(openOrdersUrl).toContain("asset_id=123456789");
+    const openOrdersCall = vi.mocked(pmGetOpenOrders).mock.calls[0]!;
+    expect(openOrdersCall[1]).toBe("123456789");
 
-    const [url, body] = vi.mocked(polymarketPluginPost).mock.calls[0]!;
-    expect(url).toContain("/order");
+    const [, body] = vi.mocked(pmSubmitOrder).mock.calls[0]!;
     expect(body).toMatchObject({
       orderType: "GTC",
       order: {
@@ -91,22 +95,19 @@ describe("placePolymarketAutoExitSell", () => {
   });
 
   it("is idempotent per buyOrderId", async () => {
-    vi.mocked(polymarketPluginGet).mockResolvedValue({
-      tick_size: "0.01",
-      min_order_size: "1",
-      neg_risk: false,
-    });
-    vi.mocked(polymarketPluginPost).mockResolvedValue({
+    vi.mocked(pmSubmitOrder).mockResolvedValue({
       success: true,
       orderID: "sell-1",
       status: "live",
     });
 
     const account = { accountId: 1, gateway: "https://clob.polymarket.com", token: "{}" } as any;
-    // 第一次：open-orders 空 + book；第二次：内存幂等直接拦，不再请求
-    vi.mocked(polymarketPluginGet)
-      .mockResolvedValueOnce([]) // open orders
-      .mockResolvedValueOnce({ tick_size: "0.01", min_order_size: "1", neg_risk: false });
+    vi.mocked(pmGetOpenOrders).mockResolvedValueOnce([]);
+    vi.mocked(pmGetBook).mockResolvedValueOnce({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+    });
 
     const first = await placePolymarketAutoExitSell({
       account,
@@ -126,7 +127,7 @@ describe("placePolymarketAutoExitSell", () => {
   });
 
   it("skips placing when an open SELL already exists for the token", async () => {
-    vi.mocked(polymarketPluginGet).mockResolvedValueOnce({
+    vi.mocked(pmGetOpenOrders).mockResolvedValueOnce({
       data: [{
         id: "sell-existing",
         asset_id: "123456789",
@@ -149,7 +150,7 @@ describe("placePolymarketAutoExitSell", () => {
     expect(out.ok).toBe(true);
     expect(out.skippedDuplicate).toBe(true);
     expect(out.sellOrderId).toBe("sell-existing");
-    expect(polymarketPluginPost).not.toHaveBeenCalled();
+    expect(pmSubmitOrder).not.toHaveBeenCalled();
   });
 });
 
@@ -167,6 +168,6 @@ describe("isPolymarketAutoExitSellEnabled", () => {
       buyResponse: { takingAmount: "5", makingAmount: "4.95" },
       enabled: false,
     });
-    expect(polymarketPluginPost).not.toHaveBeenCalled();
+    expect(pmSubmitOrder).not.toHaveBeenCalled();
   });
 });

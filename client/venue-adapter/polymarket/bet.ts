@@ -6,6 +6,7 @@ import { resolvePolymarketVenueStakeUsdc } from "./pmStake";
 import { POLYMARKET_CLOB_API } from "./api";
 import { resolvePolymarketBuilderCode } from "./builder";
 import {
+  buildL2HeadersFromAccount,
   parseTokenConfig,
   resolveApiCreds,
   resolveFunder,
@@ -35,7 +36,8 @@ import {
 import { schedulePolymarketAutoExitSellAfterBuy } from "./pmAutoExitSell";
 import { normalizePolymarketTickSize, type PolymarketTickSize } from "./pmTickPrice";
 import { resolvePolymarketVenueIdentityFromToken } from "./profile";
-import { polymarketPluginGet, polymarketPluginPost } from "./transport";
+import { polymarketPluginGet } from "./transport";
+import { pmGetBook, pmSubmitOrder } from "./pmClientApi";
 
 export { isPolymarketDelayedPending } from "./orderStatus";
 export {
@@ -51,8 +53,6 @@ export {
 } from "./settlementJob";
 
 const BALANCE_PATH = "/balance-allowance";
-const ORDER_PATH = "/order";
-const ORDER_BOOK_PATH = "/book";
 
 const COLLATERAL_DECIMALS = 1_000_000;
 type Hex = `0x${string}`;
@@ -165,10 +165,7 @@ interface PolymarketOrderDiagnostic {
 }
 
 async function fetchOrderOptions(gateway: string, tokenId: string): Promise<PolymarketOrderOptions> {
-  const params = new URLSearchParams({ token_id: tokenId });
-  const book = await polymarketPluginGet<PolymarketOrderBookResponse>(
-    `${gateway}${ORDER_BOOK_PATH}?${params.toString()}`,
-  );
+  const book = await pmGetBook<PolymarketOrderBookResponse>(tokenId, gateway);
   return {
     tickSize: normalizePolymarketTickSize(book?.tick_size ?? book?.minimum_tick_size),
     minOrderSize: Number(book?.min_order_size) || 0,
@@ -483,10 +480,20 @@ export const polymarketProvider: PlatformProvider = {
       const gateway = account.gateway || POLYMARKET_CLOB_API;
       const requestPath = balanceQueryPathForSignature(resolveSignatureType(config));
       const url = `${gateway}${requestPath}`;
-      const data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(url, {
-        account,
-        l2Path: BALANCE_PATH,
-      });
+      // accountId=0：保存前探测，RDS 尚无账号，走客户端 L2 头（不经 relay 查库）
+      let data: PolymarketBalanceAllowanceResponse | undefined;
+      if (account.accountId) {
+        data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(url, {
+          account,
+          l2Path: BALANCE_PATH,
+        });
+      }
+      else {
+        const headers = await buildL2HeadersFromAccount(account, "GET", BALANCE_PATH);
+        if (!headers)
+          return undefined;
+        data = await polymarketPluginGet<PolymarketBalanceAllowanceResponse>(url, { headers });
+      }
       const balance = parseCollateralBalance(data?.balance);
       if (balance === undefined) return undefined;
       const out: AccountBalanceResult = {
@@ -623,11 +630,7 @@ export const polymarketProvider: PlatformProvider = {
         apiBetMoney,
         orderOptions,
       );
-      const result = await polymarketPluginPost<PolymarketOrderResponse>(
-        `${gateway}${ORDER_PATH}`,
-        orderBody,
-        { account, l2Path: ORDER_PATH },
-      );
+      const result = await pmSubmitOrder<PolymarketOrderResponse>(account, orderBody);
 
       if (!isPolymarketOrderAccepted(result)) {
         const diagnostic = diagnosticLines({

@@ -46,6 +46,36 @@ export async function predictFunHttpGet<T>(
   return predictFunRelayGet<T>(url, headers);
 }
 
+async function predictFunRelayPost<T>(
+  url: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  const res = await changmenRelayHttpRequest(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "x-proxy-referer": PREDICT_FUN_RELAY_ORIGIN,
+      "x-proxy-origin": "https://predict.fun",
+      ...(headers || {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (res.status >= 400)
+    throw new Error(res.text?.trim() || `HTTP ${res.status}`);
+  return unwrapRelayResponse<T>(res.text);
+}
+
+/** Predict.fun REST POST（经 changmen http-relay） */
+export async function predictFunHttpPost<T>(
+  url: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return predictFunRelayPost<T>(url, body, headers);
+}
+
 export function isPredictFunHttpTransportReady(): boolean {
   return true;
 }

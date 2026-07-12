@@ -88,3 +88,15 @@ export async function _writeRdsAsync(fn, label = "") {
     throw err;
   }
 }
+
+/** /health/diag：RDS 异步写队列深度（排查 closure 堆积） */
+export function getRdsWriteQueueStats() {
+  return {
+    pending: _writeQueue.length,
+    active: _activeWrites,
+    activeKeys: _activeWriteKeys.size,
+    dropped: _droppedWrites,
+    max: WRITE_QUEUE_MAX,
+    concurrency: WRITE_CONCURRENCY,
+  };
+}

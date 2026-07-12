@@ -5,15 +5,8 @@
  * SDK path: POST /v1/heartbeats  body `{ heartbeat_id }`
  */
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import { POLYMARKET_CLOB_API } from "./api";
-import {
-  buildL2Headers,
-  parseTokenConfig,
-  resolveApiCreds,
-} from "./l2Auth";
-import { polymarketPluginPost } from "./transport";
+import { pmPostHeartbeat } from "./pmClientApi";
 
-const HEARTBEAT_PATH = "/v1/heartbeats";
 /** 官方建议约 5s 一次（超时约 10s + 5s buffer） */
 export const POLYMARKET_HEARTBEAT_INTERVAL_MS = 5_000;
 
@@ -40,76 +33,12 @@ function extractHeartbeatId(raw: unknown): string {
   return id == null ? "" : String(id);
 }
 
-function extractErrorHeartbeatId(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err ?? "");
-  // 400 时常在 JSON 里带回正确 heartbeat_id
-  try {
-    const jsonStart = msg.indexOf("{");
-    if (jsonStart >= 0) {
-      const parsed = JSON.parse(msg.slice(jsonStart)) as Record<string, unknown>;
-      const id = extractHeartbeatId(parsed);
-      if (id)
-        return id;
-    }
-  }
-  catch { /* ignore */ }
-  const m = msg.match(/heartbeat_id["']?\s*[:=]\s*["']?([A-Za-z0-9_-]+)/i);
-  return m?.[1] ?? "";
-}
-
 async function postHeartbeatOnce(
   account: PlatformAccount,
   heartbeatId: string,
 ): Promise<string> {
-  const config = parseTokenConfig(account.token);
-  const creds = resolveApiCreds(config);
-  if (!creds.address || !creds.apiKey || !creds.secret || !creds.passphrase)
-    throw new Error("Polymarket heartbeat 缺少 L2 凭证");
-
-  const gateway = account.gateway || POLYMARKET_CLOB_API;
-  const bodyObj = { heartbeat_id: heartbeatId };
-  const bodyStr = JSON.stringify(bodyObj);
-  const headers = await buildL2Headers(
-    creds.address,
-    creds.apiKey,
-    creds.secret,
-    creds.passphrase,
-    "POST",
-    HEARTBEAT_PATH,
-    bodyStr,
-  );
-
-  try {
-    const res = await polymarketPluginPost<Record<string, unknown>>(
-      `${gateway}${HEARTBEAT_PATH}`,
-      bodyObj,
-      { headers },
-    );
-    return extractHeartbeatId(res) || heartbeatId;
-  }
-  catch (err) {
-    const recovered = extractErrorHeartbeatId(err);
-    if (recovered) {
-      const retryBody = { heartbeat_id: recovered };
-      const retryStr = JSON.stringify(retryBody);
-      const retryHeaders = await buildL2Headers(
-        creds.address,
-        creds.apiKey,
-        creds.secret,
-        creds.passphrase,
-        "POST",
-        HEARTBEAT_PATH,
-        retryStr,
-      );
-      const res = await polymarketPluginPost<Record<string, unknown>>(
-        `${gateway}${HEARTBEAT_PATH}`,
-        retryBody,
-        { headers: retryHeaders },
-      );
-      return extractHeartbeatId(res) || recovered;
-    }
-    throw err;
-  }
+  const res = await pmPostHeartbeat(account, heartbeatId);
+  return extractHeartbeatId(res) || heartbeatId;
 }
 
 async function tickSession(key: number): Promise<void> {
@@ -152,7 +81,6 @@ export function ensurePolymarketHeartbeat(account: PlatformAccount): void {
   };
   sessions.set(key, session);
 
-  // 立刻打一枪，再进入周期
   void tickSession(key);
   session.timer = setInterval(() => {
     void tickSession(key);

@@ -469,3 +469,22 @@ export async function loadClientMatchesFromDb() {
   _matchesCacheLoadedAt = now;
   return _applyClientMatchRows(data);
 }
+
+/** /health/diag：profile / client_matches 内存缓存体积 */
+export function getMemoryCacheStats() {
+  const clientRows = _clientMatches.size
+    ? JSON.stringify([..._clientMatches.values()])
+    : "[]";
+  return {
+    profiles: _cache.size,
+    accountsCache: _accountsCache.size,
+    clientMatches: _clientMatches.size,
+    clientMatchesCacheKey: _matchesCacheKey || "",
+    clientMatchesCacheAgeMs: _matchesCacheLoadedAt
+      ? Date.now() - _matchesCacheLoadedAt
+      : 0,
+    approxJsonBytes: {
+      clientMatches: clientRows.length,
+    },
+  };
+}

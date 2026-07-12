@@ -1,5 +1,6 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { AccountStoreContext } from "@/stores/account/context";
+import type { AccountBalanceResult } from "@venue/contract";
 import { updateBalance } from "@/api/vt";
 import { getAdapter } from "@/runtime/venueAdapters";
 import { Currency } from "@/shared/currency";
@@ -22,6 +23,26 @@ function saveAccountRefreshLog(title: string, lines: string[]) {
     .catch(() => {});
 }
 
+/** PM 已存账号：vps 走 Pm_RefreshBalance；extension/direct 走 Provider.getBalance（插件代发） */
+async function fetchVenueBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
+  const providerId = String(account.provider ?? "").toLowerCase();
+  if (providerId === "polymarket" && account.accountId) {
+    const { isPmVpsHttpMode } = await import("@venue/polymarket/pmTransportMode");
+    if (isPmVpsHttpMode()) {
+      const { refreshPmBalance } = await import("@/api/account");
+      const info = await refreshPmBalance(account.accountId);
+      if (!info || info.balance == null)
+        return undefined;
+      return {
+        balance: Number(info.balance),
+        currency: info.currency ?? Currency.USDT,
+      };
+    }
+  }
+  const provider = getAdapter(account.provider)?.provider;
+  return provider?.getBalance?.(account);
+}
+
 /** 对齐 A8 uv.updateBalance：成功写 balance；失败 balance=undefined（TOKEN ERROR 由 CSS 展示） */
 export async function refreshAccountBalance(
   _store: AccountStoreContext,
@@ -29,8 +50,7 @@ export async function refreshAccountBalance(
 ): Promise<void> {
   account.loadingBalance = true;
   try {
-    const provider = getAdapter(account.provider)?.provider;
-    const result = await provider?.getBalance?.(account);
+    const result = await fetchVenueBalance(account);
     if (result) {
       account.balance = result.balance;
       account.currency = result.currency ?? Currency.CNY;

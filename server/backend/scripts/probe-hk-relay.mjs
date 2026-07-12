@@ -3,7 +3,7 @@
  * 场馆 HK 出海 relay 部署探针
  *
  * 1. VPS 直连 Polymarket / Predict.fun 上游
- * 2. 本机 http-relay 代发
+ * 2. 本机 http-relay 代发（Predict.fun；PM 已迁出至 Pm_HttpRequest）
  * 3. ws-forward 已注册 PM-MARKET / PM-USER / PREDICTFUN-MARKET
  *
  * 用法（VPS / 本机 backend 目录）：
@@ -30,6 +30,14 @@ const UPSTREAM = {
   predictTestnet: "https://api-testnet.predict.fun/v1/tags",
   predictMainnet: "https://api.predict.fun/v1/tags",
 };
+
+function resolvePredictFunApiKey() {
+  return String(
+    process.env.PREDICT_FUN_API_KEY
+    || process.env.VITE_PREDICT_FUN_API_KEY
+    || "",
+  ).trim();
+}
 
 const PM_WS_FORWARD_PATH = "/esport/ws-forward/PM-MARKET";
 const PREDICT_WS_FORWARD_PATH = "/esport/ws-forward/PREDICTFUN-MARKET";
@@ -88,9 +96,13 @@ function nodeFetch(url, options = {}) {
 }
 
 async function checkUpstreamDirect() {
+  const predictApiKey = resolvePredictFunApiKey();
   for (const [label, url] of Object.entries(UPSTREAM)) {
     try {
-      const res = await nodeFetch(url);
+      const headers = {};
+      if (label === "predictMainnet" && predictApiKey)
+        headers["x-api-key"] = predictApiKey;
+      const res = await nodeFetch(url, { headers });
       if (res.status >= 200 && res.status < 400) {
         pass(`upstream:${label}`, `HTTP ${res.status}`);
       }
@@ -111,7 +123,6 @@ async function checkHttpRelay(apiBase) {
   const token = String(process.env.PROBE_TOKEN || process.env.ESPORT_TEST_TOKEN || "").trim();
   if (relayRequireToken && !token) {
     fail("http-relay:token", "HTTP_RELAY_REQUIRE_TOKEN=1 但未设置 PROBE_TOKEN / ESPORT_TEST_TOKEN");
-    fail("http-relay:clob-time", "跳过（无 PROBE_TOKEN）");
     fail("http-relay:predict-tags", "跳过（无 PROBE_TOKEN）");
     return;
   }
@@ -119,36 +130,20 @@ async function checkHttpRelay(apiBase) {
     pass("http-relay:token", "已提供 PROBE_TOKEN");
 
   const relayUrl = buildHttpRelayUrl({ apiBase });
-  const headers = {
-    "x-proxy-url": UPSTREAM.clob,
-    "x-proxy-referer": "https://polymarket.com/",
-    "x-proxy-origin": "https://polymarket.com",
-  };
-  if (token)
-    headers.token = token;
+  const tokenHeaders = token ? { token } : {};
 
   try {
-    const res = await nodeFetch(relayUrl, { headers, timeoutMs: 25_000 });
-    if (res.status >= 200 && res.status < 400) {
-      pass("http-relay:clob-time", `HTTP ${res.status} via ${relayUrl}`);
-    }
-    else {
-      const snippet = res.body.toString("utf8").slice(0, 120);
-      fail("http-relay:clob-time", `HTTP ${res.status} ${snippet}`);
-    }
-  }
-  catch (err) {
-    fail("http-relay:clob-time", err instanceof Error ? err.message : String(err));
-  }
-
-  try {
+    const predictApiKey = resolvePredictFunApiKey();
+    const predictHeaders = {
+      ...tokenHeaders,
+      "x-proxy-url": UPSTREAM.predictMainnet,
+      "x-proxy-referer": "https://predict.fun/",
+      "x-proxy-origin": "https://predict.fun",
+    };
+    if (predictApiKey)
+      predictHeaders["x-api-key"] = predictApiKey;
     const res = await nodeFetch(relayUrl, {
-      headers: {
-        ...headers,
-        "x-proxy-url": UPSTREAM.predictTestnet,
-        "x-proxy-referer": "https://predict.fun/",
-        "x-proxy-origin": "https://predict.fun",
-      },
+      headers: predictHeaders,
       timeoutMs: 25_000,
     });
     if (res.status >= 200 && res.status < 400) {
@@ -275,7 +270,7 @@ async function main() {
     console.error("  1. upstream 失败 → VPS 需能直连 polymarket.com（HK 出口）");
     console.error("  2. http-relay 失败 → 检查 HTTP_RELAY_ALLOWED_HOSTS、HTTP_RELAY_REQUIRE_TOKEN、pm2 restart changmen-esport");
     console.error("  3. ws-forward 失败 → 确认已部署含 PM-MARKET/PM-USER/PREDICTFUN-MARKET 的代码并 restart");
-    console.error("  4. predict.fun 失败 → curl -I https://api-testnet.predict.fun/v1/tags；检查 HTTP_RELAY_ALLOWED_HOSTS");
+    console.error("  4. predict.fun 失败 → curl -I https://api.predict.fun/v1/tags -H 'x-api-key: …'；检查 HTTP_RELAY_ALLOWED_HOSTS、PREDICT_FUN_API_KEY");
     process.exit(1);
   }
   console.log(`== PASS (${results.length}/${results.length}) ==`);

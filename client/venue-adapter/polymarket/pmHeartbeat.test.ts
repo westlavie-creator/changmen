@@ -1,21 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./transport", () => ({
-  polymarketPluginPost: vi.fn(),
+vi.mock("./pmClientApi", () => ({
+  pmPostHeartbeat: vi.fn(),
 }));
 
-vi.mock("./l2Auth", () => ({
-  parseTokenConfig: vi.fn(() => ({})),
-  resolveApiCreds: vi.fn(() => ({
-    address: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-    apiKey: "key-1",
-    secret: "c2VjcmV0",
-    passphrase: "pass-1",
-  })),
-  buildL2Headers: vi.fn(async () => ({})),
-}));
-
-import { polymarketPluginPost } from "./transport";
+import { pmPostHeartbeat } from "./pmClientApi";
 import {
   ensurePolymarketHeartbeat,
   getPolymarketHeartbeatAccountIdsForTests,
@@ -27,8 +16,8 @@ import {
 describe("pmHeartbeat", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.mocked(polymarketPluginPost).mockReset();
-    vi.mocked(polymarketPluginPost).mockResolvedValue({ heartbeat_id: "hb-1" });
+    vi.mocked(pmPostHeartbeat).mockReset();
+    vi.mocked(pmPostHeartbeat).mockResolvedValue({ heartbeat_id: "hb-1" });
     stopAllPolymarketHeartbeats();
   });
 
@@ -37,7 +26,7 @@ describe("pmHeartbeat", () => {
     vi.useRealTimers();
   });
 
-  it("starts heartbeat once per account and posts /v1/heartbeats", async () => {
+  it("starts heartbeat once per account and posts Pm_Heartbeat", async () => {
     const account = {
       accountId: 42,
       gateway: "https://clob.polymarket.com",
@@ -51,14 +40,10 @@ describe("pmHeartbeat", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(polymarketPluginPost).toHaveBeenCalled();
-    const [url, body] = vi.mocked(polymarketPluginPost).mock.calls[0]!;
-    expect(url).toBe("https://clob.polymarket.com/v1/heartbeats");
-    expect(body).toEqual({ heartbeat_id: "" });
-
-    const callsAfterStart = vi.mocked(polymarketPluginPost).mock.calls.length;
+    expect(pmPostHeartbeat).toHaveBeenCalledWith(account, "");
+    const callsAfterStart = vi.mocked(pmPostHeartbeat).mock.calls.length;
     await vi.advanceTimersByTimeAsync(POLYMARKET_HEARTBEAT_INTERVAL_MS);
-    expect(vi.mocked(polymarketPluginPost).mock.calls.length).toBeGreaterThan(callsAfterStart);
+    expect(vi.mocked(pmPostHeartbeat).mock.calls.length).toBeGreaterThan(callsAfterStart);
   });
 
   it("stop removes session", () => {

@@ -426,6 +426,9 @@ async function generatePolymarketApiCreds(silent = false) {
       walletAddress: polyWalletAddress.value,
       funder: polyFunder.value,
       privateKey: polyPrivateKey.value,
+    }, {
+      apiBase: getApiBase(),
+      authToken: getToken() || undefined,
     });
     polyWalletAddress.value ||= result.signerAddress;
     polyApiCreds.value = result.apiCreds;

@@ -1,9 +1,8 @@
 import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { VenueOrder } from "@venue/contract";
-import { POLYMARKET_CLOB_API } from "./api";
 import { parseTokenConfig, resolveApiCreds } from "./l2Auth";
-import { polymarketL2Get } from "./transport";
+import { pmGetOrder } from "./pmClientApi";
 import type {
   PolymarketOrderResponseLike,
   PolymarketOrderRow,
@@ -11,8 +10,6 @@ import type {
 } from "./orderTypes";
 
 export type { PolymarketOrderResponseLike, PolymarketOrderRow, PolymarketPollOutcome } from "./orderTypes";
-
-const ORDER_PATH_PREFIX = "/data/order/";
 
 /** POST /order 返回 delayed 且尚无 takingAmount：延迟窗内，未最终成交 */
 export function isPolymarketDelayedPending(
@@ -114,10 +111,8 @@ export async function fetchPolymarketOrderRow(
   const creds = resolveApiCreds(config);
   if (!creds.apiKey || !creds.secret || !creds.passphrase || !creds.address)
     return null;
-  const gateway = account.gateway || POLYMARKET_CLOB_API;
-  const path = `${ORDER_PATH_PREFIX}${id}`;
   try {
-    const data = await polymarketL2Get<PolymarketOrderRow | null>(account, `${gateway}${path}`, path);
+    const data = await pmGetOrder<PolymarketOrderRow | null>(account, id);
     return data ?? null;
   }
   catch {

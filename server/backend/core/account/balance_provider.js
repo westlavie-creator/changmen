@@ -1,4 +1,5 @@
 import store from "../esport-api/store.js";
+import { fetchPolymarketCollateralBalance } from "../integrations/polymarket/balance.js";
 import { requirePlatform } from "../shared/adapter_paths.js";
 import { rayApiPath } from "../shared/ray_paths.js";
 
@@ -84,6 +85,12 @@ export async function getAccountBalance(account) {
         }
       }
       throw lastErr || new Error("v2/user failed");
+    }
+    case "POLYMARKET": {
+      const bal = await fetchPolymarketCollateralBalance(account);
+      if (!bal)
+        return null;
+      return { balance: bal.balance, currency: normalizeCurrency(bal.currency) };
     }
     default:
       return null;

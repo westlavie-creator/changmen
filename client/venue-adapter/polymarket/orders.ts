@@ -16,14 +16,13 @@ import {
   resolvePolymarketTradeLookbackMs,
 } from "./pmOrderSync";
 import { applyPolymarketOrderOrigins, isPolymarketChangmenOrder } from "./pmOrigin";
-import { polymarketL2Get, polymarketPluginGet } from "./transport";
+import { polymarketPluginGet } from "./transport";
+import { pmGetTrades } from "./pmClientApi";
 
-const TRADES_PATH = "/data/trades";
 const TOKEN_MICRO = 1_000_000;
 /** 订单 sync + 迟结算缓冲（Phase 2b） */
 const ORDER_LOOKBACK_MS = PM_ORDER_FULL_LOOKBACK_MS;
 const MAX_TRADE_PAGES = 5;
-const NO_MORE_CURSOR = "LTE=";
 /** Gamma closed 后 outcomePrices 赢家判定阈值 */
 const WINNER_PRICE_MIN = 0.99;
 
@@ -65,11 +64,6 @@ export interface PolymarketMakerOrderRow {
   outcome?: string;
   asset_id?: string;
   side?: string;
-}
-
-interface PolymarketTradesResponse {
-  data?: PolymarketTradeRow[];
-  next_cursor?: string;
 }
 
 function unwrapGammaMarkets(data: unknown): PolymarketRawMarket[] {
@@ -1160,25 +1154,14 @@ async function fetchTradesSince(
   gateway: string,
   afterSec: number,
 ): Promise<PolymarketTradeRow[]> {
-  const all: PolymarketTradeRow[] = [];
-  let nextCursor: string | undefined;
-
-  for (let page = 0; page < MAX_TRADE_PAGES; page++) {
-    const params = new URLSearchParams({ after: String(afterSec) });
-    if (nextCursor)
-      params.set("next_cursor", nextCursor);
-    const data = await polymarketL2Get<PolymarketTradesResponse>(
-      account,
-      `${gateway}${TRADES_PATH}?${params.toString()}`,
-      TRADES_PATH,
-    );
-    const batch = Array.isArray(data?.data) ? data.data : [];
-    all.push(...batch);
-    nextCursor = data?.next_cursor;
-    if (!nextCursor || nextCursor === NO_MORE_CURSOR || batch.length === 0)
-      break;
+  void gateway;
+  try {
+    const batch = await pmGetTrades<PolymarketTradeRow[]>(account, afterSec, MAX_TRADE_PAGES);
+    return Array.isArray(batch) ? batch : [];
   }
-  return all;
+  catch {
+    return [];
+  }
 }
 
 /** CLOB /data/trades → VenueOrder bundle（lookback 可增量，合并靠 RDS stored） */

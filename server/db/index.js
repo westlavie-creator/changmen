@@ -202,6 +202,7 @@ export {
 } from "./order_link_filter.js";
 
 export { ensurePgPoolReady, getPgPool } from "./pg_pool.js";
+export { getRdsWriteQueueStats } from "./rds/common.js";
 
 export { migratePlayersJsonToRds } from "./players_json_migrate.js";
 
