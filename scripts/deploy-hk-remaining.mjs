@@ -17,6 +17,27 @@ const repoArchive = path.join(os.tmpdir(), `changmen-repo-${process.pid}.tgz`);
 const distDir = path.join(changmen, "client/web/dist");
 const distArchive = path.join(os.tmpdir(), "changmen-gha-dist", "changmen-dist.tgz");
 
+function readLocalPredictFunApiKey() {
+  if (String(process.env.PREDICT_FUN_API_KEY || "").trim())
+    return String(process.env.PREDICT_FUN_API_KEY).trim();
+  const candidates = [
+    path.join(changmen, "server/backend/.env"),
+    path.join(changmen, "client/web/.env.production"),
+    path.join(changmen, "client/web/.env.local"),
+  ];
+  for (const file of candidates) {
+    if (!fs.existsSync(file))
+      continue;
+    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^(?:VITE_)?PREDICT_FUN_API_KEY=(.+)$/);
+      const val = m?.[1]?.trim();
+      if (val)
+        return val;
+    }
+  }
+  return "";
+}
+
 const args = new Set(process.argv.slice(2));
 const hostArgs = process.argv.slice(2).filter(a => !a.startsWith("-"));
 const HOSTS = hostArgs.length
@@ -133,7 +154,7 @@ for (const h of HOSTS) {
     ssh(h.host, `cd ${deployRepo}/server/backend; node scripts/post-deploy-check.mjs --skip-telegram`);
 
     console.log("==> sync HK relay env (whitelist + pm2 restart)");
-    const predictKey = process.env.PREDICT_FUN_API_KEY || "";
+    const predictKey = readLocalPredictFunApiKey();
     ssh(h.host, `set -e
 for i in 1 2 3 4 5; do
   if [ -f ${deployRepo}/server/backend/.env ]; then break; fi

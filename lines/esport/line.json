@@ -11,6 +11,9 @@
     "matcher": "server/matcher",
     "matchEngine": "server/match-engine",
     "teamResolver": "server/team-resolver",
+    "valueBet": "server/value-bet",
+    "realtimeHub": "server/realtime-hub",
+    "wsForward": "server/ws_forward",
     "collectors": [
       "server/polymarket-sports",
       "server/predictfun-collector"
