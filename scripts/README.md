@@ -10,7 +10,7 @@ Windows 批处理在本地 `BAT\`（不进 GitHub，见 [LOCAL_DEV.md](../LOCAL_
 |------|------|------|
 | **Web 后端** | `BAT\backend.bat` → `npm run web` → `server.js` | HTTP `/esport/*`、静态 `/` |
 | **Vite 前端** | `npm run app:dev` 或 `BAT\dev.bat` | 开发 Vite（Win `5274` / 其它 `5174`），API proxy → 后端 |
-| **Chrome 插件** | `client/chrome-extension` | PB/Stake 代发、凭证采集、v4 桥接 |
+| **Chrome 插件** | `chrome-extension` | PB/Stake 代发、凭证采集、v4 桥接 |
 | **Matcher** | `npm run web`（内嵌）/ `npm run matcher:ui` | 合并 `client_matches` / 人工 UI |
 
 `client/web` 已纳入 npm workspaces；根目录 `npm install` 会安装全部 workspace 依赖。
@@ -28,7 +28,7 @@ Windows 批处理在本地 `BAT\`（不进 GitHub，见 [LOCAL_DEV.md](../LOCAL_
 | `npm run matcher:ui` | Matcher 面板 `:4567` |
 | `npm run chromeplug:pack` | 打包 Chrome 插件 zip → `dist/` |
 
-开发前在 Chrome 加载 `client/chrome-extension`（扩展 ID `mogfpjihgoghabicofkbcmcidlcoofee`）。
+开发前在 Chrome 加载 `chrome-extension`（扩展 ID `mogfpjihgoghabicofkbcmcidlcoofee`）。
 
 Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://localhost:4567（`matcher:ui` 独立）
 

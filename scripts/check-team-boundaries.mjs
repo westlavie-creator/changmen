@@ -17,7 +17,7 @@ const SOURCE_EXT = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".vue"]);
 const RULES = [
   {
     id: "client-app",
-    roots: ["client/web/src", "client/chrome-extension/src"],
+    roots: ["client/web/src", "chrome-extension/src"],
     forbid: [
       /@changmen\/db\b/,
       /@changmen\/match-engine\b/,

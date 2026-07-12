@@ -24,7 +24,7 @@
 | `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
 | `domain/` | **下注编排胶水**（部分纯逻辑在 `@changmen/arb-core`） | `domain/betting` |
 | `client/venue-adapter/` | **平台清单、能力与平台实现**（`@changmen/venue-adapter`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
-| `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp` |
+| `shared/` | **Web 横切工具**（与采集/下注无关；HTTP/模型见 `@changmen/client-core`） | `betTiming`, `a8MatchTime` |
 | `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts`, `runtime/appSession.ts` |
 | `client/venue-adapter/{id}/collect.ts` | **赔率上报链路** | `start*Collector` |
 | `client/venue-adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
@@ -43,9 +43,9 @@
 | Stake | ✓ | ✓* | *`pluginOnly`：需 Chrome 扩展 + stake.com tab；`stakeProvider` 已实现 GraphQL 下单 |
 | Polymarket | ✓ | ✓ | **[changmen 扩展]** A8 无此场馆；采集开赛窗过去 6h（见下） |
 
-`ALL_PLATFORMS`、`PLATFORMS` 均从 `@changmen/venue-adapter/registry` 导出；新增平台时改 `client/venue-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
+`PLATFORMS` 从 `@changmen/venue-adapter/shared`（`shared/platforms.ts`）导出；`ALL_PLATFORMS` 从 `@changmen/venue-adapter/registry`（`registry/meta.ts` + `manifest.json`）。新增平台时改 `client/venue-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
 
-账号鉴权（与采集解耦）：`client/venue-adapter/pb/auth.ts`、`client/venue-adapter/tf/auth.ts` ← `platformHttp` 与采集侧共同使用。
+账号鉴权（与采集解耦）：`client/venue-adapter/pb/auth.ts`、`client/venue-adapter/tf/auth.ts` ← `@changmen/client-core/shared/platformHttp` 与采集侧共同使用。
 
 ---
 
@@ -82,7 +82,7 @@
 ```
 UI 点击 ──► accountStore.checkBetting / betting
         ──► venue-adapter/{平台}/bet.ts (checkBet / betting / getBalance)
-        ──► shared/platformHttp (账号 gateway + token + 代理)
+        ──► @changmen/client-core/shared/platformHttp (账号 gateway + token + 代理)
         ──► 场馆 API
 ```
 
@@ -204,22 +204,17 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 依赖方向：`domain` ← `stores/betting` ← `extensions`（下注编排不 import notify；`messageStore` 负责投递 Telegram）。
 
-### `shared/`（横切）
+### `shared/`（Web 本地横切）
 
-| 文件 | 用途 |
+| 文件 / 包 | 用途 |
 |------|------|
-| `format.ts` | 日期、赔率展示、套利百分比 |
-| `wait.ts` | `sleep` |
-| `md5.ts` / `totp.ts` | OB 签名、谷歌验证码 |
-| `platform.ts` | `PLATFORMS` 常量、MQTT/WS relay URL |
-| `a8Axios.ts` | 对齐 A8 `Nr`：Axios 实例（15s 超时，500/504 不 throw） |
-| `http.ts` | 采集直连 `directGet` / `directPostJson`（**Axios**，非 fetch） |
-| `platformHttp.ts` | **投注账号** HTTP（OB/RAY/TF…；Axios + 可选 relay） |
+| `@changmen/client-core/shared` | `http`、`platformHttp`、`format`、`wait`、`a8Axios` 等通用工具 |
+| `@changmen/venue-adapter/shared` | `PLATFORMS`、采集桥接（`webBridge`）、`socket/` |
 | `betTiming.ts` | 下注通知时长、`lastOdds`、`BETCOUNT`（对齐 A8 `T()`） |
-| `a8MatchTime.ts` | A8 采集开赛窗 re-export（仅未来 1h 上限，无过去下限）；见下「采集开赛时间窗」 |
+| `a8MatchTime.ts` | A8 采集开赛窗 re-export（见下「采集开赛时间窗」） |
 | `arbBetTraceFormat.ts` | trace 事件文案（`formatBetResult` / `formatLegAccount`） |
 | `winRate.ts` | WinRate 排序（`betSorting: WinRate`） |
-| `bracketForm.ts` | 嵌套 form-urlencoded（SABA 等） |
+| `md5.ts` / `totp.ts` | OB 签名、谷歌验证码 |
 
 ### 采集开赛时间窗
 
@@ -242,7 +237,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `mqtt.ts` | OB 专用：MQTT 订阅与增量处理 |
 | `auth.ts` / `ws.ts` 等 | 协议细节（按需，如 PB/TF/IMT） |
 
-`bet.ts` 使用各 venue adapter 内的 `accountHttp.ts`，底层可复用 `@/shared/platformHttp` 的通用 http-relay；不要把平台特化 headers/paths 放回 shared。
+`bet.ts` 使用各 venue adapter 内的 `accountHttp.ts`，底层可复用 `@changmen/client-core/shared/platformHttp` 的通用 http-relay；不要把平台特化 headers/paths 放回 shared。
 
 ### `venue-adapter/shared/`
 

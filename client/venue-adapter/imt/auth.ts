@@ -1,5 +1,5 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { CollectHttpSession } from "@changmen/venue-adapter/shared/collectSession";
+import type { CollectHttpSession } from "../shared/collectSession";
 import { IMT_DEFAULT_X_SC } from "./parse";
 
 export interface ImtTokenPayload {

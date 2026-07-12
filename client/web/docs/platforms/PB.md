@@ -45,6 +45,6 @@ resolvePbCollectAccount()  // bv：PB + balance!==undefined，不用 platforms.j
 
 - **采集**：必须 PB 账号且已 `updateBalance` 成功（`balance !== undefined`）
 - **下注**：剪贴板 `ACCOUNT` 各账号 gateway/token
-- **HTTP**：Chrome 安装 `client/chrome-extension` 时走 A8 `Zn`；**Electron / 无扩展** 时走同源 `/esport/http-relay` 代发（见 `transport.ts`）
+- **HTTP**：Chrome 安装 `chrome-extension` 时走 A8 `Zn`；**Electron / 无扩展** 时走同源 `/esport/http-relay` 代发（见 `transport.ts`）
 
 对照表：[`A8_PB_LOGIC_PARITY.md`](./A8_PB_LOGIC_PARITY.md)

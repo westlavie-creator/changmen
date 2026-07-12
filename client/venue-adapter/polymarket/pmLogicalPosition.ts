@@ -1,5 +1,5 @@
-import type { VenueOrder, VenueOrderStatus } from "@changmen/venue-adapter/contract";
-import type { PolymarketSellState } from "@changmen/venue-adapter/contract";
+import type { VenueOrder, VenueOrderStatus } from "../contract";
+import type { PolymarketSellState } from "../contract";
 import { getExchange, Currency } from "@changmen/shared/currency";
 
 export interface OrderRowLike {

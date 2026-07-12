@@ -6,8 +6,9 @@ A8 是**单文件单体**；changmen 拆成三个目录，但**逻辑模块**应
 ```
 client/
 ├── web/                 # Vue 控制台（≈ A8 bundle 的 UI + store + 编排）
-├── venue-adapter/       # 各平台采集/下注（≈ A8 bundle 内的平台段）
-└── chrome-extension/    # MV3 跨域代理（≈ A8 Zn 插件）
+└── venue-adapter/       # 各平台采集/下注（≈ A8 bundle 内的平台段）
+
+chrome-extension/        # MV3 跨域代理（≈ A8 Zn 插件，仓库根目录）
 ```
 
 依赖方向（目标态）：`web` → `client-core` → `venue-adapter` → 场馆 API；`venue-adapter` **不应** `import "@/"`（已由 `check:boundaries` 强制）。

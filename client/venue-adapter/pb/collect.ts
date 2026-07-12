@@ -3,15 +3,15 @@ import { hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
 import { PB_PLUGIN_REQUIRED_MSG, pbCollectEuroOdds, resolvePbAccount } from "./transport";
 import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 import { getStaticVenueGames } from "@changmen/client-core/shared/venueGames";
 import { parseEuroOddsPayload, slugify } from "./parse";
 import { ingestAndReportPbParsedMatch } from "./markets";
 import { wait } from "@changmen/client-core/shared/wait";
-import { notifyCollectError } from "@changmen/venue-adapter/shared/collectNotify";
-import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
+import { notifyCollectError } from "../shared/collectNotify";
+import { useCollectStore } from "../shared/webBridge";
 
-import { useMatchStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useMatchStore } from "../shared/webBridge";
 
 const PLATFORM = PLATFORMS.PB;
 const POLL_MS = 5_000;

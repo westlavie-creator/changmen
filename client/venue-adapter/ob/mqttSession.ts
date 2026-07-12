@@ -1,6 +1,6 @@
-import { OB_DEMO_LOGIN_URL } from "@changmen/venue-adapter/ob/constants";
+import { OB_DEMO_LOGIN_URL } from "./constants";
 import { directGet } from "@changmen/client-core/shared/http";
-import { changmenHttpBaseToWs, resolveChangmenWsBase } from "@changmen/venue-adapter/shared/changmenWsBase";
+import { changmenHttpBaseToWs, resolveChangmenWsBase } from "../shared/changmenWsBase";
 import {
   OB_A8_MQTT_PASSWORD,
   OB_A8_MQTT_URL,

@@ -1,4 +1,4 @@
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 
 export { PLATFORMS };
 export type { PlatformMeta } from "./meta";

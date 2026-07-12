@@ -5,7 +5,7 @@ import { accountIaPost } from "./accountHttp";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 
 export const IA_BET_PLUGIN_REQUIRED_MSG =
-  "IA 下注需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）";
+  "IA 下注需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/chrome-extension，或使用 Electron 启动（内嵌扩展）";
 
 /** A8 `e0(t)` */
 export function iaBetHeaders(account: PlatformAccount): Record<string, string> {

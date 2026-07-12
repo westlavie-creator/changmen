@@ -1,7 +1,7 @@
 import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@changmen/client-core/types/collect";
 import type { PlatformId } from "@changmen/api-contract";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 import type { SxMarket, SxOrder } from "./api";
 
 const PLATFORM: PlatformId = PLATFORMS.SXBet;

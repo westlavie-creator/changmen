@@ -15,7 +15,7 @@ changmen（平台 monorepo）
 ├── 平台层（仓库根，所有业务线共享）
 │   ├── packages/              shared · api-contract · client-core
 │   ├── client/venue-adapter/  各平台采集/下注（按 platform 分）
-│   ├── client/chrome-extension/
+│   ├── chrome-extension/
 │   ├── server/backend/        HTTP /esport/*（名称历史遗留，实际为全平台 API）
 │   ├── server/db/
 │   ├── deploy/

@@ -1,7 +1,7 @@
 import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import type { CollectPlatformInfo } from "@changmen/api-contract";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 
 import {
   buildIaSaveBetRowsFromPlays,

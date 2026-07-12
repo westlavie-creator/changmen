@@ -13,7 +13,7 @@ export const CHANGMEN_ROOT = CHANGMEN_ROOT_FROM_PKG;
 export const CHANGMEN_LAYOUT = {
   venueAdapter: "client/venue-adapter",
   clientWeb: "client/web",
-  clientChromeExtension: "client/chrome-extension",
+  clientChromeExtension: "chrome-extension",
   platformProbes: "devtools/platform-probes",
   packages: "packages",
   serverBackend: "server/backend",

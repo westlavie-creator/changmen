@@ -204,12 +204,12 @@ npm run sync:platform-adapter --workspace=@changmen/backend
 ### 4.1 访问方式
 
 - **浏览器**：打开 `https://your-domain.com/`，登录 JWT 用户（`users` 表）
-- **Chrome 插件**：操作员在 Chrome/Edge 安装 `client/chrome-extension`（见 4.2）。PB / Stake 采集与 v4 代发**依赖插件**。
+- **Chrome 插件**：操作员在 Chrome/Edge 安装 `chrome-extension`（见 4.2）。PB / Stake 采集与 v4 代发**依赖插件**。
 
 ### 4.2 Chrome 插件
 
 ```bash
-cd changmen/client/chrome-extension
+cd changmen/chrome-extension
 npm run build
 ```
 

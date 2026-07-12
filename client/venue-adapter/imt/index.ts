@@ -1,4 +1,4 @@
-import type { PlatformAdapter } from "@changmen/venue-adapter/contract";
+import type { PlatformAdapter } from "../contract";
 import { imtProvider } from "./bet";
 import { startImtCollector } from "./collect";
 

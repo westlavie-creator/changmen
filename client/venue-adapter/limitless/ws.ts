@@ -1,5 +1,5 @@
 import { io, type Socket } from "socket.io-client";
-import { reportVenueWsStatus } from "@changmen/venue-adapter/shared/venueWsStatus";
+import { reportVenueWsStatus } from "../shared/venueWsStatus";
 import { LIMITLESS_WS } from "./api";
 import type { LimitlessOrderbookUpdate } from "./api";
 

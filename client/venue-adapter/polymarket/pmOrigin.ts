@@ -1,5 +1,5 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { VenueOrder } from "@changmen/venue-adapter/contract";
+import type { VenueOrder } from "../contract";
 
 /** changmen 站内下单 vs 官网/其它客户端同步 */
 export type PolymarketOrderOrigin = "changmen" | "external";

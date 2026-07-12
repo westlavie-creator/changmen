@@ -14,7 +14,7 @@ export default antfu({
     "**/dist/**",
     "**/storage/**",
     "client/web/src/modules/**",
-    "client/chrome-extension/lib/**",
+    "chrome-extension/lib/**",
   ],
 
   rules: {

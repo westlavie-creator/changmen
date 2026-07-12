@@ -1,6 +1,6 @@
 import { saveVenueOdds, isVenueOdds, getVenueOddsEntry, updateVenueBetLock, updateVenueOddsMessage } from "@changmen/client-core/bridge/oddsAccess";
 import type { ViewMatch } from "@changmen/client-core/models/match";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 import { getObBetNameRe } from "./parse";
 import { refreshObMatchMarkets } from "./markets";
 import { parseObOddField } from "./parse";

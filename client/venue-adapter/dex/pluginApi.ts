@@ -1,5 +1,5 @@
 import { a8PluginSend, a8PluginGetStore, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 
 export interface DexCredentials {
   jwt: string;

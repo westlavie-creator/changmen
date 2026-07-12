@@ -1,11 +1,11 @@
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import { BetResult } from "@changmen/client-core/models/betResult";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@changmen/venue-adapter/contract";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "../contract";
 import { accountTfGet, accountTfPost } from "./accountHttp";
 import { getCurrency } from "@changmen/shared/currency";
 import { parseTfItemId, tfOddsPayload } from "./parse";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 
 interface TfProbeResponse {
   code?: number;

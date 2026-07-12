@@ -8,7 +8,7 @@
 |----|-------------|
 | `client/web` | `@changmen/client-core/shared/platformHttp`、`bridge/clientApi` |
 | `client/venue-adapter` | `shared/http`、`models/platformAccount` |
-| `client/chrome-extension` | `chrome-plugin/bridge` |
+| `chrome-extension` | `chrome-plugin/bridge` |
 
 ## 目录
 

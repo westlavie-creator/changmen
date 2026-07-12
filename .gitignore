@@ -49,10 +49,12 @@ server/backend/data/*.db-wal
 server/matcher/.matcher-heartbeat.json
 
 # Gamebet extension signing key
+chrome-extension/key.pem
 client/chrome-extension/key.pem
 gamebet_chromeplug/key.pem
 
 # Chrome extension reverse-engineering scratch (local analysis only)
+chrome-extension/scripts/_extracted/
 client/chrome-extension/scripts/_extracted/
 gamebet_chromeplug/scripts/_extracted/
 

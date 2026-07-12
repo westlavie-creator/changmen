@@ -1,4 +1,4 @@
-import { changmenHttpBaseToWs } from "@changmen/venue-adapter/shared/changmenWsBase";
+import { changmenHttpBaseToWs } from "../shared/changmenWsBase";
 import { resolveHkRelayHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
 
 export const PREDICT_FUN_WS_FORWARD_PATH = "/esport/ws-forward/PREDICTFUN-MARKET";

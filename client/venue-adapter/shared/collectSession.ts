@@ -1,6 +1,6 @@
 import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
 import type { PlatformId } from "@changmen/api-contract";
-import { useAccountStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useAccountStore } from "./webBridge";
 
 /** PB / IMT 等需 gateway+token 的采集会话（优先已登录账号，回退 platforms.json） */
 export interface CollectHttpSession {

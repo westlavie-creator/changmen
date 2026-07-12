@@ -1,6 +1,6 @@
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import type { PlatformId } from "@changmen/api-contract";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../../shared/platforms";
 import { iaLegacyWinBetName } from "@changmen/shared/catalog/market_catalog.browser";
 import { betKeyFromChild, iaChildLocked, iaPointLockedForFo, parseIaPoint } from "./parse_fields";
 

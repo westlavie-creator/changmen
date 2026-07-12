@@ -1,4 +1,4 @@
-import { useMessageStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useMessageStore } from "./webBridge";
 
 /** 采集器错误 → Telegram（对齐 Gi.send.CollectMessage） */
 export function notifyCollectError(platform: string, detail: unknown) {

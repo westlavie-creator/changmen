@@ -1,10 +1,10 @@
 import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 import { directGet } from "@changmen/client-core/shared/http";
 import { wait } from "@changmen/client-core/shared/wait";
-import { notifyCollectError } from "@changmen/venue-adapter/shared/collectNotify";
-import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
-import { useMatchStore } from "@changmen/venue-adapter/shared/webBridge";
+import { notifyCollectError } from "../shared/collectNotify";
+import { useCollectStore } from "../shared/webBridge";
+import { useMatchStore } from "../shared/webBridge";
 
 import {
   DEX_LINE_API,

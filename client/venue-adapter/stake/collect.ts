@@ -1,16 +1,16 @@
-import { createA8BetsCollector } from "@changmen/venue-adapter/shared/socket/collector";
+import { createA8BetsCollector } from "../shared/socket/collector";
 import { a8PluginSend, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
-import { subscribeA8Channel } from "@changmen/venue-adapter/shared/socket/hub";
-import type { A8BetsMessage } from "@changmen/venue-adapter/shared/socket/accumulator";
+import { subscribeA8Channel } from "../shared/socket/hub";
+import type { A8BetsMessage } from "../shared/socket/accumulator";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import { cleanStakeBets } from "./graphql";
 import { collectStakeSportViaPlugin, stakeSportSlugs } from "./graphql";
 import { getStakeTabIdCached, setStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
-import { notifyCollectError } from "@changmen/venue-adapter/shared/collectNotify";
-import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
-import { useMatchStore } from "@changmen/venue-adapter/shared/webBridge";
+import { notifyCollectError } from "../shared/collectNotify";
+import { useCollectStore } from "../shared/webBridge";
+import { useMatchStore } from "../shared/webBridge";
 
 const LOOP_MS = 30_000;
 

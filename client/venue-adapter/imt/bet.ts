@@ -1,7 +1,7 @@
 import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
 import { BetResult } from "@changmen/client-core/models/betResult";
-import type { PlatformProvider } from "@changmen/venue-adapter/contract";
-import { useMessageStore } from "@changmen/venue-adapter/shared/webBridge";
+import type { PlatformProvider } from "../contract";
+import { useMessageStore } from "../shared/webBridge";
 
 import { accountImtPost, accountImtPostJson } from "./accountHttp";
 import { buildImtAccountHeaders, imtAccountUrl } from "./auth";

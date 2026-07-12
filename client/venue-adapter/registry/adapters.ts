@@ -1,24 +1,24 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { CollectorFactory, PlatformAdapter, PlatformProvider } from "@changmen/venue-adapter/contract";
+import type { CollectorFactory, PlatformAdapter, PlatformProvider } from "../contract";
 import type { PlatformId } from "@changmen/api-contract";
-import { withA8ResolveLegOutcome } from "@changmen/venue-adapter/adaptation/a8LegOutcome";
-import { azuroAdapter } from "@changmen/venue-adapter/azuro";
-import { predictFunAdapter } from "@changmen/venue-adapter/predictfun";
-import { dexAdapter } from "@changmen/venue-adapter/dex";
-import { hgAdapter } from "@changmen/venue-adapter/hg";
-import { iaAdapter } from "@changmen/venue-adapter/ia";
-import { imAdapter } from "@changmen/venue-adapter/im";
-import { imtAdapter } from "@changmen/venue-adapter/imt";
-import { limitlessAdapter } from "@changmen/venue-adapter/limitless";
-import { obAdapter } from "@changmen/venue-adapter/ob";
-import { pbAdapter } from "@changmen/venue-adapter/pb";
-import { polymarketAdapter } from "@changmen/venue-adapter/polymarket";
-import { rayAdapter } from "@changmen/venue-adapter/ray";
-import { sabaAdapter } from "@changmen/venue-adapter/saba";
-import { sxbetAdapter } from "@changmen/venue-adapter/sxbet";
-import { stakeAdapter } from "@changmen/venue-adapter/stake";
-import { tfAdapter } from "@changmen/venue-adapter/tf";
-import { xbetAdapter } from "@changmen/venue-adapter/xbet";
+import { withA8ResolveLegOutcome } from "../adaptation/a8LegOutcome";
+import { azuroAdapter } from "../azuro";
+import { predictFunAdapter } from "../predictfun";
+import { dexAdapter } from "../dex";
+import { hgAdapter } from "../hg";
+import { iaAdapter } from "../ia";
+import { imAdapter } from "../im";
+import { imtAdapter } from "../imt";
+import { limitlessAdapter } from "../limitless";
+import { obAdapter } from "../ob";
+import { pbAdapter } from "../pb";
+import { polymarketAdapter } from "../polymarket";
+import { rayAdapter } from "../ray";
+import { sabaAdapter } from "../saba";
+import { sxbetAdapter } from "../sxbet";
+import { stakeAdapter } from "../stake";
+import { tfAdapter } from "../tf";
+import { xbetAdapter } from "../xbet";
 import {
   betPlatformIds,
   collectPlatformIds,

@@ -5,8 +5,8 @@ import {
   patchDirectRealtimeStatus,
   resetDirectRealtimeStatus,
   upstreamRouteFromUrl,
-} from "@changmen/venue-adapter/shared/directRealtimeStatus";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+} from "../shared/directRealtimeStatus";
+import { PLATFORMS } from "../shared/platforms";
 import {
   getRayA8ScConfig,
   getRayChangmenScConfig,

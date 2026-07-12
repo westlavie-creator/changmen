@@ -1,9 +1,9 @@
 import { updateVenueOddsLock } from "@changmen/client-core/bridge/oddsAccess";
-import type { PlatformProvider } from "@changmen/venue-adapter/contract";
+import type { PlatformProvider } from "../contract";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import { toBracketForm } from "@changmen/client-core/shared/bracketForm";
-import { useMessageStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useMessageStore } from "../shared/webBridge";
 
 import { accountSabaPost } from "./accountHttp";
 

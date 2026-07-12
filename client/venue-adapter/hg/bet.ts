@@ -1,5 +1,5 @@
 import { BetResult } from "@changmen/client-core/models/betResult";
-import type { PlatformProvider } from "@changmen/venue-adapter/contract";
+import type { PlatformProvider } from "../contract";
 import { accountHgPost } from "./accountHttp";
 import {
   hgTransformUrl,

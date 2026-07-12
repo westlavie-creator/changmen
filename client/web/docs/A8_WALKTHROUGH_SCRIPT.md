@@ -27,7 +27,7 @@ npm run app:dev
 
 ### 0.2 浏览器准备
 
-1. Chrome 安装 **Gamebet 扩展**（`client/chrome-extension`，ID 见 `src/config/gamebetExtension.ts`）。
+1. Chrome 安装 **Gamebet 扩展**（`chrome-extension`，ID 见 `src/config/gamebetExtension.ts`）。
 2. 两个窗口各开 DevTools → **Network**，勾选 **Preserve log**。
 3. Filter 填：`Client_` 或 `/esport/`（后端 action 多为 `POST /esport/Client_XXX`）。
 

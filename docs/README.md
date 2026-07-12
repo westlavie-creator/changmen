@@ -41,7 +41,7 @@
 | `server/team-resolver` | [README.md](../server/team-resolver/README.md) |
 | `server/matcher` | [README.md](../server/matcher/README.md) |
 | `server/realtime-hub` | [README.md](../server/realtime-hub/README.md) |
-| `client/chrome-extension` | [README.md](../client/chrome-extension/README.md) · `npm run chromeplug:pack` |
+| `chrome-extension` | [README.md](../chrome-extension/README.md) · `npm run chromeplug:pack` |
 | `client/venue-adapter` | [README.md](../client/venue-adapter/README.md) |
 | `packages/` | [README.md](../packages/README.md) — `shared` · `api-contract` · `client-core` |
 

@@ -11,10 +11,10 @@ import {
 import { RAY_A8_COLLECT } from "./a8Collect";
 import type { CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { CollectPlatformInfo } from "@changmen/api-contract";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
-import { notifyCollectError } from "@changmen/venue-adapter/shared/collectNotify";
-import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
+import { notifyCollectError } from "../shared/collectNotify";
+import { useCollectStore } from "../shared/webBridge";
 import { rayMatchStage } from "./shared/match_stage";
 import { collectRayGet, loadRayBets } from "./markets";
 

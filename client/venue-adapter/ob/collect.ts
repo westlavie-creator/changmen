@@ -1,11 +1,11 @@
 import { getCollectPlatform, saveLiveTimer, updatePlatform } from "@changmen/client-core/bridge/clientApi";
-import { OB_DEMO_LOGIN_URL } from "@changmen/venue-adapter/ob/constants";
+import { OB_DEMO_LOGIN_URL } from "./constants";
 import { getObBetNameRe } from "./parse";
 
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 import { getStaticVenueGames } from "@changmen/client-core/shared/venueGames";
 import { wait } from "@changmen/client-core/shared/wait";
-import { notifyCollectError } from "@changmen/venue-adapter/shared/collectNotify";
+import { notifyCollectError } from "../shared/collectNotify";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.browser";
 import { collectObGet, loadMarketsForMatch, maxStageFromBo } from "./markets";
 import {
@@ -17,8 +17,8 @@ import {
 } from "./mqtt";
 import { num } from "./parse";
 import { directGet } from "@changmen/client-core/shared/http";
-import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
-import { useMatchStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useCollectStore } from "../shared/webBridge";
+import { useMatchStore } from "../shared/webBridge";
 import type { CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { CollectPlatformInfo } from "@changmen/api-contract";
 

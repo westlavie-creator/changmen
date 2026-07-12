@@ -5,117 +5,115 @@
       __defProp(target, name, { get: all3[name], enumerable: true });
   };
 
-  // src/background/electron-storage-polyfill.js
-  function patchChromeStorageForElectron() {
-    if (typeof chrome === "undefined" || !chrome.storage?.local) return;
-    let syncMissing = false;
-    try {
-      syncMissing = !chrome.storage.sync;
-    } catch {
-      syncMissing = true;
+  // src/content/page-marker.js
+  try {
+    const manifest = chrome.runtime.getManifest();
+    const root = document.documentElement;
+    root.dataset.gamebetExtId = chrome.runtime.id;
+    root.dataset.gamebetExtVersion = manifest.version ?? "";
+  } catch {
+  }
+
+  // src/content/collect-ui.js
+  var ICON_SIZE_PX = 56;
+  var ICON_URL = () => chrome.runtime.getURL("assets/icon128.png");
+  function applyFloatPosition(el, { top, right, width, height }) {
+    el.style.setProperty("position", "fixed", "important");
+    el.style.setProperty("top", top, "important");
+    el.style.setProperty("right", right, "important");
+    el.style.setProperty("left", "auto", "important");
+    el.style.setProperty("bottom", "auto", "important");
+    el.style.setProperty("transform", "none", "important");
+    el.style.setProperty("margin", "0", "important");
+    el.style.setProperty("width", width, "important");
+    el.style.setProperty("height", height, "important");
+    el.style.setProperty("z-index", "2147483646", "important");
+  }
+  async function mountCollectIcon(provider) {
+    if (document.body.querySelector(".gamebet-collect-float")) {
+      return true;
     }
-    if (!syncMissing) return;
-    try {
-      Object.defineProperty(chrome.storage, "sync", {
-        value: chrome.storage.local,
-        configurable: true,
-        enumerable: false
+    const icon = document.createElement("button");
+    icon.type = "button";
+    icon.classList.add("gamebet-collect-float");
+    icon.dataset.gamebetPlugin = "collect";
+    icon.title = "Gamebet \u91C7\u96C6\u51ED\u8BC1";
+    icon.setAttribute("aria-label", "Gamebet \u91C7\u96C6\u51ED\u8BC1");
+    applyFloatPosition(icon, {
+      top: "20px",
+      right: "20px",
+      width: `${ICON_SIZE_PX}px`,
+      height: `${ICON_SIZE_PX}px`
+    });
+    icon.style.backgroundImage = `url("${ICON_URL()}")`;
+    document.body.appendChild(icon);
+    icon.addEventListener("click", async () => {
+      icon.classList.add("hide");
+      const panel = document.createElement("div");
+      panel.classList.add("gamebet-collect-panel");
+      panel.dataset.gamebetPlugin = "collect-panel";
+      applyFloatPosition(panel, {
+        top: "88px",
+        right: "20px",
+        width: "min(640px, calc(100vw - 40px))",
+        height: "auto"
       });
-    } catch {
+      panel.style.setProperty("z-index", "2147483647", "important");
+      document.body.appendChild(panel);
+      let config;
       try {
-        chrome.storage.sync = chrome.storage.local;
-      } catch {
+        panel.classList.add("loading");
+        config = await provider.GetConfig();
+        if (!config) {
+          alert("\u6CA1\u6709\u68C0\u6D4B\u5230\u767B\u5F55\u4FE1\u606F");
+          icon.classList.remove("hide");
+          panel.remove();
+          return;
+        }
+      } finally {
+        panel.classList.remove("loading");
       }
-    }
-  }
-  patchChromeStorageForElectron();
-
-  // src/background/storage.js
-  var areaPromise = null;
-  async function resolveStorageArea() {
-    if (typeof chrome === "undefined" || !chrome.storage?.local) {
-      throw new Error("chrome.storage unavailable");
-    }
-    return chrome.storage.local;
-  }
-  function getStorageArea() {
-    if (!areaPromise) areaPromise = resolveStorageArea();
-    return areaPromise;
-  }
-  async function storageGet(keys) {
-    const area = await getStorageArea();
-    return area.get(keys);
-  }
-  async function storageSet(items) {
-    const area = await getStorageArea();
-    return area.set(items);
-  }
-
-  // src/background/modify-header.js
-  var MODIFY_HEADER_KEY = "ModifyHeader";
-  var RULE_ID_BASE = 1e4;
-  var MAX_RULES = 500;
-  function urlPatternToRegex(urlPattern) {
-    const base = String(urlPattern || "").trim().replace(/\/+$/, "");
-    if (!base) return "^$";
-    const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return `${escaped}(/.*)?`;
-  }
-  async function applyModifyHeaderRules(entries) {
-    const list = Array.isArray(entries) ? entries : [];
-    const removeRuleIds = [];
-    for (let i = 0; i < MAX_RULES; i += 1) {
-      removeRuleIds.push(RULE_ID_BASE + i);
-    }
-    const addRules = [];
-    list.slice(0, MAX_RULES).forEach((entry, index) => {
-      const ua = String(entry?.UserAgent || "").trim();
-      const pattern = String(entry?.UrlPattern || "").trim();
-      if (!ua || !pattern) return;
-      addRules.push({
-        id: RULE_ID_BASE + index,
-        priority: 1,
-        action: {
-          type: "modifyHeaders",
-          requestHeaders: [{ header: "User-Agent", operation: "set", value: ua }]
-        },
-        condition: {
-          regexFilter: urlPatternToRegex(pattern),
-          resourceTypes: [
-            "main_frame",
-            "sub_frame",
-            "xmlhttprequest",
-            "websocket",
-            "other",
-            "script",
-            "stylesheet",
-            "image",
-            "font",
-            "media"
-          ]
+      const row = (label, name) => `<div class="gamebet-collect-panel-item"><label>${label}:</label><input type="text" readonly name="${name}" /></div>`;
+      panel.innerHTML = [
+        row("\u7F51\u5173", "gateway"),
+        row("token", "token"),
+        row("referer", "referer"),
+        row("\u6570\u636E", "data"),
+        '<div class="gamebet-collect-panel-confirm">\u786E\u5B9A</div>'
+      ].join("");
+      panel.querySelectorAll("input[name]").forEach((input) => {
+        const name = input.getAttribute("name");
+        if (name && name in config) {
+          input.value = String(config[name] ?? "");
         }
       });
+      panel.querySelectorAll("input").forEach((input) => {
+        input.addEventListener("click", () => {
+          input.select();
+          navigator.clipboard.writeText(input.value).then(() => panel.classList.add("copy")).catch(() => {
+            if (document.execCommand("copy")) panel.classList.add("copy");
+          }).finally(() => {
+            setTimeout(() => panel.classList.remove("copy"), 500);
+          });
+        });
+      });
+      panel.querySelector(".gamebet-collect-panel-confirm")?.addEventListener("click", () => {
+        icon.classList.remove("hide");
+        panel.remove();
+      });
     });
-    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
-  }
-  async function refreshModifyHeaderFromStorage() {
-    const stored = await storageGet(MODIFY_HEADER_KEY);
-    await applyModifyHeaderRules(stored[MODIFY_HEADER_KEY] ?? []);
-  }
-  function initModifyHeaderListener() {
-    void refreshModifyHeaderFromStorage().catch((err) => {
-      console.warn("[Gamebet] ModifyHeader refresh skipped:", err?.message || err);
-    });
+    console.info("[Gamebet] \u91C7\u96C6\u56FE\u6807\u5DF2\u6302\u8F7D\uFF08\u53F3\u4E0A\u89D2\uFF09");
+    return true;
   }
 
-  // ../../node_modules/axios/lib/helpers/bind.js
+  // ../node_modules/axios/lib/helpers/bind.js
   function bind(fn, thisArg) {
     return function wrap() {
       return fn.apply(thisArg, arguments);
     };
   }
 
-  // ../../node_modules/axios/lib/utils.js
+  // ../node_modules/axios/lib/utils.js
   var { toString } = Object.prototype;
   var { getPrototypeOf } = Object;
   var { iterator, toStringTag } = Symbol;
@@ -459,7 +457,7 @@
   }
   var toJSONObject = (obj) => {
     const visited = /* @__PURE__ */ new WeakSet();
-    const visit = (source) => {
+    const visit2 = (source) => {
       if (isObject(source)) {
         if (visited.has(source)) {
           return;
@@ -471,7 +469,7 @@
           visited.add(source);
           const target = isArray(source) ? [] : {};
           forEach(source, (value, key) => {
-            const reducedValue = visit(value);
+            const reducedValue = visit2(value);
             !isUndefined(reducedValue) && (target[key] = reducedValue);
           });
           visited.delete(source);
@@ -480,7 +478,7 @@
       }
       return source;
     };
-    return visit(obj);
+    return visit2(obj);
   };
   var isAsyncFn = kindOfTest("AsyncFunction");
   var isThenable = (thing) => thing && (isObject(thing) || isFunction(thing)) && isFunction(thing.then) && isFunction(thing.catch);
@@ -569,7 +567,7 @@
     isIterable
   };
 
-  // ../../node_modules/axios/lib/helpers/parseHeaders.js
+  // ../node_modules/axios/lib/helpers/parseHeaders.js
   var ignoreDuplicateOf = utils_default.toObjectSet([
     "age",
     "authorization",
@@ -614,7 +612,7 @@
     return parsed;
   };
 
-  // ../../node_modules/axios/lib/helpers/sanitizeHeaderValue.js
+  // ../node_modules/axios/lib/helpers/sanitizeHeaderValue.js
   function trimSPorHTAB(str) {
     let start = 0;
     let end = str.length;
@@ -652,7 +650,7 @@
     return byteStringHeaders;
   }
 
-  // ../../node_modules/axios/lib/core/AxiosHeaders.js
+  // ../node_modules/axios/lib/core/AxiosHeaders.js
   var $internals = Symbol("internals");
   function normalizeHeader(header) {
     return header && String(header).trim().toLowerCase();
@@ -891,7 +889,7 @@
   utils_default.freezeMethods(AxiosHeaders);
   var AxiosHeaders_default = AxiosHeaders;
 
-  // ../../node_modules/axios/lib/core/AxiosError.js
+  // ../node_modules/axios/lib/core/AxiosError.js
   var REDACTED = "[REDACTED ****]";
   function hasOwnOrPrototypeToJSON(source) {
     if (utils_default.hasOwnProp(source, "toJSON")) {
@@ -909,7 +907,7 @@
   function redactConfig(config, redactKeys) {
     const lowerKeys = new Set(redactKeys.map((k) => String(k).toLowerCase()));
     const seen = [];
-    const visit = (source) => {
+    const visit2 = (source) => {
       if (source === null || typeof source !== "object") return source;
       if (utils_default.isBuffer(source)) return source;
       if (seen.indexOf(source) !== -1) return void 0;
@@ -921,7 +919,7 @@
       if (utils_default.isArray(source)) {
         result = [];
         source.forEach((v, i) => {
-          const reducedValue = visit(v);
+          const reducedValue = visit2(v);
           if (!utils_default.isUndefined(reducedValue)) {
             result[i] = reducedValue;
           }
@@ -933,7 +931,7 @@
         }
         result = /* @__PURE__ */ Object.create(null);
         for (const [key, value] of Object.entries(source)) {
-          const reducedValue = lowerKeys.has(key.toLowerCase()) ? REDACTED : visit(value);
+          const reducedValue = lowerKeys.has(key.toLowerCase()) ? REDACTED : visit2(value);
           if (!utils_default.isUndefined(reducedValue)) {
             result[key] = reducedValue;
           }
@@ -942,7 +940,7 @@
       seen.pop();
       return result;
     };
-    return visit(config);
+    return visit2(config);
   }
   var AxiosError = class _AxiosError extends Error {
     static from(error, code, config, request, response, customProps) {
@@ -1026,10 +1024,10 @@
   AxiosError.ERR_FORM_DATA_DEPTH_EXCEEDED = "ERR_FORM_DATA_DEPTH_EXCEEDED";
   var AxiosError_default = AxiosError;
 
-  // ../../node_modules/axios/lib/helpers/null.js
+  // ../node_modules/axios/lib/helpers/null.js
   var null_default = null;
 
-  // ../../node_modules/axios/lib/helpers/toFormData.js
+  // ../node_modules/axios/lib/helpers/toFormData.js
   function isVisitable(thing) {
     return utils_default.isPlainObject(thing) || utils_default.isArray(thing);
   }
@@ -1154,7 +1152,7 @@
   }
   var toFormData_default = toFormData;
 
-  // ../../node_modules/axios/lib/helpers/AxiosURLSearchParams.js
+  // ../node_modules/axios/lib/helpers/AxiosURLSearchParams.js
   function encode(str) {
     const charMap = {
       "!": "%21",
@@ -1186,7 +1184,7 @@
   };
   var AxiosURLSearchParams_default = AxiosURLSearchParams;
 
-  // ../../node_modules/axios/lib/helpers/buildURL.js
+  // ../node_modules/axios/lib/helpers/buildURL.js
   function encode2(val) {
     return encodeURIComponent(val).replace(/%3A/gi, ":").replace(/%24/g, "$").replace(/%2C/gi, ",").replace(/%20/g, "+");
   }
@@ -1215,7 +1213,7 @@
     return url;
   }
 
-  // ../../node_modules/axios/lib/core/InterceptorManager.js
+  // ../node_modules/axios/lib/core/InterceptorManager.js
   var InterceptorManager = class {
     constructor() {
       this.handlers = [];
@@ -1280,7 +1278,7 @@
   };
   var InterceptorManager_default = InterceptorManager;
 
-  // ../../node_modules/axios/lib/defaults/transitional.js
+  // ../node_modules/axios/lib/defaults/transitional.js
   var transitional_default = {
     silentJSONParsing: true,
     forcedJSONParsing: true,
@@ -1289,16 +1287,16 @@
     advertiseZstdAcceptEncoding: false
   };
 
-  // ../../node_modules/axios/lib/platform/browser/classes/URLSearchParams.js
+  // ../node_modules/axios/lib/platform/browser/classes/URLSearchParams.js
   var URLSearchParams_default = typeof URLSearchParams !== "undefined" ? URLSearchParams : AxiosURLSearchParams_default;
 
-  // ../../node_modules/axios/lib/platform/browser/classes/FormData.js
+  // ../node_modules/axios/lib/platform/browser/classes/FormData.js
   var FormData_default = typeof FormData !== "undefined" ? FormData : null;
 
-  // ../../node_modules/axios/lib/platform/browser/classes/Blob.js
+  // ../node_modules/axios/lib/platform/browser/classes/Blob.js
   var Blob_default = typeof Blob !== "undefined" ? Blob : null;
 
-  // ../../node_modules/axios/lib/platform/browser/index.js
+  // ../node_modules/axios/lib/platform/browser/index.js
   var browser_default = {
     isBrowser: true,
     classes: {
@@ -1309,7 +1307,7 @@
     protocols: ["http", "https", "file", "blob", "url", "data"]
   };
 
-  // ../../node_modules/axios/lib/platform/common/utils.js
+  // ../node_modules/axios/lib/platform/common/utils.js
   var utils_exports = {};
   __export(utils_exports, {
     hasBrowserEnv: () => hasBrowserEnv,
@@ -1327,13 +1325,13 @@
   })();
   var origin = hasBrowserEnv && window.location.href || "http://localhost";
 
-  // ../../node_modules/axios/lib/platform/index.js
+  // ../node_modules/axios/lib/platform/index.js
   var platform_default = {
     ...utils_exports,
     ...browser_default
   };
 
-  // ../../node_modules/axios/lib/helpers/toURLEncodedForm.js
+  // ../node_modules/axios/lib/helpers/toURLEncodedForm.js
   function toURLEncodedForm(data, options) {
     return toFormData_default(data, new platform_default.classes.URLSearchParams(), {
       visitor: function(value, key, path, helpers) {
@@ -1347,7 +1345,7 @@
     });
   }
 
-  // ../../node_modules/axios/lib/helpers/formDataToJSON.js
+  // ../node_modules/axios/lib/helpers/formDataToJSON.js
   function parsePropPath(name) {
     return utils_default.matchAll(/\w+|\[(\w*)]/g, name).map((match) => {
       return match[0] === "[]" ? "" : match[1] || match[0];
@@ -1400,7 +1398,7 @@
   }
   var formDataToJSON_default = formDataToJSON;
 
-  // ../../node_modules/axios/lib/defaults/index.js
+  // ../node_modules/axios/lib/defaults/index.js
   var own = (obj, key) => obj != null && utils_default.hasOwnProp(obj, key) ? obj[key] : void 0;
   function stringifySafely(rawValue, parser, encoder) {
     if (utils_default.isString(rawValue)) {
@@ -1517,7 +1515,7 @@
   });
   var defaults_default = defaults;
 
-  // ../../node_modules/axios/lib/core/transformData.js
+  // ../node_modules/axios/lib/core/transformData.js
   function transformData(fns, response) {
     const config = this || defaults_default;
     const context = response || config;
@@ -1530,12 +1528,12 @@
     return data;
   }
 
-  // ../../node_modules/axios/lib/cancel/isCancel.js
+  // ../node_modules/axios/lib/cancel/isCancel.js
   function isCancel(value) {
     return !!(value && value.__CANCEL__);
   }
 
-  // ../../node_modules/axios/lib/cancel/CanceledError.js
+  // ../node_modules/axios/lib/cancel/CanceledError.js
   var CanceledError = class extends AxiosError_default {
     /**
      * A `CanceledError` is an object that is thrown when an operation is canceled.
@@ -1554,7 +1552,7 @@
   };
   var CanceledError_default = CanceledError;
 
-  // ../../node_modules/axios/lib/core/settle.js
+  // ../node_modules/axios/lib/core/settle.js
   function settle(resolve, reject, response) {
     const validateStatus2 = response.config.validateStatus;
     if (!response.status || !validateStatus2 || validateStatus2(response.status)) {
@@ -1570,13 +1568,13 @@
     }
   }
 
-  // ../../node_modules/axios/lib/helpers/parseProtocol.js
+  // ../node_modules/axios/lib/helpers/parseProtocol.js
   function parseProtocol(url) {
     const match = /^([-+\w]{1,25}):(?:\/\/)?/.exec(url);
     return match && match[1] || "";
   }
 
-  // ../../node_modules/axios/lib/helpers/speedometer.js
+  // ../node_modules/axios/lib/helpers/speedometer.js
   function speedometer(samplesCount, min) {
     samplesCount = samplesCount || 10;
     const bytes = new Array(samplesCount);
@@ -1612,7 +1610,7 @@
   }
   var speedometer_default = speedometer;
 
-  // ../../node_modules/axios/lib/helpers/throttle.js
+  // ../node_modules/axios/lib/helpers/throttle.js
   function throttle(fn, freq) {
     let timestamp = 0;
     let threshold = 1e3 / freq;
@@ -1647,7 +1645,7 @@
   }
   var throttle_default = throttle;
 
-  // ../../node_modules/axios/lib/helpers/progressEventReducer.js
+  // ../node_modules/axios/lib/helpers/progressEventReducer.js
   var progressEventReducer = (listener, isDownloadStream, freq = 3) => {
     let bytesNotified = 0;
     const _speedometer = speedometer_default(50, 250);
@@ -1688,7 +1686,7 @@
   };
   var asyncDecorator = (fn) => (...args) => utils_default.asap(() => fn(...args));
 
-  // ../../node_modules/axios/lib/helpers/isURLSameOrigin.js
+  // ../node_modules/axios/lib/helpers/isURLSameOrigin.js
   var isURLSameOrigin_default = platform_default.hasStandardBrowserEnv ? /* @__PURE__ */ ((origin2, isMSIE) => (url) => {
     url = new URL(url, platform_default.origin);
     return origin2.protocol === url.protocol && origin2.host === url.host && (isMSIE || origin2.port === url.port);
@@ -1697,7 +1695,7 @@
     platform_default.navigator && /(msie|trident)/i.test(platform_default.navigator.userAgent)
   ) : () => true;
 
-  // ../../node_modules/axios/lib/helpers/cookies.js
+  // ../node_modules/axios/lib/helpers/cookies.js
   var cookies_default = platform_default.hasStandardBrowserEnv ? (
     // Standard browser envs support document.cookie
     {
@@ -1750,7 +1748,7 @@
     }
   );
 
-  // ../../node_modules/axios/lib/helpers/isAbsoluteURL.js
+  // ../node_modules/axios/lib/helpers/isAbsoluteURL.js
   function isAbsoluteURL(url) {
     if (typeof url !== "string") {
       return false;
@@ -1758,12 +1756,12 @@
     return /^([a-z][a-z\d+\-.]*:)?\/\//i.test(url);
   }
 
-  // ../../node_modules/axios/lib/helpers/combineURLs.js
+  // ../node_modules/axios/lib/helpers/combineURLs.js
   function combineURLs(baseURL, relativeURL) {
     return relativeURL ? baseURL.replace(/\/?\/$/, "") + "/" + relativeURL.replace(/^\/+/, "") : baseURL;
   }
 
-  // ../../node_modules/axios/lib/core/buildFullPath.js
+  // ../node_modules/axios/lib/core/buildFullPath.js
   function buildFullPath(baseURL, requestedURL, allowAbsoluteUrls) {
     let isRelativeUrl = !isAbsoluteURL(requestedURL);
     if (baseURL && (isRelativeUrl || allowAbsoluteUrls === false)) {
@@ -1772,7 +1770,7 @@
     return requestedURL;
   }
 
-  // ../../node_modules/axios/lib/core/mergeConfig.js
+  // ../node_modules/axios/lib/core/mergeConfig.js
   var headersToObject = (thing) => thing instanceof AxiosHeaders_default ? { ...thing } : thing;
   function mergeConfig(config1, config2) {
     config2 = config2 || {};
@@ -1865,7 +1863,7 @@
     return config;
   }
 
-  // ../../node_modules/axios/lib/helpers/resolveConfig.js
+  // ../node_modules/axios/lib/helpers/resolveConfig.js
   var FORM_DATA_CONTENT_HEADERS = ["content-type", "content-length"];
   function setFormDataHeaders(headers, formHeaders, policy) {
     if (policy !== "content-only") {
@@ -1929,7 +1927,7 @@
   }
   var resolveConfig_default = resolveConfig;
 
-  // ../../node_modules/axios/lib/adapters/xhr.js
+  // ../node_modules/axios/lib/adapters/xhr.js
   var isXHRAdapterSupported = typeof XMLHttpRequest !== "undefined";
   var xhr_default = isXHRAdapterSupported && function(config) {
     return new Promise(function dispatchXhrRequest(resolve, reject) {
@@ -2075,7 +2073,7 @@
     });
   };
 
-  // ../../node_modules/axios/lib/helpers/composeSignals.js
+  // ../node_modules/axios/lib/helpers/composeSignals.js
   var composeSignals = (signals, timeout) => {
     signals = signals ? signals.filter(Boolean) : [];
     if (!timeout && !signals.length) {
@@ -2115,7 +2113,7 @@
   };
   var composeSignals_default = composeSignals;
 
-  // ../../node_modules/axios/lib/helpers/trackStream.js
+  // ../node_modules/axios/lib/helpers/trackStream.js
   var streamChunk = function* (chunk, chunkSize) {
     let len = chunk.byteLength;
     if (!chunkSize || len < chunkSize) {
@@ -2195,7 +2193,7 @@
     );
   };
 
-  // ../../node_modules/axios/lib/helpers/estimateDataURLDecodedBytes.js
+  // ../node_modules/axios/lib/helpers/estimateDataURLDecodedBytes.js
   function estimateDataURLDecodedBytes(url) {
     if (!url || typeof url !== "string") return 0;
     if (!url.startsWith("data:")) return 0;
@@ -2268,10 +2266,10 @@
     return bytes;
   }
 
-  // ../../node_modules/axios/lib/env/data.js
+  // ../node_modules/axios/lib/env/data.js
   var VERSION = "1.17.0";
 
-  // ../../node_modules/axios/lib/adapters/fetch.js
+  // ../node_modules/axios/lib/adapters/fetch.js
   var DEFAULT_CHUNK_SIZE = 64 * 1024;
   var { isFunction: isFunction2 } = utils_default;
   var encodeUTF82 = (str) => encodeURIComponent(str).replace(
@@ -2305,7 +2303,7 @@
   };
   var factory = (env) => {
     const globalObject = utils_default.global !== void 0 && utils_default.global !== null ? utils_default.global : globalThis;
-    const { ReadableStream: ReadableStream2, TextEncoder } = globalObject;
+    const { ReadableStream: ReadableStream2, TextEncoder: TextEncoder2 } = globalObject;
     env = utils_default.merge.call(
       {
         skipUndefined: true
@@ -2324,7 +2322,7 @@
       return false;
     }
     const isReadableStreamSupported = isFetchSupported && isFunction2(ReadableStream2);
-    const encodeText = isFetchSupported && (typeof TextEncoder === "function" ? /* @__PURE__ */ ((encoder) => (str) => encoder.encode(str))(new TextEncoder()) : async (str) => new Uint8Array(await new Request(str).arrayBuffer()));
+    const encodeText = isFetchSupported && (typeof TextEncoder2 === "function" ? /* @__PURE__ */ ((encoder) => (str) => encoder.encode(str))(new TextEncoder2()) : async (str) => new Uint8Array(await new Request(str).arrayBuffer()));
     const supportsRequestStream = isRequestSupported && isReadableStreamSupported && test(() => {
       let duplexAccessed = false;
       const request = new Request(platform_default.origin, {
@@ -2573,7 +2571,7 @@
             } else if (typeof responseData.size === "number") {
               materializedSize = responseData.size;
             } else if (typeof responseData === "string") {
-              materializedSize = typeof TextEncoder === "function" ? new TextEncoder().encode(responseData).byteLength : responseData.length;
+              materializedSize = typeof TextEncoder2 === "function" ? new TextEncoder2().encode(responseData).byteLength : responseData.length;
             }
           }
           if (typeof materializedSize === "number" && materializedSize > maxContentLength) {
@@ -2639,7 +2637,7 @@
   };
   var adapter = getFetch();
 
-  // ../../node_modules/axios/lib/adapters/adapters.js
+  // ../node_modules/axios/lib/adapters/adapters.js
   var knownAdapters = {
     http: null_default,
     xhr: xhr_default,
@@ -2704,7 +2702,7 @@
     adapters: knownAdapters
   };
 
-  // ../../node_modules/axios/lib/core/dispatchRequest.js
+  // ../node_modules/axios/lib/core/dispatchRequest.js
   function throwIfCancellationRequested(config) {
     if (config.cancelToken) {
       config.cancelToken.throwIfRequested();
@@ -2755,7 +2753,7 @@
     );
   }
 
-  // ../../node_modules/axios/lib/helpers/validator.js
+  // ../node_modules/axios/lib/helpers/validator.js
   var validators = {};
   ["object", "boolean", "number", "function", "string", "symbol"].forEach((type, i) => {
     validators[type] = function validator(thing) {
@@ -2822,7 +2820,7 @@
     validators
   };
 
-  // ../../node_modules/axios/lib/core/Axios.js
+  // ../node_modules/axios/lib/core/Axios.js
   var validators2 = validator_default.validators;
   var Axios = class {
     constructor(instanceConfig) {
@@ -3025,7 +3023,7 @@
   });
   var Axios_default = Axios;
 
-  // ../../node_modules/axios/lib/cancel/CancelToken.js
+  // ../node_modules/axios/lib/cancel/CancelToken.js
   var CancelToken = class _CancelToken {
     constructor(executor) {
       if (typeof executor !== "function") {
@@ -3123,19 +3121,19 @@
   };
   var CancelToken_default = CancelToken;
 
-  // ../../node_modules/axios/lib/helpers/spread.js
+  // ../node_modules/axios/lib/helpers/spread.js
   function spread(callback) {
     return function wrap(arr) {
       return callback.apply(null, arr);
     };
   }
 
-  // ../../node_modules/axios/lib/helpers/isAxiosError.js
+  // ../node_modules/axios/lib/helpers/isAxiosError.js
   function isAxiosError(payload) {
     return utils_default.isObject(payload) && payload.isAxiosError === true;
   }
 
-  // ../../node_modules/axios/lib/helpers/HttpStatusCode.js
+  // ../node_modules/axios/lib/helpers/HttpStatusCode.js
   var HttpStatusCode = {
     Continue: 100,
     SwitchingProtocols: 101,
@@ -3212,7 +3210,7 @@
   });
   var HttpStatusCode_default = HttpStatusCode;
 
-  // ../../node_modules/axios/lib/axios.js
+  // ../node_modules/axios/lib/axios.js
   function createInstance(defaultConfig) {
     const context = new Axios_default(defaultConfig);
     const instance = bind(Axios_default.prototype.request, context);
@@ -3245,7 +3243,7 @@
   axios.default = axios;
   var axios_default = axios;
 
-  // ../../node_modules/axios/index.js
+  // ../node_modules/axios/index.js
   var {
     Axios: Axios2,
     AxiosError: AxiosError2,
@@ -3266,132 +3264,1119 @@
     create
   } = axios_default;
 
-  // src/background/http.js
-  function axiosRequest(message) {
-    const method = (message.type || "GET").toUpperCase();
-    const url = message.url;
-    if (!url) throw new Error("\u7F3A\u5C11 url");
-    const withCredentials = message.options?.withCredentials !== false;
+  // src/content/utils.js
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  function generateUuid(stripDash = false) {
+    const id = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === "x" ? r : r & 3 | 8;
+      return v.toString(16);
+    });
+    return stripDash ? id.replace(/-/g, "") : id;
+  }
+  function getCookie(name) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : void 0;
+  }
+  function tabHttpPost(url, data, options = {}) {
     return axios_default.request({
-      method,
+      method: "POST",
       url,
-      headers: message.options?.headers,
-      timeout: message.options?.timeout,
-      withCredentials,
-      data: message.data
+      headers: options.headers,
+      data,
+      timeout: options.timeout,
+      withCredentials: options.withCredentials !== false
+    });
+  }
+  async function postFormUrlEncoded(url, fields, headers = {}) {
+    const body = new URLSearchParams();
+    for (const [k, v] of Object.entries(fields)) {
+      body.set(k, String(v ?? ""));
+    }
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", ...headers },
+      body,
+      credentials: "include"
+    });
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+
+  // src/content/hga-poll.js
+  var SAVE_URL = "https://api.a8.to/Common/API_SaveData";
+  var maxId = 0;
+  var pollCount = 0;
+  var wagers = [];
+  var pollStarted = false;
+  function wagerTimeMs(w) {
+    const dt = /* @__PURE__ */ new Date(`${w.DATE} ${w.TIME}`);
+    dt.setHours(dt.getHours() + 12);
+    return dt.getTime();
+  }
+  async function saveWagers(username, rows) {
+    if (!rows.length) return;
+    await postFormUrlEncoded(`${SAVE_URL}?key=HG:${encodeURIComponent(username)}`, {
+      content: JSON.stringify(rows)
+    });
+  }
+  async function pollLoop(gateway, uid, ver, username) {
+    if (!uid || !ver) return;
+    const confirmBtn = document.querySelector(".gamebet-collect-panel-confirm");
+    for (; ; ) {
+      try {
+        const url = `${gateway}/transform.php?ver=${ver}`;
+        const data = await postFormUrlEncoded(url, {
+          login_layer: "ag",
+          uid,
+          langx: "zh-cn",
+          ver,
+          p: "get_wmc_list_bet",
+          totalBets: "wmc",
+          gtype: "ALL",
+          sel_maxid: String(maxId)
+        });
+        if (data?.maxid) maxId = data.maxid;
+        if (data?.wagers?.length) {
+          const cutoff = Date.now() - 6e5;
+          for (const w of data.wagers) {
+            if (!wagers.some((x) => x.TID === w.TID)) wagers.push(w);
+          }
+          await saveWagers(
+            username,
+            wagers.filter((w) => wagerTimeMs(w) > cutoff)
+          );
+        }
+      } catch (err) {
+        console.warn("[HGA] poll error", err);
+      } finally {
+        pollCount += 1;
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.innerHTML = `\u7B2C${pollCount}\u6B21\u76D1\u542C`;
+        }
+        await sleep(3e3);
+      }
+    }
+  }
+  function maybeStartHgaPoll(meta) {
+    if (pollStarted || !meta?.uid || !meta?.ver || !meta?.username) return;
+    pollStarted = true;
+    void pollLoop(meta.gateway, meta.uid, meta.ver, meta.username);
+  }
+
+  // src/content/platforms.js
+  var PLATFORMS = Object.freeze({
+    OB: "OB",
+    RAY: "RAY",
+    IA: "IA",
+    IM: "IM",
+    TF: "TF",
+    SABA: "SABA",
+    PB: "PB",
+    IMT: "IMT",
+    HGA: "HGA",
+    HG: "HG",
+    Stake: "Stake",
+    Dex: "Dex",
+    Polymarket: "Polymarket"
+  });
+  var PLATFORM_LIST = Object.values(PLATFORMS);
+
+  // src/content/polymarket/init.js
+  var CLOB_API = "https://clob.polymarket.com";
+  var GAMMA_API = "https://gamma-api.polymarket.com";
+  function getPolymarketCredentials() {
+    const captured = collectStorageCredentials();
+    const { polyHeaders, apiCreds, account, storage } = captured;
+    const walletAddress = polyHeaders.POLY_ADDRESS || polyHeaders.poly_address || account.address || account.walletAddress || "";
+    const funder = account.funder || account.funderAddress || account.proxyWallet || account.proxyWalletAddress || "";
+    const signatureType = account.signatureType || inferSignatureType(walletAddress, funder, apiCreds, storage);
+    const token = JSON.stringify({
+      walletAddress,
+      funder,
+      signatureType,
+      apiCreds,
+      polyHeaders
+    });
+    const payload = {
+      provider: PLATFORMS.Polymarket,
+      gateway: CLOB_API,
+      gammaApi: GAMMA_API,
+      referer: location.href,
+      token,
+      walletAddress,
+      funder,
+      signatureType,
+      apiCreds,
+      polyHeaders,
+      account,
+      storage,
+      capturedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    return {
+      ...payload,
+      data: base64Utf8(JSON.stringify(payload))
+    };
+  }
+  function base64Utf8(text) {
+    const bytes = new TextEncoder().encode(text);
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary);
+  }
+  function inferSignatureType(walletAddress, funder, apiCreds, storage) {
+    if (hasClobApiKeyMap(storage) || apiCreds.baseAddress)
+      return "3";
+    if (walletAddress && funder && walletAddress.toLowerCase() !== funder.toLowerCase())
+      return "3";
+    return "";
+  }
+  function hasClobApiKeyMap(storage) {
+    return Object.values(storage).some(
+      (bucket) => bucket && typeof bucket === "object" && Object.keys(bucket).some((key) => key.toLowerCase().includes("poly_clob_api_key_map"))
+    );
+  }
+  var STORAGE_KEY_RE = /(poly|polymarket|privy|dynamic|wallet|clob|api.?key|passphrase|funder|address)/i;
+  function collectStorageCredentials() {
+    const polyHeaders = {};
+    const apiCreds = {};
+    const account = {};
+    const storage = {};
+    readStorage("localStorage", localStorage, storage, apiCreds, account, polyHeaders);
+    readStorage("sessionStorage", sessionStorage, storage, apiCreds, account, polyHeaders);
+    return { polyHeaders, apiCreds, account, storage };
+  }
+  function readStorage(label, store, storage, apiCreds, account, polyHeaders) {
+    try {
+      const bucket = {};
+      for (let i = 0; i < store.length; i += 1) {
+        const key = store.key(i);
+        if (!key || !STORAGE_KEY_RE.test(key)) continue;
+        const value = store.getItem(key);
+        bucket[key] = typeof value === "string" && value.length > 2e3 ? value.slice(0, 2e3) : value;
+        capturePayload(value, apiCreds, account, polyHeaders);
+        captureKeyValue(key, value, apiCreds, account, polyHeaders);
+      }
+      if (Object.keys(bucket).length) storage[label] = bucket;
+    } catch {
+    }
+  }
+  function captureKeyValue(key, value, apiCreds, account, polyHeaders) {
+    const lower = String(key).toLowerCase();
+    if (value == null || typeof value === "object") return;
+    const text = String(value);
+    if (lower.includes("poly_address")) polyHeaders.POLY_ADDRESS = text;
+    if (lower.includes("poly_api_key")) polyHeaders.POLY_API_KEY = text;
+    if (lower.includes("poly_passphrase")) polyHeaders.POLY_PASSPHRASE = text;
+    if (lower.includes("apikey") || lower.includes("api_key") || lower.includes("api-key")) apiCreds.apiKey ||= text;
+    if (lower.includes("secret")) apiCreds.secret ||= text;
+    if (lower.includes("passphrase")) apiCreds.passphrase ||= text;
+    if (lower.includes("baseaddress") || lower.includes("base_address")) apiCreds.baseAddress ||= text;
+    if (lower.includes("wallet") || lower.includes("address")) account.address ||= text;
+    if (lower.includes("funder")) account.funder ||= text;
+  }
+  function capturePayload(raw, apiCreds, account, polyHeaders) {
+    const data = maybeJson(raw);
+    if (!data) return;
+    visit(data, (key, value) => {
+      if (value == null || typeof value === "object") return;
+      const lower = String(key).toLowerCase();
+      const text = String(value);
+      if (lower === "poly_address") polyHeaders.POLY_ADDRESS = text;
+      if (lower === "poly_api_key") polyHeaders.POLY_API_KEY = text;
+      if (lower === "poly_passphrase") polyHeaders.POLY_PASSPHRASE = text;
+      if (lower === "apikey" || lower === "api_key" || lower === "api-key" || lower === "key") apiCreds.apiKey ||= text;
+      if (lower === "secret" || lower === "apisecret" || lower === "api_secret" || lower === "api-secret")
+        apiCreds.secret ||= text;
+      if (lower === "passphrase" || lower === "apipassphrase" || lower === "api_passphrase" || lower === "api-passphrase")
+        apiCreds.passphrase ||= text;
+      if (lower === "baseaddress" || lower === "base_address" || lower === "base-address")
+        apiCreds.baseAddress ||= text;
+      if (lower === "address" || lower === "walletaddress" || lower === "maker") account.address ||= text;
+      if (lower === "signaturetype" || lower === "signature_type") account.signatureType ||= text;
+      if (lower === "funder" || lower === "funderaddress" || lower === "proxywallet" || lower === "proxywalletaddress")
+        account.funder ||= text;
+    }, 0);
+  }
+  function maybeJson(raw) {
+    if (!raw) return void 0;
+    if (typeof raw === "object") return raw;
+    if (typeof raw !== "string") return void 0;
+    const text = raw.trim();
+    if (!text || text[0] !== "{" && text[0] !== "[") return void 0;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return void 0;
+    }
+  }
+  function visit(value, fn, depth) {
+    if (!value || typeof value !== "object" || depth > 5) return;
+    if (Array.isArray(value)) {
+      value.slice(0, 50).forEach((row) => visit(row, fn, depth + 1));
+      return;
+    }
+    Object.keys(value).forEach((key) => {
+      const child = value[key];
+      fn(key, child);
+      visit(child, fn, depth + 1);
     });
   }
 
-  // src/background/index.js
-  var MANIFEST = chrome.runtime.getManifest();
-  function forwardToTab(message, tabId) {
-    return new Promise((resolve, reject) => {
-      chrome.tabs.sendMessage(tabId, message, (response) => {
-        const err = chrome.runtime.lastError;
-        if (err) {
-          reject(new Error(err.message || "\u6807\u7B7E\u9875\u901A\u4FE1\u5931\u8D25"));
-          return;
-        }
-        if (response && typeof response === "object" && "response" in response) {
-          resolve(response.response);
-          return;
-        }
-        resolve(response);
-      });
-    });
-  }
-  async function handleExternalMessage(message, reply, sender) {
-    const { type, uuid } = message;
-    switch (type) {
-      case "GET":
-      case "POST":
-      case "": {
-        const tabId = message.options?.tabId;
-        if (tabId) {
-          try {
-            const response = await forwardToTab(message, tabId);
-            reply({ type, uuid, response });
-          } catch (err) {
-            reply({ type, uuid, response: err });
-          }
-          return;
-        }
+  // src/content/providers.js
+  var IM_PATH = /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
+  var IA_SEARCH = /^\?lang=\d&token=([\w\.\_\-]+)$/;
+  var PROVIDER_REGISTRY = {
+    [PLATFORMS.OB]: class ObProvider {
+      async Check() {
+        const url = new URL(location.href);
+        const token = url.searchParams.get("token");
+        const addr = url.searchParams.get("addr");
+        if (!token || !/\d+/.test(token)) return false;
+        if (!addr) return false;
         try {
-          const response = await axiosRequest(message);
-          reply({ type, uuid, response });
-        } catch (err) {
-          reply({ type, uuid, response: err });
+          const parsed = JSON.parse(window.atob(addr));
+          return Array.isArray(parsed.api);
+        } catch {
+          return false;
         }
-        return;
       }
-      case "version":
-        reply({
-          type,
-          uuid,
-          response: { name: MANIFEST.name, version: MANIFEST.version }
-        });
-        return;
-      case "proxy":
-        reply({ type, uuid, response: null });
-        return;
-      case "getStore": {
-        const key = message.data?.key;
-        if (!key) {
-          reply({ type, uuid, response: { data: {} } });
-          return;
-        }
-        const data = await storageGet(key);
-        reply({ type, uuid, response: { data } });
-        return;
+      async GetConfig() {
+        const url = new URL(location.href);
+        const token = url.searchParams.get("token");
+        const addr = url.searchParams.get("addr");
+        const parsed = JSON.parse(window.atob(addr));
+        const referer = `https://${location.host}/`;
+        return {
+          provider: PLATFORMS.OB,
+          gateway: parsed.api[0],
+          token,
+          referer,
+          data: window.btoa(
+            JSON.stringify({
+              provider: PLATFORMS.OB,
+              gateway: parsed.api,
+              token,
+              referer
+            })
+          )
+        };
       }
-      case "setStore": {
-        const payload = message.data;
-        if (payload?.key != null) {
-          await storageSet({ [payload.key]: payload.data });
-          if (payload.key === MODIFY_HEADER_KEY) {
-            await applyModifyHeaderRules(payload.data ?? []);
+    },
+    [PLATFORMS.RAY]: class RayProvider {
+      async Check() {
+        return Boolean(
+          document.body.querySelector(".app-header img[alt=RAYBET]") ?? document.body.querySelector(".app-header .logo-icon")
+        );
+      }
+      async GetConfig() {
+        let token = localStorage.getItem("gameAuthToken") || localStorage.getItem("socketCluster.authToken");
+        const userToken = localStorage.getItem("userToken");
+        if (!token && userToken && /^\{/.test(userToken)) {
+          try {
+            token = JSON.parse(userToken).JWT;
+          } catch {
+            return void 0;
           }
         }
-        reply({ type, uuid, response: {} });
-        return;
+        if (!token) return void 0;
+        const res = await fetch("https://api.365raylinks.com/configv4?platform=1");
+        const json = await res.json();
+        const gateway = json.data.game_api.map((u) => {
+          const parsed = new URL(u);
+          return `${parsed.protocol}//${parsed.host}`;
+        });
+        const referer = location.href;
+        const bearer = `Bearer ${token}`;
+        return {
+          provider: PLATFORMS.RAY,
+          gateway: gateway[0],
+          token: bearer,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.RAY,
+              gateway,
+              token: bearer,
+              referer
+            })
+          )
+        };
       }
-      case "setTab": {
-        const tabId = sender?.tab?.id;
-        const payload = message.data;
-        if (tabId && payload?.key) {
-          await storageSet({ [payload.key]: tabId });
-          reply({ type, uuid, response: { ...payload, tabId } });
-          return;
+    },
+    [PLATFORMS.IM]: class ImProvider {
+      async Check() {
+        return IM_PATH.test(location.pathname + location.search);
+      }
+      async GetConfig() {
+        const match = IM_PATH.exec(location.pathname + location.search);
+        if (!match) return void 0;
+        const token = match[2];
+        const referer = `${location.protocol}//${location.host}${location.pathname}${location.search}`;
+        const gateway = `${location.protocol}//${location.host}`;
+        return {
+          provider: PLATFORMS.IM,
+          gateway,
+          token,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.IM,
+              gateway: [gateway],
+              token,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.TF]: class TfProvider {
+      async Check() {
+        if (!/^gc\./.test(location.host)) return false;
+        const vuex = localStorage.getItem("vuex");
+        return Boolean(vuex && /^\{/.test(vuex));
+      }
+      async GetConfig() {
+        const vuex = JSON.parse(localStorage.getItem("vuex") ?? "{}");
+        const token = vuex?.settings?.settings?.token;
+        const priBaseUrl = vuex?.settings?.settings?.priBaseUrl;
+        if (!token || !priBaseUrl) return void 0;
+        const parsed = new URL(priBaseUrl);
+        const gateway = `${parsed.protocol}//${parsed.host}`;
+        const referer = `${location.protocol}//${location.host}/`;
+        const auth = `Token ${token}`;
+        return {
+          provider: PLATFORMS.TF,
+          gateway,
+          token: auth,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.TF,
+              gateway: [gateway],
+              token: auth,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.IA]: class IaProvider {
+      async Check() {
+        return IA_SEARCH.test(location.search);
+      }
+      async GetConfig() {
+        const match = IA_SEARCH.exec(location.search);
+        if (!match) return void 0;
+        const token = match[1];
+        const gateway = `https://${location.host}`;
+        return {
+          provider: PLATFORMS.IA,
+          gateway,
+          token,
+          referer: location.href,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.IA,
+              gateway: [gateway],
+              token,
+              referer: location.href
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.SABA]: class SabaProvider {
+      async Check() {
+        return /^\/\(S\(ESport/.test(location.pathname);
+      }
+      async GetConfig() {
+        const match = /^\/(.+?)\//.exec(location.pathname);
+        if (!match) return void 0;
+        const gateway = `${location.protocol}//${location.host}`;
+        const referer = `${location.protocol}//${location.host}/`;
+        const token = match[1];
+        return {
+          provider: PLATFORMS.SABA,
+          gateway,
+          token,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.SABA,
+              gateway: [gateway],
+              token,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.PB]: class PbProvider {
+      async Check() {
+        const path = location.pathname;
+        return /\/esports\-hub\/|\/compact\/sports\//.test(path) && Boolean(localStorage.getItem("x-app-data"));
+      }
+      async GetConfig() {
+        const snapshot = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key) snapshot[key] = localStorage.getItem(key) ?? "";
         }
-        reply({ type, uuid, response: null });
-        return;
+        const payload = {
+          provider: PLATFORMS.PB,
+          gateway: `https://${location.host}`,
+          token: JSON.stringify(snapshot),
+          referer: location.href
+        };
+        return {
+          provider: PLATFORMS.PB,
+          gateway: payload.gateway,
+          token: payload.token,
+          referer: payload.referer,
+          data: window.btoa(JSON.stringify(payload))
+        };
       }
-      default:
-        reply({ type, uuid, response: null });
+    },
+    [PLATFORMS.IMT]: class ImtProvider {
+      async Check() {
+        return Boolean(localStorage.getItem("siteProfile4") && localStorage.getItem("version4"));
+      }
+      async GetConfig() {
+        const version = localStorage.getItem("version4");
+        const profileRaw = localStorage.getItem("siteProfile4");
+        if (!version || !profileRaw) return void 0;
+        const profile = JSON.parse(profileRaw);
+        const token = btoa(JSON.stringify({ tk: profile.t, v: version, mc: profile.mc }));
+        const gateway = `${location.protocol}//${location.host}`;
+        const referer = `${location.protocol}//${location.host}/`;
+        return {
+          provider: PLATFORMS.IMT,
+          gateway,
+          token,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.IMT,
+              gateway: [gateway],
+              token,
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.HGA]: class HgaProvider {
+      async Check() {
+        const ok = document.getElementById("mu_profile") !== null;
+        if (ok) {
+          void (async () => {
+            await sleep(1e3);
+            const icon = document.body.querySelector(".gamebet-collect-float");
+            icon?.setAttribute(
+              "onmouseover",
+              "this.setAttribute('uid',window.uid);this.setAttribute('ver',window.ver);this.setAttribute('username',window.username);"
+            );
+          })();
+        }
+        return ok;
+      }
+      async GetConfig() {
+        const icon = document.body.querySelector(".gamebet-collect-float");
+        const uid = icon?.getAttribute("uid") ?? "";
+        const ver = icon?.getAttribute("ver") ?? "";
+        const username = icon?.getAttribute("username") ?? "";
+        const gateway = `https://${location.host}`;
+        const token = JSON.stringify({ uid, ver, username });
+        const referer = location.href;
+        return {
+          provider: PLATFORMS.HGA,
+          token,
+          gateway,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.HGA,
+              token,
+              gateway: [gateway],
+              referer
+            })
+          ),
+          _hgaMeta: { gateway, uid, ver, username }
+        };
+      }
+    },
+    [PLATFORMS.HG]: class HgProvider {
+      async Check() {
+        const ok = document.getElementById("header_currency") !== null && document.getElementById("header_credit") !== null;
+        if (ok) {
+          void (async () => {
+            await sleep(1e3);
+            const icon = document.body.querySelector(".gamebet-collect-float");
+            icon?.setAttribute(
+              "onmouseover",
+              "this.setAttribute('userdata',JSON.stringify(window.userData));"
+            );
+          })();
+        }
+        return ok;
+      }
+      async GetConfig() {
+        const icon = document.body.querySelector(".gamebet-collect-float");
+        const userdata = icon?.getAttribute("userdata") ?? "";
+        if (!userdata) return void 0;
+        const parsed = JSON.parse(userdata);
+        const token = JSON.stringify({
+          uid: parsed.uid,
+          ver: parsed.ver,
+          username: parsed.username
+        });
+        const gateway = `https://${location.host}`;
+        const referer = location.href;
+        return {
+          provider: PLATFORMS.HG,
+          gateway,
+          token,
+          referer,
+          data: btoa(
+            JSON.stringify({
+              provider: PLATFORMS.HG,
+              token,
+              gateway: [gateway],
+              referer
+            })
+          )
+        };
+      }
+    },
+    [PLATFORMS.Stake]: class StakeProvider {
+      async Check() {
+        return location.hostname === "stake.com";
+      }
+      async GetConfig() {
+        const session = getCookie("session");
+        if (!session) return void 0;
+        const payload = {
+          provider: PLATFORMS.Stake,
+          gateway: `https://${location.host}`,
+          token: session,
+          referer: location.href
+        };
+        return { ...payload, data: btoa(JSON.stringify(payload)) };
+      }
+    },
+    [PLATFORMS.Dex]: class DexProvider {
+      async Check() {
+        return location.hostname.includes("dexsport");
+      }
+      async GetConfig() {
+        const el = document.documentElement;
+        const hash = el.dataset.dexHash;
+        if (!hash) return void 0;
+        const jwt = el.dataset.dexAccessToken || "";
+        const network = localStorage.getItem("main_network_name") || "";
+        const currency = localStorage.getItem("main_currency_contract") || "";
+        const sportsbookToken = `${hash}_${network}_${currency}_sportsbook`;
+        const gateway = "https://prod.dexsport.work";
+        const payload = {
+          provider: PLATFORMS.Dex,
+          gateway,
+          token: sportsbookToken,
+          hash,
+          jwt,
+          network,
+          currency,
+          referer: location.href
+        };
+        return { ...payload, data: btoa(JSON.stringify(payload)) };
+      }
+    },
+    [PLATFORMS.Polymarket]: class PolymarketProvider {
+      async Check() {
+        return location.hostname === "polymarket.com" || location.hostname.endsWith(".polymarket.com");
+      }
+      async GetConfig() {
+        const credentials = getPolymarketCredentials();
+        return credentials?.token ? credentials : void 0;
+      }
     }
+  };
+  function createProvider(platformId) {
+    const Cls = PROVIDER_REGISTRY[platformId];
+    return Cls ? new Cls() : null;
   }
-  chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
-    if (!message || typeof message !== "object") return false;
-    handleExternalMessage(message, sendResponse, sender);
-    return true;
-  });
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message?.type !== "setTab") return false;
-    const tabId = sender.tab?.id;
-    const key = message.data?.key;
-    if (!tabId || !key) {
-      sendResponse({ success: false, type: message.type, uuid: message.uuid, response: "No tabId or key" });
-      return true;
+
+  // src/content/dex/init.js
+  function initDexPage(registerHandler) {
+    if (!location.hostname.includes("dexsport")) return;
+    chrome.runtime.sendMessage(
+      { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.Dex } },
+      (response) => {
+        console.log("[Dex] tabId written =>", response?.response ?? response);
+      }
+    );
+    registerHandler(handleDexMessage);
+  }
+  async function handleDexMessage(message) {
+    const { type, url, data, options } = message || {};
+    if (type === "GET" || type === "POST") {
+      return proxyHttpRequest(type, url, data, options);
     }
-    storageSet({ [key]: tabId }).then(() => {
-      sendResponse({
-        success: true,
-        type: message.type,
-        uuid: message.uuid,
-        response: { key, tabId }
+    if (type === "getCredentials") {
+      return getDexCredentials();
+    }
+    return null;
+  }
+  function getDexCredentials() {
+    const el = document.documentElement;
+    const hash = el.dataset.dexHash || "";
+    const nickname = el.dataset.dexNickname || "";
+    const jwt = el.dataset.dexAccessToken || "";
+    const network = localStorage.getItem("main_network_name") || "";
+    const currency = localStorage.getItem("main_currency_contract") || "";
+    const sportsbookToken = hash ? `${hash}_${network}_${currency}_sportsbook` : "";
+    return {
+      jwt,
+      hash,
+      nickname,
+      network,
+      currency,
+      sportsbookToken,
+      gateway: "https://prod.dexsport.work",
+      apiUrl: "https://dexsport.io/api"
+    };
+  }
+  async function proxyHttpRequest(method, url, body, options) {
+    const headers = { ...options?.headers || {} };
+    if (!headers["Authorization"] && !headers["authorization"]) {
+      const jwt = document.documentElement.dataset.dexAccessToken;
+      if (jwt) {
+        headers["Authorization"] = `Bearer ${jwt}`;
+      }
+    }
+    const fetchOpts = { method, headers };
+    if (method === "POST" && body) {
+      if (!headers["content-type"] && !headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
+      }
+      fetchOpts.body = typeof body === "string" ? body : JSON.stringify(body);
+    }
+    const response = await fetch(url, fetchOpts);
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("json") ? await response.json() : await response.text();
+    return { data, status: response.status, statusText: response.statusText };
+  }
+
+  // src/content/config.js
+  var DEFAULT_A8_WS = "https://47.115.75.57";
+  var STAKE_LOCKDOWN_TOKEN = "s5MNWtjTM5TvCMkAzxov";
+
+  // src/content/stake/a8-bridge.js
+  function createA8Bridge(channel) {
+    const ioFn = globalThis.io;
+    if (typeof ioFn !== "function") {
+      console.warn("[Stake] socket.io \u672A\u52A0\u8F7D\uFF0C\u5B9E\u65F6\u9891\u9053\u4E0D\u53EF\u7528");
+      return { send() {
+      } };
+    }
+    const socket = ioFn(DEFAULT_A8_WS, {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1e3,
+      reconnectionDelayMax: 5e3,
+      randomizationFactor: 0.5,
+      timeout: 2e4
+    });
+    socket.on("connect", () => {
+      console.log("\u2705 \u5DF2\u8FDE\u63A5\u5230 A8 Socket", {
+        socketId: socket.id,
+        connected: socket.connected
       });
     });
-    return true;
-  });
-  initModifyHeaderListener();
+    return {
+      send(message) {
+        if (socket.connected) {
+          socket.emit("chat message", JSON.stringify({ channel, message }));
+        }
+      }
+    };
+  }
+
+  // src/content/stake/graphql-ws.js
+  var GraphqlTransportWs = class {
+    /**
+     * @param {string} path
+     * @param {string} protocol
+     * @param {{ maxRetries?: number; minReopenDelayMs?: number; maxReopenDelayMs?: number }} [options]
+     */
+    constructor(path, protocol = "graphql-transport-ws", options = {}) {
+      const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+      this.url = `${scheme}//${location.host}${path}`;
+      this.protocol = protocol;
+      this.maxRetries = options.maxRetries ?? Number.POSITIVE_INFINITY;
+      this.minReopenDelayMs = options.minReopenDelayMs ?? 1e3;
+      this.maxReopenDelayMs = options.maxReopenDelayMs ?? 3e4;
+      this.ws = null;
+      this.onopen = null;
+      this.onmessage = null;
+      this.onclose = null;
+      this.onerror = null;
+      this._pingTimer = null;
+      this._reconnectTimer = null;
+      this._retryCount = 0;
+      this._manualClose = false;
+      this.connect();
+    }
+    connect() {
+      if (this._reconnectTimer) {
+        clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = null;
+      }
+      this.ws = new WebSocket(this.url, this.protocol);
+      this.ws.onopen = () => {
+        this._retryCount = 0;
+        this.onopen?.();
+      };
+      this.ws.onmessage = (ev) => this.onmessage?.(ev);
+      this.ws.onclose = (ev) => {
+        this.stopPing();
+        this.onclose?.(ev);
+        this.scheduleReconnect();
+      };
+      this.ws.onerror = (ev) => this.onerror?.(ev);
+    }
+    scheduleReconnect() {
+      if (this._manualClose || this._retryCount >= this.maxRetries) return;
+      const delay = Math.min(
+        this.minReopenDelayMs * Math.pow(1.5, this._retryCount),
+        this.maxReopenDelayMs
+      );
+      this._retryCount += 1;
+      this._reconnectTimer = setTimeout(() => this.connect(), delay);
+    }
+    send(text) {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(text);
+      }
+    }
+    startPing(intervalMs = 1e4) {
+      this.stopPing();
+      this._pingTimer = setInterval(() => {
+        this.send(JSON.stringify({ type: "ping" }));
+      }, intervalMs);
+    }
+    stopPing() {
+      if (this._pingTimer) {
+        clearInterval(this._pingTimer);
+        this._pingTimer = null;
+      }
+    }
+    close() {
+      this._manualClose = true;
+      this.stopPing();
+      if (this._reconnectTimer) {
+        clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = null;
+      }
+      this.ws?.close();
+    }
+  };
+
+  // src/content/stake/subscription.js
+  var STAKE_MARKET_RE = /(比赛获胜者 - Two 路线)|(地图\d获胜者 - Two 路线)/;
+  var FIXTURE_SUBSCRIPTION = `subscription  SportFixtureDataMatch_SportFixture($fixtureId: String!, $groups: [String!]) {
+  sportFixtureMarketsNext(fixtureId: $fixtureId, groups: $groups) {
+    id
+    name
+    status
+    extId
+    provider
+    outcomes {
+      id
+      active
+      odds
+      name
+      extId
+    }
+  }
+}`;
+  var BidirectionalMap = class {
+    constructor() {
+      this.forward = /* @__PURE__ */ new Map();
+      this.backward = /* @__PURE__ */ new Map();
+    }
+    set(key, value) {
+      this.forward.set(key, value);
+      this.backward.set(value, key);
+    }
+    hasKey(key) {
+      return this.forward.has(key);
+    }
+    getByKey(key) {
+      return this.forward.get(key);
+    }
+    getByValue(value) {
+      return this.backward.get(value);
+    }
+    deleteByKey(key) {
+      const value = this.forward.get(key);
+      if (value) {
+        this.forward.delete(key);
+        this.backward.delete(value);
+      }
+    }
+    keys() {
+      return [...this.forward.keys()];
+    }
+    clear() {
+      this.forward.clear();
+      this.backward.clear();
+    }
+  };
+  var subscribeMap = new BidirectionalMap();
+  var a8Bridge = null;
+  var gqlSocket = null;
+  function setStakeA8Bridge(bridge) {
+    a8Bridge = bridge;
+  }
+  function setStakeGqlSocket(socket) {
+    gqlSocket = socket;
+  }
+  function clearStakeSubscriptions() {
+    subscribeMap.clear();
+  }
+  function handleFixtureNext(payload, subscriptionId) {
+    if (!subscriptionId || !payload?.data?.sportFixtureMarketsNext) return;
+    const matchId = subscribeMap.getByValue(subscriptionId);
+    if (!matchId) return;
+    const message = { matchId, bets: [] };
+    for (const market of payload.data.sportFixtureMarketsNext) {
+      const name = market.name;
+      const betId = market.id;
+      if (!STAKE_MARKET_RE.test(name) || market.outcomes?.length !== 2) continue;
+      const home = market.outcomes[0];
+      const away = market.outcomes[1];
+      const locked = !["active", "live"].includes(market.status);
+      message.bets.push({
+        betId,
+        name,
+        homeId: home.id,
+        home: !locked && home.active ? home.odds : 0,
+        awayId: away.id,
+        away: !locked && away.active ? away.odds : 0,
+        extend: { status: market.status, home, away }
+      });
+    }
+    a8Bridge?.send(message);
+  }
+  function syncStakeSubscriptions(rows) {
+    if (!gqlSocket) return;
+    const list = Array.isArray(rows) ? rows : [];
+    for (const fixtureId of subscribeMap.keys()) {
+      if (!list.some((r) => r.id === fixtureId)) {
+        const subId = subscribeMap.getByKey(fixtureId);
+        if (subId) {
+          gqlSocket.send(JSON.stringify({ id: subId, type: "complete" }));
+          subscribeMap.deleteByKey(fixtureId);
+        }
+      }
+    }
+    for (const row of list) {
+      if (subscribeMap.hasKey(row.id)) continue;
+      const subId = generateUuid();
+      gqlSocket.send(
+        JSON.stringify({
+          id: subId,
+          type: "subscribe",
+          payload: {
+            query: FIXTURE_SUBSCRIPTION,
+            variables: {
+              fixture: row.slug,
+              fixtureId: row.id,
+              provider: "oddin",
+              groups: ["winner", "maps"]
+            }
+          }
+        })
+      );
+      subscribeMap.set(row.id, subId);
+    }
+  }
+  function createStakeMessageHandler() {
+    return async function handleStakeTabMessage(message) {
+      console.log(PLATFORMS.Stake, `\u6536\u5230\u8BF7\u6C42${message.type}`, message.data);
+      switch (message.type) {
+        case "POST": {
+          if (!message.url) {
+            console.error("url \u4E3A\u7A7A");
+            return void 0;
+          }
+          const response = await tabHttpPost(message.url, message.data, message.options);
+          console.log(PLATFORMS.Stake, "tabId\u8BF7\u6C42\u8FD4\u56DE => ", response);
+          return response;
+        }
+        case "":
+          syncStakeSubscriptions(message.data);
+          return void 0;
+        default:
+          return void 0;
+      }
+    };
+  }
+
+  // src/content/stake/init.js
+  function initStakePage(registerHandler) {
+    if (location.hostname !== "stake.com") return;
+    const handler = createStakeMessageHandler();
+    registerHandler(handler);
+    chrome.runtime.sendMessage(
+      { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.Stake } },
+      (response) => {
+        console.log(PLATFORMS.Stake, "tabId \u6210\u529F\u5199\u5165 => ", response?.response ?? response);
+      }
+    );
+    const session = getCookie("session");
+    if (!session) {
+      console.warn("[Stake] \u672A\u627E\u5230 session cookie\uFF0C\u8DF3\u8FC7 GraphQL WS");
+      return;
+    }
+    const bridge = createA8Bridge(PLATFORMS.Stake);
+    setStakeA8Bridge(bridge);
+    const gql = new GraphqlTransportWs("/_api/websockets", "graphql-transport-ws");
+    setStakeGqlSocket(gql);
+    gql.onopen = () => {
+      gql.send(
+        JSON.stringify({
+          type: "connection_init",
+          payload: {
+            accessToken: session,
+            language: "zh",
+            lockdownToken: STAKE_LOCKDOWN_TOKEN
+          }
+        })
+      );
+      gql.startPing();
+    };
+    gql.onmessage = (event) => {
+      let packet;
+      try {
+        packet = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      switch (packet.type) {
+        case "connection_ack":
+          clearStakeSubscriptions();
+          break;
+        case "complete":
+          console.error(PLATFORMS.Stake, "\u8BA2\u9605\u5931\u8D25", packet);
+          break;
+        case "next":
+          handleFixtureNext(packet.payload, packet.id);
+          break;
+        default:
+          break;
+      }
+      console.log(PLATFORMS.Stake, "message", packet.type);
+    };
+    gql.onclose = () => console.log("[Stake] graphql ws closed");
+    gql.onerror = (err) => console.error("[Stake] graphql ws error", err);
+  }
+
+  // src/content/tab-proxy.js
+  var tabHandlers = {};
+  function registerTabHandler(platformId, handler) {
+    tabHandlers[platformId] = handler;
+  }
+  function installTabProxyListener() {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      const tabId = message?.options?.tabId;
+      if (!tabId) return false;
+      const platform = message?.options?.platform || message?.options?.provider || message?.platform;
+      const handler = platform && tabHandlers[platform] || tabHandlers[PLATFORMS.Stake] || tabHandlers[PLATFORMS.Dex];
+      if (!handler) return false;
+      void (async () => {
+        try {
+          const response = await handler(message);
+          sendResponse({ success: true, type: message.type, uuid: message.uuid, response });
+        } catch (err) {
+          sendResponse({
+            success: false,
+            type: message.type,
+            uuid: message.uuid,
+            response: err instanceof Error ? err.message : String(err)
+          });
+        }
+      })();
+      return true;
+    });
+  }
+
+  // src/content/index.js
+  var COLLECT_POLL_MS = 3e3;
+  var COLLECT_MAX_ATTEMPTS = 120;
+  function wrapProviderForHga(provider) {
+    const original = provider.GetConfig.bind(provider);
+    provider.GetConfig = async () => {
+      const config = await original();
+      if (config?._hgaMeta) {
+        maybeStartHgaPoll(config._hgaMeta);
+        delete config._hgaMeta;
+      }
+      return config;
+    };
+    return provider;
+  }
+  async function tryMountCollectUi() {
+    for (const platformId of PLATFORM_LIST) {
+      const ProviderCls = PROVIDER_REGISTRY[platformId];
+      if (!ProviderCls) continue;
+      let provider = createProvider(platformId);
+      if (!provider) continue;
+      if (platformId === PLATFORMS.HGA) {
+        provider = wrapProviderForHga(provider);
+      }
+      try {
+        if (await provider.Check()) {
+          await mountCollectIcon(provider);
+          return true;
+        }
+      } catch (err) {
+        console.warn("[Gamebet] provider check failed", platformId, err);
+      }
+    }
+    return false;
+  }
+  async function detectAndMountCollectUi() {
+    if (window !== window.top) return;
+    if (document.body?.querySelector(".gamebet-collect-float")) return;
+    for (let attempt = 0; attempt < COLLECT_MAX_ATTEMPTS; attempt++) {
+      if (await tryMountCollectUi()) return;
+      await sleep(COLLECT_POLL_MS);
+    }
+  }
+  function bootstrap() {
+    installTabProxyListener();
+    initStakePage((handler) => {
+      registerTabHandler(PLATFORMS.Stake, handler);
+    });
+    initDexPage((handler) => {
+      registerTabHandler(PLATFORMS.Dex, handler);
+    });
+    const startDetect = () => void detectAndMountCollectUi();
+    if (document.body) {
+      startDetect();
+    } else {
+      document.addEventListener("DOMContentLoaded", startDetect, { once: true });
+    }
+  }
+  bootstrap();
 })();

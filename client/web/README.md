@@ -13,7 +13,7 @@
 
 > 术语：用户中心「赛事采集」开关 = 是否**回传** `SaveMatch`/`SaveBet`，不是是否连接平台或更新 `oddsStore`。
 
-Chrome 扩展见 [`client/chrome-extension/`](../chrome-extension/)。
+Chrome 扩展见 [`chrome-extension/`](../../chrome-extension/)。
 
 生产部署（同源 `/` + 远程 API）：[../../PRODUCTION_DEPLOYMENT.md](../../PRODUCTION_DEPLOYMENT.md)
 

@@ -3,13 +3,13 @@
 import { a8PluginGet, a8PluginPost } from "@changmen/client-core/chrome-plugin/bridge";
 import { buildPbAuthHeaders } from "./auth";
 import { pbOddsUrl } from "./parse";
-import { useAccountStore } from "@changmen/venue-adapter/shared/webBridge";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { useAccountStore } from "../shared/webBridge";
+import { PLATFORMS } from "../shared/platforms";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 
 /** 采集层提示文案（A8 无等价常量；仅 collect 侧 UX） */
 export const PB_PLUGIN_REQUIRED_MSG =
-  "平博 PB 需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）";
+  "平博 PB 需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/chrome-extension，或使用 Electron 启动（内嵌扩展）";
 
 /** [A8 可证实] `Ly(t,e)=>`${t.gateway}${e}`` */
 export function pbGatewayUrl(account: Pick<PlatformAccount, "gateway">, path: string): string {

@@ -18,7 +18,7 @@ mogfpjihgoghabicofkbcmcidlcoofee
 
 1. Chrome 打开 `chrome://extensions/`
 2. 开启「开发者模式」
-3. 「加载已解压的扩展程序」→ 选择本目录 `changmen/client/chrome-extension`
+3. 「加载已解压的扩展程序」→ 选择本目录 `changmen/chrome-extension`
 4. 确认扩展 ID 为 `mogfpjihgoghabicofkbcmcidlcoofee`
 5. 启动 changmen 前端（`client/web`），PB / Stake / v4 等会经扩展代发 HTTP
 6. Stake：在同一 Chrome 配置文件中打开 `stake.com`，扩展会自动 `setTab`
@@ -40,7 +40,7 @@ mogfpjihgoghabicofkbcmcidlcoofee
 ## 目录结构
 
 ```
-client/chrome-extension/
+chrome-extension/
   manifest.json       # MV3，含固定公钥 key
   background.js         # esbuild 打包（源文件 src/background/）
   content.js            # esbuild 打包的可读 content（源文件 src/content/）
@@ -56,7 +56,7 @@ client/chrome-extension/
 ## 开发
 
 ```bash
-cd changmen/client/chrome-extension
+cd changmen/chrome-extension
 npm run build               # 打包 background.js、content.js、version.json
 npm run pack                # build + 生成 dist/gamebet-chromeplug-v*.zip（发给朋友）
 npm run icons               # 重新生成占位图标
@@ -72,7 +72,7 @@ Windows：在仓库根目录执行 `npm run chromeplug:pack`，或双击 `BAT\de
 
 ## 与 A8 官方插件区别
 
-| 项 | A8 官方 | client/chrome-extension |
+| 项 | A8 官方 | chrome-extension |
 |----|---------|-------------------|
 | 扩展 ID | `phnhdoaolljdeohmagpngbijbjbiecde` | `mogfpjihgoghabicofkbcmcidlcoofee` |
 | 名称 | 电竞预测大师 | gamebet |

@@ -3,9 +3,9 @@ import { directGet } from "@changmen/client-core/shared/http";
 import { tfRequestHeaders } from "./auth";
 import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { CollectPlatformInfo } from "@changmen/api-contract";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
-import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useCollectStore } from "../shared/webBridge";
 
 import {
   buildTfSaveBetRowsFromResults,

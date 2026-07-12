@@ -1,9 +1,9 @@
-import type { PlatformProvider } from "@changmen/venue-adapter/contract";
+import type { PlatformProvider } from "../contract";
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
-import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { PLATFORMS } from "../shared/platforms";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 
 import { fetchPredictFunJwt, predictFunJwtHeaders } from "./auth";

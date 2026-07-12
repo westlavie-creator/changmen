@@ -34,7 +34,7 @@
 |----|--------------|------|
 | `venueAdapter` | `client/venue-adapter` | 浏览器采集/下注 canonical |
 | `clientWeb` | `client/web` | 电竞 Vue 控制台 |
-| `clientChromeExtension` | `client/chrome-extension` | MV3 插件 |
+| `clientChromeExtension` | `chrome-extension` | MV3 插件 |
 | `platformProbes` | `devtools/platform-probes` | Node 探针 CLI |
 | `packages` | `packages` | 跨端 TS 包 |
 | `serverBackend` | `server/backend` | HTTP API |

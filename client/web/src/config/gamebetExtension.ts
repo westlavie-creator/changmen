@@ -32,7 +32,7 @@ export function gamebetExtensionInstallHint(): string {
   const id = gamebetExtensionId();
   return (
     `请先在 Chrome 或 Edge 打开 chrome://extensions，开启「开发者模式」，`
-    + `选择「加载已解压的扩展程序」并指向仓库中的 changmen/client/chrome-extension 目录。`
+    + `选择「加载已解压的扩展程序」并指向仓库中的 changmen/chrome-extension 目录。`
     + `扩展 ID 应为 ${id}。安装并启用后刷新本页再登录。`
   );
 }

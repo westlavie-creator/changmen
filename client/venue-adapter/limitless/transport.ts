@@ -3,7 +3,7 @@
 import { a8PluginGet, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 
 export const LIMITLESS_PLUGIN_REQUIRED_MSG =
-  "Limitless 采集需要 Gamebet 扩展：加载 changmen/client/chrome-extension，或使用 Electron 启动（内嵌扩展）";
+  "Limitless 采集需要 Gamebet 扩展：加载 changmen/chrome-extension，或使用 Electron 启动（内嵌扩展）";
 
 const PLUGIN_TIMEOUT_MS = 60_000;
 

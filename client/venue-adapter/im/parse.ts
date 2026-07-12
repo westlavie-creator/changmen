@@ -1,1 +1,1 @@
-export * from "@changmen/venue-adapter/shared/socket/imBetParse";
+export * from "../shared/socket/imBetParse";
