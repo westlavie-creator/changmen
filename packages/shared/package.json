@@ -6,6 +6,7 @@
   "description": "changmen 跨进程共享模块（catalog、odds、time 等；数据层见 @changmen/db）",
   "exports": {
     "./catalog/game_catalog": "./catalog/game_catalog.ts",
+    "./catalog/game_catalog.browser": "./catalog/game_catalog.browser.ts",
     "./catalog/game_catalog.json": "./catalog/game_catalog.json",
     "./catalog/venue_games.json": "./catalog/venue_games.json",
     "./catalog/sport_catalog": "./catalog/sport_catalog.ts",
