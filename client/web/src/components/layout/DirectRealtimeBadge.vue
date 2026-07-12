@@ -24,6 +24,8 @@ import {
   cyclePmUserWsSourceModeAndReconnect,
   getPmMarketWsSourceMode,
   getPmUserWsSourceMode,
+  markPmTransportManualOverride,
+  onPmAutoTransportApplied,
   pmMarketWsSourceModeLabel,
   pmUserWsSourceModeLabel,
   type PmMarketWsSourceMode,
@@ -39,6 +41,7 @@ const raySourceMode = ref<RayWsSourceMode>(getRayWsSourceMode());
 const pmMarketWsSourceMode = ref<PmMarketWsSourceMode>(getPmMarketWsSourceMode());
 const pmUserWsSourceMode = ref<PmUserWsSourceMode>(getPmUserWsSourceMode());
 let venueWsUnsub: (() => void) | undefined;
+let pmTransportUnsub: (() => void) | undefined;
 
 /** 第二行：Polymarket / Predict.fun / DEX / Limitless WS */
 const VENUE_WS_SECOND_ROW_IDS = new Set([
@@ -60,9 +63,14 @@ onMounted(() => {
   venueWsUnsub = subscribeVenueWsStatus(() => {
     venueWsStatuses.value = listVenueWsStatuses();
   });
+  pmTransportUnsub = onPmAutoTransportApplied(() => {
+    pmMarketWsSourceMode.value = getPmMarketWsSourceMode();
+    pmUserWsSourceMode.value = getPmUserWsSourceMode();
+  });
 });
 onUnmounted(() => {
   venueWsUnsub?.();
+  pmTransportUnsub?.();
 });
 
 function dotClass(status: DirectRealtimeStatus): string {
@@ -187,6 +195,7 @@ function venueWsItemClass(entry: VenueWsStatusEntry): Record<string, boolean> {
 }
 
 function handleVenueWsClick(entry: VenueWsStatusEntry): void {
+  markPmTransportManualOverride();
   if (entry.id === "pm-market") {
     pmMarketWsSourceMode.value = cyclePmMarketWsSourceModeAndReconnect();
     ElMessage({

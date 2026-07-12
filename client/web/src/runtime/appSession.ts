@@ -11,6 +11,27 @@ import { useOddsStore } from "@/stores/oddsStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 
+async function applyPmTransportRoutingOnLogin(): Promise<void> {
+  try {
+    const { applyPmAutoTransportOnLogin } = await import("@venue/polymarket/pmAutoTransport");
+    await applyPmAutoTransportOnLogin();
+  }
+  catch (err) {
+    if (import.meta.env?.DEV)
+      console.warn("[PM transport] auto route skipped", err);
+  }
+}
+
+async function resetPmTransportRoutingOnLogout(): Promise<void> {
+  try {
+    const { resetPmTransportRoutingOnLogout } = await import("@venue/polymarket/pmAutoTransport");
+    resetPmTransportRoutingOnLogout();
+  }
+  catch {
+    /* ignore */
+  }
+}
+
 /** HomeView 挂载时：主循环、消息队列、扩展旁路 sync（调用顺序与原先 HomeView 一致） */
 export function startAppSession(): void {
   useMatchStore().startMainLoop();
@@ -25,12 +46,14 @@ export async function mountAppSession(): Promise<void> {
   if (!user.userId) {
     await user.fetchUserInfo();
   }
+  await applyPmTransportRoutingOnLogin();
   useAccountStore().loadAccounts(true);
   await bootSessionRuntime();
 }
 
 /** HomeView 卸载 / logout：对称 teardown（不含 user.logout） */
 export function stopAppSession(): void {
+  void resetPmTransportRoutingOnLogout();
   stopSessionRuntime();
   teardownArbRuntimeSync();
   useMessageStore().stop();

@@ -111,22 +111,24 @@ for (const h of HOSTS) {
     ].join("; "));
 
     scp(h.host, distArchive, "/tmp/changmen-dist.tgz");
-    ssh(h.host, `set -euo pipefail
-archive=/tmp/changmen-dist.tgz
-app=${deployRepo}/client/web
-tmp="$app/dist.upload.$$"
-tar -tzf "$archive" >/dev/null
-rm -rf "$tmp"
-mkdir -p "$tmp"
-tar -xzf "$archive" -C "$tmp"
-test -f "$tmp/index.html"
-test -d "$tmp/assets"
-rm -rf "$app/dist.prev"
-if [ -d "$app/dist" ]; then mv "$app/dist" "$app/dist.prev"; fi
-mv "$tmp" "$app/dist"
-rm -rf "$app/dist.prev" "$archive"
-chmod -R a+rX "$app/dist"
-grep -o 'venue-shared-[^"]*' "$app/dist/index.html" | head -1`);
+    const appWeb = `${deployRepo}/client/web`;
+    ssh(h.host, [
+      "set -euo pipefail",
+      "archive=/tmp/changmen-dist.tgz",
+      `tmp=${appWeb}/dist.upload`,
+      'tar -tzf "$archive" >/dev/null',
+      'rm -rf "$tmp"',
+      'mkdir -p "$tmp"',
+      'tar -xzf "$archive" -C "$tmp"',
+      'test -f "$tmp/index.html"',
+      'test -d "$tmp/assets"',
+      `rm -rf ${appWeb}/dist.prev`,
+      `[ -d ${appWeb}/dist ] && mv ${appWeb}/dist ${appWeb}/dist.prev || true`,
+      `mv "$tmp" ${appWeb}/dist`,
+      `rm -rf ${appWeb}/dist.prev "$archive"`,
+      `chmod -R a+rX ${appWeb}/dist`,
+      `grep -o 'venue-shared-[^"]*' ${appWeb}/dist/index.html | head -1`,
+    ].join("; "));
 
     ssh(h.host, `cd ${deployRepo}/server/backend; node scripts/post-deploy-check.mjs --skip-telegram`);
 

@@ -21,8 +21,8 @@ function normalizeMode(raw: string | undefined | null): PmHttpMode | null {
 export function resolvePmHttpMode(): PmHttpMode {
   if (testOverride)
     return testOverride;
-  if (typeof localStorage !== "undefined") {
-    const fromLs = normalizeMode(localStorage.getItem(LS_KEY));
+  if (typeof globalThis.localStorage !== "undefined") {
+    const fromLs = normalizeMode(globalThis.localStorage.getItem(LS_KEY));
     if (fromLs)
       return fromLs;
   }
@@ -45,7 +45,10 @@ export function setPmHttpModeForTests(mode: PmHttpMode | null): void {
 }
 
 export function setPmHttpMode(mode: PmHttpMode): void {
-  if (typeof localStorage === "undefined")
-    return;
-  localStorage.setItem(LS_KEY, mode);
+  try {
+    globalThis.localStorage?.setItem(LS_KEY, mode);
+  }
+  catch {
+    /* ignore */
+  }
 }

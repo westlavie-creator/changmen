@@ -22,6 +22,8 @@ export * from "./pmTickPrice";
 export * from "./pmAutoExitSell";
 export * from "./pmHeartbeat";
 export * from "./pmStoredOrders";
+export * from "./pmAutoTransport";
+export * from "./pmOfficialReachability";
 export * from "./ws";
 export * from "./pmMarketWsMode";
 export * from "./pmUserWsMode";
