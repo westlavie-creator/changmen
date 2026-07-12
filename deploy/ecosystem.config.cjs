@@ -1,7 +1,9 @@
 /**
  * PM2 生产进程清单（扁平 VPS 布局：DEPLOY_REPO = 应用根，无外层 Git 仓库）。
- *   pm2 start deploy/ecosystem.config.cjs
+ *   pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports
  * 整仓 git pull 已废弃；上海/香港均为 tarball 扁平部署。
+ *
+ * changmen-predictfun-collector：可选；默认 deploy 不启动（见 deploy-server-remote.sh）。
  */
 const path = require("node:path");
 

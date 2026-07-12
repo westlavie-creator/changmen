@@ -2,8 +2,8 @@
 /** 诊断单场 client_match 的 pm_sport + Gamma 源 */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { ensurePgPoolReady } from "@changmen/db";
-import { fetchGammaEventById, gammaEventToSportMessage } from "../../polymarket-sports/gamma_map.js";
-import { buildPmSportSnapshot } from "../../polymarket-sports/parse_sport.js";
+import { fetchGammaEventById, gammaEventToSportMessage } from "@changmen/polymarket-sports/gamma_map.js";
+import { buildPmSportSnapshot } from "@changmen/polymarket-sports/parse_sport.js";
 
 loadChangmenEnv();
 

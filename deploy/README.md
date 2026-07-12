@@ -7,7 +7,7 @@
 | 路径 | 说明 |
 |------|------|
 | [`Caddyfile`](Caddyfile) | Caddy :80 反代 + 静态 dist |
-| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2：`changmen-esport`、`changmen-pm-sports` |
+| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2：`changmen-esport`、`changmen-pm-sports`（**默认**）；`changmen-predictfun-collector` 可选 |
 | [`env/`](env/) | 后端 `.env` 模板（运行时：`server/backend/.env`） |
 | [`scripts/apply-repo-archive.sh`](scripts/apply-repo-archive.sh) | tarball 解压 + 扁平化 + 部署 |
 | [`scripts/sync-git-to-flat-app.sh`](scripts/sync-git-to-flat-app.sh) | 香港：git 子目录 → 扁平 `DEPLOY_REPO` 再 deploy |
@@ -25,12 +25,20 @@
 
 VPS 运行目录：`/root/changmen`（扁平，无 git）。
 
-**VPS 上 PM2：**
+**VPS 上 PM2（电竞默认，仅两个进程）：**
 
 ```bash
 cd /root/changmen
-pm2 start deploy/ecosystem.config.cjs
+pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports
 pm2 save
+```
+
+`deploy/scripts/deploy-server-remote.sh` **只**重启 `changmen-esport` 与 `changmen-pm-sports`；若误起 `changmen-predictfun-collector` 会在部署末尾删除（除非 `DEPLOY_START_PREDICTFUN_COLLECTOR=1` 且已配 `PREDICT_FUN_API_KEY`）。
+
+启用 Predict.fun HTTP 采集守护进程时：
+
+```bash
+pm2 start deploy/ecosystem.config.cjs --only changmen-predictfun-collector --update-env
 ```
 
 详见 [`PRODUCTION_DEPLOYMENT.md`](../PRODUCTION_DEPLOYMENT.md)。

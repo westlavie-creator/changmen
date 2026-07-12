@@ -150,15 +150,16 @@ npm run app:build
 
 ### 3.4 进程
 
-默认长期进程（推荐 PM2）：`changmen-esport`（内嵌 matcher）+ `changmen-pm-sports` + `changmen-predictfun-collector`。
+**生产默认（电竞主栈）**：`changmen-esport`（内嵌 matcher）+ `changmen-pm-sports`。HK `47.57.10.202` 等节点当前即此配置。
+
+**可选**：`changmen-predictfun-collector`（Predict.fun REST 采集；需 `PREDICT_FUN_API_KEY`，暂不启用可跳过）。
 
 ```bash
 cd changmen
-pm2 start deploy/ecosystem.config.cjs
-# 或手动：
-npm run web
-npm run pm-sports   # server/polymarket-sports
-npm run predictfun-collector
+# 推荐：仅主栈
+pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports
+# 全量 start ecosystem（含 predictfun）仅在你明确要开 Predict.fun 采集时使用
+# pm2 start deploy/ecosystem.config.cjs
 ```
 
 `ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。

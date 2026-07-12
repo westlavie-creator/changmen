@@ -9,6 +9,7 @@ if [ "$ROOT" = /root/changmen ] && [ ! -d "$ROOT" ] && [ -d /root/gamebet ]; the
 fi
 PM2_WEB="${PM2_WEB:-changmen-esport}"
 PM2_PM_SPORTS="${PM2_PM_SPORTS:-changmen-pm-sports}"
+PM2_PREDICTFUN="${PM2_PREDICTFUN:-changmen-predictfun-collector}"
 PM2_MATCHER="${PM2_MATCHER:-changmen-matcher}"
 DEPLOY_FULL="${DEPLOY_FULL:-0}"
 DEPLOY_SKIP_APP_BUILD="${DEPLOY_SKIP_APP_BUILD:-0}"
@@ -133,6 +134,10 @@ classify() {
       DO_PM2_WEB=1
       DO_PM2_PM_SPORTS=1
       ;;
+    server/predictfun-collector/*|server/ws_forward/*|server/storage/*)
+      DO_INSTALL_ROOT=1
+      DO_PM2_WEB=1
+      ;;
     server/backend/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
@@ -151,6 +156,8 @@ classify() {
     deploy/ecosystem.config.cjs|ecosystem.config.cjs)
       DO_PM2_WEB=1
       DO_PM2_PM_SPORTS=1
+      ;;
+    lines/*)
       ;;
     *.md|.gitignore)
       ;;
@@ -362,6 +369,15 @@ if command -v pm2 >/dev/null 2>&1; then
     pm2 status
   else
     log "skip pm2 restart"
+  fi
+  # ecosystem.config.cjs lists changmen-predictfun-collector; deploy only starts esport + pm-sports.
+  # Stop optional collector unless DEPLOY_START_PREDICTFUN_COLLECTOR=1 (needs PREDICT_FUN_API_KEY).
+  if [ "${DEPLOY_START_PREDICTFUN_COLLECTOR:-0}" != "1" ]; then
+    if pm2 describe "$PM2_PREDICTFUN" >/dev/null 2>&1; then
+      log "pm2 delete optional $PM2_PREDICTFUN (set DEPLOY_START_PREDICTFUN_COLLECTOR=1 to keep)"
+      pm2 delete "$PM2_PREDICTFUN" >/dev/null 2>&1 || true
+      pm2 save >/dev/null 2>&1 || true
+    fi
   fi
 else
   echo "WARN: pm2 not found, skip restart"
