@@ -20,7 +20,8 @@
     "server/team-resolver",
     "server/value-bet",
     "server/collectors/polymarket-sports",
-    "server/collectors/predictfun-collector"
+    "server/collectors/predictfun-collector",
+    "baseball/web"
   ],
   "scripts": {
     "install:all": "npm install",
@@ -31,6 +32,7 @@
     "web": "npm run web --prefix server/backend",
     "web:restart": "npm run web:restart --prefix server/backend",
     "app:dev": "npm run dev --prefix client/web",
+    "baseball:dev": "npm run dev --prefix baseball/web",
     "app:build": "turbo run build --filter=@changmen/web --force",
     "check:boundaries": "node scripts/check-team-boundaries.mjs",
     "test:api-contract": "node packages/api-contract/urls.test.mjs",

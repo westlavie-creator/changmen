@@ -31,15 +31,16 @@ changmen（平台 monorepo）
 │   ├── server/collectors/         polymarket-sports · predictfun-collector
 │   └── lines/esport/line.json     → 指向上列路径
 │
-└── 其他产品线（增量，对称锚点 lines/{code}/）
-    └── lines/baseball/            （规划；manifest 已建，无业务代码）
+└── 其他产品线（增量）
+    ├── baseball/                  ← 代码目录（仓库根）
+    └── lines/baseball/line.json   ← manifest 锚点
 ```
 
 **原则**
 
 | # | 规则 |
 |---|------|
-| 1 | 新业务线 **只** 增 `lines/{code}/` + `line.json`；**不** 复制 `venue-adapter` / `packages` |
+| 1 | 新业务线：仓库根新建 `changmen/{code}/`（如 `baseball/`）+ `lines/{code}/line.json`；**不** 复制 `venue-adapter` / `packages` |
 | 2 | 电竞 **暂不** 物理迁入 `lines/esport/`（路径/deploy 成本过高）；`line.json` 映射即可 |
 | 3 | HTTP 路径 **暂不** 从 `/esport/*` 改名；用 `sport` 过滤与 catalog 做数据隔离 |
 | 4 | 套利等能力运动无关；新线通过 `capabilities` 字段声明复用 |
@@ -65,7 +66,7 @@ changmen（平台 monorepo）
 | sport code | 产品名 | 锚点 | 代码位置 | PM2 | 阶段 |
 |------------|--------|------|----------|-----|------|
 | `esport` | 电竞 | `lines/esport/` | 仓库根（见 `line.json`） | `changmen-esport` `changmen-pm-sports` `changmen-predictfun-collector` | **全栈** |
-| `baseball` | 棒球 | `lines/baseball/` | 待建 | `changmen-baseball`（规划） | **规划** → 只读 → 采集 → 套利 |
+| `baseball` | 棒球 | `lines/baseball/` | `baseball/`（规划） | `changmen-baseball`（规划） | **规划** → 只读 → 采集 → 套利 |
 
 ### 电竞组件路径（`esport`，代码在仓库根）
 
@@ -84,13 +85,16 @@ changmen（平台 monorepo）
 
 与已移除的足球轻量 app 不同，棒球应 **更早** 接入 catalog + 采集，避免与电竞栈脱节。
 
-### 阶段 B1 — 只读控制台
+### 阶段 B1 — 本地只读控制台（当前）
 
-- 锚点：`lines/baseball/`（workspace `changmen-baseball` 规划）
+- 代码目录：`baseball/web/`（**仅前端**，无 `baseball/server/`）
+- manifest：`lines/baseball/line.json`
 - 数据源：Polymarket Gamma，`sport=mlb`（PM `/sports` id=8）
-- 端口：`:3458`（`BASEBALL_PORT`），路径 `/baseball/*`
-- 鉴权：与电竞共用 `JWT_SECRET`（只验签）
+- 运行：`npm run baseball:dev` → `http://localhost:3458/baseball/`（`BASEBALL_PORT`）
+- HTTP：本机 Vite dev proxy 直连 Gamma/CLOB；**不接** backend、JWT、RDS、VPS relay
 - **不** 写 `client_matches` / matcher
+
+> VPS / PM2 / 鉴权 / 采集上报留到 B2 及以后，与电竞栈联动时再接入。
 
 ### 阶段 B2 — 采集 + 第二平台
 
@@ -211,7 +215,7 @@ server/collectors/
    ↓
 阶段 1  sport_catalog.json + game_catalog.sport 字段（见 CATALOG.md）
    ↓
-阶段 B1 lines/baseball 只读（PM MLB）
+阶段 B1 baseball/ 只读（PM MLB）
    ↓
 阶段 B2 第二平台 + SaveMatch + matcher baseball profile
    ↓

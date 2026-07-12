@@ -1,15 +1,11 @@
 {
   "code": "baseball",
   "kind": "sport",
-  "status": "planned",
+  "status": "active",
   "linePath": "lines/baseball",
   "sportRef": "baseball",
-  "components": {},
-  "capabilities": [
-    "arbitrage",
-    "match-merge"
-  ],
-  "pm2Apps": [
-    "changmen-baseball"
-  ]
+  "components": {
+    "web": "baseball/web"
+  },
+  "capabilities": []
 }
