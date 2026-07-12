@@ -25,7 +25,9 @@ const INTENTIONAL_MIXED_IMPORTS = [
 function sharedVenueChunk(id: string): string | undefined {
   // client-core / monorepo shared 被各 venue 共用
   if (
-    id.includes("packages/client-core")
+    id.includes("packages/arb-core")
+    || id.includes("@changmen/arb-core")
+    || id.includes("packages/client-core")
     || id.includes("@changmen/client-core")
     || id.includes("packages/shared")
     || id.includes("@changmen/shared")

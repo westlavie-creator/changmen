@@ -7,13 +7,13 @@ export {
   type DetectOpportunitiesParams,
   findFundedOpportunityForBet,
   indexOpportunities,
-} from "@/extensions/arbOpportunity/detect";
+} from "@changmen/arb-core/opportunity/detect";
 
 export {
   diffOpportunities,
   type OpportunityTransition,
   snapshotOpportunities,
-} from "@/extensions/arbOpportunity/state";
+} from "@changmen/arb-core/opportunity/state";
 
 export {
   applyArbRuntimeState,
@@ -31,4 +31,4 @@ export {
   betAnchor,
   opportunityKey,
   type OpportunityKey,
-} from "@/extensions/arbOpportunity/types";
+} from "@changmen/arb-core/opportunity/types";

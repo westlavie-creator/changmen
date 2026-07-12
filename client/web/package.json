@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@changmen/api-contract": "*",
+    "@changmen/arb-core": "*",
     "@changmen/client-core": "*",
     "@changmen/shared": "*",
     "@noble/curves": "^1.4.2",

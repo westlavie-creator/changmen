@@ -3,9 +3,9 @@ import type { DetectOpportunitiesParams } from "@/extensions/arbOpportunity/dete
 import type { OpportunityTransition } from "@/extensions/arbOpportunity/state";
 import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
 import type { ViewMatch } from "@/models/match";
-import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
+import type { ArbProfitAccount } from "@changmen/arb-core";
 import { deliverMarketWatchSink } from "@/extensions/arbMarketWatch/watchSinks";
 import { detectOpportunities } from "@/extensions/arbOpportunity/detect";
 import {
@@ -25,7 +25,7 @@ export interface MarketWatchLoopTickInput {
   snapshot: Map<OpportunityKey, ArbOpportunity>;
   matches: ViewMatch[];
   config: UserConfig;
-  accounts?: PlatformAccount[];
+  accounts?: ArbProfitAccount[];
   actionablePlatforms?: Iterable<PlatformId>;
 }
 
