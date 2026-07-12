@@ -2,13 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import manifest from "./manifest.json" with { type: "json" };
-import { BACKEND_ROOT, CHANGMEN_ROOT } from "@changmen/storage/paths.js";
+import { BACKEND_ROOT, CHANGMEN_ROOT, PLATFORM_PROBES_ROOT, VENUE_ADAPTER_ROOT } from "@changmen/storage/paths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const REGISTRY_ROOT = __dirname;
-const ADAPTER_ROOT = path.join(REGISTRY_ROOT, "..");
-const DEFAULT_PROBES_ROOT = path.join(CHANGMEN_ROOT, "devtools", "platform-probes");
+/** 与 loader 所在包根一致；瘦包内仍用相对路径，开发 monorepo 对齐 VENUE_ADAPTER_ROOT */
+const ADAPTER_ROOT = fs.existsSync(path.join(VENUE_ADAPTER_ROOT, "registry", "manifest.json"))
+  ? VENUE_ADAPTER_ROOT
+  : path.join(REGISTRY_ROOT, "..");
+const DEFAULT_PROBES_ROOT = PLATFORM_PROBES_ROOT;
 
 /** @typedef {import("./manifest.json")[number]} PlatformManifestEntry */
 

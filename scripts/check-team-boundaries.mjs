@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { CHANGMEN_LAYOUT, VENUE_ADAPTER_REL } from "../server/storage/paths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CHANGMEN_ROOT = path.resolve(__dirname, "..");
@@ -103,8 +104,9 @@ const ADAPTER_INFRA_DIRS = new Set([
 ]);
 
 function discoverPlatformBrowserRoots() {
-  const adapterRoot = path.join(CHANGMEN_ROOT, "client/venue-adapter");
-  if (!fs.existsSync(adapterRoot)) return [];
+  const adapterRoot = path.join(CHANGMEN_ROOT, VENUE_ADAPTER_REL);
+  if (!fs.existsSync(adapterRoot))
+    return [];
   return fs
     .readdirSync(adapterRoot, { withFileTypes: true })
     .filter(
@@ -113,7 +115,7 @@ function discoverPlatformBrowserRoots() {
         !d.name.startsWith(".") &&
         !ADAPTER_INFRA_DIRS.has(d.name),
     )
-    .map((d) => path.join("client/venue-adapter", d.name));
+    .map((d) => path.join(CHANGMEN_LAYOUT.venueAdapter, d.name).split(path.sep).join("/"));
 }
 
 function isPlatformBrowserFile(relPosixPath) {

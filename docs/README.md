@@ -24,6 +24,7 @@
 | [../server/README.md](../server/README.md) | **服务端包索引**、进程图、常用命令 |
 | [DATA_STORAGE.md](./DATA_STORAGE.md) | 云库 vs 本机 JSON、迁移目录、快照生命周期与 archive |
 | [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) | 客户端 / 服务端目录边界 |
+| [PATH_REGISTRY.md](./PATH_REGISTRY.md) | **路径单点登记**（`CHANGMEN_LAYOUT`、消费方索引） |
 | [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) | 生产拓扑、环境变量、PM2 |
 | [../deploy/ecosystem.config.cjs](../deploy/ecosystem.config.cjs) | `changmen-esport` + `changmen-pm-sports` 进程清单 |
 

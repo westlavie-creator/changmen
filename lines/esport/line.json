@@ -24,6 +24,13 @@
     "value-scan",
     "match-merge"
   ],
+  "sharedPackages": [
+    "@changmen/shared",
+    "@changmen/api-contract",
+    "@changmen/client-core",
+    "@changmen/arb-core",
+    "@changmen/venue-adapter"
+  ],
   "pm2Apps": [
     "changmen-esport",
     "changmen-pm-sports",

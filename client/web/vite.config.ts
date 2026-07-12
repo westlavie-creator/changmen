@@ -3,8 +3,19 @@ import { defineConfig } from "vitest/config";
 import { loadEnv } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { visualizer } from "rollup-plugin-visualizer";
+import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { matcherDevRedirect } from "./vite/plugins/matcherDevRedirect";
+import {
+  VENUE_ADAPTER_REL,
+  VENUE_ADAPTER_ROOT,
+} from "../../server/storage/paths.js";
+
+const WEB_ROOT = fileURLToPath(new URL(".", import.meta.url));
+const venueAdapterVitestGlob = path
+  .relative(WEB_ROOT, VENUE_ADAPTER_ROOT)
+  .split(path.sep)
+  .join("/");
 
 // Windows Hyper-V 常保留 3426-3525，本地后端默认 3560；Linux/VPS 仍用 3456
 const DEV_API_PORT = process.platform === "win32" ? 3560 : 3456;
@@ -49,19 +60,11 @@ function sharedVenueChunk(id: string): string | undefined {
 }
 
 function venueChunkName(id: string): string | undefined {
-  const markers = ["client/venue-adapter/"];
-  let idx = -1;
-  let markerLen = 0;
-  for (const marker of markers) {
-    const i = id.indexOf(marker);
-    if (i !== -1) {
-      idx = i;
-      markerLen = marker.length;
-      break;
-    }
-  }
-  if (idx === -1) return undefined;
-  const rest = id.slice(idx + markerLen);
+  const marker = `${VENUE_ADAPTER_REL.replace(/\\/g, "/")}/`;
+  const idx = id.replace(/\\/g, "/").indexOf(marker);
+  if (idx === -1)
+    return undefined;
+  const rest = id.slice(idx + marker.length);
   const dir = rest.split(/[/\\]/)[0];
   if (!dir || dir === "registry" || dir === "adaptation") return undefined;
   if (dir === "shared" || dir === "contract") return "venue-shared";
@@ -107,7 +110,7 @@ export default defineConfig(({ mode }) => {
     extensions: [".ts", ".tsx", ".mjs", ".js", ".jsx", ".json"],
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@venue": fileURLToPath(new URL("../venue-adapter", import.meta.url)),
+      "@venue": VENUE_ADAPTER_ROOT,
       mqtt: fileURLToPath(new URL("../../node_modules/mqtt", import.meta.url)),
       "socket.io-client": fileURLToPath(
         new URL("../../node_modules/socket.io-client", import.meta.url),
@@ -163,8 +166,8 @@ export default defineConfig(({ mode }) => {
     setupFiles: ["src/test/vitestSetupCore.ts"],
     include: [
       "src/**/*.{test,spec}.{js,mjs,ts}",
-      "../venue-adapter/**/*.{test,spec}.{js,mjs,ts}",
-      "../venue-adapter/**/shared/**/*.{test,spec}.{js,mjs,ts}",
+      `${venueAdapterVitestGlob}/**/*.{test,spec}.{js,mjs,ts}`,
+      `${venueAdapterVitestGlob}/**/shared/**/*.{test,spec}.{js,mjs,ts}`,
     ],
   },
   };

@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { BACKEND_ROOT, CHANGMEN_ROOT } from "@changmen/storage/paths.js";
+import { BACKEND_ROOT, CHANGMEN_ROOT, VENUE_ADAPTER_ROOT } from "@changmen/storage/paths.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -68,6 +68,11 @@ export function getAdapterRoot() {
     throw new Error(`CHANGMEN_ADAPTER_ROOT invalid (no registry/manifest.json): ${abs}`);
   }
 
+  if (fs.existsSync(path.join(VENUE_ADAPTER_ROOT, "registry", "manifest.json"))) {
+    _adapterRoot = VENUE_ADAPTER_ROOT;
+    return _adapterRoot;
+  }
+
   if (fs.existsSync(path.join(PLATFORM_ADAPTER_ROOT, "registry", "manifest.json"))) {
     _adapterRoot = PLATFORM_ADAPTER_ROOT;
     return _adapterRoot;
@@ -86,7 +91,7 @@ export function getAdapterRoot() {
   }
 
   throw new Error(
-    "venue-adapter not found: expected client/venue-adapter (dev) or server/backend/platform_adapter (packaged)",
+    "venue-adapter not found: expected CHANGMEN_LAYOUT.venueAdapter (dev) or server/backend/platform_adapter (packaged)",
   );
 }
 

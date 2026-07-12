@@ -14,13 +14,13 @@
 
 | 路径 | 内容 |
 |------|------|
-| `@changmen/storage/paths.js` | `CHANGMEN_ROOT`、`ESPORT_DATA_DIR` |
+| `@changmen/storage/paths.js` | `CHANGMEN_ROOT`、`CHANGMEN_LAYOUT`、`VENUE_ADAPTER_ROOT`、`ESPORT_DATA_DIR` |
 | `@changmen/storage/load_env.js` | 加载 `server/backend/.env` |
 | `@changmen/storage/platform_storage.js` | 平台凭证 JSON 读写 |
 | `@changmen/storage/predictfun_market_index.js` | PF 市场索引 |
 
 ## 路径规则
 
-默认数据目录：`server/backend/storage/`（可由 `ESPORT_DATA_DIR` / `CHANGMEN_STORAGE_DIR` 覆盖）。详见 [docs/DATA_STORAGE.md](../../docs/DATA_STORAGE.md)。
+默认数据目录：`server/backend/storage/`（可由 `ESPORT_DATA_DIR` / `CHANGMEN_STORAGE_DIR` 覆盖）。Monorepo 目录布局见 `CHANGMEN_LAYOUT`（[docs/PATH_REGISTRY.md](../../docs/PATH_REGISTRY.md)）。详见 [docs/DATA_STORAGE.md](../../docs/DATA_STORAGE.md)。
 
 相关：[server/db/README.md](../db/README.md)

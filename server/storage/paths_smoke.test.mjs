@@ -1,6 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { CHANGMEN_ROOT, BACKEND_ROOT, ESPORT_DATA_DIR } from "./paths.js";
+import {
+  CHANGMEN_ROOT,
+  BACKEND_ROOT,
+  ESPORT_DATA_DIR,
+  VENUE_ADAPTER_ROOT,
+  VENUE_ADAPTER_REL,
+} from "./paths.js";
 
 const backendPkg = path.join(BACKEND_ROOT, "package.json");
 if (!fs.existsSync(backendPkg)) {
@@ -21,5 +27,15 @@ const dbDir = path.join(CHANGMEN_ROOT, "server", "db");
 if (!fs.existsSync(dbDir)) {
   throw new Error(`CHANGMEN_ROOT missing server/db: ${CHANGMEN_ROOT}`);
 }
+const manifest = path.join(VENUE_ADAPTER_ROOT, "registry", "manifest.json");
+if (!fs.existsSync(manifest)) {
+  throw new Error(`VENUE_ADAPTER_ROOT missing registry/manifest.json: ${VENUE_ADAPTER_ROOT}`);
+}
 
-console.log("paths smoke OK:", { CHANGMEN_ROOT, BACKEND_ROOT, ESPORT_DATA_DIR });
+console.log("paths smoke OK:", {
+  CHANGMEN_ROOT,
+  BACKEND_ROOT,
+  ESPORT_DATA_DIR,
+  VENUE_ADAPTER_REL,
+  VENUE_ADAPTER_ROOT,
+});
