@@ -49,7 +49,7 @@ if command -v pm2 >/dev/null 2>&1; then
   pm2 status changmen-esport || true
   echo ""
   echo "Run probe:"
-  echo "  cd $(dirname "$ENV_FILE") && node scripts/probe-hk-relay.mjs"
+  echo "  cd $(dirname "$ENV_FILE") && node scripts/ops/diagnostics/probe-hk-relay.mjs"
 else
   echo "WARN: pm2 not found, restart backend manually then run probe-hk-relay.mjs"
 fi

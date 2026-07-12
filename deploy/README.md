@@ -58,7 +58,7 @@ pm2 start deploy/ecosystem.config.cjs --only changmen-predictfun-collector --upd
 bash deploy/scripts/sync-hk-relay-env-remote.sh
 
 # 2. 探针（VPS 上，backend 已运行）
-cd server/backend && node scripts/probe-hk-relay.mjs
+cd server/backend && node scripts/ops/diagnostics/probe-hk-relay.mjs
 # 或 npm run probe:hk-relay
 ```
 

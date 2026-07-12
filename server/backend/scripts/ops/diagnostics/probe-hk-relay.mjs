@@ -7,9 +7,9 @@
  * 3. ws-forward 已注册 PM-MARKET / PM-USER / PREDICTFUN-MARKET
  *
  * 用法（VPS / 本机 backend 目录）：
- *   node scripts/probe-hk-relay.mjs
- *   node scripts/probe-hk-relay.mjs --upstream-only
- *   ESPORT_TEST_BASE=http://127.0.0.1:3456 PROBE_TOKEN=xxx node scripts/probe-hk-relay.mjs
+ *   node scripts/ops/diagnostics/probe-hk-relay.mjs
+ *   node scripts/ops/diagnostics/probe-hk-relay.mjs --upstream-only
+ *   ESPORT_TEST_BASE=http://127.0.0.1:3456 PROBE_TOKEN=xxx node scripts/ops/diagnostics/probe-hk-relay.mjs
  *
  * PROBE_TOKEN 未设时：若 JWT_SECRET + RDS 可用，自动为首个 profiles 用户签发短期 JWT。
  */
@@ -64,7 +64,7 @@ async function resolveProbeToken() {
     const userId = String(rows[0]?.id || "").trim();
     if (!userId)
       return { token: "", source: "" };
-    const { signJwt, JWT_ACCESS_TTL_SEC } = await import("../../db/rds/jwt.js");
+    const { signJwt, JWT_ACCESS_TTL_SEC } = await import("../../../../db/rds/jwt.js");
     const token = signJwt(
       { sub: userId, typ: "access", session_id: "probe-hk-relay" },
       secret,

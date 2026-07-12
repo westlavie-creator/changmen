@@ -394,7 +394,7 @@ if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
     (cd server/backend && node scripts/post-deploy-check.mjs)
     log "post-deploy check passed"
     log "HK relay egress probe"
-    if (cd server/backend && node scripts/probe-hk-relay.mjs); then
+    if (cd server/backend && node scripts/ops/diagnostics/probe-hk-relay.mjs); then
       log "HK relay probe passed"
     else
       echo "WARN: HK relay probe failed — set PROBE_TOKEN in server/backend/.env if HTTP_RELAY_REQUIRE_TOKEN=1; or run sync-hk-relay-env-remote.sh"

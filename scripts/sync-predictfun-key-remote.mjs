@@ -59,7 +59,7 @@ for (const host of hosts) {
     ]);
     console.log(`== probe upstream (${host}) ==`);
     run("ssh", [...sshBase, `root@${host}`,
-      "cd /root/changmen/server/backend && node scripts/probe-hk-relay.mjs --upstream-only",
+      "cd /root/changmen/server/backend && node scripts/ops/diagnostics/probe-hk-relay.mjs --upstream-only",
     ]);
   }
   finally {

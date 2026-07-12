@@ -218,7 +218,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_REPO:-/root/changmen}/server/backend' && PROBE_TOKEN='${PROBE_TOKEN}' PREDICT_FUN_API_KEY='${PREDICT_FUN_API_KEY}' node scripts/probe-hk-relay.mjs --skip-ws" \
+            "cd '${DEPLOY_REPO:-/root/changmen}/server/backend' && PROBE_TOKEN='${PROBE_TOKEN}' PREDICT_FUN_API_KEY='${PREDICT_FUN_API_KEY}' node scripts/ops/diagnostics/probe-hk-relay.mjs --skip-ws" \
             || echo "WARN: probe-hk-relay failed (set GitHub secret PROBE_TOKEN if HTTP_RELAY_REQUIRE_TOKEN=1)"
 
       - name: Verify production homepage (hongkong)
