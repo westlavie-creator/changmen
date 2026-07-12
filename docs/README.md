@@ -34,7 +34,12 @@
 | `server/` | [README.md](../server/README.md) — 包索引与进程图 |
 | `server/backend` | [README.md](../server/backend/README.md) |
 | `client/web` | [README.md](../client/web/README.md) · [MIGRATION.md](../client/web/MIGRATION.md) · [src/ARCHITECTURE.md](../client/web/src/ARCHITECTURE.md) |
+| `server/db` | [README.md](../server/db/README.md) |
+| `server/storage` | [README.md](../server/storage/README.md) |
+| `server/match-engine` | [README.md](../server/match-engine/README.md) |
+| `server/team-resolver` | [README.md](../server/team-resolver/README.md) |
 | `server/matcher` | [README.md](../server/matcher/README.md) |
+| `server/realtime-hub` | [README.md](../server/realtime-hub/README.md) |
 | `client/chrome-extension` | [README.md](../client/chrome-extension/README.md) · `npm run chromeplug:pack` |
 | `client/venue-adapter` | [README.md](../client/venue-adapter/README.md) |
 | `packages/` | [README.md](../packages/README.md) — `shared` · `api-contract` · `client-core` |

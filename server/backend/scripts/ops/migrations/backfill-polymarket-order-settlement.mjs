@@ -2,9 +2,9 @@
 /**
  * 补结算 RDS 中 Polymarket + None 的老订单（超出客户端 30 天 sync 窗口）
  *
- *   node scripts/backfill-polymarket-order-settlement.mjs --dry-run
- *   node scripts/backfill-polymarket-order-settlement.mjs --user gb12 --days 90 --execute
- *   node scripts/backfill-polymarket-order-settlement.mjs --player-id 42 --execute
+ *   node scripts/ops/migrations/backfill-polymarket-order-settlement.mjs --dry-run
+ *   node scripts/ops/migrations/backfill-polymarket-order-settlement.mjs --user gb12 --days 90 --execute
+ *   node scripts/ops/migrations/backfill-polymarket-order-settlement.mjs --player-id 42 --execute
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { accountMultiplyScale, scaleUsdtToCnyDisplay } from "@changmen/shared/account_multiply";
@@ -321,7 +321,7 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
 const args = parseArgs(process.argv);
 if (args.help) {
   console.log(`用法:
-  node scripts/backfill-polymarket-order-settlement.mjs [选项]
+  node scripts/ops/migrations/backfill-polymarket-order-settlement.mjs [选项]
 
 选项:
   --dry-run          仅预览（默认）
@@ -406,4 +406,4 @@ console.log(`无 CLOB trade: ${totalSkippedTrade}`);
 console.log(`无 Gamma market: ${totalSkippedMarket}`);
 
 if (args.dryRun && totalSettled > 0)
-  console.log("\n确认后执行: node scripts/backfill-polymarket-order-settlement.mjs --execute ...");
+  console.log("\n确认后执行: node scripts/ops/migrations/backfill-polymarket-order-settlement.mjs --execute ...");

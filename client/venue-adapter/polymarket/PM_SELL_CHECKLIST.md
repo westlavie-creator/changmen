@@ -94,7 +94,7 @@
 
 - [ ] `order_store.js`：镜像 client `changmenSoldOutBlocksGammaSettlement`（含 `open+full attr` 例外）
 - [ ] 汇率：去掉硬编码 `×7`，改 `@changmen/shared/account_multiply`
-- [ ] `backfill-polymarket-order-settlement.mjs`：卖光买单跳过 Gamma；与 client 闸一致
+- [ ] `ops/migrations/backfill-polymarket-order-settlement.mjs`：卖光买单跳过 Gamma；与 client 闸一致
 
 ### 3.5 前端
 
@@ -185,5 +185,5 @@ changmen/client/web/src/
 
 changmen/server/backend/core/account/order_store.js
 changmen/server/backend/core/integrations/polymarket/settlement.js
-changmen/server/backend/scripts/backfill-polymarket-order-settlement.mjs
+changmen/server/backend/scripts/ops/migrations/backfill-polymarket-order-settlement.mjs
 ```

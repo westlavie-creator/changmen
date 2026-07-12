@@ -11,6 +11,8 @@
 | `finalize-players-owner-user-id.mjs` | `db:finalize-players-owner` | 收尾 orphan player（027 前必跑） |
 | `migrate-accounts-jsonb-to-players.mjs` | `db:migrate-accounts-from-jsonb` | `profiles.accounts` → `players.account_data` |
 | `check-players-rds-migrate.mjs` | `db:check-players` | 迁移后审计报告 |
+| `backup-profiles-accounts.mjs` | `db:backup-accounts` | 部署前 players 账号快照 |
+| `backfill-polymarket-order-settlement.mjs` | `poly:backfill-settlement` | PM 老订单结算补跑 |
 | `migrate-order-hash-link-to-create-at.mjs` | — | 订单 hash 链补 `create_at`（`--execute` 执行） |
 
 部署时自动触发顺序见 [`deploy/scripts/deploy-server-remote.sh`](../../../../../deploy/scripts/deploy-server-remote.sh)。

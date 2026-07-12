@@ -38,12 +38,12 @@ polymarket-sports ──WS──► 写 client_matches.pm_sport
 |------|----------|------|------|
 | [backend/](backend/README.md) | `@changmen/backend` | **主进程** | `Client_*` / `API_*`、HTTP 代理、`/esport/ws-forward`、静态 `/`、内嵌 matcher |
 | [matcher/](matcher/README.md) | `@changmen/matcher` | 进程 / 库 | 30s matchMerge 循环；可选人工 UI `:4567` |
-| [match-engine/](match-engine/) | `@changmen/match-engine` | 库 | 合并算法（`match_merge`、`bet_builder`、队名工具） |
-| [db/](db/) | `@changmen/db` | 库 | PostgreSQL / RDS 唯一应用入口 |
-| [storage/](storage/) | `@changmen/storage` | 库 | 本机 `storage/` 路径与 JSON 读写（非 PG） |
-| [team-resolver/](team-resolver/) | `@changmen/team-resolver` | 库 | 队名 canonical；matcher 动态加载 |
+| [match-engine/](match-engine/README.md) | `@changmen/match-engine` | 库 | 合并算法（`match_merge`、`bet_builder`、队名工具） |
+| [db/](db/README.md) | `@changmen/db` | 库 | PostgreSQL / RDS 唯一应用入口 |
+| [storage/](storage/README.md) | `@changmen/storage` | 库 | 本机 `storage/` 路径与 JSON 读写（非 PG） |
+| [team-resolver/](team-resolver/README.md) | `@changmen/team-resolver` | 库 | 队名 canonical；matcher 动态加载 |
 | [ws_forward/](ws_forward/README.md) | `@changmen/ws-forward` | 库 | IA/OB/RAY WebSocket 转发（backend 挂载） |
-| [realtime-hub/](realtime-hub/) | `@changmen/realtime-hub` | 库 | Changmen Socket.IO（`pm_sport` 等推浏览器） |
+| [realtime-hub/](realtime-hub/README.md) | `@changmen/realtime-hub` | 库 | Changmen Socket.IO（`pm_sport` 等推浏览器） |
 | [collectors/](collectors/README.md) | — | **守护进程归集** | `polymarket-sports`、`predictfun-collector`；新运动 collector 落此 |
 | [collectors/polymarket-sports/](collectors/polymarket-sports/) | `@changmen/polymarket-sports` | **守护进程** | PM Sports WS → `pm_sport` 列 **[changmen 扩展]** |
 | [collectors/predictfun-collector/](collectors/predictfun-collector/) | `@changmen/predictfun-collector` | **守护进程** | Predict.fun REST → `platform_*` |

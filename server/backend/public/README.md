@@ -8,10 +8,6 @@ HTTP 路径仍为 A8 兼容的 `/esport2/*`；`static_files.js` 通过 `paths.js
 | `extensions/` | `/esport2/extensions/*.zip` | Chrome 扩展发布包（`npm run chromeplug:pack`） |
 | `version.json` | `/esport2/version.json` | 扩展版本（与 `assets/version.json` 签名包版本不同） |
 
-同步 A8 资源：
-
-```bash
-cd changmen/server/backend && node scripts/sync-a8-esport2-assets.mjs
-```
+同步 A8 资源：**已废弃**（原 `sync-a8-esport2-assets.mjs` 依赖的 A8 CDN 不可用）。`assets/` 由仓库内文件维护，随 tarball 部署。
 
 **勿**移动 `assets/` 根目录下 A8 哈希文件名 — `index.css` 与 `client/web` 样式中的 `url(/esport2/assets/…)` 依赖扁平路径。

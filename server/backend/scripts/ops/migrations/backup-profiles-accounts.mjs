@@ -7,10 +7,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { ensurePgPoolReady, getPgPool } from "@changmen/db";
-import { playerRowToAccountRecord } from "../../db/player_account_record.js";
+import { playerRowToAccountRecord } from "../../../../db/player_account_record.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const backendRoot = join(__dirname, "..");
+const backendRoot = join(__dirname, "../../..");
 const outArg = process.argv.find((a, i) => process.argv[i - 1] === "--out");
 const outPath = outArg
   || join(backendRoot, "storage", "backups", `players-accounts-${Date.now()}.json`);

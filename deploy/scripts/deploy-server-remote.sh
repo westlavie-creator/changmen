@@ -274,7 +274,7 @@ fi
 # owner 回填必须在 027 CHECK 之前（否则 apply-rds-schema 因 orphan player 失败）
 if [ "$PLAYERS_OWNER_MIGRATION_TOUCHED" = "1" ] || [ "$RDS_SCHEMA_TOUCHED" = "1" ] || [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "profiles.accounts backup (pre-migration)"
-  (cd server/backend && node scripts/backup-profiles-accounts.mjs) || {
+  (cd server/backend && node scripts/ops/migrations/backup-profiles-accounts.mjs) || {
     echo "FAIL: backup-profiles-accounts — 中止 deploy 以免无回滚点"
     exit 1
   }

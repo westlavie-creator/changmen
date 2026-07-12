@@ -3,14 +3,14 @@
  * Polymarket Builder 成交 + changmen Polymarket 订单对照（CLI）
  *
  * 用法（在 server/backend 目录）：
- *   node scripts/polymarket-builder-trades.mjs
- *   node scripts/polymarket-builder-trades.mjs --date 2026-06-29
- *   node scripts/polymarket-builder-trades.mjs --days 7
- *   node scripts/polymarket-builder-trades.mjs --json
+ *   node scripts/ops/diagnostics/polymarket-builder-trades.mjs
+ *   node scripts/ops/diagnostics/polymarket-builder-trades.mjs --date 2026-06-29
+ *   node scripts/ops/diagnostics/polymarket-builder-trades.mjs --days 7
+ *   node scripts/ops/diagnostics/polymarket-builder-trades.mjs --json
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { initDatabaseUrl } from "@changmen/db";
-import { getPolymarketBuilderDashboard } from "../core/integrations/polymarket/builder_dashboard.js";
+import { getPolymarketBuilderDashboard } from "../../../core/integrations/polymarket/builder_dashboard.js";
 
 loadChangmenEnv();
 

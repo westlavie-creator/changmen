@@ -42,6 +42,7 @@ changmen/
 |------|------|------|
 | 1–15 | 见历史（`packages/*` + `apps/*` 阶段） | ✅ 完成 |
 | 16 | **档 B**：`client/` + `server/` 物理分区；`apps/` 退役 | ✅ 完成 |
+| 17 | `server/collectors/` daemon 归集；server 子包 README；`backend/scripts` 再分层 | ✅ 完成 |
 
 旧路径 `platform_adapter/`、`gamebet_*` 仅出现在历史章节或迁移对照中；**以本表与代码 `package.json` / `adapter_paths` 为准**。
 
