@@ -5,11 +5,13 @@
   "description": "各平台浏览器适配器（collect/bet + registry + loader）",
   "scripts": {
     "sync:backend-bundle": "node scripts/sync-backend-bundle.mjs",
-    "ob:lock-observe": "npx tsx ob/scripts/ob_lock_observe.ts"
+    "ob:lock-observe": "npx tsx ob/scripts/ob_lock_observe.ts",
+    "list:web-imports": "node scripts/list-web-venue-imports.mjs"
   },
   "exports": {
     "./loader/adapter_paths.js": "./loader/adapter_paths.mjs",
-    "./loader/adapter_paths.mjs": "./loader/adapter_paths.mjs"
+    "./loader/adapter_paths.mjs": "./loader/adapter_paths.mjs",
+    "./*": "./*"
   },
   "dependencies": {
     "@changmen/api-contract": "*",

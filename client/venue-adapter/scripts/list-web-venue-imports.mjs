@@ -1,0 +1,45 @@
+#!/usr/bin/env node
+/**
+ * 扫描 client/web 内 @venue/* 引用，供 package.json exports 与 PATH_REGISTRY 核对。
+ * 用法：node client/venue-adapter/scripts/list-web-venue-imports.mjs
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const WEB_SRC = path.resolve(__dirname, "../../web/src");
+
+const IMPORT_RE = /(?:from|import)\s*(?:\(?\s*)?["']@venue\/([^"']+)["']/g;
+const DYNAMIC_RE = /import\s*\(\s*["']@venue\/([^"']+)["']\s*\)/g;
+const MOCK_RE = /vi\.mock\s*\(\s*["']@venue\/([^"']+)["']/g;
+
+function walk(dir, out = []) {
+  for (const name of fs.readdirSync(dir)) {
+    const p = path.join(dir, name);
+    const st = fs.statSync(p);
+    if (st.isDirectory())
+      walk(p, out);
+    else if (/\.(ts|vue|tsx)$/.test(name))
+      out.push(p);
+  }
+  return out;
+}
+
+const subs = new Set();
+for (const file of walk(WEB_SRC)) {
+  const text = fs.readFileSync(file, "utf8");
+  for (const re of [IMPORT_RE, DYNAMIC_RE, MOCK_RE]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      subs.add(m[1]);
+    }
+  }
+}
+
+const sorted = [...subs].sort();
+console.log(`@venue subpaths from client/web/src (${sorted.length}):`);
+for (const sub of sorted) {
+  console.log(`  ./${sub}`);
+}

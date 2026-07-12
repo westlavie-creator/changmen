@@ -56,21 +56,25 @@
 | `client/venue-adapter/registry/paths.js` | 开发态 `ADAPTER_ROOT`；探针 `PLATFORM_PROBES_ROOT` |
 | `client/web/vite.config.ts` | `@venue` alias、`venueChunkName`、vitest include |
 | `scripts/check-team-boundaries.mjs` | 发现各平台浏览器根目录 |
+| `@changmen/venue-adapter/package.json` | `exports["./*"]` 浏览器子路径（I2a） |
+| `client/web/package.json` | workspace 依赖 `@changmen/venue-adapter` |
 
 ---
 
-## 4. 仍用相对路径的登记项（待 I2）
+## 4. 仍用相对路径的登记项（I2b 可选）
 
-以下 **有意** 保留相对路径，但在本表备案；挪 `venueAdapter` 时需同步改：
+以下 **有意** 保留相对路径或别名，但在本表备案：
 
-| 文件 | 当前写法 | 等价 layout |
-|------|----------|-------------|
-| `client/web/tsconfig.app.json` | `@venue/*` → `../venue-adapter/*` | `client/web` → `client/venue-adapter` |
-| `client/web/tsconfig.app.json` | `include` 多条 `../venue-adapter/...` | 同上 |
-| `package.json` workspaces | `"client/venue-adapter"` | `CHANGMEN_LAYOUT.venueAdapter` |
+| 文件 | 当前写法 | 说明 |
+|------|----------|------|
+| `client/web/tsconfig.app.json` | `@venue/*` → `client/venue-adapter/*` | I2a：已去 `include` 联合工程；别名仍指向包根 |
+| `client/web/vite.config.ts` | `@venue` → `VENUE_ADAPTER_ROOT` | 与 layout 一致 |
+| 根 `package.json` workspaces | `"client/venue-adapter"` | `CHANGMEN_LAYOUT.venueAdapter` |
 | `lines/esport/line.json` | `components.venueAdapter` | 同上 |
 
-I2 目标：`@changmen/venue-adapter` package `exports` 取代 web 对 sibling 源码的 tsconfig include。
+I2b 目标：`@venue/*` → `@changmen/venue-adapter/*` 批量改名（可选）。
+
+**web 直连 `@venue` 子路径清单**（31 条，由 `npm run list:web-imports --workspace=@changmen/venue-adapter` 生成）见 `client/venue-adapter/scripts/list-web-venue-imports.mjs`。
 
 ---
 
@@ -109,4 +113,5 @@ npm run check:boundaries
 
 | 日期 | 说明 |
 |------|------|
+| 2026-07-13 | I2a：`@changmen/venue-adapter` exports、web 去 tsconfig include |
 | 2026-07-13 | I1：`CHANGMEN_LAYOUT`、PATH_REGISTRY、vite/boundaries/loader 接入 |

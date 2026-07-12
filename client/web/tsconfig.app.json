@@ -23,7 +23,9 @@
       "@changmen/arb-core/*": ["../../packages/arb-core/src/*"],
       "@changmen/client-core/*": ["../../packages/client-core/src/*"],
       "@changmen/shared/*": ["../../packages/shared/*"],
-      "@venue/*": ["../venue-adapter/*"],
+      "@changmen/venue-adapter": ["../../client/venue-adapter/registry/index.ts"],
+      "@changmen/venue-adapter/*": ["../../client/venue-adapter/*"],
+      "@venue/*": ["../../client/venue-adapter/*"],
       "mqtt": ["../../node_modules/mqtt"],
       "socket.io-client": ["../../node_modules/socket.io-client"],
       "socketcluster-client": ["../../node_modules/socketcluster-client"]
@@ -33,17 +35,11 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "../venue-adapter/**/index.ts",
-    "../venue-adapter/*/*.ts",
-    "../venue-adapter/*/shared/**/*.ts",
     "../../packages/shared/catalog/market_catalog.browser.ts",
-    "../../packages/shared/catalog/game_catalog.browser.ts",
-    "../venue-adapter/shared/**/*.ts",
-    "../venue-adapter/registry/**/*.ts",
-    "../venue-adapter/contract/**/*.ts"
+    "../../packages/shared/catalog/game_catalog.browser.ts"
   ],
   "exclude": [
-    "../venue-adapter/**/*.test.ts",
-    "../venue-adapter/**/scripts/**"
+    "../../client/venue-adapter/**/*.test.ts",
+    "../../client/venue-adapter/**/scripts/**"
   ]
 }

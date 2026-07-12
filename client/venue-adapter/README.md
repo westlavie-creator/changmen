@@ -16,7 +16,15 @@ client/venue-adapter/
 └── {platform}/          collect.ts、bet.ts 等（+ 可选 shared/、scripts/）
 ```
 
-前端 Vite 别名：`@venue` → 本目录（见 `client/web/vite.config.ts`）。
+前端 Vite 别名：`@venue` → 本目录（见 `client/web/vite.config.ts`，根路径来自 `CHANGMEN_LAYOUT`）。
+
+浏览器子路径经 `@changmen/venue-adapter` 的 `package.json` `exports`（`"./*": "./*"`）解析；`client/web` 为 workspace 消费者，**不再**把本目录列入 `tsconfig.app.json` `include`。
+
+核对 web 使用的子路径：
+
+```bat
+npm run list:web-imports --workspace=@changmen/venue-adapter
+```
 
 ## 测试
 

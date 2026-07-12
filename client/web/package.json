@@ -28,6 +28,7 @@
     "@changmen/arb-core": "*",
     "@changmen/client-core": "*",
     "@changmen/shared": "*",
+    "@changmen/venue-adapter": "*",
     "@noble/curves": "^1.4.2",
     "@polymarket/builder-relayer-client": "^0.0.10",
     "@polymarket/builder-signing-sdk": "^0.0.8",
