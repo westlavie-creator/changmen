@@ -42,7 +42,7 @@ describe("rayForwardDefinition", () => {
 });
 
 describe("pmForwardDefinitions", () => {
-  it("PM-MARKET browser path and upstream", () => {
+  it("PM-MARKET hub path (merged upstream — see pm_market_hub.js)", () => {
     assert.equal(pmMarketForwardDefinition.browserPath, "/esport/ws-forward/PM-MARKET");
     assert.equal(pmMarketForwardDefinition.resolveUpstream().url, PM_MARKET_WS_URL);
   });

@@ -2,7 +2,7 @@ import { afterAll, describe, it } from "vitest";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { createRequire } from "node:module";
-import { attachWsForward, closeForwardEngine, isWsForwardHttpPath } from "../index.js";
+import { attachWsForward, closeWsForward, isWsForwardHttpPath } from "../index.js";
 import { createHttpHandler } from "../../backend/http_routes.js";
 import { io } from "socket.io-client";
 import WebSocket, { WebSocketServer } from "ws";
@@ -85,7 +85,7 @@ const ctx = await (async () => {
 afterAll(async () => {
   await new Promise((resolve) => ctx.obUpstream.close(() => resolve()));
   await new Promise((resolve) => ctx.server.close(() => resolve()));
-  closeForwardEngine();
+  closeWsForward();
 });
 
 describe("isWsForwardHttpPath", () => {

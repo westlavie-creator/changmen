@@ -1,4 +1,4 @@
-/** Polymarket CLOB WebSocket — changmen HK 出口中继 */
+/** Polymarket CLOB WebSocket — changmen 出口（MARKET=hub 合并订阅，USER=1:1 中继） */
 
 export const PM_MARKET_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
 export const PM_USER_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/user";

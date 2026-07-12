@@ -1,9 +1,10 @@
 import { attachForwardEngine, closeForwardEngine } from "./core/forward_engine.js";
+import { attachPmMarketHub, closePmMarketHub } from "./core/pm_market_hub.js";
 import { registerPlatformForward, listPlatformForwards } from "./platforms/registry.js";
 import { getForwardStats } from "./core/forward_stats.js";
 import { iaForwardDefinition } from "./platforms/ia.js";
 import { obForwardDefinition } from "./platforms/ob.js";
-import { pmMarketForwardDefinition, pmUserForwardDefinition } from "./platforms/pm.js";
+import { pmUserForwardDefinition } from "./platforms/pm.js";
 import { predictFunMarketForwardDefinition } from "./platforms/predictfun.js";
 import { rayForwardDefinition } from "./platforms/ray.js";
 
@@ -19,7 +20,6 @@ const PLATFORM_DEFS = {
   IA: iaForwardDefinition,
   OB: obForwardDefinition,
   RAY: rayForwardDefinition,
-  "PM-MARKET": pmMarketForwardDefinition,
   "PM-USER": pmUserForwardDefinition,
   "PREDICTFUN-MARKET": predictFunMarketForwardDefinition,
 };
@@ -38,17 +38,28 @@ export function attachWsForward(httpServer, opts = {}) {
     if (def) registerPlatformForward(def);
   }
   attachForwardEngine(httpServer);
+  if (wanted.has("PM-MARKET"))
+    attachPmMarketHub(httpServer);
   enabled = true;
 }
 
 export function getWsForwardStatus() {
   const stats = getForwardStats();
+  const platforms = listPlatformForwards().map((p) => p.id);
+  if (enabled && !platforms.includes("PM-MARKET"))
+    platforms.push("PM-MARKET");
   return {
     enabled,
     wsForward: enabled,
-    platforms: listPlatformForwards().map((p) => p.id),
+    platforms,
     platformStats: stats,
   };
 }
 
 export { closeForwardEngine };
+
+export function closeWsForward() {
+  closePmMarketHub();
+  closeForwardEngine();
+  enabled = false;
+}
