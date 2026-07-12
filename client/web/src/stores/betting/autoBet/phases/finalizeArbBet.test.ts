@@ -1,4 +1,4 @@
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { ArbBetAttemptParams, ArbBetPlaced } from "./types";
 import type { BetOption } from "@/models/betOption";
 import type { ViewBet, ViewMatch } from "@/models/match";

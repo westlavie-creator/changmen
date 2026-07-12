@@ -1,4 +1,4 @@
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { saveOrderBind } from "@/api/esport";

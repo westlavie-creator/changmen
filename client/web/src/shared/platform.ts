@@ -1,1 +1,1 @@
-export { PLATFORMS } from "@venue/registry";
+export { PLATFORMS } from "@changmen/venue-adapter/registry";

@@ -1,6 +1,6 @@
 import type { ViewMatch } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetOption } from "@/models/betOption";
 import { LoseOrder } from "@/models/loseOrder";
@@ -92,11 +92,11 @@ vi.mock("@/shared/betTiming", () => ({
   makeUpBetToastSeconds: vi.fn(() => 10),
 }));
 
-vi.mock("@venue/shared/rejectWait", () => ({
+vi.mock("@changmen/venue-adapter/shared/rejectWait", () => ({
   venueRejectWaitBeforePoll: vi.fn(async () => {}),
 }));
 
-vi.mock("@venue/polymarket/orderSettlement", () => ({
+vi.mock("@changmen/venue-adapter/polymarket/orderSettlement", () => ({
   settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
 }));
 

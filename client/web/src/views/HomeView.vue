@@ -67,7 +67,7 @@ onActivated(async () => {
 watch(extensionReady, (ext) => {
   if (!ext)
     return;
-  void import("@venue/stake").then(({ primeStakeTabId }) => primeStakeTabId());
+  void import("@changmen/venue-adapter/stake").then(({ primeStakeTabId }) => primeStakeTabId());
 });
 
 onUnmounted(() => {

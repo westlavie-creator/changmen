@@ -7,7 +7,7 @@ import { a8Tip } from "@/shared/a8Notify";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { arbBetToastSeconds } from "@/shared/betTiming";
 import { wait } from "@/shared/wait";
-import { getPolymarketPmSportBlockReasonFromOption } from "@venue/polymarket";
+import { getPolymarketPmSportBlockReasonFromOption } from "@changmen/venue-adapter/polymarket";
 import { PLATFORMS } from "@/shared/platform";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";

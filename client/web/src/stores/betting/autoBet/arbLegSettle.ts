@@ -1,10 +1,10 @@
 import type { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import {
   isVenueLegConfirmedUnfilled,
   isVenueLegPendingConfirm,
-} from "@venue/contract";
+} from "@changmen/venue-adapter/contract";
 import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome";
 import { useAccountStore } from "@/stores/accountStore";
 

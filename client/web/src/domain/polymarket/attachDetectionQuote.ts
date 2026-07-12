@@ -4,7 +4,7 @@ import { useOddsStore } from "@/stores/oddsStore";
 import {
   hasLockedPolymarketDetectionQuote,
   type PolymarketOptionQuoteData,
-} from "@venue/polymarket/pmDetection";
+} from "@changmen/venue-adapter/polymarket/pmDetection";
 
 /** PM 预检前：从 fo 读取 CLOB 原价写入 option.data（唯一读 fo 入口） */
 export function attachPolymarketDetectionQuote(option: BetOption): void {

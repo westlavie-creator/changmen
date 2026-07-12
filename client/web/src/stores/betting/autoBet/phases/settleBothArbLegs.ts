@@ -1,4 +1,4 @@
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type {
   ArbBetAttemptParams,

@@ -19,9 +19,14 @@ describe("adapter_paths", () => {
     expect(fs.existsSync(path.join(root, "registry", "manifest.json"))).toBe(true);
   });
 
-  it("adapterRequire loads registry manifest (11 platforms)", () => {
+  it("adapterRequire loads registry manifest", () => {
+    const root = getAdapterRoot();
+    const onDisk = JSON.parse(
+      fs.readFileSync(path.join(root, "registry", "manifest.json"), "utf8"),
+    );
     const { MANIFEST } = adapterRequire("registry", "paths.js");
-    expect(MANIFEST).toHaveLength(11);
+    expect(MANIFEST).toHaveLength(onDisk.length);
+    expect(MANIFEST.length).toBeGreaterThan(0);
   });
 
   it("reqS loads @changmen/shared modules", async () => {

@@ -5,7 +5,7 @@ import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome";
 import { a8Tip } from "@/shared/a8Notify";
-import { isVenueLegRejected } from "@venue/contract";
+import { isVenueLegRejected } from "@changmen/venue-adapter/contract";
 import type { useAccountStore } from "@/stores/accountStore";
 import {
   bindArbLegOrder,

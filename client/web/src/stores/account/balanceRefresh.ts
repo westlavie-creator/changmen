@@ -1,6 +1,6 @@
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { AccountStoreContext } from "@/stores/account/context";
-import type { AccountBalanceResult } from "@venue/contract";
+import type { AccountBalanceResult } from "@changmen/venue-adapter/contract";
 import { updateBalance } from "@/api/vt";
 import { getAdapter } from "@/runtime/venueAdapters";
 import { Currency } from "@/shared/currency";
@@ -27,7 +27,7 @@ function saveAccountRefreshLog(title: string, lines: string[]) {
 async function fetchVenueBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
   const providerId = String(account.provider ?? "").toLowerCase();
   if (providerId === "polymarket" && account.accountId) {
-    const { isPmVpsHttpMode } = await import("@venue/polymarket/pmTransportMode");
+    const { isPmVpsHttpMode } = await import("@changmen/venue-adapter/polymarket/pmTransportMode");
     if (isPmVpsHttpMode()) {
       const { refreshPmBalance } = await import("@/api/account");
       const info = await refreshPmBalance(account.accountId);

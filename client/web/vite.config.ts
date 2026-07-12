@@ -110,6 +110,7 @@ export default defineConfig(({ mode }) => {
     extensions: [".ts", ".tsx", ".mjs", ".js", ".jsx", ".json"],
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "@changmen/venue-adapter": VENUE_ADAPTER_ROOT,
       "@venue": VENUE_ADAPTER_ROOT,
       mqtt: fileURLToPath(new URL("../../node_modules/mqtt", import.meta.url)),
       "socket.io-client": fileURLToPath(

@@ -4,8 +4,8 @@
  */
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { getPlayerOrder } from "@/api/chat";
-import { registerPolymarketStoredVenueOrdersLoader } from "@venue/polymarket/pmStoredOrders";
-import { venueOrderFromOrderRow, stripPolymarketSellOrders } from "@venue/polymarket/pmLogicalPosition";
+import { registerPolymarketStoredVenueOrdersLoader } from "@changmen/venue-adapter/polymarket/pmStoredOrders";
+import { venueOrderFromOrderRow, stripPolymarketSellOrders } from "@changmen/venue-adapter/polymarket/pmLogicalPosition";
 
 async function loadStoredPmVenueOrders(account: PlatformAccount) {
   const info = await getPlayerOrder({ playerId: account.accountId });

@@ -1,24 +1,24 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import type { DirectRealtimeStatus } from "@venue/shared/directRealtimeStatus";
+import type { DirectRealtimeStatus } from "@changmen/venue-adapter/shared/directRealtimeStatus";
 import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
 import {
   listVenueWsStatuses,
   subscribeVenueWsStatus,
   type VenueWsStatusEntry,
-} from "@venue/shared/venueWsStatus";
+} from "@changmen/venue-adapter/shared/venueWsStatus";
 import {
   getObMqttSourceMode,
   cycleObMqttSourceModeAndReconnect,
   obMqttSourceModeLabel,
   type ObMqttSourceMode,
-} from "@venue/ob";
+} from "@changmen/venue-adapter/ob";
 import {
   cycleRayWsSourceModeAndReconnect,
   getRayWsSourceMode,
   rayWsSourceModeLabel,
   type RayWsSourceMode,
-} from "@venue/ray";
+} from "@changmen/venue-adapter/ray";
 import {
   cyclePmMarketWsSourceModeAndReconnect,
   cyclePmUserWsSourceModeAndReconnect,
@@ -30,7 +30,7 @@ import {
   pmUserWsSourceModeLabel,
   type PmMarketWsSourceMode,
   type PmUserWsSourceMode,
-} from "@venue/polymarket";
+} from "@changmen/venue-adapter/polymarket";
 import { ElMessage } from "element-plus";
 
 const { statuses } = useDirectRealtimeStatus();

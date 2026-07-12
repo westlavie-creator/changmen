@@ -1,4 +1,4 @@
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetResult } from "@/models/betResult";
@@ -14,15 +14,15 @@ vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ updateVenueOrders }),
 }));
 
-vi.mock("@venue/polymarket/orderSettlement", () => ({
+vi.mock("@changmen/venue-adapter/polymarket/orderSettlement", () => ({
   settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
 }));
 
-vi.mock("@venue/polymarket/settlementJob", () => ({
+vi.mock("@changmen/venue-adapter/polymarket/settlementJob", () => ({
   awaitPolymarketSettlementJob: (...args: unknown[]) => awaitPolymarketSettlementJob(...args),
 }));
 
-vi.mock("@venue/polymarket/orders", () => ({
+vi.mock("@changmen/venue-adapter/polymarket/orders", () => ({
   fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
     fetchPolymarketConfirmedTradeForOrder(...args),
 }));
@@ -92,7 +92,7 @@ describe("settleArbLeg (Polymarket)", () => {
     expect(out.orders[0]?.status).toBe("reject");
     expect(out.orders[0]?.orderId).toBe("0xdelayed");
     expect(result.pending).toBe(false);
-    expect(updateVenueOrders).toHaveBeenCalledTimes(1);
+    expect(updateVenueOrders).not.toHaveBeenCalled();
   });
 
   it("delayed pending matched → refresh venue orders", async () => {
@@ -178,7 +178,7 @@ describe("settleArbLeg (Polymarket)", () => {
 
     expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
     expect(fetchPolymarketConfirmedTradeForOrder).not.toHaveBeenCalled();
-    expect(updateVenueOrders).toHaveBeenCalledTimes(1);
+    expect(updateVenueOrders).not.toHaveBeenCalled();
     expect(out.rejected).toBe(true);
     expect(out.orders[0]?.orderId).toBe("0xsettled-unfilled");
   });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 扫描 client/web 内 @venue/* 引用，供 package.json exports 与 PATH_REGISTRY 核对。
+ * 扫描 client/web 内 @changmen/venue-adapter/* 引用，供 package.json exports 与 PATH_REGISTRY 核对。
  * 用法：node client/venue-adapter/scripts/list-web-venue-imports.mjs
  */
 import fs from "node:fs";
@@ -9,10 +9,20 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEB_SRC = path.resolve(__dirname, "../../web/src");
+const PKG = "@changmen/venue-adapter";
 
-const IMPORT_RE = /(?:from|import)\s*(?:\(?\s*)?["']@venue\/([^"']+)["']/g;
-const DYNAMIC_RE = /import\s*\(\s*["']@venue\/([^"']+)["']\s*\)/g;
-const MOCK_RE = /vi\.mock\s*\(\s*["']@venue\/([^"']+)["']/g;
+const IMPORT_RE = new RegExp(
+  `(?:from|import)\\s*(?:\\(?\\s*)?["']${PKG}/([^"']+)["']`,
+  "g",
+);
+const DYNAMIC_RE = new RegExp(
+  `import\\s*\\(\\s*["']${PKG}/([^"']+)["']\\s*\\)`,
+  "g",
+);
+const MOCK_RE = new RegExp(
+  `vi\\.mock\\s*\\(\\s*["']${PKG}/([^"']+)["']`,
+  "g",
+);
 
 function walk(dir, out = []) {
   for (const name of fs.readdirSync(dir)) {
@@ -39,7 +49,7 @@ for (const file of walk(WEB_SRC)) {
 }
 
 const sorted = [...subs].sort();
-console.log(`@venue subpaths from client/web/src (${sorted.length}):`);
+console.log(`${PKG} subpaths from client/web/src (${sorted.length}):`);
 for (const sub of sorted) {
   console.log(`  ./${sub}`);
 }

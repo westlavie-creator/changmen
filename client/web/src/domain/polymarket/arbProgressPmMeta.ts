@@ -2,13 +2,13 @@ import type { BetOption } from "@/models/betOption";
 import type { ArbProgressPolymarketMeta } from "@/stores/betting/autoBet/arbExecutionTrace";
 import { PLATFORMS } from "@/shared/platform";
 import { useOddsStore } from "@/stores/oddsStore";
-import type { PolymarketBuyCheckData } from "@venue/polymarket/bet";
+import type { PolymarketBuyCheckData } from "@changmen/venue-adapter/polymarket/bet";
 import {
   detectionMaxPriceFromOdds,
   hasLockedPolymarketDetectionQuote,
   isValidClobPrice,
   type PolymarketOptionQuoteData,
-} from "@venue/polymarket/pmDetection";
+} from "@changmen/venue-adapter/polymarket/pmDetection";
 
 function shortenTokenId(tokenId: string): string {
   if (tokenId.length <= 16)

@@ -15,7 +15,7 @@ import { refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/
 
 async function warmPolymarketUserWsFromAccounts(accounts: PlatformAccount[]) {
   try {
-    const { warmAllPolymarketUserWs } = await import("@venue/polymarket/userWs");
+    const { warmAllPolymarketUserWs } = await import("@changmen/venue-adapter/polymarket/userWs");
     warmAllPolymarketUserWs(accounts);
   }
   catch {

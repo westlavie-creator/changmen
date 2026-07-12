@@ -23,7 +23,7 @@
 | `types/` | DTO、用户配置、纯类型 | `types/collect.ts`, `types/esport.ts` |
 | `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
 | `domain/` | **套利/下注纯逻辑**（无 Pinia、可单测） | `domain/arbitrage`, `domain/betting` |
-| `client/venue-adapter/` | **平台清单、能力与平台实现**（Vite `@venue`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
+| `client/venue-adapter/` | **平台清单、能力与平台实现**（`@changmen/venue-adapter`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
 | `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp` |
 | `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts`, `runtime/appSession.ts` |
 | `client/venue-adapter/{id}/collect.ts` | **赔率上报链路** | `start*Collector` |
@@ -43,7 +43,7 @@
 | Stake | ✓ | ✓* | *`pluginOnly`：需 Chrome 扩展 + stake.com tab；`stakeProvider` 已实现 GraphQL 下单 |
 | Polymarket | ✓ | ✓ | **[changmen 扩展]** A8 无此场馆；采集开赛窗过去 6h（见下） |
 
-`ALL_PLATFORMS`、`PLATFORMS` 均从 `@venue/registry` 导出；新增平台时改 `client/venue-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
+`ALL_PLATFORMS`、`PLATFORMS` 均从 `@changmen/venue-adapter/registry` 导出；新增平台时改 `client/venue-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
 
 账号鉴权（与采集解耦）：`client/venue-adapter/pb/auth.ts`、`client/venue-adapter/tf/auth.ts` ← `platformHttp` 与采集侧共同使用。
 
@@ -54,7 +54,7 @@
 ### 比赛列表（后端入库，Changmen 主路径）
 
 ```
-浏览器 saveMatch / saveBet（`client/venue-adapter` / `@venue` 采集）
+浏览器 saveMatch / saveBet（`client/venue-adapter` / `@changmen/venue-adapter` 采集）
          ──► API_SaveMatch / API_SaveBet
          ──► matcher → client_matches
          ──► Client_GetMatchs
@@ -148,7 +148,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `domain/betting/buildOrderOptions.ts` | 对冲金额、`betSorting`、WinRate | `IQ.GetOrderOptions` / `oJe` |
 | `domain/betting/providerKeys.ts` | `auto` = `getProviders()` | A8 下单平台范围 |
 
-场馆拒单判定在 `@venue/adaptation/a8LegOutcome` / 各场馆 `resolveLegOutcome`；编排层不再维护 `domain/betting/venueReject.ts`。
+场馆拒单判定在 `@changmen/venue-adapter/adaptation/a8LegOutcome` / 各场馆 `resolveLegOutcome`；编排层不再维护 `domain/betting/venueReject.ts`。
 
 `models/match.ts` 的 `ViewBet.getOrderOptions` 委托 `buildOrderOptions`，保持模型 API 不变。
 

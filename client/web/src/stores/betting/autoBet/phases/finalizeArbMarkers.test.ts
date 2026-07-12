@@ -14,7 +14,7 @@ describe("markArbSuccessLegs", () => {
     markSuccessfulBet.mockReset();
   });
 
-  it("marks filled legs and skips pendingConfirm timeout legs", () => {
+  it("marks both success legs without pendingConfirm gate (A8 parity)", () => {
     const legA = new BetOption("OB" as never, "m1", "b1", "h1", 70, "Home", 2);
     const legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Away", 1.72);
     markArbSuccessLegs(
@@ -38,12 +38,18 @@ describe("markArbSuccessLegs", () => {
       } as never,
     );
 
-    expect(markSuccessfulBet).toHaveBeenCalledTimes(1);
+    expect(markSuccessfulBet).toHaveBeenCalledTimes(2);
     expect(markSuccessfulBet).toHaveBeenCalledWith(
       expect.objectContaining({ accountId: 1 }),
       100,
       "Home",
       2,
+    );
+    expect(markSuccessfulBet).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 2 }),
+      100,
+      "Away",
+      1.72,
     );
   });
 

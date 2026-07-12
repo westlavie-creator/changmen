@@ -26,7 +26,7 @@ Chrome 扩展见 [`client/chrome-extension/`](../chrome-extension/)。
 | `MIGRATION.md` | 脱离 bundle 阶段表 |
 | `docs/README.md` | 文档索引 |
 
-平台采集源码在 **`client/venue-adapter/`**（npm `@changmen/venue-adapter`，Vite 别名 `@venue`），不在 `src/` 下。
+平台采集源码在 **`client/venue-adapter/`**（npm `@changmen/venue-adapter`），不在 `src/` 下。
 
 ## 常用命令
 
@@ -41,5 +41,5 @@ BAT\dev.bat         # 后端 + Vite 一键启动
 ## 与 server/backend 的关系
 
 - HTTP：`/esport/*`、`/common/*` → 服务端 `esport-api`
-- 浏览器采集经 `@venue` 上报 `API_SaveMatch` / `API_SaveBet`；WS 由浏览器直连平台或 A8 聚合机
+- 浏览器采集经 `@changmen/venue-adapter` 上报 `API_SaveMatch` / `API_SaveBet`；WS 由浏览器直连平台或 A8 聚合机
 - 样式 `/esport2/assets/*` → 服务端 `public/esport2/`

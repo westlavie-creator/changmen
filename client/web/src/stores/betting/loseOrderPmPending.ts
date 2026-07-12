@@ -5,7 +5,7 @@ import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetOption as BetOptionCtor } from "@/models/betOption";
 import { BetResult as BetResultCtor } from "@/models/betResult";
-import { isVenueLegPendingConfirm, isVenueLegRejected } from "@venue/contract";
+import { isVenueLegPendingConfirm, isVenueLegRejected } from "@changmen/venue-adapter/contract";
 import { PLATFORMS } from "@/shared/platform";
 import {
   bindArbLegOrder,

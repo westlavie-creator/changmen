@@ -47,7 +47,8 @@ changmen/
 | 18 | `scripts/sync/`；`deploy/scripts/README`；`backend/scripts` 根目录收尾 | ✅ 完成 |
 | 19 | 目录整理**冻结**；`scripts/sync` 边界收拢；collectors 子 README | ✅ 完成 |
 | I1 | **路径单点登记**：`CHANGMEN_LAYOUT` + [PATH_REGISTRY.md](./PATH_REGISTRY.md) | ✅ 完成 |
-| I2a | **venue-adapter 包化**：`exports` + web 去 tsconfig include（保留 `@venue` 别名） | ✅ 完成 |
+| I2a | **venue-adapter 包化**：`exports` + web 去 tsconfig include | ✅ 完成 |
+| I2b | **web import 包名化**：`@venue/*` → `@changmen/venue-adapter/*` | ✅ 完成 |
 
 旧路径 `platform_adapter/`、`gamebet_*` 仅出现在历史章节或迁移对照中；**以本表与代码 `package.json` / `adapter_paths` 为准**。
 
@@ -70,7 +71,7 @@ changmen/
 ## 依赖方向
 
 ```
-client/web ──@venue──► client/venue-adapter
+client/web ──@changmen/venue-adapter──► client/venue-adapter
 client/web ──HTTP───────► server/backend
 client/web ──@changmen/api-contract──► HTTP 路径与 DTO
 server/backend ──@changmen/api-contract──► EsportAction
@@ -96,7 +97,7 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 
 ### `client/venue-adapter` (`@changmen/venue-adapter`)
 
-各平台采集与下注的 canonical 源码。前端通过 Vite 别名 `@venue` → `client/venue-adapter`。
+各平台采集与下注的 canonical 源码。前端通过 `@changmen/venue-adapter`（Vite alias → `client/venue-adapter`）。
 
 **目录语义**：`{platform}/` 为浏览器采集（`collect.ts` / `bet.ts`）；Node 探针与会话模块在 `@changmen/platform-probes`（`devtools/platform-probes/{platform}/`），经 `requirePlatform(id, "node", …)` 加载。详见 [venue-adapter/README.md](../client/venue-adapter/README.md) 与 [platform-probes/README.md](../devtools/platform-probes/README.md)。
 

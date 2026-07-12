@@ -54,27 +54,27 @@
 |--------|------|
 | `client/venue-adapter/loader/adapter_paths.mjs` | `getAdapterRoot()` 优先 `VENUE_ADAPTER_ROOT` |
 | `client/venue-adapter/registry/paths.js` | 开发态 `ADAPTER_ROOT`；探针 `PLATFORM_PROBES_ROOT` |
-| `client/web/vite.config.ts` | `@venue` alias、`venueChunkName`、vitest include |
+| `client/web/vite.config.ts` | `@changmen/venue-adapter` alias（`@venue` 仅包内/vitest）、`venueChunkName` |
 | `scripts/check-team-boundaries.mjs` | 发现各平台浏览器根目录 |
 | `@changmen/venue-adapter/package.json` | `exports["./*"]` 浏览器子路径（I2a） |
 | `client/web/package.json` | workspace 依赖 `@changmen/venue-adapter` |
 
 ---
 
-## 4. 仍用相对路径的登记项（I2b 可选）
+## 4. web 消费 venue-adapter（I2b 完成）
 
-以下 **有意** 保留相对路径或别名，但在本表备案：
+`client/web` 源码统一 `import` **`@changmen/venue-adapter/*`**（不再使用 `@venue` 别名）。
 
-| 文件 | 当前写法 | 说明 |
-|------|----------|------|
-| `client/web/tsconfig.app.json` | `@venue/*` → `client/venue-adapter/*` | I2a：已去 `include` 联合工程；别名仍指向包根 |
-| `client/web/vite.config.ts` | `@venue` → `VENUE_ADAPTER_ROOT` | 与 layout 一致 |
-| 根 `package.json` workspaces | `"client/venue-adapter"` | `CHANGMEN_LAYOUT.venueAdapter` |
-| `lines/esport/line.json` | `components.venueAdapter` | 同上 |
+| 文件 | 写法 |
+|------|------|
+| `client/web/tsconfig.app.json` | `@changmen/venue-adapter/*` → `client/venue-adapter/*` |
+| `client/web/vite.config.ts` | `@changmen/venue-adapter` → `VENUE_ADAPTER_ROOT` |
+| 根 `package.json` workspaces | `"client/venue-adapter"` |
+| `lines/esport/line.json` | `components.venueAdapter` |
 
-I2b 目标：`@venue/*` → `@changmen/venue-adapter/*` 批量改名（可选）。
+**web 子路径清单**（由 `npm run list:web-imports --workspace=@changmen/venue-adapter` 生成）见 `client/venue-adapter/scripts/list-web-venue-imports.mjs`。
 
-**web 直连 `@venue` 子路径清单**（31 条，由 `npm run list:web-imports --workspace=@changmen/venue-adapter` 生成）见 `client/venue-adapter/scripts/list-web-venue-imports.mjs`。
+`client/venue-adapter` **包内**仍用 `@venue/*`（仅 tsconfig paths 解析，web 源码已不 import）；`client/web/tsconfig.app.json` 保留 `@venue/*` path 供 vue-tsc 跟随依赖图。
 
 ---
 
@@ -113,5 +113,6 @@ npm run check:boundaries
 
 | 日期 | 说明 |
 |------|------|
+| 2026-07-13 | I2b：web `@venue/*` → `@changmen/venue-adapter/*` |
 | 2026-07-13 | I2a：`@changmen/venue-adapter` exports、web 去 tsconfig include |
 | 2026-07-13 | I1：`CHANGMEN_LAYOUT`、PATH_REGISTRY、vite/boundaries/loader 接入 |

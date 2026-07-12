@@ -1,8 +1,8 @@
 import type { BetResult } from "@/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { ResolveLegOutcomeOpts, VenueLegOutcome, VenueOrder } from "@venue/contract";
-import { isA8VenueReject } from "@venue/adaptation/a8LegOutcome";
-import { sortVenueOrdersNewestFirst } from "@venue/contract";
+import type { ResolveLegOutcomeOpts, VenueLegOutcome, VenueOrder } from "@changmen/venue-adapter/contract";
+import { isA8VenueReject } from "@changmen/venue-adapter/adaptation/a8LegOutcome";
+import { sortVenueOrdersNewestFirst } from "@changmen/venue-adapter/contract";
 import { getProvider } from "@/runtime/providers";
 
 export type { ResolveLegOutcomeOpts };

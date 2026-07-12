@@ -1,5 +1,5 @@
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { arbMakeUpSides } from "@/stores/betting/autoBet/arbMakeUpPair";
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
 import { resolveMakeUpSuccessReference } from "@/stores/betting/makeUpReference";

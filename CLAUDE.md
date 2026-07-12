@@ -174,7 +174,7 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 |-----------|------|
 | `api/` | All `Client_*` HTTP calls to the backend (`client.ts` wraps token + `post()`) |
 | `runtime/` | `collectors.ts` + `providers.ts` — wired at app startup; registers all adapters |
-| `@venue/*` | Vite alias → `client/venue-adapter/`（canonical 采集/下注源码） |
+| `@changmen/venue-adapter/*` | workspace 包 → `client/venue-adapter/`（canonical 采集/下注源码） |
 | `client/venue-adapter/registry/adapters.ts` | `PLATFORM_ADAPTERS` + `buildCollectorFactories()` |
 | `stores/` | 10 Pinia stores; `matchStore` owns the polling loop; `oddsStore` is the real-time odds cache (`fo`) |
 | `shared/http.ts` | `directGet` / `directPostJson` — Axios for collect HTTP (bypasses backend proxy) |
