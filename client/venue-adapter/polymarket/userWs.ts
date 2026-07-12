@@ -3,6 +3,12 @@ import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
 import type { PolymarketOrderRow } from "./orderTypes";
 import { polymarketUserSubscribeMessage, polymarketUserSubscribeMoreMessage } from "./api";
 import { resolvePolymarketUserWsUrl } from "./wsConfig";
+import {
+  cyclePmUserWsSourceMode,
+  getPmUserWsSourceMode,
+  pmUserWsSourceModeLabel,
+  type PmUserWsSourceMode,
+} from "./pmUserWsMode";
 import { parseTokenConfig, resolveApiCreds } from "./l2Auth";
 import {
   interpretPolymarketUserWsMessage,
@@ -32,6 +38,7 @@ interface UserWsSession {
   markets: Set<string>;
   ws: WebSocket | null;
   stopped: boolean;
+  skipNextReconnect: boolean;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   pingTimer: ReturnType<typeof setInterval> | null;
   connected: boolean;
@@ -91,6 +98,7 @@ function getOrCreateSession(account: PlatformAccount): UserWsSession | null {
       markets: new Set(),
       ws: null,
       stopped: false,
+      skipNextReconnect: false,
       reconnectTimer: null,
       pingTimer: null,
       connected: false,
@@ -161,6 +169,20 @@ function dispatchUserWsMessage(_session: UserWsSession, raw: string) {
   }
 }
 
+function forceReconnectSession(session: UserWsSession) {
+  if (session.stopped)
+    return;
+  session.skipNextReconnect = true;
+  if (session.reconnectTimer) {
+    clearTimeout(session.reconnectTimer);
+    session.reconnectTimer = null;
+  }
+  const oldWs = session.ws;
+  cleanupSessionTimers(session);
+  oldWs?.close();
+  ensureUserWsConnected(session);
+}
+
 function scheduleReconnect(session: UserWsSession) {
   if (session.stopped || session.reconnectTimer)
     return;
@@ -180,6 +202,8 @@ function ensureUserWsConnected(session: UserWsSession) {
   session.ws = ws;
 
   ws.onopen = () => {
+    if (session.ws !== ws)
+      return;
     session.connected = true;
     sendJson(session, polymarketUserSubscribeMessage(session.auth, [...session.markets]));
     session.pingTimer = setInterval(() => {
@@ -190,16 +214,26 @@ function ensureUserWsConnected(session: UserWsSession) {
   };
 
   ws.onmessage = (event) => {
+    if (session.ws !== ws)
+      return;
     dispatchUserWsMessage(session, String(event.data));
   };
 
   ws.onclose = () => {
+    if (session.ws !== ws)
+      return;
     cleanupSessionTimers(session);
     refreshPolymarketUserWsStatus();
+    if (session.skipNextReconnect) {
+      session.skipNextReconnect = false;
+      return;
+    }
     scheduleReconnect(session);
   };
 
   ws.onerror = () => {
+    if (session.ws !== ws)
+      return;
     ws.close();
   };
 }
@@ -290,6 +324,17 @@ export function clearPolymarketOrderWatch(orderId: string): void {
   const id = String(orderId ?? "").trim();
   if (id)
     orderWatches.delete(id);
+}
+
+export { getPmUserWsSourceMode, pmUserWsSourceModeLabel };
+export type { PmUserWsSourceMode };
+
+export function cyclePmUserWsSourceModeAndReconnect(): PmUserWsSourceMode {
+  const next = cyclePmUserWsSourceMode();
+  for (const session of sessions.values())
+    forceReconnectSession(session);
+  refreshPolymarketUserWsStatus();
+  return next;
 }
 
 /** 单测 / 调试：断开所有 User WS */

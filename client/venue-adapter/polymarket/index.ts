@@ -23,6 +23,8 @@ export * from "./pmAutoExitSell";
 export * from "./pmHeartbeat";
 export * from "./pmStoredOrders";
 export * from "./ws";
+export * from "./pmMarketWsMode";
+export * from "./pmUserWsMode";
 export * from "./userWs";
 
 export const polymarketAdapter: PlatformAdapter = {

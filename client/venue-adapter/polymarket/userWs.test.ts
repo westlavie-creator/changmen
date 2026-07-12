@@ -2,11 +2,14 @@ import type { PlatformAccount } from "@changmen/client-core/models/platformAccou
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   awaitPolymarketOrderWatch,
+  cyclePmUserWsSourceModeAndReconnect,
   registerPolymarketOrderWatch,
   stopAllPolymarketUserWs,
   warmAllPolymarketUserWs,
   warmPolymarketUserWs,
 } from "./userWs";
+import { POLYMARKET_USER_WS } from "./api";
+import { resetPmUserWsSourceModeForTests } from "./pmUserWsMode";
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
@@ -53,6 +56,7 @@ function pmAccount(): PlatformAccount {
 describe("polymarket user ws", () => {
   beforeEach(() => {
     MockWebSocket.instances = [];
+    resetPmUserWsSourceModeForTests("changmen");
     vi.stubGlobal("WebSocket", Object.assign(MockWebSocket, { OPEN: 1 }) as unknown as typeof WebSocket);
   });
 
@@ -106,6 +110,31 @@ describe("polymarket user ws", () => {
     const result = await awaitPolymarketOrderWatch("0xorder");
     expect(result?.outcome).toBe("matched");
     expect(result?.row?.size_matched).toBe("12");
+  });
+
+  it("cyclePmUserWsSourceModeAndReconnect switches to official url", () => {
+    warmPolymarketUserWs(pmAccount());
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(MockWebSocket.instances[0]!.url).toContain("/esport/ws-forward/PM-USER");
+
+    cyclePmUserWsSourceModeAndReconnect();
+    expect(MockWebSocket.instances).toHaveLength(2);
+    expect(MockWebSocket.instances[1]!.url).toBe(POLYMARKET_USER_WS);
+  });
+
+  it("cycle after open does not orphan the new socket on stale onclose", () => {
+    warmPolymarketUserWs(pmAccount());
+    const first = MockWebSocket.instances[0]!;
+    first.open();
+    expect(first.readyState).toBe(MockWebSocket.OPEN);
+
+    cyclePmUserWsSourceModeAndReconnect();
+    const second = MockWebSocket.instances[1]!;
+    second.open();
+
+    first.close();
+    expect(second.readyState).toBe(MockWebSocket.OPEN);
+    expect(MockWebSocket.instances).toHaveLength(2);
   });
 
   it("watch resolves null on timeout so REST poll can continue", async () => {

@@ -1,5 +1,11 @@
 import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
 import { resolvePolymarketMarketWsUrl } from "./wsConfig";
+import {
+  cyclePmMarketWsSourceMode,
+  getPmMarketWsSourceMode,
+  pmMarketWsSourceModeLabel,
+  type PmMarketWsSourceMode,
+} from "./pmMarketWsMode";
 
 const WS_RECONNECT_MS = 5_000;
 const WS_PING_MS = 10_000;
@@ -30,15 +36,15 @@ export interface PolymarketMarketWsHandle {
   stop: () => void;
 }
 
-/**
- * 启动 Polymarket CLOB market WebSocket，自动重连 + PING 心跳。
- * onOpen 在每次连接建立后调用（用于重新订阅资产）。
- * onMessage 接收原始字符串帧（已过滤 PONG）。
- */
-export function startPolymarketMarketWs(opts: {
+type MarketWsOpts = {
   onMessage: (raw: string) => void;
   onOpen: () => void;
-}): PolymarketMarketWsHandle {
+};
+
+let activeMarketWsHandle: PolymarketMarketWsHandle | null = null;
+let activeMarketWsOpts: MarketWsOpts | null = null;
+
+function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle {
   let stopped = false;
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -50,6 +56,13 @@ export function startPolymarketMarketWs(opts: {
       pingTimer = null;
     }
     ws = null;
+  }
+
+  function clearActiveIfSelf(handle: PolymarketMarketWsHandle) {
+    if (activeMarketWsHandle !== handle)
+      return;
+    activeMarketWsHandle = null;
+    activeMarketWsOpts = null;
   }
 
   function scheduleReconnect() {
@@ -98,7 +111,7 @@ export function startPolymarketMarketWs(opts: {
 
   connect();
 
-  return {
+  const handle: PolymarketMarketWsHandle = {
     send(msg: string) {
       if (ws?.readyState === WebSocket.OPEN) ws.send(msg);
     },
@@ -108,6 +121,36 @@ export function startPolymarketMarketWs(opts: {
       cleanup();
       ws?.close();
       setPolymarketWsStatus("disconnected");
+      clearActiveIfSelf(handle);
     },
   };
+
+  return handle;
+}
+
+/**
+ * 启动 Polymarket CLOB market WebSocket，自动重连 + PING 心跳。
+ * onOpen 在每次连接建立后调用（用于重新订阅资产）。
+ * onMessage 接收原始字符串帧（已过滤 PONG）。
+ */
+export function startPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle {
+  activeMarketWsHandle?.stop();
+  activeMarketWsOpts = opts;
+  activeMarketWsHandle = createPolymarketMarketWs(opts);
+  return activeMarketWsHandle;
+}
+
+export { getPmMarketWsSourceMode, pmMarketWsSourceModeLabel };
+export type { PmMarketWsSourceMode };
+
+export function cyclePmMarketWsSourceModeAndReconnect(): PmMarketWsSourceMode {
+  const next = cyclePmMarketWsSourceMode();
+  const opts = activeMarketWsOpts;
+  if (!opts)
+    return next;
+
+  activeMarketWsHandle?.stop();
+  activeMarketWsOpts = opts;
+  activeMarketWsHandle = createPolymarketMarketWs(opts);
+  return next;
 }

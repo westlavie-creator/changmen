@@ -5,7 +5,6 @@ import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
 import {
   listVenueWsStatuses,
   subscribeVenueWsStatus,
-  type VenueWsStatus,
   type VenueWsStatusEntry,
 } from "@venue/shared/venueWsStatus";
 import {
@@ -20,6 +19,16 @@ import {
   rayWsSourceModeLabel,
   type RayWsSourceMode,
 } from "@venue/ray";
+import {
+  cyclePmMarketWsSourceModeAndReconnect,
+  cyclePmUserWsSourceModeAndReconnect,
+  getPmMarketWsSourceMode,
+  getPmUserWsSourceMode,
+  pmMarketWsSourceModeLabel,
+  pmUserWsSourceModeLabel,
+  type PmMarketWsSourceMode,
+  type PmUserWsSourceMode,
+} from "@venue/polymarket";
 import { ElMessage } from "element-plus";
 
 const { statuses } = useDirectRealtimeStatus();
@@ -27,6 +36,8 @@ const { statuses } = useDirectRealtimeStatus();
 const venueWsStatuses = ref<VenueWsStatusEntry[]>(listVenueWsStatuses());
 const obSourceMode = ref<ObMqttSourceMode>(getObMqttSourceMode());
 const raySourceMode = ref<RayWsSourceMode>(getRayWsSourceMode());
+const pmMarketWsSourceMode = ref<PmMarketWsSourceMode>(getPmMarketWsSourceMode());
+const pmUserWsSourceMode = ref<PmUserWsSourceMode>(getPmUserWsSourceMode());
 let venueWsUnsub: (() => void) | undefined;
 
 /** 第二行：Polymarket / Predict.fun / DEX / Limitless WS */
@@ -67,8 +78,18 @@ function dotClass(status: DirectRealtimeStatus): string {
   return "idle";
 }
 
-function venueWsDotClass(status: VenueWsStatus): string {
-  switch (status) {
+function venueWsDotClass(entry: VenueWsStatusEntry): string {
+  if (entry.id === "pm-market" || entry.id === "pm-user") {
+    const mode = entry.id === "pm-market" ? pmMarketWsSourceMode.value : pmUserWsSourceMode.value;
+    switch (entry.status) {
+      case "connected":
+        return mode === "changmen" ? "ok-changmen" : "ok-official";
+      case "connecting": return "connecting";
+      case "error": return "err";
+      default: return "idle";
+    }
+  }
+  switch (entry.status) {
     case "connected": return "ok-official";
     case "connecting": return "connecting";
     case "error": return "err";
@@ -96,12 +117,22 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
     "cm-hub": "Changmen 实时 Hub（Socket.IO / pm_sport）",
   };
   const label = names[entry.id] ?? entry.label;
+  const lines: string[] = [label];
   switch (entry.status) {
-    case "connected": return `${label}\n已连接 · 实时推送中`;
-    case "connecting": return `${label}\n连接中...`;
-    case "error": return `${label}\n断开 · 正在重连...`;
-    default: return `${label}\n未连接`;
+    case "connected": lines.push("已连接 · 实时推送中"); break;
+    case "connecting": lines.push("连接中..."); break;
+    case "error": lines.push("断开 · 正在重连..."); break;
+    default: lines.push("未连接");
   }
+  if (entry.id === "pm-market") {
+    lines.push(`当前选择：${pmMarketWsSourceModeLabel(pmMarketWsSourceMode.value)}`);
+    lines.push("点击切换 CHANGMEN / 官方");
+  }
+  if (entry.id === "pm-user") {
+    lines.push(`当前选择：${pmUserWsSourceModeLabel(pmUserWsSourceMode.value)}`);
+    lines.push("点击切换 CHANGMEN / 官方");
+  }
+  return lines.join("\n");
 }
 
 function tooltip(status: DirectRealtimeStatus): string {
@@ -143,6 +174,36 @@ function itemClass(status: DirectRealtimeStatus): Record<string, boolean> {
   return {
     "direct-realtime-item--clickable": isClickablePlatform(status.platform),
   };
+}
+
+function isClickableVenueWs(entry: VenueWsStatusEntry): boolean {
+  return entry.id === "pm-market" || entry.id === "pm-user";
+}
+
+function venueWsItemClass(entry: VenueWsStatusEntry): Record<string, boolean> {
+  return {
+    "direct-realtime-item--clickable": isClickableVenueWs(entry),
+  };
+}
+
+function handleVenueWsClick(entry: VenueWsStatusEntry): void {
+  if (entry.id === "pm-market") {
+    pmMarketWsSourceMode.value = cyclePmMarketWsSourceModeAndReconnect();
+    ElMessage({
+      message: `PM-M WS 已切换到${pmMarketWsSourceModeLabel(pmMarketWsSourceMode.value)}，正在重连`,
+      type: "success",
+      plain: true,
+    });
+    return;
+  }
+  if (entry.id === "pm-user") {
+    pmUserWsSourceMode.value = cyclePmUserWsSourceModeAndReconnect();
+    ElMessage({
+      message: `PM-U WS 已切换到${pmUserWsSourceModeLabel(pmUserWsSourceMode.value)}，正在重连`,
+      type: "success",
+      plain: true,
+    });
+  }
 }
 
 function handleStatusClick(status: DirectRealtimeStatus): void {
@@ -193,7 +254,7 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
         class="direct-realtime-item"
         :title="venueWsTooltip(entry)"
       >
-        <span class="direct-realtime-dot" :class="venueWsDotClass(entry.status)" />
+        <span class="direct-realtime-dot" :class="venueWsDotClass(entry)" />
         {{ entry.label }}
       </span>
     </div>
@@ -202,9 +263,15 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
         v-for="entry in venueWsSecondRow"
         :key="entry.id"
         class="direct-realtime-item"
+        :class="venueWsItemClass(entry)"
         :title="venueWsTooltip(entry)"
+        :role="isClickableVenueWs(entry) ? 'button' : undefined"
+        :tabindex="isClickableVenueWs(entry) ? 0 : undefined"
+        @click="handleVenueWsClick(entry)"
+        @keydown.enter.prevent="handleVenueWsClick(entry)"
+        @keydown.space.prevent="handleVenueWsClick(entry)"
       >
-        <span class="direct-realtime-dot" :class="venueWsDotClass(entry.status)" />
+        <span class="direct-realtime-dot" :class="venueWsDotClass(entry)" />
         {{ entry.label }}
       </span>
     </div>
