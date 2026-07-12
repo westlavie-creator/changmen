@@ -1,28 +1,48 @@
 # changmen 文档索引
 
-日常开发从 [readme.md](../readme.md) 与 [CLAUDE.md](../CLAUDE.md) 入手；本页汇总专题文档。
+日常开发从 [readme.md](../readme.md)（摘要）与 [CLAUDE.md](../CLAUDE.md)（命令与细节）入手；本页汇总专题文档。
+
+## 文档地图
+
+| 类型 | 位置 | 例子 |
+|------|------|------|
+| 架构 / 运维 / 多运动 / catalog | `docs/` | 本文、`ARCHITECTURE.md`、`CATALOG.md` |
+| 前端实现 | `client/web/src/ARCHITECTURE.md` | stores、采集链路、数据流 |
+| A8 对齐（parity） | `client/web/docs/` | `A8_PARITY_REGISTRY.md` |
+| 平台探针 | `devtools/platform-probes/{id}/docs/` | OB 状态映射、RAY 对照 |
+| 产品线锚点 | `lines/` | `line.json`、esport/baseball |
+| 历史笔记 | `docs/archive/` | 已结案排查记录 |
 
 ## 架构与部署
 
 | 文档 | 内容 |
 |------|------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Monorepo 结构、`client/*` / `server/*` / `packages/*`、数据流、**本地开发端口** |
+| [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md) | **多运动产品线**（电竞在根、棒球路线、目录整合） |
+| [CATALOG.md](./CATALOG.md) | `sport` / `game` / `market` catalog 字段与扩展规则（**配置单一入口**） |
 | [../server/README.md](../server/README.md) | **服务端包索引**、进程图、常用命令 |
 | [DATA_STORAGE.md](./DATA_STORAGE.md) | 云库 vs 本机 JSON、迁移目录、快照生命周期与 archive |
 | [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) | 客户端 / 服务端目录边界 |
 | [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) | 生产拓扑、环境变量、PM2 |
-| [../ecosystem.config.cjs](../ecosystem.config.cjs) | `changmen-esport` + `changmen-pm-sports` 进程清单 |
+| [../deploy/ecosystem.config.cjs](../deploy/ecosystem.config.cjs) | `changmen-esport` + `changmen-pm-sports` 进程清单 |
 
 ## 应用
 
 | 路径 | 文档 |
 |------|------|
 | `server/` | [README.md](../server/README.md) — 包索引与进程图 |
-| `server/backend` | [README.md](../server/backend/README.md) · [GAMES.md](../server/backend/GAMES.md) · [MARKETS.md](../server/backend/MARKETS.md) |
-| `client/web` | [README.md](../client/web/README.md) · [MIGRATION.md](../client/web/MIGRATION.md) |
+| `server/backend` | [README.md](../server/backend/README.md) |
+| `client/web` | [README.md](../client/web/README.md) · [MIGRATION.md](../client/web/MIGRATION.md) · [src/ARCHITECTURE.md](../client/web/src/ARCHITECTURE.md) |
 | `server/matcher` | [README.md](../server/matcher/README.md) |
 | `client/chrome-extension` | [README.md](../client/chrome-extension/README.md) · `npm run chromeplug:pack` |
 | `client/venue-adapter` | [README.md](../client/venue-adapter/README.md) |
+
+## 客户端 / Parity
+
+| 文档 | 内容 |
+|------|------|
+| [../client/web/docs/README.md](../client/web/docs/README.md) | A8 parity 文档集索引 |
+| [../client/web/docs/A8_PARITY_REGISTRY.md](../client/web/docs/A8_PARITY_REGISTRY.md) | 对齐总览 |
 
 ## 运维脚本
 

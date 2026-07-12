@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-13",
+  "description": "运动产品线元数据。game_catalog.sport 指向本表 code。",
+  "sports": [
+    {
+      "code": "esport",
+      "name": "电竞",
+      "nameEn": "Esports",
+      "status": "active",
+      "defaultGameCodes": ["cs2", "lol", "dota2", "valorant", "kog"],
+      "matcherProfile": "esport",
+      "linePath": "lines/esport",
+      "apiSportFilter": "esport",
+      "pm2Apps": [
+        "changmen-esport",
+        "changmen-pm-sports",
+        "changmen-predictfun-collector"
+      ],
+      "collect": {
+        "mode": "both",
+        "daemons": [
+          "@changmen/polymarket-sports",
+          "@changmen/predictfun-collector"
+        ],
+        "platforms": ["OB", "RAY", "IA", "Polymarket", "PredictFun", "PB"]
+      },
+      "markets": ["match_winner"]
+    },
+    {
+      "code": "baseball",
+      "name": "棒球",
+      "nameEn": "Baseball",
+      "status": "planned",
+      "defaultGameCodes": ["mlb"],
+      "matcherProfile": "baseball",
+      "linePath": "lines/baseball",
+      "apiSportFilter": "baseball",
+      "pm2Apps": ["changmen-baseball"],
+      "collect": {
+        "mode": "daemon",
+        "daemons": ["@changmen/mlb-gamma-collector"],
+        "platforms": ["Polymarket", "PB"]
+      },
+      "markets": ["moneyline"]
+    }
+  ]
+}

@@ -97,6 +97,14 @@ function venueWsDotClass(entry: VenueWsStatusEntry): string {
       default: return "idle";
     }
   }
+  if (entry.id === "predictfun-market") {
+    switch (entry.status) {
+      case "connected": return "ok-changmen";
+      case "connecting": return "connecting";
+      case "error": return "err";
+      default: return "idle";
+    }
+  }
   switch (entry.status) {
     case "connected": return "ok-official";
     case "connecting": return "connecting";
@@ -139,6 +147,9 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
   if (entry.id === "pm-user") {
     lines.push(`当前选择：${pmUserWsSourceModeLabel(pmUserWsSourceMode.value)}`);
     lines.push("点击切换 CHANGMEN / 官方");
+  }
+  if (entry.id === "predictfun-market") {
+    lines.push("经 CHANGMEN ws-forward hub（单上游合并订阅）");
   }
   return lines.join("\n");
 }

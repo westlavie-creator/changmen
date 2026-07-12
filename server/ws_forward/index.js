@@ -1,11 +1,11 @@
 import { attachForwardEngine, closeForwardEngine } from "./core/forward_engine.js";
 import { attachPmMarketHub, closePmMarketHub } from "./core/pm_market_hub.js";
+import { attachPredictFunMarketHub, closePredictFunMarketHub } from "./core/predictfun_market_hub.js";
 import { registerPlatformForward, listPlatformForwards } from "./platforms/registry.js";
 import { getForwardStats } from "./core/forward_stats.js";
 import { iaForwardDefinition } from "./platforms/ia.js";
 import { obForwardDefinition } from "./platforms/ob.js";
 import { pmUserForwardDefinition } from "./platforms/pm.js";
-import { predictFunMarketForwardDefinition } from "./platforms/predictfun.js";
 import { rayForwardDefinition } from "./platforms/ray.js";
 
 /** 浏览器实时转发入口 URL 前缀（勿被 esport-api HTTP 路由拦截） */
@@ -21,7 +21,6 @@ const PLATFORM_DEFS = {
   OB: obForwardDefinition,
   RAY: rayForwardDefinition,
   "PM-USER": pmUserForwardDefinition,
-  "PREDICTFUN-MARKET": predictFunMarketForwardDefinition,
 };
 
 let enabled = false;
@@ -40,6 +39,8 @@ export function attachWsForward(httpServer, opts = {}) {
   attachForwardEngine(httpServer);
   if (wanted.has("PM-MARKET"))
     attachPmMarketHub(httpServer);
+  if (wanted.has("PREDICTFUN-MARKET"))
+    attachPredictFunMarketHub(httpServer);
   enabled = true;
 }
 
@@ -48,6 +49,8 @@ export function getWsForwardStatus() {
   const platforms = listPlatformForwards().map((p) => p.id);
   if (enabled && !platforms.includes("PM-MARKET"))
     platforms.push("PM-MARKET");
+  if (enabled && !platforms.includes("PREDICTFUN-MARKET"))
+    platforms.push("PREDICTFUN-MARKET");
   return {
     enabled,
     wsForward: enabled,
@@ -60,6 +63,7 @@ export { closeForwardEngine };
 
 export function closeWsForward() {
   closePmMarketHub();
+  closePredictFunMarketHub();
   closeForwardEngine();
   enabled = false;
 }

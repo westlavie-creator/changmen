@@ -359,6 +359,10 @@ async function handle(
       if (provider.toUpperCase() === "OB" && row?.gameOddTypes) {
         out.GameOddTypes = row.gameOddTypes;
       }
+      if (provider === "PredictFun") {
+        const { readPredictFunMarketIndex } = await import("@changmen/storage/predictfun_market_index.js");
+        out.MarketIndex = readPredictFunMarketIndex();
+      }
       return ok(out);
     }
     case "Client_GetGames": {

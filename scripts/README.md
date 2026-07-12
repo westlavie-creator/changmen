@@ -32,6 +32,16 @@ Windows 批处理在本地 `BAT\`（不进 GitHub，见 [LOCAL_DEV.md](../LOCAL_
 
 Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://localhost:4567（`matcher:ui` 独立）
 
+## 目录
+
+| 路径 | 用途 |
+|------|------|
+| 根目录 `.mjs` / `.bat` | 部署、边界检查、Telegram env 同步 |
+| [`fixtures/`](fixtures/) | PM 等平台 API 响应快照（原 `tmp-*.json`） |
+| [`archive/`](archive/) | 废弃的一次性仓级脚本 |
+| [`deploy/`](../deploy/) | VPS Caddy、PM2、远程 bash（**canonical**） |
+| [`server/backend/scripts/`](../server/backend/scripts/README.md) | 后端运维（含 `ops/`、`archive/`） |
+
 ## VPS 部署配置
 
 见 **[`deploy/`](../deploy/README.md)**（Caddy、PM2、tarball 部署脚本）。
@@ -42,27 +52,24 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 ## `server/backend/scripts/`（后端运维）
 
-在 `server/backend` 下执行，或 `node scripts/<name>`。
+索引：[server/backend/scripts/README.md](../server/backend/scripts/README.md)
 
-| 脚本 | 作用 |
-|------|------|
-| **`start-db.mjs`** | 按 `CHANGMEN_DB_SCRIPT` 启动 `server.js`（`npm run web` 入口，默认 rds） |
-| **`start-rds.mjs`** | 强制 `CHANGMEN_DB_SCRIPT=rds` 后启动 |
-| **`apply-rds-schema.mjs`** | 应用 RDS SQL 迁移 |
-| **`archive-stale-client-matches.mjs`** | 本地手动 client_matches archive（生产由 matcher 每小时执行） |
-| **`prune-stale.mjs`** | 已废弃别名 → `archive-stale-client-matches.mjs` |
-| **`preweb.js`** | `npm run web` 前：构建检查 / legacy 准备 |
-| **`check-collect-platforms.js`** | `npm run check:collect` — 凭证与采集器对齐审计 |
-| **`account_cli.js`** | 场馆账号 CLI（`account:import-platform` 等） |
-| **`create-user.js`** | 创建 RDS/JWT 用户（`users` + `profiles`） |
-| **`sync-a8-esport2-assets.mjs`** | 同步 A8 esport2 静态资源到 `public/` |
+| 子目录 | 内容 |
+|--------|------|
+| 根目录 | `npm run web`、`db:apply`、`account:*`、`check:collect` 等 |
+| `ops/incidents/` | 一次性事故修复 |
+| `ops/diagnostics/` | `diag-*`、`mem_diag_*` |
+| `ops/migrations/` | 补跑迁移 |
+| `archive/` | `_tmp` / `_probe` 等已归档临时脚本 |
+
+在 `server/backend` 下执行，或 `node scripts/<path>`。
 
 ## 兼容别名
 
 | 旧名 | 现用 |
 |------|------|
 | `gamebet/changmen/` 嵌套 | 本仓库根即应用 |
-| `vps/` | `deploy/` |
+| `vps/` | 已删除；脚本在 `deploy/scripts/` |
 
 ## 环境变量
 

@@ -120,6 +120,31 @@ export function resolvePredictGameCode(category: PredictCategory): string | null
   return null;
 }
 
+/** 分类元数据（tags / teams）上的电竞识别；不含 markets，避免 Politics 等误标仍被队名联赛放行 */
+function resolvePredictGameCodeFromCategoryMeta(category: PredictCategory): string | null {
+  for (const tag of category.tags ?? []) {
+    const code = mapPredictEsportTag(tag.name);
+    if (code)
+      return code;
+    if (ESPORT_TAG_RE.test(String(tag.name ?? ""))) {
+      const fromTag = mapPredictEsportTag(tag.name);
+      if (fromTag)
+        return fromTag;
+    }
+  }
+  for (const team of category.teams ?? []) {
+    const code = mapPredictEsportTag(team.league);
+    if (code)
+      return code;
+    if (ESPORT_LEAGUE_RE.test(String(team.league ?? ""))) {
+      const fromLeague = mapPredictEsportTag(team.league);
+      if (fromLeague)
+        return fromLeague;
+    }
+  }
+  return null;
+}
+
 function isOpenTradingMarket(market: PredictMarket): boolean {
   if (String(market.status ?? "").toUpperCase() !== "OPEN")
     return false;
@@ -139,7 +164,7 @@ export function isPredictEsportsMoneylineCategory(category: PredictCategory): bo
     return false;
   if (String(category.status ?? "").toUpperCase() !== "OPEN")
     return false;
-  if (!resolvePredictGameCode(category))
+  if (!resolvePredictGameCodeFromCategoryMeta(category))
     return false;
   const teamMarkets = (category.markets ?? []).filter(isOpenTradingMarket);
   return teamMarkets.length >= 2;

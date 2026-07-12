@@ -11,9 +11,9 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 | **客户端** | `client/web/`、`client/chrome-extension/`、`client/venue-adapter/` | UI、采集、下注、插件、各平台适配源码 |
 | **服务端（核心）** | `server/backend/`、`server/matcher/`、`server/db/`、`server/match-engine/`、`server/team-resolver/`、`server/storage/` | API、合并、RDS、本机 JSON 路径、代理/余额、运维脚本 |
 | **服务端（库，backend 挂载）** | `server/ws_forward/`、`server/realtime-hub/` | WebSocket 转发、Changmen Socket.IO 推送（由 backend 进程加载，非独立主链路进程） |
-| **服务端（扩展守护进程）** | `server/polymarket-sports/`、`server/value-bet/` | Polymarket Sports WS、正 EV 扫描 **[changmen 扩展]**；生产可选 PM2 |
+| **服务端（扩展守护进程）** | `server/polymarket-sports/`、`server/predictfun-collector/`、`server/value-bet/`、`server/collectors/`（规划） | VPS 采集 daemon；详见 collectors README |
 | **开发工具** | `devtools/platform-probes/` | 可选：直连各平台探针 CLI（非主链路） |
-| **运动产品线** | `sports/esport/`（说明）、`sports/football/`、`sports/basketball/`（占位） | 各运动 app；足球只读→全栈；电竞主栈暂在仓库根 |
+| **产品线** | `lines/`、[docs/SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md) | 对称锚点 `lines/{code}/`；电竞主栈在仓库根；棒球见 `lines/baseball/` |
 | **共同协商** | `packages/shared/`、`packages/api-contract/`、`docs/TEAM_BOUNDARIES.md`、`.github/CODEOWNERS` | 跨端工具、catalog、HTTP 契约 |
 
 服务端包索引：[server/README.md](../server/README.md)。

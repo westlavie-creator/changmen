@@ -45,6 +45,8 @@ polymarket-sports ──WS──► 写 client_matches.pm_sport
 | [ws_forward/](ws_forward/README.md) | `@changmen/ws-forward` | 库 | IA/OB/RAY WebSocket 转发（backend 挂载） |
 | [realtime-hub/](realtime-hub/) | `@changmen/realtime-hub` | 库 | Changmen Socket.IO（`pm_sport` 等推浏览器） |
 | [polymarket-sports/](polymarket-sports/) | `@changmen/polymarket-sports` | **守护进程** | PM Sports WS → `pm_sport` 列 **[changmen 扩展]** |
+| [predictfun-collector/](predictfun-collector/) | `@changmen/predictfun-collector` | **守护进程** | Predict.fun REST → `platform_*` |
+| [collectors/](collectors/README.md) | — | **规划归集** | 上表 daemon 未来迁入点；新运动 collector 落此 |
 | [value-bet/](value-bet/) | `@changmen/value-bet` | **守护进程** | 以 PB 为基准的正 EV 扫描 **[changmen 扩展]** |
 
 ### `backend/core/` 子域（细节见 [backend/README.md](backend/README.md)）

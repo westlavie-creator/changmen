@@ -1,10 +1,11 @@
 {
-  "version": 1,
-  "updatedAt": "2026-05-24",
-  "description": "本项目聚合的游戏类型。各平台 native game_id 不同，通过 code 对齐。",
+  "version": 2,
+  "updatedAt": "2026-07-13",
+  "description": "本项目聚合的游戏类型。各平台 native game_id 不同，通过 code 对齐；sport 指向 sport_catalog.code。",
   "games": [
     {
       "code": "cs2",
+      "sport": "esport",
       "name": "CS2",
       "nameEn": "Counter-Strike 2",
       "a8GameId": 3,
@@ -29,6 +30,7 @@
     },
     {
       "code": "kog",
+      "sport": "esport",
       "name": "王者荣耀",
       "nameEn": "Honor of Kings",
       "a8GameId": 4,
@@ -49,6 +51,7 @@
     },
     {
       "code": "valorant",
+      "sport": "esport",
       "name": "无畏契约",
       "nameEn": "Valorant",
       "a8GameId": 8,
@@ -71,6 +74,7 @@
     },
     {
       "code": "lol",
+      "sport": "esport",
       "name": "英雄联盟",
       "nameEn": "League of Legends",
       "a8GameId": 1,
@@ -94,6 +98,7 @@
     },
     {
       "code": "dota2",
+      "sport": "esport",
       "name": "DOTA2",
       "nameEn": "Dota 2",
       "a8GameId": 2,

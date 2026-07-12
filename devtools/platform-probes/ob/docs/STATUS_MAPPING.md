@@ -101,7 +101,7 @@
 
 ## 5. 盘口级：game/view + MQTT → marketStatus
 
-选盘（取哪一条「获胜」主盘）见 [MARKETS.md](../../../../server/backend/MARKETS.md) → OB `match_winner`。
+选盘（取哪一条「获胜」主盘）见 [docs/CATALOG.md](../../../../docs/CATALOG.md) §4 → OB `match_winner`。
 
 详见 [MARKET_STATUS.md](./MARKET_STATUS.md)。
 

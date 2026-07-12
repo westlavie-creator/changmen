@@ -262,7 +262,7 @@ if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
 fi
 if [ "$LIVE_TIMER_TOUCHED" = "1" ]; then
   log "live_timer code changed — purge stale OB live_timers rows"
-  node server/backend/scripts/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
+  node server/backend/scripts/ops/incidents/purge-platform-live-timers.mjs OB || echo "WARN: purge live_timers failed"
 fi
 # owner 回填必须在 027 CHECK 之前（否则 apply-rds-schema 因 orphan player 失败）
 if [ "$PLAYERS_OWNER_MIGRATION_TOUCHED" = "1" ] || [ "$RDS_SCHEMA_TOUCHED" = "1" ] || [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then

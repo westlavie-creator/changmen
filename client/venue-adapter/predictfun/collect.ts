@@ -1,29 +1,24 @@
+import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
 import { saveVenueOdds, getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import { PLATFORMS } from "@venue/shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@venue/shared/webBridge";
 import { useMatchStore } from "@venue/shared/webBridge";
 
 import {
-  fetchPredictCategories,
-  fetchPredictOrderbooks,
-  predictCollectStartTimeAllowed,
-} from "./api";
+  applyPredictFunMarketIndex,
+  isPredictFunMarketIndex,
+} from "./marketIndex";
 import {
   bestAskFromPredictBook,
-  buildPredictMappedMarket,
   decimalOddsFromProbability,
-  isPredictEsportsMoneylineCategory,
   type PredictMappedMarket,
 } from "./parse";
 import { startPredictMarketWs } from "./ws";
 
 const PLATFORM = PLATFORMS.PredictFun;
-const DISCOVERY_MS = 60_000;
-const SAVE_BETS_INTERVAL_MS = 5 * 60_000;
-const MAX_TRACKED_MARKETS = 200;
+const INDEX_SYNC_MS = 30_000;
 
 export function saveTokenQuote(
   params: {
@@ -51,8 +46,8 @@ export function saveTokenQuote(
 function saveBetOddsToFo(
   bet: CollectBetDto,
   source: "http" | "mqtt",
+  marketIds: { home: string; away: string },
   clobPrices?: { home?: number; away?: number },
-  marketIds?: { home?: string; away?: string },
 ) {
   const locked = bet.Status === "Locked";
   const betId = String(bet.SourceBetID);
@@ -62,7 +57,7 @@ function saveBetOddsToFo(
   if (Number.isFinite(homePrice) && homePrice! > 0) {
     saveTokenQuote({
       tokenId: homeId,
-      marketId: String(marketIds?.home ?? ""),
+      marketId: marketIds.home,
       clobPrice: homePrice!,
       betId,
       side: "home",
@@ -74,6 +69,7 @@ function saveBetOddsToFo(
     saveVenueOdds(PLATFORM, {
       id: homeId,
       odds: bet.HomeOdds,
+      marketId: marketIds.home,
       ...(prev?.clobPrice != null ? { clobPrice: prev.clobPrice } : {}),
       isLock: locked || !bet.HomeOdds,
       betId,
@@ -85,7 +81,7 @@ function saveBetOddsToFo(
   if (Number.isFinite(awayPrice) && awayPrice! > 0) {
     saveTokenQuote({
       tokenId: awayId,
-      marketId: String(marketIds?.away ?? ""),
+      marketId: marketIds.away,
       clobPrice: awayPrice!,
       betId,
       side: "away",
@@ -97,6 +93,7 @@ function saveBetOddsToFo(
     saveVenueOdds(PLATFORM, {
       id: awayId,
       odds: bet.AwayOdds,
+      marketId: marketIds.away,
       ...(prev?.clobPrice != null ? { clobPrice: prev.clobPrice } : {}),
       isLock: locked || !bet.AwayOdds,
       betId,
@@ -106,12 +103,13 @@ function saveBetOddsToFo(
   }
 }
 
+/** [changmen 扩展] VPS HTTP 采集 + 浏览器仅 WS → fo（不经 http-relay 打 discovery） */
 export function startPredictFunCollector(): () => void {
-  let lastSaveBetsAt = 0;
-  const collect = useCollectStore();
   const matchStore = useMatchStore();
   const marketsByCategory = new Map<string, PredictMappedMarket>();
   const marketIdToCategory = new Map<string, string>();
+  let lastIndexUpdatedAt = 0;
+
   function trackedMarketIds(): string[] {
     const ids: string[] = [];
     for (const mapped of marketsByCategory.values()) {
@@ -168,93 +166,47 @@ export function startPredictFunCollector(): () => void {
     },
   });
 
-  const runDiscovery = async () => {
-    while (!collect.ready) {
-      if (stopped)
-        return;
-      await wait(500);
-    }
-
-    const rawCategories = await fetchPredictCategories({
-      marketVariant: "SPORTS_TEAM_MATCH",
-      status: "OPEN",
-    });
-    const filtered = rawCategories.filter((category) => {
-      if (!isPredictEsportsMoneylineCategory(category))
-        return false;
-      const startMs = category.startsAt ? Date.parse(category.startsAt) : 0;
-      return predictCollectStartTimeAllowed(startMs);
-    });
-
-    const marketIds: string[] = [];
-    for (const category of filtered) {
-      for (const market of category.markets ?? []) {
-        if (market.id != null)
-          marketIds.push(String(market.id));
+  async function syncMarketIndex() {
+    const platform = await getCollectPlatform(PLATFORM);
+    const index = isPredictFunMarketIndex(platform?.MarketIndex) ? platform.MarketIndex : null;
+    if (!index?.entries?.length) {
+      if (lastIndexUpdatedAt !== 0) {
+        marketsByCategory.clear();
+        marketIdToCategory.clear();
+        wsHandle.subscribeMarketIds([]);
+        lastIndexUpdatedAt = 0;
       }
-    }
-    const books = await fetchPredictOrderbooks(marketIds);
-    const buyPrices: Record<string, number> = {};
-    for (const [id, book] of Object.entries(books)) {
-      const ask = bestAskFromPredictBook(book);
-      if (ask > 0 && ask < 1)
-        buyPrices[id] = ask;
-    }
-
-    const candidates: PredictMappedMarket[] = [];
-    for (const category of filtered) {
-      const mapped = buildPredictMappedMarket(category, buyPrices);
-      if (mapped)
-        candidates.push(mapped);
-      if (candidates.length >= MAX_TRACKED_MARKETS)
-        break;
-    }
-    if (!candidates.length)
       return;
+    }
+    if (index.updatedAt === lastIndexUpdatedAt)
+      return;
+    lastIndexUpdatedAt = index.updatedAt;
 
-    const matches = [...new Map(candidates.map(row => [String(row.match.SourceMatchID), row.match])).values()];
-    const saved = await collect.saveMatch(PLATFORM, matches);
-    const shouldSaveBets = saved && Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS;
-
-    const betsByMatch = new Map<string, CollectBetDto[]>();
-    for (const mapped of candidates) {
-      marketsByCategory.set(mapped.categoryId, mapped);
-      marketIdToCategory.set(mapped.homeMarketId, mapped.categoryId);
-      marketIdToCategory.set(mapped.awayMarketId, mapped.categoryId);
+    const marketIds = applyPredictFunMarketIndex(index, {
+      marketsByCategory,
+      marketIdToCategory,
+    });
+    for (const mapped of marketsByCategory.values()) {
       saveBetOddsToFo(mapped.bet, "http", {
-        home: buyPrices[mapped.homeMarketId],
-        away: buyPrices[mapped.awayMarketId],
-      }, {
         home: mapped.homeMarketId,
         away: mapped.awayMarketId,
       });
-      if (shouldSaveBets) {
-        const sid = String(mapped.match.SourceMatchID);
-        if (!betsByMatch.has(sid))
-          betsByMatch.set(sid, []);
-        betsByMatch.get(sid)!.push(mapped.bet);
-      }
-    }
-    if (shouldSaveBets) {
-      for (const [sid, bets] of betsByMatch)
-        await collect.saveBets(PLATFORM, sid, bets);
-      lastSaveBetsAt = Date.now();
     }
     matchStore.refreshOddsOnBets();
-    wsHandle.subscribeMarketIds(trackedMarketIds());
-  };
+    wsHandle.subscribeMarketIds(marketIds.length ? marketIds : trackedMarketIds());
+  }
 
   let stopped = false;
   const loop = async () => {
     while (!stopped) {
       try {
-        await runDiscovery();
+        await syncMarketIndex();
       }
       catch (err) {
-        console.warn("[PredictFun] collect error", err);
+        console.warn("[PredictFun] index sync error", err);
         notifyCollectError("PredictFun", err);
       }
-      await wait(DISCOVERY_MS);
+      await wait(INDEX_SYNC_MS);
     }
   };
 

@@ -20,7 +20,7 @@
 | `r1` 鈥?`r5` | 1 鈥?5 | 鍦板浘 N |
 
 ## 鐩樺彛灞?
-閫夌洏瑙勫垯瑙?[`MARKETS.md`](../../MARKETS.md) / [`shared/market_catalog.json`](../../shared/market_catalog.json)锛坄match_winner` 鈫?RAY `group_name` 鍖归厤 `^鑾疯儨鑰?`锛夈€?
+选盘规则见 [docs/CATALOG.md](../../../../docs/CATALOG.md) §4 / [`market_catalog.json`](../../../../packages/shared/catalog/market_catalog.json)（`match_winner` → RAY `group_name` 匹配 `^获胜者`）。
 | API 瀛楁 | 鍚箟 | Feed |
 |----------|------|------|
 | `group_name` | 鐜╂硶鍚?| 浠呬繚鐣?catalog 涓?RAY 瑙勫垯鍛戒腑鐨勮 |

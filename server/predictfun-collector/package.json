@@ -1,0 +1,20 @@
+{
+  "name": "@changmen/predictfun-collector",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VPS daemon: Predict.fun REST → platform_matches/platform_bets + market index",
+  "exports": {
+    ".": "./index.js",
+    "./parse.js": "./parse.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test parse.test.mjs"
+  },
+  "dependencies": {
+    "@changmen/db": "*",
+    "@changmen/shared": "*",
+    "@changmen/storage": "*"
+  }
+}

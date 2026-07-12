@@ -1,0 +1,29 @@
+{
+  "code": "esport",
+  "kind": "sport",
+  "status": "active",
+  "linePath": "lines/esport",
+  "sportRef": "esport",
+  "components": {
+    "web": "client/web",
+    "venueAdapter": "client/venue-adapter",
+    "api": "server/backend",
+    "matcher": "server/matcher",
+    "matchEngine": "server/match-engine",
+    "teamResolver": "server/team-resolver",
+    "collectors": [
+      "server/polymarket-sports",
+      "server/predictfun-collector"
+    ]
+  },
+  "capabilities": [
+    "arbitrage",
+    "value-scan",
+    "match-merge"
+  ],
+  "pm2Apps": [
+    "changmen-esport",
+    "changmen-pm-sports",
+    "changmen-predictfun-collector"
+  ]
+}

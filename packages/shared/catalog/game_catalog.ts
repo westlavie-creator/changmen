@@ -1,7 +1,10 @@
 import catalog from "./game_catalog.json" with { type: "json" };
 
+export const DEFAULT_GAME_SPORT = "esport";
+
 interface GameEntry {
   code: string;
+  sport?: string;
   name: string;
   nameEn: string;
   a8GameId?: number;
@@ -93,6 +96,14 @@ function listGames(): GameEntry[] {
 
 function getGameByCode(code: string): GameEntry | null {
   return (catalog.games as GameEntry[]).find(g => g.code === code) || null;
+}
+
+/** game_catalog.code → sport；缺省 esport */
+function getGameSport(code: string): string | null {
+  const game = getGameByCode(code);
+  if (!game)
+    return null;
+  return game.sport ?? DEFAULT_GAME_SPORT;
 }
 
 function normalizePlatformKey(platform: string): string {
@@ -270,6 +281,7 @@ export {
   getCatalogSummary,
   getGameByCode,
   getGameCodeForPlatformId,
+  getGameSport,
   getPlatformGameId,
   isAllowedPlatformGameId,
   listGames,

@@ -43,11 +43,36 @@ export interface ObGameOddTypeSpec {
   map: string;
 }
 
+/** [changmen 扩展] VPS predictfun-collector 写入，浏览器 WS 订阅用 */
+export interface PredictFunMarketIndexEntry {
+  sourceMatchId: string;
+  categoryId: string;
+  homeMarketId: string;
+  awayMarketId: string;
+  homeTokenId: string;
+  awayTokenId: string;
+  sourceBetId: string;
+  homeName: string;
+  awayName: string;
+  homeOdds: number;
+  awayOdds: number;
+  status: string;
+}
+
+/** [changmen 扩展] predictfun_market_index.json */
+export interface PredictFunMarketIndex {
+  updatedAt: number;
+  marketIds: string[];
+  entries: PredictFunMarketIndexEntry[];
+}
+
 export interface CollectPlatformInfo {
   Gateway: string;
   Token: string;
   BetName: string;
   GameOddTypes?: Record<string, ObGameOddTypeSpec>;
+  /** [changmen 扩展] PredictFun VPS 采集索引 */
+  MarketIndex?: PredictFunMarketIndex | null;
 }
 
 export interface BetSourceDto {

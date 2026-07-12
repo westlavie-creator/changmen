@@ -10,8 +10,7 @@ if [ -z "${CADDY_SRC:-}" ]; then
   for candidate in \
     /root/Caddyfile \
     /root/changmen/deploy/Caddyfile \
-    /root/changmen/vps/Caddyfile \
-    /root/gamebet/vps/Caddyfile \
+    /root/gamebet/deploy/Caddyfile \
     /root/changmen/changmen/scripts/Caddyfile \
     /root/gamebet/changmen/scripts/Caddyfile; do
     if [ -f "$candidate" ]; then

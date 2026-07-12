@@ -9,15 +9,23 @@ changmen/
 ├── client/
 │   ├── web/                     # Vue 控制台
 │   ├── chrome-extension/        # MV3 扩展
-│   └── venue-adapter/        # @changmen/venue-adapter
+│   └── venue-adapter/             # @changmen/venue-adapter
 ├── server/
 │   ├── backend/                 # HTTP API、代理、静态托管
+│   │   └── scripts/             # 常驻运维；ops/；archive/
+│   ├── collectors/              # VPS daemon 规划归集（README；包尚未迁入）
 │   ├── matcher/                 # 调度循环 + 人工关联 UI
 │   ├── db/                      # @changmen/db
 │   ├── match-engine/            # @changmen/match-engine
-│   └── team-resolver/           # @changmen/team-resolver
-├── devtools/
-│   └── platform-probes/         # @changmen/platform-probes（可选探针 CLI）
+│   ├── team-resolver/           # @changmen/team-resolver
+│   ├── polymarket-sports/       # PM Sports WS daemon
+│   └── predictfun-collector/    # Predict.fun REST daemon
+├── scripts/
+│   ├── fixtures/                # API 探针快照
+│   └── archive/                 # 废弃仓级脚本
+├── deploy/scripts/              # VPS bash（canonical）
+├── lines/                       # 产品线锚点（line.json；电竞代码仍在根）
+├── devtools/platform-probes/    # 可选探针 CLI
 ├── packages/
 │   ├── shared/                  # @changmen/shared
 │   └── api-contract/            # HTTP 契约
@@ -120,9 +128,10 @@ embedded：SaveLiveTimer debounce ~3s 触发 matchMerge（`MATCHER_TIMER_DEBOUNC
 ## 相关文档
 
 - [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) — 两团队 monorepo 边界
+- [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md) — 产品线分层与棒球路线
+- [../lines/README.md](../lines/README.md) — 产品线锚点 `lines/{code}/`
+- [CATALOG.md](./CATALOG.md) — sport / game / market catalog（配置单一入口）
 - [../server/README.md](../server/README.md) — 服务端各 workspace 包与进程
 - [../CLAUDE.md](../CLAUDE.md) — 命令、表结构、采集间隔
-- [../server/backend/GAMES.md](../server/backend/GAMES.md) — 游戏 catalog
-- [../server/backend/MARKETS.md](../server/backend/MARKETS.md) — 玩法选盘
 - [DATA_STORAGE.md](./DATA_STORAGE.md) — RDS / JSON 边界与 **API 数据策略**（memory-first）
 - [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) — 生产部署

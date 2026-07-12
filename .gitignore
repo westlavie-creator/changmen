@@ -3,7 +3,6 @@ A8/
 BAT/
 pingtai_offical/
 obpro/
-vps/
 .claude/
 .gstack/
 
@@ -72,3 +71,17 @@ TJ01.JSON
 a8-capture-report-*.json
 arch-scan-report-*.json
 *.7z
+
+# Repo-root VPS / health probe scratch (local only)
+/_hk_health*.json
+/_sh_health.json
+/_tmp_health_*.html
+/_tmp_mem_probe.mjs
+/_patch_diag.py
+
+# Matcher diagnostic output
+server/matcher/scripts/diag_out.txt
+
+# Local API probe snapshots (see scripts/fixtures/README.md)
+scripts/fixtures/tmp-*.json
+server/backend/tests/_out/

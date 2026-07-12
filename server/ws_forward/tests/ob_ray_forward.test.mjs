@@ -2,6 +2,7 @@ import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { obForwardDefinition } from "../platforms/ob.js";
 import { pmMarketForwardDefinition, pmUserForwardDefinition, PM_MARKET_WS_URL, PM_USER_WS_URL } from "../platforms/pm.js";
+import { predictFunMarketForwardDefinition } from "../platforms/predictfun.js";
 import { rayForwardDefinition, RAY_OFFICIAL_WS_URL } from "../platforms/ray.js";
 
 describe("obForwardDefinition", () => {
@@ -50,5 +51,12 @@ describe("pmForwardDefinitions", () => {
   it("PM-USER browser path and upstream", () => {
     assert.equal(pmUserForwardDefinition.browserPath, "/esport/ws-forward/PM-USER");
     assert.equal(pmUserForwardDefinition.resolveUpstream().url, PM_USER_WS_URL);
+  });
+});
+
+describe("predictFunForwardDefinition", () => {
+  it("PREDICTFUN-MARKET hub path (merged upstream — see predictfun_market_hub.js)", () => {
+    assert.equal(predictFunMarketForwardDefinition.browserPath, "/esport/ws-forward/PREDICTFUN-MARKET");
+    assert.equal(predictFunMarketForwardDefinition.resolveUpstream().url.includes("ws.predict.fun"), true);
   });
 });

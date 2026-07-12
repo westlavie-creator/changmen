@@ -22,6 +22,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 │  server/backend    — esport-api、HTTP 代理、静态 /          │
 │  server/matcher    — 循环写 client_matches                 │
 │  polymarket-sports — Sports WS → client_matches.pm_sport   │
+│  predictfun-collector — Predict.fun REST → platform_* + index │
 │  RDS (PostgreSQL)  — platform_* / client_matches / orders / users  │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -42,8 +43,6 @@ Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `
 | `https://your-domain.com/esport/*` | server/backend（`changmen-esport`） |
 | `https://your-domain.com/v4.0/*` | 平博 v4 透明代理（可选） |
 
-**足球控制台**（本 monorepo `sports/football/`）：同域 `/football/*` → `:3457`，见 [sports/football/README.md](./sports/football/README.md)。
-
 Nginx / Caddy 反代示例要点：
 - 静态 `/` 指向 `client/web/dist/`（推荐由 Caddy `file_server` 托管），或由 `server/backend` 读 `dist` 托管
 
@@ -62,20 +61,17 @@ Nginx / Caddy 反代示例要点：
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
 | API + 合并（`server/backend` 内嵌 matcher） | PM2：`changmen-esport`（`:3456`） | `pm2 restart changmen-esport --update-env` |
 | Polymarket 赛程状态 | PM2：`changmen-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart changmen-pm-sports --update-env` |
-
-足球控制台在 **`sports/football/`**（PM2 `changmen-football`、`:3457`），发版与重启**不包含**在电竞 GHA deploy 内；见 `sports/football/deploy/scripts/deploy-remote.sh`。
+| Predict.fun HTTP 采集 | PM2：`changmen-predictfun-collector`（REST → `platform_*` + `predictfun_market_index.json`） | `pm2 restart changmen-predictfun-collector --update-env` |
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
-### 推荐拓扑（`vps/Caddyfile`）
+### 推荐拓扑（`deploy/Caddyfile`）
 
 ```text
 浏览器 → http://IP:80 (Caddy)
            ├─ /、/assets/     → client/web/dist（前端团队 build）
            └─ /esport/* 等    → 127.0.0.1:3456 (PM2 changmen-esport)
 ```
-
-（可选）同 VPS 合并 `sports/football/deploy/caddy-football-route.txt` 以启用 `/football/*`。
 
 - **前端发版**：`git pull` → `npm run app:build` → 更新 `dist/`（Caddy 直接读磁盘，无需 reload，更不必动 PM2）
 - **后端发版**：`git pull` → `npm install`（若依赖变）→ `pm2 restart changmen-esport`（**不必**重新 `app:build`）
@@ -154,7 +150,7 @@ npm run app:build
 
 ### 3.4 进程
 
-默认长期进程（推荐 PM2）：`changmen-esport`（内嵌 matcher）+ `changmen-pm-sports`。
+默认长期进程（推荐 PM2）：`changmen-esport`（内嵌 matcher）+ `changmen-pm-sports` + `changmen-predictfun-collector`。
 
 ```bash
 cd changmen
@@ -162,11 +158,14 @@ pm2 start deploy/ecosystem.config.cjs
 # 或手动：
 npm run web
 npm run pm-sports   # server/polymarket-sports
+npm run predictfun-collector
 ```
 
-`ecosystem.config.cjs` 注册上述两进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。
+`ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。
 
 `changmen-pm-sports` 连 `wss://sports-api.polymarket.com/ws`，按 `platform_matches` 已有 Polymarket 行关联 `client_matches`，写入 `pm_sport`。**不替代**浏览器 CLOB WS 赔率采集。
+
+`changmen-predictfun-collector` 直连 `api.predict.fun`（`PREDICT_FUN_API_KEY`），写 `platform_matches` / `platform_bets` 与 `predictfun_market_index.json`。浏览器 Predict.fun 采集器**仅**经 `ws-forward` hub 订阅 orderbook → `fo`，不经 http-relay 打 discovery。
 
 生产建议用 systemd / pm2 / Docker Compose 托管，并配置重启策略。
 
@@ -174,7 +173,7 @@ npm run pm-sports   # server/polymarket-sports
 
 Node 探针在 **`@changmen/platform-probes`**（`devtools/platform-probes/`，瘦包同步为 `server/backend/platform_node`），与 `platform_adapter` 并列。**日常开发可不使用。**
 
-**标准部署**（整仓 `git pull` + `npm install`）：`vps/scripts/deploy-server-remote.sh` 负责增量步骤。
+**标准部署**（整仓 `git pull` + `npm install`）：`deploy/scripts/deploy-server-remote.sh` 负责增量步骤；香港扁平同步见 `deploy/scripts/sync-git-to-flat-app.sh`。
 
 **瘦包部署**（仅发布 `server/backend`、无 `packages/` 目录时）：
 

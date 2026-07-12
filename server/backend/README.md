@@ -21,8 +21,7 @@ Windows：`BAT\setup-dev-env.bat`（首次）→ `BAT\dev.bat` 或 `BAT\backend.
 | 数据存储边界 | [docs/DATA_STORAGE.md](../../docs/DATA_STORAGE.md) |
 | 生产部署 | [PRODUCTION_DEPLOYMENT.md](../../PRODUCTION_DEPLOYMENT.md) |
 | 项目共识 / 命令 | [readme.md](../../readme.md) · [CLAUDE.md](../../CLAUDE.md) |
-| 游戏 catalog | [GAMES.md](./GAMES.md) |
-| 玩法选盘 | [MARKETS.md](./MARKETS.md) |
+| 游戏 / 玩法 catalog | [docs/CATALOG.md](../../docs/CATALOG.md) |
 | HTTP / WS 代理 | [proxy/README.md](./proxy/README.md) |
 | 平台适配器 | [client/venue-adapter/README.md](../../client/venue-adapter/README.md) |
 | 新控制台 / v4 | [client/web/docs/CREDIT_PLATE.md](../../client/web/docs/CREDIT_PLATE.md) |

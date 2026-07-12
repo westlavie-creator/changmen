@@ -40,7 +40,7 @@ Core.isMarketLocked({ status, visible, suspended });
 | `visible` | **`1`** | 非 1：前端不展示该盘 |
 | `suspended` | **`0`** | `1`：暂停/封盘（常伴随 `suspended_type`） |
 
-与 A8 采集端、浏览器插件逻辑一致（规则见 [`MARKETS.md`](../../../../server/backend/MARKETS.md) → OB `openWhen`）：
+与 A8 采集端、浏览器插件逻辑一致（规则见 [docs/CATALOG.md](../../../../docs/CATALOG.md) §4 → OB `openWhen`）：
 
 ```javascript
 locked = status !== 6 || visible !== 1 || suspended !== 0
