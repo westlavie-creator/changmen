@@ -58,6 +58,7 @@
 | `scripts/check-team-boundaries.mjs` | 发现各平台浏览器根目录 |
 | `@changmen/venue-adapter/package.json` | `exports["./*"]` 浏览器子路径（I2a） |
 | `client/web/package.json` | workspace 依赖 `@changmen/venue-adapter` |
+| `@changmen/client-core/package.json` | `exports` 白名单（I3g，扫描 web + venue-adapter） |
 
 ---
 
@@ -74,9 +75,11 @@
 
 `client/web` 消费 venue-adapter 时优先 **平台/域 barrel**（`polymarket`、`shared`、`adaptation`、`contract`、`registry`）；深路径清单见 `list:web-imports`；`--check` 校验仅允许 barrel + 文档化 mock 深路径。
 
-`package.json` `exports` 由 `sync-package-exports.mjs` 扫描 web + 包内 import 生成（44 项）；`npm run check:exports --workspace=@changmen/venue-adapter` 防漂移。
+`package.json` `exports` 由 `sync-package-exports.mjs` 扫描 web 消费方生成（19 项）；`npm run check:venue-adapter` 防漂移。
 
-`client/venue-adapter` **包内**统一 `@changmen/venue-adapter/*`（I3d 已移除 `@venue` 别名）。
+`client/venue-adapter` **包内**统一相对路径（I3f）；`exports` 仅保留 web 消费子路径。
+
+`@changmen/client-core` **exports** 由 `packages/client-core/scripts/sync-package-exports.mjs` 扫描 `client/web/src` + `client/venue-adapter` 生成（21 项）；`npm run check:client-core` = exports + 包内相对路径 + 消费方清单校验。
 
 ---
 
@@ -107,6 +110,8 @@
 ```bat
 node server/storage/paths_smoke.test.mjs
 npm run check:boundaries
+npm run check:client-core
+npm run check:venue-adapter
 ```
 
 ---
@@ -115,7 +120,9 @@ npm run check:boundaries
 
 | 日期 | 说明 |
 |------|------|
-| 2026-07-13 | I3e：`exports` 白名单、`check:web-imports`、删 `shared/platform` shim |
+| 2026-07-13 | I3h：下沉 `LoseOrder`、`types/order`、`types/esport` 至 client-core |
+| 2026-07-13 | I3g：`client-core` exports 白名单、`check:client-core`、消费方扫描 |
+| 2026-07-13 | I3f：venue-adapter 包内相对路径、`chrome-extension` 迁根目录 |
 | 2026-07-13 | I3d：venue-adapter 包内 `@venue/*` → `@changmen/venue-adapter/*`；web 移除 `@venue` alias |
 | 2026-07-13 | I3c：删 web `client-core` shim，直连 `@changmen/client-core/*` |
 | 2026-07-13 | I2b：web `@venue/*` → `@changmen/venue-adapter/*` |

@@ -15,14 +15,26 @@
 | 路径 | 内容 |
 |------|------|
 | `src/types/` | CollectConfig、账号、平台 ID 等 |
-| `src/models/` | `match`、`betOption`、`platformAccount` |
+| `src/types/order.ts` | 补单记录、`MakeupRuntimePhase` |
+| `src/types/esport.ts` | `@changmen/api-contract` DTO re-export |
+| `src/models/` | `match`、`betOption`、`betResult`、`loseOrder`、`platformAccount` |
 | `src/shared/` | `http`、`platformHttp`、`hkRelayOrigin`、格式化 |
 | `src/bridge/` | 与 UI store / 插件桥接 |
 | `src/chrome-plugin/` | MV3 content ↔ web 消息 |
 
 HTTP action 名与 DTO 形状见 `@changmen/api-contract`；catalog 见 `@changmen/shared`。
 
-## 边界
+## 包纪律（I3g）
+
+`exports` 由消费方扫描生成，勿手写漂移：
+
+```bat
+npm run list:imports --workspace=@changmen/client-core
+npm run sync:exports --workspace=@changmen/client-core
+npm run check:client-core
+```
+
+根目录 `npm test` 已包含 `check:client-core`（exports + 包内无自引用 + 消费方子路径全覆盖）。
 
 - **不放**服务端或 DB 代码；不 `import` `server/*`
 - 新跨端（web + adapter）类型优先落此包，避免 `client/web` ↔ `venue-adapter` 互引

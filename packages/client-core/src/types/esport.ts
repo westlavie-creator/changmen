@@ -1,3 +1,4 @@
+/** 兼容层：新代码请 `import from "@changmen/api-contract"` */
 export type {
   ApiEnvelope,
   BetRowDto,
@@ -18,4 +19,4 @@ export type {
   UserInfo,
   UserListRow,
   UserProfitRow,
-} from "@changmen/client-core/types/esport";
+} from "@changmen/api-contract";

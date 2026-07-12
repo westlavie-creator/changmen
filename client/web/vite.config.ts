@@ -12,8 +12,13 @@ import {
 } from "../../server/storage/paths.js";
 
 const WEB_ROOT = fileURLToPath(new URL(".", import.meta.url));
+const CLIENT_CORE_SRC = path.resolve(WEB_ROOT, "../../packages/client-core/src");
 const venueAdapterVitestGlob = path
   .relative(WEB_ROOT, VENUE_ADAPTER_ROOT)
+  .split(path.sep)
+  .join("/");
+const clientCoreVitestGlob = path
+  .relative(WEB_ROOT, path.resolve(WEB_ROOT, "../../packages/client-core"))
   .split(path.sep)
   .join("/");
 
@@ -110,6 +115,7 @@ export default defineConfig(({ mode }) => {
     extensions: [".ts", ".tsx", ".mjs", ".js", ".jsx", ".json"],
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "@changmen/client-core": CLIENT_CORE_SRC,
       "@changmen/venue-adapter": VENUE_ADAPTER_ROOT,
       mqtt: fileURLToPath(new URL("../../node_modules/mqtt", import.meta.url)),
       "socket.io-client": fileURLToPath(
@@ -168,6 +174,7 @@ export default defineConfig(({ mode }) => {
       "src/**/*.{test,spec}.{js,mjs,ts}",
       `${venueAdapterVitestGlob}/**/*.{test,spec}.{js,mjs,ts}`,
       `${venueAdapterVitestGlob}/**/shared/**/*.{test,spec}.{js,mjs,ts}`,
+      `${clientCoreVitestGlob}/src/**/*.{test,spec}.{js,mjs,ts}`,
     ],
   },
   };

@@ -20,8 +20,10 @@
 |------|------|----------|
 | `api/` | 封装 `Client_*` 等后端接口 | `api/esport.ts`（barrel）→ `client` / `auth` / `match` / … |
 | `api/v4.ts` | A8 v4 信用盘试玩（平博/OB/SABA） | `enterCreditPlate` — 详见 [docs/CREDIT_PLATE.md](../docs/CREDIT_PLATE.md) |
-| `types/` | DTO、用户配置、纯类型 | `types/collect.ts`, `types/esport.ts` |
-| `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
+| `src/types/` | web 本地类型（`extensionPrefs`、`admin`）；`esport`/`order` 核心形状见 client-core |
+| `src/models/` | web 薄 shim：`match`（`getOrderOptions` 扩展）、`platformAccount`（Pinia）、`loseOrder` re-export |
+| `@changmen/client-core/models` | `ViewMatch`、`BetOption`、`LoseOrder` 等领域类 |
+| `@changmen/client-core/types` | `esport` DTO re-export、`order` 补单记录类型 |
 | `domain/` | **下注编排胶水**（部分纯逻辑在 `@changmen/arb-core`） | `domain/betting` |
 | `client/venue-adapter/` | **平台清单、能力与平台实现**（`@changmen/venue-adapter`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
 | `shared/` | **Web 横切工具**（与采集/下注无关；HTTP/模型见 `@changmen/client-core`） | `betTiming`, `a8MatchTime` |

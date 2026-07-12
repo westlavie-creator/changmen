@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BetResult } from "@changmen/client-core/models/betResult";
+import { BetResult } from "./betResult";
 
 describe("betResult", () => {
   it("message 原样赋值，空值不兜底（对齐 A8 uo）", () => {
