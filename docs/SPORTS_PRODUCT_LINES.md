@@ -220,6 +220,7 @@ server/collectors/
 
 | 日期 | 说明 |
 |------|------|
+| 2026-07-13 | 阶段 2C：`scripts/sync/` 收拢 Telegram / Poly Builder env 同步 |
 | 2026-07-13 | 阶段 2：server 子包 README；`backend/scripts` 再下沉 4 个脚本 |
 | 2026-07-13 | `server/collectors/` 物理迁入：`polymarket-sports`、`predictfun-collector` |
 | 2026-07-13 | P0 文档瘦身：删 `sports/` 空壳、`GAMES/MARKETS`；`docs/archive/`；`docs/README` 文档地图 |

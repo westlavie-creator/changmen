@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 function loadDeployConfig() {
   const cfg = {
@@ -94,7 +94,7 @@ const remoteCmd = [
 ].join(" && ");
 
 console.log(
-  `Sync Telegram env to ${deploy.user}@${deploy.host}:${deploy.repo}/changmen/server/backend/.env`,
+  `Sync Telegram env to ${deploy.user}@${deploy.host}:${deploy.repo}/server/backend/.env`,
 );
 
 const result = spawnSync(

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Piped from sync-telegram-env.mjs — upsert Telegram admin vars on VPS .env
+# Piped from scripts/sync/sync-telegram-env.mjs — upsert Telegram admin vars on VPS .env
 set -euo pipefail
 
 ENV_FILE="${DEPLOY_REPO:-/root/changmen}/server/backend/.env"

@@ -168,7 +168,7 @@ async function checkTelegram(userName) {
       .join(", ");
     fail(
       "telegram env",
-      `缺少 ${missing}（server/backend/.env；可 node changmen/scripts/sync-telegram-env.mjs 同步到 VPS）`,
+      `缺少 ${missing}（server/backend/.env；可 node changmen/scripts/sync/sync-telegram-env.mjs 同步到 VPS）`,
     );
     return false;
   }

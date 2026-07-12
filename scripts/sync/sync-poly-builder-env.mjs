@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const DEFAULT_CODE = "0x58ec38dac8719b354dfd2a47d6ac27ab01babea9102a993c1abe4af30ec2883f";
 
 const HOSTS = [
