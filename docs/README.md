@@ -48,4 +48,4 @@
 
 见 [scripts/README.md](../scripts/README.md)（`changmen/scripts/` + `server/backend/scripts/` 索引）。
 
-Windows 启动：[BAT/README.md](../../BAT/README.md)（在仓库根 `gamebet/` 下执行）。
+Windows 启动：[BAT/README.md](../../BAT/README.md)（在**本仓库根**执行；`BAT\` 本地 gitignore，见 [LOCAL_DEV.md](../LOCAL_DEV.md)）。

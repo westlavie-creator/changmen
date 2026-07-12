@@ -93,7 +93,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 日常顺序：`BAT\push-git.bat` → `BAT\deploy-shanghai.bat`（香港随 push 由 GHA 更新）
 
-`BAT\deploy-server.local.bat`（从 `vps\deploy-server.local.bat.example` 复制）可选加速：
+`BAT\deploy-server.local.bat`（首次可由根目录 `deploy-server.env` 复制生成，见 `BAT\deploy-server-core.bat`）可选加速：
 
 | 变量 | 作用 |
 |------|------|

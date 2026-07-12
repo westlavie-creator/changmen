@@ -18,8 +18,12 @@ changmen/
 │   ├── db/                      # @changmen/db
 │   ├── match-engine/            # @changmen/match-engine
 │   ├── team-resolver/           # @changmen/team-resolver
+│   ├── storage/                 # @changmen/storage（本机 JSON 路径）
+│   ├── ws_forward/              # @changmen/ws-forward（backend 挂载）
+│   ├── realtime-hub/            # @changmen/realtime-hub（Socket.IO 推送）
 │   ├── polymarket-sports/       # PM Sports WS daemon
-│   └── predictfun-collector/    # Predict.fun REST daemon
+│   ├── predictfun-collector/    # Predict.fun REST daemon
+│   └── value-bet/               # @changmen/value-bet（正 EV 扫描 daemon）
 ├── scripts/
 │   ├── fixtures/                # API 探针快照
 │   └── archive/                 # 废弃仓级脚本
@@ -28,7 +32,8 @@ changmen/
 ├── devtools/platform-probes/    # 可选探针 CLI
 ├── packages/
 │   ├── shared/                  # @changmen/shared
-│   └── api-contract/            # HTTP 契约
+│   ├── api-contract/            # HTTP 契约
+│   └── client-core/             # @changmen/client-core（web/插件共用 TS）
 └── docs/
 ```
 

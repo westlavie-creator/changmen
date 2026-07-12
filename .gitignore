@@ -72,7 +72,8 @@ a8-capture-report-*.json
 arch-scan-report-*.json
 *.7z
 
-# Repo-root VPS / health probe scratch (local only)
+# Repo-root scratch JSON / probes (local only)
+/_tmp-*.json
 /_hk_health*.json
 /_sh_health.json
 /_tmp_health_*.html
