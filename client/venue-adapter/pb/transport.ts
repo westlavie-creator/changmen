@@ -3,8 +3,8 @@
 import { a8PluginGet, a8PluginPost } from "@changmen/client-core/chrome-plugin/bridge";
 import { buildPbAuthHeaders } from "./auth";
 import { pbOddsUrl } from "./parse";
-import { useAccountStore } from "@venue/shared/webBridge";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { useAccountStore } from "@changmen/venue-adapter/shared/webBridge";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 
 /** 采集层提示文案（A8 无等价常量；仅 collect 侧 UX） */

@@ -1,5 +1,5 @@
 import type { LoseOrder } from "@/models/loseOrder";
-import { opponentSide } from "@/models/betOption";
+import { opponentSide } from "@changmen/client-core/models/betOption";
 import type {
   ActiveBetLeg,
   ActiveBetLegStatus,

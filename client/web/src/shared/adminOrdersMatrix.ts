@@ -1,5 +1,5 @@
 import type { AdminOrderRow } from "@/types/admin";
-import { isSingleLegLink } from "@/shared/format";
+import { isSingleLegLink } from "@changmen/client-core/shared/format";
 import { linkIdGroupKey } from "@/shared/orderLink";
 
 export interface LinkOrderGroup {

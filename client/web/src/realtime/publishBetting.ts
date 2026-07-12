@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import { ensureGoEasyConnected, goeasyPublish } from "@/realtime/goeasyClient";
 import { useUserStore } from "@/stores/userStore";
 

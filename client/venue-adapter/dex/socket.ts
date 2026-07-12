@@ -1,4 +1,4 @@
-import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
+import { reportVenueWsStatus } from "@changmen/venue-adapter/shared/venueWsStatus";
 import { directPostJson } from "@changmen/client-core/shared/http";
 import { DEX_SPORTSBOOK_BASE, DEX_CID, dexSportSlugs } from "./parse";
 

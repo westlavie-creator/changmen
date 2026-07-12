@@ -1,8 +1,8 @@
 import { saveVenueOdds, isVenueOdds, updateVenueBetLock } from "@changmen/client-core/bridge/oddsAccess";
-import { PLATFORMS } from "@venue/shared/platforms";
-import { useMatchStore } from "@venue/shared/webBridge";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { useMatchStore } from "@changmen/venue-adapter/shared/webBridge";
 
-import { iaWsPlayLocked } from "@venue/ia/shared/parse_fields";
+import { iaWsPlayLocked } from "@changmen/venue-adapter/ia/shared/parse_fields";
 import type { IaRealtimeMessage } from "./realtime";
 
 const PLATFORM = PLATFORMS.IA;

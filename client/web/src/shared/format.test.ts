@@ -15,7 +15,7 @@ import {
   percent,
   toFixed,
   VALUE_BET_LINK_BASE,
-} from "./format";
+} from "@changmen/client-core/shared/format";
 
 describe("format shared helpers", () => {
   it("rounds display odds to three decimals and drops invalid values", () => {

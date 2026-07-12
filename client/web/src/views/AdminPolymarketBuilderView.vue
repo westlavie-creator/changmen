@@ -9,7 +9,7 @@ import { useRouter } from "vue-router";
 import { getAdminPolymarketBuilder } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import { todayKey } from "@/shared/dateKey";
-import { toFixed } from "@/shared/format";
+import { toFixed } from "@changmen/client-core/shared/format";
 import { useUserStore } from "@/stores/userStore";
 
 const router = useRouter();

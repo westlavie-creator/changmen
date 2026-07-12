@@ -1,6 +1,6 @@
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import type { PlatformId } from "@changmen/api-contract";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import {
   getDefaultMarketCode,
   getPlatformRules,

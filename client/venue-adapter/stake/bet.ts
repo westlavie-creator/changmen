@@ -5,11 +5,11 @@ import type { PlatformAccount } from "@changmen/client-core/models/platformAccou
 export const STAKE_USDT_TO_CNY = 6.977023058793687;
 import { stakeAccountHeaders, stakePluginGraphql } from "./pluginApi";
 import { getStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@venue/contract";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@changmen/venue-adapter/contract";
 import type { LimitEntry } from "@changmen/client-core/types/limit";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import { toFixed } from "@changmen/client-core/shared/format";
-import { useAccountStore } from "@venue/shared/webBridge";
+import { useAccountStore } from "@changmen/venue-adapter/shared/webBridge";
 
 const BET_THROTTLE_MS = 30_000;
 const lastBetAtByMarket = new Map<string, number>();

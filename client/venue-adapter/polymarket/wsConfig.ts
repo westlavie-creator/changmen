@@ -1,4 +1,4 @@
-import { changmenHttpBaseToWs } from "@venue/shared/changmenWsBase";
+import { changmenHttpBaseToWs } from "@changmen/venue-adapter/shared/changmenWsBase";
 import { resolveHkRelayHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
 import { POLYMARKET_MARKET_WS, POLYMARKET_USER_WS } from "./api";
 import { getPmMarketWsSourceMode } from "./pmMarketWsMode";

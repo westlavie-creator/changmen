@@ -1,11 +1,11 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import {
   resolvePlanCnyFromVenueOrder,
   resolvePlanCnyFromVenueStake,
 } from "@changmen/venue-adapter/adaptation";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 
 function pickVenueOrderForMakeUpReference(
   venueOrders: VenueOrder[],

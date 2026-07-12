@@ -1,5 +1,5 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
+import { reportVenueWsStatus } from "@changmen/venue-adapter/shared/venueWsStatus";
 import type { PolymarketOrderRow } from "./orderTypes";
 import { polymarketUserSubscribeMessage, polymarketUserSubscribeMoreMessage } from "./api";
 import { resolvePolymarketUserWsUrl } from "./wsConfig";

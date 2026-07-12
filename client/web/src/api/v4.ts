@@ -1,6 +1,6 @@
 import type { PlatformId } from "@/types/esport";
 import { ElLoading, ElMessage, ElMessageBox } from "element-plus";
-import { a8PluginPost, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { a8PluginPost, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { gamebetExtensionId } from "@/config/gamebetExtension";
 import { useUserStore } from "@/stores/userStore";
 

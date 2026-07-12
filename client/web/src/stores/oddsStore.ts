@@ -1,5 +1,5 @@
 import type { PlatformId } from "@/types/esport";
-import type { LimitEntry } from "@/types/limit";
+import type { LimitEntry } from "@changmen/client-core/types/limit";
 /**
  * 实时赔率缓存（对齐 A8 `Qn()` / match store 内 `p=Qn()`；Pinia id `"counter"`）。
  * changmen Pinia id 为 `"odds"`。勿与 A8 `fo()`（账号 store）混淆。
@@ -13,8 +13,8 @@ import type { LimitEntry } from "@/types/limit";
  */
 import { defineStore } from "pinia";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
-import { formatDisplayOdds } from "@/shared/format";
-import { PLATFORMS } from "@/shared/platform";
+import { formatDisplayOdds } from "@changmen/client-core/shared/format";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 
 /** 写入赔率缓存的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
 export type OddsSaveSource = "mqtt" | "http";

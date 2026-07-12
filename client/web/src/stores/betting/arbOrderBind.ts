@@ -1,8 +1,8 @@
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
-import type { BetResult } from "@/models/betResult";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { saveOrderBind } from "@/api/esport";
-import { wait } from "@/shared/wait";
+import { wait } from "@changmen/client-core/shared/wait";
 
 const BIND_RETRY_TIMES = 3;
 const BIND_RETRY_GAP_MS = 400;

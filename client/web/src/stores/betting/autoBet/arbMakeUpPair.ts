@@ -1,4 +1,4 @@
-import type { BetResult } from "@/models/betResult";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 
 export type ArbMakeUpEnqueueSide = "enqueueA" | "enqueueB";
 

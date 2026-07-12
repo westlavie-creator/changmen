@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ObArbOddsAnalyticsPayload } from "@/api/admin";
 import { computed, ref } from "vue";
-import { toFixed } from "@/shared/format";
+import { toFixed } from "@changmen/client-core/shared/format";
 
 const props = defineProps<{
   data: ObArbOddsAnalyticsPayload | null | undefined;

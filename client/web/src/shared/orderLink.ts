@@ -1,7 +1,7 @@
 import type { LoseOrderCancelledRecord, OrderRow } from "@/types/order";
 import type { LoseOrder } from "@/models/loseOrder";
 import { hasOpenPolymarketPosition } from "@changmen/venue-adapter/polymarket";
-import { formatLinkId, isSingleLegLink, orderLinkSortKey, toFixed } from "@/shared/format";
+import { formatLinkId, isSingleLegLink, orderLinkSortKey, toFixed } from "@changmen/client-core/shared/format";
 
 /** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
 export function linkIdGroupKey(link: number | null | undefined): number {

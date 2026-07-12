@@ -1,7 +1,7 @@
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BetOption } from "@/models/betOption";
-import { BetResult } from "@/models/betResult";
+import { BetOption } from "@changmen/client-core/models/betOption";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
 
 const enqueueMakeUpOrder = vi.hoisted(() => vi.fn());

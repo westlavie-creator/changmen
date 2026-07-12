@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ElMessageBox } from "element-plus";
 import { storeToRefs } from "pinia";
-import { formatDate } from "@/shared/format";
+import { formatDate } from "@changmen/client-core/shared/format";
 import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/lose-order.css";

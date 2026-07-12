@@ -1,4 +1,4 @@
-import type { UpdateBalanceResult } from "@/types/account";
+import type { UpdateBalanceResult } from "@changmen/client-core/types/account";
 /**
  * A8 bundle `Vt` 门面：Client_GetData / Client_SaveData / Client_UpdateBalance。
  * 账号 KV 键 HF = "ACCOUNT"（Io store loadAccounts / saveAccounts）。

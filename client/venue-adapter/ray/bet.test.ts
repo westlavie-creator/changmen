@@ -14,7 +14,7 @@ vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
   writeVenueOdds: vi.fn(),
 }));
 
-vi.mock("@venue/shared/webBridge", () => ({
+vi.mock("@changmen/venue-adapter/shared/webBridge", () => ({
   useMessageStore: () => ({
     limitMessage: () => "限红",
   }),

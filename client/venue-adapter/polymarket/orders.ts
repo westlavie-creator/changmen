@@ -1,8 +1,8 @@
-import type { VenueOrder } from "@venue/contract";
-import { sortVenueOrdersNewestFirst } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
+import { sortVenueOrdersNewestFirst } from "@changmen/venue-adapter/contract";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { getExchange, Currency, scaleUsdtToCnyDisplay } from "@changmen/shared/currency";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import { POLYMARKET_CLOB_API, POLYMARKET_GAMMA_API } from "./api";
 import {
   collectPolymarketUserAddressesFromAccount,

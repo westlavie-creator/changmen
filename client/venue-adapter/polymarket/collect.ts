@@ -1,10 +1,10 @@
 import { saveVenueOdds, getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
-import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@venue/shared/webBridge";
-import { useMatchStore } from "@venue/shared/webBridge";
+import { notifyCollectError } from "@changmen/venue-adapter/shared/collectNotify";
+import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useMatchStore } from "@changmen/venue-adapter/shared/webBridge";
 
 import {
   fetchBatchBuyPrices,

@@ -10,7 +10,7 @@ import {
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminObArbOddsSection from "@/components/admin/AdminObArbOddsSection.vue";
 import { todayKey } from "@/shared/dateKey";
-import { toFixed } from "@/shared/format";
+import { toFixed } from "@changmen/client-core/shared/format";
 import { useUserStore } from "@/stores/userStore";
 
 const router = useRouter();

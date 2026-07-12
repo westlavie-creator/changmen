@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, test } from "vitest";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";

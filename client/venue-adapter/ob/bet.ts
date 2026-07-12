@@ -2,12 +2,12 @@ import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@venue/contract";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@changmen/venue-adapter/contract";
 import { accountGet, accountPostForm } from "./accountHttp";
 import { formatDateKey, toFixed } from "@changmen/client-core/shared/format";
 import { md5 } from "@changmen/client-core/shared/md5";
 import { wait } from "@changmen/client-core/shared/wait";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 
 function noteObCheckFailure(account: PlatformAccount, msg: string) {
   if (/redis: nil/.test(msg)) {

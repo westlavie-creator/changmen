@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { ArbBetAttemptParams, ArbBetChecked, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
 import { isSingleLegPrecheckOnly } from "@/domain/betting/singleLegRate";
 import { shouldSkipAccountRateOnStakeScale } from "@/extensions/arbBet/stakeScaleByProfit";
@@ -6,9 +6,9 @@ import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTr
 import { a8Tip } from "@/shared/a8Notify";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { arbBetToastSeconds } from "@/shared/betTiming";
-import { wait } from "@/shared/wait";
+import { wait } from "@changmen/client-core/shared/wait";
 import { getPolymarketPmSportBlockReasonFromOption } from "@changmen/venue-adapter/polymarket";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import {

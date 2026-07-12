@@ -5,13 +5,13 @@
  * 仅在 checkBetting 边界与读场馆单时调用本模块，不改动 A8 公式。
  */
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import {
   getExchange,
   scaleUsdtToCnyDisplay,
 } from "@changmen/shared/currency";
 import { isPolymarketProvider } from "@changmen/shared/account_multiply";
-import { polymarketCnyFromUsdt, polymarketUsdtFromCny } from "@venue/polymarket/pmStake";
+import { polymarketCnyFromUsdt, polymarketUsdtFromCny } from "@changmen/venue-adapter/polymarket/pmStake";
 
 function venueToPlanExchange(account: PlatformAccount): number {
   return getExchange(account.currency);

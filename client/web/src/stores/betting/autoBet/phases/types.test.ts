@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { resolveArbLegPlaceOutcome } from "@/stores/betting/autoBet/phases/types";
 
 describe("resolveArbLegPlaceOutcome", () => {

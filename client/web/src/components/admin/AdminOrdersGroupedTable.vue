@@ -2,7 +2,7 @@
 import type { AdminOrderRow } from "@/types/admin";
 import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
-import { formatLinkId, isSingleLegLink, isValueBetLink } from "@/shared/format";
+import { formatLinkId, isSingleLegLink, isValueBetLink } from "@changmen/client-core/shared/format";
 import { formatLinkIdFull } from "@/shared/linkDisplay";
 
 const props = defineProps<{

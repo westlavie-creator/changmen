@@ -1,6 +1,6 @@
 import type { BetSide } from "@/models/match";
 import type { LoseOrderRecord, MakeupRuntimePhase } from "@/types/order";
-import { toFixed } from "@/shared/format";
+import { toFixed } from "@changmen/client-core/shared/format";
 
 /** 对齐 A8 bundle `eb`（补单队列项） */
 export class LoseOrder implements LoseOrderRecord {

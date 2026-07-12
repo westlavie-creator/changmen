@@ -6,7 +6,7 @@ import { deleteMoneyLog, getMoneyLogs } from "@/api/esport";
 import MoneyInfoDialog from "@/components/account/MoneyInfoDialog.vue";
 import MoneyRiskView from "@/components/account/MoneyRiskView.vue";
 import { Currency, getExchange } from "@/shared/currency";
-import { formatDate } from "@/shared/format";
+import { formatDate } from "@changmen/client-core/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 
 /** 对齐 A8 bundle `MoneyView`（fDe） */

@@ -1,5 +1,5 @@
 import GoEasy from "goeasy";
-import { wait } from "@/shared/wait";
+import { wait } from "@changmen/client-core/shared/wait";
 
 /** 对齐 A8 bundle `N8e` / `hangzhou.goeasy.io` */
 const GOEASY_APPKEY = "BC-f7e9e309dbe5400eb34041afd4a0c6ad";

@@ -16,7 +16,7 @@ vi.mock("socketcluster-client", () => ({
   },
 }));
 
-vi.mock("@venue/shared/changmenWsBase", () => ({
+vi.mock("@changmen/venue-adapter/shared/changmenWsBase", () => ({
   resolveChangmenWsBase: () => "http://127.0.0.1:3560",
 }));
 

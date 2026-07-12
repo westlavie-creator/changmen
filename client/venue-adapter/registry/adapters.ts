@@ -1,30 +1,30 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { CollectorFactory, PlatformAdapter, PlatformProvider } from "@venue/contract";
+import type { CollectorFactory, PlatformAdapter, PlatformProvider } from "@changmen/venue-adapter/contract";
 import type { PlatformId } from "@changmen/api-contract";
-import { withA8ResolveLegOutcome } from "@venue/adaptation/a8LegOutcome";
-import { azuroAdapter } from "@venue/azuro";
-import { predictFunAdapter } from "@venue/predictfun";
-import { dexAdapter } from "@venue/dex";
-import { hgAdapter } from "@venue/hg";
-import { iaAdapter } from "@venue/ia";
-import { imAdapter } from "@venue/im";
-import { imtAdapter } from "@venue/imt";
-import { limitlessAdapter } from "@venue/limitless";
-import { obAdapter } from "@venue/ob";
-import { pbAdapter } from "@venue/pb";
-import { polymarketAdapter } from "@venue/polymarket";
-import { rayAdapter } from "@venue/ray";
-import { sabaAdapter } from "@venue/saba";
-import { sxbetAdapter } from "@venue/sxbet";
-import { stakeAdapter } from "@venue/stake";
-import { tfAdapter } from "@venue/tf";
-import { xbetAdapter } from "@venue/xbet";
+import { withA8ResolveLegOutcome } from "@changmen/venue-adapter/adaptation/a8LegOutcome";
+import { azuroAdapter } from "@changmen/venue-adapter/azuro";
+import { predictFunAdapter } from "@changmen/venue-adapter/predictfun";
+import { dexAdapter } from "@changmen/venue-adapter/dex";
+import { hgAdapter } from "@changmen/venue-adapter/hg";
+import { iaAdapter } from "@changmen/venue-adapter/ia";
+import { imAdapter } from "@changmen/venue-adapter/im";
+import { imtAdapter } from "@changmen/venue-adapter/imt";
+import { limitlessAdapter } from "@changmen/venue-adapter/limitless";
+import { obAdapter } from "@changmen/venue-adapter/ob";
+import { pbAdapter } from "@changmen/venue-adapter/pb";
+import { polymarketAdapter } from "@changmen/venue-adapter/polymarket";
+import { rayAdapter } from "@changmen/venue-adapter/ray";
+import { sabaAdapter } from "@changmen/venue-adapter/saba";
+import { sxbetAdapter } from "@changmen/venue-adapter/sxbet";
+import { stakeAdapter } from "@changmen/venue-adapter/stake";
+import { tfAdapter } from "@changmen/venue-adapter/tf";
+import { xbetAdapter } from "@changmen/venue-adapter/xbet";
 import {
   betPlatformIds,
   collectPlatformIds,
   getPlatformMeta,
   platformSupportsBet,
-} from "@venue/registry";
+} from "./meta";
 
 /** 全平台适配器 — 对齐 A8 `bf.GetProvider` 注册表 */
 export const PLATFORM_ADAPTERS: PlatformAdapter[] = [

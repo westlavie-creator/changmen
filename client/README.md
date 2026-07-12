@@ -82,7 +82,7 @@ matchStore.runMainLoopTick()
 | 启动采集 | `web/src/runtime/collectors.ts` |
 | 注册 provider | `web/src/runtime/providers.ts` |
 
-Vite 别名：`@venue` → `client/venue-adapter`。
+Vite 别名：`@changmen/venue-adapter` → `client/venue-adapter`。
 
 ---
 
@@ -102,7 +102,7 @@ Vite 别名：`@venue` → `client/venue-adapter`。
 
 ## 已知结构债（优化方向）
 
-1. ~~**`venue-adapter` 反向依赖 `web/src` stores**~~ → `@venue/shared/webBridge` 注入（2026-07）
+1. ~~**`venue-adapter` 反向依赖 `web/src` stores**~~ → `@changmen/venue-adapter/shared/webBridge` 注入（2026-07）
 2. ~~**`venue-adapter` 反向依赖 `@/models` / `@/types` / `@/shared`**~~ → `@changmen/client-core`（2026-07 阶段 3a）
 3. ~~**`venue-adapter` 经 `webBridge.useOddsStore` 读写 fo**~~ → `@changmen/client-core/bridge/oddsAccess`（2026-07 阶段 3b）
 4. ~~**`configStore` / `bettingStore` 门面**~~ → 直接 `useUserStore` / `useMatchStore`（2026-07 阶段 3c）

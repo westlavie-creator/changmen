@@ -1,13 +1,13 @@
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { bindArbLegOrder, resolveArbBindOrderId } from "./arbOrderBind";
 
 const saveOrderBind = vi.hoisted(() => vi.fn());
 const wait = vi.hoisted(() => vi.fn(async () => {}));
 
 vi.mock("@/api/esport", () => ({ saveOrderBind }));
-vi.mock("@/shared/wait", () => ({ wait }));
+vi.mock("@changmen/client-core/shared/wait", () => ({ wait }));
 
 function makeVenueOrder(
   partial: Pick<VenueOrder, "orderId" | "status" | "odds" | "betMoney">,

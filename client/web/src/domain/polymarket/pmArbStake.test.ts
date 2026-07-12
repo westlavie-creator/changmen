@@ -1,10 +1,10 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import {
   hedgeStakeCnyFromLeg,
   legStakeCny,
   splitPmA8Legs,
 } from "@/domain/polymarket/pmArbStake";
-import { BetOption as BetOptionClass } from "@/models/betOption";
+import { BetOption as BetOptionClass } from "@changmen/client-core/models/betOption";
 import { PlatformAccount as PlatformAccountClass } from "@/models/platformAccount";
 import { describe, expect, it } from "vitest";
 

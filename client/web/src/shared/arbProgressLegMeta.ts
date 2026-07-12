@@ -1,9 +1,9 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbProgressLegMeta } from "@/stores/betting/autoBet/arbExecutionTrace";
 import { buildPolymarketArbProgressMeta } from "@/domain/polymarket/arbProgressPmMeta";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 
 export function buildArbProgressLegMeta(
   side: ArbProgressLegMeta["side"],

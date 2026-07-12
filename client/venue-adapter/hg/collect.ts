@@ -1,7 +1,7 @@
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
-import { useCollectStore } from "@venue/shared/webBridge";
-import { useAccountStore } from "@venue/shared/webBridge";
+import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useAccountStore } from "@changmen/venue-adapter/shared/webBridge";
 
 const POLL_MS = 60_000;
 

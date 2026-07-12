@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import { describe, expect, it } from "vitest";
 import { resolveMakeUpSuccessReference } from "@/stores/betting/makeUpReference";
 

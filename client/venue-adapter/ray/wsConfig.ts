@@ -1,5 +1,5 @@
 import { RAY_A8_COLLECT, RAY_WS } from "./a8Collect";
-import { resolveChangmenWsBase } from "@venue/shared/changmenWsBase";
+import { resolveChangmenWsBase } from "@changmen/venue-adapter/shared/changmenWsBase";
 
 /** A8 `bQe` oqe [A8 可证实] */
 export const RAY_A8_WS = {

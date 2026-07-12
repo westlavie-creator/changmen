@@ -1,9 +1,9 @@
 import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@venue/contract";
-import { useMessageStore } from "@venue/shared/webBridge";
+import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "@changmen/venue-adapter/contract";
+import { useMessageStore } from "@changmen/venue-adapter/shared/webBridge";
 import { getCurrency } from "@changmen/shared/currency";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
 import { iaBetHeaders, iaGatewayPath, iaMrPost } from "./bet_transport";
 

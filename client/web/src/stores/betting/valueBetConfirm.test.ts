@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calcEdge, removVig } from "@/extensions/valueBet/evCalc";
 import { isValueBetPositiveEdge } from "@/extensions/valueBet/computeValueBetEdge";
-import { createValueBetLinkId, formatLinkId, isValueBetLink } from "@/shared/format";
+import { createValueBetLinkId, formatLinkId, isValueBetLink } from "@changmen/client-core/shared/format";
 import { buildValueBetConfirmPromptMessage } from "@/stores/betting/valueBetConfirm";
 
 describe("isValueBetPositiveEdge", () => {

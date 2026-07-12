@@ -7,10 +7,10 @@ import {
   isValueBetPositiveEdge,
 } from "@/extensions/valueBet/computeValueBetEdge";
 import { readValueBetMoney } from "@/extensions/valueBet/valueBetStake";
-import { BetOption } from "@/models/betOption";
-import { createValueBetLinkId, toFixed } from "@/shared/format";
+import { BetOption } from "@changmen/client-core/models/betOption";
+import { createValueBetLinkId, toFixed } from "@changmen/client-core/shared/format";
 import { manualBetToastSeconds } from "@/shared/betTiming";
-import { wait } from "@/shared/wait";
+import { wait } from "@changmen/client-core/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
 import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import {

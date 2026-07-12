@@ -1,7 +1,7 @@
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 
 import { settleArbLeg } from "./arbLegSettle";
 

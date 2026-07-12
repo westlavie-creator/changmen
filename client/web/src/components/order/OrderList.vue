@@ -2,7 +2,7 @@
 import { ElMessageBox } from "element-plus";
 import type { OrderRow } from "@/types/order";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
-import { formatDisplayOdds, formatOrderTime, toFixed } from "@/shared/format";
+import { formatDisplayOdds, formatOrderTime, toFixed } from "@changmen/client-core/shared/format";
 import {
   isPmOrderListRow,
   pmOrderFillPriceText,

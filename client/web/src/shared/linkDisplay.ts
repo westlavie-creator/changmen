@@ -3,7 +3,7 @@ import {
   classifyLinkId,
   linkIdSourceLabel,
   type LinkIdSource,
-} from "@/shared/format";
+} from "@changmen/client-core/shared/format";
 import { isLinkedArbOrderGroup, isMakeupSyntheticOrderRow } from "@/shared/orderLink";
 
 /** 与 admin / 侧栏共用的 Link 类型徽标 */

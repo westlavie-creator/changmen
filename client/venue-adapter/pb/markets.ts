@@ -1,6 +1,6 @@
 import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
 import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 
 import { setPbLineId } from "./lineCache";
 import { pbTeamLogo, type PbParsedMatch } from "./parse";

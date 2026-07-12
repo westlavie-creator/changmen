@@ -24,7 +24,21 @@ client/venue-adapter/
 
 ```bat
 npm run list:web-imports --workspace=@changmen/venue-adapter
+npm run check:web-imports --workspace=@changmen/venue-adapter
 ```
+
+`package.json` `exports` 由扫描生成（勿手改）：
+
+```bat
+npm run sync:exports --workspace=@changmen/venue-adapter
+npm run check:exports --workspace=@changmen/venue-adapter
+```
+
+**web 深路径（仅 vitest mock）**：`polymarket/orderSettlement`、`polymarket/settlementJob`、`polymarket/orders`、`shared/rejectWait`。
+
+**web 运行时单点深路径**：`registry/adapters`（`runtime/venueAdapters.ts`，避免 `registry` barrel 拉起全平台图）。
+
+`PLATFORMS` 常量从 `@changmen/venue-adapter/shared` 导入；`ALL_PLATFORMS` / manifest 元数据从 `@changmen/venue-adapter/registry`。
 
 ## 测试
 

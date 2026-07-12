@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { resolveVenueLegOutcome } from "./resolveVenueLegOutcome";
 
 const getProvider = vi.hoisted(() => vi.fn());

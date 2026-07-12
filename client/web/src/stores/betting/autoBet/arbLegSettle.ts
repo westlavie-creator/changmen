@@ -1,4 +1,4 @@
-import type { BetResult } from "@/models/betResult";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import {

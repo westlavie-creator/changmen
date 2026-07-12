@@ -1,7 +1,7 @@
 import { getHgFollowOrders } from "@changmen/client-core/bridge/clientApi";
 import { BetOption } from "@changmen/client-core/models/betOption";
-import { useAccountStore } from "@venue/shared/webBridge";
-import { useUserStore } from "@venue/shared/webBridge";
+import { useAccountStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useUserStore } from "@changmen/venue-adapter/shared/webBridge";
 import type { HgFollowOrder } from "./parse";
 import {
   hgBetIdFromOrder,

@@ -1,6 +1,6 @@
-import type { BetResult } from "@/models/betResult";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type {
   ArbBetAttemptParams,
   ArbBetChecked,
@@ -9,7 +9,7 @@ import type {
 } from "@/stores/betting/autoBet/phases/types";
 import { resolveArbLegPlaceOutcome } from "@/stores/betting/autoBet/phases/types";
 import { formatBetResult } from "@/shared/arbBetTraceFormat";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
 import {

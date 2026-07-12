@@ -8,7 +8,7 @@ import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
 import { useEvMarker } from "@/extensions/valueBet";
-import { arbPercent, formatSecond, percent, toFixed } from "@/shared/format";
+import { arbPercent, formatSecond, percent, toFixed } from "@changmen/client-core/shared/format";
 import { useCreateLoseDialogStore } from "@/stores/createLoseDialogStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";

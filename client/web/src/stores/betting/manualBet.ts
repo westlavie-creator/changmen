@@ -2,7 +2,7 @@ import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import { ElMessageBox } from "element-plus";
 import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
 import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
-import { BetOption } from "@/models/betOption";
+import { BetOption } from "@changmen/client-core/models/betOption";
 import { manualBetToastSeconds } from "@/shared/betTiming";
 import { useAccountStore } from "@/stores/accountStore";
 import {

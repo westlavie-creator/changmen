@@ -13,7 +13,7 @@ vi.mock("@changmen/client-core/shared/hkRelayOrigin", () => ({
   resolveHkRelayHttpOrigin: () => "http://127.0.0.1:3560",
 }));
 
-vi.mock("@venue/shared/changmenWsBase", () => ({
+vi.mock("@changmen/venue-adapter/shared/changmenWsBase", () => ({
   resolveChangmenWsBase: () => "http://127.0.0.1:3560",
   changmenHttpBaseToWs: (base: string) => base.replace(/^http/i, "ws"),
 }));

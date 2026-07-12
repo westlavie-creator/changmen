@@ -1,7 +1,7 @@
 import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { ResolveLegOutcomeOpts, VenueLegOutcome, VenueLegSettlement, VenueOrder } from "@venue/contract";
-import { sortVenueOrdersNewestFirst } from "@venue/contract";
+import type { ResolveLegOutcomeOpts, VenueLegOutcome, VenueLegSettlement, VenueOrder } from "@changmen/venue-adapter/contract";
+import { sortVenueOrdersNewestFirst } from "@changmen/venue-adapter/contract";
 import { fetchPolymarketConfirmedTradeForOrder } from "./orders";
 import {
   applyPolymarketSettlementToResult,

@@ -2,7 +2,7 @@ import {
   installArbRuntimeSync,
   syncArbRuntime,
   teardownArbRuntimeSync,
-} from "@/extensions/arbOpportunity";
+} from "@/extensions/arbOpportunity/syncArbRuntime";
 import { bootSessionRuntime, stopSessionRuntime } from "@/runtime/sessionBoot";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMatchStore } from "@/stores/matchStore";

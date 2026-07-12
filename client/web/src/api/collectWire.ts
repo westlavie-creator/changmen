@@ -1,4 +1,4 @@
-import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@/types/collect";
+import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@changmen/client-core/types/collect";
 
 /** A8 Pinia `Af.saveMatch` → `saveMatchSource` 裁剪后的比赛行 [A8 可证实] */
 export function toA8SaveMatchRow(m: CollectMatchDto) {

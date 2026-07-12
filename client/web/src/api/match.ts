@@ -1,4 +1,4 @@
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
+import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { ClientMatchDto } from "@/types/esport";
 import { post, postForm, unwrap } from "@/api/client";
 import {

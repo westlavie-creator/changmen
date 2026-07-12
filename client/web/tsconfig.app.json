@@ -25,7 +25,6 @@
       "@changmen/shared/*": ["../../packages/shared/*"],
       "@changmen/venue-adapter": ["../../client/venue-adapter/registry/index.ts"],
       "@changmen/venue-adapter/*": ["../../client/venue-adapter/*"],
-      "@venue/*": ["../../client/venue-adapter/*"],
       "mqtt": ["../../node_modules/mqtt"],
       "socket.io-client": ["../../node_modules/socket.io-client"],
       "socketcluster-client": ["../../node_modules/socketcluster-client"]

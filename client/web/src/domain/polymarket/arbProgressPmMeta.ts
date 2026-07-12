@@ -1,6 +1,6 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { ArbProgressPolymarketMeta } from "@/stores/betting/autoBet/arbExecutionTrace";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import { useOddsStore } from "@/stores/oddsStore";
 import type { PolymarketBuyCheckData } from "@changmen/venue-adapter/polymarket";
 import {

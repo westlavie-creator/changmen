@@ -2,7 +2,7 @@
 import type { ChatMessageRow } from "@/types/esport";
 import { computed, onMounted, ref, watch } from "vue";
 import { getChatHistory } from "@/api/esport";
-import { formatTimeHms } from "@/shared/format";
+import { formatTimeHms } from "@changmen/client-core/shared/format";
 
 const CHAT_LOG_ID_KEY = "CHAT_MESSAGE_LOGID";
 const CHAT_FILTER_KEY = "CHAT_MESSAGE_FILTER";

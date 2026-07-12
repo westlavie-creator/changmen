@@ -5,9 +5,9 @@ import { num } from "./parse";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import type { ViewMatch } from "@changmen/client-core/models/match";
 import type { CollectPlatformInfo } from "@changmen/api-contract";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
-import { useCollectStore } from "@venue/shared/webBridge";
+import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
 
 import {
   buildObSaveBetRowsFromViewBlocks,

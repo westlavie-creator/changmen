@@ -9,7 +9,7 @@ import { createPinia, setActivePinia } from "pinia";
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { computed, nextTick, reactive, watchEffect } from "vue";
-import { formatDisplayOdds } from "@/shared/format";
+import { formatDisplayOdds } from "@changmen/client-core/shared/format";
 import { useOddsStore } from "@/stores/oddsStore";
 
 // ─── 第一组：纯 Vue reactive Map 隔离测试（无 Pinia、无 revision）────────

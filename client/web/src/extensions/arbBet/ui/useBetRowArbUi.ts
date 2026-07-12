@@ -5,7 +5,7 @@ import { arbLegSide, pickArbLegs } from "@changmen/arb-core";
 import { providerKeysFromBetItems } from "@changmen/arb-core/providerKeys";
 import { useArbLineOverlay, useOddsAnchorMap } from "@/extensions/arbBet/ui/useArbLineOverlay";
 import { useOddsFlashCell } from "@/extensions/arbBet/ui/useOddsFlash";
-import { percent } from "@/shared/format";
+import { percent } from "@changmen/client-core/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 

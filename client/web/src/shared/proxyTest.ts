@@ -2,7 +2,7 @@ import { buildHttpRelayUrl } from "@changmen/api-contract/urls";
 import { getToken } from "@/api/client";
 import { getApiBase } from "@/config/apiBase";
 /** 对齐 console `mr.test`：Axios 经本地 PROXY 中继访问 `/IP` */
-import { a8Axios } from "@/shared/a8Axios";
+import { a8Axios } from "@changmen/client-core/shared/a8Axios";
 
 function proxyRelayEntry(): string {
   const proxyOrigin

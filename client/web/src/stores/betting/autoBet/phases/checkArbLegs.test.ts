@@ -1,8 +1,8 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbBetAttemptParams, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BetOption as BetOptionClass } from "@/models/betOption";
+import { BetOption as BetOptionClass } from "@changmen/client-core/models/betOption";
 import { checkArbLegs } from "@/stores/betting/autoBet/phases/checkArbLegs";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
@@ -30,7 +30,7 @@ vi.mock("@/stores/oddsStore", () => ({
   useOddsStore: () => ({ getEntry }),
 }));
 
-vi.mock("@/shared/wait", () => ({ wait: vi.fn(async () => {}) }));
+vi.mock("@changmen/client-core/shared/wait", () => ({ wait: vi.fn(async () => {}) }));
 
 function leg(type: string, betMoney: number, odds: number, extra: Partial<BetOption> = {}): BetOption {
   const o = new BetOptionClass(type as never, "m1", "b1", "i1", betMoney, "Home", odds);

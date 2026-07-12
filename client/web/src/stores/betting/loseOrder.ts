@@ -1,6 +1,6 @@
-import { BetOption, opponentSide } from "@/models/betOption";
+import { BetOption, opponentSide } from "@changmen/client-core/models/betOption";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import { useAccountStore } from "@/stores/accountStore";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import {

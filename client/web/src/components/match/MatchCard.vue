@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ViewMatch } from "@/models/match";
 import BetRow from "@/components/match/BetRow.vue";
-import { formatDate } from "@/shared/format";
+import { formatDate } from "@changmen/client-core/shared/format";
 import { buildPmSportDisplayParts } from "@/shared/pmSportDisplay";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";

@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ActiveBetLegStatus, ActiveBetRunPhase } from "@/types/activeBetRun";

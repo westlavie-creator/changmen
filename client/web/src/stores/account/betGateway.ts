@@ -1,8 +1,8 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { ElNotification } from "element-plus";
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { publishBettingEvent } from "@/realtime/publishBetting";
 import { getProvider } from "@/runtime/providers";
 import {

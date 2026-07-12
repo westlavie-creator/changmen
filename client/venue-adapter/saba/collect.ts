@@ -3,7 +3,7 @@ import { io, type Socket } from "socket.io-client";
 import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
 import { fetchSabaEsportsPage } from "./parse";
 import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import { getStaticVenueGames } from "@changmen/client-core/shared/venueGames";
 import {
   buildSabaWsConfig,
@@ -17,10 +17,10 @@ import {
   type SabaOddsRow,
 } from "./parse";
 import { wait } from "@changmen/client-core/shared/wait";
-import { notifyCollectError } from "@venue/shared/collectNotify";
-import { useCollectStore } from "@venue/shared/webBridge";
+import { notifyCollectError } from "@changmen/venue-adapter/shared/collectNotify";
+import { useCollectStore } from "@changmen/venue-adapter/shared/webBridge";
 
-import { useMatchStore } from "@venue/shared/webBridge";
+import { useMatchStore } from "@changmen/venue-adapter/shared/webBridge";
 
 const PLATFORM = PLATFORMS.SABA;
 const CHECKIN_MS = 3_000;

@@ -1,5 +1,5 @@
-import type { BetOption } from "@/models/betOption";
-import { PLATFORMS } from "@/shared/platform";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import { useOddsStore } from "@/stores/oddsStore";
 import {
   hasLockedPolymarketDetectionQuote,

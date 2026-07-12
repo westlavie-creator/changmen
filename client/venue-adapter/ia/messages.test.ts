@@ -15,7 +15,7 @@ vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
   updateVenueBetLock,
 }));
 
-vi.mock("@venue/shared/webBridge", () => ({
+vi.mock("@changmen/venue-adapter/shared/webBridge", () => ({
   useMatchStore: () => matchStore,
 }));
 

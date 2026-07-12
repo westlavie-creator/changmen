@@ -1,4 +1,4 @@
-import type { PlatformAdapter } from "@venue/contract";
+import type { PlatformAdapter } from "@changmen/venue-adapter/contract";
 import { polymarketProvider } from "./bet";
 import { startPolymarketCollector } from "./collect";
 
@@ -7,6 +7,7 @@ export * from "./api";
 export * from "./bet";
 export * from "./orderStatus";
 export * from "./orderSettlement";
+export * from "./orders";
 export * from "./settlementJob";
 export * from "./legOutcome";
 export * from "./orderTypes";

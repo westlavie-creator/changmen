@@ -5,11 +5,11 @@ import {
   type PlatformProvider,
   type VenueOrder,
   type VenueOrderStatus,
-} from "@venue/contract";
+} from "@changmen/venue-adapter/contract";
 import { accountGet, accountPostForm } from "./accountHttp";
 import { getCurrency } from "@changmen/shared/currency";
-import { PLATFORMS } from "@venue/shared/platforms";
-import { useMessageStore } from "@venue/shared/webBridge";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
+import { useMessageStore } from "@changmen/venue-adapter/shared/webBridge";
 
 interface RayOddsRow {
   odds_id: string | number;

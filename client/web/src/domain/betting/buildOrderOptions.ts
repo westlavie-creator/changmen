@@ -3,7 +3,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 import { pickArbLegs } from "@changmen/arb-core";
-import { BetOption } from "@/models/betOption";
+import { BetOption } from "@changmen/client-core/models/betOption";
 import { sortOptionsByWinRate } from "@/shared/winRate";
 
 /** 对齐 A8 `IQ.GetOrderOptions`：选腿 + 对冲金额 + betSorting */

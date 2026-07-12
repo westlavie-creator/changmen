@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { a8PluginSetStore, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { a8PluginSetStore, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { PlatformAccount } from "@/models/platformAccount";
 
 import {
@@ -8,7 +8,7 @@ import {
   syncModifyHeaderRules,
 } from "@/stores/account/modifyHeaderSync";
 
-vi.mock("@/chrome-plugin/bridge", () => ({
+vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
   hasA8PluginRuntime: vi.fn(() => true),
   a8PluginSetStore: vi.fn(async () => {}),
 }));

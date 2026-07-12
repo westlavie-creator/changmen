@@ -1,20 +1,7 @@
 /**
- * [changmen 扩展] 套利 detect 工具 + 全盘口观察见 arbMarketWatch。
- * 自动套利调度见 stores/betting/a8（与 A8 bundle 一致）。
+ * [changmen 扩展] web 侧套利运行时同步（Pinia / 全盘口观察接线）。
+ * detect / state / types 请直连 @changmen/arb-core/opportunity/*。
  */
-export {
-  detectOpportunities,
-  type DetectOpportunitiesParams,
-  findFundedOpportunityForBet,
-  indexOpportunities,
-} from "@changmen/arb-core/opportunity/detect";
-
-export {
-  diffOpportunities,
-  type OpportunityTransition,
-  snapshotOpportunities,
-} from "@changmen/arb-core/opportunity/state";
-
 export {
   applyArbRuntimeState,
   type ArbRuntimeFlags,
@@ -24,11 +11,3 @@ export {
   syncArbRuntime,
   teardownArbRuntimeSync,
 } from "@/extensions/arbOpportunity/syncArbRuntime";
-
-export {
-  type ArbDetectScope,
-  type ArbOpportunity,
-  betAnchor,
-  opportunityKey,
-  type OpportunityKey,
-} from "@changmen/arb-core/opportunity/types";

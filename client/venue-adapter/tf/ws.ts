@@ -3,8 +3,8 @@ import {
   patchDirectRealtimeStatus,
   resetDirectRealtimeStatus,
   upstreamRouteFromUrl,
-} from "@venue/shared/directRealtimeStatus";
-import { PLATFORMS } from "@venue/shared/platforms";
+} from "@changmen/venue-adapter/shared/directRealtimeStatus";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import { tfWsAuthToken } from "./auth";
 import {
   buildTfWsUrl,

@@ -2,9 +2,9 @@
  * [changmen 扩展] 编排层 Plan CNY 换算辅助（anyOdds / 补单）。
  * 套利预检与 A8 相同：GetOrderOptions 计划额 + 并行 checkBetting，预检后不改 betMoney。
  */
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import { resolvePlanCnyFromVenueStake } from "@changmen/venue-adapter/adaptation";
 
 export type PmA8LegPair = {

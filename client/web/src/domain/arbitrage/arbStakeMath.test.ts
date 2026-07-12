@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BetOption } from "@/models/betOption";
+import { BetOption } from "@changmen/client-core/models/betOption";
 import {
   applyArbHedgeStakes,
   impliedFromLegOdds,

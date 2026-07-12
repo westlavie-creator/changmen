@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AccountRecord } from "@/types/account";
+import type { AccountRecord } from "@changmen/client-core/types/account";
 import type { AccountEditFormState } from "@/components/account/accountEditFormState";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import { ElLoading, ElMessage } from "element-plus";

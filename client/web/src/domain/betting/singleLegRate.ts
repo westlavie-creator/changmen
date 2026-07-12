@@ -1,5 +1,5 @@
 import type { BetFilterMatchContext } from "@/domain/betting/betFilters";
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import {

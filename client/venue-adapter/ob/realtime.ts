@@ -5,8 +5,8 @@ import {
   patchDirectRealtimeStatus,
   resetDirectRealtimeStatus,
   upstreamRouteFromUrl,
-} from "@venue/shared/directRealtimeStatus";
-import { PLATFORMS } from "@venue/shared/platforms";
+} from "@changmen/venue-adapter/shared/directRealtimeStatus";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 import { OB_MQTT_CLIENT_ID, OB_MQTT_CONNECT_TIMEOUT_MS } from "./mqttConfig";
 import {
   fetchObDemoMqttConfig,

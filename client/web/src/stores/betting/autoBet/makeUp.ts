@@ -4,7 +4,7 @@ import type { UserConfig } from "@/types/userConfig";
 import { getDefaultOdds } from "@/api/report";
 import { LoseOrder } from "@/models/loseOrder";
 import { a8Tip } from "@/shared/a8Notify";
-import { wait } from "@/shared/wait";
+import { wait } from "@changmen/client-core/shared/wait";
 
 /** 对齐 bundle `S()`：补单前初赔 / 当前赔阈值（jb 消费时检查；入队不挡） */
 export async function allowMakeUpForLeg(

@@ -1,4 +1,4 @@
-import type { PlatformProvider, AccountBalanceResult, VenueOrder } from "@venue/contract";
+import type { PlatformProvider, AccountBalanceResult, VenueOrder } from "@changmen/venue-adapter/contract";
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";

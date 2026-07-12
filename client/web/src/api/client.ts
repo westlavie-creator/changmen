@@ -3,7 +3,7 @@ import { buildEsportUrl } from "@changmen/api-contract/urls";
 import { ElMessage } from "element-plus";
 import { armEsportPostDelaySample, finalizeEsportPostDelaySample } from "@/api/apiDelay";
 import { getApiBase } from "@/config/apiBase";
-import { a8Axios, responseBodyText } from "@/shared/a8Axios";
+import { a8Axios, responseBodyText } from "@changmen/client-core/shared/a8Axios";
 
 const FORM_HEADERS = { "Content-Type": "application/x-www-form-urlencoded;" };
 const TOKEN_COOKIE = "app_token";

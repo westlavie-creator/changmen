@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PlatformId } from "@/types/esport";
 import { computed, ref, watch } from "vue";
-import { formatDate } from "@/shared/format";
+import { formatDate } from "@changmen/client-core/shared/format";
 import { useOddsStore } from "@/stores/oddsStore";
 
 const props = defineProps<{

@@ -51,6 +51,9 @@ changmen/
 | I2b | **web import 包名化**：`@venue/*` → `@changmen/venue-adapter/*` | ✅ 完成 |
 | I3a | **删 web shim**：`domain/arbitrage`、`providerKeys`、`arbOpportunity` 薄层 → `@changmen/arb-core` | ✅ 完成 |
 | I3b | **venue-adapter barrel**：web 深 import 收拢到 `contract`/`registry`/`adaptation`/`shared`/`polymarket`/平台 index | ✅ 完成 |
+| I3c | **删 client-core shim**：web 薄 re-export → 直连 `@changmen/client-core/*`；`arbOpportunity` 仅保留 `syncArbRuntime` | ✅ 完成 |
+| I3d | **venue 包内聚**：`@venue/*` → `@changmen/venue-adapter/*`；web 移除 `@venue` tsconfig/vite alias | ✅ 完成 |
+| I3e | **exports 白名单**：`sync-package-exports` + web barrel 校验；删 `shared/platform` shim | ✅ 完成 |
 
 旧路径 `platform_adapter/`、`gamebet_*` 仅出现在历史章节或迁移对照中；**以本表与代码 `package.json` / `adapter_paths` 为准**。
 

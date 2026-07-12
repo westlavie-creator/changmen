@@ -1,4 +1,4 @@
-import { wait } from "@/shared/wait";
+import { wait } from "@changmen/client-core/shared/wait";
 /**
  * [A8 可证实] 对齐 bundle `Vg` 内 `P()`：单主循环 — 拉列表门控、每轮 updateOdds、当场套利下单、补单、初赔门控。
  * 轮间 `wait(100ms)` 再调度（不用 `betInterval`）。

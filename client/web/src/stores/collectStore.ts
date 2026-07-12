@@ -1,4 +1,4 @@
-import type { CollectBetDto, CollectConfigDto, CollectMatchDto } from "@/types/collect";
+import type { CollectBetDto, CollectConfigDto, CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { PlatformId } from "@/types/esport";
 import { defineStore } from "pinia";
 import { getClientData, saveBetSource, saveClientData, saveMatchSource, saveUserLog } from "@/api/esport";

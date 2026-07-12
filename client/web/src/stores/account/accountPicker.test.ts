@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { AccountStoreContext } from "@/stores/account/context";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PlatformAccount } from "@/models/platformAccount";

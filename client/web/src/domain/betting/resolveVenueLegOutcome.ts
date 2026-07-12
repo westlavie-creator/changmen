@@ -1,4 +1,4 @@
-import type { BetResult } from "@/models/betResult";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ResolveLegOutcomeOpts, VenueLegOutcome, VenueOrder } from "@changmen/venue-adapter/contract";
 import { isA8VenueReject } from "@changmen/venue-adapter/adaptation";

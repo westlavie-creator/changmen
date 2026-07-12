@@ -1,6 +1,6 @@
 import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { parseTokenConfig, resolveApiCreds } from "./l2Auth";
 import { pmGetOrder } from "./pmClientApi";
 import type {

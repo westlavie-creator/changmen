@@ -6,7 +6,7 @@ import {
   explainNotExecutable,
 } from "@/extensions/arbMarketWatch/marketWatchContext";
 import { sameOpportunityLegs } from "@/extensions/arbMarketWatch/watchSinks";
-import { arbProfitRate, toFixed } from "@/shared/format";
+import { arbProfitRate, toFixed } from "@changmen/client-core/shared/format";
 
 function formatLegCompact(opp: ArbOpportunity): string {
   return `${opp.homePlatform}@${toFixed(opp.homeOdds, 3)}(主) ↔ ${opp.awayPlatform}@${toFixed(opp.awayOdds, 3)}(客)`;

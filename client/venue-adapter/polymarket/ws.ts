@@ -1,4 +1,4 @@
-import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
+import { reportVenueWsStatus } from "@changmen/venue-adapter/shared/venueWsStatus";
 import { resolvePolymarketMarketWsUrl } from "./wsConfig";
 import {
   cyclePmMarketWsSourceMode,

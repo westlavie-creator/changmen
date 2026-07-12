@@ -1,5 +1,5 @@
 import type { StakeScaleByProfitPrefs } from "@/types/extensionPrefs";
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 
 /**
  * [changmen 扩展] 利润（implied）达阈值时，两腿注码同乘 multiplier。

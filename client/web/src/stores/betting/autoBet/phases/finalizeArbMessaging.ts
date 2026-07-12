@@ -5,7 +5,7 @@ import type { ArbLegSettleSnapshot } from "@/stores/betting/autoBet/phases/settl
 import type { ArbMakeUpEnqueueResult } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
 import type { BettingMessageLeg, BettingMessageSingleLegRatePeer } from "@/stores/messageStore";
 import { findSingleLegRateAccount } from "@/domain/betting/singleLegRate";
-import { opponentSide } from "@/models/betOption";
+import { opponentSide } from "@changmen/client-core/models/betOption";
 import { shouldSendArbProgress } from "@/stores/betting/autoBet/arbProgressTrace";
 import {
   syncActiveBetBindFailed,

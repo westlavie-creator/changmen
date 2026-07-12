@@ -2,7 +2,7 @@
 import type { TableColumnCtx } from "element-plus";
 import type { MonthReportRow } from "@/types/monthReport";
 import { toRef } from "vue";
-import { percent } from "@/shared/format";
+import { percent } from "@changmen/client-core/shared/format";
 
 const props = withDefaults(
   defineProps<{

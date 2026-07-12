@@ -1,5 +1,5 @@
-import type { BetOption } from "@/models/betOption";
-import type { BetResult } from "@/models/betResult";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { saveUserLog } from "@/api/chat";
 import { useAccountStore } from "@/stores/accountStore";

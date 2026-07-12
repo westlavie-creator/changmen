@@ -2,7 +2,7 @@ import type { ViewMatch } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BetOption } from "@/models/betOption";
+import { BetOption } from "@changmen/client-core/models/betOption";
 import { LoseOrder } from "@/models/loseOrder";
 import { PlatformAccount } from "@/models/platformAccount";
 import { processLoseOrders } from "@/stores/betting/loseOrder";
@@ -86,7 +86,7 @@ vi.mock("@/api/esport", () => ({ saveOrderBind }));
 
 vi.mock("@/shared/a8Notify", () => ({ a8Tip }));
 
-vi.mock("@/shared/wait", () => ({ wait }));
+vi.mock("@changmen/client-core/shared/wait", () => ({ wait }));
 
 vi.mock("@/shared/betTiming", () => ({
   makeUpBetToastSeconds: vi.fn(() => 10),

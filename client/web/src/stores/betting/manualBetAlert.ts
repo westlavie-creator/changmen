@@ -1,5 +1,5 @@
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
-import { toFixed } from "@/shared/format";
+import { toFixed } from "@changmen/client-core/shared/format";
 
 function escapeHtml(raw: string): string {
   return raw

@@ -7,7 +7,7 @@ import OrderList from "@/components/order/OrderList.vue";
 import OrderMakeupStatusBar from "@/components/order/OrderMakeupStatusBar.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
 import { mergePendingMakeupIntoOrderGroups, orderLinkMapEntries } from "@/shared/orderLink";
-import { wait } from "@/shared/wait";
+import { wait } from "@changmen/client-core/shared/wait";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";

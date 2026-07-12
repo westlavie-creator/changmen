@@ -3,7 +3,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 import { pickArbLegs } from "@changmen/arb-core";
-import { arbProfitRate } from "@/shared/format";
+import { arbProfitRate } from "@changmen/client-core/shared/format";
 import { formatAccountFundingHint } from "@/stores/account/accountPicker";
 
 /** 主循环扫描阶段跳过（未选出双腿，不应发套利执行 Telegram） */

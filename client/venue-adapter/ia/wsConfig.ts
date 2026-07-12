@@ -1,4 +1,4 @@
-import { resolveChangmenWsBase } from "@venue/shared/changmenWsBase";
+import { resolveChangmenWsBase } from "@changmen/venue-adapter/shared/changmenWsBase";
 import { IA_A8_COLLECT } from "./a8Collect";
 
 

@@ -1,4 +1,4 @@
-import type { BetResult } from "@/models/betResult";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
@@ -6,8 +6,8 @@ import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 import { hedgeStakeCnyFromLeg } from "@/domain/polymarket/pmArbStake";
 import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
-import { BetOption, opponentSide } from "@/models/betOption";
-import { PLATFORMS } from "@/shared/platform";
+import { BetOption, opponentSide } from "@changmen/client-core/models/betOption";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import { useAccountStore } from "@/stores/accountStore";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";

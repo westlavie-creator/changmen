@@ -1,5 +1,5 @@
-import type { BetOption } from "@/models/betOption";
-import type { AccountRecord, CreateTagPlatformIdentity } from "@/types/account";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import type { AccountRecord, CreateTagPlatformIdentity } from "@changmen/client-core/types/account";
 import type { PlatformId } from "@/types/esport";
 import { defineStore } from "pinia";
 import { PlatformAccount } from "@/models/platformAccount";

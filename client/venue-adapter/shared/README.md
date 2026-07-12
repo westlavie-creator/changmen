@@ -11,7 +11,7 @@
 | `socket/accumulator.ts` | A8 bets 消息 → fo + saveMatch/saveBets |
 | `directRealtimeStatus.ts` | 直连 WS/MQTT 状态（IA/OB/RAY/TF；网页右上角角标） |
 
-引用：`import { … } from "@venue/shared/collectNotify"`
+引用：`import { … } from "@changmen/venue-adapter/shared/collectNotify"`
 
 ## 与 `{platform}/shared/` 的区别
 

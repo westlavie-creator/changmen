@@ -1,5 +1,5 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import type { VenueOrder } from "@venue/contract";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 
 export type PolymarketStoredVenueOrdersLoader = (
   account: PlatformAccount,

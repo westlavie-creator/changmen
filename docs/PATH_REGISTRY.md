@@ -54,7 +54,7 @@
 |--------|------|
 | `client/venue-adapter/loader/adapter_paths.mjs` | `getAdapterRoot()` 优先 `VENUE_ADAPTER_ROOT` |
 | `client/venue-adapter/registry/paths.js` | 开发态 `ADAPTER_ROOT`；探针 `PLATFORM_PROBES_ROOT` |
-| `client/web/vite.config.ts` | `@changmen/venue-adapter` alias（`@venue` 仅包内/vitest）、`venueChunkName` |
+| `client/web/vite.config.ts` | `@changmen/venue-adapter` alias、`venueChunkName` |
 | `scripts/check-team-boundaries.mjs` | 发现各平台浏览器根目录 |
 | `@changmen/venue-adapter/package.json` | `exports["./*"]` 浏览器子路径（I2a） |
 | `client/web/package.json` | workspace 依赖 `@changmen/venue-adapter` |
@@ -72,9 +72,11 @@
 | 根 `package.json` workspaces | `"client/venue-adapter"` |
 | `lines/esport/line.json` | `components.venueAdapter` |
 
-`client/web` 消费 venue-adapter 时优先 **平台/域 barrel**（`polymarket`、`shared`、`adaptation`、`contract`、`registry`）；深路径清单见 `list:web-imports`。
+`client/web` 消费 venue-adapter 时优先 **平台/域 barrel**（`polymarket`、`shared`、`adaptation`、`contract`、`registry`）；深路径清单见 `list:web-imports`；`--check` 校验仅允许 barrel + 文档化 mock 深路径。
 
-`client/venue-adapter` **包内**仍用 `@venue/*`（仅 tsconfig paths 解析，web 源码已不 import）；`client/web/tsconfig.app.json` 保留 `@venue/*` path 供 vue-tsc 跟随依赖图。
+`package.json` `exports` 由 `sync-package-exports.mjs` 扫描 web + 包内 import 生成（44 项）；`npm run check:exports --workspace=@changmen/venue-adapter` 防漂移。
+
+`client/venue-adapter` **包内**统一 `@changmen/venue-adapter/*`（I3d 已移除 `@venue` 别名）。
 
 ---
 
@@ -113,6 +115,9 @@ npm run check:boundaries
 
 | 日期 | 说明 |
 |------|------|
+| 2026-07-13 | I3e：`exports` 白名单、`check:web-imports`、删 `shared/platform` shim |
+| 2026-07-13 | I3d：venue-adapter 包内 `@venue/*` → `@changmen/venue-adapter/*`；web 移除 `@venue` alias |
+| 2026-07-13 | I3c：删 web `client-core` shim，直连 `@changmen/client-core/*` |
 | 2026-07-13 | I2b：web `@venue/*` → `@changmen/venue-adapter/*` |
 | 2026-07-13 | I2a：`@changmen/venue-adapter` exports、web 去 tsconfig include |
 | 2026-07-13 | I1：`CHANGMEN_LAYOUT`、PATH_REGISTRY、vite/boundaries/loader 接入 |

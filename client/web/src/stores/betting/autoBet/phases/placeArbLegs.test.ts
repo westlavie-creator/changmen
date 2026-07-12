@@ -1,9 +1,9 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbBetAttemptParams, ArbBetChecked } from "@/stores/betting/autoBet/phases/types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BetOption as BetOptionClass } from "@/models/betOption";
-import { BetResult } from "@/models/betResult";
+import { BetOption as BetOptionClass } from "@changmen/client-core/models/betOption";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { placeArbLegs } from "@/stores/betting/autoBet/phases/placeArbLegs";
 import { createDefaultUserConfig } from "@/types/userConfig";
 

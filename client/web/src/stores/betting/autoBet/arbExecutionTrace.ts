@@ -1,5 +1,5 @@
 import type { ViewBet, ViewMatch } from "@/models/match";
-import { arbProfitRate } from "@/shared/format";
+import { arbProfitRate } from "@changmen/client-core/shared/format";
 
 /** [changmen 扩展] 套利执行进度追踪结果 */
 export type ArbProgressOutcome = "success" | "partial" | "fail" | "skip";

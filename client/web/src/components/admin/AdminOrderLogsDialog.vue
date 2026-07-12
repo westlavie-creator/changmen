@@ -10,7 +10,7 @@ import { ElMessage } from "element-plus";
 import { computed, ref } from "vue";
 import { getAdminOrderLogs } from "@/api/admin";
 import { attemptLogSegments } from "@/shared/adminOrderLogSegments";
-import { formatLinkId } from "@/shared/format";
+import { formatLinkId } from "@changmen/client-core/shared/format";
 
 const ARB_LINK_MIN = 1_000_000_000_000;
 

@@ -4,7 +4,7 @@ import type {
   ArbProgressPayload,
   ArbProgressPolymarketMeta,
 } from "@/stores/betting/autoBet/arbExecutionTrace";
-import { arbProfitRate, toFixed } from "@/shared/format";
+import { arbProfitRate, toFixed } from "@changmen/client-core/shared/format";
 
 const STAGE_ICON: Record<string, string> = {
   发现: "💡",

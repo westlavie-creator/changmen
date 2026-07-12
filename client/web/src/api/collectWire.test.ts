@@ -1,4 +1,4 @@
-import type { CollectBetDto, CollectMatchDto } from "@/types/collect";
+import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
 import { describe, expect, it } from "vitest";
 import { toA8LiveTimerRow, toA8SaveBetRow, toA8SaveMatchRow } from "./collectWire";
 

@@ -5,9 +5,9 @@ import type {
   ResolveLegOutcomeOpts,
   VenueLegOutcome,
   VenueOrder,
-} from "@venue/contract";
-import { sortVenueOrdersNewestFirst } from "@venue/contract";
-import { venueRejectWaitBeforePoll } from "@venue/shared/rejectWait";
+} from "@changmen/venue-adapter/contract";
+import { sortVenueOrdersNewestFirst } from "@changmen/venue-adapter/contract";
+import { venueRejectWaitBeforePoll } from "@changmen/venue-adapter/shared/rejectWait";
 
 /** [A8 可证实] 场馆订单列表首条 status 为 reject 视为拒单 */
 export function isA8VenueReject(orders: VenueOrder[]): boolean {

@@ -1,6 +1,6 @@
 import type { ArbMarketWatchGroup } from "@/extensions/arbMarketWatch/watchSinks";
-import type { BetOption } from "@/models/betOption";
-import type { BetResult } from "@/models/betResult";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbProgressPayload } from "@/stores/betting/autoBet/arbExecutionTrace";
@@ -10,8 +10,8 @@ import { sendMessage } from "@/api/esport";
 import { isArbScanSkipSummary } from "@/domain/betting/describeArbPrepareSkip";
 import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
 import { formatArbProgressTelegramBody } from "@/extensions/notify/formatArbProgress";
-import { classifyLinkId, formatDate, formatDateKey, formatLinkId, linkIdSourceLabel, percent, toFixed } from "@/shared/format";
-import { wait } from "@/shared/wait";
+import { classifyLinkId, formatDate, formatDateKey, formatLinkId, linkIdSourceLabel, percent, toFixed } from "@changmen/client-core/shared/format";
+import { wait } from "@changmen/client-core/shared/wait";
 import { useUserStore } from "@/stores/userStore";
 import { NOTIFY_TYPES } from "@/types/notifyTypes";
 

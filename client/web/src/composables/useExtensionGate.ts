@@ -1,5 +1,5 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { probeGamebetExtension, readDomExtensionId } from "@/chrome-plugin/bridge";
+import { probeGamebetExtension, readDomExtensionId } from "@changmen/client-core/chrome-plugin/bridge";
 import { skipExtensionGate } from "@/config/gamebetExtension";
 
 const PROBE_INTERVAL_MS = 2000;

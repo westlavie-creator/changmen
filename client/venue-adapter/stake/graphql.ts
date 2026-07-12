@@ -2,7 +2,7 @@ import { stakePluginGraphql } from "./pluginApi";
 import { parseMapFromMarketName, STAKE_GRAPHQL, STAKE_SPORT_SLUGS } from "./parse";
 import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@changmen/client-core/types/collect";
 import type { PlatformId } from "@changmen/api-contract";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 
 export interface StakeSubscribeRow {
   id: string;

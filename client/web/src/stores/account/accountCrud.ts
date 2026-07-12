@@ -1,5 +1,5 @@
 import type { AccountStoreContext } from "@/stores/account/context";
-import type { AccountRecord, CreateTagPlatformIdentity } from "@/types/account";
+import type { AccountRecord, CreateTagPlatformIdentity } from "@changmen/client-core/types/account";
 import type { TagPlatformRow } from "@/types/esport";
 import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply";
 import {

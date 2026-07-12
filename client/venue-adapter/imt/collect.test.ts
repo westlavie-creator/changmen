@@ -11,7 +11,7 @@ vi.mock("@changmen/client-core/shared/http", () => ({
   directPostJson: vi.fn(),
 }));
 
-vi.mock("@venue/shared/collectSession", () => ({
+vi.mock("@changmen/venue-adapter/shared/collectSession", () => ({
   resolveCollectSession,
 }));
 
@@ -19,11 +19,11 @@ vi.mock("@changmen/client-core/shared/wait", () => ({
   wait: vi.fn(() => new Promise(() => {})),
 }));
 
-vi.mock("@venue/shared/collectNotify", () => ({
+vi.mock("@changmen/venue-adapter/shared/collectNotify", () => ({
   notifyCollectError: vi.fn(),
 }));
 
-vi.mock("@venue/shared/webBridge", () => ({
+vi.mock("@changmen/venue-adapter/shared/webBridge", () => ({
   useCollectStore: () => ({ saveMatch: vi.fn(), saveBets: vi.fn() }),
   useMatchStore: () => ({ refreshOddsOnBets: vi.fn() }),
 }));

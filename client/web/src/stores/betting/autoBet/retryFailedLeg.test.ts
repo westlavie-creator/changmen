@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { BetOption } from "@/models/betOption";
-import { BetResult } from "@/models/betResult";
+import { BetOption } from "@changmen/client-core/models/betOption";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { PlatformAccount } from "@/models/platformAccount";
 import { hedgeStakeCnyFromLeg } from "@/domain/polymarket/pmArbStake";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";

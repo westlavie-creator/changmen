@@ -1,5 +1,5 @@
 import type { PlatformAccount } from "@/models/platformAccount";
-import { a8PluginSetStore, hasA8PluginRuntime } from "@/chrome-plugin/bridge";
+import { a8PluginSetStore, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 
 /** 对齐 A8 `HBe` / `$Be` */
 export const MODIFY_HEADER_KEY = "ModifyHeader";

@@ -63,7 +63,7 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 | 允许 | 禁止 |
 |------|------|
-| `@venue/*` → `client/venue-adapter` | `@changmen/db`、`@changmen/match-engine`、`@changmen/platform-probes` |
+| `@changmen/venue-adapter/*` | `@changmen/db`、`@changmen/match-engine`、`@changmen/platform-probes` |
 | `@changmen/shared`（展示、时间窗、账号倍数等） | `server/backend`、`server/matcher` 任意路径 |
 | `@changmen/api-contract` | |
 | `@/` 应用内模块 | |
@@ -74,7 +74,7 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 | 允许 | 禁止 |
 |------|------|
-| `@venue/contract`、`@venue/shared`、同平台 `shared/` | `@changmen/db`、`client/web`、`server/backend` |
+| `@changmen/venue-adapter/contract`、`@changmen/venue-adapter/shared`、同平台 `shared/` | `@changmen/db`、`client/web`、`server/backend` |
 | `@changmen/shared` | `@changmen/platform-probes`、`@changmen/match-engine` |
 
 ### 服务端（`server/backend`、`server/matcher`、扩展守护进程）

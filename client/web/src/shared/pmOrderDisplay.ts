@@ -1,6 +1,6 @@
 import type { OrderRow } from "@/types/order";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
-import { toFixed } from "@/shared/format";
+import { toFixed } from "@changmen/client-core/shared/format";
 
 /** Polymarket API 数值：保留有效小数，去掉尾部 0 */
 export function formatPolymarketApiDecimal(value: number, maxDecimals = 6): string {

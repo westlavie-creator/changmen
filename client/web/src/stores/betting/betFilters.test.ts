@@ -1,4 +1,4 @@
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import { describe, expect, it, vi } from "vitest";
 import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
 import { PlatformAccount } from "@/models/platformAccount";

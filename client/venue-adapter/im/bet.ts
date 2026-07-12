@@ -3,9 +3,9 @@ import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
-import type { PlatformProvider, VenueOrder } from "@venue/contract";
-import { useMatchStore } from "@venue/shared/webBridge";
-import { useMessageStore } from "@venue/shared/webBridge";
+import type { PlatformProvider, VenueOrder } from "@changmen/venue-adapter/contract";
+import { useMatchStore } from "@changmen/venue-adapter/shared/webBridge";
+import { useMessageStore } from "@changmen/venue-adapter/shared/webBridge";
 
 import type { LimitEntry } from "@changmen/client-core/types/limit";
 import { imSportIdForGame, imSupportedGameIds, signImPayload } from "./sign";

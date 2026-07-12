@@ -1,10 +1,10 @@
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { ArbBetAttemptParams, ArbBetPlaced } from "./types";
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { BetResult } from "@/models/betResult";
+import { BetResult } from "@changmen/client-core/models/betResult";
 import { PlatformAccount } from "@/models/platformAccount";
 
 import { createDefaultUserConfig } from "@/types/userConfig";

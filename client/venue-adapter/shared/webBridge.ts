@@ -4,7 +4,7 @@
  * 采集/下注模块只 import 本文件，不 import `@/stores/*`。
  */
 
-import type { VenueWebBridge } from "@venue/shared/webBridgeTypes";
+import type { VenueWebBridge } from "@changmen/venue-adapter/shared/webBridgeTypes";
 
 export type {
   AccountStoreBridge,
@@ -13,7 +13,7 @@ export type {
   MessageStoreBridge,
   UserStoreBridge,
   VenueWebBridge,
-} from "@venue/shared/webBridgeTypes";
+} from "@changmen/venue-adapter/shared/webBridgeTypes";
 
 export type {
   VenueOddsEntry,

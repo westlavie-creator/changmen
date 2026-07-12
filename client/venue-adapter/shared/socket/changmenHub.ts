@@ -1,4 +1,4 @@
-import { reportVenueWsStatus } from "@venue/shared/venueWsStatus";
+import { reportVenueWsStatus } from "@changmen/venue-adapter/shared/venueWsStatus";
 import { io, type Socket } from "socket.io-client";
 
 /** 与 server/realtime-hub/channels.js PM_SPORT_CHANNEL 一致 */

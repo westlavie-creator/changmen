@@ -1,12 +1,12 @@
-import type { BetOption } from "@/models/betOption";
-import type { BetResult } from "@/models/betResult";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { BetOption as BetOptionCtor } from "@/models/betOption";
-import { BetResult as BetResultCtor } from "@/models/betResult";
+import { BetOption as BetOptionCtor } from "@changmen/client-core/models/betOption";
+import { BetResult as BetResultCtor } from "@changmen/client-core/models/betResult";
 import { isVenueLegPendingConfirm, isVenueLegRejected } from "@changmen/venue-adapter/contract";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import {
   bindArbLegOrder,
   refreshOrderListAfterBind,

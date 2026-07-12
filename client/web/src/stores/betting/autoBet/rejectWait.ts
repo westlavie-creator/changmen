@@ -2,7 +2,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
 import { a8Tip } from "@/shared/a8Notify";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
-import { PLATFORMS } from "@/shared/platform";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 
 /** 套利单腿：场馆层拒单检测等待秒数（PM 走 settle，不读 waitTime） */
 export function legRejectWaitSec(config: UserConfig, provider: string): number {

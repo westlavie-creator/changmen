@@ -9,7 +9,7 @@ import {
   resolveSingleLegByRate,
   resolveSingleLegCheckAccounts,
 } from "@/domain/betting/singleLegRate";
-import { opponentSide } from "@/models/betOption";
+import { opponentSide } from "@changmen/client-core/models/betOption";
 import { applyStakeScaleByProfit } from "@/extensions/arbBet/stakeScaleByProfit";
 import {
   applyValueBetMoneyTo9999LiveLeg,

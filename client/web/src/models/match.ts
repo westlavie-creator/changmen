@@ -1,7 +1,7 @@
 import type { PlatformId } from "@changmen/api-contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
-import type { BetOption } from "@/models/betOption";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import { buildOrderOptions } from "@/domain/betting";
 import {
   ViewBet,

@@ -1,5 +1,5 @@
-import type { BetOption } from "@/models/betOption";
-import type { BetResult } from "@/models/betResult";
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";

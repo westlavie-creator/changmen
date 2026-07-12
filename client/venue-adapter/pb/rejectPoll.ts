@@ -1,9 +1,9 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { saveUserLog } from "@changmen/client-core/bridge/clientApi";
-import type { VenueOrder, VenueOrderStatus } from "@venue/contract";
+import type { VenueOrder, VenueOrderStatus } from "@changmen/venue-adapter/contract";
 import { pbGet } from "./transport";
 import { wait } from "@changmen/client-core/shared/wait";
-import { PLATFORMS } from "@venue/shared/platforms";
+import { PLATFORMS } from "@changmen/venue-adapter/shared/platforms";
 
 const POLL_MS = 1_000;
 const MAX_MS = 30_000;
