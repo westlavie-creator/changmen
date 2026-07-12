@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BetOption } from "@/models/betOption";
 import {
   arbLegsIncludePolymarket,
-} from "@/domain/arbitrage/polymarketArbPrecheck";
+} from "@changmen/arb-core";
 
 function leg(type: string, odds: number, betMoney: number): BetOption {
   return new BetOption(type as never, "m1", "b1", "i1", betMoney, "Home", odds);

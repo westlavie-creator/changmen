@@ -2,14 +2,14 @@ import "@/test/mockFoOdds";
 import { foOddsState } from "@/test/mockFoOdds";
 import type { BetRowDto, ClientMatchDto, PlatformId } from "@/types/esport";
 import { beforeEach, describe, expect, it } from "vitest";
-import { pickArbLegs } from "@/domain/arbitrage";
-import { providerKeysFromBetItems } from "@/domain/betting/providerKeys";
+import { pickArbLegs } from "@changmen/arb-core";
+import { providerKeysFromBetItems } from "@changmen/arb-core/providerKeys";
 import {
   detectOpportunities,
   findFundedOpportunityForBet,
   indexOpportunities,
-} from "@/extensions/arbOpportunity/detect";
-import { opportunityKey } from "@/extensions/arbOpportunity/types";
+} from "@changmen/arb-core/opportunity/detect";
+import { opportunityKey } from "@changmen/arb-core/opportunity/types";
 import { ViewBet, ViewMatch } from "@/models/match";
 import { createDefaultUserConfig } from "@/types/userConfig";
 

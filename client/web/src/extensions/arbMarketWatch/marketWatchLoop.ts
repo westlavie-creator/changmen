@@ -1,18 +1,18 @@
 import { watch } from "vue";
-import type { DetectOpportunitiesParams } from "@/extensions/arbOpportunity/detect";
-import type { OpportunityTransition } from "@/extensions/arbOpportunity/state";
-import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
+import type { DetectOpportunitiesParams } from "@changmen/arb-core/opportunity/detect";
+import type { OpportunityTransition } from "@changmen/arb-core/opportunity/state";
+import type { ArbOpportunity, OpportunityKey } from "@changmen/arb-core/opportunity/types";
 import type { ViewMatch } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
 import type { ArbProfitAccount } from "@changmen/arb-core";
 import { deliverMarketWatchSink } from "@/extensions/arbMarketWatch/watchSinks";
-import { detectOpportunities } from "@/extensions/arbOpportunity/detect";
+import { detectOpportunities } from "@changmen/arb-core/opportunity/detect";
 import {
   diffOpportunities,
 
   snapshotOpportunities,
-} from "@/extensions/arbOpportunity/state";
+} from "@changmen/arb-core/opportunity/state";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";

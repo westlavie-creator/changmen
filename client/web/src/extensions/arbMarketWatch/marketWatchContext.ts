@@ -1,5 +1,5 @@
-import type { DetectOpportunitiesParams } from "@/extensions/arbOpportunity/detect";
-import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
+import type { DetectOpportunitiesParams } from "@changmen/arb-core/opportunity/detect";
+import type { ArbOpportunity } from "@changmen/arb-core/opportunity/types";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
 

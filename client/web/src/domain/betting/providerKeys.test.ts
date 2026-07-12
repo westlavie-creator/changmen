@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveArbProviderKeys } from "@/domain/betting/providerKeys";
+import { resolveArbProviderKeys } from "@changmen/arb-core/providerKeys";
 
 describe("resolveArbProviderKeys", () => {
   it("display scope returns all bet row platforms", () => {

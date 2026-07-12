@@ -1,5 +1,5 @@
 import type { PlatformId } from "@/types/esport";
-import type { PolymarketApiCreds } from "@changmen/venue-adapter/polymarket/credentials";
+import type { PolymarketApiCreds } from "@changmen/venue-adapter/polymarket";
 
 export interface PastedAccountCredential {
   provider?: PlatformId;

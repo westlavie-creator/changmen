@@ -2,7 +2,7 @@ import "@/test/mockFoOdds";
 import { foOddsState } from "@/test/mockFoOdds";
 import type { BetRowDto } from "@/types/esport";
 import { beforeEach, describe, expect, it } from "vitest";
-import { pickArbLegs } from "@/domain/arbitrage/pickArbLegs";
+import { pickArbLegs } from "@changmen/arb-core";
 import { ViewBet } from "@/models/match";
 import { createDefaultUserConfig } from "@/types/userConfig";
 

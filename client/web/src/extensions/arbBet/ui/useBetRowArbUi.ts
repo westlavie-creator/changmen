@@ -1,8 +1,8 @@
 import type { MaybeRefOrGetter } from "vue";
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import { computed, ref, toValue } from "vue";
-import { arbLegSide, pickArbLegs } from "@/domain/arbitrage";
-import { providerKeysFromBetItems } from "@/domain/betting/providerKeys";
+import { arbLegSide, pickArbLegs } from "@changmen/arb-core";
+import { providerKeysFromBetItems } from "@changmen/arb-core/providerKeys";
 import { useArbLineOverlay, useOddsAnchorMap } from "@/extensions/arbBet/ui/useArbLineOverlay";
 import { useOddsFlashCell } from "@/extensions/arbBet/ui/useOddsFlash";
 import { percent } from "@/shared/format";

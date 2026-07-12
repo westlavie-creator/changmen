@@ -13,7 +13,7 @@ import { useUserStore } from "@/stores/userStore";
 
 async function applyPmTransportRoutingOnLogin(): Promise<void> {
   try {
-    const { applyPmAutoTransportOnLogin } = await import("@changmen/venue-adapter/polymarket/pmAutoTransport");
+    const { applyPmAutoTransportOnLogin } = await import("@changmen/venue-adapter/polymarket");
     await applyPmAutoTransportOnLogin();
   }
   catch (err) {
@@ -24,7 +24,7 @@ async function applyPmTransportRoutingOnLogin(): Promise<void> {
 
 async function resetPmTransportRoutingOnLogout(): Promise<void> {
   try {
-    const { resetPmTransportRoutingOnLogout } = await import("@changmen/venue-adapter/polymarket/pmAutoTransport");
+    const { resetPmTransportRoutingOnLogout } = await import("@changmen/venue-adapter/polymarket");
     resetPmTransportRoutingOnLogout();
   }
   catch {

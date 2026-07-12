@@ -28,20 +28,20 @@ import { getToken } from "@/api/client";
 import {
   createOrDerivePolymarketApiCreds,
   type PolymarketApiCreds,
-} from "@changmen/venue-adapter/polymarket/credentials";
+} from "@changmen/venue-adapter/polymarket";
 import {
   fetchPolymarketRelayerStatus,
   preparePolymarketWallet,
-} from "@changmen/venue-adapter/polymarket/relayer";
+} from "@changmen/venue-adapter/polymarket";
 import {
   normalizePolymarketPrivateKey,
   resolvePolymarketDepositWalletFromPrivateKey,
   resolvePolymarketSignerAddress,
-} from "@changmen/venue-adapter/polymarket/depositWallet";
+} from "@changmen/venue-adapter/polymarket";
 import { getAccounts } from "@/api/account";
 import { getAdapter } from "@/runtime/venueAdapters";
 import type { AccountBalanceResult } from "@changmen/venue-adapter/contract";
-import { parsePbVenueIdentity } from "@changmen/venue-adapter/pb/auth";
+import { parsePbVenueIdentity } from "@changmen/venue-adapter/pb";
 
 function readStoredVenueMemberId(row: { venueMemberId?: string; venueId?: string } | null | undefined): string {
   const v = row?.venueMemberId ?? row?.venueId;

@@ -1,10 +1,10 @@
-import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
+import type { ArbOpportunity } from "@changmen/arb-core/opportunity/types";
 import { describe, expect, it } from "vitest";
 import {
   diffOpportunities,
   snapshotOpportunities,
-} from "@/extensions/arbOpportunity/state";
-import { opportunityKey } from "@/extensions/arbOpportunity/types";
+} from "@changmen/arb-core/opportunity/state";
+import { opportunityKey } from "@changmen/arb-core/opportunity/types";
 
 function makeOpp(patch: Partial<ArbOpportunity> = {}): ArbOpportunity {
   return {

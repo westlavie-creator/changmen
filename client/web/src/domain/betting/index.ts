@@ -10,7 +10,7 @@ export {
   type ArbProviderScope,
   providerKeysFromBetItems,
   resolveArbProviderKeys,
-} from "@/domain/betting/providerKeys";
+} from "@changmen/arb-core/providerKeys";
 export {
   allowArbBetExecution,
   arbAccountPickerFilter,

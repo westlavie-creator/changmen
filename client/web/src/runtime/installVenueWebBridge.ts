@@ -1,5 +1,5 @@
-import { setVenueWebBridge } from "@changmen/venue-adapter/shared/webBridge";
-import type { VenueWebBridge } from "@changmen/venue-adapter/shared/webBridgeTypes";
+import { setVenueWebBridge } from "@changmen/venue-adapter/shared";
+import type { VenueWebBridge } from "@changmen/venue-adapter/shared";
 import { useAccountStore } from "@/stores/accountStore";
 import { useCollectStore } from "@/stores/collectStore";
 import { useMatchStore } from "@/stores/matchStore";

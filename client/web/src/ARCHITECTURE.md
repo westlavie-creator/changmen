@@ -22,7 +22,7 @@
 | `api/v4.ts` | A8 v4 信用盘试玩（平博/OB/SABA） | `enterCreditPlate` — 详见 [docs/CREDIT_PLATE.md](../docs/CREDIT_PLATE.md) |
 | `types/` | DTO、用户配置、纯类型 | `types/collect.ts`, `types/esport.ts` |
 | `models/` | 带方法的领域类 | `PlatformAccount`, `BetOption` |
-| `domain/` | **套利/下注纯逻辑**（无 Pinia、可单测） | `domain/arbitrage`, `domain/betting` |
+| `domain/` | **下注编排胶水**（部分纯逻辑在 `@changmen/arb-core`） | `domain/betting` |
 | `client/venue-adapter/` | **平台清单、能力与平台实现**（`@changmen/venue-adapter`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
 | `shared/` | **横切工具**（与采集/下注无关） | `format`, `platformHttp` |
 | `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts`, `runtime/appSession.ts` |
@@ -116,7 +116,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | **执行** | `stores/betting/autoBet/` | 单场下注管线 |
 | **扩展能力** | `extensions/arbOpportunity`、`arbMarketWatch`、`arbBet`、`notify` | 检测输入、盯盘、UI、Telegram；**不是**调度本身 |
 
-- `extensions/arbOpportunity/detect` 供通知旁路与盯盘使用；自动下注仍走 A8 主循环全表遍历。
+- `@changmen/arb-core/opportunity` 供通知旁路与盯盘；自动下注仍走 A8 主循环全表遍历。
 
 手动双击：`bettingStore.manualBet` → `manualBet.ts`（同样走 `accountStore` + `successMarkers`）。
 
@@ -139,16 +139,16 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 | 路径 | 用途 | 对齐 A8 |
 |------|------|---------|
-| `domain/arbitrage/pickArbLegs.ts` | 跨平台选最优主客腿、隐含利润率 | bundle 套利检测 |
+| `@changmen/arb-core` `pickArbLegs` | 跨平台选最优主客腿、隐含利润率 | bundle 套利检测 |
 | `domain/betting/singleLegRate.ts` | 比例 9999 单边模式、linkId | [changmen 扩展] |
 | `domain/betting/betFilters.ts` | 账号主过滤（初赔、lastOdds、maxBetCount） | A8 对齐 |
 | `domain/betting/describeArbPrepareSkip.ts` | GetOrderOptions 跳过原因文案 | [changmen 扩展] |
 | `extensions/arbBet/` | BetRow 红线/flash UI（规则见 `domain/betting/singleLegRate`） | [changmen 扩展] |
 | `extensions/arbBet/ui/` | 赔率涨跌动画、套利腿连线与利润角标 | [changmen 扩展] |
 | `domain/betting/buildOrderOptions.ts` | 对冲金额、`betSorting`、WinRate | `IQ.GetOrderOptions` / `oJe` |
-| `domain/betting/providerKeys.ts` | `auto` = `getProviders()` | A8 下单平台范围 |
+| `@changmen/arb-core/providerKeys` | `auto` = `getProviders()` | A8 下单平台范围 |
 
-场馆拒单判定在 `@changmen/venue-adapter/adaptation/a8LegOutcome` / 各场馆 `resolveLegOutcome`；编排层不再维护 `domain/betting/venueReject.ts`。
+场馆拒单判定在 `@changmen/venue-adapter/adaptation` / 各场馆 `resolveLegOutcome`；编排层不再维护 `domain/betting/venueReject.ts`。
 
 `models/match.ts` 的 `ViewBet.getOrderOptions` 委托 `buildOrderOptions`，保持模型 API 不变。
 

@@ -1,10 +1,10 @@
-import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
+import type { ArbOpportunity } from "@changmen/arb-core/opportunity/types";
 import { describe, expect, it, vi } from "vitest";
 import { buildMarketWatchGroups } from "@/extensions/arbMarketWatch/watchSinks";
-import { opportunityKey } from "@/extensions/arbOpportunity/types";
+import { opportunityKey } from "@changmen/arb-core/opportunity/types";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
-vi.mock("@/extensions/arbOpportunity/detect", () => ({
+vi.mock("@changmen/arb-core/opportunity/detect", () => ({
   findFundedOpportunityForBet: vi.fn(() => undefined),
 }));
 

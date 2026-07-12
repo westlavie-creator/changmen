@@ -27,6 +27,11 @@ export * from "./pmOfficialReachability";
 export * from "./ws";
 export * from "./pmMarketWsMode";
 export * from "./pmUserWsMode";
+export * from "./pmLogicalPosition";
+export * from "./pmTransportMode";
+export * from "./credentials";
+export * from "./depositWallet";
+export * from "./relayer";
 export * from "./userWs";
 
 export const polymarketAdapter: PlatformAdapter = {

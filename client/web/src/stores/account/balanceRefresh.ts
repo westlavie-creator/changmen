@@ -27,7 +27,7 @@ function saveAccountRefreshLog(title: string, lines: string[]) {
 async function fetchVenueBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
   const providerId = String(account.provider ?? "").toLowerCase();
   if (providerId === "polymarket" && account.accountId) {
-    const { isPmVpsHttpMode } = await import("@changmen/venue-adapter/polymarket/pmTransportMode");
+    const { isPmVpsHttpMode } = await import("@changmen/venue-adapter/polymarket");
     if (isPmVpsHttpMode()) {
       const { refreshPmBalance } = await import("@/api/account");
       const info = await refreshPmBalance(account.accountId);

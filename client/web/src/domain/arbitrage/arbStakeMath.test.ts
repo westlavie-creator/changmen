@@ -3,7 +3,7 @@ import { BetOption } from "@/models/betOption";
 import {
   applyArbHedgeStakes,
   impliedFromLegOdds,
-} from "@/domain/arbitrage/arbStakeMath";
+} from "@changmen/arb-core";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 function leg(type: string, odds: number, betMoney: number): BetOption {

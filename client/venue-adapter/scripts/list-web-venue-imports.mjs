@@ -49,7 +49,8 @@ for (const file of walk(WEB_SRC)) {
 }
 
 const sorted = [...subs].sort();
-console.log(`${PKG} subpaths from client/web/src (${sorted.length}):`);
+const roots = new Set(sorted.map((s) => s.split("/")[0]));
+console.log(`${PKG} subpaths from client/web/src (${sorted.length}, ${roots.size} top-level):`);
 for (const sub of sorted) {
   console.log(`  ./${sub}`);
 }

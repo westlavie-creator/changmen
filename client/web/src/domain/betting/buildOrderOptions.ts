@@ -2,7 +2,7 @@ import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
-import { pickArbLegs } from "@/domain/arbitrage";
+import { pickArbLegs } from "@changmen/arb-core";
 import { BetOption } from "@/models/betOption";
 import { sortOptionsByWinRate } from "@/shared/winRate";
 

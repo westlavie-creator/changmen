@@ -1,6 +1,6 @@
 import type { ArbMarketWatchContext } from "@/extensions/arbMarketWatch/marketWatchContext";
 import type { ArbMarketWatchGroup } from "@/extensions/arbMarketWatch/watchSinks";
-import type { ArbOpportunity } from "@/extensions/arbOpportunity/types";
+import type { ArbOpportunity } from "@changmen/arb-core/opportunity/types";
 import {
 
   explainNotExecutable,

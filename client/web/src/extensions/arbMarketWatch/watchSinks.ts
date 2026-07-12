@@ -1,18 +1,18 @@
 import type { ArbMarketWatchContext } from "@/extensions/arbMarketWatch/marketWatchContext";
-import type { DetectOpportunitiesParams } from "@/extensions/arbOpportunity/detect";
-import type { OpportunityTransition } from "@/extensions/arbOpportunity/state";
-import type { ArbOpportunity, OpportunityKey } from "@/extensions/arbOpportunity/types";
+import type { DetectOpportunitiesParams } from "@changmen/arb-core/opportunity/detect";
+import type { OpportunityTransition } from "@changmen/arb-core/opportunity/state";
+import type { ArbOpportunity, OpportunityKey } from "@changmen/arb-core/opportunity/types";
 import {
 
   buildMarketWatchContext,
 } from "@/extensions/arbMarketWatch/marketWatchContext";
-import { findFundedOpportunityForBet } from "@/extensions/arbOpportunity/detect";
+import { findFundedOpportunityForBet } from "@changmen/arb-core/opportunity/detect";
 import {
 
   betAnchor,
   opportunityKey,
 
-} from "@/extensions/arbOpportunity/types";
+} from "@changmen/arb-core/opportunity/types";
 import { shouldSendArbOpportunity } from "@/extensions/notify/arbOpportunityConfig";
 import { useMessageStore } from "@/stores/messageStore";
 

@@ -4,7 +4,7 @@ import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import {
   resolvePlanCnyFromVenueOrder,
   resolvePlanCnyFromVenueStake,
-} from "@changmen/venue-adapter/adaptation/a8VenueMoney";
+} from "@changmen/venue-adapter/adaptation";
 import { PLATFORMS } from "@/shared/platform";
 
 function pickVenueOrderForMakeUpReference(

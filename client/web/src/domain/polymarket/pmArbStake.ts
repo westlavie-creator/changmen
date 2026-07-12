@@ -5,7 +5,7 @@
 import type { BetOption } from "@/models/betOption";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { PLATFORMS } from "@/shared/platform";
-import { resolvePlanCnyFromVenueStake } from "@changmen/venue-adapter/adaptation/a8VenueMoney";
+import { resolvePlanCnyFromVenueStake } from "@changmen/venue-adapter/adaptation";
 
 export type PmA8LegPair = {
   pmLeg: BetOption;

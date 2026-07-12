@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { providerKeysFromBetItems } from "@/domain/betting/providerKeys";
+import { providerKeysFromBetItems } from "@changmen/arb-core/providerKeys";
 
 describe("providerKeysFromBetItems (Telegram 全盘口)", () => {
   it("uses all platforms on the bet row", () => {

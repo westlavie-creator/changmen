@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import type { DirectRealtimeStatus } from "@changmen/venue-adapter/shared/directRealtimeStatus";
+import type { DirectRealtimeStatus } from "@changmen/venue-adapter/shared";
 import { useDirectRealtimeStatus } from "@/composables/useDirectRealtimeStatus";
 import {
   listVenueWsStatuses,
   subscribeVenueWsStatus,
   type VenueWsStatusEntry,
-} from "@changmen/venue-adapter/shared/venueWsStatus";
+} from "@changmen/venue-adapter/shared";
 import {
   getObMqttSourceMode,
   cycleObMqttSourceModeAndReconnect,

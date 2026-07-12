@@ -72,7 +72,7 @@
 | 根 `package.json` workspaces | `"client/venue-adapter"` |
 | `lines/esport/line.json` | `components.venueAdapter` |
 
-**web 子路径清单**（由 `npm run list:web-imports --workspace=@changmen/venue-adapter` 生成）见 `client/venue-adapter/scripts/list-web-venue-imports.mjs`。
+`client/web` 消费 venue-adapter 时优先 **平台/域 barrel**（`polymarket`、`shared`、`adaptation`、`contract`、`registry`）；深路径清单见 `list:web-imports`。
 
 `client/venue-adapter` **包内**仍用 `@venue/*`（仅 tsconfig paths 解析，web 源码已不 import）；`client/web/tsconfig.app.json` 保留 `@venue/*` path 供 vue-tsc 跟随依赖图。
 

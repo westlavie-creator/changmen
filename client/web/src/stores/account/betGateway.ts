@@ -13,7 +13,7 @@ import {
 import { playOrderSuccessSound } from "@/shared/orderSound";
 import { settleArbLeg } from "@/stores/betting/autoBet/arbLegSettle";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
-import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@changmen/venue-adapter/adaptation/a8VenueMoney";
+import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@changmen/venue-adapter/adaptation";
 import { useMessageStore } from "@/stores/messageStore";
 import { useUserStore } from "@/stores/userStore";
 
