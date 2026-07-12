@@ -10,6 +10,8 @@
  *   node scripts/probe-hk-relay.mjs
  *   node scripts/probe-hk-relay.mjs --upstream-only
  *   ESPORT_TEST_BASE=http://127.0.0.1:3456 PROBE_TOKEN=xxx node scripts/probe-hk-relay.mjs
+ *
+ * PROBE_TOKEN 未设时：若 JWT_SECRET + RDS 可用，自动为首个 profiles 用户签发短期 JWT。
  */
 import http from "node:http";
 import https from "node:https";
@@ -37,6 +39,44 @@ function resolvePredictFunApiKey() {
     || process.env.VITE_PREDICT_FUN_API_KEY
     || "",
   ).trim();
+}
+
+async function resolveProbeToken() {
+  const fromEnv = String(process.env.PROBE_TOKEN || process.env.ESPORT_TEST_TOKEN || "").trim();
+  if (fromEnv)
+    return { token: fromEnv, source: "env" };
+
+  const secret = String(process.env.JWT_SECRET || "").trim();
+  if (secret.length < 16)
+    return { token: "", source: "" };
+
+  try {
+    const { hasDatabaseUrlConfig, initDatabaseUrl, getPgPool } = await import("@changmen/db");
+    if (!hasDatabaseUrlConfig())
+      return { token: "", source: "" };
+    await initDatabaseUrl();
+    const pool = getPgPool("probe-hk-relay");
+    if (!pool)
+      return { token: "", source: "" };
+    const { rows } = await pool.query(
+      `SELECT p.id::text AS id FROM profiles p ORDER BY p.id LIMIT 1`,
+    );
+    const userId = String(rows[0]?.id || "").trim();
+    if (!userId)
+      return { token: "", source: "" };
+    const { signJwt, JWT_ACCESS_TTL_SEC } = await import("../../db/rds/jwt.js");
+    const token = signJwt(
+      { sub: userId, typ: "access", session_id: "probe-hk-relay" },
+      secret,
+      JWT_ACCESS_TTL_SEC,
+    );
+    return { token, source: "auto-jwt" };
+  }
+  catch (err) {
+    if (process.env.PROBE_DEBUG)
+      console.warn("resolveProbeToken:", err instanceof Error ? err.message : err);
+    return { token: "", source: "" };
+  }
 }
 
 const PM_WS_FORWARD_PATH = "/esport/ws-forward/PM-MARKET";
@@ -120,14 +160,14 @@ async function checkHttpRelay(apiBase) {
   const relayRequireToken = ["1", "true", "yes", "on"].includes(
     String(process.env.HTTP_RELAY_REQUIRE_TOKEN || "").trim().toLowerCase(),
   );
-  const token = String(process.env.PROBE_TOKEN || process.env.ESPORT_TEST_TOKEN || "").trim();
+  const { token, source } = await resolveProbeToken();
   if (relayRequireToken && !token) {
-    fail("http-relay:token", "HTTP_RELAY_REQUIRE_TOKEN=1 但未设置 PROBE_TOKEN / ESPORT_TEST_TOKEN");
+    fail("http-relay:token", "HTTP_RELAY_REQUIRE_TOKEN=1 但未设置 PROBE_TOKEN / ESPORT_TEST_TOKEN，且无法 auto-jwt");
     fail("http-relay:predict-tags", "跳过（无 PROBE_TOKEN）");
     return;
   }
   if (relayRequireToken)
-    pass("http-relay:token", "已提供 PROBE_TOKEN");
+    pass("http-relay:token", source === "auto-jwt" ? "auto JWT（profiles）" : "已提供 PROBE_TOKEN");
 
   const relayUrl = buildHttpRelayUrl({ apiBase });
   const tokenHeaders = token ? { token } : {};
@@ -185,7 +225,7 @@ async function checkProxyStatus(apiBase) {
   }
 }
 
-function checkWsForwardRelay(apiBase, path, label) {
+function checkWsForwardRelay(apiBase, path, label, { pingProbe = true } = {}) {
   return new Promise((resolve) => {
     const base = new URL(apiBase);
     const wsOrigin = `${base.protocol === "https:" ? "wss:" : "ws:"}//${base.host}`;
@@ -207,6 +247,13 @@ function checkWsForwardRelay(apiBase, path, label) {
     }
 
     ws.on("open", () => {
+      if (!pingProbe) {
+        clearTimeout(timer);
+        pass(`ws-forward:${label}`, `connected ${wsUrl}`);
+        ws.close();
+        resolve();
+        return;
+      }
       ws.send("PING");
     });
 
@@ -241,7 +288,8 @@ function checkPmMarketWsRelay(apiBase) {
 }
 
 function checkPredictFunWsRelay(apiBase) {
-  return checkWsForwardRelay(apiBase, PREDICT_WS_FORWARD_PATH, "PREDICTFUN-MARKET");
+  // PF hub 不响应 PING；upgrade 成功即可（订阅协议见 predictfun_market_hub.js）
+  return checkWsForwardRelay(apiBase, PREDICT_WS_FORWARD_PATH, "PREDICTFUN-MARKET", { pingProbe: false });
 }
 
 async function main() {
