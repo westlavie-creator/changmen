@@ -2,7 +2,7 @@
 --
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/migrations/026_players_owner_user_id.sql
 --
--- 幂等：IF NOT EXISTS。存量数据需再跑 scripts/migrate-players-owner-user-id.mjs
+-- 幂等：IF NOT EXISTS。存量数据需再跑 scripts/ops/migrations/migrate-players-owner-user-id.mjs
 
 BEGIN;
 

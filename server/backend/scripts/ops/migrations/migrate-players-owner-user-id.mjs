@@ -5,7 +5,7 @@
  * 前置：026_players_owner_user_id.sql 已执行
  *
  *   cd changmen/server/backend
- *   node scripts/migrate-players-owner-user-id.mjs [--dry-run]
+ *   node scripts/ops/migrations/migrate-players-owner-user-id.mjs [--dry-run]
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { ensurePgPoolReady, getPgPool } from "@changmen/db";

@@ -1,0 +1,30 @@
+# @changmen/client-core
+
+`client/web` 与 `client/venue-adapter`、Chrome 插件共用的 **客户端 TS 层**：领域模型、DTO、HTTP/平台工具。
+
+## 使用方
+
+| 包 | 典型 import |
+|----|-------------|
+| `client/web` | `@changmen/client-core/shared/platformHttp`、`bridge/clientApi` |
+| `client/venue-adapter` | `shared/http`、`models/platformAccount` |
+| `client/chrome-extension` | `chrome-plugin/bridge` |
+
+## 目录
+
+| 路径 | 内容 |
+|------|------|
+| `src/types/` | CollectConfig、账号、平台 ID 等 |
+| `src/models/` | `match`、`betOption`、`platformAccount` |
+| `src/shared/` | `http`、`platformHttp`、`hkRelayOrigin`、格式化 |
+| `src/bridge/` | 与 UI store / 插件桥接 |
+| `src/chrome-plugin/` | MV3 content ↔ web 消息 |
+
+HTTP action 名与 DTO 形状见 `@changmen/api-contract`；catalog 见 `@changmen/shared`。
+
+## 边界
+
+- **不放**服务端或 DB 代码；不 `import` `server/*`
+- 新跨端（web + adapter）类型优先落此包，避免 `client/web` ↔ `venue-adapter` 互引
+
+相关：[docs/TEAM_BOUNDARIES.md](../../docs/TEAM_BOUNDARIES.md) · [packages/api-contract/README.md](../api-contract/README.md)

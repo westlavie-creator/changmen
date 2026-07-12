@@ -9,7 +9,7 @@
 | **根目录** | 常驻脚本：`web` 启动、RDS 迁移、账号 CLI、采集审计等 |
 | [`ops/incidents/`](ops/incidents/) | 一次性事故修复：`cleanup-*`、`purge-*`、`fix-*`、`migrate-gb*` |
 | [`ops/diagnostics/`](ops/diagnostics/) | 排障：`diag-*`、`mem_diag_*`、`probe-hk-relay` |
-| [`ops/migrations/`](ops/migrations/) | 非 package.json 的数据回填 / 审计迁移 |
+| [`ops/migrations/`](ops/migrations/) | `db:migrate-*`、账号回填、订单 hash 补跑 |
 | [`archive/`](archive/) | 已归档的 `_tmp` / `_diag` / `_probe` 临时脚本（勿新增同类到根目录） |
 | [`lib/`](lib/) | 脚本共用模块（如 `pb_auth.mjs`） |
 

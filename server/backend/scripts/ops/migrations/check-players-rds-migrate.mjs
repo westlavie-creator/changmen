@@ -2,7 +2,7 @@
 /**
  * 核对 storage/*.json 与 RDS tag_platforms/players 是否一致。
  *
- *   cd changmen/server/backend && node scripts/check-players-rds-migrate.mjs
+ *   cd changmen/server/backend && node scripts/ops/migrations/check-players-rds-migrate.mjs
  */
 
 import { getPgPool, initDatabaseUrl } from "@changmen/db";

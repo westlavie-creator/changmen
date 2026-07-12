@@ -36,11 +36,22 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 
 | 路径 | 用途 |
 |------|------|
-| 根目录 `.mjs` / `.bat` | 部署、边界检查、Telegram env 同步 |
+| [`scripts/deploy/`](deploy/) | 本机 → HK VPS：`deploy202.bat`、`deploy-hk-remaining.mjs` 等 |
+| 根目录 `.mjs` | 边界检查、Telegram / Poly env 同步 |
 | [`fixtures/`](fixtures/) | PM 等平台 API 响应快照（原 `tmp-*.json`） |
 | [`archive/`](archive/) | 废弃的一次性仓级脚本 |
-| [`deploy/`](../deploy/) | VPS Caddy、PM2、远程 bash（**canonical**） |
+| [`../deploy/`](../deploy/) | VPS Caddy、PM2、远程 bash（**canonical**） |
 | [`server/backend/scripts/`](../server/backend/scripts/README.md) | 后端运维（含 `ops/`、`archive/`） |
+
+## 本机部署（HK）
+
+索引：[scripts/deploy/README.md](deploy/README.md)
+
+| 脚本 | 作用 |
+|------|------|
+| **`scripts\deploy\deploy202.bat`** | 本机 build + 部署 47.57.10.202 |
+| `node scripts/deploy/deploy-hk-remaining.mjs <host> [--build]` | 通用 HK tarball 部署 |
+| `node scripts/deploy/sync-predictfun-key-remote.mjs <host>` | 同步 Predict.fun API key |
 
 ## VPS 部署配置
 
@@ -59,7 +70,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 | 根目录 | `npm run web`、`db:apply`、`account:*`、`check:collect` 等 |
 | `ops/incidents/` | 一次性事故修复 |
 | `ops/diagnostics/` | `diag-*`、`mem_diag_*` |
-| `ops/migrations/` | 补跑迁移 |
+| `ops/migrations/` | `db:migrate-*`、账号回填、迁移审计 |
 | `archive/` | `_tmp` / `_probe` 等已归档临时脚本 |
 
 在 `server/backend` 下执行，或 `node scripts/<path>`。

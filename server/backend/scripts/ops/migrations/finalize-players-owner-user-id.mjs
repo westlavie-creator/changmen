@@ -3,7 +3,7 @@
  * 收尾：profile 引用的 player 补 owner_user_id；无引用活跃孤儿 soft-delete。
  * 前置：migrate-players-owner-user-id.mjs
  *
- *   node scripts/finalize-players-owner-user-id.mjs [--dry-run]
+ *   node scripts/ops/migrations/finalize-players-owner-user-id.mjs [--dry-run]
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { ensurePgPoolReady, getPgPool } from "@changmen/db";

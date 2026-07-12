@@ -11,6 +11,7 @@
 | A8 对齐（parity） | `client/web/docs/` | `A8_PARITY_REGISTRY.md` |
 | 平台探针 | `devtools/platform-probes/{id}/docs/` | OB 状态映射、RAY 对照 |
 | 产品线锚点 | `lines/` | `line.json`、esport/baseball |
+| 共享包 | `packages/` | `shared`、`api-contract`、`client-core` |
 | 历史笔记 | `docs/archive/` | 已结案排查记录 |
 
 ## 架构与部署
@@ -36,6 +37,7 @@
 | `server/matcher` | [README.md](../server/matcher/README.md) |
 | `client/chrome-extension` | [README.md](../client/chrome-extension/README.md) · `npm run chromeplug:pack` |
 | `client/venue-adapter` | [README.md](../client/venue-adapter/README.md) |
+| `packages/` | [README.md](../packages/README.md) — `shared` · `api-contract` · `client-core` |
 
 ## 客户端 / Parity
 

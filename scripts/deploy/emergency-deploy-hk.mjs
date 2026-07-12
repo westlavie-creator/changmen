@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_gamebet");
 const remote = "root@47.82.100.166";
 const deployRepo = "/root/changmen";

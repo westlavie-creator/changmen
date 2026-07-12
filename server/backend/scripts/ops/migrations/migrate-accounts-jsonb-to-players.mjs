@@ -3,8 +3,8 @@
  * 一次性：profiles.accounts jsonb → players.account_data + 结构化列
  * 部署 028 之后执行；之后 SaveData 只写 players。
  *
- *   cd changmen/server/backend && node scripts/migrate-accounts-jsonb-to-players.mjs
- *   node scripts/migrate-accounts-jsonb-to-players.mjs --dry-run
+ *   cd changmen/server/backend && node scripts/ops/migrations/migrate-accounts-jsonb-to-players.mjs
+ *   node scripts/ops/migrations/migrate-accounts-jsonb-to-players.mjs --dry-run
  */
 import "@changmen/storage/load_env.js";
 import * as sb from "@changmen/db";

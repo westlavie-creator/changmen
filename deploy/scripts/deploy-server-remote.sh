@@ -279,8 +279,8 @@ if [ "$PLAYERS_OWNER_MIGRATION_TOUCHED" = "1" ] || [ "$RDS_SCHEMA_TOUCHED" = "1"
     exit 1
   }
   log "players owner_user_id: backfill + finalize (pre-027)"
-  (cd server/backend && node scripts/migrate-players-owner-user-id.mjs) || echo "WARN: migrate-players-owner failed"
-  (cd server/backend && node scripts/finalize-players-owner-user-id.mjs) || {
+  (cd server/backend && node scripts/ops/migrations/migrate-players-owner-user-id.mjs) || echo "WARN: migrate-players-owner failed"
+  (cd server/backend && node scripts/ops/migrations/finalize-players-owner-user-id.mjs) || {
     echo "FAIL: finalize-players-owner — 勿 apply 027，请人工处理 orphan players"
     exit 1
   }
@@ -291,14 +291,14 @@ if [ "$RDS_SCHEMA_TOUCHED" = "1" ] || [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DE
 fi
 if [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "profiles.accounts → players.account_data backfill"
-  (cd server/backend && node scripts/migrate-accounts-jsonb-to-players.mjs) || {
+  (cd server/backend && node scripts/ops/migrations/migrate-accounts-jsonb-to-players.mjs) || {
     echo "FAIL: migrate-accounts-jsonb-to-players"
     exit 1
   }
 fi
 if [ "$PLAYERS_RDS_TOUCHED" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
   log "players/tag_platforms → RDS: migrate JSON from storage/"
-  (cd server/backend && node scripts/migrate-players-to-rds.mjs) || echo "WARN: migrate-players failed"
+  (cd server/backend && node scripts/ops/migrations/migrate-players-to-rds.mjs) || echo "WARN: migrate-players failed"
 fi
 
 if command -v pm2 >/dev/null 2>&1; then

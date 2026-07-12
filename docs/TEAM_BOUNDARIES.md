@@ -2,6 +2,8 @@
 
 changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check-team-boundaries` 让**客户端团队**与**服务端团队**可各自维护，减少跨团队改坏对方代码。
 
+**目录层级**（详见 [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md)）：**平台层**（`packages/`、`client/venue-adapter/`、`server/backend/`…共用）→ **能力层**（`match-engine`、`ws_forward`、`value-bet`…可复用引擎）→ **产品线层**（`lines/{code}/` 仅 manifest + `line.json`，电竞代码仍在根目录）。整理目录时改 manifest/文档即可，不必为产品线复制平台包。
+
 完整两仓 / 契约包路线见本文末尾「后续阶段」。
 
 ## 团队与目录
@@ -14,7 +16,7 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 | **服务端（扩展守护进程）** | `server/polymarket-sports/`、`server/predictfun-collector/`、`server/value-bet/`、`server/collectors/`（规划） | VPS 采集 daemon；详见 collectors README |
 | **开发工具** | `devtools/platform-probes/` | 可选：直连各平台探针 CLI（非主链路） |
 | **产品线** | `lines/`、[docs/SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md) | 对称锚点 `lines/{code}/`；电竞主栈在仓库根；棒球见 `lines/baseball/` |
-| **共同协商** | `packages/shared/`、`packages/api-contract/`、`docs/TEAM_BOUNDARIES.md`、`.github/CODEOWNERS` | 跨端工具、catalog、HTTP 契约 |
+| **共同协商** | `packages/shared/`、`packages/api-contract/`、`packages/client-core/`、`docs/TEAM_BOUNDARIES.md`、`.github/CODEOWNERS` | 跨端工具、catalog、HTTP 契约、web/adapter 共用 TS |
 
 服务端包索引：[server/README.md](../server/README.md)。
 

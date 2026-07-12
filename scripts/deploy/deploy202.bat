@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 echo === deploy202: build + deploy to http://47.57.10.202/ ===
 echo     (includes PM HK relay sync + PREDICTFUN-MARKET check)

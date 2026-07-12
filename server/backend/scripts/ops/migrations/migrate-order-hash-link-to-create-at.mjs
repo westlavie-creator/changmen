@@ -3,8 +3,8 @@
  * 将旧 changmen hash 占位 link 批量改为 create_at（下单时间 ms），便于侧栏按 Link 降序排序。
  *
  *   cd changmen/server/backend
- *   node scripts/migrate-order-hash-link-to-create-at.mjs          # 仅预览
- *   node scripts/migrate-order-hash-link-to-create-at.mjs --execute
+ *   node scripts/ops/migrations/migrate-order-hash-link-to-create-at.mjs          # 仅预览
+ *   node scripts/ops/migrations/migrate-order-hash-link-to-create-at.mjs --execute
  */
 import { ARB_LINK_MIN, getPgPool } from "@changmen/db";
 

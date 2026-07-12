@@ -57,10 +57,10 @@ orders / money_logs
 
 ```bat
 cd changmen\server\backend
-node scripts\migrate-players-owner-user-id.mjs
-node scripts\finalize-players-owner-user-id.mjs
+node scripts\ops\migrations\migrate-players-owner-user-id.mjs
+node scripts\ops\migrations\finalize-players-owner-user-id.mjs
 npm run db:apply   rem 含 028 account_data 列
-node scripts\migrate-accounts-jsonb-to-players.mjs
+node scripts\ops\migrations\migrate-accounts-jsonb-to-players.mjs
 node scripts\audit-accounts-full.mjs
 ```
 

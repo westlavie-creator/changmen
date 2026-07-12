@@ -25,6 +25,7 @@ changmen/
 │   ├── predictfun-collector/    # Predict.fun REST daemon
 │   └── value-bet/               # @changmen/value-bet（正 EV 扫描 daemon）
 ├── scripts/
+│   ├── deploy/                  # 本机 → HK VPS（deploy202.bat 等）
 │   ├── fixtures/                # API 探针快照
 │   └── archive/                 # 废弃仓级脚本
 ├── deploy/scripts/              # VPS bash（canonical）
