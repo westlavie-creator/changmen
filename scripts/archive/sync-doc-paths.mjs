@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const CHANGMEN = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const CHANGMEN = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SKIP = new Set(["node_modules", ".git", "dist", ".smoke"]);
 
 const REPLACEMENTS = [
@@ -43,7 +43,6 @@ const REPLACEMENTS = [
   [/ob\/frontend\//g, "ob/"],
   [/pb\/frontend\//g, "pb/"],
   [/ray\/frontend\//g, "ray/"],
-  [/目录语义：`{platform}/` 为浏览器采集；`@changmen/platform-probes`（`devtools/platform-probes/`）为可选 Node 探针 CLI/`）为可选 Node 探针 CLI"],
 ];
 
 function walk(dir, out = []) {

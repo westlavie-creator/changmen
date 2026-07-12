@@ -31,8 +31,10 @@
 
 ## 约定
 
-- **新临时脚本**：直接放进 `archive/`，文件名仍可用 `_` 前缀；**不要**堆在根目录。
-- **事故修复**：完成后迁入 `ops/incidents/`，根目录只留可复用的运维入口。
-- **运行**：在 `server/backend` 下 `node scripts/<path>`，或 `node scripts/ops/incidents/<name>.mjs`。
+- **根目录冻结（阶段 19）**：仅保留上表 9 个启动/日常 CLI；**不再**向根目录新增脚本。
+- **新临时脚本**：直接放进 `archive/`，文件名仍可用 `_` 前缀。
+- **事故修复**：迁入 `ops/incidents/`。
+- **迁移 / 归档 / 补跑**：`ops/migrations/`；排障与 deploy 自检：`ops/diagnostics/`。
+- **运行**：在 `server/backend` 下 `node scripts/<path>`。
 
-仓级脚本索引：[scripts/README.md](../../../scripts/README.md)
+仓级脚本索引：[scripts/README.md](../../../scripts/README.md) · 落点规则：[ARCHITECTURE.md](../../../docs/ARCHITECTURE.md) §迁移进度

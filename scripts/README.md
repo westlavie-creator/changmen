@@ -37,10 +37,10 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 | 路径 | 用途 |
 |------|------|
 | [`scripts/deploy/`](deploy/) | 本机 → HK VPS：`deploy202.bat`、`deploy-hk-remaining.mjs` 等 |
-| [`scripts/sync/`](sync/) | 本机 `.env` 片段 → VPS（Telegram、Poly Builder） |
-| 根目录 `.mjs` | 边界检查、`sync-doc-paths` 等 |
-| [`fixtures/`](fixtures/) | PM 等平台 API 响应快照（原 `tmp-*.json`） |
-| [`archive/`](archive/) | 废弃的一次性仓级脚本 |
+| [`scripts/sync/`](sync/) | 本机 `.env` 片段 → VPS（Telegram、Poly Builder、Predict.fun key） |
+| [`scripts/archive/`](archive/) | 废弃仓级脚本、`sync-doc-paths` 等一次性工具 |
+| 根目录 `.mjs` | `check-team-boundaries.mjs` |
+| [`fixtures/`](fixtures/) | PM 等平台 API 响应快照 |
 | [`../deploy/`](../deploy/) | VPS Caddy、PM2、远程 bash（**canonical**） |
 | [`server/backend/scripts/`](../server/backend/scripts/README.md) | 后端运维（含 `ops/`、`archive/`） |
 
@@ -52,7 +52,6 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 |------|------|
 | **`scripts\deploy\deploy202.bat`** | 本机 build + 部署 47.57.10.202 |
 | `node scripts/deploy/deploy-hk-remaining.mjs <host> [--build]` | 通用 HK tarball 部署 |
-| `node scripts/deploy/sync-predictfun-key-remote.mjs <host>` | 同步 Predict.fun API key |
 
 ## 本机 env 同步
 
@@ -63,6 +62,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 | `node scripts/sync/sync-telegram-env.mjs` | Telegram env 同步到 VPS |
 | `node scripts/sync/sync-poly-builder-env.mjs` | Polymarket Builder 凭证同步到 HK + SH |
 | `node scripts/sync/read-telegram-token.mjs` | 读取本机 Telegram token（stdout） |
+| `node scripts/sync/sync-predictfun-key-remote.mjs <host>` | 同步 Predict.fun API key + upstream 探针 |
 
 ## `server/backend/scripts/`（后端运维）
 

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const hosts = process.argv.slice(2);
 if (!hosts.length) {
-  console.error("usage: node scripts/deploy/sync-predictfun-key-remote.mjs <host> [...]");
+  console.error("usage: node scripts/sync/sync-predictfun-key-remote.mjs <host> [...]");
   process.exit(1);
 }
 

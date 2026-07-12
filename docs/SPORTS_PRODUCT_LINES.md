@@ -54,7 +54,7 @@ changmen（平台 monorepo）
 | 无产品线锚点 | 业务线边界不清 | ✅ `lines/{code}/` + `line.json`；电竞映射根目录 |
 | `server/*-collector` 平铺 | 难发现、难复用 | ✅ 已归入 `server/collectors/`（§5） |
 | `GAMES.md` + `game_catalog.json` | 双份维护 | ✅ 合并为 [CATALOG.md](./CATALOG.md)；GAMES/MARKETS 已删 |
-| `server/backend/scripts/` 167 文件 | 69 个 `_tmp`/`_diag` | ✅ 根 24 + `archive/` + `ops/` 子目录 |
+| `server/backend/scripts/` 167 文件 | 69 个 `_tmp`/`_diag` | ✅ 根 9 + `archive/` + `ops/`；**冻结** |
 | `vps/scripts/` 1 文件 | 与 `deploy/` 重复 | ✅ 已迁入 `deploy/scripts/`，删除 `vps/` |
 | 无 `sport` 维度 | 多运动数据混 | ✅ `sport_catalog` + `game.sport`（见 [CATALOG.md](./CATALOG.md)） |
 
@@ -164,19 +164,25 @@ server/collectors/
 
 ---
 
-## 8. 脚本整理（阶段 0 清单）
+## 8. 脚本整理（✅ 阶段 19 冻结）
 
 ### 三分法
 
 | 位置 | 用途 |
 |------|------|
-| `scripts/` | 仓级：边界检查、telegram 同步、紧急部署 |
-| `deploy/scripts/` | VPS 远程：Caddy、tarball、env 同步 |
-| `server/backend/scripts/` | 后端运维：**常驻** CLI（`apply-rds-schema`、`account_cli`、`check-collect`） |
+| `scripts/deploy/` | 本机 → VPS tarball 部署 |
+| `scripts/sync/` | 本机 `.env` 片段 → VPS（Telegram、Poly Builder、Predict.fun key） |
+| `scripts/archive/` | 废弃 / 一次性仓级工具 |
+| `deploy/scripts/` | VPS bash（deploy、sync-remote、caddy） |
+| `server/backend/scripts/` | 后端运维：根目录 **9 个冻结入口** + `ops/` + `archive/` |
 
-### 待归档（`server/backend/scripts/`）
+索引：[scripts/README.md](../scripts/README.md) · [deploy/scripts/README.md](../deploy/scripts/README.md) · [server/backend/scripts/README.md](../server/backend/scripts/README.md)
 
-前缀 `_tmp_`、`_diag_`、`_probe_`、`_mem_`、`_a8_` 的一次性脚本 → `server/backend/scripts/archive/`（或 `.gitignore`），并在 [scripts/README.md](../scripts/README.md) 留索引。
+### 已完成
+
+- ✅ `server/backend/scripts/`：`archive/` + `ops/{incidents,diagnostics,migrations}/`；根目录仅启动与日常 CLI
+- ✅ `vps/` 删除；`deploy/scripts/` 为 canonical
+- ✅ `scripts/deploy/` + `scripts/sync/` 收拢本机运维
 
 ### 遗留
 
@@ -220,6 +226,7 @@ server/collectors/
 
 | 日期 | 说明 |
 |------|------|
+| 2026-07-13 | 阶段 4：目录整理冻结；`sync-predictfun-key` → `scripts/sync/`；collectors 子 README |
 | 2026-07-13 | 阶段 3：`deploy/scripts/README`；`backend/scripts` 根目录再下沉 4 个；`read-telegram-token` → `scripts/sync/` |
 | 2026-07-13 | 阶段 2C：`scripts/sync/` 收拢 Telegram / Poly Builder env 同步 |
 | 2026-07-13 | 阶段 2：server 子包 README；`backend/scripts` 再下沉 4 个脚本 |

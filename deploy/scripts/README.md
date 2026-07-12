@@ -22,7 +22,7 @@
 |------|-------------|------|
 | [`sync-telegram-env-remote.sh`](sync-telegram-env-remote.sh) | `scripts/sync/sync-telegram-env.mjs` | `TELEGRAM_BOT_TOKEN`、`TELEGRAM_ADMIN_CHAT_ID` |
 | [`sync-poly-builder-env-remote.sh`](sync-poly-builder-env-remote.sh) | `scripts/sync/sync-poly-builder-env.mjs` | `POLY_BUILDER_*` |
-| [`sync-hk-relay-env-remote.sh`](sync-hk-relay-env-remote.sh) | `scripts/deploy/deploy-hk-remaining.mjs` / 手动 | `HTTP_RELAY_*`、`PREDICT_FUN_API_KEY` |
+| [`sync-hk-relay-env-remote.sh`](sync-hk-relay-env-remote.sh) | `scripts/sync/sync-predictfun-key-remote.mjs` / `deploy-hk-remaining.mjs` / 手动 | `HTTP_RELAY_*`、`PREDICT_FUN_API_KEY` |
 | [`sync-pm-hk-relay-env-remote.sh`](sync-pm-hk-relay-env-remote.sh) | 遗留 PM relay 白名单 | 见脚本内注释 |
 
 ## Caddy

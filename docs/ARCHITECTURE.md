@@ -45,8 +45,25 @@ changmen/
 | 16 | **档 B**：`client/` + `server/` 物理分区；`apps/` 退役 | ✅ 完成 |
 | 17 | `server/collectors/` daemon 归集；server 子包 README；`backend/scripts` 再分层 | ✅ 完成 |
 | 18 | `scripts/sync/`；`deploy/scripts/README`；`backend/scripts` 根目录收尾 | ✅ 完成 |
+| 19 | 目录整理**冻结**；`scripts/sync` 边界收拢；collectors 子 README | ✅ 完成 |
 
 旧路径 `platform_adapter/`、`gamebet_*` 仅出现在历史章节或迁移对照中；**以本表与代码 `package.json` / `adapter_paths` 为准**。
+
+### 目录整理冻结（阶段 19 后）
+
+此后**不再大规模物理搬家**；新脚本按下列落点添加：
+
+| 类型 | 落点 |
+|------|------|
+| 本机 → VPS 部署 | `scripts/deploy/` |
+| 本机 → VPS env | `scripts/sync/` |
+| VPS bash | `deploy/scripts/` |
+| 后端启动 / 日常 CLI | `server/backend/scripts/` 根（**冻结**，极少新增） |
+| 后端迁移 / 归档兜底 | `server/backend/scripts/ops/migrations/` |
+| 排障 / deploy 自检 | `server/backend/scripts/ops/diagnostics/` |
+| 事故修复 | `server/backend/scripts/ops/incidents/` |
+| 临时探针 | `*/archive/` 或 `backend/scripts/archive/` |
+| 新运动 VPS collector | `server/collectors/{name}/` |
 
 ## 依赖方向
 
