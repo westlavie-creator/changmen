@@ -14,14 +14,25 @@
 | [`scripts/deploy-server-remote.sh`](scripts/deploy-server-remote.sh) | 增量 npm install / PM2 |
 | [`scripts/flatten-hk-vps.sh`](scripts/flatten-hk-vps.sh) | 香港一次性扁平迁移 |
 | [`scripts/migrate-server-remote.sh`](scripts/migrate-server-remote.sh) | 新机迁移 |
+| [`scripts/`](scripts/) | VPS bash 索引（deploy / sync-remote / caddy） |
 | [`scripts/setup-caddy-remote.sh`](scripts/setup-caddy-remote.sh) | 安装 Caddyfile |
+
+脚本索引：[scripts/README.md](scripts/README.md)
 
 ## 双机部署
 
-| 区域 | IP | 方式 |
+| 角色 | IP | 说明 |
 |------|-----|------|
+| **生产（HK）** | `47.57.10.202` | 本机 `scripts\deploy\deploy202.bat` 或 `deploy-hk-remaining.mjs 47.57.10.202` |
+| **测试（HK）** | `47.82.100.166` | `node scripts/deploy/deploy-hk-remaining.mjs 47.82.100.166 [--build]` |
 | 上海 | `106.14.82.50` | 本机 `BAT\deploy-shanghai.bat`（不进 GitHub） |
-| 香港 | `47.82.100.166` | **push `master` → GHA**（推荐）；`BAT\deploy-hongkong.bat` 仅紧急备用 |
+
+GHA：`push master` 默认更新测试机；生产 202 以本机 deploy 或运维流程为准。
+
+| 区域 | 方式 |
+|------|------|
+| 测试 166 | **push `master` → GHA**（推荐日常验证） |
+| 生产 202 | `scripts\deploy\deploy202.bat`；`BAT\deploy-hongkong.bat` 仅紧急备用 |
 
 VPS 运行目录：`/root/changmen`（扁平，无 git）。
 

@@ -1,6 +1,6 @@
 /**
  * client_matches 时间归档 — matcher 每小时兜底（platform_* 由 SaveMatch 快照生命周期负责）。
- * archive-stale-client-matches.mjs 为手动/运维 CLI（默认 client；--legacy-platform 含旧版 platform_* 时间清理）。
+ * archive-stale-client-matches.mjs（ops/migrations/）为手动/运维 CLI（默认 client；--legacy-platform 含旧版 platform_* 时间清理）。
  */
 
 import { getPgPool } from "./pg_pool.js";

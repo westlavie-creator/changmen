@@ -391,7 +391,7 @@ if [ "$DO_PM2_WEB" = "1" ] || [ "$DEPLOY_FULL" = "1" ]; then
     exit 1
   else
     log "post-deploy check (orders upsert + admin telegram)"
-    (cd server/backend && node scripts/post-deploy-check.mjs)
+    (cd server/backend && node scripts/ops/diagnostics/post-deploy-check.mjs)
     log "post-deploy check passed"
     log "HK relay egress probe"
     if (cd server/backend && node scripts/ops/diagnostics/probe-hk-relay.mjs); then

@@ -13,6 +13,8 @@
 | `check-players-rds-migrate.mjs` | `db:check-players` | 迁移后审计报告 |
 | `backup-profiles-accounts.mjs` | `db:backup-accounts` | 部署前 players 账号快照 |
 | `backfill-polymarket-order-settlement.mjs` | `poly:backfill-settlement` | PM 老订单结算补跑 |
+| `archive-stale-client-matches.mjs` | `db:archive-stale` | `client_matches` 时间归档（手动/crontab 兜底） |
+| `prune-stale.mjs` | `db:prune` | 已废弃别名 → `archive-stale-client-matches` |
 | `migrate-order-hash-link-to-create-at.mjs` | — | 订单 hash 链补 `create_at`（`--execute` 执行） |
 
 部署时自动触发顺序见 [`deploy/scripts/deploy-server-remote.sh`](../../../../../deploy/scripts/deploy-server-remote.sh)。

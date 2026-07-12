@@ -2,7 +2,7 @@
 /**
  * 校验 RDS 迁移 SQL 是否覆盖 @changmen/db 代码里引用的表名（无需连库）。
  *
- *   cd changmen/server/backend && node scripts/check-rds-schema.mjs
+ *   cd changmen/server/backend && node scripts/ops/diagnostics/check-rds-schema.mjs
  */
 
 import { readdirSync, readFileSync } from "node:fs";
@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const backendRoot = join(__dirname, "..");
+const backendRoot = join(__dirname, "../../..");
 const migrationsDir = join(backendRoot, "db", "migrations");
 const dbPkgRoot = join(backendRoot, "..", "db");
 
@@ -68,6 +68,7 @@ const SQL_KEYWORDS = new Set([
   "cron",
   "job",
   "record",
+  "moved",
 ]);
 
 function readText(path) {

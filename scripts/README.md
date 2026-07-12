@@ -62,6 +62,7 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 |------|------|
 | `node scripts/sync/sync-telegram-env.mjs` | Telegram env 同步到 VPS |
 | `node scripts/sync/sync-poly-builder-env.mjs` | Polymarket Builder 凭证同步到 HK + SH |
+| `node scripts/sync/read-telegram-token.mjs` | 读取本机 Telegram token（stdout） |
 
 ## `server/backend/scripts/`（后端运维）
 

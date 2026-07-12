@@ -137,7 +137,7 @@ cd changmen/server/backend
 node scripts/apply-rds-schema.mjs
 ```
 
-过期 `client_matches` 由 `server/matcher` 每小时 archive（`server/db/archive_stale.js`，1 小时 `built_at` 阈值）。平台数据由 SaveMatch 快照生命周期负责，不再定时扫表。手动兜底：`node scripts/archive-stale-client-matches.mjs`。
+过期 `client_matches` 由 `server/matcher` 每小时 archive（`server/db/archive_stale.js`，1 小时 `built_at` 阈值）。平台数据由 SaveMatch 快照生命周期负责，不再定时扫表。手动兜底：`npm run db:archive-stale`（`scripts/ops/migrations/archive-stale-client-matches.mjs`）。
 
 ### 3.3 构建并托管前端
 
@@ -174,7 +174,7 @@ pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports
 
 Node 探针在 **`@changmen/platform-probes`**（`devtools/platform-probes/`，瘦包同步为 `server/backend/platform_node`），与 `platform_adapter` 并列。**日常开发可不使用。**
 
-**标准部署**（整仓 `git pull` + `npm install`）：`deploy/scripts/deploy-server-remote.sh` 负责增量步骤；香港扁平同步见 `deploy/scripts/sync-git-to-flat-app.sh`。
+**标准部署**（整仓 `git pull` + `npm install`）：[`deploy/scripts/deploy-server-remote.sh`](./deploy/scripts/deploy-server-remote.sh) 负责增量步骤；香港扁平同步见 [`deploy/scripts/sync-git-to-flat-app.sh`](./deploy/scripts/sync-git-to-flat-app.sh)。脚本索引：[deploy/scripts/README.md](./deploy/scripts/README.md)；双机说明：[deploy/README.md](./deploy/README.md)。
 
 **瘦包部署**（仅发布 `server/backend`、无 `packages/` 目录时）：
 

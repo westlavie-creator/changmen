@@ -12,8 +12,8 @@ import {
 /**
  * Deploy 后自检：RDS orders upsert / SaveOrderBind + 管理员 Telegram。
  *
- *   cd changmen/server/backend && node scripts/post-deploy-check.mjs
- *   node scripts/post-deploy-check.mjs --skip-telegram   # 只测 DB，不发 Telegram
+ *   cd changmen/server/backend && node scripts/ops/diagnostics/post-deploy-check.mjs
+ *   node scripts/ops/diagnostics/post-deploy-check.mjs --skip-telegram   # 只测 DB，不发 Telegram
  *
  * 退出码 0 = 全过；非 0 = 至少一项失败（CI / deploy 脚本直接失败）。
  */
@@ -21,7 +21,7 @@ import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import {
   isAdminNotifyEnabled,
   sendAdminNotify,
-} from "../core/admin_tools/telegram.js";
+} from "../../../core/admin_tools/telegram.js";
 
 loadChangmenEnv();
 

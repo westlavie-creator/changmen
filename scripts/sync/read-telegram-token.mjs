@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const envPath = path.resolve(here, "../server/backend/.env");
+const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const envPath = path.join(changmen, "server/backend/.env");
 if (!fs.existsSync(envPath)) {
   console.error("missing", envPath);
   process.exit(1);

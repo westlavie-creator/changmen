@@ -200,7 +200,7 @@ main() {
   fi
 
   log "post-deploy check"
-  (cd server/backend && node scripts/post-deploy-check.mjs --skip-telegram)
+  (cd server/backend && node scripts/ops/diagnostics/post-deploy-check.mjs --skip-telegram)
 
   log "wait embedded matcher heartbeat"
   for i in $(seq 1 45); do

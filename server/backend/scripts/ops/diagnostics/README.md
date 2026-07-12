@@ -1,10 +1,12 @@
 # ops/diagnostics/
 
-排障与巡检：`diag-*`（账号、订单、pm_sport、merge）、`mem_diag_*`（内存）、`probe-hk-relay`（HK 出海 relay）、`polymarket-builder-trades`（Builder 成交对照）。
+排障与巡检：`diag-*`、`mem_diag_*`、`probe-hk-relay`、`post-deploy-check`、`check-rds-schema`、`polymarket-builder-trades`。
 
 | 脚本 | npm 命令 |
 |------|----------|
 | `probe-hk-relay.mjs` | `npm run probe:hk-relay` |
+| `post-deploy-check.mjs` | `npm run post-deploy:check` |
+| `check-rds-schema.mjs` | `npm run check:rds-schema` |
 | `polymarket-builder-trades.mjs` | `npm run poly:builder-trades` |
 
 运行示例：

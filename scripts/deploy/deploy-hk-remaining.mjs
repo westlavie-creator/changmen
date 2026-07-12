@@ -151,7 +151,7 @@ for (const h of HOSTS) {
       `grep -o 'venue-shared-[^"]*' ${appWeb}/dist/index.html | head -1`,
     ].join("; "));
 
-    ssh(h.host, `cd ${deployRepo}/server/backend; node scripts/post-deploy-check.mjs --skip-telegram`);
+    ssh(h.host, `cd ${deployRepo}/server/backend; node scripts/ops/diagnostics/post-deploy-check.mjs --skip-telegram`);
 
     console.log("==> sync HK relay env (whitelist + pm2 restart)");
     const predictKey = readLocalPredictFunApiKey();

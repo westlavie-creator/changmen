@@ -93,6 +93,6 @@ mv "$tmp" "$app/dist"
 rm -rf "$app/dist.prev" "$archive"
 chmod -R a+rX "$app/dist"
 echo dist_ok`);
-ssh(`cd ${deployRepo}/server/backend && node scripts/post-deploy-check.mjs`);
+ssh(`cd ${deployRepo}/server/backend && node scripts/ops/diagnostics/post-deploy-check.mjs`);
 ssh(`curl -sf -o /dev/null http://127.0.0.1:3456/ || curl -sf -o /dev/null http://127.0.0.1/; echo homepage_ok`);
 console.log("DONE http://47.82.100.166/");

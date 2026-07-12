@@ -2,9 +2,9 @@
 /**
  * client_matches 时间归档（手动 / crontab 兜底；生产由 gamebet-matcher 每小时执行）
  *
- *   cd changmen/server/backend && node scripts/archive-stale-client-matches.mjs
- *   node scripts/archive-stale-client-matches.mjs --legacy-platform   # 含 platform_* / live_timers 时间清理（旧行为）
- *   node scripts/archive-stale-client-matches.mjs --all                 # 全部表
+ *   cd changmen/server/backend && node scripts/ops/migrations/archive-stale-client-matches.mjs
+ *   node scripts/ops/migrations/archive-stale-client-matches.mjs --legacy-platform   # 含 platform_* / live_timers 时间清理（旧行为）
+ *   node scripts/ops/migrations/archive-stale-client-matches.mjs --all                 # 全部表
  */
 
 import {
