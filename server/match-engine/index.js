@@ -16,7 +16,12 @@ export {
 } from "./ids/client_match_ids.js";
 export * from "./merge/match_lifecycle.js";
 export * from "./merge/match_merge.js";
-export { MERGE_START_TIME_TOLERANCE_MS, startTimesCompatible, startTimesCompatibleStrict } from "./merge/merge_constants.js";
+export {
+  MERGE_ID_START_TIME_TOLERANCE_MS,
+  MERGE_START_TIME_TOLERANCE_MS,
+  startTimesCompatible,
+  startTimesCompatibleStrict,
+} from "./merge/merge_constants.js";
 export { resolveCanonicalTeamName } from "./teams/canonical_ob_name.js";
 export * from "./teams/match_utils.js";
 export {

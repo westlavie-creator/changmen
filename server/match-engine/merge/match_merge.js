@@ -229,7 +229,7 @@ function mergeGroupWithKey(group, mergeKey) {
   };
 }
 
-/** 同 merge 键下按开赛时间 ±15min 拆分子组，避免同日多赛误合并 */
+/** 同 merge 键下按开赛时间容差拆分子组（ID 合并 ±60min / 队名 ±30min），避免同日多赛误合并 */
 function findCompatibleGroupKey(groups, baseKey, startMs, { strictTime = false, soloKey = "" } = {}) {
   const st = normalizeEpochMs(startMs);
   if (strictTime && !st) {

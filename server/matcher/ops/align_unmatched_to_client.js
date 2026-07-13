@@ -1,4 +1,5 @@
 import {
+  MERGE_ID_START_TIME_TOLERANCE_MS,
   MERGE_START_TIME_TOLERANCE_MS,
   startTimesCompatible,
   startTimesCompatibleStrict,
@@ -281,6 +282,7 @@ function alignUnmatchedToClientMatches(matches, clientRows) {
 export {
   alignUnmatchedToClientMatches,
   buildExistingClientIdKeyIndex,
+  MERGE_ID_START_TIME_TOLERANCE_MS,
   MERGE_START_TIME_TOLERANCE_MS,
   resolveClientMatchIdKey,
   resolveClientMatchNameKey,
