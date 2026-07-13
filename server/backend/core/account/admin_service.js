@@ -706,30 +706,6 @@ export async function updateAdminAccountMultiply(userId, accountId, multiply, ca
   return sanitizeAccountForAdmin(updated);
 }
 
-/** 管理端修改指定用户账号手动暂停（仅 pause 字段，不覆盖其它暂停原因） */
-export async function updateAdminAccountPause(userId, accountId, pause, caller = null) {
-  const uid = String(userId || "").trim();
-  const aid = Number(accountId);
-  if (!uid)
-    throw new Error("用户 ID 无效");
-  if (!aid)
-    throw new Error("accountId 无效");
-  if (caller && !isAdminUser(caller)) {
-    const visibleIds = await getVisibleUserIds(caller);
-    if (visibleIds && !visibleIds.has(uid))
-      throw new Error("无权操作该用户");
-  }
-  await loadProfileById(uid);
-  const accounts = store.getAccountsForUser(uid);
-  const row = accounts.find(a => Number(a.accountId ?? a.AccountId) === aid);
-  if (!row)
-    throw new Error("账号不存在");
-  const updated = store.updateAccountForUser(uid, aid, { pause: Boolean(pause) });
-  if (!updated)
-    throw new Error("更新失败");
-  return sanitizeAccountForAdmin(updated);
-}
-
 /** 登录/API 鉴权占位（A8 bundle 无 admin 冻结用户） */
 export async function assertProfileActive(_userId) {}
 

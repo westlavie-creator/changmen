@@ -131,16 +131,6 @@ export async function updateAdminAccountMultiply(body: {
   );
 }
 
-export async function updateAdminAccountPause(body: {
-  userId: string;
-  accountId: number;
-  pause: boolean;
-}) {
-  return unwrap(
-    await post<AdminAccountDetail>("Client_AdminUpdateAccountPause", body),
-  );
-}
-
 export async function renameAdminUser(userId: string, userName: string) {
   return unwrap(
     await post<AdminUserMutationResult>("Client_AdminRenameUser", { userId, userName }),

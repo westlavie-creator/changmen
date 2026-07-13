@@ -179,7 +179,7 @@ export async function queryRemoteAccounts(
   adminUserId: number,
   remoteUserId: number,
   provider: PlatformId,
-): Promise<TradeRemoteAccount[]> {
+): Promise<TradeRemoteAccount[] | null> {
   const msgId = newMsgId();
   const reply = tradeChannel(adminUserId);
   const payload = JSON.stringify({
@@ -192,8 +192,8 @@ export async function queryRemoteAccounts(
     },
   });
   const result = await goeasyRequestReply(userChannel(remoteUserId), msgId, payload);
-  if (!result)
-    return [];
+  if (result === undefined)
+    return null;
   if (Array.isArray(result))
     return result as TradeRemoteAccount[];
   return [];

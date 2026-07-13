@@ -28,11 +28,6 @@ function onAdminMultiplySaved(multiply: number) {
     row.multiply = multiply;
 }
 
-function onAdminPauseSaved(accountId: number, pause: boolean) {
-  const row = props.user.accounts?.find(a => a.accountId === accountId);
-  if (row)
-    row.pause = pause;
-}
 </script>
 
 <template>
@@ -42,11 +37,9 @@ function onAdminPauseSaved(accountId: number, pause: boolean) {
       :account="editDialogAccount"
       :admin-target-user-id="user.id"
       allow-multiply-edit
-      allow-pause-edit
       readonly
       @close="accountStore.closeAccountDialog()"
       @multiply-saved="onAdminMultiplySaved"
-      @pause-saved="(pause) => editDialogAccount && onAdminPauseSaved(editDialogAccount.accountId, pause)"
     />
 
     <section class="wp__sec">
@@ -59,12 +52,7 @@ function onAdminPauseSaved(accountId: number, pause: boolean) {
 
     <section class="wp__sec">
       <h3 class="wp__h">投注账号</h3>
-      <AccountBar
-        embedded
-        :admin-target-user-id="user.id"
-        allow-pause-edit
-        @pause-saved="onAdminPauseSaved"
-      />
+      <AccountBar embedded />
     </section>
 
     <section class="wp__sec">

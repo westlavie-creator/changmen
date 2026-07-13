@@ -15,6 +15,9 @@ import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const TRADE_USERS_KEY = "TRADE:USERS";
 
+/** [A8 可证实] TradeView `d`：bundle 原文拼写 Faild */
+type TradeFetchStatus = "Loading" | "Success" | "Faild";
+
 const userStore = useUserStore();
 const provider = ref<PlatformId>("PB");
 const allUsers = ref<UserListRow[]>([]);
@@ -25,9 +28,19 @@ const selectedUserIds = ref<number[]>(
 const accountsByUser = ref(new Map<number, TradeRemoteAccount[]>());
 /** accountId -> remoteUserId */
 const accountOwner = new Map<number, number>();
+/** remoteUserId -> GoEasy query 拉取状态 */
+const fetchStatus = ref(new Map<number, TradeFetchStatus>());
 
 const onlineUsers = computed(() =>
-  allUsers.value.filter(u => Number(u.isOnline) === 1),
+  allUsers.value
+    .filter(u => Number(u.isOnline) === 1)
+    .slice()
+    .sort((a, b) =>
+      String(a.userName ?? a.UserName ?? "").localeCompare(
+        String(b.userName ?? b.UserName ?? ""),
+        "zh-CN",
+      ),
+    ),
 );
 
 const displayAccounts = computed(() => {
@@ -50,6 +63,20 @@ function tradeUserId(u: UserListRow): number {
   return Number(u.userId ?? u.UserID ?? u.Id ?? 0);
 }
 
+function userFetchStatus(userId: number): TradeFetchStatus | undefined {
+  return fetchStatus.value.get(userId);
+}
+
+function setUserFetchStatus(userId: number, status: TradeFetchStatus) {
+  const next = new Map(fetchStatus.value);
+  next.set(userId, status);
+  fetchStatus.value = next;
+}
+
+function clearFetchStatus() {
+  fetchStatus.value = new Map();
+}
+
 async function loadUsers() {
   try {
     allUsers.value = (await getUsers()) ?? [];
@@ -63,13 +90,11 @@ async function fetchAccountsForUser(remoteUserId: number) {
   const adminId = userStore.userId;
   if (!adminId || !remoteUserId)
     return;
-  const started = Date.now();
+  setUserFetchStatus(remoteUserId, "Loading");
   const list = await queryRemoteAccounts(adminId, remoteUserId, provider.value);
-  if (!list.length) {
-    console.warn(`[trade] USER:${remoteUserId} 无账号或超时 (${Date.now() - started}ms)`);
-  }
-  else {
-    console.log(list, `耗时：${Date.now() - started}ms`);
+  if (list === null) {
+    setUserFetchStatus(remoteUserId, "Faild");
+    return;
   }
   if (!accountsByUser.value.has(remoteUserId)) {
     accountsByUser.value.set(remoteUserId, []);
@@ -85,13 +110,16 @@ async function fetchAccountsForUser(remoteUserId: number) {
     else bucket[idx] = row;
   }
   accountsByUser.value = new Map(accountsByUser.value);
+  setUserFetchStatus(remoteUserId, "Success");
 }
 
 async function reloadSelectedUsers() {
   if (!selectedUserIds.value.length)
     return;
   sessionStorage.setItem(TRADE_USERS_KEY, JSON.stringify(selectedUserIds.value));
-  await Promise.all(selectedUserIds.value.map(id => fetchAccountsForUser(id)));
+  clearFetchStatus();
+  for (const id of selectedUserIds.value)
+    await fetchAccountsForUser(id);
 }
 
 async function onFieldChange(acc: TradeRemoteAccount, field: string) {
@@ -113,7 +141,7 @@ onMounted(async () => {
   }
   catch (e) {
     ElMessage.warning(
-      e instanceof Error ? e.message : "GoEasy 未连接，远程操盘不可用",
+      e instanceof Error ? e.message : "realtime hub 未连接，远程操盘不可用",
     );
   }
 });
@@ -143,7 +171,12 @@ watch(selectedUserIds, () => {
       </template>
       <el-checkbox-group v-model="selectedUserIds">
         <el-checkbox v-for="u in onlineUsers" :key="tradeUserId(u)" :value="tradeUserId(u)">
-          {{ u.userName ?? u.UserName }}
+          <div
+            class="username"
+            :class="userFetchStatus(tradeUserId(u))"
+          >
+            {{ u.userName ?? u.UserName }}
+          </div>
         </el-checkbox>
       </el-checkbox-group>
     </el-form-item>

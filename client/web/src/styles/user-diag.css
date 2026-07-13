@@ -65,6 +65,17 @@
   gap: 4px;
   flex-wrap: wrap;
 }
+
+/* [A8 可证实] TradeView：username + Loading/Success/Faild（bundle 拼写 Faild） */
+.user-diag-trade .username.Loading {
+  color: var(--el-text-color-secondary);
+}
+.user-diag-trade .username.Success {
+  color: var(--el-color-success);
+}
+.user-diag-trade .username.Faild {
+  color: var(--el-color-danger);
+}
 .user-diag-follow .text-center {
   text-align: center;
   line-height: 32px;
