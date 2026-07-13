@@ -88,6 +88,7 @@ export {
 export {
   countActivePlayersByOwner,
   fetchAccountRecordsByOwner,
+  fetchPolymarketPlayersForTradeLookup,
   fetchPlayerByPlatformAndName,
   fetchPlayerByPlatformNameAndPlayerName,
   fetchPlayerByProviderAndVenueMemberId,

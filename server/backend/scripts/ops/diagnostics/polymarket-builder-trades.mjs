@@ -76,7 +76,7 @@ if (data.polymarket.trades.length) {
   console.log("最近 Polymarket 成交:");
   for (const t of data.polymarket.trades.slice(0, 10)) {
     console.log(
-      `  ${t.matchTimeIso || "-"} ${t.side} ${t.sizeUsdc.toFixed(2)} USDC feeUsdc=${Number(t.feeUsdc).toFixed(4)} builderFee=${Number(t.builderFeeUsdc || 0).toFixed(4)} @ ${t.price} maker=${t.maker.slice(0, 10)}… tx=${t.transactionHash.slice(0, 12)}…`,
+      `  ${t.matchTimeIso || "-"} ${t.side} ${t.sizeUsdc.toFixed(2)} USDC feeUsdc=${Number(t.feeUsdc).toFixed(4)} builderFee=${Number(t.builderFeeUsdc || 0).toFixed(4)} @ ${t.price} user=${t.makerUserName || "-"} maker=${t.maker.slice(0, 10)}… tx=${t.transactionHash.slice(0, 12)}…`,
     );
   }
 }

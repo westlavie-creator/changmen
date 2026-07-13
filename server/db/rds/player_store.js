@@ -471,6 +471,27 @@ export async function softDeletePlayersNotInList(ownerUserId, keepPlayerIds, des
   }
 }
 
+/** Polymarket 账号：user_name + account_data（Builder 看板 maker/owner 反查） */
+export async function fetchPolymarketPlayersForTradeLookup() {
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT pr.user_name, p.venue_member_id, p.account_data
+       FROM players p
+       JOIN profiles pr ON pr.id = p.owner_user_id
+       WHERE LOWER(p.provider) = 'polymarket' AND p.deleted_at IS NULL
+       ORDER BY pr.user_name ASC, p.id ASC`,
+    );
+    return rows || [];
+  }
+  catch (err) {
+    console.warn("[rds] fetchPolymarketPlayersForTradeLookup:", err.message);
+    return [];
+  }
+}
+
 /** 用户全部活跃账号 → A8 AccountRecord[] */
 export async function fetchAccountRecordsByOwner(ownerUserId) {
   const uid = String(ownerUserId || "").trim();

@@ -215,6 +215,7 @@ onMounted(async () => {
             </template>
           </el-table-column>
           <el-table-column prop="outcome" label="Outcome" width="90" />
+          <el-table-column prop="makerUserName" label="用户" width="90" />
           <el-table-column label="Maker" min-width="120">
             <template #default="{ row }: { row: PolymarketBuilderTradeRow }">
               <span :title="row.maker">{{ shortAddr(row.maker) }}</span>

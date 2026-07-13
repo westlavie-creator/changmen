@@ -134,6 +134,7 @@ export const {
   fetchPlayerById,
   fetchPlayersByIds,
   fetchAccountRecordsByOwner,
+  fetchPolymarketPlayersForTradeLookup,
   countActivePlayersByOwner,
   savePlayerAccountRecord,
   saveAccountRecordsForOwner,

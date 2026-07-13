@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(
   process.env.PORT || (process.platform === "win32" ? 3560 : 3456),
 );
-const SERVER = path.join(__dirname, "server.js");
+const START = path.join(__dirname, "scripts", "start-db.mjs");
 const background
   = process.argv.includes("--background") || process.argv.includes("-b");
 
@@ -68,8 +68,8 @@ function killPort(port) {
 }
 
 function startServer() {
-  const child = spawn(process.execPath, [SERVER], {
-    cwd: path.join(__dirname, ".."),
+  const child = spawn(process.execPath, [START], {
+    cwd: __dirname,
     env: process.env,
     stdio: background ? "ignore" : "inherit",
     detached: background,
