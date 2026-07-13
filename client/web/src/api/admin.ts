@@ -131,6 +131,21 @@ export async function updateAdminAccountMultiply(body: {
   );
 }
 
+export interface AdminUserSettingMutationResult {
+  id: string;
+  userName: string;
+  setting: Record<string, unknown>;
+}
+
+export async function updateAdminUserBetTarget(userId: string, betTarget: boolean) {
+  return unwrap(
+    await post<AdminUserSettingMutationResult>("Client_AdminUpdateUserBetTarget", {
+      userId,
+      betTarget,
+    }),
+  );
+}
+
 export async function renameAdminUser(userId: string, userName: string) {
   return unwrap(
     await post<AdminUserMutationResult>("Client_AdminRenameUser", { userId, userName }),

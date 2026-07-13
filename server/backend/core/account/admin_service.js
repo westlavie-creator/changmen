@@ -706,6 +706,28 @@ export async function updateAdminAccountMultiply(userId, accountId, multiply, ca
   return sanitizeAccountForAdmin(updated);
 }
 
+/** 管理端开关用户 BetTarget（profiles.betting_config，对齐 A8 Setting） */
+export async function updateAdminUserBetTarget(userId, betTarget, caller = null) {
+  const uid = String(userId || "").trim();
+  if (!uid)
+    throw new Error("用户 ID 无效");
+  if (caller && !isAdminUser(caller)) {
+    const visibleIds = await getVisibleUserIds(caller);
+    if (visibleIds && !visibleIds.has(uid))
+      throw new Error("无权操作该用户");
+  }
+  await loadProfileById(uid);
+  store.updateUserSetting(uid, { BetTarget: Boolean(betTarget) });
+  const row = await sb.fetchProfileById(uid);
+  if (!row)
+    throw new Error("用户不存在");
+  return {
+    id: uid,
+    userName: String(row.user_name || ""),
+    setting: profileSettingForAdmin(row),
+  };
+}
+
 /** 登录/API 鉴权占位（A8 bundle 无 admin 冻结用户） */
 export async function assertProfileActive(_userId) {}
 

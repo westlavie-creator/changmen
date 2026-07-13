@@ -61,6 +61,7 @@ export const ESPORT_ACTIONS = [
     "Client_AdminPolymarketBuilder",
     "Client_AdminValueBet",
     "Client_AdminUpdateAccountMultiply",
+    "Client_AdminUpdateUserBetTarget",
     "Client_GetDefaultOdds",
     "Client_GetMatchDefaultOdds",
     "Client_CreateTagPlatform",

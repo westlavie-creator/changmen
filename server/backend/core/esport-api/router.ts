@@ -710,6 +710,20 @@ async function handle(
         return fail((err as Error).message || "操作失败");
       }
     }
+    case "Client_AdminUpdateUserBetTarget": {
+      try {
+        return ok(
+          await adminService.updateAdminUserBetTarget(
+            (body.userId ?? body.id) as string,
+            body.betTarget ?? body.BetTarget,
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);
       const team = String(body.team || "");

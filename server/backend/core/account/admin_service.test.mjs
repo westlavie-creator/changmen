@@ -8,6 +8,7 @@ import {
   renameAdminUser,
   sanitizeAccountForAdmin,
   sanitizeSettingForAdmin,
+  updateAdminUserBetTarget,
 } from "./admin_service.js";
 import { lastLoginFieldsFromProfile } from "./user_login_meta.js";
 
@@ -20,6 +21,17 @@ vi.mock("@changmen/db", () => ({
     total: 2,
   })),
   ensurePgPoolReady: vi.fn(async () => {}),
+  fetchProfileById: vi.fn(async (id) => (
+    id === "u1"
+      ? {
+          id: "u1",
+          user_name: "alice",
+          betting_config: { BetTarget: true },
+          collect_config: {},
+          preferences: {},
+        }
+      : null
+  )),
   getPgPool: vi.fn(() => ({
     query: vi.fn(async (sql, params) => {
       const q = String(sql);
@@ -42,11 +54,13 @@ vi.mock("../db/store.js", () => ({
 
 const mockGetAccountsForUser = vi.fn(() => []);
 const mockUpdateAccountForUser = vi.fn(() => null);
+const mockUpdateUserSetting = vi.fn(() => ({ id: "u1", user_name: "alice" }));
 
 vi.mock("../esport-api/store.js", () => ({
   default: {
     getAccountsForUser: (...args) => mockGetAccountsForUser(...args),
     updateAccountForUser: (...args) => mockUpdateAccountForUser(...args),
+    updateUserSetting: (...args) => mockUpdateUserSetting(...args),
   },
 }));
 
@@ -167,5 +181,15 @@ describe("renameAdminUser", () => {
   it("renames user when name is available", async () => {
     const result = await renameAdminUser("u1", "carol");
     expect(result).toEqual({ id: "u1", userName: "carol" });
+  });
+});
+
+describe("updateAdminUserBetTarget", () => {
+  it("writes BetTarget into betting_config", async () => {
+    mockUpdateUserSetting.mockClear();
+    const result = await updateAdminUserBetTarget("u1", true);
+    expect(mockUpdateUserSetting).toHaveBeenCalledWith("u1", { BetTarget: true });
+    expect(result.setting.BetTarget).toBe(true);
+    expect(result.userName).toBe("alice");
   });
 });

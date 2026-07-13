@@ -519,6 +519,13 @@ onUnmounted(() => {
                 </span>
               </template>
             </el-table-column>
+            <el-table-column v-if="userStore.isAdmin" label="投注目标" width="88" align="center">
+              <template #default="{ row }">
+                <el-tag :type="row.setting?.BetTarget ? 'success' : 'info'" size="small">
+                  {{ row.setting?.BetTarget ? "开" : "关" }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column label="下注金额" width="96" align="right">
               <template #default="{ row }">
                 {{ fmtBetMoney(row) }}
