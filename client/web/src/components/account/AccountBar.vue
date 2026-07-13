@@ -10,9 +10,13 @@ import { useAccountStore } from "@/stores/accountStore";
 withDefaults(
   defineProps<{
     embedded?: boolean;
+    adminTargetUserId?: string;
+    allowPauseEdit?: boolean;
   }>(),
   { embedded: false },
 );
+
+const emit = defineEmits<{ pauseSaved: [accountId: number, pause: boolean] }>();
 
 const accountStore = useAccountStore();
 const { sortedAccounts } = storeToRefs(accountStore);
@@ -42,10 +46,13 @@ async function removeAccount(account: PlatformAccount) {
       :key="acc.accountId"
       :account="acc"
       :preview="embedded"
+      :admin-target-user-id="adminTargetUserId"
+      :allow-pause-edit="allowPauseEdit"
       @refresh="refreshOne(acc)"
       @edit="accountStore.openEditAccount(acc)"
       @money="openMoney(acc)"
       @remove="removeAccount(acc)"
+      @pause-saved="(pause) => emit('pauseSaved', acc.accountId, pause)"
     />
 
     <MoneyLogDialog

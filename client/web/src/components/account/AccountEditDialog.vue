@@ -19,7 +19,7 @@ import {
   pickFastestGateway,
 } from "@/components/account/accountGatewayProbe";
 import AccountEditPanel from "@/components/account/AccountEditPanel.vue";
-import { updateAdminAccountMultiply } from "@/api/admin";
+import { updateAdminAccountMultiply, updateAdminAccountPause } from "@/api/admin";
 import { normalizeAccountRateConfig, PlatformAccount } from "@/models/platformAccount";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
@@ -62,15 +62,16 @@ const props = defineProps<{
   open: boolean;
   account?: PlatformAccount;
   readonly?: boolean;
-  /** 管理端：目标用户 id，配合 allowMultiplyEdit 可改乘网 */
+  /** 管理端：目标用户 id，配合 allowMultiplyEdit / allowPauseEdit */
   adminTargetUserId?: string;
   allowMultiplyEdit?: boolean;
+  allowPauseEdit?: boolean;
   previewForm?: AccountEditFormState;
   previewProxyOptions?: { label: string; value: number }[];
   zIndex?: number;
 }>();
 
-const emit = defineEmits<{ close: []; multiplySaved: [multiply: number] }>();
+const emit = defineEmits<{ close: []; multiplySaved: [multiply: number]; pauseSaved: [pause: boolean] }>();
 
 const accountStore = useAccountStore();
 const userStore = useUserStore();
@@ -794,11 +795,30 @@ async function save() {
   }
 }
 
+async function savePauseAdmin() {
+  if (!props.adminTargetUserId || !props.account)
+    return;
+  try {
+    const updated = await updateAdminAccountPause({
+      userId: props.adminTargetUserId,
+      accountId: props.account.accountId,
+      pause: Boolean(form.pause),
+    });
+    form.pause = updated.pause;
+    props.account.pause = updated.pause;
+    ElMessage.success(updated.pause ? "账号已暂停" : "账号已恢复投注");
+    emit("pauseSaved", updated.pause);
+  }
+  catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "保存暂停状态失败");
+    throw err;
+  }
+}
+
 async function saveMultiplyAdmin() {
   if (!props.adminTargetUserId || !props.account)
     return;
   const multiply = resolveAccountMultiply(form.provider, form.multiply);
-  saving.value = true;
   try {
     const updated = await updateAdminAccountMultiply({
       userId: props.adminTargetUserId,
@@ -812,6 +832,22 @@ async function saveMultiplyAdmin() {
   }
   catch (err) {
     ElMessage.error(err instanceof Error ? err.message : "保存乘网失败");
+    throw err;
+  }
+}
+
+async function saveAdminAccountFields() {
+  if (!props.adminTargetUserId || !props.account)
+    return;
+  saving.value = true;
+  try {
+    if (props.allowPauseEdit)
+      await savePauseAdmin();
+    if (props.allowMultiplyEdit)
+      await saveMultiplyAdmin();
+  }
+  catch {
+    /* 子函数已提示 */
   }
   finally {
     saving.value = false;
@@ -837,6 +873,7 @@ function unlockRate() {
       v-model:form="form"
       :readonly="readonly"
       :multiply-editable="Boolean(allowMultiplyEdit && adminTargetUserId)"
+      :pause-editable="Boolean(allowPauseEdit && adminTargetUserId)"
       :hide-sensitive="Boolean(previewForm)"
       :rate-locked="rateLocked"
       :game-expanded="gameShow"
@@ -957,16 +994,16 @@ function unlockRate() {
         </fieldset>
       </template>
 
-      <template v-if="allowMultiplyEdit && adminTargetUserId && account" #footer>
+      <template v-if="adminTargetUserId && account && (allowMultiplyEdit || allowPauseEdit)" #footer>
         <div class="el-form-submit flex flex-center">
           <el-button
             type="primary"
             size="large"
             style="width: 98%"
             :loading="saving"
-            @click="saveMultiplyAdmin"
+            @click="saveAdminAccountFields"
           >
-            保存乘网
+            保存管理修改
           </el-button>
         </div>
       </template>

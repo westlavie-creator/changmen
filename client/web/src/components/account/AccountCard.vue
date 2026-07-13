@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import type { PlatformAccount } from "@/models/platformAccount";
-import { ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { ref } from "vue";
+import { updateAdminAccountPause } from "@/api/admin";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 
-defineProps<{
+const props = defineProps<{
   account: PlatformAccount;
   readonly?: boolean;
   preview?: boolean;
+  adminTargetUserId?: string;
+  allowPauseEdit?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -14,7 +18,10 @@ const emit = defineEmits<{
   edit: [];
   money: [];
   remove: [];
+  pauseSaved: [pause: boolean];
 }>();
+
+const pauseSaving = ref(false);
 
 function formatBalance(value?: number) {
   if (value === undefined || Number.isNaN(value))
@@ -54,6 +61,31 @@ async function confirmRemove() {
     /* cancelled */
   }
 }
+
+async function onAdminPauseChange(pause: boolean) {
+  if (!props.adminTargetUserId || !props.allowPauseEdit)
+    return;
+  const prev = props.account.pause;
+  props.account.pause = pause;
+  pauseSaving.value = true;
+  try {
+    const updated = await updateAdminAccountPause({
+      userId: props.adminTargetUserId,
+      accountId: props.account.accountId,
+      pause,
+    });
+    props.account.pause = updated.pause;
+    ElMessage.success(updated.pause ? "账号已暂停" : "账号已恢复投注");
+    emit("pauseSaved", updated.pause);
+  }
+  catch (err) {
+    props.account.pause = prev;
+    ElMessage.error(err instanceof Error ? err.message : "保存暂停状态失败");
+  }
+  finally {
+    pauseSaving.value = false;
+  }
+}
 </script>
 
 <template>
@@ -86,6 +118,19 @@ async function confirmRemove() {
       <template v-if="account.balance !== undefined">
         {{ formatBalance(account.balance) }}
       </template>
+    </div>
+
+    <div v-if="adminTargetUserId && allowPauseEdit" class="admin-pause flex flex-center">
+      <el-switch
+        :model-value="account.pause"
+        size="small"
+        inline-prompt
+        active-text="暂停"
+        inactive-text="投注"
+        :loading="pauseSaving"
+        style="--el-switch-on-color: #f56c6c"
+        @change="onAdminPauseChange"
+      />
     </div>
 
     <div v-if="!readonly || preview" class="toolbar flex flex-wrap flex-center flex-middle">

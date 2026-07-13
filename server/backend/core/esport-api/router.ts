@@ -710,6 +710,21 @@ async function handle(
         return fail((err as Error).message || "操作失败");
       }
     }
+    case "Client_AdminUpdateAccountPause": {
+      try {
+        return ok(
+          await adminService.updateAdminAccountPause(
+            (body.userId ?? body.id) as string,
+            Number(body.accountId ?? body.playerId),
+            body.pause,
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);
       const team = String(body.team || "");

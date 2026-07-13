@@ -8,6 +8,7 @@ import {
   renameAdminUser,
   sanitizeAccountForAdmin,
   sanitizeSettingForAdmin,
+  updateAdminAccountPause,
 } from "./admin_service.js";
 import { lastLoginFieldsFromProfile } from "./user_login_meta.js";
 
@@ -38,6 +39,20 @@ vi.mock("@changmen/db", () => ({
 
 vi.mock("../db/store.js", () => ({
   loadProfileById: vi.fn(async () => null),
+}));
+
+const mockGetAccountsForUser = vi.fn(() => []);
+const mockUpdateAccountForUser = vi.fn(() => null);
+
+vi.mock("../esport-api/store.js", () => ({
+  default: {
+    getAccountsForUser: (...args) => mockGetAccountsForUser(...args),
+    updateAccountForUser: (...args) => mockUpdateAccountForUser(...args),
+  },
+}));
+
+vi.mock("../auth/role_filter.js", () => ({
+  getVisibleUserIds: vi.fn(async () => null),
 }));
 
 describe("listAdminOrders", () => {
@@ -153,5 +168,30 @@ describe("renameAdminUser", () => {
   it("renames user when name is available", async () => {
     const result = await renameAdminUser("u1", "carol");
     expect(result).toEqual({ id: "u1", userName: "carol" });
+  });
+});
+
+describe("updateAdminAccountPause", () => {
+  it("rejects invalid user id", async () => {
+    await expect(updateAdminAccountPause("", 1, true)).rejects.toThrow("用户 ID 无效");
+  });
+
+  it("rejects missing account", async () => {
+    mockGetAccountsForUser.mockReturnValueOnce([]);
+    await expect(updateAdminAccountPause("u1", 9, false)).rejects.toThrow("账号不存在");
+  });
+
+  it("updates pause and returns sanitized account", async () => {
+    mockGetAccountsForUser.mockReturnValueOnce([{ accountId: 9, provider: "OB", pause: true }]);
+    mockUpdateAccountForUser.mockReturnValueOnce({
+      accountId: 9,
+      provider: "OB",
+      pause: false,
+      playerName: "tester",
+    });
+    const row = await updateAdminAccountPause("u1", 9, false);
+    expect(mockUpdateAccountForUser).toHaveBeenCalledWith("u1", 9, { pause: false });
+    expect(row.pause).toBe(false);
+    expect(row.accountId).toBe(9);
   });
 });

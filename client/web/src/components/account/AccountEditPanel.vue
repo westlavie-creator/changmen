@@ -13,6 +13,7 @@ const props = withDefaults(
     readonly?: boolean;
     rateLocked?: boolean;
     multiplyEditable?: boolean;
+    pauseEditable?: boolean;
     gameExpanded?: boolean;
     proxyOptions?: { label: string; value: number }[];
     hideSensitive?: boolean;
@@ -51,6 +52,12 @@ function fieldDisabled(extra = false) {
 
 function multiplyFieldDisabled() {
   if (props.multiplyEditable)
+    return false;
+  return fieldDisabled();
+}
+
+function pauseFieldDisabled() {
+  if (props.pauseEditable)
     return false;
   return fieldDisabled();
 }
@@ -127,7 +134,7 @@ function unlockRate() {
             active-text="暂停账号"
             inactive-text="暂停账号"
             style="height: 24px; --el-switch-on-color: #f56c6c"
-            :disabled="fieldDisabled()"
+            :disabled="pauseFieldDisabled()"
           />
         </el-col>
       </el-row>

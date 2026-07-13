@@ -131,6 +131,16 @@ export async function updateAdminAccountMultiply(body: {
   );
 }
 
+export async function updateAdminAccountPause(body: {
+  userId: string;
+  accountId: number;
+  pause: boolean;
+}) {
+  return unwrap(
+    await post<AdminAccountDetail>("Client_AdminUpdateAccountPause", body),
+  );
+}
+
 export async function renameAdminUser(userId: string, userName: string) {
   return unwrap(
     await post<AdminUserMutationResult>("Client_AdminRenameUser", { userId, userName }),
@@ -257,6 +267,8 @@ export interface PolymarketBuilderTradeRow {
   /** 优先 builderFee，否则 feeUsdc */
   displayFeeUsdc: number;
   maker: string;
+  /** maker 地址对应的 changmen 用户名 */
+  makerUserName: string;
   owner: string;
   market: string;
   assetId: string;
