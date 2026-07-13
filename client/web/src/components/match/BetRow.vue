@@ -146,7 +146,7 @@ function defaultOddsLabel(betId: number, side: BetSide): string {
 }
 
 function onTarget(platform: ViewBet["items"][0]["type"], side: BetSide) {
-  matchStore.setBetTarget(platform, props.bet.id, side);
+  void matchStore.setBetTarget(platform, props.bet.id, side);
 }
 
 function openLimit(item: ViewBet["items"][0]) {

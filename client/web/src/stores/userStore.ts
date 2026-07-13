@@ -20,6 +20,7 @@ import {
 } from "@/api/esport";
 import { ensureTokenRefresh, stopTokenRefresh } from "@/lib/sessionRefresh";
 import { subscribeUserChannel, unsubscribeUserChannel } from "@/realtime/userChannel";
+import { ensureBetTargetChannelSubscribed } from "@/realtime/betTargetChannel";
 import { ensurePublishChannelSubscribed } from "@/realtime/publishChannel";
 import {
   createDefaultUserConfig,
@@ -106,10 +107,13 @@ export const useUserStore = defineStore("user", {
           this.creditPlateUserName = cp;
         await this.loadExtras();
         void subscribeUserChannel(this.userId).catch((err) => {
-          console.warn("[goeasy] USER channel:", err);
+          console.warn("[pubsub] USER channel:", err);
+        });
+        void ensureBetTargetChannelSubscribed().catch((err) => {
+          console.warn("[pubsub] BetTarget channel:", err);
         });
         void ensurePublishChannelSubscribed().catch((err) => {
-          console.warn("[goeasy] Publish channel:", err);
+          console.warn("[pubsub] Publish channel:", err);
         });
         this.ready = true;
         this.error = null;

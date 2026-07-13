@@ -19,6 +19,7 @@ import {
   runMainBetLoopFinally,
   runMainBetLoopTick,
 } from "@/stores/match/mainBetLoop";
+import { publishBetTargetPayload } from "@/realtime/betTargetPublish";
 import { useUserStore } from "@/stores/userStore";
 
 const POLL_MS = 30_000;
@@ -101,23 +102,42 @@ export const useMatchStore = defineStore("match", {
       return empty;
     },
 
-    persistBetTarget() {
-      const out: Record<string, Record<number, BetSide>> = {};
+    toBetTargetPayload(): Record<string, Record<string, BetSide>> {
+      const out: Record<string, Record<string, BetSide>> = {};
       this.betTargets.forEach((bets, platform) => {
-        const row: Record<number, BetSide> = {};
+        const row: Record<string, BetSide> = {};
         bets.forEach((side, betId) => {
-          row[betId] = side;
+          row[String(betId)] = side;
         });
         out[platform] = row;
       });
-      sessionStorage.setItem(BET_TARGET_KEY, JSON.stringify(out));
+      return out;
+    },
+
+    persistBetTarget() {
+      sessionStorage.setItem(BET_TARGET_KEY, JSON.stringify(this.toBetTargetPayload()));
+    },
+
+    /** [A8 可证实] `Ut.saveBetTarget`：GoEasy 广播 + finally sessionStorage */
+    async saveBetTarget(): Promise<boolean> {
+      const user = useUserStore();
+      if (!user.betTargetEnabled())
+        return false;
+
+      const payload = this.toBetTargetPayload();
+      try {
+        return await publishBetTargetPayload(payload);
+      }
+      finally {
+        sessionStorage.setItem(BET_TARGET_KEY, JSON.stringify(payload));
+      }
     },
 
     getBetTarget(platform: PlatformId, betRowId: number): BetSide | undefined {
       return this.betTargets.get(platform)?.get(betRowId);
     },
 
-    setBetTarget(platform: PlatformId, betRowId: number, side: BetSide) {
+    async setBetTarget(platform: PlatformId, betRowId: number, side: BetSide): Promise<boolean> {
       const user = useUserStore();
       if (!user.betTargetEnabled())
         return false;
@@ -130,8 +150,7 @@ export const useMatchStore = defineStore("match", {
       if (bucket.get(betRowId) === side)
         bucket.delete(betRowId);
       else bucket.set(betRowId, side);
-      this.persistBetTarget();
-      return true;
+      return await this.saveBetTarget();
     },
 
     refreshOddsOnBets() {
