@@ -1,100 +1,86 @@
-import GoEasy from "goeasy";
 import { wait } from "@changmen/client-core/shared/wait";
+import {
+  ensureChangmenHubConnected,
+  leaveChangmenChannel,
+  publishChangmenChannel,
+  subscribeChangmenChannel,
+} from "@changmen/venue-adapter/shared";
 
-/** 对齐 A8 bundle `N8e` / `hangzhou.goeasy.io` */
-const GOEASY_APPKEY = "BC-f7e9e309dbe5400eb34041afd4a0c6ad";
-const GOEASY_HOST = "hangzhou.goeasy.io";
+/**
+ * [changmen 实现] 自研 realtime-hub pub/sub（BetTarget / 操盘 / 跟单）
+ * 协议与频道名对齐 A8 GoEasy，不经第三方 GoEasy SaaS。
+ */
 
-interface GoEasyMessage { content?: string }
-interface PubSubLike {
-  subscribe: (opts: {
-    channel: string;
-    onMessage: (msg: GoEasyMessage) => void;
-    onSuccess?: () => void;
-    onFailed?: (err: { content?: string }) => void;
-  }) => void;
-  publish: (opts: {
-    channel: string;
-    message: string;
-    onSuccess?: () => void;
-    onFailed?: (err: { content?: string }) => void;
-  }) => void;
-  unsubscribe?: (opts: { channel: string }) => void;
-}
+const channelCleanups = new Map<string, () => void>();
+const channelHandlers = new Map<string, Set<(content: string) => void>>();
 
-interface GoEasyInstance {
-  connect: (opts: {
-    onSuccess?: () => void;
-    onFailed?: (err: { code?: number; content?: string }) => void;
-  }) => void;
-  pubsub: PubSubLike;
-}
-
-let instance: GoEasyInstance | null = null;
-let connectPromise: Promise<void> | null = null;
-
-function getGoEasy(): GoEasyInstance {
-  if (!instance) {
-    instance = GoEasy.getInstance({
-      host: GOEASY_HOST,
-      appkey: GOEASY_APPKEY,
-      modules: ["pubsub"],
-    }) as unknown as GoEasyInstance;
+function contentToString(content: unknown): string {
+  if (typeof content === "string")
+    return content;
+  if (content == null)
+    return "";
+  try {
+    return JSON.stringify(content);
   }
-  return instance;
+  catch {
+    return String(content);
+  }
 }
 
-/** 对齐 A8 `W8e`：连接 GoEasy（BetTarget / 操盘 / USER 通道共用） */
+function dispatchChannelMessage(channel: string, content: unknown) {
+  const handlers = channelHandlers.get(channel);
+  if (!handlers)
+    return;
+  const text = contentToString(content);
+  for (const fn of handlers)
+    fn(text);
+}
+
+/** 对齐 A8 `W8e`：连接 realtime-hub */
 export function ensureGoEasyConnected(): Promise<void> {
-  if (connectPromise)
-    return connectPromise;
-  connectPromise = new Promise((resolve, reject) => {
-    getGoEasy().connect({
-      onSuccess: () => resolve(),
-      onFailed: (err) => {
-        connectPromise = null;
-        reject(new Error(err?.content || "GoEasy 连接失败"));
-      },
-    });
+  return ensureChangmenHubConnected().then((ok) => {
+    if (!ok)
+      throw new Error("realtime hub 连接失败");
   });
-  return connectPromise;
 }
 
 /** 对齐 A8 `lv` */
-export function goeasySubscribe(
+export async function goeasySubscribe(
   channel: string,
   onMessage: (content: string) => void,
 ): Promise<void> {
-  return ensureGoEasyConnected().then(
-    () =>
-      new Promise((resolve, reject) => {
-        getGoEasy().pubsub.subscribe({
-          channel,
-          onMessage: msg => onMessage(String(msg?.content ?? "")),
-          onSuccess: () => resolve(),
-          onFailed: err => reject(new Error(err?.content || "订阅失败")),
-        });
-      }),
-  );
+  await ensureGoEasyConnected();
+
+  let set = channelHandlers.get(channel);
+  if (!set) {
+    set = new Set();
+    channelHandlers.set(channel, set);
+  }
+  set.add(onMessage);
+
+  if (!channelCleanups.has(channel)) {
+    const cleanup = await subscribeChangmenChannel(channel, (msg) => {
+      dispatchChannelMessage(channel, msg);
+    });
+    channelCleanups.set(channel, cleanup);
+  }
 }
 
 export function goeasyUnsubscribe(channel: string) {
-  getGoEasy().pubsub.unsubscribe?.({ channel });
+  channelHandlers.delete(channel);
+  const cleanup = channelCleanups.get(channel);
+  if (cleanup) {
+    cleanup();
+    channelCleanups.delete(channel);
+  }
+  else {
+    leaveChangmenChannel(channel);
+  }
 }
 
 /** 对齐 A8 `ax` */
 export function goeasyPublish(channel: string, message: string): Promise<boolean> {
-  return ensureGoEasyConnected().then(
-    () =>
-      new Promise((resolve) => {
-        getGoEasy().pubsub.publish({
-          channel,
-          message,
-          onSuccess: () => resolve(true),
-          onFailed: () => resolve(false),
-        });
-      }),
-  );
+  return publishChangmenChannel(channel, message);
 }
 
 const replyWaiters = new Map<string, unknown>();

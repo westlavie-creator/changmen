@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import { REALTIME_SOCKET_PATH } from "./channels.js";
+import { attachPubSubHandlers, emitPubSubMessage } from "./pubsub.js";
 import { broadcastPmSportUpdate } from "./pm_sport_broadcast.js";
 
 /** @type {import("socket.io").Server | null} */
@@ -31,7 +32,9 @@ export function attachChangmenRealtimeHub(httpServer) {
   });
 
   emitChannel = (channel, message) => {
-    io?.emit("chat message", JSON.stringify({ channel, message }));
+    if (!io)
+      return;
+    emitPubSubMessage(io, channel, message);
   };
 
   io.on("connection", (socket) => {
@@ -39,6 +42,8 @@ export function attachChangmenRealtimeHub(httpServer) {
       socket.disconnect(true);
       return;
     }
+
+    attachPubSubHandlers(socket);
 
     socket.on("join room", (room) => {
       const name = String(room || "").trim();

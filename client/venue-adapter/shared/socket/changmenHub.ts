@@ -10,6 +10,7 @@ let socket: Socket | null = null;
 let refCount = 0;
 let connecting: Promise<boolean> | null = null;
 const handlers = new Map<string, Set<ChannelHandler>>();
+const serverSubscribed = new Set<string>();
 
 function hubOrigin(): string {
   if (typeof window !== "undefined" && window.location?.origin)
@@ -29,6 +30,75 @@ function dispatchChannel(channel: string, message: unknown) {
     return;
   for (const fn of set)
     fn(message);
+}
+
+function emitWithAck<T>(
+  event: string,
+  payload: unknown,
+  timeoutMs = 10_000,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (!socket?.connected) {
+      reject(new Error("realtime hub 未连接"));
+      return;
+    }
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        reject(new Error(`${event} 超时`));
+      }
+    }, timeoutMs);
+    socket.emit(event, payload, (ack: T) => {
+      if (settled)
+        return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(ack);
+    });
+  });
+}
+
+async function subscribeServerChannel(channel: string): Promise<void> {
+  if (serverSubscribed.has(channel))
+    return;
+  const ack = await emitWithAck<{ ok?: boolean; error?: string }>(
+    "pubsub:subscribe",
+    { channel },
+  );
+  if (!ack?.ok)
+    throw new Error(ack?.error || "订阅失败");
+  serverSubscribed.add(channel);
+}
+
+function unsubscribeServerChannel(channel: string) {
+  if (!serverSubscribed.has(channel))
+    return;
+  serverSubscribed.delete(channel);
+  if (!socket?.connected)
+    return;
+  socket.emit("pubsub:unsubscribe", { channel });
+}
+
+async function resubscribeAllChannels() {
+  if (!socket?.connected)
+    return;
+  serverSubscribed.clear();
+  for (const channel of handlers.keys()) {
+    try {
+      const ack = await emitWithAck<{ ok?: boolean }>("pubsub:subscribe", { channel });
+      if (ack?.ok)
+        serverSubscribed.add(channel);
+    }
+    catch {
+      /* reconnect will retry */
+    }
+  }
+}
+
+/** 连接 changmen realtime-hub（JWT 鉴权，同源 /esport/realtime） */
+export async function ensureChangmenHubConnected(): Promise<boolean> {
+  return connectSocket();
 }
 
 async function connectSocket(): Promise<boolean> {
@@ -72,21 +142,13 @@ async function connectSocket(): Promise<boolean> {
 
     socket.on("connect", () => {
       reportVenueWsStatus("cm-hub", "connected");
+      void resubscribeAllChannels();
       finish(true);
     });
 
-    socket.on("chat message", (raw: unknown) => {
-      try {
-        const packet = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
-          channel?: string;
-          message?: unknown;
-        };
-        if (packet.channel)
-          dispatchChannel(packet.channel, packet.message ?? packet);
-      }
-      catch {
-        /* ignore malformed */
-      }
+    socket.on("pubsub:message", (packet: { channel?: string; content?: unknown }) => {
+      if (packet?.channel)
+        dispatchChannel(packet.channel, packet.content);
     });
 
     socket.on("connect_error", () => {
@@ -94,6 +156,7 @@ async function connectSocket(): Promise<boolean> {
       finish(false);
     });
     socket.on("disconnect", () => {
+      serverSubscribed.clear();
       if (refCount <= 0)
         reportVenueWsStatus("cm-hub", "disconnected");
     });
@@ -107,7 +170,7 @@ async function connectSocket(): Promise<boolean> {
   return connecting;
 }
 
-/** 订阅 changmen 实时频道（对齐 A8 hub.subscribeA8Channel） */
+/** 订阅 changmen 实时频道 */
 export async function subscribeChangmenChannel(
   channel: string,
   handler: ChannelHandler,
@@ -121,18 +184,45 @@ export async function subscribeChangmenChannel(
   }
   set.add(handler);
 
-  await connectSocket();
+  const connected = await connectSocket();
+  if (connected)
+    await subscribeServerChannel(channel);
 
   return () => {
     set?.delete(handler);
-    if (set && set.size === 0)
+    if (set && set.size === 0) {
       handlers.delete(channel);
+      unsubscribeServerChannel(channel);
+    }
     refCount -= 1;
     if (refCount <= 0) {
       socket?.removeAllListeners();
       socket?.disconnect();
       socket = null;
+      serverSubscribed.clear();
       reportVenueWsStatus("cm-hub", "disconnected");
     }
   };
+}
+
+/** 向频道发布字符串消息（BetTarget / USER / Publish 等） */
+export async function publishChangmenChannel(
+  channel: string,
+  message: string,
+): Promise<boolean> {
+  const connected = await connectSocket();
+  if (!connected)
+    return false;
+  try {
+    const ack = await emitWithAck<{ ok?: boolean }>("pubsub:publish", { channel, message });
+    return Boolean(ack?.ok);
+  }
+  catch {
+    return false;
+  }
+}
+
+/** 取消服务端频道订阅（本地 handler 仍由 subscribe 返回的 cleanup 管理） */
+export function leaveChangmenChannel(channel: string) {
+  unsubscribeServerChannel(channel);
 }

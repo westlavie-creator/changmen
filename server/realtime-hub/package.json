@@ -8,11 +8,14 @@
     ".": "./index.js"
   },
   "scripts": {
-    "test": "node --test hub.test.mjs"
+    "test": "node --test hub.test.mjs pubsub.test.mjs"
   },
   "dependencies": {
     "@changmen/db": "*",
     "@changmen/polymarket-sports": "*",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
   }
 }
