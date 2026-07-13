@@ -1,12 +1,12 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const goeasySubscribe = vi.fn(async (_ch: string, handler: (c: string) => void) => {
+const pubsubSubscribe = vi.fn(async (_ch: string, handler: (c: string) => void) => {
   (globalThis as { __publishHandler?: (c: string) => void }).__publishHandler = handler;
 });
 
-vi.mock("@/realtime/goeasyClient", () => ({
-  goeasySubscribe: (ch: string, handler: (c: string) => void) => goeasySubscribe(ch, handler),
+vi.mock("@/realtime/pubsubClient", () => ({
+  pubsubSubscribe: (ch: string, handler: (c: string) => void) => pubsubSubscribe(ch, handler),
 }));
 
 const createFollowOrder = vi.fn();
@@ -35,7 +35,7 @@ vi.mock("@/stores/userStore", () => ({
 describe("publishChannel A8 follow parity", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    goeasySubscribe.mockClear();
+    pubsubSubscribe.mockClear();
     createFollowOrder.mockClear();
     userState.userId = 2;
     userState.setting = { Follow: true };
@@ -54,8 +54,8 @@ describe("publishChannel A8 follow parity", () => {
     const { ensurePublishChannelSubscribed } = await import("@/realtime/publishChannel");
     await ensurePublishChannelSubscribed();
     await ensurePublishChannelSubscribed();
-    expect(goeasySubscribe).toHaveBeenCalledOnce();
-    expect(goeasySubscribe.mock.calls[0]![0]).toBe("Publish");
+    expect(pubsubSubscribe).toHaveBeenCalledOnce();
+    expect(pubsubSubscribe.mock.calls[0]![0]).toBe("Publish");
 
     const handler = (globalThis as { __publishHandler?: (c: string) => void }).__publishHandler!;
     handler(JSON.stringify({

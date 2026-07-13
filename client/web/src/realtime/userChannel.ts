@@ -2,18 +2,18 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { PlatformId } from "@/types/esport";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import {
-  ensureGoEasyConnected,
-  goeasyPublish,
-  goeasyRequestReply,
-  goeasySetReply,
-  goeasySubscribe,
-  goeasyUnsubscribe,
+  ensurePubsubConnected,
   newMsgId,
-} from "@/realtime/goeasyClient";
+  pubsubPublish,
+  pubsubRequestReply,
+  pubsubSetReply,
+  pubsubSubscribe,
+  pubsubUnsubscribe,
+} from "@/realtime/pubsubClient";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 
-let subscribedUserId: number | null = null;
+let subscribedUserId: string | number | null = null;
 
 /** 远程操盘展示的账号快照（对齐 A8 query accounts 返回） */
 export interface TradeRemoteAccount {
@@ -32,11 +32,11 @@ export interface TradeRemoteAccount {
   multiply?: number;
 }
 
-function userChannel(userId: number) {
+function userChannel(userId: string | number) {
   return `USER:${userId}`;
 }
 
-function tradeChannel(adminUserId: number) {
+function tradeChannel(adminUserId: string | number) {
   return `TRADE:${adminUserId}`;
 }
 
@@ -106,7 +106,7 @@ async function handleUserChannelMessage(raw: string) {
       }
       if (!info.reply || !info.msgId)
         return;
-      await goeasyPublish(
+      await pubsubPublish(
         info.reply,
         JSON.stringify({ msgId: info.msgId, content }),
       );
@@ -136,20 +136,21 @@ function serializeTradeAccount(d: PlatformAccount): TradeRemoteAccount {
 }
 
 /** 对齐 A8 `$8e`：登录后订阅 USER 通道 */
-export async function subscribeUserChannel(userId: number) {
-  if (!userId || subscribedUserId === userId)
+export async function subscribeUserChannel(userId: string | number) {
+  const uid = String(userId ?? "").trim();
+  if (!uid || subscribedUserId === uid)
     return;
   if (subscribedUserId)
-    goeasyUnsubscribe(userChannel(subscribedUserId));
-  subscribedUserId = userId;
-  await goeasySubscribe(userChannel(userId), (content) => {
+    pubsubUnsubscribe(userChannel(subscribedUserId));
+  subscribedUserId = uid;
+  await pubsubSubscribe(userChannel(uid), (content) => {
     void handleUserChannelMessage(content);
   });
 }
 
 export function unsubscribeUserChannel() {
   if (subscribedUserId) {
-    goeasyUnsubscribe(userChannel(subscribedUserId));
+    pubsubUnsubscribe(userChannel(subscribedUserId));
     subscribedUserId = null;
   }
 }
@@ -157,16 +158,16 @@ export function unsubscribeUserChannel() {
 let tradeReplyBound = false;
 
 /** 操盘端：订阅 TRADE 频道接收 query 回复（对齐 TradeView onMounted） */
-export async function ensureTradeReplyChannel(adminUserId: number) {
-  await ensureGoEasyConnected();
+export async function ensureTradeReplyChannel(adminUserId: string | number) {
+  await ensurePubsubConnected();
   if (tradeReplyBound)
     return;
   tradeReplyBound = true;
-  await goeasySubscribe(tradeChannel(adminUserId), (raw) => {
+  await pubsubSubscribe(tradeChannel(adminUserId), (raw) => {
     try {
       const envelope = JSON.parse(raw) as { msgId?: string; content?: unknown };
       if (envelope.msgId)
-        goeasySetReply(envelope.msgId, envelope.content);
+        pubsubSetReply(envelope.msgId, envelope.content);
     }
     catch {
       /* ignore */
@@ -176,8 +177,8 @@ export async function ensureTradeReplyChannel(adminUserId: number) {
 
 /** 向远程用户拉取账号列表 */
 export async function queryRemoteAccounts(
-  adminUserId: number,
-  remoteUserId: number,
+  adminUserId: string | number,
+  remoteUserId: string | number,
   provider: PlatformId,
 ): Promise<TradeRemoteAccount[] | null> {
   const msgId = newMsgId();
@@ -191,7 +192,7 @@ export async function queryRemoteAccounts(
       data: { provider },
     },
   });
-  const result = await goeasyRequestReply(userChannel(remoteUserId), msgId, payload);
+  const result = await pubsubRequestReply(userChannel(remoteUserId), msgId, payload);
   if (result === undefined)
     return null;
   if (Array.isArray(result))
@@ -201,7 +202,7 @@ export async function queryRemoteAccounts(
 
 /** 远程修改账号字段 */
 export async function patchRemoteAccount(
-  remoteUserId: number,
+  remoteUserId: string | number,
   accountId: number,
   field: string,
   account: TradeRemoteAccount,
@@ -218,7 +219,7 @@ export async function patchRemoteAccount(
       info[field] = account[field as keyof TradeRemoteAccount];
       break;
   }
-  await goeasyPublish(
+  await pubsubPublish(
     userChannel(remoteUserId),
     JSON.stringify({ action: "account", info }),
   );

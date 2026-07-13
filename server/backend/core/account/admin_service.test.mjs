@@ -4,6 +4,7 @@ import {
   deleteAdminOrders,
   listAdminOrders,
   parseAdminOrderIdList,
+  parseFormBool,
   profileSettingForAdmin,
   renameAdminUser,
   sanitizeAccountForAdmin,
@@ -48,13 +49,27 @@ vi.mock("@changmen/db", () => ({
   deleteOrdersByIds: vi.fn(async ids => ids.length),
 }));
 
+const mockProfileRow = vi.hoisted(() => ({
+  id: "u1",
+  user_name: "alice",
+  betting_config: { BetTarget: true },
+  collect_config: {},
+  preferences: {},
+}));
+
 vi.mock("../db/store.js", () => ({
   loadProfileById: vi.fn(async () => null),
+  listProfileRows: vi.fn(() => [mockProfileRow]),
 }));
 
 const mockGetAccountsForUser = vi.fn(() => []);
 const mockUpdateAccountForUser = vi.fn(() => null);
-const mockUpdateUserSetting = vi.fn(() => ({ id: "u1", user_name: "alice" }));
+const mockUpdateUserSetting = vi.fn((uid, patch) => {
+  if (patch?.BetTarget !== undefined) {
+    mockProfileRow.betting_config = { ...mockProfileRow.betting_config, BetTarget: patch.BetTarget };
+  }
+  return { id: uid, userName: "alice" };
+});
 
 vi.mock("../esport-api/store.js", () => ({
   default: {
@@ -140,6 +155,15 @@ describe("profileSettingForAdmin", () => {
     expect(s.lastLoginIp).toBeUndefined();
     expect(s.Follow).toBe("on");
   });
+
+  it("normalizes string BetTarget from legacy rows", () => {
+    expect(profileSettingForAdmin({
+      betting_config: { BetTarget: "false" },
+    }).BetTarget).toBe(false);
+    expect(profileSettingForAdmin({
+      betting_config: { BetTarget: "true" },
+    }).BetTarget).toBe(true);
+  });
 });
 
 describe("lastLoginFieldsFromProfile", () => {
@@ -184,12 +208,38 @@ describe("renameAdminUser", () => {
   });
 });
 
+describe("parseFormBool", () => {
+  it("parses form-encoded false correctly", () => {
+    expect(parseFormBool("false")).toBe(false);
+    expect(parseFormBool("0")).toBe(false);
+    expect(parseFormBool(0)).toBe(false);
+    expect(parseFormBool(false)).toBe(false);
+  });
+
+  it("parses form-encoded true correctly", () => {
+    expect(parseFormBool("true")).toBe(true);
+    expect(parseFormBool("1")).toBe(true);
+    expect(parseFormBool(1)).toBe(true);
+    expect(parseFormBool(true)).toBe(true);
+  });
+});
+
 describe("updateAdminUserBetTarget", () => {
   it("writes BetTarget into betting_config", async () => {
     mockUpdateUserSetting.mockClear();
     const result = await updateAdminUserBetTarget("u1", true);
     expect(mockUpdateUserSetting).toHaveBeenCalledWith("u1", { BetTarget: true });
     expect(result.setting.BetTarget).toBe(true);
+    expect(result.betTarget).toBe(true);
     expect(result.userName).toBe("alice");
+  });
+
+  it("writes BetTarget false when disabled", async () => {
+    mockUpdateUserSetting.mockClear();
+    mockProfileRow.betting_config = { BetTarget: true };
+    const result = await updateAdminUserBetTarget("u1", "false");
+    expect(mockUpdateUserSetting).toHaveBeenCalledWith("u1", { BetTarget: false });
+    expect(result.betTarget).toBe(false);
+    expect(result.setting.BetTarget).toBe(false);
   });
 });

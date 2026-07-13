@@ -13,6 +13,10 @@ import {
 } from "./user_login_meta.js";
 import { resolvePresenceState } from "./user_presence.js";
 import store from "../esport-api/store.js";
+import { listProfileRows } from "../db/store.js";
+import { parseFormBool } from "../shared/parse_form_bool.js";
+
+export { parseFormBool } from "../shared/parse_form_bool.js";
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;
@@ -151,11 +155,14 @@ export function profileSettingForAdmin(row) {
     const prefsForAdmin = Object.fromEntries(
       Object.entries(prefs).filter(([k]) => !PROFILE_META_PREFERENCE_KEYS.has(k)),
     );
-    return sanitizeSettingForAdmin({
+    return normalizeAdminSettingFlags(sanitizeSettingForAdmin({
       ...prefsForAdmin,
       ...betting,
       ...(Object.keys(collect).length ? { CollectConfig: collect } : {}),
-    });
+      ...(row.betting_config && typeof row.betting_config === "object" && !Array.isArray(row.betting_config)
+        ? row.betting_config
+        : {}),
+    }));
   }
   const betting
     = row.betting_config && typeof row.betting_config === "object" && !Array.isArray(row.betting_config)
@@ -172,11 +179,20 @@ export function profileSettingForAdmin(row) {
   const prefsForAdmin = Object.fromEntries(
     Object.entries(prefs).filter(([k]) => !PROFILE_META_PREFERENCE_KEYS.has(k)),
   );
-  return sanitizeSettingForAdmin({
+  return normalizeAdminSettingFlags(sanitizeSettingForAdmin({
     ...prefsForAdmin,
     ...betting,
     ...(Object.keys(collect).length ? { CollectConfig: collect } : {}),
-  });
+  }));
+}
+
+function normalizeAdminSettingFlags(setting) {
+  if (!setting || typeof setting !== "object" || Array.isArray(setting))
+    return setting;
+  const out = { ...setting };
+  if ("BetTarget" in out)
+    out.BetTarget = parseFormBool(out.BetTarget);
+  return out;
 }
 
 function resolveBettingState(p) {
@@ -680,6 +696,45 @@ async function writeProfilePreferencesAwait(uid, preferences) {
     throw new Error("用户不存在");
 }
 
+/** 操盘 Tab：远程 query 失败时，管理端从 RDS 读取账号快照（对齐 TradeRemoteAccount 形状） */
+function mapAccountForTrade(raw) {
+  const row = sanitizeAccountForAdmin(raw);
+  if (!row?.accountId)
+    return null;
+  return {
+    accountId: row.accountId,
+    platformName: row.platformName,
+    platformId: row.platformId,
+    playerName: row.playerName,
+    provider: row.platform,
+    balance: row.balance,
+    pause: row.pause,
+    lastOdds: row.lastOdds,
+    profit: row.profit,
+    maxBetCount: row.maxBetCount,
+    minOdds: row.minOdds,
+    maxOdds: row.maxOdds,
+    multiply: row.multiply,
+  };
+}
+
+export async function getAdminUserTradeAccounts(userId, provider, caller = null) {
+  const uid = String(userId || "").trim();
+  if (!uid)
+    throw new Error("用户 ID 无效");
+  if (caller && !isAdminUser(caller)) {
+    const visibleIds = await getVisibleUserIds(caller);
+    if (visibleIds && !visibleIds.has(uid))
+      throw new Error("无权查看该用户");
+  }
+  await loadProfileById(uid);
+  const platform = String(provider || "").trim();
+  return store.getAccountsForUser(uid)
+    .map(mapAccountForTrade)
+    .filter(Boolean)
+    .filter(row => !platform || row.provider === platform);
+}
+
 /** 管理端修改指定用户账号乘网（普通用户自助保存会被服务端忽略 multiply） */
 export async function updateAdminAccountMultiply(userId, accountId, multiply, caller = null) {
   const uid = String(userId || "").trim();
@@ -698,8 +753,8 @@ export async function updateAdminAccountMultiply(userId, accountId, multiply, ca
   const row = accounts.find(a => Number(a.accountId ?? a.AccountId) === aid);
   if (!row)
     throw new Error("账号不存在");
-  const provider = accountProviderKey(row);
-  const next = resolveAccountMultiply(provider, multiply);
+  const providerKey = accountProviderKey(row);
+  const next = resolveAccountMultiply(providerKey, multiply);
   const updated = store.updateAccountForUser(uid, aid, { multiply: next });
   if (!updated)
     throw new Error("更新失败");
@@ -717,14 +772,18 @@ export async function updateAdminUserBetTarget(userId, betTarget, caller = null)
       throw new Error("无权操作该用户");
   }
   await loadProfileById(uid);
-  store.updateUserSetting(uid, { BetTarget: Boolean(betTarget) });
-  const row = await sb.fetchProfileById(uid);
+  const enabled = parseFormBool(betTarget);
+  store.updateUserSetting(uid, { BetTarget: enabled });
+  const row = listProfileRows().find(p => String(p.id) === uid);
   if (!row)
     throw new Error("用户不存在");
+  const setting = profileSettingForAdmin(row);
+  setting.BetTarget = enabled;
   return {
     id: uid,
     userName: String(row.user_name || ""),
-    setting: profileSettingForAdmin(row),
+    betTarget: enabled,
+    setting,
   };
 }
 

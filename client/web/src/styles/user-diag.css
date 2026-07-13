@@ -51,19 +51,127 @@
 }
 
 /* TradeView / FollowView（对齐 bundle，不用 scoped） */
+.user-diag-trade .trade-hub-banner {
+  margin-bottom: 10px;
+}
 .user-diag-trade .trade-hint {
   margin: 4px 0 0;
   font-size: 12px;
   color: var(--el-text-color-secondary);
 }
-.user-diag-trade fieldset {
+.user-diag-trade .trade-hint--accounts {
+  margin: 0 0 8px;
+}
+.user-diag-trade .trade-hint--snapshot {
+  margin: 0 0 8px;
+  color: var(--el-color-warning);
+}
+.user-diag-trade .el-form-item__label {
+  white-space: nowrap;
+}
+.user-diag-trade .el-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.user-diag-trade .el-radio__label,
+.user-diag-trade .el-checkbox__label {
+  color: var(--el-text-color-regular);
+}
+.user-diag-trade .el-radio__input.is-checked + .el-radio__label,
+.user-diag-trade .el-checkbox__input.is-checked + .el-checkbox__label {
+  color: var(--el-text-color-primary);
+}
+.user-diag-trade .trade-user-list {
+  width: 100%;
+}
+.user-diag-trade .trade-user-list .el-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px 16px;
+  width: 100%;
+}
+.user-diag-trade .trade-user-list .el-checkbox {
+  margin-right: 0;
+  height: auto;
+  align-items: center;
+}
+.user-diag-trade .trade-user-list .username {
+  display: inline-block;
+  line-height: 1.4;
+}
+.user-diag-trade .trade-accounts-row {
+  width: 100%;
+  margin-top: 4px;
+}
+.user-diag-trade .trade-account-col {
   margin-bottom: 10px;
 }
-.user-diag-trade legend {
+.user-diag-trade .trade-account-fieldset {
+  margin-bottom: 0;
+  height: 100%;
+}
+.user-diag-trade .trade-account-legend {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
+  width: 100%;
+}
+.user-diag-trade .trade-account-legend__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.4;
+  word-break: break-all;
+}
+.user-diag-trade .trade-account-refresh.el-button.is-link {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  height: auto;
+  min-height: unset;
+}
+.user-diag-trade .trade-account-controls > .el-col {
+  margin-bottom: 8px;
+}
+.user-diag-trade .trade-switch-col {
+  min-width: 0;
+}
+.user-diag-trade .trade-switch-col .el-switch {
+  width: 100%;
+  max-width: 100%;
+}
+.user-diag-trade .trade-field-col {
+  min-width: 0;
+}
+.user-diag-trade .trade-field-col .el-input {
+  width: 100%;
+}
+.user-diag-trade fieldset .el-input-group__prepend {
+  padding: 0 8px;
+}
+.user-diag-trade fieldset .account-field {
+  width: auto;
+  min-width: 36px;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  text-align: center;
+}
+/* inline-prompt 开关：默认 size 在窄列也会裁切中文（ep-fallback 仅覆盖 large） */
+.user-diag-trade fieldset .el-switch .el-switch__core {
+  min-width: max(50px, 5.5em);
+  width: max-content;
+  max-width: 100%;
+}
+.user-diag-trade fieldset .el-switch .el-switch__core .el-switch__inner,
+.user-diag-trade fieldset .el-switch .el-switch__core .el-switch__inner-wrapper {
+  overflow: visible;
+  text-overflow: clip;
+  max-width: none;
+  white-space: nowrap;
 }
 
 /* [A8 可证实] TradeView：username + Loading/Success/Faild（bundle 拼写 Faild） */

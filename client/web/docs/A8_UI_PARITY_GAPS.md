@@ -55,7 +55,7 @@
 | 代理配置 | `UserProxyView` | 已对�?| `el-input` prepend |
 | 报表查询 | `UserReportView` | 已对�?| `el-table` + summary |
 | 赛事采集 | `UserCollectView` | 已对�?| �?`A8_COLLECT_VIEW_PIXEL_PARITY.md` |
-| 操盘 | `TradeView` | 已对�?| GoEasy `USER`/`TRADE` 通道 + `UserDiagTradeTab` |
+| 操盘 | `TradeView` | 已对齐 | changmen pub/sub `USER`/`TRADE` + `UserDiagTradeTab`（对齐 A8 GoEasy 频道语义） |
 | 跟单 | `FollowView` | 已对�?| `el-form` / checkbox-group |
 | 聊天�?| `UserChatMessageView` | 已对�?| `top`/`log`/`filter`/`tags` 布局 |
 | 钱包 | `UserWalletView` | 已对�?| `wallets` + `el-input` prepend |

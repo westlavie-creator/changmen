@@ -248,6 +248,18 @@ cd changmen/client/web && npm run test && npm run build
 - bundle **25** ??`*View` ??Vue ????`unmappedViews: []`??- `a8.css` ????**1816** ??????- ??pixel diff?????????????`A8_UI_PARITY_GAPS.md` �9.3??
 ---
 
+## Realtime pub/sub（2026-07，P2）
+
+| 项 | A8 bundle | changmen | 状态 |
+|----|-----------|----------|------|
+| 连接 | GoEasy SDK → 自管 `wss://47.115.75.57` | 同源 Socket.IO `/esport/realtime` + JWT | [changmen 实现] |
+| 客户端适配 | `kv.pubsub.*` | `client/web/src/realtime/pubsubClient.ts` | 已对齐频道名 |
+| BetTarget | `BetTarget` 频道 | `betTargetChannel.ts` / `betTargetPublish.ts` | 已对齐 |
+| 跟单 Publish | `Publish` 频道 | `publishChannel.ts` / `publishBetting.ts` | 已对齐 |
+| 操盘 USER/TRADE | `USER:{id}` / `TRADE:{adminId}` | `userChannel.ts` | 已对齐 |
+
+---
+
 ## 拒单 / settle 收简（2026-07）
 
 | 层级 | 模块 | 说明 |

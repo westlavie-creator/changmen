@@ -1,5 +1,5 @@
 import type { BetSide } from "@/models/match";
-import { goeasySubscribe } from "@/realtime/goeasyClient";
+import { pubsubSubscribe } from "@/realtime/pubsubClient";
 import { BET_TARGET_CHANNEL } from "@/realtime/betTargetPublish";
 import { useMatchStore } from "@/stores/matchStore";
 
@@ -18,10 +18,10 @@ function handleBetTargetMessage(content: string) {
   useMatchStore().applyRemoteBetTarget(raw);
 }
 
-/** 对齐 A8 GoEasy connect 后订阅 BetTarget 频道（全局一次） */
+/** 对齐 A8 connect 后订阅 BetTarget 频道（全局一次；经 changmen pub/sub hub） */
 export async function ensureBetTargetChannelSubscribed(): Promise<void> {
   if (betTargetSubscribed)
     return;
   betTargetSubscribed = true;
-  await goeasySubscribe(BET_TARGET_CHANNEL, handleBetTargetMessage);
+  await pubsubSubscribe(BET_TARGET_CHANNEL, handleBetTargetMessage);
 }

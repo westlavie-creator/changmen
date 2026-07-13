@@ -724,6 +724,20 @@ async function handle(
         return fail((err as Error).message || "操作失败");
       }
     }
+    case "Client_AdminUserTradeAccounts": {
+      try {
+        return ok(
+          await adminService.getAdminUserTradeAccounts(
+            (body.userId ?? body.id) as string,
+            String(body.provider ?? body.Provider ?? ""),
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);
       const team = String(body.team || "");

@@ -7,8 +7,8 @@ import {
 } from "@changmen/venue-adapter/shared";
 
 /**
- * [changmen 实现] 自研 realtime-hub pub/sub（BetTarget / 操盘 / 跟单）
- * 协议与频道名对齐 A8 GoEasy，不经第三方 GoEasy SaaS。
+ * [changmen 实现] 自研 realtime-hub pub/sub 客户端（BetTarget / 操盘 / 跟单）
+ * 频道名与 A8 bundle GoEasy pub/sub 对齐；不经第三方 GoEasy SaaS。
  */
 
 const channelCleanups = new Map<string, () => void>();
@@ -36,8 +36,8 @@ function dispatchChannelMessage(channel: string, content: unknown) {
     fn(text);
 }
 
-/** 对齐 A8 `W8e`：连接 realtime-hub */
-export function ensureGoEasyConnected(): Promise<void> {
+/** 对齐 A8 `W8e`：连接 changmen realtime-hub */
+export function ensurePubsubConnected(): Promise<void> {
   return ensureChangmenHubConnected().then((ok) => {
     if (!ok)
       throw new Error("realtime hub 连接失败");
@@ -45,11 +45,11 @@ export function ensureGoEasyConnected(): Promise<void> {
 }
 
 /** 对齐 A8 `lv` */
-export async function goeasySubscribe(
+export async function pubsubSubscribe(
   channel: string,
   onMessage: (content: string) => void,
 ): Promise<void> {
-  await ensureGoEasyConnected();
+  await ensurePubsubConnected();
 
   let set = channelHandlers.get(channel);
   if (!set) {
@@ -66,7 +66,7 @@ export async function goeasySubscribe(
   }
 }
 
-export function goeasyUnsubscribe(channel: string) {
+export function pubsubUnsubscribe(channel: string) {
   channelHandlers.delete(channel);
   const cleanup = channelCleanups.get(channel);
   if (cleanup) {
@@ -79,25 +79,25 @@ export function goeasyUnsubscribe(channel: string) {
 }
 
 /** 对齐 A8 `ax` */
-export function goeasyPublish(channel: string, message: string): Promise<boolean> {
+export function pubsubPublish(channel: string, message: string): Promise<boolean> {
   return publishChangmenChannel(channel, message);
 }
 
 const replyWaiters = new Map<string, unknown>();
 
 /** 对齐 A8 `L8e` */
-export function goeasySetReply(msgId: string, content: unknown) {
+export function pubsubSetReply(msgId: string, content: unknown) {
   replyWaiters.set(msgId, content);
 }
 
 /** 对齐 A8 `U8e`：发布并等待对端经 reply 频道回传 msgId */
-export async function goeasyRequestReply(
+export async function pubsubRequestReply(
   channel: string,
   msgId: string,
   payload: string,
   timeoutMs = 3000,
 ): Promise<unknown> {
-  if (!(await goeasyPublish(channel, payload)))
+  if (!(await pubsubPublish(channel, payload)))
     return undefined;
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {

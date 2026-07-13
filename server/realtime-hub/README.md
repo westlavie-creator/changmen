@@ -27,7 +27,7 @@ changmen-pm-sports ──HTTP notify──► backend ──emit(Polymarket:PmSp
 
 客户端：`@changmen/venue-adapter/shared` → `subscribeChangmenChannel` / `publishChangmenChannel` / `ensureChangmenHubConnected`。
 
-前端 BetTarget/操盘：`client/web/src/realtime/goeasyClient.ts`（自研 hub 适配层，不再依赖 GoEasy SaaS）。
+前端 BetTarget/操盘：`client/web/src/realtime/pubsubClient.ts`（自研 hub 适配层；频道名对齐 A8 bundle，不经 GoEasy SaaS）。
 
 ## 测试
 

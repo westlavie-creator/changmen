@@ -1,5 +1,5 @@
 import type { BetSide } from "@/models/match";
-import { goeasySubscribe } from "@/realtime/goeasyClient";
+import { pubsubSubscribe } from "@/realtime/pubsubClient";
 import { PUBLISH_CHANNEL } from "@/realtime/publishBetting";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useUserStore } from "@/stores/userStore";
@@ -69,10 +69,10 @@ function handlePublishMessage(content: string) {
   }
 }
 
-/** 对齐 A8 GoEasy connect 后订阅 Publish 频道（全局一次） */
+/** 对齐 A8 connect 后订阅 Publish 频道（全局一次；经 changmen pub/sub hub） */
 export async function ensurePublishChannelSubscribed(): Promise<void> {
   if (publishSubscribed)
     return;
   publishSubscribed = true;
-  await goeasySubscribe(PUBLISH_CHANNEL, handlePublishMessage);
+  await pubsubSubscribe(PUBLISH_CHANNEL, handlePublishMessage);
 }

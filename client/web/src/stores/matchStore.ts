@@ -69,7 +69,7 @@ export const useMatchStore = defineStore("match", {
       return this.parseBetTargetPayload(this.readBetTargetSession());
     },
 
-    /** 对齐 A8 `Vg.loadBetTarget(r)`：GoEasy BetTarget 频道推送 */
+    /** 对齐 A8 `Vg.loadBetTarget(r)`：BetTarget 频道 pub/sub 推送 */
     applyRemoteBetTarget(raw: Record<string, Record<string, BetSide>>) {
       this.betTargets = this.parseBetTargetPayload(raw);
       this.persistBetTarget();
@@ -118,7 +118,7 @@ export const useMatchStore = defineStore("match", {
       sessionStorage.setItem(BET_TARGET_KEY, JSON.stringify(this.toBetTargetPayload()));
     },
 
-    /** [A8 可证实] `Ut.saveBetTarget`：GoEasy 广播 + finally sessionStorage */
+    /** [A8 可证实] `Ut.saveBetTarget`：pub/sub 广播 + finally sessionStorage */
     async saveBetTarget(): Promise<boolean> {
       const user = useUserStore();
       if (!user.betTargetEnabled())

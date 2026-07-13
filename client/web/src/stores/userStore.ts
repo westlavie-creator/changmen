@@ -22,6 +22,7 @@ import { ensureTokenRefresh, stopTokenRefresh } from "@/lib/sessionRefresh";
 import { subscribeUserChannel, unsubscribeUserChannel } from "@/realtime/userChannel";
 import { ensureBetTargetChannelSubscribed } from "@/realtime/betTargetChannel";
 import { ensurePublishChannelSubscribed } from "@/realtime/publishChannel";
+import { parseFormBool } from "@/shared/parseFormBool";
 import {
   createDefaultUserConfig,
   mergeUserConfig,
@@ -229,7 +230,7 @@ export const useUserStore = defineStore("user", {
     },
 
     betTargetEnabled(): boolean {
-      return Boolean(this.setting?.BetTarget);
+      return parseFormBool(this.setting?.BetTarget);
     },
 
     async loadConfig() {

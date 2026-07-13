@@ -16,6 +16,7 @@ import UserDiagRankTab from "@/components/user/tabs/UserDiagRankTab.vue";
 import UserDiagReportTab from "@/components/user/tabs/UserDiagReportTab.vue";
 import UserDiagTradeTab from "@/components/user/tabs/UserDiagTradeTab.vue";
 import UserDiagWalletTab from "@/components/user/tabs/UserDiagWalletTab.vue";
+import { parseFormBool } from "@/shared/parseFormBool";
 import { useUserStore } from "@/stores/userStore";
 
 const props = defineProps<{ open: boolean }>();
@@ -50,7 +51,7 @@ const tabDefs: TabDef[] = [
     name: "trade",
     label: "操盘",
     component: UserDiagTradeTab,
-    show: () => Boolean(setting.value?.BetTarget) || user.betTargetEnabled(),
+    show: () => parseFormBool(setting.value?.BetTarget) || user.betTargetEnabled(),
   },
   {
     name: "follow",

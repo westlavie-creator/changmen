@@ -5,6 +5,7 @@ import { storeToRefs } from "pinia";
 import { ElMessage } from "element-plus";
 import { reactive, ref, watch } from "vue";
 import { updateAdminUserBetTarget } from "@/api/admin";
+import { parseFormBool } from "@/shared/parseFormBool";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import { createUserConfigFormState } from "@/components/user/userConfigFormState";
@@ -22,34 +23,42 @@ const { editDialogOpen, editDialogAccount } = storeToRefs(accountStore);
 let form = reactive(createUserConfigFormState(userStore.config));
 watch(() => userStore.config, c => Object.assign(form, createUserConfigFormState(c)));
 
-const betTarget = ref(Boolean(props.user.setting?.BetTarget));
+const betTarget = ref(parseFormBool(props.user.setting?.BetTarget));
 const betTargetSaving = ref(false);
 
 watch(
-  () => props.user.setting?.BetTarget,
-  (value) => {
-    betTarget.value = Boolean(value);
+  () => props.user.id,
+  () => {
+    betTarget.value = parseFormBool(props.user.setting?.BetTarget);
   },
 );
 
-async function onBetTargetChange(enabled: boolean) {
-  if (!userStore.isAdmin)
-    return;
-  const previous = Boolean(props.user.setting?.BetTarget);
+async function onBetTargetBeforeChange(): Promise<boolean> {
+  if (!userStore.isAdmin || betTargetSaving.value)
+    return false;
+  const next = !betTarget.value;
   betTargetSaving.value = true;
   try {
-    const result = await updateAdminUserBetTarget(props.user.id, enabled);
+    const result = await updateAdminUserBetTarget(props.user.id, next);
+    const saved = parseFormBool(result.betTarget ?? result.setting?.BetTarget);
+    if (saved !== next) {
+      betTarget.value = saved;
+      if (!props.user.setting)
+        props.user.setting = {};
+      props.user.setting.BetTarget = saved;
+      ElMessage.warning("BetTarget 未能保存为预期状态，已恢复为服务端值");
+      return false;
+    }
     if (!props.user.setting)
       props.user.setting = {};
-    props.user.setting.BetTarget = Boolean(result.setting?.BetTarget);
-    betTarget.value = Boolean(result.setting?.BetTarget);
-    ElMessage.success(
-      betTarget.value ? "已开启投注目标（操盘 Tab）" : "已关闭投注目标",
-    );
+    props.user.setting.BetTarget = saved;
+    betTarget.value = saved;
+    ElMessage.success(saved ? "已开启 BetTarget" : "已关闭 BetTarget");
+    return false;
   }
   catch (err) {
-    betTarget.value = previous;
     ElMessage.error(err instanceof Error ? err.message : "保存失败");
+    return false;
   }
   finally {
     betTargetSaving.value = false;
@@ -88,9 +97,10 @@ function onAdminMultiplySaved(multiply: number) {
           <el-switch
             v-model="betTarget"
             :loading="betTargetSaving"
-            @change="onBetTargetChange"
+            :disabled="betTargetSaving"
+            :before-change="onBetTargetBeforeChange"
           />
-          <span class="wp__hint">开启后用户可见「操盘」Tab，并可同步 BetTarget 广播</span>
+          <span class="wp__hint">开启后可在赛事盘口点击标注主/副方向，多端同步；用户设置中显示「操盘」Tab</span>
         </el-form-item>
       </el-form>
     </section>

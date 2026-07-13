@@ -6,6 +6,7 @@ import {
 import { accountsPersistUnchanged } from "@changmen/shared/account_persist";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { isEmbeddedMatcher } from "../shared/matcher_mode.js";
+import { parseFormBool } from "../shared/parse_form_bool.js";
 
 // ─── 内存 profile 缓存 ───────────────────────────────────────────────
 const _cache = new Map();
@@ -28,6 +29,8 @@ function _toProfile(row) {
   catch {
     /* ignore */
   }
+  if (setting.BetTarget !== undefined)
+    setting.BetTarget = parseFormBool(setting.BetTarget);
   return {
     id: String(row.id),
     userName: row.user_name,

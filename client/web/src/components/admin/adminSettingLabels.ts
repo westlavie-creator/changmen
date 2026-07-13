@@ -30,7 +30,7 @@ export const ADMIN_SETTING_LABELS: Record<string, string> = {
   betChecked: "仅已检查",
   singleBet: "单注模式",
   waitTime: "平台等待(秒)",
-  BetTarget: "投注目标",
+  BetTarget: "BetTarget（盘口标注）",
   Follow: "跟单",
   hiddenUserName: "隐藏用户名",
   CollectConfig: "采集开关",

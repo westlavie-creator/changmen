@@ -1,5 +1,5 @@
 import type { BetOption } from "@changmen/client-core/models/betOption";
-import { ensureGoEasyConnected, goeasyPublish } from "@/realtime/goeasyClient";
+import { ensurePubsubConnected, pubsubPublish } from "@/realtime/pubsubClient";
 import { useUserStore } from "@/stores/userStore";
 
 /** [A8 可证实] bundle `z8e="Publish"` + `q8e` */
@@ -26,6 +26,6 @@ export async function publishBettingEvent(option: BetOption): Promise<boolean> {
     },
   };
 
-  await ensureGoEasyConnected();
-  return goeasyPublish(PUBLISH_CHANNEL, JSON.stringify(payload));
+  await ensurePubsubConnected();
+  return pubsubPublish(PUBLISH_CHANNEL, JSON.stringify(payload));
 }

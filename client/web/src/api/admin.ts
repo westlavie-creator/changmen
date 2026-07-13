@@ -7,6 +7,8 @@ import type {
   AdminOrderRow,
   AdminUserRow,
 } from "@/types/admin";
+import type { PlatformId } from "@/types/esport";
+import type { TradeRemoteAccount } from "@/realtime/userChannel";
 import type { MonthReportPayload } from "@/types/monthReport";
 
 import { post, unwrap } from "@/api/client";
@@ -134,6 +136,7 @@ export async function updateAdminAccountMultiply(body: {
 export interface AdminUserSettingMutationResult {
   id: string;
   userName: string;
+  betTarget?: boolean;
   setting: Record<string, unknown>;
 }
 
@@ -141,8 +144,14 @@ export async function updateAdminUserBetTarget(userId: string, betTarget: boolea
   return unwrap(
     await post<AdminUserSettingMutationResult>("Client_AdminUpdateUserBetTarget", {
       userId,
-      betTarget,
+      betTarget: betTarget ? 1 : 0,
     }),
+  );
+}
+
+export async function getAdminUserTradeAccounts(userId: string, provider: PlatformId) {
+  return unwrap(
+    await post<TradeRemoteAccount[]>("Client_AdminUserTradeAccounts", { userId, provider }),
   );
 }
 

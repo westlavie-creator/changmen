@@ -1,5 +1,5 @@
 import type { BetSide } from "@/models/match";
-import { ensureGoEasyConnected, goeasyPublish } from "@/realtime/goeasyClient";
+import { ensurePubsubConnected, pubsubPublish } from "@/realtime/pubsubClient";
 
 /** [A8 可证实] bundle `pke="BetTarget"` */
 export const BET_TARGET_CHANNEL = "BetTarget";
@@ -9,7 +9,7 @@ export async function publishBetTargetPayload(
   payload: Record<string, Record<string, BetSide>>,
   timeoutMs = 3000,
 ): Promise<boolean> {
-  await ensureGoEasyConnected();
+  await ensurePubsubConnected();
   return new Promise((resolve) => {
     let settled = false;
     const timer = setTimeout(() => {
@@ -18,7 +18,7 @@ export async function publishBetTargetPayload(
         resolve(false);
       }
     }, timeoutMs);
-    void goeasyPublish(BET_TARGET_CHANNEL, JSON.stringify(payload)).then((ok) => {
+    void pubsubPublish(BET_TARGET_CHANNEL, JSON.stringify(payload)).then((ok) => {
       if (!settled) {
         clearTimeout(timer);
         settled = true;

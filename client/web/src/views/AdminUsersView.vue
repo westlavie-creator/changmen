@@ -22,6 +22,7 @@ import {
   unmountAdminUserWorkspace,
 } from "@/composables/adminUserWorkspaceMount";
 import { useUserStore } from "@/stores/userStore";
+import { parseFormBool } from "@/shared/parseFormBool";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -519,10 +520,10 @@ onUnmounted(() => {
                 </span>
               </template>
             </el-table-column>
-            <el-table-column v-if="userStore.isAdmin" label="投注目标" width="88" align="center">
+            <el-table-column v-if="userStore.isAdmin" label="BetTarget" width="96" align="center">
               <template #default="{ row }">
-                <el-tag :type="row.setting?.BetTarget ? 'success' : 'info'" size="small">
-                  {{ row.setting?.BetTarget ? "开" : "关" }}
+                <el-tag :type="parseFormBool(row.setting?.BetTarget) ? 'success' : 'info'" size="small">
+                  {{ parseFormBool(row.setting?.BetTarget) ? "开" : "关" }}
                 </el-tag>
               </template>
             </el-table-column>
