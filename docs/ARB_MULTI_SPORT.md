@@ -43,6 +43,17 @@
 3. 断网/断 Gamma：有磁盘则 stale 列表，电竞不受影响
 4. 上述 `rg` / smoke 隔离仍成立
 
+### 验收记录（2026-07-15）
+
+| # | 结论 | 依据 |
+|---|------|------|
+| 1 Tab ≠ 套利 | 通过（代码） | `sportTab` 仅换板；`appSession.startAppSession` → `startMainLoop`，与 Tab 无关；板子 `v-if` + `stopPolling` |
+| 2 磁盘缓存 | 通过 | `storage/sport/mlb|soccer/match_list.json` 存在 |
+| 3 stale | 通过（代码） | `sport_gamma_fetch` Gamma 失败读 `readSportListCache` 返回 stale |
+| 4 隔离 | 通过 | smoke ok；`client_matches`/`@changmen/db` 仅拒绝路径与注释，无读写调用 |
+
+UI 点验（登录后切 Tab 看电竞循环仍转）可按日常联调补勾。
+
 ---
 
 ## 2. 棒球 MVP（已落地）

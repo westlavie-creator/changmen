@@ -1,95 +1,133 @@
-# A8 复刻 �?下一步执行清�?
-对照基线：`A8/A8frontendscipts/2.0.1/index.js`（只�?bundle�? 
-changmen：`http://localhost:5274/`（Win dev）或 `5174`；联�?生产�?backend 同源 `/`
+# A8 复刻 — 下一步执行清单
+
+对照基线：`A8/A8frontendscipts/2.0.1/index.js`（只读 bundle）  
+changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：backend 同源 `/`
 
 文档索引：[README.md](./README.md)
 
-最后更新：2026-06-11
+最后更新：2026-07-15
 
 ---
 
-## M1 �?架构冻结�?026-06�?
-| �?| 状�?|
+## 当前主线（2026-07-15）
+
+| 项 | 状态 |
 |----|------|
-| 删除 Node FeedHub / `ESPORT_BRIDGE` | �?|
-| 文档：客户端采集 + 服务端聚�?| �?|
-| [PRODUCTION_DEPLOYMENT.md](../../../../../PRODUCTION_DEPLOYMENT.md) | �?|
-| 生产域名 + 首次 `db push` + 双进程部�?| **待做** |
-| 客户端连远程 API 登录 | **待做** |
+| 多运动只读 MVP（棒球/足球 Tab + `storage/sport/`） | **已冻结** — 见 [ARB_MULTI_SPORT.md](../../../docs/ARB_MULTI_SPORT.md)；**不开 N3** |
+| 电竞主线 | **恢复** — 优先本文件阶段 A 同屏走查收口 |
+| 下一产品闸门 | 明确第二场馆（如 PB）后再单开 N3 plan |
+
+走查勾选表：[A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md)  
+操作脚本：[A8_WALKTHROUGH_SCRIPT.md](./A8_WALKTHROUGH_SCRIPT.md)
+
+**本轮走查焦点（收口）**
+
+1. 登录 → 主界面布局 / 账号条 / BetRow 初赔  
+2. 用户中心 11 Tab 快速过一遍（操盘用自建 pub/sub）  
+3. 充提 / 参数配置 / 版本角标  
+4. 回归：切「棒球/足球」Tab 时电竞 `mainBetLoop` 仍跑（多运动冻结验收）
 
 ---
 
-## 已完成（本轮�?
-| �?| 说明 |
+## M1 — 架构冻结（2026-06）
+
+| 项 | 状态 |
 |----|------|
-| 初赔�?| `data/esport/default_odds.json`，首次见到写入；`Client_GetMatchDefaultOdds` / `Client_GetDefaultOdds` 读库 |
-| WinRate | `domain/betting/buildOrderOptions` + `shared/winRate.ts`（对�?`oJe`�?|
-| 补单阈�?| `makeUp_defaultOdds` / `makeUp_odds` 创建补单�?`processLoseOrders` 前检�?|
-| 初赔过滤 | 主循�?/ 补单选账�?`minDefault` / `maxDefault` |
-| 初赔轮询 | `matchStore` 独立 10 分钟 timer（对�?bundle�?|
-| anyOdds | 一侧失败换平台重试（最�?3 轮） |
+| 删除 Node FeedHub / `ESPORT_BRIDGE` | 完成 |
+| 文档：客户端采集 + 服务端聚合 | 完成 |
+| [PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md) | 完成 |
+| 生产域名 + 首次 `db push` + 双进程部署 | **待做**（上线优先时再开） |
+| 客户端连远程 API 登录 | **待做**（上线优先时再开） |
+
+---
+
+## 已完成（历史轮次）
+
+| 项 | 说明 |
+|----|------|
+| 初赔 | `default_odds.json`，首次见到写入；`Client_GetMatchDefaultOdds` / `Client_GetDefaultOdds` |
+| WinRate | `domain/betting/buildOrderOptions` + `shared/winRate.ts`（对照 `oJe`） |
+| 补单阈值 | `makeUp_defaultOdds` / `makeUp_odds` |
+| 初赔过滤 | 主循环 / 补单选账号 `minDefault` / `maxDefault` |
+| 初赔轮询 | `matchStore` 独立 10 分钟 timer |
+| anyOdds | 一侧失败换平台重试（最多 3 轮） |
 | lastOdds | 账号开启后拒同盘更低赔重复下单 |
-| 主列表空�?| 去掉加载/无赛提示条（对齐 A8 空列表） |
-| 文档 | 本文�?+ `A8_UI_PARITY_GAPS.md` 更新 |
+| 主列表空态 | 去掉加载/无赛提示条（对齐 A8） |
+| Trade / BetTarget | 自建 pub/sub + admin 开关（2026-07） |
 
 ---
 
-## 阶段 A �?收口
+## 阶段 A — 收口
 
-- [x] 分批 git commit�?*勿提�?* `data/esport/*.json` 运行时数据）
-- [ ] 同屏走查：登�?�?11 Tab �?主界�?BetRow 初赔 �?充提/补单（勾选表�?[A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md)�?- [x] 历史审计 JSON 已归档（audit 脚本已下线）
+- [x] 分批 git commit（**勿提交** `data/esport/*.json` 运行时数据）
+- [ ] 同屏走查：登录 → 11 Tab → 主界面 BetRow 初赔 → 充提/补单（勾选表见 [A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md)）
+- [x] 历史审计 JSON 已归档（audit 脚本已下线）
+- [x] 多运动只读冻结进仓（`10e17fac`，2026-07-15）
+
 ---
 
-## 阶段 B �?UI 像素收尾（基本完成）
+## 阶段 B — UI 像素收尾（基本完成）
 
-| # | 任务 | 状�?|
+| # | 任务 | 状态 |
 |---|------|------|
-| B1 | iconfont / `a8-am-icon.css` | 已完�?|
-| B2 | `/esport2/assets/*` dev/prod | 已完�?|
-| B3 | 主列表空�?| 已完�?|
-| B4 | 同屏 diff：账号编辑、充提弹窗、版本角�?| **待走�?*（见 WALKTHROUGH�?|
-| B5 | scoped 样式迁入全局 | 已完�?|
+| B1 | iconfont / `a8-am-icon.css` | 已完成 |
+| B2 | `/esport2/assets/*` dev/prod | 已完成 |
+| B3 | 主列表空态 | 已完成 |
+| B4 | 同屏 diff：账号编辑、充提弹窗、版本角标 | **待走查**（见 WALKTHROUGH） |
+| B5 | scoped 样式迁入全局 | 已完成 |
 
 ---
 
-## 阶段 C �?初赔深化（部分已完成�?
+## 阶段 C — 初赔深化（部分已完成）
+
 - [x] `default_odds.json` 首次写入
 - [x] `Client_GetDefaultOdds` 实现
-- [ ] 可选：按赛事结束清理过�?key；与官方 A8 服对拍长期行�?- [ ] 文档：Network �?10 分钟�?`Client_GetMatchDefaultOdds`（已�?timer�?
+- [ ] 可选：按赛事结束清理过期 key；与官方 A8 服对拍长期行为
+- [ ] 文档：Network 约 10 分钟一次 `Client_GetMatchDefaultOdds`（已有 timer）
+
 ---
 
-## 阶段 D �?自动投注行为（剩余）
+## 阶段 D — 自动投注行为（剩余）
 
-| # | 任务 | 状�?|
+| # | 任务 | 状态 |
 |---|------|------|
-| D1 | WinRate | 已完�?|
-| D2 | minDefault / maxDefault | 已完�?|
-| D3 | makeUp 初赔/当前赔阈�?| 已完�?|
-| D4 | `anyOdds` 一侧失败后换平台重�?| 已完�?|
-| D5 | `noSameProvider` 主循环与 bundle 再核�?| 已核对：主循环用 `noSameBet`；补单用 `noSameProvider`（与 bundle 一致） |
-| D6 | `lastOdds` session 拒单记忆 | 已完�?|
+| D1 | WinRate | 已完成 |
+| D2 | minDefault / maxDefault | 已完成 |
+| D3 | makeUp 初赔/当前赔阈值 | 已完成 |
+| D4 | `anyOdds` 一侧失败后换平台重试 | 已完成 |
+| D5 | `noSameProvider` 主循环与 bundle 再核对 | 已核对：主循环用 `noSameBet`；补单用 `noSameProvider` |
+| D6 | `lastOdds` session 拒单记忆 | 已完成 |
 
 ---
 
-## 阶段 E �?平台与信用盘
+## 阶段 E — 平台与信用盘
 
-- [x] 平博 v4 `game/play/Login` E2E（`npm run test:v4`，见 `CREDIT_PLATE.md`�?- [ ] HG 真实赔率采集�?*�?saveMatch**；已做：启用 HG 开关时 60s 刷余额，�?`client/venue-adapter/hg/collect.ts`�?- [ ] Stake 插件下单（暂缓）
+- [x] 平博 v4 `game/play/Login` E2E（`npm run test:v4`，见 `CREDIT_PLATE.md`）
+- [ ] HG 真实赔率采集（**含 saveMatch**）；已做：启用 HG 开关时 60s 刷余额，见 `client/venue-adapter/hg/collect.ts`
+- [ ] Stake 插件下单（暂缓）
 
 ---
 
 ## 验收命令
 
 ```bash
-cd changmen/client/web
-npm run app:dev
-# http://localhost:5274/（Win dev）或 :5174
-# 联调/生产：http://localhost:3560/（Win）或 :3456/
+# 根目录推荐
+BAT\dev.bat
+# http://localhost:5274/（Win）+ backend :3560
 ```
 
-**初赔 Network**：登录后保留 DevTools �?0 分钟，过�?`Client_GetMatchDefaultOdds`�?
-**WinRate**：用户配置选「胜率优先」，初赔两腿�?�?`winRateValue` 时平台顺序应变化�?
-**补单**：设 `makeUp_defaultOdds` 小于当前初赔，不应创建补单并应有 tip�?
-**平博 v4**（backend 3456 已启动）�?
 ```bash
-cd changmen/client/web && npm run test:v4
+cd client/web
+npm run test        # vitest
+npm run test:v4     # 平博 v4（需 backend）
+npm run typecheck:frontend
+```
+
+**初赔 Network**：登录后保留 DevTools ≥10 分钟，过滤 `Client_GetMatchDefaultOdds`。  
+**WinRate**：用户配置选「胜率优先」，初赔两腿 `winRateValue` 时平台顺序应变化。  
+**补单**：设 `makeUp_defaultOdds` 小于当前初赔，不应进入补单并应有 tip。  
+**平博 v4**（backend 已启动）：
+
+```bash
+cd client/web && npm run test:v4
 ```
