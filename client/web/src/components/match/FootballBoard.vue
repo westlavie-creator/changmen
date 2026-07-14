@@ -8,7 +8,7 @@ const football = useFootballStore();
 <template>
   <SportMatchBoard
     :store="football"
-    meta-label="Polymarket · 暂不匹配"
+    meta-label="Polymarket + Predict.fun · 暂不匹配"
     empty-label="暂无足球比赛"
   />
 </template>

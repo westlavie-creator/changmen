@@ -54,6 +54,16 @@
 
 UI 点验（登录后切 Tab 看电竞循环仍转）可按日常联调补勾。
 
+### Predict.fun 只读并列（已做 · 仍无匹配/无下单）
+
+- `Client_GetBaseballMatchs` / `GetFootballMatchs`：**Polymarket Gamma + Predict.fun REST** 数组 concat，同场**不合并**
+- 实现：[`sport_predictfun_fetch.js`](../server/backend/core/esport-api/sport_predictfun_fetch.js)；缓存 key `mlb_pf` / `soccer_pf`
+- 需 `PREDICT_FUN_API_KEY`（backend `.env`）；**不必**启 `changmen-predictfun-collector`（那是电竞 RDS 入库）
+- 本机直连 `api.predict.fun` 失败时走 `PREDICT_FUN_HTTP_RELAY_ORIGIN`（HK http-relay；与浏览器 PF transport 同思路）
+- 官方形态：棒球多为 `SPORTS_TEAM_MATCH` 单盘双 outcome；足球多为 `SPORTS_MATCH`（见 [MarketVariant](https://dev.predict.fun/marketvariant-14037485d0)）
+- 单侧失败：另一侧有数据仍成功；两侧皆失败才 `fail`
+- `manifest.json` PredictFun **`bet: false`** 保持；不做 N3 matcher / 不开 sport 下注
+
 ---
 
 ## 2. 棒球 MVP（已落地）
@@ -61,7 +71,7 @@ UI 点验（登录后切 Tab 看电竞循环仍转）可按日常联调补勾。
 | 做 | 不做 |
 |----|------|
 | `Client_GetBaseballMatchs` | 改 `Client_GetMatchs` |
-| 服务端 Gamma MLB → `ClientMatchDto[]` | matcher / baseball profile |
+| 服务端 Gamma MLB + Predict.fun → `ClientMatchDto[]` 并列 | matcher / baseball profile / 下单 |
 | UI：HomeView「棒球」Tab + `MatchCard` | 棒球套利 |
 | `baseballStore` 独立轮询 | 独立棒球站；拆 users/orders |
 
@@ -70,7 +80,7 @@ UI 点验（登录后切 Tab 看电竞循环仍转）可按日常联调补勾。
   GetMatchs → client_matches → matchStore → 电竞列表 / 电竞套利
 
 棒球
-  GetBaseballMatchs → sport_gamma_fetch(mlb) → baseballStore → 棒球 Tab
+  GetBaseballMatchs → (Gamma mlb ∥ PredictFun mlb_pf) concat → baseballStore → 棒球 Tab
 ```
 
 ### 协议
@@ -83,8 +93,8 @@ POST /esport/Client_GetBaseballMatchs
 | DTO 字段 | 来源 |
 |----------|------|
 | `Game` | `"mlb"` |
-| `Matchs.Polymarket` | gamma event id |
-| `Bets[0]` | moneyline；`Map=0`；`Sources.Polymarket`（含 `Type`） |
+| `Matchs.Polymarket` / `Matchs.PredictFun` | 各源 id（并列场次，不合并） |
+| `Bets[0].Sources.*` | moneyline；`Type` = Polymarket 或 PredictFun |
 
 ### 前端
 
@@ -101,7 +111,7 @@ POST /esport/Client_GetBaseballMatchs
 | 做 | 不做 |
 |----|------|
 | `Client_GetFootballMatchs` | 改 GetMatchs / matcher |
-| Gamma soccer → DTO | 匹配 / 套利 |
+| Gamma soccer + Predict.fun → DTO 并列 | 匹配 / 套利 / 下单 |
 | HomeView「足球」Tab | 独立 `football/web` |
 
 ```text
@@ -111,7 +121,7 @@ POST /esport/Client_GetFootballMatchs
 
 | 模块 | 路径 |
 |------|------|
-| API | `getFootballMatchs()` → `api/match.ts` |
+| API | `getFootballMatchs()` → `api/match.ts`（PM ∥ Predict.fun 并列） |
 | Store | `stores/footballStore.ts`（`createSportListStore`） |
 | UI | `FootballBoard.vue` → `SportMatchBoard` + `MatchCard` |
 | Manifest | `lines/football/` |

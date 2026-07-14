@@ -406,16 +406,59 @@ export async function buildMatchList() {
   return fromDb;
 }
 
-/** 棒球 MVP：Gamma MLB 全量展示，不读写电竞 client_matches、不做匹配。失败抛错供 router fail。 */
-export async function buildBaseballMatchList() {
-  const { fetchMlbAsClientMatchDtos } = await import("./mlb_gamma_fetch.js");
-  return fetchMlbAsClientMatchDtos();
+/**
+ * PM + Predict.fun 并列列表（不合并同场）。
+ * 一侧失败且另一侧有数据 → 仍返回；两侧皆失败 → 抛错（供 router fail，避免假空）。
+ * @param {Array<Promise<object[]>>} fetches
+ * @param {string} logTag
+ * @returns {Promise<object[]>}
+ */
+async function concatSportReadOnlyLists(fetches, logTag) {
+  const settled = await Promise.allSettled(fetches);
+  const rows = [];
+  const errors = [];
+  for (const item of settled) {
+    if (item.status === "fulfilled" && Array.isArray(item.value)) {
+      rows.push(...item.value);
+      continue;
+    }
+    if (item.status === "rejected")
+      errors.push(item.reason);
+  }
+  if (rows.length) {
+    if (errors.length) {
+      console.warn(
+        `[${logTag}] partial source failure`,
+        errors.map(e => e?.message || String(e)).join("; "),
+      );
+    }
+    // 全局按开赛时间升序（PM / PF 并列混排，不合并同场）
+    rows.sort((a, b) => (Number(a?.StartTime) || 0) - (Number(b?.StartTime) || 0));
+    return rows;
+  }
+  if (errors.length)
+    throw errors[0] instanceof Error ? errors[0] : new Error(String(errors[0]));
+  return [];
 }
 
-/** 足球 MVP：Gamma soccer 全量展示，不读写电竞 client_matches、不做匹配。失败抛错供 router fail。 */
+/** 棒球只读：PM Gamma + Predict.fun 并列；不读写电竞 client_matches、不做匹配。 */
+export async function buildBaseballMatchList() {
+  const { fetchMlbAsClientMatchDtos } = await import("./mlb_gamma_fetch.js");
+  const { fetchPredictFunMlbAsClientMatchDtos } = await import("./sport_predictfun_fetch.js");
+  return concatSportReadOnlyLists(
+    [fetchMlbAsClientMatchDtos(), fetchPredictFunMlbAsClientMatchDtos()],
+    "GetBaseballMatchs",
+  );
+}
+
+/** 足球只读：PM Gamma + Predict.fun 并列；不读写电竞 client_matches、不做匹配。 */
 export async function buildFootballMatchList() {
   const { fetchFootballAsClientMatchDtos } = await import("./football_gamma_fetch.js");
-  return fetchFootballAsClientMatchDtos();
+  const { fetchPredictFunFootballAsClientMatchDtos } = await import("./sport_predictfun_fetch.js");
+  return concatSportReadOnlyLists(
+    [fetchFootballAsClientMatchDtos(), fetchPredictFunFootballAsClientMatchDtos()],
+    "GetFootballMatchs",
+  );
 }
 
 const fetchPlatformBetsForDefaultOdds = () => sb.fetchPlatformBets();
