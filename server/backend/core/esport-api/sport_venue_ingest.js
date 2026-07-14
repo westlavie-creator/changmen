@@ -91,6 +91,7 @@ export function sportMergedMatchId(sport, mergeKey) {
 export function normTeamName(name) {
   return String(name || "")
     .toLowerCase()
+    .replace(/[''`´]/g, "")
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9一-鿿]+/g, " ")
     .trim()

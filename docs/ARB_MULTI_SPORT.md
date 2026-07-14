@@ -166,14 +166,15 @@ Store：`server/db/rds/sport_{client_matches,venue,team}_store.js`；隔离 smok
 
 **仍不做：** Team UI 拖线、PredictFun 下注、N4 套利环。只读 JSON 仍作 API fallback。
 
-### N3 接线（进行中 · 电竞零交叉）
+### N3 接线（已做 · 电竞零交叉）
 
 | 步骤 | 状态 |
 |------|------|
 | 033 表 + store | 已做 |
-| 摄入 `sport_venue_*` | `sport_venue_ingest` + Get* 路径双写 |
-| moneyline 合并 → `sport_client_matches` | `sport_merge.js`（队名+1h 窗；禁写电竞表） |
-| `GetBaseball/FootballMatchs` | 合并成功则返回合并列表，否则 **fallback** 原 concat |
+| 摄入 `sport_venue_*` | `sport_venue_ingest` + Get* 路径；落库 **异步**（不阻塞 API） |
+| moneyline 合并 → `sport_client_matches` | `sport_merge.js`（当次列表内存合并；**仅双场馆对**替换 API；1h 窗） |
+| MLB 队名别名 | `@changmen/team-resolver/sport_team_plugin` + `sport_mlb_aliases.json`（如 A's→athletics）；不读电竞 `team_db` |
+| `GetBaseball/FootballMatchs` | `multiVenueCount>0` 返回合并列表，否则 **fallback** 原 concat |
 | `Client_GetMatchs` / `buildMatchList` | **不动** |
 
-隔离：`sport_merge` / `sport_*_store` 不得写 `client_matches`；体育板不 seed fo。
+隔离：`sport_merge` / `sport_*_store` / plugin 不得写 `client_matches`、不得 import 电竞 `team_db`；体育板不 seed fo。

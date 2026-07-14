@@ -74,9 +74,16 @@ const teamDb = readFileSync(teamDbPath, "utf8");
 assert.match(teamDb, /fetchAllCanonicalTeams/);
 assert.doesNotMatch(
   teamDb,
-  /fetchAllSportCanonicalTeams|sport_canonical_teams|sport_team_venue_maps/,
-  "电竞 team_db.js 不得加载 sport_* 队名表",
+  /fetchAllSportCanonicalTeams|sport_canonical_teams|sport_team_venue_maps|sport_mlb_aliases|sport_team_plugin/,
+  "电竞 team_db.js 不得加载 sport_* 队名",
 );
+
+const sportMergeSrc = readFileSync(
+  join(__dirname, "../backend/core/esport-api/sport_merge.js"),
+  "utf8",
+);
+assert.match(sportMergeSrc, /sport_team_plugin/);
+assert.doesNotMatch(sportMergeSrc, /team_db\.js|fetchAllCanonicalTeams/);
 
 const migration = readFileSync(migrationPath, "utf8");
 for (const t of SPORT_MATCHER_TABLES) {

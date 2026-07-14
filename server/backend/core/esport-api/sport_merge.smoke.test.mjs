@@ -64,6 +64,54 @@ assert.equal(dtos[0].Bets[0].HomeName, "Yankees");
 assert.equal(dtos[0].Bets[0].Sources.PredictFun.HomeOdds, 1.8);
 assert.equal(dtos[0].Bets[0].Sources.PredictFun.AwayOdds, 2.0);
 
+// 别名：A's = Athletics
+const aliasList = [{
+  ID: 3,
+  Game: "mlb",
+  StartTime: t,
+  Matchs: { Polymarket: "pm2" },
+  Bets: [{
+    Map: 0,
+    HomeName: "A's",
+    AwayName: "Yankees",
+    Sources: {
+      Polymarket: {
+        Type: "Polymarket",
+        BetID: "b3",
+        HomeID: "h3",
+        AwayID: "a3",
+        HomeOdds: 2.2,
+        AwayOdds: 1.7,
+        Status: "Normal",
+      },
+    },
+  }],
+}, {
+  ID: 4,
+  Game: "mlb",
+  StartTime: t,
+  Matchs: { PredictFun: "pf2" },
+  Bets: [{
+    Map: 0,
+    HomeName: "Yankees",
+    AwayName: "Oakland Athletics",
+    Sources: {
+      PredictFun: {
+        Type: "PredictFun",
+        BetID: "b4",
+        HomeID: "h4",
+        AwayID: "a4",
+        HomeOdds: 1.75,
+        AwayOdds: 2.15,
+        Status: "Normal",
+      },
+    },
+  }],
+}];
+const aliasMerged = mergeSportClientMatchDtoList("baseball", aliasList);
+assert.equal(aliasMerged.multiVenueCount, 1);
+assert.equal(aliasMerged.dtos.length, 1);
+
 const solo = mergeSportClientMatchDtoList("baseball", [list[0]]);
 assert.equal(solo.multiVenueCount, 0);
 

@@ -1,5 +1,5 @@
 /**
- * N3 sport moneyline 合并：当次列表内存合并（API）+ 可选落库。
+ * N3 sport moneyline 合并：当次列表内存合并（API）+ 异步落库。
  * 禁止触碰电竞 client_matches / platform_* / team_db。
  */
 import {
@@ -9,14 +9,22 @@ import {
   upsertSportVenueBets,
   upsertSportVenueMatches,
 } from "@changmen/db";
+import { createSportTeamPlugin } from "@changmen/team-resolver/sport_team_plugin.js";
 import {
   clientMatchDtosToSportVenueRows,
   sportMergedMatchId,
-  sportPairKey,
-  normTeamName,
 } from "./sport_venue_ingest.js";
 
 const VENUE_PRIORITY = ["Polymarket", "PredictFun"];
+
+/** @type {ReturnType<typeof createSportTeamPlugin>} */
+const sportTeams = createSportTeamPlugin({ games: ["mlb", "soccer"] });
+
+function gameCodeForSport(sport, legGame) {
+  if (legGame)
+    return String(legGame);
+  return String(sport) === "football" ? "soccer" : "mlb";
+}
 
 /**
  * @param {object} leg
@@ -38,10 +46,10 @@ function buildSourceFromDto(leg, src) {
   };
 }
 
-function orientSource(anchorHome, anchorAway, candHome, candAway, src) {
-  const ah = normTeamName(anchorHome);
-  const ch = normTeamName(candHome);
-  const ca = normTeamName(candAway);
+function orientSource(anchorHome, anchorAway, candHome, candAway, src, gameCode) {
+  const ah = sportTeams.resolveKey(anchorHome, gameCode);
+  const ch = sportTeams.resolveKey(candHome, gameCode);
+  const ca = sportTeams.resolveKey(candAway, gameCode);
   if (ah && ch && ah === ch)
     return src;
   if (ah && ca && ah === ca) {
@@ -57,7 +65,6 @@ function orientSource(anchorHome, anchorAway, candHome, candAway, src) {
 }
 
 /**
- * 从当次 ClientMatchDto[] 抽出可合并腿（不读 DB，避免陈旧行污染）。
  * @param {object[]} list
  */
 function extractLegs(list) {
@@ -82,7 +89,6 @@ function extractLegs(list) {
           startTime: m.StartTime != null ? Number(m.StartTime) : 0,
           game: m.Game != null ? String(m.Game) : null,
           src,
-          raw: m,
         });
       }
     }
@@ -91,21 +97,19 @@ function extractLegs(list) {
 }
 
 /**
- * 仅基于当次列表的 moneyline 合并（API 真源）。
  * @param {string} sport
  * @param {object[]} list
- * @returns {{ dtos: object[], dbRows: object[], linkUpdates: object[], multiVenueCount: number }}
  */
 export function mergeSportClientMatchDtoList(sport, list) {
   const sportKey = String(sport);
   const legs = extractLegs(list);
   /** @type {Map<string, object[]>} */
   const groups = new Map();
-  /** 无法配对时间的腿 → 各自保留为单源（用稳定 singleton key） */
   const singletons = [];
 
   for (const leg of legs) {
-    const key = sportPairKey(leg.home, leg.away, leg.startTime);
+    const game = gameCodeForSport(sportKey, leg.game);
+    const key = sportTeams.pairKey(leg.home, leg.away, leg.startTime, game);
     if (!key) {
       singletons.push(leg);
       continue;
@@ -143,6 +147,7 @@ export function mergeSportClientMatchDtoList(sport, list) {
       multiVenueCount += 1;
 
     const anchor = ordered[0];
+    const game = gameCodeForSport(sportKey, anchor.game);
     const mergeKey = pairKey
       ? `${sportKey}|${pairKey}`
       : `${sportKey}|solo|${anchor.venue}|${anchor.sourceMatchId}`;
@@ -152,7 +157,7 @@ export function mergeSportClientMatchDtoList(sport, list) {
     for (const leg of ordered) {
       matchs[leg.venue] = leg.sourceMatchId;
       let src = buildSourceFromDto(leg, leg.src);
-      src = orientSource(anchor.home, anchor.away, leg.home, leg.away, src);
+      src = orientSource(anchor.home, anchor.away, leg.home, leg.away, src, game);
       sources[leg.venue] = src;
       linkUpdates.push({
         sport: sportKey,
@@ -166,7 +171,6 @@ export function mergeSportClientMatchDtoList(sport, list) {
       .map(l => Number(l.startTime) || 0)
       .filter(n => n > 0)
       .sort((a, b) => a - b)[0] || Number(anchor.startTime) || 0;
-    const game = anchor.game || (sportKey === "football" ? "soccer" : "mlb");
     const title = `${anchor.home} vs ${anchor.away}`;
     const bets = [{
       ID: id * 10 + 1,
@@ -219,7 +223,6 @@ export function mergeSportClientMatchDtoList(sport, list) {
 }
 
 /**
- * 双写 venue 表 + 按本批 venue 快照裁剪；失败只打日志。
  * @param {string} sport
  * @param {object[]} list
  */
@@ -244,7 +247,6 @@ export async function ingestSportClientMatchDtos(sport, list) {
 }
 
 /**
- * 将当次合并结果写入 sport_client_matches（不读全表做二次合并）。
  * @param {string} sport
  * @param {object[]} dbRows
  * @param {object[]} linkUpdates
@@ -261,25 +263,30 @@ export async function persistSportMergeResult(sport, dbRows, linkUpdates) {
   }
 }
 
+function persistSportInBackground(sport, list, dbRows, linkUpdates) {
+  setImmediate(() => {
+    void (async () => {
+      try {
+        await ingestSportClientMatchDtos(sport, list);
+        if (dbRows.length)
+          await persistSportMergeResult(sport, dbRows, linkUpdates);
+      }
+      catch (err) {
+        console.warn(`[sportMerge] async persist ${sport}`, err?.message || err);
+      }
+    })();
+  });
+}
+
 /**
- * API 路径：内存合并当次列表；落库尽力而为。
- * 仅当存在至少一场双场馆合并时返回 merged（否则 null → 调用方用原 concat，避免无意义改 id）。
+ * API：同步内存合并；落库异步（不阻塞 Get*Matchs）。
  * @param {string} sport
  * @param {object[]} list
  * @returns {Promise<object[]|null>}
  */
 export async function ingestAndMergeSportLists(sport, list) {
   const { dtos, dbRows, linkUpdates, multiVenueCount } = mergeSportClientMatchDtoList(sport, list);
-
-  try {
-    await ingestSportClientMatchDtos(sport, list);
-    if (dbRows.length)
-      await persistSportMergeResult(sport, dbRows, linkUpdates);
-  }
-  catch (err) {
-    console.warn(`[sportMerge] persist ${sport}`, err?.message || err);
-  }
-
+  persistSportInBackground(sport, list, dbRows, linkUpdates);
   if (multiVenueCount > 0 && dtos.length)
     return dtos;
   return null;
