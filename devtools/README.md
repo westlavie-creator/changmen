@@ -5,5 +5,6 @@
 | 目录 | npm 包 | 用途 |
 |------|--------|------|
 | `platform-probes/` | `@changmen/platform-probes` | 直连各平台 HTTP/MQTT 探针 CLI（可选） |
+| `archive/baseball-web-b1/` | — | 已下线的棒球独立 Vite 站（对照用） |
 
 主链路采集见 `client/venue-adapter/{platform}/`（`collect.ts` / `bet.ts`）。OB 锁盘观察见 `client/venue-adapter/ob/shared/lock_decision.ts`。

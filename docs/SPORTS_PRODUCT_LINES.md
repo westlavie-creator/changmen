@@ -1,9 +1,12 @@
-# 多运动产品线（冻结草案）
+# 多运动目录与 manifest（辅文）
 
-> **状态**：阶段 0 文档；代码未按本文大规模迁移。  
-> **目标**：平台 + 能力共享；各业务线对称锚点在 `lines/{code}/`（manifest）。电竞实现仍在根目录。
+> **产品定义**以 [ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md) 为准：changmen 是 **套利系统**，电竞/棒球是 **比赛类型（sport）**，不是平行产品。  
+> 本文只记 monorepo 目录、`lines/{code}/` manifest、脚本落点与历史路线；叙事冲突时服从 ARB_MULTI_SPORT。
 
-相关：[ARCHITECTURE.md](./ARCHITECTURE.md) · [CATALOG.md](./CATALOG.md) · [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) · [lines/README.md](../lines/README.md)
+> **状态**：目录约定仍有效；「产品线」措辞为历史用语。  
+> **目标**：平台 + 能力共享；sport 锚点在 `lines/{code}/`（manifest）。主控台在 `client/web/`。
+
+相关：[ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md) · [ARCHITECTURE.md](./ARCHITECTURE.md) · [CATALOG.md](./CATALOG.md) · [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) · [lines/README.md](../lines/README.md)
 
 ---
 
@@ -31,16 +34,15 @@ changmen（平台 monorepo）
 │   ├── server/collectors/         polymarket-sports · predictfun-collector
 │   └── lines/esport/line.json     → 指向上列路径
 │
-└── 其他产品线（增量）
-    ├── baseball/                  ← 代码目录（仓库根）
-    └── lines/baseball/line.json   ← manifest 锚点
+└── 其他运动（增量；代码挂主控台，勿另起 {sport}/web）
+    └── lines/{baseball,football}/line.json   ← manifest 锚点
 ```
 
 **原则**
 
 | # | 规则 |
 |---|------|
-| 1 | 新业务线：仓库根新建 `changmen/{code}/`（如 `baseball/`）+ `lines/{code}/line.json`；**不** 复制 `venue-adapter` / `packages` |
+| 1 | 新运动：主控台 Tab + 独立 `Client_Get*Matchs` + `lines/{code}/line.json`；**不** 复制 `venue-adapter` / `packages`，**不** 新建平行 `{code}/web` 站 |
 | 2 | 电竞 **暂不** 物理迁入 `lines/esport/`（路径/deploy 成本过高）；`line.json` 映射即可 |
 | 3 | HTTP 路径 **暂不** 从 `/esport/*` 改名；用 `sport` 过滤与 catalog 做数据隔离 |
 | 4 | 套利等能力运动无关；新线通过 `capabilities` 字段声明复用 |
@@ -66,7 +68,8 @@ changmen（平台 monorepo）
 | sport code | 产品名 | 锚点 | 代码位置 | PM2 | 阶段 |
 |------------|--------|------|----------|-----|------|
 | `esport` | 电竞 | `lines/esport/` | 仓库根（见 `line.json`） | `changmen-esport` `changmen-pm-sports` `changmen-predictfun-collector` | **全栈** |
-| `baseball` | 棒球 | `lines/baseball/` | `baseball/`（规划） | `changmen-baseball`（规划） | **规划** → 只读 → 采集 → 套利 |
+| `baseball` | 棒球 | `lines/baseball/` | 主控台 `client/web` + backend GetBaseballMatchs | （只读共用 esport PM2） | **B1 只读** → 采集 → 套利 |
+| `football` | 足球 | `lines/football/` | 主控台 Tab + GetFootballMatchs | （只读共用） | **只读 MVP** |
 
 ### 电竞组件路径（`esport`，代码在仓库根）
 
@@ -83,32 +86,29 @@ changmen（平台 monorepo）
 
 ## 4. 棒球（baseball）落地路线
 
-与已移除的足球轻量 app 不同，棒球应 **更早** 接入 catalog + 采集，避免与电竞栈脱节。
+Canonical 方案见 [ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md)。**正式入口 = 主控台 Tab**，禁止再建 `baseball/web` 平行站。
 
-### 阶段 B1 — 本地只读控制台（当前）
+### 阶段 B1 — 主控台只读（当前）
 
-- 代码目录：`baseball/web/`（**仅前端**，无 `baseball/server/`）
-- manifest：`lines/baseball/line.json`
-- 数据源：Polymarket Gamma，`sport=mlb`（PM `/sports` id=8）
-- 运行：`npm run baseball:dev` → `http://localhost:3458/baseball/`（`BASEBALL_PORT`）
-- HTTP：本机 Vite dev proxy 直连 Gamma/CLOB；**不接** backend、JWT、RDS、VPS relay
-- **不** 写 `client_matches` / matcher
-
-> VPS / PM2 / 鉴权 / 采集上报留到 B2 及以后，与电竞栈联动时再接入。
+- UI：`client/web` HomeView「棒球」Tab（`BaseballBoard` + `MatchCard`）
+- API：`Client_GetBaseballMatchs` → 服务端 Gamma MLB
+- Store：`baseballStore`（不进 `matchStore`）
+- manifest：`lines/baseball/line.json` → `web: client/web`，`api: server/backend`
+- **不** 写电竞 `client_matches` / matcher
+- 历史独立站：`devtools/archive/baseball-web-b1/`（已下线）
 
 ### 阶段 B2 — 采集 + 第二平台
 
 - `packages/shared/catalog` 注册 `mlb` game（`sport: baseball`）
 - `client/venue-adapter` 扩展 PM MLB + 第二平台（如 PB）
-- `API_SaveMatch` / `API_SaveBet` → RDS `platform_*`
-- matcher 使用 **`matcherProfile: baseball`**（无 Map/Bo，见 CATALOG）
+- Save* → 棒球分表（**不进**电竞 `client_matches`）
+- matcher **`matcherProfile: baseball`**（无 Map/Bo，见 CATALOG）
 
 ### 阶段 B3 — 合并 + 双边套利
 
 - `server/team-resolver` MLB 队名插件
-- `Client_GetMatchs` 请求带 `sport: baseball`（向后兼容，默认 `esport`）
-- 复用 `executeArbBet` / LinkID / 补单契约（[ARB_LINK_ID.md](./ARB_LINK_ID.md)）
-- UI：独立轻量页 **或** `client/web` sport 切换（后期统一）
+- 独立棒球套利管线（不进电竞主循环）
+- 复用 LinkID / 补单契约时须隔离 sport（[ARB_LINK_ID.md](./ARB_LINK_ID.md)）
 
 ### 棒球专用文档（B3 前补充）
 

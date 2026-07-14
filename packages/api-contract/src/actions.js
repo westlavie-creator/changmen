@@ -15,6 +15,8 @@ export const ESPORT_ACTIONS = [
     "API_SaveBet",
     "API_SaveLiveTimer",
     "Client_GetMatchs",
+    "Client_GetBaseballMatchs",
+    "Client_GetFootballMatchs",
     "Client_SaveData",
     "Client_GetAccounts",
     "Client_SaveAccounts",
@@ -80,5 +82,7 @@ export const CORE_INTEGRATION_ACTIONS = [
     "API_SaveLiveTimer",
     "API_SaveScore",
     "Client_GetMatchs",
+    "Client_GetBaseballMatchs",
+    "Client_GetFootballMatchs",
     "Client_GetData",
 ];

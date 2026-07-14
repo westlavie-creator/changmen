@@ -60,3 +60,32 @@ export async function getMatchs(userName: string) {
     return [];
   return data.info;
 }
+
+/** 棒球列表（独立 action；不进电竞 GetMatchs / 套利主循环） */
+export async function getBaseballMatchs(userName: string) {
+  const data = await post<ClientMatchDto[]>(
+    "Client_GetBaseballMatchs",
+    {},
+    `?user=${encodeURIComponent(userName)}`,
+  );
+  if (data.success !== 1)
+    throw new Error(data.msg || "Client_GetBaseballMatchs failed");
+  if (!Array.isArray(data.info))
+    throw new Error("Invalid baseball match list");
+  return data.info;
+}
+
+/** 足球列表（独立 action；不进电竞 GetMatchs / 套利主循环） */
+export async function getFootballMatchs(userName: string) {
+  const data = await post<ClientMatchDto[]>(
+    "Client_GetFootballMatchs",
+    {},
+    `?user=${encodeURIComponent(userName)}`,
+  );
+  if (data.success !== 1)
+    throw new Error(data.msg || "Client_GetFootballMatchs failed");
+  if (!Array.isArray(data.info))
+    throw new Error("Invalid football match list");
+  return data.info;
+}
+

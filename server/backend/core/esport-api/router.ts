@@ -418,6 +418,22 @@ async function handle(
     }
     case "Client_GetMatchs":
       return ok(await store.buildMatchList());
+    case "Client_GetBaseballMatchs":
+      try {
+        return ok(await store.buildBaseballMatchList());
+      }
+      catch (err) {
+        console.error("[GetBaseballMatchs]", err?.message || err);
+        return fail(err?.message || "GetBaseballMatchs failed");
+      }
+    case "Client_GetFootballMatchs":
+      try {
+        return ok(await store.buildFootballMatchList());
+      }
+      catch (err) {
+        console.error("[GetFootballMatchs]", err?.message || err);
+        return fail(err?.message || "GetFootballMatchs failed");
+      }
     case "Client_SaveData": {
       if (!body.key)
         return fail("key required");

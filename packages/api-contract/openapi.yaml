@@ -19,6 +19,14 @@ paths:
     post:
       summary: 合并后比赛列表（浏览器真相源）
       operationId: Client_GetMatchs
+  /esport/Client_GetBaseballMatchs:
+    post:
+      summary: 棒球 MLB 列表（MVP：Polymarket Gamma 全量，不做跨站匹配；不读写电竞 client_matches）
+      operationId: Client_GetBaseballMatchs
+  /esport/Client_GetFootballMatchs:
+    post:
+      summary: 足球列表（MVP：Polymarket Gamma soccer 全量，不做跨站匹配；不读写电竞 client_matches）
+      operationId: Client_GetFootballMatchs
   /esport/API_SaveMatch:
     post:
       summary: 上报平台原始比赛

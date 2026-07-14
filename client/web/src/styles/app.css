@@ -38,10 +38,16 @@
   margin: 0 10px 8px;
 }
 
+.home-main .sport-tab {
+  flex: 0 0 auto;
+  margin: 0 10px 8px;
+}
+
 .home-main .matchs,
 .home-main .match-empty {
   flex: 1;
   min-height: 0;
+  overflow: auto;
 }
 
 .home-main .match-empty {

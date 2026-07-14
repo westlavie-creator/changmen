@@ -7,7 +7,7 @@
 | 包 | 典型 import |
 |----|-------------|
 | `client/web` | `@changmen/arb-core`、`@changmen/arb-core/opportunity/detect` |
-| 未来 `baseball/web` | 同上（moneyline 套利 MVP） |
+| 主控台棒球/足球 Tab（后期套利） | 同上（moneyline 套利 MVP） |
 
 ## 目录
 

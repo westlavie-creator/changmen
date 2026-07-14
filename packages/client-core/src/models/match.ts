@@ -79,9 +79,14 @@ export class ViewBet {
       this.isLive = true;
       this.startTime = roundStart > 0 ? roundStart : Date.now();
     }
-    this.items = Object.values(row.Sources).map(
-      s => new ViewBetItem(s, String(providers[s.Type] ?? "")),
-    );
+    // Sources 的 key 即场馆 ID；Type 缺省时（如棒球 MVP 旧缓存）仍要用 key，否则 PlatformIcon 无 .Polymarket 等 class，只剩黑圆圈
+    this.items = Object.entries(row.Sources ?? {}).map(([key, s]) => {
+      const type = (s.Type || key) as PlatformId;
+      return new ViewBetItem(
+        { ...s, Type: type },
+        String(providers[type] ?? ""),
+      );
+    });
   }
 
   getBetName(): string {

@@ -21,7 +21,7 @@ sport_catalog（运动）
 
 | 层 | 文件 | 职责 |
 |----|------|------|
-| 运动 | `sport_catalog.json` | 产品线元数据、matcher 配置、默认 game 列表 |
+| 运动 | `sport_catalog.json` | 比赛类型元数据、matcher 配置、默认 game 列表（见 [ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md)） |
 | 游戏 | `game_catalog.json` | 跨平台 `game_id` → 统一 `code` |
 | 玩法 | `market_catalog.json` | 源站原始盘口 → 统一 `market.code` |
 
@@ -68,7 +68,9 @@ sport_catalog（运动）
 
 **电竞 `esport`** — `status: active`，`defaultGameCodes`: cs2, lol, dota2, valorant, kog，`matcherProfile`: `esport`，`markets`: `match_winner`。
 
-**棒球 `baseball`** — `status: planned`，`defaultGameCodes`: `mlb`，`matcherProfile`: `baseball`，`linePath`: `lines/baseball`，`markets`: `moneyline`（规划，待写入 market_catalog）。
+**棒球 `baseball`** — `status: active`（主控台只读 MVP），`defaultGameCodes`: `mlb`，`matcherProfile`: `baseball`，`linePath`: `lines/baseball`，`markets`: `moneyline`。
+
+**足球 `football`** — `status: active`（主控台只读 MVP），`defaultGameCodes`: `soccer`，`matcherProfile`: `football`，`linePath`: `lines/football`，`markets`: `moneyline`。
 
 ---
 
@@ -112,7 +114,25 @@ sport_catalog（运动）
 
 ## 4. `market_catalog.json`
 
-### 4.1 与 A8 `index.js` 的关系
+### 4.1 比赛 × 局段 × 盘口（冻结口径）
+
+三层模型（见 [ARB_MULTI_SPORT.md §2.1](./ARB_MULTI_SPORT.md)）：
+
+```text
+比赛（match）
+  └── 局段（period：全场 / 地图N / 上半场…）   ← 电竞 Map ≈ 球类半场
+        └── 盘口（market：胜负、让分…）
+```
+
+| 口径 | 说明 |
+|------|------|
+| **地图 = 局段** | 类比足球/棒球上半场、下半场；不是 sport，也不等于「一种玩法」本身 |
+| **当前主做** | 各局段上的 **胜负**（电竞：全场 + 各地图；棒球一期：全场 moneyline） |
+| **后期** | 同一局段可加其它盘口；也可扩展新局段 —— 走 catalog / `round` 映射，禁止假设「只有全场」或「只有胜负」 |
+
+实现上局段常落在 `round`（0=全场，n=地图 n）或等价字段；玩法落在 `market_catalog`。
+
+### 4.2 与 A8 `index.js` 的关系
 
 `A8/index.js` 混有两层逻辑，不要混为一谈：
 
@@ -123,9 +143,9 @@ sport_catalog（运动）
 
 changmen = 插件采集层 + 自建 Dashboard。规则写在 **`market_catalog`**，在源站原始字段上生效；**不能**以 A8 页面里的 `BetName` 反推选盘规则。
 
-### 4.2 判定模型
+### 4.3 判定模型
 
-对每个 `market.code`（如 `match_winner`），在对应平台源站数据上选盘：
+对每个 `market.code`（如 `match_winner`），在对应平台源站数据上选盘（并绑定局段 `round`）：
 
 ```text
 OB（已配置 gameOddTypes 的游戏，如 CS2）
@@ -138,35 +158,35 @@ OB（未配置的游戏） / RAY
     → 命中则 marketCode = match_winner
 ```
 
-### 4.3 电竞现状：`match_winner`
+### 4.4 电竞现状：局段上的胜负（`match_winner`）
 
-- **OB**：`game/view` 中 `odd_type_id`（玩法类型码）+ `round`；CS2 等游戏的 full/map ID 见 `market_catalog.json` → `platforms.OB.gameOddTypes`
+- **OB**：`game/view` 中 `odd_type_id` + `round`（局段）；CS2 等 `gameOddTypes.full|map` 见 `market_catalog.json`
 - **RAY**：`group_name` 匹配 `^获胜者$`；排除 status=4
-- **OB 回退**：未配 `odd_type_id` 时用 `betKey` / `cn_name` 正则（见 JSON 内 `betName`）
+- **OB 回退**：未配 `odd_type_id` 时用 `betKey` / `cn_name` 正则
 
 刷新 OB 玩法类型码：`node scripts/platforms/ob/collect_odd_type_ids.js --write`（在 `server/backend` 或探针目录，视脚本位置而定）。
 
 代码入口：`resolveMarketCode('OB', { market, raw })`；OB `obPickWinMarket`、RAY `rayIsAggregatedOddsRow`（`market_catalog.mjs`）。
 
-### 4.4 运动 profile（规划）
+> `round=0` / `map` 区分 **局段**；玩法同属胜负语义族。若后期拆独立 market code 或新局段，走 catalog 扩容。
 
-在 `market_catalog.json` 增加顶层或 per-market 字段：
+### 4.5 运动 profile（规划）
 
 | 字段 | 说明 |
 |------|------|
-| `sportProfiles` | 按 `matcherProfile` 覆盖选盘规则 |
-| `esport` | 保留 Map/Bo、`odd_type_id` |
-| `baseball` | 无 `round`；moneyline 2 路；可选 run_line / total |
+| `sportProfiles` | 按 `matcherProfile` 覆盖选盘 / 局段规则 |
+| `esport` | 多局段（全场 + 地图）、`odd_type_id` |
+| `baseball` | 一期全场 moneyline；局段/其它盘口后期 |
 
-### 4.5 棒球玩法（规划，B2 起）
+### 4.6 棒球玩法（规划）
 
 | code | 名称 | 说明 |
 |------|------|------|
-| `moneyline` | 胜负 | 2 路，无平局；套利 MVP 首选 |
-| `run_line` | 让分 | 后期 |
+| `moneyline` | 胜负（全场局段） | 2 路；套利 MVP |
+| `run_line` | 让分 | 后期（仍挂在某一局段上） |
 | `total` | 大小分 | 后期 |
 
-**MVP 建议**：双边套利先只做 `moneyline`，与电竞 `match_winner` 全场合并对齐 implied 逻辑。
+**MVP**：先做全场 moneyline；模型仍按「比赛 → 局段 → 盘口」承接半场/其它玩法。
 
 ---
 

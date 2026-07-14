@@ -1,0 +1,127 @@
+# 多运动接入 — MVP 与收敛
+
+> **目标**：同一主控台按 Tab 看电竞 / 棒球（及以后足球）；列表只读即可。  
+> **电竞红线**：`Client_GetMatchs` / matcher / `client_matches` / `matchStore` 主循环 **零改动**。
+
+---
+
+## 1. 冻结决策
+
+| 项 | 约定 |
+|----|------|
+| 正式入口 | 主控台 `client/web` Tab + 独立 `Client_Get*Matchs` |
+| 隔离 | 新运动 **不写** 电竞 `client_matches` |
+| 独立站 | 已弃用（`devtools/archive/baseball-web-b1`）；不再新建 `{sport}/web` 平行站 |
+| 不做（本期） | matcher profile、跨站匹配、按运动套利管线 |
+| **Tab ≠ 套利** | Tab 只换列表板；`matchStore.startMainLoop` 与 sportTab **无关**，切到棒球/足球时电竞套利仍可跑 |
+| **检测分开** | 棒球/足球套利检测环（未来）**禁止**塞进 `mainBetLoop`；账号 / 场馆 / 数学 / UI 壳继续共用 |
+| **列表轮询** | 棒球/足球板 `v-if` 挂载才 `startPolling`，卸装 `stopPolling`；勿多 Tab 齐刷 |
+
+### N1 列表硬化（已做）
+
+- Gamma 无 series：**抛错**（不缓存空列表）；router `fail` → 前端板子显示 `error`
+- API `getBaseball/FootballMatchs`：失败抛错，不再静默 `[]`
+- 空态与错误态分开展示（有 error 不显示「暂无比赛」）
+
+### N2 列表缓存（已做 · 强制不碰电竞）
+
+- 进程内存（30s）+ 本机 JSON：`storage/sport/{mlb,soccer}/match_list.json`
+- **禁止** 读写 RDS `client_matches` / 改 `GetMatchs` / 写电竞 `platform_*`
+- Gamma 失败时若有磁盘快照 → 返回 stale 列表；否则 `fail`
+- 验收：`rg client_matches` 在 `sport_gamma_fetch` / `sport_list_cache` / `*_gamma_fetch` 中无读写调用（仅有拒绝路径/注释）
+- 冒烟：`sport_list_cache.smoke.test.mjs` 已挂入 `npm run test:catalog-smoke`（防路径回退）；`storage/sport/**` 已 gitignore
+
+### 只读产品冻结（N2 后默认）
+
+多运动 **只读 MVP 已完成并可冻结**：有 Tab、有列表、有本机缓存、电竞路径零污染。  
+**下一闸门 = 明确第二场馆**（如 PB），之前不开 N3/N4，电竞开发可恢复为主线。
+
+手工验收清单（半天内，不写新业务）：
+
+1. 电竞列表 + 套利主循环正常（切棒球/足球 Tab 仍跑）
+2. 棒球/足球有场；`server/backend/storage/sport/` 有 JSON
+3. 断网/断 Gamma：有磁盘则 stale 列表，电竞不受影响
+4. 上述 `rg` / smoke 隔离仍成立
+
+---
+
+## 2. 棒球 MVP（已落地）
+
+| 做 | 不做 |
+|----|------|
+| `Client_GetBaseballMatchs` | 改 `Client_GetMatchs` |
+| 服务端 Gamma MLB → `ClientMatchDto[]` | matcher / baseball profile |
+| UI：HomeView「棒球」Tab + `MatchCard` | 棒球套利 |
+| `baseballStore` 独立轮询 | 独立棒球站；拆 users/orders |
+
+```text
+电竞（不动）
+  GetMatchs → client_matches → matchStore → 电竞列表 / 电竞套利
+
+棒球
+  GetBaseballMatchs → sport_gamma_fetch(mlb) → baseballStore → 棒球 Tab
+```
+
+### 协议
+
+```text
+POST /esport/Client_GetBaseballMatchs
+→ { success: 1, info: ClientMatchDto[] }
+```
+
+| DTO 字段 | 来源 |
+|----------|------|
+| `Game` | `"mlb"` |
+| `Matchs.Polymarket` | gamma event id |
+| `Bets[0]` | moneyline；`Map=0`；`Sources.Polymarket`（含 `Type`） |
+
+### 前端
+
+| 模块 | 路径 |
+|------|------|
+| API | `getBaseballMatchs()` → `api/match.ts` |
+| Store | `stores/baseballStore.ts`（`createSportListStore`） |
+| UI | `BaseballBoard.vue` + `MatchCard` |
+
+---
+
+## 3. 足球 MVP（只读，同模式）
+
+| 做 | 不做 |
+|----|------|
+| `Client_GetFootballMatchs` | 改 GetMatchs / matcher |
+| Gamma soccer → DTO | 匹配 / 套利 |
+| HomeView「足球」Tab | 独立 `football/web` |
+
+```text
+POST /esport/Client_GetFootballMatchs
+→ { success: 1, info: ClientMatchDto[] }  // Game: "soccer"
+```
+
+| 模块 | 路径 |
+|------|------|
+| API | `getFootballMatchs()` → `api/match.ts` |
+| Store | `stores/footballStore.ts`（`createSportListStore`） |
+| UI | `FootballBoard.vue` → `SportMatchBoard` + `MatchCard` |
+| Manifest | `lines/football/` |
+
+## 4. 验收
+
+1. `Client_GetMatchs` 与改前一致。  
+2. 登录后棒球 / 足球 Tab 能列出对应场次。  
+3. **关 Tab / 切到棒球足球不影响电竞套利循环**（Tab 与 mainBetLoop 解耦）。  
+4. Gamma / series 失败时板子显示错误文案，而非假「暂无比赛」。  
+5. 无 `npm run baseball:dev` / 无 `baseball/web` workspace。
+
+---
+
+## 5. 硬闸门之后（不要提前开）
+
+| 阶段 | 前提 | 隔离要点 |
+|------|------|----------|
+| **N3 matcher** | 明确第二场馆要对齐 | 新表名带 sport 后缀；**禁止**写 `client_matches`；独立 profile |
+| **N4 套利环** | N3 已有合并列表且要自动下单 | 新建 sport loop，**禁止**进 `mainBetLoop` |
+
+无第二场馆 → **不要开 N3**（只有单源 PM 时 matcher 无意义）。届时另写独立 plan，勿在本只读栈上硬塞。
+
+勿做：RDS 新表、Save*、matcher、套利环——除非产品闸门打开。

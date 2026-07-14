@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-13",
-  "description": "运动产品线元数据。game_catalog.sport 指向本表 code。",
+  "updatedAt": "2026-07-14",
+  "description": "比赛类型（sport）元数据。game_catalog.sport 指向本表 code。见 docs/ARB_MULTI_SPORT.md。",
   "sports": [
     {
       "code": "esport",
@@ -31,16 +31,33 @@
       "code": "baseball",
       "name": "棒球",
       "nameEn": "Baseball",
-      "status": "planned",
+      "status": "active",
       "defaultGameCodes": ["mlb"],
       "matcherProfile": "baseball",
       "linePath": "lines/baseball",
       "apiSportFilter": "baseball",
-      "pm2Apps": ["changmen-baseball"],
+      "pm2Apps": [],
       "collect": {
-        "mode": "daemon",
-        "daemons": ["@changmen/mlb-gamma-collector"],
-        "platforms": ["Polymarket", "PB"]
+        "mode": "api",
+        "daemons": [],
+        "platforms": ["Polymarket"]
+      },
+      "markets": ["moneyline"]
+    },
+    {
+      "code": "football",
+      "name": "足球",
+      "nameEn": "Football",
+      "status": "active",
+      "defaultGameCodes": ["soccer"],
+      "matcherProfile": "football",
+      "linePath": "lines/football",
+      "apiSportFilter": "football",
+      "pm2Apps": [],
+      "collect": {
+        "mode": "api",
+        "daemons": [],
+        "platforms": ["Polymarket"]
       },
       "markets": ["moneyline"]
     }

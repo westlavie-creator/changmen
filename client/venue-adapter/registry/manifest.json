@@ -202,7 +202,7 @@
   {
     "id": "Polymarket",
     "dir": "polymarket",
-    "icon": "polymarket.ico",
+    "icon": "polymarket.png",
     "sort": 12,
     "collect": true,
     "bet": true,

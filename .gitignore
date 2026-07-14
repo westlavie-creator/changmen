@@ -82,6 +82,9 @@ arch-scan-report-*.json
 /_tmp_mem_probe.mjs
 /_patch_diag.py
 
+# Multi-sport read-only list cache (Gamma snapshots; local only)
+server/backend/storage/sport/**
+
 # Matcher diagnostic output
 server/matcher/scripts/diag_out.txt
 

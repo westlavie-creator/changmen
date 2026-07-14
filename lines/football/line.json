@@ -1,20 +1,20 @@
 {
-  "code": "baseball",
+  "code": "football",
   "kind": "sport",
   "status": "active",
-  "linePath": "lines/baseball",
-  "sportRef": "baseball",
+  "linePath": "lines/football",
+  "sportRef": "football",
   "components": {
     "web": "client/web",
     "api": "server/backend"
   },
   "actions": [
-    "Client_GetBaseballMatchs"
+    "Client_GetFootballMatchs"
   ],
   "ui": {
-    "homeTab": "baseball",
-    "board": "client/web/src/components/match/BaseballBoard.vue",
-    "store": "client/web/src/stores/baseballStore.ts"
+    "homeTab": "football",
+    "board": "client/web/src/components/match/FootballBoard.vue",
+    "store": "client/web/src/stores/footballStore.ts"
   },
   "capabilities": [],
   "sharedPackages": [

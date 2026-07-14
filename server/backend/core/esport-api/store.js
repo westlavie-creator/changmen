@@ -406,6 +406,18 @@ export async function buildMatchList() {
   return fromDb;
 }
 
+/** 棒球 MVP：Gamma MLB 全量展示，不读写电竞 client_matches、不做匹配。失败抛错供 router fail。 */
+export async function buildBaseballMatchList() {
+  const { fetchMlbAsClientMatchDtos } = await import("./mlb_gamma_fetch.js");
+  return fetchMlbAsClientMatchDtos();
+}
+
+/** 足球 MVP：Gamma soccer 全量展示，不读写电竞 client_matches、不做匹配。失败抛错供 router fail。 */
+export async function buildFootballMatchList() {
+  const { fetchFootballAsClientMatchDtos } = await import("./football_gamma_fetch.js");
+  return fetchFootballAsClientMatchDtos();
+}
+
 const fetchPlatformBetsForDefaultOdds = () => sb.fetchPlatformBets();
 
 export function getMatchDefaultOdds(matchIds) {
@@ -456,6 +468,8 @@ const store = {
   removeAccountForUser,
   parseKvContent,
   buildMatchList,
+  buildBaseballMatchList,
+  buildFootballMatchList,
   getCollectorHotSnapshot,
   getCollectorFullSnapshot,
   getCollectorMemoryStats,

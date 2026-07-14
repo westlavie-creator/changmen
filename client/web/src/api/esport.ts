@@ -36,6 +36,8 @@ export {
 } from "@/api/kv";
 
 export {
+  getBaseballMatchs,
+  getFootballMatchs,
   getMatchs,
   saveBetSource,
   saveLiveTimer,

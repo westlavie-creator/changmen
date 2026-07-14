@@ -19,7 +19,8 @@
 | 文档 | 内容 |
 |------|------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Monorepo 结构、`client/*` / `server/*` / `packages/*`、数据流、**本地开发端口** |
-| [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md) | **多运动产品线**（电竞在根、棒球路线、目录整合） |
+| [ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md) | **棒球 MVP**：GetBaseballMatchs 全量展示、暂不匹配；电竞 GetMatchs 不动 |
+| [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md) | monorepo 目录 / `lines/` manifest / 脚本落点（服从 ARB_MULTI_SPORT） |
 | [CATALOG.md](./CATALOG.md) | `sport` / `game` / `market` catalog 字段与扩展规则（**配置单一入口**） |
 | [../server/README.md](../server/README.md) | **服务端包索引**、进程图、常用命令 |
 | [DATA_STORAGE.md](./DATA_STORAGE.md) | 云库 vs 本机 JSON、迁移目录、快照生命周期与 archive |
