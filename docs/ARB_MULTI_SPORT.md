@@ -31,17 +31,20 @@
 - 验收：`rg client_matches` 在 `sport_gamma_fetch` / `sport_list_cache` / `*_gamma_fetch` 中无读写调用（仅有拒绝路径/注释）
 - 冒烟：`sport_list_cache.smoke.test.mjs` 已挂入 `npm run test:catalog-smoke`（防路径回退）；`storage/sport/**` 已 gitignore
 
-### 只读产品冻结（N2 后默认）
+### 只读产品冻结（维护态 · 2026-07-15）
 
-多运动 **只读 MVP 已完成并可冻结**：有 Tab、有列表、有本机缓存、电竞路径零污染。  
-**下一闸门 = 明确第二场馆**（如 PB），之前不开 N3/N4，电竞开发可恢复为主线。
+多运动 **只读 MVP 已冻结进入维护态**：有 Tab、有列表、有本机缓存、PM∥PF 并列、电竞路径零污染。  
+**允许**：隔离回归修 bug、文档勘误。  
+**禁止**：N3 matcher、N4 套利环、第三场馆、sport 下注、`PredictFun.bet: true`、改 `GetMatchs` / `client_matches` / `mainBetLoop`。  
+**下一闸门** = 产品明确要对齐的第二场馆（如 PM↔PF 合并或 PB）；否则 **不开 N3/N4**。  
+**当前主工作面** = 电竞 A8 — 见 [client/web/docs/A8_NEXT_STEPS.md](../client/web/docs/A8_NEXT_STEPS.md)。
 
-手工验收清单（半天内，不写新业务）：
+手工验收清单（不写新业务）：
 
 1. 电竞列表 + 套利主循环正常（切棒球/足球 Tab 仍跑）
-2. 棒球/足球有场；`server/backend/storage/sport/` 有 JSON
+2. 棒球/足球有场；`server/backend/storage/sport/` 有 JSON；PM 与 PF 行并列可见
 3. 断网/断 Gamma：有磁盘则 stale 列表，电竞不受影响
-4. 上述 `rg` / smoke 隔离仍成立
+4. 上述 `rg` / smoke 隔离仍成立；体育板 **不** seed `oddsStore`
 
 ### 验收记录（2026-07-15）
 
@@ -50,9 +53,11 @@
 | 1 Tab ≠ 套利 | 通过（代码） | `sportTab` 仅换板；`appSession.startAppSession` → `startMainLoop`，与 Tab 无关；板子 `v-if` + `stopPolling` |
 | 2 磁盘缓存 | 通过 | `storage/sport/mlb|soccer/match_list.json` 存在 |
 | 3 stale | 通过（代码） | `sport_gamma_fetch` Gamma 失败读 `readSportListCache` 返回 stale |
-| 4 隔离 | 通过 | smoke ok；`client_matches`/`@changmen/db` 仅拒绝路径与注释，无读写调用 |
+| 4 隔离 | 通过 | `npm run test:catalog-smoke` ok；`client_matches`/`@changmen/db` 仅拒绝路径与注释 |
+| 5 PF 赔率解析 | 通过 | `sport_predictfun_fetch.smoke`：`{price,size}` + tip mid |
+| 6 fo 边界 | 通过（代码） | `createSportListStore` 仅 Sources→fallback；无 `oddsStore.save` |
 
-UI 点验（登录后切 Tab 看电竞循环仍转）可按日常联调补勾。
+UI 点验（登录后切 Tab 看电竞循环仍转、棒/足 PM∥PF 赔率）可按日常联调补勾。
 
 ### Predict.fun 只读并列（已做 · 仍无匹配/无下单）
 
@@ -61,6 +66,8 @@ UI 点验（登录后切 Tab 看电竞循环仍转）可按日常联调补勾。
 - 需 `PREDICT_FUN_API_KEY`（backend `.env`）；**不必**启 `changmen-predictfun-collector`（那是电竞 RDS 入库）
 - 本机直连 `api.predict.fun` 失败时走 `PREDICT_FUN_HTTP_RELAY_ORIGIN`（HK http-relay；与浏览器 PF transport 同思路）
 - 官方形态：棒球多为 `SPORTS_TEAM_MATCH` 单盘双 outcome；足球多为 `SPORTS_MATCH`（见 [MarketVariant](https://dev.predict.fun/marketvariant-14037485d0)）
+- 赔率：outcome.`bestAsk`/`bestBid` 为 `{ price, size }`（[Get markets](https://dev.predict.fun/get-markets-25326905e0)）；无价或空盘 → `Status=Locked`（队名仍显示，**不是**匹配失败）
+- 前端：体育只读盘 **不写** `oddsStore` / fo。`ViewBetItem` 构造保持 [A8 可证实]（非 HG fallback=0）；`createSportListStore` 在转换后按 `Sources.*` 补 fallback（列表即快照，类比 HG 用 Sources 作展示源）
 - 单侧失败：另一侧有数据仍成功；两侧皆失败才 `fail`
 - `manifest.json` PredictFun **`bet: false`** 保持；不做 N3 matcher / 不开 sport 下注
 

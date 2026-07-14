@@ -1,8 +1,7 @@
-import type { ClientMatchDto, PlatformId } from "@/types/esport";
+import type { ClientMatchDto } from "@/types/esport";
 import type { ViewMatch } from "@/models/match";
 import { defineStore } from "pinia";
 import { toViewMatches } from "@/models/match";
-import { useOddsStore } from "@/stores/oddsStore";
 import { useUserStore } from "@/stores/userStore";
 
 export type SportListFetch = (userName: string) => Promise<ClientMatchDto[]>;
@@ -11,54 +10,44 @@ export interface SportListStoreOptions {
   /** pinia store id */
   id: string;
   fetchList: SportListFetch;
-  /** Sources 里用于 seed oddsStore 的平台 key，默认 Polymarket */
-  oddsPlatformKey?: string;
   pollMs?: number;
   minFetchGapMs?: number;
 }
 
-function seedPlatformOdds(list: ClientMatchDto[], platformKey: string) {
-  // 只读 sport 写入同一 oddsStore：键为 platform+oddId（PM token）。
-  // 比赛 ID 已用 idBase（mlb≈900M / soccer≈800M）与电竞错开；勿改电竞 fo 写入路径。
-  const odds = useOddsStore();
-  for (const match of list) {
-    for (const bet of match.Bets ?? []) {
-      const src = bet.Sources?.[platformKey];
-      if (!src)
+/**
+ * [changmen 扩展] 体育只读盘：列表响应即赔率快照，无 A8 采集写 fo。
+ * 不写 oddsStore（避免冒充电竞 fo）；在已构造的 ViewBetItem 上补 fallback。
+ * ViewBetItem 构造仍保持 [A8 可证实]：非 HG fallback=0。matchStore / 电竞路径不变。
+ */
+function applySportListSourceOdds(views: ViewMatch[], list: ClientMatchDto[]): ViewMatch[] {
+  const byId = new Map(list.map(m => [m.ID, m]));
+  for (const vm of views) {
+    const dto = byId.get(vm.id);
+    if (!dto)
+      continue;
+    for (const bet of vm.bets) {
+      const dtoBet = dto.Bets?.find(b => b.ID === bet.id);
+      if (!dtoBet)
         continue;
-      const platform = (src.Type || platformKey) as PlatformId;
-      const betId = String(src.BetID || "");
-      const homeId = String(src.HomeID || "");
-      const awayId = String(src.AwayID || "");
-      if (homeId) {
-        odds.save(platform, {
-          id: homeId,
-          odds: Number(src.HomeOdds) || 0,
-          isLock: false,
-          betId,
-          side: "home",
-          time: Date.now(),
-        }, "http");
-      }
-      if (awayId) {
-        odds.save(platform, {
-          id: awayId,
-          odds: Number(src.AwayOdds) || 0,
-          isLock: false,
-          betId,
-          side: "away",
-          time: Date.now(),
-        }, "http");
+      for (const item of bet.items) {
+        const src = dtoBet.Sources?.[item.type]
+          ?? Object.values(dtoBet.Sources ?? {}).find(s => (s?.Type || "") === item.type);
+        if (!src)
+          continue;
+        const locked = String(src.Status ?? "").toLowerCase() === "locked";
+        item.fallbackHomeOdds = locked ? 0 : (Number(src.HomeOdds) || 0);
+        item.fallbackAwayOdds = locked ? 0 : (Number(src.AwayOdds) || 0);
+        item.sourceStatus = String(src.Status ?? "Normal");
       }
     }
   }
+  return views;
 }
 
 /** 非电竞只读列表 store 工厂；不进 matchStore 套利主循环 */
 export function createSportListStore(options: SportListStoreOptions) {
   const pollMs = options.pollMs ?? 30_000;
   const minFetchGapMs = options.minFetchGapMs ?? 5_000;
-  const oddsPlatformKey = options.oddsPlatformKey ?? "Polymarket";
 
   return defineStore(options.id, {
     state: () => ({
@@ -82,8 +71,7 @@ export function createSportListStore(options: SportListStoreOptions) {
         this.error = null;
         try {
           const list = await options.fetchList(user.userName);
-          seedPlatformOdds(list, oddsPlatformKey);
-          this.matchs = toViewMatches(list);
+          this.matchs = applySportListSourceOdds(toViewMatches(list), list);
           this.lastFetchAt = Date.now();
         }
         catch (err) {

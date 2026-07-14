@@ -13,19 +13,21 @@ changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：bac
 
 | 项 | 状态 |
 |----|------|
-| 多运动只读 MVP（棒球/足球 Tab + `storage/sport/`） | **已冻结** — 见 [ARB_MULTI_SPORT.md](../../../docs/ARB_MULTI_SPORT.md)；**不开 N3** |
-| 电竞主线 | **恢复** — 优先本文件阶段 A 同屏走查收口 |
-| 下一产品闸门 | 明确第二场馆（如 PB）后再单开 N3 plan |
+| 多运动只读（棒球/足球 + PM∥PF + 本机缓存） | **维护态** — [ARB_MULTI_SPORT.md](../../../docs/ARB_MULTI_SPORT.md)；**不开 N3/N4**；体育板不写 fo |
+| 电竞主线 | **默认工作面** — 阶段 A 同屏走查 → 平台/投注缺口；账号后端见 [ACCOUNT_BACKEND.md](../../../docs/ACCOUNT_BACKEND.md) |
+| 下一产品闸门 | 产品明确要对齐的场馆后再单开 N3 plan（只读并列 ≠ 已批准合并） |
 
 走查勾选表：[A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md)  
-操作脚本：[A8_WALKTHROUGH_SCRIPT.md](./A8_WALKTHROUGH_SCRIPT.md)
+操作脚本：[A8_WALKTHROUGH_SCRIPT.md](./A8_WALKTHROUGH_SCRIPT.md)  
+对齐总览：[A8_PARITY_REGISTRY.md](./A8_PARITY_REGISTRY.md)
 
-**本轮走查焦点（收口）**
+**本轮电竞优先（收口）**
 
 1. 登录 → 主界面布局 / 账号条 / BetRow 初赔  
 2. 用户中心 11 Tab 快速过一遍（操盘用自建 pub/sub）  
 3. 充提 / 参数配置 / 版本角标  
-4. 回归：切「棒球/足球」Tab 时电竞 `mainBetLoop` 仍跑（多运动冻结验收）
+4. 回归：切「棒球/足球」Tab 时电竞 `mainBetLoop` 仍跑（多运动维护态验收）  
+5. 账号：`Client_SaveData(ACCOUNT)` 兼容层 / 巡检（勿在前端加 A8 没有的 skip）
 
 ---
 
@@ -63,6 +65,7 @@ changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：bac
 - [ ] 同屏走查：登录 → 11 Tab → 主界面 BetRow 初赔 → 充提/补单（勾选表见 [A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md)）
 - [x] 历史审计 JSON 已归档（audit 脚本已下线）
 - [x] 多运动只读冻结进仓（`10e17fac`，2026-07-15）
+- [x] PF 并列 + 赔率解析；体育板 Sources fallback、不 seed fo（维护态收口，2026-07-15）
 
 ---
 

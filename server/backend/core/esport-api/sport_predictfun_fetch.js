@@ -363,13 +363,51 @@ function yesOutcome(market) {
   return outcomes.find(o => String(o.name ?? "").toLowerCase() === "yes") ?? outcomes[0];
 }
 
-function outcomeProb(outcome, bookProb) {
-  const ask = Number(outcome?.bestAsk);
-  if (Number.isFinite(ask) && ask > 0 && ask < 1)
+/**
+ * 官方 outcome.bestAsk / bestBid 多为 `{ price, size }`（见 Get markets）；
+ * 类别快照里也可能是 number | null。
+ * @param {unknown} level
+ * @returns {number}
+ */
+export function readPredictTopPrice(level) {
+  if (level == null)
+    return 0;
+  if (typeof level === "number") {
+    return Number.isFinite(level) && level > 0 && level < 1 ? level : 0;
+  }
+  if (typeof level === "string") {
+    const n = Number(level);
+    return Number.isFinite(n) && n > 0 && n < 1 ? n : 0;
+  }
+  if (typeof level === "object") {
+    const n = Number(/** @type {{ price?: unknown }} */ (level).price);
+    return Number.isFinite(n) && n > 0 && n < 1 ? n : 0;
+  }
+  return 0;
+}
+
+/**
+ * 买入价优先 bestAsk；若盘口是空洞 tip（如 0.01/0.99）则用 mid，避免假 Locked 与无意义 1.01 倍。
+ * @param {object|undefined} outcome
+ * @param {number} [bookProb]
+ */
+export function outcomeProb(outcome, bookProb = 0) {
+  const ask = readPredictTopPrice(outcome?.bestAsk);
+  const bid = readPredictTopPrice(outcome?.bestBid);
+  if (ask > 0 && bid > 0 && (ask - bid) >= 0.5)
+    return (ask + bid) / 2;
+  if (ask > 0)
     return ask;
   if (Number.isFinite(bookProb) && bookProb > 0 && bookProb < 1)
     return bookProb;
+  if (bid > 0)
+    return bid;
   return 0;
+}
+
+/** Yes 盘是否已有可用报价（可跳过再打 orderbook） */
+function outcomeHasUsablePrice(outcome) {
+  return outcomeProb(outcome, 0) > 0;
 }
 
 /**
@@ -575,18 +613,19 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
     for (const category of filtered) {
       const dual = pickDualTeamMarkets(category);
       if (dual) {
-        if (dual.home.id != null)
+        // 仅在类别快照缺 Yes 价时再拉 orderbook（棒球单盘双 outcome 不打 book，靠 outcome.bestAsk）
+        const homeYes = yesOutcome(dual.home);
+        const awayYes = yesOutcome(dual.away);
+        if (!outcomeHasUsablePrice(homeYes) && dual.home.id != null)
           marketIds.push(String(dual.home.id));
-        if (dual.away.id != null)
+        if (!outcomeHasUsablePrice(awayYes) && dual.away.id != null)
           marketIds.push(String(dual.away.id));
-        continue;
       }
-      const single = pickSingleMoneylineMarket(category);
-      if (single?.market?.id != null)
-        marketIds.push(String(single.market.id));
     }
 
-    const books = await fetchPredictOrderbooks(marketIds.slice(0, MAX_TRACKED * 2));
+    const books = marketIds.length
+      ? await fetchPredictOrderbooks(marketIds.slice(0, MAX_TRACKED * 2))
+      : {};
     const buyPrices = {};
     for (const [id, book] of Object.entries(books)) {
       const ask = bestAskFromPredictBook(book);

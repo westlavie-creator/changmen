@@ -6,6 +6,8 @@ import assert from "node:assert/strict";
 import {
   isPredictSportMoneylineCategory,
   mapPredictSportTag,
+  outcomeProb,
+  readPredictTopPrice,
   resolveSportGameCodeFromCategory,
 } from "./sport_predictfun_fetch.js";
 
@@ -14,7 +16,7 @@ assert.equal(mapPredictSportTag("Baseball"), "mlb");
 assert.equal(mapPredictSportTag("Soccer"), "soccer");
 assert.equal(mapPredictSportTag("EPL"), "soccer");
 assert.equal(mapPredictSportTag("World Cup"), "soccer");
-assert.equal(mapPredictSportTag("Football"), null); // 歧义，需与 Soccer 标签组合
+assert.equal(mapPredictSportTag("Football"), null);
 assert.equal(mapPredictSportTag("cs2"), null);
 assert.equal(mapPredictSportTag("NFL"), null);
 
@@ -26,6 +28,12 @@ assert.equal(resolveSportGameCodeFromCategory({
   tags: [{ name: "Sports" }, { name: "MLB" }, { name: "Baseball" }],
 }), "mlb");
 
+assert.equal(readPredictTopPrice({ price: 0.42, size: 10 }), 0.42);
+assert.equal(readPredictTopPrice(0.55), 0.55);
+assert.equal(readPredictTopPrice(null), 0);
+assert.equal(outcomeProb({ bestAsk: { price: 0.4, size: 1 } }), 0.4);
+assert.equal(outcomeProb({ bestAsk: { price: 0.99, size: 100 }, bestBid: { price: 0.01, size: 100 } }), 0.5);
+
 const mlbCat = {
   marketVariant: "SPORTS_TEAM_MATCH",
   status: "OPEN",
@@ -36,8 +44,8 @@ const mlbCat = {
     tradingStatus: "OPEN",
     marketType: "SPORTS_MONEYLINE",
     outcomes: [
-      { name: "OAK", onChainId: "h", team: { name: "Athletics" } },
-      { name: "ARI", onChainId: "a", team: { name: "Diamondbacks" } },
+      { name: "OAK", onChainId: "h", team: { name: "Athletics" }, bestAsk: { price: 0.45, size: 1 } },
+      { name: "ARI", onChainId: "a", team: { name: "Diamondbacks" }, bestAsk: { price: 0.55, size: 1 } },
     ],
   }],
 };
