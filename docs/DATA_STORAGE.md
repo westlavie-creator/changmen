@@ -9,11 +9,15 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `platform_matches` | 客户端 `API_SaveMatch` → backend | embedded matcher matchMerge | 各平台原始比赛 |
 | `platform_bets` | `API_SaveBet` | embedded matcher | 各平台赔率快照 |
 | `live_timers` | `API_SaveLiveTimer` → backend | embedded matcher matchMerge | 局数/计时；GetMatchs 不再 overlay |
-| `client_matches` | embedded matcher matchMerge | 浏览器 `Client_GetMatchs`（只读，不改写） | 合并后的比赛列表 |
+| `client_matches` | embedded matcher matchMerge | 浏览器 `Client_GetMatchs`（只读，不改写） | 合并后的**电竞**比赛列表 |
+| `canonical_teams` / `team_venue_maps` | team-resolver、matcher | matcher 队名插件 | **电竞**队伍 canonical 映射 |
+| `sport_client_matches`（+ history） | 未来 sport matchMerge（N3） | 远期 `GetBaseball/FootballMatchs` | 体育合并输出；**禁止**混入电竞 `client_matches` |
+| `sport_venue_matches` / `sport_venue_bets` | 未来 sport 摄入 | sport matchMerge | 场馆原始赛程/盘口（列名 `venue`，非 `platform`） |
+| `sport_canonical_teams` / `sport_team_venue_maps` | 未来 sport team 插件 | sport matchMerge | 体育队名；与电竞队名表物理隔离 |
+| `sport_client_match_venue_overrides` | matcher UI（接线后） | sport reconcile | 场馆主客 force_aligned / force_reversed |
 | `users` / `profiles` / `orders` | 鉴权、下单 API | 前端 | 登录与订单 |
-| `canonical_teams` / `team_venue_maps` | team-resolver、matcher | matcher 队名插件 | 队伍 canonical 映射 |
 
-- **RDS 迁移**：`server/backend/db/migrations/`（`node scripts/apply-rds-schema.mjs`）
+- **RDS 迁移**：`server/backend/db/migrations/`（含 `033_sport_matcher_tables.sql`；`node scripts/apply-rds-schema.mjs`）
 - **统一 DB 入口**：`@changmen/db`（`server/db/index.js`）
 
 ## 本机 JSON（开发 / 凭证 / legacy）

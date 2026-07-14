@@ -10,6 +10,7 @@
  *   rds/client_matches_store.js — matcher matchMerge 写入 client_matches
  *   rds/profile_store.js 等  — profile / player / money_log
  *   rds/team_store.js        — canonical_teams / team_venue_maps
+ *   rds/sport_*_store.js     — N3 体育分表（venue 命名；不写电竞 client_matches）
  *   rds/matcher_store.js     — matcher UI/ops 专用查询与运维 SQL
  *   order_link_filter — LinkID 分类（hash/套利/占位）
  *   archive_stale.js  — client_matches 时间归档兜底；platform_* 由 SaveMatch 快照生命周期负责
@@ -157,6 +158,25 @@ export const {
   authGetUser,
   authRefreshToken,
   writeUserMetadata,
+  fetchSportClientMatches,
+  fetchSportClientMatchVenueOverrides,
+  replaceSportClientMatches,
+  writeSportClientMatchesAsync,
+  upsertSportClientMatchVenueOverride,
+  SPORT_MATCHER_TABLES,
+  fetchSportVenueMatches,
+  fetchSportVenueBets,
+  upsertSportVenueMatches,
+  upsertSportVenueBets,
+  writeSportVenueMatchesAsync,
+  writeSportVenueBetsAsync,
+  setSportVenueMatchId,
+  fetchAllSportCanonicalTeams,
+  fetchAllSportTeamVenueMaps,
+  nextSportManualGbTeamId,
+  upsertSportCanonicalTeam,
+  upsertSportTeamVenueMap,
+  saveSportTeamMappingFireAndForget,
 } = impl;
 
 export const {

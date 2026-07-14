@@ -147,9 +147,23 @@ POST /esport/Client_GetFootballMatchs
 
 | 阶段 | 前提 | 隔离要点 |
 |------|------|----------|
-| **N3 matcher** | 明确第二场馆要对齐 | 新表名带 sport 后缀；**禁止**写 `client_matches`；独立 profile |
+| **N3 matcher** | 明确第二场馆要对齐 | 读/写下方 `sport_*` 表；**禁止**写电竞 `client_matches`；独立 profile |
 | **N4 套利环** | N3 已有合并列表且要自动下单 | 新建 sport loop，**禁止**进 `mainBetLoop` |
 
-无第二场馆 → **不要开 N3**（只有单源 PM 时 matcher 无意义）。届时另写独立 plan，勿在本只读栈上硬塞。
+无第二场馆 → **不要开 N3 接线**（只有单源 PM 时 matcher 无意义）。建表可先行（零行为变更）。
 
-勿做：RDS 新表、Save*、matcher、套利环——除非产品闸门打开。
+### N3 schema（已建 · 零行为）
+
+Migration：[`033_sport_matcher_tables.sql`](../server/backend/db/migrations/033_sport_matcher_tables.sql)（`apply-rds-schema` 已挂）。  
+Store：`server/db/rds/sport_{client_matches,venue,team}_store.js`；隔离 smoke：`npm run test:catalog-smoke` 含 `sport_matcher_tables.smoke`。
+
+| 表 | 角色 |
+|----|------|
+| `sport_client_matches` (+ history) | 合并输出；棒/足同表，`sport` 列区分 |
+| `sport_venue_matches` / `sport_venue_bets` | 场馆原始；列名 **`venue`**（非 platform）；bets 预留 `market_code`/`line` |
+| `sport_canonical_teams` / `sport_team_venue_maps` | 体育队名（手动 gb 从 200000）；与电竞队名表隔离 |
+| `sport_client_match_venue_overrides` | 场馆主客 force_aligned / force_reversed |
+
+**仍不做（接线另开）：** sport matchMerge 循环、切 `Get*Matchs` 读库、Team UI 拖线。只读 MVP 仍走 `storage/sport/*.json`。
+
+勿做：往电竞表写棒足、按运动复制 `football_*`/`baseball_*` 整套表、N4 套利环——除非产品闸门打开。

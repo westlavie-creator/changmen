@@ -127,3 +127,31 @@ export {
   writeProfile,
   writeUserMetadata,
 } from "./rds/profile_store.js";
+
+export {
+  fetchSportClientMatches,
+  fetchSportClientMatchVenueOverrides,
+  replaceSportClientMatches,
+  SPORT_MATCHER_TABLES,
+  upsertSportClientMatchVenueOverride,
+  writeSportClientMatchesAsync,
+} from "./rds/sport_client_matches_store.js";
+
+export {
+  fetchSportVenueBets,
+  fetchSportVenueMatches,
+  setSportVenueMatchId,
+  upsertSportVenueBets,
+  upsertSportVenueMatches,
+  writeSportVenueBetsAsync,
+  writeSportVenueMatchesAsync,
+} from "./rds/sport_venue_store.js";
+
+export {
+  fetchAllSportCanonicalTeams,
+  fetchAllSportTeamVenueMaps,
+  nextSportManualGbTeamId,
+  saveSportTeamMappingFireAndForget,
+  upsertSportCanonicalTeam,
+  upsertSportTeamVenueMap,
+} from "./rds/sport_team_store.js";

@@ -128,6 +128,9 @@ async function main() {
     console.log("[rds] 执行 032_players_venue_account_key.sql …");
     await client.query(readSql("032_players_venue_account_key.sql"));
 
+    console.log("[rds] 执行 033_sport_matcher_tables.sql …");
+    await client.query(readSql("033_sport_matcher_tables.sql"));
+
     const tables = await client.query(`
       SELECT tablename FROM pg_tables
       WHERE schemaname = 'public'
