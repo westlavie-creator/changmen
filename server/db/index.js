@@ -171,6 +171,7 @@ export const {
   writeSportVenueMatchesAsync,
   writeSportVenueBetsAsync,
   setSportVenueMatchId,
+  pruneSportVenueSnapshot,
   fetchAllSportCanonicalTeams,
   fetchAllSportTeamVenueMaps,
   nextSportManualGbTeamId,

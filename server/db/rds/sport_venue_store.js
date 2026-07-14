@@ -168,6 +168,58 @@ export function writeSportVenueBetsAsync(rows) {
 }
 
 /**
+ * 某 sport+venue 快照：删除本批未出现的 source_match_id（及对应 bets）。
+ * 仅裁剪本轮有成功数据的 venue，避免单侧拉失败误删另一侧。
+ * @param {string} sport
+ * @param {string} venue
+ * @param {string[]} keepSourceMatchIds
+ */
+export async function pruneSportVenueSnapshot(sport, venue, keepSourceMatchIds) {
+  const pool = getPgPool();
+  if (!pool)
+    throw new Error("DATABASE_URL 未配置");
+  const sportKey = String(sport);
+  const venueKey = String(venue);
+  const keep = [...new Set((keepSourceMatchIds || []).map(String).filter(Boolean))];
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (keep.length) {
+      await client.query(
+        `DELETE FROM sport_venue_bets
+         WHERE sport = $1 AND venue = $2
+           AND NOT (source_match_id = ANY($3::text[]))`,
+        [sportKey, venueKey, keep],
+      );
+      await client.query(
+        `DELETE FROM sport_venue_matches
+         WHERE sport = $1 AND venue = $2
+           AND NOT (source_match_id = ANY($3::text[]))`,
+        [sportKey, venueKey, keep],
+      );
+    }
+    else {
+      await client.query(
+        `DELETE FROM sport_venue_bets WHERE sport = $1 AND venue = $2`,
+        [sportKey, venueKey],
+      );
+      await client.query(
+        `DELETE FROM sport_venue_matches WHERE sport = $1 AND venue = $2`,
+        [sportKey, venueKey],
+      );
+    }
+    await client.query("COMMIT");
+  }
+  catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  }
+  finally {
+    client.release();
+  }
+}
+
+/**
  * 绑定 venue 原始赛到合并 id。
  * @param {string} sport
  * @param {string} venue

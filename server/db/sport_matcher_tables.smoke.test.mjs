@@ -90,6 +90,29 @@ assert.doesNotMatch(migration, /CREATE TABLE IF NOT EXISTS sport_platform_/);
 const apply = readFileSync(applySchemaPath, "utf8");
 assert.match(apply, /033_sport_matcher_tables\.sql/);
 
+// 接线模块：不得 SQL 引用电竞热表
+for (const rel of [
+  "../backend/core/esport-api/sport_merge.js",
+  "../backend/core/esport-api/sport_venue_ingest.js",
+]) {
+  const src = readFileSync(join(__dirname, rel), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  for (const name of ESPORT_FORBIDDEN) {
+    assert.equal(
+      sqlTableHits(src, name),
+      false,
+      `${rel} 不得 SQL 引用 ${name}`,
+    );
+  }
+}
+
+const storeJs = readFileSync(join(__dirname, "../backend/core/esport-api/store.js"), "utf8");
+assert.match(storeJs, /buildMatchList/);
+assert.match(storeJs, /ingestAndMergeSportLists/);
+// 电竞主列表仍只读 client_matches 路径
+assert.match(storeJs, /loadClientMatchesFromDb/);
+
 console.log("sport_matcher_tables.smoke: ok", {
   tables: [...SPORT_MATCHER_TABLES].sort(),
 });

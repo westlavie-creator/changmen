@@ -164,6 +164,16 @@ Store：`server/db/rds/sport_{client_matches,venue,team}_store.js`；隔离 smok
 | `sport_canonical_teams` / `sport_team_venue_maps` | 体育队名（手动 gb 从 200000）；与电竞队名表隔离 |
 | `sport_client_match_venue_overrides` | 场馆主客 force_aligned / force_reversed |
 
-**仍不做（接线另开）：** sport matchMerge 循环、切 `Get*Matchs` 读库、Team UI 拖线。只读 MVP 仍走 `storage/sport/*.json`。
+**仍不做：** Team UI 拖线、PredictFun 下注、N4 套利环。只读 JSON 仍作 API fallback。
 
-勿做：往电竞表写棒足、按运动复制 `football_*`/`baseball_*` 整套表、N4 套利环——除非产品闸门打开。
+### N3 接线（进行中 · 电竞零交叉）
+
+| 步骤 | 状态 |
+|------|------|
+| 033 表 + store | 已做 |
+| 摄入 `sport_venue_*` | `sport_venue_ingest` + Get* 路径双写 |
+| moneyline 合并 → `sport_client_matches` | `sport_merge.js`（队名+1h 窗；禁写电竞表） |
+| `GetBaseball/FootballMatchs` | 合并成功则返回合并列表，否则 **fallback** 原 concat |
+| `Client_GetMatchs` / `buildMatchList` | **不动** |
+
+隔离：`sport_merge` / `sport_*_store` 不得写 `client_matches`；体育板不 seed fo。

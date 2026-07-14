@@ -140,6 +140,7 @@ export {
 export {
   fetchSportVenueBets,
   fetchSportVenueMatches,
+  pruneSportVenueSnapshot,
   setSportVenueMatchId,
   upsertSportVenueBets,
   upsertSportVenueMatches,

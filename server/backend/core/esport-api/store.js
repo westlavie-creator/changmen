@@ -441,24 +441,44 @@ async function concatSportReadOnlyLists(fetches, logTag) {
   return [];
 }
 
-/** 棒球只读：PM Gamma + Predict.fun 并列；不读写电竞 client_matches、不做匹配。 */
+/** 棒球：PM∥PF 拉取 → 双写 sport_venue_* → moneyline 合并；失败 fallback 并列列表。不碰电竞 client_matches。 */
 export async function buildBaseballMatchList() {
   const { fetchMlbAsClientMatchDtos } = await import("./mlb_gamma_fetch.js");
   const { fetchPredictFunMlbAsClientMatchDtos } = await import("./sport_predictfun_fetch.js");
-  return concatSportReadOnlyLists(
+  const list = await concatSportReadOnlyLists(
     [fetchMlbAsClientMatchDtos(), fetchPredictFunMlbAsClientMatchDtos()],
     "GetBaseballMatchs",
   );
+  try {
+    const { ingestAndMergeSportLists } = await import("./sport_merge.js");
+    const merged = await ingestAndMergeSportLists("baseball", list);
+    if (merged?.length)
+      return merged;
+  }
+  catch (err) {
+    console.warn("[GetBaseballMatchs] sport merge fallback to concat", err?.message || err);
+  }
+  return list;
 }
 
-/** 足球只读：PM Gamma + Predict.fun 并列；不读写电竞 client_matches、不做匹配。 */
+/** 足球：同上；不碰电竞 client_matches / mainBetLoop。 */
 export async function buildFootballMatchList() {
   const { fetchFootballAsClientMatchDtos } = await import("./football_gamma_fetch.js");
   const { fetchPredictFunFootballAsClientMatchDtos } = await import("./sport_predictfun_fetch.js");
-  return concatSportReadOnlyLists(
+  const list = await concatSportReadOnlyLists(
     [fetchFootballAsClientMatchDtos(), fetchPredictFunFootballAsClientMatchDtos()],
     "GetFootballMatchs",
   );
+  try {
+    const { ingestAndMergeSportLists } = await import("./sport_merge.js");
+    const merged = await ingestAndMergeSportLists("football", list);
+    if (merged?.length)
+      return merged;
+  }
+  catch (err) {
+    console.warn("[GetFootballMatchs] sport merge fallback to concat", err?.message || err);
+  }
+  return list;
 }
 
 const fetchPlatformBetsForDefaultOdds = () => sb.fetchPlatformBets();
