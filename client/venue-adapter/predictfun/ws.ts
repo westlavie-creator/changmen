@@ -142,7 +142,19 @@ export function startPredictMarketWs(opts: {
 
   return {
     subscribeMarketIds(ids: string[]) {
-      pendingIds = [...new Set(ids.filter(Boolean))];
+      const next = [...new Set(ids.filter(Boolean))];
+      const nextSet = new Set(next);
+      const removed = pendingIds.filter(id => !nextSet.has(id));
+      pendingIds = next;
+      if (socket?.readyState === WebSocket.OPEN && removed.length) {
+        for (const id of removed) {
+          socket.send(JSON.stringify({
+            method: "unsubscribe",
+            requestId: requestId++,
+            params: [`predictOrderbook/${id}`],
+          }));
+        }
+      }
       sendSubscribe(pendingIds);
     },
     stop() {

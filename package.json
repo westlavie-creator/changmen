@@ -34,7 +34,7 @@
     "app:dev": "npm run dev --prefix client/web",
     "app:build": "turbo run build --filter=@changmen/web --force",
     "check:boundaries": "node scripts/check-team-boundaries.mjs",
-    "check:venue-adapter": "npm run check:exports --workspace=@changmen/venue-adapter && npm run check:internal-imports --workspace=@changmen/venue-adapter && npm run check:web-imports --workspace=@changmen/venue-adapter",
+    "check:venue-adapter": "npm run check:exports --workspace=@changmen/venue-adapter && npm run check:internal-imports --workspace=@changmen/venue-adapter && npm run check:web-imports --workspace=@changmen/venue-adapter && npm run check:esport-freeze --workspace=@changmen/venue-adapter",
     "check:client-core": "npm run check:exports --workspace=@changmen/client-core && npm run check:internal-imports --workspace=@changmen/client-core && npm run check:consumer-imports --workspace=@changmen/client-core",
     "test:api-contract": "node packages/api-contract/urls.test.mjs",
     "test": "npm run check:boundaries && npm run check:venue-adapter && npm run check:client-core && npm run test:api-contract && npm run test:catalog-smoke && turbo run test",

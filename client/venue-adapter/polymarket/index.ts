@@ -34,7 +34,9 @@ export * from "./credentials";
 export * from "./depositWallet";
 export * from "./relayer";
 export * from "./userWs";
+export * from "./marketQuoteHub";
 export * from "./sportQuoteHub";
+export * from "./wsQuotes";
 
 export const polymarketAdapter: PlatformAdapter = {
   id: "Polymarket",

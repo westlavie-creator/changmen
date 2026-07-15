@@ -1,9 +1,11 @@
 import type { ViewBetItem, ViewMatch } from "@/models/match";
 import {
+  onPolymarketSportHubBound,
   onPolymarketSportQuote,
   setPolymarketSportAssetIds,
 } from "@changmen/venue-adapter/polymarket";
 import {
+  onPredictFunSportHubBound,
   onPredictFunSportQuote,
   setPredictFunSportMarketIds,
 } from "@changmen/venue-adapter/predictfun";
@@ -69,13 +71,17 @@ export function pickSportSubscribeIds(
       break;
     for (const bet of m.bets) {
       for (const item of bet.items) {
-        const home = String(item.homeSubscribeId || item.homeId || "").trim();
-        const away = String(item.awaySubscribeId || item.awayId || "").trim();
+        // 只用显式 subscribe 键；PF 缺 HomeMarketID 时为空，勿回退到 onChain HomeID
+        const home = String(item.homeSubscribeId || "").trim();
+        const away = String(item.awaySubscribeId || "").trim();
         if (item.type === PM) {
           tryAdd(pm, home);
           tryAdd(pm, away);
         }
         else if (item.type === PF) {
+          // 单盘双 outcome（同 marketId）无法分边，不订 WS，靠列表快照
+          if (home && home === away)
+            continue;
           tryAdd(pf, home);
           tryAdd(pf, away);
         }
@@ -92,14 +98,14 @@ export function pickSportSubscribeIds(
 function patchItemFallback(item: ViewBetItem, subscribeId: string, decimalOdds: number) {
   if (!(decimalOdds > 0))
     return;
-  const homeKey = String(item.homeSubscribeId || item.homeId || "");
-  const awayKey = String(item.awaySubscribeId || item.awayId || "");
+  const homeKey = String(item.homeSubscribeId || "").trim();
+  const awayKey = String(item.awaySubscribeId || "").trim();
   // PF 单盘双 outcome：同一 marketId，WS bestAsk 无法分主客，保持列表快照
   if (homeKey && homeKey === awayKey)
     return;
-  if (subscribeId === homeKey)
+  if (homeKey && subscribeId === homeKey)
     item.fallbackHomeOdds = decimalOdds;
-  if (subscribeId === awayKey)
+  if (awayKey && subscribeId === awayKey)
     item.fallbackAwayOdds = decimalOdds;
 }
 
@@ -121,7 +127,7 @@ function applyQuoteToMatches(
 }
 
 export type SportLiveOddsSession = {
-  sync: () => void;
+  sync: (force?: boolean) => void;
   stop: () => void;
 };
 
@@ -133,12 +139,12 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
   const sportOdds = useSportOddsStore();
   let stopped = false;
 
-  const sync = () => {
+  const sync = (force = false) => {
     if (stopped)
       return;
     const pick = pickSportSubscribeIds(getMatches());
-    setPolymarketSportAssetIds(pick.polymarketAssetIds);
-    setPredictFunSportMarketIds(pick.predictFunMarketIds);
+    setPolymarketSportAssetIds(pick.polymarketAssetIds, force);
+    setPredictFunSportMarketIds(pick.predictFunMarketIds, force);
 
     // 列表重刷后用缓存价回写 fallback，避免 30s 快照盖掉实时价
     const matches = getMatches();
@@ -147,12 +153,14 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
         for (const item of bet.items) {
           if (item.type !== PM && item.type !== PF)
             continue;
-          const homeKey = String(item.homeSubscribeId || item.homeId || "");
-          const awayKey = String(item.awaySubscribeId || item.awayId || "");
+          const homeKey = String(item.homeSubscribeId || "").trim();
+          const awayKey = String(item.awaySubscribeId || "").trim();
+          if (!homeKey && !awayKey)
+            continue;
           if (homeKey && homeKey === awayKey)
             continue;
-          const h = sportOdds.get(item.type, homeKey);
-          const a = sportOdds.get(item.type, awayKey);
+          const h = homeKey ? sportOdds.get(item.type, homeKey) : 0;
+          const a = awayKey ? sportOdds.get(item.type, awayKey) : 0;
           if (h > 0)
             item.fallbackHomeOdds = h;
           if (a > 0)
@@ -182,6 +190,16 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
     applyQuoteToMatches(getMatches(), PF, q.marketId, odds);
   });
 
+  // collector (re)bind：立刻 force sync，修好 clear*Hub 后价僵
+  const unPmBound = onPolymarketSportHubBound(() => {
+    if (!stopped)
+      sync(true);
+  });
+  const unPfBound = onPredictFunSportHubBound(() => {
+    if (!stopped)
+      sync(true);
+  });
+
   sync();
 
   return {
@@ -192,6 +210,9 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
       stopped = true;
       unPm();
       unPf();
+      unPmBound();
+      unPfBound();
+      sportOdds.clear();
       setPolymarketSportAssetIds([]);
       setPredictFunSportMarketIds([]);
     },

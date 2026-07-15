@@ -1,0 +1,34 @@
+{
+  "description": "电竞业务冻结面：体育/N3.5 迭代默认禁止改这些路径；解冻设 ALLOW_ESPORT_TOUCH=1",
+  "allowEnv": "ALLOW_ESPORT_TOUCH",
+  "paths": [
+    "client/venue-adapter/polymarket/collect.ts",
+    "client/venue-adapter/predictfun/collect.ts",
+    "client/venue-adapter/predictfun/bet.ts",
+    "client/venue-adapter/polymarket/bet.ts",
+    "client/venue-adapter/polymarket/orders.ts",
+    "client/venue-adapter/polymarket/orderStatus.ts",
+    "client/venue-adapter/polymarket/orderSettlement.ts",
+    "client/venue-adapter/polymarket/orderTypes.ts",
+    "client/venue-adapter/polymarket/settlementJob.ts",
+    "client/venue-adapter/polymarket/legOutcome.ts",
+    "client/venue-adapter/polymarket/userWs.ts",
+    "client/venue-adapter/polymarket/userWsMessages.ts",
+    "client/venue-adapter/polymarket/pmAutoExitSell.ts",
+    "client/venue-adapter/polymarket/pmLogicalPosition.ts",
+    "client/venue-adapter/polymarket/pmOrigin.ts",
+    "client/venue-adapter/polymarket/pmDetection.ts",
+    "client/venue-adapter/polymarket/pmBetGuard.ts",
+    "client/venue-adapter/polymarket/pmClientApi.ts",
+    "client/venue-adapter/polymarket/l2Auth.ts",
+    "packages/client-core/src/bridge/oddsAccess.ts",
+    "client/web/src/stores/oddsStore.ts",
+    "client/web/src/stores/match/mainBetLoop.ts",
+    "client/web/src/services/oddsAccess.ts"
+  ],
+  "notes": [
+    "允许改：marketQuoteHub / sportQuoteHub / ws / wsQuotes / sportLiveOdds / sportOddsStore / SportMatchBoard",
+    "改 hub 须绿 npm run test:quote-hub-contracts --workspace=@changmen/venue-adapter",
+    "*.test.ts 不在冻结清单内，可单独补测"
+  ]
+}

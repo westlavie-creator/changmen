@@ -1,88 +1,46 @@
 /**
- * Polymarket market-WS 体育旁路注册表。
- * 与电竞 collector 共用同一 WS 订阅集合；报价禁止写入 fo。
+ * Polymarket 体育侧兼容 API（业务名）。
+ * 行情总线见 `marketQuoteHub`：多消费者 register；collector stop 只注销 esport。
  */
 
-export interface PolymarketSportQuote {
-  assetId: string;
-  bestAsk: number;
-}
+import {
+  hasPolymarketQuoteConsumerAsset,
+  getPolymarketQuoteConsumerAssetIds,
+  onPolymarketMarketHubReady,
+  onPolymarketMarketQuote,
+  registerPolymarketQuoteAssets,
+  unregisterPolymarketQuoteConsumer,
+  type PolymarketMarketQuote,
+} from "./marketQuoteHub";
 
-type SportQuoteListener = (quote: PolymarketSportQuote) => void;
+export type PolymarketSportQuote = PolymarketMarketQuote;
 
-const sportAssetIds = new Set<string>();
-const listeners = new Set<SportQuoteListener>();
-
-/** collector 启动后挂上的重订阅钩子（合并电竞+体育 asset 后 send） */
-let requestResubscribe: (() => void) | null = null;
-
-export function bindPolymarketSportResubscribe(fn: (() => void) | null): void {
-  requestResubscribe = fn;
-}
+const CONSUMER = "sport" as const;
 
 export function getPolymarketSportAssetIds(): string[] {
-  return [...sportAssetIds];
+  return getPolymarketQuoteConsumerAssetIds(CONSUMER);
 }
 
-function sameIdSet(prev: Set<string>, next: string[]): boolean {
-  const cleaned = [...new Set(next.map(id => String(id || "").trim()).filter(Boolean))];
-  if (cleaned.length !== prev.size)
-    return false;
-  for (const id of cleaned) {
-    if (!prev.has(id))
-      return false;
-  }
-  return true;
+/** @param force transport 重建后强制重订 */
+export function setPolymarketSportAssetIds(assetIds: string[], force = false): void {
+  registerPolymarketQuoteAssets(CONSUMER, assetIds, force);
 }
 
-/**
- * 替换体育侧要订的 CLOB token；空数组 = 不再订体育。
- * 集合未变则 **不** 触发重订（避免棒/足 30s 列表刷把电竞 WS 打成 initialDump）。
- */
-export function setPolymarketSportAssetIds(assetIds: string[]): void {
-  if (sameIdSet(sportAssetIds, assetIds))
-    return;
-  sportAssetIds.clear();
-  for (const id of assetIds) {
-    const s = String(id || "").trim();
-    if (s)
-      sportAssetIds.add(s);
-  }
-  requestResubscribe?.();
+/** 板子会话：hub (re)start 后 force sync */
+export function onPolymarketSportHubBound(fn: () => void): () => void {
+  return onPolymarketMarketHubReady(fn);
 }
 
-export function onPolymarketSportQuote(fn: SportQuoteListener): () => void {
-  listeners.add(fn);
-  return () => {
-    listeners.delete(fn);
-  };
+/** 仅转发给已登记体育 asset 的报价（不写 fo） */
+export function onPolymarketSportQuote(fn: (quote: PolymarketSportQuote) => void): () => void {
+  return onPolymarketMarketQuote((q) => {
+    if (!hasPolymarketQuoteConsumerAsset(CONSUMER, q.assetId))
+      return;
+    fn(q);
+  });
 }
 
-/** collector WS 回调：仅广播，不写 fo。 */
-export function emitPolymarketSportQuote(assetId: string, bestAsk: number): void {
-  // 未开体育会话：尽快返回，不挡电竞热路径
-  if (!sportAssetIds.size || !listeners.size)
-    return;
-  if (!sportAssetIds.has(assetId))
-    return;
-  if (!Number.isFinite(bestAsk) || bestAsk <= 0)
-    return;
-  const quote = { assetId, bestAsk };
-  for (const fn of listeners) {
-    try {
-      fn(quote);
-    }
-    catch (err) {
-      console.warn("[Polymarket] sport quote listener", err);
-    }
-  }
-}
-
-/**
- * collector stop：清体育订阅与重订钩子。
- * **保留** listeners —— 棒/足板会话在 collector 重启后仍可重新 setSportAssetIds。
- */
+/** 关 Tab / 测例：注销体育消费者（不影响 esport） */
 export function clearPolymarketSportHub(): void {
-  sportAssetIds.clear();
-  requestResubscribe = null;
+  unregisterPolymarketQuoteConsumer(CONSUMER);
 }

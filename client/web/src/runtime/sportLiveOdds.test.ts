@@ -63,12 +63,24 @@ describe("pickSportSubscribeIds", () => {
         startAt: now + i * 1000,
         pmHome: `pm-h-${i}`,
         pmAway: `pm-a-${i}`,
-        pfHomeM: `pf-${i}`,
-        pfAwayM: `pf-${i}`,
+        pfHomeM: `pf-h-${i}`,
+        pfAwayM: `pf-a-${i}`,
       }),
     );
     const pick = pickSportSubscribeIds(matches, SPORT_SUBSCRIBE_HARD_CAP, now);
     const total = pick.polymarketAssetIds.length + pick.predictFunMarketIds.length;
     expect(total).toBe(SPORT_SUBSCRIBE_HARD_CAP);
+  });
+
+  test("skips PF single-market dual-outcome (same marketId both sides)", () => {
+    const now = 1_700_000_000_000;
+    const m = makeMatch({
+      id: 1,
+      startAt: now,
+      pfHomeM: "same-mkt",
+      pfAwayM: "same-mkt",
+    });
+    const pick = pickSportSubscribeIds([m], 100, now);
+    expect(pick.predictFunMarketIds).toEqual([]);
   });
 });

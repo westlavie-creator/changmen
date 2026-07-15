@@ -11,6 +11,8 @@ const props = defineProps<{
   match: ViewMatch;
   /** 仅体育板传入；电竞不传（见 SportMatchBoard） */
   oddsDisplayTick?: number;
+  /** 体育只读：false；电竞不传（默认允许下注交互） */
+  allowBetting?: boolean;
 }>();
 
 const { pmSportTick } = storeToRefs(useMatchStore());
@@ -48,6 +50,7 @@ const pmSportParts = computed(() => {
         :match="match"
         :bet="bet"
         :odds-display-tick="oddsDisplayTick"
+        :allow-betting="allowBetting"
       />
     </div>
   </div>

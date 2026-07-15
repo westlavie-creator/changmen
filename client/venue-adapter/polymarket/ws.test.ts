@@ -64,6 +64,20 @@ describe("polymarket market ws", () => {
     expect(onOpen).toHaveBeenCalledTimes(2);
   });
 
+  it("facade send still works after cycle (collector closed-over handle)", () => {
+    const handle = startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    MockWebSocket.instances[0]!.open();
+    handle.send("before");
+    expect(MockWebSocket.instances[0]!.sent).toContain("before");
+
+    cyclePmMarketWsSourceModeAndReconnect();
+    const second = MockWebSocket.instances[1]!;
+    second.open();
+    handle.send("after-cycle");
+    expect(second.sent).toContain("after-cycle");
+    expect(MockWebSocket.instances[0]!.sent).not.toContain("after-cycle");
+  });
+
   it("second startPolymarketMarketWs still allows mode cycle", () => {
     startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
     startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });

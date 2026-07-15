@@ -21,9 +21,15 @@ const props = defineProps<{
    * 电竞路径不传；BetRow 不 import sportOddsStore，保持壳共用、store 隔离。
    */
   oddsDisplayTick?: number;
+  /**
+   * [changmen 扩展] 棒/足只读板：禁双击下单 / EV / 补单 / 点选 target，避免误走电竞 manualBet。
+   * 电竞默认 true（或不传）。
+   */
+  allowBetting?: boolean;
 }>();
 
 const BET_SIDES: BetSide[] = ["Home", "Away"];
+const bettingEnabled = computed(() => props.allowBetting !== false);
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
@@ -36,8 +42,10 @@ const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
 
 const betRowUiEnabled = useBetRowExtensionUiEnabled();
+/** 体育只读板关掉扩展交互暗示（红线/EV），避免看起来能下单 */
+const extensionsEnabled = computed(() => betRowUiEnabled.value && bettingEnabled.value);
 
-const arbUi = useBetRowArbUi(() => props.match, () => props.bet, betRowUiEnabled);
+const arbUi = useBetRowArbUi(() => props.match, () => props.bet, extensionsEnabled);
 const {
   itemsContainerRef,
   line: arbLine,
@@ -49,7 +57,7 @@ const {
   sourceLabel,
 } = arbUi;
 
-const evMarker = useEvMarker(() => props.bet, betRowUiEnabled);
+const evMarker = useEvMarker(() => props.bet, extensionsEnabled);
 
 const oddsByItemKey = computed(() => {
   void props.oddsDisplayTick;
@@ -152,21 +160,29 @@ function defaultOddsLabel(betId: number, side: BetSide): string {
 }
 
 function onTarget(platform: ViewBet["items"][0]["type"], side: BetSide) {
+  if (!bettingEnabled.value)
+    return;
   void matchStore.setBetTarget(platform, props.bet.id, side);
 }
 
 function openLimit(item: ViewBet["items"][0]) {
+  if (!bettingEnabled.value)
+    return;
   limitProvider.value = item.type;
   limitItemIds.value = [item.homeId, item.awayId];
   limitOpen.value = true;
 }
 
 function onOddsDblClick(item: ViewBet["items"][0], side: BetSide) {
+  if (!bettingEnabled.value)
+    return;
   void matchStore.manualBet(props.match, props.bet, item, side);
 }
 
 function onEvBadgeClick(item: ViewBet["items"][0], side: BetSide, e: MouseEvent) {
   e.stopPropagation();
+  if (!bettingEnabled.value)
+    return;
   if (!evMarker.isPositiveEv(item, side))
     return;
   void matchStore.valueBetConfirm(props.match, props.bet, item, side);
@@ -174,6 +190,8 @@ function onEvBadgeClick(item: ViewBet["items"][0], side: BetSide, e: MouseEvent)
 
 /** [A8 可证实] HomeView `v(match,bet)`：双击 bet-title 打开单例 CreateLoseView */
 function onBetTitleDblClick() {
+  if (!bettingEnabled.value)
+    return;
   createLoseDialog.show(props.match, props.bet);
 }
 </script>
@@ -272,7 +290,7 @@ function onBetTitleDblClick() {
         </div>
       </div>
       <ArbLineOverlay
-        v-if="betRowUiEnabled"
+        v-if="extensionsEnabled"
         :line="arbLine"
         :badge="arbBadge"
         :label="overlayLabel"

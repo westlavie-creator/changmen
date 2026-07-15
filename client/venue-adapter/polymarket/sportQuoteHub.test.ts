@@ -1,51 +1,51 @@
-import { describe, expect, test, vi } from "vitest";
+/**
+ * sportQuoteHub 薄兼容层：只保留过滤 / 别名测；hub 生命周期见 marketQuoteHub.lifecycle.test.ts
+ */
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
-  bindPolymarketSportResubscribe,
-  emitPolymarketSportQuote,
+  __testPushPolymarketMarketQuote,
+  __testResetPolymarketMarketQuoteHub,
+} from "./marketQuoteHub";
+import {
+  clearPolymarketSportHub,
   getPolymarketSportAssetIds,
+  onPolymarketSportHubBound,
   onPolymarketSportQuote,
   setPolymarketSportAssetIds,
 } from "./sportQuoteHub";
 
-describe("polymarket sportQuoteHub", () => {
-  test("setSportAssetIds replaces set; emit only for registered ids", () => {
+afterEach(() => {
+  __testResetPolymarketMarketQuoteHub();
+  vi.restoreAllMocks();
+});
+
+describe("polymarket sportQuoteHub compat", () => {
+  test("Set.has filter: only registered sport assets; skips invalid price", () => {
     setPolymarketSportAssetIds(["a1", "a2"]);
     expect(getPolymarketSportAssetIds().sort()).toEqual(["a1", "a2"]);
 
     const seen: string[] = [];
     const un = onPolymarketSportQuote(q => seen.push(q.assetId));
-    emitPolymarketSportQuote("a1", 0.4);
-    emitPolymarketSportQuote("other", 0.5);
-    emitPolymarketSportQuote("a2", 0);
+    __testPushPolymarketMarketQuote("a1", 0.4);
+    __testPushPolymarketMarketQuote("other", 0.5);
+    __testPushPolymarketMarketQuote("a2", 0);
     expect(seen).toEqual(["a1"]);
     un();
-    setPolymarketSportAssetIds([]);
+    clearPolymarketSportHub();
   });
 
-  test("identical set does not call resubscribe (esport WS isolation)", () => {
-    let n = 0;
-    bindPolymarketSportResubscribe(() => {
-      n += 1;
+  test("hubBound aliases market ready", async () => {
+    const ws = await import("./ws");
+    vi.spyOn(ws, "startPolymarketMarketWs").mockReturnValue({ send: vi.fn(), stop: vi.fn() } as any);
+
+    let hits = 0;
+    const un = onPolymarketSportHubBound(() => {
+      hits += 1;
     });
-    setPolymarketSportAssetIds(["x", "y"]);
-    expect(n).toBe(1);
-    setPolymarketSportAssetIds(["y", "x"]);
-    expect(n).toBe(1);
-    setPolymarketSportAssetIds(["x"]);
-    expect(n).toBe(2);
-    bindPolymarketSportResubscribe(null);
-    setPolymarketSportAssetIds([]);
-  });
-
-  test("emit never imports or calls saveVenueOdds (isolation smoke)", async () => {
-    const oddsAccess = await import("@changmen/client-core/bridge/oddsAccess");
-    const spy = vi.spyOn(oddsAccess, "saveVenueOdds");
-    setPolymarketSportAssetIds(["tok"]);
-    const un = onPolymarketSportQuote(() => {});
-    emitPolymarketSportQuote("tok", 0.55);
-    expect(spy).not.toHaveBeenCalled();
+    setPolymarketSportAssetIds(["e"]);
+    await Promise.resolve();
+    expect(hits).toBe(1);
     un();
-    spy.mockRestore();
-    setPolymarketSportAssetIds([]);
+    clearPolymarketSportHub();
   });
 });

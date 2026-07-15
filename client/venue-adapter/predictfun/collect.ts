@@ -11,26 +11,19 @@ import {
   isPredictFunMarketIndex,
 } from "./marketIndex";
 import {
-  bestAskFromPredictBook,
   decimalOddsFromProbability,
   type PredictMappedMarket,
 } from "./parse";
-import { startPredictMarketWs } from "./ws";
 import {
-  bindPredictFunSportResubscribe,
-  clearPredictFunSportHub,
-  emitPredictFunSportQuote,
-  getPredictFunSportMarketIds,
-} from "./sportQuoteHub";
-
-export {
-  getPredictFunSportMarketIds,
-  onPredictFunSportQuote,
-  setPredictFunSportMarketIds,
-} from "./sportQuoteHub";
+  onPredictFunMarketHubReady,
+  onPredictFunMarketQuote,
+  registerPredictFunQuoteMarkets,
+  unregisterPredictFunQuoteConsumer,
+} from "./marketQuoteHub";
 
 const PLATFORM = PLATFORMS.PredictFun;
 const INDEX_SYNC_MS = 30_000;
+const QUOTE_CONSUMER = "esport" as const;
 
 export function saveTokenQuote(
   params: {
@@ -115,12 +108,13 @@ function saveBetOddsToFo(
   }
 }
 
-/** [changmen 扩展] VPS HTTP 采集 + 浏览器仅 WS → fo（不经 http-relay 打 discovery） */
+/** [changmen 扩展] VPS HTTP 采集 + 浏览器行情 hub → fo（不经 http-relay 打 discovery） */
 export function startPredictFunCollector(): () => void {
   const matchStore = useMatchStore();
   const marketsByCategory = new Map<string, PredictMappedMarket>();
   const marketIdToCategory = new Map<string, string>();
   let lastIndexUpdatedAt = 0;
+  let stopped = false;
 
   function esportMarketIds(): string[] {
     const ids: string[] = [];
@@ -129,13 +123,10 @@ export function startPredictFunCollector(): () => void {
     return ids;
   }
 
-  /** 电竞 ∪ 体育；体育不进 marketIdToCategory，不会写 fo */
-  function trackedMarketIds(): string[] {
-    return [...new Set([...esportMarketIds(), ...getPredictFunSportMarketIds()])];
-  }
-
-  function subscribeTrackedMarkets() {
-    wsHandle.subscribeMarketIds(trackedMarketIds());
+  function syncEsportMarkets(force = false) {
+    if (stopped)
+      return;
+    registerPredictFunQuoteMarkets(QUOTE_CONSUMER, esportMarketIds(), force);
   }
 
   function updateBetFromMarketId(marketId: string, bestAsk: number) {
@@ -177,21 +168,18 @@ export function startPredictFunCollector(): () => void {
     matchStore.refreshOddsOnBets();
   }
 
-  const wsHandle = startPredictMarketWs({
-    onOrderbook: (update) => {
-      const marketId = String(update.marketId ?? "");
-      const ask = bestAskFromPredictBook(update.orderbook);
-      if (!marketId || !(ask > 0))
-        return;
-      updateBetFromMarketId(marketId, ask);
-      emitPredictFunSportQuote(marketId, ask);
-    },
+  const unQuote = onPredictFunMarketQuote((q) => {
+    if (stopped)
+      return;
+    updateBetFromMarketId(q.marketId, q.bestAsk);
   });
 
-  bindPredictFunSportResubscribe(() => {
-    if (!stopped)
-      subscribeTrackedMarkets();
+  const unReady = onPredictFunMarketHubReady(() => {
+    syncEsportMarkets(true);
   });
+
+  // 有 index 后再 ensure WS；空列表不会建连
+  syncEsportMarkets();
 
   async function syncMarketIndex() {
     const platform = await getCollectPlatform(PLATFORM);
@@ -202,11 +190,14 @@ export function startPredictFunCollector(): () => void {
         marketIdToCategory.clear();
         lastIndexUpdatedAt = 0;
       }
-      subscribeTrackedMarkets();
+      syncEsportMarkets();
       return;
     }
-    if (index.updatedAt === lastIndexUpdatedAt)
+    if (index.updatedAt === lastIndexUpdatedAt) {
+      // index 未变也周期 force 重订（对齐 PM discovery；修半开丢订）
+      syncEsportMarkets(true);
       return;
+    }
     lastIndexUpdatedAt = index.updatedAt;
 
     applyPredictFunMarketIndex(index, {
@@ -220,10 +211,9 @@ export function startPredictFunCollector(): () => void {
       });
     }
     matchStore.refreshOddsOnBets();
-    subscribeTrackedMarkets();
+    syncEsportMarkets(true);
   }
 
-  let stopped = false;
   const loop = async () => {
     while (!stopped) {
       try {
@@ -241,8 +231,8 @@ export function startPredictFunCollector(): () => void {
 
   return () => {
     stopped = true;
-    bindPredictFunSportResubscribe(null);
-    clearPredictFunSportHub();
-    wsHandle.stop();
+    unQuote();
+    unReady();
+    unregisterPredictFunQuoteConsumer(QUOTE_CONSUMER);
   };
 }

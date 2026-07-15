@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { extractPolymarketWsBestAsks } from "./collect";
+import { extractPolymarketWsBestAsks } from "./wsQuotes";
 
-describe("Polymarket collector websocket parsing", () => {
+describe("Polymarket WS quote parsing", () => {
   test("best_bid_ask event", () => {
     expect(extractPolymarketWsBestAsks(JSON.stringify({
       event_type: "best_bid_ask",

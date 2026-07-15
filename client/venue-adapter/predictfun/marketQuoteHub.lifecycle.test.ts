@@ -1,0 +1,175 @@
+/**
+ * PF marketQuoteHub 生命周期契约（热路径闸门）。
+ * 改 hub / collect 启停 / 同集重订 / unsubscribe 前：本文件必须绿。
+ */
+import { afterEach, describe, expect, test, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  __testPushPredictFunMarketQuote,
+  __testResetPredictFunMarketQuoteHub,
+  getPredictFunQuoteConsumerMarketIds,
+  onPredictFunMarketQuote,
+  registerPredictFunQuoteMarkets,
+  unregisterPredictFunQuoteConsumer,
+} from "./marketQuoteHub";
+import {
+  clearPredictFunSportHub,
+  onPredictFunSportQuote,
+  setPredictFunSportMarketIds,
+} from "./sportQuoteHub";
+
+const root = dirname(fileURLToPath(import.meta.url));
+
+afterEach(() => {
+  __testResetPredictFunMarketQuoteHub();
+  vi.restoreAllMocks();
+});
+
+async function mockPfWs() {
+  const ws = await import("./ws");
+  const subscribeMarketIds = vi.fn();
+  const stop = vi.fn();
+  const startSpy = vi.spyOn(ws, "startPredictMarketWs").mockReturnValue({
+    subscribeMarketIds,
+    stop,
+  } as any);
+  return { subscribeMarketIds, stop, startSpy };
+}
+
+describe("PF marketQuoteHub lifecycle contracts", () => {
+  test("force=true resubscribes even when market set unchanged (index heartbeat)", async () => {
+    const { subscribeMarketIds } = await mockPfWs();
+    registerPredictFunQuoteMarkets("esport", ["m1", "m2"]);
+    expect(subscribeMarketIds).toHaveBeenCalledTimes(1);
+    registerPredictFunQuoteMarkets("esport", ["m2", "m1"], true);
+    expect(subscribeMarketIds).toHaveBeenCalledTimes(2);
+  });
+
+  test("unregister esport keeps transport when sport still registered", async () => {
+    const { stop, subscribeMarketIds } = await mockPfWs();
+    registerPredictFunQuoteMarkets("esport", ["e1"]);
+    registerPredictFunQuoteMarkets("sport", ["s1"]);
+    unregisterPredictFunQuoteConsumer("esport");
+    expect(stop).not.toHaveBeenCalled();
+    expect(getPredictFunQuoteConsumerMarketIds("sport")).toEqual(["s1"]);
+    const last = subscribeMarketIds.mock.calls.at(-1)?.[0] as string[];
+    expect(last).toEqual(["s1"]);
+  });
+
+  test("last consumer unregister stops transport", async () => {
+    const { stop } = await mockPfWs();
+    registerPredictFunQuoteMarkets("esport", ["e1"]);
+    unregisterPredictFunQuoteConsumer("esport");
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  test("collector-restart pattern: unregister then re-register rejoins sport hub", async () => {
+    const { stop, subscribeMarketIds } = await mockPfWs();
+    registerPredictFunQuoteMarkets("sport", ["s1"]);
+    registerPredictFunQuoteMarkets("esport", ["e1"]);
+    unregisterPredictFunQuoteConsumer("esport");
+    expect(stop).not.toHaveBeenCalled();
+    subscribeMarketIds.mockClear();
+    registerPredictFunQuoteMarkets("esport", ["e1"]);
+    expect(subscribeMarketIds).toHaveBeenCalledTimes(1);
+    expect(getPredictFunQuoteConsumerMarketIds("sport")).toEqual(["s1"]);
+  });
+
+  test("sport compat Set.has filter", () => {
+    setPredictFunSportMarketIds(["m1"]);
+    const seen: string[] = [];
+    const un = onPredictFunSportQuote(q => seen.push(q.marketId));
+    __testPushPredictFunMarketQuote("m1", 0.4);
+    __testPushPredictFunMarketQuote("other", 0.5);
+    expect(seen).toEqual(["m1"]);
+    un();
+    clearPredictFunSportHub();
+  });
+
+  test("simulated esport fo filter: prune mapping stops saveVenueOdds", async () => {
+    const oddsAccess = await import("@changmen/client-core/bridge/oddsAccess");
+    const spy = vi.spyOn(oddsAccess, "saveVenueOdds").mockImplementation(() => {});
+    const marketIdToCategory = new Map([["eM", "cat1"]]);
+
+    registerPredictFunQuoteMarkets("esport", ["eM", "sM"]);
+    const un = onPredictFunMarketQuote((q) => {
+      if (!marketIdToCategory.has(q.marketId))
+        return;
+      oddsAccess.saveVenueOdds("PredictFun", {
+        id: q.marketId,
+        odds: 1 / q.bestAsk,
+        isLock: false,
+        time: Date.now(),
+        marketId: q.marketId,
+      }, "mqtt");
+    });
+
+    __testPushPredictFunMarketQuote("sM", 0.4);
+    expect(spy).not.toHaveBeenCalled();
+    __testPushPredictFunMarketQuote("eM", 0.5);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    marketIdToCategory.clear();
+    __testPushPredictFunMarketQuote("eM", 0.45);
+    expect(spy).toHaveBeenCalledTimes(1);
+    un();
+  });
+});
+
+describe("PF ws unsubscribe contract", () => {
+  test("subscribeMarketIds unsubscribes removed ids when socket open", async () => {
+    const sent: string[] = [];
+    const OPEN = 1;
+    function WebSocketMock(this: any) {
+      this.readyState = OPEN;
+      this.send = (raw: string) => {
+        sent.push(raw);
+      };
+      this.close = vi.fn();
+      queueMicrotask(() => {
+        this.onopen?.();
+      });
+    }
+    WebSocketMock.OPEN = OPEN;
+    WebSocketMock.CONNECTING = 0;
+    WebSocketMock.CLOSING = 2;
+    WebSocketMock.CLOSED = 3;
+    vi.stubGlobal("WebSocket", WebSocketMock as any);
+
+    vi.resetModules();
+    const { startPredictMarketWs } = await import("./ws");
+    const handle = startPredictMarketWs({ onOrderbook: () => {} });
+    await Promise.resolve();
+    handle.subscribeMarketIds(["a", "b"]);
+    expect(sent.some(raw => JSON.parse(raw).method === "subscribe")).toBe(true);
+    sent.length = 0;
+    handle.subscribeMarketIds(["b"]);
+    const methods = sent.map(raw => JSON.parse(raw).method);
+    expect(methods).toContain("unsubscribe");
+    expect(methods).toContain("subscribe");
+    const unsub = sent.map(raw => JSON.parse(raw)).find(m => m.method === "unsubscribe");
+    expect(unsub.params[0]).toBe("predictOrderbook/a");
+    handle.stop();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("PF collect / hub source contracts", () => {
+  test("collect stop only unregister esport; index heartbeat force; no own WS; no sport re-export", () => {
+    const src = readFileSync(join(root, "collect.ts"), "utf8");
+    expect(src).toMatch(/unregisterPredictFunQuoteConsumer\(QUOTE_CONSUMER\)/);
+    expect(src).not.toMatch(/clearPredictFunSportHub/);
+    expect(src).toMatch(/syncEsportMarkets\(true\)/);
+    expect(src).toMatch(/onPredictFunMarketQuote/);
+    expect(src).not.toMatch(/startPredictMarketWs/);
+    expect(src).not.toMatch(/export \{[\s\S]*setPredictFunSportMarketIds/);
+  });
+
+  test("hub layer never imports oddsAccess", () => {
+    const hub = readFileSync(join(root, "marketQuoteHub.ts"), "utf8");
+    expect(hub).not.toMatch(/oddsAccess/);
+    expect(hub).not.toMatch(/saveVenueOdds/);
+  });
+});

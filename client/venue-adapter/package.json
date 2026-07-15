@@ -10,7 +10,10 @@
     "sync:exports": "node scripts/sync-package-exports.mjs",
     "check:exports": "node scripts/sync-package-exports.mjs --check",
     "check:internal-imports": "node scripts/relativize-internal-imports.mjs --check",
-    "check:web-imports": "node scripts/list-web-venue-imports.mjs --check"
+    "check:web-imports": "node scripts/list-web-venue-imports.mjs --check",
+    "check:esport-freeze": "node scripts/check-esport-freeze.mjs",
+    "check:esport-freeze:allow": "node scripts/check-esport-freeze.mjs --allow",
+    "test:quote-hub-contracts": "vitest run marketQuoteHub.contracts.test.ts polymarket/marketQuoteHub.lifecycle.test.ts predictfun/marketQuoteHub.lifecycle.test.ts"
   },
   "exports": {
     ".": "./registry/index.ts",

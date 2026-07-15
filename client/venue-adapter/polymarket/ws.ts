@@ -41,6 +41,7 @@ type MarketWsOpts = {
   onOpen: () => void;
 };
 
+/** 真实连接；cycle 换线会替换此引用 */
 let activeMarketWsHandle: PolymarketMarketWsHandle | null = null;
 let activeMarketWsOpts: MarketWsOpts | null = null;
 
@@ -129,6 +130,21 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
 }
 
 /**
+ * 稳定门面：collector 闭包持有此对象；cycle 换线只换底层 active，send 仍有效。
+ * （否则 onOpen → subscribeTrackedAssets → 旧 handle.send 静默丢订阅，电竞/体育断价）
+ */
+function createMarketWsFacade(): PolymarketMarketWsHandle {
+  return {
+    send(msg: string) {
+      activeMarketWsHandle?.send(msg);
+    },
+    stop() {
+      activeMarketWsHandle?.stop();
+    },
+  };
+}
+
+/**
  * 启动 Polymarket CLOB market WebSocket，自动重连 + PING 心跳。
  * onOpen 在每次连接建立后调用（用于重新订阅资产）。
  * onMessage 接收原始字符串帧（已过滤 PONG）。
@@ -137,7 +153,7 @@ export function startPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsH
   activeMarketWsHandle?.stop();
   activeMarketWsOpts = opts;
   activeMarketWsHandle = createPolymarketMarketWs(opts);
-  return activeMarketWsHandle;
+  return createMarketWsFacade();
 }
 
 export { getPmMarketWsSourceMode, pmMarketWsSourceModeLabel };

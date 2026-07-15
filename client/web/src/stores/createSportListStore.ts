@@ -38,12 +38,12 @@ function applySportListSourceOdds(views: ViewMatch[], list: ClientMatchDto[]): V
         item.fallbackHomeOdds = locked ? 0 : (Number(src.HomeOdds) || 0);
         item.fallbackAwayOdds = locked ? 0 : (Number(src.AwayOdds) || 0);
         item.sourceStatus = String(src.Status ?? "Normal");
-        // [changmen 扩展] WS 订阅键：PF 用 marketId；PM 用 CLOB token（= HomeID）
-        const homeM = String(src.HomeMarketID ?? "").trim();
-        const awayM = String(src.AwayMarketID ?? "").trim();
-        if (item.type === "PredictFun" && (homeM || awayM)) {
-          item.homeSubscribeId = homeM || String(src.HomeID || "");
-          item.awaySubscribeId = awayM || String(src.AwayID || "");
+        // [changmen 扩展] WS 订阅键：PF 必须用 marketId；缺省则空（勿把 onChainId 当 market 订）
+        if (item.type === "PredictFun") {
+          const homeM = String(src.HomeMarketID ?? "").trim();
+          const awayM = String(src.AwayMarketID ?? "").trim();
+          item.homeSubscribeId = homeM;
+          item.awaySubscribeId = awayM;
         }
         else {
           item.homeSubscribeId = String(src.HomeID || "");

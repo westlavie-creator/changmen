@@ -16,6 +16,14 @@ describe("sport / esport UI isolation", () => {
     const src = readFileSync(join(root, "components/match/SportMatchBoard.vue"), "utf8");
     expect(src).toMatch(/useSportOddsStore/);
     expect(src).toMatch(/odds-display-tick/);
+    expect(src).toMatch(/:allow-betting="false"/);
+  });
+
+  test("sportLiveOdds clears sportOdds and listens for hub rebound", () => {
+    const src = readFileSync(join(root, "runtime/sportLiveOdds.ts"), "utf8");
+    expect(src).toMatch(/sportOdds\.clear\(\)/);
+    expect(src).toMatch(/onPolymarketSportHubBound/);
+    expect(src).toMatch(/onPredictFunSportHubBound/);
   });
 
   test("sportLiveOdds does not import fo / saveVenueOdds", () => {
@@ -23,5 +31,23 @@ describe("sport / esport UI isolation", () => {
     expect(src).not.toMatch(/from\s+["']@\/stores\/oddsStore["']/);
     expect(src).not.toMatch(/useOddsStore/);
     expect(src).not.toMatch(/from\s+["'][^"']*oddsAccess["']/);
+  });
+
+  test("sportLiveOdds / SportMatchBoard do not import venue collect modules", () => {
+    const live = readFileSync(join(root, "runtime/sportLiveOdds.ts"), "utf8");
+    const board = readFileSync(join(root, "components/match/SportMatchBoard.vue"), "utf8");
+    for (const src of [live, board]) {
+      expect(src).not.toMatch(/polymarket\/collect/);
+      expect(src).not.toMatch(/predictfun\/collect/);
+      expect(src).not.toMatch(/startPolymarketCollector/);
+      expect(src).not.toMatch(/startPredictFunCollector/);
+      expect(src).not.toMatch(/saveTokenQuote/);
+    }
+  });
+
+  test("BetRow gates arb/EV extensions when allowBetting is false", () => {
+    const src = readFileSync(join(root, "components/match/BetRow.vue"), "utf8");
+    expect(src).toMatch(/extensionsEnabled/);
+    expect(src).toMatch(/betRowUiEnabled\.value && bettingEnabled\.value/);
   });
 });

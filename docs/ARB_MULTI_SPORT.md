@@ -182,22 +182,61 @@ Store：`server/db/rds/sport_{client_matches,venue,team}_store.js`；隔离 smok
 
 隔离：`sport_merge` / `sport_*_store` / plugin 不得写 `client_matches`、不得 import 电竞 `team_db`；体育板不 seed fo。
 
-### N3.5 体育赔率实时显示（已做 · collector hub · 仍禁 N4）
+### N3.5 体育赔率实时显示（已做 · marketQuoteHub · 仍禁 N4）
 
-棒/足 Tab 打开时，**共用**电竞 PM/PF 盘口 WS（collector hub），只刷体育板数字：
+棒/足 Tab 打开时，与电竞 **共用** PM/PF `marketQuoteHub`（单条盘口 WS、多消费者），只刷体育板数字：
 
 | 做 | 不做 |
 |----|------|
 | PM CLOB + PF orderbook → `sportOddsStore` → `fallback*Odds` | 写电竞 `oddsStore`(fo) / `saveVenueOdds` |
 | 订阅窗 = 过去 6h + 未来 1h；体育 token 硬顶 **100** | 第二条 PM WS（会 `stop` 电竞 singleton） |
-| `SportMatchBoard` 挂载登记 / 卸载清空体育订阅 | sportBetLoop / `PredictFun.bet` / N4 |
+| `SportMatchBoard` 挂载登记 / 卸载清空体育消费者 | sportBetLoop / `PredictFun.bet` / N4 |
 
-分流：`trackedAssetIds/Markets = 电竞 ∪ 体育`；电竞仍要求 asset∈discovery 才写 fo；体育只 `emit*SportQuote`。
+分层：
+
+- **数据源** `marketQuoteHub`：连 WS、合并订阅、广播 quote；不知电竞/体育
+- **电竞** collector：`register("esport")` → 写 fo；**stop 只 unregister esport**
+- **体育** `sportLiveOdds`：`register("sport")` → `sportOddsStore`；关 Tab 才卸体育
+
+**生命周期契约测（合并闸门，改 hub/collect/ws 前必绿）**：
+
+```bat
+cd client\venue-adapter
+npm run test:quote-hub-contracts
+```
+
+| 契约 | 文件 |
+|------|------|
+| stop 边界 / force 重订 / late-join / fo 过滤 | `*/marketQuoteHub.lifecycle.test.ts` |
+| PF unsubscribe 差额 | `predictfun/marketQuoteHub.lifecycle.test.ts` |
+| collect 源码：`sync*(true)`、重建 maps、不 clear sport | lifecycle 内 source contracts |
+| 电竞板可下注 / 体育只读 / sportLiveOdds 不写 fo | `marketQuoteHub.contracts.test.ts` |
+
+### 电竞业务冻结（后续体育迭代不改电竞实现）
+
+场馆 WS **共用**一条 `marketQuoteHub`；电竞 / 体育各自是消费者。为避免体育 PR 再「顺手动电竞」：
+
+| 面 | 规则 |
+|----|------|
+| **冻结** | 清单 [`client/venue-adapter/esport-freeze.json`](../client/venue-adapter/esport-freeze.json)：PM/PF `collect`、fo/`oddsStore`/`mainBetLoop`、PM 下注结算栈等 |
+| **可改** | `marketQuoteHub` / `sportQuoteHub` / `ws*`、`sportLiveOdds`、`sportOddsStore`、`SportMatchBoard*` |
+| **闸门** | `npm run check:esport-freeze --workspace=@changmen/venue-adapter`（已挂 `check:venue-adapter`） |
+| **解冻** | `ALLOW_ESPORT_TOUCH=1` 或 `npm run check:esport-freeze:allow`；改 hub/collect 后仍须绿 `test:quote-hub-contracts` |
+
+体育/N3.5 迭代默认 **不要** 改冻结面文件；CI / 本地碰到 diff 踩冻结面会失败。
 
 | 模块 | 路径 |
 |------|------|
-| Hub | `venue-adapter/{polymarket,predictfun}/sportQuoteHub.ts` |
+| Hub | `venue-adapter/{polymarket,predictfun}/marketQuoteHub.ts` |
+| 体育兼容名 | `.../sportQuoteHub.ts`（`set*Sport*` → register sport） |
 | 会话 | `client/web/src/runtime/sportLiveOdds.ts` |
 | Store | `stores/sportOddsStore.ts`（与 fo 隔离） |
 
 PF：`Sources.HomeMarketID/AwayMarketID`（`sport_predictfun_fetch` + `sport_merge` 保留）；单盘双 outcome（同 marketId）仍靠列表轮询，不做分边猜价。
+
+维护硬化（P2）：
+
+- hub `(re)start` → `on*MarketHubReady` / `on*SportHubBound` → 板子 `sync(true)`
+- 关 Tab：`sportOdds.clear()` + 清空体育订阅
+- `SportMatchBoard`：`allow-betting=false`，禁双击 `manualBet` / EV / target / 补单
+- PF 仅订 `HomeMarketID/AwayMarketID`；缺字段或单盘同 marketId **不订**（防 onChainId 占硬顶）

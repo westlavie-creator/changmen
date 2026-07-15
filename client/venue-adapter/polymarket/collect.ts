@@ -10,12 +10,8 @@ import {
   fetchBatchBuyPrices,
   fetchPolymarketEsportsMarkets,
   polymarketCollectStartTimeAllowed,
-  polymarketMarketSubscribeMessage,
-  type PolymarketWsMessage,
 } from "./api";
-import { startPolymarketMarketWs } from "./ws";
 import {
-  bestAskFromBook,
   buildPolymarketMappedMarket,
   decimalOddsFromProbability,
   parseJsonArray,
@@ -23,23 +19,18 @@ import {
 } from "./parse";
 import { isValidClobPrice } from "./pmDetection";
 import {
-  bindPolymarketSportResubscribe,
-  clearPolymarketSportHub,
-  emitPolymarketSportQuote,
-  getPolymarketSportAssetIds,
-} from "./sportQuoteHub";
-
-export {
-  getPolymarketSportAssetIds,
-  onPolymarketSportQuote,
-  setPolymarketSportAssetIds,
-} from "./sportQuoteHub";
+  onPolymarketMarketHubReady,
+  onPolymarketMarketQuote,
+  registerPolymarketQuoteAssets,
+  unregisterPolymarketQuoteConsumer,
+} from "./marketQuoteHub";
 
 const PLATFORM = PLATFORMS.Polymarket;
 const DISCOVERY_MS = 60_000;
 const SAVE_BETS_INTERVAL_MS = 5 * 60_000;
 const MAX_TRACKED_MARKETS = 400;
 const COLLECT_MARKET_TYPES = new Set(["moneyline", "child_moneyline"]);
+const QUOTE_CONSUMER = "esport" as const;
 
 /** PM 写 fo 的唯一入口：decimal odds 供展示/套利，clobPrice 供预检限价 */
 export function saveTokenQuote(
@@ -118,29 +109,10 @@ function saveBetOddsToFo(
   }
 }
 
-
-export function extractPolymarketWsBestAsks(raw: string): Array<{ assetId: string; bestAsk: string | number }> {
-  if (raw === "PONG") return [];
-  const parsed = JSON.parse(raw) as PolymarketWsMessage | PolymarketWsMessage[];
-  const messages = Array.isArray(parsed) ? parsed : [parsed];
-  const updates: Array<{ assetId: string; bestAsk: string | number }> = [];
-  for (const msg of messages) {
-    if (msg.event_type === "best_bid_ask" && msg.asset_id && msg.best_ask !== undefined) {
-      updates.push({ assetId: String(msg.asset_id), bestAsk: msg.best_ask });
-    } else if (msg.event_type === "price_change" && Array.isArray(msg.price_changes)) {
-      for (const change of msg.price_changes) {
-        if (change.asset_id && change.best_ask !== undefined) {
-          updates.push({ assetId: String(change.asset_id), bestAsk: change.best_ask });
-        }
-      }
-    } else if (msg.event_type === "book" && msg.asset_id) {
-      const bestAsk = bestAskFromBook({ asks: msg.asks });
-      if (bestAsk > 0) updates.push({ assetId: String(msg.asset_id), bestAsk });
-    }
-  }
-  return updates;
-}
-
+/**
+ * 电竞采集消费者：向 marketQuoteHub 登记 discovery asset，收到行情后写 fo。
+ * 停采集只 unregister(esport)，不卸体育会话、不停仍有其它消费者的 hub。
+ */
 export function startPolymarketCollector(): () => void {
   let lastSaveBetsAt = 0;
 
@@ -148,8 +120,8 @@ export function startPolymarketCollector(): () => void {
   const matchStore = useMatchStore();
   const marketsById = new Map<string, PolymarketMappedMarket>();
   const assetToMarket = new Map<string, string>();
+  let stopped = false;
 
-  /** 电竞 discovery 跟踪的 asset（写 fo） */
   function esportAssetIds(): string[] {
     const ids: string[] = [];
     for (const market of marketsById.values())
@@ -157,15 +129,10 @@ export function startPolymarketCollector(): () => void {
     return ids;
   }
 
-  /** 电竞 ∪ 体育；体育侧不进 marketsById，故不会走 saveTokenQuote */
-  function trackedAssetIds(): string[] {
-    return [...new Set([...esportAssetIds(), ...getPolymarketSportAssetIds()])];
-  }
-
-  function subscribeTrackedAssets(initialDump = false) {
-    const assetIds = trackedAssetIds();
-    if (assetIds.length)
-      wsHandle.send(polymarketMarketSubscribeMessage(assetIds, initialDump));
+  function syncEsportAssets(force = false) {
+    if (stopped)
+      return;
+    registerPolymarketQuoteAssets(QUOTE_CONSUMER, esportAssetIds(), force);
   }
 
   function updateBetFromAsset(assetId: string, bestAsk: string | number | undefined) {
@@ -200,63 +167,61 @@ export function startPolymarketCollector(): () => void {
     matchStore.refreshOddsOnBets();
   }
 
-  function handleWsMessage(raw: string) {
-    for (const update of extractPolymarketWsBestAsks(raw)) {
-      const price = Number(update.bestAsk);
-      // 电竞：仅 asset 在 discovery 映射里才写 fo
-      updateBetFromAsset(update.assetId, update.bestAsk);
-      // 体育：旁路广播（不写 fo）
-      if (Number.isFinite(price))
-        emitPolymarketSportQuote(update.assetId, price);
-    }
-  }
-
-  const wsHandle = startPolymarketMarketWs({
-    onOpen: () => subscribeTrackedAssets(true), // 连接/重连：需要 book 快照同步当前状态
-    onMessage: handleWsMessage,
+  const unQuote = onPolymarketMarketQuote((q) => {
+    if (stopped)
+      return;
+    updateBetFromAsset(q.assetId, q.bestAsk);
   });
 
-  // 体育侧增删 token：重订合并集，但不要 initialDump（避免棒/足列表刷打爆电竞 book 快照）
-  bindPolymarketSportResubscribe(() => {
-    if (!stopped)
-      subscribeTrackedAssets(false);
+  const unReady = onPolymarketMarketHubReady(() => {
+    syncEsportAssets(true);
   });
+
+  // 登记监听；有 discovery asset 后才 ensure WS（空数组不会建连）
+  syncEsportAssets();
 
   const runDiscovery = async () => {
     while (!collect.ready) {
-      if (stopped) return;
+      if (stopped)
+        return;
       await wait(500);
     }
 
     const rawMarkets = await fetchPolymarketEsportsMarkets();
 
-    // 第一阶段：过滤，不调用价格接口
     const filtered: typeof rawMarkets = [];
     for (const raw of rawMarkets) {
-      if (!COLLECT_MARKET_TYPES.has(raw.sportsMarketType ?? "")) continue;
+      if (!COLLECT_MARKET_TYPES.has(raw.sportsMarketType ?? ""))
+        continue;
       const assetIds = parseJsonArray(raw.clob_token_ids ?? raw.clobTokenIds);
-      if (assetIds.length !== 2) continue;
+      if (assetIds.length !== 2)
+        continue;
       const initial = buildPolymarketMappedMarket(raw);
-      if (!initial) continue;
-      if (!polymarketCollectStartTimeAllowed(initial.match.StartTime)) continue;
+      if (!initial)
+        continue;
+      if (!polymarketCollectStartTimeAllowed(initial.match.StartTime))
+        continue;
       filtered.push(raw);
     }
 
-    // 第二阶段：一次批量获取所有 token 的 BUY 价格（单次 CLOB /prices 请求）
     const allAssetIds = filtered.flatMap(raw => parseJsonArray(raw.clob_token_ids ?? raw.clobTokenIds));
     const buyPrices = await fetchBatchBuyPrices(allAssetIds);
 
-    // 第三阶段：用批量价格构建候选市场
     const candidates: PolymarketMappedMarket[] = [];
     for (const raw of filtered) {
       const mapped = buildPolymarketMappedMarket(raw, buyPrices);
-      if (mapped) candidates.push(mapped);
-      if (candidates.length >= MAX_TRACKED_MARKETS) break;
+      if (mapped)
+        candidates.push(mapped);
+      if (candidates.length >= MAX_TRACKED_MARKETS)
+        break;
     }
 
     if (!candidates.length) {
-      // 无电竞候选时仍重订，保留体育旁路 asset
-      subscribeTrackedAssets();
+      // 无候选：卸掉历史电竞 maps，避免幽灵 asset 继续订 WS / 刷 fo
+      marketsById.clear();
+      assetToMarket.clear();
+      // 对标旧 collector：每轮 discovery 末都重发订阅（修半开/丢订，不等 WS 重连）
+      syncEsportAssets(true);
       return;
     }
 
@@ -264,8 +229,10 @@ export function startPolymarketCollector(): () => void {
     const saved = await collect.saveMatch(PLATFORM, matches);
     const shouldSaveBets = saved && Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS;
 
-    // 按 sourceMatchId 分组 — replacePlatformBetsForMatch 是整场替换，
-    // 必须一次性提交该场所有盘口，否则后调用的 saveBets 会删掉先提交的 map
+    // 每轮按本轮 candidates 重建（勿累计历史，否则已离开 discovery 的盘仍写 fo）
+    marketsById.clear();
+    assetToMarket.clear();
+
     const betsByMatch = new Map<string, CollectBetDto[]>();
     for (const mapped of candidates) {
       marketsById.set(mapped.marketId, mapped);
@@ -277,7 +244,8 @@ export function startPolymarketCollector(): () => void {
       });
       if (shouldSaveBets) {
         const sid = String(mapped.match.SourceMatchID);
-        if (!betsByMatch.has(sid)) betsByMatch.set(sid, []);
+        if (!betsByMatch.has(sid))
+          betsByMatch.set(sid, []);
         betsByMatch.get(sid)!.push(mapped.bet);
       }
     }
@@ -287,15 +255,15 @@ export function startPolymarketCollector(): () => void {
       lastSaveBetsAt = Date.now();
     }
     matchStore.refreshOddsOnBets();
-    subscribeTrackedAssets();
+    syncEsportAssets(true);
   };
 
-  let stopped = false;
   const loop = async () => {
     while (!stopped) {
       try {
         await runDiscovery();
-      } catch (err) {
+      }
+      catch (err) {
         console.warn("[Polymarket] collect error", err);
         notifyCollectError("Polymarket", err);
       }
@@ -307,8 +275,8 @@ export function startPolymarketCollector(): () => void {
 
   return () => {
     stopped = true;
-    bindPolymarketSportResubscribe(null);
-    clearPolymarketSportHub();
-    wsHandle.stop();
+    unQuote();
+    unReady();
+    unregisterPolymarketQuoteConsumer(QUOTE_CONSUMER);
   };
 }

@@ -77,6 +77,7 @@ const count = computed(() => matchs.value.length);
       :key="m.id"
       :match="m"
       :odds-display-tick="oddsDisplayTick"
+      :allow-betting="false"
     />
   </div>
   <div v-else-if="!loading && !error" class="match-empty">

@@ -64,6 +64,58 @@ assert.equal(dtos[0].Bets[0].HomeName, "Yankees");
 assert.equal(dtos[0].Bets[0].Sources.PredictFun.HomeOdds, 1.8);
 assert.equal(dtos[0].Bets[0].Sources.PredictFun.AwayOdds, 2.0);
 
+// 翻转时 HomeMarketID/AwayMarketID 也要互换（体育 WS 订阅）
+const listWithMkt = [{
+  ID: 10,
+  Title: "Yankees vs Red Sox",
+  Game: "mlb",
+  StartTime: t,
+  Matchs: { Polymarket: "pm1" },
+  Bets: [{
+    Map: 0,
+    HomeName: "Yankees",
+    AwayName: "Red Sox",
+    Sources: {
+      Polymarket: {
+        Type: "Polymarket",
+        BetID: "b1",
+        HomeID: "h1",
+        AwayID: "a1",
+        HomeOdds: 1.9,
+        AwayOdds: 2.1,
+        Status: "Normal",
+      },
+    },
+  }],
+}, {
+  ID: 11,
+  Title: "Yankees vs Red Sox",
+  Game: "mlb",
+  StartTime: t,
+  Matchs: { PredictFun: "pf1" },
+  Bets: [{
+    Map: 0,
+    HomeName: "Red Sox",
+    AwayName: "Yankees",
+    Sources: {
+      PredictFun: {
+        Type: "PredictFun",
+        BetID: "b2",
+        HomeID: "h2",
+        AwayID: "a2",
+        HomeOdds: 2.0,
+        AwayOdds: 1.8,
+        Status: "Normal",
+        HomeMarketID: "mkt-redsox",
+        AwayMarketID: "mkt-yankees",
+      },
+    },
+  }],
+}];
+const withMkt = mergeSportClientMatchDtoList("baseball", listWithMkt);
+assert.equal(withMkt.dtos[0].Bets[0].Sources.PredictFun.HomeMarketID, "mkt-yankees");
+assert.equal(withMkt.dtos[0].Bets[0].Sources.PredictFun.AwayMarketID, "mkt-redsox");
+
 // 别名：A's = Athletics
 const aliasList = [{
   ID: 3,
