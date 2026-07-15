@@ -23,11 +23,11 @@ changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：bac
 
 **本轮电竞优先（收口）**
 
-1. 登录 → 主界面布局 / 账号条 / BetRow 初赔  
-2. 用户中心 11 Tab 快速过一遍（操盘用自建 pub/sub）  
-3. 充提 / 参数配置 / 版本角标  
-4. 回归：切「棒球/足球」Tab 时电竞 `mainBetLoop` 仍跑（多运动维护态验收）  
-5. 账号：`Client_SaveData(ACCOUNT)` 兼容层 / 巡检（勿在前端加 A8 没有的 skip）
+1. [x] 登录 → 主界面布局 / 账号条 / BetRow 初赔（2026-07-15 确认通过）
+2. [x] 用户中心 11 Tab 快速过一遍（操盘用自建 pub/sub；2026-07-15 确认通过）
+3. [ ] 充提 / 参数配置 / 版本角标
+4. [ ] 回归：切「棒球/足球」Tab 时电竞 `mainBetLoop` 仍跑（多运动维护态验收）
+5. [ ] 账号：`Client_SaveData(ACCOUNT)` 兼容层 / 巡检（勿在前端加 A8 没有的 skip）
 
 ---
 
@@ -62,7 +62,8 @@ changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：bac
 ## 阶段 A — 收口
 
 - [x] 分批 git commit（**勿提交** `data/esport/*.json` 运行时数据）
-- [ ] 同屏走查：登录 → 11 Tab → 主界面 BetRow 初赔 → 充提/补单（勾选表见 [A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md)）
+- [x] 同屏走查：登录 → 11 Tab → 主界面 BetRow 初赔（2026-07-15）；充提/补单仍见下节优先项
+
 - [x] 历史审计 JSON 已归档（audit 脚本已下线）
 - [x] 多运动只读冻结进仓（`10e17fac`，2026-07-15）
 - [x] PF 并列 + 赔率解析；体育板 Sources fallback、不 seed fo（维护态收口，2026-07-15）
