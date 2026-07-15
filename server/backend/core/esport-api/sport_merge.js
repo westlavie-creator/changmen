@@ -35,7 +35,8 @@ function buildSourceFromDto(leg, src) {
   const awayOdds = Number(src.AwayOdds) || 0;
   const locked = String(src.Status || "").toLowerCase() === "locked"
     || !(homeOdds > 0 && awayOdds > 0);
-  return {
+  /** @type {Record<string, string|number>} */
+  const out = {
     Type: String(src.Type || leg.venue),
     BetID: String(src.BetID || leg.sourceMatchId),
     HomeID: String(src.HomeID || ""),
@@ -44,6 +45,12 @@ function buildSourceFromDto(leg, src) {
     AwayOdds: awayOdds,
     Status: locked ? "Locked" : "Normal",
   };
+  // [changmen 扩展] PF orderbook WS；合并后仍须可订盘口
+  if (src.HomeMarketID != null && String(src.HomeMarketID))
+    out.HomeMarketID = String(src.HomeMarketID);
+  if (src.AwayMarketID != null && String(src.AwayMarketID))
+    out.AwayMarketID = String(src.AwayMarketID);
+  return out;
 }
 
 function orientSource(anchorHome, anchorAway, candHome, candAway, src, gameCode) {
@@ -53,13 +60,19 @@ function orientSource(anchorHome, anchorAway, candHome, candAway, src, gameCode)
   if (ah && ch && ah === ch)
     return src;
   if (ah && ca && ah === ca) {
-    return {
+    /** @type {Record<string, string|number>} */
+    const flipped = {
       ...src,
       HomeID: src.AwayID,
       AwayID: src.HomeID,
       HomeOdds: src.AwayOdds,
       AwayOdds: src.HomeOdds,
     };
+    if (src.HomeMarketID != null || src.AwayMarketID != null) {
+      flipped.HomeMarketID = src.AwayMarketID != null ? String(src.AwayMarketID) : "";
+      flipped.AwayMarketID = src.HomeMarketID != null ? String(src.HomeMarketID) : "";
+    }
+    return flipped;
   }
   return src;
 }

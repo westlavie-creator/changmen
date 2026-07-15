@@ -13,7 +13,7 @@ changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：bac
 
 | 项 | 状态 |
 |----|------|
-| 多运动（棒球/足球 + PM∥PF + N3 moneyline 合并） | **维护态** — [ARB_MULTI_SPORT.md](../../../docs/ARB_MULTI_SPORT.md)；N3 已接线；**不开 N4** / Team UI / sport 下注；体育板不写 fo |
+| 多运动（棒球/足球 + PM∥PF + N3 + N3.5 实时赔率） | **维护态** — [ARB_MULTI_SPORT.md](../../../docs/ARB_MULTI_SPORT.md)；collector hub → `sportOddsStore`；**不开 N4** / Team UI / sport 下注；体育板不写 fo；`BetRow` 不依赖 sportOddsStore |
 | 电竞主线 | **默认工作面** — 阶段 A 同屏走查 → 平台/投注缺口；账号后端见 [ACCOUNT_BACKEND.md](../../../docs/ACCOUNT_BACKEND.md) |
 | 下一产品闸门 | 体育 **自动下单** 再单开 **N4**；或新场馆对齐另开 plan |
 
@@ -67,6 +67,7 @@ changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：bac
 - [x] 多运动只读冻结进仓（`10e17fac`，2026-07-15）
 - [x] PF 并列 + 赔率解析；体育板 Sources fallback、不 seed fo（维护态收口，2026-07-15）
 - [x] N3 sport moneyline 合并（`sport_merge` + MLB 别名 + 异步落库；电竞零交叉，2026-07-15）
+- [x] N3.5 体育实时赔率（collector hub + `sportOddsStore`；`SportMatchBoard` 注入 tick；禁 fo；2026-07-15）
 
 ---
 

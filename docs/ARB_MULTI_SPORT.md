@@ -37,7 +37,9 @@
 **允许**：隔离回归修 bug、文档勘误、合并质量（队名别名 / 时间窗）小修。  
 **禁止**：N4 体育套利环、Sport Team UI 拖线、第三场馆、sport 下注、`PredictFun.bet: true`、改 `GetMatchs` / `client_matches` / `mainBetLoop`、把体育套利塞进电竞 `mainBetLoop`。  
 **下一闸门** = 产品要 **自动下单** 再开 **N4** plan；或要对齐新场馆再单开。  
-**当前主工作面** = 电竞 A8 — 见 [client/web/docs/A8_NEXT_STEPS.md](../client/web/docs/A8_NEXT_STEPS.md)。
+**当前主工作面** = 电竞 A8 — 见 [client/web/docs/A8_NEXT_STEPS.md](../client/web/docs/A8_NEXT_STEPS.md)。  
+**例外（N3.5）**：体育板赔率实时显示（collector hub → `sportOddsStore`），仍 **禁止** N4 / fo 交叉。  
+分层隔离定案：数据/循环必须隔离；壳 UI + 场馆 WS（hub）可共用；`BetRow` **不** import `sportOddsStore`（由 `SportMatchBoard` 注入 `oddsDisplayTick`）。
 
 手工验收清单：
 
@@ -46,6 +48,7 @@
 3. 断网/断 Gamma：有磁盘则 stale 列表，电竞不受影响
 4. `rg` / smoke 隔离仍成立；体育板 **不** seed `oddsStore`
 5. 改完合并相关代码后 **重启 backend**，再验 Network（旧进程会一直返回并列）
+6. **N3.5**：棒/足赔率随 WS 变；关 Tab 后体育订阅清空；电竞 fo 无 MLB/soccer token；`BetRow.vue` 无 `sportOddsStore` 引用
 
 ### 验收记录（2026-07-15）
 
@@ -178,3 +181,23 @@ Store：`server/db/rds/sport_{client_matches,venue,team}_store.js`；隔离 smok
 | `Client_GetMatchs` / `buildMatchList` | **不动** |
 
 隔离：`sport_merge` / `sport_*_store` / plugin 不得写 `client_matches`、不得 import 电竞 `team_db`；体育板不 seed fo。
+
+### N3.5 体育赔率实时显示（已做 · collector hub · 仍禁 N4）
+
+棒/足 Tab 打开时，**共用**电竞 PM/PF 盘口 WS（collector hub），只刷体育板数字：
+
+| 做 | 不做 |
+|----|------|
+| PM CLOB + PF orderbook → `sportOddsStore` → `fallback*Odds` | 写电竞 `oddsStore`(fo) / `saveVenueOdds` |
+| 订阅窗 = 过去 6h + 未来 1h；体育 token 硬顶 **100** | 第二条 PM WS（会 `stop` 电竞 singleton） |
+| `SportMatchBoard` 挂载登记 / 卸载清空体育订阅 | sportBetLoop / `PredictFun.bet` / N4 |
+
+分流：`trackedAssetIds/Markets = 电竞 ∪ 体育`；电竞仍要求 asset∈discovery 才写 fo；体育只 `emit*SportQuote`。
+
+| 模块 | 路径 |
+|------|------|
+| Hub | `venue-adapter/{polymarket,predictfun}/sportQuoteHub.ts` |
+| 会话 | `client/web/src/runtime/sportLiveOdds.ts` |
+| Store | `stores/sportOddsStore.ts`（与 fo 隔离） |
+
+PF：`Sources.HomeMarketID/AwayMarketID`（`sport_predictfun_fetch` + `sport_merge` 保留）；单盘双 outcome（同 marketId）仍靠列表轮询，不做分边猜价。

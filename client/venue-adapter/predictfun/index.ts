@@ -13,6 +13,7 @@ export * from "./marketIndex";
 export * from "./pfDetection";
 export * from "./transport";
 export * from "./wsConfig";
+export * from "./sportQuoteHub";
 
 export const predictFunAdapter: PlatformAdapter = {
   id: "PredictFun",

@@ -9,6 +9,8 @@ import { useMatchStore } from "@/stores/matchStore";
 
 const props = defineProps<{
   match: ViewMatch;
+  /** 仅体育板传入；电竞不传（见 SportMatchBoard） */
+  oddsDisplayTick?: number;
 }>();
 
 const { pmSportTick } = storeToRefs(useMatchStore());
@@ -40,7 +42,13 @@ const pmSportParts = computed(() => {
       </span>
     </div>
     <div class="bets flex flex-wrap">
-      <BetRow v-for="bet in match.bets" :key="bet.id" :match="match" :bet="bet" />
+      <BetRow
+        v-for="bet in match.bets"
+        :key="bet.id"
+        :match="match"
+        :bet="bet"
+        :odds-display-tick="oddsDisplayTick"
+      />
     </div>
   </div>
 </template>

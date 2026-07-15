@@ -2,8 +2,13 @@
 import type { Store } from "pinia";
 import type { ViewMatch } from "@/models/match";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, watch } from "vue";
 import MatchCard from "@/components/match/MatchCard.vue";
+import {
+  startSportLiveOddsSession,
+  type SportLiveOddsSession,
+} from "@/runtime/sportLiveOdds";
+import { useSportOddsStore } from "@/stores/sportOddsStore";
 
 /** 非电竞只读列表板：与电竞 .matchs 同级挂在 home-main */
 export type SportListStore = Store<
@@ -28,14 +33,27 @@ const props = defineProps<{
 }>();
 
 const { matchs, loading, error } = storeToRefs(props.store);
+/** 体育实时盘显示时钟；只由本板注入 MatchCard，电竞 BetRow 不依赖 sportOddsStore */
+const { tick: oddsDisplayTick } = storeToRefs(useSportOddsStore());
+
+let liveSession: SportLiveOddsSession | null = null;
 
 onMounted(() => {
   // 仅当前 Tab 挂载时轮询；切换 Tab（v-if 卸载）会 stopPolling。与电竞 mainBetLoop 无关。
   props.store.startPolling();
+  // collector hub：登记可见场 token，报价只刷 fallback / sportOddsStore，不写 fo
+  liveSession = startSportLiveOddsSession(() => props.store.matchs);
 });
 
 onUnmounted(() => {
   props.store.stopPolling();
+  liveSession?.stop();
+  liveSession = null;
+});
+
+// 列表刷新后重同步订阅 + 用直播缓存盖回 fallback
+watch(matchs, () => {
+  liveSession?.sync();
 });
 
 const count = computed(() => matchs.value.length);
@@ -54,7 +72,12 @@ const count = computed(() => matchs.value.length);
     {{ error }}
   </p>
   <div v-if="matchs.length" class="matchs">
-    <MatchCard v-for="m in matchs" :key="m.id" :match="m" />
+    <MatchCard
+      v-for="m in matchs"
+      :key="m.id"
+      :match="m"
+      :odds-display-tick="oddsDisplayTick"
+    />
   </div>
   <div v-else-if="!loading && !error" class="match-empty">
     {{ emptyLabel }}

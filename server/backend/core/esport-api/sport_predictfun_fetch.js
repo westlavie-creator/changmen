@@ -502,11 +502,16 @@ function categoryToClientMatchDto(category, buyPrices, gameCode, idBase) {
   let homeId;
   let awayId;
 
+  /** @type {string} */
+  let homeMarketId = "";
+  /** @type {string} */
+  let awayMarketId = "";
+
   if (dual) {
     homeName = String(dual.home.team?.name ?? dual.home.title ?? "").trim();
     awayName = String(dual.away.team?.name ?? dual.away.title ?? "").trim();
-    const homeMarketId = String(dual.home.id ?? "");
-    const awayMarketId = String(dual.away.id ?? "");
+    homeMarketId = String(dual.home.id ?? "");
+    awayMarketId = String(dual.away.id ?? "");
     const homeYes = yesOutcome(dual.home);
     const awayYes = yesOutcome(dual.away);
     homeOdds = decimalOddsFromProbability(outcomeProb(homeYes, buyPrices[homeMarketId]));
@@ -518,6 +523,8 @@ function categoryToClientMatchDto(category, buyPrices, gameCode, idBase) {
     homeName = String(single.homeOutcome.team?.name ?? single.homeOutcome.name ?? "").trim();
     awayName = String(single.awayOutcome.team?.name ?? single.awayOutcome.name ?? "").trim();
     const marketId = String(single.market.id ?? "");
+    homeMarketId = marketId;
+    awayMarketId = marketId;
     // 单盘双 outcome：优先 outcome.bestAsk；orderbook 常为空
     homeOdds = decimalOddsFromProbability(outcomeProb(single.homeOutcome, 0));
     awayOdds = decimalOddsFromProbability(outcomeProb(single.awayOutcome, 0));
@@ -561,6 +568,9 @@ function categoryToClientMatchDto(category, buyPrices, gameCode, idBase) {
           HomeOdds: homeOdds,
           AwayOdds: awayOdds,
           Status: locked ? "Locked" : "Normal",
+          // [changmen 扩展] 体育实时盘口 WS 订阅用（onChainId 与 orderbook marketId 不同）
+          HomeMarketID: homeMarketId,
+          AwayMarketID: awayMarketId,
         },
       },
     }],

@@ -16,6 +16,11 @@ import { useOddsStore } from "@/stores/oddsStore";
 const props = defineProps<{
   match: ViewMatch;
   bet: ViewBet;
+  /**
+   * [changmen 扩展] 体育板传入：实时价只改 fallback / sportOddsStore，不写 fo。
+   * 电竞路径不传；BetRow 不 import sportOddsStore，保持壳共用、store 隔离。
+   */
+  oddsDisplayTick?: number;
 }>();
 
 const BET_SIDES: BetSide[] = ["Home", "Away"];
@@ -47,6 +52,7 @@ const {
 const evMarker = useEvMarker(() => props.bet, betRowUiEnabled);
 
 const oddsByItemKey = computed(() => {
+  void props.oddsDisplayTick;
   const out = new Map<string, { home: number; away: number }>();
   for (const item of props.bet.items) {
     out.set(`${item.type}:${item.betId}`, {

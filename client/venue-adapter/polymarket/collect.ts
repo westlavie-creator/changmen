@@ -22,6 +22,18 @@ import {
   type PolymarketMappedMarket,
 } from "./parse";
 import { isValidClobPrice } from "./pmDetection";
+import {
+  bindPolymarketSportResubscribe,
+  clearPolymarketSportHub,
+  emitPolymarketSportQuote,
+  getPolymarketSportAssetIds,
+} from "./sportQuoteHub";
+
+export {
+  getPolymarketSportAssetIds,
+  onPolymarketSportQuote,
+  setPolymarketSportAssetIds,
+} from "./sportQuoteHub";
 
 const PLATFORM = PLATFORMS.Polymarket;
 const DISCOVERY_MS = 60_000;
@@ -137,30 +149,43 @@ export function startPolymarketCollector(): () => void {
   const marketsById = new Map<string, PolymarketMappedMarket>();
   const assetToMarket = new Map<string, string>();
 
-  function trackedAssetIds(): string[] {
+  /** 电竞 discovery 跟踪的 asset（写 fo） */
+  function esportAssetIds(): string[] {
     const ids: string[] = [];
-    for (const market of marketsById.values()) ids.push(...market.assetIds);
-    return [...new Set(ids)];
+    for (const market of marketsById.values())
+      ids.push(...market.assetIds);
+    return ids;
+  }
+
+  /** 电竞 ∪ 体育；体育侧不进 marketsById，故不会走 saveTokenQuote */
+  function trackedAssetIds(): string[] {
+    return [...new Set([...esportAssetIds(), ...getPolymarketSportAssetIds()])];
   }
 
   function subscribeTrackedAssets(initialDump = false) {
     const assetIds = trackedAssetIds();
-    if (assetIds.length) wsHandle.send(polymarketMarketSubscribeMessage(assetIds, initialDump));
+    if (assetIds.length)
+      wsHandle.send(polymarketMarketSubscribeMessage(assetIds, initialDump));
   }
 
   function updateBetFromAsset(assetId: string, bestAsk: string | number | undefined) {
     const marketId = assetToMarket.get(assetId);
-    if (!marketId) return;
+    if (!marketId)
+      return;
     const mapped = marketsById.get(marketId);
-    if (!mapped) return;
+    if (!mapped)
+      return;
 
     const price = Number(bestAsk);
-    if (!Number.isFinite(price) || price <= 0) return;
+    if (!Number.isFinite(price) || price <= 0)
+      return;
 
     const next: CollectBetDto = { ...mapped.bet };
     const decimalOdds = decimalOddsFromProbability(price);
-    if (assetId === String(next.SourceHomeID)) next.HomeOdds = decimalOdds;
-    if (assetId === String(next.SourceAwayID)) next.AwayOdds = decimalOdds;
+    if (assetId === String(next.SourceHomeID))
+      next.HomeOdds = decimalOdds;
+    if (assetId === String(next.SourceAwayID))
+      next.AwayOdds = decimalOdds;
     next.Status = next.HomeOdds > 0 && next.AwayOdds > 0 ? "Normal" : "Locked";
     mapped.bet = next;
     const betId = String(next.SourceBetID);
@@ -177,13 +202,24 @@ export function startPolymarketCollector(): () => void {
 
   function handleWsMessage(raw: string) {
     for (const update of extractPolymarketWsBestAsks(raw)) {
+      const price = Number(update.bestAsk);
+      // 电竞：仅 asset 在 discovery 映射里才写 fo
       updateBetFromAsset(update.assetId, update.bestAsk);
+      // 体育：旁路广播（不写 fo）
+      if (Number.isFinite(price))
+        emitPolymarketSportQuote(update.assetId, price);
     }
   }
 
   const wsHandle = startPolymarketMarketWs({
-    onOpen: () => subscribeTrackedAssets(true),  // 连接/重连：需要 book 快照同步当前状态
+    onOpen: () => subscribeTrackedAssets(true), // 连接/重连：需要 book 快照同步当前状态
     onMessage: handleWsMessage,
+  });
+
+  // 体育侧增删 token：重订合并集，但不要 initialDump（避免棒/足列表刷打爆电竞 book 快照）
+  bindPolymarketSportResubscribe(() => {
+    if (!stopped)
+      subscribeTrackedAssets(false);
   });
 
   const runDiscovery = async () => {
@@ -218,7 +254,11 @@ export function startPolymarketCollector(): () => void {
       if (candidates.length >= MAX_TRACKED_MARKETS) break;
     }
 
-    if (!candidates.length) return;
+    if (!candidates.length) {
+      // 无电竞候选时仍重订，保留体育旁路 asset
+      subscribeTrackedAssets();
+      return;
+    }
 
     const matches = [...new Map(candidates.map(row => [String(row.match.SourceMatchID), row.match])).values()];
     const saved = await collect.saveMatch(PLATFORM, matches);
@@ -267,6 +307,8 @@ export function startPolymarketCollector(): () => void {
 
   return () => {
     stopped = true;
+    bindPolymarketSportResubscribe(null);
+    clearPolymarketSportHub();
     wsHandle.stop();
   };
 }

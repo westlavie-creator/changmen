@@ -16,6 +16,18 @@ import {
   type PredictMappedMarket,
 } from "./parse";
 import { startPredictMarketWs } from "./ws";
+import {
+  bindPredictFunSportResubscribe,
+  clearPredictFunSportHub,
+  emitPredictFunSportQuote,
+  getPredictFunSportMarketIds,
+} from "./sportQuoteHub";
+
+export {
+  getPredictFunSportMarketIds,
+  onPredictFunSportQuote,
+  setPredictFunSportMarketIds,
+} from "./sportQuoteHub";
 
 const PLATFORM = PLATFORMS.PredictFun;
 const INDEX_SYNC_MS = 30_000;
@@ -110,12 +122,20 @@ export function startPredictFunCollector(): () => void {
   const marketIdToCategory = new Map<string, string>();
   let lastIndexUpdatedAt = 0;
 
-  function trackedMarketIds(): string[] {
+  function esportMarketIds(): string[] {
     const ids: string[] = [];
-    for (const mapped of marketsByCategory.values()) {
+    for (const mapped of marketsByCategory.values())
       ids.push(mapped.homeMarketId, mapped.awayMarketId);
-    }
-    return [...new Set(ids)];
+    return ids;
+  }
+
+  /** 电竞 ∪ 体育；体育不进 marketIdToCategory，不会写 fo */
+  function trackedMarketIds(): string[] {
+    return [...new Set([...esportMarketIds(), ...getPredictFunSportMarketIds()])];
+  }
+
+  function subscribeTrackedMarkets() {
+    wsHandle.subscribeMarketIds(trackedMarketIds());
   }
 
   function updateBetFromMarketId(marketId: string, bestAsk: number) {
@@ -161,9 +181,16 @@ export function startPredictFunCollector(): () => void {
     onOrderbook: (update) => {
       const marketId = String(update.marketId ?? "");
       const ask = bestAskFromPredictBook(update.orderbook);
-      if (marketId && ask > 0)
-        updateBetFromMarketId(marketId, ask);
+      if (!marketId || !(ask > 0))
+        return;
+      updateBetFromMarketId(marketId, ask);
+      emitPredictFunSportQuote(marketId, ask);
     },
+  });
+
+  bindPredictFunSportResubscribe(() => {
+    if (!stopped)
+      subscribeTrackedMarkets();
   });
 
   async function syncMarketIndex() {
@@ -173,16 +200,16 @@ export function startPredictFunCollector(): () => void {
       if (lastIndexUpdatedAt !== 0) {
         marketsByCategory.clear();
         marketIdToCategory.clear();
-        wsHandle.subscribeMarketIds([]);
         lastIndexUpdatedAt = 0;
       }
+      subscribeTrackedMarkets();
       return;
     }
     if (index.updatedAt === lastIndexUpdatedAt)
       return;
     lastIndexUpdatedAt = index.updatedAt;
 
-    const marketIds = applyPredictFunMarketIndex(index, {
+    applyPredictFunMarketIndex(index, {
       marketsByCategory,
       marketIdToCategory,
     });
@@ -193,7 +220,7 @@ export function startPredictFunCollector(): () => void {
       });
     }
     matchStore.refreshOddsOnBets();
-    wsHandle.subscribeMarketIds(marketIds.length ? marketIds : trackedMarketIds());
+    subscribeTrackedMarkets();
   }
 
   let stopped = false;
@@ -214,6 +241,8 @@ export function startPredictFunCollector(): () => void {
 
   return () => {
     stopped = true;
+    bindPredictFunSportResubscribe(null);
+    clearPredictFunSportHub();
     wsHandle.stop();
   };
 }

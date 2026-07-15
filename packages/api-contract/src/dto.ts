@@ -83,6 +83,9 @@ export interface BetSourceDto {
   HomeOdds: number;
   AwayOdds: number;
   Status?: string;
+  /** [changmen 扩展] PredictFun orderbook marketId（与 onChainId HomeID 不同） */
+  HomeMarketID?: string;
+  AwayMarketID?: string;
 }
 
 export interface BetRowDto {

@@ -17,6 +17,13 @@ export class ViewBetItem {
   sourceStatus: string;
   fallbackHomeOdds: number;
   fallbackAwayOdds: number;
+  /**
+   * [changmen 扩展] 体育板盘口 WS 订阅键。
+   * PM = CLOB asset（通常同 homeId）；PF = marketId（可与 onChainId homeId 不同）。
+   * 电竞路径不使用。
+   */
+  homeSubscribeId = "";
+  awaySubscribeId = "";
 
   constructor(source: BetRowDto["Sources"][string], providerMatchId: string) {
     this.type = source.Type;

@@ -26,6 +26,7 @@
     "./polymarket/orderSettlement": "./polymarket/orderSettlement.ts",
     "./polymarket/orders": "./polymarket/orders.ts",
     "./polymarket/settlementJob": "./polymarket/settlementJob.ts",
+    "./predictfun": "./predictfun/index.ts",
     "./ray": "./ray/index.ts",
     "./registry": "./registry/index.ts",
     "./registry/adapters": "./registry/adapters.ts",
