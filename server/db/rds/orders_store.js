@@ -707,8 +707,18 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
         COUNT(*) FILTER (WHERE status_a = 'Win' AND status_b = 'Win')::int AS both_win,
         COUNT(*) FILTER (WHERE status_a != 'Reject' AND status_b != 'Reject')::int AS both_settled,
         COUNT(*) FILTER (WHERE status_a = 'Reject' OR status_b = 'Reject')::int AS has_reject,
+        COUNT(*) FILTER (WHERE status_a = 'Reject')::int AS rejects_a,
+        COUNT(*) FILTER (WHERE status_b = 'Reject')::int AS rejects_b,
         COALESCE(SUM(money_a + money_b), 0)::float AS net_profit,
-        COALESCE(SUM(bet_a + bet_b), 0)::float AS total_bet
+        COALESCE(SUM(bet_a + bet_b), 0)::float AS total_bet,
+        COUNT(*) FILTER (WHERE status_a = 'Win')::int AS wins_a,
+        COUNT(*) FILTER (WHERE status_a = 'Lose')::int AS losses_a,
+        COALESCE(SUM(money_a), 0)::float AS profit_a,
+        COALESCE(SUM(bet_a), 0)::float AS bet_a,
+        COUNT(*) FILTER (WHERE status_b = 'Win')::int AS wins_b,
+        COUNT(*) FILTER (WHERE status_b = 'Lose')::int AS losses_b,
+        COALESCE(SUM(money_b), 0)::float AS profit_b,
+        COALESCE(SUM(bet_b), 0)::float AS bet_b
       FROM pairs
       GROUP BY provider_a, provider_b
       ORDER BY pair_count DESC`,

@@ -194,8 +194,18 @@ export interface ArbPairRow {
   both_win: number;
   both_settled: number;
   has_reject: number;
+  rejects_a: number;
+  rejects_b: number;
   net_profit: number;
   total_bet: number;
+  wins_a: number;
+  losses_a: number;
+  profit_a: number;
+  bet_a: number;
+  wins_b: number;
+  losses_b: number;
+  profit_b: number;
+  bet_b: number;
 }
 
 export interface GameAnalyticsRow {

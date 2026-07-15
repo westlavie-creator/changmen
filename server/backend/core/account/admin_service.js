@@ -928,7 +928,12 @@ export async function deleteTeam(id) {
 
 export async function getPlatformAnalytics(body = {}, caller = null) {
   let startMs, endMs;
-  if (body.startMs && body.endMs) {
+  if (body.all === true || body.period === "all") {
+    // 「全部」：从 epoch 到当前时刻后 1ms（半开区间）
+    startMs = 0;
+    endMs = Date.now() + 1;
+  }
+  else if (body.startMs && body.endMs) {
     startMs = Number(body.startMs);
     endMs = Number(body.endMs);
   }

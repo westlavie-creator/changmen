@@ -16,7 +16,7 @@ import { useUserStore } from "@/stores/userStore";
 const router = useRouter();
 const user = useUserStore();
 
-const rangeMode = ref<"day" | "month" | "custom">("day");
+const rangeMode = ref<"day" | "month" | "all">("day");
 const dateKey = ref(todayKey());
 const monthKey = ref((() => {
   const d = new Date();
@@ -77,7 +77,11 @@ async function fetchData() {
   loading.value = true;
   try {
     const body: Record<string, unknown>
-      = rangeMode.value === "month" ? { month: monthKey.value } : { date: dateKey.value };
+      = rangeMode.value === "all"
+        ? { all: true }
+        : rangeMode.value === "month"
+          ? { month: monthKey.value }
+          : { date: dateKey.value };
     const data = await getAdminPlatformAnalytics(body);
     platforms.value = data.platforms;
     pairs.value = data.pairs;
@@ -123,6 +127,9 @@ onMounted(async () => {
         </el-radio-button>
         <el-radio-button value="month">
           按月
+        </el-radio-button>
+        <el-radio-button value="all">
+          全部
         </el-radio-button>
       </el-radio-group>
       <el-date-picker
@@ -228,28 +235,69 @@ onMounted(async () => {
         套利配对
       </h3>
       <el-table v-if="pairs.length" :data="pairs" stripe size="small">
-        <el-table-column label="平台组合" width="150">
+        <el-table-column label="平台组合" width="140" fixed>
           <template #default="{ row }">
             {{ row.provider_a }} + {{ row.provider_b }}
           </template>
         </el-table-column>
-        <el-table-column prop="pair_count" label="配对数" width="80" align="right" />
-        <el-table-column label="成功率" width="80" align="right">
+        <el-table-column prop="pair_count" label="配对数" width="70" align="right" />
+        <el-table-column label="成功率" width="70" align="right">
           <template #default="{ row }">
             {{ pairSuccessRate(row) }}
           </template>
         </el-table-column>
-        <el-table-column label="含拒单" width="80" align="right">
+        <el-table-column label="场馆拒单" min-width="180">
           <template #default="{ row }">
-            <span :class="{ 'text-warn': row.has_reject > 0 }">{{ row.has_reject }}</span>
+            <div class="venue-cmp">
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">{{ row.provider_a }}</span>
+                <span :class="{ 'text-warn': (row.rejects_a ?? 0) > 0 }">{{ row.rejects_a ?? 0 }}</span>
+              </div>
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">{{ row.provider_b }}</span>
+                <span :class="{ 'text-warn': (row.rejects_b ?? 0) > 0 }">{{ row.rejects_b ?? 0 }}</span>
+              </div>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="总投注额" width="120" align="right">
+        <el-table-column label="场馆胜负对比" min-width="220">
+          <template #default="{ row }">
+            <div class="venue-cmp">
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">{{ row.provider_a }}</span>
+                <span><span class="text-green">{{ row.wins_a ?? 0 }}胜</span> / <span class="text-red">{{ row.losses_a ?? 0 }}负</span></span>
+              </div>
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">{{ row.provider_b }}</span>
+                <span><span class="text-green">{{ row.wins_b ?? 0 }}胜</span> / <span class="text-red">{{ row.losses_b ?? 0 }}负</span></span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="场馆盈亏对比" min-width="200">
+          <template #default="{ row }">
+            <div class="venue-cmp">
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">{{ row.provider_a }}</span>
+                <span :class="(row.profit_a ?? 0) >= 0 ? 'text-green' : 'text-red'">
+                  {{ (row.profit_a ?? 0) >= 0 ? "+" : "" }}{{ toFixed(row.profit_a ?? 0, 0) }}
+                </span>
+              </div>
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">{{ row.provider_b }}</span>
+                <span :class="(row.profit_b ?? 0) >= 0 ? 'text-green' : 'text-red'">
+                  {{ (row.profit_b ?? 0) >= 0 ? "+" : "" }}{{ toFixed(row.profit_b ?? 0, 0) }}
+                </span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="总投注额" width="100" align="right">
           <template #default="{ row }">
             {{ toFixed(row.total_bet, 0) }}
           </template>
         </el-table-column>
-        <el-table-column label="净利润" min-width="160">
+        <el-table-column label="净利润" min-width="100">
           <template #default="{ row }">
             <span :class="row.net_profit >= 0 ? 'text-green' : 'text-red'">
               {{ row.net_profit >= 0 ? "+" : "" }}{{ toFixed(row.net_profit, 0) }}
@@ -400,6 +448,24 @@ onMounted(async () => {
 .text-green { color: #67c23a; }
 .text-red { color: #f56c6c; }
 .text-warn { color: #e6a23c; }
+.venue-cmp {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.venue-cmp__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.venue-cmp__name {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  min-width: 48px;
+}
 .analytics-empty { text-align: center; padding: 30px; color: var(--el-text-color-secondary); }
 .hourly-chart {
   display: flex;
