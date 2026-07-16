@@ -1,17 +1,18 @@
 /**
  * 兜底：未映射的 am-icon / iconfont-base 仍显示占位符（正常应由 am-icon.css 覆盖）
  */
-.el-button[class*="am-icon-"]:not([class*="am-icon-plus"]):not([class*="am-icon-gear"]):not(
-    [class*="am-icon-shield"]
-  ):not([class*="am-icon-dashboard"]):not([class*="am-icon-users"]):not([class*="am-icon-list"]):not(
-    [class*="am-icon-th"]
-  ):not([class*="am-icon-arrow-left"]):not([class*="am-icon-arrow-right"]):not(
-    [class*="am-icon-power-off"]
-  ):not([class*="am-icon-refresh"]):not([class*="am-icon-times"]):not([class*="am-icon-save"]):not(
-    [class*="am-icon-flash"]
-  ):not([class*="am-icon-key"]):not([class*="am-icon-edit"]):not([class*="am-icon-pause-circle"]):not(
-    [class*="am-icon-arrow-circle-down"]
-  ):not([class*="am-icon-info-circle"]
+.el-button[class*="am-icon-"]:not([class*="am-icon-plus"]):not([class*="am-icon-calculator"]):not(
+    [class*="am-icon-gear"]
+  ):not([class*="am-icon-shield"]):not([class*="am-icon-dashboard"]):not(
+    [class*="am-icon-users"]
+  ):not([class*="am-icon-list"]):not([class*="am-icon-th"]):not([class*="am-icon-arrow-left"]):not(
+    [class*="am-icon-arrow-right"]
+  ):not([class*="am-icon-power-off"]):not([class*="am-icon-refresh"]):not(
+    [class*="am-icon-times"]
+  ):not([class*="am-icon-save"]):not([class*="am-icon-flash"]):not([class*="am-icon-key"]):not(
+    [class*="am-icon-edit"]
+  ):not([class*="am-icon-pause-circle"]):not([class*="am-icon-arrow-circle-down"]):not(
+    [class*="am-icon-info-circle"]
   )::before,
 .el-button[class*="iconfont-base-"]:not([class*="iconfont-base-refresh"]):not(
     [class*="iconfont-base-bank"]

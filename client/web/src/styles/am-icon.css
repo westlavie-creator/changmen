@@ -26,6 +26,9 @@
 .am-icon-plus:before {
   content: "\f067";
 }
+.am-icon-calculator:before {
+  content: "\f1ec";
+}
 .am-icon-gear:before {
   content: "\f013";
 }

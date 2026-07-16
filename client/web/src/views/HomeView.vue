@@ -11,6 +11,7 @@ import MatchCard from "@/components/match/MatchCard.vue";
 import BaseballBoard from "@/components/match/BaseballBoard.vue";
 import FootballBoard from "@/components/match/FootballBoard.vue";
 import ActiveBetRunView from "@/components/order/ActiveBetRunView.vue";
+import MakeupCalcBar from "@/components/user/MakeupCalcBar.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
 import {
   mountAppSession,
@@ -117,17 +118,20 @@ async function logout() {
       </el-header>
       <el-main class="home-main">
         <ActiveBetRunView />
-        <el-radio-group v-model="sportTab" size="small" class="sport-tab">
-          <el-radio-button value="esport">
-            电竞
-          </el-radio-button>
-          <el-radio-button value="baseball">
-            棒球
-          </el-radio-button>
-          <el-radio-button value="football">
-            足球
-          </el-radio-button>
-        </el-radio-group>
+        <div class="sport-tab-row">
+          <el-radio-group v-model="sportTab" size="small" class="sport-tab">
+            <el-radio-button value="esport">
+              电竞
+            </el-radio-button>
+            <el-radio-button value="baseball">
+              棒球
+            </el-radio-button>
+            <el-radio-button value="football">
+              足球
+            </el-radio-button>
+          </el-radio-group>
+          <MakeupCalcBar />
+        </div>
         <template v-if="sportTab === 'esport'">
           <el-input
             v-model="searchQuery"
